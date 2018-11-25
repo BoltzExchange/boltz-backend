@@ -1,0 +1,10 @@
+{
+  "extends": "./tslint.json",
+  "rules": {
+    "no-boolean-literal-compare": false,
+    "no-floating-promises": false,
+    "no-unnecessary-type-assertion": false,
+    "await-promise": false,
+    "no-circular-imports": false
+  }
+}

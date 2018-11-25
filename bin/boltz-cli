@@ -1,0 +1,29 @@
+#!/usr/bin/env node
+
+require('yargs')
+  .options({
+    rpc: {
+      hidden: true,
+    },
+    'rpc.host': {
+      describe: 'gRPC service host',
+      alias: 'h',
+      default: '127.0.0.1',
+      type: 'string',
+    },
+    'rpc.port': {
+      describe: 'gRPC service port',
+      alias: 'p',
+      default: 9000,
+      type: 'number',
+    },
+    tlscertpath: {
+      describe: 'Path to the TLS certificate',
+      type: 'string',
+      alias: 't',
+    },
+  })
+  .commandDir('../dist/cli/commands/')
+  .demandCommand(1, '')
+  .strict()
+  .argv;

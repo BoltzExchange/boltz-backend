@@ -1,0 +1,31 @@
+# HEADER
+# |<----  Using a Maximum Of 50 Characters  ---->|
+<type>(<scope>): <subject>
+# Type can be 
+#    feat     (A new feature)
+#    fix      (A bug fix)
+#    docs     (Documentation only changes)
+#    style    (Changes that do not affect the meaning of the code e.g. white-space, formatting, missing semi-colons, etc)
+#    refactor (A code change that neither fixes a bug nor adds a feature)
+#    perf     (A code change that improves performance)
+#    test     (Adding missing or correcting existing tests)
+#    chore    (Changes to the build process or auxiliary tools and libraries such as documentation generation)
+# An optional scope specifies the place of the commit change, e.g. orderbook, p2p, proto, swaps, etc...
+# You can use * when the change affects more than a single scope.
+# The subject contains succinct description of the change:
+#    Use the imperative, present tense: "change" not "changed" nor "changes"
+#    Don't capitalize first letter
+#    No dot (.) at the end
+
+# BODY
+# Just as in the subject, use the imperative, present tense: "change" not "changed" nor "changes".
+# The body should include the motivation for the change and contrast this with previous behavior.
+# |<----   Try To Limit Each Line to a Maximum Of 72 Characters   ---->
+
+
+# FOOTER
+# The footer should contain any information about Breaking Changes and is also the place to reference GitHub issues that this commit closes.
+# Breaking Changes should start with the word BREAKING CHANGE: with a space or two newlines. The rest of the commit message is then used for this.
+# |<----   Try To Limit Each Line to a Maximum Of 72 Characters   ---->
+
+# --- COMMIT END ---

@@ -11,6 +11,8 @@ import SwapManager from './swap/SwapManager';
 import ChainClient from './chain/ChainClient';
 import Networks from './consts/Networks';
 import Database from './db/Database';
+import { constructClaimTransaction } from './swap/Claim';
+import { constructRefundTransaction } from './swap/Refund';
 
 // TODO: configurable trading pairs
 class Boltz {
@@ -144,3 +146,4 @@ class Boltz {
 }
 
 export default Boltz;
+export { constructClaimTransaction, constructRefundTransaction };

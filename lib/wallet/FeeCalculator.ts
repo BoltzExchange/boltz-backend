@@ -1,6 +1,6 @@
 import { OutputType } from '../proto/boltzrpc_pb';
 
-type Input = {
+export type Input = {
   type: OutputType,
 
   // In case the input is a Swap this fields have to be set
@@ -10,7 +10,7 @@ type Input = {
   };
 };
 
-type Output = {
+export type Output = {
   type: OutputType;
 
   isSh?: boolean;

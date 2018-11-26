@@ -63,14 +63,17 @@ export const claimSwap = (argv: Arguments) => {
   const swapOutput = parseSwapOutput(redeemScript, lockupTransaction);
 
   const claimTransaction = constructClaimTransaction(
-    getHexBuffer(argv.preimage),
-    claimKeys,
-    destinationScript,
+    {
+      redeemScript,
+      preimage: getHexBuffer(argv.preimage),
+      keys: claimKeys,
+    },
     {
       txHash: lockupTransaction.getHash(),
       ...swapOutput,
     },
-    redeemScript,
+    destinationScript,
+    argv.fee_per_byte,
   );
 
   return claimTransaction.toHex();
@@ -83,9 +86,9 @@ export const refundSwap = (argv: Arguments) => {
   const swapOutput = parseSwapOutput(redeemScript, lockupTransaction);
 
   const refundTransaction = constructRefundTransaction(
-    argv.timeout_block_height,
     refundKeys,
     destinationScript,
+    argv.timeout_block_height,
     {
       txHash: lockupTransaction.getHash(),
       ...swapOutput,

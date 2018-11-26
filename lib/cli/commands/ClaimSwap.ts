@@ -3,7 +3,7 @@ import { claimSwap } from '../Utils';
 import { printResponse } from '../Command';
 import BuilderComponents from '../BuilderComponents';
 
-export const command = 'claimswap <network> <lockup_transaction> <redeem_script> <preimage> <claim_private_key> <destination_address>';
+export const command = 'claimswap <network> <lockup_transaction> <redeem_script> <preimage> <claim_private_key> <destination_address> [fee_per_byte]';
 
 export const describe = 'claims the onchain part of a reverse swap';
 
@@ -20,6 +20,7 @@ export const builder = {
     type: 'string',
   },
   destination_address: BuilderComponents.destinationAddress,
+  fee_per_byte: BuilderComponents.feePerByte,
 };
 
 export const handler = (argv: Arguments) => {

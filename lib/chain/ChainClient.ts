@@ -94,16 +94,16 @@ class ChainClient extends BaseClient implements ChainClientInterface {
   }
 
   /**
-   * Returns the estimated fee in sats per kilobyte
+   * Returns the estimated fee in stoshis per byte
    *
    * @param blocks after how many blocks the transaction should confirm
    */
   public estimateFee = async (blocks: number): Promise<number> => {
-    // BTCD returns the amount of Bitcoins not satoshis and therefore the returned amount
-    // has to be multipled by 100 million to get the amount of satohis per kilobyte
+    // BTCD returns the amount in whole Bitcoins per kilobyte not satoshis per byte and therefore the
+    // returned amount has to be multipled by 100000 to get the amount of satohis per byte
     const bitcoins = await this.rpcClient.call<number>('estimatefee', blocks);
 
-    return Math.ceil(bitcoins * 100000000);
+    return Math.ceil(bitcoins * 100000);
   }
 
   public sendRawTransaction = (rawTransaction: string, allowHighFees = true): Promise<string> => {

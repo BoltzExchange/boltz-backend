@@ -10,6 +10,7 @@
         "strict": true, /* Enable all strict type-checking options. */
         "noEmitOnError": false,
         "noImplicitAny": false, /* Raise error on expressions and declarations with an implied 'any' type. */
+        "declaration": true,
         "lib": [
             "dom",
             "es2017"

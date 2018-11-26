@@ -1,8 +1,8 @@
 {
   "name": "boltz-backend",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "Backend of boltz",
-  "main": "bin/boltzd",
+  "main": "dist/Boltz.js",
   "scripts": {
     "proto": "cross-os proto && cross-os protoFixDeprecation",
     "compile": "cross-os precompile && tsc && cross-os postcompile",

@@ -51,7 +51,8 @@ class Db {
     const modelsFolder = path.join(__dirname, 'models');
 
     fs.readdirSync(modelsFolder)
-      .filter(file => (file.indexOf('.') !== 0) && (file !== path.basename(__filename)) && (file.slice(-3).match(/.js|.ts/)))
+      .filter(file => (file.indexOf('.') !== 0) && (file !== path.basename(__filename)) &&
+       (file.endsWith('.js') || file.endsWith('.ts')) && !file.endsWith('.d.ts'))
       .forEach((file) => {
         const model = this.sequelize.import(path.join(modelsFolder, file));
         models[model.name] = model;

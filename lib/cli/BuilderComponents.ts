@@ -15,7 +15,7 @@ export default {
     default: 'compatibility',
   },
   network: {
-    describe: 'network on which the claim transaction should be broadcasted',
+    describe: 'network on which the transaction will be used',
     type: 'string',
   },
   lockupTransaction: {
@@ -29,5 +29,10 @@ export default {
   destinationAddress: {
     describe: 'address to which the claimed funds should be sent',
     type: 'string',
+  },
+  feePerByte: {
+    describe: 'amount of satoshis per vbyte that should be paid as fee',
+    type: 'number',
+    detauls: '1',
   },
 };

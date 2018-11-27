@@ -227,7 +227,7 @@ class Wallet {
       Promise<{ tx: Transaction, vout: number }> => {
 
     const utxos = await this.utxoRepository.getUtxosSorted(this.symbol);
-    const feePerByte = Math.ceil(await this.chainClient.estimateFee(1) / 1000);
+    const feePerByte = await this.chainClient.estimateFee(1);
 
     // The UTXOs that will be spent
     const toSpend: UTXO[] = [];
@@ -245,7 +245,7 @@ class Wallet {
       return (amount + fee) <= toSpendSum;
     };
 
-    // Accumulate UTXO to spend
+    // Accumulate UTXOs to spend
     for (const utxoInstance of utxos) {
       const redeemScript = utxoInstance.redeemScript ? getHexBuffer(utxoInstance.redeemScript) : undefined;
 

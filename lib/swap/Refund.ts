@@ -12,28 +12,30 @@ import { constructClaimTransaction } from './Claim';
 const hexBase = 16;
 const dummyPreimage = getHexBuffer(ops.OP_FALSE.toString(hexBase));
 
-// TODO: add unit tests
-// TODO: same TODOs as in Claim.ts
 /**
  * Refund a swap
  *
- * @param timeoutBlockHeight block height at which the swap times out
  * @param refundKeys the key pair needed to refund the swap
- * @param destinationScript the output script to which the funds should be sent
+ * @param redeemScript redeem script of the swap
+ * @param timeoutBlockHeight block height at which the swap times out
  * @param utxo the swap UTXO to claim
- * @param redeemScript the redeem script of the swap
+ * @param destinationScript the output script to which the funds should be sent
+ * @param feePerByte how many satoshis per vbyte should be paid as fee
  *
  * @returns refund transaction
  */
-export const constructRefundTransaction = (timeoutBlockHeight: number, refundKeys: ECPair | BIP32, destinationScript: Buffer,
-  utxo: TransactionOutput, redeemScript: Buffer) => {
+export const constructRefundTransaction = (refundKeys: ECPair | BIP32, redeemScript: Buffer, timeoutBlockHeight: number, utxo: TransactionOutput,
+  destinationScript: Buffer, feePerByte = 1) => {
 
   return constructClaimTransaction(
-    dummyPreimage,
-    refundKeys,
-    destinationScript,
+    {
+      redeemScript,
+      keys: refundKeys,
+      preimage: dummyPreimage,
+    },
     utxo,
-    redeemScript,
+    destinationScript,
+    feePerByte,
     timeoutBlockHeight,
   );
 };

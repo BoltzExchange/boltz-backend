@@ -240,11 +240,14 @@ class SwapManager {
     this.logger.verbose(`Got preimage: ${preimage}`);
 
     const destinationScript = p2wpkhOutput(crypto.hash160(details.claimKeys.publicKey));
+    const feePerByte = await currency.chainClient.estimateFee(1);
 
     const claimTx = constructClaimTransaction(
-      Buffer.from(preimage, 'base64'),
-      details.claimKeys,
-      destinationScript,
+      {
+        preimage: Buffer.from(preimage, 'base64'),
+        keys: details.claimKeys,
+        redeemScript: details.redeemScript,
+      },
       {
         txHash,
         vout,
@@ -252,7 +255,8 @@ class SwapManager {
         script: outpuScript,
         value: outputValue,
       },
-      details.redeemScript,
+      destinationScript,
+      feePerByte,
     );
 
     this.logger.silly(`Broadcasting claim transaction: ${claimTx.getId()}`);

@@ -53,6 +53,22 @@ describe('Scripts', () => {
     expect(getHexString(result)).to.be.equal(testData.result);
   });
 
+  it('should get P2SH nested P2WPKH output script', () => {
+    const testData = {
+      args: {
+        hash: publicKeyHash,
+      },
+      result: {
+        redeemScript: getHexBuffer('00140000000000000000000000000000000000000000'),
+        outputScript: getHexBuffer('a91467c10d4d1092750f0d3aa4aa7152f90da1e7424887'),
+      },
+    };
+
+    const result = scripts.p2shP2wpkhOutput(getHexBuffer(testData.args.hash));
+
+    expect(result).to.be.deep.equal(testData.result);
+  });
+
   it('should get P2SH nested P2WSH output script', () => {
     const testData =  {
       args: {

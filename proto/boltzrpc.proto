@@ -12,6 +12,9 @@ service Boltz {
   /* Gets a new address of a specified wallet. The "type" parameter is optional and defaults to "OutputType.LEGACY" */
   rpc NewAddress (NewAddressRequest) returns (NewAddressResponse);
 
+  /* Broadcasts a hex encoded transaction on the specified network */
+  rpc BroadcastTransaction (BroadcastTransactionRequest) returns (BroadcastTransactionResponse);
+
   /* Creates a new Swap from the chain to Lightning */
   rpc CreateSwap (CreateSwapRequest) returns (CreateSwapResponse);
 
@@ -33,7 +36,7 @@ enum OrderSide {
 message GetInfoRequest {}
 message GetInfoResponse {
   string version = 1;
-  repeated CurrencyInfo chains = 3;
+  repeated CurrencyInfo chains = 2;
 }
 
 message CurrencyInfo {
@@ -46,15 +49,15 @@ message ChainInfo {
   int32 version = 1;
   int32 protocolversion = 2;
   int32 blocks = 3;
-  int32 connections = 5;
-  bool testnet = 8;
+  int32 connections = 4;
+  bool testnet = 5;
 }
 
 message LndInfo {
   string version = 1;
-  LndChannels lndChannels = 3;
-  int32 blockheight = 4;
-  string error = 6;
+  LndChannels lndChannels = 2;
+  int32 blockheight = 3;
+  string error = 4;
 }
 message LndChannels {
   int32 active = 1;
@@ -82,6 +85,14 @@ message NewAddressRequest {
 }
 message NewAddressResponse {
   string address = 1;
+}
+
+message BroadcastTransactionRequest {
+  string currency = 1;
+  string transaction_hex = 2;
+}
+message BroadcastTransactionResponse {
+  string transaction_hash = 1;
 }
 
 message CreateSwapRequest {

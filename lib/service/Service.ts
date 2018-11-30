@@ -99,7 +99,7 @@ class Service {
   /**
    * Gets a new address of a specified wallet. The "type" parameter is optional and defaults to "OutputType.LEGACY"
    */
-  public newAddress = async (args: { currency: string, type: number }): Promise<string> => {
+  public newAddress = async (args: { currency: string, type: number }) => {
     const { walletManager } = this.serviceComponents;
 
     const wallet = walletManager.wallets.get(args.currency);
@@ -109,6 +109,21 @@ class Service {
     }
 
     return wallet.getNewAddress(getOutputType(args.type));
+  }
+
+  /**
+   * Broadcast a hex encoded transaction on the specified network
+   */
+  public broadcastTransaction = async (args: { currency: string, transactionHex: string }) => {
+    const { swapManager } = this.serviceComponents;
+
+    const currency = swapManager.currencies.get(args.currency);
+
+    if (!currency) {
+      throw Errors.CURRENCY_NOT_FOUND(args.currency);
+    }
+
+    return currency.chainClient.sendRawTransaction(args.transactionHex);
   }
 
   /**

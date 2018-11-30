@@ -23,8 +23,6 @@ type WalletBalance = {
 };
 
 // TODO: detect funds received whlie Boltz was not running
-// TODO: wait for funds being confirmed
-// TODO: fix coinbase transactions not being recognised
 // TODO: more advanced UTXO management
 // TODO: multiple transaction to same output
 // TODO: multiple outputs to the wallet in one transaction

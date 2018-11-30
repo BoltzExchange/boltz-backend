@@ -1,4 +1,8 @@
 export default {
+  currency: {
+    describe: 'ticker symbol of the currency',
+    type: 'string',
+  },
   pairId: {
     describe: 'traiding pair id of the order',
     type: 'string',

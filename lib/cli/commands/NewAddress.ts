@@ -9,10 +9,7 @@ export const command = 'newaddress <currency> [type]';
 export const describe = 'get a new address for the specified coin';
 
 export const builder = {
-  currency: {
-    describe: 'ticker symbol of the currency',
-    type: 'string',
-  },
+  currency: BuilderComponents.currency,
   type: BuilderComponents.outputType,
 };
 

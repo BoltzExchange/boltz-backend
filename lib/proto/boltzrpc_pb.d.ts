@@ -305,6 +305,52 @@ export namespace NewAddressResponse {
     }
 }
 
+export class BroadcastTransactionRequest extends jspb.Message { 
+    getCurrency(): string;
+    setCurrency(value: string): void;
+
+    getTransactionHex(): string;
+    setTransactionHex(value: string): void;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): BroadcastTransactionRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: BroadcastTransactionRequest): BroadcastTransactionRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: BroadcastTransactionRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): BroadcastTransactionRequest;
+    static deserializeBinaryFromReader(message: BroadcastTransactionRequest, reader: jspb.BinaryReader): BroadcastTransactionRequest;
+}
+
+export namespace BroadcastTransactionRequest {
+    export type AsObject = {
+        currency: string,
+        transactionHex: string,
+    }
+}
+
+export class BroadcastTransactionResponse extends jspb.Message { 
+    getTransactionHash(): string;
+    setTransactionHash(value: string): void;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): BroadcastTransactionResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: BroadcastTransactionResponse): BroadcastTransactionResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: BroadcastTransactionResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): BroadcastTransactionResponse;
+    static deserializeBinaryFromReader(message: BroadcastTransactionResponse, reader: jspb.BinaryReader): BroadcastTransactionResponse;
+}
+
+export namespace BroadcastTransactionResponse {
+    export type AsObject = {
+        transactionHash: string,
+    }
+}
+
 export class CreateSwapRequest extends jspb.Message { 
     getPairId(): string;
     setPairId(value: string): void;

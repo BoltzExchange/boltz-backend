@@ -3,10 +3,9 @@ import colors from 'colors/safe';
 import { getTsString } from './Utils';
 
 class Logger {
-
   public static readonly disabledLogger = new Logger('', '', true);
 
-  // TODO: multiple loggeres for different scopes
+  // TODO: multiple loggers for different scopes
   // TODO: 'trace' level instead of 'silly'
   constructor(filename: string, level: string, private disabled = false) {
     if (disabled) {

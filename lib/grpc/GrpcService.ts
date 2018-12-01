@@ -107,6 +107,21 @@ class GrpcService {
     }
   }
 
+  public broadcastTransaction: grpc.handleUnaryCall<boltzrpc.BroadcastTransactionRequest,
+  boltzrpc.BroadcastTransactionResponse> = async (call, callback) => {
+
+    try {
+      const transactionHash = await this.service.broadcastTransaction(call.request.toObject());
+
+      const response = new boltzrpc.BroadcastTransactionResponse();
+      response.setTransactionHash(transactionHash);
+
+      callback(null, response);
+    } catch (error) {
+      callback({ message: error.message, name: '' }, null);
+    }
+  }
+
   public createSwap: grpc.handleUnaryCall<boltzrpc.CreateSwapRequest, boltzrpc.CreateSwapResponse> = async (call, callback) => {
     try {
       const { address, redeemScript, expectedAmount, bip21 } = await this.service.createSwap(call.request.toObject());

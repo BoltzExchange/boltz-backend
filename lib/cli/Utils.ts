@@ -87,13 +87,14 @@ export const refundSwap = (argv: Arguments) => {
 
   const refundTransaction = constructRefundTransaction(
     refundKeys,
-    destinationScript,
+    redeemScript,
     argv.timeout_block_height,
     {
       txHash: lockupTransaction.getHash(),
       ...swapOutput,
     },
-    redeemScript,
+    destinationScript,
+    argv.fee_per_byte,
   );
 
   return refundTransaction.toHex();

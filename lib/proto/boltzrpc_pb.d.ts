@@ -305,6 +305,52 @@ export namespace NewAddressResponse {
     }
 }
 
+export class GetTransactionRequest extends jspb.Message { 
+    getCurrency(): string;
+    setCurrency(value: string): void;
+
+    getTransactionHash(): string;
+    setTransactionHash(value: string): void;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetTransactionRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: GetTransactionRequest): GetTransactionRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetTransactionRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetTransactionRequest;
+    static deserializeBinaryFromReader(message: GetTransactionRequest, reader: jspb.BinaryReader): GetTransactionRequest;
+}
+
+export namespace GetTransactionRequest {
+    export type AsObject = {
+        currency: string,
+        transactionHash: string,
+    }
+}
+
+export class GetTransactionResponse extends jspb.Message { 
+    getTransactionHex(): string;
+    setTransactionHex(value: string): void;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetTransactionResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: GetTransactionResponse): GetTransactionResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetTransactionResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetTransactionResponse;
+    static deserializeBinaryFromReader(message: GetTransactionResponse, reader: jspb.BinaryReader): GetTransactionResponse;
+}
+
+export namespace GetTransactionResponse {
+    export type AsObject = {
+        transactionHex: string,
+    }
+}
+
 export class BroadcastTransactionRequest extends jspb.Message { 
     getCurrency(): string;
     setCurrency(value: string): void;

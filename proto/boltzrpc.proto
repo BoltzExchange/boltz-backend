@@ -12,6 +12,9 @@ service Boltz {
   /* Gets a new address of a specified wallet. The "type" parameter is optional and defaults to "OutputType.LEGACY" */
   rpc NewAddress (NewAddressRequest) returns (NewAddressResponse);
 
+  /* Gets a hex encoded transaction from a transaction hash on the specified network */
+  rpc GetTransaction (GetTransactionRequest) returns (GetTransactionResponse);
+
   /* Broadcasts a hex encoded transaction on the specified network */
   rpc BroadcastTransaction (BroadcastTransactionRequest) returns (BroadcastTransactionResponse);
 
@@ -85,6 +88,14 @@ message NewAddressRequest {
 }
 message NewAddressResponse {
   string address = 1;
+}
+
+message GetTransactionRequest {
+  string currency = 1;
+  string transaction_hash = 2;
+}
+message GetTransactionResponse {
+  string transaction_hex = 1;
 }
 
 message BroadcastTransactionRequest {

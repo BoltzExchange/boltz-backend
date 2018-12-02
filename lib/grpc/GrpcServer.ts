@@ -25,6 +25,7 @@ class GrpcServer {
       getInfo: grpcService.getInfo,
       getBalance: grpcService.getBalance,
       newAddress: grpcService.newAddress,
+      getTransaction: grpcService.getTransaction,
       broadcastTransaction: grpcService.broadcastTransaction,
       createSwap: grpcService.createSwap,
       createReverseSwap: grpcService.createReverseSwap,

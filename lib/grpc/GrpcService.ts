@@ -107,6 +107,19 @@ class GrpcService {
     }
   }
 
+  public getTransaction: grpc.handleUnaryCall<boltzrpc.GetTransactionRequest, boltzrpc.GetTransactionResponse> = async (call, callback) => {
+    try {
+      const transaction = await this.service.getTransaction(call.request.toObject());
+
+      const response = new boltzrpc.GetTransactionResponse();
+      response.setTransactionHex(transaction);
+
+      callback(null, response);
+    } catch (error) {
+      callback({ message: error.message, name: '' }, null);
+    }
+  }
+
   public broadcastTransaction: grpc.handleUnaryCall<boltzrpc.BroadcastTransactionRequest,
   boltzrpc.BroadcastTransactionResponse> = async (call, callback) => {
 

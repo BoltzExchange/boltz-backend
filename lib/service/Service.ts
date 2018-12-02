@@ -112,16 +112,19 @@ class Service {
   }
 
   /**
+   * Gets a hex encoded transaction from a transaction hash on the specified network
+   */
+  public getTransaction = async (args: { currency: string, transactionHash: string }) => {
+    const currency = this.getCurrency(args.currency);
+
+    return currency.chainClient.getRawTransaction(args.transactionHash);
+  }
+
+  /**
    * Broadcast a hex encoded transaction on the specified network
    */
   public broadcastTransaction = async (args: { currency: string, transactionHex: string }) => {
-    const { swapManager } = this.serviceComponents;
-
-    const currency = swapManager.currencies.get(args.currency);
-
-    if (!currency) {
-      throw Errors.CURRENCY_NOT_FOUND(args.currency);
-    }
+    const currency = this.getCurrency(args.currency);
 
     return currency.chainClient.sendRawTransaction(args.transactionHex);
   }
@@ -151,6 +154,18 @@ class Service {
     const claimPublicKey = getHexBuffer(args.claimPublicKey);
 
     return await swapManager.createReverseSwap(args.pairId, orderSide, claimPublicKey, args.amount);
+  }
+
+  private getCurrency = (currencySymbol: string) => {
+    const { swapManager } = this.serviceComponents;
+
+    const currency = swapManager.currencies.get(currencySymbol);
+
+    if (!currency) {
+      throw Errors.CURRENCY_NOT_FOUND(currencySymbol);
+    }
+
+    return currency;
   }
 
   private getOrderSide = (side: number) => {

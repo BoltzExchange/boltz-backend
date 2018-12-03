@@ -95,11 +95,12 @@ class SwapManager {
     // Listen to the address to which the swap output will be claimed
     await receivingCurrency.wallet.listenToOutput(p2wpkhOutput(crypto.hash160(keys.publicKey)), index, OutputType.BECH32);
 
+    const timeoutBlockHeight = bestBlock.height + 10;
     const redeemScript = pkRefundSwap(
       getHexBuffer(paymentHash),
       keys.publicKey,
       refundPublicKey,
-      bestBlock.height + 10,
+      timeoutBlockHeight,
     );
 
     const encodeFunction = getScriptHashEncodeFunction(outputType);
@@ -122,6 +123,7 @@ class SwapManager {
     return {
       address,
       expectedAmount,
+      timeoutBlockHeight,
       redeemScript: getHexString(redeemScript),
       bip21: encodeBip21(getBip21Prefix(receivingCurrency), address, expectedAmount, `Submarine Swap to ${sendingCurrency.symbol}`),
     };

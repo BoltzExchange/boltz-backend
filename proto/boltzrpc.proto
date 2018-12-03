@@ -114,10 +114,11 @@ message CreateSwapRequest {
   OutputType output_type = 5; 
 }
 message CreateSwapResponse {
-  string address = 1;
-  string redeem_script = 2;
-  int64 expected_amount = 3;
-  string bip21 = 4;
+  string redeem_script = 1;
+  int64 timeout_block_height = 2;
+  string address = 3;
+  int64 expected_amount = 4;
+  string bip21 = 5;
 }
 
 message CreateReverseSwapRequest {

@@ -435,11 +435,14 @@ export namespace CreateSwapRequest {
 }
 
 export class CreateSwapResponse extends jspb.Message { 
-    getAddress(): string;
-    setAddress(value: string): void;
-
     getRedeemScript(): string;
     setRedeemScript(value: string): void;
+
+    getTimeoutBlockHeight(): number;
+    setTimeoutBlockHeight(value: number): void;
+
+    getAddress(): string;
+    setAddress(value: string): void;
 
     getExpectedAmount(): number;
     setExpectedAmount(value: number): void;
@@ -460,8 +463,9 @@ export class CreateSwapResponse extends jspb.Message {
 
 export namespace CreateSwapResponse {
     export type AsObject = {
-        address: string,
         redeemScript: string,
+        timeoutBlockHeight: number,
+        address: string,
         expectedAmount: number,
         bip21: string,
     }

@@ -13,6 +13,7 @@ import Networks from './consts/Networks';
 import Database from './db/Database';
 import { constructClaimTransaction } from './swap/Claim';
 import { constructRefundTransaction } from './swap/Refund';
+import { detectSwap } from './swap/SwapDetector';
 
 // TODO: configurable trading pairs
 class Boltz {
@@ -146,4 +147,4 @@ class Boltz {
 }
 
 export default Boltz;
-export { constructClaimTransaction, constructRefundTransaction };
+export { constructClaimTransaction, constructRefundTransaction, detectSwap };

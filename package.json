@@ -17,7 +17,7 @@
     "test": "npm run test:unit && npm run test:int",
     "test:int": "npm run test:int:nostop && npm run docker-stop",
     "test:int:nostop": "npm run docker-start && mocha test/integration/chain/*.spec.ts test/integration/lightning/*.spec.ts test/integration/swap/*.spec.ts test/integration/wallet/*.spec.ts",
-    "test:unit": "mocha test/unit/*.spec.ts test/unit/swap/*.spec.ts test/unit/wallet/*.spec.ts"
+    "test:unit": "mocha test/unit/*.spec.ts test/unit/wallet/*.spec.ts"
   },
   "bin": {
     "boltzd": "./bin/boltzd",
@@ -57,15 +57,11 @@
     "LICENSE"
   ],
   "dependencies": {
-    "@michael1011/bitcoin-ops": "^1.4.3",
     "bip32": "^1.0.2",
     "bip39": "^2.5.0",
-    "bip65": "^1.0.3",
-    "bip66": "^1.1.5",
-    "bitcoin-ops": "^1.4.1",
     "bitcoinjs-lib": "^4.0.2",
     "bluebird": "^3.5.3",
-    "bn.js": "^4.11.8",
+    "boltz-core": "0.0.2",
     "cross-os": "^1.3.0",
     "grpc": "^1.16.1",
     "ini": "^1.3.5",
@@ -76,7 +72,6 @@
     "toml": "^2.3.3",
     "typescript": "^3.1.6",
     "uuid": "^3.3.2",
-    "varuint-bitcoin": "^1.1.0",
     "winston": "^3.1.0",
     "ws": "^6.1.2",
     "yargs": "^12.0.5"

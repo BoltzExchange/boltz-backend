@@ -1,7 +1,7 @@
 import BaseClient from '../BaseClient';
 import Logger from '../Logger';
 import RpcClient, { RpcConfig } from '../RpcClient';
-import { ClientStatus } from '../consts/ClientStatus';
+import { ClientStatus } from '../consts/Enums';
 import ChainClientInterface, { Info, Block, BestBlock } from './ChainClientInterface';
 
 class ChainClient extends BaseClient implements ChainClientInterface {

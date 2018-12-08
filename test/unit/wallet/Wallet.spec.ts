@@ -1,12 +1,12 @@
 import { expect } from 'chai';
 import { mock } from 'ts-mockito';
 import { address, crypto } from 'bitcoinjs-lib';
+import { OutputType } from 'boltz-core';
 import bip32 from 'bip32';
 import bip39 from 'bip39';
 import Networks from '../../../lib/consts/Networks';
 import Wallet from '../../../lib/wallet/Wallet';
 import ChainClient from '../../../lib/chain/ChainClient';
-import { OutputType } from '../../../lib/proto/boltzrpc_pb';
 import { getPubKeyHashEncodeFuntion, getHexBuffer } from '../../../lib/Utils';
 import Logger from '../../../lib/Logger';
 import Database from '../../../lib/db/Database';
@@ -82,7 +82,7 @@ describe('Wallet', () => {
   it('should get a new address', async () => {
     incrementIndex();
 
-    const outputType = OutputType.BECH32;
+    const outputType = OutputType.Bech32;
 
     const keys = getKeysByIndex(highestUsedIndex);
     const encodeFunction = getPubKeyHashEncodeFuntion(outputType);

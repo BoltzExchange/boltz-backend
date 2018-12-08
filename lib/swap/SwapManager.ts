@@ -1,16 +1,15 @@
 import { BIP32 } from 'bip32';
 import { Transaction, crypto } from 'bitcoinjs-lib';
+import { OutputType, TransactionOutput, Scripts, pkRefundSwap, constructClaimTransaction } from 'boltz-core';
 import Logger from '../Logger';
 import { getHexBuffer, getPairId, getHexString, getScriptHashEncodeFunction, reverseString } from '../Utils';
-import { pkRefundSwap } from './Swap';
-import { p2wpkhOutput, p2shP2wshOutput } from './Scripts';
-import { constructClaimTransaction } from './Claim';
-import { TransactionOutput } from '../consts/Types';
 import Errors from './Errors';
 import WalletManager, { Currency } from '../wallet/WalletManager';
-import { OrderSide, OutputType } from '../proto/boltzrpc_pb';
+import { OrderSide } from '../proto/boltzrpc_pb';
 import LndClient from '../lightning/LndClient';
-import { encodeBip21, getBip21Prefix } from './SwapUtils';
+import { encodeBip21, getBip21Prefix } from './PaymentRequestUtils';
+
+const { p2wpkhOutput, p2shP2wshOutput } = Scripts;
 
 type BaseSwapDetails = {
   redeemScript: Buffer;
@@ -93,7 +92,7 @@ class SwapManager {
     const { keys, index } = receivingCurrency.wallet.getNewKeys();
 
     // Listen to the address to which the swap output will be claimed
-    await receivingCurrency.wallet.listenToOutput(p2wpkhOutput(crypto.hash160(keys.publicKey)), index, OutputType.BECH32);
+    await receivingCurrency.wallet.listenToOutput(p2wpkhOutput(crypto.hash160(keys.publicKey)), index, OutputType.Bech32);
 
     const timeoutBlockHeight = bestBlock.height + 10;
     const redeemScript = pkRefundSwap(
@@ -162,7 +161,7 @@ class SwapManager {
     const sendingAmount = amount * this.getRate(pairId, orderSide);
 
     this.logger.debug(`Sending ${sendingAmount} on ${sendingCurrency.symbol} to swap address: ${address}`);
-    const { tx, vout } = await sendingCurrency.wallet.sendToAddress(address, OutputType.COMPATIBILITY, true, sendingAmount);
+    const { tx, vout } = await sendingCurrency.wallet.sendToAddress(address, OutputType.Compatibility, true, sendingAmount);
     const txHex = tx.toHex();
 
     await sendingCurrency.chainClient.sendRawTransaction(txHex);
@@ -173,7 +172,7 @@ class SwapManager {
       output: {
         vout,
         txHash: tx.getHash(),
-        type: OutputType.COMPATIBILITY,
+        type: OutputType.Compatibility,
         script: outputScript,
         value: sendingAmount,
       },

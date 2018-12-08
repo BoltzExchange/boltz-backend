@@ -1,15 +1,13 @@
 import { BIP32 } from 'bip32';
 import { Transaction, Network, address, crypto, TransactionBuilder, ECPair } from 'bitcoinjs-lib';
+import { OutputType, TransactionOutput, estimateFee } from 'boltz-core';
 import ChainClient from '../chain/ChainClient';
-import { OutputType } from '../proto/boltzrpc_pb';
 import { getPubKeyHashEncodeFuntion, getHexString, getHexBuffer } from '../Utils';
 import Errors from './Errors';
 import Logger from '../Logger';
-import { TransactionOutput } from '../consts/Types';
 import UtxoRepository from './UtxoRepository';
 import WalletRepository from './WalletRepository';
 import { UtxoInstance } from '../consts/Database';
-import * as feeCalculator from './FeeCalculator';
 
 type UTXO = TransactionOutput & {
   redeemScript?: Buffer;
@@ -153,7 +151,7 @@ class Wallet {
     let outputScript: Buffer;
     let redeemScript: string | undefined = undefined;
 
-    if (type === OutputType.COMPATIBILITY) {
+    if (type === OutputType.Compatibility) {
       const nestedOutput = output as { redeemScript: Buffer, outputScript: Buffer };
 
       outputScript = nestedOutput.outputScript;
@@ -232,12 +230,12 @@ class Wallet {
     // The hex encoded strings of the UTXOs that will be spent
     const toRemove: string[] = [];
 
-    const estimateFee = () => {
-      return feeCalculator.estimateFee(feePerByte, toSpend, [{ type: OutputType.BECH32 }, { type, isSh: isScriptHash }]);
+    const recalculateFee = () => {
+      return estimateFee(feePerByte, toSpend, [{ type: OutputType.Bech32 }, { type, isSh: isScriptHash }]);
     };
 
     let toSpendSum = 0;
-    let fee = estimateFee();
+    let fee = recalculateFee();
 
     const fundsSufficient = () => {
       return (amount + fee) <= toSpendSum;
@@ -260,7 +258,7 @@ class Wallet {
       toRemove.push(utxoInstance.txHash);
 
       toSpendSum += utxoInstance.value;
-      fee = estimateFee();
+      fee = recalculateFee();
 
       if (fundsSufficient()) {
         break;
@@ -283,7 +281,7 @@ class Wallet {
 
     // Add the UTXOs from before as inputs
     toSpend.forEach((utxo) => {
-      if (utxo.type === OutputType.BECH32) {
+      if (utxo.type === OutputType.Bech32) {
         builder.addInput(utxo.txHash, utxo.vout, undefined, utxo.script);
       } else {
         builder.addInput(utxo.txHash, utxo.vout);
@@ -294,22 +292,22 @@ class Wallet {
     builder.addOutput(address, amount);
 
     // Sent the value left of the UTXOs to a new change address
-    builder.addOutput(await this.getNewAddress(OutputType.BECH32), toSpendSum - (amount + fee));
+    builder.addOutput(await this.getNewAddress(OutputType.Bech32), toSpendSum - (amount + fee));
 
     // Sign the transaction
     toSpend.forEach((utxo, index) => {
       const keys = ECPair.fromPrivateKey(utxo.keys.privateKey, { network: this.network });
 
       switch (utxo.type) {
-        case OutputType.BECH32:
+        case OutputType.Bech32:
           builder.sign(index, keys, undefined, undefined, utxo.value);
           break;
 
-        case OutputType.COMPATIBILITY:
+        case OutputType.Compatibility:
           builder.sign(index, keys, utxo.redeemScript, undefined, utxo.value);
           break;
 
-        case OutputType.LEGACY:
+        case OutputType.Legacy:
           builder.sign(index, keys);
           break;
       }

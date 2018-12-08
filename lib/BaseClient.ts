@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import { ClientStatus } from './consts/ClientStatus';
+import { ClientStatus } from './consts/Enums';
 
 class BaseClient extends EventEmitter {
   protected status = ClientStatus.Disconnected;

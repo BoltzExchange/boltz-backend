@@ -3,9 +3,7 @@ import { address, ECPair, Transaction } from 'bitcoinjs-lib';
 import { getHexBuffer } from '../Utils';
 import Networks from '../consts/Networks';
 import { OutputType, OrderSide } from '../proto/boltzrpc_pb';
-import { detectSwap } from '../swap/SwapDetector';
-import { constructClaimTransaction } from '../swap/Claim';
-import { constructRefundTransaction } from '../swap/Refund';
+import { detectSwap, constructClaimTransaction, constructRefundTransaction } from 'boltz-core';
 
 export const getOrderSide = (side: string) => {
   switch (side.toLowerCase()) {

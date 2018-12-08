@@ -1,9 +1,9 @@
 import { expect } from 'chai';
+import { OutputType } from 'boltz-core';
 import bip32 from 'bip32';
 import bip39 from 'bip39';
 import Wallet from '../../../lib/wallet/Wallet';
 import Networks from '../../../lib/consts/Networks';
-import { OutputType } from '../../../lib/proto/boltzrpc_pb';
 import { btcdClient, btcManager, btcAddress } from '../chain/ChainClient.spec';
 import Logger from '../../../lib/Logger';
 import Database from '../../../lib/db/Database';
@@ -103,7 +103,7 @@ describe('Wallet', () => {
     const destinationAddress = btcAddress;
     const destinationAmount = walletBalance / 2;
 
-    const { tx, vout } = await wallet.sendToAddress(destinationAddress, OutputType.LEGACY, false, destinationAmount);
+    const { tx, vout } = await wallet.sendToAddress(destinationAddress, OutputType.Legacy, false, destinationAmount);
 
     await btcdClient.sendRawTransaction(tx.toHex());
     await btcdClient.generate(1);

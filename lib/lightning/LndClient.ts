@@ -5,8 +5,8 @@ import Logger from '../Logger';
 import Errors from './Errors';
 import LightningClient from './LightningClient';
 import * as lndrpc from '../proto/lndrpc_pb';
+import { ClientStatus } from '../consts/Enums';
 import { LightningClient as GrpcClient } from '../proto/lndrpc_grpc_pb';
-import { ClientStatus } from '../consts/ClientStatus';
 import { getHexString } from '../Utils';
 
 // TODO: error handling

@@ -1,14 +1,11 @@
 // tslint:disable:max-line-length
 import { crypto, address, ECPair } from 'bitcoinjs-lib';
+import { Scripts, pkRefundSwap, constructClaimTransaction, constructRefundTransaction, TransactionOutput, OutputType } from 'boltz-core';
 import { getHexBuffer } from '../../../lib/Utils';
-import { p2shOutput, p2wshOutput, p2shP2wshOutput } from '../../../lib/swap/Scripts';
-import { pkRefundSwap } from '../../../lib/swap/Swap';
-import { constructClaimTransaction } from '../../../lib/swap/Claim';
-import { constructRefundTransaction } from '../../../lib/swap/Refund';
 import Networks from '../../../lib/consts/Networks';
 import { btcManager, btcdClient, btcAddress } from '../chain/ChainClient.spec';
-import { OutputType } from '../../../lib/proto/boltzrpc_pb';
-import { TransactionOutput } from '../../../lib/consts/Types';
+
+const { p2shOutput, p2wshOutput, p2shP2wshOutput } = Scripts;
 
 describe('Submarine Swaps', () => {
   const preimage = getHexBuffer('b5b2dbb1f0663878ecbc20323b58b92c');
@@ -76,9 +73,9 @@ describe('Submarine Swaps', () => {
 
   const createOutputs = async () => {
     return [
-      await sendFundsToSwap(p2wshOutput, OutputType.BECH32),
-      await sendFundsToSwap(p2shOutput, OutputType.LEGACY),
-      await sendFundsToSwap(p2shP2wshOutput, OutputType.COMPATIBILITY),
+      await sendFundsToSwap(p2wshOutput, OutputType.Bech32),
+      await sendFundsToSwap(p2shOutput, OutputType.Legacy),
+      await sendFundsToSwap(p2shP2wshOutput, OutputType.Compatibility),
     ];
   };
 

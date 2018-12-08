@@ -1,7 +1,8 @@
 import os from 'os';
 import path from 'path';
-import { p2wshOutput, p2shP2wshOutput, p2shOutput, p2wpkhOutput, p2pkhOutput, p2shP2wpkhOutput } from './swap/Scripts';
-import { OutputType } from './proto/boltzrpc_pb';
+import { OutputType, Scripts } from 'boltz-core';
+
+const { p2wshOutput, p2shP2wshOutput, p2shOutput, p2wpkhOutput, p2pkhOutput, p2shP2wpkhOutput } = Scripts;
 
 /**
  * Get the pair id of a pair
@@ -199,34 +200,34 @@ export const getServiceDataDir = (service: string) => {
 
 export const getOutputType = (type: number) => {
   switch (type) {
-    case 0: return OutputType.BECH32;
-    case 1: return OutputType.COMPATIBILITY;
-    default: return OutputType.LEGACY;
+    case 0: return OutputType.Bech32;
+    case 1: return OutputType.Compatibility;
+    default: return OutputType.Legacy;
   }
 };
 
 export const getPubKeyHashEncodeFuntion = (outputType: OutputType) => {
   switch (outputType) {
-    case OutputType.BECH32:
+    case OutputType.Bech32:
       return p2wpkhOutput;
 
-    case OutputType.COMPATIBILITY:
+    case OutputType.Compatibility:
       return p2shP2wpkhOutput;
 
-    case OutputType.LEGACY:
+    case OutputType.Legacy:
       return p2pkhOutput;
   }
 };
 
 export const getScriptHashEncodeFunction = (outputType: OutputType) => {
   switch (outputType) {
-    case OutputType.BECH32:
+    case OutputType.Bech32:
       return p2wshOutput;
 
-    case OutputType.COMPATIBILITY:
+    case OutputType.Compatibility:
       return p2shP2wshOutput;
 
-    case OutputType.LEGACY:
+    case OutputType.Legacy:
       return p2shOutput;
   }
 };

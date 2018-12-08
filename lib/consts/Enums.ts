@@ -7,3 +7,9 @@ export enum ErrorCodePrefix {
   Lnd = 5,
   Swap = 6,
 }
+
+export enum ClientStatus {
+  Disconnected,
+  Connected,
+  OutOfSync,
+}

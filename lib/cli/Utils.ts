@@ -58,8 +58,8 @@ const parseSwapOutput = (redeemScript: Buffer, lockupTransaction: Transaction) =
 };
 
 export const parseCommands = async (inquiries: any[], argv: Arguments): Promise<Arguments> => {
-  const argvLenght = Object.keys(argv).length;
-  if (argvLenght === 5) {
+  const argvLength = Object.keys(argv).length;
+  if (argvLength === inquiries.length) {
     const answers = await inquire(inquiries);
     return { ...answers, ...argv };
   } else {

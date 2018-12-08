@@ -1,4 +1,5 @@
 import { Arguments } from 'yargs';
+import inquire from './inquire';
 import { address, ECPair, Transaction } from 'bitcoinjs-lib';
 import { getHexBuffer } from '../Utils';
 import Networks from '../consts/Networks';
@@ -52,6 +53,16 @@ const parseSwapOutput = (redeemScript: Buffer, lockupTransaction: Transaction) =
   }
 
   return swapOutput;
+};
+
+export const parseCommands = async (inquiries: any[], argv: Arguments): Promise<Arguments> => {
+  const argvLength = Object.keys(argv).length;
+  if (argvLength === inquiries.length) {
+    const answers = await inquire(inquiries);
+    return { ...answers, ...argv };
+  } else {
+    return argv;
+  }
 };
 
 export const claimSwap = (argv: Arguments) => {

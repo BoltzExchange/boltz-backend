@@ -187,7 +187,7 @@ class SwapManager {
   }
 
   private bindCurrency = (currency: Currency, maps: SwapMaps) => {
-    currency.chainClient.on('transaction.relevant.mempool', async (transactionHex: string) => {
+    currency.chainClient.on('transaction.relevant.block', async (transactionHex: string) => {
       const transaction = Transaction.fromHex(transactionHex);
 
       let vout = 0;

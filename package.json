@@ -61,7 +61,7 @@
     "bip39": "^2.5.0",
     "bitcoinjs-lib": "^4.0.2",
     "bluebird": "^3.5.3",
-    "boltz-core": "0.0.2",
+    "boltz-core": "0.0.3",
     "cross-os": "^1.3.0",
     "grpc": "^1.16.1",
     "ini": "^1.3.5",

@@ -3,22 +3,6 @@ import os from 'os';
 import * as utils from '../../lib/Utils';
 
 describe('Utils', () => {
-  const base = 'LTC';
-  const quote = 'BTC';
-
-  const pairId = `${quote}/${base}`;
-
-  it('should concat pairId', () => {
-    expect(utils.getPairId(quote, base)).to.be.equal(pairId);
-  });
-
-  it('should split pairId', () => {
-    expect(utils.splitPairId(pairId)).to.be.deep.equal({
-      base,
-      quote,
-    });
-  });
-
   it('should split derivation path', () => {
     const master = 'm';
     const sub = [0, 2, 543];

@@ -132,7 +132,9 @@ class Service {
   /**
    * Creates a new Swap from the chain to Lightning
    */
-  public createSwap = async (args: { pairId: string, orderSide: number, invoice: string, refundPublicKey: string, outputType: number }) => {
+  public createSwap = async (args: { baseCurrency: string, quoteCurrency: string, orderSide: number, rate: number
+    invoice: string, refundPublicKey: string, outputType: number }) => {
+
     const { swapManager } = this.serviceComponents;
 
     const orderSide = this.getOrderSide(args.orderSide);
@@ -140,20 +142,22 @@ class Service {
 
     const refundPublicKey = getHexBuffer(args.refundPublicKey);
 
-    return await swapManager.createSwap(args.pairId, orderSide, args.invoice, refundPublicKey, outputType);
+    return await swapManager.createSwap(args.baseCurrency, args.quoteCurrency, orderSide, args.rate, args.invoice, refundPublicKey, outputType);
   }
 
   /**
    * Creates a new Swap from Lightning to the chain
    */
-  public createReverseSwap = async (args: { pairId: string, orderSide: number, claimPublicKey: string, amount: number }) => {
+  public createReverseSwap = async (args: { baseCurrency: string, quoteCurrency: string, orderSide: number, rate: number,
+    claimPublicKey: string, amount: number }) => {
+
     const { swapManager } = this.serviceComponents;
 
     const orderSide = this.getOrderSide(args.orderSide);
 
     const claimPublicKey = getHexBuffer(args.claimPublicKey);
 
-    return await swapManager.createReverseSwap(args.pairId, orderSide, claimPublicKey, args.amount);
+    return await swapManager.createReverseSwap(args.baseCurrency, args.quoteCurrency, orderSide, args.rate, claimPublicKey, args.amount);
   }
 
   private getCurrency = (currencySymbol: string) => {

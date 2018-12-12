@@ -3,14 +3,22 @@ export default {
     describe: 'ticker symbol of the currency',
     type: 'string',
   },
-  pairId: {
-    describe: 'traiding pair id of the order',
+  base_currency: {
+    describe: 'base currency of the order',
+    type: 'string',
+  },
+  quote_currency: {
+    describe: 'quote currency of the order',
     type: 'string',
   },
   orderSide: {
     describe: 'whether the order is a buy or sell one',
     type: 'string',
     choices: ['buy', 'sell'],
+  },
+  rate: {
+    describe: 'conversion rate of base and quote currency',
+    type: 'number',
   },
   outputType: {
     describe: 'type of the output',

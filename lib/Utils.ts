@@ -188,7 +188,6 @@ export const getSystemHomeDir = (): string => {
 export const getServiceDataDir = (service: string) => {
   const homeDir = getSystemHomeDir();
   const serviceDir = service.toLowerCase();
-
   switch (os.platform()) {
     case 'win32':
     case 'darwin':

@@ -107,11 +107,13 @@ message BroadcastTransactionResponse {
 }
 
 message CreateSwapRequest {
-  string pair_id = 1;
-  OrderSide order_side = 2;
-  string invoice = 3;
-  string refund_public_key = 4;
-  OutputType output_type = 5; 
+  string base_currency = 1;
+  string quote_currency = 2;
+  OrderSide order_side = 3;
+  int64 rate = 4;
+  string invoice = 5;
+  string refund_public_key = 6;
+  OutputType output_type = 7;
 }
 message CreateSwapResponse {
   string redeem_script = 1;
@@ -122,11 +124,13 @@ message CreateSwapResponse {
 }
 
 message CreateReverseSwapRequest {
-  string pair_id = 1;
-  OrderSide order_side = 2;
-  string claim_public_key = 3;
+  string base_currency = 1;
+  string quote_currency = 2;
+  OrderSide order_side = 3;
+  int64 rate = 4;
+  string claim_public_key = 5;
   // Amount of the invoice that will be returned
-  int64 amount = 4;
+  int64 amount = 6;
 }
 message CreateReverseSwapResponse {
   string invoice = 1;

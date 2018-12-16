@@ -398,11 +398,17 @@ export namespace BroadcastTransactionResponse {
 }
 
 export class CreateSwapRequest extends jspb.Message { 
-    getPairId(): string;
-    setPairId(value: string): void;
+    getBaseCurrency(): string;
+    setBaseCurrency(value: string): void;
+
+    getQuoteCurrency(): string;
+    setQuoteCurrency(value: string): void;
 
     getOrderSide(): OrderSide;
     setOrderSide(value: OrderSide): void;
+
+    getRate(): number;
+    setRate(value: number): void;
 
     getInvoice(): string;
     setInvoice(value: string): void;
@@ -426,8 +432,10 @@ export class CreateSwapRequest extends jspb.Message {
 
 export namespace CreateSwapRequest {
     export type AsObject = {
-        pairId: string,
+        baseCurrency: string,
+        quoteCurrency: string,
         orderSide: OrderSide,
+        rate: number,
         invoice: string,
         refundPublicKey: string,
         outputType: OutputType,
@@ -472,11 +480,17 @@ export namespace CreateSwapResponse {
 }
 
 export class CreateReverseSwapRequest extends jspb.Message { 
-    getPairId(): string;
-    setPairId(value: string): void;
+    getBaseCurrency(): string;
+    setBaseCurrency(value: string): void;
+
+    getQuoteCurrency(): string;
+    setQuoteCurrency(value: string): void;
 
     getOrderSide(): OrderSide;
     setOrderSide(value: OrderSide): void;
+
+    getRate(): number;
+    setRate(value: number): void;
 
     getClaimPublicKey(): string;
     setClaimPublicKey(value: string): void;
@@ -497,8 +511,10 @@ export class CreateReverseSwapRequest extends jspb.Message {
 
 export namespace CreateReverseSwapRequest {
     export type AsObject = {
-        pairId: string,
+        baseCurrency: string,
+        quoteCurrency: string,
         orderSide: OrderSide,
+        rate: number,
         claimPublicKey: string,
         amount: number,
     }

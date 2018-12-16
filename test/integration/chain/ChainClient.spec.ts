@@ -50,8 +50,8 @@ describe('ChainClient', () => {
     const transaction = await btcManager.constructTransaction(btcAddress, 1);
     const relevantTxHex = transaction.toHex();
 
-    let blockEventReceived = false;
     let mempoolEventReceived = false;
+    let blockEventReceived = false;
 
     btcdClient.on('transaction.relevant.mempool', (transactionHex) => {
       if (transactionHex === relevantTxHex) {

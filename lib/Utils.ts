@@ -5,25 +5,6 @@ import { OutputType, Scripts } from 'boltz-core';
 const { p2wshOutput, p2shP2wshOutput, p2shOutput, p2wpkhOutput, p2pkhOutput, p2shP2wpkhOutput } = Scripts;
 
 /**
- * Get the pair id of a pair
- */
-export const getPairId = (quoteSymbol: string, baseSymbol: string): string => {
-  return `${quoteSymbol}/${baseSymbol}`;
-};
-
-/**
- * Get the quote and base asset of a pair id
- */
-export const splitPairId = (pairId: string): { quote: string, base: string } => {
-  const split = pairId.split('/');
-
-  return {
-    quote: split[0],
-    base: split[1],
-  };
-};
-
-/**
  * Splits a derivation path into multiple parts
  */
 export const splitDerivationPath = (path: string): { master: string, sub: number[] } => {

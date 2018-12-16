@@ -4,13 +4,15 @@ import BuilderComponents from '../BuilderComponents';
 import { CreateReverseSwapRequest } from '../../proto/boltzrpc_pb';
 import { getOrderSide } from '../Utils';
 
-export const command = 'createreverseswap <pair_id> <order_side> <claim_public_key> <amount>';
+export const command = 'createreverseswap <base_currency> <quote_currency> <order_side> <rate> <claim_public_key> <amount>';
 
 export const describe = 'creates a new swap from Lightning to the chain';
 
 export const builder = {
-  pair_id: BuilderComponents.pairId,
+  base_currency: BuilderComponents.base_currency,
+  quote_currency: BuilderComponents.quote_currency,
   order_side: BuilderComponents.orderSide,
+  rate: BuilderComponents.rate,
   claim_public_key: {
     describe: 'public key with which a claiming transaction has to be signed',
     type: 'string',
@@ -24,8 +26,10 @@ export const builder = {
 export const handler = (argv: Arguments) => {
   const request = new CreateReverseSwapRequest();
 
-  request.setPairId(argv.pair_id);
+  request.setBaseCurrency(argv.base_currency);
+  request.setQuoteCurrency(argv.quote_currency);
   request.setOrderSide(getOrderSide(argv.order_side));
+  request.setRate(argv.rate);
   request.setClaimPublicKey(argv.claim_public_key);
   request.setAmount(argv.amount);
 

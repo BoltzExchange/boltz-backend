@@ -52,10 +52,10 @@ class Boltz {
     this.swapManager = new SwapManager(
       this.logger,
       this.walletManager,
-      [{
-        quote: litecoin,
-        base: bitcoin,
-      }],
+      [
+        bitcoin,
+        litecoin,
+      ],
     );
 
     this.service = new Service({

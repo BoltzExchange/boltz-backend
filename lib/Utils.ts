@@ -1,5 +1,6 @@
 import os from 'os';
 import path from 'path';
+import { Chain, Symbols } from './consts/Enums';
 import { OutputType, Scripts } from 'boltz-core';
 
 const { p2wshOutput, p2shP2wshOutput, p2shOutput, p2wpkhOutput, p2pkhOutput, p2shP2wpkhOutput } = Scripts;
@@ -209,6 +210,15 @@ export const getScriptHashEncodeFunction = (outputType: OutputType) => {
 
     case OutputType.Legacy:
       return p2shOutput;
+  }
+};
+
+export const symbolToChain = (symbol: Symbols): Chain => {
+  switch (symbol) {
+    case Symbols.BTC:
+      return Chain.Bitcoin;
+    case Symbols.LTC:
+      return Chain.Litecoin;
   }
 };
 

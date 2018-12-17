@@ -3,7 +3,8 @@ import fs from 'fs';
 import toml from 'toml';
 import ini from 'ini';
 import { Arguments } from 'yargs';
-import { deepMerge, resolveHome, splitListen, getServiceDataDir } from './Utils';
+import { deepMerge, resolveHome, splitListen, getServiceDataDir, symbolToChain } from './Utils';
+import { Chain, Symbols, Network } from './consts/Enums';
 import { RpcConfig } from './RpcClient';
 import { LndConfig } from './lightning/LndClient';
 import { GrpcConfig } from './grpc/GrpcServer';
@@ -14,8 +15,8 @@ type ServiceOptions = {
 };
 
 type CurrencyConfig = {
-  symbol: string,
-  network: string;
+  symbol: Symbols,
+  network: Network;
   chain: RpcConfig & ServiceOptions;
   lnd?: LndConfig & ServiceOptions;
 };
@@ -29,6 +30,7 @@ type ConfigType = {
   logpath: string;
 
   loglevel: string;
+  network: Network,
 
   grpc: GrpcConfig;
 
@@ -56,6 +58,7 @@ class Config {
 
       datadir: this.dataDir,
       loglevel: this.getDefaultLogLevel(),
+      network: Network.Testnet,
 
       grpc: {
         host: '127.0.0.1',
@@ -66,8 +69,8 @@ class Config {
 
       currencies: [
         {
-          symbol: 'BTC',
-          network: 'bitcoinTestnet',
+          symbol: Symbols.BTC,
+          network: Network.Testnet,
           chain: {
             host: '127.0.0.1',
             port: 18334,
@@ -79,12 +82,12 @@ class Config {
             host: '127.0.0.1',
             port: 10009,
             certpath: path.join(getServiceDataDir('lnd'), 'tls.cert'),
-            macaroonpath: path.join(getServiceDataDir('lnd'), 'data', 'chain', 'bitcoin', 'testnet', 'admin.macaroon'),
+            macaroonpath: path.join(getServiceDataDir('lnd'), 'data', 'chain', Chain.Bitcoin, Network.Testnet, 'admin.macaroon'),
           },
         },
         {
-          symbol: 'LTC',
-          network: 'litecoinTestnet',
+          symbol: Symbols.LTC,
+          network: Network.Testnet,
           chain: {
             host: '127.0.0.1',
             port: 19334,
@@ -96,14 +99,13 @@ class Config {
             host: '127.0.0.1',
             port: 11009,
             certpath: path.join(getServiceDataDir('lnd'), 'tls.cert'),
-            macaroonpath: path.join(getServiceDataDir('lnd'), 'data', 'chain', 'litecoin', 'testnet', 'admin.macaroon'),
+            macaroonpath: path.join(getServiceDataDir('lnd'), 'data', 'chain', Chain.Litecoin, Network.Testnet, 'admin.macaroon'),
           },
         },
       ],
     };
   }
 
-  // TODO: get path of the certificate, macaroon and config based on the data directory of the service
   // TODO: verify logLevel exists; depends on Logger.ts:8
   /**
    * This loads arguments specified by the user either with a TOML config file or via command line arguments
@@ -125,9 +127,25 @@ class Config {
       deepMerge(this.config, tomlConfig);
     }
 
+    if (args.network) {
+      const network = this.parseNetwork(args.network, this.config.currencies);
+      deepMerge(this.config, network);
+    }
+
+    if (args.btcd) {
+      const currencies = this.config.currencies;
+      currencies[0] = { ...currencies[0], ...this.parseIniConfig(args.btcd, this.config.network, currencies[0]) };
+      deepMerge(this.config, currencies);
+    }
+
+    if (args.ltcd) {
+      const currencies = this.config.currencies;
+      currencies[1] = { ...currencies[1], ...this.parseIniConfig(args.ltcd, this.config.network, currencies[1]) };
+      deepMerge(this.config, currencies);
+    }
+
     if (args.currencies) {
       const currencies = this.parseCurrency(args.currencies, this.config.currencies);
-      // apply properly formatted json to args.currencies
       args.currencies = currencies.currencies;
       deepMerge(this.config, currencies);
     }
@@ -136,33 +154,50 @@ class Config {
     return this.config;
   }
 
-  // TODO: don't use "deepMerge" in "parseIniConfig"
-  private parseIniConfig = (filename: string, mergeTarget: any, isLndConfig: boolean) => {
-    if (fs.existsSync(filename)) {
+  private parseIniConfig = (args: { path: string, lndlisten?: string }, network: string, currency: CurrencyConfig) => {
+    if (fs.existsSync(args.path)) {
+      let config;
       try {
-        const config = ini.parse(fs.readFileSync(filename, 'utf-8'))['Application Options'];
-
-        if (isLndConfig) {
-          const configLND: LndConfig = config;
-          if (config.listen) {
-            const listen = splitListen(config.listen);
-            mergeTarget.host = listen.host;
-            mergeTarget.port = listen.port;
-          }
-          deepMerge(mergeTarget, configLND);
-        } else {
-          const configClient: RpcConfig = config;
-          if (config.listen) {
-            const listen = splitListen(config.listen);
-            mergeTarget.host = listen.host;
-            mergeTarget.port = listen.port;
-          }
-          deepMerge(mergeTarget, configClient);
-        }
+        const { rpcuser, rpcpass, rpclisten } = ini.parse(fs.readFileSync(args.path, 'utf-8'))['Application Options'];
+        const listen = rpclisten ? splitListen(rpclisten) : rpclisten;
+        const lndConfig = this.parseLndServiceConfig(currency, network, args.lndlisten!);
+        config = {
+          network,
+          chain: {
+            rpcuser,
+            rpcpass,
+            host: listen ? listen.host : currency.chain.host,
+            port: listen ? listen.port : currency.chain.port,
+            certpath: path.join(path.dirname(args.path), 'rpc.cert'),
+          },
+          ...lndConfig,
+        };
       } catch (error) {
-        throw Errors.COULD_NOT_PARSE_CONFIG(filename, JSON.stringify(error));
+        throw Errors.COULD_NOT_PARSE_CONFIG(args.path, JSON.stringify(error));
       }
+      return config;
     }
+  }
+
+  private parseLndServiceConfig = (currency: CurrencyConfig, network: string, lndlisten?: string) => {
+    const service = getServiceDataDir('lnd');
+    return {
+      lnd: {
+        host: lndlisten ? splitListen(lndlisten).host : currency.lnd!.host,
+        port: lndlisten ? parseInt(splitListen(lndlisten).port, 0) : currency.lnd!.port,
+        certpath: path.join(service, 'tls.cert'),
+        macaroonpath: path.join(service, 'data', 'chain', symbolToChain(Symbols[currency.symbol]), network, 'admin.macaroon'),
+      },
+    };
+  }
+
+  private parseNetwork = (network: string, currencies: CurrencyConfig[]) => {
+    const net = network.replace(/^\w/, c => c.toUpperCase());
+    currencies.forEach(curr => curr.network = Network[net]);
+    return {
+      network,
+      currencies,
+    };
   }
 
   private parseCurrency = (args: string[], config: CurrencyConfig[]) => {

@@ -192,7 +192,7 @@ class Config {
   }
 
   private parseNetwork = (network: string, currencies: CurrencyConfig[]) => {
-    const net = network.replace(/^\w/, c => c.toUpperCase());
+    const net = network[0].toUpperCase() + network.slice(1);
     currencies.forEach(curr => curr.network = Network[net]);
     return {
       network,

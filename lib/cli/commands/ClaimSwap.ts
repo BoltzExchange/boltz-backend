@@ -1,6 +1,6 @@
 import { Arguments } from 'yargs';
+import { Networks } from 'boltz-core';
 import { claimSwap, parseCommands } from '../Utils';
-import Networks from '../../consts/Networks';
 import { printResponse } from '../Command';
 import BuilderComponents from '../BuilderComponents';
 

@@ -1,9 +1,9 @@
 import { expect } from 'chai';
-import Logger from '../../../lib/Logger';
 import path from 'path';
 import { ECPair, TransactionBuilder, Transaction, Network } from 'bitcoinjs-lib';
+import { Networks } from 'boltz-core';
+import Logger from '../../../lib/Logger';
 import ChainClient from '../../../lib/chain/ChainClient';
-import Networks from '../../../lib/consts/Networks';
 
 describe('ChainClient', () => {
   it('BtcdClient should connect', async () => {

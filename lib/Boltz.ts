@@ -1,6 +1,7 @@
 import fs from 'fs';
 import { Arguments } from 'yargs';
 import { generateMnemonic } from 'bip39';
+import { Networks } from 'boltz-core';
 import Logger from './Logger';
 import Config, { ConfigType } from './Config';
 import LndClient from './lightning/LndClient';
@@ -9,7 +10,6 @@ import Service from './service/Service';
 import WalletManager, { Currency } from './wallet/WalletManager';
 import SwapManager from './swap/SwapManager';
 import ChainClient from './chain/ChainClient';
-import Networks from './consts/Networks';
 import Database from './db/Database';
 
 // TODO: configurable trading pairs

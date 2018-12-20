@@ -1,10 +1,9 @@
 import { expect } from 'chai';
 import { mock } from 'ts-mockito';
 import { address, crypto } from 'bitcoinjs-lib';
-import { OutputType } from 'boltz-core';
+import { Networks, OutputType } from 'boltz-core';
 import bip32 from 'bip32';
 import bip39 from 'bip39';
-import Networks from '../../../lib/consts/Networks';
 import Wallet from '../../../lib/wallet/Wallet';
 import ChainClient from '../../../lib/chain/ChainClient';
 import { getPubKeyHashEncodeFuntion, getHexBuffer } from '../../../lib/Utils';

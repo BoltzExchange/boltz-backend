@@ -1,10 +1,9 @@
 import { Arguments } from 'yargs';
-import inquire from './inquire';
 import { address, ECPair, Transaction } from 'bitcoinjs-lib';
+import { Networks, detectSwap, constructClaimTransaction, constructRefundTransaction } from 'boltz-core';
+import inquire from './inquire';
 import { getHexBuffer } from '../Utils';
-import Networks from '../consts/Networks';
 import { OutputType, OrderSide } from '../proto/boltzrpc_pb';
-import { detectSwap, constructClaimTransaction, constructRefundTransaction } from 'boltz-core';
 
 export const getOrderSide = (side: string) => {
   switch (side.toLowerCase()) {

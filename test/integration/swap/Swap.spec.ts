@@ -1,8 +1,7 @@
 // tslint:disable:max-line-length
 import { crypto, address, ECPair } from 'bitcoinjs-lib';
-import { Scripts, pkRefundSwap, constructClaimTransaction, constructRefundTransaction, TransactionOutput, OutputType } from 'boltz-core';
+import { Networks, Scripts, pkRefundSwap, constructClaimTransaction, constructRefundTransaction, TransactionOutput, OutputType } from 'boltz-core';
 import { getHexBuffer } from '../../../lib/Utils';
-import Networks from '../../../lib/consts/Networks';
 import { btcManager, btcdClient, btcAddress } from '../chain/ChainClient.spec';
 
 const { p2shOutput, p2wshOutput, p2shP2wshOutput } = Scripts;

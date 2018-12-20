@@ -33,7 +33,7 @@ type ConfigType = {
   network: Network,
 
   grpc: GrpcConfig;
-
+  lndpath: string;
   currencies: CurrencyConfig[];
 };
 
@@ -66,6 +66,8 @@ class Config {
         certpath: path.join(this.dataDir, 'tls.cert'),
         keypath: path.join(this.dataDir, 'tls.key'),
       },
+
+      lndpath: getServiceDataDir('lnd'),
 
       currencies: [
         {
@@ -132,15 +134,21 @@ class Config {
       deepMerge(this.config, network);
     }
 
+    if (args.lndpath) {
+      this.config.lndpath = args.lndpath;
+      const currencies = this.parseLndPath(this.config.currencies, this.config.lndpath);
+      deepMerge(this.config, { currencies, lndpath: args.lndpath });
+    }
+
     if (args.btcd) {
       const currencies = this.config.currencies;
-      currencies[0] = { ...currencies[0], ...this.parseIniConfig(args.btcd, this.config.network, currencies[0]) };
+      currencies[0] = { ...currencies[0], ...this.parseIniConfig(args.btcd, this.config.network, this.config.lndpath, currencies[0]) };
       deepMerge(this.config, currencies);
     }
 
     if (args.ltcd) {
       const currencies = this.config.currencies;
-      currencies[1] = { ...currencies[1], ...this.parseIniConfig(args.ltcd, this.config.network, currencies[1]) };
+      currencies[1] = { ...currencies[1], ...this.parseIniConfig(args.ltcd, this.config.network, this.config.lndpath, currencies[1]) };
       deepMerge(this.config, currencies);
     }
 
@@ -154,13 +162,13 @@ class Config {
     return this.config;
   }
 
-  private parseIniConfig = (args: { path: string, lndlisten?: string }, network: string, currency: CurrencyConfig) => {
+  private parseIniConfig = (args: { path: string, lnd?: string }, network: string, lndpath: string, currency: CurrencyConfig) => {
     if (fs.existsSync(args.path)) {
       let config;
       try {
         const { rpcuser, rpcpass, rpclisten } = ini.parse(fs.readFileSync(args.path, 'utf-8'))['Application Options'];
         const listen = rpclisten ? splitListen(rpclisten) : rpclisten;
-        const lndConfig = this.parseLndServiceConfig(currency, network, args.lndlisten!);
+        const lndConfig = this.parseLndServiceConfig(currency, network, lndpath, args.lnd!);
         config = {
           network,
           chain: {
@@ -179,14 +187,13 @@ class Config {
     }
   }
 
-  private parseLndServiceConfig = (currency: CurrencyConfig, network: string, lndlisten?: string) => {
-    const service = getServiceDataDir('lnd');
+  private parseLndServiceConfig = (currency: CurrencyConfig, network: string, lndpath: string, lndlisten?: string) => {
     return {
       lnd: {
         host: lndlisten ? splitListen(lndlisten).host : currency.lnd!.host,
         port: lndlisten ? parseInt(splitListen(lndlisten).port, 0) : currency.lnd!.port,
-        certpath: path.join(service, 'tls.cert'),
-        macaroonpath: path.join(service, 'data', 'chain', symbolToChain(Symbols[currency.symbol]), network, 'admin.macaroon'),
+        certpath: path.join(lndpath, 'tls.cert'),
+        macaroonpath: path.join(lndpath, 'data', 'chain', symbolToChain(Symbols[currency.symbol]), network, 'admin.macaroon'),
       },
     };
   }
@@ -219,6 +226,17 @@ class Config {
     return {
       currencies: config,
     };
+  }
+
+  private parseLndPath = (currencies: CurrencyConfig[], lndpath: string) => {
+    currencies.forEach((curr) => {
+      if (curr.lnd) {
+        const net = curr.network[0].toUpperCase() + curr.network.slice(1);
+        curr.lnd!.certpath = path.join(lndpath, 'tls.cert');
+        curr.lnd!.macaroonpath = path.join(lndpath, 'data', 'chain', symbolToChain(Symbols[curr.symbol]), Network[net], 'admin.macaroon');
+      }
+    });
+    return currencies;
   }
 
   private parseTomlConfig = (filename: string): any => {

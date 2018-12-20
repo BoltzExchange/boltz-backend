@@ -52,16 +52,20 @@ const { argv } = require('yargs')
       describe: 'Path to btcd config',
       type: 'string',
     },
-    'btcd.lndlisten': {
-      describe: 'Uri for btcd-lnd',
+    'btcd.lnd': {
+      describe: 'Host and port for the gRPC interface',
       type: 'string',
     },
     'ltcd.path': {
       describe: 'Path to ltcd config',
       type: 'string',
     },
-    'ltcd.lndlisten': {
-      describe: 'Uri for ltcd-lnd',
+    'ltcd.lnd': {
+      describe: 'Host and port for the gRPC interface',
+      type: 'string',
+    },
+    lndpath: {
+      describe: 'Path to lnd',
       type: 'string',
     },
     currencies: {

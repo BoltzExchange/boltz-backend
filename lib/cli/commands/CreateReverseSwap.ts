@@ -23,7 +23,7 @@ export const builder = {
   },
 };
 
-export const handler = (argv: Arguments) => {
+export const handler = (argv: Arguments<any>) => {
   const request = new CreateReverseSwapRequest();
 
   request.setBaseCurrency(argv.base_currency);

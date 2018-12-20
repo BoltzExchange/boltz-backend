@@ -13,7 +13,7 @@ export const builder = {
   type: BuilderComponents.outputType,
 };
 
-export const handler = (argv: Arguments) => {
+export const handler = (argv: Arguments<any>) => {
   const request = new NewAddressRequest();
 
   request.setCurrency(argv.currency);

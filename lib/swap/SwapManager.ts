@@ -104,7 +104,7 @@ class SwapManager {
     const outputScript = encodeFunction(redeemScript);
 
     const address = receivingCurrency.wallet.encodeAddress(outputScript);
-    const expectedAmount = numSatoshis * this.getRate(rate, orderSide);
+    const expectedAmount = this.calculateExpectedAmount(numSatoshis, this.getRate(rate, orderSide));
 
     receivingCurrency.swaps.set(getHexString(outputScript), {
       invoice,
@@ -161,7 +161,7 @@ class SwapManager {
     const outputScript = p2shP2wshOutput(redeemScript);
     const address = sendingCurrency.wallet.encodeAddress(outputScript);
 
-    const sendingAmount = amount * this.getRate(rate, orderSide);
+    const sendingAmount = this.calculateExpectedAmount(amount, this.getRate(rate, orderSide));
 
     this.logger.debug(`Sending ${sendingAmount} on ${sendingCurrency.symbol} to swap address: ${address}`);
     const { tx, vout } = await sendingCurrency.wallet.sendToAddress(address, OutputType.Compatibility, true, sendingAmount);
@@ -297,6 +297,10 @@ class SwapManager {
     }
 
     return currency;
+  }
+
+  private calculateExpectedAmount = (amount: number, rate: number) => {
+    return Math.ceil(amount * rate);
   }
 
   private getRate = (rate: number, orderSide: OrderSide) => {

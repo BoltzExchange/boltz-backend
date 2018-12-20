@@ -9,7 +9,7 @@ export interface GrpcResponse {
   toObject: Function;
 }
 
-export const loadBoltzClient = (argv: Arguments): BoltzClient => {
+export const loadBoltzClient = (argv: Arguments<any>): BoltzClient => {
   const certPath = argv.tlscertpath ? argv.tlscertpath : path.join(getServiceDataDir('boltz'), 'tls.cert');
   const cert = fs.readFileSync(certPath);
 

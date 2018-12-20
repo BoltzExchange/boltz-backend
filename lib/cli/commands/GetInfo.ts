@@ -6,6 +6,6 @@ export const command = 'getinfo';
 
 export const describe = 'get information about the Boltz instance';
 
-export const handler = (argv: Arguments) => {
+export const handler = (argv: Arguments<any>) => {
   loadBoltzClient(argv).getInfo(new GetInfoRequest(), callback);
 };

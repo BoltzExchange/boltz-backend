@@ -46,7 +46,7 @@ export const callback = (error: Error | null, response: GrpcResponse) => {
   }
 };
 
-export const handler = (argv: Arguments) => {
+export const handler = (argv: Arguments<any>) => {
   const request = new CreateSwapRequest();
 
   request.setBaseCurrency(argv.base_currency);

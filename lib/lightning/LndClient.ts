@@ -55,7 +55,7 @@ class LndClient extends BaseClient implements LightningClient {
   private invoiceSubscription?: ClientReadableStream<lndrpc.InvoiceSubscription>;
 
   /**
-   * Create an lnd client.
+   * Create an LND client
    * @param config the lnd configuration
    */
   constructor(private logger: Logger, config: LndConfig, public readonly symbol: string) {

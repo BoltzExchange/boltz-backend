@@ -135,6 +135,29 @@ class GrpcService {
     }
   }
 
+  // TODO: cli calls needed?
+  public listenOnAddress: grpc.handleUnaryCall<boltzrpc.ListenOnAddressRequest, boltzrpc.ListenOnAddressResponse> = async (call, callback) => {
+    try {
+      await this.service.listenOnAddress(call.request.toObject());
+
+      callback(null, new boltzrpc.ListenOnAddressResponse());
+    } catch (error) {
+      callback(error, null);
+    }
+  }
+
+  public subscribeTransactions: grpc.handleServerStreamingCall<boltzrpc.SubscribeTransactionsRequest,
+  boltzrpc.SubscribeTransactionsResponse> = async (call) => {
+
+    this.service.on('transaction.confirmed', (transactionHash: string, outputAddress: string) => {
+      const response = new boltzrpc.SubscribeTransactionsResponse();
+
+      response.setTransactionHash(transactionHash);
+      response.setOutputAddress(outputAddress);
+      call.write(response);
+    });
+  }
+
   public createSwap: grpc.handleUnaryCall<boltzrpc.CreateSwapRequest, boltzrpc.CreateSwapResponse> = async (call, callback) => {
     try {
       const { address, redeemScript, timeoutBlockHeight, expectedAmount, bip21 } = await this.service.createSwap(call.request.toObject());

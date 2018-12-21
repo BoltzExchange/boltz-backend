@@ -33,6 +33,9 @@ type BoltzInfo = {
 interface Service {
   on(event: 'transaction.confirmed', listener: (transactionHash: string, outputAddress: string) => void): this;
   emit(event: 'transaction.confirmed', transactionHash: string, outputAddress: string): boolean;
+
+  on(even: 'invoice.paid', listener: (invoice: string) => void): this;
+  emit(event: 'invoice.paid', invoice: string): boolean;
 }
 
 // TODO: "invalid argument" errors
@@ -42,7 +45,9 @@ class Service extends EventEmitter {
 
   constructor(private serviceComponents: ServiceComponents) {
     super();
+
     this.subscribeTransactions();
+    this.subscribeInvoices();
   }
 
   // TODO: error handling if a service is offline
@@ -179,8 +184,7 @@ class Service extends EventEmitter {
   }
 
   /**
-   * Subscribes to a stream of events that gives the client information about which addresses
-   * received funds in a transaction that has one or more confirmations
+   * Subscribes to a stream of confirmed transactions to addresses that were specified with "ListenOnAddress"
    */
   private subscribeTransactions = () => {
     this.serviceComponents.currencies.forEach((currency) => {
@@ -194,6 +198,17 @@ class Service extends EventEmitter {
             this.emit('transaction.confirmed', transaction.getId(), listenAddress);
           }
         });
+      });
+    });
+  }
+
+  /**
+   * Subscribes to a stream of invoices paid by Boltz
+   */
+  private subscribeInvoices = () => {
+    this.serviceComponents.currencies.forEach((currency) => {
+      currency.lndClient.on('invoice.paid', (invoice) => {
+        this.emit('invoice.paid', invoice);
       });
     });
   }

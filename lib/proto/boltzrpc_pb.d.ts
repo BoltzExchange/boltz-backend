@@ -481,6 +481,44 @@ export namespace SubscribeTransactionsResponse {
     }
 }
 
+export class SubscribeInvoicesRequest extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SubscribeInvoicesRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: SubscribeInvoicesRequest): SubscribeInvoicesRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SubscribeInvoicesRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SubscribeInvoicesRequest;
+    static deserializeBinaryFromReader(message: SubscribeInvoicesRequest, reader: jspb.BinaryReader): SubscribeInvoicesRequest;
+}
+
+export namespace SubscribeInvoicesRequest {
+    export type AsObject = {
+    }
+}
+
+export class SubscribeInvoicesResponse extends jspb.Message { 
+    getInvoice(): string;
+    setInvoice(value: string): void;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SubscribeInvoicesResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: SubscribeInvoicesResponse): SubscribeInvoicesResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SubscribeInvoicesResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SubscribeInvoicesResponse;
+    static deserializeBinaryFromReader(message: SubscribeInvoicesResponse, reader: jspb.BinaryReader): SubscribeInvoicesResponse;
+}
+
+export namespace SubscribeInvoicesResponse {
+    export type AsObject = {
+        invoice: string,
+    }
+}
+
 export class CreateSwapRequest extends jspb.Message { 
     getBaseCurrency(): string;
     setBaseCurrency(value: string): void;

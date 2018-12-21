@@ -158,6 +158,15 @@ class GrpcService {
     });
   }
 
+  public subscribeInvoices: grpc.handleServerStreamingCall<boltzrpc.SubscribeInvoicesRequest, boltzrpc.SubscribeInvoicesResponse> = async (call) => {
+    this.service.on('invoice.paid', (invoice: string) => {
+      const response = new boltzrpc.SubscribeInvoicesResponse();
+
+      response.setInvoice(invoice);
+      call.write(response);
+    });
+  }
+
   public createSwap: grpc.handleUnaryCall<boltzrpc.CreateSwapRequest, boltzrpc.CreateSwapResponse> = async (call, callback) => {
     try {
       const { address, redeemScript, timeoutBlockHeight, expectedAmount, bip21 } = await this.service.createSwap(call.request.toObject());

@@ -21,9 +21,11 @@ service Boltz {
   /* Adds an entry to the list of addresses SubscribeTransactions listens to */
   rpc ListenOnAddress (ListenOnAddressRequest) returns (ListenOnAddressResponse);
 
-  /* Subscribes to a stream of events that gives the client information about which addresses
-   * received funds in a transaction that has one or more confirmations */
+  /* Subscribes to a stream of confirmed transactions to addresses that were specified with "ListenOnAddress" */
   rpc SubscribeTransactions (SubscribeTransactionsRequest) returns (stream SubscribeTransactionsResponse);
+
+  /* Subscribes to a stream of invoices paid by Boltz */
+  rpc SubscribeInvoices (SubscribeInvoicesRequest) returns (stream SubscribeInvoicesResponse);
 
   /* Creates a new Swap from the chain to Lightning */
   rpc CreateSwap (CreateSwapRequest) returns (CreateSwapResponse);
@@ -123,6 +125,11 @@ message SubscribeTransactionsRequest {}
 message SubscribeTransactionsResponse {
   string transaction_hash = 1;
   string output_address = 2;
+}
+
+message SubscribeInvoicesRequest {}
+message SubscribeInvoicesResponse {
+  string invoice = 1;
 }
 
 message CreateSwapRequest {

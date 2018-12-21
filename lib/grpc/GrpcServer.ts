@@ -29,6 +29,7 @@ class GrpcServer {
       broadcastTransaction: grpcService.broadcastTransaction,
       listenOnAddress: grpcService.listenOnAddress,
       subscribeTransactions: grpcService.subscribeTransactions,
+      subscribeInvoices: grpcService.subscribeInvoices,
       createSwap: grpcService.createSwap,
       createReverseSwap: grpcService.createReverseSwap,
     });

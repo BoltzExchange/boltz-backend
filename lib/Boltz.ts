@@ -27,7 +27,7 @@ class Boltz {
   private service: Service;
   private grpcServer: GrpcServer;
 
-  constructor(config: Arguments) {
+  constructor(config: Arguments<any>) {
     this.config = new Config().load(config);
     this.logger = new Logger(this.config.logpath, this.config.loglevel);
 

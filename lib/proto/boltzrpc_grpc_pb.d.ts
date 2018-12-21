@@ -12,6 +12,9 @@ interface IBoltzService extends grpc.ServiceDefinition<grpc.UntypedServiceImplem
     newAddress: IBoltzService_INewAddress;
     getTransaction: IBoltzService_IGetTransaction;
     broadcastTransaction: IBoltzService_IBroadcastTransaction;
+    listenOnAddress: IBoltzService_IListenOnAddress;
+    subscribeTransactions: IBoltzService_ISubscribeTransactions;
+    subscribeInvoices: IBoltzService_ISubscribeInvoices;
     createSwap: IBoltzService_ICreateSwap;
     createReverseSwap: IBoltzService_ICreateReverseSwap;
 }
@@ -61,6 +64,33 @@ interface IBoltzService_IBroadcastTransaction extends grpc.MethodDefinition<bolt
     responseSerialize: grpc.serialize<boltzrpc_pb.BroadcastTransactionResponse>;
     responseDeserialize: grpc.deserialize<boltzrpc_pb.BroadcastTransactionResponse>;
 }
+interface IBoltzService_IListenOnAddress extends grpc.MethodDefinition<boltzrpc_pb.ListenOnAddressRequest, boltzrpc_pb.ListenOnAddressResponse> {
+    path: string; // "/boltzrpc.Boltz/ListenOnAddress"
+    requestStream: boolean; // false
+    responseStream: boolean; // false
+    requestSerialize: grpc.serialize<boltzrpc_pb.ListenOnAddressRequest>;
+    requestDeserialize: grpc.deserialize<boltzrpc_pb.ListenOnAddressRequest>;
+    responseSerialize: grpc.serialize<boltzrpc_pb.ListenOnAddressResponse>;
+    responseDeserialize: grpc.deserialize<boltzrpc_pb.ListenOnAddressResponse>;
+}
+interface IBoltzService_ISubscribeTransactions extends grpc.MethodDefinition<boltzrpc_pb.SubscribeTransactionsRequest, boltzrpc_pb.SubscribeTransactionsResponse> {
+    path: string; // "/boltzrpc.Boltz/SubscribeTransactions"
+    requestStream: boolean; // false
+    responseStream: boolean; // true
+    requestSerialize: grpc.serialize<boltzrpc_pb.SubscribeTransactionsRequest>;
+    requestDeserialize: grpc.deserialize<boltzrpc_pb.SubscribeTransactionsRequest>;
+    responseSerialize: grpc.serialize<boltzrpc_pb.SubscribeTransactionsResponse>;
+    responseDeserialize: grpc.deserialize<boltzrpc_pb.SubscribeTransactionsResponse>;
+}
+interface IBoltzService_ISubscribeInvoices extends grpc.MethodDefinition<boltzrpc_pb.SubscribeInvoicesRequest, boltzrpc_pb.SubscribeInvoicesResponse> {
+    path: string; // "/boltzrpc.Boltz/SubscribeInvoices"
+    requestStream: boolean; // false
+    responseStream: boolean; // true
+    requestSerialize: grpc.serialize<boltzrpc_pb.SubscribeInvoicesRequest>;
+    requestDeserialize: grpc.deserialize<boltzrpc_pb.SubscribeInvoicesRequest>;
+    responseSerialize: grpc.serialize<boltzrpc_pb.SubscribeInvoicesResponse>;
+    responseDeserialize: grpc.deserialize<boltzrpc_pb.SubscribeInvoicesResponse>;
+}
 interface IBoltzService_ICreateSwap extends grpc.MethodDefinition<boltzrpc_pb.CreateSwapRequest, boltzrpc_pb.CreateSwapResponse> {
     path: string; // "/boltzrpc.Boltz/CreateSwap"
     requestStream: boolean; // false
@@ -88,6 +118,9 @@ export interface IBoltzServer {
     newAddress: grpc.handleUnaryCall<boltzrpc_pb.NewAddressRequest, boltzrpc_pb.NewAddressResponse>;
     getTransaction: grpc.handleUnaryCall<boltzrpc_pb.GetTransactionRequest, boltzrpc_pb.GetTransactionResponse>;
     broadcastTransaction: grpc.handleUnaryCall<boltzrpc_pb.BroadcastTransactionRequest, boltzrpc_pb.BroadcastTransactionResponse>;
+    listenOnAddress: grpc.handleUnaryCall<boltzrpc_pb.ListenOnAddressRequest, boltzrpc_pb.ListenOnAddressResponse>;
+    subscribeTransactions: grpc.handleServerStreamingCall<boltzrpc_pb.SubscribeTransactionsRequest, boltzrpc_pb.SubscribeTransactionsResponse>;
+    subscribeInvoices: grpc.handleServerStreamingCall<boltzrpc_pb.SubscribeInvoicesRequest, boltzrpc_pb.SubscribeInvoicesResponse>;
     createSwap: grpc.handleUnaryCall<boltzrpc_pb.CreateSwapRequest, boltzrpc_pb.CreateSwapResponse>;
     createReverseSwap: grpc.handleUnaryCall<boltzrpc_pb.CreateReverseSwapRequest, boltzrpc_pb.CreateReverseSwapResponse>;
 }
@@ -108,6 +141,13 @@ export interface IBoltzClient {
     broadcastTransaction(request: boltzrpc_pb.BroadcastTransactionRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.BroadcastTransactionResponse) => void): grpc.ClientUnaryCall;
     broadcastTransaction(request: boltzrpc_pb.BroadcastTransactionRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.BroadcastTransactionResponse) => void): grpc.ClientUnaryCall;
     broadcastTransaction(request: boltzrpc_pb.BroadcastTransactionRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.BroadcastTransactionResponse) => void): grpc.ClientUnaryCall;
+    listenOnAddress(request: boltzrpc_pb.ListenOnAddressRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.ListenOnAddressResponse) => void): grpc.ClientUnaryCall;
+    listenOnAddress(request: boltzrpc_pb.ListenOnAddressRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.ListenOnAddressResponse) => void): grpc.ClientUnaryCall;
+    listenOnAddress(request: boltzrpc_pb.ListenOnAddressRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.ListenOnAddressResponse) => void): grpc.ClientUnaryCall;
+    subscribeTransactions(request: boltzrpc_pb.SubscribeTransactionsRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzrpc_pb.SubscribeTransactionsResponse>;
+    subscribeTransactions(request: boltzrpc_pb.SubscribeTransactionsRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzrpc_pb.SubscribeTransactionsResponse>;
+    subscribeInvoices(request: boltzrpc_pb.SubscribeInvoicesRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzrpc_pb.SubscribeInvoicesResponse>;
+    subscribeInvoices(request: boltzrpc_pb.SubscribeInvoicesRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzrpc_pb.SubscribeInvoicesResponse>;
     createSwap(request: boltzrpc_pb.CreateSwapRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CreateSwapResponse) => void): grpc.ClientUnaryCall;
     createSwap(request: boltzrpc_pb.CreateSwapRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CreateSwapResponse) => void): grpc.ClientUnaryCall;
     createSwap(request: boltzrpc_pb.CreateSwapRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CreateSwapResponse) => void): grpc.ClientUnaryCall;
@@ -133,6 +173,13 @@ export class BoltzClient extends grpc.Client implements IBoltzClient {
     public broadcastTransaction(request: boltzrpc_pb.BroadcastTransactionRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.BroadcastTransactionResponse) => void): grpc.ClientUnaryCall;
     public broadcastTransaction(request: boltzrpc_pb.BroadcastTransactionRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.BroadcastTransactionResponse) => void): grpc.ClientUnaryCall;
     public broadcastTransaction(request: boltzrpc_pb.BroadcastTransactionRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.BroadcastTransactionResponse) => void): grpc.ClientUnaryCall;
+    public listenOnAddress(request: boltzrpc_pb.ListenOnAddressRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.ListenOnAddressResponse) => void): grpc.ClientUnaryCall;
+    public listenOnAddress(request: boltzrpc_pb.ListenOnAddressRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.ListenOnAddressResponse) => void): grpc.ClientUnaryCall;
+    public listenOnAddress(request: boltzrpc_pb.ListenOnAddressRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.ListenOnAddressResponse) => void): grpc.ClientUnaryCall;
+    public subscribeTransactions(request: boltzrpc_pb.SubscribeTransactionsRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzrpc_pb.SubscribeTransactionsResponse>;
+    public subscribeTransactions(request: boltzrpc_pb.SubscribeTransactionsRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzrpc_pb.SubscribeTransactionsResponse>;
+    public subscribeInvoices(request: boltzrpc_pb.SubscribeInvoicesRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzrpc_pb.SubscribeInvoicesResponse>;
+    public subscribeInvoices(request: boltzrpc_pb.SubscribeInvoicesRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzrpc_pb.SubscribeInvoicesResponse>;
     public createSwap(request: boltzrpc_pb.CreateSwapRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CreateSwapResponse) => void): grpc.ClientUnaryCall;
     public createSwap(request: boltzrpc_pb.CreateSwapRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CreateSwapResponse) => void): grpc.ClientUnaryCall;
     public createSwap(request: boltzrpc_pb.CreateSwapRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CreateSwapResponse) => void): grpc.ClientUnaryCall;

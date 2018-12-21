@@ -109,7 +109,7 @@ class Config {
   /**
    * This loads arguments specified by the user either with a TOML config file or via command line arguments
    */
-  public load = (args: Arguments): ConfigType => {
+  public load = (args: Arguments<any>): ConfigType => {
     if (args.datadir) {
       this.config.datadir = resolveHome(args.datadir);
       deepMerge(this.config, this.getDataDirPaths(this.config.datadir));

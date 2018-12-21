@@ -15,7 +15,7 @@ export const builder = {
   },
 };
 
-export const handler = (argv: Arguments) => {
+export const handler = (argv: Arguments<any>) => {
   const network = getNetwork(argv.network);
   const keys = ECPair.makeRandom({ network });
 

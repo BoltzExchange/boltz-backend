@@ -40,11 +40,19 @@ interface GrpcResponse {
   toObject: Function;
 }
 
+interface LndClient {
+  on(event: 'invoice.settled', listener: (rHash: Buffer) => void): this;
+  emit(event: 'invoice.settled', rHash: Buffer): boolean;
+
+  on(event: 'invoice.paid', listener: (invoice: string) => void): this;
+  emit(event: 'invoice.paid', invoice: string): boolean;
+}
+
 interface LightningMethodIndex extends GrpcClient {
   [methodName: string]: Function;
 }
 
-/** A class representing a client to interact with lnd. */
+/** A class representing a client to interact with LND */
 class LndClient extends BaseClient implements LightningClient {
   public static readonly serviceName = 'LND';
   private uri!: string;
@@ -55,7 +63,7 @@ class LndClient extends BaseClient implements LightningClient {
   private invoiceSubscription?: ClientReadableStream<lndrpc.InvoiceSubscription>;
 
   /**
-   * Create an lnd client.
+   * Create an LND client
    * @param config the lnd configuration
    */
   constructor(private logger: Logger, config: LndConfig, public readonly symbol: string) {
@@ -208,10 +216,15 @@ class LndClient extends BaseClient implements LightningClient {
    * Pay an invoice through the Lightning Network.
    * @param payment_request an invoice for a payment within the Lightning Network
    */
-  public payInvoice = (paymentRequest: string): Promise<lndrpc.SendResponse.AsObject> => {
+  public payInvoice = async (invoice: string): Promise<lndrpc.SendResponse.AsObject> => {
     const request = new lndrpc.SendRequest();
-    request.setPaymentRequest(paymentRequest);
-    return this.unaryCall<lndrpc.SendRequest, lndrpc.SendResponse.AsObject>('sendPaymentSync', request);
+    request.setPaymentRequest(invoice);
+
+    const repsonse = this.unaryCall<lndrpc.SendRequest, lndrpc.SendResponse.AsObject>('sendPaymentSync', request);
+
+    this.emit('invoice.paid', invoice);
+
+    return repsonse;
   }
 
   /**

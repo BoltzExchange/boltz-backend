@@ -75,7 +75,7 @@ const inquiries = [
   },
 ];
 
-export const handler = async (argv: Arguments) => {
+export const handler = async (argv: Arguments<any>) => {
   const commands = await parseCommands(inquiries, argv);
   const refundTransaction = refundSwap(commands);
   printResponse({

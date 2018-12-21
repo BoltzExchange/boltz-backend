@@ -1,3 +1,5 @@
+import { EventEmitter } from 'events';
+import { Transaction, address } from 'bitcoinjs-lib';
 import Logger from '../Logger';
 import { Info as ChainInfo } from '../chain/ChainClientInterface';
 import { Info as LndInfo } from '../lightning/LndClient';
@@ -5,7 +7,7 @@ import SwapManager from '../swap/SwapManager';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import { WalletBalance } from '../wallet/Wallet';
 import Errors from './Errors';
-import { getHexBuffer, getOutputType } from '../Utils';
+import { getHexBuffer, getOutputType, getHexString } from '../Utils';
 import { OrderSide } from '../proto/boltzrpc_pb';
 
 const packageJson = require('../../package.json');
@@ -28,10 +30,25 @@ type BoltzInfo = {
   currencies: CurrencyInfo[];
 };
 
-// TODO: "invalid argument" errors
-class Service {
+interface Service {
+  on(event: 'transaction.confirmed', listener: (transactionHash: string, outputAddress: string) => void): this;
+  emit(event: 'transaction.confirmed', transactionHash: string, outputAddress: string): boolean;
 
-  constructor(private serviceComponents: ServiceComponents) {}
+  on(even: 'invoice.paid', listener: (invoice: string) => void): this;
+  emit(event: 'invoice.paid', invoice: string): boolean;
+}
+
+// TODO: "invalid argument" errors
+class Service extends EventEmitter {
+  // A map between the hex strings of the scripts of the addresses and the addresses to which Boltz should listen to
+  private listenScriptsSet = new Map<string, string>();
+
+  constructor(private serviceComponents: ServiceComponents) {
+    super();
+
+    this.subscribeTransactions();
+    this.subscribeInvoices();
+  }
 
   // TODO: error handling if a service is offline
   /**
@@ -43,7 +60,9 @@ class Service {
 
     const currencyInfos: CurrencyInfo[] = [];
 
-    const getCurrencyInfo = async (currency: Currency) => {
+    for (const entry of currencies) {
+      const currency = entry[1];
+
       const chainInfo = await currency.chainClient.getInfo();
       const lndInfo = await currency.lndClient.getLndInfo();
 
@@ -52,15 +71,7 @@ class Service {
         lndInfo,
         symbol: currency.symbol,
       });
-    };
-
-    const currenciesPromises: Promise<void>[] = [];
-
-    currencies.forEach((currency) => {
-      currenciesPromises.push(getCurrencyInfo(currency));
-    });
-
-    await Promise.all(currenciesPromises);
+    }
 
     return {
       version,
@@ -130,6 +141,18 @@ class Service {
   }
 
   /**
+   * Adds an entry to the list of addresses SubscribeTransactions listens to
+   */
+  public listenOnAddress = async (args: { currency: string, address: string }) => {
+    const currency = this.getCurrency(args.currency);
+
+    const script = address.toOutputScript(args.address, currency.network);
+
+    this.listenScriptsSet.set(getHexString(script), args.address);
+    await currency.chainClient.loadTxFiler(false, [args.address], []);
+  }
+
+  /**
    * Creates a new Swap from the chain to Lightning
    */
   public createSwap = async (args: { baseCurrency: string, quoteCurrency: string, orderSide: number, rate: number
@@ -158,6 +181,36 @@ class Service {
     const claimPublicKey = getHexBuffer(args.claimPublicKey);
 
     return await swapManager.createReverseSwap(args.baseCurrency, args.quoteCurrency, orderSide, args.rate, claimPublicKey, args.amount);
+  }
+
+  /**
+   * Subscribes to a stream of confirmed transactions to addresses that were specified with "ListenOnAddress"
+   */
+  private subscribeTransactions = () => {
+    this.serviceComponents.currencies.forEach((currency) => {
+      currency.chainClient.on('transaction.relevant.block', (transactionHex) => {
+        const transaction = Transaction.fromHex(transactionHex);
+
+        transaction.outs.forEach((out) => {
+          const listenAddress = this.listenScriptsSet.get(getHexString(out.script));
+
+          if (listenAddress) {
+            this.emit('transaction.confirmed', transaction.getId(), listenAddress);
+          }
+        });
+      });
+    });
+  }
+
+  /**
+   * Subscribes to a stream of invoices paid by Boltz
+   */
+  private subscribeInvoices = () => {
+    this.serviceComponents.currencies.forEach((currency) => {
+      currency.lndClient.on('invoice.paid', (invoice) => {
+        this.emit('invoice.paid', invoice);
+      });
+    });
   }
 
   private getCurrency = (currencySymbol: string) => {

@@ -162,11 +162,11 @@ class Config {
     return this.config;
   }
 
-  private parseIniConfig = (args: { path: string, lnd?: string }, network: string, lndpath: string, currency: CurrencyConfig) => {
-    if (fs.existsSync(args.path)) {
+  private parseIniConfig = (args: { configpath: string, lnd?: string }, network: string, lndpath: string, currency: CurrencyConfig) => {
+    if (fs.existsSync(args.configpath)) {
       let config;
       try {
-        const { rpcuser, rpcpass, rpclisten } = ini.parse(fs.readFileSync(args.path, 'utf-8'))['Application Options'];
+        const { rpcuser, rpcpass, rpclisten } = ini.parse(fs.readFileSync(args.configpath, 'utf-8'))['Application Options'];
         const listen = rpclisten ? splitListen(rpclisten) : rpclisten;
         const lndConfig = this.parseLndServiceConfig(currency, network, lndpath, args.lnd!);
         config = {
@@ -176,12 +176,12 @@ class Config {
             rpcpass,
             host: listen ? listen.host : currency.chain.host,
             port: listen ? listen.port : currency.chain.port,
-            certpath: path.join(path.dirname(args.path), 'rpc.cert'),
+            certpath: path.join(path.dirname(args.configpath), 'rpc.cert'),
           },
           ...lndConfig,
         };
       } catch (error) {
-        throw Errors.COULD_NOT_PARSE_CONFIG(args.path, JSON.stringify(error));
+        throw Errors.COULD_NOT_PARSE_CONFIG(args.configpath, JSON.stringify(error));
       }
       return config;
     }

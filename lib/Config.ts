@@ -232,8 +232,8 @@ class Config {
     currencies.forEach((curr) => {
       if (curr.lnd) {
         const net = curr.network[0].toUpperCase() + curr.network.slice(1);
-        curr.lnd!.certpath = path.join(lndpath, 'tls.cert');
-        curr.lnd!.macaroonpath = path.join(lndpath, 'data', 'chain', symbolToChain(Symbols[curr.symbol]), Network[net], 'admin.macaroon');
+        curr.lnd.certpath = path.join(lndpath, 'tls.cert');
+        curr.lnd.macaroonpath = path.join(lndpath, 'data', 'chain', symbolToChain(Symbols[curr.symbol]), Network[net], 'admin.macaroon');
       }
     });
     return currencies;

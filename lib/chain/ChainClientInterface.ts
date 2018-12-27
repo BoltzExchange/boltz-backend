@@ -47,8 +47,6 @@ interface ChainClientInterface {
 
   loadTxFiler (reload: boolean, addresses: string[], outpoints: string[]): Promise<null>;
 
-  estimateFee(blocks: number): Promise<number>;
-
   sendRawTransaction(rawTransaction: string, allowHighFees: boolean): Promise<string>;
   getRawTransaction(transactionHash: string): Promise<any>;
 

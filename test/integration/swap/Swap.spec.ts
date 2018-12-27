@@ -73,8 +73,8 @@ describe('Submarine Swaps', () => {
   const createOutputs = async () => {
     return [
       await sendFundsToSwap(p2wshOutput, OutputType.Bech32),
-      await sendFundsToSwap(p2shOutput, OutputType.Legacy),
       await sendFundsToSwap(p2shP2wshOutput, OutputType.Compatibility),
+      await sendFundsToSwap(p2shOutput, OutputType.Legacy),
     ];
   };
 

@@ -12,12 +12,12 @@
     "dev:watch": "concurrently --kill-others \"npm run compile:watch\" \"npm run nodemon:watch\"",
     "nodemon:watch": "nodemon --watch dist -e js bin/boltzd",
     "lint": "tslint --project tsconfig.json && tslint --config tslint-alt.json 'bin/*' 'test/**/*.ts'",
-    "docker-start": "docker-compose -f test/integration/docker-compose.yml up -d",
-    "docker-stop": "docker-compose -f test/integration/docker-compose.yml down -v",
+    "docker:start": "docker run -d --name simnet -p 18556:18556 -p 19556:19556 -p 10009:10009 -p 10010:10010 -p 11009:11009 -p 11010:11010 boltz/simnet",
+    "docker:stop": "docker kill simnet && docker rm simnet",
     "test": "npm run test:unit && npm run test:int",
-    "test:int": "npm run test:int:nostop && npm run docker-stop",
-    "test:int:nostop": "npm run docker-start && mocha test/integration/chain/*.spec.ts test/integration/lightning/*.spec.ts test/integration/swap/*.spec.ts test/integration/wallet/*.spec.ts",
-    "test:unit": "mocha test/unit/*.spec.ts test/unit/wallet/*.spec.ts"
+    "test:unit": "mocha test/unit/*.spec.ts test/unit/wallet/*.spec.ts",
+    "test:int": "npm run test:int:nostop && npm run docker:stop",
+    "test:int:nostop": "npm run docker:start && mocha test/integration/lightning/*.spec.ts test/integration/chain/*.spec.ts test/integration/swap/*.spec.ts test/integration/wallet/*.spec.ts"
   },
   "bin": {
     "boltzd": "./bin/boltzd",

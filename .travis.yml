@@ -3,6 +3,9 @@ language: node_js
 node_js:
   - "lts/*"
 
+services:
+  - docker
+
 cache:
   directories:
     - "node_modules"
@@ -13,4 +16,4 @@ install:
 script:
   - npm run compile
   - npm run lint
-  - npm run test:unit
+  - npm run test

@@ -10,6 +10,7 @@ import UtxoRepository from '../../../lib/wallet/UtxoRepository';
 import WalletRepository from '../../../lib/wallet/WalletRepository';
 import { getOutputType } from '../../../lib/Utils';
 
+// TODO: test detection of UTXOs in mempool
 describe('Wallet', () => {
   const derivationPath = 'm/0/0';
   const highestUsedIndex = 0;

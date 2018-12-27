@@ -196,14 +196,15 @@ class LndClient extends BaseClient implements LightningClient {
 
   /**
    * Return general information concerning the lightning node including it’s identity pubkey, alias, the chains it
-   * is connected to, and information concerning the number of open+pending channels.
+   * is connected to, and information concerning the number of open+pending channels
    */
   public getInfo = (): Promise<lndrpc.GetInfoResponse.AsObject> => {
     return this.unaryCall<lndrpc.GetInfoRequest, lndrpc.GetInfoResponse.AsObject>('getInfo', new lndrpc.GetInfoRequest());
   }
 
   /**
-   * Attempt to add a new invoice to the lnd invoice database.
+   * Attempt to add a new invoice to the lnd invoice database
+   *
    * @param value the value of this invoice in satoshis
    */
   public addInvoice = (value: number): Promise<lndrpc.AddInvoiceResponse.AsObject> => {
@@ -228,7 +229,8 @@ class LndClient extends BaseClient implements LightningClient {
   }
 
   /**
-   * Decode an encoded payment request.
+   * Decode an encoded payment request
+   *
    * @param paymentRequest encoded payment request
    */
   public decodePayReq = (paymentRequest: string): Promise<lndrpc.PayReq.AsObject> => {
@@ -239,6 +241,7 @@ class LndClient extends BaseClient implements LightningClient {
 
   /**
    * Establish a connection to a remote peer
+   *
    * @param pubKey identity public key of the remote peer
    * @param host host of the remote peer
    */
@@ -253,7 +256,22 @@ class LndClient extends BaseClient implements LightningClient {
   }
 
   /**
+   * Sends coins to a particular address
+   *
+   * @param address address to which coins should be sent
+   * @param amount number of satoshis to send
+   */
+  public sendCoins = (address: string, amount: number): Promise<lndrpc.SendCoinsResponse.AsObject> => {
+    const request = new lndrpc.SendCoinsRequest();
+    request.setAddr(address);
+    request.setAmount(amount);
+
+    return this.unaryCall<lndrpc.SendCoinsRequest, lndrpc.SendCoinsResponse.AsObject>('sendCoins', request);
+  }
+
+  /**
    * Creates a new address
+   *
    * @param addressType type of the address
    */
   public newAddress = (addressType = lndrpc.NewAddressRequest.AddressType.NESTED_PUBKEY_HASH): Promise<lndrpc.NewAddressResponse.AsObject> => {
@@ -265,6 +283,7 @@ class LndClient extends BaseClient implements LightningClient {
 
   /**
    * Attempts to open a channel to a remote peer
+   *
    * @param pubKey identity public key of the remote peer
    * @param fundingAmount the number of satohis the local wallet should commit
    * @param pushSat the number of satoshis that should be pushed to the remote side

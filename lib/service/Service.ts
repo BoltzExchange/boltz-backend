@@ -55,14 +55,9 @@ class Service extends EventEmitter {
    * Gets general information about this Boltz instance and the nodes it is connected to
    */
   public getInfo = async (): Promise<BoltzInfo> => {
-    const { currencies } = this.serviceComponents;
-    const version = packageJson.version;
-
     const currencyInfos: CurrencyInfo[] = [];
 
-    for (const entry of currencies) {
-      const currency = entry[1];
-
+    for (const [_, currency] of this.serviceComponents.currencies) {
       const chainInfo = await currency.chainClient.getInfo();
       const lndInfo = await currency.lndClient.getLndInfo();
 
@@ -74,7 +69,7 @@ class Service extends EventEmitter {
     }
 
     return {
-      version,
+      version: packageJson.version,
       currencies: currencyInfos,
     };
   }

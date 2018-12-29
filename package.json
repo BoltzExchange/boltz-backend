@@ -16,8 +16,7 @@
     "docker:stop": "docker kill simnet && docker rm simnet",
     "test": "npm run test:unit && npm run test:int",
     "test:unit": "mocha test/unit/*.spec.ts test/unit/wallet/*.spec.ts",
-    "test:int": "npm run test:int:nostop && npm run docker:stop",
-    "test:int:nostop": "npm run docker:start && mocha test/integration/lightning/*.spec.ts test/integration/chain/*.spec.ts test/integration/swap/*.spec.ts test/integration/wallet/*.spec.ts"
+    "test:int": "npm run docker:start && mocha test/integration/lightning/*.spec.ts test/integration/chain/*.spec.ts test/integration/swap/*.spec.ts test/integration/wallet/*.spec.ts && npm run docker:stop"
   },
   "bin": {
     "boltzd": "./bin/boltzd",

@@ -223,7 +223,7 @@ class Wallet {
       Promise<{ tx: Transaction, vout: number }> => {
 
     const utxos = await this.utxoRepository.getUtxosSorted(this.symbol);
-    const feePerByte = await this.chainClient.estimateFee(1);
+    const feePerByte = 10;
 
     // The UTXOs that will be spent
     const toSpend: UTXO[] = [];

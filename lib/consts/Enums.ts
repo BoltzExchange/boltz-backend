@@ -8,7 +8,7 @@ export enum ErrorCodePrefix {
   Swap = 6,
 }
 
-export enum Symbols {
+export enum Symbol {
   BTC = 'BTC',
   LTC = 'LTC',
 }

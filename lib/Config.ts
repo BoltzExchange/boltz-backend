@@ -4,7 +4,7 @@ import toml from 'toml';
 import ini from 'ini';
 import { Arguments } from 'yargs';
 import { deepMerge, resolveHome, splitListen, getServiceDataDir, symbolToChain } from './Utils';
-import { Chain, Symbols, Network } from './consts/Enums';
+import { Chain, Symbol, Network } from './consts/Enums';
 import { RpcConfig } from './RpcClient';
 import { LndConfig } from './lightning/LndClient';
 import { GrpcConfig } from './grpc/GrpcServer';
@@ -15,7 +15,7 @@ type ServiceOptions = {
 };
 
 type CurrencyConfig = {
-  symbol: Symbols,
+  symbol: Symbol,
   network: Network;
   chain: RpcConfig & ServiceOptions;
   lnd?: LndConfig & ServiceOptions;
@@ -58,7 +58,7 @@ class Config {
 
       datadir: this.dataDir,
       loglevel: this.getDefaultLogLevel(),
-      network: Network.Testnet,
+      network: this.getDefaultNetwork(),
 
       grpc: {
         host: '127.0.0.1',
@@ -71,7 +71,7 @@ class Config {
 
       currencies: [
         {
-          symbol: Symbols.BTC,
+          symbol: Symbol.BTC,
           network: Network.Testnet,
           chain: {
             host: '127.0.0.1',
@@ -88,7 +88,7 @@ class Config {
           },
         },
         {
-          symbol: Symbols.LTC,
+          symbol: Symbol.LTC,
           network: Network.Testnet,
           chain: {
             host: '127.0.0.1',
@@ -162,13 +162,16 @@ class Config {
     return this.config;
   }
 
-  private parseIniConfig = (args: { configpath: string, lnd?: string }, network: string, lndpath: string, currency: CurrencyConfig) => {
+  private parseIniConfig = (
+    args: { configpath: string, lndport?: string, lndhost?: string }, network: string, lndpath: string, currency: CurrencyConfig) => {
     if (fs.existsSync(args.configpath)) {
+      const { lndhost: host, lndport: port } = args;
       let config;
       try {
         const { rpcuser, rpcpass, rpclisten } = ini.parse(fs.readFileSync(args.configpath, 'utf-8'))['Application Options'];
         const listen = rpclisten ? splitListen(rpclisten) : rpclisten;
-        const lndConfig = this.parseLndServiceConfig(currency, network, lndpath, args.lnd!);
+        const uri = port && host ? `${host}:${port}` : undefined;
+        const lndConfig = this.parseLndServiceConfig(currency, network, lndpath, uri);
         config = {
           network,
           chain: {
@@ -193,7 +196,7 @@ class Config {
         host: lndlisten ? splitListen(lndlisten).host : currency.lnd!.host,
         port: lndlisten ? parseInt(splitListen(lndlisten).port, 0) : currency.lnd!.port,
         certpath: path.join(lndpath, 'tls.cert'),
-        macaroonpath: path.join(lndpath, 'data', 'chain', symbolToChain(Symbols[currency.symbol]), network, 'admin.macaroon'),
+        macaroonpath: path.join(lndpath, 'data', 'chain', symbolToChain(Symbol[currency.symbol]), network, 'admin.macaroon'),
       },
     };
   }
@@ -233,7 +236,7 @@ class Config {
       if (curr.lnd) {
         const net = curr.network[0].toUpperCase() + curr.network.slice(1);
         curr.lnd.certpath = path.join(lndpath, 'tls.cert');
-        curr.lnd.macaroonpath = path.join(lndpath, 'data', 'chain', symbolToChain(Symbols[curr.symbol]), Network[net], 'admin.macaroon');
+        curr.lnd.macaroonpath = path.join(lndpath, 'data', 'chain', symbolToChain(Symbol[curr.symbol]), Network[net], 'admin.macaroon');
       }
     });
     return currencies;
@@ -265,6 +268,10 @@ class Config {
 
   private getDefaultLogLevel = (): string => {
     return process.env.NODE_ENV === 'production' ? 'info' : 'debug';
+  }
+
+  private getDefaultNetwork = (): Network => {
+    return process.env.NODE_ENV === 'production' ? Network.Testnet : Network.Simnet;
   }
 }
 

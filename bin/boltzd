@@ -52,16 +52,24 @@ const { argv } = require('yargs')
       describe: 'Path to btcd config',
       type: 'string',
     },
-    'btcd.lnd': {
-      describe: 'Host and port for the gRPC interface',
+    'btcd.lndport': {
+      describe: 'Port for the gRPC interface',
+      type: 'string',
+    },
+    'btcd.lndhost': {
+      describe: 'Host for the gRPC interface',
       type: 'string',
     },
     'ltcd.configpath': {
       describe: 'Path to ltcd config',
       type: 'string',
     },
-    'ltcd.lnd': {
-      describe: 'Host and port for the gRPC interface',
+    'ltcd.lndport': {
+      describe: 'Port for the gRPC interface',
+      type: 'string',
+    },
+    'ltcd.lndhost': {
+      describe: 'Host for the gRPC interface',
       type: 'string',
     },
     lndpath: {

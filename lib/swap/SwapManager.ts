@@ -1,5 +1,5 @@
 import { BIP32 } from 'bip32';
-import { Transaction, crypto } from 'bitcoinjs-lib';
+import { Transaction, crypto, address } from 'bitcoinjs-lib';
 import { OutputType, TransactionOutput, Scripts, pkRefundSwap, constructClaimTransaction } from 'boltz-core';
 import Logger from '../Logger';
 import { getHexBuffer, getHexString, getScriptHashEncodeFunction, reverseString } from '../Utils';
@@ -41,6 +41,7 @@ type SwapMaps = {
 // TODO: verify values and amounts
 // TODO: fees for the Boltz to collect
 // TODO: automatically refund failed swaps
+// TOOD: save pending swap to database to be able to claim/refund them if boltz crashes
 class SwapManager {
   public currencies = new Map<string, Currency & SwapMaps>();
 
@@ -104,7 +105,7 @@ class SwapManager {
     const outputScript = encodeFunction(redeemScript);
 
     const address = receivingCurrency.wallet.encodeAddress(outputScript);
-    const expectedAmount = numSatoshis * this.getRate(rate, orderSide);
+    const expectedAmount = this.calculateExpectedAmount(numSatoshis, this.getRate(rate, orderSide));
 
     receivingCurrency.swaps.set(getHexString(outputScript), {
       invoice,
@@ -161,7 +162,7 @@ class SwapManager {
     const outputScript = p2shP2wshOutput(redeemScript);
     const address = sendingCurrency.wallet.encodeAddress(outputScript);
 
-    const sendingAmount = amount * this.getRate(rate, orderSide);
+    const sendingAmount = this.calculateExpectedAmount(amount, this.getRate(rate, orderSide));
 
     this.logger.debug(`Sending ${sendingAmount} on ${sendingCurrency.symbol} to swap address: ${address}`);
     const { tx, vout } = await sendingCurrency.wallet.sendToAddress(address, OutputType.Compatibility, true, sendingAmount);
@@ -243,8 +244,7 @@ class SwapManager {
     const preimage = payInvoice.paymentPreimage as string;
     this.logger.verbose(`Got preimage: ${preimage}`);
 
-    const destinationScript = p2wpkhOutput(crypto.hash160(details.claimKeys.publicKey));
-    const feePerByte = await currency.chainClient.estimateFee(1);
+    const destinationAddress = await this.walletManager.wallets.get(currency.symbol)!.getNewAddress(OutputType.Bech32);
 
     const claimTx = constructClaimTransaction(
       {
@@ -259,12 +259,11 @@ class SwapManager {
         script: outpuScript,
         value: outputValue,
       },
-      destinationScript,
-      feePerByte,
+      address.toOutputScript(destinationAddress, currency.network),
+      10,
     );
 
     this.logger.silly(`Broadcasting claim transaction: ${claimTx.getId()}`);
-
     await chainClient.sendRawTransaction(claimTx.toHex());
   }
 
@@ -297,6 +296,10 @@ class SwapManager {
     }
 
     return currency;
+  }
+
+  private calculateExpectedAmount = (amount: number, rate: number) => {
+    return Math.ceil(amount * rate);
   }
 
   private getRate = (rate: number, orderSide: OrderSide) => {

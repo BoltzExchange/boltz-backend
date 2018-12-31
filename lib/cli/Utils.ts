@@ -1,10 +1,9 @@
 import { Arguments } from 'yargs';
-import inquire from './inquire';
 import { address, ECPair, Transaction } from 'bitcoinjs-lib';
+import { Networks, detectSwap, constructClaimTransaction, constructRefundTransaction } from 'boltz-core';
+import inquire from './inquire';
 import { getHexBuffer } from '../Utils';
-import Networks from '../consts/Networks';
 import { OutputType, OrderSide } from '../proto/boltzrpc_pb';
-import { detectSwap, constructClaimTransaction, constructRefundTransaction } from 'boltz-core';
 
 export const getOrderSide = (side: string) => {
   switch (side.toLowerCase()) {
@@ -34,7 +33,7 @@ export const getNetwork = (networkKey: string) => {
   return network;
 };
 
-const parseParameters = (argv: Arguments) => {
+const parseParameters = (argv: Arguments<any>) => {
   const network = getNetwork(argv.network);
 
   return {
@@ -55,7 +54,7 @@ const parseSwapOutput = (redeemScript: Buffer, lockupTransaction: Transaction) =
   return swapOutput;
 };
 
-export const parseCommands = async (inquiries: any[], argv: Arguments): Promise<Arguments> => {
+export const parseCommands = async (inquiries: any[], argv: Arguments<any>): Promise<Arguments<any>> => {
   const argvLength = Object.keys(argv).length;
   if (argvLength === inquiries.length) {
     const answers = await inquire(inquiries);
@@ -65,7 +64,7 @@ export const parseCommands = async (inquiries: any[], argv: Arguments): Promise<
   }
 };
 
-export const claimSwap = (argv: Arguments) => {
+export const claimSwap = (argv: Arguments<any>) => {
   const { network, lockupTransaction, redeemScript, destinationScript } = parseParameters(argv);
   const claimKeys = ECPair.fromPrivateKey(getHexBuffer(argv.claim_private_key), { network });
 
@@ -88,7 +87,7 @@ export const claimSwap = (argv: Arguments) => {
   return claimTransaction.toHex();
 };
 
-export const refundSwap = (argv: Arguments) => {
+export const refundSwap = (argv: Arguments<any>) => {
   const { network, lockupTransaction, redeemScript, destinationScript } = parseParameters(argv);
   const refundKeys = ECPair.fromPrivateKey(getHexBuffer(argv.refund_private_key), { network });
 

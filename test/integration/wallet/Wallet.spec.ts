@@ -1,9 +1,8 @@
 import { expect } from 'chai';
-import { OutputType } from 'boltz-core';
+import { OutputType, Networks } from 'boltz-core';
 import bip32 from 'bip32';
 import bip39 from 'bip39';
 import Wallet from '../../../lib/wallet/Wallet';
-import Networks from '../../../lib/consts/Networks';
 import { btcdClient, btcManager, btcAddress } from '../chain/ChainClient.spec';
 import Logger from '../../../lib/Logger';
 import Database from '../../../lib/db/Database';
@@ -11,6 +10,7 @@ import UtxoRepository from '../../../lib/wallet/UtxoRepository';
 import WalletRepository from '../../../lib/wallet/WalletRepository';
 import { getOutputType } from '../../../lib/Utils';
 
+// TODO: test detection of UTXOs in mempool
 describe('Wallet', () => {
   const derivationPath = 'm/0/0';
   const highestUsedIndex = 0;

@@ -1,6 +1,6 @@
 import { Arguments } from 'yargs';
+import { Networks } from 'boltz-core';
 import { claimSwap, parseCommands } from '../Utils';
-import Networks from '../../consts/Networks';
 import { printResponse } from '../Command';
 import BuilderComponents from '../BuilderComponents';
 
@@ -64,7 +64,7 @@ const inquiries = [
   },
 ];
 
-export const handler = async (argv: Arguments) => {
+export const handler = async (argv: Arguments<any>) => {
   const commands = await parseCommands(inquiries, argv);
   const claimTransaction = claimSwap(commands);
 

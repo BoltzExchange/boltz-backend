@@ -3,7 +3,7 @@ import fs from 'fs';
 import toml from 'toml';
 import ini from 'ini';
 import { Arguments } from 'yargs';
-import { deepMerge, resolveHome, splitListen, getServiceDataDir, symbolToChain } from './Utils';
+import { deepMerge, resolveHome, splitListen, getServiceDataDir } from './Utils';
 import { Chain, Symbol, Network } from './consts/Enums';
 import { RpcConfig } from './RpcClient';
 import { LndConfig } from './lightning/LndClient';
@@ -84,7 +84,7 @@ class Config {
             host: '127.0.0.1',
             port: 10009,
             certpath: path.join(getServiceDataDir('lnd'), 'tls.cert'),
-            macaroonpath: path.join(getServiceDataDir('lnd'), 'data', 'chain', Chain.Bitcoin, Network.Testnet, 'admin.macaroon'),
+            macaroonpath: path.join(getServiceDataDir('lnd'), 'data', 'chain', Chain.BTC, Network.Testnet, 'admin.macaroon'),
           },
         },
         {
@@ -101,7 +101,7 @@ class Config {
             host: '127.0.0.1',
             port: 11009,
             certpath: path.join(getServiceDataDir('lnd'), 'tls.cert'),
-            macaroonpath: path.join(getServiceDataDir('lnd'), 'data', 'chain', Chain.Litecoin, Network.Testnet, 'admin.macaroon'),
+            macaroonpath: path.join(getServiceDataDir('lnd'), 'data', 'chain', Chain.LTC, Network.Testnet, 'admin.macaroon'),
           },
         },
       ],
@@ -196,7 +196,7 @@ class Config {
         host: lndlisten ? splitListen(lndlisten).host : currency.lnd!.host,
         port: lndlisten ? parseInt(splitListen(lndlisten).port, 0) : currency.lnd!.port,
         certpath: path.join(lndpath, 'tls.cert'),
-        macaroonpath: path.join(lndpath, 'data', 'chain', symbolToChain(Symbol[currency.symbol]), network, 'admin.macaroon'),
+        macaroonpath: path.join(lndpath, 'data', 'chain', Chain[currency.symbol], network, 'admin.macaroon'),
       },
     };
   }
@@ -236,7 +236,7 @@ class Config {
       if (curr.lnd) {
         const net = curr.network[0].toUpperCase() + curr.network.slice(1);
         curr.lnd.certpath = path.join(lndpath, 'tls.cert');
-        curr.lnd.macaroonpath = path.join(lndpath, 'data', 'chain', symbolToChain(Symbol[curr.symbol]), Network[net], 'admin.macaroon');
+        curr.lnd.macaroonpath = path.join(lndpath, 'data', 'chain', Chain[curr.symbol], Network[net], 'admin.macaroon');
       }
     });
     return currencies;

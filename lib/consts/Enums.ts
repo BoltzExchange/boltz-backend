@@ -14,8 +14,8 @@ export enum Symbol {
 }
 
 export enum Chain {
-  Bitcoin = 'bitcoin',
-  Litecoin = 'litecoin',
+  BTC = 'bitcoin',
+  LTC = 'litecoin',
 }
 
 export enum Network {

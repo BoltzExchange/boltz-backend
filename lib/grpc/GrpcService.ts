@@ -169,14 +169,13 @@ class GrpcService {
 
   public createSwap: grpc.handleUnaryCall<boltzrpc.CreateSwapRequest, boltzrpc.CreateSwapResponse> = async (call, callback) => {
     try {
-      const { address, redeemScript, timeoutBlockHeight, expectedAmount, bip21 } = await this.service.createSwap(call.request.toObject());
+      const { address, redeemScript, timeoutBlockHeight, expectedAmount } = await this.service.createSwap(call.request.toObject());
 
       const response = new boltzrpc.CreateSwapResponse();
       response.setRedeemScript(redeemScript);
       response.setTimeoutBlockHeight(timeoutBlockHeight);
       response.setAddress(address);
       response.setExpectedAmount(expectedAmount);
-      response.setBip21(bip21);
 
       callback(null, response);
     } catch (error) {

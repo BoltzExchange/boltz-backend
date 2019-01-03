@@ -7,7 +7,6 @@ import Errors from './Errors';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import { OrderSide } from '../proto/boltzrpc_pb';
 import LndClient from '../lightning/LndClient';
-import { encodeBip21, getBip21Prefix } from './PaymentRequestUtils';
 
 const { p2wpkhOutput, p2shP2wshOutput } = Scripts;
 
@@ -123,7 +122,6 @@ class SwapManager {
       expectedAmount,
       timeoutBlockHeight,
       redeemScript: getHexString(redeemScript),
-      bip21: encodeBip21(getBip21Prefix(receivingCurrency), address, expectedAmount, `Submarine Swap to ${sendingCurrency.symbol}`),
     };
   }
 

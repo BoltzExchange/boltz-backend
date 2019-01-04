@@ -59,7 +59,7 @@ class UtxoRepository {
   }
 
   public addUtxo = async (utxo: db.UtxoFactory) => {
-    return this.models.Utxo.create(utxo);
+    return this.models.Utxo.create(<db.UtxoAttributes>utxo);
   }
 
   public removeUtxo = async (txHash: string) => {

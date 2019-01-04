@@ -1,5 +1,5 @@
 import { BIP32 } from 'bip32';
-import { Transaction, crypto, address } from 'bitcoinjs-lib';
+import { Transaction, address } from 'bitcoinjs-lib';
 import { OutputType, TransactionOutput, Scripts, pkRefundSwap, constructClaimTransaction } from 'boltz-core';
 import Logger from '../Logger';
 import { getHexBuffer, getHexString, getScriptHashEncodeFunction, reverseString } from '../Utils';
@@ -8,7 +8,7 @@ import WalletManager, { Currency } from '../wallet/WalletManager';
 import { OrderSide } from '../proto/boltzrpc_pb';
 import LndClient from '../lightning/LndClient';
 
-const { p2wpkhOutput, p2shP2wshOutput } = Scripts;
+const { p2shP2wshOutput } = Scripts;
 
 type BaseSwapDetails = {
   redeemScript: Buffer;
@@ -87,10 +87,7 @@ class SwapManager {
 
     this.logger.verbose(`Creating new Swap from ${receivingCurrency.symbol} to ${sendingCurrency.symbol} with preimage hash: ${paymentHash}`);
 
-    const { keys, index } = receivingCurrency.wallet.getNewKeys();
-
-    // Listen to the address to which the swap output will be claimed
-    await receivingCurrency.wallet.listenToOutput(p2wpkhOutput(crypto.hash160(keys.publicKey)), index, OutputType.Bech32);
+    const { keys } = receivingCurrency.wallet.getNewKeys();
 
     const timeoutBlockHeight = bestBlock.height + 10;
     const redeemScript = pkRefundSwap(

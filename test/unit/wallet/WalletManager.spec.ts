@@ -6,8 +6,8 @@ import bip39 from 'bip39';
 import { Networks } from 'boltz-core';
 import WalletManager from '../../../lib/wallet/WalletManager';
 import WalletErrors from '../../../lib/wallet/Errors';
-import ChainClient from '../../../lib/chain/ChainClient';
 import LndClient from '../../../lib/lightning/LndClient';
+import ChainClient from '../../../lib/chain/ChainClient';
 import Logger from '../../../lib/Logger';
 import Database from '../../../lib/db/Database';
 import WalletRepository from '../../../lib/wallet/WalletRepository';
@@ -18,40 +18,47 @@ describe('WalletManager', () => {
   const database = new Database(Logger.disabledLogger, ':memory:');
   const repository = new WalletRepository(database.models);
 
-  const chainClient = mock(ChainClient);
+  const btcClient = mock(ChainClient);
+  const ltcClient = mock(ChainClient);
+
+  // A hack to force override the readonly property "symbol"
+  btcClient['symbol' as any] = 'BTC';
+  ltcClient['symbol' as any] = 'LTC';
+
   const lndClient = mock(LndClient);
 
   const currencies = [
     {
-      chainClient,
       lndClient,
+      chainClient: btcClient,
       symbol: 'BTC',
       network: Networks.bitcoinRegtest,
     },
     {
-      chainClient,
       lndClient,
+      chainClient: ltcClient,
       symbol: 'LTC',
       network: Networks.litecoinRegtest,
     },
   ];
-  const mnemonicpath = 'mnemonic.dat';
+
+  const mnemonicpath = 'seed.dat';
 
   let walletManager: WalletManager;
 
-  function removeWalletFile() {
+  const removeSeedFile = () => {
     if (fs.existsSync(mnemonicpath)) {
       fs.unlinkSync(mnemonicpath);
     }
-  }
+  };
 
   before(async () => {
-    removeWalletFile();
+    removeSeedFile();
 
     await database.init();
   });
 
-  it('should not initialize without wallet file', () => {
+  it('should not initialize without seed file', () => {
     expect(() => new WalletManager(Logger.disabledLogger, currencies, database, mnemonicpath)).to.throw(WalletErrors.NOT_INITIALIZED().message);
   });
 
@@ -96,6 +103,6 @@ describe('WalletManager', () => {
   });
 
   after(async () => {
-    removeWalletFile();
+    removeSeedFile();
   });
 });

@@ -11,6 +11,7 @@ import Logger from '../../../lib/Logger';
 import Database from '../../../lib/db/Database';
 import UtxoRepository from '../../../lib/wallet/UtxoRepository';
 import WalletRepository from '../../../lib/wallet/WalletRepository';
+import OutputRepository from '../../../lib/wallet/OutputRepository';
 
 describe('Wallet', () => {
   const currency = 'BTC';
@@ -20,6 +21,7 @@ describe('Wallet', () => {
 
   const database = new Database(Logger.disabledLogger, ':memory:');
   const walletRepository = new WalletRepository(database.models);
+  const outputRepository = new OutputRepository(database.models);
   const utxoRepository = new UtxoRepository(database.models);
 
   const derivationPath = 'm/0/0';
@@ -31,7 +33,7 @@ describe('Wallet', () => {
   // "as any" is needed to force override a "readonly" value
   chainClientMock['symbol' as any] = currency;
 
-  const wallet = new Wallet(Logger.disabledLogger, walletRepository, utxoRepository,
+  const wallet = new Wallet(Logger.disabledLogger, walletRepository, outputRepository, utxoRepository,
     masterNode, network, chainClientMock, derivationPath, highestUsedIndex);
 
   const incrementIndex = () => {
@@ -98,6 +100,13 @@ describe('Wallet', () => {
       totalBalance: 0,
     };
 
+    const { id } = await outputRepository.addOutput({
+      script: '',
+      currency: 'BTC',
+      keyIndex: 0,
+      type: 0,
+    });
+
     for (let i = 0; i <= 10; i += 1) {
       const confirmed = i % 2 === 0;
       const value = Math.floor(Math.random() * 1000000) + 1;
@@ -106,11 +115,9 @@ describe('Wallet', () => {
         value,
         confirmed,
         currency: 'BTC',
-        keyIndex: 0,
         txHash: `${value}`,
-        script: '',
-        type: 0,
         vout: 0,
+        outputId: id,
       });
 
       if (confirmed) {

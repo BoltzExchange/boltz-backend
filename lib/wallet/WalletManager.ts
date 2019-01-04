@@ -1,18 +1,18 @@
 import fs from 'fs';
-import bip32, { BIP32 } from 'bip32';
 import bip39 from 'bip39';
+import bip32, { BIP32 } from 'bip32';
+import { Network } from 'bitcoinjs-lib';
 import Errors from './Errors';
 import Wallet from './Wallet';
-import { splitDerivationPath } from '../Utils';
-import { Network } from 'bitcoinjs-lib';
 import Logger from '../Logger';
-import ChainClient from '../chain/ChainClient';
-import LndClient from '../lightning/LndClient';
 import Database from '../db/Database';
-import WalletRepository from './WalletRepository';
-import { WalletFactory } from '../consts/Database';
 import { WalletInfo } from '../consts/Types';
 import UtxoRepository from './UtxoRepository';
+import { splitDerivationPath } from '../Utils';
+import ChainClient from '../chain/ChainClient';
+import LndClient from '../lightning/LndClient';
+import WalletRepository from './WalletRepository';
+import OutputRepository from './OutputRepository';
 
 type Currency = {
   symbol: string;
@@ -29,6 +29,7 @@ class WalletManager {
   private repository: WalletRepository;
 
   private utxoRepository: UtxoRepository;
+  private outputResository: OutputRepository;
 
   // TODO: support for BIP44
   private readonly derivationPath = 'm/0';
@@ -41,6 +42,7 @@ class WalletManager {
 
     this.repository = new WalletRepository(db.models);
     this.utxoRepository = new UtxoRepository(db.models);
+    this.outputResository = new OutputRepository(db.models);
   }
 
   /**
@@ -57,8 +59,9 @@ class WalletManager {
   }
 
   public init = async () => {
-    const walletsToAdd: WalletFactory[] = [];
     const walletsMap = await this.getWalletsMap();
+
+    const promises: Promise<any>[] = [];
 
     this.currencies.forEach((currency) => {
       let walletInfo = walletsMap.get(currency.symbol);
@@ -71,24 +74,27 @@ class WalletManager {
         };
 
         walletsMap.set(currency.symbol, walletInfo);
-        walletsToAdd.push({ symbol: currency.symbol, ...walletInfo });
+        promises.push(this.repository.addWallet({ symbol: currency.symbol, ...walletInfo }));
       }
 
-      this.wallets.set(currency.symbol, new Wallet(
+      const wallet = new Wallet(
         this.logger,
         this.repository,
+        this.outputResository,
         this.utxoRepository,
         this.masterNode,
         currency.network,
         currency.chainClient,
         walletInfo.derivationPath,
         walletInfo.highestUsedIndex,
-      ));
+      );
+
+      promises.push(wallet.init());
+
+      this.wallets.set(currency.symbol, wallet);
     });
 
-    if (walletsToAdd.length !== 0) {
-      await this.repository.addWallets(walletsToAdd);
-    }
+    await Promise.all(promises);
   }
 
   private loadMnemonic = (filename: string): string => {

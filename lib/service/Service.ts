@@ -57,7 +57,7 @@ class Service extends EventEmitter {
   public getInfo = async (): Promise<BoltzInfo> => {
     const currencyInfos: CurrencyInfo[] = [];
 
-    for (const [_, currency] of this.serviceComponents.currencies) {
+    for (const [, currency] of this.serviceComponents.currencies) {
       const chainInfo = await currency.chainClient.getInfo();
       const lndInfo = await currency.lndClient.getLndInfo();
 

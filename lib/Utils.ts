@@ -216,3 +216,14 @@ export const getScriptHashEncodeFunction = (outputType: OutputType) => {
 export const reverseString = (input: string) => {
   return input.split('').reverse().join('');
 };
+
+export const reverseBuffer = (input: Buffer) => {
+  const buffer = Buffer.allocUnsafe(input.length);
+
+  for (let i = 0, j = input.length - 1; i <= j; i += 1, j -= 1) {
+    buffer[i] = input[j];
+    buffer[j] = input[i];
+  }
+
+  return buffer;
+};

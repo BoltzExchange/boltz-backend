@@ -1,13 +1,13 @@
 import { BIP32 } from 'bip32';
-import { Transaction, Network, address, crypto, TransactionBuilder, ECPair } from 'bitcoinjs-lib';
 import { OutputType, TransactionOutput, estimateFee } from 'boltz-core';
-import ChainClient from '../chain/ChainClient';
-import { getPubKeyHashEncodeFuntion, getHexString, getHexBuffer } from '../Utils';
+import { Transaction, Network, address, crypto, TransactionBuilder, ECPair } from 'bitcoinjs-lib';
 import Errors from './Errors';
 import Logger from '../Logger';
 import UtxoRepository from './UtxoRepository';
+import ChainClient from '../chain/ChainClient';
 import WalletRepository from './WalletRepository';
 import { UtxoInstance } from '../consts/Database';
+import { getPubKeyHashEncodeFuntion, getHexString, getHexBuffer, reverseBuffer } from '../Utils';
 
 type UTXO = TransactionOutput & {
   redeemScript?: Buffer;
@@ -66,11 +66,12 @@ class Wallet {
         const outputInfo = this.relevantOutputs.get(hexScript);
 
         if (outputInfo) {
-          this.logger.debug(`Found UTXO of ${this.symbol} wallet ${confirmed ? `in block #${blockHeight}` : 'in mempool'}:` +
-            ` ${transaction.getId()}:${vout} with value ${output.value}`);
-
           if (confirmed) {
+            this.logUtxoFoundMessage(true, transaction.getId(), vout, output.value, blockHeight);
             this.relevantOutputs.delete(hexScript);
+
+          } else {
+            this.logUtxoFoundMessage(false, transaction.getId(), vout, output.value);
           }
 
           const promise = this.utxoRepository.upsertUtxo({
@@ -107,6 +108,8 @@ class Wallet {
 
       upsertUtxo(txHex, blockHeight);
     });
+
+    this.checkUnconfirmedFunds();
   }
 
   public get highestUsedIndex() {
@@ -319,6 +322,54 @@ class Wallet {
       tx: builder.build(),
       vout: 0,
     };
+  }
+
+  /**
+   * Checks if unconfirmed funds got confirmed since last startup
+   */
+  private checkUnconfirmedFunds = () => {
+    this.utxoRepository.getUnconfirmedUtxos(this.symbol).then((utxos: UtxoInstance[]) => {
+      utxos.forEach(async (utxo) => {
+        // The reversed version of the hex representation of a Buffer is not equal to the reversed Buffer.
+        // Therefore we have to go full circle from a string to back to the Buffer, reverse that Buffer
+        // and convert it back to a string to get the id of the transaction that is used by BTCD
+        const transactionId = getHexString(
+          reverseBuffer(
+            getHexBuffer(utxo.txHash),
+          ),
+        );
+
+        const transactionInfo = await this.chainClient.getRawTransaction(transactionId, 1);
+
+        if (transactionInfo.confirmations) {
+          const bestBlock = await this.chainClient.getBestBlock();
+
+          // BTCD shows 1 confirmtation if the transaction in the best block (tip of the chain). Therefore to get the
+          // block height in which it got confirmed we have to get the height of the best block minus how deep the block
+          // in which the transaction confirmed is in the chain (confirmations minus one)
+          this.logUtxoFoundMessage(true, transactionId, utxo.vout, utxo.value, bestBlock.height - (transactionInfo.confirmations - 1));
+
+          utxo.set('confirmed', true);
+          await utxo.save();
+        } else {
+          // Listen and wait for the transaction to get confirmed
+          await this.listenToOutput(getHexBuffer(utxo.script), utxo.keyIndex, utxo.type, undefined, utxo.redeemScript);
+        }
+      });
+    }).catch((error) => {
+      this.logger.error(`Could not get unconfirmed UTXOs: ${error}`);
+    });
+  }
+
+  private logUtxoFoundMessage = (confirmed: boolean, transactionId: string, vout: number, value: number, blockHeight?: number) => {
+    const message = `Found UTXO of ${this.symbol} wallet ${confirmed ? `in block #${blockHeight}` : 'in mempool'}:` +
+      ` ${transactionId}:${vout} with value ${value}`;
+
+    if (confirmed) {
+      this.logger.info(message);
+    } else {
+      this.logger.verbose(message);
+    }
   }
 }
 

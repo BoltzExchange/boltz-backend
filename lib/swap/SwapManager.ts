@@ -40,7 +40,7 @@ type SwapMaps = {
 // TODO: verify values and amounts
 // TODO: fees for the Boltz to collect
 // TODO: automatically refund failed swaps
-// TOOD: save pending swap to database to be able to claim/refund them if boltz crashes
+// TODO: save pending swap to database to be able to claim/refund them if boltz crashes
 class SwapManager {
   public currencies = new Map<string, Currency & SwapMaps>();
 

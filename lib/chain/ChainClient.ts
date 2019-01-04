@@ -97,8 +97,8 @@ class ChainClient extends BaseClient implements ChainClientInterface {
     return this.rpcClient.call<string>('sendrawtransaction', rawTransaction, allowHighFees);
   }
 
-  public getRawTransaction = (transactionHash: string) => {
-    return this.rpcClient.call<any>('getrawtransaction', transactionHash);
+  public getRawTransaction = (transactionHash: string, verbose = 0) => {
+    return this.rpcClient.call<any>('getrawtransaction', transactionHash, verbose);
   }
 
   public generate = (blocks: number): Promise<string[]> => {

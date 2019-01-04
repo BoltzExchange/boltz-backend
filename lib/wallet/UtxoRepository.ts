@@ -24,6 +24,15 @@ class UtxoRepository {
     });
   }
 
+  public getUnconfirmedUtxos = async (currency: string) => {
+    return this.models.Utxo.findAll({
+      where: {
+        currency,
+        confirmed: false,
+      },
+    });
+  }
+
   public getUtxo = async (txHash: string) => {
     return this.models.Utxo.findAll({
       where: {

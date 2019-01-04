@@ -1,14 +1,13 @@
-import path from 'path';
 import fs from 'fs';
+import path from 'path';
 import toml from 'toml';
-import ini from 'ini';
 import { Arguments } from 'yargs';
 import { pki, md } from 'node-forge';
-import { deepMerge, resolveHome, splitListen, getServiceDataDir } from './Utils';
-import { RpcConfig } from './RpcClient';
-import { LndConfig } from './lightning/LndClient';
-import { GrpcConfig } from './grpc/GrpcServer';
 import Errors from './consts/Errors';
+import { RpcConfig } from './RpcClient';
+import { GrpcConfig } from './grpc/GrpcServer';
+import { LndConfig } from './lightning/LndClient';
+import { deepMerge, resolveHome, getServiceDataDir } from './Utils';
 
 type ServiceOptions = {
   configpath?: string;
@@ -140,35 +139,6 @@ class Config {
     deepMerge(this.config, args);
 
     return this.config;
-  }
-
-  // TODO: don't use "deepMerge" in "parseIniConfig"
-  private parseIniConfig = (filename: string, mergeTarget: any, isLndConfig: boolean) => {
-    if (fs.existsSync(filename)) {
-      try {
-        const config = ini.parse(fs.readFileSync(filename, 'utf-8'))['Application Options'];
-
-        if (isLndConfig) {
-          const configLND: LndConfig = config;
-          if (config.listen) {
-            const listen = splitListen(config.listen);
-            mergeTarget.host = listen.host;
-            mergeTarget.port = listen.port;
-          }
-          deepMerge(mergeTarget, configLND);
-        } else {
-          const configClient: RpcConfig = config;
-          if (config.listen) {
-            const listen = splitListen(config.listen);
-            mergeTarget.host = listen.host;
-            mergeTarget.port = listen.port;
-          }
-          deepMerge(mergeTarget, configClient);
-        }
-      } catch (error) {
-        throw Errors.COULD_NOT_PARSE_CONFIG(filename, JSON.stringify(error));
-      }
-    }
   }
 
   private parseTomlConfig = (filename: string): any => {

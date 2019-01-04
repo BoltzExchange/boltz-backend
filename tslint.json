@@ -6,7 +6,6 @@
     "max-line-length": [true, 150],
     "no-else-after-return": false,
     "function-name": false,
-    "no-unused-variable": false, // TODO: rule disabled during early development stages, should be reenabled later
     "align": false,
     "typedef-whitespace": [
       true, {

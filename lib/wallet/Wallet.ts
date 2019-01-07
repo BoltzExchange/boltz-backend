@@ -7,6 +7,7 @@ import UtxoRepository from './UtxoRepository';
 import ChainClient from '../chain/ChainClient';
 import WalletRepository from './WalletRepository';
 import { UtxoInstance } from '../consts/Database';
+import OutputRepository from './OutputRepository';
 import { getPubKeyHashEncodeFuntion, getHexString, getHexBuffer, reverseBuffer } from '../Utils';
 
 type UTXO = TransactionOutput & {
@@ -22,10 +23,13 @@ type WalletBalance = {
 
 // TODO: detect funds received whlie Boltz was not running
 // TODO: more advanced UTXO management
-// TODO: multiple transaction to same output
 // TODO: multiple outputs to the wallet in one transaction
 class Wallet {
-  private relevantOutputs = new Map<string, { keyIndex: number, type: OutputType, redeemScript?: string }>();
+  // A map between output scripts and information necessary to spend them
+  private relevantOutputs = new Map<string, { id: number, keyIndex: number, type: OutputType, redeemScript?: string }>();
+
+  // A map between the ids and relevant output scripts
+  private outputIds = new Map<number, string>();
 
   private symbol: string;
 
@@ -41,6 +45,7 @@ class Wallet {
   constructor(
     private logger: Logger,
     private walletRepository: WalletRepository,
+    private outputRepository: OutputRepository,
     private utxoRepository: UtxoRepository,
     private masterNode: BIP32,
     public readonly network: Network,
@@ -68,8 +73,6 @@ class Wallet {
         if (outputInfo) {
           if (confirmed) {
             this.logUtxoFoundMessage(true, transaction.getId(), vout, output.value, blockHeight);
-            this.relevantOutputs.delete(hexScript);
-
           } else {
             this.logUtxoFoundMessage(false, transaction.getId(), vout, output.value);
           }
@@ -78,11 +81,9 @@ class Wallet {
             vout,
             confirmed,
             currency: this.symbol,
-            txHash: getHexString(transaction.getHash()),
-            script: getHexString(output.script),
-            redeemScript: outputInfo.redeemScript,
             value: output.value,
-            ...outputInfo,
+            outputId: outputInfo.id,
+            txHash: getHexString(transaction.getHash()),
           });
 
           if (confirmed) {
@@ -108,12 +109,30 @@ class Wallet {
 
       upsertUtxo(txHex, blockHeight);
     });
-
-    this.checkUnconfirmedFunds();
   }
 
   public get highestUsedIndex() {
     return this.highestIndex;
+  }
+
+  public init = async () => {
+    const outputs = await this.outputRepository.getOutputs(this.symbol);
+    const addresses: string[] = [];
+
+    outputs.forEach((output) => {
+      addresses.push(this.encodeAddress(getHexBuffer(output.script)));
+
+      this.outputIds.set(output.id, output.script);
+      this.relevantOutputs.set(output.script, {
+        id: output.id,
+        keyIndex: output.keyIndex,
+        type: output.type,
+        redeemScript: output.redeemScript,
+      });
+    });
+
+    await this.chainClient.loadTxFiler(false, addresses, []);
+    await this.checkUnconfirmedFunds();
   }
 
   /**
@@ -164,6 +183,7 @@ class Wallet {
     }
 
     const address = this.encodeAddress(outputScript);
+    this.logger.debug(`Generated new ${this.symbol} address: ${address}`);
 
     await this.listenToOutput(outputScript, index, type, address, redeemScript);
 
@@ -180,16 +200,6 @@ class Wallet {
       outputScript,
       this.network,
     );
-  }
-
-  /**
-   * Add an output that can be spent by the wallet
-   */
-  public listenToOutput = async (output: Buffer, keyIndex: number, type: OutputType, address?: string, redeemScript?: string) => {
-    this.relevantOutputs.set(getHexString(output), { keyIndex, type, redeemScript });
-
-    const chainAddress = address ? address : this.encodeAddress(output);
-    await this.chainClient.loadTxFiler(false, [chainAddress], []);
   }
 
   /**
@@ -246,16 +256,19 @@ class Wallet {
 
     // Accumulate UTXOs to spend
     for (const utxoInstance of utxos) {
-      const redeemScript = utxoInstance.redeemScript ? getHexBuffer(utxoInstance.redeemScript) : undefined;
+      const script = this.outputIds.get(utxoInstance.outputId)!;
+      const output = this.relevantOutputs.get(script)!;
+
+      const redeemScript = output.redeemScript ? getHexBuffer(output.redeemScript) : undefined;
 
       toSpend.push({
         redeemScript,
         txHash: getHexBuffer(utxoInstance.txHash),
         vout: utxoInstance.vout,
-        type: utxoInstance.type,
-        script: getHexBuffer(utxoInstance.script),
+        type: output.type,
+        script: getHexBuffer(script),
         value: utxoInstance.value,
-        keys: this.getKeysByIndex(utxoInstance.keyIndex),
+        keys: this.getKeysByIndex(output.keyIndex),
       });
 
       toRemove.push(utxoInstance.txHash);
@@ -327,37 +340,59 @@ class Wallet {
   /**
    * Checks if unconfirmed funds got confirmed since last startup
    */
-  private checkUnconfirmedFunds = () => {
-    this.utxoRepository.getUnconfirmedUtxos(this.symbol).then((utxos: UtxoInstance[]) => {
-      utxos.forEach(async (utxo) => {
-        // The reversed version of the hex representation of a Buffer is not equal to the reversed Buffer.
-        // Therefore we have to go full circle from a string to back to the Buffer, reverse that Buffer
-        // and convert it back to a string to get the id of the transaction that is used by BTCD
-        const transactionId = getHexString(
-          reverseBuffer(
-            getHexBuffer(utxo.txHash),
-          ),
-        );
+  private checkUnconfirmedFunds = async () => {
+    const utxos = await this.utxoRepository.getUnconfirmedUtxos(this.symbol);
 
-        const transactionInfo = await this.chainClient.getRawTransaction(transactionId, 1);
+    utxos.forEach(async (utxo) => {
+      // The reversed version of the hex representation of a Buffer is not equal to the reversed Buffer.
+      // Therefore we have to go full circle from a string to back to the Buffer, reverse that Buffer
+      // and convert it back to a string to get the id of the transaction that is used by BTCD
+      const transactionId = getHexString(
+        reverseBuffer(
+          getHexBuffer(utxo.txHash),
+        ),
+      );
 
-        if (transactionInfo.confirmations) {
-          const bestBlock = await this.chainClient.getBestBlock();
+      const transactionInfo = await this.chainClient.getRawTransaction(transactionId, 1);
 
-          // BTCD shows 1 confirmtation if the transaction in the best block (tip of the chain). Therefore to get the
-          // block height in which it got confirmed we have to get the height of the best block minus how deep the block
-          // in which the transaction confirmed is in the chain (confirmations minus one)
-          this.logUtxoFoundMessage(true, transactionId, utxo.vout, utxo.value, bestBlock.height - (transactionInfo.confirmations - 1));
+      if (transactionInfo.confirmations) {
+        const bestBlock = await this.chainClient.getBestBlock();
 
-          utxo.set('confirmed', true);
-          await utxo.save();
-        } else {
-          // Listen and wait for the transaction to get confirmed
-          await this.listenToOutput(getHexBuffer(utxo.script), utxo.keyIndex, utxo.type, undefined, utxo.redeemScript);
-        }
-      });
-    }).catch((error) => {
-      this.logger.error(`Could not get unconfirmed UTXOs: ${error}`);
+        // BTCD shows 1 confirmtation if the transaction in the best block (tip of the chain). Therefore to get the
+        // block height in which it got confirmed we have to get the height of the best block minus how deep the block
+        // in which the transaction confirmed is in the chain (confirmations minus one)
+        this.logUtxoFoundMessage(true, transactionId, utxo.vout, utxo.value, bestBlock.height - (transactionInfo.confirmations - 1));
+
+        utxo.set('confirmed', true);
+        await utxo.save();
+      }
+    });
+  }
+
+  /**
+   * Add an output that can be spent by the wallet
+   */
+  private listenToOutput = async (script: Buffer, keyIndex: number, type: OutputType, address?: string, redeemScript?: string) => {
+    const scriptString = getHexString(script);
+
+    const chainAddress = address ? address : this.encodeAddress(script);
+
+    await this.chainClient.loadTxFiler(false, [chainAddress], []);
+
+    const outputInstance = await this.outputRepository.addOutput({
+      type,
+      keyIndex,
+      redeemScript,
+      script: scriptString,
+      currency: this.symbol,
+    });
+
+    this.outputIds.set(outputInstance.id, scriptString);
+    this.relevantOutputs.set(scriptString, {
+      type,
+      keyIndex,
+      redeemScript,
+      id: outputInstance.id,
     });
   }
 

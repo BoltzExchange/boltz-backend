@@ -1,6 +1,7 @@
 import Sequelize, { DataTypeAbstract, DefineAttributeColumnOptions } from 'sequelize';
 import { WalletInfo } from './Types';
 
+// TODO: don't have currency in OutputFactory and UtxoFactory
 export type SequelizeAttributes<T extends { [key: string]: any }> = {
   [P in keyof T]: string | DataTypeAbstract | DefineAttributeColumnOptions
 };
@@ -23,18 +24,31 @@ export type WalletAttributes = WalletFactory;
 
 export type WalletInstance = WalletAttributes & Sequelize.Instance<WalletAttributes>;
 
-export type UtxoFactory = {
-  txHash: string;
-  currency: string;
-  keyIndex: number;
-  vout: number;
+export type OutputFactory = {
   script: string;
   redeemScript?: string;
-  value: number;
+  currency: string;
+  keyIndex: number;
   type: number;
-  confirmed: boolean;
 };
 
-export type UtxoAttributes = UtxoFactory;
+export type OutputAttributes = OutputFactory & {
+  id: number;
+};
+
+export type OutputInstance = OutputAttributes & Sequelize.Instance<OutputAttributes>;
+
+export type UtxoFactory = {
+  txHash: string;
+  vout: number;
+  currency: string,
+  value: number;
+  confirmed: boolean;
+  outputId: number;
+};
+
+export type UtxoAttributes = UtxoFactory & {
+  id: number;
+};
 
 export type UtxoInstance = UtxoAttributes & Sequelize.Instance<UtxoAttributes>;

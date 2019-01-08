@@ -3,15 +3,13 @@ import * as db from '../../consts/Database';
 
 export default (sequelize: Sequelize.Sequelize, dataTypes: Sequelize.DataTypes) => {
   const attributes: db.SequelizeAttributes<db.UtxoAttributes> = {
-    txHash: { type: dataTypes.STRING, primaryKey: true, allowNull: false },
-    currency: { type: dataTypes.STRING, allowNull: false },
-    keyIndex: { type: dataTypes.INTEGER, allowNull: false },
+    id: { type: dataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    txHash: { type: dataTypes.STRING, allowNull: false },
     vout: { type: dataTypes.INTEGER, allowNull: false },
-    script: { type: dataTypes.STRING, allowNull: false },
-    redeemScript: { type: dataTypes.STRING, allowNull: true },
+    currency: { type: dataTypes.STRING, allowNull: false },
     value: { type: dataTypes.INTEGER, allowNull: false },
-    type: { type: dataTypes.INTEGER, allowNull: false },
     confirmed: { type: dataTypes.BOOLEAN, allowNull: true },
+    outputId: { type: dataTypes.INTEGER, allowNull: false },
   };
 
   const options: Sequelize.DefineOptions<db.UtxoInstance> = {
@@ -22,8 +20,8 @@ export default (sequelize: Sequelize.Sequelize, dataTypes: Sequelize.DataTypes) 
   const Utxo = sequelize.define<db.UtxoInstance, db.UtxoAttributes>('Utxo', attributes, options);
 
   Utxo.associate = (models: Sequelize.Models) => {
-    models.Utxo.belongsTo(models.Wallet, {
-      foreignKey: 'currency',
+    models.Utxo.belongsTo(models.Output, {
+      foreignKey: 'outputId',
     });
   };
 

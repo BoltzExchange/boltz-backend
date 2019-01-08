@@ -24,6 +24,15 @@ class UtxoRepository {
     });
   }
 
+  public getUnconfirmedUtxos = async (currency: string) => {
+    return this.models.Utxo.findAll({
+      where: {
+        currency,
+        confirmed: false,
+      },
+    });
+  }
+
   public getUtxo = async (txHash: string) => {
     return this.models.Utxo.findAll({
       where: {
@@ -50,7 +59,7 @@ class UtxoRepository {
   }
 
   public addUtxo = async (utxo: db.UtxoFactory) => {
-    return this.models.Utxo.create(utxo);
+    return this.models.Utxo.create(<db.UtxoAttributes>utxo);
   }
 
   public removeUtxo = async (txHash: string) => {

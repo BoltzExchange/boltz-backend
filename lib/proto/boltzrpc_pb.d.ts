@@ -577,9 +577,6 @@ export class CreateSwapResponse extends jspb.Message {
     getExpectedAmount(): number;
     setExpectedAmount(value: number): void;
 
-    getBip21(): string;
-    setBip21(value: string): void;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): CreateSwapResponse.AsObject;
@@ -597,7 +594,6 @@ export namespace CreateSwapResponse {
         timeoutBlockHeight: number,
         address: string,
         expectedAmount: number,
-        bip21: string,
     }
 }
 

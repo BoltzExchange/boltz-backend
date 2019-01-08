@@ -1,5 +1,5 @@
 import { BIP32 } from 'bip32';
-import { Transaction, crypto, address } from 'bitcoinjs-lib';
+import { Transaction, address } from 'bitcoinjs-lib';
 import { OutputType, TransactionOutput, Scripts, pkRefundSwap, constructClaimTransaction } from 'boltz-core';
 import Logger from '../Logger';
 import { getHexBuffer, getHexString, getScriptHashEncodeFunction, reverseString } from '../Utils';
@@ -7,9 +7,8 @@ import Errors from './Errors';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import { OrderSide } from '../proto/boltzrpc_pb';
 import LndClient from '../lightning/LndClient';
-import { encodeBip21, getBip21Prefix } from './PaymentRequestUtils';
 
-const { p2wpkhOutput, p2shP2wshOutput } = Scripts;
+const { p2shP2wshOutput } = Scripts;
 
 type BaseSwapDetails = {
   redeemScript: Buffer;
@@ -41,7 +40,7 @@ type SwapMaps = {
 // TODO: verify values and amounts
 // TODO: fees for the Boltz to collect
 // TODO: automatically refund failed swaps
-// TOOD: save pending swap to database to be able to claim/refund them if boltz crashes
+// TODO: save pending swap to database to be able to claim/refund them if boltz crashes
 class SwapManager {
   public currencies = new Map<string, Currency & SwapMaps>();
 
@@ -88,10 +87,7 @@ class SwapManager {
 
     this.logger.verbose(`Creating new Swap from ${receivingCurrency.symbol} to ${sendingCurrency.symbol} with preimage hash: ${paymentHash}`);
 
-    const { keys, index } = receivingCurrency.wallet.getNewKeys();
-
-    // Listen to the address to which the swap output will be claimed
-    await receivingCurrency.wallet.listenToOutput(p2wpkhOutput(crypto.hash160(keys.publicKey)), index, OutputType.Bech32);
+    const { keys } = receivingCurrency.wallet.getNewKeys();
 
     const timeoutBlockHeight = bestBlock.height + 10;
     const redeemScript = pkRefundSwap(
@@ -123,7 +119,6 @@ class SwapManager {
       expectedAmount,
       timeoutBlockHeight,
       redeemScript: getHexString(redeemScript),
-      bip21: encodeBip21(getBip21Prefix(receivingCurrency), address, expectedAmount, `Submarine Swap to ${sendingCurrency.symbol}`),
     };
   }
 

@@ -1,4 +1,3 @@
-import { expect } from 'chai';
 import path from 'path';
 import { ECPair, TransactionBuilder, Transaction, Network } from 'bitcoinjs-lib';
 import { Networks } from 'boltz-core';

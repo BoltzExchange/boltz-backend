@@ -9,6 +9,7 @@ import Database from '../../../lib/db/Database';
 import UtxoRepository from '../../../lib/wallet/UtxoRepository';
 import WalletRepository from '../../../lib/wallet/WalletRepository';
 import { getOutputType } from '../../../lib/Utils';
+import OutputRepository from '../../../lib/wallet/OutputRepository';
 
 // TODO: test detection of UTXOs in mempool
 describe('Wallet', () => {
@@ -20,11 +21,13 @@ describe('Wallet', () => {
 
   const database = new Database(Logger.disabledLogger, ':memory:');
   const walletRepository = new WalletRepository(database.models);
+  const outputRepository = new OutputRepository(database.models);
   const utxoRepository = new UtxoRepository(database.models);
 
   const wallet = new Wallet(
     Logger.disabledLogger,
     walletRepository,
+    outputRepository,
     utxoRepository,
     masterNode,
     Networks.bitcoinSimnet,

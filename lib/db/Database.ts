@@ -6,6 +6,7 @@ import Logger from '../Logger';
 
 type Models = {
   Wallet: Sequelize.Model<db.WalletInstance, db.WalletAttributes>;
+  Output: Sequelize.Model<db.OutputInstance, db.OutputAttributes>;
   Utxo: Sequelize.Model<db.UtxoInstance, db.UtxoAttributes>;
 };
 
@@ -38,6 +39,7 @@ class Db {
 
     await Promise.all([
       this.models.Wallet.sync(),
+      this.models.Output.sync(),
       this.models.Utxo.sync(),
     ]);
   }

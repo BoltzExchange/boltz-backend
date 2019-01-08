@@ -1,14 +1,14 @@
-import path from 'path';
 import fs from 'fs';
+import path from 'path';
 import toml from 'toml';
 import ini from 'ini';
 import { Arguments } from 'yargs';
-import { deepMerge, resolveHome, splitListen, getServiceDataDir } from './Utils';
+import Errors from './consts/Errors';
 import { Chain, Symbol, Network } from './consts/Enums';
 import { RpcConfig } from './RpcClient';
-import { LndConfig } from './lightning/LndClient';
 import { GrpcConfig } from './grpc/GrpcServer';
-import Errors from './consts/Errors';
+import { LndConfig } from './lightning/LndClient';
+import { deepMerge, resolveHome, getServiceDataDir, splitListen } from './Utils';
 
 type ServiceOptions = {
   configpath?: string;

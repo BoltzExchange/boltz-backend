@@ -84,6 +84,10 @@ class ChainClient extends BaseClient implements ChainClientInterface {
     return this.rpcClient.call<BestBlock>('getbestblock');
   }
 
+  public getRawMempool = (verbose = false): Promise<any> => {
+    return this.rpcClient.call<any>('getrawmempool', verbose);
+  }
+
   public getBlock = (blockHash: string): Promise<Block> => {
     return this.rpcClient.call<Block>('getblock', blockHash);
   }
@@ -103,6 +107,23 @@ class ChainClient extends BaseClient implements ChainClientInterface {
 
   public generate = (blocks: number): Promise<string[]> => {
     return this.rpcClient.call<string[]>('generate', blocks);
+  }
+
+  public estimateFee = () => {
+    return new Promise(async (res, rej) => {
+      try {
+        let sumOfFees = 0;
+        const mempoolTx = await this.getRawMempool(true);
+        const transactions = Object.values(mempoolTx);
+        transactions.forEach((tx: any) => {
+          sumOfFees += tx.fee;
+        });
+        const avarage = sumOfFees / transactions.length;
+        res(avarage);
+      } catch (err) {
+        rej(false);
+      }
+    });
   }
 
   /**

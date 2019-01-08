@@ -151,7 +151,7 @@ class Service extends EventEmitter {
    * Creates a new Swap from the chain to Lightning
    */
   public createSwap = async (args: { baseCurrency: string, quoteCurrency: string, orderSide: number, rate: number
-    invoice: string, refundPublicKey: string, outputType: number }) => {
+    invoice: string, refundPublicKey: string, outputType: number, timeoutBlockHeight: number}) => {
 
     const { swapManager } = this.serviceComponents;
 
@@ -160,14 +160,15 @@ class Service extends EventEmitter {
 
     const refundPublicKey = getHexBuffer(args.refundPublicKey);
 
-    return await swapManager.createSwap(args.baseCurrency, args.quoteCurrency, orderSide, args.rate, args.invoice, refundPublicKey, outputType);
+    return await swapManager.createSwap(args.baseCurrency, args.quoteCurrency, orderSide,
+      args.rate, args.invoice, refundPublicKey, outputType, args.timeoutBlockHeight);
   }
 
   /**
    * Creates a new Swap from Lightning to the chain
    */
   public createReverseSwap = async (args: { baseCurrency: string, quoteCurrency: string, orderSide: number, rate: number,
-    claimPublicKey: string, amount: number }) => {
+    claimPublicKey: string, amount: number, timeoutBlockHeight: number}) => {
 
     const { swapManager } = this.serviceComponents;
 
@@ -175,7 +176,8 @@ class Service extends EventEmitter {
 
     const claimPublicKey = getHexBuffer(args.claimPublicKey);
 
-    return await swapManager.createReverseSwap(args.baseCurrency, args.quoteCurrency, orderSide, args.rate, claimPublicKey, args.amount);
+    return await swapManager.createReverseSwap(args.baseCurrency, args.quoteCurrency, orderSide, args.rate, 
+    claimPublicKey, args.amount, args.timeoutBlockHeight);
   }
 
   /**

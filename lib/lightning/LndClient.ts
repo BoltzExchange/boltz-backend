@@ -337,11 +337,11 @@ class LndClient extends BaseClient implements LightningClient {
           this.emit('invoice.settled', rHash);
         }
       })
-      .on('error', (error) => {
+      .on('error', async (error) => {
         if (error.message !== '1 CANCELLED: Cancelled') {
           this.logger.error(`Invoice subscription ended: ${error}`);
         } else {
-          this.reconnect();
+          await this.reconnect();
         }
       });
   }

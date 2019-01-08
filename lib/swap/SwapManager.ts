@@ -1,12 +1,12 @@
 import { BIP32 } from 'bip32';
 import { Transaction, address } from 'bitcoinjs-lib';
 import { OutputType, TransactionOutput, Scripts, pkRefundSwap, constructClaimTransaction } from 'boltz-core';
-import Logger from '../Logger';
-import { getHexBuffer, getHexString, getScriptHashEncodeFunction, reverseString } from '../Utils';
 import Errors from './Errors';
-import WalletManager, { Currency } from '../wallet/WalletManager';
-import { OrderSide } from '../proto/boltzrpc_pb';
+import Logger from '../Logger';
 import LndClient from '../lightning/LndClient';
+import { OrderSide } from '../proto/boltzrpc_pb';
+import WalletManager, { Currency } from '../wallet/WalletManager';
+import { getHexBuffer, getHexString, getScriptHashEncodeFunction, reverseString } from '../Utils';
 
 const { p2shP2wshOutput } = Scripts;
 
@@ -242,20 +242,19 @@ class SwapManager {
     const destinationAddress = await this.walletManager.wallets.get(currency.symbol)!.getNewAddress(OutputType.Bech32);
 
     const claimTx = constructClaimTransaction(
-      {
-        preimage: Buffer.from(preimage, 'base64'),
-        keys: details.claimKeys,
-        redeemScript: details.redeemScript,
-      },
-      {
-        txHash,
+      [{
         vout,
-        type: details.outputType,
-        script: outpuScript,
+        txHash,
         value: outputValue,
-      },
+        script: outpuScript,
+        keys: details.claimKeys,
+        type: details.outputType,
+        redeemScript: details.redeemScript,
+        preimage: Buffer.from(preimage, 'base64'),
+      }],
       address.toOutputScript(destinationAddress, currency.network),
-      10,
+      1,
+      true,
     );
 
     this.logger.silly(`Broadcasting claim transaction: ${claimTx.getId()}`);

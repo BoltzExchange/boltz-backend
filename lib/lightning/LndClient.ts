@@ -44,6 +44,9 @@ interface LndClient {
   on(event: 'invoice.settled', listener: (rHash: Buffer) => void): this;
   emit(event: 'invoice.settled', rHash: Buffer): boolean;
 
+  on(event: 'invoice.failed', listener: (rHash: Buffer) => void): this;
+  emit(event: 'invoice.failed', rHash: Buffer): boolean;
+
   on(event: 'invoice.paid', listener: (invoice: string) => void): this;
   emit(event: 'invoice.paid', invoice: string): boolean;
 }
@@ -310,11 +313,15 @@ class LndClient extends BaseClient implements LightningClient {
 
     this.invoiceSubscription = this.lightning.subscribeInvoices(new lndrpc.InvoiceSubscription(), this.meta)
       .on('data', (invoice: lndrpc.Invoice) => {
+        const rHash = Buffer.from(invoice.getRHash_asB64(), 'base64');
         if (invoice.getSettled()) {
-          const rHash = Buffer.from(invoice.getRHash_asB64(), 'base64');
 
           this.logger.silly(`${this.symbol} LND invoice settled: ${getHexString(rHash)}`);
           this.emit('invoice.settled', rHash);
+        } else {
+
+          this.logger.silly(`${this.symbol} LND invoice failed: ${getHexString(rHash)}`);
+          this.emit('invoice.failed', rHash);
         }
       })
       .on('error', (error) => {

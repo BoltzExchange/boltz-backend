@@ -133,6 +133,26 @@ class LndClient extends BaseClient implements LightningClient {
     return true;
   }
 
+  private reconnect = async () => {
+    try {
+      const response = await this.getInfo();
+
+      this.logger.info(`Reestablished connection to ${LndClient.serviceName} ${this.symbol}`);
+      this.logger.info(`${LndClient.serviceName} ${this.symbol} status: ${response.syncedToChain}`);
+
+      this.setClientStatus(ClientStatus.Connected);
+      this.clearReconnectTimer();
+      this.subscribeInvoices();
+
+    } catch (err) {
+      this.logger.error(`Could not reconnect to ${LndClient.serviceName} ${this.symbol}: ${err}`);
+      this.logger.info(`Retrying in ${this.RECONNECT_INTERVAL} ms`);
+
+      this.setClientStatus(ClientStatus.Disconnected);
+      this.reconnectionTimer = setTimeout(this.reconnect, this.RECONNECT_INTERVAL);
+    }
+  }
+
   /** End all subscriptions and reconnection attempts. */
   public disconnect = () => {
     this.clearReconnectTimer();
@@ -320,6 +340,8 @@ class LndClient extends BaseClient implements LightningClient {
       .on('error', (error) => {
         if (error.message !== '1 CANCELLED: Cancelled') {
           this.logger.error(`Invoice subscription ended: ${error}`);
+        } else {
+          this.reconnect();
         }
       });
   }

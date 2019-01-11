@@ -499,6 +499,9 @@ export namespace SubscribeInvoicesRequest {
 }
 
 export class SubscribeInvoicesResponse extends jspb.Message { 
+    getEvent(): InvoiceEvent;
+    setEvent(value: InvoiceEvent): void;
+
     getInvoice(): string;
     setInvoice(value: string): void;
 
@@ -515,6 +518,7 @@ export class SubscribeInvoicesResponse extends jspb.Message {
 
 export namespace SubscribeInvoicesResponse {
     export type AsObject = {
+        event: InvoiceEvent,
         invoice: string,
     }
 }
@@ -684,4 +688,9 @@ export enum OutputType {
 export enum OrderSide {
     BUY = 0,
     SELL = 1,
+}
+
+export enum InvoiceEvent {
+    PAID = 0,
+    SETTLED = 1,
 }

@@ -1,13 +1,12 @@
 import fs from 'fs';
 import grpc, { ClientReadableStream } from 'grpc';
-import BaseClient from '../BaseClient';
-import Logger from '../Logger';
 import Errors from './Errors';
+import Logger from '../Logger';
+import BaseClient from '../BaseClient';
 import LightningClient from './LightningClient';
 import * as lndrpc from '../proto/lndrpc_pb';
 import { ClientStatus } from '../consts/Enums';
 import { LightningClient as GrpcClient } from '../proto/lndrpc_grpc_pb';
-import { getHexString } from '../Utils';
 
 // TODO: error handling
 
@@ -41,11 +40,11 @@ interface GrpcResponse {
 }
 
 interface LndClient {
-  on(event: 'invoice.settled', listener: (rHash: Buffer) => void): this;
-  emit(event: 'invoice.settled', rHash: Buffer): boolean;
-
   on(event: 'invoice.paid', listener: (invoice: string) => void): this;
   emit(event: 'invoice.paid', invoice: string): boolean;
+
+  on(event: 'invoice.settled', listener: (invoice: string) => void): this;
+  emit(event: 'invoice.settled', string: string): boolean;
 }
 
 interface LightningMethodIndex extends GrpcClient {
@@ -311,10 +310,10 @@ class LndClient extends BaseClient implements LightningClient {
     this.invoiceSubscription = this.lightning.subscribeInvoices(new lndrpc.InvoiceSubscription(), this.meta)
       .on('data', (invoice: lndrpc.Invoice) => {
         if (invoice.getSettled()) {
-          const rHash = Buffer.from(invoice.getRHash_asB64(), 'base64');
+          const paymentReq = invoice.getPaymentRequest();
 
-          this.logger.silly(`${this.symbol} LND invoice settled: ${getHexString(rHash)}`);
-          this.emit('invoice.settled', rHash);
+          this.logger.silly(`${this.symbol} LND invoice settled: ${paymentReq}`);
+          this.emit('invoice.settled', paymentReq);
         }
       })
       .on('error', (error) => {

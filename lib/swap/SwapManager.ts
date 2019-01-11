@@ -160,10 +160,11 @@ class SwapManager {
     const sendingAmount = this.calculateExpectedAmount(amount, this.getRate(rate, orderSide));
 
     this.logger.debug(`Sending ${sendingAmount} on ${sendingCurrency.symbol} to swap address: ${address}`);
-    const { tx, vout } = await sendingCurrency.wallet.sendToAddress(address, OutputType.Compatibility, true, sendingAmount);
-    const txHex = tx.toHex();
 
-    await sendingCurrency.chainClient.sendRawTransaction(txHex);
+    const { tx, vout } = await sendingCurrency.wallet.sendToAddress(address, OutputType.Compatibility, true, sendingAmount);
+    const rawTx = tx.toHex();
+
+    await sendingCurrency.chainClient.sendRawTransaction(rawTx);
 
     sendingCurrency.reverseSwaps.set(paymentRequest, {
       redeemScript,
@@ -180,8 +181,9 @@ class SwapManager {
     return {
       invoice: paymentRequest,
       redeemScript: getHexString(redeemScript),
-      transaction: txHex,
-      transactionHash: tx.getId(),
+      lockupAddress: address,
+      lockupTransaction: rawTx,
+      lockupTransactionHash: tx.getId(),
     };
   }
 

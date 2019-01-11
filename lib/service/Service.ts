@@ -172,7 +172,6 @@ class Service extends EventEmitter {
     const { swapManager } = this.serviceComponents;
 
     const orderSide = this.getOrderSide(args.orderSide);
-
     const claimPublicKey = getHexBuffer(args.claimPublicKey);
 
     return await swapManager.createReverseSwap(args.baseCurrency, args.quoteCurrency, orderSide, args.rate, claimPublicKey, args.amount);

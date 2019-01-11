@@ -645,11 +645,14 @@ export class CreateReverseSwapResponse extends jspb.Message {
     getRedeemScript(): string;
     setRedeemScript(value: string): void;
 
-    getTransaction(): string;
-    setTransaction(value: string): void;
+    getLockupAddress(): string;
+    setLockupAddress(value: string): void;
 
-    getTransactionHash(): string;
-    setTransactionHash(value: string): void;
+    getLockupTransaction(): string;
+    setLockupTransaction(value: string): void;
+
+    getLockupTransactionHash(): string;
+    setLockupTransactionHash(value: string): void;
 
 
     serializeBinary(): Uint8Array;
@@ -666,8 +669,9 @@ export namespace CreateReverseSwapResponse {
     export type AsObject = {
         invoice: string,
         redeemScript: string,
-        transaction: string,
-        transactionHash: string,
+        lockupAddress: string,
+        lockupTransaction: string,
+        lockupTransactionHash: string,
     }
 }
 

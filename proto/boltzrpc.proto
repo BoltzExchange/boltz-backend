@@ -160,6 +160,7 @@ message CreateReverseSwapRequest {
 message CreateReverseSwapResponse {
   string invoice = 1;
   string redeem_script = 2;
-  string transaction = 3;
-  string transaction_hash = 4;
+  string lockup_address = 3;
+  string lockup_transaction = 4;
+  string lockup_transaction_hash = 5;
 }

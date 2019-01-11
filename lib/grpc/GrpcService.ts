@@ -135,7 +135,6 @@ class GrpcService {
     }
   }
 
-  // TODO: cli calls needed?
   public listenOnAddress: grpc.handleUnaryCall<boltzrpc.ListenOnAddressRequest, boltzrpc.ListenOnAddressResponse> = async (call, callback) => {
     try {
       await this.service.listenOnAddress(call.request.toObject());
@@ -187,13 +186,20 @@ class GrpcService {
   async (call, callback) => {
 
     try {
-      const { invoice, redeemScript, transaction, transactionHash } = await this.service.createReverseSwap(call.request.toObject());
+      const {
+        invoice,
+        redeemScript,
+        lockupAddress,
+        lockupTransaction,
+        lockupTransactionHash,
+      } = await this.service.createReverseSwap(call.request.toObject());
 
       const response = new boltzrpc.CreateReverseSwapResponse();
       response.setInvoice(invoice);
       response.setRedeemScript(redeemScript);
-      response.setTransaction(transaction);
-      response.setTransactionHash(transactionHash);
+      response.setLockupAddress(lockupAddress);
+      response.setLockupTransaction(lockupTransaction);
+      response.setLockupTransactionHash(lockupTransactionHash);
 
       callback(null, response);
     } catch (error) {

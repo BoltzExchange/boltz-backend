@@ -24,7 +24,7 @@ service Boltz {
   /* Subscribes to a stream of confirmed transactions to addresses that were specified with "ListenOnAddress" */
   rpc SubscribeTransactions (SubscribeTransactionsRequest) returns (stream SubscribeTransactionsResponse);
 
-  /* Subscribes to a stream of invoices paid by Boltz */
+  /* Subscribes to a stream of settled invoices and those paid by Boltz */
   rpc SubscribeInvoices (SubscribeInvoicesRequest) returns (stream SubscribeInvoicesResponse);
 
   /* Creates a new Swap from the chain to Lightning */
@@ -43,6 +43,11 @@ enum OutputType {
 enum OrderSide {
   BUY = 0;
   SELL = 1;
+}
+
+enum InvoiceEvent {
+  PAID = 0;
+  SETTLED = 1;
 }
 
 message GetInfoRequest {}
@@ -129,7 +134,8 @@ message SubscribeTransactionsResponse {
 
 message SubscribeInvoicesRequest {}
 message SubscribeInvoicesResponse {
-  string invoice = 1;
+  InvoiceEvent event = 1;
+  string invoice = 2;
 }
 
 message CreateSwapRequest {
@@ -160,6 +166,7 @@ message CreateReverseSwapRequest {
 message CreateReverseSwapResponse {
   string invoice = 1;
   string redeem_script = 2;
-  string transaction = 3;
-  string transaction_hash = 4;
+  string lockup_address = 3;
+  string lockup_transaction = 4;
+  string lockup_transaction_hash = 5;
 }

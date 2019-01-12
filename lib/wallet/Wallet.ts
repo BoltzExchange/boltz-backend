@@ -226,7 +226,6 @@ class Wallet {
     };
   }
 
-  // TODO: custom fee
   // TODO: avoid dust to change addresses
   /** Sends a specific amount of funds to and address
    *

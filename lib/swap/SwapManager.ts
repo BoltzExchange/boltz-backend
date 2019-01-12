@@ -157,7 +157,7 @@ class SwapManager {
     const outputScript = p2shP2wshOutput(redeemScript);
     const address = sendingCurrency.wallet.encodeAddress(outputScript);
 
-    const sendingAmount = this.calculateExpectedAmount(amount, this.getRate(rate, orderSide));
+    const sendingAmount = this.calculateExpectedAmount(amount, 1 / this.getRate(rate, orderSide));
 
     this.logger.debug(`Sending ${sendingAmount} on ${sendingCurrency.symbol} to swap address: ${address}`);
 

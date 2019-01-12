@@ -36,6 +36,9 @@ interface Service {
 
   on(even: 'invoice.paid', listener: (invoice: string) => void): this;
   emit(event: 'invoice.paid', invoice: string): boolean;
+
+  on(event: 'invoice.settled', listener: (invoice: string) => void): this;
+  emit(event: 'invoice.settled', string: string): boolean;
 }
 
 // TODO: "invalid argument" errors
@@ -172,7 +175,6 @@ class Service extends EventEmitter {
     const { swapManager } = this.serviceComponents;
 
     const orderSide = this.getOrderSide(args.orderSide);
-
     const claimPublicKey = getHexBuffer(args.claimPublicKey);
 
     return await swapManager.createReverseSwap(args.baseCurrency, args.quoteCurrency, orderSide, args.rate, claimPublicKey, args.amount);
@@ -204,6 +206,10 @@ class Service extends EventEmitter {
     this.serviceComponents.currencies.forEach((currency) => {
       currency.lndClient.on('invoice.paid', (invoice) => {
         this.emit('invoice.paid', invoice);
+      });
+
+      currency.lndClient.on('invoice.settled', (invoice) => {
+        this.emit('invoice.settled', invoice);
       });
     });
   }

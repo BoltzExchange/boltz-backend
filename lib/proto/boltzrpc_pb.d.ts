@@ -499,6 +499,9 @@ export namespace SubscribeInvoicesRequest {
 }
 
 export class SubscribeInvoicesResponse extends jspb.Message { 
+    getEvent(): InvoiceEvent;
+    setEvent(value: InvoiceEvent): void;
+
     getInvoice(): string;
     setInvoice(value: string): void;
 
@@ -515,6 +518,7 @@ export class SubscribeInvoicesResponse extends jspb.Message {
 
 export namespace SubscribeInvoicesResponse {
     export type AsObject = {
+        event: InvoiceEvent,
         invoice: string,
     }
 }
@@ -645,11 +649,14 @@ export class CreateReverseSwapResponse extends jspb.Message {
     getRedeemScript(): string;
     setRedeemScript(value: string): void;
 
-    getTransaction(): string;
-    setTransaction(value: string): void;
+    getLockupAddress(): string;
+    setLockupAddress(value: string): void;
 
-    getTransactionHash(): string;
-    setTransactionHash(value: string): void;
+    getLockupTransaction(): string;
+    setLockupTransaction(value: string): void;
+
+    getLockupTransactionHash(): string;
+    setLockupTransactionHash(value: string): void;
 
 
     serializeBinary(): Uint8Array;
@@ -666,8 +673,9 @@ export namespace CreateReverseSwapResponse {
     export type AsObject = {
         invoice: string,
         redeemScript: string,
-        transaction: string,
-        transactionHash: string,
+        lockupAddress: string,
+        lockupTransaction: string,
+        lockupTransactionHash: string,
     }
 }
 
@@ -680,4 +688,9 @@ export enum OutputType {
 export enum OrderSide {
     BUY = 0,
     SELL = 1,
+}
+
+export enum InvoiceEvent {
+    PAID = 0,
+    SETTLED = 1,
 }

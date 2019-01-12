@@ -1,7 +1,7 @@
+import inquirer from 'inquirer';
 import { Arguments } from 'yargs';
 import { address, ECPair, Transaction } from 'bitcoinjs-lib';
 import { Networks, detectSwap, constructClaimTransaction, constructRefundTransaction } from 'boltz-core';
-import inquire from './inquire';
 import { getHexBuffer } from '../Utils';
 import { OutputType, OrderSide } from '../proto/boltzrpc_pb';
 
@@ -44,7 +44,7 @@ const parseParameters = (argv: Arguments<any>) => {
   };
 };
 
-const parseSwapOutput = (redeemScript: Buffer, lockupTransaction: Transaction) => {
+const getSwapOutput = (redeemScript: Buffer, lockupTransaction: Transaction) => {
   const swapOutput = detectSwap(redeemScript, lockupTransaction);
 
   if (!swapOutput) {
@@ -57,7 +57,7 @@ const parseSwapOutput = (redeemScript: Buffer, lockupTransaction: Transaction) =
 export const parseCommands = async (inquiries: any[], argv: Arguments<any>): Promise<Arguments<any>> => {
   const argvLength = Object.keys(argv).length;
   if (argvLength === inquiries.length) {
-    const answers = await inquire(inquiries);
+    const answers = await inquirer.prompt(inquiries);
     return { ...answers, ...argv };
   } else {
     return argv;
@@ -68,20 +68,19 @@ export const claimSwap = (argv: Arguments<any>) => {
   const { network, lockupTransaction, redeemScript, destinationScript } = parseParameters(argv);
   const claimKeys = ECPair.fromPrivateKey(getHexBuffer(argv.claim_private_key), { network });
 
-  const swapOutput = parseSwapOutput(redeemScript, lockupTransaction);
+  const swapOutput = getSwapOutput(redeemScript, lockupTransaction);
 
   const claimTransaction = constructClaimTransaction(
-    {
-      redeemScript,
-      preimage: getHexBuffer(argv.preimage),
-      keys: claimKeys,
-    },
-    {
-      txHash: lockupTransaction.getHash(),
+    [{
       ...swapOutput,
-    },
+      redeemScript,
+      keys: claimKeys,
+      txHash: lockupTransaction.getHash(),
+      preimage: getHexBuffer(argv.preimage),
+    }],
     destinationScript,
     argv.fee_per_byte,
+    true,
   );
 
   return claimTransaction.toHex();
@@ -91,17 +90,17 @@ export const refundSwap = (argv: Arguments<any>) => {
   const { network, lockupTransaction, redeemScript, destinationScript } = parseParameters(argv);
   const refundKeys = ECPair.fromPrivateKey(getHexBuffer(argv.refund_private_key), { network });
 
-  const swapOutput = parseSwapOutput(redeemScript, lockupTransaction);
+  const swapOutput = getSwapOutput(redeemScript, lockupTransaction);
 
   const refundTransaction = constructRefundTransaction(
-    refundKeys,
-    redeemScript,
-    argv.timeout_block_height,
-    {
-      txHash: lockupTransaction.getHash(),
+    [{
       ...swapOutput,
-    },
+      redeemScript,
+      keys: refundKeys,
+      txHash: lockupTransaction.getHash(),
+    }],
     destinationScript,
+    argv.timeout_block_height,
     argv.fee_per_byte,
   );
 

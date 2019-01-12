@@ -39,18 +39,18 @@ describe('Submarine Swaps', () => {
     };
   };
 
-  // TODO: fix "TX rejected: transaction <txhash> has insufficient priority" error when fee is 1 sat per vbyte
   const claimSwap = async (swapOutput: TransactionOutput, redeemScript: Buffer) => {
     const destinationScript = address.toOutputScript(btcAddress, Networks.bitcoinSimnet);
     const claimTransaction = constructClaimTransaction(
-      {
+      [{
+        ...swapOutput,
         preimage,
         redeemScript,
         keys: claimKeys,
-      },
-      swapOutput,
+      }],
       destinationScript,
-      2,
+      1,
+      true,
     );
 
     await btcManager.broadcastAndMine(claimTransaction.toHex());
@@ -59,12 +59,14 @@ describe('Submarine Swaps', () => {
   const refundSwap = async (swapOutput: TransactionOutput, redeemScript: Buffer, timeoutBlockHeight: number) => {
     const destinationScript = address.toOutputScript(btcAddress, Networks.bitcoinSimnet);
     const refundTransaction = constructRefundTransaction(
-      refundKeys,
-      redeemScript,
-      timeoutBlockHeight,
-      swapOutput,
+      [{
+        ...swapOutput,
+        redeemScript,
+        keys: refundKeys,
+      }],
       destinationScript,
-      2,
+      timeoutBlockHeight,
+      1,
     );
 
     await btcManager.broadcastAndMine(refundTransaction.toHex());

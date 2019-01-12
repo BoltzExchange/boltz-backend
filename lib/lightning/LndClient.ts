@@ -1,13 +1,12 @@
 import fs from 'fs';
 import grpc, { ClientReadableStream } from 'grpc';
-import BaseClient from '../BaseClient';
-import Logger from '../Logger';
 import Errors from './Errors';
+import Logger from '../Logger';
+import BaseClient from '../BaseClient';
 import LightningClient from './LightningClient';
 import * as lndrpc from '../proto/lndrpc_pb';
 import { ClientStatus } from '../consts/Enums';
 import { LightningClient as GrpcClient } from '../proto/lndrpc_grpc_pb';
-import { getHexString } from '../Utils';
 
 // TODO: error handling
 
@@ -41,14 +40,12 @@ interface GrpcResponse {
 }
 
 interface LndClient {
-  on(event: 'invoice.settled', listener: (rHash: Buffer) => void): this;
-  emit(event: 'invoice.settled', rHash: Buffer): boolean;
-
-  on(event: 'invoice.failed', listener: (rHash: Buffer) => void): this;
-  emit(event: 'invoice.failed', rHash: Buffer): boolean;
-
   on(event: 'invoice.paid', listener: (invoice: string) => void): this;
   emit(event: 'invoice.paid', invoice: string): boolean;
+  on(event: 'invoice.failed', listener: (rHash: Buffer) => void): this;
+  emit(event: 'invoice.failed', rHash: Buffer): boolean;
+  on(event: 'invoice.settled', listener: (invoice: string) => void): this;
+  emit(event: 'invoice.settled', string: string): boolean;
 }
 
 interface LightningMethodIndex extends GrpcClient {
@@ -321,12 +318,13 @@ class LndClient extends BaseClient implements LightningClient {
       .on('data', (invoice: lndrpc.Invoice) => {
         const rHash = Buffer.from(invoice.getRHash_asB64(), 'base64');
         if (invoice.getSettled()) {
+          const paymentReq = invoice.getPaymentRequest();
 
-          this.logger.silly(`${this.symbol} LND invoice settled: ${getHexString(rHash)}`);
-          this.emit('invoice.settled', rHash);
+          this.logger.silly(`${this.symbol} LND invoice settled: ${paymentReq}`);
+          this.emit('invoice.settled', paymentReq);
         } else {
 
-          this.logger.silly(`Failed to pay ${this.symbol} LND invoice: ${getHexString(rHash)}`);
+          this.logger.silly(`Failed to pay ${this.symbol} LND invoice: ${rHash}`);
           this.emit('invoice.failed', rHash);
         }
       })

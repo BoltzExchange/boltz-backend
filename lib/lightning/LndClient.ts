@@ -221,14 +221,20 @@ class LndClient extends BaseClient implements LightningClient {
    * @param payment_request an invoice for a payment within the Lightning Network
    */
   public payInvoice = async (invoice: string): Promise<lndrpc.SendResponse.AsObject> => {
-    const request = new lndrpc.SendRequest();
-    request.setPaymentRequest(invoice);
-
-    const repsonse = this.unaryCall<lndrpc.SendRequest, lndrpc.SendResponse.AsObject>('sendPaymentSync', request);
-
-    this.emit('invoice.paid', invoice);
-
-    return repsonse;
+    return new Promise(async (resolve, reject) => {
+      const request = new lndrpc.SendRequest();
+      request.setPaymentRequest(invoice);
+      const paymentHash = Buffer.from(request.getPaymentHash_asB64(), 'base64');
+      try {
+        const repsonse = await this.unaryCall<lndrpc.SendRequest, lndrpc.SendResponse.AsObject>('sendPaymentSync', request);
+        this.emit('invoice.paid', invoice);
+        resolve(repsonse);
+      } catch (error) {
+        this.logger.error(`Faild to pay invoice ${request.getPaymentHashString()}: ${error}`);
+        this.emit('invoice.failed', paymentHash);
+        reject(false);
+      }
+    });
   }
 
   /**
@@ -320,7 +326,7 @@ class LndClient extends BaseClient implements LightningClient {
           this.emit('invoice.settled', rHash);
         } else {
 
-          this.logger.silly(`${this.symbol} LND invoice failed: ${getHexString(rHash)}`);
+          this.logger.silly(`Failed to pay ${this.symbol} LND invoice: ${getHexString(rHash)}`);
           this.emit('invoice.failed', rHash);
         }
       })

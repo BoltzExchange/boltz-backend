@@ -3,9 +3,9 @@ import grpc, { ClientReadableStream } from 'grpc';
 import Errors from './Errors';
 import Logger from '../Logger';
 import BaseClient from '../BaseClient';
-import LightningClient from './LightningClient';
 import * as lndrpc from '../proto/lndrpc_pb';
 import { ClientStatus } from '../consts/Enums';
+import LightningClient from './LightningClient';
 import { LightningClient as GrpcClient } from '../proto/lndrpc_grpc_pb';
 
 // TODO: error handling
@@ -43,8 +43,8 @@ interface LndClient {
   on(event: 'invoice.paid', listener: (invoice: string) => void): this;
   emit(event: 'invoice.paid', invoice: string): boolean;
 
-  on(event: 'invoice.settled', listener: (invoice: string) => void): this;
-  emit(event: 'invoice.settled', string: string): boolean;
+  on(event: 'invoice.settled', listener: (invoice: string, preimage: string) => void): this;
+  emit(event: 'invoice.settled', string: string, preimage: string): boolean;
 }
 
 interface LightningMethodIndex extends GrpcClient {
@@ -313,7 +313,7 @@ class LndClient extends BaseClient implements LightningClient {
           const paymentReq = invoice.getPaymentRequest();
 
           this.logger.silly(`${this.symbol} LND invoice settled: ${paymentReq}`);
-          this.emit('invoice.settled', paymentReq);
+          this.emit('invoice.settled', paymentReq, invoice.getRPreimage_asB64());
         }
       })
       .on('error', (error) => {

@@ -4,7 +4,8 @@ import BuilderComponents from '../BuilderComponents';
 import { CreateSwapRequest } from '../../proto/boltzrpc_pb';
 import { getOutputType, getOrderSide } from '../Utils';
 
-export const command = 'createswap <base_currency> <quote_currency> <order_side> <rate> <invoice> <refund_public_key> <timeout_block_height> [output_type]';
+export const command = 'createswap <base_currency> <quote_currency> <order_side> <rate> <invoice>' +
+  '<refund_public_key> <timeout_block_height> [output_type]';
 
 export const describe = 'create a new swap from the chain to Lightning';
 

@@ -176,7 +176,7 @@ class Service extends EventEmitter {
 
     const claimPublicKey = getHexBuffer(args.claimPublicKey);
 
-    return await swapManager.createReverseSwap(args.baseCurrency, args.quoteCurrency, orderSide, args.rate, 
+    return await swapManager.createReverseSwap(args.baseCurrency, args.quoteCurrency, orderSide, args.rate,
     claimPublicKey, args.amount, args.timeoutBlockHeight);
   }
 

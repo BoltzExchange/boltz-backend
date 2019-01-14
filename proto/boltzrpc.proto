@@ -136,6 +136,7 @@ message SubscribeInvoicesRequest {}
 message SubscribeInvoicesResponse {
   InvoiceEvent event = 1;
   string invoice = 2;
+  string preimage = 3;
 }
 
 message CreateSwapRequest {

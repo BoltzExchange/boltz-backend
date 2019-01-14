@@ -1,14 +1,14 @@
 import { EventEmitter } from 'events';
 import { Transaction, address } from 'bitcoinjs-lib';
-import Logger from '../Logger';
-import { Info as ChainInfo } from '../chain/ChainClientInterface';
-import { Info as LndInfo } from '../lightning/LndClient';
-import SwapManager from '../swap/SwapManager';
-import WalletManager, { Currency } from '../wallet/WalletManager';
-import { WalletBalance } from '../wallet/Wallet';
 import Errors from './Errors';
-import { getHexBuffer, getOutputType, getHexString } from '../Utils';
+import Logger from '../Logger';
+import SwapManager from '../swap/SwapManager';
 import { OrderSide } from '../proto/boltzrpc_pb';
+import { WalletBalance } from '../wallet/Wallet';
+import { Info as LndInfo } from '../lightning/LndClient';
+import { Info as ChainInfo } from '../chain/ChainClientInterface';
+import WalletManager, { Currency } from '../wallet/WalletManager';
+import { getHexBuffer, getOutputType, getHexString } from '../Utils';
 
 const packageJson = require('../../package.json');
 
@@ -37,8 +37,8 @@ interface Service {
   on(even: 'invoice.paid', listener: (invoice: string) => void): this;
   emit(event: 'invoice.paid', invoice: string): boolean;
 
-  on(event: 'invoice.settled', listener: (invoice: string) => void): this;
-  emit(event: 'invoice.settled', string: string): boolean;
+  on(event: 'invoice.settled', listener: (invoice: string, preimage: string) => void): this;
+  emit(event: 'invoice.settled', string: string, preimage: string): boolean;
 }
 
 // TODO: "invalid argument" errors
@@ -208,8 +208,8 @@ class Service extends EventEmitter {
         this.emit('invoice.paid', invoice);
       });
 
-      currency.lndClient.on('invoice.settled', (invoice) => {
-        this.emit('invoice.settled', invoice);
+      currency.lndClient.on('invoice.settled', (invoice, preimage) => {
+        this.emit('invoice.settled', invoice, preimage);
       });
     });
   }

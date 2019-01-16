@@ -1,18 +1,20 @@
 import { BIP32 } from 'bip32';
+import Bluebird from 'bluebird';
 import { OutputType, TransactionOutput, estimateFee } from 'boltz-core';
 import { Transaction, Network, address, crypto, TransactionBuilder, ECPair } from 'bitcoinjs-lib';
 import Errors from './Errors';
 import Logger from '../Logger';
 import UtxoRepository from './UtxoRepository';
 import ChainClient from '../chain/ChainClient';
-import WalletRepository from './WalletRepository';
 import { UtxoInstance } from '../consts/Database';
+import WalletRepository from './WalletRepository';
 import OutputRepository from './OutputRepository';
 import { getPubKeyHashEncodeFuntion, getHexString, getHexBuffer, reverseBuffer } from '../Utils';
 
 type UTXO = TransactionOutput & {
-  redeemScript?: Buffer;
+  id: number;
   keys: BIP32;
+  redeemScript?: Buffer;
 };
 
 type WalletBalance = {
@@ -20,6 +22,8 @@ type WalletBalance = {
   confirmedBalance: number;
   unconfirmedBalance: number;
 };
+
+type UtxoPromise = Promise<UtxoInstance> | Bluebird<UtxoInstance>;
 
 // TODO: detect funds received whlie Boltz was not running
 // TODO: more advanced UTXO management
@@ -56,11 +60,10 @@ class Wallet {
     this.symbol = this.chainClient.symbol;
 
     // If a transaction is found in the mempool and mined a few milliseconds afterwards
-    // it can happen that the UTXO gets inserted in the database twice which would result
-    // in "SequelizeUniqueConstraintError: Validation error". To avoid these errors
-    // this Map between the txHex of unconfirmed transactions and their database insertion
-    // Promises is checked before inserting a confirmed transaction into the database.
-    const mempoolInsertPromises = new Map<string, Promise<UtxoInstance>>();
+    // it can happen that the UTXO gets inserted in the database twice. To avoid that this
+    // Map between the hex encoded unconfirmed transacions and their database insertion
+    // Promises is checked before adding a new UTXO to the database.
+    const mempoolInsertPromises = new Map<string, UtxoPromise>();
 
     const upsertUtxo = (txHex: string, blockHeight?: number) => {
       const transaction = Transaction.fromHex(txHex);
@@ -77,13 +80,26 @@ class Wallet {
             this.logUtxoFoundMessage(false, transaction.getId(), vout, output.value);
           }
 
-          const promise = this.utxoRepository.upsertUtxo({
-            vout,
-            confirmed,
-            currency: this.symbol,
-            value: output.value,
-            outputId: outputInfo.id,
-            txHash: getHexString(transaction.getHash()),
+          const txHash = getHexString(transaction.getHash());
+
+          const promise = new Promise<UtxoInstance>(async (resolve) => {
+            const existingUtxo = await this.utxoRepository.getUtxo(txHash, vout);
+
+            if (existingUtxo && confirmed) {
+              resolve(existingUtxo.update({
+                confirmed,
+              }));
+            } else {
+              resolve(this.utxoRepository.addUtxo({
+                vout,
+                confirmed,
+                spent: false,
+                value: output.value,
+                currency: this.symbol,
+                outputId: outputInfo.id,
+                txHash: getHexString(transaction.getHash()),
+              }));
+            }
           });
 
           if (confirmed) {
@@ -240,8 +256,6 @@ class Wallet {
 
     // The UTXOs that will be spent
     const toSpend: UTXO[] = [];
-    // The hex encoded strings of the UTXOs that will be spent
-    const toRemove: string[] = [];
 
     const recalculateFee = () => {
       return estimateFee(feePerByte, toSpend, [{ type: OutputType.Bech32 }, { type, isSh: isScriptHash }]);
@@ -263,15 +277,14 @@ class Wallet {
 
       toSpend.push({
         redeemScript,
-        txHash: getHexBuffer(utxoInstance.txHash),
-        vout: utxoInstance.vout,
         type: output.type,
-        script: getHexBuffer(script),
+        id: utxoInstance.id,
+        vout: utxoInstance.vout,
         value: utxoInstance.value,
+        script: getHexBuffer(script),
+        txHash: getHexBuffer(utxoInstance.txHash),
         keys: this.getKeysByIndex(output.keyIndex),
       });
-
-      toRemove.push(utxoInstance.txHash);
 
       toSpendSum += utxoInstance.value;
       fee = recalculateFee();
@@ -286,10 +299,10 @@ class Wallet {
       throw Errors.NOT_ENOUGH_FUNDS(amount);
     }
 
-    // Remove the UTXOs that are going to be spent from the UTXOs of the wallet
-    const removePromises: Promise<any>[] = [];
-    toRemove.forEach((txHash) => {
-      removePromises.push(this.utxoRepository.removeUtxo(txHash));
+    // Mark the UTXOs that are going to be spent
+    const markPromises: Promise<any>[] = [];
+    toSpend.forEach((utxo) => {
+      markPromises.push(this.utxoRepository.markUtxoSpent(utxo.id));
     });
 
     // Construct the transaction
@@ -329,7 +342,7 @@ class Wallet {
       }
     });
 
-    await Promise.all(removePromises);
+    await Promise.all(markPromises);
 
     return {
       tx: builder.build(),

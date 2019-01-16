@@ -43,7 +43,7 @@ describe('Wallet', () => {
       const interval = setInterval(async () => {
         const balance = await wallet.getBalance();
 
-        if (balance.confirmedBalance !== 0) {
+        if (balance.unconfirmedBalance === 0) {
           clearInterval(interval);
           resolve();
         }

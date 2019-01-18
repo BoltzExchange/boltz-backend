@@ -39,12 +39,13 @@ export type OutputAttributes = OutputFactory & {
 export type OutputInstance = OutputAttributes & Sequelize.Instance<OutputAttributes>;
 
 export type UtxoFactory = {
+  outputId: number;
   txHash: string;
   vout: number;
   currency: string,
   value: number;
   confirmed: boolean;
-  outputId: number;
+  spent: boolean;
 };
 
 export type UtxoAttributes = UtxoFactory & {

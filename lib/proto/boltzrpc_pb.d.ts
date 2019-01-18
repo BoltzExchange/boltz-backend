@@ -505,6 +505,9 @@ export class SubscribeInvoicesResponse extends jspb.Message {
     getInvoice(): string;
     setInvoice(value: string): void;
 
+    getPreimage(): string;
+    setPreimage(value: string): void;
+
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): SubscribeInvoicesResponse.AsObject;
@@ -520,6 +523,7 @@ export namespace SubscribeInvoicesResponse {
     export type AsObject = {
         event: InvoiceEvent,
         invoice: string,
+        preimage: string,
     }
 }
 

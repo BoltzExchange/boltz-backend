@@ -118,7 +118,7 @@ class ChainClient extends BaseClient implements ChainClientInterface {
         transactions.forEach((tx: any) => {
           sumOfFees += tx.fee;
         });
-        const avarage = sumOfFees / transactions.length;
+        const average = sumOfFees / transactions.length;
         res(avarage);
       } catch (err) {
         rej(false);

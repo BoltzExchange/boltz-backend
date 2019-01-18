@@ -226,17 +226,15 @@ class Wallet {
     };
   }
 
-  // TODO: custom fee
   // TODO: avoid dust to change addresses
   /** Sends a specific amount of funds to and address
    *
    * @returns the transaction itself and the vout of the provided address
    */
-  public sendToAddress = async (address: string, type: OutputType, isScriptHash: boolean, amount: number):
+  public sendToAddress = async (address: string, type: OutputType, isScriptHash: boolean, amount: number, feePerByte = 10):
       Promise<{ tx: Transaction, vout: number }> => {
 
     const utxos = await this.utxoRepository.getUtxosSorted(this.symbol);
-    const feePerByte = 10;
 
     // The UTXOs that will be spent
     const toSpend: UTXO[] = [];

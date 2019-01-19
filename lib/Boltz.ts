@@ -12,7 +12,6 @@ import SwapManager from './swap/SwapManager';
 import ChainClient from './chain/ChainClient';
 import Database from './db/Database';
 
-// TODO: configurable trading pairs
 class Boltz {
   private config: ConfigType;
   private logger: Logger;
@@ -115,7 +114,6 @@ class Boltz {
     }
   }
 
-  // TODO: support for more currencies
   private parseCurrencies = () => {
     this.config.currencies.forEach((currency) => {
       try {

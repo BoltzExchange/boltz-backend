@@ -25,9 +25,6 @@ type WalletBalance = {
 
 type UtxoPromise = Promise<UtxoInstance> | Bluebird<UtxoInstance>;
 
-// TODO: detect funds received whlie Boltz was not running
-// TODO: more advanced UTXO management
-// TODO: multiple outputs to the wallet in one transaction
 class Wallet {
   // A map between output scripts and information necessary to spend them
   private relevantOutputs = new Map<string, { id: number, keyIndex: number, type: OutputType, redeemScript?: string }>();
@@ -242,7 +239,6 @@ class Wallet {
     };
   }
 
-  // TODO: avoid dust to change addresses
   /** Sends a specific amount of funds to and address
    *
    * @returns the transaction itself and the vout of the provided address

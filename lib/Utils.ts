@@ -162,7 +162,6 @@ export const getSystemHomeDir = (): string => {
   }
 };
 
-// TODO: support for Geth/Parity and Raiden
 /**
  * Get the data directory of a service
  */

@@ -103,8 +103,6 @@ class Config {
     };
   }
 
-  // TODO: get path of the certificate, macaroon and config based on the data directory of the service
-  // TODO: verify logLevel exists; depends on Logger.ts:8
   /**
    * This loads arguments specified by the user either with a TOML config file or via command line arguments
    */

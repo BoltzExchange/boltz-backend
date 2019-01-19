@@ -8,8 +8,6 @@ import { ClientStatus } from '../consts/Enums';
 import LightningClient from './LightningClient';
 import { LightningClient as GrpcClient } from '../proto/lndrpc_grpc_pb';
 
-// TODO: error handling
-
 /** The configurable options for the lnd client. */
 type LndConfig = {
   host: string;
@@ -214,7 +212,8 @@ class LndClient extends BaseClient implements LightningClient {
 
   /**
    * Pay an invoice through the Lightning Network.
-   * @param payment_request an invoice for a payment within the Lightning Network
+   *
+   * @param invoice an invoice for a payment within the Lightning Network
    */
   public payInvoice = async (invoice: string): Promise<lndrpc.SendResponse.AsObject> => {
     const request = new lndrpc.SendRequest();

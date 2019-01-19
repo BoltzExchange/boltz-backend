@@ -21,7 +21,6 @@ type Currency = {
   lndClient: LndClient;
 };
 
-// TODO: recovery with existing mnemonic
 class WalletManager {
   public wallets = new Map<string, Wallet>();
 
@@ -31,7 +30,6 @@ class WalletManager {
   private utxoRepository: UtxoRepository;
   private outputResository: OutputRepository;
 
-  // TODO: support for BIP44
   private readonly derivationPath = 'm/0';
 
   /**

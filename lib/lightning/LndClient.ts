@@ -132,13 +132,9 @@ class LndClient extends BaseClient implements LightningClient {
 
   private reconnect = async () => {
     try {
-      const response = await this.getInfo();
+      await this.connect();
 
       this.logger.info(`Reestablished connection to ${LndClient.serviceName} ${this.symbol}`);
-      this.logger.info(`${LndClient.serviceName} ${this.symbol} status: ${response.syncedToChain}`);
-
-      this.setClientStatus(ClientStatus.Connected);
-      this.clearReconnectTimer();
       this.subscribeInvoices();
 
     } catch (err) {

@@ -5,7 +5,7 @@ import { CreateSwapRequest } from '../../proto/boltzrpc_pb';
 import { getOutputType, getOrderSide } from '../Utils';
 
 export const command = 'createswap <base_currency> <quote_currency> <order_side> <rate> <invoice>' +
-  '<refund_public_key> <timeout_block_height> [output_type]';
+  '<refund_public_key> [timeout_block_number] [output_type]';
 
 export const describe = 'create a new swap from the chain to Lightning';
 
@@ -22,9 +22,10 @@ export const builder = {
     describe: 'public key with which a refund transaction has to be signed',
     type: 'string',
   },
-  timeout_block_height: {
+  timeout_block_number: {
     describe: 'block height timeout',
     type: 'number',
+    default: 10,
   },
   output_type: BuilderComponents.outputType,
 };
@@ -39,7 +40,7 @@ export const handler = (argv: Arguments<any>) => {
   request.setInvoice(argv.invoice);
   request.setRefundPublicKey(argv.refund_public_key);
   request.setOutputType(getOutputType(argv.output_type));
-  request.setTimeoutBlockHeight(argv.timeout_block_height);
+  request.setTimeoutBlockHeight(argv.timeout_block_number);
 
   loadBoltzClient(argv).createSwap(request, callback);
 };

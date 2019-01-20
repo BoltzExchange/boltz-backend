@@ -11,7 +11,6 @@ import WalletRepository from '../../../lib/wallet/WalletRepository';
 import { getOutputType } from '../../../lib/Utils';
 import OutputRepository from '../../../lib/wallet/OutputRepository';
 
-// TODO: test detection of UTXOs in mempool
 describe('Wallet', () => {
   const derivationPath = 'm/0/0';
   const highestUsedIndex = 0;
@@ -43,7 +42,7 @@ describe('Wallet', () => {
       const interval = setInterval(async () => {
         const balance = await wallet.getBalance();
 
-        if (balance.confirmedBalance !== 0) {
+        if (balance.unconfirmedBalance === 0) {
           clearInterval(interval);
           resolve();
         }

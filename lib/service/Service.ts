@@ -41,7 +41,6 @@ interface Service {
   emit(event: 'invoice.settled', string: string, preimage: string): boolean;
 }
 
-// TODO: "invalid argument" errors
 class Service extends EventEmitter {
   // A map between the hex strings of the scripts of the addresses and the addresses to which Boltz should listen to
   private listenScriptsSet = new Map<string, string>();
@@ -53,7 +52,6 @@ class Service extends EventEmitter {
     this.subscribeInvoices();
   }
 
-  // TODO: error handling if a service is offline
   /**
    * Gets general information about this Boltz instance and the nodes it is connected to
    */

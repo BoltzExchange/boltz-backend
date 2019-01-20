@@ -35,12 +35,6 @@ type SwapMaps = {
   reverseSwaps: Map<string, ReverseSwapDetails>;
 };
 
-// TODO: catch errors here not in GrpcServer
-// TODO: configurable timeouts
-// TODO: verify values and amounts
-// TODO: fees for the Boltz to collect
-// TODO: automatically refund failed swaps
-// TODO: save pending swap to database to be able to claim/refund them if boltz crashes
 class SwapManager {
   public currencies = new Map<string, Currency & SwapMaps>();
 
@@ -143,15 +137,16 @@ class SwapManager {
     this.logger.verbose(`Creating new reverse Swap from ${receivingCurrency.symbol} to ${sendingCurrency.symbol} ` +
       `for public key: ${getHexString(claimPublicKey)}`);
 
-    const { blocks } = await sendingCurrency.chainClient.getInfo();
+    const bestBlock = await sendingCurrency.chainClient.getBestBlock();
     const { rHash, paymentRequest } = await receivingCurrency.lndClient.addInvoice(amount);
-
     const { keys } = sendingCurrency.wallet.getNewKeys();
+
+    const timeoutBlockHeight = bestBlock.height + 10;
     const redeemScript = pkRefundSwap(
       Buffer.from(rHash as string, 'base64'),
       claimPublicKey,
       keys.publicKey,
-      blocks + 10,
+      timeoutBlockHeight,
     );
 
     const outputScript = p2shP2wshOutput(redeemScript);
@@ -233,7 +228,6 @@ class SwapManager {
     const payInvoice = await lndClient.payInvoice(details.invoice);
 
     if (payInvoice.paymentError !== '') {
-      // TODO: retry and show error to the user
       this.logger.warn(`Could not pay invoice ${details.invoice}: ${payInvoice.paymentError}`);
       return;
     }

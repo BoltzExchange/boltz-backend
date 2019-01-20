@@ -114,10 +114,11 @@ describe('Wallet', () => {
       await utxoRepository.addUtxo({
         value,
         confirmed,
+        vout: 0,
+        spent: false,
+        outputId: id,
         currency: 'BTC',
         txHash: `${value}`,
-        vout: 0,
-        outputId: id,
       });
 
       if (confirmed) {

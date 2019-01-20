@@ -108,7 +108,6 @@ class Config {
     };
   }
 
-  // TODO: verify logLevel exists; depends on Logger.ts:8
   /**
    * This loads arguments specified by the user either with a TOML config file or via command line arguments
    */

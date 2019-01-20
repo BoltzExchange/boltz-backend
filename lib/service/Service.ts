@@ -42,12 +42,12 @@ interface Service {
 }
 
 const argChecks = {
-  VALID_CURRENCY: (currency: string) => {
+  VALID_CURRENCY: ({ currency }: { currency: string }) => {
     if (currency.length >= 3 && currency.length <= 5 && !currency.match(/^[A-Z]+$/))  {
       throw Errors.INVALID_ARGUMENT('currency must consist of 2 to 5 upper case English letters or numbers');
     }
   },
-  HAS_TXID: ({ transactionHash }: {transactionHash: string}) => {
+  HAS_TXHASH: ({ transactionHash }: {transactionHash: string}) => {
     if (transactionHash === '') throw Errors.INVALID_ARGUMENT('transactionHash must be specified');
   },
   HAS_TXHEX: ({ transactionHex }: {transactionHex: string}) => {
@@ -60,10 +60,13 @@ const argChecks = {
     if (invoice === '') throw Errors.INVALID_ARGUMENT('invoice must be specified');
     if (invoice.slice(0, 2) !== 'ln') throw Errors.INVALID_ARGUMENT('invoice is not valid');
   },
-  HAS_PUBKEY: (pubkey) => {
-    if (pubkey === '') throw Errors.INVALID_ARGUMENT('public key must be specified');
+  HAS_CLAIMPUBKEY: ({ claimPublicKey }: { claimPublicKey: string }) => {
+    if (claimPublicKey === '') throw Errors.INVALID_ARGUMENT('claim public key must be specified');
   },
-  RATE_NOT_VALID: ({ rate }: {rate: number}) => {
+  HAS_REFUNDPUBKEY: ({ refundPublicKey }: { refundPublicKey: string }) => {
+    if (refundPublicKey === '') throw Errors.INVALID_ARGUMENT('refund public key must be specified');
+  },
+  RATE_VALID: ({ rate }: {rate: number}) => {
     if (rate < 0) throw Errors.INVALID_ARGUMENT('rate cannot be negative');
     if (rate === 0) throw Errors.INVALID_ARGUMENT('rate cannot be zero');
   },
@@ -80,7 +83,6 @@ class Service extends EventEmitter {
     this.subscribeInvoices();
   }
 
-  // TODO: error handling if a service is offline
   /**
    * Gets general information about this Boltz instance and the nodes it is connected to
    */
@@ -108,7 +110,7 @@ class Service extends EventEmitter {
    * Gets the balance for either all wallets or just a single one if specified
    */
   public getBalance = async (args: { currency: string }) => {
-    argChecks.VALID_CURRENCY(args.currency);
+    argChecks.VALID_CURRENCY(args);
 
     const { walletManager } = this.serviceComponents;
 
@@ -138,7 +140,7 @@ class Service extends EventEmitter {
    * Gets a new address of a specified wallet. The "type" parameter is optional and defaults to "OutputType.LEGACY"
    */
   public newAddress = async (args: { currency: string, type: number }) => {
-    argChecks.VALID_CURRENCY(args.currency);
+    argChecks.VALID_CURRENCY(args);
 
     const { walletManager } = this.serviceComponents;
 
@@ -155,8 +157,8 @@ class Service extends EventEmitter {
    * Gets a hex encoded transaction from a transaction hash on the specified network
    */
   public getTransaction = async (args: { currency: string, transactionHash: string }) => {
-    argChecks.VALID_CURRENCY(args.currency);
-    argChecks.HAS_TXID(args);
+    argChecks.VALID_CURRENCY(args);
+    argChecks.HAS_TXHASH(args);
 
     const currency = this.getCurrency(args.currency);
 
@@ -167,7 +169,7 @@ class Service extends EventEmitter {
    * Broadcast a hex encoded transaction on the specified network
    */
   public broadcastTransaction = async (args: { currency: string, transactionHex: string }) => {
-    argChecks.VALID_CURRENCY(args.currency);
+    argChecks.VALID_CURRENCY(args);
     argChecks.HAS_TXHEX(args);
 
     const currency = this.getCurrency(args.currency);
@@ -179,7 +181,7 @@ class Service extends EventEmitter {
    * Adds an entry to the list of addresses SubscribeTransactions listens to
    */
   public listenOnAddress = async (args: { currency: string, address: string }) => {
-    argChecks.VALID_CURRENCY(args.currency);
+    argChecks.VALID_CURRENCY(args);
     argChecks.HAS_ADDRESS(args);
 
     const currency = this.getCurrency(args.currency);
@@ -195,11 +197,11 @@ class Service extends EventEmitter {
    */
   public createSwap = async (args: { baseCurrency: string, quoteCurrency: string, orderSide: number, rate: number
     invoice: string, refundPublicKey: string, outputType: number }) => {
-    argChecks.VALID_CURRENCY(args.baseCurrency);
-    argChecks.VALID_CURRENCY(args.quoteCurrency);
+    argChecks.VALID_CURRENCY({ currency: args.baseCurrency });
+    argChecks.VALID_CURRENCY({ currency: args.quoteCurrency });
     argChecks.HAS_INVOICE(args);
-    argChecks.HAS_PUBKEY(args.refundPublicKey);
-    argChecks.RATE_NOT_VALID(args);
+    argChecks.HAS_REFUNDPUBKEY(args);
+    argChecks.RATE_VALID(args);
 
     const { swapManager } = this.serviceComponents;
 
@@ -216,10 +218,10 @@ class Service extends EventEmitter {
    */
   public createReverseSwap = async (args: { baseCurrency: string, quoteCurrency: string, orderSide: number, rate: number,
     claimPublicKey: string, amount: number }) => {
-    argChecks.VALID_CURRENCY(args.baseCurrency);
-    argChecks.VALID_CURRENCY(args.quoteCurrency);
-    argChecks.HAS_PUBKEY(args.claimPublicKey);
-    argChecks.RATE_NOT_VALID(args);
+    argChecks.VALID_CURRENCY({ currency: args.baseCurrency });
+    argChecks.VALID_CURRENCY({ currency: args.quoteCurrency });
+    argChecks.HAS_CLAIMPUBKEY(args);
+    argChecks.RATE_VALID(args);
 
     const { swapManager } = this.serviceComponents;
 

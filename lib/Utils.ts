@@ -162,14 +162,12 @@ export const getSystemHomeDir = (): string => {
   }
 };
 
-// TODO: support for Geth/Parity and Raiden
 /**
  * Get the data directory of a service
  */
 export const getServiceDataDir = (service: string) => {
   const homeDir = getSystemHomeDir();
   const serviceDir = service.toLowerCase();
-
   switch (os.platform()) {
     case 'win32':
     case 'darwin':

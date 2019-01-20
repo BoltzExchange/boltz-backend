@@ -167,11 +167,12 @@ class GrpcService {
       call.write(response);
     });
 
-    this.service.on('invoice.settled', (invoice: string) => {
+    this.service.on('invoice.settled', (invoice: string, preimage: string) => {
       const response = new boltzrpc.SubscribeInvoicesResponse();
 
       response.setEvent(boltzrpc.InvoiceEvent.SETTLED);
       response.setInvoice(invoice);
+      response.setPreimage(preimage);
 
       call.write(response);
     });

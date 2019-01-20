@@ -41,7 +41,7 @@ interface LndClient {
   on(event: 'invoice.paid', listener: (invoice: string) => void): this;
   emit(event: 'invoice.paid', invoice: string): boolean;
   on(event: 'invoice.failed', listener: (rHash: Buffer) => void): this;
-  emit(event: 'invoice.failed', rHash: Buffer): boolean;
+  emit(event: 'invoice.failed', invoice: string): boolean;
 
   on(event: 'invoice.settled', listener: (invoice: string, preimage: string) => void): this;
   emit(event: 'invoice.settled', string: string, preimage: string): boolean;
@@ -217,21 +217,16 @@ class LndClient extends BaseClient implements LightningClient {
    *
    * @param invoice an invoice for a payment within the Lightning Network
    */
-  public payInvoice = async (invoice: string): Promise<lndrpc.SendResponse.AsObject> => {
-    return new Promise(async (resolve, reject) => {
-      const request = new lndrpc.SendRequest();
-      request.setPaymentRequest(invoice);
-      const paymentHash = Buffer.from(request.getPaymentHash_asB64(), 'base64');
-      try {
-        const repsonse = await this.unaryCall<lndrpc.SendRequest, lndrpc.SendResponse.AsObject>('sendPaymentSync', request);
-        this.emit('invoice.paid', invoice);
-        resolve(repsonse);
-      } catch (error) {
-        this.logger.error(`Faild to pay invoice ${request.getPaymentHashString()}: ${error}`);
-        this.emit('invoice.failed', paymentHash);
-        reject(false);
-      }
-    });
+  public payInvoice = async (invoice: string) => {
+    const request = new lndrpc.SendRequest();
+    request.setPaymentRequest(invoice);
+    try {
+      await this.unaryCall<lndrpc.SendRequest, lndrpc.SendResponse.AsObject>('sendPaymentSync', request);
+      this.emit('invoice.paid', invoice);
+    } catch (error) {
+      this.logger.error(`Faild to pay invoice ${request.getPaymentHashString()}: ${error}`);
+      this.emit('invoice.failed', invoice);
+    }
   }
 
   /**
@@ -316,16 +311,11 @@ class LndClient extends BaseClient implements LightningClient {
 
     this.invoiceSubscription = this.lightning.subscribeInvoices(new lndrpc.InvoiceSubscription(), this.meta)
       .on('data', (invoice: lndrpc.Invoice) => {
-        const rHash = Buffer.from(invoice.getRHash_asB64(), 'base64');
         if (invoice.getSettled()) {
           const paymentReq = invoice.getPaymentRequest();
 
           this.logger.silly(`${this.symbol} LND invoice settled: ${paymentReq}`);
           this.emit('invoice.settled', paymentReq, invoice.getRPreimage_asB64());
-        } else {
-
-          this.logger.silly(`Failed to pay ${this.symbol} LND invoice: ${rHash}`);
-          this.emit('invoice.failed', rHash);
         }
       })
       .on('error', (error) => {

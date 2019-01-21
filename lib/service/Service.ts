@@ -47,6 +47,11 @@ const argChecks = {
       throw Errors.INVALID_ARGUMENT('currency must consist of 2 to 5 upper case English letters');
     }
   },
+  VALID_OUTPUTTYPE: ({ outputType }: { outputType: number }) => {
+    if (outputType % 1 !== 0 && outputType < 0 && outputType > 2) {
+      throw Errors.INVALID_ARGUMENT('outputType must be: 0 for Bech32 | 1 for Compatibility | 2 for Legacy');
+    }
+  },
   HAS_TXHASH: ({ transactionHash }: {transactionHash: string}) => {
     if (transactionHash === '') throw Errors.INVALID_ARGUMENT('transactionHash must be specified');
   },
@@ -66,7 +71,7 @@ const argChecks = {
   HAS_REFUNDPUBKEY: ({ refundPublicKey }: { refundPublicKey: string }) => {
     if (refundPublicKey === '') throw Errors.INVALID_ARGUMENT('refund public key must be specified');
   },
-  RATE_VALID: ({ rate }: {rate: number}) => {
+  VALID_RATE: ({ rate }: {rate: number}) => {
     if (rate < 0) throw Errors.INVALID_ARGUMENT('rate cannot be negative');
     if (rate === 0) throw Errors.INVALID_ARGUMENT('rate cannot be zero');
   },
@@ -141,6 +146,7 @@ class Service extends EventEmitter {
    */
   public newAddress = async (args: { currency: string, type: number }) => {
     argChecks.VALID_CURRENCY(args);
+    argChecks.VALID_OUTPUTTYPE({ outputType: args.type });
 
     const { walletManager } = this.serviceComponents;
 
@@ -199,9 +205,10 @@ class Service extends EventEmitter {
     invoice: string, refundPublicKey: string, outputType: number }) => {
     argChecks.VALID_CURRENCY({ currency: args.baseCurrency });
     argChecks.VALID_CURRENCY({ currency: args.quoteCurrency });
+    argChecks.VALID_OUTPUTTYPE(args);
     argChecks.HAS_INVOICE(args);
     argChecks.HAS_REFUNDPUBKEY(args);
-    argChecks.RATE_VALID(args);
+    argChecks.VALID_RATE(args);
 
     const { swapManager } = this.serviceComponents;
 
@@ -221,7 +228,7 @@ class Service extends EventEmitter {
     argChecks.VALID_CURRENCY({ currency: args.baseCurrency });
     argChecks.VALID_CURRENCY({ currency: args.quoteCurrency });
     argChecks.HAS_CLAIMPUBKEY(args);
-    argChecks.RATE_VALID(args);
+    argChecks.VALID_RATE(args);
 
     const { swapManager } = this.serviceComponents;
 

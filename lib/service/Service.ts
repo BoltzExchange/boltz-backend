@@ -44,7 +44,7 @@ interface Service {
 const argChecks = {
   VALID_CURRENCY: ({ currency }: { currency: string }) => {
     if (currency.length >= 3 && currency.length <= 5 && !currency.match(/^[A-Z]+$/))  {
-      throw Errors.INVALID_ARGUMENT('currency must consist of 2 to 5 upper case English letters or numbers');
+      throw Errors.INVALID_ARGUMENT('currency must consist of 2 to 5 upper case English letters');
     }
   },
   HAS_TXHASH: ({ transactionHash }: {transactionHash: string}) => {

@@ -219,11 +219,13 @@ class LndClient extends BaseClient implements LightningClient {
     const request = new lndrpc.SendRequest();
     request.setPaymentRequest(invoice);
 
-    const repsonse = this.unaryCall<lndrpc.SendRequest, lndrpc.SendResponse.AsObject>('sendPaymentSync', request);
+    const response = await this.unaryCall<lndrpc.SendRequest, lndrpc.SendResponse.AsObject>('sendPaymentSync', request);
 
-    this.emit('invoice.paid', invoice);
+    if (response.paymentError === '') {
+      this.emit('invoice.paid', invoice);
+    }
 
-    return repsonse;
+    return response;
   }
 
   /**

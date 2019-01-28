@@ -345,9 +345,8 @@ class LndClient extends BaseClient implements LightningClient {
       .on('error', async (error) => {
         if (error.message !== '1 CANCELLED: Cancelled') {
           this.logger.error(`Invoice subscription ended: ${error}`);
-        } else {
-          await this.reconnect();
         }
+        await this.reconnect();
       });
   }
 }

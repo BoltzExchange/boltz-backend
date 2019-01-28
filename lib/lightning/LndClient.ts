@@ -40,7 +40,7 @@ interface GrpcResponse {
 interface LndClient {
   on(event: 'invoice.paid', listener: (invoice: string) => void): this;
   emit(event: 'invoice.paid', invoice: string): boolean;
-  on(event: 'invoice.failed', listener: (rHash: Buffer) => void): this;
+  on(event: 'invoice.failed', listener: (invoice: string) => void): this;
   emit(event: 'invoice.failed', invoice: string): boolean;
 
   on(event: 'invoice.settled', listener: (invoice: string, preimage: string) => void): this;

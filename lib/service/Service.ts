@@ -2,13 +2,13 @@ import { EventEmitter } from 'events';
 import { Transaction, address } from 'bitcoinjs-lib';
 import Errors from './Errors';
 import Logger from '../Logger';
+import Wallet from '../wallet/Wallet';
 import SwapManager from '../swap/SwapManager';
-import { OrderSide } from '../proto/boltzrpc_pb';
-import { WalletBalance } from '../wallet/Wallet';
 import { Info as LndInfo } from '../lightning/LndClient';
 import { Info as ChainInfo } from '../chain/ChainClientInterface';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import { getHexBuffer, getOutputType, getHexString } from '../Utils';
+import { OrderSide, Balance, WalletBalance, GetBalanceResponse } from '../proto/boltzrpc_pb';
 
 const packageJson = require('../../package.json');
 
@@ -81,7 +81,28 @@ class Service extends EventEmitter {
   public getBalance = async (args: { currency: string }) => {
     const { walletManager } = this.serviceComponents;
 
-    const result = new Map<string, WalletBalance>();
+    const response = new GetBalanceResponse();
+    const map = response.getBalancesMap();
+
+    const getBalance = async (wallet: Wallet, symbol: string) => {
+      const balance = new Balance();
+      const walletObject = new WalletBalance();
+
+      const walletBalance = await wallet.getBalance();
+
+      walletObject.setTotalBalance(walletBalance.totalBalance);
+      walletObject.setConfirmedBalance(walletBalance.confirmedBalance);
+      walletObject.setUnconfirmedBalance(walletBalance.unconfirmedBalance);
+
+      balance.setWalletBalance(walletObject);
+
+      const currencyInfo = this.serviceComponents.currencies.get(symbol)!;
+      const channelBalance = await currencyInfo.lndClient.channelBalance();
+
+      balance.setChannelBalance(channelBalance.balance);
+
+      return balance;
+    };
 
     if (args.currency !== '') {
       const wallet = walletManager.wallets.get(args.currency);
@@ -90,17 +111,17 @@ class Service extends EventEmitter {
         throw Errors.CURRENCY_NOT_FOUND(args.currency);
       }
 
-      result.set(args.currency, await wallet.getBalance());
+      map.set(args.currency, await getBalance(wallet, args.currency));
     } else {
       for (const entry of walletManager.wallets) {
         const currency = entry[0];
         const wallet = entry[1];
 
-        result.set(currency, await wallet.getBalance());
+        map.set(currency, await getBalance(wallet, currency));
       }
     }
 
-    return result;
+    return response;
   }
 
   /**

@@ -209,7 +209,7 @@ export namespace GetBalanceRequest {
 
 export class GetBalanceResponse extends jspb.Message { 
 
-    getBalancesMap(): jspb.Map<string, WalletBalance>;
+    getBalancesMap(): jspb.Map<string, Balance>;
     clearBalancesMap(): void;
 
 
@@ -226,7 +226,35 @@ export class GetBalanceResponse extends jspb.Message {
 export namespace GetBalanceResponse {
     export type AsObject = {
 
-        balancesMap: Array<[string, WalletBalance.AsObject]>,
+        balancesMap: Array<[string, Balance.AsObject]>,
+    }
+}
+
+export class Balance extends jspb.Message { 
+    getChannelBalance(): number;
+    setChannelBalance(value: number): void;
+
+
+    hasWalletBalance(): boolean;
+    clearWalletBalance(): void;
+    getWalletBalance(): WalletBalance | undefined;
+    setWalletBalance(value?: WalletBalance): void;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): Balance.AsObject;
+    static toObject(includeInstance: boolean, msg: Balance): Balance.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: Balance, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): Balance;
+    static deserializeBinaryFromReader(message: Balance, reader: jspb.BinaryReader): Balance;
+}
+
+export namespace Balance {
+    export type AsObject = {
+        channelBalance: number,
+        walletBalance?: WalletBalance.AsObject,
     }
 }
 

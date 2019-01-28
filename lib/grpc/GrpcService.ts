@@ -72,23 +72,7 @@ class GrpcService {
 
   public getBalance: grpc.handleUnaryCall<boltzrpc.GetBalanceRequest, boltzrpc.GetBalanceResponse> = async (call, callback) => {
     try {
-      const balances = await this.service.getBalance(call.request.toObject());
-
-      const response = new boltzrpc.GetBalanceResponse();
-
-      const responseMap: Map<string, boltzrpc.WalletBalance> = response.getBalancesMap();
-
-      balances.forEach((balance, currency) => {
-        const walletBalance = new boltzrpc.WalletBalance();
-
-        walletBalance.setTotalBalance(balance.totalBalance);
-        walletBalance.setConfirmedBalance(balance.confirmedBalance);
-        walletBalance.setUnconfirmedBalance(balance.unconfirmedBalance);
-
-        responseMap.set(currency, walletBalance);
-      });
-
-      callback(null, response);
+      callback(null, await this.service.getBalance(call.request.toObject()));
     } catch (error) {
       callback(error, null);
     }

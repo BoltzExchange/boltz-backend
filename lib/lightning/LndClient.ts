@@ -301,6 +301,15 @@ class LndClient extends BaseClient implements LightningClient {
   }
 
   /**
+   * Gets the total funds available across all open channels in satoshis
+   */
+  public channelBalance = () => {
+    const request = new lndrpc.ChannelBalanceRequest();
+
+    return this.unaryCall<lndrpc.ChannelBalanceRequest, lndrpc.ChannelBalanceResponse.AsObject>('channelBalance', request);
+  }
+
+  /**
    * Subscribe to events for when invoices are settled.
    */
   private subscribeInvoices = (): void => {

@@ -225,7 +225,7 @@ class LndClient extends BaseClient implements LightningClient {
       this.emit('invoice.paid', invoice);
       return response;
     } catch (error) {
-      this.logger.error(`Faild to pay invoice ${request.getPaymentHashString()}: ${error}`);
+      this.logger.warn(`Failed to pay invoice ${request.getPaymentHashString()}: ${error}`);
       this.emit('invoice.failed', invoice);
       return error;
     }

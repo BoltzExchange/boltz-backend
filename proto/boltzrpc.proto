@@ -87,9 +87,13 @@ message GetBalanceRequest {
 }
 message GetBalanceResponse {
   // A map between the currencies and its balances
-  map<string, WalletBalance> balances = 1;
+  map<string, Balance> balances = 1;
 }
 
+message Balance {
+  int64 channel_balance = 1;
+  WalletBalance wallet_balance = 2;
+}
 message WalletBalance {
   int64 total_balance = 1;
   int64 confirmed_balance = 2;

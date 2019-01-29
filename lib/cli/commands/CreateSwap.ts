@@ -25,7 +25,6 @@ export const builder = {
   timeout_block_number: {
     describe: 'block height timeout',
     type: 'number',
-    default: 10,
   },
   output_type: BuilderComponents.outputType,
 };

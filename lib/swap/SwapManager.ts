@@ -71,7 +71,7 @@ class SwapManager {
    * @returns an onchain address
    */
   public createSwap = async (baseCurrency: string, quoteCurrency: string, orderSide: OrderSide, rate: number,
-    invoice: string, refundPublicKey: Buffer, outputType: OutputType, timeoutBlockHeight: number) => {
+    invoice: string, refundPublicKey: Buffer, outputType: OutputType, timeoutBlockHeight = 10) => {
 
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(baseCurrency, quoteCurrency, orderSide);
 

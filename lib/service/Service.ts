@@ -48,7 +48,7 @@ const argChecks = {
     }
   },
   VALID_OUTPUTTYPE: ({ outputType }: { outputType: number }) => {
-    if (outputType % 1 !== 0 && outputType >= 0 && outputType <= 2) {
+    if (!(outputType % 1 === 0 && outputType >= 0 && outputType <= 2)) {
       throw Errors.INVALID_ARGUMENT('outputType must be: 0 for Bech32 | 1 for Compatibility | 2 for Legacy');
     }
   },

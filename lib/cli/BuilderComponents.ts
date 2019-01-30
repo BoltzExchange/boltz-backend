@@ -45,6 +45,10 @@ export default {
   feePerByte: {
     describe: 'amount of satoshis per vbyte that should be paid as fee',
     type: 'number',
-    detauls: '1',
+    default: '1',
+  },
+  timeoutBlockNumber: {
+    describe: 'after how my blocks the onchain script of the swap should time out',
+    type: 'number',
   },
 };

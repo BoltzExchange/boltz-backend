@@ -66,7 +66,7 @@ const inquiries = [
     type: 'input',
     name: 'fee_per_byte',
     message: BuilderComponents.feePerByte.describe,
-    default: BuilderComponents.feePerByte.detauls,
+    default: BuilderComponents.feePerByte.default,
     validate: (value) => {
       const valid = !isNaN(parseFloat(value));
       return valid || 'Please enter a number';

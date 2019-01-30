@@ -155,7 +155,7 @@ message CreateSwapRequest {
 }
 message CreateSwapResponse {
   string redeem_script = 1;
-  int64 timeout_block_number = 2;
+  int64 timeout_block_height = 2;
   string address = 3;
   int64 expected_amount = 4;
 }

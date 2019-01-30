@@ -1,21 +1,22 @@
 import fs from 'fs';
 import path from 'path';
 import toml from 'toml';
+import ini from 'ini';
 import { Arguments } from 'yargs';
-import { pki, md } from 'node-forge';
 import Errors from './consts/Errors';
+import { Chain, Symbol, Network } from './consts/Enums';
 import { RpcConfig } from './RpcClient';
 import { GrpcConfig } from './grpc/GrpcServer';
 import { LndConfig } from './lightning/LndClient';
-import { deepMerge, resolveHome, getServiceDataDir } from './Utils';
+import { deepMerge, resolveHome, getServiceDataDir, splitListen } from './Utils';
 
 type ServiceOptions = {
   configpath?: string;
 };
 
 type CurrencyConfig = {
-  symbol: string,
-  network: string;
+  symbol: Symbol,
+  network: Network;
   chain: RpcConfig & ServiceOptions;
   lnd?: LndConfig & ServiceOptions;
 };
@@ -29,9 +30,10 @@ type ConfigType = {
   logpath: string;
 
   loglevel: string;
+  network: Network,
 
   grpc: GrpcConfig;
-
+  lndpath: string;
   currencies: CurrencyConfig[];
 };
 
@@ -56,6 +58,7 @@ class Config {
 
       datadir: this.dataDir,
       loglevel: this.getDefaultLogLevel(),
+      network: this.getDefaultNetwork(),
 
       grpc: {
         host: '127.0.0.1',
@@ -64,10 +67,12 @@ class Config {
         keypath: path.join(this.dataDir, 'tls.key'),
       },
 
+      lndpath: getServiceDataDir('lnd'),
+
       currencies: [
         {
-          symbol: 'BTC',
-          network: 'bitcoinTestnet',
+          symbol: Symbol.BTC,
+          network: Network.Testnet,
           chain: {
             host: '127.0.0.1',
             port: 18334,
@@ -79,12 +84,12 @@ class Config {
             host: '127.0.0.1',
             port: 10009,
             certpath: path.join(getServiceDataDir('lnd'), 'tls.cert'),
-            macaroonpath: path.join(getServiceDataDir('lnd'), 'data', 'chain', 'bitcoin', 'testnet', 'admin.macaroon'),
+            macaroonpath: path.join(getServiceDataDir('lnd'), 'data', 'chain', Chain.BTC, Network.Testnet, 'admin.macaroon'),
           },
         },
         {
-          symbol: 'LTC',
-          network: 'litecoinTestnet',
+          symbol: Symbol.LTC,
+          network: Network.Testnet,
           chain: {
             host: '127.0.0.1',
             port: 19334,
@@ -96,7 +101,7 @@ class Config {
             host: '127.0.0.1',
             port: 11009,
             certpath: path.join(getServiceDataDir('lnd'), 'tls.cert'),
-            macaroonpath: path.join(getServiceDataDir('lnd'), 'data', 'chain', 'litecoin', 'testnet', 'admin.macaroon'),
+            macaroonpath: path.join(getServiceDataDir('lnd'), 'data', 'chain', Chain.LTC, Network.Testnet, 'admin.macaroon'),
           },
         },
       ],
@@ -123,20 +128,117 @@ class Config {
       deepMerge(this.config, tomlConfig);
     }
 
-    const grpcCert = args.grpc ? args.grpc.certpath : this.config.grpc.certpath;
-    const grpcKey = args.grpc ?  args.grpc.keypath : this.config.grpc.keypath;
+    if (args.network) {
+      const network = this.parseNetwork(args.network, this.config.currencies);
+      deepMerge(this.config, network);
+    }
 
-    if (!fs.existsSync(grpcCert) && !fs.existsSync(grpcKey)) {
-      this.generateCertificate(grpcCert, grpcKey);
+    if (args.lndpath) {
+      this.config.lndpath = args.lndpath;
+      const currencies = this.parseLndPath(this.config.currencies, this.config.lndpath);
+      deepMerge(this.config, { currencies, lndpath: args.lndpath });
+    }
+
+    if (args.btcd) {
+      const currencies = this.config.currencies;
+      currencies[0] = { ...currencies[0], ...this.parseIniConfig(args.btcd, this.config.network, this.config.lndpath, currencies[0]) };
+      deepMerge(this.config, currencies);
+    }
+
+    if (args.ltcd) {
+      const currencies = this.config.currencies;
+      currencies[1] = { ...currencies[1], ...this.parseIniConfig(args.ltcd, this.config.network, this.config.lndpath, currencies[1]) };
+      deepMerge(this.config, currencies);
     }
 
     if (args.currencies) {
-
+      const currencies = this.parseCurrency(args.currencies, this.config.currencies);
+      args.currencies = currencies.currencies;
+      deepMerge(this.config, currencies);
     }
 
     deepMerge(this.config, args);
-
     return this.config;
+  }
+
+  private parseIniConfig = (
+    args: { configpath: string, lndport?: string, lndhost?: string }, network: string, lndpath: string, currency: CurrencyConfig) => {
+    if (fs.existsSync(args.configpath)) {
+      const { lndhost: host, lndport: port } = args;
+      let config;
+      try {
+        const { rpcuser, rpcpass, rpclisten } = ini.parse(fs.readFileSync(args.configpath, 'utf-8'))['Application Options'];
+        const listen = rpclisten ? splitListen(rpclisten) : rpclisten;
+        const uri = port && host ? `${host}:${port}` : undefined;
+        const lndConfig = this.parseLndServiceConfig(currency, network, lndpath, uri);
+        config = {
+          network,
+          chain: {
+            rpcuser,
+            rpcpass,
+            host: listen ? listen.host : currency.chain.host,
+            port: listen ? listen.port : currency.chain.port,
+            certpath: path.join(path.dirname(args.configpath), 'rpc.cert'),
+          },
+          ...lndConfig,
+        };
+      } catch (error) {
+        throw Errors.COULD_NOT_PARSE_CONFIG(args.configpath, JSON.stringify(error));
+      }
+      return config;
+    }
+  }
+
+  private parseLndServiceConfig = (currency: CurrencyConfig, network: string, lndpath: string, lndlisten?: string) => {
+    return {
+      lnd: {
+        host: lndlisten ? splitListen(lndlisten).host : currency.lnd!.host,
+        port: lndlisten ? parseInt(splitListen(lndlisten).port, 0) : currency.lnd!.port,
+        certpath: path.join(lndpath, 'tls.cert'),
+        macaroonpath: path.join(lndpath, 'data', 'chain', Chain[currency.symbol], network, 'admin.macaroon'),
+      },
+    };
+  }
+
+  private parseNetwork = (network: string, currencies: CurrencyConfig[]) => {
+    const net = network[0].toUpperCase() + network.slice(1);
+    currencies.forEach(curr => curr.network = Network[net]);
+    return {
+      network,
+      currencies,
+    };
+  }
+
+  private parseCurrency = (args: string[], config: CurrencyConfig[]) => {
+    args.forEach((currency) => {
+      const currencyJSON = JSON.parse(currency);
+      for (let i = 0; i < config.length; i += 1) {
+        const confCurrency = config[i];
+        const hasSymbol = currencyJSON.symbol === confCurrency.symbol;
+        const hasNetwork = currencyJSON.network === confCurrency.network;
+        if (hasSymbol && hasNetwork) {
+          config[i] = { ...config[i], ...currencyJSON };
+          break;
+        } else if (i === config.length - 1) {
+          config.push(currencyJSON);
+          break;
+        }
+      }
+    });
+    return {
+      currencies: config,
+    };
+  }
+
+  private parseLndPath = (currencies: CurrencyConfig[], lndpath: string) => {
+    currencies.forEach((curr) => {
+      if (curr.lnd) {
+        const net = curr.network[0].toUpperCase() + curr.network.slice(1);
+        curr.lnd.certpath = path.join(lndpath, 'tls.cert');
+        curr.lnd.macaroonpath = path.join(lndpath, 'data', 'chain', Chain[curr.symbol], Network[net], 'admin.macaroon');
+      }
+    });
+    return currencies;
   }
 
   private parseTomlConfig = (filename: string): any => {
@@ -167,50 +269,8 @@ class Config {
     return process.env.NODE_ENV === 'production' ? 'info' : 'debug';
   }
 
-  private generateCertificate = (tlsCertPath: string, tlsKeyPath: string): void => {
-    const keys = pki.rsa.generateKeyPair(1024);
-    const cert = pki.createCertificate();
-
-    cert.publicKey = keys.publicKey;
-    cert.serialNumber = String(Math.floor(Math.random() * 1024) + 1);
-
-    const date = new Date();
-    cert.validity.notBefore = date;
-    cert.validity.notAfter = new Date(date.getFullYear() + 5, date.getMonth(), date.getDay());
-
-    const attributes = [
-      {
-        name: 'organizationName',
-        value: 'Boltz autogenerated certificate',
-      },
-    ];
-
-    cert.setSubject(attributes);
-    cert.setIssuer(attributes);
-
-    cert.setExtensions([
-      {
-        name: 'subjectAltName',
-        altNames: [
-          {
-            type: 2,
-            value: 'localhost',
-          },
-          {
-            type: 7,
-            ip: '127.0.0.1',
-          },
-        ],
-      },
-    ]);
-
-    cert.sign(keys.privateKey, md.sha256.create());
-
-    const certificate = pki.certificateToPem(cert);
-    const privateKey = pki.privateKeyToPem(keys.privateKey);
-
-    fs.writeFileSync(tlsCertPath, certificate);
-    fs.writeFileSync(tlsKeyPath, privateKey);
+  private getDefaultNetwork = (): Network => {
+    return process.env.NODE_ENV === 'production' ? Network.Testnet : Network.Simnet;
   }
 }
 

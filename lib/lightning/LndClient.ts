@@ -219,11 +219,13 @@ class LndClient extends BaseClient implements LightningClient {
     const request = new lndrpc.SendRequest();
     request.setPaymentRequest(invoice);
 
-    const repsonse = this.unaryCall<lndrpc.SendRequest, lndrpc.SendResponse.AsObject>('sendPaymentSync', request);
+    const response = await this.unaryCall<lndrpc.SendRequest, lndrpc.SendResponse.AsObject>('sendPaymentSync', request);
 
-    this.emit('invoice.paid', invoice);
+    if (response.paymentError === '') {
+      this.emit('invoice.paid', invoice);
+    }
 
-    return repsonse;
+    return response;
   }
 
   /**
@@ -296,6 +298,15 @@ class LndClient extends BaseClient implements LightningClient {
     }
 
     return this.unaryCall<lndrpc.OpenChannelRequest, lndrpc.ChannelPoint.AsObject>('openChannelSync', request);
+  }
+
+  /**
+   * Gets the total funds available across all open channels in satoshis
+   */
+  public channelBalance = () => {
+    const request = new lndrpc.ChannelBalanceRequest();
+
+    return this.unaryCall<lndrpc.ChannelBalanceRequest, lndrpc.ChannelBalanceResponse.AsObject>('channelBalance', request);
   }
 
   /**

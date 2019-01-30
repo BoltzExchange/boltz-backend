@@ -8,6 +8,23 @@ export enum ErrorCodePrefix {
   Swap = 6,
 }
 
+export enum Symbol {
+  BTC = 'BTC',
+  LTC = 'LTC',
+}
+
+export enum Chain {
+  BTC = 'bitcoin',
+  LTC = 'litecoin',
+}
+
+export enum Network {
+  Mainnet = 'mainnet',
+  Testnet = 'testnet',
+  Simnet = 'simnet',
+  Regtest = 'regtest',
+}
+
 export enum ClientStatus {
   Disconnected,
   Connected,

@@ -2,13 +2,13 @@ import { EventEmitter } from 'events';
 import { Transaction, address } from 'bitcoinjs-lib';
 import Errors from './Errors';
 import Logger from '../Logger';
+import Wallet from '../wallet/Wallet';
 import SwapManager from '../swap/SwapManager';
-import { OrderSide } from '../proto/boltzrpc_pb';
-import { WalletBalance } from '../wallet/Wallet';
 import { Info as LndInfo } from '../lightning/LndClient';
 import { Info as ChainInfo } from '../chain/ChainClientInterface';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import { getHexBuffer, getOutputType, getHexString } from '../Utils';
+import { OrderSide, Balance, WalletBalance, GetBalanceResponse } from '../proto/boltzrpc_pb';
 
 const packageJson = require('../../package.json');
 
@@ -50,6 +50,11 @@ const argChecks = {
   VALID_OUTPUTTYPE: ({ outputType }: { outputType: number }) => {
     if (!(outputType % 1 === 0 && outputType >= 0 && outputType <= 2)) {
       throw Errors.INVALID_ARGUMENT('outputType must be: 0 for Bech32 | 1 for Compatibility | 2 for Legacy');
+    }
+  },
+  VALID_TIMEOUT: ({ timeoutBlockNumber }: { timeoutBlockNumber: number }) => {
+    if (timeoutBlockNumber < 0 || timeoutBlockNumber % 1 !== 0) {
+      throw Errors.INVALID_ARGUMENT('timeout block number must be a positive integer');
     }
   },
   HAS_TXHASH: ({ transactionHash }: {transactionHash: string}) => {
@@ -119,7 +124,28 @@ class Service extends EventEmitter {
 
     const { walletManager } = this.serviceComponents;
 
-    const result = new Map<string, WalletBalance>();
+    const response = new GetBalanceResponse();
+    const map = response.getBalancesMap();
+
+    const getBalance = async (wallet: Wallet, symbol: string) => {
+      const balance = new Balance();
+      const walletObject = new WalletBalance();
+
+      const walletBalance = await wallet.getBalance();
+
+      walletObject.setTotalBalance(walletBalance.totalBalance);
+      walletObject.setConfirmedBalance(walletBalance.confirmedBalance);
+      walletObject.setUnconfirmedBalance(walletBalance.unconfirmedBalance);
+
+      balance.setWalletBalance(walletObject);
+
+      const currencyInfo = this.serviceComponents.currencies.get(symbol)!;
+      const channelBalance = await currencyInfo.lndClient.channelBalance();
+
+      balance.setChannelBalance(channelBalance.balance);
+
+      return balance;
+    };
 
     if (args.currency !== '') {
       const wallet = walletManager.wallets.get(args.currency);
@@ -128,17 +154,17 @@ class Service extends EventEmitter {
         throw Errors.CURRENCY_NOT_FOUND(args.currency);
       }
 
-      result.set(args.currency, await wallet.getBalance());
+      map.set(args.currency, await getBalance(wallet, args.currency));
     } else {
       for (const entry of walletManager.wallets) {
         const currency = entry[0];
         const wallet = entry[1];
 
-        result.set(currency, await wallet.getBalance());
+        map.set(currency, await getBalance(wallet, currency));
       }
     }
 
-    return result;
+    return response;
   }
 
   /**
@@ -202,13 +228,14 @@ class Service extends EventEmitter {
    * Creates a new Swap from the chain to Lightning
    */
   public createSwap = async (args: { baseCurrency: string, quoteCurrency: string, orderSide: number, rate: number
-    invoice: string, refundPublicKey: string, outputType: number }) => {
+    invoice: string, refundPublicKey: string, outputType: number, timeoutBlockNumber: number}) => {
     argChecks.VALID_CURRENCY({ currency: args.baseCurrency });
     argChecks.VALID_CURRENCY({ currency: args.quoteCurrency });
     argChecks.VALID_OUTPUTTYPE(args);
     argChecks.HAS_INVOICE(args);
     argChecks.HAS_REFUNDPUBKEY(args);
     argChecks.VALID_RATE(args);
+    argChecks.VALID_TIMEOUT(args);
 
     const { swapManager } = this.serviceComponents;
 
@@ -217,25 +244,28 @@ class Service extends EventEmitter {
 
     const refundPublicKey = getHexBuffer(args.refundPublicKey);
 
-    return await swapManager.createSwap(args.baseCurrency, args.quoteCurrency, orderSide, args.rate, args.invoice, refundPublicKey, outputType);
+    return await swapManager.createSwap(args.baseCurrency, args.quoteCurrency, orderSide,
+      args.rate, args.invoice, refundPublicKey, outputType, args.timeoutBlockNumber);
   }
 
   /**
    * Creates a new Swap from Lightning to the chain
    */
   public createReverseSwap = async (args: { baseCurrency: string, quoteCurrency: string, orderSide: number, rate: number,
-    claimPublicKey: string, amount: number }) => {
+    claimPublicKey: string, amount: number, timeoutBlockNumber: number}) => {
     argChecks.VALID_CURRENCY({ currency: args.baseCurrency });
     argChecks.VALID_CURRENCY({ currency: args.quoteCurrency });
     argChecks.HAS_CLAIMPUBKEY(args);
     argChecks.VALID_RATE(args);
+    argChecks.VALID_TIMEOUT(args);
 
     const { swapManager } = this.serviceComponents;
 
     const orderSide = this.getOrderSide(args.orderSide);
     const claimPublicKey = getHexBuffer(args.claimPublicKey);
 
-    return await swapManager.createReverseSwap(args.baseCurrency, args.quoteCurrency, orderSide, args.rate, claimPublicKey, args.amount);
+    return await swapManager.createReverseSwap(args.baseCurrency, args.quoteCurrency, orderSide, args.rate,
+    claimPublicKey, args.amount, args.timeoutBlockNumber);
   }
 
   /**

@@ -1,10 +1,11 @@
 import { Arguments } from 'yargs';
-import { callback, loadBoltzClient } from '../Command';
 import BuilderComponents from '../BuilderComponents';
-import { CreateSwapRequest } from '../../proto/boltzrpc_pb';
 import { getOutputType, getOrderSide } from '../Utils';
+import { callback, loadBoltzClient } from '../Command';
+import { CreateSwapRequest } from '../../proto/boltzrpc_pb';
 
-export const command = 'createswap <base_currency> <quote_currency> <order_side> <rate> <invoice> <refund_public_key> [output_type]';
+export const command = 'createswap <base_currency> <quote_currency> <order_side> <rate> <invoice>' +
+  '<refund_public_key> [timeout_block_number] [output_type]';
 
 export const describe = 'create a new swap from the chain to Lightning';
 
@@ -21,6 +22,7 @@ export const builder = {
     describe: 'public key with which a refund transaction has to be signed',
     type: 'string',
   },
+  timeout_block_number: BuilderComponents.timeoutBlockNumber,
   output_type: BuilderComponents.outputType,
 };
 
@@ -34,6 +36,7 @@ export const handler = (argv: Arguments<any>) => {
   request.setInvoice(argv.invoice);
   request.setRefundPublicKey(argv.refund_public_key);
   request.setOutputType(getOutputType(argv.output_type));
+  request.setTimeoutBlockNumber(argv.timeout_block_number);
 
   loadBoltzClient(argv).createSwap(request, callback);
 };

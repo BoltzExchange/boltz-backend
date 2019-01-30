@@ -4,7 +4,7 @@ import BuilderComponents from '../BuilderComponents';
 import { CreateReverseSwapRequest } from '../../proto/boltzrpc_pb';
 import { getOrderSide } from '../Utils';
 
-export const command = 'createreverseswap <base_currency> <quote_currency> <order_side> <rate> <claim_public_key> <amount>';
+export const command = 'createreverseswap <base_currency> <quote_currency> <order_side> <rate> <claim_public_key> <amount> <timeout_block_number>';
 
 export const describe = 'creates a new swap from Lightning to the chain';
 
@@ -21,6 +21,10 @@ export const builder = {
     describe: 'amount of the invoice that will be returned',
     type: 'number',
   },
+  timeout_block_number: {
+    describe: 'block height timeout',
+    type: 'number',
+  },
 };
 
 export const handler = (argv: Arguments<any>) => {
@@ -32,6 +36,7 @@ export const handler = (argv: Arguments<any>) => {
   request.setRate(argv.rate);
   request.setClaimPublicKey(argv.claim_public_key);
   request.setAmount(argv.amount);
+  request.setTimeoutBlockHeight(argv.timeout_block_number);
 
   loadBoltzClient(argv).createReverseSwap(request, callback);
 };

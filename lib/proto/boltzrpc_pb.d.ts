@@ -577,6 +577,9 @@ export class CreateSwapRequest extends jspb.Message {
     getOutputType(): OutputType;
     setOutputType(value: OutputType): void;
 
+    getTimeoutBlockHeight(): number;
+    setTimeoutBlockHeight(value: number): void;
+
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): CreateSwapRequest.AsObject;
@@ -597,6 +600,7 @@ export namespace CreateSwapRequest {
         invoice: string,
         refundPublicKey: string,
         outputType: OutputType,
+        timeoutBlockHeight: number,
     }
 }
 
@@ -652,6 +656,9 @@ export class CreateReverseSwapRequest extends jspb.Message {
     getAmount(): number;
     setAmount(value: number): void;
 
+    getTimeoutBlockHeight(): number;
+    setTimeoutBlockHeight(value: number): void;
+
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): CreateReverseSwapRequest.AsObject;
@@ -671,6 +678,7 @@ export namespace CreateReverseSwapRequest {
         rate: number,
         claimPublicKey: string,
         amount: number,
+        timeoutBlockHeight: number,
     }
 }
 

@@ -4,7 +4,7 @@ import { refundSwap, parseCommands } from '../Utils';
 import { printResponse } from '../Command';
 import BuilderComponents from '../BuilderComponents';
 
-export const command = 'refundswap [network] [lockup_transaction] [redeem_script] [timeout_block_height] [refund_private_key] ' +
+export const command = 'refundswap [network] [lockup_transaction] [redeem_script] [timeout_block_number] [refund_private_key] ' +
   '[destination_address] [fee_per_byte]';
 
 export const describe = 'refunds the onchain part of a swap';
@@ -13,8 +13,8 @@ export const builder = {
   network: BuilderComponents.network,
   lockup_transaction: BuilderComponents.lockupTransaction,
   redeem_script: BuilderComponents.redeemScript,
-  timeout_block_height: {
-    describe: 'timeout block height of the timelock',
+  timeout_block_number: {
+    describe: 'timeout block number of the timelock',
     type: 'number',
   },
   refund_private_key: {
@@ -44,7 +44,7 @@ const inquiries = [
   },
   {
     type: 'input',
-    name: 'timeout_block_height',
+    name: 'timeout_block_number',
     message: 'timeout block height of the timelock',
     validate: (value) => {
       const valid = !isNaN(parseFloat(value));

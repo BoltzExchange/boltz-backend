@@ -66,11 +66,12 @@ class SwapManager {
    * @param invoice the invoice that should be paid
    * @param refundPublicKey public key of the keypair needed for claiming
    * @param outputType what kind of adress should be returned
+   * @param timeoutBlockHeight block height timeout
    *
    * @returns an onchain address
    */
   public createSwap = async (baseCurrency: string, quoteCurrency: string, orderSide: OrderSide, rate: number,
-    invoice: string, refundPublicKey: Buffer, outputType: OutputType) => {
+    invoice: string, refundPublicKey: Buffer, outputType: OutputType, timeoutBlockHeight = 10) => {
 
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(baseCurrency, quoteCurrency, orderSide);
 
@@ -83,12 +84,12 @@ class SwapManager {
 
     const { keys } = receivingCurrency.wallet.getNewKeys();
 
-    const timeoutBlockHeight = bestBlock.height + 10;
+    const timeoutHeight = bestBlock.height + timeoutBlockHeight;
     const redeemScript = pkRefundSwap(
       getHexBuffer(paymentHash),
       keys.publicKey,
       refundPublicKey,
-      timeoutBlockHeight,
+      timeoutHeight,
     );
 
     const encodeFunction = getScriptHashEncodeFunction(outputType);
@@ -125,11 +126,12 @@ class SwapManager {
    * @param rate conversion rate of base and quote currency
    * @param claimPublicKey public key of the keypair needed for claiming
    * @param amount amount of the invoice
+   * @param timeoutBlockHeight block height timeout
    *
    * @returns a Lightning invoice, the lockup transaction and its hash
    */
   public createReverseSwap = async (baseCurrency: string, quoteCurrency: string, orderSide: OrderSide, rate: number,
-    claimPublicKey: Buffer, amount: number) => {
+    claimPublicKey: Buffer, amount: number, timeoutBlockHeight: number) => {
 
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(baseCurrency, quoteCurrency, orderSide);
 
@@ -140,13 +142,13 @@ class SwapManager {
     const bestBlock = await sendingCurrency.chainClient.getBestBlock();
     const { rHash, paymentRequest } = await receivingCurrency.lndClient.addInvoice(amount);
     const { keys } = sendingCurrency.wallet.getNewKeys();
+    const timeoutHeight = bestBlock.height + timeoutBlockHeight;
 
-    const timeoutBlockHeight = bestBlock.height + 10;
     const redeemScript = pkRefundSwap(
       Buffer.from(rHash as string, 'base64'),
       claimPublicKey,
       keys.publicKey,
-      timeoutBlockHeight,
+      timeoutHeight,
     );
 
     const outputScript = p2shP2wshOutput(redeemScript);

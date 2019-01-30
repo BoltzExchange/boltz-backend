@@ -229,8 +229,7 @@ class LndClient extends BaseClient implements LightningClient {
       }
       return response;
     } catch (error) {
-      const { paymentHash } = await this.decodePayReq(invoice);
-      this.logger.warn(`Failed to pay invoice ${paymentHash}: ${error}`);
+      this.logger.warn(`Failed to pay invoice ${invoice}: ${error}`);
       return error;
     }
   }

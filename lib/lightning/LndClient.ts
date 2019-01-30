@@ -40,6 +40,8 @@ interface GrpcResponse {
 interface LndClient {
   on(event: 'invoice.paid', listener: (invoice: string) => void): this;
   emit(event: 'invoice.paid', invoice: string): boolean;
+  on(event: 'invoice.failed', listener: (invoice: string) => void): this;
+  emit(event: 'invoice.failed', invoice: string): boolean;
 
   on(event: 'invoice.settled', listener: (invoice: string, preimage: string) => void): this;
   emit(event: 'invoice.settled', string: string, preimage: string): boolean;
@@ -215,17 +217,21 @@ class LndClient extends BaseClient implements LightningClient {
    *
    * @param invoice an invoice for a payment within the Lightning Network
    */
-  public payInvoice = async (invoice: string): Promise<lndrpc.SendResponse.AsObject> => {
+  public payInvoice = async (invoice: string) => {
     const request = new lndrpc.SendRequest();
     request.setPaymentRequest(invoice);
-
-    const response = await this.unaryCall<lndrpc.SendRequest, lndrpc.SendResponse.AsObject>('sendPaymentSync', request);
-
-    if (response.paymentError === '') {
-      this.emit('invoice.paid', invoice);
+    try {
+      const response = await this.unaryCall<lndrpc.SendRequest, lndrpc.SendResponse.AsObject>('sendPaymentSync', request);
+      if (response.paymentError === '') {
+        this.emit('invoice.paid', invoice);
+      } else {
+        this.emit('invoice.failed', invoice);
+      }
+      return response;
+    } catch (error) {
+      this.logger.warn(`Failed to pay invoice ${invoice}: ${error}`);
+      return error;
     }
-
-    return response;
   }
 
   /**

@@ -41,6 +41,47 @@ interface Service {
   emit(event: 'invoice.settled', string: string, preimage: string): boolean;
 }
 
+const argChecks = {
+  VALID_CURRENCY: ({ currency }: { currency: string }) => {
+    if (!(currency.length >= 3 && currency.length <= 5) || !currency.match(/^[A-Z]+$/))  {
+      throw Errors.INVALID_ARGUMENT('currency must consist of 2 to 5 upper case English letters');
+    }
+  },
+  VALID_OUTPUTTYPE: ({ outputType }: { outputType: number }) => {
+    if (!(outputType % 1 === 0 && outputType >= 0 && outputType <= 2)) {
+      throw Errors.INVALID_ARGUMENT('outputType must be: 0 for Bech32 | 1 for Compatibility | 2 for Legacy');
+    }
+  },
+  VALID_TIMEOUT: ({ timeoutBlockNumber }: { timeoutBlockNumber: number }) => {
+    if (timeoutBlockNumber < 0 || timeoutBlockNumber % 1 !== 0) {
+      throw Errors.INVALID_ARGUMENT('timeout block number must be a positive integer');
+    }
+  },
+  HAS_TXHASH: ({ transactionHash }: {transactionHash: string}) => {
+    if (transactionHash === '') throw Errors.INVALID_ARGUMENT('transactionHash must be specified');
+  },
+  HAS_TXHEX: ({ transactionHex }: {transactionHex: string}) => {
+    if (transactionHex === '') throw Errors.INVALID_ARGUMENT('transactionHex must be specified');
+  },
+  HAS_ADDRESS: ({ address }: {address: string}) => {
+    if (address === '') throw Errors.INVALID_ARGUMENT('address must be specified');
+  },
+  HAS_INVOICE: ({ invoice }: { invoice: string }) => {
+    if (invoice === '') throw Errors.INVALID_ARGUMENT('invoice must be specified');
+    if (invoice.slice(0, 2) !== 'ln') throw Errors.INVALID_ARGUMENT('invoice is not valid');
+  },
+  HAS_CLAIMPUBKEY: ({ claimPublicKey }: { claimPublicKey: string }) => {
+    if (claimPublicKey === '') throw Errors.INVALID_ARGUMENT('claim public key must be specified');
+  },
+  HAS_REFUNDPUBKEY: ({ refundPublicKey }: { refundPublicKey: string }) => {
+    if (refundPublicKey === '') throw Errors.INVALID_ARGUMENT('refund public key must be specified');
+  },
+  VALID_RATE: ({ rate }: {rate: number}) => {
+    if (rate < 0) throw Errors.INVALID_ARGUMENT('rate cannot be negative');
+    if (rate === 0) throw Errors.INVALID_ARGUMENT('rate cannot be zero');
+  },
+};
+
 class Service extends EventEmitter {
   // A map between the hex strings of the scripts of the addresses and the addresses to which Boltz should listen to
   private listenScriptsSet = new Map<string, string>();
@@ -79,6 +120,8 @@ class Service extends EventEmitter {
    * Gets the balance for either all wallets or just a single one if specified
    */
   public getBalance = async (args: { currency: string }) => {
+    argChecks.VALID_CURRENCY(args);
+
     const { walletManager } = this.serviceComponents;
 
     const response = new GetBalanceResponse();
@@ -128,6 +171,9 @@ class Service extends EventEmitter {
    * Gets a new address of a specified wallet. The "type" parameter is optional and defaults to "OutputType.LEGACY"
    */
   public newAddress = async (args: { currency: string, type: number }) => {
+    argChecks.VALID_CURRENCY(args);
+    argChecks.VALID_OUTPUTTYPE({ outputType: args.type });
+
     const { walletManager } = this.serviceComponents;
 
     const wallet = walletManager.wallets.get(args.currency);
@@ -143,6 +189,9 @@ class Service extends EventEmitter {
    * Gets a hex encoded transaction from a transaction hash on the specified network
    */
   public getTransaction = async (args: { currency: string, transactionHash: string }) => {
+    argChecks.VALID_CURRENCY(args);
+    argChecks.HAS_TXHASH(args);
+
     const currency = this.getCurrency(args.currency);
 
     return currency.chainClient.getRawTransaction(args.transactionHash);
@@ -152,6 +201,9 @@ class Service extends EventEmitter {
    * Broadcast a hex encoded transaction on the specified network
    */
   public broadcastTransaction = async (args: { currency: string, transactionHex: string }) => {
+    argChecks.VALID_CURRENCY(args);
+    argChecks.HAS_TXHEX(args);
+
     const currency = this.getCurrency(args.currency);
 
     return currency.chainClient.sendRawTransaction(args.transactionHex);
@@ -161,6 +213,9 @@ class Service extends EventEmitter {
    * Adds an entry to the list of addresses SubscribeTransactions listens to
    */
   public listenOnAddress = async (args: { currency: string, address: string }) => {
+    argChecks.VALID_CURRENCY(args);
+    argChecks.HAS_ADDRESS(args);
+
     const currency = this.getCurrency(args.currency);
 
     const script = address.toOutputScript(args.address, currency.network);
@@ -174,6 +229,13 @@ class Service extends EventEmitter {
    */
   public createSwap = async (args: { baseCurrency: string, quoteCurrency: string, orderSide: number, rate: number
     invoice: string, refundPublicKey: string, outputType: number, timeoutBlockNumber: number}) => {
+    argChecks.VALID_CURRENCY({ currency: args.baseCurrency });
+    argChecks.VALID_CURRENCY({ currency: args.quoteCurrency });
+    argChecks.VALID_OUTPUTTYPE(args);
+    argChecks.HAS_INVOICE(args);
+    argChecks.HAS_REFUNDPUBKEY(args);
+    argChecks.VALID_RATE(args);
+    argChecks.VALID_TIMEOUT(args);
 
     const { swapManager } = this.serviceComponents;
 
@@ -191,6 +253,11 @@ class Service extends EventEmitter {
    */
   public createReverseSwap = async (args: { baseCurrency: string, quoteCurrency: string, orderSide: number, rate: number,
     claimPublicKey: string, amount: number, timeoutBlockNumber: number}) => {
+    argChecks.VALID_CURRENCY({ currency: args.baseCurrency });
+    argChecks.VALID_CURRENCY({ currency: args.quoteCurrency });
+    argChecks.HAS_CLAIMPUBKEY(args);
+    argChecks.VALID_RATE(args);
+    argChecks.VALID_TIMEOUT(args);
 
     const { swapManager } = this.serviceComponents;
 

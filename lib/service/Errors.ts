@@ -15,4 +15,8 @@ export default {
     message: `could not find swap with identifier: ${swapIdentifier}`,
     code: concatErrorCode(ErrorCodePrefix.Service, 2),
   }),
+  INVALID_ARGUMENT: (message: string): Error => ({
+    message,
+    code: concatErrorCode(ErrorCodePrefix.Service, 3),
+  }),
 };

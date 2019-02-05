@@ -120,7 +120,9 @@ class Service extends EventEmitter {
    * Gets the balance for either all wallets or just a single one if specified
    */
   public getBalance = async (args: { currency: string }) => {
-    argChecks.VALID_CURRENCY(args);
+    if (args.currency !== '') {
+      argChecks.VALID_CURRENCY(args);
+    }
 
     const { walletManager } = this.serviceComponents;
 

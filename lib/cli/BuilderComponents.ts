@@ -49,6 +49,7 @@ export default {
   },
   timeoutBlockNumber: {
     describe: 'after how my blocks the onchain script of the swap should time out',
+    default: '10',
     type: 'number',
   },
 };

@@ -243,7 +243,7 @@ class Wallet {
    *
    * @returns the transaction itself and the vout of the provided address
    */
-  public sendToAddress = async (address: string, type: OutputType, isScriptHash: boolean, amount: number, feePerByte = 10):
+  public sendToAddress = async (address: string, type: OutputType, isScriptHash: boolean, amount: number, feePerByte = 2):
       Promise<{ tx: Transaction, vout: number }> => {
 
     const utxos = await this.utxoRepository.getUtxosSorted(this.symbol);

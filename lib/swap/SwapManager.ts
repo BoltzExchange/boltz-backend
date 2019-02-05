@@ -161,9 +161,6 @@ class SwapManager {
       sendingCurrency.reverseSwaps.set(timeoutBlockHeight, [reverseSwapDetails]);
     }
 
-    console.log(timeoutBlockHeight);
-    console.log(sendingCurrency.reverseSwaps.get(timeoutBlockHeight));
-
     return {
       invoice: paymentRequest,
       redeemScript: getHexString(redeemScript),

@@ -8,7 +8,9 @@ import { ClientStatus } from '../consts/Enums';
 import LightningClient from './LightningClient';
 import { LightningClient as GrpcClient } from '../proto/lndrpc_grpc_pb';
 
-/** The configurable options for the lnd client. */
+/**
+ * The configurable options for the lnd client
+ */
 type LndConfig = {
   host: string;
   port: number;
@@ -16,7 +18,9 @@ type LndConfig = {
   macaroonpath: string;
 };
 
-/** General information about the state of this lnd client. */
+/**
+ * General information about the state of this lnd client
+ */
 type Info = {
   version?: string;
   syncedtochain?: boolean;
@@ -41,6 +45,9 @@ interface LndClient {
   on(event: 'invoice.paid', listener: (invoice: string) => void): this;
   emit(event: 'invoice.paid', invoice: string): boolean;
 
+  on(event: 'invoice.failed', listener: (invoice: string) => void): this;
+  emit(event: 'invoice.failed', invoice: string): boolean;
+
   on(event: 'invoice.settled', listener: (invoice: string, preimage: string) => void): this;
   emit(event: 'invoice.settled', string: string, preimage: string): boolean;
 }
@@ -49,7 +56,9 @@ interface LightningMethodIndex extends GrpcClient {
   [methodName: string]: Function;
 }
 
-/** A class representing a client to interact with LND */
+/**
+ * A class representing a client to interact with LND
+ */
 class LndClient extends BaseClient implements LightningClient {
   public static readonly serviceName = 'LND';
   private uri!: string;
@@ -132,11 +141,9 @@ class LndClient extends BaseClient implements LightningClient {
 
   private reconnect = async () => {
     try {
-      const response = await this.getInfo();
+      await this.getInfo();
 
       this.logger.info(`Reestablished connection to ${LndClient.serviceName} ${this.symbol}`);
-      this.logger.info(`${LndClient.serviceName} ${this.symbol} status: ${response.syncedToChain}`);
-
       this.setClientStatus(ClientStatus.Connected);
       this.clearReconnectTimer();
       this.subscribeInvoices();
@@ -150,7 +157,9 @@ class LndClient extends BaseClient implements LightningClient {
     }
   }
 
-  /** End all subscriptions and reconnection attempts. */
+  /**
+   * End all subscriptions and reconnection attempts.
+   */
   public disconnect = () => {
     this.clearReconnectTimer();
 
@@ -178,17 +187,21 @@ class LndClient extends BaseClient implements LightningClient {
     let uris: string[] | undefined;
     let version: string | undefined;
     let syncedtochain: boolean | undefined;
+
     try {
       const lnd = await this.getInfo();
+
       channels = {
         active: lnd.numActiveChannels,
         pending: lnd.numPendingChannels,
       };
+
       chainsList = lnd.chainsList,
       blockheight = lnd.blockHeight,
       uris = lnd.urisList,
       version = lnd.version;
       syncedtochain = lnd.syncedToChain;
+
       return {
         version,
         syncedtochain,
@@ -199,6 +212,7 @@ class LndClient extends BaseClient implements LightningClient {
       };
     } catch (err) {
       this.logger.error(`LND error: ${err}`);
+
       return {
         version,
         syncedtochain,
@@ -235,7 +249,7 @@ class LndClient extends BaseClient implements LightningClient {
    *
    * @param invoice an invoice for a payment within the Lightning Network
    */
-  public payInvoice = async (invoice: string): Promise<lndrpc.SendResponse.AsObject> => {
+  public payInvoice = async (invoice: string) => {
     const request = new lndrpc.SendRequest();
     request.setPaymentRequest(invoice);
 
@@ -243,6 +257,8 @@ class LndClient extends BaseClient implements LightningClient {
 
     if (response.paymentError === '') {
       this.emit('invoice.paid', invoice);
+    } else {
+      this.emit('invoice.failed', invoice);
     }
 
     return response;

@@ -181,7 +181,8 @@ export const getOutputType = (type: number) => {
   switch (type) {
     case 0: return OutputType.Bech32;
     case 1: return OutputType.Compatibility;
-    default: return OutputType.Legacy;
+    case 2: return OutputType.Legacy;
+    default: throw Error('type dose not exist');
   }
 };
 

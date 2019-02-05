@@ -167,10 +167,10 @@ class GrpcService {
       const { address, redeemScript, timeoutBlockHeight, expectedAmount } = await this.service.createSwap(call.request.toObject());
 
       const response = new boltzrpc.CreateSwapResponse();
-      response.setRedeemScript(redeemScript);
-      response.setTimeoutBlockHeight(timeoutBlockHeight);
       response.setAddress(address);
+      response.setRedeemScript(redeemScript);
       response.setExpectedAmount(expectedAmount);
+      response.setTimeoutBlockHeight(timeoutBlockHeight);
 
       callback(null, response);
     } catch (error) {

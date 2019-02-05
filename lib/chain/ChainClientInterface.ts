@@ -53,10 +53,15 @@ interface ChainClientInterface {
   generate(blocks: number): Promise<string[]>;
 
   on(event: 'error', listener: (error: string) => void): this;
-  on(event: 'transaction.relevant.mempool', listener: (transactionHex: string) => void): this;
-  on(event: 'transaction.relevant.block', listener: (transactionhex: string, blockHeigh: number) => void): this;
   emit(event: 'error', error: string): boolean;
+
+  on(event: 'block.connected', listener: (height: number) => void): this;
+  emit(event: 'block.connected', height: number): boolean;
+
+  on(event: 'transaction.relevant.mempool', listener: (transactionHex: string) => void): this;
   emit(event: 'transaction.relevant.mempool', transactionHex: string): boolean;
+
+  on(event: 'transaction.relevant.block', listener: (transactionhex: string, blockHeigh: number) => void): this;
   emit(event: 'transaction.relevant.block', transactionhex: string, blockHeigh: number): boolean;
 }
 

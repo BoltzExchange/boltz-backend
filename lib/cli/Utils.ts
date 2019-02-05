@@ -100,7 +100,7 @@ export const refundSwap = (argv: Arguments<any>) => {
       txHash: lockupTransaction.getHash(),
     }],
     destinationScript,
-    argv.timeout_block_height,
+    argv.timeout_block_number,
     argv.fee_per_byte,
   );
 

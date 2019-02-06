@@ -65,8 +65,6 @@ class SwapNursery {
     currency.chainClient.on('block.connected', async (height: number) => {
       const reverseSwaps = maps.reverseSwaps.get(height);
 
-      console.log(height);
-      console.log(reverseSwaps);
       if (reverseSwaps) {
         await this.refundSwap(currency, reverseSwaps, height);
       }

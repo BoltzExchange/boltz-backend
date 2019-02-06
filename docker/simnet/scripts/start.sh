@@ -23,12 +23,12 @@ done
 echo "Starting LNDs"
 
 # Start the BTCD LNDs
-nohup lnd --lnddir=/root/.lnd-btc --listen=127.0.0.1:9735 --rpclisten=0.0.0.0:10009 --restlisten=127.0.0.1:8080 --bitcoin.active --bitcoin.simnet --btcd.rpchost 127.0.0.1:18556 --btcd.rpcuser user --btcd.rpcpass user > /dev/null 2>&1 & num="0"
-nohup lnd --lnddir=/root/.lnd-btc2 --listen=127.0.0.1:9736 --rpclisten=0.0.0.0:10010 --restlisten=127.0.0.1:8081 --bitcoin.active --bitcoin.simnet --btcd.rpchost 127.0.0.1:18556 --btcd.rpcuser user --btcd.rpcpass user > /dev/null 2>&1 & num="0"
+nohup lnd --lnddir=/root/.lnd-btc --listen=127.0.0.1:9735 --rpclisten=0.0.0.0:10009 --restlisten=0.0.0.0:8080 --bitcoin.active --bitcoin.simnet --btcd.rpchost 127.0.0.1:18556 --btcd.rpcuser user --btcd.rpcpass user > /dev/null 2>&1 & num="0"
+nohup lnd --lnddir=/root/.lnd-btc2 --listen=127.0.0.1:9736 --rpclisten=0.0.0.0:10010 --restlisten=0.0.0.0:8081 --bitcoin.active --bitcoin.simnet --btcd.rpchost 127.0.0.1:18556 --btcd.rpcuser user --btcd.rpcpass user > /dev/null 2>&1 & num="0"
 
 # Start the LTCD LNDs
-nohup lnd --lnddir=/root/.lnd-ltc --listen=127.0.0.1:10735 --rpclisten=0.0.0.0:11009 --restlisten=127.0.0.1:9080 --litecoin.active --litecoin.simnet --ltcd.rpchost 127.0.0.1:19556 --ltcd.rpcuser user --ltcd.rpcpass user > /dev/null 2>&1 & num="0"
-nohup lnd --lnddir=/root/.lnd-ltc2 --listen=127.0.0.1:10736 --rpclisten=0.0.0.0:11010 --restlisten=127.0.0.1:9081 --litecoin.active --litecoin.simnet --ltcd.rpchost 127.0.0.1:19556 --ltcd.rpcuser user --ltcd.rpcpass user > /dev/null 2>&1 & num="0"
+nohup lnd --lnddir=/root/.lnd-ltc --listen=127.0.0.1:10735 --rpclisten=0.0.0.0:11009 --restlisten=0.0.0.0:9080 --litecoin.active --litecoin.simnet --ltcd.rpchost 127.0.0.1:19556 --ltcd.rpcuser user --ltcd.rpcpass user > /dev/null 2>&1 & num="0"
+nohup lnd --lnddir=/root/.lnd-ltc2 --listen=127.0.0.1:10736 --rpclisten=0.0.0.0:11010 --restlisten=0.0.0.0:9081 --litecoin.active --litecoin.simnet --ltcd.rpchost 127.0.0.1:19556 --ltcd.rpcuser user --ltcd.rpcpass user > /dev/null 2>&1 & num="0"
 
 # Wait for the LNDs to start
 while true; do

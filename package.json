@@ -13,7 +13,7 @@
     "nodemon:watch": "nodemon --watch dist -e js bin/boltzd",
     "lint": "tslint --project tsconfig.json && tslint --config tslint-alt.json 'bin/*' 'test/**/*.ts'",
     "lint:fix": "tslint --fix --project tsconfig.json && tslint --fix --config tslint-alt.json 'bin/*' 'test/**/*.ts'",
-    "docker:start": "docker run -d --name simnet -p 18556:18556 -p 19556:19556 -p 10009:10009 -p 10010:10010 -p 11009:11009 -p 11010:11010 boltz/simnet",
+    "docker:start": "docker run -d --name simnet -p 18556:18556 -p 19556:19556 -p 10009:10009 -p 10010:10010 -p 11009:11009 -p 11010:11010 -p 8081:8081 boltz/simnet",
     "docker:stop": "docker kill simnet && docker rm simnet",
     "test": "npm run test:unit && npm run test:int",
     "test:unit": "mocha test/unit/*.spec.ts test/unit/wallet/*.spec.ts",

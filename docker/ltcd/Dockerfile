@@ -1,4 +1,4 @@
-FROM golang:1.11.4-alpine as builder
+FROM golang:1.11.5-alpine as builder
 
 # Install git
 RUN apk update && apk upgrade && apk add --no-cache git
@@ -7,7 +7,7 @@ RUN apk update && apk upgrade && apk add --no-cache git
 RUN go get github.com/ltcsuite/ltcd/...
 
 # Start again with a new image to reduce the size
-FROM alpine:3.8 as final
+FROM alpine:3.9 as final
 
 # Expose testnet ports (server, rpc)
 EXPOSE 19335 19334

@@ -24,6 +24,10 @@ export default (sequelize: Sequelize.Sequelize, dataTypes: Sequelize.DataTypes) 
     models.Utxo.belongsTo(models.Output, {
       foreignKey: 'outputId',
     });
+
+    models.Utxo.belongsTo(models.Wallet, {
+      foreignKey: 'currency',
+    });
   };
 
   return Utxo;

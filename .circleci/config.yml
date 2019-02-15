@@ -9,7 +9,7 @@ jobs:
       - checkout:
       - run:
           name: update
-          command: 'sudo apt-get update -y && apt-get -y install rsync'
+          command: 'sudo apt-get update -y && sudo apt-get -y install rsync'
       - run:
           name: update-npm
           command: 'sudo npm install -g npm@lts'

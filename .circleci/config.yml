@@ -4,7 +4,6 @@ jobs:
     working_directory: ~/repo
     docker:
       - image: circleci/node:lts
-      - image: docker:17.05.0-ce-git
     steps:
       - checkout:
       - run:
@@ -15,6 +14,20 @@ jobs:
           command: 'sudo npm install -g npm@lts'
       - restore_cache:
           key: dependency-cache-{{ checksum "package.json" }}
+      - run:
+          name: install-docker
+          command: |
+            apt-get update --fix-missing
+            apt-get install -y apt-transport-https ca-certificates software-properties-common
+            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+            apt-key fingerprint 0EBFCD88
+            add-apt-repository \
+              "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
+              $(lsb_release -cs) \
+              stable"
+            apt-get update
+            apt-get install -y docker-ce
+            docker --version
       - run:
           name: install
           command: npm install

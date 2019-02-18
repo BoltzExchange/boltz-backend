@@ -1,46 +1,45 @@
 version: 2
 jobs:
   build:
-    working_directory: ~/repo
-    docker:
-      - image: circleci/node:lts
+    machine:
+      enabled: true
+      image: circleci/classic:edge
+  
     steps:
       - checkout:
+
       - run:
-          name: update
+          name: Install rsync
           command: 'sudo apt-get update -y && sudo apt-get -y install rsync'
-      - run:
-          name: update-npm
-          command: 'sudo npm install -g npm@lts'
+
       - restore_cache:
-          key: dependency-cache-{{ checksum "package.json" }}
+          key: dependency-cache-{{ checksum "package.json" }}-v2
+
       - run:
-          name: install-docker
-          command: |
-            sudo apt-get update --fix-missing
-            sudo apt-get install -y apt-transport-https ca-certificates software-properties-common
-            sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
-            sudo apt-key fingerprint 0EBFCD88
-            sudo add-apt-repository \
-              "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
-              $(lsb_release -cs) \
-              stable"
-            sudo apt-get update
-            sudo apt-get install -y docker-ce
-            sudo docker --version
-      - run:
-          name: install
+          name: Install dependencies
           command: npm install
+
       - save_cache:
-          key: dependency-cache-{{ checksum "package.json" }}
+          key: dependency-cache-{{ checksum "package.json" }}-v2
           paths:
             - ./node_modules
+
       - run:
-          name: compile
+          name: Compile
           command: npm run compile
+
       - run:
-          name: lint
+          name: Lint
           command: npm run lint
+
       - run:
-          name: test
-          command: npm run test
+          name: Unit tests
+          command: npm run test:unit
+
+      - run:
+          name: Start simnet
+          command: npm run docker:start
+
+      - run:
+          name: Integration tests
+          command: npm run test:int

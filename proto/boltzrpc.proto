@@ -53,13 +53,12 @@ enum InvoiceEvent {
 message GetInfoRequest {}
 message GetInfoResponse {
   string version = 1;
-  repeated CurrencyInfo chains = 2;
+  map<string, CurrencyInfo> chains = 2;
 }
 
 message CurrencyInfo {
-  string symbol = 1;
-  ChainInfo chain = 2;
-  LndInfo lnd = 3;
+  ChainInfo chain = 1;
+  LndInfo lnd = 2;
 }
 
 message ChainInfo {
@@ -67,13 +66,13 @@ message ChainInfo {
   int32 protocolversion = 2;
   int32 blocks = 3;
   int32 connections = 4;
-  bool testnet = 5;
+  string error = 5;
 }
 
 message LndInfo {
   string version = 1;
-  LndChannels lndChannels = 2;
-  int32 blockheight = 3;
+  LndChannels lnd_channels = 2;
+  int32 block_height = 3;
   string error = 4;
 }
 message LndChannels {

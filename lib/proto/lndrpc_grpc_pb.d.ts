@@ -98,7 +98,6 @@ interface ILightningService extends grpc.ServiceDefinition<grpc.UntypedServiceIm
     subscribeTransactions: ILightningService_ISubscribeTransactions;
     sendMany: ILightningService_ISendMany;
     newAddress: ILightningService_INewAddress;
-    newWitnessAddress: ILightningService_INewWitnessAddress;
     signMessage: ILightningService_ISignMessage;
     verifyMessage: ILightningService_IVerifyMessage;
     connectPeer: ILightningService_IConnectPeer;
@@ -111,6 +110,7 @@ interface ILightningService extends grpc.ServiceDefinition<grpc.UntypedServiceIm
     openChannelSync: ILightningService_IOpenChannelSync;
     openChannel: ILightningService_IOpenChannel;
     closeChannel: ILightningService_ICloseChannel;
+    abandonChannel: ILightningService_IAbandonChannel;
     sendPayment: ILightningService_ISendPayment;
     sendPaymentSync: ILightningService_ISendPaymentSync;
     sendToRoute: ILightningService_ISendToRoute;
@@ -195,15 +195,6 @@ interface ILightningService_INewAddress extends grpc.MethodDefinition<lndrpc_pb.
     responseStream: boolean; // false
     requestSerialize: grpc.serialize<lndrpc_pb.NewAddressRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.NewAddressRequest>;
-    responseSerialize: grpc.serialize<lndrpc_pb.NewAddressResponse>;
-    responseDeserialize: grpc.deserialize<lndrpc_pb.NewAddressResponse>;
-}
-interface ILightningService_INewWitnessAddress extends grpc.MethodDefinition<lndrpc_pb.NewWitnessAddressRequest, lndrpc_pb.NewAddressResponse> {
-    path: string; // "/lnrpc.Lightning/NewWitnessAddress"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
-    requestSerialize: grpc.serialize<lndrpc_pb.NewWitnessAddressRequest>;
-    requestDeserialize: grpc.deserialize<lndrpc_pb.NewWitnessAddressRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.NewAddressResponse>;
     responseDeserialize: grpc.deserialize<lndrpc_pb.NewAddressResponse>;
 }
@@ -314,6 +305,15 @@ interface ILightningService_ICloseChannel extends grpc.MethodDefinition<lndrpc_p
     requestDeserialize: grpc.deserialize<lndrpc_pb.CloseChannelRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.CloseStatusUpdate>;
     responseDeserialize: grpc.deserialize<lndrpc_pb.CloseStatusUpdate>;
+}
+interface ILightningService_IAbandonChannel extends grpc.MethodDefinition<lndrpc_pb.AbandonChannelRequest, lndrpc_pb.AbandonChannelResponse> {
+    path: string; // "/lnrpc.Lightning/AbandonChannel"
+    requestStream: boolean; // false
+    responseStream: boolean; // false
+    requestSerialize: grpc.serialize<lndrpc_pb.AbandonChannelRequest>;
+    requestDeserialize: grpc.deserialize<lndrpc_pb.AbandonChannelRequest>;
+    responseSerialize: grpc.serialize<lndrpc_pb.AbandonChannelResponse>;
+    responseDeserialize: grpc.deserialize<lndrpc_pb.AbandonChannelResponse>;
 }
 interface ILightningService_ISendPayment extends grpc.MethodDefinition<lndrpc_pb.SendRequest, lndrpc_pb.SendResponse> {
     path: string; // "/lnrpc.Lightning/SendPayment"
@@ -524,7 +524,6 @@ export interface ILightningServer {
     subscribeTransactions: grpc.handleServerStreamingCall<lndrpc_pb.GetTransactionsRequest, lndrpc_pb.Transaction>;
     sendMany: grpc.handleUnaryCall<lndrpc_pb.SendManyRequest, lndrpc_pb.SendManyResponse>;
     newAddress: grpc.handleUnaryCall<lndrpc_pb.NewAddressRequest, lndrpc_pb.NewAddressResponse>;
-    newWitnessAddress: grpc.handleUnaryCall<lndrpc_pb.NewWitnessAddressRequest, lndrpc_pb.NewAddressResponse>;
     signMessage: grpc.handleUnaryCall<lndrpc_pb.SignMessageRequest, lndrpc_pb.SignMessageResponse>;
     verifyMessage: grpc.handleUnaryCall<lndrpc_pb.VerifyMessageRequest, lndrpc_pb.VerifyMessageResponse>;
     connectPeer: grpc.handleUnaryCall<lndrpc_pb.ConnectPeerRequest, lndrpc_pb.ConnectPeerResponse>;
@@ -537,6 +536,7 @@ export interface ILightningServer {
     openChannelSync: grpc.handleUnaryCall<lndrpc_pb.OpenChannelRequest, lndrpc_pb.ChannelPoint>;
     openChannel: grpc.handleServerStreamingCall<lndrpc_pb.OpenChannelRequest, lndrpc_pb.OpenStatusUpdate>;
     closeChannel: grpc.handleServerStreamingCall<lndrpc_pb.CloseChannelRequest, lndrpc_pb.CloseStatusUpdate>;
+    abandonChannel: grpc.handleUnaryCall<lndrpc_pb.AbandonChannelRequest, lndrpc_pb.AbandonChannelResponse>;
     sendPayment: grpc.handleBidiStreamingCall<lndrpc_pb.SendRequest, lndrpc_pb.SendResponse>;
     sendPaymentSync: grpc.handleUnaryCall<lndrpc_pb.SendRequest, lndrpc_pb.SendResponse>;
     sendToRoute: grpc.handleBidiStreamingCall<lndrpc_pb.SendToRouteRequest, lndrpc_pb.SendResponse>;
@@ -582,9 +582,6 @@ export interface ILightningClient {
     newAddress(request: lndrpc_pb.NewAddressRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.NewAddressResponse) => void): grpc.ClientUnaryCall;
     newAddress(request: lndrpc_pb.NewAddressRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.NewAddressResponse) => void): grpc.ClientUnaryCall;
     newAddress(request: lndrpc_pb.NewAddressRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.NewAddressResponse) => void): grpc.ClientUnaryCall;
-    newWitnessAddress(request: lndrpc_pb.NewWitnessAddressRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.NewAddressResponse) => void): grpc.ClientUnaryCall;
-    newWitnessAddress(request: lndrpc_pb.NewWitnessAddressRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.NewAddressResponse) => void): grpc.ClientUnaryCall;
-    newWitnessAddress(request: lndrpc_pb.NewWitnessAddressRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.NewAddressResponse) => void): grpc.ClientUnaryCall;
     signMessage(request: lndrpc_pb.SignMessageRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.SignMessageResponse) => void): grpc.ClientUnaryCall;
     signMessage(request: lndrpc_pb.SignMessageRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.SignMessageResponse) => void): grpc.ClientUnaryCall;
     signMessage(request: lndrpc_pb.SignMessageRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.SignMessageResponse) => void): grpc.ClientUnaryCall;
@@ -619,6 +616,9 @@ export interface ILightningClient {
     openChannel(request: lndrpc_pb.OpenChannelRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<lndrpc_pb.OpenStatusUpdate>;
     closeChannel(request: lndrpc_pb.CloseChannelRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<lndrpc_pb.CloseStatusUpdate>;
     closeChannel(request: lndrpc_pb.CloseChannelRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<lndrpc_pb.CloseStatusUpdate>;
+    abandonChannel(request: lndrpc_pb.AbandonChannelRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.AbandonChannelResponse) => void): grpc.ClientUnaryCall;
+    abandonChannel(request: lndrpc_pb.AbandonChannelRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.AbandonChannelResponse) => void): grpc.ClientUnaryCall;
+    abandonChannel(request: lndrpc_pb.AbandonChannelRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.AbandonChannelResponse) => void): grpc.ClientUnaryCall;
     sendPayment(): grpc.ClientDuplexStream<lndrpc_pb.SendRequest, lndrpc_pb.SendResponse>;
     sendPayment(options: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<lndrpc_pb.SendRequest, lndrpc_pb.SendResponse>;
     sendPayment(metadata: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<lndrpc_pb.SendRequest, lndrpc_pb.SendResponse>;
@@ -707,9 +707,6 @@ export class LightningClient extends grpc.Client implements ILightningClient {
     public newAddress(request: lndrpc_pb.NewAddressRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.NewAddressResponse) => void): grpc.ClientUnaryCall;
     public newAddress(request: lndrpc_pb.NewAddressRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.NewAddressResponse) => void): grpc.ClientUnaryCall;
     public newAddress(request: lndrpc_pb.NewAddressRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.NewAddressResponse) => void): grpc.ClientUnaryCall;
-    public newWitnessAddress(request: lndrpc_pb.NewWitnessAddressRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.NewAddressResponse) => void): grpc.ClientUnaryCall;
-    public newWitnessAddress(request: lndrpc_pb.NewWitnessAddressRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.NewAddressResponse) => void): grpc.ClientUnaryCall;
-    public newWitnessAddress(request: lndrpc_pb.NewWitnessAddressRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.NewAddressResponse) => void): grpc.ClientUnaryCall;
     public signMessage(request: lndrpc_pb.SignMessageRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.SignMessageResponse) => void): grpc.ClientUnaryCall;
     public signMessage(request: lndrpc_pb.SignMessageRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.SignMessageResponse) => void): grpc.ClientUnaryCall;
     public signMessage(request: lndrpc_pb.SignMessageRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.SignMessageResponse) => void): grpc.ClientUnaryCall;
@@ -744,6 +741,9 @@ export class LightningClient extends grpc.Client implements ILightningClient {
     public openChannel(request: lndrpc_pb.OpenChannelRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<lndrpc_pb.OpenStatusUpdate>;
     public closeChannel(request: lndrpc_pb.CloseChannelRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<lndrpc_pb.CloseStatusUpdate>;
     public closeChannel(request: lndrpc_pb.CloseChannelRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<lndrpc_pb.CloseStatusUpdate>;
+    public abandonChannel(request: lndrpc_pb.AbandonChannelRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.AbandonChannelResponse) => void): grpc.ClientUnaryCall;
+    public abandonChannel(request: lndrpc_pb.AbandonChannelRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.AbandonChannelResponse) => void): grpc.ClientUnaryCall;
+    public abandonChannel(request: lndrpc_pb.AbandonChannelRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.AbandonChannelResponse) => void): grpc.ClientUnaryCall;
     public sendPayment(options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<lndrpc_pb.SendRequest, lndrpc_pb.SendResponse>;
     public sendPayment(metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<lndrpc_pb.SendRequest, lndrpc_pb.SendResponse>;
     public sendPaymentSync(request: lndrpc_pb.SendRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.SendResponse) => void): grpc.ClientUnaryCall;

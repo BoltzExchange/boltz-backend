@@ -4,11 +4,19 @@ import Errors from './Errors';
 import Logger from '../Logger';
 import Wallet from '../wallet/Wallet';
 import SwapManager from '../swap/SwapManager';
-import { Info as LndInfo } from '../lightning/LndClient';
-import { Info as ChainInfo } from '../chain/ChainClientInterface';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import { getHexBuffer, getOutputType, getHexString } from '../Utils';
-import { OrderSide, Balance, WalletBalance, GetBalanceResponse } from '../proto/boltzrpc_pb';
+import {
+  Balance,
+  LndInfo,
+  OrderSide,
+  ChainInfo,
+  LndChannels,
+  CurrencyInfo,
+  WalletBalance,
+  GetInfoResponse,
+  GetBalanceResponse,
+} from '../proto/boltzrpc_pb';
 
 const packageJson = require('../../package.json');
 
@@ -17,17 +25,6 @@ type ServiceComponents = {
   currencies: Map<string, Currency>;
   walletManager: WalletManager;
   swapManager: SwapManager;
-};
-
-type CurrencyInfo = {
-  symbol: string;
-  chainInfo: ChainInfo;
-  lndInfo: LndInfo;
-};
-
-type BoltzInfo = {
-  version: string;
-  currencies: CurrencyInfo[];
 };
 
 interface Service {
@@ -96,24 +93,51 @@ class Service extends EventEmitter {
   /**
    * Gets general information about this Boltz instance and the nodes it is connected to
    */
-  public getInfo = async (): Promise<BoltzInfo> => {
-    const currencyInfos: CurrencyInfo[] = [];
+  public getInfo = async (): Promise<GetInfoResponse> => {
+    const response = new GetInfoResponse();
+    const map = response.getChainsMap();
+
+    response.setVersion(packageJson.version);
 
     for (const [, currency] of this.serviceComponents.currencies) {
-      const chainInfo = await currency.chainClient.getInfo();
-      const lndInfo = await currency.lndClient.getLndInfo();
+      const chain = new ChainInfo();
+      const lnd = new LndInfo();
 
-      currencyInfos.push({
-        chainInfo,
-        lndInfo,
-        symbol: currency.symbol,
-      });
+      try {
+        const info = await currency.chainClient.getInfo();
+
+        chain.setVersion(info.version);
+        chain.setProtocolversion(info.protocolversion);
+        chain.setBlocks(info.blocks);
+        chain.setConnections(info.connections);
+      } catch (error) {
+        chain.setError(error);
+      }
+
+      try {
+        const lndInfo = await currency.lndClient.getInfo();
+
+        const channels = new LndChannels();
+
+        channels.setActive(lndInfo.numActiveChannels);
+        channels.setInactive(lndInfo.numInactiveChannels);
+        channels.setPending(lndInfo.numPendingChannels);
+
+        lnd.setVersion(lndInfo.version);
+        lnd.setBlockHeight(lndInfo.blockHeight);
+        lnd.setLndChannels(channels);
+      } catch (error) {
+        lnd.setError(error.details);
+      }
+
+      const currencyInfo = new CurrencyInfo();
+      currencyInfo.setChain(chain);
+      currencyInfo.setLnd(lnd);
+
+      map.set(currency.symbol, currencyInfo);
     }
 
-    return {
-      version: packageJson.version,
-      currencies: currencyInfos,
-    };
+    return response;
   }
 
   /**

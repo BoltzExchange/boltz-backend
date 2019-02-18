@@ -26,10 +26,9 @@ export class GetInfoResponse extends jspb.Message {
     getVersion(): string;
     setVersion(value: string): void;
 
-    clearChainsList(): void;
-    getChainsList(): Array<CurrencyInfo>;
-    setChainsList(value: Array<CurrencyInfo>): void;
-    addChains(value?: CurrencyInfo, index?: number): CurrencyInfo;
+
+    getChainsMap(): jspb.Map<string, CurrencyInfo>;
+    clearChainsMap(): void;
 
 
     serializeBinary(): Uint8Array;
@@ -45,14 +44,12 @@ export class GetInfoResponse extends jspb.Message {
 export namespace GetInfoResponse {
     export type AsObject = {
         version: string,
-        chainsList: Array<CurrencyInfo.AsObject>,
+
+        chainsMap: Array<[string, CurrencyInfo.AsObject]>,
     }
 }
 
 export class CurrencyInfo extends jspb.Message { 
-    getSymbol(): string;
-    setSymbol(value: string): void;
-
 
     hasChain(): boolean;
     clearChain(): void;
@@ -78,7 +75,6 @@ export class CurrencyInfo extends jspb.Message {
 
 export namespace CurrencyInfo {
     export type AsObject = {
-        symbol: string,
         chain?: ChainInfo.AsObject,
         lnd?: LndInfo.AsObject,
     }
@@ -97,8 +93,8 @@ export class ChainInfo extends jspb.Message {
     getConnections(): number;
     setConnections(value: number): void;
 
-    getTestnet(): boolean;
-    setTestnet(value: boolean): void;
+    getError(): string;
+    setError(value: string): void;
 
 
     serializeBinary(): Uint8Array;
@@ -117,7 +113,7 @@ export namespace ChainInfo {
         protocolversion: number,
         blocks: number,
         connections: number,
-        testnet: boolean,
+        error: string,
     }
 }
 
@@ -126,13 +122,13 @@ export class LndInfo extends jspb.Message {
     setVersion(value: string): void;
 
 
-    hasLndchannels(): boolean;
-    clearLndchannels(): void;
-    getLndchannels(): LndChannels | undefined;
-    setLndchannels(value?: LndChannels): void;
+    hasLndChannels(): boolean;
+    clearLndChannels(): void;
+    getLndChannels(): LndChannels | undefined;
+    setLndChannels(value?: LndChannels): void;
 
-    getBlockheight(): number;
-    setBlockheight(value: number): void;
+    getBlockHeight(): number;
+    setBlockHeight(value: number): void;
 
     getError(): string;
     setError(value: string): void;
@@ -151,8 +147,8 @@ export class LndInfo extends jspb.Message {
 export namespace LndInfo {
     export type AsObject = {
         version: string,
-        lndchannels?: LndChannels.AsObject,
-        blockheight: number,
+        lndChannels?: LndChannels.AsObject,
+        blockHeight: number,
         error: string,
     }
 }

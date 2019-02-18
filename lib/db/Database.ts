@@ -37,8 +37,9 @@ class Db {
       throw error;
     }
 
+    await this.models.Wallet.sync();
+
     await Promise.all([
-      this.models.Wallet.sync(),
       this.models.Output.sync(),
       this.models.Utxo.sync(),
     ]);

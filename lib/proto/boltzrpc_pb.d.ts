@@ -26,10 +26,9 @@ export class GetInfoResponse extends jspb.Message {
     getVersion(): string;
     setVersion(value: string): void;
 
-    clearChainsList(): void;
-    getChainsList(): Array<CurrencyInfo>;
-    setChainsList(value: Array<CurrencyInfo>): void;
-    addChains(value?: CurrencyInfo, index?: number): CurrencyInfo;
+
+    getChainsMap(): jspb.Map<string, CurrencyInfo>;
+    clearChainsMap(): void;
 
 
     serializeBinary(): Uint8Array;
@@ -45,14 +44,12 @@ export class GetInfoResponse extends jspb.Message {
 export namespace GetInfoResponse {
     export type AsObject = {
         version: string,
-        chainsList: Array<CurrencyInfo.AsObject>,
+
+        chainsMap: Array<[string, CurrencyInfo.AsObject]>,
     }
 }
 
 export class CurrencyInfo extends jspb.Message { 
-    getSymbol(): string;
-    setSymbol(value: string): void;
-
 
     hasChain(): boolean;
     clearChain(): void;
@@ -78,7 +75,6 @@ export class CurrencyInfo extends jspb.Message {
 
 export namespace CurrencyInfo {
     export type AsObject = {
-        symbol: string,
         chain?: ChainInfo.AsObject,
         lnd?: LndInfo.AsObject,
     }
@@ -97,8 +93,8 @@ export class ChainInfo extends jspb.Message {
     getConnections(): number;
     setConnections(value: number): void;
 
-    getTestnet(): boolean;
-    setTestnet(value: boolean): void;
+    getError(): string;
+    setError(value: string): void;
 
 
     serializeBinary(): Uint8Array;
@@ -117,7 +113,7 @@ export namespace ChainInfo {
         protocolversion: number,
         blocks: number,
         connections: number,
-        testnet: boolean,
+        error: string,
     }
 }
 
@@ -126,13 +122,13 @@ export class LndInfo extends jspb.Message {
     setVersion(value: string): void;
 
 
-    hasLndchannels(): boolean;
-    clearLndchannels(): void;
-    getLndchannels(): LndChannels | undefined;
-    setLndchannels(value?: LndChannels): void;
+    hasLndChannels(): boolean;
+    clearLndChannels(): void;
+    getLndChannels(): LndChannels | undefined;
+    setLndChannels(value?: LndChannels): void;
 
-    getBlockheight(): number;
-    setBlockheight(value: number): void;
+    getBlockHeight(): number;
+    setBlockHeight(value: number): void;
 
     getError(): string;
     setError(value: string): void;
@@ -151,8 +147,8 @@ export class LndInfo extends jspb.Message {
 export namespace LndInfo {
     export type AsObject = {
         version: string,
-        lndchannels?: LndChannels.AsObject,
-        blockheight: number,
+        lndChannels?: LndChannels.AsObject,
+        blockHeight: number,
         error: string,
     }
 }
@@ -209,7 +205,7 @@ export namespace GetBalanceRequest {
 
 export class GetBalanceResponse extends jspb.Message { 
 
-    getBalancesMap(): jspb.Map<string, WalletBalance>;
+    getBalancesMap(): jspb.Map<string, Balance>;
     clearBalancesMap(): void;
 
 
@@ -226,7 +222,35 @@ export class GetBalanceResponse extends jspb.Message {
 export namespace GetBalanceResponse {
     export type AsObject = {
 
-        balancesMap: Array<[string, WalletBalance.AsObject]>,
+        balancesMap: Array<[string, Balance.AsObject]>,
+    }
+}
+
+export class Balance extends jspb.Message { 
+    getChannelBalance(): number;
+    setChannelBalance(value: number): void;
+
+
+    hasWalletBalance(): boolean;
+    clearWalletBalance(): void;
+    getWalletBalance(): WalletBalance | undefined;
+    setWalletBalance(value?: WalletBalance): void;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): Balance.AsObject;
+    static toObject(includeInstance: boolean, msg: Balance): Balance.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: Balance, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): Balance;
+    static deserializeBinaryFromReader(message: Balance, reader: jspb.BinaryReader): Balance;
+}
+
+export namespace Balance {
+    export type AsObject = {
+        channelBalance: number,
+        walletBalance?: WalletBalance.AsObject,
     }
 }
 
@@ -499,8 +523,14 @@ export namespace SubscribeInvoicesRequest {
 }
 
 export class SubscribeInvoicesResponse extends jspb.Message { 
+    getEvent(): InvoiceEvent;
+    setEvent(value: InvoiceEvent): void;
+
     getInvoice(): string;
     setInvoice(value: string): void;
+
+    getPreimage(): string;
+    setPreimage(value: string): void;
 
 
     serializeBinary(): Uint8Array;
@@ -515,7 +545,9 @@ export class SubscribeInvoicesResponse extends jspb.Message {
 
 export namespace SubscribeInvoicesResponse {
     export type AsObject = {
+        event: InvoiceEvent,
         invoice: string,
+        preimage: string,
     }
 }
 
@@ -541,6 +573,9 @@ export class CreateSwapRequest extends jspb.Message {
     getOutputType(): OutputType;
     setOutputType(value: OutputType): void;
 
+    getTimeoutBlockNumber(): number;
+    setTimeoutBlockNumber(value: number): void;
+
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): CreateSwapRequest.AsObject;
@@ -561,6 +596,7 @@ export namespace CreateSwapRequest {
         invoice: string,
         refundPublicKey: string,
         outputType: OutputType,
+        timeoutBlockNumber: number,
     }
 }
 
@@ -616,6 +652,9 @@ export class CreateReverseSwapRequest extends jspb.Message {
     getAmount(): number;
     setAmount(value: number): void;
 
+    getTimeoutBlockNumber(): number;
+    setTimeoutBlockNumber(value: number): void;
+
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): CreateReverseSwapRequest.AsObject;
@@ -635,6 +674,7 @@ export namespace CreateReverseSwapRequest {
         rate: number,
         claimPublicKey: string,
         amount: number,
+        timeoutBlockNumber: number,
     }
 }
 
@@ -645,11 +685,14 @@ export class CreateReverseSwapResponse extends jspb.Message {
     getRedeemScript(): string;
     setRedeemScript(value: string): void;
 
-    getTransaction(): string;
-    setTransaction(value: string): void;
+    getLockupAddress(): string;
+    setLockupAddress(value: string): void;
 
-    getTransactionHash(): string;
-    setTransactionHash(value: string): void;
+    getLockupTransaction(): string;
+    setLockupTransaction(value: string): void;
+
+    getLockupTransactionHash(): string;
+    setLockupTransactionHash(value: string): void;
 
 
     serializeBinary(): Uint8Array;
@@ -666,8 +709,9 @@ export namespace CreateReverseSwapResponse {
     export type AsObject = {
         invoice: string,
         redeemScript: string,
-        transaction: string,
-        transactionHash: string,
+        lockupAddress: string,
+        lockupTransaction: string,
+        lockupTransactionHash: string,
     }
 }
 
@@ -680,4 +724,9 @@ export enum OutputType {
 export enum OrderSide {
     BUY = 0,
     SELL = 1,
+}
+
+export enum InvoiceEvent {
+    PAID = 0,
+    SETTLED = 1,
 }

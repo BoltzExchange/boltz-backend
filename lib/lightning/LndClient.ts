@@ -1,17 +1,16 @@
 import fs from 'fs';
 import grpc, { ClientReadableStream } from 'grpc';
-import BaseClient from '../BaseClient';
-import Logger from '../Logger';
 import Errors from './Errors';
-import LightningClient from './LightningClient';
+import Logger from '../Logger';
+import BaseClient from '../BaseClient';
 import * as lndrpc from '../proto/lndrpc_pb';
 import { ClientStatus } from '../consts/Enums';
+import LightningClient from './LightningClient';
 import { LightningClient as GrpcClient } from '../proto/lndrpc_grpc_pb';
-import { getHexString } from '../Utils';
 
-// TODO: error handling
-
-/** The configurable options for the lnd client. */
+/**
+ * The configurable options for the lnd client
+ */
 type LndConfig = {
   host: string;
   port: number;
@@ -19,15 +18,16 @@ type LndConfig = {
   macaroonpath: string;
 };
 
-/** General information about the state of this lnd client. */
+/**
+ * General information about the state of this lnd client
+ */
 type Info = {
-  version?: string;
-  syncedtochain?: boolean;
-  chainsList?: string[];
-  channels?: ChannelCount;
-  blockheight?: number;
+  version: string;
+  syncedtochain: boolean;
+  chainsList: string[];
+  channels: ChannelCount;
+  blockheight: number;
   uris?: string[];
-  error?: string;
 };
 
 type ChannelCount = {
@@ -41,18 +41,23 @@ interface GrpcResponse {
 }
 
 interface LndClient {
-  on(event: 'invoice.settled', listener: (rHash: Buffer) => void): this;
-  emit(event: 'invoice.settled', rHash: Buffer): boolean;
-
   on(event: 'invoice.paid', listener: (invoice: string) => void): this;
   emit(event: 'invoice.paid', invoice: string): boolean;
+
+  on(event: 'invoice.failed', listener: (invoice: string) => void): this;
+  emit(event: 'invoice.failed', invoice: string): boolean;
+
+  on(event: 'invoice.settled', listener: (invoice: string, preimage: string) => void): this;
+  emit(event: 'invoice.settled', string: string, preimage: string): boolean;
 }
 
 interface LightningMethodIndex extends GrpcClient {
   [methodName: string]: Function;
 }
 
-/** A class representing a client to interact with LND */
+/**
+ * A class representing a client to interact with LND
+ */
 class LndClient extends BaseClient implements LightningClient {
   public static readonly serviceName = 'LND';
   private uri!: string;
@@ -133,7 +138,28 @@ class LndClient extends BaseClient implements LightningClient {
     return true;
   }
 
-  /** End all subscriptions and reconnection attempts. */
+  private reconnect = async () => {
+    try {
+      await this.getInfo();
+
+      this.logger.info(`Reestablished connection to ${LndClient.serviceName} ${this.symbol}`);
+
+      this.setClientStatus(ClientStatus.Connected);
+      this.clearReconnectTimer();
+
+      this.subscribeInvoices();
+    } catch (err) {
+      this.logger.error(`Could not reconnect to ${LndClient.serviceName} ${this.symbol}: ${err}`);
+      this.logger.info(`Retrying in ${this.RECONNECT_INTERVAL} ms`);
+
+      this.setClientStatus(ClientStatus.Disconnected);
+      this.reconnectionTimer = setTimeout(this.reconnect, this.RECONNECT_INTERVAL);
+    }
+  }
+
+  /**
+   * End all subscriptions and reconnection attempts.
+   */
   public disconnect = () => {
     this.clearReconnectTimer();
 
@@ -152,46 +178,6 @@ class LndClient extends BaseClient implements LightningClient {
         }
       });
     });
-  }
-
-  public getLndInfo = async (): Promise<Info> => {
-    let channels: ChannelCount | undefined;
-    let chainsList: string[] | undefined;
-    let blockheight: number | undefined;
-    let uris: string[] | undefined;
-    let version: string | undefined;
-    let syncedtochain: boolean | undefined;
-    try {
-      const lnd = await this.getInfo();
-      channels = {
-        active: lnd.numActiveChannels,
-        pending: lnd.numPendingChannels,
-      };
-      chainsList = lnd.chainsList,
-      blockheight = lnd.blockHeight,
-      uris = lnd.urisList,
-      version = lnd.version;
-      syncedtochain = lnd.syncedToChain;
-      return {
-        version,
-        syncedtochain,
-        chainsList,
-        channels,
-        blockheight,
-        uris,
-      };
-    } catch (err) {
-      this.logger.error(`LND error: ${err}`);
-      return {
-        version,
-        syncedtochain,
-        chainsList,
-        channels,
-        blockheight,
-        uris,
-        error: err,
-      };
-    }
   }
 
   /**
@@ -215,17 +201,22 @@ class LndClient extends BaseClient implements LightningClient {
 
   /**
    * Pay an invoice through the Lightning Network.
-   * @param payment_request an invoice for a payment within the Lightning Network
+   *
+   * @param invoice an invoice for a payment within the Lightning Network
    */
-  public payInvoice = async (invoice: string): Promise<lndrpc.SendResponse.AsObject> => {
+  public payInvoice = async (invoice: string) => {
     const request = new lndrpc.SendRequest();
     request.setPaymentRequest(invoice);
 
-    const repsonse = this.unaryCall<lndrpc.SendRequest, lndrpc.SendResponse.AsObject>('sendPaymentSync', request);
+    const response = await this.unaryCall<lndrpc.SendRequest, lndrpc.SendResponse.AsObject>('sendPaymentSync', request);
 
-    this.emit('invoice.paid', invoice);
+    if (response.paymentError === '') {
+      this.emit('invoice.paid', invoice);
+    } else {
+      this.emit('invoice.failed', invoice);
+    }
 
-    return repsonse;
+    return response;
   }
 
   /**
@@ -301,6 +292,15 @@ class LndClient extends BaseClient implements LightningClient {
   }
 
   /**
+   * Gets the total funds available across all open channels in satoshis
+   */
+  public channelBalance = () => {
+    const request = new lndrpc.ChannelBalanceRequest();
+
+    return this.unaryCall<lndrpc.ChannelBalanceRequest, lndrpc.ChannelBalanceResponse.AsObject>('channelBalance', request);
+  }
+
+  /**
    * Subscribe to events for when invoices are settled.
    */
   private subscribeInvoices = (): void => {
@@ -311,16 +311,17 @@ class LndClient extends BaseClient implements LightningClient {
     this.invoiceSubscription = this.lightning.subscribeInvoices(new lndrpc.InvoiceSubscription(), this.meta)
       .on('data', (invoice: lndrpc.Invoice) => {
         if (invoice.getSettled()) {
-          const rHash = Buffer.from(invoice.getRHash_asB64(), 'base64');
+          const paymentReq = invoice.getPaymentRequest();
 
-          this.logger.silly(`${this.symbol} LND invoice settled: ${getHexString(rHash)}`);
-          this.emit('invoice.settled', rHash);
+          this.logger.silly(`${this.symbol} LND invoice settled: ${paymentReq}`);
+          this.emit('invoice.settled', paymentReq, invoice.getRPreimage_asB64());
         }
       })
-      .on('error', (error) => {
+      .on('error', async (error) => {
         if (error.message !== '1 CANCELLED: Cancelled') {
           this.logger.error(`Invoice subscription ended: ${error}`);
         }
+        await this.reconnect();
       });
   }
 }

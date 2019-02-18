@@ -19,7 +19,7 @@ export default (sequelize: Sequelize.Sequelize, dataTypes: Sequelize.DataTypes) 
   const Output = sequelize.define<db.OutputInstance, db.OutputAttributes>('Output', attributes, options);
 
   Output.associate = (models: Sequelize.Models) => {
-    models.Utxo.belongsTo(models.Wallet, {
+    models.Output.belongsTo(models.Wallet, {
       foreignKey: 'currency',
     });
   };

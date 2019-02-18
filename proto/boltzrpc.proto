@@ -24,7 +24,7 @@ service Boltz {
   /* Subscribes to a stream of confirmed transactions to addresses that were specified with "ListenOnAddress" */
   rpc SubscribeTransactions (SubscribeTransactionsRequest) returns (stream SubscribeTransactionsResponse);
 
-  /* Subscribes to a stream of invoices paid by Boltz */
+  /* Subscribes to a stream of settled invoices and those paid by Boltz */
   rpc SubscribeInvoices (SubscribeInvoicesRequest) returns (stream SubscribeInvoicesResponse);
 
   /* Creates a new Swap from the chain to Lightning */
@@ -45,16 +45,20 @@ enum OrderSide {
   SELL = 1;
 }
 
+enum InvoiceEvent {
+  PAID = 0;
+  SETTLED = 1;
+}
+
 message GetInfoRequest {}
 message GetInfoResponse {
   string version = 1;
-  repeated CurrencyInfo chains = 2;
+  map<string, CurrencyInfo> chains = 2;
 }
 
 message CurrencyInfo {
-  string symbol = 1;
-  ChainInfo chain = 2;
-  LndInfo lnd = 3;
+  ChainInfo chain = 1;
+  LndInfo lnd = 2;
 }
 
 message ChainInfo {
@@ -62,13 +66,13 @@ message ChainInfo {
   int32 protocolversion = 2;
   int32 blocks = 3;
   int32 connections = 4;
-  bool testnet = 5;
+  string error = 5;
 }
 
 message LndInfo {
   string version = 1;
-  LndChannels lndChannels = 2;
-  int32 blockheight = 3;
+  LndChannels lnd_channels = 2;
+  int32 block_height = 3;
   string error = 4;
 }
 message LndChannels {
@@ -82,9 +86,13 @@ message GetBalanceRequest {
 }
 message GetBalanceResponse {
   // A map between the currencies and its balances
-  map<string, WalletBalance> balances = 1;
+  map<string, Balance> balances = 1;
 }
 
+message Balance {
+  int64 channel_balance = 1;
+  WalletBalance wallet_balance = 2;
+}
 message WalletBalance {
   int64 total_balance = 1;
   int64 confirmed_balance = 2;
@@ -129,7 +137,9 @@ message SubscribeTransactionsResponse {
 
 message SubscribeInvoicesRequest {}
 message SubscribeInvoicesResponse {
-  string invoice = 1;
+  InvoiceEvent event = 1;
+  string invoice = 2;
+  string preimage = 3;
 }
 
 message CreateSwapRequest {
@@ -140,6 +150,7 @@ message CreateSwapRequest {
   string invoice = 5;
   string refund_public_key = 6;
   OutputType output_type = 7;
+  int64 timeout_block_number = 8;
 }
 message CreateSwapResponse {
   string redeem_script = 1;
@@ -156,10 +167,12 @@ message CreateReverseSwapRequest {
   string claim_public_key = 5;
   // Amount of the invoice that will be returned
   int64 amount = 6;
+  int64 timeout_block_number = 7;
 }
 message CreateReverseSwapResponse {
   string invoice = 1;
   string redeem_script = 2;
-  string transaction = 3;
-  string transaction_hash = 4;
+  string lockup_address = 3;
+  string lockup_transaction = 4;
+  string lockup_transaction_hash = 5;
 }

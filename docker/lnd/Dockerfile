@@ -1,4 +1,4 @@
-FROM golang:1.11.4-alpine as builder
+FROM golang:1.11.5-alpine as builder
 
 # Install git
 RUN apk update && apk upgrade && apk add --no-cache git make
@@ -10,7 +10,7 @@ WORKDIR $GOPATH/src/github.com/lightningnetwork/lnd
 RUN git checkout resolver+simnet-ltcd && make dep && make install
 
 # Start again with a new image to reduce the size
-FROM alpine:3.8 as final
+FROM alpine:3.9 as final
 
 # Expose LND ports (server, gRPC)
 EXPOSE 9735 10009

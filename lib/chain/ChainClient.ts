@@ -23,14 +23,16 @@ class ChainClient extends BaseClient implements ChainClientInterface {
       switch (data.method) {
         // Emits an event on mempool acceptance
         case 'relevanttxaccepted':
-          data.params.forEach((transaction) => {
+          data.params.forEach((transaction: string) => {
             this.emit('transaction.relevant.mempool', transaction);
           });
           break;
 
-        // Emits an event on block acceptance
+        // Emits an event when a blocks gets added
         case 'filteredblockconnected':
           const params: any[] = data.params;
+
+          this.emit('block.connected', params[0]);
 
           if (params[2] !== null) {
             const transactions = params[2] as string[];

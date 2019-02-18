@@ -1,6 +1,6 @@
 # This image contains a SegWit activated BTCD and LTCD simnet environment
 # with two LNDs on each chain that have a channel to eachother
-FROM alpine:3.8
+FROM alpine:3.9
 
 # Install jq to parse JSON
 RUN apk update && apk upgrade && apk add --no-cache jq
@@ -55,6 +55,9 @@ EXPOSE 18556 19556
 
 # Expose gRPC ports of the LNDs
 EXPOSE 10009 10010 11009 11010
+
+# Expose REST API ports of the LNDs
+EXPOSE 8080 8081 9080 9081
 
 # Start the BTCD, LTCD and LND nodes
 RUN setup.sh

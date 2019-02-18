@@ -162,14 +162,12 @@ export const getSystemHomeDir = (): string => {
   }
 };
 
-// TODO: support for Geth/Parity and Raiden
 /**
  * Get the data directory of a service
  */
 export const getServiceDataDir = (service: string) => {
   const homeDir = getSystemHomeDir();
   const serviceDir = service.toLowerCase();
-
   switch (os.platform()) {
     case 'win32':
     case 'darwin':
@@ -183,7 +181,8 @@ export const getOutputType = (type: number) => {
   switch (type) {
     case 0: return OutputType.Bech32;
     case 1: return OutputType.Compatibility;
-    default: return OutputType.Legacy;
+    case 2: return OutputType.Legacy;
+    default: throw Error('type dose not exist');
   }
 };
 

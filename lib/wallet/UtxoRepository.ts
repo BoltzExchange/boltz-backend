@@ -8,6 +8,7 @@ class UtxoRepository {
     return this.models.Utxo.findAll({
       where: {
         currency,
+        spent: false,
       },
     });
   }
@@ -16,10 +17,11 @@ class UtxoRepository {
     return this.models.Utxo.findAll({
       where: {
         currency,
+        spent: false,
       },
       order: [
-        ['value', 'DESC'],
         ['confirmed', 'DESC'],
+        ['value', 'DESC'],
       ],
     });
   }
@@ -33,40 +35,28 @@ class UtxoRepository {
     });
   }
 
-  public getUtxo = async (txHash: string) => {
-    return this.models.Utxo.findAll({
+  public getUtxo = async (txHash: string, vout: number) => {
+    return this.models.Utxo.findOne({
       where: {
+        vout,
         txHash,
       },
     });
-  }
-
-  /**
-   * Creates a new or updates an existing UTXO
-   */
-  public upsertUtxo = async (utxo: db.UtxoFactory) => {
-    const existing = await this.models.Utxo.findOne({
-      where: {
-        txHash: utxo.txHash,
-      },
-    });
-
-    if (existing) {
-      return existing.update(utxo);
-    } else {
-      return this.addUtxo(utxo);
-    }
   }
 
   public addUtxo = async (utxo: db.UtxoFactory) => {
     return this.models.Utxo.create(<db.UtxoAttributes>utxo);
   }
 
-  public removeUtxo = async (txHash: string) => {
-    return this.models.Utxo.destroy({
+  public markUtxoSpent = async (id: number) => {
+    const existing = await this.models.Utxo.findOne({
       where: {
-        txHash,
+        id,
       },
+    });
+
+    return existing!.update({
+      spent: true,
     });
   }
 }

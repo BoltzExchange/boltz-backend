@@ -40,7 +40,7 @@ describe('LndClient', () => {
         }
       }
 
-      return .1;
+      return -1;
     };
 
     setBtcManager(new UtxoManager(btcdClient, Networks.bitcoinSimnet, {

@@ -1,0 +1,45 @@
+version: 2
+jobs:
+  build:
+    machine:
+      enabled: true
+      image: circleci/classic:edge
+  
+    steps:
+      - checkout:
+
+      - run:
+          name: Install rsync
+          command: 'sudo apt-get update -y && sudo apt-get -y install rsync'
+
+      - restore_cache:
+          key: dependency-cache-{{ checksum "package.json" }}-v2
+
+      - run:
+          name: Install dependencies
+          command: npm install
+
+      - save_cache:
+          key: dependency-cache-{{ checksum "package.json" }}-v2
+          paths:
+            - ./node_modules
+
+      - run:
+          name: Compile
+          command: npm run compile
+
+      - run:
+          name: Lint
+          command: npm run lint
+
+      - run:
+          name: Unit tests
+          command: npm run test:unit
+
+      - run:
+          name: Start simnet
+          command: npm run docker:start
+
+      - run:
+          name: Integration tests
+          command: npm run test:int

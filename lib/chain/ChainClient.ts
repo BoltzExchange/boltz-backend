@@ -1,4 +1,5 @@
 import BaseClient from '../BaseClient';
+import { estimateFee } from 'boltz-core';
 import Logger from '../Logger';
 import RpcClient, { RpcConfig } from '../RpcClient';
 import { ClientStatus } from '../consts/Enums';
@@ -90,8 +91,8 @@ class ChainClient extends BaseClient implements ChainClientInterface {
     return this.rpcClient.call<any>('getrawmempool', verbose);
   }
 
-  public getBlock = (blockHash: string): Promise<Block> => {
-    return this.rpcClient.call<Block>('getblock', blockHash);
+  public getBlock = (blockHash: string, verbose = true, verbosetx = false): Promise<Block> => {
+    return this.rpcClient.call<Block>('getblock', blockHash, verbose, verbosetx);
   }
 
   public loadTxFiler = (reload: boolean, addresses: string[], outpoints: string[]): Promise<null> => {
@@ -111,21 +112,55 @@ class ChainClient extends BaseClient implements ChainClientInterface {
     return this.rpcClient.call<string[]>('generate', blocks);
   }
 
-  public estimateFee = () => {
+  private transactionAverage = async (transactions: any[]): Promise<number> => {
+    let sumOfFees = 0;
+    let vbytes = 0;
+    transactions.forEach((tx: any) => {
+      vbytes += estimateFee(1, tx.vin, tx.vout);
+      sumOfFees += tx.fee;
+    });
+    return sumOfFees / vbytes;
+  }
+
+  private memPoolAverage = async (): Promise<number> => {
     return new Promise(async (res, rej) => {
       try {
-        let sumOfFees = 0;
-        const mempoolTx = await this.getRawMempool(true);
-        const transactions = Object.values(mempoolTx);
-        transactions.forEach((tx: any) => {
-          sumOfFees += tx.fee;
-        });
-        const avarage = sumOfFees / transactions.length;
-        res(avarage);
-      } catch (err) {
-        rej(false);
+        const mempool = await this.getRawMempool(true);
+        const average = this.transactionAverage(Object.values(mempool));
+        res(average);
+      } catch (error) {
+        rej(error);
       }
     });
+  }
+
+  private bestBlockAverage = (): Promise<number> => {
+    return new Promise(async (res, rej) => {
+      try {
+        const bestblockHash = await this.getBestBlock();
+        const bestblock = await this.getBlock(bestblockHash.hash, true, true);
+        const average = this.transactionAverage(bestblock.rawtx!);
+        res(average);
+      } catch (error) {
+        rej(error);
+      }
+    });
+  }
+
+  public estimateFee = async (tx: any) => {
+    let fee = 0;
+    const mempoolAverage = await this.memPoolAverage();
+    const bestblockAverage = await this.bestBlockAverage();
+
+    if (mempoolAverage === bestblockAverage) {
+      fee = mempoolAverage;
+    } else {
+      fee = (mempoolAverage + bestblockAverage) / 2;
+    }
+
+    // TODO: We should compare this result to the mempoolAverage && bestblockAverage
+    return estimateFee(fee, tx.vin, tx.vout);
+
   }
 
   /**

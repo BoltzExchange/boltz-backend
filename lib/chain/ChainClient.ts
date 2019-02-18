@@ -152,6 +152,7 @@ class ChainClient extends BaseClient implements ChainClientInterface {
     const mempoolAverage = await this.memPoolAverage();
     const bestblockAverage = await this.bestBlockAverage();
 
+    // TODO: How do you think we should compare the avrages and decide how to estimate the fee.
     if (mempoolAverage === bestblockAverage) {
       fee = mempoolAverage;
     } else {

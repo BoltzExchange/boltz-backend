@@ -78,7 +78,6 @@ class Boltz {
     });
 
     await Promise.all(promises);
-
     await this.walletManager.init();
 
     try {

@@ -243,7 +243,7 @@ class Wallet {
    *
    * @returns the transaction itself and the vout of the provided address
    */
-  public sendToAddress = async (address: string, type: OutputType, isScriptHash: boolean, amount: number, feePerByte = 2):
+  public sendToAddress = async (address: string, type: OutputType, isScriptHash: boolean, amount: number, satsPerByte?: number):
       Promise<{ tx: Transaction, vout: number }> => {
 
     const utxos = await this.utxoRepository.getUtxosSorted(this.symbol);
@@ -251,6 +251,7 @@ class Wallet {
     // The UTXOs that will be spent
     const toSpend: UTXO[] = [];
 
+    const feePerByte = satsPerByte || await this.chainClient.estimateFee();
     const recalculateFee = () => {
       return estimateFee(feePerByte, toSpend, [{ type: OutputType.Bech32 }, { type, isSh: isScriptHash }]);
     };

@@ -50,6 +50,8 @@ interface ChainClientInterface {
   sendRawTransaction(rawTransaction: string, allowHighFees: boolean): Promise<string>;
   getRawTransaction(transactionHash: string, verbose: number): Promise<any>;
 
+  estimateFee(numberBlock: number): Promise<number>;
+
   generate(blocks: number): Promise<string[]>;
 
   on(event: 'error', listener: (error: string) => void): this;

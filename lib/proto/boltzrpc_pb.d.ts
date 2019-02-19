@@ -375,6 +375,54 @@ export namespace GetTransactionResponse {
     }
 }
 
+export class GetFeeEstimationRequest extends jspb.Message { 
+    getCurrency(): string;
+    setCurrency(value: string): void;
+
+    getBlocks(): number;
+    setBlocks(value: number): void;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetFeeEstimationRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: GetFeeEstimationRequest): GetFeeEstimationRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetFeeEstimationRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetFeeEstimationRequest;
+    static deserializeBinaryFromReader(message: GetFeeEstimationRequest, reader: jspb.BinaryReader): GetFeeEstimationRequest;
+}
+
+export namespace GetFeeEstimationRequest {
+    export type AsObject = {
+        currency: string,
+        blocks: number,
+    }
+}
+
+export class GetFeeEstimationResponse extends jspb.Message { 
+
+    getFeesMap(): jspb.Map<string, number>;
+    clearFeesMap(): void;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetFeeEstimationResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: GetFeeEstimationResponse): GetFeeEstimationResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetFeeEstimationResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetFeeEstimationResponse;
+    static deserializeBinaryFromReader(message: GetFeeEstimationResponse, reader: jspb.BinaryReader): GetFeeEstimationResponse;
+}
+
+export namespace GetFeeEstimationResponse {
+    export type AsObject = {
+
+        feesMap: Array<[string, number]>,
+    }
+}
+
 export class BroadcastTransactionRequest extends jspb.Message { 
     getCurrency(): string;
     setCurrency(value: string): void;

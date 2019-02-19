@@ -11,6 +11,7 @@ interface IBoltzService extends grpc.ServiceDefinition<grpc.UntypedServiceImplem
     getBalance: IBoltzService_IGetBalance;
     newAddress: IBoltzService_INewAddress;
     getTransaction: IBoltzService_IGetTransaction;
+    getFeeEstimation: IBoltzService_IGetFeeEstimation;
     broadcastTransaction: IBoltzService_IBroadcastTransaction;
     listenOnAddress: IBoltzService_IListenOnAddress;
     subscribeTransactions: IBoltzService_ISubscribeTransactions;
@@ -54,6 +55,15 @@ interface IBoltzService_IGetTransaction extends grpc.MethodDefinition<boltzrpc_p
     requestDeserialize: grpc.deserialize<boltzrpc_pb.GetTransactionRequest>;
     responseSerialize: grpc.serialize<boltzrpc_pb.GetTransactionResponse>;
     responseDeserialize: grpc.deserialize<boltzrpc_pb.GetTransactionResponse>;
+}
+interface IBoltzService_IGetFeeEstimation extends grpc.MethodDefinition<boltzrpc_pb.GetFeeEstimationRequest, boltzrpc_pb.GetFeeEstimationResponse> {
+    path: string; // "/boltzrpc.Boltz/GetFeeEstimation"
+    requestStream: boolean; // false
+    responseStream: boolean; // false
+    requestSerialize: grpc.serialize<boltzrpc_pb.GetFeeEstimationRequest>;
+    requestDeserialize: grpc.deserialize<boltzrpc_pb.GetFeeEstimationRequest>;
+    responseSerialize: grpc.serialize<boltzrpc_pb.GetFeeEstimationResponse>;
+    responseDeserialize: grpc.deserialize<boltzrpc_pb.GetFeeEstimationResponse>;
 }
 interface IBoltzService_IBroadcastTransaction extends grpc.MethodDefinition<boltzrpc_pb.BroadcastTransactionRequest, boltzrpc_pb.BroadcastTransactionResponse> {
     path: string; // "/boltzrpc.Boltz/BroadcastTransaction"
@@ -117,6 +127,7 @@ export interface IBoltzServer {
     getBalance: grpc.handleUnaryCall<boltzrpc_pb.GetBalanceRequest, boltzrpc_pb.GetBalanceResponse>;
     newAddress: grpc.handleUnaryCall<boltzrpc_pb.NewAddressRequest, boltzrpc_pb.NewAddressResponse>;
     getTransaction: grpc.handleUnaryCall<boltzrpc_pb.GetTransactionRequest, boltzrpc_pb.GetTransactionResponse>;
+    getFeeEstimation: grpc.handleUnaryCall<boltzrpc_pb.GetFeeEstimationRequest, boltzrpc_pb.GetFeeEstimationResponse>;
     broadcastTransaction: grpc.handleUnaryCall<boltzrpc_pb.BroadcastTransactionRequest, boltzrpc_pb.BroadcastTransactionResponse>;
     listenOnAddress: grpc.handleUnaryCall<boltzrpc_pb.ListenOnAddressRequest, boltzrpc_pb.ListenOnAddressResponse>;
     subscribeTransactions: grpc.handleServerStreamingCall<boltzrpc_pb.SubscribeTransactionsRequest, boltzrpc_pb.SubscribeTransactionsResponse>;
@@ -138,6 +149,9 @@ export interface IBoltzClient {
     getTransaction(request: boltzrpc_pb.GetTransactionRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetTransactionResponse) => void): grpc.ClientUnaryCall;
     getTransaction(request: boltzrpc_pb.GetTransactionRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetTransactionResponse) => void): grpc.ClientUnaryCall;
     getTransaction(request: boltzrpc_pb.GetTransactionRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetTransactionResponse) => void): grpc.ClientUnaryCall;
+    getFeeEstimation(request: boltzrpc_pb.GetFeeEstimationRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetFeeEstimationResponse) => void): grpc.ClientUnaryCall;
+    getFeeEstimation(request: boltzrpc_pb.GetFeeEstimationRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetFeeEstimationResponse) => void): grpc.ClientUnaryCall;
+    getFeeEstimation(request: boltzrpc_pb.GetFeeEstimationRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetFeeEstimationResponse) => void): grpc.ClientUnaryCall;
     broadcastTransaction(request: boltzrpc_pb.BroadcastTransactionRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.BroadcastTransactionResponse) => void): grpc.ClientUnaryCall;
     broadcastTransaction(request: boltzrpc_pb.BroadcastTransactionRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.BroadcastTransactionResponse) => void): grpc.ClientUnaryCall;
     broadcastTransaction(request: boltzrpc_pb.BroadcastTransactionRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.BroadcastTransactionResponse) => void): grpc.ClientUnaryCall;
@@ -170,6 +184,9 @@ export class BoltzClient extends grpc.Client implements IBoltzClient {
     public getTransaction(request: boltzrpc_pb.GetTransactionRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetTransactionResponse) => void): grpc.ClientUnaryCall;
     public getTransaction(request: boltzrpc_pb.GetTransactionRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetTransactionResponse) => void): grpc.ClientUnaryCall;
     public getTransaction(request: boltzrpc_pb.GetTransactionRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetTransactionResponse) => void): grpc.ClientUnaryCall;
+    public getFeeEstimation(request: boltzrpc_pb.GetFeeEstimationRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetFeeEstimationResponse) => void): grpc.ClientUnaryCall;
+    public getFeeEstimation(request: boltzrpc_pb.GetFeeEstimationRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetFeeEstimationResponse) => void): grpc.ClientUnaryCall;
+    public getFeeEstimation(request: boltzrpc_pb.GetFeeEstimationRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetFeeEstimationResponse) => void): grpc.ClientUnaryCall;
     public broadcastTransaction(request: boltzrpc_pb.BroadcastTransactionRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.BroadcastTransactionResponse) => void): grpc.ClientUnaryCall;
     public broadcastTransaction(request: boltzrpc_pb.BroadcastTransactionRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.BroadcastTransactionResponse) => void): grpc.ClientUnaryCall;
     public broadcastTransaction(request: boltzrpc_pb.BroadcastTransactionRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.BroadcastTransactionResponse) => void): grpc.ClientUnaryCall;

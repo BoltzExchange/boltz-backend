@@ -48,6 +48,14 @@ class GrpcService {
     }
   }
 
+  public getFeeEstimation: grpc.handleUnaryCall<boltzrpc.GetFeeEstimationRequest, boltzrpc.GetFeeEstimationResponse> = async (call, callback) => {
+    try {
+      callback(null, await this.service.getFeeEstimation(call.request.toObject()));
+    } catch (error) {
+      callback(error, null);
+    }
+  }
+
   public broadcastTransaction: grpc.handleUnaryCall<boltzrpc.BroadcastTransactionRequest,
   boltzrpc.BroadcastTransactionResponse> = async (call, callback) => {
 

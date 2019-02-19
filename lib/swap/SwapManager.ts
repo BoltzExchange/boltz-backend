@@ -133,7 +133,7 @@ class SwapManager {
     const sendingAmount = this.calculateExpectedAmount(amount, 1 / this.getRate(rate, orderSide));
 
     const { tx, vout } = await sendingCurrency.wallet.sendToAddress(address, OutputType.Bech32, true, sendingAmount);
-    this.logger.debug(`Sending ${sendingAmount} on ${sendingCurrency.symbol} to swap address ${address}: ${tx.getId()}`);
+    this.logger.debug(`Sending ${sendingAmount} on ${sendingCurrency.symbol} to swap address ${address}: ${tx.getId()}:${vout}`);
 
     const rawTx = tx.toHex();
 

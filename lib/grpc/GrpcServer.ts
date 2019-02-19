@@ -34,6 +34,7 @@ class GrpcServer {
       subscribeInvoices: grpcService.subscribeInvoices,
       createSwap: grpcService.createSwap,
       createReverseSwap: grpcService.createReverseSwap,
+      sendCoins: grpcService.sendCoins,
     });
   }
 
@@ -66,7 +67,7 @@ class GrpcServer {
   public close = async () => {
     return new Promise((resolve) => {
       this.server.tryShutdown(() => {
-        this.logger.info('GRPC server completed shutdown');
+        this.logger.info('gRPC server completed shutdown');
         resolve();
       });
     });

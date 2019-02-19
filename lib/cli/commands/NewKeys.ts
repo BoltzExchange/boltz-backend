@@ -6,7 +6,7 @@ import { printResponse } from '../Command';
 
 export const command = 'newkeys <network>';
 
-export const describe = 'get new keys for the specified network';
+export const describe = 'gets new keys for the specified network';
 
 export const builder = {
   network: {

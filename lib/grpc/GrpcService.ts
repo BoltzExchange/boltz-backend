@@ -86,9 +86,9 @@ class GrpcService {
 
     this.service.on('transaction.confirmed', (transactionHash: string, outputAddress: string) => {
       const response = new boltzrpc.SubscribeTransactionsResponse();
-
       response.setTransactionHash(transactionHash);
       response.setOutputAddress(outputAddress);
+
       call.write(response);
     });
   }
@@ -96,7 +96,6 @@ class GrpcService {
   public subscribeInvoices: grpc.handleServerStreamingCall<boltzrpc.SubscribeInvoicesRequest, boltzrpc.SubscribeInvoicesResponse> = async (call) => {
     this.service.on('invoice.paid', (invoice: string) => {
       const response = new boltzrpc.SubscribeInvoicesResponse();
-
       response.setEvent(boltzrpc.InvoiceEvent.PAID);
       response.setInvoice(invoice);
 
@@ -105,7 +104,6 @@ class GrpcService {
 
     this.service.on('invoice.settled', (invoice: string, preimage: string) => {
       const response = new boltzrpc.SubscribeInvoicesResponse();
-
       response.setEvent(boltzrpc.InvoiceEvent.SETTLED);
       response.setInvoice(invoice);
       response.setPreimage(preimage);
@@ -132,7 +130,6 @@ class GrpcService {
 
   public createReverseSwap: grpc.handleUnaryCall<boltzrpc.CreateReverseSwapRequest, boltzrpc.CreateReverseSwapResponse> =
   async (call, callback) => {
-
     try {
       const {
         invoice,
@@ -148,6 +145,20 @@ class GrpcService {
       response.setLockupAddress(lockupAddress);
       response.setLockupTransaction(lockupTransaction);
       response.setLockupTransactionHash(lockupTransactionHash);
+
+      callback(null, response);
+    } catch (error) {
+      callback(error, null);
+    }
+  }
+
+  public sendCoins: grpc.handleUnaryCall<boltzrpc.SendCoinsRequest, boltzrpc.SendCoinsResponse> = async (call, callback) => {
+    try {
+      const { vout, transactionHash } = await this.service.sendCoins(call.request.toObject());
+
+      const response = new boltzrpc.SendCoinsResponse();
+      response.setTransactionHash(transactionHash);
+      response.setVout(vout);
 
       callback(null, response);
     } catch (error) {

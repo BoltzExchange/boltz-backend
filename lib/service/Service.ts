@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events';
+import { SwapUtils } from 'boltz-core';
 import { Transaction, address } from 'bitcoinjs-lib';
 import Errors from './Errors';
 import Logger from '../Logger';
@@ -74,9 +75,14 @@ const argChecks = {
   HAS_REFUNDPUBKEY: ({ refundPublicKey }: { refundPublicKey: string }) => {
     if (refundPublicKey === '') throw Errors.INVALID_ARGUMENT('refund public key must be specified');
   },
-  VALID_RATE: ({ rate }: {rate: number}) => {
-    if (rate < 0) throw Errors.INVALID_ARGUMENT('rate cannot be negative');
-    if (rate === 0) throw Errors.INVALID_ARGUMENT('rate cannot be zero');
+  VALID_RATE: ({ rate }: { rate: number }) => {
+    if (!(rate > 0)) throw Errors.INVALID_ARGUMENT('rate must a positive number');
+  },
+  VALID_AMOUNT: ({ amount }: { amount: number }) => {
+    if (!(amount > 0) || amount % 1 !== 0) throw Errors.INVALID_ARGUMENT('amount must a positive integer');
+  },
+  VALID_FEE_PER_VBYTE: ({ satPerVbyte }: { satPerVbyte: number }) => {
+    if (!(satPerVbyte > 0) || satPerVbyte % 1 !== 0) throw Errors.INVALID_ARGUMENT('sat per vbyte fee must be positive integer');
   },
 };
 
@@ -326,6 +332,31 @@ class Service extends EventEmitter {
 
     return await swapManager.createReverseSwap(args.baseCurrency, args.quoteCurrency, orderSide, args.rate,
     claimPublicKey, args.amount, args.timeoutBlockNumber);
+  }
+
+  /**
+   * Sends coins to a specified address
+   */
+  public sendCoins = async (args: { currency: string, address: string, amount: number, satPerVbyte: number }) => {
+    argChecks.HAS_ADDRESS(args);
+    argChecks.VALID_CURRENCY(args);
+    argChecks.VALID_AMOUNT(args);
+    argChecks.VALID_FEE_PER_VBYTE(args);
+
+    const currency = this.getCurrency(args.currency);
+    const wallet = this.serviceComponents.walletManager.wallets.get(args.currency)!;
+
+    const fee = args.satPerVbyte === 0 ? 1 : args.satPerVbyte;
+
+    const output = SwapUtils.getOutputScriptType(address.toOutputScript(args.address, currency.network))!;
+
+    const { transaction, vout } = await wallet.sendToAddress(args.address, output.type, output.isSh!, args.amount, fee);
+    await currency.chainClient.sendRawTransaction(transaction.toHex(), true);
+
+    return {
+      vout,
+      transactionHash: transaction.getId(),
+    };
   }
 
   /**

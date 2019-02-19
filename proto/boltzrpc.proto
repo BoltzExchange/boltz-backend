@@ -35,6 +35,9 @@ service Boltz {
 
   /* Creates a new Swap from Lightning to the chain */
   rpc CreateReverseSwap (CreateReverseSwapRequest) returns (CreateReverseSwapResponse);
+
+  /* Sends coins to a specified address */
+  rpc SendCoins (SendCoinsRequest) returns (SendCoinsResponse);
 }
 
 enum OutputType {
@@ -184,4 +187,15 @@ message CreateReverseSwapResponse {
   string lockup_address = 3;
   string lockup_transaction = 4;
   string lockup_transaction_hash = 5;
+}
+
+message SendCoinsRequest {
+  string currency = 1;
+  string address = 2;
+  int64 amount = 3;
+  int32 sat_per_vbyte = 4;
+}
+message SendCoinsResponse {
+  string transaction_hash = 1;
+  int32 vout = 2;
 }

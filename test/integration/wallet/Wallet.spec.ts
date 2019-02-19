@@ -105,9 +105,9 @@ describe('Wallet', () => {
     const destinationAddress = btcAddress;
     const destinationAmount = walletBalance / 2;
 
-    const { tx, vout } = await wallet.sendToAddress(destinationAddress, OutputType.Legacy, false, destinationAmount);
+    const { transaction, vout } = await wallet.sendToAddress(destinationAddress, OutputType.Legacy, false, destinationAmount, 2);
 
-    await btcdClient.sendRawTransaction(tx.toHex());
+    await btcdClient.sendRawTransaction(transaction.toHex());
     await btcdClient.generate(1);
 
     expect(vout).to.be.equal(0);

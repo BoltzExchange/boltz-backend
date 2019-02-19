@@ -244,7 +244,7 @@ class Wallet {
    * @returns the transaction itself and the vout of the provided address
    */
   public sendToAddress = async (address: string, type: OutputType, isScriptHash: boolean, amount: number, satsPerByte?: number):
-      Promise<{ tx: Transaction, vout: number }> => {
+      Promise<{ transaction: Transaction, vout: number }> => {
 
     const utxos = await this.utxoRepository.getUtxosSorted(this.symbol);
 
@@ -295,10 +295,9 @@ class Wallet {
     }
 
     // Mark the UTXOs that are going to be spent
-    const markPromises: Promise<any>[] = [];
-    toSpend.forEach((utxo) => {
-      markPromises.push(this.utxoRepository.markUtxoSpent(utxo.id));
-    });
+    for (const utxo of toSpend) {
+      await this.utxoRepository.markUtxoSpent(utxo.id);
+    }
 
     // Construct the transaction
     const builder = new TransactionBuilder(this.network);
@@ -315,7 +314,7 @@ class Wallet {
     // Add the requested ouput to the transaction
     builder.addOutput(address, amount);
 
-    // Sent the value left of the UTXOs to a new change address
+    // Send the value left of the UTXOs to a new change address
     builder.addOutput(await this.getNewAddress(OutputType.Bech32), toSpendSum - (amount + fee));
 
     // Sign the transaction
@@ -337,10 +336,8 @@ class Wallet {
       }
     });
 
-    await Promise.all(markPromises);
-
     return {
-      tx: builder.build(),
+      transaction: builder.build(),
       vout: 0,
     };
   }

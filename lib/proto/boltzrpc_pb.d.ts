@@ -763,6 +763,64 @@ export namespace CreateReverseSwapResponse {
     }
 }
 
+export class SendCoinsRequest extends jspb.Message { 
+    getCurrency(): string;
+    setCurrency(value: string): void;
+
+    getAddress(): string;
+    setAddress(value: string): void;
+
+    getAmount(): number;
+    setAmount(value: number): void;
+
+    getSatPerVbyte(): number;
+    setSatPerVbyte(value: number): void;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SendCoinsRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: SendCoinsRequest): SendCoinsRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SendCoinsRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SendCoinsRequest;
+    static deserializeBinaryFromReader(message: SendCoinsRequest, reader: jspb.BinaryReader): SendCoinsRequest;
+}
+
+export namespace SendCoinsRequest {
+    export type AsObject = {
+        currency: string,
+        address: string,
+        amount: number,
+        satPerVbyte: number,
+    }
+}
+
+export class SendCoinsResponse extends jspb.Message { 
+    getTransactionHash(): string;
+    setTransactionHash(value: string): void;
+
+    getVout(): number;
+    setVout(value: number): void;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SendCoinsResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: SendCoinsResponse): SendCoinsResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SendCoinsResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SendCoinsResponse;
+    static deserializeBinaryFromReader(message: SendCoinsResponse, reader: jspb.BinaryReader): SendCoinsResponse;
+}
+
+export namespace SendCoinsResponse {
+    export type AsObject = {
+        transactionHash: string,
+        vout: number,
+    }
+}
+
 export enum OutputType {
     BECH32 = 0,
     COMPATIBILITY = 1,

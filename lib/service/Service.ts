@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events';
+import { SwapUtils } from 'boltz-core';
 import { Transaction, address } from 'bitcoinjs-lib';
 import Errors from './Errors';
 import Logger from '../Logger';
@@ -16,6 +17,7 @@ import {
   WalletBalance,
   GetInfoResponse,
   GetBalanceResponse,
+  GetFeeEstimationResponse,
 } from '../proto/boltzrpc_pb';
 
 const packageJson = require('../../package.json');
@@ -73,9 +75,14 @@ const argChecks = {
   HAS_REFUNDPUBKEY: ({ refundPublicKey }: { refundPublicKey: string }) => {
     if (refundPublicKey === '') throw Errors.INVALID_ARGUMENT('refund public key must be specified');
   },
-  VALID_RATE: ({ rate }: {rate: number}) => {
-    if (rate < 0) throw Errors.INVALID_ARGUMENT('rate cannot be negative');
-    if (rate === 0) throw Errors.INVALID_ARGUMENT('rate cannot be zero');
+  VALID_RATE: ({ rate }: { rate: number }) => {
+    if (!(rate > 0)) throw Errors.INVALID_ARGUMENT('rate must a positive number');
+  },
+  VALID_AMOUNT: ({ amount }: { amount: number }) => {
+    if (!(amount > 0) || amount % 1 !== 0) throw Errors.INVALID_ARGUMENT('amount must a positive integer');
+  },
+  VALID_FEE_PER_VBYTE: ({ satPerVbyte }: { satPerVbyte: number }) => {
+    if (!(satPerVbyte > 0) || satPerVbyte % 1 !== 0) throw Errors.INVALID_ARGUMENT('sat per vbyte fee must be positive integer');
   },
 };
 
@@ -144,7 +151,9 @@ class Service extends EventEmitter {
    * Gets the balance for either all wallets or just a single one if specified
    */
   public getBalance = async (args: { currency: string }) => {
-    if (args.currency !== '') {
+    const emptyCurrency = args.currency === '';
+
+    if (!emptyCurrency) {
       argChecks.VALID_CURRENCY(args);
     }
 
@@ -173,7 +182,7 @@ class Service extends EventEmitter {
       return balance;
     };
 
-    if (args.currency !== '') {
+    if (!emptyCurrency) {
       const wallet = walletManager.wallets.get(args.currency);
 
       if (!wallet) {
@@ -182,11 +191,8 @@ class Service extends EventEmitter {
 
       map.set(args.currency, await getBalance(wallet, args.currency));
     } else {
-      for (const entry of walletManager.wallets) {
-        const currency = entry[0];
-        const wallet = entry[1];
-
-        map.set(currency, await getBalance(wallet, currency));
+      for (const [symbol, wallet] of walletManager.wallets) {
+        map.set(symbol, await getBalance(wallet, symbol));
       }
     }
 
@@ -221,6 +227,40 @@ class Service extends EventEmitter {
     const currency = this.getCurrency(args.currency);
 
     return currency.chainClient.getRawTransaction(args.transactionHash);
+  }
+
+  /**
+   * Gets a fee estimation in satoshis per vbyte for either all currencies or just a single one if specified
+   */
+  public getFeeEstimation = async (args: { currency: string, blocks: number }) => {
+    const emptyCurrency = args.currency === '';
+
+    if (!emptyCurrency) {
+      argChecks.VALID_CURRENCY(args);
+    }
+
+    const { currencies } = this.serviceComponents;
+
+    const response = new GetFeeEstimationResponse();
+    const map = response.getFeesMap();
+
+    const numBlocks = args.blocks === 0 ? 1 : args.blocks;
+
+    if (!emptyCurrency) {
+      const currency = currencies.get(args.currency);
+
+      if (!currency) {
+        throw Errors.CURRENCY_NOT_FOUND(args.currency);
+      }
+
+      map.set(args.currency, await currency.chainClient.estimateFee(numBlocks));
+    } else {
+      for (const [symbol, currency] of currencies) {
+        map.set(symbol, await currency.chainClient.estimateFee(numBlocks));
+      }
+    }
+
+    return response;
   }
 
   /**
@@ -292,6 +332,31 @@ class Service extends EventEmitter {
 
     return await swapManager.createReverseSwap(args.baseCurrency, args.quoteCurrency, orderSide, args.rate,
     claimPublicKey, args.amount, args.timeoutBlockNumber);
+  }
+
+  /**
+   * Sends coins to a specified address
+   */
+  public sendCoins = async (args: { currency: string, address: string, amount: number, satPerVbyte: number }) => {
+    argChecks.HAS_ADDRESS(args);
+    argChecks.VALID_CURRENCY(args);
+    argChecks.VALID_AMOUNT(args);
+    argChecks.VALID_FEE_PER_VBYTE(args);
+
+    const currency = this.getCurrency(args.currency);
+    const wallet = this.serviceComponents.walletManager.wallets.get(args.currency)!;
+
+    const fee = args.satPerVbyte === 0 ? 1 : args.satPerVbyte;
+
+    const output = SwapUtils.getOutputScriptType(address.toOutputScript(args.address, currency.network))!;
+
+    const { transaction, vout } = await wallet.sendToAddress(args.address, output.type, output.isSh!, args.amount, fee);
+    await currency.chainClient.sendRawTransaction(transaction.toHex(), true);
+
+    return {
+      vout,
+      transactionHash: transaction.getId(),
+    };
   }
 
   /**

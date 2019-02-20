@@ -1,12 +1,12 @@
 import fs from 'fs';
+import assert from 'assert';
 import { pki, md } from 'node-forge';
 import grpc, { Server } from 'grpc';
-import Logger from '../Logger';
 import Errors from './Errors';
+import Logger from '../Logger';
 import GrpcService from './GrpcService';
 import Service from '../service/Service';
 import { BoltzService } from '../proto/boltzrpc_grpc_pb';
-import assert from 'assert';
 
 type GrpcConfig = {
   host: string,
@@ -27,12 +27,14 @@ class GrpcServer {
       getBalance: grpcService.getBalance,
       newAddress: grpcService.newAddress,
       getTransaction: grpcService.getTransaction,
+      getFeeEstimation: grpcService.getFeeEstimation,
       broadcastTransaction: grpcService.broadcastTransaction,
       listenOnAddress: grpcService.listenOnAddress,
       subscribeTransactions: grpcService.subscribeTransactions,
       subscribeInvoices: grpcService.subscribeInvoices,
       createSwap: grpcService.createSwap,
       createReverseSwap: grpcService.createReverseSwap,
+      sendCoins: grpcService.sendCoins,
     });
   }
 
@@ -65,7 +67,7 @@ class GrpcServer {
   public close = async () => {
     return new Promise((resolve) => {
       this.server.tryShutdown(() => {
-        this.logger.info('GRPC server completed shutdown');
+        this.logger.info('gRPC server completed shutdown');
         resolve();
       });
     });

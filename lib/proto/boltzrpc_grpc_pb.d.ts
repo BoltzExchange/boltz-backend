@@ -11,12 +11,14 @@ interface IBoltzService extends grpc.ServiceDefinition<grpc.UntypedServiceImplem
     getBalance: IBoltzService_IGetBalance;
     newAddress: IBoltzService_INewAddress;
     getTransaction: IBoltzService_IGetTransaction;
+    getFeeEstimation: IBoltzService_IGetFeeEstimation;
     broadcastTransaction: IBoltzService_IBroadcastTransaction;
     listenOnAddress: IBoltzService_IListenOnAddress;
     subscribeTransactions: IBoltzService_ISubscribeTransactions;
     subscribeInvoices: IBoltzService_ISubscribeInvoices;
     createSwap: IBoltzService_ICreateSwap;
     createReverseSwap: IBoltzService_ICreateReverseSwap;
+    sendCoins: IBoltzService_ISendCoins;
 }
 
 interface IBoltzService_IGetInfo extends grpc.MethodDefinition<boltzrpc_pb.GetInfoRequest, boltzrpc_pb.GetInfoResponse> {
@@ -54,6 +56,15 @@ interface IBoltzService_IGetTransaction extends grpc.MethodDefinition<boltzrpc_p
     requestDeserialize: grpc.deserialize<boltzrpc_pb.GetTransactionRequest>;
     responseSerialize: grpc.serialize<boltzrpc_pb.GetTransactionResponse>;
     responseDeserialize: grpc.deserialize<boltzrpc_pb.GetTransactionResponse>;
+}
+interface IBoltzService_IGetFeeEstimation extends grpc.MethodDefinition<boltzrpc_pb.GetFeeEstimationRequest, boltzrpc_pb.GetFeeEstimationResponse> {
+    path: string; // "/boltzrpc.Boltz/GetFeeEstimation"
+    requestStream: boolean; // false
+    responseStream: boolean; // false
+    requestSerialize: grpc.serialize<boltzrpc_pb.GetFeeEstimationRequest>;
+    requestDeserialize: grpc.deserialize<boltzrpc_pb.GetFeeEstimationRequest>;
+    responseSerialize: grpc.serialize<boltzrpc_pb.GetFeeEstimationResponse>;
+    responseDeserialize: grpc.deserialize<boltzrpc_pb.GetFeeEstimationResponse>;
 }
 interface IBoltzService_IBroadcastTransaction extends grpc.MethodDefinition<boltzrpc_pb.BroadcastTransactionRequest, boltzrpc_pb.BroadcastTransactionResponse> {
     path: string; // "/boltzrpc.Boltz/BroadcastTransaction"
@@ -109,6 +120,15 @@ interface IBoltzService_ICreateReverseSwap extends grpc.MethodDefinition<boltzrp
     responseSerialize: grpc.serialize<boltzrpc_pb.CreateReverseSwapResponse>;
     responseDeserialize: grpc.deserialize<boltzrpc_pb.CreateReverseSwapResponse>;
 }
+interface IBoltzService_ISendCoins extends grpc.MethodDefinition<boltzrpc_pb.SendCoinsRequest, boltzrpc_pb.SendCoinsResponse> {
+    path: string; // "/boltzrpc.Boltz/SendCoins"
+    requestStream: boolean; // false
+    responseStream: boolean; // false
+    requestSerialize: grpc.serialize<boltzrpc_pb.SendCoinsRequest>;
+    requestDeserialize: grpc.deserialize<boltzrpc_pb.SendCoinsRequest>;
+    responseSerialize: grpc.serialize<boltzrpc_pb.SendCoinsResponse>;
+    responseDeserialize: grpc.deserialize<boltzrpc_pb.SendCoinsResponse>;
+}
 
 export const BoltzService: IBoltzService;
 
@@ -117,12 +137,14 @@ export interface IBoltzServer {
     getBalance: grpc.handleUnaryCall<boltzrpc_pb.GetBalanceRequest, boltzrpc_pb.GetBalanceResponse>;
     newAddress: grpc.handleUnaryCall<boltzrpc_pb.NewAddressRequest, boltzrpc_pb.NewAddressResponse>;
     getTransaction: grpc.handleUnaryCall<boltzrpc_pb.GetTransactionRequest, boltzrpc_pb.GetTransactionResponse>;
+    getFeeEstimation: grpc.handleUnaryCall<boltzrpc_pb.GetFeeEstimationRequest, boltzrpc_pb.GetFeeEstimationResponse>;
     broadcastTransaction: grpc.handleUnaryCall<boltzrpc_pb.BroadcastTransactionRequest, boltzrpc_pb.BroadcastTransactionResponse>;
     listenOnAddress: grpc.handleUnaryCall<boltzrpc_pb.ListenOnAddressRequest, boltzrpc_pb.ListenOnAddressResponse>;
     subscribeTransactions: grpc.handleServerStreamingCall<boltzrpc_pb.SubscribeTransactionsRequest, boltzrpc_pb.SubscribeTransactionsResponse>;
     subscribeInvoices: grpc.handleServerStreamingCall<boltzrpc_pb.SubscribeInvoicesRequest, boltzrpc_pb.SubscribeInvoicesResponse>;
     createSwap: grpc.handleUnaryCall<boltzrpc_pb.CreateSwapRequest, boltzrpc_pb.CreateSwapResponse>;
     createReverseSwap: grpc.handleUnaryCall<boltzrpc_pb.CreateReverseSwapRequest, boltzrpc_pb.CreateReverseSwapResponse>;
+    sendCoins: grpc.handleUnaryCall<boltzrpc_pb.SendCoinsRequest, boltzrpc_pb.SendCoinsResponse>;
 }
 
 export interface IBoltzClient {
@@ -138,6 +160,9 @@ export interface IBoltzClient {
     getTransaction(request: boltzrpc_pb.GetTransactionRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetTransactionResponse) => void): grpc.ClientUnaryCall;
     getTransaction(request: boltzrpc_pb.GetTransactionRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetTransactionResponse) => void): grpc.ClientUnaryCall;
     getTransaction(request: boltzrpc_pb.GetTransactionRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetTransactionResponse) => void): grpc.ClientUnaryCall;
+    getFeeEstimation(request: boltzrpc_pb.GetFeeEstimationRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetFeeEstimationResponse) => void): grpc.ClientUnaryCall;
+    getFeeEstimation(request: boltzrpc_pb.GetFeeEstimationRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetFeeEstimationResponse) => void): grpc.ClientUnaryCall;
+    getFeeEstimation(request: boltzrpc_pb.GetFeeEstimationRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetFeeEstimationResponse) => void): grpc.ClientUnaryCall;
     broadcastTransaction(request: boltzrpc_pb.BroadcastTransactionRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.BroadcastTransactionResponse) => void): grpc.ClientUnaryCall;
     broadcastTransaction(request: boltzrpc_pb.BroadcastTransactionRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.BroadcastTransactionResponse) => void): grpc.ClientUnaryCall;
     broadcastTransaction(request: boltzrpc_pb.BroadcastTransactionRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.BroadcastTransactionResponse) => void): grpc.ClientUnaryCall;
@@ -154,6 +179,9 @@ export interface IBoltzClient {
     createReverseSwap(request: boltzrpc_pb.CreateReverseSwapRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CreateReverseSwapResponse) => void): grpc.ClientUnaryCall;
     createReverseSwap(request: boltzrpc_pb.CreateReverseSwapRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CreateReverseSwapResponse) => void): grpc.ClientUnaryCall;
     createReverseSwap(request: boltzrpc_pb.CreateReverseSwapRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CreateReverseSwapResponse) => void): grpc.ClientUnaryCall;
+    sendCoins(request: boltzrpc_pb.SendCoinsRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SendCoinsResponse) => void): grpc.ClientUnaryCall;
+    sendCoins(request: boltzrpc_pb.SendCoinsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SendCoinsResponse) => void): grpc.ClientUnaryCall;
+    sendCoins(request: boltzrpc_pb.SendCoinsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SendCoinsResponse) => void): grpc.ClientUnaryCall;
 }
 
 export class BoltzClient extends grpc.Client implements IBoltzClient {
@@ -170,6 +198,9 @@ export class BoltzClient extends grpc.Client implements IBoltzClient {
     public getTransaction(request: boltzrpc_pb.GetTransactionRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetTransactionResponse) => void): grpc.ClientUnaryCall;
     public getTransaction(request: boltzrpc_pb.GetTransactionRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetTransactionResponse) => void): grpc.ClientUnaryCall;
     public getTransaction(request: boltzrpc_pb.GetTransactionRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetTransactionResponse) => void): grpc.ClientUnaryCall;
+    public getFeeEstimation(request: boltzrpc_pb.GetFeeEstimationRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetFeeEstimationResponse) => void): grpc.ClientUnaryCall;
+    public getFeeEstimation(request: boltzrpc_pb.GetFeeEstimationRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetFeeEstimationResponse) => void): grpc.ClientUnaryCall;
+    public getFeeEstimation(request: boltzrpc_pb.GetFeeEstimationRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetFeeEstimationResponse) => void): grpc.ClientUnaryCall;
     public broadcastTransaction(request: boltzrpc_pb.BroadcastTransactionRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.BroadcastTransactionResponse) => void): grpc.ClientUnaryCall;
     public broadcastTransaction(request: boltzrpc_pb.BroadcastTransactionRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.BroadcastTransactionResponse) => void): grpc.ClientUnaryCall;
     public broadcastTransaction(request: boltzrpc_pb.BroadcastTransactionRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.BroadcastTransactionResponse) => void): grpc.ClientUnaryCall;
@@ -186,4 +217,7 @@ export class BoltzClient extends grpc.Client implements IBoltzClient {
     public createReverseSwap(request: boltzrpc_pb.CreateReverseSwapRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CreateReverseSwapResponse) => void): grpc.ClientUnaryCall;
     public createReverseSwap(request: boltzrpc_pb.CreateReverseSwapRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CreateReverseSwapResponse) => void): grpc.ClientUnaryCall;
     public createReverseSwap(request: boltzrpc_pb.CreateReverseSwapRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CreateReverseSwapResponse) => void): grpc.ClientUnaryCall;
+    public sendCoins(request: boltzrpc_pb.SendCoinsRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SendCoinsResponse) => void): grpc.ClientUnaryCall;
+    public sendCoins(request: boltzrpc_pb.SendCoinsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SendCoinsResponse) => void): grpc.ClientUnaryCall;
+    public sendCoins(request: boltzrpc_pb.SendCoinsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SendCoinsResponse) => void): grpc.ClientUnaryCall;
 }

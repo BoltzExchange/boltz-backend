@@ -5,7 +5,7 @@ import BuilderComponents from '../BuilderComponents';
 
 export const command = 'broadcasttransaction <currency> <transaction_hex>';
 
-export const describe = 'get a new address for the specified coin';
+export const describe = 'broadcasts a hex encoded transaction on the specified network';
 
 export const builder = {
   currency: BuilderComponents.currency,

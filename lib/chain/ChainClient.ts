@@ -103,6 +103,13 @@ class ChainClient extends BaseClient implements ChainClientInterface {
     return this.rpcClient.call<any>('getrawtransaction', transactionHash, verbose);
   }
 
+  public estimateFee = async (numberBlocks = 2) => {
+    const feeResponse = await this.rpcClient.call<number>('estimatefee', numberBlocks);
+    const feePerKb = feeResponse * 100000000;
+
+    return Math.round(feePerKb / 1000);
+  }
+
   public generate = (blocks: number): Promise<string[]> => {
     return this.rpcClient.call<string[]>('generate', blocks);
   }

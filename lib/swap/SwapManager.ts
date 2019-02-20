@@ -132,10 +132,10 @@ class SwapManager {
 
     const sendingAmount = this.calculateExpectedAmount(amount, 1 / this.getRate(rate, orderSide));
 
-    const { tx, vout } = await sendingCurrency.wallet.sendToAddress(address, OutputType.Bech32, true, sendingAmount);
-    this.logger.debug(`Sending ${sendingAmount} on ${sendingCurrency.symbol} to swap address ${address}: ${tx.getId()}`);
+    const { vout, transaction } = await sendingCurrency.wallet.sendToAddress(address, OutputType.Bech32, true, sendingAmount);
+    this.logger.debug(`Sending ${sendingAmount} on ${sendingCurrency.symbol} to swap address ${address}: ${transaction.getId()}:${vout}`);
 
-    const rawTx = tx.toHex();
+    const rawTx = transaction.toHex();
 
     await sendingCurrency.chainClient.sendRawTransaction(rawTx);
 
@@ -147,7 +147,7 @@ class SwapManager {
       refundKeys: keys,
       output: {
         vout,
-        txHash: tx.getHash(),
+        txHash: transaction.getHash(),
         type: OutputType.Bech32,
         script: outputScript,
         value: sendingAmount,
@@ -166,7 +166,7 @@ class SwapManager {
       redeemScript: getHexString(redeemScript),
       lockupAddress: address,
       lockupTransaction: rawTx,
-      lockupTransactionHash: tx.getId(),
+      lockupTransactionHash: transaction.getId(),
     };
   }
 

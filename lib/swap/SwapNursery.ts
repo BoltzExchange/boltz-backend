@@ -107,7 +107,7 @@ class SwapNursery {
         preimage: Buffer.from(preimage, 'base64'),
       }],
       address.toOutputScript(destinationAddress, currency.network),
-      1,
+      await currency.chainClient.estimateFee(),
       true,
     );
 
@@ -130,7 +130,7 @@ class SwapNursery {
         }],
         address.toOutputScript(destinationAddress, currency.network),
         timeoutBlockHeight,
-        1,
+        await currency.chainClient.estimateFee(),
       );
 
       this.logger.verbose(`Broadcasting refund transaction: ${refundTx.getId()}`);

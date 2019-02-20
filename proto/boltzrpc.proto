@@ -15,6 +15,9 @@ service Boltz {
   /* Gets a hex encoded transaction from a transaction hash on the specified network */
   rpc GetTransaction (GetTransactionRequest) returns (GetTransactionResponse);
 
+  /* Gets a fee estimation in satoshis per vbyte for either all currencies or just a single one if specified */ 
+  rpc GetFeeEstimation (GetFeeEstimationRequest) returns (GetFeeEstimationResponse);
+
   /* Broadcasts a hex encoded transaction on the specified network */
   rpc BroadcastTransaction (BroadcastTransactionRequest) returns (BroadcastTransactionResponse);
 
@@ -32,6 +35,9 @@ service Boltz {
 
   /* Creates a new Swap from Lightning to the chain */
   rpc CreateReverseSwap (CreateReverseSwapRequest) returns (CreateReverseSwapResponse);
+
+  /* Sends coins to a specified address */
+  rpc SendCoins (SendCoinsRequest) returns (SendCoinsResponse);
 }
 
 enum OutputType {
@@ -85,10 +91,8 @@ message GetBalanceRequest {
   string currency = 1;
 }
 message GetBalanceResponse {
-  // A map between the currencies and its balances
   map<string, Balance> balances = 1;
 }
-
 message Balance {
   int64 channel_balance = 1;
   WalletBalance wallet_balance = 2;
@@ -113,6 +117,14 @@ message GetTransactionRequest {
 }
 message GetTransactionResponse {
   string transaction_hex = 1;
+}
+
+message GetFeeEstimationRequest {
+  string currency = 1;
+  int32 blocks = 2; 
+}
+message GetFeeEstimationResponse {
+  map<string, int32> fees = 1;
 }
 
 message BroadcastTransactionRequest {
@@ -175,4 +187,15 @@ message CreateReverseSwapResponse {
   string lockup_address = 3;
   string lockup_transaction = 4;
   string lockup_transaction_hash = 5;
+}
+
+message SendCoinsRequest {
+  string currency = 1;
+  string address = 2;
+  int64 amount = 3;
+  int32 sat_per_vbyte = 4;
+}
+message SendCoinsResponse {
+  string transaction_hash = 1;
+  int32 vout = 2;
 }

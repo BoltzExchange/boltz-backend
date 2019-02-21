@@ -106,8 +106,9 @@ class ChainClient extends BaseClient implements ChainClientInterface {
   public estimateFee = async (numberBlocks = 2) => {
     const feeResponse = await this.rpcClient.call<number>('estimatefee', numberBlocks);
     const feePerKb = feeResponse * 100000000;
+    const fee = Math.round(feePerKb / 1000);
 
-    return Math.round(feePerKb / 1000);
+    return Math.min(fee, 100);
   }
 
   public generate = (blocks: number): Promise<string[]> => {

@@ -212,11 +212,7 @@ export const getScriptHashEncodeFunction = (outputType: OutputType) => {
   }
 };
 
-export const reverseString = (input: string) => {
-  return input.split('').reverse().join('');
-};
-
-export const reverseBuffer = (input: Buffer) => {
+const reverseBuffer = (input: Buffer) => {
   const buffer = Buffer.allocUnsafe(input.length);
 
   for (let i = 0, j = input.length - 1; i <= j; i += 1, j -= 1) {
@@ -225,4 +221,15 @@ export const reverseBuffer = (input: Buffer) => {
   }
 
   return buffer;
+};
+
+/**
+ * The reversed version of the hex representation of a Buffer is not equal to the reversed Buffer.
+ * Therefore we have to go full circle from a string to back to the Buffer, reverse that Buffer
+ * and convert it back to a string to get the id of the transaction that is used by BTCD
+ */
+export const transactionHashToId = (transactionHash: Buffer) => {
+  return getHexString(
+    reverseBuffer(transactionHash),
+  );
 };

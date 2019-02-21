@@ -112,6 +112,15 @@ class GrpcService {
     });
   }
 
+  public subscribeRefunds: grpc.handleServerStreamingCall<boltzrpc.SubscribeRefundsRequest, boltzrpc.SubscribeRefundsResponse> = async (call) => {
+    this.service.on('refund', (lockupTransactionHash: string) => {
+      const response = new boltzrpc.SubscribeRefundsResponse();
+      response.setLockupTransactionHash(lockupTransactionHash);
+
+      call.write(response);
+    });
+  }
+
   public createSwap: grpc.handleUnaryCall<boltzrpc.CreateSwapRequest, boltzrpc.CreateSwapResponse> = async (call, callback) => {
     try {
       const { address, redeemScript, timeoutBlockHeight, expectedAmount } = await this.service.createSwap(call.request.toObject());

@@ -599,6 +599,44 @@ export namespace SubscribeInvoicesResponse {
     }
 }
 
+export class SubscribeRefundsRequest extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SubscribeRefundsRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: SubscribeRefundsRequest): SubscribeRefundsRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SubscribeRefundsRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SubscribeRefundsRequest;
+    static deserializeBinaryFromReader(message: SubscribeRefundsRequest, reader: jspb.BinaryReader): SubscribeRefundsRequest;
+}
+
+export namespace SubscribeRefundsRequest {
+    export type AsObject = {
+    }
+}
+
+export class SubscribeRefundsResponse extends jspb.Message { 
+    getLockupTransactionHash(): string;
+    setLockupTransactionHash(value: string): void;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SubscribeRefundsResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: SubscribeRefundsResponse): SubscribeRefundsResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SubscribeRefundsResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SubscribeRefundsResponse;
+    static deserializeBinaryFromReader(message: SubscribeRefundsResponse, reader: jspb.BinaryReader): SubscribeRefundsResponse;
+}
+
+export namespace SubscribeRefundsResponse {
+    export type AsObject = {
+        lockupTransactionHash: string,
+    }
+}
+
 export class CreateSwapRequest extends jspb.Message { 
     getBaseCurrency(): string;
     setBaseCurrency(value: string): void;

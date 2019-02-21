@@ -62,10 +62,4 @@ describe('Utils', () => {
 
     expect(utils.splitListen(input)).to.be.deep.equal({ host, port });
   });
-
-  it('should reverse a string', () => {
-    const input = 'test123';
-
-    expect(utils.reverseString(input)).to.be.equal(input.split('').reverse().join(''));
-  });
 });

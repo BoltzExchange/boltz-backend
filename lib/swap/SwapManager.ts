@@ -11,8 +11,10 @@ const { p2wshOutput } = Scripts;
 class SwapManager {
   public currencies = new Map<string, Currency & SwapMaps>();
 
+  public nursery: SwapNursery;
+
   constructor(private logger: Logger, private walletManager: WalletManager, currencies: Currency[]) {
-    const nursery = new SwapNursery(this.logger, this.walletManager);
+    this.nursery = new SwapNursery(this.logger, this.walletManager);
 
     currencies.forEach((currency) => {
       if (!this.currencies.get(currency.symbol)) {
@@ -26,7 +28,7 @@ class SwapManager {
           ...swapMaps,
         });
 
-        nursery.bindCurrency(currency, swapMaps);
+        this.nursery.bindCurrency(currency, swapMaps);
       }
     });
   }

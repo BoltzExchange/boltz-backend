@@ -9,7 +9,7 @@ import ChainClient from '../chain/ChainClient';
 import { UtxoInstance } from '../consts/Database';
 import WalletRepository from './WalletRepository';
 import OutputRepository from './OutputRepository';
-import { getPubKeyHashEncodeFuntion, getHexString, getHexBuffer, reverseBuffer } from '../Utils';
+import { getPubKeyHashEncodeFuntion, getHexString, getHexBuffer, transactionHashToId } from '../Utils';
 
 type UTXO = TransactionOutput & {
   id: number;
@@ -349,14 +349,7 @@ class Wallet {
     const utxos = await this.utxoRepository.getUnconfirmedUtxos(this.symbol);
 
     utxos.forEach(async (utxo) => {
-      // The reversed version of the hex representation of a Buffer is not equal to the reversed Buffer.
-      // Therefore we have to go full circle from a string to back to the Buffer, reverse that Buffer
-      // and convert it back to a string to get the id of the transaction that is used by BTCD
-      const transactionId = getHexString(
-        reverseBuffer(
-          getHexBuffer(utxo.txHash),
-        ),
-      );
+      const transactionId = transactionHashToId(getHexBuffer(utxo.txHash));
 
       const transactionInfo = await this.chainClient.getRawTransaction(transactionId, 1);
 

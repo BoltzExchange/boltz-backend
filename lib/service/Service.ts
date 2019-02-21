@@ -38,6 +38,9 @@ interface Service {
 
   on(event: 'invoice.settled', listener: (invoice: string, preimage: string) => void): this;
   emit(event: 'invoice.settled', string: string, preimage: string): boolean;
+
+  on(event: 'refund', listener: (lockupTransactionHash: string) => void): this;
+  emit(event: 'refund', lockupTransactionHash: string): boolean;
 }
 
 const argChecks = {
@@ -95,6 +98,7 @@ class Service extends EventEmitter {
 
     this.subscribeTransactions();
     this.subscribeInvoices();
+    this.subscribeRefunds();
   }
 
   /**
@@ -379,7 +383,7 @@ class Service extends EventEmitter {
   }
 
   /**
-   * Subscribes to a stream of invoices paid by Boltz
+   * Subscribes to a stream of settled invoices and those paid by Boltz
    */
   private subscribeInvoices = () => {
     this.serviceComponents.currencies.forEach((currency) => {
@@ -390,6 +394,15 @@ class Service extends EventEmitter {
       currency.lndClient.on('invoice.settled', (invoice, preimage) => {
         this.emit('invoice.settled', invoice, preimage);
       });
+    });
+  }
+
+  /**
+   * Subscribes to a stream of lockup transactions that Boltz refunds
+   */
+  private subscribeRefunds = () => {
+    this.serviceComponents.swapManager.nursery.on('refund', (lockupTransactionHash) => {
+      this.emit('refund', lockupTransactionHash);
     });
   }
 

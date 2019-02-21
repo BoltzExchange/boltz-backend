@@ -13,14 +13,14 @@ jobs:
           command: 'sudo apt-get update -y && sudo apt-get -y install rsync'
 
       - restore_cache:
-          key: dependency-cache-{{ checksum "package.json" }}-v2
+          key: dependency-cache-{{ checksum "package.json" }}-v3
 
       - run:
           name: Install dependencies
           command: npm install
 
       - save_cache:
-          key: dependency-cache-{{ checksum "package.json" }}-v2
+          key: dependency-cache-{{ checksum "package.json" }}-v3
           paths:
             - ./node_modules
 

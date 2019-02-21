@@ -1,9 +1,10 @@
 import { BIP32 } from 'bip32';
+import { EventEmitter } from 'events';
 import { Transaction, address } from 'bitcoinjs-lib';
 import { constructClaimTransaction, OutputType, TransactionOutput, constructRefundTransaction } from 'boltz-core';
 import Logger from '../Logger';
 import LndClient from '../lightning/LndClient';
-import { getHexString, reverseString } from '../Utils';
+import { getHexString, transactionHashToId } from '../Utils';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 
 type BaseSwapDetails = {
@@ -31,8 +32,15 @@ type SwapMaps = {
   reverseSwaps: Map<number, ReverseSwapDetails[]>;
 };
 
-class SwapNursery {
-  constructor(private logger: Logger, private walletManager: WalletManager) {}
+interface SwapNursery {
+  on(event: 'refund', listener: (lockupTransactionHash: string) => void): this;
+  emit(event: 'refund', lockupTransactionHash: string): boolean;
+}
+
+class SwapNursery extends EventEmitter {
+  constructor(private logger: Logger, private walletManager: WalletManager) {
+    super();
+  }
 
   public bindCurrency = (currency: Currency, maps: SwapMaps) => {
     currency.chainClient.on('transaction.relevant.block', async (transactionHex: string) => {
@@ -74,7 +82,7 @@ class SwapNursery {
   private claimSwap = async (currency: Currency, lndClient: LndClient, txHash: Buffer,
     outputScript: Buffer, outputValue: number, vout: number, details: SwapDetails) => {
 
-    const swapOutput = `${this.getTransactionId(txHash)}:${vout}`;
+    const swapOutput = `${transactionHashToId(txHash)}:${vout}`;
 
     if (outputValue < details.expectedAmount) {
       this.logger.warn(`Value ${outputValue} of ${swapOutput} is less than expected ${details.expectedAmount}. Aborting swap`);
@@ -117,8 +125,10 @@ class SwapNursery {
 
   private refundSwap = async (currency: Currency, reverseSwapDetails: ReverseSwapDetails[], timeoutBlockHeight: number) => {
     for (const details of reverseSwapDetails) {
+      const transactionId = transactionHashToId(details.output.txHash);
+
       this.logger.info(`Refunding ${currency.symbol} swap output: ` +
-      `${this.getTransactionId(details.output.txHash)}:${details.output.vout}`);
+      `${transactionId}:${details.output.vout}`);
 
       const destinationAddress = await this.walletManager.wallets.get(currency.symbol)!.getNewAddress(OutputType.Bech32);
 
@@ -137,14 +147,11 @@ class SwapNursery {
 
       try {
         await currency.chainClient.sendRawTransaction(refundTx.toHex());
+        this.emit('refund', transactionId);
       } catch (error) {
         this.logger.warn(`Could not broadcast refund transaction: ${error.message}`);
       }
     }
-  }
-
-  private getTransactionId = (hash: Buffer) => {
-    return reverseString(getHexString(hash));
   }
 }
 

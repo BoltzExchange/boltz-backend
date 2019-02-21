@@ -3,7 +3,6 @@ jobs:
   build:
     machine:
       enabled: true
-      image: circleci/classic:edge
   
     steps:
       - checkout:
@@ -12,12 +11,24 @@ jobs:
           name: Install rsync
           command: 'sudo apt-get update -y && sudo apt-get -y install rsync'
 
+      - run:
+          name: Install latest Node.js LTS
+          command: |
+            export NVM_DIR="/opt/circleci/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            nvm install v10.15.1
+            nvm alias default v10.15.1
+
       - restore_cache:
           key: dependency-cache-{{ checksum "package.json" }}-v3
 
       - run:
           name: Install dependencies
-          command: npm install
+          command: |
+            export NVM_DIR="/opt/circleci/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+
+            npm install
 
       - save_cache:
           key: dependency-cache-{{ checksum "package.json" }}-v3
@@ -26,20 +37,40 @@ jobs:
 
       - run:
           name: Compile
-          command: npm run compile
+          command: |
+            export NVM_DIR="/opt/circleci/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+
+            npm run compile
 
       - run:
           name: Lint
-          command: npm run lint
+          command: |
+            export NVM_DIR="/opt/circleci/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+
+            npm run lint
 
       - run:
           name: Unit tests
-          command: npm run test:unit
+          command: |
+            export NVM_DIR="/opt/circleci/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            
+            npm run test:unit
 
       - run:
           name: Start simnet
-          command: npm run docker:start
+          command: |
+            export NVM_DIR="/opt/circleci/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+
+            npm run docker:start
 
       - run:
           name: Integration tests
-          command: npm run test:int
+          command: |
+            export NVM_DIR="/opt/circleci/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+
+            npm run test:int

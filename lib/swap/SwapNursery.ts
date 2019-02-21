@@ -138,7 +138,7 @@ class SwapNursery {
       try {
         await currency.chainClient.sendRawTransaction(refundTx.toHex());
       } catch (error) {
-        this.logger.warn(`Could not broadcast refund transaction: ${error}`);
+        this.logger.warn(`Could not broadcast refund transaction: ${error.message}`);
       }
     }
   }

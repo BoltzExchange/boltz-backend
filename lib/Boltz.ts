@@ -68,9 +68,9 @@ class Boltz {
   }
 
   public start = async () => {
-    const promises = [
-      this.db.init(),
-    ];
+    await this.db.init();
+
+    const promises: Promise<any>[] = [];
 
     this.currencies.forEach((currency) => {
       promises.push(this.connectChainClient(currency.chainClient));

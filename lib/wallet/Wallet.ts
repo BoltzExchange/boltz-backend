@@ -315,7 +315,8 @@ class Wallet {
     builder.addOutput(address, amount);
 
     // Send the value left of the UTXOs to a new change address
-    builder.addOutput(await this.getNewAddress(OutputType.Bech32), toSpendSum - (amount + fee));
+    const changeAddress = await this.getNewAddress(OutputType.Bech32);
+    builder.addOutput(changeAddress, toSpendSum - (amount + fee));
 
     // Sign the transaction
     toSpend.forEach((utxo, index) => {

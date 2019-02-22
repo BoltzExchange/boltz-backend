@@ -137,10 +137,6 @@ class SwapManager {
     const { vout, transaction } = await sendingCurrency.wallet.sendToAddress(address, OutputType.Bech32, true, sendingAmount);
     this.logger.debug(`Sending ${sendingAmount} on ${sendingCurrency.symbol} to swap address ${address}: ${transaction.getId()}:${vout}`);
 
-    const rawTx = transaction.toHex();
-
-    await sendingCurrency.chainClient.sendRawTransaction(rawTx);
-
     // Get the array of swaps that time out at the same block
     const pendingReverseSwaps = sendingCurrency.reverseSwaps.get(timeoutBlockHeight);
 
@@ -167,7 +163,7 @@ class SwapManager {
       invoice: paymentRequest,
       redeemScript: getHexString(redeemScript),
       lockupAddress: address,
-      lockupTransaction: rawTx,
+      lockupTransaction: transaction.toHex(),
       lockupTransactionHash: transaction.getId(),
     };
   }

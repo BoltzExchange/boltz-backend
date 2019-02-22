@@ -294,11 +294,6 @@ class Wallet {
       throw Errors.NOT_ENOUGH_FUNDS(amount);
     }
 
-    // Mark the UTXOs that are going to be spent
-    for (const utxo of toSpend) {
-      await this.utxoRepository.markUtxoSpent(utxo.id);
-    }
-
     // Construct the transaction
     const builder = new TransactionBuilder(this.network);
 
@@ -336,8 +331,17 @@ class Wallet {
       }
     });
 
+    const transaction = builder.build();
+
+    await this.chainClient.sendRawTransaction(transaction.toHex());
+
+    // Mark the UTXOs that were spent
+    for (const utxo of toSpend) {
+      await this.utxoRepository.markUtxoSpent(utxo.id);
+    }
+
     return {
-      transaction: builder.build(),
+      transaction,
       vout: 0,
     };
   }

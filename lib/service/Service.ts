@@ -350,12 +350,11 @@ class Service extends EventEmitter {
     const currency = this.getCurrency(args.currency);
     const wallet = this.serviceComponents.walletManager.wallets.get(args.currency)!;
 
-    const fee = args.satPerVbyte === 0 ? 1 : args.satPerVbyte;
+    const fee = args.satPerVbyte === 0 ? undefined : args.satPerVbyte;
 
     const output = SwapUtils.getOutputScriptType(address.toOutputScript(args.address, currency.network))!;
 
     const { transaction, vout } = await wallet.sendToAddress(args.address, output.type, output.isSh!, args.amount, fee);
-    await currency.chainClient.sendRawTransaction(transaction.toHex());
 
     return {
       vout,

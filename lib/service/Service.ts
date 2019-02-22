@@ -87,6 +87,9 @@ const argChecks = {
   VALID_FEE_PER_VBYTE: ({ satPerVbyte }: { satPerVbyte: number }) => {
     if (!(satPerVbyte > 0) || satPerVbyte % 1 !== 0) throw Errors.INVALID_ARGUMENT('sat per vbyte fee must be positive integer');
   },
+  VALID_FEE: ({ fee }: { fee: number }) => {
+    if (fee < 0 || fee % 1 !== 0) throw Errors.INVALID_ARGUMENT('fee must be a positive integer');
+  },
 };
 
 class Service extends EventEmitter {
@@ -298,13 +301,15 @@ class Service extends EventEmitter {
    * Creates a new Swap from the chain to Lightning
    */
   public createSwap = async (args: { baseCurrency: string, quoteCurrency: string, orderSide: number, rate: number
-    invoice: string, refundPublicKey: string, outputType: number, timeoutBlockNumber: number}) => {
+    fee: number, invoice: string, refundPublicKey: string, outputType: number, timeoutBlockNumber: number}) => {
     argChecks.VALID_CURRENCY({ currency: args.baseCurrency });
     argChecks.VALID_CURRENCY({ currency: args.quoteCurrency });
     argChecks.VALID_OUTPUTTYPE(args);
     argChecks.HAS_INVOICE(args);
     argChecks.HAS_REFUNDPUBKEY(args);
+    argChecks.VALID_FEE(args);
     argChecks.VALID_RATE(args);
+    argChecks.VALID_TIMEOUT(args);
     argChecks.VALID_TIMEOUT(args);
 
     const { swapManager } = this.serviceComponents;
@@ -315,18 +320,19 @@ class Service extends EventEmitter {
     const refundPublicKey = getHexBuffer(args.refundPublicKey);
 
     return await swapManager.createSwap(args.baseCurrency, args.quoteCurrency, orderSide,
-      args.rate, args.invoice, refundPublicKey, outputType, args.timeoutBlockNumber);
+      args.rate, args.fee, args.invoice, refundPublicKey, outputType, args.timeoutBlockNumber);
   }
 
   /**
    * Creates a new Swap from Lightning to the chain
    */
   public createReverseSwap = async (args: { baseCurrency: string, quoteCurrency: string, orderSide: number, rate: number,
-    claimPublicKey: string, amount: number, timeoutBlockNumber: number}) => {
+    fee: number, claimPublicKey: string, amount: number, timeoutBlockNumber: number}) => {
     argChecks.VALID_CURRENCY({ currency: args.baseCurrency });
     argChecks.VALID_CURRENCY({ currency: args.quoteCurrency });
     argChecks.HAS_CLAIMPUBKEY(args);
     argChecks.VALID_RATE(args);
+    argChecks.VALID_FEE(args);
     argChecks.VALID_TIMEOUT(args);
 
     const { swapManager } = this.serviceComponents;
@@ -335,7 +341,7 @@ class Service extends EventEmitter {
     const claimPublicKey = getHexBuffer(args.claimPublicKey);
 
     return await swapManager.createReverseSwap(args.baseCurrency, args.quoteCurrency, orderSide, args.rate,
-    claimPublicKey, args.amount, args.timeoutBlockNumber);
+    args.fee, claimPublicKey, args.amount, args.timeoutBlockNumber);
   }
 
   /**

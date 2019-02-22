@@ -40,6 +40,7 @@ class SwapManager {
    * @param quoteCurrency quote currency ticker symbol
    * @param orderSide whether the order is a buy or sell one
    * @param rate conversion rate of base and quote currency
+   * @param fee additional amount that the user has to pay
    * @param invoice the invoice that should be paid
    * @param refundPublicKey public key of the keypair needed for claiming
    * @param outputType what kind of adress should be returned
@@ -48,7 +49,7 @@ class SwapManager {
    * @returns an onchain address
    */
   public createSwap = async (baseCurrency: string, quoteCurrency: string, orderSide: OrderSide, rate: number,
-    invoice: string, refundPublicKey: Buffer, outputType: OutputType, timeoutBlockNumber: number) => {
+    fee: number, invoice: string, refundPublicKey: Buffer, outputType: OutputType, timeoutBlockNumber: number) => {
 
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(baseCurrency, quoteCurrency, orderSide);
 
@@ -73,7 +74,7 @@ class SwapManager {
     const outputScript = encodeFunction(redeemScript);
 
     const address = receivingCurrency.wallet.encodeAddress(outputScript);
-    const expectedAmount = this.calculateExpectedAmount(numSatoshis, this.getRate(rate, orderSide));
+    const expectedAmount = this.calculateExpectedAmount(numSatoshis + fee, this.getRate(rate, orderSide));
 
     receivingCurrency.swaps.set(getHexString(outputScript), {
       invoice,
@@ -101,6 +102,7 @@ class SwapManager {
    * @param quoteCurrency quote currency ticker symbol
    * @param orderSide whether the order is a buy or sell one
    * @param rate conversion rate of base and quote currency
+   * @param fee additional amount that the user has to pay
    * @param claimPublicKey public key of the keypair needed for claiming
    * @param amount amount of the invoice
    * @param timeoutBlockNumber after how many blocks the onchain script should time out
@@ -108,7 +110,7 @@ class SwapManager {
    * @returns a Lightning invoice, the lockup transaction and its hash
    */
   public createReverseSwap = async (baseCurrency: string, quoteCurrency: string, orderSide: OrderSide, rate: number,
-    claimPublicKey: Buffer, amount: number, timeoutBlockNumber: number) => {
+    fee: number, claimPublicKey: Buffer, amount: number, timeoutBlockNumber: number) => {
 
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(baseCurrency, quoteCurrency, orderSide);
 
@@ -132,7 +134,7 @@ class SwapManager {
     const outputScript = p2wshOutput(redeemScript);
     const address = sendingCurrency.wallet.encodeAddress(outputScript);
 
-    const sendingAmount = this.calculateExpectedAmount(amount, 1 / this.getRate(rate, orderSide));
+    const sendingAmount = this.calculateExpectedAmount(amount - fee, 1 / this.getRate(rate, orderSide));
 
     const { vout, transaction } = await sendingCurrency.wallet.sendToAddress(address, OutputType.Bech32, true, sendingAmount);
     this.logger.debug(`Sending ${sendingAmount} on ${sendingCurrency.symbol} to swap address ${address}: ${transaction.getId()}:${vout}`);

@@ -650,6 +650,9 @@ export class CreateSwapRequest extends jspb.Message {
     getRate(): number;
     setRate(value: number): void;
 
+    getFee(): number;
+    setFee(value: number): void;
+
     getInvoice(): string;
     setInvoice(value: string): void;
 
@@ -679,6 +682,7 @@ export namespace CreateSwapRequest {
         quoteCurrency: string,
         orderSide: OrderSide,
         rate: number,
+        fee: number,
         invoice: string,
         refundPublicKey: string,
         outputType: OutputType,
@@ -732,6 +736,9 @@ export class CreateReverseSwapRequest extends jspb.Message {
     getRate(): number;
     setRate(value: number): void;
 
+    getFee(): number;
+    setFee(value: number): void;
+
     getClaimPublicKey(): string;
     setClaimPublicKey(value: string): void;
 
@@ -758,6 +765,7 @@ export namespace CreateReverseSwapRequest {
         quoteCurrency: string,
         orderSide: OrderSide,
         rate: number,
+        fee: number,
         claimPublicKey: string,
         amount: number,
         timeoutBlockNumber: number,

@@ -355,7 +355,7 @@ class Service extends EventEmitter {
     const output = SwapUtils.getOutputScriptType(address.toOutputScript(args.address, currency.network))!;
 
     const { transaction, vout } = await wallet.sendToAddress(args.address, output.type, output.isSh!, args.amount, fee);
-    await currency.chainClient.sendRawTransaction(transaction.toHex(), true);
+    await currency.chainClient.sendRawTransaction(transaction.toHex());
 
     return {
       vout,

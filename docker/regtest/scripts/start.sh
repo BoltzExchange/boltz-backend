@@ -1,7 +1,5 @@
 #!/bin/sh
 
-echo "Starting Bitcoin and Litecoin Core"
-
 bitcoind
 litecoind
 

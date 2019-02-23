@@ -2,6 +2,7 @@ FROM alpine:3.9
 
 # Install dependencies
 RUN apk --no-cache add \
+  jq \
   boost \
   libzmq \
   libevent \
@@ -43,6 +44,9 @@ RUN echo "zmqpubrawblock=tcp://0.0.0.0:30001" >> /root/.litecoin/litecoin.conf
 
 # Copy start scripts
 COPY regtest/scripts /bin/
+
+# Run the setup script
+RUN "setup.sh"
 
 # Expose RPC ports of Bitcoin and Litecoin Core
 EXPOSE 18443 19443

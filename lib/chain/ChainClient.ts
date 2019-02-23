@@ -167,12 +167,12 @@ class ChainClient extends BaseClient {
   public estimateFee = async (confTarget = 2) => {
     const response = await this.client.request<any>('estimatesmartfee', [confTarget]);
 
-    if (typeof response === 'object') {
-      return 2;
+    if (response.feerate) {
+      const feePerKb = response.feerate * 100000000;
+      return Math.max(Math.round(feePerKb / 1000), 2);
     }
 
-    const feePerKb = response * 100000000;
-    return feePerKb / 1000;
+    return 2;
   }
 
   public generate = (blocks: number) => {

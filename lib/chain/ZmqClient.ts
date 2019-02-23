@@ -83,7 +83,7 @@ class ZmqClient extends EventEmitter {
     let index = 0;
 
     while (bestBlock - index >= startHeight) {
-      this.logger.verbose(`Rescanning ${this.symbol} block ${startHeight + index}`);
+      this.logger.verbose(`Rescanning ${this.symbol} block #${startHeight + index}`);
 
       const block = await this.getBlock(previousBlockHash);
 

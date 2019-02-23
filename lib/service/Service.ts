@@ -118,12 +118,13 @@ class Service extends EventEmitter {
       const lnd = new LndInfo();
 
       try {
-        const info = await currency.chainClient.getInfo();
+        const networkInfo = await currency.chainClient.getNetworkInfo();
+        const blockchainInfo = await currency.chainClient.getBlockchainInfo();
 
-        chain.setVersion(info.version);
-        chain.setProtocolversion(info.protocolversion);
-        chain.setBlocks(info.blocks);
-        chain.setConnections(info.connections);
+        chain.setVersion(networkInfo.version);
+        chain.setProtocolversion(networkInfo.protocolversion);
+        chain.setBlocks(blockchainInfo.blocks);
+        chain.setConnections(networkInfo.connections);
       } catch (error) {
         chain.setError(error);
       }
@@ -294,7 +295,7 @@ class Service extends EventEmitter {
     const script = address.toOutputScript(args.address, currency.network);
 
     this.listenScriptsSet.set(getHexString(script), args.address);
-    await currency.chainClient.loadTxFiler(false, [args.address], []);
+    await currency.chainClient.updateOutputFilter([script]);
   }
 
   /**
@@ -374,9 +375,7 @@ class Service extends EventEmitter {
    */
   private subscribeTransactions = () => {
     this.serviceComponents.currencies.forEach((currency) => {
-      currency.chainClient.on('transaction.relevant.block', (transactionHex) => {
-        const transaction = Transaction.fromHex(transactionHex);
-
+      currency.chainClient.on('transaction.relevant.block', (transaction: Transaction) => {
         transaction.outs.forEach((out) => {
           const listenAddress = this.listenScriptsSet.get(getHexString(out.script));
 

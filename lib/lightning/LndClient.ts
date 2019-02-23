@@ -109,22 +109,14 @@ class LndClient extends BaseClient implements LightningClient {
       this.lightning = new GrpcClient(this.uri, this.credentials);
 
       try {
-        const response = await this.getInfo();
+        await this.getInfo();
 
-        if (response.syncedToChain) {
-          this.setClientStatus(ClientStatus.Connected);
-          this.subscribeInvoices();
+        this.setClientStatus(ClientStatus.Connected);
+        this.subscribeInvoices();
 
-          this.clearReconnectTimer();
+        this.clearReconnectTimer();
 
-          return true;
-        } else {
-          this.setClientStatus(ClientStatus.OutOfSync);
-          this.logger.error(`${LndClient.serviceName} at ${this.uri} is out of sync with chain, retrying in ${this.RECONNECT_INTERVAL} ms`);
-          this.reconnectionTimer = setTimeout(this.connect, this.RECONNECT_INTERVAL);
-
-          return false;
-        }
+        return true;
       } catch (error) {
         this.setClientStatus(ClientStatus.Disconnected);
         this.logger.error(`could not connect to ${LndClient.serviceName} ${this.symbol} at ${this.uri}` +

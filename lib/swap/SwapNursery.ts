@@ -43,9 +43,7 @@ class SwapNursery extends EventEmitter {
   }
 
   public bindCurrency = (currency: Currency, maps: SwapMaps) => {
-    currency.chainClient.on('transaction.relevant.block', async (transactionHex: string) => {
-      const transaction = Transaction.fromHex(transactionHex);
-
+    currency.chainClient.on('transaction.relevant.block', async (transaction: Transaction) => {
       let vout = 0;
 
       for (const output of transaction.outs) {

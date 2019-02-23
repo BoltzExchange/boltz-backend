@@ -69,13 +69,13 @@ RUN ./autogen.sh
 RUN ./configure LDFLAGS=-L`ls -d /opt/db*`/lib/ CPPFLAGS=-I`ls -d /opt/db*`/include/ \
     --prefix=${BITCOIN_PREFIX} \
     --mandir=/usr/share/man \
+    --disable-ccache \
     --disable-tests \
     --disable-bench \
-    --disable-ccache \
-    --with-gui=no \
+    --without-gui \
+    --with-daemon \
     --with-utils \
-    --with-libs \
-    --with-daemon
+    --with-libs
 
 RUN make -j4
 RUN make install

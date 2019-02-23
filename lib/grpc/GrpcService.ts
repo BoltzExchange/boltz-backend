@@ -73,7 +73,7 @@ class GrpcService {
 
   public listenOnAddress: grpc.handleUnaryCall<boltzrpc.ListenOnAddressRequest, boltzrpc.ListenOnAddressResponse> = async (call, callback) => {
     try {
-      await this.service.listenOnAddress(call.request.toObject());
+      this.service.listenOnAddress(call.request.toObject());
 
       callback(null, new boltzrpc.ListenOnAddressResponse());
     } catch (error) {

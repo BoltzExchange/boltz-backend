@@ -233,8 +233,9 @@ class Service extends EventEmitter {
     argChecks.HAS_TXHASH(args);
 
     const currency = this.getCurrency(args.currency);
+    const transaction = await currency.chainClient.getRawTransaction(args.transactionHash, false);
 
-    return currency.chainClient.getRawTransaction(args.transactionHash);
+    return transaction as string;
   }
 
   /**
@@ -286,7 +287,7 @@ class Service extends EventEmitter {
   /**
    * Adds an entry to the list of addresses SubscribeTransactions listens to
    */
-  public listenOnAddress = async (args: { currency: string, address: string }) => {
+  public listenOnAddress = (args: { currency: string, address: string }) => {
     argChecks.VALID_CURRENCY(args);
     argChecks.HAS_ADDRESS(args);
 
@@ -295,7 +296,7 @@ class Service extends EventEmitter {
     const script = address.toOutputScript(args.address, currency.network);
 
     this.listenScriptsSet.set(getHexString(script), args.address);
-    await currency.chainClient.updateOutputFilter([script]);
+    currency.chainClient.updateOutputFilter([script]);
   }
 
   /**

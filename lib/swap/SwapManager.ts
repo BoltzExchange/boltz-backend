@@ -84,7 +84,7 @@ class SwapManager {
       lndClient: sendingCurrency.lndClient,
     });
 
-    await receivingCurrency.chainClient.updateOutputFilter([outputScript]);
+    receivingCurrency.chainClient.updateOutputFilter([outputScript]);
 
     return {
       expectedAmount,

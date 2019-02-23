@@ -68,7 +68,7 @@ class SwapNursery extends EventEmitter {
       }
     });
 
-    currency.chainClient.on('block.connected', async (height: number) => {
+    currency.chainClient.on('block', async (height: number) => {
       const reverseSwaps = maps.reverseSwaps.get(height);
 
       if (reverseSwaps) {

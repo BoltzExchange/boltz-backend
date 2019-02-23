@@ -5,10 +5,10 @@ import { Transaction, Network, address, crypto, TransactionBuilder, ECPair } fro
 import Errors from './Errors';
 import Logger from '../Logger';
 import UtxoRepository from './UtxoRepository';
-import ChainClient from '../chain/ChainClient';
 import { UtxoInstance } from '../consts/Database';
 import WalletRepository from './WalletRepository';
 import OutputRepository from './OutputRepository';
+import ChainClient, { RawTransaction } from '../chain/ChainClient';
 import { getPubKeyHashEncodeFuntion, getHexString, getHexBuffer, transactionHashToId } from '../Utils';
 
 type UTXO = TransactionOutput & {
@@ -52,7 +52,8 @@ class Wallet {
     public readonly network: Network,
     private chainClient: ChainClient,
     public readonly derivationPath: string,
-    private highestIndex: number) {
+    private highestIndex: number,
+    private blockheight: number) {
 
     this.symbol = this.chainClient.symbol;
 
@@ -68,18 +69,22 @@ class Wallet {
         const outputInfo = this.relevantOutputs.get(hexScript);
 
         if (outputInfo) {
-          this.logUtxoFoundMessage(transaction.getId(), vout, output.value, confirmed);
-
           const txHash = getHexString(transaction.getHash());
 
           const promise = new Promise<UtxoInstance>(async (resolve) => {
             const existingUtxo = await this.utxoRepository.getUtxo(txHash, vout);
 
             if (existingUtxo && confirmed) {
-              resolve(existingUtxo.update({
-                confirmed,
-              }));
+              if (!existingUtxo.confirmed) {
+                this.logUtxoFoundMessage(transaction.getId(), vout, output.value, confirmed);
+
+                resolve(existingUtxo.update({
+                  confirmed,
+                }));
+              }
             } else {
+              this.logUtxoFoundMessage(transaction.getId(), vout, output.value, confirmed);
+
               resolve(this.utxoRepository.addUtxo({
                 vout,
                 confirmed,
@@ -87,6 +92,7 @@ class Wallet {
                 value: output.value,
                 currency: this.symbol,
                 outputId: outputInfo.id,
+                // TODO: use ID of transaction
                 txHash: getHexString(transaction.getHash()),
               }));
             }
@@ -115,10 +121,10 @@ class Wallet {
 
       upsertUtxo(transaction, true);
     });
-  }
 
-  public get highestUsedIndex() {
-    return this.highestIndex;
+    this.chainClient.on('block', async (blockheight: number) => {
+      await this.walletRepository.setBlockheight(this.symbol, blockheight);
+    });
   }
 
   public init = async () => {
@@ -137,8 +143,18 @@ class Wallet {
       });
     });
 
-    await this.chainClient.updateOutputFilter(addresses);
+    this.chainClient.updateOutputFilter(addresses);
+
     await this.checkUnconfirmedFunds();
+
+    // If the blockheight in the database is "0" a new wallet got created
+    // and no blocks have to be rescanned
+    if (this.blockheight !== 0) {
+      await this.chainClient.rescanChain(this.blockheight);
+    }
+
+    const { blocks } = await this.chainClient.getBlockchainInfo();
+    await this.walletRepository.setBlockheight(this.symbol, blocks);
   }
 
   /**
@@ -157,7 +173,7 @@ class Wallet {
     this.highestIndex += 1;
 
     // tslint:disable-next-line no-floating-promises
-    this.walletRepository.updateHighestUsedIndex(this.symbol, this.highestIndex);
+    this.walletRepository.setHighestUsedIndex(this.symbol, this.highestIndex);
 
     return {
       keys: this.getKeysByIndex(this.highestIndex),
@@ -344,7 +360,7 @@ class Wallet {
 
     for (const utxo of utxos) {
       const transactionId = transactionHashToId(getHexBuffer(utxo.txHash));
-      const transactionInfo = await this.chainClient.getRawTransaction(transactionId, true);
+      const transactionInfo = await this.chainClient.getRawTransaction(transactionId, true) as RawTransaction;
 
       if (transactionInfo.confirmations) {
         this.logUtxoFoundMessage(transactionId, utxo.vout, utxo.value, true);
@@ -361,7 +377,7 @@ class Wallet {
   private listenToOutput = async (script: Buffer, keyIndex: number, type: OutputType, _address?: string, redeemScript?: string) => {
     const scriptString = getHexString(script);
 
-    await this.chainClient.updateOutputFilter([script]);
+    this.chainClient.updateOutputFilter([script]);
 
     const outputInstance = await this.outputRepository.addOutput({
       type,

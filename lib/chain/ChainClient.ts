@@ -11,11 +11,6 @@ type ChainConfig = {
   port: number;
   rpcuser: string;
   rpcpass: string;
-
-  // The method to get the addresses for ZMQ sockets ('getzmqnotifications') got added
-  // with Bitcoin Core version 0.17 and because the latest release of Litecoin Core is
-  // one version behind (0.16.3 at the time writing this) the socket has to be set manually
-  pubrawtx?: string;
 };
 
 type NetworkInfo = {
@@ -65,12 +60,26 @@ type Block = {
   previousblockhash: string;
 };
 
-// TODO: add latest block height of pubrawblock to database
-// TODO: rescan all blocks that came after the latest in the database
+type RawTransaction = {
+  txid: string;
+  hash: string;
+  version: number;
+  size: number;
+  vsize: number;
+  weight: number;
+  locktime: number;
+  vin: any[];
+  vout: any[];
+  hex: string;
+  blockhash?: string;
+  confirmations: number;
+  time: number;
+  blocktime: number;
+};
+
 interface ChainClient {
-  // TODO: block connected with pubrawblock
-  on(event: 'block.connected', listener: (height: number) => void): this;
-  emit(event: 'block.connected', height: number): boolean;
+  on(event: 'block', listener: (height: number) => void): this;
+  emit(event: 'block', height: number): boolean;
 
   on(event: 'transaction.relevant.mempool', listener: (transaction: Transaction) => void): this;
   emit(event: 'transaction.relevant.mempool', transaction: Transaction): boolean;
@@ -83,11 +92,21 @@ class ChainClient extends BaseClient {
   private client: RpcClient;
   private zmqClient: ZmqClient;
 
-  constructor(logger: Logger, private config: ChainConfig, public readonly symbol: string) {
+  constructor(logger: Logger, config: ChainConfig, public readonly symbol: string) {
     super();
 
     this.client = new RpcClient(config);
-    this.zmqClient = new ZmqClient(symbol, logger, this.getRawTransaction);
+    this.zmqClient = new ZmqClient(
+      symbol,
+      logger,
+      this.getBlock,
+      this.getBlockchainInfo,
+      this.getRawTransaction,
+    );
+
+    this.zmqClient.on('block', (height) => {
+      this.emit('block', height);
+    });
 
     this.zmqClient.on('transaction.relevant.mempool', (transaction) => {
       this.emit('transaction.relevant.mempool', transaction);
@@ -99,14 +118,7 @@ class ChainClient extends BaseClient {
   }
 
   public connect = async () => {
-    const notifications = this.config.pubrawtx ? [
-      {
-        type: 'pubrawtx',
-        address: this.config.pubrawtx!,
-      },
-    ] : await this.getZmqNotifications();
-
-    this.zmqClient.init(notifications);
+    await this.zmqClient.init(await this.getZmqNotifications());
   }
 
   public disconnect = () => {
@@ -137,6 +149,10 @@ class ChainClient extends BaseClient {
     });
   }
 
+  public rescanChain = async (startHeight: number) => {
+    await this.zmqClient.rescanChain(startHeight);
+  }
+
   public sendRawTransaction = (rawTransaction: string, allowHighFees = true) => {
     return this.client.request<string>('sendrawtransaction', [rawTransaction, allowHighFees]);
   }
@@ -145,8 +161,7 @@ class ChainClient extends BaseClient {
    * @param blockhash if provided Bitcoin Core will search for the transaction only in that block
    */
   public getRawTransaction = (hash: string, verbose = false, blockhash?: string) => {
-    // TODO: add type
-    return this.client.request<string | any>('getrawtransaction', [hash, verbose, blockhash]);
+    return this.client.request<string | RawTransaction>('getrawtransaction', [hash, verbose, blockhash]);
   }
 
   public estimateFee = async (confTarget = 2) => {
@@ -170,4 +185,4 @@ class ChainClient extends BaseClient {
 }
 
 export default ChainClient;
-export { ChainConfig };
+export { ChainConfig, RawTransaction };

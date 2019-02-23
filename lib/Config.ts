@@ -94,7 +94,6 @@ class Config {
             port: 19334,
             rpcuser: 'user',
             rpcpass: 'user',
-            pubrawtx: 'tcp://0.0.0.0:30000',
           },
           lnd: {
             host: '127.0.0.1',

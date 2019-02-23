@@ -49,13 +49,11 @@ RUN apk --no-cache add \
 
 RUN gpg --batch --keyserver keyserver.ubuntu.com --recv-keys "0xFE3348877809386C"
 
-ENV LITECOIN_VERSION=0.16.3
+ENV LITECOIN_VERSION=0.17.1rc1
 ENV LITECOIN_PREFIX=/opt/litecoin-${LITECOIN_VERSION}
 
-RUN wget https://download.litecoin.org/litecoin-${LITECOIN_VERSION}/src/litecoin-${LITECOIN_VERSION}.tar.gz
-RUN wget https://download.litecoin.org/litecoin-${LITECOIN_VERSION}/src/litecoin-${LITECOIN_VERSION}.tar.gz.asc
+RUN wget https://github.com/litecoin-project/litecoin/archive/v${LITECOIN_VERSION}.tar.gz
 
-RUN gpg --verify litecoin-${LITECOIN_VERSION}.tar.gz.asc
 RUN tar -xzf *.tar.gz
 
 WORKDIR /litecoin-${LITECOIN_VERSION}
@@ -70,13 +68,13 @@ RUN ./autogen.sh
 RUN ./configure LDFLAGS=-L`ls -d /opt/db*`/lib/ CPPFLAGS=-I`ls -d /opt/db*`/include/ \
     --prefix=${LITECOIN_PREFIX} \
     --mandir=/usr/share/man \
+    --disable-ccache \
     --disable-tests \
     --disable-bench \
-    --disable-ccache \
-    --with-gui=no \
+    --without-gui \
+    --with-daemon \
     --with-utils \
-    --with-libs \
-    --with-daemon
+    --with-libs
 
 RUN make -j4
 RUN make install
@@ -98,7 +96,7 @@ RUN apk --no-cache add \
   libressl \
   boost-program_options
 
-ENV LITECOIN_VERSION=0.16.3
+ENV LITECOIN_VERSION=0.17.1rc1
 
 COPY --from=litecoin-core /opt/litecoin-${LITECOIN_VERSION}/bin /bin
 

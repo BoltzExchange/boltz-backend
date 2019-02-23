@@ -212,7 +212,7 @@ export const getScriptHashEncodeFunction = (outputType: OutputType) => {
   }
 };
 
-const reverseBuffer = (input: Buffer) => {
+export const reverseBuffer = (input: Buffer) => {
   const buffer = Buffer.allocUnsafe(input.length);
 
   for (let i = 0, j = input.length - 1; i <= j; i += 1, j -= 1) {

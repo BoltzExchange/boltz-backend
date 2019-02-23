@@ -24,9 +24,19 @@ class WalletRepository {
     return this.models.Wallet.bulkCreate(wallets);
   }
 
-  public updateHighestUsedIndex = async (symbol: string, highestUsedIndex: number) => {
+  public setHighestUsedIndex = async (symbol: string, highestUsedIndex: number) => {
     return this.models.Wallet.update({
       highestUsedIndex,
+    }, {
+      where: {
+        symbol,
+      },
+    });
+  }
+
+  public setBlockheight = async (symbol: string, blockheight: number) => {
+    return this.models.Wallet.update({
+      blockheight,
     }, {
       where: {
         symbol,

@@ -46,6 +46,11 @@ class ZmqClient extends EventEmitter {
   }
 
   public init = async (notifications: ZmqNotification[]) => {
+    const { blocks, bestblockhash } = await this.getBlockChainInfo();
+
+    this.blockHeight = blocks;
+    this.bestBlockHash = bestblockhash;
+
     for (const notification of notifications) {
       switch (notification.type) {
         case filters.rawTx:
@@ -55,22 +60,17 @@ class ZmqClient extends EventEmitter {
 
         case filters.rawBlock:
           this.rawBlock = true;
-
-          const { blocks, bestblockhash } = await this.getBlockChainInfo();
-          this.blockHeight = blocks;
-          this.bestBlockHash = bestblockhash;
-
           this.initRawBlock(notification.address);
           break;
       }
     }
 
     if (!this.rawtx) {
-      this.throwMissingNotifications(filters.rawTx);
+      throw this.getMissingStreamMessage(filters.rawTx);
     }
 
     if (!this.rawBlock) {
-      this.throwMissingNotifications(filters.rawBlock);
+      this.logger.warn(`Could not subscribe to ${this.symbol} chain ${filters.rawBlock}: ${this.getMissingStreamMessage(filters.rawBlock)}`);
     }
   }
 
@@ -188,8 +188,8 @@ class ZmqClient extends EventEmitter {
     return socket;
   }
 
-  private throwMissingNotifications = (filter: string) => {
-    throw `${filter} ZMQ notifications are not enabled`;
+  private getMissingStreamMessage = (filter: string) => {
+    return `${filter} ZMQ notifications are not enabled`;
   }
 }
 

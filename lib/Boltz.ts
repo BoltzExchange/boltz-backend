@@ -1,7 +1,6 @@
 import fs from 'fs';
 import { Arguments } from 'yargs';
 import { Networks } from 'boltz-core';
-import { networks } from 'bitcoinjs-lib';
 import { generateMnemonic } from 'bip39';
 import Logger from './Logger';
 import Database from './db/Database';
@@ -133,8 +132,7 @@ class Boltz {
           chainClient,
           lndClient,
           symbol: currency.symbol,
-          // TODO: regtest networks in core library
-          network: Networks[currency.network] || networks['regtest'],
+          network: Networks[currency.network],
         });
       } catch (error) {
         this.logger.warn(`Could not initialize currency ${currency.symbol}: ${error.message}`);

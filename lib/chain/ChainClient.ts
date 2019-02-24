@@ -1,127 +1,197 @@
-import BaseClient from '../BaseClient';
+import { Transaction } from 'bitcoinjs-lib';
 import Logger from '../Logger';
-import RpcClient, { RpcConfig } from '../RpcClient';
+import RpcClient from './RpcClient';
+import BaseClient from '../BaseClient';
+import { getHexString } from '../Utils';
 import { ClientStatus } from '../consts/Enums';
-import ChainClientInterface, { Info, Block, BestBlock } from './ChainClientInterface';
+import ZmqClient, { ZmqNotification } from './ZmqClient';
 
-class ChainClient extends BaseClient implements ChainClientInterface {
-  private rpcClient: RpcClient;
-  private uri: string;
+type ChainConfig = {
+  host: string;
+  port: number;
+  rpcuser: string;
+  rpcpass: string;
+};
 
-  constructor(private logger: Logger, config: RpcConfig, public readonly symbol: string) {
+type NetworkInfo = {
+  version: number;
+  subversion: string;
+  protocolversion: number;
+  localservices: number;
+  localrelay: boolean;
+  timeoffset: number;
+  networkactive: boolean;
+  connections: number;
+  relayfee: number;
+  incrementalfee: number;
+};
+
+type BlockchainInfo = {
+  chain: string;
+  blocks: number;
+  headers: number;
+  bestblockhash: string;
+  difficulty: number;
+  mediantime: number;
+  verificationprogress: number;
+  initialblockdownload: string;
+  chainwork: string;
+  size_on_disk: number;
+  pruned: boolean;
+};
+
+type Block = {
+  hash: string;
+  confirmations: number;
+  strippedsize: number;
+  size: number;
+  weight: number;
+  height: number;
+  version: number;
+  versionHex: string;
+  merkleroot: string;
+  tx: string[];
+  time: number;
+  nonce: number;
+  bits: string;
+  difficulty: number;
+  chainwork: string;
+  nTx: number;
+  previousblockhash: string;
+};
+
+type RawTransaction = {
+  txid: string;
+  hash: string;
+  version: number;
+  size: number;
+  vsize: number;
+  weight: number;
+  locktime: number;
+  vin: any[];
+  vout: any[];
+  hex: string;
+  blockhash?: string;
+  confirmations: number;
+  time: number;
+  blocktime: number;
+};
+
+interface ChainClient {
+  on(event: 'block', listener: (height: number) => void): this;
+  emit(event: 'block', height: number): boolean;
+
+  on(event: 'transaction.relevant.mempool', listener: (transaction: Transaction) => void): this;
+  emit(event: 'transaction.relevant.mempool', transaction: Transaction): boolean;
+
+  on(event: 'transaction.relevant.block', listener: (transaction: Transaction) => void): this;
+  emit(event: 'transaction.relevant.block', transaction: Transaction): boolean;
+}
+
+class ChainClient extends BaseClient {
+  private client: RpcClient;
+  private zmqClient: ZmqClient;
+
+  private static readonly decimals = 100000000;
+
+  constructor(logger: Logger, config: ChainConfig, public readonly symbol: string) {
     super();
 
-    this.rpcClient = new RpcClient(config);
-    this.uri = `${config.host}:${config.port}`;
+    this.client = new RpcClient(config);
+    this.zmqClient = new ZmqClient(
+      symbol,
+      logger,
+      this.getBlock,
+      this.getBlockchainInfo,
+      this.getRawTransaction,
+    );
 
-    this.bindWs();
-  }
+    this.zmqClient.on('block', (height) => {
+      this.emit('block', height);
+    });
 
-  private bindWs = () => {
-    this.rpcClient.on('error', error => this.emit('error', error));
-    this.rpcClient.on('message.orphan', (data) => {
-      switch (data.method) {
-        // Emits an event on mempool acceptance
-        case 'relevanttxaccepted':
-          data.params.forEach((transaction: string) => {
-            this.emit('transaction.relevant.mempool', transaction);
-          });
-          break;
+    this.zmqClient.on('transaction.relevant.mempool', (transaction) => {
+      this.emit('transaction.relevant.mempool', transaction);
+    });
 
-        // Emits an event when a blocks gets added
-        case 'filteredblockconnected':
-          const params: any[] = data.params;
-
-          this.emit('block.connected', params[0]);
-
-          if (params[2] !== null) {
-            const transactions = params[2] as string[];
-
-            transactions.forEach((transaction) => {
-              this.emit('transaction.relevant.block', transaction, params[0]);
-            });
-          }
-          break;
-      }
+    this.zmqClient.on('transaction.relevant.block', (transaction) => {
+      this.emit('transaction.relevant.block', transaction);
     });
   }
 
   public connect = async () => {
-    if (this.isDisconnected) {
-      try {
-        await this.rpcClient.connect();
-        const info = await this.getInfo();
-
-        if (info.version) {
-          await this.notifyBlocks();
-
-          this.clearReconnectTimer();
-          this.setClientStatus(ClientStatus.Connected);
-        } else {
-          this.setClientStatus(ClientStatus.Disconnected);
-          this.logger.error(`${this.symbol} at ${this.uri} is not able to connect, retrying in ${this.RECONNECT_INTERVAL} ms`);
-          this.reconnectionTimer = setTimeout(this.connect, this.RECONNECT_INTERVAL);
-        }
-      } catch (error) {
-        this.setClientStatus(ClientStatus.Disconnected);
-        this.logger.error(`could not verify connection to chain ${this.symbol} chain at ${this.uri} because: ${JSON.stringify(error)}` +
-        ` retrying in ${this.RECONNECT_INTERVAL} ms`);
-        this.reconnectionTimer = setTimeout(this.connect, this.RECONNECT_INTERVAL);
-      }
-    }
+    await this.zmqClient.init(await this.getZmqNotifications());
   }
 
-  public disconnect = async () => {
+  public disconnect = () => {
     this.clearReconnectTimer();
     this.setClientStatus(ClientStatus.Disconnected);
-
-    await this.rpcClient.close();
   }
 
-  public getInfo = (): Promise<Info> => {
-    return this.rpcClient.call<Info>('getinfo');
+  public getNetworkInfo = () => {
+    return this.client.request<NetworkInfo>('getnetworkinfo');
   }
 
-  public getBestBlock = (): Promise<BestBlock> => {
-    return this.rpcClient.call<BestBlock>('getbestblock');
+  public getBlockchainInfo = () => {
+    return this.client.request<BlockchainInfo>('getblockchaininfo');
   }
 
-  public getBlock = (blockHash: string): Promise<Block> => {
-    return this.rpcClient.call<Block>('getblock', blockHash);
-  }
-
-  public loadTxFiler = (reload: boolean, addresses: string[], outpoints: string[]): Promise<null> => {
-    // tslint:disable-next-line no-null-keyword
-    return this.rpcClient.call<null>('loadtxfilter', reload, addresses, outpoints);
-  }
-
-  public sendRawTransaction = (rawTransaction: string, allowHighFees = true): Promise<string> => {
-    return this.rpcClient.call<string>('sendrawtransaction', rawTransaction, allowHighFees);
-  }
-
-  public getRawTransaction = (transactionHash: string, verbose = 0) => {
-    return this.rpcClient.call<any>('getrawtransaction', transactionHash, verbose);
-  }
-
-  public estimateFee = async (numberBlocks = 2) => {
-    const feeResponse = await this.rpcClient.call<number>('estimatefee', numberBlocks);
-    const feePerKb = feeResponse * 100000000;
-    const fee = Math.round(feePerKb / 1000);
-
-    return Math.min(fee, 100);
-  }
-
-  public generate = (blocks: number): Promise<string[]> => {
-    return this.rpcClient.call<string[]>('generate', blocks);
+  public getBlock = (hash: string): Promise<Block> => {
+    return this.client.request<Block>('getblock', [hash]);
   }
 
   /**
-   * Call this function to get notifications about the block acceptance of relevant transactions
+   * Adds outputs to the list of relevant ones
+   *
+   * @param outputScripts list of output script Buffer
    */
-  private notifyBlocks = () => {
-    return this.rpcClient.call<void>('notifyblocks');
+  public updateOutputFilter = (outputScripts: Buffer[]) => {
+    outputScripts.forEach((script) => {
+      this.zmqClient.relevantOutputs.add(getHexString(script));
+    });
   }
 
+  public rescanChain = async (startHeight: number) => {
+    await this.zmqClient.rescanChain(startHeight);
+  }
+
+  public sendRawTransaction = (rawTransaction: string, allowHighFees = true) => {
+    return this.client.request<string>('sendrawtransaction', [rawTransaction, allowHighFees]);
+  }
+
+  /**
+   * @param blockhash if provided Bitcoin Core will search for the transaction only in that block
+   */
+  public getRawTransaction = (id: string, verbose = false, blockhash?: string) => {
+    return this.client.request<string | RawTransaction>('getrawtransaction', [id, verbose, blockhash]);
+  }
+
+  public estimateFee = async (confTarget = 2) => {
+    const response = await this.client.request<any>('estimatesmartfee', [confTarget]);
+
+    if (response.feerate) {
+      const feePerKb = response.feerate * ChainClient.decimals;
+      return Math.max(Math.round(feePerKb / 1000), 2);
+    }
+
+    return 2;
+  }
+
+  /**
+   * @param amount in satoshis
+   */
+  public sendToAddress = (address: string, amount: number) => {
+    return this.client.request<string>('sendtoaddress', [address, amount / ChainClient.decimals]);
+  }
+
+  public generate = (blocks: number) => {
+    return this.client.request<string[]>('generate', [blocks]);
+  }
+
+  private getZmqNotifications = () => {
+    return this.client.request<ZmqNotification[]>('getzmqnotifications');
+  }
 }
 
 export default ChainClient;
+export { ChainConfig, RawTransaction };

@@ -59,20 +59,25 @@ class WalletManager {
   public init = async () => {
     const walletsMap = await this.getWalletsMap();
 
-    const promises: Promise<any>[] = [];
-
-    this.currencies.forEach((currency) => {
+    for (const currency of this.currencies) {
       let walletInfo = walletsMap.get(currency.symbol);
 
-      // Generate a new sub wallet if it doesn't exist
+      const { blocks } = await currency.chainClient.getBlockchainInfo();
+
+      // Generate a new sub-wallet if that currency doesn't have one yet
       if (!walletInfo) {
         walletInfo = {
           derivationPath: `${this.derivationPath}/${this.getHighestDepthIndex(2, walletsMap) + 1}`,
           highestUsedIndex: 0,
+          blockheight: blocks,
         };
 
         walletsMap.set(currency.symbol, walletInfo);
-        promises.push(this.repository.addWallet({ symbol: currency.symbol, ...walletInfo }));
+
+        await this.repository.addWallet({
+          ...walletInfo,
+          symbol: currency.symbol,
+        });
       }
 
       const wallet = new Wallet(
@@ -87,12 +92,10 @@ class WalletManager {
         walletInfo.highestUsedIndex,
       );
 
-      promises.push(wallet.init());
+      await wallet.init(walletInfo.blockheight);
 
       this.wallets.set(currency.symbol, wallet);
-    });
-
-    await Promise.all(promises);
+    }
   }
 
   private loadMnemonic = (filename: string): string => {
@@ -111,6 +114,7 @@ class WalletManager {
       map.set(wallet.symbol, {
         derivationPath: wallet.derivationPath,
         highestUsedIndex: wallet.highestUsedIndex,
+        blockheight: wallet.blockheight,
       });
     });
 

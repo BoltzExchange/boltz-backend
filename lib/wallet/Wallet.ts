@@ -5,11 +5,11 @@ import { Transaction, Network, address, crypto, TransactionBuilder, ECPair } fro
 import Errors from './Errors';
 import Logger from '../Logger';
 import UtxoRepository from './UtxoRepository';
-import ChainClient from '../chain/ChainClient';
 import { UtxoInstance } from '../consts/Database';
 import WalletRepository from './WalletRepository';
 import OutputRepository from './OutputRepository';
-import { getPubKeyHashEncodeFuntion, getHexString, getHexBuffer, transactionHashToId } from '../Utils';
+import ChainClient, { RawTransaction } from '../chain/ChainClient';
+import { getPubkeyHashFunction, getHexString, getHexBuffer, transactionHashToId } from '../Utils';
 
 type UTXO = TransactionOutput & {
   id: number;
@@ -52,41 +52,38 @@ class Wallet {
     public readonly network: Network,
     private chainClient: ChainClient,
     public readonly derivationPath: string,
-    private highestIndex: number) {
+    public highestIndex: number) {
 
     this.symbol = this.chainClient.symbol;
 
     // If a transaction is found in the mempool and mined a few milliseconds afterwards
     // it can happen that the UTXO gets inserted in the database twice. To avoid that this
-    // Map between the hex encoded unconfirmed transacions and their database insertion
+    // Map between the ids of unconfirmed transacions and their database insertion
     // Promises is checked before adding a new UTXO to the database.
     const mempoolInsertPromises = new Map<string, UtxoPromise>();
 
-    const upsertUtxo = (txHex: string, blockHeight?: number) => {
-      const transaction = Transaction.fromHex(txHex);
-      const confirmed = blockHeight !== undefined;
-
+    const upsertUtxo = (transaction: Transaction, confirmed: boolean) => {
       transaction.outs.forEach(async (output, vout) => {
         const hexScript = getHexString(output.script);
         const outputInfo = this.relevantOutputs.get(hexScript);
 
         if (outputInfo) {
-          if (confirmed) {
-            this.logUtxoFoundMessage(true, transaction.getId(), vout, output.value, blockHeight);
-          } else {
-            this.logUtxoFoundMessage(false, transaction.getId(), vout, output.value);
-          }
-
           const txHash = getHexString(transaction.getHash());
 
           const promise = new Promise<UtxoInstance>(async (resolve) => {
             const existingUtxo = await this.utxoRepository.getUtxo(txHash, vout);
 
             if (existingUtxo && confirmed) {
-              resolve(existingUtxo.update({
-                confirmed,
-              }));
-            } else {
+              if (!existingUtxo.confirmed) {
+                this.logUtxoFoundMessage(transaction.getId(), vout, output.value, confirmed);
+
+                resolve(existingUtxo.update({
+                  confirmed,
+                }));
+              }
+            } else if (!existingUtxo) {
+              this.logUtxoFoundMessage(transaction.getId(), vout, output.value, confirmed);
+
               resolve(this.utxoRepository.addUtxo({
                 vout,
                 confirmed,
@@ -94,6 +91,7 @@ class Wallet {
                 value: output.value,
                 currency: this.symbol,
                 outputId: outputInfo.id,
+                // TODO: use ID of transaction
                 txHash: getHexString(transaction.getHash()),
               }));
             }
@@ -102,38 +100,42 @@ class Wallet {
           if (confirmed) {
             await promise;
           } else {
-            mempoolInsertPromises.set(txHex, promise);
+            mempoolInsertPromises.set(transaction.getId(), promise);
           }
         }
       });
     };
 
-    this.chainClient.on('transaction.relevant.mempool', (txHex) => {
-      upsertUtxo(txHex);
+    this.chainClient.on('transaction.relevant.mempool', (transaction: Transaction) => {
+      upsertUtxo(transaction, false);
     });
 
-    this.chainClient.on('transaction.relevant.block', async (txHex, blockHeight: number) => {
-      const mempoolInsertPromise = mempoolInsertPromises.get(txHex);
+    this.chainClient.on('transaction.relevant.block', async (transaction: Transaction) => {
+      const mempoolInsertPromise = mempoolInsertPromises.get(transaction.getId());
 
       if (mempoolInsertPromise) {
-        mempoolInsertPromises.delete(txHex);
+        mempoolInsertPromises.delete(transaction.getId());
         await mempoolInsertPromise;
       }
 
-      upsertUtxo(txHex, blockHeight);
+      upsertUtxo(transaction, true);
+    });
+
+    this.chainClient.on('block', async (blockheight: number) => {
+      await this.walletRepository.setBlockheight(this.symbol, blockheight);
     });
   }
 
-  public get highestUsedIndex() {
-    return this.highestIndex;
-  }
-
-  public init = async () => {
+  /**
+   * @param blockheight height of the last block that was scanned
+   */
+  public init = async (blockheight: number) => {
     const outputs = await this.outputRepository.getOutputs(this.symbol);
-    const addresses: string[] = [];
+
+    const addresses: Buffer[] = [];
 
     outputs.forEach((output) => {
-      addresses.push(this.encodeAddress(getHexBuffer(output.script)));
+      addresses.push(getHexBuffer(output.script));
 
       this.outputIds.set(output.id, output.script);
       this.relevantOutputs.set(output.script, {
@@ -144,8 +146,18 @@ class Wallet {
       });
     });
 
-    await this.chainClient.loadTxFiler(false, addresses, []);
+    this.chainClient.updateOutputFilter(addresses);
+
     await this.checkUnconfirmedFunds();
+
+    // If the blockheight in the database is "0" a new wallet got created
+    // and no blocks have to be rescanned
+    if (blockheight !== 0) {
+      await this.chainClient.rescanChain(blockheight);
+    }
+
+    const { blocks } = await this.chainClient.getBlockchainInfo();
+    await this.walletRepository.setBlockheight(this.symbol, blocks);
   }
 
   /**
@@ -164,7 +176,7 @@ class Wallet {
     this.highestIndex += 1;
 
     // tslint:disable-next-line no-floating-promises
-    this.walletRepository.updateHighestUsedIndex(this.symbol, this.highestIndex);
+    this.walletRepository.setHighestUsedIndex(this.symbol, this.highestIndex);
 
     return {
       keys: this.getKeysByIndex(this.highestIndex),
@@ -180,7 +192,7 @@ class Wallet {
   public getNewAddress = async (type: OutputType) => {
     const { keys, index } = this.getNewKeys();
 
-    const encodeFunction = getPubKeyHashEncodeFuntion(type);
+    const encodeFunction = getPubkeyHashFunction(type);
     const output = encodeFunction(crypto.hash160(keys.publicKey));
 
     let outputScript: Buffer;
@@ -239,7 +251,8 @@ class Wallet {
     };
   }
 
-  /** Sends a specific amount of funds to and address
+  /**
+   * Sends a specific amount of funds to an address
    *
    * @returns the transaction itself and the vout of the provided address
    */
@@ -349,34 +362,26 @@ class Wallet {
   private checkUnconfirmedFunds = async () => {
     const utxos = await this.utxoRepository.getUnconfirmedUtxos(this.symbol);
 
-    utxos.forEach(async (utxo) => {
+    for (const utxo of utxos) {
       const transactionId = transactionHashToId(getHexBuffer(utxo.txHash));
-
-      const transactionInfo = await this.chainClient.getRawTransaction(transactionId, 1);
+      const transactionInfo = await this.chainClient.getRawTransaction(transactionId, true) as RawTransaction;
 
       if (transactionInfo.confirmations) {
-        const bestBlock = await this.chainClient.getBestBlock();
-
-        // BTCD shows 1 confirmtation if the transaction in the best block (tip of the chain). Therefore to get the
-        // block height in which it got confirmed we have to get the height of the best block minus how deep the block
-        // in which the transaction confirmed is in the chain (confirmations minus one)
-        this.logUtxoFoundMessage(true, transactionId, utxo.vout, utxo.value, bestBlock.height - (transactionInfo.confirmations - 1));
+        this.logUtxoFoundMessage(transactionId, utxo.vout, utxo.value, true);
 
         utxo.set('confirmed', true);
         await utxo.save();
       }
-    });
+    }
   }
 
   /**
    * Add an output that can be spent by the wallet
    */
-  private listenToOutput = async (script: Buffer, keyIndex: number, type: OutputType, address?: string, redeemScript?: string) => {
+  private listenToOutput = async (script: Buffer, keyIndex: number, type: OutputType, _address?: string, redeemScript?: string) => {
     const scriptString = getHexString(script);
 
-    const chainAddress = address ? address : this.encodeAddress(script);
-
-    await this.chainClient.loadTxFiler(false, [chainAddress], []);
+    this.chainClient.updateOutputFilter([script]);
 
     const outputInstance = await this.outputRepository.addOutput({
       type,
@@ -395,8 +400,8 @@ class Wallet {
     });
   }
 
-  private logUtxoFoundMessage = (confirmed: boolean, transactionId: string, vout: number, value: number, blockHeight?: number) => {
-    const message = `Found UTXO of ${this.symbol} wallet ${confirmed ? `in block #${blockHeight}` : 'in mempool'}:` +
+  private logUtxoFoundMessage = (transactionId: string, vout: number, value: number, confirmed: boolean) => {
+    const message = `Found UTXO of ${this.symbol} wallet ${confirmed ? 'in a block' : 'in mempool'}:` +
       ` ${transactionId}:${vout} with value ${value}`;
 
     if (confirmed) {

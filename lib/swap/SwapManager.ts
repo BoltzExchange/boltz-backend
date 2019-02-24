@@ -3,7 +3,7 @@ import Errors from './Errors';
 import Logger from '../Logger';
 import { OrderSide } from '../proto/boltzrpc_pb';
 import WalletManager, { Currency } from '../wallet/WalletManager';
-import { getHexBuffer, getHexString, getScriptHashEncodeFunction } from '../Utils';
+import { getHexBuffer, getHexString, getScriptHashFunction } from '../Utils';
 import SwapNursery, { SwapMaps, SwapDetails, ReverseSwapDetails } from './SwapNursery';
 
 const { p2wshOutput } = Scripts;
@@ -55,14 +55,14 @@ class SwapManager {
 
     this.logger.silly(`Sending ${sendingCurrency.symbol} on Lightning and receiving ${receivingCurrency.symbol} on the chain`);
 
-    const bestBlock = await receivingCurrency.chainClient.getBestBlock();
+    const { blocks } = await receivingCurrency.chainClient.getBlockchainInfo();
     const { paymentHash, numSatoshis } = await sendingCurrency.lndClient.decodePayReq(invoice);
 
     this.logger.verbose(`Creating new Swap from ${receivingCurrency.symbol} to ${sendingCurrency.symbol} with preimage hash: ${paymentHash}`);
 
     const { keys } = receivingCurrency.wallet.getNewKeys();
 
-    const timeoutBlockHeight = bestBlock.height + timeoutBlockNumber;
+    const timeoutBlockHeight = blocks + timeoutBlockNumber;
     const redeemScript = pkRefundSwap(
       getHexBuffer(paymentHash),
       keys.publicKey,
@@ -70,10 +70,9 @@ class SwapManager {
       timeoutBlockHeight,
     );
 
-    const encodeFunction = getScriptHashEncodeFunction(outputType);
+    const encodeFunction = getScriptHashFunction(outputType);
     const outputScript = encodeFunction(redeemScript);
 
-    const address = receivingCurrency.wallet.encodeAddress(outputScript);
     const expectedAmount = this.calculateExpectedAmount(numSatoshis + fee, this.getRate(rate, orderSide));
 
     receivingCurrency.swaps.set(getHexString(outputScript), {
@@ -85,13 +84,13 @@ class SwapManager {
       lndClient: sendingCurrency.lndClient,
     });
 
-    await receivingCurrency.chainClient.loadTxFiler(false, [address], []);
+    receivingCurrency.chainClient.updateOutputFilter([outputScript]);
 
     return {
-      address,
       expectedAmount,
       timeoutBlockHeight,
       redeemScript: getHexString(redeemScript),
+      address: receivingCurrency.wallet.encodeAddress(outputScript),
     };
   }
 
@@ -121,8 +120,8 @@ class SwapManager {
     const { rHash, paymentRequest } = await receivingCurrency.lndClient.addInvoice(amount);
     const { keys } = sendingCurrency.wallet.getNewKeys();
 
-    const bestBlock = await sendingCurrency.chainClient.getBestBlock();
-    const timeoutBlockHeight = bestBlock.height + timeoutBlockNumber;
+    const { blocks } = await receivingCurrency.chainClient.getBlockchainInfo();
+    const timeoutBlockHeight = blocks + timeoutBlockNumber;
 
     const redeemScript = pkRefundSwap(
       Buffer.from(rHash as string, 'base64'),

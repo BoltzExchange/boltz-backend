@@ -43,9 +43,7 @@ class SwapNursery extends EventEmitter {
   }
 
   public bindCurrency = (currency: Currency, maps: SwapMaps) => {
-    currency.chainClient.on('transaction.relevant.block', async (transactionHex: string) => {
-      const transaction = Transaction.fromHex(transactionHex);
-
+    currency.chainClient.on('transaction.relevant.block', async (transaction: Transaction) => {
       let vout = 0;
 
       for (const output of transaction.outs) {
@@ -70,7 +68,7 @@ class SwapNursery extends EventEmitter {
       }
     });
 
-    currency.chainClient.on('block.connected', async (height: number) => {
+    currency.chainClient.on('block', async (height: number) => {
       const reverseSwaps = maps.reverseSwaps.get(height);
 
       if (reverseSwaps) {
@@ -85,7 +83,8 @@ class SwapNursery extends EventEmitter {
     const swapOutput = `${transactionHashToId(txHash)}:${vout}`;
 
     if (outputValue < details.expectedAmount) {
-      this.logger.warn(`Value ${outputValue} of ${swapOutput} is less than expected ${details.expectedAmount}. Aborting swap`);
+      this.logger.warn(`Value ${outputValue} of ${swapOutput} is less than expected ${details.expectedAmount}. ` +
+        `Aborting ${currency.symbol} swap`);
       return;
     }
 
@@ -94,12 +93,12 @@ class SwapNursery extends EventEmitter {
     const payInvoice = await lndClient.payInvoice(details.invoice);
 
     if (payInvoice.paymentError !== '') {
-      this.logger.warn(`Could not pay invoice ${details.invoice}: ${payInvoice.paymentError}`);
+      this.logger.warn(`Could not pay ${currency.symbol} invoice ${details.invoice}: ${payInvoice.paymentError}`);
       return;
     }
 
     const preimage = payInvoice.paymentPreimage as string;
-    this.logger.debug(`Got preimage: ${preimage}`);
+    this.logger.silly(`Got ${currency.symbol} preimage: ${preimage}`);
 
     const destinationAddress = await this.walletManager.wallets.get(currency.symbol)!.getNewAddress(OutputType.Bech32);
 
@@ -119,7 +118,7 @@ class SwapNursery extends EventEmitter {
       true,
     );
 
-    this.logger.verbose(`Broadcasting claim transaction: ${claimTx.getId()}`);
+    this.logger.verbose(`Broadcasting ${currency.symbol} claim transaction: ${claimTx.getId()}`);
     await currency.chainClient.sendRawTransaction(claimTx.toHex());
   }
 
@@ -143,13 +142,13 @@ class SwapNursery extends EventEmitter {
         await currency.chainClient.estimateFee(),
       );
 
-      this.logger.verbose(`Broadcasting refund transaction: ${refundTx.getId()}`);
+      this.logger.verbose(`Broadcasting ${currency.symbol} refund transaction: ${refundTx.getId()}`);
 
       try {
         await currency.chainClient.sendRawTransaction(refundTx.toHex());
         this.emit('refund', transactionId);
       } catch (error) {
-        this.logger.warn(`Could not broadcast refund transaction: ${error.message}`);
+        this.logger.warn(`Could not broadcast ${currency.symbol} refund transaction: ${error.message}`);
       }
     }
   }

@@ -186,7 +186,7 @@ export const getOutputType = (type: number) => {
   }
 };
 
-export const getPubKeyHashEncodeFuntion = (outputType: OutputType) => {
+export const getPubkeyHashFunction = (outputType: OutputType) => {
   switch (outputType) {
     case OutputType.Bech32:
       return p2wpkhOutput;
@@ -199,7 +199,7 @@ export const getPubKeyHashEncodeFuntion = (outputType: OutputType) => {
   }
 };
 
-export const getScriptHashEncodeFunction = (outputType: OutputType) => {
+export const getScriptHashFunction = (outputType: OutputType) => {
   switch (outputType) {
     case OutputType.Bech32:
       return p2wshOutput;
@@ -212,7 +212,7 @@ export const getScriptHashEncodeFunction = (outputType: OutputType) => {
   }
 };
 
-const reverseBuffer = (input: Buffer) => {
+export const reverseBuffer = (input: Buffer) => {
   const buffer = Buffer.allocUnsafe(input.length);
 
   for (let i = 0, j = input.length - 1; i <= j; i += 1, j -= 1) {

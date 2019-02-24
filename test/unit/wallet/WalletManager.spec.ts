@@ -1,15 +1,15 @@
 import { expect } from 'chai';
-import { mock } from 'ts-mockito';
 import fs from 'fs';
 import bip32 from 'bip32';
 import bip39 from 'bip39';
 import { Networks } from 'boltz-core';
-import WalletManager from '../../../lib/wallet/WalletManager';
-import WalletErrors from '../../../lib/wallet/Errors';
-import LndClient from '../../../lib/lightning/LndClient';
-import ChainClient from '../../../lib/chain/ChainClient';
+import { mock, when, instance } from 'ts-mockito';
 import Logger from '../../../lib/Logger';
 import Database from '../../../lib/db/Database';
+import WalletErrors from '../../../lib/wallet/Errors';
+import ChainClient from '../../../lib/chain/ChainClient';
+import LndClient from '../../../lib/lightning/LndClient';
+import WalletManager from '../../../lib/wallet/WalletManager';
 import WalletRepository from '../../../lib/wallet/WalletRepository';
 
 describe('WalletManager', () => {
@@ -18,14 +18,32 @@ describe('WalletManager', () => {
   const database = new Database(Logger.disabledLogger, ':memory:');
   const repository = new WalletRepository(database.models);
 
-  const btcClient = mock(ChainClient);
-  const ltcClient = mock(ChainClient);
+  const blockchainInfo = {
+    chain: '',
+    blocks: 0,
+    headers: 0,
+    bestblockhash: '',
+    difficulty: 0,
+    mediantime: 0,
+    verificationprogress: 0,
+    initialblockdownload: '',
+    chainwork: '',
+    size_on_disk: 0,
+    pruned: false,
+  };
 
-  // A hack to force override the readonly property "symbol"
-  btcClient['symbol' as any] = 'BTC';
-  ltcClient['symbol' as any] = 'LTC';
+  const btcMock = mock(ChainClient);
+  when(btcMock.symbol).thenReturn('BTC');
+  when(btcMock.getBlockchainInfo()).thenResolve(blockchainInfo);
 
-  const lndClient = mock(LndClient);
+  const ltcMock = mock(ChainClient);
+  when(btcMock.symbol).thenReturn('LTC');
+  when(ltcMock.getBlockchainInfo()).thenResolve(blockchainInfo);
+
+  const btcClient = instance(btcMock);
+  const ltcClient = instance(ltcMock);
+
+  const lndClient = instance(mock(LndClient));
 
   const currencies = [
     {
@@ -72,17 +90,17 @@ describe('WalletManager', () => {
       const wallet = walletManager.wallets.get(currency.symbol);
       expect(wallet).to.not.be.undefined;
 
-      const { derivationPath, highestUsedIndex } = wallet!;
+      const { derivationPath, highestIndex } = wallet!;
 
       // Compare to the values in the database
       const dbWallet = await repository.getWallet(currency.symbol);
 
       expect(derivationPath).to.be.equal(dbWallet!.derivationPath);
-      expect(highestUsedIndex).to.be.equal(dbWallet!.highestUsedIndex);
+      expect(highestIndex).to.be.equal(dbWallet!.highestUsedIndex);
 
       // Compare to the expected values
       expect(derivationPath).to.be.equal(`m/0/${index}`);
-      expect(highestUsedIndex).to.be.equal(0);
+      expect(highestIndex).to.be.equal(0);
 
       index += 1;
     }

@@ -6,4 +6,5 @@ export type Error = {
 export type WalletInfo = {
   derivationPath: string;
   highestUsedIndex: number;
+  blockheight: number;
 };

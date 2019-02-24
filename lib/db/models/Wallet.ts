@@ -6,6 +6,7 @@ export default (sequelize: Sequelize.Sequelize, dataTypes: Sequelize.DataTypes) 
     symbol: { type: dataTypes.STRING, primaryKey: true, allowNull: true },
     highestUsedIndex: { type: dataTypes.INTEGER, allowNull: false },
     derivationPath: { type: dataTypes.STRING, allowNull: false },
+    blockheight: { type: dataTypes.INTEGER, allowNull: false },
   };
 
   const options: Sequelize.DefineOptions<db.WalletInstance> = {

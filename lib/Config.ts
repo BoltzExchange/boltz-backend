@@ -4,10 +4,10 @@ import toml from 'toml';
 import ini from 'ini';
 import { Arguments } from 'yargs';
 import Errors from './consts/Errors';
-import { Chain, Symbol, Network } from './consts/Enums';
-import { RpcConfig } from './RpcClient';
 import { GrpcConfig } from './grpc/GrpcServer';
+import { ChainConfig } from './chain/ChainClient';
 import { LndConfig } from './lightning/LndClient';
+import { Chain, Symbol, Network } from './consts/Enums';
 import { deepMerge, resolveHome, getServiceDataDir, splitListen } from './Utils';
 
 type ServiceOptions = {
@@ -17,7 +17,7 @@ type ServiceOptions = {
 type CurrencyConfig = {
   symbol: Symbol,
   network: Network;
-  chain: RpcConfig & ServiceOptions;
+  chain: ChainConfig & ServiceOptions;
   lnd?: LndConfig & ServiceOptions;
 };
 
@@ -76,7 +76,6 @@ class Config {
           chain: {
             host: '127.0.0.1',
             port: 18334,
-            certpath: path.join(getServiceDataDir('btcd'), 'rpc.cert'),
             rpcuser: 'user',
             rpcpass: 'user',
           },
@@ -93,7 +92,6 @@ class Config {
           chain: {
             host: '127.0.0.1',
             port: 19334,
-            certpath: path.join(getServiceDataDir('ltcd'), 'rpc.cert'),
             rpcuser: 'user',
             rpcpass: 'user',
           },

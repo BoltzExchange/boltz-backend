@@ -1,16 +1,16 @@
 import fs from 'fs';
 import { Arguments } from 'yargs';
-import { generateMnemonic } from 'bip39';
 import { Networks } from 'boltz-core';
+import { generateMnemonic } from 'bip39';
 import Logger from './Logger';
+import Database from './db/Database';
+import Service from './service/Service';
+import GrpcServer from './grpc/GrpcServer';
+import SwapManager from './swap/SwapManager';
 import Config, { ConfigType } from './Config';
 import LndClient from './lightning/LndClient';
-import GrpcServer from './grpc/GrpcServer';
-import Service from './service/Service';
-import WalletManager, { Currency } from './wallet/WalletManager';
-import SwapManager from './swap/SwapManager';
 import ChainClient from './chain/ChainClient';
-import Database from './db/Database';
+import WalletManager, { Currency } from './wallet/WalletManager';
 
 class Boltz {
   private config: ConfigType;
@@ -93,8 +93,17 @@ class Boltz {
     try {
       await client.connect();
 
-      const info = await client.getInfo();
-      this.logStatus(service, info);
+      const blockchainInfo = await client.getBlockchainInfo();
+      const networkInfo = await client.getNetworkInfo();
+
+      this.logStatus(service, {
+        version: networkInfo.version,
+        protocolversion: networkInfo.protocolversion,
+        connections: networkInfo.connections,
+        blocks: blockchainInfo.blocks,
+        bestblockhash: blockchainInfo.bestblockhash,
+        verificationprogress: blockchainInfo.verificationprogress,
+      });
     } catch (error) {
       this.logCouldNotConnect(service, error);
     }

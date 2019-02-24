@@ -4,22 +4,6 @@
     {
       "type": "node",
       "request": "launch",
-      "name": "Debug",
-      "args": [
-        "bin/boltzd"
-      ],
-      "runtimeArgs": [
-        "--nolazy",
-        "-r",
-        "ts-node/register"
-      ],
-      "sourceMaps": true,
-      "cwd": "${workspaceRoot}",
-      "console": "integratedTerminal"
-    },
-    {
-      "type": "node",
-      "request": "launch",
       "name": "Mocha All",
       "program": "${workspaceFolder}/node_modules/mocha/bin/_mocha",
       "args": [

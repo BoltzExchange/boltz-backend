@@ -1,104 +1,134 @@
-import path from 'path';
-import { ECPair, TransactionBuilder, Transaction, Network } from 'bitcoinjs-lib';
-import { Networks } from 'boltz-core';
+import { expect } from 'chai';
+import { Networks,  OutputType } from 'boltz-core';
+import { ECPair, address, crypto } from 'bitcoinjs-lib';
 import Logger from '../../../lib/Logger';
 import ChainClient from '../../../lib/chain/ChainClient';
+import { getPubkeyHashFunction } from '../../../lib/Utils';
 
 describe('ChainClient', () => {
-  it('ChainClients should connect', async () => {
+  const numTransactions = 15;
+
+  const testData = {
+    outputScripts: [] as Buffer[],
+    addresses: [] as string[],
+  };
+
+  it('should connect', async () => {
     await Promise.all([
-      btcdClient.connect(),
-      ltcdClient.connect(),
+      bitcoinClient.connect(),
+      litecoinClient.connect(),
     ]);
   });
 
-  it('should update address subscriptions', async () => {
-    await btcdClient.loadTxFiler(true, [btcAddress], []);
+  it('should update the output filer', async () => {
+    for (let i = 0; i < numTransactions; i += 1) {
+      const { outputScript, address } = generateAddress(OutputType.Bech32);
+
+      testData.outputScripts.push(outputScript);
+      testData.addresses.push(address);
+    }
+
+    bitcoinClient.updateOutputFilter(testData.outputScripts);
   });
 
-  after(async () => {
-    await Promise.all([
-      btcdClient.disconnect(),
-      ltcdClient.disconnect(),
-    ]);
+  it('should emit an event on mempool acceptance', async () => {
+    let mempoolTransactions = 0;
+
+    bitcoinClient.on('transaction.relevant.mempool', () => {
+      mempoolTransactions += 1;
+    });
+
+    for (const address of testData.addresses) {
+      await bitcoinClient.sendToAddress(address, 1000);
+    }
+
+    await waitForFunctionToBeTrue(() => {
+      return mempoolTransactions === numTransactions;
+    });
+  });
+
+  it('should emit an event on block acceptance', async () => {
+    let blockTransactions = 0;
+
+    bitcoinClient.on('transaction.relevant.block', async () => {
+      blockTransactions += 1;
+    });
+
+    await bitcoinClient.generate(1);
+
+    await waitForFunctionToBeTrue(() => {
+      return blockTransactions === numTransactions;
+    });
+  });
+
+  it('should emit an event when a block gets mined', async () => {
+    const generated = numTransactions;
+
+    let blocks = 0;
+    let bestBlockHeight = 0;
+
+    bitcoinClient.on('block', (height: number) => {
+      blocks += 1;
+      bestBlockHeight = height;
+    });
+
+    await bitcoinClient.generate(generated);
+
+    await waitForFunctionToBeTrue(() => {
+      return blocks === generated;
+    });
+
+    const blockchainInfo = await bitcoinClient.getBlockchainInfo();
+
+    expect(bestBlockHeight).to.be.equal(blockchainInfo.blocks);
   });
 });
 
-type Utxo = {
-  hash: string;
-  vout: number;
-  value: number;
-};
+const host = process.platform === 'win32' ? '192.168.99.100' : '127.0.0.1';
 
-export class UtxoManager {
-  private keys: ECPair;
-
-  constructor(private chainClient: ChainClient, private network: Network, private utxo: Utxo) {
-    this.keys = network === Networks.bitcoinSimnet ? btcKeys : ltcKeys;
-  }
-
-  public constructTransaction = (destinationAddress: string, value: number): Transaction => {
-    const tx = new TransactionBuilder(this.network);
-
-    // Value of the new UTXO
-    const utxoValue = (this.utxo.value - value) - 500;
-
-    tx.addInput(this.utxo.hash, this.utxo.vout);
-    tx.addOutput(btcAddress, utxoValue);
-
-    tx.addOutput(destinationAddress, value);
-
-    tx.sign(0, this.keys);
-
-    const transaction = tx.build();
-
-    this.utxo = {
-      hash: transaction.getId(),
-      vout: 0,
-      value: utxoValue,
-    };
-
-    return transaction;
-  }
-
-  public broadcastAndMine = async (txHex: string) => {
-    await this.chainClient.sendRawTransaction(txHex);
-    await this.chainClient.generate(1);
-  }
-}
-
-export const btcKeys = ECPair.fromWIF('Fpzo4qxGBizwddWz6hGgjgmKCVniWAWU1iPMHQuV8cgQHmxsRBB9', Networks.bitcoinSimnet);
-export const btcAddress = 'SbVnjfHyqqSJLd7eaEKKmw3xwsRLHG9cuh';
-
-export const ltcKeys = ECPair.fromWIF('FsTTuNURWqFsMpSLUXEkciAzYuBYibZB3r8ZoatdSpAjTznFUhnd', Networks.litecoinSimnet);
-export const ltcAddress = 'SSGEBiUF9kNdTR6wNqY8h7zgmacKo7PN6f';
-
-const certpath = path.join('docker', 'simnet', 'data', 'certs', 'btcd', 'rpc.cert');
-const host = process.platform === 'win32' ? '192.168.99.100' : 'localhost';
-
-export const btcdClient = new ChainClient(Logger.disabledLogger, {
+export const bitcoinClient = new ChainClient(Logger.disabledLogger, {
   host,
-  certpath,
-  port: 18556,
-  rpcuser: 'user',
-  rpcpass: 'user',
+  port: 18443,
+  rpcuser: 'kek',
+  rpcpass: 'kek',
 }, 'BTC');
 
-export const ltcdClient = new ChainClient(Logger.disabledLogger, {
+export const litecoinClient = new ChainClient(Logger.disabledLogger, {
   host,
-  certpath,
-  port: 19556,
-  rpcpass: 'user',
-  rpcuser: 'user',
+  port: 19443,
+  rpcpass: 'kek',
+  rpcuser: 'kek',
 }, 'LTC');
 
-export let btcManager: UtxoManager;
-export let ltcManager: UtxoManager;
+export const generateAddress = (outputType: OutputType) => {
+  const keys = ECPair.makeRandom({ network: Networks.bitcoinRegtest });
+  const encodeFunction = getPubkeyHashFunction(outputType);
 
-export const setBtcManager = (manager: UtxoManager) => {
-  btcManager = manager;
+  const outputScript = encodeFunction(crypto.hash160(keys.publicKey)) as Buffer;
+  return {
+    outputScript,
+    address: address.fromOutputScript(outputScript, Networks.bitcoinRegtest),
+  };
 };
 
-export const setLtcManager = (manager: UtxoManager) => {
-  ltcManager = manager;
+export const waitForFunctionToBeTrue = (func: () => boolean) => {
+  return new Promise((resolve) => {
+    const interval = setInterval(() => {
+      if (func()) {
+        clearInterval(interval);
+        resolve();
+      }
+    });
+  });
+};
+
+export const waitForPromiseToBeTrue = (func: () => Promise<boolean>) => {
+  return new Promise((resolve) => {
+    const interval = setInterval(async () => {
+      if (await func()) {
+        clearInterval(interval);
+        resolve();
+      }
+    });
+  });
 };

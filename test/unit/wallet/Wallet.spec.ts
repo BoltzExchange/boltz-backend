@@ -6,12 +6,12 @@ import bip32 from 'bip32';
 import bip39 from 'bip39';
 import Wallet from '../../../lib/wallet/Wallet';
 import ChainClient from '../../../lib/chain/ChainClient';
-import { getPubKeyHashEncodeFuntion, getHexBuffer } from '../../../lib/Utils';
 import Logger from '../../../lib/Logger';
 import Database from '../../../lib/db/Database';
 import UtxoRepository from '../../../lib/wallet/UtxoRepository';
 import WalletRepository from '../../../lib/wallet/WalletRepository';
 import OutputRepository from '../../../lib/wallet/OutputRepository';
+import { getPubkeyHashFunction, getHexBuffer } from '../../../lib/Utils';
 
 describe('Wallet', () => {
   const currency = 'BTC';
@@ -33,8 +33,17 @@ describe('Wallet', () => {
   // "as any" is needed to force override a "readonly" value
   chainClientMock['symbol' as any] = currency;
 
-  const wallet = new Wallet(Logger.disabledLogger, walletRepository, outputRepository, utxoRepository,
-    masterNode, network, chainClientMock, derivationPath, highestUsedIndex);
+  const wallet = new Wallet(
+    Logger.disabledLogger,
+    walletRepository,
+    outputRepository,
+    utxoRepository,
+    masterNode,
+    network,
+    chainClientMock,
+    derivationPath,
+    highestUsedIndex,
+  );
 
   const incrementIndex = () => {
     highestUsedIndex = highestUsedIndex + 1;
@@ -53,6 +62,7 @@ describe('Wallet', () => {
       derivationPath,
       highestUsedIndex,
       symbol: currency,
+      blockheight: 0,
     });
   });
 
@@ -68,9 +78,9 @@ describe('Wallet', () => {
     const { keys, index } = wallet.getNewKeys();
 
     expect(keys).to.be.deep.equal(getKeysByIndex(highestUsedIndex));
-    expect(index).to.be.equal(wallet.highestUsedIndex);
+    expect(index).to.be.equal(wallet.highestIndex);
 
-    expect(wallet.highestUsedIndex).to.be.equal(highestUsedIndex);
+    expect(wallet.highestIndex).to.be.equal(highestUsedIndex);
   });
 
   it('should encode an address', () => {
@@ -86,7 +96,7 @@ describe('Wallet', () => {
     const outputType = OutputType.Bech32;
 
     const keys = getKeysByIndex(highestUsedIndex);
-    const encodeFunction = getPubKeyHashEncodeFuntion(outputType);
+    const encodeFunction = getPubkeyHashFunction(outputType);
     const outputScript = encodeFunction(crypto.hash160(keys.publicKey)) as Buffer;
     const outputAddress = address.fromOutputScript(outputScript, network);
 

@@ -118,12 +118,13 @@ class Service extends EventEmitter {
       const lnd = new LndInfo();
 
       try {
-        const info = await currency.chainClient.getInfo();
+        const networkInfo = await currency.chainClient.getNetworkInfo();
+        const blockchainInfo = await currency.chainClient.getBlockchainInfo();
 
-        chain.setVersion(info.version);
-        chain.setProtocolversion(info.protocolversion);
-        chain.setBlocks(info.blocks);
-        chain.setConnections(info.connections);
+        chain.setVersion(networkInfo.version);
+        chain.setProtocolversion(networkInfo.protocolversion);
+        chain.setBlocks(blockchainInfo.blocks);
+        chain.setConnections(networkInfo.connections);
       } catch (error) {
         chain.setError(error);
       }
@@ -232,8 +233,9 @@ class Service extends EventEmitter {
     argChecks.HAS_TXHASH(args);
 
     const currency = this.getCurrency(args.currency);
+    const transaction = await currency.chainClient.getRawTransaction(args.transactionHash, false);
 
-    return currency.chainClient.getRawTransaction(args.transactionHash);
+    return transaction as string;
   }
 
   /**
@@ -285,7 +287,7 @@ class Service extends EventEmitter {
   /**
    * Adds an entry to the list of addresses SubscribeTransactions listens to
    */
-  public listenOnAddress = async (args: { currency: string, address: string }) => {
+  public listenOnAddress = (args: { currency: string, address: string }) => {
     argChecks.VALID_CURRENCY(args);
     argChecks.HAS_ADDRESS(args);
 
@@ -294,7 +296,7 @@ class Service extends EventEmitter {
     const script = address.toOutputScript(args.address, currency.network);
 
     this.listenScriptsSet.set(getHexString(script), args.address);
-    await currency.chainClient.loadTxFiler(false, [args.address], []);
+    currency.chainClient.updateOutputFilter([script]);
   }
 
   /**
@@ -356,7 +358,7 @@ class Service extends EventEmitter {
     const currency = this.getCurrency(args.currency);
     const wallet = this.serviceComponents.walletManager.wallets.get(args.currency)!;
 
-    const fee = args.satPerVbyte === 0 ? 1 : args.satPerVbyte;
+    const fee = args.satPerVbyte === 0 ? await currency.chainClient.estimateFee() : args.satPerVbyte;
 
     const output = SwapUtils.getOutputScriptType(address.toOutputScript(args.address, currency.network))!;
 
@@ -374,9 +376,7 @@ class Service extends EventEmitter {
    */
   private subscribeTransactions = () => {
     this.serviceComponents.currencies.forEach((currency) => {
-      currency.chainClient.on('transaction.relevant.block', (transactionHex) => {
-        const transaction = Transaction.fromHex(transactionHex);
-
+      currency.chainClient.on('transaction.relevant.block', (transaction: Transaction) => {
         transaction.outs.forEach((out) => {
           const listenAddress = this.listenScriptsSet.get(getHexString(out.script));
 

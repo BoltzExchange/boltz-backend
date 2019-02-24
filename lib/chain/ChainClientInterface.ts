@@ -26,6 +26,7 @@ type Block = {
   versionHex: string;
   merkleroot: string;
   tx: string[];
+  rawtx?: any[];
   time: number;
   nonce: number;
   bits: string;

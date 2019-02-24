@@ -27,13 +27,22 @@ COPY regtest/data/core/config.conf /root/.litecoin/litecoin.conf
 COPY regtest/data/lnd/lnd.conf /root/.lnd-btc/
 COPY regtest/data/lnd/lnd.conf /root/.lnd-btc2/
 
+COPY regtest/data/lnd/lnd.conf /root/.lnd-ltc/
+COPY regtest/data/lnd/lnd.conf /root/.lnd-ltc2/
+
 # Copy certificates for the LNDs
 COPY regtest/data/lnd/certificates /root/.lnd-btc/
 COPY regtest/data/lnd/certificates /root/.lnd-btc2/
 
+COPY regtest/data/lnd/certificates /root/.lnd-ltc/
+COPY regtest/data/lnd/certificates /root/.lnd-ltc2/
+
 # Copy macaroons for the LNDs
 COPY regtest/data/lnd/macaroons /root/.lnd-btc/data/chain/bitcoin/regtest/
 COPY regtest/data/lnd/macaroons /root/.lnd-btc2/data/chain/bitcoin/regtest/
+
+COPY regtest/data/lnd/macaroons /root/.lnd-ltc/data/chain/litecoin/regtest/
+COPY regtest/data/lnd/macaroons /root/.lnd-ltc2/data/chain/litecoin/regtest/
 
 # Configure ZMQ for Bitcoin and Litecoin Core
 RUN echo "zmqpubrawtx=tcp://0.0.0.0:29000" >> /root/.bitcoin/bitcoin.conf
@@ -55,7 +64,7 @@ EXPOSE 18443 19443
 EXPOSE 29000 29001 30000 30001
 
 # Expose gRPC ports of the LNDs
-EXPOSE 10009 10010
+EXPOSE 10009 10010 11009 11009
 
 # Expose REST API ports of the LNDs
 EXPOSE 8080 8081

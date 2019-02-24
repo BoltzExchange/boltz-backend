@@ -4,10 +4,10 @@ FROM golang:1.11.5-alpine as builder
 RUN apk update && apk upgrade && apk add --no-cache git make gcc libc-dev
 
 # Install LND
-RUN go get -d github.com/lightningnetwork/lnd
+RUN git clone https://github.com/boltzexchange/lnd.git $GOPATH/src/github.com/boltzexchange/lnd
 
-WORKDIR $GOPATH/src/github.com/lightningnetwork/lnd
-RUN git checkout v0.5.2-beta
+WORKDIR $GOPATH/src/github.com/boltzexchange/lnd
+RUN git checkout litcoin-regtest
 RUN make install
 
 # Start again with a new image to reduce the size

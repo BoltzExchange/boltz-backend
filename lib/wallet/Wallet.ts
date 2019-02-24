@@ -9,7 +9,7 @@ import { UtxoInstance } from '../consts/Database';
 import WalletRepository from './WalletRepository';
 import OutputRepository from './OutputRepository';
 import ChainClient, { RawTransaction } from '../chain/ChainClient';
-import { getPubKeyHashEncodeFuntion, getHexString, getHexBuffer, transactionHashToId } from '../Utils';
+import { getPubkeyHashFunction, getHexString, getHexBuffer, transactionHashToId } from '../Utils';
 
 type UTXO = TransactionOutput & {
   id: number;
@@ -52,8 +52,7 @@ class Wallet {
     public readonly network: Network,
     private chainClient: ChainClient,
     public readonly derivationPath: string,
-    private highestIndex: number,
-    private blockheight: number) {
+    public highestIndex: number) {
 
     this.symbol = this.chainClient.symbol;
 
@@ -127,8 +126,12 @@ class Wallet {
     });
   }
 
-  public init = async () => {
+  /**
+   * @param blockheight height of the last block that was scanned
+   */
+  public init = async (blockheight: number) => {
     const outputs = await this.outputRepository.getOutputs(this.symbol);
+
     const addresses: Buffer[] = [];
 
     outputs.forEach((output) => {
@@ -149,8 +152,8 @@ class Wallet {
 
     // If the blockheight in the database is "0" a new wallet got created
     // and no blocks have to be rescanned
-    if (this.blockheight !== 0) {
-      await this.chainClient.rescanChain(this.blockheight);
+    if (blockheight !== 0) {
+      await this.chainClient.rescanChain(blockheight);
     }
 
     const { blocks } = await this.chainClient.getBlockchainInfo();
@@ -189,7 +192,7 @@ class Wallet {
   public getNewAddress = async (type: OutputType) => {
     const { keys, index } = this.getNewKeys();
 
-    const encodeFunction = getPubKeyHashEncodeFuntion(type);
+    const encodeFunction = getPubkeyHashFunction(type);
     const output = encodeFunction(crypto.hash160(keys.publicKey));
 
     let outputScript: Buffer;
@@ -248,7 +251,8 @@ class Wallet {
     };
   }
 
-  /** Sends a specific amount of funds to and address
+  /**
+   * Sends a specific amount of funds to an address
    *
    * @returns the transaction itself and the vout of the provided address
    */

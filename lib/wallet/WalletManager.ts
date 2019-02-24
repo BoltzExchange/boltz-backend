@@ -90,10 +90,9 @@ class WalletManager {
         currency.chainClient,
         walletInfo.derivationPath,
         walletInfo.highestUsedIndex,
-        walletInfo.blockheight,
       );
 
-      await wallet.init();
+      await wallet.init(walletInfo.blockheight);
 
       this.wallets.set(currency.symbol, wallet);
     }

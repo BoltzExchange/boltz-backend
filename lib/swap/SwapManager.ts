@@ -3,7 +3,7 @@ import Errors from './Errors';
 import Logger from '../Logger';
 import { OrderSide } from '../proto/boltzrpc_pb';
 import WalletManager, { Currency } from '../wallet/WalletManager';
-import { getHexBuffer, getHexString, getScriptHashEncodeFunction } from '../Utils';
+import { getHexBuffer, getHexString, getScriptHashFunction } from '../Utils';
 import SwapNursery, { SwapMaps, SwapDetails, ReverseSwapDetails } from './SwapNursery';
 
 const { p2wshOutput } = Scripts;
@@ -70,7 +70,7 @@ class SwapManager {
       timeoutBlockHeight,
     );
 
-    const encodeFunction = getScriptHashEncodeFunction(outputType);
+    const encodeFunction = getScriptHashFunction(outputType);
     const outputScript = encodeFunction(redeemScript);
 
     const expectedAmount = this.calculateExpectedAmount(numSatoshis + fee, this.getRate(rate, orderSide));

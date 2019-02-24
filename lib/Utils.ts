@@ -186,7 +186,7 @@ export const getOutputType = (type: number) => {
   }
 };
 
-export const getPubKeyHashEncodeFuntion = (outputType: OutputType) => {
+export const getPubkeyHashFunction = (outputType: OutputType) => {
   switch (outputType) {
     case OutputType.Bech32:
       return p2wpkhOutput;
@@ -199,7 +199,7 @@ export const getPubKeyHashEncodeFuntion = (outputType: OutputType) => {
   }
 };
 
-export const getScriptHashEncodeFunction = (outputType: OutputType) => {
+export const getScriptHashFunction = (outputType: OutputType) => {
   switch (outputType) {
     case OutputType.Bech32:
       return p2wshOutput;

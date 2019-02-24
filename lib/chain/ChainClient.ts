@@ -37,7 +37,7 @@ type BlockchainInfo = {
   initialblockdownload: string;
   chainwork: string;
   size_on_disk: number;
-  pruned: false;
+  pruned: boolean;
 };
 
 type Block = {
@@ -91,6 +91,8 @@ interface ChainClient {
 class ChainClient extends BaseClient {
   private client: RpcClient;
   private zmqClient: ZmqClient;
+
+  private static readonly decimals = 100000000;
 
   constructor(logger: Logger, config: ChainConfig, public readonly symbol: string) {
     super();
@@ -160,19 +162,26 @@ class ChainClient extends BaseClient {
   /**
    * @param blockhash if provided Bitcoin Core will search for the transaction only in that block
    */
-  public getRawTransaction = (hash: string, verbose = false, blockhash?: string) => {
-    return this.client.request<string | RawTransaction>('getrawtransaction', [hash, verbose, blockhash]);
+  public getRawTransaction = (id: string, verbose = false, blockhash?: string) => {
+    return this.client.request<string | RawTransaction>('getrawtransaction', [id, verbose, blockhash]);
   }
 
   public estimateFee = async (confTarget = 2) => {
     const response = await this.client.request<any>('estimatesmartfee', [confTarget]);
 
     if (response.feerate) {
-      const feePerKb = response.feerate * 100000000;
+      const feePerKb = response.feerate * ChainClient.decimals;
       return Math.max(Math.round(feePerKb / 1000), 2);
     }
 
     return 2;
+  }
+
+  /**
+   * @param amount in satoshis
+   */
+  public sendToAddress = (address: string, amount: number) => {
+    return this.client.request<string>('sendtoaddress', [address, amount / ChainClient.decimals]);
   }
 
   public generate = (blocks: number) => {

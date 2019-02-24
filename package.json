@@ -17,7 +17,7 @@
     "docker:stop": "docker kill regtest && docker rm regtest",
     "test": "npm run test:unit && npm run docker:start && npm run test:int && npm run docker:stop",
     "test:unit": "mocha test/unit/*.spec.ts test/unit/wallet/*.spec.ts",
-    "test:int": "mocha test/integration/lightning/*.spec.ts test/integration/chain/*.spec.ts test/integration/swap/*.spec.ts test/integration/wallet/*.spec.ts"
+    "test:int": "mocha test/integration/chain/*.spec.ts test/integration/swap/*.spec.ts test/integration/wallet/*.spec.ts"
   },
   "bin": {
     "boltzd": "./bin/boltzd",

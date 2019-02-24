@@ -82,7 +82,7 @@ class Wallet {
                   confirmed,
                 }));
               }
-            } else {
+            } else if (!existingUtxo) {
               this.logUtxoFoundMessage(transaction.getId(), vout, output.value, confirmed);
 
               resolve(this.utxoRepository.addUtxo({

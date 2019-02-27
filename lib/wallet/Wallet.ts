@@ -1,5 +1,6 @@
 import { BIP32 } from 'bip32';
 import Bluebird from 'bluebird';
+import AsyncLock from 'async-lock';
 import { OutputType, TransactionOutput, estimateFee } from 'boltz-core';
 import { Transaction, Network, address, crypto, TransactionBuilder, ECPair } from 'bitcoinjs-lib';
 import Errors from './Errors';
@@ -33,6 +34,9 @@ class Wallet {
   private outputIds = new Map<number, string>();
 
   private symbol: string;
+
+  private lock = new AsyncLock();
+  private sendToAddressLock = 'sendToAddress';
 
   /**
    * Wallet is a hierarchical deterministic wallet for a single currency
@@ -258,102 +262,105 @@ class Wallet {
    */
   public sendToAddress = async (address: string, type: OutputType, isScriptHash: boolean, amount: number, satsPerByte?: number):
       Promise<{ transaction: Transaction, vout: number }> => {
+    return this.lock.acquire(this.sendToAddressLock, async () => {
+      const utxos = await this.utxoRepository.getUtxosSorted(this.symbol);
 
-    const utxos = await this.utxoRepository.getUtxosSorted(this.symbol);
+      // The UTXOs that will be spent
+      const toSpend: UTXO[] = [];
 
-    // The UTXOs that will be spent
-    const toSpend: UTXO[] = [];
+      const feePerByte = satsPerByte || await this.chainClient.estimateFee();
+      const recalculateFee = () => {
+        return estimateFee(feePerByte, toSpend, [{ type: OutputType.Bech32 }, { type, isSh: isScriptHash }]);
+      };
 
-    const feePerByte = satsPerByte || await this.chainClient.estimateFee();
-    const recalculateFee = () => {
-      return estimateFee(feePerByte, toSpend, [{ type: OutputType.Bech32 }, { type, isSh: isScriptHash }]);
-    };
+      let toSpendSum = 0;
+      let fee = recalculateFee();
 
-    let toSpendSum = 0;
-    let fee = recalculateFee();
+      const fundsSufficient = () => {
+        return (amount + fee) <= toSpendSum;
+      };
 
-    const fundsSufficient = () => {
-      return (amount + fee) <= toSpendSum;
-    };
+      // Accumulate UTXOs to spend
+      for (const utxoInstance of utxos) {
+        const script = this.outputIds.get(utxoInstance.outputId)!;
+        const output = this.relevantOutputs.get(script)!;
 
-    // Accumulate UTXOs to spend
-    for (const utxoInstance of utxos) {
-      const script = this.outputIds.get(utxoInstance.outputId)!;
-      const output = this.relevantOutputs.get(script)!;
+        const redeemScript = output.redeemScript ? getHexBuffer(output.redeemScript) : undefined;
 
-      const redeemScript = output.redeemScript ? getHexBuffer(output.redeemScript) : undefined;
+        toSpend.push({
+          redeemScript,
+          type: output.type,
+          id: utxoInstance.id,
+          vout: utxoInstance.vout,
+          value: utxoInstance.value,
+          script: getHexBuffer(script),
+          txHash: getHexBuffer(utxoInstance.txHash),
+          keys: this.getKeysByIndex(output.keyIndex),
+        });
 
-      toSpend.push({
-        redeemScript,
-        type: output.type,
-        id: utxoInstance.id,
-        vout: utxoInstance.vout,
-        value: utxoInstance.value,
-        script: getHexBuffer(script),
-        txHash: getHexBuffer(utxoInstance.txHash),
-        keys: this.getKeysByIndex(output.keyIndex),
+        toSpendSum += utxoInstance.value;
+        fee = recalculateFee();
+
+        if (fundsSufficient()) {
+          break;
+        }
+      }
+
+      // Throw an error if the wallet doesn't have enough funds
+      if (!fundsSufficient()) {
+        throw Errors.NOT_ENOUGH_FUNDS(amount);
+      }
+
+      // Mark the UTXOs that are going to be spent
+      for (const utxo of toSpend) {
+        await this.utxoRepository.markUtxoSpent(utxo.id);
+      }
+
+      // Construct the transaction
+      const builder = new TransactionBuilder(this.network);
+
+      // Add the UTXOs from before as inputs
+      toSpend.forEach((utxo) => {
+        if (utxo.type === OutputType.Bech32) {
+          builder.addInput(utxo.txHash, utxo.vout, undefined, utxo.script);
+        } else {
+          builder.addInput(utxo.txHash, utxo.vout);
+        }
       });
 
-      toSpendSum += utxoInstance.value;
-      fee = recalculateFee();
+      // Add the requested ouput to the transaction
+      builder.addOutput(address, amount);
 
-      if (fundsSufficient()) {
-        break;
-      }
-    }
+      // Send the value left of the UTXOs to a new change address
+      const changeAddress = await this.getNewAddress(OutputType.Bech32);
+      builder.addOutput(changeAddress, toSpendSum - (amount + fee));
 
-    // Throw an error if the wallet doesn't have enough funds
-    if (!fundsSufficient()) {
-      throw Errors.NOT_ENOUGH_FUNDS(amount);
-    }
+      // Sign the transaction
+      toSpend.forEach((utxo, index) => {
+        const keys = ECPair.fromPrivateKey(utxo.keys.privateKey, { network: this.network });
 
-    // Mark the UTXOs that are going to be spent
-    for (const utxo of toSpend) {
-      await this.utxoRepository.markUtxoSpent(utxo.id);
-    }
+        switch (utxo.type) {
+          case OutputType.Bech32:
+            builder.sign(index, keys, undefined, undefined, utxo.value);
+            break;
 
-    // Construct the transaction
-    const builder = new TransactionBuilder(this.network);
+          case OutputType.Compatibility:
+            builder.sign(index, keys, utxo.redeemScript, undefined, utxo.value);
+            break;
 
-    // Add the UTXOs from before as inputs
-    toSpend.forEach((utxo) => {
-      if (utxo.type === OutputType.Bech32) {
-        builder.addInput(utxo.txHash, utxo.vout, undefined, utxo.script);
-      } else {
-        builder.addInput(utxo.txHash, utxo.vout);
-      }
+          case OutputType.Legacy:
+            builder.sign(index, keys);
+            break;
+        }
+      });
+
+      return {
+        transaction: builder.build(),
+        vout: 0,
+      };
+    }).catch((error) => {
+      throw error;
     });
-
-    // Add the requested ouput to the transaction
-    builder.addOutput(address, amount);
-
-    // Send the value left of the UTXOs to a new change address
-    const changeAddress = await this.getNewAddress(OutputType.Bech32);
-    builder.addOutput(changeAddress, toSpendSum - (amount + fee));
-
-    // Sign the transaction
-    toSpend.forEach((utxo, index) => {
-      const keys = ECPair.fromPrivateKey(utxo.keys.privateKey, { network: this.network });
-
-      switch (utxo.type) {
-        case OutputType.Bech32:
-          builder.sign(index, keys, undefined, undefined, utxo.value);
-          break;
-
-        case OutputType.Compatibility:
-          builder.sign(index, keys, utxo.redeemScript, undefined, utxo.value);
-          break;
-
-        case OutputType.Legacy:
-          builder.sign(index, keys);
-          break;
-      }
-    });
-
-    return {
-      transaction: builder.build(),
-      vout: 0,
-    };
   }
 
   /**
@@ -375,9 +382,6 @@ class Wallet {
     }
   }
 
-  /**
-   * Add an output that can be spent by the wallet
-   */
   private listenToOutput = async (script: Buffer, keyIndex: number, type: OutputType, _address?: string, redeemScript?: string) => {
     const scriptString = getHexString(script);
 

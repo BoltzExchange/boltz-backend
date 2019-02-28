@@ -120,7 +120,7 @@ class SwapManager {
     const { rHash, paymentRequest } = await receivingCurrency.lndClient.addInvoice(amount);
     const { keys } = sendingCurrency.wallet.getNewKeys();
 
-    const { blocks } = await receivingCurrency.chainClient.getBlockchainInfo();
+    const { blocks } = await sendingCurrency.chainClient.getBlockchainInfo();
     const timeoutBlockHeight = blocks + timeoutBlockNumber;
 
     const redeemScript = pkRefundSwap(

@@ -27,11 +27,6 @@ const { argv } = require('yargs')
       type: 'string',
       describe: 'Path to the wallet file',
     },
-    network: {
-      describe: 'The network the lnd clients are using',
-      type: 'string',
-      choices: ['mainnet', 'testnet', 'simnet', 'regtest'],
-    },
     'grpc.host': {
       describe: 'Host of the Boltz gRPC interface',
       type: 'string',
@@ -46,34 +41,6 @@ const { argv } = require('yargs')
     },
     'grpc.keypath': {
       describe: 'Path to the key of the TLS certificate of the Boltz gRPC interface',
-      type: 'string',
-    },
-    'btcd.configpath': {
-      describe: 'Path to btcd config',
-      type: 'string',
-    },
-    'btcd.lndport': {
-      describe: 'Port for the gRPC interface',
-      type: 'string',
-    },
-    'btcd.lndhost': {
-      describe: 'Host for the gRPC interface',
-      type: 'string',
-    },
-    'ltcd.configpath': {
-      describe: 'Path to ltcd config',
-      type: 'string',
-    },
-    'ltcd.lndport': {
-      describe: 'Port for the gRPC interface',
-      type: 'string',
-    },
-    'ltcd.lndhost': {
-      describe: 'Host for the gRPC interface',
-      type: 'string',
-    },
-    lndpath: {
-      describe: 'Path to lnd',
       type: 'string',
     },
     currencies: {

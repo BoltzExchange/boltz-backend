@@ -1,4 +1,4 @@
-import { OutputType, Scripts, pkRefundSwap } from 'boltz-core';
+import { OutputType, Scripts, swapScript } from 'boltz-core';
 import Errors from './Errors';
 import Logger from '../Logger';
 import { OrderSide } from '../proto/boltzrpc_pb';
@@ -63,7 +63,7 @@ class SwapManager {
     const { keys } = receivingCurrency.wallet.getNewKeys();
 
     const timeoutBlockHeight = blocks + timeoutBlockNumber;
-    const redeemScript = pkRefundSwap(
+    const redeemScript = swapScript(
       getHexBuffer(paymentHash),
       keys.publicKey,
       refundPublicKey,
@@ -123,7 +123,7 @@ class SwapManager {
     const { blocks } = await sendingCurrency.chainClient.getBlockchainInfo();
     const timeoutBlockHeight = blocks + timeoutBlockNumber;
 
-    const redeemScript = pkRefundSwap(
+    const redeemScript = swapScript(
       Buffer.from(rHash as string, 'base64'),
       claimPublicKey,
       keys.publicKey,

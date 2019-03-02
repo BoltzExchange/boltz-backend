@@ -35,8 +35,12 @@ class WalletManager {
   /**
    * WalletManager initiates multiple HD wallets
    */
-  constructor(private logger: Logger, private currencies: Currency[], db: Database, mnemonicPath: string) {
-    this.masterNode = bip32.fromBase58(this.loadMnemonic(mnemonicPath));
+  constructor(private logger: Logger, private currencies: Currency[], db: Database, mnemonicPath: string, mnemonictest = false) {
+    if (mnemonictest) {
+      this.masterNode = bip32.fromBase58(mnemonicPath);
+    } else {
+      this.masterNode = bip32.fromBase58(this.loadMnemonic(mnemonicPath));
+    }
 
     this.repository = new WalletRepository(db.models);
     this.utxoRepository = new UtxoRepository(db.models);

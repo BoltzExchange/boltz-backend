@@ -17,7 +17,8 @@
     "docker:stop": "docker kill regtest && docker rm regtest",
     "test": "npm run test:unit && npm run docker:start && npm run test:int && npm run docker:stop",
     "test:unit": "mocha test/unit/*.spec.ts test/unit/wallet/*.spec.ts",
-    "test:int": "mocha test/integration/chain/*.spec.ts test/integration/swap/*.spec.ts test/integration/wallet/*.spec.ts"
+    "test:int": "mocha test/integration/chain/*.spec.ts test/integration/swap/*.spec.ts test/integration/wallet/*.spec.ts test/integration/swapManager/*.spec.ts",
+    "test:int:watch": "mocha test/integration/chain/*.spec.ts test/integration/swap/*.spec.ts test/integration/wallet/*.spec.ts test/integration/swapManager/*.spec.ts --watch --watch-extensions ts"
   },
   "bin": {
     "boltzd": "./bin/boltzd",

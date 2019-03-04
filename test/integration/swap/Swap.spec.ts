@@ -4,7 +4,7 @@ import {
   Networks,
   detectSwap,
   OutputType,
-  pkRefundSwap,
+  swapScript,
   constructClaimTransaction,
   constructRefundTransaction,
 } from 'boltz-core';
@@ -25,7 +25,7 @@ describe('Submarine Swaps', () => {
     const { blocks } = await bitcoinClient.getBlockchainInfo();
     const timeoutBlockHeight = blocks + 10;
 
-    const redeemScript = pkRefundSwap(preimageHash, claimKeys.publicKey, refundKeys.publicKey, timeoutBlockHeight);
+    const redeemScript = swapScript(preimageHash, claimKeys.publicKey, refundKeys.publicKey, timeoutBlockHeight);
     const swapAddress = address.fromOutputScript(outputFunction(redeemScript), Networks.bitcoinRegtest);
 
     const transactionId = await bitcoinClient.sendToAddress(swapAddress, 10000);

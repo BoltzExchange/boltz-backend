@@ -35,6 +35,9 @@ type SwapMaps = {
 interface SwapNursery {
   on(event: 'refund', listener: (lockupTransactionHash: string) => void): this;
   emit(event: 'refund', lockupTransactionHash: string): boolean;
+
+  on(event: 'invoice.failedToPay', listener: (invoice: string) => void): this;
+  emit(event: 'invoice.failedToPay', invoice: string): boolean;
 }
 
 class SwapNursery extends EventEmitter {
@@ -94,6 +97,8 @@ class SwapNursery extends EventEmitter {
 
     if (payInvoice.paymentError !== '') {
       this.logger.warn(`Could not pay ${currency.symbol} invoice ${details.invoice}: ${payInvoice.paymentError}`);
+
+      this.emit('invoice.failedToPay', details.invoice);
       return;
     }
 

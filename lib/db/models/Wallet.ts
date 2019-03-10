@@ -3,7 +3,7 @@ import * as db from '../../consts/Database';
 
 export default (sequelize: Sequelize.Sequelize, dataTypes: Sequelize.DataTypes) => {
   const attributes: db.SequelizeAttributes<db.WalletAttributes> = {
-    symbol: { type: dataTypes.STRING, primaryKey: true, allowNull: true },
+    symbol: { type: dataTypes.STRING, primaryKey: true, allowNull: false },
     highestUsedIndex: { type: dataTypes.INTEGER, allowNull: false },
     derivationPath: { type: dataTypes.STRING, allowNull: false },
     blockheight: { type: dataTypes.INTEGER, allowNull: false },

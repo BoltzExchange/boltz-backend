@@ -93,38 +93,32 @@ class SwapNursery extends EventEmitter {
 
     this.logger.info(`Claiming ${currency.symbol} swap output: ${swapOutput}`);
 
-    const payInvoice = await lndClient.payInvoice(details.invoice);
+    const preimage = await this.payInvoice(lndClient, details.invoice);
 
-    if (payInvoice.paymentError !== '') {
-      this.logger.warn(`Could not pay ${currency.symbol} invoice ${details.invoice}: ${payInvoice.paymentError}`);
+    if (preimage) {
+      this.logger.silly(`Got ${currency.symbol} preimage: ${preimage}`);
 
-      this.emit('invoice.failedToPay', details.invoice);
-      return;
+      const destinationAddress = await this.walletManager.wallets.get(currency.symbol)!.getNewAddress(OutputType.Bech32);
+
+      const claimTx = constructClaimTransaction(
+        [{
+          vout,
+          txHash,
+          value: outputValue,
+          script: outputScript,
+          keys: details.claimKeys,
+          type: details.outputType,
+          redeemScript: details.redeemScript,
+          preimage: Buffer.from(preimage, 'base64'),
+        }],
+        address.toOutputScript(destinationAddress, currency.network),
+        await currency.chainClient.estimateFee(),
+        true,
+      );
+
+      this.logger.verbose(`Broadcasting ${currency.symbol} claim transaction: ${claimTx.getId()}`);
+      await currency.chainClient.sendRawTransaction(claimTx.toHex());
     }
-
-    const preimage = payInvoice.paymentPreimage as string;
-    this.logger.silly(`Got ${currency.symbol} preimage: ${preimage}`);
-
-    const destinationAddress = await this.walletManager.wallets.get(currency.symbol)!.getNewAddress(OutputType.Bech32);
-
-    const claimTx = constructClaimTransaction(
-      [{
-        vout,
-        txHash,
-        value: outputValue,
-        script: outputScript,
-        keys: details.claimKeys,
-        type: details.outputType,
-        redeemScript: details.redeemScript,
-        preimage: Buffer.from(preimage, 'base64'),
-      }],
-      address.toOutputScript(destinationAddress, currency.network),
-      await currency.chainClient.estimateFee(),
-      true,
-    );
-
-    this.logger.verbose(`Broadcasting ${currency.symbol} claim transaction: ${claimTx.getId()}`);
-    await currency.chainClient.sendRawTransaction(claimTx.toHex());
   }
 
   private refundSwap = async (currency: Currency, reverseSwapDetails: ReverseSwapDetails[], timeoutBlockHeight: number) => {
@@ -156,6 +150,24 @@ class SwapNursery extends EventEmitter {
         this.logger.warn(`Could not broadcast ${currency.symbol} refund transaction: ${error.message}`);
       }
     }
+  }
+
+  private payInvoice = async (lndClient: LndClient, invoice: string) => {
+    try {
+      const payRequest = await lndClient.payInvoice(invoice);
+
+      if (payRequest.paymentError !== '') {
+        throw payRequest.paymentError;
+      }
+
+      return payRequest.paymentPreimage as string;
+    } catch (error) {
+      this.logger.warn(`Could not pay ${lndClient.symbol} invoice ${invoice}: ${error}`);
+
+      this.emit('invoice.failedToPay', invoice);
+    }
+
+    return;
   }
 }
 

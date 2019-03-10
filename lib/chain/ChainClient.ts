@@ -89,8 +89,9 @@ interface ChainClient {
 }
 
 class ChainClient extends BaseClient {
+  public zmqClient: ZmqClient;
+
   private client: RpcClient;
-  private zmqClient: ZmqClient;
 
   private static readonly decimals = 100000000;
 

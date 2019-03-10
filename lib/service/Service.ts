@@ -36,6 +36,9 @@ interface Service {
   on(even: 'invoice.paid', listener: (invoice: string) => void): this;
   emit(event: 'invoice.paid', invoice: string): boolean;
 
+  on(event: 'invoice.failedToPay', listener: (invoice: string) => void): this;
+  emit(event: 'invoice.failedToPay', invoice: string): boolean;
+
   on(event: 'invoice.settled', listener: (invoice: string, preimage: string) => void): this;
   emit(event: 'invoice.settled', string: string, preimage: string): boolean;
 
@@ -400,6 +403,10 @@ class Service extends EventEmitter {
       currency.lndClient.on('invoice.settled', (invoice, preimage) => {
         this.emit('invoice.settled', invoice, preimage);
       });
+    });
+
+    this.serviceComponents.swapManager.nursery.on('invoice.failedToPay', (invoice) => {
+      this.emit('invoice.failedToPay', invoice);
     });
   }
 

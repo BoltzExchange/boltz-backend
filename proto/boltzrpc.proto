@@ -27,7 +27,7 @@ service Boltz {
   /* Subscribes to a stream of confirmed transactions to addresses that were specified with "ListenOnAddress" */
   rpc SubscribeTransactions (SubscribeTransactionsRequest) returns (stream SubscribeTransactionsResponse);
 
-  /* Subscribes to a stream of settled invoices and those paid by Boltz */
+  /* Subscribes to a stream of invoice events */
   rpc SubscribeInvoices (SubscribeInvoicesRequest) returns (stream SubscribeInvoicesResponse);
 
   /* Subscribes to a stream of lockup transactions that Boltz refunds */
@@ -56,7 +56,8 @@ enum OrderSide {
 
 enum InvoiceEvent {
   PAID = 0;
-  SETTLED = 1;
+  FAILED_TO_PAY = 1;
+  SETTLED = 2;
 }
 
 message GetInfoRequest {}

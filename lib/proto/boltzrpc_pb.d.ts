@@ -880,5 +880,6 @@ export enum OrderSide {
 
 export enum InvoiceEvent {
     PAID = 0,
-    SETTLED = 1,
+    FAILED_TO_PAY = 1,
+    SETTLED = 2,
 }

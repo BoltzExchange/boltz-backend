@@ -378,6 +378,8 @@ class Wallet {
 
         utxo.set('confirmed', true);
         await utxo.save();
+      } else {
+        this.chainClient.zmqClient.utxos.add(transactionId);
       }
     }
   }

@@ -102,6 +102,14 @@ class GrpcService {
       call.write(response);
     });
 
+    this.service.on('invoice.failedToPay', (invoice: string) => {
+      const response = new boltzrpc.SubscribeInvoicesResponse();
+      response.setEvent(boltzrpc.InvoiceEvent.FAILED_TO_PAY);
+      response.setInvoice(invoice);
+
+      call.write(response);
+    });
+
     this.service.on('invoice.settled', (invoice: string, preimage: string) => {
       const response = new boltzrpc.SubscribeInvoicesResponse();
       response.setEvent(boltzrpc.InvoiceEvent.SETTLED);

@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install -y rsync
 RUN npm install -g gulp nodemon typescript --quiet
 RUN git clone https://github.com/BoltzExchange/boltz-backend
 WORKDIR /opt/boltz-backend
-RUN npm install
+RUN npm install --quiet
 
 # Expose RPC port
 EXPOSE 9000
@@ -32,3 +32,4 @@ WORKDIR /opt/boltz-backend
 
 # Start boltz service
 ENTRYPOINT ["npm","start"]
+

@@ -1,20 +1,22 @@
-FROM node:8.11.3
+FROM node:lts-alpine
 
 
 # Install general dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apk update && apk add \
 		g++ \
 		gcc \
-		libc6-dev \
+		libc6-compat \
 		make \
-		pkg-config \
+		pkgconfig \
 	&& rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt
 
 # Install dependencies
-RUN apt-get update && apt-get install -y rsync
-RUN npm install -g gulp nodemon typescript --quiet
+RUN apk update && apk add \ 
+		rsync \
+		--no-cache git
+RUN npm install gulp nodemon typescript --quiet
 RUN git clone https://github.com/BoltzExchange/boltz-backend
 WORKDIR /opt/boltz-backend
 RUN npm install --quiet

@@ -1,13 +1,17 @@
 import path from 'path';
 import bip39 from 'bip39';
 import bip32 from 'bip32';
+import { expect } from 'chai';
+import { ECPair } from 'bitcoinjs-lib';
+import { Networks } from 'boltz-core';
+import { getOutputType } from '../../../lib/Utils';
 import Logger from '../../../lib/Logger';
 import DataBase from '../../../lib/db/Database';
 import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
 import SwapManager from '../../../lib/swap/SwapManager';
-import { Networks } from 'boltz-core';
 import { litecoinClient, bitcoinClient } from '../chain/ChainClient.spec';
 import LndClient from '../../../lib/lightning/LndClient';
+import { OrderSide } from '../../../lib/proto/boltzrpc_pb';
 
 describe('Swap Manager', () => {
   const currencies: Currency[] = [
@@ -38,11 +42,21 @@ describe('Swap Manager', () => {
   });
 
   it('has currencies', () => {
-    console.log(swapManager.currencies.has('BTC'));
+    const c = swapManager.currencies;
+    expect(c.has('LTC') && c.has('BTC')).be.true;
   });
 
   it('create swap', async () => {
-    console.log('create swap');
+    const keys = ECPair.makeRandom({ network: Networks.bitcoinRegtest });
+    const base = currencies[1].symbol;
+    const quote = currencies[0].symbol;
+    const side = OrderSide.BUY;
+    const quoteAmount = 0.06961322;
+    const fee = await bitcoinClient.estimateFee();
+    const invoice = await litecoinLNDClient.addInvoice(quoteAmount);
+    await swapManager.createSwap(
+        base, quote, side, 70.27407,
+        fee, invoice.paymentRequest, keys.publicKey, getOutputType(1), 10);
   });
 
   it('create reverse swap', async () => {

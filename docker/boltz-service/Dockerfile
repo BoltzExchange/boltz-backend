@@ -22,9 +22,8 @@ RUN npm install --quiet
 FROM node:lts-alpine
 RUN apk update && apk add rsync
 # Copy boltz-backend from builder image
-WORKDIR /opt
-COPY --from=builder /opt/boltz-backend .
 WORKDIR /opt/boltz-backend
+COPY --from=builder /opt/boltz-backend .
 
 # Expose RPC port
 EXPOSE 9000

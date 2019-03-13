@@ -69,6 +69,7 @@ class LndClient extends BaseClient implements LightningClient {
 
   /**
    * Create an LND client
+   *
    * @param config the lnd configuration
    */
   constructor(private logger: Logger, config: LndConfig, public readonly symbol: string) {

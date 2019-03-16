@@ -285,12 +285,12 @@ class LndClient extends BaseClient implements LightningClient {
   }
 
   /**
-   * Gets the total funds available across all open channels in satoshis
+   * Gets a list of all open channels
    */
-  public channelBalance = () => {
-    const request = new lndrpc.ChannelBalanceRequest();
+  public listChannels = () => {
+    const request = new lndrpc.ListChannelsRequest();
 
-    return this.unaryCall<lndrpc.ChannelBalanceRequest, lndrpc.ChannelBalanceResponse.AsObject>('channelBalance', request);
+    return this.unaryCall<lndrpc.ListChannelsRequest, lndrpc.ListChannelsResponse.AsObject>('listChannels', request);
   }
 
   /**

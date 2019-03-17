@@ -72,23 +72,23 @@ message CurrencyInfo {
 }
 
 message ChainInfo {
-  int32 version = 1;
-  int32 protocolversion = 2;
-  int32 blocks = 3;
-  int32 connections = 4;
+  uint32 version = 1;
+  uint64 protocolversion = 2;
+  uint64 blocks = 3;
+  uint64 connections = 4;
   string error = 5;
 }
 
 message LndInfo {
   string version = 1;
   LndChannels lnd_channels = 2;
-  int32 block_height = 3;
+  uint64 block_height = 3;
   string error = 4;
 }
 message LndChannels {
-  int32 active = 1;
-  int32 inactive = 2;
-  int32 pending = 3;
+  uint32 active = 1;
+  uint32 inactive = 2;
+  uint32 pending = 3;
 }
 
 message GetBalanceRequest {
@@ -98,13 +98,17 @@ message GetBalanceResponse {
   map<string, Balance> balances = 1;
 }
 message Balance {
-  int64 channel_balance = 1;
-  WalletBalance wallet_balance = 2;
+  WalletBalance wallet_balance = 1;
+  LightningBalance lightning_balance = 2;
 }
 message WalletBalance {
-  int64 total_balance = 1;
-  int64 confirmed_balance = 2;
-  int64 unconfirmed_balance = 3;
+  uint64 total_balance = 1;
+  uint64 confirmed_balance = 2;
+  uint64 unconfirmed_balance = 3;
+}
+message LightningBalance {
+  uint64 local_balance = 1;
+  uint64 remote_balance = 2;
 }
 
 message NewAddressRequest {
@@ -125,10 +129,10 @@ message GetTransactionResponse {
 
 message GetFeeEstimationRequest {
   string currency = 1;
-  int32 blocks = 2; 
+  uint64 blocks = 2; 
 }
 message GetFeeEstimationResponse {
-  map<string, int32> fees = 1;
+  map<string, uint32> fees = 1;
 }
 
 message BroadcastTransactionRequest {
@@ -168,17 +172,17 @@ message CreateSwapRequest {
   string quote_currency = 2;
   OrderSide order_side = 3;
   float rate = 4;
-  int64 fee = 5;
+  uint64 fee = 5;
   string invoice = 6;
   string refund_public_key = 7;
   OutputType output_type = 8;
-  int64 timeout_block_number = 9;
+  uint64 timeout_block_number = 9;
 }
 message CreateSwapResponse {
   string redeem_script = 1;
-  int64 timeout_block_height = 2;
+  uint64 timeout_block_height = 2;
   string address = 3;
-  int64 expected_amount = 4;
+  uint64 expected_amount = 4;
 }
 
 message CreateReverseSwapRequest {
@@ -186,11 +190,11 @@ message CreateReverseSwapRequest {
   string quote_currency = 2;
   OrderSide order_side = 3;
   float rate = 4;
-  int64 fee = 5;
+  uint64 fee = 5;
   string claim_public_key = 6;
   // Amount of the invoice that will be returned
-  int64 amount = 7;
-  int64 timeout_block_number = 8;
+  uint64 amount = 7;
+  uint64 timeout_block_number = 8;
 }
 message CreateReverseSwapResponse {
   string invoice = 1;
@@ -203,10 +207,10 @@ message CreateReverseSwapResponse {
 message SendCoinsRequest {
   string currency = 1;
   string address = 2;
-  int64 amount = 3;
-  int32 sat_per_vbyte = 4;
+  uint64 amount = 3;
+  uint32 sat_per_vbyte = 4;
 }
 message SendCoinsResponse {
   string transaction_hash = 1;
-  int32 vout = 2;
+  uint32 vout = 2;
 }

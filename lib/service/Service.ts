@@ -16,6 +16,7 @@ import {
   CurrencyInfo,
   WalletBalance,
   GetInfoResponse,
+  LightningBalance,
   GetBalanceResponse,
   GetFeeEstimationResponse,
 } from '../proto/boltzrpc_pb';
@@ -173,7 +174,7 @@ class Service extends EventEmitter {
     const response = new GetBalanceResponse();
     const map = response.getBalancesMap();
 
-    const getBalance = async (wallet: Wallet, symbol: string) => {
+    const getBalance = async (symbol: string, wallet: Wallet) => {
       const balance = new Balance();
       const walletObject = new WalletBalance();
 
@@ -185,26 +186,41 @@ class Service extends EventEmitter {
 
       balance.setWalletBalance(walletObject);
 
-      const currencyInfo = this.serviceComponents.currencies.get(symbol)!;
-      const channelBalance = await currencyInfo.lndClient.channelBalance();
+      const currencyInfo = this.serviceComponents.currencies.get(symbol);
 
-      balance.setChannelBalance(channelBalance.balance);
+      if (currencyInfo) {
+        const lightningObject = new LightningBalance();
+        const { channelsList } = await currencyInfo.lndClient.listChannels();
+
+        let localBalance = 0;
+        let remoteBalance = 0;
+
+        channelsList.forEach((channel) => {
+          localBalance += channel.localBalance;
+          remoteBalance += channel.remoteBalance;
+        });
+
+        lightningObject.setLocalBalance(localBalance);
+        lightningObject.setRemoteBalance(remoteBalance);
+
+        balance.setLightningBalance(lightningObject);
+      }
 
       return balance;
     };
 
-    if (!emptyCurrency) {
+    if (emptyCurrency) {
+      for (const [symbol, wallet] of walletManager.wallets) {
+        map.set(symbol, await getBalance(symbol, wallet));
+      }
+    } else {
       const wallet = walletManager.wallets.get(args.currency);
 
       if (!wallet) {
         throw Errors.CURRENCY_NOT_FOUND(args.currency);
       }
 
-      map.set(args.currency, await getBalance(wallet, args.currency));
-    } else {
-      for (const [symbol, wallet] of walletManager.wallets) {
-        map.set(symbol, await getBalance(wallet, symbol));
-      }
+      map.set(args.currency, await getBalance(args.currency, wallet));
     }
 
     return response;

@@ -4,7 +4,7 @@
   "description": "Backend of boltz",
   "main": "dist/Boltz.js",
   "scripts": {
-    "proto": "cross-os proto && cross-os protoFixDeprecation",
+    "proto": "cross-os proto",
     "compile": "cross-os precompile && tsc && cross-os postcompile",
     "compile:watch": "tsc -w",
     "start": "node bin/boltzd",
@@ -33,11 +33,6 @@
       "linux": "rsync -am --include '*/' --include '*.js*' --exclude '*' lib/proto/ dist/proto",
       "darwin": "rsync -am --include '*/' --include '*.js*' --exclude '*' lib/proto/ dist/proto",
       "win32": "xcopy /s lib\\proto\\*.js* dist\\proto\\* >nul"
-    },
-    "protoFixDeprecation": {
-      "linux": "sed -i -- 's/new Buffer(/Buffer.from(/g' lib/proto/*.js",
-      "darwin": "sed -i '' 's/new Buffer(/Buffer.from(/g' lib/proto/*.js",
-      "win32": "@powershell -NoProfile -ExecutionPolicy Unrestricted -Command ./winFixDeprecation.ps1"
     },
     "proto": {
       "linux": "./node_modules/grpc-tools/bin/protoc --js_out='import_style=commonjs,binary:lib/proto' --ts_out='lib/proto' --grpc_out='lib/proto' --plugin='protoc-gen-grpc=node_modules/.bin/grpc_tools_node_protoc_plugin' --plugin='protoc-gen-ts=node_modules/grpc_tools_node_protoc_ts/bin/protoc-gen-ts' -I='proto' proto/*.proto proto/google/api/*.proto proto/google/protobuf/*.proto",

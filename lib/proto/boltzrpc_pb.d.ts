@@ -227,14 +227,17 @@ export namespace GetBalanceResponse {
 }
 
 export class Balance extends jspb.Message { 
-    getChannelBalance(): number;
-    setChannelBalance(value: number): void;
-
 
     hasWalletBalance(): boolean;
     clearWalletBalance(): void;
     getWalletBalance(): WalletBalance | undefined;
     setWalletBalance(value?: WalletBalance): void;
+
+
+    hasLightningBalance(): boolean;
+    clearLightningBalance(): void;
+    getLightningBalance(): LightningBalance | undefined;
+    setLightningBalance(value?: LightningBalance): void;
 
 
     serializeBinary(): Uint8Array;
@@ -249,8 +252,8 @@ export class Balance extends jspb.Message {
 
 export namespace Balance {
     export type AsObject = {
-        channelBalance: number,
         walletBalance?: WalletBalance.AsObject,
+        lightningBalance?: LightningBalance.AsObject,
     }
 }
 
@@ -280,6 +283,31 @@ export namespace WalletBalance {
         totalBalance: number,
         confirmedBalance: number,
         unconfirmedBalance: number,
+    }
+}
+
+export class LightningBalance extends jspb.Message { 
+    getLocalBalance(): number;
+    setLocalBalance(value: number): void;
+
+    getRemoteBalance(): number;
+    setRemoteBalance(value: number): void;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): LightningBalance.AsObject;
+    static toObject(includeInstance: boolean, msg: LightningBalance): LightningBalance.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: LightningBalance, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): LightningBalance;
+    static deserializeBinaryFromReader(message: LightningBalance, reader: jspb.BinaryReader): LightningBalance;
+}
+
+export namespace LightningBalance {
+    export type AsObject = {
+        localBalance: number,
+        remoteBalance: number,
     }
 }
 

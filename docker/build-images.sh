@@ -20,4 +20,4 @@ print "regtest image"
 docker build -t boltz/regtest -f regtest/Dockerfile .
 
 print "boltz image"
-docker build -t boltz/service -f boltz-service/Dockerfile .
+docker build -t boltz/backend -f boltz-backend/Dockerfile .

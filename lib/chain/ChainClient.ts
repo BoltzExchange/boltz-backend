@@ -5,6 +5,7 @@ import BaseClient from '../BaseClient';
 import { getHexString } from '../Utils';
 import { ClientStatus } from '../consts/Enums';
 import ZmqClient, { ZmqNotification } from './ZmqClient';
+import { Block, BlockchainInfo, RawTransaction } from '../consts/Types';
 
 type ChainConfig = {
   host: string;
@@ -24,57 +25,6 @@ type NetworkInfo = {
   connections: number;
   relayfee: number;
   incrementalfee: number;
-};
-
-type BlockchainInfo = {
-  chain: string;
-  blocks: number;
-  headers: number;
-  bestblockhash: string;
-  difficulty: number;
-  mediantime: number;
-  verificationprogress: number;
-  initialblockdownload: string;
-  chainwork: string;
-  size_on_disk: number;
-  pruned: boolean;
-};
-
-type Block = {
-  hash: string;
-  confirmations: number;
-  strippedsize: number;
-  size: number;
-  weight: number;
-  height: number;
-  version: number;
-  versionHex: string;
-  merkleroot: string;
-  tx: string[];
-  time: number;
-  nonce: number;
-  bits: string;
-  difficulty: number;
-  chainwork: string;
-  nTx: number;
-  previousblockhash: string;
-};
-
-type RawTransaction = {
-  txid: string;
-  hash: string;
-  version: number;
-  size: number;
-  vsize: number;
-  weight: number;
-  locktime: number;
-  vin: any[];
-  vout: any[];
-  hex: string;
-  blockhash?: string;
-  confirmations: number;
-  time: number;
-  blocktime: number;
 };
 
 interface ChainClient {
@@ -107,17 +57,7 @@ class ChainClient extends BaseClient {
       this.getRawTransaction,
     );
 
-    this.zmqClient.on('block', (height) => {
-      this.emit('block', height);
-    });
-
-    this.zmqClient.on('transaction.relevant.mempool', (transaction) => {
-      this.emit('transaction.relevant.mempool', transaction);
-    });
-
-    this.zmqClient.on('transaction.relevant.block', (transaction) => {
-      this.emit('transaction.relevant.block', transaction);
-    });
+    this.listenToZmq();
   }
 
   public connect = async () => {
@@ -192,7 +132,21 @@ class ChainClient extends BaseClient {
   private getZmqNotifications = () => {
     return this.client.request<ZmqNotification[]>('getzmqnotifications');
   }
+
+  private listenToZmq = () => {
+    this.zmqClient.on('block', (height) => {
+      this.emit('block', height);
+    });
+
+    this.zmqClient.on('transaction.relevant.mempool', (transaction) => {
+      this.emit('transaction.relevant.mempool', transaction);
+    });
+
+    this.zmqClient.on('transaction.relevant.block', (transaction) => {
+      this.emit('transaction.relevant.block', transaction);
+    });
+  }
 }
 
 export default ChainClient;
-export { ChainConfig, RawTransaction };
+export { ChainConfig };

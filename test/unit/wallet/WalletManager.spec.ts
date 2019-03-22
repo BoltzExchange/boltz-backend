@@ -1,7 +1,7 @@
-import { expect } from 'chai';
 import fs from 'fs';
 import bip32 from 'bip32';
 import bip39 from 'bip39';
+import { expect } from 'chai';
 import { Networks } from 'boltz-core';
 import { mock, when, instance } from 'ts-mockito';
 import Logger from '../../../lib/Logger';

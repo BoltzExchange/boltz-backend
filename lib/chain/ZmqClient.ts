@@ -1,9 +1,11 @@
-import zmq from 'zeromq';
 import AsyncLock from 'async-lock';
+import zmq, { Socket } from 'zeromq';
 import { EventEmitter } from 'events';
 import { Transaction, crypto } from 'bitcoinjs-lib';
+import Errors from './Errors';
 import Logger from '../Logger';
 import { getHexString, reverseBuffer } from '../Utils';
+import { Block, BlockchainInfo, RawTransaction } from '../consts/Types';
 
 type ZmqNotification = {
   type: string;
@@ -37,12 +39,14 @@ class ZmqClient extends EventEmitter {
 
   private hashBlockAddress?: string;
 
+  private sockets: Socket[] = [];
+
   constructor(
     private symbol: string,
     private logger: Logger,
-    private getBlock: (hash: string) => Promise<{ hash: string, height: number, tx: string[], previousblockhash: string }>,
-    private getBlockChainInfo: () => Promise<{ blocks: number, bestblockhash: string }>,
-    private getRawTransaction: (hash: string, verbose?: boolean, blockhash?: string) => Promise<string | any>) {
+    private getBlock: (hash: string) => Promise<Block>,
+    private getBlockChainInfo: () => Promise<BlockchainInfo>,
+    private getRawTransaction: (id: string, verbose?: boolean, blockhash?: string) => Promise<string | RawTransaction>) {
     super();
   }
 
@@ -73,7 +77,7 @@ class ZmqClient extends EventEmitter {
     }
 
     if (!activeFilters.rawtx) {
-      throw `${filters.rawTx} ZMQ notifications are not enabled`;
+      throw Errors.NO_RAWTX();
     }
 
     const logCouldNotSubscribe = (filter: string) => {
@@ -85,6 +89,8 @@ class ZmqClient extends EventEmitter {
 
       if (!activeFilters.hashBlock) {
         logCouldNotSubscribe(filters.hashBlock);
+
+        throw Errors.NO_BLOCK_NOTIFICATIONS();
       } else {
         this.logger.warn(`Falling back to ${this.symbol} ${filters.hashBlock} ZMQ filter`);
         this.initHashBlock();
@@ -92,22 +98,30 @@ class ZmqClient extends EventEmitter {
     }
   }
 
+  public close = async () => {
+    this.sockets.forEach((socket) => {
+      // Catch errors if the socket is already closed
+      try {
+        socket.close();
+      } catch {}
+    });
+  }
+
   public rescanChain = async (startHeight: number) => {
     // Also rescan the block that got already added to the database to
-    // make sure that no transactions are missed
+    // make sure that no transactions were missed
     const bestBlock = this.blockHeight;
 
     let previousBlockHash = this.bestBlockHash;
     let index = 0;
 
     while (bestBlock - index >= startHeight) {
-      this.logger.verbose(`Rescanning ${this.symbol} block #${startHeight + index}`);
-
+      this.logger.verbose(`Rescanning ${this.symbol} block #${bestBlock - index}`);
       const block = await this.getBlock(previousBlockHash);
 
       for (const transactionId of block.tx) {
         const rawTransaction = await this.getRawTransaction(transactionId);
-        const transaction = Transaction.fromHex(rawTransaction);
+        const transaction = Transaction.fromHex(rawTransaction as string);
 
         if (this.isRelevantTransaction(transaction)) {
           this.emit('transaction.relevant.block', transaction);
@@ -128,7 +142,7 @@ class ZmqClient extends EventEmitter {
 
       // If the client has already verified that the transaction is relevant for the wallet
       // when it got added to the mempool we can safely assume that it got included in a block
-      // the second time the client gets the transaction
+      // the second time the client receives the transaction
       if (this.utxos.has(id)) {
         this.utxos.delete(id);
         this.emit('transaction.relevant.block', transaction);
@@ -137,7 +151,7 @@ class ZmqClient extends EventEmitter {
       }
 
       if (this.isRelevantTransaction(transaction)) {
-        const transactionData = await this.getRawTransaction(id);
+        const transactionData = await this.getRawTransaction(id, true) as RawTransaction;
 
         // Check whether the transaction got confirmed or added to the mempool
         if (transactionData.confirmations) {
@@ -193,63 +207,64 @@ class ZmqClient extends EventEmitter {
   }
 
   private initHashBlock = () => {
-    if (this.hashBlockAddress) {
-      const socket = this.createSocket(this.hashBlockAddress, 'hashblock');
+    if (!this.hashBlockAddress) {
+      throw Errors.NO_BLOCK_FALLBACK(this.symbol);
+    }
 
-      // Because the event handler is doing work asynchronously one has
-      // to use a lock to ensure the events get handled sequentially
-      const lock = new AsyncLock();
-      const lockKey = filters.hashBlock;
+    const socket = this.createSocket(this.hashBlockAddress, 'hashblock');
 
-      const handleBlock = async (blockHash: string) => {
-        const block = await this.getBlock(blockHash);
+    // Because the event handler is doing work asynchronously one has
+    // to use a lock to ensure the events get handled sequentially
+    const lock = new AsyncLock();
+    const lockKey = filters.hashBlock;
 
-        if (block.previousblockhash === this.bestBlockHash) {
+    const handleBlock = async (blockHash: string) => {
+      const block = await this.getBlock(blockHash);
+
+      if (block.previousblockhash === this.bestBlockHash) {
+        this.blockHeight = block.height;
+        this.bestBlockHash = block.hash;
+
+        this.newChainTip();
+      } else {
+        if (block.height > this.blockHeight) {
+          console.log('rescan');
+          const oldHeight = this.blockHeight;
+
           this.blockHeight = block.height;
           this.bestBlockHash = block.hash;
 
-          this.newChainTip();
+          for (let i = 1; oldHeight + i <= this.blockHeight; i += 1) {
+            this.emit('block', oldHeight + i);
+          }
+
+          await this.rescanChain(oldHeight);
         } else {
-          if (block.height > this.blockHeight) {
-            const oldHeight = this.blockHeight;
+          this.logOrphanBlock(block.hash);
+        }
+      }
+    };
 
-            this.blockHeight = block.height;
-            this.bestBlockHash = block.hash;
+    socket.on('message', (_, blockHash: Buffer) => {
+      const blockHashString = getHexString(blockHash);
 
-            for (let i = 1; oldHeight + i <= this.blockHeight; i += 1) {
-              this.emit('block', oldHeight + i);
-            }
-
-            await this.rescanChain(oldHeight);
+      lock.acquire(lockKey, async () => {
+        try {
+          await handleBlock(blockHashString);
+        } catch (error) {
+          if (error.message === 'Block not found on disk') {
+            // If there are many blocks added to the chain at once Bitcoin Core might
+            // take a few milliseconds to write all of them to the disk. Therefore
+            // it just retries getting the block after a little delay
+            setTimeout(async () => {
+              await handleBlock(blockHashString);
+            }, 250);
           } else {
-            this.logOrphanBlock(block.hash);
+            this.logger.error(`${this.symbol} ${filters.hashBlock} ZMQ filter threw: ${JSON.stringify(error, undefined, 2)}`);
           }
         }
-      };
-
-      socket.on('message', (_, blockHash: Buffer) => {
-        const blockHashString = getHexString(blockHash);
-
-        lock.acquire(lockKey, async () => {
-          try {
-            await handleBlock(blockHashString);
-          } catch (error) {
-            if (error.message === 'Block not found on disk') {
-              // If there are many blocks added to the chain at once Bitcoin Core might
-              // take a few milliseconds to write all of them to the disk. Therefore
-              // it just retries getting the block after a little delay
-              setTimeout(async () => {
-                await handleBlock(blockHashString);
-              }, 250);
-            } else {
-              this.logger.error(`${this.symbol} ${filters.hashBlock} ZMQ filter threw: ${JSON.stringify(error, undefined, 2)}`);
-            }
-          }
-        }, () => {});
-      });
-    } else {
-      this.logger.error(`Could not fall back to ${this.symbol} ${filters.hashBlock} ZMQ filter because it is not enabled`);
-    }
+      }, () => {});
+    });
   }
 
   private isRelevantTransaction = (transaction: Transaction) => {
@@ -274,6 +289,8 @@ class ZmqClient extends EventEmitter {
 
   private createSocket = (address: string, filter: string) => {
     const socket = zmq.socket('sub');
+    this.sockets.push(socket);
+
     socket.connect(address);
     socket.subscribe(filter);
 
@@ -284,4 +301,4 @@ class ZmqClient extends EventEmitter {
 }
 
 export default ZmqClient;
-export { ZmqNotification };
+export { ZmqNotification, filters };

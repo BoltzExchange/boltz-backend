@@ -10,7 +10,7 @@ export default (sequelize: Sequelize.Sequelize, dataTypes: Sequelize.DataTypes) 
     currency: { type: dataTypes.STRING, allowNull: false },
     value: { type: dataTypes.INTEGER, allowNull: false },
     confirmed: { type: dataTypes.BOOLEAN, allowNull: true },
-    spent: { type: dataTypes.BIGINT, allowNull: false },
+    spent: { type: dataTypes.BOOLEAN, allowNull: false },
   };
 
   const options: Sequelize.DefineOptions<db.UtxoInstance> = {

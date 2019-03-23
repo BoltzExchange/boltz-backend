@@ -1,9 +1,8 @@
 import { expect } from 'chai';
-import { Networks,  OutputType } from 'boltz-core';
-import { ECPair, address, crypto } from 'bitcoinjs-lib';
+import { OutputType } from 'boltz-core';
 import Logger from '../../../lib/Logger';
 import ChainClient from '../../../lib/chain/ChainClient';
-import { getPubkeyHashFunction } from '../../../lib/Utils';
+import { waitForFunctionToBeTrue, generateAddress } from '../../Utils';
 
 describe('ChainClient', () => {
   const numTransactions = 15;
@@ -14,10 +13,7 @@ describe('ChainClient', () => {
   };
 
   it('should connect', async () => {
-    await Promise.all([
-      bitcoinClient.connect(),
-      litecoinClient.connect(),
-    ]);
+    await bitcoinClient.connect();
   });
 
   it('should update the output filer', async () => {
@@ -92,43 +88,3 @@ export const bitcoinClient = new ChainClient(Logger.disabledLogger, {
   rpcuser: 'kek',
   rpcpass: 'kek',
 }, 'BTC');
-
-export const litecoinClient = new ChainClient(Logger.disabledLogger, {
-  host,
-  port: 19443,
-  rpcpass: 'kek',
-  rpcuser: 'kek',
-}, 'LTC');
-
-export const generateAddress = (outputType: OutputType) => {
-  const keys = ECPair.makeRandom({ network: Networks.bitcoinRegtest });
-  const encodeFunction = getPubkeyHashFunction(outputType);
-
-  const outputScript = encodeFunction(crypto.hash160(keys.publicKey)) as Buffer;
-  return {
-    outputScript,
-    address: address.fromOutputScript(outputScript, Networks.bitcoinRegtest),
-  };
-};
-
-export const waitForFunctionToBeTrue = (func: () => boolean) => {
-  return new Promise((resolve) => {
-    const interval = setInterval(() => {
-      if (func()) {
-        clearInterval(interval);
-        resolve();
-      }
-    });
-  });
-};
-
-export const waitForPromiseToBeTrue = (func: () => Promise<boolean>) => {
-  return new Promise((resolve) => {
-    const interval = setInterval(async () => {
-      if (await func()) {
-        clearInterval(interval);
-        resolve();
-      }
-    });
-  });
-};

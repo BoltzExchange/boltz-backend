@@ -6,10 +6,11 @@ import { Transaction, Network, address, crypto, TransactionBuilder, ECPair } fro
 import Errors from './Errors';
 import Logger from '../Logger';
 import UtxoRepository from './UtxoRepository';
+import ChainClient from '../chain/ChainClient';
+import { RawTransaction } from '../consts/Types';
 import { UtxoInstance } from '../consts/Database';
 import WalletRepository from './WalletRepository';
 import OutputRepository from './OutputRepository';
-import ChainClient, { RawTransaction } from '../chain/ChainClient';
 import { getPubkeyHashFunction, getHexString, getHexBuffer, transactionHashToId } from '../Utils';
 
 type UTXO = TransactionOutput & {

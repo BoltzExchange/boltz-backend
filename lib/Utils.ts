@@ -182,7 +182,8 @@ export const getOutputType = (type: number) => {
     case 0: return OutputType.Bech32;
     case 1: return OutputType.Compatibility;
     case 2: return OutputType.Legacy;
-    default: throw Error('type dose not exist');
+
+    default: throw Error('type does not exist');
   }
 };
 

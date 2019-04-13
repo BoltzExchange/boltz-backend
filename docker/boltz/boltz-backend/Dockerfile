@@ -29,7 +29,9 @@ EXPOSE 9000
 
 # Copy config file
 WORKDIR /root/.boltz
-COPY boltz.conf boltz.conf 
+COPY boltz-backend/certificates/tls.cert tls.cert
+COPY boltz-backend/certificates/tls.key tls.key 
+COPY boltz-backend/boltz.conf boltz.conf 
 
 WORKDIR /opt/boltz-backend
 

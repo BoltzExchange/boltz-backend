@@ -20,7 +20,7 @@ export const handler = (argv: Arguments<any>) => {
   const keys = ECPair.makeRandom({ network });
 
   printResponse({
-    publicKey: getHexString(keys.publicKey),
-    privateKey: getHexString(keys.privateKey),
+    publicKey: getHexString(keys.publicKey!),
+    privateKey: getHexString(keys.privateKey!),
   });
 };

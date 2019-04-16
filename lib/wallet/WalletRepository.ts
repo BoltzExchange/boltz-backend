@@ -1,45 +1,54 @@
-import { Models } from '../db/Database';
-import * as db from '../consts/Database';
+import { Op } from 'sequelize';
+import Wallet from '../db/models/Wallet';
 
 class WalletRepository {
-  constructor(private models: Models) {}
+  constructor() {}
 
-  public getWallets = async () => {
-    return this.models.Wallet.findAll();
+  public getWallets = async (): Promise<Wallet[]> => {
+    return Wallet.findAll();
   }
 
-  public getWallet = async (symbol: string) => {
-    return this.models.Wallet.findOne({
+  public getWallet = async (symbol: string): Promise<Wallet> => {
+    return Wallet.findOne({
       where: {
-        symbol,
+        symbol: {
+          [Op.eq]: symbol,
+        },
       },
     });
   }
 
-  public addWallet = async (wallet: db.WalletFactory) => {
-    return this.models.Wallet.create(wallet);
-  }
+  public addWallet = async (wallet: {
+    symbol: string,
 
-  public addWallets = async (wallets: db.WalletFactory[]) => {
-    return this.models.Wallet.bulkCreate(wallets);
+    highestUsedIndex: number,
+    derivationPath: string,
+
+    blockHeight: number,
+  }) => {
+    return Wallet.create(wallet);
   }
 
   public setHighestUsedIndex = async (symbol: string, highestUsedIndex: number) => {
-    return this.models.Wallet.update({
+    return Wallet.update({
       highestUsedIndex,
     }, {
       where: {
-        symbol,
+        symbol: {
+          [Op.eq]: symbol,
+        },
       },
     });
   }
 
-  public setBlockheight = async (symbol: string, blockheight: number) => {
-    return this.models.Wallet.update({
-      blockheight,
+  public setBlockHeight = async (symbol: string, blockHeight: number) => {
+    return Wallet.update({
+      blockHeight,
     }, {
       where: {
-        symbol,
+        symbol: {
+          [Op.eq]: symbol,
+        },
       },
     });
   }

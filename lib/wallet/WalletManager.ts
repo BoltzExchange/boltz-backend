@@ -1,11 +1,10 @@
 import fs from 'fs';
-import bip39 from 'bip39';
-import bip32, { BIP32 } from 'bip32';
 import { Network } from 'bitcoinjs-lib';
+import { BIP32Interface, fromSeed, fromBase58 } from 'bip32';
+import { mnemonicToSeedSync, validateMnemonic } from 'bip39';
 import Errors from './Errors';
 import Wallet from './Wallet';
 import Logger from '../Logger';
-import Database from '../db/Database';
 import { WalletInfo } from '../consts/Types';
 import UtxoRepository from './UtxoRepository';
 import { splitDerivationPath } from '../Utils';
@@ -24,7 +23,7 @@ type Currency = {
 class WalletManager {
   public wallets = new Map<string, Wallet>();
 
-  private masterNode: BIP32;
+  private masterNode: BIP32Interface;
   private repository: WalletRepository;
 
   private utxoRepository: UtxoRepository;
@@ -35,25 +34,25 @@ class WalletManager {
   /**
    * WalletManager initiates multiple HD wallets
    */
-  constructor(private logger: Logger, private currencies: Currency[], db: Database, mnemonicPath: string) {
-    this.masterNode = bip32.fromBase58(this.loadMnemonic(mnemonicPath));
+  constructor(private logger: Logger, private currencies: Currency[], mnemonicPath: string) {
+    this.masterNode = fromBase58(this.loadMnemonic(mnemonicPath));
 
-    this.repository = new WalletRepository(db.models);
-    this.utxoRepository = new UtxoRepository(db.models);
-    this.outputResository = new OutputRepository(db.models);
+    this.repository = new WalletRepository();
+    this.utxoRepository = new UtxoRepository();
+    this.outputResository = new OutputRepository();
   }
 
   /**
    * Initiates a new WalletManager with a mnemonic
    */
-  public static fromMnemonic = (logger: Logger, mnemonic: string, mnemonicPath: string, currencies: Currency[], db: Database) => {
-    if (!bip39.validateMnemonic(mnemonic)) {
+  public static fromMnemonic = (logger: Logger, mnemonic: string, mnemonicPath: string, currencies: Currency[]) => {
+    if (!validateMnemonic(mnemonic)) {
       throw(Errors.INVALID_MNEMONIC(mnemonic));
     }
 
-    fs.writeFileSync(mnemonicPath, bip32.fromSeed(bip39.mnemonicToSeed(mnemonic)).toBase58());
+    fs.writeFileSync(mnemonicPath, fromSeed(mnemonicToSeedSync(mnemonic)).toBase58());
 
-    return new WalletManager(logger, currencies, db, mnemonicPath);
+    return new WalletManager(logger, currencies, mnemonicPath);
   }
 
   public init = async () => {
@@ -64,18 +63,19 @@ class WalletManager {
 
       const { blocks } = await currency.chainClient.getBlockchainInfo();
 
-      // Generate a new sub-wallet if that currency doesn't have one yet
+      // Generate a new sub-wallet if that currency does not have one yet
       if (!walletInfo) {
         walletInfo = {
           derivationPath: `${this.derivationPath}/${this.getHighestDepthIndex(2, walletsMap) + 1}`,
           highestUsedIndex: 0,
-          blockheight: blocks,
+          blockHeight: blocks,
         };
 
         walletsMap.set(currency.symbol, walletInfo);
 
         await this.repository.addWallet({
           ...walletInfo,
+          blockHeight: 0,
           symbol: currency.symbol,
         });
       }
@@ -92,7 +92,7 @@ class WalletManager {
         walletInfo.highestUsedIndex,
       );
 
-      await wallet.init(walletInfo.blockheight);
+      await wallet.init(walletInfo.blockHeight);
 
       this.wallets.set(currency.symbol, wallet);
     }
@@ -114,7 +114,7 @@ class WalletManager {
       map.set(wallet.symbol, {
         derivationPath: wallet.derivationPath,
         highestUsedIndex: wallet.highestUsedIndex,
-        blockheight: wallet.blockheight,
+        blockHeight: wallet.blockHeight,
       });
     });
 

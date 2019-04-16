@@ -1,34 +1,44 @@
-import Sequelize from 'sequelize';
-import * as db from '../../consts/Database';
+import { Model, Sequelize, DataTypes } from 'sequelize';
+import Output from './Output';
+import Wallet from './Wallet';
 
-export default (sequelize: Sequelize.Sequelize, dataTypes: Sequelize.DataTypes) => {
-  const attributes: db.SequelizeAttributes<db.UtxoAttributes> = {
-    id: { type: dataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-    outputId: { type: dataTypes.INTEGER, allowNull: false },
-    txHash: { type: dataTypes.STRING, allowNull: false },
-    vout: { type: dataTypes.INTEGER, allowNull: false },
-    currency: { type: dataTypes.STRING, allowNull: false },
-    value: { type: dataTypes.INTEGER, allowNull: false },
-    confirmed: { type: dataTypes.BOOLEAN, allowNull: true },
-    spent: { type: dataTypes.BOOLEAN, allowNull: false },
-  };
+class Utxo extends Model {
+  public id!: number;
 
-  const options: Sequelize.DefineOptions<db.UtxoInstance> = {
-    tableName: 'utxos',
-    timestamps: false,
-  };
+  public outputId!: number;
+  public currency!: string;
 
-  const Utxo = sequelize.define<db.UtxoInstance, db.UtxoAttributes>('Utxo', attributes, options);
+  public txHash!: string;
+  public vout!: number;
+  public value!: number;
 
-  Utxo.associate = (models: Sequelize.Models) => {
-    models.Utxo.belongsTo(models.Output, {
+  public confirmed!: boolean;
+  public spent!: boolean;
+
+  public static load = (sequelize: Sequelize) => {
+    Utxo.init({
+      id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+      outputId: { type: DataTypes.INTEGER, allowNull: false },
+      currency: { type: new DataTypes.STRING(255), allowNull: false },
+      txHash: { type: new DataTypes.STRING(255), allowNull: false },
+      vout: { type: DataTypes.INTEGER, allowNull: false },
+      value: { type: DataTypes.INTEGER, allowNull: false },
+      confirmed: { type: DataTypes.BOOLEAN, allowNull: false },
+      spent: { type: DataTypes.BOOLEAN, allowNull: false },
+    }, {
+      sequelize,
+      timestamps: false,
+      tableName: 'utxos',
+    });
+
+    Utxo.belongsTo(Output, {
       foreignKey: 'outputId',
     });
 
-    models.Utxo.belongsTo(models.Wallet, {
+    Utxo.belongsTo(Wallet, {
       foreignKey: 'currency',
     });
-  };
+  }
+}
 
-  return Utxo;
-};
+export default Utxo;

@@ -1,23 +1,31 @@
-import { Models } from '../db/Database';
-import * as db from '../consts/Database';
+import { Op } from 'sequelize';
+import Utxo from '../db/models/Utxo';
 
 class UtxoRepository {
-  constructor(private models: Models) {}
+  constructor() {}
 
   public getUtxos = async (currency: string) => {
-    return this.models.Utxo.findAll({
+    return Utxo.findAll({
       where: {
-        currency,
-        spent: false,
+        currency: {
+          [Op.eq]: currency,
+        },
+        spent: {
+          [Op.eq]: false,
+        },
       },
     });
   }
 
   public getUtxosSorted = async (currency: string) => {
-    return this.models.Utxo.findAll({
+    return Utxo.findAll({
       where: {
-        currency,
-        spent: false,
+        currency: {
+          [Op.eq]: currency,
+        },
+        spent: {
+          [Op.eq]: false,
+        },
       },
       order: [
         ['confirmed', 'DESC'],
@@ -27,35 +35,55 @@ class UtxoRepository {
   }
 
   public getUnconfirmedUtxos = async (currency: string) => {
-    return this.models.Utxo.findAll({
+    return Utxo.findAll({
       where: {
-        currency,
-        confirmed: false,
+        currency: {
+          [Op.eq]: currency,
+        },
+        confirmed: {
+          [Op.eq]: false,
+        },
       },
     });
   }
 
   public getUtxo = async (txHash: string, vout: number) => {
-    return this.models.Utxo.findOne({
+    return Utxo.findOne({
       where: {
-        vout,
-        txHash,
+        txHash: {
+          [Op.eq]: txHash,
+        },
+        vout: {
+          [Op.eq]: vout,
+        },
       },
     });
   }
 
-  public addUtxo = async (utxo: db.UtxoFactory) => {
-    return this.models.Utxo.create(<db.UtxoAttributes>utxo);
+  public addUtxo = async (utxo: {
+    outputId: number,
+    currency: string,
+
+    txHash: string,
+    vout: number,
+    value: number,
+
+    confirmed: boolean,
+    spent: boolean,
+  }) => {
+    return Utxo.create(utxo);
   }
 
   public markUtxoSpent = async (id: number) => {
-    const existing = await this.models.Utxo.findOne({
+    const existing = await Utxo.findOne({
       where: {
-        id,
+        id: {
+          [Op.eq]: id,
+        },
       },
     });
 
-    return existing!.update({
+    return existing.update({
       spent: true,
     });
   }

@@ -32,7 +32,7 @@ export const generateAddress = (outputType: OutputType) => {
   const keys = ECPair.makeRandom({ network: Networks.bitcoinRegtest });
   const encodeFunction = getPubkeyHashFunction(outputType);
 
-  const outputScript = encodeFunction(crypto.hash160(keys.publicKey)) as Buffer;
+  const outputScript = encodeFunction(crypto.hash160(keys.publicKey!)) as Buffer;
   return {
     outputScript,
     address: address.fromOutputScript(outputScript, Networks.bitcoinRegtest),

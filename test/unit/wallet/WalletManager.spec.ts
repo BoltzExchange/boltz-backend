@@ -1,9 +1,9 @@
 import fs from 'fs';
-import bip32 from 'bip32';
-import bip39 from 'bip39';
 import { expect } from 'chai';
+import { fromSeed } from 'bip32';
 import { Networks } from 'boltz-core';
 import { mock, when, instance } from 'ts-mockito';
+import { mnemonicToSeedSync, generateMnemonic } from 'bip39';
 import Logger from '../../../lib/Logger';
 import Database from '../../../lib/db/Database';
 import WalletErrors from '../../../lib/wallet/Errors';
@@ -13,10 +13,12 @@ import WalletManager from '../../../lib/wallet/WalletManager';
 import WalletRepository from '../../../lib/wallet/WalletRepository';
 
 describe('WalletManager', () => {
-  const mnemonic = bip39.generateMnemonic();
+  const mnemonicPath = 'seed.dat';
+
+  const mnemonic = generateMnemonic();
 
   const database = new Database(Logger.disabledLogger, ':memory:');
-  const repository = new WalletRepository(database.models);
+  const repository = new WalletRepository();
 
   const blockchainInfo = {
     chain: '',
@@ -60,28 +62,29 @@ describe('WalletManager', () => {
     },
   ];
 
-  const mnemonicpath = 'seed.dat';
-
   let walletManager: WalletManager;
 
-  const removeSeedFile = () => {
-    if (fs.existsSync(mnemonicpath)) {
-      fs.unlinkSync(mnemonicpath);
-    }
+  const cleanUp = () => {
+    const deleteFile = (path: string) => {
+      if (fs.existsSync(path)) {
+        fs.unlinkSync(path);
+      }
+    };
+
+    deleteFile(mnemonicPath);
   };
 
   before(async () => {
-    removeSeedFile();
-
+    cleanUp();
     await database.init();
   });
 
   it('should not initialize without seed file', () => {
-    expect(() => new WalletManager(Logger.disabledLogger, currencies, database, mnemonicpath)).to.throw(WalletErrors.NOT_INITIALIZED().message);
+    expect(() => new WalletManager(Logger.disabledLogger, currencies, mnemonicPath)).to.throw(WalletErrors.NOT_INITIALIZED().message);
   });
 
   it('should initialize a new wallet for each currency', async () => {
-    walletManager = WalletManager.fromMnemonic(Logger.disabledLogger, mnemonic, mnemonicpath, currencies, database);
+    walletManager = WalletManager.fromMnemonic(Logger.disabledLogger, mnemonic, mnemonicPath, currencies);
     await walletManager.init();
 
     let index = 0;
@@ -92,35 +95,36 @@ describe('WalletManager', () => {
 
       const { derivationPath, highestIndex } = wallet!;
 
-      // Compare to the values in the database
       const dbWallet = await repository.getWallet(currency.symbol);
+      // Compare to values in the database
 
       expect(derivationPath).to.be.equal(dbWallet!.derivationPath);
       expect(highestIndex).to.be.equal(dbWallet!.highestUsedIndex);
 
-      // Compare to the expected values
+      // Compare to expected values
       expect(derivationPath).to.be.equal(`m/0/${index}`);
-      expect(highestIndex).to.be.equal(0);
+      expect(highestIndex).to.be.equal(dbWallet.symbol === 'BTC' ? 23 : 0);
 
       index += 1;
     }
   });
 
   it('should write and read the mnemonic', () => {
-    expect(fs.existsSync(mnemonicpath)).to.be.true;
+    expect(fs.existsSync(mnemonicPath)).to.be.true;
 
-    const mnemonicFile = walletManager['loadMnemonic'](mnemonicpath);
-    expect(mnemonicFile).to.be.equal(bip32.fromSeed(bip39.mnemonicToSeed(mnemonic)).toBase58());
+    const mnemonicFile = walletManager['loadMnemonic'](mnemonicPath);
+    expect(mnemonicFile).to.be.equal(fromSeed(mnemonicToSeedSync(mnemonic)).toBase58());
   });
 
   it('should not accept invalid mnemonics', () => {
     const invalidMnemonic = 'invalid';
 
-    expect(() => WalletManager.fromMnemonic(Logger.disabledLogger, invalidMnemonic, '', [], database))
+    expect(() => WalletManager.fromMnemonic(Logger.disabledLogger, invalidMnemonic, '', []))
       .to.throw(WalletErrors.INVALID_MNEMONIC(invalidMnemonic).message);
   });
 
   after(async () => {
-    removeSeedFile();
+    await database.close();
+    cleanUp();
   });
 });

@@ -1,6 +1,6 @@
 import { expect } from 'chai';
-import bip32 from 'bip32';
-import bip39 from 'bip39';
+import { fromSeed } from 'bip32';
+import { generateMnemonic, mnemonicToSeedSync } from 'bip39';
 import { OutputType, Networks } from 'boltz-core';
 import Logger from '../../../lib/Logger';
 import Wallet from '../../../lib/wallet/Wallet';
@@ -16,15 +16,15 @@ describe('Wallet', () => {
   const derivationPath = 'm/0/0';
   const highestUsedIndex = 0;
 
-  const mnemonic = bip39.generateMnemonic();
-  const masterNode = bip32.fromSeed(bip39.mnemonicToSeed(mnemonic));
+  const mnemonic = generateMnemonic();
+  const masterNode = fromSeed(mnemonicToSeedSync(mnemonic));
 
   const database = new Database(Logger.disabledLogger, ':memory:');
 
-  const walletRepository = new WalletRepository(database.models);
+  const walletRepository = new WalletRepository();
 
-  const utxoRepository = new UtxoRepository(database.models);
-  const outputRepository = new OutputRepository(database.models);
+  const utxoRepository = new UtxoRepository();
+  const outputRepository = new OutputRepository();
 
   let wallet: Wallet;
 
@@ -38,7 +38,7 @@ describe('Wallet', () => {
       derivationPath,
       highestUsedIndex,
       symbol: 'BTC',
-      blockheight: blocks,
+      blockHeight: blocks,
     });
 
     wallet = new Wallet(

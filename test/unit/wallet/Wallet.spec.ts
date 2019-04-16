@@ -1,9 +1,9 @@
 import { expect } from 'chai';
+import { fromSeed } from 'bip32';
 import { mock } from 'ts-mockito';
+import { generateMnemonic, mnemonicToSeedSync } from 'bip39';
 import { address, crypto } from 'bitcoinjs-lib';
 import { Networks, OutputType } from 'boltz-core';
-import bip32 from 'bip32';
-import bip39 from 'bip39';
 import Wallet from '../../../lib/wallet/Wallet';
 import ChainClient from '../../../lib/chain/ChainClient';
 import Logger from '../../../lib/Logger';
@@ -16,13 +16,13 @@ import { getPubkeyHashFunction, getHexBuffer } from '../../../lib/Utils';
 describe('Wallet', () => {
   const currency = 'BTC';
 
-  const mnemonic = bip39.generateMnemonic();
-  const masterNode = bip32.fromSeed(bip39.mnemonicToSeed(mnemonic));
+  const mnemonic = generateMnemonic();
+  const masterNode = fromSeed(mnemonicToSeedSync(mnemonic));
 
   const database = new Database(Logger.disabledLogger, ':memory:');
-  const walletRepository = new WalletRepository(database.models);
-  const outputRepository = new OutputRepository(database.models);
-  const utxoRepository = new UtxoRepository(database.models);
+  const walletRepository = new WalletRepository();
+  const outputRepository = new OutputRepository();
+  const utxoRepository = new UtxoRepository();
 
   const derivationPath = 'm/0/0';
   let highestUsedIndex = 21;
@@ -57,12 +57,11 @@ describe('Wallet', () => {
     await database.init();
 
     // Create the foreign constraint for the "utxos" table
-    const walletRepository = new WalletRepository(database.models);
     await walletRepository.addWallet({
       derivationPath,
       highestUsedIndex,
       symbol: currency,
-      blockheight: 0,
+      blockHeight: 0,
     });
   });
 
@@ -112,6 +111,8 @@ describe('Wallet', () => {
 
     const { id } = await outputRepository.addOutput({
       script: '',
+      // tslint:disable-next-line:no-null-keyword
+      redeemScript: null,
       currency: 'BTC',
       keyIndex: 0,
       type: 0,
@@ -147,5 +148,9 @@ describe('Wallet', () => {
     const dbWallet = await walletRepository.getWallet(currency);
 
     expect(dbWallet!.highestUsedIndex).to.be.equal(highestUsedIndex);
+  });
+
+  after(async () => {
+    await database.close();
   });
 });

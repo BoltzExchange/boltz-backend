@@ -1,18 +1,25 @@
-import Sequelize from 'sequelize';
-import * as db from '../../consts/Database';
+import { Model, Sequelize, DataTypes } from 'sequelize';
 
-export default (sequelize: Sequelize.Sequelize, dataTypes: Sequelize.DataTypes) => {
-  const attributes: db.SequelizeAttributes<db.WalletAttributes> = {
-    symbol: { type: dataTypes.STRING, primaryKey: true, allowNull: false },
-    highestUsedIndex: { type: dataTypes.INTEGER, allowNull: false },
-    derivationPath: { type: dataTypes.STRING, allowNull: false },
-    blockheight: { type: dataTypes.INTEGER, allowNull: false },
-  };
+class Wallet extends Model {
+  public symbol!: string;
 
-  const options: Sequelize.DefineOptions<db.WalletInstance> = {
-    tableName: 'wallets',
-    timestamps: false,
-  };
+  public highestUsedIndex!: number;
+  public derivationPath!: string;
 
-  return sequelize.define<db.WalletInstance, db.WalletAttributes>('Wallet', attributes, options);
-};
+  public blockHeight!: number;
+
+  public static load = (sequelize: Sequelize) => {
+    Wallet.init({
+      symbol: { type: DataTypes.STRING(255), primaryKey: true, allowNull: false },
+      highestUsedIndex: { type: DataTypes.INTEGER, allowNull: false },
+      derivationPath: { type: DataTypes.STRING(255), allowNull: false },
+      blockHeight: { type: DataTypes.INTEGER, allowNull: false },
+    }, {
+      sequelize,
+      timestamps: false,
+      tableName: 'wallets',
+    });
+  }
+}
+
+export default Wallet;

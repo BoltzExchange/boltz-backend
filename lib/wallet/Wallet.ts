@@ -1,21 +1,20 @@
-import { BIP32 } from 'bip32';
-import Bluebird from 'bluebird';
 import AsyncLock from 'async-lock';
+import { BIP32Interface } from 'bip32';
 import { OutputType, TransactionOutput, estimateFee } from 'boltz-core';
-import { Transaction, Network, address, crypto, TransactionBuilder, ECPair } from 'bitcoinjs-lib';
+import { Transaction, Network, address, crypto, TransactionBuilder, ECPair, TxOutput } from 'bitcoinjs-lib';
 import Errors from './Errors';
 import Logger from '../Logger';
+import Utxo from '../db/models/Utxo';
 import UtxoRepository from './UtxoRepository';
 import ChainClient from '../chain/ChainClient';
 import { RawTransaction } from '../consts/Types';
-import { UtxoInstance } from '../consts/Database';
 import WalletRepository from './WalletRepository';
 import OutputRepository from './OutputRepository';
 import { getPubkeyHashFunction, getHexString, getHexBuffer, transactionHashToId } from '../Utils';
 
 type UTXO = TransactionOutput & {
   id: number;
-  keys: BIP32;
+  keys: BIP32Interface;
   redeemScript?: Buffer;
 };
 
@@ -25,11 +24,11 @@ type WalletBalance = {
   unconfirmedBalance: number;
 };
 
-type UtxoPromise = Promise<UtxoInstance> | Bluebird<UtxoInstance>;
+type UtxoPromise = Promise<Utxo>;
 
 class Wallet {
   // A map between output scripts and information necessary to spend them
-  private relevantOutputs = new Map<string, { id: number, keyIndex: number, type: OutputType, redeemScript?: string }>();
+  private relevantOutputs = new Map<string, { id: number, keyIndex: number, type: OutputType, redeemScript: string | null }>();
 
   // A map between the ids and relevant output scripts
   private outputIds = new Map<number, string>();
@@ -53,7 +52,7 @@ class Wallet {
     private walletRepository: WalletRepository,
     private outputRepository: OutputRepository,
     private utxoRepository: UtxoRepository,
-    private masterNode: BIP32,
+    private masterNode: BIP32Interface,
     public readonly network: Network,
     private chainClient: ChainClient,
     public readonly derivationPath: string,
@@ -68,14 +67,16 @@ class Wallet {
     const mempoolInsertPromises = new Map<string, UtxoPromise>();
 
     const upsertUtxo = (transaction: Transaction, confirmed: boolean) => {
-      transaction.outs.forEach(async (output, vout) => {
+      transaction.outs.forEach(async (openOutput, vout) => {
+        const output = openOutput as TxOutput;
+
         const hexScript = getHexString(output.script);
         const outputInfo = this.relevantOutputs.get(hexScript);
 
         if (outputInfo) {
           const txHash = getHexString(transaction.getHash());
 
-          const promise = new Promise<UtxoInstance>(async (resolve) => {
+          const promise = new Promise<Utxo>(async (resolve) => {
             const existingUtxo = await this.utxoRepository.getUtxo(txHash, vout);
 
             if (existingUtxo && confirmed) {
@@ -127,7 +128,7 @@ class Wallet {
     });
 
     this.chainClient.on('block', async (blockheight: number) => {
-      await this.walletRepository.setBlockheight(this.symbol, blockheight);
+      await this.walletRepository.setBlockHeight(this.symbol, blockheight);
     });
   }
 
@@ -162,7 +163,7 @@ class Wallet {
     }
 
     const { blocks } = await this.chainClient.getBlockchainInfo();
-    await this.walletRepository.setBlockheight(this.symbol, blocks);
+    await this.walletRepository.setBlockHeight(this.symbol, blocks);
   }
 
   /**
@@ -201,7 +202,10 @@ class Wallet {
     const output = encodeFunction(crypto.hash160(keys.publicKey));
 
     let outputScript: Buffer;
-    let redeemScript: string | undefined = undefined;
+
+    // TODO: use undefined?
+    // tslint:disable-next-line:no-null-keyword
+    let redeemScript: string | null = null;
 
     if (type === OutputType.Compatibility) {
       const nestedOutput = output as { redeemScript: Buffer, outputScript: Buffer };
@@ -215,7 +219,7 @@ class Wallet {
     const address = this.encodeAddress(outputScript);
     this.logger.debug(`Generated new ${this.symbol} address: ${address}`);
 
-    await this.listenToOutput(outputScript, index, type, address, redeemScript);
+    await this.listenToOutput(outputScript, index, type, redeemScript);
 
     return address;
   }
@@ -338,7 +342,7 @@ class Wallet {
 
       // Sign the transaction
       toSpend.forEach((utxo, index) => {
-        const keys = ECPair.fromPrivateKey(utxo.keys.privateKey, { network: this.network });
+        const keys = ECPair.fromPrivateKey(utxo.keys.privateKey!, { network: this.network });
 
         switch (utxo.type) {
           case OutputType.Bech32:
@@ -385,7 +389,7 @@ class Wallet {
     }
   }
 
-  private listenToOutput = async (script: Buffer, keyIndex: number, type: OutputType, _address?: string, redeemScript?: string) => {
+  private listenToOutput = async (script: Buffer, keyIndex: number, type: OutputType, redeemScript: string | null) => {
     const scriptString = getHexString(script);
 
     this.chainClient.updateOutputFilter([script]);

@@ -37,12 +37,12 @@ class Boltz {
     const walletCurrencies = Array.from(this.currencies.values());
 
     if (fs.existsSync(this.config.mnemonicpath)) {
-      this.walletManager = new WalletManager(this.logger, walletCurrencies, this.db, this.config.mnemonicpath);
+      this.walletManager = new WalletManager(this.logger, walletCurrencies, this.config.mnemonicpath);
     } else {
       const mnemonic = generateMnemonic();
       this.logger.info(`generated new mnemonic: ${mnemonic}`);
 
-      this.walletManager = WalletManager.fromMnemonic(this.logger, mnemonic, this.config.mnemonicpath, walletCurrencies, this.db);
+      this.walletManager = WalletManager.fromMnemonic(this.logger, mnemonic, this.config.mnemonicpath, walletCurrencies);
     }
 
     const bitcoin = this.currencies.get('BTC')!;

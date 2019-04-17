@@ -1,19 +1,29 @@
-import { Models } from '../db/Database';
-import * as db from '../consts/Database';
+import { Op } from 'sequelize';
+import Output from '../db/models/Output';
 
 class OutputRepository {
-  constructor(private models: Models) {}
+  constructor() {}
 
   public getOutputs = async (currency: string) => {
-    return this.models.Output.findAll({
+    return Output.findAll({
       where: {
-        currency,
+        currency: {
+          [Op.eq]: currency,
+        },
       },
     });
   }
 
-  public addOutput = async (output: db.OutputFactory) => {
-    return this.models.Output.create(<db.OutputAttributes>output);
+  public addOutput = async (output: {
+    script: string,
+    redeemScript: string | null,
+
+    currency: string,
+    keyIndex: number,
+
+    type: number }) => {
+
+    return Output.create(output);
   }
 }
 

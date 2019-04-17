@@ -1,6 +1,6 @@
-import { BIP32 } from 'bip32';
+import { BIP32Interface } from 'bip32';
 import { EventEmitter } from 'events';
-import { Transaction, address } from 'bitcoinjs-lib';
+import { Transaction, address, TxOutput } from 'bitcoinjs-lib';
 import { constructClaimTransaction, OutputType, TransactionOutput, constructRefundTransaction } from 'boltz-core';
 import Logger from '../Logger';
 import LndClient from '../lightning/LndClient';
@@ -15,12 +15,12 @@ type SwapDetails = BaseSwapDetails & {
   lndClient: LndClient;
   expectedAmount: number;
   invoice: string;
-  claimKeys: BIP32;
+  claimKeys: BIP32Interface;
   outputType: OutputType;
 };
 
 type ReverseSwapDetails = BaseSwapDetails & {
-  refundKeys: BIP32;
+  refundKeys: BIP32Interface;
   output: TransactionOutput;
 };
 
@@ -49,7 +49,9 @@ class SwapNursery extends EventEmitter {
     currency.chainClient.on('transaction.relevant.block', async (transaction: Transaction) => {
       let vout = 0;
 
-      for (const output of transaction.outs) {
+      for (const openOutput of transaction.outs) {
+        const output = openOutput as TxOutput;
+
         const hexScript = getHexString(output.script);
         const swapDetails = maps.swaps.get(hexScript);
 

@@ -1,31 +1,23 @@
-import fs from 'fs';
-import path from 'path';
 import Sequelize from 'sequelize';
-import * as db from '../consts/Database';
 import Logger from '../Logger';
-
-type Models = {
-  Wallet: Sequelize.Model<db.WalletInstance, db.WalletAttributes>;
-  Output: Sequelize.Model<db.OutputInstance, db.OutputAttributes>;
-  Utxo: Sequelize.Model<db.UtxoInstance, db.UtxoAttributes>;
-};
+import Utxo from './models/Utxo';
+import Output from './models/Output';
+import Wallet from './models/Wallet';
 
 class Db {
   public sequelize: Sequelize.Sequelize;
-  public models: Models;
 
   /**
    * @param storage the file path to the SQLite databse; if ':memory:' the databse will be stored in the memory
    */
   constructor(private logger: Logger, private storage: string) {
-    this.sequelize = new Sequelize({
+    this.sequelize = new Sequelize.Sequelize({
       storage,
-      logging: this.logger.silly,
       dialect: 'sqlite',
-      operatorsAliases: false,
+      logging: this.logger.silly,
     });
 
-    this.models = this.loadModels();
+    this.loadModels();
   }
 
   public init = async () => {
@@ -37,40 +29,20 @@ class Db {
       throw error;
     }
 
-    await this.models.Wallet.sync();
-
-    await Promise.all([
-      this.models.Output.sync(),
-      this.models.Utxo.sync(),
-    ]);
+    await Wallet.sync();
+    await Output.sync(),
+    await Utxo.sync();
   }
 
   public close = async () => {
     await this.sequelize.close();
   }
 
-  private loadModels = (): Models => {
-    const models: { [index: string]: Sequelize.Model<any, any> } = {};
-    const modelsFolder = path.join(__dirname, 'models');
-
-    fs.readdirSync(modelsFolder)
-      .filter(file => (file.indexOf('.') !== 0) && (file !== path.basename(__filename)) &&
-       (file.endsWith('.js') || file.endsWith('.ts')) && !file.endsWith('.d.ts'))
-      .forEach((file) => {
-        const model = this.sequelize.import(path.join(modelsFolder, file));
-        models[model.name] = model;
-      });
-
-    Object.keys(models).forEach((key) => {
-      const model = models[key];
-      if (model.associate) {
-        model.associate(models);
-      }
-    });
-
-    return <Models>models;
+  private loadModels = () => {
+    Wallet.load(this.sequelize);
+    Output.load(this.sequelize);
+    Utxo.load(this.sequelize);
   }
 }
 
 export default Db;
-export { Models };

@@ -1,6 +1,7 @@
 import { OutputType, Scripts, swapScript } from 'boltz-core';
 import Errors from './Errors';
 import Logger from '../Logger';
+import LndClient from '../lightning/LndClient';
 import { OrderSide } from '../proto/boltzrpc_pb';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import { getHexBuffer, getHexString, getScriptHashFunction } from '../Utils';
@@ -56,7 +57,13 @@ class SwapManager {
     this.logger.silly(`Sending ${sendingCurrency.symbol} on Lightning and receiving ${receivingCurrency.symbol} on the chain`);
 
     const { blocks } = await receivingCurrency.chainClient.getBlockchainInfo();
-    const { paymentHash, numSatoshis } = await sendingCurrency.lndClient.decodePayReq(invoice);
+    const { paymentHash, numSatoshis, destination } = await sendingCurrency.lndClient.decodePayReq(invoice);
+
+    const routable = await this.checkRoutability(sendingCurrency.lndClient, destination, numSatoshis);
+
+    if (!routable) {
+      throw Errors.NO_ROUTE_FOUND();
+    }
 
     this.logger.verbose(`Creating new Swap from ${receivingCurrency.symbol} to ${sendingCurrency.symbol} with preimage hash: ${paymentHash}`);
 
@@ -171,6 +178,20 @@ class SwapManager {
       lockupTransaction: rawTx,
       lockupTransactionHash: transaction.getId(),
     };
+  }
+
+  /**
+   * @returns whether the payment can be routed
+   */
+  private checkRoutability = async (lnd: LndClient, destination: string, satoshis: number) => {
+    try {
+      const routes = await lnd.queryRoutes(destination, satoshis);
+
+      return routes.routesList.length > 0;
+    } catch (error) {
+      this.logger.debug(`Could not query routes: ${error}`);
+      return false;
+    }
   }
 
   private getCurrencies = (baseCurrency: string, quoteCurrency: string, orderSide: OrderSide) => {

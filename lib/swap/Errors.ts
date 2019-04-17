@@ -7,4 +7,8 @@ export default {
     message: `could not find currency: ${currency}`,
     code: concatErrorCode(ErrorCodePrefix.Swap, 0),
   }),
+  NO_ROUTE_FOUND: (): Error => ({
+    message: 'could not find route to pay invoice',
+    code: concatErrorCode(ErrorCodePrefix.Swap, 1),
+  }),
 };

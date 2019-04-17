@@ -154,7 +154,7 @@ class SwapNursery extends EventEmitter {
 
   private payInvoice = async (lndClient: LndClient, invoice: string) => {
     try {
-      const payRequest = await lndClient.payInvoice(invoice);
+      const payRequest = await lndClient.sendPayment(invoice);
 
       if (payRequest.paymentError !== '') {
         throw payRequest.paymentError;

@@ -5,7 +5,6 @@ import Logger from '../Logger';
 import BaseClient from '../BaseClient';
 import * as lndrpc from '../proto/lndrpc_pb';
 import { ClientStatus } from '../consts/Enums';
-import LightningClient from './LightningClient';
 import { LightningClient as GrpcClient } from '../proto/lndrpc_grpc_pb';
 
 /**
@@ -58,7 +57,7 @@ interface LightningMethodIndex extends GrpcClient {
 /**
  * A class representing a client to interact with LND
  */
-class LndClient extends BaseClient implements LightningClient {
+class LndClient extends BaseClient implements LndClient {
   public static readonly serviceName = 'LND';
   private uri!: string;
   private credentials!: grpc.ChannelCredentials;
@@ -197,7 +196,7 @@ class LndClient extends BaseClient implements LightningClient {
    *
    * @param invoice an invoice for a payment within the Lightning Network
    */
-  public payInvoice = async (invoice: string) => {
+  public sendPayment = async (invoice: string) => {
     const request = new lndrpc.SendRequest();
     request.setPaymentRequest(invoice);
 
@@ -210,6 +209,17 @@ class LndClient extends BaseClient implements LightningClient {
     }
 
     return response;
+  }
+
+  /**
+   * Queries for a possible route to the target destination
+   */
+  public queryRoutes = (destination: string, amt: number) => {
+    const request = new lndrpc.QueryRoutesRequest();
+    request.setPubKey(destination);
+    request.setAmt(amt);
+
+    return this.unaryCall<lndrpc.QueryRoutesRequest, lndrpc.QueryRoutesResponse.AsObject>('queryRoutes', request);
   }
 
   /**
@@ -258,7 +268,7 @@ class LndClient extends BaseClient implements LightningClient {
    *
    * @param addressType type of the address
    */
-  public newAddress = (addressType = lndrpc.NewAddressRequest.AddressType.NESTED_PUBKEY_HASH): Promise<lndrpc.NewAddressResponse.AsObject> => {
+  public newAddress = (addressType = lndrpc.AddressType.NESTED_PUBKEY_HASH): Promise<lndrpc.NewAddressResponse.AsObject> => {
     const request = new lndrpc.NewAddressRequest();
     request.setType(addressType);
 

@@ -258,7 +258,7 @@ class LndClient extends BaseClient implements LightningClient {
    *
    * @param addressType type of the address
    */
-  public newAddress = (addressType = lndrpc.NewAddressRequest.AddressType.NESTED_PUBKEY_HASH): Promise<lndrpc.NewAddressResponse.AsObject> => {
+  public newAddress = (addressType = lndrpc.AddressType.NESTED_PUBKEY_HASH): Promise<lndrpc.NewAddressResponse.AsObject> => {
     const request = new lndrpc.NewAddressRequest();
     request.setType(addressType);
 

@@ -1,7 +1,8 @@
 import { expect } from 'chai';
 import { fromSeed } from 'bip32';
-import { generateMnemonic, mnemonicToSeedSync } from 'bip39';
+import { TxOutput } from 'bitcoinjs-lib';
 import { OutputType, Networks } from 'boltz-core';
+import { generateMnemonic, mnemonicToSeedSync } from 'bip39';
 import Logger from '../../../lib/Logger';
 import Wallet from '../../../lib/wallet/Wallet';
 import Database from '../../../lib/db/Database';
@@ -118,8 +119,40 @@ describe('Wallet', () => {
     expect(newBalance.totalBalance).to.be.lessThan(totalBalance);
   });
 
+  it('should spend all coins', async () => {
+    const address = await wallet.getNewAddress(OutputType.Bech32);
+    await bitcoinClient.sendToAddress(address, 100000000);
+    await bitcoinClient.sendToAddress(address, 100000000);
+
+    await bitcoinClient.generate(1);
+
+    await waitForPromiseToBeTrue(async () => {
+      const balance = await wallet.getBalance();
+
+      return balance.unconfirmedBalance === 0;
+    });
+
+    const { totalBalance } = await wallet.getBalance();
+
+    const { transaction } = await wallet.sendToAddress(address, OutputType.Bech32, false, 0, 2, true);
+    const out = transaction.outs[0] as TxOutput;
+
+    expect(transaction.outs.length).to.be.equal(1);
+    expect(out.value).to.be.equal(totalBalance - 490);
+  });
+
   it('should prefer spending confirmed coins', async () => {
     const address = await wallet.getNewAddress(OutputType.Bech32);
+
+    await bitcoinClient.sendToAddress(address, 100000000);
+    await bitcoinClient.generate(1);
+
+    await waitForPromiseToBeTrue(async () => {
+      const balance = await wallet.getBalance();
+
+      return balance.unconfirmedBalance === 0;
+    });
+
     const unconfirmedTransactionId = await bitcoinClient.sendToAddress(address, 100000000);
     const unconfirmedTransactionHash = reverseBuffer(
       getHexBuffer(

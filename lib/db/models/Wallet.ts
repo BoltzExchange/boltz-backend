@@ -10,10 +10,10 @@ class Wallet extends Model {
 
   public static load = (sequelize: Sequelize) => {
     Wallet.init({
-      symbol: { type: DataTypes.STRING(255), primaryKey: true, allowNull: false },
-      highestUsedIndex: { type: DataTypes.INTEGER, allowNull: false },
-      derivationPath: { type: DataTypes.STRING(255), allowNull: false },
-      blockHeight: { type: DataTypes.INTEGER, allowNull: false },
+      symbol: { type: new DataTypes.STRING(255), primaryKey: true, allowNull: false },
+      highestUsedIndex: { type: new DataTypes.INTEGER(), allowNull: false },
+      derivationPath: { type: new DataTypes.STRING(255), allowNull: false },
+      blockHeight: { type: new DataTypes.INTEGER(), allowNull: false },
     }, {
       sequelize,
       timestamps: false,

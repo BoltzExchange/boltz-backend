@@ -850,6 +850,9 @@ export class SendCoinsRequest extends jspb.Message {
     getSatPerVbyte(): number;
     setSatPerVbyte(value: number): void;
 
+    getSendAll(): boolean;
+    setSendAll(value: boolean): void;
+
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): SendCoinsRequest.AsObject;
@@ -867,6 +870,7 @@ export namespace SendCoinsRequest {
         address: string,
         amount: number,
         satPerVbyte: number,
+        sendAll: boolean,
     }
 }
 

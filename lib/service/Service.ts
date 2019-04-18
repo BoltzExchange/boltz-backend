@@ -86,7 +86,7 @@ const argChecks = {
     if (!(rate > 0)) throw Errors.INVALID_ARGUMENT('rate must a positive number');
   },
   VALID_AMOUNT: ({ amount }: { amount: number }) => {
-    if (!(amount > 0) || amount % 1 !== 0) throw Errors.INVALID_ARGUMENT('amount must a positive integer');
+    if (!(amount >= 0) || amount % 1 !== 0) throw Errors.INVALID_ARGUMENT('amount must a positive integer');
   },
   VALID_FEE_PER_VBYTE: ({ satPerVbyte }: { satPerVbyte: number }) => {
     if (!(satPerVbyte > 0) || satPerVbyte % 1 !== 0) throw Errors.INVALID_ARGUMENT('sat per vbyte fee must be positive integer');
@@ -368,7 +368,7 @@ class Service extends EventEmitter {
   /**
    * Sends coins to a specified address
    */
-  public sendCoins = async (args: { currency: string, address: string, amount: number, satPerVbyte: number }) => {
+  public sendCoins = async (args: { currency: string, address: string, amount: number, satPerVbyte: number, sendAll: boolean }) => {
     argChecks.HAS_ADDRESS(args);
     argChecks.VALID_CURRENCY(args);
     argChecks.VALID_AMOUNT(args);
@@ -381,7 +381,7 @@ class Service extends EventEmitter {
 
     const output = SwapUtils.getOutputScriptType(address.toOutputScript(args.address, currency.network))!;
 
-    const { transaction, vout } = await wallet.sendToAddress(args.address, output.type, output.isSh!, args.amount, fee);
+    const { transaction, vout } = await wallet.sendToAddress(args.address, output.type, output.isSh!, args.amount, fee, args.sendAll);
     await currency.chainClient.sendRawTransaction(transaction.toHex());
 
     return {

@@ -209,6 +209,7 @@ message SendCoinsRequest {
   string address = 2;
   uint64 amount = 3;
   uint32 sat_per_vbyte = 4;
+  bool send_all = 5;
 }
 message SendCoinsResponse {
   string transaction_hash = 1;

@@ -17,12 +17,12 @@ class Utxo extends Model {
 
   public static load = (sequelize: Sequelize) => {
     Utxo.init({
-      id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-      outputId: { type: DataTypes.INTEGER, allowNull: false },
+      id: { type: new DataTypes.INTEGER(), primaryKey: true, autoIncrement: true },
+      outputId: { type: new DataTypes.INTEGER(), allowNull: false },
       currency: { type: new DataTypes.STRING(255), allowNull: false },
       txHash: { type: new DataTypes.STRING(255), allowNull: false },
-      vout: { type: DataTypes.INTEGER, allowNull: false },
-      value: { type: DataTypes.INTEGER, allowNull: false },
+      vout: { type: new DataTypes.INTEGER(), allowNull: false },
+      value: { type: new DataTypes.INTEGER(), allowNull: false },
       confirmed: { type: DataTypes.BOOLEAN, allowNull: false },
       spent: { type: DataTypes.BOOLEAN, allowNull: false },
     }, {

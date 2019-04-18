@@ -265,8 +265,14 @@ class Wallet {
    *
    * @returns the transaction itself and the vout of the provided address
    */
-  public sendToAddress = async (address: string, type: OutputType, isScriptHash: boolean, amount: number, satsPerByte?: number):
-      Promise<{ transaction: Transaction, vout: number }> => {
+  public sendToAddress = async (
+    address: string,
+    type: OutputType,
+    isScriptHash: boolean,
+    amount: number,
+    satsPerByte?: number,
+    sendAll?: boolean): Promise<{ transaction: Transaction, vout: number }> => {
+
     return this.lock.acquire(this.sendToAddressLock, async () => {
       const utxos = await this.utxoRepository.getUtxosSorted(this.symbol);
 
@@ -274,15 +280,23 @@ class Wallet {
       const toSpend: UTXO[] = [];
 
       const feePerByte = satsPerByte || await this.chainClient.estimateFee();
+
+      const outputs: any[] = [{ type, isSh: isScriptHash }];
+
+      // Add a change address to the estimation if not all coins will be sent
+      if (!sendAll) {
+        outputs.push({ type: OutputType.Bech32 });
+      }
+
       const recalculateFee = () => {
-        return estimateFee(feePerByte, toSpend, [{ type: OutputType.Bech32 }, { type, isSh: isScriptHash }]);
+        return estimateFee(feePerByte, toSpend, outputs);
       };
 
       let toSpendSum = 0;
       let fee = recalculateFee();
 
       const fundsSufficient = () => {
-        return (amount + fee) <= toSpendSum;
+        return sendAll ? false : (amount + fee) <= toSpendSum;
       };
 
       // Accumulate UTXOs to spend
@@ -312,7 +326,7 @@ class Wallet {
       }
 
       // Throw an error if the wallet doesn't have enough funds
-      if (!fundsSufficient()) {
+      if (!fundsSufficient() && !sendAll) {
         throw Errors.NOT_ENOUGH_FUNDS(amount);
       }
 
@@ -333,12 +347,16 @@ class Wallet {
         }
       });
 
-      // Add the requested ouput to the transaction
-      builder.addOutput(address, amount);
+      if (!sendAll) {
+        // Add the requested ouput to the transaction
+        builder.addOutput(address, amount);
 
-      // Send the value left of the UTXOs to a new change address
-      const changeAddress = await this.getNewAddress(OutputType.Bech32);
-      builder.addOutput(changeAddress, toSpendSum - (amount + fee));
+        // Send the value left of the UTXOs to a new change address
+        const changeAddress = await this.getNewAddress(OutputType.Bech32);
+        builder.addOutput(changeAddress, toSpendSum - (amount + fee));
+      } else {
+        builder.addOutput(address, toSpendSum - fee);
+      }
 
       // Sign the transaction
       toSpend.forEach((utxo, index) => {

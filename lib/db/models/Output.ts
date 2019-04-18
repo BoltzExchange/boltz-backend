@@ -14,12 +14,12 @@ class Output extends Model {
 
   public static load = (sequelize: Sequelize) => {
     Output.init({
-      id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+      id: { type: new DataTypes.INTEGER(), primaryKey: true, autoIncrement: true },
       script: { type: new DataTypes.STRING(255), allowNull: false },
       redeemScript: { type: new DataTypes.STRING(255), allowNull: true },
       currency: { type: new DataTypes.STRING(255), allowNull: false },
-      keyIndex: { type: DataTypes.INTEGER, allowNull: false },
-      type: { type: DataTypes.BOOLEAN, allowNull: false },
+      keyIndex: { type: new DataTypes.INTEGER(), allowNull: false },
+      type: { type: new DataTypes.INTEGER(), allowNull: false },
     }, {
       sequelize,
       timestamps: false,

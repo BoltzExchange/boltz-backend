@@ -5,7 +5,6 @@ import grpc, { Server } from 'grpc';
 import Errors from './Errors';
 import Logger from '../Logger';
 import GrpcService from './GrpcService';
-import Service from '../service/Service';
 import { BoltzService } from '../proto/boltzrpc_grpc_pb';
 
 type GrpcConfig = {
@@ -18,10 +17,9 @@ type GrpcConfig = {
 class GrpcServer {
   private server: Server;
 
-  constructor(private logger: Logger, service: Service, private grpcConfig: GrpcConfig) {
+  constructor(private logger: Logger, grpcService: GrpcService, private grpcConfig: GrpcConfig) {
     this.server = new grpc.Server();
 
-    const grpcService = new GrpcService(service);
     this.server.addService(BoltzService, {
       getInfo: grpcService.getInfo,
       getBalance: grpcService.getBalance,
@@ -39,8 +37,9 @@ class GrpcServer {
     });
   }
 
-  public listen = async () => {
+  public listen = () => {
     const { port, host, certpath, keypath } = this.grpcConfig;
+
     if (!fs.existsSync(certpath) && !fs.existsSync(keypath)) {
       this.generateCertificate(certpath, keypath);
     }

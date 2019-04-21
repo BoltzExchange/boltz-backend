@@ -30,6 +30,7 @@ describe('Wallet', () => {
   const network = Networks.bitcoinRegtest;
 
   const chainClientMock = mock(ChainClient);
+
   // "as any" is needed to force override a "readonly" value
   chainClientMock['symbol' as any] = currency;
 

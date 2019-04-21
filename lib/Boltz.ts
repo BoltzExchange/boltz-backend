@@ -11,6 +11,7 @@ import Config, { ConfigType } from './Config';
 import LndClient from './lightning/LndClient';
 import ChainClient from './chain/ChainClient';
 import WalletManager, { Currency } from './wallet/WalletManager';
+import GrpcService from './grpc/GrpcService';
 
 class Boltz {
   private config: ConfigType;
@@ -64,7 +65,11 @@ class Boltz {
       walletManager: this.walletManager,
     });
 
-    this.grpcServer = new GrpcServer(this.logger, this.service, this.config.grpc);
+    this.grpcServer = new GrpcServer(
+      this.logger,
+      new GrpcService(this.service),
+      this.config.grpc,
+    );
   }
 
   public start = async () => {
@@ -81,7 +86,7 @@ class Boltz {
     await this.walletManager.init();
 
     try {
-      await this.grpcServer.listen();
+      this.grpcServer.listen();
     } catch (error) {
       this.logger.error(`Could not start gRPC server: ${error}`);
     }

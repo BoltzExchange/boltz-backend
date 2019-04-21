@@ -31,6 +31,7 @@ class GrpcServer {
       subscribeTransactions: grpcService.subscribeTransactions,
       subscribeInvoices: grpcService.subscribeInvoices,
       subscribeRefunds: grpcService.subscribeRefunds,
+      subscribeChannelBackups: grpcService.subscribeChannelBackups,
       createSwap: grpcService.createSwap,
       createReverseSwap: grpcService.createReverseSwap,
       sendCoins: grpcService.sendCoins,
@@ -48,6 +49,7 @@ class GrpcServer {
     const key = fs.readFileSync(keypath);
 
     assert(Number.isInteger(port) && port > 1023 && port < 65536, 'port must be an integer between 1024 and 65536');
+
     // tslint:disable-next-line:no-null-keyword
     const serverCert = grpc.ServerCredentials.createSsl(null,
       [{

@@ -10,6 +10,7 @@ class GrpcService {
   private transactionSubscriptions: ServerWriteableStream<boltzrpc.SubscribeTransactionsRequest>[] = [];
   private invoiceSubscriptions: ServerWriteableStream<boltzrpc.SubscribeInvoicesRequest>[] = [];
   private refundSubscriptions: ServerWriteableStream<boltzrpc.SubscribeRefundsRequest>[] = [];
+  private channelBackupSubscriptions: ServerWriteableStream<boltzrpc.SubscribeChannelBackupsRequest>[] = [];
 
   constructor(private service: Service) {
     this.subscribeToEvents();
@@ -100,6 +101,10 @@ class GrpcService {
     this.registerSubscription(call, this.refundSubscriptions);
   }
 
+  public subscribeChannelBackups: handleServerStreamingCall<boltzrpc.SubscribeChannelBackupsRequest, boltzrpc.ChannelBackup> = async (call) => {
+    this.registerSubscription(call, this.channelBackupSubscriptions);
+  }
+
   public createSwap: handleUnaryCall<boltzrpc.CreateSwapRequest, boltzrpc.CreateSwapResponse> = async (call, callback) => {
     try {
       const { address, redeemScript, timeoutBlockHeight, expectedAmount } = await this.service.createSwap(call.request.toObject());
@@ -154,7 +159,7 @@ class GrpcService {
   }
 
   private subscribeToEvents = () => {
-    // Transaction subscriptions
+    // Transaction subscription
     this.service.on('transaction.confirmed', (transactionHash: string, outputAddress: string) => {
       this.transactionSubscriptions.forEach((subscription) => {
         const response = new boltzrpc.SubscribeTransactionsResponse();
@@ -197,11 +202,22 @@ class GrpcService {
       });
     });
 
-    // Refund subscriptions
+    // Refund subscription
     this.service.on('refund', (lockupTransactionHash: string) => {
       this.refundSubscriptions.forEach((subscription) => {
         const response = new boltzrpc.SubscribeRefundsResponse();
         response.setLockupTransactionHash(lockupTransactionHash);
+
+        subscription.write(response);
+      });
+    });
+
+    // Channel backup subscription
+    this.service.on('channel.backup', (currency: string, channelBackup: string) => {
+      this.channelBackupSubscriptions.forEach((subscription) => {
+        const response = new boltzrpc.ChannelBackup();
+        response.setCurrency(currency);
+        response.setMultiChannelBackup(channelBackup);
 
         subscription.write(response);
       });

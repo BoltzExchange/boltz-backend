@@ -6,12 +6,12 @@ import Logger from './Logger';
 import Database from './db/Database';
 import Service from './service/Service';
 import GrpcServer from './grpc/GrpcServer';
+import GrpcService from './grpc/GrpcService';
 import SwapManager from './swap/SwapManager';
 import Config, { ConfigType } from './Config';
 import LndClient from './lightning/LndClient';
 import ChainClient from './chain/ChainClient';
 import WalletManager, { Currency } from './wallet/WalletManager';
-import GrpcService from './grpc/GrpcService';
 
 class Boltz {
   private config: ConfigType;

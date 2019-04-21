@@ -9,20 +9,35 @@ service Boltz {
   /* Gets the balance for either all wallets or just a single one if specified */
   rpc GetBalance (GetBalanceRequest) returns (GetBalanceResponse);
 
-  /* Gets a new address of a specified wallet. The "type" parameter is optional and defaults to "OutputType.LEGACY" */
-  rpc NewAddress (NewAddressRequest) returns (NewAddressResponse);
 
   /* Gets a hex encoded transaction from a transaction hash on the specified network */
   rpc GetTransaction (GetTransactionRequest) returns (GetTransactionResponse);
 
-  /* Gets a fee estimation in satoshis per vbyte for either all currencies or just a single one if specified */ 
-  rpc GetFeeEstimation (GetFeeEstimationRequest) returns (GetFeeEstimationResponse);
-
   /* Broadcasts a hex encoded transaction on the specified network */
   rpc BroadcastTransaction (BroadcastTransactionRequest) returns (BroadcastTransactionResponse);
 
+
+  /* Gets a fee estimation in satoshis per vbyte for either all currencies or just a single one if specified */ 
+  rpc GetFeeEstimation (GetFeeEstimationRequest) returns (GetFeeEstimationResponse);
+
+
+  /* Gets a new address of a specified wallet. The "type" parameter is optional and defaults to "OutputType.LEGACY" */
+  rpc NewAddress (NewAddressRequest) returns (NewAddressResponse);
+
+  /* Sends onchain coins to a specified address */
+  rpc SendCoins (SendCoinsRequest) returns (SendCoinsResponse);
+
+
+  /* Creates a new Swap from the chain to Lightning */
+  rpc CreateSwap (CreateSwapRequest) returns (CreateSwapResponse);
+
+  /* Creates a new Swap from Lightning to the chain */
+  rpc CreateReverseSwap (CreateReverseSwapRequest) returns (CreateReverseSwapResponse);
+
+
   /* Adds an entry to the list of addresses SubscribeTransactions listens to */
   rpc ListenOnAddress (ListenOnAddressRequest) returns (ListenOnAddressResponse);
+
 
   /* Subscribes to a stream of confirmed transactions to addresses that were specified with "ListenOnAddress" */
   rpc SubscribeTransactions (SubscribeTransactionsRequest) returns (stream SubscribeTransactionsResponse);
@@ -33,14 +48,8 @@ service Boltz {
   /* Subscribes to a stream of lockup transactions that Boltz refunds */
   rpc SubscribeRefunds (SubscribeRefundsRequest) returns (stream SubscribeRefundsResponse);
 
-  /* Creates a new Swap from the chain to Lightning */
-  rpc CreateSwap (CreateSwapRequest) returns (CreateSwapResponse);
-
-  /* Creates a new Swap from Lightning to the chain */
-  rpc CreateReverseSwap (CreateReverseSwapRequest) returns (CreateReverseSwapResponse);
-
-  /* Sends coins to a specified address */
-  rpc SendCoins (SendCoinsRequest) returns (SendCoinsResponse);
+  /* Subscribes to a a stream of channel backups */
+  rpc SubscribeChannelBackups (SubscribeChannelBackupsRequest) returns (stream ChannelBackup);
 }
 
 enum OutputType {
@@ -214,4 +223,13 @@ message SendCoinsRequest {
 message SendCoinsResponse {
   string transaction_hash = 1;
   uint32 vout = 2;
+}
+
+message SubscribeChannelBackupsRequest {}
+
+message ChannelBackup {
+  string currency = 1;
+
+  // A multi channel backup contains all open channels
+  string multi_channel_backup = 2;
 }

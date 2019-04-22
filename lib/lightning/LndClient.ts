@@ -3,9 +3,10 @@ import grpc, { ClientReadableStream } from 'grpc';
 import Errors from './Errors';
 import Logger from '../Logger';
 import BaseClient from '../BaseClient';
+import { getHexString } from '../Utils';
 import * as lndrpc from '../proto/lndrpc_pb';
 import { ClientStatus } from '../consts/Enums';
-import { LightningClient as GrpcClient } from '../proto/lndrpc_grpc_pb';
+import { LightningClient } from '../proto/lndrpc_grpc_pb';
 
 /**
  * The configurable options for the lnd client
@@ -48,9 +49,12 @@ interface LndClient {
 
   on(event: 'invoice.settled', listener: (invoice: string, preimage: string) => void): this;
   emit(event: 'invoice.settled', string: string, preimage: string): boolean;
+
+  on(event: 'channel.backup', listener: (channelBackup: string) => void): this;
+  emit(event: 'channel.backup', channelBackup: string): boolean;
 }
 
-interface LightningMethodIndex extends GrpcClient {
+interface LightningMethodIndex extends LightningClient {
   [methodName: string]: Function;
 }
 
@@ -59,12 +63,15 @@ interface LightningMethodIndex extends GrpcClient {
  */
 class LndClient extends BaseClient implements LndClient {
   public static readonly serviceName = 'LND';
+
   private uri!: string;
   private credentials!: grpc.ChannelCredentials;
 
-  private lightning!: GrpcClient | LightningMethodIndex;
   private meta!: grpc.Metadata;
+  private lightning!: LightningClient | LightningMethodIndex;
+
   private invoiceSubscription?: ClientReadableStream<lndrpc.InvoiceSubscription>;
+  private channelBackupSubscription?: ClientReadableStream<lndrpc.ChannelBackupSubscription>;
 
   /**
    * Create an LND client
@@ -106,13 +113,14 @@ class LndClient extends BaseClient implements LndClient {
    */
   public connect = async (): Promise<boolean> => {
     if (!this.isConnected()) {
-      this.lightning = new GrpcClient(this.uri, this.credentials);
+      this.lightning = new LightningClient(this.uri, this.credentials);
 
       try {
         await this.getInfo();
 
         this.setClientStatus(ClientStatus.Connected);
         this.subscribeInvoices();
+        this.subscribeChannelBackups();
 
         this.clearReconnectTimer();
 
@@ -140,6 +148,7 @@ class LndClient extends BaseClient implements LndClient {
       this.clearReconnectTimer();
 
       this.subscribeInvoices();
+      this.subscribeChannelBackups();
     } catch (err) {
       this.logger.error(`Could not reconnect to ${LndClient.serviceName} ${this.symbol}: ${err}`);
       this.logger.info(`Retrying in ${this.RECONNECT_INTERVAL} ms`);
@@ -306,7 +315,7 @@ class LndClient extends BaseClient implements LndClient {
   /**
    * Subscribe to events for when invoices are settled.
    */
-  private subscribeInvoices = (): void => {
+  private subscribeInvoices = () => {
     if (this.invoiceSubscription) {
       this.invoiceSubscription.cancel();
     }
@@ -321,9 +330,27 @@ class LndClient extends BaseClient implements LndClient {
         }
       })
       .on('error', async (error) => {
-        if (error.message !== '1 CANCELLED: Cancelled') {
-          this.logger.error(`Invoice subscription ended: ${error}`);
+        this.logger.error(`Invoice subscription errored: ${error}`);
+        await this.reconnect();
+      });
+  }
+
+  private subscribeChannelBackups = () => {
+    if (this.channelBackupSubscription) {
+      this.channelBackupSubscription.cancel();
+    }
+
+    this.channelBackupSubscription = this.lightning.subscribeChannelBackups(new lndrpc.ChannelBackupSubscription(), this.meta)
+      .on('data', (backupSnapshot: lndrpc.ChanBackupSnapshot) => {
+        const multiBackup = backupSnapshot.getMultiChanBackup();
+
+        if (multiBackup) {
+          const decodedBackup = Buffer.from(multiBackup.getMultiChanBackup_asB64(), 'base64');
+          this.emit('channel.backup', getHexString(decodedBackup));
         }
+      })
+      .on('error', async (error) => {
+        this.logger.error(`Channel backup subscription errored: ${error}`);
         await this.reconnect();
       });
   }

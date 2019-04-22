@@ -16,8 +16,8 @@
     "docker:start": "docker run -d --name regtest -p 18443:18443 -p 19443:19443 -p 29000:29000 -p 29001:29001 -p 29002:29002 -p 30000:30000 -p 30001:30001 -p 30002:30002 -p 10009:10009 -p 10010:10010 -p 11009:11009 -p 11010:11010 -p 8081:8081 boltz/regtest",
     "docker:stop": "docker kill regtest && docker rm regtest",
     "test": "npm run test:unit && npm run docker:start && npm run test:int && npm run docker:stop",
-    "test:unit": "mocha test/unit/*.spec.ts test/unit/chain/*.spec.ts test/unit/wallet/*.spec.ts",
-    "test:int": "mocha test/integration/chain/*.spec.ts test/integration/swap/*.spec.ts test/integration/wallet/*.spec.ts"
+    "test:unit": "mocha test/unit/*.spec.ts test/unit/**/*.spec.ts",
+    "test:int": "mocha --slow 1000 test/integration/**/*.spec.ts"
   },
   "bin": {
     "boltzd": "./bin/boltzd",

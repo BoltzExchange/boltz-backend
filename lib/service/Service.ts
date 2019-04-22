@@ -45,6 +45,9 @@ interface Service {
 
   on(event: 'refund', listener: (lockupTransactionHash: string) => void): this;
   emit(event: 'refund', lockupTransactionHash: string): boolean;
+
+  on(event: 'channel.backup', listener: (currency: string, channelBackup: string) => void): this;
+  emit(event: 'channel.backup', currency: string, channelbackup: string): boolean;
 }
 
 const argChecks = {
@@ -103,9 +106,10 @@ class Service extends EventEmitter {
   constructor(private serviceComponents: ServiceComponents) {
     super();
 
-    this.subscribeTransactions();
-    this.subscribeInvoices();
     this.subscribeRefunds();
+    this.subscribeInvoices();
+    this.subscribeTransactions();
+    this.subscribeChannelBackups();
   }
 
   /**
@@ -432,6 +436,19 @@ class Service extends EventEmitter {
   private subscribeRefunds = () => {
     this.serviceComponents.swapManager.nursery.on('refund', (lockupTransactionHash) => {
       this.emit('refund', lockupTransactionHash);
+    });
+  }
+
+  /**
+   * Subscribes to a a stream of channel backups
+   */
+  private subscribeChannelBackups = () => {
+    this.serviceComponents.currencies.forEach((currency) => {
+      const { symbol, lndClient } = currency;
+
+      lndClient.on('channel.backup', (channelBackup: string) => {
+        this.emit('channel.backup', symbol, channelBackup);
+      });
     });
   }
 

@@ -5,7 +5,6 @@ import grpc, { Server } from 'grpc';
 import Errors from './Errors';
 import Logger from '../Logger';
 import GrpcService from './GrpcService';
-import Service from '../service/Service';
 import { BoltzService } from '../proto/boltzrpc_grpc_pb';
 
 type GrpcConfig = {
@@ -18,10 +17,9 @@ type GrpcConfig = {
 class GrpcServer {
   private server: Server;
 
-  constructor(private logger: Logger, service: Service, private grpcConfig: GrpcConfig) {
+  constructor(private logger: Logger, grpcService: GrpcService, private grpcConfig: GrpcConfig) {
     this.server = new grpc.Server();
 
-    const grpcService = new GrpcService(service);
     this.server.addService(BoltzService, {
       getInfo: grpcService.getInfo,
       getBalance: grpcService.getBalance,
@@ -33,14 +31,16 @@ class GrpcServer {
       subscribeTransactions: grpcService.subscribeTransactions,
       subscribeInvoices: grpcService.subscribeInvoices,
       subscribeRefunds: grpcService.subscribeRefunds,
+      subscribeChannelBackups: grpcService.subscribeChannelBackups,
       createSwap: grpcService.createSwap,
       createReverseSwap: grpcService.createReverseSwap,
       sendCoins: grpcService.sendCoins,
     });
   }
 
-  public listen = async () => {
+  public listen = () => {
     const { port, host, certpath, keypath } = this.grpcConfig;
+
     if (!fs.existsSync(certpath) && !fs.existsSync(keypath)) {
       this.generateCertificate(certpath, keypath);
     }
@@ -49,6 +49,7 @@ class GrpcServer {
     const key = fs.readFileSync(keypath);
 
     assert(Number.isInteger(port) && port > 1023 && port < 65536, 'port must be an integer between 1024 and 65536');
+
     // tslint:disable-next-line:no-null-keyword
     const serverCert = grpc.ServerCredentials.createSsl(null,
       [{

@@ -1,13 +1,13 @@
 import { expect } from 'chai';
 import { fromSeed } from 'bip32';
 import { mock } from 'ts-mockito';
-import { generateMnemonic, mnemonicToSeedSync } from 'bip39';
 import { address, crypto } from 'bitcoinjs-lib';
 import { Networks, OutputType } from 'boltz-core';
-import Wallet from '../../../lib/wallet/Wallet';
-import ChainClient from '../../../lib/chain/ChainClient';
+import { generateMnemonic, mnemonicToSeedSync } from 'bip39';
 import Logger from '../../../lib/Logger';
+import Wallet from '../../../lib/wallet/Wallet';
 import Database from '../../../lib/db/Database';
+import ChainClient from '../../../lib/chain/ChainClient';
 import UtxoRepository from '../../../lib/wallet/UtxoRepository';
 import WalletRepository from '../../../lib/wallet/WalletRepository';
 import OutputRepository from '../../../lib/wallet/OutputRepository';
@@ -148,7 +148,7 @@ describe('Wallet', () => {
   it('should update highest used index in database', async () => {
     const dbWallet = await walletRepository.getWallet(currency);
 
-    expect(dbWallet!.highestUsedIndex).to.be.equal(highestUsedIndex);
+    expect(dbWallet.highestUsedIndex).to.be.equal(highestUsedIndex);
   });
 
   after(async () => {

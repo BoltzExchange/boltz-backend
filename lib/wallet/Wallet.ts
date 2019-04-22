@@ -245,7 +245,7 @@ class Wallet {
 
     const utxos = await this.utxoRepository.getUtxos(this.symbol);
 
-    utxos.forEach((utxo) => {
+    utxos.forEach((utxo: Utxo) => {
       if (utxo.confirmed) {
         confirmedBalance += utxo.value;
       } else {
@@ -330,11 +330,6 @@ class Wallet {
         throw Errors.NOT_ENOUGH_FUNDS(amount);
       }
 
-      // Mark the UTXOs that are going to be spent
-      for (const utxo of toSpend) {
-        await this.utxoRepository.markUtxoSpent(utxo.id);
-      }
-
       // Construct the transaction
       const builder = new TransactionBuilder(this.network);
 
@@ -377,11 +372,17 @@ class Wallet {
         }
       });
 
+      // Mark the UTXOs that were spent in the transaction
+      for (const utxo of toSpend) {
+        await this.utxoRepository.markUtxoSpent(utxo.id);
+      }
+
       return {
         transaction: builder.build(),
         vout: 0,
       };
     }).catch((error) => {
+      this.logger.error(`Could not send ${sendAll ? 'all' : amount} ${this.symbol} to address ${address}: ${error}`);
       throw error;
     });
   }

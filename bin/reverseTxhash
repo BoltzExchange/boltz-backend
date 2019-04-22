@@ -1,0 +1,24 @@
+#!/usr/bin/env node
+
+const path = require('path');
+const { Database } = require('sqlite3');
+const { getHexBuffer, transactionHashToId } = require('../dist/Utils');
+
+// First command line argument is the path to the database
+const dbPath = path.resolve(process.argv[2]);
+
+const db = new Database(dbPath);
+
+db.all('SELECT txHash, vout FROM utxos WHERE (currency = ? AND spent = ?)', ['BTC', 1], (err, rows) => {
+  if (err) {
+    console.log(err);
+    return;
+  }
+
+  rows.forEach((row) => {
+    const id = transactionHashToId(getHexBuffer(row.txHash));
+    console.log(`${id}:${row.vout}`);
+  });
+
+  db.close();
+});

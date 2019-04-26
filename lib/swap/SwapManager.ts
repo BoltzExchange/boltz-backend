@@ -57,12 +57,15 @@ class SwapManager {
     this.logger.silly(`Sending ${sendingCurrency.symbol} on Lightning and receiving ${receivingCurrency.symbol} on the chain`);
 
     const { blocks } = await receivingCurrency.chainClient.getBlockchainInfo();
-    const { paymentHash, numSatoshis, destination } = await sendingCurrency.lndClient.decodePayReq(invoice);
+    const { paymentHash, numSatoshis, destination, routeHintsList } = await sendingCurrency.lndClient.decodePayReq(invoice);
 
-    const routable = await this.checkRoutability(sendingCurrency.lndClient, destination, numSatoshis);
+    // If there are route hints the routability check could fail although the LND could pay the invoice
+    if (routeHintsList.length !== 0) {
+      const routable = await this.checkRoutability(sendingCurrency.lndClient, destination, numSatoshis);
 
-    if (!routable) {
-      throw Errors.NO_ROUTE_FOUND();
+      if (!routable) {
+        throw Errors.NO_ROUTE_FOUND();
+      }
     }
 
     this.logger.verbose(`Creating new Swap from ${receivingCurrency.symbol} to ${sendingCurrency.symbol} with preimage hash: ${paymentHash}`);

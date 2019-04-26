@@ -80,7 +80,7 @@ class SwapManager {
     const encodeFunction = getScriptHashFunction(outputType);
     const outputScript = encodeFunction(redeemScript);
 
-    const expectedAmount = this.calculateExpectedAmount(numSatoshis + fee, this.getRate(rate, orderSide));
+    const expectedAmount = this.calculateExpectedAmount(numSatoshis, this.getRate(rate, orderSide)) + fee;
 
     receivingCurrency.swaps.set(getHexString(outputScript), {
       invoice,

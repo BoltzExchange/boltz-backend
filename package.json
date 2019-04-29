@@ -1,6 +1,6 @@
 {
   "name": "boltz-backend",
-  "version": "0.0.2",
+  "version": "1.0.0-beta",
   "description": "Backend of boltz",
   "main": "dist/Boltz.js",
   "scripts": {
@@ -17,7 +17,9 @@
     "docker:stop": "docker kill regtest && docker rm regtest",
     "test": "npm run test:unit && npm run docker:start && npm run test:int && npm run docker:stop",
     "test:unit": "mocha test/unit/*.spec.ts test/unit/**/*.spec.ts",
-    "test:int": "mocha --slow 1000 test/integration/**/*.spec.ts"
+    "test:int": "mocha --slow 1000 test/integration/**/*.spec.ts",
+    "changelog": "conventional-changelog -p angular -i CHANGELOG.md -s",
+    "prepublishOnly": "npm run compile"
   },
   "bin": {
     "boltzd": "./bin/boltzd",
@@ -81,6 +83,7 @@
     "chai": "^4.2.0",
     "chai-as-promised": "^7.1.1",
     "concurrently": "^4.1.0",
+    "conventional-changelog": "^3.1.4",
     "grpc-tools": "^1.7.3",
     "grpc_tools_node_protoc_ts": "^2.5.0",
     "mocha": "^6.1.3",

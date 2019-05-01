@@ -81,6 +81,10 @@ class ChainClient extends BaseClient {
     return this.client.request<Block>('getblock', [hash]);
   }
 
+  public invalidateBlock = (hash: string) => {
+    return this.client.request<void>('invalidateblock', [hash]);
+  }
+
   /**
    * Adds outputs to the list of relevant ones
    *

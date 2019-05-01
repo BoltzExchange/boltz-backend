@@ -41,6 +41,10 @@ class ZmqClient extends EventEmitter {
 
   private sockets: Socket[] = [];
 
+  // Because the event handlers that process the blocks are doing work asynchronously
+  // one has to use a lock to ensure the events get handled sequentially
+  private blockHandleLock = new AsyncLock();
+
   constructor(
     private symbol: string,
     private logger: Logger,
@@ -164,8 +168,8 @@ class ZmqClient extends EventEmitter {
     });
   }
 
-  // TODO: deal with reorgs
   private initRawBlock = (address: string) => {
+    const lockKey = filters.rawBlock;
     const socket = this.createSocket(address, 'rawblock');
 
     socket.monitor();
@@ -195,14 +199,36 @@ class ZmqClient extends EventEmitter {
         ),
       );
 
-      if (previousBlockHash === this.bestBlockHash) {
-        this.blockHeight += 1;
-        this.bestBlockHash = hash;
+      this.blockHandleLock.acquire(lockKey, async () => {
+        if (previousBlockHash === this.bestBlockHash) {
+          this.blockHeight += 1;
+          this.bestBlockHash = hash;
 
-        this.newChainTip();
-      } else {
-        this.logOrphanBlock(hash);
-      }
+          this.newChainTip();
+        } else {
+          // If there are many blocks added to the chain at once, Bitcoin Core might
+          // take a few milliseconds to write all of them to the disk. Therefore
+          // we just get the height of the previous block and increase it by 1
+          const previousBlock = await this.getBlock(previousBlockHash);
+          const height = previousBlock.height + 1;
+
+          if (height > this.blockHeight) {
+            if (height > this.blockHeight + 1) {
+              for (let i = 1; height > this.blockHeight + i; i += 1) {
+                this.emit('block', this.blockHeight + i);
+              }
+            }
+
+            this.blockHeight = height;
+            this.bestBlockHash = hash;
+
+            this.logReorganize();
+            this.newChainTip();
+          } else {
+            this.logOrphanBlock(hash);
+          }
+        }
+      }, () => {});
     });
   }
 
@@ -211,12 +237,8 @@ class ZmqClient extends EventEmitter {
       throw Errors.NO_BLOCK_FALLBACK(this.symbol);
     }
 
-    const socket = this.createSocket(this.hashBlockAddress, 'hashblock');
-
-    // Because the event handler is doing work asynchronously one has
-    // to use a lock to ensure the events get handled sequentially
-    const lock = new AsyncLock();
     const lockKey = filters.hashBlock;
+    const socket = this.createSocket(this.hashBlockAddress, 'hashblock');
 
     const handleBlock = async (blockHash: string) => {
       const block = await this.getBlock(blockHash);
@@ -228,17 +250,15 @@ class ZmqClient extends EventEmitter {
         this.newChainTip();
       } else {
         if (block.height > this.blockHeight) {
-          console.log('rescan');
-          const oldHeight = this.blockHeight;
+          for (let i = 1; block.height > this.blockHeight + i; i += 1) {
+            this.emit('block', this.blockHeight + i);
+          }
 
           this.blockHeight = block.height;
           this.bestBlockHash = block.hash;
 
-          for (let i = 1; oldHeight + i <= this.blockHeight; i += 1) {
-            this.emit('block', oldHeight + i);
-          }
-
-          await this.rescanChain(oldHeight);
+          this.logReorganize();
+          this.newChainTip();
         } else {
           this.logOrphanBlock(block.hash);
         }
@@ -248,12 +268,12 @@ class ZmqClient extends EventEmitter {
     socket.on('message', (_, blockHash: Buffer) => {
       const blockHashString = getHexString(blockHash);
 
-      lock.acquire(lockKey, async () => {
+      this.blockHandleLock.acquire(lockKey, async () => {
         try {
           await handleBlock(blockHashString);
         } catch (error) {
           if (error.message === 'Block not found on disk') {
-            // If there are many blocks added to the chain at once Bitcoin Core might
+            // If there are many blocks added to the chain at once, Bitcoin Core might
             // take a few milliseconds to write all of them to the disk. Therefore
             // it just retries getting the block after a little delay
             setTimeout(async () => {
@@ -281,6 +301,10 @@ class ZmqClient extends EventEmitter {
     this.logger.silly(`New ${this.symbol} chain tip #${this.blockHeight}: ${this.bestBlockHash}`);
 
     this.emit('block', this.blockHeight);
+  }
+
+  private logReorganize = () => {
+    this.logger.info(`Reorganized ${this.symbol} chain to #${this.blockHeight}: ${this.bestBlockHash}`);
   }
 
   private logOrphanBlock = (hash: string) => {

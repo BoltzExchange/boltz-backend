@@ -1,9 +1,9 @@
 import chai, { expect } from 'chai';
 import zmq, { Socket } from 'zeromq';
-import { OutputType } from 'boltz-core';
-import { Transaction, crypto } from 'bitcoinjs-lib';
 import { randomBytes } from 'crypto';
+import { OutputType } from 'boltz-core';
 import chaiAsPromised from 'chai-as-promised';
+import { Transaction, crypto } from 'bitcoinjs-lib';
 import Logger from '../../../lib/Logger';
 import Errors from '../../../lib/chain/Errors';
 import { getHexString, reverseBuffer } from '../../../lib/Utils';
@@ -49,6 +49,11 @@ describe('ZmqClient', () => {
   const rawBlock = new ZmqPublisher(3001, filters.rawBlock);
   const hashBlock = new ZmqPublisher(3002, filters.hashBlock);
 
+  const sendHashBlock = (height?: number, orphan = false) => {
+    const { hash } = generateBlock(height, orphan);
+    hashBlock.sendMessage(reverseBuffer(hash));
+  };
+
   // Variables and functions related to transactions
   const { outputScript } = generateAddress(OutputType.Bech32);
   const transactions = new Map<string, { transaction: Transaction, isConfirmed: boolean }>();
@@ -73,7 +78,6 @@ describe('ZmqClient', () => {
     hash: crypto.sha256(randomBytes(32)),
     block: randomBytes(80),
   };
-  const genesisHash = getHexString(genesisBlock.hash);
 
   // Number of blocks that should be generated for each block test
   const blocksToGenerate = 10;
@@ -90,21 +94,23 @@ describe('ZmqClient', () => {
   // A map between the hashes of the blocks and the transactions that blocks contains
   const blockTransactions = new Map<string, string[]>();
 
-  const generateBlock = (orphan = false): RawBlock => {
+  const generateBlock = (height?: number, orphan = false): RawBlock => {
+    const previousBlockHeight = height !== undefined ? height : bestBlockHeight;
+
     // Note that generating orphan works just if there were blocks mined after genesis
-    const previousBlock = orphan ? blocks.get(genesisHash)! : blocks.get(blockIndex.get(bestBlockHeight)!)!;
+    const previousBlock = blocks.get(blockIndex.get(previousBlockHeight)!)!;
 
     const data = Buffer.concat([randomBytes(4), previousBlock.hash, randomBytes(44)], 80);
     const hash = crypto.sha256(crypto.sha256(data));
 
     if (!orphan) {
-      bestBlockHeight += 1;
+      bestBlockHeight = previousBlockHeight + 1;
     }
 
     const block = {
       hash,
       block: data,
-      height: orphan ? 1 : bestBlockHeight,
+      height: orphan ? previousBlockHeight + 1 : bestBlockHeight,
     };
 
     const hashHex = getHexString(reverseBuffer(hash));
@@ -291,7 +297,7 @@ describe('ZmqClient', () => {
     });
 
     await waitForFunctionToBeTrue(() => {
-      return blockAcceptance === false;
+      return !blockAcceptance;
     });
 
     expect(zmqClient.utxos.has(mempoolTransaction.getId())).to.be.true;
@@ -333,7 +339,7 @@ describe('ZmqClient', () => {
     });
 
     // Generate an orphan and make sure that the blockHeight did not increase
-    const { block } = generateBlock(true);
+    const { block } = generateBlock(0, true);
     rawBlock.sendMessage(block);
 
     await wait(10);
@@ -341,18 +347,29 @@ describe('ZmqClient', () => {
     expect(blockHeight).to.be.equal(bestBlockHeight);
   });
 
-  it('should handle hashblock notifications as fallback', async () => {
-    const sendBlock = (orphan = false) => {
-      const { hash } = generateBlock(orphan);
-      hashBlock.sendMessage(reverseBuffer(hash));
-    };
-
-    rawBlock.close();
-    let blockHeight = 0;
+  it('should handle rawblock reorganizations', async () => {
+    let blockHeight = bestBlockHeight;
 
     zmqClient.on('block', (height) => {
+      expect(height).to.be.equal(blockHeight + 1);
       blockHeight = height;
     });
+
+    const reorgHeight = bestBlockHeight - 5;
+    for (let i = 0; i < blocksToGenerate; i += 1) {
+      const { block } = generateBlock(reorgHeight + i);
+      rawBlock.sendMessage(block);
+    }
+
+    await waitForFunctionToBeTrue(() => {
+      return blockHeight === bestBlockHeight;
+    });
+
+    expect(blockHeight).to.be.equal(reorgHeight + blocksToGenerate);
+  });
+
+  it('should fallback to hashblock notifications', async () => {
+    rawBlock.close();
 
     // Wait until there are three sockets in the ZmqClient which
     // means that the client connected to the hashblock fallback
@@ -362,9 +379,17 @@ describe('ZmqClient', () => {
 
     // Wait a little more to make sure the socket is connected
     await wait(10);
+  });
+
+  it('should handle hashblock notifications', async () => {
+    let blockHeight = 0;
+
+    zmqClient.on('block', (height) => {
+      blockHeight = height;
+    });
 
     for (let i = 9; i < blocksToGenerate; i += 1) {
-      sendBlock();
+      sendHashBlock();
     }
 
     await waitForFunctionToBeTrue(() => {
@@ -372,10 +397,30 @@ describe('ZmqClient', () => {
     });
 
     // Generate an orphan and make sure that the blockHeight did not increase
-    sendBlock(true);
+    sendHashBlock(0, true);
 
     await wait(10);
 
     expect(blockHeight).to.be.equal(bestBlockHeight);
+  });
+
+  it('should handle rawblock reorganizations', async () => {
+    let blockHeight = bestBlockHeight;
+
+    zmqClient.on('block', (height) => {
+      expect(height).to.be.equal(blockHeight + 1);
+      blockHeight = height;
+    });
+
+    const reorgHeight = bestBlockHeight - 5;
+    for (let i = 0; i < blocksToGenerate; i += 1) {
+      sendHashBlock(reorgHeight + i);
+    }
+
+    await waitForFunctionToBeTrue(() => {
+      return blockHeight === bestBlockHeight;
+    });
+
+    expect(blockHeight).to.be.equal(reorgHeight + blocksToGenerate);
   });
 });

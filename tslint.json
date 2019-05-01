@@ -53,7 +53,7 @@
     "no-floating-promises": [true, "Bluebird"],
     "no-null-keyword": true,
     "jsdoc-format": true,
-    "no-unnecessary-type-assertion": true,
+    "no-unnecessary-type-assertion": false,
     "await-promise": [true, "Bluebird"],
     "no-inferrable-types": true
   }

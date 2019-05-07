@@ -1,6 +1,7 @@
-FROM alpine:3.9
+FROM alpine:3.9.3
 
 # Install dependencies
+RUN apk update && apk upgrade
 RUN apk --no-cache add \
   jq \
   boost \

@@ -1,10 +1,9 @@
 # Build Bitcoin Core
-FROM alpine:3.9 as bitcoin-core
+FROM alpine:3.9.3 as bitcoin-core
 
 COPY --from=boltz/berkeley-db /opt /opt
 
-RUN apk update
-RUN apk upgrade
+RUN apk update && apk upgrade
 RUN apk --no-cache add \
   file \
   gnupg \
@@ -23,7 +22,7 @@ RUN apk --no-cache add \
 
 RUN gpg --batch --keyserver keyserver.ubuntu.com --recv-keys "90C8019E36C2E964"
 
-ENV BITCOIN_VERSION=0.17.1
+ENV BITCOIN_VERSION=0.18.0
 ENV BITCOIN_PREFIX=/opt/bitcoin-${BITCOIN_VERSION}
 
 RUN wget https://bitcoin.org/bin/bitcoin-core-${BITCOIN_VERSION}/SHA256SUMS.asc
@@ -51,17 +50,18 @@ RUN ./configure LDFLAGS=-L`ls -d /opt/db*`/lib/ CPPFLAGS=-I`ls -d /opt/db*`/incl
     --with-utils \
     --with-libs
 
-RUN make -j4
+RUN make -j$(nproc)
 RUN make install
-RUN strip ${BITCOIN_PREFIX}/bin/bitcoin-cli
-RUN strip ${BITCOIN_PREFIX}/bin/bitcoin-tx
+
 RUN strip ${BITCOIN_PREFIX}/bin/bitcoind
+RUN strip ${BITCOIN_PREFIX}/bin/bitcoin-tx
+RUN strip ${BITCOIN_PREFIX}/bin/bitcoin-cli
+RUN strip ${BITCOIN_PREFIX}/bin/bitcoin-wallet
 
 # Assemble the final image
-FROM alpine:3.9
+FROM alpine:3.9.3
 
-RUN apk update
-RUN apk upgrade
+RUN apk update && apk upgrade
 RUN apk --no-cache add \
   boost \
   libzmq \
@@ -69,7 +69,7 @@ RUN apk --no-cache add \
   libressl \
   boost-program_options
 
-ENV BITCOIN_VERSION=0.17.1
+ENV BITCOIN_VERSION=0.18.0
 
 COPY --from=bitcoin-core /opt/bitcoin-${BITCOIN_VERSION}/bin /bin
 

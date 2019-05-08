@@ -1,13 +1,11 @@
 # Build Litecoin Core
-FROM alpine:3.9 as litecoin-core
+FROM alpine:3.9.3 as litecoin-core
 
 COPY --from=boltz/berkeley-db /opt /opt
 
-RUN apk update
-RUN apk upgrade
+RUN apk update && apk upgrade
 RUN apk --no-cache add \
   file \
-  gnupg \
   libtool \
   chrpath \
   automake \
@@ -21,9 +19,7 @@ RUN apk --no-cache add \
   protobuf-dev \
   linux-headers
 
-RUN gpg --batch --keyserver keyserver.ubuntu.com --recv-keys "0xFE3348877809386C"
-
-ENV LITECOIN_VERSION=0.17.1rc1
+ENV LITECOIN_VERSION=0.17.1
 ENV LITECOIN_PREFIX=/opt/litecoin-${LITECOIN_VERSION}
 
 RUN wget https://github.com/litecoin-project/litecoin/archive/v${LITECOIN_VERSION}.tar.gz
@@ -50,19 +46,17 @@ RUN ./configure LDFLAGS=-L`ls -d /opt/db*`/lib/ CPPFLAGS=-I`ls -d /opt/db*`/incl
     --with-utils \
     --with-libs
 
-RUN make -j4
+RUN make -j$(nproc)
 RUN make install
-RUN strip ${LITECOIN_PREFIX}/bin/litecoin-cli
-RUN strip ${LITECOIN_PREFIX}/bin/litecoin-tx
+
 RUN strip ${LITECOIN_PREFIX}/bin/litecoind
-RUN strip ${LITECOIN_PREFIX}/lib/libbitcoinconsensus.a
-RUN strip ${LITECOIN_PREFIX}/lib/libbitcoinconsensus.so.0.0.0
+RUN strip ${LITECOIN_PREFIX}/bin/litecoin-tx
+RUN strip ${LITECOIN_PREFIX}/bin/litecoin-cli
 
 # Assemble the final image
-FROM alpine:3.9
+FROM alpine:3.9.3
 
-RUN apk update
-RUN apk upgrade
+RUN apk update && apk upgrade
 RUN apk --no-cache add \
   boost \
   libzmq \
@@ -70,10 +64,10 @@ RUN apk --no-cache add \
   libressl \
   boost-program_options
 
-ENV LITECOIN_VERSION=0.17.1rc1
+ENV LITECOIN_VERSION=0.17.1
 
 COPY --from=litecoin-core /opt/litecoin-${LITECOIN_VERSION}/bin /bin
 
 EXPOSE 19332 19333 19444 19443
 
-ENTRYPOINT ["litecoind", "--help"]
+ENTRYPOINT ["litecoind"]

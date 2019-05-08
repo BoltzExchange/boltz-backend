@@ -1,8 +1,7 @@
 # Build BerkeleyDB
-FROM alpine:3.9 as berkeley-db
+FROM alpine:3.9.3 as berkeley-db
 
-RUN apk update
-RUN apk upgrade
+RUN apk update && apk upgrade
 RUN apk --no-cache add \
   autoconf \
   automake \
@@ -20,11 +19,10 @@ RUN mkdir -p ${BERKELEYDB_PREFIX}
 WORKDIR /${BERKELEYDB_VERSION}/build_unix
 
 RUN ../dist/configure --enable-cxx --disable-shared --with-pic --prefix=${BERKELEYDB_PREFIX}
-RUN make -j4
+RUN make -j$(nproc)
 RUN make install
-RUN rm -rf ${BERKELEYDB_PREFIX}/docs
 
 # Assemble the final image
-FROM alpine:3.9
+FROM alpine:3.9.3
 
 COPY --from=berkeley-db /opt /opt

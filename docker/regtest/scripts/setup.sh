@@ -29,7 +29,7 @@ function openChannel () {
   $1 generate 6 > /dev/null
 
   while true; do
-    numActiveChannels="$($2 getinfo | jq -r ".num_active_channels")"
+    numActiveChannels="$($2 getinfo | jq -r ".num_pending_channels")"
 
     if [ ${numActiveChannels} == "1" ]; then
       break	

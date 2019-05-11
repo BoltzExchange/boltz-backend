@@ -46,8 +46,6 @@ class SwapManager {
    * @param refundPublicKey public key of the keypair needed for claiming
    * @param outputType what kind of adress should be returned
    * @param timeoutBlockNumber after how many blocks the onchain script should time out
-   *
-   * @returns an onchain address
    */
   public createSwap = async (baseCurrency: string, quoteCurrency: string, orderSide: OrderSide, rate: number,
     fee: number, invoice: string, refundPublicKey: Buffer, outputType: OutputType, timeoutBlockNumber: number) => {
@@ -115,8 +113,6 @@ class SwapManager {
    * @param claimPublicKey public key of the keypair needed for claiming
    * @param amount amount of the invoice
    * @param timeoutBlockNumber after how many blocks the onchain script should time out
-   *
-   * @returns a Lightning invoice, the lockup transaction and its hash
    */
   public createReverseSwap = async (baseCurrency: string, quoteCurrency: string, orderSide: OrderSide, rate: number,
     fee: number, claimPublicKey: Buffer, amount: number, timeoutBlockNumber: number) => {
@@ -145,7 +141,11 @@ class SwapManager {
 
     const sendingAmount = this.calculateExpectedAmount(amount, 1 / this.getRate(rate, orderSide)) - fee;
 
-    const { vout, transaction } = await sendingCurrency.wallet.sendToAddress(address, OutputType.Bech32, true, sendingAmount);
+    if (sendingAmount <= 0) {
+      throw Errors.AMOUNT_TOO_LOW();
+    }
+
+    const { fee: minerFee, vout, transaction } = await sendingCurrency.wallet.sendToAddress(address, OutputType.Bech32, true, sendingAmount);
     this.logger.debug(`Sending ${sendingAmount} on ${sendingCurrency.symbol} to swap address ${address}: ${transaction.getId()}:${vout}`);
 
     const rawTx = transaction.toHex();
@@ -175,10 +175,12 @@ class SwapManager {
     }
 
     return {
-      invoice: paymentRequest,
-      redeemScript: getHexString(redeemScript),
+      minerFee,
       lockupAddress: address,
+      invoice: paymentRequest,
       lockupTransaction: rawTx,
+      amountSent: sendingAmount,
+      redeemScript: getHexString(redeemScript),
       lockupTransactionHash: transaction.getId(),
     };
   }

@@ -41,8 +41,8 @@ interface GrpcResponse {
 }
 
 interface LndClient {
-  on(event: 'invoice.paid', listener: (invoice: string) => void): this;
-  emit(event: 'invoice.paid', invoice: string): boolean;
+  on(event: 'invoice.paid', listener: (invoice: string, routingFee: number) => void): this;
+  emit(event: 'invoice.paid', invoice: string, routingFee: number): boolean;
 
   on(event: 'invoice.failed', listener: (invoice: string) => void): this;
   emit(event: 'invoice.failed', invoice: string): boolean;
@@ -212,7 +212,8 @@ class LndClient extends BaseClient implements LndClient {
     const response = await this.unaryCall<lndrpc.SendRequest, lndrpc.SendResponse.AsObject>('sendPaymentSync', request);
 
     if (response.paymentError === '') {
-      this.emit('invoice.paid', invoice);
+      const fee = response.paymentRoute ? response.paymentRoute.totalFeesMsat : 0;
+      this.emit('invoice.paid', invoice, fee);
     } else {
       this.emit('invoice.failed', invoice);
     }
@@ -313,6 +314,15 @@ class LndClient extends BaseClient implements LndClient {
   }
 
   /**
+   * Gets the balance of the onchain wallet
+   */
+  public getWalletBalance = () => {
+    const request = new lndrpc.WalletBalanceRequest();
+
+    return this.unaryCall<lndrpc.WalletBalanceRequest, lndrpc.WalletBalanceResponse.AsObject>('walletBalance', request);
+  }
+
+  /**
    * Subscribe to events for when invoices are settled.
    */
   private subscribeInvoices = () => {
@@ -326,7 +336,9 @@ class LndClient extends BaseClient implements LndClient {
           const paymentReq = invoice.getPaymentRequest();
 
           this.logger.silly(`${this.symbol} LND invoice settled: ${paymentReq}`);
-          this.emit('invoice.settled', paymentReq, invoice.getRPreimage_asB64());
+
+          const preimage = getHexString(Buffer.from(invoice.getRPreimage_asB64(), 'base64'));
+          this.emit('invoice.settled', paymentReq, preimage);
         }
       })
       .on('error', async (error) => {

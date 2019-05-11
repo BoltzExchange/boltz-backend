@@ -33,8 +33,11 @@ type SwapMaps = {
 };
 
 interface SwapNursery {
-  on(event: 'refund', listener: (lockupTransactionHash: string) => void): this;
-  emit(event: 'refund', lockupTransactionHash: string): boolean;
+  on(event: 'claim', listener: (lockupTransactionHash: string, lockupVout: number, minerFee: number) => void): this;
+  emit(event: 'claim', lockupTransactionHash: string, lockupVout: number, minerFee: number): boolean;
+
+  on(event: 'refund', listener: (lockupTransactionHash: string, lockupVout: number, minerFee: number) => void): this;
+  emit(event: 'refund', lockupTransactionHash: string, lockupVout: number, minerFee: number): boolean;
 
   on(event: 'invoice.failedToPay', listener: (invoice: string) => void): this;
   emit(event: 'invoice.failedToPay', invoice: string): boolean;
@@ -82,23 +85,30 @@ class SwapNursery extends EventEmitter {
     });
   }
 
-  private claimSwap = async (currency: Currency, lndClient: LndClient, txHash: Buffer,
-    outputScript: Buffer, outputValue: number, vout: number, details: SwapDetails) => {
-
-    const swapOutput = `${transactionHashToId(txHash)}:${vout}`;
+  private claimSwap = async (
+    currency: Currency,
+    lndClient: LndClient,
+    txHash: Buffer,
+    outputScript: Buffer,
+    outputValue: number,
+    vout: number,
+    details: SwapDetails,
+  ) => {
+    const transactionId = transactionHashToId(txHash);
+    const swapOutput = `${transactionId}:${vout}`;
 
     if (outputValue < details.expectedAmount) {
-      this.logger.warn(`Value ${outputValue} of ${swapOutput} is less than expected ${details.expectedAmount}. ` +
-        `Aborting ${currency.symbol} swap`);
+      this.logger.warn(`Value ${outputValue} ${currency.symbol} of ${swapOutput} is less than expected ${details.expectedAmount}: ` +
+        'aborting swap');
       return;
     }
 
-    this.logger.info(`Claiming ${currency.symbol} swap output: ${swapOutput}`);
+    this.logger.verbose(`Claiming ${currency.symbol} swap output: ${swapOutput}`);
 
     const preimage = await this.payInvoice(lndClient, details.invoice);
 
     if (preimage) {
-      this.logger.silly(`Got ${currency.symbol} preimage: ${preimage}`);
+      this.logger.silly(`Got ${currency.symbol} preimage: ${getHexString(preimage)}`);
 
       const destinationAddress = await this.walletManager.wallets.get(currency.symbol)!.getNewAddress(OutputType.Bech32);
 
@@ -106,20 +116,23 @@ class SwapNursery extends EventEmitter {
         [{
           vout,
           txHash,
+          preimage,
           value: outputValue,
           script: outputScript,
           keys: details.claimKeys,
           type: details.outputType,
           redeemScript: details.redeemScript,
-          preimage: Buffer.from(preimage, 'base64'),
         }],
         address.toOutputScript(destinationAddress, currency.network),
         await currency.chainClient.estimateFee(),
         true,
       );
+      const minerFee = this.getTransactionFee(outputValue, claimTx);
 
-      this.logger.verbose(`Broadcasting ${currency.symbol} claim transaction: ${claimTx.getId()}`);
+      this.logger.silly(`Broadcasting ${currency.symbol} claim transaction: ${claimTx.getId()}`);
+
       await currency.chainClient.sendRawTransaction(claimTx.toHex());
+      this.emit('claim', transactionId, vout, minerFee);
     }
   }
 
@@ -142,12 +155,13 @@ class SwapNursery extends EventEmitter {
         timeoutBlockHeight,
         await currency.chainClient.estimateFee(),
       );
+      const minerFee = this.getTransactionFee(details.output.value, refundTx);
 
       this.logger.verbose(`Broadcasting ${currency.symbol} refund transaction: ${refundTx.getId()}`);
 
       try {
         await currency.chainClient.sendRawTransaction(refundTx.toHex());
-        this.emit('refund', transactionId);
+        this.emit('refund', transactionId, details.output.vout, minerFee);
       } catch (error) {
         this.logger.warn(`Could not broadcast ${currency.symbol} refund transaction: ${error.message}`);
       }
@@ -162,7 +176,7 @@ class SwapNursery extends EventEmitter {
         throw payRequest.paymentError;
       }
 
-      return payRequest.paymentPreimage as string;
+      return Buffer.from(payRequest.paymentPreimage as string, 'base64');
     } catch (error) {
       this.logger.warn(`Could not pay ${lndClient.symbol} invoice ${invoice}: ${error}`);
 
@@ -170,6 +184,17 @@ class SwapNursery extends EventEmitter {
     }
 
     return;
+  }
+
+  private getTransactionFee = (inputValue: number, transaction: Transaction) => {
+    let fee = inputValue;
+
+    transaction.outs.forEach((out) => {
+      const output = out as TxOutput;
+      fee -= output.value;
+    });
+
+    return fee;
   }
 }
 

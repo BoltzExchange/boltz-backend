@@ -30,6 +30,7 @@ class GrpcServer {
       listenOnAddress: grpcService.listenOnAddress,
       subscribeTransactions: grpcService.subscribeTransactions,
       subscribeInvoices: grpcService.subscribeInvoices,
+      subscribeClaims: grpcService.subscribeClaims,
       subscribeRefunds: grpcService.subscribeRefunds,
       subscribeChannelBackups: grpcService.subscribeChannelBackups,
       createSwap: grpcService.createSwap,

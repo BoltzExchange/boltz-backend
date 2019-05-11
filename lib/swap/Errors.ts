@@ -11,4 +11,8 @@ export default {
     message: 'could not find route to pay invoice',
     code: concatErrorCode(ErrorCodePrefix.Swap, 1),
   }),
+  AMOUNT_TOO_LOW: (): Error => ({
+    message: 'onchain amount is too low',
+    code: concatErrorCode(ErrorCodePrefix.Swap, 2),
+  }),
 };

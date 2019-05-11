@@ -19,6 +19,7 @@ interface IBoltzService extends grpc.ServiceDefinition<grpc.UntypedServiceImplem
     listenOnAddress: IBoltzService_IListenOnAddress;
     subscribeTransactions: IBoltzService_ISubscribeTransactions;
     subscribeInvoices: IBoltzService_ISubscribeInvoices;
+    subscribeClaims: IBoltzService_ISubscribeClaims;
     subscribeRefunds: IBoltzService_ISubscribeRefunds;
     subscribeChannelBackups: IBoltzService_ISubscribeChannelBackups;
 }
@@ -131,6 +132,15 @@ interface IBoltzService_ISubscribeInvoices extends grpc.MethodDefinition<boltzrp
     responseSerialize: grpc.serialize<boltzrpc_pb.SubscribeInvoicesResponse>;
     responseDeserialize: grpc.deserialize<boltzrpc_pb.SubscribeInvoicesResponse>;
 }
+interface IBoltzService_ISubscribeClaims extends grpc.MethodDefinition<boltzrpc_pb.SubscribeClaimsRequest, boltzrpc_pb.SubscribeClaimsResponse> {
+    path: string; // "/boltzrpc.Boltz/SubscribeClaims"
+    requestStream: boolean; // false
+    responseStream: boolean; // true
+    requestSerialize: grpc.serialize<boltzrpc_pb.SubscribeClaimsRequest>;
+    requestDeserialize: grpc.deserialize<boltzrpc_pb.SubscribeClaimsRequest>;
+    responseSerialize: grpc.serialize<boltzrpc_pb.SubscribeClaimsResponse>;
+    responseDeserialize: grpc.deserialize<boltzrpc_pb.SubscribeClaimsResponse>;
+}
 interface IBoltzService_ISubscribeRefunds extends grpc.MethodDefinition<boltzrpc_pb.SubscribeRefundsRequest, boltzrpc_pb.SubscribeRefundsResponse> {
     path: string; // "/boltzrpc.Boltz/SubscribeRefunds"
     requestStream: boolean; // false
@@ -165,6 +175,7 @@ export interface IBoltzServer {
     listenOnAddress: grpc.handleUnaryCall<boltzrpc_pb.ListenOnAddressRequest, boltzrpc_pb.ListenOnAddressResponse>;
     subscribeTransactions: grpc.handleServerStreamingCall<boltzrpc_pb.SubscribeTransactionsRequest, boltzrpc_pb.SubscribeTransactionsResponse>;
     subscribeInvoices: grpc.handleServerStreamingCall<boltzrpc_pb.SubscribeInvoicesRequest, boltzrpc_pb.SubscribeInvoicesResponse>;
+    subscribeClaims: grpc.handleServerStreamingCall<boltzrpc_pb.SubscribeClaimsRequest, boltzrpc_pb.SubscribeClaimsResponse>;
     subscribeRefunds: grpc.handleServerStreamingCall<boltzrpc_pb.SubscribeRefundsRequest, boltzrpc_pb.SubscribeRefundsResponse>;
     subscribeChannelBackups: grpc.handleServerStreamingCall<boltzrpc_pb.SubscribeChannelBackupsRequest, boltzrpc_pb.ChannelBackup>;
 }
@@ -204,6 +215,8 @@ export interface IBoltzClient {
     subscribeTransactions(request: boltzrpc_pb.SubscribeTransactionsRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzrpc_pb.SubscribeTransactionsResponse>;
     subscribeInvoices(request: boltzrpc_pb.SubscribeInvoicesRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzrpc_pb.SubscribeInvoicesResponse>;
     subscribeInvoices(request: boltzrpc_pb.SubscribeInvoicesRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzrpc_pb.SubscribeInvoicesResponse>;
+    subscribeClaims(request: boltzrpc_pb.SubscribeClaimsRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzrpc_pb.SubscribeClaimsResponse>;
+    subscribeClaims(request: boltzrpc_pb.SubscribeClaimsRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzrpc_pb.SubscribeClaimsResponse>;
     subscribeRefunds(request: boltzrpc_pb.SubscribeRefundsRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzrpc_pb.SubscribeRefundsResponse>;
     subscribeRefunds(request: boltzrpc_pb.SubscribeRefundsRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzrpc_pb.SubscribeRefundsResponse>;
     subscribeChannelBackups(request: boltzrpc_pb.SubscribeChannelBackupsRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzrpc_pb.ChannelBackup>;
@@ -246,6 +259,8 @@ export class BoltzClient extends grpc.Client implements IBoltzClient {
     public subscribeTransactions(request: boltzrpc_pb.SubscribeTransactionsRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzrpc_pb.SubscribeTransactionsResponse>;
     public subscribeInvoices(request: boltzrpc_pb.SubscribeInvoicesRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzrpc_pb.SubscribeInvoicesResponse>;
     public subscribeInvoices(request: boltzrpc_pb.SubscribeInvoicesRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzrpc_pb.SubscribeInvoicesResponse>;
+    public subscribeClaims(request: boltzrpc_pb.SubscribeClaimsRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzrpc_pb.SubscribeClaimsResponse>;
+    public subscribeClaims(request: boltzrpc_pb.SubscribeClaimsRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzrpc_pb.SubscribeClaimsResponse>;
     public subscribeRefunds(request: boltzrpc_pb.SubscribeRefundsRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzrpc_pb.SubscribeRefundsResponse>;
     public subscribeRefunds(request: boltzrpc_pb.SubscribeRefundsRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzrpc_pb.SubscribeRefundsResponse>;
     public subscribeChannelBackups(request: boltzrpc_pb.SubscribeChannelBackupsRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzrpc_pb.ChannelBackup>;

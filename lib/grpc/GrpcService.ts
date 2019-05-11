@@ -9,6 +9,7 @@ import * as boltzrpc from '../proto/boltzrpc_pb';
 class GrpcService {
   private transactionSubscriptions: ServerWriteableStream<boltzrpc.SubscribeTransactionsRequest>[] = [];
   private invoiceSubscriptions: ServerWriteableStream<boltzrpc.SubscribeInvoicesRequest>[] = [];
+  private claimSubscriptions: ServerWriteableStream<boltzrpc.SubscribeClaimsRequest>[] = [];
   private refundSubscriptions: ServerWriteableStream<boltzrpc.SubscribeRefundsRequest>[] = [];
   private channelBackupSubscriptions: ServerWriteableStream<boltzrpc.SubscribeChannelBackupsRequest>[] = [];
 
@@ -97,6 +98,10 @@ class GrpcService {
     this.registerSubscription(call, this.invoiceSubscriptions);
   }
 
+  public subscribeClaims: handleServerStreamingCall<boltzrpc.SubscribeClaimsRequest, boltzrpc.SubscribeClaimsResponse> = async (call) => {
+    this.registerSubscription(call, this.claimSubscriptions);
+  }
+
   public subscribeRefunds: handleServerStreamingCall<boltzrpc.SubscribeRefundsRequest, boltzrpc.SubscribeRefundsResponse> = async (call) => {
     this.registerSubscription(call, this.refundSubscriptions);
   }
@@ -125,6 +130,8 @@ class GrpcService {
     try {
       const {
         invoice,
+        minerFee,
+        amountSent,
         redeemScript,
         lockupAddress,
         lockupTransaction,
@@ -133,6 +140,8 @@ class GrpcService {
 
       const response = new boltzrpc.CreateReverseSwapResponse();
       response.setInvoice(invoice);
+      response.setMinerFee(minerFee);
+      response.setAmountSent(amountSent);
       response.setRedeemScript(redeemScript);
       response.setLockupAddress(lockupAddress);
       response.setLockupTransaction(lockupTransaction);
@@ -160,22 +169,24 @@ class GrpcService {
 
   private subscribeToEvents = () => {
     // Transaction subscription
-    this.service.on('transaction.confirmed', (transactionHash: string, outputAddress: string) => {
+    this.service.on('transaction.confirmed', (outputAddress: string, transactionHash: string, amountReceived: number) => {
       this.transactionSubscriptions.forEach((subscription) => {
         const response = new boltzrpc.SubscribeTransactionsResponse();
-        response.setTransactionHash(transactionHash);
         response.setOutputAddress(outputAddress);
+        response.setAmountReceived(amountReceived);
+        response.setTransactionHash(transactionHash);
 
         subscription.write(response);
       });
     });
 
     // Invoice subscriptions
-    this.service.on('invoice.paid', (invoice: string) => {
+    this.service.on('invoice.paid', (invoice: string, routingFee: number) => {
       this.invoiceSubscriptions.forEach((subscription) => {
         const response = new boltzrpc.SubscribeInvoicesResponse();
         response.setEvent(boltzrpc.InvoiceEvent.PAID);
         response.setInvoice(invoice);
+        response.setRoutingFee(routingFee);
 
         subscription.write(response);
       });
@@ -202,11 +213,25 @@ class GrpcService {
       });
     });
 
+    // Claim subscription
+    this.service.on('claim', (lockupTransactionHash: string, lockupVout: number, minerFee: number) => {
+      this.claimSubscriptions.forEach((subscription) => {
+        const response = new boltzrpc.SubscribeClaimsResponse();
+        response.setLockupTransactionHash(lockupTransactionHash);
+        response.setLockupVout(lockupVout);
+        response.setMinerFee(minerFee);
+
+        subscription.write(response);
+      });
+    });
+
     // Refund subscription
-    this.service.on('refund', (lockupTransactionHash: string) => {
+    this.service.on('refund', (lockupTransactionHash: string, lockupVout: number, minerFee: number) => {
       this.refundSubscriptions.forEach((subscription) => {
         const response = new boltzrpc.SubscribeRefundsResponse();
         response.setLockupTransactionHash(lockupTransactionHash);
+        response.setLockupVout(lockupVout);
+        response.setMinerFee(minerFee);
 
         subscription.write(response);
       });

@@ -45,10 +45,13 @@ service Boltz {
   /* Subscribes to a stream of invoice events */
   rpc SubscribeInvoices (SubscribeInvoicesRequest) returns (stream SubscribeInvoicesResponse);
 
+  /* Subscribes to a stream of swap outputs that Boltz claims */
+  rpc SubscribeClaims (SubscribeClaimsRequest) returns (stream SubscribeClaimsResponse);
+
   /* Subscribes to a stream of lockup transactions that Boltz refunds */
   rpc SubscribeRefunds (SubscribeRefundsRequest) returns (stream SubscribeRefundsResponse);
 
-  /* Subscribes to a a stream of channel backups */
+  /* Subscribes to a stream of channel backups */
   rpc SubscribeChannelBackups (SubscribeChannelBackupsRequest) returns (stream ChannelBackup);
 }
 
@@ -110,12 +113,16 @@ message Balance {
   WalletBalance wallet_balance = 1;
   LightningBalance lightning_balance = 2;
 }
+message LightningBalance {
+  WalletBalance wallet_balance = 1; 
+  ChannelBalance channel_balance = 2; 
+}
 message WalletBalance {
   uint64 total_balance = 1;
   uint64 confirmed_balance = 2;
   uint64 unconfirmed_balance = 3;
 }
-message LightningBalance {
+message ChannelBalance {
   uint64 local_balance = 1;
   uint64 remote_balance = 2;
 }
@@ -160,20 +167,37 @@ message ListenOnAddressResponse {}
 
 message SubscribeTransactionsRequest {}
 message SubscribeTransactionsResponse {
-  string transaction_hash = 1;
-  string output_address = 2;
+  string output_address = 1;
+  string transaction_hash = 2;
+  uint64 amount_received = 3;
 }
 
 message SubscribeInvoicesRequest {}
 message SubscribeInvoicesResponse {
   InvoiceEvent event = 1;
   string invoice = 2;
-  string preimage = 3;
+
+  oneof event_details {
+    string preimage = 3;
+
+    uint32 routing_fee = 4;
+  }
+}
+
+message SubscribeClaimsRequest {}
+message SubscribeClaimsResponse {
+  string lockup_transaction_hash = 1;
+  uint32 lockup_vout = 2;
+
+  uint32 miner_fee = 3;
 }
 
 message SubscribeRefundsRequest {}
 message SubscribeRefundsResponse {
   string lockup_transaction_hash = 1;
+  uint32 lockup_vout = 2;
+
+  uint32 miner_fee = 3;
 }
 
 message CreateSwapRequest {
@@ -211,6 +235,8 @@ message CreateReverseSwapResponse {
   string lockup_address = 3;
   string lockup_transaction = 4;
   string lockup_transaction_hash = 5;
+  uint64 amount_sent = 6;
+  uint32 miner_fee = 7;
 }
 
 message SendCoinsRequest {

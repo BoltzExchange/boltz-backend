@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
 import { SwapUtils } from 'boltz-core';
-import { Transaction, address } from 'bitcoinjs-lib';
+import { Transaction, address, TxOutput } from 'bitcoinjs-lib';
 import Errors from './Errors';
 import Logger from '../Logger';
 import Wallet from '../wallet/Wallet';
@@ -15,6 +15,7 @@ import {
   LndChannels,
   CurrencyInfo,
   WalletBalance,
+  ChannelBalance,
   GetInfoResponse,
   LightningBalance,
   GetBalanceResponse,
@@ -31,11 +32,11 @@ type ServiceComponents = {
 };
 
 interface Service {
-  on(event: 'transaction.confirmed', listener: (transactionHash: string, outputAddress: string) => void): this;
-  emit(event: 'transaction.confirmed', transactionHash: string, outputAddress: string): boolean;
+  on(event: 'transaction.confirmed', listener: (outputAddress: string, transactionHash: string, amountReceived: number) => void): this;
+  emit(event: 'transaction.confirmed', outputAddress: string, transactionHash: string, amountReceived: number): boolean;
 
-  on(even: 'invoice.paid', listener: (invoice: string) => void): this;
-  emit(event: 'invoice.paid', invoice: string): boolean;
+  on(even: 'invoice.paid', listener: (invoice: string, routingFee: number) => void): this;
+  emit(event: 'invoice.paid', invoice: string, routingFee: number): boolean;
 
   on(event: 'invoice.failedToPay', listener: (invoice: string) => void): this;
   emit(event: 'invoice.failedToPay', invoice: string): boolean;
@@ -43,8 +44,11 @@ interface Service {
   on(event: 'invoice.settled', listener: (invoice: string, preimage: string) => void): this;
   emit(event: 'invoice.settled', string: string, preimage: string): boolean;
 
-  on(event: 'refund', listener: (lockupTransactionHash: string) => void): this;
-  emit(event: 'refund', lockupTransactionHash: string): boolean;
+  on(event: 'claim', listener: (lockupTransactionHash: string, lockupVout: number, minerFee: number) => void): this;
+  emit(event: 'claim', lockupTransactionHash: string, lockupVout: number, minerFee: number): boolean;
+
+  on(event: 'refund', listener: (lockupTransactionHash: string, lockupVout: number, minerFee: number) => void): this;
+  emit(event: 'refund', lockupTransactionHash: string, lockupVout: number, minerFee: number): boolean;
 
   on(event: 'channel.backup', listener: (currency: string, channelBackup: string) => void): this;
   emit(event: 'channel.backup', currency: string, channelbackup: string): boolean;
@@ -106,6 +110,7 @@ class Service extends EventEmitter {
   constructor(private serviceComponents: ServiceComponents) {
     super();
 
+    this.subscribeClaims();
     this.subscribeRefunds();
     this.subscribeInvoices();
     this.subscribeTransactions();
@@ -193,7 +198,12 @@ class Service extends EventEmitter {
       const currencyInfo = this.serviceComponents.currencies.get(symbol);
 
       if (currencyInfo) {
-        const lightningObject = new LightningBalance();
+        const lightningBalance = new LightningBalance();
+
+        const channelBalance = new ChannelBalance();
+        const lightningWalletBalance = new WalletBalance();
+
+        const { totalBalance, confirmedBalance, unconfirmedBalance } = await currencyInfo.lndClient.getWalletBalance();
         const { channelsList } = await currencyInfo.lndClient.listChannels();
 
         let localBalance = 0;
@@ -204,10 +214,17 @@ class Service extends EventEmitter {
           remoteBalance += channel.remoteBalance;
         });
 
-        lightningObject.setLocalBalance(localBalance);
-        lightningObject.setRemoteBalance(remoteBalance);
+        lightningWalletBalance.setTotalBalance(totalBalance);
+        lightningWalletBalance.setConfirmedBalance(confirmedBalance);
+        lightningWalletBalance.setUnconfirmedBalance(unconfirmedBalance);
 
-        balance.setLightningBalance(lightningObject);
+        channelBalance.setLocalBalance(localBalance);
+        channelBalance.setRemoteBalance(remoteBalance);
+
+        lightningBalance.setWalletBalance(lightningWalletBalance);
+        lightningBalance.setChannelBalance(channelBalance);
+
+        balance.setLightningBalance(lightningBalance);
       }
 
       return balance;
@@ -401,10 +418,11 @@ class Service extends EventEmitter {
     this.serviceComponents.currencies.forEach((currency) => {
       currency.chainClient.on('transaction.relevant.block', (transaction: Transaction) => {
         transaction.outs.forEach((out) => {
-          const listenAddress = this.listenScriptsSet.get(getHexString(out.script));
+          const output = out as TxOutput;
+          const listenAddress = this.listenScriptsSet.get(getHexString(output.script));
 
           if (listenAddress) {
-            this.emit('transaction.confirmed', transaction.getId(), listenAddress);
+            this.emit('transaction.confirmed', transaction.getId(), listenAddress, output.value);
           }
         });
       });
@@ -416,8 +434,8 @@ class Service extends EventEmitter {
    */
   private subscribeInvoices = () => {
     this.serviceComponents.currencies.forEach((currency) => {
-      currency.lndClient.on('invoice.paid', (invoice) => {
-        this.emit('invoice.paid', invoice);
+      currency.lndClient.on('invoice.paid', (invoice, routingFee) => {
+        this.emit('invoice.paid', invoice, routingFee);
       });
 
       currency.lndClient.on('invoice.settled', (invoice, preimage) => {
@@ -431,11 +449,20 @@ class Service extends EventEmitter {
   }
 
   /**
+   * Subscribes to a stream of swap outputs that Boltz claims
+   */
+  private subscribeClaims = () => {
+    this.serviceComponents.swapManager.nursery.on('claim', (lockupTransactionHash, vout, minerFee) => {
+      this.emit('claim', lockupTransactionHash, vout, minerFee);
+    });
+  }
+
+  /**
    * Subscribes to a stream of lockup transactions that Boltz refunds
    */
   private subscribeRefunds = () => {
-    this.serviceComponents.swapManager.nursery.on('refund', (lockupTransactionHash) => {
-      this.emit('refund', lockupTransactionHash);
+    this.serviceComponents.swapManager.nursery.on('refund', (lockupTransactionHash, vout, minerFee) => {
+      this.emit('refund', lockupTransactionHash, vout, minerFee);
     });
   }
 

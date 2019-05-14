@@ -271,7 +271,7 @@ class Wallet {
     isScriptHash: boolean,
     amount: number,
     satsPerByte?: number,
-    sendAll?: boolean): Promise<{ transaction: Transaction, vout: number }> => {
+    sendAll?: boolean) => {
 
     return this.lock.acquire(this.sendToAddressLock, async () => {
       const utxos = await this.utxoRepository.getUtxosSorted(this.symbol);
@@ -378,11 +378,12 @@ class Wallet {
       }
 
       return {
-        transaction: builder.build(),
+        fee,
         vout: 0,
+        transaction: builder.build(),
       };
     }).catch((error) => {
-      this.logger.error(`Could not send ${sendAll ? 'all' : amount} ${this.symbol} to address ${address}: ${error}`);
+      this.logger.error(`Could not send ${sendAll ? 'all' : amount} ${this.symbol} to address ${address}: ${JSON.stringify(error)}`);
       throw error;
     });
   }

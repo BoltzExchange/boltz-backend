@@ -257,6 +257,37 @@ export namespace Balance {
     }
 }
 
+export class LightningBalance extends jspb.Message { 
+
+    hasWalletBalance(): boolean;
+    clearWalletBalance(): void;
+    getWalletBalance(): WalletBalance | undefined;
+    setWalletBalance(value?: WalletBalance): void;
+
+
+    hasChannelBalance(): boolean;
+    clearChannelBalance(): void;
+    getChannelBalance(): ChannelBalance | undefined;
+    setChannelBalance(value?: ChannelBalance): void;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): LightningBalance.AsObject;
+    static toObject(includeInstance: boolean, msg: LightningBalance): LightningBalance.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: LightningBalance, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): LightningBalance;
+    static deserializeBinaryFromReader(message: LightningBalance, reader: jspb.BinaryReader): LightningBalance;
+}
+
+export namespace LightningBalance {
+    export type AsObject = {
+        walletBalance?: WalletBalance.AsObject,
+        channelBalance?: ChannelBalance.AsObject,
+    }
+}
+
 export class WalletBalance extends jspb.Message { 
     getTotalBalance(): number;
     setTotalBalance(value: number): void;
@@ -286,7 +317,7 @@ export namespace WalletBalance {
     }
 }
 
-export class LightningBalance extends jspb.Message { 
+export class ChannelBalance extends jspb.Message { 
     getLocalBalance(): number;
     setLocalBalance(value: number): void;
 
@@ -295,16 +326,16 @@ export class LightningBalance extends jspb.Message {
 
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): LightningBalance.AsObject;
-    static toObject(includeInstance: boolean, msg: LightningBalance): LightningBalance.AsObject;
+    toObject(includeInstance?: boolean): ChannelBalance.AsObject;
+    static toObject(includeInstance: boolean, msg: ChannelBalance): ChannelBalance.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: LightningBalance, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): LightningBalance;
-    static deserializeBinaryFromReader(message: LightningBalance, reader: jspb.BinaryReader): LightningBalance;
+    static serializeBinaryToWriter(message: ChannelBalance, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ChannelBalance;
+    static deserializeBinaryFromReader(message: ChannelBalance, reader: jspb.BinaryReader): ChannelBalance;
 }
 
-export namespace LightningBalance {
+export namespace ChannelBalance {
     export type AsObject = {
         localBalance: number,
         remoteBalance: number,
@@ -557,11 +588,14 @@ export namespace SubscribeTransactionsRequest {
 }
 
 export class SubscribeTransactionsResponse extends jspb.Message { 
+    getOutputAddress(): string;
+    setOutputAddress(value: string): void;
+
     getTransactionHash(): string;
     setTransactionHash(value: string): void;
 
-    getOutputAddress(): string;
-    setOutputAddress(value: string): void;
+    getAmountReceived(): number;
+    setAmountReceived(value: number): void;
 
 
     serializeBinary(): Uint8Array;
@@ -576,8 +610,9 @@ export class SubscribeTransactionsResponse extends jspb.Message {
 
 export namespace SubscribeTransactionsResponse {
     export type AsObject = {
-        transactionHash: string,
         outputAddress: string,
+        transactionHash: string,
+        amountReceived: number,
     }
 }
 
@@ -605,9 +640,20 @@ export class SubscribeInvoicesResponse extends jspb.Message {
     getInvoice(): string;
     setInvoice(value: string): void;
 
+
+    hasPreimage(): boolean;
+    clearPreimage(): void;
     getPreimage(): string;
     setPreimage(value: string): void;
 
+
+    hasRoutingFee(): boolean;
+    clearRoutingFee(): void;
+    getRoutingFee(): number;
+    setRoutingFee(value: number): void;
+
+
+    getEventDetailsCase(): SubscribeInvoicesResponse.EventDetailsCase;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): SubscribeInvoicesResponse.AsObject;
@@ -624,6 +670,63 @@ export namespace SubscribeInvoicesResponse {
         event: InvoiceEvent,
         invoice: string,
         preimage: string,
+        routingFee: number,
+    }
+
+    export enum EventDetailsCase {
+        EVENTDETAILS_NOT_SET = 0,
+    
+    PREIMAGE = 3,
+
+    ROUTING_FEE = 4,
+
+    }
+
+}
+
+export class SubscribeClaimsRequest extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SubscribeClaimsRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: SubscribeClaimsRequest): SubscribeClaimsRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SubscribeClaimsRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SubscribeClaimsRequest;
+    static deserializeBinaryFromReader(message: SubscribeClaimsRequest, reader: jspb.BinaryReader): SubscribeClaimsRequest;
+}
+
+export namespace SubscribeClaimsRequest {
+    export type AsObject = {
+    }
+}
+
+export class SubscribeClaimsResponse extends jspb.Message { 
+    getLockupTransactionHash(): string;
+    setLockupTransactionHash(value: string): void;
+
+    getLockupVout(): number;
+    setLockupVout(value: number): void;
+
+    getMinerFee(): number;
+    setMinerFee(value: number): void;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SubscribeClaimsResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: SubscribeClaimsResponse): SubscribeClaimsResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SubscribeClaimsResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SubscribeClaimsResponse;
+    static deserializeBinaryFromReader(message: SubscribeClaimsResponse, reader: jspb.BinaryReader): SubscribeClaimsResponse;
+}
+
+export namespace SubscribeClaimsResponse {
+    export type AsObject = {
+        lockupTransactionHash: string,
+        lockupVout: number,
+        minerFee: number,
     }
 }
 
@@ -648,6 +751,12 @@ export class SubscribeRefundsResponse extends jspb.Message {
     getLockupTransactionHash(): string;
     setLockupTransactionHash(value: string): void;
 
+    getLockupVout(): number;
+    setLockupVout(value: number): void;
+
+    getMinerFee(): number;
+    setMinerFee(value: number): void;
+
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): SubscribeRefundsResponse.AsObject;
@@ -662,6 +771,8 @@ export class SubscribeRefundsResponse extends jspb.Message {
 export namespace SubscribeRefundsResponse {
     export type AsObject = {
         lockupTransactionHash: string,
+        lockupVout: number,
+        minerFee: number,
     }
 }
 
@@ -816,6 +927,12 @@ export class CreateReverseSwapResponse extends jspb.Message {
     getLockupTransactionHash(): string;
     setLockupTransactionHash(value: string): void;
 
+    getAmountSent(): number;
+    setAmountSent(value: number): void;
+
+    getMinerFee(): number;
+    setMinerFee(value: number): void;
+
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): CreateReverseSwapResponse.AsObject;
@@ -834,6 +951,8 @@ export namespace CreateReverseSwapResponse {
         lockupAddress: string,
         lockupTransaction: string,
         lockupTransactionHash: string,
+        amountSent: number,
+        minerFee: number,
     }
 }
 

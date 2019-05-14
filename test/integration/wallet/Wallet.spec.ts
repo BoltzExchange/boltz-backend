@@ -101,12 +101,13 @@ describe('Wallet', () => {
     const { totalBalance } = await wallet.getBalance();
     const { address } = generateAddress(OutputType.Bech32);
 
-    const { transaction, vout } = await wallet.sendToAddress(address, OutputType.Bech32, false, totalBalance - 2000, 2);
+    const { fee, vout, transaction } = await wallet.sendToAddress(address, OutputType.Bech32, false, totalBalance - 2000, 2);
 
     await bitcoinClient.sendRawTransaction(transaction.toHex());
     await bitcoinClient.generate(1);
 
     expect(vout).to.be.equal(0);
+    expect(fee).to.be.equal(758);
     expect(transaction.ins.length).to.be.equal(3);
 
     await waitForPromiseToBeTrue(async () => {

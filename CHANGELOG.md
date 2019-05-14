@@ -1,3 +1,13 @@
+# [1.0.0-beta.2](https://github.com/BoltzExchange/boltz-backend/compare/v1.0.0-beta...v1.0.0-beta.2) (2019-05-14)
+
+
+### Features
+
+* detection of chain reorganizations ([#115](https://github.com/BoltzExchange/boltz-backend/issues/115)) ([2d6a40f](https://github.com/BoltzExchange/boltz-backend/commit/2d6a40f))
+* more verbose events for accounting in the middleware ([#120](https://github.com/BoltzExchange/boltz-backend/issues/120)) ([8c1e64d](https://github.com/BoltzExchange/boltz-backend/commit/8c1e64d))
+
+
+
 # [1.0.0-beta](https://github.com/BoltzExchange/boltz-backend/compare/v0.0.2...v1.0.0-beta) (2019-04-27)
 
 

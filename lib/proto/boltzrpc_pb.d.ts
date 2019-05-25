@@ -684,24 +684,80 @@ export namespace SubscribeInvoicesResponse {
 
 }
 
-export class SubscribeClaimsRequest extends jspb.Message { 
+export class SubscribeSwapEventsRequest extends jspb.Message { 
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): SubscribeClaimsRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: SubscribeClaimsRequest): SubscribeClaimsRequest.AsObject;
+    toObject(includeInstance?: boolean): SubscribeSwapEventsRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: SubscribeSwapEventsRequest): SubscribeSwapEventsRequest.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: SubscribeClaimsRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): SubscribeClaimsRequest;
-    static deserializeBinaryFromReader(message: SubscribeClaimsRequest, reader: jspb.BinaryReader): SubscribeClaimsRequest;
+    static serializeBinaryToWriter(message: SubscribeSwapEventsRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SubscribeSwapEventsRequest;
+    static deserializeBinaryFromReader(message: SubscribeSwapEventsRequest, reader: jspb.BinaryReader): SubscribeSwapEventsRequest;
 }
 
-export namespace SubscribeClaimsRequest {
+export namespace SubscribeSwapEventsRequest {
     export type AsObject = {
     }
 }
 
-export class SubscribeClaimsResponse extends jspb.Message { 
+export class SubscribeSwapEventsResponse extends jspb.Message { 
+    getEvent(): SwapEvent;
+    setEvent(value: SwapEvent): void;
+
+
+    hasClaimDetails(): boolean;
+    clearClaimDetails(): void;
+    getClaimDetails(): ClaimDetails | undefined;
+    setClaimDetails(value?: ClaimDetails): void;
+
+
+    hasAbortDetails(): boolean;
+    clearAbortDetails(): void;
+    getAbortDetails(): AbortDetails | undefined;
+    setAbortDetails(value?: AbortDetails): void;
+
+
+    hasRefundDetails(): boolean;
+    clearRefundDetails(): void;
+    getRefundDetails(): RefundDetails | undefined;
+    setRefundDetails(value?: RefundDetails): void;
+
+
+    getEventDetailsCase(): SubscribeSwapEventsResponse.EventDetailsCase;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SubscribeSwapEventsResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: SubscribeSwapEventsResponse): SubscribeSwapEventsResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SubscribeSwapEventsResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SubscribeSwapEventsResponse;
+    static deserializeBinaryFromReader(message: SubscribeSwapEventsResponse, reader: jspb.BinaryReader): SubscribeSwapEventsResponse;
+}
+
+export namespace SubscribeSwapEventsResponse {
+    export type AsObject = {
+        event: SwapEvent,
+        claimDetails?: ClaimDetails.AsObject,
+        abortDetails?: AbortDetails.AsObject,
+        refundDetails?: RefundDetails.AsObject,
+    }
+
+    export enum EventDetailsCase {
+        EVENTDETAILS_NOT_SET = 0,
+    
+    CLAIM_DETAILS = 2,
+
+    ABORT_DETAILS = 3,
+
+    REFUND_DETAILS = 4,
+
+    }
+
+}
+
+export class ClaimDetails extends jspb.Message { 
     getLockupTransactionHash(): string;
     setLockupTransactionHash(value: string): void;
 
@@ -713,16 +769,16 @@ export class SubscribeClaimsResponse extends jspb.Message {
 
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): SubscribeClaimsResponse.AsObject;
-    static toObject(includeInstance: boolean, msg: SubscribeClaimsResponse): SubscribeClaimsResponse.AsObject;
+    toObject(includeInstance?: boolean): ClaimDetails.AsObject;
+    static toObject(includeInstance: boolean, msg: ClaimDetails): ClaimDetails.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: SubscribeClaimsResponse, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): SubscribeClaimsResponse;
-    static deserializeBinaryFromReader(message: SubscribeClaimsResponse, reader: jspb.BinaryReader): SubscribeClaimsResponse;
+    static serializeBinaryToWriter(message: ClaimDetails, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ClaimDetails;
+    static deserializeBinaryFromReader(message: ClaimDetails, reader: jspb.BinaryReader): ClaimDetails;
 }
 
-export namespace SubscribeClaimsResponse {
+export namespace ClaimDetails {
     export type AsObject = {
         lockupTransactionHash: string,
         lockupVout: number,
@@ -730,24 +786,28 @@ export namespace SubscribeClaimsResponse {
     }
 }
 
-export class SubscribeRefundsRequest extends jspb.Message { 
+export class AbortDetails extends jspb.Message { 
+    getInvoice(): string;
+    setInvoice(value: string): void;
+
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): SubscribeRefundsRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: SubscribeRefundsRequest): SubscribeRefundsRequest.AsObject;
+    toObject(includeInstance?: boolean): AbortDetails.AsObject;
+    static toObject(includeInstance: boolean, msg: AbortDetails): AbortDetails.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: SubscribeRefundsRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): SubscribeRefundsRequest;
-    static deserializeBinaryFromReader(message: SubscribeRefundsRequest, reader: jspb.BinaryReader): SubscribeRefundsRequest;
+    static serializeBinaryToWriter(message: AbortDetails, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AbortDetails;
+    static deserializeBinaryFromReader(message: AbortDetails, reader: jspb.BinaryReader): AbortDetails;
 }
 
-export namespace SubscribeRefundsRequest {
+export namespace AbortDetails {
     export type AsObject = {
+        invoice: string,
     }
 }
 
-export class SubscribeRefundsResponse extends jspb.Message { 
+export class RefundDetails extends jspb.Message { 
     getLockupTransactionHash(): string;
     setLockupTransactionHash(value: string): void;
 
@@ -759,16 +819,16 @@ export class SubscribeRefundsResponse extends jspb.Message {
 
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): SubscribeRefundsResponse.AsObject;
-    static toObject(includeInstance: boolean, msg: SubscribeRefundsResponse): SubscribeRefundsResponse.AsObject;
+    toObject(includeInstance?: boolean): RefundDetails.AsObject;
+    static toObject(includeInstance: boolean, msg: RefundDetails): RefundDetails.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: SubscribeRefundsResponse, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): SubscribeRefundsResponse;
-    static deserializeBinaryFromReader(message: SubscribeRefundsResponse, reader: jspb.BinaryReader): SubscribeRefundsResponse;
+    static serializeBinaryToWriter(message: RefundDetails, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): RefundDetails;
+    static deserializeBinaryFromReader(message: RefundDetails, reader: jspb.BinaryReader): RefundDetails;
 }
 
-export namespace SubscribeRefundsResponse {
+export namespace RefundDetails {
     export type AsObject = {
         lockupTransactionHash: string,
         lockupVout: number,
@@ -1075,4 +1135,10 @@ export enum InvoiceEvent {
     PAID = 0,
     FAILED_TO_PAY = 1,
     SETTLED = 2,
+}
+
+export enum SwapEvent {
+    CLAIM = 0,
+    ABORT = 1,
+    REFUND = 2,
 }

@@ -7,10 +7,9 @@ import Service from '../service/Service';
 import * as boltzrpc from '../proto/boltzrpc_pb';
 
 class GrpcService {
+  private swapEventSubscriptions: ServerWriteableStream<boltzrpc.SubscribeSwapEventsRequest>[] = [];
   private transactionSubscriptions: ServerWriteableStream<boltzrpc.SubscribeTransactionsRequest>[] = [];
   private invoiceSubscriptions: ServerWriteableStream<boltzrpc.SubscribeInvoicesRequest>[] = [];
-  private claimSubscriptions: ServerWriteableStream<boltzrpc.SubscribeClaimsRequest>[] = [];
-  private refundSubscriptions: ServerWriteableStream<boltzrpc.SubscribeRefundsRequest>[] = [];
   private channelBackupSubscriptions: ServerWriteableStream<boltzrpc.SubscribeChannelBackupsRequest>[] = [];
 
   constructor(private service: Service) {
@@ -90,20 +89,16 @@ class GrpcService {
     }
   }
 
+  public subscribeSwapEvents: handleServerStreamingCall<boltzrpc.SubscribeSwapEventsRequest, boltzrpc.SubscribeSwapEventsResponse> = async (call) => {
+    this.registerSubscription(call, this.swapEventSubscriptions);
+  }
+
   public subscribeTransactions: handleServerStreamingCall<boltzrpc.SubscribeTransactionsRequest, boltzrpc.SubscribeTransactionsResponse> = async (call) => {
     this.registerSubscription(call, this.transactionSubscriptions);
   }
 
   public subscribeInvoices: handleServerStreamingCall<boltzrpc.SubscribeInvoicesRequest, boltzrpc.SubscribeInvoicesResponse> = async (call) => {
     this.registerSubscription(call, this.invoiceSubscriptions);
-  }
-
-  public subscribeClaims: handleServerStreamingCall<boltzrpc.SubscribeClaimsRequest, boltzrpc.SubscribeClaimsResponse> = async (call) => {
-    this.registerSubscription(call, this.claimSubscriptions);
-  }
-
-  public subscribeRefunds: handleServerStreamingCall<boltzrpc.SubscribeRefundsRequest, boltzrpc.SubscribeRefundsResponse> = async (call) => {
-    this.registerSubscription(call, this.refundSubscriptions);
   }
 
   public subscribeChannelBackups: handleServerStreamingCall<boltzrpc.SubscribeChannelBackupsRequest, boltzrpc.ChannelBackup> = async (call) => {
@@ -213,25 +208,48 @@ class GrpcService {
       });
     });
 
-    // Claim subscription
+    // Swap event subscriptions
     this.service.on('claim', (lockupTransactionHash: string, lockupVout: number, minerFee: number) => {
-      this.claimSubscriptions.forEach((subscription) => {
-        const response = new boltzrpc.SubscribeClaimsResponse();
-        response.setLockupTransactionHash(lockupTransactionHash);
-        response.setLockupVout(lockupVout);
-        response.setMinerFee(minerFee);
+      this.swapEventSubscriptions.forEach((subscription) => {
+        const response = new boltzrpc.SubscribeSwapEventsResponse();
+        const claimDetails = new boltzrpc.ClaimDetails();
+
+        claimDetails.setLockupTransactionHash(lockupTransactionHash);
+        claimDetails.setLockupVout(lockupVout);
+        claimDetails.setMinerFee(minerFee);
+
+        response.setEvent(boltzrpc.SwapEvent.CLAIM);
+        response.setClaimDetails(claimDetails);
 
         subscription.write(response);
       });
     });
 
-    // Refund subscription
+    this.service.on('abort', (invoice: string) => {
+      this.swapEventSubscriptions.forEach((subscription) => {
+        const response = new boltzrpc.SubscribeSwapEventsResponse();
+        const abortDetails = new boltzrpc.AbortDetails();
+
+        abortDetails.setInvoice(invoice);
+
+        response.setEvent(boltzrpc.SwapEvent.ABORT);
+        response.setAbortDetails(abortDetails);
+
+        subscription.write(response);
+      });
+    });
+
     this.service.on('refund', (lockupTransactionHash: string, lockupVout: number, minerFee: number) => {
-      this.refundSubscriptions.forEach((subscription) => {
-        const response = new boltzrpc.SubscribeRefundsResponse();
-        response.setLockupTransactionHash(lockupTransactionHash);
-        response.setLockupVout(lockupVout);
-        response.setMinerFee(minerFee);
+      this.swapEventSubscriptions.forEach((subscription) => {
+        const response = new boltzrpc.SubscribeSwapEventsResponse();
+        const refundDetails = new boltzrpc.RefundDetails();
+
+        refundDetails.setLockupTransactionHash(lockupTransactionHash);
+        refundDetails.setLockupVout(lockupVout);
+        refundDetails.setMinerFee(minerFee);
+
+        response.setEvent(boltzrpc.SwapEvent.REFUND);
+        response.setRefundDetails(refundDetails);
 
         subscription.write(response);
       });

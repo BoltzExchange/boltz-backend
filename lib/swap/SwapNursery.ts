@@ -28,24 +28,50 @@ type SwapMaps = {
   // A map between the output scripts and the swaps details
   swaps: Map<string, SwapDetails>;
 
+  // A map between the timeout block heights and the output scripts of the normal swaps
+  swapTimeouts: Map<number, string[]>;
+
   // A map between the timeout block heights and the reverse swaps details
   reverseSwaps: Map<number, ReverseSwapDetails[]>;
 };
 
 interface SwapNursery {
+  // Swap related events
   on(event: 'claim', listener: (lockupTransactionHash: string, lockupVout: number, minerFee: number) => void): this;
   emit(event: 'claim', lockupTransactionHash: string, lockupVout: number, minerFee: number): boolean;
 
-  on(event: 'refund', listener: (lockupTransactionHash: string, lockupVout: number, minerFee: number) => void): this;
-  emit(event: 'refund', lockupTransactionHash: string, lockupVout: number, minerFee: number): boolean;
+  on(event: 'abort', listener: (invoice: string) => void): this;
+  emit(event: 'abort', invoice: string): boolean;
 
   on(event: 'invoice.failedToPay', listener: (invoice: string) => void): this;
   emit(event: 'invoice.failedToPay', invoice: string): boolean;
+
+  // Reverse swap related events
+  on(event: 'refund', listener: (lockupTransactionHash: string, lockupVout: number, minerFee: number) => void): this;
+  emit(event: 'refund', lockupTransactionHash: string, lockupVout: number, minerFee: number): boolean;
 }
 
 class SwapNursery extends EventEmitter {
   constructor(private logger: Logger, private walletManager: WalletManager) {
     super();
+  }
+
+  public addSwap = (
+    maps: SwapMaps,
+    details: SwapDetails,
+    rawOutputScript: Buffer,
+    timeoutBlockHeight: number,
+  ) => {
+    const outputScript = getHexString(rawOutputScript);
+    maps.swaps.set(outputScript, details);
+
+    const swapTimeouts = maps.swapTimeouts.get(timeoutBlockHeight);
+
+    if (swapTimeouts) {
+      swapTimeouts.push(outputScript);
+    } else {
+      maps.swapTimeouts.set(timeoutBlockHeight, [outputScript]);
+    }
   }
 
   public bindCurrency = (currency: Currency, maps: SwapMaps) => {
@@ -77,6 +103,23 @@ class SwapNursery extends EventEmitter {
     });
 
     currency.chainClient.on('block', async (height: number) => {
+      const swapTimeouts = maps.swapTimeouts.get(height);
+
+      if (swapTimeouts) {
+        swapTimeouts.forEach((outputScript) => {
+          const swap = maps.swaps.get(outputScript);
+
+          if (swap) {
+            this.logger.verbose(`Aborting swap: ${swap.invoice}`);
+            this.emit('abort', swap.invoice);
+
+            maps.swaps.delete(outputScript);
+          }
+        });
+
+        maps.swapTimeouts.delete(height);
+      }
+
       const reverseSwaps = maps.reverseSwaps.get(height);
 
       if (reverseSwaps) {

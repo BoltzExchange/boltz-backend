@@ -1,7 +1,7 @@
 import fs from 'fs';
 import assert from 'assert';
-import { pki, md } from 'node-forge';
 import grpc, { Server } from 'grpc';
+import { pki, md } from 'node-forge';
 import Errors from './Errors';
 import Logger from '../Logger';
 import GrpcService from './GrpcService';
@@ -28,10 +28,9 @@ class GrpcServer {
       getFeeEstimation: grpcService.getFeeEstimation,
       broadcastTransaction: grpcService.broadcastTransaction,
       listenOnAddress: grpcService.listenOnAddress,
+      subscribeSwapEvents: grpcService.subscribeSwapEvents,
       subscribeTransactions: grpcService.subscribeTransactions,
       subscribeInvoices: grpcService.subscribeInvoices,
-      subscribeClaims: grpcService.subscribeClaims,
-      subscribeRefunds: grpcService.subscribeRefunds,
       subscribeChannelBackups: grpcService.subscribeChannelBackups,
       createSwap: grpcService.createSwap,
       createReverseSwap: grpcService.createReverseSwap,

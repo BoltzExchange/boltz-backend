@@ -21,6 +21,8 @@ class SwapManager {
       if (!this.currencies.get(currency.symbol)) {
         const swapMaps = {
           swaps: new Map<string, SwapDetails>(),
+          swapTimeouts: new Map<number, string[]>(),
+
           reverseSwaps: new Map<number, ReverseSwapDetails[]>(),
         };
 
@@ -47,9 +49,17 @@ class SwapManager {
    * @param outputType what kind of adress should be returned
    * @param timeoutBlockNumber after how many blocks the onchain script should time out
    */
-  public createSwap = async (baseCurrency: string, quoteCurrency: string, orderSide: OrderSide, rate: number,
-    fee: number, invoice: string, refundPublicKey: Buffer, outputType: OutputType, timeoutBlockNumber: number) => {
-
+  public createSwap = async (
+    baseCurrency: string,
+    quoteCurrency: string,
+    orderSide: OrderSide,
+    rate: number,
+    fee: number,
+    invoice: string,
+    refundPublicKey: Buffer,
+    outputType: OutputType,
+    timeoutBlockNumber: number,
+  ) => {
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(baseCurrency, quoteCurrency, orderSide);
 
     this.logger.silly(`Sending ${sendingCurrency.symbol} on Lightning and receiving ${receivingCurrency.symbol} on the chain`);
@@ -83,14 +93,19 @@ class SwapManager {
 
     const expectedAmount = this.calculateExpectedAmount(numSatoshis, this.getRate(rate, orderSide)) + fee;
 
-    receivingCurrency.swaps.set(getHexString(outputScript), {
-      invoice,
-      outputType,
-      redeemScript,
-      expectedAmount,
-      claimKeys: keys,
-      lndClient: sendingCurrency.lndClient,
-    });
+    this.nursery.addSwap(
+      receivingCurrency,
+      {
+        invoice,
+        outputType,
+        redeemScript,
+        expectedAmount,
+        claimKeys: keys,
+        lndClient: sendingCurrency.lndClient,
+      },
+      outputScript,
+      timeoutBlockHeight,
+    );
 
     receivingCurrency.chainClient.updateOutputFilter([outputScript]);
 
@@ -114,9 +129,16 @@ class SwapManager {
    * @param amount amount of the invoice
    * @param timeoutBlockNumber after how many blocks the onchain script should time out
    */
-  public createReverseSwap = async (baseCurrency: string, quoteCurrency: string, orderSide: OrderSide, rate: number,
-    fee: number, claimPublicKey: Buffer, amount: number, timeoutBlockNumber: number) => {
-
+  public createReverseSwap = async (
+    baseCurrency: string,
+    quoteCurrency: string,
+    orderSide: OrderSide,
+    rate: number,
+    fee: number,
+    claimPublicKey: Buffer,
+    amount: number,
+    timeoutBlockNumber: number,
+  ) => {
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(baseCurrency, quoteCurrency, orderSide);
 
     this.logger.silly(`Sending ${sendingCurrency.symbol} on the chain and receiving ${receivingCurrency.symbol} on Lightning`);

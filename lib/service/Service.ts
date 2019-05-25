@@ -47,6 +47,9 @@ interface Service {
   on(event: 'claim', listener: (lockupTransactionHash: string, lockupVout: number, minerFee: number) => void): this;
   emit(event: 'claim', lockupTransactionHash: string, lockupVout: number, minerFee: number): boolean;
 
+  on(event: 'abort', listener: (invoice: string) => void): this;
+  emit(event: 'abort', invoice: string): boolean;
+
   on(event: 'refund', listener: (lockupTransactionHash: string, lockupVout: number, minerFee: number) => void): this;
   emit(event: 'refund', lockupTransactionHash: string, lockupVout: number, minerFee: number): boolean;
 
@@ -110,9 +113,8 @@ class Service extends EventEmitter {
   constructor(private serviceComponents: ServiceComponents) {
     super();
 
-    this.subscribeClaims();
-    this.subscribeRefunds();
     this.subscribeInvoices();
+    this.subscribeSwapEvents();
     this.subscribeTransactions();
     this.subscribeChannelBackups();
   }
@@ -449,18 +451,17 @@ class Service extends EventEmitter {
   }
 
   /**
-   * Subscribes to a stream of swap outputs that Boltz claims
+   * Subscribes to a stream of swap events
    */
-  private subscribeClaims = () => {
+  private subscribeSwapEvents = () => {
     this.serviceComponents.swapManager.nursery.on('claim', (lockupTransactionHash, vout, minerFee) => {
       this.emit('claim', lockupTransactionHash, vout, minerFee);
     });
-  }
 
-  /**
-   * Subscribes to a stream of lockup transactions that Boltz refunds
-   */
-  private subscribeRefunds = () => {
+    this.serviceComponents.swapManager.nursery.on('abort', (invoice) => {
+      this.emit('abort', invoice);
+    });
+
     this.serviceComponents.swapManager.nursery.on('refund', (lockupTransactionHash, vout, minerFee) => {
       this.emit('refund', lockupTransactionHash, vout, minerFee);
     });

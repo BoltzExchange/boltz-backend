@@ -42,23 +42,21 @@ class SwapManager {
    * @param baseCurrency base currency ticker symbol
    * @param quoteCurrency quote currency ticker symbol
    * @param orderSide whether the order is a buy or sell one
-   * @param rate conversion rate of base and quote currency
-   * @param fee additional amount that the user has to pay
    * @param invoice the invoice that should be paid
+   * @param expectedAmount amount that is expected onchain
    * @param refundPublicKey public key of the keypair needed for claiming
    * @param outputType what kind of adress should be returned
-   * @param timeoutBlockNumber after how many blocks the onchain script should time out
+   * @param timeoutBlockDelta after how many blocks the onchain script should time out
    */
   public createSwap = async (
     baseCurrency: string,
     quoteCurrency: string,
     orderSide: OrderSide,
-    rate: number,
-    fee: number,
     invoice: string,
+    expectedAmount: number,
     refundPublicKey: Buffer,
     outputType: OutputType,
-    timeoutBlockNumber: number,
+    timeoutBlockDelta: number,
   ) => {
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(baseCurrency, quoteCurrency, orderSide);
 
@@ -80,7 +78,7 @@ class SwapManager {
 
     const { keys } = receivingCurrency.wallet.getNewKeys();
 
-    const timeoutBlockHeight = blocks + timeoutBlockNumber;
+    const timeoutBlockHeight = blocks + timeoutBlockDelta;
     const redeemScript = swapScript(
       getHexBuffer(paymentHash),
       keys.publicKey,
@@ -90,8 +88,6 @@ class SwapManager {
 
     const encodeFunction = getScriptHashFunction(outputType);
     const outputScript = encodeFunction(redeemScript);
-
-    const expectedAmount = this.calculateExpectedAmount(numSatoshis, this.getRate(rate, orderSide)) + fee;
 
     this.nursery.addSwap(
       receivingCurrency,
@@ -110,7 +106,6 @@ class SwapManager {
     receivingCurrency.chainClient.updateOutputFilter([outputScript]);
 
     return {
-      expectedAmount,
       timeoutBlockHeight,
       redeemScript: getHexString(redeemScript),
       address: receivingCurrency.wallet.encodeAddress(outputScript),
@@ -123,21 +118,19 @@ class SwapManager {
    * @param baseCurrency base currency ticker symbol
    * @param quoteCurrency quote currency ticker symbol
    * @param orderSide whether the order is a buy or sell one
-   * @param rate conversion rate of base and quote currency
-   * @param fee additional amount that the user has to pay
+   * @param invoiceAmount amount of the invoice that should be generated
+   * @param onchainAmount amount of coins that should be sent onchain
    * @param claimPublicKey public key of the keypair needed for claiming
-   * @param amount amount of the invoice
-   * @param timeoutBlockNumber after how many blocks the onchain script should time out
+   * @param timeoutBlockDelta after how many blocks the onchain script should time out
    */
   public createReverseSwap = async (
     baseCurrency: string,
     quoteCurrency: string,
     orderSide: OrderSide,
-    rate: number,
-    fee: number,
+    invoiceAmount: number,
+    onchainAmount: number,
     claimPublicKey: Buffer,
-    amount: number,
-    timeoutBlockNumber: number,
+    timeoutBlockDelta: number,
   ) => {
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(baseCurrency, quoteCurrency, orderSide);
 
@@ -145,11 +138,11 @@ class SwapManager {
     this.logger.verbose(`Creating new reverse Swap from ${receivingCurrency.symbol} to ${sendingCurrency.symbol} ` +
       `for public key: ${getHexString(claimPublicKey)}`);
 
-    const { rHash, paymentRequest } = await receivingCurrency.lndClient.addInvoice(amount);
+    const { rHash, paymentRequest } = await receivingCurrency.lndClient.addInvoice(invoiceAmount);
     const { keys } = sendingCurrency.wallet.getNewKeys();
 
     const { blocks } = await sendingCurrency.chainClient.getBlockchainInfo();
-    const timeoutBlockHeight = blocks + timeoutBlockNumber;
+    const timeoutBlockHeight = blocks + timeoutBlockDelta;
 
     const redeemScript = swapScript(
       Buffer.from(rHash as string, 'base64'),
@@ -161,14 +154,8 @@ class SwapManager {
     const outputScript = p2wshOutput(redeemScript);
     const address = sendingCurrency.wallet.encodeAddress(outputScript);
 
-    const sendingAmount = this.calculateExpectedAmount(amount, 1 / this.getRate(rate, orderSide)) - fee;
-
-    if (sendingAmount <= 0) {
-      throw Errors.AMOUNT_TOO_LOW();
-    }
-
-    const { fee: minerFee, vout, transaction } = await sendingCurrency.wallet.sendToAddress(address, OutputType.Bech32, true, sendingAmount);
-    this.logger.debug(`Sending ${sendingAmount} on ${sendingCurrency.symbol} to swap address ${address}: ${transaction.getId()}:${vout}`);
+    const { fee, vout, transaction } = await sendingCurrency.wallet.sendToAddress(address, OutputType.Bech32, true, onchainAmount);
+    this.logger.debug(`Sending ${onchainAmount} on ${sendingCurrency.symbol} to swap address ${address}: ${transaction.getId()}:${vout}`);
 
     const rawTx = transaction.toHex();
 
@@ -185,7 +172,7 @@ class SwapManager {
         txHash: transaction.getHash(),
         type: OutputType.Bech32,
         script: outputScript,
-        value: sendingAmount,
+        value: onchainAmount,
       },
     };
 
@@ -197,11 +184,10 @@ class SwapManager {
     }
 
     return {
-      minerFee,
+      minerFee: fee,
       lockupAddress: address,
       invoice: paymentRequest,
       lockupTransaction: rawTx,
-      amountSent: sendingAmount,
       redeemScript: getHexString(redeemScript),
       lockupTransactionHash: transaction.getId(),
     };
@@ -250,14 +236,6 @@ class SwapManager {
     }
 
     return currency;
-  }
-
-  private calculateExpectedAmount = (amount: number, rate: number) => {
-    return Math.ceil(amount * rate);
-  }
-
-  private getRate = (rate: number, orderSide: OrderSide) => {
-    return orderSide === OrderSide.BUY ? rate : 1 / rate;
   }
 }
 

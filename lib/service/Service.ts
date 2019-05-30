@@ -68,8 +68,8 @@ const argChecks = {
       throw Errors.INVALID_ARGUMENT('outputType must be: 0 for Bech32 | 1 for Compatibility | 2 for Legacy');
     }
   },
-  VALID_TIMEOUT: ({ timeoutBlockNumber }: { timeoutBlockNumber: number }) => {
-    if (timeoutBlockNumber < 0 || timeoutBlockNumber % 1 !== 0) {
+  VALID_TIMEOUT_BLOCK_DELTA: ({ timeoutBlockDelta }: { timeoutBlockDelta: number }) => {
+    if (timeoutBlockDelta < 0 || timeoutBlockDelta % 1 !== 0) {
       throw Errors.INVALID_ARGUMENT('timeout block number must be a positive integer');
     }
   },
@@ -344,48 +344,78 @@ class Service extends EventEmitter {
   /**
    * Creates a new Swap from the chain to Lightning
    */
-  public createSwap = async (args: { baseCurrency: string, quoteCurrency: string, orderSide: number, rate: number
-    fee: number, invoice: string, refundPublicKey: string, outputType: number, timeoutBlockNumber: number}) => {
-    argChecks.VALID_CURRENCY({ currency: args.baseCurrency });
-    argChecks.VALID_CURRENCY({ currency: args.quoteCurrency });
-    argChecks.VALID_OUTPUTTYPE(args);
+  public createSwap = async (args: {
+    baseCurrency: string,
+    quoteCurrency: string,
+    orderSide: number,
+    invoice: string,
+    expectedAmount: number,
+    refundPublicKey: string,
+    outputType: number,
+    timeoutBlockDelta: number,
+  }) => {
     argChecks.HAS_INVOICE(args);
     argChecks.HAS_REFUNDPUBKEY(args);
-    argChecks.VALID_FEE(args);
-    argChecks.VALID_RATE(args);
-    argChecks.VALID_TIMEOUT(args);
-    argChecks.VALID_TIMEOUT(args);
 
-    const { swapManager } = this.serviceComponents;
+    argChecks.VALID_OUTPUTTYPE(args);
+    argChecks.VALID_TIMEOUT_BLOCK_DELTA(args);
+    argChecks.VALID_AMOUNT({ amount: args.expectedAmount });
+    argChecks.VALID_CURRENCY({ currency: args.baseCurrency });
+    argChecks.VALID_CURRENCY({ currency: args.quoteCurrency });
 
     const orderSide = this.getOrderSide(args.orderSide);
     const outputType = getOutputType(args.outputType);
 
     const refundPublicKey = getHexBuffer(args.refundPublicKey);
 
-    return await swapManager.createSwap(args.baseCurrency, args.quoteCurrency, orderSide,
-      args.rate, args.fee, args.invoice, refundPublicKey, outputType, args.timeoutBlockNumber);
+    const { swapManager } = this.serviceComponents;
+
+    return await swapManager.createSwap(
+      args.baseCurrency,
+      args.quoteCurrency,
+      orderSide,
+      args.invoice,
+      args.expectedAmount,
+      refundPublicKey,
+      outputType,
+      args.timeoutBlockDelta,
+    );
   }
 
   /**
    * Creates a new Swap from Lightning to the chain
    */
-  public createReverseSwap = async (args: { baseCurrency: string, quoteCurrency: string, orderSide: number, rate: number,
-    fee: number, claimPublicKey: string, amount: number, timeoutBlockNumber: number}) => {
+  public createReverseSwap = async (args: {
+    baseCurrency: string,
+    quoteCurrency: string,
+    orderSide: number,
+    invoiceAmount: number,
+    onchainAmount: number,
+    claimPublicKey: string,
+    timeoutBlockDelta: number,
+  }) => {
+    argChecks.HAS_CLAIMPUBKEY(args);
+
+    argChecks.VALID_TIMEOUT_BLOCK_DELTA(args);
+    argChecks.VALID_AMOUNT({ amount: args.invoiceAmount });
+    argChecks.VALID_AMOUNT({ amount: args.onchainAmount });
     argChecks.VALID_CURRENCY({ currency: args.baseCurrency });
     argChecks.VALID_CURRENCY({ currency: args.quoteCurrency });
-    argChecks.HAS_CLAIMPUBKEY(args);
-    argChecks.VALID_RATE(args);
-    argChecks.VALID_FEE(args);
-    argChecks.VALID_TIMEOUT(args);
-
-    const { swapManager } = this.serviceComponents;
 
     const orderSide = this.getOrderSide(args.orderSide);
     const claimPublicKey = getHexBuffer(args.claimPublicKey);
 
-    return await swapManager.createReverseSwap(args.baseCurrency, args.quoteCurrency, orderSide, args.rate,
-      args.fee, claimPublicKey, args.amount, args.timeoutBlockNumber);
+    const { swapManager } = this.serviceComponents;
+
+    return await swapManager.createReverseSwap(
+      args.baseCurrency,
+      args.quoteCurrency,
+      orderSide,
+      args.invoiceAmount,
+      args.onchainAmount,
+      claimPublicKey,
+      args.timeoutBlockDelta,
+    );
   }
 
   /**

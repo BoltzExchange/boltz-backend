@@ -846,14 +846,11 @@ export class CreateSwapRequest extends jspb.Message {
     getOrderSide(): OrderSide;
     setOrderSide(value: OrderSide): void;
 
-    getRate(): number;
-    setRate(value: number): void;
-
-    getFee(): number;
-    setFee(value: number): void;
-
     getInvoice(): string;
     setInvoice(value: string): void;
+
+    getExpectedAmount(): number;
+    setExpectedAmount(value: number): void;
 
     getRefundPublicKey(): string;
     setRefundPublicKey(value: string): void;
@@ -861,8 +858,8 @@ export class CreateSwapRequest extends jspb.Message {
     getOutputType(): OutputType;
     setOutputType(value: OutputType): void;
 
-    getTimeoutBlockNumber(): number;
-    setTimeoutBlockNumber(value: number): void;
+    getTimeoutBlockDelta(): number;
+    setTimeoutBlockDelta(value: number): void;
 
 
     serializeBinary(): Uint8Array;
@@ -880,12 +877,11 @@ export namespace CreateSwapRequest {
         baseCurrency: string,
         quoteCurrency: string,
         orderSide: OrderSide,
-        rate: number,
-        fee: number,
         invoice: string,
+        expectedAmount: number,
         refundPublicKey: string,
         outputType: OutputType,
-        timeoutBlockNumber: number,
+        timeoutBlockDelta: number,
     }
 }
 
@@ -898,9 +894,6 @@ export class CreateSwapResponse extends jspb.Message {
 
     getAddress(): string;
     setAddress(value: string): void;
-
-    getExpectedAmount(): number;
-    setExpectedAmount(value: number): void;
 
 
     serializeBinary(): Uint8Array;
@@ -918,7 +911,6 @@ export namespace CreateSwapResponse {
         redeemScript: string,
         timeoutBlockHeight: number,
         address: string,
-        expectedAmount: number,
     }
 }
 
@@ -932,20 +924,17 @@ export class CreateReverseSwapRequest extends jspb.Message {
     getOrderSide(): OrderSide;
     setOrderSide(value: OrderSide): void;
 
-    getRate(): number;
-    setRate(value: number): void;
+    getInvoiceAmount(): number;
+    setInvoiceAmount(value: number): void;
 
-    getFee(): number;
-    setFee(value: number): void;
+    getOnchainAmount(): number;
+    setOnchainAmount(value: number): void;
 
     getClaimPublicKey(): string;
     setClaimPublicKey(value: string): void;
 
-    getAmount(): number;
-    setAmount(value: number): void;
-
-    getTimeoutBlockNumber(): number;
-    setTimeoutBlockNumber(value: number): void;
+    getTimeoutBlockDelta(): number;
+    setTimeoutBlockDelta(value: number): void;
 
 
     serializeBinary(): Uint8Array;
@@ -963,11 +952,10 @@ export namespace CreateReverseSwapRequest {
         baseCurrency: string,
         quoteCurrency: string,
         orderSide: OrderSide,
-        rate: number,
-        fee: number,
+        invoiceAmount: number,
+        onchainAmount: number,
         claimPublicKey: string,
-        amount: number,
-        timeoutBlockNumber: number,
+        timeoutBlockDelta: number,
     }
 }
 
@@ -986,9 +974,6 @@ export class CreateReverseSwapResponse extends jspb.Message {
 
     getLockupTransactionHash(): string;
     setLockupTransactionHash(value: string): void;
-
-    getAmountSent(): number;
-    setAmountSent(value: number): void;
 
     getMinerFee(): number;
     setMinerFee(value: number): void;
@@ -1011,7 +996,6 @@ export namespace CreateReverseSwapResponse {
         lockupAddress: string,
         lockupTransaction: string,
         lockupTransactionHash: string,
-        amountSent: number,
         minerFee: number,
     }
 }

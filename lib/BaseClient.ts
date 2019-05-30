@@ -5,7 +5,7 @@ class BaseClient extends EventEmitter {
   protected status = ClientStatus.Disconnected;
 
   protected readonly RECONNECT_INTERVAL = 1000;
-  protected reconnectionTimer?: NodeJS.Timer;
+  protected reconnectionTimer?: any;
 
   constructor() {
     super();

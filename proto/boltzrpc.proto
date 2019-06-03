@@ -223,30 +223,26 @@ message CreateSwapRequest {
   string base_currency = 1;
   string quote_currency = 2;
   OrderSide order_side = 3;
-  float rate = 4;
-  uint64 fee = 5;
-  string invoice = 6;
-  string refund_public_key = 7;
-  OutputType output_type = 8;
-  uint64 timeout_block_number = 9;
+  string invoice = 4;
+  uint64 expected_amount = 5;
+  string refund_public_key = 6;
+  OutputType output_type = 7;
+  uint64 timeout_block_delta = 8;
 }
 message CreateSwapResponse {
   string redeem_script = 1;
   uint64 timeout_block_height = 2;
   string address = 3;
-  uint64 expected_amount = 4;
 }
 
 message CreateReverseSwapRequest {
   string base_currency = 1;
   string quote_currency = 2;
   OrderSide order_side = 3;
-  float rate = 4;
-  uint64 fee = 5;
-  string claim_public_key = 6;
-  // Amount of the invoice that will be returned
-  uint64 amount = 7;
-  uint64 timeout_block_number = 8;
+  uint64 invoice_amount = 7;
+  uint64 onchain_amount = 8;
+  string claim_public_key = 9;
+  uint64 timeout_block_delta = 10;
 }
 message CreateReverseSwapResponse {
   string invoice = 1;
@@ -254,8 +250,7 @@ message CreateReverseSwapResponse {
   string lockup_address = 3;
   string lockup_transaction = 4;
   string lockup_transaction_hash = 5;
-  uint64 amount_sent = 6;
-  uint32 miner_fee = 7;
+  uint32 miner_fee = 6;
 }
 
 message SendCoinsRequest {

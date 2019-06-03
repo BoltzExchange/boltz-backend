@@ -197,6 +197,7 @@ class LndClient extends BaseClient implements LndClient {
   public addInvoice = (value: number): Promise<lndrpc.AddInvoiceResponse.AsObject> => {
     const request = new lndrpc.Invoice();
     request.setValue(value);
+
     return this.unaryCall<lndrpc.Invoice, lndrpc.AddInvoiceResponse.AsObject>('addInvoice', request);
   }
 
@@ -334,10 +335,10 @@ class LndClient extends BaseClient implements LndClient {
       .on('data', (invoice: lndrpc.Invoice) => {
         if (invoice.getSettled()) {
           const paymentReq = invoice.getPaymentRequest();
-
           this.logger.silly(`${this.symbol} LND invoice settled: ${paymentReq}`);
 
           const preimage = getHexString(Buffer.from(invoice.getRPreimage_asB64(), 'base64'));
+
           this.emit('invoice.settled', paymentReq, preimage);
         }
       })

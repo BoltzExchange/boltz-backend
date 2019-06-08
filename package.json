@@ -84,14 +84,14 @@
     "concurrently": "^4.1.0",
     "conventional-changelog": "^3.1.8",
     "grpc-tools": "^1.7.3",
-    "grpc_tools_node_protoc_ts": "^2.5.1",
+    "grpc_tools_node_protoc_ts": "^2.5.3",
     "mocha": "^6.1.4",
     "nodemon": "^1.19.1",
     "ts-mockito": "^2.3.1",
     "ts-node": "^8.2.0",
     "ts-protoc-gen": "^0.10.0",
-    "tslint": "^5.16.0",
+    "tslint": "^5.17.0",
     "tslint-config-airbnb": "^5.11.1",
-    "tslint-no-circular-imports": "^0.6.2"
+    "tslint-no-circular-imports": "^0.7.0"
   }
 }

@@ -45,8 +45,9 @@ class SwapManager {
    * @param invoice the invoice that should be paid
    * @param expectedAmount amount that is expected onchain
    * @param refundPublicKey public key of the keypair needed for claiming
-   * @param outputType what kind of adress should be returned
+   * @param outputType what kind of address should be returned
    * @param timeoutBlockDelta after how many blocks the onchain script should time out
+   * @param acceptZeroConf whether 0-conf transactions should be accepted
    */
   public createSwap = async (
     baseCurrency: string,
@@ -57,6 +58,7 @@ class SwapManager {
     refundPublicKey: Buffer,
     outputType: OutputType,
     timeoutBlockDelta: number,
+    acceptZeroConf: boolean,
   ) => {
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(baseCurrency, quoteCurrency, orderSide);
 
@@ -95,6 +97,7 @@ class SwapManager {
         invoice,
         outputType,
         redeemScript,
+        acceptZeroConf,
         expectedAmount,
         claimKeys: keys,
         lndClient: sendingCurrency.lndClient,

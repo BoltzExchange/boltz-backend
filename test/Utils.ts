@@ -1,5 +1,5 @@
 import { OutputType, Networks } from 'boltz-core';
-import { ECPair, address, crypto } from 'bitcoinjs-lib';
+import { ECPair, address, crypto, TransactionBuilder } from 'bitcoinjs-lib';
 import { getPubkeyHashFunction } from '../lib/Utils';
 
 export const wait = (ms: number) => {
@@ -37,4 +37,18 @@ export const generateAddress = (outputType: OutputType) => {
     outputScript,
     address: address.fromOutputScript(outputScript, Networks.bitcoinRegtest),
   };
+};
+
+export const constructTransaction = (rbf: boolean, input: string, outputAmount = 1) => {
+  const { outputScript } = generateAddress(OutputType.Bech32);
+  const keys = ECPair.makeRandom({ network: Networks.bitcoinRegtest });
+
+  const builder = new TransactionBuilder(Networks.bitcoinRegtest);
+
+  builder.addInput(input, 0, rbf ? 0xfffffffd : 0xffffffff);
+  builder.addOutput(outputScript, outputAmount);
+
+  builder.sign(0, keys);
+
+  return builder.build();
 };

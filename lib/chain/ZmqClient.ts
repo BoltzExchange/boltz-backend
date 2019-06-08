@@ -22,11 +22,8 @@ interface ZmqClient {
   on(event: 'block', listener: (height: number) => void): this;
   emit(event: 'block', height: number): boolean;
 
-  on(event: 'transaction.relevant.mempool', listener: (transaction: Transaction) => void): this;
-  emit(event: 'transaction.relevant.mempool', transaction: Transaction): boolean;
-
-  on(event: 'transaction.relevant.block', listener: (transaction: Transaction) => void): this;
-  emit(event: 'transaction.relevant.block', transaction: Transaction): boolean;
+  on(event: 'transaction', listener: (transaction: Transaction, confirmed: boolean) => void): this;
+  emit(event: 'transaction', transcation: Transaction, confirmed: boolean): boolean;
 }
 
 class ZmqClient extends EventEmitter {
@@ -128,7 +125,7 @@ class ZmqClient extends EventEmitter {
         const transaction = Transaction.fromHex(rawTransaction as string);
 
         if (this.isRelevantTransaction(transaction)) {
-          this.emit('transaction.relevant.block', transaction);
+          this.emit('transaction', transaction, true);
         }
       }
 
@@ -149,7 +146,7 @@ class ZmqClient extends EventEmitter {
       // the second time the client receives the transaction
       if (this.utxos.has(id)) {
         this.utxos.delete(id);
-        this.emit('transaction.relevant.block', transaction);
+        this.emit('transaction', transaction, true);
 
         return;
       }
@@ -159,10 +156,10 @@ class ZmqClient extends EventEmitter {
 
         // Check whether the transaction got confirmed or added to the mempool
         if (transactionData.confirmations) {
-          this.emit('transaction.relevant.block', transaction);
+          this.emit('transaction', transaction, true);
         } else {
           this.utxos.add(id);
-          this.emit('transaction.relevant.mempool', transaction);
+          this.emit('transaction', transaction, false);
         }
       }
     });

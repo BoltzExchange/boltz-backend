@@ -5,6 +5,7 @@
 import { ServerWriteableStream, handleUnaryCall, handleServerStreamingCall } from 'grpc';
 import Service from '../service/Service';
 import * as boltzrpc from '../proto/boltzrpc_pb';
+import EventHandler from '../service/EventHandler';
 
 class GrpcService {
   private swapEventSubscriptions: ServerWriteableStream<boltzrpc.SubscribeSwapEventsRequest>[] = [];
@@ -12,7 +13,11 @@ class GrpcService {
   private invoiceSubscriptions: ServerWriteableStream<boltzrpc.SubscribeInvoicesRequest>[] = [];
   private channelBackupSubscriptions: ServerWriteableStream<boltzrpc.SubscribeChannelBackupsRequest>[] = [];
 
+  private eventHandler: EventHandler;
+
   constructor(private service: Service) {
+    this.eventHandler = service.eventHandler;
+
     this.subscribeToEvents();
   }
 
@@ -161,19 +166,20 @@ class GrpcService {
 
   private subscribeToEvents = () => {
     // Transaction subscription
-    this.service.on('transaction.confirmed', (outputAddress: string, transactionHash: string, amountReceived: number) => {
+    this.eventHandler.on('transaction', (outputAddress, transactionHash, amountReceived, confirmed) => {
       this.transactionSubscriptions.forEach((subscription) => {
         const response = new boltzrpc.SubscribeTransactionsResponse();
         response.setOutputAddress(outputAddress);
         response.setAmountReceived(amountReceived);
         response.setTransactionHash(transactionHash);
+        response.setConfirmed(confirmed);
 
         subscription.write(response);
       });
     });
 
     // Invoice subscriptions
-    this.service.on('invoice.paid', (invoice: string, routingFee: number) => {
+    this.eventHandler.on('invoice.paid', (invoice, routingFee) => {
       this.invoiceSubscriptions.forEach((subscription) => {
         const response = new boltzrpc.SubscribeInvoicesResponse();
         response.setEvent(boltzrpc.InvoiceEvent.PAID);
@@ -184,7 +190,7 @@ class GrpcService {
       });
     });
 
-    this.service.on('invoice.failedToPay', (invoice: string) => {
+    this.eventHandler.on('invoice.failedToPay', (invoice) => {
       this.invoiceSubscriptions.forEach((subscription) => {
         const response = new boltzrpc.SubscribeInvoicesResponse();
         response.setEvent(boltzrpc.InvoiceEvent.FAILED_TO_PAY);
@@ -194,7 +200,7 @@ class GrpcService {
       });
     });
 
-    this.service.on('invoice.settled', (invoice: string, preimage: string) => {
+    this.eventHandler.on('invoice.settled', (invoice, preimage) => {
       this.invoiceSubscriptions.forEach((subscription) => {
         const response = new boltzrpc.SubscribeInvoicesResponse();
         response.setEvent(boltzrpc.InvoiceEvent.SETTLED);
@@ -206,7 +212,7 @@ class GrpcService {
     });
 
     // Swap event subscriptions
-    this.service.on('claim', (lockupTransactionHash: string, lockupVout: number, minerFee: number) => {
+    this.eventHandler.on('claim', (lockupTransactionHash, lockupVout, minerFee) => {
       this.swapEventSubscriptions.forEach((subscription) => {
         const response = new boltzrpc.SubscribeSwapEventsResponse();
         const claimDetails = new boltzrpc.ClaimDetails();
@@ -222,7 +228,7 @@ class GrpcService {
       });
     });
 
-    this.service.on('abort', (invoice: string) => {
+    this.eventHandler.on('abort', (invoice) => {
       this.swapEventSubscriptions.forEach((subscription) => {
         const response = new boltzrpc.SubscribeSwapEventsResponse();
         const abortDetails = new boltzrpc.AbortDetails();
@@ -236,7 +242,22 @@ class GrpcService {
       });
     });
 
-    this.service.on('refund', (lockupTransactionHash: string, lockupVout: number, minerFee: number) => {
+    this.eventHandler.on('zeroconf.rejected', (invoice, reason) => {
+      this.swapEventSubscriptions.forEach((subscription) => {
+        const response = new boltzrpc.SubscribeSwapEventsResponse();
+        const zeroConfRejectedDetails = new boltzrpc.ZeroConfRejectedDetails();
+
+        zeroConfRejectedDetails.setInvoice(invoice);
+        zeroConfRejectedDetails.setReason(reason);
+
+        response.setEvent(boltzrpc.SwapEvent.ZEROCONF_REJECTED);
+        response.setZeroConfRejectedDetails(zeroConfRejectedDetails);
+
+        subscription.write(response);
+      });
+    });
+
+    this.eventHandler.on('refund', (lockupTransactionHash, lockupVout, minerFee) => {
       this.swapEventSubscriptions.forEach((subscription) => {
         const response = new boltzrpc.SubscribeSwapEventsResponse();
         const refundDetails = new boltzrpc.RefundDetails();
@@ -253,7 +274,7 @@ class GrpcService {
     });
 
     // Channel backup subscription
-    this.service.on('channel.backup', (currency: string, channelBackup: string) => {
+    this.eventHandler.on('channel.backup', (currency, channelBackup) => {
       this.channelBackupSubscriptions.forEach((subscription) => {
         const response = new boltzrpc.ChannelBackup();
         response.setCurrency(currency);

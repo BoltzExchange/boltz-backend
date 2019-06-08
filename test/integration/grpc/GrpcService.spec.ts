@@ -7,6 +7,7 @@ import Logger from '../../../lib/Logger';
 import Service from '../../../lib/service/Service';
 import { waitForFunctionToBeTrue } from '../../Utils';
 import GrpcService from '../../../lib/grpc/GrpcService';
+import EventHandler from '../../../lib/service/EventHandler';
 import GrpcServer, { GrpcConfig } from '../../../lib/grpc/GrpcServer';
 import {
   SubscribeTransactionsRequest,
@@ -27,10 +28,13 @@ describe('GrpcService', () => {
     keypath: 'tls.key',
   };
 
-  const serviceMock = mock(Service);
-  when(serviceMock.on('channel.backup', anything())).thenCall((_, callback) => {
+  const eventHandlerMock = mock(EventHandler);
+  when(eventHandlerMock.on('channel.backup', anything())).thenCall((_, callback) => {
     emitChannelBackup = callback;
   });
+
+  const serviceMock = mock(Service);
+  when(serviceMock.eventHandler).thenReturn(instance(eventHandlerMock));
 
   const serviceInstance = instance(serviceMock);
 

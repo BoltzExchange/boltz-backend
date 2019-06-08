@@ -52,7 +52,7 @@ describe('ChainClient', () => {
       buffers.push(getHexBuffer(output));
     });
 
-    await chainClient.updateOutputFilter(buffers);
+    chainClient.updateOutputFilter(buffers);
 
     expect(relevantOutputs.size).to.be.equal(outputs.length);
 

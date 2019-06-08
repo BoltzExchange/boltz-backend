@@ -71,10 +71,13 @@ enum InvoiceEvent {
 }
 
 enum SwapEvent {
+  // Swap related events
   CLAIM = 0;
   ABORT= 1;
+  ZEROCONF_REJECTED = 2;
 
-  REFUND = 2;
+  // Reverse swap related events
+  REFUND = 3;
 }
 
 message GetInfoRequest {}
@@ -175,6 +178,7 @@ message SubscribeTransactionsResponse {
   string output_address = 1;
   string transaction_hash = 2;
   uint64 amount_received = 3;
+  bool confirmed = 4;
 }
 
 message SubscribeInvoicesRequest {}
@@ -198,6 +202,8 @@ message SubscribeSwapEventsResponse {
     AbortDetails abort_details = 3;
 
     RefundDetails refund_details = 4;
+
+    ZeroConfRejectedDetails zero_conf_rejected_details = 5;
   }
 }
 
@@ -219,6 +225,11 @@ message RefundDetails {
   uint32 miner_fee = 3;
 }
 
+message ZeroConfRejectedDetails {
+  string invoice = 1;
+  string reason = 2;
+}
+
 message CreateSwapRequest {
   string base_currency = 1;
   string quote_currency = 2;
@@ -228,6 +239,7 @@ message CreateSwapRequest {
   string refund_public_key = 6;
   OutputType output_type = 7;
   uint64 timeout_block_delta = 8;
+  bool accept_zero_conf = 9;
 }
 message CreateSwapResponse {
   string redeem_script = 1;

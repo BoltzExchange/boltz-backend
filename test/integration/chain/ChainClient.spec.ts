@@ -30,8 +30,10 @@ describe('ChainClient', () => {
   it('should emit an event on mempool acceptance', async () => {
     let mempoolTransactions = 0;
 
-    bitcoinClient.on('transaction.relevant.mempool', () => {
-      mempoolTransactions += 1;
+    bitcoinClient.on('transaction', (_, confirmed) => {
+      if (!confirmed) {
+        mempoolTransactions += 1;
+      }
     });
 
     for (const address of testData.addresses) {
@@ -46,8 +48,10 @@ describe('ChainClient', () => {
   it('should emit an event on block acceptance', async () => {
     let blockTransactions = 0;
 
-    bitcoinClient.on('transaction.relevant.block', async () => {
-      blockTransactions += 1;
+    bitcoinClient.on('transaction', async (_, confirmed) => {
+      if (confirmed) {
+        blockTransactions += 1;
+      }
     });
 
     await bitcoinClient.generate(1);

@@ -7,7 +7,6 @@ import Logger from '../Logger';
 import Utxo from '../db/models/Utxo';
 import UtxoRepository from './UtxoRepository';
 import ChainClient from '../chain/ChainClient';
-import { RawTransaction } from '../consts/Types';
 import WalletRepository from './WalletRepository';
 import OutputRepository from './OutputRepository';
 import { getPubkeyHashFunction, getHexString, getHexBuffer, transactionHashToId } from '../Utils';
@@ -112,19 +111,19 @@ class Wallet {
       });
     };
 
-    this.chainClient.on('transaction.relevant.mempool', (transaction: Transaction) => {
-      upsertUtxo(transaction, false);
-    });
+    this.chainClient.on('transaction', async (transaction, confirmed) => {
+      if (confirmed) {
+        const mempoolInsertPromise = mempoolInsertPromises.get(transaction.getId());
 
-    this.chainClient.on('transaction.relevant.block', async (transaction: Transaction) => {
-      const mempoolInsertPromise = mempoolInsertPromises.get(transaction.getId());
+        if (mempoolInsertPromise) {
+          mempoolInsertPromises.delete(transaction.getId());
+          await mempoolInsertPromise;
+        }
 
-      if (mempoolInsertPromise) {
-        mempoolInsertPromises.delete(transaction.getId());
-        await mempoolInsertPromise;
+        upsertUtxo(transaction, true);
+      } else {
+        upsertUtxo(transaction, false);
       }
-
-      upsertUtxo(transaction, true);
     });
 
     this.chainClient.on('block', async (blockheight: number) => {
@@ -396,7 +395,7 @@ class Wallet {
 
     for (const utxo of utxos) {
       const transactionId = transactionHashToId(getHexBuffer(utxo.txHash));
-      const transactionInfo = await this.chainClient.getRawTransaction(transactionId, true) as RawTransaction;
+      const transactionInfo = await this.chainClient.getRawTransactionVerbose(transactionId);
 
       if (transactionInfo.confirmations) {
         this.logUtxoFoundMessage(transactionId, utxo.vout, utxo.value, true);

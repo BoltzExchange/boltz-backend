@@ -597,6 +597,9 @@ export class SubscribeTransactionsResponse extends jspb.Message {
     getAmountReceived(): number;
     setAmountReceived(value: number): void;
 
+    getConfirmed(): boolean;
+    setConfirmed(value: boolean): void;
+
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): SubscribeTransactionsResponse.AsObject;
@@ -613,6 +616,7 @@ export namespace SubscribeTransactionsResponse {
         outputAddress: string,
         transactionHash: string,
         amountReceived: number,
+        confirmed: boolean,
     }
 }
 
@@ -724,6 +728,12 @@ export class SubscribeSwapEventsResponse extends jspb.Message {
     setRefundDetails(value?: RefundDetails): void;
 
 
+    hasZeroConfRejectedDetails(): boolean;
+    clearZeroConfRejectedDetails(): void;
+    getZeroConfRejectedDetails(): ZeroConfRejectedDetails | undefined;
+    setZeroConfRejectedDetails(value?: ZeroConfRejectedDetails): void;
+
+
     getEventDetailsCase(): SubscribeSwapEventsResponse.EventDetailsCase;
 
     serializeBinary(): Uint8Array;
@@ -742,6 +752,7 @@ export namespace SubscribeSwapEventsResponse {
         claimDetails?: ClaimDetails.AsObject,
         abortDetails?: AbortDetails.AsObject,
         refundDetails?: RefundDetails.AsObject,
+        zeroConfRejectedDetails?: ZeroConfRejectedDetails.AsObject,
     }
 
     export enum EventDetailsCase {
@@ -752,6 +763,8 @@ export namespace SubscribeSwapEventsResponse {
     ABORT_DETAILS = 3,
 
     REFUND_DETAILS = 4,
+
+    ZERO_CONF_REJECTED_DETAILS = 5,
 
     }
 
@@ -836,6 +849,31 @@ export namespace RefundDetails {
     }
 }
 
+export class ZeroConfRejectedDetails extends jspb.Message { 
+    getInvoice(): string;
+    setInvoice(value: string): void;
+
+    getReason(): string;
+    setReason(value: string): void;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ZeroConfRejectedDetails.AsObject;
+    static toObject(includeInstance: boolean, msg: ZeroConfRejectedDetails): ZeroConfRejectedDetails.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ZeroConfRejectedDetails, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ZeroConfRejectedDetails;
+    static deserializeBinaryFromReader(message: ZeroConfRejectedDetails, reader: jspb.BinaryReader): ZeroConfRejectedDetails;
+}
+
+export namespace ZeroConfRejectedDetails {
+    export type AsObject = {
+        invoice: string,
+        reason: string,
+    }
+}
+
 export class CreateSwapRequest extends jspb.Message { 
     getBaseCurrency(): string;
     setBaseCurrency(value: string): void;
@@ -861,6 +899,9 @@ export class CreateSwapRequest extends jspb.Message {
     getTimeoutBlockDelta(): number;
     setTimeoutBlockDelta(value: number): void;
 
+    getAcceptZeroConf(): boolean;
+    setAcceptZeroConf(value: boolean): void;
+
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): CreateSwapRequest.AsObject;
@@ -882,6 +923,7 @@ export namespace CreateSwapRequest {
         refundPublicKey: string,
         outputType: OutputType,
         timeoutBlockDelta: number,
+        acceptZeroConf: boolean,
     }
 }
 
@@ -1124,5 +1166,6 @@ export enum InvoiceEvent {
 export enum SwapEvent {
     CLAIM = 0,
     ABORT = 1,
-    REFUND = 2,
+    ZEROCONF_REJECTED = 2,
+    REFUND = 3,
 }

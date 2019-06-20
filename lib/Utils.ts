@@ -1,5 +1,6 @@
 import os from 'os';
 import path from 'path';
+import { Transaction } from 'bitcoinjs-lib';
 import { OutputType, Scripts } from 'boltz-core';
 
 const { p2wshOutput, p2shP2wshOutput, p2shOutput, p2wpkhOutput, p2pkhOutput, p2shP2wpkhOutput } = Scripts;
@@ -233,4 +234,21 @@ export const transactionHashToId = (transactionHash: Buffer) => {
   return getHexString(
     reverseBuffer(transactionHash),
   );
+};
+
+/**
+ * Detects whether the transactions signals RBF explicitly
+ *
+ * @param transaction the transcations to scan
+ */
+export const transactionSignalsRbfExplicitly = (transaction: Transaction) => {
+  let singalsRbf = false;
+
+  transaction.ins.forEach((input) => {
+    if (input.sequence < 0xffffffff - 1) {
+      singalsRbf = true;
+    }
+  });
+
+  return singalsRbf;
 };

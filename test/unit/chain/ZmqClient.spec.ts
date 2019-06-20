@@ -264,8 +264,10 @@ describe('ZmqClient', () => {
 
     let transactionsFound = 0;
 
-    zmqClient.on('transaction.relevant.block', () => {
-      transactionsFound += 1;
+    zmqClient.on('transaction', (_, confirmed) => {
+      if (confirmed) {
+        transactionsFound += 1;
+      }
     });
 
     await zmqClient.rescanChain(0);
@@ -276,15 +278,15 @@ describe('ZmqClient', () => {
   });
 
   it('should handle raw transactions', async () => {
-    let mempoolAcceptance = false;
     let blockAcceptance  = false;
+    let mempoolAcceptance = false;
 
-    zmqClient.on('transaction.relevant.mempool', () => {
-      mempoolAcceptance = true;
-    });
-
-    zmqClient.on('transaction.relevant.block', () => {
-      blockAcceptance = true;
+    zmqClient.on('transaction', (_, confirmed) => {
+      if (confirmed) {
+        blockAcceptance = true;
+      } else {
+        mempoolAcceptance = true;
+      }
     });
 
     // Flow of a transaction that gets added to the mempool and afterwards included in a block

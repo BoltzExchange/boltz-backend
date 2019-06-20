@@ -4,24 +4,26 @@ import { Transaction, address, TxOutput } from 'bitcoinjs-lib';
 import { constructClaimTransaction, OutputType, TransactionOutput, constructRefundTransaction } from 'boltz-core';
 import Logger from '../Logger';
 import LndClient from '../lightning/LndClient';
-import { getHexString, transactionHashToId } from '../Utils';
+import ChainClient from '../chain/ChainClient';
 import WalletManager, { Currency } from '../wallet/WalletManager';
+import { getHexString, transactionHashToId, transactionSignalsRbfExplicitly, reverseBuffer } from '../Utils';
 
 type BaseSwapDetails = {
   redeemScript: Buffer;
 };
 
 type SwapDetails = BaseSwapDetails & {
-  lndClient: LndClient;
-  expectedAmount: number;
   invoice: string;
-  claimKeys: BIP32Interface;
+  lndClient: LndClient;
   outputType: OutputType;
+  expectedAmount: number;
+  acceptZeroConf: boolean;
+  claimKeys: BIP32Interface;
 };
 
 type ReverseSwapDetails = BaseSwapDetails & {
-  refundKeys: BIP32Interface;
   output: TransactionOutput;
+  refundKeys: BIP32Interface;
 };
 
 type SwapMaps = {
@@ -45,6 +47,9 @@ interface SwapNursery {
 
   on(event: 'invoice.failedToPay', listener: (invoice: string) => void): this;
   emit(event: 'invoice.failedToPay', invoice: string): boolean;
+
+  on(event: 'zeroconf.rejected', listener: (invoice: string, reason: string) => void): this;
+  emit(event: 'zeroconf.rejected', invoice: string, reason: string): boolean;
 
   // Reverse swap related events
   on(event: 'refund', listener: (lockupTransactionHash: string, lockupVout: number, minerFee: number) => void): this;
@@ -75,7 +80,38 @@ class SwapNursery extends EventEmitter {
   }
 
   public bindCurrency = (currency: Currency, maps: SwapMaps) => {
-    currency.chainClient.on('transaction.relevant.block', async (transaction: Transaction) => {
+    const { chainClient } = currency;
+
+    chainClient.on('transaction', async (transaction: Transaction, confirmed: boolean) => {
+      let zeroConfRejectedReason: string | undefined = undefined;
+
+      // Boltz does some extra checks on transactions that are not confirmed yet to make sure they are not malicious
+      if (!confirmed) {
+        // Check if the transaction signals RBF
+        const signalsRbf = await this.transactionSignalsRbf(chainClient, transaction);
+
+        if (signalsRbf) {
+          zeroConfRejectedReason = 'transaction or one of its unconfirmed ancestors signals RBF';
+        } else {
+          // Check if the transaction has a high enough fee to be confirmed in a timely manner
+          const estimationFeePerVbyte = await chainClient.estimateFee();
+
+          const transactionFee = await this.calculateTransactionFee(transaction, chainClient);
+          const transactionFeePerVbyte = transactionFee / transaction.virtualSize();
+
+          // If the transaction fee is less than 80% of the estimation, Boltz will wait for a confirmation
+          //
+          // Special case: if the fee estimator is returning the lowest possible fee, 2 sat/vbyte, every fee
+          // paid by the transaction will be accepted
+          if (
+            transactionFeePerVbyte / estimationFeePerVbyte < 0.8 &&
+            estimationFeePerVbyte !== 2
+          ) {
+            zeroConfRejectedReason = 'transaction fee is too low';
+          }
+        }
+      }
+
       let vout = 0;
 
       for (const openOutput of transaction.outs) {
@@ -85,24 +121,35 @@ class SwapNursery extends EventEmitter {
         const swapDetails = maps.swaps.get(hexScript);
 
         if (swapDetails) {
-          maps.swaps.delete(hexScript);
+          if (zeroConfRejectedReason !== undefined) {
+            this.logger.warn(`Rejected 0-conf ${chainClient.symbol} transaction ${transaction.getId()}: ${zeroConfRejectedReason}`);
+            this.emit('zeroconf.rejected', swapDetails.invoice, zeroConfRejectedReason);
 
-          await this.claimSwap(
-            currency,
-            swapDetails.lndClient,
-            transaction.getHash(),
-            output.script,
-            output.value,
-            vout,
-            swapDetails,
-          );
+          } else if (confirmed || swapDetails.acceptZeroConf) {
+            if (!confirmed) {
+              this.logger.silly(`Accepted 0-conf ${chainClient.symbol} swap: ${transaction.getId()}:${vout}`);
+            }
+
+            maps.swaps.delete(hexScript);
+
+            await this.claimSwap(
+              currency,
+              swapDetails.lndClient,
+              transaction.getHash(),
+              output.script,
+              output.value,
+              vout,
+              swapDetails,
+            );
+          }
+
         }
 
         vout += 1;
       }
     });
 
-    currency.chainClient.on('block', async (height: number) => {
+    chainClient.on('block', async (height: number) => {
       const swapTimeouts = maps.swapTimeouts.get(height);
 
       if (swapTimeouts) {
@@ -141,8 +188,7 @@ class SwapNursery extends EventEmitter {
     const swapOutput = `${transactionId}:${vout}`;
 
     if (outputValue < details.expectedAmount) {
-      this.logger.warn(`Value ${outputValue} ${currency.symbol} of ${swapOutput} is less than expected ${details.expectedAmount}: ` +
-        'aborting swap');
+      this.logger.error(`Aborting ${currency.symbol} swap: value ${outputValue} of ${swapOutput} is less than expected ${details.expectedAmount}`);
       return;
     }
 
@@ -170,7 +216,7 @@ class SwapNursery extends EventEmitter {
         await currency.chainClient.estimateFee(),
         true,
       );
-      const minerFee = this.getTransactionFee(outputValue, claimTx);
+      const minerFee = await this.calculateTransactionFee(claimTx, currency.chainClient, outputValue);
 
       this.logger.silly(`Broadcasting ${currency.symbol} claim transaction: ${claimTx.getId()}`);
 
@@ -198,7 +244,7 @@ class SwapNursery extends EventEmitter {
         timeoutBlockHeight,
         await currency.chainClient.estimateFee(),
       );
-      const minerFee = this.getTransactionFee(details.output.value, refundTx);
+      const minerFee = await this.calculateTransactionFee(refundTx, currency.chainClient, details.output.value);
 
       this.logger.verbose(`Broadcasting ${currency.symbol} refund transaction: ${refundTx.getId()}`);
 
@@ -229,8 +275,32 @@ class SwapNursery extends EventEmitter {
     return;
   }
 
-  private getTransactionFee = (inputValue: number, transaction: Transaction) => {
-    let fee = inputValue;
+  /**
+   * Gets the miner fee for a transaction
+   * If `inputSum` is not set, the chainClient will be queried to get the sum of all inputs
+   *
+   * @param transaction the transaction that spends the inputs
+   * @param chainClient the client for the chain of the transaction
+   * @param inputSum the sum of all inputs of the transaction
+   */
+  private calculateTransactionFee = async (transaction: Transaction, chainClient: ChainClient, inputSum?: number) => {
+    const queryInputSum = async () => {
+      let queriedInputSum = 0;
+
+      for (const input of transaction.ins) {
+        const inputId = getHexString(reverseBuffer(input.hash));
+        const rawInputTransaction = await chainClient.getRawTransaction(inputId);
+        const inputTransaction = Transaction.fromHex(rawInputTransaction);
+
+        const relevantOutput = inputTransaction.outs[input.index] as TxOutput;
+
+        queriedInputSum += relevantOutput.value;
+      }
+
+      return queriedInputSum;
+    };
+
+    let fee = inputSum || await queryInputSum();
 
     transaction.outs.forEach((out) => {
       const output = out as TxOutput;
@@ -238,6 +308,37 @@ class SwapNursery extends EventEmitter {
     });
 
     return fee;
+  }
+
+  /**
+   * Detects whether the transaction signals RBF explicitly or inherently
+   */
+  private transactionSignalsRbf = async (chainClient: ChainClient, transaction: Transaction) => {
+    // Check for explicit signalling
+    const signalsExplicitly = transactionSignalsRbfExplicitly(transaction);
+
+    if (signalsExplicitly) {
+      return true;
+    }
+
+    // Check for inherited signalling from unconfirmed inputs
+    for (const input of transaction.ins) {
+      const inputId = getHexString(reverseBuffer(input.hash));
+      const inputTransaction = await chainClient.getRawTransactionVerbose(inputId);
+
+      if (!inputTransaction.confirmations) {
+        const inputSingalsRbf = await this.transactionSignalsRbf(
+          chainClient,
+          Transaction.fromHex(inputTransaction.hex),
+        );
+
+        if (inputSingalsRbf) {
+          return true;
+        }
+      }
+    }
+
+    return false;
   }
 }
 

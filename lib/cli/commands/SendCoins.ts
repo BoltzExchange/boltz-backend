@@ -3,12 +3,12 @@ import BuilderComponents from '../BuilderComponents';
 import { callback, loadBoltzClient } from '../Command';
 import { SendCoinsRequest } from '../../proto/boltzrpc_pb';
 
-export const command = 'sendcoins <currency> <address> <amount> [fee_per_byte] [send_all]';
+export const command = 'sendcoins <symbol> <address> <amount> [fee_per_byte] [send_all]';
 
 export const describe = 'sends coins to a specified address';
 
 export const builder = {
-  currency: BuilderComponents.currency,
+  symbol: BuilderComponents.symbol,
   address: {
     describe: 'address to which the funds should be sent',
     type: 'string',
@@ -17,7 +17,11 @@ export const builder = {
     describe: 'amount that should be sent',
     type: 'number',
   },
-  fee_per_byte: BuilderComponents.feePerByte,
+  fee_per_byte: {
+    describe: 'amount of satoshis per vbyte that should be paid as fee',
+    type: 'number',
+    default: 2,
+  },
   send_all: {
     describe: 'ignores the amount and sends the whole balance of the wallet',
     type: 'boolean',
@@ -27,7 +31,7 @@ export const builder = {
 export const handler = (argv: Arguments<any>) => {
   const request = new SendCoinsRequest();
 
-  request.setCurrency(argv.currency);
+  request.setSymbol(argv.symbol);
   request.setAddress(argv.address);
   request.setAmount(argv.amount);
   request.setSatPerVbyte(argv.fee_per_byte);

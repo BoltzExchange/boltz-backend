@@ -4,36 +4,20 @@ import grpc, { Server } from 'grpc';
 import { pki, md } from 'node-forge';
 import Errors from './Errors';
 import Logger from '../Logger';
+import { GrpcConfig } from '../Config';
 import GrpcService from './GrpcService';
 import { BoltzService } from '../proto/boltzrpc_grpc_pb';
-
-type GrpcConfig = {
-  host: string,
-  port: number,
-  certpath: string,
-  keypath: string,
-};
 
 class GrpcServer {
   private server: Server;
 
-  constructor(private logger: Logger, grpcService: GrpcService, private grpcConfig: GrpcConfig) {
+  constructor(private logger: Logger, private grpcConfig: GrpcConfig, grpcService: GrpcService) {
     this.server = new grpc.Server();
 
     this.server.addService(BoltzService, {
       getInfo: grpcService.getInfo,
       getBalance: grpcService.getBalance,
       newAddress: grpcService.newAddress,
-      getTransaction: grpcService.getTransaction,
-      getFeeEstimation: grpcService.getFeeEstimation,
-      broadcastTransaction: grpcService.broadcastTransaction,
-      listenOnAddress: grpcService.listenOnAddress,
-      subscribeSwapEvents: grpcService.subscribeSwapEvents,
-      subscribeTransactions: grpcService.subscribeTransactions,
-      subscribeInvoices: grpcService.subscribeInvoices,
-      subscribeChannelBackups: grpcService.subscribeChannelBackups,
-      createSwap: grpcService.createSwap,
-      createReverseSwap: grpcService.createReverseSwap,
       sendCoins: grpcService.sendCoins,
     });
   }

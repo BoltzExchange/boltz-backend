@@ -1,8 +1,11 @@
 import Sequelize from 'sequelize';
 import Logger from '../Logger';
 import Utxo from './models/Utxo';
+import Pair from './models/Pair';
+import Swap from './models/Swap';
 import Output from './models/Output';
 import Wallet from './models/Wallet';
+import ReverseSwap from './models/ReverseSwap';
 
 class Db {
   public sequelize: Sequelize.Sequelize;
@@ -32,6 +35,13 @@ class Db {
     await Wallet.sync();
     await Output.sync(),
     await Utxo.sync();
+
+    await Pair.sync();
+
+    await Promise.all([
+      Swap.sync(),
+      ReverseSwap.sync(),
+    ]);
   }
 
   public close = async () => {
@@ -42,6 +52,9 @@ class Db {
     Wallet.load(this.sequelize);
     Output.load(this.sequelize);
     Utxo.load(this.sequelize);
+    Pair.load(this.sequelize);
+    Swap.load(this.sequelize);
+    ReverseSwap.load(this.sequelize);
   }
 }
 

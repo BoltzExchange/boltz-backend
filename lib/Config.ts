@@ -3,7 +3,6 @@ import path from 'path';
 import toml from 'toml';
 import { Arguments } from 'yargs';
 import Errors from './consts/Errors';
-import { GrpcConfig } from './grpc/GrpcServer';
 import { ChainConfig } from './chain/ChainClient';
 import { LndConfig } from './lightning/LndClient';
 import { Chain, Symbol, Network } from './consts/Enums';
@@ -16,8 +15,57 @@ type ServiceOptions = {
 type CurrencyConfig = {
   symbol: Symbol,
   network: Network;
+
   chain: ChainConfig & ServiceOptions;
   lnd?: LndConfig & ServiceOptions;
+
+  maxSwapAmount: number;
+  minSwapAmount: number;
+
+  minWalletBalance: number;
+
+  minLocalBalance: number;
+  minRemoteBalance: number;
+
+  maxZeroConfAmount: number;
+
+  timeoutBlockDelta: number;
+};
+
+type ApiConfig = {
+  host: string;
+  port: number;
+
+  interval: number;
+};
+
+type GrpcConfig = {
+  host: string,
+  port: number,
+  certpath: string,
+  keypath: string,
+};
+
+type RatesConfig = {
+  interval: number;
+};
+
+type BackupConfig = {
+  email: string;
+  privatekeypath: string;
+
+  bucketname: string;
+
+  // The interval has to be a cron schedule expression
+  interval: string;
+};
+
+type NotificationConfig = {
+  token: string;
+  channel: string;
+
+  prefix: string;
+  interval: number;
 };
 
 type ConfigType = {
@@ -30,15 +78,33 @@ type ConfigType = {
 
   loglevel: string;
 
+  api: ApiConfig;
   grpc: GrpcConfig;
+  rates: RatesConfig;
+  backup: BackupConfig;
+  notification: NotificationConfig;
+
   lndpath: string;
   currencies: CurrencyConfig[];
 };
 
 class Config {
+  // Default paths
+  public static defaultDataDir = getServiceDataDir('boltz-middleware');
+
+  public static defaultConfigPath = 'boltz.conf';
+  public static defaultMnemonicPath = 'seed.dat';
+  public static defaultLogPath = 'boltz.log';
+  public static defaultDbPath = 'boltz.db';
+
+  public static defaultGrpcCertPath = 'tls.cert';
+  public static defaultGrpcKeyPath = 'tls.key';
+
+  public static defaultPrivatekeyPath = 'backupPrivatekey.pem';
+
   private config: ConfigType;
 
-  private dataDir: string;
+  private dataDir = Config.defaultDataDir;
 
   /**
    * The constructor sets the default values
@@ -46,7 +112,7 @@ class Config {
   constructor() {
     this.dataDir = getServiceDataDir('boltz');
 
-    const { configpath, mnemonicpath, dbpath, logpath } = this.getDataDirPaths(this.dataDir);
+    const { configpath, mnemonicpath, dbpath, logpath, backup, grpc } = this.getDataDirPaths(this.dataDir);
 
     this.config = {
       configpath,
@@ -57,11 +123,39 @@ class Config {
       datadir: this.dataDir,
       loglevel: this.getDefaultLogLevel(),
 
+      api: {
+        host: '127.0.0.1',
+        port: 9001,
+
+        interval: 1,
+      },
+
       grpc: {
         host: '127.0.0.1',
         port: 9000,
-        certpath: path.join(this.dataDir, 'tls.cert'),
-        keypath: path.join(this.dataDir, 'tls.key'),
+        certpath: grpc.certpath,
+        keypath: grpc.keypath,
+      },
+
+      rates: {
+        interval: 1,
+      },
+
+      backup: {
+        email: '',
+        privatekeypath: backup.privatekeypath,
+
+        bucketname: '',
+
+        interval: '0 0 * * *',
+      },
+
+      notification: {
+        token: '',
+        channel: '',
+
+        prefix: '',
+        interval: 1,
       },
 
       lndpath: getServiceDataDir('lnd'),
@@ -70,12 +164,26 @@ class Config {
         {
           symbol: Symbol.BTC,
           network: Network.Testnet,
+
+          maxSwapAmount: 100000,
+          minSwapAmount: 1000,
+
+          minWalletBalance: 1000000,
+
+          minLocalBalance: 500000,
+          minRemoteBalance: 500000,
+
+          maxZeroConfAmount: 200000,
+
+          timeoutBlockDelta: 2,
+
           chain: {
             host: '127.0.0.1',
             port: 18334,
             rpcuser: 'user',
             rpcpass: 'user',
           },
+
           lnd: {
             host: '127.0.0.1',
             port: 10009,
@@ -86,12 +194,26 @@ class Config {
         {
           symbol: Symbol.LTC,
           network: Network.Testnet,
+
+          maxSwapAmount: 10000000,
+          minSwapAmount: 10000,
+
+          minWalletBalance: 100000000,
+
+          minLocalBalance: 50000000,
+          minRemoteBalance: 50000000,
+
+          maxZeroConfAmount: 20000000,
+
+          timeoutBlockDelta: 8,
+
           chain: {
             host: '127.0.0.1',
             port: 19334,
             rpcuser: 'user',
             rpcpass: 'user',
           },
+
           lnd: {
             host: '127.0.0.1',
             port: 11009,
@@ -172,14 +294,18 @@ class Config {
 
   private getDataDirPaths = (dataDir: string) => {
     return {
-      configpath: path.join(dataDir, 'boltz.conf'),
-      mnemonicpath: path.join(dataDir, 'seed.dat'),
-      dbpath: path.join(dataDir, 'boltz.db'),
-      logpath: path.join(dataDir, 'boltz.log'),
+      configpath: path.join(dataDir, Config.defaultConfigPath),
+      mnemonicpath: path.join(dataDir, Config.defaultMnemonicPath),
+      dbpath: path.join(dataDir, Config.defaultDbPath),
+      logpath: path.join(dataDir, Config.defaultLogPath),
 
       grpc: {
-        certpath: path.join(dataDir, 'tls.cert'),
-        keypath: path.join(dataDir, 'tls.key'),
+        certpath: path.join(dataDir, Config.defaultGrpcCertPath),
+        keypath: path.join(dataDir, Config.defaultGrpcKeyPath),
+      },
+
+      backup: {
+        privatekeypath: path.join(dataDir, Config.defaultPrivatekeyPath),
       },
     };
   }
@@ -194,4 +320,11 @@ class Config {
 }
 
 export default Config;
-export { ConfigType };
+export {
+  ApiConfig,
+  ConfigType,
+  GrpcConfig,
+  BackupConfig,
+  CurrencyConfig,
+  NotificationConfig,
+};

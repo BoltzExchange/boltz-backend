@@ -2,13 +2,25 @@ import { Model, Sequelize, DataTypes } from 'sequelize';
 import Output from './Output';
 import Wallet from './Wallet';
 
-class Utxo extends Model {
+type UtxoType = {
+  outputId: number;
+  currency: string;
+
+  txId: string;
+  vout: number;
+  value: number;
+
+  confirmed: boolean;
+  spent: boolean;
+};
+
+class Utxo extends Model implements UtxoType {
   public id!: number;
 
   public outputId!: number;
   public currency!: string;
 
-  public txHash!: string;
+  public txId!: string;
   public vout!: number;
   public value!: number;
 
@@ -42,3 +54,4 @@ class Utxo extends Model {
 }
 
 export default Utxo;
+export { UtxoType };

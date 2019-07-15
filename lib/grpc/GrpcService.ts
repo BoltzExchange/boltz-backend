@@ -2,24 +2,13 @@
   tslint:disable no-null-keyword
   tslint:disable-next-line: max-line-length
  */
-import { ServerWriteableStream, handleUnaryCall, handleServerStreamingCall } from 'grpc';
+import { handleUnaryCall } from 'grpc';
 import Service from '../service/Service';
 import * as boltzrpc from '../proto/boltzrpc_pb';
-import EventHandler from '../service/EventHandler';
 
 class GrpcService {
-  private swapEventSubscriptions: ServerWriteableStream<boltzrpc.SubscribeSwapEventsRequest>[] = [];
-  private transactionSubscriptions: ServerWriteableStream<boltzrpc.SubscribeTransactionsRequest>[] = [];
-  private invoiceSubscriptions: ServerWriteableStream<boltzrpc.SubscribeInvoicesRequest>[] = [];
-  private channelBackupSubscriptions: ServerWriteableStream<boltzrpc.SubscribeChannelBackupsRequest>[] = [];
 
-  private eventHandler: EventHandler;
-
-  constructor(private service: Service) {
-    this.eventHandler = service.eventHandler;
-
-    this.subscribeToEvents();
-  }
+  constructor(private service: Service) {}
 
   public getInfo: handleUnaryCall<boltzrpc.GetInfoRequest, boltzrpc.GetInfoResponse> = async (_, callback) => {
     try {
@@ -31,7 +20,9 @@ class GrpcService {
 
   public getBalance: handleUnaryCall<boltzrpc.GetBalanceRequest, boltzrpc.GetBalanceResponse> = async (call, callback) => {
     try {
-      callback(null, await this.service.getBalance(call.request.toObject()));
+      const { symbol } = call.request.toObject();
+
+      callback(null, await this.service.getBalance(symbol));
     } catch (error) {
       callback(error, null);
     }
@@ -39,110 +30,12 @@ class GrpcService {
 
   public newAddress: handleUnaryCall<boltzrpc.NewAddressRequest, boltzrpc.NewAddressResponse> = async (call, callback) => {
     try {
-      const address = await this.service.newAddress(call.request.toObject());
+      const { symbol, type } = call.request.toObject();
+
+      const address = await this.service.newAddress(symbol, type);
 
       const response = new boltzrpc.NewAddressResponse();
       response.setAddress(address);
-
-      callback(null, response);
-    } catch (error) {
-      callback(error, null);
-    }
-  }
-
-  public getTransaction: handleUnaryCall<boltzrpc.GetTransactionRequest, boltzrpc.GetTransactionResponse> = async (call, callback) => {
-    try {
-      const transaction = await this.service.getTransaction(call.request.toObject());
-
-      const response = new boltzrpc.GetTransactionResponse();
-      response.setTransactionHex(transaction);
-
-      callback(null, response);
-    } catch (error) {
-      callback({ message: error.message, name: '' }, null);
-    }
-  }
-
-  public getFeeEstimation: handleUnaryCall<boltzrpc.GetFeeEstimationRequest, boltzrpc.GetFeeEstimationResponse> = async (call, callback) => {
-    try {
-      callback(null, await this.service.getFeeEstimation(call.request.toObject()));
-    } catch (error) {
-      callback(error, null);
-    }
-  }
-
-  public broadcastTransaction: handleUnaryCall<boltzrpc.BroadcastTransactionRequest, boltzrpc.BroadcastTransactionResponse> = async (call, callback) => {
-    try {
-      const transactionHash = await this.service.broadcastTransaction(call.request.toObject());
-
-      const response = new boltzrpc.BroadcastTransactionResponse();
-      response.setTransactionHash(transactionHash);
-
-      callback(null, response);
-    } catch (error) {
-      callback({ message: error.message, name: '' }, null);
-    }
-  }
-
-  public listenOnAddress: handleUnaryCall<boltzrpc.ListenOnAddressRequest, boltzrpc.ListenOnAddressResponse> = async (call, callback) => {
-    try {
-      this.service.listenOnAddress(call.request.toObject());
-
-      callback(null, new boltzrpc.ListenOnAddressResponse());
-    } catch (error) {
-      callback(error, null);
-    }
-  }
-
-  public subscribeSwapEvents: handleServerStreamingCall<boltzrpc.SubscribeSwapEventsRequest, boltzrpc.SubscribeSwapEventsResponse> = async (call) => {
-    this.registerSubscription(call, this.swapEventSubscriptions);
-  }
-
-  public subscribeTransactions: handleServerStreamingCall<boltzrpc.SubscribeTransactionsRequest, boltzrpc.SubscribeTransactionsResponse> = async (call) => {
-    this.registerSubscription(call, this.transactionSubscriptions);
-  }
-
-  public subscribeInvoices: handleServerStreamingCall<boltzrpc.SubscribeInvoicesRequest, boltzrpc.SubscribeInvoicesResponse> = async (call) => {
-    this.registerSubscription(call, this.invoiceSubscriptions);
-  }
-
-  public subscribeChannelBackups: handleServerStreamingCall<boltzrpc.SubscribeChannelBackupsRequest, boltzrpc.ChannelBackup> = async (call) => {
-    this.registerSubscription(call, this.channelBackupSubscriptions);
-  }
-
-  public createSwap: handleUnaryCall<boltzrpc.CreateSwapRequest, boltzrpc.CreateSwapResponse> = async (call, callback) => {
-    try {
-      const { address, redeemScript, timeoutBlockHeight } = await this.service.createSwap(call.request.toObject());
-
-      const response = new boltzrpc.CreateSwapResponse();
-      response.setAddress(address);
-      response.setRedeemScript(redeemScript);
-      response.setTimeoutBlockHeight(timeoutBlockHeight);
-
-      callback(null, response);
-    } catch (error) {
-      callback(error, null);
-    }
-  }
-
-  public createReverseSwap: handleUnaryCall<boltzrpc.CreateReverseSwapRequest, boltzrpc.CreateReverseSwapResponse> = async (call, callback) => {
-    try {
-      const {
-        invoice,
-        minerFee,
-        redeemScript,
-        lockupAddress,
-        lockupTransaction,
-        lockupTransactionHash,
-      } = await this.service.createReverseSwap(call.request.toObject());
-
-      const response = new boltzrpc.CreateReverseSwapResponse();
-      response.setInvoice(invoice);
-      response.setMinerFee(minerFee);
-      response.setRedeemScript(redeemScript);
-      response.setLockupAddress(lockupAddress);
-      response.setLockupTransaction(lockupTransaction);
-      response.setLockupTransactionHash(lockupTransactionHash);
 
       callback(null, response);
     } catch (error) {
@@ -162,140 +55,6 @@ class GrpcService {
     } catch (error) {
       callback(error, null);
     }
-  }
-
-  private subscribeToEvents = () => {
-    // Transaction subscription
-    this.eventHandler.on('transaction', (outputAddress, transactionHash, amountReceived, confirmed) => {
-      this.transactionSubscriptions.forEach((subscription) => {
-        const response = new boltzrpc.SubscribeTransactionsResponse();
-        response.setOutputAddress(outputAddress);
-        response.setAmountReceived(amountReceived);
-        response.setTransactionHash(transactionHash);
-        response.setConfirmed(confirmed);
-
-        subscription.write(response);
-      });
-    });
-
-    // Invoice subscriptions
-    this.eventHandler.on('invoice.paid', (invoice, routingFee) => {
-      this.invoiceSubscriptions.forEach((subscription) => {
-        const response = new boltzrpc.SubscribeInvoicesResponse();
-        response.setEvent(boltzrpc.InvoiceEvent.PAID);
-        response.setInvoice(invoice);
-        response.setRoutingFee(routingFee);
-
-        subscription.write(response);
-      });
-    });
-
-    this.eventHandler.on('invoice.failedToPay', (invoice) => {
-      this.invoiceSubscriptions.forEach((subscription) => {
-        const response = new boltzrpc.SubscribeInvoicesResponse();
-        response.setEvent(boltzrpc.InvoiceEvent.FAILED_TO_PAY);
-        response.setInvoice(invoice);
-
-        subscription.write(response);
-      });
-    });
-
-    this.eventHandler.on('invoice.settled', (invoice, preimage) => {
-      this.invoiceSubscriptions.forEach((subscription) => {
-        const response = new boltzrpc.SubscribeInvoicesResponse();
-        response.setEvent(boltzrpc.InvoiceEvent.SETTLED);
-        response.setInvoice(invoice);
-        response.setPreimage(preimage);
-
-        subscription.write(response);
-      });
-    });
-
-    // Swap event subscriptions
-    this.eventHandler.on('claim', (lockupTransactionHash, lockupVout, minerFee) => {
-      this.swapEventSubscriptions.forEach((subscription) => {
-        const response = new boltzrpc.SubscribeSwapEventsResponse();
-        const claimDetails = new boltzrpc.ClaimDetails();
-
-        claimDetails.setLockupTransactionHash(lockupTransactionHash);
-        claimDetails.setLockupVout(lockupVout);
-        claimDetails.setMinerFee(minerFee);
-
-        response.setEvent(boltzrpc.SwapEvent.CLAIM);
-        response.setClaimDetails(claimDetails);
-
-        subscription.write(response);
-      });
-    });
-
-    this.eventHandler.on('abort', (invoice) => {
-      this.swapEventSubscriptions.forEach((subscription) => {
-        const response = new boltzrpc.SubscribeSwapEventsResponse();
-        const abortDetails = new boltzrpc.AbortDetails();
-
-        abortDetails.setInvoice(invoice);
-
-        response.setEvent(boltzrpc.SwapEvent.ABORT);
-        response.setAbortDetails(abortDetails);
-
-        subscription.write(response);
-      });
-    });
-
-    this.eventHandler.on('zeroconf.rejected', (invoice, reason) => {
-      this.swapEventSubscriptions.forEach((subscription) => {
-        const response = new boltzrpc.SubscribeSwapEventsResponse();
-        const zeroConfRejectedDetails = new boltzrpc.ZeroConfRejectedDetails();
-
-        zeroConfRejectedDetails.setInvoice(invoice);
-        zeroConfRejectedDetails.setReason(reason);
-
-        response.setEvent(boltzrpc.SwapEvent.ZEROCONF_REJECTED);
-        response.setZeroConfRejectedDetails(zeroConfRejectedDetails);
-
-        subscription.write(response);
-      });
-    });
-
-    this.eventHandler.on('refund', (lockupTransactionHash, lockupVout, minerFee) => {
-      this.swapEventSubscriptions.forEach((subscription) => {
-        const response = new boltzrpc.SubscribeSwapEventsResponse();
-        const refundDetails = new boltzrpc.RefundDetails();
-
-        refundDetails.setLockupTransactionHash(lockupTransactionHash);
-        refundDetails.setLockupVout(lockupVout);
-        refundDetails.setMinerFee(minerFee);
-
-        response.setEvent(boltzrpc.SwapEvent.REFUND);
-        response.setRefundDetails(refundDetails);
-
-        subscription.write(response);
-      });
-    });
-
-    // Channel backup subscription
-    this.eventHandler.on('channel.backup', (currency, channelBackup) => {
-      this.channelBackupSubscriptions.forEach((subscription) => {
-        const response = new boltzrpc.ChannelBackup();
-        response.setCurrency(currency);
-        response.setMultiChannelBackup(channelBackup);
-
-        subscription.write(response);
-      });
-    });
-  }
-
-  private registerSubscription = (call: ServerWriteableStream<any>, subscriptions: ServerWriteableStream<any>[]) => {
-    const index = subscriptions.push(call);
-
-    // Remove the subscription from the array when it is closed
-    call.on('finish', () => {
-      subscriptions.splice(index - 1, 1);
-    });
-
-    call.on('close', () => {
-      subscriptions.splice(index - 1, 1);
-    });
   }
 }
 

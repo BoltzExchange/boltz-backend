@@ -3,6 +3,17 @@ export type Error = {
   code: string;
 };
 
+export type PairConfig = {
+  base: string;
+  quote: string;
+
+  // Percentage of the amount that will be charged as fee
+  fee?: number;
+
+  // If there is a hardcoded rate the APIs of the exchanges will not be queried
+  rate?: number;
+};
+
 export type WalletInfo = {
   derivationPath: string;
   highestUsedIndex: number;

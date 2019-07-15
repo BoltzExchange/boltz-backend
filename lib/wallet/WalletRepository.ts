@@ -1,5 +1,5 @@
 import { Op } from 'sequelize';
-import Wallet from '../db/models/Wallet';
+import Wallet, { WalletType } from '../db/models/Wallet';
 
 class WalletRepository {
   constructor() {}
@@ -18,14 +18,7 @@ class WalletRepository {
     });
   }
 
-  public addWallet = async (wallet: {
-    symbol: string,
-
-    highestUsedIndex: number,
-    derivationPath: string,
-
-    blockHeight: number,
-  }) => {
+  public addWallet = async (wallet: WalletType) => {
     return Wallet.create(wallet);
   }
 

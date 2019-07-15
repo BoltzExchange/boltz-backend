@@ -6,6 +6,35 @@ export enum ErrorCodePrefix {
   Chain = 4,
   Lnd = 5,
   Swap = 6,
+  Rates = 7,
+}
+
+export enum ClientStatus {
+  Disconnected,
+  Connected,
+  OutOfSync,
+}
+
+export enum OrderSide {
+  BUY,
+  SELL,
+}
+
+export enum SwapUpdateEvent {
+  InvoicePaid = 'invoice.paid',
+  InvoiceSettled = 'invoice.settled',
+  InvoiceFailedToPay = 'invoice.failedToPay',
+
+  TransactionMempool = 'transaction.mempool',
+  TransactionClaimed = 'transaction.claimed',
+  TransactionRefunded = 'transaction.refunded',
+  TransactionConfirmed = 'transaction.confirmed',
+
+  SwapExpired = 'swap.expired',
+}
+
+export enum ServiceWarning {
+  ReverseSwapsDisabled = 'reverse.swaps.disabled',
 }
 
 export enum Symbol {
@@ -23,10 +52,4 @@ export enum Network {
   Testnet = 'testnet',
   Simnet = 'simnet',
   Regtest = 'regtest',
-}
-
-export enum ClientStatus {
-  Disconnected,
-  Connected,
-  OutOfSync,
 }

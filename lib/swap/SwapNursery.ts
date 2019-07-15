@@ -39,8 +39,8 @@ type SwapMaps = {
 
 interface SwapNursery {
   // Swap related events
-  on(event: 'claim', listener: (lockupTransactionHash: string, lockupVout: number, minerFee: number) => void): this;
-  emit(event: 'claim', lockupTransactionHash: string, lockupVout: number, minerFee: number): boolean;
+  on(event: 'claim', listener: (lockupTransactionId: string, lockupVout: number, minerFee: number) => void): this;
+  emit(event: 'claim', lockupTransactionId: string, lockupVout: number, minerFee: number): boolean;
 
   on(event: 'abort', listener: (invoice: string) => void): this;
   emit(event: 'abort', invoice: string): boolean;
@@ -52,8 +52,8 @@ interface SwapNursery {
   emit(event: 'zeroconf.rejected', invoice: string, reason: string): boolean;
 
   // Reverse swap related events
-  on(event: 'refund', listener: (lockupTransactionHash: string, lockupVout: number, minerFee: number) => void): this;
-  emit(event: 'refund', lockupTransactionHash: string, lockupVout: number, minerFee: number): boolean;
+  on(event: 'refund', listener: (lockupTransactionId: string, lockupVout: number, minerFee: number) => void): this;
+  emit(event: 'refund', lockupTransactionId: string, lockupVout: number, minerFee: number): boolean;
 }
 
 class SwapNursery extends EventEmitter {

@@ -9,7 +9,7 @@ import UtxoRepository from './UtxoRepository';
 import ChainClient from '../chain/ChainClient';
 import WalletRepository from './WalletRepository';
 import OutputRepository from './OutputRepository';
-import { getPubkeyHashFunction, getHexString, getHexBuffer, transactionHashToId } from '../Utils';
+import { getPubkeyHashFunction, getHexString, getHexBuffer, reverseBuffer } from '../Utils';
 
 type UTXO = TransactionOutput & {
   id: number;
@@ -96,8 +96,7 @@ class Wallet {
                 value: output.value,
                 currency: this.symbol,
                 outputId: outputInfo.id,
-                // TODO: use ID of transaction
-                txHash: getHexString(transaction.getHash()),
+                txId: transaction.getId(),
               }));
             }
           });
@@ -312,8 +311,8 @@ class Wallet {
           vout: utxoInstance.vout,
           value: utxoInstance.value,
           script: getHexBuffer(script),
-          txHash: getHexBuffer(utxoInstance.txHash),
           keys: this.getKeysByIndex(output.keyIndex),
+          txHash: reverseBuffer(getHexBuffer(utxoInstance.txId)),
         });
 
         toSpendSum += utxoInstance.value;
@@ -394,16 +393,15 @@ class Wallet {
     const utxos = await this.utxoRepository.getUnconfirmedUtxos(this.symbol);
 
     for (const utxo of utxos) {
-      const transactionId = transactionHashToId(getHexBuffer(utxo.txHash));
-      const transactionInfo = await this.chainClient.getRawTransactionVerbose(transactionId);
+      const transactionInfo = await this.chainClient.getRawTransactionVerbose(utxo.txId);
 
       if (transactionInfo.confirmations) {
-        this.logUtxoFoundMessage(transactionId, utxo.vout, utxo.value, true);
+        this.logUtxoFoundMessage(utxo.txId, utxo.vout, utxo.value, true);
 
         utxo.set('confirmed', true);
         await utxo.save();
       } else {
-        this.chainClient.zmqClient.utxos.add(transactionId);
+        this.chainClient.zmqClient.utxos.add(utxo.txId);
       }
     }
   }

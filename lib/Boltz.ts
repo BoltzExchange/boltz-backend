@@ -2,29 +2,36 @@ import fs from 'fs';
 import { Arguments } from 'yargs';
 import { Networks } from 'boltz-core';
 import { generateMnemonic } from 'bip39';
+import Api from './api/Api';
 import Logger from './Logger';
+import Report from './data/Report';
 import Database from './db/Database';
 import Service from './service/Service';
 import GrpcServer from './grpc/GrpcServer';
 import GrpcService from './grpc/GrpcService';
 import SwapManager from './swap/SwapManager';
-import Config, { ConfigType } from './Config';
 import LndClient from './lightning/LndClient';
 import ChainClient from './chain/ChainClient';
+import Config, { ConfigType } from './Config';
+import BackupScheduler from './backup/BackupScheduler';
 import WalletManager, { Currency } from './wallet/WalletManager';
+import NotificationProvider from './notifications/NotificationProvider';
 
 class Boltz {
-  private config: ConfigType;
   private logger: Logger;
+  private config: ConfigType;
 
   private db: Database;
 
   private currencies = new Map<string, Currency>();
 
-  private walletManager: WalletManager;
   private swapManager: SwapManager;
+  private walletManager: WalletManager;
 
   private service: Service;
+  private notifications: NotificationProvider;
+
+  private api: Api;
   private grpcServer: GrpcServer;
 
   constructor(config: Arguments<any>) {
@@ -58,17 +65,42 @@ class Boltz {
       ],
     );
 
-    this.service = new Service({
-      logger: this.logger,
-      currencies: this.currencies,
-      swapManager: this.swapManager,
-      walletManager: this.walletManager,
-    });
+    this.service = new Service(
+      this.logger,
+      this.swapManager,
+      this.walletManager,
+      this.currencies,
+    );
+
+    const backup = new BackupScheduler(
+      this.logger,
+      this.config.dbpath,
+      this.config.backup,
+      this.service.eventHandler,
+      new Report(
+        this.service.swapRepository,
+        this.service.reverseSwapRepository,
+      ),
+    );
+
+    this.notifications = new NotificationProvider(
+      this.logger,
+      this.service,
+      backup,
+      this.config.notification,
+      this.config.currencies,
+    );
 
     this.grpcServer = new GrpcServer(
       this.logger,
-      new GrpcService(this.service),
       this.config.grpc,
+      new GrpcService(this.service),
+    );
+
+    this.api = new Api(
+      this.logger,
+      this.config.api,
+      this.service,
     );
   }
 
@@ -83,13 +115,19 @@ class Boltz {
     });
 
     await Promise.all(promises);
-    await this.walletManager.init();
+
+    await Promise.all([
+      this.walletManager.init(),
+      this.notifications.init(),
+    ]);
 
     try {
       this.grpcServer.listen();
     } catch (error) {
       this.logger.error(`Could not start gRPC server: ${error}`);
     }
+
+    await this.api.init();
   }
 
   private connectChainClient = async (client: ChainClient) => {
@@ -136,6 +174,7 @@ class Boltz {
         this.currencies.set(currency.symbol, {
           chainClient,
           lndClient,
+          config: currency,
           symbol: currency.symbol,
           network: Networks[currency.network],
         });

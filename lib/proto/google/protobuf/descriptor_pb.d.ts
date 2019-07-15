@@ -203,16 +203,16 @@ export namespace DescriptorProto {
 
     export class ExtensionRange extends jspb.Message { 
 
-    hasStart(): boolean;
-    clearStart(): void;
-    getStart(): number | undefined;
-    setStart(value: number): void;
+        hasStart(): boolean;
+        clearStart(): void;
+        getStart(): number | undefined;
+        setStart(value: number): void;
 
 
-    hasEnd(): boolean;
-    clearEnd(): void;
-    getEnd(): number | undefined;
-    setEnd(value: number): void;
+        hasEnd(): boolean;
+        clearEnd(): void;
+        getEnd(): number | undefined;
+        setEnd(value: number): void;
 
 
         serializeBinary(): Uint8Array;
@@ -227,23 +227,23 @@ export namespace DescriptorProto {
 
     export namespace ExtensionRange {
         export type AsObject = {
-        start?: number,
-        end?: number,
+            start?: number,
+            end?: number,
         }
     }
 
     export class ReservedRange extends jspb.Message { 
 
-    hasStart(): boolean;
-    clearStart(): void;
-    getStart(): number | undefined;
-    setStart(value: number): void;
+        hasStart(): boolean;
+        clearStart(): void;
+        getStart(): number | undefined;
+        setStart(value: number): void;
 
 
-    hasEnd(): boolean;
-    clearEnd(): void;
-    getEnd(): number | undefined;
-    setEnd(value: number): void;
+        hasEnd(): boolean;
+        clearEnd(): void;
+        getEnd(): number | undefined;
+        setEnd(value: number): void;
 
 
         serializeBinary(): Uint8Array;
@@ -258,8 +258,8 @@ export namespace DescriptorProto {
 
     export namespace ReservedRange {
         export type AsObject = {
-        start?: number,
-        end?: number,
+            start?: number,
+            end?: number,
         }
     }
 
@@ -1100,16 +1100,16 @@ export namespace UninterpretedOption {
 
     export class NamePart extends jspb.Message { 
 
-    hasNamePart(): boolean;
-    clearNamePart(): void;
-    getNamePart(): string | undefined;
-    setNamePart(value: string): void;
+        hasNamePart(): boolean;
+        clearNamePart(): void;
+        getNamePart(): string | undefined;
+        setNamePart(value: string): void;
 
 
-    hasIsExtension(): boolean;
-    clearIsExtension(): void;
-    getIsExtension(): boolean | undefined;
-    setIsExtension(value: boolean): void;
+        hasIsExtension(): boolean;
+        clearIsExtension(): void;
+        getIsExtension(): boolean | undefined;
+        setIsExtension(value: boolean): void;
 
 
         serializeBinary(): Uint8Array;
@@ -1124,8 +1124,8 @@ export namespace UninterpretedOption {
 
     export namespace NamePart {
         export type AsObject = {
-        namePart?: string,
-        isExtension?: boolean,
+            namePart?: string,
+            isExtension?: boolean,
         }
     }
 
@@ -1155,32 +1155,32 @@ export namespace SourceCodeInfo {
 
 
     export class Location extends jspb.Message { 
-    clearPathList(): void;
-    getPathList(): Array<number>;
-    setPathList(value: Array<number>): void;
-    addPath(value: number, index?: number): number;
+        clearPathList(): void;
+        getPathList(): Array<number>;
+        setPathList(value: Array<number>): void;
+        addPath(value: number, index?: number): number;
 
-    clearSpanList(): void;
-    getSpanList(): Array<number>;
-    setSpanList(value: Array<number>): void;
-    addSpan(value: number, index?: number): number;
-
-
-    hasLeadingComments(): boolean;
-    clearLeadingComments(): void;
-    getLeadingComments(): string | undefined;
-    setLeadingComments(value: string): void;
+        clearSpanList(): void;
+        getSpanList(): Array<number>;
+        setSpanList(value: Array<number>): void;
+        addSpan(value: number, index?: number): number;
 
 
-    hasTrailingComments(): boolean;
-    clearTrailingComments(): void;
-    getTrailingComments(): string | undefined;
-    setTrailingComments(value: string): void;
+        hasLeadingComments(): boolean;
+        clearLeadingComments(): void;
+        getLeadingComments(): string | undefined;
+        setLeadingComments(value: string): void;
 
-    clearLeadingDetachedCommentsList(): void;
-    getLeadingDetachedCommentsList(): Array<string>;
-    setLeadingDetachedCommentsList(value: Array<string>): void;
-    addLeadingDetachedComments(value: string, index?: number): string;
+
+        hasTrailingComments(): boolean;
+        clearTrailingComments(): void;
+        getTrailingComments(): string | undefined;
+        setTrailingComments(value: string): void;
+
+        clearLeadingDetachedCommentsList(): void;
+        getLeadingDetachedCommentsList(): Array<string>;
+        setLeadingDetachedCommentsList(value: Array<string>): void;
+        addLeadingDetachedComments(value: string, index?: number): string;
 
 
         serializeBinary(): Uint8Array;
@@ -1195,11 +1195,11 @@ export namespace SourceCodeInfo {
 
     export namespace Location {
         export type AsObject = {
-        pathList: Array<number>,
-        spanList: Array<number>,
-        leadingComments?: string,
-        trailingComments?: string,
-        leadingDetachedCommentsList: Array<string>,
+            pathList: Array<number>,
+            spanList: Array<number>,
+            leadingComments?: string,
+            trailingComments?: string,
+            leadingDetachedCommentsList: Array<string>,
         }
     }
 
@@ -1229,28 +1229,28 @@ export namespace GeneratedCodeInfo {
 
 
     export class Annotation extends jspb.Message { 
-    clearPathList(): void;
-    getPathList(): Array<number>;
-    setPathList(value: Array<number>): void;
-    addPath(value: number, index?: number): number;
+        clearPathList(): void;
+        getPathList(): Array<number>;
+        setPathList(value: Array<number>): void;
+        addPath(value: number, index?: number): number;
 
 
-    hasSourceFile(): boolean;
-    clearSourceFile(): void;
-    getSourceFile(): string | undefined;
-    setSourceFile(value: string): void;
+        hasSourceFile(): boolean;
+        clearSourceFile(): void;
+        getSourceFile(): string | undefined;
+        setSourceFile(value: string): void;
 
 
-    hasBegin(): boolean;
-    clearBegin(): void;
-    getBegin(): number | undefined;
-    setBegin(value: number): void;
+        hasBegin(): boolean;
+        clearBegin(): void;
+        getBegin(): number | undefined;
+        setBegin(value: number): void;
 
 
-    hasEnd(): boolean;
-    clearEnd(): void;
-    getEnd(): number | undefined;
-    setEnd(value: number): void;
+        hasEnd(): boolean;
+        clearEnd(): void;
+        getEnd(): number | undefined;
+        setEnd(value: number): void;
 
 
         serializeBinary(): Uint8Array;
@@ -1265,10 +1265,10 @@ export namespace GeneratedCodeInfo {
 
     export namespace Annotation {
         export type AsObject = {
-        pathList: Array<number>,
-        sourceFile?: string,
-        begin?: number,
-        end?: number,
+            pathList: Array<number>,
+            sourceFile?: string,
+            begin?: number,
+            end?: number,
         }
     }
 

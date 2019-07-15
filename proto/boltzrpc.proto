@@ -9,75 +9,17 @@ service Boltz {
   /* Gets the balance for either all wallets or just a single one if specified */
   rpc GetBalance (GetBalanceRequest) returns (GetBalanceResponse);
 
-
-  /* Gets a hex encoded transaction from a transaction hash on the specified network */
-  rpc GetTransaction (GetTransactionRequest) returns (GetTransactionResponse);
-
-  /* Broadcasts a hex encoded transaction on the specified network */
-  rpc BroadcastTransaction (BroadcastTransactionRequest) returns (BroadcastTransactionResponse);
-
-
-  /* Gets a fee estimation in satoshis per vbyte for either all currencies or just a single one if specified */ 
-  rpc GetFeeEstimation (GetFeeEstimationRequest) returns (GetFeeEstimationResponse);
-
-
   /* Gets a new address of a specified wallet. The "type" parameter is optional and defaults to "OutputType.LEGACY" */
   rpc NewAddress (NewAddressRequest) returns (NewAddressResponse);
 
   /* Sends onchain coins to a specified address */
   rpc SendCoins (SendCoinsRequest) returns (SendCoinsResponse);
-
-
-  /* Creates a new Swap from the chain to Lightning */
-  rpc CreateSwap (CreateSwapRequest) returns (CreateSwapResponse);
-
-  /* Creates a new Swap from Lightning to the chain */
-  rpc CreateReverseSwap (CreateReverseSwapRequest) returns (CreateReverseSwapResponse);
-
-
-  /* Adds an entry to the list of addresses SubscribeTransactions listens to */
-  rpc ListenOnAddress (ListenOnAddressRequest) returns (ListenOnAddressResponse);
-
-
-  /* Subscribes to a stream of swap events */
-  rpc SubscribeSwapEvents (SubscribeSwapEventsRequest) returns (stream SubscribeSwapEventsResponse);
-
-  /* Subscribes to a stream of confirmed transactions to addresses that were specified with "ListenOnAddress" */
-  rpc SubscribeTransactions (SubscribeTransactionsRequest) returns (stream SubscribeTransactionsResponse);
-
-  /* Subscribes to a stream of invoice events */
-  rpc SubscribeInvoices (SubscribeInvoicesRequest) returns (stream SubscribeInvoicesResponse);
-
-  /* Subscribes to a stream of channel backups */
-  rpc SubscribeChannelBackups (SubscribeChannelBackupsRequest) returns (stream ChannelBackup);
 }
 
 enum OutputType {
   BECH32 = 0;
   COMPATIBILITY = 1;
   LEGACY = 2;
-}
-
-enum OrderSide {
-  BUY = 0;
-  SELL = 1;
-}
-
-enum InvoiceEvent {
-  PAID = 0;
-  FAILED_TO_PAY = 1;
-
-  SETTLED = 2;
-}
-
-enum SwapEvent {
-  // Swap related events
-  CLAIM = 0;
-  ABORT= 1;
-  ZEROCONF_REJECTED = 2;
-
-  // Reverse swap related events
-  REFUND = 3;
 }
 
 message GetInfoRequest {}
@@ -112,11 +54,12 @@ message LndChannels {
 }
 
 message GetBalanceRequest {
-  string currency = 1;
+  string symbol = 1;
 }
 message GetBalanceResponse {
   map<string, Balance> balances = 1;
 }
+
 message Balance {
   WalletBalance wallet_balance = 1;
   LightningBalance lightning_balance = 2;
@@ -136,137 +79,15 @@ message ChannelBalance {
 }
 
 message NewAddressRequest {
-  string currency = 1;
+  string symbol = 1;
   OutputType type = 2;
 }
 message NewAddressResponse {
   string address = 1;
 }
 
-message GetTransactionRequest {
-  string currency = 1;
-  string transaction_hash = 2;
-}
-message GetTransactionResponse {
-  string transaction_hex = 1;
-}
-
-message GetFeeEstimationRequest {
-  string currency = 1;
-  uint64 blocks = 2; 
-}
-message GetFeeEstimationResponse {
-  map<string, uint32> fees = 1;
-}
-
-message BroadcastTransactionRequest {
-  string currency = 1;
-  string transaction_hex = 2;
-}
-message BroadcastTransactionResponse {
-  string transaction_hash = 1;
-}
-
-message ListenOnAddressRequest {
-  string currency = 1;
-  string address = 2;
-}
-message ListenOnAddressResponse {}
-
-message SubscribeTransactionsRequest {}
-message SubscribeTransactionsResponse {
-  string output_address = 1;
-  string transaction_hash = 2;
-  uint64 amount_received = 3;
-  bool confirmed = 4;
-}
-
-message SubscribeInvoicesRequest {}
-message SubscribeInvoicesResponse {
-  InvoiceEvent event = 1;
-  string invoice = 2;
-
-  oneof event_details {
-    string preimage = 3;
-
-    uint32 routing_fee = 4;
-  }
-}
-
-message SubscribeSwapEventsRequest {}
-message SubscribeSwapEventsResponse {
-  SwapEvent event = 1;
-
-  oneof event_details {
-    ClaimDetails claim_details = 2;
-    AbortDetails abort_details = 3;
-
-    RefundDetails refund_details = 4;
-
-    ZeroConfRejectedDetails zero_conf_rejected_details = 5;
-  }
-}
-
-message ClaimDetails {
-  string lockup_transaction_hash = 1;
-  uint32 lockup_vout = 2;
-
-  uint32 miner_fee = 3;
-}
-
-message AbortDetails {
-  string invoice = 1;
-}
-
-message RefundDetails {
-  string lockup_transaction_hash = 1;
-  uint32 lockup_vout = 2;
-
-  uint32 miner_fee = 3;
-}
-
-message ZeroConfRejectedDetails {
-  string invoice = 1;
-  string reason = 2;
-}
-
-message CreateSwapRequest {
-  string base_currency = 1;
-  string quote_currency = 2;
-  OrderSide order_side = 3;
-  string invoice = 4;
-  uint64 expected_amount = 5;
-  string refund_public_key = 6;
-  OutputType output_type = 7;
-  uint64 timeout_block_delta = 8;
-  bool accept_zero_conf = 9;
-}
-message CreateSwapResponse {
-  string redeem_script = 1;
-  uint64 timeout_block_height = 2;
-  string address = 3;
-}
-
-message CreateReverseSwapRequest {
-  string base_currency = 1;
-  string quote_currency = 2;
-  OrderSide order_side = 3;
-  uint64 invoice_amount = 7;
-  uint64 onchain_amount = 8;
-  string claim_public_key = 9;
-  uint64 timeout_block_delta = 10;
-}
-message CreateReverseSwapResponse {
-  string invoice = 1;
-  string redeem_script = 2;
-  string lockup_address = 3;
-  string lockup_transaction = 4;
-  string lockup_transaction_hash = 5;
-  uint32 miner_fee = 6;
-}
-
 message SendCoinsRequest {
-  string currency = 1;
+  string symbol = 1;
   string address = 2;
   uint64 amount = 3;
   uint32 sat_per_vbyte = 4;
@@ -275,13 +96,4 @@ message SendCoinsRequest {
 message SendCoinsResponse {
   string transaction_hash = 1;
   uint32 vout = 2;
-}
-
-message SubscribeChannelBackupsRequest {}
-
-message ChannelBackup {
-  string currency = 1;
-
-  // A multi channel backup contains all open channels
-  string multi_channel_backup = 2;
 }

@@ -1,10 +1,10 @@
 import { Op } from 'sequelize';
-import Output from '../db/models/Output';
+import Output, { OutputType } from '../db/models/Output';
 
 class OutputRepository {
   constructor() {}
 
-  public getOutputs = async (currency: string) => {
+  public getOutputs = async (currency: string): Promise<Output[]> => {
     return Output.findAll({
       where: {
         currency: {
@@ -14,15 +14,7 @@ class OutputRepository {
     });
   }
 
-  public addOutput = async (output: {
-    script: string,
-    redeemScript: string | null,
-
-    currency: string,
-    keyIndex: number,
-
-    type: number }) => {
-
+  public addOutput = async (output: OutputType) => {
     return Output.create(output);
   }
 }

@@ -1,8 +1,8 @@
 import { OutputType, Scripts, swapScript } from 'boltz-core';
 import Errors from './Errors';
 import Logger from '../Logger';
+import { OrderSide } from '../consts/Enums';
 import LndClient from '../lightning/LndClient';
-import { OrderSide } from '../proto/boltzrpc_pb';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import { getHexBuffer, getHexString, getScriptHashFunction } from '../Utils';
 import SwapNursery, { SwapMaps, SwapDetails, ReverseSwapDetails } from './SwapNursery';
@@ -78,7 +78,7 @@ class SwapManager {
 
     this.logger.verbose(`Creating new Swap from ${receivingCurrency.symbol} to ${sendingCurrency.symbol} with preimage hash: ${paymentHash}`);
 
-    const { keys } = receivingCurrency.wallet.getNewKeys();
+    const { keys, index } = receivingCurrency.wallet.getNewKeys();
 
     const timeoutBlockHeight = blocks + timeoutBlockDelta;
     const redeemScript = swapScript(
@@ -110,6 +110,7 @@ class SwapManager {
 
     return {
       timeoutBlockHeight,
+      keyIndex: index,
       redeemScript: getHexString(redeemScript),
       address: receivingCurrency.wallet.encodeAddress(outputScript),
     };
@@ -142,7 +143,7 @@ class SwapManager {
       `for public key: ${getHexString(claimPublicKey)}`);
 
     const { rHash, paymentRequest } = await receivingCurrency.lndClient.addInvoice(invoiceAmount);
-    const { keys } = sendingCurrency.wallet.getNewKeys();
+    const { keys, index } = sendingCurrency.wallet.getNewKeys();
 
     const { blocks } = await sendingCurrency.chainClient.getBlockchainInfo();
     const timeoutBlockHeight = blocks + timeoutBlockDelta;
@@ -157,6 +158,7 @@ class SwapManager {
     const outputScript = p2wshOutput(redeemScript);
     const address = sendingCurrency.wallet.encodeAddress(outputScript);
 
+    // TODO: listen for confirmation
     const { fee, vout, transaction } = await sendingCurrency.wallet.sendToAddress(address, OutputType.Bech32, true, onchainAmount);
     this.logger.debug(`Sending ${onchainAmount} on ${sendingCurrency.symbol} to swap address ${address}: ${transaction.getId()}:${vout}`);
 
@@ -188,11 +190,12 @@ class SwapManager {
 
     return {
       minerFee: fee,
+      keyIndex: index,
       lockupAddress: address,
       invoice: paymentRequest,
       lockupTransaction: rawTx,
       redeemScript: getHexString(redeemScript),
-      lockupTransactionHash: transaction.getId(),
+      lockupTransactionId: transaction.getId(),
     };
   }
 

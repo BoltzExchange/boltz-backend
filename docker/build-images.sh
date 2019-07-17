@@ -1,7 +1,7 @@
 #!/bin/bash
 
 function print () {
-  echo -e "\e[32mBuilding $1\e[0m"
+  echo -e "\n\e[32mBuilding $1\e[0m"
 }
 
 print "Berkeley DB"

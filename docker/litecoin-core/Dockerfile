@@ -1,5 +1,5 @@
 # Build Litecoin Core
-FROM alpine:3.9.3 as litecoin-core
+FROM alpine:3.10.1 as litecoin-core
 
 COPY --from=boltz/berkeley-db /opt /opt
 
@@ -54,7 +54,7 @@ RUN strip ${LITECOIN_PREFIX}/bin/litecoin-tx
 RUN strip ${LITECOIN_PREFIX}/bin/litecoin-cli
 
 # Assemble the final image
-FROM alpine:3.9.3
+FROM alpine:3.10.1
 
 RUN apk update && apk upgrade
 RUN apk --no-cache add \

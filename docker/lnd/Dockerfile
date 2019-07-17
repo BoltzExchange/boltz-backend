@@ -1,18 +1,18 @@
-FROM golang:1.12.4-alpine as builder
+FROM golang:1.12.7-alpine as builder
 
 # Install git
 RUN apk update && apk upgrade
 RUN apk add --no-cache git make gcc libc-dev
 
 # Install LND
-RUN git clone https://github.com/boltzexchange/lnd.git $GOPATH/src/github.com/boltzexchange/lnd
+RUN git clone https://github.com/lightningnetwork/lnd.git $GOPATH/src/github.com/lightningnetwork/lnd
 
-WORKDIR $GOPATH/src/github.com/boltzexchange/lnd
-RUN git checkout litcoin-regtest
+WORKDIR $GOPATH/src/github.com/lightningnetwork/lnd
+RUN git checkout v0.7.0-beta
 RUN make install
 
 # Start again with a new image to reduce the size
-FROM alpine:3.9.3 as final
+FROM alpine:3.10.1 as final
 
 # Expose LND ports (server, gRPC)
 EXPOSE 9735 10009

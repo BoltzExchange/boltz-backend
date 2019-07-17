@@ -1,5 +1,5 @@
 # Build BerkeleyDB
-FROM alpine:3.9.3 as berkeley-db
+FROM alpine:3.10.1 as berkeley-db
 
 RUN apk update && apk upgrade
 RUN apk --no-cache add \
@@ -23,6 +23,6 @@ RUN make -j$(nproc)
 RUN make install
 
 # Assemble the final image
-FROM alpine:3.9.3
+FROM alpine:3.10.1
 
 COPY --from=berkeley-db /opt /opt

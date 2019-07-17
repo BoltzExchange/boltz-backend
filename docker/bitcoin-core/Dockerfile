@@ -1,5 +1,5 @@
 # Build Bitcoin Core
-FROM alpine:3.9.3 as bitcoin-core
+FROM alpine:3.10.1 as bitcoin-core
 
 COPY --from=boltz/berkeley-db /opt /opt
 
@@ -59,7 +59,7 @@ RUN strip ${BITCOIN_PREFIX}/bin/bitcoin-cli
 RUN strip ${BITCOIN_PREFIX}/bin/bitcoin-wallet
 
 # Assemble the final image
-FROM alpine:3.9.3
+FROM alpine:3.10.1
 
 RUN apk update && apk upgrade
 RUN apk --no-cache add \

@@ -1,6 +1,4 @@
-import { expect } from 'chai';
 import { fromSeed } from 'bip32';
-import { mock } from 'ts-mockito';
 import { address, crypto } from 'bitcoinjs-lib';
 import { Networks, OutputType } from 'boltz-core';
 import { generateMnemonic, mnemonicToSeedSync } from 'bip39';
@@ -13,9 +11,21 @@ import WalletRepository from '../../../lib/wallet/WalletRepository';
 import OutputRepository from '../../../lib/wallet/OutputRepository';
 import { getPubkeyHashFunction, getHexBuffer } from '../../../lib/Utils';
 
-describe('Wallet', () => {
-  const currency = 'BTC';
+const currency = 'BTC';
 
+jest.mock('../../../lib/chain/ChainClient', () => {
+  return jest.fn().mockImplementation(() => {
+    return {
+      symbol: currency,
+      on: () => {},
+      updateOutputFilter: (_: any) => {},
+    };
+  });
+});
+
+const mockedChainClient = <jest.Mock<ChainClient>><any>ChainClient;
+
+describe('Wallet', () => {
   const mnemonic = generateMnemonic();
   const masterNode = fromSeed(mnemonicToSeedSync(mnemonic));
 
@@ -29,10 +39,7 @@ describe('Wallet', () => {
 
   const network = Networks.bitcoinRegtest;
 
-  const chainClientMock = mock(ChainClient);
-
-  // "as any" is needed to force override a "readonly" value
-  chainClientMock['symbol' as any] = currency;
+  const chainClient = new mockedChainClient();
 
   const wallet = new Wallet(
     Logger.disabledLogger,
@@ -41,7 +48,7 @@ describe('Wallet', () => {
     utxoRepository,
     masterNode,
     network,
-    chainClientMock,
+    chainClient,
     derivationPath,
     highestUsedIndex,
   );
@@ -54,7 +61,7 @@ describe('Wallet', () => {
     return masterNode.derivePath(`${derivationPath}/${index}`);
   };
 
-  before(async () => {
+  beforeAll(async () => {
     await database.init();
 
     // Create the foreign constraint for the "utxos" table
@@ -66,31 +73,31 @@ describe('Wallet', () => {
     });
   });
 
-  it('should get correct address from index', () => {
+  test('should get correct address from index', () => {
     const index = 1;
 
-    expect(wallet.getKeysByIndex(index)).to.be.deep.equal(getKeysByIndex(index));
+    expect(wallet.getKeysByIndex(index)).toEqual(getKeysByIndex(index));
   });
 
-  it('should get new keys', () => {
+  test('should get new keys', () => {
     incrementIndex();
 
     const { keys, index } = wallet.getNewKeys();
 
-    expect(keys).to.be.deep.equal(getKeysByIndex(highestUsedIndex));
-    expect(index).to.be.equal(wallet.highestIndex);
+    expect(keys).toEqual(getKeysByIndex(highestUsedIndex));
+    expect(index).toEqual(wallet.highestIndex);
 
-    expect(wallet.highestIndex).to.be.equal(highestUsedIndex);
+    expect(wallet.highestIndex).toEqual(highestUsedIndex);
   });
 
-  it('should encode an address', () => {
+  test('should encode an address', () => {
     const output = getHexBuffer('00147ca6c71979907c36d5d62f325d6d8104a8497445');
     const address = 'bcrt1q0jnvwxtejp7rd4wk9ue96mvpqj5yjaz9v7vte5';
 
-    expect(wallet.encodeAddress(output)).to.be.equal(address);
+    expect(wallet.encodeAddress(output)).toEqual(address);
   });
 
-  it('should get a new address', async () => {
+  test('should get a new address', async () => {
     incrementIndex();
 
     const outputType = OutputType.Bech32;
@@ -100,10 +107,10 @@ describe('Wallet', () => {
     const outputScript = encodeFunction(crypto.hash160(keys.publicKey)) as Buffer;
     const outputAddress = address.fromOutputScript(outputScript, network);
 
-    expect(await wallet.getNewAddress(outputType)).to.be.equal(outputAddress);
+    expect(await wallet.getNewAddress(outputType)).toEqual(outputAddress);
   });
 
-  it('should get correct balance', async () => {
+  test('should get correct balance', async () => {
     const expectedBalance = {
       confirmedBalance: 0,
       unconfirmedBalance: 0,
@@ -130,7 +137,7 @@ describe('Wallet', () => {
         spent: false,
         outputId: id,
         currency: 'BTC',
-        txHash: `${value}`,
+        txId: `${value}`,
       });
 
       if (confirmed) {
@@ -142,16 +149,16 @@ describe('Wallet', () => {
       expectedBalance.totalBalance += value;
     }
 
-    expect(await wallet.getBalance()).to.be.deep.equal(expectedBalance);
+    expect(await wallet.getBalance()).toEqual(expectedBalance);
   });
 
-  it('should update highest used index in database', async () => {
+  test('should update highest used index in database', async () => {
     const dbWallet = await walletRepository.getWallet(currency);
 
-    expect(dbWallet.highestUsedIndex).to.be.equal(highestUsedIndex);
+    expect(dbWallet.highestUsedIndex).toEqual(highestUsedIndex);
   });
 
-  after(async () => {
+  afterAll(async () => {
     await database.close();
   });
 });

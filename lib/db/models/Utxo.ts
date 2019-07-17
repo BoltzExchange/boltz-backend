@@ -32,7 +32,7 @@ class Utxo extends Model implements UtxoType {
       id: { type: new DataTypes.INTEGER(), primaryKey: true, autoIncrement: true },
       outputId: { type: new DataTypes.INTEGER(), allowNull: false },
       currency: { type: new DataTypes.STRING(255), allowNull: false },
-      txHash: { type: new DataTypes.STRING(255), allowNull: false },
+      txId: { type: new DataTypes.STRING(255), allowNull: false },
       vout: { type: new DataTypes.INTEGER(), allowNull: false },
       value: { type: new DataTypes.INTEGER(), allowNull: false },
       confirmed: { type: DataTypes.BOOLEAN, allowNull: false },

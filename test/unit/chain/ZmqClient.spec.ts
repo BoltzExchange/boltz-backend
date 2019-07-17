@@ -1,8 +1,6 @@
-import chai, { expect } from 'chai';
 import zmq, { Socket } from 'zeromq';
 import { randomBytes } from 'crypto';
 import { OutputType } from 'boltz-core';
-import chaiAsPromised from 'chai-as-promised';
 import { Transaction, crypto } from 'bitcoinjs-lib';
 import Logger from '../../../lib/Logger';
 import Errors from '../../../lib/chain/Errors';
@@ -10,8 +8,6 @@ import { getHexString, reverseBuffer } from '../../../lib/Utils';
 import { generateAddress, waitForFunctionToBeTrue, wait } from '../../Utils';
 import { Block, BlockchainInfo, RawTransaction } from '../../../lib/consts/Types';
 import ZmqClient, { ZmqNotification, filters } from '../../../lib/chain/ZmqClient';
-
-chai.use(chaiAsPromised);
 
 type RawBlock = {
   height: number;
@@ -207,23 +203,23 @@ describe('ZmqClient', () => {
 
   const zmqClient = new ZmqClient('BTC', Logger.disabledLogger, getBlock, getBlockChainInfo, getTransaction);
 
-  it('should not init without needed subscriptions', async () => {
+  test('should not init without needed subscriptions', async () => {
     const rejectZmqClient = new ZmqClient('BTC', Logger.disabledLogger, getBlock, getBlockChainInfo, getTransaction);
     const notifications: ZmqNotification[] = [];
 
-    expect(rejectZmqClient.init(notifications)).to.eventually.be.rejectedWith(Errors.NO_BLOCK_NOTIFICATIONS().message)
-      .and.notify(rejectZmqClient.close);
+    await expect(rejectZmqClient.init(notifications)).rejects.toEqual(Errors.NO_RAWTX());
+    await rejectZmqClient.close();
 
     notifications.push({
       type: filters.rawTx,
       address: rawTx.address,
     });
 
-    expect(rejectZmqClient.init(notifications)).to.eventually.be.rejectedWith(Errors.NO_BLOCK_NOTIFICATIONS().message)
-      .and.notify(rejectZmqClient.close);
+    await expect(rejectZmqClient.init(notifications)).rejects.toEqual(Errors.NO_BLOCK_NOTIFICATIONS());
+    await rejectZmqClient.close();
   });
 
-  it('should init', async () => {
+  test('should init', async () => {
     const notifications: ZmqNotification[] = [
       {
         type: filters.rawTx,
@@ -244,7 +240,7 @@ describe('ZmqClient', () => {
     zmqClient.relevantOutputs.add(getHexString(outputScript));
   });
 
-  it('should rescan blocks', async () => {
+  test('should rescan blocks', async () => {
     // Setup some data for the rescan test
     for (let i = 0; i < blocksToGenerate; i += 1) {
       const { hash } = generateBlock();
@@ -277,7 +273,7 @@ describe('ZmqClient', () => {
     });
   });
 
-  it('should handle raw transactions', async () => {
+  test('should handle raw transactions', async () => {
     let blockAcceptance  = false;
     let mempoolAcceptance = false;
 
@@ -302,7 +298,7 @@ describe('ZmqClient', () => {
       return !blockAcceptance;
     });
 
-    expect(zmqClient.utxos.has(mempoolTransaction.getId())).to.be.true;
+    expect(zmqClient.utxos.has(mempoolTransaction.getId())).toBeTruthy();
 
     rawTx.sendMessage(mempoolTransaction.toBuffer());
 
@@ -310,7 +306,7 @@ describe('ZmqClient', () => {
       return blockAcceptance;
     });
 
-    expect(zmqClient.utxos.has(mempoolTransaction.getId())).to.be.false;
+    expect(zmqClient.utxos.has(mempoolTransaction.getId())).toBeFalsy();
 
     blockAcceptance = false;
 
@@ -324,7 +320,7 @@ describe('ZmqClient', () => {
     });
   });
 
-  it('should handle rawblock notifications', async () => {
+  test('should handle rawblock notifications', async () => {
     let blockHeight = 0;
 
     zmqClient.on('block', (height) => {
@@ -346,14 +342,14 @@ describe('ZmqClient', () => {
 
     await wait(10);
 
-    expect(blockHeight).to.be.equal(bestBlockHeight);
+    expect(blockHeight).toEqual(bestBlockHeight);
   });
 
-  it('should handle rawblock reorganizations', async () => {
+  test('should handle rawblock reorganizations', async () => {
     let blockHeight = bestBlockHeight;
 
     zmqClient.on('block', (height) => {
-      expect(height).to.be.equal(blockHeight + 1);
+      expect(height).toEqual(blockHeight + 1);
       blockHeight = height;
     });
 
@@ -367,10 +363,10 @@ describe('ZmqClient', () => {
       return blockHeight === bestBlockHeight;
     });
 
-    expect(blockHeight).to.be.equal(reorgHeight + blocksToGenerate);
+    expect(blockHeight).toEqual(reorgHeight + blocksToGenerate);
   });
 
-  it('should fallback to hashblock notifications', async () => {
+  test('should fallback to hashblock notifications', async () => {
     rawBlock.close();
 
     // Wait until there are three sockets in the ZmqClient which
@@ -383,7 +379,7 @@ describe('ZmqClient', () => {
     await wait(10);
   });
 
-  it('should handle hashblock notifications', async () => {
+  test('should handle hashblock notifications', async () => {
     let blockHeight = 0;
 
     zmqClient.on('block', (height) => {
@@ -403,14 +399,14 @@ describe('ZmqClient', () => {
 
     await wait(10);
 
-    expect(blockHeight).to.be.equal(bestBlockHeight);
+    expect(blockHeight).toEqual(bestBlockHeight);
   });
 
-  it('should handle rawblock reorganizations', async () => {
+  test('should handle rawblock reorganizations', async () => {
     let blockHeight = bestBlockHeight;
 
     zmqClient.on('block', (height) => {
-      expect(height).to.be.equal(blockHeight + 1);
+      expect(height).toEqual(blockHeight + 1);
       blockHeight = height;
     });
 
@@ -423,6 +419,13 @@ describe('ZmqClient', () => {
       return blockHeight === bestBlockHeight;
     });
 
-    expect(blockHeight).to.be.equal(reorgHeight + blocksToGenerate);
+    expect(blockHeight).toEqual(reorgHeight + blocksToGenerate);
+  });
+
+  afterAll(async () => {
+    await zmqClient.close();
+
+    rawTx.close();
+    hashBlock.close();
   });
 });

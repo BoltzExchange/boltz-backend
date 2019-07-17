@@ -1,16 +1,45 @@
 import fs from 'fs';
-import { expect } from 'chai';
 import { fromSeed } from 'bip32';
 import { Networks } from 'boltz-core';
-import { mock, when, instance } from 'ts-mockito';
 import { mnemonicToSeedSync, generateMnemonic } from 'bip39';
 import Logger from '../../../lib/Logger';
 import Database from '../../../lib/db/Database';
+import { CurrencyConfig } from '../../../lib/Config';
 import WalletErrors from '../../../lib/wallet/Errors';
 import ChainClient from '../../../lib/chain/ChainClient';
 import LndClient from '../../../lib/lightning/LndClient';
 import WalletManager from '../../../lib/wallet/WalletManager';
 import WalletRepository from '../../../lib/wallet/WalletRepository';
+
+const blockchainInfo = {
+  chain: '',
+  blocks: 0,
+  headers: 0,
+  bestblockhash: '',
+  difficulty: 0,
+  mediantime: 0,
+  verificationprogress: 0,
+  initialblockdownload: '',
+  chainwork: '',
+  size_on_disk: 0,
+  pruned: false,
+};
+
+jest.mock('../../../lib/chain/ChainClient', () => {
+  return jest.fn().mockImplementation(() => {
+    return {
+      on: () => {},
+      updateOutputFilter: () => {},
+      getBlockchainInfo: () => Promise.resolve(blockchainInfo),
+    };
+  });
+});
+
+const mockedChainClient = <jest.Mock<ChainClient>><any>ChainClient;
+
+jest.mock('../../../lib/lightning/LndClient');
+
+const mockedLndClient = <jest.Mock<LndClient>><any>LndClient;
 
 describe('WalletManager', () => {
   const mnemonicPath = 'seed.dat';
@@ -20,45 +49,28 @@ describe('WalletManager', () => {
   const database = new Database(Logger.disabledLogger, ':memory:');
   const repository = new WalletRepository();
 
-  const blockchainInfo = {
-    chain: '',
-    blocks: 0,
-    headers: 0,
-    bestblockhash: '',
-    difficulty: 0,
-    mediantime: 0,
-    verificationprogress: 0,
-    initialblockdownload: '',
-    chainwork: '',
-    size_on_disk: 0,
-    pruned: false,
-  };
+  const btcClient = mockedChainClient();
+  btcClient['symbol' as any] = 'BTC';
 
-  const btcMock = mock(ChainClient);
-  when(btcMock.symbol).thenReturn('BTC');
-  when(btcMock.getBlockchainInfo()).thenResolve(blockchainInfo);
+  const ltcClient = mockedChainClient();
+  ltcClient['symbol' as any] = 'LTC';
 
-  const ltcMock = mock(ChainClient);
-  when(btcMock.symbol).thenReturn('LTC');
-  when(ltcMock.getBlockchainInfo()).thenResolve(blockchainInfo);
-
-  const btcClient = instance(btcMock);
-  const ltcClient = instance(ltcMock);
-
-  const lndClient = instance(mock(LndClient));
+  const lndClient = mockedLndClient();
 
   const currencies = [
     {
       lndClient,
-      chainClient: btcClient,
       symbol: 'BTC',
+      chainClient: btcClient,
       network: Networks.bitcoinRegtest,
+      config: {} as any as CurrencyConfig,
     },
     {
       lndClient,
-      chainClient: ltcClient,
       symbol: 'LTC',
+      chainClient: ltcClient,
       network: Networks.litecoinRegtest,
+      config: {} as any as CurrencyConfig,
     },
   ];
 
@@ -74,16 +86,17 @@ describe('WalletManager', () => {
     deleteFile(mnemonicPath);
   };
 
-  before(async () => {
+  beforeAll(async () => {
     cleanUp();
+
     await database.init();
   });
 
-  it('should not initialize without seed file', () => {
-    expect(() => new WalletManager(Logger.disabledLogger, currencies, mnemonicPath)).to.throw(WalletErrors.NOT_INITIALIZED().message);
+  test('should not initialize without seed file', () => {
+    expect(() => new WalletManager(Logger.disabledLogger, currencies, mnemonicPath)).toThrow(WalletErrors.NOT_INITIALIZED().message);
   });
 
-  it('should initialize a new wallet for each currency', async () => {
+  test('should initialize a new wallet for each currency', async () => {
     walletManager = WalletManager.fromMnemonic(Logger.disabledLogger, mnemonic, mnemonicPath, currencies);
     await walletManager.init();
 
@@ -91,40 +104,41 @@ describe('WalletManager', () => {
 
     for (const currency of currencies) {
       const wallet = walletManager.wallets.get(currency.symbol);
-      expect(wallet).to.not.be.undefined;
+      expect(wallet).not.toBeUndefined();
 
       const { derivationPath, highestIndex } = wallet!;
 
       const dbWallet = await repository.getWallet(currency.symbol);
-      // Compare to values in the database
 
-      expect(derivationPath).to.be.equal(dbWallet!.derivationPath);
-      expect(highestIndex).to.be.equal(dbWallet!.highestUsedIndex);
+      // Compare with values in the database
+      expect(derivationPath).toEqual(dbWallet!.derivationPath);
+      expect(highestIndex).toEqual(dbWallet!.highestUsedIndex);
 
-      // Compare to expected values
-      expect(derivationPath).to.be.equal(`m/0/${index}`);
-      expect(highestIndex).to.be.equal(dbWallet.symbol === 'BTC' ? 23 : 0);
+      // Compare with expected values
+      expect(derivationPath).toEqual(`m/0/${index}`);
+      expect(highestIndex).toEqual(0);
 
       index += 1;
     }
   });
 
-  it('should write and read the mnemonic', () => {
-    expect(fs.existsSync(mnemonicPath)).to.be.true;
+  test('should write and read the mnemonic', () => {
+    expect(fs.existsSync(mnemonicPath)).toBeTruthy;
 
     const mnemonicFile = walletManager['loadMnemonic'](mnemonicPath);
-    expect(mnemonicFile).to.be.equal(fromSeed(mnemonicToSeedSync(mnemonic)).toBase58());
+    expect(mnemonicFile).toEqual(fromSeed(mnemonicToSeedSync(mnemonic)).toBase58());
   });
 
-  it('should not accept invalid mnemonics', () => {
+  test('should not accept invalid mnemonics', () => {
     const invalidMnemonic = 'invalid';
 
     expect(() => WalletManager.fromMnemonic(Logger.disabledLogger, invalidMnemonic, '', []))
-      .to.throw(WalletErrors.INVALID_MNEMONIC(invalidMnemonic).message);
+      .toThrow(WalletErrors.INVALID_MNEMONIC(invalidMnemonic).message);
   });
 
-  after(async () => {
+  afterAll(async () => {
     await database.close();
+
     cleanUp();
   });
 });

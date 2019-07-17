@@ -32,6 +32,7 @@ interface EventHandler {
   emit(event: 'channel.backup', currency: string, channelbackup: string): boolean;
 }
 
+// TODO: write tests
 class EventHandler extends EventEmitter {
   // A map between the hex strings of the scripts of the addresses and
   // the addresses themselves to which Boltz should listen

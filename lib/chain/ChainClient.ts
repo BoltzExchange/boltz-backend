@@ -61,8 +61,10 @@ class ChainClient extends BaseClient {
     await this.zmqClient.init(await this.getZmqNotifications());
   }
 
-  public disconnect = () => {
+  public disconnect = async () => {
     this.clearReconnectTimer();
+
+    await this.zmqClient.close();
     this.setClientStatus(ClientStatus.Disconnected);
   }
 

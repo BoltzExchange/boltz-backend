@@ -73,10 +73,8 @@ class Wallet {
         const outputInfo = this.relevantOutputs.get(hexScript);
 
         if (outputInfo) {
-          const txHash = getHexString(transaction.getHash());
-
           const promise = new Promise<Utxo>(async (resolve) => {
-            const existingUtxo = await this.utxoRepository.getUtxo(txHash, vout);
+            const existingUtxo = await this.utxoRepository.getUtxo(transaction.getId(), vout);
 
             if (existingUtxo && confirmed) {
               if (!existingUtxo.confirmed) {

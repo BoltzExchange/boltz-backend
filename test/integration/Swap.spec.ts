@@ -8,9 +8,9 @@ import {
   constructClaimTransaction,
   constructRefundTransaction,
 } from 'boltz-core';
-import { generateAddress } from '../../Utils';
-import { getHexBuffer } from '../../../lib/Utils';
-import { bitcoinClient } from '../chain/ChainClient.spec';
+import { generateAddress } from '../Utils';
+import { getHexBuffer } from '../../lib/Utils';
+import { bitcoinClient } from './ChainClient.spec';
 
 const { p2shOutput, p2wshOutput, p2shP2wshOutput } = Scripts;
 
@@ -54,7 +54,8 @@ describe('Submarine Swaps', () => {
       await sendFundsToSwap(p2shOutput, OutputType.Legacy),
     ];
   };
-  it('should execute and claim swaps', async () => {
+
+  test('should execute and claim swaps', async () => {
     const outputs = await createOutputs();
 
     for (const output of outputs) {
@@ -77,7 +78,7 @@ describe('Submarine Swaps', () => {
     await bitcoinClient.generate(1);
   });
 
-  it('should execute and refund swaps', async () => {
+  test('should execute and refund swaps', async () => {
     const outputs = await createOutputs();
 
     // Mine the blocks that are missing to the timeout block height of the swaps

@@ -1,7 +1,7 @@
 import { OutputType } from 'boltz-core';
-import Logger from '../../lib/Logger';
-import ChainClient from '../../lib/chain/ChainClient';
-import { waitForFunctionToBeTrue, generateAddress } from '../Utils';
+import Logger from '../../../lib/Logger';
+import ChainClient from '../../../lib/chain/ChainClient';
+import { waitForFunctionToBeTrue, generateAddress } from '../../Utils';
 
 describe('ChainClient', () => {
   const numTransactions = 15;

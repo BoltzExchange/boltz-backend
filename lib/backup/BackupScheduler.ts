@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs';
 import { scheduleJob } from 'node-schedule';
 import { Storage, Bucket } from '@google-cloud/storage';
+import Errors from './Errors';
 import Logger from '../Logger';
 import Report from '../data/Report';
 import { BackupConfig } from '../Config';
@@ -39,7 +40,7 @@ class BackupScheduler {
 
     this.logger.verbose(`Scheduling database backups: ${this.config.interval}`);
     scheduleJob(this.config.interval, async (date) => {
-      await this.uploadDatabases(date);
+      await this.uploadDatabase(date);
       await this.uploadReport();
     });
   }
@@ -56,15 +57,15 @@ class BackupScheduler {
     return `${number}`.padStart(2, '0');
   }
 
-  public uploadDatabases = async (date: Date) => {
+  public uploadDatabase = async (date: Date) => {
     if (!this.bucket) {
-      throw 'Backups are disabled because of incomplete configuration';
+      throw Errors.BACKUP_DISABLED();
     }
 
     const dateString = BackupScheduler.getDate(date);
     this.logger.silly(`Backing up databases at: ${dateString}`);
 
-    await this.uploadFile(this.dbpath, dateString, true);
+    await this.uploadFile(this.dbpath, dateString);
   }
 
   public uploadReport = async () => {
@@ -76,15 +77,15 @@ class BackupScheduler {
     await this.uploadString('report.csv', data);
   }
 
-  private uploadFile = async (fileName: string, date: string, isMiddleware: boolean) => {
+  private uploadFile = async (path: string, date: string) => {
     try {
-      const destination = `${isMiddleware ? 'middleware' : 'backend'}/database-${date}.db`;
+      const destination = `backend/database-${date}.db`;
 
-      await this.bucket!.upload(fileName, {
+      await this.bucket!.upload(path, {
         destination,
       });
 
-      this.logger.silly(`Uploaded file ${fileName} to: ${destination}`);
+      this.logger.silly(`Uploaded file ${path} to: ${destination}`);
     } catch (error) {
       this.logger.warn(`Could not upload file: ${error}`);
       throw error;

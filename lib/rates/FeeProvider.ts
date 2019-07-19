@@ -54,7 +54,7 @@ class FeeProvider {
   public getBaseFee = async (chainCurrency: string, isReverse: boolean) => {
     const feeMap = await this.getFeeEstimation(chainCurrency);
 
-    return this.calculateBaseFee(feeMap[chainCurrency], isReverse);
+    return this.calculateBaseFee(feeMap.get(chainCurrency)!, isReverse);
   }
 
   private calculateBaseFee = (satPerVbyte: number, isReverse: boolean) => {

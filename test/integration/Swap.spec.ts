@@ -10,7 +10,7 @@ import {
 } from 'boltz-core';
 import { generateAddress } from '../Utils';
 import { getHexBuffer } from '../../lib/Utils';
-import { bitcoinClient } from './ChainClient.spec';
+import { bitcoinClient } from './chain/ChainClient.spec';
 
 const { p2shOutput, p2wshOutput, p2shP2wshOutput } = Scripts;
 

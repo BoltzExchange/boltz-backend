@@ -7,6 +7,7 @@ export enum ErrorCodePrefix {
   Lnd = 5,
   Swap = 6,
   Rates = 7,
+  Bakcup = 8,
 }
 
 export enum ClientStatus {
@@ -35,16 +36,6 @@ export enum SwapUpdateEvent {
 
 export enum ServiceWarning {
   ReverseSwapsDisabled = 'reverse.swaps.disabled',
-}
-
-export enum Symbol {
-  BTC = 'BTC',
-  LTC = 'LTC',
-}
-
-export enum Chain {
-  BTC = 'bitcoin',
-  LTC = 'litecoin',
 }
 
 export enum Network {

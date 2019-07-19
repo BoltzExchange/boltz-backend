@@ -13,6 +13,8 @@ import {
   getInvoiceAmt,
   satoshisToCoins,
   minutesToMilliseconds,
+  getChainCurrency,
+  getLightningCurrency,
 } from '../Utils';
 
 class NotificationProvider {
@@ -183,19 +185,9 @@ class NotificationProvider {
     const getSymbols = (pairId: string, orderSide: number, isReverse: boolean) => {
       const { base, quote } = splitPairId(pairId);
 
-      const getOnchainSymbol = (orderSide: number, isReverse: boolean) => {
-        const isBuy = orderSide === OrderSide.BUY;
-
-        if (isReverse) {
-          return isBuy ? base : quote;
-        } else {
-          return isBuy ? quote : base;
-        }
-      };
-
       return {
-        onchainSymbol: getOnchainSymbol(orderSide, isReverse),
-        lightningSymbol: getOnchainSymbol(orderSide, !isReverse),
+        onchainSymbol: getChainCurrency(base, quote, orderSide, isReverse),
+        lightningSymbol: getLightningCurrency(base, quote, orderSide, isReverse),
       };
     };
 
@@ -206,7 +198,7 @@ class NotificationProvider {
       // tslint:disable-next-line: prefer-template
       let message = `**${getSwapName(isReverse)}**\n\n` +
        `${getBasicSwapInfo(swap, onchainSymbol, lightningSymbol)}` +
-       `Fees earned: ${satoshisToCoins(swap.fee)} ${lightningSymbol}\n` +
+       `Fees earned: ${satoshisToCoins(swap.fee)} ${onchainSymbol}\n` +
        `Miner fees: ${satoshisToCoins(swap.minerFee!)} ${onchainSymbol}`;
 
       if (!isReverse) {

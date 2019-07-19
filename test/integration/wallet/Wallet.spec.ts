@@ -2,15 +2,15 @@ import { fromSeed } from 'bip32';
 import { TxOutput } from 'bitcoinjs-lib';
 import { OutputType, Networks } from 'boltz-core';
 import { generateMnemonic, mnemonicToSeedSync } from 'bip39';
-import Logger from '../../lib/Logger';
-import Wallet from '../../lib/wallet/Wallet';
-import Database from '../../lib/db/Database';
-import { bitcoinClient } from './ChainClient.spec';
-import UtxoRepository from '../../lib/wallet/UtxoRepository';
-import WalletRepository from '../../lib/wallet/WalletRepository';
-import OutputRepository from '../../lib/wallet/OutputRepository';
-import { waitForPromiseToBeTrue, generateAddress } from '../Utils';
-import { getOutputType, reverseBuffer, getHexBuffer } from '../../lib/Utils';
+import Logger from '../../../lib/Logger';
+import Wallet from '../../../lib/wallet/Wallet';
+import Database from '../../../lib/db/Database';
+import { bitcoinClient } from '../chain/ChainClient.spec';
+import UtxoRepository from '../../../lib/wallet/UtxoRepository';
+import WalletRepository from '../../../lib/wallet/WalletRepository';
+import OutputRepository from '../../../lib/wallet/OutputRepository';
+import { waitForPromiseToBeTrue, generateAddress } from '../../Utils';
+import { getOutputType, reverseBuffer, getHexBuffer } from '../../../lib/Utils';
 
 describe('Wallet', () => {
   const derivationPath = 'm/0/0';

@@ -5,7 +5,7 @@ import { Arguments } from 'yargs';
 import Errors from './consts/Errors';
 import { ChainConfig } from './chain/ChainClient';
 import { LndConfig } from './lightning/LndClient';
-import { Chain, Symbol, Network } from './consts/Enums';
+import { Network } from './consts/Enums';
 import { deepMerge, resolveHome, getServiceDataDir } from './Utils';
 
 type ServiceOptions = {
@@ -13,7 +13,7 @@ type ServiceOptions = {
 };
 
 type CurrencyConfig = {
-  symbol: Symbol,
+  symbol: string,
   network: Network;
 
   chain: ChainConfig & ServiceOptions;
@@ -162,7 +162,7 @@ class Config {
 
       currencies: [
         {
-          symbol: Symbol.BTC,
+          symbol: 'BTC',
           network: Network.Testnet,
 
           maxSwapAmount: 100000,
@@ -188,11 +188,11 @@ class Config {
             host: '127.0.0.1',
             port: 10009,
             certpath: path.join(getServiceDataDir('lnd'), 'tls.cert'),
-            macaroonpath: path.join(getServiceDataDir('lnd'), 'data', 'chain', Chain.BTC, Network.Testnet, 'admin.macaroon'),
+            macaroonpath: path.join(getServiceDataDir('lnd'), 'data', 'chain', 'bitcoin', Network.Testnet, 'admin.macaroon'),
           },
         },
         {
-          symbol: Symbol.LTC,
+          symbol: 'LTC',
           network: Network.Testnet,
 
           maxSwapAmount: 10000000,
@@ -218,7 +218,7 @@ class Config {
             host: '127.0.0.1',
             port: 11009,
             certpath: path.join(getServiceDataDir('lnd'), 'tls.cert'),
-            macaroonpath: path.join(getServiceDataDir('lnd'), 'data', 'chain', Chain.LTC, Network.Testnet, 'admin.macaroon'),
+            macaroonpath: path.join(getServiceDataDir('lnd'), 'data', 'chain', 'litecoin', Network.Testnet, 'admin.macaroon'),
           },
         },
       ],

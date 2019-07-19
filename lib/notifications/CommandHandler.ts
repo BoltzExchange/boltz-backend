@@ -5,9 +5,9 @@ import Swap from '../db/models/Swap';
 import Report from '../data/Report';
 import Service from '../service/Service';
 import DiscordClient from './DiscordClient';
-import { OutputType } from '../proto/boltzrpc_pb';
 import ReverseSwap from '../db/models/ReverseSwap';
 import BackupScheduler from '../backup/BackupScheduler';
+import { OutputType, Balance } from '../proto/boltzrpc_pb';
 import { satoshisToCoins, getChainCurrency, stringify, splitPairId } from '../Utils';
 
 enum Command {
@@ -90,7 +90,7 @@ class CommandHandler {
 
     let message = 'Balances:';
 
-    balances.forEach((balance, symbol) => {
+    balances.forEach((balance: Balance, symbol: string) => {
       // tslint:disable-next-line:prefer-template
       message += `\n\n**${symbol}**\n` +
         `Wallet: ${satoshisToCoins(balance.getWalletBalance()!.getTotalBalance())} ${symbol}`;
@@ -194,7 +194,7 @@ class CommandHandler {
 
   private backup = async () => {
     try {
-      await this.backupScheduler.uploadDatabases(new Date());
+      await this.backupScheduler.uploadDatabase(new Date());
 
       await this.discord.sendMessage('Uploaded backup of databases');
     } catch (error) {

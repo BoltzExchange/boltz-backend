@@ -102,7 +102,11 @@ describe('BackupScheduler', () => {
     const date = new Date(1556457455724);
     const dateString = BackupScheduler['getDate'](date);
 
-    expect(dateString).toEqual('20190328-1517');
+    const addLeadingZeros = BackupScheduler['addLeadingZeros'];
+
+    expect(dateString).toEqual(
+      `${date.getFullYear()}${addLeadingZeros(date.getMonth())}${addLeadingZeros(date.getDate())}` +
+      `-${addLeadingZeros(date.getHours())}${addLeadingZeros(date.getMinutes())}`);
   });
 
   test('should upload the database', async () =>  {

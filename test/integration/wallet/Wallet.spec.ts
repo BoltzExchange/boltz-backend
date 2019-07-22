@@ -108,7 +108,7 @@ describe('Wallet', () => {
     await bitcoinClient.generate(1);
 
     expect(vout).toEqual(0);
-    expect(fee).toEqual(918);
+    expect(fee).toEqual(758);
     expect(transaction.ins.length).toEqual(3);
 
     await waitForPromiseToBeTrue(async () => {

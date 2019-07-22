@@ -275,7 +275,7 @@ export const getServiceDataDir = (service: string) => {
 };
 
 export const getOutputType = (type?: number) => {
-  if (!type) {
+  if (type === undefined) {
     return OutputType.Legacy;
   }
 

@@ -426,8 +426,8 @@ export namespace SendCoinsRequest {
 }
 
 export class SendCoinsResponse extends jspb.Message { 
-    getTransactionHash(): string;
-    setTransactionHash(value: string): void;
+    getTransactionId(): string;
+    setTransactionId(value: string): void;
 
     getVout(): number;
     setVout(value: number): void;
@@ -445,7 +445,7 @@ export class SendCoinsResponse extends jspb.Message {
 
 export namespace SendCoinsResponse {
     export type AsObject = {
-        transactionHash: string,
+        transactionId: string,
         vout: number,
     }
 }

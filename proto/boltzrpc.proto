@@ -94,6 +94,6 @@ message SendCoinsRequest {
   bool send_all = 5;
 }
 message SendCoinsResponse {
-  string transaction_hash = 1;
+  string transaction_id = 1;
   uint32 vout = 2;
 }

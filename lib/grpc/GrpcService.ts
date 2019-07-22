@@ -45,11 +45,11 @@ class GrpcService {
 
   public sendCoins: handleUnaryCall<boltzrpc.SendCoinsRequest, boltzrpc.SendCoinsResponse> = async (call, callback) => {
     try {
-      const { vout, transactionHash } = await this.service.sendCoins(call.request.toObject());
+      const { vout, transactionId } = await this.service.sendCoins(call.request.toObject());
 
       const response = new boltzrpc.SendCoinsResponse();
-      response.setTransactionHash(transactionHash);
       response.setVout(vout);
+      response.setTransactionId(transactionId);
 
       callback(null, response);
     } catch (error) {

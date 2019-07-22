@@ -481,7 +481,7 @@ class Service {
 
     return {
       vout,
-      transactionHash: transaction.getId(),
+      transactionId: transaction.getId(),
     };
   }
 

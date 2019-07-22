@@ -56,6 +56,7 @@ interface SwapNursery {
   emit(event: 'refund', lockupTransactionId: string, lockupVout: number, minerFee: number): boolean;
 }
 
+// TODO: make sure swaps work after restarts
 class SwapNursery extends EventEmitter {
   constructor(private logger: Logger, private walletManager: WalletManager) {
     super();
@@ -225,6 +226,7 @@ class SwapNursery extends EventEmitter {
     }
   }
 
+  // TODO: remove reverse swaps that succeeded
   private refundSwap = async (currency: Currency, reverseSwapDetails: ReverseSwapDetails[], timeoutBlockHeight: number) => {
     for (const details of reverseSwapDetails) {
       const transactionId = transactionHashToId(details.output.txHash);

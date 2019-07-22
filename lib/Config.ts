@@ -7,6 +7,7 @@ import { ChainConfig } from './chain/ChainClient';
 import { LndConfig } from './lightning/LndClient';
 import { Network } from './consts/Enums';
 import { deepMerge, resolveHome, getServiceDataDir } from './Utils';
+import { PairConfig } from './consts/Types';
 
 type ServiceOptions = {
   configpath?: string;
@@ -84,7 +85,7 @@ type ConfigType = {
   backup: BackupConfig;
   notification: NotificationConfig;
 
-  lndpath: string;
+  pairs: PairConfig[];
   currencies: CurrencyConfig[];
 };
 
@@ -158,7 +159,25 @@ class Config {
         interval: 1,
       },
 
-      lndpath: getServiceDataDir('lnd'),
+      pairs: [
+        {
+          base: 'LTC',
+          quote: 'BTC',
+          fee: 5,
+        },
+        {
+          base: 'BTC',
+          quote: 'BTC',
+          fee: 1,
+          rate: 1,
+        },
+        {
+          base: 'LTC',
+          quote: 'LTC',
+          fee: 1,
+          rate: 1,
+        },
+      ],
 
       currencies: [
         {

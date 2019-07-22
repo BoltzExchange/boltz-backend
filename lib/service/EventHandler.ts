@@ -1,10 +1,9 @@
 import { Op } from 'sequelize';
 import { EventEmitter } from 'events';
-import { TxOutput } from 'bitcoinjs-lib';
+import { TxOutput, address } from 'bitcoinjs-lib';
 import Errors from './Errors';
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';
-import { getHexString } from '../Utils';
 import SwapRepository from './SwapRepository';
 import SwapNursery from '../swap/SwapNursery';
 import { SwapUpdateEvent } from '../consts/Enums';
@@ -34,10 +33,6 @@ interface EventHandler {
 
 // TODO: write tests
 class EventHandler extends EventEmitter {
-  // A map between the hex strings of the scripts of the addresses and
-  // the addresses themselves to which Boltz should listen
-  public listenScripts = new Map<string, string>();
-
   constructor(
     private logger: Logger,
     private currencies: Map<string, Currency>,
@@ -61,41 +56,38 @@ class EventHandler extends EventEmitter {
       currency.chainClient.on('transaction', (transaction, confirmed) => {
         transaction.outs.forEach(async (out) => {
           const output = out as TxOutput;
-          const listenAddress = this.listenScripts.get(getHexString(output.script));
 
-          if (listenAddress) {
-            const swap = await this.swapRepository.getSwap({
-              lockupAddress: {
-                [Op.eq]: listenAddress,
-              },
-            });
+          const swap = await this.swapRepository.getSwap({
+            lockupAddress: {
+              [Op.eq]: address.fromOutputScript(output.script, currency.network),
+            },
+          });
 
-            if (swap) {
-              if (!swap.status || swap.status === SwapUpdateEvent.TransactionMempool) {
-                await this.swapRepository.setLockupTransactionId(swap, transaction.getId(), output.value, confirmed);
+          if (swap) {
+            if (!swap.status || swap.status === SwapUpdateEvent.TransactionMempool) {
+              await this.swapRepository.setLockupTransactionId(swap, transaction.getId(), output.value, confirmed);
 
-                if (confirmed || swap.acceptZeroConf) {
-                  this.emit('swap.update', swap.id, {
-                    event: confirmed ? SwapUpdateEvent.TransactionConfirmed : SwapUpdateEvent.TransactionMempool,
-                  });
-                }
+              if (confirmed || swap.acceptZeroConf) {
+                this.emit('swap.update', swap.id, {
+                  event: confirmed ? SwapUpdateEvent.TransactionConfirmed : SwapUpdateEvent.TransactionMempool,
+                });
               }
             }
+          }
 
-            const reverseSwap = await this.reverseSwapRepository.getReverseSwap({
-              transactionId: {
-                [Op.eq]: transaction.getId(),
-              },
-            });
+          const reverseSwap = await this.reverseSwapRepository.getReverseSwap({
+            transactionId: {
+              [Op.eq]: transaction.getId(),
+            },
+          });
 
-            if (reverseSwap) {
-              if (!reverseSwap.status || reverseSwap.status === SwapUpdateEvent.TransactionMempool) {
-                const event = confirmed ? SwapUpdateEvent.TransactionConfirmed : SwapUpdateEvent.TransactionMempool;
+          if (reverseSwap) {
+            if (!reverseSwap.status || reverseSwap.status === SwapUpdateEvent.TransactionMempool) {
+              const event = confirmed ? SwapUpdateEvent.TransactionConfirmed : SwapUpdateEvent.TransactionMempool;
 
-                await this.reverseSwapRepository.setReverseSwapStatus(reverseSwap, event);
+              await this.reverseSwapRepository.setReverseSwapStatus(reverseSwap, event);
 
-                this.emit('swap.update', reverseSwap.id, { event });
-              }
+              this.emit('swap.update', reverseSwap.id, { event });
             }
           }
         });

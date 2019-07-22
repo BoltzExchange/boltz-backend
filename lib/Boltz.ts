@@ -70,6 +70,7 @@ class Boltz {
       this.swapManager,
       this.walletManager,
       this.currencies,
+      this.config.rates.interval,
     );
 
     const backup = new BackupScheduler(
@@ -120,6 +121,8 @@ class Boltz {
       this.walletManager.init(),
       this.notifications.init(),
     ]);
+
+    await this.service.init(this.config.pairs);
 
     try {
       this.grpcServer.listen();

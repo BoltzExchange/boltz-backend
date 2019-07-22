@@ -20,7 +20,6 @@ import {
   generateId,
   mapToObject,
   splitPairId,
-  getHexBuffer,
   getOutputType,
   getInvoiceAmt,
   getChainCurrency,
@@ -59,6 +58,7 @@ class Service {
     private swapManager: SwapManager,
     private walletManager: WalletManager,
     private currencies: Map<string, Currency>,
+    rateUpdateInterval: number,
   ) {
     this.pairRepository = new PairRepository();
 
@@ -66,7 +66,12 @@ class Service {
     this.reverseSwapRepository = new ReverseSwapRepository();
 
     this.feeProvider = new FeeProvider(this.logger, this.getFeeEstimation);
-    this.rateProvider = new RateProvider(this.logger, this.feeProvider, 0, Object.values(currencies));
+    this.rateProvider = new RateProvider(
+      this.logger,
+      this.feeProvider,
+      rateUpdateInterval,
+      Array.from(currencies.values()),
+    );
 
     this.eventHandler = new EventHandler(
       this.logger,
@@ -77,6 +82,7 @@ class Service {
     );
   }
 
+  // TODO: verify all currencies in the pairs exist
   public init = async (configPairs: PairConfig[]) => {
     const dbPairSet = new Set<string>();
     const dbPairs = await this.pairRepository.getPairs();
@@ -237,7 +243,7 @@ class Service {
 
     return {
       warnings,
-      pairs: mapToObject(this.rateProvider.pairs),
+      pairs: this.rateProvider.pairs,
     };
   }
 
@@ -303,9 +309,9 @@ class Service {
    */
   public createSwap = async (
     pairId: string,
-    orderSide: number,
+    orderSide: string,
     invoice: string,
-    refundPublicKey: string,
+    refundPublicKey: Buffer,
   ) => {
     const swap = await this.swapRepository.getSwapByInvoice(invoice);
 
@@ -342,7 +348,7 @@ class Service {
       side,
       invoice,
       expectedAmount,
-      getHexBuffer(refundPublicKey),
+      refundPublicKey,
       OutputType.Compatibility,
       timeoutBlockDelta,
       acceptZeroConf,
@@ -383,9 +389,9 @@ class Service {
    */
   public createReverseSwap = async (
     pairId: string,
-    orderSide: number,
+    orderSide: string,
     invoiceAmount: number,
-    claimPublicKey: string,
+    claimPublicKey: Buffer,
   ) => {
     if (!this.allowReverseSwaps) {
       throw Errors.REVERSE_SWAPS_DISABLED();
@@ -423,7 +429,7 @@ class Service {
       side,
       invoiceAmount,
       onchainAmount,
-      getHexBuffer(claimPublicKey),
+      claimPublicKey,
       timeoutBlockDelta,
     );
 
@@ -540,10 +546,10 @@ class Service {
     return currency;
   }
 
-  private getOrderSide = (side: number) => {
-    switch (side) {
-      case 0: return OrderSide.BUY;
-      case 1: return OrderSide.SELL;
+  private getOrderSide = (side: string) => {
+    switch (side.toLowerCase()) {
+      case 'buy': return OrderSide.BUY;
+      case 'sell': return OrderSide.SELL;
 
       default: throw Errors.ORDER_SIDE_NOT_FOUND(side);
     }

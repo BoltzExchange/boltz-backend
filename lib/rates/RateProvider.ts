@@ -1,8 +1,8 @@
 import Logger from '../Logger';
 import FeeProvider from './FeeProvider';
-import { CurrencyConfig } from '../Config';
 import { PairConfig } from '../consts/Types';
 import DataProvider from './data/DataProvider';
+import { Currency } from '../wallet/WalletManager';
 import { stringify, mapToObject, minutesToMilliseconds, getPairId } from '../Utils';
 
 type Limits = {
@@ -59,7 +59,7 @@ class RateProvider {
     private logger: Logger,
     private feeProvider: FeeProvider,
     private rateUpdateInterval: number,
-    currencies: CurrencyConfig[]) {
+    currencies: Currency[]) {
 
     this.parseCurrencies(currencies);
   }
@@ -205,14 +205,15 @@ class RateProvider {
     };
   }
 
-  private parseCurrencies = (currencies: CurrencyConfig[]) => {
+  private parseCurrencies = (currencies: Currency[]) => {
     currencies.forEach((currency) => {
+      // TODO: throw error if undefined
       this.limits.set(currency.symbol, {
-        maximal: currency.maxSwapAmount,
-        minimal: currency.minSwapAmount,
+        maximal: currency.config.maxSwapAmount,
+        minimal: currency.config.minSwapAmount,
       });
 
-      this.maxZeroConfAmounts.set(currency.symbol, currency.maxZeroConfAmount);
+      this.maxZeroConfAmounts.set(currency.symbol, currency.config.maxZeroConfAmount);
     });
   }
 

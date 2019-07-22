@@ -3,9 +3,9 @@ import Database from '../../../lib/db/Database';
 import { Network } from '../../../lib/consts/Enums';
 import FeeProvider from '../../../lib/rates/FeeProvider';
 import RateProvider from '../../../lib/rates/RateProvider';
+import { Currency } from '../../../lib/wallet/WalletManager';
 import PairRepository from '../../../lib/service/PairRepository';
 import DataProvider from '../../../lib/rates/data/DataProvider';
-import { ChainConfig } from '../../../lib/chain/ChainClient';
 
 FeeProvider.transactionSizes = {
   normalClaim: 140,
@@ -77,32 +77,23 @@ const mockedDataProvider = <jest.Mock<DataProvider>><any>DataProvider;
 describe('RateProvider', () => {
   const currencyConfig = (currency: string) => ({
     symbol: currency,
-    network: Network.Regtest,
+    config: {
+      symbol: currency,
+      network: Network.Regtest,
 
-    maxSwapAmount: 1000000,
-    minSwapAmount: 1000,
+      maxSwapAmount: 1000000,
+      minSwapAmount: 1000,
 
-    timeoutBlockDelta: currency.toUpperCase() === 'BTC' ? 2 : 8,
+      maxZeroConfAmount: 10000,
+    },
+  }) as any as Currency;
 
-    minWalletBalance: 0,
-
-    minLocalBalance: 0,
-    minRemoteBalance: 0,
-
-    maxZeroConfAmount: 10000,
-
-    chain: {} as any as ChainConfig,
-  });
-
-  const btcCurrencyConfig = currencyConfig('BTC');
-  const ltcCurrencyConfig = currencyConfig('LTC');
+  const btcCurrency = currencyConfig('BTC');
+  const ltcCurreny = currencyConfig('LTC');
 
   const rateProvider = new RateProvider(Logger.disabledLogger, mockedFeeProvider(), 0.1, [
-    btcCurrencyConfig,
-    {
-      symbol: 'LTC',
-      ...ltcCurrencyConfig,
-    },
+    btcCurrency,
+    ltcCurreny,
   ]);
 
   rateProvider['dataProvider'] = mockedDataProvider();
@@ -142,10 +133,13 @@ describe('RateProvider', () => {
   test('should get limits', () => {
     const { pairs } = rateProvider;
 
-    expect(pairs.get('BTC/BTC')!.limits).toEqual({ maximal: btcCurrencyConfig.maxSwapAmount, minimal: btcCurrencyConfig.minSwapAmount });
+    expect(pairs.get('BTC/BTC')!.limits).toEqual({
+      maximal: btcCurrency.config.maxSwapAmount,
+      minimal: btcCurrency.config.minSwapAmount,
+    });
     expect(pairs.get('LTC/BTC')!.limits).toEqual({
-      maximal: ltcCurrencyConfig.maxSwapAmount,
-      minimal: Math.floor(ltcCurrencyConfig.minSwapAmount / rates.LTC),
+      maximal: ltcCurreny.config.maxSwapAmount,
+      minimal: Math.floor(ltcCurreny.config.minSwapAmount / rates.LTC),
     });
   });
 
@@ -168,10 +162,10 @@ describe('RateProvider', () => {
     // Should return false for undefined maximal allowed amounts
     expect(rateProvider.acceptZeroConf('ETH', 0)).toEqual(false);
 
-    expect(rateProvider.acceptZeroConf('BTC', btcCurrencyConfig.maxZeroConfAmount + 1)).toEqual(false);
+    expect(rateProvider.acceptZeroConf('BTC', btcCurrency.config.maxZeroConfAmount + 1)).toEqual(false);
 
-    expect(rateProvider.acceptZeroConf('BTC', btcCurrencyConfig.maxZeroConfAmount)).toEqual(true);
-    expect(rateProvider.acceptZeroConf('BTC', btcCurrencyConfig.maxZeroConfAmount - 1)).toEqual(true);
+    expect(rateProvider.acceptZeroConf('BTC', btcCurrency.config.maxZeroConfAmount)).toEqual(true);
+    expect(rateProvider.acceptZeroConf('BTC', btcCurrency.config.maxZeroConfAmount - 1)).toEqual(true);
   });
 
   afterAll(async () => {

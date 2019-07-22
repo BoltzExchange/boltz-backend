@@ -1,12 +1,12 @@
 import { Request, Response } from 'express';
 import Logger from '../Logger';
-import { stringify } from '../Utils';
 import Service from '../service/Service';
 import { SwapUpdateEvent } from '../consts/Enums';
+import { stringify, getHexBuffer, mapToObject } from '../Utils';
 
 class Controller {
-  // A map between the ids and HTTP responses of all pending swaps
-  private pendingSwaps = new Map<string, Response>();
+  // A map between the ids and HTTP streams of all pending swaps
+  private pendingSwapStreams = new Map<string, Response>();
 
   // A map between the ids and statuses of the swaps
   private pendingSwapInfos = new Map<string, object>();
@@ -15,7 +15,7 @@ class Controller {
     this.service.eventHandler.on('swap.update', (id, message) => {
       this.pendingSwapInfos.set(id, message);
 
-      const response = this.pendingSwaps.get(id);
+      const response = this.pendingSwapStreams.get(id);
 
       if (response) {
         this.logger.debug(`Swap ${id} update: ${stringify(message)}`);
@@ -52,17 +52,24 @@ class Controller {
 
   // GET requests
   public getPairs = (_req: Request, res: Response) => {
-    this.successResponse(res, this.service.getPairs());
+    const data = this.service.getPairs();
+
+    this.successResponse(res, {
+      warnings: data.warnings,
+      pairs: mapToObject(data.pairs),
+    });
   }
 
   public getFeeEstimation = async (_req: Request, res: Response) => {
-    this.successResponse(res, await this.service.getFeeEstimation());
+    const feeEstimation = await this.service.getFeeEstimation();
+
+    this.successResponse(res, mapToObject(feeEstimation));
   }
 
   // POST requests
   public swapStatus = async (req: Request, res: Response) => {
     try {
-      const { id } = this.validateBody(req.body, [
+      const { id } = this.validateRequest(req.body, [
         { name: 'id', type: 'string' },
       ]);
 
@@ -80,12 +87,12 @@ class Controller {
 
   public getTransaction = async (req: Request, res: Response) => {
     try {
-      const { currency, transactionHash } = this.validateBody(req.body, [
+      const { currency, transactionId } = this.validateRequest(req.body, [
         { name: 'currency', type: 'string' },
-        { name: 'transactionHash', type: 'string' },
+        { name: 'transactionId', type: 'string' },
       ]);
 
-      const response = await this.service.getTransaction(currency, transactionHash);
+      const response = await this.service.getTransaction(currency, transactionId);
       this.successResponse(res, { transactionHex: response });
     } catch (error) {
       this.errorResponse(res, error);
@@ -94,7 +101,7 @@ class Controller {
 
   public broadcastTransaction = async (req: Request, res: Response) => {
     try {
-      const { currency, transactionHex } = this.validateBody(req.body, [
+      const { currency, transactionHex } = this.validateRequest(req.body, [
         { name: 'currency', type: 'string' },
         { name: 'transactionHex', type: 'string' },
       ]);
@@ -108,11 +115,11 @@ class Controller {
 
   public createSwap = async (req: Request, res: Response) => {
     try {
-      const { pairId, orderSide, invoice, refundPublicKey } = this.validateBody(req.body, [
+      const { pairId, orderSide, invoice, refundPublicKey } = this.validateRequest(req.body, [
         { name: 'pairId', type: 'string' },
         { name: 'orderSide', type: 'string' },
         { name: 'invoice', type: 'string' },
-        { name: 'refundPublicKey', type: 'string' },
+        { name: 'refundPublicKey', type: 'string', isHex: true },
       ]);
 
       const response = await this.service.createSwap(
@@ -133,11 +140,11 @@ class Controller {
 
   public createReverseSwap = async (req: Request, res: Response) => {
     try {
-      const { pairId, orderSide, invoiceAmount, claimPublicKey } = this.validateBody(req.body, [
+      const { pairId, orderSide, invoiceAmount, claimPublicKey } = this.validateRequest(req.body, [
         { name: 'pairId', type: 'string' },
         { name: 'orderSide', type: 'string' },
         { name: 'invoiceAmount', type: 'number' },
-        { name: 'claimPublicKey', type: 'string' },
+        { name: 'claimPublicKey', type: 'string', isHex: true },
       ]);
 
       const response = await this.service.createReverseSwap(pairId, orderSide, invoiceAmount, claimPublicKey);
@@ -154,23 +161,23 @@ class Controller {
   // EventSource streams
   public streamSwapStatus = (req: Request, res: Response) => {
     try {
-      const { id } = this.validateBody(req.query, [
+      const { id } = this.validateRequest(req.query, [
         { name: 'id', type: 'string' },
       ]);
 
       res.writeHead(200, {
+        Connection: 'keep-alive',
         'X-Accel-Buffering': 'no',
         'Cache-Control': 'no-cache',
         'Content-Type': 'text/event-stream',
-        Connection: 'keep-alive',
       });
 
       res.setTimeout(0);
 
-      this.pendingSwaps.set(id, res);
+      this.pendingSwapStreams.set(id, res);
 
       res.on('close', () => {
-        this.pendingSwaps.delete(id);
+        this.pendingSwapStreams.delete(id);
       });
     } catch (error) {
       this.errorResponse(res, error);
@@ -182,7 +189,7 @@ class Controller {
    *
    * @returns the validated arguments
    */
-  private validateBody = (body: object, argsToCheck: { name: string, type: string }[]) => {
+  private validateRequest = (body: object, argsToCheck: { name: string, type: string, isHex?: boolean }[]) => {
     const response: any = {};
 
     argsToCheck.forEach((arg) => {
@@ -190,7 +197,17 @@ class Controller {
 
       if (value !== undefined) {
         if (typeof value === arg.type) {
-          response[arg.name] = value;
+          if (arg.isHex) {
+            const buffer = getHexBuffer(value);
+
+            if (buffer.length === 0) {
+              throw `could not parse hex string: ${arg.name}`;
+            }
+
+            response[arg.name] = buffer;
+          } else {
+            response[arg.name] = value;
+          }
         } else {
           throw `invalid parameter: ${arg.name}`;
         }

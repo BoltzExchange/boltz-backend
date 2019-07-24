@@ -31,7 +31,6 @@ interface EventHandler {
   emit(event: 'channel.backup', currency: string, channelbackup: string): boolean;
 }
 
-// TODO: write tests
 class EventHandler extends EventEmitter {
   constructor(
     private logger: Logger,

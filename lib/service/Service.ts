@@ -18,7 +18,6 @@ import {
   getRate,
   getPairId,
   generateId,
-  mapToObject,
   splitPairId,
   getOutputType,
   getInvoiceAmt,

@@ -158,7 +158,8 @@ class SwapManager {
     const outputScript = p2wshOutput(redeemScript);
     const address = sendingCurrency.wallet.encodeAddress(outputScript);
 
-    // TODO: listen for confirmation
+    sendingCurrency.chainClient.updateOutputFilter([outputScript]);
+
     const { fee, vout, transaction } = await sendingCurrency.wallet.sendToAddress(address, OutputType.Bech32, true, onchainAmount);
     this.logger.debug(`Sending ${onchainAmount} on ${sendingCurrency.symbol} to swap address ${address}: ${transaction.getId()}:${vout}`);
 

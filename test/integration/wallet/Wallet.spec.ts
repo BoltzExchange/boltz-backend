@@ -122,6 +122,7 @@ describe('Wallet', () => {
 
   test('should spend all coins', async () => {
     const address = await wallet.getNewAddress(OutputType.Bech32);
+
     await bitcoinClient.sendToAddress(address, 100000000);
     await bitcoinClient.sendToAddress(address, 100000000);
 

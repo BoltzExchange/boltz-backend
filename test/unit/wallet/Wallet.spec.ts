@@ -30,6 +30,7 @@ describe('Wallet', () => {
   const masterNode = fromSeed(mnemonicToSeedSync(mnemonic));
 
   const database = new Database(Logger.disabledLogger, ':memory:');
+
   const walletRepository = new WalletRepository();
   const outputRepository = new OutputRepository();
   const utxoRepository = new UtxoRepository();

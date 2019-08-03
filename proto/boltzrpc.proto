@@ -35,16 +35,17 @@ message CurrencyInfo {
 
 message ChainInfo {
   uint32 version = 1;
-  uint64 protocolversion = 2;
-  uint64 blocks = 3;
-  uint64 connections = 4;
-  string error = 5;
+  uint64 blocks = 2;
+  uint64 connections = 3;
+
+  string error = 4;
 }
 
 message LndInfo {
   string version = 1;
   LndChannels lnd_channels = 2;
   uint64 block_height = 3;
+
   string error = 4;
 }
 message LndChannels {

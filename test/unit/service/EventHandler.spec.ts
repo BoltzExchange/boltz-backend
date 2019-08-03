@@ -1,6 +1,6 @@
 import { Op } from 'sequelize';
-import { OutputType, Networks } from 'boltz-core';
 import { Transaction } from 'bitcoinjs-lib';
+import { OutputType, Networks } from 'boltz-core';
 import Logger from '../../../lib/Logger';
 import { wait, generateAddress } from '../../Utils';
 import SwapNursery from '../../../lib/swap/SwapNursery';

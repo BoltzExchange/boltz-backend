@@ -229,13 +229,6 @@ export const groupBy = (arr: object[], keyGetter: (item: any) => string | number
 };
 
 /**
- * Get current time in unix time (milliseconds).
- */
-export const ms = (): number => {
-  return Date.now();
-};
-
-/**
  * Split a string into host and port
  *
  * @param listen string of format host:port

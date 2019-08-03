@@ -175,10 +175,10 @@ class SwapManager {
       refundKeys: keys,
       output: {
         vout,
-        txHash: transaction.getHash(),
-        type: OutputType.Bech32,
-        script: outputScript,
         value: onchainAmount,
+        script: outputScript,
+        type: OutputType.Bech32,
+        txHash: transaction.getHash(),
       },
     };
 

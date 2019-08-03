@@ -1,10 +1,10 @@
 import { Error } from '../consts/Types';
-import { ErrorCodePrefix } from '../consts/Enums';
 import { concatErrorCode } from '../Utils';
+import { ErrorCodePrefix } from '../consts/Enums';
 
 export default {
   CURRENCY_NOT_FOUND: (currency: string): Error => ({
-    message: `could not find currency ${currency}`,
+    message: `could not find currency: ${currency}`,
     code: concatErrorCode(ErrorCodePrefix.Service, 0),
   }),
   ORDER_SIDE_NOT_FOUND: (side: string): Error => ({
@@ -28,18 +28,18 @@ export default {
     code: concatErrorCode(ErrorCodePrefix.Service, 5),
   }),
   EXCEED_MAXIMAL_AMOUNT: (amount: number, maximalAmount: number) => ({
-    message: `${amount} is more than maximal ${maximalAmount}`,
+    message: `${amount} is exceeds maximal of ${maximalAmount}`,
     code: concatErrorCode(ErrorCodePrefix.Service, 6),
   }),
   BENEATH_MINIMAL_AMOUNT: (amount: number, minimalAmount: number) => ({
-    message: `${amount} is less than minimal ${minimalAmount}`,
+    message: `${amount} is less than minimal of ${minimalAmount}`,
     code: concatErrorCode(ErrorCodePrefix.Service, 7),
   }),
   REVERSE_SWAPS_DISABLED: (): Error => ({
     message: 'reverse swaps are disabled',
     code: concatErrorCode(ErrorCodePrefix.Service, 8),
   }),
-  AMOUNT_TOO_LOW: (): Error => ({
+  ONCHAIN_AMOUNT_TOO_LOW: (): Error => ({
     message: 'onchain amount is too low',
     code: concatErrorCode(ErrorCodePrefix.Service, 9),
   }),

@@ -1,5 +1,6 @@
 import { address } from 'bitcoinjs-lib';
 import { SwapUtils, OutputType } from 'boltz-core';
+import { Output } from 'boltz-core/dist/FeeCalculator';
 import Errors from './Errors';
 import Logger from '../Logger';
 import Wallet from '../wallet/Wallet';
@@ -12,8 +13,8 @@ import FeeProvider from '../rates/FeeProvider';
 import RateProvider from '../rates/RateProvider';
 import { encodeBip21 } from './PaymentRequestUtils';
 import ReverseSwapRepository from './ReverseSwapRepository';
-import WalletManager, { Currency } from '../wallet/WalletManager';
 import { OrderSide, ServiceWarning } from '../consts/Enums';
+import WalletManager, { Currency } from '../wallet/WalletManager';
 import {
   getRate,
   getPairId,
@@ -81,7 +82,6 @@ class Service {
     );
   }
 
-  // TODO: verify all currencies in the pairs exist
   public init = async (configPairs: PairConfig[]) => {
     const dbPairSet = new Set<string>();
     const dbPairs = await this.pairRepository.getPairs();
@@ -90,8 +90,17 @@ class Service {
       dbPairSet.add(dbPair.id);
     });
 
+    const checkCurrency = (symbol: string) => {
+      if (!this.currencies.has(symbol)) {
+        throw Errors.CURRENCY_NOT_FOUND(symbol);
+      }
+    };
+
     for (const configPair of configPairs) {
       const id = getPairId(configPair);
+
+      checkCurrency(configPair.base);
+      checkCurrency(configPair.quote);
 
       if (!dbPairSet.has(id)) {
         await this.pairRepository.addPair({
@@ -126,9 +135,9 @@ class Service {
         const blockchainInfo = await currency.chainClient.getBlockchainInfo();
 
         chain.setVersion(networkInfo.version);
-        chain.setProtocolversion(networkInfo.protocolversion);
-        chain.setBlocks(blockchainInfo.blocks);
         chain.setConnections(networkInfo.connections);
+
+        chain.setBlocks(blockchainInfo.blocks);
       } catch (error) {
         chain.setError(error);
       }
@@ -142,9 +151,10 @@ class Service {
         channels.setInactive(lndInfo.numInactiveChannels);
         channels.setPending(lndInfo.numPendingChannels);
 
+        lnd.setLndChannels(channels);
+
         lnd.setVersion(lndInfo.version);
         lnd.setBlockHeight(lndInfo.blockHeight);
-        lnd.setLndChannels(channels);
       } catch (error) {
         lnd.setError(error.details);
       }
@@ -275,14 +285,10 @@ class Service {
   public getFeeEstimation = async (symbol?: string, blocks?: number) => {
     const map = new Map<string, number>();
 
-    const numBlocks = blocks === undefined ? 1 : blocks;
+    const numBlocks = blocks === undefined ? 2 : blocks;
 
-    if (symbol) {
-      const currency = this.currencies.get(symbol);
-
-      if (!currency) {
-        throw Errors.CURRENCY_NOT_FOUND(symbol);
-      }
+    if (symbol !== undefined) {
+      const currency = this.getCurrency(symbol);
 
       map.set(symbol, await currency.chainClient.estimateFee(numBlocks));
     } else {
@@ -314,7 +320,7 @@ class Service {
   ) => {
     const swap = await this.swapRepository.getSwapByInvoice(invoice);
 
-    if (swap) {
+    if (swap !== undefined) {
       throw Errors.SWAP_WITH_INVOICE_EXISTS();
     }
 
@@ -412,7 +418,7 @@ class Service {
     const onchainAmount = Math.floor(invoiceAmount * rate) - (baseFee + percentageFee);
 
     if (onchainAmount < 1) {
-      throw Errors.AMOUNT_TOO_LOW();
+      throw Errors.ONCHAIN_AMOUNT_TOO_LOW();
     }
 
     const {
@@ -463,21 +469,25 @@ class Service {
     symbol: string,
     address: string,
     amount: number,
-    satPerVbyte: number,
-    sendAll: boolean,
+    sendAll?: boolean,
+    satPerVbyte?: number,
   }) => {
     const currency = this.getCurrency(args.symbol);
     const wallet = this.walletManager.wallets.get(args.symbol);
 
-    if (!wallet) {
+    if (wallet === undefined) {
       throw Errors.CURRENCY_NOT_FOUND(args.symbol);
     }
 
-    const fee = args.satPerVbyte === 0 ? await currency.chainClient.estimateFee() : args.satPerVbyte;
+    const fee = args.satPerVbyte === 0 || args.satPerVbyte === undefined ? await currency.chainClient.estimateFee() : args.satPerVbyte;
 
-    const output = SwapUtils.getOutputScriptType(address.toOutputScript(args.address, currency.network));
+    let output: Output | undefined = undefined;
 
-    if (!output) {
+    try {
+      output = SwapUtils.getOutputScriptType(address.toOutputScript(args.address, currency.network));
+    } catch (error) {}
+
+    if (output === undefined) {
       throw Errors.SCRIPT_TYPE_NOT_FOUND(args.address);
     }
 
@@ -505,7 +515,7 @@ class Service {
       if (Math.floor(amount) > limits.maximal) throw Errors.EXCEED_MAXIMAL_AMOUNT(amount, limits.maximal);
       if (Math.ceil(amount) < limits.minimal) throw Errors.BENEATH_MINIMAL_AMOUNT(amount, limits.minimal);
     } else {
-      throw Errors.CURRENCY_NOT_FOUND(pairId);
+      throw Errors.PAIR_NOT_FOUND(pairId);
     }
   }
 
@@ -526,17 +536,13 @@ class Service {
   }
 
   private getChainConfig = (symbol: string) => {
-    const config = this.currencies.get(symbol);
+    const currency = this.getCurrency(symbol);
 
-    if (!config) {
-      throw Errors.CURRENCY_NOT_FOUND(symbol);
-    }
-
-    return config.config;
+    return currency.config;
   }
 
   private getCurrency = (symbol: string) => {
-    const currency = this.swapManager.currencies.get(symbol);
+    const currency = this.currencies.get(symbol);
 
     if (!currency) {
       throw Errors.CURRENCY_NOT_FOUND(symbol);

@@ -84,9 +84,6 @@ export class ChainInfo extends jspb.Message {
     getVersion(): number;
     setVersion(value: number): void;
 
-    getProtocolversion(): number;
-    setProtocolversion(value: number): void;
-
     getBlocks(): number;
     setBlocks(value: number): void;
 
@@ -110,7 +107,6 @@ export class ChainInfo extends jspb.Message {
 export namespace ChainInfo {
     export type AsObject = {
         version: number,
-        protocolversion: number,
         blocks: number,
         connections: number,
         error: string,

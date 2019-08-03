@@ -1,5 +1,5 @@
-import { BIP32Interface } from 'bip32';
 import { EventEmitter } from 'events';
+import { BIP32Interface } from 'bip32';
 import { Transaction, address, TxOutput } from 'bitcoinjs-lib';
 import { constructClaimTransaction, OutputType, TransactionOutput, constructRefundTransaction } from 'boltz-core';
 import Logger from '../Logger';

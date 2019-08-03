@@ -1,6 +1,7 @@
 // tslint:disable: max-line-length
 
 import os from 'os';
+import { OutputType } from 'boltz-core';
 import { Transaction } from 'bitcoinjs-lib';
 import * as utils from '../../lib/Utils';
 import { constructTransaction } from '../Utils';
@@ -194,5 +195,15 @@ describe('Utils', () => {
 
     expect(utils.getLightningCurrency(base, quote, OrderSide.BUY, false)).toEqual(base);
     expect(utils.getLightningCurrency(base, quote, OrderSide.SELL, false)).toEqual(quote);
+  });
+
+  test('should get output type', () => {
+    expect(utils.getOutputType(0)).toEqual(OutputType.Bech32);
+    expect(utils.getOutputType(1)).toEqual(OutputType.Compatibility);
+    expect(utils.getOutputType(2)).toEqual(OutputType.Legacy);
+
+    expect(utils.getOutputType()).toEqual(OutputType.Legacy);
+
+    expect(() => utils.getOutputType(123)).toThrow(new Error('type does not exist'));
   });
 });

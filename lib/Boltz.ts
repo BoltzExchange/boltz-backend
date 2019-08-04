@@ -117,12 +117,10 @@ class Boltz {
 
     await Promise.all(promises);
 
-    await Promise.all([
-      this.walletManager.init(),
-      this.notifications.init(),
-    ]);
-
+    await this.walletManager.init();
     await this.service.init(this.config.pairs);
+
+    await this.notifications.init();
 
     try {
       this.grpcServer.listen();

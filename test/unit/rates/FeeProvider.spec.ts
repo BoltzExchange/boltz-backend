@@ -54,10 +54,10 @@ describe('FeeProvider', () => {
     ]);
 
     const expected = [
-      5040,
+      6120,
       5508,
 
-      420,
+      510,
       459,
     ];
 

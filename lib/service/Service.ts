@@ -320,7 +320,7 @@ class Service {
   ) => {
     const swap = await this.swapRepository.getSwapByInvoice(invoice);
 
-    if (swap !== undefined) {
+    if (swap) {
       throw Errors.SWAP_WITH_INVOICE_EXISTS();
     }
 

@@ -8,7 +8,7 @@ class FeeProvider {
   public percentageFees = new Map<string, number>();
 
   public static transactionSizes = {
-    normalClaim: 140,
+    normalClaim: 170,
 
     reverseLockup: 153,
     reverseClaim: 138,
@@ -64,7 +64,7 @@ class FeeProvider {
       return satPerVbyte * FeeProvider.transactionSizes.reverseLockup;
     } else {
       // The claim transaction which spends a nested SegWit swap output and
-      // sends it to a P2WPKH address has about 140 vbytes
+      // sends it to a P2WPKH address has about 170 vbytes
       return satPerVbyte * FeeProvider.transactionSizes.normalClaim;
     }
   }

@@ -3,11 +3,11 @@ import Swap from '../db/models/Swap';
 import Service from '../service/Service';
 import DiscordClient from './DiscordClient';
 import CommandHandler from './CommandHandler';
-import { OutputType } from '../proto/boltzrpc_pb';
 import ReverseSwap from '../db/models/ReverseSwap';
 import BackupScheduler from '../backup/BackupScheduler';
 import { SwapUpdateEvent, OrderSide } from '../consts/Enums';
 import { NotificationConfig, CurrencyConfig } from '../Config';
+import { OutputType, CurrencyInfo, LndInfo, ChainInfo } from '../proto/boltzrpc_pb';
 import {
   splitPairId,
   getInvoiceAmt,
@@ -84,15 +84,15 @@ class NotificationProvider {
   private checkConnections = async () => {
     const info = await this.service.getInfo();
 
-    info.getChainsMap().forEach(async ([symbol, chain]) => {
-      await this.checkConnection(`${symbol} node`, chain.chain);
-      await this.checkConnection(`${symbol} LND`, chain.lnd);
+    info.getChainsMap().forEach(async (currency: CurrencyInfo, symbol: string) => {
+      await this.checkConnection(`${symbol} LND`, currency.getLnd());
+      await this.checkConnection(`${symbol} node`, currency.getChain());
     });
   }
 
-  private checkConnection = async (service: string, object: { error: string } | undefined) => {
-    if (object) {
-      if (object.error === '') {
+  private checkConnection = async (service: string, object: ChainInfo | LndInfo | undefined) => {
+    if (object !== undefined) {
+      if (object.getError() === '') {
         if (this.disconnected.has(service)) {
           this.disconnected.delete(service);
           await this.sendReconnected(service);

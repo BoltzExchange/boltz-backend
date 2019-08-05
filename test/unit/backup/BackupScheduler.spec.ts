@@ -10,6 +10,20 @@ import BackupScheduler, { BackupConfig } from '../../../lib/backup/BackupSchedul
 
 type callback = (currency: string, channelBackup: string) => void;
 
+const mockInfo = jest.fn().mockImplementation();
+const mockWarn = jest.fn().mockImplementation();
+const mockSilly = jest.fn().mockImplementation();
+
+jest.mock('../../../lib/Logger', () => {
+  return jest.fn().mockImplementation(() => ({
+    info: mockInfo,
+    warn: mockWarn,
+    silly: mockSilly,
+  }));
+});
+
+const mockedLogger = <jest.Mock<Logger>><any>Logger;
+
 const swap = {
   fee: 780,
   pair: 'BTC/BTC',
@@ -57,7 +71,7 @@ const mockSave = jest.fn().mockImplementation(() => Promise.resolve());
 const mockUpload = jest.fn().mockImplementation(() => Promise.resolve());
 
 describe('BackupScheduler', () => {
-  const dbPath = 'middleware.db';
+  const dbPath = 'backend.db';
 
   const channelBackupCurrency = 'BTC';
 
@@ -78,7 +92,7 @@ describe('BackupScheduler', () => {
   };
 
   const backupScheduler = new BackupScheduler(
-    Logger.disabledLogger,
+    mockedLogger(),
     dbPath,
     backupConfig,
     eventHandler,
@@ -94,6 +108,8 @@ describe('BackupScheduler', () => {
   } as any as Bucket;
 
   beforeEach(() => {
+    mockWarn.mockClear();
+
     mockSave.mockClear();
     mockUpload.mockClear();
   });
@@ -141,5 +157,25 @@ describe('BackupScheduler', () => {
 
     expect(mockSave).toHaveBeenCalledTimes(1);
     expect(mockSave).toHaveBeenCalledWith(channelBackup);
+  });
+
+  test('should not throw if the private key does not exist', () => {
+    const path = 'path';
+
+    new BackupScheduler(
+      mockedLogger(),
+      dbPath,
+      {
+        email: '@',
+        bucketname: 'bucket',
+        privatekeypath: path,
+        interval: '0 0 * * *',
+      },
+      eventHandler,
+      report,
+    );
+
+    expect(mockWarn).toHaveBeenCalledTimes(1);
+    expect(mockWarn).toHaveBeenCalledWith(`Could not start backup scheduler: Error: ENOENT: no such file or directory, open '${path}'`);
   });
 });

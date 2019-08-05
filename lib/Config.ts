@@ -3,11 +3,11 @@ import path from 'path';
 import toml from 'toml';
 import { Arguments } from 'yargs';
 import Errors from './consts/Errors';
+import { Network } from './consts/Enums';
+import { PairConfig } from './consts/Types';
 import { ChainConfig } from './chain/ChainClient';
 import { LndConfig } from './lightning/LndClient';
-import { Network } from './consts/Enums';
 import { deepMerge, resolveHome, getServiceDataDir } from './Utils';
-import { PairConfig } from './consts/Types';
 
 type ServiceOptions = {
   configpath?: string;
@@ -36,8 +36,6 @@ type CurrencyConfig = {
 type ApiConfig = {
   host: string;
   port: number;
-
-  interval: number;
 };
 
 type GrpcConfig = {
@@ -127,8 +125,6 @@ class Config {
       api: {
         host: '127.0.0.1',
         port: 9001,
-
-        interval: 1,
       },
 
       grpc: {

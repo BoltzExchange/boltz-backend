@@ -22,27 +22,31 @@ class BackupScheduler {
       config.privatekeypath === '' ||
       config.bucketname === ''
     ) {
-      logger.warn('Disabled backups because of incomplete configuration');
+      this.logger.warn('Disabled backups because of incomplete configuration');
       return;
     }
 
-    const storage = new Storage({
-      credentials: {
-        client_email: config.email,
-        private_key: readFileSync(config.privatekeypath, 'utf-8'),
-      },
-    });
+    try {
+      const storage = new Storage({
+        credentials: {
+          client_email: config.email,
+          private_key: readFileSync(config.privatekeypath, 'utf-8'),
+        },
+      });
 
-    this.bucket = storage.bucket(config.bucketname);
+      this.bucket = storage.bucket(config.bucketname);
 
-    this.subscribeChannelBackups();
-    this.logger.info('Started channel backup subscription');
+      this.subscribeChannelBackups();
+      this.logger.info('Started channel backup subscription');
 
-    this.logger.verbose(`Scheduling database backups: ${this.config.interval}`);
-    scheduleJob(this.config.interval, async (date) => {
-      await this.uploadDatabase(date);
-      await this.uploadReport();
-    });
+      this.logger.verbose(`Scheduling database backups: ${this.config.interval}`);
+      scheduleJob(this.config.interval, async (date) => {
+        await this.uploadDatabase(date);
+        await this.uploadReport();
+      });
+    } catch (error) {
+      this.logger.warn(`Could not start backup scheduler: ${error}`);
+    }
   }
 
   private static getDate = (date: Date) => {

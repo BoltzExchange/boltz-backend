@@ -12,7 +12,7 @@ import { Currency } from '../wallet/WalletManager';
 import ReverseSwapRepository from './ReverseSwapRepository';
 
 type SwapUpdate = {
-  event: SwapUpdateEvent;
+  status: SwapUpdateEvent;
 
   preimage?: string;
 };
@@ -68,7 +68,7 @@ class EventHandler extends EventEmitter {
 
               if (confirmed || swap.acceptZeroConf) {
                 this.emit('swap.update', swap.id, {
-                  event: confirmed ? SwapUpdateEvent.TransactionConfirmed : SwapUpdateEvent.TransactionMempool,
+                  status: confirmed ? SwapUpdateEvent.TransactionConfirmed : SwapUpdateEvent.TransactionMempool,
                 });
               }
             }
@@ -82,11 +82,11 @@ class EventHandler extends EventEmitter {
 
           if (reverseSwap) {
             if (!reverseSwap.status || reverseSwap.status === SwapUpdateEvent.TransactionMempool) {
-              const event = confirmed ? SwapUpdateEvent.TransactionConfirmed : SwapUpdateEvent.TransactionMempool;
+              const status = confirmed ? SwapUpdateEvent.TransactionConfirmed : SwapUpdateEvent.TransactionMempool;
 
-              await this.reverseSwapRepository.setReverseSwapStatus(reverseSwap, event);
+              await this.reverseSwapRepository.setReverseSwapStatus(reverseSwap, status);
 
-              this.emit('swap.update', reverseSwap.id, { event });
+              this.emit('swap.update', reverseSwap.id, { status });
             }
           }
         });
@@ -108,7 +108,7 @@ class EventHandler extends EventEmitter {
 
         if (swap) {
           await this.swapRepository.setInvoicePaid(swap, routingFee);
-          this.emit('swap.update', swap!.id, { event: SwapUpdateEvent.InvoicePaid });
+          this.emit('swap.update', swap!.id, { status: SwapUpdateEvent.InvoicePaid });
         }
       });
 
@@ -124,7 +124,7 @@ class EventHandler extends EventEmitter {
 
           this.logger.verbose(`Reverse swap ${reverseSwap.id} succeeded`);
 
-          this.emit('swap.update', reverseSwap.id, { preimage, event: SwapUpdateEvent.InvoiceSettled });
+          this.emit('swap.update', reverseSwap.id, { preimage, status: SwapUpdateEvent.InvoiceSettled });
           this.emit('swap.success', reverseSwap);
         }
       });
@@ -144,7 +144,7 @@ class EventHandler extends EventEmitter {
 
         this.logger.info(`Swap ${swap!.id} failed: ${error.message}`);
 
-        this.emit('swap.update', swap!.id, { event: SwapUpdateEvent.InvoiceFailedToPay });
+        this.emit('swap.update', swap!.id, { status: SwapUpdateEvent.InvoiceFailedToPay });
         this.emit('swap.failure', swap!, error.message);
       }
     });
@@ -165,6 +165,8 @@ class EventHandler extends EventEmitter {
         swap = await this.swapRepository.setMinerFee(swap, minerFee);
 
         this.logger.verbose(`Swap ${swap!.id} succeeded`);
+
+        this.emit('swap.update', swap!.id, { status: SwapUpdateEvent.TransactionClaimed });
         this.emit('swap.success', swap!);
       }
     });
@@ -183,7 +185,7 @@ class EventHandler extends EventEmitter {
 
         this.logger.info(`Swap ${swap!.id} failed: ${error.message}`);
 
-        this.emit('swap.update', swap!.id, { event: SwapUpdateEvent.SwapExpired });
+        this.emit('swap.update', swap!.id, { status: SwapUpdateEvent.SwapExpired });
         this.emit('swap.failure', swap!, error.message);
       }
     });
@@ -202,7 +204,7 @@ class EventHandler extends EventEmitter {
 
         this.logger.info(`Reverse swap ${reverseSwap.id} failed: ${error.message}`);
 
-        this.emit('swap.update', reverseSwap.id, { event: SwapUpdateEvent.TransactionRefunded });
+        this.emit('swap.update', reverseSwap.id, { status: SwapUpdateEvent.TransactionRefunded });
         this.emit('swap.failure', reverseSwap, error.message);
       }
     });

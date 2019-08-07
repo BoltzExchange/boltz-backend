@@ -1,0 +1,8 @@
+site_name: Boltz documentation
+theme: readthedocs
+
+nav:
+  - Home: index.md
+  - Swap Lifecycle: lifecycle.md
+  - 0-conf: 0-conf.md
+  - REST API: api.md

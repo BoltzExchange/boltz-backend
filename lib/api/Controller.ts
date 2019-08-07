@@ -33,18 +33,18 @@ class Controller {
 
     swaps.forEach((swap) => {
       if (swap.status) {
-        this.pendingSwapInfos.set(swap.id, { event: swap.status });
+        this.pendingSwapInfos.set(swap.id, { status: swap.status });
       }
     });
 
     reverseSwaps.forEach((reverseSwap) => {
       if (reverseSwap.status) {
-        const event = reverseSwap.status;
+        const status = reverseSwap.status;
 
-        if (event !== SwapUpdateEvent.InvoiceSettled) {
-          this.pendingSwapInfos.set(reverseSwap.id, { event });
+        if (status !== SwapUpdateEvent.InvoiceSettled) {
+          this.pendingSwapInfos.set(reverseSwap.id, { status });
         } else {
-          this.pendingSwapInfos.set(reverseSwap.id, { event, preimage: reverseSwap.preimage });
+          this.pendingSwapInfos.set(reverseSwap.id, { status, preimage: reverseSwap.preimage });
         }
       }
     });

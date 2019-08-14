@@ -1,3 +1,4 @@
+import Errors from './Errors';
 import Logger from '../Logger';
 import FeeProvider from './FeeProvider';
 import { PairConfig } from '../consts/Types';
@@ -5,9 +6,11 @@ import DataProvider from './data/DataProvider';
 import { Currency } from '../wallet/WalletManager';
 import { stringify, mapToObject, minutesToMilliseconds, getPairId } from '../Utils';
 
-type Limits = {
+type CurrencyLimits = {
   minimal: number;
   maximal: number;
+
+  maximalZeroConf: number;
 };
 
 type ReverseMinerFees = {
@@ -22,7 +25,15 @@ type MinerFees = {
 
 type PairType = {
   rate: number;
-  limits: Limits;
+  limits: {
+    minimal: number;
+    maximal: number;
+
+    maximalZeroConf: {
+      baseAsset: number;
+      quoteAsset: number;
+    }
+  };
   fees: {
     percentage: number;
     minerFees: {
@@ -39,14 +50,11 @@ class RateProvider {
   // An array of tuples between the base and quote asset of all pairs for which the rate should be queried
   public pairsToQuery: [string, string][] = [];
 
-  // A map between the symbol and max allowed zero conf amount
-  private maxZeroConfAmounts = new Map<string, number>();
-
   // A map of all pairs with hardcoded rates
   private hardcodedPairs = new Map<string, { base: string, quote: string }>();
 
   // A map between assets and their limits
-  private limits = new Map<string, Limits>();
+  private limits = new Map<string, CurrencyLimits>();
 
   // A copy of the "percentageFees" Map in the FeeProvider but all values are multiplied with 100
   private percentageFees = new Map<string, number>();
@@ -120,10 +128,10 @@ class RateProvider {
    * Returns whether 0-conf should be accepted for a specific amount on a specified chain
    */
   public acceptZeroConf = (chainCurrency: string, amount: number) => {
-    const maxAllowedAmount = this.maxZeroConfAmounts.get(chainCurrency);
+    const limits = this.limits.get(chainCurrency);
 
-    if (maxAllowedAmount) {
-      return amount <= maxAllowedAmount;
+    if (limits) {
+      return amount <= limits.maximalZeroConf;
     } else {
       return false;
     }
@@ -190,13 +198,18 @@ class RateProvider {
       return {
         maximal: Math.min(baseLimits.maximal, reverseQuoteLimits.maximal),
         minimal: Math.max(baseLimits.minimal, reverseQuoteLimits.minimal),
+
+        maximalZeroConf: {
+          baseAsset: baseLimits.maximalZeroConf,
+          quoteAsset: quoteLimits.maximalZeroConf,
+        },
       };
     }
 
     throw `Could not get limits for pair ${pair}`;
   }
 
-  private calculateQuoteLimits = (rate: number, limits: Limits) => {
+  private calculateQuoteLimits = (rate: number, limits: CurrencyLimits) => {
     const reverseRate = 1 / rate;
 
     return {
@@ -206,15 +219,29 @@ class RateProvider {
   }
 
   private parseCurrencies = (currencies: Currency[]) => {
-    currencies.forEach((currency) => {
-      // TODO: throw error if undefined
-      this.limits.set(currency.symbol, {
-        maximal: currency.config.maxSwapAmount,
-        minimal: currency.config.minSwapAmount,
-      });
+    for (const currency of currencies) {
+      const config = currency.config;
 
-      this.maxZeroConfAmounts.set(currency.symbol, currency.config.maxZeroConfAmount);
-    });
+      if (config.maxZeroConfAmount === undefined) {
+        this.logger.warn(`Maximal 0-conf amount not set for ${currency.symbol}`);
+      }
+
+      if (config.maxSwapAmount === undefined) {
+        throw Errors.CONFIGURATION_INCOMPLETE(currency.symbol, 'maxSwapAmount');
+      }
+
+      if (config.minSwapAmount === undefined) {
+        throw Errors.CONFIGURATION_INCOMPLETE(currency.symbol, 'minSwapAmount');
+      }
+
+      this.limits.set(currency.symbol, {
+        maximal: config.maxSwapAmount,
+        minimal: config.minSwapAmount,
+
+        // Set the maximal 0-conf amount to 0 if it wasn't set explicitly
+        maximalZeroConf: config.maxZeroConfAmount || 0,
+      });
+    }
   }
 
   private getMinerFees = async () => {

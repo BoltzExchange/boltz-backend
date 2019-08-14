@@ -5,6 +5,7 @@ import { generateMnemonic } from 'bip39';
 import Api from './api/Api';
 import Logger from './Logger';
 import Report from './data/Report';
+import { stringify } from './Utils';
 import Database from './db/Database';
 import Service from './service/Service';
 import GrpcServer from './grpc/GrpcServer';
@@ -28,11 +29,11 @@ class Boltz {
   private swapManager: SwapManager;
   private walletManager: WalletManager;
 
-  private service: Service;
-  private notifications: NotificationProvider;
+  private service!: Service;
+  private notifications!: NotificationProvider;
 
-  private api: Api;
-  private grpcServer: GrpcServer;
+  private api!: Api;
+  private grpcServer!: GrpcServer;
 
   constructor(config: Arguments<any>) {
     this.config = new Config().load(config);
@@ -65,44 +66,49 @@ class Boltz {
       ],
     );
 
-    this.service = new Service(
-      this.logger,
-      this.swapManager,
-      this.walletManager,
-      this.currencies,
-      this.config.rates.interval,
-    );
+    try {
+      this.service = new Service(
+        this.logger,
+        this.swapManager,
+        this.walletManager,
+        this.currencies,
+        this.config.rates.interval,
+      );
 
-    const backup = new BackupScheduler(
-      this.logger,
-      this.config.dbpath,
-      this.config.backup,
-      this.service.eventHandler,
-      new Report(
-        this.service.swapRepository,
-        this.service.reverseSwapRepository,
-      ),
-    );
+      const backup = new BackupScheduler(
+        this.logger,
+        this.config.dbpath,
+        this.config.backup,
+        this.service.eventHandler,
+        new Report(
+          this.service.swapRepository,
+          this.service.reverseSwapRepository,
+        ),
+      );
 
-    this.notifications = new NotificationProvider(
-      this.logger,
-      this.service,
-      backup,
-      this.config.notification,
-      this.config.currencies,
-    );
+      this.notifications = new NotificationProvider(
+        this.logger,
+        this.service,
+        backup,
+        this.config.notification,
+        this.config.currencies,
+      );
 
-    this.grpcServer = new GrpcServer(
-      this.logger,
-      this.config.grpc,
-      new GrpcService(this.service),
-    );
+      this.grpcServer = new GrpcServer(
+        this.logger,
+        this.config.grpc,
+        new GrpcService(this.service),
+      );
 
-    this.api = new Api(
-      this.logger,
-      this.config.api,
-      this.service,
-    );
+      this.api = new Api(
+        this.logger,
+        this.config.api,
+        this.service,
+      );
+    } catch (error) {
+      this.logger.error(`Could not start Boltz: ${stringify(error)}`);
+      process.exit(1);
+    }
   }
 
   public start = async () => {

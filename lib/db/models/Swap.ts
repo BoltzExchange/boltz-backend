@@ -19,6 +19,7 @@ type SwapType = {
   invoice: string;
 
   acceptZeroConf: boolean;
+  timeoutBlockHeight: number;
   onchainAmount?: number;
   lockupAddress: string;
   lockupTransactionId?: string;
@@ -42,6 +43,7 @@ class Swap extends Model implements SwapType {
   public invoice!: string;
 
   public acceptZeroConf!: boolean;
+  public timeoutBlockHeight!: number;
   public onchainAmount?: number;
   public lockupAddress!: string;
   public lockupTransactionId?: string;
@@ -62,6 +64,7 @@ class Swap extends Model implements SwapType {
       status: { type: new DataTypes.STRING(255), allowNull: true },
       invoice: { type: new DataTypes.STRING(255), unique: true, allowNull: false },
       acceptZeroConf: { type: DataTypes.BOOLEAN, allowNull: false },
+      timeoutBlockHeight: { type: DataTypes.INTEGER, allowNull: false },
       onchainAmount: { type: new DataTypes.INTEGER(), allowNull: true },
       lockupAddress: { type: new DataTypes.STRING(255), allowNull: false },
       lockupTransactionId: { type: new DataTypes.STRING(255), allowNull: true },

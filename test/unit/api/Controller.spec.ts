@@ -132,15 +132,15 @@ describe('Controller', () => {
     const pendingSwaps = controller['pendingSwapInfos'];
 
     expect(pendingSwaps.get(swaps[0].id)).toEqual({
-      event: swaps[0].status,
+      status: swaps[0].status,
     });
     expect(pendingSwaps.get(swaps[1].id)).toBeUndefined();
 
     expect(pendingSwaps.get(reverseSwaps[0].id)).toEqual({
-      event: reverseSwaps[0].status,
+      status: reverseSwaps[0].status,
     });
     expect(pendingSwaps.get(reverseSwaps[1].id)).toEqual({
-      event: reverseSwaps[1].status,
+      status: reverseSwaps[1].status,
       preimage: reverseSwaps[1].preimage,
     });
     expect(pendingSwaps.get(reverseSwaps[2].id)).toBeUndefined();
@@ -207,7 +207,7 @@ describe('Controller', () => {
 
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
-      event: swaps[0].status,
+      status: swaps[0].status,
     });
   });
 

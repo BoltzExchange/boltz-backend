@@ -178,11 +178,11 @@ describe('EventHandler', () => {
     const states = [
       {
         confirmed: false,
-        event: SwapUpdateEvent.TransactionMempool,
+        status: SwapUpdateEvent.TransactionMempool,
       },
       {
         confirmed: true,
-        event: SwapUpdateEvent.TransactionConfirmed,
+        status: SwapUpdateEvent.TransactionConfirmed,
       },
     ];
 
@@ -191,12 +191,12 @@ describe('EventHandler', () => {
         if (id === swap.id) {
           expect(id).toEqual(swap.id);
           expect(message).toEqual({
-            event: state.event,
+            status: state.status,
           });
         } else {
           expect(id).toEqual(reverseSwap.id);
           expect(message).toEqual({
-            event: state.event,
+            status: state.status,
           });
         }
 
@@ -228,7 +228,7 @@ describe('EventHandler', () => {
       expect(mockSetReverseSwapStatus).toHaveBeenNthCalledWith(
         updatesEmitted,
         expect.anything(),
-        state.event,
+        state.status,
       );
     }
 
@@ -247,7 +247,7 @@ describe('EventHandler', () => {
     // Paid
     eventHandler.once('swap.update', (id, message) => {
       expect(id).toEqual(swap.id);
-      expect(message).toEqual({ event: SwapUpdateEvent.InvoicePaid });
+      expect(message).toEqual({ status: SwapUpdateEvent.InvoicePaid });
 
       updatesEmitted += 1;
     });
@@ -269,7 +269,7 @@ describe('EventHandler', () => {
     // Settled
     eventHandler.once('swap.update', (id, message) => {
       expect(id).toEqual(reverseSwap.id);
-      expect(message).toEqual({ preimage, event: SwapUpdateEvent.InvoiceSettled });
+      expect(message).toEqual({ preimage, status: SwapUpdateEvent.InvoiceSettled });
 
       updatesEmitted += 1;
     });
@@ -296,7 +296,7 @@ describe('EventHandler', () => {
     // Failed to pay
     eventHandler.once('swap.update', (id, message) => {
       expect(id).toEqual(swap.id);
-      expect(message).toEqual({ event: SwapUpdateEvent.InvoiceFailedToPay });
+      expect(message).toEqual({ status: SwapUpdateEvent.InvoiceFailedToPay });
 
       updatesEmitted += 1;
     });
@@ -340,7 +340,7 @@ describe('EventHandler', () => {
     // Abort
     eventHandler.once('swap.update', (id, message) => {
       expect(id).toEqual(swap.id);
-      expect(message).toEqual({ event: SwapUpdateEvent.SwapExpired });
+      expect(message).toEqual({ status: SwapUpdateEvent.SwapExpired });
 
       updatesEmitted += 1;
     });
@@ -383,7 +383,7 @@ describe('EventHandler', () => {
     // Refund
     eventHandler.once('swap.update', (id, message) => {
       expect(id).toEqual(reverseSwap.id);
-      expect(message).toEqual({ event: SwapUpdateEvent.TransactionRefunded });
+      expect(message).toEqual({ status: SwapUpdateEvent.TransactionRefunded });
 
       updatesEmitted += 1;
     });

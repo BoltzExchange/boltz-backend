@@ -367,6 +367,7 @@ class Service {
       keyIndex,
       redeemScript,
       acceptZeroConf,
+      timeoutBlockHeight,
       pair: pairId,
       orderSide: side,
       fee: percentageFee,
@@ -427,6 +428,7 @@ class Service {
       keyIndex,
       redeemScript,
       lockupTransaction,
+      timeoutBlockHeight,
       lockupTransactionId,
     } = await this.swapManager.createReverseSwap(
       base,
@@ -447,6 +449,7 @@ class Service {
       keyIndex,
       redeemScript,
       onchainAmount,
+      timeoutBlockHeight,
       pair: pairId,
       orderSide: side,
       fee: percentageFee,

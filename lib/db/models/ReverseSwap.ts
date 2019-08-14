@@ -14,6 +14,7 @@ type ReverseSwapType = {
   orderSide: number;
 
   status?: string;
+  timeoutBlockHeight: number;
 
   invoice: string;
   preimage?: string;
@@ -35,6 +36,7 @@ class ReverseSwap extends Model implements ReverseSwapType {
   public orderSide!: number;
 
   public status?: string;
+  public timeoutBlockHeight!: number;
 
   public invoice!: string;
   public preimage?: string;
@@ -55,6 +57,7 @@ class ReverseSwap extends Model implements ReverseSwapType {
       pair: { type: new DataTypes.STRING(255), allowNull: false },
       orderSide: { type: new DataTypes.INTEGER(), allowNull: false },
       status: { type: new DataTypes.STRING(255), allowNull: true },
+      timeoutBlockHeight: { type: new DataTypes.INTEGER(), allowNull: false },
       invoice: { type: new DataTypes.STRING(255), allowNull: false },
       preimage: { type: new DataTypes.STRING(255), allowNull: true },
       onchainAmount: { type: new DataTypes.INTEGER(), allowNull: false },

@@ -190,6 +190,7 @@ class SwapManager {
     }
 
     return {
+      timeoutBlockHeight,
       minerFee: fee,
       keyIndex: index,
       lockupAddress: address,

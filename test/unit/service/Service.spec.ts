@@ -498,6 +498,7 @@ describe('Service', () => {
       keyIndex: mockedSwap.keyIndex,
       lockupAddress: mockedSwap.address,
       redeemScript: mockedSwap.redeemScript,
+      timeoutBlockHeight: mockedSwap.timeoutBlockHeight,
     });
 
     // Throw if a swap with that invoice exists already

@@ -316,6 +316,7 @@ describe('SwapManager', () => {
       invoice: addedInvoice.paymentRequest,
       lockupTransaction: transactionSent.transaction.toHex(),
       lockupTransactionId: transactionSent.transaction.getId(),
+      timeoutBlockHeight: timeoutBlockDelta + blockchainInfo.blocks,
     });
 
     expect(mockAddInvoice).toHaveBeenCalledTimes(1);

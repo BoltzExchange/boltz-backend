@@ -75,21 +75,31 @@ jest.mock('../../../lib/rates/data/DataProvider', () => {
 const mockedDataProvider = <jest.Mock<DataProvider>><any>DataProvider;
 
 describe('RateProvider', () => {
-  const currencyConfig = (currency: string) => ({
-    symbol: currency,
+  const btcCurrency = {
+    symbol: 'BTC',
     config: {
-      symbol: currency,
+      symbol: 'BTC',
       network: Network.Regtest,
 
-      maxSwapAmount: 1000000,
-      minSwapAmount: 1000,
+      maxSwapAmount: 100000000000,
+      minSwapAmount: 1,
 
-      maxZeroConfAmount: 10000,
+      maxZeroConfAmount: 10000000,
     },
-  }) as any as Currency;
+  } as any as Currency;
 
-  const btcCurrency = currencyConfig('BTC');
-  const ltcCurreny = currencyConfig('LTC');
+  const ltcCurreny = {
+    symbol: 'LTC',
+    config: {
+      symbol: 'LTC',
+      network: Network.Regtest,
+
+      maxSwapAmount: 1000000000,
+      minSwapAmount: 100000,
+
+      maxZeroConfAmount: 1000000,
+    },
+  } as any as Currency;
 
   const rateProvider = new RateProvider(Logger.disabledLogger, mockedFeeProvider(), 0.1, [
     btcCurrency,
@@ -136,10 +146,20 @@ describe('RateProvider', () => {
     expect(pairs.get('BTC/BTC')!.limits).toEqual({
       maximal: btcCurrency.config.maxSwapAmount,
       minimal: btcCurrency.config.minSwapAmount,
+
+      maximalZeroConf: {
+        baseAsset: btcCurrency.config.maxZeroConfAmount,
+        quoteAsset: btcCurrency.config.maxZeroConfAmount,
+      },
     });
     expect(pairs.get('LTC/BTC')!.limits).toEqual({
-      maximal: ltcCurreny.config.maxSwapAmount,
-      minimal: Math.floor(ltcCurreny.config.minSwapAmount / rates.LTC),
+      maximal: Math.min(btcCurrency.config.maxSwapAmount, ltcCurreny.config.maxSwapAmount * rates.LTC),
+      minimal: Math.max(btcCurrency.config.minSwapAmount, ltcCurreny.config.minSwapAmount * rates.LTC),
+
+      maximalZeroConf: {
+        baseAsset: ltcCurreny.config.maxZeroConfAmount,
+        quoteAsset: btcCurrency.config.maxZeroConfAmount,
+      },
     });
   });
 

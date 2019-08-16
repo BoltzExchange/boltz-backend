@@ -190,14 +190,9 @@ class RateProvider {
     const quoteLimits = this.limits.get(quote);
 
     if (baseLimits && quoteLimits) {
-      // The limits we show are for the base asset and therefore to determine whether
-      // the limits for the base or quote asset are higher for the minimal or lower for
-      // the maximal amount we need to multiply the quote limits times (1 / rate)
-      const reverseQuoteLimits = this.calculateQuoteLimits(rate, quoteLimits);
-
       return {
-        maximal: Math.min(baseLimits.maximal, reverseQuoteLimits.maximal),
-        minimal: Math.max(baseLimits.minimal, reverseQuoteLimits.minimal),
+        maximal: Math.min(quoteLimits.maximal, baseLimits.maximal * rate),
+        minimal: Math.max(quoteLimits.minimal, baseLimits.minimal * rate),
 
         maximalZeroConf: {
           baseAsset: baseLimits.maximalZeroConf,
@@ -207,15 +202,6 @@ class RateProvider {
     }
 
     throw `Could not get limits for pair ${pair}`;
-  }
-
-  private calculateQuoteLimits = (rate: number, limits: CurrencyLimits) => {
-    const reverseRate = 1 / rate;
-
-    return {
-      maximal: Math.floor(reverseRate * limits.maximal),
-      minimal: Math.floor(reverseRate * limits.minimal),
-    };
   }
 
   private parseCurrencies = (currencies: Currency[]) => {

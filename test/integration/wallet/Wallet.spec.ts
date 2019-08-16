@@ -3,6 +3,7 @@ import { TxOutput } from 'bitcoinjs-lib';
 import { OutputType, Networks } from 'boltz-core';
 import { generateMnemonic, mnemonicToSeedSync } from 'bip39';
 import Logger from '../../../lib/Logger';
+import Errors from '../../../lib/wallet/Errors';
 import Wallet from '../../../lib/wallet/Wallet';
 import Database from '../../../lib/db/Database';
 import { bitcoinClient } from '../chain/ChainClient.spec';
@@ -172,6 +173,17 @@ describe('Wallet', () => {
     for (const input of transaction.ins) {
       expect(input.hash).not.toEqual(unconfirmedTransactionHash);
     }
+  });
+
+  test('should handle errors gracefully', async () => {
+    await expect(
+      wallet.sendToAddress(
+        await wallet.getNewAddress(OutputType.Bech32),
+        OutputType.Bech32,
+        false,
+        Number.MAX_SAFE_INTEGER,
+      ),
+    ).rejects.toEqual(Errors.NOT_ENOUGH_FUNDS(Number.MAX_SAFE_INTEGER));
   });
 
   afterAll(async () => {

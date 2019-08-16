@@ -270,7 +270,6 @@ class Wallet {
     satsPerByte?: number,
     sendAll?: boolean) => {
 
-    // TODO: throw errors properly
     return this.lock.acquire(this.sendToAddressLock, async () => {
       const utxos = await this.utxoRepository.getUtxosSorted(this.symbol);
 

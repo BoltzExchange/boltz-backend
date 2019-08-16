@@ -4,16 +4,10 @@ import { OutputType } from 'boltz-core';
 import { Transaction, crypto } from 'bitcoinjs-lib';
 import Logger from '../../../lib/Logger';
 import Errors from '../../../lib/chain/Errors';
+import FakedChainClient from './FakedChainClient';
 import { getHexString, reverseBuffer } from '../../../lib/Utils';
 import { generateAddress, waitForFunctionToBeTrue, wait } from '../../Utils';
-import { Block, BlockchainInfo, RawTransaction } from '../../../lib/consts/Types';
 import ZmqClient, { ZmqNotification, filters } from '../../../lib/chain/ZmqClient';
-
-type RawBlock = {
-  height: number;
-  hash: Buffer;
-  block: Buffer;
-};
 
 class ZmqPublisher {
   public address: string;
@@ -39,6 +33,9 @@ class ZmqPublisher {
 }
 
 describe('ZmqClient', () => {
+  const blocksToGenerate = 10;
+  const chainClient = new FakedChainClient();
+
   // ZMQ publisher
   const rawTx = new ZmqPublisher(3000, filters.rawTx);
 
@@ -46,165 +43,48 @@ describe('ZmqClient', () => {
   const hashBlock = new ZmqPublisher(3002, filters.hashBlock);
 
   const sendHashBlock = (height?: number, orphan = false) => {
-    const { hash } = generateBlock(height, orphan);
+    const { hash } = chainClient.generateBlock(height, orphan);
     hashBlock.sendMessage(reverseBuffer(hash));
   };
 
   // Variables and functions related to transactions
   const { outputScript } = generateAddress(OutputType.Bech32);
-  const transactions = new Map<string, { transaction: Transaction, isConfirmed: boolean }>();
 
-  const generateTransaction = (isConfirmed: boolean): Transaction => {
+  const generateTransaction = (confirmed: boolean): Transaction => {
     const transaction = new Transaction();
 
     transaction.addOutput(outputScript, 1);
     transaction.addInput(crypto.hash256(randomBytes(32)), 0);
 
-    transactions.set(transaction.getId(), {
-      transaction,
-      isConfirmed,
-    });
+    chainClient.sendRawTransaction(transaction);
+
+    if (confirmed) {
+      chainClient.generateBlock();
+    }
 
     return transaction;
   };
 
-  // Variables and functions related to blocks
-  const genesisBlock = {
-    height: 0,
-    hash: crypto.sha256(randomBytes(32)),
-    block: randomBytes(80),
-  };
-
-  // Number of blocks that should be generated for each block test
-  const blocksToGenerate = 10;
-
-  let bestBlockHeight = 0;
-
-  const blockIndex = new Map<number, string>([
-    [0, getHexString(genesisBlock.hash)],
-  ]);
-  const blocks = new Map<string, RawBlock>([
-    [getHexString(genesisBlock.hash), genesisBlock],
-  ]);
-
-  // A map between the hashes of the blocks and the transactions that blocks contains
-  const blockTransactions = new Map<string, string[]>();
-
-  const generateBlock = (height?: number, orphan = false): RawBlock => {
-    const previousBlockHeight = height !== undefined ? height : bestBlockHeight;
-
-    // Note that generating orphan works just if there were blocks mined after genesis
-    const previousBlock = blocks.get(blockIndex.get(previousBlockHeight)!)!;
-
-    const data = Buffer.concat([randomBytes(4), previousBlock.hash, randomBytes(44)], 80);
-    const hash = crypto.sha256(crypto.sha256(data));
-
-    if (!orphan) {
-      bestBlockHeight = previousBlockHeight + 1;
-    }
-
-    const block = {
-      hash,
-      block: data,
-      height: orphan ? previousBlockHeight + 1 : bestBlockHeight,
-    };
-
-    const hashHex = getHexString(reverseBuffer(hash));
-
-    blocks.set(hashHex, block);
-
-    if (!orphan) {
-      blockIndex.set(bestBlockHeight, hashHex);
-    }
-
-    return block;
-  };
-
-  // Functions for the ZMQ client
-  const getBlock = async (hash: string): Promise<Block> => {
-    const block = blocks.get(hash)!;
-    const previousBlockHash = blockIndex.get(block.height - 1)!;
-    const transactions = blockTransactions.get(getHexString(block.hash));
-
-    return {
-      hash,
-      height: block.height,
-      tx: transactions || [],
-      previousblockhash: previousBlockHash,
-
-      nTx: 0,
-      time: 0,
-      size: 0,
-      nonce: 0,
-      bits: '',
-      weight: 0,
-      version: 0,
-      chainwork: '',
-      difficulty: 0,
-      merkleroot: '',
-      versionHex: '',
-      strippedsize: 0,
-      confirmations: 0,
-    };
-  };
-
-  const getBlockChainInfo = async (): Promise<BlockchainInfo> => {
-    const bestBlock = blocks.get(blockIndex.get(bestBlockHeight)!)!;
-
-    return {
-      blocks: bestBlockHeight,
-      bestblockhash: getHexString(
-        reverseBuffer(bestBlock.hash),
-      ),
-
-      chain: '',
-      headers: 0,
-      difficulty: 0,
-      mediantime: 0,
-      pruned: false,
-      chainwork: '',
-      size_on_disk: 0,
-      verificationprogress: 0,
-      initialblockdownload: '',
-    };
-  };
-
-  const getTransaction = async (id: string, verbose?: boolean): Promise<string | RawTransaction> => {
-    const data = transactions.get(id);
-
-    if (data) {
-      if (verbose) {
-        const confirmations = data.isConfirmed ? 1 : 0;
-
-        return {
-          confirmations,
-
-          hex: '',
-          vin: [],
-          size: 0,
-          time: 0,
-          vout: [],
-          vsize: 0,
-          txid: '',
-          hash: '',
-          weight: 0,
-          version: 0,
-          locktime: 0,
-          blocktime: 0,
-          blockhash: '',
-        };
-      } else {
-        return data.transaction.toHex();
-      }
-    }
-
-    return '';
-  };
-
-  const zmqClient = new ZmqClient('BTC', Logger.disabledLogger, getBlock, getBlockChainInfo, getTransaction);
+  const zmqClient = new ZmqClient(
+    'BTC',
+    Logger.disabledLogger,
+    chainClient.getBlock,
+    chainClient.getBlockchainInfo,
+    chainClient.getBlockhash,
+    chainClient.getBlockVerbose,
+    chainClient.getRawTransactionVerbose,
+  );
 
   test('should not init without needed subscriptions', async () => {
-    const rejectZmqClient = new ZmqClient('BTC', Logger.disabledLogger, getBlock, getBlockChainInfo, getTransaction);
+    const rejectZmqClient = new ZmqClient(
+      'BTC',
+      Logger.disabledLogger,
+      chainClient.getBlock,
+      chainClient.getBlockchainInfo,
+      chainClient.getBlockhash,
+      chainClient.getBlockVerbose,
+      chainClient.getRawTransactionVerbose,
+    );
     const notifications: ZmqNotification[] = [];
 
     await expect(rejectZmqClient.init(notifications)).rejects.toEqual(Errors.NO_RAWTX());
@@ -243,20 +123,13 @@ describe('ZmqClient', () => {
   test('should rescan blocks', async () => {
     // Setup some data for the rescan test
     for (let i = 0; i < blocksToGenerate; i += 1) {
-      const { hash } = generateBlock();
-
-      const transactions: string[] = [];
-
       for (let tx = 0; tx < blocksToGenerate; tx += 1) {
-        const transaction = generateTransaction(true);
-        transactions.push(transaction.getId());
+        generateTransaction(false);
       }
-
-      blockTransactions.set(getHexString(hash), transactions);
+      chainClient.generateBlock();
     }
 
-    zmqClient['blockHeight'] = bestBlockHeight;
-    zmqClient['bestBlockHash'] = blockIndex.get(bestBlockHeight)!;
+    zmqClient['blockHeight'] = chainClient.bestBlockHeight;
 
     let transactionsFound = 0;
 
@@ -268,8 +141,10 @@ describe('ZmqClient', () => {
 
     await zmqClient.rescanChain(0);
 
+    await wait(2000);
+
     await waitForFunctionToBeTrue(() => {
-      return transactionsFound === transactions.size;
+      return transactionsFound === blocksToGenerate * blocksToGenerate;
     });
   });
 
@@ -328,39 +203,39 @@ describe('ZmqClient', () => {
     });
 
     for (let i = 0; i < blocksToGenerate; i += 1) {
-      const { block } = generateBlock();
+      const { block } = chainClient.generateBlock();
       rawBlock.sendMessage(block);
     }
 
     await waitForFunctionToBeTrue(() => {
-      return blockHeight === bestBlockHeight;
+      return blockHeight === chainClient.bestBlockHeight;
     });
 
     // Generate an orphan and make sure that the blockHeight did not increase
-    const { block } = generateBlock(0, true);
+    const { block } = chainClient.generateBlock(1, true);
     rawBlock.sendMessage(block);
 
     await wait(10);
 
-    expect(blockHeight).toEqual(bestBlockHeight);
+    expect(blockHeight).toEqual(chainClient.bestBlockHeight);
   });
 
   test('should handle rawblock reorganizations', async () => {
-    let blockHeight = bestBlockHeight;
+    let blockHeight = chainClient.bestBlockHeight;
 
     zmqClient.on('block', (height) => {
       expect(height).toEqual(blockHeight + 1);
       blockHeight = height;
     });
 
-    const reorgHeight = bestBlockHeight - 5;
-    for (let i = 0; i < blocksToGenerate; i += 1) {
-      const { block } = generateBlock(reorgHeight + i);
+    const reorgHeight = chainClient.bestBlockHeight - 5;
+    for (let i = 0; i <= blocksToGenerate; i += 1) {
+      const { block } = chainClient.generateBlock(reorgHeight + i);
       rawBlock.sendMessage(block);
     }
 
     await waitForFunctionToBeTrue(() => {
-      return blockHeight === bestBlockHeight;
+      return blockHeight === chainClient.bestBlockHeight;
     });
 
     expect(blockHeight).toEqual(reorgHeight + blocksToGenerate);
@@ -375,7 +250,7 @@ describe('ZmqClient', () => {
       return zmqClient['sockets'].length === 3;
     });
 
-    // Wait a little more to make sure the socket is connected
+    // Wait a little longer to make sure the socket is connected
     await wait(10);
   });
 
@@ -386,37 +261,37 @@ describe('ZmqClient', () => {
       blockHeight = height;
     });
 
-    for (let i = 9; i < blocksToGenerate; i += 1) {
+    for (let i = 0; i < blocksToGenerate; i += 1) {
       sendHashBlock();
     }
 
     await waitForFunctionToBeTrue(() => {
-      return blockHeight === bestBlockHeight;
+      return blockHeight === chainClient.bestBlockHeight;
     });
 
     // Generate an orphan and make sure that the blockHeight did not increase
-    sendHashBlock(0, true);
+    sendHashBlock(1, true);
 
     await wait(10);
 
-    expect(blockHeight).toEqual(bestBlockHeight);
+    expect(blockHeight).toEqual(chainClient.bestBlockHeight);
   });
 
   test('should handle rawblock reorganizations', async () => {
-    let blockHeight = bestBlockHeight;
+    let blockHeight = chainClient.bestBlockHeight;
 
     zmqClient.on('block', (height) => {
       expect(height).toEqual(blockHeight + 1);
       blockHeight = height;
     });
 
-    const reorgHeight = bestBlockHeight - 5;
-    for (let i = 0; i < blocksToGenerate; i += 1) {
+    const reorgHeight = chainClient.bestBlockHeight - 5;
+    for (let i = 0; i <= blocksToGenerate; i += 1) {
       sendHashBlock(reorgHeight + i);
     }
 
     await waitForFunctionToBeTrue(() => {
-      return blockHeight === bestBlockHeight;
+      return blockHeight === chainClient.bestBlockHeight;
     });
 
     expect(blockHeight).toEqual(reorgHeight + blocksToGenerate);

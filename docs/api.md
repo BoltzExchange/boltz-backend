@@ -1,4 +1,4 @@
-# REST API documentation
+# REST API Documentation
 
 ## Introduction
 
@@ -112,7 +112,7 @@ Response:
 
 ## Querying transactions
 
-The Boltz API also allwos for querying raw transactions for all configured chains. It doesn't matter whether the transactions are still in the mempool or already included in a block; Boltz should find them either way. But it should be noted that Boltz doesn't provide any kind of proof that the transaction was included in a block like SPV or Neutrino servers do.
+The Boltz API also allwos for querying raw transactions for all configured chains. Irrspective of whether the transactions are still in the mempool or already included in a block; Boltz should find them either way. But it should be noted that unlike SPV and Neutrino servers, Boltz doesn't provide any kind of proof that the transaction was included in a block.
 
 Requests querying for transactions have to be `POST` and contain two arguments in its JSON encoded body:
 
@@ -198,9 +198,9 @@ Response:
 
 ## Getting status of a swap
 
-**Before being able to handle the status events of this method one has to understand [the lifecycle of a swap](lifecycle.md)**
+**Before being able to handle the status events of this method it is recommended to understand [Swap lifecycle](lifecycle.md)**
 
-In order to query the status of a swap one can use this endpoint which returns a JSON object containing the status of the swap. All of the possible status events are documented [here](lifecycle.md).
+For the purpose of mitigating the need to query the status of a swap one can use this endpoint which returns a JSON object containing the status of the swap. All of the possible status events are documented [here](lifecycle.md).
 
 Requests querying the status of a swap have to be `POST` and contain a single value in its JSON encoded body:
 

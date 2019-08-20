@@ -17,6 +17,7 @@ import {
   getLightningCurrency,
 } from '../Utils';
 
+// TODO: use events instead of intervals to check connections and balances
 class NotificationProvider {
   private timer!: any;
   private discord: DiscordClient;

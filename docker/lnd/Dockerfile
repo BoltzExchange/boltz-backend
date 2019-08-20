@@ -1,4 +1,9 @@
-FROM golang:1.12.9-alpine as builder
+ARG ALPINE_VERSION
+ARG GOLANG_VERSION
+
+FROM golang:${GOLANG_VERSION} as builder
+
+ARG VERSION
 
 # Install git
 RUN apk update && apk upgrade
@@ -8,11 +13,11 @@ RUN apk add --no-cache git make gcc libc-dev
 RUN git clone https://github.com/lightningnetwork/lnd.git $GOPATH/src/github.com/lightningnetwork/lnd
 
 WORKDIR $GOPATH/src/github.com/lightningnetwork/lnd
-RUN git checkout v0.7.1-beta
+RUN git checkout v${VERSION}
 RUN make install
 
 # Start again with a new image to reduce the size
-FROM alpine:3.10.1 as final
+FROM alpine:${ALPINE_VERSION}
 
 # Expose LND ports (server, gRPC)
 EXPOSE 9735 10009

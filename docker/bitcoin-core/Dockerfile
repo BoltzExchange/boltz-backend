@@ -1,7 +1,15 @@
-# Build Bitcoin Core
-FROM alpine:3.10.1 as bitcoin-core
+ARG ALPINE_VERSION
 
-COPY --from=boltz/berkeley-db /opt /opt
+ARG BERKELEY_VERSION
+
+FROM boltz/berkeley-db:${BERKELEY_VERSION} AS berkeley-db
+
+# Build Bitcoin Core
+FROM alpine:${ALPINE_VERSION} as bitcoin-core
+
+ARG VERSION
+
+COPY --from=berkeley-db /opt /opt
 
 RUN apk update && apk upgrade
 RUN apk --no-cache add \
@@ -22,17 +30,16 @@ RUN apk --no-cache add \
 
 RUN gpg --batch --keyserver keyserver.ubuntu.com --recv-keys "90C8019E36C2E964"
 
-ENV BITCOIN_VERSION=0.18.1
-ENV BITCOIN_PREFIX=/opt/bitcoin-${BITCOIN_VERSION}
+ENV BITCOIN_PREFIX=/opt/bitcoin-${VERSION}
 
-RUN wget https://bitcoin.org/bin/bitcoin-core-${BITCOIN_VERSION}/SHA256SUMS.asc
-RUN wget https://bitcoin.org/bin/bitcoin-core-${BITCOIN_VERSION}/bitcoin-${BITCOIN_VERSION}.tar.gz
+RUN wget https://bitcoin.org/bin/bitcoin-core-${VERSION}/SHA256SUMS.asc
+RUN wget https://bitcoin.org/bin/bitcoin-core-${VERSION}/bitcoin-${VERSION}.tar.gz
 
 RUN gpg --verify SHA256SUMS.asc
-RUN grep " bitcoin-${BITCOIN_VERSION}.tar.gz\$" SHA256SUMS.asc | sha256sum -c -
+RUN grep "bitcoin-${VERSION}.tar.gz\$" SHA256SUMS.asc | sha256sum -c -
 RUN tar -xzf *.tar.gz
 
-WORKDIR /bitcoin-${BITCOIN_VERSION}
+WORKDIR /bitcoin-${VERSION}
 
 RUN sed -i '/AC_PREREQ/a\AR_FLAGS=cr' src/univalue/configure.ac
 RUN sed -i '/AX_PROG_CC_FOR_BUILD/a\AR_FLAGS=cr' src/secp256k1/configure.ac
@@ -59,7 +66,9 @@ RUN strip ${BITCOIN_PREFIX}/bin/bitcoin-cli
 RUN strip ${BITCOIN_PREFIX}/bin/bitcoin-wallet
 
 # Assemble the final image
-FROM alpine:3.10.1
+FROM alpine:${ALPINE_VERSION}
+
+ARG VERSION
 
 RUN apk update && apk upgrade
 RUN apk --no-cache add \
@@ -69,9 +78,7 @@ RUN apk --no-cache add \
   libressl \
   boost-program_options
 
-ENV BITCOIN_VERSION=0.18.1
-
-COPY --from=bitcoin-core /opt/bitcoin-${BITCOIN_VERSION}/bin /bin
+COPY --from=bitcoin-core /opt/bitcoin-${VERSION}/bin /bin
 
 EXPOSE 18332 18333 18444 18443
 

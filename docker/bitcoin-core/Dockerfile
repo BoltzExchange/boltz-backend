@@ -22,7 +22,7 @@ RUN apk --no-cache add \
 
 RUN gpg --batch --keyserver keyserver.ubuntu.com --recv-keys "90C8019E36C2E964"
 
-ENV BITCOIN_VERSION=0.18.0
+ENV BITCOIN_VERSION=0.18.1
 ENV BITCOIN_PREFIX=/opt/bitcoin-${BITCOIN_VERSION}
 
 RUN wget https://bitcoin.org/bin/bitcoin-core-${BITCOIN_VERSION}/SHA256SUMS.asc
@@ -69,7 +69,7 @@ RUN apk --no-cache add \
   libressl \
   boost-program_options
 
-ENV BITCOIN_VERSION=0.18.0
+ENV BITCOIN_VERSION=0.18.1
 
 COPY --from=bitcoin-core /opt/bitcoin-${BITCOIN_VERSION}/bin /bin
 

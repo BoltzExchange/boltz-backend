@@ -1,4 +1,4 @@
-FROM golang:1.12.7-alpine as builder
+FROM golang:1.12.9-alpine as builder
 
 # Install git
 RUN apk update && apk upgrade
@@ -8,7 +8,7 @@ RUN apk add --no-cache git make gcc libc-dev
 RUN git clone https://github.com/lightningnetwork/lnd.git $GOPATH/src/github.com/lightningnetwork/lnd
 
 WORKDIR $GOPATH/src/github.com/lightningnetwork/lnd
-RUN git checkout v0.7.0-beta
+RUN git checkout v0.7.1-beta
 RUN make install
 
 # Start again with a new image to reduce the size

@@ -100,6 +100,27 @@ def get_build_details(image: str) -> Image:
     print_error("Could not find image {}".format(image))
     exit(1)
 
+def list_images(images: List[str]):
+  print("Images:")
+  
+  for image in images:
+    build_details = get_build_details(image)
+
+    print(" - {name}:{tag}".format(
+      name = image,
+      tag = build_details.version
+    ))
+
+    if len(build_details.arguments) > 0:
+      print("   Build arguments:")
+      for argument in build_details.arguments:
+        print("     - {name}:{value}".format(
+          name = argument.name,
+          value = argument.value
+        ))
+
+    print()
+
 def push_images(images: List[str]):
   for image in images:
     build_details = get_build_details(image)
@@ -169,14 +190,17 @@ def parse_images(images: List[str]) -> List[str]:
 if __name__ == "__main__":
   parser = ArgumentParser(description = "Build or push Docker images")
 
-  # Command line commands
+  # CLI commands
   sub_parsers = parser.add_subparsers(dest = 'command')
   sub_parsers.required = True
 
+  list_parser = sub_parsers.add_parser("list")
   push_parser = sub_parsers.add_parser("push")
   build_parser = sub_parsers.add_parser("build")
 
-  # Command line arguments
+  # CLI arguments
+  list_parser.add_argument("images", type = str, nargs = "*")
+  
   push_parser.add_argument("images", type = str, nargs = "*")
 
   build_parser.add_argument("--no-cache", dest = "no_cache", action = "store_true")
@@ -186,8 +210,9 @@ if __name__ == "__main__":
 
   images = parse_images(args.images)
 
-  if args.command == "push":
+  if args.command == "list":
+    list_images(images)
+  elif args.command == "push":
     push_images(images)
   elif args.command == "build":
     build_images(images, args.no_cache)
-

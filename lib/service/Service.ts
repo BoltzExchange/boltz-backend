@@ -461,6 +461,7 @@ class Service {
       invoice,
       redeemScript,
       lockupTransaction,
+      timeoutBlockHeight,
       lockupTransactionId,
     };
   }

@@ -396,6 +396,7 @@ Response:
 ```json
 {
   "id": "Rh1WaF",
+  "timeoutBlockHeight": 120,
   "lockupTransactionId": "d77d46425e80afb0d6bc4c531667e24469104a52588bc2b6da12bccda2354090",
   "invoice": "lnbcrt10m1pw5ksjcpp5a8ehg4l99lvvdpqmldm6wuqeh43vnwg9gap39msfd4dew72h4aeqdqqcqzpgpvg84zyhtglxlfqm039pae7uprjt5zl2gh562jy354py6rszzqhpueauzyze8a26u85h57xxdlsg6g5m4wrh0apwxstrwfknfzdm3wsqswg5tv",
   "redeemScript": "a9141dc191ab1e6aac1bfdfa055cb776614c6ed1ec35876342a9142f7150b969c9c9fb9094a187f8fb41d617a65e20876300670171b1752102e317e5607e757e9c4448fe458876d7e361222d2cbee33ece9e3a7b2e2359be4d68ac67017bb1752103aa0b4e7c912aeed838e521a8e245481c708e7f78bf3b56e4e744ad76972bd29f68ac",

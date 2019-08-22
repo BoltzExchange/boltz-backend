@@ -31,9 +31,15 @@ type Info = {
 };
 
 type ChannelCount = {
-  active: number,
-  inactive?: number,
-  pending: number,
+  active: number;
+  pending: number;
+  inactive?: number;
+};
+
+type SendResponse = {
+  paymentPreimage: Buffer;
+  paymentHash: Uint8Array | string;
+  paymentRoute: lndrpc.Route.AsObject;
 };
 
 interface GrpcResponse {
@@ -41,12 +47,6 @@ interface GrpcResponse {
 }
 
 interface LndClient {
-  on(event: 'invoice.paid', listener: (invoice: string, routingFee: number) => void): this;
-  emit(event: 'invoice.paid', invoice: string, routingFee: number): boolean;
-
-  on(event: 'invoice.failed', listener: (invoice: string) => void): this;
-  emit(event: 'invoice.failed', invoice: string): boolean;
-
   on(event: 'invoice.settled', listener: (invoice: string, preimage: string) => void): this;
   emit(event: 'invoice.settled', string: string, preimage: string): boolean;
 
@@ -206,20 +206,21 @@ class LndClient extends BaseClient implements LndClient {
    *
    * @param invoice an invoice for a payment within the Lightning Network
    */
-  public sendPayment = async (invoice: string) => {
+  public sendPayment = async (invoice: string): Promise<SendResponse> => {
     const request = new lndrpc.SendRequest();
     request.setPaymentRequest(invoice);
 
     const response = await this.unaryCall<lndrpc.SendRequest, lndrpc.SendResponse.AsObject>('sendPaymentSync', request);
 
     if (response.paymentError === '') {
-      const fee = response.paymentRoute ? response.paymentRoute.totalFeesMsat : 0;
-      this.emit('invoice.paid', invoice, fee);
+      return {
+        paymentHash: response.paymentHash,
+        paymentRoute: response.paymentRoute!,
+        paymentPreimage: Buffer.from(response.paymentPreimage as string, 'base64'),
+      };
     } else {
-      this.emit('invoice.failed', invoice);
+      throw response.paymentError;
     }
-
-    return response;
   }
 
   /**

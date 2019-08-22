@@ -62,3 +62,6 @@ typedoc/
 
 # Built API documentation
 site/
+
+# Rope library folder
+.vscode/.ropeproject/

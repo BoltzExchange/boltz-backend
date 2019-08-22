@@ -45,18 +45,14 @@ let emitInvoiceSettled: invoiceSettledCallback;
 
 jest.mock('../../../lib/lightning/LndClient', () => {
   return jest.fn().mockImplementation(() => ({
-    on: (event: string, callback: channelBackupCallback) => {
+    on: (event: string, callback: channelBackupCallback | invoiceSettledCallback) => {
       switch (event) {
         case 'channel.backup':
-          emitChannelBackup = callback;
-          break;
-
-        case 'invoice.paid':
-          emitInvoicePaid = callback;
+          emitChannelBackup = callback as channelBackupCallback;
           break;
 
         case 'invoice.settled':
-          emitInvoiceSettled = callback;
+          emitInvoiceSettled = callback as invoiceSettledCallback;
           break;
       }
     },
@@ -85,6 +81,10 @@ jest.mock('../../../lib/swap/SwapNursery', () => {
 
         case 'refund':
           emitRefund = callback as refundCallback;
+          break;
+
+        case 'invoice.paid':
+          emitInvoicePaid = callback as invoicePaidCallback;
           break;
 
         case 'invoice.failedToPay':

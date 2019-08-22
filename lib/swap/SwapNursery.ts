@@ -45,6 +45,9 @@ interface SwapNursery {
   on(event: 'abort', listener: (invoice: string) => void): this;
   emit(event: 'abort', invoice: string): boolean;
 
+  on(event: 'invoice.paid', listener: (invoice: string, routingFee: number) => void): this;
+  emit(event: 'invoice.paid', invoice: string, routingFee: number): boolean;
+
   on(event: 'invoice.failedToPay', listener: (invoice: string) => void): this;
   emit(event: 'invoice.failedToPay', invoice: string): boolean;
 
@@ -261,13 +264,11 @@ class SwapNursery extends EventEmitter {
 
   private payInvoice = async (lndClient: LndClient, invoice: string) => {
     try {
-      const payRequest = await lndClient.sendPayment(invoice);
+      const response = await lndClient.sendPayment(invoice);
 
-      if (payRequest.paymentError !== '') {
-        throw payRequest.paymentError;
-      }
+      this.emit('invoice.paid', invoice, response.paymentRoute.totalFeesMsat);
 
-      return Buffer.from(payRequest.paymentPreimage as string, 'base64');
+      return response.paymentPreimage;
     } catch (error) {
       this.logger.warn(`Could not pay ${lndClient.symbol} invoice ${invoice}: ${error}`);
 

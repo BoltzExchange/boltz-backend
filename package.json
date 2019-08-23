@@ -22,7 +22,10 @@
     "test:int": "jest test/integration --runInBand",
     "test:int:watch": "jest test/integration --runInBand --watch",
     "changelog": "conventional-changelog -p angular -i CHANGELOG.md -s",
-    "prepublishOnly": "npm run compile"
+    "prepublishOnly": "npm run compile",
+
+    "python:install": "pip install -r tools/requirements.txt",
+    "python:lint": "pylint tools/*.py docker/*.py"
   },
   "bin": {
     "boltzd": "./bin/boltzd",

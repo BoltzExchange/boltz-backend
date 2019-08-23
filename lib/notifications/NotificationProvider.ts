@@ -203,7 +203,6 @@ class NotificationProvider {
        `Miner fees: ${satoshisToCoins(swap.minerFee!)} ${onchainSymbol}`;
 
       if (!isReverse) {
-
         // The routing fees are denominated in millisatoshi
         message += `\nRouting fees: ${(swap as Swap).routingFee! / 1000} ${this.getSmallestDenomination(lightningSymbol)}`;
       }

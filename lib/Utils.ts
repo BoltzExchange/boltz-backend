@@ -1,9 +1,105 @@
 import os from 'os';
 import path from 'path';
+import bolt11 from '@boltz/bolt11';
 import { Transaction } from 'bitcoinjs-lib';
 import { OutputType, Scripts } from 'boltz-core';
+import { OrderSide } from './consts/Enums';
 
-const { p2wshOutput, p2shP2wshOutput, p2shOutput, p2wpkhOutput, p2pkhOutput, p2shP2wpkhOutput } = Scripts;
+const {
+  p2shOutput,
+  p2wshOutput,
+  p2pkhOutput,
+  p2wpkhOutput,
+  p2shP2wshOutput,
+  p2shP2wpkhOutput,
+} = Scripts;
+
+const idPossibilities = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+
+/**
+ * Generate an id
+ *
+ * @param length how many characters the id should have
+ */
+export const generateId = (length = 6): string => {
+  let id = '';
+
+  for (let i = 0; i < length; i += 1) {
+    id += idPossibilities.charAt(Math.floor(Math.random() * idPossibilities.length));
+  }
+
+  return id;
+};
+
+/**
+ * Stringify any object or array
+ */
+export const stringify = (object: any) => {
+  return JSON.stringify(object, undefined, 2);
+};
+
+/**
+ * Turn a map into an object
+ */
+export const mapToObject = (map: Map<any, any>) => {
+  const object: any = {};
+
+  map.forEach((value, index) => {
+    object[index] = value;
+  });
+
+  return object;
+};
+
+/**
+ * Get the pair id of a pair
+ */
+export const getPairId = (pair: { base: string, quote: string }): string => {
+  return `${pair.base}/${pair.quote}`;
+};
+
+/**
+ * Get the quote and base asset of a pair id
+ */
+export const splitPairId = (pairId: string): {
+  base: string,
+  quote: string,
+} => {
+  const split = pairId.split('/');
+
+  return {
+    base: split[0],
+    quote: split[1],
+  };
+};
+
+/**
+ * Convert minutes into milliseconds
+ */
+export const minutesToMilliseconds = (minutes: number) => {
+  return minutes * 60 * 1000;
+};
+
+/**
+ * Convert satoshis to whole coins and remove trailing zeros
+ */
+export const satoshisToCoins = (satoshis: number) => {
+  return roundToDecimals(satoshis / 100000000, 8);
+};
+
+/**
+ * Round a number to a specific amount of decimals
+ */
+export const roundToDecimals = (number: number, decimals: number) => {
+  return Number(number.toFixed(decimals));
+};
+
+/**
+ * Gets the amount of an invoice in satoshis
+ */
+export const getInvoiceAmt = (invoice: string): number => {
+  return Number(bolt11.decode(invoice).millisatoshis) / 1000;
+};
 
 /**
  * Splits a derivation path into multiple parts
@@ -133,13 +229,6 @@ export const groupBy = (arr: object[], keyGetter: (item: any) => string | number
 };
 
 /**
- * Get current time in unix time (milliseconds).
- */
-export const ms = (): number => {
-  return Date.now();
-};
-
-/**
  * Split a string into host and port
  *
  * @param listen string of format host:port
@@ -178,7 +267,11 @@ export const getServiceDataDir = (service: string) => {
   }
 };
 
-export const getOutputType = (type: number) => {
+export const getOutputType = (type?: number) => {
+  if (type === undefined) {
+    return OutputType.Legacy;
+  }
+
   switch (type) {
     case 0: return OutputType.Bech32;
     case 1: return OutputType.Compatibility;
@@ -251,4 +344,28 @@ export const transactionSignalsRbfExplicitly = (transaction: Transaction) => {
   });
 
   return singalsRbf;
+};
+
+export const getRate = (rate: number, orderSide: OrderSide, isReverse: boolean) => {
+  if (isReverse) {
+    return orderSide === OrderSide.BUY ? 1 / rate : rate;
+  } else {
+    return orderSide === OrderSide.BUY ? rate : 1 / rate;
+  }
+};
+
+export const getChainCurrency = (base: string, quote: string, orderSide: OrderSide, isReverse: boolean) => {
+  if (isReverse) {
+    return orderSide === OrderSide.BUY ? base : quote;
+  } else {
+    return orderSide === OrderSide.BUY ? quote : base;
+  }
+};
+
+export const getLightningCurrency = (base: string, quote: string, orderSide: OrderSide, isReverse: boolean) => {
+  if (isReverse) {
+    return orderSide === OrderSide.BUY ? quote : base;
+  } else {
+    return orderSide === OrderSide.BUY ? base : quote;
+  }
 };

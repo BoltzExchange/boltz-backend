@@ -1,10 +1,10 @@
 import { Op } from 'sequelize';
-import Utxo from '../db/models/Utxo';
+import Utxo, { UtxoType } from '../db/models/Utxo';
 
 class UtxoRepository {
   constructor() {}
 
-  public getUtxos = async (currency: string) => {
+  public getUtxos = async (currency: string): Promise<Utxo[]> => {
     return Utxo.findAll({
       where: {
         currency: {
@@ -17,7 +17,7 @@ class UtxoRepository {
     });
   }
 
-  public getUtxosSorted = async (currency: string) => {
+  public getUtxosSorted = async (currency: string): Promise<Utxo[]> => {
     return Utxo.findAll({
       where: {
         currency: {
@@ -34,7 +34,7 @@ class UtxoRepository {
     });
   }
 
-  public getUnconfirmedUtxos = async (currency: string) => {
+  public getUnconfirmedUtxos = async (currency: string): Promise<Utxo[]> => {
     return Utxo.findAll({
       where: {
         currency: {
@@ -47,11 +47,11 @@ class UtxoRepository {
     });
   }
 
-  public getUtxo = async (txHash: string, vout: number) => {
+  public getUtxo = async (txId: string, vout: number): Promise<Utxo> => {
     return Utxo.findOne({
       where: {
-        txHash: {
-          [Op.eq]: txHash,
+        txId: {
+          [Op.eq]: txId,
         },
         vout: {
           [Op.eq]: vout,
@@ -60,31 +60,19 @@ class UtxoRepository {
     });
   }
 
-  public addUtxo = async (utxo: {
-    outputId: number,
-    currency: string,
-
-    txHash: string,
-    vout: number,
-    value: number,
-
-    confirmed: boolean,
-    spent: boolean,
-  }) => {
+  public addUtxo = async (utxo: UtxoType) => {
     return Utxo.create(utxo);
   }
 
   public markUtxoSpent = async (id: number) => {
-    const existing = await Utxo.findOne({
+    return Utxo.update({
+      spent: true,
+    }, {
       where: {
         id: {
           [Op.eq]: id,
         },
       },
-    });
-
-    return existing.update({
-      spent: true,
     });
   }
 }

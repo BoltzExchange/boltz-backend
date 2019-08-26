@@ -5,7 +5,7 @@ import BaseClient from '../BaseClient';
 import { getHexString } from '../Utils';
 import { ClientStatus } from '../consts/Enums';
 import ZmqClient, { ZmqNotification } from './ZmqClient';
-import { Block, BlockchainInfo, RawTransaction } from '../consts/Types';
+import { Block, BlockchainInfo, RawTransaction, BlockVerbose } from '../consts/Types';
 
 type ChainConfig = {
   host: string;
@@ -51,7 +51,9 @@ class ChainClient extends BaseClient {
       logger,
       this.getBlock,
       this.getBlockchainInfo,
-      this.getRawTransaction,
+      this.getBlockhash,
+      this.getBlockVerbose,
+      this.getRawTransactionVerbose,
     );
 
     this.listenToZmq();
@@ -61,8 +63,10 @@ class ChainClient extends BaseClient {
     await this.zmqClient.init(await this.getZmqNotifications());
   }
 
-  public disconnect = () => {
+  public disconnect = async () => {
     this.clearReconnectTimer();
+
+    await this.zmqClient.close();
     this.setClientStatus(ClientStatus.Disconnected);
   }
 
@@ -76,6 +80,14 @@ class ChainClient extends BaseClient {
 
   public getBlock = (hash: string): Promise<Block> => {
     return this.client.request<Block>('getblock', [hash]);
+  }
+
+  public getBlockVerbose = (hash: string): Promise<BlockVerbose> => {
+    return this.client.request<BlockVerbose>('getblock', [hash, 2]);
+  }
+
+  public getBlockhash = (height: number): Promise<string> => {
+    return this.client.request<string>('getblockhash', [height]);
   }
 
   public invalidateBlock = (hash: string) => {

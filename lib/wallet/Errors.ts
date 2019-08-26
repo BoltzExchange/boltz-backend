@@ -19,4 +19,8 @@ export default {
     message: `not enough funds to send ${amount}`,
     code: concatErrorCode(ErrorCodePrefix.Wallet, 3),
   }),
+  INVALID_SIGNATURE: (): Error => ({
+    message: 'could not verify signatures of constructed transaction',
+    code: concatErrorCode(ErrorCodePrefix.Wallet, 4),
+  }),
 };

@@ -1,7 +1,7 @@
 import AsyncLock from 'async-lock';
 import { BIP32Interface } from 'bip32';
 import { OutputType, TransactionOutput, estimateFee } from 'boltz-core';
-import { Transaction, Network, address, crypto, TransactionBuilder, ECPair, TxOutput } from 'bitcoinjs-lib';
+import { Transaction, Network, address, crypto, ECPair, TxOutput, Psbt } from 'bitcoinjs-lib';
 import Errors from './Errors';
 import Logger from '../Logger';
 import Utxo from '../db/models/Utxo';
@@ -9,10 +9,11 @@ import UtxoRepository from './UtxoRepository';
 import ChainClient from '../chain/ChainClient';
 import WalletRepository from './WalletRepository';
 import OutputRepository from './OutputRepository';
-import { getPubkeyHashFunction, getHexString, getHexBuffer, transactionHashToId } from '../Utils';
+import { getPubkeyHashFunction, getHexString, getHexBuffer, reverseBuffer } from '../Utils';
 
 type UTXO = TransactionOutput & {
   id: number;
+  txId: string;
   keys: BIP32Interface;
   redeemScript?: Buffer;
 };
@@ -73,10 +74,8 @@ class Wallet {
         const outputInfo = this.relevantOutputs.get(hexScript);
 
         if (outputInfo) {
-          const txHash = getHexString(transaction.getHash());
-
           const promise = new Promise<Utxo>(async (resolve) => {
-            const existingUtxo = await this.utxoRepository.getUtxo(txHash, vout);
+            const existingUtxo = await this.utxoRepository.getUtxo(transaction.getId(), vout);
 
             if (existingUtxo && confirmed) {
               if (!existingUtxo.confirmed) {
@@ -96,8 +95,7 @@ class Wallet {
                 value: output.value,
                 currency: this.symbol,
                 outputId: outputInfo.id,
-                // TODO: use ID of transaction
-                txHash: getHexString(transaction.getHash()),
+                txId: transaction.getId(),
               }));
             }
           });
@@ -310,10 +308,11 @@ class Wallet {
           type: output.type,
           id: utxoInstance.id,
           vout: utxoInstance.vout,
+          txId: utxoInstance.txId,
           value: utxoInstance.value,
           script: getHexBuffer(script),
-          txHash: getHexBuffer(utxoInstance.txHash),
           keys: this.getKeysByIndex(output.keyIndex),
+          txHash: reverseBuffer(getHexBuffer(utxoInstance.txId)),
         });
 
         toSpendSum += utxoInstance.value;
@@ -330,45 +329,77 @@ class Wallet {
       }
 
       // Construct the transaction
-      const builder = new TransactionBuilder(this.network);
-
-      // Add the UTXOs from before as inputs
-      toSpend.forEach((utxo) => {
-        if (utxo.type === OutputType.Bech32) {
-          builder.addInput(utxo.txHash, utxo.vout, undefined, utxo.script);
-        } else {
-          builder.addInput(utxo.txHash, utxo.vout);
-        }
+      const psbt = new Psbt({
+        network: this.network,
       });
 
+      // Add the UTXOs from before as inputs
+      for (const utxo of toSpend) {
+        const txInput = {
+          index: utxo.vout,
+          hash: utxo.txHash,
+          sequence: 0xffffffff,
+        };
+
+        switch (utxo.type) {
+          case OutputType.Bech32:
+            psbt.addInput({
+              ...txInput,
+              witnessUtxo: {
+                value: utxo.value,
+                script: utxo.script,
+              },
+            } as any);
+            break;
+
+          case OutputType.Compatibility:
+            psbt.addInput({
+              ...txInput,
+              witnessUtxo: {
+                value: utxo.value,
+                script: utxo.script,
+              },
+              redeemScript: utxo.redeemScript,
+            } as any);
+            break;
+
+          case OutputType.Legacy:
+            const prevTransaction = await this.chainClient.getRawTransaction(utxo.txId);
+
+            psbt.addInput({
+              ...txInput,
+              nonWitnessUtxo: getHexBuffer(prevTransaction),
+            } as any);
+            break;
+        }
+      }
+
       if (!sendAll) {
-        // Add the requested ouput to the transaction
-        builder.addOutput(address, amount);
+        // Add the requested output to the transaction
+        psbt.addOutput({
+          address,
+          value: amount,
+        } as any);
 
         // Send the value left of the UTXOs to a new change address
         const changeAddress = await this.getNewAddress(OutputType.Bech32);
-        builder.addOutput(changeAddress, toSpendSum - (amount + fee));
+
+        psbt.addOutput({
+          address: changeAddress,
+          value: toSpendSum - (amount + fee),
+        } as any);
+
       } else {
-        builder.addOutput(address, toSpendSum - fee);
+        psbt.addOutput({
+          address,
+          value: toSpendSum - fee,
+        } as any);
       }
 
       // Sign the transaction
       toSpend.forEach((utxo, index) => {
         const keys = ECPair.fromPrivateKey(utxo.keys.privateKey!, { network: this.network });
-
-        switch (utxo.type) {
-          case OutputType.Bech32:
-            builder.sign(index, keys, undefined, undefined, utxo.value);
-            break;
-
-          case OutputType.Compatibility:
-            builder.sign(index, keys, utxo.redeemScript, undefined, utxo.value);
-            break;
-
-          case OutputType.Legacy:
-            builder.sign(index, keys);
-            break;
-        }
+        psbt.signInput(index, keys);
       });
 
       // Mark the UTXOs that were spent in the transaction
@@ -376,10 +407,16 @@ class Wallet {
         await this.utxoRepository.markUtxoSpent(utxo.id);
       }
 
+      if (!psbt.validateSignaturesOfAllInputs()) {
+        throw Errors.INVALID_SIGNATURE();
+      }
+
+      psbt.finalizeAllInputs();
+
       return {
         fee,
         vout: 0,
-        transaction: builder.build(),
+        transaction: psbt.extractTransaction(),
       };
     }).catch((error) => {
       this.logger.error(`Could not send ${sendAll ? 'all' : amount} ${this.symbol} to address ${address}: ${JSON.stringify(error)}`);
@@ -394,16 +431,15 @@ class Wallet {
     const utxos = await this.utxoRepository.getUnconfirmedUtxos(this.symbol);
 
     for (const utxo of utxos) {
-      const transactionId = transactionHashToId(getHexBuffer(utxo.txHash));
-      const transactionInfo = await this.chainClient.getRawTransactionVerbose(transactionId);
+      const transactionInfo = await this.chainClient.getRawTransactionVerbose(utxo.txId);
 
       if (transactionInfo.confirmations) {
-        this.logUtxoFoundMessage(transactionId, utxo.vout, utxo.value, true);
+        this.logUtxoFoundMessage(utxo.txId, utxo.vout, utxo.value, true);
 
         utxo.set('confirmed', true);
         await utxo.save();
       } else {
-        this.chainClient.zmqClient.utxos.add(transactionId);
+        this.chainClient.zmqClient.utxos.add(utxo.txId);
       }
     }
   }

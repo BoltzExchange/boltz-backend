@@ -59,3 +59,12 @@ dist/
 
 # typedoc
 typedoc/
+
+# Built API documentation
+site/
+
+# Rope library folder
+.vscode/.ropeproject/
+
+# Virtual Python environment
+.venv

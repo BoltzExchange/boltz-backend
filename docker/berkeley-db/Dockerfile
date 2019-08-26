@@ -1,5 +1,9 @@
+ARG ALPINE_VERSION
+
 # Build BerkeleyDB
-FROM alpine:3.9.3 as berkeley-db
+FROM alpine:${ALPINE_VERSION} as berkeley-db
+
+ARG VERSION
 
 RUN apk update && apk upgrade
 RUN apk --no-cache add \
@@ -8,7 +12,7 @@ RUN apk --no-cache add \
   libressl \
   build-base
 
-ENV BERKELEYDB_VERSION=db-4.8.30.NC
+ENV BERKELEYDB_VERSION=db-${VERSION}.NC
 ENV BERKELEYDB_PREFIX=/opt/${BERKELEYDB_VERSION}
 
 RUN wget https://download.oracle.com/berkeley-db/${BERKELEYDB_VERSION}.tar.gz
@@ -23,6 +27,6 @@ RUN make -j$(nproc)
 RUN make install
 
 # Assemble the final image
-FROM alpine:3.9.3
+FROM alpine:${ALPINE_VERSION}
 
 COPY --from=berkeley-db /opt /opt

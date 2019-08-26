@@ -5,6 +5,7 @@ import { mnemonicToSeedSync, validateMnemonic } from 'bip39';
 import Errors from './Errors';
 import Wallet from './Wallet';
 import Logger from '../Logger';
+import { CurrencyConfig } from '../Config';
 import { WalletInfo } from '../consts/Types';
 import UtxoRepository from './UtxoRepository';
 import { splitDerivationPath } from '../Utils';
@@ -16,6 +17,7 @@ import OutputRepository from './OutputRepository';
 type Currency = {
   symbol: string;
   network: Network;
+  config: CurrencyConfig;
   chainClient: ChainClient;
   lndClient: LndClient;
 };

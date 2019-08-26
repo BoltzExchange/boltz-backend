@@ -5,7 +5,7 @@ import { Transaction, crypto } from 'bitcoinjs-lib';
 import Errors from './Errors';
 import Logger from '../Logger';
 import { getHexString, reverseBuffer } from '../Utils';
-import { Block, BlockchainInfo, RawTransaction } from '../consts/Types';
+import { Block, BlockchainInfo, RawTransaction, BlockVerbose } from '../consts/Types';
 
 type ZmqNotification = {
   type: string;
@@ -46,14 +46,16 @@ class ZmqClient extends EventEmitter {
     private symbol: string,
     private logger: Logger,
     private getBlock: (hash: string) => Promise<Block>,
-    private getBlockChainInfo: () => Promise<BlockchainInfo>,
-    private getRawTransaction: (id: string, verbose?: boolean, blockhash?: string) => Promise<string | RawTransaction>) {
+    private getBlockchainInfo: () => Promise<BlockchainInfo>,
+    private getBlockhash: (height: number) => Promise<string>,
+    private getBlockVerbose: (hash: string) => Promise<BlockVerbose>,
+    private getRawTransactionVerbose: (id: string) => Promise<RawTransaction>) {
     super();
   }
 
   public init = async (notifications: ZmqNotification[]) => {
     const activeFilters: any = {};
-    const { blocks, bestblockhash } = await this.getBlockChainInfo();
+    const { blocks, bestblockhash } = await this.getBlockchainInfo();
 
     this.blockHeight = blocks;
     this.bestBlockHash = bestblockhash;
@@ -101,7 +103,7 @@ class ZmqClient extends EventEmitter {
 
   public close = async () => {
     this.sockets.forEach((socket) => {
-      // Catch errors if the socket is already closed
+      // Catch errors that are thrown if the socket is closed already
       try {
         socket.close();
       } catch {}
@@ -109,28 +111,19 @@ class ZmqClient extends EventEmitter {
   }
 
   public rescanChain = async (startHeight: number) => {
-    // Also rescan the block that got already added to the database to
-    // make sure that no transactions were missed
-    const bestBlock = this.blockHeight;
+    for (let i = 0; startHeight + i <= this.blockHeight; i += 1) {
+      this.logger.debug(`Rescanning ${this.symbol} block #${startHeight + i}`);
 
-    let previousBlockHash = this.bestBlockHash;
-    let index = 0;
+      const hash = await this.getBlockhash(startHeight + i);
+      const block = await this.getBlockVerbose(hash);
 
-    while (bestBlock - index >= startHeight) {
-      this.logger.verbose(`Rescanning ${this.symbol} block #${bestBlock - index}`);
-      const block = await this.getBlock(previousBlockHash);
-
-      for (const transactionId of block.tx) {
-        const rawTransaction = await this.getRawTransaction(transactionId);
-        const transaction = Transaction.fromHex(rawTransaction as string);
+      for (const { hex } of block.tx) {
+        const transaction = Transaction.fromHex(hex);
 
         if (this.isRelevantTransaction(transaction)) {
           this.emit('transaction', transaction, true);
         }
       }
-
-      previousBlockHash = block.previousblockhash;
-      index += 1;
     }
   }
 
@@ -152,7 +145,7 @@ class ZmqClient extends EventEmitter {
       }
 
       if (this.isRelevantTransaction(transaction)) {
-        const transactionData = await this.getRawTransaction(id, true) as RawTransaction;
+        const transactionData = await this.getRawTransactionVerbose(id) as RawTransaction;
 
         // Check whether the transaction got confirmed or added to the mempool
         if (transactionData.confirmations) {

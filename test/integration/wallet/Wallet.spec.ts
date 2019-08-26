@@ -1,9 +1,9 @@
-import { expect } from 'chai';
 import { fromSeed } from 'bip32';
 import { TxOutput } from 'bitcoinjs-lib';
 import { OutputType, Networks } from 'boltz-core';
 import { generateMnemonic, mnemonicToSeedSync } from 'bip39';
 import Logger from '../../../lib/Logger';
+import Errors from '../../../lib/wallet/Errors';
 import Wallet from '../../../lib/wallet/Wallet';
 import Database from '../../../lib/db/Database';
 import { bitcoinClient } from '../chain/ChainClient.spec';
@@ -29,10 +29,12 @@ describe('Wallet', () => {
 
   let wallet: Wallet;
 
-  before(async () => {
+  beforeAll(async () => {
     await database.init();
 
     const { blocks } = await bitcoinClient.getBlockchainInfo();
+
+    await bitcoinClient.connect();
 
     // Create the foreign constraint for the "utxos" table
     await walletRepository.addWallet({
@@ -57,7 +59,7 @@ describe('Wallet', () => {
     await wallet.init(blocks);
   });
 
-  it('should recognize transactions to its addresses', async () => {
+  test('should recognize transactions to its addresses', async () => {
     const outputs: { address: string, amount: number }[] = [];
     const expectedBalance = {
       confirmedBalance: 0,
@@ -97,7 +99,7 @@ describe('Wallet', () => {
     });
   });
 
-  it('should spend coins', async () => {
+  test('should spend coins', async () => {
     const { totalBalance } = await wallet.getBalance();
     const { address } = generateAddress(OutputType.Bech32);
 
@@ -106,22 +108,22 @@ describe('Wallet', () => {
     await bitcoinClient.sendRawTransaction(transaction.toHex());
     await bitcoinClient.generate(1);
 
-    expect(vout).to.be.equal(0);
-    expect(fee).to.be.equal(758);
-    expect(transaction.ins.length).to.be.equal(3);
+    expect(vout).toEqual(0);
+    expect(fee).toEqual(758);
+    expect(transaction.ins.length).toEqual(3);
 
     await waitForPromiseToBeTrue(async () => {
       const balance = await wallet.getBalance();
-
       return balance.unconfirmedBalance === 0;
     });
 
     const newBalance = await wallet.getBalance();
-    expect(newBalance.totalBalance).to.be.lessThan(totalBalance);
+    expect(newBalance.totalBalance).toBeLessThan(totalBalance);
   });
 
-  it('should spend all coins', async () => {
+  test('should spend all coins', async () => {
     const address = await wallet.getNewAddress(OutputType.Bech32);
+
     await bitcoinClient.sendToAddress(address, 100000000);
     await bitcoinClient.sendToAddress(address, 100000000);
 
@@ -138,11 +140,11 @@ describe('Wallet', () => {
     const { transaction } = await wallet.sendToAddress(address, OutputType.Bech32, false, 0, 2, true);
     const out = transaction.outs[0] as TxOutput;
 
-    expect(transaction.outs.length).to.be.equal(1);
-    expect(out.value).to.be.equal(totalBalance - 490);
+    expect(transaction.outs.length).toEqual(1);
+    expect(out.value).toEqual(totalBalance - 490);
   });
 
-  it('should prefer spending confirmed coins', async () => {
+  test('should prefer spending confirmed coins', async () => {
     const address = await wallet.getNewAddress(OutputType.Bech32);
 
     await bitcoinClient.sendToAddress(address, 100000000);
@@ -169,7 +171,22 @@ describe('Wallet', () => {
     const { transaction } = await wallet.sendToAddress(address, OutputType.Bech32, false, 1, 2);
 
     for (const input of transaction.ins) {
-      expect(input.hash).to.not.be.deep.equal(unconfirmedTransactionHash);
+      expect(input.hash).not.toEqual(unconfirmedTransactionHash);
     }
+  });
+
+  test('should handle errors gracefully', async () => {
+    await expect(
+      wallet.sendToAddress(
+        await wallet.getNewAddress(OutputType.Bech32),
+        OutputType.Bech32,
+        false,
+        Number.MAX_SAFE_INTEGER,
+      ),
+    ).rejects.toEqual(Errors.NOT_ENOUGH_FUNDS(Number.MAX_SAFE_INTEGER));
+  });
+
+  afterAll(async () => {
+    await bitcoinClient.disconnect();
   });
 });

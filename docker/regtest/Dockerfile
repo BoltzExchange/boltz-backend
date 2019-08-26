@@ -1,4 +1,16 @@
-FROM alpine:3.9.3
+ARG ALPINE_VERSION
+
+ARG BITCOIN_VERSION
+ARG LITECOIN_VERSION
+
+ARG LND_VERSION
+
+FROM boltz/bitcoin-core:${BITCOIN_VERSION} AS bitcoin-core
+FROM boltz/litecoin-core:${LITECOIN_VERSION} AS litecoin-core
+
+FROM boltz/lnd:${LND_VERSION} as boltz-lnd
+
+FROM alpine:${ALPINE_VERSION}
 
 # Install dependencies
 RUN apk update && apk upgrade
@@ -11,15 +23,15 @@ RUN apk --no-cache add \
   boost-program_options
 
 # Copy Bitcoin and Litecoin Core executables
-COPY --from=boltz/bitcoin-core:latest /bin/bitcoind /bin/
-COPY --from=boltz/bitcoin-core:latest /bin/bitcoin-cli /bin/
+COPY --from=bitcoin-core /bin/bitcoind /bin/
+COPY --from=bitcoin-core /bin/bitcoin-cli /bin/
 
-COPY --from=boltz/litecoin-core:latest /bin/litecoind /bin/
-COPY --from=boltz/litecoin-core:latest /bin/litecoin-cli /bin/
+COPY --from=litecoin-core /bin/litecoind /bin/
+COPY --from=litecoin-core /bin/litecoin-cli /bin/
 
 # Copy the LND executables
-COPY --from=boltz/lnd:latest /bin/lnd /bin/
-COPY --from=boltz/lnd:latest /bin/lncli /bin/
+COPY --from=boltz-lnd /bin/lnd /bin/
+COPY --from=boltz-lnd /bin/lncli /bin/
 
 # Copy configuration files for Bitcoin Core, Litecoin Core and the LNDs
 COPY regtest/data/core/config.conf /root/.bitcoin/bitcoin.conf

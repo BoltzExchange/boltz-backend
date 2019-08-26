@@ -1,7 +1,15 @@
-# Build Litecoin Core
-FROM alpine:3.9.3 as litecoin-core
+ARG ALPINE_VERSION
 
-COPY --from=boltz/berkeley-db /opt /opt
+ARG BERKELEY_VERSION
+
+FROM boltz/berkeley-db:${BERKELEY_VERSION} AS berkeley-db
+
+# Build Litecoin Core
+FROM alpine:${ALPINE_VERSION} as litecoin-core
+
+ARG VERSION
+
+COPY --from=berkeley-db /opt /opt
 
 RUN apk update && apk upgrade
 RUN apk --no-cache add \
@@ -19,14 +27,13 @@ RUN apk --no-cache add \
   protobuf-dev \
   linux-headers
 
-ENV LITECOIN_VERSION=0.17.1
-ENV LITECOIN_PREFIX=/opt/litecoin-${LITECOIN_VERSION}
+ENV LITECOIN_PREFIX=/opt/litecoin-${VERSION}
 
-RUN wget https://github.com/litecoin-project/litecoin/archive/v${LITECOIN_VERSION}.tar.gz
+RUN wget https://github.com/litecoin-project/litecoin/archive/v${VERSION}.tar.gz
 
 RUN tar -xzf *.tar.gz
 
-WORKDIR /litecoin-${LITECOIN_VERSION}
+WORKDIR /litecoin-${VERSION}
 
 RUN sed -i '/AC_PREREQ/a\AR_FLAGS=cr' src/univalue/configure.ac
 RUN sed -i '/AX_PROG_CC_FOR_BUILD/a\AR_FLAGS=cr' src/secp256k1/configure.ac
@@ -54,7 +61,9 @@ RUN strip ${LITECOIN_PREFIX}/bin/litecoin-tx
 RUN strip ${LITECOIN_PREFIX}/bin/litecoin-cli
 
 # Assemble the final image
-FROM alpine:3.9.3
+FROM alpine:${ALPINE_VERSION}
+
+ARG VERSION
 
 RUN apk update && apk upgrade
 RUN apk --no-cache add \
@@ -64,9 +73,7 @@ RUN apk --no-cache add \
   libressl \
   boost-program_options
 
-ENV LITECOIN_VERSION=0.17.1
-
-COPY --from=litecoin-core /opt/litecoin-${LITECOIN_VERSION}/bin /bin
+COPY --from=litecoin-core /opt/litecoin-${VERSION}/bin /bin
 
 EXPOSE 19332 19333 19444 19443
 

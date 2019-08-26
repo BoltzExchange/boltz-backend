@@ -1,4 +1,3 @@
-import { expect } from 'chai';
 import { OutputType } from 'boltz-core';
 import Logger from '../../../lib/Logger';
 import ChainClient from '../../../lib/chain/ChainClient';
@@ -12,11 +11,11 @@ describe('ChainClient', () => {
     addresses: [] as string[],
   };
 
-  it('should connect', async () => {
+  test('should connect', async () => {
     await bitcoinClient.connect();
   });
 
-  it('should update the output filer', async () => {
+  test('should update the output filer', async () => {
     for (let i = 0; i < numTransactions; i += 1) {
       const { outputScript, address } = generateAddress(OutputType.Bech32);
 
@@ -27,7 +26,7 @@ describe('ChainClient', () => {
     bitcoinClient.updateOutputFilter(testData.outputScripts);
   });
 
-  it('should emit an event on mempool acceptance', async () => {
+  test('should emit an event on mempool acceptance', async () => {
     let mempoolTransactions = 0;
 
     bitcoinClient.on('transaction', (_, confirmed) => {
@@ -45,7 +44,7 @@ describe('ChainClient', () => {
     });
   });
 
-  it('should emit an event on block acceptance', async () => {
+  test('should emit an event on block acceptance', async () => {
     let blockTransactions = 0;
 
     bitcoinClient.on('transaction', async (_, confirmed) => {
@@ -61,7 +60,7 @@ describe('ChainClient', () => {
     });
   });
 
-  it('should emit an event when a block gets mined', async () => {
+  test('should emit an event when a block gets mined', async () => {
     const generated = numTransactions;
 
     let blocks = 0;
@@ -80,7 +79,11 @@ describe('ChainClient', () => {
 
     const blockchainInfo = await bitcoinClient.getBlockchainInfo();
 
-    expect(bestBlockHeight).to.be.equal(blockchainInfo.blocks);
+    expect(bestBlockHeight).toEqual(blockchainInfo.blocks);
+  });
+
+  afterAll(async () => {
+    await bitcoinClient.disconnect();
   });
 });
 

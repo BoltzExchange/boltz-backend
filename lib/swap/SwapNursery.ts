@@ -1,5 +1,5 @@
-import { BIP32Interface } from 'bip32';
 import { EventEmitter } from 'events';
+import { BIP32Interface } from 'bip32';
 import { Transaction, address, TxOutput } from 'bitcoinjs-lib';
 import { constructClaimTransaction, OutputType, TransactionOutput, constructRefundTransaction } from 'boltz-core';
 import Logger from '../Logger';
@@ -39,11 +39,14 @@ type SwapMaps = {
 
 interface SwapNursery {
   // Swap related events
-  on(event: 'claim', listener: (lockupTransactionHash: string, lockupVout: number, minerFee: number) => void): this;
-  emit(event: 'claim', lockupTransactionHash: string, lockupVout: number, minerFee: number): boolean;
+  on(event: 'claim', listener: (lockupTransactionId: string, lockupVout: number, minerFee: number) => void): this;
+  emit(event: 'claim', lockupTransactionId: string, lockupVout: number, minerFee: number): boolean;
 
   on(event: 'abort', listener: (invoice: string) => void): this;
   emit(event: 'abort', invoice: string): boolean;
+
+  on(event: 'invoice.paid', listener: (invoice: string, routingFee: number) => void): this;
+  emit(event: 'invoice.paid', invoice: string, routingFee: number): boolean;
 
   on(event: 'invoice.failedToPay', listener: (invoice: string) => void): this;
   emit(event: 'invoice.failedToPay', invoice: string): boolean;
@@ -52,10 +55,11 @@ interface SwapNursery {
   emit(event: 'zeroconf.rejected', invoice: string, reason: string): boolean;
 
   // Reverse swap related events
-  on(event: 'refund', listener: (lockupTransactionHash: string, lockupVout: number, minerFee: number) => void): this;
-  emit(event: 'refund', lockupTransactionHash: string, lockupVout: number, minerFee: number): boolean;
+  on(event: 'refund', listener: (lockupTransactionId: string, lockupVout: number, minerFee: number) => void): this;
+  emit(event: 'refund', lockupTransactionId: string, lockupVout: number, minerFee: number): boolean;
 }
 
+// TODO: make sure swaps work after restarts
 class SwapNursery extends EventEmitter {
   constructor(private logger: Logger, private walletManager: WalletManager) {
     super();
@@ -225,6 +229,7 @@ class SwapNursery extends EventEmitter {
     }
   }
 
+  // TODO: remove reverse swaps that succeeded
   private refundSwap = async (currency: Currency, reverseSwapDetails: ReverseSwapDetails[], timeoutBlockHeight: number) => {
     for (const details of reverseSwapDetails) {
       const transactionId = transactionHashToId(details.output.txHash);
@@ -259,13 +264,11 @@ class SwapNursery extends EventEmitter {
 
   private payInvoice = async (lndClient: LndClient, invoice: string) => {
     try {
-      const payRequest = await lndClient.sendPayment(invoice);
+      const response = await lndClient.sendPayment(invoice);
 
-      if (payRequest.paymentError !== '') {
-        throw payRequest.paymentError;
-      }
+      this.emit('invoice.paid', invoice, response.paymentRoute.totalFeesMsat);
 
-      return Buffer.from(payRequest.paymentPreimage as string, 'base64');
+      return response.paymentPreimage;
     } catch (error) {
       this.logger.warn(`Could not pay ${lndClient.symbol} invoice ${invoice}: ${error}`);
 

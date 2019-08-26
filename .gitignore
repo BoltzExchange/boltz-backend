@@ -63,8 +63,8 @@ typedoc/
 # Built API documentation
 site/
 
-# Rope library folder
-.vscode/.ropeproject/
-
 # Virtual Python environment
 .venv
+
+# Visual Studio Code configuration
+.vscode/

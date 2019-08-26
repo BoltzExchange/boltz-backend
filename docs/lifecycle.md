@@ -1,26 +1,26 @@
-# The Lifecycle of a Swap
+# Swap Lifecycle
 
 ## Introduction
 
-There are two types of [Atomic Swaps](https://en.bitcoin.it/wiki/Atomic_swap): 
+There are two types of [Atomic Swaps](https://en.bitcoin.it/wiki/Atomic_swap):
 
-- [Normal or Submarine Swaps](#normal-swaps)
-- [Reverse Submarine Swaps](#reverse-swaps)
+- [Normal Submarine Swaps](#normal-submarine-swaps)
+- [Reverse Submarine Swaps](#reverse-submarine-swaps)
 
-## Normal or Submarine Swaps
+## Normal Submarine Swaps
 
 Normal swaps are from onchain coins to lightning ones. Which means the user creates an invoice, sends coins to an provided onchain address and Boltz takes care of everything else. When a normal swap is created it doesn't have a status until:
 
 1. `transaction.mempool`: a transaction that sends coins to the onchain address of the swap is found in the mempool
 2. `transaction.confirmed`: that transaction was included in a block
-3. once the said transaction is included in a block (or found in the mempool in case of [0-conf](0-conf.md)) Boltz will try to pay the invoice provided by the user in order to claim the onchain coins
+3. once the said transaction is included in a block (or found in the mempool in case of [0-confirmation](0-confirmation.md)) Boltz will try to pay the invoice provided by the user in order to claim the onchain coins
     - `invoice.paid`: if paying the invoice was successful
     - `invoice.failedToPay`: if paying the invoice failed. In which case the locked up onchain coins should be refunded
 4. `transaction.claimed`: indicates that the invoice was successfully paid for and that the onchain coins were claimed by the Boltz instance
 
 If the user doesn't send onchain coins until the time lock is expired, Boltz will set the status of the swap to `swap.expired` which means that it was abandoned and sending onchain coins will have no effect.
 
-## Reverse swaps
+## Reverse Submarine Swaps
 
 Reverse swaps are from lightning to onchain coins. In this scenario, Boltz locks up coins and provides an invoice that has to be paid in order to claim those coins.
 

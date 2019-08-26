@@ -1,6 +1,6 @@
 # 0-confirmation
 
-Use of  0-conf can make swaps a lot faster by utilizing transactions that are not included in a block yet. But accepting 0-conf transactions doesn't come without unwarranted risk. Therefore, as a precautionary measure, Boltz enforces a few rules when it comes to 0-conf.
+The use of 0-confirmation can make swaps a lot faster by utilizing transactions that are not included in a block yet. But accepting 0-conf transactions doesn't come without unwarranted risk. Therefore, as a precautionary measure, Boltz enforces a few rules when it comes to 0-conf.
 
 It is important to note that for:
 
@@ -19,6 +19,6 @@ For more information about RBF please read the [BIP 125 - Opt-in Full Replace-by
 
 ## Miner fees
 
-Swaps on Boltz are based on HTLCs (*Hash Time Locked Contracts*). In order to be able to deal with the *time locked* component of these contracts, in scenarios where all transactions aren't getting included in the mempool in the very next block all the time, resulting in emergence of a fee market, transactions locking and claiming coins from such contracts have to pay a *reasonable high miner fee* in order to be included in a block quickly.
+Swaps on Boltz are based on HTLCs (*Hash Time Locked Contracts*). In order to be able to deal with the *time locked* component of these contracts, in scenarios where not all transactions from the mempool are getting included in the very next block all the time, transactions locking and claiming coins from such contracts have to pay a *reasonably high miner fee* in order to be included in a block quickly.
 
 Boltz considers fees that are equal or higher than 80% of the `sat/vbyte` estimations of the [`getfeeestimation`](/api/#getting-fee-estimations) endpoint as *reasonably high*. If the miner fee paid by the transaction is less than that, Boltz will not accept 0-conf and wait for the transaction to be included in a block.

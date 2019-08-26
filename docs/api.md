@@ -36,7 +36,8 @@ Response object:
     - `reverse.swaps.disabled`: means that all reverse swaps (from Lightning to the chain) are disabled
 - `pairs`: an object containing of the supported pairs of that particular Bolt instance. The keys of the values are the id's of the pairs and the values itself contain information about the trading pair:
     - `rate`: the exchange rate of the pair
-    - `limits`: a JSON object containing the minimal and maximal amount of a swap of that pair is allowed to have. The numbers are denominated in the *quote currency* and in *satoshis for BTC and litoshis for LTC* (10^-8)
+    - `limits`: a JSON object containing the minimal and maximal amount that a swap of that pair is allowed to have. The numbers are denominated in the *quote currency* and in *satoshis for BTC and litoshis for LTC* (10^-8)
+        - `maximalZeroConf`: the maximal amounts that will be accepted as 0-confirmation by Boltz
     - `fees`: is a JSON object that has two different kinds of fees:
         - `percentage`: the configured percentage fee that is charged by Boltz
         - `minerFees`: are the miner fees that can be expected when locking up or claiming funds. These values are denominated in `sat/vbyte` and just estimations that are not actually enforced
@@ -52,26 +53,30 @@ Response:
   "warnings": [],
   "pairs": {
     "LTC/BTC": {
-      "rate": 0.016235,
+      "rate": 0.00715,
       "limits": {
-        "maximal": 10000000,
-        "minimal": 10000
+        "maximal": 715000000,
+        "minimal": 1000,
+        "maximalZeroConf": {
+          "baseAsset": 1000000000,
+          "quoteAsset": 1000000
+        }
       },
       "fees": {
-        "percentage": 2,
+        "percentage": 5,
         "minerFees": {
           "baseAsset": {
-            "normal": 280,
+            "normal": 340,
             "reverse": {
               "lockup": 306,
               "claim": 276
             }
           },
           "quoteAsset": {
-            "normal": 340,
+            "normal": 3400,
             "reverse": {
-              "lockup": 306,
-              "claim": 276
+              "lockup": 3060,
+              "claim": 2760
             }
           }
         }
@@ -83,7 +88,7 @@ Response:
 
 ## Getting fee estimations
 
-Boltz provides an API endpoint that returns fee estimations for all chains that are configured on that instance. These fee estimations are *not* enforced by Boltz and are just a recommendation. It is important to mention that if 0-conf wants to be used with normal swaps, the lockup transaction has to have at least 80% of the recommended `sat/vbyte` value. One can read more about the what and why in the [0-conf docs](0-conf.md).
+Boltz provides an API endpoint that returns fee estimations for all chains that are configured on that instance. These fee estimations are *not* enforced by Boltz and are just a recommendation. It is important to mention that if 0-conf wants to be used with normal swaps, the lockup transaction has to have at least 80% of the recommended `sat/vbyte` value. One can read more about the what and why in the [0-confirmation docs](0-confirmation.md).
 
 | URL                     | Response
 |-------------------------|------------
@@ -112,7 +117,7 @@ Response:
 
 ## Querying transactions
 
-The Boltz API also allwos for querying raw transactions for all configured chains. Irrspective of whether the transactions are still in the mempool or already included in a block; Boltz should find them either way. But it should be noted that unlike SPV and Neutrino servers, Boltz doesn't provide any kind of proof that the transaction was included in a block.
+The Boltz API also allows for querying raw transactions for all configured chains. Irrespective of whether the transactions are still in the mempool or already included in a block; Boltz should find them either way. But it should be noted that unlike SPV and Neutrino servers, Boltz doesn't provide any kind of proof that the transaction was included in a block.
 
 Requests querying for transactions have to be `POST` and contain two arguments in its JSON encoded body:
 
@@ -198,9 +203,9 @@ Response:
 
 ## Getting status of a swap
 
-**Before being able to handle the status events of this method it is recommended to understand [Swap lifecycle](lifecycle.md)**
+**Before being able to handle the status events of this method it is recommended to read: [Swap lifecycle](lifecycle.md)**
 
-For the purpose of mitigating the need to query the status of a swap one can use this endpoint which returns a JSON object containing the status of the swap. All of the possible status events are documented [here](lifecycle.md).
+To query the status of a swap one can use this endpoint which returns a JSON object containing the status of the swap. All of the possible status events are documented [here](lifecycle.md).
 
 Requests querying the status of a swap have to be `POST` and contain a single value in its JSON encoded body:
 

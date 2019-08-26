@@ -4,5 +4,6 @@ theme: readthedocs
 nav:
   - Home: index.md
   - Swap Lifecycle: lifecycle.md
-  - 0-conf: 0-conf.md
+  - 0-confirmation: 0-confirmation.md
   - REST API: api.md
+  - Regtest environment: regtest.md

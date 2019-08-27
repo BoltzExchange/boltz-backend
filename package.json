@@ -1,6 +1,6 @@
 {
   "name": "boltz-backend",
-  "version": "2.0.0-beta.1",
+  "version": "2.0.0-beta",
   "description": "Backend of boltz",
   "main": "dist/Boltz.js",
   "scripts": {
@@ -90,6 +90,7 @@
     "@types/zeromq": "^4.6.2",
     "concurrently": "^4.1.2",
     "conventional-changelog": "^3.1.10",
+    "conventional-changelog-cli": "^2.0.23",
     "get-port": "^5.0.0",
     "grpc-tools": "^1.8.0",
     "grpc_tools_node_protoc_ts": "^2.5.4",

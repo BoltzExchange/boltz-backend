@@ -1,3 +1,32 @@
+# [2.0.0-beta](https://github.com/BoltzExchange/boltz-backend/compare/v1.0.0-beta.2...v2.0.0-beta) (2019-08-27)
+
+
+### Bug Fixes
+
+* always use free port for ZMQ tests ([8eb6984](https://github.com/BoltzExchange/boltz-backend/commit/8eb6984))
+* calculation of enforced limits of LTC/BTC pair ([e874595](https://github.com/BoltzExchange/boltz-backend/commit/e874595))
+* message of backup command ([#131](https://github.com/BoltzExchange/boltz-backend/issues/131)) ([b5f1676](https://github.com/BoltzExchange/boltz-backend/commit/b5f1676))
+* minor fee calculation fixes ([9075469](https://github.com/BoltzExchange/boltz-backend/commit/9075469))
+* minor improvements ([c3f19b4](https://github.com/BoltzExchange/boltz-backend/commit/c3f19b4))
+* not throwing exception if backup private key cannot be found ([ec84edc](https://github.com/BoltzExchange/boltz-backend/commit/ec84edc))
+* output type of NewAddress ([ca52f9c](https://github.com/BoltzExchange/boltz-backend/commit/ca52f9c))
+* race conditions in EventHandler ([9442a1e](https://github.com/BoltzExchange/boltz-backend/commit/9442a1e))
+* tests after renaming event to status ([335cac3](https://github.com/BoltzExchange/boltz-backend/commit/335cac3))
+* tests in different timezones ([af283ec](https://github.com/BoltzExchange/boltz-backend/commit/af283ec))
+
+
+### Features
+
+* abort swaps after expiration ([#123](https://github.com/BoltzExchange/boltz-backend/issues/123)) ([5879a3b](https://github.com/BoltzExchange/boltz-backend/commit/5879a3b))
+* accept 0-conf for non RBF swap outputs ([#118](https://github.com/BoltzExchange/boltz-backend/issues/118)) ([66066ee](https://github.com/BoltzExchange/boltz-backend/commit/66066ee))
+* add 0-conf limits to getPairs endpoint ([769b79f](https://github.com/BoltzExchange/boltz-backend/commit/769b79f))
+* add list of images to builder script ([9a091f9](https://github.com/BoltzExchange/boltz-backend/commit/9a091f9))
+* add script to stream Server-Sent events ([14c72bd](https://github.com/BoltzExchange/boltz-backend/commit/14c72bd))
+* add timeoutBlockHeight to response of createReverseSwap ([14b8314](https://github.com/BoltzExchange/boltz-backend/commit/14b8314))
+* improve Docker image build process ([1c5c627](https://github.com/BoltzExchange/boltz-backend/commit/1c5c627))
+
+
+
 # [1.0.0-beta.2](https://github.com/BoltzExchange/boltz-backend/compare/v1.0.0-beta...v1.0.0-beta.2) (2019-05-14)
 
 

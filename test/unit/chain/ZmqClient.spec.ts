@@ -1,3 +1,4 @@
+import getPort from 'get-port';
 import zmq, { Socket } from 'zeromq';
 import { randomBytes } from 'crypto';
 import { OutputType } from 'boltz-core';
@@ -37,10 +38,10 @@ describe('ZmqClient', () => {
   const chainClient = new FakedChainClient();
 
   // ZMQ publisher
-  const rawTx = new ZmqPublisher(3000, filters.rawTx);
+  let rawTx: ZmqPublisher;
 
-  const rawBlock = new ZmqPublisher(3001, filters.rawBlock);
-  const hashBlock = new ZmqPublisher(3002, filters.hashBlock);
+  let rawBlock: ZmqPublisher;
+  let hashBlock: ZmqPublisher;
 
   const sendHashBlock = (height?: number, orphan = false) => {
     const { hash } = chainClient.generateBlock(height, orphan);
@@ -74,6 +75,13 @@ describe('ZmqClient', () => {
     chainClient.getBlockVerbose,
     chainClient.getRawTransactionVerbose,
   );
+
+  beforeAll(async () => {
+    rawTx = new ZmqPublisher(await getPort(), filters.rawTx);
+
+    rawBlock = new ZmqPublisher(await getPort(), filters.rawBlock);
+    hashBlock = new ZmqPublisher(await getPort(), filters.hashBlock);
+  });
 
   test('should not init without needed subscriptions', async () => {
     const rejectZmqClient = new ZmqClient(

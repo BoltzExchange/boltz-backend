@@ -684,24 +684,36 @@ describe('Service', () => {
     })).rejects.toEqual(Errors.SCRIPT_TYPE_NOT_FOUND(noOutputType));
   });
 
-  test('should verify amount', () => {
+  test('should verify amounts', () => {
     const rate = 2;
     const verifyAmount = service['verifyAmount'];
 
-    verifyAmount('test', rate, 5, OrderSide.BUY);
-    verifyAmount('test', rate, 5, OrderSide.SELL);
+    // Normal swaps
+    verifyAmount('test', rate, 5, OrderSide.BUY, false);
+    verifyAmount('test', rate, 10, OrderSide.SELL, false);
 
-    expect(() => verifyAmount('test', rate, 1, OrderSide.BUY)).toThrow(
-      Errors.BENEATH_MINIMAL_AMOUNT(1, 5).message,
+    expect(() => verifyAmount('test', rate, 1.5, OrderSide.BUY, false)).toThrow(
+      Errors.BENEATH_MINIMAL_AMOUNT(3, 5).message,
     );
-    expect(() => verifyAmount('test', rate, 6, OrderSide.SELL)).toThrow(
+    expect(() => verifyAmount('test', rate, 12, OrderSide.SELL, false)).toThrow(
       Errors.EXCEED_MAXIMAL_AMOUNT(12, 10).message,
+    );
+
+    // Reverse swaps
+    verifyAmount('test', rate, 10, OrderSide.BUY, true);
+    verifyAmount('test', rate, 5, OrderSide.SELL, true);
+
+    expect(() => verifyAmount('test', rate, 1.5, OrderSide.BUY, true)).toThrow(
+      Errors.BENEATH_MINIMAL_AMOUNT(1.5, 5).message,
+    );
+    expect(() => verifyAmount('test', rate, 12, OrderSide.SELL, true)).toThrow(
+      Errors.EXCEED_MAXIMAL_AMOUNT(24, 10).message,
     );
 
     // Throw if limits of pair cannot be found
     const notFound = 'notFound';
 
-    expect(() => verifyAmount(notFound, 0, 0, OrderSide.BUY)).toThrow(
+    expect(() => verifyAmount(notFound, 0, 0, OrderSide.BUY, false)).toThrow(
       Errors.PAIR_NOT_FOUND(notFound).message,
     );
   });

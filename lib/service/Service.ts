@@ -335,7 +335,7 @@ class Service {
 
     const rate = getRate(pairRate, side, false);
 
-    this.verifyAmount(pairId, rate, invoiceAmount, side);
+    this.verifyAmount(pairId, rate, invoiceAmount, side, false);
 
     const { baseFee, percentageFee } = await this.feeProvider.getFees(pairId, rate, side, invoiceAmount, false);
     const expectedAmount = Math.ceil(invoiceAmount * rate) + baseFee + percentageFee;
@@ -412,7 +412,7 @@ class Service {
 
     const rate = getRate(pairRate, side, true);
 
-    this.verifyAmount(pairId, rate, invoiceAmount, side);
+    this.verifyAmount(pairId, rate, invoiceAmount, side, true);
 
     const { baseFee, percentageFee } = await this.feeProvider.getFees(pairId, rate, side, invoiceAmount, true);
 
@@ -507,8 +507,11 @@ class Service {
   /**
    * Verfies that the requested amount is neither above the maximal nor beneath the minimal
    */
-  private verifyAmount = (pairId: string, rate: number, amount: number, orderSide: OrderSide) => {
-    if (orderSide === OrderSide.SELL) {
+  private verifyAmount = (pairId: string, rate: number, amount: number, orderSide: OrderSide, isReverse: boolean) => {
+    if (
+        (!isReverse && orderSide === OrderSide.BUY) ||
+        (isReverse && orderSide === OrderSide.SELL)
+      ) {
       // tslint:disable-next-line:no-parameter-reassignment
       amount = Math.floor(amount * rate);
     }

@@ -90,10 +90,12 @@ jest.mock('../../../lib/service/Service', () => {
 
 const mockedService = <jest.Mock<Service>><any>Service;
 
+const mockUploadDatabase = jest.fn().mockImplementation(() => Promise.resolve());
+
 jest.mock('../../../lib/backup/BackupScheduler', () => {
   return jest.fn().mockImplementation(() => {
     return {
-      uploadDatabase: () => Promise.resolve(),
+      uploadDatabase: mockUploadDatabase,
     };
   });
 });
@@ -295,8 +297,10 @@ describe('CommandHandler', () => {
     sendMessage('backup');
     await wait(5);
 
+    expect(mockUploadDatabase).toHaveBeenCalledTimes(1);
+
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
-    expect(mockSendMessage).toHaveBeenCalledWith('Uploaded backup of databases');
+    expect(mockSendMessage).toHaveBeenCalledWith('Uploaded backup of Boltz database');
   });
 
   afterAll(async () => {

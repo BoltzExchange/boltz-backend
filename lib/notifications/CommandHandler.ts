@@ -196,7 +196,7 @@ class CommandHandler {
     try {
       await this.backupScheduler.uploadDatabase(new Date());
 
-      await this.discord.sendMessage('Uploaded backup of databases');
+      await this.discord.sendMessage('Uploaded backup of Boltz database');
     } catch (error) {
       await this.discord.sendMessage(`Could not upload backup: ${error}`);
     }

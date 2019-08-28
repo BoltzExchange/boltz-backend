@@ -369,3 +369,13 @@ export const getLightningCurrency = (base: string, quote: string, orderSide: Ord
     return orderSide === OrderSide.BUY ? base : quote;
   }
 };
+
+/**
+ * Gets the memo for the BIP21 payment request or the invoice of a swap
+ *
+ * @param receivingCurrency currency the user is receiving
+ * @param isReverse whether the swap is a reverse one
+ */
+export const getSwapMemo = (receivingCurrency: string, isReverse: boolean): string => {
+  return `${isReverse ? 'Reverse ' : ''}Swap to ${receivingCurrency}`;
+};

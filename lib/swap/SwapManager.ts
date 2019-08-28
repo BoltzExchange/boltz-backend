@@ -4,7 +4,7 @@ import Logger from '../Logger';
 import { OrderSide } from '../consts/Enums';
 import LndClient from '../lightning/LndClient';
 import WalletManager, { Currency } from '../wallet/WalletManager';
-import { getHexBuffer, getHexString, getScriptHashFunction } from '../Utils';
+import { getHexBuffer, getHexString, getScriptHashFunction, getSwapMemo } from '../Utils';
 import SwapNursery, { SwapMaps, SwapDetails, ReverseSwapDetails } from './SwapNursery';
 
 const { p2wshOutput } = Scripts;
@@ -142,7 +142,10 @@ class SwapManager {
     this.logger.verbose(`Creating new reverse Swap from ${receivingCurrency.symbol} to ${sendingCurrency.symbol} ` +
       `for public key: ${getHexString(claimPublicKey)}`);
 
-    const { rHash, paymentRequest } = await receivingCurrency.lndClient.addInvoice(invoiceAmount);
+    const { rHash, paymentRequest } = await receivingCurrency.lndClient.addInvoice(
+      invoiceAmount,
+      getSwapMemo(sendingCurrency.symbol, true),
+    );
     const { keys, index } = sendingCurrency.wallet.getNewKeys();
 
     const { blocks } = await sendingCurrency.chainClient.getBlockchainInfo();

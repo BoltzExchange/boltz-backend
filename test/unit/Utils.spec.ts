@@ -206,4 +206,9 @@ describe('Utils', () => {
 
     expect(() => utils.getOutputType(123)).toThrow(new Error('type does not exist'));
   });
+
+  test('should get memo for swaps', () => {
+    expect(utils.getSwapMemo('LTC', false)).toBe('Swap to LTC');
+    expect(utils.getSwapMemo('BTC', true)).toBe('Reverse Swap to BTC');
+  });
 });

@@ -190,13 +190,18 @@ class LndClient extends BaseClient implements LndClient {
   }
 
   /**
-   * Attempt to add a new invoice to the lnd invoice database
+   * Attempts to add a new invoice to the invoice database
    *
    * @param value the value of this invoice in satoshis
+   * @param memo optional memo to attach along with the invoice
    */
-  public addInvoice = (value: number): Promise<lndrpc.AddInvoiceResponse.AsObject> => {
+  public addInvoice = (value: number, memo?: string): Promise<lndrpc.AddInvoiceResponse.AsObject> => {
     const request = new lndrpc.Invoice();
     request.setValue(value);
+
+    if (memo) {
+      request.setMemo(memo);
+    }
 
     return this.unaryCall<lndrpc.Invoice, lndrpc.AddInvoiceResponse.AsObject>('addInvoice', request);
   }

@@ -4,14 +4,18 @@ This is the documentation of [Boltz](https://boltz.exchange) version 2.0.0.
 
 ## What is Boltz
 
-Boltz is an instant and non custodial crypto currency exchange that focuses on the adoption of second layer scaling technologies like the Lightning network and the privacy of its users. We neither use any trackers nor log any data that could identify our users.
+Boltz is an instant, non-custodial crypto currency exchange that focuses on privacy and the adoption of second layer scaling technologies like the [lightning network](http://lightning.network/). Boltz does not require an account or any other personal data, nor does it use trackers to log data that could identify users.
 
 ## Instances
 
-We are running and maintaining two Boltz instances that can be used. The Boltz REST API can be found in the subdirectory `/api` of both URLs.
+We are running and maintaining two Boltz instances that can be used - one on [testnet](https://testnet.boltz.exchange) and one on [mainnet](https://boltz.exchange).
 
-* [Mainnet](https://boltz.exchange)
-* [Testnet](https://testnet.boltz.exchange)
+The Rest API can be accessed at:
+
+* [Testnet](https://testnet.boltz.exchange/api)
+* [Mainnet](https://boltz.exchange/api)
+
+Read the API documentation [here](/api.md)
 
 ## Useful Links
 

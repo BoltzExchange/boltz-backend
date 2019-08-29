@@ -12,7 +12,7 @@ We are running and maintaining two Boltz instances that can be used - one on [te
 
 The Rest API can be accessed at:
 
-* [Testnet](https://testnet.boltz.exchange)
+* [Testnet](https://testnet.boltz.exchange/api)
 * [Mainnet](https://boltz.exchange/api)
 
 Read the API documentation [here](/api)

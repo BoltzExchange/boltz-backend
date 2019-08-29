@@ -45,7 +45,9 @@ To use the nodes in the container with `boltz-backend` use a configuration simil
     macaroonpath = "docker/regtest/data/lnd/macaroons/admin.macaroon"
 ```
 
-It is really handy to have the executables of `boltz-backend` and some aliases to control the nodes in your path. Therefore it is recommended to add this to your `.bashrc`:
+It is really handy to have the executables of Boltz and some aliases to control the nodes in your path. Therefore it is recommended to add the following to your `.bashrc`.
+
+In case you have Bitcoin Core, Litecoin Core and LND installed locally (the advantage is that local executables startup *a little bit faster*):
 
 ```bash
 # Boltz Docker regtest
@@ -68,4 +70,25 @@ alias lncliltc2='lncli --rpcserver=127.0.0.1:11010 --tlscertpath=$lndCert --maca
 export PATH="$boltzDir/bin:$PATH"
 ```
 
-Please note that these aliases require you to have [Bitcoin Core](https://github.com/bitcoin/bitcoin), [Litecoin Core](https://github.com/litecoin-project/litecoin) and [LND](https://github.com/lightningnetwork/lnd/) installed natively. Although running the commands with the executables in the regtest image would be possible, CLI tools which are installed locally are way more responsive and have a lower startup time.
+If not you can also use the executables in the Docker image:
+
+```bash
+# Boltz Docker regtest
+boltzDir="<path to the cloned repository>"
+boltzDataDir="$boltzDir/docker/regtest/data/"
+
+alias bitcoin-cli='docker exec -it regtest bitcoin-cli'
+alias litecoin-cli='docker exec -it regtest litecoin-cli'
+
+lndCert="/root/.lnd-btc/tls.cert"
+lndMacaroon="/root/.lnd-btc/data/chain/bitcoin/regtest/admin.macaroon"
+
+alias lnclibtc='docker exec -it regtest lncli --rpcserver=127.0.0.1:10009 --tlscertpath=$lndCert --macaroonpath=$lndMacaroon'
+alias lnclibtc2='docker exec -it regtest lncli --rpcserver=127.0.0.1:10010 --tlscertpath=$lndCert --macaroonpath=$lndMacaroon'
+
+alias lncliltc='docker exec -it regtest lncli --rpcserver=127.0.0.1:11009 --tlscertpath=$lndCert --macaroonpath=$lndMacaroon'
+alias lncliltc2='docker exec -it regtest lncli --rpcserver=127.0.0.1:11010 --tlscertpath=$lndCert --macaroonpath=$lndMacaroon'
+
+# Add the Boltz executables to the path
+export PATH="$boltzDir/bin:$PATH"
+```

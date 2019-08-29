@@ -24,6 +24,7 @@ import {
   getInvoiceAmt,
   getChainCurrency,
   getLightningCurrency,
+  getSwapMemo,
 } from '../Utils';
 import {
   Balance,
@@ -385,7 +386,7 @@ class Service {
         chainCurrency,
         address,
         expectedAmount,
-        `Submarine Swap to ${lightningCurrency}`,
+        getSwapMemo(lightningCurrency, false),
       ),
     };
   }

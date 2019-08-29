@@ -460,7 +460,7 @@ describe('Service', () => {
       address: mockedSwap.address,
       redeemScript: mockedSwap.redeemScript,
       timeoutBlockHeight: mockedSwap.timeoutBlockHeight,
-      bip21: 'bitcoin:bcrt1?amount=0.00100002&label=Submarine%20Swap%20to%20BTC',
+      bip21: 'bitcoin:bcrt1?amount=0.00100002&label=Swap%20to%20BTC',
     });
 
     expect(expectedAmount).toBeGreaterThan(invoiceAmount);

@@ -22,3 +22,11 @@ Streaming Server-Sent Events is a little tedious to do in the browser and there 
 ```bash
 ./sse.py <URL of the SSE>
 ```
+
+## Funding the Boltz wallet
+
+When starting the Boltz regtest image everything is setup and funded apart from the Boltz wallet. To fix that with a single command there is this Python script:
+
+```bash
+./wallet.py <amount of coins to send> [chains]
+```

@@ -30,3 +30,11 @@ When starting the Boltz regtest image everything is setup and funded apart from 
 ```bash
 ./wallet.py <amount of coins to send> [chains]
 ```
+
+## Generating OTP tokens
+
+To generate OTP tokens for the `withdraw` Discord command without having to setup an app the script `otp.py` can be used:
+
+```bash
+./otp.py <OTP seed>
+```

@@ -1,14 +1,17 @@
 import { Op } from 'sequelize';
 import Logger from '../Logger';
 import Stats from '../data/Stats';
-import Swap from '../db/models/Swap';
 import Report from '../data/Report';
+import Swap from '../db/models/Swap';
+import OtpManager from './OtpManager';
 import Service from '../service/Service';
 import DiscordClient from './DiscordClient';
+import { NotificationConfig } from '../Config';
 import ReverseSwap from '../db/models/ReverseSwap';
 import BackupScheduler from '../backup/BackupScheduler';
 import { OutputType, Balance } from '../proto/boltzrpc_pb';
-import { satoshisToCoins, getChainCurrency, stringify, splitPairId } from '../Utils';
+import { coinsToSatoshis, satoshisToCoins } from '../DenominationConverter';
+import { getChainCurrency, stringify, splitPairId, getHexString } from '../Utils';
 
 enum Command {
   Help = 'help',
@@ -21,6 +24,7 @@ enum Command {
 
   // Commands that generate a value or trigger a function
   Backup = 'backup',
+  Withdraw = 'withdraw',
   NewAddress = 'newaddress',
   ToggleReverseSwaps = 'togglereverse',
 }
@@ -31,12 +35,15 @@ type CommandInfo = {
 };
 
 class CommandHandler {
+  private optManager: OtpManager;
+
   private commands: Map<string, CommandInfo>;
 
   private static codeBlock = '\`\`\`';
 
   constructor(
     private logger: Logger,
+    config: NotificationConfig,
     private discord: DiscordClient,
     private service: Service,
     private backupScheduler: BackupScheduler) {
@@ -50,9 +57,12 @@ class CommandHandler {
       [Command.SwapInfo, { description: 'gets all available information about a (reverse) swap', executor: this.swapInfo }],
 
       [Command.Backup, { description: 'uploads a backup of the databases', executor: this.backup }],
+      [Command.Withdraw, { description: 'withdraws coins from Boltz', executor: this.withdraw }],
       [Command.NewAddress, { description: 'generates a new address for a currency', executor: this.newAddress }],
       [Command.ToggleReverseSwaps, { description: 'enables or disables reverse swaps', executor: this.toggleReverseSwaps }],
     ]);
+
+    this.optManager = new OtpManager(this.logger, config);
 
     this.discord.on('message', async (message: string) => {
       const args = message.split(' ');
@@ -202,6 +212,50 @@ class CommandHandler {
     }
   }
 
+  private withdraw = async (args: string[]) => {
+    if (args.length !== 3 && args.length !== 4) {
+      await this.discord.sendMessage('Invalid number of arguments');
+      return;
+    }
+
+    const validToken = this.optManager.verify(args[0]);
+
+    if (!validToken) {
+      await this.discord.sendMessage('Invalid OTP token');
+      return;
+    }
+
+    // Three arguments mean that just the OTP token, the currency and a lightning invoice was provided
+    if (args.length === 3) {
+      try {
+        const response = await this.service.payInvoice(args[1].toUpperCase(), args[2]);
+
+        await this.discord.sendMessage(`Paid lightning invoice.\nPreimage: ${getHexString(response.paymentPreimage)}`);
+      } catch (error) {
+        await this.discord.sendMessage(`Could not pay lightning invoice: ${this.formatError(error)}`);
+      }
+
+    // Four arguments mean that the OTP token, the currency, an address and the amount were provided
+    } else if (args.length === 4) {
+      try {
+        const sendAll = args[3] === 'all';
+        const amount = sendAll ? 0 : coinsToSatoshis(Number(args[3]));
+
+        const response = await this.service.sendCoins({
+          amount,
+          sendAll,
+
+          address: args[2],
+          symbol: args[1].toUpperCase(),
+        });
+
+        await this.discord.sendMessage(`Sent transaction: ${response.transactionId}:${response.vout}`);
+      } catch (error) {
+        await this.discord.sendMessage(`Could not send coins: ${this.formatError(error)}`);
+      }
+    }
+  }
+
   /*
    * Helper functions
    */
@@ -249,6 +303,16 @@ class CommandHandler {
 
   private sendCouldNotFindSwap = async (id: string) => {
     await this.discord.sendMessage(`Could not find swap with id: ${id}`);
+  }
+
+  private formatError = (error: any) => {
+    if (typeof error === 'string') {
+      return error;
+    } else if ('message' in error) {
+      return error['message'];
+    } else {
+      return JSON.stringify(error);
+    }
   }
 }
 

@@ -468,6 +468,15 @@ class Service {
   }
 
   /**
+   * Pays a lightning invoice
+   */
+  public payInvoice = async (symbol: string, invoice: string) => {
+    const { lndClient } = this.getCurrency(symbol);
+
+    return lndClient.sendPayment(invoice);
+  }
+
+  /**
    * Sends coins to a specified address
    */
   public sendCoins = async (args: {

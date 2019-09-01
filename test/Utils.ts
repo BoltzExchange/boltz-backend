@@ -14,7 +14,7 @@ export const waitForFunctionToBeTrue = (func: () => boolean) => {
         clearInterval(interval);
         resolve();
       }
-    });
+    }, 25);
   });
 };
 

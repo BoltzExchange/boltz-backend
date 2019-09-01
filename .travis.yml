@@ -1,0 +1,21 @@
+language: node_js
+
+node_js:
+  - "lts/*"
+  - "node"
+
+services:
+  - docker
+
+cache:
+  directories:
+    - "node_modules"
+
+before_install:
+  - npm run docker:start
+
+script:
+  - npm run lint
+  - npm run compile
+  - npm run test:unit
+  - npm run test:int

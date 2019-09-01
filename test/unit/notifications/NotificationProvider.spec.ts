@@ -114,7 +114,7 @@ describe('NotificationProvider', () => {
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(
       // tslint:disable-next-line: prefer-template
-      '**Swap**\n\n' +
+      '**Swap**\n' +
       `ID: ${swap.id}\n` +
       `Pair: ${swap.pair}\n` +
       'Order side: buy\n' +
@@ -122,7 +122,8 @@ describe('NotificationProvider', () => {
       `Lightning amount: ${satoshisToCoins(getInvoiceAmt(swap.invoice))} LTC\n` +
       `Fees earned: ${satoshisToCoins(swap.fee)} BTC\n` +
       `Miner fees: ${satoshisToCoins(swap.minerFee!)} BTC\n` +
-      `Routing fees: ${swap.routingFee! / 1000} litoshi`,
+      `Routing fees: ${swap.routingFee! / 1000} litoshi` +
+      NotificationProvider['trailingWhitespace'],
     );
 
     const reverseSwap = mockReverseSwap(reverseSwapExample.status);
@@ -133,14 +134,15 @@ describe('NotificationProvider', () => {
     expect(mockSendMessage).toHaveBeenCalledTimes(2);
     expect(mockSendMessage).toHaveBeenNthCalledWith(2,
       // tslint:disable-next-line: prefer-template
-      '**Reverse swap**\n\n' +
+      '**Reverse swap**\n' +
       `ID: ${reverseSwap.id}\n` +
       `Pair: ${reverseSwap.pair}\n` +
       'Order side: sell\n' +
       `Onchain amount: ${satoshisToCoins(reverseSwap.onchainAmount!)} BTC\n` +
       `Lightning amount: ${satoshisToCoins(getInvoiceAmt(reverseSwap.invoice))} LTC\n` +
       `Fees earned: ${satoshisToCoins(reverseSwap.fee)} BTC\n` +
-      `Miner fees: ${satoshisToCoins(reverseSwap.minerFee!)} BTC`,
+      `Miner fees: ${satoshisToCoins(reverseSwap.minerFee!)} BTC` +
+      NotificationProvider['trailingWhitespace'],
     );
   });
 
@@ -153,13 +155,14 @@ describe('NotificationProvider', () => {
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(
       // tslint:disable-next-line: prefer-template
-      `**Swap failed: ${failureReason}**\n\n` +
+      `**Swap failed: ${failureReason}**\n` +
       `ID: ${swap.id}\n` +
       `Pair: ${swap.pair}\n` +
       'Order side: buy\n' +
       `Onchain amount: ${satoshisToCoins(swap.onchainAmount!)} BTC\n` +
       `Lightning amount: ${satoshisToCoins(getInvoiceAmt(swap.invoice))} LTC\n` +
-      `Invoice: ${swap.invoice}`,
+      `Invoice: ${swap.invoice}` +
+      NotificationProvider['trailingWhitespace'],
     );
 
     const reverseSwap = mockReverseSwap(SwapUpdateEvent.TransactionRefunded);
@@ -170,13 +173,14 @@ describe('NotificationProvider', () => {
     expect(mockSendMessage).toHaveBeenCalledTimes(2);
     expect(mockSendMessage).toHaveBeenNthCalledWith(2,
       // tslint:disable-next-line: prefer-template
-      `**Reverse swap failed: ${failureReason}**\n\n` +
+      `**Reverse swap failed: ${failureReason}**\n` +
       `ID: ${reverseSwap.id}\n` +
       `Pair: ${reverseSwap.pair}\n` +
       'Order side: sell\n' +
       `Onchain amount: ${satoshisToCoins(reverseSwap.onchainAmount!)} BTC\n` +
       `Lightning amount: ${satoshisToCoins(getInvoiceAmt(reverseSwap.invoice))} LTC\n` +
-      `Miner fees: ${satoshisToCoins(reverseSwap.minerFee)} BTC`,
+      `Miner fees: ${satoshisToCoins(reverseSwap.minerFee)} BTC` +
+      NotificationProvider['trailingWhitespace'],
     );
   });
 

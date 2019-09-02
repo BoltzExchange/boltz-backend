@@ -1,13 +1,15 @@
 import { wait } from '../../Utils';
 import Logger from '../../../lib/Logger';
+import { stringify, getHexBuffer } from '../../../lib/Utils';
 import Database from '../../../lib/db/Database';
 import Service from '../../../lib/service/Service';
-import { stringify, satoshisToCoins } from '../../../lib/Utils';
+import { NotificationConfig } from '../../../lib/Config';
 import { swapExample, reverseSwapExample } from './ExampleSwaps';
 import PairRepository from '../../../lib/service/PairRepository';
 import SwapRepository from '../../../lib/service/SwapRepository';
 import BackupScheduler from '../../../lib/backup/BackupScheduler';
 import DiscordClient from '../../../lib/notifications/DiscordClient';
+import { satoshisToCoins, coinsToSatoshis } from '../../../lib/DenominationConverter';
 import CommandHandler from '../../../lib/notifications/CommandHandler';
 import ReverseSwapRepository from '../../../lib/service/ReverseSwapRepository';
 import { OutputType, Balance, WalletBalance, LightningBalance, ChannelBalance } from '../../../lib/proto/boltzrpc_pb';
@@ -71,7 +73,33 @@ const pairRepository = new PairRepository();
 const swapRepository = new SwapRepository();
 const reverseSwapRepository = new ReverseSwapRepository();
 
-const mockNewAddress = jest.fn().mockImplementation(() => Promise.resolve(newAddress));
+const mockNewAddress = jest.fn().mockResolvedValue(newAddress);
+
+const invoicePreimage = '765895dd514ce9358f1412c6b416d6a8f8ecea1a4e442d1e15ea8b76152fd241';
+const mockPayInvoice = jest.fn().mockImplementation(async (_: string, invoice: string) => {
+  if (invoice !== 'throw') {
+    return {
+      paymentPreimage: getHexBuffer(invoicePreimage),
+    };
+  } else {
+    throw 'lnd error';
+  }
+});
+
+const transactionId = '05cde2d7f0067604e3de2d2ce3e417dfd0dabecb63550a2b641b2d6cd3061780';
+const transactionVout = 1;
+const mockSendCoins = jest.fn().mockImplementation(async (args: {
+  address: string,
+}) => {
+  if (args.address !== 'throw') {
+    return {
+      transactionId,
+      vout: transactionVout,
+    };
+  } else {
+    throw 'onchain error';
+  }
+});
 
 jest.mock('../../../lib/service/Service', () => {
   return jest.fn().mockImplementation(() => {
@@ -84,6 +112,8 @@ jest.mock('../../../lib/service/Service', () => {
         ]),
       }),
       newAddress: mockNewAddress,
+      payInvoice: mockPayInvoice,
+      sendCoins: mockSendCoins,
     };
   });
 });
@@ -102,12 +132,29 @@ jest.mock('../../../lib/backup/BackupScheduler', () => {
 
 const mockedBackupScheduler = <jest.Mock<BackupScheduler>><any>BackupScheduler;
 
+const mockVerify = jest.fn().mockImplementation((token: string) => {
+  if (token === 'valid') {
+    return true;
+  } else {
+    return false;
+  }
+});
+
+jest.mock('../../../lib/notifications/OtpManager', () => {
+  return jest.fn().mockImplementation(() => {
+    return {
+      verify: mockVerify,
+    };
+  });
+});
+
 describe('CommandHandler', () => {
   const service = mockedService();
   service.allowReverseSwaps = true;
 
   const commandHandler = new CommandHandler(
     Logger.disabledLogger,
+    {} as any as NotificationConfig,
     mockedDiscordClient(),
     service,
     mockedBackupScheduler(),
@@ -301,6 +348,123 @@ describe('CommandHandler', () => {
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith('Uploaded backup of Boltz database');
+  });
+
+  test('should withdraw coins', async () => {
+    const currency = 'btc';
+
+    // Pay lightning invoices and respond with the preimage
+    const invoice = 'invoice';
+
+    sendMessage(`withdraw valid ${currency} ${invoice}`);
+    await wait(5);
+
+    expect(mockVerify).toHaveBeenCalledTimes(1);
+
+    expect(mockPayInvoice).toHaveBeenCalledTimes(1);
+    expect(mockPayInvoice).toHaveBeenCalledWith(currency.toUpperCase(), invoice);
+
+    expect(mockSendMessage).toHaveBeenCalledTimes(1);
+    expect(mockSendMessage).toHaveBeenCalledWith(`Paid lightning invoice.\nPreimage: ${invoicePreimage}`);
+
+    // Send onchain coins and respond with transaction id and vout
+    const address = 'address';
+    const amount = 1;
+
+    sendMessage(`withdraw valid ${currency} ${address} ${amount}`);
+    await wait(5);
+
+    expect(mockVerify).toHaveBeenCalledTimes(2);
+
+    expect(mockSendCoins).toHaveBeenCalledTimes(1);
+    expect(mockSendCoins).toHaveBeenCalledWith({
+      address,
+      sendAll: false,
+      symbol: currency.toUpperCase(),
+      amount: coinsToSatoshis(amount),
+    });
+
+    expect(mockSendMessage).toHaveBeenCalledTimes(2);
+    expect(mockSendMessage).toHaveBeenCalledWith(`Sent transaction: ${transactionId}:${transactionVout}`);
+
+    // Send all onchain coins
+    sendMessage(`withdraw valid ${currency} ${address} all`);
+    await wait(5);
+
+    expect(mockVerify).toHaveBeenCalledTimes(3);
+
+    expect(mockSendCoins).toHaveBeenCalledTimes(2);
+    expect(mockSendCoins).toHaveBeenCalledWith({
+      address,
+      amount: 0,
+      sendAll: true,
+      symbol: currency.toUpperCase(),
+    });
+
+    expect(mockSendMessage).toHaveBeenCalledTimes(3);
+    expect(mockSendMessage).toHaveBeenCalledWith(`Sent transaction: ${transactionId}:${transactionVout}`);
+
+    // Send an error if paying a lighting invoice fails
+    const throwInvoice = 'throw';
+
+    sendMessage(`withdraw valid ${currency} ${throwInvoice}`);
+    await wait(5);
+
+    expect(mockVerify).toHaveBeenCalledTimes(4);
+
+    expect(mockPayInvoice).toHaveBeenCalledTimes(2);
+    expect(mockPayInvoice).toHaveBeenCalledWith(currency.toUpperCase(), throwInvoice);
+
+    expect(mockSendMessage).toHaveBeenCalledTimes(4);
+    expect(mockSendMessage).toHaveBeenCalledWith('Could not pay lightning invoice: lnd error');
+
+    // Send an error if sending onchain coins fails
+    const throwAddress = 'throw';
+
+    sendMessage(`withdraw valid ${currency} ${throwAddress} ${amount}`);
+    await wait(5);
+
+    expect(mockVerify).toHaveBeenCalledTimes(5);
+
+    expect(mockSendCoins).toHaveBeenCalledTimes(3);
+    expect(mockSendCoins).toHaveBeenCalledWith({
+      sendAll: false,
+      address: throwAddress,
+      symbol: currency.toUpperCase(),
+      amount: coinsToSatoshis(amount),
+    });
+
+    expect(mockSendMessage).toHaveBeenCalledTimes(5);
+    expect(mockSendMessage).toHaveBeenCalledWith('Could not send coins: onchain error');
+
+    // Send an error if an invalid number of arguments is provided
+    sendMessage('withdraw');
+    await wait(5);
+
+    expect(mockSendMessage).toHaveBeenCalledTimes(6);
+    expect(mockSendMessage).toHaveBeenCalledWith('Invalid number of arguments');
+
+    // Send an error if the OTP token is invalid
+    sendMessage('withdraw invalid token provided');
+    await wait(5);
+
+    expect(mockVerify).toBeCalledTimes(6);
+    expect(mockVerify).toHaveBeenNthCalledWith(6, 'invalid');
+
+    expect(mockSendMessage).toHaveBeenCalledTimes(7);
+    expect(mockSendMessage).toHaveBeenCalledWith('Invalid OTP token');
+  });
+
+  test('should format errors', () => {
+    const formatError = commandHandler['formatError'];
+
+    const test = 'error';
+    const object = { test };
+    const objectMessage = { message: test };
+
+    expect(formatError(test)).toEqual(test);
+    expect(formatError(object)).toEqual(JSON.stringify(object));
+    expect(formatError(objectMessage)).toEqual(test);
   });
 
   afterAll(async () => {

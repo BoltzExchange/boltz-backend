@@ -3,8 +3,9 @@ import Swap from '../db/models/Swap';
 import { OrderSide } from '../consts/Enums';
 import ReverseSwap from '../db/models/ReverseSwap';
 import SwapRepository from '../service/SwapRepository';
+import { satoshisToCoins } from '../DenominationConverter';
 import ReverseSwapRepository from '../service/ReverseSwapRepository';
-import { splitPairId, getInvoiceAmt, stringify, satoshisToCoins, mapToObject } from '../Utils';
+import { splitPairId, getInvoiceAmt, stringify, mapToObject } from '../Utils';
 
 class Stats {
   private volumeMap = new Map<string, number>();

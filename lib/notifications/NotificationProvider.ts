@@ -5,13 +5,13 @@ import DiscordClient from './DiscordClient';
 import CommandHandler from './CommandHandler';
 import ReverseSwap from '../db/models/ReverseSwap';
 import BackupScheduler from '../backup/BackupScheduler';
+import { satoshisToCoins } from '../DenominationConverter';
 import { SwapUpdateEvent, OrderSide } from '../consts/Enums';
 import { NotificationConfig, CurrencyConfig } from '../Config';
 import { OutputType, CurrencyInfo, LndInfo, ChainInfo } from '../proto/boltzrpc_pb';
 import {
   splitPairId,
   getInvoiceAmt,
-  satoshisToCoins,
   minutesToMilliseconds,
   getChainCurrency,
   getLightningCurrency,
@@ -51,6 +51,7 @@ class NotificationProvider {
 
     new CommandHandler(
       this.logger,
+      this.config,
       this.discord,
       this.service,
       this.backup,
@@ -295,4 +296,3 @@ class NotificationProvider {
 }
 
 export default NotificationProvider;
-export { NotificationConfig };

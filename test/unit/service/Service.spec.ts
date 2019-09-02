@@ -180,11 +180,17 @@ const mockedChainClient = <jest.Mock<ChainClient>><any>ChainClient;
 
 const mockGetInfo = jest.fn().mockResolvedValue({
   blockHeight: 123,
-  version: '0.7.0-beta commit=v0.7.0-beta',
+  version: '0.7.1-beta commit=v0.7.1-beta',
 
   numActiveChannels: 3,
   numInactiveChannels: 2,
   numPendingChannels: 1,
+});
+
+const mockSendPayment = jest.fn().mockResolvedValue({
+  paymentHash: '',
+  paymentRoute: {},
+  paymentPreimage: Buffer.alloc(0),
 });
 
 const totalBalance = {
@@ -215,6 +221,7 @@ jest.mock('../../../lib/lightning/LndClient', () => {
   return jest.fn().mockImplementation(() => ({
     on: () => {},
     getInfo: mockGetInfo,
+    sendPayment: mockSendPayment,
     listChannels: mockListChannels,
     getWalletBalance: mockGetWalletBalance,
   }));
@@ -582,6 +589,18 @@ describe('Service', () => {
       .rejects.toEqual(Errors.REVERSE_SWAPS_DISABLED());
 
     service.allowReverseSwaps = true;
+  });
+
+  test('should pay invoices', async () => {
+    const symbol = 'BTC';
+    const invoice = 'invoice';
+
+    const response = await service.payInvoice(symbol, invoice);
+
+    expect(mockSendPayment).toBeCalledTimes(1);
+    expect(mockSendPayment).toBeCalledWith(invoice);
+
+    expect(response).toEqual(await mockSendPayment());
   });
 
   test('should send coins', async () => {

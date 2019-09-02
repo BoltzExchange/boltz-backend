@@ -30,8 +30,4 @@ if __name__ == '__main__':
 
     ARGS = PARSER.parse_args()
 
-
-    if ARGS.url:
-        stream_server_side_events(ARGS.url[0])
-    else:
-        print("No URL specified")
+    stream_server_side_events(ARGS.url[0])

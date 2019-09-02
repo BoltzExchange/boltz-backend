@@ -3,6 +3,10 @@ import { TransactionInput } from 'bip174/src/lib/interfaces';
 import { ECPair, address, crypto, Psbt } from 'bitcoinjs-lib';
 import { getPubkeyHashFunction } from '../lib/Utils';
 
+export const randomRange = (max: number): number => {
+  return Math.floor(Math.random() * Math.floor(max));
+};
+
 export const wait = (ms: number) => {
   return new Promise(resolve => setTimeout(resolve, ms));
 };

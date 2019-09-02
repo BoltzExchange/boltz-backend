@@ -3,8 +3,9 @@ import Swap from '../db/models/Swap';
 import { SwapUpdateEvent } from '../consts/Enums';
 import ReverseSwap from '../db/models/ReverseSwap';
 import SwapRepository from '../service/SwapRepository';
+import { getChainCurrency, splitPairId } from '../Utils';
+import { satoshisToCoins } from '../DenominationConverter';
 import ReverseSwapRepository from '../service/ReverseSwapRepository';
-import { getChainCurrency, satoshisToCoins, splitPairId } from '../Utils';
 
 type Entry = {
   date: Date;

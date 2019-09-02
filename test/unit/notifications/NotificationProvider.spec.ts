@@ -1,13 +1,15 @@
+import { unlinkSync, existsSync } from 'fs';
 import { wait } from '../../Utils';
 import Logger from '../../../lib/Logger';
 import Swap from '../../../lib/db/models/Swap';
 import Service from '../../../lib/service/Service';
+import { getInvoiceAmt } from '../../../lib/Utils';
 import { SwapUpdateEvent } from '../../../lib/consts/Enums';
 import ReverseSwap from '../../../lib/db/models/ReverseSwap';
 import { swapExample, reverseSwapExample } from './ExampleSwaps';
 import BackupScheduler from '../../../lib/backup/BackupScheduler';
-import { getInvoiceAmt, satoshisToCoins } from '../../../lib/Utils';
 import DiscordClient from '../../../lib/notifications/DiscordClient';
+import { satoshisToCoins } from '../../../lib/DenominationConverter';
 import NotificationProvider from '../../../lib/notifications/NotificationProvider';
 
 type successCallback = (swap: Swap | ReverseSwap) => void;
@@ -78,16 +80,19 @@ describe('NotificationProvider', () => {
     } as any as ReverseSwap;
   };
 
+  const config = {
+    token: '',
+    interval: 60,
+    prefix: 'test',
+    channel: 'test',
+    otpsecretpath: `${__dirname}/otpSecret.dat`,
+  };
+
   const notificationProvider = new NotificationProvider(
     Logger.disabledLogger,
     mockedService(),
     mockedBackupScheduler(),
-    {
-      token: '',
-      interval: 60,
-      prefix: 'test',
-      channel: 'test',
-    },
+    config,
     [],
   );
 
@@ -186,5 +191,9 @@ describe('NotificationProvider', () => {
 
   afterAll(() => {
     notificationProvider.disconnect();
+
+    if (existsSync(config.otpsecretpath)) {
+      unlinkSync(config.otpsecretpath);
+    }
   });
 });

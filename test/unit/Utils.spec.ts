@@ -4,8 +4,8 @@ import os from 'os';
 import { OutputType } from 'boltz-core';
 import { Transaction } from 'bitcoinjs-lib';
 import * as utils from '../../lib/Utils';
-import { constructTransaction } from '../Utils';
 import { OrderSide } from '../../lib/consts/Enums';
+import { constructTransaction, randomRange } from '../Utils';
 
 describe('Utils', () => {
   let pairId: string;
@@ -19,10 +19,6 @@ describe('Utils', () => {
     Transaction.fromHex('01000000017fa897c3556271c34cb28c03c196c2d912093264c9d293cb4980a2635474467d010000000f5355540b6f93598893578893588851ffffffff01501e0000000000001976a914aa2482ce71d219018ef334f6cc551ee88abd920888ac00000000'),
     Transaction.fromHex('010000000001010dabcc426e9f5f57c1000e1560d06ebd21f510c74fe2d0c30fe8eefcabaf31f50200000000fdffffff02a086010000000000160014897ab9fb4e4bf920af9047b5a1896b4689a65bff0e52090000000000160014b3330dbbb43be7a4e2df367f58cf76c74f68141602483045022100ef83bcabb40debd4e13c0eda6b918b940b404344f41253a42c51fc76319ca64502205a1ad86d0bb92f25de75a6b37edf7118863ba9b7c438473ecde07765dedbb9ed012103df1535396d6f4c68458ef3ae86a32e5484e89d7bfc94cabd6c0c09ceaab0b2ab00000000'),
   ];
-
-  const randomRange = (max: number): number => {
-    return Math.floor(Math.random() * Math.floor(max));
-  };
 
   test('should split derivation path', () => {
     const master = 'm';
@@ -99,7 +95,6 @@ describe('Utils', () => {
 
     const random = randomRange(10);
     expect(utils.generateId(random).length).toEqual(random);
-
   });
 
   test('should get pair ids', () => {
@@ -146,12 +141,6 @@ describe('Utils', () => {
     const milliseconds = random * 60 * 1000;
 
     expect(utils.minutesToMilliseconds(random)).toEqual(milliseconds);
-  });
-
-  test('should convert satoshis to whole coins', () => {
-    const randomSat = randomRange(7000);
-    const coins = Number((randomSat / 100000000).toFixed(8));
-    expect(utils.satoshisToCoins(randomSat)).toEqual(coins);
   });
 
   test('should get amount of invoice', () => {

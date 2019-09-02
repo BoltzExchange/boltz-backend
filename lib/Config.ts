@@ -65,6 +65,8 @@ type NotificationConfig = {
 
   prefix: string;
   interval: number;
+
+  otpsecretpath: string;
 };
 
 type ConfigType = {
@@ -101,6 +103,8 @@ class Config {
 
   public static defaultPrivatekeyPath = 'backupPrivatekey.pem';
 
+  public static defaultOtpSecretPath = 'otpSecret.dat';
+
   private config: ConfigType;
 
   private dataDir = Config.defaultDataDir;
@@ -111,7 +115,15 @@ class Config {
   constructor() {
     this.dataDir = getServiceDataDir('boltz');
 
-    const { configpath, mnemonicpath, dbpath, logpath, backup, grpc } = this.getDataDirPaths(this.dataDir);
+    const {
+      grpc,
+      dbpath,
+      backup,
+      logpath,
+      configpath,
+      mnemonicpath,
+      notification,
+    } = this.getDataDirPaths(this.dataDir);
 
     this.config = {
       configpath,
@@ -153,6 +165,8 @@ class Config {
 
         prefix: '',
         interval: 1,
+
+        otpsecretpath: notification.otpsecretpath,
       },
 
       pairs: [
@@ -321,6 +335,10 @@ class Config {
 
       backup: {
         privatekeypath: path.join(dataDir, Config.defaultPrivatekeyPath),
+      },
+
+      notification: {
+        otpsecretpath: path.join(dataDir, Config.defaultOtpSecretPath),
       },
     };
   }

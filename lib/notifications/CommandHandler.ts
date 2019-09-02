@@ -29,7 +29,13 @@ enum Command {
   ToggleReverseSwaps = 'togglereverse',
 }
 
+type Usage = {
+  command: string;
+  description: string;
+};
+
 type CommandInfo = {
+  usage?: Usage[];
   description: string;
   executor: (args: string[]) => Promise<void>
 };
@@ -49,16 +55,80 @@ class CommandHandler {
     private backupScheduler: BackupScheduler) {
 
     this.commands = new Map<string, CommandInfo>([
-      [Command.Help, { description: 'gets a list of all available commands', executor: this.help }],
+      [Command.Help, {
+        usage: [
+          {
+            command: 'help [command]',
+            description: 'gets more information about a single command',
+          },
+        ],
+        executor: this.help,
+        description: 'gets a list of all available commands',
+      }],
 
-      [Command.GetFees, { description: 'gets the accumulated fees', executor: this.getFees }],
-      [Command.GetBalance, { description: 'gets the balance of the wallets and channels', executor: this.getBalance }],
-      [Command.GetStats, { description: 'gets stats of all successful swaps', executor: this.getStats }],
-      [Command.SwapInfo, { description: 'gets all available information about a (reverse) swap', executor: this.swapInfo }],
+      [Command.GetFees, {
+        executor: this.getFees,
+        description: 'gets accumulated fees',
+      }],
+      [Command.GetBalance, {
+        executor: this.getBalance,
+        description: 'gets the balance of the wallets and channels',
+      }],
+      [Command.GetStats, {
+        executor: this.getStats,
+        description: 'gets stats of all successful swaps',
+      }],
+      [Command.SwapInfo, {
+        usage: [
+          {
+            command: 'swapinfo <id>',
+            description: 'gets all available information about the (reverse) swap with the id `<id>`',
+          },
+        ],
+        executor: this.swapInfo,
+        description: 'gets all available information about a (reverse) swap',
+      }],
 
-      [Command.Backup, { description: 'uploads a backup of the databases', executor: this.backup }],
-      [Command.Withdraw, { description: 'withdraws coins from Boltz', executor: this.withdraw }],
-      [Command.NewAddress, { description: 'generates a new address for a currency', executor: this.newAddress }],
+      [Command.Backup, {
+        executor: this.backup,
+        description: 'uploads a backup of the databases',
+      }],
+      [Command.Withdraw, {
+        usage: [
+          {
+            command: 'withdraw <OTP token> <currency> <invoice>',
+            description: 'withdraws lightning funds',
+          },
+          {
+            command: 'withdraw <OTP token> <currency> <address> <amount in whole coins>',
+            description: 'withdraws a specific amount of onchain coins',
+          },
+          {
+            command: 'withdraw <OTP token> <currency> <address> all',
+            description: 'withdraws all onchain coins',
+          },
+        ],
+        executor: this.withdraw,
+        description: 'withdraws coins from Boltz',
+      }],
+      [Command.NewAddress, {
+        usage: [
+          {
+            command: 'newaddress <currency>',
+            description: 'generates a new compatibility address for the currency `<currency>`',
+          },
+          {
+            command: 'newaddress <currency> [type]',
+            // tslint:disable-next-line: prefer-template
+            description: 'generates a new address for the currency `<currency>` of the type `[type]`. The available types are:\n' +
+            '  - `bech32`\n' +
+            '  - `compatibility`\n' +
+            '  - `legacy`',
+          },
+        ],
+        executor: this.newAddress,
+        description: 'generates a new address for a currency',
+      }],
       [Command.ToggleReverseSwaps, { description: 'enables or disables reverse swaps', executor: this.toggleReverseSwaps }],
     ]);
 
@@ -67,14 +137,14 @@ class CommandHandler {
     this.discord.on('message', async (message: string) => {
       const args = message.split(' ');
 
-      // Remove the first argument from the array which is the command itself
+      // Get and remove the first argument from the array which is the command itself
       const command = args.shift();
 
       if (command) {
         const commandInfo = this.commands.get(command.toLowerCase());
 
         if (commandInfo) {
-          this.logger.silly(`Executing command: ${command}`);
+          this.logger.debug(`Executing Discord command ${command}: ${args.join(', ')}`);
           await commandInfo.executor(args);
         }
       }
@@ -85,14 +155,36 @@ class CommandHandler {
    * Command executors
    */
 
-  private help = async () => {
-    let message = 'Commands:\n';
+  private help = async (args: string[]) => {
+    if (args.length === 0) {
+      let message = 'Commands:\n';
 
-    this.commands.forEach((info, command) => {
-      message += `\n**${command}**: ${info.description}`;
-    });
+      this.commands.forEach((info, command) => {
+        message += `\n**${command}**: ${info.description}`;
+      });
 
-    await this.discord.sendMessage(message);
+      await this.discord.sendMessage(message);
+    } else {
+      const command = args[0].toLowerCase();
+      const info = this.commands.get(command);
+
+      if (!info) {
+        await this.discord.sendMessage(`Could not find command: ${command}`);
+        return;
+      }
+
+      let message = `\`${command}\`: ${info.description}`;
+
+      if (info.usage) {
+        message += '\n\n**Usage:**\n';
+
+        for (const usage of info.usage) {
+          message += `\n\`${usage.command}\`: ${usage.description}`;
+        }
+      }
+
+      await this.discord.sendMessage(message);
+    }
   }
 
   private getBalance = async () => {
@@ -225,17 +317,19 @@ class CommandHandler {
       return;
     }
 
-    // Three arguments mean that just the OTP token, the currency and a lightning invoice was provided
+    const symbol = args[1].toUpperCase();
+
+    // Three arguments mean that just the OTP token, the symbol and a lightning invoice was provided
     if (args.length === 3) {
       try {
-        const response = await this.service.payInvoice(args[1].toUpperCase(), args[2]);
+        const response = await this.service.payInvoice(symbol, args[2]);
 
         await this.discord.sendMessage(`Paid lightning invoice.\nPreimage: ${getHexString(response.paymentPreimage)}`);
       } catch (error) {
         await this.discord.sendMessage(`Could not pay lightning invoice: ${this.formatError(error)}`);
       }
 
-    // Four arguments mean that the OTP token, the currency, an address and the amount were provided
+    // Four arguments mean that the OTP token, the symbol, an address and the amount were provided
     } else if (args.length === 4) {
       try {
         const sendAll = args[3] === 'all';
@@ -243,10 +337,10 @@ class CommandHandler {
 
         const response = await this.service.sendCoins({
           amount,
+          symbol,
           sendAll,
 
           address: args[2],
-          symbol: args[1].toUpperCase(),
         });
 
         await this.discord.sendMessage(`Sent transaction: ${response.transactionId}:${response.vout}`);

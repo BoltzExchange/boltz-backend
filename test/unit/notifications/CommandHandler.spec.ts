@@ -9,9 +9,9 @@ import PairRepository from '../../../lib/service/PairRepository';
 import SwapRepository from '../../../lib/service/SwapRepository';
 import BackupScheduler from '../../../lib/backup/BackupScheduler';
 import DiscordClient from '../../../lib/notifications/DiscordClient';
-import { satoshisToCoins, coinsToSatoshis } from '../../../lib/DenominationConverter';
 import CommandHandler from '../../../lib/notifications/CommandHandler';
 import ReverseSwapRepository from '../../../lib/service/ReverseSwapRepository';
+import { satoshisToCoins, coinsToSatoshis } from '../../../lib/DenominationConverter';
 import { OutputType, Balance, WalletBalance, LightningBalance, ChannelBalance } from '../../../lib/proto/boltzrpc_pb';
 
 const getRandomNumber = () => Math.floor(Math.random() * 10000);
@@ -198,6 +198,36 @@ describe('CommandHandler', () => {
     await wait(5);
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
+    // tslint:disable-next-line: prefer-template
+    expect(mockSendMessage).toHaveBeenCalledWith('Commands:\n\n' +
+      '**help**: gets a list of all available commands\n' +
+      '**getfees**: gets accumulated fees\n' +
+      '**getbalance**: gets the balance of the wallets and channels\n' +
+      '**getstats**: gets stats of all successful swaps\n' +
+      '**swapinfo**: gets all available information about a (reverse) swap\n' +
+      '**backup**: uploads a backup of the databases\n' +
+      '**withdraw**: withdraws coins from Boltz\n' +
+      '**newaddress**: generates a new address for a currency\n' +
+      '**togglereverse**: enables or disables reverse swaps',
+    );
+  });
+
+  test('should send help for single command', async () => {
+    // Should just send the description for commands that have no additonal arguments
+    sendMessage('help getfees');
+    await wait(5);
+
+    expect(mockSendMessage).toHaveBeenCalledTimes(1);
+    expect(mockSendMessage).toHaveBeenCalledWith('`getfees`: gets accumulated fees');
+
+    // Should send the description and the usage for commands that have arguments
+    sendMessage('help help');
+    await wait(5);
+
+    expect(mockSendMessage).toHaveBeenCalledTimes(2);
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      '`help`: gets a list of all available commands\n\n**Usage:**\n\n`help [command]`: gets more information about a single command',
+    );
   });
 
   test('should get accumulated fees', async () => {

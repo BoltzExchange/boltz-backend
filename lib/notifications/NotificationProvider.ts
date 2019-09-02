@@ -3,6 +3,7 @@ import Swap from '../db/models/Swap';
 import Service from '../service/Service';
 import DiscordClient from './DiscordClient';
 import CommandHandler from './CommandHandler';
+import DiskUsageChecker from './DiskUsageChecker';
 import ReverseSwap from '../db/models/ReverseSwap';
 import BackupScheduler from '../backup/BackupScheduler';
 import { satoshisToCoins } from '../DenominationConverter';
@@ -17,10 +18,12 @@ import {
   getLightningCurrency,
 } from '../Utils';
 
+// TODO: test balance and service alerts
 // TODO: use events instead of intervals to check connections and balances
 class NotificationProvider {
   private timer!: any;
   private discord: DiscordClient;
+  private diskUsageChecker: DiskUsageChecker;
 
   // These Sets contain the symbols for which an alert notification was sent
   private walletAlerts = new Set<string>();
@@ -56,6 +59,8 @@ class NotificationProvider {
       this.service,
       this.backup,
     );
+
+    this.diskUsageChecker = new DiskUsageChecker(this.logger, this.discord);
   }
 
   public init = async () => {
@@ -66,8 +71,11 @@ class NotificationProvider {
       this.logger.verbose('Connected to Discord');
 
       const check = async () => {
-        await this.checkConnections();
-        await this.checkBalances();
+        await Promise.all([
+          this.checkBalances(),
+          this.checkConnections(),
+          this.diskUsageChecker.checkUsage(),
+        ]);
       };
 
       await check();
@@ -241,8 +249,7 @@ class NotificationProvider {
     this.logger.warn(`${currency} ${balanceName} balance is less than ${threshold}: ${balance}`);
 
     // tslint:disable-next-line:prefer-template
-    let message = ':rotating_light: **Alert** :rotating_light:\n\n' +
-      `The ${currency} ${balanceName} balance of ${actual} ${currency} is less than expected ${expected} ${currency}\n\n` +
+    let message = `The ${currency} ${balanceName} balance of ${actual} ${currency} is less than expected ${expected} ${currency}\n\n` +
       `Funds missing: **${missing} ${currency}**`;
 
     if (isWallet) {
@@ -250,7 +257,7 @@ class NotificationProvider {
       message += `\nDeposit address: **${address}**`;
     }
 
-    await this.discord.sendMessage(message);
+    await this.discord.sendAlert(message);
   }
 
   private sendRelief = async (currency: string, balance: number, threshold: number, isWallet: boolean, isLocal?: boolean) => {

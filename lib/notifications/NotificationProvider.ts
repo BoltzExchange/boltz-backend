@@ -30,6 +30,9 @@ class NotificationProvider {
 
   private disconnected = new Set<string>();
 
+  // This is a Discord hack to add trailing whitespace which is trimmed by default
+  private static trailingWhitespace = '\n** **';
+
   constructor(
     private logger: Logger,
     private service: Service,
@@ -197,7 +200,7 @@ class NotificationProvider {
       const { onchainSymbol, lightningSymbol } = getSymbols(swap.pair, swap.orderSide, isReverse);
 
       // tslint:disable-next-line: prefer-template
-      let message = `**${getSwapName(isReverse)}**\n\n` +
+      let message = `**${getSwapName(isReverse)}**\n` +
        `${getBasicSwapInfo(swap, onchainSymbol, lightningSymbol)}` +
        `Fees earned: ${satoshisToCoins(swap.fee)} ${onchainSymbol}\n` +
        `Miner fees: ${satoshisToCoins(swap.minerFee!)} ${onchainSymbol}`;
@@ -207,7 +210,7 @@ class NotificationProvider {
         message += `\nRouting fees: ${(swap as Swap).routingFee! / 1000} ${this.getSmallestDenomination(lightningSymbol)}`;
       }
 
-      await this.discord.sendMessage(message);
+      await this.discord.sendMessage(`${message}${NotificationProvider.trailingWhitespace}`);
     });
 
     this.service.eventHandler.on('swap.failure', async (swap, reason) => {
@@ -215,7 +218,7 @@ class NotificationProvider {
       const { onchainSymbol, lightningSymbol } = getSymbols(swap.pair, swap.orderSide, isReverse);
 
       // tslint:disable-next-line: prefer-template
-      let message = `**${getSwapName(isReverse)} failed: ${reason}**\n\n` +
+      let message = `**${getSwapName(isReverse)} failed: ${reason}**\n` +
         `${getBasicSwapInfo(swap, onchainSymbol, lightningSymbol)}`;
 
       if (isReverse) {
@@ -224,7 +227,7 @@ class NotificationProvider {
         message += `Invoice: ${swap.invoice}`;
       }
 
-      await this.discord.sendMessage(message);
+      await this.discord.sendMessage(`${message}${NotificationProvider.trailingWhitespace}`);
     });
   }
 

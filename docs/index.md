@@ -21,3 +21,4 @@ Read the API documentation [here](/api.md)
 
 * [Source Code](https://github.com/boltzExchange)
 * [Frequently Asked Questions](https://boltz.exchange/faq)
+* [Discord](https://discordapp.com/invite/QBvZGcW)

@@ -298,7 +298,7 @@ describe('Service', () => {
     expect(mockGetNetworkInfo).toHaveBeenCalledTimes(1);
     expect(mockGetBlockchainInfo).toHaveBeenCalledTimes(1);
 
-    expect(info.version).toEqual(packageJson.version);
+    expect(info.version.startsWith(packageJson.version)).toBeTruthy();
 
     const currency = info.chainsMap[0] as CurrencyInfo.AsObject;
 

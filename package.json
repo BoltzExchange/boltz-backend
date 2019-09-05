@@ -5,6 +5,7 @@
   "main": "dist/Boltz.js",
   "scripts": {
     "proto": "cross-os proto",
+    "precompile": "node parseGitCommit.js",
     "compile": "tsc && cross-os postcompile",
     "compile:watch": "tsc -w",
     "start": "node bin/boltzd",

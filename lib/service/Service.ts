@@ -3,6 +3,7 @@ import { SwapUtils, OutputType } from 'boltz-core';
 import { Output } from 'boltz-core/dist/FeeCalculator';
 import Errors from './Errors';
 import Logger from '../Logger';
+import commitHash from '../Version';
 import Wallet from '../wallet/Wallet';
 import EventHandler from './EventHandler';
 import { PairConfig } from '../consts/Types';
@@ -125,7 +126,7 @@ class Service {
     const response = new GetInfoResponse();
     const map = response.getChainsMap();
 
-    response.setVersion(packageJson.version);
+    response.setVersion(`${packageJson.version}${commitHash}`);
 
     for (const [, currency] of this.currencies) {
       const chain = new ChainInfo();

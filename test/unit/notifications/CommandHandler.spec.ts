@@ -4,7 +4,6 @@ import { stringify, getHexBuffer } from '../../../lib/Utils';
 import Database from '../../../lib/db/Database';
 import Service from '../../../lib/service/Service';
 import { NotificationConfig } from '../../../lib/Config';
-import { swapExample, reverseSwapExample } from './ExampleSwaps';
 import PairRepository from '../../../lib/service/PairRepository';
 import SwapRepository from '../../../lib/service/SwapRepository';
 import BackupScheduler from '../../../lib/backup/BackupScheduler';
@@ -12,6 +11,7 @@ import DiscordClient from '../../../lib/notifications/DiscordClient';
 import CommandHandler from '../../../lib/notifications/CommandHandler';
 import ReverseSwapRepository from '../../../lib/service/ReverseSwapRepository';
 import { satoshisToCoins, coinsToSatoshis } from '../../../lib/DenominationConverter';
+import { swapExample, reverseSwapExample, pendingSwapExample, pendingReverseSwapExample } from './ExampleSwaps';
 import { OutputType, Balance, WalletBalance, LightningBalance, ChannelBalance } from '../../../lib/proto/boltzrpc_pb';
 
 const getRandomNumber = () => Math.floor(Math.random() * 10000);
@@ -171,7 +171,10 @@ describe('CommandHandler', () => {
 
     await Promise.all([
       swapRepository.addSwap(swapExample),
+      swapRepository.addSwap(pendingSwapExample),
+
       reverseSwapRepository.addReverseSwap(reverseSwapExample),
+      reverseSwapRepository.addReverseSwap(pendingReverseSwapExample),
     ]);
   });
 
@@ -202,9 +205,10 @@ describe('CommandHandler', () => {
     expect(mockSendMessage).toHaveBeenCalledWith('Commands:\n\n' +
       '**help**: gets a list of all available commands\n' +
       '**getfees**: gets accumulated fees\n' +
-      '**getbalance**: gets the balance of the wallets and channels\n' +
-      '**getstats**: gets stats of all successful swaps\n' +
       '**swapinfo**: gets all available information about a (reverse) swap\n' +
+      '**getstats**: gets stats of all successful swaps\n' +
+      '**getbalance**: gets the balance of the wallets and channels\n' +
+      '**pendingswaps**: gets a list of pending (reverse) swaps\n' +
       '**backup**: uploads a backup of the databases\n' +
       '**withdraw**: withdraws coins from Boltz\n' +
       '**newaddress**: generates a new address for a currency\n' +
@@ -242,32 +246,13 @@ describe('CommandHandler', () => {
     );
   });
 
-  test('should get balances', async () => {
-    sendMessage('getbalance');
-    await wait(5);
-
-    const lightningBalance = btcBalance.getLightningBalance()!;
-
-    expect(mockSendMessage).toHaveBeenCalledTimes(1);
-    expect(mockSendMessage).toHaveBeenCalledWith(
-      // tslint:disable-next-line: prefer-template
-      'Balances:\n\n' +
-      `**BTC**\nWallet: ${satoshisToCoins(btcBalance.getWalletBalance()!.getTotalBalance())} BTC\n\n` +
-      'LND:\n' +
-      `  Wallet: ${satoshisToCoins(lightningBalance.getWalletBalance()!.getTotalBalance())} BTC\n\n` +
-      '  Channels:\n' +
-      `    Local: ${satoshisToCoins(lightningBalance.getChannelBalance()!.getLocalBalance())} BTC\n` +
-      `    Remote: ${satoshisToCoins(lightningBalance.getChannelBalance()!.getRemoteBalance())} BTC`,
-    );
-  });
-
   test('should get information about (reverse) swaps', async () => {
     sendMessage(`swapinfo ${swapExample.id}`);
     await wait(50);
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(
-      `Swap ${swapExample.id}:\n\`\`\`${stringify(await swapRepository.getSwap({ id: swapExample.id }))}\`\`\``,
+      `Swap \`${swapExample.id}\`:\n\`\`\`${stringify(await swapRepository.getSwap({ id: swapExample.id }))}\`\`\``,
     );
 
     sendMessage(`swapinfo ${reverseSwapExample.id}`);
@@ -275,7 +260,7 @@ describe('CommandHandler', () => {
 
     expect(mockSendMessage).toHaveBeenCalledTimes(2);
     expect(mockSendMessage).toBeCalledWith(
-      `Reverse swap ${reverseSwapExample.id}:\n\`\`\`${stringify(await reverseSwapRepository.getReverseSwap({ id: reverseSwapExample.id }))}\`\`\``,
+      `Reverse swap \`${reverseSwapExample.id}\`:\n\`\`\`${stringify(await reverseSwapRepository.getReverseSwap({ id: reverseSwapExample.id }))}\`\`\``,
     );
 
     const errorMessage = 'Could not find swap with id: ';
@@ -317,57 +302,37 @@ describe('CommandHandler', () => {
     )}\`\`\``);
   });
 
-  test('should parse output types', () => {
-    const getOutputType = commandHandler['getOutputType'];
-
-    expect(getOutputType('bech32')).toEqual(OutputType.BECH32);
-    expect(getOutputType('compatibility')).toEqual(OutputType.COMPATIBILITY);
-    expect(getOutputType('legacy')).toEqual(OutputType.LEGACY);
-
-    expect(getOutputType('BECH32')).toEqual(OutputType.BECH32);
-
-    const notFound = 'not found';
-
-    expect(getOutputType.bind(getOutputType, notFound)).toThrow(`could not find output type: ${notFound}`);
-  });
-
-  test('should generate new addresses', async () => {
-    sendMessage('newaddress BTC');
+  test('should get balances', async () => {
+    sendMessage('getbalance');
     await wait(5);
 
-    expect(mockNewAddress).toHaveBeenCalledTimes(1);
-    expect(mockNewAddress).toHaveBeenCalledWith('BTC', OutputType.COMPATIBILITY);
-
-    sendMessage('newaddress BTC bech32');
-    await wait(5);
-
-    expect(mockNewAddress).toHaveBeenCalledTimes(2);
-    expect(mockNewAddress).toHaveBeenCalledWith('BTC', OutputType.BECH32);
-
-    // Send an error if no currency is specified
-    sendMessage('newaddress');
-    await wait(5);
-
-    expect(mockSendMessage).toHaveBeenCalledTimes(3);
-    expect(mockSendMessage).toHaveBeenCalledWith('Could not generate address: no currency was specified');
-  });
-
-  test('should toggle reverse swaps', async () => {
-    sendMessage('togglereverse');
-    await wait(5);
-
-    expect(service.allowReverseSwaps).toBeFalsy();
+    const lightningBalance = btcBalance.getLightningBalance()!;
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
-    expect(mockSendMessage).toHaveBeenCalledWith('Disabled reverse swaps');
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      // tslint:disable-next-line: prefer-template
+      'Balances:\n\n' +
+      `**BTC**\nWallet: ${satoshisToCoins(btcBalance.getWalletBalance()!.getTotalBalance())} BTC\n\n` +
+      'LND:\n' +
+      `  Wallet: ${satoshisToCoins(lightningBalance.getWalletBalance()!.getTotalBalance())} BTC\n\n` +
+      '  Channels:\n' +
+      `    Local: ${satoshisToCoins(lightningBalance.getChannelBalance()!.getLocalBalance())} BTC\n` +
+      `    Remote: ${satoshisToCoins(lightningBalance.getChannelBalance()!.getRemoteBalance())} BTC`,
+    );
+  });
 
-    sendMessage('togglereverse');
-    await wait(5);
+  test('should get pending swaps', async () => {
+    sendMessage('pendingswaps');
+    await wait(50);
 
-    expect(service.allowReverseSwaps).toBeTruthy();
-
-    expect(mockSendMessage).toHaveBeenCalledTimes(2);
-    expect(mockSendMessage).toHaveBeenCalledWith('Enabled reverse swaps');
+    expect(mockSendMessage).toHaveBeenCalledTimes(1);
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      // tslint:disable-next-line: prefer-template
+      '\n\n**Pending Swaps:**\n\n' +
+      `- \`${pendingSwapExample.id}\`\n\n` +
+      '**Pending reverse Swaps:**\n\n' +
+      `- \`${pendingReverseSwapExample.id}\`\n`,
+    );
   });
 
   test('should do a database backup', async () => {
@@ -483,6 +448,59 @@ describe('CommandHandler', () => {
 
     expect(mockSendMessage).toHaveBeenCalledTimes(7);
     expect(mockSendMessage).toHaveBeenCalledWith('Invalid OTP token');
+  });
+
+  test('should generate new addresses', async () => {
+    sendMessage('newaddress BTC');
+    await wait(5);
+
+    expect(mockNewAddress).toHaveBeenCalledTimes(1);
+    expect(mockNewAddress).toHaveBeenCalledWith('BTC', OutputType.COMPATIBILITY);
+
+    sendMessage('newaddress BTC bech32');
+    await wait(5);
+
+    expect(mockNewAddress).toHaveBeenCalledTimes(2);
+    expect(mockNewAddress).toHaveBeenCalledWith('BTC', OutputType.BECH32);
+
+    // Send an error if no currency is specified
+    sendMessage('newaddress');
+    await wait(5);
+
+    expect(mockSendMessage).toHaveBeenCalledTimes(3);
+    expect(mockSendMessage).toHaveBeenCalledWith('Could not generate address: no currency was specified');
+  });
+
+  test('should toggle reverse swaps', async () => {
+    sendMessage('togglereverse');
+    await wait(5);
+
+    expect(service.allowReverseSwaps).toBeFalsy();
+
+    expect(mockSendMessage).toHaveBeenCalledTimes(1);
+    expect(mockSendMessage).toHaveBeenCalledWith('Disabled reverse swaps');
+
+    sendMessage('togglereverse');
+    await wait(5);
+
+    expect(service.allowReverseSwaps).toBeTruthy();
+
+    expect(mockSendMessage).toHaveBeenCalledTimes(2);
+    expect(mockSendMessage).toHaveBeenCalledWith('Enabled reverse swaps');
+  });
+
+  test('should parse output types', () => {
+    const getOutputType = commandHandler['getOutputType'];
+
+    expect(getOutputType('bech32')).toEqual(OutputType.BECH32);
+    expect(getOutputType('compatibility')).toEqual(OutputType.COMPATIBILITY);
+    expect(getOutputType('legacy')).toEqual(OutputType.LEGACY);
+
+    expect(getOutputType('BECH32')).toEqual(OutputType.BECH32);
+
+    const notFound = 'not found';
+
+    expect(getOutputType.bind(getOutputType, notFound)).toThrow(`could not find output type: ${notFound}`);
   });
 
   test('should format errors', () => {

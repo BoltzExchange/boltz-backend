@@ -21,8 +21,17 @@ export const swapExample = {
   redeemScript: 'a9140e8ff7435f5e0c9b7b82c5a8b8c0e225f55f956187632103e1afb0000fc8acf1af59792f35d45f74a9b20784321bdfdc6daa54e72784ae046702a300b1752103533d4307acfa023c7870c1f3c981e3973a18d43458857f201288c19967e9763568ac',
 };
 
+export const pendingSwapExample = {
+  ...swapExample,
+
+  id : '654321',
+  status: undefined,
+  // tslint:disable-next-line: max-line-length
+  invoice: 'lnbcrt1pwhzymjpp5caehd2n8nzlem65a3vh35zq4z35a8q3l4j3z6v4vdncq5fpxrpcqdqqcqzpgq0tmq4yztsu25983latgnlqw5e2r20ysc98k8gljukp5tcy0k85rdgg820udupmdsnkyxxua5ptl3yaets9h5xaxn7futp4m6g90l9gqkr06ct',
+};
+
 export const reverseSwapExample = {
-  id: '654321',
+  id: 'r123456',
 
   fee: 200,
   orderSide: OrderSide.SELL,
@@ -38,4 +47,11 @@ export const reverseSwapExample = {
   invoice: 'lnbcrt20u1pwdsqqppp5dhevzcnd2xrdwuyzv2s342mcwzuukjqlrkwyvyyda66hukkhrhwsdqqcqzpg9y9m249r5m6djquw5jd8klfsehgfpsn3f88hzktcmv6k6p65h2hra9hqj5xrhh27dxktr0wtmn7f8wk4zg2gprnl5zgsas45v7jq5hcqdr8n5a',
   // tslint:disable-next-line: max-line-length
   redeemScript: 'a9140e8ff7435f5e0c9b7b82c5a8b8c0e225f55f956187632103e1afb0000fc8acf1af59792f35d45f74a9b20784321bdfdc6daa54e72784ae046702a300b1752103533d4307acfa023c7870c1f3c981e3973a18d43458857f201288c19967e9763568ac',
+};
+
+export const pendingReverseSwapExample = {
+  ...reverseSwapExample,
+
+  id: 'r654321',
+  status: SwapUpdateEvent.TransactionMempool,
 };

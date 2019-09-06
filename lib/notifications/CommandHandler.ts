@@ -7,6 +7,7 @@ import OtpManager from './OtpManager';
 import Service from '../service/Service';
 import DiscordClient from './DiscordClient';
 import { NotificationConfig } from '../Config';
+import { SwapUpdateEvent } from '../consts/Enums';
 import ReverseSwap from '../db/models/ReverseSwap';
 import BackupScheduler from '../backup/BackupScheduler';
 import { OutputType, Balance } from '../proto/boltzrpc_pb';
@@ -21,6 +22,7 @@ enum Command {
   SwapInfo = 'swapinfo',
   GetStats = 'getstats',
   GetBalance = 'getbalance',
+  PendingSwaps = 'pendingswaps',
 
   // Commands that generate a value or trigger a function
   Backup = 'backup',
@@ -70,14 +72,6 @@ class CommandHandler {
         executor: this.getFees,
         description: 'gets accumulated fees',
       }],
-      [Command.GetBalance, {
-        executor: this.getBalance,
-        description: 'gets the balance of the wallets and channels',
-      }],
-      [Command.GetStats, {
-        executor: this.getStats,
-        description: 'gets stats of all successful swaps',
-      }],
       [Command.SwapInfo, {
         usage: [
           {
@@ -87,6 +81,18 @@ class CommandHandler {
         ],
         executor: this.swapInfo,
         description: 'gets all available information about a (reverse) swap',
+      }],
+      [Command.GetStats, {
+        executor: this.getStats,
+        description: 'gets stats of all successful swaps',
+      }],
+      [Command.GetBalance, {
+        executor: this.getBalance,
+        description: 'gets the balance of the wallets and channels',
+      }],
+      [Command.PendingSwaps, {
+        executor: this.pendingSwaps,
+        description: 'gets a list of pending (reverse) swaps',
       }],
 
       [Command.Backup, {
@@ -129,7 +135,10 @@ class CommandHandler {
         executor: this.newAddress,
         description: 'generates a new address for a currency',
       }],
-      [Command.ToggleReverseSwaps, { description: 'enables or disables reverse swaps', executor: this.toggleReverseSwaps }],
+      [Command.ToggleReverseSwaps, {
+        executor: this.toggleReverseSwaps,
+        description: 'enables or disables reverse swaps',
+      }],
     ]);
 
     this.optManager = new OtpManager(this.logger, config);
@@ -144,7 +153,7 @@ class CommandHandler {
         const commandInfo = this.commands.get(command.toLowerCase());
 
         if (commandInfo) {
-          this.logger.debug(`Executing Discord command ${command}: ${args.join(', ')}`);
+          this.logger.debug(`Executing Discord command: ${command} ${args.join(', ')}`);
           await commandInfo.executor(args);
         }
       }
@@ -185,33 +194,6 @@ class CommandHandler {
 
       await this.discord.sendMessage(message);
     }
-  }
-
-  private getBalance = async () => {
-    const balances = (await this.service.getBalance()).getBalancesMap();
-
-    let message = 'Balances:';
-
-    balances.forEach((balance: Balance, symbol: string) => {
-      // tslint:disable-next-line:prefer-template
-      message += `\n\n**${symbol}**\n` +
-        `Wallet: ${satoshisToCoins(balance.getWalletBalance()!.getTotalBalance())} ${symbol}`;
-
-      const lightningBalance = balance.getLightningBalance();
-
-      if (lightningBalance) {
-        const channelBalance = lightningBalance.getChannelBalance()!;
-
-        // tslint:disable-next-line:prefer-template
-        message += '\n\nLND:\n' +
-          `  Wallet: ${satoshisToCoins(lightningBalance.getWalletBalance()!.getTotalBalance())} ${symbol}\n\n` +
-          '  Channels:\n' +
-          `    Local: ${satoshisToCoins(channelBalance.getLocalBalance())} ${symbol}\n` +
-          `    Remote: ${satoshisToCoins(channelBalance.getRemoteBalance())} ${symbol}`;
-      }
-    });
-
-    await this.discord.sendMessage(message);
   }
 
   private getFees = async () => {
@@ -267,6 +249,89 @@ class CommandHandler {
     await this.discord.sendMessage(`${CommandHandler.codeBlock}${stats}${CommandHandler.codeBlock}`);
   }
 
+  private getBalance = async () => {
+    const balances = (await this.service.getBalance()).getBalancesMap();
+
+    let message = 'Balances:';
+
+    balances.forEach((balance: Balance, symbol: string) => {
+      // tslint:disable-next-line:prefer-template
+      message += `\n\n**${symbol}**\n` +
+        `Wallet: ${satoshisToCoins(balance.getWalletBalance()!.getTotalBalance())} ${symbol}`;
+
+      const lightningBalance = balance.getLightningBalance();
+
+      if (lightningBalance) {
+        const channelBalance = lightningBalance.getChannelBalance()!;
+
+        // tslint:disable-next-line:prefer-template
+        message += '\n\nLND:\n' +
+          `  Wallet: ${satoshisToCoins(lightningBalance.getWalletBalance()!.getTotalBalance())} ${symbol}\n\n` +
+          '  Channels:\n' +
+          `    Local: ${satoshisToCoins(channelBalance.getLocalBalance())} ${symbol}\n` +
+          `    Remote: ${satoshisToCoins(channelBalance.getRemoteBalance())} ${symbol}`;
+      }
+    });
+
+    await this.discord.sendMessage(message);
+  }
+
+  private pendingSwaps = async () => {
+    const [pendingSwaps, pendingReverseSwaps] = await Promise.all([
+      this.service.swapRepository.getSwaps({
+        status: {
+          [Op.or]: {
+            [Op.not]: [
+              SwapUpdateEvent.SwapExpired,
+              SwapUpdateEvent.InvoiceFailedToPay,
+              SwapUpdateEvent.TransactionClaimed,
+            ],
+            // Swaps have an empty status by default
+            // tslint:disable-next-line: no-null-keyword
+            [Op.eq]: null,
+          },
+        },
+      }),
+      this.service.reverseSwapRepository.getReverseSwaps({
+        status: {
+          [Op.not]: [
+            SwapUpdateEvent.InvoiceSettled,
+            SwapUpdateEvent.TransactionRefunded,
+          ],
+        },
+      }),
+    ]);
+
+    let message = '';
+
+    const formatSwapIds = (isReverse: boolean) => {
+      const swaps = isReverse ? pendingReverseSwaps : pendingSwaps;
+
+      if (swaps.length > 0) {
+        message += `\n${message.endsWith('\n') ? '' : '\n'}**Pending${isReverse ? ' reverse' : ''} Swaps:**\n\n`;
+
+        for (const swap of swaps) {
+          message += `- \`${swap.id}\`\n`;
+        }
+      }
+    };
+
+    formatSwapIds(false);
+    formatSwapIds(true);
+
+    await this.discord.sendMessage(message);
+  }
+
+  private backup = async () => {
+    try {
+      await this.backupScheduler.uploadDatabase(new Date());
+
+      await this.discord.sendMessage('Uploaded backup of Boltz database');
+    } catch (error) {
+      await this.discord.sendMessage(`Could not upload backup: ${error}`);
+    }
+  }
+
   private newAddress = async (args: string[]) => {
     try {
       if (args.length === 0) {
@@ -285,22 +350,6 @@ class CommandHandler {
 
     } catch (error) {
       await this.discord.sendMessage(`Could not generate address: ${error}`);
-    }
-  }
-
-  private toggleReverseSwaps = async () => {
-    this.service.allowReverseSwaps = !this.service.allowReverseSwaps;
-
-    await this.discord.sendMessage(`${this.service.allowReverseSwaps ? 'Enabled' : 'Disabled'} reverse swaps`);
-  }
-
-  private backup = async () => {
-    try {
-      await this.backupScheduler.uploadDatabase(new Date());
-
-      await this.discord.sendMessage('Uploaded backup of Boltz database');
-    } catch (error) {
-      await this.discord.sendMessage(`Could not upload backup: ${error}`);
     }
   }
 
@@ -350,6 +399,12 @@ class CommandHandler {
     }
   }
 
+  private toggleReverseSwaps = async () => {
+    this.service.allowReverseSwaps = !this.service.allowReverseSwaps;
+
+    await this.discord.sendMessage(`${this.service.allowReverseSwaps ? 'Enabled' : 'Disabled'} reverse swaps`);
+  }
+
   /*
    * Helper functions
    */
@@ -391,7 +446,7 @@ class CommandHandler {
 
   private sendSwapInfo = async (swap: Swap | ReverseSwap, isReverse: boolean) => {
     // tslint:disable-next-line: prefer-template
-    await this.discord.sendMessage(`${isReverse ? 'Reverse swap' : 'Swap'} ${swap.id}:\n` +
+    await this.discord.sendMessage(`${isReverse ? 'Reverse swap' : 'Swap'} \`${swap.id}\`:\n` +
         `${CommandHandler.codeBlock}${stringify(swap)}${CommandHandler.codeBlock}`);
   }
 

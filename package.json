@@ -4,6 +4,7 @@
   "description": "Backend of boltz",
   "main": "dist/Boltz.js",
   "scripts": {
+    "postinstall": "npm run precompile",
     "proto": "cross-os proto",
     "precompile": "node --no-warnings parseGitCommit.js",
     "compile": "tsc && cross-os postcompile",

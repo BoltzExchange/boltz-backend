@@ -208,6 +208,7 @@ describe('CommandHandler', () => {
       '**swapinfo**: gets all available information about a (reverse) swap\n' +
       '**getstats**: gets stats of all successful swaps\n' +
       '**getbalance**: gets the balance of the wallets and channels\n' +
+      '**lockedfunds**: gets funds locked up by Boltz\n' +
       '**pendingswaps**: gets a list of pending (reverse) swaps\n' +
       '**backup**: uploads a backup of the databases\n' +
       '**withdraw**: withdraws coins from Boltz\n' +
@@ -318,6 +319,18 @@ describe('CommandHandler', () => {
       '  Channels:\n' +
       `    Local: ${satoshisToCoins(lightningBalance.getChannelBalance()!.getLocalBalance())} BTC\n` +
       `    Remote: ${satoshisToCoins(lightningBalance.getChannelBalance()!.getRemoteBalance())} BTC`,
+    );
+  });
+
+  test('should get locked up funds', async () => {
+    sendMessage('lockedfunds');
+    await wait(50);
+
+    expect(mockSendMessage).toHaveBeenCalledTimes(1);
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      // tslint:disable-next-line: prefer-template
+      '**Locked up funds:**\n\n' +
+      '- 0.01 BTC',
     );
   });
 

@@ -22,6 +22,7 @@ enum Command {
   SwapInfo = 'swapinfo',
   GetStats = 'getstats',
   GetBalance = 'getbalance',
+  LockedFunds = 'lockedfunds',
   PendingSwaps = 'pendingswaps',
 
   // Commands that generate a value or trigger a function
@@ -89,6 +90,10 @@ class CommandHandler {
       [Command.GetBalance, {
         executor: this.getBalance,
         description: 'gets the balance of the wallets and channels',
+      }],
+      [Command.LockedFunds, {
+        executor: this.lockedFunds,
+        description: 'gets funds locked up by Boltz',
       }],
       [Command.PendingSwaps, {
         executor: this.pendingSwaps,
@@ -276,6 +281,33 @@ class CommandHandler {
     await this.discord.sendMessage(message);
   }
 
+  private lockedFunds = async () => {
+    const pendingReverseSwaps = await this.getPendingReverseSwaps();
+
+    const lockedFunds = new Map<string, number>();
+
+    for (const pending of pendingReverseSwaps) {
+      const pair = splitPairId(pending.pair);
+      const chainCurrency = getChainCurrency(pair.base, pair.quote, pending.orderSide, true);
+
+      const existingValue = lockedFunds.get(chainCurrency);
+
+      if (existingValue !== undefined) {
+        lockedFunds.set(chainCurrency, existingValue + pending.onchainAmount);
+      } else {
+        lockedFunds.set(chainCurrency, pending.onchainAmount);
+      }
+    }
+
+    let message = '**Locked up funds:**\n';
+
+    for (const [currency, amountLocked] of lockedFunds) {
+      message += `\n- ${satoshisToCoins(amountLocked)} ${currency}`;
+    }
+
+    await this.discord.sendMessage(message);
+  }
+
   private pendingSwaps = async () => {
     const [pendingSwaps, pendingReverseSwaps] = await Promise.all([
       this.service.swapRepository.getSwaps({
@@ -292,14 +324,7 @@ class CommandHandler {
           },
         },
       }),
-      this.service.reverseSwapRepository.getReverseSwaps({
-        status: {
-          [Op.not]: [
-            SwapUpdateEvent.InvoiceSettled,
-            SwapUpdateEvent.TransactionRefunded,
-          ],
-        },
-      }),
+      this.getPendingReverseSwaps(),
     ]);
 
     let message = '';
@@ -408,6 +433,17 @@ class CommandHandler {
   /*
    * Helper functions
    */
+
+  private getPendingReverseSwaps = async () => {
+    return this.service.reverseSwapRepository.getReverseSwaps({
+      status: {
+        [Op.not]: [
+          SwapUpdateEvent.InvoiceSettled,
+          SwapUpdateEvent.TransactionRefunded,
+        ],
+      },
+    });
+  }
 
   private getOutputType = (type: string) => {
     switch (type.toLowerCase()) {

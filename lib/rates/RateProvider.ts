@@ -112,7 +112,7 @@ class RateProvider {
 
     await this.updateRates(minerFees);
 
-    this.logger.debug(`Got pairs: ${stringify(mapToObject(this.pairs))}`);
+    this.logger.silly(`Got pairs: ${stringify(mapToObject(this.pairs))}`);
     this.logger.debug(`Updating rates every ${this.rateUpdateInterval} minutes`);
 
     this.timer = setInterval(async () => {

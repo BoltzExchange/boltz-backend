@@ -1,4 +1,4 @@
-const fs = require('fs').promises;
+const fs = require('fs');
 const childProcess = require('child_process');
 
 const executeCommand = (command) => {
@@ -24,19 +24,14 @@ const isDirty = () => {
 
 const versionFilePath = `${__dirname}/lib/Version.ts`;
 
+try {
+  // Delete the version file if it exists
+  fs.unlinkSync(versionFilePath);
+} catch (error) {}
 
-(async () => {
-  try {
-    // Delete the version file is it exists
-    if (await fs.access(versionFilePath)) {
-      await fs.unlink(versionFilePath);
-    }
-  } catch (error) {}
-  
-  const commitHash = getCommitHash();
-  
-  await fs.writeFile(
-    versionFilePath,
-    `export default '${commitHash === '' ? '' : '-' + commitHash}${isDirty() ? '-dirty' : ''}';\n`,
-  );
-})();
+const commitHash = getCommitHash();
+
+fs.writeFileSync(
+  versionFilePath,
+  `export default '${commitHash === '' ? '' : '-' + commitHash}${isDirty() ? '-dirty' : ''}';\n`,
+);

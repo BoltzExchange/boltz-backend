@@ -68,3 +68,6 @@ site/
 
 # Visual Studio Code configuration
 .vscode/
+
+# Version file generated in build process
+lib/Version.ts

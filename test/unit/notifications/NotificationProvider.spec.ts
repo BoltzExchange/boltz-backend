@@ -73,7 +73,7 @@ describe('NotificationProvider', () => {
     ...swapExample,
   } as any as Swap;
 
-  const mockReverseSwap = (status: SwapUpdateEvent) => {
+  const mockReverseSwap = (status: SwapUpdateEvent | string) => {
     return {
       ...reverseSwapExample,
       status,

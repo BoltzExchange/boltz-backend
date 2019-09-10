@@ -11,6 +11,7 @@ interface IBoltzService extends grpc.ServiceDefinition<grpc.UntypedServiceImplem
     getBalance: IBoltzService_IGetBalance;
     newAddress: IBoltzService_INewAddress;
     sendCoins: IBoltzService_ISendCoins;
+    updateTimeoutBlockDelta: IBoltzService_IUpdateTimeoutBlockDelta;
 }
 
 interface IBoltzService_IGetInfo extends grpc.MethodDefinition<boltzrpc_pb.GetInfoRequest, boltzrpc_pb.GetInfoResponse> {
@@ -49,6 +50,15 @@ interface IBoltzService_ISendCoins extends grpc.MethodDefinition<boltzrpc_pb.Sen
     responseSerialize: grpc.serialize<boltzrpc_pb.SendCoinsResponse>;
     responseDeserialize: grpc.deserialize<boltzrpc_pb.SendCoinsResponse>;
 }
+interface IBoltzService_IUpdateTimeoutBlockDelta extends grpc.MethodDefinition<boltzrpc_pb.UpdateTimeoutBlockDeltaRequest, boltzrpc_pb.UpdateTimeoutBlockDeltaResponse> {
+    path: string; // "/boltzrpc.Boltz/UpdateTimeoutBlockDelta"
+    requestStream: boolean; // false
+    responseStream: boolean; // false
+    requestSerialize: grpc.serialize<boltzrpc_pb.UpdateTimeoutBlockDeltaRequest>;
+    requestDeserialize: grpc.deserialize<boltzrpc_pb.UpdateTimeoutBlockDeltaRequest>;
+    responseSerialize: grpc.serialize<boltzrpc_pb.UpdateTimeoutBlockDeltaResponse>;
+    responseDeserialize: grpc.deserialize<boltzrpc_pb.UpdateTimeoutBlockDeltaResponse>;
+}
 
 export const BoltzService: IBoltzService;
 
@@ -57,6 +67,7 @@ export interface IBoltzServer {
     getBalance: grpc.handleUnaryCall<boltzrpc_pb.GetBalanceRequest, boltzrpc_pb.GetBalanceResponse>;
     newAddress: grpc.handleUnaryCall<boltzrpc_pb.NewAddressRequest, boltzrpc_pb.NewAddressResponse>;
     sendCoins: grpc.handleUnaryCall<boltzrpc_pb.SendCoinsRequest, boltzrpc_pb.SendCoinsResponse>;
+    updateTimeoutBlockDelta: grpc.handleUnaryCall<boltzrpc_pb.UpdateTimeoutBlockDeltaRequest, boltzrpc_pb.UpdateTimeoutBlockDeltaResponse>;
 }
 
 export interface IBoltzClient {
@@ -72,6 +83,9 @@ export interface IBoltzClient {
     sendCoins(request: boltzrpc_pb.SendCoinsRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SendCoinsResponse) => void): grpc.ClientUnaryCall;
     sendCoins(request: boltzrpc_pb.SendCoinsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SendCoinsResponse) => void): grpc.ClientUnaryCall;
     sendCoins(request: boltzrpc_pb.SendCoinsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SendCoinsResponse) => void): grpc.ClientUnaryCall;
+    updateTimeoutBlockDelta(request: boltzrpc_pb.UpdateTimeoutBlockDeltaRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.UpdateTimeoutBlockDeltaResponse) => void): grpc.ClientUnaryCall;
+    updateTimeoutBlockDelta(request: boltzrpc_pb.UpdateTimeoutBlockDeltaRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.UpdateTimeoutBlockDeltaResponse) => void): grpc.ClientUnaryCall;
+    updateTimeoutBlockDelta(request: boltzrpc_pb.UpdateTimeoutBlockDeltaRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.UpdateTimeoutBlockDeltaResponse) => void): grpc.ClientUnaryCall;
 }
 
 export class BoltzClient extends grpc.Client implements IBoltzClient {
@@ -88,4 +102,7 @@ export class BoltzClient extends grpc.Client implements IBoltzClient {
     public sendCoins(request: boltzrpc_pb.SendCoinsRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SendCoinsResponse) => void): grpc.ClientUnaryCall;
     public sendCoins(request: boltzrpc_pb.SendCoinsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SendCoinsResponse) => void): grpc.ClientUnaryCall;
     public sendCoins(request: boltzrpc_pb.SendCoinsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SendCoinsResponse) => void): grpc.ClientUnaryCall;
+    public updateTimeoutBlockDelta(request: boltzrpc_pb.UpdateTimeoutBlockDeltaRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.UpdateTimeoutBlockDeltaResponse) => void): grpc.ClientUnaryCall;
+    public updateTimeoutBlockDelta(request: boltzrpc_pb.UpdateTimeoutBlockDeltaRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.UpdateTimeoutBlockDeltaResponse) => void): grpc.ClientUnaryCall;
+    public updateTimeoutBlockDelta(request: boltzrpc_pb.UpdateTimeoutBlockDeltaRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.UpdateTimeoutBlockDeltaResponse) => void): grpc.ClientUnaryCall;
 }

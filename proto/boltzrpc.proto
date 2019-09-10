@@ -14,6 +14,9 @@ service Boltz {
 
   /* Sends onchain coins to a specified address */
   rpc SendCoins (SendCoinsRequest) returns (SendCoinsResponse);
+
+  /* Updates the timeout block delta of a pair */
+  rpc UpdateTimeoutBlockDelta (UpdateTimeoutBlockDeltaRequest) returns (UpdateTimeoutBlockDeltaResponse);
 }
 
 enum OutputType {
@@ -98,3 +101,9 @@ message SendCoinsResponse {
   string transaction_id = 1;
   uint32 vout = 2;
 }
+
+message UpdateTimeoutBlockDeltaRequest {
+  string pair = 1;
+  uint32 new_delta = 2;
+}
+message UpdateTimeoutBlockDeltaResponse {}

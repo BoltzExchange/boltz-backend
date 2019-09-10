@@ -5,6 +5,7 @@ import Errors from './Errors';
 import Logger from '../Logger';
 import commitHash from '../Version';
 import Wallet from '../wallet/Wallet';
+import { ConfigType } from '../Config';
 import EventHandler from './EventHandler';
 import { PairConfig } from '../consts/Types';
 import SwapManager from '../swap/SwapManager';
@@ -13,6 +14,7 @@ import PairRepository from './PairRepository';
 import FeeProvider from '../rates/FeeProvider';
 import RateProvider from '../rates/RateProvider';
 import { encodeBip21 } from './PaymentRequestUtils';
+import TimeoutDeltaProvider from './TimeoutDeltaProvider';
 import ReverseSwapRepository from './ReverseSwapRepository';
 import { OrderSide, ServiceWarning } from '../consts/Enums';
 import WalletManager, { Currency } from '../wallet/WalletManager';
@@ -50,13 +52,16 @@ class Service {
   public swapRepository: SwapRepository;
   public reverseSwapRepository: ReverseSwapRepository;
 
+  private pairRepository: PairRepository;
+
+  private timeoutDeltaProvider: TimeoutDeltaProvider;
+
   private feeProvider: FeeProvider;
   private rateProvider: RateProvider;
 
-  private pairRepository: PairRepository;
-
   constructor(
     private logger: Logger,
+    config: ConfigType,
     private swapManager: SwapManager,
     private walletManager: WalletManager,
     private currencies: Map<string, Currency>,
@@ -66,6 +71,8 @@ class Service {
 
     this.swapRepository = new SwapRepository();
     this.reverseSwapRepository = new ReverseSwapRepository();
+
+    this.timeoutDeltaProvider = new TimeoutDeltaProvider(this.logger, config);
 
     this.feeProvider = new FeeProvider(this.logger, this.getFeeEstimation);
     this.rateProvider = new RateProvider(
@@ -114,6 +121,8 @@ class Service {
     }
 
     this.logger.verbose('Updated pairs in the database');
+
+    this.timeoutDeltaProvider.init(configPairs);
 
     this.feeProvider.init(configPairs);
     await this.rateProvider.init(configPairs);
@@ -312,6 +321,15 @@ class Service {
   }
 
   /**
+   * Updates the timeout block delta of a pair
+   */
+  public updateTimeoutBlockDelta = (pairId: string, newDelta: number) => {
+    this.timeoutDeltaProvider.setTimeout(pairId, newDelta);
+
+    this.logger.info(`Updated timeout block delta of ${pairId} to ${newDelta} minutes`);
+  }
+
+  /**
    * Creates a new Swap from the chain to Lightning
    */
   public createSwap = async (
@@ -332,7 +350,7 @@ class Service {
     const chainCurrency = getChainCurrency(base, quote, side, false);
     const lightningCurrency = getLightningCurrency(base, quote, side, false);
 
-    const { timeoutBlockDelta } = this.getChainConfig(chainCurrency);
+    const timeoutBlockDelta = this.timeoutDeltaProvider.getTimeout(pairId, side, false);
     const invoiceAmount = getInvoiceAmt(invoice);
 
     const rate = getRate(pairRate, side, false);
@@ -408,11 +426,8 @@ class Service {
     const { base, quote, rate: pairRate } = this.getPair(pairId);
 
     const side = this.getOrderSide(orderSide);
-    const chainCurrency = getChainCurrency(base, quote, side, true);
-
-    const { timeoutBlockDelta } = this.getChainConfig(chainCurrency);
-
     const rate = getRate(pairRate, side, true);
+    const timeoutBlockDelta = this.timeoutDeltaProvider.getTimeout(pairId, side, true);
 
     this.verifyAmount(pairId, rate, invoiceAmount, side, true);
 
@@ -551,12 +566,6 @@ class Service {
       quote,
       ...pair,
     };
-  }
-
-  private getChainConfig = (symbol: string) => {
-    const currency = this.getCurrency(symbol);
-
-    return currency.config;
   }
 
   private getCurrency = (symbol: string) => {

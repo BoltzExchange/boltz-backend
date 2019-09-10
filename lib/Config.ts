@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import toml from 'toml';
+import toml from '@iarna/toml';
 import { Arguments } from 'yargs';
 import Errors from './consts/Errors';
 import { Network } from './consts/Enums';
@@ -314,7 +314,11 @@ class Config {
     if (fs.existsSync(filename)) {
       try {
         const tomlFile = fs.readFileSync(filename, 'utf-8');
-        return toml.parse(tomlFile);
+        const parsedToml = toml.parse(tomlFile) as ConfigType;
+
+        parsedToml.configpath = filename;
+
+        return parsedToml;
       } catch (error) {
         throw Errors.COULD_NOT_PARSE_CONFIG(filename, JSON.stringify(error));
       }

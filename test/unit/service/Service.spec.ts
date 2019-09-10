@@ -10,6 +10,7 @@ import { CurrencyInfo } from '../../../lib/proto/boltzrpc_pb';
 import { getOutputType, getHexBuffer } from '../../../lib/Utils';
 import { ServiceWarning, OrderSide } from '../../../lib/consts/Enums';
 import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
+import { ConfigType } from '../../../lib/Config';
 
 const packageJson = require('../../../package.json');
 
@@ -234,6 +235,8 @@ describe('Service', () => {
     {
       base: 'BTC',
       quote: 'BTC',
+      fee: 1,
+      timeoutDelta: 10,
     },
   ];
 
@@ -251,6 +254,7 @@ describe('Service', () => {
 
   const service = new Service(
     Logger.disabledLogger,
+    {} as ConfigType,
     mockedSwapManager(),
     mockedWalletManager(),
     currencies,
@@ -269,6 +273,8 @@ describe('Service', () => {
       {
         base: 'not',
         quote: 'BTC',
+        fee: 0,
+        timeoutDelta: 0,
       },
     ])).rejects.toEqual(Errors.CURRENCY_NOT_FOUND('not'));
   });
@@ -751,21 +757,6 @@ describe('Service', () => {
 
     expect(() => getPair(notFound)).toThrow(
       Errors.PAIR_NOT_FOUND(notFound).message,
-    );
-  });
-
-  test('should get chain config', () => {
-    const getChainConfig = service['getChainConfig'];
-
-    expect(getChainConfig('BTC')).toEqual(
-      currencies.get('BTC')!.config,
-    );
-
-    // Throw if currency cannot be found
-    const notFound = 'notFound';
-
-    expect(() => getChainConfig(notFound)).toThrow(
-      Errors.CURRENCY_NOT_FOUND(notFound).message ,
     );
   });
 

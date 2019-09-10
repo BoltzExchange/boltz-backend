@@ -69,6 +69,7 @@ class Boltz {
     try {
       this.service = new Service(
         this.logger,
+        this.config,
         this.swapManager,
         this.walletManager,
         this.currencies,
@@ -112,29 +113,30 @@ class Boltz {
   }
 
   public start = async () => {
-    await this.db.init();
-
-    const promises: Promise<any>[] = [];
-
-    this.currencies.forEach((currency) => {
-      promises.push(this.connectChainClient(currency.chainClient));
-      promises.push(this.connectLnd(currency.lndClient));
-    });
-
-    await Promise.all(promises);
-
-    await this.walletManager.init();
-    await this.service.init(this.config.pairs);
-
-    await this.notifications.init();
-
     try {
-      this.grpcServer.listen();
-    } catch (error) {
-      this.logger.error(`Could not start gRPC server: ${error}`);
-    }
+      await this.db.init();
 
-    await this.api.init();
+      const promises: Promise<any>[] = [];
+
+      this.currencies.forEach((currency) => {
+        promises.push(this.connectChainClient(currency.chainClient));
+        promises.push(this.connectLnd(currency.lndClient));
+      });
+
+      await Promise.all(promises);
+
+      await this.walletManager.init();
+      await this.service.init(this.config.pairs);
+
+      await this.notifications.init();
+
+      this.grpcServer.listen();
+
+      await this.api.init();
+    } catch (error) {
+      this.logger.error(`Could not initialize Boltz: ${JSON.stringify(error)}`);
+      process.exit(1);
+    }
   }
 
   private connectChainClient = async (client: ChainClient) => {

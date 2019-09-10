@@ -56,6 +56,18 @@ class GrpcService {
       callback(error, null);
     }
   }
+
+  public updateTimeoutBlockDelta: handleUnaryCall<boltzrpc.UpdateTimeoutBlockDeltaRequest, boltzrpc.UpdateTimeoutBlockDeltaResponse> = async (call, callback) => {
+    try {
+      const { pair, newDelta } = call.request.toObject();
+
+      this.service.updateTimeoutBlockDelta(pair, newDelta);
+
+      callback(null, new boltzrpc.UpdateTimeoutBlockDeltaResponse());
+    } catch (error) {
+      callback(error, null);
+    }
+  }
 }
 
 export default GrpcService;

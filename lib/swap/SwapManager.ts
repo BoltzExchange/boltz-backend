@@ -4,8 +4,8 @@ import Logger from '../Logger';
 import { OrderSide } from '../consts/Enums';
 import LndClient from '../lightning/LndClient';
 import WalletManager, { Currency } from '../wallet/WalletManager';
-import { getHexBuffer, getHexString, getScriptHashFunction, getSwapMemo } from '../Utils';
 import SwapNursery, { SwapMaps, SwapDetails, ReverseSwapDetails } from './SwapNursery';
+import { getHexBuffer, getHexString, getScriptHashFunction, getSwapMemo } from '../Utils';
 
 const { p2wshOutput } = Scripts;
 

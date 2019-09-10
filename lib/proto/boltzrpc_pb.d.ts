@@ -446,6 +446,48 @@ export namespace SendCoinsResponse {
     }
 }
 
+export class UpdateTimeoutBlockDeltaRequest extends jspb.Message { 
+    getPair(): string;
+    setPair(value: string): void;
+
+    getNewDelta(): number;
+    setNewDelta(value: number): void;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): UpdateTimeoutBlockDeltaRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: UpdateTimeoutBlockDeltaRequest): UpdateTimeoutBlockDeltaRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: UpdateTimeoutBlockDeltaRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): UpdateTimeoutBlockDeltaRequest;
+    static deserializeBinaryFromReader(message: UpdateTimeoutBlockDeltaRequest, reader: jspb.BinaryReader): UpdateTimeoutBlockDeltaRequest;
+}
+
+export namespace UpdateTimeoutBlockDeltaRequest {
+    export type AsObject = {
+        pair: string,
+        newDelta: number,
+    }
+}
+
+export class UpdateTimeoutBlockDeltaResponse extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): UpdateTimeoutBlockDeltaResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: UpdateTimeoutBlockDeltaResponse): UpdateTimeoutBlockDeltaResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: UpdateTimeoutBlockDeltaResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): UpdateTimeoutBlockDeltaResponse;
+    static deserializeBinaryFromReader(message: UpdateTimeoutBlockDeltaResponse, reader: jspb.BinaryReader): UpdateTimeoutBlockDeltaResponse;
+}
+
+export namespace UpdateTimeoutBlockDeltaResponse {
+    export type AsObject = {
+    }
+}
+
 export enum OutputType {
     BECH32 = 0,
     COMPATIBILITY = 1,

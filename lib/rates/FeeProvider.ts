@@ -23,6 +23,11 @@ class FeeProvider {
     pairs.forEach((pair) => {
       // Set the configured fee or fallback to 1% if it is not defined
       const percentage = pair.fee !== undefined ? pair.fee : 1;
+
+      if (pair.fee === undefined) {
+        this.logger.warn(`Setting default fee of ${percentage}% for pair ${pair.base}/${pair.quote} because none was specified`);
+      }
+
       this.percentageFees.set(getPairId(pair), percentage / 100);
     });
 

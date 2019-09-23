@@ -19,6 +19,7 @@ class GrpcServer {
       getBalance: grpcService.getBalance,
       newAddress: grpcService.newAddress,
       sendCoins: grpcService.sendCoins,
+      updateTimeoutBlockDelta: grpcService.updateTimeoutBlockDelta,
     });
   }
 

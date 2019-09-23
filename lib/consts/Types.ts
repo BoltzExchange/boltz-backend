@@ -12,6 +12,9 @@ export type PairConfig = {
 
   // If there is a hardcoded rate the APIs of the exchanges will not be queried
   rate?: number;
+
+  // The timeout of the swaps on this pair in minutes
+  timeoutDelta?: number;
 };
 
 export type WalletInfo = {

@@ -8,24 +8,26 @@ const getInfoData = {
   method: 'getInfo',
 };
 
-const mockGetInfo = jest.fn().mockImplementation(() => getInfoData);
+const mockGetInfo = jest.fn().mockResolvedValue(getInfoData);
 
 const getBalanceData = {
   method: 'getBalance',
 };
 
-const mockGetBalance = jest.fn().mockImplementation(() => getBalanceData);
+const mockGetBalance = jest.fn().mockResolvedValue(getBalanceData);
 
 const newAddressData = 'address';
 
-const mockNewAddress = jest.fn().mockImplementation(() => newAddressData);
+const mockNewAddress = jest.fn().mockResolvedValue(newAddressData);
 
 const sendCoinsData = {
   vout: 1,
   transactionId: 'id',
 };
 
-const mockSendCoins = jest.fn().mockImplementation(() => sendCoinsData);
+const mockSendCoins = jest.fn().mockResolvedValue(sendCoinsData);
+
+const mockUpdateTimeoutBlockDelta = jest.fn().mockImplementation(() => {});
 
 jest.mock('../../../lib/service/Service', () => {
   return jest.fn().mockImplementation(() => {
@@ -34,6 +36,7 @@ jest.mock('../../../lib/service/Service', () => {
       getBalance: mockGetBalance,
       newAddress: mockNewAddress,
       sendCoins: mockSendCoins,
+      updateTimeoutBlockDelta: mockUpdateTimeoutBlockDelta,
     };
   });
 });
@@ -105,8 +108,8 @@ describe('GrpcService', () => {
 
   test('should handle SendCoins', () => {
     const callData = {
-      random: 'random',
       data: true,
+      random: 'random',
     };
 
     grpcService.sendCoins(createCall(callData), createCallback((error, response) => {
@@ -118,5 +121,20 @@ describe('GrpcService', () => {
 
     expect(mockSendCoins).toHaveBeenCalledTimes(1);
     expect(mockSendCoins).toHaveBeenCalledWith(callData);
+  });
+
+  test('should handle UpdateTimeoutBlockDelta', () => {
+    const callData = {
+      pair: 'pair',
+      newDelta: 123,
+    };
+
+    grpcService.updateTimeoutBlockDelta(createCall(callData), createCallback((error, response) => {
+      expect(error).toEqual(null);
+      expect(response).not.toEqual(null);
+    }));
+
+    expect(mockUpdateTimeoutBlockDelta).toHaveBeenCalledTimes(1);
+    expect(mockUpdateTimeoutBlockDelta).toHaveBeenCalledWith(callData.pair, callData.newDelta);
   });
 });

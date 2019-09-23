@@ -51,4 +51,16 @@ export default {
     message: 'onchain HTLC timed out',
     code: concatErrorCode(ErrorCodePrefix.Service, 11),
   }),
+  BLOCK_TIME_NOT_FOUND: (symbol: string): Error => ({
+    message: `could not find block time of currency: ${symbol}`,
+    code: concatErrorCode(ErrorCodePrefix.Service, 12),
+  }),
+  INVALID_TIMEOUT_BLOCK_DELTA: (): Error => ({
+    message: 'invalid timeout block delta',
+    code: concatErrorCode(ErrorCodePrefix.Service, 13),
+  }),
+  NO_TIMEOUT_DELTA: (pairId: string): Error => ({
+    message: `could not find timeout delta of pair: ${pairId}`,
+    code: concatErrorCode(ErrorCodePrefix.Service, 14),
+  }),
 };

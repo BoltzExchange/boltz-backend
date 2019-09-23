@@ -277,8 +277,8 @@ describe('Controller', () => {
 
     await controller.createSwap(mockRequest({}), res);
 
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({
+    expect(res.status).toHaveBeenNthCalledWith(1, 400);
+    expect(res.json).toHaveBeenNthCalledWith(1, {
       error: 'undefined parameter: pairId',
     });
 
@@ -299,8 +299,24 @@ describe('Controller', () => {
       getHexBuffer(requestData.refundPublicKey),
     );
 
-    expect(res.status).toHaveBeenCalledWith(201);
-    expect(res.json).toHaveBeenCalledWith(mockCreateSwap());
+    expect(res.status).toHaveBeenNthCalledWith(2, 201);
+    expect(res.json).toHaveBeenNthCalledWith(2, mockCreateSwap());
+
+    // Should convert all letters of invoice to lower case
+    requestData.invoice = 'UPPERCASE';
+    expect(requestData.invoice).not.toEqual(requestData.invoice.toLowerCase());
+
+    await controller.createSwap(mockRequest(requestData), res);
+
+    expect(service.createSwap).toHaveBeenNthCalledWith(3,
+      requestData.pairId,
+      requestData.orderSide,
+      requestData.invoice.toLowerCase(),
+      getHexBuffer(requestData.refundPublicKey),
+    );
+
+    expect(res.status).toHaveBeenNthCalledWith(3, 201);
+    expect(res.json).toHaveBeenNthCalledWith(3, mockCreateSwap());
   });
 
   test('should create reverse swaps', async () => {

@@ -125,7 +125,7 @@ class Controller {
       const response = await this.service.createSwap(
         pairId,
         orderSide,
-        invoice,
+        invoice.toLowerCase(),
         refundPublicKey,
       );
 

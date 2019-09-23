@@ -1,0 +1,17 @@
+#!/usr/bin/env node
+const { checkFailedSwaps } = require('../dist/CliTools');
+
+const { argv } = require('yargs').options({
+  dbpath: {
+    describe: 'Path to the database file',
+    type: 'string',
+  },
+});
+
+// Delete non-config keys from argv
+delete argv._;
+delete argv.$0;
+delete argv.help;
+delete argv.version;
+
+checkFailedSwaps(argv);

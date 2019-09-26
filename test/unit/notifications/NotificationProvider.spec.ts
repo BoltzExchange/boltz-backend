@@ -119,7 +119,7 @@ describe('NotificationProvider', () => {
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(
       // tslint:disable-next-line: prefer-template
-      '**Swap**\n' +
+      '**Swap BTC -> LTC :zap:**\n' +
       `ID: ${swap.id}\n` +
       `Pair: ${swap.pair}\n` +
       'Order side: buy\n' +
@@ -139,7 +139,7 @@ describe('NotificationProvider', () => {
     expect(mockSendMessage).toHaveBeenCalledTimes(2);
     expect(mockSendMessage).toHaveBeenNthCalledWith(2,
       // tslint:disable-next-line: prefer-template
-      '**Reverse swap**\n' +
+      '**Swap LTC :zap: -> BTC**\n' +
       `ID: ${reverseSwap.id}\n` +
       `Pair: ${reverseSwap.pair}\n` +
       'Order side: sell\n' +
@@ -160,7 +160,7 @@ describe('NotificationProvider', () => {
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(
       // tslint:disable-next-line: prefer-template
-      `**Swap failed: ${failureReason}**\n` +
+      `**Swap BTC -> LTC :zap: failed: ${failureReason}**\n` +
       `ID: ${swap.id}\n` +
       `Pair: ${swap.pair}\n` +
       'Order side: buy\n' +
@@ -178,7 +178,7 @@ describe('NotificationProvider', () => {
     expect(mockSendMessage).toHaveBeenCalledTimes(2);
     expect(mockSendMessage).toHaveBeenNthCalledWith(2,
       // tslint:disable-next-line: prefer-template
-      `**Reverse swap failed: ${failureReason}**\n` +
+      `**Swap LTC :zap: -> BTC failed: ${failureReason}**\n` +
       `ID: ${reverseSwap.id}\n` +
       `Pair: ${reverseSwap.pair}\n` +
       'Order side: sell\n' +

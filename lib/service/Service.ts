@@ -477,6 +477,7 @@ class Service {
       id,
       invoice,
       redeemScript,
+      onchainAmount,
       lockupTransaction,
       timeoutBlockHeight,
       lockupTransactionId,

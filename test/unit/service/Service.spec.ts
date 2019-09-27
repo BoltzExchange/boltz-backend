@@ -535,6 +535,7 @@ describe('Service', () => {
   test('should create reverse swaps', async () => {
     const pair = 'BTC/BTC';
     const orderSide = 'buy';
+    const onchainAmount = 99998;
     const invoiceAmount = 100000;
     const claimPublicKey = getHexBuffer('0xfff');
 
@@ -543,6 +544,7 @@ describe('Service', () => {
     const response = await service.createReverseSwap(pair, orderSide, invoiceAmount, claimPublicKey);
 
     expect(response).toEqual({
+      onchainAmount,
       id: expect.anything(),
       invoice: mockedReverseSwap.invoice,
       redeemScript: mockedReverseSwap.redeemScript,
@@ -567,9 +569,9 @@ describe('Service', () => {
     expect(mockAddReverseSwap).toHaveBeenCalledTimes(1);
     expect(mockAddReverseSwap).toHaveBeenCalledWith({
       pair,
+      onchainAmount,
       fee: 1,
       id: response.id,
-      onchainAmount: 99998,
       orderSide: OrderSide.BUY,
       invoice: response.invoice,
       keyIndex: mockedReverseSwap.keyIndex,

@@ -380,6 +380,8 @@ Response object:
 - `lockupTransaction`: hex transaction in which the coins were locked up
 - `lockupTransactionId`: id of the `lockupTransaction`
 - `invoice`: invoice that is expected to be paid by the user in order to get the preimage to claim the coins that were locked up in `lockupTransaction`
+- `timeoutBlockHeight`: block height at which the swap will be cancelled
+- `onchainAmount`: amount of satohis or litoshis that were locked up onchain in the `lockupTransaction`
 
 **Examples:**
 
@@ -400,11 +402,12 @@ Response:
 
 ```json
 {
-  "id": "Rh1WaF",
+  "id": "AgRip5",
+  "invoice": "lnbcrt1m1pwcuv4hpp5d5ydjvllqn9l9lxqxkjrmead28p4h8c7mhykygwcw39cfkn4y9hqdql2fjhvetjwdjjq5mhv9czqar0ypp9gsccqzpggtrxt78s655f4cfysav46rpv20u320ctswy5gx04xqvq3qjqn8a9vvkhgzeyjzs2dx9g90ge7jr9u8n42n8htf09spkudks8skds67cqklcf7k",
+  "redeemScript": "a914382c733f81adfd13010d2dd72da83d019cf4f13787632103e25b3f3bb7f9978410d52b4c763e3c8fe6d43cf462e91138c5b0f61b92c93d70670178b17521036721e5267bb2c4741fa1da1835dbe579ad296395c13ff954bfdbf17474d2a2ab68ac",
+  "onchainAmount": 99194,
+  "lockupTransaction": "020000000001014fc6fe7cfbbfc3965db4ba9d59ed008181140a907433fbef60b3614eb881ef000000000000ffffffff027a83010000000000220020d9994ac6d793d26ece7dd5e95b516bab0f374cc51c5d04f9dfb85650e5749d4b5445993b00000000160014f6e6b427efd748756a28bcff11e57c16e7f4c08302473044022002aa820813a894fc052bde440ae1aaeecff982ba9958bc94943a6f1e98e2f04102205062febe288bf165b8cdfc6ff84425a1a3bace416e157aaf3add823a1c0c317d012103a479dd9d81c7f0f0cc8a8efd632c9e2745ec110e2e21ec7541a10ae4c684d10900000000",
   "timeoutBlockHeight": 120,
-  "lockupTransactionId": "d77d46425e80afb0d6bc4c531667e24469104a52588bc2b6da12bccda2354090",
-  "invoice": "lnbcrt10m1pw5ksjcpp5a8ehg4l99lvvdpqmldm6wuqeh43vnwg9gap39msfd4dew72h4aeqdqqcqzpgpvg84zyhtglxlfqm039pae7uprjt5zl2gh562jy354py6rszzqhpueauzyze8a26u85h57xxdlsg6g5m4wrh0apwxstrwfknfzdm3wsqswg5tv",
-  "redeemScript": "a9141dc191ab1e6aac1bfdfa055cb776614c6ed1ec35876342a9142f7150b969c9c9fb9094a187f8fb41d617a65e20876300670171b1752102e317e5607e757e9c4448fe458876d7e361222d2cbee33ece9e3a7b2e2359be4d68ac67017bb1752103aa0b4e7c912aeed838e521a8e245481c708e7f78bf3b56e4e744ad76972bd29f68ac",
-  "lockupTransaction": "0200000000010175819985e40d925e8c2ed2465fc7195b1691f070635a594017e2e1051b2ed6d70000000000ffffffff02890d840700000000220020d03d89763d6a0b7a55731701b4a5136fa418d0b7872ab8153dd9053e668e0cbc45bb163400000000160014a6d2359b61a039ff0ef6274249af314381e0900e02473044022007702a9dfc2b37855f41ffa6dbf02b2960c4cd4835a46ec8f21f9a09722019d8022078351ac15165a762cd5e2010a0b8b2ca2168cb9d3041147df6e261aebf4d5a25012103019c7d37bf25465bcb39e0a969c5b740627c3cee509e379ce173231b5b97307700000000"
+  "lockupTransactionId": "42fc12adec64c3ec96853c12f52ebf1c68157d577a03a001130173aa709b4e57"
 }
 ```

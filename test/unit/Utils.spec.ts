@@ -200,4 +200,19 @@ describe('Utils', () => {
     expect(utils.getSwapMemo('LTC', false)).toBe('Swap to LTC');
     expect(utils.getSwapMemo('BTC', true)).toBe('Reverse Swap to BTC');
   });
+
+  test('should get sending and receiving currency', () => {
+    const baseCurrency = 'LTC';
+    const quoteCurrency = 'BTC';
+
+    expect(utils.getSendingReceivingCurrency(baseCurrency, quoteCurrency, OrderSide.BUY)).toEqual({
+      sending: baseCurrency,
+      receiving: quoteCurrency,
+    });
+
+    expect(utils.getSendingReceivingCurrency(baseCurrency, quoteCurrency, OrderSide.SELL)).toEqual({
+      sending: quoteCurrency,
+      receiving: baseCurrency,
+    });
+  });
 });

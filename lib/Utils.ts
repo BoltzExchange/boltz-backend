@@ -332,6 +332,15 @@ export const transactionSignalsRbfExplicitly = (transaction: Transaction) => {
   return singalsRbf;
 };
 
+export const getSendingReceivingCurrency = (baseCurrency: string, quoteCurrency: string, orderSide: OrderSide) => {
+  const isBuy = orderSide === OrderSide.BUY;
+
+  return {
+    sending: isBuy ? baseCurrency : quoteCurrency,
+    receiving: isBuy ? quoteCurrency : baseCurrency,
+  };
+};
+
 export const getRate = (rate: number, orderSide: OrderSide, isReverse: boolean) => {
   if (isReverse) {
     return orderSide === OrderSide.BUY ? 1 / rate : rate;

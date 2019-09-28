@@ -5,7 +5,7 @@ import { OrderSide } from '../consts/Enums';
 import LndClient from '../lightning/LndClient';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import SwapNursery, { SwapMaps, SwapDetails, ReverseSwapDetails } from './SwapNursery';
-import { getHexBuffer, getHexString, getScriptHashFunction, getSwapMemo } from '../Utils';
+import { getHexBuffer, getHexString, getScriptHashFunction, getSwapMemo, getSendingReceivingCurrency } from '../Utils';
 
 const { p2wshOutput } = Scripts;
 
@@ -219,22 +219,16 @@ class SwapManager {
   }
 
   private getCurrencies = (baseCurrency: string, quoteCurrency: string, orderSide: OrderSide) => {
-    const base = this.getCurrency(baseCurrency);
-    const quote = this.getCurrency(quoteCurrency);
-
-    const isBuy = orderSide === OrderSide.BUY;
-
-    const sending = isBuy ? base : quote;
-    const receiving = isBuy ? quote : base;
+    const { sending, receiving } = getSendingReceivingCurrency(baseCurrency, quoteCurrency, orderSide);
 
     return {
       sendingCurrency: {
-        ...sending,
-        wallet: this.walletManager.wallets.get(sending.symbol)!,
+        ...this.getCurrency(sending),
+        wallet: this.walletManager.wallets.get(sending)!,
       },
       receivingCurrency: {
-        ...receiving,
-        wallet: this.walletManager.wallets.get(receiving.symbol)!,
+        ...this.getCurrency(receiving),
+        wallet: this.walletManager.wallets.get(receiving)!,
       },
     };
   }

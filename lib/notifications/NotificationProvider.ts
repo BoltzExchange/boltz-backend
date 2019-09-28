@@ -16,6 +16,7 @@ import {
   minutesToMilliseconds,
   getChainCurrency,
   getLightningCurrency,
+  getSendingReceivingCurrency,
 } from '../Utils';
 
 // TODO: test balance and service alerts
@@ -182,7 +183,12 @@ class NotificationProvider {
   }
 
   private listenToService = () => {
-    const getSwapName = (isReverse: boolean) => isReverse ? 'Reverse swap' : 'Swap';
+    const getSwapTitle = (pair: string, orderSide: OrderSide, isReverse: boolean) => {
+      const { base, quote } = splitPairId(pair);
+      const { sending, receiving } = getSendingReceivingCurrency(base, quote, orderSide);
+
+      return `${receiving}${isReverse ? ' :zap:' : ''} -> ${sending}${!isReverse ? ' :zap:' : ''}`;
+    };
 
     const getBasicSwapInfo = (swap: Swap | ReverseSwap, onchainSymbol: string, lightningSymbol: string) => {
       const lightningAmount = getInvoiceAmt(swap.invoice);
@@ -209,7 +215,7 @@ class NotificationProvider {
       const { onchainSymbol, lightningSymbol } = getSymbols(swap.pair, swap.orderSide, isReverse);
 
       // tslint:disable-next-line: prefer-template
-      let message = `**${getSwapName(isReverse)}**\n` +
+      let message = `**Swap ${getSwapTitle(swap.pair, swap.orderSide, isReverse)}**\n` +
        `${getBasicSwapInfo(swap, onchainSymbol, lightningSymbol)}` +
        `Fees earned: ${satoshisToCoins(swap.fee)} ${onchainSymbol}\n` +
        `Miner fees: ${satoshisToCoins(swap.minerFee!)} ${onchainSymbol}`;
@@ -227,7 +233,7 @@ class NotificationProvider {
       const { onchainSymbol, lightningSymbol } = getSymbols(swap.pair, swap.orderSide, isReverse);
 
       // tslint:disable-next-line: prefer-template
-      let message = `**${getSwapName(isReverse)} failed: ${reason}**\n` +
+      let message = `**Swap ${getSwapTitle(swap.pair, swap.orderSide, isReverse)} failed: ${reason}**\n` +
         `${getBasicSwapInfo(swap, onchainSymbol, lightningSymbol)}`;
 
       if (isReverse) {

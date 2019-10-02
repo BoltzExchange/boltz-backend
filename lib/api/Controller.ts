@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import Logger from '../Logger';
 import Service from '../service/Service';
-import { SwapUpdateEvent } from '../consts/Enums';
+import { SwapUpdateEvent, SwapType } from '../consts/Enums';
 import { stringify, getHexBuffer, mapToObject } from '../Utils';
 
 class Controller {
@@ -115,47 +115,61 @@ class Controller {
 
   public createSwap = async (req: Request, res: Response) => {
     try {
-      const { pairId, orderSide, invoice, refundPublicKey } = this.validateRequest(req.body, [
-        { name: 'pairId', type: 'string' },
-        { name: 'orderSide', type: 'string' },
-        { name: 'invoice', type: 'string' },
-        { name: 'refundPublicKey', type: 'string', isHex: true },
+      const { type } = this.validateRequest(req.body, [
+        { name: 'type', type: 'string' },
       ]);
 
-      const response = await this.service.createSwap(
-        pairId,
-        orderSide,
-        invoice.toLowerCase(),
-        refundPublicKey,
-      );
+      const swapType = this.parseSwapType(type);
 
-      this.logger.verbose(`Created new swap with id: ${response.id}`);
-      this.logger.silly(`Swap ${response.id}: ${stringify(response)}`);
+      switch (swapType) {
+        case SwapType.Submarine:
+          await this.createSubmarineSwap(req, res);
+          break;
 
-      this.createdResponse(res, response);
+        case SwapType.ReverseSubmarine:
+          await this.createReverseSubmarineSwap(req, res);
+      }
+
     } catch (error) {
       this.errorResponse(res, error);
     }
   }
 
-  public createReverseSwap = async (req: Request, res: Response) => {
-    try {
-      const { pairId, orderSide, invoiceAmount, claimPublicKey } = this.validateRequest(req.body, [
-        { name: 'pairId', type: 'string' },
-        { name: 'orderSide', type: 'string' },
-        { name: 'invoiceAmount', type: 'number' },
-        { name: 'claimPublicKey', type: 'string', isHex: true },
-      ]);
+  private createSubmarineSwap = async (req: Request, res: Response) => {
+    const { pairId, orderSide, invoice, refundPublicKey } = this.validateRequest(req.body, [
+      { name: 'pairId', type: 'string' },
+      { name: 'orderSide', type: 'string' },
+      { name: 'invoice', type: 'string' },
+      { name: 'refundPublicKey', type: 'string', isHex: true },
+    ]);
 
-      const response = await this.service.createReverseSwap(pairId, orderSide, invoiceAmount, claimPublicKey);
+    const response = await this.service.createSwap(
+      pairId,
+      orderSide,
+      invoice.toLowerCase(),
+      refundPublicKey,
+    );
 
-      this.logger.verbose(`Created reverse swap with id: ${response.id}`);
-      this.logger.silly(`Reverse swap ${response.id}: ${stringify(response)}`);
+    this.logger.verbose(`Created new swap with id: ${response.id}`);
+    this.logger.silly(`Swap ${response.id}: ${stringify(response)}`);
 
-      this.createdResponse(res, response);
-    } catch (error) {
-      this.errorResponse(res, error);
-    }
+    this.createdResponse(res, response);
+  }
+
+  private createReverseSubmarineSwap = async (req: Request, res: Response) => {
+    const { pairId, orderSide, invoiceAmount, claimPublicKey } = this.validateRequest(req.body, [
+      { name: 'pairId', type: 'string' },
+      { name: 'orderSide', type: 'string' },
+      { name: 'invoiceAmount', type: 'number' },
+      { name: 'claimPublicKey', type: 'string', isHex: true },
+    ]);
+
+    const response = await this.service.createReverseSwap(pairId, orderSide, invoiceAmount, claimPublicKey);
+
+    this.logger.verbose(`Created reverse swap with id: ${response.id}`);
+    this.logger.silly(`Reverse swap ${response.id}: ${stringify(response)}`);
+
+    this.createdResponse(res, response);
   }
 
   // EventSource streams
@@ -250,6 +264,18 @@ class Controller {
 
   private setContentTypeJson = (res: Response) => {
     res.set('Content-Type', 'application/json');
+  }
+
+  private parseSwapType = (type: string) => {
+    const lowerCaseType = type.toLowerCase();
+
+    for (const swapType in SwapType) {
+      if (lowerCaseType === SwapType[swapType]) {
+        return lowerCaseType as SwapType;
+      }
+    }
+
+    throw `could not find swap type: ${type}`;
   }
 }
 

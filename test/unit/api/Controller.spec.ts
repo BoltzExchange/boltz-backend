@@ -2,22 +2,22 @@ import { Request, Response } from 'express';
 import Logger from '../../../lib/Logger';
 import Service from '../../../lib/service/Service';
 import Controller from '../../../lib/api/Controller';
-import { SwapType } from '../../../lib/db/models/Swap';
-import { SwapUpdateEvent } from '../../../lib/consts/Enums';
 import { mapToObject, getHexBuffer } from '../../../lib/Utils';
 import { ReverseSwapType } from '../../../lib/db/models/ReverseSwap';
+import { SwapType as SwapDbType } from '../../../lib/db/models/Swap';
+import { SwapUpdateEvent, SwapType } from '../../../lib/consts/Enums';
 
 type closeResponseCallback = () => void;
 type swapUpdateCallback = (id: string, message: string) => void;
 
-const swaps: SwapType[] = [
+const swaps: SwapDbType[] = [
   {
     id: 'status',
     status: SwapUpdateEvent.InvoicePaid,
-  } as any as SwapType,
+  } as any as SwapDbType,
   {
     id: 'noStatus',
-  } as any as SwapType,
+  } as any as SwapDbType,
 ];
 const reverseSwaps: ReverseSwapType[] = [
   {
@@ -271,11 +271,15 @@ describe('Controller', () => {
     });
   });
 
-  test('should create swaps', async () => {
-    // No values provided in request
+  test('should create submarine swaps', async () => {
     const res = mockResponse();
 
-    await controller.createSwap(mockRequest({}), res);
+    // No values provided in request
+    let requestData: any = {
+      type: 'submarine',
+    };
+
+    await controller.createSwap(mockRequest(requestData), res);
 
     expect(res.status).toHaveBeenNthCalledWith(1, 400);
     expect(res.json).toHaveBeenNthCalledWith(1, {
@@ -283,7 +287,8 @@ describe('Controller', () => {
     });
 
     // Successful request
-    const requestData = {
+    requestData = {
+      ...requestData,
       pairId: 'LTC/BTC',
       orderSide: 'buy',
       invoice: 'lnbc',
@@ -320,25 +325,30 @@ describe('Controller', () => {
   });
 
   test('should create reverse swaps', async () => {
-    // No values provided in request
     const res = mockResponse();
 
-    await controller.createReverseSwap(mockRequest({}), res);
+    // No values provided in request
+    let requestData: any = {
+      type: 'reverseSubmarine',
+    };
 
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({
+    await controller.createSwap(mockRequest(requestData), res);
+
+    expect(res.status).toHaveBeenNthCalledWith(1, 400);
+    expect(res.json).toHaveBeenNthCalledWith(1, {
       error: 'undefined parameter: pairId',
     });
 
     // Successful request
-    const requestData = {
+    requestData = {
+      ...requestData,
       pairId: 'LTC/BTC',
       orderSide: 'buy',
       invoiceAmount: 0,
       claimPublicKey: '298ae8cc',
     };
 
-    await controller.createReverseSwap(mockRequest(requestData), res);
+    await controller.createSwap(mockRequest(requestData), res);
 
     expect(service.createReverseSwap).toHaveBeenCalledWith(
       requestData.pairId,
@@ -347,8 +357,8 @@ describe('Controller', () => {
       getHexBuffer(requestData.claimPublicKey),
     );
 
-    expect(res.status).toHaveBeenCalledWith(201);
-    expect(res.json).toHaveBeenCalledWith(mockCreateReverseSwap());
+    expect(res.status).toHaveBeenNthCalledWith(2, 201);
+    expect(res.json).toHaveBeenNthCalledWith(2, mockCreateReverseSwap());
   });
 
   test('should stream swap status updates', () => {
@@ -425,5 +435,19 @@ describe('Controller', () => {
     validateRequest({
       test: '298ae8cc',
     }, hexChecks);
+  });
+
+  test('should parse swap types', () => {
+    const parseSwapType = controller['parseSwapType'];
+
+    expect(parseSwapType('submarine')).toEqual(SwapType.Submarine);
+    expect(parseSwapType('sUbMaRiNe')).toEqual(SwapType.Submarine);
+    expect(parseSwapType('SUBMARINE')).toEqual(SwapType.Submarine);
+
+    expect(parseSwapType('reversesubmarine')).toEqual(SwapType.ReverseSubmarine);
+    expect(parseSwapType('reverseSubmarine')).toEqual(SwapType.ReverseSubmarine);
+
+    expect(() => parseSwapType('notFound')).toThrow('could not find swap type: notFound');
+
   });
 });

@@ -21,7 +21,7 @@ class Image:
 
 ALPINE_VERSION = BuildArgument(
     name="ALPINE_VERSION",
-    value="3.10.1"
+    value="3.10.2"
 )
 
 BERKELEY_VERSION = BuildArgument(
@@ -61,12 +61,12 @@ IMAGES: Dict[str, Image] = {
             ALPINE_VERSION,
             BuildArgument(
                 name="GOLANG_VERSION",
-                value="1.12.9-alpine"
+                value="1.12.10-alpine"
             )
         ]
     ),
     "regtest": Image(
-        version="1.0.0",
+        version="1.0.1",
         arguments=[
             ALPINE_VERSION,
             BuildArgument(

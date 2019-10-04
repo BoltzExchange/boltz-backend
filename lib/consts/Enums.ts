@@ -44,3 +44,8 @@ export enum Network {
   Simnet = 'simnet',
   Regtest = 'regtest',
 }
+
+export enum SwapType {
+  Submarine = 'submarine',
+  ReverseSubmarine = 'reversesubmarine',
+}

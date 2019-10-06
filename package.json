@@ -15,7 +15,7 @@
     "nodemon:watch": "nodemon --watch dist -e js bin/boltzd",
     "lint": "tslint --project tsconfig.json && tslint --config tslint-alt.json 'bin/*' 'test/**/*.ts'",
     "lint:fix": "tslint --fix --project tsconfig.json && tslint --fix --config tslint-alt.json 'bin/*' 'test/**/*.ts'",
-    "docker:start": "docker run -d --name regtest -p 18443:18443 -p 19443:19443 -p 29000:29000 -p 29001:29001 -p 29002:29002 -p 30000:30000 -p 30001:30001 -p 30002:30002 -p 10009:10009 -p 10010:10010 -p 11009:11009 -p 11010:11010 -p 8081:8081 boltz/regtest:1.0.1",
+    "docker:start": "docker run -d --name regtest -p 18443:18443 -p 19443:19443 -p 18332:18332 -p 18232:18232 -p 29000:29000 -p 29001:29001 -p 29002:29002 -p 30000:30000 -p 30001:30001 -p 30002:30002 -p 10009:10009 -p 10010:10010 -p 11009:11009 -p 11010:11010 -p 8081:8081 boltz/regtest:1.1.0",
     "docker:stop": "docker kill regtest && docker rm regtest",
     "test": "npm run test:unit && npm run docker:start && npm run test:int && npm run docker:stop",
     "test:nodocker": "npm run test:unit && npm run test:int",

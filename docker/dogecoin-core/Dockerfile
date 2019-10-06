@@ -3,8 +3,8 @@ ARG BERKELEY_VERSION
 
 FROM boltz/berkeley-db:${BERKELEY_VERSION} AS berkeley-db
 
-# Build Litecoin Core
-FROM ubuntu:${UBUNTU_VERSION} as litecoin-core
+# Build Dogecoin Core
+FROM ubuntu:${UBUNTU_VERSION} as dogecoin-core
 
 ARG VERSION
 
@@ -27,19 +27,20 @@ RUN apt-get -y install \
   libboost-chrono-dev \
   libboost-system-dev \
   libboost-thread-dev \
-  libboost-filesystem-dev
+  libboost-filesystem-dev \
+  libboost-program-options-dev
 
-ENV LITECOIN_PREFIX=/opt/litecoin-${VERSION}
+ENV DOGECOIN_PREFIX=/opt/dogecoin-${VERSION}
 
-RUN wget https://github.com/litecoin-project/litecoin/archive/v${VERSION}.tar.gz
+RUN wget https://github.com/dogecoin/dogecoin/archive/v${VERSION}.tar.gz
 
 RUN tar -xzf *.tar.gz
 
-WORKDIR /litecoin-${VERSION}
+WORKDIR /dogecoin-${VERSION}
 
 RUN ./autogen.sh
 RUN ./configure LDFLAGS=-L`ls -d /opt/db*`/lib/ CPPFLAGS=-I`ls -d /opt/db*`/include/ \
-    --prefix=${LITECOIN_PREFIX} \
+    --prefix=${DOGECOIN_PREFIX} \
     --mandir=/usr/share/man \
     --disable-ccache \
     --disable-tests \
@@ -52,9 +53,9 @@ RUN ./configure LDFLAGS=-L`ls -d /opt/db*`/lib/ CPPFLAGS=-I`ls -d /opt/db*`/incl
 RUN make -j$(nproc)
 RUN make install
 
-RUN strip ${LITECOIN_PREFIX}/bin/litecoind
-RUN strip ${LITECOIN_PREFIX}/bin/litecoin-tx
-RUN strip ${LITECOIN_PREFIX}/bin/litecoin-cli
+RUN strip ${DOGECOIN_PREFIX}/bin/dogecoind
+RUN strip ${DOGECOIN_PREFIX}/bin/dogecoin-tx
+RUN strip ${DOGECOIN_PREFIX}/bin/dogecoin-cli
 
 # Assemble the final image
 FROM ubuntu:${UBUNTU_VERSION}
@@ -69,10 +70,11 @@ RUN apt-get -y install \
   libboost-chrono-dev \
   libboost-system-dev \
   libboost-thread-dev \
-  libboost-filesystem-dev
+  libboost-filesystem-dev \
+  libboost-program-options-dev
 
-COPY --from=litecoin-core /opt/litecoin-${VERSION}/bin /bin
+COPY --from=dogecoin-core /opt/dogecoin-${VERSION}/bin /bin
 
-EXPOSE 19332 19333 19444 19443
+EXPOSE 22555 44555 18332
 
-ENTRYPOINT ["litecoind"]
+ENTRYPOINT ["dogecoind"]

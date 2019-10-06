@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 source utils.sh
 
@@ -38,25 +38,24 @@ function openChannel () {
   done
 }
 
-bitcoind
-litecoind
-
-waitForNode bitcoin-cli
-waitForNode litecoin-cli
+startNodes
 
 # Mine 101 blocks so that the coinbase of the first block is spendable
 echo "Mining 101 blocks"
+
 bitcoin-cli generate 101 > /dev/null
 litecoin-cli generate 101 > /dev/null
+dogecoin-cli generate 101 > /dev/null
+zcash-cli generate 101 > /dev/null
 
 echo "Restarting nodes"
 
-killall bitcoind
-killall litecoind
+stopNodes
 
 sleep 5
 
-start.sh
+startNodes
+startLnds
 
 echo "Opening BTC channel"
 openChannel bitcoin-cli \
@@ -70,9 +69,7 @@ openChannel litecoin-cli \
   "lncli --lnddir=/root/.lnd-ltc2 --rpcserver=127.0.0.1:11010 --chain=litecoin --network=regtest" \
   10736
 
-killall lnd
-
-killall bitcoind
-killall litecoind
+stopLnds
+stopNodes
 
 sleep 5

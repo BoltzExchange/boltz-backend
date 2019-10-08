@@ -9,6 +9,7 @@ import UtxoRepository from './UtxoRepository';
 import ChainClient from '../chain/ChainClient';
 import WalletRepository from './WalletRepository';
 import OutputRepository from './OutputRepository';
+import SupportedOutputTypes from '../consts/SupportedOutputTypes';
 import { getPubkeyHashFunction, getHexString, getHexBuffer, reverseBuffer } from '../Utils';
 
 type UTXO = TransactionOutput & {
@@ -27,6 +28,9 @@ type WalletBalance = {
 type UtxoPromise = Promise<Utxo>;
 
 class Wallet {
+  public supportsSegwit = true;
+  public supportedOutputTypes: OutputType[] = [];
+
   // A map between output scripts and information necessary to spend them
   private relevantOutputs = new Map<string, { id: number, keyIndex: number, type: OutputType, redeemScript: string | null }>();
 
@@ -59,6 +63,15 @@ class Wallet {
     public highestIndex: number) {
 
     this.symbol = this.chainClient.symbol;
+    this.supportedOutputTypes = SupportedOutputTypes[this.symbol];
+
+    if (this.supportedOutputTypes === undefined) {
+      throw Errors.CURRENCY_NOT_SUPPORTED(this.symbol);
+    }
+
+    if (!this.supportedOutputTypes.includes(OutputType.Bech32)) {
+      this.supportsSegwit = false;
+    }
 
     // If a transaction is found in the mempool and mined a few milliseconds afterwards
     // it can happen that the UTXO gets inserted in the database twice. To avoid that this
@@ -195,6 +208,10 @@ class Wallet {
   public getNewAddress = async (type: OutputType) => {
     const { keys, index } = this.getNewKeys();
 
+    if (!this.supportedOutputTypes.includes(type)) {
+      throw Errors.OUTPUTTYPE_NOT_SUPPORTED(this.symbol, type);
+    }
+
     const encodeFunction = getPubkeyHashFunction(type);
     const output = encodeFunction(crypto.hash160(keys.publicKey));
 
@@ -282,7 +299,7 @@ class Wallet {
 
       // Add a change address to the estimation if not all coins will be sent
       if (!sendAll) {
-        outputs.push({ type: OutputType.Bech32 });
+        outputs.push({ type: this.supportsSegwit ? OutputType.Bech32 : OutputType.Legacy });
       }
 
       const recalculateFee = () => {
@@ -382,7 +399,7 @@ class Wallet {
         } as any);
 
         // Send the value left of the UTXOs to a new change address
-        const changeAddress = await this.getNewAddress(OutputType.Bech32);
+        const changeAddress = await this.getNewAddress(this.supportsSegwit ? OutputType.Bech32 : OutputType.Legacy);
 
         psbt.addOutput({
           address: changeAddress,

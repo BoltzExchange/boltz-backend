@@ -19,7 +19,7 @@ type Currency = {
   network: Network;
   config: CurrencyConfig;
   chainClient: ChainClient;
-  lndClient: LndClient;
+  lndClient?: LndClient;
 };
 
 class WalletManager {

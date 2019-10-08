@@ -63,4 +63,8 @@ export default {
     message: `could not find timeout delta of pair: ${pairId}`,
     code: concatErrorCode(ErrorCodePrefix.Service, 14),
   }),
+  NO_LND_CLIENT: (symbol: string): Error => ({
+    message: `${symbol} has no LND client`,
+    code: concatErrorCode(ErrorCodePrefix.Service, 15),
+  }),
 };

@@ -60,7 +60,7 @@ startLnds
 echo "Opening BTC channel"
 openChannel bitcoin-cli \
   "lncli --lnddir=/root/.lnd-btc --rpcserver=127.0.0.1:10009 --network=regtest" \
-  "lncli --lnddir=/root/.lnd-btc --rpcserver=127.0.0.1:10010 --network=regtest" \
+  "lncli --lnddir=/root/.lnd-btc --rpcserver=127.0.0.1:10011 --network=regtest" \
   9736
 
 echo "Opening LTC channel"

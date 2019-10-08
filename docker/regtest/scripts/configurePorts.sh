@@ -16,6 +16,9 @@ echo "zmqpubrawtx=tcp://0.0.0.0:40000" >> /root/.dogecoin/dogecoin.conf
 echo "zmqpubrawblock=tcp://0.0.0.0:40001" >> /root/.dogecoin/dogecoin.conf
 echo "zmqpubhashblock=tcp://0.0.0.0:40002" >> /root/.dogecoin/dogecoin.conf
 
+sed -i '$d' /root/.zcash/zcash.conf
+sed -i '$d' /root/.zcash/zcash.conf
+
 echo "zmqpubrawtx=tcp://0.0.0.0:50000" >> /root/.zcash/zcash.conf
 echo "zmqpubrawblock=tcp://0.0.0.0:50001" >> /root/.zcash/zcash.conf
 echo "zmqpubhashblock=tcp://0.0.0.0:50002" >> /root/.zcash/zcash.conf

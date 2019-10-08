@@ -61,7 +61,7 @@ lndCert="$boltzDataDir/lnd/certificates/tls.cert"
 lndMacaroon="$boltzDataDir/lnd/macaroons/admin.macaroon"
 
 alias lnclibtc='lncli --rpcserver=127.0.0.1:10009 --tlscertpath=$lndCert --macaroonpath=$lndMacaroon'
-alias lnclibtc2='lncli --rpcserver=127.0.0.1:10010 --tlscertpath=$lndCert --macaroonpath=$lndMacaroon'
+alias lnclibtc2='lncli --rpcserver=127.0.0.1:10011 --tlscertpath=$lndCert --macaroonpath=$lndMacaroon'
 
 alias lncliltc='lncli --rpcserver=127.0.0.1:11009 --tlscertpath=$lndCert --macaroonpath=$lndMacaroon'
 alias lncliltc2='lncli --rpcserver=127.0.0.1:11010 --tlscertpath=$lndCert --macaroonpath=$lndMacaroon'
@@ -84,7 +84,7 @@ lndCert="/root/.lnd-btc/tls.cert"
 lndMacaroon="/root/.lnd-btc/data/chain/bitcoin/regtest/admin.macaroon"
 
 alias lnclibtc='docker exec -it regtest lncli --rpcserver=127.0.0.1:10009 --tlscertpath=$lndCert --macaroonpath=$lndMacaroon'
-alias lnclibtc2='docker exec -it regtest lncli --rpcserver=127.0.0.1:10010 --tlscertpath=$lndCert --macaroonpath=$lndMacaroon'
+alias lnclibtc2='docker exec -it regtest lncli --rpcserver=127.0.0.1:10011 --tlscertpath=$lndCert --macaroonpath=$lndMacaroon'
 
 alias lncliltc='docker exec -it regtest lncli --rpcserver=127.0.0.1:11009 --tlscertpath=$lndCert --macaroonpath=$lndMacaroon'
 alias lncliltc2='docker exec -it regtest lncli --rpcserver=127.0.0.1:11010 --tlscertpath=$lndCert --macaroonpath=$lndMacaroon'

@@ -203,7 +203,7 @@ class SwapNursery extends EventEmitter {
     if (preimage) {
       this.logger.silly(`Got ${currency.symbol} preimage: ${getHexString(preimage)}`);
 
-      const destinationAddress = await this.walletManager.wallets.get(currency.symbol)!.getNewAddress(OutputType.Bech32);
+      const destinationAddress = await this.getNewAddress(currency.symbol);
 
       const claimTx = constructClaimTransaction(
         [{
@@ -237,7 +237,7 @@ class SwapNursery extends EventEmitter {
       this.logger.info(`Refunding ${currency.symbol} swap output: ` +
       `${transactionId}:${details.output.vout}`);
 
-      const destinationAddress = await this.walletManager.wallets.get(currency.symbol)!.getNewAddress(OutputType.Bech32);
+      const destinationAddress = await this.getNewAddress(currency.symbol);
 
       const refundTx = constructRefundTransaction(
         [{
@@ -342,6 +342,13 @@ class SwapNursery extends EventEmitter {
     }
 
     return false;
+  }
+
+  private getNewAddress = (symbol: string) => {
+    const wallet = this.walletManager.wallets.get(symbol)!;
+    const outputType = wallet.supportsSegwit ? OutputType.Bech32 : OutputType.Legacy;
+
+    return wallet.getNewAddress(outputType);
   }
 }
 

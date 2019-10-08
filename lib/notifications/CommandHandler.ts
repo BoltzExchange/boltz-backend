@@ -1,4 +1,5 @@
 import { Op } from 'sequelize';
+import { OutputType } from 'boltz-core/dist/consts/Enums';
 import Logger from '../Logger';
 import Stats from '../data/Stats';
 import Report from '../data/Report';
@@ -7,10 +8,10 @@ import OtpManager from './OtpManager';
 import Service from '../service/Service';
 import DiscordClient from './DiscordClient';
 import { NotificationConfig } from '../Config';
+import { Balance } from '../proto/boltzrpc_pb';
 import { SwapUpdateEvent } from '../consts/Enums';
 import ReverseSwap from '../db/models/ReverseSwap';
 import BackupScheduler from '../backup/BackupScheduler';
-import { OutputType, Balance } from '../proto/boltzrpc_pb';
 import { coinsToSatoshis, satoshisToCoins } from '../DenominationConverter';
 import { getChainCurrency, stringify, splitPairId, getHexString } from '../Utils';
 
@@ -364,17 +365,16 @@ class CommandHandler {
       }
 
       const currency = args[0].toUpperCase();
-      let outputType = OutputType.COMPATIBILITY;
+      let outputType = OutputType.Legacy;
 
       if (args.length > 1) {
         outputType = this.getOutputType(args[1]);
       }
 
       const response = await this.service.newAddress(currency, outputType);
-      await this.discord.sendMessage(response);
-
+      await this.discord.sendMessage(`\`${response}\``);
     } catch (error) {
-      await this.discord.sendMessage(`Could not generate address: ${error}`);
+      await this.discord.sendMessage(`Could not generate address: ${this.formatError(error)}`);
     }
   }
 
@@ -447,9 +447,9 @@ class CommandHandler {
 
   private getOutputType = (type: string) => {
     switch (type.toLowerCase()) {
-      case 'bech32': return OutputType.BECH32;
-      case 'compatibility': return OutputType.COMPATIBILITY;
-      case 'legacy': return OutputType.LEGACY;
+      case 'bech32': return OutputType.Bech32;
+      case 'compatibility': return OutputType.Compatibility;
+      case 'legacy': return OutputType.Legacy;
     }
 
     throw `could not find output type: ${type}`;

@@ -153,21 +153,23 @@ class Service {
         chain.setError(error);
       }
 
-      try {
-        const lndInfo = await currency.lndClient.getInfo();
+      if (currency.lndClient) {
+        try {
+          const lndInfo = await currency.lndClient.getInfo();
 
-        const channels = new LndChannels();
+          const channels = new LndChannels();
 
-        channels.setActive(lndInfo.numActiveChannels);
-        channels.setInactive(lndInfo.numInactiveChannels);
-        channels.setPending(lndInfo.numPendingChannels);
+          channels.setActive(lndInfo.numActiveChannels);
+          channels.setInactive(lndInfo.numInactiveChannels);
+          channels.setPending(lndInfo.numPendingChannels);
 
-        lnd.setLndChannels(channels);
+          lnd.setLndChannels(channels);
 
-        lnd.setVersion(lndInfo.version);
-        lnd.setBlockHeight(lndInfo.blockHeight);
-      } catch (error) {
-        lnd.setError(error.details);
+          lnd.setVersion(lndInfo.version);
+          lnd.setBlockHeight(lndInfo.blockHeight);
+        } catch (error) {
+          lnd.setError(error.details);
+        }
       }
 
       const currencyInfo = new CurrencyInfo();
@@ -201,7 +203,7 @@ class Service {
 
       const currencyInfo = this.currencies.get(symbol);
 
-      if (currencyInfo) {
+      if (currencyInfo && currencyInfo.lndClient) {
         const lightningBalance = new LightningBalance();
 
         const channelBalance = new ChannelBalance();
@@ -280,7 +282,7 @@ class Service {
   /**
    * Gets a new address of a specified wallet. The "type" parameter is optional and defaults to "OutputType.LEGACY"
    */
-  public newAddress = async (symbol: string, type?: number) => {
+  public newAddress = async (symbol: string, type?: OutputType) => {
     const wallet = this.walletManager.wallets.get(symbol);
 
     if (!wallet) {
@@ -374,7 +376,7 @@ class Service {
       invoice,
       expectedAmount,
       refundPublicKey,
-      OutputType.Compatibility,
+      this.getSwapOutputType(chainCurrency, false),
       timeoutBlockDelta,
       acceptZeroConf,
     );
@@ -454,6 +456,10 @@ class Service {
       invoiceAmount,
       onchainAmount,
       claimPublicKey,
+      this.getSwapOutputType(
+        getChainCurrency(base, quote, side, true),
+        true,
+      ),
       timeoutBlockDelta,
     );
 
@@ -489,6 +495,10 @@ class Service {
    */
   public payInvoice = async (symbol: string, invoice: string) => {
     const { lndClient } = this.getCurrency(symbol);
+
+    if (!lndClient) {
+      throw Errors.NO_LND_CLIENT(symbol);
+    }
 
     return lndClient.sendPayment(invoice);
   }
@@ -586,6 +596,20 @@ class Service {
 
       default: throw Errors.ORDER_SIDE_NOT_FOUND(side);
     }
+  }
+
+  private getSwapOutputType = (chainCurrency: string, isReverse: boolean): OutputType => {
+    const wallet = this.walletManager.wallets.get(chainCurrency);
+
+    if (wallet === undefined) {
+      throw Errors.CURRENCY_NOT_FOUND(chainCurrency);
+    }
+
+    if (!wallet.supportsSegwit) {
+      return OutputType.Legacy;
+    }
+
+    return isReverse ? OutputType.Bech32 : OutputType.Compatibility;
   }
 }
 

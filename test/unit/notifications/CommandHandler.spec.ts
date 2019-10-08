@@ -468,7 +468,7 @@ describe('CommandHandler', () => {
     await wait(5);
 
     expect(mockNewAddress).toHaveBeenCalledTimes(1);
-    expect(mockNewAddress).toHaveBeenCalledWith('BTC', OutputType.COMPATIBILITY);
+    expect(mockNewAddress).toHaveBeenCalledWith('BTC', OutputType.LEGACY);
 
     sendMessage('newaddress BTC bech32');
     await wait(5);

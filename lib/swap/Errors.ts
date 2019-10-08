@@ -11,4 +11,8 @@ export default {
     message: 'could not find route to pay invoice',
     code: concatErrorCode(ErrorCodePrefix.Swap, 1),
   }),
+  NO_LND_CLIENT: (symbol: string): Error => ({
+    message: `${symbol} has no LND client`,
+    code: concatErrorCode(ErrorCodePrefix.Swap, 2),
+  }),
 };

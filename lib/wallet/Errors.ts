@@ -1,6 +1,7 @@
+import { OutputType } from 'boltz-core';
 import { Error } from '../consts/Types';
-import { ErrorCodePrefix } from '../consts/Enums';
 import { concatErrorCode } from '../Utils';
+import { ErrorCodePrefix } from '../consts/Enums';
 
 export default {
   NOT_INITIALIZED: (): Error => ({
@@ -22,5 +23,13 @@ export default {
   INVALID_SIGNATURE: (): Error => ({
     message: 'could not verify signatures of constructed transaction',
     code: concatErrorCode(ErrorCodePrefix.Wallet, 4),
+  }),
+  CURRENCY_NOT_SUPPORTED: (symbol: string): Error => ({
+    message: `${symbol} wallets are not supported`,
+    code: concatErrorCode(ErrorCodePrefix.Wallet, 5),
+  }),
+  OUTPUTTYPE_NOT_SUPPORTED: (symbol: string, type: OutputType) => ({
+    message: `${symbol} wallet does not supports outputs of type: ${type}`,
+    code: concatErrorCode(ErrorCodePrefix.Wallet, 6),
   }),
 };

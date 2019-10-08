@@ -38,6 +38,8 @@ class ZmqClient extends EventEmitter {
 
   private sockets: Socket[] = [];
 
+  private compatibilityRescan = false;
+
   // Because the event handlers that process the blocks are doing work asynchronously
   // one has to use a lock to ensure the events get handled sequentially
   private blockHandleLock = new AsyncLock();
@@ -111,18 +113,46 @@ class ZmqClient extends EventEmitter {
   }
 
   public rescanChain = async (startHeight: number) => {
-    for (let i = 0; startHeight + i <= this.blockHeight; i += 1) {
-      this.logger.debug(`Rescanning ${this.symbol} block #${startHeight + i}`);
+    const checkTransaction = (transaction: Transaction) => {
+      if (this.isRelevantTransaction(transaction)) {
+        this.emit('transaction', transaction, true);
+      }
+    };
 
-      const hash = await this.getBlockhash(startHeight + i);
-      const block = await this.getBlockVerbose(hash);
+    try {
+      for (let i = 0; startHeight + i <= this.blockHeight; i += 1) {
+        this.logger.debug(`Rescanning ${this.symbol} block #${startHeight + i}`);
 
-      for (const { hex } of block.tx) {
-        const transaction = Transaction.fromHex(hex);
+        const hash = await this.getBlockhash(startHeight + i);
 
-        if (this.isRelevantTransaction(transaction)) {
-          this.emit('transaction', transaction, true);
+        if (!this.compatibilityRescan) {
+          const block = await this.getBlockVerbose(hash);
+
+          for (const { hex } of block.tx) {
+            const transaction = Transaction.fromHex(hex);
+
+            checkTransaction(transaction);
+          }
+
+        } else {
+          const block = await this.getBlock(hash);
+
+          for (const tx of block.tx) {
+            const rawTransaction = await this.getRawTransactionVerbose(tx);
+            const transaction = Transaction.fromHex(rawTransaction.hex);
+
+            checkTransaction(transaction);
+          }
         }
+      }
+    } catch (error) {
+      if (!this.compatibilityRescan) {
+        this.logger.info(`Falling back to compatibility rescan for ${this.symbol} chain`);
+        this.compatibilityRescan = true;
+
+        await this.rescanChain(startHeight);
+      } else {
+        throw error;
       }
     }
   }

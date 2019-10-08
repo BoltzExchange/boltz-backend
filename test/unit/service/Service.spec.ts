@@ -97,9 +97,18 @@ jest.mock('../../../lib/wallet/WalletManager', () => {
   return jest.fn().mockImplementation(() => ({
     wallets: new Map<string, Wallet>([
       ['BTC', {
+        supportsSegwit: true,
         getBalance: mockGetBalance,
         getNewAddress: mockGetNewAddress,
         sendToAddress: mockSendToAddress,
+      } as any as Wallet],
+      ['DOGE', {
+        supportsSegwit: false,
+        getBalance: () => ({
+          totalBalance: 0,
+          confirmedBalance: 0,
+          unconfirmedBalance: 0,
+        }),
       } as any as Wallet],
     ]),
   }));
@@ -353,6 +362,7 @@ describe('Service', () => {
 
     const singleResponse = (await service.getBalance('BTC')).toObject();
 
+    response.balancesMap.pop();
     expect(response).toEqual(singleResponse);
 
     // Throw if currency cannot be found
@@ -563,6 +573,7 @@ describe('Service', () => {
       invoiceAmount,
       99998,
       claimPublicKey,
+      OutputType.Bech32,
       1,
     );
 
@@ -785,5 +796,15 @@ describe('Service', () => {
 
     // Throw if order side cannot be found
     expect(() => getOrderSide('')).toThrow(Errors.ORDER_SIDE_NOT_FOUND('').message);
+  });
+
+  test('should get swap output type', () => {
+    const getSwapOutputType = service['getSwapOutputType'];
+
+    expect(getSwapOutputType('BTC', true)).toEqual(OutputType.Bech32);
+    expect(getSwapOutputType('BTC', false)).toEqual(OutputType.Compatibility);
+
+    expect(getSwapOutputType('DOGE', true)).toEqual(OutputType.Legacy);
+    expect(getSwapOutputType('DOGE', false)).toEqual(OutputType.Legacy);
   });
 });

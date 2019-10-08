@@ -111,6 +111,10 @@ class EventHandler extends EventEmitter {
    */
   private subscribeInvoices = () => {
     this.currencies.forEach((currency) => {
+      if (!currency.lndClient) {
+        return;
+      }
+
       currency.lndClient.on('invoice.settled', async (invoice, preimage) => {
         await this.lock.acquire(EventHandler.reverseSwapLock, async () => {
           let reverseSwap = await this.reverseSwapRepository.getReverseSwap({
@@ -239,11 +243,13 @@ class EventHandler extends EventEmitter {
    */
   private subscribeChannelBackups = () => {
     this.currencies.forEach((currency) => {
-      const { symbol, lndClient } = currency;
+      if (currency.lndClient) {
+        const { symbol, lndClient } = currency;
 
-      lndClient.on('channel.backup', (channelBackup: string) => {
-        this.emit('channel.backup', symbol, channelBackup);
-      });
+        lndClient.on('channel.backup', (channelBackup: string) => {
+          this.emit('channel.backup', symbol, channelBackup);
+        });
+      }
     });
   }
 }

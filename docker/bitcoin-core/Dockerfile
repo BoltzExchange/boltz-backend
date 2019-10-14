@@ -1,32 +1,33 @@
-ARG ALPINE_VERSION
-
+ARG UBUNTU_VERSION
 ARG BERKELEY_VERSION
 
 FROM boltz/berkeley-db:${BERKELEY_VERSION} AS berkeley-db
 
 # Build Bitcoin Core
-FROM alpine:${ALPINE_VERSION} as bitcoin-core
+FROM ubuntu:${UBUNTU_VERSION} as bitcoin-core
 
 ARG VERSION
 
 COPY --from=berkeley-db /opt /opt
 
-RUN apk update && apk upgrade
-RUN apk --no-cache add \
-  file \
-  gnupg \
+RUN apt-get update && apt-get -y upgrade
+RUN apt-get -y install \
+  wget \
   libtool \
-  chrpath \
+  python3 \
   automake \
-  libressl \
-  autoconf \
-  boost-dev \
-  build-base \
-  zeromq-dev \
+  pkg-config \
+  libssl-dev \
+  libzmq3-dev \
+  bsdmainutils \
   libevent-dev \
-  libressl-dev \
-  protobuf-dev \
-  linux-headers
+  autotools-dev \
+  build-essential \ 
+  libboost-test-dev \
+  libboost-chrono-dev \
+  libboost-system-dev \
+  libboost-thread-dev \
+  libboost-filesystem-dev
 
 RUN gpg --batch --keyserver keyserver.ubuntu.com --recv-keys "90C8019E36C2E964"
 
@@ -40,10 +41,6 @@ RUN grep "bitcoin-${VERSION}.tar.gz\$" SHA256SUMS.asc | sha256sum -c -
 RUN tar -xzf *.tar.gz
 
 WORKDIR /bitcoin-${VERSION}
-
-RUN sed -i '/AC_PREREQ/a\AR_FLAGS=cr' src/univalue/configure.ac
-RUN sed -i '/AX_PROG_CC_FOR_BUILD/a\AR_FLAGS=cr' src/secp256k1/configure.ac
-RUN sed -i s:sys/fcntl.h:fcntl.h: src/compat.h
 
 RUN ./autogen.sh
 RUN ./configure LDFLAGS=-L`ls -d /opt/db*`/lib/ CPPFLAGS=-I`ls -d /opt/db*`/include/ \
@@ -66,17 +63,19 @@ RUN strip ${BITCOIN_PREFIX}/bin/bitcoin-cli
 RUN strip ${BITCOIN_PREFIX}/bin/bitcoin-wallet
 
 # Assemble the final image
-FROM alpine:${ALPINE_VERSION}
+FROM ubuntu:${UBUNTU_VERSION}
 
 ARG VERSION
 
-RUN apk update && apk upgrade
-RUN apk --no-cache add \
-  boost \
-  libzmq \
-  libevent \
-  libressl \
-  boost-program_options
+RUN apt-get update && apt-get -y upgrade
+RUN apt-get -y install \
+  openssl \
+  libzmq3-dev \
+  libevent-dev \
+  libboost-chrono-dev \
+  libboost-system-dev \
+  libboost-thread-dev \
+  libboost-filesystem-dev
 
 COPY --from=bitcoin-core /opt/bitcoin-${VERSION}/bin /bin
 

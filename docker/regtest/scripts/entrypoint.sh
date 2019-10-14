@@ -1,6 +1,9 @@
-#!/bin/sh
+#!/bin/bash
 
-start.sh
+source utils.sh
+
+startNodes
+startLnds
 
 while true; do
   sleep 1

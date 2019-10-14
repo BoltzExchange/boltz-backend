@@ -4,7 +4,7 @@ import RpcClient from './RpcClient';
 import BaseClient from '../BaseClient';
 import { getHexString } from '../Utils';
 import { ClientStatus } from '../consts/Enums';
-import ZmqClient, { ZmqNotification } from './ZmqClient';
+import ZmqClient, { ZmqNotification, filters } from './ZmqClient';
 import { Block, BlockchainInfo, RawTransaction, BlockVerbose } from '../consts/Types';
 
 type ChainConfig = {
@@ -12,6 +12,10 @@ type ChainConfig = {
   port: number;
   rpcuser: string;
   rpcpass: string;
+
+  zmqpubrawtx?: string;
+  zmqpubrawblock?: string;
+  zmqpubhashblock?: string;
 };
 
 type NetworkInfo = {
@@ -42,10 +46,10 @@ class ChainClient extends BaseClient {
 
   private static readonly decimals = 100000000;
 
-  constructor(logger: Logger, config: ChainConfig, public readonly symbol: string) {
+  constructor(private logger: Logger, private config: ChainConfig, public readonly symbol: string) {
     super();
 
-    this.client = new RpcClient(config);
+    this.client = new RpcClient(this.config);
     this.zmqClient = new ZmqClient(
       symbol,
       logger,
@@ -60,7 +64,40 @@ class ChainClient extends BaseClient {
   }
 
   public connect = async () => {
-    await this.zmqClient.init(await this.getZmqNotifications());
+    let zmqNotifications: ZmqNotification[] = [];
+
+    // Dogecoin Core and Zcash don't support the "getzmqnotifications" method *yet*
+    // Therefore the host and ports for these chains have to be configured manually
+    try {
+      zmqNotifications = await this.getZmqNotifications();
+    } catch (error) {
+      if (error.message !== 'Method not found') {
+        throw error;
+      }
+
+      if (this.config.zmqpubrawtx) {
+        zmqNotifications.push({
+          type: filters.rawTx,
+          address: this.config.zmqpubrawtx,
+        });
+      }
+
+      if (this.config.zmqpubrawblock) {
+        zmqNotifications.push({
+          type: filters.rawBlock,
+          address: this.config.zmqpubrawblock,
+        });
+      }
+
+      if (this.config.zmqpubhashblock) {
+        zmqNotifications.push({
+          type: filters.hashBlock,
+          address: this.config.zmqpubhashblock,
+        });
+      }
+    }
+
+    await this.zmqClient.init(zmqNotifications);
   }
 
   public disconnect = async () => {
@@ -118,18 +155,29 @@ class ChainClient extends BaseClient {
   }
 
   public getRawTransactionVerbose = (id: string) => {
-    return this.client.request<RawTransaction>('getrawtransaction', [id, true]);
+    return this.client.request<RawTransaction>('getrawtransaction', [id, 1]);
   }
 
   public estimateFee = async (confTarget = 2) => {
-    const response = await this.client.request<any>('estimatesmartfee', [confTarget]);
+    try {
+      const response = await this.client.request<any>('estimatesmartfee', [confTarget]);
 
-    if (response.feerate) {
-      const feePerKb = response.feerate * ChainClient.decimals;
-      return Math.max(Math.round(feePerKb / 1000), 2);
+      if (response.feerate) {
+        const feePerKb = response.feerate * ChainClient.decimals;
+        return Math.max(Math.round(feePerKb / 1000), 2);
+      }
+
+      return 2;
+    } catch (error) {
+      if (error.message === 'Method not found') {
+        // TODO: use estimatefee for outdated node versions
+        this.logger.silly(`"estimatesmartfee" method not found on ${this.symbol} chain`);
+
+        return 2;
+      }
+
+      throw error;
     }
-
-    return 2;
   }
 
   /**

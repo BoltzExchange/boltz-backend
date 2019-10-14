@@ -54,16 +54,10 @@ class Boltz {
       this.walletManager = WalletManager.fromMnemonic(this.logger, mnemonic, this.config.mnemonicpath, walletCurrencies);
     }
 
-    const bitcoin = this.currencies.get('BTC')!;
-    const litecoin = this.currencies.get('LTC')!;
-
     this.swapManager = new SwapManager(
       this.logger,
       this.walletManager,
-      [
-        bitcoin,
-        litecoin,
-      ],
+      Array.from(this.currencies.values()),
     );
 
     try {
@@ -120,7 +114,10 @@ class Boltz {
 
       this.currencies.forEach((currency) => {
         promises.push(this.connectChainClient(currency.chainClient));
-        promises.push(this.connectLnd(currency.lndClient));
+
+        if (currency.lndClient) {
+          promises.push(this.connectLnd(currency.lndClient));
+        }
       });
 
       await Promise.all(promises);
@@ -178,7 +175,12 @@ class Boltz {
     this.config.currencies.forEach((currency) => {
       try {
         const chainClient = new ChainClient(this.logger, currency.chain, currency.symbol);
-        const lndClient = new LndClient(this.logger, currency.lnd!, currency.symbol);
+
+        let lndClient: LndClient | undefined;
+
+        if (currency.lnd) {
+          lndClient = new LndClient(this.logger, currency.lnd, currency.symbol);
+        }
 
         this.currencies.set(currency.symbol, {
           chainClient,

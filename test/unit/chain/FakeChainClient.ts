@@ -10,6 +10,9 @@ type RawBlock = {
 };
 
 class FakedChainClient {
+  // Required for testing the compatibility rescan logic
+  public disableGetBlockVerbose = false;
+
   private blockIndex = new Map<number, string>([
     [0, getHexString(FakedChainClient.genesisBlock.hash)],
   ]);
@@ -71,7 +74,9 @@ class FakedChainClient {
 
     if (block !== undefined) {
       const previousBlockHash = this.blockIndex.get(block.height - 1)!;
-      const transactionIds = this.blockTransactions.get(getHexString(block.hash));
+      const transactionIds = this.blockTransactions.get(
+        getHexString(reverseBuffer(block.hash)),
+      );
 
       return {
         hash,
@@ -99,6 +104,10 @@ class FakedChainClient {
   }
 
   public getBlockVerbose = async (hash: string) => {
+    if (this.disableGetBlockVerbose) {
+      throw 'disabled';
+    }
+
     const block = this.blocks.get(hash);
 
     if (block !== undefined) {
@@ -180,8 +189,10 @@ class FakedChainClient {
 
     if (transaction !== undefined) {
       return {
-        confirmations: 1,
         ...verboseTransaction,
+
+        confirmations: 1,
+        hex: transaction.toHex(),
       };
     } else {
       const mempoolTransaction = this.mempoolTransactions.get(id);

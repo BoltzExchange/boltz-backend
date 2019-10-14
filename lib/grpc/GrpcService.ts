@@ -3,6 +3,7 @@
   tslint:disable-next-line: max-line-length
  */
 import { handleUnaryCall } from 'grpc';
+import { OutputType } from 'boltz-core';
 import Service from '../service/Service';
 import * as boltzrpc from '../proto/boltzrpc_pb';
 
@@ -32,7 +33,7 @@ class GrpcService {
     try {
       const { symbol, type } = call.request.toObject();
 
-      const address = await this.service.newAddress(symbol, type);
+      const address = await this.service.newAddress(symbol, this.parseOutputType(type));
 
       const response = new boltzrpc.NewAddressResponse();
       response.setAddress(address);
@@ -66,6 +67,19 @@ class GrpcService {
       callback(null, new boltzrpc.UpdateTimeoutBlockDeltaResponse());
     } catch (error) {
       callback(error, null);
+    }
+  }
+
+  private parseOutputType = (type: boltzrpc.OutputType): OutputType => {
+    switch (type) {
+      case boltzrpc.OutputType.BECH32:
+        return OutputType.Bech32;
+
+      case boltzrpc.OutputType.COMPATIBILITY:
+        return OutputType.Compatibility;
+
+      case boltzrpc.OutputType.LEGACY:
+        return OutputType.Legacy;
     }
   }
 }

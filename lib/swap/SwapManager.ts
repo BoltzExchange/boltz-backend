@@ -1,4 +1,4 @@
-import { OutputType, Scripts, swapScript } from 'boltz-core';
+import { OutputType, swapScript } from 'boltz-core';
 import Errors from './Errors';
 import Logger from '../Logger';
 import { OrderSide } from '../consts/Enums';
@@ -6,8 +6,6 @@ import LndClient from '../lightning/LndClient';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import SwapNursery, { SwapMaps, SwapDetails, ReverseSwapDetails } from './SwapNursery';
 import { getHexBuffer, getHexString, getScriptHashFunction, getSwapMemo, getSendingReceivingCurrency } from '../Utils';
-
-const { p2wshOutput } = Scripts;
 
 class SwapManager {
   public currencies = new Map<string, Currency & SwapMaps>();
@@ -61,6 +59,10 @@ class SwapManager {
     acceptZeroConf: boolean,
   ) => {
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(baseCurrency, quoteCurrency, orderSide);
+
+    if (!sendingCurrency.lndClient) {
+      throw Errors.NO_LND_CLIENT(sendingCurrency.symbol);
+    }
 
     this.logger.silly(`Sending ${sendingCurrency.symbol} on Lightning and receiving ${receivingCurrency.symbol} on the chain`);
 
@@ -125,6 +127,7 @@ class SwapManager {
    * @param invoiceAmount amount of the invoice that should be generated
    * @param onchainAmount amount of coins that should be sent onchain
    * @param claimPublicKey public key of the keypair needed for claiming
+   * @param outputType type of the lockup address
    * @param timeoutBlockDelta after how many blocks the onchain script should time out
    */
   public createReverseSwap = async (
@@ -134,9 +137,14 @@ class SwapManager {
     invoiceAmount: number,
     onchainAmount: number,
     claimPublicKey: Buffer,
+    outputType: OutputType,
     timeoutBlockDelta: number,
   ) => {
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(baseCurrency, quoteCurrency, orderSide);
+
+    if (!receivingCurrency.lndClient) {
+      throw Errors.NO_LND_CLIENT(receivingCurrency.symbol);
+    }
 
     this.logger.silly(`Sending ${sendingCurrency.symbol} on the chain and receiving ${receivingCurrency.symbol} on Lightning`);
     this.logger.verbose(`Creating new reverse Swap from ${receivingCurrency.symbol} to ${sendingCurrency.symbol} ` +
@@ -158,13 +166,13 @@ class SwapManager {
       timeoutBlockHeight,
     );
 
-    const outputScript = p2wshOutput(redeemScript);
+    const outputScript = getScriptHashFunction(outputType)(redeemScript);
     const address = sendingCurrency.wallet.encodeAddress(outputScript);
 
     sendingCurrency.chainClient.updateOutputFilter([outputScript]);
 
-    const { fee, vout, transaction } = await sendingCurrency.wallet.sendToAddress(address, OutputType.Bech32, true, onchainAmount);
-    this.logger.debug(`Sending ${onchainAmount} on ${sendingCurrency.symbol} to swap address ${address}: ${transaction.getId()}:${vout}`);
+    const { fee, vout, transaction } = await sendingCurrency.wallet.sendToAddress(address, outputType, true, onchainAmount);
+    this.logger.debug(`Sent ${onchainAmount} ${sendingCurrency.symbol} to swap address ${address}: ${transaction.getId()}:${vout}`);
 
     const rawTx = transaction.toHex();
 
@@ -180,7 +188,7 @@ class SwapManager {
         vout,
         value: onchainAmount,
         script: outputScript,
-        type: OutputType.Bech32,
+        type: outputType,
         txHash: transaction.getHash(),
       },
     };

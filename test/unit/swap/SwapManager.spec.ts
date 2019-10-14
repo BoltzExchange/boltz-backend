@@ -1,14 +1,14 @@
-import { ECPair } from 'bitcoinjs-lib';
+import { ECPair, Network } from 'bitcoinjs-lib';
 import { Networks, OutputType } from 'boltz-core';
 import Logger from '../../../lib/Logger';
 import Errors from '../../../lib/swap/Errors';
 import Wallet from '../../../lib/wallet/Wallet';
 import { getHexBuffer } from '../../../lib/Utils';
 import { OrderSide } from '../../../lib/consts/Enums';
-import SwapManager, { SwapDetails, ReverseSwapDetails } from '../../../lib/swap/SwapManager';
 import LndClient from '../../../lib/lightning/LndClient';
 import ChainClient from '../../../lib/chain/ChainClient';
 import WalletManager from '../../../lib/wallet/WalletManager';
+import SwapManager, { SwapDetails, ReverseSwapDetails } from '../../../lib/swap/SwapManager';
 
 const mockAddSwap = jest.fn().mockImplementation();
 const mockBindCurrency = jest.fn().mockImplementation();
@@ -146,19 +146,21 @@ describe('SwapManager', () => {
     {
       symbol: 'BTC',
       network: Networks.bitcoinRegtest,
-      config: {
-        timeoutBlockDelta: 1,
-      } as any,
+      config: {} as any,
       lndClient: mockedLndClient(),
       chainClient: mockedChainClient(),
     },
     {
       symbol: 'LTC',
       network: Networks.litecoinRegtest,
-      config: {
-        timeoutBlockDelta: 4,
-      } as any,
+      config: {} as any,
       lndClient: mockedLndClient(),
+      chainClient: mockedChainClient(),
+    },
+    {
+      symbol: 'DOGE',
+      network: Networks.dogecoinRegtest as Network,
+      config: {} as any,
       chainClient: mockedChainClient(),
     },
   ];
@@ -283,6 +285,19 @@ describe('SwapManager', () => {
       timeoutBlockDelta,
       acceptZeroConf,
     )).rejects.toEqual(Errors.NO_ROUTE_FOUND());
+
+    // Throw if the lightning currency doesn't have a LND client
+    await expect(manager.createSwap(
+      'DOGE',
+      quoteCurrency,
+      orderSide,
+      '',
+      expectedAmount,
+      refundPublicKey,
+      outputType,
+      timeoutBlockDelta,
+      acceptZeroConf,
+    )).rejects.toEqual(Errors.NO_LND_CLIENT('DOGE'));
   });
 
   test('should create reverse swaps', async () => {
@@ -305,6 +320,7 @@ describe('SwapManager', () => {
       invoiceAmont,
       onchainAmount,
       claimPublicKey,
+      OutputType.Bech32,
       timeoutBlockDelta,
     );
 
@@ -364,6 +380,7 @@ describe('SwapManager', () => {
       invoiceAmont,
       onchainAmount,
       claimPublicKey,
+      OutputType.Bech32,
       timeoutBlockDelta,
     )).resolves.toEqual(response);
 

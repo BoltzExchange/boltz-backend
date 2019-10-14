@@ -5,7 +5,7 @@ import { OutputType } from 'boltz-core';
 import { Transaction, crypto } from 'bitcoinjs-lib';
 import Logger from '../../../lib/Logger';
 import Errors from '../../../lib/chain/Errors';
-import FakedChainClient from './FakedChainClient';
+import FakedChainClient from './FakeChainClient';
 import { getHexString, reverseBuffer } from '../../../lib/Utils';
 import { generateAddress, waitForFunctionToBeTrue, wait } from '../../Utils';
 import ZmqClient, { ZmqNotification, filters } from '../../../lib/chain/ZmqClient';
@@ -154,6 +154,28 @@ describe('ZmqClient', () => {
     await waitForFunctionToBeTrue(() => {
       return transactionsFound === blocksToGenerate * blocksToGenerate;
     });
+  });
+
+  test('should fallback to compatibility rescan', async () => {
+    chainClient.disableGetBlockVerbose = true;
+
+    let transactionsFound = 0;
+
+    zmqClient.on('transaction', (_, confirmed) => {
+      if (confirmed) {
+        transactionsFound += 1;
+      }
+    });
+
+    await zmqClient.rescanChain(0);
+
+    await wait(2000);
+
+    await waitForFunctionToBeTrue(() => {
+      return transactionsFound === blocksToGenerate * blocksToGenerate;
+    });
+
+    chainClient.disableGetBlockVerbose = false;
   });
 
   test('should handle raw transactions', async () => {

@@ -191,8 +191,8 @@ class RateProvider {
 
     if (baseLimits && quoteLimits) {
       return {
-        maximal: Math.min(quoteLimits.maximal, baseLimits.maximal * rate),
-        minimal: Math.max(quoteLimits.minimal, baseLimits.minimal * rate),
+        maximal: Math.floor(Math.min(quoteLimits.maximal, baseLimits.maximal * rate)),
+        minimal: Math.ceil(Math.max(quoteLimits.minimal, baseLimits.minimal * rate)),
 
         maximalZeroConf: {
           baseAsset: baseLimits.maximalZeroConf,

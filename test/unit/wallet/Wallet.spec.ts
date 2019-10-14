@@ -10,8 +10,10 @@ import UtxoRepository from '../../../lib/wallet/UtxoRepository';
 import WalletRepository from '../../../lib/wallet/WalletRepository';
 import OutputRepository from '../../../lib/wallet/OutputRepository';
 import { getPubkeyHashFunction, getHexBuffer } from '../../../lib/Utils';
+import SupportedOutputTypes from '../../../lib/consts/SupportedOutputTypes';
+import Errors from '../../../lib/wallet/Errors';
 
-const currency = 'BTC';
+let currency = 'BTC';
 
 jest.mock('../../../lib/chain/ChainClient', () => {
   return jest.fn().mockImplementation(() => {
@@ -54,6 +56,20 @@ describe('Wallet', () => {
     highestUsedIndex,
   );
 
+  currency = 'DOGE';
+
+  const noSegwitWallet = new Wallet(
+    Logger.disabledLogger,
+    walletRepository,
+    outputRepository,
+    utxoRepository,
+    masterNode,
+    network,
+    mockedChainClient(),
+    derivationPath,
+    highestUsedIndex,
+  );
+
   const incrementIndex = () => {
     highestUsedIndex = highestUsedIndex + 1;
   };
@@ -66,12 +82,30 @@ describe('Wallet', () => {
     await database.init();
 
     // Create the foreign constraint for the "utxos" table
-    await walletRepository.addWallet({
-      derivationPath,
-      highestUsedIndex,
-      symbol: currency,
-      blockHeight: 0,
-    });
+    await Promise.all([
+      walletRepository.addWallet({
+        derivationPath,
+        highestUsedIndex,
+        symbol: 'BTC',
+        blockHeight: 0,
+      }),
+      walletRepository.addWallet({
+        derivationPath,
+        highestUsedIndex,
+        symbol: 'DOGE',
+        blockHeight: 0,
+      }),
+    ]);
+  });
+
+  test('should set supported type' , () => {
+    expect(wallet.supportedOutputTypes).toEqual(SupportedOutputTypes.BTC);
+    expect(noSegwitWallet.supportedOutputTypes).toEqual(SupportedOutputTypes.DOGE);
+  });
+
+  test('should set SegWit support boolean', () => {
+    expect(wallet.supportsSegwit).toEqual(true);
+    expect(noSegwitWallet.supportsSegwit).toEqual(false);
   });
 
   test('should get correct address from index', () => {
@@ -109,6 +143,10 @@ describe('Wallet', () => {
     const outputAddress = address.fromOutputScript(outputScript, network);
 
     expect(await wallet.getNewAddress(outputType)).toEqual(outputAddress);
+
+    // Throw if output type is not supported
+    await expect(noSegwitWallet.getNewAddress(OutputType.Bech32)).rejects
+      .toEqual(Errors.OUTPUTTYPE_NOT_SUPPORTED('DOGE', OutputType.Bech32));
   });
 
   test('should get correct balance', async () => {
@@ -154,7 +192,7 @@ describe('Wallet', () => {
   });
 
   test('should update highest used index in database', async () => {
-    const dbWallet = await walletRepository.getWallet(currency);
+    const dbWallet = await walletRepository.getWallet('BTC');
 
     expect(dbWallet.highestUsedIndex).toEqual(highestUsedIndex);
   });

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Script for building and pushing the Boltz Docker images"""
+from typing import List, Dict
 from dataclasses import dataclass
 from os import system, chdir, path
 from argparse import ArgumentParser
-from typing import List, Dict
 
 @dataclass
 class BuildArgument:
@@ -14,61 +14,84 @@ class BuildArgument:
 
 @dataclass
 class Image:
-    """The version and and build arguments of a Docker image"""
+    """The tags and and build arguments of a Docker image"""
 
-    version: str
+    tags: List[str]
     arguments: List[BuildArgument]
 
-ALPINE_VERSION = BuildArgument(
-    name="ALPINE_VERSION",
-    value="3.10.2"
+UBUNTU_VERSION = BuildArgument(
+    name="UBUNTU_VERSION",
+    value="19.04"
 )
 
-BERKELEY_VERSION = BuildArgument(
+BERKELEY_4_VERSION = BuildArgument(
     name="BERKELEY_VERSION",
     value="4.8.30"
 )
 
+BERKELEY_5_VERSION = BuildArgument(
+    name="BERKELEY_VERSION",
+    value="5.1.29"
+)
+
 BITCOIN_VERSION = "0.18.1"
 LITECOIN_VERSION = "0.17.1"
+DOGECOIN_VERSION = "1.14.1"
+ZCASH_VERSION = "2.0.7-3"
 
 LND_VERSION = "0.7.1-beta"
 
 IMAGES: Dict[str, Image] = {
     "berkeley-db": Image(
-        version=BERKELEY_VERSION.value,
+        tags=[
+            BERKELEY_4_VERSION.value,
+            BERKELEY_5_VERSION.value,
+        ],
         arguments=[
-            ALPINE_VERSION
+            UBUNTU_VERSION
         ]
     ),
     "bitcoin-core": Image(
-        version=BITCOIN_VERSION,
+        tags=[BITCOIN_VERSION],
         arguments=[
-            ALPINE_VERSION,
-            BERKELEY_VERSION
+            UBUNTU_VERSION,
+            BERKELEY_4_VERSION
         ]
     ),
     "litecoin-core": Image(
-        version=LITECOIN_VERSION,
+        tags=[LITECOIN_VERSION],
         arguments=[
-            ALPINE_VERSION,
-            BERKELEY_VERSION
+            UBUNTU_VERSION,
+            BERKELEY_4_VERSION
+        ]
+    ),
+    "dogecoin-core": Image(
+        tags=[DOGECOIN_VERSION],
+        arguments=[
+            UBUNTU_VERSION,
+            BERKELEY_5_VERSION
+        ]
+    ),
+    "zcash": Image(
+        tags=[ZCASH_VERSION],
+        arguments=[
+            UBUNTU_VERSION,
         ]
     ),
     "lnd": Image(
-        version=LND_VERSION,
+        tags=[LND_VERSION],
         arguments=[
-            ALPINE_VERSION,
+            UBUNTU_VERSION,
             BuildArgument(
                 name="GOLANG_VERSION",
-                value="1.12.10-alpine"
+                value="1.12.10-buster"
             )
         ]
     ),
     "regtest": Image(
-        version="1.0.1",
+        tags=["1.1.0"],
         arguments=[
-            ALPINE_VERSION,
+            UBUNTU_VERSION,
             BuildArgument(
                 name="BITCOIN_VERSION",
                 value=BITCOIN_VERSION
@@ -76,6 +99,14 @@ IMAGES: Dict[str, Image] = {
             BuildArgument(
                 name="LITECOIN_VERSION",
                 value=LITECOIN_VERSION
+            ),
+            BuildArgument(
+                name="DOGECOIN_VERSION",
+                value=DOGECOIN_VERSION
+            ),
+            BuildArgument(
+                name="ZCASH_VERSION",
+                value=ZCASH_VERSION
             ),
             BuildArgument(
                 name="LND_VERSION",
@@ -118,15 +149,18 @@ def list_images(to_list: List[str]):
     for image in to_list:
         build_details = get_build_details(image)
 
-        print(" - {name}:{tag}".format(
-            name=image,
-            tag=build_details.version
-        ))
+        print("  - {}".format(image))
+        print("    Tags:")
+
+        for tag in build_details.tags:
+            print("      - {}".format(tag))
+
+        print()
 
         if build_details.arguments:
-            print("   Build arguments:")
+            print("    Build arguments:")
         for argument in build_details.arguments:
-            print("     - {name}:{value}".format(
+            print("      - {name}:{value}".format(
                 name=argument.name,
                 value=argument.value
             ))
@@ -139,19 +173,21 @@ def push_images(to_push: List[str]):
     for image in to_push:
         build_details = get_build_details(image)
 
-        command = "docker push {name}:{tag}".format(
-            name="boltz/{}".format(image),
-            tag=build_details.version
-        )
+        for tag in build_details.tags:
+            command = "docker push {name}:{tag}".format(
+                name="boltz/{}".format(image),
+                tag=tag
+            )
 
-        print_step("Pushing {}".format(image))
+            print()
+            print_step("Pushing {image}:{tag}".format(image=image, tag=tag))
 
-        print(command)
-        print()
+            print(command)
+            print()
 
-        if system(command) != 0:
-            print_error("Could not push image {}".format(image))
-            exit(1)
+            if system(command) != 0:
+                print_error("Could not push image {}".format(image))
+                exit(1)
 
     print_step("Pushed images: {}".format(", ".join(to_push)))
 
@@ -162,21 +198,23 @@ def build_images(to_build: List[str], no_cache: bool):
 
     for image in to_build:
         build_details = get_build_details(image)
-        build_args: List[str] = []
 
-        # The regtest image doesn't need the version as a build flag
-        if image != "regtest":
-            build_args.append("VERSION={}".format(build_details.version))
+        for tag in build_details.tags:
+            build_args: List[str] = []
 
-        for argument in build_details.arguments:
-            build_args.append("{name}={value}".format(
-                name=argument.name,
-                value=argument.value,
-            ))
+            # The regtest image doesn't need the version as a build flag
+            if image != "regtest":
+                build_args.append("VERSION={}".format(tag))
+
+            for argument in build_details.arguments:
+                build_args.append("{name}={value}".format(
+                    name=argument.name,
+                    value=argument.value,
+                ))
 
             command = "docker build -t {name}:{tag} -f {dockerfile} {args} .".format(
+                tag=tag,
                 name="boltz/{}".format(image),
-                tag=build_details.version,
                 dockerfile="{}/Dockerfile".format(image),
                 # Add the prefix "--build-arg " to every entry and join the array to a string
                 args=" ".join(["--build-arg " + entry for entry in build_args])
@@ -185,17 +223,17 @@ def build_images(to_build: List[str], no_cache: bool):
             if no_cache:
                 command = command + " --no-cache"
 
-        print_step("Building {}".format(image))
+            print()
+            print_step("Building {image}:{tag}".format(image=image, tag=tag))
 
-        print(command)
-        print()
+            print(command)
+            print()
 
-        if system(command) != 0:
-            print_error("Could not build image {}".format(image))
-            exit(1)
+            if system(command) != 0:
+                print_error("Could not build image {}".format(image))
+                exit(1)
 
     print_step("Built images: {}".format(", ".join(to_build)))
-
 
 def parse_images(to_parse: List[str]) -> List[str]:
     """Returns all available images if none was specified"""

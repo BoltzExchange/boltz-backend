@@ -13,7 +13,7 @@ import { SwapUpdateEvent } from '../consts/Enums';
 import ReverseSwap from '../db/models/ReverseSwap';
 import BackupScheduler from '../backup/BackupScheduler';
 import { coinsToSatoshis, satoshisToCoins } from '../DenominationConverter';
-import { getChainCurrency, stringify, splitPairId, getHexString } from '../Utils';
+import { getChainCurrency, stringify, splitPairId, getHexString, formatError } from '../Utils';
 
 enum Command {
   Help = 'help',
@@ -374,7 +374,7 @@ class CommandHandler {
       const response = await this.service.newAddress(currency, outputType);
       await this.discord.sendMessage(`\`${response}\``);
     } catch (error) {
-      await this.discord.sendMessage(`Could not generate address: ${this.formatError(error)}`);
+      await this.discord.sendMessage(`Could not generate address: ${formatError(error)}`);
     }
   }
 
@@ -400,7 +400,7 @@ class CommandHandler {
 
         await this.discord.sendMessage(`Paid lightning invoice.\nPreimage: ${getHexString(response.paymentPreimage)}`);
       } catch (error) {
-        await this.discord.sendMessage(`Could not pay lightning invoice: ${this.formatError(error)}`);
+        await this.discord.sendMessage(`Could not pay lightning invoice: ${formatError(error)}`);
       }
 
     // Four arguments mean that the OTP token, the symbol, an address and the amount were provided
@@ -419,7 +419,7 @@ class CommandHandler {
 
         await this.discord.sendMessage(`Sent transaction: ${response.transactionId}:${response.vout}`);
       } catch (error) {
-        await this.discord.sendMessage(`Could not send coins: ${this.formatError(error)}`);
+        await this.discord.sendMessage(`Could not send coins: ${formatError(error)}`);
       }
     }
   }
@@ -488,16 +488,6 @@ class CommandHandler {
 
   private sendCouldNotFindSwap = async (id: string) => {
     await this.discord.sendMessage(`Could not find swap with id: ${id}`);
-  }
-
-  private formatError = (error: any) => {
-    if (typeof error === 'string') {
-      return error;
-    } else if ('message' in error) {
-      return error['message'];
-    } else {
-      return JSON.stringify(error);
-    }
   }
 }
 

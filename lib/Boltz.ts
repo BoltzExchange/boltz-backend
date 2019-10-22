@@ -5,7 +5,6 @@ import { generateMnemonic } from 'bip39';
 import Api from './api/Api';
 import Logger from './Logger';
 import Report from './data/Report';
-import { stringify } from './Utils';
 import Database from './db/Database';
 import Service from './service/Service';
 import GrpcServer from './grpc/GrpcServer';
@@ -14,6 +13,7 @@ import SwapManager from './swap/SwapManager';
 import LndClient from './lightning/LndClient';
 import ChainClient from './chain/ChainClient';
 import Config, { ConfigType } from './Config';
+import { stringify, formatError } from './Utils';
 import BackupScheduler from './backup/BackupScheduler';
 import WalletManager, { Currency } from './wallet/WalletManager';
 import NotificationProvider from './notifications/NotificationProvider';
@@ -200,7 +200,7 @@ class Boltz {
   }
 
   private logCouldNotConnect = (service: string, error: any) => {
-    this.logger.error(`Could not connect to ${service}: ${JSON.stringify(error)}`);
+    this.logger.error(`Could not connect to ${service}: ${formatError(error)}`);
   }
 }
 

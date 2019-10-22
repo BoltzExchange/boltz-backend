@@ -516,18 +516,6 @@ describe('CommandHandler', () => {
     expect(getOutputType.bind(getOutputType, notFound)).toThrow(`could not find output type: ${notFound}`);
   });
 
-  test('should format errors', () => {
-    const formatError = commandHandler['formatError'];
-
-    const test = 'error';
-    const object = { test };
-    const objectMessage = { message: test };
-
-    expect(formatError(test)).toEqual(test);
-    expect(formatError(object)).toEqual(JSON.stringify(object));
-    expect(formatError(objectMessage)).toEqual(test);
-  });
-
   afterAll(async () => {
     await Promise.all([
       swapRepository.dropTable(),

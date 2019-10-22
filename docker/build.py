@@ -39,7 +39,7 @@ LITECOIN_VERSION = "0.17.1"
 DOGECOIN_VERSION = "1.14.1"
 ZCASH_VERSION = "2.0.7-3"
 
-LND_VERSION = "0.7.1-beta"
+LND_VERSION = "0.8.0-beta"
 
 IMAGES: Dict[str, Image] = {
     "berkeley-db": Image(
@@ -84,12 +84,12 @@ IMAGES: Dict[str, Image] = {
             UBUNTU_VERSION,
             BuildArgument(
                 name="GOLANG_VERSION",
-                value="1.12.10-buster"
+                value="1.13.1-buster"
             )
         ]
     ),
     "regtest": Image(
-        tags=["1.1.0"],
+        tags=["1.2.0"],
         arguments=[
             UBUNTU_VERSION,
             BuildArgument(

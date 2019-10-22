@@ -215,4 +215,14 @@ describe('Utils', () => {
       receiving: baseCurrency,
     });
   });
+
+  test('should format errors', () => {
+    const test = 'error';
+    const object = { test };
+    const objectMessage = { message: test };
+
+    expect(utils.formatError(test)).toEqual(test);
+    expect(utils.formatError(object)).toEqual(JSON.stringify(object));
+    expect(utils.formatError(objectMessage)).toEqual(test);
+  });
 });

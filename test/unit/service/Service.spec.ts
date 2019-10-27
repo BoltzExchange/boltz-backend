@@ -2,15 +2,16 @@ import { Networks, OutputType } from 'boltz-core';
 import Logger from '../../../lib/Logger';
 import Wallet from '../../../lib/wallet/Wallet';
 import Errors from '../../../lib/service/Errors';
+import WalletErrors from '../../../lib/wallet/Errors';
+import { ConfigType } from '../../../lib/Config';
 import Service from '../../../lib/service/Service';
 import SwapManager from '../../../lib/swap/SwapManager';
 import LndClient from '../../../lib/lightning/LndClient';
 import ChainClient from '../../../lib/chain/ChainClient';
 import { CurrencyInfo } from '../../../lib/proto/boltzrpc_pb';
-import { getOutputType, getHexBuffer } from '../../../lib/Utils';
-import { ServiceWarning, OrderSide } from '../../../lib/consts/Enums';
 import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
-import { ConfigType } from '../../../lib/Config';
+import { getOutputType, getHexBuffer, getHexString } from '../../../lib/Utils';
+import { ServiceWarning, OrderSide, SwapType, SwapUpdateEvent } from '../../../lib/consts/Enums';
 
 const packageJson = require('../../../package.json');
 
@@ -45,6 +46,22 @@ jest.mock('../../../lib/service/ReverseSwapRepository', () => {
   }));
 });
 
+let chainToChainSwapExists = false;
+
+const mockGetChainToChainSwap = jest.fn().mockImplementation(() => {
+  return new Promise((resolve) => {
+    resolve(chainToChainSwapExists ? {} : undefined);
+  });
+});
+const mockAddChainToChainSwap = jest.fn().mockResolvedValue(undefined);
+
+jest.mock('../../../lib/service/ChainToChainSwapRepository', () => {
+  return jest.fn().mockImplementation(() => ({
+    getChainToChainSwap: mockGetChainToChainSwap,
+    addChainToChainSwap: mockAddChainToChainSwap,
+  }));
+});
+
 const mockedSwap = {
   keyIndex: 42,
   address: 'bcrt1',
@@ -59,9 +76,23 @@ const mockedReverseSwap = {
   redeemScript: '0x',
   invoice: 'lnbcrt1',
   lockupTransaction: {},
+  timeoutBlockHeight: 123,
   lockupTransactionId: 'id',
 };
 const mockCreateReverseSwap = jest.fn().mockResolvedValue(mockedReverseSwap);
+
+const mockedChainToChainSwap = {
+  sendingKeyIndex: 31,
+  sendingRedeemScript: '0xa',
+  sendingLockupAddress: 'bcrt1',
+  sendingTimeoutBlockHeight: 100,
+
+  receivingKeyIndex: 123,
+  receivingRedeemScript: '0xb',
+  receivingLockupAddress: 'bcrt2',
+  receivingTimeoutBlockHeight: 420,
+};
+const mockCreateChainToChainSwap = jest.fn().mockResolvedValue(mockedChainToChainSwap);
 
 jest.mock('../../../lib/swap/SwapManager', () => {
   return jest.fn().mockImplementation(() => ({
@@ -70,15 +101,16 @@ jest.mock('../../../lib/swap/SwapManager', () => {
     },
     createSwap: mockCreateSwap,
     createReverseSwap: mockCreateReverseSwap,
+    createChainToChainSwap: mockCreateChainToChainSwap,
   }));
 });
 
 const mockedSwapManager = <jest.Mock<SwapManager>><any>SwapManager;
 
 const mockGetBalance = jest.fn().mockResolvedValue({
-  totalBalance: 1,
-  confirmedBalance: 2,
-  unconfirmedBalance: 3,
+  totalBalance: 10000000000,
+  confirmedBalance: 5000000000,
+  unconfirmedBalance: 5000000000,
 });
 
 const newAddress = 'bcrt1';
@@ -492,13 +524,14 @@ describe('Service', () => {
     expect(mockGetSwapByInvoice).toHaveBeenNthCalledWith(1, invoice);
 
     expect(mockGetFees).toHaveBeenCalledTimes(1);
-    expect(mockGetFees).toHaveBeenCalledWith(pair, 1, OrderSide.BUY, invoiceAmount, false);
+    expect(mockGetFees).toHaveBeenCalledWith(pair, 1, OrderSide.BUY, invoiceAmount, SwapType.Submarine);
 
     expect(mockAcceptZeroConf).toHaveBeenCalledTimes(1);
     expect(mockAcceptZeroConf).toHaveBeenCalledWith('BTC', expectedAmount);
 
     expect(mockCreateSwap).toHaveBeenCalledTimes(1);
     expect(mockCreateSwap).toHaveBeenCalledWith(
+      response.id,
       'BTC',
       'BTC',
       OrderSide.BUY,
@@ -556,6 +589,7 @@ describe('Service', () => {
     expect(response).toEqual({
       onchainAmount,
       id: expect.anything(),
+      timeoutBlockHeight: 123,
       invoice: mockedReverseSwap.invoice,
       redeemScript: mockedReverseSwap.redeemScript,
       lockupTransaction: mockedReverseSwap.lockupTransaction,
@@ -563,7 +597,7 @@ describe('Service', () => {
     });
 
     expect(mockGetFees).toHaveBeenCalledTimes(1);
-    expect(mockGetFees).toHaveBeenCalledWith(pair, 1, OrderSide.BUY, invoiceAmount, true);
+    expect(mockGetFees).toHaveBeenCalledWith(pair, 1, OrderSide.BUY, invoiceAmount, SwapType.ReverseSubmarine);
 
     expect(mockCreateReverseSwap).toHaveBeenCalledTimes(1);
     expect(mockCreateReverseSwap).toHaveBeenCalledWith(
@@ -581,13 +615,16 @@ describe('Service', () => {
     expect(mockAddReverseSwap).toHaveBeenCalledWith({
       pair,
       onchainAmount,
+
       fee: 1,
       id: response.id,
       orderSide: OrderSide.BUY,
       invoice: response.invoice,
       keyIndex: mockedReverseSwap.keyIndex,
       minerFee: mockedReverseSwap.minerFee,
+      status: SwapUpdateEvent.TransactionMempool,
       redeemScript: mockedReverseSwap.redeemScript,
+      timeoutBlockHeight: response.timeoutBlockHeight,
       transactionId: mockedReverseSwap.lockupTransactionId,
     });
 
@@ -608,6 +645,123 @@ describe('Service', () => {
       .rejects.toEqual(Errors.REVERSE_SWAPS_DISABLED());
 
     service.allowReverseSwaps = true;
+  });
+
+  test('should create chain to chain swaps', async () => {
+    const amount = 1000000;
+    const orderSide = 'buy';
+    const pairId = 'BTC/BTC';
+    const preimageHash = getHexBuffer('a073063871593faac804fa3f1aed1120ac0216dce91cd48d8624e6f55c4dfe76');
+    const claimPublicKey = getHexBuffer('036a128303fa4bffaa714ac34f640d70ec59606f1283c6ae36b6d88b7a4a965a1f');
+    const refundPublicKey = getHexBuffer('037a02a89df9693aa890c01244af8305b02a91c9ee9ed180170c777c5e7050884c');
+
+    service.allowReverseSwaps = true;
+
+    const response = await service.createChainToChainSwap(
+      pairId,
+      orderSide,
+      amount,
+      preimageHash,
+      claimPublicKey,
+      refundPublicKey,
+    );
+
+    expect(response).toEqual({
+      id: expect.anything(),
+      acceptZeroConf: true,
+      sendingDetails: {
+        expectedAmount: 1000002,
+        redeemScript: mockedChainToChainSwap.receivingRedeemScript,
+        lockupAddress: mockedChainToChainSwap.receivingLockupAddress,
+        bip21: 'bitcoin:bcrt2?amount=0.01000002&label=Swap%20to%20BTC',
+        timeoutBlockHeight: mockedChainToChainSwap.receivingTimeoutBlockHeight,
+      },
+      receivingDetails: {
+        redeemScript: mockedChainToChainSwap.sendingRedeemScript,
+        timeoutBlockHeight: mockedChainToChainSwap.sendingTimeoutBlockHeight,
+      },
+    });
+
+    expect(mockGetChainToChainSwap).toHaveBeenCalledTimes(1);
+    expect(mockGetChainToChainSwap).toHaveBeenCalledWith({ preimageHash: getHexString(preimageHash) });
+
+    expect(mockGetFees).toHaveBeenCalledTimes(1);
+    expect(mockGetFees).toHaveBeenCalledWith(pairId, 1, OrderSide.BUY, amount, SwapType.ChainToChain);
+
+    expect(mockCreateChainToChainSwap).toHaveBeenCalledTimes(1);
+    expect(mockCreateChainToChainSwap).toHaveBeenCalledWith(
+      response.id,
+      'BTC',
+      'BTC',
+      OrderSide.BUY,
+      amount,
+      1000002,
+      preimageHash,
+      claimPublicKey,
+      refundPublicKey,
+      1,
+      1,
+      true,
+    );
+
+    expect(mockAddChainToChainSwap).toHaveBeenCalledTimes(1);
+    expect(mockAddChainToChainSwap).toHaveBeenCalledWith({
+      fee: 1,
+      pair: pairId,
+      id: response.id,
+      acceptZeroConf: true,
+      orderSide: OrderSide.BUY,
+      preimageHash: getHexString(preimageHash),
+      status: SwapUpdateEvent.TransactionWaiting,
+
+      sendingAmount: amount,
+      sendingKeyIndex: mockedChainToChainSwap.sendingKeyIndex,
+      sendingRedeemScript: mockedChainToChainSwap.sendingRedeemScript,
+      sendingLockupAddress: mockedChainToChainSwap.sendingLockupAddress,
+      sendingTimeoutBlockHeight: mockedChainToChainSwap.sendingTimeoutBlockHeight,
+
+      receivingAmount: 1000002,
+      receivingKeyIndex: mockedChainToChainSwap.receivingKeyIndex,
+      receivingRedeemScript: mockedChainToChainSwap.receivingRedeemScript,
+      receivingLockupAddress: mockedChainToChainSwap.receivingLockupAddress,
+      receivingTimeoutBlockHeight: mockedChainToChainSwap.receivingTimeoutBlockHeight,
+    });
+
+    // Throw if the preimage hash is invalid
+    await expect(service.createChainToChainSwap(
+      pairId,
+      orderSide,
+      amount,
+      Buffer.alloc(31),
+      claimPublicKey,
+      refundPublicKey,
+    )).rejects.toEqual(Errors.INVALID_PREIMAGE_HASH());
+
+    // Throw if there is a swap with the same preimage hash already
+    chainToChainSwapExists = true;
+
+    await expect(service.createChainToChainSwap(
+      pairId,
+      orderSide,
+      amount,
+      preimageHash,
+      claimPublicKey,
+      refundPublicKey,
+    )).rejects.toEqual(Errors.SWAP_WITH_PREIMAGE_EXISTS());
+
+    chainToChainSwapExists = false;
+
+    // Throw if the wallet balance is not enough to send coins expected by the user
+    const notEnoughAmount = 10000000001;
+
+    await expect(service.createChainToChainSwap(
+      pairId,
+      orderSide,
+      notEnoughAmount,
+      preimageHash,
+      claimPublicKey,
+      refundPublicKey,
+    )).rejects.toEqual(WalletErrors.NOT_ENOUGH_FUNDS(notEnoughAmount));
   });
 
   test('should pay invoices', async () => {
@@ -727,31 +881,42 @@ describe('Service', () => {
     const verifyAmount = service['verifyAmount'];
 
     // Normal swaps
-    verifyAmount('test', rate, 5, OrderSide.BUY, false);
-    verifyAmount('test', rate, 10, OrderSide.SELL, false);
+    verifyAmount('test', rate, 5, OrderSide.BUY, SwapType.Submarine);
+    verifyAmount('test', rate, 10, OrderSide.SELL, SwapType.Submarine);
 
-    expect(() => verifyAmount('test', rate, 1.5, OrderSide.BUY, false)).toThrow(
+    expect(() => verifyAmount('test', rate, 1.5, OrderSide.BUY, SwapType.Submarine)).toThrow(
       Errors.BENEATH_MINIMAL_AMOUNT(3, 5).message,
     );
-    expect(() => verifyAmount('test', rate, 12, OrderSide.SELL, false)).toThrow(
+    expect(() => verifyAmount('test', rate, 12, OrderSide.SELL, SwapType.Submarine)).toThrow(
       Errors.EXCEED_MAXIMAL_AMOUNT(12, 10).message,
     );
 
     // Reverse swaps
-    verifyAmount('test', rate, 10, OrderSide.BUY, true);
-    verifyAmount('test', rate, 5, OrderSide.SELL, true);
+    verifyAmount('test', rate, 10, OrderSide.BUY, SwapType.ReverseSubmarine);
+    verifyAmount('test', rate, 5, OrderSide.SELL, SwapType.ReverseSubmarine);
 
-    expect(() => verifyAmount('test', rate, 1.5, OrderSide.BUY, true)).toThrow(
+    expect(() => verifyAmount('test', rate, 1.5, OrderSide.BUY, SwapType.ReverseSubmarine)).toThrow(
       Errors.BENEATH_MINIMAL_AMOUNT(1.5, 5).message,
     );
-    expect(() => verifyAmount('test', rate, 12, OrderSide.SELL, true)).toThrow(
+    expect(() => verifyAmount('test', rate, 12, OrderSide.SELL, SwapType.ReverseSubmarine)).toThrow(
       Errors.EXCEED_MAXIMAL_AMOUNT(24, 10).message,
+    );
+
+    // Chain to chain swaps
+    verifyAmount('test', rate, 5, OrderSide.BUY, SwapType.Submarine);
+    verifyAmount('test', rate, 10, OrderSide.SELL, SwapType.Submarine);
+
+    expect(() => verifyAmount('test', rate, 1.5, OrderSide.BUY, SwapType.Submarine)).toThrow(
+      Errors.BENEATH_MINIMAL_AMOUNT(3, 5).message,
+    );
+    expect(() => verifyAmount('test', rate, 12, OrderSide.SELL, SwapType.Submarine)).toThrow(
+      Errors.EXCEED_MAXIMAL_AMOUNT(12, 10).message,
     );
 
     // Throw if limits of pair cannot be found
     const notFound = 'notFound';
 
-    expect(() => verifyAmount(notFound, 0, 0, OrderSide.BUY, false)).toThrow(
+    expect(() => verifyAmount(notFound, 0, 0, OrderSide.BUY, SwapType.Submarine)).toThrow(
       Errors.PAIR_NOT_FOUND(notFound).message,
     );
   });

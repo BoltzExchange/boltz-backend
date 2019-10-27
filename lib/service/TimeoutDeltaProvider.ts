@@ -3,9 +3,9 @@ import toml from '@iarna/toml';
 import Errors from './Errors';
 import Logger from '../Logger';
 import { ConfigType } from '../Config';
-import { OrderSide } from '../consts/Enums';
 import { PairConfig } from '../consts/Types';
 import { getPairId, splitPairId } from '../Utils';
+import { OrderSide, SwapType } from '../consts/Enums';
 
 type PairTimeoutBlockDeltas = {
   base: number;
@@ -37,19 +37,23 @@ class TimeoutDeltaProvider {
     }
   }
 
-  public getTimeout = (pairId: string, orderSide: OrderSide, isReverse: boolean) => {
+  public getTimeouts = (pairId: string) => {
     const timeout = this.timeoutDeltas.get(pairId);
 
     if (!timeout) {
       throw Errors.PAIR_NOT_FOUND(pairId);
     }
 
-    const { base, quote } = timeout;
+    return timeout;
+  }
 
-    if (isReverse) {
-      return orderSide === OrderSide.BUY ? base : quote;
-    } else {
+  public getTimeout = (pairId: string, orderSide: OrderSide, type: SwapType) => {
+    const { base, quote } = this.getTimeouts(pairId);
+
+    if (type === SwapType.Submarine) {
       return orderSide === OrderSide.BUY ? quote : base;
+    } else {
+      return orderSide === OrderSide.BUY ? base : quote;
     }
   }
 

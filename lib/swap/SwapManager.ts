@@ -1,18 +1,23 @@
 import { OutputType, swapScript } from 'boltz-core';
 import Errors from './Errors';
 import Logger from '../Logger';
-import { OrderSide } from '../consts/Enums';
+import Wallet from '../wallet/Wallet';
 import LndClient from '../lightning/LndClient';
+import { OrderSide, SwapType } from '../consts/Enums';
 import WalletManager, { Currency } from '../wallet/WalletManager';
-import SwapNursery, { SwapMaps, SwapDetails, ReverseSwapDetails } from './SwapNursery';
 import { getHexBuffer, getHexString, getScriptHashFunction, getSwapMemo, getSendingReceivingCurrency } from '../Utils';
+import SwapNursery, { SwapMaps, SwapDetails, ReverseSwapDetails, ChainToChainSwapDetails, RefundDetails } from './SwapNursery';
 
 class SwapManager {
   public currencies = new Map<string, Currency & SwapMaps>();
 
   public nursery: SwapNursery;
 
-  constructor(private logger: Logger, private walletManager: WalletManager, currencies: Currency[]) {
+  constructor(
+    private logger: Logger,
+    private walletManager: WalletManager,
+    currencies: Currency[],
+  ) {
     this.nursery = new SwapNursery(this.logger, this.walletManager);
 
     currencies.forEach((currency) => {
@@ -22,6 +27,11 @@ class SwapManager {
           swapTimeouts: new Map<number, string[]>(),
 
           reverseSwaps: new Map<number, ReverseSwapDetails[]>(),
+
+          chainToChainSwaps: new Map<string, ChainToChainSwapDetails>(),
+          chainToChainTransactionSent: new Map<string, ChainToChainSwapDetails>(),
+          chainToChainTimeouts: new Map<number, string[]>(),
+          chainToChainRefunds: new Map<number, RefundDetails[]>(),
         };
 
         this.currencies.set(currency.symbol, {
@@ -48,6 +58,7 @@ class SwapManager {
    * @param acceptZeroConf whether 0-conf transactions should be accepted
    */
   public createSwap = async (
+    id: string,
     baseCurrency: string,
     quoteCurrency: string,
     orderSide: OrderSide,
@@ -78,7 +89,7 @@ class SwapManager {
       }
     }
 
-    this.logger.verbose(`Creating new Swap from ${receivingCurrency.symbol} to ${sendingCurrency.symbol} with preimage hash: ${paymentHash}`);
+    this.logger.verbose(`Creating new swap from ${receivingCurrency.symbol} to ${sendingCurrency.symbol} with preimage hash: ${paymentHash}`);
 
     const { keys, index } = receivingCurrency.wallet.getNewKeys();
 
@@ -96,6 +107,7 @@ class SwapManager {
     this.nursery.addSwap(
       receivingCurrency,
       {
+        id,
         invoice,
         outputType,
         redeemScript,
@@ -147,13 +159,15 @@ class SwapManager {
     }
 
     this.logger.silly(`Sending ${sendingCurrency.symbol} on the chain and receiving ${receivingCurrency.symbol} on Lightning`);
-    this.logger.verbose(`Creating new reverse Swap from ${receivingCurrency.symbol} to ${sendingCurrency.symbol} ` +
-      `for public key: ${getHexString(claimPublicKey)}`);
 
     const { rHash, paymentRequest } = await receivingCurrency.lndClient.addInvoice(
       invoiceAmount,
-      getSwapMemo(sendingCurrency.symbol, true),
+      getSwapMemo(sendingCurrency.symbol, SwapType.ReverseSubmarine),
     );
+
+    this.logger.verbose(`Creating new reverse swap from ${receivingCurrency.symbol} to ${sendingCurrency.symbol} ` +
+    `with preimage hash: ${rHash}`);
+
     const { keys, index } = sendingCurrency.wallet.getNewKeys();
 
     const { blocks } = await sendingCurrency.chainClient.getBlockchainInfo();
@@ -172,33 +186,27 @@ class SwapManager {
     sendingCurrency.chainClient.updateOutputFilter([outputScript]);
 
     const { fee, vout, transaction } = await sendingCurrency.wallet.sendToAddress(address, outputType, true, onchainAmount);
-    this.logger.debug(`Sent ${onchainAmount} ${sendingCurrency.symbol} to swap address ${address}: ${transaction.getId()}:${vout}`);
+    this.logger.debug(`Sent ${onchainAmount} ${sendingCurrency.symbol} to reverse swap address ${address}: ${transaction.getId()}:${vout}`);
 
     const rawTx = transaction.toHex();
 
     await sendingCurrency.chainClient.sendRawTransaction(rawTx);
 
-    // Get the array of swaps that time out at the same block
-    const pendingReverseSwaps = sendingCurrency.reverseSwaps.get(timeoutBlockHeight);
-
-    const reverseSwapDetails = {
-      redeemScript,
-      refundKeys: keys,
-      output: {
-        vout,
-        value: onchainAmount,
-        script: outputScript,
-        type: outputType,
-        txHash: transaction.getHash(),
+    this.nursery.addReverseSwap(
+      sendingCurrency,
+      {
+        redeemScript,
+        refundKeys: keys,
+        output: {
+          vout,
+          value: onchainAmount,
+          script: outputScript,
+          type: outputType,
+          txHash: transaction.getHash(),
+        },
       },
-    };
-
-    // Push the new swap to the array or create a new array if it doesn't exist yet
-    if (pendingReverseSwaps) {
-      pendingReverseSwaps.push(reverseSwapDetails);
-    } else {
-      sendingCurrency.reverseSwaps.set(timeoutBlockHeight, [reverseSwapDetails]);
-    }
+      timeoutBlockHeight,
+    );
 
     return {
       timeoutBlockHeight,
@@ -209,6 +217,129 @@ class SwapManager {
       lockupTransaction: rawTx,
       redeemScript: getHexString(redeemScript),
       lockupTransactionId: transaction.getId(),
+    };
+  }
+
+  public createChainToChainSwap = async (
+    id: string,
+    baseCurrency: string,
+    quoteCurrency: string,
+    orderSide: OrderSide,
+    sendingAmount: number,
+    receivingAmount: number,
+    preimageHash: Buffer,
+    claimPublicKey: Buffer,
+    refundPublicKey: Buffer,
+    baseTimeoutBlockDelta: number,
+    quoteTimeoutBlockDelta: number,
+    acceptZeroConf: boolean,
+  ) => {
+    const { sendingCurrency, receivingCurrency } = this.getCurrencies(baseCurrency, quoteCurrency, orderSide);
+    const { sendingOutputType, receivingOutputType } = this.getOutputTypes(sendingCurrency.wallet, receivingCurrency.wallet);
+    const { sendingTimeoutBlockDelta, receivingTimeoutBlockDelta } = this.getTimeouts(baseTimeoutBlockDelta, quoteTimeoutBlockDelta, orderSide);
+
+    this.logger.silly(`Sending ${sendingCurrency.symbol} on the chain and receiving ${receivingCurrency.symbol} on the chain`);
+    this.logger.verbose(`Creating new chain to chain swap from ${receivingCurrency.symbol} to ${sendingCurrency.symbol} ` +
+    `with preimage hash: ${getHexString(preimageHash)}`);
+
+    const [{
+      blocks: sendingBlocks,
+    }, {
+      blocks: receivingBlocks,
+    }] = await Promise.all([
+      sendingCurrency.chainClient.getBlockchainInfo(),
+      receivingCurrency.chainClient.getBlockchainInfo(),
+    ]);
+
+    // TODO: buffer between the two timeout block heights
+    const sendingTimeoutBlockHeight = sendingBlocks + sendingTimeoutBlockDelta;
+    const receivingTimeoutBlockHeight = receivingBlocks + receivingTimeoutBlockDelta;
+
+    const { keys: sendingKeys, index: sendingKeyIndex } = sendingCurrency.wallet.getNewKeys();
+    const { keys: receivingKeys, index: receivingKeyIndex } = receivingCurrency.wallet.getNewKeys();
+
+    const sendingRedeemScript = swapScript(
+      preimageHash,
+      claimPublicKey,
+      sendingKeys.publicKey,
+      sendingTimeoutBlockHeight,
+    );
+
+    const receivingRedeemScript = swapScript(
+      preimageHash,
+      receivingKeys.publicKey,
+      refundPublicKey,
+      receivingTimeoutBlockHeight,
+    );
+
+    const sendingOutputScript = getScriptHashFunction(sendingOutputType)(sendingRedeemScript);
+    const receivingOutputScript = getScriptHashFunction(receivingOutputType)(receivingRedeemScript);
+
+    const sendingLockupAddress = sendingCurrency.wallet.encodeAddress(sendingOutputScript);
+    const receivingLockupAddress = receivingCurrency.wallet.encodeAddress(receivingOutputScript);
+
+    receivingCurrency.chainClient.updateOutputFilter([receivingOutputScript]);
+
+    this.nursery.addChainToChainSwap(
+      sendingCurrency,
+      receivingCurrency,
+      {
+        id,
+        acceptZeroConf,
+        claimKeys: receivingKeys,
+        currency: receivingCurrency,
+        outputType: receivingOutputType,
+        expectedAmount: receivingAmount,
+        redeemScript: receivingRedeemScript,
+        outputScript: receivingOutputScript,
+        timeoutBlockHeight: receivingTimeoutBlockHeight,
+
+        sendingDetails: {
+          refundKeys: sendingKeys,
+          currency: sendingCurrency,
+          amountToSend: sendingAmount,
+          outputType: sendingOutputType,
+          lockupAddress: sendingLockupAddress,
+          redeemScript: sendingRedeemScript,
+          timeoutBlockHeight: sendingTimeoutBlockHeight,
+        },
+      },
+    );
+
+    return {
+      sendingKeyIndex,
+      sendingRedeemScript,
+      sendingLockupAddress,
+      sendingTimeoutBlockHeight,
+
+      receivingKeyIndex,
+      receivingRedeemScript,
+      receivingLockupAddress,
+      receivingTimeoutBlockHeight,
+    };
+  }
+
+  private getOutputTypes = (sendingWallet: Wallet, receivingWallet: Wallet) => {
+    const getOutputType = (wallet: Wallet, targetOutputType: OutputType) => {
+      if (!wallet.supportsSegwit) {
+        return OutputType.Legacy;
+      }
+
+      return targetOutputType;
+    };
+
+    return {
+      sendingOutputType: getOutputType(sendingWallet, OutputType.Bech32),
+      receivingOutputType: getOutputType(receivingWallet, OutputType.Compatibility),
+    };
+  }
+
+  private getTimeouts = (baseTimeoutBlockDelta: number, quoteTimeoutBlockDelta: number, orderSide: OrderSide) => {
+    const isBuy = orderSide === OrderSide.BUY;
+
+    return {
+      sendingTimeoutBlockDelta: isBuy ? baseTimeoutBlockDelta : quoteTimeoutBlockDelta,
+      receivingTimeoutBlockDelta: isBuy ? quoteTimeoutBlockDelta : baseTimeoutBlockDelta,
     };
   }
 
@@ -253,4 +384,4 @@ class SwapManager {
 }
 
 export default SwapManager;
-export { SwapMaps, SwapDetails, ReverseSwapDetails };
+export { SwapMaps, SwapDetails, ReverseSwapDetails, RefundDetails };

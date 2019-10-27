@@ -33,6 +33,7 @@ class ZmqPublisher {
   }
 }
 
+// Tests for detecting relevant inputs and otputs are in "test/integration/chain/ChainClient.spec.ts"
 describe('ZmqClient', () => {
   const blocksToGenerate = 10;
   const chainClient = new FakedChainClient();

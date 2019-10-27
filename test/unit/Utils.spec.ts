@@ -4,7 +4,7 @@ import os from 'os';
 import { OutputType } from 'boltz-core';
 import { Transaction } from 'bitcoinjs-lib';
 import * as utils from '../../lib/Utils';
-import { OrderSide } from '../../lib/consts/Enums';
+import { OrderSide, SwapType } from '../../lib/consts/Enums';
 import { constructTransaction, randomRange } from '../Utils';
 
 describe('Utils', () => {
@@ -159,11 +159,13 @@ describe('Utils', () => {
     const rate = 2;
     const reverseRate = 1 / rate;
 
-    expect(utils.getRate(rate, OrderSide.BUY, true)).toEqual(reverseRate);
-    expect(utils.getRate(rate, OrderSide.SELL, true)).toEqual(rate);
+    expect(utils.getRate(rate, OrderSide.BUY, SwapType.Submarine)).toEqual(rate);
+    expect(utils.getRate(rate, OrderSide.BUY, SwapType.ReverseSubmarine)).toEqual(reverseRate);
+    expect(utils.getRate(rate, OrderSide.BUY, SwapType.ChainToChain)).toEqual(rate);
 
-    expect(utils.getRate(rate, OrderSide.BUY, false)).toEqual(rate);
-    expect(utils.getRate(rate, OrderSide.SELL, false)).toEqual(reverseRate);
+    expect(utils.getRate(rate, OrderSide.SELL, SwapType.Submarine)).toEqual(reverseRate);
+    expect(utils.getRate(rate, OrderSide.SELL, SwapType.ReverseSubmarine)).toEqual(rate);
+    expect(utils.getRate(rate, OrderSide.SELL, SwapType.ChainToChain)).toEqual(reverseRate);
   });
 
   test('should the chain currency', () => {
@@ -197,8 +199,8 @@ describe('Utils', () => {
   });
 
   test('should get memo for swaps', () => {
-    expect(utils.getSwapMemo('LTC', false)).toBe('Swap to LTC');
-    expect(utils.getSwapMemo('BTC', true)).toBe('Reverse Swap to BTC');
+    expect(utils.getSwapMemo('LTC', SwapType.Submarine)).toBe('Swap to LTC');
+    expect(utils.getSwapMemo('BTC', SwapType.ReverseSubmarine)).toBe('Reverse Swap to BTC');
   });
 
   test('should get sending and receiving currency', () => {
@@ -224,5 +226,21 @@ describe('Utils', () => {
     expect(utils.formatError(test)).toEqual(test);
     expect(utils.formatError(object)).toEqual(JSON.stringify(object));
     expect(utils.formatError(objectMessage)).toEqual(test);
+  });
+
+  test('should get swap name', () => {
+    const getSwapName = utils.getSwapName;
+
+    expect(getSwapName(SwapType.Submarine)).toEqual('submarine');
+    expect(getSwapName(SwapType.ChainToChain)).toEqual('chain to chain');
+    expect(getSwapName(SwapType.ReverseSubmarine)).toEqual('reverse submarine');
+
+    expect(getSwapName(SwapType.Submarine, false)).toEqual('submarine');
+    expect(getSwapName(SwapType.ChainToChain, false)).toEqual('chain to chain');
+    expect(getSwapName(SwapType.ReverseSubmarine)).toEqual('reverse submarine');
+
+    expect(getSwapName(SwapType.Submarine, true)).toEqual('Submarine');
+    expect(getSwapName(SwapType.ChainToChain, true)).toEqual('Chain to chain');
+    expect(getSwapName(SwapType.ReverseSubmarine, true)).toEqual('Reverse submarine');
   });
 });

@@ -1,6 +1,6 @@
 import Logger from '../../../lib/Logger';
-import { OrderSide } from '../../../lib/consts/Enums';
 import FeeProvider from '../../../lib/rates/FeeProvider';
+import { SwapType, OrderSide } from '../../../lib/consts/Enums';
 
 const btcFee = 36;
 const ltcFee = 3;
@@ -45,12 +45,14 @@ describe('FeeProvider', () => {
   });
 
   test('should estimate onchain fees', async () => {
-    const results = await Promise.all([
-      feeProvider.getBaseFee('BTC', false),
-      feeProvider.getBaseFee('BTC', true),
+    const getBaseFee = feeProvider['getBaseFee'];
 
-      feeProvider.getBaseFee('LTC', false),
-      feeProvider.getBaseFee('LTC', true),
+    const results = await Promise.all([
+      getBaseFee('BTC', false),
+      getBaseFee('BTC', true),
+
+      getBaseFee('LTC', false),
+      getBaseFee('LTC', true),
     ]);
 
     const expected = [
@@ -67,13 +69,15 @@ describe('FeeProvider', () => {
   });
 
   test('should calculate percentage fees', async () => {
+    const getPercentageFee = feeProvider['getPercentageFee'];
+
     const amount = 100000000;
 
     const results = await Promise.all([
-      feeProvider.getFees('LTC/BTC', 2, OrderSide.BUY, amount, true),
-      feeProvider.getFees('LTC/BTC', 0.5, OrderSide.SELL, amount, true),
+      getPercentageFee('LTC/BTC', amount, 2),
+      getPercentageFee('LTC/BTC', amount, 0.5),
 
-      feeProvider.getFees('BTC/BTC', 1, OrderSide.BUY, amount, false),
+      getPercentageFee('BTC/BTC', amount, 1),
     ]);
 
     const expected = [
@@ -84,7 +88,31 @@ describe('FeeProvider', () => {
     ];
 
     results.forEach((result, index) => {
-      expect(result.percentageFee).toEqual(expected[index]);
+      expect(result).toEqual(expected[index]);
     });
+  });
+
+  test('should get fees for swaps', async () => {
+    const amount = 100000000;
+
+    const checkFees = async (
+      type: SwapType,
+      orderSide: OrderSide,
+      expectedAmounts: { baseFee: number, percentageFee: number },
+    ) => {
+      const fees = await feeProvider.getFees('LTC/BTC', 2, orderSide, amount, type);
+      expect(fees).toEqual(expectedAmounts);
+    };
+
+    await Promise.all([
+      checkFees(SwapType.Submarine, OrderSide.BUY, { baseFee: 6120, percentageFee: 4000000 }),
+      checkFees(SwapType.Submarine, OrderSide.SELL, { baseFee: 510, percentageFee: 4000000 }),
+
+      checkFees(SwapType.ReverseSubmarine, OrderSide.BUY, { baseFee: 459, percentageFee: 4000000 }),
+      checkFees(SwapType.ReverseSubmarine, OrderSide.SELL, { baseFee: 5508, percentageFee: 4000000 }),
+
+      checkFees(SwapType.ChainToChain, OrderSide.BUY, { baseFee: 7038, percentageFee: 4000000 }),
+      checkFees(SwapType.ChainToChain, OrderSide.SELL, { baseFee: 11526, percentageFee: 4000000 }),
+    ]);
   });
 });

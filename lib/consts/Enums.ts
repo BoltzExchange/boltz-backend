@@ -26,11 +26,20 @@ export enum SwapUpdateEvent {
   InvoiceSettled = 'invoice.settled',
   InvoiceFailedToPay = 'invoice.failedToPay',
 
+  // Means that Boltz is waiting for the user to send a transaction
+  TransactionWaiting = 'transaction.waiting',
+
   TransactionMempool = 'transaction.mempool',
   TransactionClaimed = 'transaction.claimed',
   TransactionRefunded = 'transaction.refunded',
   TransactionConfirmed = 'transaction.confirmed',
 
+  // Transaction events with the prefix "boltz" are related to transactions sent by Boltz
+  BoltzTransactionMempool = 'boltz.transaction.mempool',
+  BoltzTransactioConfirmed = 'boltz.transaction.confirmed',
+  BoltzTransactionRefunded = 'boltz.transaction.refunded',
+
+  SwapAborted = 'swap.aborted',
   SwapExpired = 'swap.expired',
 }
 
@@ -48,4 +57,6 @@ export enum Network {
 export enum SwapType {
   Submarine = 'submarine',
   ReverseSubmarine = 'reversesubmarine',
+
+  ChainToChain = 'chaintochain',
 }

@@ -7,6 +7,7 @@ import commitHash from '../Version';
 import Wallet from '../wallet/Wallet';
 import { ConfigType } from '../Config';
 import EventHandler from './EventHandler';
+import WalletErrors from '../wallet/Errors';
 import { PairConfig } from '../consts/Types';
 import SwapManager from '../swap/SwapManager';
 import SwapRepository from './SwapRepository';
@@ -16,18 +17,21 @@ import RateProvider from '../rates/RateProvider';
 import { encodeBip21 } from './PaymentRequestUtils';
 import TimeoutDeltaProvider from './TimeoutDeltaProvider';
 import ReverseSwapRepository from './ReverseSwapRepository';
-import { OrderSide, ServiceWarning } from '../consts/Enums';
 import WalletManager, { Currency } from '../wallet/WalletManager';
+import ChainToChainSwapRepository from './ChainToChainSwapRepository';
+import { OrderSide, ServiceWarning, SwapType, SwapUpdateEvent } from '../consts/Enums';
 import {
   getRate,
   getPairId,
   generateId,
   splitPairId,
+  getSwapMemo,
+  getHexString,
   getOutputType,
   getInvoiceAmt,
   getChainCurrency,
   getLightningCurrency,
-  getSwapMemo,
+  getSendingReceivingCurrency,
 } from '../Utils';
 import {
   Balance,
@@ -51,6 +55,7 @@ class Service {
 
   public swapRepository: SwapRepository;
   public reverseSwapRepository: ReverseSwapRepository;
+  public chainToChainSwapRepository: ChainToChainSwapRepository;
 
   private pairRepository: PairRepository;
 
@@ -71,6 +76,7 @@ class Service {
 
     this.swapRepository = new SwapRepository();
     this.reverseSwapRepository = new ReverseSwapRepository();
+    this.chainToChainSwapRepository = new ChainToChainSwapRepository();
 
     this.timeoutDeltaProvider = new TimeoutDeltaProvider(this.logger, config);
 
@@ -88,6 +94,7 @@ class Service {
       this.swapManager.nursery,
       this.swapRepository,
       this.reverseSwapRepository,
+      this.chainToChainSwapRepository,
     );
   }
 
@@ -352,16 +359,17 @@ class Service {
     const chainCurrency = getChainCurrency(base, quote, side, false);
     const lightningCurrency = getLightningCurrency(base, quote, side, false);
 
-    const timeoutBlockDelta = this.timeoutDeltaProvider.getTimeout(pairId, side, false);
+    const timeoutBlockDelta = this.timeoutDeltaProvider.getTimeout(pairId, side, SwapType.Submarine);
     const invoiceAmount = getInvoiceAmt(invoice);
 
-    const rate = getRate(pairRate, side, false);
+    const rate = getRate(pairRate, side, SwapType.Submarine);
 
-    this.verifyAmount(pairId, rate, invoiceAmount, side, false);
+    this.verifyAmount(pairId, rate, invoiceAmount, side, SwapType.Submarine);
 
-    const { baseFee, percentageFee } = await this.feeProvider.getFees(pairId, rate, side, invoiceAmount, false);
+    const { baseFee, percentageFee } = await this.feeProvider.getFees(pairId, rate, side, invoiceAmount, SwapType.Submarine);
     const expectedAmount = Math.ceil(invoiceAmount * rate) + baseFee + percentageFee;
 
+    const id = generateId();
     const acceptZeroConf = this.rateProvider.acceptZeroConf(chainCurrency, expectedAmount);
 
     const {
@@ -370,6 +378,7 @@ class Service {
       redeemScript,
       timeoutBlockHeight,
     } = await this.swapManager.createSwap(
+      id,
       base,
       quote,
       side,
@@ -380,8 +389,6 @@ class Service {
       timeoutBlockDelta,
       acceptZeroConf,
     );
-
-    const id = generateId();
 
     await this.swapRepository.addSwap({
       id,
@@ -400,14 +407,14 @@ class Service {
       id,
       address,
       redeemScript,
-      expectedAmount,
       acceptZeroConf,
+      expectedAmount,
       timeoutBlockHeight,
       bip21: encodeBip21(
         chainCurrency,
         address,
         expectedAmount,
-        getSwapMemo(lightningCurrency, false),
+        getSwapMemo(lightningCurrency, SwapType.ChainToChain),
       ),
     };
   }
@@ -428,12 +435,12 @@ class Service {
     const { base, quote, rate: pairRate } = this.getPair(pairId);
 
     const side = this.getOrderSide(orderSide);
-    const rate = getRate(pairRate, side, true);
-    const timeoutBlockDelta = this.timeoutDeltaProvider.getTimeout(pairId, side, true);
+    const rate = getRate(pairRate, side, SwapType.ReverseSubmarine);
+    const timeoutBlockDelta = this.timeoutDeltaProvider.getTimeout(pairId, side, SwapType.ReverseSubmarine);
 
-    this.verifyAmount(pairId, rate, invoiceAmount, side, true);
+    this.verifyAmount(pairId, rate, invoiceAmount, side, SwapType.ReverseSubmarine);
 
-    const { baseFee, percentageFee } = await this.feeProvider.getFees(pairId, rate, side, invoiceAmount, true);
+    const { baseFee, percentageFee } = await this.feeProvider.getFees(pairId, rate, side, invoiceAmount, SwapType.ReverseSubmarine);
 
     const onchainAmount = Math.floor(invoiceAmount * rate) - (baseFee + percentageFee);
 
@@ -473,10 +480,12 @@ class Service {
       redeemScript,
       onchainAmount,
       timeoutBlockHeight,
+
       pair: pairId,
       orderSide: side,
       fee: percentageFee,
       transactionId: lockupTransactionId,
+      status: SwapUpdateEvent.TransactionMempool,
     });
 
     return {
@@ -487,6 +496,131 @@ class Service {
       lockupTransaction,
       timeoutBlockHeight,
       lockupTransactionId,
+    };
+  }
+
+  /**
+   * Create a new chain to chain swap
+   */
+  public createChainToChainSwap = async (
+    pairId: string,
+    orderSide: string,
+    amount: number,
+    preimageHash: Buffer,
+    claimPublicKey: Buffer,
+    refundPublicKey: Buffer,
+  ) => {
+    if (preimageHash.length !== 32) {
+      throw Errors.INVALID_PREIMAGE_HASH();
+    }
+
+    const hexPreimageHash = getHexString(preimageHash);
+
+    const dbSwap = await this.chainToChainSwapRepository.getChainToChainSwap({
+      preimageHash: hexPreimageHash,
+    });
+
+    if (dbSwap) {
+      throw Errors.SWAP_WITH_PREIMAGE_EXISTS();
+    }
+
+    const { base, quote, rate: pairRate } = this.getPair(pairId);
+    const side = this.getOrderSide(orderSide);
+
+    const rate = getRate(pairRate, side, SwapType.ChainToChain);
+    const timeouts = this.timeoutDeltaProvider.getTimeouts(pairId);
+    const {
+      sending: sendingCurrency,
+      receiving: receivingCurrency,
+    } = getSendingReceivingCurrency(base, quote, side);
+
+    this.verifyAmount(pairId, rate, amount, side, SwapType.ChainToChain);
+
+    const { baseFee, percentageFee } = await this.feeProvider.getFees(pairId, rate, side, amount, SwapType.ChainToChain);
+    const expectedAmount = Math.ceil(amount * rate + (baseFee + percentageFee));
+
+    const { totalBalance: sendingWalletBalance } = await this.walletManager.wallets.get(sendingCurrency)!.getBalance();
+
+    if (sendingWalletBalance <= amount) {
+      throw WalletErrors.NOT_ENOUGH_FUNDS(amount);
+    }
+
+    const id = generateId();
+
+    const acceptZeroConf = this.rateProvider.acceptZeroConf(receivingCurrency, expectedAmount);
+
+    const {
+      sendingKeyIndex,
+      sendingRedeemScript,
+      sendingLockupAddress,
+      sendingTimeoutBlockHeight,
+
+      receivingKeyIndex,
+      receivingRedeemScript,
+      receivingLockupAddress,
+      receivingTimeoutBlockHeight,
+    } = await this.swapManager.createChainToChainSwap(
+      id,
+      base,
+      quote,
+      side,
+      amount,
+      expectedAmount,
+      preimageHash,
+      claimPublicKey,
+      refundPublicKey,
+      timeouts.base,
+      timeouts.quote,
+      acceptZeroConf,
+    );
+
+    await this.chainToChainSwapRepository.addChainToChainSwap({
+      id,
+      acceptZeroConf,
+
+      sendingKeyIndex,
+      sendingLockupAddress,
+      sendingTimeoutBlockHeight,
+
+      receivingKeyIndex,
+      receivingLockupAddress,
+      receivingTimeoutBlockHeight,
+
+      pair: pairId,
+      orderSide: side,
+      fee: percentageFee,
+      preimageHash: hexPreimageHash,
+      status: SwapUpdateEvent.TransactionWaiting,
+
+      sendingAmount: amount,
+      sendingRedeemScript: getHexString(sendingRedeemScript),
+
+      receivingAmount: expectedAmount,
+      receivingRedeemScript: getHexString(receivingRedeemScript),
+    });
+
+    return {
+      id,
+      acceptZeroConf,
+      sendingDetails: {
+        expectedAmount,
+        lockupAddress: receivingLockupAddress,
+        timeoutBlockHeight: receivingTimeoutBlockHeight,
+        redeemScript: getHexString(receivingRedeemScript),
+        bip21: encodeBip21(
+          receivingCurrency,
+          receivingLockupAddress,
+          expectedAmount,
+          getSwapMemo(
+            sendingCurrency,
+            SwapType.ChainToChain,
+          ),
+        ),
+      },
+      receivingDetails: {
+        timeoutBlockHeight: sendingTimeoutBlockHeight,
+        redeemScript: getHexString(sendingRedeemScript),
+      },
     };
   }
 
@@ -544,7 +678,9 @@ class Service {
   /**
    * Verfies that the requested amount is neither above the maximal nor beneath the minimal
    */
-  private verifyAmount = (pairId: string, rate: number, amount: number, orderSide: OrderSide, isReverse: boolean) => {
+  private verifyAmount = (pairId: string, rate: number, amount: number, orderSide: OrderSide, type: SwapType) => {
+    const isReverse = type === SwapType.ReverseSubmarine;
+
     if (
         (!isReverse && orderSide === OrderSide.BUY) ||
         (isReverse && orderSide === OrderSide.SELL)

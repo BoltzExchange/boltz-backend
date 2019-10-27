@@ -6,6 +6,7 @@ import Swap from './models/Swap';
 import Output from './models/Output';
 import Wallet from './models/Wallet';
 import ReverseSwap from './models/ReverseSwap';
+import ChainToChainSwap from './models/ChainToChainSwap';
 
 class Db {
   public sequelize: Sequelize.Sequelize;
@@ -41,6 +42,7 @@ class Db {
     await Promise.all([
       Swap.sync(),
       ReverseSwap.sync(),
+      ChainToChainSwap.sync(),
     ]);
   }
 
@@ -55,6 +57,7 @@ class Db {
     Pair.load(this.sequelize);
     Swap.load(this.sequelize);
     ReverseSwap.load(this.sequelize);
+    ChainToChainSwap.load(this.sequelize);
   }
 }
 

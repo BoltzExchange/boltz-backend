@@ -263,6 +263,11 @@ class SwapNursery extends EventEmitter {
           if (zeroConfRejectedReason !== undefined && chainToChainSwapDetails.acceptZeroConf) {
             this.logZeroConfRejected(SwapType.ChainToChain, chainClient.symbol, transaction, vout, zeroConfRejectedReason);
           } else if (confirmed || chainToChainSwapDetails.acceptZeroConf) {
+            // Do not send coins twice in case 0-conf was accepted
+            if (chainToChainSwapDetails.sendingDetails.lockupOutput !== undefined) {
+              return;
+            }
+
             if (!confirmed) {
               this.logZeroConfAccepted(SwapType.ChainToChain, chainClient.symbol, transaction, vout);
             }

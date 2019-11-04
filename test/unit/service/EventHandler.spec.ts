@@ -170,6 +170,7 @@ const mockedReverseSwapRepository = <jest.Mock<ReverseSwapRepository>><any>Rever
 const chainToChainSwap: any = {
   id: 'chainId',
   preimageHash: '6872709069257dc268cbe5b1882cc52ea29ad253db2528f0a68a906db0cde5e1',
+  sendingTransactionId: '131259d327915d576b2a34c36a4dc304dfd59b751ac2661d3eeacef0f5f923f5',
 };
 
 const mockSetClaimDetails = jest.fn().mockResolvedValue(chainToChainSwap);
@@ -245,6 +246,7 @@ describe('EventHandler', () => {
         expect(id).toEqual(chainToChainSwap.id);
         expect(message).toEqual({
           status: SwapUpdateEvent.BoltzTransactioConfirmed,
+          lockupTransactionId: chainToChainSwap.sendingTransactionId,
         });
       }
 
@@ -469,6 +471,7 @@ describe('EventHandler', () => {
     eventHandler.on('swap.update', (id, message) => {
       expect(id).toEqual(chainToChainSwap.id);
       expect(message).toEqual({
+        lockupTransactionId: transactionId,
         status: SwapUpdateEvent.BoltzTransactionMempool,
       });
 

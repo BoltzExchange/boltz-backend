@@ -5,7 +5,7 @@ import { TxOutput, Transaction } from 'bitcoinjs-lib';
 import Errors from './Errors';
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';
-import { getSwapName } from '../Utils';
+import { getSwapName, transactionHashToId } from '../Utils';
 import SwapRepository from './SwapRepository';
 import SwapNursery from '../swap/SwapNursery';
 import ReverseSwap from '../db/models/ReverseSwap';
@@ -20,6 +20,7 @@ type SwapUpdate = {
 
   preimage?: string;
   zeroConfAccepted?: boolean;
+  lockupTransactionId?: string;
 };
 
 type GenericSwap = Swap | ReverseSwap | ChainToChainSwap;
@@ -80,7 +81,12 @@ class EventHandler extends EventEmitter {
             await this.chainToChainSwapRepository.setChainToChainSwapStatus(swap as ChainToChainSwap, newStatus);
           }
 
-          this.emit('swap.update', swap.id, { status: newStatus });
+          this.emit('swap.update', swap.id, {
+            status: newStatus,
+
+            // Will be set to 'undefined' if it is a reverse swap or to the sending transaction id if it is a chain to chain one
+            lockupTransactionId: swap['sendingTransactionId'],
+          });
         }
       }
     };
@@ -244,7 +250,10 @@ class EventHandler extends EventEmitter {
         if (chainToChainSwap) {
           await this.chainToChainSwapRepository.setSendingTransaction(chainToChainSwap, transactionId, minerFee);
 
-          this.emit('swap.update', chainToChainSwap.id, { status: SwapUpdateEvent.BoltzTransactionMempool });
+          this.emit('swap.update', chainToChainSwap.id, {
+            status: SwapUpdateEvent.BoltzTransactionMempool,
+            lockupTransactionId: transactionId,
+          });
         }
       });
     });

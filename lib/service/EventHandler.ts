@@ -5,7 +5,7 @@ import { TxOutput, Transaction } from 'bitcoinjs-lib';
 import Errors from './Errors';
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';
-import { getSwapName, transactionHashToId } from '../Utils';
+import { getSwapName } from '../Utils';
 import SwapRepository from './SwapRepository';
 import SwapNursery from '../swap/SwapNursery';
 import ReverseSwap from '../db/models/ReverseSwap';
@@ -68,14 +68,10 @@ class EventHandler extends EventEmitter {
   private subscribeTransactions = () => {
     const handleSwapTransaction = async (swap: ReverseSwap | ChainToChainSwap | undefined, type: SwapType) => {
       if (swap) {
-        if (
-          swap.status === SwapUpdateEvent.TransactionMempool ||
-          swap.status === SwapUpdateEvent.BoltzTransactionMempool
-        ) {
-          const isReverseSwap = type === SwapType.ReverseSubmarine;
-          const newStatus = isReverseSwap ? SwapUpdateEvent.TransactionConfirmed : SwapUpdateEvent.BoltzTransactioConfirmed;
+        if (swap.status === SwapUpdateEvent.BoltzTransactionMempool) {
+          const newStatus = SwapUpdateEvent.BoltzTransactionConfirmed;
 
-          if (isReverseSwap) {
+          if (type === SwapType.ReverseSubmarine) {
             await this.reverseSwapRepository.setReverseSwapStatus(swap as ReverseSwap, newStatus);
           } else {
             await this.chainToChainSwapRepository.setChainToChainSwapStatus(swap as ChainToChainSwap, newStatus);
@@ -385,13 +381,11 @@ class EventHandler extends EventEmitter {
 
         // Reverse submarine swaps don't have a "preimageHash" field
         const swapType = swap['preimageHash'] === undefined ? SwapType.ReverseSubmarine : SwapType.ChainToChain;
-        const isReverse = swapType === SwapType.ReverseSubmarine;
-
-        const newStatus = isReverse ? SwapUpdateEvent.TransactionRefunded : SwapUpdateEvent.BoltzTransactionRefunded;
+        const newStatus =  SwapUpdateEvent.BoltzTransactionRefunded;
 
         let toReturn: ReverseSwap | ChainToChainSwap;
 
-        if (isReverse) {
+        if (swapType === SwapType.ReverseSubmarine) {
           toReturn = await this.reverseSwapRepository.setTransactionRefunded(swap as ReverseSwap, minerFee);
         } else {
           toReturn = await this.chainToChainSwapRepository.setSendingTransactionRefunded(

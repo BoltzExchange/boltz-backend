@@ -28,7 +28,7 @@ export const pendingSwapExample = {
   ...swapExample,
 
   id : '654321',
-  status: undefined,
+  status: SwapUpdateEvent.TransactionWaiting,
   invoice: 'lnbcrt1pwhzymjpp5caehd2n8nzlem65a3vh35zq4z35a8q3l4j3z6v4vdncq5fpxrpcqdqqcqzpgq0tmq4yztsu25983latgnlqw5e2r20ysc98k8gljukp5tcy0k85rdgg820udupmdsnkyxxua5ptl3yaets9h5xaxn7futp4m6g90l9gqkr06ct',
 };
 
@@ -53,7 +53,7 @@ export const pendingReverseSwapExample = {
   ...reverseSwapExample,
 
   id: 'r654321',
-  status: SwapUpdateEvent.TransactionMempool,
+  status: SwapUpdateEvent.BoltzTransactionMempool,
 };
 
 export const chainToChainSwapExample: ChainToChainSwapType = {

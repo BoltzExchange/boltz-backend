@@ -439,7 +439,7 @@ class CommandHandler {
       status: {
         [Op.not]: [
           SwapUpdateEvent.InvoiceSettled,
-          SwapUpdateEvent.TransactionRefunded,
+          SwapUpdateEvent.BoltzTransactionRefunded,
         ],
       },
     });

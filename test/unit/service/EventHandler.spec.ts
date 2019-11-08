@@ -13,7 +13,6 @@ import SwapRepository from '../../../lib/service/SwapRepository';
 import { SwapUpdateEvent, SwapType } from '../../../lib/consts/Enums';
 import ReverseSwapRepository from '../../../lib/service/ReverseSwapRepository';
 import ChainToChainSwapRepository from '../../../lib/service/ChainToChainSwapRepository';
-import { getHexBuffer, transactionSignalsRbfExplicitly } from '../../../lib/Utils';
 
 type transactionCallback = (transaction: Transaction, confirmed: boolean) => void;
 
@@ -234,18 +233,18 @@ describe('EventHandler', () => {
 
     transaction.addOutput(outputScript, outputValue);
 
-    reverseSwap.status = SwapUpdateEvent.TransactionMempool;
+    reverseSwap.status = SwapUpdateEvent.BoltzTransactionMempool;
     chainToChainSwap.status = SwapUpdateEvent.BoltzTransactionMempool;
 
     eventHandler.on('swap.update', (id, message) => {
       if (id === reverseSwap.id) {
         expect(message).toEqual({
-          status: SwapUpdateEvent.TransactionConfirmed,
+          status: SwapUpdateEvent.BoltzTransactionConfirmed,
         });
       } else {
         expect(id).toEqual(chainToChainSwap.id);
         expect(message).toEqual({
-          status: SwapUpdateEvent.BoltzTransactioConfirmed,
+          status: SwapUpdateEvent.BoltzTransactionConfirmed,
           lockupTransactionId: chainToChainSwap.sendingTransactionId,
         });
       }
@@ -265,7 +264,7 @@ describe('EventHandler', () => {
     });
 
     expect(mockSetReverseSwapStatus).toHaveBeenCalledTimes(1);
-    expect(mockSetReverseSwapStatus).toHaveBeenCalledWith(reverseSwap, SwapUpdateEvent.TransactionConfirmed);
+    expect(mockSetReverseSwapStatus).toHaveBeenCalledWith(reverseSwap, SwapUpdateEvent.BoltzTransactionConfirmed);
 
     expect(mockGetChainToChainSwap).toHaveBeenCalledTimes(1);
     expect(mockGetChainToChainSwap).toHaveBeenCalledWith({
@@ -275,7 +274,7 @@ describe('EventHandler', () => {
     });
 
     expect(mockSetChainToChainSwapStatus).toHaveBeenCalledTimes(1);
-    expect(mockSetChainToChainSwapStatus).toHaveBeenCalledWith(chainToChainSwap, SwapUpdateEvent.BoltzTransactioConfirmed);
+    expect(mockSetChainToChainSwapStatus).toHaveBeenCalledWith(chainToChainSwap, SwapUpdateEvent.BoltzTransactionConfirmed);
 
     expect(updatesEmitted).toEqual(2);
   });
@@ -695,7 +694,7 @@ describe('EventHandler', () => {
     eventHandler.on('swap.update', (id, message) => {
       if (id === reverseSwap.id) {
         expect(message).toEqual({
-          status: SwapUpdateEvent.TransactionRefunded,
+          status: SwapUpdateEvent.BoltzTransactionRefunded,
         });
       } else {
         expect(id).toEqual(chainToChainSwap.id);

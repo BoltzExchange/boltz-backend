@@ -8,17 +8,18 @@ class Controller {
   // A map between the ids and HTTP streams of all pending swaps
   private pendingSwapStreams = new Map<string, Response>();
 
+  // TODO: add status on swap creation
   // A map between the ids and statuses of the swaps
   private pendingSwapInfos = new Map<string, object>();
 
   constructor(private logger: Logger, private service: Service) {
     this.service.eventHandler.on('swap.update', (id, message) => {
       this.pendingSwapInfos.set(id, message);
+      this.logger.debug(`Swap ${id} update: ${stringify(message)}`);
 
       const response = this.pendingSwapStreams.get(id);
 
       if (response) {
-        this.logger.debug(`Swap ${id} update: ${stringify(message)}`);
         response.write(`data: ${JSON.stringify(message)}\n\n`);
       }
     });

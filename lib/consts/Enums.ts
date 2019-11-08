@@ -31,12 +31,11 @@ export enum SwapUpdateEvent {
 
   TransactionMempool = 'transaction.mempool',
   TransactionClaimed = 'transaction.claimed',
-  TransactionRefunded = 'transaction.refunded',
   TransactionConfirmed = 'transaction.confirmed',
 
   // Transaction events with the prefix "boltz" are related to transactions sent by Boltz
   BoltzTransactionMempool = 'boltz.transaction.mempool',
-  BoltzTransactioConfirmed = 'boltz.transaction.confirmed',
+  BoltzTransactionConfirmed = 'boltz.transaction.confirmed',
   BoltzTransactionRefunded = 'boltz.transaction.refunded',
 
   SwapAborted = 'swap.aborted',

@@ -622,7 +622,7 @@ describe('Service', () => {
       invoice: response.invoice,
       keyIndex: mockedReverseSwap.keyIndex,
       minerFee: mockedReverseSwap.minerFee,
-      status: SwapUpdateEvent.TransactionMempool,
+      status: SwapUpdateEvent.BoltzTransactionMempool,
       redeemScript: mockedReverseSwap.redeemScript,
       timeoutBlockHeight: response.timeoutBlockHeight,
       transactionId: mockedReverseSwap.lockupTransactionId,

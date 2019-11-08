@@ -35,7 +35,7 @@ class ReverseSwapRepository {
   public setTransactionRefunded = async (reverseSwap: ReverseSwap, minerFee: number): Promise<ReverseSwap> => {
     return reverseSwap.update({
       minerFee: reverseSwap.minerFee + minerFee,
-      status: SwapUpdateEvent.TransactionRefunded,
+      status: SwapUpdateEvent.BoltzTransactionRefunded,
     });
   }
 

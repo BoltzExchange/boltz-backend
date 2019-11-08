@@ -485,7 +485,7 @@ class Service {
       orderSide: side,
       fee: percentageFee,
       transactionId: lockupTransactionId,
-      status: SwapUpdateEvent.TransactionMempool,
+      status: SwapUpdateEvent.BoltzTransactionMempool,
     });
 
     return {

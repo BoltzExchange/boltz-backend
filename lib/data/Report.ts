@@ -72,7 +72,7 @@ class Report {
       }),
       reverseSwapRepository.getReverseSwaps({
         status: {
-          [Op.eq]: SwapUpdateEvent.TransactionRefunded,
+          [Op.eq]: SwapUpdateEvent.BoltzTransactionRefunded,
         },
       }),
     ]);

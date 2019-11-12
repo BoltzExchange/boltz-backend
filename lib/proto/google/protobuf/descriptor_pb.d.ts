@@ -2,6 +2,7 @@
 // file: google/protobuf/descriptor.proto
 
 /* tslint:disable */
+/* eslint-disable */
 
 import * as jspb from "google-protobuf";
 

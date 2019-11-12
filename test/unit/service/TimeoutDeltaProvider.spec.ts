@@ -3,8 +3,8 @@ import toml from '@iarna/toml';
 import Logger from '../../../lib/Logger';
 import Errors from '../../../lib/service/Errors';
 import { ConfigType } from '../../../lib/Config';
-import { OrderSide } from '../../../lib/consts/Enums';
 import { PairConfig } from '../../../lib/consts/Types';
+import { OrderSide, SwapType } from '../../../lib/consts/Enums';
 import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
 
 const currencies = [
@@ -70,19 +70,38 @@ describe('TimeoutDeltaProvider', () => {
     ] as PairConfig[])).toThrow(Errors.NO_TIMEOUT_DELTA('should/throw').message);
   });
 
-  test('should get timeout deltas', () => {
-    const pairId = 'LTC/BTC';
-
-    expect(deltaProvider.getTimeout(pairId, OrderSide.BUY, true)).toEqual(8);
-    expect(deltaProvider.getTimeout(pairId, OrderSide.BUY, false)).toEqual(2);
-
-    expect(deltaProvider.getTimeout(pairId, OrderSide.SELL, true)).toEqual(2);
-    expect(deltaProvider.getTimeout(pairId, OrderSide.SELL, false)).toEqual(8);
+  test('should get timeout deltas of a pair', () => {
+    expect(deltaProvider.getTimeouts('BTC/BTC')).toEqual({
+      base: 36,
+      quote: 36,
+    });
+    expect(deltaProvider.getTimeouts('LTC/BTC')).toEqual({
+      base: 8,
+      quote: 2,
+    });
 
     // Should throw if pair cannot be found
     const notFound = 'notFound';
 
-    expect(() => deltaProvider.getTimeout(notFound, OrderSide.SELL, true)).toThrow(Errors.PAIR_NOT_FOUND(notFound).message);
+    expect(() => deltaProvider.getTimeouts(notFound)).toThrow(Errors.PAIR_NOT_FOUND(notFound).message);
+  });
+
+  test('should get timeout deltas of a single chain', () => {
+    const pairId = 'LTC/BTC';
+
+    expect(deltaProvider.getTimeout(pairId, OrderSide.BUY, SwapType.Submarine)).toEqual(2);
+    expect(deltaProvider.getTimeout(pairId, OrderSide.BUY, SwapType.ReverseSubmarine)).toEqual(8);
+    expect(deltaProvider.getTimeout(pairId, OrderSide.BUY, SwapType.ChainToChain)).toEqual(8);
+
+    expect(deltaProvider.getTimeout(pairId, OrderSide.SELL, SwapType.Submarine)).toEqual(8);
+    expect(deltaProvider.getTimeout(pairId, OrderSide.SELL, SwapType.ReverseSubmarine)).toEqual(2);
+    expect(deltaProvider.getTimeout(pairId, OrderSide.SELL, SwapType.ChainToChain)).toEqual(2);
+
+    // Should throw if pair cannot be found
+    const notFound = 'notFound';
+
+    expect(() => deltaProvider.getTimeout(notFound, OrderSide.SELL, SwapType.Submarine))
+      .toThrow(Errors.PAIR_NOT_FOUND(notFound).message);
   });
 
   test('should set timeout deltas', () => {
@@ -91,8 +110,8 @@ describe('TimeoutDeltaProvider', () => {
     deltaProvider.setTimeout(pairId, newDelta);
 
     expect(deltaProvider['timeoutDeltas'].get(pairId)).toEqual({
-      base: 120 / 2.5,
-      quote: 120 / 10,
+      base: newDelta / 2.5,
+      quote: newDelta / 10,
     });
 
     // Should throw if pair cannot be found

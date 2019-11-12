@@ -3,7 +3,6 @@ import { SwapUpdateEvent } from '../consts/Enums';
 import Swap, { SwapType } from '../db/models/Swap';
 
 class SwapRepository {
-
   public getSwaps = async (options?: WhereOptions): Promise<Swap[]> => {
     return Swap.findAll({
       where: options,
@@ -26,17 +25,17 @@ class SwapRepository {
     });
   }
 
-  public addSwap = async (swap: SwapType) => {
+  public addSwap = async (swap: SwapType): Promise<Swap> => {
     return Swap.create(swap);
   }
 
-  public setSwapStatus = async (swap: Swap, status: string) => {
+  public setSwapStatus = async (swap: Swap, status: string): Promise<Swap> => {
     return swap.update({
       status,
     });
   }
 
-  public setLockupTransactionId = async (swap: Swap, lockupTransactionId: string, onchainAmount: number, confirmed: boolean) => {
+  public setLockupTransactionId = async (swap: Swap, lockupTransactionId: string, onchainAmount: number, confirmed: boolean): Promise<Swap> => {
     return swap.update({
       onchainAmount,
       lockupTransactionId,
@@ -44,14 +43,14 @@ class SwapRepository {
     });
   }
 
-  public setInvoicePaid = async (swap: Swap, routingFee: number) => {
+  public setInvoicePaid = async (swap: Swap, routingFee: number): Promise<Swap> => {
     return swap.update({
       routingFee,
       status: SwapUpdateEvent.InvoicePaid,
     });
   }
 
-  public setMinerFee = async (swap: Swap, minerFee: number) => {
+  public setMinerFee = async (swap: Swap, minerFee: number): Promise<Swap> => {
     return swap.update({
       minerFee,
       status: SwapUpdateEvent.TransactionClaimed,

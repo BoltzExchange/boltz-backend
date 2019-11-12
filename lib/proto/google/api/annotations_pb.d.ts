@@ -2,6 +2,7 @@
 // file: google/api/annotations.proto
 
 /* tslint:disable */
+/* eslint-disable */
 
 import * as jspb from "google-protobuf";
 import * as google_api_http_pb from "../../google/api/http_pb";

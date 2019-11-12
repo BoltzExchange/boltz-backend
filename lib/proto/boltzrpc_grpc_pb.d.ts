@@ -2,6 +2,7 @@
 // file: boltzrpc.proto
 
 /* tslint:disable */
+/* eslint-disable */
 
 import * as grpc from "grpc";
 import * as boltzrpc_pb from "./boltzrpc_pb";

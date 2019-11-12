@@ -8,17 +8,18 @@ class Controller {
   // A map between the ids and HTTP streams of all pending swaps
   private pendingSwapStreams = new Map<string, Response>();
 
+  // TODO: add status on swap creation
   // A map between the ids and statuses of the swaps
   private pendingSwapInfos = new Map<string, object>();
 
   constructor(private logger: Logger, private service: Service) {
     this.service.eventHandler.on('swap.update', (id, message) => {
       this.pendingSwapInfos.set(id, message);
+      this.logger.debug(`Swap ${id} update: ${stringify(message)}`);
 
       const response = this.pendingSwapStreams.get(id);
 
       if (response) {
-        this.logger.debug(`Swap ${id} update: ${stringify(message)}`);
         response.write(`data: ${JSON.stringify(message)}\n\n`);
       }
     });
@@ -128,6 +129,11 @@ class Controller {
 
         case SwapType.ReverseSubmarine:
           await this.createReverseSubmarineSwap(req, res);
+          break;
+
+        case SwapType.ChainToChain:
+          await this.createChainToChainSwap(req, res);
+          break;
       }
 
     } catch (error) {
@@ -151,7 +157,7 @@ class Controller {
     );
 
     this.logger.verbose(`Created new swap with id: ${response.id}`);
-    this.logger.silly(`Swap ${response.id}: ${stringify(response)}`);
+    this.logger.debug(`Swap ${response.id}: ${stringify(response)}`);
 
     this.createdResponse(res, response);
   }
@@ -167,7 +173,32 @@ class Controller {
     const response = await this.service.createReverseSwap(pairId, orderSide, invoiceAmount, claimPublicKey);
 
     this.logger.verbose(`Created reverse swap with id: ${response.id}`);
-    this.logger.silly(`Reverse swap ${response.id}: ${stringify(response)}`);
+    this.logger.debug(`Reverse swap ${response.id}: ${stringify(response)}`);
+
+    this.createdResponse(res, response);
+  }
+
+  private createChainToChainSwap = async (req: Request, res: Response) => {
+    const { pairId, orderSide, amount, preimageHash, claimPublicKey, refundPublicKey } = this.validateRequest(req.body, [
+      { name: 'pairId', type: 'string' },
+      { name: 'orderSide', type: 'string' },
+      { name: 'amount', type: 'number' },
+      { name: 'preimageHash', type: 'string', isHex: true },
+      { name: 'claimPublicKey', type: 'string', isHex: true },
+      { name: 'refundPublicKey', type: 'string', isHex: true },
+    ]);
+
+    const response = await this.service.createChainToChainSwap(
+      pairId,
+      orderSide,
+      amount,
+      preimageHash,
+      claimPublicKey,
+      refundPublicKey,
+    );
+
+    this.logger.verbose(`Created chain to chain swap with id: ${response.id}`);
+    this.logger.debug(`Chain to chain swap ${response.id}: ${stringify(response)}`);
 
     this.createdResponse(res, response);
   }

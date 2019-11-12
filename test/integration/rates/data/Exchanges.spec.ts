@@ -4,6 +4,16 @@ import Bitfinex from '../../../../lib/rates/data/exchanges/Bitfinex';
 import Poloniex from '../../../../lib/rates/data/exchanges/Poloniex';
 import CoinbasePro from '../../../../lib/rates/data/exchanges/CoinbasePro';
 
+export const baseAsset = 'ltc';
+export const quoteAsset = 'BTC';
+
+export const checkPrice = (price: any) => {
+  expect(typeof price).toEqual('number');
+
+  expect(price).toBeLessThan(1);
+  expect(price).toBeGreaterThan(0);
+};
+
 describe('Exchanges', () => {
   test('should get price from Binance', async () => {
     const binance = new Binance();
@@ -40,13 +50,3 @@ describe('Exchanges', () => {
     checkPrice(price);
   });
 });
-
-export const baseAsset = 'ltc';
-export const quoteAsset = 'BTC';
-
-export const checkPrice = (price: any) => {
-  expect(typeof price).toEqual('number');
-
-  expect(price).toBeLessThan(1);
-  expect(price).toBeGreaterThan(0);
-};

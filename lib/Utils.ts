@@ -3,7 +3,7 @@ import path from 'path';
 import bolt11 from '@boltz/bolt11';
 import { Transaction } from 'bitcoinjs-lib';
 import { OutputType, Scripts } from 'boltz-core';
-import { OrderSide } from './consts/Enums';
+import { OrderSide, SwapType } from './consts/Enums';
 
 const {
   p2shOutput,
@@ -341,8 +341,8 @@ export const getSendingReceivingCurrency = (baseCurrency: string, quoteCurrency:
   };
 };
 
-export const getRate = (rate: number, orderSide: OrderSide, isReverse: boolean) => {
-  if (isReverse) {
+export const getRate = (rate: number, orderSide: OrderSide, type: SwapType) => {
+  if (type === SwapType.ReverseSubmarine) {
     return orderSide === OrderSide.BUY ? 1 / rate : rate;
   } else {
     return orderSide === OrderSide.BUY ? rate : 1 / rate;
@@ -369,10 +369,12 @@ export const getLightningCurrency = (base: string, quote: string, orderSide: Ord
  * Gets the memo for the BIP21 payment request or the invoice of a swap
  *
  * @param receivingCurrency currency the user is receiving
- * @param isReverse whether the swap is a reverse one
+ * @param type the type of swap
  */
-export const getSwapMemo = (receivingCurrency: string, isReverse: boolean): string => {
-  return `${isReverse ? 'Reverse ' : ''}Swap to ${receivingCurrency}`;
+export const getSwapMemo = (receivingCurrency: string, type: SwapType): string => {
+  const prefix = type === SwapType.ReverseSubmarine ? 'Reverse ' : '';
+
+  return `${prefix}Swap to ${receivingCurrency}`;
 };
 
 export const formatError = (error: any) => {
@@ -382,5 +384,29 @@ export const formatError = (error: any) => {
     return error['message'];
   } else {
     return JSON.stringify(error);
+  }
+};
+
+export const getSwapName = (type: SwapType, upperCaseFirstLetter = false) => {
+  let toReturn = '';
+
+  switch (type) {
+    case SwapType.Submarine:
+      toReturn = 'submarine';
+      break;
+
+    case SwapType.ChainToChain:
+      toReturn = 'chain to chain';
+      break;
+
+    case SwapType.ReverseSubmarine:
+      toReturn = 'reverse submarine';
+      break;
+  }
+
+  if (upperCaseFirstLetter) {
+    return toReturn.charAt(0).toUpperCase() + toReturn.slice(1);
+  } else {
+    return toReturn;
   }
 };

@@ -2,6 +2,7 @@
 // file: lndrpc.proto
 
 /* tslint:disable */
+/* eslint-disable */
 
 import * as grpc from "grpc";
 import * as lndrpc_pb from "./lndrpc_pb";
@@ -112,6 +113,7 @@ interface ILightningService extends grpc.ServiceDefinition<grpc.UntypedServiceIm
     closedChannels: ILightningService_IClosedChannels;
     openChannelSync: ILightningService_IOpenChannelSync;
     openChannel: ILightningService_IOpenChannel;
+    channelAcceptor: ILightningService_IChannelAcceptor;
     closeChannel: ILightningService_ICloseChannel;
     abandonChannel: ILightningService_IAbandonChannel;
     sendPayment: ILightningService_ISendPayment;
@@ -331,6 +333,15 @@ interface ILightningService_IOpenChannel extends grpc.MethodDefinition<lndrpc_pb
     requestDeserialize: grpc.deserialize<lndrpc_pb.OpenChannelRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.OpenStatusUpdate>;
     responseDeserialize: grpc.deserialize<lndrpc_pb.OpenStatusUpdate>;
+}
+interface ILightningService_IChannelAcceptor extends grpc.MethodDefinition<lndrpc_pb.ChannelAcceptResponse, lndrpc_pb.ChannelAcceptRequest> {
+    path: string; // "/lnrpc.Lightning/ChannelAcceptor"
+    requestStream: boolean; // true
+    responseStream: boolean; // true
+    requestSerialize: grpc.serialize<lndrpc_pb.ChannelAcceptResponse>;
+    requestDeserialize: grpc.deserialize<lndrpc_pb.ChannelAcceptResponse>;
+    responseSerialize: grpc.serialize<lndrpc_pb.ChannelAcceptRequest>;
+    responseDeserialize: grpc.deserialize<lndrpc_pb.ChannelAcceptRequest>;
 }
 interface ILightningService_ICloseChannel extends grpc.MethodDefinition<lndrpc_pb.CloseChannelRequest, lndrpc_pb.CloseStatusUpdate> {
     path: string; // "/lnrpc.Lightning/CloseChannel"
@@ -618,6 +629,7 @@ export interface ILightningServer {
     closedChannels: grpc.handleUnaryCall<lndrpc_pb.ClosedChannelsRequest, lndrpc_pb.ClosedChannelsResponse>;
     openChannelSync: grpc.handleUnaryCall<lndrpc_pb.OpenChannelRequest, lndrpc_pb.ChannelPoint>;
     openChannel: grpc.handleServerStreamingCall<lndrpc_pb.OpenChannelRequest, lndrpc_pb.OpenStatusUpdate>;
+    channelAcceptor: grpc.handleBidiStreamingCall<lndrpc_pb.ChannelAcceptResponse, lndrpc_pb.ChannelAcceptRequest>;
     closeChannel: grpc.handleServerStreamingCall<lndrpc_pb.CloseChannelRequest, lndrpc_pb.CloseStatusUpdate>;
     abandonChannel: grpc.handleUnaryCall<lndrpc_pb.AbandonChannelRequest, lndrpc_pb.AbandonChannelResponse>;
     sendPayment: grpc.handleBidiStreamingCall<lndrpc_pb.SendRequest, lndrpc_pb.SendResponse>;
@@ -710,6 +722,9 @@ export interface ILightningClient {
     openChannelSync(request: lndrpc_pb.OpenChannelRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChannelPoint) => void): grpc.ClientUnaryCall;
     openChannel(request: lndrpc_pb.OpenChannelRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<lndrpc_pb.OpenStatusUpdate>;
     openChannel(request: lndrpc_pb.OpenChannelRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<lndrpc_pb.OpenStatusUpdate>;
+    channelAcceptor(): grpc.ClientDuplexStream<lndrpc_pb.ChannelAcceptResponse, lndrpc_pb.ChannelAcceptRequest>;
+    channelAcceptor(options: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<lndrpc_pb.ChannelAcceptResponse, lndrpc_pb.ChannelAcceptRequest>;
+    channelAcceptor(metadata: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<lndrpc_pb.ChannelAcceptResponse, lndrpc_pb.ChannelAcceptRequest>;
     closeChannel(request: lndrpc_pb.CloseChannelRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<lndrpc_pb.CloseStatusUpdate>;
     closeChannel(request: lndrpc_pb.CloseChannelRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<lndrpc_pb.CloseStatusUpdate>;
     abandonChannel(request: lndrpc_pb.AbandonChannelRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.AbandonChannelResponse) => void): grpc.ClientUnaryCall;
@@ -857,6 +872,8 @@ export class LightningClient extends grpc.Client implements ILightningClient {
     public openChannelSync(request: lndrpc_pb.OpenChannelRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChannelPoint) => void): grpc.ClientUnaryCall;
     public openChannel(request: lndrpc_pb.OpenChannelRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<lndrpc_pb.OpenStatusUpdate>;
     public openChannel(request: lndrpc_pb.OpenChannelRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<lndrpc_pb.OpenStatusUpdate>;
+    public channelAcceptor(options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<lndrpc_pb.ChannelAcceptResponse, lndrpc_pb.ChannelAcceptRequest>;
+    public channelAcceptor(metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<lndrpc_pb.ChannelAcceptResponse, lndrpc_pb.ChannelAcceptRequest>;
     public closeChannel(request: lndrpc_pb.CloseChannelRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<lndrpc_pb.CloseStatusUpdate>;
     public closeChannel(request: lndrpc_pb.CloseChannelRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<lndrpc_pb.CloseStatusUpdate>;
     public abandonChannel(request: lndrpc_pb.AbandonChannelRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.AbandonChannelResponse) => void): grpc.ClientUnaryCall;

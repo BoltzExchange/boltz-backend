@@ -58,6 +58,10 @@ const mockCreateReverseSwap = jest.fn().mockReturnValue({
   reverseSwap: 'created',
 });
 
+const mockCreateChainToChainSwap = jest.fn().mockReturnValue({
+  chainToChainSwap: 'created',
+});
+
 jest.mock('../../../lib/service/Service', () => {
   return jest.fn().mockImplementation(() => {
     return {
@@ -80,8 +84,10 @@ jest.mock('../../../lib/service/Service', () => {
 
       getTransaction: mockGetTransaction,
       broadcastTransaction: mockBroadcastTransaction,
+
       createSwap: mockCreateSwap,
       createReverseSwap: mockCreateReverseSwap,
+      createChainToChainSwap: mockCreateChainToChainSwap,
     };
   });
 });
@@ -361,6 +367,47 @@ describe('Controller', () => {
     expect(res.json).toHaveBeenNthCalledWith(2, mockCreateReverseSwap());
   });
 
+  test('should create chain to chain swaps', async () => {
+    const res = mockResponse();
+
+    // No values provided in request
+    let requestData: any = {
+      type: 'chaintochain',
+    };
+
+    await controller.createSwap(mockRequest(requestData), res);
+
+    expect(res.status).toHaveBeenNthCalledWith(1, 400);
+    expect(res.json).toHaveBeenNthCalledWith(1, {
+      error: 'undefined parameter: pairId',
+    });
+
+    // Successful request
+    requestData = {
+      ...requestData,
+      pairId: 'LTC/BTC',
+      orderSide: 'buy',
+      amount: 0,
+      claimPublicKey: '298ae8cc',
+      refundPublicKey: '298ae8cc',
+      preimageHash: '934f7005a6b877a77df604906819a22beeffa5d71d49c830c664105f9d5dd04e',
+    };
+
+    await controller.createSwap(mockRequest(requestData), res);
+
+    expect(service.createChainToChainSwap).toHaveBeenCalledWith(
+      requestData.pairId,
+      requestData.orderSide,
+      requestData.amount,
+      getHexBuffer(requestData.preimageHash),
+      getHexBuffer(requestData.claimPublicKey),
+      getHexBuffer(requestData.claimPublicKey),
+    );
+
+    expect(res.status).toHaveBeenNthCalledWith(2, 201);
+    expect(res.json).toHaveBeenNthCalledWith(2, mockCreateChainToChainSwap());
+  });
+
   test('should stream swap status updates', () => {
     // No id provided in request
     const res = mockResponse();
@@ -447,7 +494,9 @@ describe('Controller', () => {
     expect(parseSwapType('reversesubmarine')).toEqual(SwapType.ReverseSubmarine);
     expect(parseSwapType('reverseSubmarine')).toEqual(SwapType.ReverseSubmarine);
 
-    expect(() => parseSwapType('notFound')).toThrow('could not find swap type: notFound');
+    expect(parseSwapType('chaintochain')).toEqual(SwapType.ChainToChain);
+    expect(parseSwapType('chainToChain')).toEqual(SwapType.ChainToChain);
 
+    expect(() => parseSwapType('notFound')).toThrow('could not find swap type: notFound');
   });
 });

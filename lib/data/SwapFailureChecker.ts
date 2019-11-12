@@ -40,7 +40,7 @@ class CheckFailedSwaps {
   private checkReverseSwaps = (failedReverseSwaps: ReverseSwap[]) => {
 
     const reverseSwapFailureReasons = {
-      [SwapUpdateEvent.TransactionRefunded]: 0,
+      [SwapUpdateEvent.BoltzTransactionRefunded]: 0,
     };
 
     for (const reverseSwap of failedReverseSwaps) {

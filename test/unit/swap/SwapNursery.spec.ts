@@ -9,7 +9,7 @@ import ChainClient from '../../../lib/chain/ChainClient';
 import LndClient from '../../../lib/lightning/LndClient';
 import { SendResponse } from '../../../lib/proto/lndrpc_pb';
 import WalletManager from '../../../lib/wallet/WalletManager';
-import SwapNursery, { SwapDetails, ReverseSwapDetails } from '../../../lib/swap/SwapNursery';
+import SwapNursery, { SwapDetails, ReverseSwapDetails, ChainToChainSwapDetails, RefundDetails } from '../../../lib/swap/SwapNursery';
 
 const mockSendPayment = jest.fn().mockReturnValue(new SendResponse());
 
@@ -104,6 +104,7 @@ describe('SwapNursery', () => {
 
   const emptySwapDetails = {
     lndClient,
+    id: '123',
     expectedAmount: 0,
     acceptZeroConf: true,
     invoice: 'lnbcrt10000',
@@ -121,6 +122,10 @@ describe('SwapNursery', () => {
   const swaps = new Map<string, SwapDetails>();
   const swapTimeouts = new Map<number, string[]>();
   const reverseSwaps = new Map<number, ReverseSwapDetails[]>();
+  const chainToChainSwaps = new Map<string, ChainToChainSwapDetails>();
+  const chainToChainTransactionSent = new Map<string, ChainToChainSwapDetails>();
+  const chainToChainTimeouts = new Map<number, string[]>();
+  const chainToChainRefunds = new Map<number, RefundDetails[]>();
 
   beforeAll(() => {
     swapNursery.bindCurrency({
@@ -133,6 +138,10 @@ describe('SwapNursery', () => {
       swaps,
       swapTimeouts,
       reverseSwaps,
+      chainToChainSwaps,
+      chainToChainTransactionSent,
+      chainToChainTimeouts,
+      chainToChainRefunds,
     });
   });
 
@@ -143,9 +152,10 @@ describe('SwapNursery', () => {
   test('should wait for one confirmation for RBF transactions', async () => {
     let event = false;
 
-    swapNursery.once('zeroconf.rejected', (invoice, reason) => {
-      expect(invoice).toEqual(emptySwapDetails.invoice);
-      expect(reason).toEqual('transaction or one of its unconfirmed ancestors signals RBF');
+    swapNursery.once('transaction.lockup.found', (id, _transaction, _vout, confirmed, zeroConfAccepted) => {
+      expect(id).toEqual(emptySwapDetails.id);
+      expect(confirmed).toBeFalsy();
+      expect(zeroConfAccepted).toBeFalsy();
 
       event = true;
     });
@@ -165,9 +175,10 @@ describe('SwapNursery', () => {
   test('should wait for one confirmation for transactions that have a fee below the threshold', async () => {
     let event = false;
 
-    swapNursery.once('zeroconf.rejected', (invoice, reason) => {
-      expect(invoice).toEqual(emptySwapDetails.invoice);
-      expect(reason).toEqual('transaction fee is too low');
+    swapNursery.once('transaction.lockup.found', (id, _transaction, _vout, confirmed, zeroConfAccepted) => {
+      expect(id).toEqual(emptySwapDetails.id);
+      expect(confirmed).toBeFalsy();
+      expect(zeroConfAccepted).toBeFalsy();
 
       event = true;
     });
@@ -180,7 +191,7 @@ describe('SwapNursery', () => {
 
     emitTransaction(transaction, false);
 
-    await wait(10);
+    await wait(20);
 
     expect(event).toBeTruthy();
     expect(mockSendPayment).toHaveBeenCalledTimes(0);
@@ -196,7 +207,7 @@ describe('SwapNursery', () => {
 
     emitTransaction(transaction, false);
 
-    await wait(10);
+    await wait(20);
 
     expect(mockSendPayment).toHaveBeenCalledTimes(1);
     expect(mockSendPayment).toHaveBeenNthCalledWith(1, emptySwapDetails.invoice);

@@ -2,6 +2,7 @@
 // file: lndrpc.proto
 
 /* tslint:disable */
+/* eslint-disable */
 
 import * as jspb from "google-protobuf";
 
@@ -444,6 +445,10 @@ export class SendRequest extends jspb.Message {
     setCltvLimit(value: number): void;
 
 
+    getDestTlvMap(): jspb.Map<number, Uint8Array | string>;
+    clearDestTlvMap(): void;
+
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): SendRequest.AsObject;
     static toObject(includeInstance: boolean, msg: SendRequest): SendRequest.AsObject;
@@ -466,6 +471,8 @@ export namespace SendRequest {
         feeLimit?: FeeLimit.AsObject,
         outgoingChanId: number,
         cltvLimit: number,
+
+        destTlvMap: Array<[number, Uint8Array | string]>,
     }
 }
 
@@ -540,6 +547,108 @@ export namespace SendToRouteRequest {
         paymentHash: Uint8Array | string,
         paymentHashString: string,
         route?: Route.AsObject,
+    }
+}
+
+export class ChannelAcceptRequest extends jspb.Message { 
+    getNodePubkey(): Uint8Array | string;
+    getNodePubkey_asU8(): Uint8Array;
+    getNodePubkey_asB64(): string;
+    setNodePubkey(value: Uint8Array | string): void;
+
+    getChainHash(): Uint8Array | string;
+    getChainHash_asU8(): Uint8Array;
+    getChainHash_asB64(): string;
+    setChainHash(value: Uint8Array | string): void;
+
+    getPendingChanId(): Uint8Array | string;
+    getPendingChanId_asU8(): Uint8Array;
+    getPendingChanId_asB64(): string;
+    setPendingChanId(value: Uint8Array | string): void;
+
+    getFundingAmt(): number;
+    setFundingAmt(value: number): void;
+
+    getPushAmt(): number;
+    setPushAmt(value: number): void;
+
+    getDustLimit(): number;
+    setDustLimit(value: number): void;
+
+    getMaxValueInFlight(): number;
+    setMaxValueInFlight(value: number): void;
+
+    getChannelReserve(): number;
+    setChannelReserve(value: number): void;
+
+    getMinHtlc(): number;
+    setMinHtlc(value: number): void;
+
+    getFeePerKw(): number;
+    setFeePerKw(value: number): void;
+
+    getCsvDelay(): number;
+    setCsvDelay(value: number): void;
+
+    getMaxAcceptedHtlcs(): number;
+    setMaxAcceptedHtlcs(value: number): void;
+
+    getChannelFlags(): number;
+    setChannelFlags(value: number): void;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ChannelAcceptRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: ChannelAcceptRequest): ChannelAcceptRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ChannelAcceptRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ChannelAcceptRequest;
+    static deserializeBinaryFromReader(message: ChannelAcceptRequest, reader: jspb.BinaryReader): ChannelAcceptRequest;
+}
+
+export namespace ChannelAcceptRequest {
+    export type AsObject = {
+        nodePubkey: Uint8Array | string,
+        chainHash: Uint8Array | string,
+        pendingChanId: Uint8Array | string,
+        fundingAmt: number,
+        pushAmt: number,
+        dustLimit: number,
+        maxValueInFlight: number,
+        channelReserve: number,
+        minHtlc: number,
+        feePerKw: number,
+        csvDelay: number,
+        maxAcceptedHtlcs: number,
+        channelFlags: number,
+    }
+}
+
+export class ChannelAcceptResponse extends jspb.Message { 
+    getAccept(): boolean;
+    setAccept(value: boolean): void;
+
+    getPendingChanId(): Uint8Array | string;
+    getPendingChanId_asU8(): Uint8Array;
+    getPendingChanId_asB64(): string;
+    setPendingChanId(value: Uint8Array | string): void;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ChannelAcceptResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: ChannelAcceptResponse): ChannelAcceptResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ChannelAcceptResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ChannelAcceptResponse;
+    static deserializeBinaryFromReader(message: ChannelAcceptResponse, reader: jspb.BinaryReader): ChannelAcceptResponse;
+}
+
+export namespace ChannelAcceptResponse {
+    export type AsObject = {
+        accept: boolean,
+        pendingChanId: Uint8Array | string,
     }
 }
 
@@ -1174,6 +1283,15 @@ export class Channel extends jspb.Message {
     getChanStatusFlags(): string;
     setChanStatusFlags(value: string): void;
 
+    getLocalChanReserveSat(): number;
+    setLocalChanReserveSat(value: number): void;
+
+    getRemoteChanReserveSat(): number;
+    setRemoteChanReserveSat(value: number): void;
+
+    getStaticRemoteKey(): boolean;
+    setStaticRemoteKey(value: boolean): void;
+
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Channel.AsObject;
@@ -1206,6 +1324,9 @@ export namespace Channel {
         pb_private: boolean,
         initiator: boolean,
         chanStatusFlags: string,
+        localChanReserveSat: number,
+        remoteChanReserveSat: number,
+        staticRemoteKey: boolean,
     }
 }
 
@@ -1563,6 +1684,9 @@ export class GetInfoResponse extends jspb.Message {
     getColor(): string;
     setColor(value: string): void;
 
+    getSyncedToGraph(): boolean;
+    setSyncedToGraph(value: boolean): void;
+
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): GetInfoResponse.AsObject;
@@ -1591,6 +1715,7 @@ export namespace GetInfoResponse {
         numInactiveChannels: number,
         chainsList: Array<Chain.AsObject>,
         color: string,
+        syncedToGraph: boolean,
     }
 }
 
@@ -2032,6 +2157,12 @@ export namespace PendingChannelsResponse {
         getRemoteBalance(): number;
         setRemoteBalance(value: number): void;
 
+        getLocalChanReserveSat(): number;
+        setLocalChanReserveSat(value: number): void;
+
+        getRemoteChanReserveSat(): number;
+        setRemoteChanReserveSat(value: number): void;
+
 
         serializeBinary(): Uint8Array;
         toObject(includeInstance?: boolean): PendingChannel.AsObject;
@@ -2050,6 +2181,8 @@ export namespace PendingChannelsResponse {
             capacity: number,
             localBalance: number,
             remoteBalance: number,
+            localChanReserveSat: number,
+            remoteChanReserveSat: number,
         }
     }
 
@@ -2410,6 +2543,17 @@ export class QueryRoutesRequest extends jspb.Message {
     getSourcePubKey(): string;
     setSourcePubKey(value: string): void;
 
+    getUseMissionControl(): boolean;
+    setUseMissionControl(value: boolean): void;
+
+    clearIgnoredPairsList(): void;
+    getIgnoredPairsList(): Array<NodePair>;
+    setIgnoredPairsList(value: Array<NodePair>): void;
+    addIgnoredPairs(value?: NodePair, index?: number): NodePair;
+
+    getCltvLimit(): number;
+    setCltvLimit(value: number): void;
+
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): QueryRoutesRequest.AsObject;
@@ -2430,6 +2574,38 @@ export namespace QueryRoutesRequest {
         ignoredNodesList: Array<Uint8Array | string>,
         ignoredEdgesList: Array<EdgeLocator.AsObject>,
         sourcePubKey: string,
+        useMissionControl: boolean,
+        ignoredPairsList: Array<NodePair.AsObject>,
+        cltvLimit: number,
+    }
+}
+
+export class NodePair extends jspb.Message { 
+    getFrom(): Uint8Array | string;
+    getFrom_asU8(): Uint8Array;
+    getFrom_asB64(): string;
+    setFrom(value: Uint8Array | string): void;
+
+    getTo(): Uint8Array | string;
+    getTo_asU8(): Uint8Array;
+    getTo_asB64(): string;
+    setTo(value: Uint8Array | string): void;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): NodePair.AsObject;
+    static toObject(includeInstance: boolean, msg: NodePair): NodePair.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: NodePair, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): NodePair;
+    static deserializeBinaryFromReader(message: NodePair, reader: jspb.BinaryReader): NodePair;
+}
+
+export namespace NodePair {
+    export type AsObject = {
+        from: Uint8Array | string,
+        to: Uint8Array | string,
     }
 }
 
@@ -2464,6 +2640,9 @@ export class QueryRoutesResponse extends jspb.Message {
     setRoutesList(value: Array<Route>): void;
     addRoutes(value?: Route, index?: number): Route;
 
+    getSuccessProb(): number;
+    setSuccessProb(value: number): void;
+
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): QueryRoutesResponse.AsObject;
@@ -2478,6 +2657,7 @@ export class QueryRoutesResponse extends jspb.Message {
 export namespace QueryRoutesResponse {
     export type AsObject = {
         routesList: Array<Route.AsObject>,
+        successProb: number,
     }
 }
 
@@ -2506,6 +2686,9 @@ export class Hop extends jspb.Message {
     getPubKey(): string;
     setPubKey(value: string): void;
 
+    getTlvPayload(): boolean;
+    setTlvPayload(value: boolean): void;
+
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Hop.AsObject;
@@ -2527,6 +2710,7 @@ export namespace Hop {
         amtToForwardMsat: number,
         feeMsat: number,
         pubKey: string,
+        tlvPayload: boolean,
     }
 }
 
@@ -2719,6 +2903,9 @@ export class RoutingPolicy extends jspb.Message {
     getMaxHtlcMsat(): number;
     setMaxHtlcMsat(value: number): void;
 
+    getLastUpdate(): number;
+    setLastUpdate(value: number): void;
+
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): RoutingPolicy.AsObject;
@@ -2738,6 +2925,7 @@ export namespace RoutingPolicy {
         feeRateMilliMsat: number,
         disabled: boolean,
         maxHtlcMsat: number,
+        lastUpdate: number,
     }
 }
 
@@ -2915,6 +3103,9 @@ export class NetworkInfo extends jspb.Message {
     getMedianChannelSizeSat(): number;
     setMedianChannelSizeSat(value: number): void;
 
+    getNumZombieChans(): number;
+    setNumZombieChans(value: number): void;
+
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): NetworkInfo.AsObject;
@@ -2938,6 +3129,7 @@ export namespace NetworkInfo {
         minChannelSize: number,
         maxChannelSize: number,
         medianChannelSizeSat: number,
+        numZombieChans: number,
     }
 }
 
@@ -3285,6 +3477,11 @@ export class Invoice extends jspb.Message {
     getState(): Invoice.InvoiceState;
     setState(value: Invoice.InvoiceState): void;
 
+    clearHtlcsList(): void;
+    getHtlcsList(): Array<InvoiceHTLC>;
+    setHtlcsList(value: Array<InvoiceHTLC>): void;
+    addHtlcs(value?: InvoiceHTLC, index?: number): InvoiceHTLC;
+
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Invoice.AsObject;
@@ -3319,6 +3516,7 @@ export namespace Invoice {
         amtPaidSat: number,
         amtPaidMsat: number,
         state: Invoice.InvoiceState,
+        htlcsList: Array<InvoiceHTLC.AsObject>,
     }
 
     export enum InvoiceState {
@@ -3328,6 +3526,55 @@ export namespace Invoice {
     ACCEPTED = 3,
     }
 
+}
+
+export class InvoiceHTLC extends jspb.Message { 
+    getChanId(): number;
+    setChanId(value: number): void;
+
+    getHtlcIndex(): number;
+    setHtlcIndex(value: number): void;
+
+    getAmtMsat(): number;
+    setAmtMsat(value: number): void;
+
+    getAcceptHeight(): number;
+    setAcceptHeight(value: number): void;
+
+    getAcceptTime(): number;
+    setAcceptTime(value: number): void;
+
+    getResolveTime(): number;
+    setResolveTime(value: number): void;
+
+    getExpiryHeight(): number;
+    setExpiryHeight(value: number): void;
+
+    getState(): InvoiceHTLCState;
+    setState(value: InvoiceHTLCState): void;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): InvoiceHTLC.AsObject;
+    static toObject(includeInstance: boolean, msg: InvoiceHTLC): InvoiceHTLC.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: InvoiceHTLC, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): InvoiceHTLC;
+    static deserializeBinaryFromReader(message: InvoiceHTLC, reader: jspb.BinaryReader): InvoiceHTLC;
+}
+
+export namespace InvoiceHTLC {
+    export type AsObject = {
+        chanId: number,
+        htlcIndex: number,
+        amtMsat: number,
+        acceptHeight: number,
+        acceptTime: number,
+        resolveTime: number,
+        expiryHeight: number,
+        state: InvoiceHTLCState,
+    }
 }
 
 export class AddInvoiceResponse extends jspb.Message { 
@@ -3510,6 +3757,12 @@ export class Payment extends jspb.Message {
     getStatus(): Payment.PaymentStatus;
     setStatus(value: Payment.PaymentStatus): void;
 
+    getFeeSat(): number;
+    setFeeSat(value: number): void;
+
+    getFeeMsat(): number;
+    setFeeMsat(value: number): void;
+
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Payment.AsObject;
@@ -3533,6 +3786,8 @@ export namespace Payment {
         valueMsat: number,
         paymentRequest: string,
         status: Payment.PaymentStatus,
+        feeSat: number,
+        feeMsat: number,
     }
 
     export enum PaymentStatus {
@@ -3896,6 +4151,9 @@ export class PolicyUpdateRequest extends jspb.Message {
     getTimeLockDelta(): number;
     setTimeLockDelta(value: number): void;
 
+    getMaxHtlcMsat(): number;
+    setMaxHtlcMsat(value: number): void;
+
 
     getScopeCase(): PolicyUpdateRequest.ScopeCase;
 
@@ -3916,6 +4174,7 @@ export namespace PolicyUpdateRequest {
         baseFeeMsat: number,
         feeRate: number,
         timeLockDelta: number,
+        maxHtlcMsat: number,
     }
 
     export enum ScopeCase {
@@ -4306,4 +4565,10 @@ export enum AddressType {
     NESTED_PUBKEY_HASH = 1,
     UNUSED_WITNESS_PUBKEY_HASH = 2,
     UNUSED_NESTED_PUBKEY_HASH = 3,
+}
+
+export enum InvoiceHTLCState {
+    ACCEPTED = 0,
+    SETTLED = 1,
+    CANCELED = 2,
 }

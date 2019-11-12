@@ -12,24 +12,36 @@ class Chain:
 
     symbol: str
     executable: str
+    addressType: str
 
     aliases: List[str]
 
 CHAINS: List[Chain] = [
     Chain(
         symbol="BTC",
+        addressType="bech32",
         executable="bitcoin-cli --regtest --rpcuser=kek --rpcpassword=kek",
         aliases=[
-            "bitcoin",
-            "btc"
+            "btc",
+            "bitcoin"
         ]
     ),
     Chain(
         symbol="LTC",
+        addressType="bech32",
         executable="litecoin-cli --regtest --rpcuser=kek --rpcpassword=kek",
         aliases=[
-            "litecoin",
-            "ltc"
+            "ltc",
+            "litecoin"
+        ]
+    ),
+    Chain(
+        symbol="DOGE",
+        addressType="legacy",
+        executable="dogecoin-cli --regtest --rpcuser=kek --rpcpassword=kek",
+        aliases=[
+            "doge",
+            "dogecoin"
         ]
     )
 ]
@@ -44,7 +56,10 @@ def send_coins(amount: float, chains: List[Chain]):
     """Sends coins to the boltz wallet on all specified chains"""
 
     for chain in chains:
-        boltz_response = execute_command("boltz-cli newaddress {} bech32".format(chain.symbol))
+        boltz_response = execute_command("boltz-cli newaddress {symbol} {addressType}".format(
+            symbol=chain.symbol,
+            addressType=chain.addressType
+        ))
         boltz_address = json.loads(boltz_response)["address"]
 
         executable_response = execute_command(

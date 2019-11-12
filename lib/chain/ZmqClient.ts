@@ -29,6 +29,8 @@ interface ZmqClient {
 class ZmqClient extends EventEmitter {
   // IDs of transactions that contain a UTXOs of Boltz
   public utxos = new Set<string>();
+
+  public relevantInputs = new Set<string>();
   public relevantOutputs = new Set<string>();
 
   private blockHeight = 0;
@@ -308,6 +310,12 @@ class ZmqClient extends EventEmitter {
   }
 
   private isRelevantTransaction = (transaction: Transaction) => {
+    for (const input of transaction.ins) {
+      if (this.relevantInputs.has(getHexString(input.hash))) {
+        return true;
+      }
+    }
+
     for (const output of transaction.outs) {
       if (this.relevantOutputs.has(getHexString(output.script))) {
         return true;

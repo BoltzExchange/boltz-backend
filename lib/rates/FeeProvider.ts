@@ -1,7 +1,7 @@
 import Logger from '../Logger';
-import { OrderSide } from '../consts/Enums';
 import { PairConfig } from '../consts/Types';
-import { mapToObject, getPairId, stringify, getChainCurrency, splitPairId } from '../Utils';
+import { OrderSide, SwapType } from '../consts/Enums';
+import { mapToObject, getPairId, stringify, getChainCurrency, splitPairId, getSendingReceivingCurrency } from '../Utils';
 
 class FeeProvider {
   // A map between the symbols of the pairs and their percentage fees
@@ -39,31 +39,50 @@ class FeeProvider {
     rate: number,
     orderSide: OrderSide,
     amount: number,
-    isReverse: boolean,
+    type: SwapType,
   ) => {
+    const percentageFee = this.getPercentageFee(pair, amount, rate);
+
+    const { base, quote } = splitPairId(pair);
+
+    let baseFee = 0;
+
+    if (type !== SwapType.ChainToChain) {
+      const isReverse = type === SwapType.ReverseSubmarine;
+
+      const chainCurrency = getChainCurrency(base, quote, orderSide, isReverse);
+      baseFee = await this.getBaseFee(chainCurrency, isReverse);
+    } else {
+      const { sending, receiving } = getSendingReceivingCurrency(base, quote, orderSide);
+
+      baseFee = await this.getBaseFee(receiving, false);
+      baseFee += await this.getBaseFee(sending, true) * rate;
+    }
+
+    return {
+      baseFee,
+      percentageFee,
+    };
+  }
+
+  public getBaseFee = async (chainCurrency: string, isLockup: boolean) => {
+    const feeMap = await this.getFeeEstimation(chainCurrency);
+
+    return this.calculateBaseFee(feeMap.get(chainCurrency)!, isLockup);
+  }
+
+  private getPercentageFee = (pair: string, amount: number, rate: number) => {
     let percentageFee = this.percentageFees.get(pair) || 0;
 
     if (percentageFee !== 0) {
       percentageFee = percentageFee * amount * rate;
     }
 
-    const { base, quote } = splitPairId(pair);
-    const chainCurrency = getChainCurrency(base, quote, orderSide, isReverse);
-
-    return {
-      percentageFee: Math.ceil(percentageFee),
-      baseFee: await this.getBaseFee(chainCurrency, isReverse),
-    };
+    return Math.ceil(percentageFee);
   }
 
-  public getBaseFee = async (chainCurrency: string, isReverse: boolean) => {
-    const feeMap = await this.getFeeEstimation(chainCurrency);
-
-    return this.calculateBaseFee(feeMap.get(chainCurrency)!, isReverse);
-  }
-
-  private calculateBaseFee = (satPerVbyte: number, isReverse: boolean) => {
-    if (isReverse) {
+  private calculateBaseFee = (satPerVbyte: number, isLockup: boolean) => {
+    if (isLockup) {
       // The lockup transaction which spends a P2WPKH output (possibly more but we assume a best case scenario here),
       // locks up funds in a P2WSH swap and sends the change back to a P2WKH output has about 153 vbytes
       return satPerVbyte * FeeProvider.transactionSizes.reverseLockup;

@@ -67,4 +67,12 @@ export default {
     message: `${symbol} has no LND client`,
     code: concatErrorCode(ErrorCodePrefix.Service, 15),
   }),
+  INVALID_PREIMAGE_HASH: (): Error => ({
+    message: 'specified preimage hash is invalid',
+    code: concatErrorCode(ErrorCodePrefix.Service, 16),
+  }),
+  SWAP_WITH_PREIMAGE_EXISTS: (): Error => ({
+    message: 'swap with this preimage exists already',
+    code: concatErrorCode(ErrorCodePrefix.Service, 17),
+  }),
 };

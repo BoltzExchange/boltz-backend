@@ -103,7 +103,7 @@ class CommandHandler {
 
       [Command.Backup, {
         executor: this.backup,
-        description: 'uploads a backup of the databases',
+        description: 'uploads a backup of the database',
       }],
       [Command.Withdraw, {
         usage: [
@@ -439,7 +439,7 @@ class CommandHandler {
       status: {
         [Op.not]: [
           SwapUpdateEvent.InvoiceSettled,
-          SwapUpdateEvent.TransactionRefunded,
+          SwapUpdateEvent.BoltzTransactionRefunded,
         ],
       },
     });

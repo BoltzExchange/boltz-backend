@@ -210,7 +210,7 @@ describe('CommandHandler', () => {
       '**getbalance**: gets the balance of the wallets and channels\n' +
       '**lockedfunds**: gets funds locked up by Boltz\n' +
       '**pendingswaps**: gets a list of pending (reverse) swaps\n' +
-      '**backup**: uploads a backup of the databases\n' +
+      '**backup**: uploads a backup of the database\n' +
       '**withdraw**: withdraws coins from Boltz\n' +
       '**newaddress**: generates a new address for a currency\n' +
       '**togglereverse**: enables or disables reverse swaps',

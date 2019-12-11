@@ -21,7 +21,7 @@ class Image:
 
 UBUNTU_VERSION = BuildArgument(
     name="UBUNTU_VERSION",
-    value="19.04"
+    value="19.10"
 )
 
 BERKELEY_4_VERSION = BuildArgument(
@@ -34,12 +34,12 @@ BERKELEY_5_VERSION = BuildArgument(
     value="5.1.29"
 )
 
-BITCOIN_VERSION = "0.18.1"
+BITCOIN_VERSION = "0.19.0.1"
 LITECOIN_VERSION = "0.17.1"
-DOGECOIN_VERSION = "1.14.1"
-ZCASH_VERSION = "2.0.7-3"
+DOGECOIN_VERSION = "1.14.2"
+ZCASH_VERSION = "2.1.0-1"
 
-LND_VERSION = "0.8.0-beta"
+LND_VERSION = "0.8.1-beta"
 
 IMAGES: Dict[str, Image] = {
     "berkeley-db": Image(
@@ -84,7 +84,7 @@ IMAGES: Dict[str, Image] = {
             UBUNTU_VERSION,
             BuildArgument(
                 name="GOLANG_VERSION",
-                value="1.13.1-buster"
+                value="1.13.5-buster"
             )
         ]
     ),
@@ -99,14 +99,6 @@ IMAGES: Dict[str, Image] = {
             BuildArgument(
                 name="LITECOIN_VERSION",
                 value=LITECOIN_VERSION
-            ),
-            BuildArgument(
-                name="DOGECOIN_VERSION",
-                value=DOGECOIN_VERSION
-            ),
-            BuildArgument(
-                name="ZCASH_VERSION",
-                value=ZCASH_VERSION
             ),
             BuildArgument(
                 name="LND_VERSION",

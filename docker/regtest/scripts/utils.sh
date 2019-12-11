@@ -23,14 +23,10 @@ function startNodes ()  {
 
   bitcoind
   litecoind
-  dogecoind
-  zcashd >> /dev/null
 
   # Wait for the nodes to start
   waitForNode bitcoin-cli
   waitForNode litecoin-cli
-  waitForNode dogecoin-cli
-  waitForNode zcash-cli
 
   echo "Started nodes"
 }
@@ -58,8 +54,6 @@ function startLnds () {
 function stopNodes () {
   killall bitcoind
   killall litecoind
-  killall dogecoind
-  killall zcashd
 }
 
 function stopLnds () {

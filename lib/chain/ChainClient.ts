@@ -146,8 +146,8 @@ class ChainClient extends BaseClient {
     await this.zmqClient.rescanChain(startHeight);
   }
 
-  public sendRawTransaction = (rawTransaction: string, allowHighFees = true) => {
-    return this.client.request<string>('sendrawtransaction', [rawTransaction, allowHighFees]);
+  public sendRawTransaction = (rawTransaction: string) => {
+    return this.client.request<string>('sendrawtransaction', [rawTransaction]);
   }
 
   public getRawTransaction = (id: string) => {
@@ -171,7 +171,7 @@ class ChainClient extends BaseClient {
     } catch (error) {
       if (error.message === 'Method not found') {
         // TODO: use estimatefee for outdated node versions
-        this.logger.silly(`"estimatesmartfee" method not found on ${this.symbol} chain`);
+        this.logger.warn(`"estimatesmartfee" method not found on ${this.symbol} chain`);
 
         return 2;
       }
@@ -187,8 +187,12 @@ class ChainClient extends BaseClient {
     return this.client.request<string>('sendtoaddress', [address, amount / ChainClient.decimals]);
   }
 
-  public generate = (blocks: number) => {
-    return this.client.request<string[]>('generate', [blocks]);
+  public generate = async (blocks: number) => {
+    return this.client.request<string[]>('generatetoaddress', [blocks, await this.getNewAddress()]);
+  }
+
+  private getNewAddress = () => {
+    return this.client.request<string>('getnewaddress', []);
   }
 
   private getZmqNotifications = () => {

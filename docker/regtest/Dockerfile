@@ -2,15 +2,11 @@ ARG UBUNTU_VERSION
 
 ARG BITCOIN_VERSION
 ARG LITECOIN_VERSION
-ARG DOGECOIN_VERSION
-ARG ZCASH_VERSION
 
 ARG LND_VERSION
 
 FROM boltz/bitcoin-core:${BITCOIN_VERSION} AS bitcoin-core
 FROM boltz/litecoin-core:${LITECOIN_VERSION} AS litecoin-core
-FROM boltz/dogecoin-core:${DOGECOIN_VERSION} AS dogecoin-core
-FROM boltz/zcash:${ZCASH_VERSION} AS zcash
 
 FROM boltz/lnd:${LND_VERSION} as lnd
 
@@ -38,14 +34,6 @@ COPY --from=bitcoin-core /bin/bitcoin-cli /bin/
 COPY --from=litecoin-core /bin/litecoind /bin/
 COPY --from=litecoin-core /bin/litecoin-cli /bin/
 
-COPY --from=dogecoin-core /bin/dogecoind /bin/
-COPY --from=dogecoin-core /bin/dogecoin-cli /bin/
-
-COPY --from=zcash /bin/zcashd /bin/
-COPY --from=zcash /bin/zcash-cli /bin/
-
-COPY --from=zcash /root/.zcash-params/ /root/.zcash-params/
-
 # Copy the LND executables
 COPY --from=lnd /bin/lnd /bin/
 COPY --from=lnd /bin/lncli /bin/
@@ -53,8 +41,6 @@ COPY --from=lnd /bin/lncli /bin/
 # Copy configuration files
 COPY regtest/data/core/config.conf /root/.bitcoin/bitcoin.conf
 COPY regtest/data/core/config.conf /root/.litecoin/litecoin.conf
-COPY regtest/data/core/config.conf /root/.dogecoin/dogecoin.conf
-COPY regtest/data/core/config.conf /root/.zcash/zcash.conf
 
 COPY regtest/data/lnd/lnd.conf /root/.lnd-btc/
 COPY regtest/data/lnd/lnd.conf /root/.lnd-btc2/
@@ -86,10 +72,10 @@ RUN bash configurePorts.sh
 RUN bash setup.sh
 
 # Expose RPC ports of the nodes
-EXPOSE 18443 19443 18332 18232
+EXPOSE 18443 19443
 
 # Expose ZMQ ports of the nodes
-EXPOSE 29000 29001 29002 30000 30001 30002 40000 40001 40002 50000 50001 50002
+EXPOSE 29000 29001 29002 30000 30001 30002
 
 # Expose gRPC ports of the LNDs
 EXPOSE 10009 10011 11009 11010

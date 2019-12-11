@@ -14,10 +14,12 @@ function waitForLndToSync () {
 }
 
 function openChannel () {
+  nodeAddress=$($1 getnewaddress)
   lndAddress=$($2 newaddress np2wkh | jq -r '.address')
+  
   $1 sendtoaddress ${lndAddress} 1.1 > /dev/null
 
-  $1 generate 1 > /dev/null
+  $1 generatetoaddress 1 $nodeAddress > /dev/null
 
   lnd2Pubkey=$($3 --network=regtest getinfo | jq -r '.identity_pubkey')
 
@@ -26,7 +28,7 @@ function openChannel () {
   $2 connect ${lnd2Pubkey}@127.0.0.1:$4 > /dev/null
   $2 openchannel --node_key ${lnd2Pubkey} --local_amt 16777214 --push_amt 8388607 > /dev/null
 
-  $1 generate 6 > /dev/null
+  $1 generatetoaddress 6 $nodeAddress > /dev/null
 
   while true; do
     numActiveChannels="$($2 getinfo | jq -r ".num_pending_channels")"
@@ -41,12 +43,10 @@ function openChannel () {
 startNodes
 
 # Mine 101 blocks so that the coinbase of the first block is spendable
-echo "Mining 101 blocks"
+bitcoinAddress=$(bitcoin-cli getnewaddress --type legacy)
 
-bitcoin-cli generate 101 > /dev/null
+bitcoin-cli generatetoaddress 101 $bitcoinAddress > /dev/null
 litecoin-cli generate 101 > /dev/null
-dogecoin-cli generate 101 > /dev/null
-zcash-cli generate 101 > /dev/null
 
 echo "Restarting nodes"
 

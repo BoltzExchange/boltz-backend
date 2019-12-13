@@ -1,6 +1,6 @@
 {
   "name": "boltz-backend",
-  "version": "2.0.0-beta",
+  "version": "2.1.0-beta",
   "description": "Backend of boltz",
   "main": "dist/Boltz.js",
   "scripts": {
@@ -74,7 +74,7 @@
     "node-forge": "^0.9.1",
     "node-schedule": "^1.3.2",
     "otplib": "^11.0.1",
-    "sequelize": "^5.21.2",
+    "sequelize": "^5.21.3",
     "sqlite3": "^4.1.1",
     "typescript": "^3.7.3",
     "uuid": "^3.3.3",

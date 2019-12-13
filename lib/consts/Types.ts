@@ -17,12 +17,6 @@ export type PairConfig = {
   timeoutDelta?: number;
 };
 
-export type WalletInfo = {
-  derivationPath: string;
-  highestUsedIndex: number;
-  blockHeight: number;
-};
-
 /**
  * There are multiple levels of verbosity that can be used when querying blocks from Bitcoin Core:
  * - 0: returns the whole block hex encoded (not used by Boltz currently)
@@ -72,6 +66,33 @@ export type BlockchainInfo = {
   pruned: boolean;
 };
 
+export type ScriptSig = {
+  asm: string;
+  hex: string;
+};
+
+export type Input = {
+  txid: string;
+  vout: number;
+  scriptSig: ScriptSig;
+  txinwitness: string[];
+  sequence: number;
+};
+
+export type ScriptPubKey = {
+  asm: string;
+  hex: string;
+  reqSigs: number;
+  type: string;
+  addresses: string;
+};
+
+export type Output = {
+  value: number;
+  n: number;
+  scriptPubKey: ScriptPubKey;
+};
+
 export type Transaction = {
   txid: string;
   hash: string;
@@ -80,8 +101,8 @@ export type Transaction = {
   vsize: number;
   weight: number;
   locktime: number;
-  vin: any[];
-  vout: any[];
+  vin: Input[];
+  vout: Output[];
   hex: string;
 };
 

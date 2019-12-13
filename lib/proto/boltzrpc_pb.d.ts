@@ -2,6 +2,7 @@
 // file: boltzrpc.proto
 
 /* tslint:disable */
+/* eslint-disable */
 
 import * as jspb from "google-protobuf";
 
@@ -254,17 +255,11 @@ export namespace Balance {
 }
 
 export class LightningBalance extends jspb.Message { 
+    getLocalBalance(): number;
+    setLocalBalance(value: number): void;
 
-    hasWalletBalance(): boolean;
-    clearWalletBalance(): void;
-    getWalletBalance(): WalletBalance | undefined;
-    setWalletBalance(value?: WalletBalance): void;
-
-
-    hasChannelBalance(): boolean;
-    clearChannelBalance(): void;
-    getChannelBalance(): ChannelBalance | undefined;
-    setChannelBalance(value?: ChannelBalance): void;
+    getRemoteBalance(): number;
+    setRemoteBalance(value: number): void;
 
 
     serializeBinary(): Uint8Array;
@@ -279,8 +274,8 @@ export class LightningBalance extends jspb.Message {
 
 export namespace LightningBalance {
     export type AsObject = {
-        walletBalance?: WalletBalance.AsObject,
-        channelBalance?: ChannelBalance.AsObject,
+        localBalance: number,
+        remoteBalance: number,
     }
 }
 
@@ -313,37 +308,9 @@ export namespace WalletBalance {
     }
 }
 
-export class ChannelBalance extends jspb.Message { 
-    getLocalBalance(): number;
-    setLocalBalance(value: number): void;
-
-    getRemoteBalance(): number;
-    setRemoteBalance(value: number): void;
-
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): ChannelBalance.AsObject;
-    static toObject(includeInstance: boolean, msg: ChannelBalance): ChannelBalance.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: ChannelBalance, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): ChannelBalance;
-    static deserializeBinaryFromReader(message: ChannelBalance, reader: jspb.BinaryReader): ChannelBalance;
-}
-
-export namespace ChannelBalance {
-    export type AsObject = {
-        localBalance: number,
-        remoteBalance: number,
-    }
-}
-
 export class NewAddressRequest extends jspb.Message { 
     getSymbol(): string;
     setSymbol(value: string): void;
-
-    getType(): OutputType;
-    setType(value: OutputType): void;
 
 
     serializeBinary(): Uint8Array;
@@ -359,7 +326,6 @@ export class NewAddressRequest extends jspb.Message {
 export namespace NewAddressRequest {
     export type AsObject = {
         symbol: string,
-        type: OutputType,
     }
 }
 

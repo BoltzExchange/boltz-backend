@@ -9,7 +9,7 @@ import { ClientStatus } from '../consts/Enums';
 import { LightningClient } from '../proto/lndrpc_grpc_pb';
 
 /**
- * The configurable options for the lnd client
+ * The configurable options for the LND client
  */
 type LndConfig = {
   host: string;
@@ -19,7 +19,7 @@ type LndConfig = {
 };
 
 /**
- * General information about the state of this lnd client
+ * General information about the state of this LND client
  */
 type Info = {
   version: string;
@@ -68,7 +68,7 @@ class LndClient extends BaseClient implements LndClient {
   private credentials!: grpc.ChannelCredentials;
 
   private meta!: grpc.Metadata;
-  private lightning!: LightningClient | LightningMethodIndex;
+  private lightning?: LightningClient | LightningMethodIndex;
 
   private invoiceSubscription?: ClientReadableStream<lndrpc.InvoiceSubscription>;
   private channelBackupSubscription?: ClientReadableStream<lndrpc.ChannelBackupSubscription>;
@@ -111,18 +111,21 @@ class LndClient extends BaseClient implements LndClient {
   /**
    * Returns a boolean determines whether LND is ready or not
    */
-  public connect = async (): Promise<boolean> => {
+  public connect = async (startSubscriptions = true): Promise<boolean> => {
     if (!this.isConnected()) {
       this.lightning = new LightningClient(this.uri, this.credentials);
 
       try {
         await this.getInfo();
 
-        this.setClientStatus(ClientStatus.Connected);
-        this.subscribeInvoices();
-        this.subscribeChannelBackups();
+        if (startSubscriptions) {
+          this.subscribeInvoices();
+          this.subscribeChannelBackups();
+        }
 
         this.clearReconnectTimer();
+
+        this.setClientStatus(ClientStatus.Connected);
 
         return true;
       } catch (error) {
@@ -167,11 +170,19 @@ class LndClient extends BaseClient implements LndClient {
     if (this.invoiceSubscription) {
       this.invoiceSubscription.cancel();
     }
+
+    if (this.channelBackupSubscription) {
+      this.channelBackupSubscription.cancel();
+    }
+
+    this.removeAllListeners();
+
+    this.setClientStatus(ClientStatus.Disconnected);
   }
 
   private unaryCall = <T, U>(methodName: string, params: T): Promise<U> => {
     return new Promise((resolve, reject) => {
-      (this.lightning as LightningMethodIndex)[methodName](params, this.meta, (err: grpc.ServiceError, response: GrpcResponse) => {
+      (this.lightning![methodName] as Function)(params, this.meta, (err: grpc.ServiceError, response: GrpcResponse) => {
         if (err) {
           reject(err);
         } else {
@@ -270,14 +281,44 @@ class LndClient extends BaseClient implements LndClient {
    * Sends coins to a particular address
    *
    * @param address address to which coins should be sent
-   * @param amount number of satoshis to send
+   * @param amount number of satoshis or litoshis to send
+   * @param satPerByte satoshis or litoshis per byte that should be sent as fee
    */
-  public sendCoins = (address: string, amount: number): Promise<lndrpc.SendCoinsResponse.AsObject> => {
+  public sendCoins = (address: string, amount: number, satPerByte?: number): Promise<lndrpc.SendCoinsResponse.AsObject> => {
     const request = new lndrpc.SendCoinsRequest();
     request.setAddr(address);
     request.setAmount(amount);
 
+    if (satPerByte) {
+      request.setSatPerByte(satPerByte);
+    }
+
     return this.unaryCall<lndrpc.SendCoinsRequest, lndrpc.SendCoinsResponse.AsObject>('sendCoins', request);
+  }
+
+  /**
+   * Sends all coins of the wallet to a particular address
+   *
+   * @param address address to which coins should be sent
+   * @param satPerByte satoshis or litoshis per byte that should be sent as fee
+   */
+  public sweepWallet = (address: string, satPerByte?: number): Promise<lndrpc.SendCoinsResponse.AsObject> => {
+    const request = new lndrpc.SendCoinsRequest();
+    request.setAddr(address);
+    request.setSendAll(true);
+
+    if (satPerByte) {
+      request.setSatPerByte(satPerByte);
+    }
+
+    return this.unaryCall<lndrpc.SendCoinsRequest, lndrpc.SendCoinsResponse.AsObject>('sendCoins', request);
+  }
+
+  /**
+   * Returns a list describing all the known transactions relevant to the wallet
+   */
+  public getOnchainTransactions = (): Promise<lndrpc.TransactionDetails.AsObject> => {
+    return this.unaryCall<lndrpc.GetTransactionsRequest, lndrpc.TransactionDetails.AsObject>('getTransactions', new lndrpc.GetTransactionsRequest());
   }
 
   /**
@@ -337,7 +378,7 @@ class LndClient extends BaseClient implements LndClient {
       this.invoiceSubscription.cancel();
     }
 
-    this.invoiceSubscription = this.lightning.subscribeInvoices(new lndrpc.InvoiceSubscription(), this.meta)
+    this.invoiceSubscription = this.lightning!.subscribeInvoices(new lndrpc.InvoiceSubscription(), this.meta)
       .on('data', (invoice: lndrpc.Invoice) => {
         if (invoice.getSettled()) {
           const paymentReq = invoice.getPaymentRequest();
@@ -359,7 +400,7 @@ class LndClient extends BaseClient implements LndClient {
       this.channelBackupSubscription.cancel();
     }
 
-    this.channelBackupSubscription = this.lightning.subscribeChannelBackups(new lndrpc.ChannelBackupSubscription(), this.meta)
+    this.channelBackupSubscription = this.lightning!.subscribeChannelBackups(new lndrpc.ChannelBackupSubscription(), this.meta)
       .on('data', (backupSnapshot: lndrpc.ChanBackupSnapshot) => {
         const multiBackup = backupSnapshot.getMultiChanBackup();
 

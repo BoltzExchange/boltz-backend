@@ -49,7 +49,7 @@ class Boltz {
       this.walletManager = new WalletManager(this.logger, walletCurrencies, this.config.mnemonicpath);
     } else {
       const mnemonic = generateMnemonic();
-      this.logger.info(`generated new mnemonic: ${mnemonic}`);
+      this.logger.info(`Generated new mnemonic: ${mnemonic}`);
 
       this.walletManager = WalletManager.fromMnemonic(this.logger, mnemonic, this.config.mnemonicpath, walletCurrencies);
     }

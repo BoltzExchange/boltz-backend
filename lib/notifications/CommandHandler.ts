@@ -1,5 +1,4 @@
 import { Op } from 'sequelize';
-import { OutputType } from 'boltz-core/dist/consts/Enums';
 import Logger from '../Logger';
 import Stats from '../data/Stats';
 import Report from '../data/Report';
@@ -127,15 +126,7 @@ class CommandHandler {
         usage: [
           {
             command: 'newaddress <currency>',
-            description: 'generates a new compatibility address for the currency `<currency>`',
-          },
-          {
-            command: 'newaddress <currency> [type]',
-            // tslint:disable-next-line: prefer-template
-            description: 'generates a new address for the currency `<currency>` of the type `[type]`. The available types are:\n' +
-            '  - `bech32`\n' +
-            '  - `compatibility`\n' +
-            '  - `legacy`',
+            description: 'generates a new bech32 address for the currency `<currency>`',
           },
         ],
         executor: this.newAddress,
@@ -268,14 +259,10 @@ class CommandHandler {
       const lightningBalance = balance.getLightningBalance();
 
       if (lightningBalance) {
-        const channelBalance = lightningBalance.getChannelBalance()!;
-
         // tslint:disable-next-line:prefer-template
         message += '\n\nLND:\n' +
-          `  Wallet: ${satoshisToCoins(lightningBalance.getWalletBalance()!.getTotalBalance())} ${symbol}\n\n` +
-          '  Channels:\n' +
-          `    Local: ${satoshisToCoins(channelBalance.getLocalBalance())} ${symbol}\n` +
-          `    Remote: ${satoshisToCoins(channelBalance.getRemoteBalance())} ${symbol}`;
+          `  Local: ${satoshisToCoins(lightningBalance.getLocalBalance())} ${symbol}\n` +
+          `  Remote: ${satoshisToCoins(lightningBalance.getRemoteBalance())} ${symbol}`;
       }
     });
 
@@ -365,13 +352,8 @@ class CommandHandler {
       }
 
       const currency = args[0].toUpperCase();
-      let outputType = OutputType.Legacy;
 
-      if (args.length > 1) {
-        outputType = this.getOutputType(args[1]);
-      }
-
-      const response = await this.service.newAddress(currency, outputType);
+      const response = await this.service.newAddress(currency);
       await this.discord.sendMessage(`\`${response}\``);
     } catch (error) {
       await this.discord.sendMessage(`Could not generate address: ${formatError(error)}`);
@@ -443,16 +425,6 @@ class CommandHandler {
         ],
       },
     });
-  }
-
-  private getOutputType = (type: string) => {
-    switch (type.toLowerCase()) {
-      case 'bech32': return OutputType.Bech32;
-      case 'compatibility': return OutputType.Compatibility;
-      case 'legacy': return OutputType.Legacy;
-    }
-
-    throw `could not find output type: ${type}`;
   }
 
   private getFeeFromSwaps = (swaps: Swap[], reverseSwaps: ReverseSwap[]) => {

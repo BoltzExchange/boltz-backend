@@ -8,9 +8,9 @@ import {
   constructClaimTransaction,
   constructRefundTransaction,
 } from 'boltz-core';
+import { bitcoinClient } from './Nodes';
 import { generateAddress } from '../Utils';
 import { getHexBuffer } from '../../lib/Utils';
-import { bitcoinClient } from './chain/ChainClient.spec';
 
 const { p2shOutput, p2wshOutput, p2shP2wshOutput } = Scripts;
 

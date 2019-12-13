@@ -1,6 +1,4 @@
-import { address } from 'bitcoinjs-lib';
-import { SwapUtils, OutputType } from 'boltz-core';
-import { Output } from 'boltz-core/dist/FeeCalculator';
+import { OutputType } from 'boltz-core';
 import Errors from './Errors';
 import Logger from '../Logger';
 import commitHash from '../Version';
@@ -23,7 +21,6 @@ import {
   getPairId,
   generateId,
   splitPairId,
-  getOutputType,
   getInvoiceAmt,
   getChainCurrency,
   getLightningCurrency,
@@ -36,7 +33,6 @@ import {
   LndChannels,
   CurrencyInfo,
   WalletBalance,
-  ChannelBalance,
   GetInfoResponse,
   LightningBalance,
   GetBalanceResponse,
@@ -206,11 +202,7 @@ class Service {
       if (currencyInfo && currencyInfo.lndClient) {
         const lightningBalance = new LightningBalance();
 
-        const channelBalance = new ChannelBalance();
-        const lightningWalletBalance = new WalletBalance();
-
         const { channelsList } = await currencyInfo.lndClient.listChannels();
-        const { totalBalance, confirmedBalance, unconfirmedBalance } = await currencyInfo.lndClient.getWalletBalance();
 
         let localBalance = 0;
         let remoteBalance = 0;
@@ -220,15 +212,8 @@ class Service {
           remoteBalance += channel.remoteBalance;
         });
 
-        lightningWalletBalance.setTotalBalance(totalBalance);
-        lightningWalletBalance.setConfirmedBalance(confirmedBalance);
-        lightningWalletBalance.setUnconfirmedBalance(unconfirmedBalance);
-
-        channelBalance.setLocalBalance(localBalance);
-        channelBalance.setRemoteBalance(remoteBalance);
-
-        lightningBalance.setWalletBalance(lightningWalletBalance);
-        lightningBalance.setChannelBalance(channelBalance);
+        lightningBalance.setLocalBalance(localBalance);
+        lightningBalance.setRemoteBalance(remoteBalance);
 
         balance.setLightningBalance(lightningBalance);
       }
@@ -280,16 +265,16 @@ class Service {
   }
 
   /**
-   * Gets a new address of a specified wallet. The "type" parameter is optional and defaults to "OutputType.LEGACY"
+   * Gets a new address of a specified wallet
    */
-  public newAddress = async (symbol: string, type?: OutputType) => {
+  public newAddress = async (symbol: string) => {
     const wallet = this.walletManager.wallets.get(symbol);
 
     if (!wallet) {
       throw Errors.CURRENCY_NOT_FOUND(symbol);
     }
 
-    return wallet.getNewAddress(getOutputType(type));
+    return wallet.newAddress();
   }
 
   /**
@@ -376,7 +361,7 @@ class Service {
       invoice,
       expectedAmount,
       refundPublicKey,
-      this.getSwapOutputType(chainCurrency, false),
+      this.getSwapOutputType(false),
       timeoutBlockDelta,
       acceptZeroConf,
     );
@@ -457,7 +442,6 @@ class Service {
       onchainAmount,
       claimPublicKey,
       this.getSwapOutputType(
-        getChainCurrency(base, quote, side, true),
         true,
       ),
       timeoutBlockDelta,
@@ -513,27 +497,16 @@ class Service {
     sendAll?: boolean,
     satPerVbyte?: number,
   }) => {
-    const currency = this.getCurrency(args.symbol);
     const wallet = this.walletManager.wallets.get(args.symbol);
 
     if (wallet === undefined) {
       throw Errors.CURRENCY_NOT_FOUND(args.symbol);
     }
 
-    const fee = args.satPerVbyte === 0 || args.satPerVbyte === undefined ? await currency.chainClient.estimateFee() : args.satPerVbyte;
+    const sendingPromise = args.sendAll ? wallet.sweepWallet(args.address, args.satPerVbyte) :
+      wallet.sendToAddress(args.address, args.amount, args.satPerVbyte);
 
-    let output: Output | undefined = undefined;
-
-    try {
-      output = SwapUtils.getOutputScriptType(address.toOutputScript(args.address, currency.network));
-    } catch (error) {}
-
-    if (output === undefined) {
-      throw Errors.SCRIPT_TYPE_NOT_FOUND(args.address);
-    }
-
-    const { transaction, vout } = await wallet.sendToAddress(args.address, output.type, output.isSh!, args.amount, fee, args.sendAll);
-    await currency.chainClient.sendRawTransaction(transaction.toHex());
+    const { transaction, vout } = await sendingPromise;
 
     return {
       vout,
@@ -598,17 +571,7 @@ class Service {
     }
   }
 
-  private getSwapOutputType = (chainCurrency: string, isReverse: boolean): OutputType => {
-    const wallet = this.walletManager.wallets.get(chainCurrency);
-
-    if (wallet === undefined) {
-      throw Errors.CURRENCY_NOT_FOUND(chainCurrency);
-    }
-
-    if (!wallet.supportsSegwit) {
-      return OutputType.Legacy;
-    }
-
+  private getSwapOutputType = (isReverse: boolean): OutputType => {
     return isReverse ? OutputType.Bech32 : OutputType.Compatibility;
   }
 }

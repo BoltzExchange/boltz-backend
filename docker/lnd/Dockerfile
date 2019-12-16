@@ -13,7 +13,9 @@ RUN git clone https://github.com/lightningnetwork/lnd.git $GOPATH/src/github.com
 WORKDIR $GOPATH/src/github.com/lightningnetwork/lnd
 
 RUN git checkout v${VERSION}
-RUN make install
+
+RUN go build -v -trimpath -tags="autopilotrpc signrpc walletrpc chainrpc invoicesrpc routerrpc watchtowerrpc" github.com/lightningnetwork/lnd/cmd/lnd
+RUN go build -v -trimpath -tags="autopilotrpc invoicesrpc walletrpc routerrpc watchtowerrpc" github.com/lightningnetwork/lnd/cmd/lncli
 
 # Start again with a new image to reduce the size
 FROM ubuntu:${UBUNTU_VERSION}
@@ -22,7 +24,7 @@ FROM ubuntu:${UBUNTU_VERSION}
 EXPOSE 9735 10009
 
 # Copy the binaries and entrypoint from the builder image.
-COPY --from=builder /go/bin/lnd /bin/
-COPY --from=builder /go/bin/lncli /bin/
+COPY --from=builder /go/src/github.com/lightningnetwork/lnd/lnd /bin/
+COPY --from=builder /go/src/github.com/lightningnetwork/lnd/lncli /bin/
 
 ENTRYPOINT ["lnd"]

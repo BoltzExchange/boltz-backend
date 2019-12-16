@@ -171,7 +171,7 @@ class SwapManager {
 
     sendingCurrency.chainClient.updateOutputFilter([outputScript]);
 
-    const { fee, vout, transaction } = await sendingCurrency.wallet.sendToAddress(address, outputType, true, onchainAmount);
+    const { fee, vout, transaction } = await sendingCurrency.wallet.sendToAddress(address, onchainAmount);
     this.logger.debug(`Sent ${onchainAmount} ${sendingCurrency.symbol} to swap address ${address}: ${transaction.getId()}:${vout}`);
 
     const rawTx = transaction.toHex();

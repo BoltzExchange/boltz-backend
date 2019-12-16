@@ -1,7 +1,5 @@
-import { OutputType } from 'boltz-core/dist/consts/Enums';
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';
-import Errors from '../wallet/Errors';
 import Service from '../service/Service';
 import DiscordClient from './DiscordClient';
 import CommandHandler from './CommandHandler';
@@ -138,12 +136,10 @@ class NotificationProvider {
         const lightningBalance = balance.getLightningBalance();
 
         if (lightningBalance) {
-          const channelBalance = lightningBalance.getChannelBalance()!;
-
           await this.checkBalance(
             symbol,
             this.localBalanceAlerts,
-            channelBalance.getLocalBalance(),
+            lightningBalance.getLocalBalance(),
             minLocalBalance,
             false,
             true,
@@ -152,7 +148,7 @@ class NotificationProvider {
           await this.checkBalance(
             symbol,
             this.remoteBalanceAlerts,
-            channelBalance.getRemoteBalance(),
+            lightningBalance.getRemoteBalance(),
             minRemoteBalance,
             false,
             false,
@@ -261,18 +257,7 @@ class NotificationProvider {
       `Funds missing: **${missing} ${currency}**`;
 
     if (isWallet) {
-      let address = '';
-
-      // Try to generate a SegWit compatibility address and fall back to a legacy one
-      try {
-        address = await this.service.newAddress(currency, OutputType.Compatibility);
-      } catch (error) {
-        if (error.code === Errors.OUTPUTTYPE_NOT_SUPPORTED('', 0).code) {
-          address = await this.service.newAddress(currency, OutputType.Legacy);
-        } else {
-          throw error;
-        }
-      }
+      const address = await this.service.newAddress(currency);
 
       message += `\nDeposit address: **${address}**`;
     }

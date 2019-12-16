@@ -2,15 +2,15 @@ import { Networks, OutputType } from 'boltz-core';
 import Logger from '../../../lib/Logger';
 import Wallet from '../../../lib/wallet/Wallet';
 import Errors from '../../../lib/service/Errors';
+import { ConfigType } from '../../../lib/Config';
+import { getHexBuffer } from '../../../lib/Utils';
 import Service from '../../../lib/service/Service';
 import SwapManager from '../../../lib/swap/SwapManager';
 import LndClient from '../../../lib/lightning/LndClient';
 import ChainClient from '../../../lib/chain/ChainClient';
 import { CurrencyInfo } from '../../../lib/proto/boltzrpc_pb';
-import { getOutputType, getHexBuffer } from '../../../lib/Utils';
 import { ServiceWarning, OrderSide } from '../../../lib/consts/Enums';
 import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
-import { ConfigType } from '../../../lib/Config';
 
 const packageJson = require('../../../package.json');
 
@@ -82,7 +82,7 @@ const mockGetBalance = jest.fn().mockResolvedValue({
 });
 
 const newAddress = 'bcrt1';
-const mockGetNewAddress = jest.fn().mockResolvedValue(newAddress);
+const mockNewAddress = jest.fn().mockResolvedValue(newAddress);
 
 const mockTransaction = {
   vout: 1,
@@ -92,18 +92,18 @@ const mockTransaction = {
   },
 };
 const mockSendToAddress = jest.fn().mockResolvedValue(mockTransaction);
+const mockSweepWallet = jest.fn().mockResolvedValue(mockTransaction);
 
 jest.mock('../../../lib/wallet/WalletManager', () => {
   return jest.fn().mockImplementation(() => ({
     wallets: new Map<string, Wallet>([
       ['BTC', {
-        supportsSegwit: true,
         getBalance: mockGetBalance,
-        getNewAddress: mockGetNewAddress,
+        newAddress: mockNewAddress,
         sendToAddress: mockSendToAddress,
+        sweepWallet: mockSweepWallet,
       } as any as Wallet],
-      ['DOGE', {
-        supportsSegwit: false,
+      ['LTC', {
         getBalance: () => ({
           totalBalance: 0,
           confirmedBalance: 0,
@@ -203,7 +203,7 @@ const mockSendPayment = jest.fn().mockResolvedValue({
   paymentPreimage: Buffer.alloc(0),
 });
 
-const totalBalance = {
+const channelBalance = {
   localBalance: 2,
   remoteBalance: 4,
 };
@@ -211,20 +211,14 @@ const totalBalance = {
 const mockListChannels = jest.fn().mockResolvedValue({
   channelsList: [
     {
-      localBalance: totalBalance.localBalance / 2,
-      remoteBalance: totalBalance.remoteBalance / 2,
+      localBalance: channelBalance.localBalance / 2,
+      remoteBalance: channelBalance.remoteBalance / 2,
     },
     {
-      localBalance: totalBalance.localBalance / 2,
-      remoteBalance: totalBalance.remoteBalance / 2,
+      localBalance: channelBalance.localBalance / 2,
+      remoteBalance: channelBalance.remoteBalance / 2,
     },
   ],
-});
-
-const mockGetWalletBalance = jest.fn().mockResolvedValue({
-  totalBalance: 1,
-  confirmedBalance: 2,
-  unconfirmedBalance: 3,
 });
 
 jest.mock('../../../lib/lightning/LndClient', () => {
@@ -233,7 +227,6 @@ jest.mock('../../../lib/lightning/LndClient', () => {
     getInfo: mockGetInfo,
     sendPayment: mockSendPayment,
     listChannels: mockListChannels,
-    getWalletBalance: mockGetWalletBalance,
   }));
 });
 
@@ -351,12 +344,7 @@ describe('Service', () => {
         ...(await mockGetBalance()),
       },
       lightningBalance: {
-        channelBalance: {
-          ...totalBalance,
-        },
-        walletBalance: {
-          ...(await mockGetWalletBalance()),
-        },
+        ...channelBalance,
       },
     });
 
@@ -402,13 +390,10 @@ describe('Service', () => {
   });
 
   test('should get new addresses', async () => {
-    const type = 2;
-
-    await expect(service.newAddress('BTC', type))
+    await expect(service.newAddress('BTC'))
       .resolves.toEqual(newAddress);
 
-    expect(mockGetNewAddress).toHaveBeenCalledTimes(1);
-    expect(mockGetNewAddress).toHaveBeenCalledWith(getOutputType(type));
+    expect(mockNewAddress).toHaveBeenCalledTimes(1);
 
     // Throw if currency cannot be found
     const notFound = 'notFound';
@@ -625,9 +610,10 @@ describe('Service', () => {
   test('should send coins', async () => {
     const amount = 1;
     const symbol = 'BTC';
-    const sendAll = true;
     const satPerVbyte = 3;
     const address = 'bcrt1qmv7axanlc090h2j79ufg530eaw88w8rfglnjl3';
+
+    let sendAll = false;
 
     const response = await service.sendCoins({
       amount,
@@ -645,58 +631,30 @@ describe('Service', () => {
     expect(mockSendToAddress).toHaveBeenCalledTimes(1);
     expect(mockSendToAddress).toHaveBeenCalledWith(
       address,
-      OutputType.Bech32,
-      false,
       amount,
       satPerVbyte,
-      sendAll,
     );
 
-    expect(mockSendRawTransaction).toHaveBeenCalledTimes(1);
-    expect(mockSendRawTransaction).toHaveBeenCalledWith(
-      mockTransaction.transaction.toHex(),
-    );
+    // Should sweep the wallet
+    sendAll = true;
 
-    // Should get fee from chain client if not specified
-    await service.sendCoins({
+    const sweepResponse = await service.sendCoins({
       amount,
       symbol,
-      sendAll,
       address,
-      satPerVbyte: 0,
+      sendAll,
+      satPerVbyte,
     });
 
-    expect(mockEstimateFee).toHaveBeenCalledTimes(1);
-    expect(mockEstimateFee).toHaveBeenCalledWith();
-
-    expect(mockSendToAddress).toHaveBeenCalledTimes(2);
-    expect(mockSendToAddress).toHaveBeenNthCalledWith(2,
-      address,
-      OutputType.Bech32,
-      false,
-      amount,
-      2,
-      sendAll,
-    );
-
-    await service.sendCoins({
-      amount,
-      symbol,
-      sendAll,
-      address,
+    expect(sweepResponse).toEqual({
+      vout: mockTransaction.vout,
+      transactionId: mockTransaction.transaction.getId(),
     });
 
-    expect(mockEstimateFee).toHaveBeenCalledTimes(2);
-    expect(mockEstimateFee).toHaveBeenCalledWith();
-
-    expect(mockSendToAddress).toHaveBeenCalledTimes(3);
-    expect(mockSendToAddress).toHaveBeenNthCalledWith(3,
+    expect(mockSweepWallet).toHaveBeenCalledTimes(1);
+    expect(mockSweepWallet).toHaveBeenCalledWith(
       address,
-      OutputType.Bech32,
-      false,
-      amount,
-      2,
-      sendAll,
+      satPerVbyte,
     );
 
     // Throw if currency cannot be found
@@ -709,17 +667,6 @@ describe('Service', () => {
       satPerVbyte,
       symbol: notFound,
     })).rejects.toEqual(Errors.CURRENCY_NOT_FOUND(notFound));
-
-    // Throw if output type cannot be found
-    const noOutputType = 'asdf';
-
-    await expect(service.sendCoins({
-      amount,
-      symbol,
-      sendAll,
-      satPerVbyte,
-      address: noOutputType,
-    })).rejects.toEqual(Errors.SCRIPT_TYPE_NOT_FOUND(noOutputType));
   });
 
   test('should verify amounts', () => {
@@ -801,10 +748,7 @@ describe('Service', () => {
   test('should get swap output type', () => {
     const getSwapOutputType = service['getSwapOutputType'];
 
-    expect(getSwapOutputType('BTC', true)).toEqual(OutputType.Bech32);
-    expect(getSwapOutputType('BTC', false)).toEqual(OutputType.Compatibility);
-
-    expect(getSwapOutputType('DOGE', true)).toEqual(OutputType.Legacy);
-    expect(getSwapOutputType('DOGE', false)).toEqual(OutputType.Legacy);
+    expect(getSwapOutputType(true)).toEqual(OutputType.Bech32);
+    expect(getSwapOutputType(false)).toEqual(OutputType.Compatibility);
   });
 });

@@ -39,7 +39,7 @@ LITECOIN_VERSION = "0.17.1"
 DOGECOIN_VERSION = "1.14.2"
 ZCASH_VERSION = "2.1.0-1"
 
-LND_VERSION = "0.8.1-beta"
+LND_VERSION = "0.8.2-beta"
 
 IMAGES: Dict[str, Image] = {
     "berkeley-db": Image(

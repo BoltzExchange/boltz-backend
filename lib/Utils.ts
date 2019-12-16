@@ -165,6 +165,7 @@ export const getTsString = (): string => (new Date()).toLocaleString('en-US', { 
 /**
  * Recursively merge properties from different sources into a target object, overriding any
  * existing properties.
+ *
  * @param target The destination object to merge into.
  * @param sources The sources objects to copy from.
  */

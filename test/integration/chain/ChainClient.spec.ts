@@ -1,6 +1,5 @@
 import { OutputType } from 'boltz-core';
-import Logger from '../../../lib/Logger';
-import ChainClient from '../../../lib/chain/ChainClient';
+import { bitcoinClient } from '../Nodes';
 import { waitForFunctionToBeTrue, generateAddress } from '../../Utils';
 
 describe('ChainClient', () => {
@@ -86,12 +85,3 @@ describe('ChainClient', () => {
     await bitcoinClient.disconnect();
   });
 });
-
-const host = process.platform === 'win32' ? '192.168.99.100' : '127.0.0.1';
-
-export const bitcoinClient = new ChainClient(Logger.disabledLogger, {
-  host,
-  port: 18443,
-  rpcuser: 'kek',
-  rpcpass: 'kek',
-}, 'BTC');

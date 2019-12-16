@@ -1,10 +1,8 @@
 // tslint:disable no-null-keyword
 
 import { ServiceError } from 'grpc';
-import { OutputType } from 'boltz-core';
 import Service from '../../../lib/service/Service';
 import GrpcService from '../../../lib/grpc/GrpcService';
-import * as boltzrpc from '../../../lib/proto/boltzrpc_pb';
 
 const getInfoData = {
   method: 'getInfo',
@@ -96,7 +94,6 @@ describe('GrpcService', () => {
   test('should handle NewAddress', () => {
     const callData = {
       symbol: 'symbol',
-      type: boltzrpc.OutputType.BECH32,
     };
 
     grpcService.newAddress(createCall(callData), createCallback((error, response) => {
@@ -105,7 +102,7 @@ describe('GrpcService', () => {
     }));
 
     expect(mockNewAddress).toHaveBeenCalledTimes(1);
-    expect(mockNewAddress).toHaveBeenCalledWith(callData.symbol, OutputType.Bech32);
+    expect(mockNewAddress).toHaveBeenCalledWith(callData.symbol);
   });
 
   test('should handle SendCoins', () => {

@@ -8,8 +8,10 @@ import { CurrencyConfig } from '../../../lib/Config';
 import WalletErrors from '../../../lib/wallet/Errors';
 import ChainClient from '../../../lib/chain/ChainClient';
 import LndClient from '../../../lib/lightning/LndClient';
-import WalletManager from '../../../lib/wallet/WalletManager';
-import WalletRepository from '../../../lib/wallet/WalletRepository';
+import KeyRepository from '../../../lib/wallet/KeyRepository';
+import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
+
+const symbol = 'BTC';
 
 const blockchainInfo = {
   chain: '',
@@ -28,8 +30,8 @@ const blockchainInfo = {
 jest.mock('../../../lib/chain/ChainClient', () => {
   return jest.fn().mockImplementation(() => {
     return {
-      on: () => {},
-      updateOutputFilter: () => {},
+      symbol,
+
       getBlockchainInfo: () => Promise.resolve(blockchainInfo),
     };
   });
@@ -37,7 +39,11 @@ jest.mock('../../../lib/chain/ChainClient', () => {
 
 const mockedChainClient = <jest.Mock<ChainClient>><any>ChainClient;
 
-jest.mock('../../../lib/lightning/LndClient');
+jest.mock('../../../lib/lightning/LndClient', () => {
+  return jest.fn().mockImplementation(() => {
+    return {};
+  });
+});
 
 const mockedLndClient = <jest.Mock<LndClient>><any>LndClient;
 
@@ -47,7 +53,7 @@ describe('WalletManager', () => {
   const mnemonic = generateMnemonic();
 
   const database = new Database(Logger.disabledLogger, ':memory:');
-  const repository = new WalletRepository();
+  const repository = new KeyRepository();
 
   const btcClient = mockedChainClient();
   btcClient['symbol' as any] = 'BTC';
@@ -57,7 +63,7 @@ describe('WalletManager', () => {
 
   const lndClient = mockedLndClient();
 
-  const currencies = [
+  const currencies: Currency[] = [
     {
       lndClient,
       symbol: 'BTC',
@@ -96,37 +102,56 @@ describe('WalletManager', () => {
     expect(() => new WalletManager(Logger.disabledLogger, currencies, mnemonicPath)).toThrow(WalletErrors.NOT_INITIALIZED().message);
   });
 
-  test('should initialize a new wallet for each currency', async () => {
-    walletManager = WalletManager.fromMnemonic(Logger.disabledLogger, mnemonic, mnemonicPath, currencies);
-    await walletManager.init();
+  test('should initialize with a new menmonic and write it to the disk', () => {
+    WalletManager.fromMnemonic(Logger.disabledLogger, mnemonic, mnemonicPath, currencies);
 
+    expect(fs.existsSync(mnemonicPath)).toBeTruthy();
+  });
+
+  test('should not initialize when a required LND cannot be found', async () => {
+    const currenciesNoLnd: Currency[] = [
+      {
+        ...currencies[0],
+        lndClient: undefined,
+      },
+    ];
+
+    const nowLndWalletManager = new WalletManager(Logger.disabledLogger, currenciesNoLnd, mnemonicPath);
+
+    await expect(nowLndWalletManager.init()).rejects.toEqual(WalletErrors.LND_NOT_FOUND(currenciesNoLnd[0].symbol));
+  });
+
+  test('should initialize with an existing mnemonic', async () => {
+    walletManager = new WalletManager(Logger.disabledLogger, currencies, mnemonicPath);
+    await walletManager.init();
+  });
+
+  test('should initialize a new wallet for each currency', async () => {
     let index = 0;
 
     for (const currency of currencies) {
       const wallet = walletManager.wallets.get(currency.symbol);
       expect(wallet).not.toBeUndefined();
 
-      const { derivationPath, highestIndex } = wallet!;
+      const { derivationPath, highestUsedIndex } = wallet!;
 
-      const dbWallet = await repository.getWallet(currency.symbol);
+      const keyProvider = await repository.getKeyProvider(currency.symbol);
 
       // Compare with values in the database
-      expect(derivationPath).toEqual(dbWallet!.derivationPath);
-      expect(highestIndex).toEqual(dbWallet!.highestUsedIndex);
+      expect(derivationPath).toEqual(keyProvider!.derivationPath);
+      expect(highestUsedIndex).toEqual(keyProvider!.highestUsedIndex);
 
       // Compare with expected values
       expect(derivationPath).toEqual(`m/0/${index}`);
-      expect(highestIndex).toEqual(0);
+      expect(highestUsedIndex).toEqual(0);
 
       index += 1;
     }
   });
 
   test('should write and read the mnemonic', () => {
-    expect(fs.existsSync(mnemonicPath)).toBeTruthy;
-
-    const mnemonicFile = walletManager['loadMnemonic'](mnemonicPath);
-    expect(mnemonicFile).toEqual(fromSeed(mnemonicToSeedSync(mnemonic)).toBase58());
+    const mnemonicFile = walletManager['loadMasterNode'](mnemonicPath);
+    expect(mnemonicFile).toEqual(fromSeed(mnemonicToSeedSync(mnemonic)));
   });
 
   test('should not accept invalid mnemonics', () => {

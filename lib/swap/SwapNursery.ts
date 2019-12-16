@@ -346,9 +346,8 @@ class SwapNursery extends EventEmitter {
 
   private getNewAddress = (symbol: string) => {
     const wallet = this.walletManager.wallets.get(symbol)!;
-    const outputType = wallet.supportsSegwit ? OutputType.Bech32 : OutputType.Legacy;
 
-    return wallet.getNewAddress(outputType);
+    return wallet.newAddress();
   }
 }
 

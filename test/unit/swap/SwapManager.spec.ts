@@ -351,8 +351,6 @@ describe('SwapManager', () => {
     expect(mockSendToAddress).toHaveBeenCalledTimes(1);
     expect(mockSendToAddress).toHaveBeenCalledWith(
       encodedAddress,
-      OutputType.Bech32,
-      true,
       onchainAmount,
     );
 

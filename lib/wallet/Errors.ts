@@ -32,4 +32,8 @@ export default {
     message: `${symbol} wallet does not supports outputs of type: ${type}`,
     code: concatErrorCode(ErrorCodePrefix.Wallet, 6),
   }),
+  LND_NOT_FOUND: (symbol: string) => ({
+    message: `could not find LND client of ${symbol}`,
+    code: concatErrorCode(ErrorCodePrefix.Wallet, 7),
+  }),
 };

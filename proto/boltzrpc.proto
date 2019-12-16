@@ -9,7 +9,7 @@ service Boltz {
   /* Gets the balance for either all wallets or just a single one if specified */
   rpc GetBalance (GetBalanceRequest) returns (GetBalanceResponse);
 
-  /* Gets a new address of a specified wallet. The "type" parameter is optional and defaults to "OutputType.LEGACY" */
+  /* Gets a new address of a specified wallet */
   rpc NewAddress (NewAddressRequest) returns (NewAddressResponse);
 
   /* Sends onchain coins to a specified address */
@@ -69,22 +69,17 @@ message Balance {
   LightningBalance lightning_balance = 2;
 }
 message LightningBalance {
-  WalletBalance wallet_balance = 1; 
-  ChannelBalance channel_balance = 2; 
+  uint64 local_balance = 1;
+  uint64 remote_balance = 2;
 }
 message WalletBalance {
   uint64 total_balance = 1;
   uint64 confirmed_balance = 2;
   uint64 unconfirmed_balance = 3;
 }
-message ChannelBalance {
-  uint64 local_balance = 1;
-  uint64 remote_balance = 2;
-}
 
 message NewAddressRequest {
   string symbol = 1;
-  OutputType type = 2;
 }
 message NewAddressResponse {
   string address = 1;

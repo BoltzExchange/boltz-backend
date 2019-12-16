@@ -11,8 +11,8 @@ import DiscordClient from '../../../lib/notifications/DiscordClient';
 import CommandHandler from '../../../lib/notifications/CommandHandler';
 import ReverseSwapRepository from '../../../lib/service/ReverseSwapRepository';
 import { satoshisToCoins, coinsToSatoshis } from '../../../lib/DenominationConverter';
+import { Balance, WalletBalance, LightningBalance } from '../../../lib/proto/boltzrpc_pb';
 import { swapExample, reverseSwapExample, pendingSwapExample, pendingReverseSwapExample } from './ExampleSwaps';
-import { OutputType, Balance, WalletBalance, LightningBalance, ChannelBalance } from '../../../lib/proto/boltzrpc_pb';
 
 const getRandomNumber = () => Math.floor(Math.random() * 10000);
 
@@ -53,14 +53,8 @@ btcBalance.setWalletBalance(createWalletBalance());
 
 const lightningBalance = new LightningBalance();
 
-lightningBalance.setWalletBalance(createWalletBalance());
-
-const channelBalance = new ChannelBalance();
-
-channelBalance.setLocalBalance(getRandomNumber());
-channelBalance.setRemoteBalance(getRandomNumber());
-
-lightningBalance.setChannelBalance(channelBalance);
+lightningBalance.setLocalBalance(getRandomNumber());
+lightningBalance.setRemoteBalance(getRandomNumber());
 
 btcBalance.setLightningBalance(lightningBalance);
 
@@ -152,7 +146,7 @@ describe('CommandHandler', () => {
   const service = mockedService();
   service.allowReverseSwaps = true;
 
-  const commandHandler = new CommandHandler(
+  new CommandHandler(
     Logger.disabledLogger,
     {} as any as NotificationConfig,
     mockedDiscordClient(),
@@ -315,10 +309,8 @@ describe('CommandHandler', () => {
       'Balances:\n\n' +
       `**BTC**\nWallet: ${satoshisToCoins(btcBalance.getWalletBalance()!.getTotalBalance())} BTC\n\n` +
       'LND:\n' +
-      `  Wallet: ${satoshisToCoins(lightningBalance.getWalletBalance()!.getTotalBalance())} BTC\n\n` +
-      '  Channels:\n' +
-      `    Local: ${satoshisToCoins(lightningBalance.getChannelBalance()!.getLocalBalance())} BTC\n` +
-      `    Remote: ${satoshisToCoins(lightningBalance.getChannelBalance()!.getRemoteBalance())} BTC`,
+      `  Local: ${satoshisToCoins(lightningBalance.getLocalBalance())} BTC\n` +
+      `  Remote: ${satoshisToCoins(lightningBalance.getRemoteBalance())} BTC`,
     );
   });
 
@@ -468,19 +460,13 @@ describe('CommandHandler', () => {
     await wait(5);
 
     expect(mockNewAddress).toHaveBeenCalledTimes(1);
-    expect(mockNewAddress).toHaveBeenCalledWith('BTC', OutputType.LEGACY);
-
-    sendMessage('newaddress BTC bech32');
-    await wait(5);
-
-    expect(mockNewAddress).toHaveBeenCalledTimes(2);
-    expect(mockNewAddress).toHaveBeenCalledWith('BTC', OutputType.BECH32);
+    expect(mockNewAddress).toHaveBeenCalledWith('BTC');
 
     // Send an error if no currency is specified
     sendMessage('newaddress');
     await wait(5);
 
-    expect(mockSendMessage).toHaveBeenCalledTimes(3);
+    expect(mockSendMessage).toHaveBeenCalledTimes(2);
     expect(mockSendMessage).toHaveBeenCalledWith('Could not generate address: no currency was specified');
   });
 
@@ -500,20 +486,6 @@ describe('CommandHandler', () => {
 
     expect(mockSendMessage).toHaveBeenCalledTimes(2);
     expect(mockSendMessage).toHaveBeenCalledWith('Enabled reverse swaps');
-  });
-
-  test('should parse output types', () => {
-    const getOutputType = commandHandler['getOutputType'];
-
-    expect(getOutputType('bech32')).toEqual(OutputType.BECH32);
-    expect(getOutputType('compatibility')).toEqual(OutputType.COMPATIBILITY);
-    expect(getOutputType('legacy')).toEqual(OutputType.LEGACY);
-
-    expect(getOutputType('BECH32')).toEqual(OutputType.BECH32);
-
-    const notFound = 'not found';
-
-    expect(getOutputType.bind(getOutputType, notFound)).toThrow(`could not find output type: ${notFound}`);
   });
 
   afterAll(async () => {

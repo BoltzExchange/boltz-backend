@@ -1,7 +1,6 @@
 import { OutputType } from 'boltz-core';
 import Errors from './Errors';
 import Logger from '../Logger';
-import commitHash from '../Version';
 import Wallet from '../wallet/Wallet';
 import { ConfigType } from '../Config';
 import EventHandler from './EventHandler';
@@ -25,6 +24,7 @@ import {
   getChainCurrency,
   getLightningCurrency,
   getSwapMemo,
+  getVersion,
 } from '../Utils';
 import {
   Balance,
@@ -37,8 +37,6 @@ import {
   LightningBalance,
   GetBalanceResponse,
 } from '../proto/boltzrpc_pb';
-
-const packageJson = require('../../package.json');
 
 class Service {
   public allowReverseSwaps = true;
@@ -131,7 +129,7 @@ class Service {
     const response = new GetInfoResponse();
     const map = response.getChainsMap();
 
-    response.setVersion(`${packageJson.version}${commitHash}`);
+    response.setVersion(getVersion());
 
     for (const [, currency] of this.currencies) {
       const chain = new ChainInfo();

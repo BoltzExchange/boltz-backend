@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import Logger from '../Logger';
 import Service from '../service/Service';
 import { SwapUpdateEvent, SwapType } from '../consts/Enums';
-import { stringify, getHexBuffer, mapToObject } from '../Utils';
+import { stringify, getHexBuffer, mapToObject, getVersion } from '../Utils';
 
 class Controller {
   // A map between the ids and HTTP streams of all pending swaps
@@ -51,7 +51,13 @@ class Controller {
   }
 
   // GET requests
-  public getPairs = (_req: Request, res: Response) => {
+  public version = (_: Request, res: Response) => {
+    this.successResponse(res, {
+      version: getVersion(),
+    });
+  }
+
+  public getPairs = (_: Request, res: Response) => {
     const data = this.service.getPairs();
 
     this.successResponse(res, {

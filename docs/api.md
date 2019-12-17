@@ -18,6 +18,32 @@ If a call fails for some reason the returned [HTTP status code](https://en.wikip
 }
 ```
 
+## Getting version
+
+To get the version of the deployed Boltz backed instance one has to query this API endpoint.
+
+| URL            | Response
+|----------------|------------
+| `GET /version` | JSON object
+
+Status Codes:
+
+- `200 OK`
+
+Response object:
+
+- `version`: the deployed version of the Boltz backend
+
+**Examples:**
+
+`GET /version`
+
+```json
+{
+  "version": "2.1.0-beta-d3ddba0-dirty"
+}
+```
+
 ## Getting pairs
 
 To work with the instance one first has to know what pairs are supported and what kind of rates, limits and fees can be expected when creating a new swap. To get that kind of information the following call is used.

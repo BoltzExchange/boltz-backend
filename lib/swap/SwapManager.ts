@@ -21,7 +21,9 @@ class SwapManager {
           swaps: new Map<string, SwapDetails>(),
           swapTimeouts: new Map<number, string[]>(),
 
-          reverseSwaps: new Map<number, ReverseSwapDetails[]>(),
+          reverseSwaps: new Map<string, ReverseSwapDetails>(),
+          reverseSwapTransactions: new Map<string, string>(),
+          reverseSwapTimeouts: new Map<number, string[]>(),
         };
 
         this.currencies.set(currency.symbol, {
@@ -124,6 +126,7 @@ class SwapManager {
    * @param baseCurrency base currency ticker symbol
    * @param quoteCurrency quote currency ticker symbol
    * @param orderSide whether the order is a buy or sell one
+   * @param preimageHash hash of the preimage of the invoice that should be generated
    * @param invoiceAmount amount of the invoice that should be generated
    * @param onchainAmount amount of coins that should be sent onchain
    * @param claimPublicKey public key of the keypair needed for claiming
@@ -134,6 +137,7 @@ class SwapManager {
     baseCurrency: string,
     quoteCurrency: string,
     orderSide: OrderSide,
+    preimageHash: Buffer,
     invoiceAmount: number,
     onchainAmount: number,
     claimPublicKey: Buffer,
@@ -148,19 +152,20 @@ class SwapManager {
 
     this.logger.silly(`Sending ${sendingCurrency.symbol} on the chain and receiving ${receivingCurrency.symbol} on Lightning`);
     this.logger.verbose(`Creating new reverse Swap from ${receivingCurrency.symbol} to ${sendingCurrency.symbol} ` +
-      `for public key: ${getHexString(claimPublicKey)}`);
+      `with preimage hash: ${getHexString(preimageHash)}`);
 
-    const { rHash, paymentRequest } = await receivingCurrency.lndClient.addInvoice(
+    const { paymentRequest } = await receivingCurrency.lndClient.addHoldInvoice(
       invoiceAmount,
+      preimageHash,
       getSwapMemo(sendingCurrency.symbol, true),
     );
-    const { keys, index } = sendingCurrency.wallet.getNewKeys();
 
+    const { keys, index } = sendingCurrency.wallet.getNewKeys();
     const { blocks } = await sendingCurrency.chainClient.getBlockchainInfo();
     const timeoutBlockHeight = blocks + timeoutBlockDelta;
 
     const redeemScript = swapScript(
-      Buffer.from(rHash as string, 'base64'),
+      preimageHash,
       claimPublicKey,
       keys.publicKey,
       timeoutBlockHeight,
@@ -171,44 +176,29 @@ class SwapManager {
 
     sendingCurrency.chainClient.updateOutputFilter([outputScript]);
 
-    const { fee, vout, transaction } = await sendingCurrency.wallet.sendToAddress(address, onchainAmount);
-    this.logger.debug(`Sent ${onchainAmount} ${sendingCurrency.symbol} to swap address ${address}: ${transaction.getId()}:${vout}`);
-
-    const rawTx = transaction.toHex();
-
-    await sendingCurrency.chainClient.sendRawTransaction(rawTx);
-
-    // Get the array of swaps that time out at the same block
-    const pendingReverseSwaps = sendingCurrency.reverseSwaps.get(timeoutBlockHeight);
-
-    const reverseSwapDetails = {
-      redeemScript,
-      refundKeys: keys,
-      output: {
-        vout,
-        value: onchainAmount,
-        script: outputScript,
-        type: outputType,
-        txHash: transaction.getHash(),
+    this.nursery.addReverseSwap(
+      receivingCurrency,
+      {
+        outputType,
+        redeemScript,
+        refundKeys: keys,
+        sendingDetails: {
+          address,
+          amount: onchainAmount,
+          sendingCurrency: sendingCurrency.symbol,
+        },
       },
-    };
-
-    // Push the new swap to the array or create a new array if it doesn't exist yet
-    if (pendingReverseSwaps) {
-      pendingReverseSwaps.push(reverseSwapDetails);
-    } else {
-      sendingCurrency.reverseSwaps.set(timeoutBlockHeight, [reverseSwapDetails]);
-    }
+      paymentRequest,
+      timeoutBlockHeight,
+    );
 
     return {
       timeoutBlockHeight,
-      minerFee: fee,
+
       keyIndex: index,
       lockupAddress: address,
       invoice: paymentRequest,
-      lockupTransaction: rawTx,
       redeemScript: getHexString(redeemScript),
-      lockupTransactionId: transaction.getId(),
     };
   }
 

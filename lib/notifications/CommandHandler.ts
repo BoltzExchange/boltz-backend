@@ -409,7 +409,10 @@ class CommandHandler {
   private toggleReverseSwaps = async () => {
     this.service.allowReverseSwaps = !this.service.allowReverseSwaps;
 
-    await this.discord.sendMessage(`${this.service.allowReverseSwaps ? 'Enabled' : 'Disabled'} reverse swaps`);
+    const message = `${this.service.allowReverseSwaps ? 'Enabled' : 'Disabled'} reverse swaps`;
+
+    this.logger.info(message);
+    await this.discord.sendMessage(message);
   }
 
   /*

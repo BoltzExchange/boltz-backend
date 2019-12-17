@@ -142,6 +142,17 @@ class ChainClient extends BaseClient {
     });
   }
 
+  /**
+   * Adds inputs to the list of relevant ones
+   *
+   * @param inputHashes array of input transaction hash Buffers
+   */
+  public updateInputFilter = (inputHashes: Buffer[]) => {
+    inputHashes.forEach((hash) => {
+      this.zmqClient.relevantInputs.add(getHexString(hash));
+    });
+  }
+
   public rescanChain = async (startHeight: number) => {
     await this.zmqClient.rescanChain(startHeight);
   }

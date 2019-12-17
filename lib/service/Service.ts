@@ -401,6 +401,7 @@ class Service {
   public createReverseSwap = async (
     pairId: string,
     orderSide: string,
+    preimageHash: Buffer,
     invoiceAmount: number,
     claimPublicKey: Buffer,
   ) => {
@@ -426,16 +427,15 @@ class Service {
 
     const {
       invoice,
-      minerFee,
       keyIndex,
       redeemScript,
-      lockupTransaction,
+      lockupAddress,
       timeoutBlockHeight,
-      lockupTransactionId,
     } = await this.swapManager.createReverseSwap(
       base,
       quote,
       side,
+      preimageHash,
       invoiceAmount,
       onchainAmount,
       claimPublicKey,
@@ -450,7 +450,6 @@ class Service {
     await this.reverseSwapRepository.addReverseSwap({
       id,
       invoice,
-      minerFee,
       keyIndex,
       redeemScript,
       onchainAmount,
@@ -458,17 +457,15 @@ class Service {
       pair: pairId,
       orderSide: side,
       fee: percentageFee,
-      transactionId: lockupTransactionId,
     });
 
     return {
       id,
       invoice,
       redeemScript,
+      lockupAddress,
       onchainAmount,
-      lockupTransaction,
       timeoutBlockHeight,
-      lockupTransactionId,
     };
   }
 

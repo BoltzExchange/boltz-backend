@@ -64,6 +64,16 @@ class Wallet {
     );
   }
 
+  /**
+   * Decodes an address
+   */
+  public decodeAddress = (toDecode: string) => {
+    return address.toOutputScript(
+      toDecode,
+      this.network,
+    );
+  }
+
   public newAddress = () => {
     return this.walletProvider.newAddress();
   }

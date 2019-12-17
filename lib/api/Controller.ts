@@ -134,6 +134,7 @@ class Controller {
 
         case SwapType.ReverseSubmarine:
           await this.createReverseSubmarineSwap(req, res);
+          break;
       }
 
     } catch (error) {
@@ -144,8 +145,8 @@ class Controller {
   private createSubmarineSwap = async (req: Request, res: Response) => {
     const { pairId, orderSide, invoice, refundPublicKey } = this.validateRequest(req.body, [
       { name: 'pairId', type: 'string' },
-      { name: 'orderSide', type: 'string' },
       { name: 'invoice', type: 'string' },
+      { name: 'orderSide', type: 'string' },
       { name: 'refundPublicKey', type: 'string', isHex: true },
     ]);
 
@@ -163,14 +164,20 @@ class Controller {
   }
 
   private createReverseSubmarineSwap = async (req: Request, res: Response) => {
-    const { pairId, orderSide, invoiceAmount, claimPublicKey } = this.validateRequest(req.body, [
+    const {
+      pairId,
+      orderSide,
+      preimageHash,
+      invoiceAmount,
+      claimPublicKey,
+    } = this.validateRequest(req.body, [
       { name: 'pairId', type: 'string' },
       { name: 'orderSide', type: 'string' },
       { name: 'invoiceAmount', type: 'number' },
+      { name: 'preimageHash', type: 'string', isHex: true },
       { name: 'claimPublicKey', type: 'string', isHex: true },
     ]);
-
-    const response = await this.service.createReverseSwap(pairId, orderSide, invoiceAmount, claimPublicKey);
+    const response = await this.service.createReverseSwap(pairId, orderSide, preimageHash, invoiceAmount, claimPublicKey);
 
     this.logger.verbose(`Created reverse swap with id: ${response.id}`);
     this.logger.silly(`Reverse swap ${response.id}: ${stringify(response)}`);

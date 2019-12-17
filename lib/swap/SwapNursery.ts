@@ -1,7 +1,13 @@
 import { EventEmitter } from 'events';
 import { BIP32Interface } from 'bip32';
 import { Transaction, address, TxOutput } from 'bitcoinjs-lib';
-import { constructClaimTransaction, OutputType, TransactionOutput, constructRefundTransaction } from 'boltz-core';
+import {
+  OutputType,
+  detectPreimage,
+  TransactionOutput,
+  constructClaimTransaction,
+  constructRefundTransaction,
+ } from 'boltz-core';
 import Logger from '../Logger';
 import LndClient from '../lightning/LndClient';
 import ChainClient from '../chain/ChainClient';
@@ -21,9 +27,18 @@ type SwapDetails = BaseSwapDetails & {
   claimKeys: BIP32Interface;
 };
 
+type SendingDetails = {
+  sendingCurrency: string;
+
+  amount: number;
+  address: string;
+};
+
 type ReverseSwapDetails = BaseSwapDetails & {
-  output: TransactionOutput;
+  outputType: OutputType,
+  output?: TransactionOutput;
   refundKeys: BIP32Interface;
+  sendingDetails: SendingDetails;
 };
 
 type SwapMaps = {
@@ -33,8 +48,14 @@ type SwapMaps = {
   // A map between the timeout block heights and the output scripts of the normal swaps
   swapTimeouts: Map<number, string[]>;
 
-  // A map between the timeout block heights and the reverse swaps details
-  reverseSwaps: Map<number, ReverseSwapDetails[]>;
+  // A map between the invoices and the reverse swaps details
+  reverseSwaps: Map<string, ReverseSwapDetails>;
+
+  // A map between the lock up transaction id of a reverse swap and its invoice
+  reverseSwapTransactions: Map<string, string>;
+
+  // A map betwee the timeout block heights and the invoices of the reverse swaps
+  reverseSwapTimeouts: Map<number, string[]>;
 };
 
 interface SwapNursery {
@@ -55,11 +76,15 @@ interface SwapNursery {
   emit(event: 'zeroconf.rejected', invoice: string, reason: string): boolean;
 
   // Reverse swap related events
+  on(event: 'coins.sent', listener: (invoice: string, lockupTransactionId: string, minerFee: number) => void): this;
+  emit(event: 'coins.sent', invoice: string, lockupTransactionId: string, minerFee: number): boolean;
+
   on(event: 'refund', listener: (lockupTransactionId: string, lockupVout: number, minerFee: number) => void): this;
   emit(event: 'refund', lockupTransactionId: string, lockupVout: number, minerFee: number): boolean;
 }
 
-// TODO: make sure swaps work after restarts
+// TODO: test LTC/BTC reverse swaps
+// TODO: make sure swaps work after restarts (save to and read from database)
 class SwapNursery extends EventEmitter {
   constructor(private logger: Logger, private walletManager: WalletManager) {
     super();
@@ -83,8 +108,25 @@ class SwapNursery extends EventEmitter {
     }
   }
 
+  public addReverseSwap = (
+    maps: SwapMaps,
+    details: ReverseSwapDetails,
+    invoice: string,
+    timeoutBlockHeight: number,
+  ) => {
+    maps.reverseSwaps.set(invoice, details);
+
+    const pendingReverseSwaps = maps.reverseSwapTimeouts.get(timeoutBlockHeight);
+
+    if (pendingReverseSwaps) {
+      pendingReverseSwaps.push(invoice);
+    } else {
+      maps.reverseSwapTimeouts.set(timeoutBlockHeight, [invoice]);
+    }
+  }
+
   public bindCurrency = (currency: Currency, maps: SwapMaps) => {
-    const { chainClient } = currency;
+    const { chainClient, lndClient } = currency;
 
     chainClient.on('transaction', async (transaction: Transaction, confirmed: boolean) => {
       let zeroConfRejectedReason: string | undefined = undefined;
@@ -138,7 +180,6 @@ class SwapNursery extends EventEmitter {
 
             await this.claimSwap(
               currency,
-              swapDetails.lndClient,
               transaction.getHash(),
               output.script,
               output.value,
@@ -150,6 +191,24 @@ class SwapNursery extends EventEmitter {
         }
 
         vout += 1;
+      }
+
+      for (let i = 0; i < transaction.ins.length; i += 1) {
+        const input = transaction.ins[i];
+
+        const inputTransactionId = transactionHashToId(input.hash);
+        const reverseSwapInvoice = maps.reverseSwapTransactions.get(inputTransactionId);
+
+        if (reverseSwapInvoice !== undefined) {
+          await this.settleReverseSwap(
+            transaction,
+            i,
+            lndClient!,
+          );
+
+          maps.reverseSwapTransactions.delete(inputTransactionId);
+          maps.reverseSwaps.delete(reverseSwapInvoice);
+        }
       }
     });
 
@@ -171,24 +230,39 @@ class SwapNursery extends EventEmitter {
         maps.swapTimeouts.delete(height);
       }
 
-      const reverseSwaps = maps.reverseSwaps.get(height);
+      const reverseSwapInvoices = maps.reverseSwapTimeouts.get(height);
 
-      if (reverseSwaps) {
-        await this.refundSwap(currency, reverseSwaps, height);
+      if (reverseSwapInvoices) {
+        await this.refundReverseSwap(currency, maps, reverseSwapInvoices, height);
+        maps.reverseSwapTimeouts.delete(height);
       }
     });
+
+    if (lndClient !== undefined) {
+      lndClient.on('htlc.accepted', async (invoice: string) => {
+        const reverseSwapDetails = maps.reverseSwaps.get(invoice);
+
+        if (reverseSwapDetails) {
+          await this.sendReverseSwapCoins(
+            invoice,
+            reverseSwapDetails,
+            maps,
+            chainClient,
+          );
+        }
+      });
+    }
   }
 
   private claimSwap = async (
     currency: Currency,
-    lndClient: LndClient,
-    txHash: Buffer,
+    transactionHash: Buffer,
     outputScript: Buffer,
     outputValue: number,
     vout: number,
     details: SwapDetails,
   ) => {
-    const transactionId = transactionHashToId(txHash);
+    const transactionId = transactionHashToId(transactionHash);
     const swapOutput = `${transactionId}:${vout}`;
 
     if (outputValue < details.expectedAmount) {
@@ -198,7 +272,7 @@ class SwapNursery extends EventEmitter {
 
     this.logger.verbose(`Claiming ${currency.symbol} swap output: ${swapOutput}`);
 
-    const preimage = await this.payInvoice(lndClient, details.invoice);
+    const preimage = await this.payInvoice(currency.lndClient!, details.invoice);
 
     if (preimage) {
       this.logger.silly(`Got ${currency.symbol} preimage: ${getHexString(preimage)}`);
@@ -208,10 +282,10 @@ class SwapNursery extends EventEmitter {
       const claimTx = constructClaimTransaction(
         [{
           vout,
-          txHash,
           preimage,
           value: outputValue,
           script: outputScript,
+          txHash: transactionHash,
           keys: details.claimKeys,
           type: details.outputType,
           redeemScript: details.redeemScript,
@@ -229,36 +303,91 @@ class SwapNursery extends EventEmitter {
     }
   }
 
-  // TODO: remove reverse swaps that succeeded
-  private refundSwap = async (currency: Currency, reverseSwapDetails: ReverseSwapDetails[], timeoutBlockHeight: number) => {
-    for (const details of reverseSwapDetails) {
-      const transactionId = transactionHashToId(details.output.txHash);
+  private sendReverseSwapCoins = async (
+    invoice: string,
+    details: ReverseSwapDetails,
+    maps: SwapMaps,
+    chainClient: ChainClient,
+  ) => {
+    const { sendingCurrency, address, amount } = details.sendingDetails;
+    const wallet = this.walletManager.wallets.get(sendingCurrency)!;
 
-      this.logger.info(`Refunding ${currency.symbol} swap output: ` +
-      `${transactionId}:${details.output.vout}`);
+    const { fee, vout, transaction, transactionId } = await wallet.sendToAddress(address, amount);
+    this.logger.verbose(`Locked up ${sendingCurrency} to reverse swap in transaction: ${transactionId}`);
 
-      const destinationAddress = await this.getNewAddress(currency.symbol);
+    chainClient.updateInputFilter([transaction.getHash()]);
 
-      const refundTx = constructRefundTransaction(
-        [{
-          ...details.output,
-          keys: details.refundKeys,
-          redeemScript: details.redeemScript,
-        }],
-        address.toOutputScript(destinationAddress, currency.network),
-        timeoutBlockHeight,
-        await currency.chainClient.estimateFee(),
-      );
-      const minerFee = await this.calculateTransactionFee(refundTx, currency.chainClient, details.output.value);
+    details.output = {
+      vout,
+      value: amount,
+      type: details.outputType,
+      txHash: transaction.getHash(),
+      script: wallet.decodeAddress(address),
+    };
+    maps.reverseSwaps.set(invoice, details);
 
-      this.logger.verbose(`Broadcasting ${currency.symbol} refund transaction: ${refundTx.getId()}`);
+    maps.reverseSwapTransactions.set(transactionId, invoice);
 
-      try {
-        await currency.chainClient.sendRawTransaction(refundTx.toHex());
-        this.emit('refund', transactionId, details.output.vout, minerFee);
-      } catch (error) {
-        this.logger.warn(`Could not broadcast ${currency.symbol} refund transaction: ${error.message}`);
+    this.emit('coins.sent', invoice, transactionId, fee);
+  }
+
+  private settleReverseSwap = async (
+    transaction: Transaction,
+    vin: number,
+    lndClient: LndClient,
+  ) => {
+    const preimage = detectPreimage(vin, transaction);
+    this.logger.verbose(`Got preimage for reverse swap: ${getHexString(preimage)}`);
+
+    await lndClient.settleInvoice(preimage);
+    this.logger.debug('Settled LND invoice');
+  }
+
+  // TODO: cancel all pending HTLC for this reverse swap (also immediately cancel all incoming ones that are sent after the refund initiated)
+  private refundReverseSwap = async (
+    currency: Currency,
+    maps: SwapMaps,
+    reverseSwapInvoices: string[],
+    timeoutBlockHeight: number,
+  ) => {
+    for (const invoice of reverseSwapInvoices) {
+      const details = maps.reverseSwaps.get(invoice);
+
+      if (details !== undefined) {
+        if (details.output !== undefined) {
+          const transactionId = transactionHashToId(details.output.txHash);
+
+          this.logger.info(`Refunding ${currency.symbol} swap output: ` +
+          `${transactionId}:${details.output.vout}`);
+
+          const destinationAddress = await this.getNewAddress(currency.symbol);
+
+          const refundTx = constructRefundTransaction(
+            [{
+              ...details.output,
+              keys: details.refundKeys,
+              redeemScript: details.redeemScript,
+            }],
+            address.toOutputScript(destinationAddress, currency.network),
+            timeoutBlockHeight,
+            await currency.chainClient.estimateFee(),
+          );
+          const minerFee = await this.calculateTransactionFee(refundTx, currency.chainClient, details.output.value);
+
+          maps.reverseSwaps.delete(invoice);
+          maps.reverseSwapTransactions.delete(transactionId);
+
+          this.logger.verbose(`Broadcasting ${currency.symbol} refund transaction: ${refundTx.getId()}`);
+
+          try {
+            await currency.chainClient.sendRawTransaction(refundTx.toHex());
+            this.emit('refund', transactionId, details.output.vout, minerFee);
+          } catch (error) {
+            this.logger.warn(`Could not broadcast ${currency.symbol} refund transaction: ${error.message}`);
+          }
+        }
       }
+
     }
   }
 

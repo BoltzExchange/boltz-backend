@@ -107,7 +107,9 @@ class WalletManager {
 
     keyProviders.forEach((keyProvider) => {
       map.set(keyProvider.symbol, {
-        ...keyProvider,
+        symbol: keyProvider.symbol,
+        derivationPath: keyProvider.derivationPath,
+        highestUsedIndex: keyProvider.highestUsedIndex,
       });
     });
 

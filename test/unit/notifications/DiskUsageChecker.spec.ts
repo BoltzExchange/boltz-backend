@@ -75,6 +75,7 @@ describe('DiskUsageChecker', () => {
       total: 20 * gigabyte,
     };
 
+    checker['alertSent'] = false;
     await checker.checkUsage();
 
     expect(mockSendAlert).toHaveBeenCalledTimes(2);
@@ -88,8 +89,23 @@ describe('DiskUsageChecker', () => {
       total: 10 * gigabyte,
     };
 
+    checker['alertSent'] = false;
     await checker.checkUsage();
 
     expect(mockSendAlert).toHaveBeenCalledTimes(0);
+  });
+
+  test('should send warnings only once', async () => {
+    diskUsage = {
+      available: 0,
+      free: 0,
+      total: 1,
+    };
+
+    checker['alertSent'] = false;
+    await checker.checkUsage();
+    await checker.checkUsage();
+
+    expect(mockSendAlert).toHaveBeenCalledTimes(1);
   });
 });

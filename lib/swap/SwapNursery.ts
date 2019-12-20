@@ -59,12 +59,12 @@ type SwapMaps = {
 };
 
 interface SwapNursery {
+  on(event: 'expiration', listener: (invoice: string, isReverse: boolean) => void): this;
+  emit(event: 'expiration', invoice: string, isReverse: boolean): boolean;
+
   // Swap related events
   on(event: 'claim', listener: (lockupTransactionId: string, lockupVout: number, minerFee: number) => void): this;
   emit(event: 'claim', lockupTransactionId: string, lockupVout: number, minerFee: number): boolean;
-
-  on(event: 'abort', listener: (invoice: string) => void): this;
-  emit(event: 'abort', invoice: string): boolean;
 
   on(event: 'invoice.paid', listener: (invoice: string, routingFee: number) => void): this;
   emit(event: 'invoice.paid', invoice: string, routingFee: number): boolean;
@@ -221,7 +221,7 @@ class SwapNursery extends EventEmitter {
 
           if (swap) {
             this.logger.verbose(`Aborting swap: ${swap.invoice}`);
-            this.emit('abort', swap.invoice);
+            this.emit('expiration', swap.invoice, false);
 
             maps.swaps.delete(outputScript);
           }
@@ -233,7 +233,7 @@ class SwapNursery extends EventEmitter {
       const reverseSwapInvoices = maps.reverseSwapTimeouts.get(height);
 
       if (reverseSwapInvoices) {
-        await this.refundReverseSwap(currency, maps, reverseSwapInvoices, height);
+        await this.handleExpiredReverseSwaps(currency, maps, reverseSwapInvoices, height);
         maps.reverseSwapTimeouts.delete(height);
       }
     });
@@ -344,7 +344,7 @@ class SwapNursery extends EventEmitter {
   }
 
   // TODO: cancel all pending HTLC for this reverse swap (also immediately cancel all incoming ones that are sent after the refund initiated)
-  private refundReverseSwap = async (
+  private handleExpiredReverseSwaps = async (
     currency: Currency,
     maps: SwapMaps,
     reverseSwapInvoices: string[],
@@ -356,9 +356,7 @@ class SwapNursery extends EventEmitter {
       if (details !== undefined) {
         if (details.output !== undefined) {
           const transactionId = transactionHashToId(details.output.txHash);
-
-          this.logger.info(`Refunding ${currency.symbol} swap output: ` +
-          `${transactionId}:${details.output.vout}`);
+          this.logger.info(`Refunding ${currency.symbol} reverse swap output: ${transactionId}:${details.output.vout}`);
 
           const destinationAddress = await this.getNewAddress(currency.symbol);
 
@@ -385,6 +383,11 @@ class SwapNursery extends EventEmitter {
           } catch (error) {
             this.logger.warn(`Could not broadcast ${currency.symbol} refund transaction: ${error.message}`);
           }
+        } else {
+          maps.reverseSwaps.delete(invoice);
+
+          this.logger.verbose(`Aborting reverse swap: ${invoice}`);
+          this.emit('expiration', invoice, true);
         }
       }
 

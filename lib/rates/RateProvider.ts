@@ -182,7 +182,7 @@ class RateProvider {
 
     await Promise.all(promises);
 
-    this.logger.silly(`Updates rates: ${stringify(mapToObject(this.pairs))}`);
+    this.logger.silly('Updates rates');
   }
 
   private getLimits = (pair: string, base: string, quote: string, rate: number) => {

@@ -196,25 +196,46 @@ class EventHandler extends EventEmitter {
       });
     });
 
-    this.nursery.on('abort', async (invoice) => {
-      await this.lock.acquire(EventHandler.swapLock, async () => {
-        let swap = await this.swapRepository.getSwap({
-          invoice: {
-            [Op.eq]: invoice,
-          },
+    this.nursery.on('expiration', async (invoice, isReverse) => {
+      if (!isReverse) {
+        await this.lock.acquire(EventHandler.swapLock, async () => {
+          let swap = await this.swapRepository.getSwap({
+            invoice: {
+              [Op.eq]: invoice,
+            },
+          });
+
+          if (swap) {
+            swap = await this.swapRepository.setSwapStatus(swap, SwapUpdateEvent.SwapExpired);
+
+            const error = Errors.ONCHAIN_HTLC_TIMED_OUT();
+
+            this.logger.info(`Swap ${swap!.id} failed: ${error.message}`);
+
+            this.emit('swap.update', swap!.id, { status: SwapUpdateEvent.SwapExpired });
+            this.emit('swap.failure', swap!, error.message);
+          }
         });
+      } else {
+        await this.lock.acquire(EventHandler.reverseSwapLock, async () => {
+          let reverseSwap = await this.reverseSwapRepository.getReverseSwap({
+            invoice: {
+              [Op.eq]: invoice,
+            },
+          });
 
-        if (swap) {
-          swap = await this.swapRepository.setSwapStatus(swap, SwapUpdateEvent.SwapExpired);
+          if (reverseSwap) {
+            reverseSwap = await this.reverseSwapRepository.setReverseSwapStatus(reverseSwap, SwapUpdateEvent.SwapExpired);
 
-          const error = Errors.ONCHAIN_HTLC_TIMED_OUT();
+            const error = Errors.ONCHAIN_HTLC_TIMED_OUT();
 
-          this.logger.info(`Swap ${swap!.id} failed: ${error.message}`);
+            this.logger.info(`Reverse swap ${reverseSwap!.id} failed: ${error.message}`);
 
-          this.emit('swap.update', swap!.id, { status: SwapUpdateEvent.SwapExpired });
-          this.emit('swap.failure', swap!, error.message);
-        }
-      });
+            this.emit('swap.update', reverseSwap!.id, { status: SwapUpdateEvent.SwapExpired });
+            this.emit('swap.failure', reverseSwap, error.message);
+          }
+        });
+      }
     });
 
     this.nursery.on('coins.sent', async (invoice: string, lockupTransactionId: string, minerFee: number) => {

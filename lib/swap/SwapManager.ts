@@ -1,4 +1,4 @@
-import { OutputType, swapScript } from 'boltz-core';
+import { OutputType, swapScript, reverseSwapScript } from 'boltz-core';
 import Errors from './Errors';
 import Logger from '../Logger';
 import { OrderSide } from '../consts/Enums';
@@ -164,7 +164,7 @@ class SwapManager {
     const { blocks } = await sendingCurrency.chainClient.getBlockchainInfo();
     const timeoutBlockHeight = blocks + timeoutBlockDelta;
 
-    const redeemScript = swapScript(
+    const redeemScript = reverseSwapScript(
       preimageHash,
       claimPublicKey,
       keys.publicKey,

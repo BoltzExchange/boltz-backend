@@ -1,7 +1,7 @@
 import { Op } from 'sequelize';
 import AsyncLock from 'async-lock';
 import { EventEmitter } from 'events';
-import { TxOutput, address } from 'bitcoinjs-lib';
+import { Transaction, TxOutput, address } from 'bitcoinjs-lib';
 import Errors from './Errors';
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';
@@ -16,6 +16,7 @@ type SwapUpdate = {
   status: SwapUpdateEvent;
 
   transactionId?: string;
+  transactionHex?: string;
 };
 
 interface EventHandler {
@@ -96,7 +97,11 @@ class EventHandler extends EventEmitter {
                 const status = SwapUpdateEvent.TransactionConfirmed;
 
                 await this.reverseSwapRepository.setReverseSwapStatus(reverseSwap, status);
-                this.emit('swap.update', reverseSwap.id, { status, transactionId: transaction.getId() });
+                this.emit('swap.update', reverseSwap.id, {
+                  status,
+                  transactionId: transaction.getId(),
+                  transactionHex: transaction.toHex(),
+                });
               }
             }));
           }
@@ -238,8 +243,10 @@ class EventHandler extends EventEmitter {
       }
     });
 
-    this.nursery.on('coins.sent', async (invoice: string, lockupTransactionId: string, minerFee: number) => {
+    this.nursery.on('coins.sent', async (invoice: string, transaction: Transaction, minerFee: number) => {
       await this.lock.acquire(EventHandler.reverseSwapLock, async () => {
+        const transactionId = transaction.getId();
+
         let reverseSwap = await this.reverseSwapRepository.getReverseSwap({
           invoice: {
             [Op.eq]: invoice,
@@ -247,9 +254,13 @@ class EventHandler extends EventEmitter {
         });
 
         if (reverseSwap) {
-          reverseSwap = await this.reverseSwapRepository.setLockupTransaction(reverseSwap, lockupTransactionId, minerFee);
+          reverseSwap = await this.reverseSwapRepository.setLockupTransaction(reverseSwap, transactionId, minerFee);
 
-          this.emit('swap.update', reverseSwap!.id, { status: SwapUpdateEvent.TransactionMempool, transactionId: lockupTransactionId });
+          this.emit('swap.update', reverseSwap!.id, {
+            transactionId,
+            transactionHex: transaction.toHex(),
+            status: SwapUpdateEvent.TransactionMempool,
+          });
         }
       });
     });

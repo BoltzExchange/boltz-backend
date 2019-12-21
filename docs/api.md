@@ -252,7 +252,8 @@ Status Codes:
 Response object:
 
 - `status`: status of the swap
-- `preimage`: if the `status` is `invoice.settled`, the JSON object will also contain this value so that the client interacting with the Boltz API doesn't necessarily have to be connected to the lightning node that paid the invoice. This, of course, requires that the Boltz instance is honest and trustworthy.
+- `transactionId`: in case of a reverse swap the lockup transaction id is not in the response of the call which creates the swap. Therefore, the events `transaction.mempool` and `transaction.confirmed` contain it
+- `transactionHex`: hex encoded lockup transaction of the reverse swap. Only returned alongside of `transactionId`
 
 **Examples:**
 
@@ -274,8 +275,6 @@ Response:
 }
 ```
 
-If the status is `invoice.settled` there will be another string in the body of the HTTP response. `preimage` is the hex encoded preimage of the invoice that was paid by the user. This is helpful in the case of the client not being able to query the lightning node for the preimage directly.
-
 `POST /swapstatus`
 
 Request body:
@@ -290,8 +289,9 @@ Response:
 
 ```json
 {
-  "status": "invoice.settled",
-  "preimage": "aab7a9ee7ebadadc3e052d7aa0aff0651dec24d8b72d1c0f6d01fa3fd5a3a5c6"
+  "status": "transaction.mempool",
+  "transactionId": "ead78d069688e6e624bbb00d4c15a6d76cde6d43e450cdb1271c06545580d2be",
+  "transactionHex": "01000000000101b2a81f522e14cf1b775a672baad5b2b684d5b1b29baf2759d527e52c5eb4bd850000000000ffffffff02b8780100000000002200203e71bf853a161ab34c2a4902be39e2a9fa1815f7546469799207df0fe7a058d64eeaf2050000000016001431c56543e2a55dae4d7b5c28333e0fdb8b4937d802483045022100913d2f3462b2208ab284395897f4f8c90d7c406805641d098546aa7d31a8e1e90220786d6b8a3cd69c35793cd0cf9ff7fe924b4c34528711f9388ec9c0e5fa07c770012103f50cb76e06750d4895f66e1acd6ff695866763d67ea558495df20e1df06334be00000000"
 }
 ```
 

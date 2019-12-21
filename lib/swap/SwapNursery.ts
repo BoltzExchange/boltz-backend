@@ -82,8 +82,8 @@ interface SwapNursery {
   emit(event: 'zeroconf.rejected', invoice: string, reason: string): boolean;
 
   // Reverse swap related events
-  on(event: 'coins.sent', listener: (invoice: string, lockupTransactionId: string, minerFee: number) => void): this;
-  emit(event: 'coins.sent', invoice: string, lockupTransactionId: string, minerFee: number): boolean;
+  on(event: 'coins.sent', listener: (invoice: string, transaction: Transaction, minerFee: number) => void): this;
+  emit(event: 'coins.sent', invoice: string, transaction: Transaction, minerFee: number): boolean;
 
   on(event: 'refund', listener: (lockupTransactionId: string, lockupVout: number, minerFee: number) => void): this;
   emit(event: 'refund', lockupTransactionId: string, lockupVout: number, minerFee: number): boolean;
@@ -354,7 +354,7 @@ class SwapNursery extends EventEmitter {
     const sendingMaps = this.maps.get(sendingSymbol)!;
     sendingMaps.reverseSwapTransactions.set(transactionId, { invoice, receivingSymbol: details.receivingSymbol });
 
-    this.emit('coins.sent', invoice, transactionId, fee);
+    this.emit('coins.sent', invoice, transaction, fee);
   }
 
   private settleReverseSwap = async (

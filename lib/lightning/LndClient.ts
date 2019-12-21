@@ -268,6 +268,16 @@ class LndClient extends BaseClient implements LndClient {
   }
 
   /**
+   * Cancel a hold invoice
+   */
+  public cancelInvoice = (preimageHash: Buffer) => {
+    const request = new invoicesrpc.CancelInvoiceMsg();
+    request.setPaymentHash(Uint8Array.from(preimageHash));
+
+    return this.unaryInvoicesCall<invoicesrpc.CancelInvoiceMsg, invoicesrpc.CancelInvoiceResp>('cancelInvoice', request);
+  }
+
+  /**
    * Settle a hold invoice with an already accepted HTLC
    */
   public settleInvoice = (preimage: Buffer) => {

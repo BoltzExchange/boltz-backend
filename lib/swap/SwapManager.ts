@@ -4,7 +4,7 @@ import Logger from '../Logger';
 import { OrderSide } from '../consts/Enums';
 import LndClient from '../lightning/LndClient';
 import WalletManager, { Currency } from '../wallet/WalletManager';
-import SwapNursery, { SwapMaps, SwapDetails, ReverseSwapDetails } from './SwapNursery';
+import SwapNursery, { SwapMaps, SwapDetails, ReverseSwapDetails, MinimalReverseSwapDetails } from './SwapNursery';
 import { getHexBuffer, getHexString, getScriptHashFunction, getSwapMemo, getSendingReceivingCurrency } from '../Utils';
 
 class SwapManager {
@@ -22,8 +22,8 @@ class SwapManager {
           swapTimeouts: new Map<number, string[]>(),
 
           reverseSwaps: new Map<string, ReverseSwapDetails>(),
-          reverseSwapTransactions: new Map<string, string>(),
-          reverseSwapTimeouts: new Map<number, string[]>(),
+          reverseSwapTransactions: new Map<string, MinimalReverseSwapDetails>(),
+          reverseSwapTimeouts: new Map<number, MinimalReverseSwapDetails[]>(),
         };
 
         this.currencies.set(currency.symbol, {
@@ -104,7 +104,6 @@ class SwapManager {
         acceptZeroConf,
         expectedAmount,
         claimKeys: keys,
-        lndClient: sendingCurrency.lndClient,
       },
       outputScript,
       timeoutBlockHeight,
@@ -177,15 +176,17 @@ class SwapManager {
     sendingCurrency.chainClient.updateOutputFilter([outputScript]);
 
     this.nursery.addReverseSwap(
-      receivingCurrency,
       {
         outputType,
+        preimageHash,
         redeemScript,
         refundKeys: keys,
+        sendingSymbol: sendingCurrency.symbol,
+        receivingSymbol: receivingCurrency.symbol,
+
         sendingDetails: {
           address,
           amount: onchainAmount,
-          sendingCurrency: sendingCurrency.symbol,
         },
       },
       paymentRequest,

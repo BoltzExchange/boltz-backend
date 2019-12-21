@@ -15,7 +15,7 @@ function waitForLndToSync () {
 
 function openChannel () {
   nodeAddress=$($1 getnewaddress)
-  lndAddress=$($2 newaddress np2wkh | jq -r '.address')
+  lndAddress=$($2 newaddress p2wkh | jq -r '.address')
   
   $1 sendtoaddress ${lndAddress} 1.1 > /dev/null
 

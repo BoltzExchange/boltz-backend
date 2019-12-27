@@ -12,7 +12,7 @@ import Logger from '../Logger';
 import LndClient from '../lightning/LndClient';
 import ChainClient from '../chain/ChainClient';
 import WalletManager, { Currency } from '../wallet/WalletManager';
-import { getHexString, transactionHashToId, transactionSignalsRbfExplicitly, reverseBuffer } from '../Utils';
+import { getHexString, transactionHashToId, transactionSignalsRbfExplicitly, reverseBuffer, formatError } from '../Utils';
 
 type BaseSwapDetails = {
   redeemScript: Buffer;
@@ -85,11 +85,13 @@ interface SwapNursery {
   on(event: 'coins.sent', listener: (invoice: string, transaction: Transaction, minerFee: number) => void): this;
   emit(event: 'coins.sent', invoice: string, transaction: Transaction, minerFee: number): boolean;
 
+  on(event: 'coins.failedToSend', listener: (invoice: string) => void): this;
+  emit(event: 'coins.failedToSend', invoice: string): boolean;
+
   on(event: 'refund', listener: (lockupTransactionId: string, lockupVout: number, minerFee: number) => void): this;
   emit(event: 'refund', lockupTransactionId: string, lockupVout: number, minerFee: number): boolean;
 }
 
-// TODO: update tests
 // TODO: make sure swaps work after restarts (save to and read from database)
 class SwapNursery extends EventEmitter {
   private maps = new Map<string, SwapMaps>();
@@ -334,28 +336,37 @@ class SwapNursery extends EventEmitter {
     const { address, amount } = details.sendingDetails;
 
     const chainClient = this.chainClients.get(sendingSymbol)!;
-
     const wallet = this.walletManager.wallets.get(sendingSymbol)!;
 
-    // TODO: handle errors
-    const { fee, vout, transaction, transactionId } = await wallet.sendToAddress(address, amount);
-    this.logger.verbose(`Locked up ${sendingSymbol} to reverse swap in transaction: ${transactionId}`);
+    try {
+      const { fee, vout, transaction, transactionId } = await wallet.sendToAddress(address, amount);
+      this.logger.verbose(`Locked up ${sendingSymbol} to reverse swap in transaction: ${transactionId}`);
 
-    chainClient.updateInputFilter([transaction.getHash()]);
+      chainClient.updateInputFilter([transaction.getHash()]);
 
-    details.output = {
-      vout,
-      value: amount,
-      type: details.outputType,
-      txHash: transaction.getHash(),
-      script: wallet.decodeAddress(address),
-    };
-    receivingMaps.reverseSwaps.set(invoice, details);
+      details.output = {
+        vout,
+        value: amount,
+        type: details.outputType,
+        txHash: transaction.getHash(),
+        script: wallet.decodeAddress(address),
+      };
 
-    const sendingMaps = this.maps.get(sendingSymbol)!;
-    sendingMaps.reverseSwapTransactions.set(transactionId, { invoice, receivingSymbol: details.receivingSymbol });
+      receivingMaps.reverseSwaps.set(invoice, details);
 
-    this.emit('coins.sent', invoice, transaction, fee);
+      const sendingMaps = this.maps.get(sendingSymbol)!;
+      sendingMaps.reverseSwapTransactions.set(transactionId, { invoice, receivingSymbol: details.receivingSymbol });
+
+      this.emit('coins.sent', invoice, transaction, fee);
+    } catch (error) {
+      // TODO: check this
+      receivingMaps.reverseSwaps.delete(invoice);
+
+      await this.lndClients.get(details.receivingSymbol)!.cancelInvoice(details.preimageHash);
+
+      this.logger.warn(`Failed to send ${amount} ${sendingSymbol} to reverse swap: ${formatError(error)}`);
+      this.emit('coins.failedToSend', invoice);
+    }
   }
 
   private settleReverseSwap = async (

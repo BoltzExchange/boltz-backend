@@ -33,8 +33,6 @@ interface EventHandler {
   emit(event: 'channel.backup', currency: string, channelbackup: string): boolean;
 }
 
-// TODO: update tests
-// TODO: check if lockup transaction was confirmed on init
 class EventHandler extends EventEmitter {
   private lock = new AsyncLock();
 
@@ -167,14 +165,8 @@ class EventHandler extends EventEmitter {
         });
 
         if (swap) {
-          const error = Errors.INVOICE_COULD_NOT_BE_PAID();
-
           swap = await this.swapRepository.setSwapStatus(swap, SwapUpdateEvent.InvoiceFailedToPay);
-
-          this.logger.info(`Swap ${swap!.id} failed: ${error.message}`);
-
-          this.emit('swap.update', swap!.id, { status: SwapUpdateEvent.InvoiceFailedToPay });
-          this.emit('swap.failure', swap!, error.message);
+          this.handleFailedSwap(swap!, Errors.INVOICE_COULD_NOT_BE_PAID().message, SwapUpdateEvent.InvoiceFailedToPay);
         }
       });
     });
@@ -214,13 +206,7 @@ class EventHandler extends EventEmitter {
 
           if (swap) {
             swap = await this.swapRepository.setSwapStatus(swap, SwapUpdateEvent.SwapExpired);
-
-            const error = Errors.ONCHAIN_HTLC_TIMED_OUT();
-
-            this.logger.info(`Swap ${swap!.id} failed: ${error.message}`);
-
-            this.emit('swap.update', swap!.id, { status: SwapUpdateEvent.SwapExpired });
-            this.emit('swap.failure', swap!, error.message);
+            this.handleFailedSwap(swap!, Errors.ONCHAIN_HTLC_TIMED_OUT().message, SwapUpdateEvent.SwapExpired);
           }
         });
       } else {
@@ -233,13 +219,7 @@ class EventHandler extends EventEmitter {
 
           if (reverseSwap) {
             reverseSwap = await this.reverseSwapRepository.setReverseSwapStatus(reverseSwap, SwapUpdateEvent.SwapExpired);
-
-            const error = Errors.ONCHAIN_HTLC_TIMED_OUT();
-
-            this.logger.info(`Reverse swap ${reverseSwap!.id} failed: ${error.message}`);
-
-            this.emit('swap.update', reverseSwap!.id, { status: SwapUpdateEvent.SwapExpired });
-            this.emit('swap.failure', reverseSwap, error.message);
+            this.handleFailedReverseSwap(reverseSwap, Errors.ONCHAIN_HTLC_TIMED_OUT().message, SwapUpdateEvent.SwapExpired);
           }
         });
       }
@@ -267,6 +247,21 @@ class EventHandler extends EventEmitter {
       });
     });
 
+    this.nursery.on('coins.failedToSend', async (invoice) => {
+      await this.lock.acquire(EventHandler.reverseSwapLock, async () => {
+        let reverseSwap = await this.reverseSwapRepository.getReverseSwap({
+          invoice: {
+            [Op.eq]: invoice,
+          },
+        });
+
+        if (reverseSwap) {
+          reverseSwap = await this.reverseSwapRepository.setReverseSwapStatus(reverseSwap, SwapUpdateEvent.TransactionFailed);
+          this.handleFailedReverseSwap(reverseSwap, Errors.COINS_COULD_NOT_BE_SENT().message, SwapUpdateEvent.TransactionFailed);
+        }
+      });
+    });
+
     this.nursery.on('refund', async (lockupTransactionId, _, minerFee) => {
       await this.lock.acquire(EventHandler.reverseSwapLock, async () => {
         let reverseSwap = await this.reverseSwapRepository.getReverseSwap({
@@ -277,13 +272,7 @@ class EventHandler extends EventEmitter {
 
         if (reverseSwap) {
           reverseSwap = await this.reverseSwapRepository.setTransactionRefunded(reverseSwap, minerFee);
-
-          const error = Errors.ONCHAIN_HTLC_TIMED_OUT();
-
-          this.logger.info(`Reverse swap ${reverseSwap.id} failed: ${error.message}`);
-
-          this.emit('swap.update', reverseSwap.id, { status: SwapUpdateEvent.TransactionRefunded });
-          this.emit('swap.failure', reverseSwap, error.message);
+          this.handleFailedReverseSwap(reverseSwap, Errors.ONCHAIN_HTLC_TIMED_OUT().message, SwapUpdateEvent.TransactionRefunded);
         }
       });
     });
@@ -302,6 +291,20 @@ class EventHandler extends EventEmitter {
         });
       }
     });
+  }
+
+  private handleFailedSwap = (swap: Swap, reason: string, status: SwapUpdateEvent) => {
+    this.logger.warn(`Swap ${swap.id} failed: ${reason}`);
+
+    this.emit('swap.update', swap.id, { status });
+    this.emit('swap.failure', swap, reason);
+  }
+
+  private handleFailedReverseSwap = (reverseSwap: ReverseSwap, reason: string, status: SwapUpdateEvent) => {
+    this.logger.warn(`Reverse swap ${reverseSwap.id} failed: ${reason}`);
+
+    this.emit('swap.update', reverseSwap.id, { status });
+    this.emit('swap.failure', reverseSwap, reason);
   }
 }
 

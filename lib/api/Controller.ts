@@ -38,7 +38,6 @@ class Controller {
       }
     });
 
-    // TODO: update tests
     for (const reverseSwap of reverseSwaps) {
       if (reverseSwap.status) {
         const status = reverseSwap.status as SwapUpdateEvent;

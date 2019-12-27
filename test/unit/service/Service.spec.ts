@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import { Networks, OutputType } from 'boltz-core';
 import Logger from '../../../lib/Logger';
 import Wallet from '../../../lib/wallet/Wallet';
@@ -54,12 +55,11 @@ const mockedSwap = {
 const mockCreateSwap = jest.fn().mockResolvedValue(mockedSwap);
 
 const mockedReverseSwap = {
-  minerFee: 1,
   keyIndex: 43,
-  redeemScript: '0x',
   invoice: 'lnbcrt1',
-  lockupTransaction: {},
-  lockupTransactionId: 'id',
+  redeemScript: '0x',
+  lockupAddress: 'bcrt1',
+  timeoutBlockHeight: 123,
 };
 const mockCreateReverseSwap = jest.fn().mockResolvedValue(mockedReverseSwap);
 
@@ -532,19 +532,26 @@ describe('Service', () => {
     const orderSide = 'buy';
     const onchainAmount = 99998;
     const invoiceAmount = 100000;
+    const preimageHash = randomBytes(32);
     const claimPublicKey = getHexBuffer('0xfff');
 
     service.allowReverseSwaps = true;
 
-    const response = await service.createReverseSwap(pair, orderSide, invoiceAmount, claimPublicKey);
+    const response = await service.createReverseSwap(
+      pair,
+      orderSide,
+      preimageHash,
+      invoiceAmount,
+      claimPublicKey,
+    );
 
     expect(response).toEqual({
       onchainAmount,
       id: expect.anything(),
       invoice: mockedReverseSwap.invoice,
       redeemScript: mockedReverseSwap.redeemScript,
-      lockupTransaction: mockedReverseSwap.lockupTransaction,
-      lockupTransactionId: mockedReverseSwap.lockupTransactionId,
+      lockupAddress: mockedReverseSwap.lockupAddress,
+      timeoutBlockHeight: mockedReverseSwap.timeoutBlockHeight,
     });
 
     expect(mockGetFees).toHaveBeenCalledTimes(1);
@@ -555,6 +562,7 @@ describe('Service', () => {
       'BTC',
       'BTC',
       OrderSide.BUY,
+      preimageHash,
       invoiceAmount,
       99998,
       claimPublicKey,
@@ -566,31 +574,46 @@ describe('Service', () => {
     expect(mockAddReverseSwap).toHaveBeenCalledWith({
       pair,
       onchainAmount,
+
       fee: 1,
       id: response.id,
       orderSide: OrderSide.BUY,
       invoice: response.invoice,
       keyIndex: mockedReverseSwap.keyIndex,
-      minerFee: mockedReverseSwap.minerFee,
       redeemScript: mockedReverseSwap.redeemScript,
-      transactionId: mockedReverseSwap.lockupTransactionId,
+      timeoutBlockHeight: mockedReverseSwap.timeoutBlockHeight,
     });
 
     // Throw if the onchain amount is less than 1
-    await expect(service.createReverseSwap(pair, orderSide, 1, claimPublicKey))
-      .rejects.toEqual(Errors.ONCHAIN_AMOUNT_TOO_LOW());
+    await expect(service.createReverseSwap(
+      pair,
+      orderSide,
+      preimageHash,
+      1,
+      claimPublicKey,
+    )).rejects.toEqual(Errors.ONCHAIN_AMOUNT_TOO_LOW());
 
     // Throw if a reverse swaps doesn't respect the limits
     const invoiceAmountLimit = 0;
 
-    await expect(service.createReverseSwap(pair, orderSide, invoiceAmountLimit, claimPublicKey))
-      .rejects.toEqual(Errors.BENEATH_MINIMAL_AMOUNT(invoiceAmountLimit, 1));
+    await expect(service.createReverseSwap(
+      pair,
+      orderSide,
+      preimageHash,
+      invoiceAmountLimit,
+      claimPublicKey,
+    )).rejects.toEqual(Errors.BENEATH_MINIMAL_AMOUNT(invoiceAmountLimit, 1));
 
     // Throw if reverse swaps are disabled
     service.allowReverseSwaps = false;
 
-    await expect(service.createReverseSwap(pair, orderSide, invoiceAmount, claimPublicKey))
-      .rejects.toEqual(Errors.REVERSE_SWAPS_DISABLED());
+    await expect(service.createReverseSwap(
+      pair,
+      orderSide,
+      preimageHash,
+      invoiceAmount,
+      claimPublicKey,
+    )).rejects.toEqual(Errors.REVERSE_SWAPS_DISABLED());
 
     service.allowReverseSwaps = true;
   });

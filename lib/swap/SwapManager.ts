@@ -7,7 +7,7 @@ import WalletManager, { Currency } from '../wallet/WalletManager';
 import SwapNursery, { SwapMaps, SwapDetails, ReverseSwapDetails, MinimalReverseSwapDetails } from './SwapNursery';
 import { getHexBuffer, getHexString, getScriptHashFunction, getSwapMemo, getSendingReceivingCurrency } from '../Utils';
 
-// TODO: update tests
+// TODO: add tests
 class SwapManager {
   public currencies = new Map<string, Currency & SwapMaps>();
 

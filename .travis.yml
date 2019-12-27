@@ -18,7 +18,7 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" != 'windows' ]]; then npm run docker:start; fi
 
 script:
-  - npm run lint
   - npm run compile
+  - npm run lint
   - npm run test:unit
   - if [[ "$TRAVIS_OS_NAME" != 'windows' ]]; then npm run test:int; fi

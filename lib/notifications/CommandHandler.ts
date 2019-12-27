@@ -44,6 +44,7 @@ type CommandInfo = {
 };
 
 // TODO: update tests
+// TODO: update for new reverse swaps
 class CommandHandler {
   private optManager: OtpManager;
 

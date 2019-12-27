@@ -18,9 +18,11 @@ type channelBackupCallback = (channelBackup: string) => void;
 type invoicePaidCallback = (invoice: string, routingFee: number) => void;
 type invoiceSettledCallback = (invoice: string, preimage: string) => void;
 
-type abortCallback = (invoice: string) => void;
+type coinsFailedToSendCallback = (invoice: string) => void;
+type expirationCallback = (invoice: string, isReverse: boolean) => void;
 type claimCallback = (lockupId: string, lockupVout: number, minerFee: number) => void;
 type refundCallback = (lockupId: string, lockupVout: number, minerFee: number) => void;
+type coinsSentCallback = (invoice: string, transaction: Transaction, minerFee: number) => void;
 
 type invoiceFailedCallback = (invoice: string) => void;
 
@@ -61,34 +63,43 @@ jest.mock('../../../lib/lightning/LndClient', () => {
 
 const mockedLndClient = <jest.Mock<LndClient>><any>LndClient;
 
-let emitAbort: abortCallback;
 let emitClaim: claimCallback;
 let emitRefund: refundCallback;
-
+let emitCoinsSent: coinsSentCallback;
+let emitExpiration: expirationCallback;
 let emitInvoiceFailedToPay: invoiceFailedCallback;
+let emitCoinsFailedToSend: coinsFailedToSendCallback;
 
 jest.mock('../../../lib/swap/SwapNursery', () => {
   return jest.fn().mockImplementation(() => ({
-    on: (event: string, callback: abortCallback | claimCallback | refundCallback | invoiceFailedCallback) => {
+    on: (event: string, callback: any) => {
       switch (event) {
-        case 'abort':
-          emitAbort = callback as abortCallback;
+        case 'expiration':
+          emitExpiration = callback;
           break;
 
         case 'claim':
-          emitClaim = callback as claimCallback;
+          emitClaim = callback;
           break;
 
         case 'refund':
-          emitRefund = callback as refundCallback;
+          emitRefund = callback;
           break;
 
         case 'invoice.paid':
-          emitInvoicePaid = callback as invoicePaidCallback;
+          emitInvoicePaid = callback;
           break;
 
         case 'invoice.failedToPay':
-          emitInvoiceFailedToPay = callback as invoiceFailedCallback;
+          emitInvoiceFailedToPay = callback;
+          break;
+
+        case 'coins.sent':
+          emitCoinsSent = callback;
+          break;
+
+        case 'coins.failedToSend':
+          emitCoinsFailedToSend = callback;
           break;
       }
     },
@@ -102,11 +113,11 @@ const swap = {
   acceptZeroConf: true,
 };
 
-const mockGetSwap = jest.fn().mockReturnValue(swap);
-const mockSetMinerFee = jest.fn().mockReturnValue(swap);
-const mockSetSwapStatus = jest.fn().mockReturnValue(swap);
-const mockSetInvoicePaid = jest.fn().mockReturnValue(swap);
-const mockSetLockupTransactionId = jest.fn().mockReturnValue(swap);
+const mockGetSwap = jest.fn().mockResolvedValue(swap);
+const mockSetMinerFee = jest.fn().mockResolvedValue(swap);
+const mockSetSwapStatus = jest.fn().mockResolvedValue(swap);
+const mockSetInvoicePaid = jest.fn().mockResolvedValue(swap);
+const mockSetLockupTransactionId = jest.fn().mockResolvedValue(swap);
 
 jest.mock('../../../lib/service/SwapRepository', () => {
   return jest.fn().mockImplementation(() => ({
@@ -122,17 +133,20 @@ const mockedSwapRepository = <jest.Mock<SwapRepository>><any>SwapRepository;
 
 const reverseSwap = {
   id: 'reverseId',
+  status: SwapUpdateEvent.TransactionMempool,
 };
 
-const mockGetReverseSwap = jest.fn().mockReturnValue(reverseSwap);
-const mockSetInvoiceSettled = jest.fn().mockReturnValue(reverseSwap);
-const mockSetReverseSwapStatus = jest.fn().mockReturnValue(reverseSwap);
-const mockSetTransactionRefunded = jest.fn().mockReturnValue(reverseSwap);
+const mockGetReverseSwap = jest.fn().mockResolvedValue(reverseSwap);
+const mockSetInvoiceSettled = jest.fn().mockResolvedValue(reverseSwap);
+const mockSetLockupTransaction = jest.fn().mockResolvedValue(reverseSwap);
+const mockSetReverseSwapStatus = jest.fn().mockResolvedValue(reverseSwap);
+const mockSetTransactionRefunded = jest.fn().mockResolvedValue(reverseSwap);
 
 jest.mock('../../../lib/service/ReverseSwapRepository', () => {
   return jest.fn().mockImplementation(() => ({
     getReverseSwap: mockGetReverseSwap,
     setInvoiceSettled: mockSetInvoiceSettled,
+    setLockupTransaction: mockSetLockupTransaction,
     setReverseSwapStatus: mockSetReverseSwapStatus,
     setTransactionRefunded: mockSetTransactionRefunded,
   }));
@@ -161,8 +175,7 @@ describe('EventHandler', () => {
   );
 
   beforeEach(() => {
-    mockGetSwap.mockClear();
-    mockGetReverseSwap.mockClear();
+    jest.clearAllMocks();
   });
 
   test('should subscribe to transactions', async () => {
@@ -186,8 +199,10 @@ describe('EventHandler', () => {
       },
     ];
 
-    for (const state of states) {
-      eventHandler.once('swap.update', (id, message) => {
+    for (let i = 1; i <= states.length; i += 1) {
+      const state = states[i - 1];
+
+      eventHandler.on('swap.update', (id, message) => {
         if (id === swap.id) {
           expect(id).toEqual(swap.id);
           expect(message).toEqual({
@@ -197,6 +212,8 @@ describe('EventHandler', () => {
           expect(id).toEqual(reverseSwap.id);
           expect(message).toEqual({
             status: state.status,
+            transactionId: transaction.getId(),
+            transactionHex: transaction.toHex(),
           });
         }
 
@@ -207,32 +224,36 @@ describe('EventHandler', () => {
 
       await wait(20);
 
-      expect(mockGetSwap).toHaveBeenNthCalledWith(updatesEmitted, {
+      eventHandler.removeAllListeners();
+
+      expect(mockGetSwap).toHaveBeenNthCalledWith(i, {
         lockupAddress: {
           [Op.eq]: address,
         },
       });
       expect(mockSetLockupTransactionId).toHaveBeenNthCalledWith(
-        updatesEmitted,
+        i,
         expect.anything(),
         transaction.getId(),
         outputValue,
         state.confirmed,
       );
 
-      expect(mockGetReverseSwap).toHaveBeenNthCalledWith(updatesEmitted, {
-        transactionId: {
-          [Op.eq]: transaction.getId(),
-        },
-      });
-      expect(mockSetReverseSwapStatus).toHaveBeenNthCalledWith(
-        updatesEmitted,
-        expect.anything(),
-        state.status,
-      );
+      if (state.confirmed) {
+        expect(mockGetReverseSwap).toHaveBeenNthCalledWith(1, {
+          transactionId: {
+            [Op.eq]: transaction.getId(),
+          },
+        });
+        expect(mockSetReverseSwapStatus).toHaveBeenNthCalledWith(1,
+          expect.anything(),
+          state.status,
+        );
+      }
+
     }
 
-    expect(updatesEmitted).toEqual(2);
+    expect(updatesEmitted).toEqual(3);
   });
 
   test('should subscribe to invoices', async () => {
@@ -269,7 +290,7 @@ describe('EventHandler', () => {
     // Settled
     eventHandler.once('swap.update', (id, message) => {
       expect(id).toEqual(reverseSwap.id);
-      expect(message).toEqual({ preimage, status: SwapUpdateEvent.InvoiceSettled });
+      expect(message).toEqual({ status: SwapUpdateEvent.InvoiceSettled });
 
       updatesEmitted += 1;
     });
@@ -337,7 +358,10 @@ describe('EventHandler', () => {
 
     const invoice = 'lnbc';
 
-    // Abort
+    const transaction = new Transaction();
+    transaction.addOutput(generateAddress(OutputType.Bech32).outputScript, 1);
+
+    // Expiration
     eventHandler.once('swap.update', (id, message) => {
       expect(id).toEqual(swap.id);
       expect(message).toEqual({ status: SwapUpdateEvent.SwapExpired });
@@ -351,7 +375,7 @@ describe('EventHandler', () => {
       failuresEmitted += 1;
     });
 
-    emitAbort(invoice);
+    emitExpiration(invoice, false);
 
     await wait(20);
 
@@ -361,6 +385,30 @@ describe('EventHandler', () => {
       },
     });
     expect(mockSetSwapStatus).toHaveBeenCalledWith(expect.anything(), SwapUpdateEvent.SwapExpired);
+
+    eventHandler.once('swap.update', (id, message) => {
+      expect(id).toEqual(reverseSwap.id);
+      expect(message).toEqual({ status: SwapUpdateEvent.SwapExpired });
+
+      updatesEmitted += 1;
+    });
+    eventHandler.once('swap.failure', (failedSwap, errorMessage) => {
+      expect(failedSwap.id).toEqual(reverseSwap.id);
+      expect(errorMessage).toEqual('onchain HTLC timed out');
+
+      failuresEmitted += 1;
+    });
+
+    emitExpiration(invoice, true);
+
+    await wait(20);
+
+    expect(mockGetReverseSwap).toHaveBeenNthCalledWith(1, {
+      invoice: {
+        [Op.eq]: invoice,
+      },
+    });
+    expect(mockSetReverseSwapStatus).toHaveBeenCalledWith(expect.anything(), SwapUpdateEvent.SwapExpired);
 
     // Claim
     eventHandler.once('swap.success', (successSwap) => {
@@ -398,16 +446,67 @@ describe('EventHandler', () => {
 
     await wait(20);
 
-    expect(mockGetReverseSwap).toHaveBeenNthCalledWith(1, {
+    expect(mockGetReverseSwap).toHaveBeenNthCalledWith(2, {
       transactionId: {
         [Op.eq]: lockupId,
       },
     });
     expect(mockSetTransactionRefunded).toHaveBeenCalledWith(expect.anything(), minerFee);
 
-    expect(updatesEmitted).toEqual(2);
-    expect(failuresEmitted).toEqual(2);
+    // Coins sent
+    eventHandler.once('swap.update', (id, message) => {
+      expect(id).toEqual(reverseSwap.id);
+      expect(message).toEqual({
+        transactionId: transaction.getId(),
+        transactionHex: transaction.toHex(),
+        status: SwapUpdateEvent.TransactionMempool,
+      });
+
+      updatesEmitted += 1;
+    });
+
+    emitCoinsSent(invoice, transaction, minerFee);
+
+    await wait(20);
+
+    expect(mockGetReverseSwap).toHaveBeenNthCalledWith(3, {
+      invoice: {
+        [Op.eq]: invoice,
+      },
+    });
+    expect(mockSetLockupTransaction).toHaveBeenCalledWith(expect.anything(), transaction.getId(), minerFee);
+
+    // Coins failed to send
+    eventHandler.once('swap.update', (id, message) => {
+      expect(id).toEqual(reverseSwap.id);
+      expect(message).toEqual({ status: SwapUpdateEvent.TransactionFailed });
+
+      updatesEmitted += 1;
+    });
+    eventHandler.once('swap.failure', (failureSwap, errorMessage) => {
+      expect(failureSwap.id).toEqual(reverseSwap.id);
+      expect(errorMessage).toEqual('coins could not be sent');
+
+      failuresEmitted += 1;
+    });
+
+    emitCoinsFailedToSend(invoice);
+
+    await wait(20);
+
+    expect(mockGetReverseSwap).toHaveBeenNthCalledWith(4, {
+      invoice: {
+        [Op.eq]: invoice,
+      },
+    });
+    expect(mockSetReverseSwapStatus).toHaveBeenNthCalledWith(2, expect.anything(), SwapUpdateEvent.TransactionFailed);
+
+    await wait(20);
+
+    expect(updatesEmitted).toEqual(5);
+    expect(failuresEmitted).toEqual(4);
     expect(successEmitted).toBeTruthy();
+
   });
 
   test('should subscribe to channel backups', async () => {

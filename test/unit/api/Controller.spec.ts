@@ -22,12 +22,14 @@ const swaps: SwapDbType[] = [
 const reverseSwaps: ReverseSwapType[] = [
   {
     id: 'rStatus',
-    status: SwapUpdateEvent.TransactionConfirmed,
+    status: SwapUpdateEvent.InvoiceSettled,
   } as any as ReverseSwapType,
   {
     id: 'rStatusSettled',
-    preimage: 'preimage',
-    status: SwapUpdateEvent.InvoiceSettled,
+    orderSide: 0,
+    pair: 'BTC/BTC',
+    transactionId: 'transaction',
+    status: SwapUpdateEvent.TransactionConfirmed,
   } as any as ReverseSwapType,
   {
     id: 'rNoStatus',
@@ -46,7 +48,8 @@ const mockGetFeeEstimation = jest.fn().mockReturnValue(new Map<string, number>([
   ['BTC', 1],
 ]));
 
-const mockGetTransaction = jest.fn().mockReturnValue('transactionHex');
+const rawTransaction = 'transactionHex';
+const mockGetTransaction = jest.fn().mockResolvedValue(rawTransaction);
 
 const mockBroadcastTransaction = jest.fn().mockReturnValue('transactionId');
 
@@ -131,6 +134,9 @@ describe('Controller', () => {
 
     const pendingSwaps = controller['pendingSwapInfos'];
 
+    expect(mockGetTransaction).toHaveBeenCalledTimes(1);
+    expect(mockGetTransaction).toHaveBeenCalledWith('BTC', reverseSwaps[1].transactionId);
+
     expect(pendingSwaps.get(swaps[0].id)).toEqual({
       status: swaps[0].status,
     });
@@ -141,7 +147,8 @@ describe('Controller', () => {
     });
     expect(pendingSwaps.get(reverseSwaps[1].id)).toEqual({
       status: reverseSwaps[1].status,
-      preimage: reverseSwaps[1].preimage,
+      transactionHex: rawTransaction,
+      transactionId: reverseSwaps[1].transactionId,
     });
     expect(pendingSwaps.get(reverseSwaps[2].id)).toBeUndefined();
   });
@@ -248,7 +255,7 @@ describe('Controller', () => {
 
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
-      transactionHex: mockGetTransaction(),
+      transactionHex: rawTransaction,
     });
   });
 

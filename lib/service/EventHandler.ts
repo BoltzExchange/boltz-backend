@@ -34,6 +34,7 @@ interface EventHandler {
 }
 
 // TODO: update tests
+// TODO: check if lockup transaction was confirmed on init
 class EventHandler extends EventEmitter {
   private lock = new AsyncLock();
 
@@ -305,3 +306,4 @@ class EventHandler extends EventEmitter {
 }
 
 export default EventHandler;
+export { SwapUpdate };

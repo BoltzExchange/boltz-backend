@@ -1,15 +1,16 @@
 import { Request, Response } from 'express';
 import Logger from '../Logger';
 import Service from '../service/Service';
+import { SwapUpdate } from '../service/EventHandler';
 import { SwapUpdateEvent, SwapType } from '../consts/Enums';
-import { stringify, getHexBuffer, mapToObject, getVersion } from '../Utils';
+import { stringify, getHexBuffer, mapToObject, getVersion, getChainCurrency, splitPairId } from '../Utils';
 
 class Controller {
   // A map between the ids and HTTP streams of all pending swaps
   private pendingSwapStreams = new Map<string, Response>();
 
   // A map between the ids and statuses of the swaps
-  private pendingSwapInfos = new Map<string, object>();
+  private pendingSwapInfos = new Map<string, SwapUpdate>();
 
   constructor(private logger: Logger, private service: Service) {
     this.service.eventHandler.on('swap.update', (id, message) => {
@@ -33,22 +34,30 @@ class Controller {
 
     swaps.forEach((swap) => {
       if (swap.status) {
-        this.pendingSwapInfos.set(swap.id, { status: swap.status });
+        this.pendingSwapInfos.set(swap.id, { status: swap.status as SwapUpdateEvent });
       }
     });
 
-    reverseSwaps.forEach((reverseSwap) => {
+    // TODO: update tests
+    for (const reverseSwap of reverseSwaps) {
       if (reverseSwap.status) {
-        const status = reverseSwap.status;
+        const status = reverseSwap.status as SwapUpdateEvent;
 
-        // TODO: update for new reverse swaps
-        if (status !== SwapUpdateEvent.InvoiceSettled) {
-          this.pendingSwapInfos.set(reverseSwap.id, { status });
+        if (status === SwapUpdateEvent.TransactionMempool || status === SwapUpdateEvent.TransactionConfirmed) {
+          const { base, quote } = splitPairId(reverseSwap.pair);
+          const chainCurrency = getChainCurrency(base, quote, reverseSwap.orderSide, true);
+          const transactionHex = await this.service.getTransaction(chainCurrency, reverseSwap.transactionId);
+
+          this.pendingSwapInfos.set(reverseSwap.id, {
+            status,
+            transactionHex,
+            transactionId: reverseSwap.transactionId,
+          });
         } else {
-          this.pendingSwapInfos.set(reverseSwap.id, { status, preimage: reverseSwap.preimage });
+          this.pendingSwapInfos.set(reverseSwap.id, { status });
         }
       }
-    });
+    }
   }
 
   // GET requests

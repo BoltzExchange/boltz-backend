@@ -433,7 +433,6 @@ class LndClient extends BaseClient implements LndClient {
 
     invoiceSubscription.on('data', (invoice: lndrpc.Invoice) => {
       if (invoice.getState() === lndrpc.Invoice.InvoiceState.ACCEPTED) {
-        // TODO: verify amount?
         this.logger.debug(`${LndClient.serviceName} ${this.symbol} accepted HTLC for invoice: ${invoice.getPaymentRequest()}`);
         this.emit('htlc.accepted', invoice.getPaymentRequest());
       } else if (invoice.getState() === lndrpc.Invoice.InvoiceState.SETTLED) {
@@ -441,6 +440,8 @@ class LndClient extends BaseClient implements LndClient {
 
         this.logger.debug(`${LndClient.serviceName} ${this.symbol} invoice ${invoice.getPaymentRequest()} settled with preimage: ${preimage}`);
         this.emit('invoice.settled', invoice.getPaymentRequest(), preimage);
+
+        deleteSubscription();
       }
     })
       .on('end', () => deleteSubscription())

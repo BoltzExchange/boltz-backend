@@ -33,6 +33,7 @@ interface EventHandler {
   emit(event: 'channel.backup', currency: string, channelbackup: string): boolean;
 }
 
+// TODO: update tests
 class EventHandler extends EventEmitter {
   private lock = new AsyncLock();
 

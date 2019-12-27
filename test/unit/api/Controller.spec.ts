@@ -2,10 +2,10 @@ import { Request, Response } from 'express';
 import Logger from '../../../lib/Logger';
 import Service from '../../../lib/service/Service';
 import Controller from '../../../lib/api/Controller';
-import { mapToObject, getHexBuffer } from '../../../lib/Utils';
 import { ReverseSwapType } from '../../../lib/db/models/ReverseSwap';
 import { SwapType as SwapDbType } from '../../../lib/db/models/Swap';
 import { SwapUpdateEvent, SwapType } from '../../../lib/consts/Enums';
+import { mapToObject, getHexBuffer, getVersion } from '../../../lib/Utils';
 
 type closeResponseCallback = () => void;
 type swapUpdateCallback = (id: string, message: string) => void;
@@ -144,6 +144,17 @@ describe('Controller', () => {
       preimage: reverseSwaps[1].preimage,
     });
     expect(pendingSwaps.get(reverseSwaps[2].id)).toBeUndefined();
+  });
+
+  test('should get version', () => {
+    const res = mockResponse();
+
+    controller.version(mockRequest({}), res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      version: getVersion(),
+    });
   });
 
   test('should get pairs', () => {
@@ -346,6 +357,7 @@ describe('Controller', () => {
       orderSide: 'buy',
       invoiceAmount: 0,
       claimPublicKey: '298ae8cc',
+      preimageHash: '98aed2bbba02f46751d1d4f687642df910cd1a6b85ba8adfabdbe7d82c8a4e6c',
     };
 
     await controller.createSwap(mockRequest(requestData), res);
@@ -353,6 +365,7 @@ describe('Controller', () => {
     expect(service.createReverseSwap).toHaveBeenCalledWith(
       requestData.pairId,
       requestData.orderSide,
+      getHexBuffer(requestData.preimageHash),
       requestData.invoiceAmount,
       getHexBuffer(requestData.claimPublicKey),
     );

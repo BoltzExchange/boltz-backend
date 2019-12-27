@@ -16,6 +16,18 @@ const mockedDiscordClient = <jest.Mock<DiscordClient>><any>DiscordClient;
 
 const gigabyte = 1073741824;
 
+const highDiskUsage: DiskUsage = {
+  available: 0,
+  free: 5 * gigabyte,
+  total: 20 * gigabyte,
+};
+
+const lowDiskUsage: DiskUsage = {
+  free: 5.05 * gigabyte,
+  available: 5 * gigabyte,
+  total: 10 * gigabyte,
+};
+
 let diskUsage: DiskUsage = {
   free: 2 * gigabyte,
   total: 10 * gigabyte,
@@ -66,46 +78,40 @@ describe('DiskUsageChecker', () => {
   test('should send a warning if disk usage is 90% or greater', async () => {
     await checker.checkUsage();
 
+    expect(checker['alertSent']).toBeTruthy();
+
     expect(mockSendAlert).toHaveBeenCalledTimes(1);
     expect(mockSendAlert).toHaveBeenCalledWith('Disk usage is **90%**: **1 GB** of **10 GB** available');
 
-    diskUsage = {
-      available: 0,
-      free: 5 * gigabyte,
-      total: 20 * gigabyte,
-    };
+    diskUsage = highDiskUsage;
 
     checker['alertSent'] = false;
     await checker.checkUsage();
+
+    expect(checker['alertSent']).toBeTruthy();
 
     expect(mockSendAlert).toHaveBeenCalledTimes(2);
     expect(mockSendAlert).toHaveBeenCalledWith('Disk usage is **100%**: **0 GB** of **20 GB** available');
   });
 
   test('should not send a warning if disk usage is less than 90%', async () => {
-    diskUsage = {
-      free: 5.05 * gigabyte,
-      available: 5 * gigabyte,
-      total: 10 * gigabyte,
-    };
+    diskUsage = lowDiskUsage;
 
     checker['alertSent'] = false;
     await checker.checkUsage();
 
+    expect(checker['alertSent']).toBeFalsy();
     expect(mockSendAlert).toHaveBeenCalledTimes(0);
   });
 
   test('should send warnings only once', async () => {
-    diskUsage = {
-      available: 0,
-      free: 0,
-      total: 1,
-    };
+    diskUsage = highDiskUsage;
 
     checker['alertSent'] = false;
     await checker.checkUsage();
     await checker.checkUsage();
 
+    expect(checker['alertSent']).toBeTruthy();
     expect(mockSendAlert).toHaveBeenCalledTimes(1);
   });
 });

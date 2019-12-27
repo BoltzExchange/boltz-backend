@@ -41,6 +41,7 @@ class Controller {
       if (reverseSwap.status) {
         const status = reverseSwap.status;
 
+        // TODO: update for new reverse swaps
         if (status !== SwapUpdateEvent.InvoiceSettled) {
           this.pendingSwapInfos.set(reverseSwap.id, { status });
         } else {

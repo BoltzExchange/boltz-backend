@@ -19,6 +19,7 @@ import {
   getSendingReceivingCurrency,
 } from '../Utils';
 
+// TODO: update for new reverse swaps
 // TODO: test balance and service alerts
 // TODO: use events instead of intervals to check connections and balances
 class NotificationProvider {

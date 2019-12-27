@@ -43,6 +43,7 @@ type CommandInfo = {
   executor: (args: string[]) => Promise<void>
 };
 
+// TODO: update tests
 class CommandHandler {
   private optManager: OtpManager;
 

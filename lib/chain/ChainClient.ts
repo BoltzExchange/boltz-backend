@@ -31,6 +31,22 @@ type NetworkInfo = {
   incrementalfee: number;
 };
 
+type UnspentUtxo = {
+  txid: string;
+  vout: number;
+  address: string;
+  label: string;
+  scriptPubKey: string;
+  amount: number;
+  confirmations: number;
+  redeemScript: string;
+  witnessScript: string;
+  spendable: boolean;
+  solvable: boolean;
+  desc?: string;
+  safe: boolean;
+};
+
 interface ChainClient {
   on(event: 'block', listener: (height: number) => void): this;
   emit(event: 'block', height: number): boolean;
@@ -196,6 +212,10 @@ class ChainClient extends BaseClient {
    */
   public sendToAddress = (address: string, amount: number) => {
     return this.client.request<string>('sendtoaddress', [address, amount / ChainClient.decimals]);
+  }
+
+  public listUnspent = () => {
+    return this.client.request<UnspentUtxo[]>('listunspent');
   }
 
   public generate = async (blocks: number) => {

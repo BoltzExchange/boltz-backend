@@ -89,6 +89,7 @@ interface SwapNursery {
   emit(event: 'refund', lockupTransactionId: string, lockupVout: number, minerFee: number): boolean;
 }
 
+// TODO: update tests
 // TODO: make sure swaps work after restarts (save to and read from database)
 class SwapNursery extends EventEmitter {
   private maps = new Map<string, SwapMaps>();

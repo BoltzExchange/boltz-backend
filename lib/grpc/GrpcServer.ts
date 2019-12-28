@@ -51,7 +51,7 @@ class GrpcServer {
     }
   }
 
-  public close = async () => {
+  public close = () => {
     return new Promise((resolve) => {
       this.server.tryShutdown(() => {
         this.logger.info('gRPC server completed shutdown');

@@ -17,7 +17,7 @@ function openChannel () {
   nodeAddress=$($1 getnewaddress)
   lndAddress=$($2 newaddress p2wkh | jq -r '.address')
   
-  $1 sendtoaddress ${lndAddress} 1.1 > /dev/null
+  $1 sendtoaddress ${lndAddress} 10 > /dev/null
 
   $1 generatetoaddress 1 $nodeAddress > /dev/null
 

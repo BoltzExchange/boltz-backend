@@ -359,7 +359,6 @@ class SwapNursery extends EventEmitter {
 
       this.emit('coins.sent', invoice, transaction, fee);
     } catch (error) {
-      // TODO: check this
       receivingMaps.reverseSwaps.delete(invoice);
 
       await this.lndClients.get(details.receivingSymbol)!.cancelInvoice(details.preimageHash);

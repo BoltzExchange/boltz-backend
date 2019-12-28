@@ -23,11 +23,11 @@ interface EventHandler {
   on(event: 'swap.update', listener: (id: string, message: SwapUpdate) => void): this;
   emit(event: 'swap.update', id: string, message: SwapUpdate): boolean;
 
-  on(event: 'swap.success', listener: (swap: Swap | ReverseSwap) => void): this;
-  emit(event: 'swap.success', swap: Swap | ReverseSwap): boolean;
+  on(event: 'swap.success', listener: (swap: Swap | ReverseSwap, isReverse: boolean) => void): this;
+  emit(event: 'swap.success', swap: Swap | ReverseSwap, isReverse: boolean): boolean;
 
-  on(event: 'swap.failure', listener: (reverseSwap: Swap | ReverseSwap, reason: string) => void): this;
-  emit(event: 'swap.failure', reverseSwap: Swap | ReverseSwap, reason: string): boolean;
+  on(event: 'swap.failure', listener: (reverseSwap: Swap | ReverseSwap, isReverse: boolean, reason: string) => void): this;
+  emit(event: 'swap.failure', reverseSwap: Swap | ReverseSwap, isReverse: boolean, reason: string): boolean;
 
   on(event: 'channel.backup', listener: (currency: string, channelBackup: string) => void): this;
   emit(event: 'channel.backup', currency: string, channelbackup: string): boolean;
@@ -135,7 +135,7 @@ class EventHandler extends EventEmitter {
             this.logger.verbose(`Reverse swap ${reverseSwap.id} succeeded`);
 
             this.emit('swap.update', reverseSwap.id, { status: SwapUpdateEvent.InvoiceSettled });
-            this.emit('swap.success', reverseSwap);
+            this.emit('swap.success', reverseSwap, true);
           }
         });
       });
@@ -190,7 +190,7 @@ class EventHandler extends EventEmitter {
           this.logger.verbose(`Swap ${swap!.id} succeeded`);
 
           this.emit('swap.update', swap!.id, { status: SwapUpdateEvent.TransactionClaimed });
-          this.emit('swap.success', swap!);
+          this.emit('swap.success', swap!, false);
         }
       });
     });
@@ -297,14 +297,14 @@ class EventHandler extends EventEmitter {
     this.logger.warn(`Swap ${swap.id} failed: ${reason}`);
 
     this.emit('swap.update', swap.id, { status });
-    this.emit('swap.failure', swap, reason);
+    this.emit('swap.failure', swap, false, reason);
   }
 
   private handleFailedReverseSwap = (reverseSwap: ReverseSwap, reason: string, status: SwapUpdateEvent) => {
     this.logger.warn(`Reverse swap ${reverseSwap.id} failed: ${reason}`);
 
     this.emit('swap.update', reverseSwap.id, { status });
-    this.emit('swap.failure', reverseSwap, reason);
+    this.emit('swap.failure', reverseSwap, true, reason);
   }
 }
 

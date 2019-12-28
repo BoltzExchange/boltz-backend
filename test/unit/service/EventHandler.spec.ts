@@ -294,8 +294,9 @@ describe('EventHandler', () => {
 
       updatesEmitted += 1;
     });
-    eventHandler.once('swap.success', (successSwap) => {
+    eventHandler.once('swap.success', (successSwap, isReverse) => {
       expect(successSwap.id).toEqual(reverseSwap.id);
+      expect(isReverse).toBeTruthy();
 
       successEmitted = true;
     });
@@ -321,7 +322,8 @@ describe('EventHandler', () => {
 
       updatesEmitted += 1;
     });
-    eventHandler.once('swap.failure', (failedSwap, errorMessage) => {
+    eventHandler.once('swap.failure', (failedSwap, isReverse, errorMessage) => {
+      expect(isReverse).toBeFalsy();
       expect(failedSwap.id).toEqual(swap.id);
       expect(errorMessage).toEqual('invoice could not be paid');
 
@@ -368,7 +370,8 @@ describe('EventHandler', () => {
 
       updatesEmitted += 1;
     });
-    eventHandler.once('swap.failure', (failedSwap, errorMessage) => {
+    eventHandler.once('swap.failure', (failedSwap, isReverse, errorMessage) => {
+      expect(isReverse).toBeFalsy();
       expect(failedSwap.id).toEqual(swap.id);
       expect(errorMessage).toEqual('onchain HTLC timed out');
 
@@ -392,7 +395,8 @@ describe('EventHandler', () => {
 
       updatesEmitted += 1;
     });
-    eventHandler.once('swap.failure', (failedSwap, errorMessage) => {
+    eventHandler.once('swap.failure', (failedSwap, isReverse, errorMessage) => {
+      expect(isReverse).toBeTruthy();
       expect(failedSwap.id).toEqual(reverseSwap.id);
       expect(errorMessage).toEqual('onchain HTLC timed out');
 
@@ -411,8 +415,9 @@ describe('EventHandler', () => {
     expect(mockSetReverseSwapStatus).toHaveBeenCalledWith(expect.anything(), SwapUpdateEvent.SwapExpired);
 
     // Claim
-    eventHandler.once('swap.success', (successSwap) => {
+    eventHandler.once('swap.success', (successSwap, isReverse) => {
       expect(successSwap.id).toEqual(swap.id);
+      expect(isReverse).toBeFalsy();
 
       successEmitted = true;
     });
@@ -435,7 +440,8 @@ describe('EventHandler', () => {
 
       updatesEmitted += 1;
     });
-    eventHandler.once('swap.failure', (failureSwap, errorMessage) => {
+    eventHandler.once('swap.failure', (failureSwap, isReverse, errorMessage) => {
+      expect(isReverse).toBeTruthy();
       expect(failureSwap.id).toEqual(reverseSwap.id);
       expect(errorMessage).toEqual('onchain HTLC timed out');
 
@@ -483,9 +489,10 @@ describe('EventHandler', () => {
 
       updatesEmitted += 1;
     });
-    eventHandler.once('swap.failure', (failureSwap, errorMessage) => {
+    eventHandler.once('swap.failure', (failureSwap, isReverse, errorMessage) => {
+      expect(isReverse).toBeTruthy();
       expect(failureSwap.id).toEqual(reverseSwap.id);
-      expect(errorMessage).toEqual('coins could not be sent');
+      expect(errorMessage).toEqual('onchain coins could not be sent');
 
       failuresEmitted += 1;
     });

@@ -68,7 +68,7 @@ export default {
     code: concatErrorCode(ErrorCodePrefix.Service, 15),
   }),
   COINS_COULD_NOT_BE_SENT: (): Error => ({
-    message: 'coins could not be sent',
+    message: 'onchain coins could not be sent',
     code: concatErrorCode(ErrorCodePrefix.Service, 16),
   }),
 };

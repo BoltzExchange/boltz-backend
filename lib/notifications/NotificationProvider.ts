@@ -1,13 +1,13 @@
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';
 import Service from '../service/Service';
+import { OrderSide } from '../consts/Enums';
 import DiscordClient from './DiscordClient';
 import CommandHandler from './CommandHandler';
 import DiskUsageChecker from './DiskUsageChecker';
 import ReverseSwap from '../db/models/ReverseSwap';
 import BackupScheduler from '../backup/BackupScheduler';
 import { satoshisToCoins } from '../DenominationConverter';
-import { SwapUpdateEvent, OrderSide } from '../consts/Enums';
 import { NotificationConfig, CurrencyConfig } from '../Config';
 import { CurrencyInfo, LndInfo, ChainInfo } from '../proto/boltzrpc_pb';
 import {
@@ -19,7 +19,6 @@ import {
   getSendingReceivingCurrency,
 } from '../Utils';
 
-// TODO: update for new reverse swaps
 // TODO: test balance and service alerts
 // TODO: use events instead of intervals to check connections and balances
 class NotificationProvider {
@@ -197,7 +196,7 @@ class NotificationProvider {
         `Pair: ${swap.pair}\n` +
         `Order side: ${swap.orderSide === OrderSide.BUY ? 'buy' : 'sell'}\n` +
         `${swap.onchainAmount ? `Onchain amount: ${satoshisToCoins(swap.onchainAmount)} ${onchainSymbol}\n` : ''}` +
-        `Lightning amount: ${satoshisToCoins(lightningAmount)} ${lightningSymbol}\n`;
+        `Lightning amount: ${satoshisToCoins(lightningAmount)} ${lightningSymbol}`;
     };
 
     const getSymbols = (pairId: string, orderSide: number, isReverse: boolean) => {
@@ -209,14 +208,13 @@ class NotificationProvider {
       };
     };
 
-    this.service.eventHandler.on('swap.success', async (swap) => {
-      const isReverse = swap.status === SwapUpdateEvent.InvoiceSettled;
+    this.service.eventHandler.on('swap.success', async (swap, isReverse) => {
       const { onchainSymbol, lightningSymbol } = getSymbols(swap.pair, swap.orderSide, isReverse);
 
       // tslint:disable-next-line: prefer-template
       let message = `**Swap ${getSwapTitle(swap.pair, swap.orderSide, isReverse)}**\n` +
-       `${getBasicSwapInfo(swap, onchainSymbol, lightningSymbol)}` +
-       `Fees earned: ${satoshisToCoins(swap.fee)} ${onchainSymbol}\n` +
+       `${getBasicSwapInfo(swap, onchainSymbol, lightningSymbol)}\n` +
+       `Fees earned: ${this.numberToDecimal(satoshisToCoins(swap.fee))} ${onchainSymbol}\n` +
        `Miner fees: ${satoshisToCoins(swap.minerFee!)} ${onchainSymbol}`;
 
       if (!isReverse) {
@@ -227,8 +225,7 @@ class NotificationProvider {
       await this.discord.sendMessage(`${message}${NotificationProvider.trailingWhitespace}`);
     });
 
-    this.service.eventHandler.on('swap.failure', async (swap, reason) => {
-      const isReverse = swap.status === SwapUpdateEvent.TransactionRefunded;
+    this.service.eventHandler.on('swap.failure', async (swap, isReverse, reason) => {
       const { onchainSymbol, lightningSymbol } = getSymbols(swap.pair, swap.orderSide, isReverse);
 
       // tslint:disable-next-line: prefer-template
@@ -236,9 +233,11 @@ class NotificationProvider {
         `${getBasicSwapInfo(swap, onchainSymbol, lightningSymbol)}`;
 
       if (isReverse) {
-        message += `Miner fees: ${satoshisToCoins(swap.minerFee!)} ${onchainSymbol}`;
+        if (swap.minerFee) {
+          message += `\nMiner fees: ${satoshisToCoins(swap.minerFee)} ${onchainSymbol}`;
+        }
       } else {
-        message += `Invoice: ${swap.invoice}`;
+        message += `\nInvoice: ${swap.invoice}`;
       }
 
       await this.discord.sendMessage(`${message}${NotificationProvider.trailingWhitespace}`);
@@ -304,6 +303,24 @@ class NotificationProvider {
     switch (symbol) {
       case 'LTC': return 'litoshi';
       default: return 'satoshi';
+    }
+  }
+
+  private numberToDecimal = (toFormat: number) => {
+    // Numbers smaller 1e-6 are formatted in the scientific notation when converted to a string
+    if (toFormat < 1e-6) {
+      let format = toFormat.toFixed(8);
+
+      // Trim the leading 0 if it exists
+      const lastZero = format.lastIndexOf('0');
+
+      if (lastZero === format.length - 1) {
+        format = format.slice(0, format.length - 1);
+      }
+
+      return format;
+    } else {
+      return toFormat.toString();
     }
   }
 }

@@ -1,9 +1,9 @@
 import { wait } from '../../Utils';
 import Logger from '../../../lib/Logger';
-import { stringify, getHexBuffer } from '../../../lib/Utils';
 import Database from '../../../lib/db/Database';
 import Service from '../../../lib/service/Service';
 import { NotificationConfig } from '../../../lib/Config';
+import { stringify, getHexBuffer } from '../../../lib/Utils';
 import PairRepository from '../../../lib/service/PairRepository';
 import SwapRepository from '../../../lib/service/SwapRepository';
 import BackupScheduler from '../../../lib/backup/BackupScheduler';
@@ -495,7 +495,6 @@ describe('CommandHandler', () => {
     ]);
 
     await pairRepository.dropTable();
-
     await database.close();
   });
 });

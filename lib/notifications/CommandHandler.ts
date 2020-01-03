@@ -307,28 +307,20 @@ class CommandHandler {
     const [pendingSwaps, pendingReverseSwaps] = await Promise.all([
       this.service.swapRepository.getSwaps({
         status: {
-          [Op.or]: {
-            [Op.not]: [
-              SwapUpdateEvent.SwapExpired,
-              SwapUpdateEvent.InvoiceFailedToPay,
-              SwapUpdateEvent.TransactionClaimed,
-            ],
-            // tslint:disable-next-line: no-null-keyword
-            [Op.eq]: null,
-          },
+          [Op.not]: [
+            SwapUpdateEvent.SwapExpired,
+            SwapUpdateEvent.InvoiceFailedToPay,
+            SwapUpdateEvent.TransactionClaimed,
+          ],
         },
       }),
       this.service.reverseSwapRepository.getReverseSwaps({
         status: {
-          [Op.or]: {
-            [Op.not]: [
-              SwapUpdateEvent.SwapExpired,
-              SwapUpdateEvent.InvoiceSettled,
-              SwapUpdateEvent.TransactionRefunded,
-            ],
-            // tslint:disable-next-line: no-null-keyword
-            [Op.eq]: null,
-          },
+          [Op.not]: [
+            SwapUpdateEvent.SwapExpired,
+            SwapUpdateEvent.InvoiceSettled,
+            SwapUpdateEvent.TransactionRefunded,
+          ],
         },
       }),
     ]);

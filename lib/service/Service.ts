@@ -13,7 +13,7 @@ import RateProvider from '../rates/RateProvider';
 import { encodeBip21 } from './PaymentRequestUtils';
 import TimeoutDeltaProvider from './TimeoutDeltaProvider';
 import ReverseSwapRepository from './ReverseSwapRepository';
-import { OrderSide, ServiceWarning } from '../consts/Enums';
+import { OrderSide, ServiceWarning, SwapUpdateEvent } from '../consts/Enums';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import {
   getRate,
@@ -377,7 +377,10 @@ class Service {
       orderSide: side,
       fee: percentageFee,
       lockupAddress: address,
+      status: SwapUpdateEvent.SwapCreated,
     });
+
+    this.eventHandler.emitSwapCreation(id);
 
     return {
       id,
@@ -457,7 +460,10 @@ class Service {
       pair: pairId,
       orderSide: side,
       fee: percentageFee,
+      status: SwapUpdateEvent.SwapCreated,
     });
+
+    this.eventHandler.emitSwapCreation(id);
 
     return {
       id,

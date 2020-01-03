@@ -10,8 +10,8 @@ import SwapManager from '../../../lib/swap/SwapManager';
 import LndClient from '../../../lib/lightning/LndClient';
 import ChainClient from '../../../lib/chain/ChainClient';
 import { CurrencyInfo } from '../../../lib/proto/boltzrpc_pb';
-import { ServiceWarning, OrderSide } from '../../../lib/consts/Enums';
 import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
+import { ServiceWarning, OrderSide, SwapUpdateEvent } from '../../../lib/consts/Enums';
 
 const packageJson = require('../../../package.json');
 
@@ -459,8 +459,16 @@ describe('Service', () => {
     const invoice = 'lnbcrt1m1pw5qjj2pp5fzncpqa5hycqppwvelygawz2jarnxnngry945mm3uv6janpjfvgqdqqcqzpg35dc9zwwu3jhww7q087fc8h6tjs2he6w0yulc3nz262waznvp2s5t9xlwgau2lzjl8zxjlt5jxtgkamrz2e4ct3d70azmkh2hhgddkgpg38yqt';
 
     // Create a new swap
+    let emittedId = '';
+
+    service.eventHandler.once('swap.update', (id, message) => {
+      expect(message).toEqual({ status: SwapUpdateEvent.SwapCreated });
+      emittedId = id;
+    });
+
     const response = await service.createSwap(pair, orderSide, invoice, refundPublicKey);
 
+    expect(emittedId).toEqual(response.id);
     expect(response).toEqual({
       expectedAmount,
       id: expect.anything(),
@@ -505,6 +513,7 @@ describe('Service', () => {
       orderSide: OrderSide.BUY,
       keyIndex: mockedSwap.keyIndex,
       lockupAddress: mockedSwap.address,
+      status: SwapUpdateEvent.SwapCreated,
       redeemScript: mockedSwap.redeemScript,
       timeoutBlockHeight: mockedSwap.timeoutBlockHeight,
     });
@@ -537,6 +546,13 @@ describe('Service', () => {
 
     service.allowReverseSwaps = true;
 
+    let emittedId = '';
+
+    service.eventHandler.once('swap.update', (id, message) => {
+      expect(message).toEqual({ status: SwapUpdateEvent.SwapCreated });
+      emittedId = id;
+    });
+
     const response = await service.createReverseSwap(
       pair,
       orderSide,
@@ -545,6 +561,7 @@ describe('Service', () => {
       claimPublicKey,
     );
 
+    expect(emittedId).toEqual(response.id);
     expect(response).toEqual({
       onchainAmount,
       id: expect.anything(),
@@ -574,11 +591,11 @@ describe('Service', () => {
     expect(mockAddReverseSwap).toHaveBeenCalledWith({
       pair,
       onchainAmount,
-
       fee: 1,
       id: response.id,
       orderSide: OrderSide.BUY,
       invoice: response.invoice,
+      status: SwapUpdateEvent.SwapCreated,
       keyIndex: mockedReverseSwap.keyIndex,
       redeemScript: mockedReverseSwap.redeemScript,
       timeoutBlockHeight: mockedReverseSwap.timeoutBlockHeight,

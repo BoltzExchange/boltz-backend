@@ -22,6 +22,9 @@ export enum OrderSide {
 }
 
 export enum SwapUpdateEvent {
+  SwapCreated = 'swap.created',
+  SwapExpired = 'swap.expired',
+
   InvoicePaid = 'invoice.paid',
   InvoiceSettled = 'invoice.settled',
   InvoiceFailedToPay = 'invoice.failedToPay',
@@ -31,8 +34,6 @@ export enum SwapUpdateEvent {
   TransactionClaimed = 'transaction.claimed',
   TransactionRefunded = 'transaction.refunded',
   TransactionConfirmed = 'transaction.confirmed',
-
-  SwapExpired = 'swap.expired',
 }
 
 export enum ServiceWarning {

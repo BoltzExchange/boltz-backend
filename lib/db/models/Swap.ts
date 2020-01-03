@@ -14,7 +14,7 @@ type SwapType = {
   pair: string;
   orderSide: number;
 
-  status?: string;
+  status: string;
 
   invoice: string;
 
@@ -38,7 +38,7 @@ class Swap extends Model implements SwapType {
   public pair!: string;
   public orderSide!: number;
 
-  public status?: string;
+  public status!: string;
 
   public invoice!: string;
 
@@ -61,7 +61,7 @@ class Swap extends Model implements SwapType {
       minerFee: { type: new DataTypes.INTEGER(), allowNull: true },
       pair: { type: new DataTypes.STRING(255), allowNull: false },
       orderSide: { type: new DataTypes.INTEGER(), allowNull: false },
-      status: { type: new DataTypes.STRING(255), allowNull: true },
+      status: { type: new DataTypes.STRING(255), allowNull: false },
       invoice: { type: new DataTypes.STRING(255), unique: true, allowNull: false },
       acceptZeroConf: { type: DataTypes.BOOLEAN, allowNull: false },
       timeoutBlockHeight: { type: DataTypes.INTEGER, allowNull: false },

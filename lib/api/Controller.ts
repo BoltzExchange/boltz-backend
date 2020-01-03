@@ -45,6 +45,7 @@ class Controller {
         if (status === SwapUpdateEvent.TransactionMempool || status === SwapUpdateEvent.TransactionConfirmed) {
           const { base, quote } = splitPairId(reverseSwap.pair);
           const chainCurrency = getChainCurrency(base, quote, reverseSwap.orderSide, true);
+
           const transactionHex = await this.service.getTransaction(chainCurrency, reverseSwap.transactionId);
 
           this.pendingSwapInfos.set(reverseSwap.id, {

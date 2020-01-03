@@ -54,6 +54,10 @@ class EventHandler extends EventEmitter {
     this.subscribeChannelBackups();
   }
 
+  public emitSwapCreation = (id: string) => {
+    this.emit('swap.update', id, { status: SwapUpdateEvent.SwapCreated });
+  }
+
   /**
    * Subscribes to a stream of confirmed transactions to addresses that were specified with "ListenOnAddress"
    */

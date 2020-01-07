@@ -4,9 +4,11 @@
 
 Boltz exposes a Restful HTTP API that can not only be used to query information about the Boltz instance and the pairs it supports but also to create swaps and interact with the blockchains that are configured on that specific instance. This page lists all of the available endpoints and shows how to use them correctly.
 
-### Response encoding
+### Response and request encoding
 
 All of the responses to all calls are encoded as JSON objects. If endpoints require the client to provide any kind of arguments these also have to be encoded as JSON and sent in the body of a POST request.
+
+Please make sure to set the `Content-Type` header of your `POST` requests to `application/json` if you are sending JSON encoded data in the body of the request.
 
 ### Error handling
 
@@ -15,6 +17,32 @@ If a call fails for some reason the returned [HTTP status code](https://en.wikip
 ```json
 {
   "error": "some message explaining why the call failed"
+}
+```
+
+## Getting version
+
+To get the version of the deployed Boltz backed instance one has to query this API endpoint.
+
+| URL            | Response
+|----------------|------------
+| `GET /version` | JSON object
+
+Status Codes:
+
+- `200 OK`
+
+Response object:
+
+- `version`: the deployed version of the Boltz backend
+
+**Examples:**
+
+`GET /version`
+
+```json
+{
+  "version": "2.1.0-beta-d3ddba0-dirty"
 }
 ```
 
@@ -224,7 +252,10 @@ Status Codes:
 Response object:
 
 - `status`: status of the swap
-- `preimage`: if the `status` is `invoice.settled`, the JSON object will also contain this value so that the client interacting with the Boltz API doesn't necessarily have to be connected to the lightning node that paid the invoice. This, of course, requires that the Boltz instance is honest and trustworthy.
+- `transaction`: in case of a reverse swap the lockup transaction details are not in the response of the call which creates the swap. Therefore, the events `transaction.mempool` and `transaction.confirmed` contain it
+    - `id`: id of the lockup transaction
+    - `hex`: hex encoded lockup transaction
+    - `eta`: if the status is `transaction.mempool`, this value is the estimated time of arrival (ETA) in blocks of when the transaction will be confirmed
 
 **Examples:**
 
@@ -246,8 +277,6 @@ Response:
 }
 ```
 
-If the status is `invoice.settled` there will be another string in the body of the HTTP response. `preimage` is the hex encoded preimage of the invoice that was paid by the user. This is helpful in the case of the client not being able to query the lightning node for the preimage directly.
-
 `POST /swapstatus`
 
 Request body:
@@ -262,8 +291,12 @@ Response:
 
 ```json
 {
-  "status": "invoice.settled",
-  "preimage": "aab7a9ee7ebadadc3e052d7aa0aff0651dec24d8b72d1c0f6d01fa3fd5a3a5c6"
+  "status": "transaction.mempool",
+  "transaction": {
+    "id": "31fcddf287d985eef85211b75976cd903dba3008a8e13b597e1b54941278c29f",
+    "hex": "01000000000101618cd5c50221577a1b98ae4a73f652917f9d2e343b9bc6a978239da78dfcbc630000000000ffffffff02b878010000000000220020ddc8dd3bcb45660e421fc3129bfdcb317446c27ce909369d4c8cb17bbd6d4951c718393b00000000160014ea9e0fc9432fc8b6831e94ac3974d46d1ba1c62f024830450221008b14ecce2eebb2ec7e56c53de4796603fbd22cfd269f3a5249446b79987dec36022059b68568a57ebfbd50cc792af3d514c507af20e795ff5f0bf2a02d2fc44be223012103a1ad2a3891018e856700a20a4dea6bea9f4bba58ab3ca7cbaefaa06e805770d100000000",
+    "eta": 2
+  }
 }
 ```
 
@@ -303,10 +336,11 @@ data: {"status":"transaction.mempool"}
 data: {"status":"invoice.paid"}
 ```
 
-## Creating swaps
+## Creating Swaps
 
 To create a swap from onchain coins to lightning ones just a single request has to be sent. This `POST` request has to have the following values in its JSON encoded body:
 
+- `type`: type of the swap to create; always `submarine` for normal swaps
 - `pairId`: the pair on which the swap should be created
 - `orderSide`: either `buy` or `sell` depending on what the user wants
 - `invoice`: the invoice of the user that should be paid
@@ -339,6 +373,7 @@ Request body:
 
 ```json
 {
+  "type": "submarine",
   "pairId": "LTC/BTC",
   "orderSide": "sell",
   "refundPublicKey": "a9142f7150b969c9c9fb9094a187f8fb41d617a65e20876300670171b1752102e317e5607e757e9c4448fe458876d7e361222d2cbee33ece9e3a7b2e2359be4d68ac",
@@ -360,13 +395,20 @@ Response:
 }
 ```
 
-## Creating reverse swaps
+## Creating Reverse Swaps
 
-Creating reverse swaps (lightning to onchain coins) is really similar to creating normal ones.
+Creating reverse swaps (lightning to onchain coins) is pretty similar to creating normal ones. The JSON encoded body of the `POST` request has to contain:
 
-| URL                       | Response
-|---------------------------|------------
-| `POST /createreverseswap` | JSON object
+- `type`: type of the swap to create; always `reversesubmarine` for reverse swaps
+- `pairId`: the pair on which the swap should be created
+- `orderSide`: either `buy` or `sell` depending on what the user wants
+- `invoiceAmount`: amount of the invoice that will be generate by Boltz
+- `preimageHash`: the SHA256 hash of a preimage that was generate locally by the client. The size of that preimage has to be 32 bytes or none of locked the coins can get claimed
+- `claimPublicKey`: public key of a keypair that will allow the user to claim the locked up coins with the preimage
+
+| URL                | Response
+|--------------------|------------
+| `POST /createswap` | JSON object
 
 Status Codes:
 
@@ -385,15 +427,17 @@ Response object:
 
 **Examples:**
 
-`POST /createreverseswap`
+`POST /createswap`
 
 Request body:
 
 ```json
 {
+  "type": "reversesubmarine",
   "pairId": "LTC/BTC",
   "orderSide": "buy",
   "invoiceAmount": 1000000,
+  "preimageHash": "51a05b15e66ecd12bf6b1b62a678e63add0185bc5f41d2cd013611f7a4b6704f",
   "claimPublicKey": "a9142f7150b969c9c9fb9094a187f8fb41d617a65e20876300670171b1752102e317e5607e757e9c4448fe458876d7e361222d2cbee33ece9e3a7b2e2359be4d68ac"
 }
 ```
@@ -406,8 +450,7 @@ Response:
   "invoice": "lnbcrt1m1pwcuv4hpp5d5ydjvllqn9l9lxqxkjrmead28p4h8c7mhykygwcw39cfkn4y9hqdql2fjhvetjwdjjq5mhv9czqar0ypp9gsccqzpggtrxt78s655f4cfysav46rpv20u320ctswy5gx04xqvq3qjqn8a9vvkhgzeyjzs2dx9g90ge7jr9u8n42n8htf09spkudks8skds67cqklcf7k",
   "redeemScript": "a914382c733f81adfd13010d2dd72da83d019cf4f13787632103e25b3f3bb7f9978410d52b4c763e3c8fe6d43cf462e91138c5b0f61b92c93d70670178b17521036721e5267bb2c4741fa1da1835dbe579ad296395c13ff954bfdbf17474d2a2ab68ac",
   "onchainAmount": 99194,
-  "lockupTransaction": "020000000001014fc6fe7cfbbfc3965db4ba9d59ed008181140a907433fbef60b3614eb881ef000000000000ffffffff027a83010000000000220020d9994ac6d793d26ece7dd5e95b516bab0f374cc51c5d04f9dfb85650e5749d4b5445993b00000000160014f6e6b427efd748756a28bcff11e57c16e7f4c08302473044022002aa820813a894fc052bde440ae1aaeecff982ba9958bc94943a6f1e98e2f04102205062febe288bf165b8cdfc6ff84425a1a3bace416e157aaf3add823a1c0c317d012103a479dd9d81c7f0f0cc8a8efd632c9e2745ec110e2e21ec7541a10ae4c684d10900000000",
   "timeoutBlockHeight": 120,
-  "lockupTransactionId": "42fc12adec64c3ec96853c12f52ebf1c68157d577a03a001130173aa709b4e57"
+  "lockupAddress": "bcrt1qxelh2k86skcncmzmm6059az0n0h02d7pvhylgvdevh59u0t8rl5qycus9p"
 }
 ```

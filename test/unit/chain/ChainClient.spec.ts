@@ -2,6 +2,7 @@ import Logger from '../../../lib/Logger';
 import { getHexBuffer } from '../../../lib/Utils';
 import ChainClient from '../../../lib/chain/ChainClient';
 
+const relevantInputs = new Set<string>();
 const relevantOutputs = new Set<string>();
 
 jest.mock('../../../lib/chain/RpcClient', () => {
@@ -27,6 +28,7 @@ jest.mock('../../../lib/chain/RpcClient', () => {
 jest.mock('../../../lib/chain/ZmqClient', () => {
   return jest.fn().mockImplementation(() => {
     return {
+      relevantInputs,
       relevantOutputs,
       on: () => {},
     };
@@ -69,6 +71,29 @@ describe('ChainClient', () => {
 
     outputs.forEach((output) => {
       expect(relevantOutputs.has(output)).toBeTruthy();
+    });
+  });
+
+  test('should update the input filter', async () => {
+    const inputs = [
+      '1c56c6503cf6963d58b1b59e699abadd2bfe13be929e9ffc4f531eae2365cffe',
+      '4ef4858b59840db6716fd3801eef71dab18e9f0e1046246cc6de4e6e0c93329d',
+      'f067aadce5f678f4dca18c100bd14824728bd9b15aa6ab890ee192398aeada96',
+      '7fdafa7c0e6aa78b09cd38fc8ef3e494ca4f8e4af4f12ffc79c733a9ed0cff25',
+    ];
+
+    const buffers: Buffer[] = [];
+
+    inputs.forEach((output) => {
+      buffers.push(getHexBuffer(output));
+    });
+
+    chainClient.updateInputFilter(buffers);
+
+    expect(relevantInputs.size).toEqual(inputs.length);
+
+    inputs.forEach((input) => {
+      expect(relevantInputs.has(input)).toBeTruthy();
     });
   });
 });

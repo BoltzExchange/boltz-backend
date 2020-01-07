@@ -8,19 +8,19 @@ type ReverseSwapType = {
   redeemScript: string;
 
   fee: number;
-  minerFee: number;
+  minerFee?: number;
 
   pair: string;
   orderSide: number;
 
-  status?: string;
+  status: string;
   timeoutBlockHeight: number;
 
   invoice: string;
   preimage?: string;
 
   onchainAmount: number;
-  transactionId: string;
+  transactionId?: string;
 };
 
 class ReverseSwap extends Model implements ReverseSwapType {
@@ -35,7 +35,7 @@ class ReverseSwap extends Model implements ReverseSwapType {
   public pair!: string;
   public orderSide!: number;
 
-  public status?: string;
+  public status!: string;
   public timeoutBlockHeight!: number;
 
   public invoice!: string;
@@ -53,15 +53,15 @@ class ReverseSwap extends Model implements ReverseSwapType {
       keyIndex: { type: new DataTypes.INTEGER(), allowNull: false },
       redeemScript: { type: new DataTypes.STRING(255), allowNull: false },
       fee: { type: new DataTypes.INTEGER(), allowNull: false },
-      minerFee: { type: new DataTypes.INTEGER(), allowNull: false },
+      minerFee: { type: new DataTypes.INTEGER(), allowNull: true },
       pair: { type: new DataTypes.STRING(255), allowNull: false },
       orderSide: { type: new DataTypes.INTEGER(), allowNull: false },
-      status: { type: new DataTypes.STRING(255), allowNull: true },
+      status: { type: new DataTypes.STRING(255), allowNull: false },
       timeoutBlockHeight: { type: new DataTypes.INTEGER(), allowNull: false },
       invoice: { type: new DataTypes.STRING(255), allowNull: false },
       preimage: { type: new DataTypes.STRING(255), allowNull: true },
       onchainAmount: { type: new DataTypes.INTEGER(), allowNull: false },
-      transactionId: { type: new DataTypes.STRING(255), allowNull: false },
+      transactionId: { type: new DataTypes.STRING(255), allowNull: true },
     }, {
       sequelize,
       tableName: 'reverseSwaps',

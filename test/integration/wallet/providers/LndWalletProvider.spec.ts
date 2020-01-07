@@ -104,7 +104,8 @@ describe('LndWalletProvider', () => {
     expect((await provider.getBalance()).confirmedBalance).toEqual(0);
   });
 
-  afterAll(() => {
+  afterAll(async () => {
+    await bitcoinClient.generate(1);
     bitcoinLndClient.disconnect();
   });
 });

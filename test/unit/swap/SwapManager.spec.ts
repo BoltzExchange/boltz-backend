@@ -8,15 +8,19 @@ import { OrderSide } from '../../../lib/consts/Enums';
 import LndClient from '../../../lib/lightning/LndClient';
 import ChainClient from '../../../lib/chain/ChainClient';
 import WalletManager from '../../../lib/wallet/WalletManager';
+import { MinimalReverseSwapDetails } from '../../../lib/swap/SwapNursery';
 import SwapManager, { SwapDetails, ReverseSwapDetails } from '../../../lib/swap/SwapManager';
 
-const mockAddSwap = jest.fn().mockImplementation();
 const mockBindCurrency = jest.fn().mockImplementation();
+
+const mockAddSwap = jest.fn().mockImplementation();
+const mockAddReverseSwap = jest.fn().mockImplementation();
 
 jest.mock('../../../lib/swap/SwapNursery', () => {
   return jest.fn().mockImplementation(() => ({
     addSwap: mockAddSwap,
     bindCurrency: mockBindCurrency,
+    addReverseSwap: mockAddReverseSwap,
   }));
 });
 
@@ -39,11 +43,10 @@ jest.mock('../../../lib/chain/ChainClient', () => {
 
 const mockedChainClient = <jest.Mock<ChainClient>><any>ChainClient;
 
-const addedInvoice = {
-  paymentRequest: 'lnbcrt1',
-  rHash: 'lHnyKGRo1CGqZmbFa4JVnhAoy3jasXZc/QxBdmJaSCg=',
+const addedHoldInvoice = {
+  paymentRequest: 'lnbcrt1hold',
 };
-const mockAddInvoice = jest.fn().mockResolvedValue(addedInvoice);
+const mockAddHoldInvoice = jest.fn().mockResolvedValue(addedHoldInvoice);
 
 const decodedPayReq = {
   numSatoshis: 10000,
@@ -92,9 +95,9 @@ const mockQueryRoutes = jest.fn().mockImplementation(async (destination: string)
 
 jest.mock('../../../lib/lightning/LndClient', () => {
   return jest.fn().mockImplementation(() => ({
-    addInvoice: mockAddInvoice,
     queryRoutes: mockQueryRoutes,
     decodePayReq: mockDecodePayReq,
+    addHoldInvoice: mockAddHoldInvoice,
   }));
 });
 
@@ -234,7 +237,10 @@ describe('SwapManager', () => {
 
         swaps: expect.anything(),
         swapTimeouts: expect.anything(),
+
         reverseSwaps: expect.anything(),
+        reverseSwapTimeouts: expect.anything(),
+        reverseSwapTransactions: expect.anything(),
       },
       {
         invoice,
@@ -242,7 +248,6 @@ describe('SwapManager', () => {
         expectedAmount,
         acceptZeroConf,
         claimKeys: newKeys.keys,
-        lndClient: expect.anything(),
         redeemScript: getHexBuffer(response.redeemScript),
       },
       getHexBuffer('a914205d5fb9e785f0df21c9fac5594496e90135058387'),
@@ -307,36 +312,36 @@ describe('SwapManager', () => {
     const quoteCurrency = 'BTC';
     const timeoutBlockDelta = 2;
     const orderSide = OrderSide.BUY;
+    const outputType = OutputType.Bech32;
     const claimPublicKey = getHexBuffer('0xfff');
+    const preimageHash = getHexBuffer('083236df9ca7cffc49a5164167595ae3f77f17b3fc81ed6530134816a29f9a14');
 
     // tslint:disable-next-line: max-line-length
-    const expectedRedeemScript = 'a9149213f2c84e856d554c52bae6580284d1115b4e9287630067017db17521023d9e44575cd6f03dbc851cc9a6e037339302d0faad6a8d86284745146850633e68ac';
-    const expectedOutputScript = getHexBuffer('0020193b0d2145878a5dd45f6d43188fcd29df7dee7cbb57706541d7b246d0f40074');
+    const expectedRedeemScript = '8201208763a9145c44e40d43303607cabd1dd1fd00384ac41c6d5d88006775017db17521023d9e44575cd6f03dbc851cc9a6e037339302d0faad6a8d86284745146850633e68ac';
+    const expectedOutputScript = getHexBuffer('00204ad5075f8a83a2736ebca13fc319702e5bc3e274a9cd579da2da0dba183175b5');
 
     const response = await manager.createReverseSwap(
       baseCurrency,
       quoteCurrency,
       orderSide,
+      preimageHash,
       invoiceAmont,
       onchainAmount,
       claimPublicKey,
-      OutputType.Bech32,
+      outputType,
       timeoutBlockDelta,
     );
 
     expect(response).toEqual({
       keyIndex: newKeys.index,
-      minerFee: transactionSent.fee,
       lockupAddress: encodedAddress,
       redeemScript: expectedRedeemScript,
-      invoice: addedInvoice.paymentRequest,
-      lockupTransaction: transactionSent.transaction.toHex(),
-      lockupTransactionId: transactionSent.transaction.getId(),
+      invoice: addedHoldInvoice.paymentRequest,
       timeoutBlockHeight: timeoutBlockDelta + blockchainInfo.blocks,
     });
 
-    expect(mockAddInvoice).toHaveBeenCalledTimes(1);
-    expect(mockAddInvoice).toHaveBeenCalledWith(invoiceAmont, 'Reverse Swap to LTC');
+    expect(mockAddHoldInvoice).toHaveBeenCalledTimes(1);
+    expect(mockAddHoldInvoice).toHaveBeenCalledWith(invoiceAmont, preimageHash, 'Reverse Swap to LTC');
 
     expect(mockGetNewKeys).toHaveBeenCalledTimes(1);
 
@@ -348,44 +353,24 @@ describe('SwapManager', () => {
     expect(mockUpdateOutputFilter).toHaveBeenCalledTimes(1);
     expect(mockUpdateOutputFilter).toHaveBeenCalledWith([expectedOutputScript]);
 
-    expect(mockSendToAddress).toHaveBeenCalledTimes(1);
-    expect(mockSendToAddress).toHaveBeenCalledWith(
-      encodedAddress,
-      onchainAmount,
-    );
+    expect(mockAddReverseSwap).toHaveBeenCalledTimes(1);
+    expect(mockAddReverseSwap).toHaveBeenCalledWith(
+      {
+        outputType,
+        preimageHash,
+        refundKeys: newKeys.keys,
+        sendingSymbol: baseCurrency,
+        receivingSymbol: quoteCurrency,
+        redeemScript: getHexBuffer(expectedRedeemScript),
 
-    expect(mockSendRawTransaction).toHaveBeenCalledTimes(1);
-    expect(mockSendRawTransaction).toHaveBeenCalledWith(transactionSent.transaction.toHex());
-
-    const reverseSwapDetails = {
-      refundKeys: newKeys.keys,
-      redeemScript: getHexBuffer(expectedRedeemScript),
-      output: {
-        value: onchainAmount,
-        type: OutputType.Bech32,
-        vout: transactionSent.vout,
-        script: expectedOutputScript,
-        txHash: transactionSent.transaction.getHash(),
+        sendingDetails: {
+          amount: onchainAmount,
+          address: encodedAddress,
+        },
       },
-    };
-
-    expect(manager['currencies'].get('LTC')!.reverseSwaps.get(125)).toEqual([reverseSwapDetails]);
-
-    await expect(manager.createReverseSwap(
-      baseCurrency,
-      quoteCurrency,
-      orderSide,
-      invoiceAmont,
-      onchainAmount,
-      claimPublicKey,
-      OutputType.Bech32,
-      timeoutBlockDelta,
-    )).resolves.toEqual(response);
-
-    expect(manager['currencies'].get('LTC')!.reverseSwaps.get(125)).toEqual([
-      reverseSwapDetails,
-      reverseSwapDetails,
-    ]);
+      addedHoldInvoice.paymentRequest,
+      response.timeoutBlockHeight,
+    );
   });
 
   test('should check routability', async () => {
@@ -440,7 +425,9 @@ describe('SwapManager', () => {
       swaps: new Map<string, SwapDetails>(),
       swapTimeouts: new Map<number, string[]>(),
 
-      reverseSwaps: new Map<number, ReverseSwapDetails[]>(),
+      reverseSwaps: new Map<string, ReverseSwapDetails>(),
+      reverseSwapTransactions: new Map<string, MinimalReverseSwapDetails>(),
+      reverseSwapTimeouts: new Map<number, MinimalReverseSwapDetails[]>(),
     });
 
     // Throw if currency cannot be found

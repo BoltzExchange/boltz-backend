@@ -7,7 +7,7 @@ import { NotificationConfig } from '../Config';
 class OtpManager {
   private secret: string;
 
-  // This variable keeps track of the last used token to prevent reusing tokens
+  // This variable keeps track of the last used token to prevent that the same token can be used multiple times
   private lastUsedToken = '';
 
   private static service = 'Boltz';

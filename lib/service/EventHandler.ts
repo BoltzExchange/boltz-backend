@@ -1,7 +1,7 @@
 import { Op } from 'sequelize';
 import AsyncLock from 'async-lock';
 import { EventEmitter } from 'events';
-import { TxOutput, address } from 'bitcoinjs-lib';
+import { Transaction, TxOutput, address } from 'bitcoinjs-lib';
 import Errors from './Errors';
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';
@@ -12,21 +12,28 @@ import ReverseSwap from '../db/models/ReverseSwap';
 import { Currency } from '../wallet/WalletManager';
 import ReverseSwapRepository from './ReverseSwapRepository';
 
+type TransactionInfo = {
+  eta?: number;
+
+  id: string;
+  hex: string;
+};
+
 type SwapUpdate = {
   status: SwapUpdateEvent;
 
-  preimage?: string;
+  transaction?: TransactionInfo;
 };
 
 interface EventHandler {
   on(event: 'swap.update', listener: (id: string, message: SwapUpdate) => void): this;
   emit(event: 'swap.update', id: string, message: SwapUpdate): boolean;
 
-  on(event: 'swap.success', listener: (swap: Swap | ReverseSwap) => void): this;
-  emit(event: 'swap.success', swap: Swap | ReverseSwap): boolean;
+  on(event: 'swap.success', listener: (swap: Swap | ReverseSwap, isReverse: boolean) => void): this;
+  emit(event: 'swap.success', swap: Swap | ReverseSwap, isReverse: boolean): boolean;
 
-  on(event: 'swap.failure', listener: (reverseSwap: Swap | ReverseSwap, reason: string) => void): this;
-  emit(event: 'swap.failure', reverseSwap: Swap | ReverseSwap, reason: string): boolean;
+  on(event: 'swap.failure', listener: (reverseSwap: Swap | ReverseSwap, isReverse: boolean, reason: string) => void): this;
+  emit(event: 'swap.failure', reverseSwap: Swap | ReverseSwap, isReverse: boolean, reason: string): boolean;
 
   on(event: 'channel.backup', listener: (currency: string, channelBackup: string) => void): this;
   emit(event: 'channel.backup', currency: string, channelbackup: string): boolean;
@@ -53,6 +60,10 @@ class EventHandler extends EventEmitter {
     this.subscribeChannelBackups();
   }
 
+  public emitSwapCreation = (id: string) => {
+    this.emit('swap.update', id, { status: SwapUpdateEvent.SwapCreated });
+  }
+
   /**
    * Subscribes to a stream of confirmed transactions to addresses that were specified with "ListenOnAddress"
    */
@@ -62,45 +73,52 @@ class EventHandler extends EventEmitter {
         transaction.outs.forEach(async (out) => {
           const output = out as TxOutput;
 
-          await Promise.all([
-            this.lock.acquire(EventHandler.swapLock, async () => {
-              const swap = await this.swapRepository.getSwap({
-                lockupAddress: {
-                  [Op.eq]: address.fromOutputScript(output.script, currency.network),
-                },
-              });
+          const promises: Promise<void>[] = [];
 
-              if (swap) {
-                if (!swap.status || swap.status === SwapUpdateEvent.TransactionMempool) {
-                  await this.swapRepository.setLockupTransactionId(swap, transaction.getId(), output.value, confirmed);
+          promises.push(this.lock.acquire(EventHandler.swapLock, async () => {
+            const swap = await this.swapRepository.getSwap({
+              lockupAddress: {
+                [Op.eq]: address.fromOutputScript(output.script, currency.network),
+              },
+            });
 
-                  if (confirmed || swap.acceptZeroConf) {
-                    this.emit('swap.update', swap.id, {
-                      status: confirmed ? SwapUpdateEvent.TransactionConfirmed : SwapUpdateEvent.TransactionMempool,
-                    });
-                  }
+            if (swap) {
+              if (!swap.status || swap.status === SwapUpdateEvent.TransactionMempool) {
+                await this.swapRepository.setLockupTransactionId(swap, transaction.getId(), output.value, confirmed);
+
+                if (confirmed || swap.acceptZeroConf) {
+                  this.emit('swap.update', swap.id, {
+                    status: confirmed ? SwapUpdateEvent.TransactionConfirmed : SwapUpdateEvent.TransactionMempool,
+                  });
                 }
               }
-            }),
+            }
+          }));
 
-            this.lock.acquire(EventHandler.reverseSwapLock, async () => {
+          if (confirmed) {
+            promises.push(this.lock.acquire(EventHandler.reverseSwapLock, async () => {
               const reverseSwap = await this.reverseSwapRepository.getReverseSwap({
                 transactionId: {
                   [Op.eq]: transaction.getId(),
                 },
               });
 
-              if (reverseSwap) {
-                if (!reverseSwap.status || reverseSwap.status === SwapUpdateEvent.TransactionMempool) {
-                  const status = confirmed ? SwapUpdateEvent.TransactionConfirmed : SwapUpdateEvent.TransactionMempool;
+              if (reverseSwap && reverseSwap.status === SwapUpdateEvent.TransactionMempool) {
+                const status = SwapUpdateEvent.TransactionConfirmed;
 
-                  await this.reverseSwapRepository.setReverseSwapStatus(reverseSwap, status);
-
-                  this.emit('swap.update', reverseSwap.id, { status });
-                }
+                await this.reverseSwapRepository.setReverseSwapStatus(reverseSwap, status);
+                this.emit('swap.update', reverseSwap.id, {
+                  status,
+                  transaction: {
+                    id: transaction.getId(),
+                    hex: transaction.toHex(),
+                  },
+                });
               }
-            }),
-          ]);
+            }));
+          }
+
+          await Promise.all(promises);
         });
       });
     });
@@ -128,8 +146,8 @@ class EventHandler extends EventEmitter {
 
             this.logger.verbose(`Reverse swap ${reverseSwap.id} succeeded`);
 
-            this.emit('swap.update', reverseSwap.id, { preimage, status: SwapUpdateEvent.InvoiceSettled });
-            this.emit('swap.success', reverseSwap);
+            this.emit('swap.update', reverseSwap.id, { status: SwapUpdateEvent.InvoiceSettled });
+            this.emit('swap.success', reverseSwap, true);
           }
         });
       });
@@ -159,14 +177,8 @@ class EventHandler extends EventEmitter {
         });
 
         if (swap) {
-          const error = Errors.INVOICE_COULD_NOT_BE_PAID();
-
           swap = await this.swapRepository.setSwapStatus(swap, SwapUpdateEvent.InvoiceFailedToPay);
-
-          this.logger.info(`Swap ${swap!.id} failed: ${error.message}`);
-
-          this.emit('swap.update', swap!.id, { status: SwapUpdateEvent.InvoiceFailedToPay });
-          this.emit('swap.failure', swap!, error.message);
+          this.handleFailedSwap(swap!, Errors.INVOICE_COULD_NOT_BE_PAID().message, SwapUpdateEvent.InvoiceFailedToPay);
         }
       });
     });
@@ -190,28 +202,77 @@ class EventHandler extends EventEmitter {
           this.logger.verbose(`Swap ${swap!.id} succeeded`);
 
           this.emit('swap.update', swap!.id, { status: SwapUpdateEvent.TransactionClaimed });
-          this.emit('swap.success', swap!);
+          this.emit('swap.success', swap!, false);
         }
       });
     });
 
-    this.nursery.on('abort', async (invoice) => {
-      await this.lock.acquire(EventHandler.swapLock, async () => {
-        let swap = await this.swapRepository.getSwap({
+    this.nursery.on('expiration', async (invoice, isReverse) => {
+      if (!isReverse) {
+        await this.lock.acquire(EventHandler.swapLock, async () => {
+          let swap = await this.swapRepository.getSwap({
+            invoice: {
+              [Op.eq]: invoice,
+            },
+          });
+
+          if (swap) {
+            swap = await this.swapRepository.setSwapStatus(swap, SwapUpdateEvent.SwapExpired);
+            this.handleFailedSwap(swap!, Errors.ONCHAIN_HTLC_TIMED_OUT().message, SwapUpdateEvent.SwapExpired);
+          }
+        });
+      } else {
+        await this.lock.acquire(EventHandler.reverseSwapLock, async () => {
+          let reverseSwap = await this.reverseSwapRepository.getReverseSwap({
+            invoice: {
+              [Op.eq]: invoice,
+            },
+          });
+
+          if (reverseSwap) {
+            reverseSwap = await this.reverseSwapRepository.setReverseSwapStatus(reverseSwap, SwapUpdateEvent.SwapExpired);
+            this.handleFailedReverseSwap(reverseSwap, Errors.ONCHAIN_HTLC_TIMED_OUT().message, SwapUpdateEvent.SwapExpired);
+          }
+        });
+      }
+    });
+
+    this.nursery.on('coins.sent', async (invoice: string, transaction: Transaction, minerFee: number) => {
+      await this.lock.acquire(EventHandler.reverseSwapLock, async () => {
+        const transactionId = transaction.getId();
+
+        let reverseSwap = await this.reverseSwapRepository.getReverseSwap({
           invoice: {
             [Op.eq]: invoice,
           },
         });
 
-        if (swap) {
-          swap = await this.swapRepository.setSwapStatus(swap, SwapUpdateEvent.SwapExpired);
+        if (reverseSwap) {
+          reverseSwap = await this.reverseSwapRepository.setLockupTransaction(reverseSwap, transactionId, minerFee);
 
-          const error = Errors.ONCHAIN_HTLC_TIMED_OUT();
+          this.emit('swap.update', reverseSwap!.id, {
+            status: SwapUpdateEvent.TransactionMempool,
+            transaction: {
+              id: transactionId,
+              hex: transaction.toHex(),
+              eta: SwapNursery.reverseSwapMempoolEta,
+            },
+          });
+        }
+      });
+    });
 
-          this.logger.info(`Swap ${swap!.id} failed: ${error.message}`);
+    this.nursery.on('coins.failedToSend', async (invoice) => {
+      await this.lock.acquire(EventHandler.reverseSwapLock, async () => {
+        let reverseSwap = await this.reverseSwapRepository.getReverseSwap({
+          invoice: {
+            [Op.eq]: invoice,
+          },
+        });
 
-          this.emit('swap.update', swap!.id, { status: SwapUpdateEvent.SwapExpired });
-          this.emit('swap.failure', swap!, error.message);
+        if (reverseSwap) {
+          reverseSwap = await this.reverseSwapRepository.setReverseSwapStatus(reverseSwap, SwapUpdateEvent.TransactionFailed);
+          this.handleFailedReverseSwap(reverseSwap, Errors.COINS_COULD_NOT_BE_SENT().message, SwapUpdateEvent.TransactionFailed);
         }
       });
     });
@@ -226,13 +287,7 @@ class EventHandler extends EventEmitter {
 
         if (reverseSwap) {
           reverseSwap = await this.reverseSwapRepository.setTransactionRefunded(reverseSwap, minerFee);
-
-          const error = Errors.ONCHAIN_HTLC_TIMED_OUT();
-
-          this.logger.info(`Reverse swap ${reverseSwap.id} failed: ${error.message}`);
-
-          this.emit('swap.update', reverseSwap.id, { status: SwapUpdateEvent.TransactionRefunded });
-          this.emit('swap.failure', reverseSwap, error.message);
+          this.handleFailedReverseSwap(reverseSwap, Errors.ONCHAIN_HTLC_TIMED_OUT().message, SwapUpdateEvent.TransactionRefunded);
         }
       });
     });
@@ -252,6 +307,21 @@ class EventHandler extends EventEmitter {
       }
     });
   }
+
+  private handleFailedSwap = (swap: Swap, reason: string, status: SwapUpdateEvent) => {
+    this.logger.warn(`Swap ${swap.id} failed: ${reason}`);
+
+    this.emit('swap.update', swap.id, { status });
+    this.emit('swap.failure', swap, false, reason);
+  }
+
+  private handleFailedReverseSwap = (reverseSwap: ReverseSwap, reason: string, status: SwapUpdateEvent) => {
+    this.logger.warn(`Reverse swap ${reverseSwap.id} failed: ${reason}`);
+
+    this.emit('swap.update', reverseSwap.id, { status });
+    this.emit('swap.failure', reverseSwap, true, reason);
+  }
 }
 
 export default EventHandler;
+export { SwapUpdate };

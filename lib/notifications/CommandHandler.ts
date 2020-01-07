@@ -143,7 +143,7 @@ class CommandHandler {
     this.discord.on('message', async (message: string) => {
       const args = message.split(' ');
 
-      // Get and remove the first argument from the array which is the command itself
+      // Get the command and remove the first argument from the array which is the command itself
       const command = args.shift();
 
       if (command) {
@@ -197,7 +197,7 @@ class CommandHandler {
     let message = 'Fees:\n';
 
     const { swaps, reverseSwaps } = await Report.getSuccessfulSwaps(this.service.swapRepository, this.service.reverseSwapRepository);
-    const fees = this.getFeeFromSwaps(swaps, reverseSwaps);
+    const fees = this.getFeeOfSwaps(swaps, reverseSwaps);
 
     fees.forEach((fee, symbol) => {
       message += `\n**${symbol}**: ${satoshisToCoins(fee)} ${symbol}`;
@@ -270,7 +270,14 @@ class CommandHandler {
   }
 
   private lockedFunds = async () => {
-    const pendingReverseSwaps = await this.getPendingReverseSwaps();
+    const pendingReverseSwaps = await this.service.reverseSwapRepository.getReverseSwaps({
+      status: {
+        [Op.or]: [
+          SwapUpdateEvent.TransactionMempool,
+          SwapUpdateEvent.TransactionConfirmed,
+        ],
+      },
+    });
 
     const lockedFunds = new Map<string, number>();
 
@@ -300,19 +307,22 @@ class CommandHandler {
     const [pendingSwaps, pendingReverseSwaps] = await Promise.all([
       this.service.swapRepository.getSwaps({
         status: {
-          [Op.or]: {
-            [Op.not]: [
-              SwapUpdateEvent.SwapExpired,
-              SwapUpdateEvent.InvoiceFailedToPay,
-              SwapUpdateEvent.TransactionClaimed,
-            ],
-            // Swaps have an empty status by default
-            // tslint:disable-next-line: no-null-keyword
-            [Op.eq]: null,
-          },
+          [Op.not]: [
+            SwapUpdateEvent.SwapExpired,
+            SwapUpdateEvent.InvoiceFailedToPay,
+            SwapUpdateEvent.TransactionClaimed,
+          ],
         },
       }),
-      this.getPendingReverseSwaps(),
+      this.service.reverseSwapRepository.getReverseSwaps({
+        status: {
+          [Op.not]: [
+            SwapUpdateEvent.SwapExpired,
+            SwapUpdateEvent.InvoiceSettled,
+            SwapUpdateEvent.TransactionRefunded,
+          ],
+        },
+      }),
     ]);
 
     let message = '';
@@ -409,25 +419,17 @@ class CommandHandler {
   private toggleReverseSwaps = async () => {
     this.service.allowReverseSwaps = !this.service.allowReverseSwaps;
 
-    await this.discord.sendMessage(`${this.service.allowReverseSwaps ? 'Enabled' : 'Disabled'} reverse swaps`);
+    const message = `${this.service.allowReverseSwaps ? 'Enabled' : 'Disabled'} reverse swaps`;
+
+    this.logger.info(message);
+    await this.discord.sendMessage(message);
   }
 
   /*
    * Helper functions
    */
 
-  private getPendingReverseSwaps = async () => {
-    return this.service.reverseSwapRepository.getReverseSwaps({
-      status: {
-        [Op.not]: [
-          SwapUpdateEvent.InvoiceSettled,
-          SwapUpdateEvent.TransactionRefunded,
-        ],
-      },
-    });
-  }
-
-  private getFeeFromSwaps = (swaps: Swap[], reverseSwaps: ReverseSwap[]) => {
+  private getFeeOfSwaps = (swaps: Swap[], reverseSwaps: ReverseSwap[]) => {
     // A map between the symbols of the currencies and the fees collected on that chain
     const fees = new Map<string, number>();
 

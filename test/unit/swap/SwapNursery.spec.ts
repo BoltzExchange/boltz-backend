@@ -9,13 +9,14 @@ import ChainClient from '../../../lib/chain/ChainClient';
 import LndClient from '../../../lib/lightning/LndClient';
 import { SendResponse } from '../../../lib/proto/lndrpc_pb';
 import WalletManager from '../../../lib/wallet/WalletManager';
-import SwapNursery, { SwapDetails, ReverseSwapDetails } from '../../../lib/swap/SwapNursery';
+import SwapNursery, { SwapDetails, ReverseSwapDetails, MinimalReverseSwapDetails } from '../../../lib/swap/SwapNursery';
 
 const mockSendPayment = jest.fn().mockReturnValue(new SendResponse());
 
 jest.mock('../../../lib/lightning/LndClient', () => {
   return jest.fn().mockImplementation(() => {
     return {
+      on: () => {},
       sendPayment: mockSendPayment,
     };
   });
@@ -103,7 +104,6 @@ describe('SwapNursery', () => {
   const chainClient = mockedChainClient();
 
   const emptySwapDetails = {
-    lndClient,
     expectedAmount: 0,
     acceptZeroConf: true,
     invoice: 'lnbcrt10000',
@@ -120,7 +120,9 @@ describe('SwapNursery', () => {
 
   const swaps = new Map<string, SwapDetails>();
   const swapTimeouts = new Map<number, string[]>();
-  const reverseSwaps = new Map<number, ReverseSwapDetails[]>();
+  const reverseSwaps = new Map<string, ReverseSwapDetails>();
+  const reverseSwapTransactions =  new Map<string, MinimalReverseSwapDetails>();
+  const reverseSwapTimeouts = new Map<number, MinimalReverseSwapDetails[]>();
 
   beforeAll(() => {
     swapNursery.bindCurrency({
@@ -133,6 +135,8 @@ describe('SwapNursery', () => {
       swaps,
       swapTimeouts,
       reverseSwaps,
+      reverseSwapTimeouts,
+      reverseSwapTransactions,
     });
   });
 

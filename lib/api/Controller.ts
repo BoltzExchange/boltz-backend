@@ -1,15 +1,17 @@
 import { Request, Response } from 'express';
 import Logger from '../Logger';
 import Service from '../service/Service';
+import SwapNursery from '../swap/SwapNursery';
+import { SwapUpdate } from '../service/EventHandler';
 import { SwapUpdateEvent, SwapType } from '../consts/Enums';
-import { stringify, getHexBuffer, mapToObject } from '../Utils';
+import { stringify, getHexBuffer, mapToObject, getVersion, getChainCurrency, splitPairId } from '../Utils';
 
 class Controller {
   // A map between the ids and HTTP streams of all pending swaps
   private pendingSwapStreams = new Map<string, Response>();
 
   // A map between the ids and statuses of the swaps
-  private pendingSwapInfos = new Map<string, object>();
+  private pendingSwapInfos = new Map<string, SwapUpdate>();
 
   constructor(private logger: Logger, private service: Service) {
     this.service.eventHandler.on('swap.update', (id, message) => {
@@ -33,25 +35,43 @@ class Controller {
 
     swaps.forEach((swap) => {
       if (swap.status) {
-        this.pendingSwapInfos.set(swap.id, { status: swap.status });
+        this.pendingSwapInfos.set(swap.id, { status: swap.status as SwapUpdateEvent });
       }
     });
 
-    reverseSwaps.forEach((reverseSwap) => {
+    for (const reverseSwap of reverseSwaps) {
       if (reverseSwap.status) {
-        const status = reverseSwap.status;
+        const status = reverseSwap.status as SwapUpdateEvent;
 
-        if (status !== SwapUpdateEvent.InvoiceSettled) {
-          this.pendingSwapInfos.set(reverseSwap.id, { status });
+        if (status === SwapUpdateEvent.TransactionMempool || status === SwapUpdateEvent.TransactionConfirmed) {
+          const { base, quote } = splitPairId(reverseSwap.pair);
+          const chainCurrency = getChainCurrency(base, quote, reverseSwap.orderSide, true);
+
+          const transactionHex = await this.service.getTransaction(chainCurrency, reverseSwap.transactionId);
+
+          this.pendingSwapInfos.set(reverseSwap.id, {
+            status,
+            transaction: {
+              hex: transactionHex,
+              id: reverseSwap.transactionId,
+              eta: status === SwapUpdateEvent.TransactionMempool ? SwapNursery.reverseSwapMempoolEta : undefined,
+            },
+          });
         } else {
-          this.pendingSwapInfos.set(reverseSwap.id, { status, preimage: reverseSwap.preimage });
+          this.pendingSwapInfos.set(reverseSwap.id, { status });
         }
       }
-    });
+    }
   }
 
   // GET requests
-  public getPairs = (_req: Request, res: Response) => {
+  public version = (_: Request, res: Response) => {
+    this.successResponse(res, {
+      version: getVersion(),
+    });
+  }
+
+  public getPairs = (_: Request, res: Response) => {
     const data = this.service.getPairs();
 
     this.successResponse(res, {
@@ -128,6 +148,7 @@ class Controller {
 
         case SwapType.ReverseSubmarine:
           await this.createReverseSubmarineSwap(req, res);
+          break;
       }
 
     } catch (error) {
@@ -138,8 +159,8 @@ class Controller {
   private createSubmarineSwap = async (req: Request, res: Response) => {
     const { pairId, orderSide, invoice, refundPublicKey } = this.validateRequest(req.body, [
       { name: 'pairId', type: 'string' },
-      { name: 'orderSide', type: 'string' },
       { name: 'invoice', type: 'string' },
+      { name: 'orderSide', type: 'string' },
       { name: 'refundPublicKey', type: 'string', isHex: true },
     ]);
 
@@ -157,14 +178,20 @@ class Controller {
   }
 
   private createReverseSubmarineSwap = async (req: Request, res: Response) => {
-    const { pairId, orderSide, invoiceAmount, claimPublicKey } = this.validateRequest(req.body, [
+    const {
+      pairId,
+      orderSide,
+      preimageHash,
+      invoiceAmount,
+      claimPublicKey,
+    } = this.validateRequest(req.body, [
       { name: 'pairId', type: 'string' },
       { name: 'orderSide', type: 'string' },
       { name: 'invoiceAmount', type: 'number' },
+      { name: 'preimageHash', type: 'string', isHex: true },
       { name: 'claimPublicKey', type: 'string', isHex: true },
     ]);
-
-    const response = await this.service.createReverseSwap(pairId, orderSide, invoiceAmount, claimPublicKey);
+    const response = await this.service.createReverseSwap(pairId, orderSide, preimageHash, invoiceAmount, claimPublicKey);
 
     this.logger.verbose(`Created reverse swap with id: ${response.id}`);
     this.logger.silly(`Reverse swap ${response.id}: ${stringify(response)}`);

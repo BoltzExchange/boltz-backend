@@ -22,10 +22,12 @@ If the user doesn't send onchain coins until the time lock is expired, Boltz wil
 
 ## Reverse Submarine Swaps
 
-Reverse swaps are from lightning to onchain coins. In this scenario, Boltz locks up coins and provides an invoice that has to be paid in order to claim those coins.
+Reverse swaps are from lightning to onchain coins. In this scenario the user generates a preimage, creates SHA256 hash of it and sends that hash to Boltz. With that hash Boltz creates a hold invoice, that can only be settled when the preimage is revealed to the boltz backend. The user pays that invoice but the lightning coins are not transferred to Boltz yet because it doesn't know the preimage. Therefore, the backend locks up onchain coins using the same hash so that these can be claimed with the preimage. When the claim transaction is broadcasted by the user, Boltz detects the preimage and in turn claims the lightning coins.
 
-1. `transaction.mempool`: the lockup transaction is found in the mempool which is immediately after the reverse swap was created
-2. `transaction.confirmed`: the lockup transaction is included in a block. This status can be skipped if the user wants to accept a 0-conf transaction
-3. `invoice.settled`: the provided invoice was paid by the user which means the onchain coins that were locked up can be claimed now
+1. `transaction.mempool`: the lockup transaction is found in the mempool which will happen after the user pay the hold invoice
+2. `transaction.confirmed`: the lockup transaction is included in a block. This status can and will be skipped if the user wants to accept a 0-conf transaction
+3. `invoice.settled`: the transaction claiming the onchain coins was broadcasted and Boltz received the offchain coins
 
-In case of the timelock expiring, Boltz will automatically refund its locked up coins. The status of the reverse swap will change to `transaction.refunded` and paying the invoice becomes futile because the locked up coins were already spent by the refunding transaction.
+If Boltz is unable to send the agreed amount of onchain coins after the invoice is paid, the status of the status will become `transaction.failed` and the pending lightning HTLC will be cancelled.
+
+In case of the timelock expiring, Boltz will automatically refund its locked up coins. The status of the reverse swap will change to `transaction.refunded` and paying the invoice becomes futile because the locked up coins were already spent by the refunding transaction and only cause a pending HTLC in one of the channels of the user. If the reverse swap expires before the invoice is paid, the status of the swap will change to `swap.expired`.

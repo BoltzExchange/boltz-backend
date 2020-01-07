@@ -3,7 +3,10 @@ import path from 'path';
 import bolt11 from '@boltz/bolt11';
 import { Transaction } from 'bitcoinjs-lib';
 import { OutputType, Scripts } from 'boltz-core';
+import commitHash from './Version';
 import { OrderSide } from './consts/Enums';
+
+const packageJson = require('../package.json');
 
 const {
   p2shOutput,
@@ -384,4 +387,8 @@ export const formatError = (error: any) => {
   } else {
     return JSON.stringify(error);
   }
+};
+
+export const getVersion = () => {
+  return `${packageJson.version}${commitHash}`;
 };

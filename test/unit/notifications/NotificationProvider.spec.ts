@@ -1,10 +1,10 @@
+import { join } from 'path';
 import { unlinkSync, existsSync } from 'fs';
 import { wait } from '../../Utils';
 import Logger from '../../../lib/Logger';
 import Swap from '../../../lib/db/models/Swap';
 import Service from '../../../lib/service/Service';
 import { getInvoiceAmt } from '../../../lib/Utils';
-import { SwapUpdateEvent } from '../../../lib/consts/Enums';
 import ReverseSwap from '../../../lib/db/models/ReverseSwap';
 import { swapExample, reverseSwapExample } from './ExampleSwaps';
 import BackupScheduler from '../../../lib/backup/BackupScheduler';
@@ -12,8 +12,8 @@ import DiscordClient from '../../../lib/notifications/DiscordClient';
 import { satoshisToCoins } from '../../../lib/DenominationConverter';
 import NotificationProvider from '../../../lib/notifications/NotificationProvider';
 
-type successCallback = (swap: Swap | ReverseSwap) => void;
-type failureCallback = (swap: Swap | ReverseSwap, reason: string) => void;
+type successCallback = (swap: Swap | ReverseSwap, isReverse: boolean) => void;
+type failureCallback = (swap: Swap | ReverseSwap, isReverse: boolean, reason: string) => void;
 
 let emitSwapSuccess: successCallback;
 let emitSwapFailure: failureCallback;
@@ -30,11 +30,11 @@ jest.mock('../../../lib/service/Service', () => {
   return jest.fn().mockImplementation(() => {
     return {
       eventHandler: {
-        on: (event: string, callback: successCallback | failureCallback) => {
+        on: (event: string, callback: any) => {
           if (event === 'swap.success') {
-            emitSwapSuccess = callback as successCallback;
+            emitSwapSuccess = callback;
           } else {
-            emitSwapFailure = callback as failureCallback;
+            emitSwapFailure = callback;
           }
         },
       },
@@ -73,12 +73,9 @@ describe('NotificationProvider', () => {
     ...swapExample,
   } as any as Swap;
 
-  const mockReverseSwap = (status: SwapUpdateEvent | string) => {
-    return {
-      ...reverseSwapExample,
-      status,
-    } as any as ReverseSwap;
-  };
+  const reverseSwap = {
+    ...reverseSwapExample,
+  } as any as ReverseSwap;
 
   const config = {
     token: '',
@@ -113,7 +110,7 @@ describe('NotificationProvider', () => {
   });
 
   test('should send a notification after successful (reverse) swaps', async () => {
-    emitSwapSuccess(swap);
+    emitSwapSuccess(swap, false);
     await wait(5);
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
@@ -131,9 +128,7 @@ describe('NotificationProvider', () => {
       NotificationProvider['trailingWhitespace'],
     );
 
-    const reverseSwap = mockReverseSwap(reverseSwapExample.status);
-
-    emitSwapSuccess(reverseSwap);
+    emitSwapSuccess(reverseSwap, true);
     await wait(5);
 
     expect(mockSendMessage).toHaveBeenCalledTimes(2);
@@ -154,7 +149,7 @@ describe('NotificationProvider', () => {
   test('should send a notification after failed (reverse) swaps', async () => {
     const failureReason = 'because';
 
-    emitSwapFailure(swap, failureReason);
+    emitSwapFailure(swap, false, failureReason);
     await wait(5);
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
@@ -170,9 +165,7 @@ describe('NotificationProvider', () => {
       NotificationProvider['trailingWhitespace'],
     );
 
-    const reverseSwap = mockReverseSwap(SwapUpdateEvent.TransactionRefunded);
-
-    emitSwapFailure(reverseSwap, failureReason);
+    emitSwapFailure(reverseSwap, true, failureReason);
     await wait(5);
 
     expect(mockSendMessage).toHaveBeenCalledTimes(2);
@@ -187,6 +180,35 @@ describe('NotificationProvider', () => {
       `Miner fees: ${satoshisToCoins(reverseSwap.minerFee)} BTC` +
       NotificationProvider['trailingWhitespace'],
     );
+
+    emitSwapFailure({
+      ...reverseSwap,
+      minerFee: undefined,
+    } as any as ReverseSwap, true, failureReason);
+    await wait(5);
+
+    expect(mockSendMessage).toHaveBeenCalledTimes(3);
+    expect(mockSendMessage).toHaveBeenNthCalledWith(3,
+      // tslint:disable-next-line: prefer-template
+      `**Swap LTC :zap: -> BTC failed: ${failureReason}**\n` +
+      `ID: ${reverseSwap.id}\n` +
+      `Pair: ${reverseSwap.pair}\n` +
+      'Order side: sell\n' +
+      `Onchain amount: ${satoshisToCoins(reverseSwap.onchainAmount!)} BTC\n` +
+      `Lightning amount: ${satoshisToCoins(getInvoiceAmt(reverseSwap.invoice))} LTC` +
+      NotificationProvider['trailingWhitespace'],
+    );
+  });
+
+  test('should format numbers to strings in decimal notation', () => {
+    const numberToDecimal = notificationProvider['numberToDecimal'];
+
+    expect(numberToDecimal(1)).toEqual('1');
+    expect(numberToDecimal(0.0001)).toEqual('0.0001');
+    expect(numberToDecimal(1e-6)).toEqual('0.000001');
+    expect(numberToDecimal(1e-7)).toEqual('0.0000001');
+    expect(numberToDecimal(10e-8)).toEqual('0.0000001');
+    expect(numberToDecimal(12e-8)).toEqual('0.00000012');
   });
 
   afterAll(() => {
@@ -194,6 +216,12 @@ describe('NotificationProvider', () => {
 
     if (existsSync(config.otpsecretpath)) {
       unlinkSync(config.otpsecretpath);
+    }
+
+    const uriPath = join(__dirname, 'otpUri.txt');
+
+    if (existsSync(uriPath)) {
+      unlinkSync(uriPath);
     }
   });
 });

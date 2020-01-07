@@ -1,7 +1,6 @@
 import { OutputType } from 'boltz-core';
 import Errors from './Errors';
 import Logger from '../Logger';
-import commitHash from '../Version';
 import Wallet from '../wallet/Wallet';
 import { ConfigType } from '../Config';
 import EventHandler from './EventHandler';
@@ -14,7 +13,7 @@ import RateProvider from '../rates/RateProvider';
 import { encodeBip21 } from './PaymentRequestUtils';
 import TimeoutDeltaProvider from './TimeoutDeltaProvider';
 import ReverseSwapRepository from './ReverseSwapRepository';
-import { OrderSide, ServiceWarning } from '../consts/Enums';
+import { OrderSide, ServiceWarning, SwapUpdateEvent } from '../consts/Enums';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import {
   getRate,
@@ -25,6 +24,7 @@ import {
   getChainCurrency,
   getLightningCurrency,
   getSwapMemo,
+  getVersion,
 } from '../Utils';
 import {
   Balance,
@@ -37,8 +37,6 @@ import {
   LightningBalance,
   GetBalanceResponse,
 } from '../proto/boltzrpc_pb';
-
-const packageJson = require('../../package.json');
 
 class Service {
   public allowReverseSwaps = true;
@@ -131,7 +129,7 @@ class Service {
     const response = new GetInfoResponse();
     const map = response.getChainsMap();
 
-    response.setVersion(`${packageJson.version}${commitHash}`);
+    response.setVersion(getVersion());
 
     for (const [, currency] of this.currencies) {
       const chain = new ChainInfo();
@@ -379,7 +377,10 @@ class Service {
       orderSide: side,
       fee: percentageFee,
       lockupAddress: address,
+      status: SwapUpdateEvent.SwapCreated,
     });
+
+    this.eventHandler.emitSwapCreation(id);
 
     return {
       id,
@@ -403,6 +404,7 @@ class Service {
   public createReverseSwap = async (
     pairId: string,
     orderSide: string,
+    preimageHash: Buffer,
     invoiceAmount: number,
     claimPublicKey: Buffer,
   ) => {
@@ -428,16 +430,15 @@ class Service {
 
     const {
       invoice,
-      minerFee,
       keyIndex,
       redeemScript,
-      lockupTransaction,
+      lockupAddress,
       timeoutBlockHeight,
-      lockupTransactionId,
     } = await this.swapManager.createReverseSwap(
       base,
       quote,
       side,
+      preimageHash,
       invoiceAmount,
       onchainAmount,
       claimPublicKey,
@@ -452,7 +453,6 @@ class Service {
     await this.reverseSwapRepository.addReverseSwap({
       id,
       invoice,
-      minerFee,
       keyIndex,
       redeemScript,
       onchainAmount,
@@ -460,17 +460,18 @@ class Service {
       pair: pairId,
       orderSide: side,
       fee: percentageFee,
-      transactionId: lockupTransactionId,
+      status: SwapUpdateEvent.SwapCreated,
     });
+
+    this.eventHandler.emitSwapCreation(id);
 
     return {
       id,
       invoice,
       redeemScript,
+      lockupAddress,
       onchainAmount,
-      lockupTransaction,
       timeoutBlockHeight,
-      lockupTransactionId,
     };
   }
 

@@ -4,8 +4,11 @@ import os from 'os';
 import { OutputType } from 'boltz-core';
 import { Transaction } from 'bitcoinjs-lib';
 import * as utils from '../../lib/Utils';
+import commitHash from '../../lib/Version';
 import { OrderSide } from '../../lib/consts/Enums';
 import { constructTransaction, randomRange } from '../Utils';
+
+const packageJson = require('../../package.json');
 
 describe('Utils', () => {
   let pairId: string;
@@ -224,5 +227,9 @@ describe('Utils', () => {
     expect(utils.formatError(test)).toEqual(test);
     expect(utils.formatError(object)).toEqual(JSON.stringify(object));
     expect(utils.formatError(objectMessage)).toEqual(test);
+  });
+
+  test('should get version', () => {
+    expect(utils.getVersion()).toEqual(`${packageJson.version}${commitHash}`);
   });
 });

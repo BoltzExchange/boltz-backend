@@ -6,7 +6,9 @@ import BaseClient from '../BaseClient';
 import { getHexString } from '../Utils';
 import * as lndrpc from '../proto/lndrpc_pb';
 import { ClientStatus } from '../consts/Enums';
+import * as invoicesrpc from '../proto/lndinvoices_pb';
 import { LightningClient } from '../proto/lndrpc_grpc_pb';
+import { InvoicesClient } from '../proto/lndinvoices_grpc_pb';
 
 /**
  * The configurable options for the LND client
@@ -47,15 +49,14 @@ interface GrpcResponse {
 }
 
 interface LndClient {
+  on(event: 'htlc.accepted', listener: (invoice: string) => void): this;
+  emit(event: 'htlc.accepted', invoice: string): boolean;
+
   on(event: 'invoice.settled', listener: (invoice: string, preimage: string) => void): this;
   emit(event: 'invoice.settled', string: string, preimage: string): boolean;
 
   on(event: 'channel.backup', listener: (channelBackup: string) => void): this;
   emit(event: 'channel.backup', channelBackup: string): boolean;
-}
-
-interface LightningMethodIndex extends LightningClient {
-  [methodName: string]: Function;
 }
 
 /**
@@ -68,9 +69,10 @@ class LndClient extends BaseClient implements LndClient {
   private credentials!: grpc.ChannelCredentials;
 
   private meta!: grpc.Metadata;
-  private lightning?: LightningClient | LightningMethodIndex;
 
-  private invoiceSubscription?: ClientReadableStream<lndrpc.InvoiceSubscription>;
+  private invoices?: InvoicesClient;
+  private lightning?: LightningClient;
+
   private channelBackupSubscription?: ClientReadableStream<lndrpc.ChannelBackupSubscription>;
 
   /**
@@ -114,17 +116,16 @@ class LndClient extends BaseClient implements LndClient {
   public connect = async (startSubscriptions = true): Promise<boolean> => {
     if (!this.isConnected()) {
       this.lightning = new LightningClient(this.uri, this.credentials);
+      this.invoices = new InvoicesClient(this.uri, this.credentials);
 
       try {
         await this.getInfo();
 
         if (startSubscriptions) {
-          this.subscribeInvoices();
           this.subscribeChannelBackups();
         }
 
         this.clearReconnectTimer();
-
         this.setClientStatus(ClientStatus.Connected);
 
         return true;
@@ -150,7 +151,6 @@ class LndClient extends BaseClient implements LndClient {
       this.setClientStatus(ClientStatus.Connected);
       this.clearReconnectTimer();
 
-      this.subscribeInvoices();
       this.subscribeChannelBackups();
     } catch (err) {
       this.logger.error(`Could not reconnect to ${LndClient.serviceName} ${this.symbol}: ${err}`);
@@ -167,12 +167,19 @@ class LndClient extends BaseClient implements LndClient {
   public disconnect = () => {
     this.clearReconnectTimer();
 
-    if (this.invoiceSubscription) {
-      this.invoiceSubscription.cancel();
+    if (this.lightning) {
+      this.lightning.close();
+      this.lightning = undefined;
+    }
+
+    if (this.invoices) {
+      this.invoices.close();
+      this.invoices = undefined;
     }
 
     if (this.channelBackupSubscription) {
       this.channelBackupSubscription.cancel();
+      this.channelBackupSubscription = undefined;
     }
 
     this.removeAllListeners();
@@ -180,9 +187,21 @@ class LndClient extends BaseClient implements LndClient {
     this.setClientStatus(ClientStatus.Disconnected);
   }
 
-  private unaryCall = <T, U>(methodName: string, params: T): Promise<U> => {
+  private unaryCall = <T, U>(methodName: keyof LightningClient, params: T): Promise<U> => {
     return new Promise((resolve, reject) => {
       (this.lightning![methodName] as Function)(params, this.meta, (err: grpc.ServiceError, response: GrpcResponse) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(response.toObject());
+        }
+      });
+    });
+  }
+
+  private unaryInvoicesCall = <T, U>(methodName: keyof InvoicesClient, params: T): Promise<U> => {
+    return new Promise((resolve, reject) => {
+      (this.invoices![methodName] as Function)(params, this.meta, (err: grpc.ServiceError, response: GrpcResponse) => {
         if (err) {
           reject(err);
         } else {
@@ -201,20 +220,29 @@ class LndClient extends BaseClient implements LndClient {
   }
 
   /**
-   * Attempts to add a new invoice to the invoice database
+   * Creates a hold invoice with the supplied preimage hash
    *
    * @param value the value of this invoice in satoshis
+   * @param preimageHash the hash of the preimage
    * @param memo optional memo to attach along with the invoice
    */
-  public addInvoice = (value: number, memo?: string): Promise<lndrpc.AddInvoiceResponse.AsObject> => {
-    const request = new lndrpc.Invoice();
+  public addHoldInvoice = async (value: number, preimageHash: Buffer, memo?: string) => {
+    const request = new invoicesrpc.AddHoldInvoiceRequest();
     request.setValue(value);
+    request.setHash(Uint8Array.from(preimageHash));
 
     if (memo) {
       request.setMemo(memo);
     }
 
-    return this.unaryCall<lndrpc.Invoice, lndrpc.AddInvoiceResponse.AsObject>('addInvoice', request);
+    const response = await this.unaryInvoicesCall<invoicesrpc.AddHoldInvoiceRequest, invoicesrpc.AddHoldInvoiceResp.AsObject>(
+      'addHoldInvoice',
+      request,
+    );
+
+    this.subscribeSingleInvoice(preimageHash);
+
+    return response;
   }
 
   /**
@@ -237,6 +265,26 @@ class LndClient extends BaseClient implements LndClient {
     } else {
       throw response.paymentError;
     }
+  }
+
+  /**
+   * Cancel a hold invoice
+   */
+  public cancelInvoice = (preimageHash: Buffer) => {
+    const request = new invoicesrpc.CancelInvoiceMsg();
+    request.setPaymentHash(Uint8Array.from(preimageHash));
+
+    return this.unaryInvoicesCall<invoicesrpc.CancelInvoiceMsg, invoicesrpc.CancelInvoiceResp>('cancelInvoice', request);
+  }
+
+  /**
+   * Settle a hold invoice with an already accepted HTLC
+   */
+  public settleInvoice = (preimage: Buffer) => {
+    const request = new invoicesrpc.SettleInvoiceMsg();
+    request.setPreimage(Uint8Array.from(preimage));
+
+    return this.unaryInvoicesCall<invoicesrpc.SettleInvoiceMsg, invoicesrpc.SettleInvoiceResp>('settleInvoice', request);
   }
 
   /**
@@ -371,27 +419,35 @@ class LndClient extends BaseClient implements LndClient {
   }
 
   /**
-   * Subscribe to events for when invoices are settled.
+   * Subscribe to events for a single invoice
    */
-  private subscribeInvoices = () => {
-    if (this.invoiceSubscription) {
-      this.invoiceSubscription.cancel();
-    }
+  private subscribeSingleInvoice = (preimageHash: Buffer) => {
+    const request = new invoicesrpc.SubscribeSingleInvoiceRequest();
+    request.setRHash(Uint8Array.from(preimageHash));
 
-    this.invoiceSubscription = this.lightning!.subscribeInvoices(new lndrpc.InvoiceSubscription(), this.meta)
-      .on('data', (invoice: lndrpc.Invoice) => {
-        if (invoice.getSettled()) {
-          const paymentReq = invoice.getPaymentRequest();
-          this.logger.silly(`${this.symbol} LND invoice settled: ${paymentReq}`);
+    const invoiceSubscription = this.invoices!.subscribeSingleInvoice(request, this.meta);
 
-          const preimage = getHexString(Buffer.from(invoice.getRPreimage_asB64(), 'base64'));
+    const deleteSubscription = () => {
+      invoiceSubscription.removeAllListeners();
+    };
 
-          this.emit('invoice.settled', paymentReq, preimage);
-        }
-      })
-      .on('error', async (error) => {
-        this.logger.error(`Invoice subscription errored: ${error}`);
-        await this.reconnect();
+    invoiceSubscription.on('data', (invoice: lndrpc.Invoice) => {
+      if (invoice.getState() === lndrpc.Invoice.InvoiceState.ACCEPTED) {
+        this.logger.debug(`${LndClient.serviceName} ${this.symbol} accepted HTLC for invoice: ${invoice.getPaymentRequest()}`);
+        this.emit('htlc.accepted', invoice.getPaymentRequest());
+      } else if (invoice.getState() === lndrpc.Invoice.InvoiceState.SETTLED) {
+        const preimage = getHexString(Buffer.from(invoice.getRPreimage_asB64(), 'base64'));
+
+        this.logger.debug(`${LndClient.serviceName} ${this.symbol} invoice ${invoice.getPaymentRequest()} settled with preimage: ${preimage}`);
+        this.emit('invoice.settled', invoice.getPaymentRequest(), preimage);
+
+        deleteSubscription();
+      }
+    })
+      .on('end', () => deleteSubscription())
+      .on('error', (error) => {
+        this.logger.error(`Invoice subscription errored: ${error.message}`);
+        deleteSubscription();
       });
   }
 

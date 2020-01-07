@@ -51,6 +51,9 @@ jest.mock('../../../lib/wallet/providers/LndWalletProvider', () => {
 const mockedLndWalletProvider = <jest.Mock<LndWalletProvider>>LndWalletProvider;
 
 describe('Wallet', () => {
+  const encodeOutput = getHexBuffer('00147ca6c71979907c36d5d62f325d6d8104a8497445');
+  const encodedAddress = 'bcrt1q0jnvwxtejp7rd4wk9ue96mvpqj5yjaz9v7vte5';
+
   const mnemonic = generateMnemonic();
   const masterNode = fromSeed(mnemonicToSeedSync(mnemonic));
 
@@ -114,11 +117,12 @@ describe('Wallet', () => {
     expect(wallet.highestUsedIndex).toEqual(highestUsedIndex);
   });
 
-  test('should encode an address', () => {
-    const output = getHexBuffer('00147ca6c71979907c36d5d62f325d6d8104a8497445');
-    const address = 'bcrt1q0jnvwxtejp7rd4wk9ue96mvpqj5yjaz9v7vte5';
+  test('should encode addresses', () => {
+    expect(wallet.encodeAddress(encodeOutput)).toEqual(encodedAddress);
+  });
 
-    expect(wallet.encodeAddress(output)).toEqual(address);
+  test('should decode addresses', () => {
+    expect(wallet.decodeAddress(encodedAddress)).toEqual(encodeOutput);
   });
 
   test('should update highest used index in database', async () => {

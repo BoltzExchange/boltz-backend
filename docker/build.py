@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Script for building and pushing the Boltz Docker images"""
+import sys
 from typing import List, Dict
 from dataclasses import dataclass
 from os import system, chdir, path
@@ -129,7 +130,7 @@ def get_build_details(image: str) -> Image:
 
     if not build_details:
         print_error("Could not find image {}".format(image))
-        exit(1)
+        sys.exit(1)
 
     return build_details
 
@@ -179,7 +180,7 @@ def push_images(to_push: List[str]):
 
             if system(command) != 0:
                 print_error("Could not push image {}".format(image))
-                exit(1)
+                sys.exit(1)
 
     print_step("Pushed images: {}".format(", ".join(to_push)))
 
@@ -223,7 +224,7 @@ def build_images(to_build: List[str], no_cache: bool):
 
             if system(command) != 0:
                 print_error("Could not build image {}".format(image))
-                exit(1)
+                sys.exit(1)
 
     print_step("Built images: {}".format(", ".join(to_build)))
 

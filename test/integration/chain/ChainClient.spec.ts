@@ -1,13 +1,17 @@
 import { OutputType } from 'boltz-core';
 import { bitcoinClient } from '../Nodes';
+import { getHexBuffer, reverseBuffer } from '../../../lib/Utils';
 import { waitForFunctionToBeTrue, generateAddress } from '../../Utils';
 
 describe('ChainClient', () => {
   const numTransactions = 15;
 
+  let transactionWithRelevantInput = '';
+
   const testData = {
-    outputScripts: [] as Buffer[],
+    inputs: [] as Buffer[],
     addresses: [] as string[],
+    outputScripts: [] as Buffer[],
   };
 
   test('should connect', async () => {
@@ -23,9 +27,11 @@ describe('ChainClient', () => {
     }
 
     bitcoinClient.updateOutputFilter(testData.outputScripts);
+
+    expect(bitcoinClient['zmqClient'].relevantOutputs.size).toEqual(numTransactions);
   });
 
-  test('should emit an event on mempool acceptance', async () => {
+  test('should emit an event on mempool acceptance of relevant output', async () => {
     let mempoolTransactions = 0;
 
     bitcoinClient.on('transaction', (_, confirmed) => {
@@ -43,7 +49,7 @@ describe('ChainClient', () => {
     });
   });
 
-  test('should emit an event on block acceptance', async () => {
+  test('should emit an event on block acceptance of relevant output', async () => {
     let blockTransactions = 0;
 
     bitcoinClient.on('transaction', async (_, confirmed) => {
@@ -56,6 +62,78 @@ describe('ChainClient', () => {
 
     await waitForFunctionToBeTrue(() => {
       return blockTransactions === numTransactions;
+    });
+  });
+
+  test('should update the input filer', async () => {
+    const unspentUtxos = await bitcoinClient.listUnspent();
+
+    for (const utxo of unspentUtxos) {
+      testData.inputs.push(reverseBuffer(getHexBuffer(utxo.txid)));
+    }
+
+    bitcoinClient.updateInputFilter(testData.inputs);
+    expect(bitcoinClient['zmqClient'].relevantInputs.size).toEqual(unspentUtxos.length);
+  });
+
+  test('should update the input filer', async () => {
+    const unspentUtxos = await bitcoinClient.listUnspent();
+
+    for (const utxo of unspentUtxos) {
+      testData.inputs.push(reverseBuffer(getHexBuffer(utxo.txid)));
+    }
+
+    bitcoinClient.updateInputFilter(testData.inputs);
+    expect(bitcoinClient['zmqClient'].relevantInputs.size).toEqual(unspentUtxos.length);
+  });
+
+  test('should emit an event on mempool acceptance of relevant inputs', async () => {
+    let event = false;
+
+    bitcoinClient.on('transaction', (transaction, confirmed) => {
+      if (!confirmed && !event) {
+        transaction.ins.forEach((input) => {
+          let hasRelevantInput = false;
+
+          // "testData.inputs.includes(input.hash)" does not work; therefore this loop is needed
+          for (const relevantInput of testData.inputs) {
+            if (input.hash.equals(relevantInput)) {
+              hasRelevantInput = true;
+            }
+          }
+
+          expect(hasRelevantInput).toBeTruthy();
+
+          transactionWithRelevantInput = transaction.getId();
+        });
+
+        event = true;
+      }
+    });
+
+    const { address } = generateAddress(OutputType.Bech32);
+    await bitcoinClient.sendToAddress(address, 1000);
+
+    await waitForFunctionToBeTrue(() => {
+      return event;
+    });
+  });
+
+  test('should emit an event on block acceptance of relevant inputs', async () => {
+    let event = false;
+
+    bitcoinClient.on('transaction', (transaction, confirmed) => {
+      if (confirmed) {
+        if (transaction.getId() === transactionWithRelevantInput) {
+          event = true;
+        }
+      }
+    });
+
+    await bitcoinClient.generate(1);
+
+    await waitForFunctionToBeTrue(() => {
+      return event;
     });
   });
 

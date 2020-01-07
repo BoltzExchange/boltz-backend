@@ -38,7 +38,6 @@ class CheckFailedSwaps {
   }
 
   private checkReverseSwaps = (failedReverseSwaps: ReverseSwap[]) => {
-
     const reverseSwapFailureReasons = {
       [SwapUpdateEvent.TransactionRefunded]: 0,
     };

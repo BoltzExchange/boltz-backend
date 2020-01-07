@@ -31,6 +31,22 @@ type NetworkInfo = {
   incrementalfee: number;
 };
 
+type UnspentUtxo = {
+  txid: string;
+  vout: number;
+  address: string;
+  label: string;
+  scriptPubKey: string;
+  amount: number;
+  confirmations: number;
+  redeemScript: string;
+  witnessScript: string;
+  spendable: boolean;
+  solvable: boolean;
+  desc?: string;
+  safe: boolean;
+};
+
 interface ChainClient {
   on(event: 'block', listener: (height: number) => void): this;
   emit(event: 'block', height: number): boolean;
@@ -142,6 +158,17 @@ class ChainClient extends BaseClient {
     });
   }
 
+  /**
+   * Adds inputs to the list of relevant ones
+   *
+   * @param inputHashes array of input transaction hash Buffers
+   */
+  public updateInputFilter = (inputHashes: Buffer[]) => {
+    inputHashes.forEach((hash) => {
+      this.zmqClient.relevantInputs.add(getHexString(hash));
+    });
+  }
+
   public rescanChain = async (startHeight: number) => {
     await this.zmqClient.rescanChain(startHeight);
   }
@@ -185,6 +212,10 @@ class ChainClient extends BaseClient {
    */
   public sendToAddress = (address: string, amount: number) => {
     return this.client.request<string>('sendtoaddress', [address, amount / ChainClient.decimals]);
+  }
+
+  public listUnspent = () => {
+    return this.client.request<UnspentUtxo[]>('listunspent');
   }
 
   public generate = async (blocks: number) => {

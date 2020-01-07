@@ -26,6 +26,14 @@ class ReverseSwapRepository {
     });
   }
 
+  public setLockupTransaction = (reverseSwap: ReverseSwap, transactionId: string, minerFee: number) => {
+    return reverseSwap.update({
+      minerFee,
+      transactionId,
+      status: SwapUpdateEvent.TransactionMempool,
+    });
+  }
+
   public setInvoiceSettled = async (reverseSwap: ReverseSwap, preimage: string) => {
     return reverseSwap.update({
       preimage,

@@ -2,10 +2,11 @@ import { Request, Response } from 'express';
 import Logger from '../../../lib/Logger';
 import Service from '../../../lib/service/Service';
 import Controller from '../../../lib/api/Controller';
-import { mapToObject, getHexBuffer } from '../../../lib/Utils';
+import SwapNursery from '../../../lib/swap/SwapNursery';
 import { ReverseSwapType } from '../../../lib/db/models/ReverseSwap';
 import { SwapType as SwapDbType } from '../../../lib/db/models/Swap';
 import { SwapUpdateEvent, SwapType } from '../../../lib/consts/Enums';
+import { mapToObject, getHexBuffer, getVersion } from '../../../lib/Utils';
 
 type closeResponseCallback = () => void;
 type swapUpdateCallback = (id: string, message: string) => void;
@@ -22,12 +23,21 @@ const swaps: SwapDbType[] = [
 const reverseSwaps: ReverseSwapType[] = [
   {
     id: 'rStatus',
-    status: SwapUpdateEvent.TransactionConfirmed,
+    status: SwapUpdateEvent.InvoiceSettled,
   } as any as ReverseSwapType,
   {
     id: 'rStatusSettled',
-    preimage: 'preimage',
-    status: SwapUpdateEvent.InvoiceSettled,
+    orderSide: 0,
+    pair: 'BTC/BTC',
+    transactionId: 'transaction',
+    status: SwapUpdateEvent.TransactionConfirmed,
+  } as any as ReverseSwapType,
+  {
+    id: 'rStatusMempool',
+    orderSide: 0,
+    pair: 'BTC/BTC',
+    transactionId: 'transactionMempool',
+    status: SwapUpdateEvent.TransactionMempool,
   } as any as ReverseSwapType,
   {
     id: 'rNoStatus',
@@ -46,7 +56,8 @@ const mockGetFeeEstimation = jest.fn().mockReturnValue(new Map<string, number>([
   ['BTC', 1],
 ]));
 
-const mockGetTransaction = jest.fn().mockReturnValue('transactionHex');
+const rawTransaction = 'transactionHex';
+const mockGetTransaction = jest.fn().mockResolvedValue(rawTransaction);
 
 const mockBroadcastTransaction = jest.fn().mockReturnValue('transactionId');
 
@@ -131,6 +142,10 @@ describe('Controller', () => {
 
     const pendingSwaps = controller['pendingSwapInfos'];
 
+    expect(mockGetTransaction).toHaveBeenCalledTimes(2);
+    expect(mockGetTransaction).toHaveBeenCalledWith('BTC', reverseSwaps[1].transactionId);
+    expect(mockGetTransaction).toHaveBeenCalledWith('BTC', reverseSwaps[2].transactionId);
+
     expect(pendingSwaps.get(swaps[0].id)).toEqual({
       status: swaps[0].status,
     });
@@ -141,9 +156,32 @@ describe('Controller', () => {
     });
     expect(pendingSwaps.get(reverseSwaps[1].id)).toEqual({
       status: reverseSwaps[1].status,
-      preimage: reverseSwaps[1].preimage,
+      transaction: {
+        eta: undefined,
+        hex: rawTransaction,
+        id: reverseSwaps[1].transactionId,
+      },
     });
-    expect(pendingSwaps.get(reverseSwaps[2].id)).toBeUndefined();
+    expect(pendingSwaps.get(reverseSwaps[2].id)).toEqual({
+      status: reverseSwaps[2].status,
+      transaction: {
+        hex: rawTransaction,
+        id: reverseSwaps[2].transactionId,
+        eta: SwapNursery.reverseSwapMempoolEta,
+      },
+    }),
+    expect(pendingSwaps.get(reverseSwaps[3].id)).toBeUndefined();
+  });
+
+  test('should get version', () => {
+    const res = mockResponse();
+
+    controller.version(mockRequest({}), res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      version: getVersion(),
+    });
   });
 
   test('should get pairs', () => {
@@ -237,7 +275,7 @@ describe('Controller', () => {
 
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
-      transactionHex: mockGetTransaction(),
+      transactionHex: rawTransaction,
     });
   });
 
@@ -346,6 +384,7 @@ describe('Controller', () => {
       orderSide: 'buy',
       invoiceAmount: 0,
       claimPublicKey: '298ae8cc',
+      preimageHash: '98aed2bbba02f46751d1d4f687642df910cd1a6b85ba8adfabdbe7d82c8a4e6c',
     };
 
     await controller.createSwap(mockRequest(requestData), res);
@@ -353,6 +392,7 @@ describe('Controller', () => {
     expect(service.createReverseSwap).toHaveBeenCalledWith(
       requestData.pairId,
       requestData.orderSide,
+      getHexBuffer(requestData.preimageHash),
       requestData.invoiceAmount,
       getHexBuffer(requestData.claimPublicKey),
     );

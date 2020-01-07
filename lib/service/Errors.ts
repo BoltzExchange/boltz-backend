@@ -67,4 +67,8 @@ export default {
     message: `${symbol} has no LND client`,
     code: concatErrorCode(ErrorCodePrefix.Service, 15),
   }),
+  COINS_COULD_NOT_BE_SENT: (): Error => ({
+    message: 'onchain coins could not be sent',
+    code: concatErrorCode(ErrorCodePrefix.Service, 16),
+  }),
 };

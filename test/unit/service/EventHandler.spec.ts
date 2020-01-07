@@ -72,6 +72,8 @@ let emitCoinsFailedToSend: coinsFailedToSendCallback;
 
 jest.mock('../../../lib/swap/SwapNursery', () => {
   return jest.fn().mockImplementation(() => ({
+    reverseSwapMempoolEta: 2,
+
     on: (event: string, callback: any) => {
       switch (event) {
         case 'expiration':
@@ -212,8 +214,10 @@ describe('EventHandler', () => {
           expect(id).toEqual(reverseSwap.id);
           expect(message).toEqual({
             status: state.status,
-            transactionId: transaction.getId(),
-            transactionHex: transaction.toHex(),
+            transaction: {
+              id: transaction.getId(),
+              hex: transaction.toHex(),
+            },
           });
         }
 
@@ -463,9 +467,12 @@ describe('EventHandler', () => {
     eventHandler.once('swap.update', (id, message) => {
       expect(id).toEqual(reverseSwap.id);
       expect(message).toEqual({
-        transactionId: transaction.getId(),
-        transactionHex: transaction.toHex(),
         status: SwapUpdateEvent.TransactionMempool,
+        transaction: {
+          id: transaction.getId(),
+          hex: transaction.toHex(),
+          eta: SwapNursery.reverseSwapMempoolEta,
+        },
       });
 
       updatesEmitted += 1;

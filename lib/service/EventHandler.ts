@@ -12,11 +12,17 @@ import ReverseSwap from '../db/models/ReverseSwap';
 import { Currency } from '../wallet/WalletManager';
 import ReverseSwapRepository from './ReverseSwapRepository';
 
+type TransactionInfo = {
+  eta?: number;
+
+  id: string;
+  hex: string;
+};
+
 type SwapUpdate = {
   status: SwapUpdateEvent;
 
-  transactionId?: string;
-  transactionHex?: string;
+  transaction?: TransactionInfo;
 };
 
 interface EventHandler {
@@ -103,8 +109,10 @@ class EventHandler extends EventEmitter {
                 await this.reverseSwapRepository.setReverseSwapStatus(reverseSwap, status);
                 this.emit('swap.update', reverseSwap.id, {
                   status,
-                  transactionId: transaction.getId(),
-                  transactionHex: transaction.toHex(),
+                  transaction: {
+                    id: transaction.getId(),
+                    hex: transaction.toHex(),
+                  },
                 });
               }
             }));
@@ -243,9 +251,12 @@ class EventHandler extends EventEmitter {
           reverseSwap = await this.reverseSwapRepository.setLockupTransaction(reverseSwap, transactionId, minerFee);
 
           this.emit('swap.update', reverseSwap!.id, {
-            transactionId,
-            transactionHex: transaction.toHex(),
             status: SwapUpdateEvent.TransactionMempool,
+            transaction: {
+              id: transactionId,
+              hex: transaction.toHex(),
+              eta: SwapNursery.reverseSwapMempoolEta,
+            },
           });
         }
       });

@@ -94,6 +94,8 @@ interface SwapNursery {
 
 // TODO: make sure swaps work after restarts (save to and read from database)
 class SwapNursery extends EventEmitter {
+  public static reverseSwapMempoolEta = 2;
+
   private maps = new Map<string, SwapMaps>();
   private lndClients = new Map<string, LndClient>();
   private chainClients = new Map<string, ChainClient>();
@@ -339,7 +341,8 @@ class SwapNursery extends EventEmitter {
     const wallet = this.walletManager.wallets.get(sendingSymbol)!;
 
     try {
-      const { fee, vout, transaction, transactionId } = await wallet.sendToAddress(address, amount);
+      const satPerVbyte = await chainClient.estimateFee(SwapNursery.reverseSwapMempoolEta);
+      const { fee, vout, transaction, transactionId } = await wallet.sendToAddress(address, amount, satPerVbyte);
       this.logger.verbose(`Locked up ${sendingSymbol} to reverse swap in transaction: ${transactionId}`);
 
       chainClient.updateInputFilter([transaction.getHash()]);

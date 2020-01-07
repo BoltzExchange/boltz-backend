@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import Logger from '../Logger';
 import Service from '../service/Service';
+import SwapNursery from '../swap/SwapNursery';
 import { SwapUpdate } from '../service/EventHandler';
 import { SwapUpdateEvent, SwapType } from '../consts/Enums';
 import { stringify, getHexBuffer, mapToObject, getVersion, getChainCurrency, splitPairId } from '../Utils';
@@ -50,8 +51,11 @@ class Controller {
 
           this.pendingSwapInfos.set(reverseSwap.id, {
             status,
-            transactionHex,
-            transactionId: reverseSwap.transactionId,
+            transaction: {
+              hex: transactionHex,
+              id: reverseSwap.transactionId,
+              eta: status === SwapUpdateEvent.TransactionMempool ? SwapNursery.reverseSwapMempoolEta : undefined,
+            },
           });
         } else {
           this.pendingSwapInfos.set(reverseSwap.id, { status });

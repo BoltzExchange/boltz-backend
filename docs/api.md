@@ -252,8 +252,10 @@ Status Codes:
 Response object:
 
 - `status`: status of the swap
-- `transactionId`: in case of a reverse swap the lockup transaction id is not in the response of the call which creates the swap. Therefore, the events `transaction.mempool` and `transaction.confirmed` contain it
-- `transactionHex`: hex encoded lockup transaction of the reverse swap. Only returned alongside of `transactionId`
+- `transaction`: in case of a reverse swap the lockup transaction details are not in the response of the call which creates the swap. Therefore, the events `transaction.mempool` and `transaction.confirmed` contain it
+    - `id`: id of the lockup transaction
+    - `hex`: hex encoded lockup transaction
+    - `eta`: if the status is `transaction.mempool`, this value is the estimated time of arrival (ETA) in blocks of when the transaction will be confirmed
 
 **Examples:**
 
@@ -290,8 +292,11 @@ Response:
 ```json
 {
   "status": "transaction.mempool",
-  "transactionId": "ead78d069688e6e624bbb00d4c15a6d76cde6d43e450cdb1271c06545580d2be",
-  "transactionHex": "01000000000101b2a81f522e14cf1b775a672baad5b2b684d5b1b29baf2759d527e52c5eb4bd850000000000ffffffff02b8780100000000002200203e71bf853a161ab34c2a4902be39e2a9fa1815f7546469799207df0fe7a058d64eeaf2050000000016001431c56543e2a55dae4d7b5c28333e0fdb8b4937d802483045022100913d2f3462b2208ab284395897f4f8c90d7c406805641d098546aa7d31a8e1e90220786d6b8a3cd69c35793cd0cf9ff7fe924b4c34528711f9388ec9c0e5fa07c770012103f50cb76e06750d4895f66e1acd6ff695866763d67ea558495df20e1df06334be00000000"
+  "transaction": {
+    "id": "31fcddf287d985eef85211b75976cd903dba3008a8e13b597e1b54941278c29f",
+    "hex": "01000000000101618cd5c50221577a1b98ae4a73f652917f9d2e343b9bc6a978239da78dfcbc630000000000ffffffff02b878010000000000220020ddc8dd3bcb45660e421fc3129bfdcb317446c27ce909369d4c8cb17bbd6d4951c718393b00000000160014ea9e0fc9432fc8b6831e94ac3974d46d1ba1c62f024830450221008b14ecce2eebb2ec7e56c53de4796603fbd22cfd269f3a5249446b79987dec36022059b68568a57ebfbd50cc792af3d514c507af20e795ff5f0bf2a02d2fc44be223012103a1ad2a3891018e856700a20a4dea6bea9f4bba58ab3ca7cbaefaa06e805770d100000000",
+    "eta": 2
+  }
 }
 ```
 

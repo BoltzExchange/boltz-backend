@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import Logger from '../../../lib/Logger';
 import Service from '../../../lib/service/Service';
 import Controller from '../../../lib/api/Controller';
+import SwapNursery from '../../../lib/swap/SwapNursery';
 import { ReverseSwapType } from '../../../lib/db/models/ReverseSwap';
 import { SwapType as SwapDbType } from '../../../lib/db/models/Swap';
 import { SwapUpdateEvent, SwapType } from '../../../lib/consts/Enums';
@@ -30,6 +31,13 @@ const reverseSwaps: ReverseSwapType[] = [
     pair: 'BTC/BTC',
     transactionId: 'transaction',
     status: SwapUpdateEvent.TransactionConfirmed,
+  } as any as ReverseSwapType,
+  {
+    id: 'rStatusMempool',
+    orderSide: 0,
+    pair: 'BTC/BTC',
+    transactionId: 'transactionMempool',
+    status: SwapUpdateEvent.TransactionMempool,
   } as any as ReverseSwapType,
   {
     id: 'rNoStatus',
@@ -134,8 +142,9 @@ describe('Controller', () => {
 
     const pendingSwaps = controller['pendingSwapInfos'];
 
-    expect(mockGetTransaction).toHaveBeenCalledTimes(1);
+    expect(mockGetTransaction).toHaveBeenCalledTimes(2);
     expect(mockGetTransaction).toHaveBeenCalledWith('BTC', reverseSwaps[1].transactionId);
+    expect(mockGetTransaction).toHaveBeenCalledWith('BTC', reverseSwaps[2].transactionId);
 
     expect(pendingSwaps.get(swaps[0].id)).toEqual({
       status: swaps[0].status,
@@ -147,10 +156,21 @@ describe('Controller', () => {
     });
     expect(pendingSwaps.get(reverseSwaps[1].id)).toEqual({
       status: reverseSwaps[1].status,
-      transactionHex: rawTransaction,
-      transactionId: reverseSwaps[1].transactionId,
+      transaction: {
+        eta: undefined,
+        hex: rawTransaction,
+        id: reverseSwaps[1].transactionId,
+      },
     });
-    expect(pendingSwaps.get(reverseSwaps[2].id)).toBeUndefined();
+    expect(pendingSwaps.get(reverseSwaps[2].id)).toEqual({
+      status: reverseSwaps[2].status,
+      transaction: {
+        hex: rawTransaction,
+        id: reverseSwaps[2].transactionId,
+        eta: SwapNursery.reverseSwapMempoolEta,
+      },
+    }),
+    expect(pendingSwaps.get(reverseSwaps[3].id)).toBeUndefined();
   });
 
   test('should get version', () => {

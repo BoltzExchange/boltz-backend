@@ -20,7 +20,6 @@ import {
   getPairId,
   generateId,
   splitPairId,
-  getInvoiceAmt,
   getChainCurrency,
   getLightningCurrency,
   getSwapMemo,
@@ -336,7 +335,9 @@ class Service {
     const lightningCurrency = getLightningCurrency(base, quote, side, false);
 
     const timeoutBlockDelta = this.timeoutDeltaProvider.getTimeout(pairId, side, false);
-    const invoiceAmount = getInvoiceAmt(invoice);
+
+    const { lndClient } = this.currencies.get(lightningCurrency)!;
+    const { numSatoshis: invoiceAmount } = await lndClient!.decodePayReq(invoice);
 
     const rate = getRate(pairRate, side, false);
 

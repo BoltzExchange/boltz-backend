@@ -248,6 +248,7 @@ describe('SwapManager', () => {
         expectedAmount,
         acceptZeroConf,
         claimKeys: newKeys.keys,
+        sendingSymbol: baseCurrency,
         redeemScript: getHexBuffer(response.redeemScript),
       },
       getHexBuffer('a914205d5fb9e785f0df21c9fac5594496e90135058387'),

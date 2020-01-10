@@ -144,8 +144,8 @@ class SwapNursery extends EventEmitter {
   }
 
   public bindCurrency = (currency: Currency, maps: SwapMaps) => {
+    const { symbol } = currency;
     const { chainClient, lndClient } = currency;
-    const { symbol } = chainClient;
 
     this.maps.set(symbol, maps);
     this.chainClients.set(symbol, chainClient);

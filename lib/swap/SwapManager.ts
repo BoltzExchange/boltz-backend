@@ -105,6 +105,7 @@ class SwapManager {
         acceptZeroConf,
         expectedAmount,
         claimKeys: keys,
+        sendingSymbol: sendingCurrency.symbol,
       },
       outputScript,
       timeoutBlockHeight,

@@ -83,6 +83,7 @@ export const minutesToMilliseconds = (minutes: number) => {
   return minutes * 60 * 1000;
 };
 
+// TODO: fix invoice decoding on testnet
 /**
  * Gets the amount of an invoice in satoshis
  */

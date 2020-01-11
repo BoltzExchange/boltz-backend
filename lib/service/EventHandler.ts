@@ -83,7 +83,7 @@ class EventHandler extends EventEmitter {
             });
 
             if (swap) {
-              if (!swap.status || swap.status === SwapUpdateEvent.TransactionMempool) {
+              if (swap.status === SwapUpdateEvent.SwapCreated || swap.status === SwapUpdateEvent.TransactionMempool) {
                 await this.swapRepository.setLockupTransactionId(swap, transaction.getId(), output.value, confirmed);
 
                 if (confirmed || swap.acceptZeroConf) {

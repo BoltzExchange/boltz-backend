@@ -221,12 +221,21 @@ const mockListChannels = jest.fn().mockResolvedValue({
   ],
 });
 
+let lndInvoiceAmount = 0;
+
+const mockDecodePayReq = jest.fn().mockImplementation(async () => {
+  return {
+    numSatoshis: lndInvoiceAmount,
+  };
+});
+
 jest.mock('../../../lib/lightning/LndClient', () => {
   return jest.fn().mockImplementation(() => ({
     on: () => {},
     getInfo: mockGetInfo,
     sendPayment: mockSendPayment,
     listChannels: mockListChannels,
+    decodePayReq: mockDecodePayReq,
   }));
 });
 
@@ -455,6 +464,8 @@ describe('Service', () => {
     const expectedAmount = 100002;
     const refundPublicKey = getHexBuffer('0xfff');
 
+    lndInvoiceAmount = invoiceAmount;
+
     // tslint:disable-next-line: max-line-length
     const invoice = 'lnbcrt1m1pw5qjj2pp5fzncpqa5hycqppwvelygawz2jarnxnngry945mm3uv6janpjfvgqdqqcqzpg35dc9zwwu3jhww7q087fc8h6tjs2he6w0yulc3nz262waznvp2s5t9xlwgau2lzjl8zxjlt5jxtgkamrz2e4ct3d70azmkh2hhgddkgpg38yqt';
 
@@ -529,6 +540,8 @@ describe('Service', () => {
 
     // Throw if a swap doesn't respect the limits
     const invoiceLimitAmount = 0;
+    lndInvoiceAmount = invoiceLimitAmount;
+
     // tslint:disable-next-line: max-line-length
     const invoiceLimit = 'lnbcrt1pw5ghsppp5vh0xfjh0qfslm40pvderlcvznj6rc4k7q88xn8r2k2ru0mkhnw9sdqqcqzpgryem4eex4xnftdr3fprhrpckd7mm5ckcqf5w5tns8lltu45jl9jp69s9du9nngltm2mxcce4d3lv5uuczn0p6xfyhw6w73090fq034spl7qm26';
 

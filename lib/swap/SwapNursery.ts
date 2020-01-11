@@ -20,6 +20,7 @@ type BaseSwapDetails = {
 
 type SwapDetails = BaseSwapDetails & {
   invoice: string;
+  sendingSymbol: string;
   outputType: OutputType;
   expectedAmount: number;
   acceptZeroConf: boolean;
@@ -143,8 +144,8 @@ class SwapNursery extends EventEmitter {
   }
 
   public bindCurrency = (currency: Currency, maps: SwapMaps) => {
+    const { symbol } = currency;
     const { chainClient, lndClient } = currency;
-    const { symbol } = chainClient;
 
     this.maps.set(symbol, maps);
     this.chainClients.set(symbol, chainClient);
@@ -293,12 +294,13 @@ class SwapNursery extends EventEmitter {
 
     if (outputValue < details.expectedAmount) {
       this.logger.error(`Aborting ${currency.symbol} swap: value ${outputValue} of ${swapOutput} is less than expected ${details.expectedAmount}`);
+      // TODO: emit event and remove swap from maps
       return;
     }
 
     this.logger.verbose(`Claiming ${currency.symbol} swap output: ${swapOutput}`);
 
-    const preimage = await this.payInvoice(currency.lndClient!, details.invoice);
+    const preimage = await this.payInvoice(this.lndClients.get(details.sendingSymbol)!, details.invoice);
 
     if (preimage) {
       this.logger.silly(`Got ${currency.symbol} preimage: ${getHexString(preimage)}`);

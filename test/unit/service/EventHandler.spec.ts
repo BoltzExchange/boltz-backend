@@ -113,6 +113,7 @@ const mockedSwapNursery = <jest.Mock<SwapNursery>><any>SwapNursery;
 const swap = {
   id: 'id',
   acceptZeroConf: true,
+  status: SwapUpdateEvent.SwapCreated,
 };
 
 const mockGetSwap = jest.fn().mockResolvedValue(swap);

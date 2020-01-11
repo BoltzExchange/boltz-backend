@@ -105,6 +105,7 @@ describe('SwapNursery', () => {
 
   const emptySwapDetails = {
     expectedAmount: 0,
+    sendingSymbol: 'BTC',
     acceptZeroConf: true,
     invoice: 'lnbcrt10000',
     redeemScript: Buffer.alloc(0),
@@ -141,7 +142,7 @@ describe('SwapNursery', () => {
   });
 
   beforeEach(() => {
-    mockSendPayment.mockClear();
+    jest.clearAllMocks();
   });
 
   test('should wait for one confirmation for RBF transactions', async () => {

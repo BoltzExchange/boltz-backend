@@ -1,3 +1,49 @@
+# [2.1.0-beta](https://github.com/BoltzExchange/boltz-backend/compare/v2.0.0-beta...v2.1.0-beta) (2020-01-14)
+
+
+### Bug Fixes
+
+* address and invoice encoding in LND Litecoin ([62e0bbb](https://github.com/BoltzExchange/boltz-backend/commit/62e0bbb5a1637b6e2145132089731e368b55ee7a))
+* edge case of swap event handling ([68f9387](https://github.com/BoltzExchange/boltz-backend/commit/68f9387d9c1fff0e0d77c942ce904090a57b927f))
+* error printing of chain client during initialization ([7fe33bd](https://github.com/BoltzExchange/boltz-backend/commit/7fe33bdeedf091320ee2db3ebfce3aa5eefa5254))
+* invoice decoding on testnet ([bf21052](https://github.com/BoltzExchange/boltz-backend/commit/bf210522f525770773da23f3a6c854a5eb433d1e))
+* loading status of pending reverse swaps ([9104819](https://github.com/BoltzExchange/boltz-backend/commit/91048191a24e9f060aa170af1baf07e121b52693))
+* multiple messages of disk usage checker ([1af2887](https://github.com/BoltzExchange/boltz-backend/commit/1af2887f2cf68935e6d626ff13eec60f6c7667ed))
+* normal cross chain swaps ([7072765](https://github.com/BoltzExchange/boltz-backend/commit/7072765443b58112a9bbabc5ad51b2d96fd89b7b))
+* Python linting warnings ([a346829](https://github.com/BoltzExchange/boltz-backend/commit/a346829e13ddc876ef9317b52c9efa29d5188e8a))
+* update commands for new reverse swaps ([41460c0](https://github.com/BoltzExchange/boltz-backend/commit/41460c0120c2491703560d8d214c92097383b826))
+
+
+### Features
+
+* accept invoices with upper case letters ([#158](https://github.com/BoltzExchange/boltz-backend/issues/158)) ([d2f08d4](https://github.com/BoltzExchange/boltz-backend/commit/d2f08d45b79eafc16f5c778b687b11f590c2dde4))
+* add Dogecoin Core and Zcash Docker images ([9bec35d](https://github.com/BoltzExchange/boltz-backend/commit/9bec35da3d72a1ba885e03664e12be9f3841eb39))
+* add ETA to TransactionMempool events ([3a3a29d](https://github.com/BoltzExchange/boltz-backend/commit/3a3a29df443172f6c32ce6038445e4211351cb7b))
+* add lockedfunds Discord command ([b034f25](https://github.com/BoltzExchange/boltz-backend/commit/b034f25ef81e40662404c9d91ea488c0ad1dacad))
+* add memo to invoice of reverse swaps ([556513f](https://github.com/BoltzExchange/boltz-backend/commit/556513ffd4957a130da481fad1c6420ab42c2400))
+* add notification when disk is getting full ([#146](https://github.com/BoltzExchange/boltz-backend/issues/146)) ([47843ba](https://github.com/BoltzExchange/boltz-backend/commit/47843ba1c9aec0b481b128cc84b974e141feae34))
+* add pendingswaps Discord command ([f192ea2](https://github.com/BoltzExchange/boltz-backend/commit/f192ea2260fb4488038d79243c8860b9c9e4500f))
+* add script to fund Boltz wallet ([#141](https://github.com/BoltzExchange/boltz-backend/issues/141)) ([c0ff5ca](https://github.com/BoltzExchange/boltz-backend/commit/c0ff5cafb691b6336114230869d45c86f1fedb5f))
+* add support for Dogecoin ([2c9e9d6](https://github.com/BoltzExchange/boltz-backend/commit/2c9e9d689b3dbc64d922a61b06534a1e3a0c28ce))
+* add timeouts of hold reverse swaps ([f4aae82](https://github.com/BoltzExchange/boltz-backend/commit/f4aae827a2bf347a05bd6659ecf9999898b27f4c))
+* add tool to analyze failed swaps ([#157](https://github.com/BoltzExchange/boltz-backend/issues/157)) ([9138f3b](https://github.com/BoltzExchange/boltz-backend/commit/9138f3b24c853ec3c8178d52ef919e5df9b5ebcf))
+* add usage of single commands to Discord help ([63c6e8c](https://github.com/BoltzExchange/boltz-backend/commit/63c6e8ca1a18ece9d76340b10d064e526ce7989f))
+* add version API endpoint ([277d2c7](https://github.com/BoltzExchange/boltz-backend/commit/277d2c7d4595ca56ede18019eccd50bbfda31460))
+* add withdraw Discord command ([#142](https://github.com/BoltzExchange/boltz-backend/issues/142)) ([6fdc4d4](https://github.com/BoltzExchange/boltz-backend/commit/6fdc4d4bd9f34459561b8fc6f5427306b0bd0fb7))
+* build LND docker image with all available tags ([d3ddba0](https://github.com/BoltzExchange/boltz-backend/commit/d3ddba0cc9324823944be4c053cc4bfc17a8d107))
+* cancel invoices of expired reverse swaps ([e6aef4f](https://github.com/BoltzExchange/boltz-backend/commit/e6aef4f8789fc2307d26425ba0ba9d431e5093b9))
+* default status for swaps ([531fd39](https://github.com/BoltzExchange/boltz-backend/commit/531fd39920ccc749af0f3cc10e2ec756dced6b65))
+* make timeouts configurable on a per chain basis ([#153](https://github.com/BoltzExchange/boltz-backend/issues/153)) ([14f7b80](https://github.com/BoltzExchange/boltz-backend/commit/14f7b8037218b50c5110eb5d76239450824549a2))
+* raw transaction in events of reverse swaps ([46b8d25](https://github.com/BoltzExchange/boltz-backend/commit/46b8d25437497f74ad39dd44ecced3d84fd04ce0))
+* remove Boltz wallet ([6946bf3](https://github.com/BoltzExchange/boltz-backend/commit/6946bf34b7bf746b73b7ab98a32253b7b6f8ef72))
+* reverse swaps with hold invoices ([6936fc2](https://github.com/BoltzExchange/boltz-backend/commit/6936fc203b5fcb1cabbb28853f0b94eed71c0bb0))
+* reword invoice memo ([af55e31](https://github.com/BoltzExchange/boltz-backend/commit/af55e318128e513996d47b568901574b81493ebd))
+* show git commit hash in version ([#151](https://github.com/BoltzExchange/boltz-backend/issues/151)) ([f84a2f7](https://github.com/BoltzExchange/boltz-backend/commit/f84a2f7c303e5d5a17c2f5db666a1da60cfb9088))
+* show onchainAmount in response of createreverseswap ([#161](https://github.com/BoltzExchange/boltz-backend/issues/161)) ([f1c784a](https://github.com/BoltzExchange/boltz-backend/commit/f1c784a7d1111c7f7d6ffe85d746753f5bde2427))
+* use new reverse swap script ([82d8860](https://github.com/BoltzExchange/boltz-backend/commit/82d8860b86c8da9fc0cbb6e5f76d6a577f5f03f2))
+
+
+
 # [2.0.0-beta](https://github.com/BoltzExchange/boltz-backend/compare/v1.0.0-beta.2...v2.0.0-beta) (2019-08-27)
 
 

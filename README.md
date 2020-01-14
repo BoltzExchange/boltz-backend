@@ -1,7 +1,6 @@
 # Boltz
 
 [![Travis CI](https://travis-ci.org/BoltzExchange/boltz-backend.svg?branch=master)](https://travis-ci.org/BoltzExchange/boltz-backend)
-[![CircleCI](https://circleci.com/gh/BoltzExchange/boltz-backend/tree/master.svg?style=shield)](https://circleci.com/gh/BoltzExchange/boltz-backend/tree/master)
 [![Documentation Status](https://readthedocs.org/projects/boltz-backend/badge/?version=latest)](https://docs.boltz.exchange/en/latest/?badge=latest)
 [![Discord](https://img.shields.io/discord/547454030801272832.svg)](https://discordapp.com/invite/QBvZGcW)
 [![Version](https://img.shields.io/npm/v/boltz-backend.svg)](https://www.npmjs.com/package/boltz-backend)

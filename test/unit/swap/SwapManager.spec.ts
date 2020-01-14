@@ -342,7 +342,7 @@ describe('SwapManager', () => {
     });
 
     expect(mockAddHoldInvoice).toHaveBeenCalledTimes(1);
-    expect(mockAddHoldInvoice).toHaveBeenCalledWith(invoiceAmont, preimageHash, 'Reverse Swap to LTC');
+    expect(mockAddHoldInvoice).toHaveBeenCalledWith(invoiceAmont, preimageHash, 'Send to LTC address');
 
     expect(mockGetNewKeys).toHaveBeenCalledTimes(1);
 

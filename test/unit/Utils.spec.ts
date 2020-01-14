@@ -200,8 +200,8 @@ describe('Utils', () => {
   });
 
   test('should get memo for swaps', () => {
-    expect(utils.getSwapMemo('LTC', false)).toBe('Swap to LTC');
-    expect(utils.getSwapMemo('BTC', true)).toBe('Reverse Swap to BTC');
+    expect(utils.getSwapMemo('LTC', false)).toBe('Send to LTC lightning');
+    expect(utils.getSwapMemo('BTC', true)).toBe('Send to BTC address');
   });
 
   test('should get sending and receiving currency', () => {

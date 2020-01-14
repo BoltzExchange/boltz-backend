@@ -377,7 +377,7 @@ export const getLightningCurrency = (base: string, quote: string, orderSide: Ord
  * @param isReverse whether the swap is a reverse one
  */
 export const getSwapMemo = (receivingCurrency: string, isReverse: boolean): string => {
-  return `${isReverse ? 'Reverse ' : ''}Swap to ${receivingCurrency}`;
+  return `Send to ${receivingCurrency} ${isReverse ? 'address' : 'lightning'}`;
 };
 
 export const formatError = (error: any) => {

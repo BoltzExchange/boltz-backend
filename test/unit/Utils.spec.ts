@@ -156,6 +156,16 @@ describe('Utils', () => {
       // tslint:disable-next-line: max-line-length
       'lnbcrt987650n1pwddnskpp5d4tw4gpjgqdqlgkq5yc309r2kguure53cff8a0kjta5hurltc4yqdqqcqzpgzeu404h9udp5ay39kdvau7m5kdkvycajfhx46slgkfgyhpngnztptulxpx8s7qncp45v5nxjulje5268cu22gxysg9hm3ul8ktrw5zgqcg98hg',
     )).toEqual(98765);
+
+    expect(utils.getInvoiceAmt(
+      // tslint:disable-next-line: max-line-length
+      'lntltc1u1p0p7fuypp52k9p5mszjc9x0swfw5tum8rsdguzgxmqtg4rr2xaczhkrssvse0sdqqcqzjqxuya98m2834m3xdn7pe6kj5t2q8n3rx9ft37ygvkj07g4a2h7q3xp5mkh44f4jyuupg9t69xf0xknzqa7ufah4dqms5xz4veqplykmcqp4fue6',
+    )).toEqual(100);
+
+    expect(utils.getInvoiceAmt(
+      // tslint:disable-next-line: max-line-length
+      'lntb1p0p7f6lpp58zpsxk88e8uz2lndqrf9radths484jqlhmas92kt7md2cqszpn6qdqqcqzpgrzjqtejjv7p39kcv5gezydzgse8ea3kcw8zqe36afy64zem09us5hjgcxgphsqqqzsqqyqqqqlgqqqqqqgq9q4wqv5a4uwhhvfh93k2ue75lrre50tk99pk689qgf6ul5my5vr749689wcunnv7zjcuk7jlpwz44fv87ra2snsjzw34pnfs5d477u82cpm6cym6',
+    )).toEqual(0);
   });
 
   test('should get rate', () => {

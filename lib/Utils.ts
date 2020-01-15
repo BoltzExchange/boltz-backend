@@ -83,12 +83,11 @@ export const minutesToMilliseconds = (minutes: number) => {
   return minutes * 60 * 1000;
 };
 
-// TODO: fix invoice decoding on testnet
 /**
  * Gets the amount of an invoice in satoshis
  */
 export const getInvoiceAmt = (invoice: string): number => {
-  return Number(bolt11.decode(invoice).millisatoshis) / 1000;
+  return bolt11.decode(invoice).satoshis || 0;
 };
 
 /**

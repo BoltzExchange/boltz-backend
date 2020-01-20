@@ -67,7 +67,7 @@ const pairRepository = new PairRepository();
 const swapRepository = new SwapRepository();
 const reverseSwapRepository = new ReverseSwapRepository();
 
-const mockNewAddress = jest.fn().mockResolvedValue(newAddress);
+const mockGetAddress = jest.fn().mockResolvedValue(newAddress);
 
 const invoicePreimage = '765895dd514ce9358f1412c6b416d6a8f8ecea1a4e442d1e15ea8b76152fd241';
 const mockPayInvoice = jest.fn().mockImplementation(async (_: string, invoice: string) => {
@@ -105,7 +105,7 @@ jest.mock('../../../lib/service/Service', () => {
           ['BTC', btcBalance],
         ]),
       }),
-      newAddress: mockNewAddress,
+      getAddress: mockGetAddress,
       payInvoice: mockPayInvoice,
       sendCoins: mockSendCoins,
     };
@@ -459,8 +459,8 @@ describe('CommandHandler', () => {
     sendMessage('newaddress BTC');
     await wait(5);
 
-    expect(mockNewAddress).toHaveBeenCalledTimes(1);
-    expect(mockNewAddress).toHaveBeenCalledWith('BTC');
+    expect(mockGetAddress).toHaveBeenCalledTimes(1);
+    expect(mockGetAddress).toHaveBeenCalledWith('BTC');
 
     // Send an error if no currency is specified
     sendMessage('newaddress');

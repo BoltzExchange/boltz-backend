@@ -363,7 +363,7 @@ class CommandHandler {
 
       const currency = args[0].toUpperCase();
 
-      const response = await this.service.newAddress(currency);
+      const response = await this.service.getAddress(currency);
       await this.discord.sendMessage(`\`${response}\``);
     } catch (error) {
       await this.discord.sendMessage(`Could not generate address: ${formatError(error)}`);

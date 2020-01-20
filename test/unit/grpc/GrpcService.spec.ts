@@ -18,7 +18,7 @@ const mockGetBalance = jest.fn().mockResolvedValue(getBalanceData);
 
 const newAddressData = 'address';
 
-const mockNewAddress = jest.fn().mockResolvedValue(newAddressData);
+const mockGetAddress = jest.fn().mockResolvedValue(newAddressData);
 
 const sendCoinsData = {
   vout: 1,
@@ -34,7 +34,7 @@ jest.mock('../../../lib/service/Service', () => {
     return {
       getInfo: mockGetInfo,
       getBalance: mockGetBalance,
-      newAddress: mockNewAddress,
+      getAddress: mockGetAddress,
       sendCoins: mockSendCoins,
       updateTimeoutBlockDelta: mockUpdateTimeoutBlockDelta,
     };
@@ -78,17 +78,12 @@ describe('GrpcService', () => {
   });
 
   test('should handle GetBalance', () => {
-    const callData = {
-      symbol: 'symbol',
-    };
-
-    grpcService.getBalance(createCall(callData), createCallback((error, response) => {
+    grpcService.getBalance(createCall({}), createCallback((error, response) => {
       expect(error).toEqual(null);
       expect(response).toEqual(getBalanceData);
     }));
 
     expect(mockGetBalance).toHaveBeenCalledTimes(1);
-    expect(mockGetBalance).toHaveBeenCalledWith(callData.symbol);
   });
 
   test('should handle NewAddress', () => {
@@ -96,13 +91,13 @@ describe('GrpcService', () => {
       symbol: 'symbol',
     };
 
-    grpcService.newAddress(createCall(callData), createCallback((error, response) => {
+    grpcService.getAddress(createCall(callData), createCallback((error, response) => {
       expect(error).toEqual(null);
       expect(response!.getAddress()).toEqual(newAddressData);
     }));
 
-    expect(mockNewAddress).toHaveBeenCalledTimes(1);
-    expect(mockNewAddress).toHaveBeenCalledWith(callData.symbol);
+    expect(mockGetAddress).toHaveBeenCalledTimes(1);
+    expect(mockGetAddress).toHaveBeenCalledWith(callData.symbol);
   });
 
   test('should handle SendCoins', () => {

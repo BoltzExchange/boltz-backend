@@ -10,7 +10,7 @@ import * as boltzrpc_pb from "./boltzrpc_pb";
 interface IBoltzService extends grpc.ServiceDefinition<grpc.UntypedServiceImplementation> {
     getInfo: IBoltzService_IGetInfo;
     getBalance: IBoltzService_IGetBalance;
-    newAddress: IBoltzService_INewAddress;
+    getAddress: IBoltzService_IGetAddress;
     sendCoins: IBoltzService_ISendCoins;
     updateTimeoutBlockDelta: IBoltzService_IUpdateTimeoutBlockDelta;
 }
@@ -33,14 +33,14 @@ interface IBoltzService_IGetBalance extends grpc.MethodDefinition<boltzrpc_pb.Ge
     responseSerialize: grpc.serialize<boltzrpc_pb.GetBalanceResponse>;
     responseDeserialize: grpc.deserialize<boltzrpc_pb.GetBalanceResponse>;
 }
-interface IBoltzService_INewAddress extends grpc.MethodDefinition<boltzrpc_pb.NewAddressRequest, boltzrpc_pb.NewAddressResponse> {
-    path: string; // "/boltzrpc.Boltz/NewAddress"
+interface IBoltzService_IGetAddress extends grpc.MethodDefinition<boltzrpc_pb.GetAddressRequest, boltzrpc_pb.GetAddressResponse> {
+    path: string; // "/boltzrpc.Boltz/GetAddress"
     requestStream: boolean; // false
     responseStream: boolean; // false
-    requestSerialize: grpc.serialize<boltzrpc_pb.NewAddressRequest>;
-    requestDeserialize: grpc.deserialize<boltzrpc_pb.NewAddressRequest>;
-    responseSerialize: grpc.serialize<boltzrpc_pb.NewAddressResponse>;
-    responseDeserialize: grpc.deserialize<boltzrpc_pb.NewAddressResponse>;
+    requestSerialize: grpc.serialize<boltzrpc_pb.GetAddressRequest>;
+    requestDeserialize: grpc.deserialize<boltzrpc_pb.GetAddressRequest>;
+    responseSerialize: grpc.serialize<boltzrpc_pb.GetAddressResponse>;
+    responseDeserialize: grpc.deserialize<boltzrpc_pb.GetAddressResponse>;
 }
 interface IBoltzService_ISendCoins extends grpc.MethodDefinition<boltzrpc_pb.SendCoinsRequest, boltzrpc_pb.SendCoinsResponse> {
     path: string; // "/boltzrpc.Boltz/SendCoins"
@@ -66,7 +66,7 @@ export const BoltzService: IBoltzService;
 export interface IBoltzServer {
     getInfo: grpc.handleUnaryCall<boltzrpc_pb.GetInfoRequest, boltzrpc_pb.GetInfoResponse>;
     getBalance: grpc.handleUnaryCall<boltzrpc_pb.GetBalanceRequest, boltzrpc_pb.GetBalanceResponse>;
-    newAddress: grpc.handleUnaryCall<boltzrpc_pb.NewAddressRequest, boltzrpc_pb.NewAddressResponse>;
+    getAddress: grpc.handleUnaryCall<boltzrpc_pb.GetAddressRequest, boltzrpc_pb.GetAddressResponse>;
     sendCoins: grpc.handleUnaryCall<boltzrpc_pb.SendCoinsRequest, boltzrpc_pb.SendCoinsResponse>;
     updateTimeoutBlockDelta: grpc.handleUnaryCall<boltzrpc_pb.UpdateTimeoutBlockDeltaRequest, boltzrpc_pb.UpdateTimeoutBlockDeltaResponse>;
 }
@@ -78,9 +78,9 @@ export interface IBoltzClient {
     getBalance(request: boltzrpc_pb.GetBalanceRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetBalanceResponse) => void): grpc.ClientUnaryCall;
     getBalance(request: boltzrpc_pb.GetBalanceRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetBalanceResponse) => void): grpc.ClientUnaryCall;
     getBalance(request: boltzrpc_pb.GetBalanceRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetBalanceResponse) => void): grpc.ClientUnaryCall;
-    newAddress(request: boltzrpc_pb.NewAddressRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.NewAddressResponse) => void): grpc.ClientUnaryCall;
-    newAddress(request: boltzrpc_pb.NewAddressRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.NewAddressResponse) => void): grpc.ClientUnaryCall;
-    newAddress(request: boltzrpc_pb.NewAddressRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.NewAddressResponse) => void): grpc.ClientUnaryCall;
+    getAddress(request: boltzrpc_pb.GetAddressRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetAddressResponse) => void): grpc.ClientUnaryCall;
+    getAddress(request: boltzrpc_pb.GetAddressRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetAddressResponse) => void): grpc.ClientUnaryCall;
+    getAddress(request: boltzrpc_pb.GetAddressRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetAddressResponse) => void): grpc.ClientUnaryCall;
     sendCoins(request: boltzrpc_pb.SendCoinsRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SendCoinsResponse) => void): grpc.ClientUnaryCall;
     sendCoins(request: boltzrpc_pb.SendCoinsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SendCoinsResponse) => void): grpc.ClientUnaryCall;
     sendCoins(request: boltzrpc_pb.SendCoinsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SendCoinsResponse) => void): grpc.ClientUnaryCall;
@@ -97,9 +97,9 @@ export class BoltzClient extends grpc.Client implements IBoltzClient {
     public getBalance(request: boltzrpc_pb.GetBalanceRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetBalanceResponse) => void): grpc.ClientUnaryCall;
     public getBalance(request: boltzrpc_pb.GetBalanceRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetBalanceResponse) => void): grpc.ClientUnaryCall;
     public getBalance(request: boltzrpc_pb.GetBalanceRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetBalanceResponse) => void): grpc.ClientUnaryCall;
-    public newAddress(request: boltzrpc_pb.NewAddressRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.NewAddressResponse) => void): grpc.ClientUnaryCall;
-    public newAddress(request: boltzrpc_pb.NewAddressRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.NewAddressResponse) => void): grpc.ClientUnaryCall;
-    public newAddress(request: boltzrpc_pb.NewAddressRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.NewAddressResponse) => void): grpc.ClientUnaryCall;
+    public getAddress(request: boltzrpc_pb.GetAddressRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetAddressResponse) => void): grpc.ClientUnaryCall;
+    public getAddress(request: boltzrpc_pb.GetAddressRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetAddressResponse) => void): grpc.ClientUnaryCall;
+    public getAddress(request: boltzrpc_pb.GetAddressRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetAddressResponse) => void): grpc.ClientUnaryCall;
     public sendCoins(request: boltzrpc_pb.SendCoinsRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SendCoinsResponse) => void): grpc.ClientUnaryCall;
     public sendCoins(request: boltzrpc_pb.SendCoinsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SendCoinsResponse) => void): grpc.ClientUnaryCall;
     public sendCoins(request: boltzrpc_pb.SendCoinsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SendCoinsResponse) => void): grpc.ClientUnaryCall;

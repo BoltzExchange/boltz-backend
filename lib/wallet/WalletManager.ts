@@ -12,6 +12,7 @@ import ChainClient from '../chain/ChainClient';
 import LndClient from '../lightning/LndClient';
 import { KeyProviderType } from '../db/models/KeyProvider';
 import LndWalletProvider from './providers/LndWalletProvider';
+import EthereumWallet, { EthereumConfig } from './EthereumWallet';
 
 type Currency = {
   symbol: string;
@@ -26,29 +27,33 @@ type Currency = {
  * interact with the wallet of LND to send and receive onchain coins
  */
 class WalletManager {
+  public ethereumWallet?: EthereumWallet;
   public wallets = new Map<string, Wallet>();
 
+  private menmonic: string;
   private masterNode: BIP32Interface;
   private keyRepository: KeyRepository;
 
   private readonly derivationPath = 'm/0';
 
-  constructor(private logger: Logger, private currencies: Currency[], mnemonicPath: string) {
-    this.masterNode = this.loadMasterNode(mnemonicPath);
+  constructor(private logger: Logger, mnemonicPath: string, private currencies: Currency[], private ethereumConfig: EthereumConfig) {
+    this.menmonic = this.loadMenmonic(mnemonicPath);
+    this.masterNode = fromSeed(mnemonicToSeedSync(this.menmonic));
+
     this.keyRepository = new KeyRepository();
   }
 
   /**
    * Initializes a new WalletManager with a mnemonic
    */
-  public static fromMnemonic = (logger: Logger, mnemonic: string, mnemonicPath: string, currencies: Currency[]) => {
+  public static fromMnemonic = (logger: Logger, mnemonic: string, mnemonicPath: string, currencies: Currency[], ethereumConfig: EthereumConfig) => {
     if (!validateMnemonic(mnemonic)) {
       throw(Errors.INVALID_MNEMONIC(mnemonic));
     }
 
     fs.writeFileSync(mnemonicPath, mnemonic);
 
-    return new WalletManager(logger, currencies, mnemonicPath);
+    return new WalletManager(logger, mnemonicPath, currencies, ethereumConfig);
   }
 
   public init = async () => {
@@ -89,13 +94,18 @@ class WalletManager {
 
       this.wallets.set(currency.symbol, wallet);
     }
+
+    if (this.ethereumConfig.providerEndpoint !== '') {
+      // TODO: leave global wallet undefined if connection fails
+      this.ethereumWallet = new EthereumWallet(this.logger, this.menmonic, this.ethereumConfig);
+    } else {
+      this.logger.warn('Not trying to initialize Ethereum wallet: no endpoint was specified');
+    }
   }
 
-  private loadMasterNode = (filename: string) => {
+  private loadMenmonic = (filename: string) => {
     if (fs.existsSync(filename)) {
-      const mnemonic = fs.readFileSync(filename, 'utf-8').toString();
-
-      return fromSeed(mnemonicToSeedSync(mnemonic));
+      return fs.readFileSync(filename, 'utf-8').toString();
     }
 
     throw(Errors.NOT_INITIALIZED());

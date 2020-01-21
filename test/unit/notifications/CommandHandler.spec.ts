@@ -206,7 +206,7 @@ describe('CommandHandler', () => {
       '**pendingswaps**: gets a list of pending (reverse) swaps\n' +
       '**backup**: uploads a backup of the databases\n' +
       '**withdraw**: withdraws coins from Boltz\n' +
-      '**newaddress**: generates a new address for a currency\n' +
+      '**getaddress**: gets an address for a currency\n' +
       '**togglereverse**: enables or disables reverse swaps',
     );
   });
@@ -455,19 +455,22 @@ describe('CommandHandler', () => {
     expect(mockSendMessage).toHaveBeenCalledWith('Invalid OTP token');
   });
 
-  test('should generate new addresses', async () => {
-    sendMessage('newaddress BTC');
+  test('should get addresses', async () => {
+    sendMessage('getaddress BTC');
     await wait(5);
 
     expect(mockGetAddress).toHaveBeenCalledTimes(1);
     expect(mockGetAddress).toHaveBeenCalledWith('BTC');
 
+    expect(mockSendMessage).toHaveBeenCalledTimes(1);
+    expect(mockSendMessage).toHaveBeenCalledWith(`\`${newAddress}\``);
+
     // Send an error if no currency is specified
-    sendMessage('newaddress');
+    sendMessage('getaddress');
     await wait(5);
 
     expect(mockSendMessage).toHaveBeenCalledTimes(2);
-    expect(mockSendMessage).toHaveBeenCalledWith('Could not generate address: no currency was specified');
+    expect(mockSendMessage).toHaveBeenCalledWith('Could not get address: no currency was specified');
   });
 
   test('should toggle reverse swaps', async () => {

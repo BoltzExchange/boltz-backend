@@ -28,7 +28,7 @@ enum Command {
   // Commands that generate a value or trigger a function
   Backup = 'backup',
   Withdraw = 'withdraw',
-  NewAddress = 'newaddress',
+  GetAddress = 'getaddress',
   ToggleReverseSwaps = 'togglereverse',
 }
 
@@ -122,15 +122,15 @@ class CommandHandler {
         executor: this.withdraw,
         description: 'withdraws coins from Boltz',
       }],
-      [Command.NewAddress, {
+      [Command.GetAddress, {
         usage: [
           {
-            command: 'newaddress <currency>',
-            description: 'generates a new bech32 address for the currency `<currency>`',
+            command: 'getaddress <currency>',
+            description: 'gets an address for the currency `<currency>`',
           },
         ],
-        executor: this.newAddress,
-        description: 'generates a new address for a currency',
+        executor: this.getAddress,
+        description: 'gets an address for a currency',
       }],
       [Command.ToggleReverseSwaps, {
         executor: this.toggleReverseSwaps,
@@ -355,7 +355,7 @@ class CommandHandler {
     }
   }
 
-  private newAddress = async (args: string[]) => {
+  private getAddress = async (args: string[]) => {
     try {
       if (args.length === 0) {
         throw 'no currency was specified';
@@ -366,7 +366,7 @@ class CommandHandler {
       const response = await this.service.getAddress(currency);
       await this.discord.sendMessage(`\`${response}\``);
     } catch (error) {
-      await this.discord.sendMessage(`Could not generate address: ${formatError(error)}`);
+      await this.discord.sendMessage(`Could not get address: ${formatError(error)}`);
     }
   }
 

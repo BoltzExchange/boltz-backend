@@ -37,6 +37,7 @@ class EthereumWallet {
   // A map between the token symbols and their decimals
   private tokenDecimals =  new Map<string, BN>();
   private etherDecimals = new BN(10).pow(new BN(10));
+  private gweiDecimals = new BN(10).pow(new BN(9));
 
   constructor(
     private logger: Logger,
@@ -122,7 +123,7 @@ class EthereumWallet {
 
     const amount = new BN(balance).sub(gasCost).div(this.etherDecimals);
 
-    return this.sendEther(address, amount.toNumber(), actualGasPrice.div(this.etherDecimals).toNumber());
+    return this.sendEther(address, amount.toNumber(), actualGasPrice.div(this.gweiDecimals).toNumber());
   }
 
   /**

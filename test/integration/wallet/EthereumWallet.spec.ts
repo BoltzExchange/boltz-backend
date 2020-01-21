@@ -111,9 +111,9 @@ describe('EthereumWallet', () => {
 
     const eventReturnValues = receipt.events.Transfer.returnValues;
 
-    expect(eventReturnValues.value).toEqual(amount.mul(new BN(10 ** 10)).toString());
     expect(eventReturnValues.to).toEqual(recipient);
     expect(eventReturnValues.from.toLowerCase()).toEqual(wallet.address);
+    expect(eventReturnValues.value).toEqual(amount.mul(new BN(10 ** 10)).toString());
 
     const transaction = await web3.eth.getTransaction(receipt.transactionHash);
 
@@ -138,16 +138,21 @@ describe('EthereumWallet', () => {
   });
 
   test('should sweep Ether', async () => {
+    const gasPrice = 23;
     const recipient = account.toLowerCase();
 
-    const receipt = await wallet.sweepEther(recipient, 1);
+    const receipt = await wallet.sweepEther(recipient, gasPrice);
 
     expect(receipt.to).toEqual(recipient);
+    expect(receipt.gasUsed).toEqual(21000);
     expect(receipt.from).toEqual(wallet.address);
 
+    const transaction = await web3.eth.getTransaction(receipt.transactionHash);
+
+    expect(transaction.gasPrice).toEqual(new BN(gasPrice).mul(new BN(10).pow(new BN(9))).toString());
+
     const balance = await wallet.getBalance();
-    // Transacting on Ganache does not cost any ether
-    expect(balance.ether).toEqual(2100);
+    expect(balance.ether).toEqual(0);
   });
 
   test('should get gas price', async () => {

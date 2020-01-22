@@ -14,8 +14,9 @@ cache:
   directories:
     - "node_modules"
 
-before_install:
-  - if [[ "$TRAVIS_OS_NAME" != 'windows' ]]; then npm run docker:start; fi
+before_script:
+  - if [[ "$TRAVIS_OS_NAME" != 'windows' ]]; then npm run docker:regtest && npm run docker:ganache; fi
+  - if [[ "$TRAVIS_OS_NAME" != 'windows' ]]; then sleep 20 && npm run docker:ganache:deploy; fi
 
 script:
   - npm run compile

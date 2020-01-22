@@ -87,7 +87,7 @@ class NotificationProvider {
         await check();
       }, minutesToMilliseconds(this.config.interval));
     } catch (error) {
-      this.logger.warn(`Could not connect to Discord: ${error}`);
+      this.logger.warn(`Could start notification service: ${error}`);
     }
   }
 

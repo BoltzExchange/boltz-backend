@@ -106,6 +106,7 @@ interface ILightningService extends grpc.ServiceDefinition<grpc.UntypedServiceIm
     connectPeer: ILightningService_IConnectPeer;
     disconnectPeer: ILightningService_IDisconnectPeer;
     listPeers: ILightningService_IListPeers;
+    subscribePeerEvents: ILightningService_ISubscribePeerEvents;
     getInfo: ILightningService_IGetInfo;
     pendingChannels: ILightningService_IPendingChannels;
     listChannels: ILightningService_IListChannels;
@@ -113,6 +114,7 @@ interface ILightningService extends grpc.ServiceDefinition<grpc.UntypedServiceIm
     closedChannels: ILightningService_IClosedChannels;
     openChannelSync: ILightningService_IOpenChannelSync;
     openChannel: ILightningService_IOpenChannel;
+    fundingStateStep: ILightningService_IFundingStateStep;
     channelAcceptor: ILightningService_IChannelAcceptor;
     closeChannel: ILightningService_ICloseChannel;
     abandonChannel: ILightningService_IAbandonChannel;
@@ -143,6 +145,7 @@ interface ILightningService extends grpc.ServiceDefinition<grpc.UntypedServiceIm
     verifyChanBackup: ILightningService_IVerifyChanBackup;
     restoreChannelBackups: ILightningService_IRestoreChannelBackups;
     subscribeChannelBackups: ILightningService_ISubscribeChannelBackups;
+    bakeMacaroon: ILightningService_IBakeMacaroon;
 }
 
 interface ILightningService_IWalletBalance extends grpc.MethodDefinition<lndrpc_pb.WalletBalanceRequest, lndrpc_pb.WalletBalanceResponse> {
@@ -271,6 +274,15 @@ interface ILightningService_IListPeers extends grpc.MethodDefinition<lndrpc_pb.L
     responseSerialize: grpc.serialize<lndrpc_pb.ListPeersResponse>;
     responseDeserialize: grpc.deserialize<lndrpc_pb.ListPeersResponse>;
 }
+interface ILightningService_ISubscribePeerEvents extends grpc.MethodDefinition<lndrpc_pb.PeerEventSubscription, lndrpc_pb.PeerEvent> {
+    path: string; // "/lnrpc.Lightning/SubscribePeerEvents"
+    requestStream: boolean; // false
+    responseStream: boolean; // true
+    requestSerialize: grpc.serialize<lndrpc_pb.PeerEventSubscription>;
+    requestDeserialize: grpc.deserialize<lndrpc_pb.PeerEventSubscription>;
+    responseSerialize: grpc.serialize<lndrpc_pb.PeerEvent>;
+    responseDeserialize: grpc.deserialize<lndrpc_pb.PeerEvent>;
+}
 interface ILightningService_IGetInfo extends grpc.MethodDefinition<lndrpc_pb.GetInfoRequest, lndrpc_pb.GetInfoResponse> {
     path: string; // "/lnrpc.Lightning/GetInfo"
     requestStream: boolean; // false
@@ -333,6 +345,15 @@ interface ILightningService_IOpenChannel extends grpc.MethodDefinition<lndrpc_pb
     requestDeserialize: grpc.deserialize<lndrpc_pb.OpenChannelRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.OpenStatusUpdate>;
     responseDeserialize: grpc.deserialize<lndrpc_pb.OpenStatusUpdate>;
+}
+interface ILightningService_IFundingStateStep extends grpc.MethodDefinition<lndrpc_pb.FundingTransitionMsg, lndrpc_pb.FundingStateStepResp> {
+    path: string; // "/lnrpc.Lightning/FundingStateStep"
+    requestStream: boolean; // false
+    responseStream: boolean; // false
+    requestSerialize: grpc.serialize<lndrpc_pb.FundingTransitionMsg>;
+    requestDeserialize: grpc.deserialize<lndrpc_pb.FundingTransitionMsg>;
+    responseSerialize: grpc.serialize<lndrpc_pb.FundingStateStepResp>;
+    responseDeserialize: grpc.deserialize<lndrpc_pb.FundingStateStepResp>;
 }
 interface ILightningService_IChannelAcceptor extends grpc.MethodDefinition<lndrpc_pb.ChannelAcceptResponse, lndrpc_pb.ChannelAcceptRequest> {
     path: string; // "/lnrpc.Lightning/ChannelAcceptor"
@@ -604,6 +625,15 @@ interface ILightningService_ISubscribeChannelBackups extends grpc.MethodDefiniti
     responseSerialize: grpc.serialize<lndrpc_pb.ChanBackupSnapshot>;
     responseDeserialize: grpc.deserialize<lndrpc_pb.ChanBackupSnapshot>;
 }
+interface ILightningService_IBakeMacaroon extends grpc.MethodDefinition<lndrpc_pb.BakeMacaroonRequest, lndrpc_pb.BakeMacaroonResponse> {
+    path: string; // "/lnrpc.Lightning/BakeMacaroon"
+    requestStream: boolean; // false
+    responseStream: boolean; // false
+    requestSerialize: grpc.serialize<lndrpc_pb.BakeMacaroonRequest>;
+    requestDeserialize: grpc.deserialize<lndrpc_pb.BakeMacaroonRequest>;
+    responseSerialize: grpc.serialize<lndrpc_pb.BakeMacaroonResponse>;
+    responseDeserialize: grpc.deserialize<lndrpc_pb.BakeMacaroonResponse>;
+}
 
 export const LightningService: ILightningService;
 
@@ -622,6 +652,7 @@ export interface ILightningServer {
     connectPeer: grpc.handleUnaryCall<lndrpc_pb.ConnectPeerRequest, lndrpc_pb.ConnectPeerResponse>;
     disconnectPeer: grpc.handleUnaryCall<lndrpc_pb.DisconnectPeerRequest, lndrpc_pb.DisconnectPeerResponse>;
     listPeers: grpc.handleUnaryCall<lndrpc_pb.ListPeersRequest, lndrpc_pb.ListPeersResponse>;
+    subscribePeerEvents: grpc.handleServerStreamingCall<lndrpc_pb.PeerEventSubscription, lndrpc_pb.PeerEvent>;
     getInfo: grpc.handleUnaryCall<lndrpc_pb.GetInfoRequest, lndrpc_pb.GetInfoResponse>;
     pendingChannels: grpc.handleUnaryCall<lndrpc_pb.PendingChannelsRequest, lndrpc_pb.PendingChannelsResponse>;
     listChannels: grpc.handleUnaryCall<lndrpc_pb.ListChannelsRequest, lndrpc_pb.ListChannelsResponse>;
@@ -629,6 +660,7 @@ export interface ILightningServer {
     closedChannels: grpc.handleUnaryCall<lndrpc_pb.ClosedChannelsRequest, lndrpc_pb.ClosedChannelsResponse>;
     openChannelSync: grpc.handleUnaryCall<lndrpc_pb.OpenChannelRequest, lndrpc_pb.ChannelPoint>;
     openChannel: grpc.handleServerStreamingCall<lndrpc_pb.OpenChannelRequest, lndrpc_pb.OpenStatusUpdate>;
+    fundingStateStep: grpc.handleUnaryCall<lndrpc_pb.FundingTransitionMsg, lndrpc_pb.FundingStateStepResp>;
     channelAcceptor: grpc.handleBidiStreamingCall<lndrpc_pb.ChannelAcceptResponse, lndrpc_pb.ChannelAcceptRequest>;
     closeChannel: grpc.handleServerStreamingCall<lndrpc_pb.CloseChannelRequest, lndrpc_pb.CloseStatusUpdate>;
     abandonChannel: grpc.handleUnaryCall<lndrpc_pb.AbandonChannelRequest, lndrpc_pb.AbandonChannelResponse>;
@@ -659,6 +691,7 @@ export interface ILightningServer {
     verifyChanBackup: grpc.handleUnaryCall<lndrpc_pb.ChanBackupSnapshot, lndrpc_pb.VerifyChanBackupResponse>;
     restoreChannelBackups: grpc.handleUnaryCall<lndrpc_pb.RestoreChanBackupRequest, lndrpc_pb.RestoreBackupResponse>;
     subscribeChannelBackups: grpc.handleServerStreamingCall<lndrpc_pb.ChannelBackupSubscription, lndrpc_pb.ChanBackupSnapshot>;
+    bakeMacaroon: grpc.handleUnaryCall<lndrpc_pb.BakeMacaroonRequest, lndrpc_pb.BakeMacaroonResponse>;
 }
 
 export interface ILightningClient {
@@ -703,6 +736,8 @@ export interface ILightningClient {
     listPeers(request: lndrpc_pb.ListPeersRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ListPeersResponse) => void): grpc.ClientUnaryCall;
     listPeers(request: lndrpc_pb.ListPeersRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ListPeersResponse) => void): grpc.ClientUnaryCall;
     listPeers(request: lndrpc_pb.ListPeersRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ListPeersResponse) => void): grpc.ClientUnaryCall;
+    subscribePeerEvents(request: lndrpc_pb.PeerEventSubscription, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<lndrpc_pb.PeerEvent>;
+    subscribePeerEvents(request: lndrpc_pb.PeerEventSubscription, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<lndrpc_pb.PeerEvent>;
     getInfo(request: lndrpc_pb.GetInfoRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.GetInfoResponse) => void): grpc.ClientUnaryCall;
     getInfo(request: lndrpc_pb.GetInfoRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.GetInfoResponse) => void): grpc.ClientUnaryCall;
     getInfo(request: lndrpc_pb.GetInfoRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.GetInfoResponse) => void): grpc.ClientUnaryCall;
@@ -722,6 +757,9 @@ export interface ILightningClient {
     openChannelSync(request: lndrpc_pb.OpenChannelRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChannelPoint) => void): grpc.ClientUnaryCall;
     openChannel(request: lndrpc_pb.OpenChannelRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<lndrpc_pb.OpenStatusUpdate>;
     openChannel(request: lndrpc_pb.OpenChannelRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<lndrpc_pb.OpenStatusUpdate>;
+    fundingStateStep(request: lndrpc_pb.FundingTransitionMsg, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.FundingStateStepResp) => void): grpc.ClientUnaryCall;
+    fundingStateStep(request: lndrpc_pb.FundingTransitionMsg, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.FundingStateStepResp) => void): grpc.ClientUnaryCall;
+    fundingStateStep(request: lndrpc_pb.FundingTransitionMsg, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.FundingStateStepResp) => void): grpc.ClientUnaryCall;
     channelAcceptor(): grpc.ClientDuplexStream<lndrpc_pb.ChannelAcceptResponse, lndrpc_pb.ChannelAcceptRequest>;
     channelAcceptor(options: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<lndrpc_pb.ChannelAcceptResponse, lndrpc_pb.ChannelAcceptRequest>;
     channelAcceptor(metadata: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<lndrpc_pb.ChannelAcceptResponse, lndrpc_pb.ChannelAcceptRequest>;
@@ -808,6 +846,9 @@ export interface ILightningClient {
     restoreChannelBackups(request: lndrpc_pb.RestoreChanBackupRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.RestoreBackupResponse) => void): grpc.ClientUnaryCall;
     subscribeChannelBackups(request: lndrpc_pb.ChannelBackupSubscription, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<lndrpc_pb.ChanBackupSnapshot>;
     subscribeChannelBackups(request: lndrpc_pb.ChannelBackupSubscription, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<lndrpc_pb.ChanBackupSnapshot>;
+    bakeMacaroon(request: lndrpc_pb.BakeMacaroonRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.BakeMacaroonResponse) => void): grpc.ClientUnaryCall;
+    bakeMacaroon(request: lndrpc_pb.BakeMacaroonRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.BakeMacaroonResponse) => void): grpc.ClientUnaryCall;
+    bakeMacaroon(request: lndrpc_pb.BakeMacaroonRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.BakeMacaroonResponse) => void): grpc.ClientUnaryCall;
 }
 
 export class LightningClient extends grpc.Client implements ILightningClient {
@@ -853,6 +894,8 @@ export class LightningClient extends grpc.Client implements ILightningClient {
     public listPeers(request: lndrpc_pb.ListPeersRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ListPeersResponse) => void): grpc.ClientUnaryCall;
     public listPeers(request: lndrpc_pb.ListPeersRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ListPeersResponse) => void): grpc.ClientUnaryCall;
     public listPeers(request: lndrpc_pb.ListPeersRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ListPeersResponse) => void): grpc.ClientUnaryCall;
+    public subscribePeerEvents(request: lndrpc_pb.PeerEventSubscription, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<lndrpc_pb.PeerEvent>;
+    public subscribePeerEvents(request: lndrpc_pb.PeerEventSubscription, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<lndrpc_pb.PeerEvent>;
     public getInfo(request: lndrpc_pb.GetInfoRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.GetInfoResponse) => void): grpc.ClientUnaryCall;
     public getInfo(request: lndrpc_pb.GetInfoRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.GetInfoResponse) => void): grpc.ClientUnaryCall;
     public getInfo(request: lndrpc_pb.GetInfoRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.GetInfoResponse) => void): grpc.ClientUnaryCall;
@@ -872,6 +915,9 @@ export class LightningClient extends grpc.Client implements ILightningClient {
     public openChannelSync(request: lndrpc_pb.OpenChannelRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChannelPoint) => void): grpc.ClientUnaryCall;
     public openChannel(request: lndrpc_pb.OpenChannelRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<lndrpc_pb.OpenStatusUpdate>;
     public openChannel(request: lndrpc_pb.OpenChannelRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<lndrpc_pb.OpenStatusUpdate>;
+    public fundingStateStep(request: lndrpc_pb.FundingTransitionMsg, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.FundingStateStepResp) => void): grpc.ClientUnaryCall;
+    public fundingStateStep(request: lndrpc_pb.FundingTransitionMsg, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.FundingStateStepResp) => void): grpc.ClientUnaryCall;
+    public fundingStateStep(request: lndrpc_pb.FundingTransitionMsg, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.FundingStateStepResp) => void): grpc.ClientUnaryCall;
     public channelAcceptor(options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<lndrpc_pb.ChannelAcceptResponse, lndrpc_pb.ChannelAcceptRequest>;
     public channelAcceptor(metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<lndrpc_pb.ChannelAcceptResponse, lndrpc_pb.ChannelAcceptRequest>;
     public closeChannel(request: lndrpc_pb.CloseChannelRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<lndrpc_pb.CloseStatusUpdate>;
@@ -955,4 +1001,7 @@ export class LightningClient extends grpc.Client implements ILightningClient {
     public restoreChannelBackups(request: lndrpc_pb.RestoreChanBackupRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.RestoreBackupResponse) => void): grpc.ClientUnaryCall;
     public subscribeChannelBackups(request: lndrpc_pb.ChannelBackupSubscription, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<lndrpc_pb.ChanBackupSnapshot>;
     public subscribeChannelBackups(request: lndrpc_pb.ChannelBackupSubscription, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<lndrpc_pb.ChanBackupSnapshot>;
+    public bakeMacaroon(request: lndrpc_pb.BakeMacaroonRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.BakeMacaroonResponse) => void): grpc.ClientUnaryCall;
+    public bakeMacaroon(request: lndrpc_pb.BakeMacaroonRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.BakeMacaroonResponse) => void): grpc.ClientUnaryCall;
+    public bakeMacaroon(request: lndrpc_pb.BakeMacaroonRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.BakeMacaroonResponse) => void): grpc.ClientUnaryCall;
 }

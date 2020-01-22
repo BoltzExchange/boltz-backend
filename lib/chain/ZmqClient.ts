@@ -33,7 +33,8 @@ class ZmqClient extends EventEmitter {
   public relevantInputs = new Set<string>();
   public relevantOutputs = new Set<string>();
 
-  private blockHeight = 0;
+  public blockHeight = 0;
+
   private bestBlockHash = '';
 
   private hashBlockAddress?: string;

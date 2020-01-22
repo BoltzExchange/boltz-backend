@@ -167,6 +167,7 @@ const mockGetNetworkInfo = jest.fn().mockResolvedValue({
 
 const mockGetBlockchainInfo = jest.fn().mockResolvedValue({
   blocks: 123,
+  scannedBlocks: 321,
 });
 
 const rawTransaction = 'rawTransaction';
@@ -324,7 +325,6 @@ describe('Service', () => {
     expect(currency[1].chain).toEqual({
       ...(await mockGetNetworkInfo()),
       ...(await mockGetBlockchainInfo()),
-
       error: '',
     });
 

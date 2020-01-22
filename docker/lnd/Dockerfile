@@ -22,8 +22,6 @@ COPY lnd/patches /patches
 RUN cd vendor/github.com/ltcsuite/ltcd && patch -p1 < /patches/ltcd.patch
 RUN cd vendor/github.com/btcsuite/btcutil && patch -p1 < /patches/btcutil.patch
 
-# RUN cat vendor/github.com/ltcsuite/ltcd/chaincfg/params.go
-
 RUN go build -mod vendor -v -trimpath -tags="autopilotrpc signrpc walletrpc chainrpc invoicesrpc routerrpc watchtowerrpc" github.com/lightningnetwork/lnd/cmd/lnd
 RUN go build -mod vendor -v -trimpath -tags="autopilotrpc invoicesrpc walletrpc routerrpc watchtowerrpc" github.com/lightningnetwork/lnd/cmd/lncli
 

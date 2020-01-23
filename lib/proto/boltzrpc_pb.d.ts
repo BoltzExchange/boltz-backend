@@ -184,9 +184,6 @@ export namespace LndChannels {
 }
 
 export class GetBalanceRequest extends jspb.Message { 
-    getSymbol(): string;
-    setSymbol(value: string): void;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): GetBalanceRequest.AsObject;
@@ -200,7 +197,6 @@ export class GetBalanceRequest extends jspb.Message {
 
 export namespace GetBalanceRequest {
     export type AsObject = {
-        symbol: string,
     }
 }
 
@@ -312,43 +308,43 @@ export namespace WalletBalance {
     }
 }
 
-export class NewAddressRequest extends jspb.Message { 
+export class GetAddressRequest extends jspb.Message { 
     getSymbol(): string;
     setSymbol(value: string): void;
 
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): NewAddressRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: NewAddressRequest): NewAddressRequest.AsObject;
+    toObject(includeInstance?: boolean): GetAddressRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: GetAddressRequest): GetAddressRequest.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: NewAddressRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): NewAddressRequest;
-    static deserializeBinaryFromReader(message: NewAddressRequest, reader: jspb.BinaryReader): NewAddressRequest;
+    static serializeBinaryToWriter(message: GetAddressRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetAddressRequest;
+    static deserializeBinaryFromReader(message: GetAddressRequest, reader: jspb.BinaryReader): GetAddressRequest;
 }
 
-export namespace NewAddressRequest {
+export namespace GetAddressRequest {
     export type AsObject = {
         symbol: string,
     }
 }
 
-export class NewAddressResponse extends jspb.Message { 
+export class GetAddressResponse extends jspb.Message { 
     getAddress(): string;
     setAddress(value: string): void;
 
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): NewAddressResponse.AsObject;
-    static toObject(includeInstance: boolean, msg: NewAddressResponse): NewAddressResponse.AsObject;
+    toObject(includeInstance?: boolean): GetAddressResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: GetAddressResponse): GetAddressResponse.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: NewAddressResponse, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): NewAddressResponse;
-    static deserializeBinaryFromReader(message: NewAddressResponse, reader: jspb.BinaryReader): NewAddressResponse;
+    static serializeBinaryToWriter(message: GetAddressResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetAddressResponse;
+    static deserializeBinaryFromReader(message: GetAddressResponse, reader: jspb.BinaryReader): GetAddressResponse;
 }
 
-export namespace NewAddressResponse {
+export namespace GetAddressResponse {
     export type AsObject = {
         address: string,
     }
@@ -364,8 +360,8 @@ export class SendCoinsRequest extends jspb.Message {
     getAmount(): number;
     setAmount(value: number): void;
 
-    getSatPerVbyte(): number;
-    setSatPerVbyte(value: number): void;
+    getFee(): number;
+    setFee(value: number): void;
 
     getSendAll(): boolean;
     setSendAll(value: boolean): void;
@@ -386,7 +382,7 @@ export namespace SendCoinsRequest {
         symbol: string,
         address: string,
         amount: number,
-        satPerVbyte: number,
+        fee: number,
         sendAll: boolean,
     }
 }

@@ -46,12 +46,12 @@ class Boltz {
     const walletCurrencies = Array.from(this.currencies.values());
 
     if (fs.existsSync(this.config.mnemonicpath)) {
-      this.walletManager = new WalletManager(this.logger, walletCurrencies, this.config.mnemonicpath);
+      this.walletManager = new WalletManager(this.logger, this.config.mnemonicpath, walletCurrencies, this.config.ethereum);
     } else {
       const mnemonic = generateMnemonic();
       this.logger.info(`Generated new mnemonic: ${mnemonic}`);
 
-      this.walletManager = WalletManager.fromMnemonic(this.logger, mnemonic, this.config.mnemonicpath, walletCurrencies);
+      this.walletManager = WalletManager.fromMnemonic(this.logger, mnemonic, this.config.mnemonicpath, walletCurrencies, this.config.ethereum);
     }
 
     this.swapManager = new SwapManager(

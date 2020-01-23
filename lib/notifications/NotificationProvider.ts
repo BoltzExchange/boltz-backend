@@ -257,7 +257,7 @@ class NotificationProvider {
       `Funds missing: **${missing} ${currency}**`;
 
     if (isWallet) {
-      const address = await this.service.newAddress(currency);
+      const address = await this.service.getAddress(currency);
 
       message += `\nDeposit address: **${address}**`;
     }

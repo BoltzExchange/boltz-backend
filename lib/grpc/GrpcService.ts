@@ -18,23 +18,21 @@ class GrpcService {
     }
   }
 
-  public getBalance: handleUnaryCall<boltzrpc.GetBalanceRequest, boltzrpc.GetBalanceResponse> = async (call, callback) => {
+  public getBalance: handleUnaryCall<boltzrpc.GetBalanceRequest, boltzrpc.GetBalanceResponse> = async (_, callback) => {
     try {
-      const { symbol } = call.request.toObject();
-
-      callback(null, await this.service.getBalance(symbol));
+      callback(null, await this.service.getBalance());
     } catch (error) {
       callback(error, null);
     }
   }
 
-  public newAddress: handleUnaryCall<boltzrpc.NewAddressRequest, boltzrpc.NewAddressResponse> = async (call, callback) => {
+  public getAddress: handleUnaryCall<boltzrpc.GetAddressRequest, boltzrpc.GetAddressResponse> = async (call, callback) => {
     try {
       const { symbol } = call.request.toObject();
 
-      const address = await this.service.newAddress(symbol);
+      const address = await this.service.getAddress(symbol);
 
-      const response = new boltzrpc.NewAddressResponse();
+      const response = new boltzrpc.GetAddressResponse();
       response.setAddress(address);
 
       callback(null, response);

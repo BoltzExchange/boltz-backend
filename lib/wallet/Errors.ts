@@ -25,7 +25,7 @@ export default {
     code: concatErrorCode(ErrorCodePrefix.Wallet, 4),
   }),
   CURRENCY_NOT_SUPPORTED: (symbol: string): Error => ({
-    message: `${symbol} wallets are not supported`,
+    message: `${symbol} is not supported`,
     code: concatErrorCode(ErrorCodePrefix.Wallet, 5),
   }),
   OUTPUTTYPE_NOT_SUPPORTED: (symbol: string, type: OutputType) => ({

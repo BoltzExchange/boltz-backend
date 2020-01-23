@@ -6,11 +6,11 @@ service Boltz {
   /* Gets general information about this Boltz instance and the nodes it is connected to */
   rpc GetInfo (GetInfoRequest) returns (GetInfoResponse);
 
-  /* Gets the balance for either all wallets or just a single one if specified */
+  /* Gets the balance of all wallets */
   rpc GetBalance (GetBalanceRequest) returns (GetBalanceResponse);
 
-  /* Gets a new address of a specified wallet */
-  rpc NewAddress (NewAddressRequest) returns (NewAddressResponse);
+  /* Gets an address of a specified wallet */
+  rpc GetAddress (GetAddressRequest) returns (GetAddressResponse);
 
   /* Sends onchain coins to a specified address */
   rpc SendCoins (SendCoinsRequest) returns (SendCoinsResponse);
@@ -58,9 +58,7 @@ message LndChannels {
   uint32 pending = 3;
 }
 
-message GetBalanceRequest {
-  string symbol = 1;
-}
+message GetBalanceRequest {}
 message GetBalanceResponse {
   map<string, Balance> balances = 1;
 }
@@ -79,10 +77,10 @@ message WalletBalance {
   uint64 unconfirmed_balance = 3;
 }
 
-message NewAddressRequest {
+message GetAddressRequest {
   string symbol = 1;
 }
-message NewAddressResponse {
+message GetAddressResponse {
   string address = 1;
 }
 
@@ -90,7 +88,9 @@ message SendCoinsRequest {
   string symbol = 1;
   string address = 2;
   uint64 amount = 3;
-  uint32 sat_per_vbyte = 4;
+
+  // sat/vbyte for UTXO based chains or gas price in GWEI for account based ones
+  uint32 fee = 4;
   bool send_all = 5;
 }
 message SendCoinsResponse {

@@ -8,6 +8,7 @@ import { PairConfig } from './consts/Types';
 import { ChainConfig } from './chain/ChainClient';
 import { LndConfig } from './lightning/LndClient';
 import { deepMerge, resolveHome, getServiceDataDir } from './Utils';
+import { EthereumConfig } from './wallet/EthereumWallet';
 
 type ServiceOptions = {
   configpath?: string;
@@ -29,8 +30,6 @@ type CurrencyConfig = {
   minRemoteBalance: number;
 
   maxZeroConfAmount: number;
-
-  timeoutBlockDelta: number;
 };
 
 type ApiConfig = {
@@ -87,6 +86,8 @@ type ConfigType = {
 
   pairs: PairConfig[];
   currencies: CurrencyConfig[];
+
+  ethereum: EthereumConfig;
 };
 
 class Config {
@@ -204,8 +205,6 @@ class Config {
 
           maxZeroConfAmount: 200000,
 
-          timeoutBlockDelta: 2,
-
           chain: {
             host: '127.0.0.1',
             port: 18334,
@@ -234,8 +233,6 @@ class Config {
 
           maxZeroConfAmount: 20000000,
 
-          timeoutBlockDelta: 8,
-
           chain: {
             host: '127.0.0.1',
             port: 19334,
@@ -251,6 +248,11 @@ class Config {
           },
         },
       ],
+
+      ethereum: {
+        providerEndpoint: '',
+        tokens: [],
+      },
     };
   }
 

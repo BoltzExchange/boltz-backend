@@ -180,7 +180,7 @@ class Service {
   /**
    * Gets the balance for either all wallets or just a single one if specified
    */
-  public getBalance = async (symbol?: string) => {
+  public getBalance = async () => {
     const response = new GetBalanceResponse();
     const map = response.getBalancesMap();
 
@@ -220,18 +220,32 @@ class Service {
       return balance;
     };
 
-    if (symbol) {
-      const wallet = this.walletManager.wallets.get(symbol);
+    const addEthereumBalanceToMap = (symbol: string, balance: number) => {
+      const balanceObject = new Balance();
+      const walletObject = new WalletBalance();
 
-      if (!wallet) {
-        throw Errors.CURRENCY_NOT_FOUND(symbol);
-      }
+      const balanceNumber = Number(balance);
 
+      walletObject.setTotalBalance(balanceNumber);
+      walletObject.setConfirmedBalance(balanceNumber);
+
+      balanceObject.setWalletBalance(walletObject);
+
+      map.set(symbol, balanceObject);
+    };
+
+    for (const [symbol, wallet] of this.walletManager.wallets) {
       map.set(symbol, await getBalance(symbol, wallet));
-    } else {
-      for (const [symbol, wallet] of this.walletManager.wallets) {
-        map.set(symbol, await getBalance(symbol, wallet));
-      }
+    }
+
+    if (this.walletManager.ethereumWallet) {
+      const ethereumBalances = await this.walletManager.ethereumWallet.getBalance();
+
+      addEthereumBalanceToMap('ETH', ethereumBalances.ether);
+
+      ethereumBalances.tokens.forEach((balance, symbol) => {
+        addEthereumBalanceToMap(symbol, balance);
+      });
     }
 
     return response;
@@ -253,6 +267,7 @@ class Service {
     };
   }
 
+  // TODO: allow querying ethereum transactions?
   /**
    * Gets a hex encoded transaction from a transaction hash on the specified network
    */
@@ -264,16 +279,20 @@ class Service {
   }
 
   /**
-   * Gets a new address of a specified wallet
+   * Gets an address of a specified wallet
    */
-  public newAddress = async (symbol: string) => {
+  public getAddress = async (symbol: string) => {
     const wallet = this.walletManager.wallets.get(symbol);
 
-    if (!wallet) {
-      throw Errors.CURRENCY_NOT_FOUND(symbol);
+    if (wallet !== undefined) {
+      return wallet.newAddress();
+    } else if (this.walletManager.ethereumWallet !== undefined) {
+      if (symbol === 'ETH' || this.walletManager.ethereumWallet.supportsToken(symbol)) {
+        return this.walletManager.ethereumWallet.address;
+      }
     }
 
-    return wallet.newAddress();
+    throw Errors.CURRENCY_NOT_FOUND(symbol);
   }
 
   /**
@@ -497,23 +516,52 @@ class Service {
     address: string,
     amount: number,
     sendAll?: boolean,
-    satPerVbyte?: number,
+    fee?: number,
   }) => {
-    const wallet = this.walletManager.wallets.get(args.symbol);
+    const {
+      fee,
+      amount,
+      symbol,
+      sendAll,
+      address,
+     } = args;
 
-    if (wallet === undefined) {
-      throw Errors.CURRENCY_NOT_FOUND(args.symbol);
+    const wallet = this.walletManager.wallets.get(symbol);
+
+    if (wallet !== undefined) {
+      const sendingPromise = sendAll ? wallet.sweepWallet(address, fee) : wallet.sendToAddress(address, amount, fee);
+
+      const { transaction, vout } = await sendingPromise;
+
+      return {
+        vout,
+        transactionId: transaction.getId(),
+      };
+    } else {
+      const etherWallet = this.walletManager.ethereumWallet;
+
+      if (etherWallet !== undefined) {
+        if (symbol === 'ETH') {
+          const promise = sendAll ? etherWallet.sweepEther(address, fee) : etherWallet.sendEther(address, amount, fee);
+          const receipt = await promise;
+
+          return {
+            vout: 0,
+            transactionId: receipt.transactionHash,
+          };
+        } else if (etherWallet.supportsToken(symbol)) {
+          const promise = sendAll ? etherWallet.sweepToken(symbol, address, fee) : etherWallet.sendToken(symbol, address, amount, fee);
+          const receipt = await promise;
+
+          return {
+            vout: 0,
+            transactionId: receipt.transactionHash,
+          };
+        }
+      }
     }
 
-    const sendingPromise = args.sendAll ? wallet.sweepWallet(args.address, args.satPerVbyte) :
-      wallet.sendToAddress(args.address, args.amount, args.satPerVbyte);
-
-    const { transaction, vout } = await sendingPromise;
-
-    return {
-      vout,
-      transactionId: transaction.getId(),
-    };
+    throw Errors.CURRENCY_NOT_FOUND(symbol);
   }
 
   /**

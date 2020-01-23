@@ -17,7 +17,7 @@ class GrpcServer {
     this.server.addService(BoltzService, {
       getInfo: grpcService.getInfo,
       getBalance: grpcService.getBalance,
-      newAddress: grpcService.newAddress,
+      getAddress: grpcService.getAddress,
       sendCoins: grpcService.sendCoins,
       updateTimeoutBlockDelta: grpcService.updateTimeoutBlockDelta,
     });

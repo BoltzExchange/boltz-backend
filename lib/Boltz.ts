@@ -165,6 +165,9 @@ class Boltz {
       await client.connect();
 
       const info = await client.getInfo();
+      // The featuresMap is just annoying to see on startup
+      info.featuresMap = undefined as any;
+
       this.logStatus(service, info);
     } catch (error) {
       this.logCouldNotConnect(service, error);

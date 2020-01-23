@@ -39,9 +39,10 @@ message CurrencyInfo {
 message ChainInfo {
   uint32 version = 1;
   uint64 blocks = 2;
-  uint64 connections = 3;
+  uint64 scanned_blocks = 3;
+  uint64 connections = 4;
 
-  string error = 4;
+  string error = 5;
 }
 
 message LndInfo {

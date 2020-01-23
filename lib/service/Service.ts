@@ -143,6 +143,7 @@ class Service {
         chain.setConnections(networkInfo.connections);
 
         chain.setBlocks(blockchainInfo.blocks);
+        chain.setScannedBlocks(blockchainInfo.scannedBlocks);
       } catch (error) {
         chain.setError(error);
       }

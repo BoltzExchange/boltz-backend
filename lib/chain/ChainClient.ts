@@ -127,8 +127,13 @@ class ChainClient extends BaseClient {
     return this.client.request<NetworkInfo>('getnetworkinfo');
   }
 
-  public getBlockchainInfo = () => {
-    return this.client.request<BlockchainInfo>('getblockchaininfo');
+  public getBlockchainInfo = async () => {
+    const blockchainInfo = await this.client.request<BlockchainInfo>('getblockchaininfo');
+
+    return {
+      ...blockchainInfo,
+      scannedBlocks: this.zmqClient.blockHeight,
+    };
   }
 
   public getBlock = (hash: string): Promise<Block> => {

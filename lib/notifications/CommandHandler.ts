@@ -319,6 +319,7 @@ class CommandHandler {
           [Op.not]: [
             SwapUpdateEvent.SwapExpired,
             SwapUpdateEvent.InvoiceSettled,
+            SwapUpdateEvent.TransactionFailed,
             SwapUpdateEvent.TransactionRefunded,
           ],
         },

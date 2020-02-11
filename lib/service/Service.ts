@@ -1,4 +1,5 @@
 import { OutputType } from 'boltz-core';
+import { TransactionReceipt } from 'web3-core';
 import Errors from './Errors';
 import Logger from '../Logger';
 import Wallet from '../wallet/Wallet';
@@ -543,7 +544,7 @@ class Service {
       if (etherWallet !== undefined) {
         if (symbol === 'ETH') {
           const promise = sendAll ? etherWallet.sweepEther(address, fee) : etherWallet.sendEther(address, amount, fee);
-          const receipt = await promise;
+          const receipt = (await promise) as TransactionReceipt;
 
           return {
             vout: 0,

@@ -1,4 +1,4 @@
-import { OutputType } from 'boltz-core';
+import { Op } from 'sequelize';
 import { TransactionReceipt } from 'web3-core';
 import Errors from './Errors';
 import Logger from '../Logger';
@@ -7,25 +7,26 @@ import { ConfigType } from '../Config';
 import EventHandler from './EventHandler';
 import { PairConfig } from '../consts/Types';
 import SwapManager from '../swap/SwapManager';
-import SwapRepository from './SwapRepository';
-import PairRepository from './PairRepository';
 import FeeProvider from '../rates/FeeProvider';
 import RateProvider from '../rates/RateProvider';
+import PairRepository from '../db/PairRepository';
 import { encodeBip21 } from './PaymentRequestUtils';
 import TimeoutDeltaProvider from './TimeoutDeltaProvider';
-import ReverseSwapRepository from './ReverseSwapRepository';
-import { OrderSide, ServiceWarning, SwapUpdateEvent } from '../consts/Enums';
+import { OrderSide, ServiceWarning } from '../consts/Enums';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import {
   getRate,
   getPairId,
-  generateId,
-  splitPairId,
-  getChainCurrency,
-  getLightningCurrency,
-  getSwapMemo,
   getVersion,
+  splitPairId,
+  getSwapMemo,
+  getHexString,
+  getHexBuffer,
   getInvoiceAmt,
+  getChainCurrency,
+  getSwapOutputType,
+  getLightningCurrency,
+  getInvoicePreimageHash,
 } from '../Utils';
 import {
   Balance,
@@ -44,9 +45,6 @@ class Service {
 
   public eventHandler: EventHandler;
 
-  public swapRepository: SwapRepository;
-  public reverseSwapRepository: ReverseSwapRepository;
-
   private pairRepository: PairRepository;
 
   private timeoutDeltaProvider: TimeoutDeltaProvider;
@@ -57,15 +55,12 @@ class Service {
   constructor(
     private logger: Logger,
     config: ConfigType,
-    private swapManager: SwapManager,
+    public swapManager: SwapManager,
     private walletManager: WalletManager,
     private currencies: Map<string, Currency>,
     rateUpdateInterval: number,
   ) {
     this.pairRepository = new PairRepository();
-
-    this.swapRepository = new SwapRepository();
-    this.reverseSwapRepository = new ReverseSwapRepository();
 
     this.timeoutDeltaProvider = new TimeoutDeltaProvider(this.logger, config);
 
@@ -81,8 +76,8 @@ class Service {
       this.logger,
       this.currencies,
       this.swapManager.nursery,
-      this.swapRepository,
-      this.reverseSwapRepository,
+      this.swapManager.swapRepository,
+      this.swapManager.reverseSwapRepository,
     );
   }
 
@@ -341,65 +336,37 @@ class Service {
   public createSwap = async (
     pairId: string,
     orderSide: string,
-    invoice: string,
     refundPublicKey: Buffer,
+    preimageHash: Buffer,
   ) => {
-    const swap = await this.swapRepository.getSwapByInvoice(invoice);
+    const swap = await this.swapManager.swapRepository.getSwap({
+      preimageHash: {
+        [Op.eq]: getHexString(preimageHash),
+      },
+    });
 
     if (swap) {
-      throw Errors.SWAP_WITH_INVOICE_EXISTS();
+      throw Errors.SWAP_WITH_PREIMAGE_EXISTS();
     }
 
-    const { base, quote, rate: pairRate } = this.getPair(pairId);
+    const { base, quote } = this.getPair(pairId);
     const side = this.getOrderSide(orderSide);
-
-    const chainCurrency = getChainCurrency(base, quote, side, false);
-    const lightningCurrency = getLightningCurrency(base, quote, side, false);
 
     const timeoutBlockDelta = this.timeoutDeltaProvider.getTimeout(pairId, side, false);
 
-    const invoiceAmount = getInvoiceAmt(invoice);
-    const rate = getRate(pairRate, side, false);
-
-    this.verifyAmount(pairId, rate, invoiceAmount, side, false);
-
-    const { baseFee, percentageFee } = await this.feeProvider.getFees(pairId, rate, side, invoiceAmount, false);
-    const expectedAmount = Math.ceil(invoiceAmount * rate) + baseFee + percentageFee;
-
-    const acceptZeroConf = this.rateProvider.acceptZeroConf(chainCurrency, expectedAmount);
-
     const {
+      id,
       address,
-      keyIndex,
       redeemScript,
       timeoutBlockHeight,
     } = await this.swapManager.createSwap(
       base,
       quote,
       side,
-      invoice,
-      expectedAmount,
+      preimageHash,
       refundPublicKey,
-      this.getSwapOutputType(false),
       timeoutBlockDelta,
-      acceptZeroConf,
     );
-
-    const id = generateId();
-
-    await this.swapRepository.addSwap({
-      id,
-      invoice,
-      keyIndex,
-      redeemScript,
-      acceptZeroConf,
-      timeoutBlockHeight,
-      pair: pairId,
-      orderSide: side,
-      fee: percentageFee,
-      lockupAddress: address,
-      status: SwapUpdateEvent.SwapCreated,
-    });
 
     this.eventHandler.emitSwapCreation(id);
 
@@ -407,15 +374,90 @@ class Service {
       id,
       address,
       redeemScript,
+      timeoutBlockHeight,
+    };
+  }
+
+  public setSwapInvoice = async (id: string, invoice: string) => {
+    const swap = await this.swapManager.swapRepository.getSwap({
+      id: {
+        [Op.eq]: id,
+      },
+    });
+
+    if (!swap) {
+      throw Errors.SWAP_NOT_FOUND(id);
+    }
+
+    const { base, quote, rate: pairRate } = this.getPair(swap.pair);
+
+    const chainCurrency = getChainCurrency(base, quote, swap.orderSide, false);
+    const lightningCurrency = getLightningCurrency(base, quote, swap.orderSide, false);
+
+    const invoiceAmount = getInvoiceAmt(invoice!);
+    const rate = getRate(pairRate, swap.orderSide, false);
+
+    this.verifyAmount(swap.pair, rate, invoiceAmount, swap.orderSide, false);
+
+    const { baseFee, percentageFee } = await this.feeProvider.getFees(swap.pair, rate, swap.orderSide, invoiceAmount, false);
+    const expectedAmount = Math.ceil(invoiceAmount * rate) + baseFee + percentageFee;
+
+    const acceptZeroConf = this.rateProvider.acceptZeroConf(chainCurrency, expectedAmount);
+
+    await this.swapManager.setSwapInvoice(swap, invoice, expectedAmount, percentageFee, acceptZeroConf);
+
+    return {
       expectedAmount,
       acceptZeroConf,
-      timeoutBlockHeight,
       bip21: encodeBip21(
         chainCurrency,
-        address,
+        swap.lockupAddress,
         expectedAmount,
         getSwapMemo(lightningCurrency, false),
       ),
+    };
+  }
+
+  public createSwapWithInvoice = async (
+    pairId: string,
+    orderSide: string,
+    refundPublicKey: Buffer,
+    invoice: string,
+  ) => {
+    const swap = await this.swapManager.swapRepository.getSwap({
+      invoice: {
+        [Op.eq]: invoice,
+      },
+    });
+
+    if (swap) {
+      throw Errors.SWAP_WITH_INVOICE_EXISTS();
+    }
+
+    const preimageHash = getHexBuffer(getInvoicePreimageHash(invoice));
+
+    const {
+      id,
+      address,
+      redeemScript,
+      timeoutBlockHeight,
+    } = await this.createSwap(pairId, orderSide, refundPublicKey, preimageHash);
+
+    // TODO: remove from database if this step fails
+    const {
+      bip21,
+      acceptZeroConf,
+      expectedAmount,
+    } = await this.setSwapInvoice(id, invoice);
+
+    return {
+      id,
+      bip21,
+      address,
+      redeemScript,
+      acceptZeroConf,
+      expectedAmount,
+      timeoutBlockHeight,
     };
   }
 
@@ -450,8 +492,8 @@ class Service {
     }
 
     const {
+      id,
       invoice,
-      keyIndex,
       redeemScript,
       lockupAddress,
       timeoutBlockHeight,
@@ -463,26 +505,12 @@ class Service {
       invoiceAmount,
       onchainAmount,
       claimPublicKey,
-      this.getSwapOutputType(
+      getSwapOutputType(
         true,
       ),
       timeoutBlockDelta,
+      percentageFee,
     );
-
-    const id = generateId();
-
-    await this.reverseSwapRepository.addReverseSwap({
-      id,
-      invoice,
-      keyIndex,
-      redeemScript,
-      onchainAmount,
-      timeoutBlockHeight,
-      pair: pairId,
-      orderSide: side,
-      fee: percentageFee,
-      status: SwapUpdateEvent.SwapCreated,
-    });
 
     this.eventHandler.emitSwapCreation(id);
 
@@ -620,10 +648,6 @@ class Service {
 
       default: throw Errors.ORDER_SIDE_NOT_FOUND(side);
     }
-  }
-
-  private getSwapOutputType = (isReverse: boolean): OutputType => {
-    return isReverse ? OutputType.Bech32 : OutputType.Compatibility;
   }
 }
 

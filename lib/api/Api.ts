@@ -51,6 +51,7 @@ class Api {
     this.app.route('/broadcasttransaction').post(controller.broadcastTransaction);
 
     this.app.route('/createswap').post(controller.createSwap);
+    this.app.route('/setinvoice').post(controller.setInvoice);
 
     // EventSource streams
     this.app.route('/streamswapstatus').get(controller.streamSwapStatus);

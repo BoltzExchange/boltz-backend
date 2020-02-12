@@ -11,8 +11,8 @@ export default {
     message: `could not find order side: ${side}`,
     code: concatErrorCode(ErrorCodePrefix.Service, 1),
   }),
-  SWAP_NOT_FOUND: (swapIdentifier: string): Error => ({
-    message: `could not find swap with identifier: ${swapIdentifier}`,
+  SWAP_NOT_FOUND: (id: string): Error => ({
+    message: `could not find swap with id: ${id}`,
     code: concatErrorCode(ErrorCodePrefix.Service, 2),
   }),
   SCRIPT_TYPE_NOT_FOUND: (scriptType: string): Error => ({
@@ -70,5 +70,9 @@ export default {
   COINS_COULD_NOT_BE_SENT: (): Error => ({
     message: 'onchain coins could not be sent',
     code: concatErrorCode(ErrorCodePrefix.Service, 16),
+  }),
+  SWAP_WITH_PREIMAGE_EXISTS: (): Error => ({
+    message: 'a swap with this preimage hash exists already',
+    code: concatErrorCode(ErrorCodePrefix.Service, 17),
   }),
 };

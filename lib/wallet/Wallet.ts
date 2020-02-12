@@ -1,6 +1,6 @@
 import { Network, address, BIP32Interface } from 'bitcoinjs-lib';
 import Logger from '../Logger';
-import KeyRepository from './KeyRepository';
+import KeyRepository from '../db/KeyRepository';
 import WalletProviderInterface from './providers/WalletProviderInterface';
 
 class Wallet {

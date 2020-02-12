@@ -168,6 +168,18 @@ describe('Utils', () => {
     )).toEqual(0);
   });
 
+  test('should get preimage hash of invoice', () => {
+    expect(utils.getInvoicePreimageHash(
+      // tslint:disable-next-line: max-line-length
+      'lnbcrt1p0ygcqzpp5t0msrh8nmhz3rua2gz720hy3hnjucctewq5kf68myy8zc3tdek5qdqqcqzpgsp5alu9d2drxxt4d5qrz70vv923wafx9wg36r64mssm046drfamsk9q9qy9qsqwx3gjr6nd3gm9srr2w3qamkrlkj057w5fqh9kfqj5cp0fleyuhakaaejsc6yycr60qrscfw4ge2vnthqkdglv5t0peqr40d0g0v9k8splpkws3',
+    )).toEqual('5bf701dcf3ddc511f3aa40bca7dc91bce5cc6179702964e8fb210e2c456dcda8');
+
+    expect(utils.getInvoicePreimageHash(
+      // tslint:disable-next-line: max-line-length
+      'lnrltc1p0ygcy6pp5fl4dep6ejq77j0svecfagw4v3pm2wh3py0jtdyjkunfa2wvv7nqqdqqcqzjqsp5gcnzt7pmsx9zxcu4ul2ay90yhrdna4c4u33a9zejac69ay7jatus9qy9qsqmprjwy3lfxz9j3jum8nnfst02lp9ww6tkm6yut0fqvcwswlqfcjkshgdkuwg3te7ut5hqts8ky20jefswnvs8axweuffn3423vrssusq68krf8',
+    )).toEqual('4feadc8759903de93e0cce13d43aac8876a75e2123e4b69256e4d3d5398cf4c0');
+  });
+
   test('should get rate', () => {
     const rate = 2;
     const reverseRate = 1 / rate;
@@ -241,5 +253,10 @@ describe('Utils', () => {
 
   test('should get version', () => {
     expect(utils.getVersion()).toEqual(`${packageJson.version}${commitHash}`);
+  });
+
+  test('should get swap output type', () => {
+    expect(utils.getSwapOutputType(true)).toEqual(OutputType.Bech32);
+    expect(utils.getSwapOutputType(false)).toEqual(OutputType.Compatibility);
   });
 });

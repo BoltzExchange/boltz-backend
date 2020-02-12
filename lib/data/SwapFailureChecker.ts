@@ -1,9 +1,9 @@
 import Report from './Report';
 import Swap from '../db/models/Swap';
 import { SwapUpdateEvent } from '../consts/Enums';
+import SwapRepository from '../db/SwapRepository';
 import ReverseSwap from '../db/models/ReverseSwap';
-import SwapRepository from '../service/SwapRepository';
-import ReverseSwapRepository from '../service/ReverseSwapRepository';
+import ReverseSwapRepository from '../db/ReverseSwapRepository';
 
 class CheckFailedSwaps {
   constructor(private swapRepository: SwapRepository, private reverseSwapRepository: ReverseSwapRepository) {}

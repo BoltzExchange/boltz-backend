@@ -1,5 +1,5 @@
 import { Op } from 'sequelize';
-import Pair, { PairType } from '../db/models/Pair';
+import Pair, { PairType } from './models/Pair';
 
 class PairRepository {
 

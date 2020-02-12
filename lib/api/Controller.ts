@@ -6,6 +6,13 @@ import { SwapUpdate } from '../service/EventHandler';
 import { SwapUpdateEvent, SwapType } from '../consts/Enums';
 import { stringify, getHexBuffer, mapToObject, getVersion, getChainCurrency, splitPairId } from '../Utils';
 
+type ApiArgument = {
+  name: string,
+  type: string,
+  hex?: boolean,
+  optional?: boolean,
+};
+
 class Controller {
   // A map between the ids and HTTP streams of all pending swaps
   private pendingSwapStreams = new Map<string, Response>();
@@ -15,12 +22,12 @@ class Controller {
 
   constructor(private logger: Logger, private service: Service) {
     this.service.eventHandler.on('swap.update', (id, message) => {
+      this.logger.debug(`Swap ${id} update: ${stringify(message)}`);
       this.pendingSwapInfos.set(id, message);
 
       const response = this.pendingSwapStreams.get(id);
 
       if (response) {
-        this.logger.debug(`Swap ${id} update: ${stringify(message)}`);
         response.write(`data: ${JSON.stringify(message)}\n\n`);
       }
     });
@@ -29,8 +36,8 @@ class Controller {
   public init = async () => {
     // Get the latest status of all swaps in the database
     const [swaps, reverseSwaps] = await Promise.all([
-      this.service.swapRepository.getSwaps(),
-      this.service.reverseSwapRepository.getReverseSwaps(),
+      this.service.swapManager.swapRepository.getSwaps(),
+      this.service.swapManager.reverseSwapRepository.getReverseSwaps(),
     ]);
 
     swaps.forEach((swap) => {
@@ -157,19 +164,38 @@ class Controller {
   }
 
   private createSubmarineSwap = async (req: Request, res: Response) => {
-    const { pairId, orderSide, invoice, refundPublicKey } = this.validateRequest(req.body, [
+    const { pairId, orderSide, invoice, refundPublicKey, preimageHash } = this.validateRequest(req.body, [
       { name: 'pairId', type: 'string' },
-      { name: 'invoice', type: 'string' },
       { name: 'orderSide', type: 'string' },
-      { name: 'refundPublicKey', type: 'string', isHex: true },
+      { name: 'invoice', type: 'string', optional: true },
+      { name: 'refundPublicKey', type: 'string', hex: true },
+      { name: 'preimageHash', type: 'string', hex: true, optional: true },
     ]);
 
-    const response = await this.service.createSwap(
-      pairId,
-      orderSide,
-      invoice.toLowerCase(),
-      refundPublicKey,
-    );
+    let response: any;
+
+    if (invoice) {
+      response = await this.service.createSwapWithInvoice(
+        pairId,
+        orderSide,
+        refundPublicKey,
+        invoice.toLowerCase(),
+      );
+    } else {
+      // Check that the preimage hash was set
+      this.validateRequest(req.body, [
+        { name: 'preimageHash', type: 'string', hex: true },
+      ]);
+
+      this.checkPreimageHashLength(preimageHash);
+
+      response = await this.service.createSwap(
+        pairId,
+        orderSide,
+        refundPublicKey,
+        preimageHash,
+      );
+    }
 
     this.logger.verbose(`Created new swap with id: ${response.id}`);
     this.logger.silly(`Swap ${response.id}: ${stringify(response)}`);
@@ -188,15 +214,32 @@ class Controller {
       { name: 'pairId', type: 'string' },
       { name: 'orderSide', type: 'string' },
       { name: 'invoiceAmount', type: 'number' },
-      { name: 'preimageHash', type: 'string', isHex: true },
-      { name: 'claimPublicKey', type: 'string', isHex: true },
+      { name: 'preimageHash', type: 'string', hex: true, optional: true },
+      { name: 'claimPublicKey', type: 'string', hex: true },
     ]);
+
+    this.checkPreimageHashLength(preimageHash);
+
     const response = await this.service.createReverseSwap(pairId, orderSide, preimageHash, invoiceAmount, claimPublicKey);
 
     this.logger.verbose(`Created reverse swap with id: ${response.id}`);
     this.logger.silly(`Reverse swap ${response.id}: ${stringify(response)}`);
 
     this.createdResponse(res, response);
+  }
+
+  public setInvoice = async (req: Request, res: Response) => {
+    try {
+      const { id, invoice } = this.validateRequest(req.body, [
+        { name: 'id', type: 'string' },
+        { name: 'invoice', type: 'string' },
+      ]);
+
+      const response = await this.service.setSwapInvoice(id, invoice.toLowerCase());
+      this.successResponse(res, response);
+    } catch (error) {
+      this.errorResponse(res, error);
+    }
   }
 
   // EventSource streams
@@ -230,7 +273,7 @@ class Controller {
    *
    * @returns the validated arguments
    */
-  private validateRequest = (body: object, argsToCheck: { name: string, type: string, isHex?: boolean }[]) => {
+  private validateRequest = (body: object, argsToCheck: ApiArgument[]) => {
     const response: any = {};
 
     argsToCheck.forEach((arg) => {
@@ -238,7 +281,7 @@ class Controller {
 
       if (value !== undefined) {
         if (typeof value === arg.type) {
-          if (arg.isHex) {
+          if (arg.hex) {
             const buffer = getHexBuffer(value);
 
             if (buffer.length === 0) {
@@ -252,7 +295,7 @@ class Controller {
         } else {
           throw `invalid parameter: ${arg.name}`;
         }
-      } else {
+      } else if (!arg.optional) {
         throw `undefined parameter: ${arg.name}`;
       }
     });
@@ -303,6 +346,12 @@ class Controller {
     }
 
     throw `could not find swap type: ${type}`;
+  }
+
+  private checkPreimageHashLength = (preimageHash: Buffer) => {
+    if (preimageHash.length !== 32) {
+      throw `invalid preimage hash length: ${preimageHash.length}`;
+    }
   }
 }
 

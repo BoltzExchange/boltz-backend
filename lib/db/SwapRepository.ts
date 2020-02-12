@@ -1,6 +1,6 @@
-import { WhereOptions, Op } from 'sequelize';
+import { WhereOptions } from 'sequelize';
+import Swap, { SwapType } from './models/Swap';
 import { SwapUpdateEvent } from '../consts/Enums';
-import Swap, { SwapType } from '../db/models/Swap';
 
 class SwapRepository {
 
@@ -16,16 +16,6 @@ class SwapRepository {
     });
   }
 
-  public getSwapByInvoice = async (invoice: string): Promise<Swap | undefined> => {
-    return Swap.findOne({
-      where: {
-        invoice: {
-          [Op.eq]: invoice,
-        },
-      },
-    });
-  }
-
   public addSwap = async (swap: SwapType) => {
     return Swap.create(swap);
   }
@@ -33,6 +23,16 @@ class SwapRepository {
   public setSwapStatus = async (swap: Swap, status: string) => {
     return swap.update({
       status,
+    });
+  }
+
+  public setInvoice = async (swap: Swap, invoice: string, expectedAmount: number, fee: number, acceptZeroConf: boolean) => {
+    return swap.update({
+      fee,
+      invoice,
+      acceptZeroConf,
+      expectedAmount,
+      status: SwapUpdateEvent.InvoiceSet,
     });
   }
 

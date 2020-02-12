@@ -57,7 +57,6 @@ class Boltz {
     this.swapManager = new SwapManager(
       this.logger,
       this.walletManager,
-      Array.from(this.currencies.values()),
     );
 
     try {
@@ -76,8 +75,8 @@ class Boltz {
         this.config.backup,
         this.service.eventHandler,
         new Report(
-          this.service.swapRepository,
-          this.service.reverseSwapRepository,
+          this.service.swapManager.swapRepository,
+          this.service.swapManager.reverseSwapRepository,
         ),
       );
 
@@ -124,6 +123,8 @@ class Boltz {
 
       await this.walletManager.init();
       await this.service.init(this.config.pairs);
+
+      await this.swapManager.init(Array.from(this.currencies.values()));
 
       await this.notifications.init();
 

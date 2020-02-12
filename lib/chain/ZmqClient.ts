@@ -54,7 +54,8 @@ class ZmqClient extends EventEmitter {
     private getBlockchainInfo: () => Promise<BlockchainInfo>,
     private getBlockhash: (height: number) => Promise<string>,
     private getBlockVerbose: (hash: string) => Promise<BlockVerbose>,
-    private getRawTransactionVerbose: (id: string) => Promise<RawTransaction>) {
+    private getRawTransactionVerbose: (id: string) => Promise<RawTransaction>,
+  ) {
     super();
   }
 

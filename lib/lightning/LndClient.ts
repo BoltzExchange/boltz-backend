@@ -240,8 +240,6 @@ class LndClient extends BaseClient implements LndClient {
       request,
     );
 
-    this.subscribeSingleInvoice(preimageHash);
-
     return response;
   }
 
@@ -421,7 +419,7 @@ class LndClient extends BaseClient implements LndClient {
   /**
    * Subscribe to events for a single invoice
    */
-  private subscribeSingleInvoice = (preimageHash: Buffer) => {
+  public subscribeSingleInvoice = (preimageHash: Buffer) => {
     const request = new invoicesrpc.SubscribeSingleInvoiceRequest();
     request.setRHash(Uint8Array.from(preimageHash));
 
@@ -431,19 +429,21 @@ class LndClient extends BaseClient implements LndClient {
       invoiceSubscription.removeAllListeners();
     };
 
-    invoiceSubscription.on('data', (invoice: lndrpc.Invoice) => {
-      if (invoice.getState() === lndrpc.Invoice.InvoiceState.ACCEPTED) {
-        this.logger.debug(`${LndClient.serviceName} ${this.symbol} accepted HTLC for invoice: ${invoice.getPaymentRequest()}`);
-        this.emit('htlc.accepted', invoice.getPaymentRequest());
-      } else if (invoice.getState() === lndrpc.Invoice.InvoiceState.SETTLED) {
-        const preimage = getHexString(Buffer.from(invoice.getRPreimage_asB64(), 'base64'));
+    invoiceSubscription
+      .on('data', (invoice: lndrpc.Invoice) => {
+        if (invoice.getState() === lndrpc.Invoice.InvoiceState.ACCEPTED) {
+          // TODO: check amount of htlc?
+          this.logger.debug(`${LndClient.serviceName} ${this.symbol} accepted HTLC for invoice: ${invoice.getPaymentRequest()}`);
+          this.emit('htlc.accepted', invoice.getPaymentRequest());
+        } else if (invoice.getState() === lndrpc.Invoice.InvoiceState.SETTLED) {
+          const preimage = getHexString(Buffer.from(invoice.getRPreimage_asB64(), 'base64'));
 
-        this.logger.debug(`${LndClient.serviceName} ${this.symbol} invoice ${invoice.getPaymentRequest()} settled with preimage: ${preimage}`);
-        this.emit('invoice.settled', invoice.getPaymentRequest(), preimage);
+          this.logger.debug(`${LndClient.serviceName} ${this.symbol} invoice ${invoice.getPaymentRequest()} settled with preimage: ${preimage}`);
+          this.emit('invoice.settled', invoice.getPaymentRequest(), preimage);
 
-        deleteSubscription();
-      }
-    })
+          deleteSubscription();
+        }
+      })
       .on('end', () => deleteSubscription())
       .on('error', (error) => {
         this.logger.error(`Invoice subscription errored: ${error.message}`);

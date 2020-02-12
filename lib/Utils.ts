@@ -20,7 +20,7 @@ const {
 const idPossibilities = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
 
 /**
- * Generate an id
+ * Generate an ID for a swap
  *
  * @param length how many characters the id should have
  */
@@ -88,6 +88,18 @@ export const minutesToMilliseconds = (minutes: number) => {
  */
 export const getInvoiceAmt = (invoice: string): number => {
   return bolt11.decode(invoice).satoshis || 0;
+};
+
+export const getInvoicePreimageHash = (invoice: string) => {
+  const { tags } = bolt11.decode(invoice);
+
+  for (const tag of tags) {
+    if (tag.tagName === 'payment_hash') {
+      return tag.data as string;
+    }
+  }
+
+  return '';
 };
 
 /**
@@ -391,4 +403,9 @@ export const formatError = (error: any) => {
 
 export const getVersion = () => {
   return `${packageJson.version}${commitHash}`;
+};
+
+// TODO: is hardcoding this a good idea? Should the output type of every swap be stored in the database entry?
+export const getSwapOutputType = (isReverse: boolean): OutputType => {
+  return isReverse ? OutputType.Bech32 : OutputType.Compatibility;
 };

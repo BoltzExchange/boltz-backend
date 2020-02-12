@@ -25,6 +25,7 @@ export enum SwapUpdateEvent {
   SwapCreated = 'swap.created',
   SwapExpired = 'swap.expired',
 
+  InvoiceSet = 'invoice.set',
   InvoicePaid = 'invoice.paid',
   InvoiceSettled = 'invoice.settled',
   InvoiceFailedToPay = 'invoice.failedToPay',

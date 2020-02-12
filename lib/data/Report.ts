@@ -1,11 +1,11 @@
 import { Op } from 'sequelize';
 import Swap from '../db/models/Swap';
+import SwapRepository from '../db/SwapRepository';
 import { SwapUpdateEvent } from '../consts/Enums';
 import ReverseSwap from '../db/models/ReverseSwap';
-import SwapRepository from '../service/SwapRepository';
 import { getChainCurrency, splitPairId } from '../Utils';
 import { satoshisToCoins } from '../DenominationConverter';
-import ReverseSwapRepository from '../service/ReverseSwapRepository';
+import ReverseSwapRepository from '../db/ReverseSwapRepository';
 
 type Entry = {
   date: Date;
@@ -131,7 +131,7 @@ class Report {
           minerFee: this.formatAmount(swap.minerFee ? swap.minerFee : 0),
           routingFee: (routingFee / 1000).toFixed(3),
 
-          fee: this.formatAmount(swap.fee),
+          fee: this.formatAmount(swap.fee!),
           feeCurrency: getChainCurrency(base, quote, swap.orderSide, isReverse),
         });
       });

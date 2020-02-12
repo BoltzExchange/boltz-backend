@@ -6,6 +6,7 @@ type ReverseSwapType = {
 
   keyIndex: number;
   redeemScript: string;
+  lockupAddress: string;
 
   fee: number;
   minerFee?: number;
@@ -28,6 +29,7 @@ class ReverseSwap extends Model implements ReverseSwapType {
 
   public keyIndex!: number;
   public redeemScript!: string;
+  public lockupAddress!: string;
 
   public fee!: number;
   public minerFee!: number;
@@ -52,13 +54,14 @@ class ReverseSwap extends Model implements ReverseSwapType {
       id: { type: new DataTypes.STRING(255), primaryKey: true, allowNull: false },
       keyIndex: { type: new DataTypes.INTEGER(), allowNull: false },
       redeemScript: { type: new DataTypes.STRING(255), allowNull: false },
+      lockupAddress: { type: new DataTypes.STRING(255), allowNull: false },
       fee: { type: new DataTypes.INTEGER(), allowNull: false },
       minerFee: { type: new DataTypes.INTEGER(), allowNull: true },
       pair: { type: new DataTypes.STRING(255), allowNull: false },
       orderSide: { type: new DataTypes.INTEGER(), allowNull: false },
       status: { type: new DataTypes.STRING(255), allowNull: false },
       timeoutBlockHeight: { type: new DataTypes.INTEGER(), allowNull: false },
-      invoice: { type: new DataTypes.STRING(255), allowNull: false },
+      invoice: { type: new DataTypes.STRING(255), allowNull: false, unique: true },
       preimage: { type: new DataTypes.STRING(255), allowNull: true },
       onchainAmount: { type: new DataTypes.INTEGER(), allowNull: false },
       transactionId: { type: new DataTypes.STRING(255), allowNull: true },

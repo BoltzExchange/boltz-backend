@@ -1,10 +1,10 @@
 import Report from './Report';
 import Swap from '../db/models/Swap';
 import { OrderSide } from '../consts/Enums';
+import SwapRepository from '../db/SwapRepository';
 import ReverseSwap from '../db/models/ReverseSwap';
-import SwapRepository from '../service/SwapRepository';
 import { satoshisToCoins } from '../DenominationConverter';
-import ReverseSwapRepository from '../service/ReverseSwapRepository';
+import ReverseSwapRepository from '../db/ReverseSwapRepository';
 import { splitPairId, getInvoiceAmt, stringify, mapToObject } from '../Utils';
 
 class Stats {
@@ -25,7 +25,7 @@ class Stats {
 
     const addSwapToMaps = (swap: Swap | ReverseSwap, isReverse: boolean) => {
       const { quote } = splitPairId(swap.pair);
-      const amount = this.getSwapAmount(isReverse, swap.orderSide, swap.onchainAmount!, swap.invoice);
+      const amount = this.getSwapAmount(isReverse, swap.orderSide, swap.onchainAmount!, swap.invoice!);
 
       this.addToTrades(swap.pair);
       this.addToVolume(quote, amount);

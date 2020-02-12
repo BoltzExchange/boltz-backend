@@ -182,7 +182,7 @@ class RateProvider {
 
     await Promise.all(promises);
 
-    this.logger.silly('Updates rates');
+    this.logger.silly('Updated rates');
   }
 
   private getLimits = (pair: string, base: string, quote: string, rate: number) => {

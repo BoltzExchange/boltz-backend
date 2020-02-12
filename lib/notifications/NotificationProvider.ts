@@ -189,7 +189,7 @@ class NotificationProvider {
     };
 
     const getBasicSwapInfo = (swap: Swap | ReverseSwap, onchainSymbol: string, lightningSymbol: string) => {
-      const lightningAmount = getInvoiceAmt(swap.invoice);
+      const lightningAmount = getInvoiceAmt(swap.invoice!);
 
       // tslint:disable-next-line: prefer-template
       return `ID: ${swap.id}\n` +
@@ -214,7 +214,7 @@ class NotificationProvider {
       // tslint:disable-next-line: prefer-template
       let message = `**Swap ${getSwapTitle(swap.pair, swap.orderSide, isReverse)}**\n` +
        `${getBasicSwapInfo(swap, onchainSymbol, lightningSymbol)}\n` +
-       `Fees earned: ${this.numberToDecimal(satoshisToCoins(swap.fee))} ${onchainSymbol}\n` +
+       `Fees earned: ${this.numberToDecimal(satoshisToCoins(swap.fee!))} ${onchainSymbol}\n` +
        `Miner fees: ${satoshisToCoins(swap.minerFee!)} ${onchainSymbol}`;
 
       if (!isReverse) {

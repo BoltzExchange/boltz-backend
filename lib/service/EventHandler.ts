@@ -142,7 +142,7 @@ class EventHandler extends EventEmitter {
     });
 
     this.nursery.on('refund', (reverseSwap) => {
-      this.handleFailedReverseSwap(reverseSwap, Errors.ONCHAIN_HTLC_TIMED_OUT().message, SwapUpdateEvent.TransactionRefunded);
+      this.handleFailedReverseSwap(reverseSwap, Errors.REFUNDED_COINS(reverseSwap.transactionId).message, SwapUpdateEvent.TransactionRefunded);
     });
   }
 

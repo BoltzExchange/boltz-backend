@@ -27,6 +27,7 @@ import {
   getSwapOutputType,
   getLightningCurrency,
   getInvoicePreimageHash,
+  getSendingReceivingCurrency,
 } from '../Utils';
 import {
   Balance,
@@ -389,6 +390,10 @@ class Service {
       throw Errors.SWAP_NOT_FOUND(id);
     }
 
+    if (swap.invoice) {
+      throw Errors.SWAP_HAS_INVOICE_ALREADY(id);
+    }
+
     const { base, quote, rate: pairRate } = this.getPair(swap.pair);
 
     const chainCurrency = getChainCurrency(base, quote, swap.orderSide, false);
@@ -424,7 +429,7 @@ class Service {
     refundPublicKey: Buffer,
     invoice: string,
   ) => {
-    const swap = await this.swapManager.swapRepository.getSwap({
+    let swap = await this.swapManager.swapRepository.getSwap({
       invoice: {
         [Op.eq]: invoice,
       },
@@ -443,22 +448,32 @@ class Service {
       timeoutBlockHeight,
     } = await this.createSwap(pairId, orderSide, refundPublicKey, preimageHash);
 
-    // TODO: remove from database if this step fails
-    const {
-      bip21,
-      acceptZeroConf,
-      expectedAmount,
-    } = await this.setSwapInvoice(id, invoice);
+    try {
+      const {
+        bip21,
+        acceptZeroConf,
+        expectedAmount,
+      } = await this.setSwapInvoice(id, invoice);
 
-    return {
-      id,
-      bip21,
-      address,
-      redeemScript,
-      acceptZeroConf,
-      expectedAmount,
-      timeoutBlockHeight,
-    };
+      return {
+        id,
+        bip21,
+        address,
+        redeemScript,
+        acceptZeroConf,
+        expectedAmount,
+        timeoutBlockHeight,
+      };
+    } catch (error) {
+      swap = await this.swapManager.swapRepository.getSwap({
+        id: {
+          [Op.eq]: id,
+        },
+      });
+      await swap!.destroy();
+
+      throw error;
+    }
   }
 
   /**
@@ -475,11 +490,13 @@ class Service {
       throw Errors.REVERSE_SWAPS_DISABLED();
     }
 
-    const { base, quote, rate: pairRate } = this.getPair(pairId);
-
     const side = this.getOrderSide(orderSide);
+    const { base, quote, rate: pairRate } = this.getPair(pairId);
+    const { sending, receiving } = getSendingReceivingCurrency(base, quote, side);
+
     const rate = getRate(pairRate, side, true);
-    const timeoutBlockDelta = this.timeoutDeltaProvider.getTimeout(pairId, side, true);
+    const onchainTimeoutBlockDelta = this.timeoutDeltaProvider.getTimeout(pairId, side, true);
+    const lightningTimeoutBlockDelta = TimeoutDeltaProvider.convertBlocks(sending, receiving, onchainTimeoutBlockDelta + 3);
 
     this.verifyAmount(pairId, rate, invoiceAmount, side, true);
 
@@ -508,7 +525,8 @@ class Service {
       getSwapOutputType(
         true,
       ),
-      timeoutBlockDelta,
+      onchainTimeoutBlockDelta,
+      lightningTimeoutBlockDelta,
       percentageFee,
     );
 

@@ -75,4 +75,12 @@ export default {
     message: 'a swap with this preimage hash exists already',
     code: concatErrorCode(ErrorCodePrefix.Service, 17),
   }),
+  SWAP_HAS_INVOICE_ALREADY: (id: string): Error => ({
+    message: `swap ${id} has an invoice already`,
+    code: concatErrorCode(ErrorCodePrefix.Service, 18),
+  }),
+  REFUNDED_COINS: (transactionId: string): Error => ({
+    message: `refunded onchain coins: ${transactionId}`,
+    code: concatErrorCode(ErrorCodePrefix.Service, 19),
+  }),
 };

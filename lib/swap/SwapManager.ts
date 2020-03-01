@@ -17,12 +17,13 @@ import {
   splitPairId,
   getHexBuffer,
   getHexString,
-  getSwapOutputType,
-  getScriptHashFunction,
-  getSendingReceivingCurrency,
+  reverseBuffer,
   getChainCurrency,
+  getSwapOutputType,
   getLightningCurrency,
+  getScriptHashFunction,
   getInvoicePreimageHash,
+  getSendingReceivingCurrency,
 } from '../Utils';
 
 class SwapManager {
@@ -65,6 +66,21 @@ class SwapManager {
 
           const { lndClient } = this.currencies.get(lightningCurrency)!;
           lndClient!.subscribeSingleInvoice(preimageHash);
+
+        } else if ((swap.status === SwapUpdateEvent.TransactionMempool || swap.status === SwapUpdateEvent.TransactionConfirmed) && isReverse) {
+          const { base, quote } = splitPairId(swap.pair);
+          const chainCurrency = getChainCurrency(base, quote, swap.orderSide, false);
+
+          const { chainClient } = this.currencies.get(chainCurrency)!;
+
+          const transactionId = reverseBuffer(getHexBuffer((swap as ReverseSwap).transactionId!));
+          chainClient.addInputFilter(transactionId);
+
+          if (swap.status === SwapUpdateEvent.TransactionMempool) {
+            const wallet = this.walletManager.wallets.get(chainCurrency)!;
+            chainClient.addOutputFilter(wallet.decodeAddress(swap.lockupAddress!));
+          }
+
         } else {
           const encodeFunction = getScriptHashFunction(getSwapOutputType(isReverse));
           const outputScript = encodeFunction(getHexBuffer(swap.redeemScript));
@@ -94,6 +110,7 @@ class SwapManager {
           [Op.or]: [
             SwapUpdateEvent.SwapCreated,
             SwapUpdateEvent.TransactionMempool,
+            SwapUpdateEvent.TransactionConfirmed,
           ],
         },
       }),
@@ -224,7 +241,8 @@ class SwapManager {
    * @param onchainAmount amount of coins that should be sent onchain
    * @param claimPublicKey public key of the keypair needed for claiming
    * @param outputType type of the lockup address
-   * @param timeoutBlockDelta after how many blocks the onchain script should time out
+   * @param onchainTimeoutBlockDelta after how many blocks the onchain script should time out
+   * @param lightningTimeoutBlockDelta timeout delta of the last hop
    * @param percentageFee the fee Boltz charges for the Swap
    */
   public createReverseSwap = async (
@@ -236,7 +254,8 @@ class SwapManager {
     onchainAmount: number,
     claimPublicKey: Buffer,
     outputType: OutputType,
-    timeoutBlockDelta: number,
+    onchainTimeoutBlockDelta: number,
+    lightningTimeoutBlockDelta: number,
     percentageFee: number,
   ) => {
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(baseCurrency, quoteCurrency, orderSide);
@@ -252,13 +271,14 @@ class SwapManager {
     const { paymentRequest } = await receivingCurrency.lndClient.addHoldInvoice(
       invoiceAmount,
       preimageHash,
+      lightningTimeoutBlockDelta,
       getSwapMemo(sendingCurrency.symbol, true),
     );
     receivingCurrency.lndClient.subscribeSingleInvoice(preimageHash);
 
     const { keys, index } = sendingCurrency.wallet.getNewKeys();
     const { blocks } = await sendingCurrency.chainClient.getBlockchainInfo();
-    const timeoutBlockHeight = blocks + timeoutBlockDelta;
+    const timeoutBlockHeight = blocks + onchainTimeoutBlockDelta;
 
     const redeemScript = reverseSwapScript(
       preimageHash,

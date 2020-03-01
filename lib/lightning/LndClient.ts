@@ -223,12 +223,14 @@ class LndClient extends BaseClient implements LndClient {
    * Creates a hold invoice with the supplied preimage hash
    *
    * @param value the value of this invoice in satoshis
+   * @param cltvExpiry expiry delta of the last hop
    * @param preimageHash the hash of the preimage
    * @param memo optional memo to attach along with the invoice
    */
-  public addHoldInvoice = async (value: number, preimageHash: Buffer, memo?: string) => {
+  public addHoldInvoice = async (value: number, preimageHash: Buffer, cltvExpiry: number, memo?: string) => {
     const request = new invoicesrpc.AddHoldInvoiceRequest();
     request.setValue(value);
+    request.setCltvExpiry(cltvExpiry);
     request.setHash(Uint8Array.from(preimageHash));
 
     if (memo) {
@@ -432,7 +434,8 @@ class LndClient extends BaseClient implements LndClient {
     invoiceSubscription
       .on('data', (invoice: lndrpc.Invoice) => {
         if (invoice.getState() === lndrpc.Invoice.InvoiceState.ACCEPTED) {
-          // TODO: check amount of htlc?
+          // TODO: check amount of HTLC
+          // TODO: handle multiple HTLCs
           this.logger.debug(`${LndClient.serviceName} ${this.symbol} accepted HTLC for invoice: ${invoice.getPaymentRequest()}`);
           this.emit('htlc.accepted', invoice.getPaymentRequest());
         } else if (invoice.getState() === lndrpc.Invoice.InvoiceState.SETTLED) {

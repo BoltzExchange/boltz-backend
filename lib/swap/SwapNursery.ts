@@ -54,8 +54,8 @@ interface SwapNursery {
   on(event: 'coins.failedToSend', listener: (reverseSwap: ReverseSwap) => void): this;
   emit(event: 'coins.failedToSend', reverseSwap: ReverseSwap): boolean;
 
-  on(event: 'refund', listener: (reverseSwap: ReverseSwap) => void): this;
-  emit(event: 'refund', reverseSwap: ReverseSwap): boolean;
+  on(event: 'refund', listener: (reverseSwap: ReverseSwap, refundTransactionId: string) => void): this;
+  emit(event: 'refund', reverseSwap: ReverseSwap, refundTransactionId: string): boolean;
 
   on(event: 'invoice.settled', listener: (reverseSwap: ReverseSwap) => void): this;
   emit(event: 'invoice.settled', reverseSwap: ReverseSwap): boolean;
@@ -342,7 +342,7 @@ class SwapNursery extends EventEmitter {
         await currency.chainClient.estimateFee(),
         true,
       );
-      const minerFee = await this.calculateTransactionFee(currency.chainClient, claimTx, output.value);
+      const minerFee = await this.calculateTransactionFee(currency.chainClient, claimTx);
 
       this.logger.silly(`Broadcasting ${currency.symbol} claim transaction: ${claimTx.getId()}`);
 
@@ -441,12 +441,12 @@ class SwapNursery extends EventEmitter {
       blockHeight,
       await chainClient.estimateFee(),
     );
-    const minerFee = await this.calculateTransactionFee(chainClient, lockupTransaction, lockupTransaction.outs[vout].value);
+    const minerFee = await this.calculateTransactionFee(chainClient, refundTransaction, lockupTransaction.outs[vout].value);
 
     this.logger.verbose(`Broadcasting ${chainClient.symbol} refund transaction: ${refundTransaction.getId()}`);
 
     await chainClient.sendRawTransaction(refundTransaction.toHex());
-    this.emit('refund', await this.reverseSwapRepository.setTransactionRefunded(reverseSwap, minerFee));
+    this.emit('refund', await this.reverseSwapRepository.setTransactionRefunded(reverseSwap, minerFee), refundTransaction.getId());
   }
 
   private cancelInvoice = (lndClient: LndClient, preimageHash: Buffer) => {
@@ -487,7 +487,7 @@ class SwapNursery extends EventEmitter {
         const rawInputTransaction = await chainClient.getRawTransaction(inputId);
         const inputTransaction = Transaction.fromHex(rawInputTransaction);
 
-        const relevantOutput = inputTransaction.outs[input.index] as TxOutput;
+        const relevantOutput = inputTransaction.outs[input.index];
 
         queriedInputSum += relevantOutput.value;
       }
@@ -497,8 +497,7 @@ class SwapNursery extends EventEmitter {
 
     let fee = inputSum || await queryInputSum();
 
-    transaction.outs.forEach((out) => {
-      const output = out as TxOutput;
+    transaction.outs.forEach((output) => {
       fee -= output.value;
     });
 

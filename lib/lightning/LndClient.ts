@@ -436,7 +436,10 @@ class LndClient extends BaseClient implements LndClient {
         if (invoice.getState() === lndrpc.Invoice.InvoiceState.ACCEPTED) {
           // TODO: check amount of HTLC
           // TODO: handle multiple HTLCs
-          this.logger.debug(`${LndClient.serviceName} ${this.symbol} accepted HTLC for invoice: ${invoice.getPaymentRequest()}`);
+
+          const htlc = invoice.getHtlcsList()[0];
+          this.logger.debug(`${LndClient.serviceName} ${this.symbol} accepted HTLC with timeout of block ${htlc.getExpiryHeight()} for invoice: ${invoice.getPaymentRequest()}`);
+
           this.emit('htlc.accepted', invoice.getPaymentRequest());
         } else if (invoice.getState() === lndrpc.Invoice.InvoiceState.SETTLED) {
           const preimage = getHexString(Buffer.from(invoice.getRPreimage_asB64(), 'base64'));

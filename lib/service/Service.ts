@@ -470,7 +470,7 @@ class Service {
           [Op.eq]: id,
         },
       });
-      await swap!.destroy();
+      await swap?.destroy();
 
       throw error;
     }

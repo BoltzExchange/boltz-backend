@@ -69,7 +69,7 @@
     "boltz-core": "^0.1.1",
     "cors": "^2.8.5",
     "cross-os": "^1.3.0",
-    "discord.js": "^11.6.1",
+    "discord.js": "^12.0.0",
     "diskusage": "^1.1.3",
     "express": "^4.17.1",
     "grpc": "1.24.2",

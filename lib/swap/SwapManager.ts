@@ -54,7 +54,7 @@ class SwapManager {
       }
     });
 
-    const recreateOutputFilter = (swaps: Swap[] | ReverseSwap[], isReverse: boolean) => {
+    const recreateFilters = (swaps: Swap[] | ReverseSwap[], isReverse: boolean) => {
       // TODO: add reverse swap input and output filter
       swaps.forEach((swap: Swap | ReverseSwap) => {
         if (swap.status === SwapUpdateEvent.SwapCreated && isReverse) {
@@ -116,10 +116,10 @@ class SwapManager {
       }),
     ]);
 
-    recreateOutputFilter(pendingSwaps, false);
-    recreateOutputFilter(pendingReverseSwaps, true);
+    recreateFilters(pendingSwaps, false);
+    recreateFilters(pendingReverseSwaps, true);
 
-    this.logger.info('Recreated input and output filters');
+    this.logger.info('Recreated input and output filters and invoice subscriptions');
   }
 
   /**

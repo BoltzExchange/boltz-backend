@@ -1,3 +1,5 @@
+/* tslint:disable: prefer-template */
+
 import { join } from 'path';
 import { unlinkSync, existsSync } from 'fs';
 import { wait } from '../../Utils';
@@ -115,14 +117,13 @@ describe('NotificationProvider', () => {
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(
-      // tslint:disable-next-line: prefer-template
       '**Swap BTC -> LTC :zap:**\n' +
       `ID: ${swap.id}\n` +
       `Pair: ${swap.pair}\n` +
       'Order side: buy\n' +
       `Onchain amount: ${satoshisToCoins(swap.onchainAmount!)} BTC\n` +
-      `Lightning amount: ${satoshisToCoins(getInvoiceAmt(swap.invoice))} LTC\n` +
-      `Fees earned: ${satoshisToCoins(swap.fee)} BTC\n` +
+      `Lightning amount: ${satoshisToCoins(getInvoiceAmt(swap.invoice!))} LTC\n` +
+      `Fees earned: ${satoshisToCoins(swap.fee!)} BTC\n` +
       `Miner fees: ${satoshisToCoins(swap.minerFee!)} BTC\n` +
       `Routing fees: ${swap.routingFee! / 1000} litoshi` +
       NotificationProvider['trailingWhitespace'],
@@ -133,7 +134,6 @@ describe('NotificationProvider', () => {
 
     expect(mockSendMessage).toHaveBeenCalledTimes(2);
     expect(mockSendMessage).toHaveBeenNthCalledWith(2,
-      // tslint:disable-next-line: prefer-template
       '**Swap LTC :zap: -> BTC**\n' +
       `ID: ${reverseSwap.id}\n` +
       `Pair: ${reverseSwap.pair}\n` +
@@ -154,13 +154,12 @@ describe('NotificationProvider', () => {
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(
-      // tslint:disable-next-line: prefer-template
       `**Swap BTC -> LTC :zap: failed: ${failureReason}**\n` +
       `ID: ${swap.id}\n` +
       `Pair: ${swap.pair}\n` +
       'Order side: buy\n' +
       `Onchain amount: ${satoshisToCoins(swap.onchainAmount!)} BTC\n` +
-      `Lightning amount: ${satoshisToCoins(getInvoiceAmt(swap.invoice))} LTC\n` +
+      `Lightning amount: ${satoshisToCoins(getInvoiceAmt(swap.invoice!))} LTC\n` +
       `Invoice: ${swap.invoice}` +
       NotificationProvider['trailingWhitespace'],
     );
@@ -170,7 +169,6 @@ describe('NotificationProvider', () => {
 
     expect(mockSendMessage).toHaveBeenCalledTimes(2);
     expect(mockSendMessage).toHaveBeenNthCalledWith(2,
-      // tslint:disable-next-line: prefer-template
       `**Swap LTC :zap: -> BTC failed: ${failureReason}**\n` +
       `ID: ${reverseSwap.id}\n` +
       `Pair: ${reverseSwap.pair}\n` +
@@ -189,7 +187,6 @@ describe('NotificationProvider', () => {
 
     expect(mockSendMessage).toHaveBeenCalledTimes(3);
     expect(mockSendMessage).toHaveBeenNthCalledWith(3,
-      // tslint:disable-next-line: prefer-template
       `**Swap LTC :zap: -> BTC failed: ${failureReason}**\n` +
       `ID: ${reverseSwap.id}\n` +
       `Pair: ${reverseSwap.pair}\n` +
@@ -197,6 +194,23 @@ describe('NotificationProvider', () => {
       `Onchain amount: ${satoshisToCoins(reverseSwap.onchainAmount!)} BTC\n` +
       `Lightning amount: ${satoshisToCoins(getInvoiceAmt(reverseSwap.invoice))} LTC` +
       NotificationProvider['trailingWhitespace'],
+    );
+  });
+
+  test('should format failed swaps with no invoice', () => {
+    const failureReason = 'because';
+    emitSwapFailure({
+      ...swap,
+      invoice: undefined,
+    } as Swap, false, failureReason);
+
+    expect(mockSendMessage).toHaveBeenCalledTimes(1);
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      '**Swap BTC -> LTC :zap: failed: because**\n' +
+      'ID: 123456\n' +
+      'Pair: LTC/BTC\n' +
+      'Order side: buy\n' +
+      '** **',
     );
   });
 

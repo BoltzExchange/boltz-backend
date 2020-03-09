@@ -1,16 +1,11 @@
-import { Op } from 'sequelize';
-import AsyncLock from 'async-lock';
 import { EventEmitter } from 'events';
-import { Transaction, TxOutput, address } from 'bitcoinjs-lib';
 import Errors from './Errors';
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';
 import SwapNursery from '../swap/SwapNursery';
-import SwapRepository from '../db/SwapRepository';
 import { SwapUpdateEvent } from '../consts/Enums';
 import ReverseSwap from '../db/models/ReverseSwap';
 import { Currency } from '../wallet/WalletManager';
-import ReverseSwapRepository from '../db/ReverseSwapRepository';
 
 type TransactionInfo = {
   eta?: number;
@@ -40,16 +35,10 @@ interface EventHandler {
 }
 
 class EventHandler extends EventEmitter {
-  private lock = new AsyncLock();
-
-  private static reverseSwapLock = 'reverseSwap';
-
   constructor(
     private logger: Logger,
     private currencies: Map<string, Currency>,
     private nursery: SwapNursery,
-    private swapRepository: SwapRepository,
-    private reverseSwapRepository: ReverseSwapRepository,
   ) {
     super();
 
@@ -63,8 +52,12 @@ class EventHandler extends EventEmitter {
     this.emit('swap.update', id, { status: SwapUpdateEvent.SwapCreated });
   }
 
+  public emitSwapInvoiceSet = (id: string) => {
+    this.emit('swap.update', id, { status: SwapUpdateEvent.InvoiceSet });
+  }
+
   /**
-   * Subscribes to a stream of confirmed transactions to addresses that were specified with "ListenOnAddress"
+   * Subscribes transaction related swap events
    */
   private subscribeTransactions = () => {
     this.nursery.on('transaction', (transaction, swap, confirmed, isReverse) => {
@@ -85,7 +78,7 @@ class EventHandler extends EventEmitter {
   }
 
   /**
-   * Subscribes to a stream of settled invoices and those paid by Boltz
+   * Subscribes to invoice related swap events
    */
   private subscribeInvoices = () => {
     this.nursery.on('invoice.settled', (swap) => {
@@ -115,14 +108,14 @@ class EventHandler extends EventEmitter {
       this.emit('swap.success', swap, false);
     });
 
-    this.nursery.on('expiration', (swap) => {
+    this.nursery.on('expiration', (swap, isReverse) => {
       const newStatus = SwapUpdateEvent.SwapExpired;
       const error = Errors.ONCHAIN_HTLC_TIMED_OUT().message;
 
-      if (swap instanceof Swap) {
-        this.handleFailedSwap(swap, error, newStatus);
+      if (isReverse) {
+        this.handleFailedReverseSwap(swap as ReverseSwap, error, newStatus);
       } else {
-        this.handleFailedReverseSwap(swap, error, newStatus);
+        this.handleFailedSwap(swap as Swap, error, newStatus);
       }
     });
 
@@ -130,7 +123,7 @@ class EventHandler extends EventEmitter {
       this.emit('swap.update', reverseSwap.id, {
         status: SwapUpdateEvent.TransactionMempool,
         transaction: {
-          id: reverseSwap.transactionId,
+          id: transaction.getId(),
           hex: transaction.toHex(),
           eta: SwapNursery.reverseSwapMempoolEta,
         },

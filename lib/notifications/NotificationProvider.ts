@@ -189,14 +189,19 @@ class NotificationProvider {
     };
 
     const getBasicSwapInfo = (swap: Swap | ReverseSwap, onchainSymbol: string, lightningSymbol: string) => {
-      const lightningAmount = getInvoiceAmt(swap.invoice!);
-
       // tslint:disable-next-line: prefer-template
-      return `ID: ${swap.id}\n` +
+      let message = `ID: ${swap.id}\n` +
         `Pair: ${swap.pair}\n` +
-        `Order side: ${swap.orderSide === OrderSide.BUY ? 'buy' : 'sell'}\n` +
-        `${swap.onchainAmount ? `Onchain amount: ${satoshisToCoins(swap.onchainAmount)} ${onchainSymbol}\n` : ''}` +
-        `Lightning amount: ${satoshisToCoins(lightningAmount)} ${lightningSymbol}`;
+        `Order side: ${swap.orderSide === OrderSide.BUY ? 'buy' : 'sell'}`;
+
+      if (swap.invoice) {
+        const lightningAmount = getInvoiceAmt(swap.invoice);
+
+        message += `${swap.onchainAmount ? `\nOnchain amount: ${satoshisToCoins(swap.onchainAmount)} ${onchainSymbol}` : ''}` +
+          `\nLightning amount: ${satoshisToCoins(lightningAmount)} ${lightningSymbol}`;
+      }
+
+      return message;
     };
 
     const getSymbols = (pairId: string, orderSide: number, isReverse: boolean) => {
@@ -236,7 +241,7 @@ class NotificationProvider {
         if (swap.minerFee) {
           message += `\nMiner fees: ${satoshisToCoins(swap.minerFee)} ${onchainSymbol}`;
         }
-      } else {
+      } else if (swap.invoice) {
         message += `\nInvoice: ${swap.invoice}`;
       }
 

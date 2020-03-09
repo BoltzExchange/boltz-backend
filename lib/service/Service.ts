@@ -77,8 +77,6 @@ class Service {
       this.logger,
       this.currencies,
       this.swapManager.nursery,
-      this.swapManager.swapRepository,
-      this.swapManager.reverseSwapRepository,
     );
   }
 
@@ -399,7 +397,7 @@ class Service {
     const chainCurrency = getChainCurrency(base, quote, swap.orderSide, false);
     const lightningCurrency = getLightningCurrency(base, quote, swap.orderSide, false);
 
-    const invoiceAmount = getInvoiceAmt(invoice!);
+    const invoiceAmount = getInvoiceAmt(invoice);
     const rate = getRate(pairRate, swap.orderSide, false);
 
     this.verifyAmount(swap.pair, rate, invoiceAmount, swap.orderSide, false);
@@ -410,6 +408,8 @@ class Service {
     const acceptZeroConf = this.rateProvider.acceptZeroConf(chainCurrency, expectedAmount);
 
     await this.swapManager.setSwapInvoice(swap, invoice, expectedAmount, percentageFee, acceptZeroConf);
+
+    this.eventHandler.emitSwapInvoiceSet(id);
 
     return {
       expectedAmount,

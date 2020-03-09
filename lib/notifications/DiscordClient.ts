@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import { Client, TextChannel, Message, Guild } from 'discord.js';
+import { Client, TextChannel, Message } from 'discord.js';
 
 interface DiscordClient {
   on(event: 'message', listener: (message: string) => void): this;
@@ -34,7 +34,7 @@ class DiscordClient extends EventEmitter {
 
     return new Promise((resolve, reject) => {
       this.client.on('ready', async () => {
-        for (const [_, channel] of channels.cache) {
+        for (const [, channel] of channels.cache) {
           if (channel instanceof TextChannel) {
             if (channel.name === this.channelName) {
               this.channel = channel;

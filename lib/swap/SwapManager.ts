@@ -123,17 +123,14 @@ class SwapManager {
   }
 
   /**
-   * Creates a new Submarine Swap from the chain to Lightning with a just a preimage hash
+   * Creates a new Submarine Swap from the chain to Lightning with a preimage hash
    *
    * @param baseCurrency base currency ticker symbol
    * @param quoteCurrency quote currency ticker symbol
    * @param orderSide whether the order is a buy or sell one
-   * @param invoice the invoice that should be paid
-   * @param expectedAmount amount that is expected onchain
+   * @param preimageHash hash of the preimage of the invoice the swap should pay
    * @param refundPublicKey public key of the keypair needed for claiming
    * @param timeoutBlockDelta after how many blocks the onchain script should time out
-   * @param acceptZeroConf whether 0-conf transactions should be accepted
-   * @param percentageFee the fee Boltz charges for the Swap
    */
   public createSwap = async (
     baseCurrency: string,
@@ -198,7 +195,7 @@ class SwapManager {
    * @param invoice invoice of the Swap
    * @param expectedAmount amount that is expected onchain
    * @param percentageFee fee Boltz charges for the Swap
-   * @param percentageFee the fee Boltz charges for the Swap
+   * @param acceptZeroConf whether 0-conf transactions should be accepted
    */
   public setSwapInvoice = async (swap: Swap, invoice: string, expectedAmount: number, percentageFee: number, acceptZeroConf: boolean) => {
     const { base, quote } = splitPairId(swap.pair);

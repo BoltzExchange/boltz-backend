@@ -6,7 +6,7 @@ import Logger from '../../../lib/Logger';
 import Wallet from '../../../lib/wallet/Wallet';
 import Database from '../../../lib/db/Database';
 import { getHexBuffer } from '../../../lib/Utils';
-import KeyRepository from '../../../lib/wallet/KeyRepository';
+import KeyRepository from '../../../lib/db/KeyRepository';
 import LndWalletProvider from '../../../lib/wallet/providers/LndWalletProvider';
 import { WalletBalance, SentTransaction } from '../../../lib/wallet/providers/WalletProviderInterface';
 

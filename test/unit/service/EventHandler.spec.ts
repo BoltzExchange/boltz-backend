@@ -1,49 +1,28 @@
-import { Op } from 'sequelize';
 import { Transaction } from 'bitcoinjs-lib';
 import { OutputType, Networks } from 'boltz-core';
 import Logger from '../../../lib/Logger';
-import { wait, generateAddress } from '../../Utils';
+import { generateAddress } from '../../Utils';
+import Swap from '../../../lib/db/models/Swap';
 import SwapNursery from '../../../lib/swap/SwapNursery';
 import LndClient from '../../../lib/lightning/LndClient';
-import ChainClient from '../../../lib/chain/ChainClient';
 import { SwapUpdateEvent } from '../../../lib/consts/Enums';
 import EventHandler from '../../../lib/service/EventHandler';
 import { Currency } from '../../../lib/wallet/WalletManager';
-import SwapRepository from '../../../lib/service/SwapRepository';
-import ReverseSwapRepository from '../../../lib/service/ReverseSwapRepository';
-
-type transactionCallback = (transaction: Transaction, confirmed: boolean) => void;
+import ReverseSwap from '../../../lib/db/models/ReverseSwap';
 
 type channelBackupCallback = (channelBackup: string) => void;
-type invoicePaidCallback = (invoice: string, routingFee: number) => void;
-type invoiceSettledCallback = (invoice: string, preimage: string) => void;
 
-type coinsFailedToSendCallback = (invoice: string) => void;
-type expirationCallback = (invoice: string, isReverse: boolean) => void;
-type claimCallback = (lockupId: string, lockupVout: number, minerFee: number) => void;
-type refundCallback = (lockupId: string, lockupVout: number, minerFee: number) => void;
-type coinsSentCallback = (invoice: string, transaction: Transaction, minerFee: number) => void;
-
-type invoiceFailedCallback = (invoice: string) => void;
-
-let emitTransaction: transactionCallback;
-
-jest.mock('../../../lib/chain/ChainClient', () => {
-  return jest.fn().mockImplementation(() => ({
-    on: (event: string, callback: transactionCallback) => {
-      expect(event).toEqual('transaction');
-
-      emitTransaction = callback;
-    },
-  }));
-});
-
-const mockedChainClient = <jest.Mock<ChainClient>><any>ChainClient;
+type claimCallback = (swap: Swap) => void;
+type invoicePaidCallback = (swap: Swap) => void;
+type invoiceFailedCallback = (swap: Swap) => void;
+type refundCallback = (reverseSwap: ReverseSwap) => void;
+type invoiceSettledCallback = (reverseSwap: ReverseSwap) => void;
+type coinsFailedToSendCallback = (reverseSwap: ReverseSwap) => void;
+type expirationCallback = (swap: Swap | ReverseSwap, isReverse: boolean) => void;
+type coinsSentCallback = (reverseSwap: ReverseSwap, transaction: Transaction) => void;
+type transactionCallback = (transaction: Transaction, swap: Swap | ReverseSwap, confirmed: boolean, isReverse: boolean) => void;
 
 let emitChannelBackup: channelBackupCallback;
-
-let emitInvoicePaid: invoicePaidCallback;
-let emitInvoiceSettled: invoiceSettledCallback;
 
 jest.mock('../../../lib/lightning/LndClient', () => {
   return jest.fn().mockImplementation(() => ({
@@ -51,10 +30,6 @@ jest.mock('../../../lib/lightning/LndClient', () => {
       switch (event) {
         case 'channel.backup':
           emitChannelBackup = callback as channelBackupCallback;
-          break;
-
-        case 'invoice.settled':
-          emitInvoiceSettled = callback as invoiceSettledCallback;
           break;
       }
     },
@@ -67,13 +42,14 @@ let emitClaim: claimCallback;
 let emitRefund: refundCallback;
 let emitCoinsSent: coinsSentCallback;
 let emitExpiration: expirationCallback;
+let emitTransaction: transactionCallback;
+let emitInvoicePaid: invoicePaidCallback;
+let emitInvoiceSettled: invoiceSettledCallback;
 let emitInvoiceFailedToPay: invoiceFailedCallback;
 let emitCoinsFailedToSend: coinsFailedToSendCallback;
 
 jest.mock('../../../lib/swap/SwapNursery', () => {
   return jest.fn().mockImplementation(() => ({
-    reverseSwapMempoolEta: 2,
-
     on: (event: string, callback: any) => {
       switch (event) {
         case 'expiration':
@@ -92,6 +68,10 @@ jest.mock('../../../lib/swap/SwapNursery', () => {
           emitInvoicePaid = callback;
           break;
 
+        case 'invoice.settled':
+          emitInvoiceSettled = callback;
+          break;
+
         case 'invoice.failedToPay':
           emitInvoiceFailedToPay = callback;
           break;
@@ -102,6 +82,10 @@ jest.mock('../../../lib/swap/SwapNursery', () => {
 
         case 'coins.failedToSend':
           emitCoinsFailedToSend = callback;
+          break;
+
+        case 'transaction':
+          emitTransaction = callback;
           break;
       }
     },
@@ -114,48 +98,21 @@ const swap = {
   id: 'id',
   acceptZeroConf: true,
   status: SwapUpdateEvent.SwapCreated,
-};
-
-const mockGetSwap = jest.fn().mockResolvedValue(swap);
-const mockSetMinerFee = jest.fn().mockResolvedValue(swap);
-const mockSetSwapStatus = jest.fn().mockResolvedValue(swap);
-const mockSetInvoicePaid = jest.fn().mockResolvedValue(swap);
-const mockSetLockupTransactionId = jest.fn().mockResolvedValue(swap);
-
-jest.mock('../../../lib/service/SwapRepository', () => {
-  return jest.fn().mockImplementation(() => ({
-    getSwap: mockGetSwap,
-    setMinerFee: mockSetMinerFee,
-    setSwapStatus: mockSetSwapStatus,
-    setInvoicePaid: mockSetInvoicePaid,
-    setLockupTransactionId: mockSetLockupTransactionId,
-  }));
-});
-
-const mockedSwapRepository = <jest.Mock<SwapRepository>><any>SwapRepository;
+} as Swap;
 
 const reverseSwap = {
   id: 'reverseId',
   status: SwapUpdateEvent.TransactionMempool,
+} as ReverseSwap;
+
+const mockTransaction = () => {
+  const { outputScript } = generateAddress(OutputType.Bech32);
+  const transaction = new Transaction();
+
+  transaction.addOutput(outputScript, 1);
+
+  return transaction;
 };
-
-const mockGetReverseSwap = jest.fn().mockResolvedValue(reverseSwap);
-const mockSetInvoiceSettled = jest.fn().mockResolvedValue(reverseSwap);
-const mockSetLockupTransaction = jest.fn().mockResolvedValue(reverseSwap);
-const mockSetReverseSwapStatus = jest.fn().mockResolvedValue(reverseSwap);
-const mockSetTransactionRefunded = jest.fn().mockResolvedValue(reverseSwap);
-
-jest.mock('../../../lib/service/ReverseSwapRepository', () => {
-  return jest.fn().mockImplementation(() => ({
-    getReverseSwap: mockGetReverseSwap,
-    setInvoiceSettled: mockSetInvoiceSettled,
-    setLockupTransaction: mockSetLockupTransaction,
-    setReverseSwapStatus: mockSetReverseSwapStatus,
-    setTransactionRefunded: mockSetTransactionRefunded,
-  }));
-});
-
-const mockedReverseSwapRepository = <jest.Mock<ReverseSwapRepository>><any>ReverseSwapRepository;
 
 describe('EventHandler', () => {
   const symbol = 'BTC';
@@ -163,9 +120,9 @@ describe('EventHandler', () => {
   const currencies = new Map<string, Currency>([
     [symbol, {
       symbol,
-      network: Networks.bitcoinRegtest,
+      chainClient: {} as any,
       lndClient: mockedLndClient(),
-      chainClient: mockedChainClient(),
+      network: Networks.bitcoinRegtest,
     } as any as Currency],
   ]);
 
@@ -173,358 +130,279 @@ describe('EventHandler', () => {
     Logger.disabledLogger,
     currencies,
     mockedSwapNursery(),
-    mockedSwapRepository(),
-    mockedReverseSwapRepository(),
   );
 
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  test('should subscribe to transactions', async () => {
-    let updatesEmitted = 0;
+  test('should emit events on swap creation', () => {
+    let eventEmitted = false;
 
-    const { outputScript, address } = generateAddress(OutputType.Bech32);
-    const transaction = new Transaction();
-
-    const outputValue = 1;
-
-    transaction.addOutput(outputScript, outputValue);
-
-    const states = [
-      {
-        confirmed: false,
-        status: SwapUpdateEvent.TransactionMempool,
-      },
-      {
-        confirmed: true,
-        status: SwapUpdateEvent.TransactionConfirmed,
-      },
-    ];
-
-    for (let i = 1; i <= states.length; i += 1) {
-      const state = states[i - 1];
-
-      eventHandler.on('swap.update', (id, message) => {
-        if (id === swap.id) {
-          expect(id).toEqual(swap.id);
-          expect(message).toEqual({
-            status: state.status,
-          });
-        } else {
-          expect(id).toEqual(reverseSwap.id);
-          expect(message).toEqual({
-            status: state.status,
-            transaction: {
-              id: transaction.getId(),
-              hex: transaction.toHex(),
-            },
-          });
-        }
-
-        updatesEmitted += 1;
-      });
-
-      emitTransaction(transaction, state.confirmed);
-
-      await wait(20);
-
-      eventHandler.removeAllListeners();
-
-      expect(mockGetSwap).toHaveBeenNthCalledWith(i, {
-        lockupAddress: {
-          [Op.eq]: address,
-        },
-      });
-      expect(mockSetLockupTransactionId).toHaveBeenNthCalledWith(
-        i,
-        expect.anything(),
-        transaction.getId(),
-        outputValue,
-        state.confirmed,
-      );
-
-      if (state.confirmed) {
-        expect(mockGetReverseSwap).toHaveBeenNthCalledWith(1, {
-          transactionId: {
-            [Op.eq]: transaction.getId(),
-          },
-        });
-        expect(mockSetReverseSwapStatus).toHaveBeenNthCalledWith(1,
-          expect.anything(),
-          state.status,
-        );
-      }
-
-    }
-
-    expect(updatesEmitted).toEqual(3);
-  });
-
-  test('should subscribe to invoices', async () => {
-    let updatesEmitted = 0;
-    let successEmitted = false;
-    let failureEmitted = false;
-
-    const invoice = 'lnbc';
-    const preimage = 'preimage';
-    const routingFee = 3;
-
-    // Paid
     eventHandler.once('swap.update', (id, message) => {
       expect(id).toEqual(swap.id);
-      expect(message).toEqual({ status: SwapUpdateEvent.InvoicePaid });
+      expect(message).toEqual({ status: SwapUpdateEvent.SwapCreated });
 
-      updatesEmitted += 1;
+      eventEmitted = true;
     });
 
-    emitInvoicePaid(invoice, routingFee);
+    eventHandler.emitSwapCreation(swap.id);
 
-    await wait(20);
+    expect(eventEmitted).toBeTruthy();
+  });
 
-    expect(mockGetSwap).toHaveBeenNthCalledWith(1, {
-      invoice: {
-        [Op.eq]: invoice,
-      },
+  test('should emit events when invoices of swaps are set', () => {
+    let eventEmitted = false;
+
+    eventHandler.once('swap.update', (id, message) => {
+      expect(id).toEqual(swap.id);
+      expect(message).toEqual({ status: SwapUpdateEvent.InvoiceSet });
+
+      eventEmitted = true;
     });
-    expect(mockSetInvoicePaid).toHaveBeenCalledWith(
-      expect.anything(),
-      routingFee,
-    );
 
-    // Settled
+    eventHandler.emitSwapInvoiceSet(swap.id);
+
+    expect(eventEmitted).toBeTruthy();
+  });
+
+  test('should subscribe to transactions', () => {
+    let eventsEmitted = 0;
+
+    // Swap related transaction events
+    eventHandler.once('swap.update', (id, message) => {
+      expect(id).toEqual(swap.id);
+      expect(message).toEqual({ status: SwapUpdateEvent.TransactionMempool });
+
+      eventsEmitted += 1;
+    });
+
+    emitTransaction({} as any, swap, false, false);
+
+    eventHandler.once('swap.update', (id, message) => {
+      expect(id).toEqual(swap.id);
+      expect(message).toEqual({ status: SwapUpdateEvent.TransactionConfirmed });
+
+      eventsEmitted += 1;
+    });
+
+    emitTransaction({} as any, swap, true, false);
+
+    // Reverse swap related transaction event
+    const transaction = mockTransaction();
+
+    eventHandler.once('swap.update', (id, message) => {
+      expect(id).toEqual(reverseSwap.id);
+      expect(message).toEqual({
+        status: SwapUpdateEvent.TransactionConfirmed,
+        transaction: {
+          id: transaction.getId(),
+          hex: transaction.toHex(),
+        },
+      });
+
+      eventsEmitted += 1;
+    });
+
+    emitTransaction(transaction, reverseSwap as ReverseSwap, true, true);
+
+    expect(eventsEmitted).toEqual(3);
+  });
+
+  test('should subscribe to invoices', () => {
+    let eventsEmitted = 0;
+
+    // Invoice settled
     eventHandler.once('swap.update', (id, message) => {
       expect(id).toEqual(reverseSwap.id);
       expect(message).toEqual({ status: SwapUpdateEvent.InvoiceSettled });
 
-      updatesEmitted += 1;
-    });
-    eventHandler.once('swap.success', (successSwap, isReverse) => {
-      expect(successSwap.id).toEqual(reverseSwap.id);
-      expect(isReverse).toBeTruthy();
-
-      successEmitted = true;
+      eventsEmitted += 1;
     });
 
-    emitInvoiceSettled(invoice, preimage);
+    eventHandler.once('swap.success', (successfulSwap, isReverse) => {
+      expect(successfulSwap).toEqual(reverseSwap);
+      expect(isReverse).toEqual(true);
 
-    await wait(20);
-
-    expect(mockGetReverseSwap).toHaveBeenNthCalledWith(1, {
-      invoice: {
-        [Op.eq]: invoice,
-      },
+      eventsEmitted += 1;
     });
-    expect(mockSetInvoiceSettled).toHaveBeenCalledWith(
-      expect.anything(),
-      preimage,
-    );
 
-    // Failed to pay
+    emitInvoiceSettled(reverseSwap);
+
+    expect(eventsEmitted).toEqual(2);
+    eventsEmitted = 0;
+
+    // Invoice paid
+    eventHandler.once('swap.update', (id, message) => {
+      expect(id).toEqual(swap.id);
+      expect(message).toEqual({ status: SwapUpdateEvent.InvoicePaid });
+
+      eventsEmitted += 1;
+    });
+
+    emitInvoicePaid(swap);
+
+    expect(eventsEmitted).toEqual(1);
+    eventsEmitted = 0;
+
+    // Invoice failed to pay
     eventHandler.once('swap.update', (id, message) => {
       expect(id).toEqual(swap.id);
       expect(message).toEqual({ status: SwapUpdateEvent.InvoiceFailedToPay });
 
-      updatesEmitted += 1;
-    });
-    eventHandler.once('swap.failure', (failedSwap, isReverse, errorMessage) => {
-      expect(isReverse).toBeFalsy();
-      expect(failedSwap.id).toEqual(swap.id);
-      expect(errorMessage).toEqual('invoice could not be paid');
-
-      failureEmitted = true;
+      eventsEmitted += 1;
     });
 
-    emitInvoiceFailedToPay(invoice);
+    eventHandler.once('swap.failure', (failedSwap, isReverse, reason) => {
+      expect(failedSwap).toEqual(swap);
+      expect(isReverse).toEqual(false);
+      expect(reason).toEqual('invoice could not be paid');
 
-    await wait(20);
-
-    expect(mockGetSwap).toHaveBeenNthCalledWith(1, {
-      invoice: {
-        [Op.eq]: invoice,
-      },
+      eventsEmitted += 1;
     });
-    expect(mockSetSwapStatus).toHaveBeenCalledWith(
-      expect.anything(),
-      SwapUpdateEvent.InvoiceFailedToPay,
-    );
 
-    expect(updatesEmitted).toEqual(3);
-    expect(successEmitted).toBeTruthy();
-    expect(failureEmitted).toBeTruthy();
+    emitInvoiceFailedToPay(swap);
+
+    expect(eventsEmitted).toEqual(2);
   });
 
-  test('should subscribe to swap events', async () => {
-    let updatesEmitted = 0;
-    let failuresEmitted = 0;
-    let successEmitted = false;
+  test('should subscribe to swap events', () => {
+    let eventsEmitted = 0;
 
-    const lockupId = 'id';
-    const lockupVout = 1;
-    const minerFee = 123;
+    // Claim
+    eventHandler.once('swap.update', (id, message) => {
+      expect(id).toEqual(swap.id);
+      expect(message).toEqual({ status: SwapUpdateEvent.TransactionClaimed });
 
-    const invoice = 'lnbc';
+      eventsEmitted += 1;
+    });
 
-    const transaction = new Transaction();
-    transaction.addOutput(generateAddress(OutputType.Bech32).outputScript, 1);
+    eventHandler.once('swap.success', (successfulSwap, isReverse) => {
+      expect(successfulSwap).toEqual(swap);
+      expect(isReverse).toEqual(false);
+
+      eventsEmitted += 1;
+    });
+
+    emitClaim(swap);
+
+    expect(eventsEmitted).toEqual(2);
+    eventsEmitted = 0;
 
     // Expiration
+      // Swap
     eventHandler.once('swap.update', (id, message) => {
       expect(id).toEqual(swap.id);
       expect(message).toEqual({ status: SwapUpdateEvent.SwapExpired });
 
-      updatesEmitted += 1;
-    });
-    eventHandler.once('swap.failure', (failedSwap, isReverse, errorMessage) => {
-      expect(isReverse).toBeFalsy();
-      expect(failedSwap.id).toEqual(swap.id);
-      expect(errorMessage).toEqual('onchain HTLC timed out');
-
-      failuresEmitted += 1;
+      eventsEmitted += 1;
     });
 
-    emitExpiration(invoice, false);
+    eventHandler.once('swap.failure', (failedSwap, isReverse, reason) => {
+      expect(failedSwap).toEqual(swap);
+      expect(isReverse).toEqual(false);
+      expect(reason).toEqual('onchain HTLC timed out');
 
-    await wait(20);
-
-    expect(mockGetSwap).toHaveBeenNthCalledWith(1, {
-      invoice: {
-        [Op.eq]: invoice,
-      },
+      eventsEmitted += 1;
     });
-    expect(mockSetSwapStatus).toHaveBeenCalledWith(expect.anything(), SwapUpdateEvent.SwapExpired);
 
+    emitExpiration(swap, false);
+
+    expect(eventsEmitted).toEqual(2);
+    eventsEmitted = 0;
+
+      // Reverse swap
     eventHandler.once('swap.update', (id, message) => {
       expect(id).toEqual(reverseSwap.id);
       expect(message).toEqual({ status: SwapUpdateEvent.SwapExpired });
 
-      updatesEmitted += 1;
-    });
-    eventHandler.once('swap.failure', (failedSwap, isReverse, errorMessage) => {
-      expect(isReverse).toBeTruthy();
-      expect(failedSwap.id).toEqual(reverseSwap.id);
-      expect(errorMessage).toEqual('onchain HTLC timed out');
-
-      failuresEmitted += 1;
+      eventsEmitted += 1;
     });
 
-    emitExpiration(invoice, true);
+    eventHandler.once('swap.failure', (failedSwap, isReverse, reason) => {
+      expect(failedSwap).toEqual(reverseSwap);
+      expect(isReverse).toEqual(true);
+      expect(reason).toEqual('onchain HTLC timed out');
 
-    await wait(20);
-
-    expect(mockGetReverseSwap).toHaveBeenNthCalledWith(1, {
-      invoice: {
-        [Op.eq]: invoice,
-      },
-    });
-    expect(mockSetReverseSwapStatus).toHaveBeenCalledWith(expect.anything(), SwapUpdateEvent.SwapExpired);
-
-    // Claim
-    eventHandler.once('swap.success', (successSwap, isReverse) => {
-      expect(successSwap.id).toEqual(swap.id);
-      expect(isReverse).toBeFalsy();
-
-      successEmitted = true;
+      eventsEmitted += 1;
     });
 
-    emitClaim(lockupId, lockupVout, minerFee);
+    emitExpiration(reverseSwap, true);
 
-    await wait(20);
-
-    expect(mockGetSwap).toHaveBeenNthCalledWith(2, {
-      lockupTransactionId: {
-        [Op.eq]: lockupId,
-      },
-    });
-    expect(mockSetMinerFee).toHaveBeenCalledWith(expect.anything(), minerFee);
-
-    // Refund
-    eventHandler.once('swap.update', (id, message) => {
-      expect(id).toEqual(reverseSwap.id);
-      expect(message).toEqual({ status: SwapUpdateEvent.TransactionRefunded });
-
-      updatesEmitted += 1;
-    });
-    eventHandler.once('swap.failure', (failureSwap, isReverse, errorMessage) => {
-      expect(isReverse).toBeTruthy();
-      expect(failureSwap.id).toEqual(reverseSwap.id);
-      expect(errorMessage).toEqual('onchain HTLC timed out');
-
-      failuresEmitted += 1;
-    });
-
-    emitRefund(lockupId, lockupVout, minerFee);
-
-    await wait(20);
-
-    expect(mockGetReverseSwap).toHaveBeenNthCalledWith(2, {
-      transactionId: {
-        [Op.eq]: lockupId,
-      },
-    });
-    expect(mockSetTransactionRefunded).toHaveBeenCalledWith(expect.anything(), minerFee);
+    expect(eventsEmitted).toEqual(2);
+    eventsEmitted = 0;
 
     // Coins sent
+    const transaction = mockTransaction();
+    SwapNursery.reverseSwapMempoolEta = 2;
+
     eventHandler.once('swap.update', (id, message) => {
       expect(id).toEqual(reverseSwap.id);
       expect(message).toEqual({
         status: SwapUpdateEvent.TransactionMempool,
         transaction: {
+          eta: 2,
           id: transaction.getId(),
           hex: transaction.toHex(),
-          eta: SwapNursery.reverseSwapMempoolEta,
         },
       });
 
-      updatesEmitted += 1;
+      eventsEmitted += 1;
     });
 
-    emitCoinsSent(invoice, transaction, minerFee);
+    emitCoinsSent(reverseSwap, transaction);
 
-    await wait(20);
-
-    expect(mockGetReverseSwap).toHaveBeenNthCalledWith(3, {
-      invoice: {
-        [Op.eq]: invoice,
-      },
-    });
-    expect(mockSetLockupTransaction).toHaveBeenCalledWith(expect.anything(), transaction.getId(), minerFee);
+    expect(eventsEmitted).toEqual(1);
+    eventsEmitted = 0;
 
     // Coins failed to send
     eventHandler.once('swap.update', (id, message) => {
       expect(id).toEqual(reverseSwap.id);
       expect(message).toEqual({ status: SwapUpdateEvent.TransactionFailed });
 
-      updatesEmitted += 1;
-    });
-    eventHandler.once('swap.failure', (failureSwap, isReverse, errorMessage) => {
-      expect(isReverse).toBeTruthy();
-      expect(failureSwap.id).toEqual(reverseSwap.id);
-      expect(errorMessage).toEqual('onchain coins could not be sent');
-
-      failuresEmitted += 1;
+      eventsEmitted += 1;
     });
 
-    emitCoinsFailedToSend(invoice);
+    eventHandler.once('swap.failure', (failedSwap, isReverse, reason) => {
+      expect(failedSwap).toEqual(reverseSwap);
+      expect(isReverse).toEqual(true);
+      expect(reason).toEqual('onchain coins could not be sent');
 
-    await wait(20);
-
-    expect(mockGetReverseSwap).toHaveBeenNthCalledWith(4, {
-      invoice: {
-        [Op.eq]: invoice,
-      },
+      eventsEmitted += 1;
     });
-    expect(mockSetReverseSwapStatus).toHaveBeenNthCalledWith(2, expect.anything(), SwapUpdateEvent.TransactionFailed);
 
-    await wait(20);
+    emitCoinsFailedToSend(reverseSwap);
 
-    expect(updatesEmitted).toEqual(5);
-    expect(failuresEmitted).toEqual(4);
-    expect(successEmitted).toBeTruthy();
+    expect(eventsEmitted).toEqual(2);
+    eventsEmitted = 0;
 
+    // Refund
+    const transactionId = '168bf6ae0a7de57d6aa38042bdde38873bd37b55f53fd727ff827d33316b6d05';
+
+    eventHandler.once('swap.update', (id, message) => {
+      expect(id).toEqual(reverseSwap.id);
+      expect(message).toEqual({ status: SwapUpdateEvent.TransactionRefunded });
+
+      eventsEmitted += 1;
+    });
+
+    eventHandler.once('swap.failure', (failedSwap, isRevese, reason) => {
+      expect(failedSwap).toEqual(reverseSwap);
+      expect(isRevese).toEqual(true);
+      expect(reason).toEqual(`refunded onchain coins: ${transactionId}`);
+
+      eventsEmitted += 1;
+    });
+
+    reverseSwap.transactionId = transactionId;
+
+    emitRefund(reverseSwap);
+
+    expect(eventsEmitted).toEqual(2);
+    eventsEmitted = 0;
   });
 
-  test('should subscribe to channel backups', async () => {
+  test('should subscribe to channel backups', () => {
     let eventEmitted = false;
 
     const expectedBackup = 'backup';
@@ -537,8 +415,6 @@ describe('EventHandler', () => {
     });
 
     emitChannelBackup(expectedBackup);
-
-    await wait(20);
 
     expect(eventEmitted).toBeTruthy();
   });

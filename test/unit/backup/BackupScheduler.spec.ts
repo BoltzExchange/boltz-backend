@@ -3,9 +3,9 @@ import Logger from '../../../lib/Logger';
 import Report from '../../../lib/data/Report';
 import Swap from '../../../lib/db/models/Swap';
 import { OrderSide } from '../../../lib/consts/Enums';
+import SwapRepository from '../../../lib/db/SwapRepository';
 import EventHandler from '../../../lib/service/EventHandler';
-import SwapRepository from '../../../lib/service/SwapRepository';
-import ReverseSwapRepository from '../../../lib/service/ReverseSwapRepository';
+import ReverseSwapRepository from '../../../lib/db/ReverseSwapRepository';
 import BackupScheduler, { BackupConfig } from '../../../lib/backup/BackupScheduler';
 
 type callback = (currency: string, channelBackup: string) => void;
@@ -31,7 +31,7 @@ const swap = {
   createdAt: '2019-04-19 09:21:01.156 +00:00',
 } as any as Swap;
 
-jest.mock('../../../lib/service/SwapRepository', () => {
+jest.mock('../../../lib/db/SwapRepository', () => {
   return jest.fn().mockImplementation(() => {
     return {
       getSwaps: () => Promise.resolve([swap]),
@@ -41,7 +41,7 @@ jest.mock('../../../lib/service/SwapRepository', () => {
 
 const mockedSwapRepository = <jest.Mock<SwapRepository>><any>SwapRepository;
 
-jest.mock('../../../lib/service/ReverseSwapRepository', () => {
+jest.mock('../../../lib/db/ReverseSwapRepository', () => {
   return jest.fn().mockImplementation(() => {
     return {
       getReverseSwaps: () => Promise.resolve([]),

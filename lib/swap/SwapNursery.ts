@@ -1,8 +1,8 @@
 import { Op } from 'sequelize';
 import AsyncLock from 'async-lock';
 import { EventEmitter } from 'events';
+import { Transaction, address } from 'bitcoinjs-lib';
 import { constructClaimTransaction, detectPreimage, constructRefundTransaction } from 'boltz-core';
-import { Transaction, TxOutput, address } from 'bitcoinjs-lib';
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';
 import Wallet from '../wallet/Wallet';
@@ -31,8 +31,8 @@ interface SwapNursery {
   on(event: 'transaction', listener: (transaction: Transaction, swap: Swap | ReverseSwap, confirmed: boolean, isReverse: boolean) => void): this;
   emit(event: 'transaction', transaction: Transaction, swap: Swap | ReverseSwap, confirmed: boolean, isReverse: boolean): boolean;
 
-  on(event: 'expiration', listener: (swap: Swap | ReverseSwap) => void): this;
-  emit(event: 'expiration', swap: Swap | ReverseSwap): boolean;
+  on(event: 'expiration', listener: (swap: Swap | ReverseSwap, isReverse: boolean) => void): this;
+  emit(event: 'expiration', swap: Swap | ReverseSwap, isReverse: boolean): boolean;
 
   // Swap related events
   on(event: 'claim', listener: (swap: Swap) => void): this;
@@ -236,7 +236,7 @@ class SwapNursery extends EventEmitter {
 
             if (symbol === chainCurrency) {
               this.logger.verbose(`Aborting swap: ${swap.id}`);
-              this.emit('expiration', await this.swapRepository.setSwapStatus(swap, SwapUpdateEvent.SwapExpired));
+              this.emit('expiration', await this.swapRepository.setSwapStatus(swap, SwapUpdateEvent.SwapExpired), false);
             }
           }
         }),
@@ -261,15 +261,19 @@ class SwapNursery extends EventEmitter {
 
             if (symbol === chainCurrency) {
               if (reverseSwap.status === SwapUpdateEvent.TransactionMempool || reverseSwap.status === SwapUpdateEvent.TransactionConfirmed) {
-                await this.refundReverseSwap(
-                  reverseSwap,
-                  chainClient,
-                  wallet,
-                  height,
-                );
+                try {
+                  await this.refundReverseSwap(
+                    reverseSwap,
+                    chainClient,
+                    wallet,
+                    height,
+                  );
+                } catch (error) {
+                  this.logger.error(`Could not broadcast refund transaction: ${formatError(error)}`);
+                }
               } else {
                 this.logger.verbose(`Aborting reverse swap: ${reverseSwap.id}`);
-                this.emit('expiration', await this.reverseSwapRepository.setReverseSwapStatus(reverseSwap, SwapUpdateEvent.SwapExpired));
+                this.emit('expiration', await this.reverseSwapRepository.setReverseSwapStatus(reverseSwap, SwapUpdateEvent.SwapExpired), true);
               }
             }
           }
@@ -319,38 +323,38 @@ class SwapNursery extends EventEmitter {
 
     const response = await this.payInvoice(this.lndClients.get(lightningCurrency)!, swap.invoice!);
 
-    if (response) {
-      this.logger.silly(`Got ${currency.symbol} preimage: ${getHexString(response.preimage)}`);
-
-      await this.swapRepository.setInvoicePaid(swap, response.fee);
-      this.emit('invoice.paid', swap);
-
-      const destinationAddress = await wallet.newAddress();
-
-      const claimTx = constructClaimTransaction(
-        [{
-          vout,
-          value: output.value,
-          script: output.script,
-          preimage: response.preimage,
-          txHash: transaction.getHash(),
-          type: getSwapOutputType(false),
-          keys: wallet.getKeysByIndex(swap.keyIndex),
-          redeemScript: getHexBuffer(swap.redeemScript),
-        }],
-        address.toOutputScript(destinationAddress, currency.network),
-        await currency.chainClient.estimateFee(),
-        true,
-      );
-      const minerFee = await this.calculateTransactionFee(currency.chainClient, claimTx);
-
-      this.logger.silly(`Broadcasting ${currency.symbol} claim transaction: ${claimTx.getId()}`);
-
-      await currency.chainClient.sendRawTransaction(claimTx.toHex());
-      this.emit('claim', await this.swapRepository.setMinerFee(swap, minerFee));
-    } else {
+    if (!response) {
       this.emit('invoice.failedToPay', await this.swapRepository.setSwapStatus(swap, SwapUpdateEvent.InvoiceFailedToPay));
+      return;
     }
+
+    this.logger.silly(`Got ${currency.symbol} preimage: ${getHexString(response.preimage)}`);
+
+    this.emit('invoice.paid', await this.swapRepository.setInvoicePaid(swap, response.fee));
+
+    const destinationAddress = await wallet.newAddress();
+
+    const claimTx = constructClaimTransaction(
+      [{
+        vout,
+        value: output.value,
+        script: output.script,
+        preimage: response.preimage,
+        txHash: transaction.getHash(),
+        type: getSwapOutputType(false),
+        keys: wallet.getKeysByIndex(swap.keyIndex),
+        redeemScript: getHexBuffer(swap.redeemScript),
+      }],
+      address.toOutputScript(destinationAddress, currency.network),
+      await currency.chainClient.estimateFee(),
+      true,
+    );
+    const minerFee = await this.calculateTransactionFee(currency.chainClient, claimTx);
+
+    this.logger.silly(`Broadcasting ${currency.symbol} claim transaction: ${claimTx.getId()}`);
+
+    await currency.chainClient.sendRawTransaction(claimTx.toHex());
+    this.emit('claim', await this.swapRepository.setMinerFee(swap, minerFee));
   }
 
   private sendReverseSwapCoins = async (reverseSwap: ReverseSwap) => {
@@ -372,6 +376,7 @@ class SwapNursery extends EventEmitter {
 
       this.emit('coins.sent', await this.reverseSwapRepository.setLockupTransaction(reverseSwap, transactionId, fee), transaction);
     } catch (error) {
+      console.log(error);
       const preimageHash = getHexBuffer(getInvoicePreimageHash(reverseSwap.invoice));
 
       const lndClient = this.lndClients.get(lightningCurrency)!;
@@ -461,7 +466,8 @@ class SwapNursery extends EventEmitter {
 
       return {
         preimage: response.paymentPreimage,
-        fee: response.paymentRoute.totalFees,
+        // TODO: check this value
+        fee: response.paymentRoute.totalFeesMsat,
       };
     } catch (error) {
       this.logger.warn(`Could not pay ${lndClient.symbol} invoice ${invoice}: ${error}`);

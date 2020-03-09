@@ -1,4 +1,4 @@
-import { Request, Response, request } from 'express';
+import { Request, Response } from 'express';
 import Logger from '../../../lib/Logger';
 import Service from '../../../lib/service/Service';
 import Controller from '../../../lib/api/Controller';

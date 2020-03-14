@@ -450,8 +450,8 @@ export class SendRequest extends jspb.Message {
     getFeeLimit(): FeeLimit | undefined;
     setFeeLimit(value?: FeeLimit): void;
 
-    getOutgoingChanId(): string;
-    setOutgoingChanId(value: string): void;
+    getOutgoingChanId(): number;
+    setOutgoingChanId(value: number): void;
 
     getLastHopPubkey(): Uint8Array | string;
     getLastHopPubkey_asU8(): Uint8Array;
@@ -495,7 +495,7 @@ export namespace SendRequest {
         paymentRequest: string,
         finalCltvDelta: number,
         feeLimit?: FeeLimit.AsObject,
-        outgoingChanId: string,
+        outgoingChanId: number,
         lastHopPubkey: Uint8Array | string,
         cltvLimit: number,
 
@@ -1262,8 +1262,8 @@ export class Channel extends jspb.Message {
     getChannelPoint(): string;
     setChannelPoint(value: string): void;
 
-    getChanId(): string;
-    setChanId(value: string): void;
+    getChanId(): number;
+    setChanId(value: number): void;
 
     getCapacity(): number;
     setCapacity(value: number): void;
@@ -1346,7 +1346,7 @@ export namespace Channel {
         active: boolean,
         remotePubkey: string,
         channelPoint: string,
-        chanId: string,
+        chanId: number,
         capacity: number,
         localBalance: number,
         remoteBalance: number,
@@ -1431,8 +1431,8 @@ export class ChannelCloseSummary extends jspb.Message {
     getChannelPoint(): string;
     setChannelPoint(value: string): void;
 
-    getChanId(): string;
-    setChanId(value: string): void;
+    getChanId(): number;
+    setChanId(value: number): void;
 
     getChainHash(): string;
     setChainHash(value: string): void;
@@ -1472,7 +1472,7 @@ export class ChannelCloseSummary extends jspb.Message {
 export namespace ChannelCloseSummary {
     export type AsObject = {
         channelPoint: string,
-        chanId: string,
+        chanId: number,
         chainHash: string,
         closingTxHash: string,
         remotePubkey: string,
@@ -2902,8 +2902,8 @@ export class QueryRoutesRequest extends jspb.Message {
     getDestCustomRecordsMap(): jspb.Map<number, Uint8Array | string>;
     clearDestCustomRecordsMap(): void;
 
-    getOutgoingChanId(): string;
-    setOutgoingChanId(value: string): void;
+    getOutgoingChanId(): number;
+    setOutgoingChanId(value: number): void;
 
     getLastHopPubkey(): Uint8Array | string;
     getLastHopPubkey_asU8(): Uint8Array;
@@ -2946,7 +2946,7 @@ export namespace QueryRoutesRequest {
         cltvLimit: number,
 
         destCustomRecordsMap: Array<[number, Uint8Array | string]>,
-        outgoingChanId: string,
+        outgoingChanId: number,
         lastHopPubkey: Uint8Array | string,
         routeHintsList: Array<RouteHint.AsObject>,
         destFeaturesList: Array<FeatureBit>,
@@ -2983,8 +2983,8 @@ export namespace NodePair {
 }
 
 export class EdgeLocator extends jspb.Message { 
-    getChannelId(): string;
-    setChannelId(value: string): void;
+    getChannelId(): number;
+    setChannelId(value: number): void;
 
     getDirectionReverse(): boolean;
     setDirectionReverse(value: boolean): void;
@@ -3002,7 +3002,7 @@ export class EdgeLocator extends jspb.Message {
 
 export namespace EdgeLocator {
     export type AsObject = {
-        channelId: string,
+        channelId: number,
         directionReverse: boolean,
     }
 }
@@ -3035,8 +3035,8 @@ export namespace QueryRoutesResponse {
 }
 
 export class Hop extends jspb.Message { 
-    getChanId(): string;
-    setChanId(value: string): void;
+    getChanId(): number;
+    setChanId(value: number): void;
 
     getChanCapacity(): number;
     setChanCapacity(value: number): void;
@@ -3085,7 +3085,7 @@ export class Hop extends jspb.Message {
 
 export namespace Hop {
     export type AsObject = {
-        chanId: string,
+        chanId: number,
         chanCapacity: number,
         amtToForward: number,
         fee: number,
@@ -3349,8 +3349,8 @@ export namespace RoutingPolicy {
 }
 
 export class ChannelEdge extends jspb.Message { 
-    getChannelId(): string;
-    setChannelId(value: string): void;
+    getChannelId(): number;
+    setChannelId(value: number): void;
 
     getChanPoint(): string;
     setChanPoint(value: string): void;
@@ -3392,7 +3392,7 @@ export class ChannelEdge extends jspb.Message {
 
 export namespace ChannelEdge {
     export type AsObject = {
-        channelId: string,
+        channelId: number,
         chanPoint: string,
         lastUpdate: number,
         node1Pub: string,
@@ -3454,8 +3454,8 @@ export namespace ChannelGraph {
 }
 
 export class ChanInfoRequest extends jspb.Message { 
-    getChanId(): string;
-    setChanId(value: string): void;
+    getChanId(): number;
+    setChanId(value: number): void;
 
 
     serializeBinary(): Uint8Array;
@@ -3470,7 +3470,7 @@ export class ChanInfoRequest extends jspb.Message {
 
 export namespace ChanInfoRequest {
     export type AsObject = {
-        chanId: string,
+        chanId: number,
     }
 }
 
@@ -3680,8 +3680,8 @@ export namespace NodeUpdate {
 }
 
 export class ChannelEdgeUpdate extends jspb.Message { 
-    getChanId(): string;
-    setChanId(value: string): void;
+    getChanId(): number;
+    setChanId(value: number): void;
 
 
     hasChanPoint(): boolean;
@@ -3717,7 +3717,7 @@ export class ChannelEdgeUpdate extends jspb.Message {
 
 export namespace ChannelEdgeUpdate {
     export type AsObject = {
-        chanId: string,
+        chanId: number,
         chanPoint?: ChannelPoint.AsObject,
         capacity: number,
         routingPolicy?: RoutingPolicy.AsObject,
@@ -3727,8 +3727,8 @@ export namespace ChannelEdgeUpdate {
 }
 
 export class ClosedChannelUpdate extends jspb.Message { 
-    getChanId(): string;
-    setChanId(value: string): void;
+    getChanId(): number;
+    setChanId(value: number): void;
 
     getCapacity(): number;
     setCapacity(value: number): void;
@@ -3755,7 +3755,7 @@ export class ClosedChannelUpdate extends jspb.Message {
 
 export namespace ClosedChannelUpdate {
     export type AsObject = {
-        chanId: string,
+        chanId: number,
         capacity: number,
         closedHeight: number,
         chanPoint?: ChannelPoint.AsObject,
@@ -3766,8 +3766,8 @@ export class HopHint extends jspb.Message {
     getNodeId(): string;
     setNodeId(value: string): void;
 
-    getChanId(): string;
-    setChanId(value: string): void;
+    getChanId(): number;
+    setChanId(value: number): void;
 
     getFeeBaseMsat(): number;
     setFeeBaseMsat(value: number): void;
@@ -3792,7 +3792,7 @@ export class HopHint extends jspb.Message {
 export namespace HopHint {
     export type AsObject = {
         nodeId: string,
-        chanId: string,
+        chanId: number,
         feeBaseMsat: number,
         feeProportionalMillionths: number,
         cltvExpiryDelta: number,
@@ -3956,8 +3956,8 @@ export namespace Invoice {
 }
 
 export class InvoiceHTLC extends jspb.Message { 
-    getChanId(): string;
-    setChanId(value: string): void;
+    getChanId(): number;
+    setChanId(value: number): void;
 
     getHtlcIndex(): number;
     setHtlcIndex(value: number): void;
@@ -4000,7 +4000,7 @@ export class InvoiceHTLC extends jspb.Message {
 
 export namespace InvoiceHTLC {
     export type AsObject = {
-        chanId: string,
+        chanId: number,
         htlcIndex: number,
         amtMsat: number,
         acceptHeight: number,
@@ -4785,11 +4785,11 @@ export class ForwardingEvent extends jspb.Message {
     getTimestamp(): number;
     setTimestamp(value: number): void;
 
-    getChanIdIn(): string;
-    setChanIdIn(value: string): void;
+    getChanIdIn(): number;
+    setChanIdIn(value: number): void;
 
-    getChanIdOut(): string;
-    setChanIdOut(value: string): void;
+    getChanIdOut(): number;
+    setChanIdOut(value: number): void;
 
     getAmtIn(): number;
     setAmtIn(value: number): void;
@@ -4823,8 +4823,8 @@ export class ForwardingEvent extends jspb.Message {
 export namespace ForwardingEvent {
     export type AsObject = {
         timestamp: number,
-        chanIdIn: string,
-        chanIdOut: string,
+        chanIdIn: number,
+        chanIdOut: number,
         amtIn: number,
         amtOut: number,
         fee: number,

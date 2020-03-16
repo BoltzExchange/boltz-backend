@@ -15,16 +15,16 @@ import ReverseSwapRepository from '../db/ReverseSwapRepository';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import {
   splitPairId,
+  formatError,
   getHexBuffer,
   getHexString,
   reverseBuffer,
-  getSwapOutputType,
-  getLightningCurrency,
-  transactionSignalsRbfExplicitly,
   getChainCurrency,
-  getInvoicePreimageHash,
-  formatError,
+  getSwapOutputType,
   transactionHashToId,
+  getLightningCurrency,
+  getInvoicePreimageHash,
+  transactionSignalsRbfExplicitly,
 } from '../Utils';
 
 interface SwapNursery {
@@ -82,6 +82,7 @@ class SwapNursery extends EventEmitter {
     super();
   }
 
+  // TODO: write integration tests
   public bindCurrency = (currency: Currency) => {
     const { symbol } = currency;
     const { chainClient, lndClient } = currency;
@@ -141,8 +142,13 @@ class SwapNursery extends EventEmitter {
             });
 
             if (swap) {
-              await this.swapRepository.setLockupTransactionId(swap, transaction.getId(), output.value, confirmed);
-              this.emit('transaction', transaction, swap, confirmed, false);
+              this.emit(
+                'transaction',
+                transaction,
+                await this.swapRepository.setLockupTransactionId(swap, transaction.getId(), output.value, confirmed),
+                confirmed,
+                false,
+              );
 
               if (zeroConfRejectedReason !== undefined) {
                 this.logger.warn(`Rejected 0-conf ${chainClient.symbol} transaction ${transaction.getId()}: ${zeroConfRejectedReason}`);
@@ -170,19 +176,17 @@ class SwapNursery extends EventEmitter {
               },
             });
 
-            if (!reverseSwap) {
-              return;
+            if (reverseSwap) {
+              chainClient.removeOutputFilter(wallet.decodeAddress(reverseSwap.lockupAddress));
+
+              this.emit(
+                'transaction',
+                transaction,
+                await this.reverseSwapRepository.setReverseSwapStatus(reverseSwap, SwapUpdateEvent.TransactionConfirmed),
+                true,
+                true,
+              );
             }
-
-            chainClient.removeOutputFilter(wallet.decodeAddress(reverseSwap.lockupAddress));
-
-            this.emit(
-              'transaction',
-              transaction,
-              await this.reverseSwapRepository.setReverseSwapStatus(reverseSwap, SwapUpdateEvent.TransactionConfirmed),
-              true,
-              true,
-            );
           }
 
           // Get preimage from claim transaction
@@ -376,7 +380,6 @@ class SwapNursery extends EventEmitter {
 
       this.emit('coins.sent', await this.reverseSwapRepository.setLockupTransaction(reverseSwap, transactionId, fee), transaction);
     } catch (error) {
-      console.log(error);
       const preimageHash = getHexBuffer(getInvoicePreimageHash(reverseSwap.invoice));
 
       const lndClient = this.lndClients.get(lightningCurrency)!;
@@ -414,21 +417,20 @@ class SwapNursery extends EventEmitter {
 
     for (let i = 0; i < lockupTransaction.outs.length; i += 1) {
       const output = lockupTransaction.outs[i];
+
       if (wallet.encodeAddress(output.script) === reverseSwap.lockupAddress) {
         vout = i;
+        break;
       }
     }
 
     // This should never happen but if it does we cannot refund the coins
     if (vout === undefined) {
-      return;
+      throw 'could not find lockup output';
     }
 
     chainClient.removeInputFilter(lockupTransaction.getHash());
     chainClient.removeOutputFilter(wallet.decodeAddress(reverseSwap.lockupAddress));
-
-    const preimageHash = getHexBuffer(getInvoicePreimageHash(reverseSwap.invoice));
-    await this.cancelInvoice(this.lndClients.get(lightningCurrency)!, preimageHash);
 
     this.logger.info(`Refunding ${chainClient.symbol} reverse swap: ${reverseSwap.transactionId}:${vout}`);
 
@@ -451,6 +453,10 @@ class SwapNursery extends EventEmitter {
     this.logger.verbose(`Broadcasting ${chainClient.symbol} refund transaction: ${refundTransaction.getId()}`);
 
     await chainClient.sendRawTransaction(refundTransaction.toHex());
+
+    const preimageHash = getHexBuffer(getInvoicePreimageHash(reverseSwap.invoice));
+    await this.cancelInvoice(this.lndClients.get(lightningCurrency)!, preimageHash);
+
     this.emit('refund', await this.reverseSwapRepository.setTransactionRefunded(reverseSwap, minerFee), refundTransaction.getId());
   }
 
@@ -476,6 +482,7 @@ class SwapNursery extends EventEmitter {
     return;
   }
 
+  // TODO: write integration test
   /**
    * Gets the miner fee for a transaction
    * If `inputSum` is not set, the chainClient will be queried to get the sum of all inputs

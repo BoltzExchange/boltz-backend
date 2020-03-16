@@ -54,6 +54,7 @@ class SwapManager {
       }
     });
 
+    // TODO: write tests
     const recreateFilters = (swaps: Swap[] | ReverseSwap[], isReverse: boolean) => {
       // TODO: add reverse swap input and output filter
       swaps.forEach((swap: Swap | ReverseSwap) => {

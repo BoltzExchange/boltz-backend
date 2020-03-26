@@ -1,19 +1,21 @@
 import { Op } from 'sequelize';
 import AsyncLock from 'async-lock';
 import { EventEmitter } from 'events';
-import { Transaction, address } from 'bitcoinjs-lib';
-import { constructClaimTransaction, detectPreimage, constructRefundTransaction } from 'boltz-core';
+import { TxOutput, Transaction, address } from 'bitcoinjs-lib';
+import { constructClaimTransaction, detectPreimage, constructRefundTransaction, detectSwap } from 'boltz-core';
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';
 import Wallet from '../wallet/Wallet';
 import LndClient from '../lightning/LndClient';
 import ChainClient from '../chain/ChainClient';
+import RateProvider from '../rates/RateProvider';
 import SwapRepository from '../db/SwapRepository';
 import { SwapUpdateEvent } from '../consts/Enums';
 import ReverseSwap from '../db/models/ReverseSwap';
 import ReverseSwapRepository from '../db/ReverseSwapRepository';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import {
+  getRate,
   splitPairId,
   formatError,
   getHexBuffer,
@@ -63,18 +65,20 @@ interface SwapNursery {
 
 // TODO: remove finished swaps from filters (make sure they are actually gone)
 class SwapNursery extends EventEmitter {
-  public static reverseSwapMempoolEta = 2;
+  public lock = new AsyncLock();
 
-  private lock = new AsyncLock();
+  public static swapLock = 'swap';
+
+  public static reverseSwapMempoolEta = 2;
 
   private lndClients = new Map<string, LndClient>();
   private chainClients = new Map<string, ChainClient>();
 
-  private static swapLock = 'swap';
   private static reverseSwapLock = 'reverseSwap';
 
   constructor(
     private logger: Logger,
+    private rateProvider: RateProvider,
     private walletManager: WalletManager,
     private swapRepository: SwapRepository,
     private reverseSwapRepository: ReverseSwapRepository,
@@ -97,35 +101,6 @@ class SwapNursery extends EventEmitter {
     chainClient.on('transaction', async (transaction, confirmed) => {
       await Promise.all([
         await this.lock.acquire(SwapNursery.swapLock, async () => {
-          let zeroConfRejectedReason: string | undefined = undefined;
-
-          // Confirmed transactions do not have to be checked for 0-conf criteria
-          if (!confirmed) {
-            // Check if the transaction signals RBF
-            const signalsRbf = await this.transactionSignalsRbf(chainClient, transaction);
-
-            if (signalsRbf) {
-              zeroConfRejectedReason = 'transaction or one of its unconfirmed ancestors signals RBF';
-            } else {
-              // Check if the transaction has a fee high enough to be confirmed in a timely manner
-              const feeEstimation = await chainClient.estimateFee();
-
-              const transactionFee = await this.calculateTransactionFee(chainClient, transaction);
-              const transactionFeePerVbyte = transactionFee / transaction.virtualSize();
-
-              // If the transaction fee is less than 80% of the estimation, Boltz will wait for a confirmation
-              //
-              // Special case: if the fee estimator is returning the lowest possible fee, 2 sat/vbyte, every fee
-              // paid by the transaction will be accepted
-              if (
-                transactionFeePerVbyte / feeEstimation < 0.8 &&
-                feeEstimation !== 2
-              ) {
-                zeroConfRejectedReason = 'transaction fee is too low';
-              }
-            }
-          }
-
           for (let vout = 0; vout < transaction.outs.length; vout += 1) {
             const output = transaction.outs[vout];
 
@@ -133,6 +108,7 @@ class SwapNursery extends EventEmitter {
               status: {
                 [Op.or]: [
                   SwapUpdateEvent.InvoiceSet,
+                  SwapUpdateEvent.SwapCreated,
                   SwapUpdateEvent.TransactionMempool,
                 ],
               },
@@ -142,25 +118,39 @@ class SwapNursery extends EventEmitter {
             });
 
             if (swap) {
+              const rate = getRate(
+                this.rateProvider.pairs.get(swap.pair)!.rate,
+                swap.orderSide,
+                false,
+              );
+
               this.emit(
                 'transaction',
                 transaction,
-                await this.swapRepository.setLockupTransactionId(swap, transaction.getId(), output.value, confirmed),
+                await this.swapRepository.setLockupTransactionId(
+                  swap,
+                  rate,
+                  transaction.getId(),
+                  output.value,
+                  confirmed,
+                ),
                 confirmed,
                 false,
               );
 
-              if (zeroConfRejectedReason !== undefined) {
-                this.logger.warn(`Rejected 0-conf ${chainClient.symbol} transaction ${transaction.getId()}: ${zeroConfRejectedReason}`);
-                this.emit('zeroconf.rejected', swap, zeroConfRejectedReason);
-              } else if (confirmed || swap.acceptZeroConf) {
-                if (!confirmed) {
-                  this.logger.silly(`Accepted 0-conf ${chainClient.symbol} swap: ${transaction.getId()}:${vout}`);
-                }
-
-                chainClient.removeOutputFilter(output.script);
-                await this.claimSwap(currency, wallet, swap, transaction, vout);
+              // If no invoice was set yet we have to wait for the client
+              if (swap.status === SwapUpdateEvent.SwapCreated) {
+                continue;
               }
+
+              await this.attemptSettleSwap(
+                currency,
+                wallet,
+                chainClient,
+                swap,
+                transaction,
+                confirmed,
+              );
             }
           }
         }),
@@ -301,6 +291,62 @@ class SwapNursery extends EventEmitter {
           await this.sendReverseSwapCoins(reverseSwap);
         });
       });
+    }
+  }
+
+  /**
+   * Check whether the invoice of a Swap should be paid and pays it if so
+   */
+  public attemptSettleSwap = async (
+    currency: Currency,
+    wallet: Wallet,
+    chainClient: ChainClient,
+    swap: Swap,
+    transaction: Transaction,
+    confirmed: boolean,
+  ) => {
+    let zeroConfRejectedReason: string | undefined = undefined;
+
+    // Confirmed transactions do not have to be checked for 0-conf criteria
+    if (!confirmed) {
+      // Check if the transaction signals RBF
+      const signalsRbf = await this.transactionSignalsRbf(chainClient, transaction);
+
+      if (signalsRbf) {
+        zeroConfRejectedReason = 'transaction or one of its unconfirmed ancestors signals RBF';
+      } else {
+        // Check if the transaction has a fee high enough to be confirmed in a timely manner
+        const feeEstimation = await chainClient.estimateFee();
+
+        const transactionFee = await this.calculateTransactionFee(chainClient, transaction);
+        const transactionFeePerVbyte = transactionFee / transaction.virtualSize();
+
+        // If the transaction fee is less than 80% of the estimation, Boltz will wait for a confirmation
+        //
+        // Special case: if the fee estimator is returning the lowest possible fee, 2 sat/vbyte, every fee
+        // paid by the transaction will be accepted
+        if (
+          transactionFeePerVbyte / feeEstimation < 0.8 &&
+          feeEstimation !== 2
+        ) {
+          zeroConfRejectedReason = 'transaction fee is too low';
+        }
+      }
+    }
+
+    if (zeroConfRejectedReason !== undefined) {
+      this.logger.warn(`Rejected 0-conf ${chainClient.symbol} transaction ${transaction.getId()}: ${zeroConfRejectedReason}`);
+      this.emit('zeroconf.rejected', swap, zeroConfRejectedReason);
+    } else if (confirmed || swap.acceptZeroConf) {
+      const swapOutput = detectSwap(getHexBuffer(swap.redeemScript), transaction)!;
+
+      if (!confirmed) {
+        this.logger.silly(`Accepted 0-conf ${chainClient.symbol} swap: ${transaction.getId()}:${swapOutput.vout}`);
+      }
+
+      chainClient.removeOutputFilter(swapOutput.script);
+
+      await this.claimSwap(currency, wallet, swap, transaction, swapOutput.vout);
     }
   }
 

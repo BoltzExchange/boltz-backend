@@ -83,4 +83,12 @@ export default {
     message: `refunded onchain coins: ${transactionId}`,
     code: concatErrorCode(ErrorCodePrefix.Service, 19),
   }),
+  SWAP_NO_LOCKUP: (): Error => ({
+    message: 'no coins were locked up yet',
+    code: concatErrorCode(ErrorCodePrefix.Service, 20),
+  }),
+  INVALID_INVOICE_AMOUNT: (maxInvoiceAmount: number): Error => ({
+    message: `invoice amount exceeds the maximal of ${maxInvoiceAmount}`,
+    code: concatErrorCode(ErrorCodePrefix.Service, 21),
+  }),
 };

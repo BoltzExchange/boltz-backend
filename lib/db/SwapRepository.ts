@@ -36,8 +36,15 @@ class SwapRepository {
     });
   }
 
-  public setLockupTransactionId = async (swap: Swap, lockupTransactionId: string, onchainAmount: number, confirmed: boolean) => {
+  public setLockupTransactionId = async (
+    swap: Swap,
+    rate: number,
+    lockupTransactionId: string,
+    onchainAmount: number,
+    confirmed: boolean,
+  ) => {
     return swap.update({
+      rate,
       onchainAmount,
       lockupTransactionId,
       status: confirmed ? SwapUpdateEvent.TransactionConfirmed : SwapUpdateEvent.TransactionMempool,

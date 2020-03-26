@@ -44,6 +44,7 @@ import {
 class Service {
   public allowReverseSwaps = true;
 
+  public swapManager: SwapManager;
   public eventHandler: EventHandler;
 
   private pairRepository: PairRepository;
@@ -56,13 +57,11 @@ class Service {
   constructor(
     private logger: Logger,
     config: ConfigType,
-    public swapManager: SwapManager,
     private walletManager: WalletManager,
     private currencies: Map<string, Currency>,
     rateUpdateInterval: number,
   ) {
     this.pairRepository = new PairRepository();
-
     this.timeoutDeltaProvider = new TimeoutDeltaProvider(this.logger, config);
 
     this.feeProvider = new FeeProvider(this.logger, this.getFeeEstimation);
@@ -71,6 +70,12 @@ class Service {
       this.feeProvider,
       rateUpdateInterval,
       Array.from(currencies.values()),
+    );
+
+    this.swapManager = new SwapManager(
+      this.logger,
+      this.walletManager,
+      this.rateProvider,
     );
 
     this.eventHandler = new EventHandler(
@@ -377,6 +382,44 @@ class Service {
     };
   }
 
+  /**
+   * Gets the rates for a Submarine Swap that has coins in its lockup address but no invoice yet
+   */
+  public getSwapRates = async (id: string) => {
+    const swap = await this.swapManager.swapRepository.getSwap({
+      id: {
+        [Op.eq]: id,
+      },
+    });
+
+    if (!swap) {
+      throw Errors.SWAP_NOT_FOUND(id);
+    }
+
+    if (!swap.onchainAmount) {
+      throw Errors.SWAP_NO_LOCKUP();
+    }
+
+    const rate = getRate(swap.rate!, swap.orderSide, false);
+
+    const percentageFee = this.feeProvider.getPercentageFee(swap.pair);
+    const { baseFee } = await this.feeProvider.getFees(swap.pair, rate, swap.orderSide, swap.onchainAmount, false);
+
+    const invoiceAmount = this.calculateInvoiceAmount(rate, swap.onchainAmount, baseFee, percentageFee);
+
+    this.verifyAmount(swap.pair, rate, invoiceAmount, swap.orderSide, false);
+
+    return {
+      onchainAmount: swap.onchainAmount,
+      submarineSwap: {
+        invoiceAmount,
+      },
+    };
+  }
+
+  /**
+   * Sets the invoice of Submarine Swap
+   */
   public setSwapInvoice = async (id: string, invoice: string) => {
     const swap = await this.swapManager.swapRepository.getSwap({
       id: {
@@ -398,18 +441,34 @@ class Service {
     const lightningCurrency = getLightningCurrency(base, quote, swap.orderSide, false);
 
     const invoiceAmount = getInvoiceAmt(invoice);
-    const rate = getRate(pairRate, swap.orderSide, false);
+    const rate = swap.rate || getRate(pairRate, swap.orderSide, false);
 
     this.verifyAmount(swap.pair, rate, invoiceAmount, swap.orderSide, false);
 
     const { baseFee, percentageFee } = await this.feeProvider.getFees(swap.pair, rate, swap.orderSide, invoiceAmount, false);
-    const expectedAmount = Math.ceil(invoiceAmount * rate) + baseFee + percentageFee;
+    const expectedAmount = Math.floor(invoiceAmount * rate) + baseFee + percentageFee;
+
+    if (swap.onchainAmount && expectedAmount > swap.onchainAmount) {
+      const maxInvoiceAmount = this.calculateInvoiceAmount(rate, swap.onchainAmount, baseFee, this.feeProvider.getPercentageFee(swap.pair));
+
+      throw Errors.INVALID_INVOICE_AMOUNT(maxInvoiceAmount);
+    }
 
     const acceptZeroConf = this.rateProvider.acceptZeroConf(chainCurrency, expectedAmount);
 
-    await this.swapManager.setSwapInvoice(swap, invoice, expectedAmount, percentageFee, acceptZeroConf);
+    await this.swapManager.setSwapInvoice(
+      swap,
+      invoice,
+      expectedAmount,
+      percentageFee,
+      acceptZeroConf,
+      this.eventHandler.emitSwapInvoiceSet,
+    );
 
-    this.eventHandler.emitSwapInvoiceSet(id);
+    // The expected amount doesn't have to be retruned if the onchain coins were sent already
+    if (swap.lockupTransactionId) {
+      return {};
+    }
 
     return {
       expectedAmount,
@@ -423,6 +482,11 @@ class Service {
     };
   }
 
+  /**
+   * Creates a Submarine Swap with an invoice
+   *
+   * This method combines "createSwap" and "setSwapInvoice"
+   */
   public createSwapWithInvoice = async (
     pairId: string,
     orderSide: string,
@@ -631,6 +695,15 @@ class Service {
     } else {
       throw Errors.PAIR_NOT_FOUND(pairId);
     }
+  }
+
+  /**
+   * Calculates the amount of an invoice for a Submarine Swap
+   */
+  private calculateInvoiceAmount = (rate: number, onchainAmount: number, baseFee: number, percentageFee: number) => {
+    return Math.floor(
+      (onchainAmount - baseFee) / (rate + (rate * percentageFee)),
+    );
   }
 
   private getPair = (pairId: string) => {

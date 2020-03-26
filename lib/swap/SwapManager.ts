@@ -5,6 +5,7 @@ import Logger from '../Logger';
 import Swap from '../db/models/Swap';
 import SwapNursery from './SwapNursery';
 import LndClient from '../lightning/LndClient';
+import RateProvider from '../rates/RateProvider';
 import SwapRepository from '../db/SwapRepository';
 import ReverseSwap from '../db/models/ReverseSwap';
 import { OrderSide, SwapUpdateEvent } from '../consts/Enums';
@@ -25,6 +26,7 @@ import {
   getInvoicePreimageHash,
   getSendingReceivingCurrency,
 } from '../Utils';
+import { Transaction } from 'bitcoinjs-lib';
 
 class SwapManager {
   public currencies = new Map<string, Currency>();
@@ -34,12 +36,17 @@ class SwapManager {
   public swapRepository: SwapRepository;
   public reverseSwapRepository: ReverseSwapRepository;
 
-  constructor(private logger: Logger, private walletManager: WalletManager) {
+  constructor(
+    private logger: Logger,
+    private walletManager: WalletManager,
+    rateProvider: RateProvider,
+  ) {
     this.swapRepository = new SwapRepository();
     this.reverseSwapRepository = new ReverseSwapRepository();
 
     this.nursery = new SwapNursery(
       this.logger,
+      rateProvider,
       this.walletManager,
       this.swapRepository,
       this.reverseSwapRepository,
@@ -167,6 +174,8 @@ class SwapManager {
     const id = generateId();
     const address = receivingCurrency.wallet.encodeAddress(outputScript);
 
+    receivingCurrency.chainClient.addOutputFilter(outputScript);
+
     await this.swapRepository.addSwap({
       id,
       orderSide,
@@ -197,8 +206,16 @@ class SwapManager {
    * @param expectedAmount amount that is expected onchain
    * @param percentageFee fee Boltz charges for the Swap
    * @param acceptZeroConf whether 0-conf transactions should be accepted
+   * @param emitSwapInvoiceSet method to emit an event after the invoice has been set
    */
-  public setSwapInvoice = async (swap: Swap, invoice: string, expectedAmount: number, percentageFee: number, acceptZeroConf: boolean) => {
+  public setSwapInvoice = async (
+    swap: Swap,
+    invoice: string,
+    expectedAmount: number,
+    percentageFee: number,
+    acceptZeroConf: boolean,
+    emitSwapInvoiceSet: (id: string) => void,
+  ) => {
     const { base, quote } = splitPairId(swap.pair);
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(base, quote, swap.orderSide);
 
@@ -220,12 +237,26 @@ class SwapManager {
 
     this.logger.debug(`Setting invoice of Swap ${swap.id}: ${invoice}`);
 
-    await this.swapRepository.setInvoice(swap, invoice, expectedAmount, percentageFee, acceptZeroConf);
+    const updatedSwap = await this.swapRepository.setInvoice(swap, invoice, expectedAmount, percentageFee, acceptZeroConf);
 
-    const encodeFunction = getScriptHashFunction(getSwapOutputType(false));
-    const outputScript = encodeFunction(getHexBuffer(swap.redeemScript));
+    // Not the most elegant way to emit this event but the only option
+    // to emit it before trying to claim the swap
+    emitSwapInvoiceSet(swap.id);
 
-    receivingCurrency.chainClient.addOutputFilter(outputScript);
+    // If the onchain coins were sent already and 0-conf can be accepted or
+    // the lockup transaction is confirmed the invoice should be paid direclty
+    if (swap.lockupTransactionId) {
+      const rawTransaction = await receivingCurrency.chainClient.getRawTransaction(swap.lockupTransactionId);
+
+      await this.nursery.attemptSettleSwap(
+        receivingCurrency,
+        receivingCurrency.wallet,
+        receivingCurrency.chainClient,
+        updatedSwap,
+        Transaction.fromHex(rawTransaction),
+        swap.status === SwapUpdateEvent.TransactionConfirmed,
+      );
+    }
   }
 
   /**

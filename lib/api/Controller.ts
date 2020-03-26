@@ -112,6 +112,19 @@ class Controller {
     }
   }
 
+  public swapRates = async (req: Request, res: Response) => {
+    try {
+      const { id } = this.validateRequest(req.body, [
+        { name: 'id', type: 'string' },
+      ]);
+
+      const response = await this.service.getSwapRates(id);
+      this.successResponse(res, response);
+    } catch (error) {
+      this.errorResponse(res, error);
+    }
+  }
+
   public getTransaction = async (req: Request, res: Response) => {
     try {
       const { currency, transactionId } = this.validateRequest(req.body, [

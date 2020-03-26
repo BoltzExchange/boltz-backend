@@ -21,10 +21,13 @@ type SwapType = {
 
   acceptZeroConf?: boolean;
   timeoutBlockHeight: number;
+  rate?: number;
   expectedAmount?: number;
   onchainAmount?: number;
   lockupAddress: string;
   lockupTransactionId?: string;
+
+  inboundCapacity?: number;
 };
 
 class Swap extends Model implements SwapType {
@@ -47,10 +50,15 @@ class Swap extends Model implements SwapType {
 
   public acceptZeroConf?: boolean;
   public timeoutBlockHeight!: number;
+  public rate?: number;
   public expectedAmount?: number;
   public onchainAmount?: number;
   public lockupAddress!: string;
   public lockupTransactionId?: string;
+
+  // Only relevant and set when creating a channel creation swap
+  // Inbound of from the POV of the user creating the swap
+  public inboundCapacity?: number;
 
   public createdAt!: string;
   public updatedAt!: string;
@@ -70,10 +78,12 @@ class Swap extends Model implements SwapType {
       invoice: { type: new DataTypes.STRING(255), allowNull: true, unique: true },
       acceptZeroConf: { type: DataTypes.BOOLEAN, allowNull: true },
       timeoutBlockHeight: { type: new DataTypes.INTEGER(), allowNull: false },
+      rate: { type: new DataTypes.REAL(), allowNull: true },
       expectedAmount: { type: new DataTypes.INTEGER(), allowNull: true },
       onchainAmount: { type: new DataTypes.INTEGER(), allowNull: true },
       lockupAddress: { type: new DataTypes.STRING(255), allowNull: false },
       lockupTransactionId: { type: new DataTypes.STRING(255), allowNull: true },
+      inboundCapacity: { type: new DataTypes.INTEGER(), allowNull: true },
     }, {
       sequelize,
       tableName: 'swaps',

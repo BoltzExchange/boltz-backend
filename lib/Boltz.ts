@@ -9,7 +9,6 @@ import Database from './db/Database';
 import Service from './service/Service';
 import GrpcServer from './grpc/GrpcServer';
 import GrpcService from './grpc/GrpcService';
-import SwapManager from './swap/SwapManager';
 import LndClient from './lightning/LndClient';
 import ChainClient from './chain/ChainClient';
 import Config, { ConfigType } from './Config';
@@ -26,7 +25,6 @@ class Boltz {
 
   private currencies = new Map<string, Currency>();
 
-  private swapManager: SwapManager;
   private walletManager: WalletManager;
 
   private service!: Service;
@@ -54,16 +52,10 @@ class Boltz {
       this.walletManager = WalletManager.fromMnemonic(this.logger, mnemonic, this.config.mnemonicpath, walletCurrencies, this.config.ethereum);
     }
 
-    this.swapManager = new SwapManager(
-      this.logger,
-      this.walletManager,
-    );
-
     try {
       this.service = new Service(
         this.logger,
         this.config,
-        this.swapManager,
         this.walletManager,
         this.currencies,
         this.config.rates.interval,
@@ -124,7 +116,7 @@ class Boltz {
       await this.walletManager.init();
       await this.service.init(this.config.pairs);
 
-      await this.swapManager.init(Array.from(this.currencies.values()));
+      await this.service.swapManager.init(Array.from(this.currencies.values()));
 
       await this.notifications.init();
 

@@ -85,7 +85,7 @@ IMAGES: Dict[str, Image] = {
             UBUNTU_VERSION,
             BuildArgument(
                 name="GOLANG_VERSION",
-                value="1.13.8-buster"
+                value="1.14.1-buster"
             )
         ]
     ),

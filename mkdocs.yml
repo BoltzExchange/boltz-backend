@@ -3,7 +3,8 @@ theme: readthedocs
 
 nav:
   - Home: index.md
+  - REST API: api.md
   - Swap Lifecycle: lifecycle.md
   - 0-confirmation: 0-confirmation.md
-  - REST API: api.md
+  - Channel Creation: channel-creation.md
   - Regtest environment: regtest.md

@@ -12,37 +12,67 @@ When you are done run `npm run docker:stop` to stop and remove the container.
 To use the nodes in the container with `boltz-backend` use a configuration similar to this one:
 
 ```toml
+[[pairs]]
+base = "LTC"
+quote = "BTC"
+fee = 2
+timeoutDelta = 400
+
+[[pairs]]
+base = "BTC"
+quote = "BTC"
+rate = 1
+fee = 0.5
+timeoutDelta = 1_440
+
+[[pairs]]
+base = "LTC"
+quote = "LTC"
+rate = 1
+fee = 0.5
+timeoutDelta = 1_440
+
 [[currencies]]
-  symbol = "BTC"
-  network = "bitcoinRegtest"
+symbol = "BTC"
+network = "bitcoinRegtest"
+minWalletBalance = 10_000_000
+minChannelBalance = 10_000_000
+maxSwapAmount = 4_294_967
+minSwapAmount = 10_000
+maxZeroConfAmount = 10_000_000
 
   [currencies.chain]
-    host = "127.0.0.1"
-    port = 18443
-    rpcuser = "kek"
-    rpcpass = "kek"
+  host = "127.0.0.1"
+  port = 18_443
+  rpcuser = "kek"
+  rpcpass = "kek"
 
   [currencies.lnd]
-    host = "127.0.0.1"
-    port = 10009
-    certpath = "docker/regtest/data/lnd/certificates/tls.cert"
-    macaroonpath = "docker/regtest/data/lnd/macaroons/admin.macaroon"
+  host = "127.0.0.1"
+  port = 10_009
+  certpath = "docker/regtest/data/lnd/certificates/tls.cert"
+  macaroonpath = "docker/regtest/data/lnd/macaroons/admin.macaroon"
 
 [[currencies]]
-  symbol = "LTC"
-  network = "litecoinRegtest"
+symbol = "LTC"
+network = "litecoinRegtest"
+minWalletBalance = 110_000_000
+minChannelBalance = 110_000_000
+maxSwapAmount = 2000_000_000
+minSwapAmount = 100_000
+maxZeroConfAmount = 0
 
   [currencies.chain]
-    host = "127.0.0.1"
-    port = 19443
-    rpcuser = "kek"
-    rpcpass = "kek"
+  host = "127.0.0.1"
+  port = 19_443
+  rpcuser = "kek"
+  rpcpass = "kek"
 
   [currencies.lnd]
-    host = "127.0.0.1"
-    port = 11009
-    certpath = "docker/regtest/data/lnd/certificates/tls.cert"
-    macaroonpath = "docker/regtest/data/lnd/macaroons/admin.macaroon"
+  host = "127.0.0.1"
+  port = 11_009
+  certpath = "docker/regtest/data/lnd/certificates/tls.cert"
+  macaroonpath = "docker/regtest/data/lnd/macaroons/admin.macaroon"
 ```
 
 It is really handy to have the executables of Boltz and some aliases to control the nodes in your path. Therefore it is recommended to add the following to your `.bashrc`.

@@ -343,8 +343,24 @@ To create a swap from onchain coins to lightning ones just a single request has 
 - `type`: type of the swap to create; always `submarine` for normal swaps
 - `pairId`: the pair on which the swap should be created
 - `orderSide`: either `buy` or `sell` depending on what the user wants
-- `invoice`: the invoice of the user that should be paid
 - `refundPublicKey`: public key of a keypair that will allow the user to refund the locked up coins once the time lock is expired
+
+If you already know the amount you want to swap you should also set `invoice`.
+
+- `invoice`: the invoice of the user that should be paid
+
+If the amount is **not** known, a **preimage hash should be specified**. The invoice that is [set during the lifecycle of the Submarine Swap](#setting-the-invoice-of-a-swap) has to have the same preimage hash as the one specified when creating the swap.
+
+- `preimageHash`: hash of a preimage that will be used for the invoice that is set later on
+
+Boltz also supports opening a channel to your node before paying your invoice. To ensure that this service works as advertised **make sure to connect your Lightning node to ours** before creating the swap. You can find the URIs of our Lightning nodes in the FAQ section of our website or on Lightning explorers like [1ML](https://1ml.com) under the query "Boltz". To let Boltz open a channel to you have to set a couple more values in the request when creating a swap:
+
+- `channel`: a JSON object that contains all the information relevant to the creation of the channel
+    - `auto`: whether Boltz should dynamically decide if a channel should be created based on whether the invoice you provided can be paid without opening a channel. More modes will be added in future
+    - `private`: whether the channel to your node should be private
+    - `inboundLiquidity`: percentage of the channel balance that Boltz should provide as inbound liquidity for your node. The maximal value here is 50, which means that the channel will be perfectly balanced 50/50
+
+To find out how to enforce that the requested channel is acutally opened and the invoice paid through it have a look at [this document where we wrote down some possible solutions](channel-creation.md).
 
 | URL                | Response
 |--------------------|------------
@@ -352,18 +368,23 @@ To create a swap from onchain coins to lightning ones just a single request has 
 
 Status Codes:
 
-- `200 OK`
+- `201 Created`
 - `400 Bad Request`: if the swap could not be created. Check the `error` string in the JSON object of the body of the response for more information
 
-Response object:
+Response objects:
+
+You will always have these values in the reponse object:
 
 - `id`: id of the freshly created swap
-- `acceptZeroConf`: whether Boltz will accept 0-conf for this swap
-- `redeemScript`: redeem script from which the `address` is derived. The redeem script can and should be used to verify that the Boltz instance didn't try to cheat by providing an address without a HTLC
-- `address`: address in which the coins will be locked up. Currently this is a P2SHP2WSH (P2WSH nested in a P2SH) for the sake of compatibility
-- `expectedAmount`: the amount of satohis or litoshis that is expected to be sent to the `address`
 - `timeoutBlockHeight`: block height at which the swap will be cancelled
-- `bip21`: a [BIP21 ayment request](https://github.com/bitcoin/bips/blob/master/bip-0021.mediawiki) for the `expectedAmount` of coins and the `address`
+- `address`: address in which the coins will be locked up. Currently this is a P2SHP2WSH (P2WSH nested in a P2SH) for the sake of compatibility
+- `redeemScript`: redeem script from which the `address` is derived. The redeem script can and should be used to verify that the Boltz instance didn't try to cheat by providing an address without a HTLC
+
+If you set the invoice you will also have these values in the response:
+
+- `acceptZeroConf`: whether Boltz will accept 0-conf for this swap
+- `expectedAmount`: the amount of satoshis or litoshis that is expected to be sent to the `address`
+- `bip21`: a [BIP21 payment request](https://github.com/bitcoin/bips/blob/master/bip-0021.mediawiki) for the `expectedAmount` of coins and the `address`
 
 **Examples:**
 
@@ -395,6 +416,174 @@ Response:
 }
 ```
 
+*Submarine Swap that includes the creation of a new channel:*
+
+`POST /createswap`
+
+Request body:
+
+```json
+{
+  "type": "submarine",
+  "pairId": "LTC/BTC",
+  "orderSide": "sell",
+  "refundPublicKey": "a9142f7150b969c9c9fb9094a187f8fb41d617a65e20876300670171b1752102e317e5607e757e9c4448fe458876d7e361222d2cbee33ece9e3a7b2e2359be4d68ac",
+  "invoice": "lnbcrt100u1pw54eudpp5e42ls0apxfm2790aesc92v5kppkr5dluvv0545v6zr593498s8zsdqqcqzpgpyaz550xmqkr6v5x8cn3qxyxmuxp7xa28xlr7qhkxlde3xm8xjyyqqurx5nq8tdeejvm4jnuw468lxjtnfj8v49hsg8tkhjz9haj65sps8xdv0",
+  "channel": {
+    "private": true,
+    "inboundLiquidity": 30
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "id": "SIqEW9",
+  "acceptZeroConf": true,
+  "expectedAmount": 1005340,
+  "timeoutBlockHeight": 252,
+  "address": "2NBFGsAUUa9qgoMFPLrmAquCLv2qunUPDAU",
+  "bip21": "bitcoin:2NBFGsAUUa9qgoMFPLrmAquCLv2qunUPDAU?amount=0.0100534&label=Send%20to%20BTC%20lightning",
+  "redeemScript": "a9141384278c2be432627fd934e0f13b3e0c3edbbe458763210250035e2afeb9b2213d01f8374afabff4e4bdfee71909c3cd28ba37571d7a289e6702fc00b1752103e25b3f3bb7f9978410d52b4c763e3c8fe6d43cf462e91138c5b0f61b92c93d7068ac"
+}
+```
+
+## Getting Swap rates
+
+When sending onchain coins before setting the invoice of a Submarine Swap, you need to use this endpoint to figure out what the amount of the invoice you set should be. Send a `POST` request with a JSON encoded body with this value:
+
+- `id`: id of the Submarine Swap
+
+| URL               | Response
+|-------------------|------------
+| `POST /swaprates` | JSON object
+
+Status Codes:
+
+- `200 OK`
+- `400 Bad Request`: if the invoice amount could not be calculated. Check the `error` string in the JSON object of the body of the response for more information
+
+Response object:
+
+- `invoiceAmount`: amount of the invoice that should be set with [/setinvoice](#setting-the-invoice-of-a-swap)
+
+**Examples:**
+
+Request body:
+
+```json
+{
+  "id": "BY8asG"
+}
+```
+
+Response:
+
+```json
+{
+  "invoiceAmount": 15713393
+}
+```
+
+## Setting the invoice of a swap
+
+In case the amount to be swapped is not known when creating the Submarine Swap, the invoice can be set afterward and even if the onchain coins were sent already. Please keep in mind that the invoice of a Submarine Swap **has to have the same preimage hash** that was specified when creating the Submarine Swap. Although the invoice can be changed after setting it initially, this enpoint will only work if Boltz did not try to pay the initial invoice yet. Requests to this endpoint have to be `POST` and should have the following values in its JSON encoded body:
+
+- `id`: id of the Submarine Swap for which the invoice should be set
+- `invoice`: invoice of the user that should be paid
+
+| URL                | Response
+|--------------------|------------
+| `POST /setinvoice` | JSON object
+
+Status Codes:
+
+- `200 OK`
+- `400 Bad Request`: if the invoice could not be set. Check the `error` string in the JSON object of the body of the response for more information
+
+Response objects:
+
+What is returned when the invoice is set depends on the status of the Submarine Swap. If no coins were sent already (status [`swap.created`](lifecycle.md#normal-submarine-swaps)) the endpoint will return a JSON object with these values:
+
+- `acceptZeroConf`: whether Boltz will accept 0-conf for this swap
+- `expectedAmount`: the amount of satoshis or litoshis that is expected to be sent to the `address`
+- `bip21`: a [BIP21 payment request](https://github.com/bitcoin/bips/blob/master/bip-0021.mediawiki) for the `expectedAmount` of coins and the `address`
+
+If onchain coins were sent already (status [`transaction.mempool`](lifecycle.md#normal-submarine-swaps) or [``transaction.confirmed``](lifecycle.md#normal-submarine-swaps)) the endpoint will return an empty JSON object.
+
+In case this endpoint is called again after an invoice was set and Boltz tried to pay it already:
+
+- `error`: error message explaining that Boltz tried to pay the invoice already and that it cannot be changed anymore
+- `invoice`: the invoice that set by the client and will be used for the Submarine Swap
+
+**Examples:**
+
+*If no coins were sent yet:*
+
+`POST /setinvoice`
+
+Request body:
+
+```json
+{
+  "id": "UwHIPg",
+  "invoice": "lnbcrt1m1p08epqjpp5yvv222x7te9asyzuhmjym083lwqpp5vlem09ewfeufyrp6f76w2sdql2djkuepqw3hjqnz5gvsxzerywfjhxuccqzpgsp5u6kxgf9daf64ptvl2ht74m6duc2neywx3ecvwxs07vf7egw5dy5s9qy9qsqakms0e7ww46q9cq2fa2ymrcx6nucfknjalkm5w4ywvjpfxdp5ya82drvdvxhqzzt2ysysh5u7rellzjse37fng3vsqafuwwz3kv4ykcquy8k29"
+}
+```
+
+Response:
+
+```json
+{
+  "acceptZeroConf": true,
+  "expectedAmount": 1359564,
+  "bip21": "litecoin:QNaGS7WM31xANXQCbmrhXfnxUjxiGFpFwM?amount=0.01359564&label=Submarine%20Swap%20to%20BTC",
+}
+```
+
+*If coins were sent to the lockup address already:*
+
+`POST /setinvoice`
+
+Request body:
+
+```json
+{
+  "id": "UwHIPg",
+  "invoice": "lnbcrt1m1p08epqjpp5yvv222x7te9asyzuhmjym083lwqpp5vlem09ewfeufyrp6f76w2sdql2djkuepqw3hjqnz5gvsxzerywfjhxuccqzpgsp5u6kxgf9daf64ptvl2ht74m6duc2neywx3ecvwxs07vf7egw5dy5s9qy9qsqakms0e7ww46q9cq2fa2ymrcx6nucfknjalkm5w4ywvjpfxdp5ya82drvdvxhqzzt2ysysh5u7rellzjse37fng3vsqafuwwz3kv4ykcquy8k29"
+}
+```
+
+Response:
+
+```json
+{}
+```
+
+*If the invoice was set and Boltz tried to pay it already:*
+
+`POST /setinvoice`
+
+Request body:
+
+```json
+{
+  "id": "UwHIPg",
+  "invoice": "lnbcrt100u1p0gv8hjpp5j0vs0te6wykahrp3aammm46m73n2afzk6a87ezfp3p58qpcpu4wqdqqcqzpgsp5j6wue634lac577xnupy8auvq7n9062vshvvc6xszq4jt5q9phhzq9qy9qsqhs7zrs98tu669xz7w0gqy96g5pvs9p6lssmyseg7a92kpjlzramk8khyzkd8x4nl2zasekmwt45z6pe78rk032lkmshjdnesw2vukwgqtglt89"
+}
+```
+
+Response:
+
+```json
+{
+  "error": "lightning payment in progress already",
+  "invoice": "lnbcrt1m1p08epqjpp5yvv222x7te9asyzuhmjym083lwqpp5vlem09ewfeufyrp6f76w2sdql2djkuepqw3hjqnz5gvsxzerywfjhxuccqzpgsp5u6kxgf9daf64ptvl2ht74m6duc2neywx3ecvwxs07vf7egw5dy5s9qy9qsqakms0e7ww46q9cq2fa2ymrcx6nucfknjalkm5w4ywvjpfxdp5ya82drvdvxhqzzt2ysysh5u7rellzjse37fng3vsqafuwwz3kv4ykcquy8k29"
+}
+```
+
 ## Creating Reverse Swaps
 
 Creating reverse swaps (lightning to onchain coins) is pretty similar to creating normal ones. The JSON encoded body of the `POST` request has to contain:
@@ -412,7 +601,7 @@ Creating reverse swaps (lightning to onchain coins) is pretty similar to creatin
 
 Status Codes:
 
-- `200 OK`
+- `201 Created`
 - `400 Bad Request`: if the swap could not be created. Check the `error` string in the JSON object of the body of the response for more information
 
 Response object:
@@ -423,7 +612,7 @@ Response object:
 - `lockupTransactionId`: id of the `lockupTransaction`
 - `invoice`: invoice that is expected to be paid by the user in order to get the preimage to claim the coins that were locked up in `lockupTransaction`
 - `timeoutBlockHeight`: block height at which the swap will be cancelled
-- `onchainAmount`: amount of satohis or litoshis that were locked up onchain in the `lockupTransaction`
+- `onchainAmount`: amount of satoshis or litoshis that were locked up onchain in the `lockupTransaction`
 
 **Examples:**
 

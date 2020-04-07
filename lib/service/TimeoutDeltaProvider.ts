@@ -13,13 +13,13 @@ type PairTimeoutBlockDeltas = {
 };
 
 class TimeoutDeltaProvider {
-  private timeoutDeltas = new Map<string, PairTimeoutBlockDeltas>();
-
   // A map of the symbols of currencies and their block times in minutes
-  private static blockTimes = new Map<string, number>([
+  public static blockTimes = new Map<string, number>([
     ['BTC', 10],
     ['LTC', 2.5],
   ]);
+
+  private timeoutDeltas = new Map<string, PairTimeoutBlockDeltas>();
 
   constructor(private logger: Logger, private config: ConfigType) {}
 

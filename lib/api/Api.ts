@@ -7,7 +7,7 @@ import Service from '../service/Service';
 
 class Api {
   private app: Application;
-  private controller: Controller;
+  private readonly controller: Controller;
 
   constructor(private logger: Logger, private config: ApiConfig, service: Service) {
     this.app = express();
@@ -49,6 +49,7 @@ class Api {
     this.app.route('/swaprates').post(controller.swapRates);
 
     this.app.route('/gettransaction').post(controller.getTransaction);
+    this.app.route('/getswaptransaction').post(controller.getSwapTransaction);
     this.app.route('/broadcasttransaction').post(controller.broadcastTransaction);
 
     this.app.route('/createswap').post(controller.createSwap);

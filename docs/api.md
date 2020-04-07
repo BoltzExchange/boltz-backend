@@ -186,6 +186,71 @@ Response:
 }
 ```
 
+## Querying Lockup Transactions
+
+Requests querying the lockup transactions of Submarine Swaps have to be `POST` and contain one argument in its JSON encoded body:
+
+- `id`: id of the Submarine Swap
+
+| URL                        | Response
+| ---------------------------|------------
+| `POST /getswaptransaction` | JSON object
+
+Status Codes:
+
+- `200 OK`
+- `400 Bad Request`: if an argument wasn't provided, or the Submarine Swap can't be found
+
+Response object:
+
+- `transactionHex`: the lockup transaction of the Submarine Swap encoded in hex
+- `timeoutBlockHeight`: block height at which the HTLC in the lockup transaction will time out
+
+If the HTLC has not timed out yet, there will be an additional value in the response:
+
+- `timeoutEta`: UNIX timestamp at which the HTLC is expected to time out
+
+**Examples:**
+
+`POST /getswaptransaction`
+
+Request body:
+
+```json
+{
+  "id": "KR8XaB"
+}
+```
+
+Response:
+
+```json
+{
+  "transactionHex": "020000000001015bf3fe03071edae971276831963d45821ce6bc95c567fd7832bee3b1848254ba0000000000feffffff02b82a75e80000000017a914ca9b26af0865c2a59f0d6c41ede68f03264a52398700e1f5050000000017a914d2271732308baf018a1c2c751a3afb197f2a2e7e870247304402200206ae10cd66267caea1c6e0fca0275924a85fa377572f599304c1abb6a3a97302204335eed108151048de7ba56fd644352831e3d453b412547d8b762f4e96ee1e310121035b6440fe45a8bf7c1d9d238fa39a128ee78b58df73377bfeb1d6d752849714c800000000",
+  "timeoutBlockHeight": 252,
+  "timeoutEta": 1586353245
+}
+```
+
+`POST /getswaptransaction`
+
+Request body:
+
+```json
+{
+  "id": "KR8XaB"
+}
+```
+
+Response:
+
+```json
+{
+  "transactionHex": "020000000001015bf3fe03071edae971276831963d45821ce6bc95c567fd7832bee3b1848254ba0000000000feffffff02b82a75e80000000017a914ca9b26af0865c2a59f0d6c41ede68f03264a52398700e1f5050000000017a914d2271732308baf018a1c2c751a3afb197f2a2e7e870247304402200206ae10cd66267caea1c6e0fca0275924a85fa377572f599304c1abb6a3a97302204335eed108151048de7ba56fd644352831e3d453b412547d8b762f4e96ee1e310121035b6440fe45a8bf7c1d9d238fa39a128ee78b58df73377bfeb1d6d752849714c800000000",
+  "timeoutBlockHeight": 252
+}
+```
+
 ## Broadcasting transactions
 
 This endpoint is really similar to the one for querying transactions. But instead of getting existing transactions this one will broadcast new ones to the network. Also it returns the id of the broacasted transaction.
@@ -539,7 +604,7 @@ Response:
 {
   "acceptZeroConf": true,
   "expectedAmount": 1359564,
-  "bip21": "litecoin:QNaGS7WM31xANXQCbmrhXfnxUjxiGFpFwM?amount=0.01359564&label=Submarine%20Swap%20to%20BTC",
+  "bip21": "litecoin:QNaGS7WM31xANXQCbmrhXfnxUjxiGFpFwM?amount=0.01359564&label=Submarine%20Swap%20to%20BTC"
 }
 ```
 

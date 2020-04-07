@@ -139,6 +139,19 @@ class Controller {
     }
   }
 
+  public getSwapTransaction = async (req: Request, res: Response) => {
+    try {
+      const { id } = this.validateRequest(req.body, [
+        { name: 'id', type: 'string' },
+      ]);
+
+      const response = await this.service.getSwapTransaction(id);
+      this.successResponse(res, response);
+    } catch (error) {
+      this.errorResponse(res, error);
+    }
+  }
+
   public broadcastTransaction = async (req: Request, res: Response) => {
     try {
       const { currency, transactionHex } = this.validateRequest(req.body, [

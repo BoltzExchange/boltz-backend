@@ -409,3 +409,7 @@ export const getVersion = () => {
 export const getSwapOutputType = (isReverse: boolean): OutputType => {
   return isReverse ? OutputType.Bech32 : OutputType.Compatibility;
 };
+
+export const getUnixTime = () => {
+  return Math.round(new Date().getTime() / 1000);
+};

@@ -15,30 +15,30 @@ import TimeoutDeltaProvider from './TimeoutDeltaProvider';
 import { OrderSide, ServiceWarning } from '../consts/Enums';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import {
-  getRate,
+  getChainCurrency,
+  getHexBuffer,
+  getHexString,
+  getInvoiceAmt,
+  getInvoicePreimageHash,
+  getLightningCurrency,
   getPairId,
+  getRate,
+  getSendingReceivingCurrency,
+  getSwapMemo,
+  getSwapOutputType, getUnixTime,
   getVersion,
   splitPairId,
-  getSwapMemo,
-  getHexString,
-  getHexBuffer,
-  getInvoiceAmt,
-  getChainCurrency,
-  getSwapOutputType,
-  getLightningCurrency,
-  getInvoicePreimageHash,
-  getSendingReceivingCurrency,
 } from '../Utils';
 import {
   Balance,
-  LndInfo,
   ChainInfo,
-  LndChannels,
   CurrencyInfo,
-  WalletBalance,
+  GetBalanceResponse,
   GetInfoResponse,
   LightningBalance,
-  GetBalanceResponse,
+  LndChannels,
+  LndInfo,
+  WalletBalance,
 } from '../proto/boltzrpc_pb';
 
 class Service {
@@ -273,9 +273,47 @@ class Service {
    */
   public getTransaction = async (symbol: string, transactionHash: string) => {
     const currency = this.getCurrency(symbol);
-    const transaction = await currency.chainClient.getRawTransaction(transactionHash);
+    return await currency.chainClient.getRawTransaction(transactionHash);
+  }
 
-    return transaction;
+  /**
+   * Gets the hex encoded lockup transaction of a Submarine Swap, the block height
+   * at which it will timeout and the expected ETA for that block
+   */
+  public getSwapTransaction = async (id: string) => {
+    const swap = await this.swapManager.swapRepository.getSwap({
+      id: {
+        [Op.eq]: id,
+      },
+    });
+
+    if (!swap) {
+      throw Errors.SWAP_NOT_FOUND(id);
+    }
+
+    if (!swap.lockupTransactionId) {
+      throw Errors.SWAP_NO_LOCKUP();
+    }
+
+    const { base, quote } = splitPairId(swap.pair);
+    const chainCurrency = getChainCurrency(base, quote, swap.orderSide, false);
+
+    const currency = this.getCurrency(chainCurrency);
+    const { blocks } = await currency.chainClient.getBlockchainInfo();
+    const transactionHex = await currency.chainClient.getRawTransaction(swap.lockupTransactionId);
+
+    const response: any = {
+      transactionHex,
+    };
+
+    response.timeoutBlockHeight = swap.timeoutBlockHeight;
+
+    if (blocks < swap.timeoutBlockHeight) {
+      const minutesUntilTimeout = (swap.timeoutBlockHeight - blocks) * TimeoutDeltaProvider.blockTimes.get(chainCurrency)!;
+      response.timeoutEta = getUnixTime() + (minutesUntilTimeout * 60);
+    }
+
+    return response;
   }
 
   /**
@@ -465,7 +503,7 @@ class Service {
       this.eventHandler.emitSwapInvoiceSet,
     );
 
-    // The expected amount doesn't have to be retruned if the onchain coins were sent already
+    // The expected amount doesn't have to be returned if the onchain coins were sent already
     if (swap.lockupTransactionId) {
       return {};
     }

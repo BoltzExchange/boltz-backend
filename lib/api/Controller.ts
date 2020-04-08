@@ -331,12 +331,18 @@ class Controller {
 
   public errorResponse = (res: Response, error: any, statusCode = 400) => {
     if (typeof error === 'string') {
-      this.writeErrorResponse(res, statusCode, error);
+      this.writeErrorResponse(res, statusCode, { error });
     } else {
+      // Bitcoin Core related errors
       if (error.details) {
-        this.writeErrorResponse(res, statusCode, error.details);
+        this.writeErrorResponse(res, statusCode, { error: error.details });
+      // Custom error when broadcasting a refund transaction fails because
+      // the locktime requirement has not been met yet
+      } else if (error.timeoutBlockHeight) {
+        this.writeErrorResponse(res, statusCode, error);
+      // Everything else
       } else {
-        this.writeErrorResponse(res, statusCode, error.message);
+        this.writeErrorResponse(res, statusCode, { error: error.message });
       }
     }
   }
@@ -351,11 +357,11 @@ class Controller {
     res.status(201).json(data);
   }
 
-  private writeErrorResponse = (res: Response, statusCode: number, error: string) => {
-    this.logger.warn(`Request failed: ${error}`);
+  private writeErrorResponse = (res: Response, statusCode: number, error: object) => {
+    this.logger.warn(`Request failed: ${JSON.stringify(error)}`);
 
     this.setContentTypeJson(res);
-    res.status(statusCode).json({ error });
+    res.status(statusCode).json(error);
   }
 
   private setContentTypeJson = (res: Response) => {

@@ -1,7 +1,9 @@
 import { Op } from 'sequelize';
+import { Transaction } from 'bitcoinjs-lib';
 import { TransactionReceipt } from 'web3-core';
 import Errors from './Errors';
 import Logger from '../Logger';
+import Swap from '../db/models/Swap';
 import Wallet from '../wallet/Wallet';
 import { ConfigType } from '../Config';
 import EventHandler from './EventHandler';
@@ -15,19 +17,21 @@ import TimeoutDeltaProvider from './TimeoutDeltaProvider';
 import { OrderSide, ServiceWarning } from '../consts/Enums';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import {
-  getChainCurrency,
+  getRate,
+  getPairId,
+  getVersion,
+  getUnixTime,
+  splitPairId,
+  getSwapMemo,
   getHexBuffer,
   getHexString,
   getInvoiceAmt,
-  getInvoicePreimageHash,
+  reverseBuffer,
+  getChainCurrency,
+  getSwapOutputType,
   getLightningCurrency,
-  getPairId,
-  getRate,
+  getInvoicePreimageHash,
   getSendingReceivingCurrency,
-  getSwapMemo,
-  getSwapOutputType, getUnixTime,
-  getVersion,
-  splitPairId,
 } from '../Utils';
 import {
   Balance,
@@ -51,8 +55,8 @@ class Service {
 
   private timeoutDeltaProvider: TimeoutDeltaProvider;
 
-  private feeProvider: FeeProvider;
-  private rateProvider: RateProvider;
+  private readonly feeProvider: FeeProvider;
+  private readonly rateProvider: RateProvider;
 
   constructor(
     private logger: Logger,
@@ -309,8 +313,7 @@ class Service {
     response.timeoutBlockHeight = swap.timeoutBlockHeight;
 
     if (blocks < swap.timeoutBlockHeight) {
-      const minutesUntilTimeout = (swap.timeoutBlockHeight - blocks) * TimeoutDeltaProvider.blockTimes.get(chainCurrency)!;
-      response.timeoutEta = getUnixTime() + (minutesUntilTimeout * 60);
+      response.timeoutEta = this.calculateTimeoutDate(chainCurrency, swap.timeoutBlockHeight - blocks);
     }
 
     return response;
@@ -360,7 +363,46 @@ class Service {
   public broadcastTransaction = async (symbol: string, transactionHex: string) => {
     const currency = this.getCurrency(symbol);
 
-    return currency.chainClient.sendRawTransaction(transactionHex);
+    try {
+      return await currency.chainClient.sendRawTransaction(transactionHex);
+    } catch (error) {
+      // This special error is thrown when a Submarine Swap that has not timed out yet is refunded
+      // To improve the UX we will throw not only the error but also some additional information
+      // regarding when the Submarine Swap can be refunded
+      if (error.code === -26 && error.message === 'non-mandatory-script-verify-flag (Locktime requirement not satisfied) (code 64)') {
+        const refundTransaction = Transaction.fromHex(transactionHex);
+
+        let swap: Swap | undefined;
+
+        for (const input of refundTransaction.ins) {
+          swap = await this.swapManager.swapRepository.getSwap({
+            lockupTransactionId: {
+              [Op.eq]: getHexString(reverseBuffer(input.hash)),
+            },
+          });
+
+          if (swap) {
+            break;
+          }
+        }
+
+        if (!swap) {
+          throw error;
+        }
+
+        const { blocks } = await currency.chainClient.getBlockchainInfo();
+
+        throw {
+          error: error.message,
+          timeoutBlockHeight: swap.timeoutBlockHeight,
+          // Here we don't need to check whether the Swap has timed out yet because
+          // if the error above has been thrown, we can be sure that this is not the case
+          timeoutEta: this.calculateTimeoutDate(symbol, swap.timeoutBlockHeight - blocks),
+        };
+      } else {
+        throw error;
+      }
+    }
   }
 
   /**
@@ -777,6 +819,10 @@ class Service {
 
       default: throw Errors.ORDER_SIDE_NOT_FOUND(side);
     }
+  }
+
+  private calculateTimeoutDate = (chain: string, blocksMissing: number) => {
+    return getUnixTime() + (blocksMissing * TimeoutDeltaProvider.blockTimes.get(chain)! * 60);
   }
 }
 

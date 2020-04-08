@@ -4,15 +4,16 @@ import { Transaction, ECPair } from 'bitcoinjs-lib';
 import Logger from '../../../lib/Logger';
 import Swap from '../../../lib/db/models/Swap';
 import Wallet from '../../../lib/wallet/Wallet';
-import { getHexBuffer, reverseBuffer } from '../../../lib/Utils';
 import { CurrencyConfig } from '../../../lib/Config';
 import SwapNursery from '../../../lib/swap/SwapNursery';
 import LndClient from '../../../lib/lightning/LndClient';
 import ChainClient from '../../../lib/chain/ChainClient';
 import { constructTransaction, wait } from '../../Utils';
+import RateProvider from '../../../lib/rates/RateProvider';
 import SwapRepository from '../../../lib/db/SwapRepository';
 import ReverseSwap from '../../../lib/db/models/ReverseSwap';
 import WalletManager from '../../../lib/wallet/WalletManager';
+import { getHexBuffer, reverseBuffer } from '../../../lib/Utils';
 import { OrderSide, SwapUpdateEvent } from '../../../lib/consts/Enums';
 import ReverseSwapRepository from '../../../lib/db/ReverseSwapRepository';
 
@@ -268,11 +269,24 @@ jest.mock('../../../lib/wallet/WalletManager', () => {
 
 const mockedWalletManager = <jest.Mock<WalletManager>><any>WalletManager;
 
+jest.mock('../../../lib/rates/RateProvider', () => {
+  return jest.fn().mockImplementation(() => {
+    return {
+      pairs: new Map<string, { rate: number }>([
+        ['BTC/BTC', { rate: 1 }],
+      ]),
+    };
+  });
+});
+
+const mockedRateProvider = <jest.Mock<RateProvider>><any>RateProvider;
+
 describe('SwapNursery', () => {
   const walletManager = mockedWalletManager();
 
   const swapNursery = new SwapNursery(
     Logger.disabledLogger,
+    mockedRateProvider(),
     walletManager,
     mockedSwapRepository(),
     mockedReverseSwapRepository(),
@@ -564,11 +578,13 @@ describe('SwapNursery', () => {
     let eventsEmitted = 0;
 
     mockGetSwapResult = {
+      pair: 'BTC/BTC',
+      redeemScript: 'a9144c20f41b1ff5d0fd8b1a817e9fcb1e799eee600887632102ce0da7e0645b67b465374066d2c269e8255ae85f5d82be8f1306361b228a710367010ab17521032ec3e4027d70ac43b97ca8b693bfff604ca8a266e2a31351d1d6c1802b43005168ac',
       acceptZeroConf: true,
     };
 
     // 0-conf accepted
-    const zeroConfTransaction = constructTransaction(false, explicitTxInput);
+    const zeroConfTransaction = Transaction.fromHex('020000000001011d35c04887a4e56d815bd68f9b92533fa7fca3470e5ea8a46c535d29b4b0ee1e0000000000ffffffff01e8030000000000002200206d6378f3d60708fc2960a66dcfcb56cf4b15fc5745d6fa8964a78f1ae2129a890247304402202fa2a9b8d29adbe262c9492ce1a38e19fc150c36a1853c38b3004db262dda9e6022005711690cc25935d393ae1491b8f262d781e1203fac9d3fd86a0595d0d7517ee01210307a4820cabe35d2524363dbe34ebae92c9824df0a74088d4e55e99aa73b01cc300000000');
 
     swapNursery.once('transaction', (transaction, swap, confirmed, isReverse) => {
       expect(transaction).toEqual(zeroConfTransaction);
@@ -590,6 +606,7 @@ describe('SwapNursery', () => {
       status: {
         [Op.or]: [
           SwapUpdateEvent.InvoiceSet,
+          SwapUpdateEvent.SwapCreated,
           SwapUpdateEvent.TransactionMempool,
         ],
       },
@@ -602,7 +619,7 @@ describe('SwapNursery', () => {
     expect(mockEncodeAddress).toHaveBeenCalledWith(zeroConfTransaction.outs[0].script);
 
     expect(mockSetLockupTransactionId).toHaveBeenCalledTimes(1);
-    expect(mockSetLockupTransactionId).toHaveBeenCalledWith(mockGetSwapResult, zeroConfTransaction.getId(), 1, false);
+    expect(mockSetLockupTransactionId).toHaveBeenCalledWith(mockGetSwapResult, 1, zeroConfTransaction.getId(), 1000, false);
 
     expect(mockRemoveOutputFilter).toHaveBeenCalledTimes(1);
     expect(mockRemoveOutputFilter).toHaveBeenCalledWith(zeroConfTransaction.outs[0].script);
@@ -611,7 +628,7 @@ describe('SwapNursery', () => {
     expect(mockClaimSwap).toHaveBeenCalledWith(btcCurrency, walletManager.wallets.get('BTC'), mockGetSwapResult, zeroConfTransaction, 0);
 
     // 0-conf failed
-    const rbfTransaction = constructTransaction(true, explicitTxInput);
+    const rbfTransaction = Transaction.fromHex('020000000001011d35c04887a4e56d815bd68f9b92533fa7fca3470e5ea8a46c535d29b4b0ee1e0000000000fdffffff01e8030000000000002200206d6378f3d60708fc2960a66dcfcb56cf4b15fc5745d6fa8964a78f1ae2129a8902483045022100ae4566edf3799587724533a0f3a8d1ce28e00cec3759301edda45d637a93a4b202204b7bfd36534305352dcc2d54f7b5132bf773abe404ac1bb56842a103e9af3e1f01210308c52966a440133b8292e19bfa8400b6cd6d69dadf67b9ef7a8c0cb38eac748600000000');
 
     swapNursery.once('transaction', (transaction, swap, confirmed, isReverse) => {
       expect(transaction).toEqual(rbfTransaction);
@@ -640,6 +657,7 @@ describe('SwapNursery', () => {
       status: {
         [Op.or]: [
           SwapUpdateEvent.InvoiceSet,
+          SwapUpdateEvent.SwapCreated,
           SwapUpdateEvent.TransactionMempool,
         ],
       },
@@ -652,10 +670,10 @@ describe('SwapNursery', () => {
     expect(mockEncodeAddress).toHaveBeenNthCalledWith(2, rbfTransaction.outs[0].script);
 
     expect(mockSetLockupTransactionId).toHaveBeenCalledTimes(2);
-    expect(mockSetLockupTransactionId).toHaveBeenNthCalledWith(2, mockGetSwapResult, rbfTransaction.getId(), 1, false);
+    expect(mockSetLockupTransactionId).toHaveBeenNthCalledWith(2, mockGetSwapResult, 1, rbfTransaction.getId(), 1000, false);
 
     // Should accept 0-conf if the transaction is confirmed
-    const confirmedTransaction = constructTransaction(false, explicitTxInput);
+    const confirmedTransaction = zeroConfTransaction;
 
     swapNursery.once('transaction', (transaction, swap, confirmed, isReverse) => {
       expect(transaction).toEqual(confirmedTransaction);
@@ -677,6 +695,7 @@ describe('SwapNursery', () => {
       status: {
         [Op.or]: [
           SwapUpdateEvent.InvoiceSet,
+          SwapUpdateEvent.SwapCreated,
           SwapUpdateEvent.TransactionMempool,
         ],
       },
@@ -689,7 +708,7 @@ describe('SwapNursery', () => {
     expect(mockEncodeAddress).toHaveBeenNthCalledWith(3, confirmedTransaction.outs[0].script);
 
     expect(mockSetLockupTransactionId).toHaveBeenCalledTimes(3);
-    expect(mockSetLockupTransactionId).toHaveBeenNthCalledWith(3, mockGetSwapResult, confirmedTransaction.getId(), 1, true);
+    expect(mockSetLockupTransactionId).toHaveBeenNthCalledWith(3, mockGetSwapResult, 1, confirmedTransaction.getId(), 1000, true);
 
     expect(mockRemoveOutputFilter).toHaveBeenCalledTimes(2);
     expect(mockRemoveOutputFilter).toHaveBeenNthCalledWith(2, confirmedTransaction.outs[0].script);

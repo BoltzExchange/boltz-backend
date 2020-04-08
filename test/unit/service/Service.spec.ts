@@ -2,6 +2,7 @@ import { Op } from 'sequelize';
 import { randomBytes } from 'crypto';
 import { Networks, OutputType } from 'boltz-core';
 import Logger from '../../../lib/Logger';
+import Swap from '../../../lib/db/models/Swap';
 import Wallet from '../../../lib/wallet/Wallet';
 import Errors from '../../../lib/service/Errors';
 import { ConfigType } from '../../../lib/Config';
@@ -11,10 +12,10 @@ import LndClient from '../../../lib/lightning/LndClient';
 import ChainClient from '../../../lib/chain/ChainClient';
 import SwapRepository from '../../../lib/db/SwapRepository';
 import { CurrencyInfo } from '../../../lib/proto/boltzrpc_pb';
-import { getHexBuffer, getHexString, getInvoicePreimageHash } from '../../../lib/Utils';
 import ReverseSwapRepository from '../../../lib/db/ReverseSwapRepository';
 import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
 import { ServiceWarning, OrderSide, SwapUpdateEvent } from '../../../lib/consts/Enums';
+import { getHexBuffer, getHexString, getInvoicePreimageHash } from '../../../lib/Utils';
 
 const packageJson = require('../../../package.json');
 
@@ -64,7 +65,16 @@ const mockedSwap = {
 };
 const mockCreateSwap = jest.fn().mockResolvedValue(mockedSwap);
 
-const mockSetSwapInvoice = jest.fn().mockResolvedValue(undefined);
+const mockSetSwapInvoice = jest.fn().mockImplementation(async (
+  swap: Swap,
+  _invoice: string,
+  _expectedAmount: number,
+  _percentageFee: number,
+  _acceptZeroConf: boolean,
+  emitSwapInvoiceSet: (id: string) => void,
+) => {
+  emitSwapInvoiceSet(swap.id);
+});
 
 const mockedReverseSwap = {
   keyIndex: 43,
@@ -212,16 +222,23 @@ const mockGetNetworkInfo = jest.fn().mockResolvedValue({
   connections: 8,
 });
 
-const mockGetBlockchainInfo = jest.fn().mockResolvedValue({
+const blockchainInfo = {
   blocks: 123,
   scannedBlocks: 321,
-});
+};
+const mockGetBlockchainInfo = jest.fn().mockResolvedValue(blockchainInfo);
 
 const rawTransaction = 'rawTransaction';
 const mockGetRawTransaction = jest.fn().mockResolvedValue(rawTransaction);
 
-const sendRawTransaction = 'id';
-const mockSendRawTransaction = jest.fn().mockResolvedValue(sendRawTransaction);
+let sendRawTransaction: any = 'id';
+const mockSendRawTransaction = jest.fn().mockImplementation(async () => {
+  if (typeof sendRawTransaction === 'string') {
+    return sendRawTransaction;
+  } else {
+    throw sendRawTransaction;
+  }
+});
 
 jest.mock('../../../lib/chain/ChainClient', () => {
   return jest.fn().mockImplementation(() => ({
@@ -305,11 +322,13 @@ describe('Service', () => {
   const service = new Service(
     Logger.disabledLogger,
     {} as ConfigType,
-    mockedSwapManager(),
     mockedWalletManager(),
     currencies,
     Number.MAX_SAFE_INTEGER,
   );
+
+  // Inject a mocked SwapManager
+  service.swapManager = mockedSwapManager();
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -433,6 +452,65 @@ describe('Service', () => {
       .rejects.toEqual(Errors.CURRENCY_NOT_FOUND(notFound));
   });
 
+  test('should get lockup transactions of swaps', async () => {
+    let blockDelta = 10;
+
+    mockGetSwapResult = {
+      id: '123asd',
+      pair: 'LTC/BTC',
+      orderSide: OrderSide.BUY,
+      timeoutBlockHeight: blockchainInfo.blocks + blockDelta,
+      lockupTransactionId: 'eb63a8b1511f83c8d649fdaca26c4bc0dee4313689f62fd0f4ff8f71b963900d',
+    };
+
+    let response = await service.getSwapTransaction(mockGetSwapResult.id);
+
+    expect(response).toEqual({
+      transactionHex: rawTransaction,
+      timeoutBlockHeight: mockGetSwapResult.timeoutBlockHeight,
+      timeoutEta: Math.round(new Date().getTime() / 1000) + blockDelta * 10 * 60,
+    });
+
+    expect(mockGetSwap).toHaveBeenCalledTimes(1);
+    expect(mockGetSwap).toHaveBeenCalledWith({
+      id: {
+        [Op.eq]: mockGetSwapResult.id,
+      },
+    });
+
+    expect(mockGetBlockchainInfo).toHaveBeenCalledTimes(1);
+
+    expect(mockGetRawTransaction).toHaveBeenCalledTimes(1);
+    expect(mockGetRawTransaction).toHaveBeenCalledWith(mockGetSwapResult.lockupTransactionId);
+
+    // Should not return an ETA if the Submarine Swap has timed out already
+    blockDelta = 0;
+    mockGetSwapResult.timeoutBlockHeight = blockchainInfo.blocks;
+
+    response = await service.getSwapTransaction(mockGetSwapResult.id);
+
+    expect(response).toEqual({
+      transactionHex: rawTransaction,
+      timeoutBlockHeight: mockGetSwapResult.timeoutBlockHeight,
+    });
+
+    expect(mockGetBlockchainInfo).toHaveBeenCalledTimes(2);
+    expect(mockGetRawTransaction).toHaveBeenCalledTimes(2);
+
+    // Throw if Swap has no lockup transaction
+    mockGetSwapResult.lockupTransactionId = undefined;
+
+    await expect(service.getSwapTransaction(mockGetSwapResult.id))
+      .rejects.toEqual(Errors.SWAP_NO_LOCKUP());
+
+    // Throw if Swap cannot be found
+    const id = mockGetSwapResult.id;
+    mockGetSwapResult = undefined;
+
+    await expect(service.getSwapTransaction(id))
+      .rejects.toEqual(Errors.SWAP_NOT_FOUND(id));
+  });
+
   test('should get new addresses', async () => {
     expect(await service.getAddress('BTC')).toEqual(newAddress);
 
@@ -479,7 +557,8 @@ describe('Service', () => {
   });
 
   test('should broadcast transactions', async () => {
-    const transactionHex = 'hex';
+    // Should broadcast normal transactions
+    let transactionHex = 'hex';
 
     await expect(service.broadcastTransaction('BTC', transactionHex))
       .resolves.toEqual(sendRawTransaction);
@@ -487,11 +566,47 @@ describe('Service', () => {
     expect(mockSendRawTransaction).toHaveBeenCalledTimes(1);
     expect(mockSendRawTransaction).toHaveBeenCalledWith(transactionHex);
 
+    // Throw special error in case a Swap is refunded before timelock requirement is not met
+    sendRawTransaction = {
+      code: -26,
+      message: 'non-mandatory-script-verify-flag (Locktime requirement not satisfied) (code 64)',
+    };
+    transactionHex = '0100000000010154b6a506a69b5a2e7e8de20fe9aedbe9aa04e3249fc2ca75106a06942c5c84e60000000023220020bcf9f822194145acea0f3235f4107b5bf1a91b6b9f8489f63bf79ec29b360913ffffffff023b622d000000000017a91430897cc6c9d69f6a2c2f1c651d51f22219f1a4f6873ecb2a000000000017a9146ee55aa1c39b0c66acf287ac39721feef49114d6870400483045022100a3269ba08373ed541e91eb9698c4f570c7a8a0fde7dbff503d8c759c59639845022008abe66b6550ffb6484cda8a87140759aa5ee9c4bb2aaa09883d2afab9e6927501483045022100d29199cd9799363fd5869c4e22836c28bf48b2fe1b82bf21fcc23f28abc9921502204b1066a49c2c8d70c876ce28bd9f81aace47c4079b3bae4dfb63173c2f3be21201695221026c8f72b9e63db63907115e65d4da86eaae595b22fdc85ec75301bb4adbf203582103806535be3e3920e5eedee92de5714188fd6a784f2bf7b04f87de0b9c3ae1ecdb21024b23bfdce2afcae7e28c42f7f79aa100f22931712c52d7414a526ba494d44a2553ae00000000';
+
+    const blockDelta = 1;
+    mockGetSwapResult = {
+      timeoutBlockHeight: blockchainInfo.blocks + blockDelta,
+    };
+
+    await expect(service.broadcastTransaction('BTC', transactionHex))
+      .rejects.toEqual({
+        error: sendRawTransaction.message,
+        timeoutBlockHeight: mockGetSwapResult.timeoutBlockHeight,
+        timeoutEta: Math.round(new Date().getTime() / 1000) + blockDelta * 10 * 60,
+      });
+
+    // Throw bitcoind error in case Swap cannot be found
+    mockGetSwapResult = undefined;
+
+    await expect(service.broadcastTransaction('BTC', transactionHex))
+      .rejects.toEqual(sendRawTransaction);
+
+    // Throw other bitcoind errors
+    sendRawTransaction = {
+      code: 1,
+      message: 'test',
+    };
+
+    await expect(service.broadcastTransaction('BTC', transactionHex))
+      .rejects.toEqual(sendRawTransaction);
+
     // Throw if currency cannot be found
     const notFound = 'notFound';
 
     await expect(service.broadcastTransaction(notFound, transactionHex))
       .rejects.toEqual(Errors.CURRENCY_NOT_FOUND(notFound));
+
+    sendRawTransaction = 'rawTx';
   });
 
   test('should create swaps', async () => {
@@ -545,12 +660,12 @@ describe('Service', () => {
 
   test('should set invoices of swaps', async () => {
     mockGetSwapResult = {
+      id: 'invoiceId',
       pair: 'BTC/BTC',
       orderSide: 0,
       lockupAddress: 'bcrt1qae5nuz2cv7gu2dpps8rwrhsfv6tjkyvpd8hqsu',
     };
 
-    const id = 'invoiceId';
     const invoiceAmount = 100000;
     const invoice = 'lnbcrt1m1pw5qjj2pp5fzncpqa5hycqppwvelygawz2jarnxnngry945mm3uv6janpjfvgqdqqcqzpg35dc9zwwu3jhww7q087fc8h6tjs2he6w0yulc3nz262waznvp2s5t9xlwgau2lzjl8zxjlt5jxtgkamrz2e4ct3d70azmkh2hhgddkgpg38yqt';
 
@@ -561,9 +676,9 @@ describe('Service', () => {
       emittedId = id;
     });
 
-    const response = await service.setSwapInvoice(id, invoice);
+    const response = await service.setSwapInvoice(mockGetSwapResult.id, invoice);
 
-    expect(emittedId).toEqual(id);
+    expect(emittedId).toEqual(mockGetSwapResult.id);
     expect(response).toEqual({
       acceptZeroConf: true,
       expectedAmount: 100002,
@@ -573,7 +688,7 @@ describe('Service', () => {
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockGetSwap).toHaveBeenCalledWith({
       id: {
-        [Op.eq]: id,
+        [Op.eq]: mockGetSwapResult.id,
       },
     });
 
@@ -584,28 +699,29 @@ describe('Service', () => {
     expect(mockAcceptZeroConf).toHaveBeenCalledWith('BTC', invoiceAmount + 2);
 
     expect(mockSetSwapInvoice).toHaveBeenCalledTimes(1);
-    expect(mockSetSwapInvoice).toHaveBeenCalledWith(mockGetSwapResult, invoice, invoiceAmount + 2, 1, true);
+    expect(mockSetSwapInvoice).toHaveBeenCalledWith(mockGetSwapResult, invoice, invoiceAmount + 2, 1, true, expect.anything());
 
     // Throw if a swap doesn't respect the limits
     const invoiceLimit = 'lnbcrt1p0xdz2epp59nrc7lqcnw37suzed83e8s33sxl9p0hk4xu6gya9rcxfmnzd8jfsdqqcqzpgsp5228z07nxfghfzf3p2lu7vc03zss8cgklql845yjr990zsa3nj2hq9qy9qsqqpw8n4s5v3w7t9rryccz46f5v0542td098dun4yzfru4saxhd5apcxl5clxn8a70afn7j3e6avvk3s9gn3ypt2revyuh47aftft3kpcpek9lma';
     const invoiceLimitAmount = 0;
 
-    await expect(service.setSwapInvoice(id, invoiceLimit))
+    await expect(service.setSwapInvoice(mockGetSwapResult.id, invoiceLimit))
       .rejects.toEqual(Errors.BENEATH_MINIMAL_AMOUNT(invoiceLimitAmount, 1));
 
     // Throw if swap with id does not exist
     mockGetSwapResult = undefined;
+    const notFoundId = 'asdfasdf';
 
-    await expect(service.setSwapInvoice(id, ''))
-      .rejects.toEqual(Errors.SWAP_NOT_FOUND(id));
+    await expect(service.setSwapInvoice(notFoundId, ''))
+      .rejects.toEqual(Errors.SWAP_NOT_FOUND(notFoundId));
 
     // Throw if invoice is already set
     mockGetSwapResult = {
       invoice: 'invoice',
     };
 
-    await expect(service.setSwapInvoice(id, ''))
-      .rejects.toEqual(Errors.SWAP_HAS_INVOICE_ALREADY(id));
+    await expect(service.setSwapInvoice(mockGetSwapResult.id, ''))
+      .rejects.toEqual(Errors.SWAP_HAS_INVOICE_ALREADY(mockGetSwapResult.id));
   });
 
   test('should create swaps with invoices', async () => {
@@ -1005,5 +1121,12 @@ describe('Service', () => {
 
     // Throw if order side cannot be found
     expect(() => getOrderSide('')).toThrow(Errors.ORDER_SIDE_NOT_FOUND('').message);
+  });
+
+  test('should calculate timeout date', () => {
+    const calculateTimeoutDate = service['calculateTimeoutDate'];
+
+    expect(calculateTimeoutDate('BTC', 3)).toEqual(Math.round(new Date().getTime() / 1000) + 3 * 10 * 60);
+    expect(calculateTimeoutDate('LTC', 7)).toEqual(Math.round(new Date().getTime() / 1000) + 7 * 2.5 * 60);
   });
 });

@@ -273,6 +273,12 @@ Response object:
 
 - `transactionId`: the id of the transaction that was broadcasted
 
+There is one special case when trying to broadcast a refund transaction for a Submarine Swap that has not timed out yet: the backend will not only return `error` in the JSON encoded response but also some information alongside that error to make your life a little bit easier:
+
+- `error`: the reason for which the broadcasting failed. In this special case always: `non-mandatory-script-verify-flag (Locktime requirement not satisfied) (code 64)`
+- `timeoutEta`: UNIX timestamp at which the HTLC is expected to time out
+- `timeoutBlockHeight`: block height at which the HTLC in the lockup transaction will time out
+
 **Examples:**
 
 `POST /broadcasttransaction`
@@ -291,6 +297,29 @@ Response:
 ```json
 {
   "transactionId": "52ff6682b0bff109e6c6d97de6b6d075f7241c9ac364e02de6315281e423d816"
+}
+```
+
+*Special case when broadcasting a refund for a Submarine Swap that has not timed out yet:*
+
+`POST /broadcasttransaction`
+
+Request body:
+
+```json
+{
+  "currency": "BTC",
+  "transactionHex": "0100000000010113a19f721bc15b17a63700a7bf0056b7640b2c80239577f7ee95618baa34958f0100000023220020e1088f54c6d46e861bf4c5590bdff35c6f277b10e4e2787e1a5df23f1e540a3dfdffffff01bcdff5050000000016001486590ca595782212ce4fe0a4be8855f55f7f288603483045022100c142b9616659ba1728c254d8e275a304dc31c9139f005f9a97938cb1606c370e0220686d4e6166a7adab916f9af823c2f173aa9bd7f47a581909bda95881e1c00e07010064a9146aad1375552e58e9d4281a331caf271d0d160e3c8763210396ed47336687c51bc7e2bd32d0fc7a377d33c888f02a0647a7f1156761614a0d6702c401b1752103ffb18860cbe08060bd93a17abe4b436c46d0ee5b43fd0c24ba5bd65d6f42beb568ac00000000"
+}
+```
+
+Response:
+
+```json
+{
+  "timeoutEta": 1586374147,
+  "timeoutBlockHeight": 452,
+  "error": "non-mandatory-script-verify-flag (Locktime requirement not satisfied) (code 64)"
 }
 ```
 

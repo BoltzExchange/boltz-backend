@@ -1,7 +1,7 @@
 import { Op } from 'sequelize';
 import AsyncLock from 'async-lock';
 import { EventEmitter } from 'events';
-import { TxOutput, Transaction, address } from 'bitcoinjs-lib';
+import { Transaction, address } from 'bitcoinjs-lib';
 import { constructClaimTransaction, detectPreimage, constructRefundTransaction, detectSwap } from 'boltz-core';
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';

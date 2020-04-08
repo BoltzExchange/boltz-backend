@@ -7,6 +7,7 @@ import Wallet from '../../../lib/wallet/Wallet';
 import SwapManager from '../../../lib/swap/SwapManager';
 import LndClient from '../../../lib/lightning/LndClient';
 import ChainClient from '../../../lib/chain/ChainClient';
+import RateProvider from '../../../lib/rates/RateProvider';
 import WalletManager from '../../../lib/wallet/WalletManager';
 import { getHexBuffer, getHexString } from '../../../lib/Utils';
 import { OrderSide, SwapUpdateEvent } from '../../../lib/consts/Enums';
@@ -190,6 +191,7 @@ describe('SwapManager', () => {
   const manager = new SwapManager(
     Logger.disabledLogger,
     mockedWalletManager(),
+    {} as RateProvider,
   );
 
   beforeEach(() => {
@@ -272,7 +274,13 @@ describe('SwapManager', () => {
     const expectedAmount = 100002;
     const invoice = 'lnbcrt10n1p0xdf2kpp54njp3f00qvj0n64pnmkfxh08f0czev7tc5zhhj033ksesq9zxagsdqqcqzpgsp5ndcc6hxwqwza7kkyqepq9x2kjqr70x3h2nl6vuw5xk8lerakdxas9qy9qsq3arkzf9wlv5xlhclm0wkl4uvrqe6clps58klyx7v46wha8hlzk2qyl3hxf9m7pzywdc7nyv5w4phkjzqg6y4l20frcg54yqfnxspzwqqpru300';
 
-    await manager.setSwapInvoice(swap, invoice, expectedAmount, percentageFee, acceptZeroConf);
+    let invoiceSetEmitted = false;
+
+    await manager.setSwapInvoice(swap, invoice, expectedAmount, percentageFee, acceptZeroConf, () => {
+      invoiceSetEmitted = true;
+    });
+
+    expect(invoiceSetEmitted).toEqual(true);
 
     expect(mockDecodePayReq).toHaveBeenCalledTimes(1);
     expect(mockDecodePayReq).toHaveBeenCalledWith(invoice);
@@ -289,11 +297,8 @@ describe('SwapManager', () => {
       acceptZeroConf,
     );
 
-    expect(mockAddOutputFilter).toHaveBeenCalledTimes(1);
-    expect(mockAddOutputFilter).toHaveBeenCalledWith(Scripts.p2shP2wshOutput(getHexBuffer(swap.redeemScript)));
-
     // Should not perform a route check if the invoice has route hints
-    await manager.setSwapInvoice(swap, 'routeHints', expectedAmount, percentageFee, acceptZeroConf);
+    await manager.setSwapInvoice(swap, 'routeHints', expectedAmount, percentageFee, acceptZeroConf, () => {});
 
     // Check that no routes were queried
     expect(mockQueryRoutes).toHaveBeenCalledTimes(1);
@@ -305,6 +310,7 @@ describe('SwapManager', () => {
       expectedAmount,
       percentageFee,
       acceptZeroConf,
+      () => {},
     )).rejects.toEqual(Errors.NO_ROUTE_FOUND());
   });
 

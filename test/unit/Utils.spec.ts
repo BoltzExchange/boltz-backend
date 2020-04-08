@@ -259,4 +259,8 @@ describe('Utils', () => {
     expect(utils.getSwapOutputType(true)).toEqual(OutputType.Bech32);
     expect(utils.getSwapOutputType(false)).toEqual(OutputType.Compatibility);
   });
+
+  test('should get UNIX time', () => {
+    expect(utils.getUnixTime()).toEqual(Math.round(new Date().getTime() / 1000));
+  });
 });

@@ -63,6 +63,13 @@ const mockSetInvoice = jest.fn().mockResolvedValue({
 const rawTransaction = 'transactionHex';
 const mockGetTransaction = jest.fn().mockResolvedValue(rawTransaction);
 
+const swapTransaction = {
+  timeoutEta: 1586291268,
+  timeoutBlockHeight: 321,
+  transactionHex: rawTransaction,
+};
+const mockGetSwapTransaction = jest.fn().mockResolvedValue(swapTransaction);
+
 const mockBroadcastTransaction = jest.fn().mockResolvedValue('transactionId');
 
 const mockCreateSwap = jest.fn().mockResolvedValue({
@@ -100,6 +107,7 @@ jest.mock('../../../lib/service/Service', () => {
 
       setSwapInvoice: mockSetInvoice,
       getTransaction: mockGetTransaction,
+      getSwapTransaction: mockGetSwapTransaction,
       broadcastTransaction: mockBroadcastTransaction,
 
       createSwap: mockCreateSwap,
@@ -182,7 +190,7 @@ describe('Controller', () => {
         id: reverseSwaps[2].transactionId,
         eta: SwapNursery.reverseSwapMempoolEta,
       },
-    }),
+    });
     expect(pendingSwaps.get(reverseSwaps[3].id)).toBeUndefined();
   });
 
@@ -289,6 +297,36 @@ describe('Controller', () => {
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
       transactionHex: rawTransaction,
+    });
+  });
+
+  test('should get Swap transaction', async () => {
+    // No values provided in request
+    const res = mockResponse();
+
+    await controller.getSwapTransaction(mockRequest({}), res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      error: 'undefined parameter: id',
+    });
+
+    // Successful request
+    const requestData = {
+      id: 'id',
+    };
+
+    await controller.getSwapTransaction(mockRequest(requestData), res);
+
+    expect(service.getSwapTransaction).toHaveBeenCalledWith(
+      requestData.id,
+    );
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      timeoutEta: swapTransaction.timeoutEta,
+      transactionHex: swapTransaction.transactionHex,
+      timeoutBlockHeight: swapTransaction.timeoutBlockHeight,
     });
   });
 
@@ -594,6 +632,50 @@ describe('Controller', () => {
     expect(validateRequest({
       test: 'test',
     }, optionalChecks)).toEqual({ test: 'test' });
+  });
+
+  test('should handle error responses', () => {
+    const res = mockResponse();
+
+    let error: any = '123';
+
+    controller.errorResponse(res, error);
+
+    expect(res.status).toHaveBeenNthCalledWith(1, 400);
+    expect(res.json).toHaveBeenNthCalledWith(1, { error });
+
+    error = {
+      details: 'missing inputs',
+    };
+
+    controller.errorResponse(res, error);
+
+    expect(res.status).toHaveBeenNthCalledWith(2, 400);
+    expect(res.json).toHaveBeenNthCalledWith(2, { error: error.details });
+
+    error = {
+      timeoutBlockHeight: 321,
+      error: 'timelock requirement not met',
+    };
+
+    controller.errorResponse(res, error);
+
+    expect(res.status).toHaveBeenNthCalledWith(3, 400);
+    expect(res.json).toHaveBeenNthCalledWith(3, error);
+
+    error = {
+      message: 'some other error',
+    };
+
+    controller.errorResponse(res, error);
+
+    expect(res.status).toHaveBeenNthCalledWith(4, 400);
+    expect(res.json).toHaveBeenNthCalledWith(4, { error: error.message });
+
+    controller.errorResponse(res, error, 401);
+
+    expect(res.status).toHaveBeenNthCalledWith(5, 401);
+    expect(res.json).toHaveBeenNthCalledWith(5, { error: error.message });
   });
 
   test('should parse swap types', () => {

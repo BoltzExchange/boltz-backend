@@ -2,17 +2,17 @@
 
 ## Introduction
 
-Boltz exposes a Restful HTTP API that can not only be used to query information about the Boltz instance and the pairs it supports but also to create swaps and interact with the blockchains that are configured on that specific instance. This page lists all of the available endpoints and shows how to use them correctly.
+Boltz exposes a Restful HTTP API that cannot only be used to query information about the Boltz instance, and the pairs it supports but also to create swaps and interact with the blockchains that are configured on that specific instance. This page lists all the available endpoints and shows how to use them correctly.
 
 ### Response and request encoding
 
-All of the responses to all calls are encoded as JSON objects. If endpoints require the client to provide any kind of arguments these also have to be encoded as JSON and sent in the body of a POST request.
+All the responses to all calls are encoded as JSON objects. If endpoints require the client to provide any kind of arguments these also have to be encoded as JSON and sent in the body of a POST request.
 
 Please make sure to set the `Content-Type` header of your `POST` requests to `application/json` if you are sending JSON encoded data in the body of the request.
 
 ### Error handling
 
-If a call fails for some reason the returned [HTTP status code](https://en.wikipedia.org/wiki/List_of_HTTP_status_codes) will indicate that and an object will be returned that looks like this and gives the reason for which the call errored:
+If a call fails for some reason the returned [HTTP status code](https://en.wikipedia.org/wiki/List_of_HTTP_status_codes) will indicate that, and an object will be returned that looks like this and gives the reason for which the call errored:
 
 ```json
 {
@@ -114,6 +114,50 @@ Response:
 }
 ```
 
+## Getting Lightning nodes
+
+This endpoint allows you to query the node public keys and URIs of the Lightning nodes run by Boltz.
+
+| URL             | Response
+|-----------------|------------
+| `GET /getnodes` | JSON object
+
+Status Codes:
+
+- `200 OK`
+
+Response object:
+
+- `nodes`: a JSON with the symbol of the chain on which the Lightning node is running as key, and a JSON object as key
+    - `nodeKey`: public key of the Lightning node
+    - `uris`: array of the URIs to which the LND node listens
+
+**Examples:**
+
+`GET /getnodes`
+
+Response:
+
+```json
+{
+  "nodes": {
+    "BTC": {
+      "nodeKey": "03be597bb2c8e5ff2592b226f4433b557c34158a95699384fcadc7a2f153e7272b",
+      "uris": [
+        "03f060953bef5b777dc77e44afa3859d022fc1a77c55138deb232ad7255e869c00@35.237.24.136:9735",
+        "03f060953bef5b777dc77e44afa3859d022fc1a77c55138deb232ad7255e869c00@idz7qlezif6hgmjkpmuelnsssyxea2lwan562a5gla7jmlxsl5cb2cad.onion:9735"
+      ]    },
+    "LTC": {
+      "nodeKey": "0278d27617616c156c879dd51d61313795e3782abda2cd7a37d9d24ece6c309064",
+      "uris": [
+        "0278d27617616c156c879dd51d61313795e3782abda2cd7a37d9d24ece6c309064@35.237.24.136:10735",
+        "03f060953bef5b777dc77e44afa3859d022fc1a77c55138deb232ad7255e869c00@idz7qlezif6hgmjkpmuelnsssyxea2lwan562a5gla7jmlxsl5cb2cad.onion:9735"
+      ]
+    }
+  }
+}
+```
+
 ## Getting fee estimations
 
 Boltz provides an API endpoint that returns fee estimations for all chains that are configured on that instance. These fee estimations are *not* enforced by Boltz and are just a recommendation. It is important to mention that if 0-conf wants to be used with normal swaps, the lockup transaction has to have at least 80% of the recommended `sat/vbyte` value. One can read more about the what and why in the [0-confirmation docs](0-confirmation.md).
@@ -128,7 +172,7 @@ Status Codes:
 
 Response object:
 
-This endpoint returns a JSON object of which each `key` is the symbol of a chain and each `value` the estimated fee for that chain denominated in `sat/vbyte`.
+This endpoint returns a JSON object of which each key is the symbol of a chain and each value the estimated fee for that chain denominated in `sat/vbyte`.
 
 **Examples:**
 
@@ -323,7 +367,7 @@ Response:
 }
 ```
 
-## Getting status of a swap
+## Getting status of a Swap
 
 **Before being able to handle the status events of this method it is recommended to read: [Swap lifecycle](lifecycle.md)**
 
@@ -394,7 +438,7 @@ Response:
 }
 ```
 
-## Streaming status updates of a swap
+## Streaming status updates of a Swap
 
 To not having to query the [`/swapstatus`](#getting-status-of-a-swap) endpoint regularly in order to always have the lastet swap status there is a seperate endpoint for streaming swap status updates via [Server-Side events](https://www.w3schools.com/html/html5_serversentevents.asp).
 
@@ -452,7 +496,7 @@ Boltz also supports opening a channel to your node before paying your invoice. T
 - `channel`: a JSON object that contains all the information relevant to the creation of the channel
     - `auto`: whether Boltz should dynamically decide if a channel should be created based on whether the invoice you provided can be paid without opening a channel. More modes will be added in future
     - `private`: whether the channel to your node should be private
-    - `inboundLiquidity`: percentage of the channel balance that Boltz should provide as inbound liquidity for your node. The maximal value here is 50, which means that the channel will be perfectly balanced 50/50
+    - `inboundLiquidity`: percentage of the channel balance that Boltz should provide as inbound liquidity for your node. The maximal value here is `50`, which means that the channel will be perfectly balanced 50/50
 
 To find out how to enforce that the requested channel is acutally opened and the invoice paid through it have a look at [this document where we wrote down some possible solutions](channel-creation.md).
 
@@ -467,7 +511,7 @@ Status Codes:
 
 Response objects:
 
-You will always have these values in the reponse object:
+You will always have these values in the response object:
 
 - `id`: id of the freshly created swap
 - `timeoutBlockHeight`: block height at which the swap will be cancelled
@@ -581,7 +625,7 @@ Response:
 }
 ```
 
-## Setting the invoice of a swap
+## Setting the invoice of a Swap
 
 In case the amount to be swapped is not known when creating the Submarine Swap, the invoice can be set afterward and even if the onchain coins were sent already. Please keep in mind that the invoice of a Submarine Swap **has to have the same preimage hash** that was specified when creating the Submarine Swap. Although the invoice can be changed after setting it initially, this enpoint will only work if Boltz did not try to pay the initial invoice yet. Requests to this endpoint have to be `POST` and should have the following values in its JSON encoded body:
 

@@ -87,7 +87,15 @@ class Controller {
     });
   }
 
-  public getFeeEstimation = async (_req: Request, res: Response) => {
+  public getNodes = async (_: Request, res: Response) => {
+    const nodes = await this.service.getNodes();
+
+    this.successResponse(res, {
+      nodes: mapToObject(nodes),
+    });
+  }
+
+  public getFeeEstimation = async (_: Request, res: Response) => {
     const feeEstimation = await this.service.getFeeEstimation();
 
     this.successResponse(res, mapToObject(feeEstimation));
@@ -190,13 +198,22 @@ class Controller {
   }
 
   private createSubmarineSwap = async (req: Request, res: Response) => {
-    const { pairId, orderSide, invoice, refundPublicKey, preimageHash } = this.validateRequest(req.body, [
+    const { pairId, orderSide, invoice, refundPublicKey, preimageHash, channel } = this.validateRequest(req.body, [
       { name: 'pairId', type: 'string' },
       { name: 'orderSide', type: 'string' },
       { name: 'invoice', type: 'string', optional: true },
       { name: 'refundPublicKey', type: 'string', hex: true },
       { name: 'preimageHash', type: 'string', hex: true, optional: true },
+      { name: 'channel', type: 'object', optional: true },
     ]);
+
+    if (channel !== undefined) {
+      this.validateRequest(channel, [
+        { name: 'auto', type: 'boolean' },
+        { name: 'private', type: 'boolean' },
+        { name: 'inboundLiquidity', type: 'number' },
+      ]);
+    }
 
     let response: any;
 

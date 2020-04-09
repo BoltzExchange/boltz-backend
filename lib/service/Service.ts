@@ -45,6 +45,12 @@ import {
   WalletBalance,
 } from '../proto/boltzrpc_pb';
 
+type ChannelCreationInfo = {
+  auto: boolean,
+  private: boolean,
+  inboundLiquidity: number,
+};
+
 class Service {
   public allowReverseSwaps = true;
 
@@ -271,6 +277,28 @@ class Service {
     };
   }
 
+  /**
+   * Gets a map between the LND node keys and URIs and the symbol of the chains they are running on
+   */
+  public getNodes = async () => {
+    const response = new Map<string, {
+      nodeKey: string,
+      uris: string[],
+    }>();
+
+    for (const [symbol, currency] of this.currencies) {
+      if (currency.lndClient) {
+        const lndInfo = await currency.lndClient.getInfo();
+        response.set(symbol, {
+          uris: lndInfo.urisList,
+          nodeKey: lndInfo.identityPubkey,
+        });
+      }
+    }
+
+    return response;
+  }
+
   // TODO: allow querying ethereum transactions?
   /**
    * Gets a hex encoded transaction from a transaction hash on the specified network
@@ -422,6 +450,7 @@ class Service {
     orderSide: string,
     refundPublicKey: Buffer,
     preimageHash: Buffer,
+    _channel?: ChannelCreationInfo,
   ) => {
     const swap = await this.swapManager.swapRepository.getSwap({
       preimageHash: {
@@ -572,6 +601,7 @@ class Service {
     orderSide: string,
     refundPublicKey: Buffer,
     invoice: string,
+    channel?: ChannelCreationInfo,
   ) => {
     let swap = await this.swapManager.swapRepository.getSwap({
       invoice: {
@@ -590,7 +620,7 @@ class Service {
       address,
       redeemScript,
       timeoutBlockHeight,
-    } = await this.createSwap(pairId, orderSide, refundPublicKey, preimageHash);
+    } = await this.createSwap(pairId, orderSide, refundPublicKey, preimageHash, channel);
 
     try {
       const {

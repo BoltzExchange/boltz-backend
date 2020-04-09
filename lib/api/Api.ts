@@ -42,6 +42,7 @@ class Api {
     this.app.route('/version').get(controller.version);
 
     this.app.route('/getpairs').get(controller.getPairs);
+    this.app.route('/getnodes').get(controller.getNodes);
     this.app.route('/getfeeestimation').get(controller.getFeeEstimation);
 
     // POST requests

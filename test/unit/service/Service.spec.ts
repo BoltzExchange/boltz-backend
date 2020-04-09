@@ -253,14 +253,18 @@ jest.mock('../../../lib/chain/ChainClient', () => {
 
 const mockedChainClient = <jest.Mock<ChainClient>><any>ChainClient;
 
-const mockGetInfo = jest.fn().mockResolvedValue({
+const lndInfo = {
   blockHeight: 123,
   version: '0.7.1-beta commit=v0.7.1-beta',
 
   numActiveChannels: 3,
   numInactiveChannels: 2,
   numPendingChannels: 1,
-});
+
+  identityPubkey: '321',
+  urisList: ['321@127.0.0.1:9735', '321@hidden.onion:9735'],
+};
+const mockGetInfo = jest.fn().mockResolvedValue(lndInfo);
 
 const mockSendPayment = jest.fn().mockResolvedValue({
   paymentHash: '',
@@ -439,6 +443,15 @@ describe('Service', () => {
     });
 
     service.allowReverseSwaps = true;
+  });
+
+  test('should get nodes', async () => {
+    expect(await service.getNodes()).toEqual(new Map<string, { nodeKey: string, uris: string[] }>([
+      ['BTC', {
+        nodeKey: lndInfo.identityPubkey,
+        uris: lndInfo.urisList,
+      }],
+    ]));
   });
 
   test('should get transactions', async () => {
@@ -762,6 +775,7 @@ describe('Service', () => {
       orderSide,
       refundPublicKey,
       getHexBuffer(getInvoicePreimageHash(invoice)),
+      undefined,
     );
 
     expect(service.setSwapInvoice).toHaveBeenCalledTimes(1);

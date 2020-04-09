@@ -52,6 +52,19 @@ const mockGetPairs = jest.fn().mockReturnValue({
   pairs: [],
 });
 
+const getNodes = new Map<string, {
+  nodeKey: string,
+  uris: string[],
+}>([
+  ['BTC', {
+    nodeKey: '321',
+    uris: [
+      '321@127.0.0.1:9735',
+    ],
+  }],
+]);
+const mockGetNodes = jest.fn().mockResolvedValue(getNodes);
+
 const mockGetFeeEstimation = jest.fn().mockResolvedValue(new Map<string, number>([
   ['BTC', 1],
 ]));
@@ -103,6 +116,7 @@ jest.mock('../../../lib/service/Service', () => {
       },
 
       getPairs: mockGetPairs,
+      getNodes: mockGetNodes,
       getFeeEstimation: mockGetFeeEstimation,
 
       setSwapInvoice: mockSetInvoice,
@@ -218,6 +232,19 @@ describe('Controller', () => {
     expect(res.json).toHaveBeenCalledWith({
       warnings: data.warnings,
       pairs: mapToObject(data.pairs),
+    });
+  });
+
+  test('should get nodes', async () => {
+    const res = mockResponse();
+
+    await controller.getNodes(mockRequest({}), res);
+
+    expect(mockGetNodes).toHaveBeenCalledTimes(1);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      nodes: mapToObject(getNodes),
     });
   });
 

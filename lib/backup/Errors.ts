@@ -4,7 +4,7 @@ import { ErrorCodePrefix } from '../consts/Enums';
 
 export default {
   BACKUP_DISABLED: (): Error => ({
-    message: 'backups are disabled beacuse of incomplete configuration',
-    code: concatErrorCode(ErrorCodePrefix.Bakcup, 0),
+    message: 'backups are disabled because of incomplete configuration',
+    code: concatErrorCode(ErrorCodePrefix.Backup, 0),
   }),
 };

@@ -23,7 +23,7 @@ interface ZmqClient {
   emit(event: 'block', height: number): boolean;
 
   on(event: 'transaction', listener: (transaction: Transaction, confirmed: boolean) => void): this;
-  emit(event: 'transaction', transcation: Transaction, confirmed: boolean): boolean;
+  emit(event: 'transaction', transaction: Transaction, confirmed: boolean): boolean;
 }
 
 class ZmqClient extends EventEmitter {

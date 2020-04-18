@@ -1,5 +1,6 @@
 import { Op } from 'sequelize';
-import { OutputType, swapScript, reverseSwapScript } from 'boltz-core';
+import { Transaction } from 'bitcoinjs-lib';
+import { OutputType, reverseSwapScript, swapScript } from 'boltz-core';
 import Errors from './Errors';
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';
@@ -8,25 +9,31 @@ import LndClient from '../lightning/LndClient';
 import RateProvider from '../rates/RateProvider';
 import SwapRepository from '../db/SwapRepository';
 import ReverseSwap from '../db/models/ReverseSwap';
-import { OrderSide, SwapUpdateEvent } from '../consts/Enums';
+import { ChannelCreationType, OrderSide, SwapUpdateEvent } from '../consts/Enums';
 import ReverseSwapRepository from '../db/ReverseSwapRepository';
 import WalletManager, { Currency } from '../wallet/WalletManager';
+import ChannelCreationRepository from '../db/ChannelCreationRepository';
 import {
-  getPairId,
   generateId,
-  getSwapMemo,
-  splitPairId,
+  getChainCurrency,
   getHexBuffer,
   getHexString,
-  reverseBuffer,
-  getChainCurrency,
-  getSwapOutputType,
-  getLightningCurrency,
-  getScriptHashFunction,
   getInvoicePreimageHash,
+  getLightningCurrency,
+  getPairId,
+  getScriptHashFunction,
   getSendingReceivingCurrency,
+  getSwapMemo,
+  getSwapOutputType,
+  reverseBuffer,
+  splitPairId,
 } from '../Utils';
-import { Transaction } from 'bitcoinjs-lib';
+
+type ChannelCreationInfo = {
+  auto: boolean,
+  private: boolean,
+  inboundLiquidity: number,
+};
 
 class SwapManager {
   public currencies = new Map<string, Currency>();
@@ -35,21 +42,26 @@ class SwapManager {
 
   public swapRepository: SwapRepository;
   public reverseSwapRepository: ReverseSwapRepository;
+  public channelCreationRepository: ChannelCreationRepository;
 
   constructor(
     private logger: Logger,
+    channelsInterval: number,
     private walletManager: WalletManager,
     rateProvider: RateProvider,
   ) {
     this.swapRepository = new SwapRepository();
     this.reverseSwapRepository = new ReverseSwapRepository();
+    this.channelCreationRepository = new ChannelCreationRepository();
 
     this.nursery = new SwapNursery(
       this.logger,
+      channelsInterval,
       rateProvider,
       this.walletManager,
       this.swapRepository,
       this.reverseSwapRepository,
+      this.channelCreationRepository,
     );
   }
 
@@ -139,6 +151,7 @@ class SwapManager {
    * @param preimageHash hash of the preimage of the invoice the swap should pay
    * @param refundPublicKey public key of the keypair needed for claiming
    * @param timeoutBlockDelta after how many blocks the onchain script should time out
+   * @param channel information about channel creation in case it is needed
    */
   public createSwap = async (
     baseCurrency: string,
@@ -147,6 +160,7 @@ class SwapManager {
     preimageHash: Buffer,
     refundPublicKey: Buffer,
     timeoutBlockDelta: number,
+    channel?: ChannelCreationInfo,
   ) => {
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(baseCurrency, quoteCurrency, orderSide);
 
@@ -189,6 +203,17 @@ class SwapManager {
       pair: getPairId({ base: baseCurrency, quote: quoteCurrency }),
     });
 
+    if (channel !== undefined) {
+      this.logger.verbose(`Adding Channel Creation for Swap: ${id}`);
+
+      await this.channelCreationRepository.addChannelCreation({
+        swapId: id,
+        private: channel.private,
+        type: channel.auto ? ChannelCreationType.Auto : ChannelCreationType.Create,
+        inboundLiquidity: channel.inboundLiquidity,
+      });
+    }
+
     return {
       id,
       address,
@@ -228,10 +253,17 @@ class SwapManager {
 
     // If there are route hints the routability check could fail although LND could pay the invoice
     if (routeHintsList.length === 0) {
-      const routable = await this.checkRoutability(sendingCurrency.lndClient!, destination, numSatoshis);
+      const channelCreation = this.channelCreationRepository.getChannelCreation({
+        swapId: {
+          [Op.eq]: swap.id,
+        },
+      });
 
-      if (!routable) {
-        throw Errors.NO_ROUTE_FOUND();
+      if (!channelCreation) {
+        const routable = await this.checkRoutability(sendingCurrency.lndClient!, destination, numSatoshis);
+        if (!routable) {
+          throw Errors.NO_ROUTE_FOUND();
+        }
       }
     }
 
@@ -244,7 +276,7 @@ class SwapManager {
     emitSwapInvoiceSet(swap.id);
 
     // If the onchain coins were sent already and 0-conf can be accepted or
-    // the lockup transaction is confirmed the invoice should be paid direclty
+    // the lockup transaction is confirmed the swap should be settled directly
     if (swap.lockupTransactionId) {
       const rawTransaction = await receivingCurrency.chainClient.getRawTransaction(swap.lockupTransactionId);
 
@@ -386,3 +418,4 @@ class SwapManager {
 }
 
 export default SwapManager;
+export { ChannelCreationInfo };

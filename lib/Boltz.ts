@@ -18,20 +18,19 @@ import WalletManager, { Currency } from './wallet/WalletManager';
 import NotificationProvider from './notifications/NotificationProvider';
 
 class Boltz {
-  private logger: Logger;
-  private config: ConfigType;
+  private readonly logger: Logger;
+  private readonly config: ConfigType;
+
+  private readonly service!: Service;
+  private readonly walletManager: WalletManager;
 
   private db: Database;
-
-  private currencies = new Map<string, Currency>();
-
-  private walletManager: WalletManager;
-
-  private service!: Service;
   private notifications!: NotificationProvider;
 
   private api!: Api;
   private grpcServer!: GrpcServer;
+
+  private currencies = new Map<string, Currency>();
 
   constructor(config: Arguments<any>) {
     this.config = new Config().load(config);
@@ -58,7 +57,6 @@ class Boltz {
         this.config,
         this.walletManager,
         this.currencies,
-        this.config.rates.interval,
       );
 
       const backup = new BackupScheduler(
@@ -124,7 +122,7 @@ class Boltz {
 
       await this.api.init();
     } catch (error) {
-      this.logger.error(`Could not initialize Boltz: ${JSON.stringify(error)}`);
+      this.logger.error(`Could not initialize Boltz: ${formatError(error)}`);
       process.exit(1);
     }
   }

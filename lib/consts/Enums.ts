@@ -7,7 +7,7 @@ export enum ErrorCodePrefix {
   Lnd = 5,
   Swap = 6,
   Rates = 7,
-  Bakcup = 8,
+  Backup = 8,
 }
 
 export enum ClientStatus {
@@ -35,6 +35,16 @@ export enum SwapUpdateEvent {
   TransactionClaimed = 'transaction.claimed',
   TransactionRefunded = 'transaction.refunded',
   TransactionConfirmed = 'transaction.confirmed',
+}
+
+export enum ChannelCreationType {
+  Auto = 'auto',
+  Create = 'create',
+}
+
+export enum ChannelCreationStatus {
+  Created = 'created',
+  Settled = 'settled',
 }
 
 export enum ServiceWarning {

@@ -8,7 +8,6 @@ import Wallet from '../wallet/Wallet';
 import { ConfigType } from '../Config';
 import EventHandler from './EventHandler';
 import { PairConfig } from '../consts/Types';
-import SwapManager from '../swap/SwapManager';
 import FeeProvider from '../rates/FeeProvider';
 import RateProvider from '../rates/RateProvider';
 import PairRepository from '../db/PairRepository';
@@ -16,6 +15,18 @@ import { encodeBip21 } from './PaymentRequestUtils';
 import TimeoutDeltaProvider from './TimeoutDeltaProvider';
 import { OrderSide, ServiceWarning } from '../consts/Enums';
 import WalletManager, { Currency } from '../wallet/WalletManager';
+import SwapManager, { ChannelCreationInfo } from '../swap/SwapManager';
+import {
+  LndInfo,
+  Balance,
+  ChainInfo,
+  LndChannels,
+  CurrencyInfo,
+  WalletBalance,
+  GetInfoResponse,
+  LightningBalance,
+  GetBalanceResponse,
+} from '../proto/boltzrpc_pb';
 import {
   getRate,
   getPairId,
@@ -33,23 +44,6 @@ import {
   getInvoicePreimageHash,
   getSendingReceivingCurrency,
 } from '../Utils';
-import {
-  Balance,
-  ChainInfo,
-  CurrencyInfo,
-  GetBalanceResponse,
-  GetInfoResponse,
-  LightningBalance,
-  LndChannels,
-  LndInfo,
-  WalletBalance,
-} from '../proto/boltzrpc_pb';
-
-type ChannelCreationInfo = {
-  auto: boolean,
-  private: boolean,
-  inboundLiquidity: number,
-};
 
 class Service {
   public allowReverseSwaps = true;
@@ -69,7 +63,6 @@ class Service {
     config: ConfigType,
     private walletManager: WalletManager,
     private currencies: Map<string, Currency>,
-    rateUpdateInterval: number,
   ) {
     this.pairRepository = new PairRepository();
     this.timeoutDeltaProvider = new TimeoutDeltaProvider(this.logger, config);
@@ -78,12 +71,13 @@ class Service {
     this.rateProvider = new RateProvider(
       this.logger,
       this.feeProvider,
-      rateUpdateInterval,
+      config.rates.interval,
       Array.from(currencies.values()),
     );
 
     this.swapManager = new SwapManager(
       this.logger,
+      config.channels.interval,
       this.walletManager,
       this.rateProvider,
     );
@@ -450,7 +444,7 @@ class Service {
     orderSide: string,
     refundPublicKey: Buffer,
     preimageHash: Buffer,
-    _channel?: ChannelCreationInfo,
+    channel?: ChannelCreationInfo,
   ) => {
     const swap = await this.swapManager.swapRepository.getSwap({
       preimageHash: {
@@ -461,6 +455,8 @@ class Service {
     if (swap) {
       throw Errors.SWAP_WITH_PREIMAGE_EXISTS();
     }
+
+    // TODO: sanity check "channel" values
 
     const { base, quote } = this.getPair(pairId);
     const side = this.getOrderSide(orderSide);
@@ -479,6 +475,7 @@ class Service {
       preimageHash,
       refundPublicKey,
       timeoutBlockDelta,
+      channel,
     );
 
     this.eventHandler.emitSwapCreation(id);
@@ -530,6 +527,7 @@ class Service {
    * Sets the invoice of Submarine Swap
    */
   public setSwapInvoice = async (id: string, invoice: string) => {
+    // TODO: sanity check invoice
     const swap = await this.swapManager.swapRepository.getSwap({
       id: {
         [Op.eq]: id,

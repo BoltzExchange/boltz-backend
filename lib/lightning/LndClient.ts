@@ -65,10 +65,10 @@ interface LndClient {
 class LndClient extends BaseClient implements LndClient {
   public static readonly serviceName = 'LND';
 
-  private uri!: string;
-  private credentials!: grpc.ChannelCredentials;
+  private readonly uri!: string;
+  private readonly credentials!: grpc.ChannelCredentials;
 
-  private meta!: grpc.Metadata;
+  private readonly meta!: grpc.Metadata;
 
   private invoices?: InvoicesClient;
   private lightning?: LightningClient;
@@ -77,8 +77,6 @@ class LndClient extends BaseClient implements LndClient {
 
   /**
    * Create an LND client
-   *
-   * @param config the lnd configuration
    */
   constructor(private logger: Logger, config: LndConfig, public readonly symbol: string) {
     super();
@@ -237,22 +235,25 @@ class LndClient extends BaseClient implements LndClient {
       request.setMemo(memo);
     }
 
-    const response = await this.unaryInvoicesCall<invoicesrpc.AddHoldInvoiceRequest, invoicesrpc.AddHoldInvoiceResp.AsObject>(
+    return await this.unaryInvoicesCall<invoicesrpc.AddHoldInvoiceRequest, invoicesrpc.AddHoldInvoiceResp.AsObject>(
       'addHoldInvoice',
       request,
     );
-
-    return response;
   }
 
   /**
    * Pay an invoice through the Lightning Network.
    *
    * @param invoice an invoice for a payment within the Lightning Network
+   * @param outgoingChannelId channel through which the invoice should be paid
    */
-  public sendPayment = async (invoice: string): Promise<SendResponse> => {
+  public sendPayment = async (invoice: string, outgoingChannelId?: number): Promise<SendResponse> => {
     const request = new lndrpc.SendRequest();
     request.setPaymentRequest(invoice);
+
+    if (outgoingChannelId) {
+      request.setOutgoingChanId(outgoingChannelId);
+    }
 
     const response = await this.unaryCall<lndrpc.SendRequest, lndrpc.SendResponse.AsObject>('sendPaymentSync', request);
 
@@ -385,16 +386,23 @@ class LndClient extends BaseClient implements LndClient {
    * Attempts to open a channel to a remote peer
    *
    * @param pubKey identity public key of the remote peer
-   * @param fundingAmount the number of satohis the local wallet should commit
-   * @param pushSat the number of satoshis that should be pushed to the remote side
+   * @param fundingAmount the number of satoshis the local wallet should commit
+   * @param privateChannel whether the channel should be private
+   * @param satPerByte sat/vbyte fee of the funding transaction
    */
-  public openChannel = (pubKey: string, fundingAmount: number, pushSat?: number): Promise<lndrpc.ChannelPoint.AsObject> => {
+  public openChannel = (
+    pubKey: string,
+    fundingAmount: number,
+    privateChannel: boolean,
+    satPerByte: number,
+  ): Promise<lndrpc.ChannelPoint.AsObject> => {
     const request = new lndrpc.OpenChannelRequest();
+    request.setPrivate(privateChannel);
     request.setNodePubkeyString(pubKey);
     request.setLocalFundingAmount(fundingAmount);
 
-    if (pushSat) {
-      request.setPushSat(pushSat);
+    if (satPerByte) {
+      request.setSatPerByte(satPerByte);
     }
 
     return this.unaryCall<lndrpc.OpenChannelRequest, lndrpc.ChannelPoint.AsObject>('openChannelSync', request);
@@ -403,10 +411,18 @@ class LndClient extends BaseClient implements LndClient {
   /**
    * Gets a list of all open channels
    */
-  public listChannels = () => {
+  public listChannels = (activeOnly = false) => {
     const request = new lndrpc.ListChannelsRequest();
+    request.setActiveOnly(activeOnly);
 
     return this.unaryCall<lndrpc.ListChannelsRequest, lndrpc.ListChannelsResponse.AsObject>('listChannels', request);
+  }
+
+  /**
+   * Gets a list of all peers
+   */
+  public listPeers = () => {
+    return this.unaryCall<lndrpc.ListPeersRequest, lndrpc.ListPeersResponse.AsObject>('listPeers', new lndrpc.ListPeersRequest());
   }
 
   /**

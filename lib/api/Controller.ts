@@ -223,6 +223,7 @@ class Controller {
         orderSide,
         refundPublicKey,
         invoice.toLowerCase(),
+        channel,
       );
     } else {
       // Check that the preimage hash was set
@@ -237,6 +238,7 @@ class Controller {
         orderSide,
         refundPublicKey,
         preimageHash,
+        channel,
       );
     }
 

@@ -58,6 +58,10 @@ type BackupConfig = {
   interval: string;
 };
 
+type ChannelConfig = {
+  interval: number;
+};
+
 type NotificationConfig = {
   token: string;
   channel: string;
@@ -82,6 +86,7 @@ type ConfigType = {
   grpc: GrpcConfig;
   rates: RatesConfig;
   backup: BackupConfig;
+  channels: ChannelConfig;
   notification: NotificationConfig;
 
   pairs: PairConfig[];
@@ -92,7 +97,7 @@ type ConfigType = {
 
 class Config {
   // Default paths
-  public static defaultDataDir = getServiceDataDir('boltz-middleware');
+  public static defaultDataDir = getServiceDataDir('boltz');
 
   public static defaultConfigPath = 'boltz.conf';
   public static defaultMnemonicPath = 'seed.dat';
@@ -106,9 +111,8 @@ class Config {
 
   public static defaultOtpSecretPath = 'otpSecret.dat';
 
-  private config: ConfigType;
-
-  private dataDir = Config.defaultDataDir;
+  private readonly config: ConfigType;
+  private readonly dataDir = Config.defaultDataDir;
 
   /**
    * The constructor sets the default values
@@ -158,6 +162,10 @@ class Config {
         bucketname: '',
 
         interval: '0 0 * * *',
+      },
+
+      channels: {
+        interval: 10,
       },
 
       notification: {

@@ -26,8 +26,6 @@ type SwapType = {
   onchainAmount?: number;
   lockupAddress: string;
   lockupTransactionId?: string;
-
-  inboundCapacity?: number;
 };
 
 class Swap extends Model implements SwapType {
@@ -56,10 +54,6 @@ class Swap extends Model implements SwapType {
   public lockupAddress!: string;
   public lockupTransactionId?: string;
 
-  // Only relevant and set when creating a channel creation swap
-  // Inbound of from the POV of the user creating the swap
-  public inboundCapacity?: number;
-
   public createdAt!: string;
   public updatedAt!: string;
 
@@ -83,7 +77,6 @@ class Swap extends Model implements SwapType {
       onchainAmount: { type: new DataTypes.INTEGER(), allowNull: true },
       lockupAddress: { type: new DataTypes.STRING(255), allowNull: false },
       lockupTransactionId: { type: new DataTypes.STRING(255), allowNull: true },
-      inboundCapacity: { type: new DataTypes.INTEGER(), allowNull: true },
     }, {
       sequelize,
       tableName: 'swaps',

@@ -3,7 +3,6 @@ import Swap, { SwapType } from './models/Swap';
 import { SwapUpdateEvent } from '../consts/Enums';
 
 class SwapRepository {
-
   public getSwaps = async (options?: WhereOptions): Promise<Swap[]> => {
     return Swap.findAll({
       where: options,
@@ -65,7 +64,7 @@ class SwapRepository {
     });
   }
 
-  public dropTable = async () => {
+  public dropTable = () => {
     return Swap.drop();
   }
 }

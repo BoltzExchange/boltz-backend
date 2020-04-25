@@ -11,7 +11,7 @@ ARG VERSION
 COPY --from=berkeley-db /opt /opt
 
 RUN apt-get update && apt-get -y upgrade
-RUN apt-get -y install \
+RUN DEBIAN_FRONTEND=noninteractive apt-get -y install \
   wget \
   libtool \
   python3 \

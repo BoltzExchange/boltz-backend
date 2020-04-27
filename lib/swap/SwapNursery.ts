@@ -15,20 +15,20 @@ import ReverseSwap from '../db/models/ReverseSwap';
 import ChannelCreation from '../db/models/ChannelCreation';
 import ReverseSwapRepository from '../db/ReverseSwapRepository';
 import WalletManager, { Currency } from '../wallet/WalletManager';
-import ChannelCreationRepository from '../db/ChannelCreationRepository';
 import { ChannelCreationType, SwapUpdateEvent } from '../consts/Enums';
+import ChannelCreationRepository from '../db/ChannelCreationRepository';
 import {
   getRate,
   splitPairId,
   formatError,
   getHexBuffer,
   getHexString,
+  decodeInvoice,
   reverseBuffer,
   getChainCurrency,
   getSwapOutputType,
   transactionHashToId,
   getLightningCurrency,
-  getInvoicePreimageHash,
   transactionSignalsRbfExplicitly,
 } from '../Utils';
 
@@ -42,6 +42,9 @@ interface SwapNursery {
   // Swap related events
   on(event: 'claim', listener: (swap: Swap) => void): this;
   emit(event: 'claim', swap: Swap): boolean;
+
+  on(event: 'invoice.pending', listener: (swap: Swap) => void): this;
+  emit(even: 'invoice.pending', swap: Swap): boolean;
 
   on(event: 'invoice.paid', listener: (swap: Swap) => void): this;
   emit(event: 'invoice.paid', swap: Swap): boolean;
@@ -66,24 +69,25 @@ interface SwapNursery {
   emit(event: 'invoice.settled', reverseSwap: ReverseSwap): boolean;
 }
 
-// TODO: retry logic for normal Submarine Swaps (Channel Creation ones of the create type are handled by the ChannelNursery)
 // TODO: remove finished swaps from filters (make sure they are actually gone)
 class SwapNursery extends EventEmitter {
-  public lock = new AsyncLock();
-
   public static reverseSwapMempoolEta = 2;
 
-  private lndClients = new Map<string, LndClient>();
-  private chainClients = new Map<string, ChainClient>();
+  private lock = new AsyncLock();
+
+  private currencies = new Map<string, Currency>();
 
   private channelNursery: ChannelNursery;
+
+  private static retryLock = 'lock';
 
   private static swapLock = 'swap';
   private static reverseSwapLock = 'reverseSwap';
 
+  // TODO: implement retry logic; how long to retry swaps that have not timed out yet (+ eventually emit "invoice.failedToPay" event)
   constructor(
     private logger: Logger,
-    channelsInterval: number,
+    retryInterval: number,
     private rateProvider: RateProvider,
     private walletManager: WalletManager,
     private swapRepository: SwapRepository,
@@ -103,29 +107,88 @@ class SwapNursery extends EventEmitter {
         return this.attemptSettleSwap(
           currency,
           this.walletManager.wallets.get(currency.symbol)!,
-          currency.chainClient,
           swap,
           Transaction.fromHex(lockupTransaction),
           true,
           outgoingChannelId,
         );
       },
-      channelsInterval,
     );
+
+    this.logger.info(`Setting Swap retry interval to ${retryInterval} seconds`);
+
+    setInterval(async () => {
+      // Skip this iteration if the last one is still running
+      if (this.lock.isBusy(SwapNursery.retryLock)) {
+        return;
+      }
+
+      this.logger.silly('Retrying to settle Swaps');
+
+      await this.lock.acquire(SwapNursery.retryLock, async () => {
+        await this.lock.acquire(SwapNursery.swapLock, async () => {
+          const unsettledSwaps = await this.swapRepository.getSwaps({
+            status: {
+              [Op.eq]: SwapUpdateEvent.InvoicePending,
+            },
+          });
+
+          for (const swap of unsettledSwaps) {
+            const channelCreation = await this.channelCreationRepository.getChannelCreation({
+              swapId: {
+                [Op.eq]: swap.id,
+              },
+              status: {
+                // tslint:disable-next-line:no-null-keyword
+                [Op.not]: null,
+              },
+            });
+
+            // The ChannelNursery takes care of settling attempted Channel Creations
+            if (channelCreation) {
+              continue;
+            }
+
+            const { base, quote } = splitPairId(swap.pair);
+            const chainCurrency = this.currencies.get(getChainCurrency(base, quote, swap.orderSide, false))!;
+
+            const lockupTransaction = await chainCurrency.chainClient.getRawTransaction(swap.lockupTransactionId!);
+
+            try {
+              await this.attemptSettleSwap(
+                chainCurrency,
+                this.walletManager.wallets.get(chainCurrency.symbol)!,
+                swap,
+                Transaction.fromHex(lockupTransaction),
+                // Since the lockup transaction confirmed already or 0-conf was accepted, the 0-conf checks can just be skipped
+                true,
+              );
+            } catch (error) {
+              this.logger.debug(`Could not settle Swap ${swap.id} on retry: ${formatError(error)}`);
+            }
+          }
+        });
+      });
+    }, retryInterval * 1000);
+  }
+
+  public init = async (currencies: Currency[]) => {
+    currencies.forEach((currency) => {
+      this.bindCurrency(currency);
+    });
+
+    await this.channelNursery.init(currencies);
   }
 
   // TODO: write integration tests
-  public bindCurrency = (currency: Currency) => {
+  private bindCurrency = (currency: Currency) => {
+    this.currencies.set(currency.symbol, currency);
+
     const { symbol } = currency;
     const { chainClient, lndClient } = currency;
     const wallet = this.walletManager.wallets.get(symbol)!;
 
-    this.chainClients.set(symbol, chainClient);
-
     if (lndClient) {
-      this.lndClients.set(symbol, lndClient);
-      this.channelNursery.bindCurrency(currency);
-
       lndClient.on('htlc.accepted', async (invoice) => {
         await this.lock.acquire(SwapNursery.reverseSwapLock, async () => {
           const reverseSwap = await this.reverseSwapRepository.getReverseSwap({
@@ -186,18 +249,21 @@ class SwapNursery extends EventEmitter {
               );
 
               // If no invoice was set yet we have to wait for the client
-              if (swap!.status === SwapUpdateEvent.SwapCreated) {
+              if (!swap!.invoice) {
                 continue;
               }
 
-              await this.attemptSettleSwap(
-                currency,
-                wallet,
-                chainClient,
-                swap!,
-                transaction,
-                confirmed,
-              );
+              try {
+                await this.attemptSettleSwap(
+                  currency,
+                  wallet,
+                  swap!,
+                  transaction,
+                  confirmed,
+                );
+              } catch (error) {
+                this.logger.warn(`Could not settle Swap ${swap!.id}: ${formatError(error)}`);
+              }
             }
           }
         }),
@@ -329,7 +395,6 @@ class SwapNursery extends EventEmitter {
   public attemptSettleSwap = async (
     currency: Currency,
     wallet: Wallet,
-    chainClient: ChainClient,
     swap: Swap,
     transaction: Transaction,
     confirmed: boolean,
@@ -340,15 +405,15 @@ class SwapNursery extends EventEmitter {
     // Confirmed transactions do not have to be checked for 0-conf criteria
     if (!confirmed) {
       // Check if the transaction signals RBF
-      const signalsRbf = await this.transactionSignalsRbf(chainClient, transaction);
+      const signalsRbf = await this.transactionSignalsRbf(currency.chainClient, transaction);
 
       if (signalsRbf) {
         zeroConfRejectedReason = 'transaction or one of its unconfirmed ancestors signals RBF';
       } else {
         // Check if the transaction has a fee high enough to be confirmed in a timely manner
-        const feeEstimation = await chainClient.estimateFee();
+        const feeEstimation = await currency.chainClient.estimateFee();
 
-        const transactionFee = await this.calculateTransactionFee(chainClient, transaction);
+        const transactionFee = await this.calculateTransactionFee(currency.chainClient, transaction);
         const transactionFeePerVbyte = transactionFee / transaction.virtualSize();
 
         // If the transaction fee is less than 80% of the estimation, Boltz will wait for a confirmation
@@ -365,40 +430,38 @@ class SwapNursery extends EventEmitter {
     }
 
     if (zeroConfRejectedReason !== undefined) {
-      this.logger.warn(`Rejected 0-conf ${chainClient.symbol} transaction ${transaction.getId()}: ${zeroConfRejectedReason}`);
+      this.logger.warn(`Rejected 0-conf ${currency.symbol} transaction ${transaction.getId()}: ${zeroConfRejectedReason}`);
       this.emit('zeroconf.rejected', swap, zeroConfRejectedReason);
     } else if (confirmed || swap.acceptZeroConf) {
       const swapOutput = detectSwap(getHexBuffer(swap.redeemScript), transaction)!;
 
       if (!confirmed) {
-        this.logger.silly(`Accepted 0-conf ${chainClient.symbol} swap: ${transaction.getId()}:${swapOutput.vout}`);
+        this.logger.silly(`Accepted 0-conf ${currency.symbol} swap: ${transaction.getId()}:${swapOutput.vout}`);
       }
 
-      chainClient.removeOutputFilter(swapOutput.script);
+      currency.chainClient.removeOutputFilter(swapOutput.script);
 
-      // If the Swap should always open a channel regardless of whether the invoice can be paid,
-      // the channel will be opened at this point
       const channelCreation = await this.channelCreationRepository.getChannelCreation({
         swapId: {
           [Op.eq]: swap.id,
         },
       });
 
-      // TODO: check amount before creating a channel
+      // If the Swap should always open a channel regardless of whether the invoice can be paid,
+      // the channel will be opened at this point
       if (channelCreation) {
         if (channelCreation.type === ChannelCreationType.Create && channelCreation.status === null) {
-          if (swap.onchainAmount! < swap.expectedAmount!) {
+          if (swap.onchainAmount! >= swap.expectedAmount!) {
+            // TODO: cross chain
             await this.channelNursery.openChannel(currency, swap, channelCreation);
           }
 
-          return false;
+          return;
         }
       }
 
-      return await this.claimSwap(currency, wallet, swap, channelCreation, transaction, swapOutput.vout, outgoingChannelId);
+      await this.claimSwap(currency, wallet, swap, channelCreation, transaction, swapOutput.vout, outgoingChannelId);
     }
-
-    return false;
   }
 
   private claimSwap = async (
@@ -412,8 +475,11 @@ class SwapNursery extends EventEmitter {
   ) => {
     // If there is a Channel Creation but no outgoing channel id specified, this function won't do anything
     if (channelCreation) {
-      if (channelCreation.fundingTransactionId !== null && outgoingChannelId === undefined) {
-        return false;
+      if (
+        channelCreation.fundingTransactionId !== null && outgoingChannelId === undefined ||
+        channelCreation.type === ChannelCreationType.Create && channelCreation.fundingTransactionId === null
+      ) {
+        return;
       }
     }
 
@@ -423,10 +489,15 @@ class SwapNursery extends EventEmitter {
     if (output.value < swap.expectedAmount!) {
       this.logger.error(`Aborting ${currency.symbol} swap: value ${output.value} of ${swapOutput} is less than expected ${swap.expectedAmount}`);
       // TODO: emit event
-      return false;
+      return;
     }
 
-    this.logger.verbose(`Claiming ${currency.symbol} swap output: ${swapOutput}`);
+    this.logger.verbose(`Claiming ${currency.symbol} Swap ${swap.id} output: ${swapOutput}`);
+
+    if (swap.status !== SwapUpdateEvent.InvoicePending) {
+      await this.swapRepository.setSwapStatus(swap, SwapUpdateEvent.InvoicePending);
+      this.emit('invoice.pending', swap);
+    }
 
     const { base, quote } = splitPairId(swap.pair);
     const lightningCurrency = getLightningCurrency(base, quote, swap.orderSide, false);
@@ -437,21 +508,34 @@ class SwapNursery extends EventEmitter {
     } | undefined;
 
     try {
-      response = await this.payInvoice(this.lndClients.get(lightningCurrency)!, swap.invoice!, outgoingChannelId);
+      response = await this.payInvoice(this.currencies.get(lightningCurrency)!.lndClient!, swap.invoice!, outgoingChannelId);
     } catch (error) {
-      if (channelCreation) {
-        if (channelCreation.type === ChannelCreationType.Auto && channelCreation.status === null) {
-          this.logger.verbose(`Could not pay invoice of Swap ${swap.id}: starting Channel Creation`);
-          await this.channelNursery.openChannel(currency, swap, channelCreation);
-        } else {
-          this.logger.verbose(`Waiting for channel to become active to claim Swap ${swap.id}: ${formatError(error)}`);
-        }
-      } else {
-        this.logger.warn(`Could not pay invoice ${swap.invoice!}: ${formatError(error)}`);
-        this.emit('invoice.failedToPay', await this.swapRepository.setSwapStatus(swap, SwapUpdateEvent.InvoiceFailedToPay));
+      this.logger.debug(`Could not pay invoice of Swap ${swap.id}: ${formatError(error)}`);
+
+      // TODO: double check if peer is connected to us -> open a channel in all cases
+      /*
+       * Errors that should trigger no Channel Creation and a retry:
+       *  - "unable to route payment to destination: UnknownNextPeer@"
+       *
+       * Errors that should always trigger a Channel Creation:
+       *  - "insufficient local balance"
+       *  - "unable to find a path to destination"
+       *
+       * Just to be sure we also open a channel for errors of the type string we don't know how to handle
+       */
+
+      if (
+        channelCreation &&
+        typeof error === 'string' &&
+        !error.startsWith('unable to route payment to destination: UnknownNextPeer')
+      ) {
+        // TODO: cross chain support
+        await this.channelNursery.openChannel(currency, swap, channelCreation);
+        return;
       }
 
-      return false;
+      // Since paying the invoice failed, we can't continue with the claiming flow
+      throw `could not pay invoice: ${formatError(error)}`;
     }
 
     this.logger.silly(`Got ${currency.symbol} preimage: ${getHexString(response.preimage)}`);
@@ -481,8 +565,6 @@ class SwapNursery extends EventEmitter {
 
     await currency.chainClient.sendRawTransaction(claimTx.toHex());
     this.emit('claim', await this.swapRepository.setMinerFee(swap, minerFee));
-
-    return true;
   }
 
   private sendReverseSwapCoins = async (reverseSwap: ReverseSwap) => {
@@ -491,7 +573,7 @@ class SwapNursery extends EventEmitter {
     const lightningCurrency = getLightningCurrency(base, quote, reverseSwap.orderSide, true);
 
     try {
-      const chainClient = this.chainClients.get(chainCurrency)!;
+      const chainClient = this.currencies.get(chainCurrency)!.chainClient;
       const wallet = this.walletManager.wallets.get(chainCurrency)!;
 
       const feePerVbyte = await chainClient.estimateFee(SwapNursery.reverseSwapMempoolEta);
@@ -504,9 +586,9 @@ class SwapNursery extends EventEmitter {
 
       this.emit('coins.sent', await this.reverseSwapRepository.setLockupTransaction(reverseSwap, transactionId, fee), transaction);
     } catch (error) {
-      const preimageHash = getHexBuffer(getInvoicePreimageHash(reverseSwap.invoice));
+      const preimageHash = getHexBuffer(decodeInvoice(reverseSwap.invoice).paymentHash!);
 
-      const lndClient = this.lndClients.get(lightningCurrency)!;
+      const lndClient = this.currencies.get(lightningCurrency)!.lndClient!;
       await this.cancelInvoice(lndClient, preimageHash);
 
       this.logger.warn(`Failed to send ${reverseSwap.onchainAmount} ${chainCurrency} to reverse swap: ${formatError(error)}`);
@@ -521,7 +603,7 @@ class SwapNursery extends EventEmitter {
     const { base, quote } = splitPairId(reverseSwap.pair);
     const lightningCurrency = getLightningCurrency(base, quote, reverseSwap.orderSide, true);
 
-    const lndClient = this.lndClients.get(lightningCurrency)!;
+    const lndClient = this.currencies.get(lightningCurrency)!.lndClient!;
     await lndClient.settleInvoice(preimage);
 
     this.emit('invoice.settled', await this.reverseSwapRepository.setInvoiceSettled(reverseSwap, getHexString(preimage)));
@@ -578,8 +660,8 @@ class SwapNursery extends EventEmitter {
 
     await chainClient.sendRawTransaction(refundTransaction.toHex());
 
-    const preimageHash = getHexBuffer(getInvoicePreimageHash(reverseSwap.invoice));
-    await this.cancelInvoice(this.lndClients.get(lightningCurrency)!, preimageHash);
+    const preimageHash = getHexBuffer(decodeInvoice(reverseSwap.invoice).paymentHash!);
+    await this.cancelInvoice(this.currencies.get(lightningCurrency)!.lndClient!, preimageHash);
 
     this.emit('refund', await this.reverseSwapRepository.setTransactionRefunded(reverseSwap, minerFee), refundTransaction.getId());
   }

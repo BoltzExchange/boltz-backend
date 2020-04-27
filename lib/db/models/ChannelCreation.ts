@@ -10,6 +10,7 @@ type ChannelCreationType = {
   private: boolean;
   inboundLiquidity: number;
 
+  nodePublicKey?: string;
   fundingTransactionId?: string;
   fundingTransactionVout?: number;
 };
@@ -23,6 +24,7 @@ class ChannelCreation extends Model implements ChannelCreationType {
   public private!: boolean;
   public inboundLiquidity!: number;
 
+  public nodePublicKey?: string;
   public fundingTransactionId?: string;
   public fundingTransactionVout?: number;
 
@@ -32,6 +34,7 @@ class ChannelCreation extends Model implements ChannelCreationType {
       status: { type: new DataTypes.STRING(255), allowNull: true },
       type: { type: new DataTypes.STRING(255), allowNull: false },
       private: { type: DataTypes.BOOLEAN, allowNull: false },
+      nodePublicKey: { type: new DataTypes.STRING(255), allowNull: true },
       inboundLiquidity: { type: new DataTypes.INTEGER(), allowNull: false },
       fundingTransactionId: { type: new DataTypes.STRING(255), allowNull: true },
       fundingTransactionVout: { type: new DataTypes.INTEGER(), allowNull: true },

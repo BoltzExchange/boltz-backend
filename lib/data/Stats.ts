@@ -5,7 +5,7 @@ import SwapRepository from '../db/SwapRepository';
 import ReverseSwap from '../db/models/ReverseSwap';
 import { satoshisToCoins } from '../DenominationConverter';
 import ReverseSwapRepository from '../db/ReverseSwapRepository';
-import { splitPairId, getInvoiceAmt, stringify, mapToObject } from '../Utils';
+import { splitPairId, decodeInvoice, stringify, mapToObject } from '../Utils';
 
 class Stats {
   private volumeMap = new Map<string, number>();
@@ -75,7 +75,7 @@ class Stats {
       (isReverse && orderSide === OrderSide.BUY) ||
       (!isReverse && orderSide === OrderSide.SELL)
     ) {
-      return getInvoiceAmt(invoice);
+      return decodeInvoice(invoice).satoshis;
     } else {
       return onchainAmount;
     }

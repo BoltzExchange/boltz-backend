@@ -3,9 +3,9 @@ import grpc, { ClientReadableStream } from 'grpc';
 import Errors from './Errors';
 import Logger from '../Logger';
 import BaseClient from '../BaseClient';
-import { getHexString } from '../Utils';
 import * as lndrpc from '../proto/lndrpc_pb';
 import { ClientStatus } from '../consts/Enums';
+import { formatError, getHexString } from '../Utils';
 import * as invoicesrpc from '../proto/lndinvoices_pb';
 import { LightningClient } from '../proto/lndrpc_grpc_pb';
 import { InvoicesClient } from '../proto/lndinvoices_grpc_pb';
@@ -49,6 +49,12 @@ interface GrpcResponse {
 }
 
 interface LndClient {
+  on(event: 'peer.online', listener: (publicKey: string) => void): this;
+  emit(event: 'peer.online', publicKey: string): boolean;
+
+  on(even: 'channel.active', listener: (channel: lndrpc.ChannelPoint.AsObject) => void): this;
+  emit(even: 'channel.active', channel: lndrpc.ChannelPoint.AsObject): boolean;
+
   on(event: 'htlc.accepted', listener: (invoice: string) => void): this;
   emit(event: 'htlc.accepted', invoice: string): boolean;
 
@@ -73,7 +79,9 @@ class LndClient extends BaseClient implements LndClient {
   private invoices?: InvoicesClient;
   private lightning?: LightningClient;
 
-  private channelBackupSubscription?: ClientReadableStream<lndrpc.ChannelBackupSubscription>;
+  private peerEventSubscription?: ClientReadableStream<lndrpc.PeerEvent>;
+  private channelEventSubscription?: ClientReadableStream<lndrpc.ChannelEventUpdate>;
+  private channelBackupSubscription?: ClientReadableStream<lndrpc.ChanBackupSnapshot>;
 
   /**
    * Create an LND client
@@ -120,6 +128,8 @@ class LndClient extends BaseClient implements LndClient {
         await this.getInfo();
 
         if (startSubscriptions) {
+          this.subscribePeerEvents();
+          this.subscribeChannelEvents();
           this.subscribeChannelBackups();
         }
 
@@ -149,6 +159,8 @@ class LndClient extends BaseClient implements LndClient {
       this.setClientStatus(ClientStatus.Connected);
       this.clearReconnectTimer();
 
+      this.subscribePeerEvents();
+      this.subscribeChannelEvents();
       this.subscribeChannelBackups();
     } catch (err) {
       this.logger.error(`Could not reconnect to ${LndClient.serviceName} ${this.symbol}: ${err}`);
@@ -173,6 +185,16 @@ class LndClient extends BaseClient implements LndClient {
     if (this.invoices) {
       this.invoices.close();
       this.invoices = undefined;
+    }
+
+    if (this.peerEventSubscription) {
+      this.peerEventSubscription.cancel();
+      this.peerEventSubscription = undefined;
+    }
+
+    if (this.channelEventSubscription) {
+      this.channelEventSubscription.cancel();
+      this.channelEventSubscription = undefined;
     }
 
     if (this.channelBackupSubscription) {
@@ -473,6 +495,40 @@ class LndClient extends BaseClient implements LndClient {
       });
   }
 
+  private subscribePeerEvents = () => {
+    if (this.peerEventSubscription) {
+      this.peerEventSubscription.cancel();
+    }
+
+    this.peerEventSubscription = this.lightning!.subscribePeerEvents(new lndrpc.PeerEventSubscription(), this.meta)
+      .on('data', (event: lndrpc.PeerEvent) => {
+        if (event.getType() === lndrpc.PeerEvent.EventType.PEER_ONLINE) {
+          this.emit('peer.online', event.getPubKey());
+        }
+      })
+      .on('error', async (error) => {
+        this.logger.error(`Peer event subscription errored: ${formatError(error)}`);
+        await this.reconnect();
+      });
+  }
+
+  private subscribeChannelEvents = () => {
+    if (this.channelEventSubscription) {
+      this.channelEventSubscription.cancel();
+    }
+
+    this.channelEventSubscription = this.lightning!.subscribeChannelEvents(new lndrpc.ChannelEventSubscription(), this.meta)
+      .on('data', (event: lndrpc.ChannelEventUpdate) => {
+        if (event.getType() === lndrpc.ChannelEventUpdate.UpdateType.ACTIVE_CHANNEL) {
+          this.emit('channel.active', event.getActiveChannel()!.toObject());
+        }
+      })
+      .on('error', async(error) => {
+        this.logger.error(`Channel event subscription errored: ${formatError(error)}`);
+        await this.reconnect();
+      });
+  }
+
   private subscribeChannelBackups = () => {
     if (this.channelBackupSubscription) {
       this.channelBackupSubscription.cancel();
@@ -488,7 +544,7 @@ class LndClient extends BaseClient implements LndClient {
         }
       })
       .on('error', async (error) => {
-        this.logger.error(`Channel backup subscription errored: ${error}`);
+        this.logger.error(`Channel backup subscription errored: ${formatError(error)}`);
         await this.reconnect();
       });
   }

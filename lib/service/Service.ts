@@ -36,13 +36,11 @@ import {
   getSwapMemo,
   getHexBuffer,
   getHexString,
-  getInvoiceAmt,
   reverseBuffer,
   getChainCurrency,
   getSwapOutputType,
   getLightningCurrency,
-  getInvoicePreimageHash,
-  getSendingReceivingCurrency,
+  getSendingReceivingCurrency, decodeInvoice,
 } from '../Utils';
 
 class Service {
@@ -77,7 +75,7 @@ class Service {
 
     this.swapManager = new SwapManager(
       this.logger,
-      config.channels.interval,
+      config.retryInterval,
       this.walletManager,
       this.rateProvider,
     );
@@ -547,7 +545,7 @@ class Service {
     const chainCurrency = getChainCurrency(base, quote, swap.orderSide, false);
     const lightningCurrency = getLightningCurrency(base, quote, swap.orderSide, false);
 
-    const invoiceAmount = getInvoiceAmt(invoice);
+    const invoiceAmount = decodeInvoice(invoice).satoshis!;
     const rate = swap.rate || getRate(pairRate, swap.orderSide, false);
 
     this.verifyAmount(swap.pair, rate, invoiceAmount, swap.orderSide, false);
@@ -611,7 +609,7 @@ class Service {
       throw Errors.SWAP_WITH_INVOICE_EXISTS();
     }
 
-    const preimageHash = getHexBuffer(getInvoicePreimageHash(invoice));
+    const preimageHash = getHexBuffer(decodeInvoice(invoice).paymentHash!);
 
     const {
       id,
@@ -637,6 +635,13 @@ class Service {
         timeoutBlockHeight,
       };
     } catch (error) {
+      const channelCreation = await this.swapManager.channelCreationRepository.getChannelCreation({
+        swapId: {
+          [Op.eq]: id,
+        },
+      });
+      await channelCreation?.destroy();
+
       swap = await this.swapManager.swapRepository.getSwap({
         id: {
           [Op.eq]: id,

@@ -1,6 +1,6 @@
 import { WhereOptions } from 'sequelize';
-import ChannelCreation, { ChannelCreationType } from './models/ChannelCreation';
 import { ChannelCreationStatus } from '../consts/Enums';
+import ChannelCreation, { ChannelCreationType } from './models/ChannelCreation';
 
 class ChannelCreationRepository {
   public getChannelCreation = (options?: WhereOptions): Promise<ChannelCreation | undefined> => {
@@ -19,6 +19,12 @@ class ChannelCreationRepository {
     return ChannelCreation.create(channelCreation);
   }
 
+  public setAttempted = (channelCreation: ChannelCreation): Promise<ChannelCreation> => {
+    return channelCreation.update({
+      status: ChannelCreationStatus.Attempted,
+    });
+  }
+
   public setFundingTransaction = (
     channelCreation: ChannelCreation,
     fundingTransactionId: string,
@@ -28,6 +34,12 @@ class ChannelCreationRepository {
       fundingTransactionId,
       fundingTransactionVout,
       status: ChannelCreationStatus.Created,
+    });
+  }
+
+  public setNodePublicKey = (channelCreation: ChannelCreation, nodePublicKey: string): Promise<ChannelCreation> => {
+    return channelCreation.update({
+      nodePublicKey,
     });
   }
 

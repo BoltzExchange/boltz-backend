@@ -146,7 +146,7 @@ describe('Utils', () => {
     expect(utils.minutesToMilliseconds(random)).toEqual(milliseconds);
   });
 
-  test('should get amount of invoice', () => {
+/*  test('should get amount of invoice', () => {
     expect(utils.getInvoiceAmt(
       // tslint:disable-next-line: max-line-length
       'lnbcrt100u1pwddnw3pp5rykwp0q399hrcluxnyhv7kfpmk4uttpu00wx9098cesacr9yzk8sdqqcqzpgn9g5vjr0qcudrgu66phz5tx0j0fnxe0gzyl5u6yat9y3xskrqyhherceutcuh9m6h89anphe5un3qac8f2r9j5hykn3uh6z0zkp9racp5lecss',
@@ -178,6 +178,37 @@ describe('Utils', () => {
       // tslint:disable-next-line: max-line-length
       'lnrltc1p0ygcy6pp5fl4dep6ejq77j0svecfagw4v3pm2wh3py0jtdyjkunfa2wvv7nqqdqqcqzjqsp5gcnzt7pmsx9zxcu4ul2ay90yhrdna4c4u33a9zejac69ay7jatus9qy9qsqmprjwy3lfxz9j3jum8nnfst02lp9ww6tkm6yut0fqvcwswlqfcjkshgdkuwg3te7ut5hqts8ky20jefswnvs8axweuffn3423vrssusq68krf8',
     )).toEqual('4feadc8759903de93e0cce13d43aac8876a75e2123e4b69256e4d3d5398cf4c0');
+  });*/
+
+  test('should decode invoices', () => {
+    // Sanity checks
+    let decoded = utils.decodeInvoice('lnbcrt100u1pwddnw3pp5rykwp0q399hrcluxnyhv7kfpmk4uttpu00wx9098cesacr9yzk8sdqqcqzpgn9g5vjr0qcudrgu66phz5tx0j0fnxe0gzyl5u6yat9y3xskrqyhherceutcuh9m6h89anphe5un3qac8f2r9j5hykn3uh6z0zkp9racp5lecss');
+
+    expect(decoded.satoshis).toEqual(10000);
+    expect(decoded.routingInfo).toEqual(undefined);
+    expect(decoded.paymentHash).toEqual('192ce0bc11296e3c7f86992ecf5921ddabc5ac3c7bdc62bca7c661dc0ca4158f');
+
+    decoded = utils.decodeInvoice('lnbcrt987650n1pwddnskpp5d4tw4gpjgqdqlgkq5yc309r2kguure53cff8a0kjta5hurltc4yqdqqcqzpgzeu404h9udp5ay39kdvau7m5kdkvycajfhx46slgkfgyhpngnztptulxpx8s7qncp45v5nxjulje5268cu22gxysg9hm3ul8ktrw5zgqcg98hg');
+
+    expect(decoded.satoshis).toEqual(98765);
+    expect(decoded.routingInfo).toEqual(undefined);
+    expect(decoded.paymentHash).toEqual('6d56eaa032401a0fa2c0a13117946ab239c1e691c2527ebed25f697e0febc548');
+
+    // Invoices with zero amount
+    decoded = utils.decodeInvoice('lntb1p0p7f6lpp58zpsxk88e8uz2lndqrf9radths484jqlhmas92kt7md2cqszpn6qdqqcqzpgrzjqtejjv7p39kcv5gezydzgse8ea3kcw8zqe36afy64zem09us5hjgcxgphsqqqzsqqyqqqqlgqqqqqqgq9q4wqv5a4uwhhvfh93k2ue75lrre50tk99pk689qgf6ul5my5vr749689wcunnv7zjcuk7jlpwz44fv87ra2snsjzw34pnfs5d477u82cpm6cym6');
+
+    expect(decoded.satoshis).toEqual(0);
+
+    // Routing info
+    decoded = utils.decodeInvoice('lnbc1p023g0zpp5rrr09tcxfymsyxgywe0vpeqzt8ppc7dzlme9e0wa3qqch0fpt8tsdqqxqrrss9qy9qsqsp56xpafe94rfkt5qtc00lua7pwem9znvvq4en9sr2t24kmdq4ll2mqrzjqt3xwz3vyes6nm4p8d70mnwh74f0tydeaesw2eut02l80dle29hevz905gqqjdsqqqqqqqlgqqqqqeqqjqrzjqfsktpgyjffp7jkg40vmmqygzg6yd5fx7eyv5d0xp7ypwlwpf88tyzx0ccqq8msqqqqqqqlgqqqqqeqqjqtk44jdc0f78c6cg8jd02889jud0phxea7nxtj7sue7ft44daf9nye99ekujxxgkgw82t0kxfwetxp9vs5rt54lkfd35vjle0sexhv2qqpv7aq4');
+
+    expect(decoded.routingInfo).toEqual([{
+      fee_base_msat: 1000,
+      cltv_expiry_delta: 144,
+      fee_proportional_millionths: 100,
+      short_channel_id: '08cfc60003ee0000',
+      pubkey: '026165850492521f4ac8abd9bd8088123446d126f648ca35e60f88177dc149ceb2',
+    }]);
   });
 
   test('should get rate', () => {

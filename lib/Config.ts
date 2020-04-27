@@ -7,8 +7,8 @@ import { Network } from './consts/Enums';
 import { PairConfig } from './consts/Types';
 import { ChainConfig } from './chain/ChainClient';
 import { LndConfig } from './lightning/LndClient';
-import { deepMerge, resolveHome, getServiceDataDir } from './Utils';
 import { EthereumConfig } from './wallet/EthereumWallet';
+import { deepMerge, resolveHome, getServiceDataDir } from './Utils';
 
 type ServiceOptions = {
   configpath?: string;
@@ -58,10 +58,6 @@ type BackupConfig = {
   interval: string;
 };
 
-type ChannelConfig = {
-  interval: number;
-};
-
 type NotificationConfig = {
   token: string;
   channel: string;
@@ -82,11 +78,12 @@ type ConfigType = {
 
   loglevel: string;
 
+  retryInterval: number;
+
   api: ApiConfig;
   grpc: GrpcConfig;
   rates: RatesConfig;
   backup: BackupConfig;
-  channels: ChannelConfig;
   notification: NotificationConfig;
 
   pairs: PairConfig[];
@@ -139,6 +136,8 @@ class Config {
       datadir: this.dataDir,
       loglevel: this.getDefaultLogLevel(),
 
+      retryInterval: 15,
+
       api: {
         host: '127.0.0.1',
         port: 9001,
@@ -162,10 +161,6 @@ class Config {
         bucketname: '',
 
         interval: '0 0 * * *',
-      },
-
-      channels: {
-        interval: 10,
       },
 
       notification: {

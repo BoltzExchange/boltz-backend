@@ -88,6 +88,10 @@ class EventHandler extends EventEmitter {
       this.emit('swap.success', swap, true);
     });
 
+    this.nursery.on('invoice.pending', (swap) => {
+      this.emit('swap.update', swap.id, { status: SwapUpdateEvent.InvoicePending });
+    });
+
     this.nursery.on('invoice.paid', (swap) => {
       this.emit('swap.update', swap.id, { status: SwapUpdateEvent.InvoicePaid });
     });

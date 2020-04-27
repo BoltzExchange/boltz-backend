@@ -12,10 +12,10 @@ import { NotificationConfig, CurrencyConfig } from '../Config';
 import { CurrencyInfo, LndInfo, ChainInfo } from '../proto/boltzrpc_pb';
 import {
   splitPairId,
-  getInvoiceAmt,
-  minutesToMilliseconds,
+  decodeInvoice,
   getChainCurrency,
   getLightningCurrency,
+  minutesToMilliseconds,
   getSendingReceivingCurrency,
 } from '../Utils';
 
@@ -23,8 +23,9 @@ import {
 // TODO: use events instead of intervals to check connections and balances
 class NotificationProvider {
   private timer!: any;
-  private discord: DiscordClient;
   private diskUsageChecker: DiskUsageChecker;
+
+  private readonly discord: DiscordClient;
 
   // These Sets contain the symbols for which an alert notification was sent
   private walletAlerts = new Set<string>();
@@ -195,7 +196,7 @@ class NotificationProvider {
         `Order side: ${swap.orderSide === OrderSide.BUY ? 'buy' : 'sell'}`;
 
       if (swap.invoice) {
-        const lightningAmount = getInvoiceAmt(swap.invoice);
+        const lightningAmount = decodeInvoice(swap.invoice).satoshis;
 
         message += `${swap.onchainAmount ? `\nOnchain amount: ${satoshisToCoins(swap.onchainAmount)} ${onchainSymbol}` : ''}` +
           `\nLightning amount: ${satoshisToCoins(lightningAmount)} ${lightningSymbol}`;

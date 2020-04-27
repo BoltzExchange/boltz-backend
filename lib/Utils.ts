@@ -1,6 +1,6 @@
 import os from 'os';
 import path from 'path';
-import bolt11 from '@boltz/bolt11';
+import bolt11, { RoutingInfo } from '@boltz/bolt11';
 import { Transaction } from 'bitcoinjs-lib';
 import { OutputType, Scripts } from 'boltz-core';
 import commitHash from './Version';
@@ -83,23 +83,29 @@ export const minutesToMilliseconds = (minutes: number) => {
   return minutes * 60 * 1000;
 };
 
-/**
- * Gets the amount of an invoice in satoshis
- */
-export const getInvoiceAmt = (invoice: string): number => {
-  return bolt11.decode(invoice).satoshis || 0;
-};
+export const decodeInvoice = (invoice: string) => {
+  const decoded = bolt11.decode(invoice);
 
-export const getInvoicePreimageHash = (invoice: string) => {
-  const { tags } = bolt11.decode(invoice);
+  let payment_hash: string | undefined;
+  let routing_info: bolt11.RoutingInfo | undefined;
 
-  for (const tag of tags) {
-    if (tag.tagName === 'payment_hash') {
-      return tag.data as string;
+  for (const tag of decoded.tags) {
+    switch (tag.tagName) {
+      case 'payment_hash':
+        payment_hash = tag.data as string;
+        break;
+      case 'routing_info':
+        routing_info = tag.data as RoutingInfo;
+        break;
     }
   }
 
-  return '';
+  return {
+    ...decoded,
+    paymentHash: payment_hash,
+    routingInfo: routing_info,
+    satoshis: decoded.satoshis || 0,
+  };
 };
 
 /**
@@ -200,34 +206,6 @@ export const deepMerge = (target: any, ...sources: any[]): object => {
   }
 
   return deepMerge(target, ...sources);
-};
-
-/**
- * Get all methods from an object whose name doesn't start with an underscore.
- */
-export const getPublicMethods = (obj: any): any => {
-  const ret = {};
-  Object.getOwnPropertyNames(Object.getPrototypeOf(obj)).forEach((name) => {
-    const func = obj[name];
-    if ((func instanceof Function) && name !== 'constructor' && !name.startsWith('_')) {
-      ret[name] = func;
-    }
-  });
-  return ret;
-};
-
-export const groupBy = (arr: object[], keyGetter: (item: any) => string | number): any => {
-  const ret = {};
-  arr.forEach((item) => {
-    const key = keyGetter(item);
-    const group = ret[key];
-    if (!group) {
-      ret[key] = [item];
-    } else {
-      group.push(item);
-    }
-  });
-  return ret;
 };
 
 /**

@@ -14,19 +14,19 @@ import ReverseSwapRepository from '../db/ReverseSwapRepository';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import ChannelCreationRepository from '../db/ChannelCreationRepository';
 import {
+  getPairId,
   generateId,
-  getChainCurrency,
+  splitPairId,
+  getSwapMemo,
   getHexBuffer,
   getHexString,
-  getInvoicePreimageHash,
-  getLightningCurrency,
-  getPairId,
-  getScriptHashFunction,
-  getSendingReceivingCurrency,
-  getSwapMemo,
-  getSwapOutputType,
+  decodeInvoice,
   reverseBuffer,
-  splitPairId,
+  getChainCurrency,
+  getSwapOutputType,
+  getLightningCurrency,
+  getScriptHashFunction,
+  getSendingReceivingCurrency, formatError,
 } from '../Utils';
 
 type ChannelCreationInfo = {
@@ -46,7 +46,7 @@ class SwapManager {
 
   constructor(
     private logger: Logger,
-    channelsInterval: number,
+    retryInterval: number,
     private walletManager: WalletManager,
     rateProvider: RateProvider,
   ) {
@@ -56,7 +56,7 @@ class SwapManager {
 
     this.nursery = new SwapNursery(
       this.logger,
-      channelsInterval,
+      retryInterval,
       rateProvider,
       this.walletManager,
       this.swapRepository,
@@ -67,11 +67,10 @@ class SwapManager {
 
   public init = async (currencies: Currency[]) => {
     currencies.forEach((currency) => {
-      if (!this.currencies.get(currency.symbol)) {
-        this.currencies.set(currency.symbol, currency);
-        this.nursery.bindCurrency(currency);
-      }
+      this.currencies.set(currency.symbol, currency);
     });
+
+    await this.nursery.init(currencies);
 
     // TODO: write tests
     const recreateFilters = (swaps: Swap[] | ReverseSwap[], isReverse: boolean) => {
@@ -79,7 +78,7 @@ class SwapManager {
       swaps.forEach((swap: Swap | ReverseSwap) => {
         if (swap.status === SwapUpdateEvent.SwapCreated && isReverse) {
           const invoice = (swap as ReverseSwap).invoice;
-          const preimageHash = getHexBuffer(getInvoicePreimageHash(invoice));
+          const preimageHash = getHexBuffer(decodeInvoice(invoice).paymentHash!);
 
           const { base, quote } = splitPairId(swap.pair);
           const lightningCurrency = getLightningCurrency(base, quote, swap.orderSide, true);
@@ -244,26 +243,27 @@ class SwapManager {
     const { base, quote } = splitPairId(swap.pair);
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(base, quote, swap.orderSide);
 
-    // TODO: use bolt11 library to decode invoices
-    const { paymentHash, numSatoshis, destination, routeHintsList } = await sendingCurrency.lndClient!.decodePayReq(invoice);
+    // TODO: check invoice timeout for channel creation swaps
+    const { paymentHash, satoshis, payeeNodeKey, routingInfo } = decodeInvoice(invoice);
 
     if (paymentHash !== swap.preimageHash) {
       throw Errors.INVOICE_INVALID_PREIMAGE_HASH(swap.preimageHash);
     }
 
-    // If there are route hints the routability check could fail although LND could pay the invoice
-    if (routeHintsList.length === 0) {
-      const channelCreation = this.channelCreationRepository.getChannelCreation({
-        swapId: {
-          [Op.eq]: swap.id,
-        },
-      });
+    const channelCreation = await this.channelCreationRepository.getChannelCreation({
+      swapId: {
+        [Op.eq]: swap.id,
+      },
+    });
 
-      if (!channelCreation) {
-        const routable = await this.checkRoutability(sendingCurrency.lndClient!, destination, numSatoshis);
-        if (!routable) {
-          throw Errors.NO_ROUTE_FOUND();
-        }
+    if (channelCreation) {
+      await this.channelCreationRepository.setNodePublicKey(channelCreation, payeeNodeKey!);
+
+    // If there are route hints the routability check could fail although LND could pay the invoice
+    } else if (routingInfo && routingInfo.length === 0) {
+      const routable = await this.checkRoutability(sendingCurrency.lndClient!, payeeNodeKey!, satoshis);
+      if (!routable) {
+        throw Errors.NO_ROUTE_FOUND();
       }
     }
 
@@ -280,14 +280,17 @@ class SwapManager {
     if (swap.lockupTransactionId) {
       const rawTransaction = await receivingCurrency.chainClient.getRawTransaction(swap.lockupTransactionId);
 
-      await this.nursery.attemptSettleSwap(
-        receivingCurrency,
-        receivingCurrency.wallet,
-        receivingCurrency.chainClient,
-        updatedSwap,
-        Transaction.fromHex(rawTransaction),
-        swap.status === SwapUpdateEvent.TransactionConfirmed,
-      );
+      try {
+        await this.nursery.attemptSettleSwap(
+          receivingCurrency,
+          receivingCurrency.wallet,
+          updatedSwap,
+          Transaction.fromHex(rawTransaction),
+          swap.status === SwapUpdateEvent.TransactionConfirmed,
+        );
+      } catch (error) {
+        this.logger.warn(`Could not settle Swap ${swap!.id}: ${formatError(error)}`);
+      }
     }
   }
 

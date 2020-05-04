@@ -113,10 +113,10 @@ class Controller {
       if (response) {
         this.successResponse(res, response);
       } else {
-        this.errorResponse(res, `could not find swap with id: ${id}`, 404);
+        this.errorResponse(req, res, `could not find swap with id: ${id}`, 404);
       }
     } catch (error) {
-      this.errorResponse(res, error);
+      this.errorResponse(req, res, error);
     }
   }
 
@@ -129,7 +129,7 @@ class Controller {
       const response = await this.service.getSwapRates(id);
       this.successResponse(res, response);
     } catch (error) {
-      this.errorResponse(res, error);
+      this.errorResponse(req, res, error);
     }
   }
 
@@ -143,7 +143,7 @@ class Controller {
       const response = await this.service.getTransaction(currency, transactionId);
       this.successResponse(res, { transactionHex: response });
     } catch (error) {
-      this.errorResponse(res, error);
+      this.errorResponse(req, res, error);
     }
   }
 
@@ -156,7 +156,7 @@ class Controller {
       const response = await this.service.getSwapTransaction(id);
       this.successResponse(res, response);
     } catch (error) {
-      this.errorResponse(res, error);
+      this.errorResponse(req, res, error);
     }
   }
 
@@ -170,7 +170,7 @@ class Controller {
       const response = await this.service.broadcastTransaction(currency, transactionHex);
       this.successResponse(res, { transactionId: response });
     } catch (error) {
-      this.errorResponse(res, error);
+      this.errorResponse(req, res, error);
     }
   }
 
@@ -193,7 +193,7 @@ class Controller {
       }
 
     } catch (error) {
-      this.errorResponse(res, error);
+      this.errorResponse(req, res, error);
     }
   }
 
@@ -283,7 +283,7 @@ class Controller {
       const response = await this.service.setSwapInvoice(id, invoice.toLowerCase());
       this.successResponse(res, response);
     } catch (error) {
-      this.errorResponse(res, error);
+      this.errorResponse(req, res, error);
     }
   }
 
@@ -309,7 +309,7 @@ class Controller {
         this.pendingSwapStreams.delete(id);
       });
     } catch (error) {
-      this.errorResponse(res, error);
+      this.errorResponse(req, res, error);
     }
   }
 
@@ -348,20 +348,20 @@ class Controller {
     return response;
   }
 
-  public errorResponse = (res: Response, error: any, statusCode = 400) => {
+  public errorResponse = (req: Request, res: Response, error: any, statusCode = 400) => {
     if (typeof error === 'string') {
-      this.writeErrorResponse(res, statusCode, { error });
+      this.writeErrorResponse(req, res, statusCode, { error });
     } else {
       // Bitcoin Core related errors
       if (error.details) {
-        this.writeErrorResponse(res, statusCode, { error: error.details });
+        this.writeErrorResponse(req, res, statusCode, { error: error.details });
       // Custom error when broadcasting a refund transaction fails because
       // the locktime requirement has not been met yet
       } else if (error.timeoutBlockHeight) {
-        this.writeErrorResponse(res, statusCode, error);
+        this.writeErrorResponse(req, res, statusCode, error);
       // Everything else
       } else {
-        this.writeErrorResponse(res, statusCode, { error: error.message });
+        this.writeErrorResponse(req, res, statusCode, { error: error.message });
       }
     }
   }
@@ -376,8 +376,8 @@ class Controller {
     res.status(201).json(data);
   }
 
-  private writeErrorResponse = (res: Response, statusCode: number, error: object) => {
-    this.logger.warn(`Request failed: ${JSON.stringify(error)}`);
+  private writeErrorResponse = (req: Request, res: Response, statusCode: number, error: object) => {
+    this.logger.warn(`Request ${req.url} ${JSON.stringify(req.body)} failed: ${JSON.stringify(error)}`);
 
     this.setContentTypeJson(res);
     res.status(statusCode).json(error);

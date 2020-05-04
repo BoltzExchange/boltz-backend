@@ -99,7 +99,7 @@ class WalletManager {
       // TODO: leave global wallet undefined if connection fails
       this.ethereumWallet = new EthereumWallet(this.logger, this.menmonic, this.ethereumConfig);
     } else {
-      this.logger.warn('Not trying to initialize Ethereum wallet: no endpoint was specified');
+      this.logger.warn('Not trying to initialize Ethereum wallet: no eth provider was specified');
     }
   }
 

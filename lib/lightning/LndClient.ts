@@ -269,7 +269,7 @@ class LndClient extends BaseClient implements LndClient {
    * @param invoice an invoice for a payment within the Lightning Network
    * @param outgoingChannelId channel through which the invoice should be paid
    */
-  public sendPayment = async (invoice: string, outgoingChannelId?: number): Promise<SendResponse> => {
+  public sendPayment = async (invoice: string, outgoingChannelId?: string): Promise<SendResponse> => {
     const request = new lndrpc.SendRequest();
     request.setPaymentRequest(invoice);
 
@@ -472,11 +472,7 @@ class LndClient extends BaseClient implements LndClient {
     invoiceSubscription
       .on('data', (invoice: lndrpc.Invoice) => {
         if (invoice.getState() === lndrpc.Invoice.InvoiceState.ACCEPTED) {
-          // TODO: check amount of HTLC
-          // TODO: handle multiple HTLCs
-
-          const htlc = invoice.getHtlcsList()[0];
-          this.logger.debug(`${LndClient.serviceName} ${this.symbol} accepted HTLC with timeout of block ${htlc.getExpiryHeight()} for invoice: ${invoice.getPaymentRequest()}`);
+          this.logger.debug(`${LndClient.serviceName} ${this.symbol} accepted HTLC${invoice.getHtlcsList().length > 1 ? 's' : ''} for invoice: ${invoice.getPaymentRequest()}`);
 
           this.emit('htlc.accepted', invoice.getPaymentRequest());
         } else if (invoice.getState() === lndrpc.Invoice.InvoiceState.SETTLED) {

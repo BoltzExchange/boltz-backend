@@ -130,6 +130,7 @@ interface ILightningService extends grpc.ServiceDefinition<grpc.UntypedServiceIm
     listPayments: ILightningService_IListPayments;
     deleteAllPayments: ILightningService_IDeleteAllPayments;
     describeGraph: ILightningService_IDescribeGraph;
+    getNodeMetrics: ILightningService_IGetNodeMetrics;
     getChanInfo: ILightningService_IGetChanInfo;
     getNodeInfo: ILightningService_IGetNodeInfo;
     queryRoutes: ILightningService_IQueryRoutes;
@@ -490,6 +491,15 @@ interface ILightningService_IDescribeGraph extends grpc.MethodDefinition<lndrpc_
     responseSerialize: grpc.serialize<lndrpc_pb.ChannelGraph>;
     responseDeserialize: grpc.deserialize<lndrpc_pb.ChannelGraph>;
 }
+interface ILightningService_IGetNodeMetrics extends grpc.MethodDefinition<lndrpc_pb.NodeMetricsRequest, lndrpc_pb.NodeMetricsResponse> {
+    path: string; // "/lnrpc.Lightning/GetNodeMetrics"
+    requestStream: boolean; // false
+    responseStream: boolean; // false
+    requestSerialize: grpc.serialize<lndrpc_pb.NodeMetricsRequest>;
+    requestDeserialize: grpc.deserialize<lndrpc_pb.NodeMetricsRequest>;
+    responseSerialize: grpc.serialize<lndrpc_pb.NodeMetricsResponse>;
+    responseDeserialize: grpc.deserialize<lndrpc_pb.NodeMetricsResponse>;
+}
 interface ILightningService_IGetChanInfo extends grpc.MethodDefinition<lndrpc_pb.ChanInfoRequest, lndrpc_pb.ChannelEdge> {
     path: string; // "/lnrpc.Lightning/GetChanInfo"
     requestStream: boolean; // false
@@ -676,6 +686,7 @@ export interface ILightningServer {
     listPayments: grpc.handleUnaryCall<lndrpc_pb.ListPaymentsRequest, lndrpc_pb.ListPaymentsResponse>;
     deleteAllPayments: grpc.handleUnaryCall<lndrpc_pb.DeleteAllPaymentsRequest, lndrpc_pb.DeleteAllPaymentsResponse>;
     describeGraph: grpc.handleUnaryCall<lndrpc_pb.ChannelGraphRequest, lndrpc_pb.ChannelGraph>;
+    getNodeMetrics: grpc.handleUnaryCall<lndrpc_pb.NodeMetricsRequest, lndrpc_pb.NodeMetricsResponse>;
     getChanInfo: grpc.handleUnaryCall<lndrpc_pb.ChanInfoRequest, lndrpc_pb.ChannelEdge>;
     getNodeInfo: grpc.handleUnaryCall<lndrpc_pb.NodeInfoRequest, lndrpc_pb.NodeInfo>;
     queryRoutes: grpc.handleUnaryCall<lndrpc_pb.QueryRoutesRequest, lndrpc_pb.QueryRoutesResponse>;
@@ -803,6 +814,9 @@ export interface ILightningClient {
     describeGraph(request: lndrpc_pb.ChannelGraphRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChannelGraph) => void): grpc.ClientUnaryCall;
     describeGraph(request: lndrpc_pb.ChannelGraphRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChannelGraph) => void): grpc.ClientUnaryCall;
     describeGraph(request: lndrpc_pb.ChannelGraphRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChannelGraph) => void): grpc.ClientUnaryCall;
+    getNodeMetrics(request: lndrpc_pb.NodeMetricsRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.NodeMetricsResponse) => void): grpc.ClientUnaryCall;
+    getNodeMetrics(request: lndrpc_pb.NodeMetricsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.NodeMetricsResponse) => void): grpc.ClientUnaryCall;
+    getNodeMetrics(request: lndrpc_pb.NodeMetricsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.NodeMetricsResponse) => void): grpc.ClientUnaryCall;
     getChanInfo(request: lndrpc_pb.ChanInfoRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChannelEdge) => void): grpc.ClientUnaryCall;
     getChanInfo(request: lndrpc_pb.ChanInfoRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChannelEdge) => void): grpc.ClientUnaryCall;
     getChanInfo(request: lndrpc_pb.ChanInfoRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChannelEdge) => void): grpc.ClientUnaryCall;
@@ -958,6 +972,9 @@ export class LightningClient extends grpc.Client implements ILightningClient {
     public describeGraph(request: lndrpc_pb.ChannelGraphRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChannelGraph) => void): grpc.ClientUnaryCall;
     public describeGraph(request: lndrpc_pb.ChannelGraphRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChannelGraph) => void): grpc.ClientUnaryCall;
     public describeGraph(request: lndrpc_pb.ChannelGraphRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChannelGraph) => void): grpc.ClientUnaryCall;
+    public getNodeMetrics(request: lndrpc_pb.NodeMetricsRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.NodeMetricsResponse) => void): grpc.ClientUnaryCall;
+    public getNodeMetrics(request: lndrpc_pb.NodeMetricsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.NodeMetricsResponse) => void): grpc.ClientUnaryCall;
+    public getNodeMetrics(request: lndrpc_pb.NodeMetricsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.NodeMetricsResponse) => void): grpc.ClientUnaryCall;
     public getChanInfo(request: lndrpc_pb.ChanInfoRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChannelEdge) => void): grpc.ClientUnaryCall;
     public getChanInfo(request: lndrpc_pb.ChanInfoRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChannelEdge) => void): grpc.ClientUnaryCall;
     public getChanInfo(request: lndrpc_pb.ChanInfoRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChannelEdge) => void): grpc.ClientUnaryCall;

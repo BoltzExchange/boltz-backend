@@ -101,7 +101,7 @@ class SwapNursery extends EventEmitter {
       this.swapRepository,
       this.channelCreationRepository,
       // TODO: there is a similar method in the SwapManager already; those should be unified
-      async (currency: Currency, swap: Swap, outgoingChannelId: number) => {
+      async (currency: Currency, swap: Swap, outgoingChannelId: string) => {
         const lockupTransaction = await currency.chainClient.getRawTransaction(swap.lockupTransactionId!);
 
         return this.attemptSettleSwap(
@@ -197,11 +197,9 @@ class SwapNursery extends EventEmitter {
             },
           });
 
-          if (!reverseSwap) {
-            return;
+          if (reverseSwap) {
+            await this.sendReverseSwapCoins(reverseSwap);
           }
-
-          await this.sendReverseSwapCoins(reverseSwap);
         });
       });
     }
@@ -308,11 +306,18 @@ class SwapNursery extends EventEmitter {
               transactionId: {
                 [Op.eq]: inputId,
               },
+              transactionVout: {
+                [Op.eq]: input.index,
+              },
             });
 
             if (reverseSwap) {
-              chainClient.removeInputFilter(input.hash);
-              await this.settleReverseSwap(reverseSwap, transaction, vin);
+              try {
+                await this.settleReverseSwap(reverseSwap, transaction, vin);
+                chainClient.removeInputFilter(input.hash);
+              } catch (error) {
+                this.logger.warn(`Could not settle Reverse Swap ${reverseSwap.id}: ${formatError(error)}`);
+              }
             }
           }
         }),
@@ -398,7 +403,7 @@ class SwapNursery extends EventEmitter {
     swap: Swap,
     transaction: Transaction,
     confirmed: boolean,
-    outgoingChannelId?: number,
+    outgoingChannelId?: string,
   ) => {
     let zeroConfRejectedReason: string | undefined = undefined;
 
@@ -471,7 +476,7 @@ class SwapNursery extends EventEmitter {
     channelCreation: ChannelCreation | undefined,
     transaction: Transaction,
     vout: number,
-    outgoingChannelId?: number,
+    outgoingChannelId?: string,
   ) => {
     // If there is a Channel Creation but no outgoing channel id specified, this function won't do anything
     if (channelCreation) {
@@ -577,14 +582,14 @@ class SwapNursery extends EventEmitter {
       const wallet = this.walletManager.wallets.get(chainCurrency)!;
 
       const feePerVbyte = await chainClient.estimateFee(SwapNursery.reverseSwapMempoolEta);
-      const { fee, transaction, transactionId } = await wallet.sendToAddress(reverseSwap.lockupAddress, reverseSwap.onchainAmount, feePerVbyte);
+      const { fee, vout, transaction, transactionId } = await wallet.sendToAddress(reverseSwap.lockupAddress, reverseSwap.onchainAmount, feePerVbyte);
 
-      this.logger.verbose(`Sent ${chainCurrency} to reverse swap ${reverseSwap.id} in transaction: ${transactionId}`);
+      this.logger.verbose(`Sent ${chainCurrency} to reverse swap ${reverseSwap.id} in transaction: ${transactionId}:${vout}`);
 
       chainClient.addInputFilter(transaction.getHash());
       chainClient.addOutputFilter(wallet.decodeAddress(reverseSwap.lockupAddress));
 
-      this.emit('coins.sent', await this.reverseSwapRepository.setLockupTransaction(reverseSwap, transactionId, fee), transaction);
+      this.emit('coins.sent', await this.reverseSwapRepository.setLockupTransaction(reverseSwap, transactionId, vout, fee), transaction);
     } catch (error) {
       const preimageHash = getHexBuffer(decodeInvoice(reverseSwap.invoice).paymentHash!);
 
@@ -619,7 +624,7 @@ class SwapNursery extends EventEmitter {
     const lightningCurrency = getLightningCurrency(base, quote, reverseSwap.orderSide, true);
 
     let vout: number | undefined = undefined;
-    const lockupTransaction = Transaction.fromHex(await chainClient.getRawTransaction(reverseSwap.transactionId));
+    const lockupTransaction = Transaction.fromHex(await chainClient.getRawTransaction(reverseSwap.transactionId!));
 
     for (let i = 0; i < lockupTransaction.outs.length; i += 1) {
       const output = lockupTransaction.outs[i];
@@ -672,7 +677,7 @@ class SwapNursery extends EventEmitter {
     return lndClient.cancelInvoice(preimageHash);
   }
 
-  private payInvoice = async (lndClient: LndClient, invoice: string, outgoingChannelId?: number) => {
+  private payInvoice = async (lndClient: LndClient, invoice: string, outgoingChannelId?: string) => {
     const response = await lndClient.sendPayment(invoice, outgoingChannelId);
 
     return {

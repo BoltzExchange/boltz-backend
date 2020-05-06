@@ -31,7 +31,7 @@ class ChannelNursery extends EventEmitter {
     private settleSwap: (
       currency: Currency,
       swap: Swap,
-      outgoingChannelId: number,
+      outgoingChannelId: string,
     ) => Promise<void>,
   ) {
     super();

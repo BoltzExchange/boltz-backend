@@ -54,13 +54,13 @@ class Controller {
           const { base, quote } = splitPairId(reverseSwap.pair);
           const chainCurrency = getChainCurrency(base, quote, reverseSwap.orderSide, true);
 
-          const transactionHex = await this.service.getTransaction(chainCurrency, reverseSwap.transactionId);
+          const transactionHex = await this.service.getTransaction(chainCurrency, reverseSwap.transactionId!);
 
           this.pendingSwapInfos.set(reverseSwap.id, {
             status,
             transaction: {
               hex: transactionHex,
-              id: reverseSwap.transactionId,
+              id: reverseSwap.transactionId!,
               eta: status === SwapUpdateEvent.TransactionMempool ? SwapNursery.reverseSwapMempoolEta : undefined,
             },
           });
@@ -259,7 +259,7 @@ class Controller {
       { name: 'pairId', type: 'string' },
       { name: 'orderSide', type: 'string' },
       { name: 'invoiceAmount', type: 'number' },
-      { name: 'preimageHash', type: 'string', hex: true, optional: true },
+      { name: 'preimageHash', type: 'string', hex: true },
       { name: 'claimPublicKey', type: 'string', hex: true },
     ]);
 

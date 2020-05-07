@@ -95,7 +95,6 @@ class ChannelNursery extends EventEmitter {
           return;
         }
 
-        // TODO: what to do about timed out swaps? Close channel? Still continue with the swap if it hasn't been refunded yet?
         const swap = await this.swapRepository.getSwap({
           id: {
             [Op.eq]: channelCreation.swapId,
@@ -104,6 +103,11 @@ class ChannelNursery extends EventEmitter {
             [Op.not]: SwapUpdateEvent.TransactionClaimed,
           },
         });
+
+        if (swap!.status === SwapUpdateEvent.SwapExpired) {
+          await this.channelCreationRepository.setAbandoned(channelCreation);
+          return;
+        }
 
         await this.settleChannel(swap!, channelCreation);
       });

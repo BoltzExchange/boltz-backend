@@ -146,40 +146,6 @@ describe('Utils', () => {
     expect(utils.minutesToMilliseconds(random)).toEqual(milliseconds);
   });
 
-/*  test('should get amount of invoice', () => {
-    expect(utils.getInvoiceAmt(
-      // tslint:disable-next-line: max-line-length
-      'lnbcrt100u1pwddnw3pp5rykwp0q399hrcluxnyhv7kfpmk4uttpu00wx9098cesacr9yzk8sdqqcqzpgn9g5vjr0qcudrgu66phz5tx0j0fnxe0gzyl5u6yat9y3xskrqyhherceutcuh9m6h89anphe5un3qac8f2r9j5hykn3uh6z0zkp9racp5lecss',
-    )).toEqual(10000);
-
-    expect(utils.getInvoiceAmt(
-      // tslint:disable-next-line: max-line-length
-      'lnbcrt987650n1pwddnskpp5d4tw4gpjgqdqlgkq5yc309r2kguure53cff8a0kjta5hurltc4yqdqqcqzpgzeu404h9udp5ay39kdvau7m5kdkvycajfhx46slgkfgyhpngnztptulxpx8s7qncp45v5nxjulje5268cu22gxysg9hm3ul8ktrw5zgqcg98hg',
-    )).toEqual(98765);
-
-    expect(utils.getInvoiceAmt(
-      // tslint:disable-next-line: max-line-length
-      'lntltc1u1p0p7fuypp52k9p5mszjc9x0swfw5tum8rsdguzgxmqtg4rr2xaczhkrssvse0sdqqcqzjqxuya98m2834m3xdn7pe6kj5t2q8n3rx9ft37ygvkj07g4a2h7q3xp5mkh44f4jyuupg9t69xf0xknzqa7ufah4dqms5xz4veqplykmcqp4fue6',
-    )).toEqual(100);
-
-    expect(utils.getInvoiceAmt(
-      // tslint:disable-next-line: max-line-length
-      'lntb1p0p7f6lpp58zpsxk88e8uz2lndqrf9radths484jqlhmas92kt7md2cqszpn6qdqqcqzpgrzjqtejjv7p39kcv5gezydzgse8ea3kcw8zqe36afy64zem09us5hjgcxgphsqqqzsqqyqqqqlgqqqqqqgq9q4wqv5a4uwhhvfh93k2ue75lrre50tk99pk689qgf6ul5my5vr749689wcunnv7zjcuk7jlpwz44fv87ra2snsjzw34pnfs5d477u82cpm6cym6',
-    )).toEqual(0);
-  });
-
-  test('should get preimage hash of invoice', () => {
-    expect(utils.getInvoicePreimageHash(
-      // tslint:disable-next-line: max-line-length
-      'lnbcrt1p0ygcqzpp5t0msrh8nmhz3rua2gz720hy3hnjucctewq5kf68myy8zc3tdek5qdqqcqzpgsp5alu9d2drxxt4d5qrz70vv923wafx9wg36r64mssm046drfamsk9q9qy9qsqwx3gjr6nd3gm9srr2w3qamkrlkj057w5fqh9kfqj5cp0fleyuhakaaejsc6yycr60qrscfw4ge2vnthqkdglv5t0peqr40d0g0v9k8splpkws3',
-    )).toEqual('5bf701dcf3ddc511f3aa40bca7dc91bce5cc6179702964e8fb210e2c456dcda8');
-
-    expect(utils.getInvoicePreimageHash(
-      // tslint:disable-next-line: max-line-length
-      'lnrltc1p0ygcy6pp5fl4dep6ejq77j0svecfagw4v3pm2wh3py0jtdyjkunfa2wvv7nqqdqqcqzjqsp5gcnzt7pmsx9zxcu4ul2ay90yhrdna4c4u33a9zejac69ay7jatus9qy9qsqmprjwy3lfxz9j3jum8nnfst02lp9ww6tkm6yut0fqvcwswlqfcjkshgdkuwg3te7ut5hqts8ky20jefswnvs8axweuffn3423vrssusq68krf8',
-    )).toEqual('4feadc8759903de93e0cce13d43aac8876a75e2123e4b69256e4d3d5398cf4c0');
-  });*/
-
   test('should decode invoices', () => {
     // Sanity checks
     let decoded = utils.decodeInvoice('lnbcrt100u1pwddnw3pp5rykwp0q399hrcluxnyhv7kfpmk4uttpu00wx9098cesacr9yzk8sdqqcqzpgn9g5vjr0qcudrgu66phz5tx0j0fnxe0gzyl5u6yat9y3xskrqyhherceutcuh9m6h89anphe5un3qac8f2r9j5hykn3uh6z0zkp9racp5lecss');

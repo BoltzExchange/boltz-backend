@@ -91,4 +91,12 @@ export default {
     message: `invoice amount exceeds the maximal of ${maxInvoiceAmount}`,
     code: concatErrorCode(ErrorCodePrefix.Service, 21),
   }),
+  EXCEEDS_MAX_INBOUND_LIQUIDITY: (inboundLiquidity: number, maxInboundLiquidity: number): Error => ({
+    message: `inbound liquidity ${inboundLiquidity} exceeds maximal ${maxInboundLiquidity}`,
+    code: concatErrorCode(ErrorCodePrefix.Service, 22),
+  }),
+  BENEATH_MIN_INBOUND_LIQUIDITY: (inboundLiquidity: number, minInboundLiquidity: number): Error => ({
+    message: `inbound liquidity ${inboundLiquidity} is less than minimal ${minInboundLiquidity}`,
+    code: concatErrorCode(ErrorCodePrefix.Service, 23),
+  }),
 };

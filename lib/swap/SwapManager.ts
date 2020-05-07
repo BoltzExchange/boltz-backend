@@ -9,10 +9,11 @@ import LndClient from '../lightning/LndClient';
 import RateProvider from '../rates/RateProvider';
 import SwapRepository from '../db/SwapRepository';
 import ReverseSwap from '../db/models/ReverseSwap';
-import { ChannelCreationType, OrderSide, SwapUpdateEvent } from '../consts/Enums';
 import ReverseSwapRepository from '../db/ReverseSwapRepository';
 import WalletManager, { Currency } from '../wallet/WalletManager';
+import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
 import ChannelCreationRepository from '../db/ChannelCreationRepository';
+import { ChannelCreationType, OrderSide, SwapUpdateEvent } from '../consts/Enums';
 import {
   getPairId,
   generateId,
@@ -26,7 +27,7 @@ import {
   getSwapOutputType,
   getLightningCurrency,
   getScriptHashFunction,
-  getSendingReceivingCurrency, formatError,
+  getSendingReceivingCurrency, formatError, getUnixTime,
 } from '../Utils';
 
 type ChannelCreationInfo = {
@@ -243,8 +244,7 @@ class SwapManager {
     const { base, quote } = splitPairId(swap.pair);
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(base, quote, swap.orderSide);
 
-    // TODO: check invoice timeout for channel creation swaps
-    const { paymentHash, satoshis, payeeNodeKey, routingInfo } = decodeInvoice(invoice);
+    const { paymentHash, satoshis, payeeNodeKey, routingInfo, timeExpireDate } = decodeInvoice(invoice);
 
     if (paymentHash !== swap.preimageHash) {
       throw Errors.INVOICE_INVALID_PREIMAGE_HASH(swap.preimageHash);
@@ -257,6 +257,17 @@ class SwapManager {
     });
 
     if (channelCreation) {
+      if (timeExpireDate) {
+        const { blocks } = await receivingCurrency.chainClient.getBlockchainInfo();
+
+        const blocksUntilExpiry = swap.timeoutBlockHeight - blocks;
+        const timeoutTimestamp = getUnixTime() + (blocksUntilExpiry * TimeoutDeltaProvider.blockTimes.get(receivingCurrency.symbol)! * 60);
+
+        if (timeoutTimestamp > timeExpireDate) {
+          throw Errors.INVOICE_EXPIRES_TOO_EARLY(timeExpireDate, timeoutTimestamp);
+        }
+      }
+
       await this.channelCreationRepository.setNodePublicKey(channelCreation, payeeNodeKey!);
 
     // If there are route hints the routability check could fail although LND could pay the invoice

@@ -49,6 +49,12 @@ class ChannelCreationRepository {
     });
   }
 
+  public setAbandoned = (channelCreation: ChannelCreation): Promise<ChannelCreation> => {
+    return channelCreation.update({
+      status: ChannelCreationStatus.Abandoned,
+    });
+  }
+
   public dropTable = () => {
     return ChannelCreation.drop();
   }

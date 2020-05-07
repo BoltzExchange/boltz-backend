@@ -56,6 +56,9 @@ class Service {
   private readonly feeProvider: FeeProvider;
   private readonly rateProvider: RateProvider;
 
+  private static MaxInboundLiquidity = 50;
+  private static MinInboundLiquidity = 10;
+
   constructor(
     private logger: Logger,
     config: ConfigType,
@@ -454,7 +457,15 @@ class Service {
       throw Errors.SWAP_WITH_PREIMAGE_EXISTS();
     }
 
-    // TODO: sanity check "channel" values
+    if (channel) {
+      if (channel.inboundLiquidity > Service.MaxInboundLiquidity) {
+        throw Errors.EXCEEDS_MAX_INBOUND_LIQUIDITY(channel.inboundLiquidity, Service.MaxInboundLiquidity);
+      }
+
+      if (channel.inboundLiquidity < Service.MinInboundLiquidity) {
+        throw Errors.BENEATH_MIN_INBOUND_LIQUIDITY(channel.inboundLiquidity, Service.MinInboundLiquidity);
+      }
+    }
 
     const { base, quote } = this.getPair(pairId);
     const side = this.getOrderSide(orderSide);
@@ -525,7 +536,6 @@ class Service {
    * Sets the invoice of Submarine Swap
    */
   public setSwapInvoice = async (id: string, invoice: string) => {
-    // TODO: sanity check invoice
     const swap = await this.swapManager.swapRepository.getSwap({
       id: {
         [Op.eq]: id,

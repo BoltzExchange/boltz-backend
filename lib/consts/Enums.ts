@@ -27,7 +27,6 @@ export enum SwapUpdateEvent {
 
   InvoiceSet = 'invoice.set',
   InvoicePaid = 'invoice.paid',
-  // TODO: set the second we are trying to pay the invoice
   InvoicePending = 'invoice.pending',
   InvoiceSettled = 'invoice.settled',
   InvoiceFailedToPay = 'invoice.failedToPay',
@@ -48,6 +47,7 @@ export enum ChannelCreationStatus {
   Attempted = 'attempted',
   Created = 'created',
   Settled = 'settled',
+  Abandoned = 'abandoned',
 }
 
 export enum ServiceWarning {

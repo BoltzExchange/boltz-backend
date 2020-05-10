@@ -25,7 +25,7 @@ class NotificationProvider {
   private timer!: any;
   private diskUsageChecker: DiskUsageChecker;
 
-  private readonly discord: DiscordClient;
+  private discord: DiscordClient;
 
   // These Sets contain the symbols for which an alert notification was sent
   private walletAlerts = new Set<string>();

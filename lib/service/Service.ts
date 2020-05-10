@@ -820,12 +820,13 @@ class Service {
     }
   }
 
+  // TODO: fix cross chain
   /**
    * Calculates the amount of an invoice for a Submarine Swap
    */
   private calculateInvoiceAmount = (rate: number, onchainAmount: number, baseFee: number, percentageFee: number) => {
     return Math.floor(
-      (onchainAmount - baseFee) / (rate + (rate * percentageFee)),
+      (onchainAmount - baseFee) / (rate + (percentageFee / 100)),
     );
   }
 

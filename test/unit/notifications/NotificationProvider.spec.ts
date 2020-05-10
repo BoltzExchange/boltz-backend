@@ -6,7 +6,7 @@ import { wait } from '../../Utils';
 import Logger from '../../../lib/Logger';
 import Swap from '../../../lib/db/models/Swap';
 import Service from '../../../lib/service/Service';
-import { getInvoiceAmt } from '../../../lib/Utils';
+import { decodeInvoice } from '../../../lib/Utils';
 import ReverseSwap from '../../../lib/db/models/ReverseSwap';
 import { swapExample, reverseSwapExample } from './ExampleSwaps';
 import BackupScheduler from '../../../lib/backup/BackupScheduler';
@@ -122,7 +122,7 @@ describe('NotificationProvider', () => {
       `Pair: ${swap.pair}\n` +
       'Order side: buy\n' +
       `Onchain amount: ${satoshisToCoins(swap.onchainAmount!)} BTC\n` +
-      `Lightning amount: ${satoshisToCoins(getInvoiceAmt(swap.invoice!))} LTC\n` +
+      `Lightning amount: ${satoshisToCoins(decodeInvoice(swap.invoice!).satoshis)} LTC\n` +
       `Fees earned: ${satoshisToCoins(swap.fee!)} BTC\n` +
       `Miner fees: ${satoshisToCoins(swap.minerFee!)} BTC\n` +
       `Routing fees: ${swap.routingFee! / 1000} litoshi` +
@@ -139,7 +139,7 @@ describe('NotificationProvider', () => {
       `Pair: ${reverseSwap.pair}\n` +
       'Order side: sell\n' +
       `Onchain amount: ${satoshisToCoins(reverseSwap.onchainAmount!)} BTC\n` +
-      `Lightning amount: ${satoshisToCoins(getInvoiceAmt(reverseSwap.invoice))} LTC\n` +
+      `Lightning amount: ${satoshisToCoins(decodeInvoice(reverseSwap.invoice).satoshis)} LTC\n` +
       `Fees earned: ${satoshisToCoins(reverseSwap.fee)} BTC\n` +
       `Miner fees: ${satoshisToCoins(reverseSwap.minerFee!)} BTC` +
       NotificationProvider['trailingWhitespace'],
@@ -159,7 +159,7 @@ describe('NotificationProvider', () => {
       `Pair: ${swap.pair}\n` +
       'Order side: buy\n' +
       `Onchain amount: ${satoshisToCoins(swap.onchainAmount!)} BTC\n` +
-      `Lightning amount: ${satoshisToCoins(getInvoiceAmt(swap.invoice!))} LTC\n` +
+      `Lightning amount: ${satoshisToCoins(decodeInvoice(swap.invoice!).satoshis)} LTC\n` +
       `Invoice: ${swap.invoice}` +
       NotificationProvider['trailingWhitespace'],
     );
@@ -174,7 +174,7 @@ describe('NotificationProvider', () => {
       `Pair: ${reverseSwap.pair}\n` +
       'Order side: sell\n' +
       `Onchain amount: ${satoshisToCoins(reverseSwap.onchainAmount!)} BTC\n` +
-      `Lightning amount: ${satoshisToCoins(getInvoiceAmt(reverseSwap.invoice))} LTC\n` +
+      `Lightning amount: ${satoshisToCoins(decodeInvoice(reverseSwap.invoice).satoshis)} LTC\n` +
       `Miner fees: ${satoshisToCoins(reverseSwap.minerFee)} BTC` +
       NotificationProvider['trailingWhitespace'],
     );
@@ -192,7 +192,7 @@ describe('NotificationProvider', () => {
       `Pair: ${reverseSwap.pair}\n` +
       'Order side: sell\n' +
       `Onchain amount: ${satoshisToCoins(reverseSwap.onchainAmount!)} BTC\n` +
-      `Lightning amount: ${satoshisToCoins(getInvoiceAmt(reverseSwap.invoice))} LTC` +
+      `Lightning amount: ${satoshisToCoins(decodeInvoice(reverseSwap.invoice).satoshis)} LTC` +
       NotificationProvider['trailingWhitespace'],
     );
   });

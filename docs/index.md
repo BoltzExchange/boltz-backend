@@ -15,8 +15,6 @@ The Rest API can be accessed at:
 * [Testnet](https://testnet.boltz.exchange/api)
 * [Mainnet](https://boltz.exchange/api)
 
-Read the API documentation [here](/api.md)
-
 ## Useful Links
 
 * [Source Code](https://github.com/boltzExchange)

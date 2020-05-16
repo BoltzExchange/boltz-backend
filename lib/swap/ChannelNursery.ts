@@ -191,6 +191,7 @@ class ChannelNursery extends EventEmitter {
   private settleChannel = async (
     swap: Swap,
     channelCreation: ChannelCreation,
+    _event = false,
   ) => {
     const chainCurrency = this.currencies.get(this.getCurrency(swap!, false))!;
     const lightningCurrency = this.currencies.get(this.getCurrency(swap!, true))!;
@@ -213,7 +214,7 @@ class ChannelNursery extends EventEmitter {
           this.logger.warn(`Could not settle Channel Creation Swap: ${formatError(error)}`);
         }
 
-        break;
+        return;
       }
     }
   }

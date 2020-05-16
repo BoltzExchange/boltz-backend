@@ -520,7 +520,7 @@ class Service {
     const percentageFee = this.feeProvider.getPercentageFee(swap.pair);
     const { baseFee } = await this.feeProvider.getFees(swap.pair, rate, swap.orderSide, swap.onchainAmount, false);
 
-    const invoiceAmount = this.calculateInvoiceAmount(rate, swap.onchainAmount, baseFee, percentageFee);
+    const invoiceAmount = this.calculateInvoiceAmount(swap.orderSide, rate, swap.onchainAmount, baseFee, percentageFee);
 
     this.verifyAmount(swap.pair, rate, invoiceAmount, swap.orderSide, false);
 
@@ -564,7 +564,13 @@ class Service {
     const expectedAmount = Math.floor(invoiceAmount * rate) + baseFee + percentageFee;
 
     if (swap.onchainAmount && expectedAmount > swap.onchainAmount) {
-      const maxInvoiceAmount = this.calculateInvoiceAmount(rate, swap.onchainAmount, baseFee, this.feeProvider.getPercentageFee(swap.pair));
+      const maxInvoiceAmount = this.calculateInvoiceAmount(
+        swap.orderSide,
+        rate,
+        swap.onchainAmount,
+        baseFee,
+        this.feeProvider.getPercentageFee(swap.pair),
+      );
 
       throw Errors.INVALID_INVOICE_AMOUNT(maxInvoiceAmount);
     }
@@ -799,7 +805,7 @@ class Service {
   }
 
   /**
-   * Verfies that the requested amount is neither above the maximal nor beneath the minimal
+   * Verifies that the requested amount is neither above the maximal nor beneath the minimal
    */
   private verifyAmount = (pairId: string, rate: number, amount: number, orderSide: OrderSide, isReverse: boolean) => {
     if (
@@ -820,13 +826,17 @@ class Service {
     }
   }
 
-  // TODO: fix cross chain
   /**
    * Calculates the amount of an invoice for a Submarine Swap
    */
-  private calculateInvoiceAmount = (rate: number, onchainAmount: number, baseFee: number, percentageFee: number) => {
+  private calculateInvoiceAmount = (orderSide: number, rate: number, onchainAmount: number, baseFee: number, percentageFee: number) => {
+    if (orderSide === OrderSide.BUY) {
+      // tslint:disable-next-line:no-parameter-reassignment
+      rate = 1 / rate;
+    }
+
     return Math.floor(
-      (onchainAmount - baseFee) / (rate + (percentageFee / 100)),
+      ((onchainAmount - baseFee) * rate) / (1 + (percentageFee / 100)),
     );
   }
 

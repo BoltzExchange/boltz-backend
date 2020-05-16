@@ -531,6 +531,7 @@ class SwapNursery extends EventEmitter {
 
       if (
         channelCreation &&
+        !channelCreation.status &&
         typeof error === 'string' &&
         !error.startsWith('unable to route payment to destination: UnknownNextPeer')
       ) {

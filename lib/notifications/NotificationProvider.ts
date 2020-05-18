@@ -99,7 +99,7 @@ class NotificationProvider {
   private checkConnections = async () => {
     const info = await this.service.getInfo();
 
-    info.getChainsMap().forEach(async (currency: CurrencyInfo, symbol: string) => {
+    await info.getChainsMap().forEach(async (currency: CurrencyInfo, symbol: string) => {
       await this.checkConnection(`${symbol} LND`, currency.getLnd());
       await this.checkConnection(`${symbol} node`, currency.getChain());
     });

@@ -452,7 +452,7 @@ Every event in the Server-Side stream has data that is encoded exactly like the 
 
 **Examples:**
 
-Server-Side event streams have to be handled differently than normal HTTP reponses. Below is a sample implementation in JavaScript and also what a raw response of a Server-Side event stream looks like.
+Server-Side event streams have to be handled differently than normal HTTP responses. Below is a sample implementation in JavaScript and also what a raw response of a Server-Side event stream looks like.
 
 Sample implementation in JavaScript:
 

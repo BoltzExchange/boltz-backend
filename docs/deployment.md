@@ -57,11 +57,9 @@ privatekeypath = ""
 bucketname = ""
 # Cron interval at which a new backup should be uploaded. The default value is daily
 interval = "0 0 * * *"
-# Path to the database of the backend
-backenddbpath = "/home/boltz/.boltz/boltz.db"
 
 # The Boltz backend supports sending messages to Discord after successful and failed
-# Spaps and if the wallet or channel balance is underneath a configurable threshold 
+# Swaps and if the wallet or channel balance is underneath a configurable threshold 
 [notification]
 token = ""
 channel = ""
@@ -71,6 +69,20 @@ interval = 1
 # Some Discord commands (like withdraw) require a TOTP token
 # This is the path to the secret of that TOTP token
 otpsecretpath = "/home/boltz/.boltz/otpSecret.dat"
+
+# The array "pairs" congiures the trading pairs that Boltz should support
+# A pair can have the following options:
+# - "base" (required): base currency
+# - "quote" (required): quote currency
+# - "timeoutDelta": after how many minutes a Swap of that pair should timeout
+# - "rate": the rate for a pair can be hardcoded (only sensible for same currency pairs);  
+#           if the rate is not hardcoded the mean value from these exchanges will be used:
+#             - Binance
+#             - Bitfinex 
+#             - Coinbase Pro
+#             - Kraken
+#             - Poloniex
+# - "fee": percentage of the swapped amount that should be charged as fee
 
 [[pairs]]
 base = "LTC"
@@ -87,8 +99,13 @@ timeoutDelta = 400
 base = "LTC"
 quote = "LTC"
 rate = 1
+fee = 0.5
 timeoutDelta = 300
 
+# The array "currencies" configures the chain and LND clients for the "pairs"
+# Not configuring the LND client is possible but will cause that chain not to support Lightning
+# The values are pretty selfexplainatory apart from: "minWalletBalance" and "minChannelBalance" which trigger
+# a discord notification
 [[currencies]]
 symbol = "BTC"
 network = "bitcoinTestnet"

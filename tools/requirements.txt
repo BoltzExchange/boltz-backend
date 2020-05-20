@@ -2,6 +2,7 @@ appdirs==1.4.3
 attrdict==2.0.1
 attrs==19.3.0
 base58==2.0.0
+bitarray==1.2.2
 CacheControl==0.12.6
 certifi==2019.11.28
 chardet==3.0.4

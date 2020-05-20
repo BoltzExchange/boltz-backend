@@ -8,7 +8,7 @@ import { BackupConfig } from '../Config';
 import EventHandler from '../service/EventHandler';
 
 class BackupScheduler {
-  private bucket?: Bucket;
+  private readonly bucket?: Bucket;
 
   constructor(
     private logger: Logger,

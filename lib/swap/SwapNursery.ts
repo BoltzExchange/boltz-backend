@@ -456,6 +456,7 @@ class SwapNursery extends EventEmitter {
       // the channel will be opened at this point
       if (channelCreation) {
         if (channelCreation.type === ChannelCreationType.Create && channelCreation.status === null) {
+          // TODO: logging and swap update event when the sent amount it too little
           if (swap.onchainAmount! >= swap.expectedAmount!) {
             // TODO: cross chain
             await this.channelNursery.openChannel(currency, swap, channelCreation);

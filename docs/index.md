@@ -4,7 +4,7 @@ This is the documentation of [Boltz](https://boltz.exchange) version 2.1.0.
 
 ## What is Boltz
 
-Boltz is a privacy first, account-free crypto exchange built on top of the second layer scaling technologies like the [lightning network](http://lightning.network/). Boltz doesn't track any data that could potentially be traced back to the user's identity.
+Boltz is a privacy first, account-free crypto exchange built on top of second layer scaling technologies like the [lightning network](http://lightning.network/). Boltz doesn't track any data that could potentially be traced back to the identity of our users.
 
 ## Instances
 

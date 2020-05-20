@@ -4,7 +4,7 @@ This is the documentation of [Boltz](https://boltz.exchange) version 2.1.0.
 
 ## What is Boltz
 
-Boltz is an instant, non-custodial crypto currency exchange that focuses on privacy and the adoption of second layer scaling technologies like the [lightning network](http://lightning.network/). Boltz does not require an account or any other personal data, nor does it use trackers to log data that could identify users.
+Boltz is a privacy first, account-free crypto exchange built on top of second layer scaling technologies like the [lightning network](http://lightning.network/). Boltz doesn't track any data that could potentially be traced back to the identity of our users.
 
 ## Instances
 

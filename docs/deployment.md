@@ -70,7 +70,7 @@ interval = 1
 # This is the path to the secret of that TOTP token
 otpsecretpath = "/home/boltz/.boltz/otpSecret.dat"
 
-# The array "pairs" congiures the trading pairs that Boltz should support
+# The array "pairs" configures the trading pairs that Boltz should support
 # A pair can have the following options:
 # - "base" (required): base currency
 # - "quote" (required): quote currency
@@ -104,8 +104,8 @@ timeoutDelta = 300
 
 # The array "currencies" configures the chain and LND clients for the "pairs"
 # Not configuring the LND client is possible but will cause that chain not to support Lightning
-# The values are pretty selfexplainatory apart from: "minWalletBalance" and "minChannelBalance" which trigger
-# a discord notification
+# The values are pretty self explainatory apart from: "minWalletBalance" and "minChannelBalance" which trigger
+# a Discord notification
 [[currencies]]
 symbol = "BTC"
 network = "bitcoinTestnet"

@@ -60,7 +60,7 @@ Status Codes:
 
 Response object:
 
-- `warnings`: an array of strings that can indicate that some feature of Boltz might me disabled or restricted. Currently there is only a single warning that could be in that array:
+- `warnings`: an array of strings that can indicate that some feature of Boltz might me disabled or restricted. Currently, there is only a single warning that could be in that array:
     - `reverse.swaps.disabled`: means that all reverse swaps (from Lightning to the chain) are disabled
 - `pairs`: an object containing of the supported pairs of that particular Bolt instance. The keys of the values are the id's of the pairs and the values itself contain information about the trading pair:
     - `rate`: the exchange rate of the pair
@@ -68,7 +68,7 @@ Response object:
         - `maximalZeroConf`: the maximal amounts that will be accepted as 0-confirmation by Boltz
     - `fees`: is a JSON object that has two different kinds of fees:
         - `percentage`: the configured percentage fee that is charged by Boltz
-        - `minerFees`: are the miner fees that can be expected when locking up or claiming funds. These values are denominated in `sat/vbyte` and just estimations that are not actually enforced
+        - `minerFees`: are the miner fees that can be expected when locking up or claiming funds. These values are absolute and denominated in satoshis or litoshis and just estimations that are not actually enforced
 
 **Examples:**
 
@@ -491,14 +491,14 @@ If the amount is **not** known, a **preimage hash should be specified**. The inv
 
 - `preimageHash`: hash of a preimage that will be used for the invoice that is set later on
 
-Boltz also supports opening a channel to your node before paying your invoice. To ensure that this service works as advertised **make sure to connect your Lightning node to ours** before creating the swap. You can find the URIs of our Lightning nodes in the FAQ section of our website or on Lightning explorers like [1ML](https://1ml.com) under the query "Boltz". To let Boltz open a channel to you have to set a couple more values in the request when creating a swap:
+Boltz also supports opening a channel to your node before paying your invoice. To ensure that this service works as advertised **make sure to connect your Lightning node to ours** before creating the swap. You can either query the URIs of our Lightning nodes with [`/getnodes`](#getting-lightning-nodes), find them in the FAQ section of our website or on Lightning explorers like [1ML](https://1ml.com) under the query "Boltz". To let Boltz open a channel to you have to set a couple more values in the request when creating a swap:
 
 - `channel`: a JSON object that contains all the information relevant to the creation of the channel
-    - `auto`: whether Boltz should dynamically decide if a channel should be created based on whether the invoice you provided can be paid without opening a channel. More modes will be added in future
+    - `auto`: whether Boltz should dynamically decide if a channel should be created based on whether the invoice you provided can be paid without opening a channel. More modes will be added in the future
     - `private`: whether the channel to your node should be private
     - `inboundLiquidity`: percentage of the channel balance that Boltz should provide as inbound liquidity for your node. The maximal value here is `50`, which means that the channel will be perfectly balanced 50/50
 
-To find out how to enforce that the requested channel is acutally opened and the invoice paid through it have a look at [this document where we wrote down some possible solutions](channel-creation.md).
+To find out how to enforce that the requested channel was actually opened and the invoice paid through it have a look at [this document where we wrote down some possible solutions](channel-creation.md).
 
 | URL                | Response
 |--------------------|------------
@@ -515,7 +515,7 @@ You will always have these values in the response object:
 
 - `id`: id of the freshly created swap
 - `timeoutBlockHeight`: block height at which the swap will be cancelled
-- `address`: address in which the coins will be locked up. Currently this is a P2SHP2WSH (P2WSH nested in a P2SH) for the sake of compatibility
+- `address`: address in which the coins will be locked up. Currently, this is a P2SHP2WSH (P2WSH nested in a P2SH) for the sake of compatibility
 - `redeemScript`: redeem script from which the `address` is derived. The redeem script can and should be used to verify that the Boltz instance didn't try to cheat by providing an address without a HTLC
 
 If you set the invoice you will also have these values in the response:
@@ -535,7 +535,7 @@ Request body:
   "type": "submarine",
   "pairId": "LTC/BTC",
   "orderSide": "sell",
-  "refundPublicKey": "a9142f7150b969c9c9fb9094a187f8fb41d617a65e20876300670171b1752102e317e5607e757e9c4448fe458876d7e361222d2cbee33ece9e3a7b2e2359be4d68ac",
+  "refundPublicKey": "03b76c1fe14bab50e52a026f35287fda75b9304bcf311ee85b4d32482400a436f5",
   "invoice": "lnbcrt100u1pw54eudpp5e42ls0apxfm2790aesc92v5kppkr5dluvv0545v6zr593498s8zsdqqcqzpgpyaz550xmqkr6v5x8cn3qxyxmuxp7xa28xlr7qhkxlde3xm8xjyyqqurx5nq8tdeejvm4jnuw468lxjtnfj8v49hsg8tkhjz9haj65sps8xdv0"
 }
 ```
@@ -565,7 +565,7 @@ Request body:
   "type": "submarine",
   "pairId": "LTC/BTC",
   "orderSide": "sell",
-  "refundPublicKey": "a9142f7150b969c9c9fb9094a187f8fb41d617a65e20876300670171b1752102e317e5607e757e9c4448fe458876d7e361222d2cbee33ece9e3a7b2e2359be4d68ac",
+  "refundPublicKey": "03b76c1fe14bab50e52a026f35287fda75b9304bcf311ee85b4d32482400a436f5",
   "invoice": "lnbcrt100u1pw54eudpp5e42ls0apxfm2790aesc92v5kppkr5dluvv0545v6zr593498s8zsdqqcqzpgpyaz550xmqkr6v5x8cn3qxyxmuxp7xa28xlr7qhkxlde3xm8xjyyqqurx5nq8tdeejvm4jnuw468lxjtnfj8v49hsg8tkhjz9haj65sps8xdv0",
   "channel": {
     "private": true,
@@ -765,7 +765,7 @@ Request body:
   "orderSide": "buy",
   "invoiceAmount": 1000000,
   "preimageHash": "51a05b15e66ecd12bf6b1b62a678e63add0185bc5f41d2cd013611f7a4b6704f",
-  "claimPublicKey": "a9142f7150b969c9c9fb9094a187f8fb41d617a65e20876300670171b1752102e317e5607e757e9c4448fe458876d7e361222d2cbee33ece9e3a7b2e2359be4d68ac"
+  "claimPublicKey": "03b76c1fe14bab50e52a026f35287fda75b9304bcf311ee85b4d32482400a436f5"
 }
 ```
 

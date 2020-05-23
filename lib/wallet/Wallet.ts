@@ -12,6 +12,7 @@ class Wallet {
    * @param network the network of the wallet
    * @param derivationPath path from which the keys are derived; should be in the format "m/0/<index of the wallet>"
    * @param highestUsedIndex the highest index of a used key of the wallet
+   * @param logger Logger
    * @param masterNode the master node from which generated keys are derived
    * @param keyRepository database repository storing the highest used key index
    * @param walletProvider actual wallet which is handling the coins
@@ -44,7 +45,7 @@ class Wallet {
     this.highestUsedIndex += 1;
 
     // tslint:disable-next-line no-floating-promises
-    this.keyRepository.setHighestUsedIndex(this.symbol, this.highestUsedIndex);
+    this.keyRepository.setHighestUsedIndex(this.symbol, this.highestUsedIndex).then();
 
     return {
       keys: this.getKeysByIndex(this.highestUsedIndex),
@@ -58,10 +59,18 @@ class Wallet {
    * @param outputScript the output script to encode
    */
   public encodeAddress = (outputScript: Buffer) => {
-    return address.fromOutputScript(
-      outputScript,
-      this.network,
-    );
+    try {
+      return address.fromOutputScript(
+        outputScript,
+        this.network,
+      );
+    } catch (error) {
+      if (error.toString().includes('OP_RETURN')) {
+        return '';
+      }
+
+      throw error;
+    }
   }
 
   /**

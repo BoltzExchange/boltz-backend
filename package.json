@@ -87,6 +87,7 @@
     "zeromq": "^5.2.0"
   },
   "devDependencies": {
+    "@boltz/bitcoin-ops": "^2.0.0",
     "@types/async-lock": "^1.1.2",
     "@types/cors": "^2.8.6",
     "@types/express": "^4.17.6",

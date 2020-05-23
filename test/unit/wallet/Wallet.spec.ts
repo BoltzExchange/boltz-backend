@@ -1,6 +1,7 @@
 import { fromSeed } from 'bip32';
+import ops from '@boltz/bitcoin-ops';
 import { Networks } from 'boltz-core';
-import { Transaction } from 'bitcoinjs-lib';
+import { Transaction, script, crypto } from 'bitcoinjs-lib';
 import { generateMnemonic, mnemonicToSeedSync } from 'bip39';
 import Logger from '../../../lib/Logger';
 import Wallet from '../../../lib/wallet/Wallet';
@@ -119,6 +120,15 @@ describe('Wallet', () => {
 
   test('should encode addresses', () => {
     expect(wallet.encodeAddress(encodeOutput)).toEqual(encodedAddress);
+  });
+
+  test('should ignore OP_RETURN outputs', () => {
+    const outputScript = script.compile([
+      ops.OP_RETURN,
+      crypto.sha256(Buffer.alloc(0)),
+    ]);
+
+    expect(wallet.encodeAddress(outputScript)).toEqual('');
   });
 
   test('should decode addresses', () => {

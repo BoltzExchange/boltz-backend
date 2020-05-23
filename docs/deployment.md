@@ -30,6 +30,11 @@ mnemonicpath = "/home/boltz/.boltz/seed.dat"
 # Possible values are: error, warning, info, verbose, debug, silly
 loglevel = "debug"
 
+# This value configures the type of the lockup address of normal Submarine Swaps:
+#   - false: P2SH nested P2WSH
+#   - true: P2WSH
+swapwitnessaddress = false
+
 # This is the REST API that should be exposed to the public
 # It does not support HTTPS but only plaintext HTTP. A reverse
 # proxy should be setup with a web server like Nginx

@@ -252,11 +252,6 @@ describe('Utils', () => {
     expect(utils.getVersion()).toEqual(`${packageJson.version}${commitHash}`);
   });
 
-  test('should get swap output type', () => {
-    expect(utils.getSwapOutputType(true)).toEqual(OutputType.Bech32);
-    expect(utils.getSwapOutputType(false)).toEqual(OutputType.Compatibility);
-  });
-
   test('should get UNIX time', () => {
     expect(utils.getUnixTime()).toEqual(Math.round(new Date().getTime() / 1000));
   });

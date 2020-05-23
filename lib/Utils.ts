@@ -383,11 +383,6 @@ export const getVersion = () => {
   return `${packageJson.version}${commitHash}`;
 };
 
-// TODO: is hardcoding this a good idea? Should the output type of every swap be stored in the database entry?
-export const getSwapOutputType = (isReverse: boolean): OutputType => {
-  return isReverse ? OutputType.Bech32 : OutputType.Compatibility;
-};
-
 export const getUnixTime = () => {
   return Math.round(new Date().getTime() / 1000);
 };

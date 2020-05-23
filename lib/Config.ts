@@ -80,6 +80,8 @@ type ConfigType = {
 
   retryInterval: number;
 
+  swapwitnessaddress: boolean;
+
   api: ApiConfig;
   grpc: GrpcConfig;
   rates: RatesConfig;
@@ -137,6 +139,8 @@ class Config {
       loglevel: this.getDefaultLogLevel(),
 
       retryInterval: 15,
+
+      swapwitnessaddress: false,
 
       api: {
         host: '127.0.0.1',

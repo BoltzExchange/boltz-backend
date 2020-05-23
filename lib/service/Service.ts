@@ -1,4 +1,5 @@
 import { Op } from 'sequelize';
+import { OutputType } from 'boltz-core';
 import { Transaction } from 'bitcoinjs-lib';
 import { TransactionReceipt } from 'web3-core';
 import Errors from './Errors';
@@ -12,6 +13,7 @@ import FeeProvider from '../rates/FeeProvider';
 import RateProvider from '../rates/RateProvider';
 import PairRepository from '../db/PairRepository';
 import { encodeBip21 } from './PaymentRequestUtils';
+import { ReverseSwapOutputType } from '../consts/Consts';
 import TimeoutDeltaProvider from './TimeoutDeltaProvider';
 import { OrderSide, ServiceWarning } from '../consts/Enums';
 import WalletManager, { Currency } from '../wallet/WalletManager';
@@ -36,11 +38,11 @@ import {
   getSwapMemo,
   getHexBuffer,
   getHexString,
+  decodeInvoice,
   reverseBuffer,
   getChainCurrency,
-  getSwapOutputType,
   getLightningCurrency,
-  getSendingReceivingCurrency, decodeInvoice,
+  getSendingReceivingCurrency,
 } from '../Utils';
 
 class Service {
@@ -56,8 +58,8 @@ class Service {
   private readonly feeProvider: FeeProvider;
   private readonly rateProvider: RateProvider;
 
-  private static MaxInboundLiquidity = 50;
   private static MinInboundLiquidity = 10;
+  private static MaxInboundLiquidity = 50;
 
   constructor(
     private logger: Logger,
@@ -76,11 +78,14 @@ class Service {
       Array.from(currencies.values()),
     );
 
+    this.logger.debug(`Using ${config.swapwitnessaddress ? 'P2WSH' : 'P2SH nested P2WSH'} addresses for Submarine Swaps`);
+
     this.swapManager = new SwapManager(
       this.logger,
-      config.retryInterval,
       this.walletManager,
       this.rateProvider,
+      config.swapwitnessaddress ? OutputType.Bech32 : OutputType.Compatibility,
+      config.retryInterval,
     );
 
     this.eventHandler = new EventHandler(
@@ -715,9 +720,7 @@ class Service {
       invoiceAmount,
       onchainAmount,
       claimPublicKey,
-      getSwapOutputType(
-        true,
-      ),
+      ReverseSwapOutputType,
       onchainTimeoutBlockDelta,
       lightningTimeoutBlockDelta,
       percentageFee,

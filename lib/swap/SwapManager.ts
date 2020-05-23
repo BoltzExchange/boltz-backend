@@ -9,6 +9,7 @@ import LndClient from '../lightning/LndClient';
 import RateProvider from '../rates/RateProvider';
 import SwapRepository from '../db/SwapRepository';
 import ReverseSwap from '../db/models/ReverseSwap';
+import { ReverseSwapOutputType } from '../consts/Consts';
 import ReverseSwapRepository from '../db/ReverseSwapRepository';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
@@ -17,17 +18,18 @@ import { ChannelCreationType, OrderSide, SwapUpdateEvent } from '../consts/Enums
 import {
   getPairId,
   generateId,
+  formatError,
   splitPairId,
   getSwapMemo,
+  getUnixTime,
   getHexBuffer,
   getHexString,
   decodeInvoice,
   reverseBuffer,
   getChainCurrency,
-  getSwapOutputType,
   getLightningCurrency,
   getScriptHashFunction,
-  getSendingReceivingCurrency, formatError, getUnixTime,
+  getSendingReceivingCurrency,
 } from '../Utils';
 
 type ChannelCreationInfo = {
@@ -47,9 +49,10 @@ class SwapManager {
 
   constructor(
     private logger: Logger,
-    retryInterval: number,
     private walletManager: WalletManager,
     rateProvider: RateProvider,
+    private swapOutputType: OutputType,
+    retryInterval: number,
   ) {
     this.swapRepository = new SwapRepository();
     this.reverseSwapRepository = new ReverseSwapRepository();
@@ -57,12 +60,13 @@ class SwapManager {
 
     this.nursery = new SwapNursery(
       this.logger,
-      retryInterval,
       rateProvider,
       this.walletManager,
       this.swapRepository,
       this.reverseSwapRepository,
       this.channelCreationRepository,
+      this.swapOutputType,
+      retryInterval,
     );
   }
 
@@ -102,7 +106,8 @@ class SwapManager {
           }
 
         } else {
-          const encodeFunction = getScriptHashFunction(getSwapOutputType(isReverse));
+          const outputType = isReverse ? ReverseSwapOutputType : this.swapOutputType;
+          const encodeFunction = getScriptHashFunction(outputType);
           const outputScript = encodeFunction(getHexBuffer(swap.redeemScript));
 
           const { base, quote } = splitPairId(swap.pair);
@@ -182,7 +187,7 @@ class SwapManager {
       timeoutBlockHeight,
     );
 
-    const encodeFunction = getScriptHashFunction(getSwapOutputType(false));
+    const encodeFunction = getScriptHashFunction(this.swapOutputType);
     const outputScript = encodeFunction(redeemScript);
 
     const id = generateId();

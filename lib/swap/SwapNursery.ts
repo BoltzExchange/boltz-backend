@@ -2,7 +2,7 @@ import { Op } from 'sequelize';
 import AsyncLock from 'async-lock';
 import { EventEmitter } from 'events';
 import { Transaction, address } from 'bitcoinjs-lib';
-import { constructClaimTransaction, detectPreimage, constructRefundTransaction, detectSwap } from 'boltz-core';
+import { OutputType, constructClaimTransaction, detectPreimage, constructRefundTransaction, detectSwap } from 'boltz-core';
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';
 import Wallet from '../wallet/Wallet';
@@ -12,6 +12,7 @@ import ChainClient from '../chain/ChainClient';
 import RateProvider from '../rates/RateProvider';
 import SwapRepository from '../db/SwapRepository';
 import ReverseSwap from '../db/models/ReverseSwap';
+import { ReverseSwapOutputType } from '../consts/Consts';
 import ChannelCreation from '../db/models/ChannelCreation';
 import ReverseSwapRepository from '../db/ReverseSwapRepository';
 import WalletManager, { Currency } from '../wallet/WalletManager';
@@ -26,7 +27,6 @@ import {
   decodeInvoice,
   reverseBuffer,
   getChainCurrency,
-  getSwapOutputType,
   transactionHashToId,
   getLightningCurrency,
   transactionSignalsRbfExplicitly,
@@ -87,12 +87,13 @@ class SwapNursery extends EventEmitter {
   // TODO: implement retry logic; how long to retry swaps that have not timed out yet (+ eventually emit "invoice.failedToPay" event)
   constructor(
     private logger: Logger,
-    retryInterval: number,
     private rateProvider: RateProvider,
     private walletManager: WalletManager,
     private swapRepository: SwapRepository,
     private reverseSwapRepository: ReverseSwapRepository,
     private channelCreationRepository: ChannelCreationRepository,
+    private swapOutputType: OutputType,
+    retryInterval: number,
   ) {
     super();
 
@@ -558,7 +559,7 @@ class SwapNursery extends EventEmitter {
         script: output.script,
         preimage: response.preimage,
         txHash: transaction.getHash(),
-        type: getSwapOutputType(false),
+        type: this.swapOutputType,
         keys: wallet.getKeysByIndex(swap.keyIndex),
         redeemScript: getHexBuffer(swap.redeemScript),
       }],
@@ -652,7 +653,7 @@ class SwapNursery extends EventEmitter {
       [{
         vout,
         ...lockupTransaction.outs[vout],
-        type: getSwapOutputType(true),
+        type: ReverseSwapOutputType,
         txHash: lockupTransaction.getHash(),
         keys: wallet.getKeysByIndex(reverseSwap.keyIndex),
         redeemScript: getHexBuffer(reverseSwap.redeemScript),

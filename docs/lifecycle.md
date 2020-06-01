@@ -22,9 +22,13 @@ Normal swaps are from onchain coins to lightning ones. Which means the user crea
 
 If the user doesn't send onchain coins until the time lock is expired, Boltz will set the status of the swap to `swap.expired` which means that it was abandoned and sending onchain coins will have no effect.
 
+For more information about the refunding onchain coins, checkout the [scripting docs](scripting.md).
+
 ## Reverse Submarine Swaps
 
-Reverse swaps are from lightning to onchain coins. In this scenario the user generates a preimage, creates SHA256 hash of it and sends that hash to Boltz. With that hash Boltz creates a hold invoice, that can only be settled when the preimage is revealed to the boltz backend. The user pays that invoice but the lightning coins are not transferred to Boltz yet because it doesn't know the preimage. Therefore, the backend locks up onchain coins using the same hash so that these can be claimed with the preimage. When the claim transaction is broadcasted by the user, Boltz detects the preimage and in turn claims the lightning coins.
+Reverse swaps are from lightning to onchain coins. In this scenario the user generates a preimage, creates SHA256 hash of it and sends that hash to Boltz. With that hash Boltz creates a hold invoice, that can only be settled when the preimage is revealed to the boltz backend. The user pays that invoice, but the lightning coins are not transferred to Boltz yet because it doesn't know the preimage. Therefore, the backend locks up onchain coins using the same hash so that these can be claimed with the preimage. When the claim transaction is broadcasted by the user, Boltz detects the preimage and in turn claims the lightning coins.
+
+The [scripting docs](scripting.md) contain details about constructing claim transactions.
 
 1. `swap.created`: initial status of the Reverse Submarine Swap
 2. `transaction.mempool`: the lockup transaction is found in the mempool which will happen after the user pay the hold invoice

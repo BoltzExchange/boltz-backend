@@ -515,7 +515,7 @@ You will always have these values in the response object:
 
 - `id`: id of the freshly created swap
 - `timeoutBlockHeight`: block height at which the swap will be cancelled
-- `address`: address in which the coins will be locked up. Currently, this is a P2SHP2WSH (P2WSH nested in a P2SH) for the sake of compatibility
+- `address`: address in which the coins will be locked up. Currently, this is a SegWit P2SHP2WSH (P2WSH nested in a P2SH) for the sake of compatibility
 - `redeemScript`: redeem script from which the `address` is derived. The redeem script can and should be used to verify that the Boltz instance didn't try to cheat by providing an address without a HTLC
 
 If you set the invoice you will also have these values in the response:

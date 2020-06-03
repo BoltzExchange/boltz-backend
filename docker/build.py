@@ -35,8 +35,8 @@ BERKELEY_5_VERSION = BuildArgument(
     value="5.1.29"
 )
 
-BITCOIN_VERSION = "0.19.1"
-LITECOIN_VERSION = "0.17.1"
+BITCOIN_VERSION = "0.20.0"
+LITECOIN_VERSION = "0.18.1"
 DOGECOIN_VERSION = "1.14.2"
 ZCASH_VERSION = "3.0.0"
 
@@ -85,12 +85,12 @@ IMAGES: Dict[str, Image] = {
             UBUNTU_VERSION,
             BuildArgument(
                 name="GOLANG_VERSION",
-                value="1.14.3-buster"
+                value="1.14.4-buster"
             )
         ]
     ),
     "regtest": Image(
-        tags=["1.4.0"],
+        tags=["1.5.0"],
         arguments=[
             UBUNTU_VERSION,
             BuildArgument(

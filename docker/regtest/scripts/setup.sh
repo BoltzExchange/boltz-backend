@@ -43,10 +43,11 @@ function openChannel () {
 startNodes
 
 # Mine 101 blocks so that the coinbase of the first block is spendable
-bitcoinAddress=$(bitcoin-cli getnewaddress --type legacy)
+bitcoinAddress=$(bitcoin-cli getnewaddress)
+litecoinAddress=$(litecoin-cli getnewaddress)
 
 bitcoin-cli generatetoaddress 101 ${bitcoinAddress} > /dev/null
-litecoin-cli generate 101 > /dev/null
+litecoin-cli generatetoaddress 101 ${litecoinAddress} > /dev/null
 
 echo "Restarting nodes"
 

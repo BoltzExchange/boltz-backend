@@ -55,6 +55,7 @@ RUN make install
 RUN strip ${LITECOIN_PREFIX}/bin/litecoind
 RUN strip ${LITECOIN_PREFIX}/bin/litecoin-tx
 RUN strip ${LITECOIN_PREFIX}/bin/litecoin-cli
+RUN strip ${LITECOIN_PREFIX}/bin/litecoin-wallet
 
 # Assemble the final image
 FROM ubuntu:${UBUNTU_VERSION}

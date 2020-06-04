@@ -30,6 +30,7 @@ import {
   getLightningCurrency,
   getScriptHashFunction,
   getSendingReceivingCurrency,
+  getPrepayMinerFeeInvoiceMemo,
 } from '../Utils';
 
 type ChannelCreationInfo = {
@@ -52,6 +53,7 @@ class SwapManager {
     private walletManager: WalletManager,
     rateProvider: RateProvider,
     private swapOutputType: OutputType,
+    private prepayMinerFee: boolean,
     retryInterval: number,
   ) {
     this.swapRepository = new SwapRepository();
@@ -65,6 +67,7 @@ class SwapManager {
       this.swapRepository,
       this.reverseSwapRepository,
       this.channelCreationRepository,
+      prepayMinerFee,
       this.swapOutputType,
       retryInterval,
     );
@@ -79,14 +82,22 @@ class SwapManager {
 
     // TODO: write tests
     const recreateFilters = (swaps: Swap[] | ReverseSwap[], isReverse: boolean) => {
-      // TODO: add reverse swap input and output filter
       swaps.forEach((swap: Swap | ReverseSwap) => {
-        if (swap.status === SwapUpdateEvent.SwapCreated && isReverse) {
-          const invoice = (swap as ReverseSwap).invoice;
-          const preimageHash = getHexBuffer(decodeInvoice(invoice).paymentHash!);
+        const { base, quote } = splitPairId(swap.pair);
+        const chainCurrency = getChainCurrency(base, quote, swap.orderSide, false);
+        const lightningCurrency = getLightningCurrency(base, quote, swap.orderSide, true);
 
-          const { base, quote } = splitPairId(swap.pair);
-          const lightningCurrency = getLightningCurrency(base, quote, swap.orderSide, true);
+        if ((swap.status === SwapUpdateEvent.SwapCreated || swap.status === SwapUpdateEvent.MinerFeePaid) && isReverse) {
+          let preimageHash: Buffer;
+
+          const reverseSwap = swap as ReverseSwap;
+
+          if (swap.status === SwapUpdateEvent.SwapCreated && reverseSwap.minerFeeInvoice && this.prepayMinerFee) {
+            preimageHash = getHexBuffer(decodeInvoice(reverseSwap.minerFeeInvoice).paymentHash!);
+          } else {
+            const invoice = reverseSwap.invoice;
+            preimageHash = getHexBuffer(decodeInvoice(invoice).paymentHash!);
+          }
 
           const { lndClient } = this.currencies.get(lightningCurrency)!;
           lndClient!.subscribeSingleInvoice(preimageHash);
@@ -109,9 +120,6 @@ class SwapManager {
           const outputType = isReverse ? ReverseSwapOutputType : this.swapOutputType;
           const encodeFunction = getScriptHashFunction(outputType);
           const outputScript = encodeFunction(getHexBuffer(swap.redeemScript));
-
-          const { base, quote } = splitPairId(swap.pair);
-          const chainCurrency = getChainCurrency(base, quote, swap.orderSide, false);
 
           const { chainClient } = this.currencies.get(chainCurrency)!;
           chainClient.addOutputFilter(outputScript);
@@ -316,27 +324,27 @@ class SwapManager {
    * @param baseCurrency base currency ticker symbol
    * @param quoteCurrency quote currency ticker symbol
    * @param orderSide whether the order is a buy or sell one
-   * @param preimageHash hash of the preimage of the invoice that should be generated
-   * @param invoiceAmount amount of the invoice that should be generated
+   * @param preimageHash hash of the preimage of the hold invoice
+   * @param holdInvoiceAmount amount of the hold invoice
    * @param onchainAmount amount of coins that should be sent onchain
    * @param claimPublicKey public key of the keypair needed for claiming
-   * @param outputType type of the lockup address
    * @param onchainTimeoutBlockDelta after how many blocks the onchain script should time out
    * @param lightningTimeoutBlockDelta timeout delta of the last hop
    * @param percentageFee the fee Boltz charges for the Swap
+   * @param prepayMinerFee only set if prepaying miner fees is enabled; amount of the prepay invoice
    */
   public createReverseSwap = async (
     baseCurrency: string,
     quoteCurrency: string,
     orderSide: OrderSide,
     preimageHash: Buffer,
-    invoiceAmount: number,
+    holdInvoiceAmount: number,
     onchainAmount: number,
     claimPublicKey: Buffer,
-    outputType: OutputType,
     onchainTimeoutBlockDelta: number,
     lightningTimeoutBlockDelta: number,
     percentageFee: number,
+    prepayMinerFee?: number,
   ) => {
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(baseCurrency, quoteCurrency, orderSide);
 
@@ -345,16 +353,27 @@ class SwapManager {
     }
 
     this.logger.silly(`Sending ${sendingCurrency.symbol} on the chain and receiving ${receivingCurrency.symbol} on Lightning`);
-    this.logger.verbose(`Creating new reverse Swap from ${receivingCurrency.symbol} to ${sendingCurrency.symbol} ` +
+    this.logger.verbose(`Creating new Reverse Swap from ${receivingCurrency.symbol} to ${sendingCurrency.symbol} ` +
       `with preimage hash: ${getHexString(preimageHash)}`);
 
     const { paymentRequest } = await receivingCurrency.lndClient.addHoldInvoice(
-      invoiceAmount,
+      holdInvoiceAmount,
       preimageHash,
       lightningTimeoutBlockDelta,
       getSwapMemo(sendingCurrency.symbol, true),
     );
-    receivingCurrency.lndClient.subscribeSingleInvoice(preimageHash);
+
+    let minerFeeInvoice: string | undefined = undefined;
+
+    if (prepayMinerFee) {
+      // TODO: restore listener state on startup
+      const prepayInvoice = await receivingCurrency.lndClient.addInvoice(prepayMinerFee, getPrepayMinerFeeInvoiceMemo(sendingCurrency.symbol));
+      minerFeeInvoice = prepayInvoice.paymentRequest;
+
+      receivingCurrency.lndClient.subscribeSingleInvoice(Buffer.from(prepayInvoice.rHash as string, 'base64'));
+    } else {
+      receivingCurrency.lndClient.subscribeSingleInvoice(preimageHash);
+    }
 
     const { keys, index } = sendingCurrency.wallet.getNewKeys();
     const { blocks } = await sendingCurrency.chainClient.getBlockchainInfo();
@@ -367,7 +386,7 @@ class SwapManager {
       timeoutBlockHeight,
     );
 
-    const outputScript = getScriptHashFunction(outputType)(redeemScript);
+    const outputScript = getScriptHashFunction(ReverseSwapOutputType)(redeemScript);
     const lockupAddress = sendingCurrency.wallet.encodeAddress(outputScript);
 
     const id = generateId();
@@ -377,6 +396,7 @@ class SwapManager {
       orderSide,
       lockupAddress,
       onchainAmount,
+      minerFeeInvoice,
       timeoutBlockHeight,
 
       keyIndex: index,
@@ -390,6 +410,7 @@ class SwapManager {
     return {
       id,
       lockupAddress,
+      minerFeeInvoice,
       timeoutBlockHeight,
       invoice: paymentRequest,
       redeemScript: getHexString(redeemScript),

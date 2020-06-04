@@ -7,8 +7,9 @@ import Logger from '../Logger';
 import Swap from '../db/models/Swap';
 import Wallet from '../wallet/Wallet';
 import ChannelNursery from './ChannelNursery';
-import LndClient from '../lightning/LndClient';
 import ChainClient from '../chain/ChainClient';
+import FeeProvider from '../rates/FeeProvider';
+import LndClient from '../lightning/LndClient';
 import RateProvider from '../rates/RateProvider';
 import SwapRepository from '../db/SwapRepository';
 import ReverseSwap from '../db/models/ReverseSwap';
@@ -56,6 +57,9 @@ interface SwapNursery {
   emit(event: 'zeroconf.rejected', swap: Swap, reason: string): boolean;
 
   // Reverse swap related events
+  on(event: 'minerfee.paid', listener: (reverseSwap: ReverseSwap) => void): this;
+  emit(event: 'minerfee.paid', reverseSwap: ReverseSwap): boolean;
+
   on(event: 'coins.sent', listener: (reverseSwap: ReverseSwap, transaction: Transaction) => void): this;
   emit(event: 'coins.sent', reverseSwap: ReverseSwap, transaction: Transaction): boolean;
 
@@ -92,6 +96,7 @@ class SwapNursery extends EventEmitter {
     private swapRepository: SwapRepository,
     private reverseSwapRepository: ReverseSwapRepository,
     private channelCreationRepository: ChannelCreationRepository,
+    private prepayMinerFee: boolean,
     private swapOutputType: OutputType,
     retryInterval: number,
   ) {
@@ -190,7 +195,7 @@ class SwapNursery extends EventEmitter {
     const wallet = this.walletManager.wallets.get(symbol)!;
 
     if (lndClient) {
-      lndClient.on('htlc.accepted', async (invoice) => {
+      lndClient.on('htlc.accepted', async (invoice: string) => {
         await this.lock.acquire(SwapNursery.reverseSwapLock, async () => {
           const reverseSwap = await this.reverseSwapRepository.getReverseSwap({
             invoice: {
@@ -203,6 +208,26 @@ class SwapNursery extends EventEmitter {
           }
         });
       });
+
+      // Only relevant if prepay miner fees are enabled
+      if (this.prepayMinerFee) {
+        lndClient.on('invoice.settled', async (invoice: string) => {
+          await this.lock.acquire(SwapNursery.reverseSwapLock, async () => {
+            const reverseSwap = await this.reverseSwapRepository.getReverseSwap({
+              minerFeeInvoice: {
+                [Op.eq]: invoice,
+              },
+            });
+
+            if (reverseSwap) {
+              this.logger.silly(`Minerfee prepayment of Reverse Swap ${reverseSwap.id} settled`);
+              lndClient.subscribeSingleInvoice(getHexBuffer(decodeInvoice(reverseSwap.invoice).paymentHash!));
+
+              this.emit('minerfee.paid', await this.reverseSwapRepository.setReverseSwapStatus(reverseSwap, SwapUpdateEvent.MinerFeePaid));
+            }
+          });
+        });
+      }
     }
 
     chainClient.on('transaction', async (transaction, confirmed) => {
@@ -584,7 +609,14 @@ class SwapNursery extends EventEmitter {
       const chainClient = this.currencies.get(chainCurrency)!.chainClient;
       const wallet = this.walletManager.wallets.get(chainCurrency)!;
 
-      const feePerVbyte = await chainClient.estimateFee(SwapNursery.reverseSwapMempoolEta);
+      let feePerVbyte: number;
+
+      if (reverseSwap.minerFeeInvoice) {
+        feePerVbyte = Math.round(decodeInvoice(reverseSwap.minerFeeInvoice).satoshis / FeeProvider.transactionSizes.reverseLockup);
+        this.logger.debug(`Using prepaid minerfee for Reverse Swap ${reverseSwap.id} of ${feePerVbyte} sat/vbyte`);
+      } else {
+        feePerVbyte = await chainClient.estimateFee(SwapNursery.reverseSwapMempoolEta);
+      }
       const { fee, vout, transaction, transactionId } = await wallet.sendToAddress(reverseSwap.lockupAddress, reverseSwap.onchainAmount, feePerVbyte);
 
       this.logger.verbose(`Sent ${chainCurrency} to reverse swap ${reverseSwap.id} in transaction: ${transactionId}:${vout}`);

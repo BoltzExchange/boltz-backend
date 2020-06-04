@@ -36,6 +36,9 @@ export enum SwapUpdateEvent {
   TransactionClaimed = 'transaction.claimed',
   TransactionRefunded = 'transaction.refunded',
   TransactionConfirmed = 'transaction.confirmed',
+
+  // Events for the prepay miner fee Reverse Swap protocol
+  MinerFeePaid = 'minerfee.paid',
 }
 
 export enum ChannelCreationType {
@@ -52,6 +55,10 @@ export enum ChannelCreationStatus {
 
 export enum ServiceWarning {
   ReverseSwapsDisabled = 'reverse.swaps.disabled',
+}
+
+export enum ServiceInfo {
+  PrepayMinerFee = 'prepay.minerfee',
 }
 
 export enum Network {

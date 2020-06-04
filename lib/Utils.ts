@@ -362,11 +362,16 @@ export const getLightningCurrency = (base: string, quote: string, orderSide: Ord
 /**
  * Gets the memo for the BIP21 payment request or the invoice of a swap
  *
- * @param receivingCurrency currency the user is receiving
+ * @param sendingCurrency currency Boltz sends and the user is receiving
  * @param isReverse whether the swap is a reverse one
  */
-export const getSwapMemo = (receivingCurrency: string, isReverse: boolean): string => {
-  return `Send to ${receivingCurrency} ${isReverse ? 'address' : 'lightning'}`;
+export const getSwapMemo = (sendingCurrency: string, isReverse: boolean) => {
+  return `Send to ${sendingCurrency} ${isReverse ? 'address' : 'lightning'}`;
+};
+
+// TODO: nicer wording
+export const getPrepayMinerFeeInvoiceMemo = (sendingCurrency: string) => {
+  return `Miner fee for Swap to ${sendingCurrency} address`;
 };
 
 export const formatError = (error: any) => {

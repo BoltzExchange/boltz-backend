@@ -13,36 +13,35 @@ import FeeProvider from '../rates/FeeProvider';
 import RateProvider from '../rates/RateProvider';
 import PairRepository from '../db/PairRepository';
 import { encodeBip21 } from './PaymentRequestUtils';
-import { ReverseSwapOutputType } from '../consts/Consts';
 import TimeoutDeltaProvider from './TimeoutDeltaProvider';
-import { OrderSide, ServiceWarning } from '../consts/Enums';
+import { OrderSide, ServiceInfo, ServiceWarning } from '../consts/Enums';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import SwapManager, { ChannelCreationInfo } from '../swap/SwapManager';
 import {
-  LndInfo,
   Balance,
   ChainInfo,
-  LndChannels,
   CurrencyInfo,
-  WalletBalance,
+  GetBalanceResponse,
   GetInfoResponse,
   LightningBalance,
-  GetBalanceResponse,
+  LndChannels,
+  LndInfo,
+  WalletBalance,
 } from '../proto/boltzrpc_pb';
 import {
-  getRate,
-  getPairId,
-  getVersion,
-  getUnixTime,
-  splitPairId,
-  getSwapMemo,
+  decodeInvoice,
+  getChainCurrency,
   getHexBuffer,
   getHexString,
-  decodeInvoice,
-  reverseBuffer,
-  getChainCurrency,
   getLightningCurrency,
+  getPairId,
+  getRate,
   getSendingReceivingCurrency,
+  getSwapMemo,
+  getUnixTime,
+  getVersion,
+  reverseBuffer,
+  splitPairId,
 } from '../Utils';
 
 class Service {
@@ -50,6 +49,8 @@ class Service {
 
   public swapManager: SwapManager;
   public eventHandler: EventHandler;
+
+  private readonly prepayMinerFee: boolean;
 
   private pairRepository: PairRepository;
 
@@ -67,6 +68,9 @@ class Service {
     private walletManager: WalletManager,
     private currencies: Map<string, Currency>,
   ) {
+    this.prepayMinerFee = config.prepayminerfee;
+    this.logger.debug(`Prepay miner fee for Reverse Swaps is ${this.prepayMinerFee ? 'enabled' : 'disabled' }`);
+
     this.pairRepository = new PairRepository();
     this.timeoutDeltaProvider = new TimeoutDeltaProvider(this.logger, config);
 
@@ -85,6 +89,7 @@ class Service {
       this.walletManager,
       this.rateProvider,
       config.swapwitnessaddress ? OutputType.Bech32 : OutputType.Compatibility,
+      this.prepayMinerFee,
       config.retryInterval,
     );
 
@@ -265,13 +270,19 @@ class Service {
    * Gets all supported pairs and their conversion rates
    */
   public getPairs = () => {
+    const info: ServiceInfo[] = [];
     const warnings: ServiceWarning[] = [];
+
+    if (this.prepayMinerFee) {
+      info.push(ServiceInfo.PrepayMinerFee);
+    }
 
     if (!this.allowReverseSwaps) {
       warnings.push(ServiceWarning.ReverseSwapsDisabled);
     }
 
     return {
+      info,
       warnings,
       pairs: this.rateProvider.pairs,
     };
@@ -702,6 +713,15 @@ class Service {
 
     const onchainAmount = Math.floor(invoiceAmount * rate) - (baseFee + percentageFee);
 
+    let holdInvoiceAmount = invoiceAmount;
+    let prepayMinerFeeAmount: number | undefined = undefined;
+
+    if (this.prepayMinerFee) {
+      // TODO: double check this (divide by rate or multiply by rate)
+      prepayMinerFeeAmount = Math.ceil(baseFee / rate);
+      holdInvoiceAmount -= prepayMinerFeeAmount;
+    }
+
     if (onchainAmount < 1) {
       throw Errors.ONCHAIN_AMOUNT_TOO_LOW();
     }
@@ -711,31 +731,39 @@ class Service {
       invoice,
       redeemScript,
       lockupAddress,
+      minerFeeInvoice,
       timeoutBlockHeight,
     } = await this.swapManager.createReverseSwap(
       base,
       quote,
       side,
       preimageHash,
-      invoiceAmount,
+      holdInvoiceAmount,
       onchainAmount,
       claimPublicKey,
-      ReverseSwapOutputType,
       onchainTimeoutBlockDelta,
       lightningTimeoutBlockDelta,
       percentageFee,
+      prepayMinerFeeAmount,
     );
 
     this.eventHandler.emitSwapCreation(id);
 
-    return {
+    const response: any = {
       id,
-      invoice,
       redeemScript,
       lockupAddress,
       onchainAmount,
       timeoutBlockHeight,
     };
+
+    if (this.prepayMinerFee) {
+      response.minerFeeInvoice = minerFeeInvoice;
+    } else {
+      response.invoice = invoice;
+    }
+
+    return response;
   }
 
   /**

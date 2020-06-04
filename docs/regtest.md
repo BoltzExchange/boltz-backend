@@ -2,10 +2,10 @@
 
 Prerequisites:
 
-* Node.js version `v12.16.3` or higher (preferably the latest LTS)
+* Node.js version `v12.18.0` or higher (preferably the latest LTS)
 * Docker
 
-To use the [regtest Docker image](https://cloud.docker.com/u/boltz/repository/docker/boltz/regtest) for other purposes than running the integration tests execute `npm run docker:start`. This command will create a new container with a prepared regtest environment.
+To use the [regtest Docker image](https://hub.docker.com/r/boltz/regtest) for other purposes than running the integration tests execute `npm run docker:start`. This command will create a new container with a prepared regtest environment.
 
 When you are done run `npm run docker:stop` to stop and remove the container.
 

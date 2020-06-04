@@ -18,6 +18,8 @@ type ReverseSwapType = {
   timeoutBlockHeight: number;
 
   invoice: string;
+  minerFeeInvoice?: string;
+
   preimage?: string;
 
   onchainAmount: number;
@@ -42,6 +44,8 @@ class ReverseSwap extends Model implements ReverseSwapType {
   public timeoutBlockHeight!: number;
 
   public invoice!: string;
+  public minerFeeInvoice?: string;
+
   public preimage?: string;
 
   public onchainAmount!: number;
@@ -64,6 +68,7 @@ class ReverseSwap extends Model implements ReverseSwapType {
       status: { type: new DataTypes.STRING(255), allowNull: false },
       timeoutBlockHeight: { type: new DataTypes.INTEGER(), allowNull: false },
       invoice: { type: new DataTypes.STRING(255), allowNull: false, unique: true },
+      minerFeeInvoice: { type: new DataTypes.STRING(255), allowNull: true, unique: true },
       preimage: { type: new DataTypes.STRING(255), allowNull: true },
       onchainAmount: { type: new DataTypes.INTEGER(), allowNull: false },
       transactionId: { type: new DataTypes.STRING(255), allowNull: true },

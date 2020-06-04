@@ -80,6 +80,7 @@ type ConfigType = {
 
   retryInterval: number;
 
+  prepayminerfee: boolean;
   swapwitnessaddress: boolean;
 
   api: ApiConfig;
@@ -140,6 +141,7 @@ class Config {
 
       retryInterval: 15,
 
+      prepayminerfee: false,
       swapwitnessaddress: false,
 
       api: {

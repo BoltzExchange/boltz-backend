@@ -31,9 +31,10 @@ Reverse swaps are from lightning to onchain coins. In this scenario the user gen
 The [scripting docs](scripting.md) contain details about constructing claim transactions.
 
 1. `swap.created`: initial status of the Reverse Submarine Swap
-2. `transaction.mempool`: the lockup transaction is found in the mempool which will happen after the user pay the hold invoice
-3. `transaction.confirmed`: the lockup transaction is included in a block. This status can and will be skipped if the user wants to accept a 0-conf transaction
-4. `invoice.settled`: the transaction claiming the onchain coins was broadcasted and Boltz received the offchain coins
+2. `minerfee.paid`: only if the instance requires prepaying miner fees (our official instance do not); event is sent alongside the hold invoice of Reverse Swap when the miner fee invoice is paid 
+3. `transaction.mempool`: the lockup transaction is found in the mempool which will happen after the user pay the hold invoice
+4. `transaction.confirmed`: the lockup transaction is included in a block. This status can and will be skipped if the user wants to accept a 0-conf transaction
+5. `invoice.settled`: the transaction claiming the onchain coins was broadcasted and Boltz received the offchain coins
 
 If Boltz is unable to send the agreed amount of onchain coins after the invoice is paid, the status of the status will become `transaction.failed` and the pending lightning HTLC will be cancelled.
 

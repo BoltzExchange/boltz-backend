@@ -58,8 +58,8 @@ interface LndClient {
   on(event: 'htlc.accepted', listener: (invoice: string) => void): this;
   emit(event: 'htlc.accepted', invoice: string): boolean;
 
-  on(event: 'invoice.settled', listener: (invoice: string, preimage: string) => void): this;
-  emit(event: 'invoice.settled', string: string, preimage: string): boolean;
+  on(event: 'invoice.settled', listener: (invoice: string) => void): this;
+  emit(event: 'invoice.settled', string: string): boolean;
 
   on(event: 'channel.backup', listener: (channelBackup: string) => void): this;
   emit(event: 'channel.backup', channelBackup: string): boolean;
@@ -139,7 +139,7 @@ class LndClient extends BaseClient implements LndClient {
         return true;
       } catch (error) {
         this.setClientStatus(ClientStatus.Disconnected);
-        this.logger.error(`could not connect to ${LndClient.serviceName} ${this.symbol} at ${this.uri}` +
+        this.logger.error(`Could not connect to ${this.symbol} ${LndClient.serviceName} at ${this.uri}` +
         ` because: "${error.details}", retrying in ${this.RECONNECT_INTERVAL} ms`);
         this.reconnectionTimer = setTimeout(this.connect, this.RECONNECT_INTERVAL);
 
@@ -240,6 +240,20 @@ class LndClient extends BaseClient implements LndClient {
   }
 
   /**
+   * Creates an invoice
+   */
+  public addInvoice = (value: number, memo?: string) => {
+    const request = new lndrpc.Invoice();
+    request.setValue(value);
+
+    if (memo) {
+      request.setMemo(memo);
+    }
+
+    return this.unaryCall<lndrpc.Invoice, lndrpc.AddInvoiceResponse.AsObject>('addInvoice', request);
+  }
+
+  /**
    * Creates a hold invoice with the supplied preimage hash
    *
    * @param value the value of this invoice in satoshis
@@ -247,7 +261,7 @@ class LndClient extends BaseClient implements LndClient {
    * @param preimageHash the hash of the preimage
    * @param memo optional memo to attach along with the invoice
    */
-  public addHoldInvoice = async (value: number, preimageHash: Buffer, cltvExpiry: number, memo?: string) => {
+  public addHoldInvoice = (value: number, preimageHash: Buffer, cltvExpiry: number, memo?: string) => {
     const request = new invoicesrpc.AddHoldInvoiceRequest();
     request.setValue(value);
     request.setCltvExpiry(cltvExpiry);
@@ -257,7 +271,7 @@ class LndClient extends BaseClient implements LndClient {
       request.setMemo(memo);
     }
 
-    return await this.unaryInvoicesCall<invoicesrpc.AddHoldInvoiceRequest, invoicesrpc.AddHoldInvoiceResp.AsObject>(
+    return this.unaryInvoicesCall<invoicesrpc.AddHoldInvoiceRequest, invoicesrpc.AddHoldInvoiceResp.AsObject>(
       'addHoldInvoice',
       request,
     );
@@ -476,10 +490,8 @@ class LndClient extends BaseClient implements LndClient {
 
           this.emit('htlc.accepted', invoice.getPaymentRequest());
         } else if (invoice.getState() === lndrpc.Invoice.InvoiceState.SETTLED) {
-          const preimage = getHexString(Buffer.from(invoice.getRPreimage_asB64(), 'base64'));
-
-          this.logger.debug(`${LndClient.serviceName} ${this.symbol} invoice ${invoice.getPaymentRequest()} settled with preimage: ${preimage}`);
-          this.emit('invoice.settled', invoice.getPaymentRequest(), preimage);
+          this.logger.debug(`${LndClient.serviceName} ${this.symbol} invoice settled: ${invoice.getPaymentRequest()}`);
+          this.emit('invoice.settled', invoice.getPaymentRequest());
 
           deleteSubscription();
         }

@@ -35,6 +35,11 @@ loglevel = "debug"
 #   - true: P2WSH
 swapwitnessaddress = false
 
+# Enables the prepay minerfee Reverse Swap procotol
+# If this value is "true", an invoice for the miner fee has to be paid before
+# the actual hold invoice of the Revese Swap is returned
+prepayminerfee = false
+
 # This is the REST API that should be exposed to the public
 # It does not support HTTPS but only plaintext HTTP. A reverse
 # proxy should be setup with a web server like Nginx

@@ -3,8 +3,8 @@ import Logger from '../Logger';
 import Service from '../service/Service';
 import SwapNursery from '../swap/SwapNursery';
 import { SwapUpdate } from '../service/EventHandler';
-import { SwapUpdateEvent, SwapType } from '../consts/Enums';
-import { stringify, getHexBuffer, mapToObject, getVersion, getChainCurrency, splitPairId } from '../Utils';
+import { SwapType, SwapUpdateEvent } from '../consts/Enums';
+import { getChainCurrency, getHexBuffer, getVersion, mapToObject, splitPairId, stringify } from '../Utils';
 
 type ApiArgument = {
   name: string,
@@ -50,22 +50,34 @@ class Controller {
       if (reverseSwap.status) {
         const status = reverseSwap.status as SwapUpdateEvent;
 
-        if (status === SwapUpdateEvent.TransactionMempool || status === SwapUpdateEvent.TransactionConfirmed) {
-          const { base, quote } = splitPairId(reverseSwap.pair);
-          const chainCurrency = getChainCurrency(base, quote, reverseSwap.orderSide, true);
+        switch (status) {
+          case SwapUpdateEvent.TransactionMempool:
+          case SwapUpdateEvent.TransactionConfirmed:
+            const { base, quote } = splitPairId(reverseSwap.pair);
+            const chainCurrency = getChainCurrency(base, quote, reverseSwap.orderSide, true);
 
-          const transactionHex = await this.service.getTransaction(chainCurrency, reverseSwap.transactionId!);
+            const transactionHex = await this.service.getTransaction(chainCurrency, reverseSwap.transactionId!);
 
-          this.pendingSwapInfos.set(reverseSwap.id, {
-            status,
-            transaction: {
-              hex: transactionHex,
-              id: reverseSwap.transactionId!,
-              eta: status === SwapUpdateEvent.TransactionMempool ? SwapNursery.reverseSwapMempoolEta : undefined,
-            },
-          });
-        } else {
-          this.pendingSwapInfos.set(reverseSwap.id, { status });
+            this.pendingSwapInfos.set(reverseSwap.id, {
+              status,
+              transaction: {
+                hex: transactionHex,
+                id: reverseSwap.transactionId!,
+                eta: status === SwapUpdateEvent.TransactionMempool ? SwapNursery.reverseSwapMempoolEta : undefined,
+              },
+            });
+            break;
+
+          case SwapUpdateEvent.MinerFeePaid:
+            this.pendingSwapInfos.set(reverseSwap.id, {
+              status,
+              invoice: reverseSwap.invoice,
+            });
+            break;
+
+          default:
+            this.pendingSwapInfos.set(reverseSwap.id, { status });
+            break;
         }
       }
     }
@@ -82,6 +94,7 @@ class Controller {
     const data = this.service.getPairs();
 
     this.successResponse(res, {
+      info: data.info,
       warnings: data.warnings,
       pairs: mapToObject(data.pairs),
     });

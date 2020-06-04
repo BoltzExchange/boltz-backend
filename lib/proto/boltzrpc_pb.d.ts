@@ -25,7 +25,7 @@ export namespace GetInfoRequest {
 
 export class GetInfoResponse extends jspb.Message { 
     getVersion(): string;
-    setVersion(value: string): void;
+    setVersion(value: string): GetInfoResponse;
 
 
     getChainsMap(): jspb.Map<string, CurrencyInfo>;
@@ -55,13 +55,13 @@ export class CurrencyInfo extends jspb.Message {
     hasChain(): boolean;
     clearChain(): void;
     getChain(): ChainInfo | undefined;
-    setChain(value?: ChainInfo): void;
+    setChain(value?: ChainInfo): CurrencyInfo;
 
 
     hasLnd(): boolean;
     clearLnd(): void;
     getLnd(): LndInfo | undefined;
-    setLnd(value?: LndInfo): void;
+    setLnd(value?: LndInfo): CurrencyInfo;
 
 
     serializeBinary(): Uint8Array;
@@ -83,19 +83,19 @@ export namespace CurrencyInfo {
 
 export class ChainInfo extends jspb.Message { 
     getVersion(): number;
-    setVersion(value: number): void;
+    setVersion(value: number): ChainInfo;
 
     getBlocks(): number;
-    setBlocks(value: number): void;
+    setBlocks(value: number): ChainInfo;
 
     getScannedBlocks(): number;
-    setScannedBlocks(value: number): void;
+    setScannedBlocks(value: number): ChainInfo;
 
     getConnections(): number;
-    setConnections(value: number): void;
+    setConnections(value: number): ChainInfo;
 
     getError(): string;
-    setError(value: string): void;
+    setError(value: string): ChainInfo;
 
 
     serializeBinary(): Uint8Array;
@@ -120,19 +120,19 @@ export namespace ChainInfo {
 
 export class LndInfo extends jspb.Message { 
     getVersion(): string;
-    setVersion(value: string): void;
+    setVersion(value: string): LndInfo;
 
 
     hasLndChannels(): boolean;
     clearLndChannels(): void;
     getLndChannels(): LndChannels | undefined;
-    setLndChannels(value?: LndChannels): void;
+    setLndChannels(value?: LndChannels): LndInfo;
 
     getBlockHeight(): number;
-    setBlockHeight(value: number): void;
+    setBlockHeight(value: number): LndInfo;
 
     getError(): string;
-    setError(value: string): void;
+    setError(value: string): LndInfo;
 
 
     serializeBinary(): Uint8Array;
@@ -156,13 +156,13 @@ export namespace LndInfo {
 
 export class LndChannels extends jspb.Message { 
     getActive(): number;
-    setActive(value: number): void;
+    setActive(value: number): LndChannels;
 
     getInactive(): number;
-    setInactive(value: number): void;
+    setInactive(value: number): LndChannels;
 
     getPending(): number;
-    setPending(value: number): void;
+    setPending(value: number): LndChannels;
 
 
     serializeBinary(): Uint8Array;
@@ -228,13 +228,13 @@ export class Balance extends jspb.Message {
     hasWalletBalance(): boolean;
     clearWalletBalance(): void;
     getWalletBalance(): WalletBalance | undefined;
-    setWalletBalance(value?: WalletBalance): void;
+    setWalletBalance(value?: WalletBalance): Balance;
 
 
     hasLightningBalance(): boolean;
     clearLightningBalance(): void;
     getLightningBalance(): LightningBalance | undefined;
-    setLightningBalance(value?: LightningBalance): void;
+    setLightningBalance(value?: LightningBalance): Balance;
 
 
     serializeBinary(): Uint8Array;
@@ -256,10 +256,10 @@ export namespace Balance {
 
 export class LightningBalance extends jspb.Message { 
     getLocalBalance(): number;
-    setLocalBalance(value: number): void;
+    setLocalBalance(value: number): LightningBalance;
 
     getRemoteBalance(): number;
-    setRemoteBalance(value: number): void;
+    setRemoteBalance(value: number): LightningBalance;
 
 
     serializeBinary(): Uint8Array;
@@ -281,13 +281,13 @@ export namespace LightningBalance {
 
 export class WalletBalance extends jspb.Message { 
     getTotalBalance(): number;
-    setTotalBalance(value: number): void;
+    setTotalBalance(value: number): WalletBalance;
 
     getConfirmedBalance(): number;
-    setConfirmedBalance(value: number): void;
+    setConfirmedBalance(value: number): WalletBalance;
 
     getUnconfirmedBalance(): number;
-    setUnconfirmedBalance(value: number): void;
+    setUnconfirmedBalance(value: number): WalletBalance;
 
 
     serializeBinary(): Uint8Array;
@@ -310,7 +310,7 @@ export namespace WalletBalance {
 
 export class GetAddressRequest extends jspb.Message { 
     getSymbol(): string;
-    setSymbol(value: string): void;
+    setSymbol(value: string): GetAddressRequest;
 
 
     serializeBinary(): Uint8Array;
@@ -331,7 +331,7 @@ export namespace GetAddressRequest {
 
 export class GetAddressResponse extends jspb.Message { 
     getAddress(): string;
-    setAddress(value: string): void;
+    setAddress(value: string): GetAddressResponse;
 
 
     serializeBinary(): Uint8Array;
@@ -352,19 +352,19 @@ export namespace GetAddressResponse {
 
 export class SendCoinsRequest extends jspb.Message { 
     getSymbol(): string;
-    setSymbol(value: string): void;
+    setSymbol(value: string): SendCoinsRequest;
 
     getAddress(): string;
-    setAddress(value: string): void;
+    setAddress(value: string): SendCoinsRequest;
 
     getAmount(): number;
-    setAmount(value: number): void;
+    setAmount(value: number): SendCoinsRequest;
 
     getFee(): number;
-    setFee(value: number): void;
+    setFee(value: number): SendCoinsRequest;
 
     getSendAll(): boolean;
-    setSendAll(value: boolean): void;
+    setSendAll(value: boolean): SendCoinsRequest;
 
 
     serializeBinary(): Uint8Array;
@@ -389,10 +389,10 @@ export namespace SendCoinsRequest {
 
 export class SendCoinsResponse extends jspb.Message { 
     getTransactionId(): string;
-    setTransactionId(value: string): void;
+    setTransactionId(value: string): SendCoinsResponse;
 
     getVout(): number;
-    setVout(value: number): void;
+    setVout(value: number): SendCoinsResponse;
 
 
     serializeBinary(): Uint8Array;
@@ -414,10 +414,10 @@ export namespace SendCoinsResponse {
 
 export class UpdateTimeoutBlockDeltaRequest extends jspb.Message { 
     getPair(): string;
-    setPair(value: string): void;
+    setPair(value: string): UpdateTimeoutBlockDeltaRequest;
 
     getNewDelta(): number;
-    setNewDelta(value: number): void;
+    setNewDelta(value: number): UpdateTimeoutBlockDeltaRequest;
 
 
     serializeBinary(): Uint8Array;

@@ -13,7 +13,7 @@
     "dev": "npm run compile && npm run start",
     "lint": "tslint --project tsconfig.json && tslint --config tslint-alt.json 'bin/*' 'test/**/*.ts'",
     "lint:fix": "tslint --fix --project tsconfig.json && tslint --fix --config tslint-alt.json 'bin/*' 'test/**/*.ts'",
-    "docker:regtest": "docker run -d --name regtest -p 9736:9735 -p 18443:18443 -p 19443:19443 -p 18332:18332 -p 18232:18232 -p 29000:29000 -p 29001:29001 -p 29002:29002 -p 30000:30000 -p 30001:30001 -p 30002:30002 -p 40000:40000 -p 40001:40001 -p 40002:40002 -p 50000:50000 -p 50001:50001 -p 50002:50002 -p 10009:10009 -p 10011:10011 -p 11009:11009 -p 11010:11010 -p 8081:8081 boltz/regtest:1.5.0",
+    "docker:regtest": "docker run -d --name regtest -p 9736:9735 -p 18443:18443 -p 19443:19443 -p 18332:18332 -p 18232:18232 -p 29000:29000 -p 29001:29001 -p 29002:29002 -p 30000:30000 -p 30001:30001 -p 30002:30002 -p 40000:40000 -p 40001:40001 -p 40002:40002 -p 50000:50000 -p 50001:50001 -p 50002:50002 -p 10009:10009 -p 10011:10011 -p 11009:11009 -p 11010:11010 -p 8081:8081 boltz/regtest:1.5.1",
     "docker:ganache": "docker run -d --name ganache -p 8545:8545 trufflesuite/ganache-cli:v6.9.1 --mnemonic \"gym visit library audit device unfair turkey render sister arena bounce glow\"",
     "docker:ganache:deploy": "cd node_modules/boltz-core && truffle deploy --network ganache",
     "docker:start": "npm run docker:regtest && npm run docker:ganache && npm run docker:ganache:deploy",

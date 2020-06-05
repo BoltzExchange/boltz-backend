@@ -13,7 +13,13 @@ const getCommitHash = () => {
   if (tag && tag.length > 0) {
     return '';
   } else {
-    return result.match(/[a-z0-9]+\s\(HEAD/g)[0].slice(0, -6);
+    const match = result.match(/[a-z0-9]+\s\(HEAD/g);
+
+    if (match) {
+      return match[0].slice(0, -6);
+    } else {
+      return '';
+    }
   }
 };
 

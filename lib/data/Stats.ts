@@ -1,11 +1,11 @@
 import Report from './Report';
 import Swap from '../db/models/Swap';
 import { OrderSide } from '../consts/Enums';
+import SwapRepository from '../db/SwapRepository';
 import ReverseSwap from '../db/models/ReverseSwap';
-import SwapRepository from '../service/SwapRepository';
 import { satoshisToCoins } from '../DenominationConverter';
-import ReverseSwapRepository from '../service/ReverseSwapRepository';
-import { splitPairId, getInvoiceAmt, stringify, mapToObject } from '../Utils';
+import ReverseSwapRepository from '../db/ReverseSwapRepository';
+import { splitPairId, decodeInvoice, stringify, mapToObject } from '../Utils';
 
 class Stats {
   private volumeMap = new Map<string, number>();
@@ -25,7 +25,7 @@ class Stats {
 
     const addSwapToMaps = (swap: Swap | ReverseSwap, isReverse: boolean) => {
       const { quote } = splitPairId(swap.pair);
-      const amount = this.getSwapAmount(isReverse, swap.orderSide, swap.onchainAmount!, swap.invoice);
+      const amount = this.getSwapAmount(isReverse, swap.orderSide, swap.onchainAmount!, swap.invoice!);
 
       this.addToTrades(swap.pair);
       this.addToVolume(quote, amount);
@@ -75,7 +75,7 @@ class Stats {
       (isReverse && orderSide === OrderSide.BUY) ||
       (!isReverse && orderSide === OrderSide.SELL)
     ) {
-      return getInvoiceAmt(invoice);
+      return decodeInvoice(invoice).satoshis;
     } else {
       return onchainAmount;
     }

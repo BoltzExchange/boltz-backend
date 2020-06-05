@@ -13,16 +13,31 @@ type PairTimeoutBlockDeltas = {
 };
 
 class TimeoutDeltaProvider {
-  private timeoutDeltas = new Map<string, PairTimeoutBlockDeltas>();
-
   // A map of the symbols of currencies and their block times in minutes
-  private static blockTimes = new Map<string, number>([
+  public static blockTimes = new Map<string, number>([
     ['BTC', 10],
-    ['DOGE', 1],
     ['LTC', 2.5],
   ]);
 
+  private timeoutDeltas = new Map<string, PairTimeoutBlockDeltas>();
+
   constructor(private logger: Logger, private config: ConfigType) {}
+
+  public static convertBlocks = (fromSymbol: string, toSymbol: string, blocks: number) => {
+    if (!TimeoutDeltaProvider.blockTimes.has(fromSymbol)) {
+      throw Errors.BLOCK_TIME_NOT_FOUND(fromSymbol);
+    }
+
+    if (!TimeoutDeltaProvider.blockTimes.has(toSymbol)) {
+      throw Errors.BLOCK_TIME_NOT_FOUND(toSymbol);
+    }
+
+    const minutes = blocks * TimeoutDeltaProvider.blockTimes.get(fromSymbol)!;
+
+    // In the context this function is used, we calculate the timeout of the first leg of a
+    // reverse swap which has to be longer than the second one
+    return Math.ceil(minutes / TimeoutDeltaProvider.blockTimes.get(toSymbol)!);
+  }
 
   public init = (pairs: PairConfig[]) => {
     for (const pair of pairs) {

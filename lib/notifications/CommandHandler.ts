@@ -196,7 +196,10 @@ class CommandHandler {
   private getFees = async () => {
     let message = 'Fees:\n';
 
-    const { swaps, reverseSwaps } = await Report.getSuccessfulSwaps(this.service.swapRepository, this.service.reverseSwapRepository);
+    const { swaps, reverseSwaps } = await Report.getSuccessfulSwaps(
+      this.service.swapManager.swapRepository,
+      this.service.swapManager.reverseSwapRepository,
+    );
     const fees = this.getFeeOfSwaps(swaps, reverseSwaps);
 
     fees.forEach((fee, symbol) => {
@@ -214,7 +217,7 @@ class CommandHandler {
 
     const id = args[0];
 
-    const swap = await this.service.swapRepository.getSwap({
+    const swap = await this.service.swapManager.swapRepository.getSwap({
       id: {
         [Op.eq]: id,
       },
@@ -225,7 +228,7 @@ class CommandHandler {
       return;
     } else {
       // Query for a reverse swap because there was no normal one found with the specified id
-      const reverseSwap = await this.service.reverseSwapRepository.getReverseSwap({
+      const reverseSwap = await this.service.swapManager.reverseSwapRepository.getReverseSwap({
         id: {
           [Op.eq]: id,
         },
@@ -241,7 +244,7 @@ class CommandHandler {
   }
 
   private getStats = async () => {
-    const stats = await new Stats(this.service.swapRepository, this.service.reverseSwapRepository).generate();
+    const stats = await new Stats(this.service.swapManager.swapRepository, this.service.swapManager.reverseSwapRepository).generate();
 
     await this.discord.sendMessage(`${CommandHandler.codeBlock}${stats}${CommandHandler.codeBlock}`);
   }
@@ -270,7 +273,7 @@ class CommandHandler {
   }
 
   private lockedFunds = async () => {
-    const pendingReverseSwaps = await this.service.reverseSwapRepository.getReverseSwaps({
+    const pendingReverseSwaps = await this.service.swapManager.reverseSwapRepository.getReverseSwaps({
       status: {
         [Op.or]: [
           SwapUpdateEvent.TransactionMempool,
@@ -305,7 +308,7 @@ class CommandHandler {
 
   private pendingSwaps = async () => {
     const [pendingSwaps, pendingReverseSwaps] = await Promise.all([
-      this.service.swapRepository.getSwaps({
+      this.service.swapManager.swapRepository.getSwaps({
         status: {
           [Op.not]: [
             SwapUpdateEvent.SwapExpired,
@@ -314,7 +317,7 @@ class CommandHandler {
           ],
         },
       }),
-      this.service.reverseSwapRepository.getReverseSwaps({
+      this.service.swapManager.reverseSwapRepository.getReverseSwaps({
         status: {
           [Op.not]: [
             SwapUpdateEvent.SwapExpired,
@@ -442,9 +445,9 @@ class CommandHandler {
         const fee = fees.get(feeSymbol);
 
         if (fee) {
-          fees.set(feeSymbol, fee + swap.fee);
+          fees.set(feeSymbol, fee + swap.fee!);
         } else {
-          fees.set(feeSymbol, swap.fee);
+          fees.set(feeSymbol, swap.fee!);
         }
       });
     };

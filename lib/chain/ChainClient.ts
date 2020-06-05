@@ -153,25 +153,31 @@ class ChainClient extends BaseClient {
   }
 
   /**
-   * Adds outputs to the list of relevant ones
-   *
-   * @param outputScripts list of output script Buffer
+   * Add an output to the list of relevant ones
    */
-  public updateOutputFilter = (outputScripts: Buffer[]) => {
-    outputScripts.forEach((script) => {
-      this.zmqClient.relevantOutputs.add(getHexString(script));
-    });
+  public addOutputFilter = (outputScript: Buffer) => {
+    this.zmqClient.relevantOutputs.add(getHexString(outputScript));
   }
 
   /**
-   * Adds inputs to the list of relevant ones
-   *
-   * @param inputHashes array of input transaction hash Buffers
+   * Removes an output from the list of relevant ones
    */
-  public updateInputFilter = (inputHashes: Buffer[]) => {
-    inputHashes.forEach((hash) => {
-      this.zmqClient.relevantInputs.add(getHexString(hash));
-    });
+  public removeOutputFilter = (outputScript: Buffer) => {
+    this.zmqClient.relevantOutputs.delete(getHexString(outputScript));
+  }
+
+  /**
+   * Adds an input to the list of relevant ones
+   */
+  public addInputFilter = (inputHash: Buffer) => {
+    this.zmqClient.relevantInputs.add(getHexString(inputHash));
+  }
+
+  /**
+   * Removes an input from the list of relevant ones
+   */
+  public removeInputFilter = (inputHash: Buffer) => {
+    this.zmqClient.relevantInputs.delete(getHexString(inputHash));
   }
 
   public rescanChain = async (startHeight: number) => {

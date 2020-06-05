@@ -10,23 +10,24 @@ describe('ChainClient', () => {
 
   const testData = {
     inputs: [] as Buffer[],
-    addresses: [] as string[],
     outputScripts: [] as Buffer[],
+
+    addresses: [] as string[],
   };
 
   test('should connect', async () => {
     await bitcoinClient.connect();
   });
 
-  test('should update the output filer', async () => {
+  test('should add to the output filer', () => {
     for (let i = 0; i < numTransactions; i += 1) {
       const { outputScript, address } = generateAddress(OutputType.Bech32);
 
       testData.outputScripts.push(outputScript);
       testData.addresses.push(address);
-    }
 
-    bitcoinClient.updateOutputFilter(testData.outputScripts);
+      bitcoinClient.addOutputFilter(outputScript);
+    }
 
     expect(bitcoinClient['zmqClient'].relevantOutputs.size).toEqual(numTransactions);
   });
@@ -65,25 +66,16 @@ describe('ChainClient', () => {
     });
   });
 
-  test('should update the input filer', async () => {
+  test('should add to the input filer', async () => {
     const unspentUtxos = await bitcoinClient.listUnspent();
 
     for (const utxo of unspentUtxos) {
-      testData.inputs.push(reverseBuffer(getHexBuffer(utxo.txid)));
+      const input = reverseBuffer(getHexBuffer(utxo.txid));
+
+      testData.inputs.push(input);
+      bitcoinClient.addInputFilter(input);
     }
 
-    bitcoinClient.updateInputFilter(testData.inputs);
-    expect(bitcoinClient['zmqClient'].relevantInputs.size).toEqual(unspentUtxos.length);
-  });
-
-  test('should update the input filer', async () => {
-    const unspentUtxos = await bitcoinClient.listUnspent();
-
-    for (const utxo of unspentUtxos) {
-      testData.inputs.push(reverseBuffer(getHexBuffer(utxo.txid)));
-    }
-
-    bitcoinClient.updateInputFilter(testData.inputs);
     expect(bitcoinClient['zmqClient'].relevantInputs.size).toEqual(unspentUtxos.length);
   });
 
@@ -135,6 +127,22 @@ describe('ChainClient', () => {
     await waitForFunctionToBeTrue(() => {
       return event;
     });
+  });
+
+  test('should remove from the output filter', () => {
+    testData.outputScripts.forEach((output) => {
+      bitcoinClient.removeOutputFilter(output);
+    });
+
+    expect(bitcoinClient['zmqClient'].relevantOutputs.size).toEqual(0);
+  });
+
+  test('should remove from the input filter', () => {
+    testData.inputs.forEach((input) => {
+      bitcoinClient.removeInputFilter(input);
+    });
+
+    expect(bitcoinClient['zmqClient'].relevantInputs.size).toEqual(0);
   });
 
   test('should emit an event when a block gets mined', async () => {

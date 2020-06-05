@@ -6,10 +6,10 @@ import Errors from './Errors';
 import Wallet from './Wallet';
 import Logger from '../Logger';
 import { CurrencyConfig } from '../Config';
-import KeyRepository from './KeyRepository';
 import { splitDerivationPath } from '../Utils';
 import ChainClient from '../chain/ChainClient';
 import LndClient from '../lightning/LndClient';
+import KeyRepository from '../db/KeyRepository';
 import { KeyProviderType } from '../db/models/KeyProvider';
 import LndWalletProvider from './providers/LndWalletProvider';
 import EthereumWallet, { EthereumConfig } from './EthereumWallet';
@@ -99,7 +99,7 @@ class WalletManager {
       // TODO: leave global wallet undefined if connection fails
       this.ethereumWallet = new EthereumWallet(this.logger, this.menmonic, this.ethereumConfig);
     } else {
-      this.logger.warn('Not trying to initialize Ethereum wallet: no endpoint was specified');
+      this.logger.warn('Not trying to initialize Ethereum wallet: no eth provider was specified');
     }
   }
 

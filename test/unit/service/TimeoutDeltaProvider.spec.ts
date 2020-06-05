@@ -117,6 +117,14 @@ describe('TimeoutDeltaProvider', () => {
     expect(() => minutesToBlocks('not/found', 10)).toThrow(Errors.BLOCK_TIME_NOT_FOUND('not').message);
   });
 
+  test('should convert blocks', () => {
+    expect(TimeoutDeltaProvider.convertBlocks('LTC', 'BTC', 1)).toEqual(1);
+    expect(TimeoutDeltaProvider.convertBlocks('LTC', 'BTC', 11)).toEqual(3);
+
+    expect(TimeoutDeltaProvider.convertBlocks('BTC', 'LTC', 1)).toEqual(4);
+    expect(TimeoutDeltaProvider.convertBlocks('BTC', 'LTC', 3)).toEqual(12);
+  });
+
   afterAll(() => {
     cleanup();
   });

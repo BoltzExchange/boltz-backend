@@ -9,7 +9,6 @@ import Database from './db/Database';
 import Service from './service/Service';
 import GrpcServer from './grpc/GrpcServer';
 import GrpcService from './grpc/GrpcService';
-import SwapManager from './swap/SwapManager';
 import LndClient from './lightning/LndClient';
 import ChainClient from './chain/ChainClient';
 import Config, { ConfigType } from './Config';
@@ -19,21 +18,19 @@ import WalletManager, { Currency } from './wallet/WalletManager';
 import NotificationProvider from './notifications/NotificationProvider';
 
 class Boltz {
-  private logger: Logger;
-  private config: ConfigType;
+  private readonly logger: Logger;
+  private readonly config: ConfigType;
+
+  private readonly service!: Service;
+  private readonly walletManager: WalletManager;
 
   private db: Database;
-
-  private currencies = new Map<string, Currency>();
-
-  private swapManager: SwapManager;
-  private walletManager: WalletManager;
-
-  private service!: Service;
   private notifications!: NotificationProvider;
 
   private api!: Api;
   private grpcServer!: GrpcServer;
+
+  private currencies = new Map<string, Currency>();
 
   constructor(config: Arguments<any>) {
     this.config = new Config().load(config);
@@ -54,20 +51,12 @@ class Boltz {
       this.walletManager = WalletManager.fromMnemonic(this.logger, mnemonic, this.config.mnemonicpath, walletCurrencies, this.config.ethereum);
     }
 
-    this.swapManager = new SwapManager(
-      this.logger,
-      this.walletManager,
-      Array.from(this.currencies.values()),
-    );
-
     try {
       this.service = new Service(
         this.logger,
         this.config,
-        this.swapManager,
         this.walletManager,
         this.currencies,
-        this.config.rates.interval,
       );
 
       const backup = new BackupScheduler(
@@ -76,8 +65,8 @@ class Boltz {
         this.config.backup,
         this.service.eventHandler,
         new Report(
-          this.service.swapRepository,
-          this.service.reverseSwapRepository,
+          this.service.swapManager.swapRepository,
+          this.service.swapManager.reverseSwapRepository,
         ),
       );
 
@@ -125,13 +114,15 @@ class Boltz {
       await this.walletManager.init();
       await this.service.init(this.config.pairs);
 
+      await this.service.swapManager.init(Array.from(this.currencies.values()));
+
       await this.notifications.init();
 
       this.grpcServer.listen();
 
       await this.api.init();
     } catch (error) {
-      this.logger.error(`Could not initialize Boltz: ${JSON.stringify(error)}`);
+      this.logger.error(`Could not initialize Boltz: ${formatError(error)}`);
       process.exit(1);
     }
   }

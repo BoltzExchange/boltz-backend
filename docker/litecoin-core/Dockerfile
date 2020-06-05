@@ -11,7 +11,7 @@ ARG VERSION
 COPY --from=berkeley-db /opt /opt
 
 RUN apt-get update && apt-get -y upgrade
-RUN apt-get -y install \
+RUN DEBIAN_FRONTEND=noninteractive apt-get -y install \
   wget \
   libtool \
   python3 \
@@ -55,6 +55,7 @@ RUN make install
 RUN strip ${LITECOIN_PREFIX}/bin/litecoind
 RUN strip ${LITECOIN_PREFIX}/bin/litecoin-tx
 RUN strip ${LITECOIN_PREFIX}/bin/litecoin-cli
+RUN strip ${LITECOIN_PREFIX}/bin/litecoin-wallet
 
 # Assemble the final image
 FROM ubuntu:${UBUNTU_VERSION}

@@ -7,7 +7,7 @@ type SwapType = {
   keyIndex: number;
   redeemScript: string;
 
-  fee: number;
+  fee?: number;
   routingFee?: number;
   minerFee?: number;
 
@@ -16,10 +16,13 @@ type SwapType = {
 
   status: string;
 
-  invoice: string;
+  preimageHash: string;
+  invoice?: string;
 
-  acceptZeroConf: boolean;
+  acceptZeroConf?: boolean;
   timeoutBlockHeight: number;
+  rate?: number;
+  expectedAmount?: number;
   onchainAmount?: number;
   lockupAddress: string;
   lockupTransactionId?: string;
@@ -31,7 +34,7 @@ class Swap extends Model implements SwapType {
   public keyIndex!: number;
   public redeemScript!: string;
 
-  public fee!: number;
+  public fee?: number;
   public routingFee?: number;
   public minerFee?: number;
 
@@ -40,10 +43,13 @@ class Swap extends Model implements SwapType {
 
   public status!: string;
 
-  public invoice!: string;
+  public preimageHash!: string;
+  public invoice?: string;
 
-  public acceptZeroConf!: boolean;
+  public acceptZeroConf?: boolean;
   public timeoutBlockHeight!: number;
+  public rate?: number;
+  public expectedAmount?: number;
   public onchainAmount?: number;
   public lockupAddress!: string;
   public lockupTransactionId?: string;
@@ -56,15 +62,18 @@ class Swap extends Model implements SwapType {
       id: { type: new DataTypes.STRING(255), primaryKey: true, allowNull: false },
       keyIndex: { type: new DataTypes.INTEGER(), allowNull: false },
       redeemScript: { type: new DataTypes.STRING(255), allowNull: false },
-      fee: { type: new DataTypes.INTEGER(), allowNull: false },
+      fee: { type: new DataTypes.INTEGER(), allowNull: true },
       routingFee: { type: new DataTypes.INTEGER(), allowNull: true },
       minerFee: { type: new DataTypes.INTEGER(), allowNull: true },
       pair: { type: new DataTypes.STRING(255), allowNull: false },
       orderSide: { type: new DataTypes.INTEGER(), allowNull: false },
       status: { type: new DataTypes.STRING(255), allowNull: false },
-      invoice: { type: new DataTypes.STRING(255), unique: true, allowNull: false },
-      acceptZeroConf: { type: DataTypes.BOOLEAN, allowNull: false },
-      timeoutBlockHeight: { type: DataTypes.INTEGER, allowNull: false },
+      preimageHash: { type: new DataTypes.STRING(255), allowNull: false, unique: true },
+      invoice: { type: new DataTypes.STRING(255), allowNull: true, unique: true },
+      acceptZeroConf: { type: DataTypes.BOOLEAN, allowNull: true },
+      timeoutBlockHeight: { type: new DataTypes.INTEGER(), allowNull: false },
+      rate: { type: new DataTypes.REAL(), allowNull: true },
+      expectedAmount: { type: new DataTypes.INTEGER(), allowNull: true },
       onchainAmount: { type: new DataTypes.INTEGER(), allowNull: true },
       lockupAddress: { type: new DataTypes.STRING(255), allowNull: false },
       lockupTransactionId: { type: new DataTypes.STRING(255), allowNull: true },

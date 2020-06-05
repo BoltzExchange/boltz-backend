@@ -1,6 +1,6 @@
-# Boltz v2.1.0 Documentation
+# Boltz v2.3.0 Documentation
 
-This is the documentation of [Boltz](https://boltz.exchange) version 2.1.0.
+This is the documentation of [Boltz](https://boltz.exchange) version 2.3.0.
 
 ## What is Boltz
 
@@ -14,8 +14,6 @@ The Rest API can be accessed at:
 
 * [Testnet](https://testnet.boltz.exchange/api)
 * [Mainnet](https://boltz.exchange/api)
-
-Read the API documentation [here](/api.md)
 
 ## Useful Links
 

@@ -2,7 +2,9 @@ import BN from 'bn.js';
 import Web3 from 'web3';
 import { ContractABIs } from 'boltz-core';
 import { Contract } from 'web3-eth-contract';
+import { TransactionReceipt } from 'web3-core';
 import HDWalletProvider from '@truffle/hdwallet-provider';
+import { TransactionRevertInstructionError } from 'web3-core-helpers';
 import Errors from './Errors';
 import Logger from '../Logger';
 
@@ -99,7 +101,7 @@ class EthereumWallet {
    * @param value amount of Ether that should be sent; denominated in 10 ** 10 WEI
    * @param gasPrice denominated in GWEI
    */
-  public sendEther = async (address: string, value: number, gasPrice?: number) => {
+  public sendEther = async (address: string, value: number, gasPrice?: number): Promise<TransactionReceipt | TransactionRevertInstructionError> => {
     this.logger.info(`Sending ${value} ETH to ${address}`);
 
     return this.web3.eth.sendTransaction({

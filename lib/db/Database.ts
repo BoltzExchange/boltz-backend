@@ -4,6 +4,7 @@ import Pair from './models/Pair';
 import Swap from './models/Swap';
 import ReverseSwap from './models/ReverseSwap';
 import KeyProvider from './models/KeyProvider';
+import ChannelCreation from './models/ChannelCreation';
 
 class Db {
   public sequelize: Sequelize.Sequelize;
@@ -39,6 +40,8 @@ class Db {
       Swap.sync(),
       ReverseSwap.sync(),
     ]);
+
+    await ChannelCreation.sync();
   }
 
   public close = async () => {
@@ -50,6 +53,7 @@ class Db {
     Swap.load(this.sequelize);
     ReverseSwap.load(this.sequelize);
     KeyProvider.load(this.sequelize);
+    ChannelCreation.load(this.sequelize);
   }
 }
 

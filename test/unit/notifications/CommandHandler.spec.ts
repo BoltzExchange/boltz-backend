@@ -3,13 +3,13 @@ import Logger from '../../../lib/Logger';
 import Database from '../../../lib/db/Database';
 import Service from '../../../lib/service/Service';
 import { NotificationConfig } from '../../../lib/Config';
+import PairRepository from '../../../lib/db/PairRepository';
+import SwapRepository from '../../../lib/db/SwapRepository';
 import { stringify, getHexBuffer } from '../../../lib/Utils';
-import PairRepository from '../../../lib/service/PairRepository';
-import SwapRepository from '../../../lib/service/SwapRepository';
 import BackupScheduler from '../../../lib/backup/BackupScheduler';
 import DiscordClient from '../../../lib/notifications/DiscordClient';
 import CommandHandler from '../../../lib/notifications/CommandHandler';
-import ReverseSwapRepository from '../../../lib/service/ReverseSwapRepository';
+import ReverseSwapRepository from '../../../lib/db/ReverseSwapRepository';
 import { satoshisToCoins, coinsToSatoshis } from '../../../lib/DenominationConverter';
 import { Balance, WalletBalance, LightningBalance } from '../../../lib/proto/boltzrpc_pb';
 import { swapExample, reverseSwapExample, pendingSwapExample, pendingReverseSwapExample } from './ExampleSwaps';
@@ -98,8 +98,10 @@ const mockSendCoins = jest.fn().mockImplementation(async (args: {
 jest.mock('../../../lib/service/Service', () => {
   return jest.fn().mockImplementation(() => {
     return {
-      swapRepository,
-      reverseSwapRepository,
+      swapManager: {
+        swapRepository,
+        reverseSwapRepository,
+      },
       getBalance: () => Promise.resolve({
         getBalancesMap: () => new Map<string, Balance>([
           ['BTC', btcBalance],
@@ -237,7 +239,7 @@ describe('CommandHandler', () => {
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenLastCalledWith(
-      `Fees:\n\n**BTC**: ${satoshisToCoins(swapExample.fee + reverseSwapExample.fee)} BTC`,
+      `Fees:\n\n**BTC**: ${satoshisToCoins(swapExample.fee! + reverseSwapExample.fee)} BTC`,
     );
   });
 

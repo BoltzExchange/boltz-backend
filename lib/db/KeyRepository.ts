@@ -1,5 +1,5 @@
 import { Op } from 'sequelize';
-import KeyProvider, { KeyProviderType } from '../db/models/KeyProvider';
+import KeyProvider, { KeyProviderType } from './models/KeyProvider';
 
 class KeyRepository {
   constructor() {}

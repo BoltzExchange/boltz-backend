@@ -34,6 +34,10 @@ class FeeProvider {
     this.logger.debug(`Prepared data for fee estimations: ${stringify(mapToObject(this.percentageFees))}`);
   }
 
+  public getPercentageFee = (pair: string) => {
+    return this.percentageFees.get(pair) || 0;
+  }
+
   public getFees = async (
     pair: string,
     rate: number,
@@ -41,7 +45,7 @@ class FeeProvider {
     amount: number,
     isReverse: boolean,
   ) => {
-    let percentageFee = this.percentageFees.get(pair) || 0;
+    let percentageFee = this.getPercentageFee(pair);
 
     if (percentageFee !== 0) {
       percentageFee = percentageFee * amount * rate;

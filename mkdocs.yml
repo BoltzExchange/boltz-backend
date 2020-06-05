@@ -3,7 +3,11 @@ theme: readthedocs
 
 nav:
   - Home: index.md
-  - Swap Lifecycle: lifecycle.md
-  - 0-confirmation: 0-confirmation.md
   - REST API: api.md
+  - Swap Lifecycle: lifecycle.md
+  - Swap Files: swap-files.md
+  - Scripting: scripting.md
+  - Channel Creation: channel-creation.md
+  - 0-confirmation: 0-confirmation.md
   - Regtest environment: regtest.md
+  - Deployment: deployment.md

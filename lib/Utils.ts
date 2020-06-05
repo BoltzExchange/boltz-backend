@@ -1,6 +1,6 @@
 import os from 'os';
 import path from 'path';
-import bolt11 from '@boltz/bolt11';
+import bolt11, { RoutingInfo } from '@boltz/bolt11';
 import { Transaction } from 'bitcoinjs-lib';
 import { OutputType, Scripts } from 'boltz-core';
 import commitHash from './Version';
@@ -20,7 +20,7 @@ const {
 const idPossibilities = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
 
 /**
- * Generate an id
+ * Generate an ID for a swap
  *
  * @param length how many characters the id should have
  */
@@ -83,11 +83,29 @@ export const minutesToMilliseconds = (minutes: number) => {
   return minutes * 60 * 1000;
 };
 
-/**
- * Gets the amount of an invoice in satoshis
- */
-export const getInvoiceAmt = (invoice: string): number => {
-  return bolt11.decode(invoice).satoshis || 0;
+export const decodeInvoice = (invoice: string) => {
+  const decoded = bolt11.decode(invoice);
+
+  let payment_hash: string | undefined;
+  let routing_info: bolt11.RoutingInfo | undefined;
+
+  for (const tag of decoded.tags) {
+    switch (tag.tagName) {
+      case 'payment_hash':
+        payment_hash = tag.data as string;
+        break;
+      case 'routing_info':
+        routing_info = tag.data as RoutingInfo;
+        break;
+    }
+  }
+
+  return {
+    ...decoded,
+    paymentHash: payment_hash,
+    routingInfo: routing_info,
+    satoshis: decoded.satoshis || 0,
+  };
 };
 
 /**
@@ -188,34 +206,6 @@ export const deepMerge = (target: any, ...sources: any[]): object => {
   }
 
   return deepMerge(target, ...sources);
-};
-
-/**
- * Get all methods from an object whose name doesn't start with an underscore.
- */
-export const getPublicMethods = (obj: any): any => {
-  const ret = {};
-  Object.getOwnPropertyNames(Object.getPrototypeOf(obj)).forEach((name) => {
-    const func = obj[name];
-    if ((func instanceof Function) && name !== 'constructor' && !name.startsWith('_')) {
-      ret[name] = func;
-    }
-  });
-  return ret;
-};
-
-export const groupBy = (arr: object[], keyGetter: (item: any) => string | number): any => {
-  const ret = {};
-  arr.forEach((item) => {
-    const key = keyGetter(item);
-    const group = ret[key];
-    if (!group) {
-      ret[key] = [item];
-    } else {
-      group.push(item);
-    }
-  });
-  return ret;
 };
 
 /**
@@ -372,11 +362,16 @@ export const getLightningCurrency = (base: string, quote: string, orderSide: Ord
 /**
  * Gets the memo for the BIP21 payment request or the invoice of a swap
  *
- * @param receivingCurrency currency the user is receiving
+ * @param sendingCurrency currency Boltz sends and the user is receiving
  * @param isReverse whether the swap is a reverse one
  */
-export const getSwapMemo = (receivingCurrency: string, isReverse: boolean): string => {
-  return `Send to ${receivingCurrency} ${isReverse ? 'address' : 'lightning'}`;
+export const getSwapMemo = (sendingCurrency: string, isReverse: boolean) => {
+  return `Send to ${sendingCurrency} ${isReverse ? 'address' : 'lightning'}`;
+};
+
+// TODO: nicer wording
+export const getPrepayMinerFeeInvoiceMemo = (sendingCurrency: string) => {
+  return `Miner fee for Swap to ${sendingCurrency} address`;
 };
 
 export const formatError = (error: any) => {
@@ -391,4 +386,8 @@ export const formatError = (error: any) => {
 
 export const getVersion = () => {
   return `${packageJson.version}${commitHash}`;
+};
+
+export const getUnixTime = () => {
+  return Math.round(new Date().getTime() / 1000);
 };

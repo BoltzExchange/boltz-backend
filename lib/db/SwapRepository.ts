@@ -1,9 +1,8 @@
-import { WhereOptions, Op } from 'sequelize';
+import { WhereOptions } from 'sequelize';
+import Swap, { SwapType } from './models/Swap';
 import { SwapUpdateEvent } from '../consts/Enums';
-import Swap, { SwapType } from '../db/models/Swap';
 
 class SwapRepository {
-
   public getSwaps = async (options?: WhereOptions): Promise<Swap[]> => {
     return Swap.findAll({
       where: options,
@@ -13,16 +12,6 @@ class SwapRepository {
   public getSwap = async (options: WhereOptions): Promise<Swap | undefined> => {
     return Swap.findOne({
       where: options,
-    });
-  }
-
-  public getSwapByInvoice = async (invoice: string): Promise<Swap | undefined> => {
-    return Swap.findOne({
-      where: {
-        invoice: {
-          [Op.eq]: invoice,
-        },
-      },
     });
   }
 
@@ -36,8 +25,25 @@ class SwapRepository {
     });
   }
 
-  public setLockupTransactionId = async (swap: Swap, lockupTransactionId: string, onchainAmount: number, confirmed: boolean) => {
+  public setInvoice = async (swap: Swap, invoice: string, expectedAmount: number, fee: number, acceptZeroConf: boolean) => {
     return swap.update({
+      fee,
+      invoice,
+      acceptZeroConf,
+      expectedAmount,
+      status: SwapUpdateEvent.InvoiceSet,
+    });
+  }
+
+  public setLockupTransactionId = async (
+    swap: Swap,
+    rate: number,
+    lockupTransactionId: string,
+    onchainAmount: number,
+    confirmed: boolean,
+  ) => {
+    return swap.update({
+      rate,
       onchainAmount,
       lockupTransactionId,
       status: confirmed ? SwapUpdateEvent.TransactionConfirmed : SwapUpdateEvent.TransactionMempool,
@@ -58,7 +64,7 @@ class SwapRepository {
     });
   }
 
-  public dropTable = async () => {
+  public dropTable = () => {
     return Swap.drop();
   }
 }

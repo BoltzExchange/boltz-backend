@@ -3,8 +3,15 @@ import Logger from '../Logger';
 import Service from '../service/Service';
 import SwapNursery from '../swap/SwapNursery';
 import { SwapUpdate } from '../service/EventHandler';
-import { SwapUpdateEvent, SwapType } from '../consts/Enums';
-import { stringify, getHexBuffer, mapToObject, getVersion, getChainCurrency, splitPairId } from '../Utils';
+import { SwapType, SwapUpdateEvent } from '../consts/Enums';
+import { getChainCurrency, getHexBuffer, getVersion, mapToObject, splitPairId, stringify } from '../Utils';
+
+type ApiArgument = {
+  name: string,
+  type: string,
+  hex?: boolean,
+  optional?: boolean,
+};
 
 class Controller {
   // A map between the ids and HTTP streams of all pending swaps
@@ -15,12 +22,12 @@ class Controller {
 
   constructor(private logger: Logger, private service: Service) {
     this.service.eventHandler.on('swap.update', (id, message) => {
+      this.logger.debug(`Swap ${id} update: ${stringify(message)}`);
       this.pendingSwapInfos.set(id, message);
 
       const response = this.pendingSwapStreams.get(id);
 
       if (response) {
-        this.logger.debug(`Swap ${id} update: ${stringify(message)}`);
         response.write(`data: ${JSON.stringify(message)}\n\n`);
       }
     });
@@ -29,8 +36,8 @@ class Controller {
   public init = async () => {
     // Get the latest status of all swaps in the database
     const [swaps, reverseSwaps] = await Promise.all([
-      this.service.swapRepository.getSwaps(),
-      this.service.reverseSwapRepository.getReverseSwaps(),
+      this.service.swapManager.swapRepository.getSwaps(),
+      this.service.swapManager.reverseSwapRepository.getReverseSwaps(),
     ]);
 
     swaps.forEach((swap) => {
@@ -43,22 +50,34 @@ class Controller {
       if (reverseSwap.status) {
         const status = reverseSwap.status as SwapUpdateEvent;
 
-        if (status === SwapUpdateEvent.TransactionMempool || status === SwapUpdateEvent.TransactionConfirmed) {
-          const { base, quote } = splitPairId(reverseSwap.pair);
-          const chainCurrency = getChainCurrency(base, quote, reverseSwap.orderSide, true);
+        switch (status) {
+          case SwapUpdateEvent.TransactionMempool:
+          case SwapUpdateEvent.TransactionConfirmed:
+            const { base, quote } = splitPairId(reverseSwap.pair);
+            const chainCurrency = getChainCurrency(base, quote, reverseSwap.orderSide, true);
 
-          const transactionHex = await this.service.getTransaction(chainCurrency, reverseSwap.transactionId);
+            const transactionHex = await this.service.getTransaction(chainCurrency, reverseSwap.transactionId!);
 
-          this.pendingSwapInfos.set(reverseSwap.id, {
-            status,
-            transaction: {
-              hex: transactionHex,
-              id: reverseSwap.transactionId,
-              eta: status === SwapUpdateEvent.TransactionMempool ? SwapNursery.reverseSwapMempoolEta : undefined,
-            },
-          });
-        } else {
-          this.pendingSwapInfos.set(reverseSwap.id, { status });
+            this.pendingSwapInfos.set(reverseSwap.id, {
+              status,
+              transaction: {
+                hex: transactionHex,
+                id: reverseSwap.transactionId!,
+                eta: status === SwapUpdateEvent.TransactionMempool ? SwapNursery.reverseSwapMempoolEta : undefined,
+              },
+            });
+            break;
+
+          case SwapUpdateEvent.MinerFeePaid:
+            this.pendingSwapInfos.set(reverseSwap.id, {
+              status,
+              invoice: reverseSwap.invoice,
+            });
+            break;
+
+          default:
+            this.pendingSwapInfos.set(reverseSwap.id, { status });
+            break;
         }
       }
     }
@@ -75,12 +94,21 @@ class Controller {
     const data = this.service.getPairs();
 
     this.successResponse(res, {
+      info: data.info,
       warnings: data.warnings,
       pairs: mapToObject(data.pairs),
     });
   }
 
-  public getFeeEstimation = async (_req: Request, res: Response) => {
+  public getNodes = async (_: Request, res: Response) => {
+    const nodes = await this.service.getNodes();
+
+    this.successResponse(res, {
+      nodes: mapToObject(nodes),
+    });
+  }
+
+  public getFeeEstimation = async (_: Request, res: Response) => {
     const feeEstimation = await this.service.getFeeEstimation();
 
     this.successResponse(res, mapToObject(feeEstimation));
@@ -98,10 +126,23 @@ class Controller {
       if (response) {
         this.successResponse(res, response);
       } else {
-        this.errorResponse(res, `could not find swap with id: ${id}`, 404);
+        this.errorResponse(req, res, `could not find swap with id: ${id}`, 404);
       }
     } catch (error) {
-      this.errorResponse(res, error);
+      this.errorResponse(req, res, error);
+    }
+  }
+
+  public swapRates = async (req: Request, res: Response) => {
+    try {
+      const { id } = this.validateRequest(req.body, [
+        { name: 'id', type: 'string' },
+      ]);
+
+      const response = await this.service.getSwapRates(id);
+      this.successResponse(res, response);
+    } catch (error) {
+      this.errorResponse(req, res, error);
     }
   }
 
@@ -115,7 +156,20 @@ class Controller {
       const response = await this.service.getTransaction(currency, transactionId);
       this.successResponse(res, { transactionHex: response });
     } catch (error) {
-      this.errorResponse(res, error);
+      this.errorResponse(req, res, error);
+    }
+  }
+
+  public getSwapTransaction = async (req: Request, res: Response) => {
+    try {
+      const { id } = this.validateRequest(req.body, [
+        { name: 'id', type: 'string' },
+      ]);
+
+      const response = await this.service.getSwapTransaction(id);
+      this.successResponse(res, response);
+    } catch (error) {
+      this.errorResponse(req, res, error);
     }
   }
 
@@ -129,7 +183,7 @@ class Controller {
       const response = await this.service.broadcastTransaction(currency, transactionHex);
       this.successResponse(res, { transactionId: response });
     } catch (error) {
-      this.errorResponse(res, error);
+      this.errorResponse(req, res, error);
     }
   }
 
@@ -152,24 +206,54 @@ class Controller {
       }
 
     } catch (error) {
-      this.errorResponse(res, error);
+      this.errorResponse(req, res, error);
     }
   }
 
   private createSubmarineSwap = async (req: Request, res: Response) => {
-    const { pairId, orderSide, invoice, refundPublicKey } = this.validateRequest(req.body, [
+    const { pairId, orderSide, invoice, refundPublicKey, preimageHash, channel } = this.validateRequest(req.body, [
       { name: 'pairId', type: 'string' },
-      { name: 'invoice', type: 'string' },
       { name: 'orderSide', type: 'string' },
-      { name: 'refundPublicKey', type: 'string', isHex: true },
+      { name: 'invoice', type: 'string', optional: true },
+      { name: 'refundPublicKey', type: 'string', hex: true },
+      { name: 'preimageHash', type: 'string', hex: true, optional: true },
+      { name: 'channel', type: 'object', optional: true },
     ]);
 
-    const response = await this.service.createSwap(
-      pairId,
-      orderSide,
-      invoice.toLowerCase(),
-      refundPublicKey,
-    );
+    if (channel !== undefined) {
+      this.validateRequest(channel, [
+        { name: 'auto', type: 'boolean' },
+        { name: 'private', type: 'boolean' },
+        { name: 'inboundLiquidity', type: 'number' },
+      ]);
+    }
+
+    let response: any;
+
+    if (invoice) {
+      response = await this.service.createSwapWithInvoice(
+        pairId,
+        orderSide,
+        refundPublicKey,
+        invoice.toLowerCase(),
+        channel,
+      );
+    } else {
+      // Check that the preimage hash was set
+      this.validateRequest(req.body, [
+        { name: 'preimageHash', type: 'string', hex: true },
+      ]);
+
+      this.checkPreimageHashLength(preimageHash);
+
+      response = await this.service.createSwap(
+        pairId,
+        orderSide,
+        refundPublicKey,
+        preimageHash,
+        channel,
+      );
+    }
 
     this.logger.verbose(`Created new swap with id: ${response.id}`);
     this.logger.silly(`Swap ${response.id}: ${stringify(response)}`);
@@ -188,15 +272,32 @@ class Controller {
       { name: 'pairId', type: 'string' },
       { name: 'orderSide', type: 'string' },
       { name: 'invoiceAmount', type: 'number' },
-      { name: 'preimageHash', type: 'string', isHex: true },
-      { name: 'claimPublicKey', type: 'string', isHex: true },
+      { name: 'preimageHash', type: 'string', hex: true },
+      { name: 'claimPublicKey', type: 'string', hex: true },
     ]);
+
+    this.checkPreimageHashLength(preimageHash);
+
     const response = await this.service.createReverseSwap(pairId, orderSide, preimageHash, invoiceAmount, claimPublicKey);
 
     this.logger.verbose(`Created reverse swap with id: ${response.id}`);
     this.logger.silly(`Reverse swap ${response.id}: ${stringify(response)}`);
 
     this.createdResponse(res, response);
+  }
+
+  public setInvoice = async (req: Request, res: Response) => {
+    try {
+      const { id, invoice } = this.validateRequest(req.body, [
+        { name: 'id', type: 'string' },
+        { name: 'invoice', type: 'string' },
+      ]);
+
+      const response = await this.service.setSwapInvoice(id, invoice.toLowerCase());
+      this.successResponse(res, response);
+    } catch (error) {
+      this.errorResponse(req, res, error);
+    }
   }
 
   // EventSource streams
@@ -221,7 +322,7 @@ class Controller {
         this.pendingSwapStreams.delete(id);
       });
     } catch (error) {
-      this.errorResponse(res, error);
+      this.errorResponse(req, res, error);
     }
   }
 
@@ -230,7 +331,7 @@ class Controller {
    *
    * @returns the validated arguments
    */
-  private validateRequest = (body: object, argsToCheck: { name: string, type: string, isHex?: boolean }[]) => {
+  private validateRequest = (body: object, argsToCheck: ApiArgument[]) => {
     const response: any = {};
 
     argsToCheck.forEach((arg) => {
@@ -238,7 +339,7 @@ class Controller {
 
       if (value !== undefined) {
         if (typeof value === arg.type) {
-          if (arg.isHex) {
+          if (arg.hex) {
             const buffer = getHexBuffer(value);
 
             if (buffer.length === 0) {
@@ -252,7 +353,7 @@ class Controller {
         } else {
           throw `invalid parameter: ${arg.name}`;
         }
-      } else {
+      } else if (!arg.optional) {
         throw `undefined parameter: ${arg.name}`;
       }
     });
@@ -260,14 +361,20 @@ class Controller {
     return response;
   }
 
-  public errorResponse = (res: Response, error: any, statusCode = 400) => {
+  public errorResponse = (req: Request, res: Response, error: any, statusCode = 400) => {
     if (typeof error === 'string') {
-      this.writeErrorResponse(res, statusCode, error);
+      this.writeErrorResponse(req, res, statusCode, { error });
     } else {
+      // Bitcoin Core related errors
       if (error.details) {
-        this.writeErrorResponse(res, statusCode, error.details);
+        this.writeErrorResponse(req, res, statusCode, { error: error.details });
+      // Custom error when broadcasting a refund transaction fails because
+      // the locktime requirement has not been met yet
+      } else if (error.timeoutBlockHeight) {
+        this.writeErrorResponse(req, res, statusCode, error);
+      // Everything else
       } else {
-        this.writeErrorResponse(res, statusCode, error.message);
+        this.writeErrorResponse(req, res, statusCode, { error: error.message });
       }
     }
   }
@@ -282,11 +389,11 @@ class Controller {
     res.status(201).json(data);
   }
 
-  private writeErrorResponse = (res: Response, statusCode: number, error: string) => {
-    this.logger.warn(`Request failed: ${error}`);
+  private writeErrorResponse = (req: Request, res: Response, statusCode: number, error: object) => {
+    this.logger.warn(`Request ${req.url} ${JSON.stringify(req.body)} failed: ${JSON.stringify(error)}`);
 
     this.setContentTypeJson(res);
-    res.status(statusCode).json({ error });
+    res.status(statusCode).json(error);
   }
 
   private setContentTypeJson = (res: Response) => {
@@ -303,6 +410,12 @@ class Controller {
     }
 
     throw `could not find swap type: ${type}`;
+  }
+
+  private checkPreimageHashLength = (preimageHash: Buffer) => {
+    if (preimageHash.length !== 32) {
+      throw `invalid preimage hash length: ${preimageHash.length}`;
+    }
   }
 }
 

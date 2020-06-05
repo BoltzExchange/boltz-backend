@@ -6,7 +6,7 @@ FROM ubuntu:${UBUNTU_VERSION} as zcash
 ARG VERSION
 
 RUN apt-get update && apt-get upgrade -y
-RUN apt-get -y install \
+RUN DEBIAN_FRONTEND=noninteractive apt-get -y install \
   m4 \
   git \
   curl \
@@ -18,9 +18,9 @@ RUN apt-get -y install \
   automake \
   libc6-dev \
   pkg-config \
-  python-zmq \
   zlib1g-dev \
   ncurses-dev \
+  python3-zmq \
   bsdmainutils \
   g++-multilib \
   build-essential

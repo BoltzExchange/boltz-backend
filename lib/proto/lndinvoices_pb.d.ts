@@ -11,7 +11,7 @@ export class CancelInvoiceMsg extends jspb.Message {
     getPaymentHash(): Uint8Array | string;
     getPaymentHash_asU8(): Uint8Array;
     getPaymentHash_asB64(): string;
-    setPaymentHash(value: Uint8Array | string): void;
+    setPaymentHash(value: Uint8Array | string): CancelInvoiceMsg;
 
 
     serializeBinary(): Uint8Array;
@@ -49,40 +49,40 @@ export namespace CancelInvoiceResp {
 
 export class AddHoldInvoiceRequest extends jspb.Message { 
     getMemo(): string;
-    setMemo(value: string): void;
+    setMemo(value: string): AddHoldInvoiceRequest;
 
     getHash(): Uint8Array | string;
     getHash_asU8(): Uint8Array;
     getHash_asB64(): string;
-    setHash(value: Uint8Array | string): void;
+    setHash(value: Uint8Array | string): AddHoldInvoiceRequest;
 
     getValue(): number;
-    setValue(value: number): void;
+    setValue(value: number): AddHoldInvoiceRequest;
 
     getValueMsat(): number;
-    setValueMsat(value: number): void;
+    setValueMsat(value: number): AddHoldInvoiceRequest;
 
     getDescriptionHash(): Uint8Array | string;
     getDescriptionHash_asU8(): Uint8Array;
     getDescriptionHash_asB64(): string;
-    setDescriptionHash(value: Uint8Array | string): void;
+    setDescriptionHash(value: Uint8Array | string): AddHoldInvoiceRequest;
 
     getExpiry(): number;
-    setExpiry(value: number): void;
+    setExpiry(value: number): AddHoldInvoiceRequest;
 
     getFallbackAddr(): string;
-    setFallbackAddr(value: string): void;
+    setFallbackAddr(value: string): AddHoldInvoiceRequest;
 
     getCltvExpiry(): number;
-    setCltvExpiry(value: number): void;
+    setCltvExpiry(value: number): AddHoldInvoiceRequest;
 
     clearRouteHintsList(): void;
     getRouteHintsList(): Array<lndrpc_pb.RouteHint>;
-    setRouteHintsList(value: Array<lndrpc_pb.RouteHint>): void;
+    setRouteHintsList(value: Array<lndrpc_pb.RouteHint>): AddHoldInvoiceRequest;
     addRouteHints(value?: lndrpc_pb.RouteHint, index?: number): lndrpc_pb.RouteHint;
 
     getPrivate(): boolean;
-    setPrivate(value: boolean): void;
+    setPrivate(value: boolean): AddHoldInvoiceRequest;
 
 
     serializeBinary(): Uint8Array;
@@ -112,7 +112,7 @@ export namespace AddHoldInvoiceRequest {
 
 export class AddHoldInvoiceResp extends jspb.Message { 
     getPaymentRequest(): string;
-    setPaymentRequest(value: string): void;
+    setPaymentRequest(value: string): AddHoldInvoiceResp;
 
 
     serializeBinary(): Uint8Array;
@@ -135,7 +135,7 @@ export class SettleInvoiceMsg extends jspb.Message {
     getPreimage(): Uint8Array | string;
     getPreimage_asU8(): Uint8Array;
     getPreimage_asB64(): string;
-    setPreimage(value: Uint8Array | string): void;
+    setPreimage(value: Uint8Array | string): SettleInvoiceMsg;
 
 
     serializeBinary(): Uint8Array;
@@ -175,7 +175,7 @@ export class SubscribeSingleInvoiceRequest extends jspb.Message {
     getRHash(): Uint8Array | string;
     getRHash_asU8(): Uint8Array;
     getRHash_asB64(): string;
-    setRHash(value: Uint8Array | string): void;
+    setRHash(value: Uint8Array | string): SubscribeSingleInvoiceRequest;
 
 
     serializeBinary(): Uint8Array;

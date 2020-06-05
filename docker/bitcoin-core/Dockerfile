@@ -11,13 +11,12 @@ ARG VERSION
 COPY --from=berkeley-db /opt /opt
 
 RUN apt-get update && apt-get -y upgrade
-RUN apt-get -y install \
+RUN DEBIAN_FRONTEND=noninteractive apt-get -y install \
   wget \
   libtool \
   python3 \
   automake \
   pkg-config \
-  libssl-dev \
   libzmq3-dev \
   bsdmainutils \
   libevent-dev \
@@ -69,7 +68,6 @@ ARG VERSION
 
 RUN apt-get update && apt-get -y upgrade
 RUN apt-get -y install \
-  openssl \
   libzmq3-dev \
   libevent-dev \
   libboost-chrono-dev \

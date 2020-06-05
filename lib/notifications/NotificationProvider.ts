@@ -12,10 +12,10 @@ import { NotificationConfig, CurrencyConfig } from '../Config';
 import { CurrencyInfo, LndInfo, ChainInfo } from '../proto/boltzrpc_pb';
 import {
   splitPairId,
-  getInvoiceAmt,
-  minutesToMilliseconds,
+  decodeInvoice,
   getChainCurrency,
   getLightningCurrency,
+  minutesToMilliseconds,
   getSendingReceivingCurrency,
 } from '../Utils';
 
@@ -23,8 +23,9 @@ import {
 // TODO: use events instead of intervals to check connections and balances
 class NotificationProvider {
   private timer!: any;
-  private discord: DiscordClient;
   private diskUsageChecker: DiskUsageChecker;
+
+  private discord: DiscordClient;
 
   // These Sets contain the symbols for which an alert notification was sent
   private walletAlerts = new Set<string>();
@@ -98,7 +99,7 @@ class NotificationProvider {
   private checkConnections = async () => {
     const info = await this.service.getInfo();
 
-    info.getChainsMap().forEach(async (currency: CurrencyInfo, symbol: string) => {
+    await info.getChainsMap().forEach(async (currency: CurrencyInfo, symbol: string) => {
       await this.checkConnection(`${symbol} LND`, currency.getLnd());
       await this.checkConnection(`${symbol} node`, currency.getChain());
     });
@@ -189,14 +190,19 @@ class NotificationProvider {
     };
 
     const getBasicSwapInfo = (swap: Swap | ReverseSwap, onchainSymbol: string, lightningSymbol: string) => {
-      const lightningAmount = getInvoiceAmt(swap.invoice);
-
       // tslint:disable-next-line: prefer-template
-      return `ID: ${swap.id}\n` +
+      let message = `ID: ${swap.id}\n` +
         `Pair: ${swap.pair}\n` +
-        `Order side: ${swap.orderSide === OrderSide.BUY ? 'buy' : 'sell'}\n` +
-        `${swap.onchainAmount ? `Onchain amount: ${satoshisToCoins(swap.onchainAmount)} ${onchainSymbol}\n` : ''}` +
-        `Lightning amount: ${satoshisToCoins(lightningAmount)} ${lightningSymbol}`;
+        `Order side: ${swap.orderSide === OrderSide.BUY ? 'buy' : 'sell'}`;
+
+      if (swap.invoice) {
+        const lightningAmount = decodeInvoice(swap.invoice).satoshis;
+
+        message += `${swap.onchainAmount ? `\nOnchain amount: ${satoshisToCoins(swap.onchainAmount)} ${onchainSymbol}` : ''}` +
+          `\nLightning amount: ${satoshisToCoins(lightningAmount)} ${lightningSymbol}`;
+      }
+
+      return message;
     };
 
     const getSymbols = (pairId: string, orderSide: number, isReverse: boolean) => {
@@ -214,7 +220,7 @@ class NotificationProvider {
       // tslint:disable-next-line: prefer-template
       let message = `**Swap ${getSwapTitle(swap.pair, swap.orderSide, isReverse)}**\n` +
        `${getBasicSwapInfo(swap, onchainSymbol, lightningSymbol)}\n` +
-       `Fees earned: ${this.numberToDecimal(satoshisToCoins(swap.fee))} ${onchainSymbol}\n` +
+       `Fees earned: ${this.numberToDecimal(satoshisToCoins(swap.fee!))} ${onchainSymbol}\n` +
        `Miner fees: ${satoshisToCoins(swap.minerFee!)} ${onchainSymbol}`;
 
       if (!isReverse) {
@@ -236,7 +242,7 @@ class NotificationProvider {
         if (swap.minerFee) {
           message += `\nMiner fees: ${satoshisToCoins(swap.minerFee)} ${onchainSymbol}`;
         }
-      } else {
+      } else if (swap.invoice) {
         message += `\nInvoice: ${swap.invoice}`;
       }
 

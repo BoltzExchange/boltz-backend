@@ -7,9 +7,9 @@ import Stats from './data/Stats';
 import Report from './data/Report';
 import Database from './db/Database';
 import { resolveHome, stringify } from './Utils';
-import SwapRepository from './service/SwapRepository';
+import SwapRepository from './db/SwapRepository';
 import SwapFailureChecker from './data/SwapFailureChecker';
-import ReverseSwapRepository from './service/ReverseSwapRepository';
+import ReverseSwapRepository from './db/ReverseSwapRepository';
 
 const initDatabase = async (argv: Arguments<any>) => {
   // Get the path to the database from the command line arguments or

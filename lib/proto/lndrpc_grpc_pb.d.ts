@@ -7,90 +7,6 @@
 import * as grpc from "grpc";
 import * as lndrpc_pb from "./lndrpc_pb";
 
-interface IWalletUnlockerService extends grpc.ServiceDefinition<grpc.UntypedServiceImplementation> {
-    genSeed: IWalletUnlockerService_IGenSeed;
-    initWallet: IWalletUnlockerService_IInitWallet;
-    unlockWallet: IWalletUnlockerService_IUnlockWallet;
-    changePassword: IWalletUnlockerService_IChangePassword;
-}
-
-interface IWalletUnlockerService_IGenSeed extends grpc.MethodDefinition<lndrpc_pb.GenSeedRequest, lndrpc_pb.GenSeedResponse> {
-    path: string; // "/lnrpc.WalletUnlocker/GenSeed"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
-    requestSerialize: grpc.serialize<lndrpc_pb.GenSeedRequest>;
-    requestDeserialize: grpc.deserialize<lndrpc_pb.GenSeedRequest>;
-    responseSerialize: grpc.serialize<lndrpc_pb.GenSeedResponse>;
-    responseDeserialize: grpc.deserialize<lndrpc_pb.GenSeedResponse>;
-}
-interface IWalletUnlockerService_IInitWallet extends grpc.MethodDefinition<lndrpc_pb.InitWalletRequest, lndrpc_pb.InitWalletResponse> {
-    path: string; // "/lnrpc.WalletUnlocker/InitWallet"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
-    requestSerialize: grpc.serialize<lndrpc_pb.InitWalletRequest>;
-    requestDeserialize: grpc.deserialize<lndrpc_pb.InitWalletRequest>;
-    responseSerialize: grpc.serialize<lndrpc_pb.InitWalletResponse>;
-    responseDeserialize: grpc.deserialize<lndrpc_pb.InitWalletResponse>;
-}
-interface IWalletUnlockerService_IUnlockWallet extends grpc.MethodDefinition<lndrpc_pb.UnlockWalletRequest, lndrpc_pb.UnlockWalletResponse> {
-    path: string; // "/lnrpc.WalletUnlocker/UnlockWallet"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
-    requestSerialize: grpc.serialize<lndrpc_pb.UnlockWalletRequest>;
-    requestDeserialize: grpc.deserialize<lndrpc_pb.UnlockWalletRequest>;
-    responseSerialize: grpc.serialize<lndrpc_pb.UnlockWalletResponse>;
-    responseDeserialize: grpc.deserialize<lndrpc_pb.UnlockWalletResponse>;
-}
-interface IWalletUnlockerService_IChangePassword extends grpc.MethodDefinition<lndrpc_pb.ChangePasswordRequest, lndrpc_pb.ChangePasswordResponse> {
-    path: string; // "/lnrpc.WalletUnlocker/ChangePassword"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
-    requestSerialize: grpc.serialize<lndrpc_pb.ChangePasswordRequest>;
-    requestDeserialize: grpc.deserialize<lndrpc_pb.ChangePasswordRequest>;
-    responseSerialize: grpc.serialize<lndrpc_pb.ChangePasswordResponse>;
-    responseDeserialize: grpc.deserialize<lndrpc_pb.ChangePasswordResponse>;
-}
-
-export const WalletUnlockerService: IWalletUnlockerService;
-
-export interface IWalletUnlockerServer {
-    genSeed: grpc.handleUnaryCall<lndrpc_pb.GenSeedRequest, lndrpc_pb.GenSeedResponse>;
-    initWallet: grpc.handleUnaryCall<lndrpc_pb.InitWalletRequest, lndrpc_pb.InitWalletResponse>;
-    unlockWallet: grpc.handleUnaryCall<lndrpc_pb.UnlockWalletRequest, lndrpc_pb.UnlockWalletResponse>;
-    changePassword: grpc.handleUnaryCall<lndrpc_pb.ChangePasswordRequest, lndrpc_pb.ChangePasswordResponse>;
-}
-
-export interface IWalletUnlockerClient {
-    genSeed(request: lndrpc_pb.GenSeedRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.GenSeedResponse) => void): grpc.ClientUnaryCall;
-    genSeed(request: lndrpc_pb.GenSeedRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.GenSeedResponse) => void): grpc.ClientUnaryCall;
-    genSeed(request: lndrpc_pb.GenSeedRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.GenSeedResponse) => void): grpc.ClientUnaryCall;
-    initWallet(request: lndrpc_pb.InitWalletRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.InitWalletResponse) => void): grpc.ClientUnaryCall;
-    initWallet(request: lndrpc_pb.InitWalletRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.InitWalletResponse) => void): grpc.ClientUnaryCall;
-    initWallet(request: lndrpc_pb.InitWalletRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.InitWalletResponse) => void): grpc.ClientUnaryCall;
-    unlockWallet(request: lndrpc_pb.UnlockWalletRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.UnlockWalletResponse) => void): grpc.ClientUnaryCall;
-    unlockWallet(request: lndrpc_pb.UnlockWalletRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.UnlockWalletResponse) => void): grpc.ClientUnaryCall;
-    unlockWallet(request: lndrpc_pb.UnlockWalletRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.UnlockWalletResponse) => void): grpc.ClientUnaryCall;
-    changePassword(request: lndrpc_pb.ChangePasswordRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChangePasswordResponse) => void): grpc.ClientUnaryCall;
-    changePassword(request: lndrpc_pb.ChangePasswordRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChangePasswordResponse) => void): grpc.ClientUnaryCall;
-    changePassword(request: lndrpc_pb.ChangePasswordRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChangePasswordResponse) => void): grpc.ClientUnaryCall;
-}
-
-export class WalletUnlockerClient extends grpc.Client implements IWalletUnlockerClient {
-    constructor(address: string, credentials: grpc.ChannelCredentials, options?: object);
-    public genSeed(request: lndrpc_pb.GenSeedRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.GenSeedResponse) => void): grpc.ClientUnaryCall;
-    public genSeed(request: lndrpc_pb.GenSeedRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.GenSeedResponse) => void): grpc.ClientUnaryCall;
-    public genSeed(request: lndrpc_pb.GenSeedRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.GenSeedResponse) => void): grpc.ClientUnaryCall;
-    public initWallet(request: lndrpc_pb.InitWalletRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.InitWalletResponse) => void): grpc.ClientUnaryCall;
-    public initWallet(request: lndrpc_pb.InitWalletRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.InitWalletResponse) => void): grpc.ClientUnaryCall;
-    public initWallet(request: lndrpc_pb.InitWalletRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.InitWalletResponse) => void): grpc.ClientUnaryCall;
-    public unlockWallet(request: lndrpc_pb.UnlockWalletRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.UnlockWalletResponse) => void): grpc.ClientUnaryCall;
-    public unlockWallet(request: lndrpc_pb.UnlockWalletRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.UnlockWalletResponse) => void): grpc.ClientUnaryCall;
-    public unlockWallet(request: lndrpc_pb.UnlockWalletRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.UnlockWalletResponse) => void): grpc.ClientUnaryCall;
-    public changePassword(request: lndrpc_pb.ChangePasswordRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChangePasswordResponse) => void): grpc.ClientUnaryCall;
-    public changePassword(request: lndrpc_pb.ChangePasswordRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChangePasswordResponse) => void): grpc.ClientUnaryCall;
-    public changePassword(request: lndrpc_pb.ChangePasswordRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChangePasswordResponse) => void): grpc.ClientUnaryCall;
-}
-
 interface ILightningService extends grpc.ServiceDefinition<grpc.UntypedServiceImplementation> {
     walletBalance: ILightningService_IWalletBalance;
     channelBalance: ILightningService_IChannelBalance;
@@ -130,6 +46,7 @@ interface ILightningService extends grpc.ServiceDefinition<grpc.UntypedServiceIm
     listPayments: ILightningService_IListPayments;
     deleteAllPayments: ILightningService_IDeleteAllPayments;
     describeGraph: ILightningService_IDescribeGraph;
+    getNodeMetrics: ILightningService_IGetNodeMetrics;
     getChanInfo: ILightningService_IGetChanInfo;
     getNodeInfo: ILightningService_IGetNodeInfo;
     queryRoutes: ILightningService_IQueryRoutes;
@@ -490,6 +407,15 @@ interface ILightningService_IDescribeGraph extends grpc.MethodDefinition<lndrpc_
     responseSerialize: grpc.serialize<lndrpc_pb.ChannelGraph>;
     responseDeserialize: grpc.deserialize<lndrpc_pb.ChannelGraph>;
 }
+interface ILightningService_IGetNodeMetrics extends grpc.MethodDefinition<lndrpc_pb.NodeMetricsRequest, lndrpc_pb.NodeMetricsResponse> {
+    path: string; // "/lnrpc.Lightning/GetNodeMetrics"
+    requestStream: boolean; // false
+    responseStream: boolean; // false
+    requestSerialize: grpc.serialize<lndrpc_pb.NodeMetricsRequest>;
+    requestDeserialize: grpc.deserialize<lndrpc_pb.NodeMetricsRequest>;
+    responseSerialize: grpc.serialize<lndrpc_pb.NodeMetricsResponse>;
+    responseDeserialize: grpc.deserialize<lndrpc_pb.NodeMetricsResponse>;
+}
 interface ILightningService_IGetChanInfo extends grpc.MethodDefinition<lndrpc_pb.ChanInfoRequest, lndrpc_pb.ChannelEdge> {
     path: string; // "/lnrpc.Lightning/GetChanInfo"
     requestStream: boolean; // false
@@ -676,6 +602,7 @@ export interface ILightningServer {
     listPayments: grpc.handleUnaryCall<lndrpc_pb.ListPaymentsRequest, lndrpc_pb.ListPaymentsResponse>;
     deleteAllPayments: grpc.handleUnaryCall<lndrpc_pb.DeleteAllPaymentsRequest, lndrpc_pb.DeleteAllPaymentsResponse>;
     describeGraph: grpc.handleUnaryCall<lndrpc_pb.ChannelGraphRequest, lndrpc_pb.ChannelGraph>;
+    getNodeMetrics: grpc.handleUnaryCall<lndrpc_pb.NodeMetricsRequest, lndrpc_pb.NodeMetricsResponse>;
     getChanInfo: grpc.handleUnaryCall<lndrpc_pb.ChanInfoRequest, lndrpc_pb.ChannelEdge>;
     getNodeInfo: grpc.handleUnaryCall<lndrpc_pb.NodeInfoRequest, lndrpc_pb.NodeInfo>;
     queryRoutes: grpc.handleUnaryCall<lndrpc_pb.QueryRoutesRequest, lndrpc_pb.QueryRoutesResponse>;
@@ -803,6 +730,9 @@ export interface ILightningClient {
     describeGraph(request: lndrpc_pb.ChannelGraphRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChannelGraph) => void): grpc.ClientUnaryCall;
     describeGraph(request: lndrpc_pb.ChannelGraphRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChannelGraph) => void): grpc.ClientUnaryCall;
     describeGraph(request: lndrpc_pb.ChannelGraphRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChannelGraph) => void): grpc.ClientUnaryCall;
+    getNodeMetrics(request: lndrpc_pb.NodeMetricsRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.NodeMetricsResponse) => void): grpc.ClientUnaryCall;
+    getNodeMetrics(request: lndrpc_pb.NodeMetricsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.NodeMetricsResponse) => void): grpc.ClientUnaryCall;
+    getNodeMetrics(request: lndrpc_pb.NodeMetricsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.NodeMetricsResponse) => void): grpc.ClientUnaryCall;
     getChanInfo(request: lndrpc_pb.ChanInfoRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChannelEdge) => void): grpc.ClientUnaryCall;
     getChanInfo(request: lndrpc_pb.ChanInfoRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChannelEdge) => void): grpc.ClientUnaryCall;
     getChanInfo(request: lndrpc_pb.ChanInfoRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChannelEdge) => void): grpc.ClientUnaryCall;
@@ -958,6 +888,9 @@ export class LightningClient extends grpc.Client implements ILightningClient {
     public describeGraph(request: lndrpc_pb.ChannelGraphRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChannelGraph) => void): grpc.ClientUnaryCall;
     public describeGraph(request: lndrpc_pb.ChannelGraphRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChannelGraph) => void): grpc.ClientUnaryCall;
     public describeGraph(request: lndrpc_pb.ChannelGraphRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChannelGraph) => void): grpc.ClientUnaryCall;
+    public getNodeMetrics(request: lndrpc_pb.NodeMetricsRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.NodeMetricsResponse) => void): grpc.ClientUnaryCall;
+    public getNodeMetrics(request: lndrpc_pb.NodeMetricsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.NodeMetricsResponse) => void): grpc.ClientUnaryCall;
+    public getNodeMetrics(request: lndrpc_pb.NodeMetricsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.NodeMetricsResponse) => void): grpc.ClientUnaryCall;
     public getChanInfo(request: lndrpc_pb.ChanInfoRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChannelEdge) => void): grpc.ClientUnaryCall;
     public getChanInfo(request: lndrpc_pb.ChanInfoRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChannelEdge) => void): grpc.ClientUnaryCall;
     public getChanInfo(request: lndrpc_pb.ChanInfoRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChannelEdge) => void): grpc.ClientUnaryCall;

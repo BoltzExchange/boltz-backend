@@ -22,7 +22,7 @@ class Image:
 
 UBUNTU_VERSION = BuildArgument(
     name="UBUNTU_VERSION",
-    value="19.10"
+    value="20.04"
 )
 
 BERKELEY_4_VERSION = BuildArgument(
@@ -35,12 +35,12 @@ BERKELEY_5_VERSION = BuildArgument(
     value="5.1.29"
 )
 
-BITCOIN_VERSION = "0.19.0.1"
-LITECOIN_VERSION = "0.17.1"
+BITCOIN_VERSION = "0.20.0"
+LITECOIN_VERSION = "0.18.1"
 DOGECOIN_VERSION = "1.14.2"
-ZCASH_VERSION = "2.1.0-1"
+ZCASH_VERSION = "3.0.0"
 
-LND_VERSION = "0.9.0-beta"
+LND_VERSION = "0.10.1-beta"
 
 IMAGES: Dict[str, Image] = {
     "berkeley-db": Image(
@@ -85,12 +85,12 @@ IMAGES: Dict[str, Image] = {
             UBUNTU_VERSION,
             BuildArgument(
                 name="GOLANG_VERSION",
-                value="1.13.6-buster"
+                value="1.14.4-buster"
             )
         ]
     ),
     "regtest": Image(
-        tags=["1.3.0"],
+        tags=["1.5.1"],
         arguments=[
             UBUNTU_VERSION,
             BuildArgument(
@@ -226,6 +226,7 @@ def build_images(to_build: List[str], no_cache: bool):
                 print_error("Could not build image {}".format(image))
                 sys.exit(1)
 
+    print()
     print_step("Built images: {}".format(", ".join(to_build)))
 
 def parse_images(to_parse: List[str]) -> List[str]:

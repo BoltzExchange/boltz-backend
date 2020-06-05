@@ -32,19 +32,24 @@ class DiscordClient extends EventEmitter {
 
     const { channels } = this.client;
 
-    for (const channel of channels.values()) {
-      if (channel instanceof TextChannel) {
-        if (channel.name === this.channelName) {
-          this.channel = channel;
+    return new Promise((resolve, reject) => {
+      this.client.on('ready', async () => {
+        for (const [, channel] of channels.cache) {
+          if (channel instanceof TextChannel) {
+            if (channel.name === this.channelName) {
+              this.channel = channel;
+            }
+          }
         }
-      }
-    }
 
-    if (!this.channel) {
-      throw `Could not find Discord channel: ${this.channelName}`;
-    }
+        if (!this.channel) {
+          reject(`Could not find Discord channel: ${this.channelName}`);
+        }
 
-    await this.listenForMessages();
+        await this.listenForMessages();
+        resolve();
+      });
+    });
   }
 
   public sendMessage = async (message: string) => {

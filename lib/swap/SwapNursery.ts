@@ -1,473 +1,736 @@
+import { Op } from 'sequelize';
+import AsyncLock from 'async-lock';
 import { EventEmitter } from 'events';
-import { BIP32Interface } from 'bip32';
-import { Transaction, address, TxOutput } from 'bitcoinjs-lib';
-import {
-  OutputType,
-  detectPreimage,
-  TransactionOutput,
-  constructClaimTransaction,
-  constructRefundTransaction,
- } from 'boltz-core';
+import { Transaction, address } from 'bitcoinjs-lib';
+import { OutputType, constructClaimTransaction, detectPreimage, constructRefundTransaction, detectSwap } from 'boltz-core';
 import Logger from '../Logger';
-import LndClient from '../lightning/LndClient';
+import Swap from '../db/models/Swap';
+import Wallet from '../wallet/Wallet';
+import ChannelNursery from './ChannelNursery';
 import ChainClient from '../chain/ChainClient';
+import FeeProvider from '../rates/FeeProvider';
+import LndClient from '../lightning/LndClient';
+import RateProvider from '../rates/RateProvider';
+import SwapRepository from '../db/SwapRepository';
+import ReverseSwap from '../db/models/ReverseSwap';
+import { ReverseSwapOutputType } from '../consts/Consts';
+import ChannelCreation from '../db/models/ChannelCreation';
+import ReverseSwapRepository from '../db/ReverseSwapRepository';
 import WalletManager, { Currency } from '../wallet/WalletManager';
-import { getHexString, transactionHashToId, transactionSignalsRbfExplicitly, reverseBuffer, formatError } from '../Utils';
-
-type BaseSwapDetails = {
-  redeemScript: Buffer;
-};
-
-type SwapDetails = BaseSwapDetails & {
-  invoice: string;
-  sendingSymbol: string;
-  outputType: OutputType;
-  expectedAmount: number;
-  acceptZeroConf: boolean;
-  claimKeys: BIP32Interface;
-};
-
-type SendingDetails = {
-  amount: number;
-  address: string;
-};
-
-type ReverseSwapDetails = BaseSwapDetails & {
-  sendingSymbol: string;
-  receivingSymbol: string;
-
-  preimageHash: Buffer;
-  outputType: OutputType;
-  output?: TransactionOutput;
-  refundKeys: BIP32Interface;
-  sendingDetails: SendingDetails;
-};
-
-type MinimalReverseSwapDetails = {
-  invoice: string;
-  receivingSymbol: string;
-};
-
-type SwapMaps = {
-  // A map between the output scripts and the swaps details
-  swaps: Map<string, SwapDetails>;
-
-  // A map between the timeout block heights and the output scripts of the normal swaps
-  swapTimeouts: Map<number, string[]>;
-
-  // A map between the invoices and the reverse swaps details
-  reverseSwaps: Map<string, ReverseSwapDetails>;
-
-  // A map between the lock up transaction id of a reverse swap and its invoice and the symbol of the reiceiving currency
-  reverseSwapTransactions: Map<string, MinimalReverseSwapDetails>;
-
-  // A map betwee the timeout block heights and the invoices of the reverse swaps
-  reverseSwapTimeouts: Map<number, MinimalReverseSwapDetails[]>;
-};
+import { ChannelCreationType, SwapUpdateEvent } from '../consts/Enums';
+import ChannelCreationRepository from '../db/ChannelCreationRepository';
+import {
+  getRate,
+  splitPairId,
+  formatError,
+  getHexBuffer,
+  getHexString,
+  decodeInvoice,
+  reverseBuffer,
+  getChainCurrency,
+  transactionHashToId,
+  getLightningCurrency,
+  transactionSignalsRbfExplicitly,
+} from '../Utils';
 
 interface SwapNursery {
-  on(event: 'expiration', listener: (invoice: string, isReverse: boolean) => void): this;
-  emit(event: 'expiration', invoice: string, isReverse: boolean): boolean;
+  on(event: 'transaction', listener: (transaction: Transaction, swap: Swap | ReverseSwap, confirmed: boolean, isReverse: boolean) => void): this;
+  emit(event: 'transaction', transaction: Transaction, swap: Swap | ReverseSwap, confirmed: boolean, isReverse: boolean): boolean;
+
+  on(event: 'expiration', listener: (swap: Swap | ReverseSwap, isReverse: boolean) => void): this;
+  emit(event: 'expiration', swap: Swap | ReverseSwap, isReverse: boolean): boolean;
 
   // Swap related events
-  on(event: 'claim', listener: (lockupTransactionId: string, lockupVout: number, minerFee: number) => void): this;
-  emit(event: 'claim', lockupTransactionId: string, lockupVout: number, minerFee: number): boolean;
+  on(event: 'claim', listener: (swap: Swap) => void): this;
+  emit(event: 'claim', swap: Swap): boolean;
 
-  on(event: 'invoice.paid', listener: (invoice: string, routingFee: number) => void): this;
-  emit(event: 'invoice.paid', invoice: string, routingFee: number): boolean;
+  on(event: 'invoice.pending', listener: (swap: Swap) => void): this;
+  emit(even: 'invoice.pending', swap: Swap): boolean;
 
-  on(event: 'invoice.failedToPay', listener: (invoice: string) => void): this;
-  emit(event: 'invoice.failedToPay', invoice: string): boolean;
+  on(event: 'invoice.paid', listener: (swap: Swap) => void): this;
+  emit(event: 'invoice.paid', swap: Swap): boolean;
 
-  on(event: 'zeroconf.rejected', listener: (invoice: string, reason: string) => void): this;
-  emit(event: 'zeroconf.rejected', invoice: string, reason: string): boolean;
+  on(event: 'invoice.failedToPay', listener: (swap: Swap) => void): this;
+  emit(event: 'invoice.failedToPay', swap: Swap): boolean;
+
+  on(event: 'zeroconf.rejected', listener: (swap: Swap, reason: string) => void): this;
+  emit(event: 'zeroconf.rejected', swap: Swap, reason: string): boolean;
 
   // Reverse swap related events
-  on(event: 'coins.sent', listener: (invoice: string, transaction: Transaction, minerFee: number) => void): this;
-  emit(event: 'coins.sent', invoice: string, transaction: Transaction, minerFee: number): boolean;
+  on(event: 'minerfee.paid', listener: (reverseSwap: ReverseSwap) => void): this;
+  emit(event: 'minerfee.paid', reverseSwap: ReverseSwap): boolean;
 
-  on(event: 'coins.failedToSend', listener: (invoice: string) => void): this;
-  emit(event: 'coins.failedToSend', invoice: string): boolean;
+  on(event: 'coins.sent', listener: (reverseSwap: ReverseSwap, transaction: Transaction) => void): this;
+  emit(event: 'coins.sent', reverseSwap: ReverseSwap, transaction: Transaction): boolean;
 
-  on(event: 'refund', listener: (lockupTransactionId: string, lockupVout: number, minerFee: number) => void): this;
-  emit(event: 'refund', lockupTransactionId: string, lockupVout: number, minerFee: number): boolean;
+  on(event: 'coins.failedToSend', listener: (reverseSwap: ReverseSwap) => void): this;
+  emit(event: 'coins.failedToSend', reverseSwap: ReverseSwap): boolean;
+
+  on(event: 'refund', listener: (reverseSwap: ReverseSwap, refundTransactionId: string) => void): this;
+  emit(event: 'refund', reverseSwap: ReverseSwap, refundTransactionId: string): boolean;
+
+  on(event: 'invoice.settled', listener: (reverseSwap: ReverseSwap) => void): this;
+  emit(event: 'invoice.settled', reverseSwap: ReverseSwap): boolean;
 }
 
-// TODO: make sure swaps work after restarts (save to and read from database)
+// TODO: remove finished swaps from filters (make sure they are actually gone)
 class SwapNursery extends EventEmitter {
   public static reverseSwapMempoolEta = 2;
 
-  private maps = new Map<string, SwapMaps>();
-  private lndClients = new Map<string, LndClient>();
-  private chainClients = new Map<string, ChainClient>();
+  private lock = new AsyncLock();
 
-  constructor(private logger: Logger, private walletManager: WalletManager) {
+  private currencies = new Map<string, Currency>();
+
+  private channelNursery: ChannelNursery;
+
+  private static retryLock = 'lock';
+
+  private static swapLock = 'swap';
+  private static reverseSwapLock = 'reverseSwap';
+
+  // TODO: implement retry logic; how long to retry swaps that have not timed out yet (+ eventually emit "invoice.failedToPay" event)
+  constructor(
+    private logger: Logger,
+    private rateProvider: RateProvider,
+    private walletManager: WalletManager,
+    private swapRepository: SwapRepository,
+    private reverseSwapRepository: ReverseSwapRepository,
+    private channelCreationRepository: ChannelCreationRepository,
+    private prepayMinerFee: boolean,
+    private swapOutputType: OutputType,
+    retryInterval: number,
+  ) {
     super();
-  }
 
-  public addSwap = (
-    maps: SwapMaps,
-    details: SwapDetails,
-    rawOutputScript: Buffer,
-    timeoutBlockHeight: number,
-  ) => {
-    const outputScript = getHexString(rawOutputScript);
-    maps.swaps.set(outputScript, details);
+    this.channelNursery = new ChannelNursery(
+      this.logger,
+      this.swapRepository,
+      this.channelCreationRepository,
+      // TODO: there is a similar method in the SwapManager already; those should be unified
+      async (currency: Currency, swap: Swap, outgoingChannelId: string) => {
+        const lockupTransaction = await currency.chainClient.getRawTransaction(swap.lockupTransactionId!);
 
-    const swapTimeouts = maps.swapTimeouts.get(timeoutBlockHeight);
+        return this.attemptSettleSwap(
+          currency,
+          this.walletManager.wallets.get(currency.symbol)!,
+          swap,
+          Transaction.fromHex(lockupTransaction),
+          true,
+          outgoingChannelId,
+        );
+      },
+    );
 
-    if (swapTimeouts) {
-      swapTimeouts.push(outputScript);
-    } else {
-      maps.swapTimeouts.set(timeoutBlockHeight, [outputScript]);
-    }
-  }
+    this.logger.info(`Setting Swap retry interval to ${retryInterval} seconds`);
 
-  public addReverseSwap = (
-    details: ReverseSwapDetails,
-    invoice: string,
-    timeoutBlockHeight: number,
-  ) => {
-    const sendingMaps = this.maps.get(details.sendingSymbol)!;
-    const receivingMaps = this.maps.get(details.receivingSymbol)!;
-
-    receivingMaps.reverseSwaps.set(invoice, details);
-
-    const minimalDetails = { invoice, receivingSymbol: details.receivingSymbol };
-    const pendingReverseSwaps = sendingMaps.reverseSwapTimeouts.get(timeoutBlockHeight);
-
-    if (pendingReverseSwaps) {
-      pendingReverseSwaps.push(minimalDetails);
-    } else {
-      sendingMaps.reverseSwapTimeouts.set(timeoutBlockHeight, [minimalDetails]);
-    }
-  }
-
-  public bindCurrency = (currency: Currency, maps: SwapMaps) => {
-    const { symbol } = currency;
-    const { chainClient, lndClient } = currency;
-
-    this.maps.set(symbol, maps);
-    this.chainClients.set(symbol, chainClient);
-
-    if (lndClient) {
-      this.lndClients.set(symbol, lndClient);
-    }
-
-    chainClient.on('transaction', async (transaction: Transaction, confirmed: boolean) => {
-      let zeroConfRejectedReason: string | undefined = undefined;
-
-      // Boltz does some extra checks on transactions that are not confirmed yet to make sure they are not malicious
-      if (!confirmed) {
-        // Check if the transaction signals RBF
-        const signalsRbf = await this.transactionSignalsRbf(chainClient, transaction);
-
-        if (signalsRbf) {
-          zeroConfRejectedReason = 'transaction or one of its unconfirmed ancestors signals RBF';
-        } else {
-          // Check if the transaction has a high enough fee to be confirmed in a timely manner
-          const estimationFeePerVbyte = await chainClient.estimateFee();
-
-          const transactionFee = await this.calculateTransactionFee(transaction, chainClient);
-          const transactionFeePerVbyte = transactionFee / transaction.virtualSize();
-
-          // If the transaction fee is less than 80% of the estimation, Boltz will wait for a confirmation
-          //
-          // Special case: if the fee estimator is returning the lowest possible fee, 2 sat/vbyte, every fee
-          // paid by the transaction will be accepted
-          if (
-            transactionFeePerVbyte / estimationFeePerVbyte < 0.8 &&
-            estimationFeePerVbyte !== 2
-          ) {
-            zeroConfRejectedReason = 'transaction fee is too low';
-          }
-        }
+    setInterval(async () => {
+      // Skip this iteration if the last one is still running
+      if (this.lock.isBusy(SwapNursery.retryLock)) {
+        return;
       }
 
-      let vout = 0;
+      this.logger.silly('Retrying to settle Swaps');
 
-      for (const openOutput of transaction.outs) {
-        const output = openOutput as TxOutput;
+      await this.lock.acquire(SwapNursery.retryLock, async () => {
+        await this.lock.acquire(SwapNursery.swapLock, async () => {
+          const unsettledSwaps = await this.swapRepository.getSwaps({
+            status: {
+              [Op.eq]: SwapUpdateEvent.InvoicePending,
+            },
+          });
 
-        const hexScript = getHexString(output.script);
-        const swapDetails = maps.swaps.get(hexScript);
+          for (const swap of unsettledSwaps) {
+            const channelCreation = await this.channelCreationRepository.getChannelCreation({
+              swapId: {
+                [Op.eq]: swap.id,
+              },
+              status: {
+                // tslint:disable-next-line:no-null-keyword
+                [Op.not]: null,
+              },
+            });
 
-        if (swapDetails) {
-          if (zeroConfRejectedReason !== undefined) {
-            this.logger.warn(`Rejected 0-conf ${chainClient.symbol} transaction ${transaction.getId()}: ${zeroConfRejectedReason}`);
-            this.emit('zeroconf.rejected', swapDetails.invoice, zeroConfRejectedReason);
-
-          } else if (confirmed || swapDetails.acceptZeroConf) {
-            if (!confirmed) {
-              this.logger.silly(`Accepted 0-conf ${chainClient.symbol} swap: ${transaction.getId()}:${vout}`);
+            // The ChannelNursery takes care of settling attempted Channel Creations
+            if (channelCreation) {
+              continue;
             }
 
-            maps.swaps.delete(hexScript);
+            const { base, quote } = splitPairId(swap.pair);
+            const chainCurrency = this.currencies.get(getChainCurrency(base, quote, swap.orderSide, false))!;
 
-            await this.claimSwap(
-              currency,
-              transaction.getHash(),
-              output.script,
-              output.value,
-              vout,
-              swapDetails,
-            );
-          }
+            const lockupTransaction = await chainCurrency.chainClient.getRawTransaction(swap.lockupTransactionId!);
 
-        }
-
-        vout += 1;
-      }
-
-      for (let i = 0; i < transaction.ins.length; i += 1) {
-        const input = transaction.ins[i];
-
-        const inputTransactionId = transactionHashToId(input.hash);
-        const reverseSwapSentInfo = maps.reverseSwapTransactions.get(inputTransactionId);
-
-        if (reverseSwapSentInfo !== undefined) {
-          await this.settleReverseSwap(
-            transaction,
-            i,
-            reverseSwapSentInfo.receivingSymbol,
-          );
-
-          maps.reverseSwapTransactions.delete(inputTransactionId);
-
-          const receivingMaps = this.maps.get(reverseSwapSentInfo.receivingSymbol)!;
-          receivingMaps.reverseSwaps.delete(reverseSwapSentInfo.invoice);
-        }
-      }
-    });
-
-    chainClient.on('block', async (height: number) => {
-      const swapTimeouts = maps.swapTimeouts.get(height);
-
-      if (swapTimeouts) {
-        swapTimeouts.forEach((outputScript) => {
-          const swap = maps.swaps.get(outputScript);
-
-          if (swap) {
-            this.logger.verbose(`Aborting swap: ${swap.invoice}`);
-            this.emit('expiration', swap.invoice, false);
-
-            maps.swaps.delete(outputScript);
+            try {
+              await this.attemptSettleSwap(
+                chainCurrency,
+                this.walletManager.wallets.get(chainCurrency.symbol)!,
+                swap,
+                Transaction.fromHex(lockupTransaction),
+                // Since the lockup transaction confirmed already or 0-conf was accepted, the 0-conf checks can just be skipped
+                true,
+              );
+            } catch (error) {
+              this.logger.debug(`Could not settle Swap ${swap.id} on retry: ${formatError(error)}`);
+            }
           }
         });
+      });
+    }, retryInterval * 1000);
+  }
 
-        maps.swapTimeouts.delete(height);
-      }
-
-      const reverseSwapInvoices = maps.reverseSwapTimeouts.get(height);
-
-      if (reverseSwapInvoices) {
-        await this.handleExpiredReverseSwaps(currency, maps, reverseSwapInvoices, height);
-        maps.reverseSwapTimeouts.delete(height);
-      }
+  public init = async (currencies: Currency[]) => {
+    currencies.forEach((currency) => {
+      this.bindCurrency(currency);
     });
 
-    if (lndClient !== undefined) {
-      lndClient.on('htlc.accepted', async (invoice: string) => {
-        const reverseSwapDetails = maps.reverseSwaps.get(invoice);
+    await this.channelNursery.init(currencies);
+  }
 
-        if (reverseSwapDetails) {
-          await this.sendReverseSwapCoins(
-            invoice,
-            reverseSwapDetails,
-            maps,
-          );
-        }
+  // TODO: write integration tests
+  private bindCurrency = (currency: Currency) => {
+    this.currencies.set(currency.symbol, currency);
+
+    const { symbol } = currency;
+    const { chainClient, lndClient } = currency;
+    const wallet = this.walletManager.wallets.get(symbol)!;
+
+    if (lndClient) {
+      lndClient.on('htlc.accepted', async (invoice: string) => {
+        await this.lock.acquire(SwapNursery.reverseSwapLock, async () => {
+          const reverseSwap = await this.reverseSwapRepository.getReverseSwap({
+            invoice: {
+              [Op.eq]: invoice,
+            },
+          });
+
+          if (reverseSwap) {
+            await this.sendReverseSwapCoins(reverseSwap);
+          }
+        });
       });
+
+      // Only relevant if prepay miner fees are enabled
+      if (this.prepayMinerFee) {
+        lndClient.on('invoice.settled', async (invoice: string) => {
+          await this.lock.acquire(SwapNursery.reverseSwapLock, async () => {
+            const reverseSwap = await this.reverseSwapRepository.getReverseSwap({
+              minerFeeInvoice: {
+                [Op.eq]: invoice,
+              },
+            });
+
+            if (reverseSwap) {
+              this.logger.silly(`Minerfee prepayment of Reverse Swap ${reverseSwap.id} settled`);
+              lndClient.subscribeSingleInvoice(getHexBuffer(decodeInvoice(reverseSwap.invoice).paymentHash!));
+
+              this.emit('minerfee.paid', await this.reverseSwapRepository.setReverseSwapStatus(reverseSwap, SwapUpdateEvent.MinerFeePaid));
+            }
+          });
+        });
+      }
+    }
+
+    chainClient.on('transaction', async (transaction, confirmed) => {
+      await Promise.all([
+        await this.lock.acquire(SwapNursery.swapLock, async () => {
+          for (let vout = 0; vout < transaction.outs.length; vout += 1) {
+            const output = transaction.outs[vout];
+
+            let swap = await this.swapRepository.getSwap({
+              status: {
+                [Op.or]: [
+                  SwapUpdateEvent.InvoiceSet,
+                  SwapUpdateEvent.SwapCreated,
+                  SwapUpdateEvent.TransactionMempool,
+                ],
+              },
+              lockupAddress: {
+                [Op.eq]: wallet.encodeAddress(output.script),
+              },
+            });
+
+            if (swap) {
+              const rate = getRate(
+                this.rateProvider.pairs.get(swap.pair)!.rate,
+                swap.orderSide,
+                false,
+              );
+
+              swap = await this.swapRepository.setLockupTransactionId(
+                swap,
+                rate,
+                transaction.getId(),
+                output.value,
+                confirmed,
+              );
+
+              this.emit(
+                'transaction',
+                transaction,
+                swap!,
+                confirmed,
+                false,
+              );
+
+              // If no invoice was set yet we have to wait for the client
+              if (!swap!.invoice) {
+                continue;
+              }
+
+              try {
+                await this.attemptSettleSwap(
+                  currency,
+                  wallet,
+                  swap!,
+                  transaction,
+                  confirmed,
+                );
+              } catch (error) {
+                this.logger.warn(`Could not settle Swap ${swap!.id}: ${formatError(error)}`);
+              }
+            }
+          }
+        }),
+        await this.lock.acquire(SwapNursery.reverseSwapLock, async () => {
+          // Send "transaction.confirmed" event for lockup transaction
+          if (confirmed) {
+            const reverseSwap = await this.reverseSwapRepository.getReverseSwap({
+              status: {
+                [Op.eq]: SwapUpdateEvent.TransactionMempool,
+              },
+              transactionId: {
+                [Op.eq]: transaction.getId(),
+              },
+            });
+
+            if (reverseSwap) {
+              chainClient.removeOutputFilter(wallet.decodeAddress(reverseSwap.lockupAddress));
+
+              this.emit(
+                'transaction',
+                transaction,
+                await this.reverseSwapRepository.setReverseSwapStatus(reverseSwap, SwapUpdateEvent.TransactionConfirmed),
+                true,
+                true,
+              );
+            }
+          }
+
+          // Get preimage from claim transaction
+          for (let vin = 0; vin < transaction.ins.length; vin += 1) {
+            const input = transaction.ins[vin];
+
+            const inputId = transactionHashToId(input.hash);
+
+            const reverseSwap = await this.reverseSwapRepository.getReverseSwap({
+              status: {
+                [Op.or]: [
+                  SwapUpdateEvent.TransactionMempool,
+                  SwapUpdateEvent.TransactionConfirmed,
+                ],
+              },
+              transactionId: {
+                [Op.eq]: inputId,
+              },
+              transactionVout: {
+                [Op.eq]: input.index,
+              },
+            });
+
+            if (reverseSwap) {
+              try {
+                await this.settleReverseSwap(reverseSwap, transaction, vin);
+                chainClient.removeInputFilter(input.hash);
+              } catch (error) {
+                this.logger.warn(`Could not settle Reverse Swap ${reverseSwap.id}: ${formatError(error)}`);
+              }
+            }
+          }
+        }),
+      ]);
+    });
+
+    chainClient.on('block', async (height) => {
+      // TODO: check for right onchain currency?
+      // TODO: have a hardcoded list of statuses that are pending
+      await Promise.all([
+        this.lock.acquire(SwapNursery.swapLock, async () => {
+          const swaps = await this.swapRepository.getSwaps({
+            status: {
+              [Op.not]: [
+                SwapUpdateEvent.SwapExpired,
+                SwapUpdateEvent.InvoiceFailedToPay,
+                SwapUpdateEvent.TransactionClaimed,
+              ],
+            },
+            timeoutBlockHeight: {
+              [Op.lte]: height,
+            },
+          });
+
+          for (const swap of swaps) {
+            const { base, quote } = splitPairId(swap.pair);
+            const chainCurrency = getChainCurrency(base, quote, swap.orderSide, false);
+
+            if (symbol === chainCurrency) {
+              this.logger.verbose(`Aborting swap: ${swap.id}`);
+              this.emit('expiration', await this.swapRepository.setSwapStatus(swap, SwapUpdateEvent.SwapExpired), false);
+            }
+          }
+        }),
+        this.lock.acquire(SwapNursery.reverseSwapLock, async () => {
+          const reverseSwaps = await this.reverseSwapRepository.getReverseSwaps({
+            status: {
+              [Op.not]: [
+                SwapUpdateEvent.SwapExpired,
+                SwapUpdateEvent.InvoiceSettled,
+                SwapUpdateEvent.TransactionFailed,
+                SwapUpdateEvent.TransactionRefunded,
+              ],
+            },
+            timeoutBlockHeight: {
+              [Op.lte]: height,
+            },
+          });
+
+          for (const reverseSwap of reverseSwaps) {
+            const { base, quote } = splitPairId(reverseSwap.pair);
+            const chainCurrency = getChainCurrency(base, quote, reverseSwap.orderSide, true);
+
+            if (symbol === chainCurrency) {
+              if (reverseSwap.status === SwapUpdateEvent.TransactionMempool || reverseSwap.status === SwapUpdateEvent.TransactionConfirmed) {
+                try {
+                  await this.refundReverseSwap(
+                    reverseSwap,
+                    chainClient,
+                    wallet,
+                    height,
+                  );
+                } catch (error) {
+                  this.logger.error(`Could not broadcast refund transaction: ${formatError(error)}`);
+                }
+              } else {
+                this.logger.verbose(`Aborting reverse swap: ${reverseSwap.id}`);
+                this.emit('expiration', await this.reverseSwapRepository.setReverseSwapStatus(reverseSwap, SwapUpdateEvent.SwapExpired), true);
+              }
+            }
+          }
+        }),
+      ]);
+    });
+  }
+
+  /**
+   * Check whether the invoice of a Swap should be paid and pays it if so
+   */
+  public attemptSettleSwap = async (
+    currency: Currency,
+    wallet: Wallet,
+    swap: Swap,
+    transaction: Transaction,
+    confirmed: boolean,
+    outgoingChannelId?: string,
+  ) => {
+    let zeroConfRejectedReason: string | undefined = undefined;
+
+    // Confirmed transactions do not have to be checked for 0-conf criteria
+    if (!confirmed) {
+      // Check if the transaction signals RBF
+      const signalsRbf = await this.transactionSignalsRbf(currency.chainClient, transaction);
+
+      if (signalsRbf) {
+        zeroConfRejectedReason = 'transaction or one of its unconfirmed ancestors signals RBF';
+      } else {
+        // Check if the transaction has a fee high enough to be confirmed in a timely manner
+        const feeEstimation = await currency.chainClient.estimateFee();
+
+        const transactionFee = await this.calculateTransactionFee(currency.chainClient, transaction);
+        const transactionFeePerVbyte = transactionFee / transaction.virtualSize();
+
+        // If the transaction fee is less than 80% of the estimation, Boltz will wait for a confirmation
+        //
+        // Special case: if the fee estimator is returning the lowest possible fee, 2 sat/vbyte, every fee
+        // paid by the transaction will be accepted
+        if (
+          transactionFeePerVbyte / feeEstimation < 0.8 &&
+          feeEstimation !== 2
+        ) {
+          zeroConfRejectedReason = 'transaction fee is too low';
+        }
+      }
+    }
+
+    if (zeroConfRejectedReason !== undefined) {
+      this.logger.warn(`Rejected 0-conf ${currency.symbol} transaction ${transaction.getId()}: ${zeroConfRejectedReason}`);
+      this.emit('zeroconf.rejected', swap, zeroConfRejectedReason);
+    } else if (confirmed || swap.acceptZeroConf) {
+      const swapOutput = detectSwap(getHexBuffer(swap.redeemScript), transaction)!;
+
+      if (!confirmed) {
+        this.logger.silly(`Accepted 0-conf ${currency.symbol} swap: ${transaction.getId()}:${swapOutput.vout}`);
+      }
+
+      currency.chainClient.removeOutputFilter(swapOutput.script);
+
+      const channelCreation = await this.channelCreationRepository.getChannelCreation({
+        swapId: {
+          [Op.eq]: swap.id,
+        },
+      });
+
+      // If the Swap should always open a channel regardless of whether the invoice can be paid,
+      // the channel will be opened at this point
+      if (channelCreation) {
+        if (channelCreation.type === ChannelCreationType.Create && channelCreation.status === null) {
+          // TODO: logging and swap update event when the sent amount it too little
+          if (swap.onchainAmount! >= swap.expectedAmount!) {
+            // TODO: cross chain
+            await this.channelNursery.openChannel(currency, swap, channelCreation);
+          }
+
+          return;
+        }
+      }
+
+      await this.claimSwap(currency, wallet, swap, channelCreation, transaction, swapOutput.vout, outgoingChannelId);
     }
   }
 
   private claimSwap = async (
     currency: Currency,
-    transactionHash: Buffer,
-    outputScript: Buffer,
-    outputValue: number,
+    wallet: Wallet,
+    swap: Swap,
+    channelCreation: ChannelCreation | undefined,
+    transaction: Transaction,
     vout: number,
-    details: SwapDetails,
+    outgoingChannelId?: string,
   ) => {
-    const transactionId = transactionHashToId(transactionHash);
-    const swapOutput = `${transactionId}:${vout}`;
+    // If there is a Channel Creation but no outgoing channel id specified, this function won't do anything
+    if (channelCreation) {
+      if (
+        channelCreation.fundingTransactionId !== null && outgoingChannelId === undefined ||
+        channelCreation.type === ChannelCreationType.Create && channelCreation.fundingTransactionId === null
+      ) {
+        return;
+      }
+    }
 
-    if (outputValue < details.expectedAmount) {
-      this.logger.error(`Aborting ${currency.symbol} swap: value ${outputValue} of ${swapOutput} is less than expected ${details.expectedAmount}`);
-      // TODO: emit event and remove swap from maps
+    const output = transaction.outs[vout];
+    const swapOutput = `${transaction.getId()}:${vout}`;
+
+    if (output.value < swap.expectedAmount!) {
+      this.logger.error(`Aborting ${currency.symbol} swap: value ${output.value} of ${swapOutput} is less than expected ${swap.expectedAmount}`);
+      // TODO: emit event
       return;
     }
 
-    this.logger.verbose(`Claiming ${currency.symbol} swap output: ${swapOutput}`);
+    this.logger.verbose(`Claiming ${currency.symbol} Swap ${swap.id} output: ${swapOutput}`);
 
-    const preimage = await this.payInvoice(this.lndClients.get(details.sendingSymbol)!, details.invoice);
-
-    if (preimage) {
-      this.logger.silly(`Got ${currency.symbol} preimage: ${getHexString(preimage)}`);
-
-      const destinationAddress = await this.getNewAddress(currency.symbol);
-
-      const claimTx = constructClaimTransaction(
-        [{
-          vout,
-          preimage,
-          value: outputValue,
-          script: outputScript,
-          txHash: transactionHash,
-          keys: details.claimKeys,
-          type: details.outputType,
-          redeemScript: details.redeemScript,
-        }],
-        address.toOutputScript(destinationAddress, currency.network),
-        await currency.chainClient.estimateFee(),
-        true,
-      );
-      const minerFee = await this.calculateTransactionFee(claimTx, currency.chainClient, outputValue);
-
-      this.logger.silly(`Broadcasting ${currency.symbol} claim transaction: ${claimTx.getId()}`);
-
-      await currency.chainClient.sendRawTransaction(claimTx.toHex());
-      this.emit('claim', transactionId, vout, minerFee);
+    if (swap.status !== SwapUpdateEvent.InvoicePending) {
+      await this.swapRepository.setSwapStatus(swap, SwapUpdateEvent.InvoicePending);
+      this.emit('invoice.pending', swap);
     }
-  }
 
-  private sendReverseSwapCoins = async (
-    invoice: string,
-    details: ReverseSwapDetails,
-    receivingMaps: SwapMaps,
-  ) => {
-    const { sendingSymbol } = details;
-    const { address, amount } = details.sendingDetails;
+    const { base, quote } = splitPairId(swap.pair);
+    const lightningCurrency = getLightningCurrency(base, quote, swap.orderSide, false);
 
-    const chainClient = this.chainClients.get(sendingSymbol)!;
-    const wallet = this.walletManager.wallets.get(sendingSymbol)!;
+    let response: {
+      preimage: Buffer,
+      fee: number,
+    } | undefined;
 
     try {
-      const satPerVbyte = await chainClient.estimateFee(SwapNursery.reverseSwapMempoolEta);
-      const { fee, vout, transaction, transactionId } = await wallet.sendToAddress(address, amount, satPerVbyte);
-      this.logger.verbose(`Locked up ${sendingSymbol} to reverse swap in transaction: ${transactionId}`);
-
-      chainClient.updateInputFilter([transaction.getHash()]);
-
-      details.output = {
-        vout,
-        value: amount,
-        type: details.outputType,
-        txHash: transaction.getHash(),
-        script: wallet.decodeAddress(address),
-      };
-
-      receivingMaps.reverseSwaps.set(invoice, details);
-
-      const sendingMaps = this.maps.get(sendingSymbol)!;
-      sendingMaps.reverseSwapTransactions.set(transactionId, { invoice, receivingSymbol: details.receivingSymbol });
-
-      this.emit('coins.sent', invoice, transaction, fee);
+      response = await this.payInvoice(this.currencies.get(lightningCurrency)!.lndClient!, swap.invoice!, outgoingChannelId);
     } catch (error) {
-      receivingMaps.reverseSwaps.delete(invoice);
+      this.logger.debug(`Could not pay invoice of Swap ${swap.id}: ${formatError(error)}`);
 
-      await this.lndClients.get(details.receivingSymbol)!.cancelInvoice(details.preimageHash);
+      // TODO: double check if peer is connected to us -> open a channel in all cases
+      /*
+       * Errors that should trigger no Channel Creation and a retry:
+       *  - "unable to route payment to destination: UnknownNextPeer@"
+       *
+       * Errors that should always trigger a Channel Creation:
+       *  - "insufficient local balance"
+       *  - "unable to find a path to destination"
+       *
+       * Just to be sure we also open a channel for errors of the type string we don't know how to handle
+       */
 
-      this.logger.warn(`Failed to send ${amount} ${sendingSymbol} to reverse swap: ${formatError(error)}`);
-      this.emit('coins.failedToSend', invoice);
+      if (
+        channelCreation &&
+        !channelCreation.status &&
+        typeof error === 'string' &&
+        !error.startsWith('unable to route payment to destination: UnknownNextPeer')
+      ) {
+        // TODO: cross chain support
+        await this.channelNursery.openChannel(currency, swap, channelCreation);
+        return;
+      }
+
+      // Since paying the invoice failed, we can't continue with the claiming flow
+      throw `could not pay invoice: ${formatError(error)}`;
+    }
+
+    this.logger.silly(`Got ${currency.symbol} preimage: ${getHexString(response.preimage)}`);
+
+    this.emit('invoice.paid', await this.swapRepository.setInvoicePaid(swap, response.fee));
+
+    const destinationAddress = await wallet.newAddress();
+
+    const claimTx = constructClaimTransaction(
+      [{
+        vout,
+        value: output.value,
+        script: output.script,
+        preimage: response.preimage,
+        txHash: transaction.getHash(),
+        type: this.swapOutputType,
+        keys: wallet.getKeysByIndex(swap.keyIndex),
+        redeemScript: getHexBuffer(swap.redeemScript),
+      }],
+      address.toOutputScript(destinationAddress, currency.network),
+      await currency.chainClient.estimateFee(),
+      true,
+    );
+    const minerFee = await this.calculateTransactionFee(currency.chainClient, claimTx);
+
+    this.logger.silly(`Broadcasting ${currency.symbol} claim transaction: ${claimTx.getId()}`);
+
+    await currency.chainClient.sendRawTransaction(claimTx.toHex());
+    this.emit('claim', await this.swapRepository.setMinerFee(swap, minerFee));
+  }
+
+  private sendReverseSwapCoins = async (reverseSwap: ReverseSwap) => {
+    const { base, quote } = splitPairId(reverseSwap.pair);
+    const chainCurrency = getChainCurrency(base, quote, reverseSwap.orderSide, true);
+    const lightningCurrency = getLightningCurrency(base, quote, reverseSwap.orderSide, true);
+
+    try {
+      const chainClient = this.currencies.get(chainCurrency)!.chainClient;
+      const wallet = this.walletManager.wallets.get(chainCurrency)!;
+
+      let feePerVbyte: number;
+
+      if (reverseSwap.minerFeeInvoice) {
+        feePerVbyte = Math.round(decodeInvoice(reverseSwap.minerFeeInvoice).satoshis / FeeProvider.transactionSizes.reverseLockup);
+        this.logger.debug(`Using prepaid minerfee for Reverse Swap ${reverseSwap.id} of ${feePerVbyte} sat/vbyte`);
+      } else {
+        feePerVbyte = await chainClient.estimateFee(SwapNursery.reverseSwapMempoolEta);
+      }
+      const { fee, vout, transaction, transactionId } = await wallet.sendToAddress(reverseSwap.lockupAddress, reverseSwap.onchainAmount, feePerVbyte);
+
+      this.logger.verbose(`Sent ${chainCurrency} to reverse swap ${reverseSwap.id} in transaction: ${transactionId}:${vout}`);
+
+      chainClient.addInputFilter(transaction.getHash());
+      chainClient.addOutputFilter(wallet.decodeAddress(reverseSwap.lockupAddress));
+
+      this.emit('coins.sent', await this.reverseSwapRepository.setLockupTransaction(reverseSwap, transactionId, vout, fee), transaction);
+    } catch (error) {
+      const preimageHash = getHexBuffer(decodeInvoice(reverseSwap.invoice).paymentHash!);
+
+      const lndClient = this.currencies.get(lightningCurrency)!.lndClient!;
+      await this.cancelInvoice(lndClient, preimageHash);
+
+      this.logger.warn(`Failed to send ${reverseSwap.onchainAmount} ${chainCurrency} to reverse swap: ${formatError(error)}`);
+      this.emit('coins.failedToSend', await this.reverseSwapRepository.setReverseSwapStatus(reverseSwap, SwapUpdateEvent.TransactionFailed));
     }
   }
 
-  private settleReverseSwap = async (
-    transaction: Transaction,
-    vin: number,
-    receivingSymbol: string,
-  ) => {
+  private settleReverseSwap = async (reverseSwap: ReverseSwap, transaction: Transaction, vin: number) => {
     const preimage = detectPreimage(vin, transaction);
-    this.logger.verbose(`Got preimage of reverse swap: ${getHexString(preimage)}`);
+    this.logger.verbose(`Got preimage of reverse swap ${reverseSwap.id}: ${getHexString(preimage)}`);
 
-    await this.lndClients.get(receivingSymbol)!.settleInvoice(preimage);
+    const { base, quote } = splitPairId(reverseSwap.pair);
+    const lightningCurrency = getLightningCurrency(base, quote, reverseSwap.orderSide, true);
+
+    const lndClient = this.currencies.get(lightningCurrency)!.lndClient!;
+    await lndClient.settleInvoice(preimage);
+
+    this.emit('invoice.settled', await this.reverseSwapRepository.setInvoiceSettled(reverseSwap, getHexString(preimage)));
   }
 
-  private handleExpiredReverseSwaps = async (
-    currency: Currency,
-    sendingMaps: SwapMaps,
-    reverseSwapInvoices: MinimalReverseSwapDetails[],
-    timeoutBlockHeight: number,
+  private refundReverseSwap = async (
+    reverseSwap: ReverseSwap,
+    chainClient: ChainClient,
+    wallet: Wallet,
+    blockHeight: number,
   ) => {
-    for (const { invoice, receivingSymbol } of reverseSwapInvoices) {
-      const reiceivingMaps = this.maps.get(receivingSymbol)!;
-      const details = reiceivingMaps.reverseSwaps.get(invoice);
+    const { base, quote } = splitPairId(reverseSwap.pair);
+    const lightningCurrency = getLightningCurrency(base, quote, reverseSwap.orderSide, true);
 
-      if (details !== undefined) {
-        if (details.output !== undefined) {
-          const transactionId = transactionHashToId(details.output.txHash);
-          this.logger.info(`Refunding ${currency.symbol} reverse swap output: ${transactionId}:${details.output.vout}`);
+    let vout: number | undefined = undefined;
+    const lockupTransaction = Transaction.fromHex(await chainClient.getRawTransaction(reverseSwap.transactionId!));
 
-          const destinationAddress = await this.getNewAddress(currency.symbol);
+    for (let i = 0; i < lockupTransaction.outs.length; i += 1) {
+      const output = lockupTransaction.outs[i];
 
-          const refundTx = constructRefundTransaction(
-            [{
-              ...details.output,
-              keys: details.refundKeys,
-              redeemScript: details.redeemScript,
-            }],
-            address.toOutputScript(destinationAddress, currency.network),
-            timeoutBlockHeight,
-            await currency.chainClient.estimateFee(),
-          );
-          const minerFee = await this.calculateTransactionFee(refundTx, currency.chainClient, details.output.value);
-
-          sendingMaps.reverseSwapTransactions.delete(transactionId);
-          reiceivingMaps.reverseSwaps.delete(invoice);
-
-          this.logger.verbose(`Broadcasting ${currency.symbol} refund transaction: ${refundTx.getId()}`);
-
-          try {
-            await currency.chainClient.sendRawTransaction(refundTx.toHex());
-            this.emit('refund', transactionId, details.output.vout, minerFee);
-          } catch (error) {
-            this.logger.warn(`Could not broadcast ${currency.symbol} refund transaction: ${error.message}`);
-          }
-
-          await this.cancelInvoice(this.lndClients.get(receivingSymbol)!, details.preimageHash);
-        } else {
-          reiceivingMaps.reverseSwaps.delete(invoice);
-
-          this.logger.verbose(`Aborting reverse swap: ${invoice}`);
-          this.emit('expiration', invoice, true);
-        }
+      if (wallet.encodeAddress(output.script) === reverseSwap.lockupAddress) {
+        vout = i;
+        break;
       }
     }
+
+    // This should never happen but if it does we cannot refund the coins
+    if (vout === undefined) {
+      throw 'could not find lockup output';
+    }
+
+    chainClient.removeInputFilter(lockupTransaction.getHash());
+    chainClient.removeOutputFilter(wallet.decodeAddress(reverseSwap.lockupAddress));
+
+    this.logger.info(`Refunding ${chainClient.symbol} reverse swap: ${reverseSwap.transactionId}:${vout}`);
+
+    const destinationAddress = await wallet.newAddress();
+    const refundTransaction = constructRefundTransaction(
+      [{
+        vout,
+        ...lockupTransaction.outs[vout],
+        type: ReverseSwapOutputType,
+        txHash: lockupTransaction.getHash(),
+        keys: wallet.getKeysByIndex(reverseSwap.keyIndex),
+        redeemScript: getHexBuffer(reverseSwap.redeemScript),
+      }],
+      wallet.decodeAddress(destinationAddress),
+      blockHeight,
+      await chainClient.estimateFee(),
+    );
+    const minerFee = await this.calculateTransactionFee(chainClient, refundTransaction, lockupTransaction.outs[vout].value);
+
+    this.logger.verbose(`Broadcasting ${chainClient.symbol} refund transaction: ${refundTransaction.getId()}`);
+
+    await chainClient.sendRawTransaction(refundTransaction.toHex());
+
+    const preimageHash = getHexBuffer(decodeInvoice(reverseSwap.invoice).paymentHash!);
+    await this.cancelInvoice(this.currencies.get(lightningCurrency)!.lndClient!, preimageHash);
+
+    this.emit('refund', await this.reverseSwapRepository.setTransactionRefunded(reverseSwap, minerFee), refundTransaction.getId());
   }
 
   private cancelInvoice = (lndClient: LndClient, preimageHash: Buffer) => {
     this.logger.verbose(`Cancelling hold invoice with preimage hash: ${getHexString(preimageHash)}`);
 
     return lndClient.cancelInvoice(preimageHash);
-
   }
 
-  private payInvoice = async (lndClient: LndClient, invoice: string) => {
-    try {
-      const response = await lndClient.sendPayment(invoice);
+  private payInvoice = async (lndClient: LndClient, invoice: string, outgoingChannelId?: string) => {
+    const response = await lndClient.sendPayment(invoice, outgoingChannelId);
 
-      this.emit('invoice.paid', invoice, response.paymentRoute.totalFeesMsat);
-
-      return response.paymentPreimage;
-    } catch (error) {
-      this.logger.warn(`Could not pay ${lndClient.symbol} invoice ${invoice}: ${error}`);
-
-      this.emit('invoice.failedToPay', invoice);
-    }
-
-    return;
+    return {
+      preimage: response.paymentPreimage,
+      fee: response.paymentRoute.totalFeesMsat,
+    };
   }
 
+  // TODO: write integration test
   /**
    * Gets the miner fee for a transaction
    * If `inputSum` is not set, the chainClient will be queried to get the sum of all inputs
    *
-   * @param transaction the transaction that spends the inputs
    * @param chainClient the client for the chain of the transaction
+   * @param transaction the transaction that spends the inputs
    * @param inputSum the sum of all inputs of the transaction
    */
-  private calculateTransactionFee = async (transaction: Transaction, chainClient: ChainClient, inputSum?: number) => {
+  private calculateTransactionFee = async (chainClient: ChainClient, transaction: Transaction, inputSum?: number) => {
     const queryInputSum = async () => {
       let queriedInputSum = 0;
 
@@ -476,7 +739,7 @@ class SwapNursery extends EventEmitter {
         const rawInputTransaction = await chainClient.getRawTransaction(inputId);
         const inputTransaction = Transaction.fromHex(rawInputTransaction);
 
-        const relevantOutput = inputTransaction.outs[input.index] as TxOutput;
+        const relevantOutput = inputTransaction.outs[input.index];
 
         queriedInputSum += relevantOutput.value;
       }
@@ -486,8 +749,7 @@ class SwapNursery extends EventEmitter {
 
     let fee = inputSum || await queryInputSum();
 
-    transaction.outs.forEach((out) => {
-      const output = out as TxOutput;
+    transaction.outs.forEach((output) => {
       fee -= output.value;
     });
 
@@ -524,18 +786,6 @@ class SwapNursery extends EventEmitter {
 
     return false;
   }
-
-  private getNewAddress = (symbol: string) => {
-    const wallet = this.walletManager.wallets.get(symbol)!;
-
-    return wallet.newAddress();
-  }
 }
 
 export default SwapNursery;
-export {
-  SwapMaps,
-  SwapDetails,
-  ReverseSwapDetails,
-  MinimalReverseSwapDetails,
-};

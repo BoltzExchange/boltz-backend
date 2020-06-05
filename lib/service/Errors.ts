@@ -11,8 +11,8 @@ export default {
     message: `could not find order side: ${side}`,
     code: concatErrorCode(ErrorCodePrefix.Service, 1),
   }),
-  SWAP_NOT_FOUND: (swapIdentifier: string): Error => ({
-    message: `could not find swap with identifier: ${swapIdentifier}`,
+  SWAP_NOT_FOUND: (id: string): Error => ({
+    message: `could not find swap with id: ${id}`,
     code: concatErrorCode(ErrorCodePrefix.Service, 2),
   }),
   SCRIPT_TYPE_NOT_FOUND: (scriptType: string): Error => ({
@@ -70,5 +70,33 @@ export default {
   COINS_COULD_NOT_BE_SENT: (): Error => ({
     message: 'onchain coins could not be sent',
     code: concatErrorCode(ErrorCodePrefix.Service, 16),
+  }),
+  SWAP_WITH_PREIMAGE_EXISTS: (): Error => ({
+    message: 'a swap with this preimage hash exists already',
+    code: concatErrorCode(ErrorCodePrefix.Service, 17),
+  }),
+  SWAP_HAS_INVOICE_ALREADY: (id: string): Error => ({
+    message: `swap ${id} has an invoice already`,
+    code: concatErrorCode(ErrorCodePrefix.Service, 18),
+  }),
+  REFUNDED_COINS: (transactionId: string): Error => ({
+    message: `refunded onchain coins: ${transactionId}`,
+    code: concatErrorCode(ErrorCodePrefix.Service, 19),
+  }),
+  SWAP_NO_LOCKUP: (): Error => ({
+    message: 'no coins were locked up yet',
+    code: concatErrorCode(ErrorCodePrefix.Service, 20),
+  }),
+  INVALID_INVOICE_AMOUNT: (maxInvoiceAmount: number): Error => ({
+    message: `invoice amount exceeds the maximal of ${maxInvoiceAmount}`,
+    code: concatErrorCode(ErrorCodePrefix.Service, 21),
+  }),
+  EXCEEDS_MAX_INBOUND_LIQUIDITY: (inboundLiquidity: number, maxInboundLiquidity: number): Error => ({
+    message: `inbound liquidity ${inboundLiquidity} exceeds maximal ${maxInboundLiquidity}`,
+    code: concatErrorCode(ErrorCodePrefix.Service, 22),
+  }),
+  BENEATH_MIN_INBOUND_LIQUIDITY: (inboundLiquidity: number, minInboundLiquidity: number): Error => ({
+    message: `inbound liquidity ${inboundLiquidity} is less than minimal ${minInboundLiquidity}`,
+    code: concatErrorCode(ErrorCodePrefix.Service, 23),
   }),
 };

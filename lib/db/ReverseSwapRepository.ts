@@ -1,6 +1,6 @@
 import { WhereOptions } from 'sequelize';
 import { SwapUpdateEvent } from '../consts/Enums';
-import ReverseSwap, { ReverseSwapType } from '../db/models/ReverseSwap';
+import ReverseSwap, { ReverseSwapType } from './models/ReverseSwap';
 
 class ReverseSwapRepository {
 
@@ -26,10 +26,11 @@ class ReverseSwapRepository {
     });
   }
 
-  public setLockupTransaction = (reverseSwap: ReverseSwap, transactionId: string, minerFee: number) => {
+  public setLockupTransaction = (reverseSwap: ReverseSwap, transactionId: string, vout: number, minerFee: number) => {
     return reverseSwap.update({
       minerFee,
       transactionId,
+      transactionVout: vout,
       status: SwapUpdateEvent.TransactionMempool,
     });
   }

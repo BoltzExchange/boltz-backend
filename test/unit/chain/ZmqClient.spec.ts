@@ -149,7 +149,7 @@ describe('ZmqClient', () => {
 
     await zmqClient.rescanChain(0);
 
-    await wait(2000);
+    await wait(1000);
 
     await waitForFunctionToBeTrue(() => {
       return transactionsFound === blocksToGenerate * blocksToGenerate;
@@ -169,7 +169,7 @@ describe('ZmqClient', () => {
 
     await zmqClient.rescanChain(0);
 
-    await wait(2000);
+    await wait(1000);
 
     await waitForFunctionToBeTrue(() => {
       return transactionsFound === blocksToGenerate * blocksToGenerate;

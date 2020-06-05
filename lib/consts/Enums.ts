@@ -7,7 +7,7 @@ export enum ErrorCodePrefix {
   Lnd = 5,
   Swap = 6,
   Rates = 7,
-  Bakcup = 8,
+  Backup = 8,
 }
 
 export enum ClientStatus {
@@ -25,7 +25,9 @@ export enum SwapUpdateEvent {
   SwapCreated = 'swap.created',
   SwapExpired = 'swap.expired',
 
+  InvoiceSet = 'invoice.set',
   InvoicePaid = 'invoice.paid',
+  InvoicePending = 'invoice.pending',
   InvoiceSettled = 'invoice.settled',
   InvoiceFailedToPay = 'invoice.failedToPay',
 
@@ -34,10 +36,29 @@ export enum SwapUpdateEvent {
   TransactionClaimed = 'transaction.claimed',
   TransactionRefunded = 'transaction.refunded',
   TransactionConfirmed = 'transaction.confirmed',
+
+  // Events for the prepay miner fee Reverse Swap protocol
+  MinerFeePaid = 'minerfee.paid',
+}
+
+export enum ChannelCreationType {
+  Auto = 'auto',
+  Create = 'create',
+}
+
+export enum ChannelCreationStatus {
+  Attempted = 'attempted',
+  Created = 'created',
+  Settled = 'settled',
+  Abandoned = 'abandoned',
 }
 
 export enum ServiceWarning {
   ReverseSwapsDisabled = 'reverse.swaps.disabled',
+}
+
+export enum ServiceInfo {
+  PrepayMinerFee = 'prepay.minerfee',
 }
 
 export enum Network {

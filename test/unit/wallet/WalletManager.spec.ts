@@ -7,7 +7,7 @@ import { CurrencyConfig } from '../../../lib/Config';
 import WalletErrors from '../../../lib/wallet/Errors';
 import ChainClient from '../../../lib/chain/ChainClient';
 import LndClient from '../../../lib/lightning/LndClient';
-import KeyRepository from '../../../lib/wallet/KeyRepository';
+import KeyRepository from '../../../lib/db/KeyRepository';
 import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
 
 const symbol = 'BTC';

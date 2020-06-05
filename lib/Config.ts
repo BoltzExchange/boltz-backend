@@ -7,8 +7,8 @@ import { Network } from './consts/Enums';
 import { PairConfig } from './consts/Types';
 import { ChainConfig } from './chain/ChainClient';
 import { LndConfig } from './lightning/LndClient';
-import { deepMerge, resolveHome, getServiceDataDir } from './Utils';
 import { EthereumConfig } from './wallet/EthereumWallet';
+import { deepMerge, resolveHome, getServiceDataDir } from './Utils';
 
 type ServiceOptions = {
   configpath?: string;
@@ -78,6 +78,11 @@ type ConfigType = {
 
   loglevel: string;
 
+  retryInterval: number;
+
+  prepayminerfee: boolean;
+  swapwitnessaddress: boolean;
+
   api: ApiConfig;
   grpc: GrpcConfig;
   rates: RatesConfig;
@@ -92,7 +97,7 @@ type ConfigType = {
 
 class Config {
   // Default paths
-  public static defaultDataDir = getServiceDataDir('boltz-middleware');
+  public static defaultDataDir = getServiceDataDir('boltz');
 
   public static defaultConfigPath = 'boltz.conf';
   public static defaultMnemonicPath = 'seed.dat';
@@ -106,9 +111,8 @@ class Config {
 
   public static defaultOtpSecretPath = 'otpSecret.dat';
 
-  private config: ConfigType;
-
-  private dataDir = Config.defaultDataDir;
+  private readonly config: ConfigType;
+  private readonly dataDir = Config.defaultDataDir;
 
   /**
    * The constructor sets the default values
@@ -134,6 +138,11 @@ class Config {
 
       datadir: this.dataDir,
       loglevel: this.getDefaultLogLevel(),
+
+      retryInterval: 15,
+
+      prepayminerfee: false,
+      swapwitnessaddress: false,
 
       api: {
         host: '127.0.0.1',

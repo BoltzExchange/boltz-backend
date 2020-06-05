@@ -3,8 +3,8 @@ import Database from '../../../lib/db/Database';
 import { Network } from '../../../lib/consts/Enums';
 import FeeProvider from '../../../lib/rates/FeeProvider';
 import RateProvider from '../../../lib/rates/RateProvider';
+import PairRepository from '../../../lib/db/PairRepository';
 import { Currency } from '../../../lib/wallet/WalletManager';
-import PairRepository from '../../../lib/service/PairRepository';
 import DataProvider from '../../../lib/rates/data/DataProvider';
 
 FeeProvider.transactionSizes = {

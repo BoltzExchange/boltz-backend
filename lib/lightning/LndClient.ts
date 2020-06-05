@@ -3,9 +3,9 @@ import grpc, { ClientReadableStream } from 'grpc';
 import Errors from './Errors';
 import Logger from '../Logger';
 import BaseClient from '../BaseClient';
-import { getHexString } from '../Utils';
 import * as lndrpc from '../proto/lndrpc_pb';
 import { ClientStatus } from '../consts/Enums';
+import { formatError, getHexString } from '../Utils';
 import * as invoicesrpc from '../proto/lndinvoices_pb';
 import { LightningClient } from '../proto/lndrpc_grpc_pb';
 import { InvoicesClient } from '../proto/lndinvoices_grpc_pb';
@@ -49,11 +49,17 @@ interface GrpcResponse {
 }
 
 interface LndClient {
+  on(event: 'peer.online', listener: (publicKey: string) => void): this;
+  emit(event: 'peer.online', publicKey: string): boolean;
+
+  on(even: 'channel.active', listener: (channel: lndrpc.ChannelPoint.AsObject) => void): this;
+  emit(even: 'channel.active', channel: lndrpc.ChannelPoint.AsObject): boolean;
+
   on(event: 'htlc.accepted', listener: (invoice: string) => void): this;
   emit(event: 'htlc.accepted', invoice: string): boolean;
 
-  on(event: 'invoice.settled', listener: (invoice: string, preimage: string) => void): this;
-  emit(event: 'invoice.settled', string: string, preimage: string): boolean;
+  on(event: 'invoice.settled', listener: (invoice: string) => void): this;
+  emit(event: 'invoice.settled', string: string): boolean;
 
   on(event: 'channel.backup', listener: (channelBackup: string) => void): this;
   emit(event: 'channel.backup', channelBackup: string): boolean;
@@ -65,20 +71,20 @@ interface LndClient {
 class LndClient extends BaseClient implements LndClient {
   public static readonly serviceName = 'LND';
 
-  private uri!: string;
-  private credentials!: grpc.ChannelCredentials;
+  private readonly uri!: string;
+  private readonly credentials!: grpc.ChannelCredentials;
 
-  private meta!: grpc.Metadata;
+  private readonly meta!: grpc.Metadata;
 
   private invoices?: InvoicesClient;
   private lightning?: LightningClient;
 
-  private channelBackupSubscription?: ClientReadableStream<lndrpc.ChannelBackupSubscription>;
+  private peerEventSubscription?: ClientReadableStream<lndrpc.PeerEvent>;
+  private channelEventSubscription?: ClientReadableStream<lndrpc.ChannelEventUpdate>;
+  private channelBackupSubscription?: ClientReadableStream<lndrpc.ChanBackupSnapshot>;
 
   /**
    * Create an LND client
-   *
-   * @param config the lnd configuration
    */
   constructor(private logger: Logger, config: LndConfig, public readonly symbol: string) {
     super();
@@ -122,6 +128,8 @@ class LndClient extends BaseClient implements LndClient {
         await this.getInfo();
 
         if (startSubscriptions) {
+          this.subscribePeerEvents();
+          this.subscribeChannelEvents();
           this.subscribeChannelBackups();
         }
 
@@ -131,7 +139,7 @@ class LndClient extends BaseClient implements LndClient {
         return true;
       } catch (error) {
         this.setClientStatus(ClientStatus.Disconnected);
-        this.logger.error(`could not connect to ${LndClient.serviceName} ${this.symbol} at ${this.uri}` +
+        this.logger.error(`Could not connect to ${this.symbol} ${LndClient.serviceName} at ${this.uri}` +
         ` because: "${error.details}", retrying in ${this.RECONNECT_INTERVAL} ms`);
         this.reconnectionTimer = setTimeout(this.connect, this.RECONNECT_INTERVAL);
 
@@ -151,6 +159,8 @@ class LndClient extends BaseClient implements LndClient {
       this.setClientStatus(ClientStatus.Connected);
       this.clearReconnectTimer();
 
+      this.subscribePeerEvents();
+      this.subscribeChannelEvents();
       this.subscribeChannelBackups();
     } catch (err) {
       this.logger.error(`Could not reconnect to ${LndClient.serviceName} ${this.symbol}: ${err}`);
@@ -175,6 +185,16 @@ class LndClient extends BaseClient implements LndClient {
     if (this.invoices) {
       this.invoices.close();
       this.invoices = undefined;
+    }
+
+    if (this.peerEventSubscription) {
+      this.peerEventSubscription.cancel();
+      this.peerEventSubscription = undefined;
+    }
+
+    if (this.channelEventSubscription) {
+      this.channelEventSubscription.cancel();
+      this.channelEventSubscription = undefined;
     }
 
     if (this.channelBackupSubscription) {
@@ -220,39 +240,56 @@ class LndClient extends BaseClient implements LndClient {
   }
 
   /**
+   * Creates an invoice
+   */
+  public addInvoice = (value: number, memo?: string) => {
+    const request = new lndrpc.Invoice();
+    request.setValue(value);
+
+    if (memo) {
+      request.setMemo(memo);
+    }
+
+    return this.unaryCall<lndrpc.Invoice, lndrpc.AddInvoiceResponse.AsObject>('addInvoice', request);
+  }
+
+  /**
    * Creates a hold invoice with the supplied preimage hash
    *
    * @param value the value of this invoice in satoshis
+   * @param cltvExpiry expiry delta of the last hop
    * @param preimageHash the hash of the preimage
    * @param memo optional memo to attach along with the invoice
    */
-  public addHoldInvoice = async (value: number, preimageHash: Buffer, memo?: string) => {
+  public addHoldInvoice = (value: number, preimageHash: Buffer, cltvExpiry: number, memo?: string) => {
     const request = new invoicesrpc.AddHoldInvoiceRequest();
     request.setValue(value);
+    request.setCltvExpiry(cltvExpiry);
     request.setHash(Uint8Array.from(preimageHash));
 
     if (memo) {
       request.setMemo(memo);
     }
 
-    const response = await this.unaryInvoicesCall<invoicesrpc.AddHoldInvoiceRequest, invoicesrpc.AddHoldInvoiceResp.AsObject>(
+    return this.unaryInvoicesCall<invoicesrpc.AddHoldInvoiceRequest, invoicesrpc.AddHoldInvoiceResp.AsObject>(
       'addHoldInvoice',
       request,
     );
-
-    this.subscribeSingleInvoice(preimageHash);
-
-    return response;
   }
 
   /**
    * Pay an invoice through the Lightning Network.
    *
    * @param invoice an invoice for a payment within the Lightning Network
+   * @param outgoingChannelId channel through which the invoice should be paid
    */
-  public sendPayment = async (invoice: string): Promise<SendResponse> => {
+  public sendPayment = async (invoice: string, outgoingChannelId?: string): Promise<SendResponse> => {
     const request = new lndrpc.SendRequest();
     request.setPaymentRequest(invoice);
+
+    if (outgoingChannelId) {
+      request.setOutgoingChanId(outgoingChannelId);
+    }
 
     const response = await this.unaryCall<lndrpc.SendRequest, lndrpc.SendResponse.AsObject>('sendPaymentSync', request);
 
@@ -385,16 +422,23 @@ class LndClient extends BaseClient implements LndClient {
    * Attempts to open a channel to a remote peer
    *
    * @param pubKey identity public key of the remote peer
-   * @param fundingAmount the number of satohis the local wallet should commit
-   * @param pushSat the number of satoshis that should be pushed to the remote side
+   * @param fundingAmount the number of satoshis the local wallet should commit
+   * @param privateChannel whether the channel should be private
+   * @param satPerByte sat/vbyte fee of the funding transaction
    */
-  public openChannel = (pubKey: string, fundingAmount: number, pushSat?: number): Promise<lndrpc.ChannelPoint.AsObject> => {
+  public openChannel = (
+    pubKey: string,
+    fundingAmount: number,
+    privateChannel: boolean,
+    satPerByte: number,
+  ): Promise<lndrpc.ChannelPoint.AsObject> => {
     const request = new lndrpc.OpenChannelRequest();
+    request.setPrivate(privateChannel);
     request.setNodePubkeyString(pubKey);
     request.setLocalFundingAmount(fundingAmount);
 
-    if (pushSat) {
-      request.setPushSat(pushSat);
+    if (satPerByte) {
+      request.setSatPerByte(satPerByte);
     }
 
     return this.unaryCall<lndrpc.OpenChannelRequest, lndrpc.ChannelPoint.AsObject>('openChannelSync', request);
@@ -403,10 +447,18 @@ class LndClient extends BaseClient implements LndClient {
   /**
    * Gets a list of all open channels
    */
-  public listChannels = () => {
+  public listChannels = (activeOnly = false) => {
     const request = new lndrpc.ListChannelsRequest();
+    request.setActiveOnly(activeOnly);
 
     return this.unaryCall<lndrpc.ListChannelsRequest, lndrpc.ListChannelsResponse.AsObject>('listChannels', request);
+  }
+
+  /**
+   * Gets a list of all peers
+   */
+  public listPeers = () => {
+    return this.unaryCall<lndrpc.ListPeersRequest, lndrpc.ListPeersResponse.AsObject>('listPeers', new lndrpc.ListPeersRequest());
   }
 
   /**
@@ -421,7 +473,7 @@ class LndClient extends BaseClient implements LndClient {
   /**
    * Subscribe to events for a single invoice
    */
-  private subscribeSingleInvoice = (preimageHash: Buffer) => {
+  public subscribeSingleInvoice = (preimageHash: Buffer) => {
     const request = new invoicesrpc.SubscribeSingleInvoiceRequest();
     request.setRHash(Uint8Array.from(preimageHash));
 
@@ -431,23 +483,57 @@ class LndClient extends BaseClient implements LndClient {
       invoiceSubscription.removeAllListeners();
     };
 
-    invoiceSubscription.on('data', (invoice: lndrpc.Invoice) => {
-      if (invoice.getState() === lndrpc.Invoice.InvoiceState.ACCEPTED) {
-        this.logger.debug(`${LndClient.serviceName} ${this.symbol} accepted HTLC for invoice: ${invoice.getPaymentRequest()}`);
-        this.emit('htlc.accepted', invoice.getPaymentRequest());
-      } else if (invoice.getState() === lndrpc.Invoice.InvoiceState.SETTLED) {
-        const preimage = getHexString(Buffer.from(invoice.getRPreimage_asB64(), 'base64'));
+    invoiceSubscription
+      .on('data', (invoice: lndrpc.Invoice) => {
+        if (invoice.getState() === lndrpc.Invoice.InvoiceState.ACCEPTED) {
+          this.logger.debug(`${LndClient.serviceName} ${this.symbol} accepted HTLC${invoice.getHtlcsList().length > 1 ? 's' : ''} for invoice: ${invoice.getPaymentRequest()}`);
 
-        this.logger.debug(`${LndClient.serviceName} ${this.symbol} invoice ${invoice.getPaymentRequest()} settled with preimage: ${preimage}`);
-        this.emit('invoice.settled', invoice.getPaymentRequest(), preimage);
+          this.emit('htlc.accepted', invoice.getPaymentRequest());
+        } else if (invoice.getState() === lndrpc.Invoice.InvoiceState.SETTLED) {
+          this.logger.debug(`${LndClient.serviceName} ${this.symbol} invoice settled: ${invoice.getPaymentRequest()}`);
+          this.emit('invoice.settled', invoice.getPaymentRequest());
 
-        deleteSubscription();
-      }
-    })
+          deleteSubscription();
+        }
+      })
       .on('end', () => deleteSubscription())
       .on('error', (error) => {
         this.logger.error(`Invoice subscription errored: ${error.message}`);
         deleteSubscription();
+      });
+  }
+
+  private subscribePeerEvents = () => {
+    if (this.peerEventSubscription) {
+      this.peerEventSubscription.cancel();
+    }
+
+    this.peerEventSubscription = this.lightning!.subscribePeerEvents(new lndrpc.PeerEventSubscription(), this.meta)
+      .on('data', (event: lndrpc.PeerEvent) => {
+        if (event.getType() === lndrpc.PeerEvent.EventType.PEER_ONLINE) {
+          this.emit('peer.online', event.getPubKey());
+        }
+      })
+      .on('error', async (error) => {
+        this.logger.error(`Peer event subscription errored: ${formatError(error)}`);
+        await this.reconnect();
+      });
+  }
+
+  private subscribeChannelEvents = () => {
+    if (this.channelEventSubscription) {
+      this.channelEventSubscription.cancel();
+    }
+
+    this.channelEventSubscription = this.lightning!.subscribeChannelEvents(new lndrpc.ChannelEventSubscription(), this.meta)
+      .on('data', (event: lndrpc.ChannelEventUpdate) => {
+        if (event.getType() === lndrpc.ChannelEventUpdate.UpdateType.ACTIVE_CHANNEL) {
+          this.emit('channel.active', event.getActiveChannel()!.toObject());
+        }
+      })
+      .on('error', async(error) => {
+        this.logger.error(`Channel event subscription errored: ${formatError(error)}`);
+        await this.reconnect();
       });
   }
 
@@ -466,7 +552,7 @@ class LndClient extends BaseClient implements LndClient {
         }
       })
       .on('error', async (error) => {
-        this.logger.error(`Channel backup subscription errored: ${error}`);
+        this.logger.error(`Channel backup subscription errored: ${formatError(error)}`);
         await this.reconnect();
       });
   }

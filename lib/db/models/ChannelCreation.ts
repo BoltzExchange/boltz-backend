@@ -36,8 +36,8 @@ class ChannelCreation extends Model implements ChannelCreationType {
       private: { type: DataTypes.BOOLEAN, allowNull: false },
       nodePublicKey: { type: new DataTypes.STRING(255), allowNull: true },
       inboundLiquidity: { type: new DataTypes.INTEGER(), allowNull: false },
-      fundingTransactionId: { type: new DataTypes.STRING(255), allowNull: true },
-      fundingTransactionVout: { type: new DataTypes.INTEGER(), allowNull: true },
+      id: { type: new DataTypes.STRING(255), allowNull: true },
+      vout: { type: new DataTypes.INTEGER(), allowNull: true },
     }, {
       sequelize,
       tableName: 'channelCreations',

@@ -23,9 +23,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Start regtest container
-        run: npm run docker:start
-
       - name: Compile
         run: npm run compile
 
@@ -34,6 +31,3 @@ jobs:
 
       - name: Unit tests
         run: npm run test:unit
-
-      - name: Integration test
-        run: npm run test:int

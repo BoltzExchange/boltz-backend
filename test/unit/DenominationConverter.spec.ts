@@ -1,7 +1,7 @@
 import { randomRange } from '../Utils';
 import { coinsToSatoshis, satoshisToCoins } from '../../lib/DenominationConverter';
 
-describe('DenomationConverter', () => {
+describe('DenominationConverter', () => {
   test('should convert satoshis to whole coins', () => {
     const randomSat = randomRange(7000);
     const coins = Number((randomSat / 100000000).toFixed(8));

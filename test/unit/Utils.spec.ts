@@ -223,6 +223,10 @@ describe('Utils', () => {
     expect(utils.getSwapMemo('BTC', true)).toBe('Send to BTC address');
   });
 
+  test('should get memo for miner fee invoices', () => {
+    expect(utils.getPrepayMinerFeeInvoiceMemo('BTC')).toBe('Miner fee for Reverse Swap to BTC address');
+  });
+
   test('should get sending and receiving currency', () => {
     const baseCurrency = 'LTC';
     const quoteCurrency = 'BTC';

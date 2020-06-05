@@ -10,7 +10,14 @@ import { Currency } from '../wallet/WalletManager';
 import ChannelCreation from '../db/models/ChannelCreation';
 import ChannelCreationRepository from '../db/ChannelCreationRepository';
 import { ChannelCreationStatus, SwapUpdateEvent } from '../consts/Enums';
-import { formatError, getChainCurrency, getHexString, getLightningCurrency, reverseBuffer, splitPairId } from '../Utils';
+import {
+  formatError,
+  splitPairId,
+  getHexString,
+  reverseBuffer,
+  getChainCurrency,
+  getLightningCurrency,
+} from '../Utils';
 
 interface ChannelNursery {
   on(event: 'channel.created', listener: (swap: Swap) => void): this;
@@ -92,10 +99,10 @@ class ChannelNursery extends EventEmitter {
           status: {
             [Op.eq]: ChannelCreationStatus.Created,
           },
-          fundingTransactionId: {
+          id: {
             [Op.eq]: fundingTransactionId,
           },
-          fundingTransactionVout: {
+          vout: {
             [Op.eq]: channelPoint.outputIndex,
           },
         });
@@ -137,10 +144,10 @@ class ChannelNursery extends EventEmitter {
       await this.channelCreationRepository.setAttempted(channelCreation);
     }
 
-    // TODO: cross chain compatibility
+    // TODO: test cross chain compatibility
     const channelCapacity = Math.ceil(satoshis! / (1 - (channelCreation.inboundLiquidity / 100)));
 
-    const fee = await lightningCurrency.chainClient.estimateFee();
+    const feePerVbyte = await lightningCurrency.chainClient.estimateFee();
 
     // TODO: handle custom errors (c-lightning plugin)?
     try {
@@ -148,7 +155,7 @@ class ChannelNursery extends EventEmitter {
         payeeNodeKey!,
         channelCapacity,
         channelCreation.private,
-        fee,
+        feePerVbyte,
       );
       const fundingTransactionId = this.parseFundingTransactionId(fundingTxidBytes);
 
@@ -165,14 +172,13 @@ class ChannelNursery extends EventEmitter {
       // LND is still syncing the freshly mined block
       if (formattedError === '2 UNKNOWN: channels cannot be created before the wallet is fully synced') {
         // Let's just wait for half a second and try again
-        // TODO: how to prevent double channel openings here? Another lock?
         await new Promise((resolve) => {
           setTimeout(resolve, 500);
         });
 
         await this.openChannel(lightningCurrency, swap, channelCreation);
       } else {
-        this.logger.verbose(`Could not open channel for swap ${swap.id} to ${payeeNodeKey}: ${formattedError}`);
+        this.logger.verbose(`Could not open channel for Swap ${swap.id} to ${payeeNodeKey}: ${formattedError}`);
       }
     }
   }
@@ -212,7 +218,45 @@ class ChannelNursery extends EventEmitter {
     });
   }
 
-  private settleChannelWrapper = async (swap: Swap, channelCreation: ChannelCreation) => {
+  private settleChannel = async (swap: Swap, channelCreation: ChannelCreation): Promise<boolean> => {
+    const chainCurrency = this.currencies.get(this.getCurrency(swap!, false))!;
+    const lightningCurrency = this.currencies.get(this.getCurrency(swap!, true))!;
+
+    const activeChannels = await lightningCurrency.lndClient!.listChannels(true);
+
+    for (const channel of activeChannels.channelsList) {
+      const channelPoint = this.splitChannelPoint(channel.channelPoint);
+
+      if (
+        channelPoint.id === channelCreation.fundingTransactionId &&
+        channelPoint.vout === channelCreation.fundingTransactionVout
+      ) {
+        this.logger.verbose(`Attempting to settle Channel Creation Swap: ${swap!.id}`);
+
+        try {
+          await this.settleSwap(chainCurrency, swap!, channel.chanId);
+          await this.channelCreationRepository.setSettled(channelCreation);
+          return true;
+        } catch (error) {
+          const formattedError = formatError(error);
+          if (formattedError === 'could not pay invoice: invoice is already paid') {
+            this.logger.verbose(`Channel Creation Swap ${swap.id} already settled`);
+            await this.channelCreationRepository.setSettled(channelCreation);
+
+            return true;
+          } else {
+            this.logger.warn(`Could not settle Channel Creation Swap ${swap.id}: ${formattedError}`);
+          }
+        }
+      }
+    }
+
+    this.logger.verbose(`Could not settle Channel Creation Swap ${swap.id}: channel is not active`);
+
+    return false;
+  }
+
+  private settleChannelWrapper = async (swap: Swap, channelCreation: ChannelCreation, timeoutAmplifier = 1000) => {
     const settleSuccessful = await this.settleChannel(swap, channelCreation);
 
     if (settleSuccessful) {
@@ -233,50 +277,14 @@ class ChannelNursery extends EventEmitter {
 
         setTimeout(async () => {
           await this.lock.acquire(ChannelNursery.channelSettleLock, async () => {
-            await this.settleChannelWrapper(swap, channelCreation);
+            await this.settleChannelWrapper(swap, channelCreation, timeoutAmplifier);
           });
-        }, settleTimeout * 1000);
+        }, settleTimeout * timeoutAmplifier);
       } else {
         this.logger.warn(`Giving up to retry loop to settle Channel Creation Swap ${swap.id}`);
         this.settleRetries.delete(swap.id);
       }
     }
-  }
-
-  private settleChannel = async (swap: Swap, channelCreation: ChannelCreation) => {
-    const chainCurrency = this.currencies.get(this.getCurrency(swap!, false))!;
-    const lightningCurrency = this.currencies.get(this.getCurrency(swap!, true))!;
-
-    const activeChannels = await lightningCurrency.lndClient!.listChannels(true);
-
-    for (const channel of activeChannels.channelsList) {
-      const channelPoint = this.splitChannelPoint(channel.channelPoint);
-
-      if (
-        channelPoint.fundingTransactionId === channelCreation.fundingTransactionId &&
-        channelPoint.fundingTransactionVout === channelCreation.fundingTransactionVout
-      ) {
-        this.logger.verbose(`Attempting to settle Channel Creation Swap: ${swap!.id}`);
-
-        try {
-          await this.settleSwap(chainCurrency, swap!, channel.chanId);
-          await this.channelCreationRepository.setSettled(channelCreation);
-          return true;
-        } catch (error) {
-          const formattedError = formatError(error);
-          if (formattedError === 'could not pay invoice: invoice is already paid') {
-            this.logger.verbose(`Channel Creation Swap ${swap.id} already settled`);
-            return true;
-          } else {
-            this.logger.warn(`Could not settle Channel Creation Swap ${swap.id}: ${formattedError}`);
-          }
-        }
-      }
-    }
-
-    this.logger.verbose(`Could not settle Channel Creation Swap ${swap.id}: channel is not active`);
-
-    return false;
   }
 
   private settleCreatedChannels = async () => {
@@ -312,8 +320,8 @@ class ChannelNursery extends EventEmitter {
     const split = channelPoint.split(':');
 
     return {
-      fundingTransactionId: split[0],
-      fundingTransactionVout: Number(split[1]),
+      id: split[0],
+      vout: Number(split[1]),
     };
   }
 

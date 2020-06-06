@@ -277,6 +277,13 @@ class LndClient extends BaseClient implements LndClient {
     );
   }
 
+  public lookupInvoice = (preimageHash: Buffer) => {
+    const request = new lndrpc.PaymentHash();
+    request.setRHash(preimageHash);
+
+    return this.unaryCall<lndrpc.PaymentHash, lndrpc.Invoice.AsObject>('lookupInvoice', request);
+  }
+
   /**
    * Pay an invoice through the Lightning Network.
    *
@@ -486,9 +493,11 @@ class LndClient extends BaseClient implements LndClient {
     invoiceSubscription
       .on('data', (invoice: lndrpc.Invoice) => {
         if (invoice.getState() === lndrpc.Invoice.InvoiceState.ACCEPTED) {
-          this.logger.debug(`${LndClient.serviceName} ${this.symbol} accepted HTLC${invoice.getHtlcsList().length > 1 ? 's' : ''} for invoice: ${invoice.getPaymentRequest()}`);
+          this.logger.debug(`${LndClient.serviceName} ${this.symbol} accepted ${invoice.getHtlcsList().length} HTLC${invoice.getHtlcsList().length > 1 ? 's' : ''} for invoice: ${invoice.getPaymentRequest()}`);
 
           this.emit('htlc.accepted', invoice.getPaymentRequest());
+
+          deleteSubscription();
         } else if (invoice.getState() === lndrpc.Invoice.InvoiceState.SETTLED) {
           this.logger.debug(`${LndClient.serviceName} ${this.symbol} invoice settled: ${invoice.getPaymentRequest()}`);
           this.emit('invoice.settled', invoice.getPaymentRequest());

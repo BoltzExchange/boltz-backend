@@ -751,6 +751,7 @@ class Service {
 
     const response: any = {
       id,
+      invoice,
       redeemScript,
       lockupAddress,
       onchainAmount,
@@ -759,8 +760,6 @@ class Service {
 
     if (this.prepayMinerFee) {
       response.minerFeeInvoice = minerFeeInvoice;
-    } else {
-      response.invoice = invoice;
     }
 
     return response;

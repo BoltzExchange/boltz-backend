@@ -68,13 +68,6 @@ class Controller {
             });
             break;
 
-          case SwapUpdateEvent.MinerFeePaid:
-            this.pendingSwapInfos.set(reverseSwap.id, {
-              status,
-              invoice: reverseSwap.invoice,
-            });
-            break;
-
           default:
             this.pendingSwapInfos.set(reverseSwap.id, { status });
             break;

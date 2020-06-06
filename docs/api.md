@@ -756,7 +756,7 @@ Response object:
 - `timeoutBlockHeight`: block height at which the Reverse Swap will be cancelled
 - `onchainAmount`: amount of satoshis or litoshis that will be locked up by Boltz
 
-The Boltz backend also supports a different Reverse Swap protocol that requires an invoice for the miner fees to be paid before the actual hold `invoice` of the Reverse Swap is revealed. The response object will contain `minerFeeInvoice` instead of `invoice`. Once that `minerFeeInvoice` is paid, Boltz will send the event `minerfee.paid` alongside the hold `invoice`.
+The Boltz backend also supports a different Reverse Swap protocol that requires an invoice for the miner fees to be paid before the actual hold `invoice` of the Reverse Swap. The response object will also contain `minerFeeInvoice`. Once that `minerFeeInvoice` is paid, Boltz will send the event `minerfee.paid` and when the actual hold `invoice` is paid, the onchain coins will be sent.
 
 **Examples:**
 
@@ -797,9 +797,9 @@ Request body:
   "type": "reversesubmarine",
   "pairId": "BTC/BTC",
   "orderSide": "buy",
-  "claimPublicKey": "02e82694032768e49526972307874d868b67c87c37e9256c05a2c5c0474e7395e3",
+  "claimPublicKey": "0391fbaf549578fd7c2cb26b216441825bd780d85dba1f3d706e2f206587e96266",
   "invoiceAmount": 100000,
-  "preimageHash": "ba842b9172f09e8f66870ae9a9ca5d09c50c74dcb9cbf3398448ee872cd078af"
+  "preimageHash": "2215034def003b63b2717fccd4ce8259f4807a39318c14e2bdd42639ca989a45"
 }
 ```
 
@@ -807,11 +807,12 @@ Response body:
 
 ```json
 {
-  "id": "cvJEuH",
-  "redeemScript": "8201208763a9144919ad016aab188dea8507a0818d8b524678366b882102e82694032768e49526972307874d868b67c87c37e9256c05a2c5c0474e7395e36775028e01b17521036e2b63f3aa1f1e6b50438af9c505c25d3faeeb72414e84100a9ced7b5cddace168ac",
-  "lockupAddress": "bcrt1qqqt8dh2etuvelmzmtpln84k9053qdz9msgssmhxurvlamwvu27lqllvw4v",
+  "id": "mVSKyF",
+  "invoice": "lnbcrt996940n1p0dhjr3pp5yg2sxn00qqak8vn30lxdfn5zt86gq73exxxpfc4a6snrnj5cnfzsdql2djkuepqw3hjqsj5gvsxzerywfjhxuccqzy0sp5hjcvwl2glrq9n3vzm8072cdruz3hhz70edml8g0u76gryve6np4q9qy9qsqzw5w8ulxjgrg478hz4enjrw0a9tedl8s3n879xqh3mhn0pxrvajrz9qnnsr58twx4a30gk57d4fykm7x3v2vcamw7k4ny9fkpwl65vcpw8v5em",
+  "redeemScript": "8201208763a914fb75ff5dc4272c2da33d744615905f54b62de41588210391fbaf549578fd7c2cb26b216441825bd780d85dba1f3d706e2f206587e962666775028e01b1752102c22801bd7dd3a6afb780671c1c983fcd91fa46826eadd82e325e7e13bb348a9768ac",
+  "lockupAddress": "bcrt1qweryu6nk8gn5lj8ar5kjdy476wynheszg0lumu6jx83l2v6f435stlel03",
   "onchainAmount": 98694,
   "timeoutBlockHeight": 398,
-  "minerFeeInvoice": "lnbcrt3060n1p0djhq9pp5s0xmmthythqz3ked6a9dpdf30w85wu44m2hf6xys992ql608fgfqdp4f45kuetjypnx2efqvehhygznwashqgr5dusyy4zrypskgerjv4ehxcqzpgsp5503tkrjdaj9jf30qxqhxcjdllsaave4vudrut7zkzdhymlu92gys9qy9qsqs4d68ec2y3kxd4lc5fvucthu3efwgwp67gct77j5zknjmvhjwnkr5hvc7eqztek7kxvhwtkj62x7paz3x8jkn0uqlnkvwz7kepfw0jgqzm7dd9"
+  "minerFeeInvoice": "lnbcrt3060n1p0dhjr3pp5sk2u4rt0z8rrl6jj62d6szqvsdejj8kjcxa8tdt4dau5rtyskj6qdp4f45kuetjypnx2efqvehhygznwashqgr5dusyy4zrypskgerjv4ehxcqzpgsp5qtsm5vfy9yq8kjpthla67jagmcxnj529pm3edk94npf6fekq2sxq9qy9qsqmun0z8ed4kp9dhp7lthvzdrx3ngmjs32smx6l4hvyyktv92mf348aftgrwf44sl94ewywr3sw8dc4acy63yamxxpjtd4pkkr2uw2h5gpqc3d3y"
 }
 ```

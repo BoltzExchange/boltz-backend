@@ -88,19 +88,15 @@ class SwapManager {
         const lightningCurrency = getLightningCurrency(base, quote, swap.orderSide, true);
 
         if ((swap.status === SwapUpdateEvent.SwapCreated || swap.status === SwapUpdateEvent.MinerFeePaid) && isReverse) {
-          let preimageHash: Buffer;
-
           const reverseSwap = swap as ReverseSwap;
 
-          if (swap.status === SwapUpdateEvent.SwapCreated && reverseSwap.minerFeeInvoice && this.prepayMinerFee) {
-            preimageHash = getHexBuffer(decodeInvoice(reverseSwap.minerFeeInvoice).paymentHash!);
-          } else {
-            const invoice = reverseSwap.invoice;
-            preimageHash = getHexBuffer(decodeInvoice(invoice).paymentHash!);
+          const { lndClient } = this.currencies.get(lightningCurrency)!;
+
+          if (reverseSwap.minerFeeInvoice) {
+            lndClient!.subscribeSingleInvoice(getHexBuffer(decodeInvoice(reverseSwap.minerFeeInvoice).paymentHash!));
           }
 
-          const { lndClient } = this.currencies.get(lightningCurrency)!;
-          lndClient!.subscribeSingleInvoice(preimageHash);
+          lndClient!.subscribeSingleInvoice(getHexBuffer(decodeInvoice(reverseSwap.invoice).paymentHash!));
 
         } else if ((swap.status === SwapUpdateEvent.TransactionMempool || swap.status === SwapUpdateEvent.TransactionConfirmed) && isReverse) {
           const { base, quote } = splitPairId(swap.pair);
@@ -363,6 +359,8 @@ class SwapManager {
       getSwapMemo(sendingCurrency.symbol, true),
     );
 
+    receivingCurrency.lndClient.subscribeSingleInvoice(preimageHash);
+
     let minerFeeInvoice: string | undefined = undefined;
 
     if (prepayMinerFee) {
@@ -371,8 +369,6 @@ class SwapManager {
       minerFeeInvoice = prepayInvoice.paymentRequest;
 
       receivingCurrency.lndClient.subscribeSingleInvoice(Buffer.from(prepayInvoice.rHash as string, 'base64'));
-    } else {
-      receivingCurrency.lndClient.subscribeSingleInvoice(preimageHash);
     }
 
     const { keys, index } = sendingCurrency.wallet.getNewKeys();

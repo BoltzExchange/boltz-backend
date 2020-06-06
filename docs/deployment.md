@@ -36,8 +36,8 @@ loglevel = "debug"
 swapwitnessaddress = false
 
 # Enables the prepay minerfee Reverse Swap procotol
-# If this value is "true", an invoice for the miner fee has to be paid before
-# the actual hold invoice of the Revese Swap is returned
+# If this value is "true", an invoice for the miner fee has to be paid
+# before hold invoice of the Revese Swap
 prepayminerfee = false
 
 # This is the REST API that should be exposed to the public

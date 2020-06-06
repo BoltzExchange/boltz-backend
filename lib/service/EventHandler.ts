@@ -17,7 +17,6 @@ type TransactionInfo = {
 type SwapUpdate = {
   status: SwapUpdateEvent;
 
-  invoice?: string;
   transaction?: TransactionInfo;
 };
 
@@ -127,7 +126,6 @@ class EventHandler extends EventEmitter {
     this.nursery.on('minerfee.paid', (reverseSwap) => {
       this.emit('swap.update', reverseSwap.id, {
         status: SwapUpdateEvent.MinerFeePaid,
-        invoice: reverseSwap.invoice,
       });
     });
 

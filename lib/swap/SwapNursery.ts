@@ -1,11 +1,18 @@
 import { Op } from 'sequelize';
 import AsyncLock from 'async-lock';
 import { EventEmitter } from 'events';
-import { Transaction, address } from 'bitcoinjs-lib';
-import { OutputType, constructClaimTransaction, detectPreimage, constructRefundTransaction, detectSwap } from 'boltz-core';
+import { address, Transaction } from 'bitcoinjs-lib';
+import {
+  detectSwap,
+  OutputType,
+  detectPreimage,
+  constructClaimTransaction,
+  constructRefundTransaction,
+} from 'boltz-core';
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';
 import Wallet from '../wallet/Wallet';
+import { Invoice } from '../proto/lndrpc_pb';
 import ChannelNursery from './ChannelNursery';
 import ChainClient from '../chain/ChainClient';
 import FeeProvider from '../rates/FeeProvider';
@@ -21,8 +28,8 @@ import { ChannelCreationType, SwapUpdateEvent } from '../consts/Enums';
 import ChannelCreationRepository from '../db/ChannelCreationRepository';
 import {
   getRate,
-  splitPairId,
   formatError,
+  splitPairId,
   getHexBuffer,
   getHexString,
   decodeInvoice,
@@ -203,8 +210,10 @@ class SwapNursery extends EventEmitter {
             },
           });
 
-          if (reverseSwap) {
+          if (reverseSwap && reverseSwap.status === SwapUpdateEvent.MinerFeePaid) {
             await this.sendReverseSwapCoins(reverseSwap);
+          } else {
+            this.logger.debug(`Did not send onchain coins for Reverse Swap ${reverseSwap.id} because miner fee invoice was not paid yet`);
           }
         });
       });
@@ -220,10 +229,14 @@ class SwapNursery extends EventEmitter {
             });
 
             if (reverseSwap) {
-              this.logger.silly(`Minerfee prepayment of Reverse Swap ${reverseSwap.id} settled`);
-              lndClient.subscribeSingleInvoice(getHexBuffer(decodeInvoice(reverseSwap.invoice).paymentHash!));
-
+              this.logger.silly(`Minerfee prepayment of Reverse Swap ${ reverseSwap.id } settled`);
               this.emit('minerfee.paid', await this.reverseSwapRepository.setReverseSwapStatus(reverseSwap, SwapUpdateEvent.MinerFeePaid));
+
+              // Send onchain coins in case the hold invoice was paid first
+              const holdInvoice = await lndClient.lookupInvoice(getHexBuffer(decodeInvoice(reverseSwap.invoice).paymentHash!));
+              if (holdInvoice.state === Invoice.InvoiceState.ACCEPTED) {
+                await this.sendReverseSwapCoins(reverseSwap);
+              }
             }
           });
         });

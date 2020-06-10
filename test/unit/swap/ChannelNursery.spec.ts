@@ -224,7 +224,7 @@ describe('ChannelNursery', () => {
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockGetSwap).toHaveBeenCalledWith({
-      id: {
+      swapId: {
         [Op.eq]: mockGetChannelCreationsResult[0].swapId,
       },
       status: {
@@ -262,10 +262,10 @@ describe('ChannelNursery', () => {
       status: {
         [Op.eq]: ChannelCreationStatus.Created,
       },
-      id: {
+      fundingTransactionId: {
         [Op.eq]: '059a4a673f9984e236037b04317f7d042378227bfdd82e12dd55b0bf67a6773e',
       },
-      vout: {
+      fundingTransactionVout: {
         [Op.eq]: 1,
       },
     });

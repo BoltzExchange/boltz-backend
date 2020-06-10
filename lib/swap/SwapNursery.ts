@@ -128,6 +128,10 @@ class SwapNursery extends EventEmitter {
       },
     );
 
+    if (retryInterval === 0) {
+      return;
+    }
+
     this.logger.info(`Setting Swap retry interval to ${retryInterval} seconds`);
 
     setInterval(async () => {
@@ -210,7 +214,7 @@ class SwapNursery extends EventEmitter {
             },
           });
 
-          if (reverseSwap && reverseSwap.status === SwapUpdateEvent.MinerFeePaid) {
+          if (reverseSwap && (reverseSwap.minerFeeInvoice === null || reverseSwap.status === SwapUpdateEvent.MinerFeePaid)) {
             await this.sendReverseSwapCoins(reverseSwap);
           } else {
             this.logger.debug(`Did not send onchain coins for Reverse Swap ${reverseSwap.id} because miner fee invoice was not paid yet`);

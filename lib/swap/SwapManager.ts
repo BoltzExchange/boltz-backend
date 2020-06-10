@@ -80,55 +80,13 @@ class SwapManager {
 
     await this.nursery.init(currencies);
 
-    // TODO: write tests
-    const recreateFilters = (swaps: Swap[] | ReverseSwap[], isReverse: boolean) => {
-      swaps.forEach((swap: Swap | ReverseSwap) => {
-        const { base, quote } = splitPairId(swap.pair);
-        const chainCurrency = getChainCurrency(base, quote, swap.orderSide, false);
-        const lightningCurrency = getLightningCurrency(base, quote, swap.orderSide, true);
-
-        if ((swap.status === SwapUpdateEvent.SwapCreated || swap.status === SwapUpdateEvent.MinerFeePaid) && isReverse) {
-          const reverseSwap = swap as ReverseSwap;
-
-          const { lndClient } = this.currencies.get(lightningCurrency)!;
-
-          if (reverseSwap.minerFeeInvoice) {
-            lndClient!.subscribeSingleInvoice(getHexBuffer(decodeInvoice(reverseSwap.minerFeeInvoice).paymentHash!));
-          }
-
-          lndClient!.subscribeSingleInvoice(getHexBuffer(decodeInvoice(reverseSwap.invoice).paymentHash!));
-
-        } else if ((swap.status === SwapUpdateEvent.TransactionMempool || swap.status === SwapUpdateEvent.TransactionConfirmed) && isReverse) {
-          const { base, quote } = splitPairId(swap.pair);
-          const chainCurrency = getChainCurrency(base, quote, swap.orderSide, false);
-
-          const { chainClient } = this.currencies.get(chainCurrency)!;
-
-          const transactionId = reverseBuffer(getHexBuffer((swap as ReverseSwap).transactionId!));
-          chainClient.addInputFilter(transactionId);
-
-          if (swap.status === SwapUpdateEvent.TransactionMempool) {
-            const wallet = this.walletManager.wallets.get(chainCurrency)!;
-            chainClient.addOutputFilter(wallet.decodeAddress(swap.lockupAddress!));
-          }
-
-        } else {
-          const outputType = isReverse ? ReverseSwapOutputType : this.swapOutputType;
-          const encodeFunction = getScriptHashFunction(outputType);
-          const outputScript = encodeFunction(getHexBuffer(swap.redeemScript));
-
-          const { chainClient } = this.currencies.get(chainCurrency)!;
-          chainClient.addOutputFilter(outputScript);
-        }
-      });
-    };
-
     // TODO: rescan chains
     const [pendingSwaps, pendingReverseSwaps] = await Promise.all([
       this.swapRepository.getSwaps({
         status: {
           [Op.not]: [
             SwapUpdateEvent.SwapExpired,
+            SwapUpdateEvent.InvoicePending,
             SwapUpdateEvent.InvoiceFailedToPay,
             SwapUpdateEvent.TransactionClaimed,
           ],
@@ -136,17 +94,17 @@ class SwapManager {
       }),
       this.reverseSwapRepository.getReverseSwaps({
         status: {
-          [Op.or]: [
-            SwapUpdateEvent.SwapCreated,
-            SwapUpdateEvent.TransactionMempool,
-            SwapUpdateEvent.TransactionConfirmed,
+          [Op.not]: [
+            SwapUpdateEvent.SwapExpired,
+            SwapUpdateEvent.TransactionFailed,
+            SwapUpdateEvent.TransactionRefunded,
           ],
         },
       }),
     ]);
 
-    recreateFilters(pendingSwaps, false);
-    recreateFilters(pendingReverseSwaps, true);
+    this.recreateFilters(pendingSwaps, false);
+    this.recreateFilters(pendingReverseSwaps, true);
 
     this.logger.info('Recreated input and output filters and invoice subscriptions');
   }
@@ -280,7 +238,7 @@ class SwapManager {
       await this.channelCreationRepository.setNodePublicKey(channelCreation, payeeNodeKey!);
 
     // If there are route hints the routability check could fail although LND could pay the invoice
-    } else if (routingInfo && routingInfo.length === 0) {
+    } else if (!routingInfo || (routingInfo && routingInfo.length === 0)) {
       const routable = await this.checkRoutability(sendingCurrency.lndClient!, payeeNodeKey!, satoshis);
       if (!routable) {
         throw Errors.NO_ROUTE_FOUND();
@@ -364,7 +322,6 @@ class SwapManager {
     let minerFeeInvoice: string | undefined = undefined;
 
     if (prepayMinerFee) {
-      // TODO: restore listener state on startup
       const prepayInvoice = await receivingCurrency.lndClient.addInvoice(prepayMinerFee, getPrepayMinerFeeInvoiceMemo(sendingCurrency.symbol));
       minerFeeInvoice = prepayInvoice.paymentRequest;
 
@@ -413,6 +370,45 @@ class SwapManager {
     };
   }
 
+  private recreateFilters = (swaps: Swap[] | ReverseSwap[], isReverse: boolean) => {
+    swaps.forEach((swap: Swap | ReverseSwap) => {
+      const { base, quote } = splitPairId(swap.pair);
+      const chainCurrency = getChainCurrency(base, quote, swap.orderSide, false);
+      const lightningCurrency = getLightningCurrency(base, quote, swap.orderSide, true);
+
+      if ((swap.status === SwapUpdateEvent.SwapCreated || swap.status === SwapUpdateEvent.MinerFeePaid) && isReverse) {
+        const reverseSwap = swap as ReverseSwap;
+
+        const { lndClient } = this.currencies.get(lightningCurrency)!;
+
+        if (reverseSwap.minerFeeInvoice && swap.status !== SwapUpdateEvent.MinerFeePaid) {
+          lndClient!.subscribeSingleInvoice(getHexBuffer(decodeInvoice(reverseSwap.minerFeeInvoice).paymentHash!));
+        }
+
+        lndClient!.subscribeSingleInvoice(getHexBuffer(decodeInvoice(reverseSwap.invoice).paymentHash!));
+
+      } else if ((swap.status === SwapUpdateEvent.TransactionMempool || swap.status === SwapUpdateEvent.TransactionConfirmed) && isReverse) {
+        const { chainClient } = this.currencies.get(chainCurrency)!;
+
+        const transactionId = reverseBuffer(getHexBuffer((swap as ReverseSwap).transactionId!));
+        chainClient.addInputFilter(transactionId);
+
+        // To detect when the transaction confirms
+        if (swap.status === SwapUpdateEvent.TransactionMempool) {
+          const wallet = this.walletManager.wallets.get(chainCurrency)!;
+          chainClient.addOutputFilter(wallet.decodeAddress(swap.lockupAddress));
+        }
+
+      } else {
+        const wallet = this.walletManager.wallets.get(chainCurrency)!;
+        const outputScript = wallet.decodeAddress(swap.lockupAddress);
+
+        const { chainClient } = this.currencies.get(chainCurrency)!;
+        chainClient.addOutputFilter(outputScript);
+      }
+    });
+  }
+
   /**
    * @returns whether the payment can be routed
    */
@@ -446,7 +442,7 @@ class SwapManager {
     const currency = this.currencies.get(currencySymbol);
 
     if (!currency) {
-      throw Errors.CURRENCY_NOT_FOUND(currencySymbol);
+      throw Errors.CURRENCY_NOT_FOUND(currencySymbol).message;
     }
 
     return currency;

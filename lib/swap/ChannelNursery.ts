@@ -74,7 +74,7 @@ class ChannelNursery extends EventEmitter {
 
           for (const channelCreation of channelCreations) {
             const swap = await this.swapRepository.getSwap({
-              id: {
+              swapId: {
                 [Op.eq]: channelCreation.swapId,
               },
               status: {
@@ -99,10 +99,10 @@ class ChannelNursery extends EventEmitter {
           status: {
             [Op.eq]: ChannelCreationStatus.Created,
           },
-          id: {
+          fundingTransactionId: {
             [Op.eq]: fundingTransactionId,
           },
-          vout: {
+          fundingTransactionVout: {
             [Op.eq]: channelPoint.outputIndex,
           },
         });
@@ -135,6 +135,7 @@ class ChannelNursery extends EventEmitter {
     ]);
   }
 
+  // TODO: show and reject less than min channel size
   // TODO: handle errors that say that the max number of (pending) channels exceeded
   public openChannel = async (lightningCurrency: Currency, swap: Swap, channelCreation: ChannelCreation) => {
     const { satoshis, payeeNodeKey } = bolt11.decode(swap.invoice!, lightningCurrency.network);

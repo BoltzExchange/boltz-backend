@@ -36,8 +36,8 @@ class ChannelCreation extends Model implements ChannelCreationType {
       private: { type: DataTypes.BOOLEAN, allowNull: false },
       nodePublicKey: { type: new DataTypes.STRING(255), allowNull: true },
       inboundLiquidity: { type: new DataTypes.INTEGER(), allowNull: false },
-      id: { type: new DataTypes.STRING(255), allowNull: true },
-      vout: { type: new DataTypes.INTEGER(), allowNull: true },
+      fundingTransactionId: { type: new DataTypes.STRING(255), allowNull: true },
+      fundingTransactionVout: { type: new DataTypes.INTEGER(), allowNull: true },
     }, {
       sequelize,
       tableName: 'channelCreations',
@@ -49,9 +49,9 @@ class ChannelCreation extends Model implements ChannelCreationType {
       ],
     });
 
-    // ChannelCreation.belongsTo(Swap, {
-    //  foreignKey: 'swapId',
-    // });
+    ChannelCreation.belongsTo(Swap, {
+      foreignKey: 'swapId',
+    });
   }
 }
 

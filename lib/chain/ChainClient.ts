@@ -167,14 +167,14 @@ class ChainClient extends BaseClient {
   }
 
   /**
-   * Adds an input to the list of relevant ones
+   * Adds an input hash to the list of relevant ones
    */
   public addInputFilter = (inputHash: Buffer) => {
     this.zmqClient.relevantInputs.add(getHexString(inputHash));
   }
 
   /**
-   * Removes an input from the list of relevant ones
+   * Removes an input hash from the list of relevant ones
    */
   public removeInputFilter = (inputHash: Buffer) => {
     this.zmqClient.relevantInputs.delete(getHexString(inputHash));

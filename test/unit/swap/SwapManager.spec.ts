@@ -1,456 +1,902 @@
-import { Networks, Scripts, OutputType } from 'boltz-core';
-import { ECPair, Network } from 'bitcoinjs-lib';
+import { Op } from 'sequelize';
+import bolt11 from '@boltz/bolt11';
+import { randomBytes } from 'crypto';
+import { Networks, OutputType } from 'boltz-core';
+import { address, ECPair, Transaction } from 'bitcoinjs-lib';
 import Logger from '../../../lib/Logger';
 import Errors from '../../../lib/swap/Errors';
 import Swap from '../../../lib/db/models/Swap';
 import Wallet from '../../../lib/wallet/Wallet';
-import SwapManager from '../../../lib/swap/SwapManager';
-import LndClient from '../../../lib/lightning/LndClient';
 import ChainClient from '../../../lib/chain/ChainClient';
+import LndClient from '../../../lib/lightning/LndClient';
 import RateProvider from '../../../lib/rates/RateProvider';
-import WalletManager from '../../../lib/wallet/WalletManager';
-import { getHexBuffer, getHexString } from '../../../lib/Utils';
-import { OrderSide, SwapUpdateEvent } from '../../../lib/consts/Enums';
+import ReverseSwap from '../../../lib/db/models/ReverseSwap';
+import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
+import SwapManager, { ChannelCreationInfo } from '../../../lib/swap/SwapManager';
+import { ChannelCreationType, OrderSide, SwapUpdateEvent } from '../../../lib/consts/Enums';
+import { decodeInvoice, getHexBuffer, getHexString, reverseBuffer } from '../../../lib/Utils';
 
 const mockAddSwap = jest.fn().mockResolvedValue(undefined);
-const mockGetSwaps = jest.fn().mockResolvedValue([]);
-const mockSetInvoice = jest.fn().mockResolvedValue(undefined);
+
+let mockGetSwapsResult: any[] = [];
+const mockGetSwaps = jest.fn().mockImplementation(async () => {
+  return mockGetSwapsResult;
+});
+
+const mockSetInvoice = jest.fn().mockImplementation(async (arg) => {
+  return arg;
+});
 
 jest.mock('../../../lib/db/SwapRepository', () => {
-  return jest.fn().mockImplementation(() => ({
-    addSwap: mockAddSwap,
-    getSwaps: mockGetSwaps,
-    setInvoice: mockSetInvoice,
-  }));
+  return jest.fn().mockImplementation(() => {
+    return {
+      addSwap: mockAddSwap,
+      getSwaps: mockGetSwaps,
+      setInvoice: mockSetInvoice,
+    };
+  });
 });
 
 const mockAddReverseSwap = jest.fn().mockResolvedValue(undefined);
-const mockGetReverseSwaps = jest.fn().mockResolvedValue([]);
+
+let mockGetReverseSwapsResult: any[] = [];
+const mockGetReverseSwaps = jest.fn().mockImplementation(async () => {
+  return mockGetReverseSwapsResult;
+});
 
 jest.mock('../../../lib/db/ReverseSwapRepository', () => {
-  return jest.fn().mockImplementation(() => ({
-    addReverseSwap: mockAddReverseSwap,
-    getReverseSwaps: mockGetReverseSwaps,
-  }));
+  return jest.fn().mockImplementation(() => {
+    return {
+      addReverseSwap: mockAddReverseSwap,
+      getReverseSwaps: mockGetReverseSwaps,
+    };
+  });
 });
 
-const mockBindCurrency = jest.fn().mockImplementation();
+const mockSetNodePublicKey = jest.fn().mockResolvedValue(undefined);
 
-jest.mock('../../../lib/swap/SwapNursery', () => {
-  return jest.fn().mockImplementation(() => ({
-    bindCurrency: mockBindCurrency,
-  }));
+const mockAddChannelCreation = jest.fn().mockResolvedValue(undefined);
+
+let mockGetChannelCreationResult: any = undefined;
+const mockGetChannelCreation = jest.fn().mockImplementation(async () => {
+  return mockGetChannelCreationResult;
 });
 
-const blockchainInfo = {
-  blocks: 123,
+const mockGetChannelCreationsResult = [];
+const mockGetChannelCreations = jest.fn().mockImplementation(async () => {
+  return mockGetChannelCreationsResult;
+});
+
+jest.mock('../../../lib/db/ChannelCreationRepository', () => {
+  return jest.fn().mockImplementation(() => {
+    return {
+      setNodePublicKey: mockSetNodePublicKey,
+      addChannelCreation: mockAddChannelCreation,
+      getChannelCreation: mockGetChannelCreation,
+      getChannelCreations: mockGetChannelCreations,
+    };
+  });
+});
+
+jest.mock('../../../lib/rates/RateProvider', () => {
+  return jest.fn().mockImplementation(() => {
+    return {};
+  });
+});
+
+const MockedRateProvider = <jest.Mock<RateProvider>><any>RateProvider;
+
+const mockGetNewKeysResult = {
+  index: 21,
+  keys: ECPair.fromPrivateKey(getHexBuffer('4c2a3023e0e6804b459dbd50bb028f0cf69dd128ef670e5c5284af7ce6db3d9e')),
 };
-const mockGetBlockchainInfo = jest.fn().mockResolvedValue(blockchainInfo);
+const mockGetNewKeys = jest.fn().mockReturnValue(mockGetNewKeysResult);
 
-const mockAddOutputFilter = jest.fn().mockImplementation();
-const mockSendRawTransaction = jest.fn().mockImplementation();
-
-jest.mock('../../../lib/chain/ChainClient', () => {
-  return jest.fn().mockImplementation(() => ({
-    addOutputFilter: mockAddOutputFilter,
-    getBlockchainInfo: mockGetBlockchainInfo,
-    sendRawTransaction: mockSendRawTransaction,
-  }));
+const mockDecodeAddress = jest.fn().mockImplementation((toDecode: string) => {
+  return address.toOutputScript(toDecode, Networks.bitcoinRegtest);
 });
 
-const mockedChainClient = <jest.Mock<ChainClient>><any>ChainClient;
-
-const addedHoldInvoice = {
-  paymentRequest: 'lnbcrt1hold',
-};
-const mockAddHoldInvoice = jest.fn().mockResolvedValue(addedHoldInvoice);
-
-const decodedPayReq = {
-  numSatoshis: 10000,
-  routeHintsList: [],
-  destination: '03605d88f1e91df6803a55f167d7e13f3dfa07254e9dd59840e3b818d91a9fe7ad',
-  paymentHash: '9f4b3552fbb1c82fbe1802e19dbc2f01615b2b455c8c76373457d6ee75bca143',
-};
-const mockDecodePayReq = jest.fn().mockImplementation(async (invoice: string) => {
-  switch (invoice) {
-    case 'noRoutes':
-      return {
-        ...decodedPayReq,
-        destination: 'noRoutes',
-      };
-
-    case 'routeHints':
-      return {
-        ...decodedPayReq,
-        destination: 'noRoutes',
-        routeHintsList: [
-          0,
-        ],
-      };
-
-    default:
-      return decodedPayReq;
-  }
+const mockEncodeAddress = jest.fn().mockImplementation((outputScript: Buffer) => {
+  return address.fromOutputScript(outputScript, Networks.bitcoinRegtest);
 });
-
-const mockQueryRoutes = jest.fn().mockImplementation(async (destination: string) => {
-  switch (destination) {
-    case 'noRoutes':
-    case 'routeHints':
-      return {
-        routesList: [],
-      };
-
-    default:
-      return {
-        routesList: [
-          0,
-        ],
-      };
-  }
-});
-
-const mockSubscribeSingleInvoice = jest.fn().mockImplementation();
-
-jest.mock('../../../lib/lightning/LndClient', () => {
-  return jest.fn().mockImplementation(() => ({
-    queryRoutes: mockQueryRoutes,
-    decodePayReq: mockDecodePayReq,
-    addHoldInvoice: mockAddHoldInvoice,
-    subscribeSingleInvoice: mockSubscribeSingleInvoice,
-  }));
-});
-
-const mockedLndClient = <jest.Mock<LndClient>><any>LndClient;
-
-const newKeys = {
-  index: 42,
-  keys: ECPair.fromWIF('cPWHfRKmx1JYxXxokET9rkQZxuMs3xTCqx9Vk9XDAgKZNVpFbTur', Networks.bitcoinRegtest),
-};
-const mockGetNewKeys = jest.fn().mockReturnValue(newKeys);
-
-const encodedAddress = 'bcrt1';
-const mockEncodeAddress = jest.fn().mockReturnValue(encodedAddress);
-
-const transactionSent = {
-  vout: 1,
-  fee: 123,
-  transaction: {
-    getId: () => 'id',
-    toHex: () => 'hex',
-    getHash: () => getHexBuffer('0xfff'),
-  },
-};
-const mockSendToAddress = jest.fn().mockResolvedValue(transactionSent);
 
 jest.mock('../../../lib/wallet/Wallet', () => {
-  return jest.fn().mockImplementation(() => ({
-    getNewKeys: mockGetNewKeys,
-    encodeAddress: mockEncodeAddress,
-    sendToAddress: mockSendToAddress,
-  }));
+  return jest.fn().mockImplementation(() => {
+    return {
+      getNewKeys: mockGetNewKeys,
+      decodeAddress: mockDecodeAddress,
+      encodeAddress: mockEncodeAddress,
+    };
+  });
 });
 
-const mockedWallet = <jest.Mock<Wallet>><any>Wallet;
+const MockedWallet = <jest.Mock<Wallet>><any>Wallet;
+
+const mockWallets = new Map<string, Wallet>([
+  ['BTC', new MockedWallet()],
+  ['LTC', new MockedWallet()],
+]);
 
 jest.mock('../../../lib/wallet/WalletManager', () => {
-  return jest.fn().mockImplementation(() => ({
-    wallets: new Map<string, Wallet>([
-      ['BTC', mockedWallet()],
-      ['LTC', mockedWallet()],
-    ]),
-  }));
+  return jest.fn().mockImplementation(() => {
+    return {
+      wallets: mockWallets,
+    };
+  });
 });
 
-const mockedWalletManager = <jest.Mock<WalletManager>><any>WalletManager;
+const MockedWalletManager = <jest.Mock<WalletManager>><any>WalletManager;
+
+const mockAddInputFilter = jest.fn().mockImplementation();
+const mockAddOutputFilter = jest.fn().mockImplementation();
+
+const mockGetBlockchainInfoResult = {
+  blocks: 123,
+};
+const mockGetBlockchainInfo = jest.fn().mockResolvedValue(mockGetBlockchainInfoResult);
+
+let mockGetRawTransactionResult = '';
+const mockGetRawTransaction = jest.fn().mockImplementation(async () => {
+  return mockGetRawTransactionResult;
+});
+
+jest.mock('../../../lib/chain/ChainClient', () => {
+  return jest.fn().mockImplementation(() => {
+    return {
+      on: () => {},
+      addInputFilter: mockAddInputFilter,
+      addOutputFilter: mockAddOutputFilter,
+      getBlockchainInfo: mockGetBlockchainInfo,
+      getRawTransaction: mockGetRawTransaction,
+    };
+  });
+});
+
+const MockedChainClient = <jest.Mock<ChainClient>><any>ChainClient;
+
+const mockAddInvoiceResult = {
+  paymentRequest: 'invoice',
+  rHash: 'ccP2NYXCfqhv2EMfqgAdJ17OUU8T4khEAeKMQ71MGDY=',
+};
+const mockAddInvoice = jest.fn().mockResolvedValue(mockAddInvoiceResult);
+
+const mockQueryRoutes = jest.fn().mockImplementation(async (destination: string) => {
+  const routesList: any[] = [];
+
+  switch (destination) {
+    case 'throw':
+      throw 'error';
+
+    case 'one':
+      routesList.push({});
+      break;
+
+    case 'two':
+      routesList.push({});
+      routesList.push({});
+      break;
+  }
+
+  return {
+    routesList,
+  };
+});
+
+const mockAddHoldInvoiceResult = 'holdInvoice';
+const mockAddHoldInvoice = jest.fn().mockResolvedValue({
+  paymentRequest: mockAddHoldInvoiceResult,
+});
+
+const mockSubscribeSingleInvoice = jest.fn().mockResolvedValue(undefined);
+
+jest.mock('../../../lib/lightning/LndClient', () => {
+  return jest.fn().mockImplementation(() => {
+    return {
+      on: () => {},
+      addInvoice: mockAddInvoice,
+      queryRoutes: mockQueryRoutes,
+      addHoldInvoice: mockAddHoldInvoice,
+      subscribeSingleInvoice: mockSubscribeSingleInvoice,
+    };
+  });
+});
+
+const MockedLndClient = <jest.Mock<LndClient>><any>LndClient;
 
 describe('SwapManager', () => {
-  const currencies = [
-    {
-      symbol: 'BTC',
-      network: Networks.bitcoinRegtest,
-      config: {} as any,
-      lndClient: mockedLndClient(),
-      chainClient: mockedChainClient(),
-    },
-    {
-      symbol: 'LTC',
-      network: Networks.litecoinRegtest,
-      config: {} as any,
-      lndClient: mockedLndClient(),
-      chainClient: mockedChainClient(),
-    },
-    {
-      symbol: 'DOGE',
-      network: Networks.dogecoinRegtest as Network,
-      config: {} as any,
-      chainClient: mockedChainClient(),
-    },
-  ];
+  let manager: SwapManager;
 
-  const manager = new SwapManager(
-    Logger.disabledLogger,
-    mockedWalletManager(),
-    {} as RateProvider,
-  );
+  const btcCurrency = {
+    symbol: 'BTC',
+    network: Networks.bitcoinRegtest,
+    chainClient: new MockedChainClient(),
+    lndClient: new MockedLndClient(),
+  } as any as Currency;
+
+  const ltcCurrency = {
+    symbol: 'LTC',
+    network: Networks.litecoinRegtest,
+    chainClient: new MockedChainClient(),
+    lndClient: new MockedLndClient(),
+  } as any as Currency;
 
   beforeEach(() => {
     jest.clearAllMocks();
+
+    // Reset the injected mocked methods
+    manager = new SwapManager(
+      Logger.disabledLogger,
+      new MockedWalletManager(),
+      new MockedRateProvider(),
+      OutputType.Compatibility,
+      false,
+      0,
+    );
+
+    manager['currencies'].set(btcCurrency.symbol, btcCurrency);
+    manager['currencies'].set(ltcCurrency.symbol, ltcCurrency);
   });
 
-  test('should init', async () => {
-    await manager.init(currencies);
+  test('it should init', async() => {
+    const mockRecreateFilters = jest.fn().mockImplementation();
+    manager['recreateFilters'] = mockRecreateFilters;
 
-    // TODO: write tests
+    mockGetSwapsResult = [
+      {
+        swap: 'data',
+      },
+      {
+        more: {
+          swap: 'data',
+        },
+      },
+    ];
+
+    mockGetReverseSwapsResult = [
+      {
+        pair: 'BTC/BTC',
+      },
+      {
+        some: 'otherData',
+      },
+    ];
+
+    await manager.init([
+      btcCurrency,
+      ltcCurrency,
+    ]);
+
+    expect(manager.currencies.size).toEqual(2);
+
+    expect(manager.currencies.get('BTC')).toEqual(btcCurrency);
+    expect(manager.currencies.get('LTC')).toEqual(ltcCurrency);
+
+    expect(mockGetSwaps).toHaveBeenCalledTimes(1);
+    expect(mockGetSwaps).toHaveBeenCalledWith({
+      status: {
+        [Op.not]: [
+          SwapUpdateEvent.SwapExpired,
+          SwapUpdateEvent.InvoicePending,
+          SwapUpdateEvent.InvoiceFailedToPay,
+          SwapUpdateEvent.TransactionClaimed,
+        ],
+      },
+    });
+
+    expect(mockGetReverseSwaps).toHaveBeenCalledTimes(1);
+    expect(mockGetReverseSwaps).toHaveBeenCalledWith({
+      status: {
+        [Op.not]: [
+          SwapUpdateEvent.SwapExpired,
+          SwapUpdateEvent.TransactionFailed,
+          SwapUpdateEvent.TransactionRefunded,
+        ],
+      },
+    });
+
+    expect(mockRecreateFilters).toHaveBeenCalledTimes(2);
+
+    expect(mockRecreateFilters).toHaveBeenNthCalledWith(1, mockGetSwapsResult, false);
+    expect(mockRecreateFilters).toHaveBeenNthCalledWith(2, mockGetReverseSwapsResult, true);
   });
 
-  test('should create swaps', async () => {
-    const baseCurrency = 'LTC';
+  test('should create Swaps', async () => {
+    const baseCurrency = 'BTC';
     const quoteCurrency = 'BTC';
-    const timeoutBlockDelta = 3;
     const orderSide = OrderSide.BUY;
-    const preimageHash = getHexBuffer('9f4b3552fbb1c82fbe1802e19dbc2f01615b2b455c8c76373457d6ee75bca143');
-    const refundPublicKey = getHexBuffer('0360ecf59b1bacc5787842a3b7094da57cf62e2fdb8cc63fbbf9c489aad782cbad');
+    const preimageHash = getHexBuffer('4d57a64c3b4f19cd4a8c79e3038dba7024bbf77ee4f768f0c1b42fbb590c835c');
+    const refundKey = getHexBuffer('03f1c589378d79bb4a38be80bd085f5454a07d7f5c515fa0752f1b443816442ac2');
+    const timeoutBlockDelta = 140;
 
-    const expectedTimeoutBlockHeight = blockchainInfo.blocks + timeoutBlockDelta;
-    const expectedRedeemScript = 'a914379299189c7558198e8116b3e1e81e8d627df093876321023d9e44575cd6f03dbc851cc9a6e037339302d0faad6a8d86284745146850633e67017eb175210360ecf59b1bacc5787842a3b7094da57cf62e2fdb8cc63fbbf9c489aad782cbad68ac';
-
-    const response = await manager.createSwap(
+    const swap = await manager.createSwap(
       baseCurrency,
       quoteCurrency,
       orderSide,
       preimageHash,
-      refundPublicKey,
+      refundKey,
       timeoutBlockDelta,
     );
 
-    expect(response).toEqual({
-      id: expect.anything(),
-      address: encodedAddress,
-      redeemScript: expectedRedeemScript,
-      timeoutBlockHeight: expectedTimeoutBlockHeight,
+    expect(swap).toEqual({
+      id: swap.id,
+      address: '2Mu28zPUNMkM5w9q3UhVhpw8p2p5zwtv9Ce',
+      timeoutBlockHeight: mockGetBlockchainInfoResult.blocks + timeoutBlockDelta,
+      redeemScript: 'a9144631a4007d7e5b0f02f86f3a7f3b5c1442ac98f587632102c9c71ee3fee0c400ff64e51e955313e77ea499fc609973c71c5a4104a8d903bb67020701b1752103f1c589378d79bb4a38be80bd085f5454a07d7f5c515fa0752f1b443816442ac268ac',
     });
 
     expect(mockGetBlockchainInfo).toHaveBeenCalledTimes(1);
     expect(mockGetNewKeys).toHaveBeenCalledTimes(1);
-
     expect(mockEncodeAddress).toHaveBeenCalledTimes(1);
-    expect(mockEncodeAddress).toHaveBeenCalledWith(Scripts.p2shP2wshOutput(getHexBuffer(expectedRedeemScript)));
+
+    expect(mockAddOutputFilter).toHaveBeenCalledTimes(1);
+    expect(mockAddOutputFilter).toHaveBeenCalledWith(getHexBuffer('a9141376abf97f0345aecbda15f95453f4a7446b326287'));
 
     expect(mockAddSwap).toHaveBeenCalledTimes(1);
     expect(mockAddSwap).toHaveBeenCalledWith({
-      id: response.id,
-      keyIndex: newKeys.index,
-      orderSide: OrderSide.BUY,
-      lockupAddress: encodedAddress,
-      redeemScript: expectedRedeemScript,
+      orderSide,
+      id: swap.id,
       status: SwapUpdateEvent.SwapCreated,
+      keyIndex: mockGetNewKeysResult.index,
       pair: `${baseCurrency}/${quoteCurrency}`,
       preimageHash: getHexString(preimageHash),
-      timeoutBlockHeight: expectedTimeoutBlockHeight,
+      lockupAddress: '2Mu28zPUNMkM5w9q3UhVhpw8p2p5zwtv9Ce',
+      timeoutBlockHeight: mockGetBlockchainInfoResult.blocks + timeoutBlockDelta,
+      redeemScript: 'a9144631a4007d7e5b0f02f86f3a7f3b5c1442ac98f587632102c9c71ee3fee0c400ff64e51e955313e77ea499fc609973c71c5a4104a8d903bb67020701b1752103f1c589378d79bb4a38be80bd085f5454a07d7f5c515fa0752f1b443816442ac268ac',
     });
 
-    // Throw if the lightning currency doesn't have a LND client
-    await expect(manager.createSwap(
-      'DOGE',
+    // Channel Creation
+    const channel = {
+      auto: true,
+      private: true,
+      inboundLiquidity: 25,
+    } as ChannelCreationInfo;
+
+    const swapChannelCreation = await manager.createSwap(
+      baseCurrency,
       quoteCurrency,
       orderSide,
       preimageHash,
-      refundPublicKey,
+      refundKey,
       timeoutBlockDelta,
-    )).rejects.toEqual(Errors.NO_LND_CLIENT('DOGE'));
-  });
+      channel,
+    );
 
-  test('should set invoices of swaps', async () => {
-    const swap = {
-      id: 'swapId',
-      pair: 'LTC/BTC',
-      preimageHash: '9f4b3552fbb1c82fbe1802e19dbc2f01615b2b455c8c76373457d6ee75bca143',
-      redeemScript: 'a914379299189c7558198e8116b3e1e81e8d627df093876321023d9e44575cd6f03dbc851cc9a6e037339302d0faad6a8d86284745146850633e67017eb175210360ecf59b1bacc5787842a3b7094da57cf62e2fdb8cc63fbbf9c489aad782cbad68ac',
-    } as any as Swap;
-
-    const percentageFee = 2;
-    const acceptZeroConf = true;
-    const expectedAmount = 100002;
-    const invoice = 'lnbcrt10n1p0xdf2kpp54njp3f00qvj0n64pnmkfxh08f0czev7tc5zhhj033ksesq9zxagsdqqcqzpgsp5ndcc6hxwqwza7kkyqepq9x2kjqr70x3h2nl6vuw5xk8lerakdxas9qy9qsq3arkzf9wlv5xlhclm0wkl4uvrqe6clps58klyx7v46wha8hlzk2qyl3hxf9m7pzywdc7nyv5w4phkjzqg6y4l20frcg54yqfnxspzwqqpru300';
-
-    let invoiceSetEmitted = false;
-
-    await manager.setSwapInvoice(swap, invoice, expectedAmount, percentageFee, acceptZeroConf, () => {
-      invoiceSetEmitted = true;
+    expect(swapChannelCreation).toEqual({
+      id: swapChannelCreation.id,
+      address: '2Mu28zPUNMkM5w9q3UhVhpw8p2p5zwtv9Ce',
+      timeoutBlockHeight: mockGetBlockchainInfoResult.blocks + timeoutBlockDelta,
+      redeemScript: 'a9144631a4007d7e5b0f02f86f3a7f3b5c1442ac98f587632102c9c71ee3fee0c400ff64e51e955313e77ea499fc609973c71c5a4104a8d903bb67020701b1752103f1c589378d79bb4a38be80bd085f5454a07d7f5c515fa0752f1b443816442ac268ac',
     });
 
-    expect(invoiceSetEmitted).toEqual(true);
+    expect(mockGetBlockchainInfo).toHaveBeenCalledTimes(2);
+    expect(mockGetNewKeys).toHaveBeenCalledTimes(2);
+    expect(mockEncodeAddress).toHaveBeenCalledTimes(2);
 
-    expect(mockDecodePayReq).toHaveBeenCalledTimes(1);
-    expect(mockDecodePayReq).toHaveBeenCalledWith(invoice);
+    expect(mockAddOutputFilter).toHaveBeenCalledTimes(2);
+    expect(mockAddOutputFilter).toHaveBeenNthCalledWith(2, getHexBuffer('a9141376abf97f0345aecbda15f95453f4a7446b326287'));
 
-    expect(mockQueryRoutes).toHaveBeenCalledTimes(1);
-    expect(mockQueryRoutes).toHaveBeenCalledWith(decodedPayReq.destination, decodedPayReq.numSatoshis);
+    expect(mockAddSwap).toHaveBeenCalledTimes(2);
+    expect(mockAddSwap).toHaveBeenNthCalledWith(2, {
+      orderSide,
+      id: swapChannelCreation.id,
+      status: SwapUpdateEvent.SwapCreated,
+      keyIndex: mockGetNewKeysResult.index,
+      pair: `${baseCurrency}/${quoteCurrency}`,
+      preimageHash: getHexString(preimageHash),
+      lockupAddress: '2Mu28zPUNMkM5w9q3UhVhpw8p2p5zwtv9Ce',
+      timeoutBlockHeight: mockGetBlockchainInfoResult.blocks + timeoutBlockDelta,
+      redeemScript: 'a9144631a4007d7e5b0f02f86f3a7f3b5c1442ac98f587632102c9c71ee3fee0c400ff64e51e955313e77ea499fc609973c71c5a4104a8d903bb67020701b1752103f1c589378d79bb4a38be80bd085f5454a07d7f5c515fa0752f1b443816442ac268ac',
+    });
 
-    expect(mockSetInvoice).toHaveBeenCalledTimes(1);
-    expect(mockSetInvoice).toHaveBeenCalledWith(
+    expect(mockAddChannelCreation).toHaveBeenCalledTimes(1);
+    expect(mockAddChannelCreation).toHaveBeenCalledWith({
+      private: channel.private,
+      type: ChannelCreationType.Auto,
+      swapId: swapChannelCreation.id,
+      inboundLiquidity: channel.inboundLiquidity,
+    });
+
+    // Manual Channel Creation
+    channel.auto = false;
+    channel.private = false;
+
+    const swapChannelCreationManual = await manager.createSwap(
+      baseCurrency,
+      quoteCurrency,
+      orderSide,
+      preimageHash,
+      refundKey,
+      timeoutBlockDelta,
+      channel,
+    );
+
+    expect(mockAddChannelCreation).toHaveBeenCalledTimes(2);
+    expect(mockAddChannelCreation).toHaveBeenNthCalledWith(2, {
+      private: channel.private,
+      type: ChannelCreationType.Create,
+      swapId: swapChannelCreationManual.id,
+      inboundLiquidity: channel.inboundLiquidity,
+    });
+
+    // No LND client found
+    const notFoundSymbol = 'DOGE';
+    manager['currencies'].set(notFoundSymbol, {
+      symbol: notFoundSymbol,
+    } as any);
+
+    await expect(manager.createSwap(
+      notFoundSymbol,
+      quoteCurrency,
+      orderSide,
+      preimageHash,
+      refundKey,
+      timeoutBlockDelta,
+    )).rejects.toEqual(Errors.NO_LND_CLIENT(notFoundSymbol));
+  });
+
+  test('should set invoices of Swaps', async () => {
+    let mockCheckRoutabilityResult = true;
+    const mockCheckRoutability = jest.fn().mockImplementation(async () => {
+      return mockCheckRoutabilityResult;
+    });
+
+    manager['checkRoutability'] = mockCheckRoutability;
+
+    const swap = {
+      id: 'id',
+      pair: 'BTC/BTC',
+      orderSide: OrderSide.BUY,
+      preimageHash: 'a5a41cf5a11ab07c66c6d047a206e763d7be7a361e8bc21b65a455d2b6f22820',
+    } as any as Swap;
+
+    // The invoice has to be generated here because the timestamp is used when setting the invoice of a Swap
+    const invoicePreimageHash = swap.preimageHash;
+    const invoiceSignKeys = getHexBuffer('bd67aa04f8e310ad257f2d7f5a2f4cf314c6c6017515748fb05c33763b1c6744');
+    const invoiceEncode = bolt11.encode({
+      payeeNodeKey: getHexString(ECPair.fromPrivateKey(invoiceSignKeys).publicKey),
+      satoshis: 200,
+      tags: [
+        {
+          data: swap.preimageHash,
+          tagName: 'payment_hash',
+        },
+      ],
+    });
+
+    const invoice = bolt11.sign(invoiceEncode, invoiceSignKeys).paymentRequest!;
+
+    const expectedAmount = 100;
+    const percentageFee = 50;
+    const acceptZeroConf = false;
+    const emitSwapInvoiceSet = jest.fn().mockImplementation();
+
+    await manager.setSwapInvoice(
       swap,
       invoice,
       expectedAmount,
       percentageFee,
       acceptZeroConf,
+      emitSwapInvoiceSet,
     );
 
-    // Should not perform a route check if the invoice has route hints
-    await manager.setSwapInvoice(swap, 'routeHints', expectedAmount, percentageFee, acceptZeroConf, () => {});
+    expect(mockGetChannelCreation).toHaveBeenCalledTimes(1);
+    expect(mockGetChannelCreation).toHaveBeenCalledWith({
+      swapId: {
+        [Op.eq]: swap.id,
+      },
+    });
 
-    // Check that no routes were queried
-    expect(mockQueryRoutes).toHaveBeenCalledTimes(1);
+    expect(mockCheckRoutability).toHaveBeenCalledTimes(1);
+    expect(mockCheckRoutability).toHaveBeenCalledWith(btcCurrency.lndClient, invoiceEncode.payeeNodeKey, invoiceEncode.satoshis);
 
-    // Throw if no route can be found
-    await expect(manager.setSwapInvoice(
+    expect(mockSetInvoice).toHaveBeenCalledTimes(1);
+    expect(mockSetInvoice).toHaveBeenCalledWith(swap, invoice, expectedAmount, percentageFee, acceptZeroConf);
+
+    expect(emitSwapInvoiceSet).toHaveBeenCalledTimes(1);
+    expect(emitSwapInvoiceSet).toHaveBeenCalledWith(swap.id);
+
+    // Swap that has a transaction id and should be settled
+    let mockAttemptSettleSwapThrow = false;
+    const mockAttemptSettleSwap = jest.fn().mockImplementation(async () => {
+      if (mockAttemptSettleSwapThrow) {
+        throw 'some error';
+      }
+    });
+
+    manager.nursery.attemptSettleSwap = mockAttemptSettleSwap;
+
+    swap.lockupTransactionId = '4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b';
+    mockGetRawTransactionResult = '020000000001018542307f1f57326e533123327f6a7e5729241c9cf468bca7897c47c0019a21010100000000fdffffff0298560b0000000000160014c99fd000fb30137ae03fd2b28f52878e9b29194f2e020000000000001976a91462e907b15cbf27d5425399ebf6f0fb50ebb88f1888ac02473044022034deabdeb0d1d4d2fe2cf450f5ef27c1e5709670b87dbe3b8e175ac094fb935802207630148ec8e73c24e284af700ac1f34e8058735a8852e8fd4c81ad04233b12230121031f6fa906bb52f3e1bdc59156a5659ce1aa251eaf26f411413c76409360ef7205bcaf0900';
+
+    await manager.setSwapInvoice(
       swap,
-      'noRoutes',
+      invoice,
       expectedAmount,
       percentageFee,
       acceptZeroConf,
-      () => {},
+      emitSwapInvoiceSet,
+    );
+
+    expect(mockGetRawTransaction).toHaveBeenCalledTimes(1);
+    expect(mockGetRawTransaction).toHaveBeenCalledWith(swap.lockupTransactionId);
+
+    expect(mockAttemptSettleSwap).toHaveBeenCalledTimes(1);
+    expect(mockAttemptSettleSwap).toHaveBeenCalledWith(
+      {
+        ...btcCurrency,
+        wallet: mockWallets.get('BTC'),
+      },
+      mockWallets.get('BTC'),
+      swap,
+      Transaction.fromHex(mockGetRawTransactionResult),
+      false,
+    );
+
+    // Swap that has a transaction id which is confirmed and should be settled
+    swap.status = SwapUpdateEvent.TransactionConfirmed;
+
+    await manager.setSwapInvoice(
+      swap,
+      invoice,
+      expectedAmount,
+      percentageFee,
+      acceptZeroConf,
+      emitSwapInvoiceSet,
+    );
+
+    expect(mockAttemptSettleSwap).toHaveBeenCalledTimes(2);
+    expect(mockAttemptSettleSwap).toHaveBeenNthCalledWith(2,
+      {
+        ...btcCurrency,
+        wallet: mockWallets.get('BTC'),
+      },
+      mockWallets.get('BTC'),
+      swap,
+      Transaction.fromHex(mockGetRawTransactionResult),
+      true,
+    );
+
+    // Swap that has a transaction id and settling throws
+    mockAttemptSettleSwapThrow = true;
+
+    await manager.setSwapInvoice(
+      swap,
+      invoice,
+      expectedAmount,
+      percentageFee,
+      acceptZeroConf,
+      emitSwapInvoiceSet,
+    );
+
+    expect(mockAttemptSettleSwap).toHaveBeenCalledTimes(3);
+
+    swap.lockupTransactionId = undefined;
+
+    // Swap with Channel Creation
+    mockGetChannelCreationResult = {
+      some: 'data',
+    };
+
+    await manager.setSwapInvoice(
+      swap,
+      invoice,
+      expectedAmount,
+      percentageFee,
+      acceptZeroConf,
+      emitSwapInvoiceSet,
+    );
+
+    expect(mockCheckRoutability).toHaveBeenCalledTimes(4);
+
+    expect(mockGetChannelCreation).toHaveBeenCalledTimes(5);
+    expect(mockSetInvoice).toHaveBeenCalledTimes(5);
+    expect(emitSwapInvoiceSet).toHaveBeenCalledTimes(5);
+
+    // Swap with Channel Creation and invoice that expires to soon
+    swap.timeoutBlockHeight = 1000;
+
+    let error: any;
+
+    try {
+      await manager.setSwapInvoice(
+        swap,
+        invoice,
+        expectedAmount,
+        percentageFee,
+        acceptZeroConf,
+        emitSwapInvoiceSet,
+      );
+    } catch (e) {
+      error = e;
+    }
+
+    expect(error.code).toEqual('2.4');
+    expect(error.message.startsWith(`invoice expiry ${bolt11.decode(invoice).timeExpireDate!} is before Swap timeout: `)).toBeTruthy();
+
+    mockGetChannelCreationResult = undefined;
+
+    // Invalid preimage hash
+    swap.preimageHash = getHexString(randomBytes(32));
+
+    await expect(manager.setSwapInvoice(
+      swap,
+      invoice,
+      expectedAmount,
+      percentageFee,
+      acceptZeroConf,
+      emitSwapInvoiceSet,
+    )).rejects.toEqual(Errors.INVOICE_INVALID_PREIMAGE_HASH(swap.preimageHash));
+
+    swap.preimageHash = invoicePreimageHash;
+
+    // Routability check fails
+    mockCheckRoutabilityResult = false;
+
+    await expect(manager.setSwapInvoice(
+      swap,
+      invoice,
+      expectedAmount,
+      percentageFee,
+      acceptZeroConf,
+      emitSwapInvoiceSet,
     )).rejects.toEqual(Errors.NO_ROUTE_FOUND());
+
+    mockCheckRoutabilityResult = true;
   });
 
-  test('should create reverse swaps', async () => {
-    const percentageFee = 12;
-    const invoiceAmount = 246;
-    const onchainAmount = 123;
-    const baseCurrency = 'LTC';
+  test('should create Reverse Swaps', async () => {
+    const preimageHash = getHexBuffer('6b0d0275c597a18cfcc23261a62e095e2ba12ac5c866823d2926912806a5b10a');
+    const claimKey = getHexBuffer('026c94d2958888e70fd32349b3c195803976e0865a54ab1755f19c2c820fcbafa8');
+
+    const baseCurrency = 'BTC';
     const quoteCurrency = 'BTC';
     const orderSide = OrderSide.BUY;
-    const onchainTimeoutBlockDelta = 2;
-    const lightningTimeoutBlockDelta = 4;
-    const outputType = OutputType.Bech32;
-    const preimageHash = getHexBuffer('2dc03948838b38d695a73c6893d42a96ebc82a49b00dc060ae706ecea9f4af96');
-    const claimPublicKey = getHexBuffer('0387a0ac0a186a6a10a403ba60b655bba98bbc701391feccda2716e54becab6dd3');
+    const holdInvoiceAmount = 10;
+    const onchainAmount = 8;
+    const onchainTimeoutBlockDelta = 140;
+    const lightningTimeoutBlockDelta = 143;
+    const percentageFee = 1;
 
-    const expectedTimeoutBlockHeight = blockchainInfo.blocks + onchainTimeoutBlockDelta;
-    const expectedRedeemScript = '8201208763a914bde36c7dd2905b6270ff66764170de1a52e221e588210387a0ac0a186a6a10a403ba60b655bba98bbc701391feccda2716e54becab6dd36775017db17521023d9e44575cd6f03dbc851cc9a6e037339302d0faad6a8d86284745146850633e68ac';
-
-    const response = await manager.createReverseSwap(
+    const reverseSwap = await manager.createReverseSwap(
       baseCurrency,
       quoteCurrency,
       orderSide,
       preimageHash,
-      invoiceAmount,
+      holdInvoiceAmount,
       onchainAmount,
-      claimPublicKey,
-      outputType,
+      claimKey,
       onchainTimeoutBlockDelta,
       lightningTimeoutBlockDelta,
       percentageFee,
     );
 
-    expect(response).toEqual({
+    expect(reverseSwap).toEqual({
       id: expect.anything(),
-      lockupAddress: encodedAddress,
-      redeemScript: expectedRedeemScript,
-      invoice: addedHoldInvoice.paymentRequest,
-      timeoutBlockHeight: expectedTimeoutBlockHeight,
+      minerFeeInvoice: undefined,
+      invoice: mockAddHoldInvoiceResult,
+      lockupAddress: 'bcrt1q2f4axqr8859mmemce2fcvdvuqlu8vqtjfg3z4j2w4fu52t58g42sjtfv2y',
+      timeoutBlockHeight: onchainTimeoutBlockDelta + mockGetBlockchainInfoResult.blocks,
+      redeemScript: '8201208763a9142f958e32209e7d5f60d321d4f4f6e12bdbf06db28821026c94d2958888e70fd32349b3c195803976e0865a54ab1755f19c2c820fcbafa86775020701b1752102c9c71ee3fee0c400ff64e51e955313e77ea499fc609973c71c5a4104a8d903bb68ac',
     });
 
     expect(mockAddHoldInvoice).toHaveBeenCalledTimes(1);
-    expect(mockAddHoldInvoice).toHaveBeenCalledWith(invoiceAmount, preimageHash, lightningTimeoutBlockDelta, 'Send to LTC address');
+    expect(mockAddHoldInvoice).toHaveBeenCalledWith(holdInvoiceAmount, preimageHash, lightningTimeoutBlockDelta, 'Send to BTC address');
 
     expect(mockSubscribeSingleInvoice).toHaveBeenCalledTimes(1);
     expect(mockSubscribeSingleInvoice).toHaveBeenCalledWith(preimageHash);
 
     expect(mockGetNewKeys).toHaveBeenCalledTimes(1);
     expect(mockGetBlockchainInfo).toHaveBeenCalledTimes(1);
-
     expect(mockEncodeAddress).toHaveBeenCalledTimes(1);
-    expect(mockEncodeAddress).toHaveBeenCalledWith(Scripts.p2wshOutput(getHexBuffer(expectedRedeemScript)));
 
     expect(mockAddReverseSwap).toHaveBeenCalledTimes(1);
     expect(mockAddReverseSwap).toHaveBeenCalledWith({
       orderSide,
       onchainAmount,
-
-      id: response.id,
       fee: percentageFee,
-      keyIndex: newKeys.index,
-      lockupAddress: encodedAddress,
-      redeemScript: expectedRedeemScript,
+      id: reverseSwap.id,
+      minerFeeInvoice: undefined,
+      invoice: mockAddHoldInvoiceResult,
       status: SwapUpdateEvent.SwapCreated,
+      keyIndex: mockGetNewKeysResult.index,
       pair: `${baseCurrency}/${quoteCurrency}`,
-      invoice: addedHoldInvoice.paymentRequest,
-      timeoutBlockHeight: expectedTimeoutBlockHeight,
+      lockupAddress: 'bcrt1q2f4axqr8859mmemce2fcvdvuqlu8vqtjfg3z4j2w4fu52t58g42sjtfv2y',
+      timeoutBlockHeight: onchainTimeoutBlockDelta + mockGetBlockchainInfoResult.blocks,
+      redeemScript: '8201208763a9142f958e32209e7d5f60d321d4f4f6e12bdbf06db28821026c94d2958888e70fd32349b3c195803976e0865a54ab1755f19c2c820fcbafa86775020701b1752102c9c71ee3fee0c400ff64e51e955313e77ea499fc609973c71c5a4104a8d903bb68ac',
     });
 
-    // Throw if the lightning currency doesn't have a LND client
-    await expect(manager.createReverseSwap(
+    // Prepay miner fee
+    const prepayMinerFee = 2;
+
+    const prepayReverseSwap = await manager.createReverseSwap(
       baseCurrency,
-      'DOGE',
+      quoteCurrency,
       orderSide,
       preimageHash,
-      invoiceAmount,
+      holdInvoiceAmount,
       onchainAmount,
-      claimPublicKey,
-      outputType,
+      claimKey,
       onchainTimeoutBlockDelta,
       lightningTimeoutBlockDelta,
       percentageFee,
-    )).rejects.toEqual(Errors.NO_LND_CLIENT('DOGE'));
+      prepayMinerFee,
+    );
+
+    expect(prepayReverseSwap).toEqual({
+      id: expect.anything(),
+      invoice: mockAddHoldInvoiceResult,
+      minerFeeInvoice: mockAddInvoiceResult.paymentRequest,
+      lockupAddress: 'bcrt1q2f4axqr8859mmemce2fcvdvuqlu8vqtjfg3z4j2w4fu52t58g42sjtfv2y',
+      timeoutBlockHeight: onchainTimeoutBlockDelta + mockGetBlockchainInfoResult.blocks,
+      redeemScript: '8201208763a9142f958e32209e7d5f60d321d4f4f6e12bdbf06db28821026c94d2958888e70fd32349b3c195803976e0865a54ab1755f19c2c820fcbafa86775020701b1752102c9c71ee3fee0c400ff64e51e955313e77ea499fc609973c71c5a4104a8d903bb68ac',
+    });
+
+    expect(mockAddHoldInvoice).toHaveBeenCalledTimes(2);
+    expect(mockAddHoldInvoice).toHaveBeenNthCalledWith(2, holdInvoiceAmount, preimageHash, lightningTimeoutBlockDelta, 'Send to BTC address');
+
+    expect(mockSubscribeSingleInvoice).toHaveBeenCalledTimes(3);
+    expect(mockSubscribeSingleInvoice).toHaveBeenNthCalledWith(2, preimageHash);
+    expect(mockSubscribeSingleInvoice).toHaveBeenNthCalledWith(3, Buffer.from(mockAddInvoiceResult.rHash, 'base64'));
+
+    expect(mockGetNewKeys).toHaveBeenCalledTimes(2);
+    expect(mockGetBlockchainInfo).toHaveBeenCalledTimes(2);
+    expect(mockEncodeAddress).toHaveBeenCalledTimes(2);
+
+    expect(mockAddReverseSwap).toHaveBeenCalledTimes(2);
+    expect(mockAddReverseSwap).toHaveBeenNthCalledWith(2, {
+      orderSide,
+      onchainAmount,
+      fee: percentageFee,
+      id: prepayReverseSwap.id,
+      invoice: mockAddHoldInvoiceResult,
+      status: SwapUpdateEvent.SwapCreated,
+      keyIndex: mockGetNewKeysResult.index,
+      pair: `${baseCurrency}/${quoteCurrency}`,
+      minerFeeInvoice: mockAddInvoiceResult.paymentRequest,
+      lockupAddress: 'bcrt1q2f4axqr8859mmemce2fcvdvuqlu8vqtjfg3z4j2w4fu52t58g42sjtfv2y',
+      timeoutBlockHeight: onchainTimeoutBlockDelta + mockGetBlockchainInfoResult.blocks,
+      redeemScript: '8201208763a9142f958e32209e7d5f60d321d4f4f6e12bdbf06db28821026c94d2958888e70fd32349b3c195803976e0865a54ab1755f19c2c820fcbafa86775020701b1752102c9c71ee3fee0c400ff64e51e955313e77ea499fc609973c71c5a4104a8d903bb68ac',
+    });
+
+    // No LND client found
+    const notFoundSymbol = 'DOGE';
+    manager['currencies'].set(notFoundSymbol, {
+      symbol: notFoundSymbol,
+    } as any);
+
+    await expect(manager.createReverseSwap(
+      baseCurrency,
+      notFoundSymbol,
+      orderSide,
+      preimageHash,
+      holdInvoiceAmount,
+      onchainAmount,
+      claimKey,
+      onchainTimeoutBlockDelta,
+      lightningTimeoutBlockDelta,
+      percentageFee,
+    )).rejects.toEqual(Errors.NO_LND_CLIENT(notFoundSymbol));
+  });
+
+  test('should recreate filters', () => {
+    const recreateFilters = manager['recreateFilters'];
+
+    const reverseSwaps = [
+      {
+        pair: 'BTC/BTC',
+        orderSide: OrderSide.BUY,
+        status: SwapUpdateEvent.SwapCreated,
+        minerFeeInvoice: 'lnbcrt10n1p0wwwfppp5chef6eznn05q2xh4399ufttf4lacxuxhl6f4nwmych0sy46qesysdqqcqzpgsp554r6j0g22kjgm5gt7cs4uu034eqmtudqskampn9qt6rvun6ya2zq9qy9qsqkzk64ql9vynz58hugcvausfe30fsd5kpefxjejyf6vg5ka52f4tnpa5c8ladgxhzxw2hwzwu3xzx55ugu945cmuh2le6nc2ye0zq22spz9zhvc',
+        invoice: 'lnbcrt20n1p0wwwfzpp50xkp4kv7n6lepmqnvzflzasq0y5ukvtlq9h5lqen6nvrcdgk6pasdqqcqzpgsp5dskzqsa28gg6kmcqpx4vufj26vkjrglhg8dvlrcmthgpq45sevaq9qy9qsqw0rx65c42wggx4sstrulg4vrr82hcdcps5gx6j0dqavgcl2ydaa4pg0zs8anuqxvurqs2peselhtnd9ky2dpr7l4xujurw0cfslxpzcpxfnwxl',
+      },
+    ] as any as ReverseSwap[];
+
+    // Invoice subscriptions
+    recreateFilters(reverseSwaps, true);
+
+    expect(mockSubscribeSingleInvoice).toHaveBeenCalledTimes(2);
+
+    expect(mockSubscribeSingleInvoice).toHaveBeenNthCalledWith(1, getHexBuffer(decodeInvoice(reverseSwaps[0].minerFeeInvoice!).paymentHash!));
+    expect(mockSubscribeSingleInvoice).toHaveBeenNthCalledWith(2, getHexBuffer(decodeInvoice(reverseSwaps[0].invoice).paymentHash!));
+
+    reverseSwaps[0].status = SwapUpdateEvent.MinerFeePaid;
+    recreateFilters(reverseSwaps, true);
+
+    expect(mockSubscribeSingleInvoice).toHaveBeenCalledTimes(3);
+
+    expect(mockSubscribeSingleInvoice).toHaveBeenNthCalledWith(3, getHexBuffer(decodeInvoice(reverseSwaps[0].invoice).paymentHash!));
+
+    // Reverse swap input and output filters
+    reverseSwaps[0].status = SwapUpdateEvent.TransactionMempool;
+    reverseSwaps[0].lockupAddress = '2N5sb4t4HPDsmhmQ6jggnCsr8q4TeXDghcL';
+    reverseSwaps[0].transactionId = '4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b';
+
+    recreateFilters(reverseSwaps, true);
+
+    expect(mockAddInputFilter).toHaveBeenCalledTimes(1);
+    expect(mockAddInputFilter).toHaveBeenCalledWith(reverseBuffer(getHexBuffer(reverseSwaps[0].transactionId)));
+
+    expect(mockDecodeAddress).toHaveBeenCalledTimes(1);
+    expect(mockDecodeAddress).toHaveBeenCalledWith(reverseSwaps[0].lockupAddress);
+
+    expect(mockAddOutputFilter).toHaveBeenCalledTimes(1);
+    expect(mockAddOutputFilter).toHaveBeenCalledWith(address.toOutputScript(reverseSwaps[0].lockupAddress, Networks.bitcoinRegtest));
+
+    reverseSwaps[0].status = SwapUpdateEvent.TransactionConfirmed;
+
+    recreateFilters(reverseSwaps, true);
+
+    expect(mockAddInputFilter).toHaveBeenCalledTimes(2);
+    expect(mockAddInputFilter).toHaveBeenCalledWith(reverseBuffer(getHexBuffer(reverseSwaps[0].transactionId)));
+
+    expect(mockDecodeAddress).toHaveBeenCalledTimes(1);
+    expect(mockAddOutputFilter).toHaveBeenCalledTimes(1);
+
+    // Output filter for all other cases
+    const swaps = [
+      {
+        pair: 'BTC/BTC',
+        orderSide: OrderSide.BUY,
+        status: SwapUpdateEvent.SwapCreated,
+        lockupAddress: '2N9hN6epf3wNkK4QbsWMz4kKYitHquhPtP7',
+      },
+    ] as any as Swap[];
+
+    recreateFilters(swaps, false);
+
+    expect(mockDecodeAddress).toHaveBeenCalledTimes(2);
+    expect(mockDecodeAddress).toHaveBeenNthCalledWith(2, swaps[0].lockupAddress);
+
+    expect(mockAddOutputFilter).toHaveBeenCalledTimes(2);
+    expect(mockAddOutputFilter).toHaveBeenNthCalledWith(2, address.toOutputScript(swaps[0].lockupAddress, Networks.bitcoinRegtest));
   });
 
   test('should check routability', async () => {
+    const lndClient = new MockedLndClient();
+
     const checkRoutability = manager['checkRoutability'];
 
-    const lndClient = mockedLndClient();
+    expect(await checkRoutability(lndClient, 'one', 1)).toEqual(true);
+    expect(await checkRoutability(lndClient, 'two', 1)).toEqual(true);
 
-    await expect(checkRoutability(lndClient, '', 1)).resolves.toBeTruthy();
-    await expect(checkRoutability(lndClient, 'noRoutes', 1)).resolves.toBeFalsy();
-
-    // Return false if "queryRoutes" throws
-    lndClient['queryRoutes'] = async () => {
-      throw 'whatever';
-    };
-
-    await expect(checkRoutability(lndClient, '', 1)).resolves.toBeFalsy();
+    expect(await checkRoutability(lndClient, '', 1)).toEqual(false);
+    expect(await checkRoutability(lndClient, 'throw', 1)).toEqual(false);
   });
 
-  test('should get currencies', () => {
+  test('it should get currencies', () => {
     const getCurrencies = manager['getCurrencies'];
 
     expect(getCurrencies('LTC', 'BTC', OrderSide.BUY)).toEqual({
       sendingCurrency: {
-        ...manager['currencies'].get('LTC'),
-        wallet: manager['walletManager'].wallets.get('LTC'),
+        ...ltcCurrency,
+        wallet: mockWallets.get('LTC'),
       },
       receivingCurrency: {
-        ...manager['currencies'].get('BTC'),
-        wallet: manager['walletManager'].wallets.get('BTC'),
+        ...btcCurrency,
+        wallet: mockWallets.get('BTC'),
       },
     });
 
     expect(getCurrencies('LTC', 'BTC', OrderSide.SELL)).toEqual({
       sendingCurrency: {
-        ...manager['currencies'].get('BTC'),
-        wallet: manager['walletManager'].wallets.get('BTC'),
+        ...btcCurrency,
+        wallet: mockWallets.get('BTC'),
       },
       receivingCurrency: {
-        ...manager['currencies'].get('LTC'),
-        wallet: manager['walletManager'].wallets.get('LTC'),
+        ...ltcCurrency,
+        wallet: mockWallets.get('LTC'),
       },
     });
-
   });
 
-  test('should get currency', () => {
+  test('it should get a currency', () => {
     const getCurrency = manager['getCurrency'];
 
-    expect(getCurrency('BTC')).toEqual({
-      ...currencies[0],
-    });
+    expect(getCurrency('BTC')).toEqual(btcCurrency);
 
-    // Throw if currency cannot be found
     const notFound = 'notFound';
-
-    expect(() => getCurrency(notFound)).toThrow(
-      Errors.CURRENCY_NOT_FOUND(notFound).message ,
-    );
+    expect(() => {
+      getCurrency(notFound);
+    }).toThrow(Errors.CURRENCY_NOT_FOUND(notFound).message);
   });
 });

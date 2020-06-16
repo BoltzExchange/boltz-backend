@@ -16,7 +16,7 @@ export default {
     code: concatErrorCode(ErrorCodePrefix.Swap, 2),
   }),
   INVOICE_INVALID_PREIMAGE_HASH: (preimageHash: string): Error => ({
-    message: `the preimage hash of the invoice does not match: ${preimageHash}`,
+    message: `the preimage hash of the invoice does not match the one of the Swap: ${preimageHash}`,
     code: concatErrorCode(ErrorCodePrefix.Service, 3),
   }),
   INVOICE_EXPIRES_TOO_EARLY: (invoiceExpiry: number, timeoutTimestamp: number): Error => ({

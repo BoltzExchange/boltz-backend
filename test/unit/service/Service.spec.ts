@@ -1,6 +1,6 @@
 import { Op } from 'sequelize';
 import { randomBytes } from 'crypto';
-import { Networks, OutputType } from 'boltz-core';
+import { Networks } from 'boltz-core';
 import Logger from '../../../lib/Logger';
 import Swap from '../../../lib/db/models/Swap';
 import Wallet from '../../../lib/wallet/Wallet';
@@ -16,7 +16,7 @@ import ReverseSwapRepository from '../../../lib/db/ReverseSwapRepository';
 import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
 import { getHexBuffer, getHexString, decodeInvoice } from '../../../lib/Utils';
 import ChannelCreationRepository from '../../../lib/db/ChannelCreationRepository';
-import { ServiceWarning, OrderSide, SwapUpdateEvent } from '../../../lib/consts/Enums';
+import { ServiceWarning, OrderSide, SwapUpdateEvent, ServiceInfo } from '../../../lib/consts/Enums';
 
 const packageJson = require('../../../package.json');
 
@@ -96,6 +96,7 @@ const mockedReverseSwap = {
   redeemScript: '0x',
   lockupAddress: 'bcrt1',
   timeoutBlockHeight: 123,
+  minerFeeInvoice: 'lnbcrt2',
 };
 const mockCreateReverseSwap = jest.fn().mockResolvedValue(mockedReverseSwap);
 
@@ -450,6 +451,7 @@ describe('Service', () => {
   test('should get pairs', () => {
     expect(service.getPairs()).toEqual({
       pairs,
+      info: [],
       warnings: [],
     });
 
@@ -457,12 +459,25 @@ describe('Service', () => {
 
     expect(service.getPairs()).toEqual({
       pairs,
+      info: [],
       warnings: [
         ServiceWarning.ReverseSwapsDisabled,
       ],
     });
 
     service.allowReverseSwaps = true;
+
+    service['prepayMinerFee'] = true;
+
+    expect(service.getPairs()).toEqual({
+      pairs,
+      info: [
+        ServiceInfo.PrepayMinerFee,
+      ],
+      warnings: [],
+    });
+
+    service['prepayMinerFee'] = false;
   });
 
   test('should get nodes', async () => {
@@ -912,10 +927,10 @@ describe('Service', () => {
       invoiceAmount,
       99998,
       claimPublicKey,
-      OutputType.Bech32,
       1,
       4,
       1,
+      undefined,
     );
 
     // Throw if the onchain amount is less than 1
@@ -950,6 +965,52 @@ describe('Service', () => {
     )).rejects.toEqual(Errors.REVERSE_SWAPS_DISABLED());
 
     service.allowReverseSwaps = true;
+  });
+
+  test('should create prepay miner fee reverse swaps', async () => {
+    service['prepayMinerFee'] = true;
+
+    const pair = 'BTC/BTC';
+    const orderSide = 'buy';
+    const onchainAmount = 99998;
+    const invoiceAmount = 100000;
+    const preimageHash = randomBytes(32);
+    const claimPublicKey = getHexBuffer('0xfff');
+
+    const response = await service.createReverseSwap(
+      pair,
+      orderSide,
+      preimageHash,
+      invoiceAmount,
+      claimPublicKey,
+    );
+
+    expect(response).toEqual({
+      onchainAmount,
+      id: mockedReverseSwap.id,
+      invoice: mockedReverseSwap.invoice,
+      redeemScript: mockedReverseSwap.redeemScript,
+      lockupAddress: mockedReverseSwap.lockupAddress,
+      minerFeeInvoice: mockedReverseSwap.minerFeeInvoice,
+      timeoutBlockHeight: mockedReverseSwap.timeoutBlockHeight,
+    });
+
+    expect(mockCreateReverseSwap).toHaveBeenCalledTimes(1);
+    expect(mockCreateReverseSwap).toHaveBeenCalledWith(
+      'BTC',
+      'BTC',
+      OrderSide.BUY,
+      preimageHash,
+      99999,
+      99998,
+      claimPublicKey,
+      1,
+      4,
+      1,
+      1,
+    );
+
+    service['prepayMinerFee'] = false;
   });
 
   test('should pay invoices', async () => {

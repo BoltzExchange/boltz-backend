@@ -14,9 +14,9 @@ import RateProvider from '../rates/RateProvider';
 import PairRepository from '../db/PairRepository';
 import { encodeBip21 } from './PaymentRequestUtils';
 import TimeoutDeltaProvider from './TimeoutDeltaProvider';
-import { OrderSide, ServiceInfo, ServiceWarning } from '../consts/Enums';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import SwapManager, { ChannelCreationInfo } from '../swap/SwapManager';
+import { OrderSide, ServiceInfo, ServiceWarning } from '../consts/Enums';
 import {
   Balance,
   ChainInfo,
@@ -50,7 +50,7 @@ class Service {
   public swapManager: SwapManager;
   public eventHandler: EventHandler;
 
-  private readonly prepayMinerFee: boolean;
+  private prepayMinerFee: boolean;
 
   private pairRepository: PairRepository;
 
@@ -717,7 +717,6 @@ class Service {
     let prepayMinerFeeAmount: number | undefined = undefined;
 
     if (this.prepayMinerFee) {
-      // TODO: double check this (divide by rate or multiply by rate)
       prepayMinerFeeAmount = Math.ceil(baseFee / rate);
       holdInvoiceAmount -= prepayMinerFeeAmount;
     }

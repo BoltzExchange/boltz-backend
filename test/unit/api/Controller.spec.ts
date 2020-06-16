@@ -1,4 +1,4 @@
-import { request, Request, Response } from 'express';
+import { Request, Response } from 'express';
 import Logger from '../../../lib/Logger';
 import Service from '../../../lib/service/Service';
 import Controller from '../../../lib/api/Controller';
@@ -38,6 +38,11 @@ const reverseSwaps: ReverseSwapType[] = [
     pair: 'BTC/BTC',
     transactionId: 'transactionMempool',
     status: SwapUpdateEvent.TransactionMempool,
+  } as any as ReverseSwapType,
+  {
+    id: 'r',
+    invoice: 'invoice',
+    status: SwapUpdateEvent.MinerFeePaid,
   } as any as ReverseSwapType,
   {
     id: 'rNoStatus',
@@ -214,7 +219,10 @@ describe('Controller', () => {
         eta: SwapNursery.reverseSwapMempoolEta,
       },
     });
-    expect(pendingSwaps.get(reverseSwaps[3].id)).toBeUndefined();
+    expect(pendingSwaps.get(reverseSwaps[3].id)).toEqual({
+      status: reverseSwaps[3].status,
+    });
+    expect(pendingSwaps.get(reverseSwaps[4].id)).toBeUndefined();
   });
 
   test('should get version', () => {

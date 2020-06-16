@@ -49,9 +49,9 @@ class ChannelCreation extends Model implements ChannelCreationType {
       ],
     });
 
-    // ChannelCreation.belongsTo(Swap, {
-    //  foreignKey: 'swapId',
-    // });
+    ChannelCreation.belongsTo(Swap, {
+      foreignKey: 'swapId',
+    });
   }
 }
 

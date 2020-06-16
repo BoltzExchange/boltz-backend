@@ -369,9 +369,8 @@ export const getSwapMemo = (sendingCurrency: string, isReverse: boolean) => {
   return `Send to ${sendingCurrency} ${isReverse ? 'address' : 'lightning'}`;
 };
 
-// TODO: nicer wording
 export const getPrepayMinerFeeInvoiceMemo = (sendingCurrency: string) => {
-  return `Miner fee for Swap to ${sendingCurrency} address`;
+  return `Miner fee for Reverse Swap to ${sendingCurrency} address`;
 };
 
 export const formatError = (error: any) => {

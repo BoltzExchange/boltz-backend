@@ -18,6 +18,11 @@ type SwapUpdate = {
   status: SwapUpdateEvent;
 
   transaction?: TransactionInfo;
+
+  channel?: {
+    fundingTransactionId: string;
+    fundingTransactionVout: number;
+  },
 };
 
 interface EventHandler {
@@ -31,7 +36,7 @@ interface EventHandler {
   emit(event: 'swap.failure', reverseSwap: Swap | ReverseSwap, isReverse: boolean, reason: string): boolean;
 
   on(event: 'channel.backup', listener: (currency: string, channelBackup: string) => void): this;
-  emit(event: 'channel.backup', currency: string, channelbackup: string): boolean;
+  emit(event: 'channel.backup', currency: string, channelBackup: string): boolean;
 }
 
 class EventHandler extends EventEmitter {
@@ -146,6 +151,16 @@ class EventHandler extends EventEmitter {
 
     this.nursery.on('refund', (reverseSwap) => {
       this.handleFailedReverseSwap(reverseSwap, Errors.REFUNDED_COINS(reverseSwap.transactionId!).message, SwapUpdateEvent.TransactionRefunded);
+    });
+
+    this.nursery.channelNursery.on('channel.created', (swap, channelCreation) => {
+      this.emit('swap.update', swap.id, {
+        status: SwapUpdateEvent.ChannelCreated,
+        channel: {
+          fundingTransactionId: channelCreation.fundingTransactionId!,
+          fundingTransactionVout: channelCreation.fundingTransactionVout!,
+        },
+      });
     });
   }
 

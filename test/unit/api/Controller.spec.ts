@@ -7,6 +7,7 @@ import { ReverseSwapType } from '../../../lib/db/models/ReverseSwap';
 import { SwapType as SwapDbType } from '../../../lib/db/models/Swap';
 import { SwapUpdateEvent, SwapType } from '../../../lib/consts/Enums';
 import { mapToObject, getHexBuffer, getVersion } from '../../../lib/Utils';
+import ChannelCreation from '../../../lib/db/models/ChannelCreation';
 
 type closeResponseCallback = () => void;
 type swapUpdateCallback = (id: string, message: string) => void;
@@ -17,9 +18,16 @@ const swaps: SwapDbType[] = [
     status: SwapUpdateEvent.InvoicePaid,
   } as any as SwapDbType,
   {
-    id: 'noStatus',
+    id: 'channel',
+    status: SwapUpdateEvent.ChannelCreated,
   } as any as SwapDbType,
 ];
+
+const channelCreation = {
+  fundingTransactionId: 'fundingTransactionId',
+  fundingTransactionVout: 42,
+} as any as ChannelCreation;
+
 const reverseSwaps: ReverseSwapType[] = [
   {
     id: 'rStatus',
@@ -43,9 +51,6 @@ const reverseSwaps: ReverseSwapType[] = [
     id: 'r',
     invoice: 'invoice',
     status: SwapUpdateEvent.MinerFeePaid,
-  } as any as ReverseSwapType,
-  {
-    id: 'rNoStatus',
   } as any as ReverseSwapType,
 ];
 
@@ -126,6 +131,9 @@ jest.mock('../../../lib/service/Service', () => {
         reverseSwapRepository: {
           getReverseSwaps: () => Promise.resolve(reverseSwaps),
         },
+        channelCreationRepository: {
+          getChannelCreation: () => Promise.resolve(channelCreation),
+        },
       },
 
       getPairs: mockGetPairs,
@@ -198,7 +206,13 @@ describe('Controller', () => {
     expect(pendingSwaps.get(swaps[0].id)).toEqual({
       status: swaps[0].status,
     });
-    expect(pendingSwaps.get(swaps[1].id)).toBeUndefined();
+    expect(pendingSwaps.get(swaps[1].id)).toEqual({
+      status: swaps[1].status,
+      channel: {
+        fundingTransactionId: channelCreation.fundingTransactionId,
+        fundingTransactionVout: channelCreation.fundingTransactionVout,
+      },
+    });
 
     expect(pendingSwaps.get(reverseSwaps[0].id)).toEqual({
       status: reverseSwaps[0].status,
@@ -222,7 +236,6 @@ describe('Controller', () => {
     expect(pendingSwaps.get(reverseSwaps[3].id)).toEqual({
       status: reverseSwaps[3].status,
     });
-    expect(pendingSwaps.get(reverseSwaps[4].id)).toBeUndefined();
   });
 
   test('should get version', () => {

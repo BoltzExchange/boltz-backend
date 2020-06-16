@@ -20,8 +20,8 @@ import {
 } from '../Utils';
 
 interface ChannelNursery {
-  on(event: 'channel.created', listener: (swap: Swap) => void): this;
-  emit(event: 'channel.created', swap: Swap): boolean;
+  on(event: 'channel.created', listener: (swap: Swap, channelCreation: ChannelCreation) => void): this;
+  emit(event: 'channel.created', swap: Swap, channelCreation: ChannelCreation): boolean;
 }
 
 class ChannelNursery extends EventEmitter {
@@ -161,9 +161,14 @@ class ChannelNursery extends EventEmitter {
       const fundingTransactionId = this.parseFundingTransactionId(fundingTxidBytes);
 
       this.logger.info(`Opened channel for Swap ${swap.id} to ${payeeNodeKey}: ${fundingTransactionId}:${outputIndex}`);
-      await this.channelCreationRepository.setFundingTransaction(channelCreation, fundingTransactionId, outputIndex);
 
-      this.emit('channel.created', swap);
+      await this.swapRepository.setSwapStatus(swap, SwapUpdateEvent.ChannelCreated);
+
+      this.emit(
+        'channel.created',
+        swap,
+        await this.channelCreationRepository.setFundingTransaction(channelCreation, fundingTransactionId, outputIndex),
+      );
     } catch (error) {
       // TODO: emit event?
       const formattedError = formatError(error);

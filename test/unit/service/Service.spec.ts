@@ -104,6 +104,9 @@ jest.mock('../../../lib/swap/SwapManager', () => {
   return jest.fn().mockImplementation(() => ({
     nursery: {
       on: () => {},
+      channelNursery: {
+        on: () => {},
+      },
     },
     swapRepository: mockedSwapRepository(),
     reverseSwapRepository: mockedReverseSwapRepository(),

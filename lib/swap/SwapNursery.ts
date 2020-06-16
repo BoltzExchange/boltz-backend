@@ -82,13 +82,13 @@ interface SwapNursery {
 
 // TODO: remove finished swaps from filters (make sure they are actually gone)
 class SwapNursery extends EventEmitter {
+  public channelNursery: ChannelNursery;
+
   public static reverseSwapMempoolEta = 2;
 
   private lock = new AsyncLock();
 
   private currencies = new Map<string, Currency>();
-
-  private channelNursery: ChannelNursery;
 
   private static retryLock = 'lock';
 

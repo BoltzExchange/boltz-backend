@@ -20,10 +20,13 @@ const mockGetSwap = jest.fn().mockImplementation(async () => {
   return mockGetSwapResult;
 });
 
+const mockSetSwapStatus = jest.fn().mockResolvedValue(undefined);
+
 jest.mock('../../../lib/db/SwapRepository', () => {
   return jest.fn().mockImplementation(() => {
     return {
       getSwap: mockGetSwap,
+      setSwapStatus: mockSetSwapStatus,
     };
   });
 });
@@ -46,7 +49,9 @@ const mockGetChannelCreations = jest.fn().mockImplementation(async () => {
   return mockGetChannelCreationsResult;
 });
 
-const mockSetFundingTransaction = jest.fn().mockResolvedValue(undefined);
+const mockSetFundingTransaction = jest.fn().mockImplementation(async (arg) => {
+  return arg;
+});
 
 jest.mock('../../../lib/db/ChannelCreationRepository', () => {
   return jest.fn().mockImplementation(() => {
@@ -318,8 +323,9 @@ describe('ChannelNursery', () => {
 
     let eventEmitted = false;
 
-    channelNursery.once('channel.created', (eventSwap: Swap) => {
+    channelNursery.once('channel.created', (eventSwap: Swap, eventChannelCreation: ChannelCreation) => {
       expect(eventSwap).toEqual(swap);
+      expect(eventChannelCreation).toEqual(channelCreation);
 
       eventEmitted = true;
     });
@@ -340,6 +346,9 @@ describe('ChannelNursery', () => {
       true,
       3,
     );
+
+    expect(mockSetSwapStatus).toHaveBeenCalledTimes(1);
+    expect(mockSetSwapStatus).toHaveBeenCalledWith(swap, SwapUpdateEvent.ChannelCreated);
 
     expect(mockSetFundingTransaction).toHaveBeenCalledTimes(1);
     expect(mockSetFundingTransaction).toHaveBeenCalledWith(channelCreation, '4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b', 2);

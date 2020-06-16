@@ -24,6 +24,18 @@ If the user doesn't send onchain coins until the time lock is expired, Boltz wil
 
 For more information about the refunding onchain coins, checkout the [scripting docs](scripting.md).
 
+When a Channel Creation is involved in the Swap protocol, the backend will send the event `channel.created` after `transaction.confirmed`. This event means that a channel has been opened to the requested node. Alongside the status update, the JSON object `channel` is sent, which contains information about the funding transaction of the opened channel:
+
+```json
+{
+  "status": "channel.created",
+  "channel": {
+    "fundingTransactionId": "80a3718319b576b0422ab407a5766df052a89eccf9789d90e0d250e3fc2734f7",
+    "fundingTransactionVout": 0
+  }
+}
+```
+
 ## Reverse Submarine Swaps
 
 Reverse swaps are from lightning to onchain coins. In this scenario the user generates a preimage, creates SHA256 hash of it and sends that hash to Boltz. With that hash Boltz creates a hold invoice, that can only be settled when the preimage is revealed to the boltz backend. The user pays that invoice, but the lightning coins are not transferred to Boltz yet because it doesn't know the preimage. Therefore, the backend locks up onchain coins using the same hash so that these can be claimed with the preimage. When the claim transaction is broadcasted by the user, Boltz detects the preimage and in turn claims the lightning coins.

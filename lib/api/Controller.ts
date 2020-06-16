@@ -1,3 +1,4 @@
+import { Op } from 'sequelize';
 import { Request, Response } from 'express';
 import Logger from '../Logger';
 import Service from '../service/Service';
@@ -40,38 +41,57 @@ class Controller {
       this.service.swapManager.reverseSwapRepository.getReverseSwaps(),
     ]);
 
-    swaps.forEach((swap) => {
-      if (swap.status) {
-        this.pendingSwapInfos.set(swap.id, { status: swap.status as SwapUpdateEvent });
+    for (const swap of swaps) {
+      const status = swap.status as SwapUpdateEvent;
+
+      switch (status) {
+        case SwapUpdateEvent.ChannelCreated:
+          const channelCreation = await this.service.swapManager.channelCreationRepository.getChannelCreation({
+            swapId: {
+              [Op.eq]: swap.id,
+            },
+          });
+
+          this.pendingSwapInfos.set(swap.id, {
+            status,
+            channel: {
+              fundingTransactionId: channelCreation!.fundingTransactionId!,
+              fundingTransactionVout: channelCreation!.fundingTransactionVout!,
+            },
+          });
+
+          break;
+
+        default:
+          this.pendingSwapInfos.set(swap.id, { status: swap.status as SwapUpdateEvent });
+          break;
       }
-    });
+    }
 
     for (const reverseSwap of reverseSwaps) {
-      if (reverseSwap.status) {
-        const status = reverseSwap.status as SwapUpdateEvent;
+      const status = reverseSwap.status as SwapUpdateEvent;
 
-        switch (status) {
-          case SwapUpdateEvent.TransactionMempool:
-          case SwapUpdateEvent.TransactionConfirmed:
-            const { base, quote } = splitPairId(reverseSwap.pair);
-            const chainCurrency = getChainCurrency(base, quote, reverseSwap.orderSide, true);
+      switch (status) {
+        case SwapUpdateEvent.TransactionMempool:
+        case SwapUpdateEvent.TransactionConfirmed:
+          const { base, quote } = splitPairId(reverseSwap.pair);
+          const chainCurrency = getChainCurrency(base, quote, reverseSwap.orderSide, true);
 
-            const transactionHex = await this.service.getTransaction(chainCurrency, reverseSwap.transactionId!);
+          const transactionHex = await this.service.getTransaction(chainCurrency, reverseSwap.transactionId!);
 
-            this.pendingSwapInfos.set(reverseSwap.id, {
-              status,
-              transaction: {
-                hex: transactionHex,
-                id: reverseSwap.transactionId!,
-                eta: status === SwapUpdateEvent.TransactionMempool ? SwapNursery.reverseSwapMempoolEta : undefined,
-              },
-            });
-            break;
+          this.pendingSwapInfos.set(reverseSwap.id, {
+            status,
+            transaction: {
+              hex: transactionHex,
+              id: reverseSwap.transactionId!,
+              eta: status === SwapUpdateEvent.TransactionMempool ? SwapNursery.reverseSwapMempoolEta : undefined,
+            },
+          });
+          break;
 
-          default:
-            this.pendingSwapInfos.set(reverseSwap.id, { status });
-            break;
-        }
+        default:
+          this.pendingSwapInfos.set(reverseSwap.id, { status });
+          break;
       }
     }
   }

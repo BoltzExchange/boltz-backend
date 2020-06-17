@@ -2,14 +2,19 @@ import Sequelize from 'sequelize';
 import Logger from '../Logger';
 import Pair from './models/Pair';
 import Swap from './models/Swap';
+import Migration from './Migration';
 import ReverseSwap from './models/ReverseSwap';
 import KeyProvider from './models/KeyProvider';
+import DatabaseVersion from './models/DatabaseVersion';
 import ChannelCreation from './models/ChannelCreation';
 
 class Db {
   public sequelize: Sequelize.Sequelize;
 
+  private migration: Migration;
+
   /**
+   * @param logger logger that should be used
    * @param storage the file path to the SQLite databse; if ':memory:' the databse will be stored in the memory
    */
   constructor(private logger: Logger, private storage: string) {
@@ -20,6 +25,8 @@ class Db {
     });
 
     this.loadModels();
+
+    this.migration = new Migration(this.logger);
   }
 
   public init = async () => {
@@ -34,6 +41,7 @@ class Db {
     await Promise.all([
       Pair.sync(),
       KeyProvider.sync(),
+      DatabaseVersion.sync(),
     ]);
 
     await Promise.all([
@@ -42,6 +50,8 @@ class Db {
     ]);
 
     await ChannelCreation.sync();
+
+    await this.migration.migrate();
   }
 
   public close = async () => {
@@ -54,6 +64,7 @@ class Db {
     ReverseSwap.load(this.sequelize);
     KeyProvider.load(this.sequelize);
     ChannelCreation.load(this.sequelize);
+    DatabaseVersion.load(this.sequelize);
   }
 }
 

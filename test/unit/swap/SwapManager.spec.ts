@@ -2,7 +2,7 @@ import { Op } from 'sequelize';
 import bolt11 from '@boltz/bolt11';
 import { randomBytes } from 'crypto';
 import { Networks, OutputType } from 'boltz-core';
-import { address, ECPair, Transaction } from 'bitcoinjs-lib';
+import { address, crypto, ECPair, Transaction } from 'bitcoinjs-lib';
 import Logger from '../../../lib/Logger';
 import Errors from '../../../lib/swap/Errors';
 import Swap from '../../../lib/db/models/Swap';
@@ -725,18 +725,19 @@ describe('SwapManager', () => {
     expect(prepayReverseSwap).toEqual({
       id: expect.anything(),
       invoice: mockAddHoldInvoiceResult,
-      minerFeeInvoice: mockAddInvoiceResult.paymentRequest,
+      minerFeeInvoice: mockAddHoldInvoiceResult,
       lockupAddress: 'bcrt1q2f4axqr8859mmemce2fcvdvuqlu8vqtjfg3z4j2w4fu52t58g42sjtfv2y',
       timeoutBlockHeight: onchainTimeoutBlockDelta + mockGetBlockchainInfoResult.blocks,
       redeemScript: '8201208763a9142f958e32209e7d5f60d321d4f4f6e12bdbf06db28821026c94d2958888e70fd32349b3c195803976e0865a54ab1755f19c2c820fcbafa86775020701b1752102c9c71ee3fee0c400ff64e51e955313e77ea499fc609973c71c5a4104a8d903bb68ac',
     });
 
-    expect(mockAddHoldInvoice).toHaveBeenCalledTimes(2);
+    expect(mockAddHoldInvoice).toHaveBeenCalledTimes(3);
     expect(mockAddHoldInvoice).toHaveBeenNthCalledWith(2, holdInvoiceAmount, preimageHash, lightningTimeoutBlockDelta, 'Send to BTC address');
+    expect(mockAddHoldInvoice).toHaveBeenNthCalledWith(3, prepayMinerFee, expect.anything(), lightningTimeoutBlockDelta, 'Miner fee for Reverse Swap to BTC address');
 
     expect(mockSubscribeSingleInvoice).toHaveBeenCalledTimes(3);
     expect(mockSubscribeSingleInvoice).toHaveBeenNthCalledWith(2, preimageHash);
-    expect(mockSubscribeSingleInvoice).toHaveBeenNthCalledWith(3, Buffer.from(mockAddInvoiceResult.rHash, 'base64'));
+    expect(mockSubscribeSingleInvoice).toHaveBeenNthCalledWith(3, expect.anything());
 
     expect(mockGetNewKeys).toHaveBeenCalledTimes(2);
     expect(mockGetBlockchainInfo).toHaveBeenCalledTimes(2);
@@ -749,10 +750,11 @@ describe('SwapManager', () => {
       fee: percentageFee,
       id: prepayReverseSwap.id,
       invoice: mockAddHoldInvoiceResult,
+      minerFeePreimage: expect.anything(),
       status: SwapUpdateEvent.SwapCreated,
       keyIndex: mockGetNewKeysResult.index,
       pair: `${baseCurrency}/${quoteCurrency}`,
-      minerFeeInvoice: mockAddInvoiceResult.paymentRequest,
+      minerFeeInvoice: mockAddHoldInvoiceResult,
       lockupAddress: 'bcrt1q2f4axqr8859mmemce2fcvdvuqlu8vqtjfg3z4j2w4fu52t58g42sjtfv2y',
       timeoutBlockHeight: onchainTimeoutBlockDelta + mockGetBlockchainInfoResult.blocks,
       redeemScript: '8201208763a9142f958e32209e7d5f60d321d4f4f6e12bdbf06db28821026c94d2958888e70fd32349b3c195803976e0865a54ab1755f19c2c820fcbafa86775020701b1752102c9c71ee3fee0c400ff64e51e955313e77ea499fc609973c71c5a4104a8d903bb68ac',
@@ -786,7 +788,7 @@ describe('SwapManager', () => {
         pair: 'BTC/BTC',
         orderSide: OrderSide.BUY,
         status: SwapUpdateEvent.SwapCreated,
-        minerFeeInvoice: 'lnbcrt10n1p0wwwfppp5chef6eznn05q2xh4399ufttf4lacxuxhl6f4nwmych0sy46qesysdqqcqzpgsp554r6j0g22kjgm5gt7cs4uu034eqmtudqskampn9qt6rvun6ya2zq9qy9qsqkzk64ql9vynz58hugcvausfe30fsd5kpefxjejyf6vg5ka52f4tnpa5c8ladgxhzxw2hwzwu3xzx55ugu945cmuh2le6nc2ye0zq22spz9zhvc',
+        minerFeePreimage: '8aa13fcf0eef0c166092875095d30dd1098a440dddc9abfd7202fcfa216a0018',
         invoice: 'lnbcrt20n1p0wwwfzpp50xkp4kv7n6lepmqnvzflzasq0y5ukvtlq9h5lqen6nvrcdgk6pasdqqcqzpgsp5dskzqsa28gg6kmcqpx4vufj26vkjrglhg8dvlrcmthgpq45sevaq9qy9qsqw0rx65c42wggx4sstrulg4vrr82hcdcps5gx6j0dqavgcl2ydaa4pg0zs8anuqxvurqs2peselhtnd9ky2dpr7l4xujurw0cfslxpzcpxfnwxl',
       },
     ] as any as ReverseSwap[];
@@ -796,7 +798,7 @@ describe('SwapManager', () => {
 
     expect(mockSubscribeSingleInvoice).toHaveBeenCalledTimes(2);
 
-    expect(mockSubscribeSingleInvoice).toHaveBeenNthCalledWith(1, getHexBuffer(decodeInvoice(reverseSwaps[0].minerFeeInvoice!).paymentHash!));
+    expect(mockSubscribeSingleInvoice).toHaveBeenNthCalledWith(1, crypto.sha256(getHexBuffer(reverseSwaps[0].minerFeePreimage!)));
     expect(mockSubscribeSingleInvoice).toHaveBeenNthCalledWith(2, getHexBuffer(decodeInvoice(reverseSwaps[0].invoice).paymentHash!));
 
     reverseSwaps[0].status = SwapUpdateEvent.MinerFeePaid;

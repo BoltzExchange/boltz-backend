@@ -279,7 +279,7 @@ class LndClient extends BaseClient implements LndClient {
 
   public lookupInvoice = (preimageHash: Buffer) => {
     const request = new lndrpc.PaymentHash();
-    request.setRHash(preimageHash);
+    request.setRHash(Uint8Array.from(preimageHash));
 
     return this.unaryCall<lndrpc.PaymentHash, lndrpc.Invoice.AsObject>('lookupInvoice', request);
   }
@@ -496,8 +496,6 @@ class LndClient extends BaseClient implements LndClient {
           this.logger.debug(`${LndClient.serviceName} ${this.symbol} accepted ${invoice.getHtlcsList().length} HTLC${invoice.getHtlcsList().length > 1 ? 's' : ''} for invoice: ${invoice.getPaymentRequest()}`);
 
           this.emit('htlc.accepted', invoice.getPaymentRequest());
-
-          deleteSubscription();
         } else if (invoice.getState() === lndrpc.Invoice.InvoiceState.SETTLED) {
           this.logger.debug(`${LndClient.serviceName} ${this.symbol} invoice settled: ${invoice.getPaymentRequest()}`);
           this.emit('invoice.settled', invoice.getPaymentRequest());

@@ -1,5 +1,6 @@
 import { Op } from 'sequelize';
-import { Transaction } from 'bitcoinjs-lib';
+import { randomBytes } from 'crypto';
+import { crypto, Transaction } from 'bitcoinjs-lib';
 import { OutputType, reverseSwapScript, swapScript } from 'boltz-core';
 import Errors from './Errors';
 import Logger from '../Logger';
@@ -320,12 +321,23 @@ class SwapManager {
     receivingCurrency.lndClient.subscribeSingleInvoice(preimageHash);
 
     let minerFeeInvoice: string | undefined = undefined;
+    let minerFeePreimage: Buffer | undefined = undefined;
 
     if (prepayMinerFee) {
-      const prepayInvoice = await receivingCurrency.lndClient.addInvoice(prepayMinerFee, getPrepayMinerFeeInvoiceMemo(sendingCurrency.symbol));
+      minerFeePreimage = randomBytes(32);
+      const minerFeePreimageHash = crypto.sha256(minerFeePreimage);
+
+      this.logger.debug(`Creating Reverse Swap prepay minerfee invoice with preimage hash: ${getHexString(minerFeePreimageHash)}`);
+
+      const prepayInvoice = await receivingCurrency.lndClient.addHoldInvoice(
+        prepayMinerFee,
+        minerFeePreimageHash,
+        lightningTimeoutBlockDelta,
+        getPrepayMinerFeeInvoiceMemo(sendingCurrency.symbol),
+      );
       minerFeeInvoice = prepayInvoice.paymentRequest;
 
-      receivingCurrency.lndClient.subscribeSingleInvoice(Buffer.from(prepayInvoice.rHash as string, 'base64'));
+      receivingCurrency.lndClient.subscribeSingleInvoice(minerFeePreimageHash);
     }
 
     const { keys, index } = sendingCurrency.wallet.getNewKeys();
@@ -358,6 +370,7 @@ class SwapManager {
       status: SwapUpdateEvent.SwapCreated,
       redeemScript: getHexString(redeemScript),
       pair: getPairId({ base: baseCurrency, quote: quoteCurrency }),
+      minerFeePreimage: minerFeePreimage ? getHexString(minerFeePreimage) : undefined,
     });
 
     return {
@@ -381,8 +394,8 @@ class SwapManager {
 
         const { lndClient } = this.currencies.get(lightningCurrency)!;
 
-        if (reverseSwap.minerFeeInvoice && swap.status !== SwapUpdateEvent.MinerFeePaid) {
-          lndClient!.subscribeSingleInvoice(getHexBuffer(decodeInvoice(reverseSwap.minerFeeInvoice).paymentHash!));
+        if (reverseSwap.minerFeePreimage && swap.status !== SwapUpdateEvent.MinerFeePaid) {
+          lndClient!.subscribeSingleInvoice(crypto.sha256(getHexBuffer(reverseSwap.minerFeePreimage)));
         }
 
         lndClient!.subscribeSingleInvoice(getHexBuffer(decodeInvoice(reverseSwap.invoice).paymentHash!));

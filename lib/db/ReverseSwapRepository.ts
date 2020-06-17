@@ -3,24 +3,23 @@ import { SwapUpdateEvent } from '../consts/Enums';
 import ReverseSwap, { ReverseSwapType } from './models/ReverseSwap';
 
 class ReverseSwapRepository {
-
-  public getReverseSwaps = async (options?: WhereOptions): Promise<ReverseSwap[]> => {
+  public getReverseSwaps = (options?: WhereOptions): Promise<ReverseSwap[]> => {
     return ReverseSwap.findAll({
       where: options,
     });
   }
 
-  public getReverseSwap = async (options: WhereOptions): Promise<ReverseSwap> => {
+  public getReverseSwap = (options: WhereOptions): Promise<ReverseSwap> => {
     return ReverseSwap.findOne({
       where: options,
     });
   }
 
-  public addReverseSwap = async (reverseSwap: ReverseSwapType) => {
+  public addReverseSwap = (reverseSwap: ReverseSwapType) => {
     return ReverseSwap.create(reverseSwap);
   }
 
-  public setReverseSwapStatus = async (reverseSwap: ReverseSwap, status: string) => {
+  public setReverseSwapStatus = (reverseSwap: ReverseSwap, status: string) => {
     return reverseSwap.update({
       status,
     });
@@ -35,21 +34,21 @@ class ReverseSwapRepository {
     });
   }
 
-  public setInvoiceSettled = async (reverseSwap: ReverseSwap, preimage: string) => {
+  public setInvoiceSettled = (reverseSwap: ReverseSwap, preimage: string) => {
     return reverseSwap.update({
       preimage,
       status: SwapUpdateEvent.InvoiceSettled,
     });
   }
 
-  public setTransactionRefunded = async (reverseSwap: ReverseSwap, minerFee: number) => {
+  public setTransactionRefunded = (reverseSwap: ReverseSwap, minerFee: number) => {
     return reverseSwap.update({
       minerFee: reverseSwap.minerFee + minerFee,
       status: SwapUpdateEvent.TransactionRefunded,
     });
   }
 
-  public dropTable = async () => {
+  public dropTable = () => {
     return ReverseSwap.drop();
   }
 }

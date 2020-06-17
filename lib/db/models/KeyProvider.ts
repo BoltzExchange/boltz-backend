@@ -20,8 +20,8 @@ class KeyProvider extends Model implements KeyProviderType {
       highestUsedIndex: { type: new DataTypes.INTEGER(), allowNull: false },
     }, {
       sequelize,
-      timestamps: false,
       tableName: 'keys',
+      timestamps: false,
     });
   }
 }

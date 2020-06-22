@@ -865,7 +865,7 @@ class Service {
     }
 
     return Math.floor(
-      ((onchainAmount - baseFee) * rate) / (1 + (percentageFee / 100)),
+      ((onchainAmount - baseFee) * rate) / (1 + (percentageFee)),
     );
   }
 

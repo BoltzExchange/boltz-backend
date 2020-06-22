@@ -198,7 +198,7 @@ const mockGetFees = jest.fn().mockReturnValue({
   percentageFee: 1,
 });
 
-const mockGetPercentageFee = jest.fn().mockReturnValue(1);
+const mockGetPercentageFee = jest.fn().mockReturnValue(0.01);
 
 jest.mock('../../../lib/rates/FeeProvider', () => {
   return jest.fn().mockImplementation(() => ({
@@ -1216,11 +1216,11 @@ describe('Service', () => {
   test('should calculate invoice amounts', () => {
     const calculateInvoiceAmount = service['calculateInvoiceAmount'];
 
-    expect(calculateInvoiceAmount(OrderSide.BUY, 1, 1000000, 210, 2)).toEqual(980186);
-    expect(calculateInvoiceAmount(OrderSide.SELL, 1, 1000000, 210, 2)).toEqual(980186);
+    expect(calculateInvoiceAmount(OrderSide.BUY, 1, 1000000, 210, 0.02)).toEqual(980186);
+    expect(calculateInvoiceAmount(OrderSide.SELL, 1, 1000000, 210, 0.02)).toEqual(980186);
 
-    expect(calculateInvoiceAmount(OrderSide.BUY, 0.005, 1000000, 120, 5)).toEqual(190453333);
-    expect(calculateInvoiceAmount(OrderSide.SELL, 0.005, 1000000, 120, 5)).toEqual(4761);
+    expect(calculateInvoiceAmount(OrderSide.BUY, 0.005, 1000000, 120, 0.05)).toEqual(190453333);
+    expect(calculateInvoiceAmount(OrderSide.SELL, 0.005, 1000000, 120, 0.05)).toEqual(4761);
   });
 
   test('should get pair', () => {

@@ -57,7 +57,7 @@
   ],
   "dependencies": {
     "@boltz/bolt11": "^1.2.7",
-    "@google-cloud/storage": "^5.1.0",
+    "@google-cloud/storage": "^5.1.1",
     "@iarna/toml": "^2.2.5",
     "@truffle/hdwallet-provider": "^1.0.35",
     "async-lock": "^1.2.4",
@@ -80,7 +80,7 @@
     "sqlite3": "^4.2.0",
     "typescript": "^3.9.5",
     "web3": "^1.2.9",
-    "winston": "^3.2.1",
+    "winston": "^3.3.1",
     "yargs": "^15.3.1",
     "zeromq": "^5.2.0"
   },
@@ -102,8 +102,8 @@
     "grpc-tools": "^1.9.0",
     "grpc_tools_node_protoc_ts": "^4.0.0",
     "jest": "26.0.1",
-    "truffle": "^5.1.30",
-    "ts-jest": "26.1.0",
+    "truffle": "^5.1.31",
+    "ts-jest": "26.1.1",
     "ts-node": "8.10.2",
     "ts-protoc-gen": "^0.12.0",
     "tslint": "^6.1.2",

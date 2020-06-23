@@ -76,7 +76,7 @@ class ChannelNursery extends EventEmitter {
 
           for (const channelCreation of channelCreations) {
             const swap = await this.swapRepository.getSwap({
-              swapId: {
+              id: {
                 [Op.eq]: channelCreation.swapId,
               },
               status: {

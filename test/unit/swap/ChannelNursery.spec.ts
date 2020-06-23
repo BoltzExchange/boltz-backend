@@ -229,7 +229,7 @@ describe('ChannelNursery', () => {
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockGetSwap).toHaveBeenCalledWith({
-      swapId: {
+      id: {
         [Op.eq]: mockGetChannelCreationsResult[0].swapId,
       },
       status: {

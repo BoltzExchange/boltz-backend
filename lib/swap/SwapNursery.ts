@@ -501,8 +501,10 @@ class SwapNursery extends EventEmitter {
         if (channelCreation.type === ChannelCreationType.Create && channelCreation.status === null) {
           // TODO: logging and swap update event when the sent amount it too little
           if (swap.onchainAmount! >= swap.expectedAmount!) {
-            // TODO: cross chain
-            await this.channelNursery.openChannel(currency, swap, channelCreation);
+            const { base, quote } = splitPairId(swap.pair);
+            const lightningCurrency = getLightningCurrency(base, quote, swap.orderSide, false);
+
+            await this.channelNursery.openChannel(this.currencies.get(lightningCurrency)!, swap, channelCreation);
           }
 
           return;
@@ -576,12 +578,15 @@ class SwapNursery extends EventEmitter {
       if (
         channelCreation &&
         !channelCreation.status &&
-        typeof error === 'string' &&
-        !error.startsWith('unable to route payment to destination: UnknownNextPeer')
+        typeof error === 'string'
       ) {
-        // TODO: cross chain support
-        await this.channelNursery.openChannel(currency, swap, channelCreation);
-        return;
+        if (
+          !error.startsWith('unable to route payment to destination: UnknownNextPeer') &&
+          !error.includes('invoice expired')
+        ) {
+          await this.channelNursery.openChannel(this.currencies.get(lightningCurrency)!, swap, channelCreation);
+          return;
+        }
       }
 
       // Since paying the invoice failed, we can't continue with the claiming flow

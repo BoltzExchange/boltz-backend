@@ -40,6 +40,8 @@ class ChannelNursery extends EventEmitter {
   private static channelSettleLock = 'channelSettle';
   private static channelCreationLock = 'channelCreation';
 
+  private static lndNotSyncedTimeout = 1000;
+
   constructor(
     private logger: Logger,
     private swapRepository: SwapRepository,
@@ -145,7 +147,6 @@ class ChannelNursery extends EventEmitter {
       await this.channelCreationRepository.setAttempted(channelCreation);
     }
 
-    // TODO: test cross chain compatibility
     const channelCapacity = Math.ceil(satoshis! / (1 - (channelCreation.inboundLiquidity / 100)));
 
     const feePerVbyte = await lightningCurrency.chainClient.estimateFee();
@@ -177,9 +178,12 @@ class ChannelNursery extends EventEmitter {
       // in it. In case Boltz processes the block faster than LND does, it will try to open the channel while
       // LND is still syncing the freshly mined block
       if (formattedError === '2 UNKNOWN: channels cannot be created before the wallet is fully synced') {
-        // Let's just wait for half a second and try again
+        this.logger.warn(`Could not open channel for Swap ${swap.id}: LND wallet is not fully synced`);
+        this.logger.debug(`Retrying in ${ChannelNursery.lndNotSyncedTimeout}ms`);
+
+        // Let's just wait for a second and try again
         await new Promise((resolve) => {
-          setTimeout(resolve, 500);
+          setTimeout(resolve, ChannelNursery.lndNotSyncedTimeout);
         });
 
         await this.openChannel(lightningCurrency, swap, channelCreation);

@@ -732,10 +732,12 @@ describe('Controller', () => {
       test: 0,
     }, checks)).toThrowError(`invalid parameter: ${checks[0].name}`);
 
-    // Hex can't be parsed
-    expect(() => validateRequest({
+    // Ignore empty hex
+    expect(validateRequest({
       test: '',
-    }, hexChecks)).toThrowError(`could not parse hex string: ${hexChecks[0].name}`);
+    }, hexChecks)).toEqual({
+      test: '',
+    });
 
     // Successful validation
     expect(
@@ -758,13 +760,13 @@ describe('Controller', () => {
     }, optionalChecks)).toEqual({ test: 'test' });
   });
 
-  // TODO: fix this
-  /*test('should handle error responses', () => {
+  test('should handle error responses', () => {
+    const req = mockRequest({});
     const res = mockResponse();
 
     let error: any = '123';
 
-    controller.errorResponse(res, error);
+    controller.errorResponse(req, res, error);
 
     expect(res.status).toHaveBeenNthCalledWith(1, 400);
     expect(res.json).toHaveBeenNthCalledWith(1, { error });
@@ -773,7 +775,7 @@ describe('Controller', () => {
       details: 'missing inputs',
     };
 
-    controller.errorResponse(res, error);
+    controller.errorResponse(req, res, error);
 
     expect(res.status).toHaveBeenNthCalledWith(2, 400);
     expect(res.json).toHaveBeenNthCalledWith(2, { error: error.details });
@@ -783,7 +785,7 @@ describe('Controller', () => {
       error: 'timelock requirement not met',
     };
 
-    controller.errorResponse(res, error);
+    controller.errorResponse(req, res, error);
 
     expect(res.status).toHaveBeenNthCalledWith(3, 400);
     expect(res.json).toHaveBeenNthCalledWith(3, error);
@@ -792,16 +794,16 @@ describe('Controller', () => {
       message: 'some other error',
     };
 
-    controller.errorResponse(res, error);
+    controller.errorResponse(req, res, error);
 
     expect(res.status).toHaveBeenNthCalledWith(4, 400);
     expect(res.json).toHaveBeenNthCalledWith(4, { error: error.message });
 
-    controller.errorResponse(res, error, 401);
+    controller.errorResponse(req, res, error, 401);
 
     expect(res.status).toHaveBeenNthCalledWith(5, 401);
     expect(res.json).toHaveBeenNthCalledWith(5, { error: error.message });
-  });*/
+  });
 
   test('should parse swap types', () => {
     const parseSwapType = controller['parseSwapType'];

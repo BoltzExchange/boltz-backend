@@ -8,13 +8,14 @@ import Swap from '../../../lib/db/models/Swap';
 import Service from '../../../lib/service/Service';
 import { decodeInvoice } from '../../../lib/Utils';
 import ReverseSwap from '../../../lib/db/models/ReverseSwap';
-import { swapExample, reverseSwapExample } from './ExampleSwaps';
+import { swapExample, reverseSwapExample, channelCreationExample } from './ExampleSwaps';
 import BackupScheduler from '../../../lib/backup/BackupScheduler';
 import DiscordClient from '../../../lib/notifications/DiscordClient';
 import { satoshisToCoins } from '../../../lib/DenominationConverter';
 import NotificationProvider from '../../../lib/notifications/NotificationProvider';
+import ChannelCreation from '../../../lib/db/models/ChannelCreation';
 
-type successCallback = (swap: Swap | ReverseSwap, isReverse: boolean) => void;
+type successCallback = (swap: Swap | ReverseSwap, isReverse: boolean, channelCreation?: ChannelCreation) => void;
 type failureCallback = (swap: Swap | ReverseSwap, isReverse: boolean, reason: string) => void;
 
 let emitSwapSuccess: successCallback;
@@ -75,6 +76,10 @@ describe('NotificationProvider', () => {
     ...swapExample,
   } as any as Swap;
 
+  const channelCreation = {
+    ...channelCreationExample,
+  } as any as ChannelCreation;
+
   const reverseSwap = {
     ...reverseSwapExample,
   } as any as ReverseSwap;
@@ -111,7 +116,7 @@ describe('NotificationProvider', () => {
     expect(mockGetBalance).toHaveBeenCalledTimes(1);
   });
 
-  test('should send a notification after successful (reverse) swaps', async () => {
+  test('should send a notification after successful Swaps', async () => {
     emitSwapSuccess(swap, false);
     await wait(5);
 
@@ -128,12 +133,14 @@ describe('NotificationProvider', () => {
       `Routing fees: ${swap.routingFee! / 1000} litoshi` +
       NotificationProvider['trailingWhitespace'],
     );
+  });
 
+  test('should send a notification after successful Reverse Swaps', async () => {
     emitSwapSuccess(reverseSwap, true);
     await wait(5);
 
-    expect(mockSendMessage).toHaveBeenCalledTimes(2);
-    expect(mockSendMessage).toHaveBeenNthCalledWith(2,
+    expect(mockSendMessage).toHaveBeenCalledTimes(1);
+    expect(mockSendMessage).toHaveBeenCalledWith(
       '**Swap LTC :zap: -> BTC**\n' +
       `ID: ${reverseSwap.id}\n` +
       `Pair: ${reverseSwap.pair}\n` +
@@ -146,7 +153,7 @@ describe('NotificationProvider', () => {
     );
   });
 
-  test('should send a notification after failed (reverse) swaps', async () => {
+  test('should send a notification after failed Swaps', async () => {
     const failureReason = 'because';
 
     emitSwapFailure(swap, false, failureReason);
@@ -163,12 +170,16 @@ describe('NotificationProvider', () => {
       `Invoice: ${swap.invoice}` +
       NotificationProvider['trailingWhitespace'],
     );
+  });
+
+  test('should send a notification after failed Reverse Swaps', async () => {
+    const failureReason = 'becauseReverse';
 
     emitSwapFailure(reverseSwap, true, failureReason);
     await wait(5);
 
-    expect(mockSendMessage).toHaveBeenCalledTimes(2);
-    expect(mockSendMessage).toHaveBeenNthCalledWith(2,
+    expect(mockSendMessage).toHaveBeenCalledTimes(1);
+    expect(mockSendMessage).toHaveBeenNthCalledWith(1,
       `**Swap LTC :zap: -> BTC failed: ${failureReason}**\n` +
       `ID: ${reverseSwap.id}\n` +
       `Pair: ${reverseSwap.pair}\n` +
@@ -185,14 +196,38 @@ describe('NotificationProvider', () => {
     } as any as ReverseSwap, true, failureReason);
     await wait(5);
 
-    expect(mockSendMessage).toHaveBeenCalledTimes(3);
-    expect(mockSendMessage).toHaveBeenNthCalledWith(3,
+    expect(mockSendMessage).toHaveBeenCalledTimes(2);
+    expect(mockSendMessage).toHaveBeenNthCalledWith(2,
       `**Swap LTC :zap: -> BTC failed: ${failureReason}**\n` +
       `ID: ${reverseSwap.id}\n` +
       `Pair: ${reverseSwap.pair}\n` +
       'Order side: sell\n' +
       `Onchain amount: ${satoshisToCoins(reverseSwap.onchainAmount!)} BTC\n` +
       `Lightning amount: ${satoshisToCoins(decodeInvoice(reverseSwap.invoice).satoshis)} LTC` +
+      NotificationProvider['trailingWhitespace'],
+    );
+  });
+
+  test('should send notification after successful Channel Creation Swap', async () => {
+    emitSwapSuccess(swap, false, channelCreation);
+    await wait(5);
+
+    expect(mockSendMessage).toHaveBeenCalledTimes(1);
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      '**Swap BTC -> LTC :zap: :construction_site:**\n' +
+      `ID: ${swap.id}\n` +
+      `Pair: ${swap.pair}\n` +
+      'Order side: buy\n' +
+      `Onchain amount: ${satoshisToCoins(swap.onchainAmount!)} BTC\n` +
+      `Lightning amount: ${satoshisToCoins(decodeInvoice(swap.invoice!).satoshis)} LTC\n` +
+      `Fees earned: ${satoshisToCoins(swap.fee!)} BTC\n` +
+      `Miner fees: ${satoshisToCoins(swap.minerFee!)} BTC\n` +
+      `Routing fees: ${swap.routingFee! / 1000} litoshi\n\n` +
+      '**Channel Creation:**\n' +
+      `Private: ${channelCreation.private}\n` +
+      `Inbound: ${channelCreation.inboundLiquidity}%\n` +
+      `Node: ${channelCreation.nodePublicKey}\n` +
+      `Funding: ${channelCreation.fundingTransactionId}:${channelCreation.fundingTransactionVout}` +
       NotificationProvider['trailingWhitespace'],
     );
   });

@@ -352,7 +352,7 @@ class Controller {
 
       if (value !== undefined) {
         if (typeof value === arg.type) {
-          if (arg.hex) {
+          if (arg.hex && value !== '') {
             const buffer = getHexBuffer(value);
 
             if (buffer.length === 0) {

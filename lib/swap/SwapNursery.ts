@@ -48,8 +48,8 @@ interface SwapNursery {
   emit(event: 'expiration', swap: Swap | ReverseSwap, isReverse: boolean): boolean;
 
   // Swap related events
-  on(event: 'claim', listener: (swap: Swap) => void): this;
-  emit(event: 'claim', swap: Swap): boolean;
+  on(event: 'claim', listener: (swap: Swap, channelCreation?: ChannelCreation) => void): this;
+  emit(event: 'claim', swap: Swap, channelCreation?: ChannelCreation): boolean;
 
   on(event: 'invoice.pending', listener: (swap: Swap) => void): this;
   emit(even: 'invoice.pending', swap: Swap): boolean;
@@ -619,7 +619,7 @@ class SwapNursery extends EventEmitter {
     this.logger.silly(`Broadcasting ${currency.symbol} claim transaction: ${claimTx.getId()}`);
 
     await currency.chainClient.sendRawTransaction(claimTx.toHex());
-    this.emit('claim', await this.swapRepository.setMinerFee(swap, minerFee));
+    this.emit('claim', await this.swapRepository.setMinerFee(swap, minerFee), channelCreation);
   }
 
   private sendReverseSwapCoins = async (reverseSwap: ReverseSwap) => {

@@ -11,8 +11,10 @@ import { Balance } from '../proto/boltzrpc_pb';
 import { SwapUpdateEvent } from '../consts/Enums';
 import ReverseSwap from '../db/models/ReverseSwap';
 import BackupScheduler from '../backup/BackupScheduler';
+import ChannelCreation from '../db/models/ChannelCreation';
 import { coinsToSatoshis, satoshisToCoins } from '../DenominationConverter';
 import { getChainCurrency, stringify, splitPairId, getHexString, formatError } from '../Utils';
+import has = Reflect.has;
 
 enum Command {
   Help = 'help',
@@ -224,7 +226,13 @@ class CommandHandler {
     });
 
     if (swap) {
-      await this.sendSwapInfo(swap, false);
+      const channelCreation = await this.service.swapManager.channelCreationRepository.getChannelCreation({
+        swapId: {
+          [Op.eq]: id,
+        },
+      });
+
+      await this.sendSwapInfo(swap, false, channelCreation);
       return;
     } else {
       // Query for a reverse swap because there was no normal one found with the specified id
@@ -423,7 +431,7 @@ class CommandHandler {
   private toggleReverseSwaps = async () => {
     this.service.allowReverseSwaps = !this.service.allowReverseSwaps;
 
-    const message = `${this.service.allowReverseSwaps ? 'Enabled' : 'Disabled'} reverse swaps`;
+    const message = `${this.service.allowReverseSwaps ? 'Enabled' : 'Disabled'} Reverse Swaps`;
 
     this.logger.info(message);
     await this.discord.sendMessage(message);
@@ -458,10 +466,24 @@ class CommandHandler {
     return fees;
   }
 
-  private sendSwapInfo = async (swap: Swap | ReverseSwap, isReverse: boolean) => {
+  private sendSwapInfo = async (swap: Swap | ReverseSwap, isReverse: boolean, channelCreation?: ChannelCreation) => {
+    const hasChannelCreation = channelCreation !== null && channelCreation !== undefined;
+
+    let name = '';
+
+    if (hasChannelCreation) {
+      name = 'Channel Creation';
+    } else {
+      if (isReverse) {
+        name = 'Reverse Swap';
+      } else {
+        name = 'Swap';
+      }
+    }
+
     // tslint:disable-next-line: prefer-template
-    await this.discord.sendMessage(`${isReverse ? 'Reverse swap' : 'Swap'} \`${swap.id}\`:\n` +
-        `${CommandHandler.codeBlock}${stringify(swap)}${CommandHandler.codeBlock}`);
+    await this.discord.sendMessage(`${name} \`${swap.id}\`:\n` +
+        `${CommandHandler.codeBlock}${stringify(swap)}${hasChannelCreation ? '\n' + stringify(channelCreation) : ''}${CommandHandler.codeBlock}`);
   }
 
   private sendCouldNotFindSwap = async (id: string) => {

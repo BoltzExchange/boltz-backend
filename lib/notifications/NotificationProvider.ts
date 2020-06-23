@@ -99,10 +99,14 @@ class NotificationProvider {
   private checkConnections = async () => {
     const info = await this.service.getInfo();
 
-    await info.getChainsMap().forEach(async (currency: CurrencyInfo, symbol: string) => {
-      await this.checkConnection(`${symbol} LND`, currency.getLnd());
-      await this.checkConnection(`${symbol} node`, currency.getChain());
+    const promises: Promise<any>[] = [];
+
+    info.getChainsMap().forEach((currency: CurrencyInfo, symbol: string) => {
+      promises.push(this.checkConnection(`${symbol} LND`, currency.getLnd()));
+      promises.push(this.checkConnection(`${symbol} node`, currency.getChain()));
     });
+
+    await Promise.all(promises);
   }
 
   private checkConnection = async (service: string, object: ChainInfo | LndInfo | undefined) => {
@@ -214,18 +218,28 @@ class NotificationProvider {
       };
     };
 
-    this.service.eventHandler.on('swap.success', async (swap, isReverse) => {
+    this.service.eventHandler.on('swap.success', async (swap, isReverse, channelCreation) => {
+      const hasChannelCreation = channelCreation !== null && channelCreation !== undefined;
       const { onchainSymbol, lightningSymbol } = getSymbols(swap.pair, swap.orderSide, isReverse);
 
       // tslint:disable-next-line: prefer-template
-      let message = `**Swap ${getSwapTitle(swap.pair, swap.orderSide, isReverse)}**\n` +
-       `${getBasicSwapInfo(swap, onchainSymbol, lightningSymbol)}\n` +
-       `Fees earned: ${this.numberToDecimal(satoshisToCoins(swap.fee!))} ${onchainSymbol}\n` +
-       `Miner fees: ${satoshisToCoins(swap.minerFee!)} ${onchainSymbol}`;
+      let message = `**Swap ${getSwapTitle(swap.pair, swap.orderSide, isReverse)}${hasChannelCreation ? ' :construction_site:' : ''}**\n` +
+        `${getBasicSwapInfo(swap, onchainSymbol, lightningSymbol)}\n` +
+        `Fees earned: ${this.numberToDecimal(satoshisToCoins(swap.fee!))} ${onchainSymbol}\n` +
+        `Miner fees: ${satoshisToCoins(swap.minerFee!)} ${onchainSymbol}`;
 
       if (!isReverse) {
         // The routing fees are denominated in millisatoshi
         message += `\nRouting fees: ${(swap as Swap).routingFee! / 1000} ${this.getSmallestDenomination(lightningSymbol)}`;
+      }
+
+      if (hasChannelCreation) {
+        // tslint:disable-next-line:prefer-template
+        message += '\n\n**Channel Creation:**\n' +
+          `Private: ${channelCreation!.private}\n` +
+          `Inbound: ${channelCreation!.inboundLiquidity}%\n` +
+          `Node: ${channelCreation!.nodePublicKey}\n` +
+          `Funding: ${channelCreation!.fundingTransactionId}:${channelCreation!.fundingTransactionVout}`;
       }
 
       await this.discord.sendMessage(`${message}${NotificationProvider.trailingWhitespace}`);

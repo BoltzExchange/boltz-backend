@@ -13,7 +13,7 @@ import ChannelCreation from '../../../lib/db/models/ChannelCreation';
 
 type channelBackupCallback = (channelBackup: string) => void;
 
-type claimCallback = (swap: Swap) => void;
+type claimCallback = (swap: Swap, channelCreation?: ChannelCreation) => void;
 type invoicePaidCallback = (swap: Swap) => void;
 type invoiceFailedCallback = (swap: Swap) => void;
 type invoicePendingCallback = (swap: Swap) => void;
@@ -316,6 +316,7 @@ describe('EventHandler', () => {
     let eventsEmitted = 0;
 
     // Claim
+      // Swap without Channel Creation
     eventHandler.once('swap.update', (id, message) => {
       expect(id).toEqual(swap.id);
       expect(message).toEqual({ status: SwapUpdateEvent.TransactionClaimed });
@@ -331,6 +332,27 @@ describe('EventHandler', () => {
     });
 
     emitClaim(swap);
+
+    expect(eventsEmitted).toEqual(2);
+    eventsEmitted = 0;
+
+      // Swap with Channel Creation
+    eventHandler.once('swap.update', (id, message) => {
+      expect(id).toEqual(swap.id);
+      expect(message).toEqual({ status: SwapUpdateEvent.TransactionClaimed });
+
+      eventsEmitted += 1;
+    });
+
+    eventHandler.once('swap.success', (successfulSwap, isReverse, successfulChannelCreation) => {
+      expect(successfulSwap).toEqual(swap);
+      expect(isReverse).toEqual(false);
+      expect(successfulChannelCreation).toEqual(channelCreation);
+
+      eventsEmitted += 1;
+    });
+
+    emitClaim(swap, channelCreation);
 
     expect(eventsEmitted).toEqual(2);
     eventsEmitted = 0;

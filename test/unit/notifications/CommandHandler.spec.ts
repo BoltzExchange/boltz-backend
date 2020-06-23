@@ -12,7 +12,13 @@ import CommandHandler from '../../../lib/notifications/CommandHandler';
 import ReverseSwapRepository from '../../../lib/db/ReverseSwapRepository';
 import { satoshisToCoins, coinsToSatoshis } from '../../../lib/DenominationConverter';
 import { Balance, WalletBalance, LightningBalance } from '../../../lib/proto/boltzrpc_pb';
-import { swapExample, reverseSwapExample, pendingSwapExample, pendingReverseSwapExample } from './ExampleSwaps';
+import {
+  swapExample,
+  reverseSwapExample,
+  pendingSwapExample,
+  pendingReverseSwapExample, channelCreationExample, channelSwapExample,
+} from './ExampleSwaps';
+import ChannelCreationRepository from '../../../lib/db/ChannelCreationRepository';
 
 const getRandomNumber = () => Math.floor(Math.random() * 10000);
 
@@ -66,6 +72,7 @@ const pairRepository = new PairRepository();
 
 const swapRepository = new SwapRepository();
 const reverseSwapRepository = new ReverseSwapRepository();
+const channelCreationRepository = new ChannelCreationRepository();
 
 const mockGetAddress = jest.fn().mockResolvedValue(newAddress);
 
@@ -101,6 +108,7 @@ jest.mock('../../../lib/service/Service', () => {
       swapManager: {
         swapRepository,
         reverseSwapRepository,
+        channelCreationRepository,
       },
       getBalance: () => Promise.resolve({
         getBalancesMap: () => new Map<string, Balance>([
@@ -129,11 +137,7 @@ jest.mock('../../../lib/backup/BackupScheduler', () => {
 const mockedBackupScheduler = <jest.Mock<BackupScheduler>><any>BackupScheduler;
 
 const mockVerify = jest.fn().mockImplementation((token: string) => {
-  if (token === 'valid') {
-    return true;
-  } else {
-    return false;
-  }
+  return token === 'valid';
 });
 
 jest.mock('../../../lib/notifications/OtpManager', () => {
@@ -171,6 +175,9 @@ describe('CommandHandler', () => {
 
       reverseSwapRepository.addReverseSwap(reverseSwapExample),
       reverseSwapRepository.addReverseSwap(pendingReverseSwapExample),
+
+      swapRepository.addSwap(channelSwapExample),
+      channelCreationRepository.addChannelCreation(channelCreationExample),
     ]);
   });
 
@@ -244,6 +251,7 @@ describe('CommandHandler', () => {
   });
 
   test('should get information about (reverse) swaps', async () => {
+    // Submarine Swap
     sendMessage(`swapinfo ${swapExample.id}`);
     await wait(50);
 
@@ -252,12 +260,25 @@ describe('CommandHandler', () => {
       `Swap \`${swapExample.id}\`:\n\`\`\`${stringify(await swapRepository.getSwap({ id: swapExample.id }))}\`\`\``,
     );
 
-    sendMessage(`swapinfo ${reverseSwapExample.id}`);
+    // Channel Creation Swap
+    sendMessage(`swapinfo ${channelSwapExample.id}`);
     await wait(50);
 
     expect(mockSendMessage).toHaveBeenCalledTimes(2);
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      // tslint:disable-next-line:prefer-template
+      `Channel Creation \`${channelSwapExample.id}\`:\n\`\`\`` +
+      `${stringify(await swapRepository.getSwap({ id: channelSwapExample.id })) }\n` +
+      `${stringify(await channelCreationRepository.getChannelCreation({ swapId: channelSwapExample.id }))}\`\`\``,
+    );
+
+    // Reverse Swap
+    sendMessage(`swapinfo ${reverseSwapExample.id}`);
+    await wait(50);
+
+    expect(mockSendMessage).toHaveBeenCalledTimes(3);
     expect(mockSendMessage).toBeCalledWith(
-      `Reverse swap \`${reverseSwapExample.id}\`:\n\`\`\`${stringify(await reverseSwapRepository.getReverseSwap({ id: reverseSwapExample.id }))}\`\`\``,
+      `Reverse Swap \`${reverseSwapExample.id}\`:\n\`\`\`${stringify(await reverseSwapRepository.getReverseSwap({ id: reverseSwapExample.id }))}\`\`\``,
     );
 
     const errorMessage = 'Could not find swap with id: ';
@@ -265,7 +286,7 @@ describe('CommandHandler', () => {
     // Send an error if there is no id provided
     sendMessage('swapinfo');
 
-    expect(mockSendMessage).toHaveBeenCalledTimes(3);
+    expect(mockSendMessage).toHaveBeenCalledTimes(4);
     expect(mockSendMessage).toHaveBeenCalledWith(errorMessage);
 
     // Send an error if the swap cannot be found
@@ -274,7 +295,7 @@ describe('CommandHandler', () => {
 
     await wait(10);
 
-    expect(mockSendMessage).toHaveBeenCalledTimes(4);
+    expect(mockSendMessage).toHaveBeenCalledTimes(5);
     expect(mockSendMessage).toHaveBeenCalledWith(`${errorMessage}${id}`);
   });
 
@@ -290,10 +311,10 @@ describe('CommandHandler', () => {
           reverseSwaps: 0,
         },
         volume: {
-          BTC: 0.02,
+          BTC: 0.03,
         },
         trades: {
-          'LTC/BTC': 2,
+          'LTC/BTC': 3,
         },
       },
     )}\`\`\``);
@@ -482,7 +503,7 @@ describe('CommandHandler', () => {
     expect(service.allowReverseSwaps).toBeFalsy();
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
-    expect(mockSendMessage).toHaveBeenCalledWith('Disabled reverse swaps');
+    expect(mockSendMessage).toHaveBeenCalledWith('Disabled Reverse Swaps');
 
     sendMessage('togglereverse');
     await wait(5);
@@ -490,7 +511,7 @@ describe('CommandHandler', () => {
     expect(service.allowReverseSwaps).toBeTruthy();
 
     expect(mockSendMessage).toHaveBeenCalledTimes(2);
-    expect(mockSendMessage).toHaveBeenCalledWith('Enabled reverse swaps');
+    expect(mockSendMessage).toHaveBeenCalledWith('Enabled Reverse Swaps');
   });
 
   afterAll(async () => {

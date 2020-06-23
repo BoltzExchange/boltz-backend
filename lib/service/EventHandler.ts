@@ -6,6 +6,7 @@ import SwapNursery from '../swap/SwapNursery';
 import { SwapUpdateEvent } from '../consts/Enums';
 import ReverseSwap from '../db/models/ReverseSwap';
 import { Currency } from '../wallet/WalletManager';
+import ChannelCreation from '../db/models/ChannelCreation';
 
 type TransactionInfo = {
   eta?: number;
@@ -29,8 +30,8 @@ interface EventHandler {
   on(event: 'swap.update', listener: (id: string, message: SwapUpdate) => void): this;
   emit(event: 'swap.update', id: string, message: SwapUpdate): boolean;
 
-  on(event: 'swap.success', listener: (swap: Swap | ReverseSwap, isReverse: boolean) => void): this;
-  emit(event: 'swap.success', swap: Swap | ReverseSwap, isReverse: boolean): boolean;
+  on(event: 'swap.success', listener: (swap: Swap | ReverseSwap, isReverse: boolean, channelCreation?: ChannelCreation) => void): this;
+  emit(event: 'swap.success', swap: Swap | ReverseSwap, isReverse: boolean, channelCreation?: ChannelCreation): boolean;
 
   on(event: 'swap.failure', listener: (reverseSwap: Swap | ReverseSwap, isReverse: boolean, reason: string) => void): this;
   emit(event: 'swap.failure', reverseSwap: Swap | ReverseSwap, isReverse: boolean, reason: string): boolean;
@@ -110,11 +111,11 @@ class EventHandler extends EventEmitter {
    * Subscribes to a stream of swap events
    */
   private subscribeSwapEvents = () => {
-    this.nursery.on('claim', (swap) => {
+    this.nursery.on('claim', (swap, channelCreation) => {
       this.logger.verbose(`Swap ${swap.id} succeeded`);
 
       this.emit('swap.update', swap.id, { status: SwapUpdateEvent.TransactionClaimed });
-      this.emit('swap.success', swap, false);
+      this.emit('swap.success', swap, false, channelCreation);
     });
 
     this.nursery.on('expiration', (swap, isReverse) => {

@@ -373,7 +373,7 @@ export const getPrepayMinerFeeInvoiceMemo = (sendingCurrency: string) => {
   return `Miner fee for Reverse Swap to ${sendingCurrency} address`;
 };
 
-export const formatError = (error: any) => {
+export const formatError = (error: any): string => {
   if (typeof error === 'string') {
     return error;
   } else if ('message' in error) {

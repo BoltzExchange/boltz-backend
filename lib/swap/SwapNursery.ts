@@ -105,7 +105,7 @@ class SwapNursery extends EventEmitter {
     private channelCreationRepository: ChannelCreationRepository,
     private prepayMinerFee: boolean,
     private swapOutputType: OutputType,
-    retryInterval: number,
+    private retryInterval: number,
   ) {
     super();
 
@@ -128,65 +128,7 @@ class SwapNursery extends EventEmitter {
       },
     );
 
-    if (retryInterval === 0) {
-      return;
-    }
-
     this.logger.info(`Setting Swap retry interval to ${retryInterval} seconds`);
-
-    setInterval(async () => {
-      // Skip this iteration if the last one is still running
-      if (this.lock.isBusy(SwapNursery.retryLock)) {
-        return;
-      }
-
-      this.logger.silly('Retrying to settle Swaps');
-
-      await this.lock.acquire(SwapNursery.retryLock, async () => {
-        await this.lock.acquire(SwapNursery.swapLock, async () => {
-          const unsettledSwaps = await this.swapRepository.getSwaps({
-            status: {
-              [Op.eq]: SwapUpdateEvent.InvoicePending,
-            },
-          });
-
-          for (const swap of unsettledSwaps) {
-            const channelCreation = await this.channelCreationRepository.getChannelCreation({
-              swapId: {
-                [Op.eq]: swap.id,
-              },
-              status: {
-                // tslint:disable-next-line:no-null-keyword
-                [Op.not]: null,
-              },
-            });
-
-            // The ChannelNursery takes care of settling attempted Channel Creations
-            if (channelCreation) {
-              continue;
-            }
-
-            const { base, quote } = splitPairId(swap.pair);
-            const chainCurrency = this.currencies.get(getChainCurrency(base, quote, swap.orderSide, false))!;
-
-            const lockupTransaction = await chainCurrency.chainClient.getRawTransaction(swap.lockupTransactionId!);
-
-            try {
-              await this.attemptSettleSwap(
-                chainCurrency,
-                this.walletManager.wallets.get(chainCurrency.symbol)!,
-                swap,
-                Transaction.fromHex(lockupTransaction),
-                // Since the lockup transaction confirmed already or 0-conf was accepted, the 0-conf checks can just be skipped
-                true,
-              );
-            } catch (error) {
-              this.logger.debug(`Could not settle Swap ${swap.id} on retry: ${formatError(error)}`);
-            }
-          }
-        });
-      });
-    }, retryInterval * 1000);
   }
 
   public init = async (currencies: Currency[]) => {
@@ -195,6 +137,62 @@ class SwapNursery extends EventEmitter {
     });
 
     await this.channelNursery.init(currencies);
+
+    if (this.retryInterval !== 0) {
+      setInterval(async () => {
+        // Skip this iteration if the last one is still running
+        if (this.lock.isBusy(SwapNursery.retryLock)) {
+          return;
+        }
+
+        this.logger.silly('Retrying to settle Swaps');
+
+        await this.lock.acquire(SwapNursery.retryLock, async () => {
+          await this.lock.acquire(SwapNursery.swapLock, async () => {
+            const unsettledSwaps = await this.swapRepository.getSwaps({
+              status: {
+                [Op.eq]: SwapUpdateEvent.InvoicePending,
+              },
+            });
+
+            for (const swap of unsettledSwaps) {
+              const channelCreation = await this.channelCreationRepository.getChannelCreation({
+                swapId: {
+                  [Op.eq]: swap.id,
+                },
+                status: {
+                  // tslint:disable-next-line:no-null-keyword
+                  [Op.not]: null,
+                },
+              });
+
+              // The ChannelNursery takes care of settling attempted Channel Creations
+              if (channelCreation) {
+                continue;
+              }
+
+              const { base, quote } = splitPairId(swap.pair);
+              const chainCurrency = this.currencies.get(getChainCurrency(base, quote, swap.orderSide, false))!;
+
+              const lockupTransaction = await chainCurrency.chainClient.getRawTransaction(swap.lockupTransactionId!);
+
+              try {
+                await this.attemptSettleSwap(
+                  chainCurrency,
+                  this.walletManager.wallets.get(chainCurrency.symbol)!,
+                  swap,
+                  Transaction.fromHex(lockupTransaction),
+                  // Since the lockup transaction confirmed already or 0-conf was accepted, the 0-conf checks can just be skipped
+                  true,
+                );
+              } catch (error) {
+                this.logger.debug(`Could not settle Swap ${swap.id} on retry: ${formatError(error)}`);
+              }
+            }
+          });
+        });
+      }, this.retryInterval * 1000);
+    }
   }
 
   // TODO: write integration tests
@@ -561,10 +559,16 @@ class SwapNursery extends EventEmitter {
     try {
       response = await this.payInvoice(this.currencies.get(lightningCurrency)!.lndClient!, swap.invoice!, outgoingChannelId);
     } catch (error) {
-      this.logger.debug(`Could not pay invoice of Swap ${swap.id}: ${formatError(error)}`);
+      const errorMessage = formatError(error);
+
+      this.logger.debug(`Could not pay invoice of Swap ${swap.id}: ${errorMessage}`);
 
       // TODO: double check if peer is connected to us -> open a channel in all cases
       /*
+       * Errors that should fail the Swap:
+       * - "invoice expired"
+       * - "incorrect_payment_details"
+       *
        * Errors that should trigger no Channel Creation and a retry:
        *  - "unable to route payment to destination: UnknownNextPeer@"
        *
@@ -576,14 +580,16 @@ class SwapNursery extends EventEmitter {
        */
 
       if (
-        channelCreation &&
-        !channelCreation.status &&
-        typeof error === 'string'
+        errorMessage === 'incorrect_payment_details' ||
+        errorMessage.includes('invoice expired')
       ) {
-        if (
-          !error.startsWith('unable to route payment to destination: UnknownNextPeer') &&
-          !error.includes('invoice expired')
-        ) {
+        this.logger.warn(`Giving up to retrying Swap ${swap.id} because: ${errorMessage}`);
+
+        this.emit('invoice.failedToPay', await this.swapRepository.setSwapStatus(swap, SwapUpdateEvent.InvoiceFailedToPay));
+        return;
+
+      } else if (channelCreation && !channelCreation.status && typeof error === 'string') {
+        if (!errorMessage.startsWith('unable to route payment to destination: UnknownNextPeer')) {
           await this.channelNursery.openChannel(this.currencies.get(lightningCurrency)!, swap, channelCreation);
           return;
         }

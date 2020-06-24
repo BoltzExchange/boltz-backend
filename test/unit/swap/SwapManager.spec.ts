@@ -288,6 +288,7 @@ describe('SwapManager', () => {
       status: {
         [Op.not]: [
           SwapUpdateEvent.SwapExpired,
+          SwapUpdateEvent.InvoiceSettled,
           SwapUpdateEvent.TransactionFailed,
           SwapUpdateEvent.TransactionRefunded,
         ],

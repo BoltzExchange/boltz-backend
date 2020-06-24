@@ -16,21 +16,21 @@ import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
 import ChannelCreationRepository from '../db/ChannelCreationRepository';
 import { ChannelCreationType, OrderSide, SwapUpdateEvent } from '../consts/Enums';
 import {
-  getPairId,
-  generateId,
+  decodeInvoice,
   formatError,
-  splitPairId,
-  getSwapMemo,
-  getUnixTime,
+  generateId,
+  getChainCurrency,
   getHexBuffer,
   getHexString,
-  decodeInvoice,
-  reverseBuffer,
-  getChainCurrency,
   getLightningCurrency,
+  getPairId,
+  getPrepayMinerFeeInvoiceMemo,
   getScriptHashFunction,
   getSendingReceivingCurrency,
-  getPrepayMinerFeeInvoiceMemo,
+  getSwapMemo,
+  getUnixTime,
+  reverseBuffer,
+  splitPairId,
 } from '../Utils';
 
 type ChannelCreationInfo = {
@@ -96,6 +96,7 @@ class SwapManager {
         status: {
           [Op.not]: [
             SwapUpdateEvent.SwapExpired,
+            SwapUpdateEvent.InvoiceSettled,
             SwapUpdateEvent.TransactionFailed,
             SwapUpdateEvent.TransactionRefunded,
           ],
@@ -373,8 +374,8 @@ class SwapManager {
   private recreateFilters = (swaps: Swap[] | ReverseSwap[], isReverse: boolean) => {
     swaps.forEach((swap: Swap | ReverseSwap) => {
       const { base, quote } = splitPairId(swap.pair);
-      const chainCurrency = getChainCurrency(base, quote, swap.orderSide, false);
-      const lightningCurrency = getLightningCurrency(base, quote, swap.orderSide, true);
+      const chainCurrency = getChainCurrency(base, quote, swap.orderSide, isReverse);
+      const lightningCurrency = getLightningCurrency(base, quote, swap.orderSide, isReverse);
 
       if ((swap.status === SwapUpdateEvent.SwapCreated || swap.status === SwapUpdateEvent.MinerFeePaid) && isReverse) {
         const reverseSwap = swap as ReverseSwap;

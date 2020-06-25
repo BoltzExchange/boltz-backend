@@ -219,8 +219,12 @@ class NotificationProvider {
     };
 
     this.service.eventHandler.on('swap.success', async (swap, isReverse, channelCreation) => {
-      const hasChannelCreation = channelCreation !== null && channelCreation !== undefined;
       const { onchainSymbol, lightningSymbol } = getSymbols(swap.pair, swap.orderSide, isReverse);
+
+      const hasChannelCreation =
+        channelCreation !== null &&
+        channelCreation !== undefined &&
+        channelCreation.fundingTransactionId !== null;
 
       // tslint:disable-next-line: prefer-template
       let message = `**Swap ${getSwapTitle(swap.pair, swap.orderSide, isReverse)}${hasChannelCreation ? ' :construction_site:' : ''}**\n` +

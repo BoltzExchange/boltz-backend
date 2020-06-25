@@ -135,24 +135,6 @@ describe('NotificationProvider', () => {
     );
   });
 
-  test('should send a notification after successful Reverse Swaps', async () => {
-    emitSwapSuccess(reverseSwap, true);
-    await wait(5);
-
-    expect(mockSendMessage).toHaveBeenCalledTimes(1);
-    expect(mockSendMessage).toHaveBeenCalledWith(
-      '**Swap LTC :zap: -> BTC**\n' +
-      `ID: ${reverseSwap.id}\n` +
-      `Pair: ${reverseSwap.pair}\n` +
-      'Order side: sell\n' +
-      `Onchain amount: ${satoshisToCoins(reverseSwap.onchainAmount!)} BTC\n` +
-      `Lightning amount: ${satoshisToCoins(decodeInvoice(reverseSwap.invoice).satoshis)} LTC\n` +
-      `Fees earned: ${satoshisToCoins(reverseSwap.fee)} BTC\n` +
-      `Miner fees: ${satoshisToCoins(reverseSwap.minerFee!)} BTC` +
-      NotificationProvider['trailingWhitespace'],
-    );
-  });
-
   test('should send a notification after failed Swaps', async () => {
     const failureReason = 'because';
 
@@ -168,6 +150,24 @@ describe('NotificationProvider', () => {
       `Onchain amount: ${satoshisToCoins(swap.onchainAmount!)} BTC\n` +
       `Lightning amount: ${satoshisToCoins(decodeInvoice(swap.invoice!).satoshis)} LTC\n` +
       `Invoice: ${swap.invoice}` +
+      NotificationProvider['trailingWhitespace'],
+    );
+  });
+
+  test('should send a notification after successful Reverse Swaps', async () => {
+    emitSwapSuccess(reverseSwap, true);
+    await wait(5);
+
+    expect(mockSendMessage).toHaveBeenCalledTimes(1);
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      '**Swap LTC :zap: -> BTC**\n' +
+      `ID: ${reverseSwap.id}\n` +
+      `Pair: ${reverseSwap.pair}\n` +
+      'Order side: sell\n' +
+      `Onchain amount: ${satoshisToCoins(reverseSwap.onchainAmount!)} BTC\n` +
+      `Lightning amount: ${satoshisToCoins(decodeInvoice(reverseSwap.invoice).satoshis)} LTC\n` +
+      `Fees earned: ${satoshisToCoins(reverseSwap.fee)} BTC\n` +
+      `Miner fees: ${satoshisToCoins(reverseSwap.minerFee!)} BTC` +
       NotificationProvider['trailingWhitespace'],
     );
   });
@@ -228,6 +228,28 @@ describe('NotificationProvider', () => {
       `Inbound: ${channelCreation.inboundLiquidity}%\n` +
       `Node: ${channelCreation.nodePublicKey}\n` +
       `Funding: ${channelCreation.fundingTransactionId}:${channelCreation.fundingTransactionVout}` +
+      NotificationProvider['trailingWhitespace'],
+    );
+
+    // Should skip the Channel Creation part in case no channel was opened
+    emitSwapSuccess(swap, false, {
+      ...channelCreation,
+      // tslint:disable-next-line:no-null-keyword
+      fundingTransactionId: null,
+    } as any as ChannelCreation);
+    await wait(5);
+
+    expect(mockSendMessage).toHaveBeenCalledTimes(2);
+    expect(mockSendMessage).toHaveBeenNthCalledWith(2,
+      '**Swap BTC -> LTC :zap:**\n' +
+      `ID: ${swap.id}\n` +
+      `Pair: ${swap.pair}\n` +
+      'Order side: buy\n' +
+      `Onchain amount: ${satoshisToCoins(swap.onchainAmount!)} BTC\n` +
+      `Lightning amount: ${satoshisToCoins(decodeInvoice(swap.invoice!).satoshis)} LTC\n` +
+      `Fees earned: ${satoshisToCoins(swap.fee!)} BTC\n` +
+      `Miner fees: ${satoshisToCoins(swap.minerFee!)} BTC\n` +
+      `Routing fees: ${swap.routingFee! / 1000} litoshi` +
       NotificationProvider['trailingWhitespace'],
     );
   });

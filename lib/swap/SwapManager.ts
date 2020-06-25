@@ -212,9 +212,9 @@ class SwapManager {
     const { base, quote } = splitPairId(swap.pair);
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(base, quote, swap.orderSide);
 
-    const { paymentHash, satoshis, payeeNodeKey, routingInfo, timeExpireDate } = decodeInvoice(invoice);
+    const decodedInvoice = decodeInvoice(invoice);
 
-    if (paymentHash !== swap.preimageHash) {
+    if (decodedInvoice.paymentHash !== swap.preimageHash) {
       throw Errors.INVOICE_INVALID_PREIMAGE_HASH(swap.preimageHash);
     }
 
@@ -225,22 +225,32 @@ class SwapManager {
     });
 
     if (channelCreation) {
-      if (timeExpireDate) {
+      let invoiceExpiry = decodedInvoice.timestamp || 0;
+
+      if (decodedInvoice.timeExpireDate) {
+        invoiceExpiry = decodedInvoice.timeExpireDate;
+      } else {
+        // Default invoice timeout
+        // Reference: https://github.com/lightningnetwork/lightning-rfc/blob/master/11-payment-encoding.md#tagged-fields
+        invoiceExpiry += 3600;
+      }
+
+      if (invoiceExpiry) {
         const { blocks } = await receivingCurrency.chainClient.getBlockchainInfo();
 
         const blocksUntilExpiry = swap.timeoutBlockHeight - blocks;
         const timeoutTimestamp = getUnixTime() + (blocksUntilExpiry * TimeoutDeltaProvider.blockTimes.get(receivingCurrency.symbol)! * 60);
 
-        if (timeoutTimestamp > timeExpireDate) {
-          throw Errors.INVOICE_EXPIRES_TOO_EARLY(timeExpireDate, timeoutTimestamp);
+        if (timeoutTimestamp > invoiceExpiry) {
+          throw Errors.INVOICE_EXPIRES_TOO_EARLY(invoiceExpiry, timeoutTimestamp);
         }
       }
 
-      await this.channelCreationRepository.setNodePublicKey(channelCreation, payeeNodeKey!);
+      await this.channelCreationRepository.setNodePublicKey(channelCreation, decodedInvoice.payeeNodeKey!);
 
     // If there are route hints the routability check could fail although LND could pay the invoice
-    } else if (!routingInfo || (routingInfo && routingInfo.length === 0)) {
-      const routable = await this.checkRoutability(sendingCurrency.lndClient!, payeeNodeKey!, satoshis);
+    } else if (!decodedInvoice.routingInfo || (decodedInvoice.routingInfo && decodedInvoice.routingInfo.length === 0)) {
+      const routable = await this.checkRoutability(sendingCurrency.lndClient!, decodedInvoice.payeeNodeKey!, decodedInvoice.satoshis);
       if (!routable) {
         throw Errors.NO_ROUTE_FOUND();
       }

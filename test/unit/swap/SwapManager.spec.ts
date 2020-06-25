@@ -447,7 +447,7 @@ describe('SwapManager', () => {
       id: 'id',
       pair: 'BTC/BTC',
       orderSide: OrderSide.BUY,
-      preimageHash: 'a5a41cf5a11ab07c66c6d047a206e763d7be7a361e8bc21b65a455d2b6f22820',
+      preimageHash: '1558d179d9e3de706997e3b6bb33f704a5b8086b27538fd04ef5e313467333b8',
     } as any as Swap;
 
     // The invoice has to be generated here because the timestamp is used when setting the invoice of a Swap
@@ -506,7 +506,7 @@ describe('SwapManager', () => {
 
     manager.nursery.attemptSettleSwap = mockAttemptSettleSwap;
 
-    swap.lockupTransactionId = '4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b';
+    swap.lockupTransactionId = '1558d179d9e3de706997e3b6bb33f704a5b8086b27538fd04ef5e313467333b8';
     mockGetRawTransactionResult = '020000000001018542307f1f57326e533123327f6a7e5729241c9cf468bca7897c47c0019a21010100000000fdffffff0298560b0000000000160014c99fd000fb30137ae03fd2b28f52878e9b29194f2e020000000000001976a91462e907b15cbf27d5425399ebf6f0fb50ebb88f1888ac02473044022034deabdeb0d1d4d2fe2cf450f5ef27c1e5709670b87dbe3b8e175ac094fb935802207630148ec8e73c24e284af700ac1f34e8058735a8852e8fd4c81ad04233b12230121031f6fa906bb52f3e1bdc59156a5659ce1aa251eaf26f411413c76409360ef7205bcaf0900';
 
     await manager.setSwapInvoice(
@@ -593,7 +593,7 @@ describe('SwapManager', () => {
     expect(mockSetInvoice).toHaveBeenCalledTimes(5);
     expect(emitSwapInvoiceSet).toHaveBeenCalledTimes(5);
 
-    // Swap with Channel Creation and invoice that expires to soon
+    // Swap with Channel Creation and invoice that expires too soon
     swap.timeoutBlockHeight = 1000;
 
     let error: any;
@@ -613,6 +613,27 @@ describe('SwapManager', () => {
 
     expect(error.code).toEqual('2.4');
     expect(error.message.startsWith(`invoice expiry ${bolt11.decode(invoice).timeExpireDate!} is before Swap timeout: `)).toBeTruthy();
+
+    error = undefined;
+
+    // Swap with Channel Creation and invoice that has no expiry encoded in it
+    const invoiceNoExpiry = 'lnbcrt3210n1p00galgpp5z4vdz7weu008q6vhuwmtkvlhqjjmszrtyafcl5zw7h33x3nnxwuqdqqcqzpgsp5q70xcl9mw3dcxmc78el7m2gl86rtv60tazlay6tz5ddpjuu0p4mq9qy9qsqcympv8hx4j877hm26uyrpfxur497x27kuqvlq7kdd8wjucjla849d8nc2m38ce04f26vycv6mjqxusva8ge36jnrrgnj4fzey70yy4cpaac77a';
+
+    try {
+      await manager.setSwapInvoice(
+        swap,
+        invoiceNoExpiry,
+        expectedAmount,
+        percentageFee,
+        acceptZeroConf,
+        emitSwapInvoiceSet,
+      );
+    } catch (e) {
+      error = e;
+    }
+
+    expect(error.code).toEqual('2.4');
+    expect(error.message.startsWith(`invoice expiry ${bolt11.decode(invoiceNoExpiry).timestamp! + 3600} is before Swap timeout: `)).toBeTruthy();
 
     mockGetChannelCreationResult = undefined;
 

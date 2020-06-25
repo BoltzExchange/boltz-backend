@@ -411,7 +411,7 @@ class Service {
       if (error.code === -26 && error.message === 'non-mandatory-script-verify-flag (Locktime requirement not satisfied) (code 64)') {
         const refundTransaction = Transaction.fromHex(transactionHex);
 
-        let swap: Swap | undefined;
+        let swap: Swap | null | undefined;
 
         for (const input of refundTransaction.ins) {
           swap = await this.swapManager.swapRepository.getSwap({

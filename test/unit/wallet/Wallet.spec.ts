@@ -138,7 +138,7 @@ describe('Wallet', () => {
   test('should update highest used index in database', async () => {
     const dbKeyProvider = await keyRepository.getKeyProvider(symbol);
 
-    expect(dbKeyProvider.highestUsedIndex).toEqual(highestUsedIndex);
+    expect(dbKeyProvider!.highestUsedIndex).toEqual(highestUsedIndex);
   });
 
   test('should get a new address', async () => {

@@ -4,11 +4,11 @@ import KeyProvider, { KeyProviderType } from './models/KeyProvider';
 class KeyRepository {
   constructor() {}
 
-  public getKeyProviders = async (): Promise<KeyProvider[]> => {
+  public getKeyProviders = async () => {
     return KeyProvider.findAll();
   }
 
-  public getKeyProvider = async (symbol: string): Promise<KeyProvider> => {
+  public getKeyProvider = async (symbol: string) => {
     return KeyProvider.findOne({
       where: {
         symbol: {

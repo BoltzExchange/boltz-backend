@@ -227,8 +227,8 @@ class SwapManager {
     if (channelCreation) {
       if (timeExpireDate) {
         const { blocks } = await receivingCurrency.chainClient.getBlockchainInfo();
-
         const blocksUntilExpiry = swap.timeoutBlockHeight - blocks;
+
         const timeoutTimestamp = getUnixTime() + (blocksUntilExpiry * TimeoutDeltaProvider.blockTimes.get(receivingCurrency.symbol)! * 60);
 
         if (timeoutTimestamp > timeExpireDate) {

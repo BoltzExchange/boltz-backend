@@ -237,8 +237,8 @@ class SwapManager {
 
       if (invoiceExpiry) {
         const { blocks } = await receivingCurrency.chainClient.getBlockchainInfo();
-
         const blocksUntilExpiry = swap.timeoutBlockHeight - blocks;
+
         const timeoutTimestamp = getUnixTime() + (blocksUntilExpiry * TimeoutDeltaProvider.blockTimes.get(receivingCurrency.symbol)! * 60);
 
         if (timeoutTimestamp > invoiceExpiry) {

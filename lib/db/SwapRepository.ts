@@ -3,13 +3,13 @@ import Swap, { SwapType } from './models/Swap';
 import { SwapUpdateEvent } from '../consts/Enums';
 
 class SwapRepository {
-  public getSwaps = async (options?: WhereOptions): Promise<Swap[]> => {
+  public getSwaps = async (options?: WhereOptions) => {
     return Swap.findAll({
       where: options,
     });
   }
 
-  public getSwap = async (options: WhereOptions): Promise<Swap | undefined> => {
+  public getSwap = async (options: WhereOptions) => {
     return Swap.findOne({
       where: options,
     });

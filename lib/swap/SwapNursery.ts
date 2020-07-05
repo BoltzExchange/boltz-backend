@@ -215,7 +215,7 @@ class SwapNursery extends EventEmitter {
           if (reverseSwap && (reverseSwap.minerFeeInvoice === null || reverseSwap.status === SwapUpdateEvent.MinerFeePaid)) {
             await this.sendReverseSwapCoins(reverseSwap);
           } else {
-            this.logger.debug(`Did not send onchain coins for Reverse Swap ${reverseSwap.id} because miner fee invoice was not paid yet`);
+            this.logger.debug(`Did not send onchain coins for Reverse Swap ${reverseSwap!.id} because miner fee invoice was not paid yet`);
           }
         });
       });
@@ -517,7 +517,7 @@ class SwapNursery extends EventEmitter {
     currency: Currency,
     wallet: Wallet,
     swap: Swap,
-    channelCreation: ChannelCreation | undefined,
+    channelCreation: ChannelCreation | undefined | null,
     transaction: Transaction,
     vout: number,
     outgoingChannelId?: string,
@@ -625,7 +625,11 @@ class SwapNursery extends EventEmitter {
     this.logger.silly(`Broadcasting ${currency.symbol} claim transaction: ${claimTx.getId()}`);
 
     await currency.chainClient.sendRawTransaction(claimTx.toHex());
-    this.emit('claim', await this.swapRepository.setMinerFee(swap, minerFee), channelCreation);
+    this.emit(
+      'claim',
+      await this.swapRepository.setMinerFee(swap, minerFee),
+      channelCreation === null || channelCreation === undefined ? undefined : channelCreation,
+    );
   }
 
   private sendReverseSwapCoins = async (reverseSwap: ReverseSwap) => {

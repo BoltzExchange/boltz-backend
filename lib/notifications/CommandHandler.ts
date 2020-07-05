@@ -466,7 +466,7 @@ class CommandHandler {
     return fees;
   }
 
-  private sendSwapInfo = async (swap: Swap | ReverseSwap, isReverse: boolean, channelCreation?: ChannelCreation) => {
+  private sendSwapInfo = async (swap: Swap | ReverseSwap, isReverse: boolean, channelCreation?: ChannelCreation | null) => {
     const hasChannelCreation = channelCreation !== null && channelCreation !== undefined;
 
     let name = '';

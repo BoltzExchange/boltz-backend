@@ -3,13 +3,13 @@ import { SwapUpdateEvent } from '../consts/Enums';
 import ReverseSwap, { ReverseSwapType } from './models/ReverseSwap';
 
 class ReverseSwapRepository {
-  public getReverseSwaps = (options?: WhereOptions): Promise<ReverseSwap[]> => {
+  public getReverseSwaps = (options?: WhereOptions) => {
     return ReverseSwap.findAll({
       where: options,
     });
   }
 
-  public getReverseSwap = (options: WhereOptions): Promise<ReverseSwap> => {
+  public getReverseSwap = (options: WhereOptions) => {
     return ReverseSwap.findOne({
       where: options,
     });

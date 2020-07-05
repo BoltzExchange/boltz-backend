@@ -3,23 +3,23 @@ import { ChannelCreationStatus } from '../consts/Enums';
 import ChannelCreation, { ChannelCreationType } from './models/ChannelCreation';
 
 class ChannelCreationRepository {
-  public getChannelCreation = (options?: WhereOptions): Promise<ChannelCreation | undefined> => {
+  public getChannelCreation = (options?: WhereOptions) => {
     return ChannelCreation.findOne({
       where: options,
     });
   }
 
-  public getChannelCreations = (options?: WhereOptions): Promise<ChannelCreation[]> => {
+  public getChannelCreations = (options?: WhereOptions) => {
     return ChannelCreation.findAll({
       where: options,
     });
   }
 
-  public addChannelCreation = (channelCreation: ChannelCreationType): Promise<ChannelCreation> => {
+  public addChannelCreation = (channelCreation: ChannelCreationType) => {
     return ChannelCreation.create(channelCreation);
   }
 
-  public setAttempted = (channelCreation: ChannelCreation): Promise<ChannelCreation> => {
+  public setAttempted = (channelCreation: ChannelCreation) => {
     return channelCreation.update({
       status: ChannelCreationStatus.Attempted,
     });
@@ -29,7 +29,7 @@ class ChannelCreationRepository {
     channelCreation: ChannelCreation,
     fundingTransactionId: string,
     fundingTransactionVout: number,
-  ): Promise<ChannelCreation> => {
+  ) => {
     return channelCreation.update({
       fundingTransactionId,
       fundingTransactionVout,
@@ -37,19 +37,19 @@ class ChannelCreationRepository {
     });
   }
 
-  public setNodePublicKey = (channelCreation: ChannelCreation, nodePublicKey: string): Promise<ChannelCreation> => {
+  public setNodePublicKey = (channelCreation: ChannelCreation, nodePublicKey: string) => {
     return channelCreation.update({
       nodePublicKey,
     });
   }
 
-  public setSettled = (channelCreation: ChannelCreation): Promise<ChannelCreation> => {
+  public setSettled = (channelCreation: ChannelCreation) => {
     return channelCreation.update({
       status: ChannelCreationStatus.Settled,
     });
   }
 
-  public setAbandoned = (channelCreation: ChannelCreation): Promise<ChannelCreation> => {
+  public setAbandoned = (channelCreation: ChannelCreation) => {
     return channelCreation.update({
       status: ChannelCreationStatus.Abandoned,
     });

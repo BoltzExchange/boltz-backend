@@ -7,6 +7,7 @@ import Logger from './Logger';
 import Report from './data/Report';
 import Database from './db/Database';
 import Service from './service/Service';
+import VersionCheck from './VersionCheck';
 import GrpcServer from './grpc/GrpcServer';
 import GrpcService from './grpc/GrpcService';
 import LndClient from './lightning/LndClient';
@@ -136,6 +137,8 @@ class Boltz {
       const blockchainInfo = await client.getBlockchainInfo();
       const networkInfo = await client.getNetworkInfo();
 
+      VersionCheck.checkChainClientVersion(client.symbol, networkInfo.version);
+
       this.logStatus(service, {
         version: networkInfo.version,
         protocolversion: networkInfo.protocolversion,
@@ -156,6 +159,9 @@ class Boltz {
       await client.connect();
 
       const info = await client.getInfo();
+
+      VersionCheck.checkLndVersion(client.symbol, info.version);
+
       // The featuresMap is just annoying to see on startup
       info.featuresMap = undefined as any;
 

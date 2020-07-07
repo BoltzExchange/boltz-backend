@@ -73,7 +73,7 @@ class SwapManager {
     );
   }
 
-  public init = async (currencies: Currency[]) => {
+  public init = async (currencies: Currency[]): Promise<void>=> {
     currencies.forEach((currency) => {
       this.currencies.set(currency.symbol, currency);
     });
@@ -129,7 +129,12 @@ class SwapManager {
     refundPublicKey: Buffer,
     timeoutBlockDelta: number,
     channel?: ChannelCreationInfo,
-  ) => {
+  ): Promise<{
+    id: string,
+    address: string,
+    redeemScript: string,
+    timeoutBlockHeight: number,
+  }> => {
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(baseCurrency, quoteCurrency, orderSide);
 
     if (!sendingCurrency.lndClient) {
@@ -208,7 +213,7 @@ class SwapManager {
     percentageFee: number,
     acceptZeroConf: boolean,
     emitSwapInvoiceSet: (id: string) => void,
-  ) => {
+  ): Promise<void> => {
     const { base, quote } = splitPairId(swap.pair);
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(base, quote, swap.orderSide);
 
@@ -310,7 +315,16 @@ class SwapManager {
     lightningTimeoutBlockDelta: number,
     percentageFee: number,
     prepayMinerFee?: number,
-  ) => {
+  ): Promise<{
+    id: string,
+    timeoutBlockHeight: number,
+
+    invoice: string,
+    minerFeeInvoice: string | undefined,
+
+    lockupAddress: string,
+    redeemScript: string,
+  }> => {
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(baseCurrency, quoteCurrency, orderSide);
 
     if (!receivingCurrency.lndClient) {

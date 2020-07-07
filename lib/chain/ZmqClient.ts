@@ -4,7 +4,7 @@ import { EventEmitter } from 'events';
 import { Transaction, crypto } from 'bitcoinjs-lib';
 import Errors from './Errors';
 import Logger from '../Logger';
-import { getHexString, reverseBuffer } from '../Utils';
+import { formatError, getHexString, reverseBuffer } from '../Utils';
 import { Block, BlockchainInfo, RawTransaction, BlockVerbose } from '../consts/Types';
 
 type ZmqNotification = {
@@ -59,7 +59,7 @@ class ZmqClient extends EventEmitter {
     super();
   }
 
-  public init = async (notifications: ZmqNotification[]) => {
+  public init = async (notifications: ZmqNotification[]): Promise<void> => {
     const activeFilters: any = {};
     const { blocks, bestblockhash } = await this.getBlockchainInfo();
 
@@ -107,16 +107,18 @@ class ZmqClient extends EventEmitter {
     }
   }
 
-  public close = async () => {
+  public close = (): void => {
     this.sockets.forEach((socket) => {
       // Catch errors that are thrown if the socket is closed already
       try {
         socket.close();
-      } catch {}
+      } catch (error) {
+        this.logger.debug(`${this.symbol} socket already closed: ${formatError(error)}`)
+      }
     });
   }
 
-  public rescanChain = async (startHeight: number) => {
+  public rescanChain = async (startHeight: number): Promise<void> => {
     const checkTransaction = (transaction: Transaction) => {
       if (this.isRelevantTransaction(transaction)) {
         this.emit('transaction', transaction, true);

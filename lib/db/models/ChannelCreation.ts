@@ -28,7 +28,7 @@ class ChannelCreation extends Model implements ChannelCreationType {
   public fundingTransactionId?: string;
   public fundingTransactionVout?: number;
 
-  public static load = (sequelize: Sequelize) => {
+  public static load = (sequelize: Sequelize): void => {
     ChannelCreation.init({
       swapId: { type: new DataTypes.STRING(255), primaryKey: true, allowNull: false },
       status: { type: new DataTypes.STRING(255), allowNull: true },

@@ -11,6 +11,6 @@ export const builder = {
   symbol: BuilderComponents.symbol,
 };
 
-export const handler = (argv: Arguments<any>) => {
+export const handler = (argv: Arguments<any>): void => {
   loadBoltzClient(argv).getBalance(new GetBalanceRequest(), callback);
 };

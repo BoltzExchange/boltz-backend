@@ -14,7 +14,7 @@ class DataProvider {
     new Poloniex(),
   ];
 
-  public getPrice = async (baseAsset: string, quoteAsset: string) => {
+  public getPrice = async (baseAsset: string, quoteAsset: string): Promise<number> => {
     const promises: Promise<number>[] = [];
 
     this.exchanges.forEach(exchange => promises.push(exchange.getPrice(baseAsset, quoteAsset)));
@@ -22,7 +22,7 @@ class DataProvider {
     const results = await Promise.all(promises.map(promise => promise.catch(error => error)));
 
     // Filter all results that are not numeric (failed requests)
-    const validResults = results.filter(result => !isNaN(Number(result)));
+    const validResults: number[] = results.filter(result => !isNaN(Number(result)));
     validResults.sort((a, b) => a - b);
 
     const middle = (validResults.length - 1) / 2;

@@ -55,7 +55,7 @@ class ChannelNursery extends EventEmitter {
     super();
   }
 
-  public init = async (currencies: Currency[]) => {
+  public init = async (currencies: Currency[]): Promise<void> => {
     currencies.forEach((currency) => {
       this.currencies.set(currency.symbol, currency);
 
@@ -139,7 +139,7 @@ class ChannelNursery extends EventEmitter {
 
   // TODO: show and reject less than min channel size
   // TODO: handle errors that say that the max number of (pending) channels exceeded
-  public openChannel = async (lightningCurrency: Currency, swap: Swap, channelCreation: ChannelCreation) => {
+  public openChannel = async (lightningCurrency: Currency, swap: Swap, channelCreation: ChannelCreation): Promise<void> => {
     const { satoshis, payeeNodeKey } = bolt11.decode(swap.invoice!, lightningCurrency.network);
     this.logger.verbose(`Opening channel for Swap ${swap.id} to ${payeeNodeKey}`);
 

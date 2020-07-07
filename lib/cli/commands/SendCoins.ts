@@ -28,7 +28,7 @@ export const builder = {
   },
 };
 
-export const handler = (argv: Arguments<any>) => {
+export const handler = (argv: Arguments<any>): void => {
   const request = new SendCoinsRequest();
 
   request.setSymbol(argv.symbol);

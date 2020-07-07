@@ -55,11 +55,8 @@ const createCall = (data: any) => {
 
 const createCallback = (callback: (error: ServiceError | null, response: any) => void) => {
   return (error: ServiceError | null, response: any) => {
-    try {
-      callback(error, response);
-    } catch (error) {
-      fail(error);
-    }
+    expect(error).toBeNull();
+    callback(error, response);
   };
 };
 

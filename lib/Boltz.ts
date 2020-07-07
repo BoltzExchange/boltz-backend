@@ -92,11 +92,11 @@ class Boltz {
       );
     } catch (error) {
       this.logger.error(`Could not start Boltz: ${stringify(error)}`);
-      process.exit(1);
+      throw error;
     }
   }
 
-  public start = async () => {
+  public start = async (): Promise<void> => {
     try {
       await this.db.init();
 
@@ -124,7 +124,7 @@ class Boltz {
       await this.api.init();
     } catch (error) {
       this.logger.error(`Could not initialize Boltz: ${formatError(error)}`);
-      process.exit(1);
+      throw error;
     }
   }
 
@@ -195,7 +195,7 @@ class Boltz {
     });
   }
 
-  private logStatus = (service: string, status: Object) => {
+  private logStatus = (service: string, status: unknown) => {
     this.logger.verbose(`${service} status: ${JSON.stringify(status, undefined, 2)}`);
   }
 

@@ -1,6 +1,6 @@
 import { OrderSide } from '../../../lib/consts/Enums';
 
-export const createSwap = <T>(isSwap: boolean, isBuy: boolean, params: any): T => {
+export const createSwap = <T>(isSwap: boolean, isBuy: boolean, params: Record<string, unknown>): T => {
   return {
     ...params,
     fee: 1000,

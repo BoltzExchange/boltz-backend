@@ -11,7 +11,7 @@ import SwapRepository from './db/SwapRepository';
 import SwapFailureChecker from './data/SwapFailureChecker';
 import ReverseSwapRepository from './db/ReverseSwapRepository';
 
-const initDatabase = async (argv: Arguments<any>) => {
+const initDatabase = async (argv: Arguments<any>): Promise<void> => {
   // Get the path to the database from the command line arguments or
   // use a default one if none was specified
   const dbPath = argv.dbpath || path.join(Config.defaultDataDir, Config.defaultDbPath);
@@ -20,7 +20,7 @@ const initDatabase = async (argv: Arguments<any>) => {
   await db.init();
 };
 
-const generateReport = async (argv: Arguments<any>) => {
+const generateReport = async (argv: Arguments<any>): Promise<void> => {
   await initDatabase(argv);
 
   const report = new Report(new SwapRepository(), new ReverseSwapRepository());
@@ -33,7 +33,7 @@ const generateReport = async (argv: Arguments<any>) => {
   }
 };
 
-const generateStats = async (argv: Arguments<any>) => {
+const generateStats = async (argv: Arguments<any>): Promise<void> => {
   await initDatabase(argv);
 
   const stats = new Stats(new SwapRepository(), new ReverseSwapRepository());
@@ -41,7 +41,7 @@ const generateStats = async (argv: Arguments<any>) => {
   console.log(await stats.generate());
 };
 
-const checkFailedSwaps = async (argv: Arguments<any>) => {
+const checkFailedSwaps = async (argv: Arguments<any>): Promise<void> => {
   await initDatabase(argv);
 
   const failedSwaps = new SwapFailureChecker(new SwapRepository(), new ReverseSwapRepository());

@@ -5,7 +5,7 @@ import Logger from '../Logger';
 import { NotificationConfig } from '../Config';
 
 class OtpManager {
-  private secret: string;
+  private readonly secret: string;
 
   // This variable keeps track of the last used token to prevent that the same token can be used multiple times
   private lastUsedToken = '';
@@ -28,7 +28,7 @@ class OtpManager {
     }
   }
 
-  public verify = (token: string) => {
+  public verify = (token: string): boolean => {
     try {
       if (token !== this.lastUsedToken) {
         const valid = authenticator.check(token, this.secret);

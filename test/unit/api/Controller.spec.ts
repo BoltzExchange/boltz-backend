@@ -697,7 +697,7 @@ describe('Controller', () => {
     const message = SwapUpdateEvent.InvoiceSettled;
 
     swapUpdate(id, message);
-    expect(res.write).toHaveBeenCalledWith(`data: \"${message}\"\n\n`);
+    expect(res.write).toHaveBeenCalledWith(`data: "${message}"\n\n`);
 
     emitClose();
     expect(controller['pendingSwapStreams'].get(id)).toBeUndefined();

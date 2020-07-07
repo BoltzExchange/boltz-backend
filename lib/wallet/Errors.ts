@@ -28,11 +28,11 @@ export default {
     message: `${symbol} is not supported`,
     code: concatErrorCode(ErrorCodePrefix.Wallet, 5),
   }),
-  OUTPUTTYPE_NOT_SUPPORTED: (symbol: string, type: OutputType) => ({
+  OUTPUTTYPE_NOT_SUPPORTED: (symbol: string, type: OutputType): Error => ({
     message: `${symbol} wallet does not supports outputs of type: ${type}`,
     code: concatErrorCode(ErrorCodePrefix.Wallet, 6),
   }),
-  LND_NOT_FOUND: (symbol: string) => ({
+  LND_NOT_FOUND: (symbol: string): Error => ({
     message: `could not find LND client of ${symbol}`,
     code: concatErrorCode(ErrorCodePrefix.Wallet, 7),
   }),

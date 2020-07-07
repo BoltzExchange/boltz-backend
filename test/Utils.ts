@@ -1,17 +1,17 @@
 import { OutputType, Networks, Scripts } from 'boltz-core';
 import { TransactionInput } from 'bip174/src/lib/interfaces';
-import { ECPair, address, crypto, Psbt } from 'bitcoinjs-lib';
+import { ECPair, address, crypto, Psbt, Transaction } from 'bitcoinjs-lib';
 import { getPubkeyHashFunction } from '../lib/Utils';
 
 export const randomRange = (max: number): number => {
   return Math.floor(Math.random() * Math.floor(max));
 };
 
-export const wait = (ms: number) => {
+export const wait = (ms: number): Promise<void> => {
   return new Promise(resolve => setTimeout(resolve, ms));
 };
 
-export const waitForFunctionToBeTrue = (func: () => boolean) => {
+export const waitForFunctionToBeTrue = (func: () => boolean): Promise<void> => {
   return new Promise((resolve) => {
     const interval = setInterval(() => {
       if (func()) {
@@ -22,18 +22,7 @@ export const waitForFunctionToBeTrue = (func: () => boolean) => {
   });
 };
 
-export const waitForPromiseToBeTrue = (func: () => Promise<boolean>) => {
-  return new Promise((resolve) => {
-    const interval = setInterval(async () => {
-      if (await func()) {
-        clearInterval(interval);
-        resolve();
-      }
-    });
-  });
-};
-
-export const generateAddress = (outputType: OutputType) => {
+export const generateAddress = (outputType: OutputType): { outputScript: Buffer, address: string } => {
   const keys = ECPair.makeRandom({ network: Networks.bitcoinRegtest });
   const encodeFunction = getPubkeyHashFunction(outputType);
 
@@ -45,7 +34,7 @@ export const generateAddress = (outputType: OutputType) => {
   };
 };
 
-export const constructTransaction = (rbf: boolean, input: string, outputAmount = 1) => {
+export const constructTransaction = (rbf: boolean, input: string, outputAmount = 1): Transaction => {
   const { outputScript } = generateAddress(OutputType.Bech32);
   const keys = ECPair.makeRandom({ network: Networks.bitcoinRegtest });
 

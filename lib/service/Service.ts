@@ -10,10 +10,11 @@ import { ConfigType } from '../Config';
 import EventHandler from './EventHandler';
 import { PairConfig } from '../consts/Types';
 import FeeProvider from '../rates/FeeProvider';
-import RateProvider from '../rates/RateProvider';
 import PairRepository from '../db/PairRepository';
 import { encodeBip21 } from './PaymentRequestUtils';
 import TimeoutDeltaProvider from './TimeoutDeltaProvider';
+import { SendResponse } from '../lightning/LndClient';
+import RateProvider, { PairType } from '../rates/RateProvider';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import SwapManager, { ChannelCreationInfo } from '../swap/SwapManager';
 import { OrderSide, ServiceInfo, ServiceWarning } from '../consts/Enums';
@@ -43,6 +44,11 @@ import {
   reverseBuffer,
   splitPairId,
 } from '../Utils';
+
+type LndNodeInfo = {
+  nodeKey: string,
+  uris: string[],
+};
 
 class Service {
   public allowReverseSwaps = true;
@@ -100,7 +106,7 @@ class Service {
     );
   }
 
-  public init = async (configPairs: PairConfig[]) => {
+  public init = async (configPairs: PairConfig[]): Promise<void> => {
     const dbPairSet = new Set<string>();
     const dbPairs = await this.pairRepository.getPairs();
 
@@ -140,7 +146,7 @@ class Service {
   /**
    * Gets general information about this Boltz instance and the nodes it is connected to
    */
-  public getInfo = async () => {
+  public getInfo = async (): Promise<GetInfoResponse> => {
     const response = new GetInfoResponse();
     const map = response.getChainsMap();
 
@@ -195,7 +201,7 @@ class Service {
   /**
    * Gets the balance for either all wallets or just a single one if specified
    */
-  public getBalance = async () => {
+  public getBalance = async (): Promise<GetBalanceResponse> => {
     const response = new GetBalanceResponse();
     const map = response.getBalancesMap();
 
@@ -269,7 +275,11 @@ class Service {
   /**
    * Gets all supported pairs and their conversion rates
    */
-  public getPairs = () => {
+  public getPairs = (): {
+    info: ServiceInfo[],
+    warnings: ServiceWarning[],
+    pairs: Map<string, PairType>,
+  } => {
     const info: ServiceInfo[] = [];
     const warnings: ServiceWarning[] = [];
 
@@ -291,11 +301,8 @@ class Service {
   /**
    * Gets a map between the LND node keys and URIs and the symbol of the chains they are running on
    */
-  public getNodes = async () => {
-    const response = new Map<string, {
-      nodeKey: string,
-      uris: string[],
-    }>();
+  public getNodes = async (): Promise<Map<string, LndNodeInfo>> => {
+    const response = new Map<string, LndNodeInfo>();
 
     for (const [symbol, currency] of this.currencies) {
       if (currency.lndClient) {
@@ -310,11 +317,10 @@ class Service {
     return response;
   }
 
-  // TODO: allow querying ethereum transactions?
   /**
    * Gets a hex encoded transaction from a transaction hash on the specified network
    */
-  public getTransaction = async (symbol: string, transactionHash: string) => {
+  public getTransaction = async (symbol: string, transactionHash: string): Promise<string> => {
     const currency = this.getCurrency(symbol);
     return await currency.chainClient.getRawTransaction(transactionHash);
   }
@@ -323,7 +329,10 @@ class Service {
    * Gets the hex encoded lockup transaction of a Submarine Swap, the block height
    * at which it will timeout and the expected ETA for that block
    */
-  public getSwapTransaction = async (id: string) => {
+  public getSwapTransaction = async (id: string): Promise<{
+    transactionHex: string,
+    timeoutBlockHeight: number,
+  }> => {
     const swap = await this.swapManager.swapRepository.getSwap({
       id: {
         [Op.eq]: id,
@@ -361,7 +370,7 @@ class Service {
   /**
    * Gets an address of a specified wallet
    */
-  public getAddress = async (symbol: string) => {
+  public getAddress = async (symbol: string): Promise<string> => {
     const wallet = this.walletManager.wallets.get(symbol);
 
     if (wallet !== undefined) {
@@ -378,7 +387,7 @@ class Service {
   /**
    * Gets a fee estimation in satoshis per vbyte for either all currencies or just a single one if specified
    */
-  public getFeeEstimation = async (symbol?: string, blocks?: number) => {
+  public getFeeEstimation = async (symbol?: string, blocks?: number): Promise<Map<string, number>> => {
     const map = new Map<string, number>();
 
     const numBlocks = blocks === undefined ? 2 : blocks;
@@ -399,7 +408,7 @@ class Service {
   /**
    * Broadcast a hex encoded transaction on the specified network
    */
-  public broadcastTransaction = async (symbol: string, transactionHex: string) => {
+  public broadcastTransaction = async (symbol: string, transactionHex: string): Promise<string> => {
     const currency = this.getCurrency(symbol);
 
     try {
@@ -447,7 +456,7 @@ class Service {
   /**
    * Updates the timeout block delta of a pair
    */
-  public updateTimeoutBlockDelta = (pairId: string, newDelta: number) => {
+  public updateTimeoutBlockDelta = (pairId: string, newDelta: number): void => {
     this.timeoutDeltaProvider.setTimeout(pairId, newDelta);
 
     this.logger.info(`Updated timeout block delta of ${pairId} to ${newDelta} minutes`);
@@ -462,7 +471,12 @@ class Service {
     refundPublicKey: Buffer,
     preimageHash: Buffer,
     channel?: ChannelCreationInfo,
-  ) => {
+  ): Promise<{
+    id: string,
+    address: string,
+    redeemScript: string,
+    timeoutBlockHeight: number,
+  }> => {
     const swap = await this.swapManager.swapRepository.getSwap({
       preimageHash: {
         [Op.eq]: getHexString(preimageHash),
@@ -516,7 +530,12 @@ class Service {
   /**
    * Gets the rates for a Submarine Swap that has coins in its lockup address but no invoice yet
    */
-  public getSwapRates = async (id: string) => {
+  public getSwapRates = async (id: string): Promise<{
+    onchainAmount: number,
+    submarineSwap: {
+      invoiceAmount: number,
+    },
+  }> => {
     const swap = await this.swapManager.swapRepository.getSwap({
       id: {
         [Op.eq]: id,
@@ -551,7 +570,11 @@ class Service {
   /**
    * Sets the invoice of Submarine Swap
    */
-  public setSwapInvoice = async (id: string, invoice: string) => {
+  public setSwapInvoice = async (id: string, invoice: string): Promise<{
+    bip21: string,
+    expectedAmount: number,
+    acceptZeroConf: boolean,
+  } | Record<string, any>> => {
     const swap = await this.swapManager.swapRepository.getSwap({
       id: {
         [Op.eq]: id,
@@ -630,7 +653,15 @@ class Service {
     refundPublicKey: Buffer,
     invoice: string,
     channel?: ChannelCreationInfo,
-  ) => {
+  ): Promise<{
+    id: string,
+    bip21: string,
+    address: string,
+    redeemScript: string,
+    expectedAmount: number,
+    acceptZeroConf: boolean,
+    timeoutBlockHeight: number,
+  }> => {
     let swap = await this.swapManager.swapRepository.getSwap({
       invoice: {
         [Op.eq]: invoice,
@@ -694,7 +725,14 @@ class Service {
     preimageHash: Buffer,
     invoiceAmount: number,
     claimPublicKey: Buffer,
-  ) => {
+  ): Promise<{
+    id: string,
+    invoice: string,
+    redeemScript: string,
+    lockupAddress: string,
+    onchainAmount: number,
+    timeoutBlockHeight: number,
+  }> => {
     if (!this.allowReverseSwaps) {
       throw Errors.REVERSE_SWAPS_DISABLED();
     }
@@ -767,7 +805,7 @@ class Service {
   /**
    * Pays a lightning invoice
    */
-  public payInvoice = async (symbol: string, invoice: string) => {
+  public payInvoice = async (symbol: string, invoice: string): Promise<SendResponse> => {
     const { lndClient } = this.getCurrency(symbol);
 
     if (!lndClient) {
@@ -786,7 +824,10 @@ class Service {
     amount: number,
     sendAll?: boolean,
     fee?: number,
-  }) => {
+  }): Promise<{
+    vout: number,
+    transactionId: string,
+  }> => {
     const {
       fee,
       amount,

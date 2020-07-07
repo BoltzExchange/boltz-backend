@@ -3,29 +3,29 @@ import Swap, { SwapType } from './models/Swap';
 import { SwapUpdateEvent } from '../consts/Enums';
 
 class SwapRepository {
-  public getSwaps = async (options?: WhereOptions) => {
+  public getSwaps = (options?: WhereOptions): Promise<Swap[]> => {
     return Swap.findAll({
       where: options,
     });
   }
 
-  public getSwap = async (options: WhereOptions) => {
+  public getSwap = (options: WhereOptions): Promise<Swap | null> => {
     return Swap.findOne({
       where: options,
     });
   }
 
-  public addSwap = async (swap: SwapType) => {
+  public addSwap = (swap: SwapType): Promise<Swap> => {
     return Swap.create(swap);
   }
 
-  public setSwapStatus = async (swap: Swap, status: string) => {
+  public setSwapStatus = (swap: Swap, status: string): Promise<Swap> => {
     return swap.update({
       status,
     });
   }
 
-  public setInvoice = async (swap: Swap, invoice: string, expectedAmount: number, fee: number, acceptZeroConf: boolean) => {
+  public setInvoice = (swap: Swap, invoice: string, expectedAmount: number, fee: number, acceptZeroConf: boolean): Promise<Swap> => {
     return swap.update({
       fee,
       invoice,
@@ -35,13 +35,13 @@ class SwapRepository {
     });
   }
 
-  public setLockupTransactionId = async (
+  public setLockupTransactionId = (
     swap: Swap,
     rate: number,
     lockupTransactionId: string,
     onchainAmount: number,
     confirmed: boolean,
-  ) => {
+  ): Promise<Swap> => {
     return swap.update({
       rate,
       onchainAmount,
@@ -50,21 +50,21 @@ class SwapRepository {
     });
   }
 
-  public setInvoicePaid = async (swap: Swap, routingFee: number) => {
+  public setInvoicePaid = (swap: Swap, routingFee: number): Promise<Swap> => {
     return swap.update({
       routingFee,
       status: SwapUpdateEvent.InvoicePaid,
     });
   }
 
-  public setMinerFee = async (swap: Swap, minerFee: number) => {
+  public setMinerFee = (swap: Swap, minerFee: number): Promise<Swap> => {
     return swap.update({
       minerFee,
       status: SwapUpdateEvent.TransactionClaimed,
     });
   }
 
-  public dropTable = () => {
+  public dropTable = (): Promise<void> => {
     return Swap.drop();
   }
 }

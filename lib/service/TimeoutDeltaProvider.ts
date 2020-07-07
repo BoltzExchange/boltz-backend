@@ -23,7 +23,7 @@ class TimeoutDeltaProvider {
 
   constructor(private logger: Logger, private config: ConfigType) {}
 
-  public static convertBlocks = (fromSymbol: string, toSymbol: string, blocks: number) => {
+  public static convertBlocks = (fromSymbol: string, toSymbol: string, blocks: number): number => {
     if (!TimeoutDeltaProvider.blockTimes.has(fromSymbol)) {
       throw Errors.BLOCK_TIME_NOT_FOUND(fromSymbol);
     }
@@ -39,7 +39,7 @@ class TimeoutDeltaProvider {
     return Math.ceil(minutes / TimeoutDeltaProvider.blockTimes.get(toSymbol)!);
   }
 
-  public init = (pairs: PairConfig[]) => {
+  public init = (pairs: PairConfig[]): void => {
     for (const pair of pairs) {
       const pairId = getPairId(pair);
 
@@ -52,7 +52,7 @@ class TimeoutDeltaProvider {
     }
   }
 
-  public getTimeout = (pairId: string, orderSide: OrderSide, isReverse: boolean) => {
+  public getTimeout = (pairId: string, orderSide: OrderSide, isReverse: boolean): number => {
     const timeout = this.timeoutDeltas.get(pairId);
 
     if (!timeout) {
@@ -68,7 +68,7 @@ class TimeoutDeltaProvider {
     }
   }
 
-  public setTimeout = (pairId: string, newDelta: number) => {
+  public setTimeout = (pairId: string, newDelta: number): void => {
     if (this.timeoutDeltas.has(pairId)) {
       const blocks = this.minutesToBlocks(pairId, newDelta);
 

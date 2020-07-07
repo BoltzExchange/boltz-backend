@@ -90,7 +90,7 @@ class Report {
     };
   }
 
-  public generate = async () => {
+  public generate = async (): Promise<string> => {
     const {
       swaps: successfulSwaps,
       reverseSwaps: successfulReverseSwaps,

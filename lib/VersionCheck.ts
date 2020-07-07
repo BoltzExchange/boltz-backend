@@ -11,7 +11,7 @@ class VersionCheck {
     maximal: '0.10.1',
   };
 
-  public static checkChainClientVersion = (symbol: string, version: number) => {
+  public static checkChainClientVersion = (symbol: string, version: number): void => {
     const { maximal, minimal } = VersionCheck.chainClientVersionLimits;
 
     if (version > maximal || version < minimal) {
@@ -19,7 +19,7 @@ class VersionCheck {
     }
   }
 
-  public static checkLndVersion = (symbol: string, version: string) => {
+  public static checkLndVersion = (symbol: string, version: string): void => {
     const parseStringVersion = (version: string) => {
       return Number(version.split('-')[0].replace('.', ''));
     };

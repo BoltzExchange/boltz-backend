@@ -4,7 +4,6 @@ import { ContractABIs } from 'boltz-core';
 import { Contract } from 'web3-eth-contract';
 import { TransactionReceipt } from 'web3-core';
 import HDWalletProvider from '@truffle/hdwallet-provider';
-import { TransactionRevertInstructionError } from 'web3-core-helpers';
 import Errors from './Errors';
 import Logger from '../Logger';
 
@@ -64,7 +63,7 @@ class EthereumWallet {
     this.logger.info(`Initialized Ethereum wallet: ${this.address} with tokens: ${Array.from(this.tokenContracts.keys()).join(', ')}`);
   }
 
-  public stop = () => {
+  public stop = (): void => {
     this.provider.engine.stop();
   }
 
@@ -76,12 +75,10 @@ class EthereumWallet {
     const balancePromises: Promise<void>[] = [];
 
     this.tokenContracts.forEach((contract, symbol) => {
-      balancePromises.push(new Promise(async (resolve) => {
+      balancePromises.push((async () => {
         const contractBalance = await contract.methods.balanceOf(this.address).call();
         tokenBalances.set(symbol, new BN(contractBalance).div(this.tokenDecimals.get(symbol)!).toNumber());
-
-        resolve();
-      }));
+      })());
     });
 
     await Promise.all(balancePromises);
@@ -92,7 +89,7 @@ class EthereumWallet {
     };
   }
 
-  public supportsToken = (symbol: string) => {
+  public supportsToken = (symbol: string): boolean => {
     return this.tokenContracts.get(symbol.toUpperCase()) !== undefined;
   }
 
@@ -101,7 +98,7 @@ class EthereumWallet {
    * @param value amount of Ether that should be sent; denominated in 10 ** 10 WEI
    * @param gasPrice denominated in GWEI
    */
-  public sendEther = async (address: string, value: number, gasPrice?: number): Promise<TransactionReceipt | TransactionRevertInstructionError> => {
+  public sendEther = async (address: string, value: number, gasPrice?: number): Promise<TransactionReceipt> => {
     this.logger.info(`Sending ${value} ETH to ${address}`);
 
     return this.web3.eth.sendTransaction({
@@ -116,7 +113,7 @@ class EthereumWallet {
    * @param address recipient of the transaction
    * @param gasPrice denominated in GWEI
    */
-  public sweepEther = async (address: string, gasPrice?: number) => {
+  public sweepEther = async (address: string, gasPrice?: number): Promise<TransactionReceipt> => {
     const balance = await this.web3.eth.getBalance(this.address);
 
     const actualGasPrice = new BN(await this.getGasPrice(gasPrice));
@@ -134,7 +131,7 @@ class EthereumWallet {
    * @param amount amount of tokens to send; denominated in 10 ** -8 tokens
    * @param gasPrice denominated in GWEI
    */
-  public sendToken = async (symbol: string, address: string, amount: number, gasPrice?: number) => {
+  public sendToken = async (symbol: string, address: string, amount: number, gasPrice?: number): Promise<TransactionReceipt> => {
     const contract = this.tokenContracts.get(symbol);
 
     if (contract === undefined) {
@@ -154,7 +151,7 @@ class EthereumWallet {
    * @param address recipient of the transaction
    * @param gasPrice denominated in GWEI
    */
-  public sweepToken = async (symbol: string, address: string, gasPrice?: number) => {
+  public sweepToken = async (symbol: string, address: string, gasPrice?: number): Promise<TransactionReceipt> => {
     const balances = await this.getBalance();
     return this.sendToken(symbol, address, balances.tokens.get(symbol)!, gasPrice);
   }

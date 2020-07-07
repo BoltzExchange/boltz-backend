@@ -5,13 +5,13 @@ class DatabaseVersionRepository {
     return DatabaseVersion.findOne();
   }
 
-  public createVersion = (version: number) => {
+  public createVersion = (version: number): Promise<DatabaseVersion> => {
     return DatabaseVersion.create({
       version,
     });
   }
 
-  public dropTable = () => {
+  public dropTable = (): Promise<void> => {
     return DatabaseVersion.drop();
   }
 }

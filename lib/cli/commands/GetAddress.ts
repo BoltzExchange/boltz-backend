@@ -11,7 +11,7 @@ export const builder = {
   symbol: BuilderComponents.symbol,
 };
 
-export const handler = (argv: Arguments<any>) => {
+export const handler = (argv: Arguments<any>): void => {
   const request = new GetAddressRequest();
 
   request.setSymbol(argv.symbol);

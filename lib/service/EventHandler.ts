@@ -54,11 +54,11 @@ class EventHandler extends EventEmitter {
     this.subscribeChannelBackups();
   }
 
-  public emitSwapCreation = (id: string) => {
+  public emitSwapCreation = (id: string): void => {
     this.emit('swap.update', id, { status: SwapUpdateEvent.SwapCreated });
   }
 
-  public emitSwapInvoiceSet = (id: string) => {
+  public emitSwapInvoiceSet = (id: string): void => {
     this.emit('swap.update', id, { status: SwapUpdateEvent.InvoiceSet });
   }
 

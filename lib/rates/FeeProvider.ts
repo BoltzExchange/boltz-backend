@@ -19,7 +19,7 @@ class FeeProvider {
     private getFeeEstimation: (symbol: string) => Promise<Map<string, number>>,
   ) {}
 
-  public init = (pairs: PairConfig[]) => {
+  public init = (pairs: PairConfig[]): void => {
     pairs.forEach((pair) => {
       // Set the configured fee or fallback to 1% if it is not defined
       const percentage = pair.fee !== undefined ? pair.fee : 1;
@@ -34,7 +34,7 @@ class FeeProvider {
     this.logger.debug(`Prepared data for fee estimations: ${stringify(mapToObject(this.percentageFees))}`);
   }
 
-  public getPercentageFee = (pair: string) => {
+  public getPercentageFee = (pair: string): number => {
     return this.percentageFees.get(pair) || 0;
   }
 
@@ -44,7 +44,10 @@ class FeeProvider {
     orderSide: OrderSide,
     amount: number,
     isReverse: boolean,
-  ) => {
+  ): Promise<{
+    baseFee: number,
+    percentageFee: number,
+  }> => {
     let percentageFee = this.getPercentageFee(pair);
 
     if (percentageFee !== 0) {
@@ -60,7 +63,7 @@ class FeeProvider {
     };
   }
 
-  public getBaseFee = async (chainCurrency: string, isReverse: boolean) => {
+  public getBaseFee = async (chainCurrency: string, isReverse: boolean): Promise<number> => {
     const feeMap = await this.getFeeEstimation(chainCurrency);
 
     return this.calculateBaseFee(feeMap.get(chainCurrency)!, isReverse);

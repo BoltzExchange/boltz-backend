@@ -57,7 +57,7 @@ class Swap extends Model implements SwapType {
   public createdAt!: string;
   public updatedAt!: string;
 
-  public static load = (sequelize: Sequelize) => {
+  public static load = (sequelize: Sequelize): void => {
     Swap.init({
       id: { type: new DataTypes.STRING(255), primaryKey: true, allowNull: false },
       keyIndex: { type: new DataTypes.INTEGER(), allowNull: false },

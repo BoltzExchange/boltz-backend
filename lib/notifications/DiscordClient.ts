@@ -10,7 +10,7 @@ interface DiscordClient {
 }
 
 class DiscordClient extends EventEmitter {
-  private client: Client;
+  private readonly client: Client;
 
   private channel?: TextChannel = undefined;
 
@@ -23,7 +23,7 @@ class DiscordClient extends EventEmitter {
     this.client = new Client();
   }
 
-  public init = async () => {
+  public init = async (): Promise<void> => {
     if (this.token === '') {
       throw 'no API token provided';
     }
@@ -52,13 +52,13 @@ class DiscordClient extends EventEmitter {
     });
   }
 
-  public sendMessage = async (message: string) => {
+  public sendMessage = async (message: string): Promise<void> => {
     if (this.channel) {
       await this.channel.send(`[${this.prefix}]: ${message}`);
     }
   }
 
-  public sendAlert = async (alert: string) => {
+  public sendAlert = async (alert: string): Promise<void> => {
     await this.sendMessage(`:rotating_light: **Alert** :rotating_light:\n\n${alert}`);
   }
 

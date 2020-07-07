@@ -11,7 +11,7 @@ class DiskUsageChecker {
 
   constructor(private logger: Logger, private discord: DiscordClient) {}
 
-  public checkUsage = async () => {
+  public checkUsage = async (): Promise<void> => {
     const { available, total } = await check(DiskUsageChecker.rootDir);
 
     const used = total - available;

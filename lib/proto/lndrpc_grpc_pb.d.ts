@@ -6,6 +6,91 @@
 
 import * as grpc from "grpc";
 import * as lndrpc_pb from "./lndrpc_pb";
+import * as annotations_pb from "./annotations_pb";
+
+interface IWalletUnlockerService extends grpc.ServiceDefinition<grpc.UntypedServiceImplementation> {
+    genSeed: IWalletUnlockerService_IGenSeed;
+    initWallet: IWalletUnlockerService_IInitWallet;
+    unlockWallet: IWalletUnlockerService_IUnlockWallet;
+    changePassword: IWalletUnlockerService_IChangePassword;
+}
+
+interface IWalletUnlockerService_IGenSeed extends grpc.MethodDefinition<lndrpc_pb.GenSeedRequest, lndrpc_pb.GenSeedResponse> {
+    path: string; // "/lnrpc.WalletUnlocker/GenSeed"
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<lndrpc_pb.GenSeedRequest>;
+    requestDeserialize: grpc.deserialize<lndrpc_pb.GenSeedRequest>;
+    responseSerialize: grpc.serialize<lndrpc_pb.GenSeedResponse>;
+    responseDeserialize: grpc.deserialize<lndrpc_pb.GenSeedResponse>;
+}
+interface IWalletUnlockerService_IInitWallet extends grpc.MethodDefinition<lndrpc_pb.InitWalletRequest, lndrpc_pb.InitWalletResponse> {
+    path: string; // "/lnrpc.WalletUnlocker/InitWallet"
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<lndrpc_pb.InitWalletRequest>;
+    requestDeserialize: grpc.deserialize<lndrpc_pb.InitWalletRequest>;
+    responseSerialize: grpc.serialize<lndrpc_pb.InitWalletResponse>;
+    responseDeserialize: grpc.deserialize<lndrpc_pb.InitWalletResponse>;
+}
+interface IWalletUnlockerService_IUnlockWallet extends grpc.MethodDefinition<lndrpc_pb.UnlockWalletRequest, lndrpc_pb.UnlockWalletResponse> {
+    path: string; // "/lnrpc.WalletUnlocker/UnlockWallet"
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<lndrpc_pb.UnlockWalletRequest>;
+    requestDeserialize: grpc.deserialize<lndrpc_pb.UnlockWalletRequest>;
+    responseSerialize: grpc.serialize<lndrpc_pb.UnlockWalletResponse>;
+    responseDeserialize: grpc.deserialize<lndrpc_pb.UnlockWalletResponse>;
+}
+interface IWalletUnlockerService_IChangePassword extends grpc.MethodDefinition<lndrpc_pb.ChangePasswordRequest, lndrpc_pb.ChangePasswordResponse> {
+    path: string; // "/lnrpc.WalletUnlocker/ChangePassword"
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<lndrpc_pb.ChangePasswordRequest>;
+    requestDeserialize: grpc.deserialize<lndrpc_pb.ChangePasswordRequest>;
+    responseSerialize: grpc.serialize<lndrpc_pb.ChangePasswordResponse>;
+    responseDeserialize: grpc.deserialize<lndrpc_pb.ChangePasswordResponse>;
+}
+
+export const WalletUnlockerService: IWalletUnlockerService;
+
+export interface IWalletUnlockerServer {
+    genSeed: grpc.handleUnaryCall<lndrpc_pb.GenSeedRequest, lndrpc_pb.GenSeedResponse>;
+    initWallet: grpc.handleUnaryCall<lndrpc_pb.InitWalletRequest, lndrpc_pb.InitWalletResponse>;
+    unlockWallet: grpc.handleUnaryCall<lndrpc_pb.UnlockWalletRequest, lndrpc_pb.UnlockWalletResponse>;
+    changePassword: grpc.handleUnaryCall<lndrpc_pb.ChangePasswordRequest, lndrpc_pb.ChangePasswordResponse>;
+}
+
+export interface IWalletUnlockerClient {
+    genSeed(request: lndrpc_pb.GenSeedRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.GenSeedResponse) => void): grpc.ClientUnaryCall;
+    genSeed(request: lndrpc_pb.GenSeedRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.GenSeedResponse) => void): grpc.ClientUnaryCall;
+    genSeed(request: lndrpc_pb.GenSeedRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.GenSeedResponse) => void): grpc.ClientUnaryCall;
+    initWallet(request: lndrpc_pb.InitWalletRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.InitWalletResponse) => void): grpc.ClientUnaryCall;
+    initWallet(request: lndrpc_pb.InitWalletRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.InitWalletResponse) => void): grpc.ClientUnaryCall;
+    initWallet(request: lndrpc_pb.InitWalletRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.InitWalletResponse) => void): grpc.ClientUnaryCall;
+    unlockWallet(request: lndrpc_pb.UnlockWalletRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.UnlockWalletResponse) => void): grpc.ClientUnaryCall;
+    unlockWallet(request: lndrpc_pb.UnlockWalletRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.UnlockWalletResponse) => void): grpc.ClientUnaryCall;
+    unlockWallet(request: lndrpc_pb.UnlockWalletRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.UnlockWalletResponse) => void): grpc.ClientUnaryCall;
+    changePassword(request: lndrpc_pb.ChangePasswordRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChangePasswordResponse) => void): grpc.ClientUnaryCall;
+    changePassword(request: lndrpc_pb.ChangePasswordRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChangePasswordResponse) => void): grpc.ClientUnaryCall;
+    changePassword(request: lndrpc_pb.ChangePasswordRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChangePasswordResponse) => void): grpc.ClientUnaryCall;
+}
+
+export class WalletUnlockerClient extends grpc.Client implements IWalletUnlockerClient {
+    constructor(address: string, credentials: grpc.ChannelCredentials, options?: object);
+    public genSeed(request: lndrpc_pb.GenSeedRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.GenSeedResponse) => void): grpc.ClientUnaryCall;
+    public genSeed(request: lndrpc_pb.GenSeedRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.GenSeedResponse) => void): grpc.ClientUnaryCall;
+    public genSeed(request: lndrpc_pb.GenSeedRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.GenSeedResponse) => void): grpc.ClientUnaryCall;
+    public initWallet(request: lndrpc_pb.InitWalletRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.InitWalletResponse) => void): grpc.ClientUnaryCall;
+    public initWallet(request: lndrpc_pb.InitWalletRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.InitWalletResponse) => void): grpc.ClientUnaryCall;
+    public initWallet(request: lndrpc_pb.InitWalletRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.InitWalletResponse) => void): grpc.ClientUnaryCall;
+    public unlockWallet(request: lndrpc_pb.UnlockWalletRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.UnlockWalletResponse) => void): grpc.ClientUnaryCall;
+    public unlockWallet(request: lndrpc_pb.UnlockWalletRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.UnlockWalletResponse) => void): grpc.ClientUnaryCall;
+    public unlockWallet(request: lndrpc_pb.UnlockWalletRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.UnlockWalletResponse) => void): grpc.ClientUnaryCall;
+    public changePassword(request: lndrpc_pb.ChangePasswordRequest, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChangePasswordResponse) => void): grpc.ClientUnaryCall;
+    public changePassword(request: lndrpc_pb.ChangePasswordRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChangePasswordResponse) => void): grpc.ClientUnaryCall;
+    public changePassword(request: lndrpc_pb.ChangePasswordRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lndrpc_pb.ChangePasswordResponse) => void): grpc.ClientUnaryCall;
+}
 
 interface ILightningService extends grpc.ServiceDefinition<grpc.UntypedServiceImplementation> {
     walletBalance: ILightningService_IWalletBalance;
@@ -67,8 +152,8 @@ interface ILightningService extends grpc.ServiceDefinition<grpc.UntypedServiceIm
 
 interface ILightningService_IWalletBalance extends grpc.MethodDefinition<lndrpc_pb.WalletBalanceRequest, lndrpc_pb.WalletBalanceResponse> {
     path: string; // "/lnrpc.Lightning/WalletBalance"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.WalletBalanceRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.WalletBalanceRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.WalletBalanceResponse>;
@@ -76,8 +161,8 @@ interface ILightningService_IWalletBalance extends grpc.MethodDefinition<lndrpc_
 }
 interface ILightningService_IChannelBalance extends grpc.MethodDefinition<lndrpc_pb.ChannelBalanceRequest, lndrpc_pb.ChannelBalanceResponse> {
     path: string; // "/lnrpc.Lightning/ChannelBalance"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.ChannelBalanceRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.ChannelBalanceRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.ChannelBalanceResponse>;
@@ -85,8 +170,8 @@ interface ILightningService_IChannelBalance extends grpc.MethodDefinition<lndrpc
 }
 interface ILightningService_IGetTransactions extends grpc.MethodDefinition<lndrpc_pb.GetTransactionsRequest, lndrpc_pb.TransactionDetails> {
     path: string; // "/lnrpc.Lightning/GetTransactions"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.GetTransactionsRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.GetTransactionsRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.TransactionDetails>;
@@ -94,8 +179,8 @@ interface ILightningService_IGetTransactions extends grpc.MethodDefinition<lndrp
 }
 interface ILightningService_IEstimateFee extends grpc.MethodDefinition<lndrpc_pb.EstimateFeeRequest, lndrpc_pb.EstimateFeeResponse> {
     path: string; // "/lnrpc.Lightning/EstimateFee"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.EstimateFeeRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.EstimateFeeRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.EstimateFeeResponse>;
@@ -103,8 +188,8 @@ interface ILightningService_IEstimateFee extends grpc.MethodDefinition<lndrpc_pb
 }
 interface ILightningService_ISendCoins extends grpc.MethodDefinition<lndrpc_pb.SendCoinsRequest, lndrpc_pb.SendCoinsResponse> {
     path: string; // "/lnrpc.Lightning/SendCoins"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.SendCoinsRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.SendCoinsRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.SendCoinsResponse>;
@@ -112,8 +197,8 @@ interface ILightningService_ISendCoins extends grpc.MethodDefinition<lndrpc_pb.S
 }
 interface ILightningService_IListUnspent extends grpc.MethodDefinition<lndrpc_pb.ListUnspentRequest, lndrpc_pb.ListUnspentResponse> {
     path: string; // "/lnrpc.Lightning/ListUnspent"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.ListUnspentRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.ListUnspentRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.ListUnspentResponse>;
@@ -121,8 +206,8 @@ interface ILightningService_IListUnspent extends grpc.MethodDefinition<lndrpc_pb
 }
 interface ILightningService_ISubscribeTransactions extends grpc.MethodDefinition<lndrpc_pb.GetTransactionsRequest, lndrpc_pb.Transaction> {
     path: string; // "/lnrpc.Lightning/SubscribeTransactions"
-    requestStream: boolean; // false
-    responseStream: boolean; // true
+    requestStream: false;
+    responseStream: true;
     requestSerialize: grpc.serialize<lndrpc_pb.GetTransactionsRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.GetTransactionsRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.Transaction>;
@@ -130,8 +215,8 @@ interface ILightningService_ISubscribeTransactions extends grpc.MethodDefinition
 }
 interface ILightningService_ISendMany extends grpc.MethodDefinition<lndrpc_pb.SendManyRequest, lndrpc_pb.SendManyResponse> {
     path: string; // "/lnrpc.Lightning/SendMany"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.SendManyRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.SendManyRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.SendManyResponse>;
@@ -139,8 +224,8 @@ interface ILightningService_ISendMany extends grpc.MethodDefinition<lndrpc_pb.Se
 }
 interface ILightningService_INewAddress extends grpc.MethodDefinition<lndrpc_pb.NewAddressRequest, lndrpc_pb.NewAddressResponse> {
     path: string; // "/lnrpc.Lightning/NewAddress"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.NewAddressRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.NewAddressRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.NewAddressResponse>;
@@ -148,8 +233,8 @@ interface ILightningService_INewAddress extends grpc.MethodDefinition<lndrpc_pb.
 }
 interface ILightningService_ISignMessage extends grpc.MethodDefinition<lndrpc_pb.SignMessageRequest, lndrpc_pb.SignMessageResponse> {
     path: string; // "/lnrpc.Lightning/SignMessage"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.SignMessageRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.SignMessageRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.SignMessageResponse>;
@@ -157,8 +242,8 @@ interface ILightningService_ISignMessage extends grpc.MethodDefinition<lndrpc_pb
 }
 interface ILightningService_IVerifyMessage extends grpc.MethodDefinition<lndrpc_pb.VerifyMessageRequest, lndrpc_pb.VerifyMessageResponse> {
     path: string; // "/lnrpc.Lightning/VerifyMessage"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.VerifyMessageRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.VerifyMessageRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.VerifyMessageResponse>;
@@ -166,8 +251,8 @@ interface ILightningService_IVerifyMessage extends grpc.MethodDefinition<lndrpc_
 }
 interface ILightningService_IConnectPeer extends grpc.MethodDefinition<lndrpc_pb.ConnectPeerRequest, lndrpc_pb.ConnectPeerResponse> {
     path: string; // "/lnrpc.Lightning/ConnectPeer"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.ConnectPeerRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.ConnectPeerRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.ConnectPeerResponse>;
@@ -175,8 +260,8 @@ interface ILightningService_IConnectPeer extends grpc.MethodDefinition<lndrpc_pb
 }
 interface ILightningService_IDisconnectPeer extends grpc.MethodDefinition<lndrpc_pb.DisconnectPeerRequest, lndrpc_pb.DisconnectPeerResponse> {
     path: string; // "/lnrpc.Lightning/DisconnectPeer"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.DisconnectPeerRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.DisconnectPeerRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.DisconnectPeerResponse>;
@@ -184,8 +269,8 @@ interface ILightningService_IDisconnectPeer extends grpc.MethodDefinition<lndrpc
 }
 interface ILightningService_IListPeers extends grpc.MethodDefinition<lndrpc_pb.ListPeersRequest, lndrpc_pb.ListPeersResponse> {
     path: string; // "/lnrpc.Lightning/ListPeers"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.ListPeersRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.ListPeersRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.ListPeersResponse>;
@@ -193,8 +278,8 @@ interface ILightningService_IListPeers extends grpc.MethodDefinition<lndrpc_pb.L
 }
 interface ILightningService_ISubscribePeerEvents extends grpc.MethodDefinition<lndrpc_pb.PeerEventSubscription, lndrpc_pb.PeerEvent> {
     path: string; // "/lnrpc.Lightning/SubscribePeerEvents"
-    requestStream: boolean; // false
-    responseStream: boolean; // true
+    requestStream: false;
+    responseStream: true;
     requestSerialize: grpc.serialize<lndrpc_pb.PeerEventSubscription>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.PeerEventSubscription>;
     responseSerialize: grpc.serialize<lndrpc_pb.PeerEvent>;
@@ -202,8 +287,8 @@ interface ILightningService_ISubscribePeerEvents extends grpc.MethodDefinition<l
 }
 interface ILightningService_IGetInfo extends grpc.MethodDefinition<lndrpc_pb.GetInfoRequest, lndrpc_pb.GetInfoResponse> {
     path: string; // "/lnrpc.Lightning/GetInfo"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.GetInfoRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.GetInfoRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.GetInfoResponse>;
@@ -211,8 +296,8 @@ interface ILightningService_IGetInfo extends grpc.MethodDefinition<lndrpc_pb.Get
 }
 interface ILightningService_IPendingChannels extends grpc.MethodDefinition<lndrpc_pb.PendingChannelsRequest, lndrpc_pb.PendingChannelsResponse> {
     path: string; // "/lnrpc.Lightning/PendingChannels"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.PendingChannelsRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.PendingChannelsRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.PendingChannelsResponse>;
@@ -220,8 +305,8 @@ interface ILightningService_IPendingChannels extends grpc.MethodDefinition<lndrp
 }
 interface ILightningService_IListChannels extends grpc.MethodDefinition<lndrpc_pb.ListChannelsRequest, lndrpc_pb.ListChannelsResponse> {
     path: string; // "/lnrpc.Lightning/ListChannels"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.ListChannelsRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.ListChannelsRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.ListChannelsResponse>;
@@ -229,8 +314,8 @@ interface ILightningService_IListChannels extends grpc.MethodDefinition<lndrpc_p
 }
 interface ILightningService_ISubscribeChannelEvents extends grpc.MethodDefinition<lndrpc_pb.ChannelEventSubscription, lndrpc_pb.ChannelEventUpdate> {
     path: string; // "/lnrpc.Lightning/SubscribeChannelEvents"
-    requestStream: boolean; // false
-    responseStream: boolean; // true
+    requestStream: false;
+    responseStream: true;
     requestSerialize: grpc.serialize<lndrpc_pb.ChannelEventSubscription>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.ChannelEventSubscription>;
     responseSerialize: grpc.serialize<lndrpc_pb.ChannelEventUpdate>;
@@ -238,8 +323,8 @@ interface ILightningService_ISubscribeChannelEvents extends grpc.MethodDefinitio
 }
 interface ILightningService_IClosedChannels extends grpc.MethodDefinition<lndrpc_pb.ClosedChannelsRequest, lndrpc_pb.ClosedChannelsResponse> {
     path: string; // "/lnrpc.Lightning/ClosedChannels"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.ClosedChannelsRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.ClosedChannelsRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.ClosedChannelsResponse>;
@@ -247,8 +332,8 @@ interface ILightningService_IClosedChannels extends grpc.MethodDefinition<lndrpc
 }
 interface ILightningService_IOpenChannelSync extends grpc.MethodDefinition<lndrpc_pb.OpenChannelRequest, lndrpc_pb.ChannelPoint> {
     path: string; // "/lnrpc.Lightning/OpenChannelSync"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.OpenChannelRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.OpenChannelRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.ChannelPoint>;
@@ -256,8 +341,8 @@ interface ILightningService_IOpenChannelSync extends grpc.MethodDefinition<lndrp
 }
 interface ILightningService_IOpenChannel extends grpc.MethodDefinition<lndrpc_pb.OpenChannelRequest, lndrpc_pb.OpenStatusUpdate> {
     path: string; // "/lnrpc.Lightning/OpenChannel"
-    requestStream: boolean; // false
-    responseStream: boolean; // true
+    requestStream: false;
+    responseStream: true;
     requestSerialize: grpc.serialize<lndrpc_pb.OpenChannelRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.OpenChannelRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.OpenStatusUpdate>;
@@ -265,8 +350,8 @@ interface ILightningService_IOpenChannel extends grpc.MethodDefinition<lndrpc_pb
 }
 interface ILightningService_IFundingStateStep extends grpc.MethodDefinition<lndrpc_pb.FundingTransitionMsg, lndrpc_pb.FundingStateStepResp> {
     path: string; // "/lnrpc.Lightning/FundingStateStep"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.FundingTransitionMsg>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.FundingTransitionMsg>;
     responseSerialize: grpc.serialize<lndrpc_pb.FundingStateStepResp>;
@@ -274,8 +359,8 @@ interface ILightningService_IFundingStateStep extends grpc.MethodDefinition<lndr
 }
 interface ILightningService_IChannelAcceptor extends grpc.MethodDefinition<lndrpc_pb.ChannelAcceptResponse, lndrpc_pb.ChannelAcceptRequest> {
     path: string; // "/lnrpc.Lightning/ChannelAcceptor"
-    requestStream: boolean; // true
-    responseStream: boolean; // true
+    requestStream: true;
+    responseStream: true;
     requestSerialize: grpc.serialize<lndrpc_pb.ChannelAcceptResponse>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.ChannelAcceptResponse>;
     responseSerialize: grpc.serialize<lndrpc_pb.ChannelAcceptRequest>;
@@ -283,8 +368,8 @@ interface ILightningService_IChannelAcceptor extends grpc.MethodDefinition<lndrp
 }
 interface ILightningService_ICloseChannel extends grpc.MethodDefinition<lndrpc_pb.CloseChannelRequest, lndrpc_pb.CloseStatusUpdate> {
     path: string; // "/lnrpc.Lightning/CloseChannel"
-    requestStream: boolean; // false
-    responseStream: boolean; // true
+    requestStream: false;
+    responseStream: true;
     requestSerialize: grpc.serialize<lndrpc_pb.CloseChannelRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.CloseChannelRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.CloseStatusUpdate>;
@@ -292,8 +377,8 @@ interface ILightningService_ICloseChannel extends grpc.MethodDefinition<lndrpc_p
 }
 interface ILightningService_IAbandonChannel extends grpc.MethodDefinition<lndrpc_pb.AbandonChannelRequest, lndrpc_pb.AbandonChannelResponse> {
     path: string; // "/lnrpc.Lightning/AbandonChannel"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.AbandonChannelRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.AbandonChannelRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.AbandonChannelResponse>;
@@ -301,8 +386,8 @@ interface ILightningService_IAbandonChannel extends grpc.MethodDefinition<lndrpc
 }
 interface ILightningService_ISendPayment extends grpc.MethodDefinition<lndrpc_pb.SendRequest, lndrpc_pb.SendResponse> {
     path: string; // "/lnrpc.Lightning/SendPayment"
-    requestStream: boolean; // true
-    responseStream: boolean; // true
+    requestStream: true;
+    responseStream: true;
     requestSerialize: grpc.serialize<lndrpc_pb.SendRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.SendRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.SendResponse>;
@@ -310,8 +395,8 @@ interface ILightningService_ISendPayment extends grpc.MethodDefinition<lndrpc_pb
 }
 interface ILightningService_ISendPaymentSync extends grpc.MethodDefinition<lndrpc_pb.SendRequest, lndrpc_pb.SendResponse> {
     path: string; // "/lnrpc.Lightning/SendPaymentSync"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.SendRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.SendRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.SendResponse>;
@@ -319,8 +404,8 @@ interface ILightningService_ISendPaymentSync extends grpc.MethodDefinition<lndrp
 }
 interface ILightningService_ISendToRoute extends grpc.MethodDefinition<lndrpc_pb.SendToRouteRequest, lndrpc_pb.SendResponse> {
     path: string; // "/lnrpc.Lightning/SendToRoute"
-    requestStream: boolean; // true
-    responseStream: boolean; // true
+    requestStream: true;
+    responseStream: true;
     requestSerialize: grpc.serialize<lndrpc_pb.SendToRouteRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.SendToRouteRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.SendResponse>;
@@ -328,8 +413,8 @@ interface ILightningService_ISendToRoute extends grpc.MethodDefinition<lndrpc_pb
 }
 interface ILightningService_ISendToRouteSync extends grpc.MethodDefinition<lndrpc_pb.SendToRouteRequest, lndrpc_pb.SendResponse> {
     path: string; // "/lnrpc.Lightning/SendToRouteSync"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.SendToRouteRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.SendToRouteRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.SendResponse>;
@@ -337,8 +422,8 @@ interface ILightningService_ISendToRouteSync extends grpc.MethodDefinition<lndrp
 }
 interface ILightningService_IAddInvoice extends grpc.MethodDefinition<lndrpc_pb.Invoice, lndrpc_pb.AddInvoiceResponse> {
     path: string; // "/lnrpc.Lightning/AddInvoice"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.Invoice>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.Invoice>;
     responseSerialize: grpc.serialize<lndrpc_pb.AddInvoiceResponse>;
@@ -346,8 +431,8 @@ interface ILightningService_IAddInvoice extends grpc.MethodDefinition<lndrpc_pb.
 }
 interface ILightningService_IListInvoices extends grpc.MethodDefinition<lndrpc_pb.ListInvoiceRequest, lndrpc_pb.ListInvoiceResponse> {
     path: string; // "/lnrpc.Lightning/ListInvoices"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.ListInvoiceRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.ListInvoiceRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.ListInvoiceResponse>;
@@ -355,8 +440,8 @@ interface ILightningService_IListInvoices extends grpc.MethodDefinition<lndrpc_p
 }
 interface ILightningService_ILookupInvoice extends grpc.MethodDefinition<lndrpc_pb.PaymentHash, lndrpc_pb.Invoice> {
     path: string; // "/lnrpc.Lightning/LookupInvoice"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.PaymentHash>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.PaymentHash>;
     responseSerialize: grpc.serialize<lndrpc_pb.Invoice>;
@@ -364,8 +449,8 @@ interface ILightningService_ILookupInvoice extends grpc.MethodDefinition<lndrpc_
 }
 interface ILightningService_ISubscribeInvoices extends grpc.MethodDefinition<lndrpc_pb.InvoiceSubscription, lndrpc_pb.Invoice> {
     path: string; // "/lnrpc.Lightning/SubscribeInvoices"
-    requestStream: boolean; // false
-    responseStream: boolean; // true
+    requestStream: false;
+    responseStream: true;
     requestSerialize: grpc.serialize<lndrpc_pb.InvoiceSubscription>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.InvoiceSubscription>;
     responseSerialize: grpc.serialize<lndrpc_pb.Invoice>;
@@ -373,8 +458,8 @@ interface ILightningService_ISubscribeInvoices extends grpc.MethodDefinition<lnd
 }
 interface ILightningService_IDecodePayReq extends grpc.MethodDefinition<lndrpc_pb.PayReqString, lndrpc_pb.PayReq> {
     path: string; // "/lnrpc.Lightning/DecodePayReq"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.PayReqString>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.PayReqString>;
     responseSerialize: grpc.serialize<lndrpc_pb.PayReq>;
@@ -382,8 +467,8 @@ interface ILightningService_IDecodePayReq extends grpc.MethodDefinition<lndrpc_p
 }
 interface ILightningService_IListPayments extends grpc.MethodDefinition<lndrpc_pb.ListPaymentsRequest, lndrpc_pb.ListPaymentsResponse> {
     path: string; // "/lnrpc.Lightning/ListPayments"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.ListPaymentsRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.ListPaymentsRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.ListPaymentsResponse>;
@@ -391,8 +476,8 @@ interface ILightningService_IListPayments extends grpc.MethodDefinition<lndrpc_p
 }
 interface ILightningService_IDeleteAllPayments extends grpc.MethodDefinition<lndrpc_pb.DeleteAllPaymentsRequest, lndrpc_pb.DeleteAllPaymentsResponse> {
     path: string; // "/lnrpc.Lightning/DeleteAllPayments"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.DeleteAllPaymentsRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.DeleteAllPaymentsRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.DeleteAllPaymentsResponse>;
@@ -400,8 +485,8 @@ interface ILightningService_IDeleteAllPayments extends grpc.MethodDefinition<lnd
 }
 interface ILightningService_IDescribeGraph extends grpc.MethodDefinition<lndrpc_pb.ChannelGraphRequest, lndrpc_pb.ChannelGraph> {
     path: string; // "/lnrpc.Lightning/DescribeGraph"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.ChannelGraphRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.ChannelGraphRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.ChannelGraph>;
@@ -409,8 +494,8 @@ interface ILightningService_IDescribeGraph extends grpc.MethodDefinition<lndrpc_
 }
 interface ILightningService_IGetNodeMetrics extends grpc.MethodDefinition<lndrpc_pb.NodeMetricsRequest, lndrpc_pb.NodeMetricsResponse> {
     path: string; // "/lnrpc.Lightning/GetNodeMetrics"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.NodeMetricsRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.NodeMetricsRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.NodeMetricsResponse>;
@@ -418,8 +503,8 @@ interface ILightningService_IGetNodeMetrics extends grpc.MethodDefinition<lndrpc
 }
 interface ILightningService_IGetChanInfo extends grpc.MethodDefinition<lndrpc_pb.ChanInfoRequest, lndrpc_pb.ChannelEdge> {
     path: string; // "/lnrpc.Lightning/GetChanInfo"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.ChanInfoRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.ChanInfoRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.ChannelEdge>;
@@ -427,8 +512,8 @@ interface ILightningService_IGetChanInfo extends grpc.MethodDefinition<lndrpc_pb
 }
 interface ILightningService_IGetNodeInfo extends grpc.MethodDefinition<lndrpc_pb.NodeInfoRequest, lndrpc_pb.NodeInfo> {
     path: string; // "/lnrpc.Lightning/GetNodeInfo"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.NodeInfoRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.NodeInfoRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.NodeInfo>;
@@ -436,8 +521,8 @@ interface ILightningService_IGetNodeInfo extends grpc.MethodDefinition<lndrpc_pb
 }
 interface ILightningService_IQueryRoutes extends grpc.MethodDefinition<lndrpc_pb.QueryRoutesRequest, lndrpc_pb.QueryRoutesResponse> {
     path: string; // "/lnrpc.Lightning/QueryRoutes"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.QueryRoutesRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.QueryRoutesRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.QueryRoutesResponse>;
@@ -445,8 +530,8 @@ interface ILightningService_IQueryRoutes extends grpc.MethodDefinition<lndrpc_pb
 }
 interface ILightningService_IGetNetworkInfo extends grpc.MethodDefinition<lndrpc_pb.NetworkInfoRequest, lndrpc_pb.NetworkInfo> {
     path: string; // "/lnrpc.Lightning/GetNetworkInfo"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.NetworkInfoRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.NetworkInfoRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.NetworkInfo>;
@@ -454,8 +539,8 @@ interface ILightningService_IGetNetworkInfo extends grpc.MethodDefinition<lndrpc
 }
 interface ILightningService_IStopDaemon extends grpc.MethodDefinition<lndrpc_pb.StopRequest, lndrpc_pb.StopResponse> {
     path: string; // "/lnrpc.Lightning/StopDaemon"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.StopRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.StopRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.StopResponse>;
@@ -463,8 +548,8 @@ interface ILightningService_IStopDaemon extends grpc.MethodDefinition<lndrpc_pb.
 }
 interface ILightningService_ISubscribeChannelGraph extends grpc.MethodDefinition<lndrpc_pb.GraphTopologySubscription, lndrpc_pb.GraphTopologyUpdate> {
     path: string; // "/lnrpc.Lightning/SubscribeChannelGraph"
-    requestStream: boolean; // false
-    responseStream: boolean; // true
+    requestStream: false;
+    responseStream: true;
     requestSerialize: grpc.serialize<lndrpc_pb.GraphTopologySubscription>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.GraphTopologySubscription>;
     responseSerialize: grpc.serialize<lndrpc_pb.GraphTopologyUpdate>;
@@ -472,8 +557,8 @@ interface ILightningService_ISubscribeChannelGraph extends grpc.MethodDefinition
 }
 interface ILightningService_IDebugLevel extends grpc.MethodDefinition<lndrpc_pb.DebugLevelRequest, lndrpc_pb.DebugLevelResponse> {
     path: string; // "/lnrpc.Lightning/DebugLevel"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.DebugLevelRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.DebugLevelRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.DebugLevelResponse>;
@@ -481,8 +566,8 @@ interface ILightningService_IDebugLevel extends grpc.MethodDefinition<lndrpc_pb.
 }
 interface ILightningService_IFeeReport extends grpc.MethodDefinition<lndrpc_pb.FeeReportRequest, lndrpc_pb.FeeReportResponse> {
     path: string; // "/lnrpc.Lightning/FeeReport"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.FeeReportRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.FeeReportRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.FeeReportResponse>;
@@ -490,8 +575,8 @@ interface ILightningService_IFeeReport extends grpc.MethodDefinition<lndrpc_pb.F
 }
 interface ILightningService_IUpdateChannelPolicy extends grpc.MethodDefinition<lndrpc_pb.PolicyUpdateRequest, lndrpc_pb.PolicyUpdateResponse> {
     path: string; // "/lnrpc.Lightning/UpdateChannelPolicy"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.PolicyUpdateRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.PolicyUpdateRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.PolicyUpdateResponse>;
@@ -499,8 +584,8 @@ interface ILightningService_IUpdateChannelPolicy extends grpc.MethodDefinition<l
 }
 interface ILightningService_IForwardingHistory extends grpc.MethodDefinition<lndrpc_pb.ForwardingHistoryRequest, lndrpc_pb.ForwardingHistoryResponse> {
     path: string; // "/lnrpc.Lightning/ForwardingHistory"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.ForwardingHistoryRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.ForwardingHistoryRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.ForwardingHistoryResponse>;
@@ -508,8 +593,8 @@ interface ILightningService_IForwardingHistory extends grpc.MethodDefinition<lnd
 }
 interface ILightningService_IExportChannelBackup extends grpc.MethodDefinition<lndrpc_pb.ExportChannelBackupRequest, lndrpc_pb.ChannelBackup> {
     path: string; // "/lnrpc.Lightning/ExportChannelBackup"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.ExportChannelBackupRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.ExportChannelBackupRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.ChannelBackup>;
@@ -517,8 +602,8 @@ interface ILightningService_IExportChannelBackup extends grpc.MethodDefinition<l
 }
 interface ILightningService_IExportAllChannelBackups extends grpc.MethodDefinition<lndrpc_pb.ChanBackupExportRequest, lndrpc_pb.ChanBackupSnapshot> {
     path: string; // "/lnrpc.Lightning/ExportAllChannelBackups"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.ChanBackupExportRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.ChanBackupExportRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.ChanBackupSnapshot>;
@@ -526,8 +611,8 @@ interface ILightningService_IExportAllChannelBackups extends grpc.MethodDefiniti
 }
 interface ILightningService_IVerifyChanBackup extends grpc.MethodDefinition<lndrpc_pb.ChanBackupSnapshot, lndrpc_pb.VerifyChanBackupResponse> {
     path: string; // "/lnrpc.Lightning/VerifyChanBackup"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.ChanBackupSnapshot>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.ChanBackupSnapshot>;
     responseSerialize: grpc.serialize<lndrpc_pb.VerifyChanBackupResponse>;
@@ -535,8 +620,8 @@ interface ILightningService_IVerifyChanBackup extends grpc.MethodDefinition<lndr
 }
 interface ILightningService_IRestoreChannelBackups extends grpc.MethodDefinition<lndrpc_pb.RestoreChanBackupRequest, lndrpc_pb.RestoreBackupResponse> {
     path: string; // "/lnrpc.Lightning/RestoreChannelBackups"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.RestoreChanBackupRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.RestoreChanBackupRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.RestoreBackupResponse>;
@@ -544,8 +629,8 @@ interface ILightningService_IRestoreChannelBackups extends grpc.MethodDefinition
 }
 interface ILightningService_ISubscribeChannelBackups extends grpc.MethodDefinition<lndrpc_pb.ChannelBackupSubscription, lndrpc_pb.ChanBackupSnapshot> {
     path: string; // "/lnrpc.Lightning/SubscribeChannelBackups"
-    requestStream: boolean; // false
-    responseStream: boolean; // true
+    requestStream: false;
+    responseStream: true;
     requestSerialize: grpc.serialize<lndrpc_pb.ChannelBackupSubscription>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.ChannelBackupSubscription>;
     responseSerialize: grpc.serialize<lndrpc_pb.ChanBackupSnapshot>;
@@ -553,8 +638,8 @@ interface ILightningService_ISubscribeChannelBackups extends grpc.MethodDefiniti
 }
 interface ILightningService_IBakeMacaroon extends grpc.MethodDefinition<lndrpc_pb.BakeMacaroonRequest, lndrpc_pb.BakeMacaroonResponse> {
     path: string; // "/lnrpc.Lightning/BakeMacaroon"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndrpc_pb.BakeMacaroonRequest>;
     requestDeserialize: grpc.deserialize<lndrpc_pb.BakeMacaroonRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.BakeMacaroonResponse>;

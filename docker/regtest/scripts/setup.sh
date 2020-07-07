@@ -16,7 +16,7 @@ function waitForLndToSync () {
 function openChannel () {
   nodeAddress=$($1 getnewaddress)
   lndAddress=$($2 newaddress p2wkh | jq -r '.address')
-  
+
   $1 sendtoaddress ${lndAddress} 10 > /dev/null
 
   $1 generatetoaddress 1 ${nodeAddress} > /dev/null
@@ -31,7 +31,7 @@ function openChannel () {
   $1 generatetoaddress 6 ${nodeAddress} > /dev/null
 
   while true; do
-    numActiveChannels="$($2 getinfo | jq -r ".num_pending_channels")"
+    numActiveChannels="$($2 getinfo | jq -r ".num_active_channels")"
 
     if [[ ${numActiveChannels} == "1" ]]; then
       break	

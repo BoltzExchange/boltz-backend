@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-const { checkFailedSwaps } = require('../dist/CliTools');
+const { checkFailedSwaps } = require('../dist/lib/CliTools');
 
 const { argv } = require('yargs').options({
   dbpath: {

@@ -2,7 +2,7 @@
   "name": "boltz-backend",
   "version": "2.3.0-beta",
   "description": "Backend of boltz",
-  "main": "dist/Boltz.js",
+  "main": "dist/lib/Boltz.js",
   "scripts": {
     "postinstall": "npm run precompile",
     "proto": "cross-os proto",
@@ -12,7 +12,7 @@
     "start": "node bin/boltzd",
     "dev": "npm run compile && npm run start",
     "lint": "eslint --max-warnings 0 --ext .ts .",
-    "docker:regtest": "docker run -d --name regtest -p 9736:9735 -p 18443:18443 -p 19443:19443 -p 18332:18332 -p 18232:18232 -p 29000:29000 -p 29001:29001 -p 29002:29002 -p 30000:30000 -p 30001:30001 -p 30002:30002 -p 40000:40000 -p 40001:40001 -p 40002:40002 -p 50000:50000 -p 50001:50001 -p 50002:50002 -p 10009:10009 -p 10011:10011 -p 11009:11009 -p 11010:11010 -p 8081:8081 boltz/regtest:1.5.1",
+    "docker:regtest": "docker run -d --name regtest -p 9736:9735 -p 18443:18443 -p 19443:19443 -p 18332:18332 -p 18232:18232 -p 29000:29000 -p 29001:29001 -p 29002:29002 -p 30000:30000 -p 30001:30001 -p 30002:30002 -p 40000:40000 -p 40001:40001 -p 40002:40002 -p 50000:50000 -p 50001:50001 -p 50002:50002 -p 10009:10009 -p 10011:10011 -p 11009:11009 -p 11010:11010 -p 8081:8081 boltz/regtest:1.5.2",
     "docker:ganache": "docker run -d --name ganache -p 8545:8545 trufflesuite/ganache-cli:v6.9.1 --mnemonic \"gym visit library audit device unfair turkey render sister arena bounce glow\"",
     "docker:ganache:deploy": "cd node_modules/boltz-core && truffle deploy --network ganache",
     "docker:start": "npm run docker:regtest && npm run docker:ganache && npm run docker:ganache:deploy",
@@ -35,9 +35,7 @@
   },
   "cross-os": {
     "postcompile": {
-      "linux": "rsync -am --include '*/' --include '*.js*' --exclude '*' lib/proto/ dist/proto",
-      "darwin": "rsync -am --include '*/' --include '*.js*' --exclude '*' lib/proto/ dist/proto",
-      "win32": "xcopy /s lib\\proto\\*.js* dist\\proto\\* >nul"
+      "linux": "rsync -am --include '*/' --include '*.js*' --exclude '*' lib/proto/ dist/lib/proto"
     },
     "proto": {
       "linux": "./node_modules/grpc-tools/bin/protoc --js_out='import_style=commonjs,binary:lib/proto' --ts_out='lib/proto' --grpc_out='lib/proto' --plugin='protoc-gen-grpc=node_modules/.bin/grpc_tools_node_protoc_plugin' --plugin='protoc-gen-ts=node_modules/grpc_tools_node_protoc_ts/bin/protoc-gen-ts' -I='proto' proto/*.proto"

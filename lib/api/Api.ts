@@ -29,7 +29,7 @@ class Api {
     this.registerRoutes(this.controller);
   }
 
-  public init = async () => {
+  public init = async (): Promise<void> => {
     await this.controller.init();
 
     this.app.listen(this.config.port, this.config.host, () => {

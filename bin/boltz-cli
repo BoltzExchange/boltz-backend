@@ -23,7 +23,7 @@ require('yargs')
       alias: 't',
     },
   })
-  .commandDir('../dist/cli/commands/')
+  .commandDir('../dist/lib/cli/commands/')
   .demandCommand(1, '')
   .strict()
   .argv;

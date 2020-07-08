@@ -1,7 +1,13 @@
 import { randomBytes } from 'crypto';
 import { Transaction, crypto } from 'bitcoinjs-lib';
 import { getHexString, reverseBuffer } from '../../../lib/Utils';
-import { Transaction as TransactionType } from '../../../lib/consts/Types';
+import {
+  Block,
+  BlockchainInfo,
+  BlockVerbose,
+  RawTransaction,
+  Transaction as TransactionType
+} from '../../../lib/consts/Types';
 
 type RawBlock = {
   height: number;
@@ -38,7 +44,7 @@ class FakedChainClient {
     return this.blockIndex.size - 1;
   }
 
-  public getBlockchainInfo = async () => {
+  public getBlockchainInfo = async (): Promise<BlockchainInfo> => {
     const bestBlock = this.blocks.get(this.blockIndex.get(this.bestBlockHeight)!)!;
 
     return {
@@ -59,7 +65,7 @@ class FakedChainClient {
     };
   }
 
-  public getBlockhash = async (height: number) => {
+  public getBlockhash = async (height: number): Promise<string> => {
     const hash = this.blockIndex.get(height);
 
     if (hash !== undefined) {
@@ -69,7 +75,7 @@ class FakedChainClient {
     }
   }
 
-  public getBlock = async (hash: string) => {
+  public getBlock = async (hash: string): Promise<Block> => {
     const block = this.blocks.get(hash);
 
     if (block !== undefined) {
@@ -103,7 +109,7 @@ class FakedChainClient {
     }
   }
 
-  public getBlockVerbose = async (hash: string) => {
+  public getBlockVerbose = async (hash: string): Promise<BlockVerbose> => {
     if (this.disableGetBlockVerbose) {
       throw 'disabled';
     }
@@ -152,7 +158,7 @@ class FakedChainClient {
     }
   }
 
-  public getRawTransaction = async (id: string) => {
+  public getRawTransaction = async (id: string): Promise<string> => {
     const transaction = this.transactions.get(id);
 
     if (transaction !== undefined) {
@@ -168,7 +174,7 @@ class FakedChainClient {
     }
   }
 
-  public getRawTransactionVerbose = async (id: string) => {
+  public getRawTransactionVerbose = async (id: string): Promise<RawTransaction> => {
     const verboseTransaction = {
       hex: '',
       vin: [],
@@ -208,7 +214,7 @@ class FakedChainClient {
     }
   }
 
-  public generateBlock = (height?: number, orphan = false) => {
+  public generateBlock = (height?: number, orphan = false): { hash: Buffer, block: Buffer, height: number } => {
     if (height !== undefined) {
       if (height > this.bestBlockHeight + 1) {
         throw 'cannot generate block greater than best block height';
@@ -251,7 +257,7 @@ class FakedChainClient {
     return block;
   }
 
-  public sendRawTransaction = (transaction: Transaction) => {
+  public sendRawTransaction = (transaction: Transaction): void => {
     this.mempoolTransactions.set(transaction.getId(), transaction);
   }
 }

@@ -65,7 +65,7 @@ class NotificationProvider {
     this.diskUsageChecker = new DiskUsageChecker(this.logger, this.discord);
   }
 
-  public init = async () => {
+  public init = async (): Promise<void> => {
     try {
       await this.discord.init();
 
@@ -92,7 +92,7 @@ class NotificationProvider {
     }
   }
 
-  public disconnect = () => {
+  public disconnect = (): void => {
     clearInterval(this.timer);
   }
 

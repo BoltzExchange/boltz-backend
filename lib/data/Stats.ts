@@ -16,7 +16,7 @@ class Stats {
     private reverseSwapRepository: ReverseSwapRepository,
   ) {}
 
-  public generate = async () => {
+  public generate = async (): Promise<string> => {
     // Handle and count successful swaps
     const {
       swaps,

@@ -7,6 +7,7 @@ import Logger from './Logger';
 import Report from './data/Report';
 import Database from './db/Database';
 import Service from './service/Service';
+import VersionCheck from './VersionCheck';
 import GrpcServer from './grpc/GrpcServer';
 import GrpcService from './grpc/GrpcService';
 import LndClient from './lightning/LndClient';
@@ -91,11 +92,11 @@ class Boltz {
       );
     } catch (error) {
       this.logger.error(`Could not start Boltz: ${stringify(error)}`);
-      process.exit(1);
+      throw error;
     }
   }
 
-  public start = async () => {
+  public start = async (): Promise<void> => {
     try {
       await this.db.init();
 
@@ -123,7 +124,7 @@ class Boltz {
       await this.api.init();
     } catch (error) {
       this.logger.error(`Could not initialize Boltz: ${formatError(error)}`);
-      process.exit(1);
+      throw error;
     }
   }
 
@@ -135,6 +136,8 @@ class Boltz {
 
       const blockchainInfo = await client.getBlockchainInfo();
       const networkInfo = await client.getNetworkInfo();
+
+      VersionCheck.checkChainClientVersion(client.symbol, networkInfo.version);
 
       this.logStatus(service, {
         version: networkInfo.version,
@@ -156,6 +159,9 @@ class Boltz {
       await client.connect();
 
       const info = await client.getInfo();
+
+      VersionCheck.checkLndVersion(client.symbol, info.version);
+
       // The featuresMap is just annoying to see on startup
       info.featuresMap = undefined as any;
 
@@ -189,7 +195,7 @@ class Boltz {
     });
   }
 
-  private logStatus = (service: string, status: Object) => {
+  private logStatus = (service: string, status: unknown) => {
     this.logger.verbose(`${service} status: ${JSON.stringify(status, undefined, 2)}`);
   }
 

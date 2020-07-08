@@ -1,12 +1,11 @@
 import os from 'os';
 import path from 'path';
-import bolt11, { RoutingInfo } from '@boltz/bolt11';
 import { Transaction } from 'bitcoinjs-lib';
+import bolt11, { RoutingInfo } from '@boltz/bolt11';
 import { OutputType, Scripts } from 'boltz-core';
 import commitHash from './Version';
+import packageJson from '../package.json';
 import { OrderSide } from './consts/Enums';
-
-const packageJson = require('../package.json');
 
 const {
   p2shOutput,
@@ -37,14 +36,14 @@ export const generateId = (length = 6): string => {
 /**
  * Stringify any object or array
  */
-export const stringify = (object: any) => {
+export const stringify = (object: unknown): string => {
   return JSON.stringify(object, undefined, 2);
 };
 
 /**
  * Turn a map into an object
  */
-export const mapToObject = (map: Map<any, any>) => {
+export const mapToObject = (map: Map<any, any>): any => {
   const object: any = {};
 
   map.forEach((value, index) => {
@@ -79,11 +78,15 @@ export const splitPairId = (pairId: string): {
 /**
  * Convert minutes into milliseconds
  */
-export const minutesToMilliseconds = (minutes: number) => {
+export const minutesToMilliseconds = (minutes: number): number => {
   return minutes * 60 * 1000;
 };
 
-export const decodeInvoice = (invoice: string) => {
+export const decodeInvoice = (invoice: string): bolt11.PaymentRequestObject & {
+  satoshis: number,
+  paymentHash: string | undefined,
+  routingInfo: bolt11.RoutingInfo | undefined,
+} => {
   const decoded = bolt11.decode(invoice);
 
   let payment_hash: string | undefined;
@@ -130,21 +133,21 @@ export const splitDerivationPath = (path: string): { master: string, sub: number
 /**
  * Concat an error code and its prefix
  */
-export const concatErrorCode = (prefix: number, code: number) => {
+export const concatErrorCode = (prefix: number, code: number): string => {
   return `${prefix}.${code}`;
 };
 
 /**
  * Capitalize the first letter of a string
  */
-export const capitalizeFirstLetter = (input: string) => {
+export const capitalizeFirstLetter = (input: string): string => {
   return input.charAt(0).toUpperCase() + input.slice(1);
 };
 
 /**
  * Resolve '~' on Linux and Unix-Like systems
  */
-export const resolveHome = (filename: string) => {
+export const resolveHome = (filename: string): string => {
   if (os.platform() !== 'win32') {
     if (filename.charAt(0) === '~') {
       return path.join(process.env.HOME!, filename.slice(1));
@@ -158,7 +161,7 @@ export const resolveHome = (filename: string) => {
  * Get a hex encoded Buffer from a string
  * @returns a hex encoded Buffer
  */
-export const getHexBuffer = (input: string) => {
+export const getHexBuffer = (input: string): Buffer => {
   return Buffer.from(input, 'hex');
 };
 
@@ -167,14 +170,14 @@ export const getHexBuffer = (input: string) => {
  *
  * @returns a hex encoded string
  */
-export const getHexString = (input: Buffer) => {
+export const getHexString = (input: Buffer): string => {
   return input.toString('hex');
 };
 
 /**
  * Check whether a variable is a non-array object
  */
-export const isObject = (val: any): boolean => {
+export const isObject = (val: unknown): boolean => {
   return (val && typeof val === 'object' && !Array.isArray(val));
 };
 
@@ -190,7 +193,7 @@ export const getTsString = (): string => (new Date()).toLocaleString('en-US', { 
  * @param target The destination object to merge into.
  * @param sources The sources objects to copy from.
  */
-export const deepMerge = (target: any, ...sources: any[]): object => {
+export const deepMerge = (target: Record<string, any>, ...sources: any[]): unknown => {
   if (!sources.length) return target;
   const source = sources.shift();
 
@@ -213,7 +216,7 @@ export const deepMerge = (target: any, ...sources: any[]): object => {
  *
  * @param listen string of format host:port
  */
-export const splitListen = (listen: string) =>  {
+export const splitListen = (listen: string): { host: string, port: string } =>  {
   const split = listen.split(':');
   return {
     host: split[0],
@@ -235,9 +238,10 @@ export const getSystemHomeDir = (): string => {
 /**
  * Get the data directory of a service
  */
-export const getServiceDataDir = (service: string) => {
+export const getServiceDataDir = (service: string): string => {
   const homeDir = getSystemHomeDir();
   const serviceDir = service.toLowerCase();
+
   switch (os.platform()) {
     case 'win32':
     case 'darwin':
@@ -247,7 +251,7 @@ export const getServiceDataDir = (service: string) => {
   }
 };
 
-export const getOutputType = (type?: number) => {
+export const getOutputType = (type?: number): OutputType => {
   if (type === undefined) {
     return OutputType.Legacy;
   }
@@ -261,7 +265,13 @@ export const getOutputType = (type?: number) => {
   }
 };
 
-export const getPubkeyHashFunction = (outputType: OutputType) => {
+export const getPubkeyHashFunction = (outputType: OutputType): (
+  ((hash: Buffer) => Buffer) |
+  ((hash: Buffer) => {
+    redeemScript: Buffer,
+    outputScript: Buffer,
+  })
+) => {
   switch (outputType) {
     case OutputType.Bech32:
       return p2wpkhOutput;
@@ -274,7 +284,7 @@ export const getPubkeyHashFunction = (outputType: OutputType) => {
   }
 };
 
-export const getScriptHashFunction = (outputType: OutputType) => {
+export const getScriptHashFunction = (outputType: OutputType): (scriptHex: Buffer) => Buffer => {
   switch (outputType) {
     case OutputType.Bech32:
       return p2wshOutput;
@@ -287,7 +297,7 @@ export const getScriptHashFunction = (outputType: OutputType) => {
   }
 };
 
-export const reverseBuffer = (input: Buffer) => {
+export const reverseBuffer = (input: Buffer): Buffer => {
   const buffer = Buffer.allocUnsafe(input.length);
 
   for (let i = 0, j = input.length - 1; i <= j; i += 1, j -= 1) {
@@ -303,7 +313,7 @@ export const reverseBuffer = (input: Buffer) => {
  * Therefore we have to go full circle from a string to back to the Buffer, reverse that Buffer
  * and convert it back to a string to get the id of the transaction that is used by BTCD
  */
-export const transactionHashToId = (transactionHash: Buffer) => {
+export const transactionHashToId = (transactionHash: Buffer): string => {
   return getHexString(
     reverseBuffer(transactionHash),
   );
@@ -314,7 +324,7 @@ export const transactionHashToId = (transactionHash: Buffer) => {
  *
  * @param transaction the transcations to scan
  */
-export const transactionSignalsRbfExplicitly = (transaction: Transaction) => {
+export const transactionSignalsRbfExplicitly = (transaction: Transaction): boolean => {
   let singalsRbf = false;
 
   transaction.ins.forEach((input) => {
@@ -326,7 +336,10 @@ export const transactionSignalsRbfExplicitly = (transaction: Transaction) => {
   return singalsRbf;
 };
 
-export const getSendingReceivingCurrency = (baseCurrency: string, quoteCurrency: string, orderSide: OrderSide) => {
+export const getSendingReceivingCurrency = (baseCurrency: string, quoteCurrency: string, orderSide: OrderSide): {
+  sending: string,
+  receiving: string,
+} => {
   const isBuy = orderSide === OrderSide.BUY;
 
   return {
@@ -335,7 +348,7 @@ export const getSendingReceivingCurrency = (baseCurrency: string, quoteCurrency:
   };
 };
 
-export const getRate = (rate: number, orderSide: OrderSide, isReverse: boolean) => {
+export const getRate = (rate: number, orderSide: OrderSide, isReverse: boolean): number => {
   if (isReverse) {
     return orderSide === OrderSide.BUY ? 1 / rate : rate;
   } else {
@@ -343,7 +356,7 @@ export const getRate = (rate: number, orderSide: OrderSide, isReverse: boolean) 
   }
 };
 
-export const getChainCurrency = (base: string, quote: string, orderSide: OrderSide, isReverse: boolean) => {
+export const getChainCurrency = (base: string, quote: string, orderSide: OrderSide, isReverse: boolean): string => {
   if (isReverse) {
     return orderSide === OrderSide.BUY ? base : quote;
   } else {
@@ -351,7 +364,7 @@ export const getChainCurrency = (base: string, quote: string, orderSide: OrderSi
   }
 };
 
-export const getLightningCurrency = (base: string, quote: string, orderSide: OrderSide, isReverse: boolean) => {
+export const getLightningCurrency = (base: string, quote: string, orderSide: OrderSide, isReverse: boolean): string => {
   if (isReverse) {
     return orderSide === OrderSide.BUY ? quote : base;
   } else {
@@ -365,28 +378,28 @@ export const getLightningCurrency = (base: string, quote: string, orderSide: Ord
  * @param sendingCurrency currency Boltz sends and the user is receiving
  * @param isReverse whether the swap is a reverse one
  */
-export const getSwapMemo = (sendingCurrency: string, isReverse: boolean) => {
+export const getSwapMemo = (sendingCurrency: string, isReverse: boolean): string => {
   return `Send to ${sendingCurrency} ${isReverse ? 'address' : 'lightning'}`;
 };
 
-export const getPrepayMinerFeeInvoiceMemo = (sendingCurrency: string) => {
+export const getPrepayMinerFeeInvoiceMemo = (sendingCurrency: string): string => {
   return `Miner fee for Reverse Swap to ${sendingCurrency} address`;
 };
 
-export const formatError = (error: any): string => {
+export const formatError = (error: unknown): string => {
   if (typeof error === 'string') {
     return error;
-  } else if ('message' in error) {
-    return error['message'];
+  } else if ('message' in (error as any)) {
+    return (error as any)['message'];
   } else {
     return JSON.stringify(error);
   }
 };
 
-export const getVersion = () => {
+export const getVersion = (): string => {
   return `${packageJson.version}${commitHash}`;
 };
 
-export const getUnixTime = () => {
+export const getUnixTime = (): number => {
   return Math.round(new Date().getTime() / 1000);
 };

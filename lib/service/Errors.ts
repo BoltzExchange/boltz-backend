@@ -27,11 +27,11 @@ export default {
     message: 'a swap with this invoice exists already',
     code: concatErrorCode(ErrorCodePrefix.Service, 5),
   }),
-  EXCEED_MAXIMAL_AMOUNT: (amount: number, maximalAmount: number) => ({
+  EXCEED_MAXIMAL_AMOUNT: (amount: number, maximalAmount: number): Error => ({
     message: `${amount} is exceeds maximal of ${maximalAmount}`,
     code: concatErrorCode(ErrorCodePrefix.Service, 6),
   }),
-  BENEATH_MINIMAL_AMOUNT: (amount: number, minimalAmount: number) => ({
+  BENEATH_MINIMAL_AMOUNT: (amount: number, minimalAmount: number): Error => ({
     message: `${amount} is less than minimal of ${minimalAmount}`,
     code: concatErrorCode(ErrorCodePrefix.Service, 7),
   }),

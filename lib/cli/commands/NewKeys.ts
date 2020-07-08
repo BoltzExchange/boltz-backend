@@ -7,7 +7,7 @@ export const describe = 'generates a new keypair';
 
 export const builder = {};
 
-export const handler = () => {
+export const handler = (): void => {
   const keys = ECPair.makeRandom({});
 
   console.log(stringify({

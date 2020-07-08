@@ -29,7 +29,7 @@ class Db {
     this.migration = new Migration(this.logger);
   }
 
-  public init = async () => {
+  public init = async (): Promise<void> => {
     try {
       await this.sequelize.authenticate();
       this.logger.info(`Connected to database: ${this.storage === ':memory:' ? 'in memory' : this.storage}`);
@@ -54,7 +54,7 @@ class Db {
     await this.migration.migrate();
   }
 
-  public close = async () => {
+  public close = async (): Promise<void> => {
     await this.sequelize.close();
   }
 

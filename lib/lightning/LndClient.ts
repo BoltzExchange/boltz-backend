@@ -44,8 +44,10 @@ type SendResponse = {
   paymentRoute: lndrpc.Route.AsObject;
 };
 
+type LndMethodFunction = (params: any, meta: grpc.Metadata, listener) => any;
+
 interface GrpcResponse {
-  toObject: Function;
+  toObject: () => any;
 }
 
 interface LndClient {
@@ -174,7 +176,7 @@ class LndClient extends BaseClient implements LndClient {
   /**
    * End all subscriptions and reconnection attempts.
    */
-  public disconnect = () => {
+  public disconnect = (): void => {
     this.clearReconnectTimer();
 
     if (this.lightning) {
@@ -209,7 +211,7 @@ class LndClient extends BaseClient implements LndClient {
 
   private unaryCall = <T, U>(methodName: keyof LightningClient, params: T): Promise<U> => {
     return new Promise((resolve, reject) => {
-      (this.lightning![methodName] as Function)(params, this.meta, (err: grpc.ServiceError, response: GrpcResponse) => {
+      (this.lightning![methodName] as LndMethodFunction)(params, this.meta, (err: grpc.ServiceError, response: GrpcResponse) => {
         if (err) {
           reject(err);
         } else {
@@ -221,7 +223,7 @@ class LndClient extends BaseClient implements LndClient {
 
   private unaryInvoicesCall = <T, U>(methodName: keyof InvoicesClient, params: T): Promise<U> => {
     return new Promise((resolve, reject) => {
-      (this.invoices![methodName] as Function)(params, this.meta, (err: grpc.ServiceError, response: GrpcResponse) => {
+      (this.invoices![methodName] as LndMethodFunction)(params, this.meta, (err: grpc.ServiceError, response: GrpcResponse) => {
         if (err) {
           reject(err);
         } else {
@@ -242,7 +244,7 @@ class LndClient extends BaseClient implements LndClient {
   /**
    * Creates an invoice
    */
-  public addInvoice = (value: number, memo?: string) => {
+  public addInvoice = (value: number, memo?: string): Promise<lndrpc.AddInvoiceResponse.AsObject> => {
     const request = new lndrpc.Invoice();
     request.setValue(value);
 
@@ -261,7 +263,7 @@ class LndClient extends BaseClient implements LndClient {
    * @param preimageHash the hash of the preimage
    * @param memo optional memo to attach along with the invoice
    */
-  public addHoldInvoice = (value: number, preimageHash: Buffer, cltvExpiry: number, memo?: string) => {
+  public addHoldInvoice = (value: number, preimageHash: Buffer, cltvExpiry: number, memo?: string): Promise<invoicesrpc.AddHoldInvoiceResp.AsObject> => {
     const request = new invoicesrpc.AddHoldInvoiceRequest();
     request.setValue(value);
     request.setCltvExpiry(cltvExpiry);
@@ -277,7 +279,7 @@ class LndClient extends BaseClient implements LndClient {
     );
   }
 
-  public lookupInvoice = (preimageHash: Buffer) => {
+  public lookupInvoice = (preimageHash: Buffer): Promise<lndrpc.Invoice.AsObject> => {
     const request = new lndrpc.PaymentHash();
     request.setRHash(preimageHash);
 
@@ -314,27 +316,27 @@ class LndClient extends BaseClient implements LndClient {
   /**
    * Cancel a hold invoice
    */
-  public cancelInvoice = (preimageHash: Buffer) => {
+  public cancelInvoice = (preimageHash: Buffer): Promise<invoicesrpc.CancelInvoiceResp.AsObject> => {
     const request = new invoicesrpc.CancelInvoiceMsg();
     request.setPaymentHash(Uint8Array.from(preimageHash));
 
-    return this.unaryInvoicesCall<invoicesrpc.CancelInvoiceMsg, invoicesrpc.CancelInvoiceResp>('cancelInvoice', request);
+    return this.unaryInvoicesCall<invoicesrpc.CancelInvoiceMsg, invoicesrpc.CancelInvoiceResp.AsObject>('cancelInvoice', request);
   }
 
   /**
    * Settle a hold invoice with an already accepted HTLC
    */
-  public settleInvoice = (preimage: Buffer) => {
+  public settleInvoice = (preimage: Buffer): Promise<invoicesrpc.SettleInvoiceResp.AsObject> => {
     const request = new invoicesrpc.SettleInvoiceMsg();
     request.setPreimage(Uint8Array.from(preimage));
 
-    return this.unaryInvoicesCall<invoicesrpc.SettleInvoiceMsg, invoicesrpc.SettleInvoiceResp>('settleInvoice', request);
+    return this.unaryInvoicesCall<invoicesrpc.SettleInvoiceMsg, invoicesrpc.SettleInvoiceResp.AsObject>('settleInvoice', request);
   }
 
   /**
    * Queries for a possible route to the target destination
    */
-  public queryRoutes = (destination: string, amt: number) => {
+  public queryRoutes = (destination: string, amt: number): Promise<lndrpc.QueryRoutesResponse.AsObject> => {
     const request = new lndrpc.QueryRoutesRequest();
     request.setPubKey(destination);
     request.setAmt(amt);
@@ -454,7 +456,7 @@ class LndClient extends BaseClient implements LndClient {
   /**
    * Gets a list of all open channels
    */
-  public listChannels = (activeOnly = false) => {
+  public listChannels = (activeOnly = false): Promise<lndrpc.ListChannelsResponse.AsObject> => {
     const request = new lndrpc.ListChannelsRequest();
     request.setActiveOnly(activeOnly);
 
@@ -464,14 +466,14 @@ class LndClient extends BaseClient implements LndClient {
   /**
    * Gets a list of all peers
    */
-  public listPeers = () => {
+  public listPeers = (): Promise<lndrpc.ListPeersResponse.AsObject> => {
     return this.unaryCall<lndrpc.ListPeersRequest, lndrpc.ListPeersResponse.AsObject>('listPeers', new lndrpc.ListPeersRequest());
   }
 
   /**
    * Gets the balance of the onchain wallet
    */
-  public getWalletBalance = () => {
+  public getWalletBalance = (): Promise<lndrpc.WalletBalanceResponse.AsObject> => {
     const request = new lndrpc.WalletBalanceRequest();
 
     return this.unaryCall<lndrpc.WalletBalanceRequest, lndrpc.WalletBalanceResponse.AsObject>('walletBalance', request);
@@ -480,7 +482,7 @@ class LndClient extends BaseClient implements LndClient {
   /**
    * Subscribe to events for a single invoice
    */
-  public subscribeSingleInvoice = (preimageHash: Buffer) => {
+  public subscribeSingleInvoice = (preimageHash: Buffer): void => {
     const request = new invoicesrpc.SubscribeSingleInvoiceRequest();
     request.setRHash(Uint8Array.from(preimageHash));
 
@@ -568,4 +570,4 @@ class LndClient extends BaseClient implements LndClient {
 }
 
 export default LndClient;
-export { LndConfig, Info };
+export { LndConfig, SendResponse, Info };

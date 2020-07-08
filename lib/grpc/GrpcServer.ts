@@ -23,7 +23,7 @@ class GrpcServer {
     });
   }
 
-  public listen = () => {
+  public listen = (): void => {
     const { port, host, certpath, keypath } = this.grpcConfig;
 
     if (!fs.existsSync(certpath) && !fs.existsSync(keypath)) {
@@ -51,7 +51,7 @@ class GrpcServer {
     }
   }
 
-  public close = () => {
+  public close = (): Promise<void> => {
     return new Promise((resolve) => {
       this.server.tryShutdown(() => {
         this.logger.info('gRPC server completed shutdown');

@@ -2,13 +2,11 @@ import { Op } from 'sequelize';
 import KeyProvider, { KeyProviderType } from './models/KeyProvider';
 
 class KeyRepository {
-  constructor() {}
-
-  public getKeyProviders = async () => {
+  public getKeyProviders = (): Promise<KeyProviderType[]> => {
     return KeyProvider.findAll();
   }
 
-  public getKeyProvider = async (symbol: string) => {
+  public getKeyProvider = (symbol: string): Promise<KeyProviderType | null> => {
     return KeyProvider.findOne({
       where: {
         symbol: {
@@ -18,11 +16,11 @@ class KeyRepository {
     });
   }
 
-  public addKeyProvider = async (wallet: KeyProviderType) => {
+  public addKeyProvider = (wallet: KeyProviderType): Promise<KeyProviderType> => {
     return KeyProvider.create(wallet);
   }
 
-  public setHighestUsedIndex = async (symbol: string, highestUsedIndex: number) => {
+  public setHighestUsedIndex = (symbol: string, highestUsedIndex: number): Promise<[number, KeyProviderType[]]> => {
     return KeyProvider.update({
       highestUsedIndex,
     }, {

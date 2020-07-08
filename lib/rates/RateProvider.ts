@@ -72,7 +72,7 @@ class RateProvider {
     this.parseCurrencies(currencies);
   }
 
-  public init = async (pairs: PairConfig[]) => {
+  public init = async (pairs: PairConfig[]): Promise<void> => {
     this.feeProvider.percentageFees.forEach((percentage, pair) => {
       // Multiply with 100 to get the percentage
       this.percentageFees.set(pair, percentage * 100);
@@ -120,14 +120,14 @@ class RateProvider {
     }, minutesToMilliseconds(this.rateUpdateInterval));
   }
 
-  public disconnect = () => {
+  public disconnect = (): void => {
     clearInterval(this.timer);
   }
 
   /**
    * Returns whether 0-conf should be accepted for a specific amount on a specified chain
    */
-  public acceptZeroConf = (chainCurrency: string, amount: number) => {
+  public acceptZeroConf = (chainCurrency: string, amount: number): boolean => {
     const limits = this.limits.get(chainCurrency);
 
     if (limits) {
@@ -138,11 +138,11 @@ class RateProvider {
   }
 
   private updateRates = async (minerFees: Map<string, MinerFees>) => {
-    const promises: Promise<any>[] = [];
+    const promises: Promise<void>[] = [];
 
     // Update the pairs with a variable rate
     this.pairsToQuery.forEach(([base, quote]) => {
-      promises.push(new Promise(async (resolve) => {
+      promises.push((async () => {
         const rate = await this.dataProvider.getPrice(base, quote);
 
         // If the rate returned is "null" or "NaN" that means that all requests to the APIs of the exchanges
@@ -163,9 +163,7 @@ class RateProvider {
             },
           });
         }
-
-        resolve();
-      }));
+      })());
     });
 
     // Update the miner fees of the pairs with a hardcoded rate
@@ -268,3 +266,4 @@ class RateProvider {
 }
 
 export default RateProvider;
+export { PairType };

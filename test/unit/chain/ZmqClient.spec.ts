@@ -307,7 +307,7 @@ describe('ZmqClient', () => {
     expect(blockHeight).toEqual(chainClient.bestBlockHeight);
   });
 
-  test('should handle rawblock reorganizations', async () => {
+  test('should handle hashblock reorganizations', async () => {
     let blockHeight = chainClient.bestBlockHeight;
 
     zmqClient.on('block', (height) => {

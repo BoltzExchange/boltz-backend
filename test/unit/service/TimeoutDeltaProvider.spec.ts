@@ -25,9 +25,9 @@ describe('TimeoutDeltaProvider', () => {
   const configpath = 'config.toml';
 
   const cleanup = () => {
-    try {
+    if (fs.existsSync(configpath)) {
       fs.unlinkSync(configpath);
-    } catch (error) {}
+    }
   };
 
   const deltaProvider = new TimeoutDeltaProvider(Logger.disabledLogger, {

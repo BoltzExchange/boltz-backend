@@ -17,7 +17,7 @@ const builder = {
   },
 };
 
-const handler = (argv: Arguments<any>) => {
+const handler = (argv: Arguments<any>): void => {
   const request = new UpdateTimeoutBlockDeltaRequest();
 
   request.setPair(argv.pair);

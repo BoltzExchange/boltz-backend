@@ -1,14 +1,11 @@
-// tslint:disable: max-line-length
-
 import os from 'os';
 import { OutputType } from 'boltz-core';
 import { Transaction } from 'bitcoinjs-lib';
 import * as utils from '../../lib/Utils';
 import commitHash from '../../lib/Version';
+import packageJson from '../../package.json';
 import { OrderSide } from '../../lib/consts/Enums';
 import { constructTransaction, randomRange } from '../Utils';
-
-const packageJson = require('../../package.json');
 
 describe('Utils', () => {
   let pairId: string;
@@ -45,7 +42,7 @@ describe('Utils', () => {
     expect(utils.concatErrorCode(prefix, code)).toEqual(`${prefix}.${code}`);
   });
 
-  test('should capitalize the first letter', () => {
+  test('should capitalize first letter', () => {
     const input = 'test123';
     const result = input.charAt(0).toUpperCase() + input.slice(1);
 
@@ -70,8 +67,8 @@ describe('Utils', () => {
   });
 
   test('should check whether it is an object', () => {
-    expect(utils.isObject({})).toBeTruthy;
-    expect(utils.isObject([])).toBeFalsy;
+    expect(utils.isObject({})).toBeTruthy();
+    expect(utils.isObject([])).toBeFalsy();
   });
 
   test('should split host and port', () => {
@@ -120,23 +117,6 @@ describe('Utils', () => {
   test('should check types of variables', () => {
     expect(utils.isObject([])).toBeFalsy();
     expect(utils.isObject({})).toBeTruthy();
-  });
-
-  test('should capitalize the first letter', () => {
-    const input = 'boltz';
-    const result = input.charAt(0).toUpperCase() + input.slice(1);
-
-    expect(utils.capitalizeFirstLetter(input)).toEqual(result);
-  });
-
-  test('should resolve home', () => {
-    const input = '~.boltz';
-
-    if (os.platform() !== 'win32') {
-      expect(utils.resolveHome(input).charAt(0)).toEqual('/');
-    } else {
-      expect(utils.resolveHome(input)).toEqual(input);
-    }
   });
 
   test('should convert minutes into milliseconds', () => {

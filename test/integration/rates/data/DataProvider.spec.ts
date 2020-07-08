@@ -1,5 +1,5 @@
+import { baseAsset, quoteAsset, checkPrice } from './Consts';
 import DataProvider from '../../../../lib/rates/data/DataProvider';
-import { baseAsset, quoteAsset, checkPrice } from './Exchanges.spec';
 
 describe('DataProvider', () => {
   const dataProvider = new DataProvider();

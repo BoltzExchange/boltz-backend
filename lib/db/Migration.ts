@@ -10,7 +10,7 @@ class Migration {
     this.versionRepository = new DatabaseVersionRepository();
   }
 
-  public migrate = async () => {
+  public migrate = async (): Promise<void> => {
     const versionRow = await this.versionRepository.getVersion();
 
     // When no version row is found, just insert the latest version into the database

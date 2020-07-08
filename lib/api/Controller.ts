@@ -34,7 +34,7 @@ class Controller {
     });
   }
 
-  public init = async () => {
+  public init = async (): Promise<void> => {
     // Get the latest status of all swaps in the database
     const [swaps, reverseSwaps] = await Promise.all([
       this.service.swapManager.swapRepository.getSwaps(),
@@ -45,7 +45,7 @@ class Controller {
       const status = swap.status as SwapUpdateEvent;
 
       switch (status) {
-        case SwapUpdateEvent.ChannelCreated:
+        case SwapUpdateEvent.ChannelCreated: {
           const channelCreation = await this.service.swapManager.channelCreationRepository.getChannelCreation({
             swapId: {
               [Op.eq]: swap.id,
@@ -61,6 +61,7 @@ class Controller {
           });
 
           break;
+        }
 
         default:
           this.pendingSwapInfos.set(swap.id, { status: swap.status as SwapUpdateEvent });
@@ -73,7 +74,7 @@ class Controller {
 
       switch (status) {
         case SwapUpdateEvent.TransactionMempool:
-        case SwapUpdateEvent.TransactionConfirmed:
+        case SwapUpdateEvent.TransactionConfirmed: {
           const { base, quote } = splitPairId(reverseSwap.pair);
           const chainCurrency = getChainCurrency(base, quote, reverseSwap.orderSide, true);
 
@@ -88,6 +89,7 @@ class Controller {
             },
           });
           break;
+        }
 
         default:
           this.pendingSwapInfos.set(reverseSwap.id, { status });
@@ -95,15 +97,15 @@ class Controller {
       }
     }
   }
-
+e
   // GET requests
-  public version = (_: Request, res: Response) => {
+  public version = (_: Request, res: Response): void => {
     this.successResponse(res, {
       version: getVersion(),
     });
   }
 
-  public getPairs = (_: Request, res: Response) => {
+  public getPairs = (_: Request, res: Response): void => {
     const data = this.service.getPairs();
 
     this.successResponse(res, {
@@ -113,7 +115,7 @@ class Controller {
     });
   }
 
-  public getNodes = async (_: Request, res: Response) => {
+  public getNodes = async (_: Request, res: Response): Promise<void> => {
     const nodes = await this.service.getNodes();
 
     this.successResponse(res, {
@@ -121,14 +123,14 @@ class Controller {
     });
   }
 
-  public getFeeEstimation = async (_: Request, res: Response) => {
+  public getFeeEstimation = async (_: Request, res: Response): Promise<void> => {
     const feeEstimation = await this.service.getFeeEstimation();
 
     this.successResponse(res, mapToObject(feeEstimation));
   }
 
   // POST requests
-  public swapStatus = async (req: Request, res: Response) => {
+  public swapStatus = async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = this.validateRequest(req.body, [
         { name: 'id', type: 'string' },
@@ -146,7 +148,7 @@ class Controller {
     }
   }
 
-  public swapRates = async (req: Request, res: Response) => {
+  public swapRates = async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = this.validateRequest(req.body, [
         { name: 'id', type: 'string' },
@@ -159,7 +161,7 @@ class Controller {
     }
   }
 
-  public getTransaction = async (req: Request, res: Response) => {
+  public getTransaction = async (req: Request, res: Response): Promise<void> => {
     try {
       const { currency, transactionId } = this.validateRequest(req.body, [
         { name: 'currency', type: 'string' },
@@ -173,7 +175,7 @@ class Controller {
     }
   }
 
-  public getSwapTransaction = async (req: Request, res: Response) => {
+  public getSwapTransaction = async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = this.validateRequest(req.body, [
         { name: 'id', type: 'string' },
@@ -186,7 +188,7 @@ class Controller {
     }
   }
 
-  public broadcastTransaction = async (req: Request, res: Response) => {
+  public broadcastTransaction = async (req: Request, res: Response): Promise<void> => {
     try {
       const { currency, transactionHex } = this.validateRequest(req.body, [
         { name: 'currency', type: 'string' },
@@ -200,7 +202,7 @@ class Controller {
     }
   }
 
-  public createSwap = async (req: Request, res: Response) => {
+  public createSwap = async (req: Request, res: Response): Promise<void> => {
     try {
       const { type } = this.validateRequest(req.body, [
         { name: 'type', type: 'string' },
@@ -299,7 +301,7 @@ class Controller {
     this.createdResponse(res, response);
   }
 
-  public setInvoice = async (req: Request, res: Response) => {
+  public setInvoice = async (req: Request, res: Response): Promise<void> => {
     try {
       const { id, invoice } = this.validateRequest(req.body, [
         { name: 'id', type: 'string' },
@@ -314,7 +316,7 @@ class Controller {
   }
 
   // EventSource streams
-  public streamSwapStatus = (req: Request, res: Response) => {
+  public streamSwapStatus = (req: Request, res: Response): void => {
     try {
       const { id } = this.validateRequest(req.query, [
         { name: 'id', type: 'string' },
@@ -344,7 +346,7 @@ class Controller {
    *
    * @returns the validated arguments
    */
-  private validateRequest = (body: object, argsToCheck: ApiArgument[]) => {
+  private validateRequest = (body: Record<string, any>, argsToCheck: ApiArgument[]) => {
     const response: any = {};
 
     argsToCheck.forEach((arg) => {
@@ -374,35 +376,37 @@ class Controller {
     return response;
   }
 
-  public errorResponse = (req: Request, res: Response, error: any, statusCode = 400) => {
+  public errorResponse = (req: Request, res: Response, error: unknown, statusCode = 400): void => {
     if (typeof error === 'string') {
       this.writeErrorResponse(req, res, statusCode, { error });
     } else {
+      const errorObject = error as any;
+
       // Bitcoin Core related errors
-      if (error.details) {
-        this.writeErrorResponse(req, res, statusCode, { error: error.details });
+      if (errorObject.details) {
+        this.writeErrorResponse(req, res, statusCode, { error: errorObject.details });
       // Custom error when broadcasting a refund transaction fails because
       // the locktime requirement has not been met yet
-      } else if (error.timeoutBlockHeight) {
+      } else if (errorObject.timeoutBlockHeight) {
         this.writeErrorResponse(req, res, statusCode, error);
       // Everything else
       } else {
-        this.writeErrorResponse(req, res, statusCode, { error: error.message });
+        this.writeErrorResponse(req, res, statusCode, { error: errorObject.message });
       }
     }
   }
 
-  private successResponse = (res: Response, data: object) => {
+  private successResponse = (res: Response, data: unknown) => {
     this.setContentTypeJson(res);
     res.status(200).json(data);
   }
 
-  private createdResponse = (res: Response, data: object) => {
+  private createdResponse = (res: Response, data: unknown) => {
     this.setContentTypeJson(res);
     res.status(201).json(data);
   }
 
-  private writeErrorResponse = (req: Request, res: Response, statusCode: number, error: object) => {
+  private writeErrorResponse = (req: Request, res: Response, statusCode: number, error: unknown) => {
     this.logger.warn(`Request ${req.url} ${JSON.stringify(req.body)} failed: ${JSON.stringify(error)}`);
 
     this.setContentTypeJson(res);

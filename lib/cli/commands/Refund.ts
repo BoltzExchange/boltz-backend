@@ -16,7 +16,7 @@ export const builder = {
   destinationAddress: BuilderComponents.destinationAddress,
 };
 
-export const handler = (argv: Arguments<any>) => {
+export const handler = (argv: Arguments<any>): void => {
   const network = Networks[argv.network];
 
   const redeemScript = getHexBuffer(argv.redeemScript);

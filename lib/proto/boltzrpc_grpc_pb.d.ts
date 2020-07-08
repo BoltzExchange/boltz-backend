@@ -17,8 +17,8 @@ interface IBoltzService extends grpc.ServiceDefinition<grpc.UntypedServiceImplem
 
 interface IBoltzService_IGetInfo extends grpc.MethodDefinition<boltzrpc_pb.GetInfoRequest, boltzrpc_pb.GetInfoResponse> {
     path: string; // "/boltzrpc.Boltz/GetInfo"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<boltzrpc_pb.GetInfoRequest>;
     requestDeserialize: grpc.deserialize<boltzrpc_pb.GetInfoRequest>;
     responseSerialize: grpc.serialize<boltzrpc_pb.GetInfoResponse>;
@@ -26,8 +26,8 @@ interface IBoltzService_IGetInfo extends grpc.MethodDefinition<boltzrpc_pb.GetIn
 }
 interface IBoltzService_IGetBalance extends grpc.MethodDefinition<boltzrpc_pb.GetBalanceRequest, boltzrpc_pb.GetBalanceResponse> {
     path: string; // "/boltzrpc.Boltz/GetBalance"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<boltzrpc_pb.GetBalanceRequest>;
     requestDeserialize: grpc.deserialize<boltzrpc_pb.GetBalanceRequest>;
     responseSerialize: grpc.serialize<boltzrpc_pb.GetBalanceResponse>;
@@ -35,8 +35,8 @@ interface IBoltzService_IGetBalance extends grpc.MethodDefinition<boltzrpc_pb.Ge
 }
 interface IBoltzService_IGetAddress extends grpc.MethodDefinition<boltzrpc_pb.GetAddressRequest, boltzrpc_pb.GetAddressResponse> {
     path: string; // "/boltzrpc.Boltz/GetAddress"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<boltzrpc_pb.GetAddressRequest>;
     requestDeserialize: grpc.deserialize<boltzrpc_pb.GetAddressRequest>;
     responseSerialize: grpc.serialize<boltzrpc_pb.GetAddressResponse>;
@@ -44,8 +44,8 @@ interface IBoltzService_IGetAddress extends grpc.MethodDefinition<boltzrpc_pb.Ge
 }
 interface IBoltzService_ISendCoins extends grpc.MethodDefinition<boltzrpc_pb.SendCoinsRequest, boltzrpc_pb.SendCoinsResponse> {
     path: string; // "/boltzrpc.Boltz/SendCoins"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<boltzrpc_pb.SendCoinsRequest>;
     requestDeserialize: grpc.deserialize<boltzrpc_pb.SendCoinsRequest>;
     responseSerialize: grpc.serialize<boltzrpc_pb.SendCoinsResponse>;
@@ -53,8 +53,8 @@ interface IBoltzService_ISendCoins extends grpc.MethodDefinition<boltzrpc_pb.Sen
 }
 interface IBoltzService_IUpdateTimeoutBlockDelta extends grpc.MethodDefinition<boltzrpc_pb.UpdateTimeoutBlockDeltaRequest, boltzrpc_pb.UpdateTimeoutBlockDeltaResponse> {
     path: string; // "/boltzrpc.Boltz/UpdateTimeoutBlockDelta"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<boltzrpc_pb.UpdateTimeoutBlockDeltaRequest>;
     requestDeserialize: grpc.deserialize<boltzrpc_pb.UpdateTimeoutBlockDeltaRequest>;
     responseSerialize: grpc.serialize<boltzrpc_pb.UpdateTimeoutBlockDeltaResponse>;

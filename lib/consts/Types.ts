@@ -112,3 +112,32 @@ export type RawTransaction = Transaction & {
   time: number;
   blocktime: number;
 };
+
+export type NetworkInfo = {
+  version: number;
+  subversion: string;
+  protocolversion: number;
+  localservices: number;
+  localrelay: boolean;
+  timeoffset: number;
+  networkactive: boolean;
+  connections: number;
+  relayfee: number;
+  incrementalfee: number;
+};
+
+export type UnspentUtxo = {
+  txid: string;
+  vout: number;
+  address: string;
+  label: string;
+  scriptPubKey: string;
+  amount: number;
+  confirmations: number;
+  redeemScript: string;
+  witnessScript: string;
+  spendable: boolean;
+  solvable: boolean;
+  desc?: string;
+  safe: boolean;
+};

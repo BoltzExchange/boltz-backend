@@ -1,3 +1,4 @@
+import { baseAsset, checkPrice, quoteAsset } from './Consts';
 import Kraken from '../../../../lib/rates/data/exchanges/Kraken';
 import Binance from '../../../../lib/rates/data/exchanges/Binance';
 import Bitfinex from '../../../../lib/rates/data/exchanges/Bitfinex';
@@ -40,13 +41,3 @@ describe('Exchanges', () => {
     checkPrice(price);
   });
 });
-
-export const baseAsset = 'ltc';
-export const quoteAsset = 'BTC';
-
-export const checkPrice = (price: any) => {
-  expect(typeof price).toEqual('number');
-
-  expect(price).toBeLessThan(1);
-  expect(price).toBeGreaterThan(0);
-};

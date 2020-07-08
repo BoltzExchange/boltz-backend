@@ -61,7 +61,7 @@ class BackupScheduler {
     return `${number}`.padStart(2, '0');
   }
 
-  public uploadDatabase = async (date: Date) => {
+  public uploadDatabase = async (date: Date): Promise<void> => {
     if (!this.bucket) {
       throw Errors.BACKUP_DISABLED();
     }
@@ -72,7 +72,7 @@ class BackupScheduler {
     await this.uploadFile(this.dbpath, dateString);
   }
 
-  public uploadReport = async () => {
+  public uploadReport = async (): Promise<void> => {
     if (!this.bucket) {
       return;
     }

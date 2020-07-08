@@ -131,7 +131,7 @@ class SwapNursery extends EventEmitter {
     this.logger.info(`Setting Swap retry interval to ${retryInterval} seconds`);
   }
 
-  public init = async (currencies: Currency[]) => {
+  public init = async (currencies: Currency[]): Promise<void> => {
     currencies.forEach((currency) => {
       this.bindCurrency(currency);
     });
@@ -445,7 +445,7 @@ class SwapNursery extends EventEmitter {
     transaction: Transaction,
     confirmed: boolean,
     outgoingChannelId?: string,
-  ) => {
+  ): Promise<void> => {
     let zeroConfRejectedReason: string | undefined = undefined;
 
     // Confirmed transactions do not have to be checked for 0-conf criteria

@@ -5,6 +5,20 @@ import SwapRepository from '../db/SwapRepository';
 import ReverseSwap from '../db/models/ReverseSwap';
 import ReverseSwapRepository from '../db/ReverseSwapRepository';
 
+type SwapFailureReasons = {
+  [SwapUpdateEvent.SwapExpired]: number,
+  [SwapUpdateEvent.InvoiceFailedToPay]: number,
+};
+
+type SwapExpiryReasons = {
+  noTransaction: number,
+  transactionSent: string[],
+};
+
+type ReverseSwapFailureReasons = {
+  [SwapUpdateEvent.TransactionRefunded]: number,
+};
+
 class CheckFailedSwaps {
   constructor(private swapRepository: SwapRepository, private reverseSwapRepository: ReverseSwapRepository) {}
 
@@ -51,7 +65,15 @@ class CheckFailedSwaps {
     };
   }
 
-  public check = async () => {
+  public check = async (): Promise<{
+    swaps: {
+      expiryReasons: SwapExpiryReasons,
+      failureReasons: SwapFailureReasons,
+    },
+    reverseSwaps: {
+      failureReasons: ReverseSwapFailureReasons
+    },
+  }> => {
     const failedSwaps = await Report.getFailedSwaps(this.swapRepository, this.reverseSwapRepository);
 
     return {

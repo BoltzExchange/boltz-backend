@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-const { generateReport } = require('../dist/CliTools');
+const { generateReport } = require('../dist/lib/CliTools');
 
 const { argv } = require('yargs').options({
   dbpath: {

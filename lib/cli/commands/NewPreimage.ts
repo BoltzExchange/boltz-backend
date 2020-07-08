@@ -8,7 +8,7 @@ export const describe = 'generates a new preimage and its hash';
 
 export const builder = {};
 
-export const handler = () => {
+export const handler = (): void => {
   const preimage = randomBytes(32);
 
   console.log(stringify({

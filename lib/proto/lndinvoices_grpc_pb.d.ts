@@ -17,8 +17,8 @@ interface IInvoicesService extends grpc.ServiceDefinition<grpc.UntypedServiceImp
 
 interface IInvoicesService_ISubscribeSingleInvoice extends grpc.MethodDefinition<lndinvoices_pb.SubscribeSingleInvoiceRequest, lndrpc_pb.Invoice> {
     path: string; // "/invoicesrpc.Invoices/SubscribeSingleInvoice"
-    requestStream: boolean; // false
-    responseStream: boolean; // true
+    requestStream: false;
+    responseStream: true;
     requestSerialize: grpc.serialize<lndinvoices_pb.SubscribeSingleInvoiceRequest>;
     requestDeserialize: grpc.deserialize<lndinvoices_pb.SubscribeSingleInvoiceRequest>;
     responseSerialize: grpc.serialize<lndrpc_pb.Invoice>;
@@ -26,8 +26,8 @@ interface IInvoicesService_ISubscribeSingleInvoice extends grpc.MethodDefinition
 }
 interface IInvoicesService_ICancelInvoice extends grpc.MethodDefinition<lndinvoices_pb.CancelInvoiceMsg, lndinvoices_pb.CancelInvoiceResp> {
     path: string; // "/invoicesrpc.Invoices/CancelInvoice"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndinvoices_pb.CancelInvoiceMsg>;
     requestDeserialize: grpc.deserialize<lndinvoices_pb.CancelInvoiceMsg>;
     responseSerialize: grpc.serialize<lndinvoices_pb.CancelInvoiceResp>;
@@ -35,8 +35,8 @@ interface IInvoicesService_ICancelInvoice extends grpc.MethodDefinition<lndinvoi
 }
 interface IInvoicesService_IAddHoldInvoice extends grpc.MethodDefinition<lndinvoices_pb.AddHoldInvoiceRequest, lndinvoices_pb.AddHoldInvoiceResp> {
     path: string; // "/invoicesrpc.Invoices/AddHoldInvoice"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndinvoices_pb.AddHoldInvoiceRequest>;
     requestDeserialize: grpc.deserialize<lndinvoices_pb.AddHoldInvoiceRequest>;
     responseSerialize: grpc.serialize<lndinvoices_pb.AddHoldInvoiceResp>;
@@ -44,8 +44,8 @@ interface IInvoicesService_IAddHoldInvoice extends grpc.MethodDefinition<lndinvo
 }
 interface IInvoicesService_ISettleInvoice extends grpc.MethodDefinition<lndinvoices_pb.SettleInvoiceMsg, lndinvoices_pb.SettleInvoiceResp> {
     path: string; // "/invoicesrpc.Invoices/SettleInvoice"
-    requestStream: boolean; // false
-    responseStream: boolean; // false
+    requestStream: false;
+    responseStream: false;
     requestSerialize: grpc.serialize<lndinvoices_pb.SettleInvoiceMsg>;
     requestDeserialize: grpc.deserialize<lndinvoices_pb.SettleInvoiceMsg>;
     responseSerialize: grpc.serialize<lndinvoices_pb.SettleInvoiceResp>;

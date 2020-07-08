@@ -23,7 +23,7 @@ class RpcClient {
     };
   }
 
-  public request = <T>(method: string, params?: any[]) => {
+  public request = <T>(method: string, params?: any[]): Promise<T> => {
     return new Promise<T>((resolve, reject) => {
       const serializedRequest = JSON.stringify({
         method,

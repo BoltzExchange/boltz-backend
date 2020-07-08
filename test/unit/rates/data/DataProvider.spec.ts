@@ -13,7 +13,7 @@ describe('DataProvider', () => {
   const createExchange = (price: number, throwError = false) => {
     const exchange = mockedExchange();
 
-    exchange.getPrice = (_baseAsset: string, _quoteAsset: string) => {
+    exchange.getPrice = () => {
       return new Promise((resolve, reject) => {
         if (throwError) {
           reject('API error');

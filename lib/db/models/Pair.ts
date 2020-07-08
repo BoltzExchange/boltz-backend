@@ -11,7 +11,7 @@ class Pair extends Model implements PairType {
   public base!: string;
   public quote!: string;
 
-  public static load = (sequelize: Sequelize) => {
+  public static load = (sequelize: Sequelize): void => {
     Pair.init({
       id: { type: new DataTypes.STRING(255), primaryKey: true },
       base: { type: new DataTypes.STRING(255), allowNull: false },

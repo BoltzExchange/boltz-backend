@@ -1,7 +1,7 @@
 import { Network, address, BIP32Interface } from 'bitcoinjs-lib';
 import Logger from '../Logger';
 import KeyRepository from '../db/KeyRepository';
-import WalletProviderInterface from './providers/WalletProviderInterface';
+import WalletProviderInterface, { SentTransaction, WalletBalance } from './providers/WalletProviderInterface';
 
 class Wallet {
   public readonly symbol: string;
@@ -34,14 +34,14 @@ class Wallet {
    *
    * @param index index of the keys to get
    */
-  public getKeysByIndex = (index: number) => {
+  public getKeysByIndex = (index: number): BIP32Interface => {
     return this.masterNode.derivePath(`${this.derivationPath}/${index}`);
   }
 
   /**
    * Gets a new pair of keys
    */
-  public getNewKeys = () => {
+  public getNewKeys = (): { keys: BIP32Interface, index: number } => {
     this.highestUsedIndex += 1;
 
     // tslint:disable-next-line no-floating-promises
@@ -58,7 +58,7 @@ class Wallet {
    *
    * @param outputScript the output script to encode
    */
-  public encodeAddress = (outputScript: Buffer) => {
+  public encodeAddress = (outputScript: Buffer): string => {
     try {
       return address.fromOutputScript(
         outputScript,
@@ -76,28 +76,28 @@ class Wallet {
   /**
    * Decodes an address
    */
-  public decodeAddress = (toDecode: string) => {
+  public decodeAddress = (toDecode: string): Buffer => {
     return address.toOutputScript(
       toDecode,
       this.network,
     );
   }
 
-  public newAddress = () => {
+  public newAddress = (): Promise<string> => {
     return this.walletProvider.newAddress();
   }
 
-  public getBalance = () => {
+  public getBalance = (): Promise<WalletBalance> => {
     return this.walletProvider.getBalance();
   }
 
-  public sendToAddress = (address: string, amount: number, satPerVbyte?: number) => {
+  public sendToAddress = (address: string, amount: number, satPerVbyte?: number): Promise<SentTransaction> => {
     this.logger.info(`Sending ${amount} ${this.symbol} to ${address}`);
 
     return this.walletProvider.sendToAddress(address, amount, satPerVbyte);
   }
 
-  public sweepWallet = (address: string, satPerVbyte?: number) => {
+  public sweepWallet = (address: string, satPerVbyte?: number): Promise<SentTransaction> => {
     this.logger.warn(`Sweeping ${this.symbol} wallet to ${address}`);
 
     return this.walletProvider.sweepWallet(address, satPerVbyte);

@@ -14,7 +14,6 @@ import BackupScheduler from '../backup/BackupScheduler';
 import ChannelCreation from '../db/models/ChannelCreation';
 import { coinsToSatoshis, satoshisToCoins } from '../DenominationConverter';
 import { getChainCurrency, stringify, splitPairId, getHexString, formatError } from '../Utils';
-import has = Reflect.has;
 
 enum Command {
   Help = 'help',
@@ -50,7 +49,7 @@ class CommandHandler {
 
   private commands: Map<string, CommandInfo>;
 
-  private static codeBlock = '\`\`\`';
+  private static codeBlock = '```';
 
   constructor(
     private logger: Logger,

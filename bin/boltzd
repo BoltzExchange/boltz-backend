@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const Boltz = require('../dist/Boltz').default;
+const Boltz = require('../dist/lib/Boltz').default;
 
 const { argv } = require('yargs')
   .options({

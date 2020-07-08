@@ -46,7 +46,7 @@ class WalletManager {
   /**
    * Initializes a new WalletManager with a mnemonic
    */
-  public static fromMnemonic = (logger: Logger, mnemonic: string, mnemonicPath: string, currencies: Currency[], ethereumConfig: EthereumConfig) => {
+  public static fromMnemonic = (logger: Logger, mnemonic: string, mnemonicPath: string, currencies: Currency[], ethereumConfig: EthereumConfig): WalletManager => {
     if (!validateMnemonic(mnemonic)) {
       throw(Errors.INVALID_MNEMONIC(mnemonic));
     }
@@ -56,7 +56,7 @@ class WalletManager {
     return new WalletManager(logger, mnemonicPath, currencies, ethereumConfig);
   }
 
-  public init = async () => {
+  public init = async (): Promise<void> => {
     const keyProviderMap = await this.getKeyProviderMap();
 
     for (const currency of this.currencies) {

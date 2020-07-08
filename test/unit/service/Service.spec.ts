@@ -3,6 +3,7 @@ import { randomBytes } from 'crypto';
 import { Networks } from 'boltz-core';
 import Logger from '../../../lib/Logger';
 import Swap from '../../../lib/db/models/Swap';
+import packageJson from '../../../package.json';
 import Wallet from '../../../lib/wallet/Wallet';
 import Errors from '../../../lib/service/Errors';
 import { ConfigType } from '../../../lib/Config';
@@ -17,8 +18,6 @@ import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
 import { getHexBuffer, getHexString, decodeInvoice } from '../../../lib/Utils';
 import ChannelCreationRepository from '../../../lib/db/ChannelCreationRepository';
 import { ServiceWarning, OrderSide, SwapUpdateEvent, ServiceInfo } from '../../../lib/consts/Enums';
-
-const packageJson = require('../../../package.json');
 
 const mockGetPairs = jest.fn().mockResolvedValue([]);
 const mockAddPair = jest.fn().mockReturnValue(Promise.resolve());

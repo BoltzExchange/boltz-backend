@@ -13,7 +13,7 @@ class KeyProvider extends Model implements KeyProviderType {
   public derivationPath!: string;
   public highestUsedIndex!: number;
 
-  public static load = (sequelize: Sequelize) => {
+  public static load = (sequelize: Sequelize): void => {
     KeyProvider.init({
       symbol: { type: new DataTypes.STRING(255), primaryKey: true, allowNull: false },
       derivationPath: { type: new DataTypes.STRING(255), allowNull: false },

@@ -7,7 +7,6 @@ import { Network } from './consts/Enums';
 import { PairConfig } from './consts/Types';
 import { ChainConfig } from './chain/ChainClient';
 import { LndConfig } from './lightning/LndClient';
-import { EthereumConfig } from './wallet/EthereumWallet';
 import { deepMerge, resolveHome, getServiceDataDir } from './Utils';
 
 type ServiceOptions = {
@@ -91,8 +90,6 @@ type ConfigType = {
 
   pairs: PairConfig[];
   currencies: CurrencyConfig[];
-
-  ethereum: EthereumConfig;
 };
 
 class Config {
@@ -257,11 +254,6 @@ class Config {
           },
         },
       ],
-
-      ethereum: {
-        providerEndpoint: '',
-        tokens: [],
-      },
     };
   }
 

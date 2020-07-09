@@ -23,4 +23,8 @@ export default {
     describe: 'ticker symbol of the currency',
     type: 'string',
   },
+  token: {
+    describe: 'whether a token should be claimed',
+    type: 'boolean',
+  },
 };

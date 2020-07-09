@@ -23,18 +23,18 @@ Streaming Server-Sent Events is a little tedious to do in the browser and there 
 ./sse.py <URL of the SSE>
 ```
 
-## Funding the Boltz wallet
-
-When starting the Boltz regtest image everything is setup and funded apart from the Boltz wallet. To fix that with a single command there is this Python script:
-
-```bash
-./wallet.py <amount of coins to send> [chains]
-```
-
 ## Generating OTP tokens
 
 To generate OTP tokens for the `withdraw` Discord command without having to setup an app the script `otp.py` can be used:
 
 ```bash
 ./otp.py <OTP seed>
+```
+
+## Calculating the miner fee of transactions
+
+To calculate the miner fee of a transaction `miner_fee.py` can be used:
+
+```bash
+./miner_fee.py <rpcport> <transaction>
 ```

@@ -113,7 +113,7 @@ class ZmqClient extends EventEmitter {
       try {
         socket.close();
       } catch (error) {
-        this.logger.debug(`${this.symbol} socket already closed: ${formatError(error)}`)
+        this.logger.debug(`${this.symbol} socket already closed: ${formatError(error)}`);
       }
     });
   }

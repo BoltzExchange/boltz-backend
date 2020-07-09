@@ -240,32 +240,8 @@ class Service {
       return balance;
     };
 
-    const addEthereumBalanceToMap = (symbol: string, balance: number) => {
-      const balanceObject = new Balance();
-      const walletObject = new WalletBalance();
-
-      const balanceNumber = Number(balance);
-
-      walletObject.setTotalBalance(balanceNumber);
-      walletObject.setConfirmedBalance(balanceNumber);
-
-      balanceObject.setWalletBalance(walletObject);
-
-      map.set(symbol, balanceObject);
-    };
-
     for (const [symbol, wallet] of this.walletManager.wallets) {
       map.set(symbol, await getBalance(symbol, wallet));
-    }
-
-    if (this.walletManager.ethereumWallet) {
-      const ethereumBalances = await this.walletManager.ethereumWallet.getBalance();
-
-      addEthereumBalanceToMap('ETH', ethereumBalances.ether);
-
-      ethereumBalances.tokens.forEach((balance, symbol) => {
-        addEthereumBalanceToMap(symbol, balance);
-      });
     }
 
     return response;
@@ -374,10 +350,6 @@ class Service {
 
     if (wallet !== undefined) {
       return wallet.newAddress();
-    } else if (this.walletManager.ethereumWallet !== undefined) {
-      if (symbol === 'ETH' || this.walletManager.ethereumWallet.supportsToken(symbol)) {
-        return this.walletManager.ethereumWallet.address;
-      }
     }
 
     throw Errors.CURRENCY_NOT_FOUND(symbol);
@@ -846,28 +818,6 @@ class Service {
         vout,
         transactionId: transaction.getId(),
       };
-    } else {
-      const etherWallet = this.walletManager.ethereumWallet;
-
-      if (etherWallet !== undefined) {
-        if (symbol === 'ETH') {
-          const promise = sendAll ? etherWallet.sweepEther(address, fee) : etherWallet.sendEther(address, amount, fee);
-          const receipt = (await promise);
-
-          return {
-            vout: 0,
-            transactionId: receipt.transactionHash,
-          };
-        } else if (etherWallet.supportsToken(symbol)) {
-          const promise = sendAll ? etherWallet.sweepToken(symbol, address, fee) : etherWallet.sendToken(symbol, address, amount, fee);
-          const receipt = await promise;
-
-          return {
-            vout: 0,
-            transactionId: receipt.transactionHash,
-          };
-        }
-      }
     }
 
     throw Errors.CURRENCY_NOT_FOUND(symbol);

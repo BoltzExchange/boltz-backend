@@ -12,7 +12,6 @@ import LndClient from '../lightning/LndClient';
 import KeyRepository from '../db/KeyRepository';
 import { KeyProviderType } from '../db/models/KeyProvider';
 import LndWalletProvider from './providers/LndWalletProvider';
-import EthereumWallet, { EthereumConfig } from './EthereumWallet';
 
 type Currency = {
   symbol: string;
@@ -27,7 +26,6 @@ type Currency = {
  * interact with the wallet of LND to send and receive onchain coins
  */
 class WalletManager {
-  public ethereumWallet?: EthereumWallet;
   public wallets = new Map<string, Wallet>();
 
   private menmonic: string;
@@ -36,7 +34,7 @@ class WalletManager {
 
   private readonly derivationPath = 'm/0';
 
-  constructor(private logger: Logger, mnemonicPath: string, private currencies: Currency[], private ethereumConfig: EthereumConfig) {
+  constructor(private logger: Logger, mnemonicPath: string, private currencies: Currency[]) {
     this.menmonic = this.loadMenmonic(mnemonicPath);
     this.masterNode = fromSeed(mnemonicToSeedSync(this.menmonic));
 
@@ -46,14 +44,14 @@ class WalletManager {
   /**
    * Initializes a new WalletManager with a mnemonic
    */
-  public static fromMnemonic = (logger: Logger, mnemonic: string, mnemonicPath: string, currencies: Currency[], ethereumConfig: EthereumConfig): WalletManager => {
+  public static fromMnemonic = (logger: Logger, mnemonic: string, mnemonicPath: string, currencies: Currency[]): WalletManager => {
     if (!validateMnemonic(mnemonic)) {
       throw(Errors.INVALID_MNEMONIC(mnemonic));
     }
 
     fs.writeFileSync(mnemonicPath, mnemonic);
 
-    return new WalletManager(logger, mnemonicPath, currencies, ethereumConfig);
+    return new WalletManager(logger, mnemonicPath, currencies);
   }
 
   public init = async (): Promise<void> => {
@@ -93,13 +91,6 @@ class WalletManager {
       );
 
       this.wallets.set(currency.symbol, wallet);
-    }
-
-    if (this.ethereumConfig.providerEndpoint !== '') {
-      // TODO: leave global wallet undefined if connection fails
-      this.ethereumWallet = new EthereumWallet(this.logger, this.menmonic, this.ethereumConfig);
-    } else {
-      this.logger.warn('Not trying to initialize Ethereum wallet: no eth provider was specified');
     }
   }
 

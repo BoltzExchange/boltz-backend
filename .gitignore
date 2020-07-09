@@ -71,3 +71,6 @@ site/
 
 # Version file generated in build process
 lib/Version.ts
+
+# Folder from which regtest contracts are deployed
+contracts/

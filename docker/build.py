@@ -39,6 +39,7 @@ BITCOIN_VERSION = "0.20.0"
 LITECOIN_VERSION = "0.18.1"
 DOGECOIN_VERSION = "1.14.2"
 ZCASH_VERSION = "3.0.0"
+BUIDLER_VERSION = "1.3.8"
 
 LND_VERSION = "0.10.3-beta"
 
@@ -78,6 +79,15 @@ IMAGES: Dict[str, Image] = {
         arguments=[
             UBUNTU_VERSION,
         ]
+    ),
+    "buidler": Image(
+        tags=[BUIDLER_VERSION],
+        arguments=[
+            BuildArgument(
+                name="NODE_VERSION",
+                value="lts-alpine3.10"
+            )
+        ],
     ),
     "lnd": Image(
         tags=[LND_VERSION],

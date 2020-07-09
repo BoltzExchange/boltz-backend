@@ -1,0 +1,21 @@
+#!/usr/bin/env node
+
+require('yargs')
+  .options({
+    'provider': {
+      describe: 'HTTP endpoint of the web3 provider',
+      default: 'http://127.0.0.1:8545',
+      type: 'string',
+      alias: 'p',
+    },
+    'address': {
+      describe: 'address for the JsonRpcSigner',
+      default: '0xc783df8a850f42e7f7e57013759c285caa701eb6',
+      type: 'string',
+      alias: 'a',
+    },
+  })
+  .commandDir('../dist/lib/cli/ethereum/commands/')
+  .demandCommand(1, '')
+  .strict()
+  .argv;

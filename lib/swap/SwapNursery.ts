@@ -649,14 +649,14 @@ class SwapNursery extends EventEmitter {
       } else {
         feePerVbyte = await chainClient.estimateFee(SwapNursery.reverseSwapMempoolEta);
       }
-      const { fee, vout, transaction, transactionId } = await wallet.sendToAddress(reverseSwap.lockupAddress, reverseSwap.onchainAmount, feePerVbyte);
+      const { fee, vout, transactionId, transaction } = await wallet.sendToAddress(reverseSwap.lockupAddress, reverseSwap.onchainAmount, feePerVbyte);
 
       this.logger.verbose(`Sent ${chainCurrency} to reverse swap ${reverseSwap.id} in transaction: ${transactionId}:${vout}`);
 
-      chainClient.addInputFilter(transaction.getHash());
+      chainClient.addInputFilter(transaction!.getHash());
       chainClient.addOutputFilter(wallet.decodeAddress(reverseSwap.lockupAddress));
 
-      this.emit('coins.sent', await this.reverseSwapRepository.setLockupTransaction(reverseSwap, transactionId, vout, fee), transaction);
+      this.emit('coins.sent', await this.reverseSwapRepository.setLockupTransaction(reverseSwap, transactionId, vout!, fee!), transaction!);
     } catch (error) {
       const preimageHash = getHexBuffer(decodeInvoice(reverseSwap.invoice).paymentHash!);
 

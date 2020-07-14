@@ -15,6 +15,7 @@ import ChainClient from './chain/ChainClient';
 import Config, { ConfigType } from './Config';
 import { stringify, formatError } from './Utils';
 import BackupScheduler from './backup/BackupScheduler';
+import ChainTipRepository from './db/ChainTipRepository';
 import WalletManager, { Currency } from './wallet/WalletManager';
 import NotificationProvider from './notifications/NotificationProvider';
 
@@ -44,12 +45,12 @@ class Boltz {
     const walletCurrencies = Array.from(this.currencies.values());
 
     if (fs.existsSync(this.config.mnemonicpath)) {
-      this.walletManager = new WalletManager(this.logger, this.config.mnemonicpath, walletCurrencies);
+      this.walletManager = new WalletManager(this.logger, this.config.mnemonicpath, walletCurrencies, this.config.ethereum);
     } else {
       const mnemonic = generateMnemonic();
       this.logger.info(`Generated new mnemonic: ${mnemonic}`);
 
-      this.walletManager = WalletManager.fromMnemonic(this.logger, mnemonic, this.config.mnemonicpath, walletCurrencies);
+      this.walletManager = WalletManager.fromMnemonic(this.logger, mnemonic, this.config.mnemonicpath, walletCurrencies, this.config.ethereum);
     }
 
     try {
@@ -100,19 +101,17 @@ class Boltz {
     try {
       await this.db.init();
 
-      const promises: Promise<any>[] = [];
+      const chainTipRepository = new ChainTipRepository();
 
-      this.currencies.forEach((currency) => {
-        promises.push(this.connectChainClient(currency.chainClient));
+      for (const [, currency] of this.currencies) {
+        await this.connectChainClient(currency.chainClient, chainTipRepository);
 
         if (currency.lndClient) {
-          promises.push(this.connectLnd(currency.lndClient));
+          await this.connectLnd(currency.lndClient);
         }
-      });
+      }
 
-      await Promise.all(promises);
-
-      await this.walletManager.init();
+      await this.walletManager.init(chainTipRepository);
       await this.service.init(this.config.pairs);
 
       await this.service.swapManager.init(Array.from(this.currencies.values()));
@@ -128,11 +127,11 @@ class Boltz {
     }
   }
 
-  private connectChainClient = async (client: ChainClient) => {
+  private connectChainClient = async (client: ChainClient, chainTipRepository: ChainTipRepository) => {
     const service = `${client.symbol} chain`;
 
     try {
-      await client.connect();
+      await client.connect(chainTipRepository);
 
       const blockchainInfo = await client.getBlockchainInfo();
       const networkInfo = await client.getNetworkInfo();

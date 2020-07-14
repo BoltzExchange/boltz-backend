@@ -815,8 +815,8 @@ class Service {
       const { transaction, vout } = await sendingPromise;
 
       return {
-        vout,
-        transactionId: transaction.getId(),
+        vout: vout!,
+        transactionId: transaction!.getId(),
       };
     }
 

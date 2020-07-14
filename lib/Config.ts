@@ -31,6 +31,28 @@ type CurrencyConfig = {
   maxZeroConfAmount: number;
 };
 
+type TokenConfig = {
+  symbol: string;
+
+  // Must not be set for Ether
+  decimals?: number;
+  contractAddress?: string;
+
+  maxSwapAmount: number;
+  minSwapAmount: number;
+
+  minWalletBalance: number;
+};
+
+type EthereumConfig = {
+  providerEndpoint: string;
+
+  etherSwapAddress: string;
+  erc20SwapAddress: string;
+
+  tokens: TokenConfig[];
+};
+
 type ApiConfig = {
   host: string;
   port: number;
@@ -90,6 +112,8 @@ type ConfigType = {
 
   pairs: PairConfig[];
   currencies: CurrencyConfig[];
+
+  ethereum: EthereumConfig;
 };
 
 class Config {
@@ -254,6 +278,15 @@ class Config {
           },
         },
       ],
+
+      ethereum: {
+        providerEndpoint: '',
+
+        etherSwapAddress: '',
+        erc20SwapAddress: '',
+
+        tokens: [],
+      },
     };
   }
 
@@ -364,7 +397,9 @@ export {
   ApiConfig,
   ConfigType,
   GrpcConfig,
+  TokenConfig,
   BackupConfig,
+  EthereumConfig,
   CurrencyConfig,
   NotificationConfig,
 };

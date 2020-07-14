@@ -5,12 +5,14 @@ import { mnemonicToSeedSync, validateMnemonic } from 'bip39';
 import Errors from './Errors';
 import Wallet from './Wallet';
 import Logger from '../Logger';
-import { CurrencyConfig } from '../Config';
 import { splitDerivationPath } from '../Utils';
 import ChainClient from '../chain/ChainClient';
 import LndClient from '../lightning/LndClient';
 import KeyRepository from '../db/KeyRepository';
+import EthereumManager from './ethereum/EthereumManager';
+import ChainTipRepository from '../db/ChainTipRepository';
 import { KeyProviderType } from '../db/models/KeyProvider';
+import { CurrencyConfig, EthereumConfig } from '../Config';
 import LndWalletProvider from './providers/LndWalletProvider';
 
 type Currency = {
@@ -28,33 +30,45 @@ type Currency = {
 class WalletManager {
   public wallets = new Map<string, Wallet>();
 
-  private menmonic: string;
+  public ethereumManager?: EthereumManager;
+
+  private mnemonic: string;
   private masterNode: BIP32Interface;
   private keyRepository: KeyRepository;
 
   private readonly derivationPath = 'm/0';
 
-  constructor(private logger: Logger, mnemonicPath: string, private currencies: Currency[]) {
-    this.menmonic = this.loadMenmonic(mnemonicPath);
-    this.masterNode = fromSeed(mnemonicToSeedSync(this.menmonic));
+  constructor(private logger: Logger, mnemonicPath: string, private currencies: Currency[], ethereumConfig: EthereumConfig) {
+    this.mnemonic = this.loadMnemonic(mnemonicPath);
+    this.masterNode = fromSeed(mnemonicToSeedSync(this.mnemonic));
 
     this.keyRepository = new KeyRepository();
+
+    if (ethereumConfig.providerEndpoint !== '') {
+      this.ethereumManager = new EthereumManager(
+        this.logger,
+        this.mnemonic,
+        ethereumConfig,
+      );
+    } else {
+      this.logger.warn('Disabled Ethereum integration because no web3 provider was specified');
+    }
   }
 
   /**
    * Initializes a new WalletManager with a mnemonic
    */
-  public static fromMnemonic = (logger: Logger, mnemonic: string, mnemonicPath: string, currencies: Currency[]): WalletManager => {
+  public static fromMnemonic = (logger: Logger, mnemonic: string, mnemonicPath: string, currencies: Currency[], ethereumConfig: EthereumConfig): WalletManager => {
     if (!validateMnemonic(mnemonic)) {
       throw(Errors.INVALID_MNEMONIC(mnemonic));
     }
 
     fs.writeFileSync(mnemonicPath, mnemonic);
 
-    return new WalletManager(logger, mnemonicPath, currencies);
+    return new WalletManager(logger, mnemonicPath, currencies, ethereumConfig);
   }
 
-  public init = async (): Promise<void> => {
+  public init = async (chainTipRepository: ChainTipRepository): Promise<void> => {
     const keyProviderMap = await this.getKeyProviderMap();
 
     for (const currency of this.currencies) {
@@ -81,20 +95,31 @@ class WalletManager {
       }
 
       const wallet = new Wallet(
+        this.logger,
+        new LndWalletProvider(this.logger, currency.lndClient, currency.chainClient),
+      );
+
+      wallet.initKeyProvider(
         currency.network,
         keyProviderInfo.derivationPath,
         keyProviderInfo.highestUsedIndex,
-        this.logger,
         this.masterNode,
         this.keyRepository,
-        new LndWalletProvider(this.logger, currency.lndClient, currency.chainClient),
       );
 
       this.wallets.set(currency.symbol, wallet);
     }
+
+    if (this.ethereumManager) {
+      const ethereumWallets = await this.ethereumManager?.init(chainTipRepository);
+
+      for (const [symbol, ethereumWallet] of ethereumWallets) {
+        this.wallets.set(symbol, ethereumWallet);
+      }
+    }
   }
 
-  private loadMenmonic = (filename: string) => {
+  private loadMnemonic = (filename: string) => {
     if (fs.existsSync(filename)) {
       return fs.readFileSync(filename, 'utf-8').toString();
     }

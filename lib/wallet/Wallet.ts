@@ -2,31 +2,43 @@ import { Network, address, BIP32Interface } from 'bitcoinjs-lib';
 import Logger from '../Logger';
 import KeyRepository from '../db/KeyRepository';
 import WalletProviderInterface, { SentTransaction, WalletBalance } from './providers/WalletProviderInterface';
+import Errors from './Errors';
 
 class Wallet {
   public readonly symbol: string;
 
+  private network?: Network;
+  private derivationPath?: string;
+  private highestUsedIndex?: number;
+  private masterNode?: BIP32Interface;
+  private keyRepository?: KeyRepository;
+
   /**
-   * Wallet is a hierarchical deterministic wallet for a single currency
-   *
-   * @param network the network of the wallet
-   * @param derivationPath path from which the keys are derived; should be in the format "m/0/<index of the wallet>"
-   * @param highestUsedIndex the highest index of a used key of the wallet
-   * @param logger Logger
-   * @param masterNode the master node from which generated keys are derived
-   * @param keyRepository database repository storing the highest used key index
-   * @param walletProvider actual wallet which is handling the coins
+   * Wallet is a hierarchical deterministic wallet for a currency
    */
   constructor(
-    public readonly network: Network,
-    public readonly derivationPath: string,
-    public highestUsedIndex: number,
     private logger: Logger,
-    private masterNode: BIP32Interface,
-    private keyRepository: KeyRepository,
     private walletProvider: WalletProviderInterface,
   ) {
     this.symbol = this.walletProvider.symbol;
+  }
+
+  /**
+   * In case the Wallet should also provide keys and de/encode addresses
+   * This is only required (and possible) for UTXO based chains like Bitcoin
+   */
+  public initKeyProvider = (
+    network: Network,
+    derivationPath: string,
+    highestUsedIndex: number,
+    masterNode: BIP32Interface,
+    keyRepository: KeyRepository,
+  ): void => {
+    this.network = network;
+    this.derivationPath = derivationPath;
+    this.highestUsedIndex = highestUsedIndex;
+    this.masterNode = masterNode;
+    this.keyRepository = keyRepository;
   }
 
   /**
@@ -35,6 +47,10 @@ class Wallet {
    * @param index index of the keys to get
    */
   public getKeysByIndex = (index: number): BIP32Interface => {
+    if (this.masterNode === undefined || this.derivationPath === undefined) {
+      throw Errors.NOT_SUPPORTED_BY_WALLET(this.symbol, 'getKeysByIndex');
+    }
+
     return this.masterNode.derivePath(`${this.derivationPath}/${index}`);
   }
 
@@ -42,9 +58,11 @@ class Wallet {
    * Gets a new pair of keys
    */
   public getNewKeys = (): { keys: BIP32Interface, index: number } => {
-    this.highestUsedIndex += 1;
+    if (this.highestUsedIndex === undefined || this.keyRepository === undefined) {
+      throw Errors.NOT_SUPPORTED_BY_WALLET(this.symbol, 'getNewKeys');
+    }
 
-    // tslint:disable-next-line no-floating-promises
+    this.highestUsedIndex += 1;
     this.keyRepository.setHighestUsedIndex(this.symbol, this.highestUsedIndex).then();
 
     return {
@@ -59,6 +77,10 @@ class Wallet {
    * @param outputScript the output script to encode
    */
   public encodeAddress = (outputScript: Buffer): string => {
+    if (this.network === undefined) {
+      throw Errors.NOT_SUPPORTED_BY_WALLET(this.symbol, 'encodeAddress');
+    }
+
     try {
       return address.fromOutputScript(
         outputScript,
@@ -77,6 +99,10 @@ class Wallet {
    * Decodes an address
    */
   public decodeAddress = (toDecode: string): Buffer => {
+    if (this.network === undefined) {
+      throw Errors.NOT_SUPPORTED_BY_WALLET(this.symbol, 'decodeAddress');
+    }
+
     return address.toOutputScript(
       toDecode,
       this.network,
@@ -84,7 +110,7 @@ class Wallet {
   }
 
   public newAddress = (): Promise<string> => {
-    return this.walletProvider.newAddress();
+    return this.walletProvider.getAddress();
   }
 
   public getBalance = (): Promise<WalletBalance> => {

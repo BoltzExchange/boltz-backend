@@ -1,9 +1,26 @@
 import { OutputType } from 'boltz-core';
 import { bitcoinClient } from '../Nodes';
 import { getHexBuffer, reverseBuffer } from '../../../lib/Utils';
+import ChainTipRepository from '../../../lib/db/ChainTipRepository';
 import { waitForFunctionToBeTrue, generateAddress } from '../../Utils';
 
+const mockFindOrCreateTip = jest.fn().mockImplementation(async () => {
+  return {};
+});
+const mockUpdateTip = jest.fn().mockImplementation();
+
+jest.mock('../../../lib/db/ChainTipRepository', () => {
+  return jest.fn().mockImplementation(() => ({
+    findOrCreateTip: mockFindOrCreateTip,
+    updateTip: mockUpdateTip,
+  }));
+});
+
+const MockedChainTipRepository = <jest.Mock<ChainTipRepository>><any>ChainTipRepository;
+
 describe('ChainClient', () => {
+  const chainTipRepository = new MockedChainTipRepository();
+
   const numTransactions = 15;
 
   let transactionWithRelevantInput = '';
@@ -15,8 +32,12 @@ describe('ChainClient', () => {
     addresses: [] as string[],
   };
 
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   test('should connect', async () => {
-    await bitcoinClient.connect();
+    await bitcoinClient.connect(chainTipRepository);
   });
 
   test('should add to the output filer', () => {
@@ -165,6 +186,23 @@ describe('ChainClient', () => {
     const blockchainInfo = await bitcoinClient.getBlockchainInfo();
 
     expect(bestBlockHeight).toEqual(blockchainInfo.blocks);
+  });
+
+  test('should update the chain tip in the database after a block gets mined', async () => {
+    let blockEmitted = false;
+
+    bitcoinClient.on('block', (height: number) => {
+      expect(mockUpdateTip).toHaveBeenCalledTimes(1);
+      expect(mockUpdateTip).toHaveBeenCalledWith(expect.anything(), height);
+
+      blockEmitted = true;
+    });
+
+    await bitcoinClient.generate(1);
+
+    await waitForFunctionToBeTrue(() => {
+      return blockEmitted;
+    });
   });
 
   afterAll(async () => {

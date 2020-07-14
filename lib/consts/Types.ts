@@ -1,6 +1,15 @@
+import { Ierc20 } from 'boltz-core/typechain/Ierc20';
+
 export type Error = {
   message: string;
   code: string;
+};
+
+export type Token = {
+  symbol: string;
+
+  contract: Ierc20;
+  decimals: number;
 };
 
 export type PairConfig = {

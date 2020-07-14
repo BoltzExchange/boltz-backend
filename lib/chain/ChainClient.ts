@@ -4,6 +4,7 @@ import RpcClient from './RpcClient';
 import BaseClient from '../BaseClient';
 import { getHexString } from '../Utils';
 import { ClientStatus } from '../consts/Enums';
+import ChainTipRepository from '../db/ChainTipRepository';
 import ZmqClient, { ZmqNotification, filters } from './ZmqClient';
 import { Block, BlockchainInfo, RawTransaction, BlockVerbose, NetworkInfo, UnspentUtxo } from '../consts/Types';
 
@@ -30,10 +31,15 @@ class ChainClient extends BaseClient {
   public zmqClient: ZmqClient;
 
   private client: RpcClient;
+  private chainTipRepository!: ChainTipRepository;
 
   private static readonly decimals = 100000000;
 
-  constructor(private logger: Logger, private config: ChainConfig, public readonly symbol: string) {
+  constructor(
+    private logger: Logger,
+    private config: ChainConfig,
+    public readonly symbol: string,
+  ) {
     super();
 
     this.client = new RpcClient(this.config);
@@ -46,11 +52,11 @@ class ChainClient extends BaseClient {
       this.getBlockVerbose,
       this.getRawTransactionVerbose,
     );
-
-    this.listenToZmq();
   }
 
-  public connect = async (): Promise<void> => {
+  public connect = async (chainTipRepository: ChainTipRepository): Promise<void> => {
+    this.chainTipRepository = chainTipRepository;
+
     let zmqNotifications: ZmqNotification[] = [];
 
     // Dogecoin Core and Zcash don't support the "getzmqnotifications" method *yet*
@@ -85,6 +91,7 @@ class ChainClient extends BaseClient {
     }
 
     await this.zmqClient.init(zmqNotifications);
+    await this.listenToZmq();
   }
 
   public disconnect = (): void => {
@@ -211,8 +218,12 @@ class ChainClient extends BaseClient {
     return this.client.request<ZmqNotification[]>('getzmqnotifications');
   }
 
-  private listenToZmq = (): void=> {
-    this.zmqClient.on('block', (height) => {
+  private listenToZmq = async (): Promise<void> => {
+    const { scannedBlocks } = await this.getBlockchainInfo();
+    const chainTip = await this.chainTipRepository.findOrCreateTip(this.symbol, scannedBlocks);
+
+    this.zmqClient.on('block', async (height) => {
+      await this.chainTipRepository.updateTip(chainTip, height);
       this.emit('block', height);
     });
 

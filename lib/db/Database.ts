@@ -3,6 +3,7 @@ import Logger from '../Logger';
 import Pair from './models/Pair';
 import Swap from './models/Swap';
 import Migration from './Migration';
+import ChainTip from './models/ChainTip';
 import ReverseSwap from './models/ReverseSwap';
 import KeyProvider from './models/KeyProvider';
 import DatabaseVersion from './models/DatabaseVersion';
@@ -40,6 +41,7 @@ class Db {
 
     await Promise.all([
       Pair.sync(),
+      ChainTip.sync(),
       KeyProvider.sync(),
       DatabaseVersion.sync(),
     ]);
@@ -54,13 +56,14 @@ class Db {
     await this.migration.migrate();
   }
 
-  public close = async (): Promise<void> => {
-    await this.sequelize.close();
+  public close = (): Promise<void> => {
+    return this.sequelize.close();
   }
 
   private loadModels = () => {
     Pair.load(this.sequelize);
     Swap.load(this.sequelize);
+    ChainTip.load(this.sequelize);
     ReverseSwap.load(this.sequelize);
     KeyProvider.load(this.sequelize);
     ChannelCreation.load(this.sequelize);

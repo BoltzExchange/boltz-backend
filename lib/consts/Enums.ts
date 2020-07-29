@@ -38,6 +38,8 @@ export enum SwapUpdateEvent {
   TransactionClaimed = 'transaction.claimed',
   TransactionRefunded = 'transaction.refunded',
   TransactionConfirmed = 'transaction.confirmed',
+  TransactionLockupFailed = 'transaction.lockupFailed',
+  TransactionZeroConfRejected = 'transaction.zeroconf.rejected',
 
   // Events for the prepay miner fee Reverse Swap protocol
   MinerFeePaid = 'minerfee.paid',

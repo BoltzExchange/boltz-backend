@@ -1,4 +1,5 @@
 import fs from 'fs';
+import { providers } from 'ethers';
 import { Network } from 'bitcoinjs-lib';
 import { BIP32Interface, fromSeed } from 'bip32';
 import { mnemonicToSeedSync, validateMnemonic } from 'bip39';
@@ -12,15 +13,38 @@ import KeyRepository from '../db/KeyRepository';
 import EthereumManager from './ethereum/EthereumManager';
 import ChainTipRepository from '../db/ChainTipRepository';
 import { KeyProviderType } from '../db/models/KeyProvider';
-import { CurrencyConfig, EthereumConfig } from '../Config';
 import LndWalletProvider from './providers/LndWalletProvider';
+
+enum CurrencyType {
+  BitcoinLike,
+  Ether,
+  ERC20
+}
+
+type CurrencyLimits = {
+  maxSwapAmount: number;
+  minSwapAmount: number;
+
+  minWalletBalance: number;
+
+  minLocalBalance?: number;
+  minRemoteBalance?: number;
+
+  maxZeroConfAmount?: number;
+};
 
 type Currency = {
   symbol: string;
-  network: Network;
-  config: CurrencyConfig;
-  chainClient: ChainClient;
+  type: CurrencyType,
+  limits: CurrencyLimits;
+
+  // Needed for UTXO based coins
+  network?: Network;
   lndClient?: LndClient;
+  chainClient?: ChainClient;
+
+  // Needed for Ether and tokens on Ethereum
+  provider?: providers.Provider;
 };
 
 /**
@@ -38,40 +62,37 @@ class WalletManager {
 
   private readonly derivationPath = 'm/0';
 
-  constructor(private logger: Logger, mnemonicPath: string, private currencies: Currency[], ethereumConfig: EthereumConfig) {
+  constructor(private logger: Logger, mnemonicPath: string, private currencies: Currency[], ethereumManager?: EthereumManager) {
     this.mnemonic = this.loadMnemonic(mnemonicPath);
     this.masterNode = fromSeed(mnemonicToSeedSync(this.mnemonic));
 
     this.keyRepository = new KeyRepository();
 
-    if (ethereumConfig.providerEndpoint !== '') {
-      this.ethereumManager = new EthereumManager(
-        this.logger,
-        this.mnemonic,
-        ethereumConfig,
-      );
-    } else {
-      this.logger.warn('Disabled Ethereum integration because no web3 provider was specified');
-    }
+    this.ethereumManager = ethereumManager;
   }
 
   /**
    * Initializes a new WalletManager with a mnemonic
    */
-  public static fromMnemonic = (logger: Logger, mnemonic: string, mnemonicPath: string, currencies: Currency[], ethereumConfig: EthereumConfig): WalletManager => {
+  public static fromMnemonic = (logger: Logger, mnemonic: string, mnemonicPath: string, currencies: Currency[], ethereumManager?: EthereumManager): WalletManager => {
     if (!validateMnemonic(mnemonic)) {
       throw(Errors.INVALID_MNEMONIC(mnemonic));
     }
 
     fs.writeFileSync(mnemonicPath, mnemonic);
 
-    return new WalletManager(logger, mnemonicPath, currencies, ethereumConfig);
+    return new WalletManager(logger, mnemonicPath, currencies, ethereumManager);
   }
 
   public init = async (chainTipRepository: ChainTipRepository): Promise<void> => {
     const keyProviderMap = await this.getKeyProviderMap();
 
     for (const currency of this.currencies) {
+      if (currency.type !== CurrencyType.BitcoinLike) {
+        continue;
+      }
+
+      // The LND client is also used as onchain wallet for UTXO based chains
       if (currency.lndClient === undefined) {
         throw Errors.LND_NOT_FOUND(currency.symbol);
       }
@@ -96,11 +117,11 @@ class WalletManager {
 
       const wallet = new Wallet(
         this.logger,
-        new LndWalletProvider(this.logger, currency.lndClient, currency.chainClient),
+        new LndWalletProvider(this.logger, currency.lndClient, currency.chainClient!),
       );
 
       wallet.initKeyProvider(
-        currency.network,
+        currency.network!,
         keyProviderInfo.derivationPath,
         keyProviderInfo.highestUsedIndex,
         this.masterNode,
@@ -111,7 +132,7 @@ class WalletManager {
     }
 
     if (this.ethereumManager) {
-      const ethereumWallets = await this.ethereumManager?.init(chainTipRepository);
+      const ethereumWallets = await this.ethereumManager?.init(this.mnemonic, chainTipRepository);
 
       for (const [symbol, ethereumWallet] of ethereumWallets) {
         this.wallets.set(symbol, ethereumWallet);
@@ -163,4 +184,4 @@ class WalletManager {
 }
 
 export default WalletManager;
-export { Currency };
+export { CurrencyType, Currency };

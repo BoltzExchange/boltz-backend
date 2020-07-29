@@ -4,9 +4,12 @@ import Pair from './Pair';
 type ReverseSwapType = {
   id: string;
 
-  keyIndex: number;
-  redeemScript: string;
   lockupAddress: string;
+
+  keyIndex?: number;
+  redeemScript?: string;
+
+  claimAddress?: string
 
   fee: number;
   minerFee?: number;
@@ -20,6 +23,7 @@ type ReverseSwapType = {
   invoice: string;
   minerFeeInvoice?: string;
 
+  preimageHash: string;
   preimage?: string;
 
   onchainAmount: number;
@@ -30,9 +34,12 @@ type ReverseSwapType = {
 class ReverseSwap extends Model implements ReverseSwapType {
   public id!: string;
 
-  public keyIndex!: number;
-  public redeemScript!: string;
   public lockupAddress!: string;
+
+  public keyIndex?: number;
+  public redeemScript?: string;
+
+  public claimAddress?: string;
 
   public fee!: number;
   public minerFee!: number;
@@ -46,6 +53,7 @@ class ReverseSwap extends Model implements ReverseSwapType {
   public invoice!: string;
   public minerFeeInvoice?: string;
 
+  public preimageHash!: string;
   public preimage?: string;
 
   public onchainAmount!: number;
@@ -58,9 +66,10 @@ class ReverseSwap extends Model implements ReverseSwapType {
   public static load = (sequelize: Sequelize): void => {
     ReverseSwap.init({
       id: { type: new DataTypes.STRING(255), primaryKey: true, allowNull: false },
-      keyIndex: { type: new DataTypes.INTEGER(), allowNull: false },
-      redeemScript: { type: new DataTypes.STRING(255), allowNull: false },
       lockupAddress: { type: new DataTypes.STRING(255), allowNull: false },
+      keyIndex: { type: new DataTypes.INTEGER(), allowNull: true },
+      redeemScript: { type: new DataTypes.STRING(255), allowNull: true },
+      claimAddress: { type: new DataTypes.STRING(255), allowNull: true },
       fee: { type: new DataTypes.INTEGER(), allowNull: false },
       minerFee: { type: new DataTypes.INTEGER(), allowNull: true },
       pair: { type: new DataTypes.STRING(255), allowNull: false },
@@ -69,6 +78,7 @@ class ReverseSwap extends Model implements ReverseSwapType {
       timeoutBlockHeight: { type: new DataTypes.INTEGER(), allowNull: false },
       invoice: { type: new DataTypes.STRING(255), allowNull: false, unique: true },
       minerFeeInvoice: { type: new DataTypes.STRING(255), allowNull: true, unique: true },
+      preimageHash: { type: new DataTypes.STRING(255), allowNull: false, unique: true },
       preimage: { type: new DataTypes.STRING(255), allowNull: true },
       onchainAmount: { type: new DataTypes.INTEGER(), allowNull: false },
       transactionId: { type: new DataTypes.STRING(255), allowNull: true },
@@ -76,6 +86,12 @@ class ReverseSwap extends Model implements ReverseSwapType {
     }, {
       sequelize,
       tableName: 'reverseSwaps',
+      indexes: [
+        {
+          unique: true,
+          fields: ['id', 'preimageHash', 'invoice', 'minerFeeInvoice'],
+        },
+      ],
     });
 
     ReverseSwap.belongsTo(Pair, {

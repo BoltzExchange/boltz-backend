@@ -16,19 +16,19 @@ const connectEthereum = (signerAddress: string): Signer => {
   return provider.getSigner(signerAddress);
 };
 
-const getContracts = (signer: Signer): { etherSwap: Contract, token: Contract, erc20Swap: Contract } => {
+const getContracts = (signer: Signer): { token: Contract, etherSwap: EtherSwap, erc20Swap: Erc20Swap } => {
   return {
-    etherSwap: new Contract(
-      Constants.etherSwapAddress,
-      ContractABIs.EtherSwap,
-      signer,
-    ) as EtherSwap,
-
     token: new Contract(
       Constants.erc20TokenAddress,
       ContractABIs.IERC20,
       signer,
     ) as Ierc20,
+
+    etherSwap: new Contract(
+      Constants.etherSwapAddress,
+      ContractABIs.EtherSwap,
+      signer,
+    ) as EtherSwap,
     erc20Swap: new Contract(
       Constants.erc20SwapAddress,
       ContractABIs.ERC20Swap,

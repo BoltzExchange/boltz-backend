@@ -4,8 +4,8 @@ import Pair from './Pair';
 type SwapType = {
   id: string;
 
-  keyIndex: number;
-  redeemScript: string;
+  keyIndex?: number;
+  redeemScript?: string;
 
   fee?: number;
   routingFee?: number;
@@ -31,8 +31,8 @@ type SwapType = {
 class Swap extends Model implements SwapType {
   public id!: string;
 
-  public keyIndex!: number;
-  public redeemScript!: string;
+  public keyIndex?: number;
+  public redeemScript?: string;
 
   public fee?: number;
   public routingFee?: number;
@@ -60,8 +60,8 @@ class Swap extends Model implements SwapType {
   public static load = (sequelize: Sequelize): void => {
     Swap.init({
       id: { type: new DataTypes.STRING(255), primaryKey: true, allowNull: false },
-      keyIndex: { type: new DataTypes.INTEGER(), allowNull: false },
-      redeemScript: { type: new DataTypes.STRING(255), allowNull: false },
+      keyIndex: { type: new DataTypes.INTEGER(), allowNull: true },
+      redeemScript: { type: new DataTypes.STRING(255), allowNull: true },
       fee: { type: new DataTypes.INTEGER(), allowNull: true },
       routingFee: { type: new DataTypes.INTEGER(), allowNull: true },
       minerFee: { type: new DataTypes.INTEGER(), allowNull: true },
@@ -83,7 +83,7 @@ class Swap extends Model implements SwapType {
       indexes: [
         {
           unique: true,
-          fields: ['id', 'invoice'],
+          fields: ['id', 'preimageHash', 'invoice'],
         },
       ],
     });

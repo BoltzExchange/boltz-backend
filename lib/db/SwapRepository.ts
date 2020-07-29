@@ -1,4 +1,4 @@
-import { WhereOptions } from 'sequelize';
+import { Op, WhereOptions } from 'sequelize';
 import Swap, { SwapType } from './models/Swap';
 import { SwapUpdateEvent } from '../consts/Enums';
 
@@ -6,6 +6,23 @@ class SwapRepository {
   public getSwaps = (options?: WhereOptions): Promise<Swap[]> => {
     return Swap.findAll({
       where: options,
+    });
+  }
+
+  public getSwapsExpirable = (height: number): Promise<Swap[]> => {
+    return Swap.findAll({
+      where: {
+        status: {
+          [Op.not]: [
+            SwapUpdateEvent.SwapExpired,
+            SwapUpdateEvent.InvoiceFailedToPay,
+            SwapUpdateEvent.TransactionClaimed,
+          ],
+        },
+        timeoutBlockHeight: {
+          [Op.lte]: height,
+        },
+      },
     });
   }
 
@@ -35,18 +52,23 @@ class SwapRepository {
     });
   }
 
+  // TODO: set rate afterwards
   public setLockupTransactionId = (
     swap: Swap,
-    rate: number,
     lockupTransactionId: string,
     onchainAmount: number,
     confirmed: boolean,
   ): Promise<Swap> => {
     return swap.update({
-      rate,
       onchainAmount,
       lockupTransactionId,
       status: confirmed ? SwapUpdateEvent.TransactionConfirmed : SwapUpdateEvent.TransactionMempool,
+    });
+  }
+
+  public setRate = (swap: Swap, rate: number): Promise<Swap> => {
+    return swap.update({
+      rate,
     });
   }
 

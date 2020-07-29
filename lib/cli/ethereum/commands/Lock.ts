@@ -5,7 +5,7 @@ import { etherDecimals } from '../../../consts/Consts';
 import BuilderComponents from '../../BuilderComponents';
 import { Constants, connectEthereum, calculateTimelock, getContracts } from '../EthereumUtils';
 
-export const command = 'lock <preimageHash> <amount> [timelock] [token]';
+export const command = 'lock <preimageHash> <amount> <timelock> [token]';
 
 export const describe = 'locks Ether or a ERC20 token in the corresponding swap contract';
 

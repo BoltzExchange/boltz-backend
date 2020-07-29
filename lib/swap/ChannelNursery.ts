@@ -154,7 +154,7 @@ class ChannelNursery extends EventEmitter {
 
     const channelCapacity = Math.ceil(satoshis! / (1 - (channelCreation.inboundLiquidity / 100)));
 
-    const feePerVbyte = await lightningCurrency.chainClient.estimateFee();
+    const feePerVbyte = await lightningCurrency.chainClient!.estimateFee();
 
     // TODO: handle custom errors (c-lightning plugin)?
     try {

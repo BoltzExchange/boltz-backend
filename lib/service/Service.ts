@@ -4,17 +4,19 @@ import { Transaction } from 'bitcoinjs-lib';
 import Errors from './Errors';
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';
+import ApiErrors from '../api/Errors';
 import Wallet from '../wallet/Wallet';
 import { ConfigType } from '../Config';
 import EventHandler from './EventHandler';
 import { PairConfig } from '../consts/Types';
 import FeeProvider from '../rates/FeeProvider';
+import { gweiDecimals } from '../consts/Consts';
 import PairRepository from '../db/PairRepository';
 import { encodeBip21 } from './PaymentRequestUtils';
 import TimeoutDeltaProvider from './TimeoutDeltaProvider';
 import { SendResponse } from '../lightning/LndClient';
 import RateProvider, { PairType } from '../rates/RateProvider';
-import WalletManager, { Currency } from '../wallet/WalletManager';
+import WalletManager, { Currency, CurrencyType } from '../wallet/WalletManager';
 import SwapManager, { ChannelCreationInfo } from '../swap/SwapManager';
 import { OrderSide, ServiceInfo, ServiceWarning } from '../consts/Enums';
 import {
@@ -30,6 +32,7 @@ import {
 } from '../proto/boltzrpc_pb';
 import {
   decodeInvoice,
+  formatError,
   getChainCurrency,
   getHexBuffer,
   getHexString,
@@ -43,6 +46,7 @@ import {
   reverseBuffer,
   splitPairId,
 } from '../Utils';
+import { utils } from 'ethers';
 
 type LndNodeInfo = {
   nodeKey: string,
@@ -151,21 +155,32 @@ class Service {
 
     response.setVersion(getVersion());
 
-    for (const [, currency] of this.currencies) {
+    for (const [symbol, currency] of this.currencies) {
       const chain = new ChainInfo();
       const lnd = new LndInfo();
 
-      try {
-        const networkInfo = await currency.chainClient.getNetworkInfo();
-        const blockchainInfo = await currency.chainClient.getBlockchainInfo();
+      if (currency.chainClient) {
+        try {
+          const networkInfo = await currency.chainClient.getNetworkInfo();
+          const blockchainInfo = await currency.chainClient.getBlockchainInfo();
 
-        chain.setVersion(networkInfo.version);
-        chain.setConnections(networkInfo.connections);
+          chain.setVersion(networkInfo.version);
+          chain.setConnections(networkInfo.connections);
 
-        chain.setBlocks(blockchainInfo.blocks);
-        chain.setScannedBlocks(blockchainInfo.scannedBlocks);
-      } catch (error) {
-        chain.setError(error);
+          chain.setBlocks(blockchainInfo.blocks);
+          chain.setScannedBlocks(blockchainInfo.scannedBlocks);
+        } catch (error) {
+          chain.setError(formatError(error));
+        }
+      } else if (currency.provider) {
+        try {
+          const blockNumber = await currency.provider.getBlockNumber();
+
+          chain.setBlocks(blockNumber);
+          chain.setScannedBlocks(blockNumber);
+        } catch (error) {
+          chain.setError(formatError(error));
+        }
       }
 
       if (currency.lndClient) {
@@ -191,7 +206,7 @@ class Service {
       currencyInfo.setChain(chain);
       currencyInfo.setLnd(lnd);
 
-      map.set(currency.symbol, currencyInfo);
+      map.set(symbol, currencyInfo);
     }
 
     return response;
@@ -293,10 +308,29 @@ class Service {
   }
 
   /**
+   * Gets the contract address used by the Boltz instance
+   */
+  public getContracts = async (): Promise<Map<string, string>> => {
+    if (this.walletManager.ethereumManager === undefined) {
+      throw Errors.ETHEREUM_NOT_ENABLED();
+    }
+
+    return new Map<string, string>([
+      ['EtherSwap', this.walletManager.ethereumManager.etherSwap.address],
+      ['ERC20Swap', this.walletManager.ethereumManager.erc20Swap.address],
+    ]);
+  }
+
+  /**
    * Gets a hex encoded transaction from a transaction hash on the specified network
    */
   public getTransaction = async (symbol: string, transactionHash: string): Promise<string> => {
     const currency = this.getCurrency(symbol);
+
+    if (currency.chainClient === undefined) {
+      throw Errors.NOT_SUPPORTED_BY_SYMBOL(symbol);
+    }
+
     return await currency.chainClient.getRawTransaction(transactionHash);
   }
 
@@ -326,6 +360,11 @@ class Service {
     const chainCurrency = getChainCurrency(base, quote, swap.orderSide, false);
 
     const currency = this.getCurrency(chainCurrency);
+
+    if (currency.chainClient === undefined) {
+      throw Errors.NOT_SUPPORTED_BY_SYMBOL(currency.symbol);
+    }
+
     const { blocks } = await currency.chainClient.getBlockchainInfo();
     const transactionHex = await currency.chainClient.getRawTransaction(swap.lockupTransactionId);
 
@@ -349,27 +388,39 @@ class Service {
     const wallet = this.walletManager.wallets.get(symbol);
 
     if (wallet !== undefined) {
-      return wallet.newAddress();
+      return wallet.getAddress();
     }
 
     throw Errors.CURRENCY_NOT_FOUND(symbol);
   }
 
   /**
-   * Gets a fee estimation in satoshis per vbyte for either all currencies or just a single one if specified
+   * Gets a fee estimation in satoshis per vbyte or GWEI for either all currencies or just a single one if specified
    */
   public getFeeEstimation = async (symbol?: string, blocks?: number): Promise<Map<string, number>> => {
     const map = new Map<string, number>();
 
     const numBlocks = blocks === undefined ? 2 : blocks;
 
+    const estimateFee = async (currency: Currency): Promise<number> => {
+      if (currency.chainClient) {
+        return currency.chainClient.estimateFee(numBlocks);
+      } else if (currency.provider) {
+        const gasPrice = await currency.provider.getGasPrice();
+
+        return gasPrice.div(gweiDecimals).toNumber();
+      } else {
+        throw Errors.NOT_SUPPORTED_BY_SYMBOL(currency.symbol);
+      }
+    };
+
     if (symbol !== undefined) {
       const currency = this.getCurrency(symbol);
 
-      map.set(symbol, await currency.chainClient.estimateFee(numBlocks));
+      map.set(symbol, await estimateFee(currency));
     } else {
       for (const [symbol, currency] of this.currencies) {
-        map.set(symbol, await currency.chainClient.estimateFee(numBlocks));
+        map.set(symbol, await estimateFee(currency));
       }
     }
 
@@ -381,6 +432,10 @@ class Service {
    */
   public broadcastTransaction = async (symbol: string, transactionHex: string): Promise<string> => {
     const currency = this.getCurrency(symbol);
+
+    if (currency.chainClient === undefined) {
+      throw Errors.NOT_SUPPORTED_BY_SYMBOL(symbol);
+    }
 
     try {
       return await currency.chainClient.sendRawTransaction(transactionHex);
@@ -445,8 +500,10 @@ class Service {
   ): Promise<{
     id: string,
     address: string,
-    redeemScript: string,
     timeoutBlockHeight: number,
+
+    // Is undefined when Ether or ERC20 tokens are swapped to Lightning
+    redeemScript: string | undefined,
   }> => {
     const swap = await this.swapManager.swapRepository.getSwap({
       preimageHash: {
@@ -628,10 +685,12 @@ class Service {
     id: string,
     bip21: string,
     address: string,
-    redeemScript: string,
     expectedAmount: number,
     acceptZeroConf: boolean,
     timeoutBlockHeight: number,
+
+    // Is undefined when Ether or ERC20 tokens are swapped to Lightning
+    redeemScript: string | undefined,
   }> => {
     let swap = await this.swapManager.swapRepository.getSwap({
       invoice: {
@@ -690,13 +749,18 @@ class Service {
   /**
    * Creates a new Swap from Lightning to the chain
    */
-  public createReverseSwap = async (
+  public createReverseSwap = async (args: {
     pairId: string,
     orderSide: string,
     preimageHash: Buffer,
     invoiceAmount: number,
-    claimPublicKey: Buffer,
-  ): Promise<{
+
+    // Required for UTXO based chains
+    claimPublicKey?: Buffer,
+
+    // Required for Reverse Swaps to Ether or ERC20 tokens
+    claimAddress?: string,
+  }): Promise<{
     id: string,
     invoice: string,
     redeemScript: string,
@@ -708,21 +772,46 @@ class Service {
       throw Errors.REVERSE_SWAPS_DISABLED();
     }
 
-    const side = this.getOrderSide(orderSide);
-    const { base, quote, rate: pairRate } = this.getPair(pairId);
+    const side = this.getOrderSide(args.orderSide);
+    const { base, quote, rate: pairRate } = this.getPair(args.pairId);
     const { sending, receiving } = getSendingReceivingCurrency(base, quote, side);
 
+    // Not the pretties way and also not the right spot to do input validation but
+    // only at this point in time the type of the sending currency is known
+    switch (this.getCurrency(sending).type) {
+      case CurrencyType.BitcoinLike:
+        if (args.claimPublicKey === undefined) {
+          throw ApiErrors.UNDEFINED_PARAMETER('claimPublicKey');
+        }
+        break;
+
+      case CurrencyType.Ether:
+      case CurrencyType.ERC20:
+        if (args.claimAddress === undefined) {
+          throw ApiErrors.UNDEFINED_PARAMETER('claimAddress');
+        }
+
+        try {
+          // Get a checksum address and verify that the address is valid
+          args.claimAddress = utils.getAddress(args.claimAddress);
+        } catch (error) {
+          throw Errors.INVALID_ETHEREUM_ADDRESS();
+        }
+
+        break;
+    }
+
     const rate = getRate(pairRate, side, true);
-    const onchainTimeoutBlockDelta = this.timeoutDeltaProvider.getTimeout(pairId, side, true);
+    const onchainTimeoutBlockDelta = this.timeoutDeltaProvider.getTimeout(args.pairId, side, true);
     const lightningTimeoutBlockDelta = TimeoutDeltaProvider.convertBlocks(sending, receiving, onchainTimeoutBlockDelta + 3);
 
-    this.verifyAmount(pairId, rate, invoiceAmount, side, true);
+    this.verifyAmount(args.pairId, rate, args.invoiceAmount, side, true);
 
-    const { baseFee, percentageFee } = await this.feeProvider.getFees(pairId, rate, side, invoiceAmount, true);
+    const { baseFee, percentageFee } = await this.feeProvider.getFees(args.pairId, rate, side, args.invoiceAmount, true);
 
-    const onchainAmount = Math.floor(invoiceAmount * rate) - (baseFee + percentageFee);
+    const onchainAmount = Math.floor(args.invoiceAmount * rate) - (baseFee + percentageFee);
 
-    let holdInvoiceAmount = invoiceAmount;
+    let holdInvoiceAmount = args.invoiceAmount;
     let prepayMinerFeeAmount: number | undefined = undefined;
 
     if (this.prepayMinerFee) {
@@ -741,19 +830,21 @@ class Service {
       lockupAddress,
       minerFeeInvoice,
       timeoutBlockHeight,
-    } = await this.swapManager.createReverseSwap(
-      base,
-      quote,
-      side,
-      preimageHash,
-      holdInvoiceAmount,
+    } = await this.swapManager.createReverseSwap({
       onchainAmount,
-      claimPublicKey,
+      percentageFee,
+      holdInvoiceAmount,
       onchainTimeoutBlockDelta,
       lightningTimeoutBlockDelta,
-      percentageFee,
-      prepayMinerFeeAmount,
-    );
+
+      orderSide: side,
+      baseCurrency: base,
+      quoteCurrency: quote,
+      claimAddress: args.claimAddress,
+      preimageHash: args.preimageHash,
+      claimPublicKey: args.claimPublicKey,
+      prepayMinerFee: prepayMinerFeeAmount,
+    });
 
     this.eventHandler.emitSwapCreation(id);
 

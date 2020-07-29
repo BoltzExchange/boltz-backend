@@ -2,12 +2,12 @@ import { Model, Sequelize, DataTypes } from 'sequelize';
 
 type ChainTipType = {
   symbol: string;
-  height: string;
+  height: number;
 };
 
 class ChainTip extends Model implements ChainTipType {
-  public height!: string;
   public symbol!: string;
+  public height!: number;
 
   public static load = (sequelize: Sequelize): void => {
     ChainTip.init({

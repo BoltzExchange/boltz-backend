@@ -48,4 +48,8 @@ export default {
     message: `"${method}" not supported by ${symbol}`,
     code: concatErrorCode(ErrorCodePrefix.Wallet, 9),
   }),
+  UNSUPPORTED_CONTRACT_VERSION: (name: string, address: string, actualVersion: number, supportedVersion: number): Error => ({
+    message: `unsupported ${name} (${address}) contract version ${actualVersion}; support version: ${supportedVersion}`,
+    code: concatErrorCode(ErrorCodePrefix.Wallet, 10),
+  }),
 };

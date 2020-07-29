@@ -1,10 +1,10 @@
 import { Contract, providers, Signer } from 'ethers';
 import { Ierc20 } from 'boltz-core/typechain/Ierc20';
-import { ContractABIs } from 'boltz-core/dist/lib/Boltz';
+import { ContractABIs } from 'boltz-core';
 import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { Erc20Swap } from 'boltz-core/typechain/Erc20Swap';
 
-export const getSigner = (): { provider: providers.Provider, signer: Signer } => {
+export const getSigner = (): { provider: providers.WebSocketProvider, signer: Signer } => {
   const provider = new providers.WebSocketProvider('http://127.0.0.1:8545');
 
   return {

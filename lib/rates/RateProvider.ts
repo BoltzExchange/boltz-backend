@@ -162,6 +162,8 @@ class RateProvider {
               },
             },
           });
+        } else {
+          this.logger.warn(`Could not fetch rates of ${getPairId({ base, quote })}`);
         }
       })());
     });
@@ -204,26 +206,24 @@ class RateProvider {
 
   private parseCurrencies = (currencies: Currency[]) => {
     for (const currency of currencies) {
-      const config = currency.config;
-
-      if (config.maxZeroConfAmount === undefined) {
+      if (currency.limits.maxZeroConfAmount === undefined) {
         this.logger.warn(`Maximal 0-conf amount not set for ${currency.symbol}`);
       }
 
-      if (config.maxSwapAmount === undefined) {
+      if (currency.limits.maxSwapAmount === undefined) {
         throw Errors.CONFIGURATION_INCOMPLETE(currency.symbol, 'maxSwapAmount');
       }
 
-      if (config.minSwapAmount === undefined) {
+      if (currency.limits.minSwapAmount === undefined) {
         throw Errors.CONFIGURATION_INCOMPLETE(currency.symbol, 'minSwapAmount');
       }
 
       this.limits.set(currency.symbol, {
-        maximal: config.maxSwapAmount,
-        minimal: config.minSwapAmount,
+        maximal: currency.limits.maxSwapAmount,
+        minimal: currency.limits.minSwapAmount,
 
         // Set the maximal 0-conf amount to 0 if it wasn't set explicitly
-        maximalZeroConf: config.maxZeroConfAmount || 0,
+        maximalZeroConf: currency.limits.maxZeroConfAmount || 0,
       });
     }
   }

@@ -3,6 +3,7 @@ import { ContractTransaction } from 'ethers';
 import { getHexBuffer } from '../../../Utils';
 import BuilderComponents from '../../BuilderComponents';
 import { connectEthereum, getContracts } from '../EthereumUtils';
+import { queryERC20SwapValues, queryEtherSwapValues } from '../../../wallet/ethereum/ContractUtils';
 
 export const command = 'refund <preimageHash> [token]';
 
@@ -25,9 +26,22 @@ export const handler = async (argv: Arguments<any>): Promise<any> => {
   let transaction: ContractTransaction;
 
   if (argv.token) {
-    transaction = await erc20Swap.refund(preimageHash);
+    const erc20SwapValues = await queryERC20SwapValues(erc20Swap, preimageHash);
+    transaction = await erc20Swap.refund(
+      preimageHash,
+      erc20SwapValues.amount,
+      erc20SwapValues.tokenAddress,
+      erc20SwapValues.claimAddress,
+      erc20SwapValues.timelock,
+    );
   } else {
-    transaction = await etherSwap.refund(preimageHash);
+    const etherSwapValues = await queryEtherSwapValues(etherSwap, preimageHash);
+    transaction = await etherSwap.refund(
+      preimageHash,
+      etherSwapValues.amount,
+      etherSwapValues.claimAddress,
+      etherSwapValues.timelock,
+    );
   }
 
   await transaction.wait(1);

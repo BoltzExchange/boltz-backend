@@ -18,7 +18,7 @@ class Wallet {
    */
   constructor(
     private logger: Logger,
-    private walletProvider: WalletProviderInterface,
+    public walletProvider: WalletProviderInterface,
   ) {
     this.symbol = this.walletProvider.symbol;
   }
@@ -109,7 +109,7 @@ class Wallet {
     );
   }
 
-  public newAddress = (): Promise<string> => {
+  public getAddress = (): Promise<string> => {
     return this.walletProvider.getAddress();
   }
 

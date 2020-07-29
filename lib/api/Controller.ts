@@ -1,5 +1,6 @@
 import { Op } from 'sequelize';
 import { Request, Response } from 'express';
+import Errors from './Errors';
 import Logger from '../Logger';
 import Service from '../service/Service';
 import SwapNursery from '../swap/SwapNursery';
@@ -121,6 +122,18 @@ e
     this.successResponse(res, {
       nodes: mapToObject(nodes),
     });
+  }
+
+  public getContracts = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const contracts = await this.service.getContracts();
+
+      this.successResponse(res, {
+        contracts: mapToObject(contracts),
+      });
+    } catch (error) {
+      this.errorResponse(req, res, error, 501);
+    }
   }
 
   public getFeeEstimation = async (_: Request, res: Response): Promise<void> => {
@@ -270,7 +283,7 @@ e
       );
     }
 
-    this.logger.verbose(`Created new swap with id: ${response.id}`);
+    this.logger.verbose(`Created new Swap with id: ${response.id}`);
     this.logger.silly(`Swap ${response.id}: ${stringify(response)}`);
 
     this.createdResponse(res, response);
@@ -280,6 +293,7 @@ e
     const {
       pairId,
       orderSide,
+      claimAddress,
       preimageHash,
       invoiceAmount,
       claimPublicKey,
@@ -288,14 +302,22 @@ e
       { name: 'orderSide', type: 'string' },
       { name: 'invoiceAmount', type: 'number' },
       { name: 'preimageHash', type: 'string', hex: true },
-      { name: 'claimPublicKey', type: 'string', hex: true },
+      { name: 'claimAddress', type: 'string', optional: true, },
+      { name: 'claimPublicKey', type: 'string', hex: true, optional: true },
     ]);
 
     this.checkPreimageHashLength(preimageHash);
 
-    const response = await this.service.createReverseSwap(pairId, orderSide, preimageHash, invoiceAmount, claimPublicKey);
+    const response = await this.service.createReverseSwap({
+      pairId,
+      orderSide,
+      claimAddress,
+      preimageHash,
+      invoiceAmount,
+      claimPublicKey,
+    });
 
-    this.logger.verbose(`Created reverse swap with id: ${response.id}`);
+    this.logger.verbose(`Created Reverse Swap with id: ${response.id}`);
     this.logger.silly(`Reverse swap ${response.id}: ${stringify(response)}`);
 
     this.createdResponse(res, response);
@@ -358,7 +380,7 @@ e
             const buffer = getHexBuffer(value);
 
             if (buffer.length === 0) {
-              throw `could not parse hex string: ${arg.name}`;
+              throw Errors.COULD_NOT_PARSE_HEX(arg.name);
             }
 
             response[arg.name] = buffer;
@@ -366,10 +388,10 @@ e
             response[arg.name] = value;
           }
         } else {
-          throw `invalid parameter: ${arg.name}`;
+          throw Errors.INVALID_PARAMETER(arg.name);
         }
       } else if (!arg.optional) {
-        throw `undefined parameter: ${arg.name}`;
+        throw Errors.UNDEFINED_PARAMETER(arg.name);
       }
     });
 

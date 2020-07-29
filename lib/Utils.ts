@@ -6,6 +6,9 @@ import bolt11, { RoutingInfo } from '@boltz/bolt11';
 import commitHash from './Version';
 import packageJson from '../package.json';
 import { OrderSide } from './consts/Enums';
+import ChainClient from './chain/ChainClient';
+import { ContractTransaction } from 'ethers';
+import { etherDecimals } from './consts/Consts';
 
 const {
   p2shOutput,
@@ -402,4 +405,35 @@ export const getVersion = (): string => {
 
 export const getUnixTime = (): number => {
   return Math.round(new Date().getTime() / 1000);
+};
+
+/**
+ * Calculates the miner fee of a transaction on a UTXO based chain
+ */
+export const calculateUtxoTransactionFee = async (chainClient: ChainClient, transaction: Transaction): Promise<number> => {
+  let fee = 0;
+
+  for (const input of transaction.ins) {
+    const inputId = transactionHashToId(input.hash);
+    const rawInputTransaction = await chainClient.getRawTransaction(inputId);
+    const inputTransaction = Transaction.fromHex(rawInputTransaction);
+
+    const spentOutput = inputTransaction.outs[input.index];
+
+    fee += spentOutput.value;
+  }
+
+  transaction.outs.forEach((output) => {
+    fee -= output.value;
+  });
+
+  return fee;
+};
+
+
+/**
+ * Calculates the transaction fee of an Ethereum contract interaction and rounds it to 10 ** -8 decimals
+ */
+export const calculateEthereumTransactionFee = (transaction: ContractTransaction): number => {
+  return transaction.gasLimit.mul(transaction.gasPrice).div(etherDecimals).toNumber();
 };

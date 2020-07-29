@@ -13,11 +13,12 @@ import GrpcService from './grpc/GrpcService';
 import LndClient from './lightning/LndClient';
 import ChainClient from './chain/ChainClient';
 import Config, { ConfigType } from './Config';
-import { stringify, formatError } from './Utils';
+import { formatError, stringify } from './Utils';
 import BackupScheduler from './backup/BackupScheduler';
 import ChainTipRepository from './db/ChainTipRepository';
-import WalletManager, { Currency } from './wallet/WalletManager';
+import WalletManager, { Currency, CurrencyType } from './wallet/WalletManager';
 import NotificationProvider from './notifications/NotificationProvider';
+import EthereumManager from './wallet/ethereum/EthereumManager';
 
 class Boltz {
   private readonly logger: Logger;
@@ -26,13 +27,15 @@ class Boltz {
   private readonly service!: Service;
   private readonly walletManager: WalletManager;
 
+  private readonly currencies: Map<string, Currency>;
+
   private db: Database;
   private notifications!: NotificationProvider;
 
   private api!: Api;
   private grpcServer!: GrpcServer;
 
-  private currencies = new Map<string, Currency>();
+  private readonly ethereumManager?: EthereumManager;
 
   constructor(config: Arguments<any>) {
     this.config = new Config().load(config);
@@ -40,17 +43,26 @@ class Boltz {
 
     this.db = new Database(this.logger, this.config.dbpath);
 
-    this.parseCurrencies();
+    if (this.config.ethereum.providerEndpoint !== '') {
+      this.ethereumManager = new EthereumManager(
+        this.logger,
+        this.config.ethereum,
+      );
+    } else {
+      this.logger.warn('Disabled Ethereum integration because no web3 provider was specified');
+    }
+
+    this.currencies = this.parseCurrencies();
 
     const walletCurrencies = Array.from(this.currencies.values());
 
     if (fs.existsSync(this.config.mnemonicpath)) {
-      this.walletManager = new WalletManager(this.logger, this.config.mnemonicpath, walletCurrencies, this.config.ethereum);
+      this.walletManager = new WalletManager(this.logger, this.config.mnemonicpath, walletCurrencies, this.ethereumManager);
     } else {
       const mnemonic = generateMnemonic();
       this.logger.info(`Generated new mnemonic: ${mnemonic}`);
 
-      this.walletManager = WalletManager.fromMnemonic(this.logger, mnemonic, this.config.mnemonicpath, walletCurrencies, this.config.ethereum);
+      this.walletManager = WalletManager.fromMnemonic(this.logger, mnemonic, this.config.mnemonicpath, walletCurrencies, this.ethereumManager);
     }
 
     try {
@@ -104,10 +116,12 @@ class Boltz {
       const chainTipRepository = new ChainTipRepository();
 
       for (const [, currency] of this.currencies) {
-        await this.connectChainClient(currency.chainClient, chainTipRepository);
+        if (currency.chainClient) {
+          await this.connectChainClient(currency.chainClient, chainTipRepository);
 
-        if (currency.lndClient) {
-          await this.connectLnd(currency.lndClient);
+          if (currency.lndClient) {
+            await this.connectLnd(currency.lndClient);
+          }
         }
       }
 
@@ -170,7 +184,9 @@ class Boltz {
     }
   }
 
-  private parseCurrencies = () => {
+  private parseCurrencies = (): Map<string, Currency> => {
+    const result = new Map<string, Currency>();
+
     this.config.currencies.forEach((currency) => {
       try {
         const chainClient = new ChainClient(this.logger, currency.chain, currency.symbol);
@@ -181,17 +197,33 @@ class Boltz {
           lndClient = new LndClient(this.logger, currency.lnd, currency.symbol);
         }
 
-        this.currencies.set(currency.symbol, {
-          chainClient,
+        result.set(currency.symbol, {
           lndClient,
-          config: currency,
+          chainClient,
           symbol: currency.symbol,
+          type: CurrencyType.BitcoinLike,
           network: Networks[currency.network],
+          limits: {
+            ...currency,
+          },
         });
       } catch (error) {
         this.logger.warn(`Could not initialize currency ${currency.symbol}: ${error.message}`);
       }
     });
+
+    this.config.ethereum.tokens.forEach((token) => {
+      result.set(token.symbol, {
+        symbol: token.symbol,
+        type: token.symbol === 'ETH' ? CurrencyType.Ether : CurrencyType.ERC20,
+        limits: {
+          ...token,
+        },
+        provider: this.ethereumManager?.provider,
+      });
+    });
+
+    return result;
   }
 
   private logStatus = (service: string, status: unknown) => {

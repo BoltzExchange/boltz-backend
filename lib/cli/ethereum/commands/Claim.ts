@@ -1,8 +1,10 @@
 import { Arguments } from 'yargs';
+import { crypto } from 'bitcoinjs-lib';
 import { ContractTransaction } from 'ethers';
 import { getHexBuffer } from '../../../Utils';
 import BuilderComponents from '../../BuilderComponents';
 import { connectEthereum, getContracts } from '../EthereumUtils';
+import { queryERC20SwapValues, queryEtherSwapValues } from '../../../wallet/ethereum/ContractUtils';
 
 export const command = 'claim <preimage> [token]';
 
@@ -25,9 +27,22 @@ export const handler = async (argv: Arguments<any>): Promise<void> => {
   let transaction: ContractTransaction;
 
   if (argv.token) {
-    transaction = await erc20Swap.claim(preimage);
+    const erc20SwapValues = await queryERC20SwapValues(erc20Swap, crypto.sha256(preimage));
+    transaction = await erc20Swap.claim(
+      preimage,
+      erc20SwapValues.amount,
+      erc20SwapValues.tokenAddress,
+      erc20SwapValues.refundAddress,
+      erc20SwapValues.timelock,
+    );
   } else {
-    transaction = await etherSwap.claim(preimage);
+    const etherSwapValues = await queryEtherSwapValues(etherSwap, crypto.sha256(preimage));
+    transaction = await etherSwap.claim(
+      preimage,
+      etherSwapValues.amount,
+      etherSwapValues.refundAddress,
+      etherSwapValues.timelock,
+    );
   }
 
   await transaction.wait(1);

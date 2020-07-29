@@ -1,4 +1,4 @@
-import { WhereOptions } from 'sequelize';
+import { Op, WhereOptions } from 'sequelize';
 import { SwapUpdateEvent } from '../consts/Enums';
 import ReverseSwap, { ReverseSwapType } from './models/ReverseSwap';
 
@@ -6,6 +6,24 @@ class ReverseSwapRepository {
   public getReverseSwaps = (options?: WhereOptions): Promise<ReverseSwap[]> => {
     return ReverseSwap.findAll({
       where: options,
+    });
+  }
+
+  public getReverseSwapsExpirable = (height: number): Promise<ReverseSwap[]> => {
+    return ReverseSwap.findAll({
+      where: {
+        status: {
+          [Op.not]: [
+            SwapUpdateEvent.SwapExpired,
+            SwapUpdateEvent.TransactionFailed,
+            SwapUpdateEvent.TransactionRefunded,
+            SwapUpdateEvent.InvoiceSettled,
+          ],
+        },
+        timeoutBlockHeight: {
+          [Op.lte]: height,
+        },
+      },
     });
   }
 
@@ -25,7 +43,7 @@ class ReverseSwapRepository {
     });
   }
 
-  public setLockupTransaction = (reverseSwap: ReverseSwap, transactionId: string, vout: number, minerFee: number): Promise<ReverseSwap> => {
+  public setLockupTransaction = (reverseSwap: ReverseSwap, transactionId: string, minerFee: number, vout?: number): Promise<ReverseSwap> => {
     return reverseSwap.update({
       minerFee,
       transactionId,

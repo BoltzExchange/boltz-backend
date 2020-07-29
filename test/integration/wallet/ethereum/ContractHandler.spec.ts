@@ -1,13 +1,13 @@
 import { BigNumber } from 'ethers';
 import { randomBytes } from 'crypto';
 import { crypto } from 'bitcoinjs-lib';
+import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
+import { Erc20Swap } from 'boltz-core/typechain/Erc20Swap';
 import Logger from '../../../../lib/Logger';
 import { etherDecimals } from '../../../../lib/consts/Consts';
 import ContractHandler from '../../../../lib/wallet/ethereum/ContractHandler';
 import { getSigner, getSwapContracts, getTokenContract } from '../EthereumTools';
 import ERC20WalletProvider from '../../../../lib/wallet/providers/ERC20WalletProvider';
-import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
-import { Erc20Swap } from 'boltz-core/typechain/Erc20Swap';
 
 describe('ContractHandler', () => {
   const { signer, provider } = getSigner();

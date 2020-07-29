@@ -99,4 +99,16 @@ export default {
     message: `inbound liquidity ${inboundLiquidity} is less than minimal ${minInboundLiquidity}`,
     code: concatErrorCode(ErrorCodePrefix.Service, 23),
   }),
+  NOT_SUPPORTED_BY_SYMBOL: (symbol: string): Error => ({
+    message: `this action is not supported by ${symbol}`,
+    code: concatErrorCode(ErrorCodePrefix.Service, 24),
+  }),
+  ETHEREUM_NOT_ENABLED: (): Error => ({
+    message: 'the Ethereum integration is not enabled',
+    code: concatErrorCode(ErrorCodePrefix.Service, 25),
+  }),
+  INVALID_ETHEREUM_ADDRESS: (): Error => ({
+    message: 'and invalid Ethereum address was provided',
+    code: concatErrorCode(ErrorCodePrefix.Service, 5,)
+  }),
 };

@@ -6,8 +6,7 @@ class Kraken implements Exchange {
   public async getPrice(baseAsset: string, quoteAsset: string): Promise<number> {
     const pair = `${this.parseAsset(baseAsset)}${this.parseAsset(quoteAsset)}`;
     const response = await makeRequest(`${Kraken.API}/Ticker?pair=${pair}`);
-
-    const lastTrade = response['result'][pair]['c'];
+    const lastTrade = Object.values(response['result'])[0] as Record<string, string[]>['c'];
 
     return Number(lastTrade[0]);
   }
@@ -16,9 +15,7 @@ class Kraken implements Exchange {
     const assetUpperCase = asset.toUpperCase();
 
     switch (assetUpperCase) {
-      case 'BTC': return 'XXBT';
-      case 'LTC': return 'XLTC';
-
+      case 'BTC': return 'XBT';
       default: return assetUpperCase;
     }
   }

@@ -39,9 +39,10 @@ BITCOIN_VERSION = "0.20.0"
 LITECOIN_VERSION = "0.18.1"
 DOGECOIN_VERSION = "1.14.2"
 ZCASH_VERSION = "3.0.0"
-BUIDLER_VERSION = "1.3.8"
 
-LND_VERSION = "0.10.3-beta"
+C_LIGHTNING_VERSION = "0.8.2.1"
+ECLAIR_VERSION = "0.4.1"
+LND_VERSION = "0.10.4-beta"
 
 IMAGES: Dict[str, Image] = {
     "berkeley-db": Image(
@@ -80,13 +81,16 @@ IMAGES: Dict[str, Image] = {
             UBUNTU_VERSION,
         ]
     ),
-    "buidler": Image(
-        tags=[BUIDLER_VERSION],
+    "eclair": Image(
+        tags=[ECLAIR_VERSION],
         arguments=[
-            BuildArgument(
-                name="NODE_VERSION",
-                value="lts-alpine3.10"
-            )
+            UBUNTU_VERSION,
+        ],
+    ),
+    "c-lightning": Image(
+        tags=[C_LIGHTNING_VERSION],
+        arguments=[
+            UBUNTU_VERSION
         ],
     ),
     "lnd": Image(
@@ -100,7 +104,7 @@ IMAGES: Dict[str, Image] = {
         ]
     ),
     "regtest": Image(
-        tags=["1.5.3"],
+        tags=["2.0.0"],
         arguments=[
             UBUNTU_VERSION,
             BuildArgument(

@@ -4,7 +4,7 @@ ARG BERKELEY_VERSION
 FROM boltz/berkeley-db:${BERKELEY_VERSION} AS berkeley-db
 
 # Build Bitcoin Core
-FROM ubuntu:${UBUNTU_VERSION} as bitcoin-core
+FROM ubuntu:${UBUNTU_VERSION} AS bitcoin-core
 
 ARG VERSION
 

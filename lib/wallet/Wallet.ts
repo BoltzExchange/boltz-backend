@@ -1,8 +1,8 @@
 import { Network, address, BIP32Interface } from 'bitcoinjs-lib';
+import Errors from './Errors';
 import Logger from '../Logger';
 import KeyRepository from '../db/KeyRepository';
 import WalletProviderInterface, { SentTransaction, WalletBalance } from './providers/WalletProviderInterface';
-import Errors from './Errors';
 
 class Wallet {
   public readonly symbol: string;

@@ -25,6 +25,11 @@ UBUNTU_VERSION = BuildArgument(
     value="20.04"
 )
 
+GOLANG_VERSION = BuildArgument(
+    name="GOLANG_VERSION",
+    value="1.14.4-buster"
+)
+
 BERKELEY_4_VERSION = BuildArgument(
     name="BERKELEY_VERSION",
     value="4.8.30"
@@ -39,6 +44,7 @@ BITCOIN_VERSION = "0.20.0"
 LITECOIN_VERSION = "0.18.1"
 DOGECOIN_VERSION = "1.14.2"
 ZCASH_VERSION = "3.0.0"
+GETH_VERSION = "1.9.18"
 
 C_LIGHTNING_VERSION = "0.8.2.1"
 ECLAIR_VERSION = "0.4.1"
@@ -51,35 +57,42 @@ IMAGES: Dict[str, Image] = {
             BERKELEY_5_VERSION.value,
         ],
         arguments=[
-            UBUNTU_VERSION
-        ]
+            UBUNTU_VERSION,
+        ],
     ),
     "bitcoin-core": Image(
         tags=[BITCOIN_VERSION],
         arguments=[
             UBUNTU_VERSION,
-            BERKELEY_4_VERSION
-        ]
+            BERKELEY_4_VERSION,
+        ],
     ),
     "litecoin-core": Image(
         tags=[LITECOIN_VERSION],
         arguments=[
             UBUNTU_VERSION,
-            BERKELEY_4_VERSION
-        ]
+            BERKELEY_4_VERSION,
+        ],
     ),
     "dogecoin-core": Image(
         tags=[DOGECOIN_VERSION],
         arguments=[
             UBUNTU_VERSION,
-            BERKELEY_5_VERSION
-        ]
+            BERKELEY_5_VERSION,
+        ],
     ),
     "zcash": Image(
         tags=[ZCASH_VERSION],
         arguments=[
             UBUNTU_VERSION,
-        ]
+        ],
+    ),
+    "geth": Image(
+        tags=[GETH_VERSION],
+        arguments=[
+            UBUNTU_VERSION,
+            GOLANG_VERSION,
+        ],
     ),
     "eclair": Image(
         tags=[ECLAIR_VERSION],
@@ -90,18 +103,15 @@ IMAGES: Dict[str, Image] = {
     "c-lightning": Image(
         tags=[C_LIGHTNING_VERSION],
         arguments=[
-            UBUNTU_VERSION
+            UBUNTU_VERSION,
         ],
     ),
     "lnd": Image(
         tags=[LND_VERSION],
         arguments=[
             UBUNTU_VERSION,
-            BuildArgument(
-                name="GOLANG_VERSION",
-                value="1.14.4-buster"
-            )
-        ]
+            GOLANG_VERSION,
+        ],
     ),
     "regtest": Image(
         tags=["2.0.0"],
@@ -109,17 +119,17 @@ IMAGES: Dict[str, Image] = {
             UBUNTU_VERSION,
             BuildArgument(
                 name="BITCOIN_VERSION",
-                value=BITCOIN_VERSION
+                value=BITCOIN_VERSION,
             ),
             BuildArgument(
                 name="LITECOIN_VERSION",
-                value=LITECOIN_VERSION
+                value=LITECOIN_VERSION,
             ),
             BuildArgument(
                 name="LND_VERSION",
-                value=LND_VERSION
-            )
-        ]
+                value=LND_VERSION,
+            ),
+        ],
     )
 }
 

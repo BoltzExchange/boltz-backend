@@ -105,7 +105,8 @@ class Boltz {
       );
     } catch (error) {
       this.logger.error(`Could not start Boltz: ${stringify(error)}`);
-      throw error;
+      // eslint-disable-next-line no-process-exit
+      process.exit(1);
     }
   }
 
@@ -137,7 +138,8 @@ class Boltz {
       await this.api.init();
     } catch (error) {
       this.logger.error(`Could not initialize Boltz: ${formatError(error)}`);
-      throw error;
+      // eslint-disable-next-line no-process-exit
+      process.exit(1);
     }
   }
 

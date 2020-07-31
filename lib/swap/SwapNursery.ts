@@ -37,6 +37,7 @@ import {
   getLightningCurrency,
   splitPairId,
 } from '../Utils';
+import { Op } from 'sequelize';
 
 interface SwapNursery {
   // UTXO based chains emit the "Transaction" object and Ethereum based ones just the transaction hash
@@ -414,7 +415,7 @@ class SwapNursery extends EventEmitter {
       );
 
       this.ethereumNursery!.listenContractTransaction(reverseSwap, contractTransaction);
-      this.logger.verbose(`Locked up ${reverseSwap.onchainAmount} ERC20 ${wallet.symbol} for Reverse Swap ${reverseSwap.id}: ${contractTransaction.hash}`);
+      this.logger.verbose(`Locked up ${reverseSwap.onchainAmount} ${wallet.symbol} for Reverse Swap ${reverseSwap.id}: ${contractTransaction.hash}`);
 
       this.emit(
         'coins.sent',
@@ -515,7 +516,7 @@ class SwapNursery extends EventEmitter {
       erc20SwapValues.timelock,
     );
 
-    this.logger.info(`Claimed ERC20 ${chainCurrency} of Swap ${swap.id} in: ${contractTransaction.hash}`);
+    this.logger.info(`Claimed ${chainCurrency} of Swap ${swap.id} in: ${contractTransaction.hash}`);
     this.emit('claim', await this.swapRepository.setMinerFee(swap, calculateEthereumTransactionFee(contractTransaction)));
   }
 
@@ -569,6 +570,17 @@ class SwapNursery extends EventEmitter {
   }
 
   private expireSwap = async (swap: Swap) =>  {
+    // Check "expireReverseSwap" for reason
+    const queriedSwap = await this.swapRepository.getSwap({
+      id: {
+        [Op.eq]: swap.id,
+      },
+    });
+
+    if (queriedSwap!.status === SwapUpdateEvent.SwapExpired) {
+      return;
+    }
+
     this.emit(
       'expiration',
       await this.swapRepository.setSwapStatus(swap, SwapUpdateEvent.SwapExpired),
@@ -577,6 +589,19 @@ class SwapNursery extends EventEmitter {
   }
 
   private expireReverseSwap = async (reverseSwap: ReverseSwap) => {
+    // Sometimes, when blocks are mined quickly (realistically just regtest), it can happen that the
+    // nurseries, which are not in the async lock, send the expiration event of a Swap multiple times.
+    // To handle this scenario, the Swap is queried again to ensure that it should actually be expired or refunded
+    const queriedReverseSwap = await this.reverseSwapRepository.getReverseSwap({
+      id: {
+        [Op.eq]: reverseSwap.id,
+      },
+    });
+
+    if (queriedReverseSwap!.status === SwapUpdateEvent.SwapExpired || queriedReverseSwap!.status === SwapUpdateEvent.TransactionRefunded) {
+      return;
+    }
+
     const { base, quote } = splitPairId(reverseSwap.pair);
     const chainSymbol = getChainCurrency(base, quote, reverseSwap.orderSide, true);
     const lightningSymbol = getLightningCurrency(base, quote, reverseSwap.orderSide, true);
@@ -683,7 +708,7 @@ class SwapNursery extends EventEmitter {
       erc20SwapValues.timelock,
     );
 
-    this.logger.info(`Refunded ERC20 ${chainSymbol} of Reverse Swap ${reverseSwap.id} in: ${contractTransaction.hash}`);
+    this.logger.info(`Refunded ${chainSymbol} of Reverse Swap ${reverseSwap.id} in: ${contractTransaction.hash}`);
     this.emit(
       'refund',
       await this.reverseSwapRepository.setTransactionRefunded(

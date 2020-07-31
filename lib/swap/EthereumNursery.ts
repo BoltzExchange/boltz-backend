@@ -1,7 +1,6 @@
 import { Op } from 'sequelize';
 import { EventEmitter } from 'events';
 import { BigNumber, ContractTransaction } from 'ethers';
-import Errors from './Errors';
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';
 import Wallet from '../wallet/Wallet';
@@ -126,6 +125,13 @@ class EthereumNursery extends EventEmitter {
         return;
       }
 
+      const { base, quote } = splitPairId(swap.pair);
+      const chainCurrency = getChainCurrency(base, quote, swap.orderSide, false);
+
+      if (chainCurrency !== 'ETH') {
+        return;
+      }
+
       this.logger.debug(`Found lockup in EtherSwap contract for Swap ${swap.id}: ${transactionHash}`);
 
       swap = await this.swapRepository.setLockupTransactionId(
@@ -198,12 +204,18 @@ class EthereumNursery extends EventEmitter {
         return;
       }
 
-      this.logger.debug(`Found lockup in ERC20Swap contract for Swap ${swap.id}: ${transactionHash}`);
-
       const { base, quote } = splitPairId(swap.pair);
       const chainCurrency = getChainCurrency(base, quote, swap.orderSide, false);
 
-      const erc20Wallet = this.getERC20WalletProvider(chainCurrency);
+      const wallet = this.walletManager.wallets.get(chainCurrency);
+
+      if (wallet === undefined || !(wallet.walletProvider instanceof ERC20WalletProvider)) {
+        return;
+      }
+
+      const erc20Wallet = wallet.walletProvider as ERC20WalletProvider;
+
+      this.logger.debug(`Found lockup in ERC20Swap contract for Swap ${swap.id}: ${transactionHash}`);
 
       const normalizedSwapAmount = erc20Wallet.normalizeTokenBalance(erc20SwapValues.amount);
 
@@ -313,18 +325,6 @@ class EthereumNursery extends EventEmitter {
     }
 
     return;
-  }
-
-  private getERC20WalletProvider = (symbol: string): ERC20WalletProvider => {
-    const wallet = this.walletManager.wallets.get(symbol);
-
-    if (wallet) {
-      if (wallet.walletProvider instanceof ERC20WalletProvider) {
-        return wallet.walletProvider as ERC20WalletProvider;
-      }
-    }
-
-    throw Errors.CURRENCY_NOT_FOUND(symbol);
   }
 }
 

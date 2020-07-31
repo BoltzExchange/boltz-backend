@@ -10,7 +10,7 @@ require('yargs')
     },
     'signer': {
       describe: 'address for the JsonRpcSigner',
-      default: '0xA7430D5ef25467365112C21A0e803cc72905cC50',
+      default: '0x225574Abdb2B3e976f781336Db684D04FB8E0549',
       type: 'string',
       alias: 's',
     },

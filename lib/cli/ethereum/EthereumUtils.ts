@@ -5,14 +5,14 @@ import { Erc20Swap } from 'boltz-core/typechain/Erc20Swap';
 import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 
 const Constants = {
-  erc20TokenAddress: '0x3A7C462A24c6299EA33ADE208e0f7DB593d002F9',
+  erc20TokenAddress: '0x19CFe68340Fbca38349d09Ed7cC6A3b6b8d64211',
 
-  etherSwapAddress: '0x7509536C8bE8Ac1E5112A089f7a5bC4894A040b9',
-  erc20SwapAddress: '0x32E023673C5149A49552676cE85a69705Dab9696',
+  etherSwapAddress: '0xE923CA8ec43f002964F9A06BC59B814270a252d4',
+  erc20SwapAddress: '0x02EBC3024CDef2c3Bb3Bd9Fa82cCACB1C50A3368',
 };
 
-const connectEthereum = (signerAddress: string): Signer => {
-  const provider = new providers.JsonRpcProvider('http://127.0.0.1:8545');
+const connectEthereum = (providerUrl: string, signerAddress: string): Signer => {
+  const provider = new providers.JsonRpcProvider(providerUrl);
   return provider.getSigner(signerAddress);
 };
 
@@ -37,14 +37,9 @@ const getContracts = (signer: Signer): { token: Contract, etherSwap: EtherSwap, 
   };
 };
 
-const calculateTimelock = async (signer: Signer, delta: number | undefined): Promise<number> => {
-  return (await signer.provider!.getBlockNumber()) + (delta || 0);
-};
-
 export {
   Constants,
 
   getContracts,
   connectEthereum,
-  calculateTimelock,
 };

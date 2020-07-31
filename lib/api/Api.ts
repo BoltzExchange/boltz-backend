@@ -32,9 +32,12 @@ class Api {
   public init = async (): Promise<void> => {
     await this.controller.init();
 
-    this.app.listen(this.config.port, this.config.host, () => {
-      this.logger.info(`API server listening on: ${this.config.host}:${this.config.port}`);
-    });
+    await new Promise((resolve) => {
+      this.app.listen(this.config.port, this.config.host, () => {
+        this.logger.info(`API server listening on: ${this.config.host}:${this.config.port}`);
+        resolve();
+      });
+    })
   }
 
   private registerRoutes = (controller: Controller) => {

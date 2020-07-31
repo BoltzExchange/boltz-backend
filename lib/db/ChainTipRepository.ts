@@ -2,6 +2,10 @@ import { Op } from 'sequelize';
 import ChainTip from './models/ChainTip';
 
 class ChainTipRepository {
+  public getChainTips = (): Promise<ChainTip[]> => {
+    return ChainTip.findAll();
+  }
+
   public findOrCreateTip = async (symbol: string, height: number): Promise<ChainTip> => {
     const [chainTip] = await ChainTip.findOrCreate({
       where: {

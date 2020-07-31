@@ -82,7 +82,6 @@ class SwapManager {
 
     await this.nursery.init(currencies);
 
-    // TODO: rescan chains
     const [pendingSwaps, pendingReverseSwaps] = await Promise.all([
       this.swapRepository.getSwaps({
         status: {
@@ -502,6 +501,7 @@ class SwapManager {
     };
   }
 
+  // TODO: check current status of invoices or do the streams handle that already?
   private recreateFilters = (swaps: Swap[] | ReverseSwap[], isReverse: boolean) => {
     swaps.forEach((swap: Swap | ReverseSwap) => {
       const { base, quote } = splitPairId(swap.pair);

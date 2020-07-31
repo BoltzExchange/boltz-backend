@@ -1,3 +1,4 @@
+import { Op } from 'sequelize';
 import AsyncLock from 'async-lock';
 import { BigNumber } from 'ethers';
 import { EventEmitter } from 'events';
@@ -37,7 +38,6 @@ import {
   getLightningCurrency,
   splitPairId,
 } from '../Utils';
-import { Op } from 'sequelize';
 
 interface SwapNursery {
   // UTXO based chains emit the "Transaction" object and Ethereum based ones just the transaction hash
@@ -51,8 +51,8 @@ interface SwapNursery {
   on(event: 'lockup.failed', listener: (swap: Swap) => void): this;
   emit(event: 'lockup.failed', swap: Swap): boolean;
 
-  on(event: 'zeroconf.rejected', listener: (swap: Swap, transaction: Transaction) => void): this;
-  emit(event: 'zeroconf.rejected', swap: Swap, transaction: Transaction): boolean;
+  on(event: 'zeroconf.rejected', listener: (swap: Swap) => void): this;
+  emit(event: 'zeroconf.rejected', swap: Swap): boolean;
 
   on(event: 'invoice.pending', listener: (swap: Swap) => void): this;
   emit(even: 'invoice.pending', swap: Swap): boolean;
@@ -177,10 +177,10 @@ class SwapNursery extends EventEmitter {
       });
     });
 
-    this.utxoNursery.on('swap.lockup.zeroconf.rejected', async (swap, transaction, reason) => {
+      this.utxoNursery.on('swap.lockup.zeroconf.rejected', async (swap, transaction, reason) => {
       await this.lock.acquire(SwapNursery.swapLock, async () => {
         this.logger.warn(`Rejected 0-conf lockup transaction (${transaction.getId()}) of ${swap.id}: ${reason}`);
-        this.emit('zeroconf.rejected', await this.swapRepository.setSwapStatus(swap, SwapUpdateEvent.TransactionZeroConfRejected), transaction);
+        this.emit('zeroconf.rejected', await this.swapRepository.setSwapStatus(swap, SwapUpdateEvent.TransactionZeroConfRejected));
       });
     });
 

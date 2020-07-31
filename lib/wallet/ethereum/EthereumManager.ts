@@ -79,12 +79,6 @@ class EthereumManager {
     this.contractHandler.init(this.etherSwap, this.erc20Swap);
     this.contractEventHandler.init(this.etherSwap, this.erc20Swap);
 
-    // No need to rescan in case the current block was scanned already
-    if (chainTip.height !== currentBlock) {
-      // TODO: do this later; after SwapNursery was initialized
-      await this.contractEventHandler.rescan(chainTip.height);
-    }
-
     this.logger.verbose(`Ethereum chain status: ${stringify({
       chainId: await signer.getChainId(),
       blockNumber: currentBlock,

@@ -127,8 +127,6 @@ class ZmqClient extends EventEmitter {
 
     try {
       for (let i = 0; startHeight + i <= this.blockHeight; i += 1) {
-        this.logger.debug(`Rescanning ${this.symbol} block #${startHeight + i}`);
-
         const hash = await this.getBlockhash(startHeight + i);
 
         if (!this.compatibilityRescan) {

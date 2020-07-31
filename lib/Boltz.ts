@@ -9,6 +9,7 @@ import Database from './db/Database';
 import Service from './service/Service';
 import VersionCheck from './VersionCheck';
 import GrpcServer from './grpc/GrpcServer';
+import ChainTip from './db/models/ChainTip';
 import GrpcService from './grpc/GrpcService';
 import LndClient from './lightning/LndClient';
 import ChainClient from './chain/ChainClient';
@@ -116,6 +117,9 @@ class Boltz {
 
       const chainTipRepository = new ChainTipRepository();
 
+      // Query the chain tips now to avoid them being updated after the chain clients are initialized
+      const chainTips = await chainTipRepository.getChainTips();
+
       for (const [, currency] of this.currencies) {
         if (currency.chainClient) {
           await this.connectChainClient(currency.chainClient, chainTipRepository);
@@ -136,6 +140,36 @@ class Boltz {
       this.grpcServer.listen();
 
       await this.api.init();
+
+      // Rescan chains after everything else was initialized to avoid race conditions
+      this.logger.verbose(`Starting rescan of chains: ${chainTips.map(chainTip => chainTip.symbol).join(', ')}`)
+
+      const logRescan = (chainTip: ChainTip) => {
+        this.logger.debug(`Rescanning ${chainTip.symbol} from height: ${chainTip.height}`);
+      };
+
+      // TODO: is doing all the rescanning at the same time a good idea? Let's try this on mainnet first
+      const rescanPromises: Promise<void>[] = [];
+
+      for (const chainTip of chainTips) {
+        if (chainTip.symbol === 'ETH') {
+          if (this.walletManager.ethereumManager) {
+            logRescan(chainTip);
+            rescanPromises.push(this.walletManager.ethereumManager.contractEventHandler.rescan(chainTip.height));
+          }
+        } else {
+          const { chainClient } = this.currencies.get(chainTip.symbol)!;
+
+          if (chainClient) {
+            logRescan(chainTip);
+            rescanPromises.push(chainClient.rescanChain(chainTip.height));
+          }
+        }
+      }
+
+      await Promise.all(rescanPromises);
+      this.logger.verbose(`Finished rescanning`);
+
     } catch (error) {
       this.logger.error(`Could not initialize Boltz: ${formatError(error)}`);
       // eslint-disable-next-line no-process-exit

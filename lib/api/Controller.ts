@@ -4,6 +4,7 @@ import Errors from './Errors';
 import Logger from '../Logger';
 import Service from '../service/Service';
 import SwapNursery from '../swap/SwapNursery';
+import ServiceErrors from '../service/Errors';
 import { SwapUpdate } from '../service/EventHandler';
 import { SwapType, SwapUpdateEvent } from '../consts/Enums';
 import { getChainCurrency, getHexBuffer, getVersion, mapToObject, splitPairId, stringify } from '../Utils';
@@ -64,6 +65,10 @@ class Controller {
           break;
         }
 
+        case SwapUpdateEvent.TransactionZeroConfRejected:
+          this.pendingSwapInfos.set(swap.id, { status: SwapUpdateEvent.TransactionMempool, zeroConfRejected: true });
+          break;
+
         default:
           this.pendingSwapInfos.set(swap.id, { status: swap.status as SwapUpdateEvent });
           break;
@@ -79,16 +84,32 @@ class Controller {
           const { base, quote } = splitPairId(reverseSwap.pair);
           const chainCurrency = getChainCurrency(base, quote, reverseSwap.orderSide, true);
 
-          const transactionHex = await this.service.getTransaction(chainCurrency, reverseSwap.transactionId!);
+          try {
+            const transactionHex = await this.service.getTransaction(chainCurrency, reverseSwap.transactionId!);
 
-          this.pendingSwapInfos.set(reverseSwap.id, {
-            status,
-            transaction: {
-              hex: transactionHex,
-              id: reverseSwap.transactionId!,
-              eta: status === SwapUpdateEvent.TransactionMempool ? SwapNursery.reverseSwapMempoolEta : undefined,
-            },
-          });
+            this.pendingSwapInfos.set(reverseSwap.id, {
+              status,
+              transaction: {
+                hex: transactionHex,
+                id: reverseSwap.transactionId!,
+                eta: status === SwapUpdateEvent.TransactionMempool ? SwapNursery.reverseSwapMempoolEta : undefined,
+              },
+            });
+          } catch (error) {
+            // If the transaction can't be queried with the service it's either a transaction on the Ethereum network,
+            // or something is terribly wrong
+            if (error.message !== ServiceErrors.NOT_SUPPORTED_BY_SYMBOL(chainCurrency).message) {
+              throw error;
+            }
+
+            this.pendingSwapInfos.set(reverseSwap.id, {
+              status,
+              transaction: {
+                id: reverseSwap.transactionId!,
+              },
+            });
+          }
+
           break;
         }
 
@@ -98,7 +119,7 @@ class Controller {
       }
     }
   }
-e
+
   // GET requests
   public version = (_: Request, res: Response): void => {
     this.successResponse(res, {

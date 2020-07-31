@@ -14,13 +14,12 @@ type TransactionInfo = {
 
   id: string;
   hex?: string;
-
-  zeroConfRejected?: boolean;
 };
 
 type SwapUpdate = {
   status: SwapUpdateEvent;
 
+  zeroConfRejected?: boolean;
   transaction?: TransactionInfo;
 
   channel?: {
@@ -124,17 +123,10 @@ class EventHandler extends EventEmitter {
    * Subscribes to a stream of swap events
    */
   private subscribeSwapEvents = () => {
-
-
-    this.nursery.on('zeroconf.rejected', (swap, transaction) => {
+    this.nursery.on('zeroconf.rejected', (swap) => {
       this.emit('swap.update', swap.id, {
         status: SwapUpdateEvent.TransactionMempool,
-        transaction: {
-          id: transaction.getId(),
-          hex: transaction.toHex(),
-
-          zeroConfRejected: true,
-        },
+        zeroConfRejected: true,
       });
     });
 

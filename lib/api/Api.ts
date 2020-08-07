@@ -37,7 +37,7 @@ class Api {
         this.logger.info(`API server listening on: ${this.config.host}:${this.config.port}`);
         resolve();
       });
-    })
+    });
   }
 
   private registerRoutes = (controller: Controller) => {

@@ -142,7 +142,11 @@ class Boltz {
       await this.api.init();
 
       // Rescan chains after everything else was initialized to avoid race conditions
-      this.logger.verbose(`Starting rescan of chains: ${chainTips.map(chainTip => chainTip.symbol).join(', ')}`)
+      if (chainTips.length === 0) {
+        return;
+      }
+
+      this.logger.verbose(`Starting rescan of chains: ${chainTips.map(chainTip => chainTip.symbol).join(', ')}`);
 
       const logRescan = (chainTip: ChainTip) => {
         this.logger.debug(`Rescanning ${chainTip.symbol} from height: ${chainTip.height}`);
@@ -168,8 +172,7 @@ class Boltz {
       }
 
       await Promise.all(rescanPromises);
-      this.logger.verbose(`Finished rescanning`);
-
+      this.logger.verbose('Finished rescanning');
     } catch (error) {
       this.logger.error(`Could not initialize Boltz: ${formatError(error)}`);
       // eslint-disable-next-line no-process-exit

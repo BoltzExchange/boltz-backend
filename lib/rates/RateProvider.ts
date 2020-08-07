@@ -1,10 +1,10 @@
 import Errors from './Errors';
 import Logger from '../Logger';
-import FeeProvider from './FeeProvider';
 import { PairConfig } from '../consts/Types';
 import DataProvider from './data/DataProvider';
 import { Currency } from '../wallet/WalletManager';
-import { stringify, mapToObject, minutesToMilliseconds, getPairId } from '../Utils';
+import FeeProvider, { BaseFeeType } from './FeeProvider';
+import { getPairId, mapToObject, minutesToMilliseconds, stringify } from '../Utils';
 
 type CurrencyLimits = {
   minimal: number;
@@ -232,19 +232,13 @@ class RateProvider {
     const minerFees = new Map<string, MinerFees>();
 
     for (const [symbol] of this.limits) {
-      // The pair and amount can be emtpy because we just want the miner fee
-      const { normal, reverseLockup } = await this.getFeeFromProvider(symbol);
+      const { normalClaim, reverseLockup, reverseClaim } = await this.getFeeFromProvider(symbol);
 
       minerFees.set(symbol, {
-        normal,
+        normal: normalClaim,
         reverse: {
+          claim: reverseClaim,
           lockup: reverseLockup,
-
-          // We cannot know what kind of address the user will claim to so we just assume the worst case: P2PKH
-          //
-          // Claiming a P2WSH to a P2PKH address is about 138 bytes and to get the sats per vbyte we divide the
-          // reverse fee by the size of the reverse lockup transaction (153 vbyte)
-          claim: FeeProvider.transactionSizes.reverseClaim * (reverseLockup / FeeProvider.transactionSizes.reverseLockup),
         },
       });
     }
@@ -253,14 +247,16 @@ class RateProvider {
   }
 
   private getFeeFromProvider = async (chainCurrency: string) => {
-    const [normal, reverseLockup] = await Promise.all([
-      this.feeProvider.getBaseFee(chainCurrency, false),
-      this.feeProvider.getBaseFee(chainCurrency, true),
+    const [normalClaim, reverseLockup, reverseClaim] = await Promise.all([
+      this.feeProvider.getBaseFee(chainCurrency, BaseFeeType.NormalClaim),
+      this.feeProvider.getBaseFee(chainCurrency, BaseFeeType.ReverseLockup),
+      this.feeProvider.getBaseFee(chainCurrency, BaseFeeType.ReverseClaim),
     ]);
 
     return {
-      normal,
+      normalClaim,
       reverseLockup,
+      reverseClaim,
     };
   }
 }

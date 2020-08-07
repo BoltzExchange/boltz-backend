@@ -113,39 +113,34 @@ class SwapManager {
 
   /**
    * Creates a new Submarine Swap from the chain to Lightning with a preimage hash
-   *
-   * @param baseCurrency base currency ticker symbol
-   * @param quoteCurrency quote currency ticker symbol
-   * @param orderSide whether the order is a buy or sell one
-   * @param preimageHash hash of the preimage of the invoice the swap should pay
-   * @param refundPublicKey public key of the keypair needed for claiming
-   * @param timeoutBlockDelta after how many blocks the onchain script should time out
-   * @param channel information about channel creation in case it is needed
    */
-  public createSwap = async (
+  public createSwap = async (args: {
     baseCurrency: string,
     quoteCurrency: string,
     orderSide: OrderSide,
     preimageHash: Buffer,
-    refundPublicKey: Buffer,
     timeoutBlockDelta: number,
+
     channel?: ChannelCreationInfo,
-  ): Promise<{
+
+    // Only required for UTXO base chains
+    refundPublicKey?: Buffer,
+  }): Promise<{
     id: string,
     timeoutBlockHeight: number,
-
-    // Only set for Bitcoin like, UTXO based, chains
-    redeemScript?: string,
 
     // This is either the generated address for Bitcoin like chains, or the address of the contract
     // to which the user should send the lockup transaction for Ether and ERC20 tokens
     address: string,
 
+    // Only set for Bitcoin like, UTXO based, chains
+    redeemScript?: string,
+
     // Specified when either Ether or ERC20 tokens or swapped to Lightning
     // So that the user can specify the claim address (Boltz) in the lockup transaction to the contract
     claimAddress?: string,
   }> => {
-    const { sendingCurrency, receivingCurrency } = this.getCurrencies(baseCurrency, quoteCurrency, orderSide);
+    const { sendingCurrency, receivingCurrency } = this.getCurrencies(args.baseCurrency, args.quoteCurrency, args.orderSide);
 
     if (!sendingCurrency.lndClient) {
       throw Errors.NO_LND_CLIENT(sendingCurrency.symbol);
@@ -155,7 +150,7 @@ class SwapManager {
 
     this.logger.verbose(`Creating new Swap from ${receivingCurrency.symbol} to ${sendingCurrency.symbol}: ${id}`);
 
-    const pair = getPairId({ base: baseCurrency, quote: quoteCurrency });
+    const pair = getPairId({ base: args.baseCurrency, quote: args.quoteCurrency });
 
     let address: string;
     let timeoutBlockHeight: number;
@@ -166,14 +161,14 @@ class SwapManager {
 
     if (receivingCurrency.type === CurrencyType.BitcoinLike) {
       const { blocks } = await receivingCurrency.chainClient!.getBlockchainInfo();
-      timeoutBlockHeight = blocks + timeoutBlockDelta;
+      timeoutBlockHeight = blocks + args.timeoutBlockDelta;
 
       const { keys, index } = receivingCurrency.wallet.getNewKeys();
 
       redeemScript = swapScript(
-        preimageHash,
+        args.preimageHash,
         keys.publicKey,
-        refundPublicKey,
+        args.refundPublicKey!,
         timeoutBlockHeight,
       );
 
@@ -187,43 +182,43 @@ class SwapManager {
       await this.swapRepository.addSwap({
         id,
         pair,
-        orderSide,
         timeoutBlockHeight,
 
         keyIndex: index,
+        orderSide: args.orderSide,
         lockupAddress: address,
         status: SwapUpdateEvent.SwapCreated,
-        preimageHash: getHexString(preimageHash),
+        preimageHash: getHexString(args.preimageHash),
         redeemScript: getHexString(redeemScript),
       });
     } else {
       address = this.getLockupContractAddress(receivingCurrency.type);
 
       const blockNumber = await receivingCurrency.provider!.getBlockNumber();
-      timeoutBlockHeight = blockNumber + timeoutBlockDelta;
+      timeoutBlockHeight = blockNumber + args.timeoutBlockDelta;
 
       claimAddress = await receivingCurrency.wallet.getAddress();
 
       await this.swapRepository.addSwap({
         id,
         pair,
-        orderSide,
         timeoutBlockHeight,
 
         lockupAddress: address,
+        orderSide: args.orderSide,
         status: SwapUpdateEvent.SwapCreated,
-        preimageHash: getHexString(preimageHash),
+        preimageHash: getHexString(args.preimageHash),
       });
     }
 
-    if (channel !== undefined) {
+    if (args.channel !== undefined) {
       this.logger.verbose(`Adding Channel Creation for Swap: ${id}`);
 
       await this.channelCreationRepository.addChannelCreation({
         swapId: id,
-        private: channel.private,
-        type: channel.auto ? ChannelCreationType.Auto : ChannelCreationType.Create,
-        inboundLiquidity: channel.inboundLiquidity,
+        private: args.channel.private,
+        type: args.channel.auto ? ChannelCreationType.Auto : ChannelCreationType.Create,
+        inboundLiquidity: args.channel.inboundLiquidity,
       });
     }
 

@@ -1,4 +1,5 @@
 import { Op } from 'sequelize';
+import { utils } from 'ethers';
 import { OutputType } from 'boltz-core';
 import { Transaction } from 'bitcoinjs-lib';
 import Errors from './Errors';
@@ -9,16 +10,16 @@ import Wallet from '../wallet/Wallet';
 import { ConfigType } from '../Config';
 import EventHandler from './EventHandler';
 import { PairConfig } from '../consts/Types';
-import FeeProvider from '../rates/FeeProvider';
 import { gweiDecimals } from '../consts/Consts';
 import PairRepository from '../db/PairRepository';
 import { encodeBip21 } from './PaymentRequestUtils';
-import TimeoutDeltaProvider from './TimeoutDeltaProvider';
 import { SendResponse } from '../lightning/LndClient';
+import TimeoutDeltaProvider from './TimeoutDeltaProvider';
 import RateProvider, { PairType } from '../rates/RateProvider';
-import WalletManager, { Currency, CurrencyType } from '../wallet/WalletManager';
+import FeeProvider, { BaseFeeType } from '../rates/FeeProvider';
 import SwapManager, { ChannelCreationInfo } from '../swap/SwapManager';
 import { OrderSide, ServiceInfo, ServiceWarning } from '../consts/Enums';
+import WalletManager, { Currency, CurrencyType } from '../wallet/WalletManager';
 import {
   Balance,
   ChainInfo,
@@ -46,7 +47,6 @@ import {
   reverseBuffer,
   splitPairId,
 } from '../Utils';
-import { utils } from 'ethers';
 
 type LndNodeInfo = {
   nodeKey: string,
@@ -491,23 +491,28 @@ class Service {
   /**
    * Creates a new Swap from the chain to Lightning
    */
-  public createSwap = async (
+  public createSwap = async (args: {
     pairId: string,
     orderSide: string,
-    refundPublicKey: Buffer,
     preimageHash: Buffer,
     channel?: ChannelCreationInfo,
-  ): Promise<{
+
+    // Only required for UTXO based chains
+    refundPublicKey?: Buffer,
+  }): Promise<{
     id: string,
     address: string,
     timeoutBlockHeight: number,
 
     // Is undefined when Ether or ERC20 tokens are swapped to Lightning
-    redeemScript: string | undefined,
+    redeemScript?: string,
+
+    // Is undefined when Bitcoin or Litecoin is swapped to Lightning
+    claimAddress?: string,
   }> => {
     const swap = await this.swapManager.swapRepository.getSwap({
       preimageHash: {
-        [Op.eq]: getHexString(preimageHash),
+        [Op.eq]: getHexString(args.preimageHash),
       },
     });
 
@@ -515,35 +520,45 @@ class Service {
       throw Errors.SWAP_WITH_PREIMAGE_EXISTS();
     }
 
-    if (channel) {
-      if (channel.inboundLiquidity > Service.MaxInboundLiquidity) {
-        throw Errors.EXCEEDS_MAX_INBOUND_LIQUIDITY(channel.inboundLiquidity, Service.MaxInboundLiquidity);
+    const { base, quote } = this.getPair(args.pairId);
+    const orderSide = this.getOrderSide(args.orderSide);
+
+    switch (this.getCurrency(getChainCurrency(base, quote, orderSide, false)).type) {
+      case CurrencyType.BitcoinLike:
+        if (args.refundPublicKey === undefined) {
+          throw ApiErrors.UNDEFINED_PARAMETER('refundPublicKey');
+        }
+        break;
+    }
+
+    if (args.channel) {
+      if (args.channel.inboundLiquidity > Service.MaxInboundLiquidity) {
+        throw Errors.EXCEEDS_MAX_INBOUND_LIQUIDITY(args.channel.inboundLiquidity, Service.MaxInboundLiquidity);
       }
 
-      if (channel.inboundLiquidity < Service.MinInboundLiquidity) {
-        throw Errors.BENEATH_MIN_INBOUND_LIQUIDITY(channel.inboundLiquidity, Service.MinInboundLiquidity);
+      if (args.channel.inboundLiquidity < Service.MinInboundLiquidity) {
+        throw Errors.BENEATH_MIN_INBOUND_LIQUIDITY(args.channel.inboundLiquidity, Service.MinInboundLiquidity);
       }
     }
 
-    const { base, quote } = this.getPair(pairId);
-    const side = this.getOrderSide(orderSide);
-
-    const timeoutBlockDelta = this.timeoutDeltaProvider.getTimeout(pairId, side, false);
+    const timeoutBlockDelta = this.timeoutDeltaProvider.getTimeout(args.pairId, orderSide, false);
 
     const {
       id,
       address,
       redeemScript,
+      claimAddress,
       timeoutBlockHeight,
-    } = await this.swapManager.createSwap(
-      base,
-      quote,
-      side,
-      preimageHash,
-      refundPublicKey,
+    } = await this.swapManager.createSwap({
+      orderSide,
       timeoutBlockDelta,
-      channel,
-    );
+
+      baseCurrency: base,
+      quoteCurrency: quote,
+      channel: args.channel,
+      preimageHash: args.preimageHash,
+      refundPublicKey: args.refundPublicKey,
+    });
 
     this.eventHandler.emitSwapCreation(id);
 
@@ -551,6 +566,7 @@ class Service {
       id,
       address,
       redeemScript,
+      claimAddress,
       timeoutBlockHeight,
     };
   }
@@ -581,7 +597,7 @@ class Service {
     const rate = getRate(swap.rate!, swap.orderSide, false);
 
     const percentageFee = this.feeProvider.getPercentageFee(swap.pair);
-    const { baseFee } = await this.feeProvider.getFees(swap.pair, rate, swap.orderSide, swap.onchainAmount, false);
+    const { baseFee } = await this.feeProvider.getFees(swap.pair, rate, swap.orderSide, swap.onchainAmount, BaseFeeType.NormalClaim);
 
     const invoiceAmount = this.calculateInvoiceAmount(swap.orderSide, rate, swap.onchainAmount, baseFee, percentageFee);
 
@@ -627,7 +643,7 @@ class Service {
 
     this.verifyAmount(swap.pair, rate, invoiceAmount, swap.orderSide, false);
 
-    const { baseFee, percentageFee } = await this.feeProvider.getFees(swap.pair, rate, swap.orderSide, invoiceAmount, false);
+    const { baseFee, percentageFee } = await this.feeProvider.getFees(swap.pair, rate, swap.orderSide, invoiceAmount, BaseFeeType.NormalClaim);
     const expectedAmount = Math.floor(invoiceAmount * rate) + baseFee + percentageFee;
 
     if (swap.onchainAmount && expectedAmount > swap.onchainAmount) {
@@ -690,7 +706,10 @@ class Service {
     timeoutBlockHeight: number,
 
     // Is undefined when Ether or ERC20 tokens are swapped to Lightning
-    redeemScript: string | undefined,
+    redeemScript?: string,
+
+    // Is undefined when Bitcoin or Litecoin is swapped to Lightning
+    claimAddress?: string,
   }> => {
     let swap = await this.swapManager.swapRepository.getSwap({
       invoice: {
@@ -707,9 +726,16 @@ class Service {
     const {
       id,
       address,
+      claimAddress,
       redeemScript,
       timeoutBlockHeight,
-    } = await this.createSwap(pairId, orderSide, refundPublicKey, preimageHash, channel);
+    } = await this.createSwap({
+      pairId,
+      channel,
+      orderSide,
+      preimageHash,
+      refundPublicKey,
+    });
 
     try {
       const {
@@ -722,6 +748,7 @@ class Service {
         id,
         bip21,
         address,
+        claimAddress,
         redeemScript,
         acceptZeroConf,
         expectedAmount,
@@ -807,7 +834,7 @@ class Service {
 
     this.verifyAmount(args.pairId, rate, args.invoiceAmount, side, true);
 
-    const { baseFee, percentageFee } = await this.feeProvider.getFees(args.pairId, rate, side, args.invoiceAmount, true);
+    const { baseFee, percentageFee } = await this.feeProvider.getFees(args.pairId, rate, side, args.invoiceAmount, BaseFeeType.ReverseLockup);
 
     const onchainAmount = Math.floor(args.invoiceAmount * rate) - (baseFee + percentageFee);
 

@@ -7,6 +7,7 @@ ARG VERSION
 RUN apt-get update && apt-get -y upgrade
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y \
   git \
+  swig \
   gettext \
   libtool \
   python3 \
@@ -26,7 +27,7 @@ WORKDIR /lightning
 RUN git checkout v${VERSION}
 
 RUN ./configure
-RUN make -j$(nproc)
+RUN make
 RUN make install
 
 RUN ls /usr/local/bin

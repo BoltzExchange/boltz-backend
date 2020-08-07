@@ -264,7 +264,7 @@ class Controller {
       { name: 'pairId', type: 'string' },
       { name: 'orderSide', type: 'string' },
       { name: 'invoice', type: 'string', optional: true },
-      { name: 'refundPublicKey', type: 'string', hex: true },
+      { name: 'refundPublicKey', type: 'string', hex: true, optional: true },
       { name: 'preimageHash', type: 'string', hex: true, optional: true },
       { name: 'channel', type: 'object', optional: true },
     ]);
@@ -295,13 +295,13 @@ class Controller {
 
       this.checkPreimageHashLength(preimageHash);
 
-      response = await this.service.createSwap(
+      response = await this.service.createSwap({
         pairId,
         orderSide,
         refundPublicKey,
         preimageHash,
         channel,
-      );
+      });
     }
 
     this.logger.verbose(`Created new Swap with id: ${response.id}`);

@@ -27,7 +27,7 @@ UBUNTU_VERSION = BuildArgument(
 
 GOLANG_VERSION = BuildArgument(
     name="GOLANG_VERSION",
-    value="1.14.4-buster"
+    value="1.14.6-buster"
 )
 
 BERKELEY_4_VERSION = BuildArgument(
@@ -40,13 +40,13 @@ BERKELEY_5_VERSION = BuildArgument(
     value="5.1.29"
 )
 
-BITCOIN_VERSION = "0.20.0"
+BITCOIN_VERSION = "0.20.1"
 LITECOIN_VERSION = "0.18.1"
 DOGECOIN_VERSION = "1.14.2"
-ZCASH_VERSION = "3.0.0"
+ZCASH_VERSION = "3.1.0"
 GETH_VERSION = "1.9.18"
 
-C_LIGHTNING_VERSION = "0.8.2.1"
+C_LIGHTNING_VERSION = "0.9.0"
 ECLAIR_VERSION = "0.4.1"
 LND_VERSION = "0.10.4-beta"
 

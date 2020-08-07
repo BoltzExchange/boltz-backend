@@ -1,7 +1,16 @@
 import Logger from '../Logger';
+import { BigNumber } from 'ethers';
 import { OrderSide } from '../consts/Enums';
 import { PairConfig } from '../consts/Types';
+import { etherDecimals, gweiDecimals } from '../consts/Consts';
 import { mapToObject, getPairId, stringify, getChainCurrency, splitPairId } from '../Utils';
+
+enum BaseFeeType {
+  NormalClaim,
+
+  ReverseLockup,
+  ReverseClaim,
+}
 
 class FeeProvider {
   // A map between the symbols of the pairs and their percentage fees
@@ -12,6 +21,19 @@ class FeeProvider {
 
     reverseLockup: 153,
     reverseClaim: 138,
+  };
+
+  public static gasUsage = {
+    EtherSwap: {
+      lockup: 46460,
+      claim: 24924,
+      refund: 23372,
+    },
+    ERC20Swap: {
+      lockup: 86980,
+      claim: 24522,
+      refund: 23724,
+    },
   };
 
   constructor(
@@ -43,7 +65,7 @@ class FeeProvider {
     rate: number,
     orderSide: OrderSide,
     amount: number,
-    isReverse: boolean,
+    type: BaseFeeType,
   ): Promise<{
     baseFee: number,
     percentageFee: number,
@@ -55,31 +77,68 @@ class FeeProvider {
     }
 
     const { base, quote } = splitPairId(pair);
-    const chainCurrency = getChainCurrency(base, quote, orderSide, isReverse);
+    const chainCurrency = getChainCurrency(base, quote, orderSide, type !== BaseFeeType.NormalClaim);
 
     return {
       percentageFee: Math.ceil(percentageFee),
-      baseFee: await this.getBaseFee(chainCurrency, isReverse),
+      baseFee: await this.getBaseFee(chainCurrency, type),
     };
   }
 
-  public getBaseFee = async (chainCurrency: string, isReverse: boolean): Promise<number> => {
+  public getBaseFee = async (chainCurrency: string, type: BaseFeeType): Promise<number> => {
     const feeMap = await this.getFeeEstimation(chainCurrency);
+    const relativeFee = feeMap.get(chainCurrency)!;
 
-    return this.calculateBaseFee(feeMap.get(chainCurrency)!, isReverse);
+    // TODO: avoid hard coding symbols
+    switch (chainCurrency) {
+      case 'BTC':
+      case 'LTC':
+        switch (type) {
+          case BaseFeeType.NormalClaim:
+            // The claim transaction which spends a nested SegWit (P2SH nested P2WSH) swap output and
+            // sends it to a P2WPKH address has about 170 vbytes
+            return relativeFee * FeeProvider.transactionSizes.normalClaim;
+
+          case BaseFeeType.ReverseLockup:
+            // The lockup transaction which spends a P2WPKH output (possibly more but we assume a best case scenario here),
+            // locks up funds in a P2WSH swap and sends the change back to a P2WKH output has about 153 vbytes
+            return relativeFee * FeeProvider.transactionSizes.reverseLockup;
+
+          case BaseFeeType.ReverseClaim:
+            // We cannot know what kind of address the user will claim to, so we just assume the worst case: P2PKH
+            // Claiming a P2WSH swap output to a P2PKH address is about 138 vbytes
+            return relativeFee * FeeProvider.transactionSizes.reverseClaim;
+        }
+        break;
+
+      case 'ETH':
+        switch (type) {
+          case BaseFeeType.NormalClaim:
+          case BaseFeeType.ReverseClaim:
+            return this.calculateEtherGasCost(relativeFee, FeeProvider.gasUsage.EtherSwap.claim);
+
+          case BaseFeeType.ReverseLockup:
+            return this.calculateEtherGasCost(relativeFee, FeeProvider.gasUsage.EtherSwap.lockup);
+        }
+        break;
+
+      // If it is not BTC, LTC or ETH, it is an ERC20 token
+      default:
+        switch (type) {
+          case BaseFeeType.NormalClaim:
+          case BaseFeeType.ReverseClaim:
+            return this.calculateEtherGasCost(relativeFee, FeeProvider.gasUsage.ERC20Swap.claim);
+
+          case BaseFeeType.ReverseLockup:
+            return this.calculateEtherGasCost(relativeFee, FeeProvider.gasUsage.ERC20Swap.lockup);
+        }
+    }
   }
 
-  private calculateBaseFee = (satPerVbyte: number, isReverse: boolean) => {
-    if (isReverse) {
-      // The lockup transaction which spends a P2WPKH output (possibly more but we assume a best case scenario here),
-      // locks up funds in a P2WSH swap and sends the change back to a P2WKH output has about 153 vbytes
-      return satPerVbyte * FeeProvider.transactionSizes.reverseLockup;
-    } else {
-      // The claim transaction which spends a nested SegWit swap output and
-      // sends it to a P2WPKH address has about 170 vbytes
-      return satPerVbyte * FeeProvider.transactionSizes.normalClaim;
-    }
+  private calculateEtherGasCost = (gasPrice: number, gasUsage: number) => {
+    return BigNumber.from(gasPrice).mul(gweiDecimals).mul(gasUsage).div(etherDecimals).toNumber();
   }
 }
 
 export default FeeProvider;
+export { BaseFeeType };

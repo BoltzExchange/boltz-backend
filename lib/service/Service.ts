@@ -1,7 +1,6 @@
 import { Op } from 'sequelize';
 import { OutputType } from 'boltz-core';
 import { Transaction } from 'bitcoinjs-lib';
-import { TransactionReceipt } from 'web3-core';
 import Errors from './Errors';
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';
@@ -853,7 +852,7 @@ class Service {
       if (etherWallet !== undefined) {
         if (symbol === 'ETH') {
           const promise = sendAll ? etherWallet.sweepEther(address, fee) : etherWallet.sendEther(address, amount, fee);
-          const receipt = (await promise) as TransactionReceipt;
+          const receipt = (await promise);
 
           return {
             vout: 0,

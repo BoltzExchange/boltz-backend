@@ -1,7 +1,6 @@
 import BN from 'bn.js';
 import Web3 from 'web3';
 import { ContractABIs } from 'boltz-core';
-import { Contract } from 'web3-eth-contract';
 import Logger from '../../../lib/Logger';
 import EthereumWallet from '../../../lib/wallet/EthereumWallet';
 
@@ -13,7 +12,7 @@ describe('EthereumWallet', () => {
   const erc20Decimals = new BN(10).pow(new BN(18));
 
   let erc20Address: string;
-  let erc20Contract: Contract;
+  let erc20Contract: any;
 
   let account: string;
   let accountErc20: string;

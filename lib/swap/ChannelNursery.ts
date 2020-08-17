@@ -8,6 +8,7 @@ import { ChannelPoint } from '../proto/lndrpc_pb';
 import SwapRepository from '../db/SwapRepository';
 import { Currency } from '../wallet/WalletManager';
 import ChannelCreation from '../db/models/ChannelCreation';
+import ConnectionHelper from '../lightning/ConnectionHelper';
 import ChannelCreationRepository from '../db/ChannelCreationRepository';
 import { ChannelCreationStatus, SwapUpdateEvent } from '../consts/Enums';
 import {
@@ -25,6 +26,8 @@ interface ChannelNursery {
 }
 
 class ChannelNursery extends EventEmitter {
+  private connectionHelper: ConnectionHelper;
+
   private lock = new AsyncLock();
 
   private currencies = new Map<string, Currency>();
@@ -53,6 +56,8 @@ class ChannelNursery extends EventEmitter {
     ) => Promise<void>,
   ) {
     super();
+
+    this.connectionHelper = new ConnectionHelper(this.logger);
   }
 
   public init = async (currencies: Currency[]): Promise<void> => {
@@ -174,22 +179,38 @@ class ChannelNursery extends EventEmitter {
       // TODO: emit event?
       const formattedError = formatError(error);
 
-      // This error is thrown when a block is mined with a lockup transaction that triggers a channel creation
-      // in it. In case Boltz processes the block faster than LND does, it will try to open the channel while
-      // LND is still syncing the freshly mined block
-      if (formattedError === '2 UNKNOWN: channels cannot be created before the wallet is fully synced') {
-        this.logger.warn(`Could not open channel for Swap ${swap.id}: LND wallet is not fully synced`);
-        this.logger.debug(`Retrying in ${ChannelNursery.lndNotSyncedTimeout}ms`);
+      switch (formattedError) {
+        // This error is thrown when a block is mined with a lockup transaction that triggers a Channel Creation
+        // in it. In case Boltz processes the block faster than LND does, it will try to open the channel while
+        // LND is still syncing the freshly mined block
+        case '2 UNKNOWN: channels cannot be created before the wallet is fully synced':
+          this.logger.warn(`Could not open channel for Swap ${swap.id}: LND wallet is not fully synced`);
+          this.logger.debug(`Retrying in ${ChannelNursery.lndNotSyncedTimeout}ms`);
 
-        // Let's just wait for a second and try again
-        await new Promise((resolve) => {
-          setTimeout(resolve, ChannelNursery.lndNotSyncedTimeout);
-        });
+          // Let's just wait for a second and try again
+          await new Promise((resolve) => {
+            setTimeout(resolve, ChannelNursery.lndNotSyncedTimeout);
+          });
 
-        await this.openChannel(lightningCurrency, swap, channelCreation);
-      } else {
-        this.logger.verbose(`Could not open channel for Swap ${swap.id} to ${payeeNodeKey}: ${formattedError}`);
+          await this.openChannel(lightningCurrency, swap, channelCreation);
+          return;
+
+        // In case the lightning client to which a channel should be opened is not online or not connected to us,
+        // we can try to connect to them
+        case `2 UNKNOWN: peer ${payeeNodeKey} is not online`:
+          try {
+            await this.connectionHelper.connectByPublicKey(lightningCurrency.lndClient!, payeeNodeKey!);
+
+            // In case we could connect to the other side, opening a channel should be tried again
+            await this.openChannel(lightningCurrency, swap, channelCreation);
+            return;
+          } catch (error) {
+            this.logger.warn(`Could not connect to LND ${lightningCurrency.lndClient!} node ${payeeNodeKey!}: ${formatError(error)}`);
+          }
+          break;
       }
+
+      this.logger.verbose(`Could not open channel for Swap ${swap.id} to ${payeeNodeKey}: ${formattedError}`);
     }
   }
 

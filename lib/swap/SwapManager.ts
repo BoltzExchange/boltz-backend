@@ -39,6 +39,10 @@ type ChannelCreationInfo = {
   inboundLiquidity: number,
 };
 
+type SetSwapInvoiceResponse = {
+  channelCreationError?: string;
+};
+
 class SwapManager {
   public currencies = new Map<string, Currency>();
 
@@ -213,7 +217,9 @@ class SwapManager {
     percentageFee: number,
     acceptZeroConf: boolean,
     emitSwapInvoiceSet: (id: string) => void,
-  ): Promise<void> => {
+  ): Promise<SetSwapInvoiceResponse> => {
+    const response: SetSwapInvoiceResponse = {};
+
     const { base, quote } = splitPairId(swap.pair);
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(base, quote, swap.orderSide);
 
@@ -246,8 +252,21 @@ class SwapManager {
 
         const timeoutTimestamp = getUnixTime() + (blocksUntilExpiry * TimeoutDeltaProvider.blockTimes.get(receivingCurrency.symbol)! * 60);
 
+        const invoiceError = Errors.INVOICE_EXPIRES_TOO_EARLY(invoiceExpiry, timeoutTimestamp);
+
         if (timeoutTimestamp > invoiceExpiry) {
-          throw Errors.INVOICE_EXPIRES_TOO_EARLY(invoiceExpiry, timeoutTimestamp);
+          // In the auto Channel Creation mode, which is used by the frontend, the invoice check can fail but the Swap should
+          // still be attempted without Channel Creation
+          if (channelCreation.type === ChannelCreationType.Auto) {
+            this.logger.info(`Disabling Channel Creation for Swap ${swap.id}: ${invoiceError.message}`)
+            response.channelCreationError = invoiceError.message;
+
+            await channelCreation.destroy();
+
+            // In other modes (only manual right now), a failing invoice Check should result in a failed request
+          } else {
+            throw invoiceError;
+          }
         }
       }
 
@@ -286,6 +305,8 @@ class SwapManager {
         this.logger.warn(`Could not settle Swap ${swap!.id}: ${formatError(error)}`);
       }
     }
+
+    return response;
   }
 
   /**

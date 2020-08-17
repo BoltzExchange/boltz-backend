@@ -352,7 +352,19 @@ class LndClient extends BaseClient implements LndClient {
   public decodePayReq = (paymentRequest: string): Promise<lndrpc.PayReq.AsObject> => {
     const request = new lndrpc.PayReqString();
     request.setPayReq(paymentRequest);
+
     return this.unaryCall<lndrpc.PayReqString, lndrpc.PayReq.AsObject>('decodePayReq', request);
+  }
+
+  /**
+   * Returns the latest advertised, aggregated, and authenticated channel information for the specified node identified by its public key
+   */
+  public getNodeInfo = (publicKey: string): Promise<lndrpc.NodeInfo.AsObject> => {
+    const request = new lndrpc.NodeInfoRequest();
+    request.setPubKey(publicKey);
+    request.setIncludeChannels(false);
+
+    return this.unaryCall<lndrpc.NodeInfoRequest, lndrpc.NodeInfo.AsObject>('getNodeInfo', request);
   }
 
   /**
@@ -362,10 +374,11 @@ class LndClient extends BaseClient implements LndClient {
    * @param host host of the remote peer
    */
   public connectPeer = (pubKey: string, host: string): Promise<lndrpc.ConnectPeerResponse.AsObject> => {
-    const request = new lndrpc.ConnectPeerRequest();
     const address = new lndrpc.LightningAddress();
     address.setPubkey(pubKey);
     address.setHost(host);
+
+    const request = new lndrpc.ConnectPeerRequest();
     request.setAddr(address);
 
     return this.unaryCall<lndrpc.ConnectPeerRequest, lndrpc.ConnectPeerResponse.AsObject>('connectPeer', request);

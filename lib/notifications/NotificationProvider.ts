@@ -72,6 +72,13 @@ class NotificationProvider {
       await this.discord.sendMessage('Started Boltz instance');
       this.logger.verbose('Connected to Discord');
 
+      for (const [, currency] of this.service.currencies) {
+        if (currency.lndClient) {
+          currency.lndClient.on('subscription.error', async () => await this.sendLostConnection(`LND ${currency.symbol}`));
+          currency.lndClient.on('subscription.reconnected', async () => await this.sendReconnected(`LND ${currency.symbol}`));
+        }
+      }
+
       const check = async () => {
         await Promise.all([
           this.checkBalances(),
@@ -102,7 +109,7 @@ class NotificationProvider {
     const promises: Promise<any>[] = [];
 
     info.getChainsMap().forEach((currency: CurrencyInfo, symbol: string) => {
-      promises.push(this.checkConnection(`${symbol} LND`, currency.getLnd()));
+      promises.push(this.checkConnection(`LND ${symbol}`, currency.getLnd()));
       promises.push(this.checkConnection(`${symbol} node`, currency.getChain()));
     });
 
@@ -112,19 +119,13 @@ class NotificationProvider {
   private checkConnection = async (service: string, object: ChainInfo | LndInfo | undefined) => {
     if (object !== undefined) {
       if (object.getError() === '') {
-        if (this.disconnected.has(service)) {
-          this.disconnected.delete(service);
-          await this.sendReconnected(service);
-        }
+        await this.sendReconnected(service);
 
         return;
       }
     }
 
-    if (!this.disconnected.has(service)) {
-      this.disconnected.add(service);
-      await this.sendLostConnection(service);
-    }
+    await this.sendLostConnection(service);
   }
 
   private checkBalances = async () => {
@@ -301,11 +302,17 @@ class NotificationProvider {
   }
 
   private sendLostConnection = async (service: string) => {
-    await this.discord.sendMessage(`**Lost connection to ${service}**`);
+    if (!this.disconnected.has(service)) {
+      this.disconnected.add(service);
+      await this.discord.sendMessage(`**Lost connection to ${service}**`);
+    }
   }
 
   private sendReconnected = async (service: string) => {
-    await this.discord.sendMessage(`Reconnected to ${service}`);
+    if (this.disconnected.has(service)) {
+      this.disconnected.delete(service);
+      await this.discord.sendMessage(`Reconnected to ${service}`);
+    }
   }
 
   private formatBalances = (balance: number, threshold: number) => {

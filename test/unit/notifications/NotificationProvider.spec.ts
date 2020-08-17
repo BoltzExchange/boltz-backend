@@ -41,6 +41,7 @@ jest.mock('../../../lib/service/Service', () => {
           }
         },
       },
+      currencies: new Map<string, any>(),
       getInfo: mockGetInfo,
       getBalance: mockGetBalance,
     };

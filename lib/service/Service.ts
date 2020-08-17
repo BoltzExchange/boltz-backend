@@ -71,7 +71,7 @@ class Service {
     private logger: Logger,
     config: ConfigType,
     private walletManager: WalletManager,
-    private currencies: Map<string, Currency>,
+    public currencies: Map<string, Currency>,
   ) {
     this.prepayMinerFee = config.prepayminerfee;
     this.logger.debug(`Prepay miner fee for Reverse Swaps is ${this.prepayMinerFee ? 'enabled' : 'disabled' }`);

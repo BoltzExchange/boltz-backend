@@ -4,7 +4,7 @@ import { ClientStatus } from './consts/Enums';
 class BaseClient extends EventEmitter {
   protected status = ClientStatus.Disconnected;
 
-  protected readonly RECONNECT_INTERVAL = 1000;
+  protected readonly RECONNECT_INTERVAL = 5000;
   protected reconnectionTimer?: any;
 
   constructor() {

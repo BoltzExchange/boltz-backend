@@ -20,24 +20,6 @@ type LndConfig = {
   macaroonpath: string;
 };
 
-/**
- * General information about the state of this LND client
- */
-type Info = {
-  version: string;
-  syncedtochain: boolean;
-  chainsList: string[];
-  channels: ChannelCount;
-  blockheight: number;
-  uris?: string[];
-};
-
-type ChannelCount = {
-  active: number;
-  pending: number;
-  inactive?: number;
-};
-
 type SendResponse = {
   paymentPreimage: Buffer;
   paymentHash: Uint8Array | string;
@@ -65,6 +47,12 @@ interface LndClient {
 
   on(event: 'channel.backup', listener: (channelBackup: string) => void): this;
   emit(event: 'channel.backup', channelBackup: string): boolean;
+
+  on(event: 'subscription.error', listener: () => void): this;
+  emit(event: 'subscription.error'): this;
+
+  on(event: 'subscription.reconnected', listener: () => void): this;
+  emit(event: 'subscription.reconnected'): this;
 }
 
 /**
@@ -137,12 +125,12 @@ class LndClient extends BaseClient implements LndClient {
 
         this.clearReconnectTimer();
         this.setClientStatus(ClientStatus.Connected);
-
-        return true;
       } catch (error) {
         this.setClientStatus(ClientStatus.Disconnected);
-        this.logger.error(`Could not connect to ${this.symbol} ${LndClient.serviceName} at ${this.uri}` +
-        ` because: "${error.details}", retrying in ${this.RECONNECT_INTERVAL} ms`);
+
+        this.logger.error(`Could not connect to ${LndClient.serviceName} ${this.symbol} at ${this.uri}: ${formatError(error)}`);
+        this.logger.info(`Retrying in ${this.RECONNECT_INTERVAL} ms`);
+
         this.reconnectionTimer = setTimeout(this.connect, this.RECONNECT_INTERVAL);
 
         return false;
@@ -153,22 +141,27 @@ class LndClient extends BaseClient implements LndClient {
   }
 
   private reconnect = async () => {
+    this.setClientStatus(ClientStatus.Disconnected);
+
     try {
       await this.getInfo();
 
       this.logger.info(`Reestablished connection to ${LndClient.serviceName} ${this.symbol}`);
 
-      this.setClientStatus(ClientStatus.Connected);
       this.clearReconnectTimer();
 
       this.subscribePeerEvents();
       this.subscribeChannelEvents();
       this.subscribeChannelBackups();
+
+      this.setClientStatus(ClientStatus.Connected);
+      this.emit('subscription.reconnected');
     } catch (err) {
+      this.setClientStatus(ClientStatus.Disconnected);
+
       this.logger.error(`Could not reconnect to ${LndClient.serviceName} ${this.symbol}: ${err}`);
       this.logger.info(`Retrying in ${this.RECONNECT_INTERVAL} ms`);
 
-      this.setClientStatus(ClientStatus.Disconnected);
       this.reconnectionTimer = setTimeout(this.reconnect, this.RECONNECT_INTERVAL);
     }
   }
@@ -522,9 +515,18 @@ class LndClient extends BaseClient implements LndClient {
       })
       .on('end', () => deleteSubscription())
       .on('error', (error) => {
-        this.logger.error(`Invoice subscription errored: ${error.message}`);
+        this.logger.error(`${LndClient.serviceName} ${this.symbol} invoice subscription errored: ${error.message}`);
         deleteSubscription();
       });
+  }
+
+  private handleSubscriptionError = async (subscriptionName: string, error: any) => {
+    this.logger.error(`${LndClient.serviceName} ${this.symbol} ${subscriptionName} subscription errored: ${formatError(error)}`);
+
+    if (this.status === ClientStatus.Connected) {
+      this.emit('subscription.error');
+      await this.reconnect();
+    }
   }
 
   private subscribePeerEvents = () => {
@@ -539,8 +541,7 @@ class LndClient extends BaseClient implements LndClient {
         }
       })
       .on('error', async (error) => {
-        this.logger.error(`Peer event subscription errored: ${formatError(error)}`);
-        await this.reconnect();
+        await this.handleSubscriptionError('peer event', error);
       });
   }
 
@@ -556,8 +557,7 @@ class LndClient extends BaseClient implements LndClient {
         }
       })
       .on('error', async(error) => {
-        this.logger.error(`Channel event subscription errored: ${formatError(error)}`);
-        await this.reconnect();
+        await this.handleSubscriptionError('channel event', error);
       });
   }
 
@@ -576,11 +576,10 @@ class LndClient extends BaseClient implements LndClient {
         }
       })
       .on('error', async (error) => {
-        this.logger.error(`Channel backup subscription errored: ${formatError(error)}`);
-        await this.reconnect();
+        await this.handleSubscriptionError('channel backup', error);
       });
   }
 }
 
 export default LndClient;
-export { LndConfig, SendResponse, Info };
+export { LndConfig, SendResponse };

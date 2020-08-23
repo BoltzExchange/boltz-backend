@@ -443,7 +443,7 @@ class Service {
       // This special error is thrown when a Submarine Swap that has not timed out yet is refunded
       // To improve the UX we will throw not only the error but also some additional information
       // regarding when the Submarine Swap can be refunded
-      if (error.code === -26 && error.message === 'non-mandatory-script-verify-flag (Locktime requirement not satisfied) (code 64)') {
+      if (error.code === -26 && error.message.startsWith('non-mandatory-script-verify-flag (Locktime requirement not satisfied)')) {
         const refundTransaction = Transaction.fromHex(transactionHex);
 
         let swap: Swap | null | undefined;

@@ -26,7 +26,7 @@ function openChannel () {
   waitForLndToSync "$2"
 
   $2 connect ${lnd2Pubkey}@127.0.0.1:$4 > /dev/null
-  $2 openchannel --node_key ${lnd2Pubkey} --local_amt 16777214 --push_amt 8388607 > /dev/null
+  $2 openchannel --node_key ${lnd2Pubkey} --local_amt 100000000 --push_amt 50000000 > /dev/null
 
   $1 generatetoaddress 6 ${nodeAddress} > /dev/null
 

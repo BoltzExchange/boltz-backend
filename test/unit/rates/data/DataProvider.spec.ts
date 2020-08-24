@@ -1,5 +1,5 @@
 import Binance from '../../../../lib/rates/data/exchanges/Binance';
-import DataProvider from '../../../../lib/rates/data/DataProvider';
+import DataAggregator from '../../../../lib/rates/data/DataProvider';
 
 jest.mock('../../../../lib/rates/data/exchanges/Binance', () => {
   return jest.fn().mockImplementation(() => {
@@ -42,7 +42,7 @@ describe('DataProvider', () => {
     0,
   ];
 
-  const dataProvider = new DataProvider();
+  const dataProvider = new DataAggregator();
   const exchanges = dataProvider['exchanges'];
 
   beforeAll(() => {
@@ -67,7 +67,7 @@ describe('DataProvider', () => {
   });
 
   test('should calculate the median price of arrays with just one entry', async () => {
-    const singleDataProvider = new DataProvider();
+    const singleDataProvider = new DataAggregator();
 
     const exchangePrice = 5;
 

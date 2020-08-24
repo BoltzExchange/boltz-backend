@@ -8,16 +8,10 @@ import DiskUsageChecker from './DiskUsageChecker';
 import ReverseSwap from '../db/models/ReverseSwap';
 import BackupScheduler from '../backup/BackupScheduler';
 import { satoshisToCoins } from '../DenominationConverter';
-import { NotificationConfig, CurrencyConfig } from '../Config';
-import { CurrencyInfo, LndInfo, ChainInfo } from '../proto/boltzrpc_pb';
-import {
-  splitPairId,
-  decodeInvoice,
-  getChainCurrency,
-  getLightningCurrency,
-  minutesToMilliseconds,
-  getSendingReceivingCurrency,
-} from '../Utils';
+import { CurrencyConfig, NotificationConfig } from '../Config';
+import { ChainInfo, CurrencyInfo, LndInfo } from '../proto/boltzrpc_pb';
+import { decodeInvoice, getChainCurrency, getLightningCurrency, getSendingReceivingCurrency, minutesToMilliseconds, splitPairId, } from '../Utils';
+import { CurrencyType } from '../wallet/WalletManager';
 
 // TODO: test balance and service alerts
 // TODO: use events instead of intervals to check connections and balances
@@ -219,6 +213,14 @@ class NotificationProvider {
       };
     };
 
+    const getMinerFeeSymbol = (symbol: string) => {
+      if (this.service.currencies.get(symbol)!.type === CurrencyType.ERC20) {
+        return 'ETH';
+      } else {
+        return symbol;
+      }
+    };
+
     this.service.eventHandler.on('swap.success', async (swap, isReverse, channelCreation) => {
       const { onchainSymbol, lightningSymbol } = getSymbols(swap.pair, swap.orderSide, isReverse);
 
@@ -231,7 +233,7 @@ class NotificationProvider {
       let message = `**Swap ${getSwapTitle(swap.pair, swap.orderSide, isReverse)}${hasChannelCreation ? ' :construction_site:' : ''}**\n` +
         `${getBasicSwapInfo(swap, onchainSymbol, lightningSymbol)}\n` +
         `Fees earned: ${this.numberToDecimal(satoshisToCoins(swap.fee!))} ${onchainSymbol}\n` +
-        `Miner fees: ${satoshisToCoins(swap.minerFee!)} ${onchainSymbol}`;
+        `Miner fees: ${satoshisToCoins(swap.minerFee!)} ${getMinerFeeSymbol(onchainSymbol)}`;
 
       if (!isReverse) {
         // The routing fees are denominated in millisatoshi

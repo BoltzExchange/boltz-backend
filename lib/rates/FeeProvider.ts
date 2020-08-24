@@ -2,6 +2,7 @@ import Logger from '../Logger';
 import { BigNumber } from 'ethers';
 import { OrderSide } from '../consts/Enums';
 import { PairConfig } from '../consts/Types';
+import DataAggregator from './data/DataAggregator';
 import { etherDecimals, gweiDecimals } from '../consts/Consts';
 import { mapToObject, getPairId, stringify, getChainCurrency, splitPairId } from '../Utils';
 
@@ -38,6 +39,7 @@ class FeeProvider {
 
   constructor(
     private logger: Logger,
+    private dataAggregator: DataAggregator,
     private getFeeEstimation: (symbol: string) => Promise<Map<string, number>>,
   ) {}
 
@@ -127,12 +129,24 @@ class FeeProvider {
         switch (type) {
           case BaseFeeType.NormalClaim:
           case BaseFeeType.ReverseClaim:
-            return this.calculateEtherGasCost(relativeFee, FeeProvider.gasUsage.ERC20Swap.claim);
+            return this.calculateTokenGasCosts(
+              this.dataAggregator.latestRates.get(getPairId({ base: 'ETH', quote: chainCurrency }))!,
+              relativeFee,
+              FeeProvider.gasUsage.ERC20Swap.claim,
+            );
 
           case BaseFeeType.ReverseLockup:
-            return this.calculateEtherGasCost(relativeFee, FeeProvider.gasUsage.ERC20Swap.lockup);
+            return this.calculateTokenGasCosts(
+              this.dataAggregator.latestRates.get(getPairId({ base: 'ETH', quote: chainCurrency }))!,
+              relativeFee,
+              FeeProvider.gasUsage.ERC20Swap.lockup,
+            );
         }
     }
+  }
+
+  private calculateTokenGasCosts = (rate: number, gasPrice: number, gasUsage: number) => {
+    return Math.ceil(rate * this.calculateEtherGasCost(gasPrice, gasUsage));
   }
 
   private calculateEtherGasCost = (gasPrice: number, gasUsage: number) => {

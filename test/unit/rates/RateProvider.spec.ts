@@ -5,7 +5,7 @@ import FeeProvider from '../../../lib/rates/FeeProvider';
 import RateProvider from '../../../lib/rates/RateProvider';
 import PairRepository from '../../../lib/db/PairRepository';
 import { Currency } from '../../../lib/wallet/WalletManager';
-import DataProvider from '../../../lib/rates/data/DataProvider';
+import DataAggregator from '../../../lib/rates/data/DataProvider';
 
 FeeProvider.transactionSizes = {
   normalClaim: 140,
@@ -72,7 +72,7 @@ jest.mock('../../../lib/rates/data/DataProvider', () => {
   });
 });
 
-const mockedDataProvider = <jest.Mock<DataProvider>><any>DataProvider;
+const mockedDataProvider = <jest.Mock<DataAggregator>><any>DataAggregator;
 
 describe('RateProvider', () => {
   const btcCurrency = {

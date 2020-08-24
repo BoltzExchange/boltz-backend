@@ -12,11 +12,11 @@ import EventHandler from './EventHandler';
 import { PairConfig } from '../consts/Types';
 import { gweiDecimals } from '../consts/Consts';
 import PairRepository from '../db/PairRepository';
+import { BaseFeeType } from '../rates/FeeProvider';
 import { encodeBip21 } from './PaymentRequestUtils';
 import { SendResponse } from '../lightning/LndClient';
 import TimeoutDeltaProvider from './TimeoutDeltaProvider';
 import RateProvider, { PairType } from '../rates/RateProvider';
-import FeeProvider, { BaseFeeType } from '../rates/FeeProvider';
 import SwapManager, { ChannelCreationInfo } from '../swap/SwapManager';
 import { OrderSide, ServiceInfo, ServiceWarning } from '../consts/Enums';
 import WalletManager, { Currency, CurrencyType } from '../wallet/WalletManager';
@@ -65,7 +65,6 @@ class Service {
 
   private timeoutDeltaProvider: TimeoutDeltaProvider;
 
-  private readonly feeProvider: FeeProvider;
   private readonly rateProvider: RateProvider;
 
   private static MinInboundLiquidity = 10;
@@ -83,12 +82,11 @@ class Service {
     this.pairRepository = new PairRepository();
     this.timeoutDeltaProvider = new TimeoutDeltaProvider(this.logger, config);
 
-    this.feeProvider = new FeeProvider(this.logger, this.getFeeEstimation);
     this.rateProvider = new RateProvider(
       this.logger,
-      this.feeProvider,
       config.rates.interval,
-      Array.from(currencies.values()),
+      currencies,
+      this.getFeeEstimation,
     );
 
     this.logger.debug(`Using ${config.swapwitnessaddress ? 'P2WSH' : 'P2SH nested P2WSH'} addresses for Submarine Swaps`);
@@ -142,7 +140,7 @@ class Service {
 
     this.timeoutDeltaProvider.init(configPairs);
 
-    this.feeProvider.init(configPairs);
+    this.rateProvider.feeProvider.init(configPairs);
     await this.rateProvider.init(configPairs);
   }
 
@@ -596,8 +594,8 @@ class Service {
 
     const rate = getRate(swap.rate!, swap.orderSide, false);
 
-    const percentageFee = this.feeProvider.getPercentageFee(swap.pair);
-    const { baseFee } = await this.feeProvider.getFees(swap.pair, rate, swap.orderSide, swap.onchainAmount, BaseFeeType.NormalClaim);
+    const percentageFee = this.rateProvider.feeProvider.getPercentageFee(swap.pair);
+    const { baseFee } = await this.rateProvider.feeProvider.getFees(swap.pair, rate, swap.orderSide, swap.onchainAmount, BaseFeeType.NormalClaim);
 
     const invoiceAmount = this.calculateInvoiceAmount(swap.orderSide, rate, swap.onchainAmount, baseFee, percentageFee);
 
@@ -643,7 +641,13 @@ class Service {
 
     this.verifyAmount(swap.pair, rate, invoiceAmount, swap.orderSide, false);
 
-    const { baseFee, percentageFee } = await this.feeProvider.getFees(swap.pair, rate, swap.orderSide, invoiceAmount, BaseFeeType.NormalClaim);
+    const { baseFee, percentageFee } = await this.rateProvider.feeProvider.getFees(
+      swap.pair,
+      rate,
+      swap.orderSide,
+      invoiceAmount,
+      BaseFeeType.NormalClaim,
+    );
     const expectedAmount = Math.floor(invoiceAmount * rate) + baseFee + percentageFee;
 
     if (swap.onchainAmount && expectedAmount > swap.onchainAmount) {
@@ -652,7 +656,7 @@ class Service {
         rate,
         swap.onchainAmount,
         baseFee,
-        this.feeProvider.getPercentageFee(swap.pair),
+        this.rateProvider.feeProvider.getPercentageFee(swap.pair),
       );
 
       throw Errors.INVALID_INVOICE_AMOUNT(maxInvoiceAmount);
@@ -834,7 +838,7 @@ class Service {
 
     this.verifyAmount(args.pairId, rate, args.invoiceAmount, side, true);
 
-    const { baseFee, percentageFee } = await this.feeProvider.getFees(args.pairId, rate, side, args.invoiceAmount, BaseFeeType.ReverseLockup);
+    const { baseFee, percentageFee } = await this.rateProvider.feeProvider.getFees(args.pairId, rate, side, args.invoiceAmount, BaseFeeType.ReverseLockup);
 
     const onchainAmount = Math.floor(args.invoiceAmount * rate) - (baseFee + percentageFee);
 

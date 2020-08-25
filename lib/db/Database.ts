@@ -27,7 +27,7 @@ class Db {
 
     this.loadModels();
 
-    this.migration = new Migration(this.logger);
+    this.migration = new Migration(this.logger, this.sequelize);
   }
 
   public init = async (): Promise<void> => {
@@ -38,6 +38,8 @@ class Db {
       this.logger.error(`Could not connect to database: ${error}`);
       throw error;
     }
+
+    await this.migration.migrate();
 
     await Promise.all([
       Pair.sync(),
@@ -52,8 +54,6 @@ class Db {
     ]);
 
     await ChannelCreation.sync();
-
-    await this.migration.migrate();
   }
 
   public close = (): Promise<void> => {

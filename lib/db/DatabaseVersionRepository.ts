@@ -11,6 +11,14 @@ class DatabaseVersionRepository {
     });
   }
 
+  public updateVersion = async (newVersion: number): Promise<void> => {
+    await DatabaseVersion.update({
+      version: newVersion,
+    }, {
+      where: {},
+    });
+  }
+
   public dropTable = (): Promise<void> => {
     return DatabaseVersion.drop();
   }

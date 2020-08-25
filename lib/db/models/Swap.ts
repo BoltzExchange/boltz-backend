@@ -83,7 +83,15 @@ class Swap extends Model implements SwapType {
       indexes: [
         {
           unique: true,
-          fields: ['id', 'preimageHash', 'invoice'],
+          fields: ['id'],
+        },
+        {
+          unique: true,
+          fields: ['preimageHash'],
+        },
+        {
+          unique: true,
+          fields: ['invoice'],
         },
       ],
     });

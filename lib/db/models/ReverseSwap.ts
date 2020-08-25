@@ -89,7 +89,19 @@ class ReverseSwap extends Model implements ReverseSwapType {
       indexes: [
         {
           unique: true,
-          fields: ['id', 'preimageHash', 'invoice', 'minerFeeInvoice'],
+          fields: ['id'],
+        },
+        {
+          unique: true,
+          fields: ['preimageHash'],
+        },
+        {
+          unique: true,
+          fields: ['invoice'],
+        },
+        {
+          unique: true,
+          fields: ['minerFeeInvoice'],
         },
       ],
     });

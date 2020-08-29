@@ -32,4 +32,4 @@ COPY geth/setup.sh /setup.sh
 # Start GETH in dev mode to save the genesis block and the first account
 RUN bash setup.sh
 
-ENTRYPOINT ["geth", "--datadir", "/gethData", "--dev", "--nousb", "--http", "--http.addr",  "0.0.0.0", "--ws", "--ws.addr", "0.0.0.0", "--miner.gasprice", "10000000000"]
+ENTRYPOINT ["geth", "--datadir", "/gethData", "--dev", "--nousb", "--http", "--http.addr",  "0.0.0.0", "--http.corsdomain", "*", "--ws", "--ws.addr", "0.0.0.0", "--miner.gasprice", "10000000000"]

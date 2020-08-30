@@ -179,20 +179,32 @@ class ChannelNursery extends EventEmitter {
       // TODO: emit event?
       const formattedError = formatError(error);
 
+      const retryChannelOpeningAfterTimeout = async () => {
+        this.logger.debug(`Retrying in ${ChannelNursery.lndNotSyncedTimeout}ms`);
+
+        // Let's just wait for a second and try again
+        await new Promise((resolve) => {
+          setTimeout(resolve, ChannelNursery.lndNotSyncedTimeout);
+        });
+
+        await this.openChannel(lightningCurrency, swap, channelCreation);
+      };
+
+      // The actual error looks like this: "2 UNKNOWN: received funding error from <remote_pukbey>: chan_id=<prposed_channel_id>, err=Synchronizing blockchain"
+      // But since we don't know what the "chan_id" would have been, we cannot catch this error in the switch statement
+      if (formattedError.endsWith('err=Synchronizing blockchain')) {
+        this.logger.warn(`Could not open channel for Swap ${swap.id}: remote LND is not fully synced`);
+        await retryChannelOpeningAfterTimeout();
+        return;
+      }
+
       switch (formattedError) {
         // This error is thrown when a block is mined with a lockup transaction that triggers a Channel Creation
         // in it. In case Boltz processes the block faster than LND does, it will try to open the channel while
         // LND is still syncing the freshly mined block
         case '2 UNKNOWN: channels cannot be created before the wallet is fully synced':
-          this.logger.warn(`Could not open channel for Swap ${swap.id}: LND wallet is not fully synced`);
-          this.logger.debug(`Retrying in ${ChannelNursery.lndNotSyncedTimeout}ms`);
-
-          // Let's just wait for a second and try again
-          await new Promise((resolve) => {
-            setTimeout(resolve, ChannelNursery.lndNotSyncedTimeout);
-          });
-
-          await this.openChannel(lightningCurrency, swap, channelCreation);
+          this.logger.warn(`Could not open channel for Swap ${swap.id}: our LND is not fully synced`);
+          await retryChannelOpeningAfterTimeout();
           return;
 
         // In case the lightning client to which a channel should be opened is not online or not connected to us,

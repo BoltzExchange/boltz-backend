@@ -26,6 +26,7 @@ type SwapType = {
   onchainAmount?: number;
   lockupAddress: string;
   lockupTransactionId?: string;
+  lockupTransactionVout?: number;
 };
 
 class Swap extends Model implements SwapType {
@@ -53,6 +54,7 @@ class Swap extends Model implements SwapType {
   public onchainAmount?: number;
   public lockupAddress!: string;
   public lockupTransactionId?: string;
+  public lockupTransactionVout?: number;
 
   public createdAt!: string;
   public updatedAt!: string;
@@ -77,6 +79,7 @@ class Swap extends Model implements SwapType {
       onchainAmount: { type: new DataTypes.INTEGER(), allowNull: true },
       lockupAddress: { type: new DataTypes.STRING(255), allowNull: false },
       lockupTransactionId: { type: new DataTypes.STRING(255), allowNull: true },
+      lockupTransactionVout: { type: new DataTypes.INTEGER(), allowNull: true },
     }, {
       sequelize,
       tableName: 'swaps',

@@ -32,8 +32,8 @@ interface UtxoNursery {
   on(event: 'swap.lockup.zeroconf.rejected', listener: (swap: Swap, transaction: Transaction, reason: string) => void): this;
   emit(event: 'swap.lockup.zeroconf.rejected', swap: Swap, transaction: Transaction, reason: string): boolean;
 
-  on(event: 'swap.lockup', listener: (swap: Swap, transaction: Transaction, confirmed: boolean, lockupVout: number) => void): this;
-  emit(event: 'swap.lockup', swap: Swap, transaction: Transaction, confirmed: boolean, lockupVout: number): boolean;
+  on(event: 'swap.lockup', listener: (swap: Swap, transaction: Transaction, confirmed: boolean) => void): this;
+  emit(event: 'swap.lockup', swap: Swap, transaction: Transaction, confirmed: boolean): boolean;
 
   // Reverse Swap
   on(event: 'reverseSwap.expired', listener: (reverseSwap: ReverseSwap) => void): this;
@@ -100,17 +100,17 @@ class UtxoNursery extends EventEmitter {
         continue;
       }
 
-      swap = await this.swapRepository.setLockupTransactionId(
-        swap,
-        transaction.getId(),
-        output.value,
-        confirmed,
-      );
-
       this.logger.verbose(`Found ${confirmed ? '' : 'un'}confirmed lockup transaction for Swap ${swap.id}: ${transaction.getId()}`);
 
       const swapOutput = detectSwap(getHexBuffer(swap.redeemScript!), transaction)!;
 
+      swap = await this.swapRepository.setLockupTransaction(
+        swap,
+        transaction.getId(),
+        output.value,
+        confirmed,
+        swapOutput.vout,
+      );
 
       if (swap.expectedAmount) {
         if (swapOutput.value < swap.expectedAmount) {
@@ -159,7 +159,7 @@ class UtxoNursery extends EventEmitter {
 
       chainClient.removeOutputFilter(swapOutput.script);
 
-      this.emit('swap.lockup', swap, transaction, confirmed, swapOutput.vout);
+      this.emit('swap.lockup', swap, transaction, confirmed);
     }
   }
 

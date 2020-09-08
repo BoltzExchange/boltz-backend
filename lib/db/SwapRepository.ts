@@ -53,15 +53,17 @@ class SwapRepository {
   }
 
   // TODO: set rate afterwards
-  public setLockupTransactionId = (
+  public setLockupTransaction = (
     swap: Swap,
     lockupTransactionId: string,
     onchainAmount: number,
     confirmed: boolean,
+    lockupTransactionVout?: number,
   ): Promise<Swap> => {
     return swap.update({
       onchainAmount,
       lockupTransactionId,
+      lockupTransactionVout,
       status: confirmed ? SwapUpdateEvent.TransactionConfirmed : SwapUpdateEvent.TransactionMempool,
     });
   }

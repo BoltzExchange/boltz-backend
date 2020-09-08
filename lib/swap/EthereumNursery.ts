@@ -134,7 +134,7 @@ class EthereumNursery extends EventEmitter {
 
       this.logger.debug(`Found lockup in EtherSwap contract for Swap ${swap.id}: ${transactionHash}`);
 
-      swap = await this.swapRepository.setLockupTransactionId(
+      swap = await this.swapRepository.setLockupTransaction(
         swap,
         transactionHash,
         etherSwapValues.amount.div(etherDecimals).toNumber(),
@@ -219,7 +219,7 @@ class EthereumNursery extends EventEmitter {
 
       const normalizedSwapAmount = erc20Wallet.normalizeTokenBalance(erc20SwapValues.amount);
 
-      swap = await this.swapRepository.setLockupTransactionId(
+      swap = await this.swapRepository.setLockupTransaction(
         swap,
         transactionHash,
         normalizedSwapAmount,

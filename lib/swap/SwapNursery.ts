@@ -3,7 +3,7 @@ import AsyncLock from 'async-lock';
 import { BigNumber } from 'ethers';
 import { EventEmitter } from 'events';
 import { Transaction } from 'bitcoinjs-lib';
-import { constructClaimTransaction, constructRefundTransaction, OutputType } from 'boltz-core';
+import { constructClaimTransaction, constructRefundTransaction, detectSwap, OutputType } from 'boltz-core';
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';
 import Wallet from '../wallet/Wallet';
@@ -537,6 +537,11 @@ class SwapNursery extends EventEmitter {
     }
 
     const destinationAddress = await wallet.getAddress();
+
+    // Compatibility mode with database schema version 0 in which this column didn't exist
+    if (swap.lockupTransactionVout === undefined) {
+      swap.lockupTransactionVout = detectSwap(getHexBuffer(swap.redeemScript!), transaction)!.vout;
+    }
 
     const output = transaction.outs[swap.lockupTransactionVout!];
 

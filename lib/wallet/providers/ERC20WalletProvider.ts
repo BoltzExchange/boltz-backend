@@ -45,7 +45,7 @@ class ERC20WalletProvider implements WalletProviderInterface {
   }
 
   public sweepWallet = async (address: string, gasPrice?: number): Promise<SentTransaction> => {
-    const balance = await this.token.contract.balanceOf(address);
+    const balance = await this.token.contract.balanceOf(await this.getAddress());
     const transaction = await this.token.contract.transfer(address, balance, {
       gasPrice: await getGasPrice(this.signer.provider!, gasPrice),
     });

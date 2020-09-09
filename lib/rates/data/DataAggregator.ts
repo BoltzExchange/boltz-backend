@@ -29,8 +29,15 @@ class DataAggregator {
     const queryPromises: Promise<void>[] = [];
 
     const queryRate = async (base: string, quote: string) => {
+      const pairId = getPairId({ base, quote });
       const rate = await this.getRate(base, quote);
-      rateMap.set(getPairId({ base, quote }), rate);
+
+      if (rate && !isNaN(rate)) {
+        rateMap.set(pairId, rate);
+      } else {
+        // If the rate couldn't be fetched, the latest one should be used
+        rateMap.set(pairId, this.latestRates.get(pairId) || NaN);
+      }
     };
 
     this.pairs.forEach(([baseAsset, quoteAsset]) => {

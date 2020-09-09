@@ -1,4 +1,4 @@
-export const baseAsset = 'ltc';
+export const baseAsset = 'LTC';
 export const quoteAsset = 'BTC';
 
 export const checkPrice = (price: number): void => {

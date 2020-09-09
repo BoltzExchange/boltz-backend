@@ -3,13 +3,11 @@ import { randomBytes } from 'crypto';
 import { crypto } from 'bitcoinjs-lib';
 import Logger from '../../../../lib/Logger';
 import { waitForFunctionToBeTrue } from '../../../Utils';
-import { getSigner, getSwapContracts, getTokenContract } from '../EthereumTools';
 import ContractEventHandler from '../../../../lib/wallet/ethereum/ContractEventHandler';
+import { fundSignerWallet, getSigner, getSwapContracts, getTokenContract } from '../EthereumTools';
 
 describe('ContractEventHandler', () => {
-  const { signer, provider } = getSigner();
-
-  const claimSigner = provider.getSigner('0x3E17171f4A22794c626B6f4B204af2481fC67e30');
+  const { signer, provider, etherBase } = getSigner();
 
   const tokenContract = getTokenContract(signer);
   const { etherSwap, erc20Swap } = getSwapContracts(signer);
@@ -49,17 +47,19 @@ describe('ContractEventHandler', () => {
   };
 
   const registerEtherSwapListeners = () => {
-    contractEventHandler.once('eth.lockup', async (transactionHash, emittedPreimageHash, amount, claimAddress, timelock) => {
+    contractEventHandler.once('eth.lockup', async (transactionHash, emittedEtherSwapValues) => {
       await waitForFunctionToBeTrue(() => {
         return etherSwapTransactionHashes.lockup !== '';
       });
 
       expect(transactionHash).toEqual(etherSwapTransactionHashes.lockup);
-
-      expect(emittedPreimageHash).toEqual(preimageHash);
-      expect(amount).toEqual(etherSwapValues.amount);
-      expect(claimAddress).toEqual(etherSwapValues.claimAddress);
-      expect(timelock.toNumber()).toEqual(etherSwapValues.timelock);
+      expect(emittedEtherSwapValues).toEqual({
+        preimageHash,
+        amount: etherSwapValues.amount,
+        timelock: etherSwapValues.timelock,
+        refundAddress: await signer.getAddress(),
+        claimAddress: etherSwapValues.claimAddress,
+      });
 
       eventsEmitted += 1;
     });
@@ -89,18 +89,20 @@ describe('ContractEventHandler', () => {
   };
 
   const registerErc20SwapListeners = () => {
-    contractEventHandler.once('erc20.lockup', async (transactionHash, emittedPreimageHash, amount, tokenAddress, claimAddress, timelock) => {
+    contractEventHandler.once('erc20.lockup', async (transactionHash, emittedErc20SwapValues) => {
       await waitForFunctionToBeTrue(() => {
         return erc20SwapTransactionHashes.lockup !== '';
       });
 
       expect(transactionHash).toEqual(erc20SwapTransactionHashes.lockup);
-
-      expect(emittedPreimageHash).toEqual(preimageHash);
-      expect(amount).toEqual(erc20SwapValues.amount);
-      expect(tokenAddress).toEqual(erc20SwapValues.tokenAddress);
-      expect(claimAddress).toEqual(erc20SwapValues.claimAddress);
-      expect(timelock.toNumber()).toEqual(erc20SwapValues.timelock);
+      expect(emittedErc20SwapValues).toEqual({
+        preimageHash,
+        amount: erc20SwapValues.amount,
+        timelock: erc20SwapValues.timelock,
+        tokenAddress: tokenContract.address,
+        refundAddress: await signer.getAddress(),
+        claimAddress: erc20SwapValues.claimAddress,
+      });
 
       eventsEmitted += 1;
     });
@@ -132,8 +134,10 @@ describe('ContractEventHandler', () => {
   beforeAll(async () => {
     startingHeight = await provider.getBlockNumber();
 
-    etherSwapValues.claimAddress = await claimSigner.getAddress();
-    erc20SwapValues.claimAddress = await claimSigner.getAddress();
+    etherSwapValues.claimAddress = await etherBase.getAddress();
+    erc20SwapValues.claimAddress = await etherBase.getAddress();
+
+    await fundSignerWallet(signer, etherBase, tokenContract);
   });
 
   beforeEach(() => {
@@ -163,7 +167,7 @@ describe('ContractEventHandler', () => {
     });
 
     // Claim
-    const claimTransaction = await etherSwap.connect(claimSigner).claim(
+    const claimTransaction = await etherSwap.connect(etherBase).claim(
       preimage,
       etherSwapValues.amount,
       await signer.getAddress(),
@@ -221,7 +225,7 @@ describe('ContractEventHandler', () => {
     });
 
     // Claim
-    const claimTransaction = await erc20Swap.connect(claimSigner).claim(
+    const claimTransaction = await erc20Swap.connect(etherBase).claim(
       preimage,
       erc20SwapValues.amount,
       erc20SwapValues.tokenAddress,
@@ -275,8 +279,9 @@ describe('ContractEventHandler', () => {
     });
   });
 
-  afterAll(() => {
+  afterAll(async () => {
     contractEventHandler.removeAllListeners();
-    provider.removeAllListeners();
+
+    await provider.destroy();
   });
 });

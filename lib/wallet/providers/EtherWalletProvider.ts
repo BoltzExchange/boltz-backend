@@ -1,7 +1,7 @@
 import { BigNumber, Signer } from 'ethers';
 import Logger from '../../Logger';
-import { getGasPrice } from '../ethereum/EthereumUtils';
 import { etherDecimals } from '../../consts/Consts';
+import { getGasPrice } from '../ethereum/EthereumUtils';
 import WalletProviderInterface, { SentTransaction, WalletBalance } from './WalletProviderInterface';
 
 class EtherWalletProvider implements WalletProviderInterface {

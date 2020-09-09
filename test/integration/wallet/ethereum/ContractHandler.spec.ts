@@ -1,16 +1,15 @@
-import { BigNumber } from 'ethers';
 import { randomBytes } from 'crypto';
 import { crypto } from 'bitcoinjs-lib';
 import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { Erc20Swap } from 'boltz-core/typechain/Erc20Swap';
+import { BigNumber, ContractTransaction, utils } from 'ethers';
 import Logger from '../../../../lib/Logger';
-import { etherDecimals } from '../../../../lib/consts/Consts';
 import ContractHandler from '../../../../lib/wallet/ethereum/ContractHandler';
-import { getSigner, getSwapContracts, getTokenContract } from '../EthereumTools';
 import ERC20WalletProvider from '../../../../lib/wallet/providers/ERC20WalletProvider';
+import { fundSignerWallet, getSigner, getSwapContracts, getTokenContract } from '../EthereumTools';
 
 describe('ContractHandler', () => {
-  const { signer, provider } = getSigner();
+  const { signer, provider, etherBase } = getSigner();
 
   const tokenContract = getTokenContract(signer);
   const { etherSwap, erc20Swap } = getSwapContracts(signer);
@@ -25,108 +24,186 @@ describe('ContractHandler', () => {
     },
   );
 
-  const contractHandler = new ContractHandler(
-    Logger.disabledLogger,
-    etherSwap,
-    erc20Swap,
-  );
+  const contractHandler = new ContractHandler(Logger.disabledLogger);
+  const contractHandlerEtherBase = new ContractHandler(Logger.disabledLogger);
 
-  const amount = 1;
+  contractHandler.init(etherSwap, erc20Swap);
+  contractHandlerEtherBase.init(etherSwap.connect(etherBase), erc20Swap.connect(etherBase));
+
+  const amount = BigNumber.from(10).pow(17);
   const preimage = randomBytes(32);
   const preimageHash = crypto.sha256(preimage);
 
   let timelock: number;
 
-  const waitForTransaction = async (transactionHash: string) => {
-    return (await provider.getTransaction(transactionHash)).wait(1);
+  const waitForTransaction = async (transaction: ContractTransaction) => {
+    return transaction.wait(1);
   };
 
-  const verifySwapEmpty = async (contract: EtherSwap | Erc20Swap) => {
-    const swap = await contract.swaps(preimageHash);
-    expect(swap.amount).toEqual(BigNumber.from(0));
+  const hashEtherSwapValues = async () => {
+    return utils.solidityKeccak256(
+      ['bytes32', 'uint', 'address', 'address', 'uint'],
+      [
+        preimageHash,
+        amount,
+        await etherBase.getAddress(),
+        await signer.getAddress(),
+        timelock,
+      ],
+    );
+  };
+
+  const hashErc20SwapValues = async () => {
+    return utils.solidityKeccak256(
+      ['bytes32', 'uint', 'address', 'address', 'address', 'uint'],
+      [
+        preimageHash,
+        amount,
+        tokenContract.address,
+        await etherBase.getAddress(),
+        await signer.getAddress(),
+        timelock,
+      ],
+    );
+  };
+
+
+  const querySwap = async (contract: EtherSwap | Erc20Swap, hash: string) => {
+    return await contract.swaps(hash);
   };
 
   const lockupEther = async () => {
-    const transactionHash = await contractHandler.lockupEther(
+    const transaction = await contractHandler.lockupEther(
       preimageHash,
-      await signer.getAddress(),
-      timelock,
       amount,
+      await etherBase.getAddress(),
+      timelock,
     );
 
-    await waitForTransaction(transactionHash);
+    await waitForTransaction(transaction);
   };
 
   const lockupErc20 = async () => {
-    await (await tokenContract.approve(erc20Swap.address, erc20WalletProvider.formatTokenAmount(amount))).wait(1);
+    const approveTransaction = await tokenContract.approve(erc20Swap.address, amount);
 
-    const transactionHash = await contractHandler.lockupToken(
+    const transaction = await contractHandler.lockupToken(
       erc20WalletProvider,
       preimageHash,
       amount,
-      await signer.getAddress(),
+      await etherBase.getAddress(),
       timelock,
     );
 
-    await waitForTransaction(transactionHash);
+    await Promise.all([
+      waitForTransaction(approveTransaction),
+      waitForTransaction(transaction),
+    ]);
   };
 
   beforeAll(async () => {
     timelock = await provider.getBlockNumber();
+
+    await fundSignerWallet(signer, etherBase, tokenContract);
   });
 
   test('should lockup Ether', async () => {
     await lockupEther();
 
-    const swap = await etherSwap.swaps(preimageHash);
-
-    expect(swap.timelock.toNumber()).toEqual(timelock);
-    expect(swap.claimAddress).toEqual(await signer.getAddress());
-    expect(swap.refundAddress).toEqual(await signer.getAddress());
-    expect(swap.amount).toEqual(BigNumber.from(amount).mul(etherDecimals));
+    expect(await querySwap(
+      etherSwap,
+      await hashEtherSwapValues(),
+    )).toEqual(true);
   });
 
   test('should claim Ether', async () => {
-    const transactionHash = await contractHandler.claimEther(preimage);
-    await waitForTransaction(transactionHash);
+    const transaction = await contractHandlerEtherBase.claimEther(
+      preimage,
+      amount,
+      await signer.getAddress(),
+      timelock,
+    );
+    await waitForTransaction(transaction);
 
-    await verifySwapEmpty(etherSwap);
+    expect(await querySwap(
+      etherSwap,
+      await hashEtherSwapValues(),
+    )).toEqual(false);
   });
 
   test('should refund Ether', async () => {
+    // Lockup again and sanity check
     await lockupEther();
 
-    const transactionHash = await contractHandler.refundEther(preimageHash);
+    expect(await querySwap(
+      etherSwap,
+      await hashEtherSwapValues(),
+    )).toEqual(true);
+
+    const transactionHash = await contractHandler.refundEther(
+      preimageHash,
+      amount,
+      await etherBase.getAddress(),
+      timelock,
+    );
     await waitForTransaction(transactionHash);
 
-    await verifySwapEmpty(etherSwap);
+    expect(await querySwap(
+      etherSwap,
+      await hashEtherSwapValues(),
+    )).toEqual(false);
   });
 
   test('should lockup ERC20 tokens', async () => {
     await lockupErc20();
 
-    const swap = await erc20Swap.swaps(preimageHash);
-
-    expect(swap.timelock.toNumber()).toEqual(timelock);
-    expect(swap.erc20Token).toEqual(tokenContract.address);
-    expect(swap.claimAddress).toEqual(await signer.getAddress());
-    expect(swap.refundAddress).toEqual(await signer.getAddress());
-    expect(swap.amount).toEqual(erc20WalletProvider.formatTokenAmount(amount));
+    expect(await querySwap(
+      erc20Swap,
+      await hashErc20SwapValues(),
+    )).toEqual(true);
   });
 
   test('should claim ERC20 tokens', async () => {
-    const transactionHash = await contractHandler.claimToken(erc20WalletProvider, preimage);
+    const transactionHash = await contractHandlerEtherBase.claimToken(
+      erc20WalletProvider,
+      preimage,
+      amount,
+      await signer.getAddress(),
+      timelock,
+    );
     await waitForTransaction(transactionHash);
 
-    await verifySwapEmpty(erc20Swap);
+    expect(await querySwap(
+      erc20Swap,
+      await hashErc20SwapValues(),
+    )).toEqual(false);
   });
 
   test('should refund ERC20 tokens', async () => {
+    // Lockup again and sanity check
     await lockupErc20();
 
-    const transactionHash = await contractHandler.refundToken(erc20WalletProvider, preimageHash);
+    expect(await querySwap(
+      erc20Swap,
+      await hashErc20SwapValues(),
+    )).toEqual(true);
+
+    const transactionHash = await contractHandler.refundToken(
+      erc20WalletProvider,
+      preimageHash,
+      amount,
+      await etherBase.getAddress(),
+      timelock,
+    );
     await waitForTransaction(transactionHash);
 
-    await verifySwapEmpty(erc20Swap);
+    expect(await querySwap(
+      erc20Swap,
+      await hashErc20SwapValues(),
+    )).toEqual(false);
+  });
+
+  afterAll(async () => {
+    await provider.destroy();
   });
 });
+

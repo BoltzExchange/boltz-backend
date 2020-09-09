@@ -1,18 +1,20 @@
 import { BigNumber } from 'ethers';
 import Logger from '../../../../lib/Logger';
-import { getSigner } from '../EthereumTools';
 import { etherDecimals } from '../../../../lib/consts/Consts';
+import { fundSignerWallet, getSigner } from '../EthereumTools';
 import EtherWalletProvider from '../../../../lib/wallet/providers/EtherWalletProvider';
 
 describe('EtherWalletProvider', () => {
-  const { provider, signer } = getSigner();
+  const { provider, signer, etherBase } = getSigner();
   const wallet = new EtherWalletProvider(Logger.disabledLogger, signer);
 
   test('should get address', async () => {
-    expect(await wallet.getAddress()).toEqual('0xA7430D5ef25467365112C21A0e803cc72905cC50');
+    expect(await wallet.getAddress()).toEqual(await signer.getAddress());
   });
 
   test('should get balance', async () => {
+    fundSignerWallet(signer, etherBase);
+
     const balance = (await signer.getBalance()).div(etherDecimals).toNumber();
 
     expect(await wallet.getBalance()).toEqual({
@@ -23,7 +25,7 @@ describe('EtherWalletProvider', () => {
   });
 
   test('should send to address', async () => {
-    const amount = 100000000;
+    const amount = 1000000;
     const { transactionId } = await wallet.sendToAddress(await signer.getAddress(), amount);
 
     const transaction = await provider.getTransaction(transactionId);
@@ -33,7 +35,7 @@ describe('EtherWalletProvider', () => {
   test('should sweep wallet', async () => {
     const balance = await signer.getBalance();
 
-    const { transactionId } = await wallet.sweepWallet(await signer.getAddress());
+    const { transactionId } = await wallet.sweepWallet(await etherBase.getAddress());
 
     const transaction = await provider.getTransaction(transactionId);
     const receipt = await provider.getTransactionReceipt(transactionId);
@@ -41,5 +43,10 @@ describe('EtherWalletProvider', () => {
     const sentInTransaction = transaction.value.add(receipt.gasUsed.mul(transaction.gasPrice));
 
     expect(balance).toEqual(sentInTransaction);
+    expect((await signer.getBalance()).toNumber()).toEqual(0);
+  });
+
+  afterAll(async () => {
+    await provider.destroy();
   });
 });

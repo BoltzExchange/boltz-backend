@@ -1,10 +1,10 @@
 import { BigNumber } from 'ethers';
 import Logger from '../../../../lib/Logger';
-import { getSigner, getTokenContract } from '../EthereumTools';
+import { fundSignerWallet, getSigner, getTokenContract } from '../EthereumTools';
 import ERC20WalletProvider from '../../../../lib/wallet/providers/ERC20WalletProvider';
 
 describe('ERC20WalletProvider', () => {
-  const { provider, signer } = getSigner();
+  const { provider, signer, etherBase } = getSigner();
   const contract = getTokenContract(signer);
 
   const token = {
@@ -26,10 +26,12 @@ describe('ERC20WalletProvider', () => {
   });
 
   test('should get address', async () => {
-    expect(await wallet.getAddress()).toEqual('0xA7430D5ef25467365112C21A0e803cc72905cC50');
+    expect(await wallet.getAddress()).toEqual(await signer.getAddress());
   });
 
   test('should get balance', async () => {
+    await fundSignerWallet(signer, etherBase, token.contract);
+
     const balance = await token.contract.balanceOf(await signer.getAddress());
     const normalizedAmount = balance.div(BigNumber.from(10).pow(10)).toNumber();
 
@@ -41,8 +43,8 @@ describe('ERC20WalletProvider', () => {
   });
 
   test('should send to address', async () => {
-    const amount = 100000000;
-    const { transactionId } = await wallet.sendToAddress(await signer.getAddress(), amount);
+    const amount = 1000000;
+    const { transactionId } = await wallet.sendToAddress(await etherBase.getAddress(), amount);
 
     const transaction = await provider.getTransaction(transactionId);
     const receipt = await transaction.wait(1);
@@ -53,12 +55,13 @@ describe('ERC20WalletProvider', () => {
   test('should sweep wallet', async () => {
     const balance = await token.contract.balanceOf(await signer.getAddress());
 
-    const { transactionId } = await wallet.sweepWallet(await signer.getAddress());
+    const { transactionId } = await wallet.sweepWallet(await etherBase.getAddress());
 
     const transaction = await provider.getTransaction(transactionId);
     const receipt = await transaction.wait(1);
 
     expect(BigNumber.from(receipt.logs[0].data)).toEqual(balance);
+    expect((await token.contract.balanceOf(await signer.getAddress())).toNumber()).toEqual(0);
   });
 
   test('should get allowance', async () => {
@@ -128,5 +131,9 @@ describe('ERC20WalletProvider', () => {
     expect(formatTokenAmount(amount)).toEqual(BigNumber.from(190000));
 
     token.decimals = 18;
+  });
+
+  afterAll(async () => {
+    await provider.destroy();
   });
 });

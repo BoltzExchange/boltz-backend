@@ -35,7 +35,7 @@ import {
   getChainCurrency,
   getHexBuffer,
   getHexString,
-  getLightningCurrency,
+  getLightningCurrency, getRate,
   splitPairId,
 } from '../Utils';
 
@@ -186,13 +186,17 @@ class SwapNursery extends EventEmitter {
       await this.lock.acquire(SwapNursery.swapLock, async () => {
         this.emit('transaction', swap, transaction, confirmed, false);
 
-        const { base, quote } = splitPairId(swap.pair);
-        const chainSymbol = getChainCurrency(base, quote, swap.orderSide, false);
+        if (swap.invoice) {
+          const { base, quote } = splitPairId(swap.pair);
+          const chainSymbol = getChainCurrency(base, quote, swap.orderSide, false);
 
-        const { chainClient } = this.currencies.get(chainSymbol)!;
-        const wallet = this.walletManager.wallets.get(chainSymbol)!;
+          const { chainClient } = this.currencies.get(chainSymbol)!;
+          const wallet = this.walletManager.wallets.get(chainSymbol)!;
 
-        await this.claimUtxo(chainClient!, wallet, swap, transaction);
+          await this.claimUtxo(chainClient!, wallet, swap, transaction);
+        } else {
+          await this.setSwapRate(swap);
+        }
       });
     });
 
@@ -295,6 +299,41 @@ class SwapNursery extends EventEmitter {
     }
   }
 
+  public attemptSettleSwap = async (currency: Currency, swap: Swap, outgoingChannelId?: string): Promise<void> => {
+    switch (currency.type) {
+      case CurrencyType.BitcoinLike: {
+        const lockupTransactionHex = await currency.chainClient!.getRawTransaction(swap.lockupTransactionId!);
+
+        await this.claimUtxo(
+          currency.chainClient!,
+          this.walletManager.wallets.get(currency.symbol)!,
+          swap,
+          Transaction.fromHex(lockupTransactionHex),
+          outgoingChannelId,
+        );
+        break;
+      }
+
+      case CurrencyType.Ether:
+        await this.claimEther(
+          this.walletManager.ethereumManager!.contractHandler,
+          swap,
+          await queryEtherSwapValues(this.walletManager.ethereumManager!.etherSwap, getHexBuffer(swap.preimageHash)),
+          outgoingChannelId,
+        );
+        break;
+
+      case CurrencyType.ERC20:
+        await this.claimERC20(
+          this.walletManager.ethereumManager!.contractHandler,
+          swap,
+          await queryERC20SwapValues(this.walletManager.ethereumManager!.erc20Swap, getHexBuffer(swap.preimageHash)),
+          outgoingChannelId,
+        );
+        break;
+    }
+  }
+
   private listenEthereumNursery = async (ethereumNursery: EthereumNursery) => {
     const contractHandler = this.walletManager.ethereumManager!.contractHandler;
 
@@ -314,14 +353,24 @@ class SwapNursery extends EventEmitter {
     ethereumNursery.on('eth.lockup', async (swap, transactionHash, etherSwapValues) => {
       await this.lock.acquire(SwapNursery.swapLock, async () => {
         this.emit('transaction', swap, transactionHash, true, false);
-        await this.claimEther(contractHandler, swap, etherSwapValues);
+
+        if (swap.invoice) {
+          await this.claimEther(contractHandler, swap, etherSwapValues);
+        } else {
+          await this.setSwapRate(swap);
+        }
       });
     });
 
     ethereumNursery.on('erc20.lockup', async (swap, transactionHash, erc20SwapValues) => {
       await this.lock.acquire(SwapNursery.swapLock, async () => {
         this.emit('transaction', swap, transactionHash, true, false);
-        await this.claimERC20(contractHandler, swap, erc20SwapValues);
+
+        if (swap.invoice) {
+          await this.claimERC20(contractHandler, swap, erc20SwapValues);
+        } else {
+          await this.setSwapRate(swap);
+        }
       });
     });
 
@@ -361,39 +410,17 @@ class SwapNursery extends EventEmitter {
     await ethereumNursery.init();
   }
 
-  private attemptSettleSwap = async (currency: Currency, swap: Swap, outgoingChannelId?: string) => {
-    switch (currency.type) {
-      case CurrencyType.BitcoinLike: {
-        const lockupTransactionHex = await currency.chainClient!.getRawTransaction(swap.lockupTransactionId!);
+  /**
+   * Sets the rate for a Swap that doesn't have an invoice yet
+   */
+  private setSwapRate = async (swap: Swap) => {
+    const rate = getRate(
+      this.rateProvider.pairs.get(swap.pair)!.rate,
+      swap.orderSide,
+      false
+    );
 
-        await this.claimUtxo(
-          currency.chainClient!,
-          this.walletManager.wallets.get(currency.symbol)!,
-          swap,
-          Transaction.fromHex(lockupTransactionHex),
-          outgoingChannelId,
-        );
-        break;
-      }
-
-      case CurrencyType.Ether:
-        await this.claimEther(
-          this.walletManager.ethereumManager!.contractHandler,
-          swap,
-          await queryEtherSwapValues(this.walletManager.ethereumManager!.etherSwap, getHexBuffer(swap.preimageHash)),
-          outgoingChannelId,
-        );
-        break;
-
-      case CurrencyType.ERC20:
-        await this.claimERC20(
-          this.walletManager.ethereumManager!.contractHandler,
-          swap,
-          await queryERC20SwapValues(this.walletManager.ethereumManager!.erc20Swap, getHexBuffer(swap.preimageHash)),
-          outgoingChannelId,
-        );
-        break;
-    }
+    await this.swapRepository.setRate(swap, rate);
   }
 
   private lockupUtxo = async (

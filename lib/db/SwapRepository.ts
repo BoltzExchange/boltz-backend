@@ -52,7 +52,6 @@ class SwapRepository {
     });
   }
 
-  // TODO: set rate afterwards
   public setLockupTransaction = (
     swap: Swap,
     lockupTransactionId: string,

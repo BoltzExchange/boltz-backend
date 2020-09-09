@@ -286,6 +286,8 @@ class SwapManager {
             blocks,
             blockTime: TimeoutDeltaProvider.blockTimes.get(currency.symbol)!,
           };
+
+        // All currencies that are not Bitcoin-like are either Ether or an ERC20 token on the Ethereum chain
         } else {
           return {
             blocks: await currency.provider!.getBlockNumber(),
@@ -334,29 +336,14 @@ class SwapManager {
     // to emit it before trying to claim the swap
     emitSwapInvoiceSet(updatedSwap.id);
 
-    /*
     // If the onchain coins were sent already and 0-conf can be accepted or
     // the lockup transaction is confirmed the swap should be settled directly
     if (swap.lockupTransactionId) {
-      // TODO: add logic for Ether and ERC20 tokens
-      if (receivingCurrency.chainClient === undefined) {
-        return;
-      }
-
-      const rawTransaction = await receivingCurrency.chainClient.getRawTransaction(swap.lockupTransactionId);
-
-      try {
-        await this.nursery.attemptSettleSwap(
-          receivingCurrency,
-          receivingCurrency.wallet,
-          updatedSwap,
-          Transaction.fromHex(rawTransaction),
-          swap.status === SwapUpdateEvent.TransactionConfirmed,
-        );
-      } catch (error) {
-        this.logger.warn(`Could not settle Swap ${swap!.id}: ${formatError(error)}`);
-      }
-    }*/
+      await this.nursery.attemptSettleSwap(
+        receivingCurrency,
+        swap,
+      );
+    }
 
     return response;
   }

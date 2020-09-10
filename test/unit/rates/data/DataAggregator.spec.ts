@@ -1,5 +1,5 @@
 import Binance from '../../../../lib/rates/data/exchanges/Binance';
-import DataAggregator from '../../../../lib/rates/data/DataProvider';
+import DataAggregator from '../../../../lib/rates/data/DataAggregator';
 
 jest.mock('../../../../lib/rates/data/exchanges/Binance', () => {
   return jest.fn().mockImplementation(() => {
@@ -9,7 +9,7 @@ jest.mock('../../../../lib/rates/data/exchanges/Binance', () => {
 
 const mockedExchange = <jest.Mock<Binance>><any>Binance;
 
-describe('DataProvider', () => {
+describe('DataAggregator', () => {
   const createExchange = (price: number, throwError = false) => {
     const exchange = mockedExchange();
 
@@ -43,6 +43,8 @@ describe('DataProvider', () => {
   ];
 
   const dataProvider = new DataAggregator();
+
+  const getRate = dataProvider['getRate'];
   const exchanges = dataProvider['exchanges'];
 
   beforeAll(() => {
@@ -55,33 +57,33 @@ describe('DataProvider', () => {
   });
 
   test('should calculate the median price of arrays with an even length', async () => {
-    const price = await dataProvider.getPrice(baseAsset, quoteAsset);
+    const price = await getRate(baseAsset, quoteAsset);
     expect(price).toEqual(22);
   });
 
   test('should calculate the median price of array with an uneven length', async () => {
     exchanges.push(createExchange(35));
 
-    const price = await dataProvider.getPrice(baseAsset, quoteAsset);
+    const price = await getRate(baseAsset, quoteAsset);
     expect(price).toEqual(23);
   });
 
   test('should calculate the median price of arrays with just one entry', async () => {
-    const singleDataProvider = new DataAggregator();
+    const singleDataAggregator = new DataAggregator();
 
     const exchangePrice = 5;
 
-    singleDataProvider['exchanges'].length = 0;
-    singleDataProvider['exchanges'].push(createExchange(5));
+    singleDataAggregator['exchanges'].length = 0;
+    singleDataAggregator['exchanges'].push(createExchange(5));
 
-    const price = await singleDataProvider.getPrice(baseAsset, quoteAsset);
+    const price = await singleDataAggregator['getRate'](baseAsset, quoteAsset);
     expect(price).toEqual(exchangePrice);
   });
 
   test('should handle errors', async () => {
     exchanges.push(createExchange(0, true));
 
-    const price = await dataProvider.getPrice(baseAsset, quoteAsset);
+    const price = await getRate(baseAsset, quoteAsset);
     expect(price).toEqual(23);
   });
 });

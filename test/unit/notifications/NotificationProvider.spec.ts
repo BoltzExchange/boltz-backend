@@ -1,5 +1,3 @@
-/* tslint:disable: prefer-template */
-
 import { join } from 'path';
 import { unlinkSync, existsSync } from 'fs';
 import { wait } from '../../Utils';
@@ -7,13 +5,14 @@ import Logger from '../../../lib/Logger';
 import Swap from '../../../lib/db/models/Swap';
 import Service from '../../../lib/service/Service';
 import { decodeInvoice } from '../../../lib/Utils';
+import { CurrencyType } from '../../../lib/consts/Enums';
 import ReverseSwap from '../../../lib/db/models/ReverseSwap';
-import { swapExample, reverseSwapExample, channelCreationExample } from './ExampleSwaps';
 import BackupScheduler from '../../../lib/backup/BackupScheduler';
 import DiscordClient from '../../../lib/notifications/DiscordClient';
 import { satoshisToCoins } from '../../../lib/DenominationConverter';
-import NotificationProvider from '../../../lib/notifications/NotificationProvider';
 import ChannelCreation from '../../../lib/db/models/ChannelCreation';
+import NotificationProvider from '../../../lib/notifications/NotificationProvider';
+import { swapExample, reverseSwapExample, channelCreationExample } from './ExampleSwaps';
 
 type successCallback = (swap: Swap | ReverseSwap, isReverse: boolean, channelCreation?: ChannelCreation) => void;
 type failureCallback = (swap: Swap | ReverseSwap, isReverse: boolean, reason: string) => void;
@@ -41,7 +40,10 @@ jest.mock('../../../lib/service/Service', () => {
           }
         },
       },
-      currencies: new Map<string, any>(),
+      currencies: new Map<string, any>([
+        ['BTC', { type: CurrencyType.BitcoinLike }],
+        ['LTC', { type: CurrencyType.BitcoinLike }],
+      ]),
       getInfo: mockGetInfo,
       getBalance: mockGetBalance,
     };

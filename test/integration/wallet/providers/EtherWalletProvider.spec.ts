@@ -13,7 +13,7 @@ describe('EtherWalletProvider', () => {
   });
 
   test('should get balance', async () => {
-    fundSignerWallet(signer, etherBase);
+    await fundSignerWallet(signer, etherBase);
 
     const balance = (await signer.getBalance()).div(etherDecimals).toNumber();
 

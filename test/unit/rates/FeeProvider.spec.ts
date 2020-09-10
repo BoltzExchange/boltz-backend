@@ -1,6 +1,7 @@
 import Logger from '../../../lib/Logger';
-import { OrderSide } from '../../../lib/consts/Enums';
 import FeeProvider from '../../../lib/rates/FeeProvider';
+import { BaseFeeType, OrderSide } from '../../../lib/consts/Enums';
+import DataAggregator from '../../../lib/rates/data/DataAggregator';
 
 const btcFee = 36;
 const ltcFee = 3;
@@ -12,8 +13,14 @@ const getFeeEstimation = () => Promise.resolve(
   ]),
 );
 
+jest.mock('../../../lib/rates/data/DataAggregator', () => {
+  return jest.fn().mockImplementation(() => ({}));
+});
+
+const MockedDataAggregator = <jest.Mock<DataAggregator>>DataAggregator;
+
 describe('FeeProvider', () => {
-  const feeProvider = new FeeProvider(Logger.disabledLogger, getFeeEstimation);
+  const feeProvider = new FeeProvider(Logger.disabledLogger, MockedDataAggregator(), getFeeEstimation);
 
   test('should init', () => {
     feeProvider.init([
@@ -46,11 +53,11 @@ describe('FeeProvider', () => {
 
   test('should estimate onchain fees', async () => {
     const results = await Promise.all([
-      feeProvider.getBaseFee('BTC', false),
-      feeProvider.getBaseFee('BTC', true),
+      feeProvider.getBaseFee('BTC', BaseFeeType.NormalClaim),
+      feeProvider.getBaseFee('BTC', BaseFeeType.ReverseLockup),
 
-      feeProvider.getBaseFee('LTC', false),
-      feeProvider.getBaseFee('LTC', true),
+      feeProvider.getBaseFee('LTC', BaseFeeType.NormalClaim),
+      feeProvider.getBaseFee('LTC', BaseFeeType.ReverseLockup),
     ]);
 
     const expected = [
@@ -70,10 +77,10 @@ describe('FeeProvider', () => {
     const amount = 100000000;
 
     const results = await Promise.all([
-      feeProvider.getFees('LTC/BTC', 2, OrderSide.BUY, amount, true),
-      feeProvider.getFees('LTC/BTC', 0.5, OrderSide.SELL, amount, true),
+      feeProvider.getFees('LTC/BTC', 2, OrderSide.BUY, amount, BaseFeeType.NormalClaim),
+      feeProvider.getFees('LTC/BTC', 0.5, OrderSide.SELL, amount, BaseFeeType.ReverseLockup),
 
-      feeProvider.getFees('BTC/BTC', 1, OrderSide.BUY, amount, false),
+      feeProvider.getFees('BTC/BTC', 1, OrderSide.BUY, amount, BaseFeeType.NormalClaim),
     ]);
 
     const expected = [

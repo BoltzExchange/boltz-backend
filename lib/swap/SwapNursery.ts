@@ -16,15 +16,15 @@ import EthereumNursery from './EthereumNursery';
 import RateProvider from '../rates/RateProvider';
 import SwapRepository from '../db/SwapRepository';
 import LightningNursery from './LightningNursery';
-import { SwapUpdateEvent } from '../consts/Enums';
 import ReverseSwap from '../db/models/ReverseSwap';
 import ChannelCreation from '../db/models/ChannelCreation';
+import { CurrencyType, SwapUpdateEvent } from '../consts/Enums';
 import ReverseSwapRepository from '../db/ReverseSwapRepository';
 import ContractHandler from '../wallet/ethereum/ContractHandler';
+import WalletManager, { Currency } from '../wallet/WalletManager';
 import ChannelCreationRepository from '../db/ChannelCreationRepository';
 import { etherDecimals, ReverseSwapOutputType } from '../consts/Consts';
 import ERC20WalletProvider from '../wallet/providers/ERC20WalletProvider';
-import WalletManager, { Currency, CurrencyType } from '../wallet/WalletManager';
 import { ERC20SwapValues, EtherSwapValues } from '../wallet/ethereum/ContractEventHandler';
 import { queryERC20SwapValues, queryEtherSwapValues } from '../wallet/ethereum/ContractUtils';
 import {
@@ -35,7 +35,8 @@ import {
   getChainCurrency,
   getHexBuffer,
   getHexString,
-  getLightningCurrency, getRate,
+  getLightningCurrency,
+  getRate,
   splitPairId,
 } from '../Utils';
 
@@ -179,9 +180,7 @@ class SwapNursery extends EventEmitter {
       await this.lock.acquire(SwapNursery.swapLock, async () => {
         this.logger.warn(`Rejected 0-conf lockup transaction (${transaction.getId()}) of ${swap.id}: ${reason}`);
 
-        console.log(swap.invoice);
         if (!swap.invoice) {
-          console.log('here');
           await this.setSwapRate(swap);
         }
 

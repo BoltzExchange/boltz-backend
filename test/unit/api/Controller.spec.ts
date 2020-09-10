@@ -552,13 +552,12 @@ describe('Controller', () => {
 
     await controller.createSwap(mockRequest(requestData), res);
 
-    expect(service.createSwap).toHaveBeenCalledWith(
-      requestData.pairId,
-      requestData.orderSide,
-      getHexBuffer(requestData.refundPublicKey),
-      getHexBuffer(requestData.preimageHash),
-      undefined,
-    );
+    expect(service.createSwap).toHaveBeenCalledWith({
+      pairId: requestData.pairId,
+      orderSide: requestData.orderSide,
+      refundPublicKey: getHexBuffer(requestData.refundPublicKey),
+      preimageHash: getHexBuffer(requestData.preimageHash),
+    });
 
     expect(res.status).toHaveBeenNthCalledWith(3, 201);
     expect(res.json).toHaveBeenNthCalledWith(3, await mockCreateSwap());
@@ -572,13 +571,13 @@ describe('Controller', () => {
 
     await controller.createSwap(mockRequest(requestData), res);
 
-    expect(service.createSwap).toHaveBeenCalledWith(
-      requestData.pairId,
-      requestData.orderSide,
-      getHexBuffer(requestData.refundPublicKey),
-      getHexBuffer(requestData.preimageHash),
-      requestData.channel,
-    );
+    expect(service.createSwap).toHaveBeenCalledWith({
+      pairId: requestData.pairId,
+      orderSide: requestData.orderSide,
+      refundPublicKey: getHexBuffer(requestData.refundPublicKey),
+      preimageHash: getHexBuffer(requestData.preimageHash),
+      channel: requestData.channel,
+    });
 
     expect(res.status).toHaveBeenNthCalledWith(4, 201);
     expect(res.json).toHaveBeenNthCalledWith(4, await mockCreateSwap());
@@ -654,13 +653,13 @@ describe('Controller', () => {
 
     await controller.createSwap(mockRequest(requestData), res);
 
-    expect(service.createReverseSwap).toHaveBeenCalledWith(
-      requestData.pairId,
-      requestData.orderSide,
-      getHexBuffer(requestData.preimageHash),
-      requestData.invoiceAmount,
-      getHexBuffer(requestData.claimPublicKey),
-    );
+    expect(service.createReverseSwap).toHaveBeenCalledWith({
+      pairId: requestData.pairId,
+      orderSide: requestData.orderSide,
+      preimageHash: getHexBuffer(requestData.preimageHash),
+      invoiceAmount: requestData.invoiceAmount,
+      claimPublicKey: getHexBuffer(requestData.claimPublicKey),
+    });
 
     expect(res.status).toHaveBeenNthCalledWith(2, 201);
     expect(res.json).toHaveBeenNthCalledWith(2, await mockCreateReverseSwap());

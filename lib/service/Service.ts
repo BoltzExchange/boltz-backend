@@ -12,14 +12,13 @@ import EventHandler from './EventHandler';
 import { PairConfig } from '../consts/Types';
 import { gweiDecimals } from '../consts/Consts';
 import PairRepository from '../db/PairRepository';
-import { BaseFeeType } from '../rates/FeeProvider';
 import { encodeBip21 } from './PaymentRequestUtils';
 import { SendResponse } from '../lightning/LndClient';
 import TimeoutDeltaProvider from './TimeoutDeltaProvider';
 import RateProvider, { PairType } from '../rates/RateProvider';
+import WalletManager, { Currency } from '../wallet/WalletManager';
 import SwapManager, { ChannelCreationInfo } from '../swap/SwapManager';
-import { OrderSide, ServiceInfo, ServiceWarning } from '../consts/Enums';
-import WalletManager, { Currency, CurrencyType } from '../wallet/WalletManager';
+import { BaseFeeType, CurrencyType, OrderSide, ServiceInfo, ServiceWarning } from '../consts/Enums';
 import {
   Balance,
   ChainInfo,
@@ -934,11 +933,11 @@ class Service {
     if (wallet !== undefined) {
       const sendingPromise = sendAll ? wallet.sweepWallet(address, fee) : wallet.sendToAddress(address, amount, fee);
 
-      const { transaction, vout } = await sendingPromise;
+      const { transactionId, vout } = await sendingPromise;
 
       return {
+        transactionId,
         vout: vout!,
-        transactionId: transaction!.getId(),
       };
     }
 

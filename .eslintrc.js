@@ -6,6 +6,7 @@ module.exports = {
     'jest/expect-expect': 'off',
     'node/no-missing-import': 'off',
     'node/no-extraneous-import': 'off',
+    'jest/no-conditional-expect': 'off',
     '@typescript-eslint/no-explicit-any': 'off',
     '@typescript-eslint/no-empty-function': 'off',
     'node/no-unsupported-features/es-syntax': 'off',

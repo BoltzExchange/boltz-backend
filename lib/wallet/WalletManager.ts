@@ -9,17 +9,12 @@ import Logger from '../Logger';
 import { splitDerivationPath } from '../Utils';
 import ChainClient from '../chain/ChainClient';
 import LndClient from '../lightning/LndClient';
+import { CurrencyType } from '../consts/Enums';
 import KeyRepository from '../db/KeyRepository';
 import EthereumManager from './ethereum/EthereumManager';
 import ChainTipRepository from '../db/ChainTipRepository';
 import { KeyProviderType } from '../db/models/KeyProvider';
 import LndWalletProvider from './providers/LndWalletProvider';
-
-enum CurrencyType {
-  BitcoinLike,
-  Ether,
-  ERC20
-}
 
 type CurrencyLimits = {
   maxSwapAmount: number;
@@ -184,4 +179,4 @@ class WalletManager {
 }
 
 export default WalletManager;
-export { CurrencyType, Currency };
+export { Currency };

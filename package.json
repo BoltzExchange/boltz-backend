@@ -52,7 +52,7 @@
     "dist/**/!(tsconfig.tsbuildinfo)"
   ],
   "engines": {
-    "node": "10.21.0"
+    "node": ">=10.21.0"
   },
   "dependencies": {
     "@boltz/bolt11": "^1.2.7",
@@ -78,7 +78,7 @@
     "sequelize": "^6.3.5",
     "sqlite3": "^5.0.0",
     "winston": "^3.3.3",
-    "yargs": "^16.0.2",
+    "yargs": "^16.0.3",
     "zeromq": "^5.2.0"
   },
   "devDependencies": {

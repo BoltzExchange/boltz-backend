@@ -14,12 +14,13 @@ import GrpcService from './grpc/GrpcService';
 import LndClient from './lightning/LndClient';
 import ChainClient from './chain/ChainClient';
 import Config, { ConfigType } from './Config';
+import { CurrencyType } from './consts/Enums';
 import { formatError, stringify } from './Utils';
 import BackupScheduler from './backup/BackupScheduler';
 import ChainTipRepository from './db/ChainTipRepository';
-import WalletManager, { Currency, CurrencyType } from './wallet/WalletManager';
-import NotificationProvider from './notifications/NotificationProvider';
 import EthereumManager from './wallet/ethereum/EthereumManager';
+import WalletManager, { Currency } from './wallet/WalletManager';
+import NotificationProvider from './notifications/NotificationProvider';
 
 class Boltz {
   private readonly logger: Logger;

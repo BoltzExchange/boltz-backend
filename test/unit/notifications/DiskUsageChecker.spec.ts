@@ -31,7 +31,7 @@ const lowDiskUsage: DiskUsage = {
 let diskUsage: DiskUsage = {
   free: 2 * gigabyte,
   total: 10 * gigabyte,
-  available: 1 * gigabyte,
+  available: gigabyte,
 };
 
 const mockCheck = jest.fn().mockImplementation(() => diskUsage);

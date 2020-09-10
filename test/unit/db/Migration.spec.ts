@@ -1,5 +1,15 @@
+import { Sequelize } from 'sequelize';
 import Logger from '../../../lib/Logger';
 import Migration from '../../../lib/db/Migration';
+import DatabaseVersion from '../../../lib/db/models/DatabaseVersion';
+
+const MockedSequelize = <Sequelize><any>jest.fn().mockImplementation(() => {
+
+});
+
+jest.mock('../../../lib/db/models/DatabaseVersion');
+
+DatabaseVersion.sync = jest.fn().mockResolvedValue(undefined);
 
 let mockGetVersionResult: any = undefined;
 const mockGetVersion = jest.fn().mockImplementation(async () => {
@@ -18,7 +28,7 @@ jest.mock('../../../lib/db/DatabaseVersionRepository', () => {
 });
 
 describe('Migration', () => {
-  const migration = new Migration(Logger.disabledLogger);
+  const migration = new Migration(Logger.disabledLogger, MockedSequelize);
 
   beforeEach(() => {
     mockGetVersionResult = undefined;

@@ -23,7 +23,7 @@ type invoiceSettledCallback = (reverseSwap: ReverseSwap) => void;
 type coinsFailedToSendCallback = (reverseSwap: ReverseSwap) => void;
 type expirationCallback = (swap: Swap | ReverseSwap, isReverse: boolean) => void;
 type coinsSentCallback = (reverseSwap: ReverseSwap, transaction: Transaction) => void;
-type transactionCallback = (transaction: Transaction, swap: Swap | ReverseSwap, confirmed: boolean, isReverse: boolean) => void;
+type transactionCallback = (swap: Swap | ReverseSwap, transaction: Transaction, confirmed: boolean, isReverse: boolean) => void;
 
 type channelCreatedCallback = (swap: Swap, channelCreation: ChannelCreation) => void;
 
@@ -208,7 +208,7 @@ describe('EventHandler', () => {
       eventsEmitted += 1;
     });
 
-    emitTransaction({} as any, swap, false, false);
+    emitTransaction(swap, {} as any, false, false);
 
     eventHandler.once('swap.update', (id, message) => {
       expect(id).toEqual(swap.id);
@@ -217,7 +217,7 @@ describe('EventHandler', () => {
       eventsEmitted += 1;
     });
 
-    emitTransaction({} as any, swap, true, false);
+    emitTransaction(swap, {} as any, true, false);
 
     // Reverse swap related transaction event
     const transaction = mockTransaction();
@@ -235,7 +235,7 @@ describe('EventHandler', () => {
       eventsEmitted += 1;
     });
 
-    emitTransaction(transaction, reverseSwap as ReverseSwap, true, true);
+    emitTransaction(reverseSwap as ReverseSwap, transaction, true, true);
 
     expect(eventsEmitted).toEqual(3);
   });

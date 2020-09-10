@@ -111,10 +111,13 @@ describe('TimeoutDeltaProvider', () => {
     expect(writtenConfig.pairs[0].timeoutDelta).toEqual(newDelta);
   });
 
-  test('should throw if the block time cannot be found', () => {
+  test('should use Ethereum block times if symbols that are not hardcoded are calculated', () => {
     const minutesToBlocks = deltaProvider['minutesToBlocks'];
 
-    expect(() => minutesToBlocks('not/found', 10)).toThrow(Errors.BLOCK_TIME_NOT_FOUND('not').message);
+    expect(minutesToBlocks('USDT/USDC', 1)).toEqual({
+      base: 4,
+      quote: 4,
+    });
   });
 
   test('should convert blocks', () => {

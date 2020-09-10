@@ -1,17 +1,10 @@
 import Logger from '../Logger';
 import { BigNumber } from 'ethers';
-import { OrderSide } from '../consts/Enums';
 import { PairConfig } from '../consts/Types';
 import DataAggregator from './data/DataAggregator';
+import { BaseFeeType, OrderSide } from '../consts/Enums';
 import { etherDecimals, gweiDecimals } from '../consts/Consts';
 import { mapToObject, getPairId, stringify, getChainCurrency, splitPairId } from '../Utils';
-
-enum BaseFeeType {
-  NormalClaim,
-
-  ReverseLockup,
-  ReverseClaim,
-}
 
 class FeeProvider {
   // A map between the symbols of the pairs and their percentage fees
@@ -155,4 +148,3 @@ class FeeProvider {
 }
 
 export default FeeProvider;
-export { BaseFeeType };

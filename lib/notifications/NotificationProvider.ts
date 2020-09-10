@@ -1,17 +1,16 @@
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';
 import Service from '../service/Service';
-import { OrderSide } from '../consts/Enums';
 import DiscordClient from './DiscordClient';
 import CommandHandler from './CommandHandler';
 import DiskUsageChecker from './DiskUsageChecker';
 import ReverseSwap from '../db/models/ReverseSwap';
 import BackupScheduler from '../backup/BackupScheduler';
+import { CurrencyType, OrderSide } from '../consts/Enums';
 import { satoshisToCoins } from '../DenominationConverter';
 import { CurrencyConfig, NotificationConfig } from '../Config';
 import { ChainInfo, CurrencyInfo, LndInfo } from '../proto/boltzrpc_pb';
 import { decodeInvoice, getChainCurrency, getLightningCurrency, getSendingReceivingCurrency, minutesToMilliseconds, splitPairId, } from '../Utils';
-import { CurrencyType } from '../wallet/WalletManager';
 
 // TODO: test balance and service alerts
 // TODO: use events instead of intervals to check connections and balances

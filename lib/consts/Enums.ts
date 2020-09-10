@@ -76,3 +76,16 @@ export enum SwapType {
   Submarine = 'submarine',
   ReverseSubmarine = 'reversesubmarine',
 }
+
+export enum BaseFeeType {
+  NormalClaim,
+
+  ReverseLockup,
+  ReverseClaim,
+}
+
+export enum CurrencyType {
+  BitcoinLike,
+  Ether,
+  ERC20
+}

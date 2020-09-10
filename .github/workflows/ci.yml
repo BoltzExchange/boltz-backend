@@ -7,7 +7,7 @@ jobs:
     strategy:
       matrix:
         platform: [ubuntu-latest]
-        node-version: [10.x, 12.x, 14.x]
+        node-version: [10, 12, 14]
 
     runs-on: ${{ matrix.platform }}
 
@@ -24,10 +24,10 @@ jobs:
         run: npm ci
 
       - name: Start containers
-        run: npm run docker:regtest && npm run docker:ganache
+        run: npm run docker:regtest && npm run docker:geth
 
-      - name: Deploy Ganache contracts
-        run: sleep 15 && npm run docker:ganache:deploy
+      - name: Deploy Ethereum contracts
+        run: sleep 15 && npm run docker:geth:deploy
 
       - name: Compile
         run: npm run compile

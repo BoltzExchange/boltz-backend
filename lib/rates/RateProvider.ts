@@ -1,9 +1,10 @@
 import Errors from './Errors';
 import Logger from '../Logger';
+import FeeProvider from './FeeProvider';
 import { PairConfig } from '../consts/Types';
 import DataAggregator from './data/DataAggregator';
-import { Currency, CurrencyType } from '../wallet/WalletManager';
-import FeeProvider, { BaseFeeType } from './FeeProvider';
+import { Currency } from '../wallet/WalletManager';
+import { BaseFeeType, CurrencyType } from '../consts/Enums';
 import { getPairId, mapToObject, minutesToMilliseconds, splitPairId, stringify } from '../Utils';
 
 type CurrencyLimits = {

@@ -10,12 +10,13 @@ import SwapRepository from '../db/SwapRepository';
 import ReverseSwap from '../db/models/ReverseSwap';
 import { ReverseSwapOutputType } from '../consts/Consts';
 import ReverseSwapRepository from '../db/ReverseSwapRepository';
+import WalletManager, { Currency } from '../wallet/WalletManager';
 import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
 import ChannelCreationRepository from '../db/ChannelCreationRepository';
-import WalletManager, { Currency, CurrencyType } from '../wallet/WalletManager';
-import { ChannelCreationType, OrderSide, SwapUpdateEvent } from '../consts/Enums';
+import { ChannelCreationType, OrderSide, SwapUpdateEvent, CurrencyType } from '../consts/Enums';
 import {
   decodeInvoice,
+  formatError,
   generateId,
   getChainCurrency,
   getHexBuffer,
@@ -339,12 +340,15 @@ class SwapManager {
 
     // If the onchain coins were sent already and 0-conf can be accepted or
     // the lockup transaction is confirmed the swap should be settled directly
-    console.log(swap.status);
     if (swap.lockupTransactionId && previousStatus !== SwapUpdateEvent.TransactionZeroConfRejected) {
-      await this.nursery.attemptSettleSwap(
-        receivingCurrency,
-        swap,
-      );
+      try {
+        await this.nursery.attemptSettleSwap(
+          receivingCurrency,
+          swap,
+        );
+      } catch (error) {
+        this.logger.warn(`Could not settle Swap ${swap.id}: ${formatError(error)}`);
+      }
     }
 
     return response;

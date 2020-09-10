@@ -328,8 +328,9 @@ class SwapManager {
       }
     }
 
-    this.logger.debug(`Setting invoice of Swap ${swap.id}: ${invoice}`);
+    const previousStatus = swap.status;
 
+    this.logger.debug(`Setting invoice of Swap ${swap.id}: ${invoice}`);
     const updatedSwap = await this.swapRepository.setInvoice(swap, invoice, expectedAmount, percentageFee, acceptZeroConf);
 
     // Not the most elegant way to emit this event but the only option
@@ -338,7 +339,8 @@ class SwapManager {
 
     // If the onchain coins were sent already and 0-conf can be accepted or
     // the lockup transaction is confirmed the swap should be settled directly
-    if (swap.lockupTransactionId) {
+    console.log(swap.status);
+    if (swap.lockupTransactionId && previousStatus !== SwapUpdateEvent.TransactionZeroConfRejected) {
       await this.nursery.attemptSettleSwap(
         receivingCurrency,
         swap,

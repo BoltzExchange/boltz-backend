@@ -178,6 +178,13 @@ class SwapNursery extends EventEmitter {
       this.utxoNursery.on('swap.lockup.zeroconf.rejected', async (swap, transaction, reason) => {
       await this.lock.acquire(SwapNursery.swapLock, async () => {
         this.logger.warn(`Rejected 0-conf lockup transaction (${transaction.getId()}) of ${swap.id}: ${reason}`);
+
+        console.log(swap.invoice);
+        if (!swap.invoice) {
+          console.log('here');
+          await this.setSwapRate(swap);
+        }
+
         this.emit('zeroconf.rejected', await this.swapRepository.setSwapStatus(swap, SwapUpdateEvent.TransactionZeroConfRejected));
       });
     });
@@ -414,13 +421,15 @@ class SwapNursery extends EventEmitter {
    * Sets the rate for a Swap that doesn't have an invoice yet
    */
   private setSwapRate = async (swap: Swap) => {
-    const rate = getRate(
-      this.rateProvider.pairs.get(swap.pair)!.rate,
-      swap.orderSide,
-      false
-    );
+    if (!swap.rate) {
+      const rate = getRate(
+        this.rateProvider.pairs.get(swap.pair)!.rate,
+        swap.orderSide,
+        false
+      );
 
-    await this.swapRepository.setRate(swap, rate);
+      await this.swapRepository.setRate(swap, rate);
+    }
   }
 
   private lockupUtxo = async (

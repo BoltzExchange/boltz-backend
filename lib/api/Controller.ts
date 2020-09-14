@@ -70,7 +70,10 @@ class Controller {
           break;
 
         default:
-          this.pendingSwapInfos.set(swap.id, { status: swap.status as SwapUpdateEvent });
+          this.pendingSwapInfos.set(swap.id, {
+            status: swap.status as SwapUpdateEvent,
+            failureReason: swap.failureReason,
+          });
           break;
       }
     }

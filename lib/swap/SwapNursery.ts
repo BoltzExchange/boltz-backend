@@ -703,7 +703,7 @@ class SwapNursery extends EventEmitter {
 
   private lockupFailed = async (swap: Swap, reason: string) => {
     this.logger.warn(`Lockup of Swap ${swap.id} failed: ${reason}`);
-    this.emit('lockup.failed', await this.swapRepository.setSwapStatus(swap, SwapUpdateEvent.TransactionLockupFailed));
+    this.emit('lockup.failed', await this.swapRepository.setSwapStatus(swap, SwapUpdateEvent.TransactionLockupFailed, reason));
   }
 
   private expireSwap = async (swap: Swap) =>  {

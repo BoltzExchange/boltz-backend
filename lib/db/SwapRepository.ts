@@ -36,9 +36,10 @@ class SwapRepository {
     return Swap.create(swap);
   }
 
-  public setSwapStatus = (swap: Swap, status: string): Promise<Swap> => {
+  public setSwapStatus = (swap: Swap, status: string, failureReason?: string,): Promise<Swap> => {
     return swap.update({
       status,
+      failureReason,
     });
   }
 

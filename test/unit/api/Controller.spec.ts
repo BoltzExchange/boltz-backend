@@ -3,11 +3,11 @@ import Logger from '../../../lib/Logger';
 import Service from '../../../lib/service/Service';
 import Controller from '../../../lib/api/Controller';
 import SwapNursery from '../../../lib/swap/SwapNursery';
+import ChannelCreation from '../../../lib/db/models/ChannelCreation';
 import { ReverseSwapType } from '../../../lib/db/models/ReverseSwap';
 import { SwapType as SwapDbType } from '../../../lib/db/models/Swap';
 import { SwapUpdateEvent, SwapType } from '../../../lib/consts/Enums';
 import { mapToObject, getHexBuffer, getVersion } from '../../../lib/Utils';
-import ChannelCreation from '../../../lib/db/models/ChannelCreation';
 
 type closeResponseCallback = () => void;
 type swapUpdateCallback = (id: string, message: string) => void;
@@ -20,6 +20,11 @@ const swaps: SwapDbType[] = [
   {
     id: 'channel',
     status: SwapUpdateEvent.ChannelCreated,
+  } as any as SwapDbType,
+  {
+    id: 'failureReason',
+    status: SwapUpdateEvent.TransactionLockupFailed,
+    failureReason: 'lockupFailed',
   } as any as SwapDbType,
 ];
 
@@ -212,6 +217,10 @@ describe('Controller', () => {
         fundingTransactionId: channelCreation.fundingTransactionId,
         fundingTransactionVout: channelCreation.fundingTransactionVout,
       },
+    });
+    expect(pendingSwaps.get(swaps[2].id)).toEqual({
+      status: swaps[2].status,
+      failureReason: swaps[2].failureReason,
     });
 
     expect(pendingSwaps.get(reverseSwaps[0].id)).toEqual({

@@ -13,7 +13,7 @@ import ChannelCreation from '../../../lib/db/models/ChannelCreation';
 
 type channelBackupCallback = (channelBackup: string) => void;
 
-type claimCallback = (swap: Swap, channelCreation?: ChannelCreation) => void;
+type lockupFailedCallback = (swap: Swap) => void;
 type invoicePaidCallback = (swap: Swap) => void;
 type invoiceFailedCallback = (swap: Swap) => void;
 type invoicePendingCallback = (swap: Swap) => void;
@@ -21,11 +21,11 @@ type refundCallback = (reverseSwap: ReverseSwap) => void;
 type minerfeePaidCallback = (reverseSwap: ReverseSwap) => void;
 type invoiceSettledCallback = (reverseSwap: ReverseSwap) => void;
 type coinsFailedToSendCallback = (reverseSwap: ReverseSwap) => void;
+type claimCallback = (swap: Swap, channelCreation?: ChannelCreation) => void;
 type expirationCallback = (swap: Swap | ReverseSwap, isReverse: boolean) => void;
+type channelCreatedCallback = (swap: Swap, channelCreation: ChannelCreation) => void;
 type coinsSentCallback = (reverseSwap: ReverseSwap, transaction: Transaction) => void;
 type transactionCallback = (swap: Swap | ReverseSwap, transaction: Transaction, confirmed: boolean, isReverse: boolean) => void;
-
-type channelCreatedCallback = (swap: Swap, channelCreation: ChannelCreation) => void;
 
 let emitChannelBackup: channelBackupCallback;
 
@@ -49,6 +49,7 @@ let emitCoinsSent: coinsSentCallback;
 let emitExpiration: expirationCallback;
 let emitTransaction: transactionCallback;
 let emitInvoicePaid: invoicePaidCallback;
+let emitLockupFailed: lockupFailedCallback;
 let emitMinerfeePaid: minerfeePaidCallback;
 let emitInvoicePending: invoicePendingCallback;
 let emitInvoiceSettled: invoiceSettledCallback;
@@ -104,6 +105,10 @@ jest.mock('../../../lib/swap/SwapNursery', () => {
         case 'transaction':
           emitTransaction = callback;
           break;
+
+        case 'lockup.failed':
+          emitLockupFailed = callback;
+          break;
       }
     },
     channelNursery: {
@@ -130,6 +135,10 @@ const channelCreation = {
   fundingTransactionId: 'fundingId',
   fundingTransactionVout: 43,
 } as ChannelCreation;
+
+const failureReasons = {
+  lockup: 'lockupFailed',
+};
 
 const reverseSwap = {
   id: 'reverseId',
@@ -499,6 +508,25 @@ describe('EventHandler', () => {
     });
 
     emitChannelCreated(swap, channelCreation);
+
+    expect(eventsEmitted).toEqual(1);
+    eventsEmitted = 0;
+
+    // Lockup failed
+    eventHandler.once('swap.update', (id, message) => {
+      expect(id).toEqual(swap.id);
+      expect(message).toEqual({
+        status: SwapUpdateEvent.TransactionLockupFailed,
+        failureReason: failureReasons.lockup,
+      });
+
+      eventsEmitted += 1;
+    });
+
+    emitLockupFailed({
+      ...swap,
+      failureReason: failureReasons.lockup,
+    } as any as Swap);
 
     expect(eventsEmitted).toEqual(1);
     eventsEmitted = 0;

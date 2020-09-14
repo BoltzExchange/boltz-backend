@@ -18,6 +18,7 @@ type TransactionInfo = {
 
 type SwapUpdate = {
   status: SwapUpdateEvent;
+  failureReason?: string;
 
   zeroConfRejected?: boolean;
   transaction?: TransactionInfo;
@@ -189,6 +190,13 @@ class EventHandler extends EventEmitter {
           fundingTransactionId: channelCreation.fundingTransactionId!,
           fundingTransactionVout: channelCreation.fundingTransactionVout!,
         },
+      });
+    });
+
+    this.nursery.on('lockup.failed', (swap: Swap) => {
+      this.emit('swap.update', swap.id, {
+        status: SwapUpdateEvent.TransactionLockupFailed,
+        failureReason: swap.failureReason,
       });
     });
   }

@@ -15,6 +15,7 @@ type SwapType = {
   orderSide: number;
 
   status: string;
+  failureReason?: string;
 
   preimageHash: string;
   invoice?: string;
@@ -43,6 +44,7 @@ class Swap extends Model implements SwapType {
   public orderSide!: number;
 
   public status!: string;
+  public failureReason?: string;
 
   public preimageHash!: string;
   public invoice?: string;
@@ -70,6 +72,7 @@ class Swap extends Model implements SwapType {
       pair: { type: new DataTypes.STRING(255), allowNull: false },
       orderSide: { type: new DataTypes.INTEGER(), allowNull: false },
       status: { type: new DataTypes.STRING(255), allowNull: false },
+      failureReason: { type: new DataTypes.STRING(255), allowNull: true },
       preimageHash: { type: new DataTypes.STRING(255), allowNull: false, unique: true },
       invoice: { type: new DataTypes.STRING(255), allowNull: true, unique: true },
       acceptZeroConf: { type: DataTypes.BOOLEAN, allowNull: true },

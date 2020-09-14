@@ -239,6 +239,9 @@ class ChannelNursery extends EventEmitter {
           id: {
             [Op.eq]: channelToOpen.swapId,
           },
+          status: {
+            [Op.not]: SwapUpdateEvent.SwapExpired,
+          },
         });
 
         if (!swap || !this.eligibleForChannel(swap!)) {

@@ -18,7 +18,7 @@ import SwapRepository from '../db/SwapRepository';
 import LightningNursery from './LightningNursery';
 import ReverseSwap from '../db/models/ReverseSwap';
 import ChannelCreation from '../db/models/ChannelCreation';
-import { CurrencyType, SwapUpdateEvent } from '../consts/Enums';
+import { ChannelCreationStatus, CurrencyType, SwapUpdateEvent } from '../consts/Enums';
 import ReverseSwapRepository from '../db/ReverseSwapRepository';
 import ContractHandler from '../wallet/ethereum/ContractHandler';
 import WalletManager, { Currency } from '../wallet/WalletManager';
@@ -670,7 +670,11 @@ class SwapNursery extends EventEmitter {
         this.emit('invoice.failedToPay', await this.swapRepository.setSwapStatus(swap, SwapUpdateEvent.InvoiceFailedToPay));
 
       // If the invoice could not be paid but the Swap has a Channel Creation attached to it, a channel will be opened
-      } else if (channelCreation && !channelCreation.status && !formattedError.startsWith('unable to route payment to destination: UnknownNextPeer')) {
+      } else if (
+        channelCreation &&
+        channelCreation.status !== ChannelCreationStatus.Created &&
+        !formattedError.startsWith('unable to route payment to destination: UnknownNextPeer')
+      ) {
         await this.channelNursery.openChannel(lightningCurrency, swap, channelCreation);
       }
     }

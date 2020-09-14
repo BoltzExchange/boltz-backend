@@ -456,6 +456,9 @@ describe('ChannelNursery', () => {
       id: {
         [Op.eq]: mockGetChannelCreationsResult[0].swapId,
       },
+      status: {
+        [Op.not]: SwapUpdateEvent.SwapExpired,
+      },
     });
 
     expect(mockListPeers).toHaveBeenCalledTimes(1);

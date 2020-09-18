@@ -4,6 +4,7 @@ import { Erc20Swap } from 'boltz-core/typechain/Erc20Swap';
 import Logger from '../../Logger';
 import { getHexString } from '../../Utils';
 import ERC20WalletProvider from '../providers/ERC20WalletProvider';
+import { getGasPrice } from './EthereumUtils';
 
 class ContractHandler {
   private etherSwap!: EtherSwap;
@@ -27,6 +28,7 @@ class ContractHandler {
     this.logger.debug(`Locking ${amount} Ether with preimage hash: ${getHexString(preimageHash)}`);
     return this.etherSwap.lock(preimageHash, claimAddress, `${timeLock}`, {
       value: amount,
+      gasPrice: await getGasPrice(this.etherSwap.provider),
     });
   }
 
@@ -42,6 +44,9 @@ class ContractHandler {
       amount,
       refundAddress,
       timelock,
+      {
+        gasPrice: await getGasPrice(this.etherSwap.provider),
+      }
     );
   }
 
@@ -57,6 +62,9 @@ class ContractHandler {
       amount,
       claimAddress,
       timelock,
+      {
+        gasPrice: await getGasPrice(this.etherSwap.provider),
+      }
     );
   }
 
@@ -74,6 +82,9 @@ class ContractHandler {
       token.getTokenAddress(),
       claimAddress,
       timeLock,
+      {
+        gasPrice: await getGasPrice(this.erc20Swap.provider),
+      }
     );
   }
 
@@ -82,7 +93,7 @@ class ContractHandler {
     preimage: Buffer,
     amount: BigNumber,
     refundAddress: string,
-    timelock: number,
+    timeLock: number,
   ): Promise<ContractTransaction> => {
     this.logger.debug(`Claiming ${token.symbol} with preimage: ${getHexString(preimage)}`);
     return this.erc20Swap.claim(
@@ -90,7 +101,10 @@ class ContractHandler {
       amount,
       token.getTokenAddress(),
       refundAddress,
-      timelock,
+      timeLock,
+      {
+        gasPrice: await getGasPrice(this.erc20Swap.provider),
+      }
     );
   }
 
@@ -108,6 +122,9 @@ class ContractHandler {
       token.getTokenAddress(),
       claimAddress,
       timeLock,
+      {
+        gasPrice: await getGasPrice(this.erc20Swap.provider),
+      }
     );
   }
 }

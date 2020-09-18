@@ -7,7 +7,7 @@ import commitHash from './Version';
 import packageJson from '../package.json';
 import { OrderSide } from './consts/Enums';
 import ChainClient from './chain/ChainClient';
-import { ContractTransaction } from 'ethers';
+import { BigNumber, ContractTransaction } from 'ethers';
 import { etherDecimals } from './consts/Consts';
 
 const {
@@ -436,4 +436,8 @@ export const calculateUtxoTransactionFee = async (chainClient: ChainClient, tran
  */
 export const calculateEthereumTransactionFee = (transaction: ContractTransaction): number => {
   return transaction.gasLimit.mul(transaction.gasPrice).div(etherDecimals).toNumber();
+};
+
+export const getBiggerBigNumber = (a: BigNumber, b: BigNumber): BigNumber => {
+  return a.gt(b) ? a : b;
 };

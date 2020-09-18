@@ -1,6 +1,7 @@
 import { BigNumber, providers } from 'ethers';
-import { getHexBuffer } from '../../Utils';
+import GasNow from './GasNow';
 import { gweiDecimals } from '../../consts/Consts';
+import { getBiggerBigNumber, getHexBuffer } from '../../Utils';
 
 /**
  * Removes the 0x prefix of the Ethereum bytes
@@ -20,5 +21,5 @@ export const getGasPrice = async (provider: providers.Provider, gasPrice?: numbe
     return BigNumber.from(gasPrice).mul(gweiDecimals);
   }
 
-  return await provider.getGasPrice();
+  return getBiggerBigNumber(await provider.getGasPrice(), GasNow.latestGasPrice);
 };

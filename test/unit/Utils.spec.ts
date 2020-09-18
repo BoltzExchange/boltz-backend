@@ -1,4 +1,5 @@
 import os from 'os';
+import { BigNumber } from 'ethers';
 import { OutputType } from 'boltz-core';
 import { Transaction } from 'bitcoinjs-lib';
 import * as utils from '../../lib/Utils';
@@ -238,5 +239,13 @@ describe('Utils', () => {
 
   test('should get UNIX time', () => {
     expect(utils.getUnixTime()).toEqual(Math.round(new Date().getTime() / 1000));
+  });
+
+  test('should get bigger BigNumber', () => {
+    const big = BigNumber.from(2);
+    const small = BigNumber.from(1);
+
+    expect(utils.getBiggerBigNumber(big, small)).toEqual(big);
+    expect(utils.getBiggerBigNumber(small, big)).toEqual(big);
   });
 });

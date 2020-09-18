@@ -3,6 +3,7 @@ import { Ierc20 } from 'boltz-core/typechain/Ierc20';
 import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { Erc20Swap } from 'boltz-core/typechain/Erc20Swap';
 import { constants, Contract, providers, Wallet as EthersWallet } from 'ethers';
+import GasNow from './GasNow';
 import Errors from '../Errors';
 import Wallet from '../Wallet';
 import Logger from '../../Logger';
@@ -83,6 +84,8 @@ class EthereumManager {
       chainId: await signer.getChainId(),
       blockNumber: currentBlock,
     })}`);
+
+    await new GasNow().init();
 
     this.provider.on('block', async (height) => {
       await chainTipRepository.updateTip(chainTip, height);

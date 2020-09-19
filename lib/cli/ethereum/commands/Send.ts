@@ -1,5 +1,7 @@
+import { join } from 'path';
 import { Arguments } from 'yargs';
-import { BigNumber } from 'ethers';
+import { BigNumber, Wallet } from 'ethers';
+import { existsSync, readFileSync } from 'fs';
 import { etherDecimals } from '../../../consts/Consts';
 import BuilderComponents from '../../BuilderComponents';
 import { connectEthereum, getContracts } from '../EthereumUtils';
@@ -16,7 +18,6 @@ export const builder = {
   destination: {
     describe: 'address to which the coins should be sent',
     type: 'string',
-    default: '0xf75812E6F32a0465ea5369Ab1259cf0B5B2198d0',
   },
   token: BuilderComponents.token,
 };
@@ -29,15 +30,33 @@ export const handler = async (argv: Arguments<any>): Promise<void> => {
 
   let transactionHash: string;
 
+  let destination = argv.destination;
+
+  if (destination === undefined) {
+    const filePath = join(process.env.HOME!, '.boltz/seed.dat');
+
+    if (existsSync(filePath)) {
+      destination = await Wallet.fromMnemonic(readFileSync(
+        filePath,
+        {
+          encoding: 'utf-8',
+        },
+      )).getAddress();
+    } else {
+      console.log('Did not send coins because no address was specified');
+      return;
+    }
+  }
+
   if (argv.token) {
-    const transaction = await token.transfer(argv.destination, amount);
+    const transaction = await token.transfer(destination, amount);
     await transaction.wait(1);
 
     transactionHash = transaction.hash;
   } else {
     const transaction = await signer.sendTransaction({
       value: amount,
-      to: argv.destination,
+      to: destination,
     });
     await transaction.wait(1);
 

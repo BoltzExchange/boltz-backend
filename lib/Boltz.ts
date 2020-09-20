@@ -176,6 +176,7 @@ class Boltz {
       this.logger.verbose('Finished rescanning');
     } catch (error) {
       this.logger.error(`Could not initialize Boltz: ${formatError(error)}`);
+      console.log(error);
       // eslint-disable-next-line no-process-exit
       process.exit(1);
     }

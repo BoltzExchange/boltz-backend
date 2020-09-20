@@ -8,6 +8,7 @@ import ReverseSwap from './models/ReverseSwap';
 import KeyProvider from './models/KeyProvider';
 import DatabaseVersion from './models/DatabaseVersion';
 import ChannelCreation from './models/ChannelCreation';
+import PendingEthereumTransaction from './models/PendingEthereumTransaction';
 
 class Db {
   public sequelize: Sequelize.Sequelize;
@@ -46,6 +47,7 @@ class Db {
       ChainTip.sync(),
       KeyProvider.sync(),
       DatabaseVersion.sync(),
+      PendingEthereumTransaction.sync(),
     ]);
 
     await Promise.all([
@@ -68,6 +70,7 @@ class Db {
     KeyProvider.load(this.sequelize);
     ChannelCreation.load(this.sequelize);
     DatabaseVersion.load(this.sequelize);
+    PendingEthereumTransaction.load(this.sequelize);
   }
 }
 

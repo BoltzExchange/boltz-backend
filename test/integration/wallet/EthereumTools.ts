@@ -10,7 +10,7 @@ export const getSigner = (): { provider: providers.WebSocketProvider, signer: Si
   return {
     provider,
     signer: Wallet.createRandom().connect(provider),
-    etherBase: provider.getSigner('0x88532974EC20559608681A53F4Ac8C34dd5e2804'),
+    etherBase: provider.getSigner(0),
   };
 };
 

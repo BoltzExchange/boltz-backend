@@ -14,6 +14,8 @@ import ContractEventHandler from './ContractEventHandler';
 import ChainTipRepository from '../../db/ChainTipRepository';
 import EtherWalletProvider from '../providers/EtherWalletProvider';
 import ERC20WalletProvider from '../providers/ERC20WalletProvider';
+import EthereumTransactionTracker from './EthereumTransactionTracker';
+import InjectedProvider from './InjectedProvider';
 
 class EthereumManager {
   public provider: providers.Provider;
@@ -41,7 +43,10 @@ class EthereumManager {
 
     this.logger.verbose(`Connecting to web3 provider: ${this.ethereumConfig.providerEndpoint}`);
 
-    this.provider = new providers.WebSocketProvider(this.ethereumConfig.providerEndpoint);
+    this.provider = new InjectedProvider(
+      this.logger,
+      this.ethereumConfig.providerEndpoint,
+    );
 
     this.logger.debug(`Using Ether Swap contract: ${this.ethereumConfig.etherSwapAddress}`);
     this.logger.debug(`Using ERC20 Swap contract: ${this.ethereumConfig.erc20SwapAddress}`);
@@ -72,7 +77,7 @@ class EthereumManager {
       this.checkContractVersion('ERC20Swap', this.erc20Swap, EthereumManager.supportedContractVersions.ERC20Swap),
     ]);
 
-    this.logger.verbose(`Using web3 signer ${this.address}`);
+    this.logger.verbose(`Using Ethereum signer: ${this.address}`);
 
     const currentBlock = await signer.provider!.getBlockNumber();
     const chainTip = await chainTipRepository.findOrCreateTip('ETH', currentBlock);
@@ -86,9 +91,19 @@ class EthereumManager {
     })}`);
 
     await new GasNow().init();
+    const transactionTracker = await new EthereumTransactionTracker(
+      this.logger,
+      this.provider,
+      signer,
+    );
 
-    this.provider.on('block', async (height) => {
-      await chainTipRepository.updateTip(chainTip, height);
+    await transactionTracker.init();
+
+    this.provider.on('block', async (blockNumber: number) => {
+      await Promise.all([
+        chainTipRepository.updateTip(chainTip, blockNumber),
+        transactionTracker.scanBlock(blockNumber),
+      ]);
     });
 
     const wallets = new Map<string, Wallet>();

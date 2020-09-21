@@ -215,6 +215,13 @@ const pairs = new Map<string, any>([
       maximal: Number.MAX_SAFE_INTEGER,
     },
   }],
+  ['LTC/BTC', {
+    rate: 0.004,
+    limits: {
+      minimal: 1,
+      maximal: Number.MAX_SAFE_INTEGER,
+    },
+  }],
   ['test', {
     limits: {
       minimal: 5,
@@ -329,15 +336,26 @@ describe('Service', () => {
       fee: 1,
       timeoutDelta: 10,
     },
+    {
+      base: 'LTC',
+      quote: 'BTC',
+      fee: 5,
+      timeoutDelta: 400,
+    },
   ];
 
   const currencies = new Map<string, Currency>([
     ['BTC', {
       symbol: 'BTC',
       network: Networks.bitcoinRegtest,
-      config: {
-        timeoutBlockDelta: 1,
-      } as any,
+      config: {} as any,
+      lndClient: mockedLndClient(),
+      chainClient: mockedChainClient(),
+    }],
+    ['LTC', {
+      symbol: 'LTC',
+      network: Networks.litecoinRegtest,
+      config: {} as any,
       lndClient: mockedLndClient(),
       chainClient: mockedChainClient(),
     }],
@@ -377,10 +395,14 @@ describe('Service', () => {
 
     expect(mockGetPairs).toHaveBeenCalledTimes(1);
 
-    expect(mockAddPair).toHaveBeenCalledTimes(1);
+    expect(mockAddPair).toHaveBeenCalledTimes(2);
     expect(mockAddPair).toHaveBeenCalledWith({
       id: 'BTC/BTC',
       ...configPairs[0],
+    });
+    expect(mockAddPair).toHaveBeenCalledWith({
+      id: 'LTC/BTC',
+      ...configPairs[1],
     });
 
     expect(mockInitFeeProvider).toHaveBeenCalledTimes(1);
@@ -393,9 +415,9 @@ describe('Service', () => {
   test('should get info', async () => {
     const info = (await service.getInfo()).toObject();
 
-    expect(mockGetInfo).toHaveBeenCalledTimes(1);
-    expect(mockGetNetworkInfo).toHaveBeenCalledTimes(1);
-    expect(mockGetBlockchainInfo).toHaveBeenCalledTimes(1);
+    expect(mockGetInfo).toHaveBeenCalledTimes(2);
+    expect(mockGetNetworkInfo).toHaveBeenCalledTimes(2);
+    expect(mockGetBlockchainInfo).toHaveBeenCalledTimes(2);
 
     expect(info.version.startsWith(packageJson.version)).toBeTruthy();
 
@@ -485,6 +507,10 @@ describe('Service', () => {
   test('should get nodes', async () => {
     expect(await service.getNodes()).toEqual(new Map<string, { nodeKey: string, uris: string[] }>([
       ['BTC', {
+        nodeKey: lndInfo.identityPubkey,
+        uris: lndInfo.urisList,
+      }],
+      ['LTC', {
         nodeKey: lndInfo.identityPubkey,
         uris: lndInfo.urisList,
       }],
@@ -581,27 +607,32 @@ describe('Service', () => {
 
     expect(feeEstimation).toEqual(new Map<string, number>([
       ['BTC', 2],
+      ['LTC', 2],
     ]));
 
-    expect(mockEstimateFee).toHaveBeenCalledTimes(1);
+    expect(mockEstimateFee).toHaveBeenCalledTimes(2);
     expect(mockEstimateFee).toHaveBeenNthCalledWith(1, 2);
 
     // Get fee estimation for a single currency
-    expect(await service.getFeeEstimation('BTC')).toEqual(feeEstimation);
-
-    expect(mockEstimateFee).toHaveBeenCalledTimes(2);
-    expect(mockEstimateFee).toHaveBeenNthCalledWith(2, 2);
-
-    // Get fee estimation for a single currency for a specified amount of blocks
-    expect(await service.getFeeEstimation('BTC', 5)).toEqual(feeEstimation);
+    expect(await service.getFeeEstimation('BTC')).toEqual(new Map<string, number>([
+      ['BTC', 2],
+    ]));
 
     expect(mockEstimateFee).toHaveBeenCalledTimes(3);
-    expect(mockEstimateFee).toHaveBeenNthCalledWith(3, 5);
+    expect(mockEstimateFee).toHaveBeenNthCalledWith(3, 2);
+
+    // Get fee estimation for a single currency for a specified amount of blocks
+    expect(await service.getFeeEstimation('BTC', 5)).toEqual(new Map<string, number>([
+      ['BTC', 2],
+    ]));
+
+    expect(mockEstimateFee).toHaveBeenCalledTimes(4);
+    expect(mockEstimateFee).toHaveBeenNthCalledWith(4, 5);
 
     // Get fee estimation for a single currency that cannot be found
     const notFound = 'notFound';
 
-    await expect(service.getFeeEstimation('notFound'))
+    await expect(service.getFeeEstimation(notFound))
       .rejects.toEqual(Errors.CURRENCY_NOT_FOUND(notFound));
   });
 
@@ -883,7 +914,7 @@ describe('Service', () => {
   });
 
   test('should create reverse swaps', async () => {
-    const pair = 'BTC/BTC';
+    let pair = 'BTC/BTC';
     const orderSide = 'buy';
     const onchainAmount = 99998;
     const invoiceAmount = 100000;
@@ -934,6 +965,34 @@ describe('Service', () => {
       1,
       undefined,
     );
+
+    // Should add a 10% buffer to the lightning timeout block delta for cross chain swaps
+    pair = 'LTC/BTC';
+
+    await service.createReverseSwap(
+      pair,
+      orderSide,
+      preimageHash,
+      invoiceAmount,
+      claimPublicKey,
+    );
+
+    expect(mockCreateReverseSwap).toHaveBeenCalledTimes(2);
+    expect(mockCreateReverseSwap).toHaveBeenNthCalledWith(2,
+      'LTC',
+      'BTC',
+      OrderSide.BUY,
+      preimageHash,
+      invoiceAmount,
+      24999998,
+      claimPublicKey,
+      160,
+      44,
+      1,
+      undefined,
+    );
+
+    pair = 'BTC/BTC';
 
     // Throw if the onchain amount is less than 1
     await expect(service.createReverseSwap(

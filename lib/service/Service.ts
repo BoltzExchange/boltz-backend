@@ -832,8 +832,17 @@ class Service {
     }
 
     const rate = getRate(pairRate, side, true);
+
     const onchainTimeoutBlockDelta = this.timeoutDeltaProvider.getTimeout(args.pairId, side, true);
-    const lightningTimeoutBlockDelta = TimeoutDeltaProvider.convertBlocks(sending, receiving, onchainTimeoutBlockDelta + 3);
+
+    let lightningTimeoutBlockDelta = TimeoutDeltaProvider.convertBlocks(
+      sending,
+      receiving,
+      onchainTimeoutBlockDelta,
+    );
+
+    // Add 3 blocks to the delta for same currency swaps and 10% for cross chain ones as buffer
+    lightningTimeoutBlockDelta += sending === receiving ? 3 : Math.ceil(lightningTimeoutBlockDelta * 0.1);
 
     this.verifyAmount(args.pairId, rate, args.invoiceAmount, side, true);
 

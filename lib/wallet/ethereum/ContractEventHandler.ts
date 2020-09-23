@@ -60,14 +60,13 @@ class ContractEventHandler extends EventEmitter {
 
   public rescan = async (startHeight: number): Promise<void> => {
     const [etherLockups, etherClaims, etherRefunds] = await Promise.all([
-      this.etherSwap.queryFilter(this.etherSwap.filters.Lockup(null, null, null, null), startHeight),
+      this.etherSwap.queryFilter(this.etherSwap.filters.Lockup(null, null, null, null, null), startHeight),
       this.etherSwap.queryFilter(this.etherSwap.filters.Claim(null, null), startHeight),
       this.etherSwap.queryFilter(this.etherSwap.filters.Refund(null), startHeight)
     ]);
 
     for (const event of etherLockups) {
       const args = event.args!;
-      const transaction = await event.getTransaction();
 
       this.emit(
         'eth.lockup',
@@ -76,7 +75,7 @@ class ContractEventHandler extends EventEmitter {
           preimageHash: parseBuffer(event.topics[1]),
           amount: args.amount,
           claimAddress: args.claimAddress,
-          refundAddress: transaction.from,
+          refundAddress: args.refundAddress,
           timelock: args.timelock.toNumber(),
         },
       );
@@ -91,7 +90,7 @@ class ContractEventHandler extends EventEmitter {
     });
 
     const [erc20Lockups, erc20Claims, erc20Refunds] = await Promise.all([
-      this.erc20Swap.queryFilter(this.erc20Swap.filters.Lockup(null, null, null, null, null), startHeight),
+      this.erc20Swap.queryFilter(this.erc20Swap.filters.Lockup(null, null, null, null, null, null), startHeight),
       this.erc20Swap.queryFilter(this.erc20Swap.filters.Claim(null, null), startHeight),
       this.erc20Swap.queryFilter(this.erc20Swap.filters.Refund(null), startHeight)
     ]);
@@ -99,7 +98,6 @@ class ContractEventHandler extends EventEmitter {
 
     for (const event of erc20Lockups) {
       const args = event.args!;
-      const transaction = await event.getTransaction();
 
       this.emit(
         'erc20.lockup',
@@ -109,7 +107,7 @@ class ContractEventHandler extends EventEmitter {
           amount: args.amount,
           tokenAddress: args.tokenAddress,
           claimAddress: args.claimAddress,
-          refundAddress: transaction.from,
+          refundAddress: args.refundAddress,
           timelock: args.timelock.toNumber(),
         },
       );
@@ -129,18 +127,18 @@ class ContractEventHandler extends EventEmitter {
       preimageHash: string,
       amount: BigNumber,
       claimAddress: string,
+      refundAddress: string,
       timelock: BigNumber,
       event: Event,
     ) => {
-      const transaction = await event.getTransaction();
       this.emit(
         'eth.lockup',
         event.transactionHash,
         {
           amount,
           claimAddress,
+          refundAddress,
           preimageHash: parseBuffer(preimageHash),
-          refundAddress: transaction.from,
           timelock: timelock.toNumber(),
         },
       );
@@ -159,10 +157,10 @@ class ContractEventHandler extends EventEmitter {
       amount: BigNumber,
       tokenAddress: string,
       claimAddress: string,
+      refundAddress: string,
       timelock: BigNumber,
       event: Event,
     ) => {
-      const transaction = await event.getTransaction();
       this.emit(
         'erc20.lockup',
         event.transactionHash,
@@ -170,8 +168,8 @@ class ContractEventHandler extends EventEmitter {
           amount,
           tokenAddress,
           claimAddress,
+          refundAddress,
           preimageHash: parseBuffer(preimageHash),
-          refundAddress: transaction.from,
           timelock: timelock.toNumber(),
         },
       );

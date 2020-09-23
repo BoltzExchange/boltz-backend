@@ -2,7 +2,7 @@ import { ContractABIs } from 'boltz-core';
 import { Ierc20 } from 'boltz-core/typechain/Ierc20';
 import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { Erc20Swap } from 'boltz-core/typechain/Erc20Swap';
-import { constants, Contract, providers, Wallet as EthersWallet } from 'ethers';
+import { constants, Contract, providers, Wallet as EthersWallet, utils } from 'ethers';
 import GasNow from './GasNow';
 import Errors from '../Errors';
 import Wallet from '../Wallet';
@@ -10,12 +10,12 @@ import Logger from '../../Logger';
 import { stringify } from '../../Utils';
 import { EthereumConfig } from '../../Config';
 import ContractHandler from './ContractHandler';
+import InjectedProvider from './InjectedProvider';
 import ContractEventHandler from './ContractEventHandler';
 import ChainTipRepository from '../../db/ChainTipRepository';
 import EtherWalletProvider from '../providers/EtherWalletProvider';
 import ERC20WalletProvider from '../providers/ERC20WalletProvider';
 import EthereumTransactionTracker from './EthereumTransactionTracker';
-import InjectedProvider from './InjectedProvider';
 
 class EthereumManager {
   public provider: providers.Provider;
@@ -27,6 +27,8 @@ class EthereumManager {
   public erc20Swap: Erc20Swap;
 
   public address?: string;
+
+  public tokenAddresses = new Map<string, string>();
 
   private static supportedContractVersions = {
     'EtherSwap': 1,
@@ -112,6 +114,8 @@ class EthereumManager {
       if (token.contractAddress) {
         if (token.decimals) {
           if (!wallets.has(token.symbol)) {
+            // Wrap the address in "utils.getAddress" to make sure it is a checksum one
+            this.tokenAddresses.set(token.symbol, utils.getAddress(token.contractAddress));
             const provider = new ERC20WalletProvider(this.logger, signer, {
               symbol: token.symbol,
               decimals: token.decimals,

@@ -532,6 +532,35 @@ describe('Service', () => {
     ]));
   });
 
+  test('should get contracts', () => {
+    const ethereumManager = {
+      etherSwap: {
+        address: '0x18A4374d714762FA7DE346E997f7e28Fb3744EC1'
+      },
+      erc20Swap: {
+        address: '0xC685b2c4369D7bf9242DA54E9c391948079d83Cd',
+      },
+      tokenAddresses: new Map<string, string>([
+        ['USDT', '0xDf567Cd5d0cf3d90cE6E3E9F897e092f9ECE359a']
+      ]),
+    };
+
+    service['walletManager']['ethereumManager'] = ethereumManager as any;
+
+    expect(service.getContracts()).toEqual({
+      tokens: ethereumManager.tokenAddresses,
+      swapContracts: new Map<string, string>([
+        ['EtherSwap', ethereumManager.etherSwap.address],
+        ['ERC20Swap', ethereumManager.erc20Swap.address],
+      ]),
+    });
+
+    // Should throw when the Ethereum integration is not enabled
+    service['walletManager']['ethereumManager'] = undefined;
+
+    expect(() => service.getContracts()).toThrow(Errors.ETHEREUM_NOT_ENABLED().message);
+  });
+
   test('should get transactions', async () => {
     await expect(service.getTransaction('BTC', ''))
       .resolves.toEqual(rawTransaction);

@@ -307,15 +307,21 @@ class Service {
   /**
    * Gets the contract address used by the Boltz instance
    */
-  public getContracts = async (): Promise<Map<string, string>> => {
+  public getContracts = (): {
+    swapContracts: Map<string, string>,
+    tokens: Map<string, string>,
+  } => {
     if (this.walletManager.ethereumManager === undefined) {
       throw Errors.ETHEREUM_NOT_ENABLED();
     }
 
-    return new Map<string, string>([
-      ['EtherSwap', this.walletManager.ethereumManager.etherSwap.address],
-      ['ERC20Swap', this.walletManager.ethereumManager.erc20Swap.address],
-    ]);
+    return {
+      tokens: this.walletManager.ethereumManager.tokenAddresses,
+      swapContracts: new Map<string, string>([
+        ['EtherSwap', this.walletManager.ethereumManager.etherSwap.address],
+        ['ERC20Swap', this.walletManager.ethereumManager.erc20Swap.address],
+      ]),
+    };
   }
 
   /**

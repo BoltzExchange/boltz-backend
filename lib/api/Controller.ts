@@ -148,12 +148,13 @@ class Controller {
     });
   }
 
-  public getContracts = async (req: Request, res: Response): Promise<void> => {
+  public getContracts = (req: Request, res: Response): void => {
     try {
-      const contracts = await this.service.getContracts();
+      const contracts = this.service.getContracts();
 
       this.successResponse(res, {
-        contracts: mapToObject(contracts),
+        swapContracts: mapToObject(contracts.swapContracts),
+        tokens: mapToObject(contracts.tokens),
       });
     } catch (error) {
       this.errorResponse(req, res, error, 501);

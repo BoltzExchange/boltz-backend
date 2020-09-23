@@ -127,7 +127,7 @@ class WalletManager {
     }
 
     if (this.ethereumManager) {
-      const ethereumWallets = await this.ethereumManager?.init(this.mnemonic, chainTipRepository);
+      const ethereumWallets = await this.ethereumManager.init(this.mnemonic, chainTipRepository);
 
       for (const [symbol, ethereumWallet] of ethereumWallets) {
         this.wallets.set(symbol, ethereumWallet);

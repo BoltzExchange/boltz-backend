@@ -16,11 +16,14 @@ class GasNow {
   public init = async (network: providers.Network): Promise<void> => {
     // Only use GasNow on mainnet
     if (network.chainId === 1) {
+      this.logger.info('Enabling GasNow gas price oracle');
       await this.updateGasPrice();
 
       this.interval = setInterval(async () => {
         await this.updateGasPrice();
       }, 15 * 1000);
+    } else {
+      this.logger.info('Disabling GasNow gas price oracle because chain is not mainnet');
     }
   }
 

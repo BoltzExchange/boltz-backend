@@ -133,7 +133,7 @@ class InjectedProvider implements providers.Provider {
   public sendTransaction = async (signedTransaction: string | Promise<string>): Promise<providers.TransactionResponse> => {
     const transaction = utils.parseTransaction(await signedTransaction);
 
-    this.logger.debug(`Sending Ethereum transaction: ${transaction.hash}`);
+    this.logger.silly(`Sending Ethereum transaction: ${transaction.hash}`);
     await this.pendingEthereumTransactionRepository.addTransaction(
       transaction.hash!,
       transaction.nonce,

@@ -60,9 +60,18 @@ class ContractEventHandler extends EventEmitter {
 
   public rescan = async (startHeight: number): Promise<void> => {
     const [etherLockups, etherClaims, etherRefunds] = await Promise.all([
-      this.etherSwap.queryFilter(this.etherSwap.filters.Lockup(null, null, null, null, null), startHeight),
-      this.etherSwap.queryFilter(this.etherSwap.filters.Claim(null, null), startHeight),
-      this.etherSwap.queryFilter(this.etherSwap.filters.Refund(null), startHeight)
+      this.etherSwap.queryFilter(
+        this.etherSwap.filters.Lockup(null, null, null, null, null),
+        startHeight,
+      ),
+      this.etherSwap.queryFilter(
+        this.etherSwap.filters.Claim(null, null),
+        startHeight,
+      ),
+      this.etherSwap.queryFilter(
+        this.etherSwap.filters.Refund(null),
+        startHeight,
+      ),
     ]);
 
     for (const event of etherLockups) {
@@ -90,9 +99,18 @@ class ContractEventHandler extends EventEmitter {
     });
 
     const [erc20Lockups, erc20Claims, erc20Refunds] = await Promise.all([
-      this.erc20Swap.queryFilter(this.erc20Swap.filters.Lockup(null, null, null, null, null, null), startHeight),
-      this.erc20Swap.queryFilter(this.erc20Swap.filters.Claim(null, null), startHeight),
-      this.erc20Swap.queryFilter(this.erc20Swap.filters.Refund(null), startHeight)
+      this.erc20Swap.queryFilter(
+        this.erc20Swap.filters.Lockup(null, null, null, null, null, null),
+        startHeight,
+      ),
+      this.erc20Swap.queryFilter(
+        this.erc20Swap.filters.Claim(null, null),
+        startHeight,
+      ),
+      this.erc20Swap.queryFilter(
+        this.erc20Swap.filters.Refund(null),
+        startHeight,
+      ),
     ]);
 
 

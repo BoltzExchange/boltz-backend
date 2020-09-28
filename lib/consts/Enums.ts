@@ -8,6 +8,7 @@ export enum ErrorCodePrefix {
   Swap = 6,
   Rates = 7,
   Backup = 8,
+  Ethereum = 9,
 }
 
 export enum ClientStatus {

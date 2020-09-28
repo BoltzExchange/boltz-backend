@@ -3,8 +3,8 @@ import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { Erc20Swap } from 'boltz-core/typechain/Erc20Swap';
 import Logger from '../../Logger';
 import { getHexString } from '../../Utils';
-import ERC20WalletProvider from '../providers/ERC20WalletProvider';
 import { getGasPrice } from './EthereumUtils';
+import ERC20WalletProvider from '../providers/ERC20WalletProvider';
 
 class ContractHandler {
   private etherSwap!: EtherSwap;

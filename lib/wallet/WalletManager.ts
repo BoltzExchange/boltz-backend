@@ -137,7 +137,7 @@ class WalletManager {
 
   private loadMnemonic = (filename: string) => {
     if (fs.existsSync(filename)) {
-      return fs.readFileSync(filename, 'utf-8').toString();
+      return fs.readFileSync(filename, 'utf-8').trim();
     }
 
     throw(Errors.NOT_INITIALIZED());

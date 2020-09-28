@@ -16,6 +16,7 @@ import { encodeBip21 } from './PaymentRequestUtils';
 import { SendResponse } from '../lightning/LndClient';
 import TimeoutDeltaProvider from './TimeoutDeltaProvider';
 import RateProvider, { PairType } from '../rates/RateProvider';
+import { getGasPrice } from '../wallet/ethereum/EthereumUtils';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import SwapManager, { ChannelCreationInfo } from '../swap/SwapManager';
 import { BaseFeeType, CurrencyType, OrderSide, ServiceInfo, ServiceWarning } from '../consts/Enums';
@@ -409,7 +410,7 @@ class Service {
       if (currency.chainClient) {
         return currency.chainClient.estimateFee(numBlocks);
       } else if (currency.provider) {
-        const gasPrice = await currency.provider.getGasPrice();
+        const gasPrice = await getGasPrice(currency.provider);
 
         return gasPrice.div(gweiDecimals).toNumber();
       } else {

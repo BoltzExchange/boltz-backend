@@ -26,7 +26,7 @@ import ChannelCreationRepository from '../db/ChannelCreationRepository';
 import { etherDecimals, ReverseSwapOutputType } from '../consts/Consts';
 import ERC20WalletProvider from '../wallet/providers/ERC20WalletProvider';
 import { ERC20SwapValues, EtherSwapValues } from '../wallet/ethereum/ContractEventHandler';
-import { queryERC20SwapValues, queryEtherSwapValues } from '../wallet/ethereum/ContractUtils';
+import { queryERC20SwapValuesFromLock, queryEtherSwapValuesFromLock } from '../wallet/ethereum/ContractUtils';
 import {
   calculateEthereumTransactionFee,
   calculateUtxoTransactionFee,
@@ -324,7 +324,7 @@ class SwapNursery extends EventEmitter {
         await this.claimEther(
           this.walletManager.ethereumManager!.contractHandler,
           swap,
-          await queryEtherSwapValues(this.walletManager.ethereumManager!.etherSwap, getHexBuffer(swap.preimageHash)),
+          await queryEtherSwapValuesFromLock(this.walletManager.ethereumManager!.etherSwap, swap.lockupTransactionId!),
           outgoingChannelId,
         );
         break;
@@ -333,7 +333,7 @@ class SwapNursery extends EventEmitter {
         await this.claimERC20(
           this.walletManager.ethereumManager!.contractHandler,
           swap,
-          await queryERC20SwapValues(this.walletManager.ethereumManager!.erc20Swap, getHexBuffer(swap.preimageHash)),
+          await queryERC20SwapValuesFromLock(this.walletManager.ethereumManager!.erc20Swap, swap.lockupTransactionId!),
           outgoingChannelId,
         );
         break;
@@ -813,7 +813,7 @@ class SwapNursery extends EventEmitter {
   private refundEther = async (reverseSwap: ReverseSwap) => {
     const ethereumManager = this.walletManager.ethereumManager!;
 
-    const etherSwapValues = await queryEtherSwapValues(ethereumManager.etherSwap, getHexBuffer(reverseSwap.preimageHash));
+    const etherSwapValues = await queryEtherSwapValuesFromLock(ethereumManager.etherSwap, reverseSwap.transactionId!);
     const contractTransaction = await ethereumManager.contractHandler.refundEther(
       getHexBuffer(reverseSwap.preimageHash),
       etherSwapValues.amount,
@@ -836,7 +836,7 @@ class SwapNursery extends EventEmitter {
     const ethereumManager = this.walletManager.ethereumManager!;
     const walletProvider = this.walletManager.wallets.get(chainSymbol)!.walletProvider as ERC20WalletProvider;
 
-    const erc20SwapValues = await queryERC20SwapValues(ethereumManager.erc20Swap, getHexBuffer(reverseSwap.preimageHash));
+    const erc20SwapValues = await queryERC20SwapValuesFromLock(ethereumManager.erc20Swap, reverseSwap.transactionId!);
     const contractTransaction = await ethereumManager.contractHandler.refundToken(
       walletProvider,
       getHexBuffer(reverseSwap.preimageHash),

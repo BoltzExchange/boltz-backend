@@ -10,7 +10,7 @@ import PendingEthereumTransactionRepository from '../../db/PendingEthereumTransa
 class InjectedProvider implements providers.Provider {
   public _isProvider = true;
 
-  private websocketProvider: providers.WebSocketProvider;
+  private websocketProvider: providers.Provider;
   private pendingEthereumTransactionRepository = new PendingEthereumTransactionRepository();
 
   constructor(

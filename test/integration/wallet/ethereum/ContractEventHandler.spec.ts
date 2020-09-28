@@ -132,7 +132,7 @@ describe('ContractEventHandler', () => {
   };
 
   beforeAll(async () => {
-    startingHeight = await provider.getBlockNumber();
+    startingHeight = await provider.getBlockNumber() + 1;
 
     etherSwapValues.claimAddress = await etherBase.getAddress();
     erc20SwapValues.claimAddress = await etherBase.getAddress();

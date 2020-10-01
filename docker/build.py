@@ -48,7 +48,7 @@ GETH_VERSION = "1.9.22"
 
 C_LIGHTNING_VERSION = "0.9.1"
 ECLAIR_VERSION = "0.4.1"
-LND_VERSION = "0.11.0-beta"
+LND_VERSION = "0.11.1-beta"
 
 IMAGES: Dict[str, Image] = {
     "berkeley-db": Image(
@@ -114,7 +114,7 @@ IMAGES: Dict[str, Image] = {
         ],
     ),
     "regtest": Image(
-        tags=["2.0.0"],
+        tags=["2.0.1"],
         arguments=[
             UBUNTU_VERSION,
             BuildArgument(

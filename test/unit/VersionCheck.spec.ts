@@ -21,10 +21,10 @@ describe('VersionCheck', () => {
     const symbol = 'BTC';
 
     expect(() => VersionCheck.checkLndVersion(symbol, '0.10.4-beta'))
-      .toThrow('unsupported BTC LND version: 0.10.4-beta; max version 0.11.0; min version 0.11.0');
+      .toThrow('unsupported BTC LND version: 0.10.4-beta; max version 0.11.1; min version 0.11.0');
 
     expect(() => VersionCheck.checkLndVersion(symbol, '0.12.0-beta'))
-      .toThrow('unsupported BTC LND version: 0.12.0-beta; max version 0.11.0; min version 0.11.0');
+      .toThrow('unsupported BTC LND version: 0.12.0-beta; max version 0.11.1; min version 0.11.0');
 
     const limits = VersionCheck['lndVersionLimits'];
 

@@ -3,7 +3,7 @@ import { Erc20Swap } from 'boltz-core/typechain/Erc20Swap';
 import Errors from './Errors';
 import { utils } from 'ethers';
 import { parseBuffer } from './EthereumUtils';
-import { ERC20SwapValues, EtherSwapValues } from './ContractEventHandler';
+import { ERC20SwapValues, EtherSwapValues } from '../../consts/Types';
 
 // TODO: what happens if the hash doesn't exist or the transaction isn't confirmed yet?
 
@@ -65,7 +65,7 @@ export const queryERC20SwapValues = async (erc20Swap: Erc20Swap, preimageHash: B
   return formatERC20SwapValues(event.args!);
 };
 
-const formatEtherSwapValues = (args: utils.Result): EtherSwapValues => {
+export const formatEtherSwapValues = (args: utils.Result): EtherSwapValues => {
   return {
     amount: args.amount,
     claimAddress: args.claimAddress,
@@ -75,7 +75,7 @@ const formatEtherSwapValues = (args: utils.Result): EtherSwapValues => {
   };
 };
 
-const formatERC20SwapValues = (args: utils.Result): ERC20SwapValues => {
+export const formatERC20SwapValues = (args: utils.Result): ERC20SwapValues => {
   return {
     amount: args.amount,
     claimAddress: args.claimAddress,

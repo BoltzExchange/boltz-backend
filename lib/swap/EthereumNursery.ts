@@ -11,10 +11,10 @@ import ReverseSwap from '../db/models/ReverseSwap';
 import WalletManager from '../wallet/WalletManager';
 import ReverseSwapRepository from '../db/ReverseSwapRepository';
 import EthereumManager from '../wallet/ethereum/EthereumManager';
+import { ERC20SwapValues, EtherSwapValues } from '../consts/Types';
 import { getChainCurrency, getHexString, splitPairId } from '../Utils';
 import EtherWalletProvider from '../wallet/providers/EtherWalletProvider';
 import ERC20WalletProvider from '../wallet/providers/ERC20WalletProvider';
-import { ERC20SwapValues, EtherSwapValues } from '../wallet/ethereum/ContractEventHandler';
 
 interface EthereumNursery {
   // EtherSwap

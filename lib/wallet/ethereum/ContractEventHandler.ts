@@ -4,18 +4,8 @@ import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { Erc20Swap } from 'boltz-core/typechain/Erc20Swap';
 import Logger from '../../Logger';
 import { parseBuffer } from './EthereumUtils';
-
-type EtherSwapValues = {
-  preimageHash: Buffer;
-  amount: BigNumber;
-  claimAddress: string;
-  refundAddress: string;
-  timelock: number;
-};
-
-type ERC20SwapValues = EtherSwapValues & {
-  tokenAddress: string;
-};
+import { ERC20SwapValues, EtherSwapValues } from '../../consts/Types';
+import { formatERC20SwapValues, formatEtherSwapValues } from './ContractUtils';
 
 interface ContractEventHandler {
   // EtherSwap contract events
@@ -59,34 +49,26 @@ class ContractEventHandler extends EventEmitter {
   }
 
   public rescan = async (startHeight: number): Promise<void> => {
-    const [etherLockups, etherClaims, etherRefunds] = await Promise.all([
-      this.etherSwap.queryFilter(
-        this.etherSwap.filters.Lockup(null, null, null, null, null),
-        startHeight,
-      ),
-      this.etherSwap.queryFilter(
-        this.etherSwap.filters.Claim(null, null),
-        startHeight,
-      ),
-      this.etherSwap.queryFilter(
-        this.etherSwap.filters.Refund(null),
-        startHeight,
-      ),
-    ]);
+    const etherLockups = await this.etherSwap.queryFilter(
+      this.etherSwap.filters.Lockup(null, null, null, null, null),
+      startHeight,
+    );
+
+    const etherClaims = await this.etherSwap.queryFilter(
+      this.etherSwap.filters.Claim(null, null),
+      startHeight,
+    );
+
+    const etherRefunds = await this.etherSwap.queryFilter(
+      this.etherSwap.filters.Refund(null),
+      startHeight,
+    );
 
     for (const event of etherLockups) {
-      const args = event.args!;
-
       this.emit(
         'eth.lockup',
         event.transactionHash,
-        {
-          preimageHash: parseBuffer(event.topics[1]),
-          amount: args.amount,
-          claimAddress: args.claimAddress,
-          refundAddress: args.refundAddress,
-          timelock: args.timelock.toNumber(),
-        },
+        formatEtherSwapValues(event.args!),
       );
     }
 
@@ -98,36 +80,26 @@ class ContractEventHandler extends EventEmitter {
       this.emit('eth.refund', event.transactionHash, parseBuffer(event.topics[1]));
     });
 
-    const [erc20Lockups, erc20Claims, erc20Refunds] = await Promise.all([
-      this.erc20Swap.queryFilter(
-        this.erc20Swap.filters.Lockup(null, null, null, null, null, null),
-        startHeight,
-      ),
-      this.erc20Swap.queryFilter(
-        this.erc20Swap.filters.Claim(null, null),
-        startHeight,
-      ),
-      this.erc20Swap.queryFilter(
-        this.erc20Swap.filters.Refund(null),
-        startHeight,
-      ),
-    ]);
+    const erc20Lockups = await this.erc20Swap.queryFilter(
+      this.erc20Swap.filters.Lockup(null, null, null, null, null, null),
+      startHeight,
+    );
 
+    const erc20Claims = await this.erc20Swap.queryFilter(
+      this.erc20Swap.filters.Claim(null, null),
+      startHeight,
+    );
+
+    const erc20Refunds = await this.erc20Swap.queryFilter(
+      this.erc20Swap.filters.Refund(null),
+      startHeight,
+    );
 
     for (const event of erc20Lockups) {
-      const args = event.args!;
-
       this.emit(
         'erc20.lockup',
         event.transactionHash,
-        {
-          preimageHash: parseBuffer(event.topics[1]),
-          amount: args.amount,
-          tokenAddress: args.tokenAddress,
-          claimAddress: args.claimAddress,
-          refundAddress: args.refundAddress,
-          timelock: args.timelock.toNumber(),
-        },
+        formatERC20SwapValues(event.args!),
       );
     }
 
@@ -204,4 +176,3 @@ class ContractEventHandler extends EventEmitter {
 }
 
 export default ContractEventHandler;
-export { EtherSwapValues, ERC20SwapValues };

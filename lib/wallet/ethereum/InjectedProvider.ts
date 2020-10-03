@@ -1,148 +1,329 @@
-import Logger from '../../Logger';
 import { BigNumber, BigNumberish, providers, utils } from 'ethers';
 import { BlockWithTransactions } from '@ethersproject/abstract-provider';
+import Logger from '../../Logger';
+import { EthereumConfig } from '../../Config';
+import { formatError, stringify } from '../../Utils';
 import PendingEthereumTransactionRepository from '../../db/PendingEthereumTransactionRepository';
 
-// TODO: infura or alchemy fallback
 /**
  * This provider is a wrapper for the WebSocketProvider from ethers but it writes sent transactions to the database
  */
 class InjectedProvider implements providers.Provider {
   public _isProvider = true;
 
-  private websocketProvider: providers.Provider;
+  private providers = new Map<string, providers.WebSocketProvider>();
   private pendingEthereumTransactionRepository = new PendingEthereumTransactionRepository();
 
-  constructor(
-    private logger: Logger,
-    providerEndpoint: string,
-  ) {
-    this.websocketProvider = new providers.WebSocketProvider(providerEndpoint);
+  private network!: providers.Network;
+
+  constructor(private logger: Logger, config: EthereumConfig) {
+    if (config.providerEndpoint) {
+      this.providers.set('websocket', new providers.WebSocketProvider(config.providerEndpoint));
+      this.logAddedProvider('websocket', { endpoint: config.providerEndpoint });
+    }
+
+    if (config.alchemy.apiKey) {
+      if (config.alchemy.network) {
+        this.providers.set('alchemy', providers.AlchemyProvider.getWebSocketProvider(
+          config.alchemy.network,
+          config.alchemy.apiKey,
+        ));
+        this.logAddedProvider('alchemy', config.alchemy);
+      } else {
+        this.logDisabledProvider('alchemy', 'no network was specified');
+      }
+    } else {
+      this.logDisabledProvider('alchemy', 'no api key was set');
+    }
   }
 
-  public addListener = (eventName: providers.EventType, listener: providers.Listener): providers.Provider => {
-    return this.websocketProvider.addListener(eventName, listener);
+  public init = async (): Promise<void> => {
+    const networks: providers.Network[] = [];
+
+    for (const [providerName, provider] of this.providers) {
+      try {
+        const network = await provider.getNetwork();
+        this.logConnectedProvider(providerName, network);
+        networks.push(network);
+      } catch (error) {
+        this.logDisabledProvider(providerName, `could not connect: ${formatError(error)}`);
+      }
+    }
+
+    const networksAreSame = networks.every((network) => network.chainId === networks[0].chainId);
+
+    if (!networksAreSame) {
+      const networkStrings: number[] = [];
+      networks.forEach((network) => networkStrings.push(network.chainId));
+
+      throw `Not all web3 provider networks are the same: ${networkStrings.join(', ')}`;
+    }
+
+    this.network = networks[0];
   }
+
+  public destroy = async (): Promise<void> => {
+    for (const provider of this.providers.values()) {
+      await provider.destroy();
+    }
+  }
+
+  /*
+   * Method calls
+   */
 
   public call = (
     transaction: utils.Deferrable<providers.TransactionRequest>,
-    blockTag?: providers.BlockTag | Promise<providers.BlockTag>,
+    blockTag?: providers.BlockTag,
   ): Promise<string> => {
-    return this.websocketProvider.call(transaction, blockTag);
+    return this.forwardMethod('call', transaction, blockTag);
   }
 
-  public emit = (eventName: providers.EventType, ...args: Array<any>): boolean => {
-    return this.websocketProvider.emit(eventName, args);
+  public estimateGas = (transaction: providers.TransactionRequest): Promise<BigNumber> => {
+    return this.forwardMethod('estimateGas', transaction);
   }
 
-  public estimateGas = (transaction: utils.Deferrable<providers.TransactionRequest>): Promise<BigNumber> => {
-    return this.websocketProvider.estimateGas(transaction);
+  public getBalance = (addressOrName: string, blockTag?: providers.BlockTag): Promise<BigNumber> => {
+    return this.forwardMethod('getBalance', addressOrName, blockTag);
   }
 
-  public getBalance = (addressOrName: string | Promise<string>, blockTag?: providers.BlockTag | Promise<providers.BlockTag>): Promise<BigNumber> => {
-    return this.websocketProvider.getBalance(addressOrName, blockTag);
-  }
-
-  public getBlock = (blockHashOrBlockTag: providers.BlockTag | string | Promise<providers.BlockTag | string>): Promise<providers.Block> => {
-    return this.websocketProvider.getBlock(blockHashOrBlockTag);
+  public getBlock = (blockHashOrBlockTag: providers.BlockTag): Promise<providers.Block> => {
+    return this.forwardMethod('getBlock', blockHashOrBlockTag);
   }
 
   public getBlockNumber = (): Promise<number> => {
-    return this.websocketProvider.getBlockNumber();
+    return this.forwardMethod('getBlockNumber');
   }
 
-  public getBlockWithTransactions = (blockHashOrBlockTag: providers.BlockTag | string | Promise<providers.BlockTag | string>): Promise<BlockWithTransactions> => {
-    return this.websocketProvider.getBlockWithTransactions(blockHashOrBlockTag);
+  public getBlockWithTransactions = (blockHashOrBlockTag: providers.BlockTag): Promise<BlockWithTransactions> => {
+    return this.forwardMethod('getBlockWithTransactions', blockHashOrBlockTag);
   }
 
-  public getCode = (addressOrName: string | Promise<string>, blockTag?: providers.BlockTag | Promise<providers.BlockTag>): Promise<string> => {
-    return this.websocketProvider.getCode(addressOrName, blockTag);
+  public getCode = (addressOrName: string, blockTag?: providers.BlockTag): Promise<string> => {
+    return this.forwardMethod('getCode', addressOrName, blockTag);
   }
 
   public getGasPrice = (): Promise<BigNumber> => {
-    return this.websocketProvider.getGasPrice();
+    return this.forwardMethod('getGasPrice');
   }
 
   public getLogs = (filter: providers.Filter): Promise<Array<providers.Log>> => {
-    return this.websocketProvider.getLogs(filter);
+    return this.forwardMethod('getLogs', filter);
   }
 
-  public getNetwork = (): Promise<providers.Network> => {
-    return this.websocketProvider.getNetwork();
+  public getNetwork = async (): Promise<providers.Network> => {
+    return this.network;
   }
 
   public getStorageAt = (
-    addressOrName: string | Promise<string>,
-    position: BigNumberish | Promise<BigNumberish>,
-    blockTag?: providers.BlockTag | Promise<providers.BlockTag>,
+    addressOrName: string,
+    position: BigNumberish,
+    blockTag?: providers.BlockTag,
   ): Promise<string> => {
-    return this.websocketProvider.getStorageAt(addressOrName, position, blockTag);
+    return this.forwardMethod('getStorageAt', addressOrName, position, blockTag);
   }
 
   public getTransaction = (transactionHash: string): Promise<providers.TransactionResponse> => {
-    return this.websocketProvider.getTransaction(transactionHash);
+    return this.forwardMethod('getTransaction', transactionHash);
   }
 
   public getTransactionCount = (
-    addressOrName: string | Promise<string>,
-    blockTag?: providers.BlockTag | Promise<providers.BlockTag>,
+    addressOrName: string,
+    blockTag?: providers.BlockTag,
   ): Promise<number> => {
-    return this.websocketProvider.getTransactionCount(addressOrName, blockTag);
+    return this.forwardMethod('getTransactionCount', addressOrName, blockTag);
   }
 
   public getTransactionReceipt = (transactionHash: string): Promise<providers.TransactionReceipt> => {
-    return this.websocketProvider.getTransactionReceipt(transactionHash);
+    return this.forwardMethod('getTransactionReceipt', transactionHash);
   }
 
-  public listenerCount = (eventName?: providers.EventType): number => {
-    return this.websocketProvider.listenerCount(eventName);
+  public lookupAddress = (address: string): Promise<string> => {
+    return this.forwardMethod('lookupAddress', address);
   }
 
-  public listeners = (eventName?: providers.EventType): Array<providers.Listener> => {
-    return this.websocketProvider.listeners(eventName);
+  public resolveName = (name: string): Promise<string> => {
+    return this.forwardMethod('resolveName', name);
   }
 
-  public lookupAddress = (address: string | Promise<string>): Promise<string> => {
-    return this.websocketProvider.lookupAddress(address);
-  }
-
-  public off = (eventName: providers.EventType, listener?: providers.Listener): providers.Provider => {
-    return this.websocketProvider.off(eventName, listener);
-  }
-
-  public on = (eventName: providers.EventType, listener: providers.Listener): providers.Provider => {
-    return this.websocketProvider.on(eventName, listener);
-  }
-
-  public once = (eventName: providers.EventType, listener: providers.Listener): providers.Provider => {
-    return this.websocketProvider.once(eventName, listener);
-  };
-
-  public removeAllListeners = (eventName?: providers.EventType): providers.Provider => {
-    return this.websocketProvider.removeAllListeners(eventName);
-  }
-
-  public removeListener = (eventName: providers.EventType, listener: providers.Listener): providers.Provider => {
-    return this.websocketProvider.removeListener(eventName, listener);
-  }
-
-  public resolveName = (name: string | Promise<string>): Promise<string> => {
-    return this.websocketProvider.resolveName(name);
-  }
-
-  public sendTransaction = async (signedTransaction: string | Promise<string>): Promise<providers.TransactionResponse> => {
-    const transaction = utils.parseTransaction(await signedTransaction);
+  public sendTransaction = async (signedTransaction: string): Promise<providers.TransactionResponse> => {
+    const transaction = utils.parseTransaction(signedTransaction);
 
     this.logger.silly(`Sending Ethereum transaction: ${transaction.hash}`);
     await this.pendingEthereumTransactionRepository.addTransaction(
       transaction.hash!,
       transaction.nonce,
     );
-    return this.websocketProvider.sendTransaction(signedTransaction);
+
+    const promises: Promise<providers.TransactionResponse>[] = [];
+
+    // When sending a transaction, you want it to propagate on the network as quickly as possible
+    // Therefore, we send the it to all available providers
+    for (const provider of this.providers.values()) {
+      // TODO: handle rejections
+      promises.push(provider.sendTransaction(signedTransaction));
+    }
+
+    // Return the result from whichever provider resolved the Promise first
+    // The other "sendTransaction" calls will still be executed but the result won't be returned
+    return Promise.race(promises);
   }
 
   public waitForTransaction = (transactionHash: string, confirmations?: number, timeout?: number): Promise<providers.TransactionReceipt> => {
-    return this.websocketProvider.waitForTransaction(transactionHash, confirmations, timeout);
+    return this.forwardMethod('waitForTransaction', {
+      transactionHash,
+      confirmations,
+      timeout,
+    });
+  }
+
+  /*
+   * Listeners
+   */
+
+  public emit = (eventName: providers.EventType, ...args: Array<any>): boolean => {
+    for (const [, provider] of this.providers) {
+      provider.emit(eventName, args);
+    }
+
+    return true;
+  }
+
+  public addListener = (eventName: providers.EventType, listener: providers.Listener): providers.Provider => {
+    return this.on(eventName, listener);
+  }
+
+  public listenerCount = (eventName?: providers.EventType): number => {
+    return Array.from(this.providers.values())[0].listenerCount(eventName);
+  }
+
+  public listeners = (eventName?: providers.EventType): Array<providers.Listener> => {
+    return Array.from(this.providers.values())[0].listeners(eventName);
+  }
+
+  public off = (eventName: providers.EventType, listener?: providers.Listener): providers.Provider => {
+    for (const [, provider] of this.providers) {
+      provider.off(eventName, listener);
+    }
+
+    return this;
+  }
+
+  public on = (eventName: providers.EventType, listener: providers.Listener): providers.Provider => {
+    const providerDeltas = new Map<number, number>();
+
+    const injectedListener = (...args: any[]) => {
+      if (this.providers.size === 1) {
+        listener(...args);
+        return;
+      }
+
+      const hashCode = this.hashCode(args.map((entry) => entry.toString()).join());
+      const currentDelta = providerDeltas.get(hashCode) || 0;
+
+      if (currentDelta === this.providers.size - 1) {
+        providerDeltas.delete(hashCode);
+      } else {
+        providerDeltas.set(hashCode, currentDelta + 1);
+      }
+
+      if (currentDelta === 0) {
+        listener(...args);
+      }
+    };
+
+    for (const provider of this.providers.values()) {
+      provider.on(eventName, injectedListener);
+    }
+
+    return this;
+  }
+
+  public once = (eventName: providers.EventType, listener: providers.Listener): providers.Provider => {
+    let emittedEvent = false;
+
+    const injectedListener = (...args: any[]) => {
+      if (!emittedEvent) {
+        emittedEvent = true;
+        listener(...args);
+      }
+    };
+
+    for (const provider of this.providers.values()) {
+      provider.once(eventName, injectedListener);
+    }
+
+    return this;
+  }
+
+  public removeAllListeners = (eventName?: providers.EventType): providers.Provider => {
+    for (const [, provider] of this.providers) {
+      provider.removeAllListeners(eventName);
+    }
+
+    return this;
+  }
+
+  public removeListener = (eventName: providers.EventType, listener: providers.Listener): providers.Provider => {
+    return this.off(eventName, listener);
+  }
+
+  /*
+   * Helper utils
+   */
+
+  private forwardMethod = async (method: string, ...args: any[]): Promise<any> => {
+    const errors: string[] = [];
+
+    let resultIsNull = false;
+
+    for (const [providerName, provider] of this.providers) {
+      try {
+        const result = await provider[method](...args);
+
+        if (result !== null) {
+          return result;
+        } else {
+          resultIsNull = true;
+        }
+      } catch (error) {
+        const formattedError = formatError(error);
+
+        this.logger.warn(`Request to ${providerName} provider failed: ${formattedError}`);
+        errors.push(formattedError);
+      }
+    }
+
+    if (resultIsNull) {
+      return null;
+    }
+
+    // TODO: move to errors
+    throw `Requests to all ${this.providers.size} providers failed:\n - ` + errors.join('\n - ');
+  }
+
+  private hashCode = (value: string): number => {
+    let hash = 0;
+
+    for (let i = 0; i < value.length; i++) {
+      const char = value.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash |= 0;
+    }
+
+    return hash;
+  }
+
+  private logAddedProvider = (name: string, config: Record<string, any>) => {
+    this.logger.debug(`Adding provider ${name}: ${stringify(config)}`);
+  }
+
+  private logConnectedProvider = (name: string, network: providers.Network) => {
+    this.logger.verbose(`Connected to provider ${name} on network: ${network.chainId}`);
+  }
+
+  private logDisabledProvider = (name: string, reason: string) => {
+    this.logger.warn(`Disabled ${name} web3 provider: ${reason}`);
   }
 }
 

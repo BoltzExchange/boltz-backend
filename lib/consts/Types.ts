@@ -1,4 +1,17 @@
+import { BigNumber } from 'ethers';
 import { Ierc20 } from 'boltz-core/typechain/Ierc20';
+
+export type EtherSwapValues = {
+  preimageHash: Buffer;
+  amount: BigNumber;
+  claimAddress: string;
+  refundAddress: string;
+  timelock: number;
+};
+
+export type ERC20SwapValues = EtherSwapValues & {
+  tokenAddress: string;
+};
 
 export type Error = {
   message: string;

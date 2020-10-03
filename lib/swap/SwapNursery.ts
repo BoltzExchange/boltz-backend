@@ -18,14 +18,14 @@ import SwapRepository from '../db/SwapRepository';
 import LightningNursery from './LightningNursery';
 import ReverseSwap from '../db/models/ReverseSwap';
 import ChannelCreation from '../db/models/ChannelCreation';
-import { ChannelCreationStatus, CurrencyType, SwapUpdateEvent } from '../consts/Enums';
 import ReverseSwapRepository from '../db/ReverseSwapRepository';
 import ContractHandler from '../wallet/ethereum/ContractHandler';
 import WalletManager, { Currency } from '../wallet/WalletManager';
+import { ERC20SwapValues, EtherSwapValues } from '../consts/Types';
 import ChannelCreationRepository from '../db/ChannelCreationRepository';
 import { etherDecimals, ReverseSwapOutputType } from '../consts/Consts';
 import ERC20WalletProvider from '../wallet/providers/ERC20WalletProvider';
-import { ERC20SwapValues, EtherSwapValues } from '../wallet/ethereum/ContractEventHandler';
+import { ChannelCreationStatus, CurrencyType, SwapUpdateEvent } from '../consts/Enums';
 import { queryERC20SwapValuesFromLock, queryEtherSwapValuesFromLock } from '../wallet/ethereum/ContractUtils';
 import {
   calculateEthereumTransactionFee,

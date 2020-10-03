@@ -24,7 +24,7 @@ interface ChainClient {
   emit(event: 'block', height: number): boolean;
 
   on(event: 'transaction', listener: (transaction: Transaction, confirmed: boolean) => void): this;
-  emit(event: 'transaction', transcation: Transaction, confirmed: boolean): boolean;
+  emit(event: 'transaction', transaction: Transaction, confirmed: boolean): boolean;
 }
 
 class ChainClient extends BaseClient {
@@ -223,6 +223,7 @@ class ChainClient extends BaseClient {
     const chainTip = await this.chainTipRepository.findOrCreateTip(this.symbol, scannedBlocks);
 
     this.zmqClient.on('block', async (height) => {
+      this.logger.silly(`Got new ${this.symbol} block: ${height}`);
       await this.chainTipRepository.updateTip(chainTip, height);
       this.emit('block', height);
     });

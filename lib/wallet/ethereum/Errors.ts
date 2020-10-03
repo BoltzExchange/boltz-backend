@@ -8,7 +8,7 @@ export default {
     code: concatErrorCode(ErrorCodePrefix.Ethereum, 0),
   }),
   INVALID_LOCKUP_TRANSACTION: (transactionHash: string): Error => ({
-    message: `lockup transaction (${transactionHash}) is invalid`,
+    message: `lockup transaction is invalid: ${transactionHash}`,
     code: concatErrorCode(ErrorCodePrefix.Ethereum, 1),
   }),
 };

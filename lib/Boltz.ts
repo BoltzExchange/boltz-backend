@@ -6,6 +6,7 @@ import Api from './api/Api';
 import Logger from './Logger';
 import Report from './data/Report';
 import Database from './db/Database';
+import { formatError } from './Utils';
 import Service from './service/Service';
 import VersionCheck from './VersionCheck';
 import GrpcServer from './grpc/GrpcServer';
@@ -15,7 +16,6 @@ import LndClient from './lightning/LndClient';
 import ChainClient from './chain/ChainClient';
 import Config, { ConfigType } from './Config';
 import { CurrencyType } from './consts/Enums';
-import { formatError, stringify } from './Utils';
 import BackupScheduler from './backup/BackupScheduler';
 import ChainTipRepository from './db/ChainTipRepository';
 import EthereumManager from './wallet/ethereum/EthereumManager';
@@ -106,7 +106,7 @@ class Boltz {
         this.service,
       );
     } catch (error) {
-      this.logger.error(`Could not start Boltz: ${stringify(error)}`);
+      this.logger.error(`Could not start Boltz: ${formatError(error)}`);
       // eslint-disable-next-line no-process-exit
       process.exit(1);
     }

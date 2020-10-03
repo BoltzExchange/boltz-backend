@@ -1,8 +1,8 @@
 import { randomBytes } from 'crypto';
 import { crypto } from 'bitcoinjs-lib';
 import { BigNumber, constants } from 'ethers';
+import { ERC20SwapValues, EtherSwapValues } from '../../../../lib/consts/Types';
 import { getSigner, getSwapContracts, getTokenContract } from '../EthereumTools';
-import { ERC20SwapValues, EtherSwapValues } from '../../../../lib/wallet/ethereum/ContractEventHandler';
 import {
   queryEtherSwapValues,
   queryERC20SwapValues,

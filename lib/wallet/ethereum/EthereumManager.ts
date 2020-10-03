@@ -2,7 +2,7 @@ import { ContractABIs } from 'boltz-core';
 import { Ierc20 } from 'boltz-core/typechain/Ierc20';
 import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { Erc20Swap } from 'boltz-core/typechain/Erc20Swap';
-import { constants, Contract, providers, Wallet as EthersWallet, utils } from 'ethers';
+import { constants, Contract, Wallet as EthersWallet, utils } from 'ethers';
 import GasNow from './GasNow';
 import Errors from '../Errors';
 import Wallet from '../Wallet';
@@ -18,7 +18,7 @@ import ERC20WalletProvider from '../providers/ERC20WalletProvider';
 import EthereumTransactionTracker from './EthereumTransactionTracker';
 
 class EthereumManager {
-  public provider: providers.Provider;
+  public provider: InjectedProvider;
 
   public contractHandler: ContractHandler;
   public contractEventHandler: ContractEventHandler;
@@ -43,11 +43,9 @@ class EthereumManager {
       throw Errors.MISSING_SWAP_CONTRACTS();
     }
 
-    this.logger.verbose(`Connecting to web3 provider: ${this.ethereumConfig.providerEndpoint}`);
-
     this.provider = new InjectedProvider(
       this.logger,
-      this.ethereumConfig.providerEndpoint,
+      this.ethereumConfig,
     );
 
     this.logger.debug(`Using Ether Swap contract: ${this.ethereumConfig.etherSwapAddress}`);
@@ -68,6 +66,9 @@ class EthereumManager {
   }
 
   public init = async (mnemonic: string, chainTipRepository: ChainTipRepository): Promise<Map<string, Wallet>> => {
+    await this.provider.init();
+    this.logger.info('Initialized web3 providers');
+
     const signer = EthersWallet.fromMnemonic(mnemonic).connect(this.provider);
     this.address = await signer.getAddress();
 
@@ -102,6 +103,8 @@ class EthereumManager {
     await transactionTracker.init();
 
     this.provider.on('block', async (blockNumber: number) => {
+      this.logger.silly(`Got new Ethereum block: ${ blockNumber }`);
+
       await Promise.all([
         chainTipRepository.updateTip(chainTip, blockNumber),
         transactionTracker.scanBlock(blockNumber),
@@ -119,7 +122,7 @@ class EthereumManager {
             const provider = new ERC20WalletProvider(this.logger, signer, {
               symbol: token.symbol,
               decimals: token.decimals,
-              contract: new Contract(token.contractAddress, ContractABIs.IERC20, signer) as Ierc20,
+              contract: new Contract(token.contractAddress, ContractABIs.IERC20, signer) as any as Ierc20,
             });
 
             wallets.set(token.symbol, new Wallet(

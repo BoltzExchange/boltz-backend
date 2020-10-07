@@ -70,8 +70,7 @@ describe('ChainClient', () => {
   const chainClient = new ChainClient(Logger.disabledLogger, {
     host: '',
     port: 0,
-    rpcuser: '',
-    rpcpass: '',
+    cookie: '',
   }, 'BTC');
 
   chainClient['chainTipRepository'] = MockedChainTipRepository();

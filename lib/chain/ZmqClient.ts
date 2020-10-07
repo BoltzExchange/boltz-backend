@@ -258,7 +258,7 @@ class ZmqClient extends EventEmitter {
 
   private initHashBlock = () => {
     if (!this.hashBlockAddress) {
-      throw Errors.NO_BLOCK_FALLBACK(this.symbol);
+      throw Errors.NO_BLOCK_FALLBACK();
     }
 
     const lockKey = filters.hashBlock;

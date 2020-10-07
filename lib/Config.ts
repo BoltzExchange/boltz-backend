@@ -5,20 +5,25 @@ import { Arguments } from 'yargs';
 import Errors from './consts/Errors';
 import { Network } from './consts/Enums';
 import { PairConfig } from './consts/Types';
-import { ChainConfig } from './chain/ChainClient';
 import { LndConfig } from './lightning/LndClient';
 import { deepMerge, resolveHome, getServiceDataDir } from './Utils';
 
-type ServiceOptions = {
-  configpath?: string;
+type ChainConfig = {
+  host: string;
+  port: number;
+  cookie: string;
+
+  zmqpubrawtx?: string;
+  zmqpubrawblock?: string;
+  zmqpubhashblock?: string;
 };
 
 type CurrencyConfig = {
   symbol: string,
   network: Network;
 
-  chain: ChainConfig & ServiceOptions;
-  lnd?: LndConfig & ServiceOptions;
+  chain: ChainConfig;
+  lnd?: LndConfig;
 
   maxSwapAmount: number;
   minSwapAmount: number;
@@ -245,8 +250,7 @@ class Config {
           chain: {
             host: '127.0.0.1',
             port: 18334,
-            rpcuser: 'user',
-            rpcpass: 'user',
+            cookie: 'docker/regtest/data/core/cookies/.bitcoin-cookie',
           },
 
           lnd: {
@@ -273,8 +277,7 @@ class Config {
           chain: {
             host: '127.0.0.1',
             port: 19334,
-            rpcuser: 'user',
-            rpcpass: 'user',
+            cookie: 'docker/regtest/data/core/cookies/.litecoin-cookie',
           },
 
           lnd: {
@@ -409,6 +412,7 @@ export {
   ApiConfig,
   ConfigType,
   GrpcConfig,
+  ChainConfig,
   TokenConfig,
   BackupConfig,
   EthereumConfig,

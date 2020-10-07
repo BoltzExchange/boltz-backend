@@ -74,3 +74,6 @@ lib/Version.ts
 
 # Folder from which regtest contracts are deployed
 contracts/
+
+# Bitcoin and Litecoin Core RPC cookies
+docker/regtest/data/core/cookies/

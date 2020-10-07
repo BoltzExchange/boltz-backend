@@ -65,8 +65,8 @@ COPY regtest/data/lnd/macaroons /root/.lnd-ltc2/data/chain/litecoin/regtest/
 # Copy start scripts
 COPY regtest/scripts /bin/
 
-# Configure RPC and ZMQ ports 
-RUN bash configurePorts.sh
+# Configure the daemons
+RUN bash configure.sh
 
 # Run the setup script
 RUN bash setup.sh
@@ -85,4 +85,4 @@ EXPOSE 10009 10011 11009 11010
 # Expose REST API ports of the LNDs
 EXPOSE 8080 8081
 
-ENTRYPOINT ["entrypoint.sh"] 
+ENTRYPOINT ["entrypoint.sh"]

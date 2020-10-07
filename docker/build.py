@@ -114,7 +114,7 @@ IMAGES: Dict[str, Image] = {
         ],
     ),
     "regtest": Image(
-        tags=["2.0.1"],
+        tags=["3.0.0"],
         arguments=[
             UBUNTU_VERSION,
             BuildArgument(

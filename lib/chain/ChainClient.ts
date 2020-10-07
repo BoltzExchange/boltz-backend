@@ -2,22 +2,12 @@ import { Transaction } from 'bitcoinjs-lib';
 import Logger from '../Logger';
 import RpcClient from './RpcClient';
 import BaseClient from '../BaseClient';
+import { ChainConfig } from '../Config';
 import { getHexString } from '../Utils';
 import { ClientStatus } from '../consts/Enums';
 import ChainTipRepository from '../db/ChainTipRepository';
 import ZmqClient, { ZmqNotification, filters } from './ZmqClient';
 import { Block, BlockchainInfo, RawTransaction, BlockVerbose, NetworkInfo, UnspentUtxo } from '../consts/Types';
-
-type ChainConfig = {
-  host: string;
-  port: number;
-  rpcuser: string;
-  rpcpass: string;
-
-  zmqpubrawtx?: string;
-  zmqpubrawblock?: string;
-  zmqpubhashblock?: string;
-};
 
 interface ChainClient {
   on(event: 'block', listener: (height: number) => void): this;
@@ -235,4 +225,3 @@ class ChainClient extends BaseClient {
 }
 
 export default ChainClient;
-export { ChainConfig };

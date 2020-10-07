@@ -1,19 +1,19 @@
 import http from 'http';
-
-type RpcConfig = {
-  host: string;
-  port: number;
-  rpcuser: string;
-  rpcpass: string;
-};
+import { existsSync, readFileSync } from 'fs';
+import Errors from './Errors';
+import { ChainConfig } from '../Config';
 
 class RpcClient {
-  private auth: string;
+  private readonly auth: string;
+  private readonly options = {};
 
-  private options = {};
+  constructor(config: ChainConfig) {
+    if (config.cookie === '' || !existsSync(config.cookie)) {
+      throw Errors.INVALID_COOKIE_FILE(config.cookie);
+    }
 
-  constructor(config: RpcConfig) {
-    this.auth = Buffer.from(`${config.rpcuser}:${config.rpcpass}`).toString('base64');
+    const cookieFile = readFileSync(config.cookie, 'utf-8');
+    this.auth = Buffer.from(cookieFile).toString('base64');
 
     this.options = {
       host: config.host,
@@ -70,4 +70,3 @@ class RpcClient {
 }
 
 export default RpcClient;
-export { RpcConfig };

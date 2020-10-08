@@ -1,5 +1,5 @@
 import { BigNumber } from 'ethers';
-import { Ierc20 } from 'boltz-core/typechain/Ierc20';
+import { Erc20 as ERC20 } from 'boltz-core/typechain/Erc20';
 
 export type EtherSwapValues = {
   preimageHash: Buffer;
@@ -21,7 +21,7 @@ export type Error = {
 export type Token = {
   symbol: string;
 
-  contract: Ierc20;
+  contract: ERC20;
   decimals: number;
 };
 

@@ -67,7 +67,6 @@ class ERC20WalletProvider implements WalletProviderInterface {
     };
   }
 
-  // TODO: check how this is rounded
   /**
    * Formats the token amount to send from 10 ** -8 decimals
    */
@@ -87,7 +86,6 @@ class ERC20WalletProvider implements WalletProviderInterface {
     }
   }
 
-  // TODO: check how this is rounded
   /**
    * Normalizes the token balance to 10 ** -8 decimals
    */

@@ -1,5 +1,5 @@
 import { ContractABIs } from 'boltz-core';
-import { Ierc20 } from 'boltz-core/typechain/Ierc20';
+import { Erc20 as ERC20 } from 'boltz-core/typechain/Erc20';
 import { Signer, providers, Contract } from 'ethers';
 import { Erc20Swap } from 'boltz-core/typechain/Erc20Swap';
 import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
@@ -16,13 +16,13 @@ const connectEthereum = (providerUrl: string, signerAddress: string): Signer => 
   return provider.getSigner(signerAddress);
 };
 
-const getContracts = (signer: Signer): { token: Ierc20, etherSwap: EtherSwap, erc20Swap: Erc20Swap } => {
+const getContracts = (signer: Signer): { token: ERC20, etherSwap: EtherSwap, erc20Swap: Erc20Swap } => {
   return {
     token: new Contract(
       Constants.erc20TokenAddress,
-      ContractABIs.IERC20,
+      ContractABIs.ERC20,
       signer,
-    ) as any as Ierc20,
+    ) as any as ERC20,
 
     etherSwap: new Contract(
       Constants.etherSwapAddress,

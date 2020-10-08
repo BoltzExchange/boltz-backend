@@ -1,5 +1,5 @@
 import { ContractABIs } from 'boltz-core';
-import { Ierc20 } from 'boltz-core/typechain/Ierc20';
+import { Erc20 as ERC20 } from 'boltz-core/typechain/Erc20';
 import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { Erc20Swap } from 'boltz-core/typechain/Erc20Swap';
 import { constants, Contract, Wallet as EthersWallet, utils } from 'ethers';
@@ -122,7 +122,7 @@ class EthereumManager {
             const provider = new ERC20WalletProvider(this.logger, signer, {
               symbol: token.symbol,
               decimals: token.decimals,
-              contract: new Contract(token.contractAddress, ContractABIs.IERC20, signer) as any as Ierc20,
+              contract: new Contract(token.contractAddress, ContractABIs.ERC20, signer) as any as ERC20,
             });
 
             wallets.set(token.symbol, new Wallet(

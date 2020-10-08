@@ -154,7 +154,7 @@ class EthereumNursery extends EventEmitter {
       if (swap.expectedAmount) {
         const expectedAmount = BigNumber.from(swap.expectedAmount).mul(etherDecimals);
 
-        if (!etherSwapValues.amount.sub(expectedAmount).isZero()) {
+        if (!etherSwapValues.amount.gte(expectedAmount)) {
           this.emit('lockup.failed', swap, EthereumNursery.lockupErrors.wrongAmount);
           return;
         }
@@ -217,12 +217,10 @@ class EthereumNursery extends EventEmitter {
 
       this.logger.debug(`Found lockup in ERC20Swap contract for Swap ${swap.id}: ${transactionHash}`);
 
-      const normalizedSwapAmount = erc20Wallet.normalizeTokenBalance(erc20SwapValues.amount);
-
       swap = await this.swapRepository.setLockupTransaction(
         swap,
         transactionHash,
-        normalizedSwapAmount,
+        erc20Wallet.normalizeTokenBalance(erc20SwapValues.amount),
         true,
       );
 
@@ -242,7 +240,7 @@ class EthereumNursery extends EventEmitter {
       }
 
       if (swap.expectedAmount) {
-        if (swap.expectedAmount !== normalizedSwapAmount) {
+        if (!erc20Wallet.formatTokenAmount(swap.expectedAmount).gte(erc20SwapValues.amount)) {
           this.emit('lockup.failed', swap, EthereumNursery.lockupErrors.wrongAmount);
           return;
         }

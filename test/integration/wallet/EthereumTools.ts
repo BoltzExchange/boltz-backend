@@ -1,7 +1,7 @@
 import { ContractABIs } from 'boltz-core';
-import { Ierc20 } from 'boltz-core/typechain/Ierc20';
 import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { Erc20Swap } from 'boltz-core/typechain/Erc20Swap';
+import { Erc20 as ERC20 } from 'boltz-core/typechain/Erc20';
 import { BigNumber, Contract, providers, Signer, Wallet } from 'ethers';
 
 export const getSigner = (): { provider: providers.WebSocketProvider, signer: Signer, etherBase: Signer } => {
@@ -14,8 +14,8 @@ export const getSigner = (): { provider: providers.WebSocketProvider, signer: Si
   };
 };
 
-export const getTokenContract = (signer: Signer): Ierc20 => {
-  return new Contract('0x504eF817bFdE039b33189C7eb8aa8861c25392C1', ContractABIs.IERC20, signer) as any as Ierc20;
+export const getTokenContract = (signer: Signer): ERC20 => {
+  return new Contract('0x504eF817bFdE039b33189C7eb8aa8861c25392C1', ContractABIs.ERC20, signer) as any as ERC20;
 };
 
 export const getSwapContracts = (signer: Signer): { etherSwap: EtherSwap, erc20Swap: Erc20Swap } => {
@@ -25,7 +25,7 @@ export const getSwapContracts = (signer: Signer): { etherSwap: EtherSwap, erc20S
   };
 };
 
-export const fundSignerWallet = async (signer: Signer, etherBase: Signer, token?: Ierc20): Promise<void> => {
+export const fundSignerWallet = async (signer: Signer, etherBase: Signer, token?: ERC20): Promise<void> => {
   const signerAddress = await signer.getAddress();
 
   const etherFundingTransaction = await etherBase.sendTransaction({

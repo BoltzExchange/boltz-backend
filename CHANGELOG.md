@@ -1,3 +1,12 @@
+## [2.4.2-beta](https://github.com/BoltzExchange/boltz-backend/compare/v2.4.1...v2.4.2-beta) (2020-10-09)
+
+
+### Bug Fixes
+
+* update to LND v0.11.1 ([acff8e7](https://github.com/BoltzExchange/boltz-backend/commit/acff8e73a7b7ced7aec89c5148565fd0c53be46b))
+
+
+
 ## [2.4.1-beta](https://github.com/BoltzExchange/boltz-backend/compare/v2.4.0...v2.4.1-beta) (2020-09-22)
 
 

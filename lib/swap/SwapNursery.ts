@@ -4,6 +4,7 @@ import { BigNumber } from 'ethers';
 import { EventEmitter } from 'events';
 import { Transaction } from 'bitcoinjs-lib';
 import { constructClaimTransaction, constructRefundTransaction, detectSwap, OutputType } from 'boltz-core';
+import Errors from './Errors';
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';
 import Wallet from '../wallet/Wallet';
@@ -667,7 +668,14 @@ class SwapNursery extends EventEmitter {
         formattedError === 'incorrect_payment_details' || formattedError.includes('invoice expired')
       ) {
         this.logger.warn(`Abandoning Swap ${swap.id} because: ${formattedError}`);
-        this.emit('invoice.failedToPay', await this.swapRepository.setSwapStatus(swap, SwapUpdateEvent.InvoiceFailedToPay));
+        this.emit(
+          'invoice.failedToPay',
+          await this.swapRepository.setSwapStatus(
+            swap,
+            SwapUpdateEvent.InvoiceFailedToPay,
+            Errors.INVOICE_COULD_NOT_BE_PAID().message,
+          ),
+        );
 
       // If the invoice could not be paid but the Swap has a Channel Creation attached to it, a channel will be opened
       } else if (
@@ -698,7 +706,11 @@ class SwapNursery extends EventEmitter {
     await lndClient.cancelInvoice(getHexBuffer(reverseSwap.preimageHash));
 
     this.logger.warn(`Failed to lockup ${reverseSwap.onchainAmount} ${chainSymbol} for Reverse Swap ${reverseSwap.id}: ${formatError(error)}`);
-    this.emit('coins.failedToSend', await this.reverseSwapRepository.setReverseSwapStatus(reverseSwap, SwapUpdateEvent.TransactionFailed));
+    this.emit('coins.failedToSend', await this.reverseSwapRepository.setReverseSwapStatus(
+      reverseSwap,
+      SwapUpdateEvent.TransactionFailed,
+      Errors.COINS_COULD_NOT_BE_SENT().message,
+    ));
   }
 
   private lockupFailed = async (swap: Swap, reason: string) => {
@@ -720,7 +732,7 @@ class SwapNursery extends EventEmitter {
 
     this.emit(
       'expiration',
-      await this.swapRepository.setSwapStatus(swap, SwapUpdateEvent.SwapExpired),
+      await this.swapRepository.setSwapStatus(swap, SwapUpdateEvent.SwapExpired, Errors.ONCHAIN_HTLC_TIMED_OUT().message),
       false,
     );
   }
@@ -763,7 +775,11 @@ class SwapNursery extends EventEmitter {
     } else {
       this.emit(
         'expiration',
-        await this.reverseSwapRepository.setReverseSwapStatus(reverseSwap, SwapUpdateEvent.SwapExpired),
+        await this.reverseSwapRepository.setReverseSwapStatus(
+          reverseSwap,
+          SwapUpdateEvent.SwapExpired,
+          Errors.ONCHAIN_HTLC_TIMED_OUT().message,
+        ),
         true,
       );
     }
@@ -805,7 +821,7 @@ class SwapNursery extends EventEmitter {
     this.logger.info(`Refunded ${chainSymbol} of Reverse Swap ${reverseSwap.id} in: ${refundTransaction.getId()}`);
     this.emit(
       'refund',
-      await this.reverseSwapRepository.setTransactionRefunded(reverseSwap, minerFee),
+      await this.reverseSwapRepository.setTransactionRefunded(reverseSwap, minerFee, Errors.REFUNDED_COINS(reverseSwap.transactionId!).message),
       refundTransaction.getId(),
     );
   }
@@ -827,6 +843,7 @@ class SwapNursery extends EventEmitter {
       await this.reverseSwapRepository.setTransactionRefunded(
         reverseSwap,
         calculateEthereumTransactionFee(contractTransaction),
+        Errors.REFUNDED_COINS(reverseSwap.transactionId!).message,
       ),
       contractTransaction.hash,
     );
@@ -851,6 +868,7 @@ class SwapNursery extends EventEmitter {
       await this.reverseSwapRepository.setTransactionRefunded(
         reverseSwap,
         calculateEthereumTransactionFee(contractTransaction),
+        Errors.REFUNDED_COINS(reverseSwap.transactionId!).message,
       ),
       contractTransaction.hash,
     );

@@ -26,7 +26,7 @@ class EthereumManager {
   public etherSwap: EtherSwap;
   public erc20Swap: Erc20Swap;
 
-  public address?: string;
+  public address!: string;
 
   public tokenAddresses = new Map<string, string>();
 

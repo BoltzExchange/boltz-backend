@@ -604,7 +604,7 @@ describe('SwapManager', () => {
       error = e;
     }
 
-    expect(error.code).toEqual('2.4');
+    expect(error.code).toEqual('6.4');
     expect(error.message.startsWith(`invoice expiry ${bolt11.decode(invoice).timeExpireDate!} is before Swap timeout: `)).toBeTruthy();
 
     error = undefined;
@@ -625,7 +625,7 @@ describe('SwapManager', () => {
       error = e;
     }
 
-    expect(error!.code).toEqual('2.4');
+    expect(error!.code).toEqual('6.4');
     expect(error!.message.startsWith(`invoice expiry ${bolt11.decode(invoiceNoExpiry).timestamp! + 3600} is before Swap timeout: `)).toBeTruthy();
 
     mockGetChannelCreationResult = undefined;

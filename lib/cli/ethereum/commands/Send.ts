@@ -1,10 +1,8 @@
-import { join } from 'path';
 import { Arguments } from 'yargs';
-import { BigNumber, Wallet } from 'ethers';
-import { existsSync, readFileSync } from 'fs';
+import { BigNumber } from 'ethers';
 import { etherDecimals } from '../../../consts/Consts';
 import BuilderComponents from '../../BuilderComponents';
-import { connectEthereum, getContracts } from '../EthereumUtils';
+import { connectEthereum, getBoltzAddress, getContracts } from '../EthereumUtils';
 
 export const command = 'send <amount> [destination] [token]';
 
@@ -30,22 +28,11 @@ export const handler = async (argv: Arguments<any>): Promise<void> => {
 
   let transactionHash: string;
 
-  let destination = argv.destination;
+  const destination = argv.destination || await getBoltzAddress();
 
   if (destination === undefined) {
-    const filePath = join(process.env.HOME!, '.boltz/seed.dat');
-
-    if (existsSync(filePath)) {
-      destination = await Wallet.fromMnemonic(readFileSync(
-        filePath,
-        {
-          encoding: 'utf-8',
-        },
-      )).getAddress();
-    } else {
-      console.log('Did not send coins because no address was specified');
-      return;
-    }
+    console.log('Did not send coins because no onchain address was specified');
+    return;
   }
 
   if (argv.token) {

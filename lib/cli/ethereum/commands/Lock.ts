@@ -3,7 +3,7 @@ import { BigNumber, ContractTransaction } from 'ethers';
 import { getHexBuffer } from '../../../Utils';
 import { etherDecimals } from '../../../consts/Consts';
 import BuilderComponents from '../../BuilderComponents';
-import { Constants, connectEthereum, getContracts } from '../EthereumUtils';
+import { Constants, connectEthereum, getContracts, getBoltzAddress } from '../EthereumUtils';
 
 export const command = 'lock <preimageHash> <amount> <timelock> [token]';
 
@@ -32,8 +32,12 @@ export const handler = async (argv: Arguments<any>): Promise<void> => {
   const preimageHash = getHexBuffer(argv.preimageHash);
   const amount = BigNumber.from(argv.amount).mul(etherDecimals);
 
-  // TODO: query address from boltz
-  const boltzAddress = '0xf75812E6F32a0465ea5369Ab1259cf0B5B2198d0';
+  const boltzAddress = await getBoltzAddress();
+
+  if (boltzAddress === undefined) {
+    console.log('Could not lock coins because the address of Boltz could not be queried');
+    return;
+  }
 
   let transaction: ContractTransaction;
 

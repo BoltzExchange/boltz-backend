@@ -37,9 +37,10 @@ class ReverseSwapRepository {
     return ReverseSwap.create(reverseSwap);
   }
 
-  public setReverseSwapStatus = (reverseSwap: ReverseSwap, status: string): Promise<ReverseSwap> => {
+  public setReverseSwapStatus = (reverseSwap: ReverseSwap, status: string, failureReason?: string): Promise<ReverseSwap> => {
     return reverseSwap.update({
       status,
+      failureReason,
     });
   }
 
@@ -59,8 +60,9 @@ class ReverseSwapRepository {
     });
   }
 
-  public setTransactionRefunded = (reverseSwap: ReverseSwap, minerFee: number): Promise<ReverseSwap> => {
+  public setTransactionRefunded = (reverseSwap: ReverseSwap, minerFee: number, failureReason: string): Promise<ReverseSwap> => {
     return reverseSwap.update({
+      failureReason,
       minerFee: reverseSwap.minerFee + minerFee,
       status: SwapUpdateEvent.TransactionRefunded,
     });

@@ -1,6 +1,8 @@
+import { join } from 'path';
 import { ContractABIs } from 'boltz-core';
+import { existsSync, readFileSync } from 'fs';
 import { Erc20 as ERC20 } from 'boltz-core/typechain/Erc20';
-import { Signer, providers, Contract } from 'ethers';
+import { Signer, providers, Contract, Wallet } from 'ethers';
 import { Erc20Swap } from 'boltz-core/typechain/Erc20Swap';
 import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 
@@ -37,9 +39,25 @@ const getContracts = (signer: Signer): { token: ERC20, etherSwap: EtherSwap, erc
   };
 };
 
+const getBoltzAddress = async (): Promise<string | undefined> => {
+  const filePath = join(process.env.HOME!, '.boltz/seed.dat');
+
+  if (existsSync(filePath)) {
+    return Wallet.fromMnemonic(readFileSync(
+      filePath,
+      {
+        encoding: 'utf-8',
+      },
+    )).getAddress();
+  }
+
+  return;
+};
+
 export {
   Constants,
 
   getContracts,
   connectEthereum,
+  getBoltzAddress,
 };

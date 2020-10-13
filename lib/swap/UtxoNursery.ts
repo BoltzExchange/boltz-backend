@@ -2,6 +2,7 @@ import { Op } from 'sequelize';
 import { EventEmitter } from 'events';
 import { Transaction } from 'bitcoinjs-lib';
 import { detectPreimage, detectSwap } from 'boltz-core';
+import Errors from './Errors';
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';
 import Wallet from '../wallet/Wallet';
@@ -113,8 +114,8 @@ class UtxoNursery extends EventEmitter {
       );
 
       if (swap.expectedAmount) {
-        if (swapOutput.value < swap.expectedAmount) {
-          this.emit('swap.lockup.failed', swap, `locked ${swapOutput.value} are less than expected ${swap.expectedAmount}`);
+        if (swap.expectedAmount > swapOutput.value) {
+          this.emit('swap.lockup.failed', swap, Errors.INSUFFICIENT_AMOUNT(swapOutput.value, swap.expectedAmount).message);
           chainClient.removeOutputFilter(swapOutput.script);
 
           continue;

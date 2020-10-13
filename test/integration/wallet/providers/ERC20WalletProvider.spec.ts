@@ -84,51 +84,47 @@ describe('ERC20WalletProvider', () => {
   });
 
   test('should normalize token balance', () => {
-    const normalizeTokenBalance = wallet['normalizeTokenBalance'];
-
     const amount = BigNumber.from(190000000);
 
     token.decimals = 8;
-    expect(normalizeTokenBalance(amount)).toEqual(190000000);
+    expect(wallet.normalizeTokenAmount(amount)).toEqual(190000000);
 
     token.decimals = 9;
-    expect(normalizeTokenBalance(amount)).toEqual(19000000);
+    expect(wallet.normalizeTokenAmount(amount)).toEqual(19000000);
     token.decimals = 10;
-    expect(normalizeTokenBalance(amount)).toEqual(1900000);
+    expect(wallet.normalizeTokenAmount(amount)).toEqual(1900000);
     token.decimals = 16;
-    expect(normalizeTokenBalance(amount)).toEqual(1);
+    expect(wallet.normalizeTokenAmount(amount)).toEqual(1);
 
     token.decimals = 7;
-    expect(normalizeTokenBalance(amount)).toEqual(1900000000);
+    expect(wallet.normalizeTokenAmount(amount)).toEqual(1900000000);
     token.decimals = 6;
-    expect(normalizeTokenBalance(amount)).toEqual(19000000000);
+    expect(wallet.normalizeTokenAmount(amount)).toEqual(19000000000);
     token.decimals = 5;
-    expect(normalizeTokenBalance(amount)).toEqual(190000000000);
+    expect(wallet.normalizeTokenAmount(amount)).toEqual(190000000000);
 
     token.decimals = 18;
   });
 
   test('should format token amount', () => {
-    const formatTokenAmount = wallet['formatTokenAmount'];
-
     const amount = 190000000;
 
     token.decimals = 8;
-    expect(formatTokenAmount(amount)).toEqual(BigNumber.from(190000000));
+    expect(wallet.formatTokenAmount(amount)).toEqual(BigNumber.from(190000000));
 
     token.decimals = 9;
-    expect(formatTokenAmount(amount)).toEqual(BigNumber.from(1900000000));
+    expect(wallet.formatTokenAmount(amount)).toEqual(BigNumber.from(1900000000));
     token.decimals = 10;
-    expect(formatTokenAmount(amount)).toEqual(BigNumber.from(19000000000));
+    expect(wallet.formatTokenAmount(amount)).toEqual(BigNumber.from(19000000000));
     token.decimals = 16;
-    expect(formatTokenAmount(amount)).toEqual(BigNumber.from('19000000000000000'));
+    expect(wallet.formatTokenAmount(amount)).toEqual(BigNumber.from('19000000000000000'));
 
     token.decimals = 7;
-    expect(formatTokenAmount(amount)).toEqual(BigNumber.from(19000000));
+    expect(wallet.formatTokenAmount(amount)).toEqual(BigNumber.from(19000000));
     token.decimals = 6;
-    expect(formatTokenAmount(amount)).toEqual(BigNumber.from(1900000));
+    expect(wallet.formatTokenAmount(amount)).toEqual(BigNumber.from(1900000));
     token.decimals = 5;
-    expect(formatTokenAmount(amount)).toEqual(BigNumber.from(190000));
+    expect(wallet.formatTokenAmount(amount)).toEqual(BigNumber.from(190000));
 
     token.decimals = 18;
   });

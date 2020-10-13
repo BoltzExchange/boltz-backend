@@ -34,7 +34,11 @@ export enum SwapUpdateEvent {
   InvoiceSettled = 'invoice.settled',
   InvoiceFailedToPay = 'invoice.failedToPay',
 
+  // When an onchain transaction:
+  // - cannot be sent from the backend
+  // - of the user is rejected by the backend
   TransactionFailed = 'transaction.failed',
+
   TransactionMempool = 'transaction.mempool',
   TransactionClaimed = 'transaction.claimed',
   TransactionRefunded = 'transaction.refunded',

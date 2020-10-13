@@ -1,6 +1,5 @@
 import { EventEmitter } from 'events';
 import { Transaction } from 'bitcoinjs-lib';
-import Errors from './Errors';
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';
 import SwapNursery from '../swap/SwapNursery';
@@ -97,7 +96,7 @@ class EventHandler extends EventEmitter {
   }
 
   /**
-   * Subscribes to invoice related swap events
+   * Subscribes to invoice related Swap events
    */
   private subscribeInvoices = () => {
     this.nursery.on('invoice.settled', (swap) => {
@@ -112,7 +111,7 @@ class EventHandler extends EventEmitter {
     });
 
     this.nursery.on('invoice.failedToPay', (swap) => {
-      this.handleFailedSwap(swap, Errors.INVOICE_COULD_NOT_BE_PAID().message, SwapUpdateEvent.InvoiceFailedToPay);
+      this.handleFailedSwap(swap, SwapUpdateEvent.InvoiceFailedToPay, swap.failureReason!);
     });
 
     this.nursery.on('invoice.paid', (swap) => {
@@ -121,7 +120,7 @@ class EventHandler extends EventEmitter {
   }
 
   /**
-   * Subscribes to a stream of swap events
+   * Subscribes Swap events
    */
   private subscribeSwapEvents = () => {
     this.nursery.on('zeroconf.rejected', (swap) => {
@@ -140,12 +139,11 @@ class EventHandler extends EventEmitter {
 
     this.nursery.on('expiration', (swap, isReverse) => {
       const newStatus = SwapUpdateEvent.SwapExpired;
-      const error = Errors.ONCHAIN_HTLC_TIMED_OUT().message;
 
       if (isReverse) {
-        this.handleFailedReverseSwap(swap as ReverseSwap, error, newStatus);
+        this.handleFailedReverseSwap(swap as ReverseSwap, newStatus, swap.failureReason!);
       } else {
-        this.handleFailedSwap(swap as Swap, error, newStatus);
+        this.handleFailedSwap(swap as Swap, newStatus, swap.failureReason!);
       }
     });
 
@@ -176,11 +174,11 @@ class EventHandler extends EventEmitter {
     });
 
     this.nursery.on('coins.failedToSend', (reverseSwap) => {
-      this.handleFailedReverseSwap(reverseSwap, Errors.COINS_COULD_NOT_BE_SENT().message, SwapUpdateEvent.TransactionFailed);
+      this.handleFailedReverseSwap(reverseSwap, SwapUpdateEvent.TransactionFailed, reverseSwap.failureReason!);
     });
 
     this.nursery.on('refund', (reverseSwap) => {
-      this.handleFailedReverseSwap(reverseSwap, Errors.REFUNDED_COINS(reverseSwap.transactionId!).message, SwapUpdateEvent.TransactionRefunded);
+      this.handleFailedReverseSwap(reverseSwap, SwapUpdateEvent.TransactionRefunded, reverseSwap.failureReason!);
     });
 
     this.nursery.channelNursery.on('channel.created', (swap, channelCreation) => {
@@ -202,7 +200,7 @@ class EventHandler extends EventEmitter {
   }
 
   /**
-   * Subscribes to a a stream of channel backups
+   * Subscribes to a stream of channel backups
    */
   private subscribeChannelBackups = () => {
     this.currencies.forEach((currency) => {
@@ -216,18 +214,22 @@ class EventHandler extends EventEmitter {
     });
   }
 
-  private handleFailedSwap = (swap: Swap, reason: string, status: SwapUpdateEvent) => {
-    this.logger.warn(`Swap ${swap.id} failed: ${reason}`);
+  private handleFailedSwap = (swap: Swap, status: SwapUpdateEvent, failureReason: string) => {
+    this.logger.warn(`Swap ${swap.id} failed: ${failureReason}`);
 
-    this.emit('swap.update', swap.id, { status });
-    this.emit('swap.failure', swap, false, reason);
+    this.emit('swap.update', swap.id, { status, failureReason });
+    this.emit('swap.failure', swap, false, failureReason);
   }
 
-  private handleFailedReverseSwap = (reverseSwap: ReverseSwap, reason: string, status: SwapUpdateEvent) => {
-    this.logger.warn(`Reverse swap ${reverseSwap.id} failed: ${reason}`);
+  private handleFailedReverseSwap = (
+    reverseSwap: ReverseSwap,
+    status: SwapUpdateEvent,
+    failureReason: string,
+  ) => {
+    this.logger.warn(`Reverse swap ${reverseSwap.id} failed: ${failureReason}`);
 
-    this.emit('swap.update', reverseSwap.id, { status });
-    this.emit('swap.failure', reverseSwap, true, reason);
+    this.emit('swap.update', reverseSwap.id, { status, failureReason });
+    this.emit('swap.failure', reverseSwap, true, failureReason);
   }
 }
 

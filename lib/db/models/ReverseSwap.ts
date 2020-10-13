@@ -18,6 +18,8 @@ type ReverseSwapType = {
   orderSide: number;
 
   status: string;
+  failureReason?: string;
+
   timeoutBlockHeight: number;
 
   invoice: string;
@@ -48,6 +50,8 @@ class ReverseSwap extends Model implements ReverseSwapType {
   public orderSide!: number;
 
   public status!: string;
+  public failureReason?: string;
+
   public timeoutBlockHeight!: number;
 
   public invoice!: string;
@@ -75,6 +79,7 @@ class ReverseSwap extends Model implements ReverseSwapType {
       pair: { type: new DataTypes.STRING(255), allowNull: false },
       orderSide: { type: new DataTypes.INTEGER(), allowNull: false },
       status: { type: new DataTypes.STRING(255), allowNull: false },
+      failureReason: { type: new DataTypes.STRING(255), allowNull: true },
       timeoutBlockHeight: { type: new DataTypes.INTEGER(), allowNull: false },
       invoice: { type: new DataTypes.STRING(255), allowNull: false, unique: true },
       minerFeeInvoice: { type: new DataTypes.STRING(255), allowNull: true, unique: true },

@@ -1,6 +1,7 @@
 import { Op } from 'sequelize';
 import { EventEmitter } from 'events';
 import { BigNumber, ContractTransaction } from 'ethers';
+import Errors from './Errors';
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';
 import Wallet from '../wallet/Wallet';
@@ -46,13 +47,6 @@ interface EthereumNursery {
 }
 
 class EthereumNursery extends EventEmitter {
-  private static lockupErrors = {
-    wrongToken: 'wrong token',
-    wrongClaimAddress: 'wrong claim address',
-    wrongAmount: 'wrong amount',
-    wrongTimelock: 'wrong timelock',
-  };
-
   private ethereumManager: EthereumManager;
 
   constructor(
@@ -142,20 +136,32 @@ class EthereumNursery extends EventEmitter {
       );
 
       if (etherSwapValues.claimAddress !== this.ethereumManager.address) {
-        this.emit('lockup.failed', swap, EthereumNursery.lockupErrors.wrongClaimAddress);
+        this.emit(
+          'lockup.failed',
+          swap,
+          Errors.INVALID_CLAIM_ADDRESS(etherSwapValues.claimAddress, this.ethereumManager.address).message,
+        );
         return;
       }
 
       if (etherSwapValues.timelock !== swap.timeoutBlockHeight) {
-        this.emit('lockup.failed', swap, EthereumNursery.lockupErrors.wrongTimelock);
+        this.emit(
+          'lockup.failed',
+          swap,
+          Errors.INVALID_TIMELOCK(etherSwapValues.timelock, swap.timeoutBlockHeight).message,
+        );
         return;
       }
 
       if (swap.expectedAmount) {
         const expectedAmount = BigNumber.from(swap.expectedAmount).mul(etherDecimals);
 
-        if (!etherSwapValues.amount.gte(expectedAmount)) {
-          this.emit('lockup.failed', swap, EthereumNursery.lockupErrors.wrongAmount);
+        if (expectedAmount.gt(etherSwapValues.amount)) {
+          this.emit(
+            'lockup.failed',
+            swap,
+            Errors.INSUFFICIENT_AMOUNT(etherSwapValues.amount.div(etherDecimals).toNumber(), swap.expectedAmount).message,
+          );
           return;
         }
       }
@@ -220,28 +226,44 @@ class EthereumNursery extends EventEmitter {
       swap = await this.swapRepository.setLockupTransaction(
         swap,
         transactionHash,
-        erc20Wallet.normalizeTokenBalance(erc20SwapValues.amount),
+        erc20Wallet.normalizeTokenAmount(erc20SwapValues.amount),
         true,
       );
 
       if (erc20SwapValues.claimAddress !== this.ethereumManager.address) {
-        this.emit('lockup.failed', swap, EthereumNursery.lockupErrors.wrongClaimAddress);
+        this.emit(
+          'lockup.failed',
+          swap,
+          Errors.INVALID_CLAIM_ADDRESS(erc20SwapValues.claimAddress, this.ethereumManager.address).message,
+        );
         return;
       }
 
       if (erc20SwapValues.tokenAddress !== erc20Wallet.getTokenAddress()) {
-        this.emit('lockup.failed', swap, EthereumNursery.lockupErrors.wrongToken);
+        this.emit(
+          'lockup.failed',
+          swap,
+          Errors.INVALID_TOKEN_LOCKED(erc20SwapValues.tokenAddress, this.ethereumManager.address).message,
+        );
         return;
       }
 
       if (erc20SwapValues.timelock !== swap.timeoutBlockHeight) {
-        this.emit('lockup.failed', swap, EthereumNursery.lockupErrors.wrongTimelock);
+        this.emit(
+          'lockup.failed',
+          swap,
+          Errors.INVALID_TIMELOCK(erc20SwapValues.timelock, swap.timeoutBlockHeight).message,
+        );
         return;
       }
 
       if (swap.expectedAmount) {
-        if (!erc20Wallet.formatTokenAmount(swap.expectedAmount).gte(erc20SwapValues.amount)) {
-          this.emit('lockup.failed', swap, EthereumNursery.lockupErrors.wrongAmount);
+        if (erc20Wallet.formatTokenAmount(swap.expectedAmount).gt(erc20SwapValues.amount)) {
+          this.emit(
+            'lockup.failed',
+            swap,
+            Errors.INSUFFICIENT_AMOUNT(erc20Wallet.normalizeTokenAmount(erc20SwapValues.amount), swap.expectedAmount).message,
+          );
           return;
         }
       }

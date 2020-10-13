@@ -43,14 +43,6 @@ export default {
     message: 'onchain amount is too low',
     code: concatErrorCode(ErrorCodePrefix.Service, 9),
   }),
-  INVOICE_COULD_NOT_BE_PAID: (): Error => ({
-    message: 'invoice could not be paid',
-    code: concatErrorCode(ErrorCodePrefix.Service, 10),
-  }),
-  ONCHAIN_HTLC_TIMED_OUT: (): Error => ({
-    message: 'onchain HTLC timed out',
-    code: concatErrorCode(ErrorCodePrefix.Service, 11),
-  }),
   BLOCK_TIME_NOT_FOUND: (symbol: string): Error => ({
     message: `could not find block time of currency: ${symbol}`,
     code: concatErrorCode(ErrorCodePrefix.Service, 12),
@@ -67,10 +59,6 @@ export default {
     message: `${symbol} has no LND client`,
     code: concatErrorCode(ErrorCodePrefix.Service, 15),
   }),
-  COINS_COULD_NOT_BE_SENT: (): Error => ({
-    message: 'onchain coins could not be sent',
-    code: concatErrorCode(ErrorCodePrefix.Service, 16),
-  }),
   SWAP_WITH_PREIMAGE_EXISTS: (): Error => ({
     message: 'a swap with this preimage hash exists already',
     code: concatErrorCode(ErrorCodePrefix.Service, 17),
@@ -78,10 +66,6 @@ export default {
   SWAP_HAS_INVOICE_ALREADY: (id: string): Error => ({
     message: `swap ${id} has an invoice already`,
     code: concatErrorCode(ErrorCodePrefix.Service, 18),
-  }),
-  REFUNDED_COINS: (transactionId: string): Error => ({
-    message: `refunded onchain coins: ${transactionId}`,
-    code: concatErrorCode(ErrorCodePrefix.Service, 19),
   }),
   SWAP_NO_LOCKUP: (): Error => ({
     message: 'no coins were locked up yet',

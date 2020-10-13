@@ -22,7 +22,7 @@ class ERC20WalletProvider implements WalletProviderInterface {
   }
 
   public getBalance = async (): Promise<WalletBalance> => {
-    const balance = this.normalizeTokenBalance(
+    const balance = this.normalizeTokenAmount(
       await this.token.contract.balanceOf(await this.getAddress()),
     );
 
@@ -89,7 +89,7 @@ class ERC20WalletProvider implements WalletProviderInterface {
   /**
    * Normalizes the token balance to 10 ** -8 decimals
    */
-  public normalizeTokenBalance = (amount: BigNumber): number => {
+  public normalizeTokenAmount = (amount: BigNumber): number => {
     if (this.token.decimals === 8) {
       return amount.toNumber();
     } else {

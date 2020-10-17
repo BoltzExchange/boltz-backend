@@ -13,7 +13,7 @@
     "dev": "npm run compile && npm run start",
     "lint": "eslint --max-warnings 0 --ext .ts .",
     "docker:regtest": "./docker/regtest/startRegtest.sh",
-    "docker:geth": "docker run -d --name geth -p 8545:8545 -p 8546:8546 boltz/geth:1.9.22",
+    "docker:geth": "docker run -d --name geth -p 8545:8545 -p 8546:8546 boltz/geth:1.9.23",
     "docker:geth:deploy": "mkdir -p contracts && cp -R node_modules/boltz-core/buidler.config.ts node_modules/boltz-core/scripts node_modules/boltz-core/artifacts contracts && cd contracts && buidler deploy --network localhost",
     "docker:geth:fund": "./bin/boltz-ethereum send 1000000000000 && ./bin/boltz-ethereum send 1000000000000 --token",
     "docker:start": "npm run docker:regtest && npm run docker:geth && npm run docker:geth:deploy && npm run docker:geth:fund",

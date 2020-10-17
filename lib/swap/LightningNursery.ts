@@ -4,7 +4,6 @@ import Logger from '../Logger';
 import { Invoice } from '../proto/lndrpc_pb';
 import LndClient from '../lightning/LndClient';
 import { SwapUpdateEvent } from '../consts/Enums';
-import SwapRepository from '../db/SwapRepository';
 import ReverseSwap from '../db/models/ReverseSwap';
 import { Currency } from '../wallet/WalletManager';
 import { decodeInvoice, getHexBuffer } from '../Utils';
@@ -22,7 +21,6 @@ class LightningNursery extends EventEmitter {
   constructor(
     private logger: Logger,
     private prepayMinerFee: boolean,
-    private swapRepository: SwapRepository,
     private reverseSwapRepository: ReverseSwapRepository,
   ) {
     super();

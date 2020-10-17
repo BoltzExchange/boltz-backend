@@ -134,7 +134,6 @@ class SwapNursery extends EventEmitter {
     this.lightningNursery = new LightningNursery(
       this.logger,
       prepayMinerFee,
-      this.swapRepository,
       this.reverseSwapRepository,
     );
 

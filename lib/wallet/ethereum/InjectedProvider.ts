@@ -4,6 +4,7 @@ import Logger from '../../Logger';
 import { EthereumConfig } from '../../Config';
 import { formatError, stringify } from '../../Utils';
 import PendingEthereumTransactionRepository from '../../db/PendingEthereumTransactionRepository';
+import Errors from './Errors';
 
 /**
  * This provider is a wrapper for the WebSocketProvider from ethers but it writes sent transactions to the database
@@ -38,6 +39,8 @@ class InjectedProvider implements providers.Provider {
   }
 
   public init = async (): Promise<void> => {
+    this.logger.verbose(`Trying to connect to ${this.providers.size} providers:\n - ${Array.from(this.providers.keys()).join('\n - ')}`);
+
     const networks: providers.Network[] = [];
 
     for (const [providerName, provider] of this.providers) {
@@ -47,19 +50,18 @@ class InjectedProvider implements providers.Provider {
         networks.push(network);
       } catch (error) {
         this.logDisabledProvider(providerName, `could not connect: ${formatError(error)}`);
+        this.providers.delete(providerName);
       }
     }
 
     const networksAreSame = networks.every((network) => network.chainId === networks[0].chainId);
 
     if (!networksAreSame) {
-      const networkStrings: number[] = [];
-      networks.forEach((network) => networkStrings.push(network.chainId));
-
-      throw `Not all web3 provider networks are the same: ${networkStrings.join(', ')}`;
+      throw Errors.UNEQUAL_PROVIDER_NETWORKS(networks);
     }
 
     this.network = networks[0];
+    this.logger.info(`Connected to ${this.providers.size} providers:\n - ${Array.from(this.providers.keys()).join('\n - ')}`);
   }
 
   public destroy = async (): Promise<void> => {
@@ -298,8 +300,7 @@ class InjectedProvider implements providers.Provider {
       return null;
     }
 
-    // TODO: move to errors
-    throw `Requests to all ${this.providers.size} providers failed:\n - ` + errors.join('\n - ');
+    throw Errors.REQUESTS_TO_PROVIDERS_FAILED(errors);
   }
 
   private hashCode = (value: string): number => {

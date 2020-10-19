@@ -75,6 +75,7 @@ class EventHandler extends EventEmitter {
         });
       } else {
         // Reverse Swaps only emit the "transaction.confirmed" event
+        // "transaction.mempool" is handled by the event "coins.sent"
         if (transaction instanceof Transaction) {
           this.emit('swap.update', swap.id, {
             status: SwapUpdateEvent.TransactionConfirmed,

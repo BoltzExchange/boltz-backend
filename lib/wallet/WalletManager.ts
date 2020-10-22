@@ -112,6 +112,7 @@ class WalletManager {
 
       const wallet = new Wallet(
         this.logger,
+        CurrencyType.BitcoinLike,
         new LndWalletProvider(this.logger, currency.lndClient, currency.chainClient!),
       );
 

@@ -2,7 +2,7 @@ import { ContractABIs } from 'boltz-core';
 import { Erc20 as ERC20 } from 'boltz-core/typechain/Erc20';
 import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { Erc20Swap } from 'boltz-core/typechain/Erc20Swap';
-import { constants, Contract, Wallet as EthersWallet, utils } from 'ethers';
+import { constants, Contract, utils, Wallet as EthersWallet } from 'ethers';
 import GasNow from './GasNow';
 import Errors from '../Errors';
 import Wallet from '../Wallet';
@@ -11,6 +11,7 @@ import { stringify } from '../../Utils';
 import { EthereumConfig } from '../../Config';
 import ContractHandler from './ContractHandler';
 import InjectedProvider from './InjectedProvider';
+import { CurrencyType } from '../../consts/Enums';
 import ContractEventHandler from './ContractEventHandler';
 import ChainTipRepository from '../../db/ChainTipRepository';
 import EtherWalletProvider from '../providers/EtherWalletProvider';
@@ -127,6 +128,7 @@ class EthereumManager {
 
             wallets.set(token.symbol, new Wallet(
               this.logger,
+              CurrencyType.ERC20,
               provider,
             ));
 
@@ -142,6 +144,7 @@ class EthereumManager {
           if (!wallets.has('ETH')) {
             wallets.set('ETH', new Wallet(
               this.logger,
+              CurrencyType.Ether,
               new EtherWalletProvider(this.logger, signer),
             ));
           } else {

@@ -1,15 +1,16 @@
 import { fromSeed } from 'bip32';
 import ops from '@boltz/bitcoin-ops';
 import { Networks } from 'boltz-core';
-import { Transaction, script, crypto } from 'bitcoinjs-lib';
+import { crypto, script, Transaction } from 'bitcoinjs-lib';
 import { generateMnemonic, mnemonicToSeedSync } from 'bip39';
 import Logger from '../../../lib/Logger';
 import Wallet from '../../../lib/wallet/Wallet';
 import Database from '../../../lib/db/Database';
 import { getHexBuffer } from '../../../lib/Utils';
 import KeyRepository from '../../../lib/db/KeyRepository';
+import { CurrencyType } from '../../../lib/consts/Enums';
 import LndWalletProvider from '../../../lib/wallet/providers/LndWalletProvider';
-import { WalletBalance, SentTransaction } from '../../../lib/wallet/providers/WalletProviderInterface';
+import { SentTransaction, WalletBalance } from '../../../lib/wallet/providers/WalletProviderInterface';
 
 const symbol = 'BTC';
 
@@ -71,6 +72,7 @@ describe('Wallet', () => {
 
   const wallet = new Wallet(
     Logger.disabledLogger,
+    CurrencyType.BitcoinLike,
     walletProvider,
   );
 

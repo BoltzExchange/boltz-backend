@@ -1,6 +1,7 @@
 import { Network, address, BIP32Interface } from 'bitcoinjs-lib';
 import Errors from './Errors';
 import Logger from '../Logger';
+import { CurrencyType } from '../consts/Enums';
 import KeyRepository from '../db/KeyRepository';
 import WalletProviderInterface, { SentTransaction, WalletBalance } from './providers/WalletProviderInterface';
 
@@ -18,6 +19,7 @@ class Wallet {
    */
   constructor(
     private logger: Logger,
+    public type: CurrencyType,
     public walletProvider: WalletProviderInterface,
   ) {
     this.symbol = this.walletProvider.symbol;

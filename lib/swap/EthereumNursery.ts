@@ -7,14 +7,13 @@ import Swap from '../db/models/Swap';
 import Wallet from '../wallet/Wallet';
 import { etherDecimals } from '../consts/Consts';
 import SwapRepository from '../db/SwapRepository';
-import { SwapUpdateEvent } from '../consts/Enums';
 import ReverseSwap from '../db/models/ReverseSwap';
 import WalletManager from '../wallet/WalletManager';
 import ReverseSwapRepository from '../db/ReverseSwapRepository';
+import { CurrencyType, SwapUpdateEvent } from '../consts/Enums';
 import EthereumManager from '../wallet/ethereum/EthereumManager';
 import { ERC20SwapValues, EtherSwapValues } from '../consts/Types';
 import { getChainCurrency, getHexString, splitPairId } from '../Utils';
-import EtherWalletProvider from '../wallet/providers/EtherWalletProvider';
 import ERC20WalletProvider from '../wallet/providers/ERC20WalletProvider';
 
 interface EthereumNursery {
@@ -66,6 +65,7 @@ class EthereumNursery extends EventEmitter {
   }
 
   public init = async (): Promise<void> => {
+    // Fetch all Reverse Swaps with a pending lockup transaction
     const mempoolReverseSwaps = await this.reverseSwapRepository.getReverseSwaps({
       status: {
         [Op.eq]: SwapUpdateEvent.TransactionMempool,
@@ -73,10 +73,20 @@ class EthereumNursery extends EventEmitter {
     });
 
     for (const mempoolReverseSwap of mempoolReverseSwaps) {
+      const { base, quote } = splitPairId(mempoolReverseSwap.pair);
+      const chainCurrency = getChainCurrency(base, quote, mempoolReverseSwap.orderSide, true);
+
+      // Skip all Reverse Swaps that didn't send coins on the Ethereum chain
+      if (this.getEthereumWallet(chainCurrency) === undefined) {
+        continue;
+      }
+
       try {
         const transaction = await this.ethereumManager.provider.getTransaction(mempoolReverseSwap.transactionId!);
+        this.logger.debug(`Found pending Ethereum lockup transaction of Reverse Swap ${mempoolReverseSwap.id}: ${mempoolReverseSwap.transactionId}`);
         this.listenContractTransaction(mempoolReverseSwap, transaction);
       } catch (error) {
+        // TODO: retry finding that transaction
         // If the provider can't find the transaction, it is not on the Ethereum chain
       }
     }
@@ -215,7 +225,7 @@ class EthereumNursery extends EventEmitter {
 
       const wallet = this.walletManager.wallets.get(chainCurrency);
 
-      if (wallet === undefined || !(wallet.walletProvider instanceof ERC20WalletProvider)) {
+      if (wallet === undefined || wallet.type !== CurrencyType.ERC20) {
         return;
       }
 
@@ -340,7 +350,7 @@ class EthereumNursery extends EventEmitter {
       return;
     }
 
-    if (wallet.walletProvider instanceof EtherWalletProvider || wallet.walletProvider instanceof ERC20WalletProvider) {
+    if (wallet.type === CurrencyType.Ether || wallet.type === CurrencyType.ERC20) {
       return wallet;
     }
 

@@ -5,16 +5,22 @@ import DataAggregator from '../../../lib/rates/data/DataAggregator';
 
 const btcFee = 36;
 const ltcFee = 3;
+const ethFee = 11;
 
 const getFeeEstimation = () => Promise.resolve(
   new Map([
     ['BTC', btcFee],
     ['LTC', ltcFee],
+    ['ETH', ethFee],
   ]),
 );
 
 jest.mock('../../../lib/rates/data/DataAggregator', () => {
-  return jest.fn().mockImplementation(() => ({}));
+  return jest.fn().mockImplementation(() => ({
+    latestRates: new Map<string, number>([
+      ['ETH/USDT', 0.5],
+    ]),
+  }));
 });
 
 const MockedDataAggregator = <jest.Mock<DataAggregator>>DataAggregator;
@@ -55,22 +61,40 @@ describe('FeeProvider', () => {
     const results = await Promise.all([
       feeProvider.getBaseFee('BTC', BaseFeeType.NormalClaim),
       feeProvider.getBaseFee('BTC', BaseFeeType.ReverseLockup),
+      feeProvider.getBaseFee('BTC', BaseFeeType.ReverseClaim),
 
       feeProvider.getBaseFee('LTC', BaseFeeType.NormalClaim),
       feeProvider.getBaseFee('LTC', BaseFeeType.ReverseLockup),
+      feeProvider.getBaseFee('LTC', BaseFeeType.ReverseClaim),
+
+      feeProvider.getBaseFee('ETH', BaseFeeType.NormalClaim),
+      feeProvider.getBaseFee('ETH', BaseFeeType.ReverseLockup),
+      feeProvider.getBaseFee('ETH', BaseFeeType.ReverseClaim),
+
+      feeProvider.getBaseFee('USDT', BaseFeeType.NormalClaim),
+      feeProvider.getBaseFee('USDT', BaseFeeType.ReverseLockup),
+      feeProvider.getBaseFee('USDT', BaseFeeType.ReverseClaim),
     ]);
 
     const expected = [
       6120,
       5508,
+      4968,
 
       510,
       459,
+      414,
+
+      27416,
+      51106,
+      27416,
+
+      13487,
+      47839,
+      13487,
     ];
 
-    results.forEach((result, index) => {
-      expect(result).toEqual(expected[index]);
-    });
+    expect(results).toEqual(expected);
   });
 
   test('should calculate percentage fees', async () => {

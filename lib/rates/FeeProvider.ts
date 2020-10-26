@@ -17,6 +17,7 @@ class FeeProvider {
     reverseClaim: 138,
   };
 
+  // TODO: query those estimations from the provider
   public static gasUsage = {
     EtherSwap: {
       lockup: 46460,

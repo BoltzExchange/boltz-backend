@@ -81,13 +81,15 @@ const getNodes = new Map<string, {
 const mockGetNodes = jest.fn().mockResolvedValue(getNodes);
 
 const getContracts = {
-  swapContracts: new Map<string, string>([
-    ['EtherSwap', '0x18A4374d714762FA7DE346E997f7e28Fb3744EC1'],
-    ['ERC20Swap', '0xC685b2c4369D7bf9242DA54E9c391948079d83Cd'],
-  ]),
-  tokens: new Map<string, string>([
-    ['USDT', '0xDf567Cd5d0cf3d90cE6E3E9F897e092f9ECE359a']
-  ]),
+  ethereum: {
+    swapContracts: new Map<string, string>([
+      ['EtherSwap', '0x18A4374d714762FA7DE346E997f7e28Fb3744EC1'],
+      ['ERC20Swap', '0xC685b2c4369D7bf9242DA54E9c391948079d83Cd'],
+    ]),
+    tokens: new Map<string, string>([
+      ['USDT', '0xDf567Cd5d0cf3d90cE6E3E9F897e092f9ECE359a']
+    ]),
+  },
 };
 const mockGetContracts = jest.fn().mockReturnValue(getContracts);
 
@@ -308,8 +310,10 @@ describe('Controller', () => {
 
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
-      swapContracts: mapToObject(getContracts.swapContracts),
-      tokens: mapToObject(getContracts.tokens),
+      ethereum: {
+        swapContracts: mapToObject(getContracts.ethereum.swapContracts),
+        tokens: mapToObject(getContracts.ethereum.tokens),
+      },
     });
   });
 

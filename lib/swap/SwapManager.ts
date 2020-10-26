@@ -262,6 +262,20 @@ class SwapManager {
       throw Errors.INVOICE_INVALID_PREIMAGE_HASH(swap.preimageHash);
     }
 
+    let invoiceExpiry = decodedInvoice.timestamp || 0;
+
+    if (decodedInvoice.timeExpireDate) {
+      invoiceExpiry = decodedInvoice.timeExpireDate;
+    } else {
+      // Default invoice timeout
+      // Reference: https://github.com/lightningnetwork/lightning-rfc/blob/master/11-payment-encoding.md#tagged-fields
+      invoiceExpiry += 3600;
+    }
+
+    if (getUnixTime() >= invoiceExpiry) {
+      throw Errors.INVOICE_EXPIRED_ALREADY();
+    }
+
     const channelCreation = await this.channelCreationRepository.getChannelCreation({
       swapId: {
         [Op.eq]: swap.id,
@@ -269,16 +283,6 @@ class SwapManager {
     });
 
     if (channelCreation) {
-      let invoiceExpiry = decodedInvoice.timestamp || 0;
-
-      if (decodedInvoice.timeExpireDate) {
-        invoiceExpiry = decodedInvoice.timeExpireDate;
-      } else {
-        // Default invoice timeout
-        // Reference: https://github.com/lightningnetwork/lightning-rfc/blob/master/11-payment-encoding.md#tagged-fields
-        invoiceExpiry += 3600;
-      }
-
       const getChainInfo = async (currency: Currency): Promise<{ blocks: number, blockTime: number }> => {
         if (currency.type === CurrencyType.BitcoinLike) {
           const { blocks } = await currency.chainClient!.getBlockchainInfo();
@@ -302,22 +306,22 @@ class SwapManager {
 
       const timeoutTimestamp = getUnixTime() + (blocksUntilExpiry * blockTime * 60);
 
-        const invoiceError = Errors.INVOICE_EXPIRES_TOO_EARLY(invoiceExpiry, timeoutTimestamp);
+      const invoiceError = Errors.INVOICE_EXPIRES_TOO_EARLY(invoiceExpiry, timeoutTimestamp);
 
-        if (timeoutTimestamp > invoiceExpiry) {
-          // In the auto Channel Creation mode, which is used by the frontend, the invoice check can fail but the Swap should
-          // still be attempted without Channel Creation
-          if (channelCreation.type === ChannelCreationType.Auto) {
-            this.logger.info(`Disabling Channel Creation for Swap ${swap.id}: ${invoiceError.message}`);
-            response.channelCreationError = invoiceError.message;
+      if (timeoutTimestamp > invoiceExpiry) {
+        // In the auto Channel Creation mode, which is used by the frontend, the invoice check can fail but the Swap should
+        // still be attempted without Channel Creation
+        if (channelCreation.type === ChannelCreationType.Auto) {
+          this.logger.info(`Disabling Channel Creation for Swap ${swap.id}: ${invoiceError.message}`);
+          response.channelCreationError = invoiceError.message;
 
-            await channelCreation.destroy();
+          await channelCreation.destroy();
 
-            // In other modes (only manual right now), a failing invoice Check should result in a failed request
-          } else {
-            throw invoiceError;
-          }
+          // In other modes (only manual right now), a failing invoice Check should result in a failed request
+        } else {
+          throw invoiceError;
         }
+      }
 
       await this.channelCreationRepository.setNodePublicKey(channelCreation, decodedInvoice.payeeNodeKey!);
 

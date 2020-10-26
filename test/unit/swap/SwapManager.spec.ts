@@ -13,8 +13,8 @@ import RateProvider from '../../../lib/rates/RateProvider';
 import ReverseSwap from '../../../lib/db/models/ReverseSwap';
 import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
 import SwapManager, { ChannelCreationInfo } from '../../../lib/swap/SwapManager';
-import { decodeInvoice, getHexBuffer, getHexString, reverseBuffer } from '../../../lib/Utils';
 import { ChannelCreationType, CurrencyType, OrderSide, SwapUpdateEvent } from '../../../lib/consts/Enums';
+import { decodeInvoice, getHexBuffer, getHexString, getUnixTime, reverseBuffer } from '../../../lib/Utils';
 
 const mockAddSwap = jest.fn().mockResolvedValue(undefined);
 
@@ -610,7 +610,22 @@ describe('SwapManager', () => {
     error = undefined;
 
     // Swap with Channel Creation and invoice that has no expiry encoded in it
-    const invoiceNoExpiry = 'lnbcrt3210n1p00galgpp5z4vdz7weu008q6vhuwmtkvlhqjjmszrtyafcl5zw7h33x3nnxwuqdqqcqzpgsp5q70xcl9mw3dcxmc78el7m2gl86rtv60tazlay6tz5ddpjuu0p4mq9qy9qsqcympv8hx4j877hm26uyrpfxur497x27kuqvlq7kdd8wjucjla849d8nc2m38ce04f26vycv6mjqxusva8ge36jnrrgnj4fzey70yy4cpaac77a';
+    const invoiceNoExpiryEncode = bolt11.encode({
+      satoshis: 200,
+      timestamp: getUnixTime(),
+      payeeNodeKey: getHexString(ECPair.fromPrivateKey(invoiceSignKeys).publicKey),
+      tags: [
+        {
+          data: swap.preimageHash,
+          tagName: 'payment_hash',
+        },
+        {
+          data: '',
+          tagName: 'description',
+        },
+      ],
+    }, false);
+    const invoiceNoExpiry = bolt11.sign(invoiceNoExpiryEncode, invoiceSignKeys).paymentRequest!;
 
     try {
       await manager.setSwapInvoice(
@@ -627,6 +642,25 @@ describe('SwapManager', () => {
 
     expect(error!.code).toEqual('6.4');
     expect(error!.message.startsWith(`invoice expiry ${bolt11.decode(invoiceNoExpiry).timestamp! + 3600} is before Swap timeout: `)).toBeTruthy();
+
+    // Invoice that expired already
+    const invoiceExpired = 'lnbcrt3210n1p00galgpp5z4vdz7weu008q6vhuwmtkvlhqjjmszrtyafcl5zw7h33x3nnxwuqdqqcqzpgsp5q70xcl9mw3dcxmc78el7m2gl86rtv60tazlay6tz5ddpjuu0p4mq9qy9qsqcympv8hx4j877hm26uyrpfxur497x27kuqvlq7kdd8wjucjla849d8nc2m38ce04f26vycv6mjqxusva8ge36jnrrgnj4fzey70yy4cpaac77a';
+
+    try {
+      await manager.setSwapInvoice(
+        swap,
+        invoiceExpired,
+        expectedAmount,
+        percentageFee,
+        acceptZeroConf,
+        emitSwapInvoiceSet,
+      );
+    } catch (e) {
+      error = e;
+    }
+
+    expect(error!.code).toEqual('6.13');
+    expect(error!.message).toEqual('the provided invoice expired already');
 
     mockGetChannelCreationResult = undefined;
 

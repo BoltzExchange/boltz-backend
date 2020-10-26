@@ -7,13 +7,15 @@ It is important to note that for:
 - normal swaps in which the user sends the onchain transaction, a Boltz service provider is taking the risk by accepting the 0-conf transaction
 - reverse swaps where the user receives the onchain coins from Boltz, the user is at risk for accepting the unconfirmed transaction
 
+*And 0-confirmation Swaps are only available on UTXO based blockchains like Bitcoin.*
+
 ## Limits
 
 When it comes to accepting 0-conf transactions, Boltz has configurable limits in place. These limits can be found in the [`getpairs` endpoint](/api/#getting-pairs) and are just enforced for normal swaps. When the user receives onchain coins from Boltz, he can accept any amount of coins with 0-conf he is comfortable with.
 
 ## BIP 125 - Replace-By-Fee
 
-If a transaction locking up coins is signalling Replace-By-Fee either explicitly or inherently (unconfimed inputs of the transaction signal RBF) Boltz will not accept 0-conf for that transaction. Boltz itself will never send transactions that signal RBF, which means that the user doesn't have to worry about a lockup transaction of a reverse swap being replaceable.
+If a transaction locking up coins is signalling Replace-By-Fee either explicitly or inherently (unconfirmed inputs of the transaction signal RBF) Boltz will not accept 0-conf for that transaction. Boltz itself will never send transactions that signal RBF, which means that the user doesn't have to worry about a lockup transaction of a reverse swap being replaceable.
 
 For more information about RBF please read the [BIP 125 - Opt-in Full Replace-by-Fee Signaling](https://github.com/bitcoin/bips/blob/master/bip-0125.mediawiki)
 

@@ -55,4 +55,8 @@ export default {
     message: 'onchain HTLC timed out',
     code: concatErrorCode(ErrorCodePrefix.Swap, 12),
   }),
+  INVOICE_EXPIRED_ALREADY: (): Error => ({
+    message: 'the provided invoice expired already',
+    code: concatErrorCode(ErrorCodePrefix.Swap, 13),
+  }),
 };

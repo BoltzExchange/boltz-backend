@@ -1,6 +1,7 @@
 import { Op } from 'sequelize';
 import { randomBytes } from 'crypto';
 import { Networks } from 'boltz-core';
+import { BigNumber, providers } from 'ethers';
 import Logger from '../../../lib/Logger';
 import Swap from '../../../lib/db/models/Swap';
 import packageJson from '../../../package.json';
@@ -12,13 +13,21 @@ import SwapManager from '../../../lib/swap/SwapManager';
 import LndClient from '../../../lib/lightning/LndClient';
 import ChainClient from '../../../lib/chain/ChainClient';
 import FeeProvider from '../../../lib/rates/FeeProvider';
+import { gweiDecimals } from '../../../lib/consts/Consts';
 import SwapRepository from '../../../lib/db/SwapRepository';
 import { CurrencyInfo } from '../../../lib/proto/boltzrpc_pb';
 import ReverseSwapRepository from '../../../lib/db/ReverseSwapRepository';
 import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
 import { decodeInvoice, getHexBuffer, getHexString } from '../../../lib/Utils';
 import ChannelCreationRepository from '../../../lib/db/ChannelCreationRepository';
-import { BaseFeeType, CurrencyType, OrderSide, ServiceInfo, ServiceWarning, SwapUpdateEvent } from '../../../lib/consts/Enums';
+import {
+  BaseFeeType,
+  CurrencyType,
+  OrderSide,
+  ServiceInfo,
+  ServiceWarning,
+  SwapUpdateEvent
+} from '../../../lib/consts/Enums';
 
 const mockGetPairs = jest.fn().mockResolvedValue([]);
 const mockAddPair = jest.fn().mockReturnValue(Promise.resolve());
@@ -341,6 +350,13 @@ jest.mock('../../../lib/lightning/LndClient', () => {
 
 const mockedLndClient = <jest.Mock<LndClient>><any>LndClient;
 
+const mockGetGasPriceResult = 10;
+const mockGetGasPrice = jest.fn().mockResolvedValue(BigNumber.from(mockGetGasPriceResult).mul(gweiDecimals));
+
+const mockedProvider = <jest.Mock<providers.Provider>><any>jest.fn().mockImplementation(() => ({
+  getGasPrice: mockGetGasPrice,
+}));
+
 describe('Service', () => {
   const configPairs = [
     {
@@ -373,6 +389,18 @@ describe('Service', () => {
       limits: {} as any,
       lndClient: mockedLndClient(),
       chainClient: mockedChainClient(),
+    }],
+    ['ETH', {
+      symbol: 'ETH',
+      type: CurrencyType.Ether,
+      limits: {} as any,
+      provider: mockedProvider(),
+    }],
+    ['USDT', {
+      symbol: 'USDT',
+      type: CurrencyType.ERC20,
+      limits: {} as any,
+      provider: mockedProvider(),
     }],
   ]);
 
@@ -548,11 +576,13 @@ describe('Service', () => {
     service['walletManager']['ethereumManager'] = ethereumManager as any;
 
     expect(service.getContracts()).toEqual({
-      tokens: ethereumManager.tokenAddresses,
-      swapContracts: new Map<string, string>([
-        ['EtherSwap', ethereumManager.etherSwap.address],
-        ['ERC20Swap', ethereumManager.erc20Swap.address],
-      ]),
+      ethereum: {
+        tokens: ethereumManager.tokenAddresses,
+        swapContracts: new Map<string, string>([
+          ['EtherSwap', ethereumManager.etherSwap.address],
+          ['ERC20Swap', ethereumManager.erc20Swap.address],
+        ]),
+      },
     });
 
     // Should throw when the Ethereum integration is not enabled
@@ -652,10 +682,13 @@ describe('Service', () => {
     expect(feeEstimation).toEqual(new Map<string, number>([
       ['BTC', 2],
       ['LTC', 2],
+      ['ETH', mockGetGasPriceResult],
     ]));
 
     expect(mockEstimateFee).toHaveBeenCalledTimes(2);
     expect(mockEstimateFee).toHaveBeenNthCalledWith(1, 2);
+
+    expect(mockGetGasPrice).toHaveBeenCalledTimes(1);
 
     // Get fee estimation for a single currency
     expect(await service.getFeeEstimation('BTC')).toEqual(new Map<string, number>([
@@ -672,6 +705,13 @@ describe('Service', () => {
 
     expect(mockEstimateFee).toHaveBeenCalledTimes(4);
     expect(mockEstimateFee).toHaveBeenNthCalledWith(4, 5);
+
+    // Get fee estimation for an ERC20 token
+    expect(await service.getFeeEstimation('USDT')).toEqual(new Map<string, number>([
+      ['ETH', mockGetGasPriceResult],
+    ]));
+
+    expect(mockGetGasPrice).toHaveBeenCalledTimes(2);
 
     // Get fee estimation for a single currency that cannot be found
     const notFound = 'notFound';

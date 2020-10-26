@@ -82,12 +82,13 @@ class FeeProvider {
 
   public getBaseFee = async (chainCurrency: string, type: BaseFeeType): Promise<number> => {
     const feeMap = await this.getFeeEstimation(chainCurrency);
-    const relativeFee = feeMap.get(chainCurrency)!;
 
     // TODO: avoid hard coding symbols
     switch (chainCurrency) {
       case 'BTC':
-      case 'LTC':
+      case 'LTC': {
+        const relativeFee = feeMap.get(chainCurrency)!;
+
         switch (type) {
           case BaseFeeType.NormalClaim:
             // The claim transaction which spends a nested SegWit (P2SH nested P2WSH) swap output and
@@ -105,15 +106,18 @@ class FeeProvider {
             return relativeFee * FeeProvider.transactionSizes.reverseClaim;
         }
         break;
+      }
 
       case 'ETH':
         switch (type) {
           case BaseFeeType.NormalClaim:
-          case BaseFeeType.ReverseClaim:
-            return this.calculateEtherGasCost(relativeFee, FeeProvider.gasUsage.EtherSwap.claim);
+          case BaseFeeType.ReverseClaim: {
+            return this.calculateEtherGasCost(feeMap.get(chainCurrency)!, FeeProvider.gasUsage.EtherSwap.claim);
+          }
 
-          case BaseFeeType.ReverseLockup:
-            return this.calculateEtherGasCost(relativeFee, FeeProvider.gasUsage.EtherSwap.lockup);
+          case BaseFeeType.ReverseLockup: {
+            return this.calculateEtherGasCost(feeMap.get(chainCurrency)!, FeeProvider.gasUsage.EtherSwap.lockup);
+          }
         }
         break;
 
@@ -124,14 +128,14 @@ class FeeProvider {
           case BaseFeeType.ReverseClaim:
             return this.calculateTokenGasCosts(
               this.dataAggregator.latestRates.get(getPairId({ base: 'ETH', quote: chainCurrency }))!,
-              relativeFee,
+              feeMap.get('ETH')!,
               FeeProvider.gasUsage.ERC20Swap.claim,
             );
 
           case BaseFeeType.ReverseLockup:
             return this.calculateTokenGasCosts(
               this.dataAggregator.latestRates.get(getPairId({ base: 'ETH', quote: chainCurrency }))!,
-              relativeFee,
+              feeMap.get('ETH')!,
               FeeProvider.gasUsage.ERC20Swap.lockup,
             );
         }

@@ -153,8 +153,10 @@ class Controller {
       const contracts = this.service.getContracts();
 
       this.successResponse(res, {
-        swapContracts: mapToObject(contracts.swapContracts),
-        tokens: mapToObject(contracts.tokens),
+        ethereum: {
+          swapContracts: mapToObject(contracts.ethereum.swapContracts),
+          tokens: mapToObject(contracts.ethereum.tokens),
+        },
       });
     } catch (error) {
       this.errorResponse(req, res, error, 501);

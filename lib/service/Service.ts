@@ -309,19 +309,23 @@ class Service {
    * Gets the contract address used by the Boltz instance
    */
   public getContracts = (): {
-    swapContracts: Map<string, string>,
-    tokens: Map<string, string>,
+    ethereum: {
+      swapContracts: Map<string, string>,
+      tokens: Map<string, string>,
+    },
   } => {
     if (this.walletManager.ethereumManager === undefined) {
       throw Errors.ETHEREUM_NOT_ENABLED();
     }
 
     return {
-      tokens: this.walletManager.ethereumManager.tokenAddresses,
-      swapContracts: new Map<string, string>([
-        ['EtherSwap', this.walletManager.ethereumManager.etherSwap.address],
-        ['ERC20Swap', this.walletManager.ethereumManager.erc20Swap.address],
-      ]),
+      ethereum: {
+        tokens: this.walletManager.ethereumManager.tokenAddresses,
+        swapContracts: new Map<string, string>([
+          ['EtherSwap', this.walletManager.ethereumManager.etherSwap.address],
+          ['ERC20Swap', this.walletManager.ethereumManager.erc20Swap.address],
+        ]),
+      },
     };
   }
 
@@ -420,10 +424,19 @@ class Service {
 
     if (symbol !== undefined) {
       const currency = this.getCurrency(symbol);
+      const isERC20 = currency.type === CurrencyType.ERC20;
 
-      map.set(symbol, await estimateFee(currency));
+      map.set(isERC20 ? 'ETH' : symbol, await estimateFee(currency));
     } else {
       for (const [symbol, currency] of this.currencies) {
+        if (currency.type === CurrencyType.ERC20) {
+          if (!map.has('ETH')) {
+            map.set('ETH', await estimateFee(currency));
+          }
+
+          continue;
+        }
+
         map.set(symbol, await estimateFee(currency));
       }
     }

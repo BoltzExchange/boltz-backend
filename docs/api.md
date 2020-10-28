@@ -250,7 +250,7 @@ Status Codes:
 
 Response object:
 
-This endpoint returns a JSON object of which each key is the symbol of a chain and each value the estimated fee for that chain denominated in `sat/vbyte`.
+This endpoint returns a JSON object of which each key is the symbol of a chain and each value the estimated fee for that chain denominated in `sat/vbyte` or `GWEI`.
 
 **Examples:**
 

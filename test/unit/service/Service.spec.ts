@@ -28,6 +28,7 @@ import {
   ServiceWarning,
   SwapUpdateEvent
 } from '../../../lib/consts/Enums';
+import { ECPair } from 'bitcoinjs-lib';
 
 const mockGetPairs = jest.fn().mockResolvedValue([]);
 const mockAddPair = jest.fn().mockReturnValue(Promise.resolve());
@@ -137,6 +138,9 @@ const mockGetBalance = jest.fn().mockResolvedValue({
 const newAddress = 'bcrt1';
 const mockGetAddress = jest.fn().mockResolvedValue(newAddress);
 
+const mockGetKeysByIndexResult = ECPair.fromPrivateKey(getHexBuffer('e682c45fff6f6f1d793e8d520d4660ac0f853636d47519614cc5d7e4077b1b82'));
+const mockGetKeysByIndex = jest.fn().mockReturnValue(mockGetKeysByIndexResult);
+
 const mockTransaction = {
   vout: 1,
   transactionId: 'id',
@@ -175,6 +179,7 @@ jest.mock('../../../lib/wallet/WalletManager', () => {
       ['BTC', {
         getBalance: mockGetBalance,
         getAddress: mockGetAddress,
+        getKeysByIndex: mockGetKeysByIndex,
         sendToAddress: mockSendToAddress,
         sweepWallet: mockSweepWallet,
       } as any as Wallet],
@@ -658,6 +663,17 @@ describe('Service', () => {
 
     await expect(service.getSwapTransaction(id))
       .rejects.toEqual(Errors.SWAP_NOT_FOUND(id));
+  });
+
+  test('should derive keys', async () => {
+    const response = service.deriveKeys('BTC', 123);
+
+    expect(response.getPublicKey()).toEqual(getHexString(mockGetKeysByIndexResult.publicKey));
+    expect(response.getPrivateKey()).toEqual(getHexString(mockGetKeysByIndexResult.privateKey!));
+
+    const notFoundSymbol = 'notFound';
+    expect(() => service.deriveKeys(notFoundSymbol, 321))
+      .toThrow(Errors.CURRENCY_NOT_FOUND(notFoundSymbol).message);
   });
 
   test('should get new addresses', async () => {

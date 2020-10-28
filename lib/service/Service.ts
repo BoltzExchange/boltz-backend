@@ -24,6 +24,7 @@ import {
   Balance,
   ChainInfo,
   CurrencyInfo,
+  DeriveKeysResponse,
   GetBalanceResponse,
   GetInfoResponse,
   LightningBalance,
@@ -385,6 +386,23 @@ class Service {
     if (blocks < swap.timeoutBlockHeight) {
       response.timeoutEta = this.calculateTimeoutDate(chainCurrency, swap.timeoutBlockHeight - blocks);
     }
+
+    return response;
+  }
+
+  public deriveKeys = (symbol: string, index: number): DeriveKeysResponse => {
+    const wallet = this.walletManager.wallets.get(symbol.toUpperCase());
+
+    if (wallet === undefined) {
+      throw Errors.CURRENCY_NOT_FOUND(symbol);
+    }
+
+    const keys = wallet.getKeysByIndex(index);
+
+    const response = new DeriveKeysResponse();
+
+    response.setPublicKey(getHexString(keys.publicKey));
+    response.setPrivateKey(getHexString(keys.privateKey!));
 
     return response;
   }

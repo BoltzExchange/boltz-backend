@@ -16,7 +16,7 @@ interface IInvoicesService extends grpc.ServiceDefinition<grpc.UntypedServiceImp
 }
 
 interface IInvoicesService_ISubscribeSingleInvoice extends grpc.MethodDefinition<lndinvoices_pb.SubscribeSingleInvoiceRequest, lndrpc_pb.Invoice> {
-    path: string; // "/invoicesrpc.Invoices/SubscribeSingleInvoice"
+    path: "/invoicesrpc.Invoices/SubscribeSingleInvoice";
     requestStream: false;
     responseStream: true;
     requestSerialize: grpc.serialize<lndinvoices_pb.SubscribeSingleInvoiceRequest>;
@@ -25,7 +25,7 @@ interface IInvoicesService_ISubscribeSingleInvoice extends grpc.MethodDefinition
     responseDeserialize: grpc.deserialize<lndrpc_pb.Invoice>;
 }
 interface IInvoicesService_ICancelInvoice extends grpc.MethodDefinition<lndinvoices_pb.CancelInvoiceMsg, lndinvoices_pb.CancelInvoiceResp> {
-    path: string; // "/invoicesrpc.Invoices/CancelInvoice"
+    path: "/invoicesrpc.Invoices/CancelInvoice";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<lndinvoices_pb.CancelInvoiceMsg>;
@@ -34,7 +34,7 @@ interface IInvoicesService_ICancelInvoice extends grpc.MethodDefinition<lndinvoi
     responseDeserialize: grpc.deserialize<lndinvoices_pb.CancelInvoiceResp>;
 }
 interface IInvoicesService_IAddHoldInvoice extends grpc.MethodDefinition<lndinvoices_pb.AddHoldInvoiceRequest, lndinvoices_pb.AddHoldInvoiceResp> {
-    path: string; // "/invoicesrpc.Invoices/AddHoldInvoice"
+    path: "/invoicesrpc.Invoices/AddHoldInvoice";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<lndinvoices_pb.AddHoldInvoiceRequest>;
@@ -43,7 +43,7 @@ interface IInvoicesService_IAddHoldInvoice extends grpc.MethodDefinition<lndinvo
     responseDeserialize: grpc.deserialize<lndinvoices_pb.AddHoldInvoiceResp>;
 }
 interface IInvoicesService_ISettleInvoice extends grpc.MethodDefinition<lndinvoices_pb.SettleInvoiceMsg, lndinvoices_pb.SettleInvoiceResp> {
-    path: string; // "/invoicesrpc.Invoices/SettleInvoice"
+    path: "/invoicesrpc.Invoices/SettleInvoice";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<lndinvoices_pb.SettleInvoiceMsg>;

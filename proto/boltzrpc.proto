@@ -9,6 +9,9 @@ service Boltz {
   /* Gets the balance of all wallets */
   rpc GetBalance (GetBalanceRequest) returns (GetBalanceResponse);
 
+  /* Derives a keypair from the index of an HD wallet */
+  rpc DeriveKeys (DeriveKeysRequest) returns (DeriveKeysResponse);
+
   /* Gets an address of a specified wallet */
   rpc GetAddress (GetAddressRequest) returns (GetAddressResponse);
 
@@ -75,6 +78,16 @@ message WalletBalance {
   uint64 total_balance = 1;
   uint64 confirmed_balance = 2;
   uint64 unconfirmed_balance = 3;
+}
+
+message DeriveKeysRequest {
+  string symbol = 1;
+  uint32 index = 2;
+}
+
+message DeriveKeysResponse {
+  string public_key = 1;
+  string private_key = 2;
 }
 
 message GetAddressRequest {

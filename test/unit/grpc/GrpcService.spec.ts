@@ -1,5 +1,3 @@
-// tslint:disable no-null-keyword
-
 import { ServiceError } from 'grpc';
 import Service from '../../../lib/service/Service';
 import GrpcService from '../../../lib/grpc/GrpcService';
@@ -13,12 +11,15 @@ const mockGetInfo = jest.fn().mockResolvedValue(getInfoData);
 const getBalanceData = {
   method: 'getBalance',
 };
-
 const mockGetBalance = jest.fn().mockResolvedValue(getBalanceData);
 
-const newAddressData = 'address';
+const mockDeriveKeysData = {
+  method: 'deriveKeys',
+};
+const mockDeriveKeys = jest.fn().mockReturnValue(mockDeriveKeysData);
 
-const mockGetAddress = jest.fn().mockResolvedValue(newAddressData);
+const gewAddressData = 'address';
+const mockGetAddress = jest.fn().mockResolvedValue(gewAddressData);
 
 const sendCoinsData = {
   vout: 1,
@@ -34,6 +35,7 @@ jest.mock('../../../lib/service/Service', () => {
     return {
       getInfo: mockGetInfo,
       getBalance: mockGetBalance,
+      deriveKeys: mockDeriveKeys,
       getAddress: mockGetAddress,
       sendCoins: mockSendCoins,
       updateTimeoutBlockDelta: mockUpdateTimeoutBlockDelta,
@@ -83,14 +85,29 @@ describe('GrpcService', () => {
     expect(mockGetBalance).toHaveBeenCalledTimes(1);
   });
 
-  test('should handle NewAddress', () => {
+  test('should handle DeriveKeys', () => {
+    const callData = {
+      symbol: 'symbol',
+      index: 123,
+    };
+
+    grpcService.deriveKeys(createCall(callData), createCallback((error, response) => {
+      expect(error).toEqual(null);
+      expect(response).toEqual(mockDeriveKeysData);
+    }));
+
+    expect(mockDeriveKeys).toHaveBeenCalledTimes(1);
+    expect(mockDeriveKeys).toHaveBeenCalledWith(callData.symbol, callData.index);
+  });
+
+  test('should handle GetAddress', () => {
     const callData = {
       symbol: 'symbol',
     };
 
     grpcService.getAddress(createCall(callData), createCallback((error, response) => {
       expect(error).toEqual(null);
-      expect(response!.getAddress()).toEqual(newAddressData);
+      expect(response!.getAddress()).toEqual(gewAddressData);
     }));
 
     expect(mockGetAddress).toHaveBeenCalledTimes(1);

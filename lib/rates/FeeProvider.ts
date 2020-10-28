@@ -1,5 +1,5 @@
-import Logger from '../Logger';
 import { BigNumber } from 'ethers';
+import Logger from '../Logger';
 import { PairConfig } from '../consts/Types';
 import DataAggregator from './data/DataAggregator';
 import { BaseFeeType, OrderSide } from '../consts/Enums';

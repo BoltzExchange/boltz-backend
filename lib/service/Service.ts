@@ -831,9 +831,11 @@ class Service {
   }): Promise<{
     id: string,
     invoice: string,
-    redeemScript: string,
+    redeemScript?: string,
+    refundAddress?: string,
     lockupAddress: string,
     onchainAmount: number,
+    minerFeeInvoice?: string,
     timeoutBlockHeight: number,
   }> => {
     if (!this.allowReverseSwaps) {
@@ -904,6 +906,7 @@ class Service {
       id,
       invoice,
       redeemScript,
+      refundAddress,
       lockupAddress,
       minerFeeInvoice,
       timeoutBlockHeight,
@@ -929,6 +932,7 @@ class Service {
       id,
       invoice,
       redeemScript,
+      refundAddress,
       lockupAddress,
       onchainAmount,
       timeoutBlockHeight,

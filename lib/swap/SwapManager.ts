@@ -389,6 +389,9 @@ class SwapManager {
     // Only set for Bitcoin like, UTXO based, chains
     redeemScript: string | undefined,
 
+    // Only set for Ethereum like chains
+    refundAddress: string | undefined,
+
     // This is either the generated address for Bitcoin like chains, or the address of the contract
     // to which Boltz will send the lockup transaction for Ether and ERC20 tokens
     lockupAddress: string,
@@ -428,6 +431,8 @@ class SwapManager {
 
     let redeemScript: Buffer | undefined;
 
+    let refundAddress: string | undefined;
+
     if (sendingCurrency.type === CurrencyType.BitcoinLike) {
       const { keys, index } = sendingCurrency.wallet.getNewKeys();
       const { blocks } = await sendingCurrency.chainClient!.getBlockchainInfo();
@@ -466,6 +471,8 @@ class SwapManager {
 
       lockupAddress = this.getLockupContractAddress(sendingCurrency.type);
 
+      refundAddress = await this.walletManager.wallets.get(sendingCurrency.symbol)!.getAddress();
+
       await this.reverseSwapRepository.addReverseSwap({
         id,
         pair,
@@ -486,6 +493,7 @@ class SwapManager {
     return {
       id,
       lockupAddress,
+      refundAddress,
       minerFeeInvoice,
       timeoutBlockHeight,
       invoice: paymentRequest,

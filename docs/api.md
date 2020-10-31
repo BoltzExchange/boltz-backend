@@ -982,6 +982,10 @@ The request has to contain one additional value:
 
 - `claimAddress`: address from which the coins will be claimed
 
+The response also has one more property:
+
+- `refundAddress`: the address of Boltz which is specified as refund address when it is locking coins
+
 **Examples:**
 
 `POST /createswap`
@@ -1005,6 +1009,7 @@ Response body:
 {
   "id": "1H6eCx",
   "invoice": "lnbcrt1m1p0ega6epp599de8fmxjkwkq7rp4dah56leu9uw035u8nzv5u2svh07n4hw5dgsdpq2djkuepqw3hjq42ng32zqctyv3ex2umncqzphsp5gxshtrx3y0mt3llm3537qqy0ylf722hykv2zm777dwap9e60glfq9qy9qsqa93q725njkt9dupu9cddtchwcmyg7zsltrw8gcyzsc4tv74ss26y00z7tutrqks8wgh8s286ayy2tmrul0q0ysvxjzv793ylcdr553gqjhgny2",
+  "refundAddress": "0xe20fC13bad486fEB7F0C87Cad42bC74aAc319684",
   "lockupAddress": "0xD104195e630A2E26D33c8B215710E940Ca041351",
   "onchainAmount": 1210297576,
   "timeoutBlockHeight": 2006

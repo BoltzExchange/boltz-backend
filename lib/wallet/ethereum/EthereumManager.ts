@@ -18,6 +18,13 @@ import EtherWalletProvider from '../providers/EtherWalletProvider';
 import ERC20WalletProvider from '../providers/ERC20WalletProvider';
 import EthereumTransactionTracker from './EthereumTransactionTracker';
 
+type Network = {
+  chainId: number;
+
+  // Undefined for networks that are not recognised by Ethers
+  name?: string;
+};
+
 class EthereumManager {
   public provider: InjectedProvider;
 
@@ -28,6 +35,7 @@ class EthereumManager {
   public erc20Swap: Erc20Swap;
 
   public address!: string;
+  public network!: Network;
 
   public tokenAddresses = new Map<string, string>();
 
@@ -69,6 +77,12 @@ class EthereumManager {
   public init = async (mnemonic: string, chainTipRepository: ChainTipRepository): Promise<Map<string, Wallet>> => {
     await this.provider.init();
     this.logger.info('Initialized web3 providers');
+
+    const network = await this.provider.getNetwork();
+    this.network = {
+      name: network.name !== 'unknown' ? network.name : undefined,
+      chainId: network.chainId,
+    };
 
     const signer = EthersWallet.fromMnemonic(mnemonic).connect(this.provider);
     this.address = await signer.getAddress();
@@ -186,3 +200,4 @@ class EthereumManager {
 }
 
 export default EthereumManager;
+export { Network };

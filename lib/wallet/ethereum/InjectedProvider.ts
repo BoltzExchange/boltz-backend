@@ -1,10 +1,10 @@
 import { BigNumber, BigNumberish, providers, utils } from 'ethers';
 import { BlockWithTransactions } from '@ethersproject/abstract-provider';
+import Errors from './Errors';
 import Logger from '../../Logger';
 import { EthereumConfig } from '../../Config';
 import { formatError, stringify } from '../../Utils';
 import PendingEthereumTransactionRepository from '../../db/PendingEthereumTransactionRepository';
-import Errors from './Errors';
 
 /**
  * This provider is a wrapper for the WebSocketProvider from ethers but it writes sent transactions to the database

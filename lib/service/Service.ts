@@ -15,6 +15,7 @@ import PairRepository from '../db/PairRepository';
 import { encodeBip21 } from './PaymentRequestUtils';
 import { SendResponse } from '../lightning/LndClient';
 import TimeoutDeltaProvider from './TimeoutDeltaProvider';
+import { Network } from '../wallet/ethereum/EthereumManager';
 import RateProvider, { PairType } from '../rates/RateProvider';
 import { getGasPrice } from '../wallet/ethereum/EthereumUtils';
 import WalletManager, { Currency } from '../wallet/WalletManager';
@@ -311,6 +312,7 @@ class Service {
    */
   public getContracts = (): {
     ethereum: {
+      network: Network,
       swapContracts: Map<string, string>,
       tokens: Map<string, string>,
     },
@@ -321,6 +323,7 @@ class Service {
 
     return {
       ethereum: {
+        network: this.walletManager.ethereumManager.network,
         tokens: this.walletManager.ethereumManager.tokenAddresses,
         swapContracts: new Map<string, string>([
           ['EtherSwap', this.walletManager.ethereumManager.etherSwap.address],

@@ -154,6 +154,7 @@ class Controller {
 
       this.successResponse(res, {
         ethereum: {
+          network: contracts.ethereum.network,
           swapContracts: mapToObject(contracts.ethereum.swapContracts),
           tokens: mapToObject(contracts.ethereum.tokens),
         },

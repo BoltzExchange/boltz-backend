@@ -567,6 +567,9 @@ describe('Service', () => {
 
   test('should get contracts', () => {
     const ethereumManager = {
+      network: {
+        some: 'networkData',
+      },
       etherSwap: {
         address: '0x18A4374d714762FA7DE346E997f7e28Fb3744EC1'
       },
@@ -582,6 +585,7 @@ describe('Service', () => {
 
     expect(service.getContracts()).toEqual({
       ethereum: {
+        network: ethereumManager.network,
         tokens: ethereumManager.tokenAddresses,
         swapContracts: new Map<string, string>([
           ['EtherSwap', ethereumManager.etherSwap.address],

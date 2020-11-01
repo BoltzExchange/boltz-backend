@@ -209,6 +209,9 @@ Status Codes:
 Response object:
 
 - `ethereum`: a JSON object that contains all relevant Ethereum addresses
+    - `network`: JSON object that contains information about the Ethereum network the backend is running on
+        - `chainId`: id of the Ethereum the backend in running on
+        - `name`: if the Ethereum network of the backend is public, this property will be set to its name. Else this value stays `undefined` 
     - `swapContracts`: JSON object with the keys `EtherSwap` and `ERC20Swap` and the corresponding addresses as values
     - `tokens`: JSON object with the ticker symbol of the token as key and its address as value
 
@@ -221,6 +224,9 @@ Response:
 ```json
 {
   "ethereum": {
+    "network": {
+      "chainId": 1337
+    },
     "swapContracts": {
       "EtherSwap": "0x76562e81C099cdFfbF6cCB664543817028552634",
       "ERC20Swap": "0xD104195e630A2E26D33c8B215710E940Ca041351"

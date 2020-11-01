@@ -82,6 +82,9 @@ const mockGetNodes = jest.fn().mockResolvedValue(getNodes);
 
 const getContracts = {
   ethereum: {
+    network: {
+      some: 'networkData',
+    },
     swapContracts: new Map<string, string>([
       ['EtherSwap', '0x18A4374d714762FA7DE346E997f7e28Fb3744EC1'],
       ['ERC20Swap', '0xC685b2c4369D7bf9242DA54E9c391948079d83Cd'],
@@ -311,6 +314,7 @@ describe('Controller', () => {
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
       ethereum: {
+        network: getContracts.ethereum.network,
         swapContracts: mapToObject(getContracts.ethereum.swapContracts),
         tokens: mapToObject(getContracts.ethereum.tokens),
       },

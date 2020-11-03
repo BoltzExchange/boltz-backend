@@ -198,6 +198,7 @@ describe('EthereumNursery', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    nursery.removeAllListeners();
   });
 
   test('should init', async () => {
@@ -444,8 +445,6 @@ describe('EthereumNursery', () => {
 
     expect(lockupEmitted).toEqual(false);
     expect(lockupFailed).toEqual(0);
-
-    nursery.removeAllListeners();
   });
 
   test('should listen to EtherSwap claim events', async () => {
@@ -484,8 +483,6 @@ describe('EthereumNursery', () => {
     expect(mockGetReverseSwap).toHaveBeenCalledTimes(2);
 
     expect(emittedEvents).toEqual(1);
-
-    nursery.removeAllListeners();
   });
 
   test('should listen for ERC20Swap lockup events', async () => {
@@ -672,8 +669,6 @@ describe('EthereumNursery', () => {
 
     expect(lockupEmitted).toEqual(false);
     expect(lockupFailed).toEqual(0);
-
-    nursery.removeAllListeners();
   });
 
   test('should listen to ERC20Swap claim events', async () => {
@@ -712,8 +707,6 @@ describe('EthereumNursery', () => {
     expect(mockGetReverseSwap).toHaveBeenCalledTimes(2);
 
     expect(emittedEvents).toEqual(1);
-
-    nursery.removeAllListeners();
   });
 
   test('should handle expired Swaps', async () => {
@@ -756,8 +749,6 @@ describe('EthereumNursery', () => {
     expect(mockGetSwapsExpirable).toHaveBeenCalledWith(emittedBlockHeight);
 
     expect(eventsEmitted).toEqual(2);
-
-    nursery.removeAllListeners();
   });
 
   test('should handle expired Reverse Swaps', async () => {
@@ -800,7 +791,5 @@ describe('EthereumNursery', () => {
     expect(mockGetReverseSwapsExpirable).toHaveBeenCalledWith(emittedBlockHeight);
 
     expect(eventsEmitted).toEqual(2);
-
-    nursery.removeAllListeners();
   });
 });

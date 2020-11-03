@@ -325,18 +325,16 @@ export const transactionHashToId = (transactionHash: Buffer): string => {
 /**
  * Detects whether the transactions signals RBF explicitly
  *
- * @param transaction the transcations to scan
+ * @param transaction the transactions to scan
  */
 export const transactionSignalsRbfExplicitly = (transaction: Transaction): boolean => {
-  let singalsRbf = false;
-
-  transaction.ins.forEach((input) => {
+  for (const input of transaction.ins) {
     if (input.sequence < 0xffffffff - 1) {
-      singalsRbf = true;
+      return true;
     }
-  });
+  }
 
-  return singalsRbf;
+  return false;
 };
 
 export const getSendingReceivingCurrency = (baseCurrency: string, quoteCurrency: string, orderSide: OrderSide): {

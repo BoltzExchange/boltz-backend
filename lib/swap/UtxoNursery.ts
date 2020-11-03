@@ -115,8 +115,8 @@ class UtxoNursery extends EventEmitter {
 
       if (swap.expectedAmount) {
         if (swap.expectedAmount > swapOutput.value) {
-          this.emit('swap.lockup.failed', swap, Errors.INSUFFICIENT_AMOUNT(swapOutput.value, swap.expectedAmount).message);
           chainClient.removeOutputFilter(swapOutput.script);
+          this.emit('swap.lockup.failed', swap, Errors.INSUFFICIENT_AMOUNT(swapOutput.value, swap.expectedAmount).message);
 
           continue;
         }
@@ -124,15 +124,15 @@ class UtxoNursery extends EventEmitter {
 
       // Confirmed transactions do not have to be checked for 0-conf criteria
       if (!confirmed) {
-        if (!swap.acceptZeroConf) {
-          this.emit('swap.lockup.zeroconf.rejected', swap, transaction, 'Swap does not accept 0-conf');
+        if (swap.acceptZeroConf !== true) {
+          this.emit('swap.lockup.zeroconf.rejected', swap, transaction, Errors.SWAP_DOES_NOT_ACCEPT_ZERO_CONF().message);
           continue;
         }
 
         const signalsRBF = await this.transactionSignalsRbf(chainClient, transaction);
 
         if (signalsRBF) {
-          this.emit('swap.lockup.zeroconf.rejected', swap, transaction, 'transaction or one of its unconfirmed ancestors signals RBF');
+          this.emit('swap.lockup.zeroconf.rejected', swap, transaction, Errors.LOCKUP_TRANSACTION_SIGNALS_RBF().message);
           continue;
         }
 
@@ -150,13 +150,12 @@ class UtxoNursery extends EventEmitter {
           transactionFeePerVbyte / feeEstimation < 0.8 &&
           feeEstimation !== 2
         ) {
-          this.emit('swap.lockup.zeroconf.rejected', swap, transaction, 'transaction fee is too low');
+          this.emit('swap.lockup.zeroconf.rejected', swap, transaction, Errors.LOCKUP_TRANSACTION_FEE_TOO_LOW().message);
           continue;
         }
 
         this.logger.debug(`Accepted 0-conf lockup transaction for Swap ${swap.id}: ${transaction.getId()}`);
       }
-
 
       chainClient.removeOutputFilter(swapOutput.script);
 
@@ -272,9 +271,7 @@ class UtxoNursery extends EventEmitter {
    */
   private transactionSignalsRbf = async (chainClient: ChainClient, transaction: Transaction) => {
     // Check for explicit signalling
-    const signalsExplicitly = transactionSignalsRbfExplicitly(transaction);
-
-    if (signalsExplicitly) {
+    if (transactionSignalsRbfExplicitly(transaction)) {
       return true;
     }
 

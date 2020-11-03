@@ -59,4 +59,16 @@ export default {
     message: 'the provided invoice expired already',
     code: concatErrorCode(ErrorCodePrefix.Swap, 13),
   }),
+  SWAP_DOES_NOT_ACCEPT_ZERO_CONF: (): Error => ({
+    message: 'Swap does not accept 0-conf',
+    code: concatErrorCode(ErrorCodePrefix.Swap, 14),
+  }),
+  LOCKUP_TRANSACTION_SIGNALS_RBF: (): Error => ({
+    message: 'transaction or one of its unconfirmed ancestors signals RBF',
+    code: concatErrorCode(ErrorCodePrefix.Swap, 15),
+  }),
+  LOCKUP_TRANSACTION_FEE_TOO_LOW: (): Error => ({
+    message: 'transaction fee is too low',
+    code: concatErrorCode(ErrorCodePrefix.Swap, 16),
+  }),
 };

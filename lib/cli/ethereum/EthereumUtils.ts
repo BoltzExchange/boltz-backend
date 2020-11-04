@@ -1,16 +1,16 @@
 import { join } from 'path';
 import { ContractABIs } from 'boltz-core';
 import { existsSync, readFileSync } from 'fs';
-import { Erc20 as ERC20 } from 'boltz-core/typechain/Erc20';
-import { Signer, providers, Contract, Wallet } from 'ethers';
 import { Erc20Swap } from 'boltz-core/typechain/Erc20Swap';
 import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
+import { Erc20 as ERC20 } from 'boltz-core/typechain/Erc20';
+import { Signer, providers, Contract, Wallet } from 'ethers';
 
 const Constants = {
-  erc20TokenAddress: '0x52926360A75EB50A9B242E748f094eCd73193036',
+  erc20TokenAddress: '0x5f7B47A8Bdf82c208784273509B8dc820c84C4A8',
 
-  etherSwapAddress: '0x76562e81C099cdFfbF6cCB664543817028552634',
-  erc20SwapAddress: '0xD104195e630A2E26D33c8B215710E940Ca041351',
+  etherSwapAddress: '0xcBdFe3F3509AF7eb5683be5F4c30f7df9316d1AC',
+  erc20SwapAddress: '0x086e6Dcfb55b98B86ADd9BDDc8f95A020D5717D3',
 };
 
 const connectEthereum = (providerUrl: string, signerAddress: string): Signer => {

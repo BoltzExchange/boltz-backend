@@ -2,14 +2,14 @@ import { Op } from 'sequelize';
 import { Networks } from 'boltz-core';
 import { Transaction, address } from 'bitcoinjs-lib';
 import Logger from '../../../lib/Logger';
+import Errors from '../../../lib/swap/Errors';
 import Wallet from '../../../lib/wallet/Wallet';
 import UtxoNursery from '../../../lib/swap/UtxoNursery';
 import ChainClient from '../../../lib/chain/ChainClient';
 import SwapRepository from '../../../lib/db/SwapRepository';
-import Errors from '../../../lib/swap/Errors';
-import { getHexBuffer, reverseBuffer, transactionHashToId } from '../../../lib/Utils';
 import { OrderSide, SwapUpdateEvent } from '../../../lib/consts/Enums';
 import ReverseSwapRepository from '../../../lib/db/ReverseSwapRepository';
+import { getHexBuffer, reverseBuffer, transactionHashToId } from '../../../lib/Utils';
 
 type blockCallback = (height: number) => void;
 

@@ -27,10 +27,9 @@ WORKDIR /lightning
 RUN git checkout v${VERSION}
 
 RUN ./configure
-RUN make
-RUN make install
+RUN make install -j$(nproc)
 
-RUN ls /usr/local/bin
+RUN strip /usr/local/bin/*
 
 # Start again with a new image to reduce the size
 FROM ubuntu:${UBUNTU_VERSION}
@@ -43,4 +42,4 @@ COPY --from=builder /usr/local/bin/lightning-cli /bin/
 COPY --from=builder /usr/local/bin/lightningd /bin/
 COPY --from=builder /usr/local/libexec /usr/libexec
 
-ENTRYPOINT ["lightnind"]
+ENTRYPOINT ["lightningd"]

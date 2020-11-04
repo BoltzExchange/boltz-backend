@@ -16,6 +16,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get -y install \
   libtool \
   autoconf \
   automake \
+  libtinfo5 \
   libc6-dev \
   pkg-config \
   zlib1g-dev \

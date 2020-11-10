@@ -41,7 +41,7 @@ class Boltz {
 
   constructor(config: Arguments<any>) {
     this.config = new Config().load(config);
-    this.logger = new Logger(this.config.logpath, this.config.loglevel);
+    this.logger = new Logger(this.config.loglevel, this.config.logpath);
 
     this.db = new Database(this.logger, this.config.dbpath);
 

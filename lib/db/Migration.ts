@@ -30,10 +30,15 @@ class Migration {
     }
 
     switch (versionRow.version) {
+      // TODO: query lockup vout when migrating
       case 1: {
         this.logOutdatedVersion(versionRow.version);
 
         this.logUpdatingTable('swaps');
+
+        // Add the missing columns to make querying via the model possible
+        await this.sequelize.query('ALTER TABLE swaps ADD failureReason VARCHAR(255)');
+        await this.sequelize.query('ALTER TABLE swaps ADD lockupTransactionVout VARCHAR(255)');
 
         const allSwaps = await Swap.findAll();
         const allChannelCreations = await ChannelCreation.findAll();
@@ -62,6 +67,7 @@ class Migration {
         // Add the missing columns to make querying via the model possible
         await this.sequelize.query('ALTER TABLE reverseSwaps ADD claimAddress VARCHAR(255)');
         await this.sequelize.query('ALTER TABLE reverseSwaps ADD preimageHash VARCHAR(255)');
+        await this.sequelize.query('ALTER TABLE reverseSwaps ADD failureReason VARCHAR(255)');
 
         const allReverseSwaps = await ReverseSwap.findAll();
 

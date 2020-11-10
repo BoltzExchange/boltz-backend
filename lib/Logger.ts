@@ -3,24 +3,29 @@ import { red, yellow, green, cyan, blue, magenta } from 'colors/safe';
 import { getTsString } from './Utils';
 
 class Logger {
-  public static readonly disabledLogger = new Logger('', '', true);
+  public static readonly disabledLogger = new Logger('', undefined, true);
 
-  constructor(filename: string, level: string, private disabled = false) {
+  constructor(level: string, filename?: string, private disabled = false) {
     if (disabled) {
       return;
     }
 
+    const transports: winston.transport[] = [
+      new winston.transports.Console({
+        format: this.getLogFormat(true),
+      }),
+    ];
+
+    if (filename) {
+      transports.push(new winston.transports.File({
+        filename,
+        format: this.getLogFormat(false),
+      }));
+    }
+
     winston.configure({
       level,
-      transports: [
-        new winston.transports.Console({
-          format: this.getLogFormat(true),
-        }),
-        new winston.transports.File({
-          filename,
-          format: this.getLogFormat(false),
-        }),
-      ],
+      transports,
     });
   }
 

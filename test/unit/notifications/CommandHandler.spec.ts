@@ -306,15 +306,17 @@ describe('CommandHandler', () => {
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(
       `\`\`\`${stringify({
-        failureRates: {
-          swaps: 0,
-          reverseSwaps: 0,
-        },
-        volume: {
-          BTC: 0.03,
-        },
-        trades: {
-          'LTC/BTC': 3,
+        10: {
+          failureRates: {
+            swaps: 0,
+            reverseSwaps: 0,
+          },
+          volume: {
+            BTC: 0.03,
+          },
+          trades: {
+            'LTC/BTC': 3,
+          },
         },
       },
     )}\`\`\``);

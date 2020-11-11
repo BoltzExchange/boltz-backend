@@ -58,8 +58,8 @@ class Swap extends Model implements SwapType {
   public lockupTransactionId?: string;
   public lockupTransactionVout?: number;
 
-  public createdAt!: string;
-  public updatedAt!: string;
+  public createdAt!: Date;
+  public updatedAt!: Date;
 
   public static load = (sequelize: Sequelize): void => {
     Swap.init({

@@ -64,8 +64,8 @@ class ReverseSwap extends Model implements ReverseSwapType {
   public transactionId?: string;
   public transactionVout?: number;
 
-  public createdAt!: string;
-  public updatedAt!: string;
+  public createdAt!: Date;
+  public updatedAt!: Date;
 
   public static load = (sequelize: Sequelize): void => {
     ReverseSwap.init({

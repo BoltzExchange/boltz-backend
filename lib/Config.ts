@@ -49,7 +49,7 @@ type TokenConfig = {
   minWalletBalance: number;
 };
 
-type AlchemyConfig = {
+type EthProviderServiceConfig = {
   network: string;
   apiKey: string;
 };
@@ -57,7 +57,8 @@ type AlchemyConfig = {
 type EthereumConfig = {
   providerEndpoint: string;
 
-  alchemy: AlchemyConfig;
+  infura: EthProviderServiceConfig;
+  alchemy: EthProviderServiceConfig;
 
   etherSwapAddress: string;
   erc20SwapAddress: string;
@@ -292,6 +293,11 @@ class Config {
       ethereum: {
         providerEndpoint: '',
 
+        infura: {
+          apiKey: '',
+          network: 'rinkeby',
+        },
+
         alchemy: {
           apiKey: '',
           network: 'rinkeby',
@@ -418,4 +424,5 @@ export {
   EthereumConfig,
   CurrencyConfig,
   NotificationConfig,
+  EthProviderServiceConfig,
 };

@@ -2,9 +2,14 @@ import { BigNumber, BigNumberish, providers, utils } from 'ethers';
 import { BlockWithTransactions } from '@ethersproject/abstract-provider';
 import Errors from './Errors';
 import Logger from '../../Logger';
-import { EthereumConfig } from '../../Config';
 import { formatError, stringify } from '../../Utils';
+import { EthereumConfig, EthProviderServiceConfig } from '../../Config';
 import PendingEthereumTransactionRepository from '../../db/PendingEthereumTransactionRepository';
+
+enum EthProviderService {
+  Infura = 'Infura',
+  Alchemy = 'Alchemy',
+}
 
 /**
  * This provider is a wrapper for the WebSocketProvider from ethers but it writes sent transactions to the database
@@ -23,19 +28,42 @@ class InjectedProvider implements providers.Provider {
       this.logAddedProvider('websocket', { endpoint: config.providerEndpoint });
     }
 
-    if (config.alchemy.apiKey) {
-      if (config.alchemy.network) {
-        this.providers.set('alchemy', providers.AlchemyProvider.getWebSocketProvider(
-          config.alchemy.network,
-          config.alchemy.apiKey,
-        ));
-        this.logAddedProvider('alchemy', config.alchemy);
-      } else {
-        this.logDisabledProvider('alchemy', 'no network was specified');
+    const addEthProvider = (name: EthProviderService, providerConfig: EthProviderServiceConfig) => {
+      if (!providerConfig.apiKey) {
+        this.logDisabledProvider(name, 'no api key was set');
+        return;
       }
-    } else {
-      this.logDisabledProvider('alchemy', 'no api key was set');
-    }
+
+      if (!providerConfig.network) {
+        this.logDisabledProvider(name, 'no network was specified');
+        return;
+      }
+
+      switch (name) {
+        case EthProviderService.Infura:
+          this.providers.set(name, new providers.InfuraWebSocketProvider(
+            providerConfig.network,
+            providerConfig.apiKey,
+          ));
+          break;
+
+        case EthProviderService.Alchemy:
+          this.providers.set(name, new providers.AlchemyWebSocketProvider(
+            providerConfig.network,
+            providerConfig.apiKey,
+          ));
+          break;
+
+        default:
+          this.logDisabledProvider(name, 'provider  not supported');
+          return;
+      }
+
+      this.logAddedProvider(name, providerConfig);
+    };
+
+    addEthProvider(EthProviderService.Infura, config.infura);
+    addEthProvider(EthProviderService.Alchemy, config.alchemy);
   }
 
   public init = async (): Promise<void> => {

@@ -1,11 +1,11 @@
 // package: invoicesrpc
-// file: lndinvoices.proto
+// file: lnd/invoices.proto
 
 /* tslint:disable */
 /* eslint-disable */
 
 import * as jspb from "google-protobuf";
-import * as lndrpc_pb from "./lndrpc_pb";
+import * as lnd_rpc_pb from "../lnd/rpc_pb";
 
 export class CancelInvoiceMsg extends jspb.Message { 
     getPaymentHash(): Uint8Array | string;
@@ -77,9 +77,9 @@ export class AddHoldInvoiceRequest extends jspb.Message {
     setCltvExpiry(value: number): AddHoldInvoiceRequest;
 
     clearRouteHintsList(): void;
-    getRouteHintsList(): Array<lndrpc_pb.RouteHint>;
-    setRouteHintsList(value: Array<lndrpc_pb.RouteHint>): AddHoldInvoiceRequest;
-    addRouteHints(value?: lndrpc_pb.RouteHint, index?: number): lndrpc_pb.RouteHint;
+    getRouteHintsList(): Array<lnd_rpc_pb.RouteHint>;
+    setRouteHintsList(value: Array<lnd_rpc_pb.RouteHint>): AddHoldInvoiceRequest;
+    addRouteHints(value?: lnd_rpc_pb.RouteHint, index?: number): lnd_rpc_pb.RouteHint;
 
     getPrivate(): boolean;
     setPrivate(value: boolean): AddHoldInvoiceRequest;
@@ -105,7 +105,7 @@ export namespace AddHoldInvoiceRequest {
         expiry: number,
         fallbackAddr: string,
         cltvExpiry: number,
-        routeHintsList: Array<lndrpc_pb.RouteHint.AsObject>,
+        routeHintsList: Array<lnd_rpc_pb.RouteHint.AsObject>,
         pb_private: boolean,
     }
 }

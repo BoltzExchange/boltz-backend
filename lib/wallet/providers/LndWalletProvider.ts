@@ -2,7 +2,7 @@ import { Transaction } from 'bitcoinjs-lib';
 import Logger from '../../Logger';
 import LndClient from '../../lightning/LndClient';
 import ChainClient from '../../chain/ChainClient';
-import { AddressType } from '../../proto/lndrpc_pb';
+import { AddressType } from '../../proto/lnd/rpc_pb';
 import WalletProviderInterface, { WalletBalance, SentTransaction } from './WalletProviderInterface';
 
 class LndWalletProvider implements WalletProviderInterface {

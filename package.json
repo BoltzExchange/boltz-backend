@@ -37,7 +37,7 @@
       "linux": "rsync -am --include '*/' --include '*.js*' --exclude '*' lib/proto/ dist/lib/proto"
     },
     "proto": {
-      "linux": "./node_modules/grpc-tools/bin/protoc --js_out='import_style=commonjs,binary:lib/proto' --ts_out='lib/proto' --grpc_out='lib/proto' --plugin='protoc-gen-grpc=node_modules/.bin/grpc_tools_node_protoc_plugin' --plugin='protoc-gen-ts=node_modules/grpc_tools_node_protoc_ts/bin/protoc-gen-ts' -I='proto' proto/*.proto"
+      "linux": "./node_modules/grpc-tools/bin/protoc --js_out='import_style=commonjs,binary:lib/proto' --ts_out='lib/proto' --grpc_out='lib/proto' --plugin='protoc-gen-grpc=node_modules/.bin/grpc_tools_node_protoc_plugin' --plugin='protoc-gen-ts=node_modules/grpc_tools_node_protoc_ts/bin/protoc-gen-ts' -I='proto' proto/*.proto proto/**/*.proto"
     }
   },
   "license": "AGPL-3.0",
@@ -61,7 +61,7 @@
     "async-lock": "^1.2.4",
     "axios": "^0.21.0",
     "bip32": "^2.0.6",
-    "bip39": "^3.0.2",
+    "bip39": "^3.0.3",
     "bitcoinjs-lib": "^5.2.0",
     "boltz-core": "^0.3.5",
     "cors": "^2.8.5",
@@ -70,7 +70,7 @@
     "diskusage": "^1.1.3",
     "ethers": "^5.0.19",
     "express": "^4.17.1",
-    "google-protobuf": "^3.13.0",
+    "google-protobuf": "^3.14.0",
     "grpc": "1.24.4",
     "node-forge": "^0.10.0",
     "node-schedule": "^1.3.2",

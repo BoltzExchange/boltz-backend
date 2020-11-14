@@ -1,13 +1,13 @@
 import { Op } from 'sequelize';
 import { Networks } from 'boltz-core';
 import Logger from '../../../lib/Logger';
-import { Invoice } from '../../../lib/proto/lndrpc_pb';
+import { Invoice } from '../../../lib/proto/lnd/rpc_pb';
 import LndClient from '../../../lib/lightning/LndClient';
 import { Currency } from '../../../lib/wallet/WalletManager';
+import { decodeInvoice, getHexBuffer } from '../../../lib/Utils';
 import LightningNursery from '../../../lib/swap/LightningNursery';
 import ReverseSwapRepository from '../../../lib/db/ReverseSwapRepository';
 import { CurrencyType, SwapUpdateEvent } from '../../../lib/consts/Enums';
-import { decodeInvoice, getHexBuffer } from '../../../lib/Utils';
 
 type htlcAcceptedCallback = (invoice: string) => void;
 type invoiceSettledCallback = (invoice: string) => void;

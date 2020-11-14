@@ -1,7 +1,7 @@
 import { Op } from 'sequelize';
 import { EventEmitter } from 'events';
 import Logger from '../Logger';
-import { Invoice } from '../proto/lndrpc_pb';
+import { Invoice } from '../proto/lnd/rpc_pb';
 import LndClient from '../lightning/LndClient';
 import { SwapUpdateEvent } from '../consts/Enums';
 import ReverseSwap from '../db/models/ReverseSwap';

@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-import "lndrpc.proto";
+import "lnd/rpc.proto";
 
 package invoicesrpc;
 

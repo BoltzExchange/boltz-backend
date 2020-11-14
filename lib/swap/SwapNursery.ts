@@ -654,10 +654,10 @@ class SwapNursery extends EventEmitter {
     try {
       const payResponse = await lightningCurrency.lndClient!.sendPayment(swap.invoice!, outgoingChannelId);
 
-      this.logger.debug(`Got preimage of Swap ${swap.id}: ${getHexString(payResponse.paymentPreimage)}`);
-      this.emit('invoice.paid', await this.swapRepository.setInvoicePaid(swap, payResponse.paymentRoute.totalFeesMsat));
+      this.logger.debug(`Got preimage of Swap ${swap.id}: ${getHexString(payResponse.preimage)}`);
+      this.emit('invoice.paid', await this.swapRepository.setInvoicePaid(swap, payResponse.feeMsat));
 
-      return payResponse.paymentPreimage;
+      return payResponse.preimage;
     } catch (error) {
       const formattedError = formatError(error);
       this.logger.debug(`Could not pay invoice of Swap ${swap.id}: ${formattedError}`);

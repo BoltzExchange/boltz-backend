@@ -3,7 +3,7 @@ import Logger from '../../../../lib/Logger';
 import { bitcoinLndClient, bitcoinClient } from '../../Nodes';
 import { coinsToSatoshis } from '../../../../lib/DenominationConverter';
 import LndWalletProvider from '../../../../lib/wallet/providers/LndWalletProvider';
-import { ListUnspentRequest, ListUnspentResponse } from '../../../../lib/proto/lndrpc_pb';
+import { ListUnspentRequest, ListUnspentResponse } from '../../../../lib/proto/lnd/rpc_pb';
 import { SentTransaction } from '../../../../lib/wallet/providers/WalletProviderInterface';
 
 describe('LndWalletProvider', () => {

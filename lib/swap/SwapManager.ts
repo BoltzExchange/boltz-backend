@@ -327,7 +327,7 @@ class SwapManager {
 
     // If there are route hints the routability check could fail although LND could pay the invoice
     } else if (!decodedInvoice.routingInfo || (decodedInvoice.routingInfo && decodedInvoice.routingInfo.length === 0)) {
-      const routable = await this.checkRoutability(sendingCurrency.lndClient!, decodedInvoice.payeeNodeKey!, decodedInvoice.satoshis);
+      const routable = await this.checkRoutability(sendingCurrency.lndClient!, invoice);
       if (!routable) {
         throw Errors.NO_ROUTE_FOUND();
       }
@@ -548,10 +548,21 @@ class SwapManager {
   /**
    * @returns whether the payment can be routed
    */
-  private checkRoutability = async (lnd: LndClient, destination: string, satoshis: number) => {
+  private checkRoutability = async (lnd: LndClient, invoice: string) => {
     try {
-      const routes = await lnd.queryRoutes(destination, satoshis);
+      // TODO: do MPP probing once it is available
+      const decodedInvoice = await lnd.decodePayReq(invoice);
 
+      // Check whether the the receiving side supports MPP and if so,
+      // query a route for the number of sats of the invoice divided
+      // by the max payment parts we tell to LND to use
+      const amountToQuery = decodedInvoice.featuresMap['17']?.is_known ?
+        Math.round(decodedInvoice.numSatoshis / lnd.paymentMaxParts) :
+        decodedInvoice.numSatoshis;
+
+      const routes = await lnd.queryRoutes(decodedInvoice.destination, amountToQuery);
+
+      // TODO: "routes.routesList.length >= LndClient.paymentParts" when receiver supports MPP?
       return routes.routesList.length > 0;
     } catch (error) {
       this.logger.debug(`Could not query routes: ${error}`);

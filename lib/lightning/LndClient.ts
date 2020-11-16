@@ -62,8 +62,9 @@ interface LndClient {
 class LndClient extends BaseClient implements LndClient {
   public static readonly serviceName = 'LND';
 
-  private static readonly paymentTimeout = 30;
-  private static readonly paymentMaxParts = 3;
+  public readonly paymentMaxParts = 3;
+
+  private readonly paymentTimeout = 30;
 
   private readonly uri!: string;
   private readonly credentials!: grpc.ChannelCredentials;
@@ -296,8 +297,8 @@ class LndClient extends BaseClient implements LndClient {
     return new Promise<SendResponse>((resolve, reject) => {
       const request = new routerrpc.SendPaymentRequest();
 
-      request.setMaxParts(LndClient.paymentMaxParts);
-      request.setTimeoutSeconds(LndClient.paymentTimeout);
+      request.setMaxParts(this.paymentMaxParts);
+      request.setTimeoutSeconds(this.paymentTimeout);
 
       request.setPaymentRequest(invoice);
 

@@ -160,6 +160,23 @@ const mockAddInvoiceResult = {
 };
 const mockAddInvoice = jest.fn().mockResolvedValue(mockAddInvoiceResult);
 
+const mockDecodedInvoiceAmount = 1000000;
+const mockDecodePayReq = jest.fn().mockImplementation(async (invoice: string) => {
+  const featuresMap = {};
+
+  if (invoice === 'multi') {
+    featuresMap['17'] = {
+      is_known: true,
+    };
+  }
+
+  return {
+    featuresMap,
+    destination: invoice,
+    numSatoshis: mockDecodedInvoiceAmount,
+  };
+});
+
 const mockQueryRoutes = jest.fn().mockImplementation(async (destination: string) => {
   const routesList: any[] = [];
 
@@ -167,11 +184,11 @@ const mockQueryRoutes = jest.fn().mockImplementation(async (destination: string)
     case 'throw':
       throw 'error';
 
-    case 'one':
+    case 'single':
       routesList.push({});
       break;
 
-    case 'two':
+    case 'multi':
       routesList.push({});
       routesList.push({});
       break;
@@ -192,9 +209,12 @@ const mockSubscribeSingleInvoice = jest.fn().mockResolvedValue(undefined);
 jest.mock('../../../lib/lightning/LndClient', () => {
   return jest.fn().mockImplementation(() => {
     return {
+      paymentMaxParts: 3,
+
       on: () => {},
       addInvoice: mockAddInvoice,
       queryRoutes: mockQueryRoutes,
+      decodePayReq: mockDecodePayReq,
       addHoldInvoice: mockAddHoldInvoice,
       subscribeSingleInvoice: mockSubscribeSingleInvoice,
     };
@@ -490,7 +510,7 @@ describe('SwapManager', () => {
     });
 
     expect(mockCheckRoutability).toHaveBeenCalledTimes(1);
-    expect(mockCheckRoutability).toHaveBeenCalledWith(btcCurrency.lndClient, invoiceEncode.payeeNodeKey, invoiceEncode.satoshis);
+    expect(mockCheckRoutability).toHaveBeenCalledWith(btcCurrency.lndClient, invoice);
 
     expect(mockSetInvoice).toHaveBeenCalledTimes(1);
     expect(mockSetInvoice).toHaveBeenCalledWith(swap, invoice, expectedAmount, percentageFee, acceptZeroConf);
@@ -908,11 +928,13 @@ describe('SwapManager', () => {
 
     const checkRoutability = manager['checkRoutability'];
 
-    expect(await checkRoutability(lndClient, 'one', 1)).toEqual(true);
-    expect(await checkRoutability(lndClient, 'two', 1)).toEqual(true);
+    expect(await checkRoutability(lndClient, 'single')).toEqual(true);
+    expect(mockQueryRoutes).toHaveBeenCalledWith('single', mockDecodedInvoiceAmount);
 
-    expect(await checkRoutability(lndClient, '', 1)).toEqual(false);
-    expect(await checkRoutability(lndClient, 'throw', 1)).toEqual(false);
+    expect(await checkRoutability(lndClient, 'multi')).toEqual(true);
+    expect(mockQueryRoutes).toHaveBeenCalledWith('multi', Math.round(mockDecodedInvoiceAmount / 3));
+
+    expect(await checkRoutability(lndClient, 'throw')).toEqual(false);
   });
 
   test('it should get currencies', () => {

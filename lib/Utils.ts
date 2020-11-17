@@ -16,7 +16,7 @@ const {
   p2shP2wpkhOutput,
 } = Scripts;
 
-const idPossibilities = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+const idPossibilities = 'ABCDEFGHIJKLMNPQRSTUVWXYZabcdefghklmnopqrstuvwxyz123456789';
 
 /**
  * Generate an ID for a swap

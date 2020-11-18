@@ -179,7 +179,7 @@ describe('RateProvider', () => {
     expect(pairs.get('LTC/BTC')!.fees.minerFees).toEqual({ baseAsset: minerFees.LTC, quoteAsset: minerFees.BTC });
   });
 
-  test('should calculate hashed', () => {
+  test('should calculate hashes', () => {
     const { pairs } = rateProvider;
 
     expect(pairs.get('BTC/BTC')!.hash).toEqual(hashString(JSON.stringify({

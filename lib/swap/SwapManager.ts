@@ -282,6 +282,7 @@ class SwapManager {
 
     this.logger.debug(`Setting invoice of Swap ${swap.id}: ${invoice}`);
 
+    const oldSwapStatus = swap.status;
     const updatedSwap = await this.swapRepository.setInvoice(swap, invoice, expectedAmount, percentageFee, acceptZeroConf);
 
     // Not the most elegant way to emit this event but the only option
@@ -299,7 +300,7 @@ class SwapManager {
           receivingCurrency.wallet,
           updatedSwap,
           Transaction.fromHex(rawTransaction),
-          swap.status === SwapUpdateEvent.TransactionConfirmed,
+          oldSwapStatus === SwapUpdateEvent.TransactionConfirmed,
         );
       } catch (error) {
         this.logger.warn(`Could not settle Swap ${swap!.id}: ${formatError(error)}`);

@@ -1,8 +1,8 @@
 import os from 'os';
 import path from 'path';
-import { Transaction } from 'bitcoinjs-lib';
-import bolt11, { RoutingInfo } from '@boltz/bolt11';
 import { OutputType, Scripts } from 'boltz-core';
+import { Transaction, crypto } from 'bitcoinjs-lib';
+import bolt11, { RoutingInfo } from '@boltz/bolt11';
 import commitHash from './Version';
 import packageJson from '../package.json';
 import { OrderSide } from './consts/Enums';
@@ -402,4 +402,13 @@ export const getVersion = (): string => {
 
 export const getUnixTime = (): number => {
   return Math.round(new Date().getTime() / 1000);
+};
+
+/**
+ * Hashes an arbitrary UTF-8 string with SHA256
+ *
+ * @returns hex encoded hash
+ */
+export const hashString = (input: string): string => {
+  return getHexString(crypto.sha256(Buffer.from(input, 'utf-8')));
 };

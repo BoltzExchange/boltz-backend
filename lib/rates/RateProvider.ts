@@ -4,7 +4,7 @@ import FeeProvider from './FeeProvider';
 import { PairConfig } from '../consts/Types';
 import DataProvider from './data/DataProvider';
 import { Currency } from '../wallet/WalletManager';
-import { stringify, mapToObject, minutesToMilliseconds, getPairId } from '../Utils';
+import { stringify, mapToObject, minutesToMilliseconds, getPairId, hashString } from '../Utils';
 
 type CurrencyLimits = {
   minimal: number;
@@ -24,6 +24,7 @@ type MinerFees = {
 };
 
 type PairType = {
+  hash: string;
   rate: number;
   limits: {
     minimal: number;
@@ -88,6 +89,7 @@ class RateProvider {
         this.logger.debug(`Setting hardcoded rate for pair ${id}: ${pair.rate}`);
 
         this.pairs.set(id, {
+          hash: '',
           rate: pair.rate,
           limits: this.getLimits(id, pair.base, pair.quote, pair.rate),
           fees: {
@@ -154,6 +156,7 @@ class RateProvider {
           this.pairs.set(pair, {
             rate,
             limits,
+            hash: '',
             fees: {
               percentage: this.percentageFees.get(pair)!,
               minerFees: {
@@ -179,6 +182,14 @@ class RateProvider {
     });
 
     await Promise.all(promises);
+
+    this.pairs.forEach((pair, symbol) => {
+      this.pairs.get(symbol)!.hash = hashString(JSON.stringify({
+        rate: pair.rate,
+        fees: pair.fees,
+        limits: pair.limits,
+      }));
+    });
 
     this.logger.silly('Updated rates');
   }

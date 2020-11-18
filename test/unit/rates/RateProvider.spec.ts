@@ -6,6 +6,7 @@ import RateProvider from '../../../lib/rates/RateProvider';
 import PairRepository from '../../../lib/db/PairRepository';
 import { Currency } from '../../../lib/wallet/WalletManager';
 import DataProvider from '../../../lib/rates/data/DataProvider';
+import { hashString } from '../../../lib/Utils';
 
 FeeProvider.transactionSizes = {
   normalClaim: 140,
@@ -176,6 +177,22 @@ describe('RateProvider', () => {
 
     expect(pairs.get('BTC/BTC')!.fees.minerFees).toEqual({ baseAsset: minerFees.BTC, quoteAsset: minerFees.BTC });
     expect(pairs.get('LTC/BTC')!.fees.minerFees).toEqual({ baseAsset: minerFees.LTC, quoteAsset: minerFees.BTC });
+  });
+
+  test('should calculate hashed', () => {
+    const { pairs } = rateProvider;
+
+    expect(pairs.get('BTC/BTC')!.hash).toEqual(hashString(JSON.stringify({
+      rate: pairs.get('BTC/BTC')!.rate,
+      fees: pairs.get('BTC/BTC')!.fees,
+      limits: pairs.get('BTC/BTC')!.limits,
+    })));
+
+    expect(pairs.get('LTC/BTC')!.hash).toEqual(hashString(JSON.stringify({
+      rate: pairs.get('LTC/BTC')!.rate,
+      fees: pairs.get('LTC/BTC')!.fees,
+      limits: pairs.get('LTC/BTC')!.limits,
+    })));
   });
 
   test('should accept 0-conf for amounts lower than threshold', () => {

@@ -214,6 +214,7 @@ const pairs = new Map<string, any>([
       minimal: 1,
       maximal: Number.MAX_SAFE_INTEGER,
     },
+    hash: 'hashOfBtcBtcPair',
   }],
   ['LTC/BTC', {
     rate: 0.004,
@@ -221,12 +222,14 @@ const pairs = new Map<string, any>([
       minimal: 1,
       maximal: Number.MAX_SAFE_INTEGER,
     },
+    hash: 'hashOfLtcBtcPair',
   }],
   ['test', {
     limits: {
       minimal: 5,
       maximal: 10,
     },
+    hash: 'hashOfTestPair',
   }],
 ]);
 
@@ -811,6 +814,15 @@ describe('Service', () => {
     expect(mockSetSwapInvoice).toHaveBeenCalledTimes(1);
     expect(mockSetSwapInvoice).toHaveBeenCalledWith(mockGetSwapResult, invoice, invoiceAmount + 2, 1, true, expect.anything());
 
+    // Should execute with valid pair hash (it should just not throw)
+    await service.setSwapInvoice(mockGetSwapResult.id, invoice, pairs.get('BTC/BTC')!.hash);
+
+    // Throw when an invalid pair hash is provided
+    await expect(service.setSwapInvoice(mockGetSwapResult.id, invoice, 'wrongHash'))
+      .rejects.toEqual(Errors.INVALID_PAIR_HASH());
+    await expect(service.setSwapInvoice(mockGetSwapResult.id, invoice, ''))
+      .rejects.toEqual(Errors.INVALID_PAIR_HASH());
+
     // Throw if a swap doesn't respect the limits
     const invoiceLimit = 'lnbcrt1p0xdz2epp59nrc7lqcnw37suzed83e8s33sxl9p0hk4xu6gya9rcxfmnzd8jfsdqqcqzpgsp5228z07nxfghfzf3p2lu7vc03zss8cgklql845yjr990zsa3nj2hq9qy9qsqqpw8n4s5v3w7t9rryccz46f5v0542td098dun4yzfru4saxhd5apcxl5clxn8a70afn7j3e6avvk3s9gn3ypt2revyuh47aftft3kpcpek9lma';
     const invoiceLimitAmount = 0;
@@ -880,6 +892,7 @@ describe('Service', () => {
     expect(service.setSwapInvoice).toHaveBeenCalledWith(
       response.id,
       invoice,
+      undefined,
     );
 
     // Throw and remove the database entry if "setSwapInvoice" fails
@@ -993,6 +1006,34 @@ describe('Service', () => {
     );
 
     pair = 'BTC/BTC';
+
+    // Should execute with valid pair hash (it should just not throw)
+    await service.createReverseSwap(
+      pair,
+      orderSide,
+      preimageHash,
+      invoiceAmount,
+      claimPublicKey,
+      pairs.get(pair)!.hash,
+    );
+
+    // Throw when an invalid pair hash is provided
+    await expect(service.createReverseSwap(
+      pair,
+      orderSide,
+      preimageHash,
+      invoiceAmount,
+      claimPublicKey,
+      'wrongHash',
+    )).rejects.toEqual(Errors.INVALID_PAIR_HASH());
+    await expect(service.createReverseSwap(
+      pair,
+      orderSide,
+      preimageHash,
+      invoiceAmount,
+      claimPublicKey,
+      '',
+    )).rejects.toEqual(Errors.INVALID_PAIR_HASH());
 
     // Throw if the onchain amount is less than 1
     await expect(service.createReverseSwap(

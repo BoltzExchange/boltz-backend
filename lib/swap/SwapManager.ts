@@ -57,7 +57,7 @@ class SwapManager {
     private walletManager: WalletManager,
     rateProvider: RateProvider,
     private swapOutputType: OutputType,
-    private prepayMinerFee: boolean,
+    prepayMinerFee: boolean,
     retryInterval: number,
   ) {
     this.swapRepository = new SwapRepository();

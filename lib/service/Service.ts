@@ -552,7 +552,7 @@ class Service {
     const rate = getRate(swap.rate!, swap.orderSide, false);
 
     const percentageFee = this.feeProvider.getPercentageFee(swap.pair);
-    const { baseFee } = await this.feeProvider.getFees(swap.pair, rate, swap.orderSide, swap.onchainAmount, false);
+    const { baseFee } = this.feeProvider.getFees(swap.pair, rate, swap.orderSide, swap.onchainAmount, false);
 
     const invoiceAmount = this.calculateInvoiceAmount(swap.orderSide, rate, swap.onchainAmount, baseFee, percentageFee);
 
@@ -602,7 +602,7 @@ class Service {
 
     this.verifyAmount(swap.pair, rate, invoiceAmount, swap.orderSide, false);
 
-    const { baseFee, percentageFee } = await this.feeProvider.getFees(swap.pair, rate, swap.orderSide, invoiceAmount, false);
+    const { baseFee, percentageFee } = this.feeProvider.getFees(swap.pair, rate, swap.orderSide, invoiceAmount, false);
     const expectedAmount = Math.floor(invoiceAmount * rate) + baseFee + percentageFee;
 
     if (swap.onchainAmount && expectedAmount > swap.onchainAmount) {
@@ -765,7 +765,7 @@ class Service {
 
     this.verifyAmount(pairId, rate, invoiceAmount, side, true);
 
-    const { baseFee, percentageFee } = await this.feeProvider.getFees(pairId, rate, side, invoiceAmount, true);
+    const { baseFee, percentageFee } = this.feeProvider.getFees(pairId, rate, side, invoiceAmount, true);
 
     const onchainAmount = Math.floor(invoiceAmount * rate) - (baseFee + percentageFee);
 

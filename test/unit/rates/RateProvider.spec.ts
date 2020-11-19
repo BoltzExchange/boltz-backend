@@ -1,12 +1,12 @@
 import Logger from '../../../lib/Logger';
 import Database from '../../../lib/db/Database';
+import { hashString } from '../../../lib/Utils';
 import { Network } from '../../../lib/consts/Enums';
-import FeeProvider from '../../../lib/rates/FeeProvider';
 import RateProvider from '../../../lib/rates/RateProvider';
 import PairRepository from '../../../lib/db/PairRepository';
 import { Currency } from '../../../lib/wallet/WalletManager';
 import DataProvider from '../../../lib/rates/data/DataProvider';
-import { hashString } from '../../../lib/Utils';
+import FeeProvider, { MinerFees } from '../../../lib/rates/FeeProvider';
 
 FeeProvider.transactionSizes = {
   normalClaim: 140,
@@ -25,32 +25,37 @@ const percentageFees = new Map<string, number>([
   ['BTC/BTC', 0.005],
 ]);
 
-const minerFees = {
-  BTC: {
-    normal: FeeProvider.transactionSizes.normalClaim * 2,
-    reverse: {
-      lockup: FeeProvider.transactionSizes.reverseLockup * 2,
-      claim: FeeProvider.transactionSizes.reverseClaim * 2,
+const minerFees = new Map<string, MinerFees>([
+  [
+    'BTC',
+    {
+      normal: FeeProvider.transactionSizes.normalClaim * 2,
+      reverse: {
+        lockup: FeeProvider.transactionSizes.reverseLockup * 2,
+        claim: FeeProvider.transactionSizes.reverseClaim * 2,
+      },
     },
-  },
-  LTC: {
-    normal: FeeProvider.transactionSizes.normalClaim ,
-    reverse: {
-      lockup: FeeProvider.transactionSizes.reverseLockup,
-      claim: FeeProvider.transactionSizes.reverseClaim,
+  ],
+  [
+    'LTC',
+    {
+      normal: FeeProvider.transactionSizes.normalClaim ,
+      reverse: {
+        lockup: FeeProvider.transactionSizes.reverseLockup,
+        claim: FeeProvider.transactionSizes.reverseClaim,
+      },
     },
-  },
-};
+  ]
+]);
+
+const mockUpdateMinerFees = jest.fn().mockImplementation(async () => {});
 
 jest.mock('../../../lib/rates/FeeProvider', () => {
   return jest.fn().mockImplementation(() => {
     return {
+      minerFees,
       percentageFees,
-      getBaseFee: (chainCurrency: string, isReverse: boolean) => {
-        const minerFeesCurrency = chainCurrency === 'BTC' ? minerFees.BTC : minerFees.LTC;
-
-        return isReverse ? minerFeesCurrency.reverse.lockup : minerFeesCurrency.normal;
-      },
+      updateMinerFees: mockUpdateMinerFees,
     };
   });
 });
@@ -175,8 +180,8 @@ describe('RateProvider', () => {
   test('should get miner fees', () => {
     const { pairs } = rateProvider;
 
-    expect(pairs.get('BTC/BTC')!.fees.minerFees).toEqual({ baseAsset: minerFees.BTC, quoteAsset: minerFees.BTC });
-    expect(pairs.get('LTC/BTC')!.fees.minerFees).toEqual({ baseAsset: minerFees.LTC, quoteAsset: minerFees.BTC });
+    expect(pairs.get('BTC/BTC')!.fees.minerFees).toEqual({ baseAsset: minerFees.get('BTC'), quoteAsset: minerFees.get('BTC'), });
+    expect(pairs.get('LTC/BTC')!.fees.minerFees).toEqual({ baseAsset: minerFees.get('LTC'), quoteAsset: minerFees.get('BTC'), });
   });
 
   test('should calculate hashes', () => {

@@ -12,7 +12,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get -y install \
   curl \
   wget \
   unzip \
-  python \
+  python3 \
   libtool \
   autoconf \
   automake \
@@ -35,6 +35,10 @@ RUN ./zcutil/fetch-params.sh
 RUN ./zcutil/build.sh -j$(nproc)
 
 RUN mkdir bin
+
+RUN strip src/zcashd
+RUN strip src/zcash-tx
+RUN strip src/zcash-cli
 
 RUN cp src/zcashd bin
 RUN cp src/zcash-tx bin

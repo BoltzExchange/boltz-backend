@@ -1,10 +1,10 @@
 import Errors from './Errors';
 import Logger from '../Logger';
-import FeeProvider from './FeeProvider';
 import { PairConfig } from '../consts/Types';
 import DataProvider from './data/DataProvider';
 import { Currency } from '../wallet/WalletManager';
-import { stringify, mapToObject, minutesToMilliseconds, getPairId } from '../Utils';
+import FeeProvider, { MinerFees } from './FeeProvider';
+import { stringify, mapToObject, minutesToMilliseconds, getPairId, hashString } from '../Utils';
 
 type CurrencyLimits = {
   minimal: number;
@@ -13,17 +13,8 @@ type CurrencyLimits = {
   maximalZeroConf: number;
 };
 
-type ReverseMinerFees = {
-  lockup: number;
-  claim: number;
-};
-
-type MinerFees = {
-  normal: number;
-  reverse: ReverseMinerFees;
-};
-
 type PairType = {
+  hash: string;
   rate: number;
   limits: {
     minimal: number;
@@ -88,6 +79,7 @@ class RateProvider {
         this.logger.debug(`Setting hardcoded rate for pair ${id}: ${pair.rate}`);
 
         this.pairs.set(id, {
+          hash: '',
           rate: pair.rate,
           limits: this.getLimits(id, pair.base, pair.quote, pair.rate),
           fees: {
@@ -154,6 +146,7 @@ class RateProvider {
           this.pairs.set(pair, {
             rate,
             limits,
+            hash: '',
             fees: {
               percentage: this.percentageFees.get(pair)!,
               minerFees: {
@@ -179,6 +172,14 @@ class RateProvider {
     });
 
     await Promise.all(promises);
+
+    this.pairs.forEach((pair, symbol) => {
+      this.pairs.get(symbol)!.hash = hashString(JSON.stringify({
+        rate: pair.rate,
+        fees: pair.fees,
+        limits: pair.limits,
+      }));
+    });
 
     this.logger.silly('Updated rates');
   }
@@ -229,39 +230,15 @@ class RateProvider {
   }
 
   private getMinerFees = async () => {
-    const minerFees = new Map<string, MinerFees>();
+    const promises: Promise<void>[] = [];
 
     for (const [symbol] of this.limits) {
-      // The pair and amount can be emtpy because we just want the miner fee
-      const { normal, reverseLockup } = await this.getFeeFromProvider(symbol);
-
-      minerFees.set(symbol, {
-        normal,
-        reverse: {
-          lockup: reverseLockup,
-
-          // We cannot know what kind of address the user will claim to so we just assume the worst case: P2PKH
-          //
-          // Claiming a P2WSH to a P2PKH address is about 138 bytes and to get the sats per vbyte we divide the
-          // reverse fee by the size of the reverse lockup transaction (153 vbyte)
-          claim: FeeProvider.transactionSizes.reverseClaim * (reverseLockup / FeeProvider.transactionSizes.reverseLockup),
-        },
-      });
+      promises.push(this.feeProvider.updateMinerFees(symbol));
     }
 
-    return minerFees;
-  }
+    await Promise.all(promises);
 
-  private getFeeFromProvider = async (chainCurrency: string) => {
-    const [normal, reverseLockup] = await Promise.all([
-      this.feeProvider.getBaseFee(chainCurrency, false),
-      this.feeProvider.getBaseFee(chainCurrency, true),
-    ]);
-
-    return {
-      normal,
-      reverseLockup,
-    };
+    return this.feeProvider.minerFees;
   }
 }
 

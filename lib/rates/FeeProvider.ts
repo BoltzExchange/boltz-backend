@@ -3,15 +3,33 @@ import { OrderSide } from '../consts/Enums';
 import { PairConfig } from '../consts/Types';
 import { mapToObject, getPairId, stringify, getChainCurrency, splitPairId } from '../Utils';
 
+type ReverseMinerFees = {
+  lockup: number;
+  claim: number;
+};
+
+type MinerFees = {
+  normal: number;
+  reverse: ReverseMinerFees;
+};
+
 class FeeProvider {
   // A map between the symbols of the pairs and their percentage fees
   public percentageFees = new Map<string, number>();
 
+  public minerFees = new Map<string, MinerFees>();
+
   public static transactionSizes = {
+    // The claim transaction which spends a nested SegWit swap output and sends it to a P2WPKH address has about 170 vbytes
     normalClaim: 170,
 
-    reverseLockup: 153,
+    // We cannot know what kind of address the user will claim to so we just assume the worst case: P2PKH
+    // Claiming a P2WSH to a P2PKH address is about 138 bytes
     reverseClaim: 138,
+
+    // The lockup transaction which spends a P2WPKH output (possibly more but we assume a best case scenario here),
+    // locks up funds in a P2WSH swap and sends the change back to a P2WKH output has about 153 vbytes
+    reverseLockup: 153,
   };
 
   constructor(
@@ -38,16 +56,16 @@ class FeeProvider {
     return this.percentageFees.get(pair) || 0;
   }
 
-  public getFees = async (
+  public getFees = (
     pair: string,
     rate: number,
     orderSide: OrderSide,
     amount: number,
     isReverse: boolean,
-  ): Promise<{
+  ): {
     baseFee: number,
     percentageFee: number,
-  }> => {
+  } => {
     let percentageFee = this.getPercentageFee(pair);
 
     if (percentageFee !== 0) {
@@ -57,29 +75,26 @@ class FeeProvider {
     const { base, quote } = splitPairId(pair);
     const chainCurrency = getChainCurrency(base, quote, orderSide, isReverse);
 
+    const minerFeeMap = this.minerFees.get(chainCurrency)!;
+
     return {
       percentageFee: Math.ceil(percentageFee),
-      baseFee: await this.getBaseFee(chainCurrency, isReverse),
+      baseFee: isReverse ? minerFeeMap.reverse.lockup : minerFeeMap.normal,
     };
   }
 
-  public getBaseFee = async (chainCurrency: string, isReverse: boolean): Promise<number> => {
-    const feeMap = await this.getFeeEstimation(chainCurrency);
+  public updateMinerFees = async (chainCurrency: string): Promise<void> => {
+    const satPerVbyte = (await this.getFeeEstimation(chainCurrency)).get(chainCurrency)!;
 
-    return this.calculateBaseFee(feeMap.get(chainCurrency)!, isReverse);
-  }
-
-  private calculateBaseFee = (satPerVbyte: number, isReverse: boolean) => {
-    if (isReverse) {
-      // The lockup transaction which spends a P2WPKH output (possibly more but we assume a best case scenario here),
-      // locks up funds in a P2WSH swap and sends the change back to a P2WKH output has about 153 vbytes
-      return satPerVbyte * FeeProvider.transactionSizes.reverseLockup;
-    } else {
-      // The claim transaction which spends a nested SegWit swap output and
-      // sends it to a P2WPKH address has about 170 vbytes
-      return satPerVbyte * FeeProvider.transactionSizes.normalClaim;
-    }
+    this.minerFees.set(chainCurrency, {
+      normal: satPerVbyte * FeeProvider.transactionSizes.normalClaim,
+      reverse: {
+        claim: satPerVbyte * FeeProvider.transactionSizes.reverseClaim,
+        lockup: satPerVbyte * FeeProvider.transactionSizes.reverseLockup,
+      },
+    });
   }
 }
 
 export default FeeProvider;
+export { ReverseMinerFees, MinerFees };

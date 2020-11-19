@@ -99,4 +99,8 @@ export default {
     message: `inbound liquidity ${inboundLiquidity} is less than minimal ${minInboundLiquidity}`,
     code: concatErrorCode(ErrorCodePrefix.Service, 23),
   }),
+  INVALID_PAIR_HASH: (): Error => ({
+    message: 'invalid pair hash',
+    code: concatErrorCode(ErrorCodePrefix.Swap, 24),
+  }),
 };

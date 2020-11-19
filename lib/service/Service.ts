@@ -552,7 +552,7 @@ class Service {
     const rate = getRate(swap.rate!, swap.orderSide, false);
 
     const percentageFee = this.feeProvider.getPercentageFee(swap.pair);
-    const { baseFee } = await this.feeProvider.getFees(swap.pair, rate, swap.orderSide, swap.onchainAmount, false);
+    const { baseFee } = this.feeProvider.getFees(swap.pair, rate, swap.orderSide, swap.onchainAmount, false);
 
     const invoiceAmount = this.calculateInvoiceAmount(swap.orderSide, rate, swap.onchainAmount, baseFee, percentageFee);
 
@@ -569,7 +569,7 @@ class Service {
   /**
    * Sets the invoice of Submarine Swap
    */
-  public setSwapInvoice = async (id: string, invoice: string): Promise<{
+  public setSwapInvoice = async (id: string, invoice: string, pairHash?: string): Promise<{
     bip21: string,
     expectedAmount: number,
     acceptZeroConf: boolean,
@@ -590,6 +590,10 @@ class Service {
 
     const { base, quote, rate: pairRate } = this.getPair(swap.pair);
 
+    if (pairHash !== undefined) {
+      this.validatePairHash(swap.pair, pairHash);
+    }
+
     const chainCurrency = getChainCurrency(base, quote, swap.orderSide, false);
     const lightningCurrency = getLightningCurrency(base, quote, swap.orderSide, false);
 
@@ -598,7 +602,7 @@ class Service {
 
     this.verifyAmount(swap.pair, rate, invoiceAmount, swap.orderSide, false);
 
-    const { baseFee, percentageFee } = await this.feeProvider.getFees(swap.pair, rate, swap.orderSide, invoiceAmount, false);
+    const { baseFee, percentageFee } = this.feeProvider.getFees(swap.pair, rate, swap.orderSide, invoiceAmount, false);
     const expectedAmount = Math.floor(invoiceAmount * rate) + baseFee + percentageFee;
 
     if (swap.onchainAmount && expectedAmount > swap.onchainAmount) {
@@ -651,6 +655,7 @@ class Service {
     orderSide: string,
     refundPublicKey: Buffer,
     invoice: string,
+    pairHash?: string,
     channel?: ChannelCreationInfo,
   ): Promise<{
     id: string,
@@ -685,7 +690,7 @@ class Service {
         bip21,
         acceptZeroConf,
         expectedAmount,
-      } = await this.setSwapInvoice(id, invoice);
+      } = await this.setSwapInvoice(id, invoice, pairHash);
 
       return {
         id,
@@ -724,6 +729,7 @@ class Service {
     preimageHash: Buffer,
     invoiceAmount: number,
     claimPublicKey: Buffer,
+    pairHash?: string,
   ): Promise<{
     id: string,
     invoice: string,
@@ -738,6 +744,11 @@ class Service {
 
     const side = this.getOrderSide(orderSide);
     const { base, quote, rate: pairRate } = this.getPair(pairId);
+
+    if (pairHash !== undefined) {
+      this.validatePairHash(pairId, pairHash);
+    }
+
     const { sending, receiving } = getSendingReceivingCurrency(base, quote, side);
 
     const rate = getRate(pairRate, side, true);
@@ -754,7 +765,7 @@ class Service {
 
     this.verifyAmount(pairId, rate, invoiceAmount, side, true);
 
-    const { baseFee, percentageFee } = await this.feeProvider.getFees(pairId, rate, side, invoiceAmount, true);
+    const { baseFee, percentageFee } = this.feeProvider.getFees(pairId, rate, side, invoiceAmount, true);
 
     const onchainAmount = Math.floor(invoiceAmount * rate) - (baseFee + percentageFee);
 
@@ -954,6 +965,12 @@ class Service {
 
   private calculateTimeoutDate = (chain: string, blocksMissing: number) => {
     return getUnixTime() + (blocksMissing * TimeoutDeltaProvider.blockTimes.get(chain)! * 60);
+  }
+
+  private validatePairHash = (pairId: string, pairHash: string) => {
+     if (pairHash !== this.rateProvider.pairs.get(pairId)!.hash) {
+       throw Errors.INVALID_PAIR_HASH();
+     }
   }
 }
 

@@ -70,6 +70,7 @@ describe('Utils', () => {
   test('should check whether it is an object', () => {
     expect(utils.isObject({})).toBeTruthy();
     expect(utils.isObject([])).toBeFalsy();
+    expect(utils.isObject(undefined)).toBeFalsy();
   });
 
   test('should split host and port', () => {
@@ -247,5 +248,10 @@ describe('Utils', () => {
 
     expect(utils.getBiggerBigNumber(big, small)).toEqual(big);
     expect(utils.getBiggerBigNumber(small, big)).toEqual(big);
+  });
+
+  test('should hash strings', () => {
+    expect(utils.hashString('foo')).toEqual('2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae');
+    expect(utils.hashString('bar')).toEqual('fcde2b2edba56bf408601fb721fe9b5c338d10ee429ea04fae5511b68fbf8fb9');
   });
 });

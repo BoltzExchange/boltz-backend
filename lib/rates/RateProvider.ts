@@ -1,27 +1,17 @@
 import Errors from './Errors';
 import Logger from '../Logger';
-import FeeProvider from './FeeProvider';
 import { PairConfig } from '../consts/Types';
+import { CurrencyType } from '../consts/Enums';
 import DataAggregator from './data/DataAggregator';
 import { Currency } from '../wallet/WalletManager';
-import { BaseFeeType, CurrencyType } from '../consts/Enums';
-import { getPairId, mapToObject, minutesToMilliseconds, splitPairId, stringify } from '../Utils';
+import FeeProvider, { MinerFees } from './FeeProvider';
+import { getPairId, hashString, mapToObject, minutesToMilliseconds, splitPairId, stringify } from '../Utils';
 
 type CurrencyLimits = {
   minimal: number;
   maximal: number;
 
   maximalZeroConf: number;
-};
-
-type ReverseMinerFees = {
-  lockup: number;
-  claim: number;
-};
-
-type MinerFees = {
-  normal: number;
-  reverse: ReverseMinerFees;
 };
 
 const emptyMinerFees = {
@@ -33,6 +23,7 @@ const emptyMinerFees = {
 };
 
 type PairType = {
+  hash: string;
   rate: number;
   limits: {
     minimal: number;
@@ -99,6 +90,7 @@ class RateProvider {
         this.logger.debug(`Setting hardcoded rate for pair ${id}: ${pair.rate}`);
 
         this.pairs.set(id, {
+          hash: '',
           rate: pair.rate,
           limits: this.getLimits(id, pair.base, pair.quote, pair.rate),
           fees: {
@@ -164,8 +156,10 @@ class RateProvider {
 
   private updateRates = async () => {
     // Update the pairs with a variable rate
-    const updatedRates = await this.dataAggregator.fetchPairs();
-    const minerFees = await this.getMinerFees();
+    const [, updatedRates] = await Promise.all([
+      this.getMinerFees(),
+      this.dataAggregator.fetchPairs(),
+    ]);
 
     for (const [pairId, rate] of updatedRates) {
       // Filter pairs that are fetched (for example to calculate gas fees for a BTC/<token> pair)
@@ -184,11 +178,12 @@ class RateProvider {
         this.pairs.set(pairId, {
           rate,
           limits,
+          hash: '',
           fees: {
             percentage: this.percentageFees.get(pairId)!,
             minerFees: {
-              baseAsset: minerFees.get(base)!,
-              quoteAsset: minerFees.get(quote)!,
+              baseAsset: this.feeProvider.minerFees.get(base)!,
+              quoteAsset: this.feeProvider.minerFees.get(quote)!,
             },
           },
         });
@@ -203,11 +198,19 @@ class RateProvider {
       const pairInfo = this.pairs.get(pair)!;
 
       pairInfo.fees.minerFees = {
-        baseAsset: minerFees.get(base)!,
-        quoteAsset: minerFees.get(quote)!,
+        baseAsset: this.feeProvider.minerFees.get(base)!,
+        quoteAsset: this.feeProvider.minerFees.get(quote)!,
       };
 
       this.pairs.set(pair, pairInfo);
+    });
+
+    this.pairs.forEach((pair, symbol) => {
+      this.pairs.get(symbol)!.hash = hashString(JSON.stringify({
+        rate: pair.rate,
+        fees: pair.fees,
+        limits: pair.limits,
+      }));
     });
 
     this.logger.silly('Updated rates');
@@ -257,35 +260,13 @@ class RateProvider {
   }
 
   private getMinerFees = async () => {
-    const minerFees = new Map<string, MinerFees>();
+    const promises: Promise<void>[] = [];
 
     for (const [symbol] of this.limits) {
-      const { normalClaim, reverseLockup, reverseClaim } = await this.getFeeFromProvider(symbol);
-
-      minerFees.set(symbol, {
-        normal: normalClaim,
-        reverse: {
-          claim: reverseClaim,
-          lockup: reverseLockup,
-        },
-      });
+      promises.push(this.feeProvider.updateMinerFees(symbol));
     }
 
-    return minerFees;
-  }
-
-  private getFeeFromProvider = async (chainCurrency: string) => {
-    const [normalClaim, reverseLockup, reverseClaim] = await Promise.all([
-      this.feeProvider.getBaseFee(chainCurrency, BaseFeeType.NormalClaim),
-      this.feeProvider.getBaseFee(chainCurrency, BaseFeeType.ReverseLockup),
-      this.feeProvider.getBaseFee(chainCurrency, BaseFeeType.ReverseClaim),
-    ]);
-
-    return {
-      normalClaim,
-      reverseLockup,
-      reverseClaim,
-    };
+    await Promise.all(promises);
   }
 }
 

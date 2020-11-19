@@ -549,7 +549,7 @@ describe('ChannelNursery', () => {
 
     const lockSettleChannel = () => {
       channelNursery['lock'].acquire('channelSettle', () => {
-        return new Promise((resolve) => {
+        return new Promise<void>((resolve) => {
           resolvePromise = resolve;
         });
       });

@@ -51,7 +51,8 @@ class Boltz {
         this.config.ethereum,
       );
     } else {
-      this.logger.warn('Disabled Ethereum integration because no web3 provider was specified');
+      // TODO: allow startup without websocket provider
+      this.logger.warn('Disabled Ethereum integration because no Web3 WebSocket provider was specified');
     }
 
     this.currencies = this.parseCurrencies();

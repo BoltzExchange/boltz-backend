@@ -267,8 +267,17 @@ class Controller {
   }
 
   private createSubmarineSwap = async (req: Request, res: Response) => {
-    const { pairId, orderSide, invoice, refundPublicKey, preimageHash, channel } = this.validateRequest(req.body, [
+    const {
+      pairId,
+      pairHash,
+      orderSide,
+      invoice,
+      refundPublicKey,
+      preimageHash,
+      channel,
+    } = this.validateRequest(req.body, [
       { name: 'pairId', type: 'string' },
+      { name: 'pairHash', type: 'string', optional: true },
       { name: 'orderSide', type: 'string' },
       { name: 'invoice', type: 'string', optional: true },
       { name: 'refundPublicKey', type: 'string', hex: true, optional: true },
@@ -292,6 +301,7 @@ class Controller {
         orderSide,
         refundPublicKey,
         invoice.toLowerCase(),
+        pairHash,
         channel,
       );
     } else {
@@ -320,6 +330,7 @@ class Controller {
   private createReverseSubmarineSwap = async (req: Request, res: Response) => {
     const {
       pairId,
+      pairHash,
       orderSide,
       claimAddress,
       preimageHash,
@@ -327,6 +338,7 @@ class Controller {
       claimPublicKey,
     } = this.validateRequest(req.body, [
       { name: 'pairId', type: 'string' },
+      { name: 'pairHash', type: 'string', optional: true },
       { name: 'orderSide', type: 'string' },
       { name: 'invoiceAmount', type: 'number' },
       { name: 'preimageHash', type: 'string', hex: true },
@@ -338,6 +350,7 @@ class Controller {
 
     const response = await this.service.createReverseSwap({
       pairId,
+      pairHash,
       orderSide,
       claimAddress,
       preimageHash,
@@ -353,12 +366,13 @@ class Controller {
 
   public setInvoice = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { id, invoice } = this.validateRequest(req.body, [
+      const { id, invoice, pairHash } = this.validateRequest(req.body, [
         { name: 'id', type: 'string' },
         { name: 'invoice', type: 'string' },
+        { name: 'pairHash', type: 'string', optional: true },
       ]);
 
-      const response = await this.service.setSwapInvoice(id, invoice.toLowerCase());
+      const response = await this.service.setSwapInvoice(id, invoice.toLowerCase(), pairHash);
       this.successResponse(res, response);
     } catch (error) {
       this.errorResponse(req, res, error);

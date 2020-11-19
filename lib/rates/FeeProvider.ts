@@ -4,17 +4,35 @@ import { PairConfig } from '../consts/Types';
 import DataAggregator from './data/DataAggregator';
 import { BaseFeeType, OrderSide } from '../consts/Enums';
 import { etherDecimals, gweiDecimals } from '../consts/Consts';
-import { mapToObject, getPairId, stringify, getChainCurrency, splitPairId } from '../Utils';
+import { getChainCurrency, getPairId, mapToObject, splitPairId, stringify } from '../Utils';
+
+type ReverseMinerFees = {
+  lockup: number;
+  claim: number;
+};
+
+type MinerFees = {
+  normal: number;
+  reverse: ReverseMinerFees;
+};
 
 class FeeProvider {
   // A map between the symbols of the pairs and their percentage fees
   public percentageFees = new Map<string, number>();
 
+  public minerFees = new Map<string, MinerFees>();
+
   public static transactionSizes = {
+    // The claim transaction which spends a nested SegWit swap output and sends it to a P2WPKH address has about 170 vbytes
     normalClaim: 170,
 
-    reverseLockup: 153,
+    // We cannot know what kind of address the user will claim to so we just assume the worst case: P2PKH
+    // Claiming a P2WSH to a P2PKH address is about 138 bytes
     reverseClaim: 138,
+
+    // The lockup transaction which spends a P2WPKH output (possibly more but we assume a best case scenario here),
+    // locks up funds in a P2WSH swap and sends the change back to a P2WKH output has about 153 vbytes
+    reverseLockup: 153,
   };
 
   // TODO: query those estimations from the provider
@@ -56,16 +74,16 @@ class FeeProvider {
     return this.percentageFees.get(pair) || 0;
   }
 
-  public getFees = async (
+  public getFees = (
     pair: string,
     rate: number,
     orderSide: OrderSide,
     amount: number,
     type: BaseFeeType,
-  ): Promise<{
+  ): {
     baseFee: number,
     percentageFee: number,
-  }> => {
+  } => {
     let percentageFee = this.getPercentageFee(pair);
 
     if (percentageFee !== 0) {
@@ -75,13 +93,31 @@ class FeeProvider {
     const { base, quote } = splitPairId(pair);
     const chainCurrency = getChainCurrency(base, quote, orderSide, type !== BaseFeeType.NormalClaim);
 
+    const minerFeeMap = this.minerFees.get(chainCurrency)!;
+
+    let baseFee: number;
+
+    switch (type) {
+      case BaseFeeType.NormalClaim:
+        baseFee = minerFeeMap.normal;
+        break;
+
+      case BaseFeeType.ReverseClaim:
+        baseFee = minerFeeMap.reverse.claim;
+        break;
+
+      case BaseFeeType.ReverseLockup:
+        baseFee = minerFeeMap.reverse.lockup;
+        break;
+    }
+
     return {
+      baseFee: baseFee,
       percentageFee: Math.ceil(percentageFee),
-      baseFee: await this.getBaseFee(chainCurrency, type),
     };
   }
 
-  public getBaseFee = async (chainCurrency: string, type: BaseFeeType): Promise<number> => {
+  public updateMinerFees = async (chainCurrency: string): Promise<void> => {
     const feeMap = await this.getFeeEstimation(chainCurrency);
 
     // TODO: avoid hard coding symbols
@@ -90,56 +126,56 @@ class FeeProvider {
       case 'LTC': {
         const relativeFee = feeMap.get(chainCurrency)!;
 
-        switch (type) {
-          case BaseFeeType.NormalClaim:
-            // The claim transaction which spends a nested SegWit (P2SH nested P2WSH) swap output and
-            // sends it to a P2WPKH address has about 170 vbytes
-            return relativeFee * FeeProvider.transactionSizes.normalClaim;
+        this.minerFees.set(chainCurrency, {
+          normal: relativeFee * FeeProvider.transactionSizes.normalClaim,
+          reverse: {
+            claim: relativeFee * FeeProvider.transactionSizes.reverseClaim,
+            lockup: relativeFee * FeeProvider.transactionSizes.reverseLockup,
+          },
+        });
 
-          case BaseFeeType.ReverseLockup:
-            // The lockup transaction which spends a P2WPKH output (possibly more but we assume a best case scenario here),
-            // locks up funds in a P2WSH swap and sends the change back to a P2WKH output has about 153 vbytes
-            return relativeFee * FeeProvider.transactionSizes.reverseLockup;
-
-          case BaseFeeType.ReverseClaim:
-            // We cannot know what kind of address the user will claim to, so we just assume the worst case: P2PKH
-            // Claiming a P2WSH swap output to a P2PKH address is about 138 vbytes
-            return relativeFee * FeeProvider.transactionSizes.reverseClaim;
-        }
         break;
       }
 
-      case 'ETH':
-        switch (type) {
-          case BaseFeeType.NormalClaim:
-          case BaseFeeType.ReverseClaim: {
-            return this.calculateEtherGasCost(feeMap.get(chainCurrency)!, FeeProvider.gasUsage.EtherSwap.claim);
-          }
+      case 'ETH': {
+        const relativeFee = feeMap.get(chainCurrency)!;
+        const claimCost = this.calculateEtherGasCost(relativeFee, FeeProvider.gasUsage.EtherSwap.claim);
 
-          case BaseFeeType.ReverseLockup: {
-            return this.calculateEtherGasCost(feeMap.get(chainCurrency)!, FeeProvider.gasUsage.EtherSwap.lockup);
-          }
-        }
+        this.minerFees.set(chainCurrency, {
+          normal: claimCost,
+          reverse: {
+            claim: claimCost,
+            lockup: this.calculateEtherGasCost(relativeFee, FeeProvider.gasUsage.EtherSwap.lockup),
+          },
+        });
+
         break;
+      }
 
       // If it is not BTC, LTC or ETH, it is an ERC20 token
-      default:
-        switch (type) {
-          case BaseFeeType.NormalClaim:
-          case BaseFeeType.ReverseClaim:
-            return this.calculateTokenGasCosts(
-              this.dataAggregator.latestRates.get(getPairId({ base: 'ETH', quote: chainCurrency }))!,
-              feeMap.get('ETH')!,
-              FeeProvider.gasUsage.ERC20Swap.claim,
-            );
+      default: {
+        const relativeFee = feeMap.get('ETH')!;
+        const rate = this.dataAggregator.latestRates.get(getPairId({ base: 'ETH', quote: chainCurrency }))!;
 
-          case BaseFeeType.ReverseLockup:
-            return this.calculateTokenGasCosts(
-              this.dataAggregator.latestRates.get(getPairId({ base: 'ETH', quote: chainCurrency }))!,
-              feeMap.get('ETH')!,
+        const claimCost = this.calculateTokenGasCosts(
+          rate,
+          relativeFee,
+          FeeProvider.gasUsage.ERC20Swap.claim,
+        );
+
+        this.minerFees.set(chainCurrency, {
+          normal: claimCost,
+          reverse: {
+            claim: claimCost,
+            lockup: this.calculateTokenGasCosts(
+              rate,
+              relativeFee,
               FeeProvider.gasUsage.ERC20Swap.lockup,
-            );
-        }
+            )
+          }
+        });
+        break;
+      }
     }
   }
 
@@ -153,3 +189,4 @@ class FeeProvider {
 }
 
 export default FeeProvider;
+export { ReverseMinerFees, MinerFees };

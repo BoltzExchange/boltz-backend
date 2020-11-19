@@ -1,13 +1,13 @@
 import os from 'os';
 import path from 'path';
-import { Transaction } from 'bitcoinjs-lib';
 import { OutputType, Scripts } from 'boltz-core';
+import { Transaction, crypto } from 'bitcoinjs-lib';
 import bolt11, { RoutingInfo } from '@boltz/bolt11';
+import { BigNumber, ContractTransaction } from 'ethers';
 import commitHash from './Version';
 import packageJson from '../package.json';
 import { OrderSide } from './consts/Enums';
 import ChainClient from './chain/ChainClient';
-import { BigNumber, ContractTransaction } from 'ethers';
 import { etherDecimals } from './consts/Consts';
 
 const {
@@ -19,7 +19,7 @@ const {
   p2shP2wpkhOutput,
 } = Scripts;
 
-const idPossibilities = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+const idPossibilities = 'ABCDEFGHIJKLMNPQRSTUVWXYZabcdefghklmnopqrstuvwxyz123456789';
 
 /**
  * Generate an ID for a swap
@@ -181,7 +181,7 @@ export const getHexString = (input: Buffer): string => {
  * Check whether a variable is a non-array object
  */
 export const isObject = (val: unknown): boolean => {
-  return (val && typeof val === 'object' && !Array.isArray(val));
+  return val !== undefined && typeof val === 'object' && !Array.isArray(val);
 };
 
 /**
@@ -406,6 +406,7 @@ export const getUnixTime = (): number => {
 };
 
 /**
+<<<<<<< HEAD
  * Calculates the miner fee of a transaction on a UTXO based chain
  */
 export const calculateUtxoTransactionFee = async (chainClient: ChainClient, transaction: Transaction): Promise<number> => {
@@ -438,4 +439,13 @@ export const calculateEthereumTransactionFee = (transaction: ContractTransaction
 
 export const getBiggerBigNumber = (a: BigNumber, b: BigNumber): BigNumber => {
   return a.gt(b) ? a : b;
+};
+
+/**
+ * Hashes an arbitrary UTF-8 string with SHA256
+ *
+ * @returns hex encoded hash
+ */
+export const hashString = (input: string): string => {
+  return getHexString(crypto.sha256(Buffer.from(input, 'utf-8')));
 };

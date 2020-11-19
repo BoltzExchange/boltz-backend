@@ -32,7 +32,7 @@ class Api {
   public init = async (): Promise<void> => {
     await this.controller.init();
 
-    await new Promise((resolve) => {
+    await new Promise<void>((resolve) => {
       this.app.listen(this.config.port, this.config.host, () => {
         this.logger.info(`API server listening on: ${this.config.host}:${this.config.port}`);
         resolve();

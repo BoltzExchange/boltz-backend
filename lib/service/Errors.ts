@@ -93,6 +93,10 @@ export default {
   }),
   INVALID_ETHEREUM_ADDRESS: (): Error => ({
     message: 'and invalid Ethereum address was provided',
-    code: concatErrorCode(ErrorCodePrefix.Service, 5,)
+    code: concatErrorCode(ErrorCodePrefix.Service, 5),
+  }),
+  INVALID_PAIR_HASH: (): Error => ({
+    message: 'invalid pair hash',
+    code: concatErrorCode(ErrorCodePrefix.Swap, 24),
   }),
 };

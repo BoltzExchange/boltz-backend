@@ -1,3 +1,18 @@
+## [2.4.3-beta](https://github.com/BoltzExchange/boltz-backend/compare/v2.4.2...v2.4.3-beta) (2020-11-19)
+
+
+### Bug Fixes
+
+* use miner fees shown in API ([95631d3](https://github.com/BoltzExchange/boltz-backend/commit/95631d34feffd78e7ac9be42bb7dfa0d1caea1ec))
+
+
+### Features
+
+* implement pair hash check ([f8cdcbe](https://github.com/BoltzExchange/boltz-backend/commit/f8cdcbe286fc1d8a7e3e02358f463876b2305df0))
+* remove ambiguous id possibilities ([a88df2c](https://github.com/BoltzExchange/boltz-backend/commit/a88df2cc48fc487ceb2ddb1354bd2f015aae1438))
+
+
+
 ## [2.4.2-beta](https://github.com/BoltzExchange/boltz-backend/compare/v2.4.1...v2.4.2-beta) (2020-10-09)
 
 

@@ -56,7 +56,7 @@ class SwapManager {
     private walletManager: WalletManager,
     rateProvider: RateProvider,
     private swapOutputType: OutputType,
-    private prepayMinerFee: boolean,
+    prepayMinerFee: boolean,
     retryInterval: number,
   ) {
     this.channelCreationRepository = new ChannelCreationRepository();
@@ -348,7 +348,7 @@ class SwapManager {
       try {
         await this.nursery.attemptSettleSwap(
           receivingCurrency,
-          swap,
+          updatedSwap,
         );
       } catch (error) {
         this.logger.warn(`Could not settle Swap ${swap.id}: ${formatError(error)}`);

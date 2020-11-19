@@ -244,7 +244,7 @@ describe('EthereumNursery', () => {
     const newWaitPromise = () => {
       return {
         hash: exampleTransactionHash,
-        wait: jest.fn().mockReturnValue(new Promise((promiseResolve, promiseReject) => {
+        wait: jest.fn().mockReturnValue(new Promise<void>((promiseResolve, promiseReject) => {
           resolve = promiseResolve;
           reject = promiseReject;
         })),

@@ -635,7 +635,7 @@ class Service {
     const rate = getRate(swap.rate!, swap.orderSide, false);
 
     const percentageFee = this.rateProvider.feeProvider.getPercentageFee(swap.pair);
-    const { baseFee } = await this.rateProvider.feeProvider.getFees(swap.pair, rate, swap.orderSide, swap.onchainAmount, BaseFeeType.NormalClaim);
+    const { baseFee } = this.rateProvider.feeProvider.getFees(swap.pair, rate, swap.orderSide, swap.onchainAmount, BaseFeeType.NormalClaim);
 
     const invoiceAmount = this.calculateInvoiceAmount(swap.orderSide, rate, swap.onchainAmount, baseFee, percentageFee);
 
@@ -652,7 +652,7 @@ class Service {
   /**
    * Sets the invoice of Submarine Swap
    */
-  public setSwapInvoice = async (id: string, invoice: string): Promise<{
+  public setSwapInvoice = async (id: string, invoice: string, pairHash?: string): Promise<{
     bip21: string,
     expectedAmount: number,
     acceptZeroConf: boolean,
@@ -673,6 +673,10 @@ class Service {
 
     const { base, quote, rate: pairRate } = this.getPair(swap.pair);
 
+    if (pairHash !== undefined) {
+      this.validatePairHash(swap.pair, pairHash);
+    }
+
     const chainCurrency = getChainCurrency(base, quote, swap.orderSide, false);
     const lightningCurrency = getLightningCurrency(base, quote, swap.orderSide, false);
 
@@ -681,7 +685,7 @@ class Service {
 
     this.verifyAmount(swap.pair, rate, invoiceAmount, swap.orderSide, false);
 
-    const { baseFee, percentageFee } = await this.rateProvider.feeProvider.getFees(
+    const { baseFee, percentageFee } = this.rateProvider.feeProvider.getFees(
       swap.pair,
       rate,
       swap.orderSide,
@@ -740,6 +744,7 @@ class Service {
     orderSide: string,
     refundPublicKey: Buffer,
     invoice: string,
+    pairHash?: string,
     channel?: ChannelCreationInfo,
   ): Promise<{
     id: string,
@@ -786,7 +791,7 @@ class Service {
         bip21,
         acceptZeroConf,
         expectedAmount,
-      } = await this.setSwapInvoice(id, invoice);
+      } = await this.setSwapInvoice(id, invoice, pairHash);
 
       return {
         id,
@@ -822,6 +827,7 @@ class Service {
    */
   public createReverseSwap = async (args: {
     pairId: string,
+    pairHash?: string,
     orderSide: string,
     preimageHash: Buffer,
     invoiceAmount: number,
@@ -847,6 +853,11 @@ class Service {
 
     const side = this.getOrderSide(args.orderSide);
     const { base, quote, rate: pairRate } = this.getPair(args.pairId);
+
+    if (args.pairHash !== undefined) {
+      this.validatePairHash(args.pairId, args.pairHash);
+    }
+
     const { sending, receiving } = getSendingReceivingCurrency(base, quote, side);
 
     // Not the pretties way and also not the right spot to do input validation but
@@ -889,7 +900,7 @@ class Service {
 
     this.verifyAmount(args.pairId, rate, args.invoiceAmount, side, true);
 
-    const { baseFee, percentageFee } = await this.rateProvider.feeProvider.getFees(args.pairId, rate, side, args.invoiceAmount, BaseFeeType.ReverseLockup);
+    const { baseFee, percentageFee } = this.rateProvider.feeProvider.getFees(args.pairId, rate, side, args.invoiceAmount, BaseFeeType.ReverseLockup);
 
     const onchainAmount = Math.floor(args.invoiceAmount * rate) - (baseFee + percentageFee);
 
@@ -1071,6 +1082,12 @@ class Service {
 
   private calculateTimeoutDate = (chain: string, blocksMissing: number) => {
     return getUnixTime() + (blocksMissing * TimeoutDeltaProvider.blockTimes.get(chain)! * 60);
+  }
+
+  private validatePairHash = (pairId: string, pairHash: string) => {
+     if (pairHash !== this.rateProvider.pairs.get(pairId)!.hash) {
+       throw Errors.INVALID_PAIR_HASH();
+     }
   }
 }
 

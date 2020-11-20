@@ -155,11 +155,13 @@ class RateProvider {
   }
 
   private updateRates = async () => {
-    // Update the pairs with a variable rate
-    const [, updatedRates] = await Promise.all([
-      this.getMinerFees(),
-      this.dataAggregator.fetchPairs(),
-    ]);
+    // The fees for the ERC20 tokens depend on the rates
+    // Updating rates and fees at the same time would result in a race condition
+    // that could leave the fee estimations for the ERC20 tokens outdated or even
+    // "null" on the very first run of this function
+    const updatedRates = await this.dataAggregator.fetchPairs();
+
+    await this.getMinerFees();
 
     for (const [pairId, rate] of updatedRates) {
       // Filter pairs that are fetched (for example to calculate gas fees for a BTC/<token> pair)

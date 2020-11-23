@@ -9,10 +9,12 @@ import PendingEthereumTransactionRepository from '../../db/PendingEthereumTransa
 enum EthProviderService {
   Infura = 'Infura',
   Alchemy = 'Alchemy',
+  Websocket = 'WebSocket'
 }
 
 /**
- * This provider is a wrapper for the WebSocketProvider from ethers but it writes sent transactions to the database
+ * This provider is a wrapper for the WebSocketProvider of ethers but it writes sent transactions to the database
+ * and, depending on the configuration, falls back to Alchemy and Infura as Web3 provider
  */
 class InjectedProvider implements providers.Provider {
   public _isProvider = true;
@@ -24,8 +26,10 @@ class InjectedProvider implements providers.Provider {
 
   constructor(private logger: Logger, config: EthereumConfig) {
     if (config.providerEndpoint) {
-      this.providers.set('websocket', new providers.WebSocketProvider(config.providerEndpoint));
-      this.logAddedProvider('websocket', { endpoint: config.providerEndpoint });
+      this.providers.set(EthProviderService.Websocket, new providers.WebSocketProvider(config.providerEndpoint));
+      this.logAddedProvider(EthProviderService.Websocket, { endpoint: config.providerEndpoint });
+    } else {
+      this.logDisabledProvider(EthProviderService.Websocket, 'no endpoint was specified');
     }
 
     const addEthProvider = (name: EthProviderService, providerConfig: EthProviderServiceConfig) => {
@@ -55,7 +59,7 @@ class InjectedProvider implements providers.Provider {
           break;
 
         default:
-          this.logDisabledProvider(name, 'provider  not supported');
+          this.logDisabledProvider(name, 'provider not supported');
           return;
       }
 
@@ -64,10 +68,14 @@ class InjectedProvider implements providers.Provider {
 
     addEthProvider(EthProviderService.Infura, config.infura);
     addEthProvider(EthProviderService.Alchemy, config.alchemy);
+
+    if (this.providers.size === 0) {
+      throw Errors.NO_PROVIDER_SPECIFIED();
+    }
   }
 
   public init = async (): Promise<void> => {
-    this.logger.verbose(`Trying to connect to ${this.providers.size} providers:\n - ${Array.from(this.providers.keys()).join('\n - ')}`);
+    this.logger.verbose(`Trying to connect to ${this.providers.size} Web3 providers:\n - ${Array.from(this.providers.keys()).join('\n - ')}`);
 
     const networks: providers.Network[] = [];
 
@@ -89,7 +97,7 @@ class InjectedProvider implements providers.Provider {
     }
 
     this.network = networks[0];
-    this.logger.info(`Connected to ${this.providers.size} providers:\n - ${Array.from(this.providers.keys()).join('\n - ')}`);
+    this.logger.info(`Connected to ${this.providers.size} Web3 providers:\n - ${Array.from(this.providers.keys()).join('\n - ')}`);
   }
 
   public destroy = async (): Promise<void> => {
@@ -319,7 +327,7 @@ class InjectedProvider implements providers.Provider {
       } catch (error) {
         const formattedError = formatError(error);
 
-        this.logger.warn(`Request to ${providerName} provider failed: ${formattedError}`);
+        this.logger.warn(`Request to ${providerName} Web3 provider failed: ${formattedError}`);
         errors.push(formattedError);
       }
     }
@@ -344,15 +352,15 @@ class InjectedProvider implements providers.Provider {
   }
 
   private logAddedProvider = (name: string, config: Record<string, any>) => {
-    this.logger.debug(`Adding provider ${name}: ${stringify(config)}`);
+    this.logger.debug(`Adding Web3 provider ${name}: ${stringify(config)}`);
   }
 
   private logConnectedProvider = (name: string, network: providers.Network) => {
-    this.logger.verbose(`Connected to provider ${name} on network: ${network.chainId}`);
+    this.logger.verbose(`Connected to Web3 provider ${name} on network: ${network.chainId}`);
   }
 
   private logDisabledProvider = (name: string, reason: string) => {
-    this.logger.warn(`Disabled ${name} web3 provider: ${reason}`);
+    this.logger.warn(`Disabled ${name} Web3 provider: ${reason}`);
   }
 }
 

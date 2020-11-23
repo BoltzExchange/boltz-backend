@@ -45,14 +45,13 @@ class Boltz {
 
     this.db = new Database(this.logger, this.config.dbpath);
 
-    if (this.config.ethereum.providerEndpoint !== '') {
+    try {
       this.ethereumManager = new EthereumManager(
         this.logger,
         this.config.ethereum,
       );
-    } else {
-      // TODO: allow startup without websocket provider
-      this.logger.warn('Disabled Ethereum integration because no Web3 WebSocket provider was specified');
+    } catch (error) {
+      this.logger.warn(`Disabled Ethereum integration because: ${formatError(error)}`);
     }
 
     this.currencies = this.parseCurrencies();

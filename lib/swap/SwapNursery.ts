@@ -18,6 +18,7 @@ import RateProvider from '../rates/RateProvider';
 import SwapRepository from '../db/SwapRepository';
 import LightningNursery from './LightningNursery';
 import ReverseSwap from '../db/models/ReverseSwap';
+import { PaymentFailureReason } from '../proto/lnd/rpc_pb';
 import ChannelCreation from '../db/models/ChannelCreation';
 import ReverseSwapRepository from '../db/ReverseSwapRepository';
 import ContractHandler from '../wallet/ethereum/ContractHandler';
@@ -659,14 +660,17 @@ class SwapNursery extends EventEmitter {
 
       return payResponse.preimage;
     } catch (error) {
-      const formattedError = formatError(error);
-      this.logger.debug(`Could not pay invoice of Swap ${swap.id}: ${formattedError}`);
+      // TODO: what error is thrown for expired invoices?
+
+      const errorMessage = typeof error === 'number' ? LndClient.formatPaymentFailureReason(error) : formatError(error);
+      this.logger.warn(`Could not pay invoice of Swap because: ${swap.id}: ${errorMessage}`);
 
       // If the recipient rejects the payment or the invoice expired, the Swap will be abandoned
       if (
-        formattedError === 'incorrect_payment_details' || formattedError.includes('invoice expired')
+        error === PaymentFailureReason.FAILURE_REASON_INCORRECT_PAYMENT_DETAILS ||
+        errorMessage.includes('invoice expired')
       ) {
-        this.logger.warn(`Abandoning Swap ${swap.id} because: ${formattedError}`);
+        this.logger.warn(`Abandoning Swap ${swap.id} because: ${errorMessage}`);
         this.emit(
           'invoice.failedToPay',
           await this.swapRepository.setSwapStatus(
@@ -678,11 +682,17 @@ class SwapNursery extends EventEmitter {
 
       // If the invoice could not be paid but the Swap has a Channel Creation attached to it, a channel will be opened
       } else if (
+        typeof error === 'number' &&
         channelCreation &&
-        channelCreation.status !== ChannelCreationStatus.Created &&
-        !formattedError.startsWith('unable to route payment to destination: UnknownNextPeer')
+        channelCreation.status !== ChannelCreationStatus.Created
       ) {
-        await this.channelNursery.openChannel(lightningCurrency, swap, channelCreation);
+        switch (error) {
+          case PaymentFailureReason.FAILURE_REASON_TIMEOUT:
+          case PaymentFailureReason.FAILURE_REASON_NO_ROUTE:
+          case PaymentFailureReason.FAILURE_REASON_INSUFFICIENT_BALANCE:
+            // TODO: !formattedError.startsWith('unable to route payment to destination: UnknownNextPeer')
+            await this.channelNursery.openChannel(lightningCurrency, swap, channelCreation);
+        }
       }
     }
 

@@ -311,6 +311,7 @@ class LndClient extends BaseClient implements LndClient {
       stream.on('data', (response: lndrpc.Payment) => {
         switch (response.getStatus()) {
           case lndrpc.Payment.PaymentStatus.SUCCEEDED:
+            stream.removeAllListeners();
             resolve({
               feeMsat: response.getFeeMsat(),
               preimage: getHexBuffer(response.getPaymentPreimage()),
@@ -318,6 +319,7 @@ class LndClient extends BaseClient implements LndClient {
             break;
 
           case lndrpc.Payment.PaymentStatus.FAILED:
+            stream.removeAllListeners();
             reject(response.getFailureReason());
             break;
         }
@@ -332,6 +334,19 @@ class LndClient extends BaseClient implements LndClient {
         reject(error);
       });
     });
+  }
+
+  /**
+   *
+   */
+  public static formatPaymentFailureReason = (reason: lndrpc.PaymentFailureReason): string => {
+    switch (reason) {
+      case lndrpc.PaymentFailureReason.FAILURE_REASON_TIMEOUT: return 'timeout';
+      case lndrpc.PaymentFailureReason.FAILURE_REASON_NO_ROUTE: return 'no route';
+      case lndrpc.PaymentFailureReason.FAILURE_REASON_INSUFFICIENT_BALANCE: return 'insufficient balance';
+      case lndrpc.PaymentFailureReason.FAILURE_REASON_INCORRECT_PAYMENT_DETAILS: return 'incorrect payment details';
+      default: return 'unknown reason';
+    }
   }
 
   /**

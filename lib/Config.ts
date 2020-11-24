@@ -29,6 +29,7 @@ type CurrencyConfig = {
   minSwapAmount: number;
 
   minWalletBalance: number;
+  maxWalletBalance?: number;
 
   minLocalBalance: number;
   minRemoteBalance: number;

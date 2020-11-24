@@ -58,10 +58,6 @@ class DiscordClient extends EventEmitter {
     }
   }
 
-  public sendAlert = async (alert: string): Promise<void> => {
-    await this.sendMessage(`:rotating_light: **Alert** :rotating_light:\n\n${alert}`);
-  }
-
   private listenForMessages = async () => {
     if (this.channel) {
       this.client.on('message', (message: Message) => {

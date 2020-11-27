@@ -1,11 +1,14 @@
 import { Sequelize } from 'sequelize';
+import { detectSwap } from 'boltz-core';
+import { Transaction } from 'bitcoinjs-lib';
 import Logger from '../Logger';
 import Swap from './models/Swap';
-import { decodeInvoice } from '../Utils';
 import ReverseSwap from './models/ReverseSwap';
+import { Currency } from '../wallet/WalletManager';
 import ChannelCreation from './models/ChannelCreation';
 import DatabaseVersion from './models/DatabaseVersion';
 import DatabaseVersionRepository from './DatabaseVersionRepository';
+import { decodeInvoice, formatError, getChainCurrency, getHexBuffer, splitPairId } from '../Utils';
 
 class Migration {
   private versionRepository: DatabaseVersionRepository;
@@ -16,7 +19,7 @@ class Migration {
     this.versionRepository = new DatabaseVersionRepository();
   }
 
-  public migrate = async (): Promise<void> => {
+  public migrate = async (currencies: Map<string, Currency>): Promise<void> => {
     await DatabaseVersion.sync();
     const versionRow = await this.versionRepository.getVersion();
 
@@ -30,9 +33,24 @@ class Migration {
     }
 
     switch (versionRow.version) {
-      // TODO: query lockup vout when migrating
+      // The migration from schema version 1 to 2 adds support for Ether and ERC20 tokens
+      // Which means that we can safely assume that all Swaps that are in the database
+      // already were on a Bitcoin like chain
       case 1: {
         this.logOutdatedVersion(versionRow.version);
+
+        // Sanity check the chain clients
+        for (const currency of currencies.values()) {
+          try {
+            if (currency.chainClient) {
+              this.logger.debug(`Sanity checking ${currency.symbol} chain client for migration`);
+              await currency.chainClient!.getBlockchainInfo();
+              this.logger.debug(`${currency.symbol} chain client is ready for migration`);
+            }
+          } catch (error) {
+            throw `could not connect to to chain client of ${currency.symbol}: ${formatError(error)}`;
+          }
+        }
 
         this.logUpdatingTable('swaps');
 
@@ -51,8 +69,21 @@ class Migration {
         await ChannelCreation.sync();
 
         for (const swap of allSwaps) {
+          let lockupTransactionVout: number | null = null;
+
+          if (swap.lockupTransactionId) {
+            const { base, quote } = splitPairId(swap.pair);
+            const chainCurrency = getChainCurrency(base, quote, swap.orderSide, false);
+            const chainClient = currencies.get(chainCurrency)!.chainClient!;
+
+            const lockupTransaction = Transaction.fromHex(await chainClient.getRawTransaction(swap.lockupTransactionId));
+
+            lockupTransactionVout = detectSwap(getHexBuffer(swap.redeemScript!), lockupTransaction)!.vout;
+          }
+
           await Swap.create({
             ...this.getModelDataValues(swap),
+            lockupTransactionVout,
           });
         }
 
@@ -76,6 +107,8 @@ class Migration {
         await ReverseSwap.sync();
 
         for (const reverseSwap of allReverseSwaps) {
+          // The "claimAddress" does not have to be set because it is only needed for Swaps on the Ethereum chain and
+          // databases of the schema version 1 do not support Ethereum Swaps
           await ReverseSwap.create({
             ...this.getModelDataValues(reverseSwap),
             preimageHash: decodeInvoice(reverseSwap.invoice).paymentHash!,
@@ -85,12 +118,12 @@ class Migration {
         this.logger.info(`Finished database migration to schema version ${versionRow.version + 1}`);
         await this.versionRepository.updateVersion(versionRow.version + 1);
 
-        await this.migrate();
+        await this.migrate(currencies);
         break;
       }
 
       case Migration.latestSchemaVersion:
-        this.logger.verbose(`Database at latest schema version ${Migration.latestSchemaVersion}`);
+        this.logger.verbose(`Database has latest schema version ${Migration.latestSchemaVersion}`);
         break;
 
       default:
@@ -107,7 +140,7 @@ class Migration {
   }
 
   private logUpdatingTable = (table: string) => {
-    this.logger.debug(`Updating database table ${table}`);
+    this.logger.verbose(`Updating database table ${table}`);
   }
 
   private logOutdatedVersion = (version: number) => {

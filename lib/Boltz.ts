@@ -114,6 +114,7 @@ class Boltz {
 
   public start = async (): Promise<void> => {
     try {
+      await this.db.migrate(this.currencies);
       await this.db.init();
 
       const chainTipRepository = new ChainTipRepository();
@@ -153,7 +154,6 @@ class Boltz {
         this.logger.debug(`Rescanning ${chainTip.symbol} from height: ${chainTip.height}`);
       };
 
-      // TODO: is doing all the rescanning at the same time a good idea? Let's try this on mainnet first
       const rescanPromises: Promise<void>[] = [];
 
       for (const chainTip of chainTips) {

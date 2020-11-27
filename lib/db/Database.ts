@@ -6,6 +6,7 @@ import Migration from './Migration';
 import ChainTip from './models/ChainTip';
 import ReverseSwap from './models/ReverseSwap';
 import KeyProvider from './models/KeyProvider';
+import { Currency } from '../wallet/WalletManager';
 import DatabaseVersion from './models/DatabaseVersion';
 import ChannelCreation from './models/ChannelCreation';
 import PendingEthereumTransaction from './models/PendingEthereumTransaction';
@@ -17,7 +18,7 @@ class Db {
 
   /**
    * @param logger logger that should be used
-   * @param storage the file path to the SQLite databse; if ':memory:' the databse will be stored in the memory
+   * @param storage the file path to the SQLite database; if ':memory:' the database will be stored in the memory
    */
   constructor(private logger: Logger, private storage: string) {
     this.sequelize = new Sequelize.Sequelize({
@@ -40,8 +41,6 @@ class Db {
       throw error;
     }
 
-    await this.migration.migrate();
-
     await Promise.all([
       Pair.sync(),
       ChainTip.sync(),
@@ -56,6 +55,10 @@ class Db {
     ]);
 
     await ChannelCreation.sync();
+  }
+
+  public migrate = async (currencies: Map<string, Currency>): Promise<void> => {
+    await this.migration.migrate(currencies);
   }
 
   public close = (): Promise<void> => {

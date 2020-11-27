@@ -40,10 +40,12 @@ class RpcClient {
         response.on('end', () => {
           if (response.statusCode === 401) {
             reject('401 unauthorized');
+            return;
           }
 
           if (response.statusCode === 403) {
             reject('403 forbidden');
+            return;
           }
 
           const parsedResponse = JSON.parse(buffer);

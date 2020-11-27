@@ -28,6 +28,8 @@ jest.mock('../../../lib/db/DatabaseVersionRepository', () => {
 });
 
 describe('Migration', () => {
+  const emptyCurrenciesMap = new Map<any, any>();
+
   const migration = new Migration(Logger.disabledLogger, MockedSequelize);
 
   beforeEach(() => {
@@ -37,7 +39,7 @@ describe('Migration', () => {
   });
 
   test('should insert the latest database schema version in case there none already', async () => {
-    await migration.migrate();
+    await migration.migrate(emptyCurrenciesMap);
 
     expect(mockGetVersion).toHaveBeenCalledTimes(1);
 
@@ -50,7 +52,7 @@ describe('Migration', () => {
       version: Migration['latestSchemaVersion'],
     };
 
-    await migration.migrate();
+    await migration.migrate(emptyCurrenciesMap);
 
     expect(mockGetVersion).toHaveBeenCalledTimes(1);
   });
@@ -60,6 +62,6 @@ describe('Migration', () => {
       version: -42,
     };
 
-    await expect(migration.migrate()).rejects.toEqual(`found unexpected database version ${mockGetVersionResult.version}`);
+    await expect(migration.migrate(emptyCurrenciesMap)).rejects.toEqual(`found unexpected database version ${mockGetVersionResult.version}`);
   });
 });

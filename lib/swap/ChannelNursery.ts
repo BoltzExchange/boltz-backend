@@ -68,6 +68,7 @@ class ChannelNursery extends EventEmitter {
         return;
       }
 
+      // TODO: ignore manual connections from the ConnectionHelper
       currency.lndClient.on('peer.online', async (nodePublicKey: string) => {
         await this.lock.acquire(ChannelNursery.channelCreationLock, async () => {
           const channelCreations = await this.channelCreationRepository.getChannelCreations({

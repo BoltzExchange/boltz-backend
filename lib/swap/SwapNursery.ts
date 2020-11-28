@@ -663,7 +663,7 @@ class SwapNursery extends EventEmitter {
       // TODO: what error is thrown for expired invoices?
 
       const errorMessage = typeof error === 'number' ? LndClient.formatPaymentFailureReason(error) : formatError(error);
-      this.logger.warn(`Could not pay invoice of Swap because: ${swap.id}: ${errorMessage}`);
+      this.logger.warn(`Could not pay invoice of Swap ${swap.id} because: ${errorMessage}`);
 
       // If the recipient rejects the payment or the invoice expired, the Swap will be abandoned
       if (

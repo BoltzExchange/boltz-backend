@@ -64,7 +64,7 @@ class LndClient extends BaseClient implements LndClient {
 
   public readonly paymentMaxParts = 3;
 
-  private readonly paymentTimeout = 30;
+  private readonly paymentTimeout = 15;
 
   private readonly uri!: string;
   private readonly credentials!: grpc.ChannelCredentials;
@@ -316,7 +316,7 @@ class LndClient extends BaseClient implements LndClient {
               feeMsat: response.getFeeMsat(),
               preimage: getHexBuffer(response.getPaymentPreimage()),
             });
-            break;
+            return;
 
           case lndrpc.Payment.PaymentStatus.FAILED:
             stream.removeAllListeners();

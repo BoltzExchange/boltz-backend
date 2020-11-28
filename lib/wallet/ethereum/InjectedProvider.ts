@@ -256,7 +256,7 @@ class InjectedProvider implements providers.Provider {
         return;
       }
 
-      const hashCode = this.hashCode(args.map((entry) => entry.toString()).join());
+      const hashCode = this.hashCode(args.map((entry) => JSON.stringify(entry)).join());
       const currentDelta = providerDeltas.get(hashCode) || 0;
 
       if (currentDelta === this.providers.size - 1) {

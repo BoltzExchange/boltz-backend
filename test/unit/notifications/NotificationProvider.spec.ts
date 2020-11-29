@@ -101,6 +101,7 @@ describe('NotificationProvider', () => {
     mockedBackupScheduler(),
     config,
     [],
+    [],
   );
 
   notificationProvider['discord'] = mockedDiscordClient();

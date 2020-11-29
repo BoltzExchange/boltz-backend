@@ -32,8 +32,11 @@ class Api {
   public init = async (): Promise<void> => {
     await this.controller.init();
 
-    this.app.listen(this.config.port, this.config.host, () => {
-      this.logger.info(`API server listening on: ${this.config.host}:${this.config.port}`);
+    await new Promise<void>((resolve) => {
+      this.app.listen(this.config.port, this.config.host, () => {
+        this.logger.info(`API server listening on: ${this.config.host}:${this.config.port}`);
+        resolve();
+      });
     });
   }
 
@@ -43,6 +46,7 @@ class Api {
 
     this.app.route('/getpairs').get(controller.getPairs);
     this.app.route('/getnodes').get(controller.getNodes);
+    this.app.route('/getcontracts').get(controller.getContracts);
     this.app.route('/getfeeestimation').get(controller.getFeeEstimation);
 
     // POST requests

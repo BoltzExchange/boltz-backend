@@ -5,11 +5,12 @@ import LndClient from '../../lib/lightning/LndClient';
 
 const host = process.platform === 'win32' ? '192.168.99.100' : '127.0.0.1';
 
+const bitcoinCookieDataPath = `${path.resolve(__dirname, '..', '..')}/docker/regtest/data/core/cookies/.bitcoin-cookie`;
+
 export const bitcoinClient = new ChainClient(Logger.disabledLogger, {
   host,
   port: 18443,
-  rpcuser: 'kek',
-  rpcpass: 'kek',
+  cookie: bitcoinCookieDataPath,
 }, 'BTC');
 
 const lndDataPath = `${path.resolve(__dirname, '..', '..')}/docker/regtest/data/lnd`;

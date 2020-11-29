@@ -1,6 +1,7 @@
 import { Op } from 'sequelize';
 import { randomBytes } from 'crypto';
 import { Networks } from 'boltz-core';
+import { BigNumber, providers } from 'ethers';
 import Logger from '../../../lib/Logger';
 import Swap from '../../../lib/db/models/Swap';
 import packageJson from '../../../package.json';
@@ -11,13 +12,23 @@ import Service from '../../../lib/service/Service';
 import SwapManager from '../../../lib/swap/SwapManager';
 import LndClient from '../../../lib/lightning/LndClient';
 import ChainClient from '../../../lib/chain/ChainClient';
+import FeeProvider from '../../../lib/rates/FeeProvider';
+import { gweiDecimals } from '../../../lib/consts/Consts';
 import SwapRepository from '../../../lib/db/SwapRepository';
 import { CurrencyInfo } from '../../../lib/proto/boltzrpc_pb';
 import ReverseSwapRepository from '../../../lib/db/ReverseSwapRepository';
 import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
-import { getHexBuffer, getHexString, decodeInvoice } from '../../../lib/Utils';
+import { decodeInvoice, getHexBuffer, getHexString } from '../../../lib/Utils';
 import ChannelCreationRepository from '../../../lib/db/ChannelCreationRepository';
-import { ServiceWarning, OrderSide, SwapUpdateEvent, ServiceInfo } from '../../../lib/consts/Enums';
+import {
+  BaseFeeType,
+  CurrencyType,
+  OrderSide,
+  ServiceInfo,
+  ServiceWarning,
+  SwapUpdateEvent
+} from '../../../lib/consts/Enums';
+import { ECPair } from 'bitcoinjs-lib';
 
 const mockGetPairs = jest.fn().mockResolvedValue([]);
 const mockAddPair = jest.fn().mockReturnValue(Promise.resolve());
@@ -125,10 +136,14 @@ const mockGetBalance = jest.fn().mockResolvedValue({
 });
 
 const newAddress = 'bcrt1';
-const mockNewAddress = jest.fn().mockResolvedValue(newAddress);
+const mockGetAddress = jest.fn().mockResolvedValue(newAddress);
+
+const mockGetKeysByIndexResult = ECPair.fromPrivateKey(getHexBuffer('e682c45fff6f6f1d793e8d520d4660ac0f853636d47519614cc5d7e4077b1b82'));
+const mockGetKeysByIndex = jest.fn().mockReturnValue(mockGetKeysByIndexResult);
 
 const mockTransaction = {
   vout: 1,
+  transactionId: 'id',
   transaction: {
     getId: () => 'id',
     toHex: () => 'hex',
@@ -139,21 +154,20 @@ const mockSweepWallet = jest.fn().mockResolvedValue(mockTransaction);
 
 const ethereumAddress = '0xc3b03f52ed641e59a40e1425481a8f3655b7edd5';
 
-const ethereumBalance = {
-  ether: 239874,
-  tokens: new Map<string, number>([['TRC', 120210]]),
-};
-const mockEthereumGetBalance = jest.fn().mockResolvedValue(ethereumBalance);
+const mockGetEthereumAddress = jest.fn().mockResolvedValue(ethereumAddress);
+
+const etherBalance = 239874;
+const tokenBalance = 120210;
 
 const etherTransaction = {
-  transactionHash: '0x90a060627f9a489cf816e2dae8babdf94a0f866982c6f489fb57c4ed218329f8',
+  transactionId: '0x90a060627f9a489cf816e2dae8babdf94a0f866982c6f489fb57c4ed218329f8',
 };
 
 const mockSendEther = jest.fn().mockResolvedValue(etherTransaction);
 const mockSweepEther = jest.fn().mockResolvedValue(etherTransaction);
 
 const tokenTransaction = {
-  transactionHash: '0x1d5c0fdc8d1816b730d37373510e7054f6e09fbbbfae1e6ad1067b3f13406cfe',
+  transactionId: '0x1d5c0fdc8d1816b730d37373510e7054f6e09fbbbfae1e6ad1067b3f13406cfe',
 };
 
 const mockSendToken = jest.fn().mockResolvedValue(tokenTransaction);
@@ -161,19 +175,11 @@ const mockSweepToken = jest.fn().mockResolvedValue(tokenTransaction);
 
 jest.mock('../../../lib/wallet/WalletManager', () => {
   return jest.fn().mockImplementation(() => ({
-    ethereumWallet: {
-      address: ethereumAddress,
-      sendEther: mockSendEther,
-      sendToken: mockSendToken,
-      sweepEther: mockSweepEther,
-      sweepToken: mockSweepToken,
-      getBalance: mockEthereumGetBalance,
-      supportsToken: (symbol: string) => symbol === 'TRC',
-    },
     wallets: new Map<string, Wallet>([
       ['BTC', {
         getBalance: mockGetBalance,
-        newAddress: mockNewAddress,
+        getAddress: mockGetAddress,
+        getKeysByIndex: mockGetKeysByIndex,
         sendToAddress: mockSendToAddress,
         sweepWallet: mockSweepWallet,
       } as any as Wallet],
@@ -182,6 +188,24 @@ jest.mock('../../../lib/wallet/WalletManager', () => {
           totalBalance: 0,
           confirmedBalance: 0,
           unconfirmedBalance: 0,
+        }),
+      } as any as Wallet],
+      ['ETH', {
+        getAddress: mockGetEthereumAddress,
+        sweepWallet: mockSweepEther,
+        sendToAddress: mockSendEther,
+        getBalance: jest.fn().mockResolvedValue({
+          totalBalance: etherBalance,
+          confirmedBalance: etherBalance,
+        }),
+      } as any as Wallet],
+      ['TRC', {
+        getAddress: mockGetEthereumAddress,
+        sweepWallet: mockSweepToken,
+        sendToAddress: mockSendToken,
+        getBalance: jest.fn().mockResolvedValue({
+          totalBalance: tokenBalance,
+          confirmedBalance: tokenBalance,
         }),
       } as any as Wallet],
     ]),
@@ -206,6 +230,8 @@ jest.mock('../../../lib/rates/FeeProvider', () => {
     getPercentageFee: mockGetPercentageFee,
   }));
 });
+
+const MockedFeeProvider = <jest.Mock<FeeProvider>><any>FeeProvider;
 
 const pairs = new Map<string, any>([
   ['BTC/BTC', {
@@ -241,6 +267,7 @@ jest.mock('../../../lib/rates/RateProvider', () => {
   return jest.fn().mockImplementation(() => ({
     pairs,
     init: mockInitRateProvider,
+    feeProvider: MockedFeeProvider(),
     acceptZeroConf: mockAcceptZeroConf,
   }));
 });
@@ -331,6 +358,13 @@ jest.mock('../../../lib/lightning/LndClient', () => {
 
 const mockedLndClient = <jest.Mock<LndClient>><any>LndClient;
 
+const mockGetGasPriceResult = 10;
+const mockGetGasPrice = jest.fn().mockResolvedValue(BigNumber.from(mockGetGasPriceResult).mul(gweiDecimals));
+
+const mockedProvider = <jest.Mock<providers.Provider>><any>jest.fn().mockImplementation(() => ({
+  getGasPrice: mockGetGasPrice,
+}));
+
 describe('Service', () => {
   const configPairs = [
     {
@@ -350,17 +384,31 @@ describe('Service', () => {
   const currencies = new Map<string, Currency>([
     ['BTC', {
       symbol: 'BTC',
+      type: CurrencyType.BitcoinLike,
       network: Networks.bitcoinRegtest,
-      config: {} as any,
+      limits: {} as any,
       lndClient: mockedLndClient(),
       chainClient: mockedChainClient(),
     }],
     ['LTC', {
       symbol: 'LTC',
+      type: CurrencyType.BitcoinLike,
       network: Networks.litecoinRegtest,
-      config: {} as any,
+      limits: {} as any,
       lndClient: mockedLndClient(),
       chainClient: mockedChainClient(),
+    }],
+    ['ETH', {
+      symbol: 'ETH',
+      type: CurrencyType.Ether,
+      limits: {} as any,
+      provider: mockedProvider(),
+    }],
+    ['USDT', {
+      symbol: 'USDT',
+      type: CurrencyType.ERC20,
+      limits: {} as any,
+      provider: mockedProvider(),
     }],
   ]);
 
@@ -462,15 +510,15 @@ describe('Service', () => {
     expect(balances.get('ETH').toObject()).toEqual({
       walletBalance: {
         unconfirmedBalance: 0,
-        totalBalance: ethereumBalance.ether,
-        confirmedBalance: ethereumBalance.ether,
+        totalBalance: etherBalance,
+        confirmedBalance: etherBalance,
       },
     });
     expect(balances.get('TRC').toObject()).toEqual({
       walletBalance: {
         unconfirmedBalance: 0,
-        totalBalance: ethereumBalance.tokens.get('TRC'),
-        confirmedBalance: ethereumBalance.tokens.get('TRC'),
+        totalBalance: tokenBalance,
+        confirmedBalance: tokenBalance,
       },
     });
   });
@@ -518,6 +566,41 @@ describe('Service', () => {
         uris: lndInfo.urisList,
       }],
     ]));
+  });
+
+  test('should get contracts', () => {
+    const ethereumManager = {
+      network: {
+        some: 'networkData',
+      },
+      etherSwap: {
+        address: '0x18A4374d714762FA7DE346E997f7e28Fb3744EC1'
+      },
+      erc20Swap: {
+        address: '0xC685b2c4369D7bf9242DA54E9c391948079d83Cd',
+      },
+      tokenAddresses: new Map<string, string>([
+        ['USDT', '0xDf567Cd5d0cf3d90cE6E3E9F897e092f9ECE359a']
+      ]),
+    };
+
+    service['walletManager']['ethereumManager'] = ethereumManager as any;
+
+    expect(service.getContracts()).toEqual({
+      ethereum: {
+        network: ethereumManager.network,
+        tokens: ethereumManager.tokenAddresses,
+        swapContracts: new Map<string, string>([
+          ['EtherSwap', ethereumManager.etherSwap.address],
+          ['ERC20Swap', ethereumManager.erc20Swap.address],
+        ]),
+      },
+    });
+
+    // Should throw when the Ethereum integration is not enabled
+    service['walletManager']['ethereumManager'] = undefined;
+
+    expect(() => service.getContracts()).toThrow(Errors.ETHEREUM_NOT_ENABLED().message);
   });
 
   test('should get transactions', async () => {
@@ -589,10 +672,21 @@ describe('Service', () => {
       .rejects.toEqual(Errors.SWAP_NOT_FOUND(id));
   });
 
+  test('should derive keys', async () => {
+    const response = service.deriveKeys('BTC', 123);
+
+    expect(response.getPublicKey()).toEqual(getHexString(mockGetKeysByIndexResult.publicKey));
+    expect(response.getPrivateKey()).toEqual(getHexString(mockGetKeysByIndexResult.privateKey!));
+
+    const notFoundSymbol = 'notFound';
+    expect(() => service.deriveKeys(notFoundSymbol, 321))
+      .toThrow(Errors.CURRENCY_NOT_FOUND(notFoundSymbol).message);
+  });
+
   test('should get new addresses', async () => {
     expect(await service.getAddress('BTC')).toEqual(newAddress);
 
-    expect(mockNewAddress).toHaveBeenCalledTimes(1);
+    expect(mockGetAddress).toHaveBeenCalledTimes(1);
 
     expect(await service.getAddress('ETH')).toEqual(ethereumAddress);
     expect(await service.getAddress('TRC')).toEqual(ethereumAddress);
@@ -611,10 +705,13 @@ describe('Service', () => {
     expect(feeEstimation).toEqual(new Map<string, number>([
       ['BTC', 2],
       ['LTC', 2],
+      ['ETH', mockGetGasPriceResult],
     ]));
 
     expect(mockEstimateFee).toHaveBeenCalledTimes(2);
     expect(mockEstimateFee).toHaveBeenNthCalledWith(1, 2);
+
+    expect(mockGetGasPrice).toHaveBeenCalledTimes(1);
 
     // Get fee estimation for a single currency
     expect(await service.getFeeEstimation('BTC')).toEqual(new Map<string, number>([
@@ -631,6 +728,13 @@ describe('Service', () => {
 
     expect(mockEstimateFee).toHaveBeenCalledTimes(4);
     expect(mockEstimateFee).toHaveBeenNthCalledWith(4, 5);
+
+    // Get fee estimation for an ERC20 token
+    expect(await service.getFeeEstimation('USDT')).toEqual(new Map<string, number>([
+      ['ETH', mockGetGasPriceResult],
+    ]));
+
+    expect(mockGetGasPrice).toHaveBeenCalledTimes(2);
 
     // Get fee estimation for a single currency that cannot be found
     const notFound = 'notFound';
@@ -709,7 +813,12 @@ describe('Service', () => {
       emittedId = id;
     });
 
-    const response = await service.createSwap(pair, orderSide, refundPublicKey, preimageHash);
+    const response = await service.createSwap({
+      orderSide,
+      preimageHash,
+      refundPublicKey,
+      pairId: pair,
+    });
 
     expect(emittedId).toEqual(response.id);
     expect(response).toEqual({
@@ -727,20 +836,22 @@ describe('Service', () => {
     });
 
     expect(mockCreateSwap).toHaveBeenCalledTimes(1);
-    expect(mockCreateSwap).toHaveBeenCalledWith(
-      'BTC',
-      'BTC',
-      OrderSide.BUY,
+    expect(mockCreateSwap).toHaveBeenCalledWith({
       preimageHash,
       refundPublicKey,
-      1,
-      undefined,
-    );
+      baseCurrency: 'BTC',
+      quoteCurrency: 'BTC',
+      timeoutBlockDelta: 1,
+      orderSide: OrderSide.BUY,
+    });
 
     // Throw if swap with preimage exists already
     mockGetSwapResult = {};
-    await expect(service.createSwap('', '', Buffer.alloc(0), Buffer.alloc(0)))
-      .rejects.toEqual(Errors.SWAP_WITH_PREIMAGE_EXISTS());
+    await expect(service.createSwap({
+      pairId: '',
+      orderSide: '',
+      preimageHash: Buffer.alloc(0),
+    })).rejects.toEqual(Errors.SWAP_WITH_PREIMAGE_EXISTS());
   });
 
   test('should get swap rates', async () => {
@@ -806,7 +917,7 @@ describe('Service', () => {
     });
 
     expect(mockGetFees).toHaveBeenCalledTimes(1);
-    expect(mockGetFees).toHaveBeenCalledWith(mockGetSwapResult.pair, 1, mockGetSwapResult.orderSide, invoiceAmount, false);
+    expect(mockGetFees).toHaveBeenCalledWith(mockGetSwapResult.pair, 1, mockGetSwapResult.orderSide, invoiceAmount, BaseFeeType.NormalClaim);
 
     expect(mockAcceptZeroConf).toHaveBeenCalledTimes(1);
     expect(mockAcceptZeroConf).toHaveBeenCalledWith('BTC', invoiceAmount + 2);
@@ -880,13 +991,12 @@ describe('Service', () => {
     });
 
     expect(service.createSwap).toHaveBeenCalledTimes(1);
-    expect(service.createSwap).toHaveBeenCalledWith(
-      pair,
+    expect(service.createSwap).toHaveBeenCalledWith({
       orderSide,
       refundPublicKey,
-      getHexBuffer(decodeInvoice(invoice).paymentHash!),
-      undefined,
-    );
+      pairId: pair,
+      preimageHash: getHexBuffer(decodeInvoice(invoice).paymentHash!),
+    });
 
     expect(service.setSwapInvoice).toHaveBeenCalledTimes(1);
     expect(service.setSwapInvoice).toHaveBeenCalledWith(
@@ -943,13 +1053,13 @@ describe('Service', () => {
       emittedId = id;
     });
 
-    const response = await service.createReverseSwap(
-      pair,
+    const response = await service.createReverseSwap({
       orderSide,
       preimageHash,
       invoiceAmount,
       claimPublicKey,
-    );
+      pairId: pair,
+    });
 
     expect(emittedId).toEqual(response.id);
     expect(response).toEqual({
@@ -962,109 +1072,108 @@ describe('Service', () => {
     });
 
     expect(mockGetFees).toHaveBeenCalledTimes(1);
-    expect(mockGetFees).toHaveBeenCalledWith(pair, 1, OrderSide.BUY, invoiceAmount, true);
+    expect(mockGetFees).toHaveBeenCalledWith(pair, 1, OrderSide.BUY, invoiceAmount, BaseFeeType.ReverseLockup);
 
     expect(mockCreateReverseSwap).toHaveBeenCalledTimes(1);
-    expect(mockCreateReverseSwap).toHaveBeenCalledWith(
-      'BTC',
-      'BTC',
-      OrderSide.BUY,
+    expect(mockCreateReverseSwap).toHaveBeenCalledWith({
       preimageHash,
-      invoiceAmount,
-      99998,
       claimPublicKey,
-      1,
-      4,
-      1,
-      undefined,
-    );
+      percentageFee: 1,
+      baseCurrency: 'BTC',
+      quoteCurrency: 'BTC',
+      onchainAmount: 99998,
+      orderSide: OrderSide.BUY,
+      onchainTimeoutBlockDelta: 1,
+      lightningTimeoutBlockDelta: 4,
+      holdInvoiceAmount: invoiceAmount,
+    });
 
     // Should add a 10% buffer to the lightning timeout block delta for cross chain swaps
     pair = 'LTC/BTC';
 
-    await service.createReverseSwap(
-      pair,
+    await service.createReverseSwap({
       orderSide,
       preimageHash,
       invoiceAmount,
       claimPublicKey,
-    );
+      pairId: pair,
+    });
 
     expect(mockCreateReverseSwap).toHaveBeenCalledTimes(2);
-    expect(mockCreateReverseSwap).toHaveBeenNthCalledWith(2,
-      'LTC',
-      'BTC',
-      OrderSide.BUY,
+    expect(mockCreateReverseSwap).toHaveBeenNthCalledWith(2, {
       preimageHash,
-      invoiceAmount,
-      24999998,
       claimPublicKey,
-      160,
-      44,
-      1,
+      baseCurrency: 'LTC',
+      quoteCurrency: 'BTC',
+      orderSide: OrderSide.BUY,
+      holdInvoiceAmount: invoiceAmount,
+      onchainAmount: 24999998,
+      onchainTimeoutBlockDelta: 160,
+      lightningTimeoutBlockDelta: 44,
+      percentageFee: 1,
       undefined,
-    );
+    });
 
     pair = 'BTC/BTC';
 
     // Should execute with valid pair hash (it should just not throw)
-    await service.createReverseSwap(
-      pair,
+    await service.createReverseSwap({
       orderSide,
       preimageHash,
       invoiceAmount,
       claimPublicKey,
-      pairs.get(pair)!.hash,
-    );
+      pairId: pair,
+      pairHash: pairs.get(pair)!.hash,
+    });
 
     // Throw when an invalid pair hash is provided
-    await expect(service.createReverseSwap(
-      pair,
+    await expect(service.createReverseSwap({
       orderSide,
       preimageHash,
       invoiceAmount,
       claimPublicKey,
-      'wrongHash',
-    )).rejects.toEqual(Errors.INVALID_PAIR_HASH());
-    await expect(service.createReverseSwap(
-      pair,
+      pairId: pair,
+      pairHash: 'wrongHash',
+    })).rejects.toEqual(Errors.INVALID_PAIR_HASH());
+    await expect(service.createReverseSwap({
       orderSide,
       preimageHash,
       invoiceAmount,
       claimPublicKey,
-      '',
-    )).rejects.toEqual(Errors.INVALID_PAIR_HASH());
+      pairId: pair,
+      pairHash: '',
+    })).rejects.toEqual(Errors.INVALID_PAIR_HASH());
 
     // Throw if the onchain amount is less than 1
-    await expect(service.createReverseSwap(
-      pair,
+    await expect(service.createReverseSwap({
       orderSide,
       preimageHash,
-      1,
       claimPublicKey,
-    )).rejects.toEqual(Errors.ONCHAIN_AMOUNT_TOO_LOW());
+      pairId: pair,
+      invoiceAmount: 1,
+    })).rejects.toEqual(Errors.ONCHAIN_AMOUNT_TOO_LOW());
 
     // Throw if a reverse swaps doesn't respect the limits
     const invoiceAmountLimit = 0;
 
-    await expect(service.createReverseSwap(
-      pair,
+    await expect(service.createReverseSwap({
       orderSide,
       preimageHash,
-      invoiceAmountLimit,
       claimPublicKey,
-    )).rejects.toEqual(Errors.BENEATH_MINIMAL_AMOUNT(invoiceAmountLimit, 1));
+      pairId: pair,
+      invoiceAmount: invoiceAmountLimit,
+    })).rejects.toEqual(Errors.BENEATH_MINIMAL_AMOUNT(invoiceAmountLimit, 1));
 
     // Throw if reverse swaps are disabled
     service.allowReverseSwaps = false;
 
-    await expect(service.createReverseSwap(
-      pair,
+    await expect(service.createReverseSwap({
       orderSide,
       preimageHash,
       invoiceAmount,
       claimPublicKey,
-    )).rejects.toEqual(Errors.REVERSE_SWAPS_DISABLED());
+      pairId: pair,
+    })).rejects.toEqual(Errors.REVERSE_SWAPS_DISABLED());
 
     service.allowReverseSwaps = true;
   });
@@ -1079,13 +1188,13 @@ describe('Service', () => {
     const preimageHash = randomBytes(32);
     const claimPublicKey = getHexBuffer('0xfff');
 
-    const response = await service.createReverseSwap(
-      pair,
+    const response = await service.createReverseSwap({
       orderSide,
       preimageHash,
       invoiceAmount,
       claimPublicKey,
-    );
+      pairId: pair,
+    });
 
     expect(response).toEqual({
       onchainAmount,
@@ -1098,19 +1207,19 @@ describe('Service', () => {
     });
 
     expect(mockCreateReverseSwap).toHaveBeenCalledTimes(1);
-    expect(mockCreateReverseSwap).toHaveBeenCalledWith(
-      'BTC',
-      'BTC',
-      OrderSide.BUY,
+    expect(mockCreateReverseSwap).toHaveBeenCalledWith({
       preimageHash,
-      99999,
-      99998,
       claimPublicKey,
-      1,
-      4,
-      1,
-      1,
-    );
+      percentageFee: 1,
+      prepayMinerFee: 1,
+      baseCurrency: 'BTC',
+      quoteCurrency: 'BTC',
+      onchainAmount: 99998,
+      orderSide: OrderSide.BUY,
+      holdInvoiceAmount: 99999,
+      onchainTimeoutBlockDelta: 1,
+      lightningTimeoutBlockDelta: 4,
+    });
 
     service['prepayMinerFee'] = false;
   });
@@ -1195,8 +1304,7 @@ describe('Service', () => {
     });
 
     expect(response).toEqual({
-      vout: 0,
-      transactionId: etherTransaction.transactionHash,
+      transactionId: etherTransaction.transactionId,
     });
 
     expect(mockSendEther).toHaveBeenCalledTimes(1);
@@ -1214,8 +1322,7 @@ describe('Service', () => {
     });
 
     expect(sweepResponse).toEqual({
-      vout: 0,
-      transactionId: etherTransaction.transactionHash,
+      transactionId: etherTransaction.transactionId,
     });
 
     expect(mockSweepEther).toHaveBeenCalledTimes(1);
@@ -1239,12 +1346,11 @@ describe('Service', () => {
     });
 
     expect(response).toEqual({
-      vout: 0,
-      transactionId: tokenTransaction.transactionHash,
+      transactionId: tokenTransaction.transactionId,
     });
 
     expect(mockSendToken).toHaveBeenCalledTimes(1);
-    expect(mockSendToken).toHaveBeenCalledWith(symbol, address, amount, fee);
+    expect(mockSendToken).toHaveBeenCalledWith(address, amount, fee);
 
     // Should sweep wallet
     sendAll = true;
@@ -1258,12 +1364,11 @@ describe('Service', () => {
     });
 
     expect(sweepResponse).toEqual({
-      vout: 0,
-      transactionId: tokenTransaction.transactionHash,
+      transactionId: tokenTransaction.transactionId,
     });
 
     expect(mockSweepToken).toHaveBeenCalledTimes(1);
-    expect(mockSweepToken).toHaveBeenCalledWith(symbol, address, fee);
+    expect(mockSweepToken).toHaveBeenCalledWith(address, fee);
   });
 
   test('should throw of currency to send cannot be found', async () => {

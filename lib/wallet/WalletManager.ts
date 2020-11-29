@@ -1,25 +1,45 @@
 import fs from 'fs';
+import { providers } from 'ethers';
 import { Network } from 'bitcoinjs-lib';
 import { BIP32Interface, fromSeed } from 'bip32';
 import { mnemonicToSeedSync, validateMnemonic } from 'bip39';
 import Errors from './Errors';
 import Wallet from './Wallet';
 import Logger from '../Logger';
-import { CurrencyConfig } from '../Config';
 import { splitDerivationPath } from '../Utils';
 import ChainClient from '../chain/ChainClient';
 import LndClient from '../lightning/LndClient';
+import { CurrencyType } from '../consts/Enums';
 import KeyRepository from '../db/KeyRepository';
+import EthereumManager from './ethereum/EthereumManager';
+import ChainTipRepository from '../db/ChainTipRepository';
 import { KeyProviderType } from '../db/models/KeyProvider';
 import LndWalletProvider from './providers/LndWalletProvider';
-import EthereumWallet, { EthereumConfig } from './EthereumWallet';
+
+type CurrencyLimits = {
+  maxSwapAmount: number;
+  minSwapAmount: number;
+
+  minWalletBalance: number;
+
+  minLocalBalance?: number;
+  minRemoteBalance?: number;
+
+  maxZeroConfAmount?: number;
+};
 
 type Currency = {
   symbol: string;
-  network: Network;
-  config: CurrencyConfig;
-  chainClient: ChainClient;
+  type: CurrencyType,
+  limits: CurrencyLimits;
+
+  // Needed for UTXO based coins
+  network?: Network;
   lndClient?: LndClient;
+  chainClient?: ChainClient;
+
+  // Needed for Ether and tokens on Ethereum
+  provider?: providers.Provider;
 };
 
 /**
@@ -27,39 +47,47 @@ type Currency = {
  * interact with the wallet of LND to send and receive onchain coins
  */
 class WalletManager {
-  public ethereumWallet?: EthereumWallet;
   public wallets = new Map<string, Wallet>();
 
-  private menmonic: string;
+  public ethereumManager?: EthereumManager;
+
+  private mnemonic: string;
   private masterNode: BIP32Interface;
   private keyRepository: KeyRepository;
 
   private readonly derivationPath = 'm/0';
 
-  constructor(private logger: Logger, mnemonicPath: string, private currencies: Currency[], private ethereumConfig: EthereumConfig) {
-    this.menmonic = this.loadMenmonic(mnemonicPath);
-    this.masterNode = fromSeed(mnemonicToSeedSync(this.menmonic));
+  constructor(private logger: Logger, mnemonicPath: string, private currencies: Currency[], ethereumManager?: EthereumManager) {
+    this.mnemonic = this.loadMnemonic(mnemonicPath);
+    this.masterNode = fromSeed(mnemonicToSeedSync(this.mnemonic));
 
     this.keyRepository = new KeyRepository();
+
+    this.ethereumManager = ethereumManager;
   }
 
   /**
    * Initializes a new WalletManager with a mnemonic
    */
-  public static fromMnemonic = (logger: Logger, mnemonic: string, mnemonicPath: string, currencies: Currency[], ethereumConfig: EthereumConfig): WalletManager => {
+  public static fromMnemonic = (logger: Logger, mnemonic: string, mnemonicPath: string, currencies: Currency[], ethereumManager?: EthereumManager): WalletManager => {
     if (!validateMnemonic(mnemonic)) {
       throw(Errors.INVALID_MNEMONIC(mnemonic));
     }
 
     fs.writeFileSync(mnemonicPath, mnemonic);
 
-    return new WalletManager(logger, mnemonicPath, currencies, ethereumConfig);
+    return new WalletManager(logger, mnemonicPath, currencies, ethereumManager);
   }
 
-  public init = async (): Promise<void> => {
+  public init = async (chainTipRepository: ChainTipRepository): Promise<void> => {
     const keyProviderMap = await this.getKeyProviderMap();
 
     for (const currency of this.currencies) {
+      if (currency.type !== CurrencyType.BitcoinLike) {
+        continue;
+      }
+
+      // The LND client is also used as onchain wallet for UTXO based chains
       if (currency.lndClient === undefined) {
         throw Errors.LND_NOT_FOUND(currency.symbol);
       }
@@ -83,29 +111,34 @@ class WalletManager {
       }
 
       const wallet = new Wallet(
-        currency.network,
+        this.logger,
+        CurrencyType.BitcoinLike,
+        new LndWalletProvider(this.logger, currency.lndClient, currency.chainClient!),
+      );
+
+      wallet.initKeyProvider(
+        currency.network!,
         keyProviderInfo.derivationPath,
         keyProviderInfo.highestUsedIndex,
-        this.logger,
         this.masterNode,
         this.keyRepository,
-        new LndWalletProvider(this.logger, currency.lndClient, currency.chainClient),
       );
 
       this.wallets.set(currency.symbol, wallet);
     }
 
-    if (this.ethereumConfig.providerEndpoint !== '') {
-      // TODO: leave global wallet undefined if connection fails
-      this.ethereumWallet = new EthereumWallet(this.logger, this.menmonic, this.ethereumConfig);
-    } else {
-      this.logger.warn('Not trying to initialize Ethereum wallet: no eth provider was specified');
+    if (this.ethereumManager) {
+      const ethereumWallets = await this.ethereumManager.init(this.mnemonic, chainTipRepository);
+
+      for (const [symbol, ethereumWallet] of ethereumWallets) {
+        this.wallets.set(symbol, ethereumWallet);
+      }
     }
   }
 
-  private loadMenmonic = (filename: string) => {
+  private loadMnemonic = (filename: string) => {
     if (fs.existsSync(filename)) {
-      return fs.readFileSync(filename, 'utf-8').toString();
+      return fs.readFileSync(filename, 'utf-8').trim();
     }
 
     throw(Errors.NOT_INITIALIZED());

@@ -181,3 +181,4 @@ class Report {
 }
 
 export default Report;
+export { SwapArrays };

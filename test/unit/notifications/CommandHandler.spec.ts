@@ -10,15 +10,17 @@ import BackupScheduler from '../../../lib/backup/BackupScheduler';
 import DiscordClient from '../../../lib/notifications/DiscordClient';
 import CommandHandler from '../../../lib/notifications/CommandHandler';
 import ReverseSwapRepository from '../../../lib/db/ReverseSwapRepository';
+import ChannelCreationRepository from '../../../lib/db/ChannelCreationRepository';
 import { satoshisToCoins, coinsToSatoshis } from '../../../lib/DenominationConverter';
 import { Balance, WalletBalance, LightningBalance } from '../../../lib/proto/boltzrpc_pb';
 import {
   swapExample,
-  reverseSwapExample,
+  channelSwapExample,
   pendingSwapExample,
-  pendingReverseSwapExample, channelCreationExample, channelSwapExample,
+  reverseSwapExample,
+  channelCreationExample,
+  pendingReverseSwapExample,
 } from './ExampleSwaps';
-import ChannelCreationRepository from '../../../lib/db/ChannelCreationRepository';
 
 const getRandomNumber = () => Math.floor(Math.random() * 10000);
 
@@ -80,7 +82,7 @@ const invoicePreimage = '765895dd514ce9358f1412c6b416d6a8f8ecea1a4e442d1e15ea8b7
 const mockPayInvoice = jest.fn().mockImplementation(async (_: string, invoice: string) => {
   if (invoice !== 'throw') {
     return {
-      paymentPreimage: getHexBuffer(invoicePreimage),
+      preimage: getHexBuffer(invoicePreimage),
     };
   } else {
     throw 'lnd error';
@@ -306,15 +308,17 @@ describe('CommandHandler', () => {
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(
       `\`\`\`${stringify({
-        failureRates: {
-          swaps: 0,
-          reverseSwaps: 0,
-        },
-        volume: {
-          BTC: 0.03,
-        },
-        trades: {
-          'LTC/BTC': 3,
+        10: {
+          failureRates: {
+            swaps: 0,
+            reverseSwaps: 0,
+          },
+          volume: {
+            BTC: 0.03,
+          },
+          trades: {
+            'LTC/BTC': 3,
+          },
         },
       },
     )}\`\`\``);

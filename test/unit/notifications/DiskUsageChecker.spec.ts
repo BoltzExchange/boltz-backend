@@ -1,16 +1,19 @@
 import { platform } from 'os';
 import { DiskUsage } from 'diskusage';
 import Logger from '../../../lib/Logger';
+import Emojis from '../../../lib/notifications/Emojis';
 import DiscordClient from '../../../lib/notifications/DiscordClient';
 import DiskUsageChecker from '../../../lib/notifications/DiskUsageChecker';
 
-const mockSendAlert = jest.fn().mockImplementation(() => Promise.resolve());
+const mockSendMessage = jest.fn().mockImplementation(() => Promise.resolve());
 
-jest.mock('../../../lib/notifications/DiscordClient', () => {
-  return jest.fn().mockImplementation(() => ({
-    sendAlert: mockSendAlert,
-  }));
-});
+jest.mock('../../../lib/notifications/DiscordClient', () => ({
+  __esModule: true,
+  Emojis,
+  default: jest.fn().mockImplementation(() => ({
+    sendMessage: mockSendMessage,
+  })),
+}));
 
 const mockedDiscordClient = <jest.Mock<DiscordClient>><any>DiscordClient;
 
@@ -31,7 +34,7 @@ const lowDiskUsage: DiskUsage = {
 let diskUsage: DiskUsage = {
   free: 2 * gigabyte,
   total: 10 * gigabyte,
-  available: 1 * gigabyte,
+  available: gigabyte,
 };
 
 const mockCheck = jest.fn().mockImplementation(() => diskUsage);
@@ -49,7 +52,7 @@ describe('DiskUsageChecker', () => {
   const checker = new DiskUsageChecker(Logger.disabledLogger, discordClient);
 
   beforeEach(() => {
-    mockSendAlert.mockClear();
+    jest.clearAllMocks();
   });
 
   test('should get correct root path', () => {
@@ -80,8 +83,8 @@ describe('DiskUsageChecker', () => {
 
     expect(checker['alertSent']).toBeTruthy();
 
-    expect(mockSendAlert).toHaveBeenCalledTimes(1);
-    expect(mockSendAlert).toHaveBeenCalledWith('Disk usage is **90%**: **1 GB** of **10 GB** available');
+    expect(mockSendMessage).toHaveBeenCalledTimes(1);
+    expect(mockSendMessage).toHaveBeenCalledWith(':rotating_light: Disk usage is **90%**: **1 GB** of **10 GB** available :rotating_light:');
 
     diskUsage = highDiskUsage;
 
@@ -90,8 +93,8 @@ describe('DiskUsageChecker', () => {
 
     expect(checker['alertSent']).toBeTruthy();
 
-    expect(mockSendAlert).toHaveBeenCalledTimes(2);
-    expect(mockSendAlert).toHaveBeenCalledWith('Disk usage is **100%**: **0 GB** of **20 GB** available');
+    expect(mockSendMessage).toHaveBeenCalledTimes(2);
+    expect(mockSendMessage).toHaveBeenCalledWith(':rotating_light: Disk usage is **100%**: **0 GB** of **20 GB** available :rotating_light:');
   });
 
   test('should not send a warning if disk usage is less than 90%', async () => {
@@ -101,7 +104,7 @@ describe('DiskUsageChecker', () => {
     await checker.checkUsage();
 
     expect(checker['alertSent']).toBeFalsy();
-    expect(mockSendAlert).toHaveBeenCalledTimes(0);
+    expect(mockSendMessage).toHaveBeenCalledTimes(0);
   });
 
   test('should send warnings only once', async () => {
@@ -112,6 +115,6 @@ describe('DiskUsageChecker', () => {
     await checker.checkUsage();
 
     expect(checker['alertSent']).toBeTruthy();
-    expect(mockSendAlert).toHaveBeenCalledTimes(1);
+    expect(mockSendMessage).toHaveBeenCalledTimes(1);
   });
 });

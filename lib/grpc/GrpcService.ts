@@ -1,7 +1,3 @@
-/*
-  tslint:disable no-null-keyword
-  tslint:disable-next-line: max-line-length
- */
 import { handleUnaryCall } from 'grpc';
 import Service from '../service/Service';
 import * as boltzrpc from '../proto/boltzrpc_pb';
@@ -21,6 +17,16 @@ class GrpcService {
   public getBalance: handleUnaryCall<boltzrpc.GetBalanceRequest, boltzrpc.GetBalanceResponse> = async (_, callback) => {
     try {
       callback(null, await this.service.getBalance());
+    } catch (error) {
+      callback(error, null);
+    }
+  }
+
+  public deriveKeys: handleUnaryCall<boltzrpc.DeriveKeysRequest, boltzrpc.DeriveKeysResponse> = async (call, callback) => {
+    try {
+      const { symbol, index } = call.request.toObject();
+
+      callback(null, this.service.deriveKeys(symbol, index));
     } catch (error) {
       callback(error, null);
     }

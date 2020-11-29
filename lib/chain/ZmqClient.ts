@@ -113,7 +113,7 @@ class ZmqClient extends EventEmitter {
       try {
         socket.close();
       } catch (error) {
-        this.logger.debug(`${this.symbol} socket already closed: ${formatError(error)}`)
+        this.logger.debug(`${this.symbol} socket already closed: ${formatError(error)}`);
       }
     });
   }
@@ -127,8 +127,6 @@ class ZmqClient extends EventEmitter {
 
     try {
       for (let i = 0; startHeight + i <= this.blockHeight; i += 1) {
-        this.logger.debug(`Rescanning ${this.symbol} block #${startHeight + i}`);
-
         const hash = await this.getBlockhash(startHeight + i);
 
         if (!this.compatibilityRescan) {
@@ -260,7 +258,7 @@ class ZmqClient extends EventEmitter {
 
   private initHashBlock = () => {
     if (!this.hashBlockAddress) {
-      throw Errors.NO_BLOCK_FALLBACK(this.symbol);
+      throw Errors.NO_BLOCK_FALLBACK();
     }
 
     const lockKey = filters.hashBlock;

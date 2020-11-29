@@ -1,15 +1,16 @@
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';
 import Service from '../service/Service';
-import { OrderSide } from '../consts/Enums';
 import DiscordClient from './DiscordClient';
+import BalanceChecker from './BalanceChecker';
 import CommandHandler from './CommandHandler';
 import DiskUsageChecker from './DiskUsageChecker';
 import ReverseSwap from '../db/models/ReverseSwap';
 import BackupScheduler from '../backup/BackupScheduler';
+import { CurrencyType, OrderSide } from '../consts/Enums';
 import { satoshisToCoins } from '../DenominationConverter';
-import { NotificationConfig, CurrencyConfig } from '../Config';
-import { CurrencyInfo, LndInfo, ChainInfo } from '../proto/boltzrpc_pb';
+import { CurrencyConfig, NotificationConfig } from '../Config';
+import { ChainInfo, CurrencyInfo, LndInfo } from '../proto/boltzrpc_pb';
 import {
   splitPairId,
   decodeInvoice,
@@ -23,15 +24,11 @@ import {
 // TODO: use events instead of intervals to check connections and balances
 class NotificationProvider {
   private timer!: any;
+
+  private balanceChecker: BalanceChecker;
   private diskUsageChecker: DiskUsageChecker;
 
   private discord: DiscordClient;
-
-  // These Sets contain the symbols for which an alert notification was sent
-  private walletAlerts = new Set<string>();
-
-  private localBalanceAlerts = new Set<string>();
-  private remoteBalanceAlerts = new Set<string>();
 
   private disconnected = new Set<string>();
 
@@ -43,8 +40,8 @@ class NotificationProvider {
     private service: Service,
     private backup: BackupScheduler,
     private config: NotificationConfig,
-    private currencies: CurrencyConfig[]) {
-
+    private currencies: CurrencyConfig[],
+  ) {
     this.discord = new DiscordClient(
       config.token,
       config.channel,
@@ -62,6 +59,7 @@ class NotificationProvider {
       this.backup,
     );
 
+    this.balanceChecker = new BalanceChecker(this.logger, this.service, this.discord, this.currencies);
     this.diskUsageChecker = new DiskUsageChecker(this.logger, this.discord);
   }
 
@@ -81,8 +79,8 @@ class NotificationProvider {
 
       const check = async () => {
         await Promise.all([
-          this.checkBalances(),
           this.checkConnections(),
+          this.balanceChecker.check(),
           this.diskUsageChecker.checkUsage(),
         ]);
       };
@@ -128,58 +126,6 @@ class NotificationProvider {
     await this.sendLostConnection(service);
   }
 
-  private checkBalances = async () => {
-    const balances = (await this.service.getBalance()).getBalancesMap();
-
-    for (const currency of this.currencies) {
-      const balance = balances.get(currency.symbol);
-
-      if (balance) {
-        const { symbol, minWalletBalance, minLocalBalance, minRemoteBalance } = currency;
-
-        await this.checkBalance(symbol, this.walletAlerts, balance.getWalletBalance()!.getTotalBalance(), minWalletBalance, true);
-
-        const lightningBalance = balance.getLightningBalance();
-
-        if (lightningBalance) {
-          await this.checkBalance(
-            symbol,
-            this.localBalanceAlerts,
-            lightningBalance.getLocalBalance(),
-            minLocalBalance,
-            false,
-            true,
-          );
-
-          await this.checkBalance(
-            symbol,
-            this.remoteBalanceAlerts,
-            lightningBalance.getRemoteBalance(),
-            minRemoteBalance,
-            false,
-            false,
-          );
-        }
-      }
-    }
-  }
-
-  private checkBalance = async (currency: string, set: Set<string>, balance: number, threshold: number, isWallet: boolean, isLocal?: boolean) => {
-    const sentAlert = set.has(currency);
-
-    if (sentAlert) {
-      if (balance > threshold) {
-        set.delete(currency);
-        await this.sendRelief(currency, balance, threshold, isWallet, isLocal);
-      }
-    } else {
-      if (balance <= threshold) {
-        set.add(currency);
-        await this.sendAlert(currency, balance, threshold, isWallet, isLocal);
-      }
-    }
-  }
-
   private listenToDiscord = () => {
     this.discord.on('error', (error) => {
       this.logger.warn(`Discord client threw: ${error.message}`);
@@ -219,6 +165,14 @@ class NotificationProvider {
       };
     };
 
+    const getMinerFeeSymbol = (symbol: string) => {
+      if (this.service.currencies.get(symbol)!.type === CurrencyType.ERC20) {
+        return 'ETH';
+      } else {
+        return symbol;
+      }
+    };
+
     this.service.eventHandler.on('swap.success', async (swap, isReverse, channelCreation) => {
       const { onchainSymbol, lightningSymbol } = getSymbols(swap.pair, swap.orderSide, isReverse);
 
@@ -231,7 +185,7 @@ class NotificationProvider {
       let message = `**Swap ${getSwapTitle(swap.pair, swap.orderSide, isReverse)}${hasChannelCreation ? ' :construction_site:' : ''}**\n` +
         `${getBasicSwapInfo(swap, onchainSymbol, lightningSymbol)}\n` +
         `Fees earned: ${this.numberToDecimal(satoshisToCoins(swap.fee!))} ${onchainSymbol}\n` +
-        `Miner fees: ${satoshisToCoins(swap.minerFee!)} ${onchainSymbol}`;
+        `Miner fees: ${satoshisToCoins(swap.minerFee!)} ${getMinerFeeSymbol(onchainSymbol)}`;
 
       if (!isReverse) {
         // The routing fees are denominated in millisatoshi
@@ -269,38 +223,6 @@ class NotificationProvider {
     });
   }
 
-  private sendAlert = async (currency: string, balance: number, threshold: number, isWallet: boolean, isLocal?: boolean) => {
-    const { actual, expected } = this.formatBalances(balance, threshold);
-    const missing = satoshisToCoins(threshold - balance);
-
-    const balanceName = this.getBalanceName(isWallet, isLocal);
-
-    this.logger.warn(`${currency} ${balanceName} balance is less than ${threshold}: ${balance}`);
-
-    // tslint:disable-next-line:prefer-template
-    let message = `The ${currency} ${balanceName} balance of ${actual} ${currency} is less than expected ${expected} ${currency}\n\n` +
-      `Funds missing: **${missing} ${currency}**`;
-
-    if (isWallet) {
-      const address = await this.service.getAddress(currency);
-
-      message += `\nDeposit address: **${address}**`;
-    }
-
-    await this.discord.sendAlert(message);
-  }
-
-  private sendRelief = async (currency: string, balance: number, threshold: number, isWallet: boolean, isLocal?: boolean) => {
-    const { actual, expected } = this.formatBalances(balance, threshold);
-    const balanceName = this.getBalanceName(isWallet, isLocal);
-
-    this.logger.info(`${currency} ${balanceName} balance is more than expected ${threshold} again: ${balance}`);
-
-    await this.discord.sendMessage(
-      `The ${currency} ${balanceName} balance of ${actual} ${currency} is more than expected ${expected} ${currency} again`,
-    );
-  }
-
   private sendLostConnection = async (service: string) => {
     if (!this.disconnected.has(service)) {
       this.disconnected.add(service);
@@ -312,21 +234,6 @@ class NotificationProvider {
     if (this.disconnected.has(service)) {
       this.disconnected.delete(service);
       await this.discord.sendMessage(`Reconnected to ${service}`);
-    }
-  }
-
-  private formatBalances = (balance: number, threshold: number) => {
-    return {
-      actual: satoshisToCoins(balance),
-      expected: satoshisToCoins(threshold),
-    };
-  }
-
-  private getBalanceName = (isWallet: boolean, isLocal?: boolean) => {
-    if (isWallet) {
-      return 'wallet';
-    } else {
-      return isLocal ? 'local' : 'remote';
     }
   }
 
@@ -342,7 +249,7 @@ class NotificationProvider {
     if (toFormat < 1e-6) {
       let format = toFormat.toFixed(8);
 
-      // Trim the leading 0 if it exists
+      // Trim the trailing zeros if they exist
       const lastZero = format.lastIndexOf('0');
 
       if (lastZero === format.length - 1) {

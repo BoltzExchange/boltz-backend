@@ -308,6 +308,56 @@ export namespace WalletBalance {
     }
 }
 
+export class DeriveKeysRequest extends jspb.Message { 
+    getSymbol(): string;
+    setSymbol(value: string): DeriveKeysRequest;
+
+    getIndex(): number;
+    setIndex(value: number): DeriveKeysRequest;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): DeriveKeysRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: DeriveKeysRequest): DeriveKeysRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: DeriveKeysRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): DeriveKeysRequest;
+    static deserializeBinaryFromReader(message: DeriveKeysRequest, reader: jspb.BinaryReader): DeriveKeysRequest;
+}
+
+export namespace DeriveKeysRequest {
+    export type AsObject = {
+        symbol: string,
+        index: number,
+    }
+}
+
+export class DeriveKeysResponse extends jspb.Message { 
+    getPublicKey(): string;
+    setPublicKey(value: string): DeriveKeysResponse;
+
+    getPrivateKey(): string;
+    setPrivateKey(value: string): DeriveKeysResponse;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): DeriveKeysResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: DeriveKeysResponse): DeriveKeysResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: DeriveKeysResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): DeriveKeysResponse;
+    static deserializeBinaryFromReader(message: DeriveKeysResponse, reader: jspb.BinaryReader): DeriveKeysResponse;
+}
+
+export namespace DeriveKeysResponse {
+    export type AsObject = {
+        publicKey: string,
+        privateKey: string,
+    }
+}
+
 export class GetAddressRequest extends jspb.Message { 
     getSymbol(): string;
     setSymbol(value: string): GetAddressRequest;

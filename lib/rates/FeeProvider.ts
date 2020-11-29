@@ -1,7 +1,10 @@
+import { BigNumber } from 'ethers';
 import Logger from '../Logger';
-import { OrderSide } from '../consts/Enums';
 import { PairConfig } from '../consts/Types';
-import { mapToObject, getPairId, stringify, getChainCurrency, splitPairId } from '../Utils';
+import DataAggregator from './data/DataAggregator';
+import { BaseFeeType, OrderSide } from '../consts/Enums';
+import { etherDecimals, gweiDecimals } from '../consts/Consts';
+import { getChainCurrency, getPairId, mapToObject, splitPairId, stringify } from '../Utils';
 
 type ReverseMinerFees = {
   lockup: number;
@@ -32,8 +35,23 @@ class FeeProvider {
     reverseLockup: 153,
   };
 
+  // TODO: query those estimations from the provider
+  public static gasUsage = {
+    EtherSwap: {
+      lockup: 46460,
+      claim: 24924,
+      refund: 23372,
+    },
+    ERC20Swap: {
+      lockup: 86980,
+      claim: 24522,
+      refund: 23724,
+    },
+  };
+
   constructor(
     private logger: Logger,
+    private dataAggregator: DataAggregator,
     private getFeeEstimation: (symbol: string) => Promise<Map<string, number>>,
   ) {}
 
@@ -61,7 +79,7 @@ class FeeProvider {
     rate: number,
     orderSide: OrderSide,
     amount: number,
-    isReverse: boolean,
+    type: BaseFeeType,
   ): {
     baseFee: number,
     percentageFee: number,
@@ -73,26 +91,100 @@ class FeeProvider {
     }
 
     const { base, quote } = splitPairId(pair);
-    const chainCurrency = getChainCurrency(base, quote, orderSide, isReverse);
+    const chainCurrency = getChainCurrency(base, quote, orderSide, type !== BaseFeeType.NormalClaim);
 
     const minerFeeMap = this.minerFees.get(chainCurrency)!;
 
+    let baseFee: number;
+
+    switch (type) {
+      case BaseFeeType.NormalClaim:
+        baseFee = minerFeeMap.normal;
+        break;
+
+      case BaseFeeType.ReverseClaim:
+        baseFee = minerFeeMap.reverse.claim;
+        break;
+
+      case BaseFeeType.ReverseLockup:
+        baseFee = minerFeeMap.reverse.lockup;
+        break;
+    }
+
     return {
+      baseFee: baseFee,
       percentageFee: Math.ceil(percentageFee),
-      baseFee: isReverse ? minerFeeMap.reverse.lockup : minerFeeMap.normal,
     };
   }
 
   public updateMinerFees = async (chainCurrency: string): Promise<void> => {
-    const satPerVbyte = (await this.getFeeEstimation(chainCurrency)).get(chainCurrency)!;
+    const feeMap = await this.getFeeEstimation(chainCurrency);
 
-    this.minerFees.set(chainCurrency, {
-      normal: satPerVbyte * FeeProvider.transactionSizes.normalClaim,
-      reverse: {
-        claim: satPerVbyte * FeeProvider.transactionSizes.reverseClaim,
-        lockup: satPerVbyte * FeeProvider.transactionSizes.reverseLockup,
-      },
-    });
+    // TODO: avoid hard coding symbols
+    switch (chainCurrency) {
+      case 'BTC':
+      case 'LTC': {
+        const relativeFee = feeMap.get(chainCurrency)!;
+
+        this.minerFees.set(chainCurrency, {
+          normal: relativeFee * FeeProvider.transactionSizes.normalClaim,
+          reverse: {
+            claim: relativeFee * FeeProvider.transactionSizes.reverseClaim,
+            lockup: relativeFee * FeeProvider.transactionSizes.reverseLockup,
+          },
+        });
+
+        break;
+      }
+
+      case 'ETH': {
+        const relativeFee = feeMap.get(chainCurrency)!;
+        const claimCost = this.calculateEtherGasCost(relativeFee, FeeProvider.gasUsage.EtherSwap.claim);
+
+        this.minerFees.set(chainCurrency, {
+          normal: claimCost,
+          reverse: {
+            claim: claimCost,
+            lockup: this.calculateEtherGasCost(relativeFee, FeeProvider.gasUsage.EtherSwap.lockup),
+          },
+        });
+
+        break;
+      }
+
+      // If it is not BTC, LTC or ETH, it is an ERC20 token
+      default: {
+        const relativeFee = feeMap.get('ETH')!;
+        const rate = this.dataAggregator.latestRates.get(getPairId({ base: 'ETH', quote: chainCurrency }))!;
+
+        const claimCost = this.calculateTokenGasCosts(
+          rate,
+          relativeFee,
+          FeeProvider.gasUsage.ERC20Swap.claim,
+        );
+
+        this.minerFees.set(chainCurrency, {
+          normal: claimCost,
+          reverse: {
+            claim: claimCost,
+            lockup: this.calculateTokenGasCosts(
+              rate,
+              relativeFee,
+              FeeProvider.gasUsage.ERC20Swap.lockup,
+            )
+          }
+        });
+        break;
+      }
+    }
+  }
+
+  private calculateTokenGasCosts = (rate: number, gasPrice: number, gasUsage: number) => {
+    return Math.ceil(rate * this.calculateEtherGasCost(gasPrice, gasUsage));
+  }
+
+  private calculateEtherGasCost = (gasPrice: number, gasUsage: number) => {
+    return BigNumber.from(gasPrice).mul(gweiDecimals).mul(gasUsage).div(etherDecimals).toNumber();
   }
 }
 

@@ -3,7 +3,7 @@ import Logger from '../../../../lib/Logger';
 import { bitcoinLndClient, bitcoinClient } from '../../Nodes';
 import { coinsToSatoshis } from '../../../../lib/DenominationConverter';
 import LndWalletProvider from '../../../../lib/wallet/providers/LndWalletProvider';
-import { ListUnspentRequest, ListUnspentResponse } from '../../../../lib/proto/lndrpc_pb';
+import { ListUnspentRequest, ListUnspentResponse } from '../../../../lib/proto/lnd/rpc_pb';
 import { SentTransaction } from '../../../../lib/wallet/providers/WalletProviderInterface';
 
 describe('LndWalletProvider', () => {
@@ -12,10 +12,10 @@ describe('LndWalletProvider', () => {
   const verifySentTransaction = async (sentTransaction: SentTransaction, destination: string, amount?: number) => {
     const rawTransaction = await bitcoinClient.getRawTransactionVerbose(sentTransaction.transactionId);
 
-    expect(sentTransaction.transactionId).toEqual(sentTransaction.transaction.getId());
+    expect(sentTransaction.transactionId).toEqual(sentTransaction.transaction!.getId());
 
     if (amount) {
-      expect(coinsToSatoshis(rawTransaction.vout[sentTransaction.vout].value)).toEqual(amount);
+      expect(coinsToSatoshis(rawTransaction.vout[sentTransaction.vout!].value)).toEqual(amount);
     }
 
     const { transactionsList } = await bitcoinLndClient.getOnchainTransactions();
@@ -65,14 +65,14 @@ describe('LndWalletProvider', () => {
   });
 
   test('should generate addresses', async () => {
-    expect((await provider.newAddress()).startsWith('bcrt1')).toBeTruthy();
+    expect((await provider.getAddress()).startsWith('bcrt1')).toBeTruthy();
   });
 
   test('should get balance', async () => {
     const unconfirmedAmount = 3498572;
 
     await bitcoinClient.generate(1);
-    await bitcoinClient.sendToAddress(await provider.newAddress(), 3498572);
+    await bitcoinClient.sendToAddress(await provider.getAddress(), 3498572);
 
     await wait(100);
 
@@ -86,7 +86,7 @@ describe('LndWalletProvider', () => {
 
   test('should send transactions', async () => {
     const amount = 2498572;
-    const destination = await provider.newAddress();
+    const destination = await provider.getAddress();
 
     const sentTransaction = await provider.sendToAddress(destination, amount);
 
@@ -96,7 +96,7 @@ describe('LndWalletProvider', () => {
   test('should sweep wallets', async () => {
     await bitcoinClient.generate(1);
 
-    const destination = await provider.newAddress();
+    const destination = await provider.getAddress();
     const sentTransaction = await provider.sweepWallet(destination);
 
     await verifySentTransaction(sentTransaction, destination);

@@ -1,15 +1,16 @@
 import { fromSeed } from 'bip32';
 import ops from '@boltz/bitcoin-ops';
 import { Networks } from 'boltz-core';
-import { Transaction, script, crypto } from 'bitcoinjs-lib';
+import { crypto, script, Transaction } from 'bitcoinjs-lib';
 import { generateMnemonic, mnemonicToSeedSync } from 'bip39';
 import Logger from '../../../lib/Logger';
 import Wallet from '../../../lib/wallet/Wallet';
 import Database from '../../../lib/db/Database';
 import { getHexBuffer } from '../../../lib/Utils';
 import KeyRepository from '../../../lib/db/KeyRepository';
+import { CurrencyType } from '../../../lib/consts/Enums';
 import LndWalletProvider from '../../../lib/wallet/providers/LndWalletProvider';
-import { WalletBalance, SentTransaction } from '../../../lib/wallet/providers/WalletProviderInterface';
+import { SentTransaction, WalletBalance } from '../../../lib/wallet/providers/WalletProviderInterface';
 
 const symbol = 'BTC';
 
@@ -23,7 +24,7 @@ const mockGetBalance = jest.fn().mockResolvedValue(balance);
 
 const address = 'bcrt1qu5m32tnhs3wl633qcg3yae8u0mqkjkm5txrqf9';
 
-const mockNewAddress = jest.fn().mockResolvedValue(address);
+const mockGetAddress = jest.fn().mockResolvedValue(address);
 
 const sentTransaction: SentTransaction = {
   fee: 1,
@@ -41,7 +42,7 @@ jest.mock('../../../lib/wallet/providers/LndWalletProvider', () => {
       symbol,
 
       getBalance: mockGetBalance,
-      newAddress: mockNewAddress,
+      getAddress: mockGetAddress,
 
       sendToAddress: mockSendToAddress,
       sweepWallet: mockSweepWallet,
@@ -70,13 +71,17 @@ describe('Wallet', () => {
   const walletProvider = new mockedLndWalletProvider();
 
   const wallet = new Wallet(
+    Logger.disabledLogger,
+    CurrencyType.BitcoinLike,
+    walletProvider,
+  );
+
+  wallet.initKeyProvider(
     network,
     derivationPath,
     highestUsedIndex,
-    Logger.disabledLogger,
     masterNode,
     keyRepository,
-    walletProvider,
   );
 
   const incrementIndex = () => {
@@ -113,9 +118,9 @@ describe('Wallet', () => {
     const { keys, index } = wallet.getNewKeys();
 
     expect(keys).toEqual(getKeysByIndex(highestUsedIndex));
-    expect(index).toEqual(wallet.highestUsedIndex);
+    expect(index).toEqual(wallet['highestUsedIndex']);
 
-    expect(wallet.highestUsedIndex).toEqual(highestUsedIndex);
+    expect(wallet['highestUsedIndex']).toEqual(highestUsedIndex);
   });
 
   test('should encode addresses', () => {
@@ -142,9 +147,9 @@ describe('Wallet', () => {
   });
 
   test('should get a new address', async () => {
-    expect(await wallet.newAddress()).toEqual(address);
+    expect(await wallet.getAddress()).toEqual(address);
 
-    expect(mockNewAddress).toHaveBeenCalledTimes(1);
+    expect(mockGetAddress).toHaveBeenCalledTimes(1);
   });
 
   test('should get correct balance', async () => {

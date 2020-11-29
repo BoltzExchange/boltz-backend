@@ -3,10 +3,13 @@ import Logger from '../Logger';
 import Pair from './models/Pair';
 import Swap from './models/Swap';
 import Migration from './Migration';
+import ChainTip from './models/ChainTip';
 import ReverseSwap from './models/ReverseSwap';
 import KeyProvider from './models/KeyProvider';
+import { Currency } from '../wallet/WalletManager';
 import DatabaseVersion from './models/DatabaseVersion';
 import ChannelCreation from './models/ChannelCreation';
+import PendingEthereumTransaction from './models/PendingEthereumTransaction';
 
 class Db {
   public sequelize: Sequelize.Sequelize;
@@ -15,7 +18,7 @@ class Db {
 
   /**
    * @param logger logger that should be used
-   * @param storage the file path to the SQLite databse; if ':memory:' the databse will be stored in the memory
+   * @param storage the file path to the SQLite database; if ':memory:' the database will be stored in the memory
    */
   constructor(private logger: Logger, private storage: string) {
     this.sequelize = new Sequelize.Sequelize({
@@ -26,7 +29,7 @@ class Db {
 
     this.loadModels();
 
-    this.migration = new Migration(this.logger);
+    this.migration = new Migration(this.logger, this.sequelize);
   }
 
   public init = async (): Promise<void> => {
@@ -40,8 +43,10 @@ class Db {
 
     await Promise.all([
       Pair.sync(),
+      ChainTip.sync(),
       KeyProvider.sync(),
       DatabaseVersion.sync(),
+      PendingEthereumTransaction.sync(),
     ]);
 
     await Promise.all([
@@ -50,21 +55,25 @@ class Db {
     ]);
 
     await ChannelCreation.sync();
-
-    await this.migration.migrate();
   }
 
-  public close = async (): Promise<void> => {
-    await this.sequelize.close();
+  public migrate = async (currencies: Map<string, Currency>): Promise<void> => {
+    await this.migration.migrate(currencies);
+  }
+
+  public close = (): Promise<void> => {
+    return this.sequelize.close();
   }
 
   private loadModels = () => {
     Pair.load(this.sequelize);
     Swap.load(this.sequelize);
+    ChainTip.load(this.sequelize);
     ReverseSwap.load(this.sequelize);
     KeyProvider.load(this.sequelize);
     ChannelCreation.load(this.sequelize);
     DatabaseVersion.load(this.sequelize);
+    PendingEthereumTransaction.load(this.sequelize);
   }
 }
 

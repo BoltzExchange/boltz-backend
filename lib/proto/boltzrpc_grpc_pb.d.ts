@@ -10,13 +10,14 @@ import * as boltzrpc_pb from "./boltzrpc_pb";
 interface IBoltzService extends grpc.ServiceDefinition<grpc.UntypedServiceImplementation> {
     getInfo: IBoltzService_IGetInfo;
     getBalance: IBoltzService_IGetBalance;
+    deriveKeys: IBoltzService_IDeriveKeys;
     getAddress: IBoltzService_IGetAddress;
     sendCoins: IBoltzService_ISendCoins;
     updateTimeoutBlockDelta: IBoltzService_IUpdateTimeoutBlockDelta;
 }
 
 interface IBoltzService_IGetInfo extends grpc.MethodDefinition<boltzrpc_pb.GetInfoRequest, boltzrpc_pb.GetInfoResponse> {
-    path: string; // "/boltzrpc.Boltz/GetInfo"
+    path: "/boltzrpc.Boltz/GetInfo";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<boltzrpc_pb.GetInfoRequest>;
@@ -25,7 +26,7 @@ interface IBoltzService_IGetInfo extends grpc.MethodDefinition<boltzrpc_pb.GetIn
     responseDeserialize: grpc.deserialize<boltzrpc_pb.GetInfoResponse>;
 }
 interface IBoltzService_IGetBalance extends grpc.MethodDefinition<boltzrpc_pb.GetBalanceRequest, boltzrpc_pb.GetBalanceResponse> {
-    path: string; // "/boltzrpc.Boltz/GetBalance"
+    path: "/boltzrpc.Boltz/GetBalance";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<boltzrpc_pb.GetBalanceRequest>;
@@ -33,8 +34,17 @@ interface IBoltzService_IGetBalance extends grpc.MethodDefinition<boltzrpc_pb.Ge
     responseSerialize: grpc.serialize<boltzrpc_pb.GetBalanceResponse>;
     responseDeserialize: grpc.deserialize<boltzrpc_pb.GetBalanceResponse>;
 }
+interface IBoltzService_IDeriveKeys extends grpc.MethodDefinition<boltzrpc_pb.DeriveKeysRequest, boltzrpc_pb.DeriveKeysResponse> {
+    path: "/boltzrpc.Boltz/DeriveKeys";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<boltzrpc_pb.DeriveKeysRequest>;
+    requestDeserialize: grpc.deserialize<boltzrpc_pb.DeriveKeysRequest>;
+    responseSerialize: grpc.serialize<boltzrpc_pb.DeriveKeysResponse>;
+    responseDeserialize: grpc.deserialize<boltzrpc_pb.DeriveKeysResponse>;
+}
 interface IBoltzService_IGetAddress extends grpc.MethodDefinition<boltzrpc_pb.GetAddressRequest, boltzrpc_pb.GetAddressResponse> {
-    path: string; // "/boltzrpc.Boltz/GetAddress"
+    path: "/boltzrpc.Boltz/GetAddress";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<boltzrpc_pb.GetAddressRequest>;
@@ -43,7 +53,7 @@ interface IBoltzService_IGetAddress extends grpc.MethodDefinition<boltzrpc_pb.Ge
     responseDeserialize: grpc.deserialize<boltzrpc_pb.GetAddressResponse>;
 }
 interface IBoltzService_ISendCoins extends grpc.MethodDefinition<boltzrpc_pb.SendCoinsRequest, boltzrpc_pb.SendCoinsResponse> {
-    path: string; // "/boltzrpc.Boltz/SendCoins"
+    path: "/boltzrpc.Boltz/SendCoins";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<boltzrpc_pb.SendCoinsRequest>;
@@ -52,7 +62,7 @@ interface IBoltzService_ISendCoins extends grpc.MethodDefinition<boltzrpc_pb.Sen
     responseDeserialize: grpc.deserialize<boltzrpc_pb.SendCoinsResponse>;
 }
 interface IBoltzService_IUpdateTimeoutBlockDelta extends grpc.MethodDefinition<boltzrpc_pb.UpdateTimeoutBlockDeltaRequest, boltzrpc_pb.UpdateTimeoutBlockDeltaResponse> {
-    path: string; // "/boltzrpc.Boltz/UpdateTimeoutBlockDelta"
+    path: "/boltzrpc.Boltz/UpdateTimeoutBlockDelta";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<boltzrpc_pb.UpdateTimeoutBlockDeltaRequest>;
@@ -66,6 +76,7 @@ export const BoltzService: IBoltzService;
 export interface IBoltzServer {
     getInfo: grpc.handleUnaryCall<boltzrpc_pb.GetInfoRequest, boltzrpc_pb.GetInfoResponse>;
     getBalance: grpc.handleUnaryCall<boltzrpc_pb.GetBalanceRequest, boltzrpc_pb.GetBalanceResponse>;
+    deriveKeys: grpc.handleUnaryCall<boltzrpc_pb.DeriveKeysRequest, boltzrpc_pb.DeriveKeysResponse>;
     getAddress: grpc.handleUnaryCall<boltzrpc_pb.GetAddressRequest, boltzrpc_pb.GetAddressResponse>;
     sendCoins: grpc.handleUnaryCall<boltzrpc_pb.SendCoinsRequest, boltzrpc_pb.SendCoinsResponse>;
     updateTimeoutBlockDelta: grpc.handleUnaryCall<boltzrpc_pb.UpdateTimeoutBlockDeltaRequest, boltzrpc_pb.UpdateTimeoutBlockDeltaResponse>;
@@ -78,6 +89,9 @@ export interface IBoltzClient {
     getBalance(request: boltzrpc_pb.GetBalanceRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetBalanceResponse) => void): grpc.ClientUnaryCall;
     getBalance(request: boltzrpc_pb.GetBalanceRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetBalanceResponse) => void): grpc.ClientUnaryCall;
     getBalance(request: boltzrpc_pb.GetBalanceRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetBalanceResponse) => void): grpc.ClientUnaryCall;
+    deriveKeys(request: boltzrpc_pb.DeriveKeysRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DeriveKeysResponse) => void): grpc.ClientUnaryCall;
+    deriveKeys(request: boltzrpc_pb.DeriveKeysRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DeriveKeysResponse) => void): grpc.ClientUnaryCall;
+    deriveKeys(request: boltzrpc_pb.DeriveKeysRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DeriveKeysResponse) => void): grpc.ClientUnaryCall;
     getAddress(request: boltzrpc_pb.GetAddressRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetAddressResponse) => void): grpc.ClientUnaryCall;
     getAddress(request: boltzrpc_pb.GetAddressRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetAddressResponse) => void): grpc.ClientUnaryCall;
     getAddress(request: boltzrpc_pb.GetAddressRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetAddressResponse) => void): grpc.ClientUnaryCall;
@@ -97,6 +111,9 @@ export class BoltzClient extends grpc.Client implements IBoltzClient {
     public getBalance(request: boltzrpc_pb.GetBalanceRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetBalanceResponse) => void): grpc.ClientUnaryCall;
     public getBalance(request: boltzrpc_pb.GetBalanceRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetBalanceResponse) => void): grpc.ClientUnaryCall;
     public getBalance(request: boltzrpc_pb.GetBalanceRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetBalanceResponse) => void): grpc.ClientUnaryCall;
+    public deriveKeys(request: boltzrpc_pb.DeriveKeysRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DeriveKeysResponse) => void): grpc.ClientUnaryCall;
+    public deriveKeys(request: boltzrpc_pb.DeriveKeysRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DeriveKeysResponse) => void): grpc.ClientUnaryCall;
+    public deriveKeys(request: boltzrpc_pb.DeriveKeysRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DeriveKeysResponse) => void): grpc.ClientUnaryCall;
     public getAddress(request: boltzrpc_pb.GetAddressRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetAddressResponse) => void): grpc.ClientUnaryCall;
     public getAddress(request: boltzrpc_pb.GetAddressRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetAddressResponse) => void): grpc.ClientUnaryCall;
     public getAddress(request: boltzrpc_pb.GetAddressRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetAddressResponse) => void): grpc.ClientUnaryCall;

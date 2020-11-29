@@ -3,9 +3,12 @@ import path from 'path';
 import { OutputType, Scripts } from 'boltz-core';
 import { Transaction, crypto } from 'bitcoinjs-lib';
 import bolt11, { RoutingInfo } from '@boltz/bolt11';
+import { BigNumber, ContractTransaction } from 'ethers';
 import commitHash from './Version';
 import packageJson from '../package.json';
 import { OrderSide } from './consts/Enums';
+import ChainClient from './chain/ChainClient';
+import { etherDecimals } from './consts/Consts';
 
 const {
   p2shOutput,
@@ -178,7 +181,7 @@ export const getHexString = (input: Buffer): string => {
  * Check whether a variable is a non-array object
  */
 export const isObject = (val: unknown): boolean => {
-  return (val && typeof val === 'object' && !Array.isArray(val));
+  return val !== undefined && typeof val === 'object' && !Array.isArray(val);
 };
 
 /**
@@ -322,18 +325,16 @@ export const transactionHashToId = (transactionHash: Buffer): string => {
 /**
  * Detects whether the transactions signals RBF explicitly
  *
- * @param transaction the transcations to scan
+ * @param transaction the transactions to scan
  */
 export const transactionSignalsRbfExplicitly = (transaction: Transaction): boolean => {
-  let singalsRbf = false;
-
-  transaction.ins.forEach((input) => {
+  for (const input of transaction.ins) {
     if (input.sequence < 0xffffffff - 1) {
-      singalsRbf = true;
+      return true;
     }
-  });
+  }
 
-  return singalsRbf;
+  return false;
 };
 
 export const getSendingReceivingCurrency = (baseCurrency: string, quoteCurrency: string, orderSide: OrderSide): {
@@ -402,6 +403,42 @@ export const getVersion = (): string => {
 
 export const getUnixTime = (): number => {
   return Math.round(new Date().getTime() / 1000);
+};
+
+/**
+<<<<<<< HEAD
+ * Calculates the miner fee of a transaction on a UTXO based chain
+ */
+export const calculateUtxoTransactionFee = async (chainClient: ChainClient, transaction: Transaction): Promise<number> => {
+  let fee = 0;
+
+  for (const input of transaction.ins) {
+    const inputId = transactionHashToId(input.hash);
+    const rawInputTransaction = await chainClient.getRawTransaction(inputId);
+    const inputTransaction = Transaction.fromHex(rawInputTransaction);
+
+    const spentOutput = inputTransaction.outs[input.index];
+
+    fee += spentOutput.value;
+  }
+
+  transaction.outs.forEach((output) => {
+    fee -= output.value;
+  });
+
+  return fee;
+};
+
+
+/**
+ * Calculates the transaction fee of an Ethereum contract interaction and rounds it to 10 ** -8 decimals
+ */
+export const calculateEthereumTransactionFee = (transaction: ContractTransaction): number => {
+  return transaction.gasLimit.mul(transaction.gasPrice).div(etherDecimals).toNumber();
+};
+
+export const getBiggerBigNumber = (a: BigNumber, b: BigNumber): BigNumber => {
+  return a.gt(b) ? a : b;
 };
 
 /**

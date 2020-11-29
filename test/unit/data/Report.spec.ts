@@ -30,8 +30,6 @@ jest.mock('../../../lib/db/ReverseSwapRepository', () => {
 const mockedReverseSwapRepository = <jest.Mock<ReverseSwapRepository>><any>ReverseSwapRepository;
 
 describe('Report', () => {
-  const date = '2019-04-19 09:21:01.156 +00:00';
-
   const report = new Report(
     mockedSwapRepository(),
     mockedReverseSwapRepository(),
@@ -39,8 +37,8 @@ describe('Report', () => {
 
   beforeAll(() => {
     for (let i = 0; i < 2; i += 1) {
-      const swapMock = createSwap<Swap>(true, i !== 1, { createdAt: date });
-      const reverseSwapMock = createSwap<ReverseSwap>(false, i !== 1, { createdAt: date });
+      const swapMock = createSwap<Swap>(true, i !== 1, {});
+      const reverseSwapMock = createSwap<ReverseSwap>(false, i !== 1, {});
 
       swaps.push(swapMock);
       reverseSwaps.push(reverseSwapMock);
@@ -49,7 +47,7 @@ describe('Report', () => {
 
   test('should generate reports', async () => {
     const csv = await report.generate();
-    const formatDate = report['formatDate'](new Date(date));
+    const formatDate = report['formatDate'](new Date(swaps[0].createdAt));
 
     expect(csv).toEqual(
       // tslint:disable-next-line: prefer-template

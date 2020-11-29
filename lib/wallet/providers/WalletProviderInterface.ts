@@ -7,12 +7,12 @@ type WalletBalance = {
 };
 
 type SentTransaction = {
-  fee: number;
+  fee?: number;
 
-  vout: number;
-
+  vout?: number;
   transactionId: string;
-  transaction: Transaction;
+
+  transaction?: Transaction;
 };
 
 interface WalletProviderInterface {
@@ -20,10 +20,24 @@ interface WalletProviderInterface {
 
   getBalance: () => Promise<WalletBalance>;
 
-  newAddress: () => Promise<string>;
+  getAddress: () => Promise<string>;
 
-  sendToAddress: (address: string, amount: number, satPerVbyte?: number) => Promise<SentTransaction>;
-  sweepWallet: (address: string, satPerVbyte?: number) => Promise<SentTransaction>;
+  /**
+   * Sends coins from the wallet
+   *
+   * @param address
+   * @param amount
+   * @param relativeFee
+   */
+  sendToAddress: (address: string, amount: number, relativeFee?: number) => Promise<SentTransaction>;
+
+  /**
+   * Sweeps the wallet
+   *
+   * @param address
+   * @param relativeFee
+   */
+  sweepWallet: (address: string, relativeFee?: number) => Promise<SentTransaction>;
 }
 
 export default WalletProviderInterface;

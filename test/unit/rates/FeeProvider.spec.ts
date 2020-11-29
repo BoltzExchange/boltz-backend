@@ -1,19 +1,32 @@
 import Logger from '../../../lib/Logger';
 import FeeProvider from '../../../lib/rates/FeeProvider';
-import { OrderSide } from '../../../lib/consts/Enums';
+import { BaseFeeType, OrderSide } from '../../../lib/consts/Enums';
+import DataAggregator from '../../../lib/rates/data/DataAggregator';
 
 const btcFee = 36;
 const ltcFee = 3;
+const ethFee = 11;
 
 const getFeeEstimation = async () => {
   return new Map([
     ['BTC', btcFee],
     ['LTC', ltcFee],
+    ['ETH', ethFee],
   ]);
 };
 
+jest.mock('../../../lib/rates/data/DataAggregator', () => {
+  return jest.fn().mockImplementation(() => ({
+    latestRates: new Map<string, number>([
+      ['ETH/USDT', 2],
+    ]),
+  }));
+});
+
+const MockedDataAggregator = <jest.Mock<DataAggregator>>DataAggregator;
+
 describe('FeeProvider', () => {
-  const feeProvider = new FeeProvider(Logger.disabledLogger, getFeeEstimation);
+  const feeProvider = new FeeProvider(Logger.disabledLogger, MockedDataAggregator(), getFeeEstimation);
 
   test('should init', () => {
     feeProvider.init([
@@ -53,8 +66,10 @@ describe('FeeProvider', () => {
 
     await feeProvider.updateMinerFees('BTC');
     await feeProvider.updateMinerFees('LTC');
+    await feeProvider.updateMinerFees('ETH');
+    await feeProvider.updateMinerFees('USDT');
 
-    expect(feeProvider.minerFees.size).toEqual(2);
+    expect(feeProvider.minerFees.size).toEqual(4);
   });
 
   test('should calculate miner fees', () => {
@@ -72,19 +87,35 @@ describe('FeeProvider', () => {
         claim: 414,
         lockup: 459,
       },
-    })
+    });
+
+    expect(feeProvider.minerFees.get('ETH')).toEqual({
+      normal: 27416,
+      reverse: {
+        claim: 27416,
+        lockup: 51106,
+      },
+    });
+
+    expect(feeProvider.minerFees.get('USDT')).toEqual({
+      normal: 53948,
+      reverse: {
+        claim: 53948,
+        lockup: 191356,
+      },
+    });
   });
 
   test('should get fees of a Swap', () => {
     const amount = 100000000;
 
-    expect(feeProvider.getFees('LTC/BTC', 2, OrderSide.BUY, amount, true)).toEqual({
-      baseFee: 459,
+    expect(feeProvider.getFees('LTC/BTC', 2, OrderSide.BUY, amount, BaseFeeType.NormalClaim)).toEqual({
+      baseFee: 6120,
       percentageFee: 4000000,
     });
 
-    expect(feeProvider.getFees('LTC/BTC', 2, OrderSide.BUY, amount, false)).toEqual({
-      baseFee: 6120,
+    expect(feeProvider.getFees('LTC/BTC', 2, OrderSide.BUY, amount, BaseFeeType.ReverseLockup)).toEqual({
+      baseFee: 459,
       percentageFee: 4000000,
     });
   });

@@ -5,7 +5,7 @@ import { Network } from '../../../lib/consts/Enums';
 import RateProvider from '../../../lib/rates/RateProvider';
 import PairRepository from '../../../lib/db/PairRepository';
 import { Currency } from '../../../lib/wallet/WalletManager';
-import DataProvider from '../../../lib/rates/data/DataProvider';
+import DataAggregator from '../../../lib/rates/data/DataAggregator';
 import FeeProvider, { MinerFees } from '../../../lib/rates/FeeProvider';
 
 FeeProvider.transactionSizes = {
@@ -50,6 +50,16 @@ const minerFees = new Map<string, MinerFees>([
 
 const mockUpdateMinerFees = jest.fn().mockImplementation(async () => {});
 
+const btcFee = 36;
+const ltcFee = 3;
+
+const getFeeEstimation = () => Promise.resolve(
+  new Map([
+    ['BTC', btcFee],
+    ['LTC', ltcFee],
+  ]),
+);
+
 jest.mock('../../../lib/rates/FeeProvider', () => {
   return jest.fn().mockImplementation(() => {
     return {
@@ -60,33 +70,33 @@ jest.mock('../../../lib/rates/FeeProvider', () => {
   });
 });
 
-const mockedFeeProvider = <jest.Mock<FeeProvider>><any>FeeProvider;
+jest.mock('../../../lib/rates/data/DataAggregator', () => {
+  const pairs = new Set<[string, string]>();
+  const latestRates = new Map<string, number>();
 
-jest.mock('../../../lib/rates/data/DataProvider', () => {
   return jest.fn().mockImplementation(() => {
     return {
-      getPrice: (baseAsset: string) => {
-        return new Promise((resolve) => {
-          if (baseAsset === 'BTC') {
-            resolve(rates.BTC);
-          } else {
-            resolve(rates.LTC);
-          }
-        });
+      pairs,
+      latestRates,
+      registerPair: (baseAsset: string, quoteAsset: string) => {
+        pairs.add([baseAsset, quoteAsset]);
+      },
+      fetchPairs: async () => {
+        latestRates.set('BTC/BTC', rates.BTC);
+        latestRates.set('LTC/BTC', rates.LTC);
+        return latestRates;
       },
     };
   });
 });
 
-const mockedDataProvider = <jest.Mock<DataProvider>><any>DataProvider;
+const mockedDataProvider = <jest.Mock<DataAggregator>><any>DataAggregator;
 
 describe('RateProvider', () => {
   const btcCurrency = {
     symbol: 'BTC',
-    config: {
-      symbol: 'BTC',
-      network: Network.Regtest,
-
+    network: Network.Regtest,
+    limits: {
       maxSwapAmount: 100000000000,
       minSwapAmount: 1,
 
@@ -94,12 +104,10 @@ describe('RateProvider', () => {
     },
   } as any as Currency;
 
-  const ltcCurreny = {
+  const ltcCurrency = {
     symbol: 'LTC',
-    config: {
-      symbol: 'LTC',
-      network: Network.Regtest,
-
+    network: Network.Regtest,
+    limits: {
       maxSwapAmount: 1000000000,
       minSwapAmount: 100000,
 
@@ -107,10 +115,15 @@ describe('RateProvider', () => {
     },
   } as any as Currency;
 
-  const rateProvider = new RateProvider(Logger.disabledLogger, mockedFeeProvider(), 0.1, [
-    btcCurrency,
-    ltcCurreny,
-  ]);
+  const rateProvider = new RateProvider(
+    Logger.disabledLogger,
+    0.1,
+    new Map<string, Currency>([
+      ['BTC', btcCurrency],
+      ['LTC', ltcCurrency],
+    ]),
+    getFeeEstimation,
+  );
 
   rateProvider['dataProvider'] = mockedDataProvider();
 
@@ -150,21 +163,21 @@ describe('RateProvider', () => {
     const { pairs } = rateProvider;
 
     expect(pairs.get('BTC/BTC')!.limits).toEqual({
-      maximal: btcCurrency.config.maxSwapAmount,
-      minimal: btcCurrency.config.minSwapAmount,
+      maximal: btcCurrency.limits.maxSwapAmount,
+      minimal: btcCurrency.limits.minSwapAmount,
 
       maximalZeroConf: {
-        baseAsset: btcCurrency.config.maxZeroConfAmount,
-        quoteAsset: btcCurrency.config.maxZeroConfAmount,
+        baseAsset: btcCurrency.limits.maxZeroConfAmount,
+        quoteAsset: btcCurrency.limits.maxZeroConfAmount,
       },
     });
     expect(pairs.get('LTC/BTC')!.limits).toEqual({
-      maximal: Math.min(btcCurrency.config.maxSwapAmount, ltcCurreny.config.maxSwapAmount * rates.LTC),
-      minimal: Math.max(btcCurrency.config.minSwapAmount, ltcCurreny.config.minSwapAmount * rates.LTC),
+      maximal: Math.min(btcCurrency.limits.maxSwapAmount, ltcCurrency.limits.maxSwapAmount * rates.LTC),
+      minimal: Math.max(btcCurrency.limits.minSwapAmount, ltcCurrency.limits.minSwapAmount * rates.LTC),
 
       maximalZeroConf: {
-        baseAsset: ltcCurreny.config.maxZeroConfAmount,
-        quoteAsset: btcCurrency.config.maxZeroConfAmount,
+        baseAsset: ltcCurrency.limits.maxZeroConfAmount,
+        quoteAsset: btcCurrency.limits.maxZeroConfAmount,
       },
     });
   });
@@ -204,10 +217,10 @@ describe('RateProvider', () => {
     // Should return false for undefined maximal allowed amounts
     expect(rateProvider.acceptZeroConf('ETH', 0)).toEqual(false);
 
-    expect(rateProvider.acceptZeroConf('BTC', btcCurrency.config.maxZeroConfAmount + 1)).toEqual(false);
+    expect(rateProvider.acceptZeroConf('BTC', btcCurrency.limits.maxZeroConfAmount! + 1)).toEqual(false);
 
-    expect(rateProvider.acceptZeroConf('BTC', btcCurrency.config.maxZeroConfAmount)).toEqual(true);
-    expect(rateProvider.acceptZeroConf('BTC', btcCurrency.config.maxZeroConfAmount - 1)).toEqual(true);
+    expect(rateProvider.acceptZeroConf('BTC', btcCurrency.limits.maxZeroConfAmount!)).toEqual(true);
+    expect(rateProvider.acceptZeroConf('BTC', btcCurrency.limits.maxZeroConfAmount! - 1)).toEqual(true);
   });
 
   afterAll(async () => {

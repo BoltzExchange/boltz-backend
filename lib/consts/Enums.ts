@@ -8,6 +8,7 @@ export enum ErrorCodePrefix {
   Swap = 6,
   Rates = 7,
   Backup = 8,
+  Ethereum = 9,
 }
 
 export enum ClientStatus {
@@ -33,11 +34,17 @@ export enum SwapUpdateEvent {
   InvoiceSettled = 'invoice.settled',
   InvoiceFailedToPay = 'invoice.failedToPay',
 
+  // When an onchain transaction:
+  // - cannot be sent from the backend
+  // - of the user is rejected by the backend
   TransactionFailed = 'transaction.failed',
+
   TransactionMempool = 'transaction.mempool',
   TransactionClaimed = 'transaction.claimed',
   TransactionRefunded = 'transaction.refunded',
   TransactionConfirmed = 'transaction.confirmed',
+  TransactionLockupFailed = 'transaction.lockupFailed',
+  TransactionZeroConfRejected = 'transaction.zeroconf.rejected',
 
   // Events for the prepay miner fee Reverse Swap protocol
   MinerFeePaid = 'minerfee.paid',
@@ -73,4 +80,17 @@ export enum Network {
 export enum SwapType {
   Submarine = 'submarine',
   ReverseSubmarine = 'reversesubmarine',
+}
+
+export enum BaseFeeType {
+  NormalClaim,
+
+  ReverseLockup,
+  ReverseClaim,
+}
+
+export enum CurrencyType {
+  BitcoinLike,
+  Ether,
+  ERC20
 }

@@ -1,5 +1,6 @@
 import { platform } from 'os';
 import { check } from 'diskusage';
+import Emojis from './Emojis';
 import Logger from '../Logger';
 import DiscordClient from './DiscordClient';
 
@@ -19,11 +20,11 @@ class DiskUsageChecker {
 
     if (usedPercentage >= DiskUsageChecker.warningThreshold) {
       if (!this.alertSent) {
-        const message = `Disk usage is **${this.formatNumber(usedPercentage * 100)}%**: ` +
-          `**${this.formatNumber(this.convertToGb(available))} GB** of **${this.formatNumber(this.convertToGb(total))} GB** available`;
+        const message = `${Emojis.RotatingLight} Disk usage is **${this.formatNumber(usedPercentage * 100)}%**: ` +
+          `**${this.formatNumber(this.convertToGb(available))} GB** of **${this.formatNumber(this.convertToGb(total))} GB** available ${Emojis.RotatingLight}`;
 
         this.logger.warn(message);
-        await this.discord.sendAlert(message);
+        await this.discord.sendMessage(message);
 
         this.alertSent = true;
       }

@@ -1,4 +1,4 @@
-import { WhereOptions } from 'sequelize';
+import { Op, WhereOptions } from 'sequelize';
 import { SwapUpdateEvent } from '../consts/Enums';
 import ReverseSwap, { ReverseSwapType } from './models/ReverseSwap';
 
@@ -6,6 +6,24 @@ class ReverseSwapRepository {
   public getReverseSwaps = (options?: WhereOptions): Promise<ReverseSwap[]> => {
     return ReverseSwap.findAll({
       where: options,
+    });
+  }
+
+  public getReverseSwapsExpirable = (height: number): Promise<ReverseSwap[]> => {
+    return ReverseSwap.findAll({
+      where: {
+        status: {
+          [Op.not]: [
+            SwapUpdateEvent.SwapExpired,
+            SwapUpdateEvent.TransactionFailed,
+            SwapUpdateEvent.TransactionRefunded,
+            SwapUpdateEvent.InvoiceSettled,
+          ],
+        },
+        timeoutBlockHeight: {
+          [Op.lte]: height,
+        },
+      },
     });
   }
 
@@ -19,13 +37,14 @@ class ReverseSwapRepository {
     return ReverseSwap.create(reverseSwap);
   }
 
-  public setReverseSwapStatus = (reverseSwap: ReverseSwap, status: string): Promise<ReverseSwap> => {
+  public setReverseSwapStatus = (reverseSwap: ReverseSwap, status: string, failureReason?: string): Promise<ReverseSwap> => {
     return reverseSwap.update({
       status,
+      failureReason,
     });
   }
 
-  public setLockupTransaction = (reverseSwap: ReverseSwap, transactionId: string, vout: number, minerFee: number): Promise<ReverseSwap> => {
+  public setLockupTransaction = (reverseSwap: ReverseSwap, transactionId: string, minerFee: number, vout?: number): Promise<ReverseSwap> => {
     return reverseSwap.update({
       minerFee,
       transactionId,
@@ -41,8 +60,9 @@ class ReverseSwapRepository {
     });
   }
 
-  public setTransactionRefunded = (reverseSwap: ReverseSwap, minerFee: number): Promise<ReverseSwap> => {
+  public setTransactionRefunded = (reverseSwap: ReverseSwap, minerFee: number, failureReason: string): Promise<ReverseSwap> => {
     return reverseSwap.update({
+      failureReason,
       minerFee: reverseSwap.minerFee + minerFee,
       status: SwapUpdateEvent.TransactionRefunded,
     });

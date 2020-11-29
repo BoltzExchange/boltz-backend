@@ -18,7 +18,7 @@ class ConnectionHelper {
     let addressesMessage = `Found ${nodeInfo.node.addressesList.length} public addresses of ${publicKey}:`;
 
     nodeInfo.node.addressesList.forEach((address) => {
-      addressesMessage += `\n - ${address.addr};`
+      addressesMessage += `\n - ${address.addr}`;
     });
 
     this.logger.debug(addressesMessage);
@@ -29,7 +29,7 @@ class ConnectionHelper {
       try {
         await lndClient.connectPeer(publicKey, address.addr);
       } catch (error) {
-        this.logger.debug(`Could not connect to to LND ${lndClient.symbol} address ${publicKey}@${address.addr}: ${formatError(error)}`)
+        this.logger.debug(`Could not connect to to LND ${lndClient.symbol} address ${publicKey}@${address.addr}: ${formatError(error)}`);
 
         // Try the next URI if that one did not work
         continue;

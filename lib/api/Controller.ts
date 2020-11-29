@@ -1,8 +1,10 @@
 import { Op } from 'sequelize';
 import { Request, Response } from 'express';
+import Errors from './Errors';
 import Logger from '../Logger';
 import Service from '../service/Service';
 import SwapNursery from '../swap/SwapNursery';
+import ServiceErrors from '../service/Errors';
 import { SwapUpdate } from '../service/EventHandler';
 import { SwapType, SwapUpdateEvent } from '../consts/Enums';
 import { getChainCurrency, getHexBuffer, getVersion, mapToObject, splitPairId, stringify } from '../Utils';
@@ -63,8 +65,15 @@ class Controller {
           break;
         }
 
+        case SwapUpdateEvent.TransactionZeroConfRejected:
+          this.pendingSwapInfos.set(swap.id, { status: SwapUpdateEvent.TransactionMempool, zeroConfRejected: true });
+          break;
+
         default:
-          this.pendingSwapInfos.set(swap.id, { status: swap.status as SwapUpdateEvent });
+          this.pendingSwapInfos.set(swap.id, {
+            status: swap.status as SwapUpdateEvent,
+            failureReason: swap.failureReason,
+          });
           break;
       }
     }
@@ -78,16 +87,32 @@ class Controller {
           const { base, quote } = splitPairId(reverseSwap.pair);
           const chainCurrency = getChainCurrency(base, quote, reverseSwap.orderSide, true);
 
-          const transactionHex = await this.service.getTransaction(chainCurrency, reverseSwap.transactionId!);
+          try {
+            const transactionHex = await this.service.getTransaction(chainCurrency, reverseSwap.transactionId!);
 
-          this.pendingSwapInfos.set(reverseSwap.id, {
-            status,
-            transaction: {
-              hex: transactionHex,
-              id: reverseSwap.transactionId!,
-              eta: status === SwapUpdateEvent.TransactionMempool ? SwapNursery.reverseSwapMempoolEta : undefined,
-            },
-          });
+            this.pendingSwapInfos.set(reverseSwap.id, {
+              status,
+              transaction: {
+                hex: transactionHex,
+                id: reverseSwap.transactionId!,
+                eta: status === SwapUpdateEvent.TransactionMempool ? SwapNursery.reverseSwapMempoolEta : undefined,
+              },
+            });
+          } catch (error) {
+            // If the transaction can't be queried with the service it's either a transaction on the Ethereum network,
+            // or something is terribly wrong
+            if (error.message !== ServiceErrors.NOT_SUPPORTED_BY_SYMBOL(chainCurrency).message) {
+              throw error;
+            }
+
+            this.pendingSwapInfos.set(reverseSwap.id, {
+              status,
+              transaction: {
+                id: reverseSwap.transactionId!,
+              },
+            });
+          }
+
           break;
         }
 
@@ -97,7 +122,7 @@ class Controller {
       }
     }
   }
-e
+
   // GET requests
   public version = (_: Request, res: Response): void => {
     this.successResponse(res, {
@@ -121,6 +146,22 @@ e
     this.successResponse(res, {
       nodes: mapToObject(nodes),
     });
+  }
+
+  public getContracts = (req: Request, res: Response): void => {
+    try {
+      const contracts = this.service.getContracts();
+
+      this.successResponse(res, {
+        ethereum: {
+          network: contracts.ethereum.network,
+          swapContracts: mapToObject(contracts.ethereum.swapContracts),
+          tokens: mapToObject(contracts.ethereum.tokens),
+        },
+      });
+    } catch (error) {
+      this.errorResponse(req, res, error, 501);
+    }
   }
 
   public getFeeEstimation = async (_: Request, res: Response): Promise<void> => {
@@ -239,7 +280,7 @@ e
       { name: 'pairHash', type: 'string', optional: true },
       { name: 'orderSide', type: 'string' },
       { name: 'invoice', type: 'string', optional: true },
-      { name: 'refundPublicKey', type: 'string', hex: true },
+      { name: 'refundPublicKey', type: 'string', hex: true, optional: true },
       { name: 'preimageHash', type: 'string', hex: true, optional: true },
       { name: 'channel', type: 'object', optional: true },
     ]);
@@ -271,16 +312,16 @@ e
 
       this.checkPreimageHashLength(preimageHash);
 
-      response = await this.service.createSwap(
+      response = await this.service.createSwap({
         pairId,
         orderSide,
         refundPublicKey,
         preimageHash,
         channel,
-      );
+      });
     }
 
-    this.logger.verbose(`Created new swap with id: ${response.id}`);
+    this.logger.verbose(`Created new Swap with id: ${response.id}`);
     this.logger.silly(`Swap ${response.id}: ${stringify(response)}`);
 
     this.createdResponse(res, response);
@@ -291,6 +332,7 @@ e
       pairId,
       pairHash,
       orderSide,
+      claimAddress,
       preimageHash,
       invoiceAmount,
       claimPublicKey,
@@ -300,14 +342,23 @@ e
       { name: 'orderSide', type: 'string' },
       { name: 'invoiceAmount', type: 'number' },
       { name: 'preimageHash', type: 'string', hex: true },
-      { name: 'claimPublicKey', type: 'string', hex: true },
+      { name: 'claimAddress', type: 'string', optional: true, },
+      { name: 'claimPublicKey', type: 'string', hex: true, optional: true },
     ]);
 
     this.checkPreimageHashLength(preimageHash);
 
-    const response = await this.service.createReverseSwap(pairId, orderSide, preimageHash, invoiceAmount, claimPublicKey, pairHash);
+    const response = await this.service.createReverseSwap({
+      pairId,
+      pairHash,
+      orderSide,
+      claimAddress,
+      preimageHash,
+      invoiceAmount,
+      claimPublicKey,
+    });
 
-    this.logger.verbose(`Created reverse swap with id: ${response.id}`);
+    this.logger.verbose(`Created Reverse Swap with id: ${response.id}`);
     this.logger.silly(`Reverse swap ${response.id}: ${stringify(response)}`);
 
     this.createdResponse(res, response);
@@ -371,7 +422,7 @@ e
             const buffer = getHexBuffer(value);
 
             if (buffer.length === 0) {
-              throw `could not parse hex string: ${arg.name}`;
+              throw Errors.COULD_NOT_PARSE_HEX(arg.name);
             }
 
             response[arg.name] = buffer;
@@ -379,10 +430,10 @@ e
             response[arg.name] = value;
           }
         } else {
-          throw `invalid parameter: ${arg.name}`;
+          throw Errors.INVALID_PARAMETER(arg.name);
         }
       } else if (!arg.optional) {
-        throw `undefined parameter: ${arg.name}`;
+        throw Errors.UNDEFINED_PARAMETER(arg.name);
       }
     });
 

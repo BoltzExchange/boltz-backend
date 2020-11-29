@@ -4,7 +4,7 @@ ARG BERKELEY_VERSION
 FROM boltz/berkeley-db:${BERKELEY_VERSION} AS berkeley-db
 
 # Build Bitcoin Core
-FROM ubuntu:${UBUNTU_VERSION} as bitcoin-core
+FROM ubuntu:${UBUNTU_VERSION} AS bitcoin-core
 
 ARG VERSION
 
@@ -21,7 +21,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get -y install \
   bsdmainutils \
   libevent-dev \
   autotools-dev \
-  build-essential \ 
+  build-essential \
   libboost-test-dev \
   libboost-chrono-dev \
   libboost-system-dev \
@@ -44,6 +44,7 @@ WORKDIR /bitcoin-${VERSION}
 RUN ./autogen.sh
 RUN ./configure LDFLAGS=-L`ls -d /opt/db*`/lib/ CPPFLAGS=-I`ls -d /opt/db*`/include/ \
     --prefix=${BITCOIN_PREFIX} \
+    --enable-endomorphism \
     --mandir=/usr/share/man \
     --disable-ccache \
     --disable-tests \

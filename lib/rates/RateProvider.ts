@@ -1,16 +1,25 @@
 import Errors from './Errors';
 import Logger from '../Logger';
 import { PairConfig } from '../consts/Types';
-import DataProvider from './data/DataProvider';
+import { CurrencyType } from '../consts/Enums';
+import DataAggregator from './data/DataAggregator';
 import { Currency } from '../wallet/WalletManager';
 import FeeProvider, { MinerFees } from './FeeProvider';
-import { stringify, mapToObject, minutesToMilliseconds, getPairId, hashString } from '../Utils';
+import { getPairId, hashString, mapToObject, minutesToMilliseconds, splitPairId, stringify } from '../Utils';
 
 type CurrencyLimits = {
   minimal: number;
   maximal: number;
 
   maximalZeroConf: number;
+};
+
+const emptyMinerFees = {
+  normal: 0,
+  reverse: {
+    claim: 0,
+    lockup: 0,
+  },
 };
 
 type PairType = {
@@ -35,11 +44,13 @@ type PairType = {
 };
 
 class RateProvider {
+  public feeProvider: FeeProvider;
+
   // A map between the pair ids and the rate, limits and fees of that pair
   public pairs = new Map<string, PairType>();
 
-  // An array of tuples between the base and quote asset of all pairs for which the rate should be queried
-  public pairsToQuery: [string, string][] = [];
+  // A list of all pairs that are specified in the config
+  public configPairs = new Set<string>();
 
   // A map of all pairs with hardcoded rates
   private hardcodedPairs = new Map<string, { base: string, quote: string }>();
@@ -50,17 +61,18 @@ class RateProvider {
   // A copy of the "percentageFees" Map in the FeeProvider but all values are multiplied with 100
   private percentageFees = new Map<string, number>();
 
-  private dataProvider = new DataProvider();
+  private dataAggregator = new DataAggregator();
 
   private timer!: any;
 
   constructor(
     private logger: Logger,
-    private feeProvider: FeeProvider,
     private rateUpdateInterval: number,
-    currencies: Currency[]) {
-
-    this.parseCurrencies(currencies);
+    private currencies: Map<string, Currency>,
+    private getFeeEstimation: (symbol: string) => Promise<Map<string, number>>,
+  ) {
+    this.feeProvider = new FeeProvider(this.logger, this.dataAggregator, this.getFeeEstimation);
+    this.parseCurrencies(Array.from(currencies.values()));
   }
 
   public init = async (pairs: PairConfig[]): Promise<void> => {
@@ -69,13 +81,12 @@ class RateProvider {
       this.percentageFees.set(pair, percentage * 100);
     });
 
-    const minerFees = await this.getMinerFees();
-
     pairs.forEach((pair) => {
+      const id = getPairId(pair);
+      this.configPairs.add(id);
+
       // If a pair has a hardcoded rate the rate doesn't have to be queried from the exchanges
       if (pair.rate) {
-        const id = getPairId(pair);
-
         this.logger.debug(`Setting hardcoded rate for pair ${id}: ${pair.rate}`);
 
         this.pairs.set(id, {
@@ -85,8 +96,8 @@ class RateProvider {
           fees: {
             percentage: this.percentageFees.get(id)!,
             minerFees: {
-              baseAsset: minerFees.get(pair.base)!,
-              quoteAsset: minerFees.get(pair.quote)!,
+              baseAsset: emptyMinerFees,
+              quoteAsset: emptyMinerFees,
             },
           },
         });
@@ -96,19 +107,33 @@ class RateProvider {
           quote: pair.quote,
         });
       } else {
-        this.pairsToQuery.push([pair.base, pair.quote]);
+        this.dataAggregator.registerPair(pair.base, pair.quote);
+
+        // TODO: find way to get ETH/<token> rate without having to hardcode it here
+        const checkAndRegisterToken = (symbol: string) => {
+          if (this.currencies.get(symbol)!.type === CurrencyType.ERC20) {
+            this.dataAggregator.registerPair('ETH', symbol);
+          }
+        };
+
+        checkAndRegisterToken(pair.base);
+        checkAndRegisterToken(pair.quote);
       }
     });
 
-    this.logger.debug(`Prepared data for requests to exchanges: ${stringify(this.pairsToQuery)}`);
+    const pairsToQuery: string[] = [];
+    this.dataAggregator.pairs.forEach(([base, quote]) => {
+      pairsToQuery.push(getPairId({ base, quote }));
+    });
+    this.logger.debug(`Prepared data for requests to exchanges: \n  - ${pairsToQuery.join('\n  - ')}`);
 
-    await this.updateRates(minerFees);
+    await this.updateRates();
 
     this.logger.silly(`Got pairs: ${stringify(mapToObject(this.pairs))}`);
     this.logger.debug(`Updating rates every ${this.rateUpdateInterval} minutes`);
 
     this.timer = setInterval(async () => {
-      await this.updateRates(await this.getMinerFees());
+      await this.updateRates();
     }, minutesToMilliseconds(this.rateUpdateInterval));
   }
 
@@ -129,49 +154,58 @@ class RateProvider {
     }
   }
 
-  private updateRates = async (minerFees: Map<string, MinerFees>) => {
-    const promises: Promise<void>[] = [];
+  private updateRates = async () => {
+    // The fees for the ERC20 tokens depend on the rates
+    // Updating rates and fees at the same time would result in a race condition
+    // that could leave the fee estimations for the ERC20 tokens outdated or even
+    // "null" on the very first run of this function
+    const updatedRates = await this.dataAggregator.fetchPairs();
 
-    // Update the pairs with a variable rate
-    this.pairsToQuery.forEach(([base, quote]) => {
-      promises.push((async () => {
-        const rate = await this.dataProvider.getPrice(base, quote);
+    await this.getMinerFees();
 
-        // If the rate returned is "null" or "NaN" that means that all requests to the APIs of the exchanges
-        // failed and that the pairs and limits don't have to be updated
-        if (rate !== null && !isNaN(rate)) {
-          const pair = getPairId({ base, quote });
-          const limits = this.getLimits(pair, base, quote, rate);
+    for (const [pairId, rate] of updatedRates) {
+      // Filter pairs that are fetched (for example to calculate gas fees for a BTC/<token> pair)
+      // but not specified in the config
+      if (!this.configPairs.has(pairId)) {
+        continue;
+      }
 
-          this.pairs.set(pair, {
-            rate,
-            limits,
-            hash: '',
-            fees: {
-              percentage: this.percentageFees.get(pair)!,
-              minerFees: {
-                baseAsset: minerFees.get(base)!,
-                quoteAsset: minerFees.get(quote)!,
-              },
+      const { base, quote } = splitPairId(pairId);
+
+      // If the rate returned is "undefined" or "NaN" that means that all requests to the APIs of the exchanges
+      // failed and that the pairs and limits don't have to be updated
+      if (rate && !isNaN(rate)) {
+        const limits = this.getLimits(pairId, base, quote, rate);
+
+        this.pairs.set(pairId, {
+          rate,
+          limits,
+          hash: '',
+          fees: {
+            percentage: this.percentageFees.get(pairId)!,
+            minerFees: {
+              baseAsset: this.feeProvider.minerFees.get(base)!,
+              quoteAsset: this.feeProvider.minerFees.get(quote)!,
             },
-          });
-        }
-      })());
-    });
+          },
+        });
+
+      } else {
+        this.logger.warn(`Could not fetch rates of ${pairId}`);
+      }
+    }
 
     // Update the miner fees of the pairs with a hardcoded rate
     this.hardcodedPairs.forEach(({ base, quote }, pair) => {
       const pairInfo = this.pairs.get(pair)!;
 
       pairInfo.fees.minerFees = {
-        baseAsset: minerFees.get(base)!,
-        quoteAsset: minerFees.get(quote)!,
+        baseAsset: this.feeProvider.minerFees.get(base)!,
+        quoteAsset: this.feeProvider.minerFees.get(quote)!,
       };
 
       this.pairs.set(pair, pairInfo);
     });
-
-    await Promise.all(promises);
 
     this.pairs.forEach((pair, symbol) => {
       this.pairs.get(symbol)!.hash = hashString(JSON.stringify({
@@ -205,26 +239,24 @@ class RateProvider {
 
   private parseCurrencies = (currencies: Currency[]) => {
     for (const currency of currencies) {
-      const config = currency.config;
-
-      if (config.maxZeroConfAmount === undefined) {
+      if (currency.limits.maxZeroConfAmount === undefined) {
         this.logger.warn(`Maximal 0-conf amount not set for ${currency.symbol}`);
       }
 
-      if (config.maxSwapAmount === undefined) {
+      if (currency.limits.maxSwapAmount === undefined) {
         throw Errors.CONFIGURATION_INCOMPLETE(currency.symbol, 'maxSwapAmount');
       }
 
-      if (config.minSwapAmount === undefined) {
+      if (currency.limits.minSwapAmount === undefined) {
         throw Errors.CONFIGURATION_INCOMPLETE(currency.symbol, 'minSwapAmount');
       }
 
       this.limits.set(currency.symbol, {
-        maximal: config.maxSwapAmount,
-        minimal: config.minSwapAmount,
+        maximal: currency.limits.maxSwapAmount,
+        minimal: currency.limits.minSwapAmount,
 
         // Set the maximal 0-conf amount to 0 if it wasn't set explicitly
-        maximalZeroConf: config.maxZeroConfAmount || 0,
+        maximalZeroConf: currency.limits.maxZeroConfAmount || 0,
       });
     }
   }
@@ -237,8 +269,6 @@ class RateProvider {
     }
 
     await Promise.all(promises);
-
-    return this.feeProvider.minerFees;
   }
 }
 

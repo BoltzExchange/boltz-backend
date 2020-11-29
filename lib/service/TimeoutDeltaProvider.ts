@@ -17,6 +17,7 @@ class TimeoutDeltaProvider {
   public static blockTimes = new Map<string, number>([
     ['BTC', 10],
     ['LTC', 2.5],
+    ['ETH', 0.25],
   ]);
 
   private timeoutDeltas = new Map<string, PairTimeoutBlockDeltas>();
@@ -24,19 +25,11 @@ class TimeoutDeltaProvider {
   constructor(private logger: Logger, private config: ConfigType) {}
 
   public static convertBlocks = (fromSymbol: string, toSymbol: string, blocks: number): number => {
-    if (!TimeoutDeltaProvider.blockTimes.has(fromSymbol)) {
-      throw Errors.BLOCK_TIME_NOT_FOUND(fromSymbol);
-    }
-
-    if (!TimeoutDeltaProvider.blockTimes.has(toSymbol)) {
-      throw Errors.BLOCK_TIME_NOT_FOUND(toSymbol);
-    }
-
-    const minutes = blocks * TimeoutDeltaProvider.blockTimes.get(fromSymbol)!;
+    const minutes = blocks * TimeoutDeltaProvider.getBlockTime(fromSymbol)!;
 
     // In the context this function is used, we calculate the timeout of the first leg of a
     // reverse swap which has to be longer than the second one
-    return Math.ceil(minutes / TimeoutDeltaProvider.blockTimes.get(toSymbol)!);
+    return Math.ceil(minutes / TimeoutDeltaProvider.getBlockTime(toSymbol)!);
   }
 
   public init = (pairs: PairConfig[]): void => {
@@ -92,12 +85,7 @@ class TimeoutDeltaProvider {
 
   private minutesToBlocks = (pair: string, minutes: number) => {
     const calculateBlocks = (symbol: string) => {
-      const minutesPerBlock = TimeoutDeltaProvider.blockTimes.get(symbol);
-
-      if (!minutesPerBlock) {
-        throw Errors.BLOCK_TIME_NOT_FOUND(symbol);
-      }
-
+      const minutesPerBlock = TimeoutDeltaProvider.getBlockTime(symbol);
       const blocks = minutes / minutesPerBlock;
 
       // Sanity checks to make sure no impossible deltas are set
@@ -114,6 +102,13 @@ class TimeoutDeltaProvider {
       base: calculateBlocks(base),
       quote: calculateBlocks(quote),
     };
+  }
+
+  /**
+   * If the block time for the symbol is not hardcoded, it is assumed that the symbol belongs to an ERC20 token
+   */
+  private static getBlockTime = (symbol: string): number => {
+    return TimeoutDeltaProvider.blockTimes.get(symbol) || TimeoutDeltaProvider.blockTimes.get('ETH')!;
   }
 }
 

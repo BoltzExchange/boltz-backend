@@ -64,7 +64,7 @@ describe('ConnectionHelper', () => {
       node: {
         addressesList: [],
       },
-    }
+    };
     await expect(connectionHelper.connectByPublicKey(lndClient, remotePublicKey)).rejects.toEqual(expectedError);
   });
 

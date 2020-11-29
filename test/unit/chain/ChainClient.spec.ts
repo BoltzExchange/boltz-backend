@@ -1,6 +1,7 @@
 import Logger from '../../../lib/Logger';
 import { getHexBuffer } from '../../../lib/Utils';
 import ChainClient from '../../../lib/chain/ChainClient';
+import ChainTipRepository from '../../../lib/db/ChainTipRepository';
 
 const relevantInputs = new Set<string>();
 const relevantOutputs = new Set<string>();
@@ -8,18 +9,27 @@ const relevantOutputs = new Set<string>();
 jest.mock('../../../lib/chain/RpcClient', () => {
   return jest.fn().mockImplementation(() => {
     return {
-      request: (_: string, args: number) => {
-        const blocks = args[0];
+      request: (method: string, args: number) => {
+        switch (method) {
+          case 'estimatesmartfee': {
+            const blocks = args[0];
 
-        return new Promise((resolve) => {
-          if (blocks === 2) {
-            resolve({
-              feerate: 0.00010640,
+            return new Promise((resolve) => {
+              if (blocks === 2) {
+                resolve({
+                  feerate: 0.00010640,
+                });
+              } else {
+                resolve({});
+              }
             });
-          } else {
-            resolve({});
           }
-        });
+
+          case 'getblockchaininfo':
+            return '';
+        }
+
+        throw 'method not supported';
       },
     };
   });
@@ -34,6 +44,15 @@ jest.mock('../../../lib/chain/ZmqClient', () => {
     };
   });
 });
+
+jest.mock('../../../lib/db/ChainTipRepository', () => {
+  return jest.fn().mockImplementation(() => ({
+    findOrCreateTip: jest.fn().mockResolvedValue({}),
+    updateTip: jest.fn().mockResolvedValue(undefined),
+  }));
+});
+
+const MockedChainTipRepository = <jest.Mock<ChainTipRepository>>ChainTipRepository;
 
 describe('ChainClient', () => {
   const inputs = [
@@ -51,10 +70,10 @@ describe('ChainClient', () => {
   const chainClient = new ChainClient(Logger.disabledLogger, {
     host: '',
     port: 0,
-    rpcuser: '',
-    rpcpass: '',
+    cookie: '',
   }, 'BTC');
 
+  chainClient['chainTipRepository'] = MockedChainTipRepository();
   chainClient['listenToZmq']();
 
   test('should estimate fee', async () => {

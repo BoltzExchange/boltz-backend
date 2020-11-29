@@ -13,6 +13,7 @@ module.exports = {
     '@typescript-eslint/no-non-null-assertion': 'off',
     '@typescript-eslint/adjacent-overload-signatures': 'off',
 
+    'semi': 'error',
     'no-trailing-spaces': 'error',
     'quotes': ['error', 'single', { 'avoidEscape': true }],
   },
@@ -21,6 +22,7 @@ module.exports = {
   ignorePatterns: [
     'dist/',
     'lib/proto/',
+    'contracts/',
     'node_modules/',
   ],
   plugins: [

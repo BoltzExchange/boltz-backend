@@ -1,3 +1,5 @@
+TODO: update
+
 # Deployment of the Boltz Backend
 
 Deploying the Boltz backend has to be done with great care since it will have full control over the Lightning Node it is connected to. *With great power comes great responsibility.*
@@ -7,7 +9,7 @@ Prerequisites:
 * The latest Node.js LTS release (`v12.16.3` as of writing this)
 * `rsync` (needed to compile the TypeScript code)
 
-The Boltz backend needs a synced Bitcoin Core or Litecoin Core instance to connect to the Bitcoin or Litecoin chain. These nodes need to:
+The Boltz backend requires a synced Bitcoin Core or Litecoin Core instance to connect to the Bitcoin or Litecoin chain. These nodes need to:
 
 * Have the transaction index enabled `txindex=1`
 * Use a username and password to authenticate requests RPC (`rpcuser=<user>` and `rpcpassword=<password>`; the backend does not support cookie based authentication yet)

@@ -51,7 +51,8 @@ export const reverseSwapExample: ReverseSwapType = {
   onchainAmount: 1000000,
   timeoutBlockHeight: 123,
   status: SwapUpdateEvent.InvoiceSettled,
-  preimage: '19633406642926291B51625F7E5F61126A',
+  preimage: 'c236e38c7bf8eb92fac587c0d4f08b3e787f04f501d68e32e5f510027badbfd4',
+  preimageHash: 'efbe6a29b1db7dc2f3d86c35b52a639994f1543e0833b45553493868f77c715f',
   lockupAddress: '2Mv9up2W4ADfj4Dm9EtfCCPSwgfwTp8Sy99',
   transactionId: '6071400d052ffd911f47537aba80500d52f67077a8522ec6915c128228f71a69',
   // tslint:disable-next-line: max-line-length
@@ -65,6 +66,9 @@ export const pendingReverseSwapExample = {
 
   id: 'r654321',
   status: SwapUpdateEvent.TransactionMempool,
+
+  preimage: 'f4f7f03f72f1c3885bb869363054ce2c88d270bf9bf6e2c4cb6a87a1928ff394',
+  preimageHash: '5b2dc635c50a25de79b86be956db2fbc6a17e36d2562f1185aca3522a5a9edf6',
   // tslint:disable-next-line: max-line-length
   invoice: 'lnbcrt1p0xqpt2pp5l34c2393chx7eut4hvlt6h0333nfa562quksdqnx8ymd437dw5msdqqcqzpgsp5f88p6pf23hrn5l7j5sp0q26vtdzzfr838njchzc3lfp6xq2nnj0q9qy9qsq33agd2syjgxjkf6mshm5x482hsu99k2ukrv27wvgtatyzw0lgs83pc0yd3fmwgcn5kcav47h4483qqz9yh4w0vegzlq3cv7zcxssm2sp7l2rck',
 };

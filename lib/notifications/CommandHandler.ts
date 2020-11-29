@@ -401,7 +401,7 @@ class CommandHandler {
       try {
         const response = await this.service.payInvoice(symbol, args[2]);
 
-        await this.discord.sendMessage(`Paid lightning invoice.\nPreimage: ${getHexString(response.paymentPreimage)}`);
+        await this.discord.sendMessage(`Paid lightning invoice.\nPreimage: ${getHexString(response.preimage)}`);
       } catch (error) {
         await this.discord.sendMessage(`Could not pay lightning invoice: ${formatError(error)}`);
       }

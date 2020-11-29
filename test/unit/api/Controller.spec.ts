@@ -21,6 +21,11 @@ const swaps: SwapDbType[] = [
     id: 'channel',
     status: SwapUpdateEvent.ChannelCreated,
   } as any as SwapDbType,
+  {
+    id: 'failureReason',
+    status: SwapUpdateEvent.TransactionLockupFailed,
+    failureReason: 'lockupFailed',
+  } as any as SwapDbType,
 ];
 
 const channelCreation = {
@@ -74,6 +79,22 @@ const getNodes = new Map<string, {
   }],
 ]);
 const mockGetNodes = jest.fn().mockResolvedValue(getNodes);
+
+const getContracts = {
+  ethereum: {
+    network: {
+      some: 'networkData',
+    },
+    swapContracts: new Map<string, string>([
+      ['EtherSwap', '0x18A4374d714762FA7DE346E997f7e28Fb3744EC1'],
+      ['ERC20Swap', '0xC685b2c4369D7bf9242DA54E9c391948079d83Cd'],
+    ]),
+    tokens: new Map<string, string>([
+      ['USDT', '0xDf567Cd5d0cf3d90cE6E3E9F897e092f9ECE359a']
+    ]),
+  },
+};
+const mockGetContracts = jest.fn().mockReturnValue(getContracts);
 
 const mockGetFeeEstimation = jest.fn().mockResolvedValue(new Map<string, number>([
   ['BTC', 1],
@@ -138,6 +159,7 @@ jest.mock('../../../lib/service/Service', () => {
 
       getPairs: mockGetPairs,
       getNodes: mockGetNodes,
+      getContracts: mockGetContracts,
       getFeeEstimation: mockGetFeeEstimation,
 
       getSwapRates: mockGetSwapRates,
@@ -213,6 +235,10 @@ describe('Controller', () => {
         fundingTransactionVout: channelCreation.fundingTransactionVout,
       },
     });
+    expect(pendingSwaps.get(swaps[2].id)).toEqual({
+      status: swaps[2].status,
+      failureReason: swaps[2].failureReason,
+    });
 
     expect(pendingSwaps.get(reverseSwaps[0].id)).toEqual({
       status: reverseSwaps[0].status,
@@ -275,6 +301,23 @@ describe('Controller', () => {
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
       nodes: mapToObject(getNodes),
+    });
+  });
+
+  test('should get contracts', () => {
+    const res = mockResponse();
+
+    controller.getContracts(mockRequest({}), res);
+
+    expect(mockGetContracts).toHaveBeenCalledTimes(1);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      ethereum: {
+        network: getContracts.ethereum.network,
+        swapContracts: mapToObject(getContracts.ethereum.swapContracts),
+        tokens: mapToObject(getContracts.ethereum.tokens),
+      },
     });
   });
 
@@ -574,13 +617,12 @@ describe('Controller', () => {
 
     await controller.createSwap(mockRequest(requestData), res);
 
-    expect(service.createSwap).toHaveBeenCalledWith(
-      requestData.pairId,
-      requestData.orderSide,
-      getHexBuffer(requestData.refundPublicKey),
-      getHexBuffer(requestData.preimageHash),
-      undefined,
-    );
+    expect(service.createSwap).toHaveBeenCalledWith({
+      pairId: requestData.pairId,
+      orderSide: requestData.orderSide,
+      refundPublicKey: getHexBuffer(requestData.refundPublicKey),
+      preimageHash: getHexBuffer(requestData.preimageHash),
+    });
 
     expect(res.status).toHaveBeenNthCalledWith(3, 201);
     expect(res.json).toHaveBeenNthCalledWith(3, await mockCreateSwap());
@@ -594,13 +636,13 @@ describe('Controller', () => {
 
     await controller.createSwap(mockRequest(requestData), res);
 
-    expect(service.createSwap).toHaveBeenCalledWith(
-      requestData.pairId,
-      requestData.orderSide,
-      getHexBuffer(requestData.refundPublicKey),
-      getHexBuffer(requestData.preimageHash),
-      requestData.channel,
-    );
+    expect(service.createSwap).toHaveBeenCalledWith({
+      pairId: requestData.pairId,
+      orderSide: requestData.orderSide,
+      refundPublicKey: getHexBuffer(requestData.refundPublicKey),
+      preimageHash: getHexBuffer(requestData.preimageHash),
+      channel: requestData.channel,
+    });
 
     expect(res.status).toHaveBeenNthCalledWith(4, 201);
     expect(res.json).toHaveBeenNthCalledWith(4, await mockCreateSwap());
@@ -692,14 +734,13 @@ describe('Controller', () => {
 
     await controller.createSwap(mockRequest(requestData), res);
 
-    expect(service.createReverseSwap).toHaveBeenCalledWith(
-      requestData.pairId,
-      requestData.orderSide,
-      getHexBuffer(requestData.preimageHash),
-      requestData.invoiceAmount,
-      getHexBuffer(requestData.claimPublicKey),
-      undefined,
-    );
+    expect(service.createReverseSwap).toHaveBeenCalledWith({
+      pairId: requestData.pairId,
+      orderSide: requestData.orderSide,
+      preimageHash: getHexBuffer(requestData.preimageHash),
+      invoiceAmount: requestData.invoiceAmount,
+      claimPublicKey: getHexBuffer(requestData.claimPublicKey),
+    });
 
     expect(res.status).toHaveBeenNthCalledWith(2, 201);
     expect(res.json).toHaveBeenNthCalledWith(2, await mockCreateReverseSwap());
@@ -710,12 +751,14 @@ describe('Controller', () => {
     await controller.createSwap(mockRequest(requestData), res);
 
     expect(service.createReverseSwap).toHaveBeenNthCalledWith(3,
-      requestData.pairId,
-      requestData.orderSide,
-      getHexBuffer(requestData.preimageHash),
-      requestData.invoiceAmount,
-      getHexBuffer(requestData.claimPublicKey),
-      requestData.pairHash,
+      {
+        pairId: requestData.pairId,
+        pairHash: requestData.pairHash,
+        orderSide: requestData.orderSide,
+        preimageHash: getHexBuffer(requestData.preimageHash),
+        invoiceAmount: requestData.invoiceAmount,
+        claimPublicKey: getHexBuffer(requestData.claimPublicKey),
+      },
     );
 
     expect(res.status).toHaveBeenNthCalledWith(3, 201);

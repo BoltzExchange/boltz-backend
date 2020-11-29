@@ -5,9 +5,9 @@ import Logger from '../../../lib/Logger';
 import Swap from '../../../lib/db/models/Swap';
 import ChainClient from '../../../lib/chain/ChainClient';
 import LndClient from '../../../lib/lightning/LndClient';
-import { ChannelPoint } from '../../../lib/proto/lndrpc_pb';
 import SwapRepository from '../../../lib/db/SwapRepository';
 import { Currency } from '../../../lib/wallet/WalletManager';
+import { ChannelPoint } from '../../../lib/proto/lnd/rpc_pb';
 import ChannelNursery from '../../../lib/swap/ChannelNursery';
 import ChannelCreation from '../../../lib/db/models/ChannelCreation';
 import ChannelCreationRepository from '../../../lib/db/ChannelCreationRepository';
@@ -369,7 +369,7 @@ describe('ChannelNursery', () => {
     expect(mockSetFundingTransaction).toHaveBeenCalledTimes(1);
     expect(mockSetFundingTransaction).toHaveBeenCalledWith(channelCreation, '4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b', 2);
 
-    // Should retry when the error indicates that LND is syncing
+    // Should retry when the error indicates that our LND is syncing
     mockOpenChannelResponse = '2 UNKNOWN: channels cannot be created before the wallet is fully synced';
 
     setTimeout(() => {
@@ -380,13 +380,24 @@ describe('ChannelNursery', () => {
 
     expect(mockOpenChannel).toHaveBeenCalledTimes(3);
 
+    // Should retry when the error indicated that the remote LND is syncing
+    mockOpenChannelResponse = '2 UNKNOWN: received funding error from 0380e1dbcae8ca0df4eb8dca5b7262808c68c9a4eb662fa599db3e6fbaad95e97b: chan_id=4c63f4f69b447ff1c3bb2d729b0ae9349c6687a65540edcf15abb1c936dd24d0, err=Synchronizing blockchain';
+
+    setTimeout(() => {
+      mockOpenChannelResponse = {};
+    }, 100);
+
+    await channelNursery.openChannel(btcCurrency, swap, channelCreation);
+
+    expect(mockOpenChannel).toHaveBeenCalledTimes(5);
+
     // Should retry when the error indicates the our node is not connected to the other side
     mockConnectByPublicKeyShouldThrow = false;
     mockOpenChannelResponse = '2 UNKNOWN: peer 02d4c41c75f79c52d31014f0665f327c47f92505217d9a8b75019374a6ebd04ce0 is not online';
 
     await channelNursery.openChannel(btcCurrency, swap, channelCreation);
 
-    expect(mockOpenChannel).toHaveBeenCalledTimes(5);
+    expect(mockOpenChannel).toHaveBeenCalledTimes(7);
     expect(mockConnectByPublicKey).toHaveBeenCalledTimes(1);
 
     // Should not retry when we could not connect to the other side
@@ -395,7 +406,7 @@ describe('ChannelNursery', () => {
 
     await channelNursery.openChannel(btcCurrency, swap, channelCreation);
 
-    expect(mockOpenChannel).toHaveBeenCalledTimes(6);
+    expect(mockOpenChannel).toHaveBeenCalledTimes(8);
     expect(mockConnectByPublicKey).toHaveBeenCalledTimes(2);
 
     // Should not retry when arbitrary errors are thrown
@@ -403,7 +414,7 @@ describe('ChannelNursery', () => {
 
     await channelNursery.openChannel(btcCurrency, swap, channelCreation);
 
-    expect(mockOpenChannel).toHaveBeenCalledTimes(7);
+    expect(mockOpenChannel).toHaveBeenCalledTimes(9);
   });
 
   test('should retry opening channel', async () => {
@@ -444,6 +455,9 @@ describe('ChannelNursery', () => {
     expect(mockGetSwap).toHaveBeenCalledWith({
       id: {
         [Op.eq]: mockGetChannelCreationsResult[0].swapId,
+      },
+      status: {
+        [Op.not]: SwapUpdateEvent.SwapExpired,
       },
     });
 
@@ -535,7 +549,7 @@ describe('ChannelNursery', () => {
 
     const lockSettleChannel = () => {
       channelNursery['lock'].acquire('channelSettle', () => {
-        return new Promise((resolve) => {
+        return new Promise<void>((resolve) => {
           resolvePromise = resolve;
         });
       });

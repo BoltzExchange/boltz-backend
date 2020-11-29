@@ -7,7 +7,9 @@ import { CurrencyConfig } from '../../../lib/Config';
 import WalletErrors from '../../../lib/wallet/Errors';
 import ChainClient from '../../../lib/chain/ChainClient';
 import LndClient from '../../../lib/lightning/LndClient';
+import { CurrencyType } from '../../../lib/consts/Enums';
 import KeyRepository from '../../../lib/db/KeyRepository';
+import ChainTipRepository from '../../../lib/db/ChainTipRepository';
 import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
 
 const symbol = 'BTC';
@@ -53,7 +55,8 @@ describe('WalletManager', () => {
   const mnemonic = generateMnemonic();
 
   const database = new Database(Logger.disabledLogger, ':memory:');
-  const repository = new KeyRepository();
+  const keyRepository = new KeyRepository();
+  const chainTipRepository = new ChainTipRepository();
 
   const btcClient = mockedChainClient();
   btcClient['symbol' as any] = 'BTC';
@@ -68,22 +71,19 @@ describe('WalletManager', () => {
       lndClient,
       symbol: 'BTC',
       chainClient: btcClient,
+      type: CurrencyType.BitcoinLike,
       network: Networks.bitcoinRegtest,
-      config: {} as any as CurrencyConfig,
+      limits: {} as any as CurrencyConfig,
     },
     {
       lndClient,
       symbol: 'LTC',
       chainClient: ltcClient,
+      type: CurrencyType.BitcoinLike,
       network: Networks.litecoinRegtest,
-      config: {} as any as CurrencyConfig,
+      limits: {} as any as CurrencyConfig,
     },
   ];
-
-  const ethereumConfig = {
-    tokens: [],
-    providerEndpoint: '',
-  };
 
   let walletManager: WalletManager;
 
@@ -104,11 +104,11 @@ describe('WalletManager', () => {
   });
 
   test('should not initialize without seed file', () => {
-    expect(() => new WalletManager(Logger.disabledLogger, mnemonicPath, currencies, ethereumConfig)).toThrow(WalletErrors.NOT_INITIALIZED().message);
+    expect(() => new WalletManager(Logger.disabledLogger, mnemonicPath, currencies)).toThrow(WalletErrors.NOT_INITIALIZED().message);
   });
 
   test('should initialize with a new menmonic and write it to the disk', () => {
-    WalletManager.fromMnemonic(Logger.disabledLogger, mnemonic, mnemonicPath, currencies, ethereumConfig);
+    WalletManager.fromMnemonic(Logger.disabledLogger, mnemonic, mnemonicPath, currencies, );
 
     expect(fs.existsSync(mnemonicPath)).toBeTruthy();
   });
@@ -121,16 +121,14 @@ describe('WalletManager', () => {
       },
     ];
 
-    const nowLndWalletManager = new WalletManager(Logger.disabledLogger, mnemonicPath, currenciesNoLnd, ethereumConfig);
+    const nowLndWalletManager = new WalletManager(Logger.disabledLogger, mnemonicPath, currenciesNoLnd);
 
-    await expect(nowLndWalletManager.init()).rejects.toEqual(WalletErrors.LND_NOT_FOUND(currenciesNoLnd[0].symbol));
+    await expect(nowLndWalletManager.init(chainTipRepository)).rejects.toEqual(WalletErrors.LND_NOT_FOUND(currenciesNoLnd[0].symbol));
   });
 
   test('should initialize with an existing mnemonic', async () => {
-    walletManager = new WalletManager(Logger.disabledLogger, mnemonicPath, currencies, ethereumConfig);
-    await walletManager.init();
-
-    expect(walletManager.ethereumWallet).toBeUndefined();
+    walletManager = new WalletManager(Logger.disabledLogger, mnemonicPath, currencies);
+    await walletManager.init(chainTipRepository);
   });
 
   test('should initialize a new wallet for each currency', async () => {
@@ -140,9 +138,10 @@ describe('WalletManager', () => {
       const wallet = walletManager.wallets.get(currency.symbol);
       expect(wallet).not.toBeUndefined();
 
-      const { derivationPath, highestUsedIndex } = wallet!;
+      const derivationPath = wallet!['derivationPath'];
+      const highestUsedIndex = wallet!['highestUsedIndex'];
 
-      const keyProvider = await repository.getKeyProvider(currency.symbol);
+      const keyProvider = await keyRepository.getKeyProvider(currency.symbol);
 
       // Compare with values in the database
       expect(derivationPath).toEqual(keyProvider!.derivationPath);
@@ -157,14 +156,14 @@ describe('WalletManager', () => {
   });
 
   test('should write and read the mnemonic', () => {
-    const mnemonicFile = walletManager['loadMenmonic'](mnemonicPath);
+    const mnemonicFile = walletManager['loadMnemonic'](mnemonicPath);
     expect(mnemonicFile).toEqual(mnemonic);
   });
 
   test('should not accept invalid mnemonics', () => {
     const invalidMnemonic = 'invalid';
 
-    expect(() => WalletManager.fromMnemonic(Logger.disabledLogger, invalidMnemonic, '', [], ethereumConfig))
+    expect(() => WalletManager.fromMnemonic(Logger.disabledLogger, invalidMnemonic, '', []))
       .toThrow(WalletErrors.INVALID_MNEMONIC(invalidMnemonic).message);
   });
 

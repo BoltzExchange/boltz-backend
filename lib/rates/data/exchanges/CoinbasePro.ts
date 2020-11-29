@@ -5,7 +5,6 @@ class CoinbasePro implements Exchange {
 
   public async getPrice(baseAsset: string, quoteAsset: string): Promise<number> {
     const response = await makeRequest(`${CoinbasePro.API}/products/${baseAsset}-${quoteAsset}/ticker`);
-
     return Number(response.price);
   }
 }

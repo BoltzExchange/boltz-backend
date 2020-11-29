@@ -51,8 +51,10 @@ describe('BalanceChecker', () => {
     new MockedDiscordClient(),
     [
       btcCurrency,
-      usdtCurrency,
     ],
+    [
+      usdtCurrency,
+    ]
   );
 
   beforeEach(() => {
@@ -65,8 +67,10 @@ describe('BalanceChecker', () => {
       new MockedDiscordClient(),
       [
         btcCurrency,
-        usdtCurrency,
       ],
+      [
+        usdtCurrency,
+      ]
     );
   });
 

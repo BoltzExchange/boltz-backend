@@ -9,7 +9,7 @@ import ReverseSwap from '../db/models/ReverseSwap';
 import BackupScheduler from '../backup/BackupScheduler';
 import { CurrencyType, OrderSide } from '../consts/Enums';
 import { satoshisToCoins } from '../DenominationConverter';
-import { CurrencyConfig, NotificationConfig } from '../Config';
+import { CurrencyConfig, NotificationConfig, TokenConfig } from '../Config';
 import { ChainInfo, CurrencyInfo, LndInfo } from '../proto/boltzrpc_pb';
 import {
   splitPairId,
@@ -41,6 +41,7 @@ class NotificationProvider {
     private backup: BackupScheduler,
     private config: NotificationConfig,
     private currencies: CurrencyConfig[],
+    private tokenConfigs: TokenConfig[],
   ) {
     this.discord = new DiscordClient(
       config.token,
@@ -59,7 +60,7 @@ class NotificationProvider {
       this.backup,
     );
 
-    this.balanceChecker = new BalanceChecker(this.logger, this.service, this.discord, this.currencies);
+    this.balanceChecker = new BalanceChecker(this.logger, this.service, this.discord, this.currencies, this.tokenConfigs);
     this.diskUsageChecker = new DiskUsageChecker(this.logger, this.discord);
   }
 

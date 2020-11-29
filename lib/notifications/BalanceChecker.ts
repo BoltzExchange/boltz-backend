@@ -1,7 +1,7 @@
 import Emojis from './Emojis';
 import Logger from '../Logger';
 import Service from '../service/Service';
-import { CurrencyConfig } from '../Config';
+import { CurrencyConfig, TokenConfig } from '../Config';
 import DiscordClient  from './DiscordClient';
 import { Balance } from '../proto/boltzrpc_pb';
 import { satoshisToCoins } from '../DenominationConverter';
@@ -12,7 +12,19 @@ enum BalanceType {
   ChannelRemote,
 }
 
+type CurrenyThresholds = {
+  symbol: string;
+
+  minWalletBalance: number;
+  maxWalletBalance?: number;
+
+  minLocalBalance?: number;
+  minRemoteBalance?: number;
+};
+
 class BalanceChecker {
+  private currencies: CurrenyThresholds[] = [];
+
   // These Sets contain the symbols for which an out of bounds alert notification was sent
   private walletBalanceAlerts = new Set<string>();
 
@@ -23,8 +35,12 @@ class BalanceChecker {
     private logger: Logger,
     private service: Service,
     private discord: DiscordClient,
-    private currencies: CurrencyConfig[],
-  ) {}
+    currencyConfigs: CurrencyConfig[],
+    tokenConfigs: TokenConfig[],
+  ) {
+    currencyConfigs.forEach((config) => this.currencies.push(config));
+    tokenConfigs.forEach((config) => this.currencies.push(config));
+  }
 
   public check = async (): Promise<void> => {
     const balances = (await this.service.getBalance()).getBalancesMap() as Map<string, Balance>;
@@ -36,9 +52,9 @@ class BalanceChecker {
         await this.checkCurrency(currency, balance.toObject());
       }
     }
-  }
+  };
 
-  private checkCurrency = async (currency: CurrencyConfig, balance: Balance.AsObject) => {
+  private checkCurrency = async (currency: CurrenyThresholds, balance: Balance.AsObject) => {
     const walletBalance = balance.walletBalance;
 
     if (walletBalance) {
@@ -64,9 +80,9 @@ class BalanceChecker {
         lightningBalance.remoteBalance,
       );
     }
-  }
+  };
 
-  private checkBalance = async (currency: CurrencyConfig, type: BalanceType, balance: number) => {
+  private checkBalance = async (currency: CurrenyThresholds, type: BalanceType, balance: number) => {
     let isInBounds: boolean;
     let notificationSet: Set<string>;
 
@@ -85,7 +101,7 @@ class BalanceChecker {
         currency.minLocalBalance :
         currency.minRemoteBalance;
 
-      isInBounds = minThreshold <= balance;
+      isInBounds = minThreshold! <= balance;
     }
 
     if (!notificationSet.has(currency.symbol)) {
@@ -99,9 +115,9 @@ class BalanceChecker {
         await this.sendAlert(currency, type, isInBounds, balance);
       }
     }
-  }
+  };
 
-  private sendAlert = async (currency: CurrencyConfig, type: BalanceType, isInBounds: boolean, balance: number) => {
+  private sendAlert = async (currency: CurrenyThresholds, type: BalanceType, isInBounds: boolean, balance: number) => {
     let message: string;
 
     if (isInBounds) {
@@ -110,7 +126,7 @@ class BalanceChecker {
       } else {
         message = `${Emojis.Checkmark} ${currency.symbol} ${type === BalanceType.ChannelLocal ? 'local' : 'remote'} channel balance ` +
           `of ${satoshisToCoins(balance)} is more than expected ` +
-          `${satoshisToCoins(type === BalanceType.ChannelLocal ? currency.minLocalBalance : currency.minRemoteBalance)} again ${Emojis.Checkmark}`;
+          `${satoshisToCoins(type === BalanceType.ChannelLocal ? currency.minLocalBalance! : currency.minRemoteBalance!)} again ${Emojis.Checkmark}`;
       }
     } else {
       if (type === BalanceType.Wallet) {
@@ -121,7 +137,7 @@ class BalanceChecker {
       } else {
         message = `${Emojis.RotatingLight} **${currency.symbol} ${type === BalanceType.ChannelLocal ? 'local' : 'remote'} channel balance ` +
           `of ${satoshisToCoins(balance)} is less than expected ` +
-          `${satoshisToCoins(type === BalanceType.ChannelLocal ? currency.minLocalBalance : currency.minRemoteBalance)}** ${Emojis.RotatingLight}`;
+          `${satoshisToCoins(type === BalanceType.ChannelLocal ? currency.minLocalBalance! : currency.minRemoteBalance!)}** ${Emojis.RotatingLight}`;
       }
     }
 

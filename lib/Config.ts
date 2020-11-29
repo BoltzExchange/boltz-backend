@@ -48,6 +48,7 @@ type TokenConfig = {
   minSwapAmount: number;
 
   minWalletBalance: number;
+  maxWalletBalance?: number;
 };
 
 type EthProviderServiceConfig = {

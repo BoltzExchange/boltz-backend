@@ -92,6 +92,7 @@ class Boltz {
         backup,
         this.config.notification,
         this.config.currencies,
+        this.config.ethereum.tokens,
       );
 
       this.grpcServer = new GrpcServer(

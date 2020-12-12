@@ -444,7 +444,7 @@ class SwapNursery extends EventEmitter {
       if (reverseSwap.minerFeeInvoice) {
         // TODO: how does this behave cross chain
         feePerVbyte = Math.round(decodeInvoice(reverseSwap.minerFeeInvoice).satoshis / FeeProvider.transactionSizes.reverseLockup);
-        this.logger.debug(`Using prepay minerfee for lockups of Reverse Swap ${reverseSwap.id}: ${feePerVbyte} sat/vbyte`);
+        this.logger.debug(`Using prepay minerfee for lockup of Reverse Swap ${reverseSwap.id}: ${feePerVbyte} sat/vbyte`);
       } else {
         feePerVbyte = await chainClient.estimateFee(SwapNursery.reverseSwapMempoolEta);
       }

@@ -308,7 +308,7 @@ describe('CommandHandler', () => {
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(
       `\`\`\`${stringify({
-        10: {
+        [new Date().getMonth()]: {
           failureRates: {
             swaps: 0,
             reverseSwaps: 0,

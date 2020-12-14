@@ -24,6 +24,8 @@ class InjectedProvider implements providers.Provider {
 
   private network!: providers.Network;
 
+  private static readonly requestTimeout = 2500;
+
   constructor(private logger: Logger, config: EthereumConfig) {
     if (config.providerEndpoint) {
       this.providers.set(EthProviderService.Websocket, new providers.WebSocketProvider(config.providerEndpoint));
@@ -317,7 +319,10 @@ class InjectedProvider implements providers.Provider {
 
     for (const [providerName, provider] of this.providers) {
       try {
-        const result = await provider[method](...args);
+        const result = await this.promiseWithTimeout(
+          provider[method](...args),
+          'timeout'
+        );
 
         if (result !== null) {
           return result;
@@ -337,6 +342,22 @@ class InjectedProvider implements providers.Provider {
     }
 
     throw Errors.REQUESTS_TO_PROVIDERS_FAILED(errors);
+  }
+
+  private promiseWithTimeout = (promise: Promise<any>, errorMessage: string): Promise<any> => {
+    let timeoutHandle: NodeJS.Timeout;
+
+    const timeoutPromise = new Promise<void>((_, reject) => {
+      timeoutHandle = setTimeout(() => reject(errorMessage), InjectedProvider.requestTimeout);
+    });
+
+    return Promise.race([
+      promise,
+      timeoutPromise,
+    ]).then((result) => {
+      clearTimeout(timeoutHandle);
+      return result;
+    });
   }
 
   private hashCode = (value: string): number => {

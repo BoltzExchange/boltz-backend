@@ -1,4 +1,5 @@
 import fs from 'fs';
+import bolt11 from '@boltz/bolt11';
 import grpc, { ClientReadableStream } from 'grpc';
 import Errors from './Errors';
 import Logger from '../Logger';
@@ -62,6 +63,9 @@ interface LndClient {
 class LndClient extends BaseClient implements LndClient {
   public static readonly serviceName = 'LND';
 
+  private static readonly minPaymentFee = 21;
+  private static readonly maxPaymentFeeRatio = 0.03;
+
   public readonly paymentMaxParts = 3;
 
   private readonly paymentTimeout = 15;
@@ -82,7 +86,11 @@ class LndClient extends BaseClient implements LndClient {
   /**
    * Create an LND client
    */
-  constructor(private logger: Logger, config: LndConfig, public readonly symbol: string) {
+  constructor(
+    private logger: Logger,
+    public readonly symbol: string,
+    config: LndConfig,
+  ) {
     super();
 
     const { host, port, certpath, macaroonpath } = config;
@@ -299,6 +307,7 @@ class LndClient extends BaseClient implements LndClient {
 
       request.setMaxParts(this.paymentMaxParts);
       request.setTimeoutSeconds(this.paymentTimeout);
+      request.setFeeLimitSat(this.calculatePaymentFee(invoice));
 
       request.setPaymentRequest(invoice);
 
@@ -621,6 +630,15 @@ class LndClient extends BaseClient implements LndClient {
       .on('error', async (error) => {
         await this.handleSubscriptionError('channel backup', error);
       });
+  }
+
+  private calculatePaymentFee = (invoice: string): number => {
+    const invoiceAmt = bolt11.decode(invoice).satoshis || 0;
+
+    return Math.max(
+      Math.ceil(invoiceAmt * LndClient.maxPaymentFeeRatio),
+      LndClient.minPaymentFee,
+    );
   }
 }
 

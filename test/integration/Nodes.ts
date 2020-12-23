@@ -1,7 +1,7 @@
 import path from 'path';
 import Logger from '../../lib/Logger';
-import ChainClient from '../../lib/chain/ChainClient';
 import LndClient from '../../lib/lightning/LndClient';
+import ChainClient from '../../lib/chain/ChainClient';
 
 const host = process.platform === 'win32' ? '192.168.99.100' : '127.0.0.1';
 
@@ -15,9 +15,9 @@ export const bitcoinClient = new ChainClient(Logger.disabledLogger, {
 
 const lndDataPath = `${path.resolve(__dirname, '..', '..')}/docker/regtest/data/lnd`;
 
-export const bitcoinLndClient = new LndClient(Logger.disabledLogger, {
+export const bitcoinLndClient = new LndClient(Logger.disabledLogger, 'BTC', {
   host,
   port: 10009,
   certpath: `${lndDataPath}/certificates/tls.cert`,
   macaroonpath: `${lndDataPath}/macaroons/admin.macaroon`,
-}, 'BTC');
+});

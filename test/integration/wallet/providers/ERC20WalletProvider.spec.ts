@@ -1,6 +1,6 @@
 import { BigNumber } from 'ethers';
 import Logger from '../../../../lib/Logger';
-import { fundSignerWallet, getSigner, getTokenContract } from '../EthereumTools';
+import { fundSignerWallet, getSigner, getTokenContract, waitForTransactionHash } from '../EthereumTools';
 import ERC20WalletProvider from '../../../../lib/wallet/providers/ERC20WalletProvider';
 
 describe('ERC20WalletProvider', () => {
@@ -75,11 +75,11 @@ describe('ERC20WalletProvider', () => {
     const address = await signer.getAddress();
     let newAllowance = BigNumber.from(1);
 
-    await wallet.approve(address, newAllowance);
+    await waitForTransactionHash(provider, (await wallet.approve(address, newAllowance)).transactionId);
     expect(await token.contract.allowance(address, address)).toEqual(newAllowance);
 
     newAllowance = BigNumber.from(0);
-    await wallet.approve(address, newAllowance);
+    await waitForTransactionHash(provider, (await wallet.approve(address, newAllowance)).transactionId);
     expect(await token.contract.allowance(address, address)).toEqual(newAllowance);
   });
 

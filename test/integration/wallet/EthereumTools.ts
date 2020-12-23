@@ -44,3 +44,8 @@ export const fundSignerWallet = async (signer: Signer, etherBase: Signer, token?
     await tokenFundingTransaction.wait(1);
   }
 };
+
+export const waitForTransactionHash = async (provider: providers.WebSocketProvider,  transactionHash: string): Promise<void> => {
+  const transaction = await provider.getTransaction(transactionHash);
+  await transaction.wait(1);
+};

@@ -236,7 +236,7 @@ class Boltz {
         let lndClient: LndClient | undefined;
 
         if (currency.lnd) {
-          lndClient = new LndClient(this.logger, currency.lnd, currency.symbol);
+          lndClient = new LndClient(this.logger, currency.symbol, currency.lnd);
         }
 
         result.set(currency.symbol, {

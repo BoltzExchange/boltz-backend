@@ -1,6 +1,6 @@
 import { BigNumber, ContractTransaction } from 'ethers';
 import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
-import { Erc20Swap } from 'boltz-core/typechain/Erc20Swap';
+import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import Logger from '../../Logger';
 import { getHexString } from '../../Utils';
 import { getGasPrice } from './EthereumUtils';
@@ -8,13 +8,13 @@ import ERC20WalletProvider from '../providers/ERC20WalletProvider';
 
 class ContractHandler {
   private etherSwap!: EtherSwap;
-  private erc20Swap!: Erc20Swap;
+  private erc20Swap!: ERC20Swap;
 
   constructor(
     private logger: Logger,
   ) {}
 
-  public init = (etherSwap: EtherSwap, erc20Swap: Erc20Swap): void => {
+  public init = (etherSwap: EtherSwap, erc20Swap: ERC20Swap): void => {
     this.etherSwap = etherSwap;
     this.erc20Swap = erc20Swap;
   }

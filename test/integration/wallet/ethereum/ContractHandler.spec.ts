@@ -1,7 +1,7 @@
 import { randomBytes } from 'crypto';
 import { crypto } from 'bitcoinjs-lib';
 import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
-import { Erc20Swap } from 'boltz-core/typechain/Erc20Swap';
+import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import { BigNumber, ContractTransaction, utils } from 'ethers';
 import Logger from '../../../../lib/Logger';
 import ContractHandler from '../../../../lib/wallet/ethereum/ContractHandler';
@@ -68,7 +68,7 @@ describe('ContractHandler', () => {
   };
 
 
-  const querySwap = async (contract: EtherSwap | Erc20Swap, hash: string) => {
+  const querySwap = async (contract: EtherSwap | ERC20Swap, hash: string) => {
     return await contract.swaps(hash);
   };
 

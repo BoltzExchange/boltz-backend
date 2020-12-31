@@ -1,5 +1,5 @@
 import { BigNumber } from 'ethers';
-import { Erc20 as ERC20 } from 'boltz-core/typechain/Erc20';
+import { ERC20 } from 'boltz-core/typechain/ERC20';
 
 export type EtherSwapValues = {
   preimageHash: Buffer;

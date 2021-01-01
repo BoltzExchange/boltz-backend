@@ -33,13 +33,24 @@ class Stats {
       reverseSwaps: failedReverseSwaps,
     } = await Report.getFailedSwaps(this.swapRepository, this.reverseSwapRepository);
 
-    const swapsPerMonth = new Map<number, {
+    const swapsPerYear = new Map<number, Map<number, {
       successfulSwaps: SwapArrays,
       failedSwaps: SwapArrays,
-    }>();
+    }>>();
 
-    const addSwapToMonth = (swap: Swap | ReverseSwap, isSuccessful: boolean, isReverse: boolean) => {
-      let monthArrays = swapsPerMonth.get(swap.createdAt.getMonth());
+    const addSwapToDate = (swap: Swap | ReverseSwap, isSuccessful: boolean, isReverse: boolean) => {
+      let year = swapsPerYear.get(swap.createdAt.getFullYear());
+
+      if (!year) {
+        year = new Map<number, {
+          successfulSwaps: SwapArrays,
+          failedSwaps: SwapArrays,
+        }>();
+
+        swapsPerYear.set(swap.createdAt.getFullYear(), year);
+      }
+
+      let monthArrays = year.get(this.getMonth(swap.createdAt));
 
       if (!monthArrays) {
         monthArrays = {
@@ -53,27 +64,32 @@ class Stats {
           },
         };
 
-        swapsPerMonth.set(swap.createdAt.getMonth(), monthArrays);
+        year.set(this.getMonth(swap.createdAt), monthArrays);
       }
 
       const arrays = isSuccessful ? monthArrays.successfulSwaps : monthArrays.failedSwaps;
-
       isReverse ? arrays.reverseSwaps.push(swap as ReverseSwap) : arrays.swaps.push(swap);
     };
 
-    swaps.forEach((swap) => addSwapToMonth(swap, true, false));
-    reverseSwaps.forEach((reverseSwap) => addSwapToMonth(reverseSwap, true, true));
+    swaps.forEach((swap) => addSwapToDate(swap, true, false));
+    reverseSwaps.forEach((reverseSwap) => addSwapToDate(reverseSwap, true, true));
 
-    failedSwaps.forEach((failedSwap) => addSwapToMonth(failedSwap, false, false));
-    failedReverseSwaps.forEach((failedReverseSwap) => addSwapToMonth(failedReverseSwap, false, true));
+    failedSwaps.forEach((failedSwap) => addSwapToDate(failedSwap, false, false));
+    failedReverseSwaps.forEach((failedReverseSwap) => addSwapToDate(failedReverseSwap, false, true));
 
-    const monthStats = new Map<number, MonthStats>();
+    const yearStats = new Map<number, Map<number, string>>();
 
-    swapsPerMonth.forEach((stats, month) => {
-      monthStats.set(month, this.generateMonth(stats));
+    swapsPerYear.forEach((statsYear, year) => {
+      const monthStats = new Map<number, MonthStats>();
+
+      statsYear.forEach((statsMonth, month) => {
+        monthStats.set(month, this.generateMonth(statsMonth));
+      });
+
+      yearStats.set(year, mapToObject(monthStats));
     });
 
-    return stringify(mapToObject(monthStats));
+    return stringify(mapToObject(yearStats));
   }
 
   private generateMonth = (swaps: {
@@ -151,6 +167,11 @@ class Stats {
     } else {
       return onchainAmount;
     }
+  }
+
+  private getMonth = (date: Date): number => {
+    // date.getMonth() start counting at 0
+    return date.getMonth() + 1;
   }
 }
 

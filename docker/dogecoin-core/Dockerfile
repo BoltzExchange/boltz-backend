@@ -53,9 +53,9 @@ RUN ./configure LDFLAGS=-L`ls -d /opt/db*`/lib/ CPPFLAGS=-I`ls -d /opt/db*`/incl
 RUN make -j$(nproc)
 RUN make install
 
-RUN strip ${DOGECOIN_PREFIX}/bin/dogecoind
-RUN strip ${DOGECOIN_PREFIX}/bin/dogecoin-tx
-RUN strip ${DOGECOIN_PREFIX}/bin/dogecoin-cli
+RUN strip --strip-all ${DOGECOIN_PREFIX}/bin/dogecoind
+RUN strip --strip-all ${DOGECOIN_PREFIX}/bin/dogecoin-tx
+RUN strip --strip-all ${DOGECOIN_PREFIX}/bin/dogecoin-cli
 
 # Assemble the final image
 FROM ubuntu:${UBUNTU_VERSION}

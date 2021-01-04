@@ -42,6 +42,8 @@ function openChannel () {
 
 startNodes
 
+bitcoin-cli createwallet $DEFAULT_WALLET_NAME > /dev/null
+
 # Mine 101 blocks so that the coinbase of the first block is spendable
 bitcoinAddress=$(bitcoin-cli getnewaddress)
 litecoinAddress=$(litecoin-cli getnewaddress)
@@ -56,6 +58,8 @@ stopNodes
 sleep 5
 
 startNodes
+bitcoin-cli loadwallet $DEFAULT_WALLET_NAME > /dev/null
+
 startLnds
 
 echo "Opening BTC channel"

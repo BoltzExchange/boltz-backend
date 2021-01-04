@@ -20,8 +20,8 @@ export const getTokenContract = (signer: Signer): ERC20 => {
 
 export const getSwapContracts = (signer: Signer): { etherSwap: EtherSwap, erc20Swap: ERC20Swap } => {
   return {
-    etherSwap: new Contract('0x353dcb4b7A2786f41a4aB08c411983B637e7F649', ContractABIs.EtherSwap, signer) as any as EtherSwap,
-    erc20Swap: new Contract('0x0ADa3E00344B3bcbB37237963ef7388b4FA822dc', ContractABIs.ERC20Swap, signer) as any as ERC20Swap,
+    etherSwap: new Contract('0xD855A149af094bB1557400F22F06B55060DF4989', ContractABIs.EtherSwap, signer) as any as EtherSwap,
+    erc20Swap: new Contract('0x6616556b0c527F6d7dF6ec3719D58485f659d6Dc', ContractABIs.ERC20Swap, signer) as any as ERC20Swap,
   };
 };
 

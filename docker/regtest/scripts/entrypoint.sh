@@ -3,6 +3,8 @@
 source utils.sh
 
 startNodes
+bitcoin-cli loadwallet $DEFAULT_WALLET_NAME > /dev/null
+
 startLnds
 
 mkdir -p /cookies

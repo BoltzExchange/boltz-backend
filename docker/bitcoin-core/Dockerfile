@@ -57,10 +57,10 @@ RUN ./configure LDFLAGS=-L`ls -d /opt/db*`/lib/ CPPFLAGS=-I`ls -d /opt/db*`/incl
 RUN make -j$(nproc)
 RUN make install
 
-RUN strip ${BITCOIN_PREFIX}/bin/bitcoind
-RUN strip ${BITCOIN_PREFIX}/bin/bitcoin-tx
-RUN strip ${BITCOIN_PREFIX}/bin/bitcoin-cli
-RUN strip ${BITCOIN_PREFIX}/bin/bitcoin-wallet
+RUN strip --strip-all ${BITCOIN_PREFIX}/bin/bitcoind
+RUN strip --strip-all ${BITCOIN_PREFIX}/bin/bitcoin-tx
+RUN strip --strip-all ${BITCOIN_PREFIX}/bin/bitcoin-cli
+RUN strip --strip-all ${BITCOIN_PREFIX}/bin/bitcoin-wallet
 
 # Assemble the final image
 FROM ubuntu:${UBUNTU_VERSION}

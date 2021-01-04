@@ -1,5 +1,5 @@
-import Emojis from './Emojis';
 import Logger from '../Logger';
+import { Emojis } from './Markup';
 import Service from '../service/Service';
 import { CurrencyConfig, TokenConfig } from '../Config';
 import DiscordClient  from './DiscordClient';

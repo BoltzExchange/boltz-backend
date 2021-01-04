@@ -1,7 +1,7 @@
 import { platform } from 'os';
 import { check } from 'diskusage';
-import Emojis from './Emojis';
 import Logger from '../Logger';
+import { Emojis } from './Markup';
 import DiscordClient from './DiscordClient';
 
 class DiskUsageChecker {

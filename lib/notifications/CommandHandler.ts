@@ -2,6 +2,7 @@ import { Op } from 'sequelize';
 import Logger from '../Logger';
 import Stats from '../data/Stats';
 import Report from '../data/Report';
+import { codeBlock } from './Markup';
 import Swap from '../db/models/Swap';
 import OtpManager from './OtpManager';
 import Service from '../service/Service';
@@ -48,8 +49,6 @@ class CommandHandler {
   private optManager: OtpManager;
 
   private commands: Map<string, CommandInfo>;
-
-  private static codeBlock = '```';
 
   constructor(
     private logger: Logger,
@@ -253,7 +252,7 @@ class CommandHandler {
   private getStats = async () => {
     const stats = await new Stats(this.service.swapManager.swapRepository, this.service.swapManager.reverseSwapRepository).generate();
 
-    await this.discord.sendMessage(`${CommandHandler.codeBlock}${stats}${CommandHandler.codeBlock}`);
+    await this.discord.sendMessage(`${codeBlock}${stats}${codeBlock}`);
   }
 
   private getBalance = async () => {
@@ -482,7 +481,7 @@ class CommandHandler {
 
     // tslint:disable-next-line: prefer-template
     await this.discord.sendMessage(`${name} \`${swap.id}\`:\n` +
-        `${CommandHandler.codeBlock}${stringify(swap)}${hasChannelCreation ? '\n' + stringify(channelCreation) : ''}${CommandHandler.codeBlock}`);
+        `${codeBlock}${stringify(swap)}${hasChannelCreation ? '\n' + stringify(channelCreation) : ''}${codeBlock}`);
   }
 
   private sendCouldNotFindSwap = async (id: string) => {

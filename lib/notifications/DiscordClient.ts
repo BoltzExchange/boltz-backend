@@ -32,13 +32,9 @@ class DiscordClient extends EventEmitter {
       throw 'no API token provided';
     }
 
-    await this.client.login(this.token);
-
-    const { channels } = this.client;
-
     return new Promise((resolve, reject) => {
-      this.client.on('ready', async () => {
-        for (const [, channel] of channels.cache) {
+      this.client.on('ready', () => {
+        for (const [, channel] of this.client.channels.cache) {
           if (channel instanceof TextChannel) {
             if (channel.name === this.channelName) {
               this.channel = channel;
@@ -50,9 +46,11 @@ class DiscordClient extends EventEmitter {
           reject(`Could not find Discord channel: ${this.channelName}`);
         }
 
-        await this.listenForMessages();
+        this.listenForMessages();
         resolve();
       });
+
+      this.client.login(this.token).catch(error => reject(error));
     });
   }
 
@@ -89,7 +87,7 @@ class DiscordClient extends EventEmitter {
     }
   }
 
-  private listenForMessages = async () => {
+  private listenForMessages = () => {
     if (this.channel) {
       this.client.on('message', (message: Message) => {
         if (message.author.bot) return;

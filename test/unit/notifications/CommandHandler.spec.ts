@@ -308,16 +308,18 @@ describe('CommandHandler', () => {
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(
       `\`\`\`${stringify({
-        [new Date().getMonth()]: {
-          failureRates: {
-            swaps: 0,
-            reverseSwaps: 0,
-          },
-          volume: {
-            BTC: 0.03,
-          },
-          trades: {
-            'LTC/BTC': 3,
+        [new Date().getFullYear()]: {
+          [new Date().getMonth() + 1]: {
+            failureRates: {
+              swaps: 0,
+              reverseSwaps: 0,
+            },
+            volume: {
+              BTC: 0.03,
+            },
+            trades: {
+              'LTC/BTC': 3,
+            },
           },
         },
       },

@@ -1,19 +1,16 @@
 import { platform } from 'os';
 import { DiskUsage } from 'diskusage';
 import Logger from '../../../lib/Logger';
-import Emojis from '../../../lib/notifications/Emojis';
 import DiscordClient from '../../../lib/notifications/DiscordClient';
 import DiskUsageChecker from '../../../lib/notifications/DiskUsageChecker';
 
 const mockSendMessage = jest.fn().mockImplementation(() => Promise.resolve());
 
-jest.mock('../../../lib/notifications/DiscordClient', () => ({
-  __esModule: true,
-  Emojis,
-  default: jest.fn().mockImplementation(() => ({
+jest.mock('../../../lib/notifications/DiscordClient', () => {
+  return jest.fn().mockImplementation(() => ({
     sendMessage: mockSendMessage,
-  })),
-}));
+  }));
+});
 
 const mockedDiscordClient = <jest.Mock<DiscordClient>><any>DiscordClient;
 

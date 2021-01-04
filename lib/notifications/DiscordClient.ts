@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events';
 import { Client, TextChannel, Message } from 'discord.js';
+import { codeBlock } from './Markup';
 
 interface DiscordClient {
   on(event: 'message', listener: (message: string) => void): this;
@@ -10,17 +11,20 @@ interface DiscordClient {
 }
 
 class DiscordClient extends EventEmitter {
-  private readonly client: Client;
+  private static readonly maxMessageLen = 2000;
 
+  private readonly client: Client;
   private channel?: TextChannel = undefined;
 
   constructor(
-    private token: string,
-    private channelName: string,
-    private prefix: string) {
+    private readonly token: string,
+    private readonly channelName: string,
+    private readonly prefix: string,
+  ) {
     super();
 
     this.client = new Client();
+    this.prefix = `[${this.prefix}]: `;
   }
 
   public init = async (): Promise<void> => {
@@ -52,9 +56,36 @@ class DiscordClient extends EventEmitter {
     });
   }
 
+  public destroy = (): void => {
+    this.channel = undefined;
+    this.client.destroy();
+  }
+
   public sendMessage = async (message: string): Promise<void> => {
     if (this.channel) {
-      await this.channel.send(`[${this.prefix}]: ${message}`);
+      if (message.length + this.prefix.length <= DiscordClient.maxMessageLen) {
+        await this.channel.send(`${this.prefix}${message}`);
+      } else {
+        let toSplit = message;
+        let maxPartLen = DiscordClient.maxMessageLen;
+
+        const isCodeBlock = message.startsWith(codeBlock) && message.startsWith(codeBlock);
+
+        if (isCodeBlock) {
+          // When splitting code blocks we need to account for the length the code block markup needs
+          maxPartLen -= codeBlock.length * 2;
+
+          // Trim the code block markup from the original message that will be split
+          toSplit = toSplit.substring(codeBlock.length, toSplit.length - codeBlock.length);
+        }
+
+        await this.channel.send(this.prefix);
+
+        for (const part of this.splitString(toSplit, maxPartLen)) {
+          const getBlockMarkup = () => isCodeBlock ? codeBlock : '';
+          await this.channel.send(`${getBlockMarkup()}${part}${getBlockMarkup()}`);
+        }
+      }
     }
   }
 
@@ -72,6 +103,11 @@ class DiscordClient extends EventEmitter {
     this.client.on('error', (error) => {
       this.emit('error', error);
     });
+  }
+
+  private splitString = (toSplit: string, length: number): string[] => {
+    const splitRegex = new RegExp(`[\\s\\S]{1,${length}}`, 'g');
+    return toSplit.match(splitRegex) || [];
   }
 }
 

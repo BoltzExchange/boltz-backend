@@ -57,35 +57,21 @@ describe('Stats', () => {
 
   test('should generate statistics', async () => {
     expect(await stats.generate()).toEqual(stringify({
-      10: {
-        failureRates: {
-          swaps: 0.5,
-          reverseSwaps: 0.5,
-        },
-        volume: {
-          [quoteSymbol]: 0.00133332,
-        },
-        trades: {
-          'LTC/BTC': swaps.length + reverseSwaps.length,
+      2020: {
+        11: {
+          failureRates: {
+            swaps: 0.5,
+            reverseSwaps: 0.5,
+          },
+          volume: {
+            [quoteSymbol]: 0.00133332,
+          },
+          trades: {
+            'LTC/BTC': swaps.length + reverseSwaps.length,
+          },
         },
       },
     }));
-  });
-
-  test('should format volume map', () => {
-    /*const volume = 123456789;
-
-    stats['volumeMap'] = new Map<string, number>([
-      [quoteSymbol, volume],
-    ]);
-
-    expect(
-      stats['formatVolumeMap'](),
-    ).toEqual({
-      [quoteSymbol]: volume / 100000000,
-    });
-
-    stats['volumeMap'].clear();*/
   });
 
   test('should get the quote amount of a swap', () => {

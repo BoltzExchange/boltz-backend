@@ -170,7 +170,7 @@ class Stats {
   }
 
   private getMonth = (date: Date): number => {
-    // date.getMonth() start counting at 0
+    // date.getMonth() starts counting at 0
     return date.getMonth() + 1;
   }
 }

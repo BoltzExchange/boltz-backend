@@ -351,7 +351,8 @@ describe('CommandHandler', () => {
     expect(mockSendMessage).toHaveBeenCalledWith(
       // tslint:disable-next-line: prefer-template
       '**Locked up funds:**\n\n' +
-      '- 0.01 BTC',
+      '**BTC**\n' +
+      '  - *r654321*: 1000000\n',
     );
   });
 
@@ -394,7 +395,7 @@ describe('CommandHandler', () => {
     expect(mockPayInvoice).toHaveBeenCalledWith(currency.toUpperCase(), invoice);
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
-    expect(mockSendMessage).toHaveBeenCalledWith(`Paid lightning invoice.\nPreimage: ${invoicePreimage}`);
+    expect(mockSendMessage).toHaveBeenCalledWith(`Paid lightning invoice\nPreimage: ${invoicePreimage}`);
 
     // Send onchain coins and respond with transaction id and vout
     const address = 'address';

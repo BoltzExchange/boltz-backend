@@ -67,7 +67,7 @@ class DiscordClient extends EventEmitter {
         let toSplit = message;
         let maxPartLen = DiscordClient.maxMessageLen;
 
-        const isCodeBlock = message.startsWith(codeBlock) && message.startsWith(codeBlock);
+        const isCodeBlock = message.startsWith(codeBlock) && message.endsWith(codeBlock);
 
         if (isCodeBlock) {
           // When splitting code blocks we need to account for the length the code block markup needs

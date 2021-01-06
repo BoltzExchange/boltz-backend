@@ -288,26 +288,37 @@ class CommandHandler {
       },
     });
 
-    const lockedFunds = new Map<string, number>();
+    const pendingReverseSwapsByChain = new Map<string, ReverseSwap[]>();
 
     for (const pending of pendingReverseSwaps) {
       const pair = splitPairId(pending.pair);
       const chainCurrency = getChainCurrency(pair.base, pair.quote, pending.orderSide, true);
 
-      const existingValue = lockedFunds.get(chainCurrency);
+      let chainArray = pendingReverseSwapsByChain.get(chainCurrency);
 
-      if (existingValue !== undefined) {
-        lockedFunds.set(chainCurrency, existingValue + pending.onchainAmount);
-      } else {
-        lockedFunds.set(chainCurrency, pending.onchainAmount);
+      if (chainArray === undefined) {
+        chainArray = [];
       }
+
+      chainArray.push(pending);
+      pendingReverseSwapsByChain.set(chainCurrency, chainArray);
     }
 
     let message = '**Locked up funds:**\n';
 
-    for (const [currency, amountLocked] of lockedFunds) {
-      message += `\n- ${satoshisToCoins(amountLocked)} ${currency}`;
+    for (const [symbol, chainArray] of pendingReverseSwapsByChain) {
+      message += `\n**${symbol}**`;
+
+      for (const pendingReverseSwap of chainArray) {
+        message += `\n  - *${pendingReverseSwap.id}*: ${pendingReverseSwap.onchainAmount}`;
+      }
+
+      message += '\n';
     }
+
+    /*for (const [currency, amountLocked] of lockedFunds) {
+      message += `\n- ${satoshisToCoins(amountLocked)} ${currency}`;
+    }*/
 
     await this.discord.sendMessage(message);
   }
@@ -366,9 +377,14 @@ class CommandHandler {
   }
 
   private getAddress = async (args: string[]) => {
+    const sendError = (error: any) => {
+      return this.discord.sendMessage(`Could not get address: ${formatError(error)}`);
+    };
+
     try {
       if (args.length === 0) {
-        throw 'no currency was specified';
+        await sendError('no currency was specified');
+        return;
       }
 
       const currency = args[0].toUpperCase();
@@ -376,7 +392,7 @@ class CommandHandler {
       const response = await this.service.getAddress(currency);
       await this.discord.sendMessage(`\`${response}\``);
     } catch (error) {
-      await this.discord.sendMessage(`Could not get address: ${formatError(error)}`);
+      await sendError(error);
     }
   }
 
@@ -400,7 +416,7 @@ class CommandHandler {
       try {
         const response = await this.service.payInvoice(symbol, args[2]);
 
-        await this.discord.sendMessage(`Paid lightning invoice.\nPreimage: ${getHexString(response.preimage)}`);
+        await this.discord.sendMessage(`Paid lightning invoice\nPreimage: ${getHexString(response.preimage)}`);
       } catch (error) {
         await this.discord.sendMessage(`Could not pay lightning invoice: ${formatError(error)}`);
       }
@@ -467,7 +483,7 @@ class CommandHandler {
   private sendSwapInfo = async (swap: Swap | ReverseSwap, isReverse: boolean, channelCreation?: ChannelCreation | null) => {
     const hasChannelCreation = channelCreation !== null && channelCreation !== undefined;
 
-    let name = '';
+    let name: string;
 
     if (hasChannelCreation) {
       name = 'Channel Creation';

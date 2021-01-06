@@ -207,10 +207,8 @@ const mockAddHoldInvoice = jest.fn().mockResolvedValue({
 const mockSubscribeSingleInvoice = jest.fn().mockResolvedValue(undefined);
 
 jest.mock('../../../lib/lightning/LndClient', () => {
-  return jest.fn().mockImplementation(() => {
+  const mockedImplementation = jest.fn().mockImplementation(() => {
     return {
-      paymentMaxParts: 3,
-
       on: () => {},
       addInvoice: mockAddInvoice,
       queryRoutes: mockQueryRoutes,
@@ -219,6 +217,11 @@ jest.mock('../../../lib/lightning/LndClient', () => {
       subscribeSingleInvoice: mockSubscribeSingleInvoice,
     };
   });
+
+  // Hack to set the static property
+  (mockedImplementation as any).paymentMaxParts = 3;
+
+  return mockedImplementation;
 });
 
 const MockedLndClient = <jest.Mock<LndClient>><any>LndClient;

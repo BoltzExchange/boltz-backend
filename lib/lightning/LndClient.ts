@@ -63,12 +63,17 @@ interface LndClient {
 class LndClient extends BaseClient implements LndClient {
   public static readonly serviceName = 'LND';
 
+  public static readonly paymentMaxParts = 3;
+
+  private static readonly grpcOptions = {
+    // 200 MB which is the same value lncli uses: https://github.com/lightningnetwork/lnd/commit/7470f696aebc51b4ab354324e6536f54446538e1
+    'grpc.max_receive_message_length': 1024 * 1024 * 200,
+  };
+
+  private static readonly paymentTimeout = 15;
+
   private static readonly minPaymentFee = 21;
   private static readonly maxPaymentFeeRatio = 0.03;
-
-  public readonly paymentMaxParts = 3;
-
-  private readonly paymentTimeout = 15;
 
   private readonly uri!: string;
   private readonly credentials!: grpc.ChannelCredentials;
@@ -125,9 +130,9 @@ class LndClient extends BaseClient implements LndClient {
    */
   public connect = async (startSubscriptions = true): Promise<boolean> => {
     if (!this.isConnected()) {
-      this.router = new RouterClient(this.uri, this.credentials);
-      this.invoices = new InvoicesClient(this.uri, this.credentials);
-      this.lightning = new LightningClient(this.uri, this.credentials);
+      this.router = new RouterClient(this.uri, this.credentials, LndClient.grpcOptions);
+      this.invoices = new InvoicesClient(this.uri, this.credentials, LndClient.grpcOptions);
+      this.lightning = new LightningClient(this.uri, this.credentials, LndClient.grpcOptions);
 
       try {
         await this.getInfo();
@@ -305,8 +310,8 @@ class LndClient extends BaseClient implements LndClient {
     return new Promise<SendResponse>((resolve, reject) => {
       const request = new routerrpc.SendPaymentRequest();
 
-      request.setMaxParts(this.paymentMaxParts);
-      request.setTimeoutSeconds(this.paymentTimeout);
+      request.setMaxParts(LndClient.paymentMaxParts);
+      request.setTimeoutSeconds(LndClient.paymentTimeout);
       request.setFeeLimitSat(this.calculatePaymentFee(invoice));
 
       request.setPaymentRequest(invoice);

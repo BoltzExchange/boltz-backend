@@ -6,6 +6,8 @@ import LndWalletProvider from '../../../../lib/wallet/providers/LndWalletProvide
 import { ListUnspentRequest, ListUnspentResponse } from '../../../../lib/proto/lnd/rpc_pb';
 import { SentTransaction } from '../../../../lib/wallet/providers/WalletProviderInterface';
 
+const spyGetOnchainTransactions = jest.spyOn(bitcoinLndClient, 'getOnchainTransactions');
+
 describe('LndWalletProvider', () => {
   const provider = new LndWalletProvider(Logger.disabledLogger, bitcoinLndClient, bitcoinClient);
 
@@ -18,7 +20,7 @@ describe('LndWalletProvider', () => {
       expect(coinsToSatoshis(rawTransaction.vout[sentTransaction.vout!].value)).toEqual(amount);
     }
 
-    const { transactionsList } = await bitcoinLndClient.getOnchainTransactions();
+    const { transactionsList } = await bitcoinLndClient.getOnchainTransactions(0);
 
     for (let i = 0; i < transactionsList.length; i += 1) {
       const transaction = transactionsList[i];
@@ -64,6 +66,10 @@ describe('LndWalletProvider', () => {
     await bitcoinLndClient.connect(false);
   });
 
+  beforeEach(async () => {
+    jest.clearAllMocks();
+  });
+
   test('should generate addresses', async () => {
     expect((await provider.getAddress()).startsWith('bcrt1')).toBeTruthy();
   });
@@ -85,10 +91,15 @@ describe('LndWalletProvider', () => {
   });
 
   test('should send transactions', async () => {
+    const { blockHeight } = await bitcoinLndClient.getInfo();
+
     const amount = 2498572;
     const destination = await provider.getAddress();
 
     const sentTransaction = await provider.sendToAddress(destination, amount);
+
+    expect(spyGetOnchainTransactions).toHaveBeenCalledTimes(1);
+    expect(spyGetOnchainTransactions).toHaveBeenCalledWith(blockHeight);
 
     await verifySentTransaction(sentTransaction, destination, amount);
   });
@@ -96,8 +107,13 @@ describe('LndWalletProvider', () => {
   test('should sweep wallets', async () => {
     await bitcoinClient.generate(1);
 
+    const { blockHeight } = await bitcoinLndClient.getInfo();
+
     const destination = await provider.getAddress();
     const sentTransaction = await provider.sweepWallet(destination);
+
+    expect(spyGetOnchainTransactions).toHaveBeenCalledTimes(1);
+    expect(spyGetOnchainTransactions).toHaveBeenCalledWith(blockHeight);
 
     await verifySentTransaction(sentTransaction, destination);
 

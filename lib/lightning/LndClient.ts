@@ -474,8 +474,11 @@ class LndClient extends BaseClient implements LndClient {
   /**
    * Returns a list describing all the known transactions relevant to the wallet
    */
-  public getOnchainTransactions = (): Promise<lndrpc.TransactionDetails.AsObject> => {
-    return this.unaryLightningCall<lndrpc.GetTransactionsRequest, lndrpc.TransactionDetails.AsObject>('getTransactions', new lndrpc.GetTransactionsRequest());
+  public getOnchainTransactions = (startHeight: number): Promise<lndrpc.TransactionDetails.AsObject> => {
+    const request = new lndrpc.GetTransactionsRequest();
+    request.setStartHeight(startHeight);
+
+    return this.unaryLightningCall<lndrpc.GetTransactionsRequest, lndrpc.TransactionDetails.AsObject>('getTransactions', request);
   }
 
   /**

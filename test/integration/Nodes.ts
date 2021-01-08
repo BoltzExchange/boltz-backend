@@ -13,7 +13,7 @@ export const bitcoinClient = new ChainClient(Logger.disabledLogger, {
   cookie: bitcoinCookieDataPath,
 }, 'BTC');
 
-const lndDataPath = `${path.resolve(__dirname, '..', '..')}/docker/regtest/data/lnd`;
+export const lndDataPath = `${path.resolve(__dirname, '..', '..')}/docker/regtest/data/lnd`;
 
 export const bitcoinLndClient = new LndClient(Logger.disabledLogger, 'BTC', {
   host,

@@ -14,6 +14,18 @@ import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
 
 const symbol = 'BTC';
 
+let walletInfo: any = {
+  balance: 10,
+  unconfirmed_balance: 0,
+};
+const mockGetWalletInfo = jest.fn().mockImplementation(async () => {
+  if (walletInfo.message) {
+    throw walletInfo;
+  } else {
+    return walletInfo;
+  }
+});
+
 const blockchainInfo = {
   chain: '',
   blocks: 0,
@@ -33,6 +45,7 @@ jest.mock('../../../lib/chain/ChainClient', () => {
     return {
       symbol,
 
+      getWalletInfo: mockGetWalletInfo,
       getBlockchainInfo: () => Promise.resolve(blockchainInfo),
     };
   });
@@ -113,7 +126,7 @@ describe('WalletManager', () => {
     expect(fs.existsSync(mnemonicPath)).toBeTruthy();
   });
 
-  test('should not initialize when a required LND cannot be found', async () => {
+  test('should initialize a Bitcoin Core wallet when LND is not configured', async () => {
     const currenciesNoLnd: Currency[] = [
       {
         ...currencies[0],
@@ -121,9 +134,26 @@ describe('WalletManager', () => {
       },
     ];
 
-    const nowLndWalletManager = new WalletManager(Logger.disabledLogger, mnemonicPath, currenciesNoLnd);
+    const noLndWalletManager = new WalletManager(Logger.disabledLogger, mnemonicPath, currenciesNoLnd);
+    await noLndWalletManager.init(chainTipRepository);
 
-    await expect(nowLndWalletManager.init(chainTipRepository)).rejects.toEqual(WalletErrors.LND_NOT_FOUND(currenciesNoLnd[0].symbol));
+    expect(noLndWalletManager.wallets.get(currenciesNoLnd[0].symbol)).toBeDefined();
+  });
+
+  test('should not initialize a Bitcoin Core wallet when no wallet support is compiled in', async () => {
+    const currenciesNoLnd: Currency[] = [
+      {
+        ...currencies[0],
+        lndClient: undefined,
+      },
+    ];
+
+    walletInfo = {
+      message: 'Method not found',
+    };
+
+    const noLndWalletManager = new WalletManager(Logger.disabledLogger, mnemonicPath, currenciesNoLnd);
+    await expect(noLndWalletManager.init(chainTipRepository)).rejects.toEqual(WalletErrors.NO_WALLET_SUPPORT(currenciesNoLnd[0].symbol));
   });
 
   test('should initialize with an existing mnemonic', async () => {

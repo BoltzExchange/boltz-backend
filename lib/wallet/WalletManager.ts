@@ -15,6 +15,8 @@ import EthereumManager from './ethereum/EthereumManager';
 import ChainTipRepository from '../db/ChainTipRepository';
 import { KeyProviderType } from '../db/models/KeyProvider';
 import LndWalletProvider from './providers/LndWalletProvider';
+import CoreWalletProvider from './providers/CoreWalletProvider';
+import WalletProviderInterface from './providers/WalletProviderInterface';
 
 type CurrencyLimits = {
   maxSwapAmount: number;
@@ -51,9 +53,9 @@ class WalletManager {
 
   public ethereumManager?: EthereumManager;
 
-  private mnemonic: string;
-  private masterNode: BIP32Interface;
-  private keyRepository: KeyRepository;
+  private readonly mnemonic: string;
+  private readonly masterNode: BIP32Interface;
+  private readonly keyRepository: KeyRepository;
 
   private readonly derivationPath = 'm/0';
 
@@ -87,9 +89,27 @@ class WalletManager {
         continue;
       }
 
-      // The LND client is also used as onchain wallet for UTXO based chains
-      if (currency.lndClient === undefined) {
-        throw Errors.LND_NOT_FOUND(currency.symbol);
+      let walletProvider: WalletProviderInterface | undefined = undefined;
+
+      // The LND client is also used as onchain wallet for UTXO based chains if available
+      if (currency.lndClient !== undefined) {
+        walletProvider = new LndWalletProvider(this.logger, currency.lndClient, currency.chainClient!);
+
+      // Else the Bitcoin Core wallet is used
+      } else {
+        walletProvider = new CoreWalletProvider(this.logger, currency.chainClient!);
+
+        // Sanity check that wallet support is compiled in
+        try {
+          await walletProvider.getBalance();
+        } catch (error) {
+          // No wallet support is compiled in
+          if (error.message === 'Method not found') {
+            throw Errors.NO_WALLET_SUPPORT(currency.symbol);
+          } else {
+            throw error;
+          }
+        }
       }
 
       let keyProviderInfo = keyProviderMap.get(currency.symbol);
@@ -113,7 +133,7 @@ class WalletManager {
       const wallet = new Wallet(
         this.logger,
         CurrencyType.BitcoinLike,
-        new LndWalletProvider(this.logger, currency.lndClient, currency.chainClient!),
+        walletProvider,
       );
 
       wallet.initKeyProvider(

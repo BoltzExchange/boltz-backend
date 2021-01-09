@@ -11,14 +11,13 @@ const spyGetOnchainTransactions = jest.spyOn(bitcoinLndClient, 'getOnchainTransa
 describe('LndWalletProvider', () => {
   const provider = new LndWalletProvider(Logger.disabledLogger, bitcoinLndClient, bitcoinClient);
 
-  const verifySentTransaction = async (sentTransaction: SentTransaction, destination: string, amount?: number) => {
+  const verifySentTransaction = async (sentTransaction: SentTransaction, destination: string, amount: number, isSweep: boolean) => {
     const rawTransaction = await bitcoinClient.getRawTransactionVerbose(sentTransaction.transactionId);
 
     expect(sentTransaction.transactionId).toEqual(sentTransaction.transaction!.getId());
 
-    if (amount) {
-      expect(coinsToSatoshis(rawTransaction.vout[sentTransaction.vout!].value)).toEqual(amount);
-    }
+    const expectedAmount = isSweep ? Math.round(amount - sentTransaction.fee!) : amount;
+    expect(Math.round(coinsToSatoshis(rawTransaction.vout[sentTransaction.vout!].value))).toEqual(expectedAmount);
 
     const { transactionsList } = await bitcoinLndClient.getOnchainTransactions(0);
 
@@ -47,10 +46,7 @@ describe('LndWalletProvider', () => {
 
       if (utxo.outpoint!.txidStr === sentTransaction.transactionId && utxo.outpoint!.outputIndex === sentTransaction.vout) {
         expect(utxo.address).toEqual(destination);
-
-        if (amount) {
-          expect(utxo.amountSat).toEqual(amount);
-        }
+        expect(utxo.amountSat).toEqual(expectedAmount);
 
         break;
       }
@@ -101,13 +97,14 @@ describe('LndWalletProvider', () => {
     expect(spyGetOnchainTransactions).toHaveBeenCalledTimes(1);
     expect(spyGetOnchainTransactions).toHaveBeenCalledWith(blockHeight);
 
-    await verifySentTransaction(sentTransaction, destination, amount);
+    await verifySentTransaction(sentTransaction, destination, amount, false);
   });
 
-  test('should sweep wallets', async () => {
+  test('should sweep the wallet', async () => {
     await bitcoinClient.generate(1);
 
     const { blockHeight } = await bitcoinLndClient.getInfo();
+    const balance = await provider.getBalance();
 
     const destination = await provider.getAddress();
     const sentTransaction = await provider.sweepWallet(destination);
@@ -115,7 +112,7 @@ describe('LndWalletProvider', () => {
     expect(spyGetOnchainTransactions).toHaveBeenCalledTimes(1);
     expect(spyGetOnchainTransactions).toHaveBeenCalledWith(blockHeight);
 
-    await verifySentTransaction(sentTransaction, destination);
+    await verifySentTransaction(sentTransaction, destination, balance.totalBalance, true);
 
     expect((await provider.getBalance()).confirmedBalance).toEqual(0);
   });

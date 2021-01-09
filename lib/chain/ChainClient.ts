@@ -7,7 +7,7 @@ import { getHexString } from '../Utils';
 import { ClientStatus } from '../consts/Enums';
 import ChainTipRepository from '../db/ChainTipRepository';
 import ZmqClient, { ZmqNotification, filters } from './ZmqClient';
-import { Block, BlockchainInfo, RawTransaction, BlockVerbose, NetworkInfo, UnspentUtxo } from '../consts/Types';
+import { Block, BlockchainInfo, RawTransaction, BlockVerbose, NetworkInfo, UnspentUtxo, WalletInfo } from '../consts/Types';
 
 interface ChainClient {
   on(event: 'block', listener: (height: number) => void): this;
@@ -18,12 +18,12 @@ interface ChainClient {
 }
 
 class ChainClient extends BaseClient {
+  public static readonly decimals = 100000000;
+
   public zmqClient: ZmqClient;
 
   private client: RpcClient;
   private chainTipRepository!: ChainTipRepository;
-
-  private static readonly decimals = 100000000;
 
   constructor(
     private logger: Logger,
@@ -184,12 +184,25 @@ class ChainClient extends BaseClient {
     }
   }
 
-  /**
-   * @param address to which coins should be sent
-   * @param amount in satoshis
-   */
-  public sendToAddress = (address: string, amount: number): Promise<string> => {
-    return this.client.request<string>('sendtoaddress', [address, amount / ChainClient.decimals]);
+  public getWalletInfo = async (): Promise<WalletInfo> => {
+    const result = await this.client.request<WalletInfo>('getwalletinfo');
+
+    // Format the amounts
+    result.balance = result.balance * ChainClient.decimals;
+    result.unconfirmed_balance = result.unconfirmed_balance * ChainClient.decimals;
+    result.immature_balance = result.immature_balance * ChainClient.decimals;
+
+    return result;
+  }
+
+  public sendToAddress = (address: string, amount: number, subtractFeeFromAmount = false): Promise<string> => {
+    return this.client.request<string>('sendtoaddress', [
+      address,
+      amount / ChainClient.decimals,
+      undefined,
+      undefined,
+      subtractFeeFromAmount,
+    ]);
   }
 
   public listUnspent = (): Promise<UnspentUtxo[]> => {
@@ -200,8 +213,8 @@ class ChainClient extends BaseClient {
     return this.client.request<string[]>('generatetoaddress', [blocks, await this.getNewAddress()]);
   }
 
-  private getNewAddress = (): Promise<string> => {
-    return this.client.request<string>('getnewaddress', []);
+  public getNewAddress = (): Promise<string> => {
+    return this.client.request<string>('getnewaddress', [undefined, 'bech32']);
   }
 
   private getZmqNotifications = (): Promise<ZmqNotification[]> => {

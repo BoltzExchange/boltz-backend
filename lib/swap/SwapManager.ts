@@ -557,7 +557,7 @@ class SwapManager {
       // query a route for the number of sats of the invoice divided
       // by the max payment parts we tell to LND to use
       const amountToQuery = decodedInvoice.featuresMap['17']?.is_known ?
-        Math.round(decodedInvoice.numSatoshis / lnd.paymentMaxParts) :
+        Math.round(decodedInvoice.numSatoshis / LndClient.paymentMaxParts) :
         decodedInvoice.numSatoshis;
 
       const routes = await lnd.queryRoutes(decodedInvoice.destination, amountToQuery);

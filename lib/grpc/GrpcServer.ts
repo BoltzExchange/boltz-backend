@@ -41,7 +41,9 @@ class GrpcServer {
       [{
         cert_chain: cert,
         private_key: key,
-      }], false);
+      }],
+      false,
+    );
     const bindCode = this.server.bind(`${host}:${port}`, serverCert);
 
     if (bindCode !== port) {

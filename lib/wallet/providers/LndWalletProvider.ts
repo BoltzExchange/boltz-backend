@@ -25,18 +25,23 @@ class LndWalletProvider implements WalletProviderInterface {
   }
 
   public sendToAddress = async (address: string, amount: number, satPerVbyte?: number): Promise<SentTransaction> => {
+    // To avoid weird race conditions (insanely unlikely but still), the start height of the LND transaction list call
+    // is queried *before* sending the onchain transaction
+    const { blockHeight } = await this.lndClient.getInfo();
     const response = await this.lndClient.sendCoins(address, amount, await this.getFeePerVbyte(satPerVbyte));
 
-    return this.handleLndTransaction(response.txid, address);
+    return this.handleLndTransaction(response.txid, address, blockHeight);
   }
 
   public sweepWallet = async (address: string, satPerVbyte?: number): Promise<SentTransaction> => {
+    // See "sendToAddress"
+    const { blockHeight } = await this.lndClient.getInfo();
     const response = await this.lndClient.sweepWallet(address, await this.getFeePerVbyte(satPerVbyte));
 
-    return this.handleLndTransaction(response.txid, address);
+    return this.handleLndTransaction(response.txid, address, blockHeight);
   }
 
-  private handleLndTransaction = async (transactionId: string, address: string): Promise<SentTransaction> => {
+  private handleLndTransaction = async (transactionId: string, address: string, listStartHeight: number): Promise<SentTransaction> => {
     const rawTransaction = await this.chainClient.getRawTransactionVerbose(transactionId);
 
     let vout = 0;
@@ -49,7 +54,8 @@ class LndWalletProvider implements WalletProviderInterface {
 
     let fee = 0;
 
-    const { transactionsList } = await this.lndClient.getOnchainTransactions();
+    // To limit the number of onchain transactions LND has to query, the start height is set
+    const { transactionsList } = await this.lndClient.getOnchainTransactions(listStartHeight);
 
     for (let i = 0; i < transactionsList.length; i += 1) {
       const transaction = transactionsList[i];

@@ -20,7 +20,6 @@ class LndWalletProvider implements WalletProviderInterface {
 
   public getAddress = async (): Promise<string> => {
     const response = await this.lndClient.newAddress(AddressType.WITNESS_PUBKEY_HASH);
-
     return response.address;
   }
 

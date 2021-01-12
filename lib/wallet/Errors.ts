@@ -32,8 +32,8 @@ export default {
     message: `${symbol} wallet does not supports outputs of type: ${type}`,
     code: concatErrorCode(ErrorCodePrefix.Wallet, 6),
   }),
-  LND_NOT_FOUND: (symbol: string): Error => ({
-    message: `could not find LND client of ${symbol}`,
+  NO_WALLET_SUPPORT: (symbol: string): Error => ({
+    message: `${symbol} core has no wallet support compiled in`,
     code: concatErrorCode(ErrorCodePrefix.Wallet, 7),
   }),
   MISSING_SWAP_CONTRACTS: (): Error => ({

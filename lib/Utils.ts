@@ -187,7 +187,11 @@ export const isObject = (val: unknown): boolean => {
 /**
  * Get the current date in the LocaleString format.
  */
-export const getTsString = (): string => (new Date()).toLocaleString('en-US', { hour12: false });
+export const getTsString = (): string => {
+  const date = new Date();
+  return `${date.getUTCDate()}/${date.getUTCMonth() + 1}/${date.getUTCFullYear()}` +
+    ` ${date.getUTCHours()}:${date.getUTCMinutes()}:${date.getUTCSeconds()}:${date.getUTCMilliseconds()}`;
+};
 
 /**
  * Recursively merge properties from different sources into a target object, overriding any

@@ -10,10 +10,10 @@ import Wallet from '../wallet/Wallet';
 import { ConfigType } from '../Config';
 import EventHandler from './EventHandler';
 import { PairConfig } from '../consts/Types';
+import { Payment } from '../proto/lnd/rpc_pb';
 import { gweiDecimals } from '../consts/Consts';
 import PairRepository from '../db/PairRepository';
 import { encodeBip21 } from './PaymentRequestUtils';
-import { SendResponse } from '../lightning/LndClient';
 import TimeoutDeltaProvider from './TimeoutDeltaProvider';
 import { Network } from '../wallet/ethereum/EthereumManager';
 import RateProvider, { PairType } from '../rates/RateProvider';
@@ -962,7 +962,7 @@ class Service {
   /**
    * Pays a lightning invoice
    */
-  public payInvoice = async (symbol: string, invoice: string): Promise<SendResponse> => {
+  public payInvoice = async (symbol: string, invoice: string): Promise<Payment.AsObject> => {
     const { lndClient } = this.getCurrency(symbol);
 
     if (!lndClient) {

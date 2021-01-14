@@ -7,11 +7,11 @@ import BaseClient from '../BaseClient';
 import * as lndrpc from '../proto/lnd/rpc_pb';
 import { ClientStatus } from '../consts/Enums';
 import * as routerrpc from '../proto/lnd/router_pb';
+import { formatError, getHexString } from '../Utils';
 import * as invoicesrpc from '../proto/lnd/invoices_pb';
 import { RouterClient } from '../proto/lnd/router_grpc_pb';
 import { LightningClient } from '../proto/lnd/rpc_grpc_pb';
 import { InvoicesClient } from '../proto/lnd/invoices_grpc_pb';
-import { formatError, getHexBuffer, getHexString } from '../Utils';
 
 /**
  * The configurable options for the LND client
@@ -21,11 +21,6 @@ type LndConfig = {
   port: number;
   certpath: string;
   macaroonpath: string;
-};
-
-type SendResponse = {
-  feeMsat: number;
-  preimage: Buffer;
 };
 
 type LndMethodFunction = (params: any, meta: grpc.Metadata, listener) => any;
@@ -64,13 +59,12 @@ class LndClient extends BaseClient implements LndClient {
   public static readonly serviceName = 'LND';
 
   public static readonly paymentMaxParts = 3;
+  public static readonly paymentTimeout = 15;
 
   private static readonly grpcOptions = {
     // 200 MB which is the same value lncli uses: https://github.com/lightningnetwork/lnd/commit/7470f696aebc51b4ab354324e6536f54446538e1
     'grpc.max_receive_message_length': 1024 * 1024 * 200,
   };
-
-  private static readonly paymentTimeout = 15;
 
   private static readonly minPaymentFee = 21;
   private static readonly maxPaymentFeeRatio = 0.03;
@@ -300,14 +294,43 @@ class LndClient extends BaseClient implements LndClient {
     return this.unaryLightningCall<lndrpc.PaymentHash, lndrpc.Invoice.AsObject>('lookupInvoice', request);
   }
 
+  public trackPayment = (preimageHash: Buffer): Promise<lndrpc.Payment.AsObject> => {
+    return new Promise<lndrpc.Payment.AsObject>((resolve, reject) => {
+      const request = new routerrpc.TrackPaymentRequest();
+      request.setNoInflightUpdates(true);
+      request.setPaymentHash(preimageHash);
+
+      const stream = this.router!.trackPaymentV2(request, this.meta);
+
+      const endStream = () => {
+        stream.removeAllListeners();
+        stream.destroy();
+      };
+
+      stream.on('data', (response: lndrpc.Payment) => {
+        endStream();
+        resolve(response.toObject());
+      });
+
+      stream.on('end', () => {
+        endStream();
+      });
+
+      stream.on('error', (error) => {
+        endStream();
+        reject(error);
+      });
+    });
+  }
+
   /**
    * Pay an invoice through the Lightning Network.
    *
    * @param invoice an invoice for a payment within the Lightning Network
    * @param outgoingChannelId channel through which the invoice should be paid
    */
-  public sendPayment = (invoice: string, outgoingChannelId?: string): Promise<SendResponse> => {
-    return new Promise<SendResponse>((resolve, reject) => {
+  public sendPayment = (invoice: string, outgoingChannelId?: string): Promise<lndrpc.Payment.AsObject> => {
+    return new Promise<lndrpc.Payment.AsObject>((resolve, reject) => {
       const request = new routerrpc.SendPaymentRequest();
 
       request.setMaxParts(LndClient.paymentMaxParts);
@@ -326,10 +349,7 @@ class LndClient extends BaseClient implements LndClient {
         switch (response.getStatus()) {
           case lndrpc.Payment.PaymentStatus.SUCCEEDED:
             stream.removeAllListeners();
-            resolve({
-              feeMsat: response.getFeeMsat(),
-              preimage: getHexBuffer(response.getPaymentPreimage()),
-            });
+            resolve(response.toObject());
             return;
 
           case lndrpc.Payment.PaymentStatus.FAILED:
@@ -651,4 +671,4 @@ class LndClient extends BaseClient implements LndClient {
 }
 
 export default LndClient;
-export { LndConfig, SendResponse };
+export { LndConfig };

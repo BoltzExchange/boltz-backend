@@ -309,16 +309,15 @@ class CommandHandler {
     for (const [symbol, chainArray] of pendingReverseSwapsByChain) {
       message += `\n**${symbol}**`;
 
+      let symbolTotal = 0;
+
       for (const pendingReverseSwap of chainArray) {
-        message += `\n  - *${pendingReverseSwap.id}*: ${pendingReverseSwap.onchainAmount}`;
+        symbolTotal += pendingReverseSwap.onchainAmount;
+        message += `\n  - \`${pendingReverseSwap.id}\`: ${satoshisToCoins(pendingReverseSwap.onchainAmount)}`;
       }
 
-      message += '\n';
+      message += `\n\nTotal: ${satoshisToCoins(symbolTotal)}\n`;
     }
-
-    /*for (const [currency, amountLocked] of lockedFunds) {
-      message += `\n- ${satoshisToCoins(amountLocked)} ${currency}`;
-    }*/
 
     await this.discord.sendMessage(message);
   }

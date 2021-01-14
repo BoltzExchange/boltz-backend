@@ -352,7 +352,8 @@ describe('CommandHandler', () => {
       // tslint:disable-next-line: prefer-template
       '**Locked up funds:**\n\n' +
       '**BTC**\n' +
-      '  - *r654321*: 1000000\n',
+      '  - `r654321`: 0.01\n' +
+      '\nTotal: 0.01\n',
     );
   });
 

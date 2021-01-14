@@ -1,11 +1,11 @@
 import { wait } from '../../Utils';
 import Logger from '../../../lib/Logger';
+import { stringify } from '../../../lib/Utils';
 import Database from '../../../lib/db/Database';
 import Service from '../../../lib/service/Service';
 import { NotificationConfig } from '../../../lib/Config';
 import PairRepository from '../../../lib/db/PairRepository';
 import SwapRepository from '../../../lib/db/SwapRepository';
-import { stringify, getHexBuffer } from '../../../lib/Utils';
 import BackupScheduler from '../../../lib/backup/BackupScheduler';
 import DiscordClient from '../../../lib/notifications/DiscordClient';
 import CommandHandler from '../../../lib/notifications/CommandHandler';
@@ -82,7 +82,7 @@ const invoicePreimage = '765895dd514ce9358f1412c6b416d6a8f8ecea1a4e442d1e15ea8b7
 const mockPayInvoice = jest.fn().mockImplementation(async (_: string, invoice: string) => {
   if (invoice !== 'throw') {
     return {
-      preimage: getHexBuffer(invoicePreimage),
+      paymentPreimage: invoicePreimage,
     };
   } else {
     throw 'lnd error';
@@ -352,7 +352,8 @@ describe('CommandHandler', () => {
       // tslint:disable-next-line: prefer-template
       '**Locked up funds:**\n\n' +
       '**BTC**\n' +
-      '  - *r654321*: 1000000\n',
+      '  - `r654321`: 0.01\n' +
+      '\nTotal: 0.01\n',
     );
   });
 

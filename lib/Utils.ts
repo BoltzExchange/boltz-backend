@@ -185,12 +185,18 @@ export const isObject = (val: unknown): boolean => {
 };
 
 /**
- * Get the current date in the LocaleString format.
+ * Get the current date
  */
 export const getTsString = (): string => {
   const date = new Date();
-  return `${date.getUTCDate()}/${date.getUTCMonth() + 1}/${date.getUTCFullYear()}` +
-    ` ${date.getUTCHours()}:${date.getUTCMinutes()}:${date.getUTCSeconds()}:${date.getUTCMilliseconds()}`;
+
+  const pad = (input: number, maxLength = 2) => {
+    return input.toString().padStart(maxLength, '0');
+  };
+
+  return `${pad(date.getUTCDate())}/${pad(date.getUTCMonth() + 1)}/${date.getUTCFullYear()}` +
+    ` ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}:` +
+    `${pad(date.getUTCMilliseconds(), 3)}`;
 };
 
 /**

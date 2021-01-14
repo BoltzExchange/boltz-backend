@@ -14,7 +14,7 @@ import ReverseSwap from '../db/models/ReverseSwap';
 import BackupScheduler from '../backup/BackupScheduler';
 import ChannelCreation from '../db/models/ChannelCreation';
 import { coinsToSatoshis, satoshisToCoins } from '../DenominationConverter';
-import { getChainCurrency, stringify, splitPairId, getHexString, formatError } from '../Utils';
+import { getChainCurrency, stringify, splitPairId, formatError } from '../Utils';
 
 enum Command {
   Help = 'help',
@@ -309,16 +309,15 @@ class CommandHandler {
     for (const [symbol, chainArray] of pendingReverseSwapsByChain) {
       message += `\n**${symbol}**`;
 
+      let symbolTotal = 0;
+
       for (const pendingReverseSwap of chainArray) {
-        message += `\n  - *${pendingReverseSwap.id}*: ${pendingReverseSwap.onchainAmount}`;
+        symbolTotal += pendingReverseSwap.onchainAmount;
+        message += `\n  - \`${pendingReverseSwap.id}\`: ${satoshisToCoins(pendingReverseSwap.onchainAmount)}`;
       }
 
-      message += '\n';
+      message += `\n\nTotal: ${satoshisToCoins(symbolTotal)}\n`;
     }
-
-    /*for (const [currency, amountLocked] of lockedFunds) {
-      message += `\n- ${satoshisToCoins(amountLocked)} ${currency}`;
-    }*/
 
     await this.discord.sendMessage(message);
   }
@@ -416,7 +415,7 @@ class CommandHandler {
       try {
         const response = await this.service.payInvoice(symbol, args[2]);
 
-        await this.discord.sendMessage(`Paid lightning invoice\nPreimage: ${getHexString(response.preimage)}`);
+        await this.discord.sendMessage(`Paid lightning invoice\nPreimage: ${response.paymentPreimage}`);
       } catch (error) {
         await this.discord.sendMessage(`Could not pay lightning invoice: ${formatError(error)}`);
       }

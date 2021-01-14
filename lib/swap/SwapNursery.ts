@@ -647,20 +647,43 @@ class SwapNursery extends EventEmitter {
       this.emit('invoice.pending', await this.swapRepository.setSwapStatus(swap, SwapUpdateEvent.InvoicePending));
     }
 
+    const setInvoicePaid = async (feeMsat: number) => {
+      this.emit('invoice.paid', await this.swapRepository.setInvoicePaid(swap, feeMsat));
+    };
+
     const { base, quote } = splitPairId(swap.pair);
     const lightningSymbol = getLightningCurrency(base, quote, swap.orderSide, false);
 
     const lightningCurrency = this.currencies.get(lightningSymbol)!;
 
     try {
-      const payResponse = await lightningCurrency.lndClient!.sendPayment(swap.invoice!, outgoingChannelId);
+      const raceTimeout = LndClient.paymentTimeout * 2;
+      const payResponse = await Promise.race([
+        lightningCurrency.lndClient!.sendPayment(swap.invoice!, outgoingChannelId),
+        new Promise<undefined>((resolve) => {
+          setTimeout(() => {
+            resolve(undefined);
+          }, raceTimeout * 1000);
+        }),
+      ]);
 
-      this.logger.debug(`Got preimage of Swap ${swap.id}: ${getHexString(payResponse.preimage)}`);
-      this.emit('invoice.paid', await this.swapRepository.setInvoicePaid(swap, payResponse.feeMsat));
+      if (payResponse !== undefined) {
+        this.logger.debug(`Paid invoice of Swap ${swap.id}: ${payResponse.paymentPreimage}`);
+        await setInvoicePaid(payResponse.feeMsat);
 
-      return payResponse.preimage;
+        return getHexBuffer(payResponse.paymentPreimage);
+      } else {
+        this.logger.verbose(`Invoice payment of Swap ${swap.id} is still pending after ${raceTimeout} seconds`);
+      }
     } catch (error) {
-      // TODO: what error is thrown for expired invoices?
+      // Catch cases in which the invoice was paid already
+      if (error.code === 6 && error.details === 'invoice is already paid') {
+        const payment = await lightningCurrency.lndClient!.trackPayment(getHexBuffer(swap.preimageHash));
+        this.logger.debug(`Invoice of Swap ${swap.id} is paid already: ${payment.paymentPreimage}`);
+        await setInvoicePaid(payment.feeMsat);
+
+        return getHexBuffer(payment.paymentPreimage);
+      }
 
       const errorMessage = typeof error === 'number' ? LndClient.formatPaymentFailureReason(error) : formatError(error);
       this.logger.warn(`Could not pay invoice of Swap ${swap.id} because: ${errorMessage}`);

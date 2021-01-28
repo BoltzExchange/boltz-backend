@@ -394,7 +394,7 @@ export const getSwapMemo = (sendingCurrency: string, isReverse: boolean): string
 };
 
 export const getPrepayMinerFeeInvoiceMemo = (sendingCurrency: string): string => {
-  return `Miner fee for Reverse Swap to ${sendingCurrency} address`;
+  return `Miner fee for sending to ${sendingCurrency} address`;
 };
 
 export const formatError = (error: unknown): string => {
@@ -416,7 +416,6 @@ export const getUnixTime = (): number => {
 };
 
 /**
-<<<<<<< HEAD
  * Calculates the miner fee of a transaction on a UTXO based chain
  */
 export const calculateUtxoTransactionFee = async (chainClient: ChainClient, transaction: Transaction): Promise<number> => {

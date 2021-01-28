@@ -1,4 +1,6 @@
 import { Op } from 'sequelize';
+import { randomBytes } from 'crypto';
+import { crypto } from 'bitcoinjs-lib';
 import { OutputType, reverseSwapScript, swapScript } from 'boltz-core';
 import Errors from './Errors';
 import Logger from '../Logger';
@@ -14,7 +16,7 @@ import ReverseSwapRepository from '../db/ReverseSwapRepository';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
 import ChannelCreationRepository from '../db/ChannelCreationRepository';
-import { ChannelCreationType, OrderSide, SwapUpdateEvent, CurrencyType } from '../consts/Enums';
+import { ChannelCreationType, CurrencyType, OrderSide, SwapUpdateEvent } from '../consts/Enums';
 import {
   decodeInvoice,
   formatError,
@@ -59,7 +61,6 @@ class SwapManager {
     private walletManager: WalletManager,
     rateProvider: RateProvider,
     private swapOutputType: OutputType,
-    prepayMinerFee: boolean,
     retryInterval: number,
   ) {
     this.channelCreationRepository = new ChannelCreationRepository();
@@ -75,7 +76,6 @@ class SwapManager {
       this.channelCreationRepository,
       this.swapOutputType,
       retryInterval,
-      prepayMinerFee,
     );
   }
 
@@ -141,7 +141,7 @@ class SwapManager {
 
     channel?: ChannelCreationInfo,
 
-    // Only required for UTXO base chains
+    // Only required for UTXO based chains
     refundPublicKey?: Buffer,
   }): Promise<{
     id: string,
@@ -388,7 +388,9 @@ class SwapManager {
     onchainTimeoutBlockDelta: number,
     lightningTimeoutBlockDelta: number,
     percentageFee: number,
-    prepayMinerFee?: number,
+
+    prepayMinerFeeInvoiceAmount?: number,
+    prepayMinerFeeOnchainAmount?: number,
 
     // Public key of the node for which routing hints should be included in the invoice(s)
     routingNode?: string,
@@ -441,16 +443,28 @@ class SwapManager {
     receivingCurrency.lndClient.subscribeSingleInvoice(args.preimageHash);
 
     let minerFeeInvoice: string | undefined = undefined;
+    let minerFeeInvoicePreimage: string | undefined = undefined;
 
-    if (args.prepayMinerFee) {
-      const prepayInvoice = await receivingCurrency.lndClient.addInvoice(
-        args.prepayMinerFee,
+    if (args.prepayMinerFeeInvoiceAmount) {
+      const preimage = randomBytes(32);
+      minerFeeInvoicePreimage = getHexString(preimage);
+
+      const minerFeeInvoicePreimageHash = crypto.sha256(preimage);
+
+      const prepayInvoice = await receivingCurrency.lndClient.addHoldInvoice(
+        args.prepayMinerFeeInvoiceAmount,
+        minerFeeInvoicePreimageHash,
+        undefined,
         getPrepayMinerFeeInvoiceMemo(sendingCurrency.symbol),
         routingHints,
       );
       minerFeeInvoice = prepayInvoice.paymentRequest;
 
-      receivingCurrency.lndClient.subscribeSingleInvoice(Buffer.from(prepayInvoice.rHash as string, 'base64'));
+      receivingCurrency.lndClient.subscribeSingleInvoice(minerFeeInvoicePreimageHash);
+
+      if (args.prepayMinerFeeOnchainAmount) {
+        this.logger.debug(`Sending ${args.prepayMinerFeeOnchainAmount} Ether as prepay miner fee for Reverse Swap: ${id}`);
+      }
     }
 
     const pair = getPairId({ base: args.baseCurrency, quote: args.quoteCurrency });
@@ -492,6 +506,8 @@ class SwapManager {
         status: SwapUpdateEvent.SwapCreated,
         redeemScript: getHexString(redeemScript),
         preimageHash: getHexString(args.preimageHash),
+        minerFeeInvoicePreimage: minerFeeInvoicePreimage,
+        minerFeeOnchainAmount: args.prepayMinerFeeOnchainAmount,
       });
 
     } else {
@@ -516,6 +532,8 @@ class SwapManager {
         onchainAmount: args.onchainAmount,
         status: SwapUpdateEvent.SwapCreated,
         preimageHash: getHexString(args.preimageHash),
+        minerFeeInvoicePreimage: minerFeeInvoicePreimage,
+        minerFeeOnchainAmount: args.prepayMinerFeeOnchainAmount,
       });
     }
 

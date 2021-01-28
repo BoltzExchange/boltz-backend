@@ -802,6 +802,7 @@ describe('Controller', () => {
 
     await controller.createSwap(mockRequest(requestData), res);
 
+
     expect(service.createReverseSwap).toHaveBeenNthCalledWith(3,
       {
         pairId: requestData.pairId,
@@ -815,6 +816,27 @@ describe('Controller', () => {
 
     expect(res.status).toHaveBeenNthCalledWith(3, 201);
     expect(res.json).toHaveBeenNthCalledWith(3, await mockCreateReverseSwap());
+
+    requestData.pairHash = undefined;
+
+    // Should parse and pass the prepay miner fee boolean
+    requestData.prepayMinerFee = true;
+
+    await controller.createSwap(mockRequest(requestData), res);
+
+    expect(service.createReverseSwap).toHaveBeenNthCalledWith(5,
+      {
+        prepayMinerFee: true,
+        pairId: requestData.pairId,
+        orderSide: requestData.orderSide,
+        preimageHash: getHexBuffer(requestData.preimageHash),
+        invoiceAmount: requestData.invoiceAmount,
+        claimPublicKey: getHexBuffer(requestData.claimPublicKey),
+      },
+    );
+
+    expect(res.status).toHaveBeenNthCalledWith(4, 201);
+    expect(res.json).toHaveBeenNthCalledWith(4, await mockCreateReverseSwap());
   });
 
   test('should stream swap status updates', () => {

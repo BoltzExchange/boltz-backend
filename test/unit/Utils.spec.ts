@@ -206,7 +206,7 @@ describe('Utils', () => {
   });
 
   test('should get memo for miner fee invoices', () => {
-    expect(utils.getPrepayMinerFeeInvoiceMemo('BTC')).toBe('Miner fee for Reverse Swap to BTC address');
+    expect(utils.getPrepayMinerFeeInvoiceMemo('BTC')).toBe('Miner fee for sending to BTC address');
   });
 
   test('should get sending and receiving currency', () => {

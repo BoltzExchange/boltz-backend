@@ -154,12 +154,6 @@ jest.mock('../../../lib/chain/ChainClient', () => {
 
 const MockedChainClient = <jest.Mock<ChainClient>><any>ChainClient;
 
-const mockAddInvoiceResult = {
-  paymentRequest: 'invoice',
-  rHash: 'ccP2NYXCfqhv2EMfqgAdJ17OUU8T4khEAeKMQ71MGDY=',
-};
-const mockAddInvoice = jest.fn().mockResolvedValue(mockAddInvoiceResult);
-
 const mockDecodedInvoiceAmount = 1000000;
 const mockDecodePayReq = jest.fn().mockImplementation(async (invoice: string) => {
   const featuresMap = {};
@@ -217,7 +211,6 @@ jest.mock('../../../lib/lightning/LndClient', () => {
   const mockedImplementation = jest.fn().mockImplementation(() => {
     return {
       on: () => {},
-      addInvoice: mockAddInvoice,
       queryRoutes: mockQueryRoutes,
       decodePayReq: mockDecodePayReq,
       listChannels: mockListChannels,
@@ -268,7 +261,6 @@ describe('SwapManager', () => {
       new MockedWalletManager(),
       new MockedRateProvider(),
       OutputType.Compatibility,
-      false,
       0,
     );
 
@@ -800,7 +792,8 @@ describe('SwapManager', () => {
     });
 
     // Prepay miner fee
-    const prepayMinerFee = 2;
+    const prepayMinerFeeInvoiceAmount = 310;
+    const prepayMinerFeeOnchainAmount = 10;
 
     const prepayReverseSwap = await manager.createReverseSwap({
       orderSide,
@@ -809,28 +802,30 @@ describe('SwapManager', () => {
       onchainAmount,
       quoteCurrency,
       percentageFee,
-      prepayMinerFee,
       holdInvoiceAmount,
       onchainTimeoutBlockDelta,
       lightningTimeoutBlockDelta,
+      prepayMinerFeeInvoiceAmount,
+      prepayMinerFeeOnchainAmount,
+
       claimPublicKey: claimKey,
     });
 
     expect(prepayReverseSwap).toEqual({
       id: expect.anything(),
       invoice: mockAddHoldInvoiceResult,
-      minerFeeInvoice: mockAddInvoiceResult.paymentRequest,
+      minerFeeInvoice: mockAddHoldInvoiceResult,
       lockupAddress: 'bcrt1q2f4axqr8859mmemce2fcvdvuqlu8vqtjfg3z4j2w4fu52t58g42sjtfv2y',
       timeoutBlockHeight: onchainTimeoutBlockDelta + mockGetBlockchainInfoResult.blocks,
       redeemScript: '8201208763a9142f958e32209e7d5f60d321d4f4f6e12bdbf06db28821026c94d2958888e70fd32349b3c195803976e0865a54ab1755f19c2c820fcbafa86775020701b1752102c9c71ee3fee0c400ff64e51e955313e77ea499fc609973c71c5a4104a8d903bb68ac',
     });
 
-    expect(mockAddHoldInvoice).toHaveBeenCalledTimes(2);
+    expect(mockAddHoldInvoice).toHaveBeenCalledTimes(3);
     expect(mockAddHoldInvoice).toHaveBeenNthCalledWith(2, holdInvoiceAmount, preimageHash, lightningTimeoutBlockDelta, 'Send to BTC address', undefined);
+    expect(mockAddHoldInvoice).toHaveBeenNthCalledWith(3, prepayMinerFeeInvoiceAmount, expect.anything(), undefined, 'Miner fee for sending to BTC address', undefined);
 
     expect(mockSubscribeSingleInvoice).toHaveBeenCalledTimes(3);
     expect(mockSubscribeSingleInvoice).toHaveBeenNthCalledWith(2, preimageHash);
-    expect(mockSubscribeSingleInvoice).toHaveBeenNthCalledWith(3, Buffer.from(mockAddInvoiceResult.rHash, 'base64'));
 
     expect(mockGetNewKeys).toHaveBeenCalledTimes(2);
     expect(mockGetBlockchainInfo).toHaveBeenCalledTimes(2);
@@ -841,13 +836,16 @@ describe('SwapManager', () => {
       orderSide,
       onchainAmount,
       fee: percentageFee,
+
       id: prepayReverseSwap.id,
       invoice: mockAddHoldInvoiceResult,
       status: SwapUpdateEvent.SwapCreated,
       keyIndex: mockGetNewKeysResult.index,
       pair: `${baseCurrency}/${quoteCurrency}`,
       preimageHash: getHexString(preimageHash),
-      minerFeeInvoice: mockAddInvoiceResult.paymentRequest,
+      minerFeeInvoice: mockAddHoldInvoiceResult,
+      minerFeeInvoicePreimage: expect.anything(),
+      minerFeeOnchainAmount: prepayMinerFeeOnchainAmount,
       lockupAddress: 'bcrt1q2f4axqr8859mmemce2fcvdvuqlu8vqtjfg3z4j2w4fu52t58g42sjtfv2y',
       timeoutBlockHeight: onchainTimeoutBlockDelta + mockGetBlockchainInfoResult.blocks,
       redeemScript: '8201208763a9142f958e32209e7d5f60d321d4f4f6e12bdbf06db28821026c94d2958888e70fd32349b3c195803976e0865a54ab1755f19c2c820fcbafa86775020701b1752102c9c71ee3fee0c400ff64e51e955313e77ea499fc609973c71c5a4104a8d903bb68ac',
@@ -869,31 +867,31 @@ describe('SwapManager', () => {
       quoteCurrency,
       onchainAmount,
       percentageFee,
-      prepayMinerFee,
       holdInvoiceAmount,
       onchainTimeoutBlockDelta,
       lightningTimeoutBlockDelta,
 
       claimPublicKey: claimKey,
       routingNode: nodePublicKey,
+      prepayMinerFeeInvoiceAmount,
     });
 
     expect(mockGetRoutingHints).toHaveBeenCalledTimes(1);
     expect(mockGetRoutingHints).toHaveBeenCalledWith(baseCurrency, nodePublicKey);
 
-    expect(mockAddHoldInvoice).toHaveBeenCalledTimes(3);
-    expect(mockAddHoldInvoice).toHaveBeenNthCalledWith(3,
+    expect(mockAddHoldInvoice).toHaveBeenCalledTimes(5);
+    expect(mockAddHoldInvoice).toHaveBeenNthCalledWith(4,
       holdInvoiceAmount,
       preimageHash,
       lightningTimeoutBlockDelta,
       'Send to BTC address',
       mockGetRoutingHintsResult,
     );
-
-    expect(mockAddInvoice).toHaveBeenCalledTimes(2);
-    expect(mockAddInvoice).toHaveBeenNthCalledWith(2,
-      prepayMinerFee,
-      'Miner fee for Reverse Swap to BTC address',
+    expect(mockAddHoldInvoice).toHaveBeenNthCalledWith(5,
+      prepayMinerFeeInvoiceAmount,
+      expect.anything(),
+      undefined,
+      'Miner fee for sending to BTC address',
       mockGetRoutingHintsResult,
     );
 

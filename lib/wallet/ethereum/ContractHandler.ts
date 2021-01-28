@@ -5,6 +5,7 @@ import Logger from '../../Logger';
 import { getHexString } from '../../Utils';
 import { getGasPrice } from './EthereumUtils';
 import ERC20WalletProvider from '../providers/ERC20WalletProvider';
+import { ethereumPrepayMinerFeeGasLimit } from '../../consts/Consts';
 
 class ContractHandler {
   private etherSwap!: EtherSwap;
@@ -30,6 +31,39 @@ class ContractHandler {
       value: amount,
       gasPrice: await getGasPrice(this.etherSwap.provider),
     });
+  }
+
+  public lockupEtherPrepayMinerfee = async (
+    preimageHash: Buffer,
+    amount: BigNumber,
+    amountPrepay: BigNumber,
+    claimAddress: string,
+    timeLock: number,
+  ): Promise<ContractTransaction> => {
+    const transactionValue = amount.add(amountPrepay);
+
+    const gasLimitEstimationWithoutPrepay = await this.etherSwap.estimateGas.lock(
+      preimageHash,
+      claimAddress,
+      timeLock,
+      {
+        value: transactionValue,
+      },
+    );
+
+    this.logger.debug(`Locking ${amount} and sending prepay ${amountPrepay} Ether with preimage hash: ${getHexString(preimageHash)}`);
+    return this.etherSwap.lockPrepayMinerfee(
+      preimageHash,
+      claimAddress,
+      timeLock,
+      amountPrepay,
+      {
+        value: transactionValue,
+        gasPrice: await getGasPrice(this.etherSwap.provider),
+        // TODO: integration test that tries to exploit the attack vector of using an insane amount of gas in the fallback function of the contract at the claim address
+        gasLimit: gasLimitEstimationWithoutPrepay.add(ethereumPrepayMinerFeeGasLimit),
+      },
+    );
   }
 
   public claimEther = async (
@@ -85,6 +119,37 @@ class ContractHandler {
       {
         gasPrice: await getGasPrice(this.erc20Swap.provider),
       }
+    );
+  }
+
+  public lockupTokenPrepayMinerfee = async (
+    token: ERC20WalletProvider,
+    preimageHash: Buffer,
+    amount: BigNumber,
+    amountPrepay: BigNumber,
+    claimAddress: string,
+    timeLock: number,
+  ): Promise<ContractTransaction> => {
+    const gasLimitEstimationWithoutPrepay = await this.erc20Swap.estimateGas.lock(
+      preimageHash,
+      amount,
+      token.getTokenAddress(),
+      claimAddress,
+      timeLock,
+    );
+
+    this.logger.debug(`Locking ${amount} ${token.symbol} and sending prepay ${amountPrepay} Ether with preimage hash: ${getHexString(preimageHash)}`);
+    return this.erc20Swap.lockPrepayMinerfee(
+      preimageHash,
+      amount,
+      token.getTokenAddress(),
+      claimAddress,
+      timeLock,
+      {
+        value: amountPrepay,
+        gasPrice: await getGasPrice(this.etherSwap.provider),
+        gasLimit: gasLimitEstimationWithoutPrepay.add(ethereumPrepayMinerFeeGasLimit),
+      },
     );
   }
 

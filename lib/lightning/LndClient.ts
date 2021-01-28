@@ -276,11 +276,14 @@ class LndClient extends BaseClient implements LndClient {
    * @param memo optional memo to attach along with the invoice
    * @param routingHints routing hints that should be included in the invoice
    */
-  public addHoldInvoice = (value: number, preimageHash: Buffer, cltvExpiry: number, memo?: string, routingHints?: lndrpc.RouteHint[]): Promise<invoicesrpc.AddHoldInvoiceResp.AsObject> => {
+  public addHoldInvoice = (value: number, preimageHash: Buffer, cltvExpiry?: number, memo?: string, routingHints?: lndrpc.RouteHint[]): Promise<invoicesrpc.AddHoldInvoiceResp.AsObject> => {
     const request = new invoicesrpc.AddHoldInvoiceRequest();
     request.setValue(value);
-    request.setCltvExpiry(cltvExpiry);
     request.setHash(Uint8Array.from(preimageHash));
+
+    if (cltvExpiry) {
+      request.setCltvExpiry(cltvExpiry);
+    }
 
     if (memo) {
       request.setMemo(memo);

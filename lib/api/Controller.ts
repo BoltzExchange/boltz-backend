@@ -354,6 +354,7 @@ class Controller {
       preimageHash,
       invoiceAmount,
       claimPublicKey,
+      prepayMinerFee,
     } = this.validateRequest(req.body, [
       { name: 'pairId', type: 'string' },
       { name: 'orderSide', type: 'string' },
@@ -363,6 +364,7 @@ class Controller {
       { name: 'routingNode', type: 'string', optional: true },
       { name: 'claimAddress', type: 'string', optional: true, },
       { name: 'claimPublicKey', type: 'string', hex: true, optional: true },
+      { name: 'prepayMinerFee', type: 'boolean', optional: true },
     ]);
 
     this.checkPreimageHashLength(preimageHash);
@@ -376,6 +378,7 @@ class Controller {
       preimageHash,
       invoiceAmount,
       claimPublicKey,
+      prepayMinerFee,
     });
 
     this.logger.verbose(`Created Reverse Swap with id: ${response.id}`);

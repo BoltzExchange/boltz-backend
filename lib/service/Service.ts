@@ -10,7 +10,6 @@ import Wallet from '../wallet/Wallet';
 import { ConfigType } from '../Config';
 import EventHandler from './EventHandler';
 import { PairConfig } from '../consts/Types';
-import { gweiDecimals } from '../consts/Consts';
 import PairRepository from '../db/PairRepository';
 import { encodeBip21 } from './PaymentRequestUtils';
 import { Payment, RouteHint } from '../proto/lnd/rpc_pb';
@@ -20,6 +19,7 @@ import RateProvider, { PairType } from '../rates/RateProvider';
 import { getGasPrice } from '../wallet/ethereum/EthereumUtils';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import SwapManager, { ChannelCreationInfo } from '../swap/SwapManager';
+import { etherDecimals, ethereumPrepayMinerFeeGasLimit, gweiDecimals } from '../consts/Consts';
 import { BaseFeeType, CurrencyType, OrderSide, ServiceInfo, ServiceWarning } from '../consts/Enums';
 import {
   Balance,
@@ -98,7 +98,6 @@ class Service {
       this.walletManager,
       this.rateProvider,
       config.swapwitnessaddress ? OutputType.Bech32 : OutputType.Compatibility,
-      this.prepayMinerFee,
       config.retryInterval,
     );
 
@@ -849,6 +848,9 @@ class Service {
 
     // Required for Reverse Swaps to Ether or ERC20 tokens
     claimAddress?: string,
+
+    // Whether the Ethereum prepay miner fee should be enabled for the Reverse Swap
+    prepayMinerFee?: boolean,
   }): Promise<{
     id: string,
     invoice: string,
@@ -871,13 +873,18 @@ class Service {
     }
 
     const { sending, receiving } = getSendingReceivingCurrency(base, quote, side);
+    const sendingCurrency = this.getCurrency(sending);
 
     // Not the pretties way and also not the right spot to do input validation but
     // only at this point in time the type of the sending currency is known
-    switch (this.getCurrency(sending).type) {
+    switch (sendingCurrency.type) {
       case CurrencyType.BitcoinLike:
         if (args.claimPublicKey === undefined) {
           throw ApiErrors.UNDEFINED_PARAMETER('claimPublicKey');
+        }
+
+        if (args.prepayMinerFee === true) {
+          throw ApiErrors.UNSUPPORTED_PARAMETER(sending, 'prepayMinerFee');
         }
         break;
 
@@ -897,8 +904,6 @@ class Service {
         break;
     }
 
-    const rate = getRate(pairRate, side, true);
-
     const onchainTimeoutBlockDelta = this.timeoutDeltaProvider.getTimeout(args.pairId, side, true);
 
     let lightningTimeoutBlockDelta = TimeoutDeltaProvider.convertBlocks(
@@ -910,18 +915,35 @@ class Service {
     // Add 3 blocks to the delta for same currency swaps and 10% for cross chain ones as buffer
     lightningTimeoutBlockDelta += sending === receiving ? 3 : Math.ceil(lightningTimeoutBlockDelta * 0.1);
 
+    const rate = getRate(pairRate, side, true);
     this.verifyAmount(args.pairId, rate, args.invoiceAmount, side, true);
 
     const { baseFee, percentageFee } = this.rateProvider.feeProvider.getFees(args.pairId, rate, side, args.invoiceAmount, BaseFeeType.ReverseLockup);
 
-    const onchainAmount = Math.floor(args.invoiceAmount * rate) - (baseFee + percentageFee);
+    let onchainAmount = Math.floor(args.invoiceAmount * rate) - (baseFee + percentageFee);
 
     let holdInvoiceAmount = args.invoiceAmount;
-    let prepayMinerFeeAmount: number | undefined = undefined;
 
-    if (this.prepayMinerFee) {
-      prepayMinerFeeAmount = Math.ceil(baseFee / rate);
-      holdInvoiceAmount -= prepayMinerFeeAmount;
+    let prepayMinerFeeInvoiceAmount: number | undefined = undefined;
+    let prepayMinerFeeOnchainAmount: number | undefined = undefined;
+
+    const swapIsPrepayMinerFee = this.prepayMinerFee || args.prepayMinerFee === true;
+
+    if (swapIsPrepayMinerFee) {
+      if (sendingCurrency.type === CurrencyType.BitcoinLike) {
+        prepayMinerFeeInvoiceAmount = Math.ceil(baseFee / rate);
+      } else {
+        const gasPrice = await getGasPrice(sendingCurrency.provider!);
+        prepayMinerFeeOnchainAmount = ethereumPrepayMinerFeeGasLimit.mul(gasPrice).div(etherDecimals).toNumber();
+
+        const sendingAmountRate = sending === 'ETH' ? 1 : this.rateProvider.rateCalculator.calculateRate('ETH', sending);
+        onchainAmount -= Math.ceil(prepayMinerFeeOnchainAmount * sendingAmountRate);
+
+        const receivingAmountRate = receiving === 'ETH' ? 1 : this.rateProvider.rateCalculator.calculateRate('ETH', receiving);
+        prepayMinerFeeInvoiceAmount = Math.ceil(prepayMinerFeeOnchainAmount * receivingAmountRate);
+      }
+
+      holdInvoiceAmount = Math.floor(holdInvoiceAmount - prepayMinerFeeInvoiceAmount);
     }
 
     if (onchainAmount < 1) {
@@ -942,6 +964,8 @@ class Service {
       holdInvoiceAmount,
       onchainTimeoutBlockDelta,
       lightningTimeoutBlockDelta,
+      prepayMinerFeeInvoiceAmount,
+      prepayMinerFeeOnchainAmount,
 
       orderSide: side,
       baseCurrency: base,
@@ -950,7 +974,6 @@ class Service {
       claimAddress: args.claimAddress,
       preimageHash: args.preimageHash,
       claimPublicKey: args.claimPublicKey,
-      prepayMinerFee: prepayMinerFeeAmount,
     });
 
     this.eventHandler.emitSwapCreation(id);
@@ -965,7 +988,7 @@ class Service {
       timeoutBlockHeight,
     };
 
-    if (this.prepayMinerFee) {
+    if (swapIsPrepayMinerFee) {
       response.minerFeeInvoice = minerFeeInvoice;
     }
 
@@ -1009,9 +1032,9 @@ class Service {
     const wallet = this.walletManager.wallets.get(symbol);
 
     if (wallet !== undefined) {
-      const sendingPromise = sendAll ? wallet.sweepWallet(address, fee) : wallet.sendToAddress(address, amount, fee);
-
-      const { transactionId, vout } = await sendingPromise;
+      const { transactionId, vout } = sendAll ?
+        await wallet.sweepWallet(address, fee) :
+        await wallet.sendToAddress(address, amount, fee);
 
       return {
         transactionId,

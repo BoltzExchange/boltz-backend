@@ -1,8 +1,8 @@
 import { Op } from 'sequelize';
 import AsyncLock from 'async-lock';
-import { BigNumber } from 'ethers';
+import { BigNumber, ContractTransaction } from 'ethers';
 import { EventEmitter } from 'events';
-import { Transaction } from 'bitcoinjs-lib';
+import { crypto, Transaction } from 'bitcoinjs-lib';
 import { constructClaimTransaction, constructRefundTransaction, detectSwap, OutputType } from 'boltz-core';
 import Errors from './Errors';
 import Logger from '../Logger';
@@ -119,7 +119,6 @@ class SwapNursery extends EventEmitter {
     private channelCreationRepository: ChannelCreationRepository,
     private swapOutputType: OutputType,
     private retryInterval: number,
-    prepayMinerFee: boolean,
   ) {
     super();
 
@@ -134,7 +133,6 @@ class SwapNursery extends EventEmitter {
 
     this.lightningNursery = new LightningNursery(
       this.logger,
-      prepayMinerFee,
       this.reverseSwapRepository,
     );
 
@@ -463,19 +461,30 @@ class SwapNursery extends EventEmitter {
     }
   }
 
-  // TODO: use prepay miner fee for Ethereum
   private lockupEther = async (
     wallet: Wallet,
     lndClient: LndClient,
     reverseSwap: ReverseSwap,
   ) => {
     try {
-      const contractTransaction = await this.walletManager.ethereumManager!.contractHandler.lockupEther(
-        getHexBuffer(reverseSwap.preimageHash),
-        BigNumber.from(reverseSwap.onchainAmount).mul(etherDecimals),
-        reverseSwap.claimAddress!,
-        reverseSwap.timeoutBlockHeight,
-      );
+      let contractTransaction: ContractTransaction;
+
+      if (reverseSwap.minerFeeOnchainAmount) {
+        contractTransaction = await this.walletManager.ethereumManager!.contractHandler.lockupEtherPrepayMinerfee(
+          getHexBuffer(reverseSwap.preimageHash),
+          BigNumber.from(reverseSwap.onchainAmount).mul(etherDecimals),
+          BigNumber.from(reverseSwap.minerFeeOnchainAmount).mul(etherDecimals),
+          reverseSwap.claimAddress!,
+          reverseSwap.timeoutBlockHeight,
+        );
+      } else {
+        contractTransaction = await this.walletManager.ethereumManager!.contractHandler.lockupEther(
+          getHexBuffer(reverseSwap.preimageHash),
+          BigNumber.from(reverseSwap.onchainAmount).mul(etherDecimals),
+          reverseSwap.claimAddress!,
+          reverseSwap.timeoutBlockHeight,
+        );
+      }
 
       this.ethereumNursery!.listenContractTransaction(reverseSwap, contractTransaction);
       this.logger.verbose(`Locked up ${reverseSwap.onchainAmount} Ether for Reverse Swap ${reverseSwap.id}: ${contractTransaction.hash}`);
@@ -502,13 +511,26 @@ class SwapNursery extends EventEmitter {
     try {
       const walletProvider = wallet.walletProvider as ERC20WalletProvider;
 
-      const contractTransaction = await this.walletManager.ethereumManager!.contractHandler.lockupToken(
-        walletProvider,
-        getHexBuffer(reverseSwap.preimageHash),
-        walletProvider.formatTokenAmount(reverseSwap.onchainAmount),
-        reverseSwap.claimAddress!,
-        reverseSwap.timeoutBlockHeight,
-      );
+      let contractTransaction: ContractTransaction;
+
+      if (reverseSwap.minerFeeOnchainAmount) {
+        contractTransaction = await this.walletManager.ethereumManager!.contractHandler.lockupTokenPrepayMinerfee(
+          walletProvider,
+          getHexBuffer(reverseSwap.preimageHash),
+          walletProvider.formatTokenAmount(reverseSwap.onchainAmount),
+          BigNumber.from(reverseSwap.minerFeeOnchainAmount).mul(etherDecimals),
+          reverseSwap.claimAddress!,
+          reverseSwap.timeoutBlockHeight,
+        );
+      } else {
+        contractTransaction = await this.walletManager.ethereumManager!.contractHandler.lockupToken(
+          walletProvider,
+          getHexBuffer(reverseSwap.preimageHash),
+          walletProvider.formatTokenAmount(reverseSwap.onchainAmount),
+          reverseSwap.claimAddress!,
+          reverseSwap.timeoutBlockHeight,
+        );
+      }
 
       this.ethereumNursery!.listenContractTransaction(reverseSwap, contractTransaction);
       this.logger.verbose(`Locked up ${reverseSwap.onchainAmount} ${wallet.symbol} for Reverse Swap ${reverseSwap.id}: ${contractTransaction.hash}`);
@@ -823,8 +845,8 @@ class SwapNursery extends EventEmitter {
 
     await lightningCurrency.lndClient!.cancelInvoice(getHexBuffer(reverseSwap.preimageHash));
 
-    if (reverseSwap.minerFeeInvoice) {
-      await lightningCurrency.lndClient!.cancelInvoice(getHexBuffer(decodeInvoice(reverseSwap.minerFeeInvoice).paymentHash!));
+    if (reverseSwap.minerFeeInvoicePreimage) {
+      await lightningCurrency.lndClient!.cancelInvoice(crypto.sha256(getHexBuffer(reverseSwap.minerFeeInvoicePreimage)));
     }
   }
 

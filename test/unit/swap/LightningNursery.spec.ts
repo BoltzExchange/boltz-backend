@@ -1,28 +1,25 @@
 import { Op } from 'sequelize';
+import { randomBytes } from 'crypto';
 import { Networks } from 'boltz-core';
 import Logger from '../../../lib/Logger';
 import { Invoice } from '../../../lib/proto/lnd/rpc_pb';
 import LndClient from '../../../lib/lightning/LndClient';
 import { Currency } from '../../../lib/wallet/WalletManager';
-import { decodeInvoice, getHexBuffer } from '../../../lib/Utils';
 import LightningNursery from '../../../lib/swap/LightningNursery';
 import ReverseSwapRepository from '../../../lib/db/ReverseSwapRepository';
 import { CurrencyType, SwapUpdateEvent } from '../../../lib/consts/Enums';
+import { decodeInvoice, getHexBuffer, getHexString } from '../../../lib/Utils';
+
+import InvoiceState = Invoice.InvoiceState;
 
 type htlcAcceptedCallback = (invoice: string) => void;
-type invoiceSettledCallback = (invoice: string) => void;
 
 let emitHtlcAccepted: htlcAcceptedCallback;
-let emitInvoiceSettled: invoiceSettledCallback;
 
 const mockOn = jest.fn().mockImplementation((event: string, callback: any) => {
   switch (event) {
     case 'htlc.accepted':
       emitHtlcAccepted = callback;
-      break;
-
-    case 'invoice.settled':
-      emitInvoiceSettled = callback;
       break;
   }
 });
@@ -34,10 +31,13 @@ const mockLookupInvoice = jest.fn().mockImplementation(async () => {
   };
 });
 
+const mockSettleInvoice = jest.fn().mockImplementation(async () => {});
+
 jest.mock('../../../lib/lightning/LndClient', () => {
   return jest.fn().mockImplementation(() => ({
     on: mockOn,
     lookupInvoice: mockLookupInvoice,
+    settleInvoice: mockSettleInvoice,
   }));
 });
 
@@ -67,9 +67,11 @@ const MockedReverseSwapRepository = <jest.Mock<ReverseSwapRepository>>ReverseSwa
 describe('LightningNursery', () => {
   const invoice = 'lnbcrt1p0csqltpp5xv57wt3s57gm50jksvyhuhmahnvtaw5q5elcuhkcpf9k7jcuey6qdqqcqzpgsp5t4t0aqn5jleve60dalh9t23r6ahana9t7c8steerurtt7x0x0xts9qy9qsqsas984xcqdxrd3l7kfzhejnjky3a2hhk0zp0chn43pjp0g49g825pazmdjppqvvdqsyc6euy6lg2xatrsf3pgavs0f62pg3xagljgrcpnrn4r5';
 
+  const minerFeeInvoicePreimage = getHexString(randomBytes(32));
+  const minerFeeInvoice = 'lnbcrt21u1psprx5xpp5xa0d3f37sz5cmp34cm0hd2tujuxctw6ydge27cd0cp8k0cu5ynnsdqqcqzpgsp55tje9q5t5xnkk03tgvv50tle49gf5nxeec03lvsaal3v2hcner7q9qy9qsqdgmep4nwprmtslrztla04jyvhc7rw8gtf5kydakz95tserqcchjx6f3u3yrupuadle2rqq8w27885h33v4gysl0ch5cxa5faz3akk0sqykdymf';
+
   const nursery = new LightningNursery(
     Logger.disabledLogger,
-    true,
     MockedReverseSwapRepository(),
   );
 
@@ -86,18 +88,19 @@ describe('LightningNursery', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    nursery.removeAllListeners();
+
+    mockGetReverseSwapResult = null;
   });
 
   test('should bind currencies', () => {
     nursery.bindCurrencies(currencies);
 
-    expect(mockOn).toHaveBeenCalledTimes(2);
-
+    expect(mockOn).toHaveBeenCalledTimes(1);
     expect(mockOn).toHaveBeenCalledWith('htlc.accepted', expect.anything());
-    expect(mockOn).toHaveBeenCalledWith('invoice.settled', expect.anything());
   });
 
-  test('should emit events for accepted HTLCs', async () => {
+  test('should ignore accepted HTLCs with no association to a Reverse Swap', async () => {
     let eventsEmitted = 0;
 
     nursery.on('invoice.paid', (reverseSwap) => {
@@ -106,118 +109,151 @@ describe('LightningNursery', () => {
       eventsEmitted += 1;
     });
 
-    // Should do nothing when there is no Reverse Swap with the invoice
+    mockGetReverseSwapResult = null;
     await emitHtlcAccepted(invoice);
 
     expect(mockGetReverseSwap).toHaveBeenCalledTimes(1);
     expect(mockGetReverseSwap).toHaveBeenCalledWith({
-      invoice: {
-        [Op.eq]: invoice,
-      },
+      [Op.or]: [
+        {
+          invoice: {
+            [Op.eq]: invoice,
+          },
+        },
+        {
+          minerFeeInvoice: {
+            [Op.eq]: invoice,
+          },
+        },
+      ],
     });
 
     expect(eventsEmitted).toEqual(0);
-
-    // Should emit an event when there is an Reverse Swap with the invoice
-    mockGetReverseSwapResult = {
-      minerFeeInvoice: null,
-    };
-
-    await emitHtlcAccepted(invoice);
-
-    expect(mockGetReverseSwap).toHaveBeenCalledTimes(2);
-    expect(eventsEmitted).toEqual(1);
-
-    // Should emit an event when there is a prepay miner fee Reverse Swap with the invoice
-    // and a paid miner fee invoice
-    mockGetReverseSwapResult = {
-      minerFeeInvoice: 'f',
-      status: SwapUpdateEvent.MinerFeePaid,
-    };
-
-    await emitHtlcAccepted(invoice);
-
-    expect(mockGetReverseSwap).toHaveBeenCalledTimes(3);
-    expect(eventsEmitted).toEqual(2);
-
-    mockGetReverseSwapResult = null;
-    nursery.removeAllListeners();
   });
 
-  test('should ignore accepted HTLCs when miner fee invoice is not paid yet', async () => {
-    nursery.on('invoice.paid', () => {
-      throw 'this event should not be emitted';
+  test('should handle Reverse Swaps without prepay miner fee', async () => {
+    let eventsEmitted = 0;
+
+    nursery.on('invoice.paid', (reverseSwap) => {
+      expect(reverseSwap).toEqual(mockGetReverseSwapResult);
+
+      eventsEmitted += 1;
     });
 
     mockGetReverseSwapResult = {
-      mineFeeInvoice: 'f',
-      status: SwapUpdateEvent.SwapCreated,
+      invoice,
+      minerFeeInvoicePreimage: null,
     };
 
     await emitHtlcAccepted(invoice);
 
-    mockGetReverseSwapResult = null;
-    nursery.removeAllListeners();
+    expect(mockLookupInvoice).toHaveBeenCalledTimes(0);
+    expect(mockSettleInvoice).toHaveBeenCalledTimes(0);
+    expect(mockGetReverseSwap).toHaveBeenCalledTimes(1);
+
+    expect(eventsEmitted).toEqual(1);
   });
 
-  test('should handle settled prepay minerfee invoices', async () => {
-    let invoiceEventsEmitted = 0;
-    let minerfeeEventsEmitted = 0;
+  test('should handle the miner fee invoice being paid first', async () => {
+    let eventsEmitted = 0;
 
     nursery.on('minerfee.invoice.paid', (reverseSwap) => {
       expect(reverseSwap).toEqual({
-        ...reverseSwap,
+        ...mockGetReverseSwapResult,
         status: SwapUpdateEvent.MinerFeePaid,
       });
-
-      minerfeeEventsEmitted += 1;
+      eventsEmitted += 1;
     });
+
+    mockLookupInvoiceState = InvoiceState.OPEN;
+
+    mockGetReverseSwapResult = {
+      invoice,
+      minerFeeInvoice,
+      minerFeeInvoicePreimage,
+    };
+
+    // Accept HTLC(s) for the miner fee invoice
+    await emitHtlcAccepted(minerFeeInvoice);
+
+    expect(eventsEmitted).toEqual(1);
+
+    expect(mockLookupInvoice).toHaveBeenCalledTimes(1);
+    expect(mockLookupInvoice).toHaveBeenCalledWith(getHexBuffer(decodeInvoice(invoice).paymentHash!));
+
+    expect(mockSettleInvoice).toHaveBeenCalledTimes(0);
+    expect(mockGetReverseSwap).toHaveBeenCalledTimes(1);
+
+    nursery.on('invoice.paid', (reverseSwap) => {
+      expect(reverseSwap).toEqual(mockGetReverseSwapResult);
+      eventsEmitted += 1;
+    });
+
+    mockGetReverseSwapResult.status = SwapUpdateEvent.MinerFeePaid;
+
+    // Accept HTLC(s) for the hold invoice
+    await emitHtlcAccepted(invoice);
+
+    expect(eventsEmitted).toEqual(2);
+
+    expect(mockSettleInvoice).toHaveBeenCalledTimes(1);
+    expect(mockSettleInvoice).toHaveBeenCalledWith(getHexBuffer(minerFeeInvoicePreimage));
+
+    expect(mockGetReverseSwap).toHaveBeenCalledTimes(2);
+
+    expect(mockSetReverseSwapStatus).toHaveBeenCalledTimes(1);
+    expect(mockSetReverseSwapStatus).toHaveBeenCalledWith(mockGetReverseSwapResult, SwapUpdateEvent.MinerFeePaid);
+  });
+
+  test('should handle the hold invoice being paid first', async () => {
+    let eventsEmitted = 0;
 
     nursery.on('invoice.paid', (reverseSwap) => {
       expect(reverseSwap).toEqual({
-        ...reverseSwap,
+        ...mockGetReverseSwapResult,
         status: SwapUpdateEvent.MinerFeePaid,
       });
-
-      invoiceEventsEmitted += 1;
+      eventsEmitted += 1;
     });
 
-    // Should do nothing when there is no Reverse Swap with that miner fee invoice
-    await emitInvoiceSettled(invoice);
-
-    expect(mockGetReverseSwap).toHaveBeenCalledTimes(1);
-
-    expect(invoiceEventsEmitted).toEqual(0);
-    expect(minerfeeEventsEmitted).toEqual(0);
-
-    // Should update Reverse Swap in database and emit "minerfee.invoice.paid" when minerfee invoice was paid first...
     mockGetReverseSwapResult = {
       invoice,
+      minerFeeInvoice,
+      minerFeeInvoicePreimage,
     };
-    mockLookupInvoiceState = Invoice.InvoiceState.OPEN;
 
-    await emitInvoiceSettled(invoice);
+    // Accept HTLC(s) for the hold invoice
+    await emitHtlcAccepted(invoice);
 
-    expect(mockGetReverseSwap).toHaveBeenCalledTimes(2);
+    expect(eventsEmitted).toEqual(0);
+
+    expect(mockSettleInvoice).toHaveBeenCalledTimes(0);
+    expect(mockGetReverseSwap).toHaveBeenCalledTimes(1);
+
+    nursery.on('minerfee.invoice.paid', (reverseSwap) => {
+      expect(reverseSwap).toEqual({
+        ...mockGetReverseSwapResult,
+        status: SwapUpdateEvent.MinerFeePaid,
+      });
+      eventsEmitted += 1;
+    });
+
+    mockLookupInvoiceState = InvoiceState.ACCEPTED;
+
+    // Accept HTLC(s) for the miner fee invoice
+    await emitHtlcAccepted(minerFeeInvoice);
+
+    expect(eventsEmitted).toEqual(2);
+
     expect(mockLookupInvoice).toHaveBeenCalledTimes(1);
-
-    expect(invoiceEventsEmitted).toEqual(0);
-    expect(minerfeeEventsEmitted).toEqual(1);
-
-    // ...and also emit "invoice.paid" if the hold invoice was paid before
-    mockLookupInvoiceState = Invoice.InvoiceState.ACCEPTED;
-
-    await emitInvoiceSettled(invoice);
-
-    expect(mockGetReverseSwap).toHaveBeenCalledTimes(3);
-
-    expect(mockLookupInvoice).toHaveBeenCalledTimes(2);
     expect(mockLookupInvoice).toHaveBeenCalledWith(getHexBuffer(decodeInvoice(invoice).paymentHash!));
 
-    expect(invoiceEventsEmitted).toEqual(1);
-    expect(minerfeeEventsEmitted).toEqual(2);
+    expect(mockSettleInvoice).toHaveBeenCalledTimes(1);
+    expect(mockSettleInvoice).toHaveBeenCalledWith(getHexBuffer(minerFeeInvoicePreimage));
 
-    mockGetReverseSwapResult = undefined;
-    nursery.removeAllListeners();
+    expect(mockGetReverseSwap).toHaveBeenCalledTimes(2);
+
+    expect(mockSetReverseSwapStatus).toHaveBeenCalledTimes(1);
+    expect(mockSetReverseSwapStatus).toHaveBeenCalledWith(mockGetReverseSwapResult, SwapUpdateEvent.MinerFeePaid);
   });
 });

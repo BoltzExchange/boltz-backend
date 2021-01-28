@@ -5,8 +5,9 @@ import { ECPair } from 'bitcoinjs-lib';
 import { BigNumber, providers } from 'ethers';
 import Logger from '../../../lib/Logger';
 import Swap from '../../../lib/db/models/Swap';
-import packageJson from '../../../package.json';
 import Wallet from '../../../lib/wallet/Wallet';
+import ApiErrors from '../../../lib/api/Errors';
+import packageJson from '../../../package.json';
 import Errors from '../../../lib/service/Errors';
 import { ConfigType } from '../../../lib/Config';
 import Service from '../../../lib/service/Service';
@@ -17,6 +18,7 @@ import FeeProvider from '../../../lib/rates/FeeProvider';
 import { gweiDecimals } from '../../../lib/consts/Consts';
 import SwapRepository from '../../../lib/db/SwapRepository';
 import { CurrencyInfo } from '../../../lib/proto/boltzrpc_pb';
+import RateCalculator from '../../../lib/rates/RateCalculator';
 import ReverseSwapRepository from '../../../lib/db/ReverseSwapRepository';
 import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
 import { decodeInvoice, getHexBuffer, getHexString } from '../../../lib/Utils';
@@ -249,6 +251,16 @@ jest.mock('../../../lib/rates/FeeProvider', () => {
 
 const MockedFeeProvider = <jest.Mock<FeeProvider>><any>FeeProvider;
 
+const mockCalculateRate = jest.fn().mockReturnValue(0.041);
+
+jest.mock('../../../lib/rates/RateCalculator', () => {
+  return jest.fn().mockImplementation(() => ({
+    calculateRate: mockCalculateRate,
+  }));
+});
+
+const MockedRateCalculator = <jest.Mock<RateCalculator>><any>RateCalculator;
+
 const pairs = new Map<string, any>([
   ['BTC/BTC', {
     rate: 1,
@@ -265,6 +277,13 @@ const pairs = new Map<string, any>([
       maximal: Number.MAX_SAFE_INTEGER,
     },
     hash: 'hashOfLtcBtcPair',
+  }],
+  ['ETH/BTC', {
+    rate: 0.041,
+    limits: {
+      minimal: 1,
+      maximal: Number.MAX_SAFE_INTEGER,
+    },
   }],
   ['test', {
     limits: {
@@ -285,6 +304,7 @@ jest.mock('../../../lib/rates/RateProvider', () => {
     init: mockInitRateProvider,
     feeProvider: MockedFeeProvider(),
     acceptZeroConf: mockAcceptZeroConf,
+    rateCalculator: MockedRateCalculator(),
   }));
 });
 
@@ -395,6 +415,12 @@ describe('Service', () => {
       fee: 5,
       timeoutDelta: 400,
     },
+    {
+      base: 'ETH',
+      quote: 'BTC',
+      fee: 2,
+      timeoutDelta: 180,
+    },
   ];
 
   const currencies = new Map<string, Currency>([
@@ -462,7 +488,7 @@ describe('Service', () => {
 
     expect(mockGetPairs).toHaveBeenCalledTimes(1);
 
-    expect(mockAddPair).toHaveBeenCalledTimes(2);
+    expect(mockAddPair).toHaveBeenCalledTimes(3);
     expect(mockAddPair).toHaveBeenCalledWith({
       id: 'BTC/BTC',
       ...configPairs[0],
@@ -470,6 +496,10 @@ describe('Service', () => {
     expect(mockAddPair).toHaveBeenCalledWith({
       id: 'LTC/BTC',
       ...configPairs[1],
+    });
+    expect(mockAddPair).toHaveBeenCalledWith({
+      id: 'ETH/BTC',
+      ...configPairs[2],
     });
 
     expect(mockInitFeeProvider).toHaveBeenCalledTimes(1);
@@ -1240,7 +1270,6 @@ describe('Service', () => {
       preimageHash,
       claimPublicKey,
       percentageFee: 1,
-      prepayMinerFee: 1,
       baseCurrency: 'BTC',
       quoteCurrency: 'BTC',
       onchainAmount: 99998,
@@ -1248,9 +1277,59 @@ describe('Service', () => {
       holdInvoiceAmount: 99999,
       onchainTimeoutBlockDelta: 1,
       lightningTimeoutBlockDelta: 4,
+      prepayMinerFeeInvoiceAmount: 1,
     });
 
     service['prepayMinerFee'] = false;
+  });
+
+  test('should create Reverse Swaps with the Ethereum prepay miner fee', async () => {
+    const args = {
+      pairId: 'ETH/BTC',
+      orderSide: 'buy',
+      prepayMinerFee: true,
+      invoiceAmount: 100000,
+      preimageHash: randomBytes(32),
+      claimAddress: '0x00000000219ab540356cbb839cbe05303d7705fa',
+    } as any;
+
+    const response = await service.createReverseSwap(args);
+
+    expect(response).toEqual({
+      onchainAmount: 2339022,
+      id: mockedReverseSwap.id,
+      invoice: mockedReverseSwap.invoice,
+      redeemScript: mockedReverseSwap.redeemScript,
+      lockupAddress: mockedReverseSwap.lockupAddress,
+      minerFeeInvoice: mockedReverseSwap.minerFeeInvoice,
+      timeoutBlockHeight: mockedReverseSwap.timeoutBlockHeight,
+    });
+
+    expect(mockCalculateRate).toHaveBeenCalledTimes(1);
+    expect(mockCalculateRate).toHaveBeenCalledWith('ETH', 'BTC');
+
+    expect(mockCreateReverseSwap).toHaveBeenCalledTimes(1);
+    expect(mockCreateReverseSwap).toHaveBeenCalledWith({
+      percentageFee: 1,
+      baseCurrency: 'ETH',
+      quoteCurrency: 'BTC',
+      onchainAmount: 2339022,
+      orderSide: OrderSide.BUY,
+      holdInvoiceAmount: 95900,
+      onchainTimeoutBlockDelta: 720,
+      lightningTimeoutBlockDelta: 20,
+      claimAddress: args.claimAddress,
+      preimageHash: args.preimageHash,
+      prepayMinerFeeInvoiceAmount: 4100,
+      prepayMinerFeeOnchainAmount: 100000,
+    });
+
+    // Throw if the sending currency is Bitcoin like
+    args.pairId = 'BTC/BTC';
+    args.claimPublicKey = '03ecb98dc3f82af3efac152f3c5692548754df047042dcb89620fc72fd3ea479ab';
+
+    await expect(service.createReverseSwap(args)).rejects
+      .toEqual(ApiErrors.UNSUPPORTED_PARAMETER('BTC', 'prepayMinerFee'));
   });
 
   test('should pay invoices', async () => {

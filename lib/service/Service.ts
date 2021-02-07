@@ -832,6 +832,9 @@ class Service {
     preimageHash: Buffer,
     invoiceAmount: number,
 
+    // Public key of the node for which routing hints should be included in the invoice(s)
+    routingNode?: string,
+
     // Required for UTXO based chains
     claimPublicKey?: Buffer,
 
@@ -934,6 +937,7 @@ class Service {
       orderSide: side,
       baseCurrency: base,
       quoteCurrency: quote,
+      routingNode: args.routingNode,
       claimAddress: args.claimAddress,
       preimageHash: args.preimageHash,
       claimPublicKey: args.claimPublicKey,

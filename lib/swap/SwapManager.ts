@@ -9,6 +9,7 @@ import RateProvider from '../rates/RateProvider';
 import SwapRepository from '../db/SwapRepository';
 import ReverseSwap from '../db/models/ReverseSwap';
 import { ReverseSwapOutputType } from '../consts/Consts';
+import RoutingHintsProvider from './RoutingHintsProvider';
 import ReverseSwapRepository from '../db/ReverseSwapRepository';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
@@ -50,6 +51,8 @@ class SwapManager {
   public swapRepository: SwapRepository;
   public reverseSwapRepository: ReverseSwapRepository;
   public channelCreationRepository: ChannelCreationRepository;
+
+  private routingHints!: RoutingHintsProvider;
 
   constructor(
     private logger: Logger,
@@ -110,6 +113,19 @@ class SwapManager {
     this.recreateFilters(pendingReverseSwaps, true);
 
     this.logger.info('Recreated input and output filters and invoice subscriptions');
+
+    const lndClients: LndClient[] = [];
+
+    for (const currency of currencies) {
+      if (currency.lndClient) {
+        lndClients.push(currency.lndClient);
+      }
+    }
+
+    this.routingHints = new RoutingHintsProvider(
+      this.logger,
+      lndClients,
+    );
   }
 
   /**
@@ -373,6 +389,9 @@ class SwapManager {
     percentageFee: number,
     prepayMinerFee?: number,
 
+    // Public key of the node for which routing hints should be included in the invoice(s)
+    routingNode?: string,
+
     // Only required for Swaps to UTXO based chains
     claimPublicKey?: Buffer,
 
@@ -406,11 +425,16 @@ class SwapManager {
 
     this.logger.verbose(`Creating new Reverse Swap from ${receivingCurrency.symbol} to ${sendingCurrency.symbol}: ${id}`);
 
+    const routingHints = args.routingNode !== undefined ?
+      this.routingHints.getRoutingHints(receivingCurrency.symbol, args.routingNode) :
+      undefined;
+
     const { paymentRequest } = await receivingCurrency.lndClient.addHoldInvoice(
       args.holdInvoiceAmount,
       args.preimageHash,
       args.lightningTimeoutBlockDelta,
       getSwapMemo(sendingCurrency.symbol, true),
+      routingHints,
     );
 
     receivingCurrency.lndClient.subscribeSingleInvoice(args.preimageHash);
@@ -418,7 +442,11 @@ class SwapManager {
     let minerFeeInvoice: string | undefined = undefined;
 
     if (args.prepayMinerFee) {
-      const prepayInvoice = await receivingCurrency.lndClient.addInvoice(args.prepayMinerFee, getPrepayMinerFeeInvoiceMemo(sendingCurrency.symbol));
+      const prepayInvoice = await receivingCurrency.lndClient.addInvoice(
+        args.prepayMinerFee,
+        getPrepayMinerFeeInvoiceMemo(sendingCurrency.symbol),
+        routingHints,
+      );
       minerFeeInvoice = prepayInvoice.paymentRequest;
 
       receivingCurrency.lndClient.subscribeSingleInvoice(Buffer.from(prepayInvoice.rHash as string, 'base64'));

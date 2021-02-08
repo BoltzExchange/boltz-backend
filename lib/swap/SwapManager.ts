@@ -126,6 +126,7 @@ class SwapManager {
       this.logger,
       lndClients,
     );
+    await this.routingHints.start();
   }
 
   /**

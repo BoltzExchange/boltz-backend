@@ -27,6 +27,11 @@ export class SendPaymentRequest extends jspb.Message {
     getFinalCltvDelta(): number;
     setFinalCltvDelta(value: number): SendPaymentRequest;
 
+    getPaymentAddr(): Uint8Array | string;
+    getPaymentAddr_asU8(): Uint8Array;
+    getPaymentAddr_asB64(): string;
+    setPaymentAddr(value: Uint8Array | string): SendPaymentRequest;
+
     getPaymentRequest(): string;
     setPaymentRequest(value: string): SendPaymentRequest;
 
@@ -96,6 +101,7 @@ export namespace SendPaymentRequest {
         amtMsat: number,
         paymentHash: Uint8Array | string,
         finalCltvDelta: number,
+        paymentAddr: Uint8Array | string,
         paymentRequest: string,
         timeoutSeconds: number,
         feeLimitSat: number,
@@ -482,6 +488,11 @@ export class BuildRouteRequest extends jspb.Message {
     setHopPubkeysList(value: Array<Uint8Array | string>): BuildRouteRequest;
     addHopPubkeys(value: Uint8Array | string, index?: number): Uint8Array | string;
 
+    getPaymentAddr(): Uint8Array | string;
+    getPaymentAddr_asU8(): Uint8Array;
+    getPaymentAddr_asB64(): string;
+    setPaymentAddr(value: Uint8Array | string): BuildRouteRequest;
+
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): BuildRouteRequest.AsObject;
@@ -499,6 +510,7 @@ export namespace BuildRouteRequest {
         finalCltvDelta: number,
         outgoingChanId: string,
         hopPubkeysList: Array<Uint8Array | string>,
+        paymentAddr: Uint8Array | string,
     }
 }
 
@@ -852,6 +864,11 @@ export class ForwardHtlcInterceptRequest extends jspb.Message {
     getCustomRecordsMap(): jspb.Map<number, Uint8Array | string>;
     clearCustomRecordsMap(): void;
 
+    getOnionBlob(): Uint8Array | string;
+    getOnionBlob_asU8(): Uint8Array;
+    getOnionBlob_asB64(): string;
+    setOnionBlob(value: Uint8Array | string): ForwardHtlcInterceptRequest;
+
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ForwardHtlcInterceptRequest.AsObject;
@@ -874,6 +891,7 @@ export namespace ForwardHtlcInterceptRequest {
         outgoingExpiry: number,
 
         customRecordsMap: Array<[number, Uint8Array | string]>,
+        onionBlob: Uint8Array | string,
     }
 }
 

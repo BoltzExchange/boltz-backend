@@ -457,6 +457,30 @@ export class ChannelAcceptResponse extends jspb.Message {
     getPendingChanId_asB64(): string;
     setPendingChanId(value: Uint8Array | string): ChannelAcceptResponse;
 
+    getError(): string;
+    setError(value: string): ChannelAcceptResponse;
+
+    getUpfrontShutdown(): string;
+    setUpfrontShutdown(value: string): ChannelAcceptResponse;
+
+    getCsvDelay(): number;
+    setCsvDelay(value: number): ChannelAcceptResponse;
+
+    getReserveSat(): number;
+    setReserveSat(value: number): ChannelAcceptResponse;
+
+    getInFlightMaxMsat(): number;
+    setInFlightMaxMsat(value: number): ChannelAcceptResponse;
+
+    getMaxHtlcCount(): number;
+    setMaxHtlcCount(value: number): ChannelAcceptResponse;
+
+    getMinHtlcIn(): number;
+    setMinHtlcIn(value: number): ChannelAcceptResponse;
+
+    getMinAcceptDepth(): number;
+    setMinAcceptDepth(value: number): ChannelAcceptResponse;
+
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ChannelAcceptResponse.AsObject;
@@ -472,6 +496,14 @@ export namespace ChannelAcceptResponse {
     export type AsObject = {
         accept: boolean,
         pendingChanId: Uint8Array | string,
+        error: string,
+        upfrontShutdown: string,
+        csvDelay: number,
+        reserveSat: number,
+        inFlightMaxMsat: number,
+        maxHtlcCount: number,
+        minHtlcIn: number,
+        minAcceptDepth: number,
     }
 }
 
@@ -646,6 +678,12 @@ export class SendManyRequest extends jspb.Message {
     getLabel(): string;
     setLabel(value: string): SendManyRequest;
 
+    getMinConfs(): number;
+    setMinConfs(value: number): SendManyRequest;
+
+    getSpendUnconfirmed(): boolean;
+    setSpendUnconfirmed(value: boolean): SendManyRequest;
+
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): SendManyRequest.AsObject;
@@ -664,6 +702,8 @@ export namespace SendManyRequest {
         targetConf: number,
         satPerByte: number,
         label: string,
+        minConfs: number,
+        spendUnconfirmed: boolean,
     }
 }
 
@@ -707,6 +747,12 @@ export class SendCoinsRequest extends jspb.Message {
     getLabel(): string;
     setLabel(value: string): SendCoinsRequest;
 
+    getMinConfs(): number;
+    setMinConfs(value: number): SendCoinsRequest;
+
+    getSpendUnconfirmed(): boolean;
+    setSpendUnconfirmed(value: boolean): SendCoinsRequest;
+
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): SendCoinsRequest.AsObject;
@@ -726,6 +772,8 @@ export namespace SendCoinsRequest {
         satPerByte: number,
         sendAll: boolean,
         label: string,
+        minConfs: number,
+        spendUnconfirmed: boolean,
     }
 }
 
@@ -946,6 +994,9 @@ export class ConnectPeerRequest extends jspb.Message {
     getPerm(): boolean;
     setPerm(value: boolean): ConnectPeerRequest;
 
+    getTimeout(): number;
+    setTimeout(value: number): ConnectPeerRequest;
+
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ConnectPeerRequest.AsObject;
@@ -961,6 +1012,7 @@ export namespace ConnectPeerRequest {
     export type AsObject = {
         addr?: LightningAddress.AsObject,
         perm: boolean,
+        timeout: number,
     }
 }
 
@@ -1034,6 +1086,15 @@ export class HTLC extends jspb.Message {
     getExpirationHeight(): number;
     setExpirationHeight(value: number): HTLC;
 
+    getHtlcIndex(): number;
+    setHtlcIndex(value: number): HTLC;
+
+    getForwardingChannel(): number;
+    setForwardingChannel(value: number): HTLC;
+
+    getForwardingHtlcIndex(): number;
+    setForwardingHtlcIndex(value: number): HTLC;
+
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): HTLC.AsObject;
@@ -1051,6 +1112,9 @@ export namespace HTLC {
         amount: number,
         hashLock: Uint8Array | string,
         expirationHeight: number,
+        htlcIndex: number,
+        forwardingChannel: number,
+        forwardingHtlcIndex: number,
     }
 }
 
@@ -1524,6 +1588,12 @@ export class Peer extends jspb.Message {
     setErrorsList(value: Array<TimestampedError>): Peer;
     addErrors(value?: TimestampedError, index?: number): TimestampedError;
 
+    getFlapCount(): number;
+    setFlapCount(value: number): Peer;
+
+    getLastFlapNs(): number;
+    setLastFlapNs(value: number): Peer;
+
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Peer.AsObject;
@@ -1549,6 +1619,8 @@ export namespace Peer {
 
         featuresMap: Array<[number, Feature.AsObject]>,
         errorsList: Array<TimestampedError.AsObject>,
+        flapCount: number,
+        lastFlapNs: number,
     }
 
     export enum SyncType {
@@ -2133,6 +2205,9 @@ export class OpenChannelRequest extends jspb.Message {
     getRemoteMaxHtlcs(): number;
     setRemoteMaxHtlcs(value: number): OpenChannelRequest;
 
+    getMaxLocalCsv(): number;
+    setMaxLocalCsv(value: number): OpenChannelRequest;
+
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): OpenChannelRequest.AsObject;
@@ -2161,6 +2236,7 @@ export namespace OpenChannelRequest {
         fundingShim?: FundingShim.AsObject,
         remoteMaxValueInFlightMsat: number,
         remoteMaxHtlcs: number,
+        maxLocalCsv: number,
     }
 }
 
@@ -3078,6 +3154,31 @@ export namespace WalletBalanceResponse {
     }
 }
 
+export class Amount extends jspb.Message { 
+    getSat(): number;
+    setSat(value: number): Amount;
+
+    getMsat(): number;
+    setMsat(value: number): Amount;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): Amount.AsObject;
+    static toObject(includeInstance: boolean, msg: Amount): Amount.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: Amount, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): Amount;
+    static deserializeBinaryFromReader(message: Amount, reader: jspb.BinaryReader): Amount;
+}
+
+export namespace Amount {
+    export type AsObject = {
+        sat: number,
+        msat: number,
+    }
+}
+
 export class ChannelBalanceRequest extends jspb.Message { 
 
     serializeBinary(): Uint8Array;
@@ -3103,6 +3204,42 @@ export class ChannelBalanceResponse extends jspb.Message {
     setPendingOpenBalance(value: number): ChannelBalanceResponse;
 
 
+    hasLocalBalance(): boolean;
+    clearLocalBalance(): void;
+    getLocalBalance(): Amount | undefined;
+    setLocalBalance(value?: Amount): ChannelBalanceResponse;
+
+
+    hasRemoteBalance(): boolean;
+    clearRemoteBalance(): void;
+    getRemoteBalance(): Amount | undefined;
+    setRemoteBalance(value?: Amount): ChannelBalanceResponse;
+
+
+    hasUnsettledLocalBalance(): boolean;
+    clearUnsettledLocalBalance(): void;
+    getUnsettledLocalBalance(): Amount | undefined;
+    setUnsettledLocalBalance(value?: Amount): ChannelBalanceResponse;
+
+
+    hasUnsettledRemoteBalance(): boolean;
+    clearUnsettledRemoteBalance(): void;
+    getUnsettledRemoteBalance(): Amount | undefined;
+    setUnsettledRemoteBalance(value?: Amount): ChannelBalanceResponse;
+
+
+    hasPendingOpenLocalBalance(): boolean;
+    clearPendingOpenLocalBalance(): void;
+    getPendingOpenLocalBalance(): Amount | undefined;
+    setPendingOpenLocalBalance(value?: Amount): ChannelBalanceResponse;
+
+
+    hasPendingOpenRemoteBalance(): boolean;
+    clearPendingOpenRemoteBalance(): void;
+    getPendingOpenRemoteBalance(): Amount | undefined;
+    setPendingOpenRemoteBalance(value?: Amount): ChannelBalanceResponse;
+
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ChannelBalanceResponse.AsObject;
     static toObject(includeInstance: boolean, msg: ChannelBalanceResponse): ChannelBalanceResponse.AsObject;
@@ -3117,6 +3254,12 @@ export namespace ChannelBalanceResponse {
     export type AsObject = {
         balance: number,
         pendingOpenBalance: number,
+        localBalance?: Amount.AsObject,
+        remoteBalance?: Amount.AsObject,
+        unsettledLocalBalance?: Amount.AsObject,
+        unsettledRemoteBalance?: Amount.AsObject,
+        pendingOpenLocalBalance?: Amount.AsObject,
+        pendingOpenRemoteBalance?: Amount.AsObject,
     }
 }
 
@@ -3997,6 +4140,10 @@ export class NodeUpdate extends jspb.Message {
     setColor(value: string): NodeUpdate;
 
 
+    getFeaturesMap(): jspb.Map<number, Feature>;
+    clearFeaturesMap(): void;
+
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): NodeUpdate.AsObject;
     static toObject(includeInstance: boolean, msg: NodeUpdate): NodeUpdate.AsObject;
@@ -4014,6 +4161,8 @@ export namespace NodeUpdate {
         globalFeatures: Uint8Array | string,
         alias: string,
         color: string,
+
+        featuresMap: Array<[number, Feature.AsObject]>,
     }
 }
 
@@ -4244,6 +4393,11 @@ export class Invoice extends jspb.Message {
     getIsKeysend(): boolean;
     setIsKeysend(value: boolean): Invoice;
 
+    getPaymentAddr(): Uint8Array | string;
+    getPaymentAddr_asU8(): Uint8Array;
+    getPaymentAddr_asB64(): string;
+    setPaymentAddr(value: Uint8Array | string): Invoice;
+
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Invoice.AsObject;
@@ -4282,6 +4436,7 @@ export namespace Invoice {
 
         featuresMap: Array<[number, Feature.AsObject]>,
         isKeysend: boolean,
+        paymentAddr: Uint8Array | string,
     }
 
     export enum InvoiceState {
@@ -4364,6 +4519,11 @@ export class AddInvoiceResponse extends jspb.Message {
     getAddIndex(): number;
     setAddIndex(value: number): AddInvoiceResponse;
 
+    getPaymentAddr(): Uint8Array | string;
+    getPaymentAddr_asU8(): Uint8Array;
+    getPaymentAddr_asB64(): string;
+    setPaymentAddr(value: Uint8Array | string): AddInvoiceResponse;
+
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): AddInvoiceResponse.AsObject;
@@ -4380,6 +4540,7 @@ export namespace AddInvoiceResponse {
         rHash: Uint8Array | string,
         paymentRequest: string,
         addIndex: number,
+        paymentAddr: Uint8Array | string,
     }
 }
 
@@ -5523,6 +5684,9 @@ export class BakeMacaroonRequest extends jspb.Message {
     setPermissionsList(value: Array<MacaroonPermission>): BakeMacaroonRequest;
     addPermissions(value?: MacaroonPermission, index?: number): MacaroonPermission;
 
+    getRootKeyId(): number;
+    setRootKeyId(value: number): BakeMacaroonRequest;
+
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): BakeMacaroonRequest.AsObject;
@@ -5537,6 +5701,7 @@ export class BakeMacaroonRequest extends jspb.Message {
 export namespace BakeMacaroonRequest {
     export type AsObject = {
         permissionsList: Array<MacaroonPermission.AsObject>,
+        rootKeyId: number,
     }
 }
 
@@ -5558,6 +5723,88 @@ export class BakeMacaroonResponse extends jspb.Message {
 export namespace BakeMacaroonResponse {
     export type AsObject = {
         macaroon: string,
+    }
+}
+
+export class ListMacaroonIDsRequest extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ListMacaroonIDsRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: ListMacaroonIDsRequest): ListMacaroonIDsRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ListMacaroonIDsRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ListMacaroonIDsRequest;
+    static deserializeBinaryFromReader(message: ListMacaroonIDsRequest, reader: jspb.BinaryReader): ListMacaroonIDsRequest;
+}
+
+export namespace ListMacaroonIDsRequest {
+    export type AsObject = {
+    }
+}
+
+export class ListMacaroonIDsResponse extends jspb.Message { 
+    clearRootKeyIdsList(): void;
+    getRootKeyIdsList(): Array<number>;
+    setRootKeyIdsList(value: Array<number>): ListMacaroonIDsResponse;
+    addRootKeyIds(value: number, index?: number): number;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ListMacaroonIDsResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: ListMacaroonIDsResponse): ListMacaroonIDsResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ListMacaroonIDsResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ListMacaroonIDsResponse;
+    static deserializeBinaryFromReader(message: ListMacaroonIDsResponse, reader: jspb.BinaryReader): ListMacaroonIDsResponse;
+}
+
+export namespace ListMacaroonIDsResponse {
+    export type AsObject = {
+        rootKeyIdsList: Array<number>,
+    }
+}
+
+export class DeleteMacaroonIDRequest extends jspb.Message { 
+    getRootKeyId(): number;
+    setRootKeyId(value: number): DeleteMacaroonIDRequest;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): DeleteMacaroonIDRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: DeleteMacaroonIDRequest): DeleteMacaroonIDRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: DeleteMacaroonIDRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): DeleteMacaroonIDRequest;
+    static deserializeBinaryFromReader(message: DeleteMacaroonIDRequest, reader: jspb.BinaryReader): DeleteMacaroonIDRequest;
+}
+
+export namespace DeleteMacaroonIDRequest {
+    export type AsObject = {
+        rootKeyId: number,
+    }
+}
+
+export class DeleteMacaroonIDResponse extends jspb.Message { 
+    getDeleted(): boolean;
+    setDeleted(value: boolean): DeleteMacaroonIDResponse;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): DeleteMacaroonIDResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: DeleteMacaroonIDResponse): DeleteMacaroonIDResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: DeleteMacaroonIDResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): DeleteMacaroonIDResponse;
+    static deserializeBinaryFromReader(message: DeleteMacaroonIDResponse, reader: jspb.BinaryReader): DeleteMacaroonIDResponse;
+}
+
+export namespace DeleteMacaroonIDResponse {
+    export type AsObject = {
+        deleted: boolean,
     }
 }
 
@@ -5918,4 +6165,10 @@ export enum FeatureBit {
     PAYMENT_ADDR_OPT = 15,
     MPP_REQ = 16,
     MPP_OPT = 17,
+    WUMBO_CHANNELS_REQ = 18,
+    WUMBO_CHANNELS_OPT = 19,
+    ANCHORS_REQ = 20,
+    ANCHORS_OPT = 21,
+    ANCHORS_ZERO_FEE_HTLC_REQ = 22,
+    ANCHORS_ZERO_FEE_HTLC_OPT = 23,
 }

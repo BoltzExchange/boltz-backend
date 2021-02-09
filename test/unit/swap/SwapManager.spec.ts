@@ -199,6 +199,13 @@ const mockQueryRoutes = jest.fn().mockImplementation(async (destination: string)
   };
 });
 
+const mockListChannelsResult = [];
+const mockListChannels = jest.fn().mockImplementation(() => {
+  return {
+    channelsList: mockListChannelsResult,
+  };
+});
+
 const mockAddHoldInvoiceResult = 'holdInvoice';
 const mockAddHoldInvoice = jest.fn().mockResolvedValue({
   paymentRequest: mockAddHoldInvoiceResult,
@@ -213,6 +220,7 @@ jest.mock('../../../lib/lightning/LndClient', () => {
       addInvoice: mockAddInvoice,
       queryRoutes: mockQueryRoutes,
       decodePayReq: mockDecodePayReq,
+      listChannels: mockListChannels,
       addHoldInvoice: mockAddHoldInvoice,
       subscribeSingleInvoice: mockSubscribeSingleInvoice,
     };
@@ -248,6 +256,12 @@ describe('SwapManager', () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
+    if (manager !== undefined && manager.routingHints !== undefined) {
+      if (manager.routingHints.stop !== undefined && typeof manager.routingHints.stop === 'function') {
+        manager.routingHints.stop();
+      }
+    }
+
     // Reset the injected mocked methods
     manager = new SwapManager(
       Logger.disabledLogger,
@@ -260,6 +274,12 @@ describe('SwapManager', () => {
 
     manager['currencies'].set(btcCurrency.symbol, btcCurrency);
     manager['currencies'].set(ltcCurrency.symbol, ltcCurrency);
+  });
+
+  afterAll(() => {
+    if (manager !== undefined && manager.routingHints !== undefined) {
+      manager.routingHints.stop();
+    }
   });
 
   test('it should init', async() => {

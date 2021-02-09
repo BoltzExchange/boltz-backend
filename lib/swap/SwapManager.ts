@@ -52,7 +52,7 @@ class SwapManager {
   public reverseSwapRepository: ReverseSwapRepository;
   public channelCreationRepository: ChannelCreationRepository;
 
-  private routingHints!: RoutingHintsProvider;
+  public routingHints!: RoutingHintsProvider;
 
   constructor(
     private logger: Logger,

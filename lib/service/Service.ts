@@ -10,10 +10,10 @@ import Wallet from '../wallet/Wallet';
 import { ConfigType } from '../Config';
 import EventHandler from './EventHandler';
 import { PairConfig } from '../consts/Types';
-import { Payment } from '../proto/lnd/rpc_pb';
 import { gweiDecimals } from '../consts/Consts';
 import PairRepository from '../db/PairRepository';
 import { encodeBip21 } from './PaymentRequestUtils';
+import { Payment, RouteHint } from '../proto/lnd/rpc_pb';
 import TimeoutDeltaProvider from './TimeoutDeltaProvider';
 import { Network } from '../wallet/ethereum/EthereumManager';
 import RateProvider, { PairType } from '../rates/RateProvider';
@@ -303,6 +303,15 @@ class Service {
         });
       }
     }
+
+    return response;
+  }
+
+  public getRoutingHints = (symbol: string, routingNode: string): RouteHint.AsObject[] => {
+    const response: RouteHint.AsObject[] = [];
+
+    const hints = this.swapManager.routingHints.getRoutingHints(symbol, routingNode);
+    hints.forEach((hint) => response.push(hint.toObject()));
 
     return response;
   }

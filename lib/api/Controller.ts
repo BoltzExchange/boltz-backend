@@ -171,6 +171,23 @@ class Controller {
   }
 
   // POST requests
+  public routingHints = (req: Request, res: Response): void => {
+    try {
+      const { symbol, routingNode } = this.validateRequest(req.body, [
+        { name: 'symbol', type: 'string' },
+        { name: 'routingNode', type: 'string' },
+      ]);
+
+      const routingHints = this.service.getRoutingHints(symbol, routingNode);
+
+      this.successResponse(res, {
+        routingHints,
+      });
+    } catch (error) {
+      this.errorResponse(req, res, error);
+    }
+  }
+
   public swapStatus = async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = this.validateRequest(req.body, [

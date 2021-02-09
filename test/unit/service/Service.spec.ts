@@ -1,6 +1,7 @@
 import { Op } from 'sequelize';
 import { randomBytes } from 'crypto';
 import { Networks } from 'boltz-core';
+import { ECPair } from 'bitcoinjs-lib';
 import { BigNumber, providers } from 'ethers';
 import Logger from '../../../lib/Logger';
 import Swap from '../../../lib/db/models/Swap';
@@ -28,7 +29,6 @@ import {
   ServiceWarning,
   SwapUpdateEvent
 } from '../../../lib/consts/Enums';
-import { ECPair } from 'bitcoinjs-lib';
 
 const mockGetPairs = jest.fn().mockResolvedValue([]);
 const mockAddPair = jest.fn().mockReturnValue(Promise.resolve());
@@ -110,6 +110,19 @@ const mockedReverseSwap = {
 };
 const mockCreateReverseSwap = jest.fn().mockResolvedValue(mockedReverseSwap);
 
+const mockGetRoutingHintsResultToObjectResult = { some: 'routingData' };
+const mockGetRoutingHintsResultToObject = jest.fn().mockReturnValue(mockGetRoutingHintsResultToObjectResult);
+
+const mockGetRoutingHintsResult = [
+  {
+    toObject: mockGetRoutingHintsResultToObject,
+  },
+  {
+    toObject: mockGetRoutingHintsResultToObject,
+  },
+];
+const mockGetRoutingHints = jest.fn().mockImplementation(() => mockGetRoutingHintsResult);
+
 jest.mock('../../../lib/swap/SwapManager', () => {
   return jest.fn().mockImplementation(() => ({
     nursery: {
@@ -117,6 +130,9 @@ jest.mock('../../../lib/swap/SwapManager', () => {
       channelNursery: {
         on: () => {},
       },
+    },
+    routingHints: {
+      getRoutingHints: mockGetRoutingHints,
     },
     swapRepository: mockedSwapRepository(),
     reverseSwapRepository: mockedReverseSwapRepository(),
@@ -566,6 +582,19 @@ describe('Service', () => {
         uris: lndInfo.urisList,
       }],
     ]));
+  });
+
+  test('should get routing hints', () => {
+    const symbol = 'BTC';
+    const routingNode = '2someNode';
+
+    const routingHints = service.getRoutingHints(symbol, routingNode);
+
+    expect(routingHints.length).toEqual(mockGetRoutingHintsResult.length);
+    expect(routingHints).toEqual([mockGetRoutingHintsResultToObjectResult, mockGetRoutingHintsResultToObjectResult]);
+
+    expect(mockGetRoutingHints).toHaveBeenCalledTimes(1);
+    expect(mockGetRoutingHints).toHaveBeenCalledWith(symbol, routingNode);
   });
 
   test('should get contracts', () => {

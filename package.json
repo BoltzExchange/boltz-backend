@@ -1,6 +1,6 @@
 {
   "name": "boltz-backend",
-  "version": "3.0.0-beta",
+  "version": "3.0.0",
   "description": "Backend of Boltz",
   "main": "dist/lib/Boltz.js",
   "scripts": {

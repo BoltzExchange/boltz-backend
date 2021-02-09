@@ -218,7 +218,7 @@ class ChannelNursery extends EventEmitter {
             await this.openChannel(lightningCurrency, swap, channelCreation);
             return;
           } catch (error) {
-            this.logger.warn(`Could not connect to LND ${lightningCurrency.lndClient!} node ${payeeNodeKey!}: ${formatError(error)}`);
+            this.logger.warn(`Could not connect to ${lightningCurrency.lndClient!.symbol} LND node ${payeeNodeKey!}: ${formatError(error)}`);
           }
           break;
       }

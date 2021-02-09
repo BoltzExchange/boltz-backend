@@ -96,6 +96,16 @@ const getContracts = {
 };
 const mockGetContracts = jest.fn().mockReturnValue(getContracts);
 
+const mockGetRoutingHintsResult = [
+  {
+    just: 'some',
+  },
+  {
+    test: 'data',
+  },
+];
+const mockGetRoutingHints = jest.fn().mockReturnValue(mockGetRoutingHintsResult);
+
 const mockGetFeeEstimation = jest.fn().mockResolvedValue(new Map<string, number>([
   ['BTC', 1],
 ]));
@@ -160,6 +170,7 @@ jest.mock('../../../lib/service/Service', () => {
       getPairs: mockGetPairs,
       getNodes: mockGetNodes,
       getContracts: mockGetContracts,
+      getRoutingHints: mockGetRoutingHints,
       getFeeEstimation: mockGetFeeEstimation,
 
       getSwapRates: mockGetSwapRates,
@@ -334,6 +345,47 @@ describe('Controller', () => {
         await service.getFeeEstimation(),
       ),
     );
+  });
+
+  test('should get routing hints', () => {
+    const res = mockResponse();
+
+    const request: any = {
+      symbol: 'BTC',
+      routingNode: '031015a7839468a3c266d662d5bb21ea4cea24226936e2864a7ca4f2c3939836e0',
+    };
+
+    controller.routingHints(
+      mockRequest(request),
+      res,
+    );
+
+    expect(res.status).toHaveBeenCalledTimes(1);
+    expect(res.status).toHaveBeenCalledWith(200);
+
+    expect(res.json).toHaveBeenCalledTimes(1);
+    expect(res.json).toHaveBeenCalledWith({
+      routingHints: mockGetRoutingHintsResult,
+    });
+
+    expect(mockGetRoutingHints).toHaveBeenCalledTimes(1);
+    expect(mockGetRoutingHints).toHaveBeenCalledWith(request.symbol, request.routingNode);
+
+    // Missing parameter
+    request.symbol = undefined;
+
+    controller.routingHints(
+      mockRequest(request),
+      res,
+    );
+
+    expect(res.status).toHaveBeenCalledTimes(2);
+    expect(res.status).toHaveBeenNthCalledWith(2, 400);
+
+    expect(res.json).toHaveBeenCalledTimes(2);
+    expect(res.json).toHaveBeenNthCalledWith(2, {
+      error:'undefined parameter: symbol',
+    });
   });
 
   test('should get swap status', async () => {

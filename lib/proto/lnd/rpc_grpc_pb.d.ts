@@ -64,6 +64,8 @@ interface ILightningService extends grpc.ServiceDefinition<grpc.UntypedServiceIm
     restoreChannelBackups: ILightningService_IRestoreChannelBackups;
     subscribeChannelBackups: ILightningService_ISubscribeChannelBackups;
     bakeMacaroon: ILightningService_IBakeMacaroon;
+    listMacaroonIDs: ILightningService_IListMacaroonIDs;
+    deleteMacaroonID: ILightningService_IDeleteMacaroonID;
     listPermissions: ILightningService_IListPermissions;
 }
 
@@ -571,6 +573,24 @@ interface ILightningService_IBakeMacaroon extends grpc.MethodDefinition<lnd_rpc_
     responseSerialize: grpc.serialize<lnd_rpc_pb.BakeMacaroonResponse>;
     responseDeserialize: grpc.deserialize<lnd_rpc_pb.BakeMacaroonResponse>;
 }
+interface ILightningService_IListMacaroonIDs extends grpc.MethodDefinition<lnd_rpc_pb.ListMacaroonIDsRequest, lnd_rpc_pb.ListMacaroonIDsResponse> {
+    path: "/lnrpc.Lightning/ListMacaroonIDs";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<lnd_rpc_pb.ListMacaroonIDsRequest>;
+    requestDeserialize: grpc.deserialize<lnd_rpc_pb.ListMacaroonIDsRequest>;
+    responseSerialize: grpc.serialize<lnd_rpc_pb.ListMacaroonIDsResponse>;
+    responseDeserialize: grpc.deserialize<lnd_rpc_pb.ListMacaroonIDsResponse>;
+}
+interface ILightningService_IDeleteMacaroonID extends grpc.MethodDefinition<lnd_rpc_pb.DeleteMacaroonIDRequest, lnd_rpc_pb.DeleteMacaroonIDResponse> {
+    path: "/lnrpc.Lightning/DeleteMacaroonID";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<lnd_rpc_pb.DeleteMacaroonIDRequest>;
+    requestDeserialize: grpc.deserialize<lnd_rpc_pb.DeleteMacaroonIDRequest>;
+    responseSerialize: grpc.serialize<lnd_rpc_pb.DeleteMacaroonIDResponse>;
+    responseDeserialize: grpc.deserialize<lnd_rpc_pb.DeleteMacaroonIDResponse>;
+}
 interface ILightningService_IListPermissions extends grpc.MethodDefinition<lnd_rpc_pb.ListPermissionsRequest, lnd_rpc_pb.ListPermissionsResponse> {
     path: "/lnrpc.Lightning/ListPermissions";
     requestStream: false;
@@ -640,6 +660,8 @@ export interface ILightningServer {
     restoreChannelBackups: grpc.handleUnaryCall<lnd_rpc_pb.RestoreChanBackupRequest, lnd_rpc_pb.RestoreBackupResponse>;
     subscribeChannelBackups: grpc.handleServerStreamingCall<lnd_rpc_pb.ChannelBackupSubscription, lnd_rpc_pb.ChanBackupSnapshot>;
     bakeMacaroon: grpc.handleUnaryCall<lnd_rpc_pb.BakeMacaroonRequest, lnd_rpc_pb.BakeMacaroonResponse>;
+    listMacaroonIDs: grpc.handleUnaryCall<lnd_rpc_pb.ListMacaroonIDsRequest, lnd_rpc_pb.ListMacaroonIDsResponse>;
+    deleteMacaroonID: grpc.handleUnaryCall<lnd_rpc_pb.DeleteMacaroonIDRequest, lnd_rpc_pb.DeleteMacaroonIDResponse>;
     listPermissions: grpc.handleUnaryCall<lnd_rpc_pb.ListPermissionsRequest, lnd_rpc_pb.ListPermissionsResponse>;
 }
 
@@ -804,6 +826,12 @@ export interface ILightningClient {
     bakeMacaroon(request: lnd_rpc_pb.BakeMacaroonRequest, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.BakeMacaroonResponse) => void): grpc.ClientUnaryCall;
     bakeMacaroon(request: lnd_rpc_pb.BakeMacaroonRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.BakeMacaroonResponse) => void): grpc.ClientUnaryCall;
     bakeMacaroon(request: lnd_rpc_pb.BakeMacaroonRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.BakeMacaroonResponse) => void): grpc.ClientUnaryCall;
+    listMacaroonIDs(request: lnd_rpc_pb.ListMacaroonIDsRequest, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.ListMacaroonIDsResponse) => void): grpc.ClientUnaryCall;
+    listMacaroonIDs(request: lnd_rpc_pb.ListMacaroonIDsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.ListMacaroonIDsResponse) => void): grpc.ClientUnaryCall;
+    listMacaroonIDs(request: lnd_rpc_pb.ListMacaroonIDsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.ListMacaroonIDsResponse) => void): grpc.ClientUnaryCall;
+    deleteMacaroonID(request: lnd_rpc_pb.DeleteMacaroonIDRequest, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.DeleteMacaroonIDResponse) => void): grpc.ClientUnaryCall;
+    deleteMacaroonID(request: lnd_rpc_pb.DeleteMacaroonIDRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.DeleteMacaroonIDResponse) => void): grpc.ClientUnaryCall;
+    deleteMacaroonID(request: lnd_rpc_pb.DeleteMacaroonIDRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.DeleteMacaroonIDResponse) => void): grpc.ClientUnaryCall;
     listPermissions(request: lnd_rpc_pb.ListPermissionsRequest, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.ListPermissionsResponse) => void): grpc.ClientUnaryCall;
     listPermissions(request: lnd_rpc_pb.ListPermissionsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.ListPermissionsResponse) => void): grpc.ClientUnaryCall;
     listPermissions(request: lnd_rpc_pb.ListPermissionsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.ListPermissionsResponse) => void): grpc.ClientUnaryCall;
@@ -968,6 +996,12 @@ export class LightningClient extends grpc.Client implements ILightningClient {
     public bakeMacaroon(request: lnd_rpc_pb.BakeMacaroonRequest, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.BakeMacaroonResponse) => void): grpc.ClientUnaryCall;
     public bakeMacaroon(request: lnd_rpc_pb.BakeMacaroonRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.BakeMacaroonResponse) => void): grpc.ClientUnaryCall;
     public bakeMacaroon(request: lnd_rpc_pb.BakeMacaroonRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.BakeMacaroonResponse) => void): grpc.ClientUnaryCall;
+    public listMacaroonIDs(request: lnd_rpc_pb.ListMacaroonIDsRequest, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.ListMacaroonIDsResponse) => void): grpc.ClientUnaryCall;
+    public listMacaroonIDs(request: lnd_rpc_pb.ListMacaroonIDsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.ListMacaroonIDsResponse) => void): grpc.ClientUnaryCall;
+    public listMacaroonIDs(request: lnd_rpc_pb.ListMacaroonIDsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.ListMacaroonIDsResponse) => void): grpc.ClientUnaryCall;
+    public deleteMacaroonID(request: lnd_rpc_pb.DeleteMacaroonIDRequest, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.DeleteMacaroonIDResponse) => void): grpc.ClientUnaryCall;
+    public deleteMacaroonID(request: lnd_rpc_pb.DeleteMacaroonIDRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.DeleteMacaroonIDResponse) => void): grpc.ClientUnaryCall;
+    public deleteMacaroonID(request: lnd_rpc_pb.DeleteMacaroonIDRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.DeleteMacaroonIDResponse) => void): grpc.ClientUnaryCall;
     public listPermissions(request: lnd_rpc_pb.ListPermissionsRequest, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.ListPermissionsResponse) => void): grpc.ClientUnaryCall;
     public listPermissions(request: lnd_rpc_pb.ListPermissionsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.ListPermissionsResponse) => void): grpc.ClientUnaryCall;
     public listPermissions(request: lnd_rpc_pb.ListPermissionsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.ListPermissionsResponse) => void): grpc.ClientUnaryCall;

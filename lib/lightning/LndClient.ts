@@ -252,12 +252,16 @@ class LndClient extends BaseClient implements LndClient {
   /**
    * Creates an invoice
    */
-  public addInvoice = (value: number, memo?: string): Promise<lndrpc.AddInvoiceResponse.AsObject> => {
+  public addInvoice = (value: number, memo?: string, routingHints?: lndrpc.RouteHint[]): Promise<lndrpc.AddInvoiceResponse.AsObject> => {
     const request = new lndrpc.Invoice();
     request.setValue(value);
 
     if (memo) {
       request.setMemo(memo);
+    }
+
+    if (routingHints) {
+      request.setRouteHintsList(routingHints);
     }
 
     return this.unaryLightningCall<lndrpc.Invoice, lndrpc.AddInvoiceResponse.AsObject>('addInvoice', request);
@@ -270,8 +274,9 @@ class LndClient extends BaseClient implements LndClient {
    * @param cltvExpiry expiry delta of the last hop
    * @param preimageHash the hash of the preimage
    * @param memo optional memo to attach along with the invoice
+   * @param routingHints routing hints that should be included in the invoice
    */
-  public addHoldInvoice = (value: number, preimageHash: Buffer, cltvExpiry: number, memo?: string): Promise<invoicesrpc.AddHoldInvoiceResp.AsObject> => {
+  public addHoldInvoice = (value: number, preimageHash: Buffer, cltvExpiry: number, memo?: string, routingHints?: lndrpc.RouteHint[]): Promise<invoicesrpc.AddHoldInvoiceResp.AsObject> => {
     const request = new invoicesrpc.AddHoldInvoiceRequest();
     request.setValue(value);
     request.setCltvExpiry(cltvExpiry);
@@ -279,6 +284,10 @@ class LndClient extends BaseClient implements LndClient {
 
     if (memo) {
       request.setMemo(memo);
+    }
+
+    if (routingHints) {
+      request.setRouteHintsList(routingHints);
     }
 
     return this.unaryInvoicesCall<invoicesrpc.AddHoldInvoiceRequest, invoicesrpc.AddHoldInvoiceResp.AsObject>(
@@ -542,11 +551,22 @@ class LndClient extends BaseClient implements LndClient {
   /**
    * Gets a list of all open channels
    */
-  public listChannels = (activeOnly = false): Promise<lndrpc.ListChannelsResponse.AsObject> => {
+  public listChannels = (activeOnly = false, privateOnly = false): Promise<lndrpc.ListChannelsResponse.AsObject> => {
     const request = new lndrpc.ListChannelsRequest();
     request.setActiveOnly(activeOnly);
+    request.setPrivateOnly(privateOnly);
 
     return this.unaryLightningCall<lndrpc.ListChannelsRequest, lndrpc.ListChannelsResponse.AsObject>('listChannels', request);
+  }
+
+  /**
+   * Gets the latest routing information of a given channel
+   */
+  public getChannelInfo = (channelId: string): Promise<lndrpc.ChannelEdge.AsObject> => {
+    const request = new lndrpc.ChanInfoRequest();
+    request.setChanId(channelId);
+
+    return this.unaryLightningCall<lndrpc.ChanInfoRequest, lndrpc.ChannelEdge.AsObject>('getChanInfo', request);
   }
 
   /**

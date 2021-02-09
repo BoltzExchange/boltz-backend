@@ -171,6 +171,23 @@ class Controller {
   }
 
   // POST requests
+  public routingHints = (req: Request, res: Response): void => {
+    try {
+      const { symbol, routingNode } = this.validateRequest(req.body, [
+        { name: 'symbol', type: 'string' },
+        { name: 'routingNode', type: 'string' },
+      ]);
+
+      const routingHints = this.service.getRoutingHints(symbol, routingNode);
+
+      this.successResponse(res, {
+        routingHints,
+      });
+    } catch (error) {
+      this.errorResponse(req, res, error);
+    }
+  }
+
   public swapStatus = async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = this.validateRequest(req.body, [
@@ -332,16 +349,18 @@ class Controller {
       pairId,
       pairHash,
       orderSide,
+      routingNode,
       claimAddress,
       preimageHash,
       invoiceAmount,
       claimPublicKey,
     } = this.validateRequest(req.body, [
       { name: 'pairId', type: 'string' },
-      { name: 'pairHash', type: 'string', optional: true },
       { name: 'orderSide', type: 'string' },
       { name: 'invoiceAmount', type: 'number' },
       { name: 'preimageHash', type: 'string', hex: true },
+      { name: 'pairHash', type: 'string', optional: true },
+      { name: 'routingNode', type: 'string', optional: true },
       { name: 'claimAddress', type: 'string', optional: true, },
       { name: 'claimPublicKey', type: 'string', hex: true, optional: true },
     ]);
@@ -352,6 +371,7 @@ class Controller {
       pairId,
       pairHash,
       orderSide,
+      routingNode,
       claimAddress,
       preimageHash,
       invoiceAmount,

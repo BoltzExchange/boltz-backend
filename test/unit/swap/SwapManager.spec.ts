@@ -199,6 +199,13 @@ const mockQueryRoutes = jest.fn().mockImplementation(async (destination: string)
   };
 });
 
+const mockListChannelsResult = [];
+const mockListChannels = jest.fn().mockImplementation(() => {
+  return {
+    channelsList: mockListChannelsResult,
+  };
+});
+
 const mockAddHoldInvoiceResult = 'holdInvoice';
 const mockAddHoldInvoice = jest.fn().mockResolvedValue({
   paymentRequest: mockAddHoldInvoiceResult,
@@ -213,6 +220,7 @@ jest.mock('../../../lib/lightning/LndClient', () => {
       addInvoice: mockAddInvoice,
       queryRoutes: mockQueryRoutes,
       decodePayReq: mockDecodePayReq,
+      listChannels: mockListChannels,
       addHoldInvoice: mockAddHoldInvoice,
       subscribeSingleInvoice: mockSubscribeSingleInvoice,
     };
@@ -248,6 +256,12 @@ describe('SwapManager', () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
+    if (manager !== undefined && manager.routingHints !== undefined) {
+      if (manager.routingHints.stop !== undefined && typeof manager.routingHints.stop === 'function') {
+        manager.routingHints.stop();
+      }
+    }
+
     // Reset the injected mocked methods
     manager = new SwapManager(
       Logger.disabledLogger,
@@ -260,6 +274,12 @@ describe('SwapManager', () => {
 
     manager['currencies'].set(btcCurrency.symbol, btcCurrency);
     manager['currencies'].set(ltcCurrency.symbol, ltcCurrency);
+  });
+
+  afterAll(() => {
+    if (manager !== undefined && manager.routingHints !== undefined) {
+      manager.routingHints.stop();
+    }
   });
 
   test('it should init', async() => {
@@ -753,7 +773,7 @@ describe('SwapManager', () => {
     });
 
     expect(mockAddHoldInvoice).toHaveBeenCalledTimes(1);
-    expect(mockAddHoldInvoice).toHaveBeenCalledWith(holdInvoiceAmount, preimageHash, lightningTimeoutBlockDelta, 'Send to BTC address');
+    expect(mockAddHoldInvoice).toHaveBeenCalledWith(holdInvoiceAmount, preimageHash, lightningTimeoutBlockDelta, 'Send to BTC address', undefined);
 
     expect(mockSubscribeSingleInvoice).toHaveBeenCalledTimes(1);
     expect(mockSubscribeSingleInvoice).toHaveBeenCalledWith(preimageHash);
@@ -806,7 +826,7 @@ describe('SwapManager', () => {
     });
 
     expect(mockAddHoldInvoice).toHaveBeenCalledTimes(2);
-    expect(mockAddHoldInvoice).toHaveBeenNthCalledWith(2, holdInvoiceAmount, preimageHash, lightningTimeoutBlockDelta, 'Send to BTC address');
+    expect(mockAddHoldInvoice).toHaveBeenNthCalledWith(2, holdInvoiceAmount, preimageHash, lightningTimeoutBlockDelta, 'Send to BTC address', undefined);
 
     expect(mockSubscribeSingleInvoice).toHaveBeenCalledTimes(3);
     expect(mockSubscribeSingleInvoice).toHaveBeenNthCalledWith(2, preimageHash);
@@ -832,6 +852,50 @@ describe('SwapManager', () => {
       timeoutBlockHeight: onchainTimeoutBlockDelta + mockGetBlockchainInfoResult.blocks,
       redeemScript: '8201208763a9142f958e32209e7d5f60d321d4f4f6e12bdbf06db28821026c94d2958888e70fd32349b3c195803976e0865a54ab1755f19c2c820fcbafa86775020701b1752102c9c71ee3fee0c400ff64e51e955313e77ea499fc609973c71c5a4104a8d903bb68ac',
     });
+
+    // Private routing hints
+    const nodePublicKey = 'some node';
+
+    const mockGetRoutingHintsResult = ['private', 'channel', 'data'];
+    const mockGetRoutingHints = jest.fn().mockImplementation(() => mockGetRoutingHintsResult);
+    manager['routingHints'] = {
+      getRoutingHints: mockGetRoutingHints,
+    } as any;
+
+    await manager.createReverseSwap({
+      orderSide,
+      preimageHash,
+      baseCurrency,
+      quoteCurrency,
+      onchainAmount,
+      percentageFee,
+      prepayMinerFee,
+      holdInvoiceAmount,
+      onchainTimeoutBlockDelta,
+      lightningTimeoutBlockDelta,
+
+      claimPublicKey: claimKey,
+      routingNode: nodePublicKey,
+    });
+
+    expect(mockGetRoutingHints).toHaveBeenCalledTimes(1);
+    expect(mockGetRoutingHints).toHaveBeenCalledWith(baseCurrency, nodePublicKey);
+
+    expect(mockAddHoldInvoice).toHaveBeenCalledTimes(3);
+    expect(mockAddHoldInvoice).toHaveBeenNthCalledWith(3,
+      holdInvoiceAmount,
+      preimageHash,
+      lightningTimeoutBlockDelta,
+      'Send to BTC address',
+      mockGetRoutingHintsResult,
+    );
+
+    expect(mockAddInvoice).toHaveBeenCalledTimes(2);
+    expect(mockAddInvoice).toHaveBeenNthCalledWith(2,
+      prepayMinerFee,
+      'Miner fee for Reverse Swap to BTC address',
+      mockGetRoutingHintsResult,
+    );
 
     // No LND client found
     const notFoundSymbol = 'DOGE';

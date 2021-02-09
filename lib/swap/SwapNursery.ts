@@ -676,6 +676,12 @@ class SwapNursery extends EventEmitter {
         this.logger.verbose(`Invoice payment of Swap ${swap.id} is still pending after ${raceTimeout} seconds`);
       }
     } catch (error) {
+      const errorMessage = typeof error === 'number' ? LndClient.formatPaymentFailureReason(error) : formatError(error);
+
+      if (outgoingChannelId !== undefined) {
+        throw errorMessage;
+      }
+
       // Catch cases in which the invoice was paid already
       if (error.code === 6 && error.details === 'invoice is already paid') {
         const payment = await lightningCurrency.lndClient!.trackPayment(getHexBuffer(swap.preimageHash));
@@ -685,7 +691,6 @@ class SwapNursery extends EventEmitter {
         return getHexBuffer(payment.paymentPreimage);
       }
 
-      const errorMessage = typeof error === 'number' ? LndClient.formatPaymentFailureReason(error) : formatError(error);
       this.logger.warn(`Could not pay invoice of Swap ${swap.id} because: ${errorMessage}`);
 
       // If the recipient rejects the payment or the invoice expired, the Swap will be abandoned

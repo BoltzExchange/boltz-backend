@@ -1,6 +1,7 @@
 import Axios from 'axios';
 import { BigNumber, providers } from 'ethers';
 import Logger from '../../Logger';
+import { formatError } from '../../Utils';
 
 class GasNow {
   private static readonly gasNowApiUrl = 'https://gasnow.org/api/v3';
@@ -35,10 +36,14 @@ class GasNow {
   }
 
   private updateGasPrice = async () => {
-    const response = await Axios.get(`${GasNow.gasNowApiUrl}/gas/price`);
-    GasNow.latestGasPrice = BigNumber.from(response.data.data.fast);
+    try {
+      const response = await Axios.get(`${GasNow.gasNowApiUrl}/gas/price`);
+      GasNow.latestGasPrice = BigNumber.from(response.data.data.fast);
 
-    this.logger.silly(`Got updated GasNow gas price: ${GasNow.latestGasPrice}`);
+      this.logger.silly(`Got updated GasNow gas price: ${GasNow.latestGasPrice}`);
+    } catch (error) {
+      this.logger.warn(`Could not fetch gas price from GasNow: ${formatError(error)}`);
+    }
   }
 }
 

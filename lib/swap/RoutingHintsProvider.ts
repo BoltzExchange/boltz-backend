@@ -51,23 +51,24 @@ class RoutingHintsProvider {
     const routeHints: RouteHint[] = [];
 
     for (const channelInfo of relevantChannels) {
-      const routeHint = new RouteHint();
-
       const { channel, routingInfo } = channelInfo;
 
-      const remotePolicy = routingInfo.node1Pub === nodeId ? routingInfo.node1Policy! : routingInfo.node2Policy!;
+      const remotePolicy = routingInfo.node1Pub === nodeId ? routingInfo.node1Policy : routingInfo.node2Policy;
 
-      const hopHint = new HopHint();
+      if (remotePolicy) {
+        const hopHint = new HopHint();
 
-      hopHint.setNodeId(nodeId);
-      hopHint.setChanId(channel.chanId);
-      hopHint.setFeeBaseMsat(remotePolicy.feeBaseMsat);
-      hopHint.setCltvExpiryDelta(remotePolicy.timeLockDelta);
-      hopHint.setFeeProportionalMillionths(remotePolicy.feeRateMilliMsat);
+        hopHint.setNodeId(nodeId);
+        hopHint.setChanId(channel.chanId);
+        hopHint.setFeeBaseMsat(remotePolicy.feeBaseMsat);
+        hopHint.setCltvExpiryDelta(remotePolicy.timeLockDelta);
+        hopHint.setFeeProportionalMillionths(remotePolicy.feeRateMilliMsat);
 
-      routeHint.addHopHints(hopHint);
+        const routeHint = new RouteHint();
+        routeHint.addHopHints(hopHint);
 
-      routeHints.push(routeHint);
+        routeHints.push(routeHint);
+      }
     }
 
     return routeHints;

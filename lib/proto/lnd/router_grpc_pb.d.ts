@@ -16,6 +16,8 @@ interface IRouterService extends grpc.ServiceDefinition<grpc.UntypedServiceImple
     sendToRouteV2: IRouterService_ISendToRouteV2;
     resetMissionControl: IRouterService_IResetMissionControl;
     queryMissionControl: IRouterService_IQueryMissionControl;
+    getMissionControlConfig: IRouterService_IGetMissionControlConfig;
+    setMissionControlConfig: IRouterService_ISetMissionControlConfig;
     queryProbability: IRouterService_IQueryProbability;
     buildRoute: IRouterService_IBuildRoute;
     subscribeHtlcEvents: IRouterService_ISubscribeHtlcEvents;
@@ -87,6 +89,24 @@ interface IRouterService_IQueryMissionControl extends grpc.MethodDefinition<lnd_
     responseSerialize: grpc.serialize<lnd_router_pb.QueryMissionControlResponse>;
     responseDeserialize: grpc.deserialize<lnd_router_pb.QueryMissionControlResponse>;
 }
+interface IRouterService_IGetMissionControlConfig extends grpc.MethodDefinition<lnd_router_pb.GetMissionControlConfigRequest, lnd_router_pb.GetMissionControlConfigResponse> {
+    path: "/routerrpc.Router/GetMissionControlConfig";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<lnd_router_pb.GetMissionControlConfigRequest>;
+    requestDeserialize: grpc.deserialize<lnd_router_pb.GetMissionControlConfigRequest>;
+    responseSerialize: grpc.serialize<lnd_router_pb.GetMissionControlConfigResponse>;
+    responseDeserialize: grpc.deserialize<lnd_router_pb.GetMissionControlConfigResponse>;
+}
+interface IRouterService_ISetMissionControlConfig extends grpc.MethodDefinition<lnd_router_pb.SetMissionControlConfigRequest, lnd_router_pb.SetMissionControlConfigResponse> {
+    path: "/routerrpc.Router/SetMissionControlConfig";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<lnd_router_pb.SetMissionControlConfigRequest>;
+    requestDeserialize: grpc.deserialize<lnd_router_pb.SetMissionControlConfigRequest>;
+    responseSerialize: grpc.serialize<lnd_router_pb.SetMissionControlConfigResponse>;
+    responseDeserialize: grpc.deserialize<lnd_router_pb.SetMissionControlConfigResponse>;
+}
 interface IRouterService_IQueryProbability extends grpc.MethodDefinition<lnd_router_pb.QueryProbabilityRequest, lnd_router_pb.QueryProbabilityResponse> {
     path: "/routerrpc.Router/QueryProbability";
     requestStream: false;
@@ -152,6 +172,8 @@ export interface IRouterServer {
     sendToRouteV2: grpc.handleUnaryCall<lnd_router_pb.SendToRouteRequest, lnd_rpc_pb.HTLCAttempt>;
     resetMissionControl: grpc.handleUnaryCall<lnd_router_pb.ResetMissionControlRequest, lnd_router_pb.ResetMissionControlResponse>;
     queryMissionControl: grpc.handleUnaryCall<lnd_router_pb.QueryMissionControlRequest, lnd_router_pb.QueryMissionControlResponse>;
+    getMissionControlConfig: grpc.handleUnaryCall<lnd_router_pb.GetMissionControlConfigRequest, lnd_router_pb.GetMissionControlConfigResponse>;
+    setMissionControlConfig: grpc.handleUnaryCall<lnd_router_pb.SetMissionControlConfigRequest, lnd_router_pb.SetMissionControlConfigResponse>;
     queryProbability: grpc.handleUnaryCall<lnd_router_pb.QueryProbabilityRequest, lnd_router_pb.QueryProbabilityResponse>;
     buildRoute: grpc.handleUnaryCall<lnd_router_pb.BuildRouteRequest, lnd_router_pb.BuildRouteResponse>;
     subscribeHtlcEvents: grpc.handleServerStreamingCall<lnd_router_pb.SubscribeHtlcEventsRequest, lnd_router_pb.HtlcEvent>;
@@ -180,6 +202,12 @@ export interface IRouterClient {
     queryMissionControl(request: lnd_router_pb.QueryMissionControlRequest, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.QueryMissionControlResponse) => void): grpc.ClientUnaryCall;
     queryMissionControl(request: lnd_router_pb.QueryMissionControlRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.QueryMissionControlResponse) => void): grpc.ClientUnaryCall;
     queryMissionControl(request: lnd_router_pb.QueryMissionControlRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.QueryMissionControlResponse) => void): grpc.ClientUnaryCall;
+    getMissionControlConfig(request: lnd_router_pb.GetMissionControlConfigRequest, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.GetMissionControlConfigResponse) => void): grpc.ClientUnaryCall;
+    getMissionControlConfig(request: lnd_router_pb.GetMissionControlConfigRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.GetMissionControlConfigResponse) => void): grpc.ClientUnaryCall;
+    getMissionControlConfig(request: lnd_router_pb.GetMissionControlConfigRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.GetMissionControlConfigResponse) => void): grpc.ClientUnaryCall;
+    setMissionControlConfig(request: lnd_router_pb.SetMissionControlConfigRequest, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.SetMissionControlConfigResponse) => void): grpc.ClientUnaryCall;
+    setMissionControlConfig(request: lnd_router_pb.SetMissionControlConfigRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.SetMissionControlConfigResponse) => void): grpc.ClientUnaryCall;
+    setMissionControlConfig(request: lnd_router_pb.SetMissionControlConfigRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.SetMissionControlConfigResponse) => void): grpc.ClientUnaryCall;
     queryProbability(request: lnd_router_pb.QueryProbabilityRequest, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.QueryProbabilityResponse) => void): grpc.ClientUnaryCall;
     queryProbability(request: lnd_router_pb.QueryProbabilityRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.QueryProbabilityResponse) => void): grpc.ClientUnaryCall;
     queryProbability(request: lnd_router_pb.QueryProbabilityRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.QueryProbabilityResponse) => void): grpc.ClientUnaryCall;
@@ -218,6 +246,12 @@ export class RouterClient extends grpc.Client implements IRouterClient {
     public queryMissionControl(request: lnd_router_pb.QueryMissionControlRequest, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.QueryMissionControlResponse) => void): grpc.ClientUnaryCall;
     public queryMissionControl(request: lnd_router_pb.QueryMissionControlRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.QueryMissionControlResponse) => void): grpc.ClientUnaryCall;
     public queryMissionControl(request: lnd_router_pb.QueryMissionControlRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.QueryMissionControlResponse) => void): grpc.ClientUnaryCall;
+    public getMissionControlConfig(request: lnd_router_pb.GetMissionControlConfigRequest, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.GetMissionControlConfigResponse) => void): grpc.ClientUnaryCall;
+    public getMissionControlConfig(request: lnd_router_pb.GetMissionControlConfigRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.GetMissionControlConfigResponse) => void): grpc.ClientUnaryCall;
+    public getMissionControlConfig(request: lnd_router_pb.GetMissionControlConfigRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.GetMissionControlConfigResponse) => void): grpc.ClientUnaryCall;
+    public setMissionControlConfig(request: lnd_router_pb.SetMissionControlConfigRequest, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.SetMissionControlConfigResponse) => void): grpc.ClientUnaryCall;
+    public setMissionControlConfig(request: lnd_router_pb.SetMissionControlConfigRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.SetMissionControlConfigResponse) => void): grpc.ClientUnaryCall;
+    public setMissionControlConfig(request: lnd_router_pb.SetMissionControlConfigRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.SetMissionControlConfigResponse) => void): grpc.ClientUnaryCall;
     public queryProbability(request: lnd_router_pb.QueryProbabilityRequest, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.QueryProbabilityResponse) => void): grpc.ClientUnaryCall;
     public queryProbability(request: lnd_router_pb.QueryProbabilityRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.QueryProbabilityResponse) => void): grpc.ClientUnaryCall;
     public queryProbability(request: lnd_router_pb.QueryProbabilityRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.QueryProbabilityResponse) => void): grpc.ClientUnaryCall;

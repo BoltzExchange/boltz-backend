@@ -15,7 +15,7 @@ service Invoices {
     Initially the current invoice state is always sent out.
     */
     rpc SubscribeSingleInvoice (SubscribeSingleInvoiceRequest)
-    returns (stream lnrpc.Invoice);
+        returns (stream lnrpc.Invoice);
 
     /*
     CancelInvoice cancels a currently open invoice. If the invoice is already

@@ -27,4 +27,4 @@ docker run \
   -p 11009:11009 \
   -p 11010:11010 \
   -p 8081:8081 \
-  boltz/regtest:3.1.0
+  boltz/regtest:3.1.1

@@ -13,7 +13,6 @@ export class CancelInvoiceMsg extends jspb.Message {
     getPaymentHash_asB64(): string;
     setPaymentHash(value: Uint8Array | string): CancelInvoiceMsg;
 
-
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): CancelInvoiceMsg.AsObject;
     static toObject(includeInstance: boolean, msg: CancelInvoiceMsg): CancelInvoiceMsg.AsObject;
@@ -50,40 +49,30 @@ export namespace CancelInvoiceResp {
 export class AddHoldInvoiceRequest extends jspb.Message { 
     getMemo(): string;
     setMemo(value: string): AddHoldInvoiceRequest;
-
     getHash(): Uint8Array | string;
     getHash_asU8(): Uint8Array;
     getHash_asB64(): string;
     setHash(value: Uint8Array | string): AddHoldInvoiceRequest;
-
     getValue(): number;
     setValue(value: number): AddHoldInvoiceRequest;
-
     getValueMsat(): number;
     setValueMsat(value: number): AddHoldInvoiceRequest;
-
     getDescriptionHash(): Uint8Array | string;
     getDescriptionHash_asU8(): Uint8Array;
     getDescriptionHash_asB64(): string;
     setDescriptionHash(value: Uint8Array | string): AddHoldInvoiceRequest;
-
     getExpiry(): number;
     setExpiry(value: number): AddHoldInvoiceRequest;
-
     getFallbackAddr(): string;
     setFallbackAddr(value: string): AddHoldInvoiceRequest;
-
     getCltvExpiry(): number;
     setCltvExpiry(value: number): AddHoldInvoiceRequest;
-
     clearRouteHintsList(): void;
     getRouteHintsList(): Array<lnd_rpc_pb.RouteHint>;
     setRouteHintsList(value: Array<lnd_rpc_pb.RouteHint>): AddHoldInvoiceRequest;
     addRouteHints(value?: lnd_rpc_pb.RouteHint, index?: number): lnd_rpc_pb.RouteHint;
-
     getPrivate(): boolean;
     setPrivate(value: boolean): AddHoldInvoiceRequest;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): AddHoldInvoiceRequest.AsObject;
@@ -114,7 +103,6 @@ export class AddHoldInvoiceResp extends jspb.Message {
     getPaymentRequest(): string;
     setPaymentRequest(value: string): AddHoldInvoiceResp;
 
-
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): AddHoldInvoiceResp.AsObject;
     static toObject(includeInstance: boolean, msg: AddHoldInvoiceResp): AddHoldInvoiceResp.AsObject;
@@ -136,7 +124,6 @@ export class SettleInvoiceMsg extends jspb.Message {
     getPreimage_asU8(): Uint8Array;
     getPreimage_asB64(): string;
     setPreimage(value: Uint8Array | string): SettleInvoiceMsg;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): SettleInvoiceMsg.AsObject;
@@ -176,7 +163,6 @@ export class SubscribeSingleInvoiceRequest extends jspb.Message {
     getRHash_asU8(): Uint8Array;
     getRHash_asB64(): string;
     setRHash(value: Uint8Array | string): SubscribeSingleInvoiceRequest;
-
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): SubscribeSingleInvoiceRequest.AsObject;

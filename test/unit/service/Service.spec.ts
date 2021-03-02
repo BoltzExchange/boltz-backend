@@ -460,7 +460,8 @@ describe('Service', () => {
       rates: {
         interval: Number.MAX_SAFE_INTEGER,
       },
-    } as ConfigType,
+      currencies: [],
+    } as any as ConfigType,
     mockedWalletManager(),
     currencies,
   );

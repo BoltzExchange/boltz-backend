@@ -12,6 +12,7 @@ import EventHandler from './EventHandler';
 import { PairConfig } from '../consts/Types';
 import PairRepository from '../db/PairRepository';
 import { encodeBip21 } from './PaymentRequestUtils';
+import InvoiceExpiryHelper from './InvoiceExpiryHelper';
 import { Payment, RouteHint } from '../proto/lnd/rpc_pb';
 import TimeoutDeltaProvider from './TimeoutDeltaProvider';
 import { Network } from '../wallet/ethereum/EthereumManager';
@@ -97,6 +98,7 @@ class Service {
       this.logger,
       this.walletManager,
       this.rateProvider,
+      new InvoiceExpiryHelper(config.currencies),
       config.swapwitnessaddress ? OutputType.Bech32 : OutputType.Compatibility,
       config.retryInterval,
     );

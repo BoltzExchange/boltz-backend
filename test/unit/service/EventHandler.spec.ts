@@ -21,6 +21,7 @@ type invoicePendingCallback = (swap: Swap) => void;
 type refundCallback = (reverseSwap: ReverseSwap) => void;
 type minerfeePaidCallback = (reverseSwap: ReverseSwap) => void;
 type invoiceSettledCallback = (reverseSwap: ReverseSwap) => void;
+type invoiceExpiredCallback = (reverseSwap: ReverseSwap) => void;
 type coinsFailedToSendCallback = (reverseSwap: ReverseSwap) => void;
 type claimCallback = (swap: Swap, channelCreation?: ChannelCreation) => void;
 type expirationCallback = (swap: Swap | ReverseSwap, isReverse: boolean) => void;
@@ -52,6 +53,7 @@ let emitTransaction: transactionCallback;
 let emitInvoicePaid: invoicePaidCallback;
 let emitLockupFailed: lockupFailedCallback;
 let emitMinerfeePaid: minerfeePaidCallback;
+let emitInvoiceExpired: invoiceExpiredCallback;
 let emitInvoicePending: invoicePendingCallback;
 let emitInvoiceSettled: invoiceSettledCallback;
 let emitInvoiceFailedToPay: invoiceFailedCallback;
@@ -109,6 +111,10 @@ jest.mock('../../../lib/swap/SwapNursery', () => {
 
         case 'lockup.failed':
           emitLockupFailed = callback;
+          break;
+
+        case 'invoice.expired':
+          emitInvoiceExpired = callback;
           break;
       }
     },
@@ -325,6 +331,19 @@ describe('EventHandler', () => {
     swap.failureReason = undefined;
 
     expect(eventsEmitted).toEqual(2);
+    eventsEmitted = 0;
+
+    // Invoice expired
+    eventHandler.once('swap.update', (id, message) => {
+      expect(id).toEqual(reverseSwap.id);
+      expect(message).toEqual({ status: SwapUpdateEvent.InvoiceExpired });
+
+      eventsEmitted += 1;
+    });
+
+    emitInvoiceExpired(reverseSwap);
+
+    expect(eventsEmitted).toEqual(1);
   });
 
   test('should subscribe to swap events', () => {

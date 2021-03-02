@@ -1,8 +1,8 @@
 import { Op } from 'sequelize';
 import AsyncLock from 'async-lock';
-import { BigNumber, ContractTransaction } from 'ethers';
 import { EventEmitter } from 'events';
 import { crypto, Transaction } from 'bitcoinjs-lib';
+import { BigNumber, ContractTransaction } from 'ethers';
 import { constructClaimTransaction, constructRefundTransaction, detectSwap, OutputType } from 'boltz-core';
 import Errors from './Errors';
 import Logger from '../Logger';
@@ -10,6 +10,7 @@ import Swap from '../db/models/Swap';
 import Wallet from '../wallet/Wallet';
 import UtxoNursery from './UtxoNursery';
 import ChannelNursery from './ChannelNursery';
+import InvoiceNursery from './InvoiceNursery';
 import FeeProvider from '../rates/FeeProvider';
 import LndClient from '../lightning/LndClient';
 import ChainClient from '../chain/ChainClient';
@@ -73,6 +74,9 @@ interface SwapNursery {
   on(event: 'minerfee.paid', listener: (reverseSwap: ReverseSwap) => void): this;
   emit(event: 'minerfee.paid', reverseSwap: ReverseSwap): boolean;
 
+  on(event: 'invoice.expired', listener: (reverseSwap: ReverseSwap) => void): this;
+  emit(event: 'invoice.expired', reverseSwap: ReverseSwap): boolean;
+
   // UTXO based chains emit the "Transaction" object and Ethereum based ones just the transaction hash
   on(event: 'coins.sent', listener: (reverseSwap: ReverseSwap, transaction: Transaction | string) => void): this;
   emit(event: 'coins.sent', reverseSwap: ReverseSwap, transaction: Transaction | string): boolean;
@@ -92,9 +96,9 @@ class SwapNursery extends EventEmitter {
   public static reverseSwapMempoolEta = 2;
 
   // Nurseries
-  public readonly channelNursery: ChannelNursery;
-
   private readonly utxoNursery: UtxoNursery;
+  public readonly channelNursery: ChannelNursery;
+  private readonly invoiceNursery: InvoiceNursery;
   private readonly lightningNursery: LightningNursery;
 
   private readonly ethereumNursery?: EthereumNursery;
@@ -132,6 +136,11 @@ class SwapNursery extends EventEmitter {
     );
 
     this.lightningNursery = new LightningNursery(
+      this.logger,
+      this.reverseSwapRepository,
+    );
+
+    this.invoiceNursery = new InvoiceNursery(
       this.logger,
       this.reverseSwapRepository,
     );
@@ -270,9 +279,28 @@ class SwapNursery extends EventEmitter {
       });
     });
 
+    this.invoiceNursery.on('invoice.expired', async (reverseSwap: ReverseSwap) => {
+      await this.lock.acquire(SwapNursery.reverseSwapLock, async () => {
+        this.logger.debug(`Cancelling expired hold invoice${reverseSwap.minerFeeInvoicePreimage === null ? '' : 's'} of Reverse Swap ${reverseSwap.id}`);
+
+        const { base, quote } = splitPairId(reverseSwap.pair);
+        const receiveCurrency = getLightningCurrency(base, quote, reverseSwap.orderSide, true);
+        const lndClient = this.currencies.get(receiveCurrency)!.lndClient!;
+
+        await lndClient.cancelInvoice(getHexBuffer(reverseSwap.preimageHash));
+
+        if (reverseSwap.minerFeeInvoicePreimage) {
+          await lndClient.cancelInvoice(crypto.sha256(getHexBuffer(reverseSwap.minerFeeInvoicePreimage)));
+        }
+
+        this.emit('invoice.expired', reverseSwap);
+      });
+    });
+
     this.utxoNursery.bindCurrency(currencies);
     this.lightningNursery.bindCurrencies(currencies);
 
+    await this.invoiceNursery.init();
     await this.channelNursery.init(currencies);
 
     if (this.retryInterval !== 0) {

@@ -13,6 +13,7 @@ import ReverseSwap from '../db/models/ReverseSwap';
 import { ReverseSwapOutputType } from '../consts/Consts';
 import RoutingHintsProvider from './RoutingHintsProvider';
 import ReverseSwapRepository from '../db/ReverseSwapRepository';
+import InvoiceExpiryHelper from '../service/InvoiceExpiryHelper';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
 import ChannelCreationRepository from '../db/ChannelCreationRepository';
@@ -60,6 +61,7 @@ class SwapManager {
     private logger: Logger,
     private walletManager: WalletManager,
     rateProvider: RateProvider,
+    private invoiceExpiryHelper: InvoiceExpiryHelper,
     private swapOutputType: OutputType,
     retryInterval: number,
   ) {
@@ -279,15 +281,7 @@ class SwapManager {
       throw Errors.INVOICE_INVALID_PREIMAGE_HASH(swap.preimageHash);
     }
 
-    let invoiceExpiry = decodedInvoice.timestamp || 0;
-
-    if (decodedInvoice.timeExpireDate) {
-      invoiceExpiry = decodedInvoice.timeExpireDate;
-    } else {
-      // Default invoice timeout
-      // Reference: https://github.com/lightningnetwork/lightning-rfc/blob/master/11-payment-encoding.md#tagged-fields
-      invoiceExpiry += 3600;
-    }
+    const invoiceExpiry = InvoiceExpiryHelper.getInvoiceExpiry(decodedInvoice.timestamp, decodedInvoice.timeExpireDate);
 
     if (getUnixTime() >= invoiceExpiry) {
       throw Errors.INVOICE_EXPIRED_ALREADY();
@@ -436,6 +430,7 @@ class SwapManager {
       args.holdInvoiceAmount,
       args.preimageHash,
       args.lightningTimeoutBlockDelta,
+      this.invoiceExpiryHelper.getExpiry(receivingCurrency.symbol),
       getSwapMemo(sendingCurrency.symbol, true),
       routingHints,
     );
@@ -455,6 +450,7 @@ class SwapManager {
         args.prepayMinerFeeInvoiceAmount,
         minerFeeInvoicePreimageHash,
         undefined,
+        this.invoiceExpiryHelper.getExpiry(receivingCurrency.symbol),
         getPrepayMinerFeeInvoiceMemo(sendingCurrency.symbol),
         routingHints,
       );

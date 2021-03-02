@@ -25,6 +25,9 @@ type CurrencyConfig = {
   chain: ChainConfig;
   lnd?: LndConfig;
 
+  // Expiry of the invoices of this this currency in seconds
+  invoiceExpiry?: number;
+
   maxSwapAmount: number;
   minSwapAmount: number;
 

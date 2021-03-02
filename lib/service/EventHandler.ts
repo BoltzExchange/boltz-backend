@@ -118,6 +118,10 @@ class EventHandler extends EventEmitter {
     this.nursery.on('invoice.paid', (swap) => {
       this.emit('swap.update', swap.id, { status: SwapUpdateEvent.InvoicePaid });
     });
+
+    this.nursery.on('invoice.expired', (reverseSwap: ReverseSwap) => {
+      this.emit('swap.update', reverseSwap.id, {  status: SwapUpdateEvent.InvoiceExpired });
+    });
   }
 
   /**

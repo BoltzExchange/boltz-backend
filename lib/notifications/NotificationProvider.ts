@@ -9,8 +9,8 @@ import ReverseSwap from '../db/models/ReverseSwap';
 import BackupScheduler from '../backup/BackupScheduler';
 import { CurrencyType, OrderSide } from '../consts/Enums';
 import { satoshisToCoins } from '../DenominationConverter';
-import { CurrencyConfig, NotificationConfig, TokenConfig } from '../Config';
 import { ChainInfo, CurrencyInfo, LndInfo } from '../proto/boltzrpc_pb';
+import { CurrencyConfig, NotificationConfig, TokenConfig } from '../Config';
 import {
   splitPairId,
   decodeInvoice,

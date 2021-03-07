@@ -93,10 +93,22 @@ export default {
   }),
   INVALID_ETHEREUM_ADDRESS: (): Error => ({
     message: 'and invalid Ethereum address was provided',
-    code: concatErrorCode(ErrorCodePrefix.Service, 5),
+    code: concatErrorCode(ErrorCodePrefix.Service, 26),
   }),
   INVALID_PAIR_HASH: (): Error => ({
     message: 'invalid pair hash',
-    code: concatErrorCode(ErrorCodePrefix.Swap, 24),
+    code: concatErrorCode(ErrorCodePrefix.Service, 27),
+  }),
+  NO_AMOUNT_SPECIFIED: (): Error => ({
+    message: 'no amount was specified',
+    code: concatErrorCode(ErrorCodePrefix.Service, 28),
+  }),
+  INVOICE_AND_ONCHAIN_AMOUNT_SPECIFIED: (): Error => ({
+    message: 'invoice and onchain amount were specified',
+    code: concatErrorCode(ErrorCodePrefix.Service, 29),
+  }),
+  NOT_WHOLE_NUMBER: (input: number): Error => ({
+    message: `${input} is not a whole number`,
+    code: concatErrorCode(ErrorCodePrefix.Service, 30),
   }),
 };

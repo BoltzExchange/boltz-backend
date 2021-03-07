@@ -779,7 +779,7 @@ describe('Controller', () => {
       ...requestData,
       pairId: 'LTC/BTC',
       orderSide: 'buy',
-      invoiceAmount: 0,
+      invoiceAmount: 321,
       claimPublicKey: '298ae8cc',
       preimageHash: '98aed2bbba02f46751d1d4f687642df910cd1a6b85ba8adfabdbe7d82c8a4e6c',
     };
@@ -801,7 +801,6 @@ describe('Controller', () => {
     requestData.pairHash = 'someHash';
 
     await controller.createSwap(mockRequest(requestData), res);
-
 
     expect(service.createReverseSwap).toHaveBeenNthCalledWith(3,
       {
@@ -837,6 +836,26 @@ describe('Controller', () => {
 
     expect(res.status).toHaveBeenNthCalledWith(4, 201);
     expect(res.json).toHaveBeenNthCalledWith(4, await mockCreateReverseSwap());
+
+    // Should parse and pass onchain amount
+    requestData.onchainAmount = 123;
+    requestData.invoiceAmount = undefined;
+
+    await controller.createSwap(mockRequest(requestData), res);
+
+    expect(service.createReverseSwap).toHaveBeenNthCalledWith(7,
+      {
+        prepayMinerFee: true,
+        pairId: requestData.pairId,
+        orderSide: requestData.orderSide,
+        preimageHash: getHexBuffer(requestData.preimageHash),
+        onchainAmount: requestData.onchainAmount,
+        claimPublicKey: getHexBuffer(requestData.claimPublicKey),
+      },
+    );
+
+    expect(res.status).toHaveBeenNthCalledWith(5, 201);
+    expect(res.json).toHaveBeenNthCalledWith(5, await mockCreateReverseSwap());
   });
 
   test('should stream swap status updates', () => {

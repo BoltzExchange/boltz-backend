@@ -642,10 +642,13 @@ class Service {
       throw Errors.SWAP_NO_LOCKUP();
     }
 
+    const { base, quote } = splitPairId(swap.pair);
+    const onchainCurrency = getChainCurrency(base, quote, swap.orderSide, false);
+
     const rate = getRate(swap.rate!, swap.orderSide, false);
 
     const percentageFee = this.rateProvider.feeProvider.getPercentageFee(swap.pair);
-    const { baseFee } = this.rateProvider.feeProvider.getFees(swap.pair, rate, swap.orderSide, swap.onchainAmount, BaseFeeType.NormalClaim);
+    const baseFee = this.rateProvider.feeProvider.getBaseFee(onchainCurrency, BaseFeeType.NormalClaim);
 
     const invoiceAmount = this.calculateInvoiceAmount(swap.orderSide, rate, swap.onchainAmount, baseFee, percentageFee);
 
@@ -840,7 +843,9 @@ class Service {
     pairHash?: string,
     orderSide: string,
     preimageHash: Buffer,
-    invoiceAmount: number,
+
+    invoiceAmount?: number,
+    onchainAmount?: number,
 
     // Public key of the node for which routing hints should be included in the invoice(s)
     routingNode?: string,
@@ -859,9 +864,10 @@ class Service {
     redeemScript?: string,
     refundAddress?: string,
     lockupAddress: string,
-    onchainAmount: number,
+    onchainAmount?: number,
     minerFeeInvoice?: string,
     timeoutBlockHeight: number,
+    prepayMinerFeeAmount?: number,
   }> => {
     if (!this.allowReverseSwaps) {
       throw Errors.REVERSE_SWAPS_DISABLED();
@@ -918,13 +924,47 @@ class Service {
     lightningTimeoutBlockDelta += sending === receiving ? 3 : Math.ceil(lightningTimeoutBlockDelta * 0.1);
 
     const rate = getRate(pairRate, side, true);
-    this.verifyAmount(args.pairId, rate, args.invoiceAmount, side, true);
+    const feePercent = this.rateProvider.feeProvider.getPercentageFee(args.pairId)!;
+    const baseFee = this.rateProvider.feeProvider.getBaseFee(sendingCurrency.symbol, BaseFeeType.ReverseLockup);
 
-    const { baseFee, percentageFee } = this.rateProvider.feeProvider.getFees(args.pairId, rate, side, args.invoiceAmount, BaseFeeType.ReverseLockup);
+    let onchainAmount: number;
+    let holdInvoiceAmount: number;
 
-    let onchainAmount = Math.floor(args.invoiceAmount * rate) - (baseFee + percentageFee);
+    let percentageFee: number;
 
-    let holdInvoiceAmount = args.invoiceAmount;
+    // True when the invoice amount was set in the request, false when the onchain amount was set
+    let invoiceAmountDefined: boolean;
+
+    if (args.invoiceAmount !== undefined && args.onchainAmount !== undefined) {
+      throw Errors.INVOICE_AND_ONCHAIN_AMOUNT_SPECIFIED();
+    } else if (args.invoiceAmount !== undefined) {
+      invoiceAmountDefined = true;
+
+      this.checkWholeNumber(args.invoiceAmount);
+      holdInvoiceAmount = args.invoiceAmount;
+
+      onchainAmount = args.invoiceAmount * rate;
+
+      percentageFee = Math.ceil(feePercent * onchainAmount);
+
+      onchainAmount -= percentageFee + baseFee;
+      onchainAmount = Math.floor(onchainAmount);
+    } else if (args.onchainAmount !== undefined) {
+      invoiceAmountDefined = false;
+
+      this.checkWholeNumber(args.onchainAmount);
+      onchainAmount = args.onchainAmount;
+
+      holdInvoiceAmount = (args.onchainAmount + baseFee) / rate;
+      holdInvoiceAmount = holdInvoiceAmount / (1 - feePercent);
+      holdInvoiceAmount = Math.ceil(holdInvoiceAmount);
+
+      percentageFee = Math.ceil(holdInvoiceAmount * rate * feePercent);
+    } else {
+      throw Errors.NO_AMOUNT_SPECIFIED();
+    }
+
+    this.verifyAmount(args.pairId, rate, holdInvoiceAmount, side, true);
 
     let prepayMinerFeeInvoiceAmount: number | undefined = undefined;
     let prepayMinerFeeOnchainAmount: number | undefined = undefined;
@@ -934,18 +974,22 @@ class Service {
     if (swapIsPrepayMinerFee) {
       if (sendingCurrency.type === CurrencyType.BitcoinLike) {
         prepayMinerFeeInvoiceAmount = Math.ceil(baseFee / rate);
+        holdInvoiceAmount = Math.floor(holdInvoiceAmount - prepayMinerFeeInvoiceAmount);
       } else {
         const gasPrice = await getGasPrice(sendingCurrency.provider!);
         prepayMinerFeeOnchainAmount = ethereumPrepayMinerFeeGasLimit.mul(gasPrice).div(etherDecimals).toNumber();
 
         const sendingAmountRate = sending === 'ETH' ? 1 : this.rateProvider.rateCalculator.calculateRate('ETH', sending);
-        onchainAmount -= Math.ceil(prepayMinerFeeOnchainAmount * sendingAmountRate);
 
         const receivingAmountRate = receiving === 'ETH' ? 1 : this.rateProvider.rateCalculator.calculateRate('ETH', receiving);
         prepayMinerFeeInvoiceAmount = Math.ceil(prepayMinerFeeOnchainAmount * receivingAmountRate);
-      }
 
-      holdInvoiceAmount = Math.floor(holdInvoiceAmount - prepayMinerFeeInvoiceAmount);
+        // If the invoice amount was specified, the onchain and hold invoice amounts need to be adjusted
+        if (invoiceAmountDefined) {
+          onchainAmount -= Math.ceil(prepayMinerFeeOnchainAmount * sendingAmountRate);
+          holdInvoiceAmount = Math.floor(holdInvoiceAmount - prepayMinerFeeInvoiceAmount);
+        }
+      }
     }
 
     if (onchainAmount < 1) {
@@ -986,12 +1030,16 @@ class Service {
       redeemScript,
       refundAddress,
       lockupAddress,
-      onchainAmount,
       timeoutBlockHeight,
     };
 
     if (swapIsPrepayMinerFee) {
       response.minerFeeInvoice = minerFeeInvoice;
+      response.prepayMinerFeeAmount = prepayMinerFeeOnchainAmount;
+    }
+
+    if (invoiceAmountDefined) {
+      response.onchainAmount = onchainAmount;
     }
 
     return response;
@@ -1074,12 +1122,11 @@ class Service {
    */
   private calculateInvoiceAmount = (orderSide: number, rate: number, onchainAmount: number, baseFee: number, percentageFee: number) => {
     if (orderSide === OrderSide.BUY) {
-      // tslint:disable-next-line:no-parameter-reassignment
       rate = 1 / rate;
     }
 
     return Math.floor(
-      ((onchainAmount - baseFee) * rate) / (1 + (percentageFee)),
+      ((onchainAmount - baseFee) * rate) / (1 + percentageFee),
     );
   }
 
@@ -1126,6 +1173,12 @@ class Service {
      if (pairHash !== this.rateProvider.pairs.get(pairId)!.hash) {
        throw Errors.INVALID_PAIR_HASH();
      }
+  }
+
+  private checkWholeNumber = (input: number) => {
+    if (input % 1 !== 0) {
+      throw Errors.NOT_WHOLE_NUMBER(input);
+    }
   }
 }
 

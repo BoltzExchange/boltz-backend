@@ -353,18 +353,20 @@ class Controller {
       claimAddress,
       preimageHash,
       invoiceAmount,
+      onchainAmount,
       claimPublicKey,
       prepayMinerFee,
     } = this.validateRequest(req.body, [
       { name: 'pairId', type: 'string' },
       { name: 'orderSide', type: 'string' },
-      { name: 'invoiceAmount', type: 'number' },
       { name: 'preimageHash', type: 'string', hex: true },
       { name: 'pairHash', type: 'string', optional: true },
       { name: 'routingNode', type: 'string', optional: true },
       { name: 'claimAddress', type: 'string', optional: true, },
-      { name: 'claimPublicKey', type: 'string', hex: true, optional: true },
+      { name: 'invoiceAmount', type: 'number', optional: true },
+      { name: 'onchainAmount', type: 'number', optional: true },
       { name: 'prepayMinerFee', type: 'boolean', optional: true },
+      { name: 'claimPublicKey', type: 'string', hex: true, optional: true },
     ]);
 
     this.checkPreimageHashLength(preimageHash);
@@ -377,6 +379,7 @@ class Controller {
       claimAddress,
       preimageHash,
       invoiceAmount,
+      onchainAmount,
       claimPublicKey,
       prepayMinerFee,
     });

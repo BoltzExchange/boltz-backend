@@ -93,6 +93,13 @@ class FeeProvider {
     const { base, quote } = splitPairId(pair);
     const chainCurrency = getChainCurrency(base, quote, orderSide, type !== BaseFeeType.NormalClaim);
 
+    return {
+      percentageFee: Math.ceil(percentageFee),
+      baseFee: this.getBaseFee(chainCurrency, type),
+    };
+  }
+
+  public getBaseFee = (chainCurrency: string, type: BaseFeeType): number => {
     const minerFeeMap = this.minerFees.get(chainCurrency)!;
 
     let baseFee: number;
@@ -111,10 +118,7 @@ class FeeProvider {
         break;
     }
 
-    return {
-      baseFee: baseFee,
-      percentageFee: Math.ceil(percentageFee),
-    };
+    return baseFee;
   }
 
   public updateMinerFees = async (chainCurrency: string): Promise<void> => {

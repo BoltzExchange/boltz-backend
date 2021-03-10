@@ -3,7 +3,7 @@
     "lib"
   ],
   "files": [
-    "./node_modules/@nomiclabs/hardhat-ethers/src/type-extensions.ts",
+    "./node_modules/@nomiclabs/hardhat-ethers/src/types/index.ts",
     "./node_modules/@nomiclabs/hardhat-waffle/src/type-extensions.ts",
     "./node_modules/@nomiclabs/hardhat-etherscan/src/type-extensions.ts"
   ],

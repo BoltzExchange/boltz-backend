@@ -328,6 +328,10 @@ class SwapManager {
 
           await channelCreation.destroy();
 
+          if (!await this.checkRoutability(sendingCurrency.lndClient!, invoice)) {
+            throw Errors.NO_ROUTE_FOUND();
+          }
+
           // In other modes (only manual right now), a failing invoice Check should result in a failed request
         } else {
           throw invoiceError;
@@ -338,8 +342,7 @@ class SwapManager {
 
     // If there are route hints the routability check could fail although LND could pay the invoice
     } else if (!decodedInvoice.routingInfo || (decodedInvoice.routingInfo && decodedInvoice.routingInfo.length === 0)) {
-      const routable = await this.checkRoutability(sendingCurrency.lndClient!, invoice);
-      if (!routable) {
+      if (!await this.checkRoutability(sendingCurrency.lndClient!, invoice)) {
         throw Errors.NO_ROUTE_FOUND();
       }
     }

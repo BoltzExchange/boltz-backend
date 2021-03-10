@@ -91,5 +91,5 @@ describe('DiscordClient', () => {
 });
 
 const getRandomString = (length: number) => {
-  return randomBytes(length).toString('hex').substring(0, length);
+  return randomBytes(Math.ceil(length / 2)).toString('hex').substring(0, length);
 };

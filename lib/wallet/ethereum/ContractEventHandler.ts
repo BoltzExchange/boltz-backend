@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
 import { BigNumber, Event } from 'ethers';
 import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
-import { Erc20Swap } from 'boltz-core/typechain/Erc20Swap';
+import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import Logger from '../../Logger';
 import { parseBuffer } from './EthereumUtils';
 import { ERC20SwapValues, EtherSwapValues } from '../../consts/Types';
@@ -31,7 +31,7 @@ interface ContractEventHandler {
 
 class ContractEventHandler extends EventEmitter {
   private etherSwap!: EtherSwap;
-  private erc20Swap!: Erc20Swap;
+  private erc20Swap!: ERC20Swap;
 
   constructor(
     private logger: Logger,
@@ -39,7 +39,7 @@ class ContractEventHandler extends EventEmitter {
     super();
   }
 
-  public init = (etherSwap: EtherSwap, erc20Swap: Erc20Swap): void => {
+  public init = (etherSwap: EtherSwap, erc20Swap: ERC20Swap): void => {
     this.etherSwap = etherSwap;
     this.erc20Swap = erc20Swap;
 

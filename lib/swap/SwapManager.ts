@@ -1,4 +1,6 @@
 import { Op } from 'sequelize';
+import { randomBytes } from 'crypto';
+import { crypto } from 'bitcoinjs-lib';
 import { OutputType, reverseSwapScript, swapScript } from 'boltz-core';
 import Errors from './Errors';
 import Logger from '../Logger';
@@ -11,10 +13,11 @@ import ReverseSwap from '../db/models/ReverseSwap';
 import { ReverseSwapOutputType } from '../consts/Consts';
 import RoutingHintsProvider from './RoutingHintsProvider';
 import ReverseSwapRepository from '../db/ReverseSwapRepository';
+import InvoiceExpiryHelper from '../service/InvoiceExpiryHelper';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
 import ChannelCreationRepository from '../db/ChannelCreationRepository';
-import { ChannelCreationType, OrderSide, SwapUpdateEvent, CurrencyType } from '../consts/Enums';
+import { ChannelCreationType, CurrencyType, OrderSide, SwapUpdateEvent } from '../consts/Enums';
 import {
   decodeInvoice,
   formatError,
@@ -58,8 +61,8 @@ class SwapManager {
     private logger: Logger,
     private walletManager: WalletManager,
     rateProvider: RateProvider,
+    private invoiceExpiryHelper: InvoiceExpiryHelper,
     private swapOutputType: OutputType,
-    prepayMinerFee: boolean,
     retryInterval: number,
   ) {
     this.channelCreationRepository = new ChannelCreationRepository();
@@ -75,7 +78,6 @@ class SwapManager {
       this.channelCreationRepository,
       this.swapOutputType,
       retryInterval,
-      prepayMinerFee,
     );
   }
 
@@ -141,7 +143,7 @@ class SwapManager {
 
     channel?: ChannelCreationInfo,
 
-    // Only required for UTXO base chains
+    // Only required for UTXO based chains
     refundPublicKey?: Buffer,
   }): Promise<{
     id: string,
@@ -279,15 +281,7 @@ class SwapManager {
       throw Errors.INVOICE_INVALID_PREIMAGE_HASH(swap.preimageHash);
     }
 
-    let invoiceExpiry = decodedInvoice.timestamp || 0;
-
-    if (decodedInvoice.timeExpireDate) {
-      invoiceExpiry = decodedInvoice.timeExpireDate;
-    } else {
-      // Default invoice timeout
-      // Reference: https://github.com/lightningnetwork/lightning-rfc/blob/master/11-payment-encoding.md#tagged-fields
-      invoiceExpiry += 3600;
-    }
+    const invoiceExpiry = InvoiceExpiryHelper.getInvoiceExpiry(decodedInvoice.timestamp, decodedInvoice.timeExpireDate);
 
     if (getUnixTime() >= invoiceExpiry) {
       throw Errors.INVOICE_EXPIRED_ALREADY();
@@ -334,6 +328,10 @@ class SwapManager {
 
           await channelCreation.destroy();
 
+          if (!await this.checkRoutability(sendingCurrency.lndClient!, invoice)) {
+            throw Errors.NO_ROUTE_FOUND();
+          }
+
           // In other modes (only manual right now), a failing invoice Check should result in a failed request
         } else {
           throw invoiceError;
@@ -344,8 +342,7 @@ class SwapManager {
 
     // If there are route hints the routability check could fail although LND could pay the invoice
     } else if (!decodedInvoice.routingInfo || (decodedInvoice.routingInfo && decodedInvoice.routingInfo.length === 0)) {
-      const routable = await this.checkRoutability(sendingCurrency.lndClient!, invoice);
-      if (!routable) {
+      if (!await this.checkRoutability(sendingCurrency.lndClient!, invoice)) {
         throw Errors.NO_ROUTE_FOUND();
       }
     }
@@ -388,7 +385,9 @@ class SwapManager {
     onchainTimeoutBlockDelta: number,
     lightningTimeoutBlockDelta: number,
     percentageFee: number,
-    prepayMinerFee?: number,
+
+    prepayMinerFeeInvoiceAmount?: number,
+    prepayMinerFeeOnchainAmount?: number,
 
     // Public key of the node for which routing hints should be included in the invoice(s)
     routingNode?: string,
@@ -434,6 +433,7 @@ class SwapManager {
       args.holdInvoiceAmount,
       args.preimageHash,
       args.lightningTimeoutBlockDelta,
+      this.invoiceExpiryHelper.getExpiry(receivingCurrency.symbol),
       getSwapMemo(sendingCurrency.symbol, true),
       routingHints,
     );
@@ -441,16 +441,29 @@ class SwapManager {
     receivingCurrency.lndClient.subscribeSingleInvoice(args.preimageHash);
 
     let minerFeeInvoice: string | undefined = undefined;
+    let minerFeeInvoicePreimage: string | undefined = undefined;
 
-    if (args.prepayMinerFee) {
-      const prepayInvoice = await receivingCurrency.lndClient.addInvoice(
-        args.prepayMinerFee,
+    if (args.prepayMinerFeeInvoiceAmount) {
+      const preimage = randomBytes(32);
+      minerFeeInvoicePreimage = getHexString(preimage);
+
+      const minerFeeInvoicePreimageHash = crypto.sha256(preimage);
+
+      const prepayInvoice = await receivingCurrency.lndClient.addHoldInvoice(
+        args.prepayMinerFeeInvoiceAmount,
+        minerFeeInvoicePreimageHash,
+        undefined,
+        this.invoiceExpiryHelper.getExpiry(receivingCurrency.symbol),
         getPrepayMinerFeeInvoiceMemo(sendingCurrency.symbol),
         routingHints,
       );
       minerFeeInvoice = prepayInvoice.paymentRequest;
 
-      receivingCurrency.lndClient.subscribeSingleInvoice(Buffer.from(prepayInvoice.rHash as string, 'base64'));
+      receivingCurrency.lndClient.subscribeSingleInvoice(minerFeeInvoicePreimageHash);
+
+      if (args.prepayMinerFeeOnchainAmount) {
+        this.logger.debug(`Sending ${args.prepayMinerFeeOnchainAmount} Ether as prepay miner fee for Reverse Swap: ${id}`);
+      }
     }
 
     const pair = getPairId({ base: args.baseCurrency, quote: args.quoteCurrency });
@@ -492,6 +505,8 @@ class SwapManager {
         status: SwapUpdateEvent.SwapCreated,
         redeemScript: getHexString(redeemScript),
         preimageHash: getHexString(args.preimageHash),
+        minerFeeInvoicePreimage: minerFeeInvoicePreimage,
+        minerFeeOnchainAmount: args.prepayMinerFeeOnchainAmount,
       });
 
     } else {
@@ -516,6 +531,8 @@ class SwapManager {
         onchainAmount: args.onchainAmount,
         status: SwapUpdateEvent.SwapCreated,
         preimageHash: getHexString(args.preimageHash),
+        minerFeeInvoicePreimage: minerFeeInvoicePreimage,
+        minerFeeOnchainAmount: args.prepayMinerFeeOnchainAmount,
       });
     }
 

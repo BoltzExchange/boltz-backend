@@ -233,11 +233,11 @@ class InjectedProvider implements providers.Provider {
     return this.on(eventName, listener);
   }
 
-  public listenerCount = (eventName?: providers.EventType): number => {
+  public listenerCount(eventName?: providers.EventType): number {
     return Array.from(this.providers.values())[0].listenerCount(eventName);
   }
 
-  public listeners = (eventName?: providers.EventType): Array<providers.Listener> => {
+  public listeners(eventName?: providers.EventType): Array<providers.Listener> {
     return Array.from(this.providers.values())[0].listeners(eventName);
   }
 
@@ -296,7 +296,7 @@ class InjectedProvider implements providers.Provider {
     return this;
   }
 
-  public removeAllListeners = (eventName?: providers.EventType): providers.Provider => {
+  public removeAllListeners(eventName?: providers.EventType): providers.Provider {
     for (const [, provider] of this.providers) {
       provider.removeAllListeners(eventName);
     }

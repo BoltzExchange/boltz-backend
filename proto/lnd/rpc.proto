@@ -78,7 +78,7 @@ service Lightning {
     wallet are sent over.
     */
     rpc SubscribeTransactions (GetTransactionsRequest)
-    returns (stream Transaction);
+        returns (stream Transaction);
 
     /* lncli: `sendmany`
     SendMany handles a request for a transaction that creates multiple specified
@@ -147,7 +147,7 @@ service Lightning {
     progress made so far.
     */
     rpc GetRecoveryInfo (GetRecoveryInfoRequest)
-    returns (GetRecoveryInfoResponse);
+        returns (GetRecoveryInfoResponse);
 
     // TODO(roasbeef): merge with below with bool?
     /* lncli: `pendingchannels`
@@ -157,7 +157,7 @@ service Lightning {
     process of closure, either initiated cooperatively or non-cooperatively.
     */
     rpc PendingChannels (PendingChannelsRequest)
-    returns (PendingChannelsResponse);
+        returns (PendingChannelsResponse);
 
     /* lncli: `listchannels`
     ListChannels returns a description of all the open channels that this node
@@ -172,7 +172,7 @@ service Lightning {
     channels.
     */
     rpc SubscribeChannelEvents (ChannelEventSubscription)
-    returns (stream ChannelEventUpdate);
+        returns (stream ChannelEventUpdate);
 
     /* lncli: `closedchannels`
     ClosedChannels returns a description of all the closed channels that
@@ -220,7 +220,7 @@ service Lightning {
     through a single persistent connection.
     */
     rpc ChannelAcceptor (stream ChannelAcceptResponse)
-    returns (stream ChannelAcceptRequest);
+        returns (stream ChannelAcceptRequest);
 
     /* lncli: `closechannel`
     CloseChannel attempts to close an active channel identified by its channel
@@ -333,7 +333,7 @@ service Lightning {
     DeleteAllPayments deletes all outgoing payments from DB.
     */
     rpc DeleteAllPayments (DeleteAllPaymentsRequest)
-    returns (DeleteAllPaymentsResponse);
+        returns (DeleteAllPaymentsResponse);
 
     /* lncli: `describegraph`
     DescribeGraph returns a description of the latest graph state from the
@@ -400,7 +400,7 @@ service Lightning {
     channel edge, and when channels are closed on-chain.
     */
     rpc SubscribeChannelGraph (GraphTopologySubscription)
-    returns (stream GraphTopologyUpdate);
+        returns (stream GraphTopologyUpdate);
 
     /* lncli: `debuglevel`
     DebugLevel allows a caller to programmatically set the logging verbosity of
@@ -421,7 +421,7 @@ service Lightning {
     channel policies for all channels globally, or a particular channel.
     */
     rpc UpdateChannelPolicy (PolicyUpdateRequest)
-    returns (PolicyUpdateResponse);
+        returns (PolicyUpdateResponse);
 
     /* lncli: `fwdinghistory`
     ForwardingHistory allows the caller to query the htlcswitch for a record of
@@ -436,7 +436,7 @@ service Lightning {
     request to allow the caller to skip a series of records.
     */
     rpc ForwardingHistory (ForwardingHistoryRequest)
-    returns (ForwardingHistoryResponse);
+        returns (ForwardingHistoryResponse);
 
     /* lncli: `exportchanbackup`
     ExportChannelBackup attempts to return an encrypted static channel backup
@@ -447,7 +447,7 @@ service Lightning {
     from the WalletUnlocker service.
     */
     rpc ExportChannelBackup (ExportChannelBackupRequest)
-    returns (ChannelBackup);
+        returns (ChannelBackup);
 
     /*
     ExportAllChannelBackups returns static channel backups for all existing
@@ -457,7 +457,7 @@ service Lightning {
     each channel.
     */
     rpc ExportAllChannelBackups (ChanBackupExportRequest)
-    returns (ChanBackupSnapshot);
+        returns (ChanBackupSnapshot);
 
     /*
     VerifyChanBackup allows a caller to verify the integrity of a channel backup
@@ -465,7 +465,7 @@ service Lightning {
     Specifying both will result in an error.
     */
     rpc VerifyChanBackup (ChanBackupSnapshot)
-    returns (VerifyChanBackupResponse);
+        returns (VerifyChanBackupResponse);
 
     /* lncli: `restorechanbackup`
     RestoreChannelBackups accepts a set of singular channel backups, or a
@@ -474,7 +474,7 @@ service Lightning {
     new channel will be shown under listchannels, as well as pending channels.
     */
     rpc RestoreChannelBackups (RestoreChanBackupRequest)
-    returns (RestoreBackupResponse);
+        returns (RestoreBackupResponse);
 
     /*
     SubscribeChannelBackups allows a client to sub-subscribe to the most up to
@@ -486,7 +486,7 @@ service Lightning {
     channel(s) removed.
     */
     rpc SubscribeChannelBackups (ChannelBackupSubscription)
-    returns (stream ChanBackupSnapshot);
+        returns (stream ChanBackupSnapshot);
 
     /* lncli: `bakemacaroon`
     BakeMacaroon allows the creation of a new macaroon with custom read and
@@ -499,21 +499,21 @@ service Lightning {
     ListMacaroonIDs returns all root key IDs that are in use.
     */
     rpc ListMacaroonIDs (ListMacaroonIDsRequest)
-    returns (ListMacaroonIDsResponse);
+        returns (ListMacaroonIDsResponse);
 
     /* lncli: `deletemacaroonid`
     DeleteMacaroonID deletes the specified macaroon ID and invalidates all
     macaroons derived from that ID.
     */
     rpc DeleteMacaroonID (DeleteMacaroonIDRequest)
-    returns (DeleteMacaroonIDResponse);
+        returns (DeleteMacaroonIDResponse);
 
     /* lncli: `listpermissions`
     ListPermissions lists all RPC method URIs and their required macaroon
     permissions to access them.
     */
     rpc ListPermissions (ListPermissionsRequest)
-    returns (ListPermissionsResponse);
+        returns (ListPermissionsResponse);
 }
 
 message Utxo {
@@ -1487,6 +1487,11 @@ message Peer {
         Denotes that we are not receiving new graph updates from the peer.
         */
         PASSIVE_SYNC = 2;
+
+        /*
+        Denotes that this peer is pinned into an active sync.
+        */
+        PINNED_SYNC = 3;
     }
 
     // The type of sync we are currently performing with this peer.
@@ -3146,6 +3151,9 @@ message Payment {
 }
 
 message HTLCAttempt {
+    // The unique ID that is used for this attempt.
+    uint64 attempt_id = 7;
+
     enum HTLCStatus {
         IN_FLIGHT = 0;
         SUCCEEDED = 1;
@@ -3221,6 +3229,13 @@ message ListPaymentsResponse {
 }
 
 message DeleteAllPaymentsRequest {
+    // Only delete failed payments.
+    bool failed_payments_only = 1;
+
+    /*
+    Only delete failed HTLCs from payments, not the payment itself.
+    */
+    bool failed_htlcs_only = 2;
 }
 
 message DeleteAllPaymentsResponse {

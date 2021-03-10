@@ -52,10 +52,10 @@ RUN ./configure LDFLAGS=-L`ls -d /opt/db*`/lib/ CPPFLAGS=-I`ls -d /opt/db*`/incl
 RUN make -j$(nproc)
 RUN make install
 
-RUN strip ${LITECOIN_PREFIX}/bin/litecoind
-RUN strip ${LITECOIN_PREFIX}/bin/litecoin-tx
-RUN strip ${LITECOIN_PREFIX}/bin/litecoin-cli
-RUN strip ${LITECOIN_PREFIX}/bin/litecoin-wallet
+RUN strip --strip-all ${LITECOIN_PREFIX}/bin/litecoind
+RUN strip --strip-all ${LITECOIN_PREFIX}/bin/litecoin-tx
+RUN strip --strip-all ${LITECOIN_PREFIX}/bin/litecoin-cli
+RUN strip --strip-all ${LITECOIN_PREFIX}/bin/litecoin-wallet
 
 # Assemble the final image
 FROM ubuntu:${UBUNTU_VERSION}

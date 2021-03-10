@@ -68,7 +68,6 @@ class ChannelNursery extends EventEmitter {
         return;
       }
 
-      // TODO: ignore manual connections from the ConnectionHelper
       currency.lndClient.on('peer.online', async (nodePublicKey: string) => {
         await this.lock.acquire(ChannelNursery.channelCreationLock, async () => {
           const channelCreations = await this.channelCreationRepository.getChannelCreations({
@@ -213,9 +212,7 @@ class ChannelNursery extends EventEmitter {
         case `2 UNKNOWN: peer ${payeeNodeKey} is not online`:
           try {
             await this.connectionHelper.connectByPublicKey(lightningCurrency.lndClient!, payeeNodeKey!);
-
-            // In case we could connect to the other side, opening a channel should be tried again
-            await this.openChannel(lightningCurrency, swap, channelCreation);
+            // The channel opening should *not* be retried here since the "peer.online" subscription of the LND client does handle it already
             return;
           } catch (error) {
             this.logger.warn(`Could not connect to ${lightningCurrency.lndClient!.symbol} LND node ${payeeNodeKey!}: ${formatError(error)}`);

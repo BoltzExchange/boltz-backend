@@ -1,7 +1,7 @@
 import { ContractABIs } from 'boltz-core';
-import { Erc20 as ERC20 } from 'boltz-core/typechain/Erc20';
+import { ERC20 } from 'boltz-core/typechain/ERC20';
 import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
-import { Erc20Swap } from 'boltz-core/typechain/Erc20Swap';
+import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import { constants, Contract, utils, Wallet as EthersWallet } from 'ethers';
 import GasNow from './GasNow';
 import Errors from '../Errors';
@@ -32,7 +32,7 @@ class EthereumManager {
   public contractEventHandler: ContractEventHandler;
 
   public etherSwap: EtherSwap;
-  public erc20Swap: Erc20Swap;
+  public erc20Swap: ERC20Swap;
 
   public address!: string;
   public network!: Network;
@@ -40,8 +40,8 @@ class EthereumManager {
   public tokenAddresses = new Map<string, string>();
 
   private static supportedContractVersions = {
-    'EtherSwap': 1,
-    'ERC20Swap': 1,
+    'EtherSwap': 2,
+    'ERC20Swap': 2,
   };
 
   constructor(
@@ -68,7 +68,7 @@ class EthereumManager {
     this.erc20Swap = new Contract(
       ethereumConfig.erc20SwapAddress,
       ContractABIs.ERC20Swap as any,
-    ) as any as Erc20Swap;
+    ) as any as ERC20Swap;
 
     this.contractHandler = new ContractHandler(this.logger);
     this.contractEventHandler = new ContractEventHandler(this.logger);
@@ -190,7 +190,7 @@ class EthereumManager {
     }
   }
 
-  private checkContractVersion = async (name: string, contract: EtherSwap | Erc20Swap, supportedVersion: number) => {
+  private checkContractVersion = async (name: string, contract: EtherSwap | ERC20Swap, supportedVersion: number) => {
     const contractVersion = await contract.version();
 
     if (contractVersion !== supportedVersion) {

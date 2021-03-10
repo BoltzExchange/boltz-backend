@@ -252,9 +252,13 @@ class LndClient extends BaseClient implements LndClient {
   /**
    * Creates an invoice
    */
-  public addInvoice = (value: number, memo?: string, routingHints?: lndrpc.RouteHint[]): Promise<lndrpc.AddInvoiceResponse.AsObject> => {
+  public addInvoice = (value: number, expiry?: number, memo?: string, routingHints?: lndrpc.RouteHint[]): Promise<lndrpc.AddInvoiceResponse.AsObject> => {
     const request = new lndrpc.Invoice();
     request.setValue(value);
+
+    if (expiry) {
+      request.setExpiry(expiry);
+    }
 
     if (memo) {
       request.setMemo(memo);
@@ -269,18 +273,26 @@ class LndClient extends BaseClient implements LndClient {
 
   /**
    * Creates a hold invoice with the supplied preimage hash
-   *
-   * @param value the value of this invoice in satoshis
-   * @param cltvExpiry expiry delta of the last hop
-   * @param preimageHash the hash of the preimage
-   * @param memo optional memo to attach along with the invoice
-   * @param routingHints routing hints that should be included in the invoice
    */
-  public addHoldInvoice = (value: number, preimageHash: Buffer, cltvExpiry: number, memo?: string, routingHints?: lndrpc.RouteHint[]): Promise<invoicesrpc.AddHoldInvoiceResp.AsObject> => {
+  public addHoldInvoice = (
+    value: number,
+    preimageHash: Buffer,
+    cltvExpiry?: number,
+    expiry?: number,
+    memo?: string,
+    routingHints?: lndrpc.RouteHint[],
+  ): Promise<invoicesrpc.AddHoldInvoiceResp.AsObject> => {
     const request = new invoicesrpc.AddHoldInvoiceRequest();
     request.setValue(value);
-    request.setCltvExpiry(cltvExpiry);
     request.setHash(Uint8Array.from(preimageHash));
+
+    if (cltvExpiry) {
+      request.setCltvExpiry(cltvExpiry);
+    }
+
+    if (expiry) {
+      request.setExpiry(expiry);
+    }
 
     if (memo) {
       request.setMemo(memo);

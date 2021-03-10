@@ -19,7 +19,8 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get install -y \
   python3-mako \
   libsodium-dev \
   libsqlite3-dev \
-  build-essential
+  build-essential \
+  python-is-python3
 
 RUN git clone https://github.com/ElementsProject/lightning.git
 WORKDIR /lightning
@@ -27,9 +28,9 @@ WORKDIR /lightning
 RUN git checkout v${VERSION}
 
 RUN ./configure
-RUN make install -j$(nproc)
+RUN make install
 
-RUN strip /usr/local/bin/*
+RUN strip --strip-all /usr/local/bin/*
 
 # Start again with a new image to reduce the size
 FROM ubuntu:${UBUNTU_VERSION}

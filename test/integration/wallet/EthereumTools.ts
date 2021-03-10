@@ -1,7 +1,7 @@
 import { ContractABIs } from 'boltz-core';
+import { ERC20 } from 'boltz-core/typechain/ERC20';
 import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
-import { Erc20Swap } from 'boltz-core/typechain/Erc20Swap';
-import { Erc20 as ERC20 } from 'boltz-core/typechain/Erc20';
+import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import { BigNumber, Contract, providers, Signer, Wallet } from 'ethers';
 
 export const getSigner = (): { provider: providers.WebSocketProvider, signer: Signer, etherBase: Signer } => {
@@ -15,13 +15,13 @@ export const getSigner = (): { provider: providers.WebSocketProvider, signer: Si
 };
 
 export const getTokenContract = (signer: Signer): ERC20 => {
-  return new Contract('0x2F0AD84E2c188c510ef5c0136b0aA63EBC47231d', ContractABIs.ERC20, signer) as any as ERC20;
+  return new Contract('0x056D0623859E31442286429b651A4dDbE5adbEC0', ContractABIs.ERC20, signer) as any as ERC20;
 };
 
-export const getSwapContracts = (signer: Signer): { etherSwap: EtherSwap, erc20Swap: Erc20Swap } => {
+export const getSwapContracts = (signer: Signer): { etherSwap: EtherSwap, erc20Swap: ERC20Swap } => {
   return {
-    etherSwap: new Contract('0xD855A149af094bB1557400F22F06B55060DF4989', ContractABIs.EtherSwap, signer) as any as EtherSwap,
-    erc20Swap: new Contract('0x6616556b0c527F6d7dF6ec3719D58485f659d6Dc', ContractABIs.ERC20Swap, signer) as any as Erc20Swap,
+    etherSwap: new Contract('0xBcA0D97Cc74311a3C57476454e826c79B9B2274B', ContractABIs.EtherSwap, signer) as any as EtherSwap,
+    erc20Swap: new Contract('0x30fCEeb858cb9b94E922B134b317d2E9Ad58F32d', ContractABIs.ERC20Swap, signer) as any as ERC20Swap,
   };
 };
 

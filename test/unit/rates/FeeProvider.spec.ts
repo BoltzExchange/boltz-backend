@@ -119,4 +119,12 @@ describe('FeeProvider', () => {
       percentageFee: 4000000,
     });
   });
+
+  test('should get base fees', () => {
+    expect(feeProvider.getBaseFee('BTC', BaseFeeType.NormalClaim)).toEqual(6120);
+    expect(feeProvider.getBaseFee('BTC', BaseFeeType.ReverseClaim)).toEqual(4968);
+    expect(feeProvider.getBaseFee('BTC', BaseFeeType.ReverseLockup)).toEqual(5508);
+
+    expect(feeProvider.getBaseFee('LTC', BaseFeeType.NormalClaim)).toEqual(510);
+  });
 });

@@ -15,7 +15,7 @@ class BuildArgument:
 
 @dataclass
 class Image:
-    """The tags and and build arguments of a Docker image"""
+    """The tags and build arguments of a Docker image"""
 
     tags: List[str]
     arguments: List[BuildArgument]
@@ -27,7 +27,7 @@ UBUNTU_VERSION = BuildArgument(
 
 GOLANG_VERSION = BuildArgument(
     name="GOLANG_VERSION",
-    value="1.15.8-buster"
+    value="1.16.0-buster"
 )
 
 BERKELEY_4_VERSION = BuildArgument(
@@ -40,15 +40,15 @@ BERKELEY_5_VERSION = BuildArgument(
     value="5.1.29"
 )
 
-BITCOIN_VERSION = "0.20.1"
+BITCOIN_VERSION = "0.21.0"
 LITECOIN_VERSION = "0.18.1"
 DOGECOIN_VERSION = "1.14.2"
-ZCASH_VERSION = "4.1.1"
-GETH_VERSION = "1.9.25"
+ZCASH_VERSION = "4.3.0"
+GETH_VERSION = "1.10.1"
 
-C_LIGHTNING_VERSION = "0.9.1"
-ECLAIR_VERSION = "0.4.2"
-LND_VERSION = "0.12.0-beta"
+C_LIGHTNING_VERSION = "0.9.3"
+ECLAIR_VERSION = "0.5.1"
+LND_VERSION = "0.12.1-beta"
 
 IMAGES: Dict[str, Image] = {
     "berkeley-db": Image(
@@ -114,7 +114,7 @@ IMAGES: Dict[str, Image] = {
         ],
     ),
     "regtest": Image(
-        tags=["3.1.0"],
+        tags=["3.1.1"],
         arguments=[
             UBUNTU_VERSION,
             BuildArgument(

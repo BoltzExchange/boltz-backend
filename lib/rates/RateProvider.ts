@@ -6,6 +6,7 @@ import DataAggregator from './data/DataAggregator';
 import { Currency } from '../wallet/WalletManager';
 import FeeProvider, { MinerFees } from './FeeProvider';
 import { getPairId, hashString, mapToObject, minutesToMilliseconds, splitPairId, stringify } from '../Utils';
+import RateCalculator from './RateCalculator';
 
 type CurrencyLimits = {
   minimal: number;
@@ -46,6 +47,9 @@ type PairType = {
 class RateProvider {
   public feeProvider: FeeProvider;
 
+  public dataAggregator = new DataAggregator();
+  public rateCalculator = new RateCalculator(this.dataAggregator);
+
   // A map between the pair ids and the rate, limits and fees of that pair
   public pairs = new Map<string, PairType>();
 
@@ -60,8 +64,6 @@ class RateProvider {
 
   // A copy of the "percentageFees" Map in the FeeProvider but all values are multiplied with 100
   private percentageFees = new Map<string, number>();
-
-  private dataAggregator = new DataAggregator();
 
   private timer!: any;
 

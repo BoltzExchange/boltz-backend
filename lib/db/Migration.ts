@@ -1,4 +1,4 @@
-import { Sequelize } from 'sequelize';
+import { DataTypes, Sequelize } from 'sequelize';
 import { detectSwap } from 'boltz-core';
 import { Transaction } from 'bitcoinjs-lib';
 import Logger from '../Logger';
@@ -10,10 +10,11 @@ import DatabaseVersion from './models/DatabaseVersion';
 import DatabaseVersionRepository from './DatabaseVersionRepository';
 import { decodeInvoice, formatError, getChainCurrency, getHexBuffer, splitPairId } from '../Utils';
 
+// TODO: integration tests for actual migrations
 class Migration {
   private versionRepository: DatabaseVersionRepository;
 
-  private static latestSchemaVersion = 2;
+  private static latestSchemaVersion = 3;
 
   constructor(private logger: Logger, private sequelize: Sequelize) {
     this.versionRepository = new DatabaseVersionRepository();
@@ -32,13 +33,18 @@ class Migration {
       return;
     }
 
+    if (versionRow.version === Migration.latestSchemaVersion) {
+      this.logger.verbose(`Database has latest schema version ${Migration.latestSchemaVersion}`);
+      return;
+    }
+
+    this.logOutdatedVersion(versionRow.version);
+
     switch (versionRow.version) {
       // The migration from schema version 1 to 2 adds support for Ether and ERC20 tokens
       // Which means that we can safely assume that all Swaps that are in the database
       // already were on a Bitcoin like chain
       case 1: {
-        this.logOutdatedVersion(versionRow.version);
-
         // Sanity check the chain clients
         for (const currency of currencies.values()) {
           try {
@@ -115,15 +121,34 @@ class Migration {
           });
         }
 
-        this.logger.info(`Finished database migration to schema version ${versionRow.version + 1}`);
-        await this.versionRepository.updateVersion(versionRow.version + 1);
-
-        await this.migrate(currencies);
+        await this.finishMigration(versionRow.version, currencies);
         break;
       }
 
-      case Migration.latestSchemaVersion:
-        this.logger.verbose(`Database has latest schema version ${Migration.latestSchemaVersion}`);
+      // Database schema version 2 adds support for the prepay miner fee on the Ethereum chain
+      case 2:
+        this.logUpdatingTable('reverseSwaps');
+
+        await this.sequelize.getQueryInterface().addColumn(
+          'reverseSwaps',
+          'minerFeeOnchainAmount',
+          {
+            type: new DataTypes.INTEGER(),
+            allowNull: true,
+          },
+        );
+
+        // Because adding unique columns is not possible with SQLite, that property is omitted here
+        await this.sequelize.getQueryInterface().addColumn(
+          'reverseSwaps',
+          'minerFeeInvoicePreimage',
+          {
+            type: new DataTypes.STRING(64),
+            allowNull: true,
+          },
+        );
+
+        await this.finishMigration(versionRow.version, currencies);
         break;
 
       default:
@@ -141,6 +166,18 @@ class Migration {
 
   private logUpdatingTable = (table: string) => {
     this.logger.verbose(`Updating database table ${table}`);
+  }
+
+  private finishMigration = async (updatedFromVersion: number, currencies: Map<string, Currency>) => {
+    const currentVersion = updatedFromVersion + 1;
+
+    this.logger.info(`Finished database migration to schema version ${currentVersion}`);
+    await this.versionRepository.updateVersion(currentVersion);
+
+    // Run the migration again if the current schema version is not the latest one
+    if (currentVersion !== Migration.latestSchemaVersion) {
+      await this.migrate(currencies);
+    }
   }
 
   private logOutdatedVersion = (version: number) => {

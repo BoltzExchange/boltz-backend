@@ -391,30 +391,21 @@ describe('ChannelNursery', () => {
 
     expect(mockOpenChannel).toHaveBeenCalledTimes(5);
 
-    // Should retry when the error indicates the our node is not connected to the other side
+    // Should try to connect to remote node when not connected already
     mockConnectByPublicKeyShouldThrow = false;
     mockOpenChannelResponse = '2 UNKNOWN: peer 02d4c41c75f79c52d31014f0665f327c47f92505217d9a8b75019374a6ebd04ce0 is not online';
 
     await channelNursery.openChannel(btcCurrency, swap, channelCreation);
 
-    expect(mockOpenChannel).toHaveBeenCalledTimes(7);
+    expect(mockOpenChannel).toHaveBeenCalledTimes(6);
     expect(mockConnectByPublicKey).toHaveBeenCalledTimes(1);
-
-    // Should not retry when we could not connect to the other side
-    mockConnectByPublicKeyShouldThrow = true;
-    mockOpenChannelResponse = '2 UNKNOWN: peer 02d4c41c75f79c52d31014f0665f327c47f92505217d9a8b75019374a6ebd04ce0 is not online';
-
-    await channelNursery.openChannel(btcCurrency, swap, channelCreation);
-
-    expect(mockOpenChannel).toHaveBeenCalledTimes(8);
-    expect(mockConnectByPublicKey).toHaveBeenCalledTimes(2);
 
     // Should not retry when arbitrary errors are thrown
     mockOpenChannelResponse = 'some other error';
 
     await channelNursery.openChannel(btcCurrency, swap, channelCreation);
 
-    expect(mockOpenChannel).toHaveBeenCalledTimes(9);
+    expect(mockOpenChannel).toHaveBeenCalledTimes(7);
   });
 
   test('should retry opening channel', async () => {

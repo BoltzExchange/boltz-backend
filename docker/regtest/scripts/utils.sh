@@ -1,5 +1,8 @@
 #!/bin/bash
 
+DEFAULT_WALLET_NAME="default"
+export DEFAULT_WALLET_NAME
+
 function waitForNode () {
   while true; do
     if $1 getblockchaininfo 2>&1 | grep blocks > /dev/null 2>&1; then

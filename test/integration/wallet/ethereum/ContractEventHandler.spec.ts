@@ -1,6 +1,6 @@
-import { BigNumber, constants } from 'ethers';
 import { randomBytes } from 'crypto';
 import { crypto } from 'bitcoinjs-lib';
+import { BigNumber, constants } from 'ethers';
 import Logger from '../../../../lib/Logger';
 import { waitForFunctionToBeTrue } from '../../../Utils';
 import ContractEventHandler from '../../../../lib/wallet/ethereum/ContractEventHandler';

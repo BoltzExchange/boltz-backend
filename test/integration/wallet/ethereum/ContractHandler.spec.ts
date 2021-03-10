@@ -2,7 +2,7 @@ import { randomBytes } from 'crypto';
 import { crypto } from 'bitcoinjs-lib';
 import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
-import { BigNumber, ContractTransaction, utils, Wallet } from 'ethers';
+import { BigNumber, ContractTransaction, Wallet } from 'ethers';
 import Logger from '../../../../lib/Logger';
 import ContractHandler from '../../../../lib/wallet/ethereum/ContractHandler';
 import ERC20WalletProvider from '../../../../lib/wallet/providers/ERC20WalletProvider';
@@ -41,29 +41,23 @@ describe('ContractHandler', () => {
   };
 
   const hashEtherSwapValues = async (claimAddress: string) => {
-    return utils.solidityKeccak256(
-      ['bytes32', 'uint', 'address', 'address', 'uint'],
-      [
-        preimageHash,
-        amount,
-        claimAddress,
-        await signer.getAddress(),
-        timelock,
-      ],
+    return etherSwap.hashValues(
+      preimageHash,
+      amount,
+      claimAddress,
+      await signer.getAddress(),
+      timelock,
     );
   };
 
   const hashErc20SwapValues = async (claimAddress: string) => {
-    return utils.solidityKeccak256(
-      ['bytes32', 'uint', 'address', 'address', 'address', 'uint'],
-      [
-        preimageHash,
-        amount,
-        tokenContract.address,
-        claimAddress,
-        await signer.getAddress(),
-        timelock,
-      ],
+    return erc20Swap.hashValues(
+      preimageHash,
+      amount,
+      tokenContract.address,
+      claimAddress,
+      await signer.getAddress(),
+      timelock,
     );
   };
 

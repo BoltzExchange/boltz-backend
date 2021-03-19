@@ -1,6 +1,6 @@
-# Boltz v3.0.0 Documentation
+# Boltz v3.1.0 Documentation
 
-This is the documentation of [Boltz](https://boltz.exchange) version 3.0.0.
+This is the documentation of [Boltz](https://boltz.exchange) version 3.1.0.
 
 ## What is Boltz
 
@@ -17,6 +17,6 @@ The Rest API can be accessed at:
 
 ## Useful Links
 
-* [Source Code](https://github.com/boltzExchange)
+* [Source Code](https://github.com/boltzexchange)
 * [Frequently Asked Questions](https://boltz.exchange/faq)
 * [Discord](https://discordapp.com/invite/QBvZGcW) [![Discord](https://img.shields.io/discord/547454030801272832.svg)](https://discordapp.com/invite/QBvZGcW)

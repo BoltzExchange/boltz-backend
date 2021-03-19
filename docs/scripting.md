@@ -87,16 +87,16 @@ An example for this can be found in the [`boltz-core` repository](https://github
 
 ## EVM chains
 
-The HTLCs that Boltz uses on EVM chains are not single use scripts but contracts. One contract is called EtherSwap and the other one is ERC20Swap. The source for the those contracts and some additional ones used for integration testing the Swap contracts can be found [in the boltz-core repository](https://github.com/BoltzExchange/boltz-core/tree/master/contracts).
+The HTLCs that Boltz uses on EVM chains are not single use scripts but contracts. One contract is called EtherSwap and the other one is ERC20Swap. The source for the those contracts and some additional ones used for integration testing the Swap contracts can be found [in the `boltz-core` repository](https://github.com/BoltzExchange/boltz-core/tree/master/contracts).
 
 ### EtherSwap
 
-Is used to, as the name indicates, swap Ether. [The way it transfers Ether out of the contract](https://github.com/BoltzExchange/boltz-core/blob/master/contracts/EtherSwap.sol#L40) forwards all leftover gas which means that other contracts can easily build on top of it.
+Is used to, as the name indicates, swap Ether. [The way it transfers Ether out of the contract](https://github.com/BoltzExchange/boltz-core/blob/v0.4.1/contracts/TransferHelper.sol#L14) forwards all leftover gas which means that other contracts can easily build on top of it.
 
-On mainnet the latest version of the contract is deployed at [0x9f6fea1c76fc1961eed97c00124ef7d7a7b3d9ea](https://etherscan.io/address/0x9f6fea1c76fc1961eed97c00124ef7d7a7b3d9ea).
+On mainnet the latest version of the contract is deployed at [0x76C725fEA03B179d326a3689C36218c0a3b42720](https://etherscan.io/address/0x76C725fEA03B179d326a3689C36218c0a3b42720).
 
 ### ERC20Swap
 
 Works exactly like EtherSwap but is used for ERC20 tokens.  
 
-On mainnet the latest version of the contract is deployed at [0x98f59b661de7afbb9c5cb01d262cec9caeca4ffe](https://etherscan.io/address/0x98f59b661de7afbb9c5cb01d262cec9caeca4ffe).
+On mainnet the latest version of the contract is deployed at [0x964B943cF21A9f8987d80F9143955d7aed14F78A](https://etherscan.io/address/0x964B943cF21A9f8987d80F9143955d7aed14F78A).

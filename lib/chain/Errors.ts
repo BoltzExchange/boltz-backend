@@ -23,4 +23,8 @@ export default {
     message: 'no or invalid authentication specified',
     code: concatErrorCode(ErrorCodePrefix.Chain, 5),
   }),
+  ZMQ_CONNECTION_TIMEOUT: (symbol: string, filter: string, address: string): Error => ({
+    message: `connection attempt to ${symbol} ZMQ filter ${filter} (${address}) timed out`,
+    code: concatErrorCode(ErrorCodePrefix.Chain, 6),
+  }),
 };

@@ -11,17 +11,9 @@ const mockGetReverseSwaps = jest.fn().mockImplementation(async () => {
   return mockGetReverseSwapsResult;
 });
 
-const mockSetReverseSwapStatus = jest.fn().mockImplementation(async (reverseSwap, status) => {
-  return {
-    ...reverseSwap,
-    status,
-  };
-});
-
 jest.mock('../../../lib/db/ReverseSwapRepository', () => {
   return jest.fn().mockImplementation(() => ({
     getReverseSwaps: mockGetReverseSwaps,
-    setReverseSwapStatus: mockSetReverseSwapStatus,
   }));
 });
 
@@ -59,8 +51,6 @@ describe('InvoiceNursery', () => {
         ],
       },
     });
-
-    expect(mockSetReverseSwapStatus).toHaveBeenCalledTimes(0);
   });
 
   test('should check expired invoices', async () => {
@@ -79,7 +69,6 @@ describe('InvoiceNursery', () => {
     nursery.on('invoice.expired', (reverseSwap) => {
       expect(reverseSwap).toEqual({
         ...mockGetReverseSwapsResult[1],
-        status: SwapUpdateEvent.InvoiceExpired,
       });
 
       eventsEmitted += 1;
@@ -98,8 +87,5 @@ describe('InvoiceNursery', () => {
         ],
       },
     });
-
-    expect(mockSetReverseSwapStatus).toHaveBeenCalledTimes(1);
-    expect(mockSetReverseSwapStatus).toHaveBeenCalledWith(mockGetReverseSwapsResult[1], SwapUpdateEvent.InvoiceExpired);
   });
 });

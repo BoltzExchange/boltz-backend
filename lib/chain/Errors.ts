@@ -19,4 +19,12 @@ export default {
     message: `invalid cookie authentication file: ${path}`,
     code: concatErrorCode(ErrorCodePrefix.Chain, 4),
   }),
+  NO_AUTHENTICATION: (): Error => ({
+    message: 'no or invalid authentication specified',
+    code: concatErrorCode(ErrorCodePrefix.Chain, 5),
+  }),
+  ZMQ_CONNECTION_TIMEOUT: (symbol: string, filter: string, address: string): Error => ({
+    message: `connection attempt to ${symbol} ZMQ filter ${filter} (${address}) timed out`,
+    code: concatErrorCode(ErrorCodePrefix.Chain, 6),
+  }),
 };

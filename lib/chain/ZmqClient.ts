@@ -47,6 +47,8 @@ class ZmqClient extends EventEmitter {
   // one has to use a lock to ensure the events get handled sequentially
   private blockHandleLock = new AsyncLock();
 
+  private static readonly connectTimeout = 1000;
+
   constructor(
     private symbol: string,
     private logger: Logger,
@@ -70,12 +72,12 @@ class ZmqClient extends EventEmitter {
       switch (notification.type) {
         case filters.rawTx:
           activeFilters.rawtx = true;
-          this.initRawTransaction(notification.address);
+          await this.initRawTransaction(notification.address);
           break;
 
         case filters.rawBlock:
           activeFilters.rawBlock = true;
-          this.initRawBlock(notification.address);
+          await this.initRawBlock(notification.address);
           break;
 
         case filters.hashBlock:
@@ -102,7 +104,7 @@ class ZmqClient extends EventEmitter {
         throw Errors.NO_BLOCK_NOTIFICATIONS();
       } else {
         this.logger.warn(`Falling back to ${this.symbol} ${filters.hashBlock} ZMQ filter`);
-        this.initHashBlock();
+        await this.initHashBlock();
       }
     }
   }
@@ -161,8 +163,8 @@ class ZmqClient extends EventEmitter {
     }
   }
 
-  private initRawTransaction = (address: string) => {
-    const socket = this.createSocket(address, 'rawtx');
+  private initRawTransaction = async (address: string) => {
+    const socket = await this.createSocket(address, 'rawtx');
 
     socket.on('message', async (_, rawTransaction: Buffer) => {
       const transaction = Transaction.fromBuffer(rawTransaction);
@@ -192,11 +194,9 @@ class ZmqClient extends EventEmitter {
     });
   }
 
-  private initRawBlock = (address: string) => {
-    const lockKey = filters.rawBlock;
-    const socket = this.createSocket(address, 'rawblock');
+  private initRawBlock = async (address: string) => {
+    const socket = await this.createSocket(address, 'rawblock');
 
-    socket.monitor();
     socket.on('disconnect', () => {
       socket.disconnect(address);
 
@@ -223,7 +223,7 @@ class ZmqClient extends EventEmitter {
         ),
       );
 
-      this.blockHandleLock.acquire(lockKey, async () => {
+      this.blockHandleLock.acquire(filters.rawBlock, async () => {
         if (previousBlockHash === this.bestBlockHash) {
           this.blockHeight += 1;
           this.bestBlockHash = hash;
@@ -256,13 +256,13 @@ class ZmqClient extends EventEmitter {
     });
   }
 
-  private initHashBlock = () => {
+  private initHashBlock = async () => {
     if (!this.hashBlockAddress) {
       throw Errors.NO_BLOCK_FALLBACK();
     }
 
     const lockKey = filters.hashBlock;
-    const socket = this.createSocket(this.hashBlockAddress, 'hashblock');
+    const socket = await this.createSocket(this.hashBlockAddress, 'hashblock');
 
     const handleBlock = async (blockHash: string) => {
       const block = await this.getBlock(blockHash);
@@ -342,15 +342,22 @@ class ZmqClient extends EventEmitter {
   }
 
   private createSocket = (address: string, filter: string) => {
-    const socket = zmq.socket('sub');
-    this.sockets.push(socket);
+    return new Promise<Socket>((resolve, reject) => {
+      const socket = zmq.socket('sub').monitor();
+      this.sockets.push(socket);
 
-    socket.connect(address);
-    socket.subscribe(filter);
+      const timeoutHandle = setTimeout(() => reject(Errors.ZMQ_CONNECTION_TIMEOUT(this.symbol, filter, address)), ZmqClient.connectTimeout);
 
-    this.logger.debug(`Connected to ${this.symbol} ZMQ filter ${filter} on: ${address}`);
+      socket.on('connect', () => {
+        this.logger.debug(`Connected to ${this.symbol} ZMQ filter ${filter} on: ${address}`);
 
-    return socket;
+        clearTimeout(timeoutHandle);
+        resolve(socket);
+      });
+
+      socket.connect(address);
+      socket.subscribe(filter);
+    });
   }
 }
 

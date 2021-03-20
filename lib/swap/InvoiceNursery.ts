@@ -66,9 +66,7 @@ class InvoiceNursery extends EventEmitter {
       const invoiceExpiry = InvoiceExpiryHelper.getInvoiceExpiry(timestamp, timeExpireDate);
 
       if (currentTime > invoiceExpiry) {
-        this.emit('invoice.expired',
-          await this.reverseSwapRepository.setReverseSwapStatus(reverseSwap, SwapUpdateEvent.InvoiceExpired),
-        );
+        this.emit('invoice.expired', reverseSwap);
       }
     }
   }

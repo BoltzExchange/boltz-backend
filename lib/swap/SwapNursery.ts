@@ -281,19 +281,39 @@ class SwapNursery extends EventEmitter {
 
     this.invoiceNursery.on('invoice.expired', async (reverseSwap: ReverseSwap) => {
       await this.lock.acquire(SwapNursery.reverseSwapLock, async () => {
-        this.logger.debug(`Cancelling expired hold invoice${reverseSwap.minerFeeInvoicePreimage === null ? '' : 's'} of Reverse Swap ${reverseSwap.id}`);
-
         const { base, quote } = splitPairId(reverseSwap.pair);
         const receiveCurrency = getLightningCurrency(base, quote, reverseSwap.orderSide, true);
         const lndClient = this.currencies.get(receiveCurrency)!.lndClient!;
 
-        await lndClient.cancelInvoice(getHexBuffer(reverseSwap.preimageHash));
+        const plural = reverseSwap.minerFeeInvoicePreimage === null ? '' : 's';
 
-        if (reverseSwap.minerFeeInvoicePreimage) {
-          await lndClient.cancelInvoice(crypto.sha256(getHexBuffer(reverseSwap.minerFeeInvoicePreimage)));
+        try {
+          // Check if the hold invoice has pending HTLCs before actually cancelling
+          const { htlcsList } = await lndClient.lookupInvoice(getHexBuffer(reverseSwap.preimageHash));
+          if (htlcsList.length !== 0) {
+            this.logger.info(`Not cancelling expired hold invoice${plural} of Reverse Swap ${reverseSwap.id} because it has pending HTLCs`);
+            return;
+          }
+
+          this.logger.debug(`Cancelling expired hold invoice${plural} of Reverse Swap ${reverseSwap.id}`);
+
+          await lndClient.cancelInvoice(getHexBuffer(reverseSwap.preimageHash));
+
+          if (reverseSwap.minerFeeInvoicePreimage) {
+            await lndClient.cancelInvoice(crypto.sha256(getHexBuffer(reverseSwap.minerFeeInvoicePreimage)));
+          }
+        } catch (error) {
+          // In case the LND client could not find the invoice(s) of the Reverse Swap, we just ignore the error and mark them as cancelled regardless
+          // This happens quite a lot on regtest environments where the LND client is reset without the database being deleted
+          if (typeof error !== 'object' || error.details !== 'unable to locate invoice') {
+            this.logger.error(`Could not cancel invoice${plural} of Reverse Swap ${reverseSwap.id}: ${formatError(error)}`);
+            return;
+          } else {
+            this.logger.silly(`Cancelling invoice${plural} of Reverse Swap ${reverseSwap.id} although the LND client could not find them`);
+          }
         }
 
-        this.emit('invoice.expired', reverseSwap);
+        this.emit('invoice.expired', await this.reverseSwapRepository.setReverseSwapStatus(reverseSwap, SwapUpdateEvent.InvoiceExpired));
       });
     });
 

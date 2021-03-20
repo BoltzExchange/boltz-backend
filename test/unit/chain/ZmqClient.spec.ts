@@ -327,6 +327,24 @@ describe('ZmqClient', () => {
     expect(blockHeight).toEqual(reorgHeight + blocksToGenerate);
   });
 
+  test('should reject connecting to addresses that are not ZMQ publishers', async () => {
+    expect(ZmqClient['connectTimeout']).toEqual(1000);
+    const createSocket = zmqClient['createSocket'];
+
+    const filter = 'filter';
+
+    expect(zmqClient['sockets'].length).toEqual(3);
+
+    await expect(createSocket(rawTx.address, filter)).resolves.toEqual(expect.anything());
+
+    expect(zmqClient['sockets'].length).toEqual(4);
+
+    const invalidAddress = `tcp://127.0.0.1:${await getPort()}`;
+    await expect(createSocket(invalidAddress, filter)).rejects.toEqual(Errors.ZMQ_CONNECTION_TIMEOUT(zmqClient['symbol'], filter, invalidAddress));
+
+    expect(zmqClient['sockets'].length).toEqual(5);
+  });
+
   afterAll(async () => {
     await zmqClient.close();
 

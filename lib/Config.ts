@@ -11,7 +11,12 @@ import { deepMerge, resolveHome, getServiceDataDir } from './Utils';
 type ChainConfig = {
   host: string;
   port: number;
-  cookie: string;
+
+  // Cookie file authentication is preferred if both, cookie and user/password, are configured
+  cookie?: string;
+
+  user?: string;
+  password?: string;
 
   zmqpubrawtx?: string;
   zmqpubrawblock?: string;

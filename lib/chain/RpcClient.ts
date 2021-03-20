@@ -8,19 +8,26 @@ class RpcClient {
   private readonly options = {};
 
   constructor(config: ChainConfig) {
-    if (config.cookie === '' || !existsSync(config.cookie)) {
-      throw Errors.INVALID_COOKIE_FILE(config.cookie);
-    }
-
-    const cookieFile = readFileSync(config.cookie, 'utf-8');
-    this.auth = Buffer.from(cookieFile).toString('base64');
-
     this.options = {
       host: config.host,
       port: config.port,
       path: '/',
       method: 'POST',
     };
+
+    // If a cookie is configured, it will be preferred
+    if (config.cookie && config.cookie !== '') {
+      if (!existsSync(config.cookie)) {
+        throw Errors.INVALID_COOKIE_FILE(config.cookie);
+      }
+
+      const cookieFile = readFileSync(config.cookie, 'utf-8').trim();
+      this.auth = Buffer.from(cookieFile).toString('base64');
+    } else if (config.user && config.password) {
+      this.auth = Buffer.from(`${config.user}:${config.password}`).toString('base64');
+    } else {
+      throw Errors.NO_AUTHENTICATION();
+    }
   }
 
   public request = <T>(method: string, params?: any[]): Promise<T> => {

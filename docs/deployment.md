@@ -12,7 +12,6 @@ Prerequisites:
 The Boltz backend requires a synced Bitcoin Core or Litecoin Core instance to connect to the Bitcoin or Litecoin chain. These nodes need to:
 
 * Have the transaction index enabled `txindex=1`
-* Use a username and password to authenticate requests RPC (`rpcuser=<user>` and `rpcpassword=<password>`; the backend does not support cookie based authentication yet)
 * Enable ZeroMQ streams for raw blocks and raw transactions (`zmqpubrawblock=tcp://<host>:<port>` and `zmqpubrawtx=tcp://<host>:<port>`)
 
 If the Bitcoin or Litecoin chain should also support Lightning, an [LND node](https://github.com/LightningNetwork/lnd) has to be running on the same chain. The LND node does not need to be configured in any special way but has to support `invoicesrpc`. This can be achieved by using an official release binary from the LND repository or by compiling LND with `-tags="invoicesrpc"`.
@@ -130,8 +129,13 @@ maxZeroConfAmount = 10_000_000
   [currencies.chain]
   host = "127.0.0.1"
   port = 18_332
-  rpcuser = "bitcoin"
-  rpcpass = "bitcoin"
+
+  # The requests to Bitcoin Core like clients can be authenticated with cookie files or user/password
+  # If both are configured, cookie files are preferred
+  cookie = ""
+
+  user = "bitcoin"
+  password = "bitcoin"
 
   [currencies.lnd]
   host = "127.0.0.1"
@@ -151,8 +155,11 @@ maxZeroConfAmount = 1_000_000_000
   [currencies.chain]
   host = "127.0.0.1"
   port = 19_332
-  rpcuser = "litecoin"
-  rpcpass = "litecoin"
+
+  cookie = ""
+
+  user = "litecoin"
+  password = "litecoin"
 
   [currencies.lnd]
   host = "127.0.0.1"

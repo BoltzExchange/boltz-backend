@@ -130,7 +130,7 @@ export type Transaction = {
 
 export type RawTransaction = Transaction & {
   blockhash?: string;
-  confirmations: number;
+  confirmations?: number;
   time: number;
   blocktime: number;
 };

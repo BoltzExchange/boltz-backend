@@ -55,8 +55,8 @@ const sampleTransactions = {
 let mockGetRawTransactionVerboseResult: any = () => {
   return undefined;
 };
-const mockGetRawTransactionVerbose = jest.fn().mockImplementation(async () => {
-  return mockGetRawTransactionVerboseResult();
+const mockGetRawTransactionVerbose = jest.fn().mockImplementation(async (transactionId: string) => {
+  return mockGetRawTransactionVerboseResult(transactionId);
 });
 
 jest.mock('../../../lib/chain/ChainClient', () => {
@@ -119,6 +119,11 @@ const mockGetReverseSwap = jest.fn().mockImplementation(async () => {
   return mockGetReverseSwapResult;
 });
 
+let mockGetReverseSwapsResult: any[] = [];
+const mockGetReverseSwaps = jest.fn().mockImplementation(async () => {
+  return mockGetReverseSwapsResult;
+});
+
 let mockGetReverseSwapsExpirableResult: any[] = [];
 const mockGetReverseSwapsExpirable = jest.fn().mockImplementation(async() => {
   return mockGetReverseSwapsExpirableResult;
@@ -129,6 +134,7 @@ const mockSetReverseSwapStatus = jest.fn().mockImplementation(async (arg) => arg
 jest.mock('../../../lib/db/ReverseSwapRepository', () => {
   return jest.fn().mockImplementation(() => ({
     getReverseSwap: mockGetReverseSwap,
+    getReverseSwaps: mockGetReverseSwaps,
     setReverseSwapStatus: mockSetReverseSwapStatus,
     getReverseSwapsExpirable: mockGetReverseSwapsExpirable
   }));
@@ -152,6 +158,8 @@ describe('UtxoNursery', () => {
   );
 
   beforeEach(() => {
+    mockGetReverseSwapsResult = [];
+
     jest.clearAllMocks();
     nursery.removeAllListeners();
   });
@@ -427,7 +435,7 @@ describe('UtxoNursery', () => {
     expect(mockRemoveInputFilter).toHaveBeenCalledTimes(0);
   });
 
-  test('should handle confirmed Reverse Swap lockups', async () => {
+  test('should handle confirmed Reverse Swap lockups via transaction events', async () => {
     const checkReverseSwapLockupsConfirmed = nursery['checkReverseSwapLockupsConfirmed'];
 
     const transaction = Transaction.fromHex(sampleTransactions.rbf);
@@ -497,6 +505,67 @@ describe('UtxoNursery', () => {
 
     expect(mockGetReverseSwap).toHaveBeenCalledTimes(1);
     expect(mockRemoveInputFilter).toHaveBeenCalledTimes(0);
+  });
+
+  test('should handle confirmed Reverse Swap lockups via block events', async () => {
+    mockGetReverseSwapsResult = [
+      // The transaction of this Reverse Swap is still in the mempool
+      {
+        id: 'mempool',
+        lockupAddress: 'bc1ql279ggjjsy40nr2acmlmtcc95sexg8ty92pth5',
+        transactionId: Transaction.fromHex(sampleTransactions.rbf).getId(),
+      },
+      // This ones transaction was confirmed but the transaction event was not properly emitted for it
+      {
+        id: 'nonMempool',
+        lockupAddress: '3CxjzKKkxSa1eCRegA1KNS7KjXu1Hjhoqg',
+        transactionId: Transaction.fromHex(sampleTransactions.nonRbf).getId(),
+      },
+    ];
+
+    mockGetRawTransactionVerboseResult = (transactionId: string) => {
+      if (transactionId === Transaction.fromHex(sampleTransactions.nonRbf).getId()) {
+        return {
+          confirmations: 1,
+          hex: sampleTransactions.nonRbf,
+        };
+      }
+
+      return {};
+    };
+
+    let eventsEmitted = 0;
+
+    nursery.on('reverseSwap.lockup.confirmed', (reverseSwap, emittedTransaction) => {
+      expect(reverseSwap).toEqual(mockGetReverseSwapsResult[1]);
+      expect(emittedTransaction).toEqual(Transaction.fromHex(sampleTransactions.nonRbf));
+
+      eventsEmitted += 1;
+    });
+
+    await emitBlock(1);
+
+    expect(eventsEmitted).toEqual(1);
+
+    expect(mockGetReverseSwaps).toHaveBeenCalledTimes(1);
+    expect(mockGetReverseSwaps).toHaveBeenCalledWith({
+      status: {
+        [Op.eq]: SwapUpdateEvent.TransactionMempool,
+      },
+    });
+
+    expect(mockGetRawTransactionVerbose).toHaveBeenCalledTimes(2);
+    expect(mockGetRawTransactionVerbose).toHaveBeenNthCalledWith(1, mockGetReverseSwapsResult[0].transactionId);
+    expect(mockGetRawTransactionVerbose).toHaveBeenNthCalledWith(2, mockGetReverseSwapsResult[1].transactionId);
+
+    expect(mockDecodeAddress).toHaveBeenCalledTimes(1);
+    expect(mockDecodeAddress).toHaveBeenCalledWith(mockGetReverseSwapsResult[1].lockupAddress);
+
+    expect(mockRemoveOutputFilter).toHaveBeenCalledTimes(1);
+    expect(mockRemoveOutputFilter).toHaveBeenCalledWith(decodeAddress(mockGetReverseSwapsResult[1].lockupAddress));
+
+    expect(mockSetReverseSwapStatus).toHaveBeenCalledTimes(1);
+    expect(mockSetReverseSwapStatus).toHaveBeenCalledWith(mockGetReverseSwapsResult[1], SwapUpdateEvent.TransactionConfirmed);
   });
 
   test('should handle expired Swaps', async () => {

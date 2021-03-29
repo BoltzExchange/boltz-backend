@@ -1,43 +1,55 @@
 import { BigNumber } from 'ethers';
 import Logger from '../../../../lib/Logger';
 import GasNow from '../../../../lib/wallet/ethereum/GasNow';
+import { wait } from '../../../Utils';
 
 describe('GasNow', () => {
-  const gasNow = new GasNow(Logger.disabledLogger);
+  const gasNow = new GasNow(
+    Logger.disabledLogger,
+    {
+      chainId: 1,
+      name: 'mainnet'
+    },
+  );
 
   test('should not run when not on mainnet', async () => {
-    const notMainnetGasNow = new GasNow(Logger.disabledLogger);
-    await notMainnetGasNow.init({
-      chainId: 2,
-      name: 'notMainnet',
-    });
+    const notMainnetGasNow = new GasNow(
+      Logger.disabledLogger,
+      {
+        chainId: 2,
+        name: 'notMainnet',
+      },
+    );
+    await notMainnetGasNow.init();
 
-    expect(notMainnetGasNow['interval']).toEqual(undefined);
+    expect(notMainnetGasNow['webSocket']).toEqual(undefined);
   });
 
   test('should fetch the gas price when initialized', async () => {
-    await gasNow.init({
-      chainId: 1,
-      name: 'mainnet'
-    });
+    await gasNow.init();
 
-    expect(gasNow['interval']).not.toEqual(undefined);
+    expect(gasNow['webSocket']).not.toEqual(undefined);
 
     expect(GasNow.latestGasPrice).toBeInstanceOf(BigNumber);
     expect(GasNow.latestGasPrice.gt(BigNumber.from(0))).toEqual(true);
   });
 
-  test('should stop the update interval', () => {
-    gasNow.stop();
-
-    expect(gasNow['interval']).toEqual(undefined);
-  });
-
-  test('should update the latest gas price', async () => {
+  test('should subscribe to the gas price WebSocket', async () => {
     GasNow.latestGasPrice = BigNumber.from(0);
 
-    await gasNow['updateGasPrice']();
+    // Wait for the WebSocket to send a message
+    for (let i = 0; i < 10; i++) {
+      if (GasNow.latestGasPrice.gt(BigNumber.from(0))) {
+        break;
+      }
 
-    expect(GasNow.latestGasPrice).not.toEqual(BigNumber.from(0));
+      await wait(1000);
+    }
+  });
+
+  test('should stop the WebSocket', () => {
+    gasNow.stop();
+
+    expect(gasNow['webSocket']).toEqual(undefined);
   });
 });

@@ -108,7 +108,10 @@ class EthereumManager {
       blockNumber: currentBlock,
     })}`);
 
-    await new GasNow(this.logger).init(await this.provider.getNetwork());
+    await new GasNow(
+      this.logger,
+      await this.provider.getNetwork(),
+    ).init();
     const transactionTracker = await new EthereumTransactionTracker(
       this.logger,
       this.provider,

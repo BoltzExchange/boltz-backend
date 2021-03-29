@@ -305,7 +305,7 @@ class SwapNursery extends EventEmitter {
         } catch (error) {
           // In case the LND client could not find the invoice(s) of the Reverse Swap, we just ignore the error and mark them as cancelled regardless
           // This happens quite a lot on regtest environments where the LND client is reset without the database being deleted
-          if (typeof error !== 'object' || error.details !== 'unable to locate invoice') {
+          if (typeof error !== 'object' || (error.details !== 'unable to locate invoice' && error.details !== 'there are no existing invoices')) {
             this.logger.error(`Could not cancel invoice${plural} of Reverse Swap ${reverseSwap.id}: ${formatError(error)}`);
             return;
           } else {

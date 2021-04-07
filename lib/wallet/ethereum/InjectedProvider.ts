@@ -24,7 +24,7 @@ class InjectedProvider implements providers.Provider {
 
   private network!: providers.Network;
 
-  private static readonly requestTimeout = 2500;
+  private static readonly requestTimeout = 5000;
 
   constructor(private logger: Logger, config: EthereumConfig) {
     if (config.providerEndpoint) {
@@ -321,7 +321,7 @@ class InjectedProvider implements providers.Provider {
       try {
         const result = await this.promiseWithTimeout(
           provider[method](...args),
-          'timeout'
+          'timeout',
         );
 
         if (result !== null) {
@@ -332,7 +332,7 @@ class InjectedProvider implements providers.Provider {
       } catch (error) {
         const formattedError = formatError(error);
 
-        this.logger.warn(`Request to ${providerName} Web3 provider failed: ${formattedError}`);
+        this.logger.warn(`Request to ${providerName} Web3 provider failed: ${method}: ${formattedError}`);
         errors.push(formattedError);
       }
     }

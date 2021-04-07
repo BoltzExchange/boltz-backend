@@ -26,7 +26,7 @@ export default {
     };
   },
   REQUESTS_TO_PROVIDERS_FAILED: (errors: string[]): Error => ({
-    message: `requests to all providers failed:\n - ${errors.join('\\n - ')}`,
+    message: `requests to all providers failed:\n - ${errors.join('\n - ')}`,
     code: concatErrorCode(ErrorCodePrefix.Ethereum, 4),
   }),
 };

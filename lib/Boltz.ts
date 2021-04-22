@@ -43,6 +43,10 @@ class Boltz {
     this.config = new Config().load(config);
     this.logger = new Logger(this.config.loglevel, this.config.logpath);
 
+    process.on('unhandledRejection', ((reason) => {
+      this.logger.error(`Unhandled rejection: ${formatError(reason)}`);
+    }));
+
     this.db = new Database(this.logger, this.config.dbpath);
 
     try {

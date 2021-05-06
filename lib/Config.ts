@@ -21,6 +21,9 @@ type ChainConfig = {
   zmqpubrawtx?: string;
   zmqpubrawblock?: string;
   zmqpubhashblock?: string;
+
+  // API endpoint of a MempoolSpace instance running on the chain of the configured client
+  mempoolSpace?: string;
 };
 
 type CurrencyConfig = {

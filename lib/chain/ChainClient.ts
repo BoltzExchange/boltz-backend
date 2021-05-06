@@ -3,8 +3,9 @@ import Logger from '../Logger';
 import RpcClient from './RpcClient';
 import BaseClient from '../BaseClient';
 import { ChainConfig } from '../Config';
-import { getHexString } from '../Utils';
+import MempoolSpace from './MempoolSpace';
 import { ClientStatus } from '../consts/Enums';
+import { getHexString, stringify } from '../Utils';
 import ChainTipRepository from '../db/ChainTipRepository';
 import ZmqClient, { ZmqNotification, filters } from './ZmqClient';
 import { Block, BlockchainInfo, RawTransaction, BlockVerbose, NetworkInfo, UnspentUtxo, WalletInfo } from '../consts/Types';
@@ -25,6 +26,8 @@ class ChainClient extends BaseClient {
   private client: RpcClient;
   private chainTipRepository!: ChainTipRepository;
 
+  private readonly mempoolSpace?: MempoolSpace;
+
   constructor(
     private logger: Logger,
     private config: ChainConfig,
@@ -42,6 +45,14 @@ class ChainClient extends BaseClient {
       this.getBlockVerbose,
       this.getRawTransactionVerbose,
     );
+
+    if (this.config.mempoolSpace && this.config.mempoolSpace !== '') {
+      this.mempoolSpace = new MempoolSpace(
+        this.logger,
+        this.symbol,
+        this.config.mempoolSpace,
+      );
+    }
   }
 
   public connect = async (chainTipRepository: ChainTipRepository): Promise<void> => {
@@ -82,6 +93,10 @@ class ChainClient extends BaseClient {
 
     await this.zmqClient.init(zmqNotifications);
     await this.listenToZmq();
+
+    if (this.mempoolSpace) {
+      await this.mempoolSpace.init();
+    }
   }
 
   public disconnect = (): void => {
@@ -163,24 +178,17 @@ class ChainClient extends BaseClient {
   }
 
   public estimateFee = async (confTarget = 2): Promise<number> => {
-    try {
-      const response = await this.client.request<any>('estimatesmartfee', [confTarget]);
+    const chainClientFee = await this.estimateFeeChainClient(confTarget);
 
-      if (response.feerate) {
-        const feePerKb = response.feerate * ChainClient.decimals;
-        return Math.max(Math.round(feePerKb / 1000), 2);
-      }
+    if (this.mempoolSpace && this.mempoolSpace.latestFee) {
+      this.logger.debug(`Got ${this.symbol} fee estimations: ${stringify({
+        core: chainClientFee,
+        mempoolSpace: this.mempoolSpace.latestFee,
+      })}`);
 
-      return 2;
-    } catch (error) {
-      if (error.message === 'Method not found') {
-        // TODO: use estimatefee for outdated node versions
-        this.logger.warn(`"estimatesmartfee" method not found on ${this.symbol} chain`);
-
-        return 2;
-      }
-
-      throw error;
+      return Math.max(this.mempoolSpace.latestFee, 2);
+    } else {
+      return chainClientFee;
     }
   }
 
@@ -215,6 +223,28 @@ class ChainClient extends BaseClient {
 
   public getNewAddress = (): Promise<string> => {
     return this.client.request<string>('getnewaddress', [undefined, 'bech32']);
+  }
+
+  private estimateFeeChainClient = async (confTarget = 2) => {
+    try {
+      const response = await this.client.request<any>('estimatesmartfee', [confTarget]);
+
+      if (response.feerate) {
+        const feePerKb = response.feerate * ChainClient.decimals;
+        return Math.max(Math.round(feePerKb / 1000), 2);
+      }
+
+      return 2;
+    } catch (error) {
+      if (error.message === 'Method not found') {
+        // TODO: use estimatefee for outdated node versions
+        this.logger.warn(`"estimatesmartfee" method not found on ${this.symbol} chain`);
+
+        return 2;
+      }
+
+      throw error;
+    }
   }
 
   private getZmqNotifications = (): Promise<ZmqNotification[]> => {

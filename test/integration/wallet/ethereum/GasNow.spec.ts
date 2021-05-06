@@ -1,7 +1,7 @@
 import { BigNumber } from 'ethers';
+import { wait } from '../../../Utils';
 import Logger from '../../../../lib/Logger';
 import GasNow from '../../../../lib/wallet/ethereum/GasNow';
-import { wait } from '../../../Utils';
 
 describe('GasNow', () => {
   const gasNow = new GasNow(
@@ -47,8 +47,34 @@ describe('GasNow', () => {
     }
   });
 
-  test('should stop the WebSocket', () => {
-    gasNow.stop();
+  test('should stop the WebSocket', async () => {
+    await gasNow.stop();
+
+    expect(gasNow['webSocket']).toEqual(undefined);
+  });
+
+  test('should reconnect to WebSocket after timeout', async () => {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    GasNow['webSocketTimeout'] = 100;
+    gasNow['startTimeout']();
+
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    GasNow['webSocketTimeout'] = 30000;
+
+    expect(gasNow['webSocket']).toEqual(undefined);
+
+    await wait(250);
+
+    expect(gasNow['webSocket']).not.toEqual(undefined);
+
+    await new Promise<void>((resolve) => {
+      gasNow['webSocket']!.on('open', async () => {
+        await gasNow.stop();
+        resolve();
+      });
+    });
 
     expect(gasNow['webSocket']).toEqual(undefined);
   });

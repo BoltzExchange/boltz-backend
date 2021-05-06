@@ -8,9 +8,12 @@ class GasNow {
   private static readonly gasNowApiUrl = 'https://gasnow.org/api/v3';
   private static readonly gasNowWebSocket = 'wss://www.gasnow.org/ws/gasprice';
 
+  private static readonly webSocketTimeout = 30000;
+
   public static latestGasPrice = BigNumber.from(0);
 
-  public webSocket?: WebSocket;
+  private webSocket?: WebSocket;
+  private webSocketTimeout?: any;
 
   constructor(
     private logger: Logger,
@@ -23,24 +26,49 @@ class GasNow {
       this.logger.info('Enabling GasNow gas price oracle');
       await this.updateGasPrice();
 
-      this.webSocket = new WebSocket(GasNow.gasNowWebSocket);
-      this.listenToWebSocket();
+      this.start();
     } else {
       this.logger.info('Disabling GasNow gas price oracle because chain is not mainnet');
     }
   }
 
-  public stop = (): void => {
-    if (this.webSocket) {
-      this.webSocket.close();
-      this.webSocket.removeAllListeners();
+  public stop = (): Promise<void> => {
+    return new Promise<void>((resolve) => {
+      const closeTimeout = () => {
+        if (this.webSocketTimeout) {
+          clearTimeout(this.webSocketTimeout);
+          this.webSocketTimeout = undefined;
+        }
+      };
 
-      this.webSocket = undefined;
-    }
+      if (this.webSocket) {
+        this.webSocket.close();
+        this.webSocket.on('close', () => {
+          this.webSocket!.removeAllListeners();
+
+          this.webSocket = undefined;
+
+          closeTimeout();
+          resolve();
+        });
+      } else {
+        closeTimeout();
+        resolve();
+      }
+    });
+  }
+
+  private start = () => {
+    this.webSocket = new WebSocket(GasNow.gasNowWebSocket);
+
+    this.listenToWebSocket();
+    this.startTimeout();
   }
 
   private listenToWebSocket = () => {
     this.webSocket!.on('message', (event) => {
+      this.startTimeout();
+
       try {
         const data = JSON.parse(event as string);
 
@@ -57,6 +85,19 @@ class GasNow {
       this.logger.error(`GasNow WebSocket errored: ${error.name}: ${error.message}`);
       await this.init();
     });
+  }
+
+  private startTimeout = () => {
+    if (this.webSocketTimeout) {
+      clearTimeout(this.webSocketTimeout);
+    }
+
+    this.webSocketTimeout = setTimeout(async () => {
+      this.logger.warn(`Restarting GasNow WebSocket because no update was sent in the last ${GasNow.webSocketTimeout} ms`);
+
+      await this.stop();
+      this.start();
+    }, GasNow.webSocketTimeout);
   }
 
   private updateGasPrice = async () => {

@@ -32,8 +32,8 @@ RUN gpg --batch --keyserver keyserver.ubuntu.com --recv-keys "90C8019E36C2E964"
 
 ENV BITCOIN_PREFIX=/opt/bitcoin-${VERSION}
 
-RUN wget https://bitcoin.org/bin/bitcoin-core-${VERSION}/SHA256SUMS.asc
-RUN wget https://bitcoin.org/bin/bitcoin-core-${VERSION}/bitcoin-${VERSION}.tar.gz
+RUN wget https://bitcoincore.org/bin/bitcoin-core-${VERSION}/SHA256SUMS.asc
+RUN wget https://bitcoincore.org/bin/bitcoin-core-${VERSION}/bitcoin-${VERSION}.tar.gz
 
 RUN gpg --verify SHA256SUMS.asc
 RUN grep "bitcoin-${VERSION}.tar.gz\$" SHA256SUMS.asc | sha256sum -c -

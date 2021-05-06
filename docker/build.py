@@ -40,13 +40,13 @@ BERKELEY_5_VERSION = BuildArgument(
     value="5.1.29"
 )
 
-BITCOIN_VERSION = "0.21.0"
+BITCOIN_VERSION = "0.21.1"
 LITECOIN_VERSION = "0.18.1"
 DOGECOIN_VERSION = "1.14.2"
-ZCASH_VERSION = "4.3.0"
-GETH_VERSION = "1.10.1"
+ZCASH_VERSION = "4.4.0"
+GETH_VERSION = "1.10.3"
 
-C_LIGHTNING_VERSION = "0.9.3"
+C_LIGHTNING_VERSION = "0.10.0"
 ECLAIR_VERSION = "0.5.1"
 LND_VERSION = "0.12.1-beta"
 
@@ -114,7 +114,7 @@ IMAGES: Dict[str, Image] = {
         ],
     ),
     "regtest": Image(
-        tags=["3.1.1"],
+        tags=["3.1.2"],
         arguments=[
             UBUNTU_VERSION,
             BuildArgument(

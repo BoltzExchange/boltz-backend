@@ -1,12 +1,12 @@
 import Errors from './Errors';
 import Logger from '../Logger';
 import { PairConfig } from '../consts/Types';
-import { CurrencyType } from '../consts/Enums';
+import RateCalculator from './RateCalculator';
 import DataAggregator from './data/DataAggregator';
 import { Currency } from '../wallet/WalletManager';
 import FeeProvider, { MinerFees } from './FeeProvider';
+import { BaseFeeType, CurrencyType } from '../consts/Enums';
 import { getPairId, hashString, mapToObject, minutesToMilliseconds, splitPairId, stringify } from '../Utils';
-import RateCalculator from './RateCalculator';
 
 type CurrencyLimits = {
   minimal: number;
@@ -82,6 +82,8 @@ class RateProvider {
       // Multiply with 100 to get the percentage
       this.percentageFees.set(pair, percentage * 100);
     });
+
+    await this.updateMinerFees();
 
     pairs.forEach((pair) => {
       const id = getPairId(pair);
@@ -163,7 +165,7 @@ class RateProvider {
     // "null" on the very first run of this function
     const updatedRates = await this.dataAggregator.fetchPairs();
 
-    await this.getMinerFees();
+    await this.updateMinerFees();
 
     for (const [pairId, rate] of updatedRates) {
       // Filter pairs that are fetched (for example to calculate gas fees for a BTC/<token> pair)
@@ -225,9 +227,17 @@ class RateProvider {
     const quoteLimits = this.limits.get(quote);
 
     if (baseLimits && quoteLimits) {
+      let minimalLimit = Math.max(quoteLimits.minimal, baseLimits.minimal * rate);
+
+      // Make sure the minimal limit is at least 4 times the fee needed to claim
+      const minimalLimitQuoteTransactionFee = this.feeProvider.getBaseFee(quote, BaseFeeType.NormalClaim) * 4;
+      const minimalLimitBaseTransactionFee = this.feeProvider.getBaseFee(base, BaseFeeType.NormalClaim) * rate * 4;
+
+      minimalLimit = Math.max(minimalLimit, minimalLimitBaseTransactionFee, minimalLimitQuoteTransactionFee);
+
       return {
         maximal: Math.floor(Math.min(quoteLimits.maximal, baseLimits.maximal * rate)),
-        minimal: Math.ceil(Math.max(quoteLimits.minimal, baseLimits.minimal * rate)),
+        minimal: Math.ceil(minimalLimit),
 
         maximalZeroConf: {
           baseAsset: baseLimits.maximalZeroConf,
@@ -263,7 +273,7 @@ class RateProvider {
     }
   }
 
-  private getMinerFees = async () => {
+  private updateMinerFees = async () => {
     const promises: Promise<void>[] = [];
 
     for (const [symbol] of this.limits) {

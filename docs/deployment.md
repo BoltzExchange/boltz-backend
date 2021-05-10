@@ -137,6 +137,9 @@ maxZeroConfAmount = 10_000_000
   user = "bitcoin"
   password = "bitcoin"
 
+  # Optional API endpoint of a MempoolSpace instance running on the chain of the configured client
+  mempoolSpace = "https://mempool.space/api"
+
   [currencies.lnd]
   host = "127.0.0.1"
   port = 10_009

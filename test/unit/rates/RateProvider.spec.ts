@@ -9,7 +9,7 @@ import DataAggregator from '../../../lib/rates/data/DataAggregator';
 import FeeProvider, { MinerFees } from '../../../lib/rates/FeeProvider';
 
 FeeProvider.transactionSizes = {
-  normalClaim: 140,
+  normalClaim: 170,
 
   reverseLockup: 153,
   reverseClaim: 138,
@@ -48,6 +48,11 @@ const minerFees = new Map<string, MinerFees>([
   ]
 ]);
 
+let mockGetBaseFeeResult = 0;
+const mockGetBaseFee = jest.fn().mockImplementation(() => {
+  return mockGetBaseFeeResult;
+});
+
 const mockUpdateMinerFees = jest.fn().mockImplementation(async () => {});
 
 const btcFee = 36;
@@ -65,6 +70,7 @@ jest.mock('../../../lib/rates/FeeProvider', () => {
     return {
       minerFees,
       percentageFees,
+      getBaseFee: mockGetBaseFee,
       updateMinerFees: mockUpdateMinerFees,
     };
   });
@@ -221,6 +227,15 @@ describe('RateProvider', () => {
 
     expect(rateProvider.acceptZeroConf('BTC', btcCurrency.limits.maxZeroConfAmount!)).toEqual(true);
     expect(rateProvider.acceptZeroConf('BTC', btcCurrency.limits.maxZeroConfAmount! - 1)).toEqual(true);
+  });
+
+  test('should adjust minimal limits based on current miner fees', async () => {
+    mockGetBaseFeeResult = 13430;
+
+    await rateProvider['updateRates']();
+
+    expect(rateProvider.pairs.get('BTC/BTC')!.limits.minimal).toEqual(mockGetBaseFeeResult * 4);
+    expect(rateProvider.pairs.get('LTC/BTC')!.limits.minimal).toEqual(mockGetBaseFeeResult * 4);
   });
 
   afterAll(async () => {

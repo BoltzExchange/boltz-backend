@@ -42,16 +42,20 @@ class GasNow {
       };
 
       if (this.webSocket) {
+        this.webSocket.removeAllListeners();
+      }
+
+      if (this.webSocket && this.webSocket.readyState === WebSocket.OPEN) {
         this.webSocket.close();
         this.webSocket.on('close', () => {
-          this.webSocket!.removeAllListeners();
-
           this.webSocket = undefined;
 
           closeTimeout();
           resolve();
         });
       } else {
+        this.webSocket = undefined;
+
         closeTimeout();
         resolve();
       }

@@ -19,7 +19,7 @@ import RateProvider from '../rates/RateProvider';
 import SwapRepository from '../db/SwapRepository';
 import LightningNursery from './LightningNursery';
 import ReverseSwap from '../db/models/ReverseSwap';
-import { PaymentFailureReason } from '../proto/lnd/rpc_pb';
+import { Invoice, PaymentFailureReason } from '../proto/lnd/rpc_pb';
 import ChannelCreation from '../db/models/ChannelCreation';
 import ReverseSwapRepository from '../db/ReverseSwapRepository';
 import ContractHandler from '../wallet/ethereum/ContractHandler';
@@ -42,6 +42,7 @@ import {
   getRate,
   splitPairId,
 } from '../Utils';
+import InvoiceState = Invoice.InvoiceState;
 
 interface SwapNursery {
   // UTXO based chains emit the "Transaction" object and Ethereum based ones just the transaction hash
@@ -289,18 +290,23 @@ class SwapNursery extends EventEmitter {
 
         try {
           // Check if the hold invoice has pending HTLCs before actually cancelling
-          const { htlcsList } = await lndClient.lookupInvoice(getHexBuffer(reverseSwap.preimageHash));
-          if (htlcsList.length !== 0) {
-            this.logger.info(`Not cancelling expired hold invoice${plural} of Reverse Swap ${reverseSwap.id} because it has pending HTLCs`);
-            return;
-          }
+          const { htlcsList, state } = await lndClient.lookupInvoice(getHexBuffer(reverseSwap.preimageHash));
 
-          this.logger.debug(`Cancelling expired hold invoice${plural} of Reverse Swap ${reverseSwap.id}`);
+          if (state === InvoiceState.CANCELED) {
+            this.logger.debug(`Invoice${plural} of Reverse Swap ${reverseSwap.id} already cancelled`);
+          } else {
+            if (htlcsList.length !== 0) {
+              this.logger.info(`Not cancelling expired hold invoice${plural} of Reverse Swap ${reverseSwap.id} because it has pending HTLCs`);
+              return;
+            }
 
-          await lndClient.cancelInvoice(getHexBuffer(reverseSwap.preimageHash));
+            this.logger.debug(`Cancelling expired hold invoice${plural} of Reverse Swap ${reverseSwap.id}`);
 
-          if (reverseSwap.minerFeeInvoicePreimage) {
-            await lndClient.cancelInvoice(crypto.sha256(getHexBuffer(reverseSwap.minerFeeInvoicePreimage)));
+            await lndClient.cancelInvoice(getHexBuffer(reverseSwap.preimageHash));
+
+            if (reverseSwap.minerFeeInvoicePreimage) {
+              await lndClient.cancelInvoice(crypto.sha256(getHexBuffer(reverseSwap.minerFeeInvoicePreimage)));
+            }
           }
         } catch (error) {
           // In case the LND client could not find the invoice(s) of the Reverse Swap, we just ignore the error and mark them as cancelled regardless
@@ -309,7 +315,7 @@ class SwapNursery extends EventEmitter {
             this.logger.error(`Could not cancel invoice${plural} of Reverse Swap ${reverseSwap.id}: ${formatError(error)}`);
             return;
           } else {
-            this.logger.silly(`Cancelling invoice${plural} of Reverse Swap ${reverseSwap.id} although the LND client could not find them`);
+            this.logger.silly(`Cancelling invoice${plural} of Reverse Swap ${reverseSwap.id} failed although the LND client could find them: ${formatError(error)}`);
           }
         }
 

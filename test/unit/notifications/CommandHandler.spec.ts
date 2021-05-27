@@ -523,6 +523,8 @@ describe('CommandHandler', () => {
   });
 
   afterAll(async () => {
+    await channelCreationRepository.dropTable();
+
     await Promise.all([
       swapRepository.dropTable(),
       reverseSwapRepository.dropTable(),

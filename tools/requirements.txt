@@ -43,6 +43,6 @@ sseclient==0.0.27
 toml==0.10.2
 tornado==6.1
 tqdm==4.59.0
-urllib3==1.26.4
+urllib3==1.26.5
 webencodings==0.5.1
 wrapt==1.12.1

@@ -85,9 +85,12 @@ class GasNow {
       }
     });
 
+    this.webSocket!.onerror = async (error) => {
+      await this.handleWebSocketError(error.message);
+    };
+
     this.webSocket!.on('error', async (error) => {
-      this.logger.error(`GasNow WebSocket errored: ${error.name}: ${error.message}`);
-      await this.init();
+      await this.handleWebSocketError(error.message);
     });
   }
 
@@ -102,6 +105,11 @@ class GasNow {
       await this.stop();
       this.start();
     }, GasNow.webSocketTimeout);
+  }
+
+  private handleWebSocketError = async (message: string) => {
+    this.logger.error(`GasNow WebSocket errored: ${message}`);
+    await this.init();
   }
 
   private updateGasPrice = async () => {

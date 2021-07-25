@@ -1,7 +1,6 @@
 import * as grpc from 'grpc';
 import getPort from 'get-port';
 import { readFileSync } from 'fs';
-import { randomBytes } from 'crypto';
 import Logger from '../../../lib/Logger';
 import { bitcoinLndClient, lndDataPath } from '../Nodes';
 import LndClient from '../../../lib/lightning/LndClient';
@@ -60,7 +59,7 @@ describe('LndClient', () => {
       const response = new TransactionDetails();
 
       const randomTransaction = new Transaction();
-      randomTransaction.setRawTxHex(randomBytes(randomDataLength / 2).toString('hex').substring(0, randomDataLength));
+      randomTransaction.setRawTxHex('f'.repeat(randomDataLength));
 
       response.addTransactions(randomTransaction);
 

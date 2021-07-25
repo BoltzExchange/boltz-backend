@@ -62,6 +62,15 @@ service Router {
         returns (QueryMissionControlResponse);
 
     /*
+    XImportMissionControl is an experimental API that imports the state provided
+    to the internal mission control's state, using all results which are more
+    recent than our existing values. These values will only be imported
+    in-memory, and will not be persisted across restarts.
+    */
+    rpc XImportMissionControl (XImportMissionControlRequest)
+        returns (XImportMissionControlResponse);
+
+    /*
     GetMissionControlConfig returns mission control's current config.
     */
     rpc GetMissionControlConfig (GetMissionControlConfigRequest)
@@ -121,6 +130,15 @@ service Router {
     */
     rpc HtlcInterceptor (stream ForwardHtlcInterceptResponse)
         returns (stream ForwardHtlcInterceptRequest);
+
+    /*
+    UpdateChanStatus attempts to manually set the state of a channel
+    (enabled, disabled, or auto). A manual "disable" request will cause the
+    channel to stay disabled until a subsequent manual request of either
+    "enable" or "auto".
+    */
+    rpc UpdateChanStatus (UpdateChanStatusRequest)
+        returns (UpdateChanStatusResponse);
 }
 
 message SendPaymentRequest {
@@ -261,6 +279,11 @@ message SendPaymentRequest {
     value is in milli-satoshis.
     */
     uint64 max_shard_size_msat = 21;
+
+    /*
+    If set, an AMP-payment will be attempted.
+    */
+    bool amp = 22;
 }
 
 message TrackPaymentRequest {
@@ -334,6 +357,14 @@ message QueryMissionControlResponse {
     repeated PairHistory pairs = 2;
 }
 
+message XImportMissionControlRequest {
+    // Node pair-level mission control state to be imported.
+    repeated PairHistory pairs = 1;
+}
+
+message XImportMissionControlResponse {
+}
+
 // PairHistory contains the mission control state for a particular node pair.
 message PairHistory {
     // The source node pubkey of the pair.
@@ -399,10 +430,10 @@ message SetMissionControlConfigResponse {
 message MissionControlConfig {
     /*
     The amount of time mission control will take to restore a penalized node
-    or channel back to 50% success probability, expressed as a unix timestamp
-    in seconds. Setting this value to a higher value will penalize failures for
-    longer, making mission control less likely to route through nodes and
-    channels that we have previously recorded failures for.
+    or channel back to 50% success probability, expressed in seconds. Setting
+    this value to a higher value will penalize failures for longer, making
+    mission control less likely to route through nodes and channels that we
+    have previously recorded failures for.
     */
     uint64 half_life_seconds = 1;
 
@@ -576,6 +607,8 @@ message ForwardFailEvent {
 }
 
 message SettleEvent {
+    // The revealed preimage.
+    bytes preimage = 1;
 }
 
 message LinkFailEvent {
@@ -749,4 +782,19 @@ enum ResolveHoldForwardAction {
     SETTLE = 0;
     FAIL = 1;
     RESUME = 2;
+}
+
+message UpdateChanStatusRequest {
+    lnrpc.ChannelPoint chan_point = 1;
+
+    ChanStatusAction action = 2;
+}
+
+enum ChanStatusAction {
+    ENABLE = 0;
+    DISABLE = 1;
+    AUTO = 2;
+}
+
+message UpdateChanStatusResponse {
 }

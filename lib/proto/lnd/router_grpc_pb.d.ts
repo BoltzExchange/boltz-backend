@@ -16,6 +16,7 @@ interface IRouterService extends grpc.ServiceDefinition<grpc.UntypedServiceImple
     sendToRouteV2: IRouterService_ISendToRouteV2;
     resetMissionControl: IRouterService_IResetMissionControl;
     queryMissionControl: IRouterService_IQueryMissionControl;
+    xImportMissionControl: IRouterService_IXImportMissionControl;
     getMissionControlConfig: IRouterService_IGetMissionControlConfig;
     setMissionControlConfig: IRouterService_ISetMissionControlConfig;
     queryProbability: IRouterService_IQueryProbability;
@@ -24,6 +25,7 @@ interface IRouterService extends grpc.ServiceDefinition<grpc.UntypedServiceImple
     sendPayment: IRouterService_ISendPayment;
     trackPayment: IRouterService_ITrackPayment;
     htlcInterceptor: IRouterService_IHtlcInterceptor;
+    updateChanStatus: IRouterService_IUpdateChanStatus;
 }
 
 interface IRouterService_ISendPaymentV2 extends grpc.MethodDefinition<lnd_router_pb.SendPaymentRequest, lnd_rpc_pb.Payment> {
@@ -88,6 +90,15 @@ interface IRouterService_IQueryMissionControl extends grpc.MethodDefinition<lnd_
     requestDeserialize: grpc.deserialize<lnd_router_pb.QueryMissionControlRequest>;
     responseSerialize: grpc.serialize<lnd_router_pb.QueryMissionControlResponse>;
     responseDeserialize: grpc.deserialize<lnd_router_pb.QueryMissionControlResponse>;
+}
+interface IRouterService_IXImportMissionControl extends grpc.MethodDefinition<lnd_router_pb.XImportMissionControlRequest, lnd_router_pb.XImportMissionControlResponse> {
+    path: "/routerrpc.Router/XImportMissionControl";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<lnd_router_pb.XImportMissionControlRequest>;
+    requestDeserialize: grpc.deserialize<lnd_router_pb.XImportMissionControlRequest>;
+    responseSerialize: grpc.serialize<lnd_router_pb.XImportMissionControlResponse>;
+    responseDeserialize: grpc.deserialize<lnd_router_pb.XImportMissionControlResponse>;
 }
 interface IRouterService_IGetMissionControlConfig extends grpc.MethodDefinition<lnd_router_pb.GetMissionControlConfigRequest, lnd_router_pb.GetMissionControlConfigResponse> {
     path: "/routerrpc.Router/GetMissionControlConfig";
@@ -161,6 +172,15 @@ interface IRouterService_IHtlcInterceptor extends grpc.MethodDefinition<lnd_rout
     responseSerialize: grpc.serialize<lnd_router_pb.ForwardHtlcInterceptRequest>;
     responseDeserialize: grpc.deserialize<lnd_router_pb.ForwardHtlcInterceptRequest>;
 }
+interface IRouterService_IUpdateChanStatus extends grpc.MethodDefinition<lnd_router_pb.UpdateChanStatusRequest, lnd_router_pb.UpdateChanStatusResponse> {
+    path: "/routerrpc.Router/UpdateChanStatus";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<lnd_router_pb.UpdateChanStatusRequest>;
+    requestDeserialize: grpc.deserialize<lnd_router_pb.UpdateChanStatusRequest>;
+    responseSerialize: grpc.serialize<lnd_router_pb.UpdateChanStatusResponse>;
+    responseDeserialize: grpc.deserialize<lnd_router_pb.UpdateChanStatusResponse>;
+}
 
 export const RouterService: IRouterService;
 
@@ -172,6 +192,7 @@ export interface IRouterServer {
     sendToRouteV2: grpc.handleUnaryCall<lnd_router_pb.SendToRouteRequest, lnd_rpc_pb.HTLCAttempt>;
     resetMissionControl: grpc.handleUnaryCall<lnd_router_pb.ResetMissionControlRequest, lnd_router_pb.ResetMissionControlResponse>;
     queryMissionControl: grpc.handleUnaryCall<lnd_router_pb.QueryMissionControlRequest, lnd_router_pb.QueryMissionControlResponse>;
+    xImportMissionControl: grpc.handleUnaryCall<lnd_router_pb.XImportMissionControlRequest, lnd_router_pb.XImportMissionControlResponse>;
     getMissionControlConfig: grpc.handleUnaryCall<lnd_router_pb.GetMissionControlConfigRequest, lnd_router_pb.GetMissionControlConfigResponse>;
     setMissionControlConfig: grpc.handleUnaryCall<lnd_router_pb.SetMissionControlConfigRequest, lnd_router_pb.SetMissionControlConfigResponse>;
     queryProbability: grpc.handleUnaryCall<lnd_router_pb.QueryProbabilityRequest, lnd_router_pb.QueryProbabilityResponse>;
@@ -180,6 +201,7 @@ export interface IRouterServer {
     sendPayment: grpc.handleServerStreamingCall<lnd_router_pb.SendPaymentRequest, lnd_router_pb.PaymentStatus>;
     trackPayment: grpc.handleServerStreamingCall<lnd_router_pb.TrackPaymentRequest, lnd_router_pb.PaymentStatus>;
     htlcInterceptor: grpc.handleBidiStreamingCall<lnd_router_pb.ForwardHtlcInterceptResponse, lnd_router_pb.ForwardHtlcInterceptRequest>;
+    updateChanStatus: grpc.handleUnaryCall<lnd_router_pb.UpdateChanStatusRequest, lnd_router_pb.UpdateChanStatusResponse>;
 }
 
 export interface IRouterClient {
@@ -202,6 +224,9 @@ export interface IRouterClient {
     queryMissionControl(request: lnd_router_pb.QueryMissionControlRequest, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.QueryMissionControlResponse) => void): grpc.ClientUnaryCall;
     queryMissionControl(request: lnd_router_pb.QueryMissionControlRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.QueryMissionControlResponse) => void): grpc.ClientUnaryCall;
     queryMissionControl(request: lnd_router_pb.QueryMissionControlRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.QueryMissionControlResponse) => void): grpc.ClientUnaryCall;
+    xImportMissionControl(request: lnd_router_pb.XImportMissionControlRequest, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.XImportMissionControlResponse) => void): grpc.ClientUnaryCall;
+    xImportMissionControl(request: lnd_router_pb.XImportMissionControlRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.XImportMissionControlResponse) => void): grpc.ClientUnaryCall;
+    xImportMissionControl(request: lnd_router_pb.XImportMissionControlRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.XImportMissionControlResponse) => void): grpc.ClientUnaryCall;
     getMissionControlConfig(request: lnd_router_pb.GetMissionControlConfigRequest, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.GetMissionControlConfigResponse) => void): grpc.ClientUnaryCall;
     getMissionControlConfig(request: lnd_router_pb.GetMissionControlConfigRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.GetMissionControlConfigResponse) => void): grpc.ClientUnaryCall;
     getMissionControlConfig(request: lnd_router_pb.GetMissionControlConfigRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.GetMissionControlConfigResponse) => void): grpc.ClientUnaryCall;
@@ -223,6 +248,9 @@ export interface IRouterClient {
     htlcInterceptor(): grpc.ClientDuplexStream<lnd_router_pb.ForwardHtlcInterceptResponse, lnd_router_pb.ForwardHtlcInterceptRequest>;
     htlcInterceptor(options: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<lnd_router_pb.ForwardHtlcInterceptResponse, lnd_router_pb.ForwardHtlcInterceptRequest>;
     htlcInterceptor(metadata: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<lnd_router_pb.ForwardHtlcInterceptResponse, lnd_router_pb.ForwardHtlcInterceptRequest>;
+    updateChanStatus(request: lnd_router_pb.UpdateChanStatusRequest, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.UpdateChanStatusResponse) => void): grpc.ClientUnaryCall;
+    updateChanStatus(request: lnd_router_pb.UpdateChanStatusRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.UpdateChanStatusResponse) => void): grpc.ClientUnaryCall;
+    updateChanStatus(request: lnd_router_pb.UpdateChanStatusRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.UpdateChanStatusResponse) => void): grpc.ClientUnaryCall;
 }
 
 export class RouterClient extends grpc.Client implements IRouterClient {
@@ -246,6 +274,9 @@ export class RouterClient extends grpc.Client implements IRouterClient {
     public queryMissionControl(request: lnd_router_pb.QueryMissionControlRequest, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.QueryMissionControlResponse) => void): grpc.ClientUnaryCall;
     public queryMissionControl(request: lnd_router_pb.QueryMissionControlRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.QueryMissionControlResponse) => void): grpc.ClientUnaryCall;
     public queryMissionControl(request: lnd_router_pb.QueryMissionControlRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.QueryMissionControlResponse) => void): grpc.ClientUnaryCall;
+    public xImportMissionControl(request: lnd_router_pb.XImportMissionControlRequest, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.XImportMissionControlResponse) => void): grpc.ClientUnaryCall;
+    public xImportMissionControl(request: lnd_router_pb.XImportMissionControlRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.XImportMissionControlResponse) => void): grpc.ClientUnaryCall;
+    public xImportMissionControl(request: lnd_router_pb.XImportMissionControlRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.XImportMissionControlResponse) => void): grpc.ClientUnaryCall;
     public getMissionControlConfig(request: lnd_router_pb.GetMissionControlConfigRequest, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.GetMissionControlConfigResponse) => void): grpc.ClientUnaryCall;
     public getMissionControlConfig(request: lnd_router_pb.GetMissionControlConfigRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.GetMissionControlConfigResponse) => void): grpc.ClientUnaryCall;
     public getMissionControlConfig(request: lnd_router_pb.GetMissionControlConfigRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.GetMissionControlConfigResponse) => void): grpc.ClientUnaryCall;
@@ -266,4 +297,7 @@ export class RouterClient extends grpc.Client implements IRouterClient {
     public trackPayment(request: lnd_router_pb.TrackPaymentRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<lnd_router_pb.PaymentStatus>;
     public htlcInterceptor(options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<lnd_router_pb.ForwardHtlcInterceptResponse, lnd_router_pb.ForwardHtlcInterceptRequest>;
     public htlcInterceptor(metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<lnd_router_pb.ForwardHtlcInterceptResponse, lnd_router_pb.ForwardHtlcInterceptRequest>;
+    public updateChanStatus(request: lnd_router_pb.UpdateChanStatusRequest, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.UpdateChanStatusResponse) => void): grpc.ClientUnaryCall;
+    public updateChanStatus(request: lnd_router_pb.UpdateChanStatusRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.UpdateChanStatusResponse) => void): grpc.ClientUnaryCall;
+    public updateChanStatus(request: lnd_router_pb.UpdateChanStatusRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.UpdateChanStatusResponse) => void): grpc.ClientUnaryCall;
 }

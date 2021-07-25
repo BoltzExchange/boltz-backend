@@ -443,7 +443,9 @@ export const calculateUtxoTransactionFee = async (chainClient: ChainClient, tran
  * Calculates the transaction fee of an Ethereum contract interaction and rounds it to 10 ** -8 decimals
  */
 export const calculateEthereumTransactionFee = (transaction: ContractTransaction): number => {
-  return transaction.gasLimit.mul(transaction.gasPrice).div(etherDecimals).toNumber();
+  return transaction.gasLimit.mul(
+    transaction.type === 2 ? transaction.maxFeePerGas! : transaction.gasPrice!,
+  ).div(etherDecimals).toNumber();
 };
 
 export const getBiggerBigNumber = (a: BigNumber, b: BigNumber): BigNumber => {

@@ -102,6 +102,12 @@ export namespace AddHoldInvoiceRequest {
 export class AddHoldInvoiceResp extends jspb.Message { 
     getPaymentRequest(): string;
     setPaymentRequest(value: string): AddHoldInvoiceResp;
+    getAddIndex(): number;
+    setAddIndex(value: number): AddHoldInvoiceResp;
+    getPaymentAddr(): Uint8Array | string;
+    getPaymentAddr_asU8(): Uint8Array;
+    getPaymentAddr_asB64(): string;
+    setPaymentAddr(value: Uint8Array | string): AddHoldInvoiceResp;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): AddHoldInvoiceResp.AsObject;
@@ -116,6 +122,8 @@ export class AddHoldInvoiceResp extends jspb.Message {
 export namespace AddHoldInvoiceResp {
     export type AsObject = {
         paymentRequest: string,
+        addIndex: number,
+        paymentAddr: Uint8Array | string,
     }
 }
 

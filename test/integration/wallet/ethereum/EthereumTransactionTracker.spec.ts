@@ -44,7 +44,7 @@ describe('EthereumTransactionTracker', () => {
     expect(transactionTracker.scanBlock).toHaveBeenCalledTimes(1);
     expect(transactionTracker.scanBlock).toHaveBeenCalledWith(await provider.getBlockNumber());
 
-    expect(transactionTracker['walletAddress']).toEqual(await signer.getAddress());
+    expect(transactionTracker['walletAddress']).toEqual((await signer.getAddress()).toLowerCase());
 
     transactionTracker.scanBlock = realScanBlock;
   });

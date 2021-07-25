@@ -36,8 +36,9 @@ describe('ChainClient', () => {
     jest.clearAllMocks();
   });
 
-  test('should connect', async () => {
+  test('should init', async () => {
     await bitcoinClient.connect(chainTipRepository);
+    await bitcoinClient.generate(1);
   });
 
   test('should add to the output filer', () => {

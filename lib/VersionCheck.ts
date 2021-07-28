@@ -7,7 +7,7 @@ class VersionCheck {
   };
 
   private static lndVersionLimits = {
-    minimal: '0.13.0',
+    minimal: '0.12.0',
     maximal: '0.13.1',
   };
 

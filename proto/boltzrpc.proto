@@ -20,6 +20,9 @@ service Boltz {
 
   /* Updates the timeout block delta of a pair */
   rpc UpdateTimeoutBlockDelta (UpdateTimeoutBlockDeltaRequest) returns (UpdateTimeoutBlockDeltaResponse);
+
+  /* Adds a new referral ID to the database */
+  rpc AddReferral (AddReferralRequest) returns (AddReferralResponse);
 }
 
 enum OutputType {
@@ -116,3 +119,10 @@ message UpdateTimeoutBlockDeltaRequest {
   uint32 new_delta = 2;
 }
 message UpdateTimeoutBlockDeltaResponse {}
+
+message AddReferralRequest {
+  string id = 1;
+  uint32 fee_share = 2;
+  string routing_node = 3;
+}
+message AddReferralResponse {}

@@ -5,12 +5,12 @@ import Logger from '../../../lib/Logger';
 import Swap from '../../../lib/db/models/Swap';
 import ChainClient from '../../../lib/chain/ChainClient';
 import LndClient from '../../../lib/lightning/LndClient';
-import SwapRepository from '../../../lib/db/SwapRepository';
+import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import { Currency } from '../../../lib/wallet/WalletManager';
 import { ChannelPoint } from '../../../lib/proto/lnd/rpc_pb';
 import ChannelNursery from '../../../lib/swap/ChannelNursery';
 import ChannelCreation from '../../../lib/db/models/ChannelCreation';
-import ChannelCreationRepository from '../../../lib/db/ChannelCreationRepository';
+import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
 import { ChannelCreationStatus, OrderSide, SwapUpdateEvent } from '../../../lib/consts/Enums';
 
 let mockGetSwapResult: any = {
@@ -22,7 +22,7 @@ const mockGetSwap = jest.fn().mockImplementation(async () => {
 
 const mockSetSwapStatus = jest.fn().mockResolvedValue(undefined);
 
-jest.mock('../../../lib/db/SwapRepository', () => {
+jest.mock('../../../lib/db/repositories/SwapRepository', () => {
   return jest.fn().mockImplementation(() => {
     return {
       getSwap: mockGetSwap,
@@ -53,7 +53,7 @@ const mockSetFundingTransaction = jest.fn().mockImplementation(async (arg) => {
   return arg;
 });
 
-jest.mock('../../../lib/db/ChannelCreationRepository', () => {
+jest.mock('../../../lib/db/repositories/ChannelCreationRepository', () => {
   return jest.fn().mockImplementation(() => {
     return {
       setSettled: mockSetSettled,

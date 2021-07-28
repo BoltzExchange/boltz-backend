@@ -13,7 +13,7 @@ import ContractHandler from './ContractHandler';
 import InjectedProvider from './InjectedProvider';
 import { CurrencyType } from '../../consts/Enums';
 import ContractEventHandler from './ContractEventHandler';
-import ChainTipRepository from '../../db/ChainTipRepository';
+import ChainTipRepository from '../../db/repositories/ChainTipRepository';
 import EtherWalletProvider from '../providers/EtherWalletProvider';
 import ERC20WalletProvider from '../providers/ERC20WalletProvider';
 import EthereumTransactionTracker from './EthereumTransactionTracker';

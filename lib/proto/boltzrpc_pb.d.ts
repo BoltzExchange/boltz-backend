@@ -465,6 +465,49 @@ export namespace UpdateTimeoutBlockDeltaResponse {
     }
 }
 
+export class AddReferralRequest extends jspb.Message { 
+    getId(): string;
+    setId(value: string): AddReferralRequest;
+    getFeeShare(): number;
+    setFeeShare(value: number): AddReferralRequest;
+    getRoutingNode(): string;
+    setRoutingNode(value: string): AddReferralRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AddReferralRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: AddReferralRequest): AddReferralRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AddReferralRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AddReferralRequest;
+    static deserializeBinaryFromReader(message: AddReferralRequest, reader: jspb.BinaryReader): AddReferralRequest;
+}
+
+export namespace AddReferralRequest {
+    export type AsObject = {
+        id: string,
+        feeShare: number,
+        routingNode: string,
+    }
+}
+
+export class AddReferralResponse extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AddReferralResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: AddReferralResponse): AddReferralResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AddReferralResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AddReferralResponse;
+    static deserializeBinaryFromReader(message: AddReferralResponse, reader: jspb.BinaryReader): AddReferralResponse;
+}
+
+export namespace AddReferralResponse {
+    export type AsObject = {
+    }
+}
+
 export enum OutputType {
     BECH32 = 0,
     COMPATIBILITY = 1,

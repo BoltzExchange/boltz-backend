@@ -17,7 +17,7 @@ import ChainClient from './chain/ChainClient';
 import Config, { ConfigType } from './Config';
 import { CurrencyType } from './consts/Enums';
 import BackupScheduler from './backup/BackupScheduler';
-import ChainTipRepository from './db/ChainTipRepository';
+import ChainTipRepository from './db/repositories/ChainTipRepository';
 import EthereumManager from './wallet/ethereum/EthereumManager';
 import WalletManager, { Currency } from './wallet/WalletManager';
 import NotificationProvider from './notifications/NotificationProvider';

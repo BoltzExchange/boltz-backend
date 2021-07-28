@@ -4,7 +4,7 @@ import Errors from './Errors';
 import Logger from '../../Logger';
 import { formatError, stringify } from '../../Utils';
 import { EthereumConfig, EthProviderServiceConfig } from '../../Config';
-import PendingEthereumTransactionRepository from '../../db/PendingEthereumTransactionRepository';
+import PendingEthereumTransactionRepository from '../../db/repositories/PendingEthereumTransactionRepository';
 
 enum EthProviderService {
   Infura = 'Infura',

@@ -6,10 +6,10 @@ import Logger from '../../../lib/Logger';
 import Errors from '../../../lib/swap/Errors';
 import Swap from '../../../lib/db/models/Swap';
 import Wallet from '../../../lib/wallet/Wallet';
-import SwapRepository from '../../../lib/db/SwapRepository';
+import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import EthereumNursery from '../../../lib/swap/EthereumNursery';
 import { getHexBuffer, getHexString } from '../../../lib/Utils';
-import ReverseSwapRepository from '../../../lib/db/ReverseSwapRepository';
+import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import EthereumManager from '../../../lib/wallet/ethereum/EthereumManager';
 import { ERC20SwapValues, EtherSwapValues } from '../../../lib/consts/Types';
 import EtherWalletProvider from '../../../lib/wallet/providers/EtherWalletProvider';
@@ -133,7 +133,7 @@ const mockSetLockupTransaction = jest.fn().mockImplementation(async (
   };
 });
 
-jest.mock('../../../lib/db/SwapRepository', () => {
+jest.mock('../../../lib/db/repositories/SwapRepository', () => {
   return jest.fn().mockImplementation(() => ({
     getSwap: mockGetSwap,
     getSwapsExpirable: mockGetSwapsExpirable,
@@ -165,7 +165,7 @@ const mockGetReverseSwapsExpirable = jest.fn().mockImplementation(async () => {
   return mockGetReverseSwapsExpirableResult;
 });
 
-jest.mock('../../../lib/db/ReverseSwapRepository', () => {
+jest.mock('../../../lib/db/repositories/ReverseSwapRepository', () => {
   return jest.fn().mockImplementation(() => ({
     getReverseSwap: mockGetReverseSwap,
     getReverseSwaps: mockGetReverseSwaps,

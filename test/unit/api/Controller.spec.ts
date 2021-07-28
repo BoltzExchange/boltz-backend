@@ -569,6 +569,7 @@ describe('Controller', () => {
       requestData.invoice,
       undefined,
       undefined,
+      undefined,
     );
 
     expect(res.status).toHaveBeenNthCalledWith(2, 201);
@@ -585,6 +586,7 @@ describe('Controller', () => {
       requestData.orderSide,
       getHexBuffer(requestData.refundPublicKey),
       requestData.invoice.toLowerCase(),
+      undefined,
       undefined,
       undefined,
     );
@@ -607,6 +609,7 @@ describe('Controller', () => {
       getHexBuffer(requestData.refundPublicKey),
       requestData.invoice.toLowerCase(),
       undefined,
+      undefined,
       requestData.channel,
     );
 
@@ -627,10 +630,31 @@ describe('Controller', () => {
       requestData.invoice.toLowerCase(),
       requestData.pairHash,
       undefined,
+      undefined,
     );
 
     expect(res.status).toHaveBeenNthCalledWith(5, 201);
     expect(res.json).toHaveBeenNthCalledWith(5, await mockCreateSwapWithInvoice());
+
+    requestData.pairHash = undefined;
+
+    // Should parse and pass referral IDs
+    requestData.referralId = 'someId';
+
+    await controller.createSwap(mockRequest(requestData), res);
+
+    expect(service.createSwapWithInvoice).toHaveBeenNthCalledWith(9,
+      requestData.pairId,
+      requestData.orderSide,
+      getHexBuffer(requestData.refundPublicKey),
+      requestData.invoice.toLowerCase(),
+      undefined,
+      requestData.referralId,
+      undefined,
+    );
+
+    expect(res.status).toHaveBeenNthCalledWith(6, 201);
+    expect(res.json).toHaveBeenNthCalledWith(6, await mockCreateSwapWithInvoice());
   });
 
   test('should create submarine swaps with preimage hashes', async () => {
@@ -698,6 +722,23 @@ describe('Controller', () => {
 
     expect(res.status).toHaveBeenNthCalledWith(4, 201);
     expect(res.json).toHaveBeenNthCalledWith(4, await mockCreateSwap());
+
+    // Should parse and pass referral IDs
+    requestData.referralId = 'someId';
+
+    await controller.createSwap(mockRequest(requestData), res);
+
+    expect(service.createSwap).toHaveBeenCalledWith({
+      pairId: requestData.pairId,
+      channel: requestData.channel,
+      orderSide: requestData.orderSide,
+      referralId: requestData.referralId,
+      preimageHash: getHexBuffer(requestData.preimageHash),
+      refundPublicKey: getHexBuffer(requestData.refundPublicKey),
+    });
+
+    expect(res.status).toHaveBeenNthCalledWith(5, 201);
+    expect(res.json).toHaveBeenNthCalledWith(5, await mockCreateSwap());
   });
 
   test('should set invoices', async () => {
@@ -856,6 +897,26 @@ describe('Controller', () => {
 
     expect(res.status).toHaveBeenNthCalledWith(5, 201);
     expect(res.json).toHaveBeenNthCalledWith(5, await mockCreateReverseSwap());
+
+    // Should parse and pass referral IDs
+    requestData.referralId = 'someId';
+
+    await controller.createSwap(mockRequest(requestData), res);
+
+    expect(service.createReverseSwap).toHaveBeenNthCalledWith(9,
+      {
+        prepayMinerFee: true,
+        pairId: requestData.pairId,
+        orderSide: requestData.orderSide,
+        referralId: requestData.referralId,
+        preimageHash: getHexBuffer(requestData.preimageHash),
+        onchainAmount: requestData.onchainAmount,
+        claimPublicKey: getHexBuffer(requestData.claimPublicKey),
+      },
+    );
+
+    expect(res.status).toHaveBeenNthCalledWith(6, 201);
+    expect(res.json).toHaveBeenNthCalledWith(6, await mockCreateReverseSwap());
   });
 
   test('should stream swap status updates', () => {

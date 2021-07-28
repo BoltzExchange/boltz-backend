@@ -8,6 +8,8 @@ type SwapType = {
   redeemScript?: string;
 
   fee?: number;
+  referral?: string;
+
   routingFee?: number;
   minerFee?: number;
 
@@ -37,6 +39,8 @@ class Swap extends Model implements SwapType {
   public redeemScript?: string;
 
   public fee?: number;
+  public referral?: string;
+
   public routingFee?: number;
   public minerFee?: number;
 
@@ -67,6 +71,7 @@ class Swap extends Model implements SwapType {
       keyIndex: { type: new DataTypes.INTEGER(), allowNull: true },
       redeemScript: { type: new DataTypes.STRING(255), allowNull: true },
       fee: { type: new DataTypes.INTEGER(), allowNull: true },
+      referral: { type: new DataTypes.STRING(255), allowNull: true },
       routingFee: { type: new DataTypes.INTEGER(), allowNull: true },
       minerFee: { type: new DataTypes.INTEGER(), allowNull: true },
       pair: { type: new DataTypes.STRING(255), allowNull: false },
@@ -98,6 +103,10 @@ class Swap extends Model implements SwapType {
         {
           unique: true,
           fields: ['invoice'],
+        },
+        {
+          unique: false,
+          fields: ['referral'],
         },
       ],
     });

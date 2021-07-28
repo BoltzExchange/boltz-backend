@@ -1,4 +1,4 @@
-import DatabaseVersion from './models/DatabaseVersion';
+import DatabaseVersion from '../models/DatabaseVersion';
 
 class DatabaseVersionRepository {
   public getVersion = (): Promise<DatabaseVersion | null> => {

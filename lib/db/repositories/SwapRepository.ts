@@ -1,6 +1,6 @@
 import { Op, WhereOptions } from 'sequelize';
-import Swap, { SwapType } from './models/Swap';
-import { SwapUpdateEvent } from '../consts/Enums';
+import Swap, { SwapType } from '../models/Swap';
+import { SwapUpdateEvent } from '../../consts/Enums';
 
 class SwapRepository {
   public getSwaps = (options?: WhereOptions): Promise<Swap[]> => {

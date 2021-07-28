@@ -30,6 +30,8 @@ const mockSendCoins = jest.fn().mockResolvedValue(sendCoinsData);
 
 const mockUpdateTimeoutBlockDelta = jest.fn().mockImplementation(() => {});
 
+const mockAddReferral = jest.fn().mockImplementation(() => {});
+
 jest.mock('../../../lib/service/Service', () => {
   return jest.fn().mockImplementation(() => {
     return {
@@ -39,6 +41,7 @@ jest.mock('../../../lib/service/Service', () => {
       getAddress: mockGetAddress,
       sendCoins: mockSendCoins,
       updateTimeoutBlockDelta: mockUpdateTimeoutBlockDelta,
+      addReferral: mockAddReferral,
     };
   });
 });
@@ -144,5 +147,36 @@ describe('GrpcService', () => {
 
     expect(mockUpdateTimeoutBlockDelta).toHaveBeenCalledTimes(1);
     expect(mockUpdateTimeoutBlockDelta).toHaveBeenCalledWith(callData.pair, callData.newDelta);
+  });
+
+  test('should handle AddReferral', () => {
+    const callData = {
+      id: 'someId',
+      feeShare: 123,
+      routingNode: '03',
+    };
+
+    grpcService.addReferral(createCall(callData), createCallback((error, response) => {
+      expect(error).toEqual(null);
+      expect(response).not.toEqual(null);
+    }));
+
+    expect(mockAddReferral).toHaveBeenCalledTimes(1);
+    expect(mockAddReferral).toHaveBeenCalledWith({
+      ...callData,
+    });
+
+    callData.routingNode = '';
+
+    grpcService.addReferral(createCall(callData), createCallback((error, response) => {
+      expect(error).toEqual(null);
+      expect(response).not.toEqual(null);
+    }));
+
+    expect(mockAddReferral).toHaveBeenCalledTimes(2);
+    expect(mockAddReferral).toHaveBeenCalledWith({
+      ...callData,
+      routingNode: undefined,
+    });
   });
 });

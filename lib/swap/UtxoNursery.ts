@@ -8,10 +8,10 @@ import Logger from '../Logger';
 import Swap from '../db/models/Swap';
 import Wallet from '../wallet/Wallet';
 import ChainClient from '../chain/ChainClient';
-import SwapRepository from '../db/SwapRepository';
+import SwapRepository from '../db/repositories/SwapRepository';
 import { SwapUpdateEvent } from '../consts/Enums';
 import ReverseSwap from '../db/models/ReverseSwap';
-import ReverseSwapRepository from '../db/ReverseSwapRepository';
+import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import {
   calculateUtxoTransactionFee,

@@ -1,6 +1,6 @@
 import { BigNumber, providers, Signer } from 'ethers';
 import Logger from '../../Logger';
-import PendingEthereumTransactionRepository from '../../db/PendingEthereumTransactionRepository';
+import PendingEthereumTransactionRepository from '../../db/repositories/PendingEthereumTransactionRepository';
 
 class EthereumTransactionTracker {
   private pendingEthereumTransactionRepository = new PendingEthereumTransactionRepository();

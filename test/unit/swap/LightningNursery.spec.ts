@@ -6,9 +6,9 @@ import { Invoice } from '../../../lib/proto/lnd/rpc_pb';
 import LndClient from '../../../lib/lightning/LndClient';
 import { Currency } from '../../../lib/wallet/WalletManager';
 import LightningNursery from '../../../lib/swap/LightningNursery';
-import ReverseSwapRepository from '../../../lib/db/ReverseSwapRepository';
 import { CurrencyType, SwapUpdateEvent } from '../../../lib/consts/Enums';
 import { decodeInvoice, getHexBuffer, getHexString } from '../../../lib/Utils';
+import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 
 import InvoiceState = Invoice.InvoiceState;
 
@@ -55,7 +55,7 @@ const mockSetReverseSwapStatus = jest.fn().mockImplementation(async (reverseSwap
   };
 });
 
-jest.mock('../../../lib/db/ReverseSwapRepository', () => {
+jest.mock('../../../lib/db/repositories/ReverseSwapRepository', () => {
   return jest.fn().mockImplementation(() => ({
     getReverseSwap: mockGetReverseSwap,
     setReverseSwapStatus: mockSetReverseSwapStatus,

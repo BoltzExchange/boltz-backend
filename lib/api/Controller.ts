@@ -286,20 +286,22 @@ class Controller {
   private createSubmarineSwap = async (req: Request, res: Response) => {
     const {
       pairId,
+      channel,
+      invoice,
       pairHash,
       orderSide,
-      invoice,
-      refundPublicKey,
+      referralId,
       preimageHash,
-      channel,
+      refundPublicKey,
     } = this.validateRequest(req.body, [
       { name: 'pairId', type: 'string' },
-      { name: 'pairHash', type: 'string', optional: true },
       { name: 'orderSide', type: 'string' },
+      { name: 'channel', type: 'object', optional: true },
       { name: 'invoice', type: 'string', optional: true },
+      { name: 'pairHash', type: 'string', optional: true },
+      { name: 'referralId', type: 'string', optional: true },
       { name: 'refundPublicKey', type: 'string', hex: true, optional: true },
       { name: 'preimageHash', type: 'string', hex: true, optional: true },
-      { name: 'channel', type: 'object', optional: true },
     ]);
 
     if (channel !== undefined) {
@@ -319,6 +321,7 @@ class Controller {
         refundPublicKey,
         invoice.toLowerCase(),
         pairHash,
+        referralId,
         channel,
       );
     } else {
@@ -331,10 +334,11 @@ class Controller {
 
       response = await this.service.createSwap({
         pairId,
-        orderSide,
-        refundPublicKey,
-        preimageHash,
         channel,
+        orderSide,
+        referralId,
+        preimageHash,
+        refundPublicKey,
       });
     }
 
@@ -349,6 +353,7 @@ class Controller {
       pairId,
       pairHash,
       orderSide,
+      referralId,
       routingNode,
       claimAddress,
       preimageHash,
@@ -361,6 +366,7 @@ class Controller {
       { name: 'orderSide', type: 'string' },
       { name: 'preimageHash', type: 'string', hex: true },
       { name: 'pairHash', type: 'string', optional: true },
+      { name: 'referralId', type: 'string', optional: true },
       { name: 'routingNode', type: 'string', optional: true },
       { name: 'claimAddress', type: 'string', optional: true, },
       { name: 'invoiceAmount', type: 'number', optional: true },
@@ -375,6 +381,7 @@ class Controller {
       pairId,
       pairHash,
       orderSide,
+      referralId,
       routingNode,
       claimAddress,
       preimageHash,

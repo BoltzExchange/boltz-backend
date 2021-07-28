@@ -8,8 +8,8 @@ import WalletErrors from '../../../lib/wallet/Errors';
 import ChainClient from '../../../lib/chain/ChainClient';
 import LndClient from '../../../lib/lightning/LndClient';
 import { CurrencyType } from '../../../lib/consts/Enums';
-import KeyRepository from '../../../lib/db/KeyRepository';
-import ChainTipRepository from '../../../lib/db/ChainTipRepository';
+import KeyRepository from '../../../lib/db/repositories/KeyRepository';
+import ChainTipRepository from '../../../lib/db/repositories/ChainTipRepository';
 import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
 
 const symbol = 'BTC';

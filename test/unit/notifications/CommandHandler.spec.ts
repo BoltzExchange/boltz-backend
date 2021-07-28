@@ -4,15 +4,15 @@ import { stringify } from '../../../lib/Utils';
 import Database from '../../../lib/db/Database';
 import Service from '../../../lib/service/Service';
 import { NotificationConfig } from '../../../lib/Config';
-import PairRepository from '../../../lib/db/PairRepository';
-import SwapRepository from '../../../lib/db/SwapRepository';
 import BackupScheduler from '../../../lib/backup/BackupScheduler';
 import DiscordClient from '../../../lib/notifications/DiscordClient';
 import CommandHandler from '../../../lib/notifications/CommandHandler';
-import ReverseSwapRepository from '../../../lib/db/ReverseSwapRepository';
-import ChannelCreationRepository from '../../../lib/db/ChannelCreationRepository';
+import PairRepository from '../../../lib/db/repositories/PairRepository';
+import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import { satoshisToCoins, coinsToSatoshis } from '../../../lib/DenominationConverter';
+import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import { Balance, WalletBalance, LightningBalance } from '../../../lib/proto/boltzrpc_pb';
+import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
 import {
   swapExample,
   channelSwapExample,
@@ -39,6 +39,18 @@ jest.mock('../../../lib/notifications/DiscordClient', () => {
         sendMessage = callback;
       },
       sendMessage: mockSendMessage,
+    };
+  });
+});
+
+const referralStats = 'referralStats';
+
+const mockGenerateReferralStats = jest.fn().mockImplementation(() => Promise.resolve(referralStats));
+
+jest.mock('../../../lib/data/ReferralStats', () => {
+  return jest.fn().mockImplementation(() => {
+    return {
+      generate: mockGenerateReferralStats,
     };
   });
 });
@@ -215,6 +227,7 @@ describe('CommandHandler', () => {
       '**getbalance**: gets the balance of the wallets and channels\n' +
       '**lockedfunds**: gets funds locked up by Boltz\n' +
       '**pendingswaps**: gets a list of pending (reverse) swaps\n' +
+      '**getreferrals**: gets stats for all referral IDs\n' +
       '**backup**: uploads a backup of the databases\n' +
       '**withdraw**: withdraws coins from Boltz\n' +
       '**getaddress**: gets an address for a currency\n' +
@@ -368,6 +381,16 @@ describe('CommandHandler', () => {
       `- \`${pendingSwapExample.id}\`\n\n` +
       '**Pending reverse Swaps:**\n\n' +
       `- \`${pendingReverseSwapExample.id}\`\n`,
+    );
+  });
+
+  test('should get referral stats', async () => {
+    sendMessage('getreferrals');
+    await wait(50);
+
+    expect(mockSendMessage).toHaveBeenCalledTimes(1);
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      `\`\`\`${referralStats}\`\`\``,
     );
   });
 

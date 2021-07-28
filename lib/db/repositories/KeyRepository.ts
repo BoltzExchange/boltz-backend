@@ -1,5 +1,5 @@
 import { Op } from 'sequelize';
-import KeyProvider, { KeyProviderType } from './models/KeyProvider';
+import KeyProvider, { KeyProviderType } from '../models/KeyProvider';
 
 class KeyRepository {
   public getKeyProviders = (): Promise<KeyProviderType[]> => {

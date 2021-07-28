@@ -7,7 +7,7 @@ import { SwapUpdateEvent } from '../consts/Enums';
 import ReverseSwap from '../db/models/ReverseSwap';
 import { Currency } from '../wallet/WalletManager';
 import { decodeInvoice, getHexBuffer } from '../Utils';
-import ReverseSwapRepository from '../db/ReverseSwapRepository';
+import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 
 interface LightningNursery {
   on(event: 'minerfee.invoice.paid', listener: (reverseSwap: ReverseSwap) => void): this;

@@ -3,7 +3,7 @@ import Database from '../../../lib/db/Database';
 import { hashString } from '../../../lib/Utils';
 import { Network } from '../../../lib/consts/Enums';
 import RateProvider from '../../../lib/rates/RateProvider';
-import PairRepository from '../../../lib/db/PairRepository';
+import PairRepository from '../../../lib/db/repositories/PairRepository';
 import { Currency } from '../../../lib/wallet/WalletManager';
 import DataAggregator from '../../../lib/rates/data/DataAggregator';
 import FeeProvider, { MinerFees } from '../../../lib/rates/FeeProvider';

@@ -4,12 +4,12 @@ import AsyncLock from 'async-lock';
 import { EventEmitter } from 'events';
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';
-import SwapRepository from '../db/SwapRepository';
+import SwapRepository from '../db/repositories/SwapRepository';
 import { Currency } from '../wallet/WalletManager';
 import { ChannelPoint } from '../proto/lnd/rpc_pb';
 import ChannelCreation from '../db/models/ChannelCreation';
 import ConnectionHelper from '../lightning/ConnectionHelper';
-import ChannelCreationRepository from '../db/ChannelCreationRepository';
+import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import { ChannelCreationStatus, SwapUpdateEvent } from '../consts/Enums';
 import {
   formatError,

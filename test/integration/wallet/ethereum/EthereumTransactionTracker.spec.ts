@@ -11,7 +11,7 @@ const mockFindByNonce = jest.fn().mockImplementation(async () => {
   return mockFindByNonceResult;
 });
 
-jest.mock('../../../../lib/db/PendingEthereumTransactionRepository', () => {
+jest.mock('../../../../lib/db/repositories/PendingEthereumTransactionRepository', () => {
   return jest.fn().mockImplementation(() => ({
     findByNonce: mockFindByNonce,
     addTransaction: mockAddTransaction,

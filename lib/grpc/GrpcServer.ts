@@ -21,6 +21,7 @@ class GrpcServer {
       getAddress: grpcService.getAddress,
       sendCoins: grpcService.sendCoins,
       updateTimeoutBlockDelta: grpcService.updateTimeoutBlockDelta,
+      addReferral: grpcService.addReferral,
     });
   }
 

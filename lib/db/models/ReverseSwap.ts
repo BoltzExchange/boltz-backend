@@ -12,6 +12,8 @@ type ReverseSwapType = {
   claimAddress?: string
 
   fee: number;
+  referral?: string;
+
   minerFee?: number;
 
   pair: string;
@@ -48,6 +50,8 @@ class ReverseSwap extends Model implements ReverseSwapType {
   public claimAddress?: string;
 
   public fee!: number;
+  public referral?: string;
+
   public minerFee!: number;
 
   public pair!: string;
@@ -83,6 +87,7 @@ class ReverseSwap extends Model implements ReverseSwapType {
       redeemScript: { type: new DataTypes.STRING(255), allowNull: true },
       claimAddress: { type: new DataTypes.STRING(255), allowNull: true },
       fee: { type: new DataTypes.INTEGER(), allowNull: false },
+      referral: { type: new DataTypes.STRING(255), allowNull: true },
       minerFee: { type: new DataTypes.INTEGER(), allowNull: true },
       pair: { type: new DataTypes.STRING(255), allowNull: false },
       orderSide: { type: new DataTypes.INTEGER(), allowNull: false },
@@ -117,6 +122,10 @@ class ReverseSwap extends Model implements ReverseSwapType {
         {
           unique: true,
           fields: ['minerFeeInvoice'],
+        },
+        {
+          unique: false,
+          fields: ['referral'],
         },
       ],
     });

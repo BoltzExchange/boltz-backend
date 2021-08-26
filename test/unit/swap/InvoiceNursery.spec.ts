@@ -4,14 +4,14 @@ import { createInvoice } from './InvoiceUtils';
 import { getUnixTime } from '../../../lib/Utils';
 import { SwapUpdateEvent } from '../../../lib/consts/Enums';
 import InvoiceNursery from '../../../lib/swap/InvoiceNursery';
-import ReverseSwapRepository from '../../../lib/db/ReverseSwapRepository';
+import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 
 let mockGetReverseSwapsResult: any[] = [];
 const mockGetReverseSwaps = jest.fn().mockImplementation(async () => {
   return mockGetReverseSwapsResult;
 });
 
-jest.mock('../../../lib/db/ReverseSwapRepository', () => {
+jest.mock('../../../lib/db/repositories/ReverseSwapRepository', () => {
   return jest.fn().mockImplementation(() => ({
     getReverseSwaps: mockGetReverseSwaps,
   }));

@@ -4,6 +4,7 @@ import Pair from './models/Pair';
 import Swap from './models/Swap';
 import Migration from './Migration';
 import ChainTip from './models/ChainTip';
+import Referral from './models/Referral';
 import ReverseSwap from './models/ReverseSwap';
 import KeyProvider from './models/KeyProvider';
 import { Currency } from '../wallet/WalletManager';
@@ -44,6 +45,7 @@ class Db {
     await Promise.all([
       Pair.sync(),
       ChainTip.sync(),
+      Referral.sync(),
       KeyProvider.sync(),
       DatabaseVersion.sync(),
       PendingEthereumTransaction.sync(),
@@ -67,6 +69,7 @@ class Db {
 
   private loadModels = () => {
     Pair.load(this.sequelize);
+    Referral.load(this.sequelize);
     Swap.load(this.sequelize);
     ChainTip.load(this.sequelize);
     ReverseSwap.load(this.sequelize);

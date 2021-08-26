@@ -1,5 +1,5 @@
 import { Op } from 'sequelize';
-import ChainTip from './models/ChainTip';
+import ChainTip from '../models/ChainTip';
 
 class ChainTipRepository {
   public getChainTips = (): Promise<ChainTip[]> => {

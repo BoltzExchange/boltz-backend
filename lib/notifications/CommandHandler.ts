@@ -10,6 +10,7 @@ import DiscordClient from './DiscordClient';
 import { NotificationConfig } from '../Config';
 import { Balance } from '../proto/boltzrpc_pb';
 import { SwapUpdateEvent } from '../consts/Enums';
+import ReferralStats from '../data/ReferralStats';
 import ReverseSwap from '../db/models/ReverseSwap';
 import BackupScheduler from '../backup/BackupScheduler';
 import ChannelCreation from '../db/models/ChannelCreation';
@@ -26,6 +27,7 @@ enum Command {
   GetBalance = 'getbalance',
   LockedFunds = 'lockedfunds',
   PendingSwaps = 'pendingswaps',
+  GetReferrals = 'getreferrals',
 
   // Commands that generate a value or trigger a function
   Backup = 'backup',
@@ -55,8 +57,8 @@ class CommandHandler {
     config: NotificationConfig,
     private discord: DiscordClient,
     private service: Service,
-    private backupScheduler: BackupScheduler) {
-
+    private backupScheduler: BackupScheduler,
+  ) {
     this.commands = new Map<string, CommandInfo>([
       [Command.Help, {
         usage: [
@@ -98,6 +100,10 @@ class CommandHandler {
       [Command.PendingSwaps, {
         executor: this.pendingSwaps,
         description: 'gets a list of pending (reverse) swaps',
+      }],
+      [Command.GetReferrals, {
+        executor: this.getReferrals,
+        description: 'gets stats for all referral IDs',
       }],
 
       [Command.Backup, {
@@ -363,6 +369,16 @@ class CommandHandler {
     formatSwapIds(true);
 
     await this.discord.sendMessage(message);
+  }
+
+  private getReferrals = async () => {
+    const stats = await new ReferralStats(
+      this.service.referralRepository,
+      this.service.swapManager.swapRepository,
+      this.service.swapManager.reverseSwapRepository,
+    ).generate();
+
+    await this.discord.sendMessage(`${codeBlock}${stats}${codeBlock}`);
   }
 
   private backup = async () => {

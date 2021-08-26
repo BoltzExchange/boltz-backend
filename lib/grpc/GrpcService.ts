@@ -72,6 +72,26 @@ class GrpcService {
       callback(error, null);
     }
   }
+
+  public addReferral: handleUnaryCall<boltzrpc.AddReferralRequest, boltzrpc.AddReferralResponse> = async (call, callback) => {
+    try {
+      const {
+        id,
+        feeShare,
+        routingNode,
+      } = call.request.toObject();
+
+      await this.service.addReferral({
+        id,
+        feeShare,
+        routingNode: routingNode === '' ? undefined : routingNode,
+      });
+
+      callback(null, new boltzrpc.AddReferralResponse());
+    } catch (error) {
+      callback(error, null);
+    }
+  }
 }
 
 export default GrpcService;

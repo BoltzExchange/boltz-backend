@@ -1,9 +1,9 @@
 import Report from './Report';
 import Swap from '../db/models/Swap';
 import { SwapUpdateEvent } from '../consts/Enums';
-import SwapRepository from '../db/SwapRepository';
 import ReverseSwap from '../db/models/ReverseSwap';
-import ReverseSwapRepository from '../db/ReverseSwapRepository';
+import SwapRepository from '../db/repositories/SwapRepository';
+import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 
 type SwapFailureReasons = {
   [SwapUpdateEvent.SwapExpired]: number,

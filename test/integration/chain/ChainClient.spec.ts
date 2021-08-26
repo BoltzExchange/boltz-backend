@@ -1,15 +1,15 @@
 import { OutputType } from 'boltz-core';
 import { bitcoinClient } from '../Nodes';
 import { getHexBuffer, reverseBuffer } from '../../../lib/Utils';
-import ChainTipRepository from '../../../lib/db/ChainTipRepository';
 import { waitForFunctionToBeTrue, generateAddress } from '../../Utils';
+import ChainTipRepository from '../../../lib/db/repositories/ChainTipRepository';
 
 const mockFindOrCreateTip = jest.fn().mockImplementation(async () => {
   return {};
 });
 const mockUpdateTip = jest.fn().mockImplementation();
 
-jest.mock('../../../lib/db/ChainTipRepository', () => {
+jest.mock('../../../lib/db/repositories/ChainTipRepository', () => {
   return jest.fn().mockImplementation(() => ({
     findOrCreateTip: mockFindOrCreateTip,
     updateTip: mockUpdateTip,
@@ -36,8 +36,9 @@ describe('ChainClient', () => {
     jest.clearAllMocks();
   });
 
-  test('should connect', async () => {
+  test('should init', async () => {
     await bitcoinClient.connect(chainTipRepository);
+    await bitcoinClient.generate(1);
   });
 
   test('should add to the output filer', () => {

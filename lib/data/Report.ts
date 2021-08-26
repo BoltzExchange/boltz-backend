@@ -1,11 +1,11 @@
 import { Op } from 'sequelize';
 import Swap from '../db/models/Swap';
-import SwapRepository from '../db/SwapRepository';
+import SwapRepository from '../db/repositories/SwapRepository';
 import { SwapUpdateEvent } from '../consts/Enums';
 import ReverseSwap from '../db/models/ReverseSwap';
 import { getChainCurrency, splitPairId } from '../Utils';
 import { satoshisToCoins } from '../DenominationConverter';
-import ReverseSwapRepository from '../db/ReverseSwapRepository';
+import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 
 type Entry = {
   date: Date;
@@ -28,6 +28,11 @@ type SwapArrays = {
 
 class Report {
   constructor(private swapRepository: SwapRepository, private reverseSwapRepository: ReverseSwapRepository) {}
+
+  public static getMonth = (date: Date): number => {
+    // date.getMonth() starts counting at 0
+    return date.getMonth() + 1;
+  }
 
   /**
    * Gets all successful (reverse) swaps

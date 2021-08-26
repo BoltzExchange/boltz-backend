@@ -15,13 +15,13 @@ import SwapManager from '../../../lib/swap/SwapManager';
 import LndClient from '../../../lib/lightning/LndClient';
 import ChainClient from '../../../lib/chain/ChainClient';
 import FeeProvider from '../../../lib/rates/FeeProvider';
-import SwapRepository from '../../../lib/db/SwapRepository';
 import { CurrencyInfo } from '../../../lib/proto/boltzrpc_pb';
 import RateCalculator from '../../../lib/rates/RateCalculator';
-import ReverseSwapRepository from '../../../lib/db/ReverseSwapRepository';
+import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
 import { decodeInvoice, getHexBuffer, getHexString } from '../../../lib/Utils';
-import ChannelCreationRepository from '../../../lib/db/ChannelCreationRepository';
+import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
+import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
 import { etherDecimals, ethereumPrepayMinerFeeGasLimit, gweiDecimals } from '../../../lib/consts/Consts';
 import {
   BaseFeeType,
@@ -35,7 +35,7 @@ import {
 const mockGetPairs = jest.fn().mockResolvedValue([]);
 const mockAddPair = jest.fn().mockReturnValue(Promise.resolve());
 
-jest.mock('../../../lib/db/PairRepository', () => {
+jest.mock('../../../lib/db/repositories/PairRepository', () => {
   return jest.fn().mockImplementation(() => ({
     addPair: mockAddPair,
     getPairs: mockGetPairs,
@@ -49,7 +49,7 @@ const mockGetSwap = jest.fn().mockImplementation(async () => {
 
 const mockAddSwap = jest.fn().mockResolvedValue(undefined);
 
-jest.mock('../../../lib/db/SwapRepository', () => {
+jest.mock('../../../lib/db/repositories/SwapRepository', () => {
   return jest.fn().mockImplementation(() => ({
     getSwap: mockGetSwap,
     addSwap: mockAddSwap,
@@ -60,7 +60,7 @@ const mockedSwapRepository = <jest.Mock<SwapRepository>><any>SwapRepository;
 
 const mockAddReverseSwap = jest.fn().mockResolvedValue(undefined);
 
-jest.mock('../../../lib/db/ReverseSwapRepository', () => {
+jest.mock('../../../lib/db/repositories/ReverseSwapRepository', () => {
   return jest.fn().mockImplementation(() => ({
     addReverseSwap: mockAddReverseSwap,
   }));
@@ -73,13 +73,27 @@ const mockGetChannelCreation = jest.fn().mockImplementation(() => {
   return mockGetChannelCreationResult;
 });
 
-jest.mock('../../../lib/db/ChannelCreationRepository', () => {
+jest.mock('../../../lib/db/repositories/ChannelCreationRepository', () => {
   return jest.fn().mockImplementation(() => ({
     getChannelCreation: mockGetChannelCreation,
   }));
 });
 
 const mockedChannelCreationRepository = <jest.Mock<ChannelCreationRepository>><any>ChannelCreationRepository;
+
+const mockAddReferral = jest.fn().mockImplementation(async () => {});
+
+let referralByRoutingNode: any = undefined;
+const mockGetReferralByRoutingNode = jest.fn().mockImplementation(async () => {
+  return referralByRoutingNode;
+});
+
+jest.mock('../../../lib/db/repositories/ReferralRepository', () => {
+  return jest.fn().mockImplementation(() => ({
+    addReferral: mockAddReferral,
+    getReferralByRoutingNode: mockGetReferralByRoutingNode,
+  }));
+});
 
 const mockedSwap = {
   id: 'swapId',
@@ -861,12 +875,43 @@ describe('Service', () => {
     sendRawTransaction = 'rawTx';
   });
 
+  test('should add referral', async () => {
+    const referral = {
+      id: 'adsf',
+      feeShare: 25,
+      routingNode: '03',
+    };
+
+    await service.addReferral(referral);
+
+    expect(mockAddReferral).toHaveBeenCalledTimes(1);
+    expect(mockAddReferral).toHaveBeenCalledWith(referral);
+
+    // Throw if fee share is not in bounds
+    referral.feeShare = -1;
+
+    await expect(service.addReferral(referral))
+      .rejects.toEqual(new Error('referral fee share must be between 0 and 100'));
+
+    referral.feeShare = 101;
+
+    await expect(service.addReferral(referral))
+      .rejects.toEqual(new Error('referral fee share must be between 0 and 100'));
+
+    // Throw if ID is empty
+    referral.id = '';
+
+    await expect(service.addReferral(referral))
+      .rejects.toEqual(new Error('referral IDs cannot be empty'));
+  });
+
   // TODO: add channel creations
   test('should create swaps', async () => {
     mockGetSwapResult = undefined;
 
     const pair = 'BTC/BTC';
     const orderSide = 'buy';
+    const referralId = 'referral';
     const refundPublicKey = getHexBuffer('0xfff');
     const preimageHash = getHexBuffer('ac3703b99248a0a2d948c6021fdd70debb90ab37233e62531c7f900fe3852c89');
 
@@ -880,6 +925,7 @@ describe('Service', () => {
 
     const response = await service.createSwap({
       orderSide,
+      referralId,
       preimageHash,
       refundPublicKey,
       pairId: pair,
@@ -902,6 +948,7 @@ describe('Service', () => {
 
     expect(mockCreateSwap).toHaveBeenCalledTimes(1);
     expect(mockCreateSwap).toHaveBeenCalledWith({
+      referralId,
       preimageHash,
       refundPublicKey,
       baseCurrency: 'BTC',
@@ -1045,10 +1092,18 @@ describe('Service', () => {
 
     const pair = 'BTC/BTC';
     const orderSide = 'sell';
+    const referralId = 'referral';
     const refundPublicKey = getHexBuffer('02d3727f1c2017adf58295378d02ace4c514666b8d75d4751940b940718ceb34ed');
     const invoice = 'lnbcrt1m1p0xdry7pp5jadnlr9y5qs5nl93u06v9w2azqr8rf5n09u2wk0c6jktyfxwfpwqdqqcqzpgsp5svss08dmgw9q6emmwfzp74hcs2rq2fu3u78qge5l942al5glzjmq9qy9qsq4v5x0qlfp3fvpm9mrzmmdrptwdrd7gxyaypz4y0g8l8apmzfjgvqtxg9z89y0kg2lh6ykd8czt5ven6nlvr407vdm0mp9l9tvhg33gspv3yr0j';
 
-    const response = await service.createSwapWithInvoice(pair, orderSide, refundPublicKey, invoice);
+    const response = await service.createSwapWithInvoice(
+      pair,
+      orderSide,
+      refundPublicKey,
+      invoice,
+      undefined,
+      referralId,
+    );
 
     expect(response).toEqual({
       ...createSwapResult,
@@ -1058,6 +1113,7 @@ describe('Service', () => {
     expect(service.createSwap).toHaveBeenCalledTimes(1);
     expect(service.createSwap).toHaveBeenCalledWith({
       orderSide,
+      referralId,
       refundPublicKey,
       pairId: pair,
       preimageHash: getHexBuffer(decodeInvoice(invoice).paymentHash!),
@@ -1266,6 +1322,40 @@ describe('Service', () => {
       pairId: pair,
       onchainAmount: invalidNumber,
     })).rejects.toEqual(Errors.NOT_WHOLE_NUMBER(invalidNumber));
+  });
+
+  test('should create Reverse Swaps with referral IDs', async () => {
+    const pair = 'BTC/BTC';
+    const orderSide = 'buy';
+    const invoiceAmount = 100000;
+    const referralId = 'referral';
+    const preimageHash = randomBytes(32);
+    const claimPublicKey = getHexBuffer('0xfff');
+
+    const onchainAmount = invoiceAmount * (1 - mockGetPercentageFeeResult) - mockGetBaseFeeResult;
+
+    await service.createReverseSwap({
+      orderSide,
+      referralId,
+      preimageHash,
+      invoiceAmount,
+      claimPublicKey,
+      pairId: pair,
+    });
+
+    expect(mockCreateReverseSwap).toHaveBeenCalledWith({
+      referralId,
+      preimageHash,
+      onchainAmount,
+      claimPublicKey,
+      baseCurrency: 'BTC',
+      quoteCurrency: 'BTC',
+      orderSide: OrderSide.BUY,
+      onchainTimeoutBlockDelta: 1,
+      lightningTimeoutBlockDelta: 4,
+      holdInvoiceAmount: invoiceAmount,
+      percentageFee: invoiceAmount * mockGetPercentageFeeResult,
+    });
   });
 
   test('should create Reverse Swaps with specified onchain amount', async () => {
@@ -1596,6 +1686,22 @@ describe('Service', () => {
       sendAll: false,
       symbol: notFound,
     })).rejects.toEqual(Errors.CURRENCY_NOT_FOUND(notFound));
+  });
+
+  test('should get referral IDs', async () => {
+    const getReferralId = service['getReferralId'];
+
+    const id = 'id';
+    const routingNode = '03';
+
+    expect(await getReferralId(id)).toEqual(id);
+    expect(await getReferralId(id, routingNode)).toEqual(id);
+
+    referralByRoutingNode = { id };
+    expect(await getReferralId(undefined, routingNode)).toEqual(id);
+
+    expect(mockGetReferralByRoutingNode).toHaveBeenCalledTimes(1);
+    expect(mockGetReferralByRoutingNode).toHaveBeenCalledWith(routingNode);
   });
 
   test('should verify amounts', () => {

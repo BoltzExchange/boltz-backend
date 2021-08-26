@@ -16,7 +16,7 @@ const mockGetVersion = jest.fn().mockImplementation(async () => {
 
 const mockCreateVersion = jest.fn().mockResolvedValue(undefined);
 
-jest.mock('../../../lib/db/DatabaseVersionRepository', () => {
+jest.mock('../../../lib/db/repositories/DatabaseVersionRepository', () => {
   return jest.fn().mockImplementation(() => {
     return {
       getVersion: mockGetVersion,

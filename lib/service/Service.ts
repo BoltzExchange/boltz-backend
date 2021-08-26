@@ -10,15 +10,17 @@ import Wallet from '../wallet/Wallet';
 import { ConfigType } from '../Config';
 import EventHandler from './EventHandler';
 import { PairConfig } from '../consts/Types';
-import PairRepository from '../db/PairRepository';
 import { encodeBip21 } from './PaymentRequestUtils';
+import { ReferralType } from '../db/models/Referral';
 import InvoiceExpiryHelper from './InvoiceExpiryHelper';
 import { Payment, RouteHint } from '../proto/lnd/rpc_pb';
 import TimeoutDeltaProvider from './TimeoutDeltaProvider';
 import { Network } from '../wallet/ethereum/EthereumManager';
-import RateProvider, { PairType } from '../rates/RateProvider';
+import PairRepository from '../db/repositories/PairRepository';
 import { getGasPrice } from '../wallet/ethereum/EthereumUtils';
+import RateProvider, { PairType } from '../rates/RateProvider';
 import WalletManager, { Currency } from '../wallet/WalletManager';
+import ReferralRepository from '../db/repositories/ReferralRepository';
 import SwapManager, { ChannelCreationInfo } from '../swap/SwapManager';
 import { etherDecimals, ethereumPrepayMinerFeeGasLimit, gweiDecimals } from '../consts/Consts';
 import { BaseFeeType, CurrencyType, OrderSide, ServiceInfo, ServiceWarning } from '../consts/Enums';
@@ -62,6 +64,8 @@ class Service {
   public swapManager: SwapManager;
   public eventHandler: EventHandler;
 
+  public referralRepository: ReferralRepository;
+
   private prepayMinerFee: boolean;
 
   private pairRepository: PairRepository;
@@ -83,6 +87,8 @@ class Service {
     this.logger.debug(`Prepay miner fee for Reverse Swaps is ${this.prepayMinerFee ? 'enabled' : 'disabled' }`);
 
     this.pairRepository = new PairRepository();
+    this.referralRepository = new ReferralRepository();
+
     this.timeoutDeltaProvider = new TimeoutDeltaProvider(this.logger, config);
 
     this.rateProvider = new RateProvider(
@@ -536,6 +542,21 @@ class Service {
     this.logger.info(`Updated timeout block delta of ${pairId} to ${newDelta} minutes`);
   }
 
+  public addReferral = async (referral: ReferralType): Promise<void> => {
+    if (referral.id === '') {
+      throw new Error('referral IDs cannot be empty');
+    }
+
+    if (referral.feeShare > 100 || referral.feeShare < 0) {
+      throw new Error('referral fee share must be between 0 and 100');
+    }
+
+    await this.referralRepository.addReferral(referral);
+    this.logger.info(`Added referral ${ referral.id } with ${
+      referral.routingNode !== undefined ? `routing node ${ referral.routingNode } and ` : ''
+    }fee share ${ referral.feeShare }%`);
+  };
+
   /**
    * Creates a new Swap from the chain to Lightning
    */
@@ -544,6 +565,9 @@ class Service {
     orderSide: string,
     preimageHash: Buffer,
     channel?: ChannelCreationInfo,
+
+    // Referral ID for the swap
+    referralId?: string,
 
     // Only required for UTXO based chains
     refundPublicKey?: Buffer,
@@ -591,6 +615,8 @@ class Service {
 
     const timeoutBlockDelta = this.timeoutDeltaProvider.getTimeout(args.pairId, orderSide, false);
 
+    const referralId = await this.getReferralId(args.referralId);
+
     const {
       id,
       address,
@@ -599,6 +625,7 @@ class Service {
       timeoutBlockHeight,
     } = await this.swapManager.createSwap({
       orderSide,
+      referralId,
       timeoutBlockDelta,
 
       baseCurrency: base,
@@ -758,6 +785,7 @@ class Service {
     refundPublicKey: Buffer,
     invoice: string,
     pairHash?: string,
+    referralId?: string,
     channel?: ChannelCreationInfo,
   ): Promise<{
     id: string,
@@ -795,6 +823,7 @@ class Service {
       pairId,
       channel,
       orderSide,
+      referralId,
       preimageHash,
       refundPublicKey,
     });
@@ -849,6 +878,9 @@ class Service {
 
     // Public key of the node for which routing hints should be included in the invoice(s)
     routingNode?: string,
+
+    // Referral ID for the reverse swap
+    referralId?: string,
 
     // Required for UTXO based chains
     claimPublicKey?: Buffer,
@@ -996,6 +1028,8 @@ class Service {
       throw Errors.ONCHAIN_AMOUNT_TOO_LOW();
     }
 
+    const referralId = await this.getReferralId(args.referralId, args.routingNode);
+
     const {
       id,
       invoice,
@@ -1005,8 +1039,9 @@ class Service {
       minerFeeInvoice,
       timeoutBlockHeight,
     } = await this.swapManager.createReverseSwap({
-      onchainAmount,
+      referralId,
       percentageFee,
+      onchainAmount,
       holdInvoiceAmount,
       onchainTimeoutBlockDelta,
       lightningTimeoutBlockDelta,
@@ -1093,6 +1128,23 @@ class Service {
     }
 
     throw Errors.CURRENCY_NOT_FOUND(symbol);
+  }
+
+  private getReferralId = async (referralId?: string, routingNode?: string): Promise<string | undefined> => {
+    // An explicitly set referral ID trumps the routing node
+    if (referralId) {
+      return referralId;
+    }
+
+    if (routingNode) {
+      const referral = await this.referralRepository.getReferralByRoutingNode(routingNode);
+
+      if (referral) {
+        return referral.id;
+      }
+    }
+
+    return;
   }
 
   /**

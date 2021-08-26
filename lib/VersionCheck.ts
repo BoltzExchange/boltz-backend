@@ -8,7 +8,7 @@ class VersionCheck {
 
   private static lndVersionLimits = {
     minimal: '0.12.0',
-    maximal: '0.12.1',
+    maximal: '0.13.1',
   };
 
   public static checkChainClientVersion = (symbol: string, version: number): void => {
@@ -33,7 +33,7 @@ class VersionCheck {
   }
 
   private static unsupportedVersionError = (service: string, actual: Version, maximal: Version, minimal: Version) => {
-    return `unsupported ${service} version: ${actual}; max version ${maximal}; min version ${minimal}`;
+    return `unsupported ${service} version: ${actual}; min version ${minimal}; max version ${maximal}`;
   }
 }
 

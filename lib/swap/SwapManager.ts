@@ -8,15 +8,15 @@ import Swap from '../db/models/Swap';
 import SwapNursery from './SwapNursery';
 import LndClient from '../lightning/LndClient';
 import RateProvider from '../rates/RateProvider';
-import SwapRepository from '../db/SwapRepository';
 import ReverseSwap from '../db/models/ReverseSwap';
 import { ReverseSwapOutputType } from '../consts/Consts';
 import RoutingHintsProvider from './RoutingHintsProvider';
-import ReverseSwapRepository from '../db/ReverseSwapRepository';
+import SwapRepository from '../db/repositories/SwapRepository';
 import InvoiceExpiryHelper from '../service/InvoiceExpiryHelper';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
-import ChannelCreationRepository from '../db/ChannelCreationRepository';
+import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
+import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import { ChannelCreationType, CurrencyType, OrderSide, SwapUpdateEvent } from '../consts/Enums';
 import {
   decodeInvoice,
@@ -143,6 +143,9 @@ class SwapManager {
 
     channel?: ChannelCreationInfo,
 
+    // Referral ID for the swap
+    referralId?: string,
+
     // Only required for UTXO based chains
     refundPublicKey?: Buffer,
   }): Promise<{
@@ -169,6 +172,10 @@ class SwapManager {
     const id = generateId();
 
     this.logger.verbose(`Creating new Swap from ${receivingCurrency.symbol} to ${sendingCurrency.symbol}: ${id}`);
+
+    if (args.referralId) {
+      this.logger.silly(`Using referral ID ${args.referralId} for Swap ${id}`);
+    }
 
     const pair = getPairId({ base: args.baseCurrency, quote: args.quoteCurrency });
 
@@ -205,8 +212,9 @@ class SwapManager {
         timeoutBlockHeight,
 
         keyIndex: index,
-        orderSide: args.orderSide,
         lockupAddress: address,
+        referral: args.referralId,
+        orderSide: args.orderSide,
         status: SwapUpdateEvent.SwapCreated,
         preimageHash: getHexString(args.preimageHash),
         redeemScript: getHexString(redeemScript),
@@ -225,6 +233,7 @@ class SwapManager {
         timeoutBlockHeight,
 
         lockupAddress: address,
+        referral: args.referralId,
         orderSide: args.orderSide,
         status: SwapUpdateEvent.SwapCreated,
         preimageHash: getHexString(args.preimageHash),
@@ -392,6 +401,9 @@ class SwapManager {
     // Public key of the node for which routing hints should be included in the invoice(s)
     routingNode?: string,
 
+    // Referral ID for the reverse swap
+    referralId?: string,
+
     // Only required for Swaps to UTXO based chains
     claimPublicKey?: Buffer,
 
@@ -424,6 +436,10 @@ class SwapManager {
     const id = generateId();
 
     this.logger.verbose(`Creating new Reverse Swap from ${receivingCurrency.symbol} to ${sendingCurrency.symbol}: ${id}`);
+
+    if (args.referralId) {
+      this.logger.silly(`Using referral ID ${args.referralId} for Reverse Swap ${id}`);
+    }
 
     const routingHints = args.routingNode !== undefined ?
       this.routingHints.getRoutingHints(receivingCurrency.symbol, args.routingNode) :
@@ -500,6 +516,7 @@ class SwapManager {
         keyIndex: index,
         fee: args.percentageFee,
         invoice: paymentRequest,
+        referral: args.referralId,
         orderSide: args.orderSide,
         onchainAmount: args.onchainAmount,
         status: SwapUpdateEvent.SwapCreated,
@@ -527,6 +544,7 @@ class SwapManager {
         fee: args.percentageFee,
         invoice: paymentRequest,
         orderSide: args.orderSide,
+        referral: args.referralId,
         claimAddress: args.claimAddress!,
         onchainAmount: args.onchainAmount,
         status: SwapUpdateEvent.SwapCreated,

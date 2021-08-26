@@ -7,14 +7,14 @@ import ReverseSwap from './models/ReverseSwap';
 import { Currency } from '../wallet/WalletManager';
 import ChannelCreation from './models/ChannelCreation';
 import DatabaseVersion from './models/DatabaseVersion';
-import DatabaseVersionRepository from './DatabaseVersionRepository';
+import DatabaseVersionRepository from './repositories/DatabaseVersionRepository';
 import { decodeInvoice, formatError, getChainCurrency, getHexBuffer, splitPairId } from '../Utils';
 
 // TODO: integration tests for actual migrations
 class Migration {
   private versionRepository: DatabaseVersionRepository;
 
-  private static latestSchemaVersion = 3;
+  private static latestSchemaVersion = 4;
 
   constructor(private logger: Logger, private sequelize: Sequelize) {
     this.versionRepository = new DatabaseVersionRepository();
@@ -149,6 +149,52 @@ class Migration {
         );
 
         await this.finishMigration(versionRow.version, currencies);
+        break;
+
+      // Schema version 4 adds referrals for fee sharing
+      case 3:
+        this.logUpdatingTable('swaps');
+
+        await this.sequelize.getQueryInterface().addColumn(
+          'swaps',
+          'referral',
+          {
+            type: new DataTypes.STRING(255),
+            allowNull: true,
+          },
+        );
+
+        await this.sequelize.getQueryInterface().addIndex(
+          'swaps',
+          ['referral'],
+          {
+            unique: false,
+            fields: ['referral'],
+          }
+        );
+
+        this.logUpdatingTable('reverseSwaps');
+
+        await this.sequelize.getQueryInterface().addColumn(
+          'reverseSwaps',
+          'referral',
+          {
+            type: new DataTypes.STRING(255),
+            allowNull: true,
+          },
+        );
+
+        await this.sequelize.getQueryInterface().addIndex(
+          'reverseSwaps',
+          ['referral'],
+          {
+            unique: false,
+            fields: ['referral'],
+          }
+        );
+
+        await this.finishMigration(versionRow.version, currencies);
+
         break;
 
       default:

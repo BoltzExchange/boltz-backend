@@ -1,5 +1,5 @@
 import { Op } from 'sequelize';
-import PendingEthereumTransaction from './models/PendingEthereumTransaction';
+import PendingEthereumTransaction from '../models/PendingEthereumTransaction';
 
 class PendingEthereumTransactionRepository {
   public findByNonce = (nonce: number): Promise<PendingEthereumTransaction[]> => {

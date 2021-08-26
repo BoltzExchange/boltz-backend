@@ -28,7 +28,7 @@ const mockSetInvoice = jest.fn().mockImplementation(async (arg) => {
   return arg;
 });
 
-jest.mock('../../../lib/db/SwapRepository', () => {
+jest.mock('../../../lib/db/repositories/SwapRepository', () => {
   return jest.fn().mockImplementation(() => {
     return {
       addSwap: mockAddSwap,
@@ -45,7 +45,7 @@ const mockGetReverseSwaps = jest.fn().mockImplementation(async () => {
   return mockGetReverseSwapsResult;
 });
 
-jest.mock('../../../lib/db/ReverseSwapRepository', () => {
+jest.mock('../../../lib/db/repositories/ReverseSwapRepository', () => {
   return jest.fn().mockImplementation(() => {
     return {
       addReverseSwap: mockAddReverseSwap,
@@ -68,7 +68,7 @@ const mockGetChannelCreations = jest.fn().mockImplementation(async () => {
   return mockGetChannelCreationsResult;
 });
 
-jest.mock('../../../lib/db/ChannelCreationRepository', () => {
+jest.mock('../../../lib/db/repositories/ChannelCreationRepository', () => {
   return jest.fn().mockImplementation(() => {
     return {
       setNodePublicKey: mockSetNodePublicKey,

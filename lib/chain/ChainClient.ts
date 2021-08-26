@@ -6,8 +6,8 @@ import { ChainConfig } from '../Config';
 import MempoolSpace from './MempoolSpace';
 import { ClientStatus } from '../consts/Enums';
 import { getHexString, stringify } from '../Utils';
-import ChainTipRepository from '../db/ChainTipRepository';
 import ZmqClient, { ZmqNotification, filters } from './ZmqClient';
+import ChainTipRepository from '../db/repositories/ChainTipRepository';
 import { Block, BlockchainInfo, RawTransaction, BlockVerbose, NetworkInfo, UnspentUtxo, WalletInfo } from '../consts/Types';
 
 interface ChainClient {

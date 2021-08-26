@@ -2,7 +2,7 @@ import { Network, address, BIP32Interface } from 'bitcoinjs-lib';
 import Errors from './Errors';
 import Logger from '../Logger';
 import { CurrencyType } from '../consts/Enums';
-import KeyRepository from '../db/KeyRepository';
+import KeyRepository from '../db/repositories/KeyRepository';
 import WalletProviderInterface, { SentTransaction, WalletBalance } from './providers/WalletProviderInterface';
 
 class Wallet {

@@ -1,10 +1,10 @@
 import { BigNumber, BigNumberish, providers, utils } from 'ethers';
-import { BlockWithTransactions } from '@ethersproject/abstract-provider';
+import { BlockWithTransactions, FeeData } from '@ethersproject/abstract-provider';
 import Errors from './Errors';
 import Logger from '../../Logger';
 import { formatError, stringify } from '../../Utils';
 import { EthereumConfig, EthProviderServiceConfig } from '../../Config';
-import PendingEthereumTransactionRepository from '../../db/PendingEthereumTransactionRepository';
+import PendingEthereumTransactionRepository from '../../db/repositories/PendingEthereumTransactionRepository';
 
 enum EthProviderService {
   Infura = 'Infura',
@@ -145,6 +145,10 @@ class InjectedProvider implements providers.Provider {
 
   public getGasPrice = (): Promise<BigNumber> => {
     return this.forwardMethod('getGasPrice');
+  }
+
+  public getFeeData = (): Promise<FeeData> => {
+    return this.forwardMethod('getFeeData');
   }
 
   public getLogs = (filter: providers.Filter): Promise<Array<providers.Log>> => {

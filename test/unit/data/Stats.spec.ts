@@ -3,13 +3,13 @@ import Stats from '../../../lib/data/Stats';
 import Swap from '../../../lib/db/models/Swap';
 import { stringify } from '../../../lib/Utils';
 import { OrderSide } from '../../../lib/consts/Enums';
-import SwapRepository from '../../../lib/db/SwapRepository';
 import ReverseSwap from '../../../lib/db/models/ReverseSwap';
-import ReverseSwapRepository from '../../../lib/db/ReverseSwapRepository';
+import SwapRepository from '../../../lib/db/repositories/SwapRepository';
+import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 
 const swaps: Swap[] = [];
 
-jest.mock('../../../lib/db/SwapRepository', () => {
+jest.mock('../../../lib/db/repositories/SwapRepository', () => {
   return jest.fn().mockImplementation(() => {
     return {
       getSwaps: () => Promise.resolve(swaps),
@@ -21,7 +21,7 @@ const mockedSwapRepository = <jest.Mock<SwapRepository>><any>SwapRepository;
 
 const reverseSwaps: ReverseSwap[] = [];
 
-jest.mock('../../../lib/db/ReverseSwapRepository', () => {
+jest.mock('../../../lib/db/repositories/ReverseSwapRepository', () => {
   return jest.fn().mockImplementation(() => {
     return {
       getReverseSwaps: () => Promise.resolve(reverseSwaps),

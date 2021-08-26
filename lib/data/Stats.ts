@@ -1,10 +1,10 @@
 import Swap from '../db/models/Swap';
 import { OrderSide } from '../consts/Enums';
 import Report, { SwapArrays } from './Report';
-import SwapRepository from '../db/SwapRepository';
 import ReverseSwap from '../db/models/ReverseSwap';
 import { satoshisToCoins } from '../DenominationConverter';
-import ReverseSwapRepository from '../db/ReverseSwapRepository';
+import SwapRepository from '../db/repositories/SwapRepository';
+import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import { splitPairId, decodeInvoice, stringify, mapToObject } from '../Utils';
 
 type MonthStats = {
@@ -50,7 +50,7 @@ class Stats {
         swapsPerYear.set(swap.createdAt.getFullYear(), year);
       }
 
-      let monthArrays = year.get(this.getMonth(swap.createdAt));
+      let monthArrays = year.get(Report.getMonth(swap.createdAt));
 
       if (!monthArrays) {
         monthArrays = {
@@ -64,7 +64,7 @@ class Stats {
           },
         };
 
-        year.set(this.getMonth(swap.createdAt), monthArrays);
+        year.set(Report.getMonth(swap.createdAt), monthArrays);
       }
 
       const arrays = isSuccessful ? monthArrays.successfulSwaps : monthArrays.failedSwaps;
@@ -167,11 +167,6 @@ class Stats {
     } else {
       return onchainAmount;
     }
-  }
-
-  private getMonth = (date: Date): number => {
-    // date.getMonth() starts counting at 0
-    return date.getMonth() + 1;
   }
 }
 

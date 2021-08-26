@@ -11,7 +11,7 @@ const mockFindByNonce = jest.fn().mockImplementation(async () => {
   return mockFindByNonceResult;
 });
 
-jest.mock('../../../../lib/db/PendingEthereumTransactionRepository', () => {
+jest.mock('../../../../lib/db/repositories/PendingEthereumTransactionRepository', () => {
   return jest.fn().mockImplementation(() => ({
     findByNonce: mockFindByNonce,
     addTransaction: mockAddTransaction,
@@ -44,7 +44,7 @@ describe('EthereumTransactionTracker', () => {
     expect(transactionTracker.scanBlock).toHaveBeenCalledTimes(1);
     expect(transactionTracker.scanBlock).toHaveBeenCalledWith(await provider.getBlockNumber());
 
-    expect(transactionTracker['walletAddress']).toEqual(await signer.getAddress());
+    expect(transactionTracker['walletAddress']).toEqual((await signer.getAddress()).toLowerCase());
 
     transactionTracker.scanBlock = realScanBlock;
   });

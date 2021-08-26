@@ -40,7 +40,7 @@ describe('EtherWalletProvider', () => {
     const transaction = await provider.getTransaction(transactionId);
     const receipt = await provider.getTransactionReceipt(transactionId);
 
-    const sentInTransaction = transaction.value.add(receipt.gasUsed.mul(transaction.gasPrice));
+    const sentInTransaction = transaction.value.add(receipt.gasUsed.mul(transaction.maxFeePerGas!));
 
     expect(balance).toEqual(sentInTransaction);
     expect((await signer.getBalance()).toNumber()).toEqual(0);

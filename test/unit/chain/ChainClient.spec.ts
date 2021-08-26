@@ -1,7 +1,7 @@
 import Logger from '../../../lib/Logger';
 import { getHexBuffer } from '../../../lib/Utils';
 import ChainClient from '../../../lib/chain/ChainClient';
-import ChainTipRepository from '../../../lib/db/ChainTipRepository';
+import ChainTipRepository from '../../../lib/db/repositories/ChainTipRepository';
 
 const relevantInputs = new Set<string>();
 const relevantOutputs = new Set<string>();
@@ -45,7 +45,7 @@ jest.mock('../../../lib/chain/ZmqClient', () => {
   });
 });
 
-jest.mock('../../../lib/db/ChainTipRepository', () => {
+jest.mock('../../../lib/db/repositories/ChainTipRepository', () => {
   return jest.fn().mockImplementation(() => ({
     findOrCreateTip: jest.fn().mockResolvedValue({}),
     updateTip: jest.fn().mockResolvedValue(undefined),

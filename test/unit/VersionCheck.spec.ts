@@ -7,11 +7,11 @@ describe('VersionCheck', () => {
 
     let unsupportedVersion = limits.minimal - 1;
     expect(() => VersionCheck.checkChainClientVersion(symbol, unsupportedVersion))
-      .toThrow(`unsupported BTC Core version: ${unsupportedVersion}; max version ${limits.maximal}; min version ${limits.minimal}`);
+      .toThrow(`unsupported BTC Core version: ${unsupportedVersion}; min version ${limits.minimal}; max version ${limits.maximal}`);
 
     unsupportedVersion = limits.maximal + 1;
     expect(() => VersionCheck.checkChainClientVersion(symbol, unsupportedVersion))
-      .toThrow(`unsupported BTC Core version: ${unsupportedVersion}; max version ${limits.maximal}; min version ${limits.minimal}`);
+      .toThrow(`unsupported BTC Core version: ${unsupportedVersion}; min version ${limits.minimal}; max version ${limits.maximal}`);
 
     expect(() => VersionCheck.checkChainClientVersion(symbol, limits.maximal)).not.toThrow();
     expect(() => VersionCheck.checkChainClientVersion(symbol, limits.minimal)).not.toThrow();
@@ -21,10 +21,10 @@ describe('VersionCheck', () => {
     const symbol = 'BTC';
 
     expect(() => VersionCheck.checkLndVersion(symbol, '0.10.4-beta'))
-      .toThrow('unsupported BTC LND version: 0.10.4-beta; max version 0.12.1; min version 0.12.0');
+      .toThrow('unsupported BTC LND version: 0.10.4-beta; min version 0.12.0; max version 0.13.1');
 
-    expect(() => VersionCheck.checkLndVersion(symbol, '0.12.2-beta'))
-      .toThrow('unsupported BTC LND version: 0.12.2-beta; max version 0.12.1; min version 0.12.0');
+    expect(() => VersionCheck.checkLndVersion(symbol, '0.13.2-beta'))
+      .toThrow('unsupported BTC LND version: 0.13.2-beta; min version 0.12.0; max version 0.13.1');
 
     const limits = VersionCheck['lndVersionLimits'];
 

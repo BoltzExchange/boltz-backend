@@ -1,6 +1,6 @@
-import { providers, Signer } from 'ethers';
+import { BigNumber, providers, Signer } from 'ethers';
 import Logger from '../../Logger';
-import PendingEthereumTransactionRepository from '../../db/PendingEthereumTransactionRepository';
+import PendingEthereumTransactionRepository from '../../db/repositories/PendingEthereumTransactionRepository';
 
 class EthereumTransactionTracker {
   private pendingEthereumTransactionRepository = new PendingEthereumTransactionRepository();
@@ -14,7 +14,7 @@ class EthereumTransactionTracker {
   ) {}
 
   public init = async (): Promise<void> => {
-    this.walletAddress = await this.wallet.getAddress();
+    this.walletAddress = (await this.wallet.getAddress()).toLowerCase();
     this.logger.info(`Starting Ethereum transaction tracker for address: ${this.walletAddress}`);
 
     await this.scanBlock(await this.provider.getBlockNumber());
@@ -30,7 +30,9 @@ class EthereumTransactionTracker {
 
     for (const transaction of block.transactions) {
       if (transaction.from === this.walletAddress) {
-        const confirmedTransactions = await this.pendingEthereumTransactionRepository.findByNonce(transaction.nonce);
+        const confirmedTransactions = await this.pendingEthereumTransactionRepository.findByNonce(
+          BigNumber.from(transaction.nonce).toNumber(),
+        );
 
         if (confirmedTransactions.length > 0) {
           this.logger.debug(`Removing ${confirmedTransactions.length} confirmed Ethereum transactions`);

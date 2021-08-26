@@ -1,6 +1,6 @@
 import { WhereOptions } from 'sequelize';
-import { ChannelCreationStatus } from '../consts/Enums';
-import ChannelCreation, { ChannelCreationType } from './models/ChannelCreation';
+import { ChannelCreationStatus } from '../../consts/Enums';
+import ChannelCreation, { ChannelCreationType } from '../models/ChannelCreation';
 
 class ChannelCreationRepository {
   public getChannelCreation = (options?: WhereOptions): Promise<ChannelCreation | null> => {

@@ -1,6 +1,6 @@
 import fs from 'fs';
 import bolt11 from '@boltz/bolt11';
-import grpc, { ClientReadableStream } from 'grpc';
+import { ChannelCredentials, ClientReadableStream, credentials, Metadata, ServiceError } from '@grpc/grpc-js';
 import Errors from './Errors';
 import Logger from '../Logger';
 import BaseClient from '../BaseClient';
@@ -23,7 +23,7 @@ type LndConfig = {
   macaroonpath: string;
 };
 
-type LndMethodFunction = (params: any, meta: grpc.Metadata, listener) => any;
+type LndMethodFunction = (params: any, meta: Metadata, listener) => any;
 
 interface GrpcResponse {
   toObject: () => any;
@@ -70,9 +70,9 @@ class LndClient extends BaseClient implements LndClient {
   private static readonly maxPaymentFeeRatio = 0.03;
 
   private readonly uri!: string;
-  private readonly credentials!: grpc.ChannelCredentials;
+  private readonly credentials!: ChannelCredentials;
 
-  private readonly meta!: grpc.Metadata;
+  private readonly meta!: Metadata;
 
   private router?: RouterClient;
   private invoices?: InvoicesClient;
@@ -98,9 +98,9 @@ class LndClient extends BaseClient implements LndClient {
       this.uri = `${host}:${port}`;
 
       const lndCert = fs.readFileSync(certpath);
-      this.credentials = grpc.credentials.createSsl(lndCert);
+      this.credentials = credentials.createSsl(lndCert);
 
-      this.meta = new grpc.Metadata();
+      this.meta = new Metadata();
 
       if (macaroonpath !== '') {
         if (fs.existsSync(macaroonpath)) {
@@ -223,7 +223,7 @@ class LndClient extends BaseClient implements LndClient {
 
   private unaryCall = <T, U>(client: any, methodName: string, params: T): Promise<U> => {
     return new Promise((resolve, reject) => {
-      (client[methodName] as LndMethodFunction)(params, this.meta, (err: grpc.ServiceError, response: GrpcResponse) => {
+      (client[methodName] as LndMethodFunction)(params, this.meta, (err: ServiceError, response: GrpcResponse) => {
         if (err) {
           reject(err);
         } else {

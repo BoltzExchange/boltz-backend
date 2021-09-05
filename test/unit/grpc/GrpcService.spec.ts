@@ -1,4 +1,4 @@
-import { ServiceError } from 'grpc';
+import { ServiceError } from '@grpc/grpc-js';
 import Service from '../../../lib/service/Service';
 import GrpcService from '../../../lib/grpc/GrpcService';
 
@@ -58,8 +58,8 @@ const createCall = (data: any) => {
   } as any;
 };
 
-const createCallback = (callback: (error: ServiceError | null, response: any) => void) => {
-  return (error: ServiceError | null, response: any) => {
+const createCallback = (callback: (error: ServiceError | any | null, response: any) => void) => {
+  return (error: ServiceError | any |null, response: any) => {
     expect(error).toBeNull();
     callback(error, response);
   };

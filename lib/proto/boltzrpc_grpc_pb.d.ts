@@ -4,7 +4,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
-import * as grpc from "grpc";
+import * as grpc from "@grpc/grpc-js";
 import * as boltzrpc_pb from "./boltzrpc_pb";
 
 interface IBoltzService extends grpc.ServiceDefinition<grpc.UntypedServiceImplementation> {
@@ -83,7 +83,7 @@ interface IBoltzService_IAddReferral extends grpc.MethodDefinition<boltzrpc_pb.A
 
 export const BoltzService: IBoltzService;
 
-export interface IBoltzServer {
+export interface IBoltzServer extends grpc.UntypedServiceImplementation {
     getInfo: grpc.handleUnaryCall<boltzrpc_pb.GetInfoRequest, boltzrpc_pb.GetInfoResponse>;
     getBalance: grpc.handleUnaryCall<boltzrpc_pb.GetBalanceRequest, boltzrpc_pb.GetBalanceResponse>;
     deriveKeys: grpc.handleUnaryCall<boltzrpc_pb.DeriveKeysRequest, boltzrpc_pb.DeriveKeysResponse>;
@@ -118,7 +118,7 @@ export interface IBoltzClient {
 }
 
 export class BoltzClient extends grpc.Client implements IBoltzClient {
-    constructor(address: string, credentials: grpc.ChannelCredentials, options?: object);
+    constructor(address: string, credentials: grpc.ChannelCredentials, options?: Partial<grpc.ClientOptions>);
     public getInfo(request: boltzrpc_pb.GetInfoRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetInfoResponse) => void): grpc.ClientUnaryCall;
     public getInfo(request: boltzrpc_pb.GetInfoRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetInfoResponse) => void): grpc.ClientUnaryCall;
     public getInfo(request: boltzrpc_pb.GetInfoRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetInfoResponse) => void): grpc.ClientUnaryCall;

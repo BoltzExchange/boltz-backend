@@ -144,7 +144,7 @@ class Boltz {
 
       await this.notifications.init();
 
-      this.grpcServer.listen();
+      await this.grpcServer.listen();
 
       await this.api.init();
 

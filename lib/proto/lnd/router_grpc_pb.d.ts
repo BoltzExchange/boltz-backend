@@ -4,7 +4,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
-import * as grpc from "grpc";
+import * as grpc from "@grpc/grpc-js";
 import * as lnd_router_pb from "../lnd/router_pb";
 import * as lnd_rpc_pb from "../lnd/rpc_pb";
 
@@ -184,7 +184,7 @@ interface IRouterService_IUpdateChanStatus extends grpc.MethodDefinition<lnd_rou
 
 export const RouterService: IRouterService;
 
-export interface IRouterServer {
+export interface IRouterServer extends grpc.UntypedServiceImplementation {
     sendPaymentV2: grpc.handleServerStreamingCall<lnd_router_pb.SendPaymentRequest, lnd_rpc_pb.Payment>;
     trackPaymentV2: grpc.handleServerStreamingCall<lnd_router_pb.TrackPaymentRequest, lnd_rpc_pb.Payment>;
     estimateRouteFee: grpc.handleUnaryCall<lnd_router_pb.RouteFeeRequest, lnd_router_pb.RouteFeeResponse>;
@@ -254,7 +254,7 @@ export interface IRouterClient {
 }
 
 export class RouterClient extends grpc.Client implements IRouterClient {
-    constructor(address: string, credentials: grpc.ChannelCredentials, options?: object);
+    constructor(address: string, credentials: grpc.ChannelCredentials, options?: Partial<grpc.ClientOptions>);
     public sendPaymentV2(request: lnd_router_pb.SendPaymentRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<lnd_rpc_pb.Payment>;
     public sendPaymentV2(request: lnd_router_pb.SendPaymentRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<lnd_rpc_pb.Payment>;
     public trackPaymentV2(request: lnd_router_pb.TrackPaymentRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<lnd_rpc_pb.Payment>;

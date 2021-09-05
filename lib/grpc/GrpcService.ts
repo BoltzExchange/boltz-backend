@@ -1,4 +1,4 @@
-import { handleUnaryCall } from 'grpc';
+import { handleUnaryCall } from '@grpc/grpc-js';
 import Service from '../service/Service';
 import * as boltzrpc from '../proto/boltzrpc_pb';
 

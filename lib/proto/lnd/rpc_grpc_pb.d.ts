@@ -4,7 +4,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
-import * as grpc from "grpc";
+import * as grpc from "@grpc/grpc-js";
 import * as lnd_rpc_pb from "../lnd/rpc_pb";
 
 interface ILightningService extends grpc.ServiceDefinition<grpc.UntypedServiceImplementation> {
@@ -603,7 +603,7 @@ interface ILightningService_IListPermissions extends grpc.MethodDefinition<lnd_r
 
 export const LightningService: ILightningService;
 
-export interface ILightningServer {
+export interface ILightningServer extends grpc.UntypedServiceImplementation {
     walletBalance: grpc.handleUnaryCall<lnd_rpc_pb.WalletBalanceRequest, lnd_rpc_pb.WalletBalanceResponse>;
     channelBalance: grpc.handleUnaryCall<lnd_rpc_pb.ChannelBalanceRequest, lnd_rpc_pb.ChannelBalanceResponse>;
     getTransactions: grpc.handleUnaryCall<lnd_rpc_pb.GetTransactionsRequest, lnd_rpc_pb.TransactionDetails>;
@@ -838,7 +838,7 @@ export interface ILightningClient {
 }
 
 export class LightningClient extends grpc.Client implements ILightningClient {
-    constructor(address: string, credentials: grpc.ChannelCredentials, options?: object);
+    constructor(address: string, credentials: grpc.ChannelCredentials, options?: Partial<grpc.ClientOptions>);
     public walletBalance(request: lnd_rpc_pb.WalletBalanceRequest, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.WalletBalanceResponse) => void): grpc.ClientUnaryCall;
     public walletBalance(request: lnd_rpc_pb.WalletBalanceRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.WalletBalanceResponse) => void): grpc.ClientUnaryCall;
     public walletBalance(request: lnd_rpc_pb.WalletBalanceRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.WalletBalanceResponse) => void): grpc.ClientUnaryCall;

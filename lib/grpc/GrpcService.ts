@@ -10,7 +10,7 @@ class GrpcService {
     try {
       callback(null, await this.service.getInfo());
     } catch (error) {
-      callback(error, null);
+      callback((error as any), null);
     }
   }
 
@@ -18,7 +18,7 @@ class GrpcService {
     try {
       callback(null, await this.service.getBalance());
     } catch (error) {
-      callback(error, null);
+      callback((error as any), null);
     }
   }
 
@@ -28,7 +28,7 @@ class GrpcService {
 
       callback(null, this.service.deriveKeys(symbol, index));
     } catch (error) {
-      callback(error, null);
+      callback((error as any), null);
     }
   }
 
@@ -43,7 +43,7 @@ class GrpcService {
 
       callback(null, response);
     } catch (error) {
-      callback(error, null);
+      callback((error as any), null);
     }
   }
 
@@ -57,7 +57,7 @@ class GrpcService {
 
       callback(null, response);
     } catch (error) {
-      callback(error, null);
+      callback((error as any), null);
     }
   }
 
@@ -69,7 +69,7 @@ class GrpcService {
 
       callback(null, new boltzrpc.UpdateTimeoutBlockDeltaResponse());
     } catch (error) {
-      callback(error, null);
+      callback((error as any), null);
     }
   }
 
@@ -89,7 +89,7 @@ class GrpcService {
 
       callback(null, new boltzrpc.AddReferralResponse());
     } catch (error) {
-      callback(error, null);
+      callback((error as any), null);
     }
   }
 }

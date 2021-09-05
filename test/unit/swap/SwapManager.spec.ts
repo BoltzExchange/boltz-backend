@@ -157,12 +157,13 @@ const MockedChainClient = <jest.Mock<ChainClient>><any>ChainClient;
 
 const mockDecodedInvoiceAmount = 1000000;
 const mockDecodePayReq = jest.fn().mockImplementation(async (invoice: string) => {
-  const featuresMap = {};
+  const featuresMap: [number, any][] = [];
 
   if (invoice === 'multi') {
-    featuresMap['17'] = {
-      is_known: true,
-    };
+    featuresMap.push([17, {
+      name: 'multi-path-payments',
+      isKnown: true,
+    }]);
   }
 
   return {
@@ -346,7 +347,7 @@ describe('SwapManager', () => {
     expect(mockGetSwaps).toHaveBeenCalledTimes(1);
     expect(mockGetSwaps).toHaveBeenCalledWith({
       status: {
-        [Op.not]: [
+        [Op.notIn]: [
           SwapUpdateEvent.SwapExpired,
           SwapUpdateEvent.InvoicePending,
           SwapUpdateEvent.InvoiceFailedToPay,
@@ -358,7 +359,7 @@ describe('SwapManager', () => {
     expect(mockGetReverseSwaps).toHaveBeenCalledTimes(1);
     expect(mockGetReverseSwaps).toHaveBeenCalledWith({
       status: {
-        [Op.not]: [
+        [Op.notIn]: [
           SwapUpdateEvent.SwapExpired,
           SwapUpdateEvent.InvoiceSettled,
           SwapUpdateEvent.TransactionFailed,
@@ -554,9 +555,7 @@ describe('SwapManager', () => {
 
     expect(mockGetChannelCreation).toHaveBeenCalledTimes(1);
     expect(mockGetChannelCreation).toHaveBeenCalledWith({
-      swapId: {
-        [Op.eq]: swap.id,
-      },
+      swapId: swap.id,
     });
 
     expect(mockCheckRoutability).toHaveBeenCalledTimes(1);

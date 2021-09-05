@@ -1,4 +1,3 @@
-import { Op } from 'sequelize';
 import Referral, { ReferralType } from '../models/Referral';
 
 class ReferralRepository {
@@ -13,9 +12,7 @@ class ReferralRepository {
   public getReferralByRoutingNode = (routingNode: string): Promise<Referral | null> => {
     return Referral.findOne({
       where: {
-        routingNode: {
-          [Op.eq]: routingNode,
-        },
+        routingNode,
       },
     });
   }

@@ -1,4 +1,3 @@
-import { Op } from 'sequelize';
 import { utils } from 'ethers';
 import { OutputType } from 'boltz-core';
 import { Transaction } from 'bitcoinjs-lib';
@@ -205,7 +204,7 @@ class Service {
           lnd.setVersion(lndInfo.version);
           lnd.setBlockHeight(lndInfo.blockHeight);
         } catch (error) {
-          lnd.setError(error.details);
+          lnd.setError((error as any).details);
         }
       }
 
@@ -371,9 +370,7 @@ class Service {
     timeoutBlockHeight: number,
   }> => {
     const swap = await this.swapManager.swapRepository.getSwap({
-      id: {
-        [Op.eq]: id,
-      },
+      id,
     });
 
     if (!swap) {
@@ -497,16 +494,14 @@ class Service {
       // This special error is thrown when a Submarine Swap that has not timed out yet is refunded
       // To improve the UX we will throw not only the error but also some additional information
       // regarding when the Submarine Swap can be refunded
-      if (error.code === -26 && error.message.startsWith('non-mandatory-script-verify-flag (Locktime requirement not satisfied)')) {
+      if ((error as any).code === -26 && (error as any).message.startsWith('non-mandatory-script-verify-flag (Locktime requirement not satisfied)')) {
         const refundTransaction = Transaction.fromHex(transactionHex);
 
         let swap: Swap | null | undefined;
 
         for (const input of refundTransaction.ins) {
           swap = await this.swapManager.swapRepository.getSwap({
-            lockupTransactionId: {
-              [Op.eq]: getHexString(reverseBuffer(input.hash)),
-            },
+            lockupTransactionId: getHexString(reverseBuffer(input.hash)),
           });
 
           if (swap) {
@@ -521,7 +516,7 @@ class Service {
         const { blocks } = await currency.chainClient.getBlockchainInfo();
 
         throw {
-          error: error.message,
+          error: (error as any).message,
           timeoutBlockHeight: swap.timeoutBlockHeight,
           // Here we don't need to check whether the Swap has timed out yet because
           // if the error above has been thrown, we can be sure that this is not the case
@@ -583,9 +578,7 @@ class Service {
     claimAddress?: string,
   }> => {
     const swap = await this.swapManager.swapRepository.getSwap({
-      preimageHash: {
-        [Op.eq]: getHexString(args.preimageHash),
-      },
+      preimageHash: getHexString(args.preimageHash),
     });
 
     if (swap) {
@@ -656,9 +649,7 @@ class Service {
     },
   }> => {
     const swap = await this.swapManager.swapRepository.getSwap({
-      id: {
-        [Op.eq]: id,
-      },
+      id,
     });
 
     if (!swap) {
@@ -698,9 +689,7 @@ class Service {
     acceptZeroConf: boolean,
   } | Record<string, any>> => {
     const swap = await this.swapManager.swapRepository.getSwap({
-      id: {
-        [Op.eq]: id,
-      },
+      id,
     });
 
     if (!swap) {
@@ -802,9 +791,7 @@ class Service {
     claimAddress?: string,
   }> => {
     let swap = await this.swapManager.swapRepository.getSwap({
-      invoice: {
-        [Op.eq]: invoice,
-      },
+      invoice,
     });
 
     if (swap) {
@@ -847,16 +834,12 @@ class Service {
       };
     } catch (error) {
       const channelCreation = await this.swapManager.channelCreationRepository.getChannelCreation({
-        swapId: {
-          [Op.eq]: id,
-        },
+        swapId: id,
       });
       await channelCreation?.destroy();
 
       swap = await this.swapManager.swapRepository.getSwap({
-        id: {
-          [Op.eq]: id,
-        },
+        id,
       });
       await swap?.destroy();
 

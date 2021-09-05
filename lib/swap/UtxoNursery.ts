@@ -98,9 +98,7 @@ class UtxoNursery extends EventEmitter {
             SwapUpdateEvent.TransactionZeroConfRejected,
           ],
         },
-        lockupAddress: {
-          [Op.eq]: wallet.encodeAddress(output.script),
-        }
+        lockupAddress: wallet.encodeAddress(output.script),
       });
 
       if (!swap) {
@@ -180,12 +178,8 @@ class UtxoNursery extends EventEmitter {
             SwapUpdateEvent.TransactionConfirmed,
           ],
         },
-        transactionId: {
-          [Op.eq]: transactionHashToId(input.hash),
-        },
-        transactionVout: {
-          [Op.eq]: input.index,
-        },
+        transactionId: transactionHashToId(input.hash),
+        transactionVout: input.index,
       });
 
       if (!reverseSwap) {
@@ -206,12 +200,8 @@ class UtxoNursery extends EventEmitter {
       }
 
       const reverseSwap = await this.reverseSwapRepository.getReverseSwap({
-        status: {
-          [Op.eq]: SwapUpdateEvent.TransactionMempool,
-        },
-        transactionId: {
-          [Op.eq]: transaction.getId(),
-        },
+        status: SwapUpdateEvent.TransactionMempool,
+        transactionId: transaction.getId(),
       });
 
       if (reverseSwap) {
@@ -235,9 +225,7 @@ class UtxoNursery extends EventEmitter {
   private checkReverseSwapMempoolTransactions = async (chainClient: ChainClient, wallet: Wallet) => {
     await this.lock.acquire(UtxoNursery.reverseSwapLockupConfirmationLock, async () => {
       const mempoolReverseSwaps = await this.reverseSwapRepository.getReverseSwaps({
-        status: {
-          [Op.eq]: SwapUpdateEvent.TransactionMempool,
-        },
+        status: SwapUpdateEvent.TransactionMempool,
       });
 
       for (const reverseSwap of mempoolReverseSwaps) {

@@ -65,7 +65,7 @@ class ChainClient extends BaseClient {
     try {
       zmqNotifications = await this.getZmqNotifications();
     } catch (error) {
-      if (error.message !== 'Method not found') {
+      if ((error as any).message !== 'Method not found') {
         throw error;
       }
 
@@ -236,7 +236,7 @@ class ChainClient extends BaseClient {
 
       return 2;
     } catch (error) {
-      if (error.message === 'Method not found') {
+      if ((error as any).message === 'Method not found') {
         // TODO: use estimatefee for outdated node versions
         this.logger.warn(`"estimatesmartfee" method not found on ${this.symbol} chain`);
 

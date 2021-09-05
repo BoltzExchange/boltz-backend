@@ -254,7 +254,7 @@ class Boltz {
           },
         });
       } catch (error) {
-        this.logger.error(`Could not initialize currency ${currency.symbol}: ${error.message}`);
+        this.logger.error(`Could not initialize currency ${currency.symbol}: ${(error as any).message}`);
       }
     });
 

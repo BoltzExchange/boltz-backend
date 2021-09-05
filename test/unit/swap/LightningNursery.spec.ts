@@ -116,14 +116,10 @@ describe('LightningNursery', () => {
     expect(mockGetReverseSwap).toHaveBeenCalledWith({
       [Op.or]: [
         {
-          invoice: {
-            [Op.eq]: invoice,
-          },
+          invoice,
         },
         {
-          minerFeeInvoice: {
-            [Op.eq]: invoice,
-          },
+          minerFeeInvoice: invoice,
         },
       ],
     });

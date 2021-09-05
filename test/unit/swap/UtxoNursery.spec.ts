@@ -204,6 +204,7 @@ describe('UtxoNursery', () => {
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockGetSwap).toHaveBeenCalledWith({
+      lockupAddress: encodeAddress(transaction.outs[0].script),
       status: {
         [Op.or]: [
           SwapUpdateEvent.SwapCreated,
@@ -212,9 +213,6 @@ describe('UtxoNursery', () => {
           SwapUpdateEvent.TransactionZeroConfRejected,
         ],
       },
-      lockupAddress: {
-        [Op.eq]: encodeAddress(transaction.outs[0].script),
-      }
     });
 
     expect(mockEncodeAddress).toHaveBeenCalledTimes(1);
@@ -413,12 +411,8 @@ describe('UtxoNursery', () => {
           SwapUpdateEvent.TransactionConfirmed,
         ],
       },
-      transactionId: {
-        [Op.eq]: transactionHashToId(transaction.ins[0].hash),
-      },
-      transactionVout: {
-        [Op.eq]: transaction.ins[0].index,
-      },
+      transactionVout: transaction.ins[0].index,
+      transactionId: transactionHashToId(transaction.ins[0].hash),
     });
 
     expect(mockRemoveInputFilter).toHaveBeenCalledTimes(1);
@@ -465,12 +459,8 @@ describe('UtxoNursery', () => {
 
     expect(mockGetReverseSwap).toHaveBeenCalledTimes(1);
     expect(mockGetReverseSwap).toHaveBeenCalledWith({
-      status: {
-        [Op.eq]: SwapUpdateEvent.TransactionMempool,
-      },
-      transactionId: {
-        [Op.eq]: transaction.getId(),
-      },
+      status: SwapUpdateEvent.TransactionMempool,
+      transactionId: transaction.getId(),
     });
 
     expect(mockRemoveOutputFilter).toHaveBeenCalledTimes(1);
@@ -549,9 +539,7 @@ describe('UtxoNursery', () => {
 
     expect(mockGetReverseSwaps).toHaveBeenCalledTimes(1);
     expect(mockGetReverseSwaps).toHaveBeenCalledWith({
-      status: {
-        [Op.eq]: SwapUpdateEvent.TransactionMempool,
-      },
+      status: SwapUpdateEvent.TransactionMempool,
     });
 
     expect(mockGetRawTransactionVerbose).toHaveBeenCalledTimes(2);

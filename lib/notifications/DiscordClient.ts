@@ -23,7 +23,9 @@ class DiscordClient extends EventEmitter {
   ) {
     super();
 
-    this.client = new Client();
+    this.client = new Client({
+      intents: [],
+    });
     this.prefix = `[${this.prefix}]: `;
   }
 

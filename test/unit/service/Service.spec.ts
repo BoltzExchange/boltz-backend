@@ -1,4 +1,3 @@
-import { Op } from 'sequelize';
 import { randomBytes } from 'crypto';
 import { Networks } from 'boltz-core';
 import { ECPair } from 'bitcoinjs-lib';
@@ -714,9 +713,7 @@ describe('Service', () => {
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockGetSwap).toHaveBeenCalledWith({
-      id: {
-        [Op.eq]: mockGetSwapResult.id,
-      },
+      id: mockGetSwapResult.id,
     });
 
     expect(mockGetBlockchainInfo).toHaveBeenCalledTimes(1);
@@ -941,9 +938,7 @@ describe('Service', () => {
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockGetSwap).toHaveBeenCalledWith({
-      preimageHash: {
-        [Op.eq]: getHexString(preimageHash),
-      },
+      preimageHash: getHexString(preimageHash),
     });
 
     expect(mockCreateSwap).toHaveBeenCalledTimes(1);
@@ -1023,9 +1018,7 @@ describe('Service', () => {
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockGetSwap).toHaveBeenCalledWith({
-      id: {
-        [Op.eq]: mockGetSwapResult.id,
-      },
+      id: mockGetSwapResult.id,
     });
 
     expect(mockGetFees).toHaveBeenCalledTimes(1);

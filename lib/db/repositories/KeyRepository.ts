@@ -1,4 +1,3 @@
-import { Op } from 'sequelize';
 import KeyProvider, { KeyProviderType } from '../models/KeyProvider';
 
 class KeyRepository {
@@ -9,9 +8,7 @@ class KeyRepository {
   public getKeyProvider = (symbol: string): Promise<KeyProviderType | null> => {
     return KeyProvider.findOne({
       where: {
-        symbol: {
-          [Op.eq]: symbol,
-        },
+        symbol,
       },
     });
   }
@@ -25,9 +22,7 @@ class KeyRepository {
       highestUsedIndex,
     }, {
       where: {
-        symbol: {
-          [Op.eq]: symbol,
-        },
+        symbol,
       },
     });
   }

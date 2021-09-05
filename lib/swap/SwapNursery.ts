@@ -1,4 +1,3 @@
-import { Op } from 'sequelize';
 import AsyncLock from 'async-lock';
 import { EventEmitter } from 'events';
 import { crypto, Transaction } from 'bitcoinjs-lib';
@@ -311,7 +310,7 @@ class SwapNursery extends EventEmitter {
         } catch (error) {
           // In case the LND client could not find the invoice(s) of the Reverse Swap, we just ignore the error and mark them as cancelled regardless
           // This happens quite a lot on regtest environments where the LND client is reset without the database being deleted
-          if (typeof error !== 'object' || (error.details !== 'unable to locate invoice' && error.details !== 'there are no existing invoices')) {
+          if (typeof error !== 'object' || ((error as any).details !== 'unable to locate invoice' && (error as any).details !== 'there are no existing invoices')) {
             this.logger.error(`Could not cancel invoice${plural} of Reverse Swap ${reverseSwap.id}: ${formatError(error)}`);
             return;
           } else {
@@ -341,9 +340,7 @@ class SwapNursery extends EventEmitter {
         await this.lock.acquire(SwapNursery.retryLock, async () => {
           await this.lock.acquire(SwapNursery.swapLock, async () => {
             const pendingInvoiceSwaps = await this.swapRepository.getSwaps({
-              status: {
-                [Op.eq]: SwapUpdateEvent.InvoicePending,
-              },
+              status: SwapUpdateEvent.InvoicePending,
             });
 
             for (const pendingInvoiceSwap of pendingInvoiceSwaps) {
@@ -611,9 +608,7 @@ class SwapNursery extends EventEmitter {
     outgoingChannelId?: string,
   ) => {
     const channelCreation = await this.channelCreationRepository.getChannelCreation({
-      swapId: {
-        [Op.eq]: swap.id,
-      },
+      swapId: swap.id,
     });
     const preimage = await this.paySwapInvoice(swap, channelCreation, outgoingChannelId);
 
@@ -662,9 +657,7 @@ class SwapNursery extends EventEmitter {
 
   private claimEther = async (contractHandler: ContractHandler, swap: Swap, etherSwapValues: EtherSwapValues, outgoingChannelId?: string) => {
     const channelCreation = await this.channelCreationRepository.getChannelCreation({
-      swapId: {
-        [Op.eq]: swap.id,
-      },
+      swapId: swap.id,
     });
     const preimage = await this.paySwapInvoice(swap, channelCreation, outgoingChannelId);
 
@@ -685,9 +678,7 @@ class SwapNursery extends EventEmitter {
 
   private claimERC20 = async (contractHandler: ContractHandler, swap: Swap, erc20SwapValues: ERC20SwapValues, outgoingChannelId?: string) => {
     const channelCreation = await this.channelCreationRepository.getChannelCreation({
-      swapId: {
-        [Op.eq]: swap.id,
-      },
+      swapId: swap.id,
     });
     const preimage = await this.paySwapInvoice(swap, channelCreation, outgoingChannelId);
 
@@ -759,7 +750,7 @@ class SwapNursery extends EventEmitter {
       }
 
       // Catch cases in which the invoice was paid already
-      if (error.code === 6 && error.details === 'invoice is already paid') {
+      if ((error as any).code === 6 && (error as any).details === 'invoice is already paid') {
         const payment = await lightningCurrency.lndClient!.trackPayment(getHexBuffer(swap.preimageHash));
         this.logger.debug(`Invoice of Swap ${swap.id} is paid already: ${payment.paymentPreimage}`);
         await setInvoicePaid(payment.feeMsat);
@@ -834,9 +825,7 @@ class SwapNursery extends EventEmitter {
   private expireSwap = async (swap: Swap) =>  {
     // Check "expireReverseSwap" for reason
     const queriedSwap = await this.swapRepository.getSwap({
-      id: {
-        [Op.eq]: swap.id,
-      },
+      id: swap.id,
     });
 
     if (queriedSwap!.status === SwapUpdateEvent.SwapExpired) {
@@ -855,9 +844,7 @@ class SwapNursery extends EventEmitter {
     // nurseries, which are not in the async lock, send the expiration event of a Swap multiple times.
     // To handle this scenario, the Swap is queried again to ensure that it should actually be expired or refunded
     const queriedReverseSwap = await this.reverseSwapRepository.getReverseSwap({
-      id: {
-        [Op.eq]: reverseSwap.id,
-      },
+      id: reverseSwap.id,
     });
 
     if (queriedReverseSwap!.status === SwapUpdateEvent.SwapExpired || queriedReverseSwap!.status === SwapUpdateEvent.TransactionRefunded) {

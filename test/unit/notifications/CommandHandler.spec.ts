@@ -376,7 +376,6 @@ describe('CommandHandler', () => {
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(
-      // tslint:disable-next-line: prefer-template
       '\n\n**Pending Swaps:**\n\n' +
       `- \`${pendingSwapExample.id}\`\n\n` +
       '**Pending reverse Swaps:**\n\n' +

@@ -29,7 +29,7 @@ class EthereumTransactionTracker {
     const block = await this.provider.getBlockWithTransactions(blockNumber);
 
     for (const transaction of block.transactions) {
-      if (transaction.from === this.walletAddress) {
+      if (transaction.from.toLowerCase() === this.walletAddress) {
         const confirmedTransactions = await this.pendingEthereumTransactionRepository.findByNonce(
           BigNumber.from(transaction.nonce).toNumber(),
         );

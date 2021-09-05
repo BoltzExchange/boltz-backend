@@ -89,7 +89,7 @@ class Wallet {
         this.network,
       );
     } catch (error) {
-      if (error.toString().includes('OP_RETURN')) {
+      if ((error as any).toString().includes('OP_RETURN')) {
         return '';
       }
 

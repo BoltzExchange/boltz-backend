@@ -16,7 +16,6 @@ import { Payment, RouteHint } from '../proto/lnd/rpc_pb';
 import TimeoutDeltaProvider from './TimeoutDeltaProvider';
 import { Network } from '../wallet/ethereum/EthereumManager';
 import PairRepository from '../db/repositories/PairRepository';
-import { getGasPrice } from '../wallet/ethereum/EthereumUtils';
 import RateProvider, { PairType } from '../rates/RateProvider';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import ReferralRepository from '../db/repositories/ReferralRepository';
@@ -448,7 +447,8 @@ class Service {
       if (currency.chainClient) {
         return currency.chainClient.estimateFee(numBlocks);
       } else if (currency.provider) {
-        const gasPrice = await getGasPrice(currency.provider);
+        // TODO: also show EIP-1559 estimations
+        const gasPrice = await currency.provider.getGasPrice();
 
         return gasPrice.div(gweiDecimals).toNumber();
       } else {
@@ -991,7 +991,7 @@ class Service {
         prepayMinerFeeInvoiceAmount = Math.ceil(baseFee / rate);
         holdInvoiceAmount = Math.floor(holdInvoiceAmount - prepayMinerFeeInvoiceAmount);
       } else {
-        const gasPrice = await getGasPrice(sendingCurrency.provider!);
+        const gasPrice = await sendingCurrency.provider!.getGasPrice();
         prepayMinerFeeOnchainAmount = ethereumPrepayMinerFeeGasLimit.mul(gasPrice).div(etherDecimals).toNumber();
 
         const sendingAmountRate = sending === 'ETH' ? 1 : this.rateProvider.rateCalculator.calculateRate('ETH', sending);

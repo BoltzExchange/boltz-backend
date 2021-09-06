@@ -3,7 +3,7 @@ import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import Logger from '../../Logger';
 import { getHexString } from '../../Utils';
-import { getGasPrice } from './EthereumUtils';
+import { getGasPrices } from './EthereumUtils';
 import ERC20WalletProvider from '../providers/ERC20WalletProvider';
 import { ethereumPrepayMinerFeeGasLimit } from '../../consts/Consts';
 
@@ -29,7 +29,7 @@ class ContractHandler {
     this.logger.debug(`Locking ${amount} Ether with preimage hash: ${getHexString(preimageHash)}`);
     return this.etherSwap.lock(preimageHash, claimAddress, timeLock, {
       value: amount,
-      gasPrice: await getGasPrice(this.etherSwap.provider),
+      ...await getGasPrices(this.etherSwap.provider),
     });
   }
 
@@ -59,9 +59,9 @@ class ContractHandler {
       amountPrepay,
       {
         value: transactionValue,
-        gasPrice: await getGasPrice(this.etherSwap.provider),
         // TODO: integration test that tries to exploit the attack vector of using an insane amount of gas in the fallback function of the contract at the claim address
         gasLimit: gasLimitEstimationWithoutPrepay.add(ethereumPrepayMinerFeeGasLimit),
+        ...await getGasPrices(this.etherSwap.provider),
       },
     );
   }
@@ -79,7 +79,7 @@ class ContractHandler {
       refundAddress,
       timelock,
       {
-        gasPrice: await getGasPrice(this.etherSwap.provider),
+        ...await getGasPrices(this.etherSwap.provider),
       }
     );
   }
@@ -97,7 +97,7 @@ class ContractHandler {
       claimAddress,
       timelock,
       {
-        gasPrice: await getGasPrice(this.etherSwap.provider),
+        ...await getGasPrices(this.etherSwap.provider),
       }
     );
   }
@@ -117,7 +117,7 @@ class ContractHandler {
       claimAddress,
       timeLock,
       {
-        gasPrice: await getGasPrice(this.erc20Swap.provider),
+        ...await getGasPrices(this.etherSwap.provider),
       }
     );
   }
@@ -147,8 +147,8 @@ class ContractHandler {
       timeLock,
       {
         value: amountPrepay,
-        gasPrice: await getGasPrice(this.etherSwap.provider),
         gasLimit: gasLimitEstimationWithoutPrepay.add(ethereumPrepayMinerFeeGasLimit),
+        ...await getGasPrices(this.etherSwap.provider),
       },
     );
   }
@@ -168,8 +168,8 @@ class ContractHandler {
       refundAddress,
       timeLock,
       {
-        gasPrice: await getGasPrice(this.erc20Swap.provider),
-      }
+        ...await getGasPrices(this.etherSwap.provider),
+      },
     );
   }
 
@@ -188,8 +188,8 @@ class ContractHandler {
       claimAddress,
       timeLock,
       {
-        gasPrice: await getGasPrice(this.erc20Swap.provider),
-      }
+        ...await getGasPrices(this.etherSwap.provider),
+      },
     );
   }
 }

@@ -1,7 +1,7 @@
 import { BigNumber, Signer } from 'ethers';
 import Logger from '../../Logger';
 import { etherDecimals } from '../../consts/Consts';
-import { getGasPrice } from '../ethereum/EthereumUtils';
+import { getGasPrices } from '../ethereum/EthereumUtils';
 import WalletProviderInterface, { SentTransaction, WalletBalance } from './WalletProviderInterface';
 
 class EtherWalletProvider implements WalletProviderInterface {
@@ -29,11 +29,11 @@ class EtherWalletProvider implements WalletProviderInterface {
     };
   }
 
-  public sendToAddress = async (address: string, amount: number, gasPrice?: number): Promise<SentTransaction> => {
+  public sendToAddress = async (address: string, amount: number): Promise<SentTransaction> => {
     const transaction = await this.signer.sendTransaction({
       to: address,
       value: BigNumber.from(amount).mul(etherDecimals),
-      gasPrice: await getGasPrice(this.signer.provider!, gasPrice),
+      ...await getGasPrices(this.signer.provider!),
     });
 
     return {
@@ -41,18 +41,20 @@ class EtherWalletProvider implements WalletProviderInterface {
     };
   }
 
-  public sweepWallet = async (address: string, gasPrice?: number): Promise<SentTransaction> => {
+  public sweepWallet = async (address: string): Promise<SentTransaction> => {
     const balance = await this.signer.getBalance();
 
-    const actualGasPrice = await getGasPrice(this.signer.provider!, gasPrice);
-    const gasCost = this.ethTransferGas.mul(actualGasPrice);
+    const { type, maxPriorityFeePerGas, maxFeePerGas } = await getGasPrices(this.signer.provider!);
+    const gasCost = this.ethTransferGas.mul(await maxFeePerGas!);
 
     const value = balance.sub(gasCost);
 
     const transaction = await this.signer.sendTransaction({
+      type,
+      maxFeePerGas,
+      maxPriorityFeePerGas,
       value,
       to: address,
-      gasPrice: actualGasPrice,
       gasLimit: this.ethTransferGas,
     });
 

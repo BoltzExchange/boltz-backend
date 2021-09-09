@@ -71,14 +71,6 @@ describe('LndClient', () => {
     const serverHost = '127.0.0.1';
     const serverPort = await getPort();
 
-    /*const bindPort = server.bind(`${serverHost}:${serverPort}`, grpc.ServerCredentials.createSsl(null,
-      [{
-        cert_chain: readFileSync(`${lndDataPath}/certificates/tls.cert`),
-        private_key: readFileSync(`${lndDataPath}/certificates/tls.key`),
-      }],
-      false,
-    ));*/
-
     const bindPort = await new Promise((resolve) => {
       server.bindAsync(`${serverHost}:${serverPort}`, grpc.ServerCredentials.createSsl(null,
         [{

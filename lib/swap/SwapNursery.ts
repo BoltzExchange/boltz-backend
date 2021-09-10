@@ -724,7 +724,9 @@ class SwapNursery extends EventEmitter {
     const lightningCurrency = this.currencies.get(lightningSymbol)!;
 
     try {
-      const raceTimeout = LndClient.paymentTimeout * 2;
+      // Wait 15 seconds for a response
+      const raceTimeout = 15;
+
       const payResponse = await Promise.race([
         lightningCurrency.lndClient!.sendPayment(swap.invoice!, outgoingChannelId),
         new Promise<undefined>((resolve) => {

@@ -3,7 +3,6 @@ import { ERC20 } from 'boltz-core/typechain/ERC20';
 import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import { constants, Contract, utils, Wallet as EthersWallet } from 'ethers';
-import GasNow from './GasNow';
 import Errors from '../Errors';
 import Wallet from '../Wallet';
 import Logger from '../../Logger';
@@ -108,10 +107,6 @@ class EthereumManager {
       blockNumber: currentBlock,
     })}`);
 
-    await new GasNow(
-      this.logger,
-      await this.provider.getNetwork(),
-    ).init();
     const transactionTracker = await new EthereumTransactionTracker(
       this.logger,
       this.provider,

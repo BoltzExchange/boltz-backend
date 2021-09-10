@@ -104,7 +104,7 @@ class WalletManager {
           await walletProvider.getBalance();
         } catch (error) {
           // No wallet support is compiled in
-          if (error.message === 'Method not found') {
+          if ((error as any).message === 'Method not found') {
             throw Errors.NO_WALLET_SUPPORT(currency.symbol);
           } else {
             throw error;

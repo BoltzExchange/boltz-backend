@@ -1,4 +1,3 @@
-import { Op } from 'sequelize';
 import Pair, { PairType } from '../models/Pair';
 
 class PairRepository {
@@ -13,9 +12,7 @@ class PairRepository {
   public removePair = (id: string): Promise<number> => {
     return Pair.destroy({
       where: {
-        id: {
-          [Op.eq]: id,
-        },
+        id,
       },
     });
   }

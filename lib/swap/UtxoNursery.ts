@@ -52,6 +52,7 @@ class UtxoNursery extends EventEmitter {
   // Locks
   private lock = new AsyncLock();
 
+  private static swapLockupLock = 'swapLockupLock';
   private static reverseSwapLockupConfirmationLock = 'reverseSwapLockupConfirmation';
 
   constructor(
@@ -86,87 +87,29 @@ class UtxoNursery extends EventEmitter {
   }
 
   private checkSwapOutputs = async (chainClient: ChainClient, wallet: Wallet, transaction: Transaction, confirmed: boolean) => {
-    for (let vout = 0; vout < transaction.outs.length; vout += 1) {
-      const output = transaction.outs[vout];
+    await this.lock.acquire(UtxoNursery.swapLockupLock, async () => {
+      for (let vout = 0; vout < transaction.outs.length; vout += 1) {
+        const output = transaction.outs[vout];
 
-      let swap = await this.swapRepository.getSwap({
-        status: {
-          [Op.or]: [
-            SwapUpdateEvent.SwapCreated,
-            SwapUpdateEvent.InvoiceSet,
-            SwapUpdateEvent.TransactionMempool,
-            SwapUpdateEvent.TransactionZeroConfRejected,
-          ],
-        },
-        lockupAddress: {
-          [Op.eq]: wallet.encodeAddress(output.script),
+        const swap = await this.swapRepository.getSwap({
+          status: {
+            [Op.or]: [
+              SwapUpdateEvent.SwapCreated,
+              SwapUpdateEvent.InvoiceSet,
+              SwapUpdateEvent.TransactionMempool,
+              SwapUpdateEvent.TransactionZeroConfRejected,
+            ],
+          },
+          lockupAddress: wallet.encodeAddress(output.script),
+        });
+
+        if (!swap) {
+          continue;
         }
-      });
 
-      if (!swap) {
-        continue;
+        await this.checkSwapTransaction(swap, chainClient, transaction, confirmed);
       }
-
-      this.logger.verbose(`Found ${confirmed ? '' : 'un'}confirmed lockup transaction for Swap ${swap.id}: ${transaction.getId()}`);
-
-      const swapOutput = detectSwap(getHexBuffer(swap.redeemScript!), transaction)!;
-
-      swap = await this.swapRepository.setLockupTransaction(
-        swap,
-        transaction.getId(),
-        output.value,
-        confirmed,
-        swapOutput.vout,
-      );
-
-      if (swap.expectedAmount) {
-        if (swap.expectedAmount > swapOutput.value) {
-          chainClient.removeOutputFilter(swapOutput.script);
-          this.emit('swap.lockup.failed', swap, Errors.INSUFFICIENT_AMOUNT(swapOutput.value, swap.expectedAmount).message);
-
-          continue;
-        }
-      }
-
-      // Confirmed transactions do not have to be checked for 0-conf criteria
-      if (!confirmed) {
-        if (swap.acceptZeroConf !== true) {
-          this.emit('swap.lockup.zeroconf.rejected', swap, transaction, Errors.SWAP_DOES_NOT_ACCEPT_ZERO_CONF().message);
-          continue;
-        }
-
-        const signalsRBF = await this.transactionSignalsRbf(chainClient, transaction);
-
-        if (signalsRBF) {
-          this.emit('swap.lockup.zeroconf.rejected', swap, transaction, Errors.LOCKUP_TRANSACTION_SIGNALS_RBF().message);
-          continue;
-        }
-
-        // Check if the transaction has a fee high enough to be confirmed in a timely manner
-        const feeEstimation = await chainClient.estimateFee();
-
-        const absoluteTransactionFee = await calculateUtxoTransactionFee(chainClient, transaction);
-        const transactionFeePerVbyte = absoluteTransactionFee / transaction.virtualSize();
-
-        // If the transaction fee is less than 80% of the estimation, Boltz will wait for a confirmation
-        //
-        // Special case: if the fee estimation is the lowest possible of 2 sat/vbyte,
-        // every fee paid by the transaction will be accepted
-        if (
-          transactionFeePerVbyte / feeEstimation < 0.8 &&
-          feeEstimation !== 2
-        ) {
-          this.emit('swap.lockup.zeroconf.rejected', swap, transaction, Errors.LOCKUP_TRANSACTION_FEE_TOO_LOW().message);
-          continue;
-        }
-
-        this.logger.debug(`Accepted 0-conf lockup transaction for Swap ${swap.id}: ${transaction.getId()}`);
-      }
-
-      chainClient.removeOutputFilter(swapOutput.script);
-
-      this.emit('swap.lockup', swap, transaction, confirmed);
-    }
+    });
   }
 
   private checkReverseSwapClaims = async (chainClient: ChainClient, transaction: Transaction) => {
@@ -180,12 +123,8 @@ class UtxoNursery extends EventEmitter {
             SwapUpdateEvent.TransactionConfirmed,
           ],
         },
-        transactionId: {
-          [Op.eq]: transactionHashToId(input.hash),
-        },
-        transactionVout: {
-          [Op.eq]: input.index,
-        },
+        transactionId: transactionHashToId(input.hash),
+        transactionVout: input.index,
       });
 
       if (!reverseSwap) {
@@ -206,12 +145,8 @@ class UtxoNursery extends EventEmitter {
       }
 
       const reverseSwap = await this.reverseSwapRepository.getReverseSwap({
-        status: {
-          [Op.eq]: SwapUpdateEvent.TransactionMempool,
-        },
-        transactionId: {
-          [Op.eq]: transaction.getId(),
-        },
+        status: SwapUpdateEvent.TransactionMempool,
+        transactionId: transaction.getId(),
       });
 
       if (reverseSwap) {
@@ -223,6 +158,7 @@ class UtxoNursery extends EventEmitter {
   private listenBlocks = (chainClient: ChainClient, wallet: Wallet) => {
     chainClient.on('block', async (height) => {
       await Promise.all([
+        this.checkSwapMempoolTransactions(chainClient),
         this.checkReverseSwapMempoolTransactions(chainClient, wallet),
 
         this.checkExpiredSwaps(chainClient, height),
@@ -231,16 +167,49 @@ class UtxoNursery extends EventEmitter {
     });
   }
 
+  private checkSwapMempoolTransactions = async (chainClient: ChainClient) => {
+    await this.lock.acquire(UtxoNursery.swapLockupLock, async () => {
+      const mempoolSwaps = await this.swapRepository.getSwaps({
+        status: {
+          [Op.or]: [
+            SwapUpdateEvent.TransactionMempool,
+            SwapUpdateEvent.TransactionZeroConfRejected,
+          ],
+        },
+      });
+
+      for (const swap of mempoolSwaps) {
+        const { base, quote } = splitPairId(swap.pair);
+        const chainCurrency = getChainCurrency(base, quote, swap.orderSide, false);
+
+        if (chainCurrency !== chainClient.symbol) {
+          continue;
+        }
+
+        const lockupTransaction = await chainClient.getRawTransactionVerbose(swap.lockupTransactionId!);
+
+        if (lockupTransaction.confirmations && lockupTransaction.confirmations !== 0) {
+          await this.checkSwapTransaction(swap, chainClient, Transaction.fromHex(lockupTransaction.hex), true);
+        }
+      }
+    });
+  }
+
   // This method is a fallback for "checkReverseSwapLockupsConfirmed" because that method sometimes misses transactions on mainnet for an unknown reason
   private checkReverseSwapMempoolTransactions = async (chainClient: ChainClient, wallet: Wallet) => {
     await this.lock.acquire(UtxoNursery.reverseSwapLockupConfirmationLock, async () => {
       const mempoolReverseSwaps = await this.reverseSwapRepository.getReverseSwaps({
-        status: {
-          [Op.eq]: SwapUpdateEvent.TransactionMempool,
-        },
+        status: SwapUpdateEvent.TransactionMempool,
       });
 
       for (const reverseSwap of mempoolReverseSwaps) {
+        const { base, quote } = splitPairId(reverseSwap.pair);
+        const chainCurrency = getChainCurrency(base, quote, reverseSwap.orderSide, true);
+
+        if (chainCurrency !== chainClient.symbol) {
+          continue;
+        }
+
         const transaction = await chainClient.getRawTransactionVerbose(reverseSwap.transactionId!);
 
         if (transaction.confirmations && transaction.confirmations !== 0) {
@@ -296,6 +265,68 @@ class UtxoNursery extends EventEmitter {
       await this.reverseSwapRepository.setReverseSwapStatus(reverseSwap, SwapUpdateEvent.TransactionConfirmed),
       transaction,
     );
+  }
+
+  private checkSwapTransaction = async (swap: Swap, chainClient: ChainClient, transaction: Transaction, confirmed: boolean) => {
+    this.logger.verbose(`Found ${confirmed ? '' : 'un'}confirmed lockup transaction for Swap ${swap.id}: ${transaction.getId()}`);
+
+    const swapOutput = detectSwap(getHexBuffer(swap.redeemScript!), transaction)!;
+
+    const updatedSwap = await this.swapRepository.setLockupTransaction(
+      swap,
+      transaction.getId(),
+      swapOutput.value,
+      confirmed,
+      swapOutput.vout,
+    );
+
+    if (updatedSwap.expectedAmount) {
+      if (updatedSwap.expectedAmount > swapOutput.value) {
+        chainClient.removeOutputFilter(swapOutput.script);
+        this.emit('swap.lockup.failed', updatedSwap, Errors.INSUFFICIENT_AMOUNT(swapOutput.value, updatedSwap.expectedAmount).message);
+
+        return;
+      }
+    }
+
+    // Confirmed transactions do not have to be checked for 0-conf criteria
+    if (!confirmed) {
+      if (updatedSwap.acceptZeroConf !== true) {
+        this.emit('swap.lockup.zeroconf.rejected', updatedSwap, transaction, Errors.SWAP_DOES_NOT_ACCEPT_ZERO_CONF().message);
+        return;
+      }
+
+      const signalsRBF = await this.transactionSignalsRbf(chainClient, transaction);
+
+      if (signalsRBF) {
+        this.emit('swap.lockup.zeroconf.rejected', updatedSwap, transaction, Errors.LOCKUP_TRANSACTION_SIGNALS_RBF().message);
+        return;
+      }
+
+      // Check if the transaction has a fee high enough to be confirmed in a timely manner
+      const feeEstimation = await chainClient.estimateFee();
+
+      const absoluteTransactionFee = await calculateUtxoTransactionFee(chainClient, transaction);
+      const transactionFeePerVbyte = absoluteTransactionFee / transaction.virtualSize();
+
+      // If the transaction fee is less than 80% of the estimation, Boltz will wait for a confirmation
+      //
+      // Special case: if the fee estimation is the lowest possible of 2 sat/vbyte,
+      // every fee paid by the transaction will be accepted
+      if (
+        transactionFeePerVbyte / feeEstimation < 0.8 &&
+        feeEstimation !== 2
+      ) {
+        this.emit('swap.lockup.zeroconf.rejected', updatedSwap, transaction, Errors.LOCKUP_TRANSACTION_FEE_TOO_LOW().message);
+        return;
+      }
+
+      this.logger.debug(`Accepted 0-conf lockup transaction for Swap ${updatedSwap.id}: ${transaction.getId()}`);
+    }
+
+    chainClient.removeOutputFilter(swapOutput.script);
+
+    this.emit('swap.lockup', updatedSwap, transaction, confirmed);
   }
 
   /**

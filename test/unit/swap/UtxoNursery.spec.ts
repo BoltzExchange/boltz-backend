@@ -1,6 +1,6 @@
 import { Op } from 'sequelize';
 import { Networks } from 'boltz-core';
-import { Transaction, address } from 'bitcoinjs-lib';
+import { address, Transaction } from 'bitcoinjs-lib';
 import Logger from '../../../lib/Logger';
 import Errors from '../../../lib/swap/Errors';
 import Wallet from '../../../lib/wallet/Wallet';
@@ -97,6 +97,11 @@ const mockGetSwap = jest.fn().mockImplementation(async () => {
   return mockGetSwapResult;
 });
 
+let mockGetSwapsResult: any[] = [];
+const mockGetSwaps = jest.fn().mockImplementation(async () => {
+  return mockGetSwapsResult;
+});
+
 let mockGetSwapsExpirableResult: any[] = [];
 const mockGetSwapsExpirable = jest.fn().mockImplementation(async () => {
   return mockGetSwapsExpirableResult;
@@ -107,6 +112,7 @@ const mockSetLockupTransaction = jest.fn().mockImplementation(async (arg) => arg
 jest.mock('../../../lib/db/repositories/SwapRepository', () => {
   return jest.fn().mockImplementation(() => ({
     getSwap: mockGetSwap,
+    getSwaps: mockGetSwaps,
     getSwapsExpirable: mockGetSwapsExpirable,
     setLockupTransaction: mockSetLockupTransaction,
   }));
@@ -177,7 +183,7 @@ describe('UtxoNursery', () => {
     expect(mockOnChainClient).toHaveBeenCalledWith('transaction', expect.anything());
   });
 
-  test('should handle confirmed Swap outputs', async () => {
+  test('should handle confirmed Swap outputs via transaction events', async () => {
     const checkSwapOutputs = nursery['checkSwapOutputs'];
 
     const transaction = Transaction.fromHex(sampleTransactions.lockup);
@@ -204,6 +210,7 @@ describe('UtxoNursery', () => {
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockGetSwap).toHaveBeenCalledWith({
+      lockupAddress: encodeAddress(transaction.outs[0].script),
       status: {
         [Op.or]: [
           SwapUpdateEvent.SwapCreated,
@@ -212,9 +219,6 @@ describe('UtxoNursery', () => {
           SwapUpdateEvent.TransactionZeroConfRejected,
         ],
       },
-      lockupAddress: {
-        [Op.eq]: encodeAddress(transaction.outs[0].script),
-      }
     });
 
     expect(mockEncodeAddress).toHaveBeenCalledTimes(1);
@@ -267,6 +271,61 @@ describe('UtxoNursery', () => {
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockEncodeAddress).toHaveBeenCalledTimes(1);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(0);
+  });
+
+  test('should handle confirmed Swap outputs via block events', async () => {
+    const realCheckSwapTransaction = nursery['checkSwapTransaction'];
+    const injectedCheckSwapTransaction = jest.fn().mockResolvedValue(undefined);
+
+    nursery['checkSwapTransaction'] = injectedCheckSwapTransaction;
+
+    mockGetRawTransactionVerboseResult = (txId: string) => {
+      const result: any = {
+        hex: sampleTransactions.lockup
+      };
+
+      if (txId !== 'notConfirmed') {
+        result.confirmations = 1;
+      }
+
+      return result;
+    };
+
+    mockGetSwapsResult = [
+      {
+        pair: 'not/bitcoin',
+      },
+      {
+        pair: 'BTC/BTC',
+      },
+      {
+        pair: 'BTC/BTC',
+        lockupTransactionId: 'notConfirmed',
+      },
+    ];
+
+    await emitBlock(1);
+
+    expect(mockGetSwaps).toHaveBeenCalledTimes(1);
+    expect(mockGetSwaps).toHaveBeenCalledWith({
+      status: {
+        [Op.or]: [
+          SwapUpdateEvent.TransactionMempool,
+          SwapUpdateEvent.TransactionZeroConfRejected,
+        ],
+      },
+    });
+
+    expect(injectedCheckSwapTransaction).toHaveBeenCalledTimes(1);
+    expect(injectedCheckSwapTransaction).toHaveBeenCalledWith(
+      mockGetSwapsResult[1],
+      btcChainClient,
+      Transaction.fromHex(sampleTransactions.lockup),
+      true,
+    );
+
+    mockGetSwapsResult = [];
+    nursery['checkSwapTransaction'] = realCheckSwapTransaction;
   });
 
   test('should handle unconfirmed Swap outputs', async () => {
@@ -413,12 +472,8 @@ describe('UtxoNursery', () => {
           SwapUpdateEvent.TransactionConfirmed,
         ],
       },
-      transactionId: {
-        [Op.eq]: transactionHashToId(transaction.ins[0].hash),
-      },
-      transactionVout: {
-        [Op.eq]: transaction.ins[0].index,
-      },
+      transactionVout: transaction.ins[0].index,
+      transactionId: transactionHashToId(transaction.ins[0].hash),
     });
 
     expect(mockRemoveInputFilter).toHaveBeenCalledTimes(1);
@@ -465,12 +520,8 @@ describe('UtxoNursery', () => {
 
     expect(mockGetReverseSwap).toHaveBeenCalledTimes(1);
     expect(mockGetReverseSwap).toHaveBeenCalledWith({
-      status: {
-        [Op.eq]: SwapUpdateEvent.TransactionMempool,
-      },
-      transactionId: {
-        [Op.eq]: transaction.getId(),
-      },
+      status: SwapUpdateEvent.TransactionMempool,
+      transactionId: transaction.getId(),
     });
 
     expect(mockRemoveOutputFilter).toHaveBeenCalledTimes(1);
@@ -512,11 +563,13 @@ describe('UtxoNursery', () => {
       // The transaction of this Reverse Swap is still in the mempool
       {
         id: 'mempool',
+        pair: 'BTC/BTC',
         lockupAddress: 'bc1ql279ggjjsy40nr2acmlmtcc95sexg8ty92pth5',
         transactionId: Transaction.fromHex(sampleTransactions.rbf).getId(),
       },
       // This ones transaction was confirmed but the transaction event was not properly emitted for it
       {
+        pair: 'BTC/BTC',
         id: 'nonMempool',
         lockupAddress: '3CxjzKKkxSa1eCRegA1KNS7KjXu1Hjhoqg',
         transactionId: Transaction.fromHex(sampleTransactions.nonRbf).getId(),
@@ -549,9 +602,7 @@ describe('UtxoNursery', () => {
 
     expect(mockGetReverseSwaps).toHaveBeenCalledTimes(1);
     expect(mockGetReverseSwaps).toHaveBeenCalledWith({
-      status: {
-        [Op.eq]: SwapUpdateEvent.TransactionMempool,
-      },
+      status: SwapUpdateEvent.TransactionMempool,
     });
 
     expect(mockGetRawTransactionVerbose).toHaveBeenCalledTimes(2);

@@ -87,8 +87,6 @@ type ApiConfig = {
 type GrpcConfig = {
   host: string,
   port: number,
-  certpath: string,
-  keypath: string,
 };
 
 type RatesConfig = {
@@ -151,9 +149,6 @@ class Config {
   public static defaultLogPath = 'boltz.log';
   public static defaultDbPath = 'boltz.db';
 
-  public static defaultGrpcCertPath = 'tls.cert';
-  public static defaultGrpcKeyPath = 'tls.key';
-
   public static defaultPrivatekeyPath = 'backupPrivatekey.pem';
 
   public static defaultOtpSecretPath = 'otpSecret.dat';
@@ -168,7 +163,6 @@ class Config {
     this.dataDir = getServiceDataDir('boltz');
 
     const {
-      grpc,
       dbpath,
       backup,
       logpath,
@@ -199,8 +193,6 @@ class Config {
       grpc: {
         host: '127.0.0.1',
         port: 9000,
-        certpath: grpc.certpath,
-        keypath: grpc.keypath,
       },
 
       rates: {
@@ -401,11 +393,6 @@ class Config {
       mnemonicpath: path.join(dataDir, Config.defaultMnemonicPath),
       dbpath: path.join(dataDir, Config.defaultDbPath),
       logpath: path.join(dataDir, Config.defaultLogPath),
-
-      grpc: {
-        certpath: path.join(dataDir, Config.defaultGrpcCertPath),
-        keypath: path.join(dataDir, Config.defaultGrpcKeyPath),
-      },
 
       backup: {
         privatekeypath: path.join(dataDir, Config.defaultPrivatekeyPath),

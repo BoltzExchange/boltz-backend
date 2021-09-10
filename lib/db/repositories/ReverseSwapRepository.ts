@@ -13,7 +13,7 @@ class ReverseSwapRepository {
     return ReverseSwap.findAll({
       where: {
         status: {
-          [Op.not]: [
+          [Op.notIn]: [
             SwapUpdateEvent.SwapExpired,
             SwapUpdateEvent.TransactionFailed,
             SwapUpdateEvent.TransactionRefunded,

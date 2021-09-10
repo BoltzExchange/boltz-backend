@@ -67,9 +67,7 @@ class EthereumNursery extends EventEmitter {
   public init = async (): Promise<void> => {
     // Fetch all Reverse Swaps with a pending lockup transaction
     const mempoolReverseSwaps = await this.reverseSwapRepository.getReverseSwaps({
-      status: {
-        [Op.eq]: SwapUpdateEvent.TransactionMempool,
-      },
+      status: SwapUpdateEvent.TransactionMempool,
     });
 
     for (const mempoolReverseSwap of mempoolReverseSwaps) {
@@ -114,9 +112,7 @@ class EthereumNursery extends EventEmitter {
       etherSwapValues,
     ) => {
       let swap = await this.swapRepository.getSwap({
-        preimageHash: {
-          [Op.eq]: getHexString(etherSwapValues.preimageHash),
-        },
+        preimageHash: getHexString(etherSwapValues.preimageHash),
         status: {
           [Op.or]: [
             SwapUpdateEvent.SwapCreated,
@@ -181,9 +177,7 @@ class EthereumNursery extends EventEmitter {
 
     this.ethereumManager.contractEventHandler.on('eth.claim', async (transactionHash, preimageHash, preimage) => {
       const reverseSwap = await this.reverseSwapRepository.getReverseSwap({
-        preimageHash: {
-          [Op.eq]: getHexString(preimageHash),
-        },
+        preimageHash: getHexString(preimageHash),
         status: {
           [Op.not]: SwapUpdateEvent.InvoiceSettled,
         },
@@ -205,9 +199,7 @@ class EthereumNursery extends EventEmitter {
       erc20SwapValues,
     ) => {
       let swap = await this.swapRepository.getSwap({
-        preimageHash: {
-          [Op.eq]: getHexString(erc20SwapValues.preimageHash),
-        },
+        preimageHash: getHexString(erc20SwapValues.preimageHash),
         status: {
           [Op.or]: [
             SwapUpdateEvent.SwapCreated,
@@ -283,9 +275,7 @@ class EthereumNursery extends EventEmitter {
 
     this.ethereumManager.contractEventHandler.on('erc20.claim', async (transactionHash, preimageHash, preimage) => {
       const reverseSwap = await this.reverseSwapRepository.getReverseSwap({
-        preimageHash: {
-          [Op.eq]: getHexString(preimageHash),
-        },
+        preimageHash: getHexString(preimageHash),
         status: {
           [Op.not]: SwapUpdateEvent.InvoiceSettled,
         },

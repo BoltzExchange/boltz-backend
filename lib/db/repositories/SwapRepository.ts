@@ -13,7 +13,7 @@ class SwapRepository {
     return Swap.findAll({
       where: {
         status: {
-          [Op.not]: [
+          [Op.notIn]: [
             SwapUpdateEvent.SwapExpired,
             SwapUpdateEvent.InvoiceFailedToPay,
             SwapUpdateEvent.TransactionClaimed,

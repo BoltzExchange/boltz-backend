@@ -71,19 +71,13 @@ class ChannelNursery extends EventEmitter {
       currency.lndClient.on('peer.online', async (nodePublicKey: string) => {
         await this.lock.acquire(ChannelNursery.channelCreationLock, async () => {
           const channelCreations = await this.channelCreationRepository.getChannelCreations({
-            status: {
-              [Op.eq]: ChannelCreationStatus.Attempted,
-            },
-            nodePublicKey: {
-              [Op.eq]: nodePublicKey,
-            },
+            nodePublicKey,
+            status: ChannelCreationStatus.Attempted,
           });
 
           for (const channelCreation of channelCreations) {
             const swap = await this.swapRepository.getSwap({
-              id: {
-                [Op.eq]: channelCreation.swapId,
-              },
+              id: channelCreation.swapId,
               status: {
                 [Op.not]: SwapUpdateEvent.SwapExpired,
               },
@@ -103,15 +97,9 @@ class ChannelNursery extends EventEmitter {
         const fundingTransactionId = this.parseFundingTransactionId(channelPoint.fundingTxidBytes);
 
         const channelCreation = await this.channelCreationRepository.getChannelCreation({
-          status: {
-            [Op.eq]: ChannelCreationStatus.Created,
-          },
-          fundingTransactionId: {
-            [Op.eq]: fundingTransactionId,
-          },
-          fundingTransactionVout: {
-            [Op.eq]: channelPoint.outputIndex,
-          },
+          fundingTransactionId,
+          status: ChannelCreationStatus.Created,
+          fundingTransactionVout: channelPoint.outputIndex,
         });
 
         if (!channelCreation) {
@@ -119,9 +107,7 @@ class ChannelNursery extends EventEmitter {
         }
 
         const swap = await this.swapRepository.getSwap({
-          id: {
-            [Op.eq]: channelCreation.swapId,
-          },
+          id: channelCreation.swapId,
           status: {
             [Op.not]: SwapUpdateEvent.TransactionClaimed,
           },
@@ -227,16 +213,12 @@ class ChannelNursery extends EventEmitter {
   private retryOpeningChannels = async () => {
     await this.lock.acquire(ChannelNursery.channelCreationLock, async () => {
       const channelsToOpen = await this.channelCreationRepository.getChannelCreations({
-        status: {
-          [Op.eq]: ChannelCreationStatus.Attempted,
-        },
+        status: ChannelCreationStatus.Attempted,
       });
 
       for (const channelToOpen of channelsToOpen) {
         const swap = await this.swapRepository.getSwap({
-          id: {
-            [Op.eq]: channelToOpen.swapId,
-          },
+          id: channelToOpen.swapId,
           status: {
             [Op.not]: SwapUpdateEvent.SwapExpired,
           },
@@ -333,16 +315,12 @@ class ChannelNursery extends EventEmitter {
 
   private settleCreatedChannels = async () => {
     const unsettledChannels = await this.channelCreationRepository.getChannelCreations({
-      status: {
-        [Op.eq]: ChannelCreationStatus.Created,
-      },
+      status: ChannelCreationStatus.Created,
     });
 
     for (const unsettledChannel of unsettledChannels) {
       const swap = await this.swapRepository.getSwap({
-        id: {
-          [Op.eq]: unsettledChannel.swapId,
-        },
+        id: unsettledChannel.swapId,
         status: {
           [Op.not]: SwapUpdateEvent.TransactionClaimed,
         },

@@ -226,9 +226,7 @@ describe('EthereumNursery', () => {
 
     expect(mockGetReverseSwaps).toHaveBeenCalledTimes(1);
     expect(mockGetReverseSwaps).toHaveBeenCalledWith({
-      status: {
-        [Op.eq]: SwapUpdateEvent.TransactionMempool,
-      },
+      status: SwapUpdateEvent.TransactionMempool,
     });
 
     expect(mockGetTransaction).toHaveBeenCalledTimes(1);
@@ -321,9 +319,7 @@ describe('EthereumNursery', () => {
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockGetSwap).toHaveBeenCalledWith({
-      preimageHash: {
-        [Op.eq]: getHexString(examplePreimageHash),
-      },
+      preimageHash: getHexString(examplePreimageHash),
       status: {
         [Op.or]: [
           SwapUpdateEvent.SwapCreated,
@@ -465,9 +461,7 @@ describe('EthereumNursery', () => {
 
     expect(mockGetReverseSwap).toHaveBeenCalledTimes(1);
     expect(mockGetReverseSwap).toHaveBeenCalledWith({
-      preimageHash: {
-        [Op.eq]: getHexString(examplePreimageHash)
-      },
+      preimageHash: getHexString(examplePreimageHash),
       status: {
         [Op.not]: SwapUpdateEvent.InvoiceSettled,
       },
@@ -515,9 +509,7 @@ describe('EthereumNursery', () => {
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockGetSwap).toHaveBeenCalledWith({
-      preimageHash: {
-        [Op.eq]: getHexString(examplePreimageHash),
-      },
+      preimageHash: getHexString(examplePreimageHash),
       status: {
         [Op.or]: [
           SwapUpdateEvent.SwapCreated,
@@ -689,9 +681,7 @@ describe('EthereumNursery', () => {
 
     expect(mockGetReverseSwap).toHaveBeenCalledTimes(1);
     expect(mockGetReverseSwap).toHaveBeenCalledWith({
-      preimageHash: {
-        [Op.eq]: getHexString(examplePreimageHash)
-      },
+      preimageHash: getHexString(examplePreimageHash),
       status: {
         [Op.not]: SwapUpdateEvent.InvoiceSettled,
       },

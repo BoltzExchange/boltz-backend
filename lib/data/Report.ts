@@ -44,14 +44,10 @@ class Report {
 
     const [swaps, reverseSwaps] = await Promise.all([
       swapRepository.getSwaps({
-        status: {
-          [Op.eq]: SwapUpdateEvent.TransactionClaimed,
-        },
+        status: SwapUpdateEvent.TransactionClaimed,
       }),
       reverseSwapRepository.getReverseSwaps({
-        status: {
-          [Op.eq]: SwapUpdateEvent.InvoiceSettled,
-        },
+        status: SwapUpdateEvent.InvoiceSettled,
       }),
     ]);
 

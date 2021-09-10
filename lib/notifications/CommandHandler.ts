@@ -224,16 +224,12 @@ class CommandHandler {
     const id = args[0];
 
     const swap = await this.service.swapManager.swapRepository.getSwap({
-      id: {
-        [Op.eq]: id,
-      },
+      id,
     });
 
     if (swap) {
       const channelCreation = await this.service.swapManager.channelCreationRepository.getChannelCreation({
-        swapId: {
-          [Op.eq]: id,
-        },
+        swapId: id,
       });
 
       await this.sendSwapInfo(swap, false, channelCreation);
@@ -241,9 +237,7 @@ class CommandHandler {
     } else {
       // Query for a reverse swap because there was no normal one found with the specified id
       const reverseSwap = await this.service.swapManager.reverseSwapRepository.getReverseSwap({
-        id: {
-          [Op.eq]: id,
-        },
+        id,
       });
 
       if (reverseSwap) {
@@ -332,7 +326,7 @@ class CommandHandler {
     const [pendingSwaps, pendingReverseSwaps] = await Promise.all([
       this.service.swapManager.swapRepository.getSwaps({
         status: {
-          [Op.not]: [
+          [Op.notIn]: [
             SwapUpdateEvent.SwapExpired,
             SwapUpdateEvent.InvoiceFailedToPay,
             SwapUpdateEvent.TransactionClaimed,
@@ -341,7 +335,7 @@ class CommandHandler {
       }),
       this.service.swapManager.reverseSwapRepository.getReverseSwaps({
         status: {
-          [Op.not]: [
+          [Op.notIn]: [
             SwapUpdateEvent.SwapExpired,
             SwapUpdateEvent.InvoiceSettled,
             SwapUpdateEvent.TransactionFailed,

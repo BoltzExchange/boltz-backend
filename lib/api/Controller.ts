@@ -1,4 +1,3 @@
-import { Op } from 'sequelize';
 import { Request, Response } from 'express';
 import Errors from './Errors';
 import Logger from '../Logger';
@@ -49,9 +48,7 @@ class Controller {
       switch (status) {
         case SwapUpdateEvent.ChannelCreated: {
           const channelCreation = await this.service.swapManager.channelCreationRepository.getChannelCreation({
-            swapId: {
-              [Op.eq]: swap.id,
-            },
+            swapId: swap.id,
           });
 
           this.pendingSwapInfos.set(swap.id, {
@@ -101,7 +98,7 @@ class Controller {
           } catch (error) {
             // If the transaction can't be queried with the service it's either a transaction on the Ethereum network,
             // or something is terribly wrong
-            if (error.message !== ServiceErrors.NOT_SUPPORTED_BY_SYMBOL(chainCurrency).message) {
+            if ((error as any).message !== ServiceErrors.NOT_SUPPORTED_BY_SYMBOL(chainCurrency).message) {
               throw error;
             }
 

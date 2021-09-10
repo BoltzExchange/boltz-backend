@@ -1,4 +1,3 @@
-import { Op } from 'sequelize';
 import ChainTip from '../models/ChainTip';
 
 class ChainTipRepository {
@@ -9,9 +8,7 @@ class ChainTipRepository {
   public findOrCreateTip = async (symbol: string, height: number): Promise<ChainTip> => {
     const [chainTip] = await ChainTip.findOrCreate({
       where: {
-        symbol: {
-          [Op.eq]: symbol,
-        }
+        symbol,
       },
       defaults: {
         symbol,

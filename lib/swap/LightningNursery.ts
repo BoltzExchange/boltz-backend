@@ -38,14 +38,10 @@ class LightningNursery extends EventEmitter {
       let reverseSwap = await this.reverseSwapRepository.getReverseSwap({
         [Op.or]: [
           {
-            invoice: {
-              [Op.eq]: invoice,
-            },
+            invoice,
           },
           {
-            minerFeeInvoice: {
-              [Op.eq]: invoice,
-            },
+            minerFeeInvoice: invoice,
           },
         ],
       });

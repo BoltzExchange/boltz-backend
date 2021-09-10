@@ -91,7 +91,7 @@ class SwapManager {
     const [pendingSwaps, pendingReverseSwaps] = await Promise.all([
       this.swapRepository.getSwaps({
         status: {
-          [Op.not]: [
+          [Op.notIn]: [
             SwapUpdateEvent.SwapExpired,
             SwapUpdateEvent.InvoicePending,
             SwapUpdateEvent.InvoiceFailedToPay,
@@ -101,7 +101,7 @@ class SwapManager {
       }),
       this.reverseSwapRepository.getReverseSwaps({
         status: {
-          [Op.not]: [
+          [Op.notIn]: [
             SwapUpdateEvent.SwapExpired,
             SwapUpdateEvent.InvoiceSettled,
             SwapUpdateEvent.TransactionFailed,
@@ -297,9 +297,7 @@ class SwapManager {
     }
 
     const channelCreation = await this.channelCreationRepository.getChannelCreation({
-      swapId: {
-        [Op.eq]: swap.id,
-      },
+      swapId: swap.id,
     });
 
     if (channelCreation) {
@@ -620,7 +618,16 @@ class SwapManager {
       // Check whether the the receiving side supports MPP and if so,
       // query a route for the number of sats of the invoice divided
       // by the max payment parts we tell to LND to use
-      const amountToQuery = decodedInvoice.featuresMap['17']?.is_known ?
+      let supportsMpp = false;
+
+      for (const [, feature] of decodedInvoice.featuresMap) {
+        if (feature.name === 'multi-path-payments' && feature.isKnown) {
+          supportsMpp = true;
+          break;
+        }
+      }
+
+      const amountToQuery = supportsMpp ?
         Math.round(decodedInvoice.numSatoshis / LndClient.paymentMaxParts) :
         decodedInvoice.numSatoshis;
 

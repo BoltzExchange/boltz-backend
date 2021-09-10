@@ -1,7 +1,7 @@
 import { BigNumber, Signer } from 'ethers';
 import Logger from '../../Logger';
 import { Token } from '../../consts/Types';
-import { getGasPrice } from '../ethereum/EthereumUtils';
+import { getGasPrices } from '../ethereum/EthereumUtils';
 import WalletProviderInterface, { SentTransaction, WalletBalance } from './WalletProviderInterface';
 
 class ERC20WalletProvider implements WalletProviderInterface {
@@ -33,10 +33,10 @@ class ERC20WalletProvider implements WalletProviderInterface {
     };
   }
 
-  public sendToAddress = async (address: string, amount: number, gasPrice?: number): Promise<SentTransaction> => {
+  public sendToAddress = async (address: string, amount: number): Promise<SentTransaction> => {
     const actualAmount = this.formatTokenAmount(amount);
     const transaction = await this.token.contract.transfer(address, actualAmount, {
-      gasPrice: await getGasPrice(this.signer.provider!, gasPrice),
+      ...await getGasPrices(this.signer.provider!),
     });
 
     return {
@@ -44,10 +44,10 @@ class ERC20WalletProvider implements WalletProviderInterface {
     };
   }
 
-  public sweepWallet = async (address: string, gasPrice?: number): Promise<SentTransaction> => {
+  public sweepWallet = async (address: string): Promise<SentTransaction> => {
     const balance = await this.token.contract.balanceOf(await this.getAddress());
     const transaction = await this.token.contract.transfer(address, balance, {
-      gasPrice: await getGasPrice(this.signer.provider!, gasPrice),
+      ...await getGasPrices(this.signer.provider!),
     });
 
     return {
@@ -60,7 +60,9 @@ class ERC20WalletProvider implements WalletProviderInterface {
   }
 
   public approve = async (spender: string, amount: BigNumber): Promise<SentTransaction> => {
-    const transaction = await this.token.contract.approve(spender, amount);
+    const transaction = await this.token.contract.approve(spender, amount, {
+      ...await getGasPrices(this.signer.provider!),
+    });
 
     return {
       transactionId: transaction.hash,

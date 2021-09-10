@@ -235,19 +235,13 @@ describe('ChannelNursery', () => {
 
     expect(mockGetChannelCreations).toHaveBeenCalledTimes(1);
     expect(mockGetChannelCreations).toHaveBeenCalledWith({
-      status: {
-        [Op.eq]: ChannelCreationStatus.Attempted,
-      },
-      nodePublicKey: {
-        [Op.eq]: nodePublicKey,
-      },
+      nodePublicKey,
+      status: ChannelCreationStatus.Attempted,
     });
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockGetSwap).toHaveBeenCalledWith({
-      id: {
-        [Op.eq]: mockGetChannelCreationsResult[0].swapId,
-      },
+      id: mockGetChannelCreationsResult[0].swapId,
       status: {
         [Op.not]: SwapUpdateEvent.SwapExpired,
       },
@@ -280,22 +274,14 @@ describe('ChannelNursery', () => {
 
     expect(mockGetChannelCreation).toHaveBeenCalledTimes(1);
     expect(mockGetChannelCreation).toHaveBeenCalledWith({
-      status: {
-        [Op.eq]: ChannelCreationStatus.Created,
-      },
-      fundingTransactionId: {
-        [Op.eq]: '059a4a673f9984e236037b04317f7d042378227bfdd82e12dd55b0bf67a6773e',
-      },
-      fundingTransactionVout: {
-        [Op.eq]: 1,
-      },
+      fundingTransactionVout: 1,
+      status: ChannelCreationStatus.Created,
+      fundingTransactionId: '059a4a673f9984e236037b04317f7d042378227bfdd82e12dd55b0bf67a6773e',
     });
 
     expect(mockGetSwap).toHaveBeenCalledTimes(4);
     expect(mockGetSwap).toHaveBeenNthCalledWith(4, {
-      id: {
-        [Op.eq]: mockGetChannelCreationResult.swapId,
-      },
+      id: mockGetChannelCreationResult.swapId,
       status: {
         [Op.not]: SwapUpdateEvent.TransactionClaimed,
       },
@@ -437,16 +423,12 @@ describe('ChannelNursery', () => {
 
     expect(mockGetChannelCreations).toHaveBeenCalledTimes(1);
     expect(mockGetChannelCreations).toHaveBeenCalledWith({
-      status: {
-        [Op.eq]: ChannelCreationStatus.Attempted,
-      },
+      status: ChannelCreationStatus.Attempted,
     });
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockGetSwap).toHaveBeenCalledWith({
-      id: {
-        [Op.eq]: mockGetChannelCreationsResult[0].swapId,
-      },
+      id: mockGetChannelCreationsResult[0].swapId,
       status: {
         [Op.not]: SwapUpdateEvent.SwapExpired,
       },
@@ -624,24 +606,18 @@ describe('ChannelNursery', () => {
 
     expect(mockGetChannelCreations).toHaveBeenCalledTimes(1);
     expect(mockGetChannelCreations).toHaveBeenCalledWith({
-      status: {
-        [Op.eq]: ChannelCreationStatus.Created,
-      },
+      status: ChannelCreationStatus.Created,
     });
 
     expect(mockGetSwap).toHaveBeenCalledTimes(2);
     expect(mockGetSwap).toHaveBeenNthCalledWith(1, {
-      id: {
-        [Op.eq]: mockGetChannelCreationsResult[0].swapId,
-      },
+      id: mockGetChannelCreationsResult[0].swapId,
       status: {
         [Op.not]: SwapUpdateEvent.TransactionClaimed,
       },
     });
     expect(mockGetSwap).toHaveBeenNthCalledWith(2, {
-      id: {
-        [Op.eq]: mockGetChannelCreationsResult[1].swapId,
-      },
+      id: mockGetChannelCreationsResult[1].swapId,
       status: {
         [Op.not]: SwapUpdateEvent.TransactionClaimed,
       },

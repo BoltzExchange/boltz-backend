@@ -296,7 +296,7 @@ class ZmqClient extends EventEmitter {
         try {
           await handleBlock(blockHashString);
         } catch (error) {
-          if (error.message === 'Block not found on disk') {
+          if ((error as any).message === 'Block not found on disk') {
             // If there are many blocks added to the chain at once, Bitcoin Core might
             // take a few milliseconds to write all of them to the disk. Therefore
             // it just retries getting the block after a little delay

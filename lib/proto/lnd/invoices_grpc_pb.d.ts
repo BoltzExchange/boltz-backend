@@ -4,7 +4,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
-import * as grpc from "grpc";
+import * as grpc from "@grpc/grpc-js";
 import * as lnd_invoices_pb from "../lnd/invoices_pb";
 import * as lnd_rpc_pb from "../lnd/rpc_pb";
 
@@ -54,7 +54,7 @@ interface IInvoicesService_ISettleInvoice extends grpc.MethodDefinition<lnd_invo
 
 export const InvoicesService: IInvoicesService;
 
-export interface IInvoicesServer {
+export interface IInvoicesServer extends grpc.UntypedServiceImplementation {
     subscribeSingleInvoice: grpc.handleServerStreamingCall<lnd_invoices_pb.SubscribeSingleInvoiceRequest, lnd_rpc_pb.Invoice>;
     cancelInvoice: grpc.handleUnaryCall<lnd_invoices_pb.CancelInvoiceMsg, lnd_invoices_pb.CancelInvoiceResp>;
     addHoldInvoice: grpc.handleUnaryCall<lnd_invoices_pb.AddHoldInvoiceRequest, lnd_invoices_pb.AddHoldInvoiceResp>;
@@ -76,7 +76,7 @@ export interface IInvoicesClient {
 }
 
 export class InvoicesClient extends grpc.Client implements IInvoicesClient {
-    constructor(address: string, credentials: grpc.ChannelCredentials, options?: object);
+    constructor(address: string, credentials: grpc.ChannelCredentials, options?: Partial<grpc.ClientOptions>);
     public subscribeSingleInvoice(request: lnd_invoices_pb.SubscribeSingleInvoiceRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<lnd_rpc_pb.Invoice>;
     public subscribeSingleInvoice(request: lnd_invoices_pb.SubscribeSingleInvoiceRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<lnd_rpc_pb.Invoice>;
     public cancelInvoice(request: lnd_invoices_pb.CancelInvoiceMsg, callback: (error: grpc.ServiceError | null, response: lnd_invoices_pb.CancelInvoiceResp) => void): grpc.ClientUnaryCall;

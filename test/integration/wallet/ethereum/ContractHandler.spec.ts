@@ -78,7 +78,12 @@ describe('ContractHandler', () => {
   };
 
   const lockupErc20 = async () => {
-    const approveTransaction = await tokenContract.approve(erc20Swap.address, amount);
+    const feeData = await provider.getFeeData();
+    const approveTransaction = await tokenContract.approve(erc20Swap.address, amount, {
+      type: 2,
+      maxFeePerGas: feeData.maxFeePerGas!,
+      maxPriorityFeePerGas: feeData.maxPriorityFeePerGas!,
+    });
 
     const transaction = await contractHandler.lockupToken(
       erc20WalletProvider,
@@ -193,7 +198,12 @@ describe('ContractHandler', () => {
 
     const amountPrepay = BigNumber.from(1);
 
-    const approveTransaction = await tokenContract.approve(erc20Swap.address, amount);
+    const feeData = await provider.getFeeData();
+    const approveTransaction = await tokenContract.approve(erc20Swap.address, amount, {
+      type: 2,
+      maxFeePerGas: feeData.maxFeePerGas!,
+      maxPriorityFeePerGas: feeData.maxPriorityFeePerGas!,
+    });
     const transaction = await contractHandler.lockupTokenPrepayMinerfee(
       erc20WalletProvider,
       preimageHash,

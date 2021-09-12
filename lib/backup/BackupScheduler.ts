@@ -4,6 +4,7 @@ import { Storage, Bucket } from '@google-cloud/storage';
 import Errors from './Errors';
 import Logger from '../Logger';
 import Report from '../data/Report';
+import { formatError } from '../Utils';
 import { BackupConfig } from '../Config';
 import EventHandler from '../service/EventHandler';
 
@@ -55,7 +56,7 @@ class BackupScheduler {
   }
 
   /**
-   * Adds a leading 0 to the provided number if it is smalled than 10
+   * Adds a leading 0 to the provided number if it is smaller than 10
    */
   private static addLeadingZeros = (number: number) => {
     return `${number}`.padStart(2, '0');
@@ -82,16 +83,16 @@ class BackupScheduler {
   }
 
   private uploadFile = async (path: string, date: string) => {
-    try {
-      const destination = `backend/database-${date}.db`;
+    const destination = `backend/database-${date}.db`;
 
+    try {
       await this.bucket!.upload(path, {
         destination,
       });
 
       this.logger.silly(`Uploaded file ${path} to: ${destination}`);
     } catch (error) {
-      this.logger.warn(`Could not upload file: ${error}`);
+      this.logger.warn(`Could not upload file ${destination}: ${error}`);
       throw error;
     }
   }
@@ -103,7 +104,7 @@ class BackupScheduler {
 
       this.logger.silly(`Uploaded data into file: ${fileName}`);
     } catch (error) {
-      this.logger.warn(`Could not upload data to file: ${error}`);
+      this.logger.warn(`Could not upload data to file ${fileName}: ${formatError(error)}`);
       throw error;
     }
   }

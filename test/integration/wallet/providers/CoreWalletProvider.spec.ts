@@ -16,8 +16,8 @@ describe('CoreWalletProvider', () => {
     expect(sentTransaction.transactionId).toEqual(sentTransaction.transaction!.getId());
     expect(sentTransaction.transaction).toEqual(Transaction.fromHex(rawTransaction.hex));
 
-    expect(rawTransaction.vout[sentTransaction.vout!].scriptPubKey.addresses.length).toEqual(1);
-    expect(rawTransaction.vout[sentTransaction.vout!].scriptPubKey.addresses[0]).toEqual(destination);
+    expect(rawTransaction.vout[sentTransaction.vout!].scriptPubKey.addresses).toEqual(undefined);
+    expect(rawTransaction.vout[sentTransaction.vout!].scriptPubKey.address).toEqual(destination);
 
     const expectedAmount = isSweep ? Math.round(amount - sentTransaction.fee!) : amount;
     expect(sentTransaction.transaction!.outs[sentTransaction.vout!].value).toEqual(expectedAmount);
@@ -43,7 +43,7 @@ describe('CoreWalletProvider', () => {
   });
 
   it('should generate addresses', async () => {
-    expect((await provider.getAddress()).startsWith('bcrt1')).toBeTruthy();
+    expect((await provider.getAddress()).startsWith('bcrt1')).toEqual(true);
   });
 
   it('should get balance', async () => {

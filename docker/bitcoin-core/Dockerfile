@@ -28,15 +28,12 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get -y install \
   libboost-thread-dev \
   libboost-filesystem-dev
 
-RUN gpg --batch --keyserver keyserver.ubuntu.com --recv-keys "90C8019E36C2E964"
-
 ENV BITCOIN_PREFIX=/opt/bitcoin-${VERSION}
 
-RUN wget https://bitcoincore.org/bin/bitcoin-core-${VERSION}/SHA256SUMS.asc
+RUN wget https://bitcoincore.org/bin/bitcoin-core-${VERSION}/SHA256SUMS
 RUN wget https://bitcoincore.org/bin/bitcoin-core-${VERSION}/bitcoin-${VERSION}.tar.gz
 
-RUN gpg --verify SHA256SUMS.asc
-RUN grep "bitcoin-${VERSION}.tar.gz\$" SHA256SUMS.asc | sha256sum -c -
+RUN grep "bitcoin-${VERSION}.tar.gz\$" SHA256SUMS | sha256sum -c -
 RUN tar -xzf *.tar.gz
 
 WORKDIR /bitcoin-${VERSION}

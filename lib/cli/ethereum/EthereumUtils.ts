@@ -7,10 +7,10 @@ import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { Signer, providers, Contract, Wallet } from 'ethers';
 
 const Constants = {
-  erc20TokenAddress: '0x03dd3D7e410650C2B521Bfe27186136dc0Cc61d0',
+  erc20TokenAddress: '0xbBB04A924fca4b99F7D529Dc58203d6ecA30e5F7',
 
-  etherSwapAddress: '0x6835E3a3BE8735B66f3d78087334A93CA24389Eb',
-  erc20SwapAddress: '0xaC4804f9A5f60f4ECE2CF6a4FaBa8C370EA03B99',
+  etherSwapAddress: '0x2194630BfD334A2a7bB896C0384BbA35a98d9EB2',
+  erc20SwapAddress: '0x1308b7739CE97199B5F1C95c915c6Cc3Ac81f86B',
 };
 
 const connectEthereum = (providerUrl: string, signerAddress: string): Signer => {

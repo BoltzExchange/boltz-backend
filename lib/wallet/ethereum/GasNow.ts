@@ -74,7 +74,7 @@ class GasNow {
       this.startTimeout();
 
       try {
-        const data = JSON.parse(event as string);
+        const data = JSON.parse(event.toString());
 
         if (data.type === 'gasprice_s') {
           GasNow.latestGasPrice = BigNumber.from(data.data.fast);

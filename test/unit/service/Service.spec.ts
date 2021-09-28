@@ -882,7 +882,9 @@ describe('Service', () => {
     await service.addReferral(referral);
 
     expect(mockAddReferral).toHaveBeenCalledTimes(1);
-    expect(mockAddReferral).toHaveBeenCalledWith(referral);
+    expect(mockAddReferral).toHaveBeenCalledWith(
+      expect.objectContaining(referral),
+    );
 
     // Throw if fee share is not in bounds
     referral.feeShare = -1;

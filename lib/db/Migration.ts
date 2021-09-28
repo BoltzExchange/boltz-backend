@@ -3,18 +3,19 @@ import { detectSwap } from 'boltz-core';
 import { Transaction } from 'bitcoinjs-lib';
 import Logger from '../Logger';
 import Swap from './models/Swap';
+import Referral from './models/Referral';
 import ReverseSwap from './models/ReverseSwap';
 import { Currency } from '../wallet/WalletManager';
 import ChannelCreation from './models/ChannelCreation';
 import DatabaseVersion from './models/DatabaseVersion';
 import DatabaseVersionRepository from './repositories/DatabaseVersionRepository';
-import { decodeInvoice, formatError, getChainCurrency, getHexBuffer, splitPairId } from '../Utils';
+import { createApiCredential, decodeInvoice, formatError, getChainCurrency, getHexBuffer, splitPairId } from '../Utils';
 
 // TODO: integration tests for actual migrations
 class Migration {
   private versionRepository: DatabaseVersionRepository;
 
-  private static latestSchemaVersion = 4;
+  private static latestSchemaVersion = 5;
 
   constructor(private logger: Logger, private sequelize: Sequelize) {
     this.versionRepository = new DatabaseVersionRepository();
@@ -125,7 +126,7 @@ class Migration {
         break;
       }
 
-      // Database schema version 2 adds support for the prepay miner fee on the Ethereum chain
+      // Database schema version 3 adds support for the prepay miner fee on the Ethereum chain
       case 2:
         this.logUpdatingTable('reverseSwaps');
 
@@ -196,6 +197,65 @@ class Migration {
         await this.finishMigration(versionRow.version, currencies);
 
         break;
+
+      // Schema version 5 adds API keys to referrals
+      case 4: {
+        this.logUpdatingTable('referrals');
+
+        await this.sequelize.getQueryInterface().addColumn(
+          'referrals',
+          'apiKey',
+          {
+            type: new DataTypes.STRING(255),
+          },
+        );
+
+        await this.sequelize.getQueryInterface().addColumn(
+          'referrals',
+          'apiSecret',
+          {
+            type: new DataTypes.STRING(255),
+          },
+        );
+
+        await this.sequelize.getQueryInterface().addIndex(
+          'referrals',
+          ['apiKey'],
+        );
+
+        const referrals = await Referral.findAll();
+
+        for (const referral of referrals) {
+          await referral.update({
+            apiKey: createApiCredential(),
+            apiSecret: createApiCredential(),
+          });
+        }
+
+        await this.sequelize.getQueryInterface().changeColumn(
+          'referrals',
+          'apiKey',
+          {
+            unique: true,
+            allowNull: false,
+            type: new DataTypes.STRING(255),
+          },
+        );
+
+        await this.sequelize.getQueryInterface().changeColumn(
+          'referrals',
+          'apiSecret',
+          {
+            unique: true,
+            allowNull: false,
+            type: new DataTypes.STRING(255),
+          },
+        );
+
+        await this.finishMigration(versionRow.version, currencies);
+
+        break;
+      }
 
       default:
         throw `found unexpected database version ${versionRow.version}`;

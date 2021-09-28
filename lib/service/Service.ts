@@ -10,7 +10,6 @@ import { ConfigType } from '../Config';
 import EventHandler from './EventHandler';
 import { PairConfig } from '../consts/Types';
 import { encodeBip21 } from './PaymentRequestUtils';
-import { ReferralType } from '../db/models/Referral';
 import InvoiceExpiryHelper from './InvoiceExpiryHelper';
 import { Payment, RouteHint } from '../proto/lnd/rpc_pb';
 import TimeoutDeltaProvider from './TimeoutDeltaProvider';
@@ -35,6 +34,7 @@ import {
   WalletBalance,
 } from '../proto/boltzrpc_pb';
 import {
+  createApiCredential,
   decodeInvoice,
   formatError,
   getChainCurrency,
@@ -537,7 +537,14 @@ class Service {
     this.logger.info(`Updated timeout block delta of ${pairId} to ${newDelta} minutes`);
   }
 
-  public addReferral = async (referral: ReferralType): Promise<void> => {
+  public addReferral = async (referral: {
+    id: string,
+    feeShare: number,
+    routingNode?: string,
+  }): Promise<{
+    apiKey: string,
+    apiSecret: string,
+  }> => {
     if (referral.id === '') {
       throw new Error('referral IDs cannot be empty');
     }
@@ -546,10 +553,23 @@ class Service {
       throw new Error('referral fee share must be between 0 and 100');
     }
 
-    await this.referralRepository.addReferral(referral);
+    const apiKey = createApiCredential();
+    const apiSecret = createApiCredential();
+
+    await this.referralRepository.addReferral({
+      ...referral,
+      apiKey,
+      apiSecret,
+    });
+
     this.logger.info(`Added referral ${ referral.id } with ${
       referral.routingNode !== undefined ? `routing node ${ referral.routingNode } and ` : ''
     }fee share ${ referral.feeShare }%`);
+
+    return {
+      apiKey,
+      apiSecret,
+    };
   };
 
   /**

@@ -19,6 +19,7 @@ import RateCalculator from '../../../lib/rates/RateCalculator';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
 import { decodeInvoice, getHexBuffer, getHexString } from '../../../lib/Utils';
+import ReferralRepository from '../../../lib/db/repositories/ReferralRepository';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
 import { etherDecimals, ethereumPrepayMinerFeeGasLimit, gweiDecimals } from '../../../lib/consts/Consts';
@@ -87,12 +88,8 @@ const mockGetReferralByRoutingNode = jest.fn().mockImplementation(async () => {
   return referralByRoutingNode;
 });
 
-jest.mock('../../../lib/db/repositories/ReferralRepository', () => {
-  return jest.fn().mockImplementation(() => ({
-    addReferral: mockAddReferral,
-    getReferralByRoutingNode: mockGetReferralByRoutingNode,
-  }));
-});
+ReferralRepository.addReferral = mockAddReferral;
+ReferralRepository.getReferralByRoutingNode = mockGetReferralByRoutingNode;
 
 const mockedSwap = {
   id: 'swapId',

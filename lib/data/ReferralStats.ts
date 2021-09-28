@@ -9,7 +9,6 @@ import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 
 class ReferralStats {
   constructor(
-    private referralRepository: ReferralRepository,
     private swapRepository: SwapRepository,
     private reverseSwapRepository: ReverseSwapRepository,
   ) {}
@@ -107,7 +106,7 @@ class ReferralStats {
   }
 
   private getReferrals = async (): Promise<Map<string, Referral>> => {
-    const referrals = await this.referralRepository.getReferrals();
+    const referrals = await ReferralRepository.getReferrals();
     const referralsMap = new Map<string, Referral>();
 
     for (const referral of referrals) {

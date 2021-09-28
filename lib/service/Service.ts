@@ -62,8 +62,6 @@ class Service {
   public swapManager: SwapManager;
   public eventHandler: EventHandler;
 
-  public referralRepository: ReferralRepository;
-
   private prepayMinerFee: boolean;
 
   private pairRepository: PairRepository;
@@ -85,7 +83,6 @@ class Service {
     this.logger.debug(`Prepay miner fee for Reverse Swaps is ${this.prepayMinerFee ? 'enabled' : 'disabled' }`);
 
     this.pairRepository = new PairRepository();
-    this.referralRepository = new ReferralRepository();
 
     this.timeoutDeltaProvider = new TimeoutDeltaProvider(this.logger, config);
 
@@ -556,7 +553,7 @@ class Service {
     const apiKey = createApiCredential();
     const apiSecret = createApiCredential();
 
-    await this.referralRepository.addReferral({
+    await ReferralRepository.addReferral({
       ...referral,
       apiKey,
       apiSecret,
@@ -1140,7 +1137,7 @@ class Service {
     }
 
     if (routingNode) {
-      const referral = await this.referralRepository.getReferralByRoutingNode(routingNode);
+      const referral = await ReferralRepository.getReferralByRoutingNode(routingNode);
 
       if (referral) {
         return referral.id;

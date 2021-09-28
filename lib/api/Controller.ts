@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import Errors from './Errors';
 import Logger from '../Logger';
+import Bouncer from './Bouncer';
 import Service from '../service/Service';
 import SwapNursery from '../swap/SwapNursery';
 import ServiceErrors from '../service/Errors';
@@ -406,6 +407,15 @@ class Controller {
       this.successResponse(res, response);
     } catch (error) {
       this.errorResponse(req, res, error);
+    }
+  }
+
+  public queryReferrals = async (req: Request, res: Response): Promise<void> => {
+    try {
+      // TODO: either get referral id from keys or make sure that keys have access to referral id
+      await Bouncer.validateRequestAuthentication(req);
+    } catch (error) {
+      this.errorResponse(req, res, error, 401);
     }
   }
 

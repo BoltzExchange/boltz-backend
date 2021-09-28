@@ -13,8 +13,8 @@ const protoConfig = [
 ];
 
 const protoPaths = [
-  `--proto_path ${PROTO_DIR} ${PROTO_DIR}/**/*.proto`,
   `--proto_path ${PROTO_DIR} ${PROTO_DIR}/*.proto`,
+  `--proto_path ${PROTO_DIR} ${PROTO_DIR}/**/*.proto`,
 ];
 
 const PROTOC_PATH = path.join(__dirname, 'node_modules/.bin/grpc_tools_node_protoc');

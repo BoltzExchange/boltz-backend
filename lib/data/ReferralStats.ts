@@ -13,13 +13,14 @@ class ReferralStats {
     private reverseSwapRepository: ReverseSwapRepository,
   ) {}
 
-  public generate = async (): Promise<string> => {
+  public generate = async (queryOptions?: Record<string, any>): Promise<string> => {
     const {
       swaps,
       reverseSwaps,
     } = await Report.getSuccessfulSwaps(
       this.swapRepository,
       this.reverseSwapRepository,
+      queryOptions,
     );
 
     const swapsPerYear = new Map<number, Map<number, SwapArrays>>();

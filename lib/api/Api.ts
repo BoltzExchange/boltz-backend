@@ -70,7 +70,7 @@ class Api {
     this.app.route('/createswap').post(controller.createSwap);
     this.app.route('/setinvoice').post(controller.setInvoice);
 
-    this.app.route('/referrals/query').post(controller.queryReferrals);
+    this.app.route('/referrals/query').get(controller.queryReferrals);
 
     // EventSource streams
     this.app.route('/streamswapstatus').get(controller.streamSwapStatus);

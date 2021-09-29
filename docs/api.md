@@ -20,6 +20,49 @@ If a call fails for some reason the returned [HTTP status code](https://en.wikip
 }
 ```
 
+## Authentication
+
+Some API endpoints, like for example [querying referral fees](#querying-referral-fees), require clients to authenticate their requests.
+
+To authenticate your API request, three request headers have to be set:
+
+- `TS`: current UNIX timestamp (can only deviate from server time by 1 minute at most)
+- `API-KEY`: your API key
+- `API-HMAC`: SHA256 HMAC encoded as HEX of the following values:
+    - value of the `TS` header
+    - method of the HTTP request (e.g. `GET` or `POST`)
+    - request path, including the leading slash (e.g. `/referrals/query`)
+    - if the request method is `POST`, the body of the request
+
+TypeScript Node.js example:
+
+```typescript
+import axios from 'axios';
+import { createHmac } from 'crypto';
+
+const path = '/referrals/query';
+
+const ts = Math.round(new Date().getTime() / 1000);
+const hmac = createHmac('sha256', argv.secret)
+  .update(`${ts}GET${path}`)
+  .digest('hex');
+
+try {
+  const res = await axios.get(`http://${argv.rest.host}:${argv.rest.port}${path}`, {
+    headers: {
+      'TS': ts,
+      'API-KEY': argv.key,
+      'API-HMAC': hmac,
+    },
+  });
+
+  console.log(JSON.stringify(res.data, undefined, 2));
+} catch (e) {
+  const error = e as any;
+  console.log(`${error.message}: ${JSON.stringify(error.response.data)}`);
+}
+```
+
 ## Getting version
 
 To get the version of the deployed Boltz backed instance one has to query this API endpoint.
@@ -581,6 +624,42 @@ Raw response:
 data: {"status":"transaction.mempool"}
 
 data: {"status":"invoice.paid"}
+```
+
+## Querying referral fees
+
+Boltz partners can request a referral key to get a percentage of the fees earned from Swaps through their integration. To query for their referrals, they can send an [authenticated](#authentication) request to this endpoint.
+
+| URL                    | Response
+|------------------------|------------
+| `GET /referrals/query` | JSON object
+
+
+Status Codes:
+
+- `200 OK`
+- `401 Unauthorized`: missing or invalid request authentication
+
+Response object:
+
+The response of a valid request is grouped by year, month and referral key. The amounts are denominated in 10 \*\* -8.
+
+**Examples:**
+
+`GET /referrals/query`
+
+Response:
+
+```json
+{
+  "2021": {
+    "9": {
+      "cliTest": {
+        "BTC": 60
+      }
+    }
+  }
+}
 ```
 
 ## Creating Swaps

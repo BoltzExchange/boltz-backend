@@ -1,6 +1,5 @@
 import { BigNumber, providers } from 'ethers';
 import { getHexBuffer } from '../../../../lib/Utils';
-import GasNow from '../../../../lib/wallet/ethereum/GasNow';
 import { getGasPrices, parseBuffer } from '../../../../lib/wallet/ethereum/EthereumUtils';
 
 const mockGetFeeDataResult = {
@@ -12,8 +11,6 @@ const mockGetFeeData = jest.fn().mockResolvedValue(mockGetFeeDataResult);
 const MockedProvider = <jest.Mock<providers.Provider>><any>jest.fn().mockImplementation(() => ({
   getFeeData: mockGetFeeData,
 }));
-
-GasNow.latestGasPrice = BigNumber.from(2);
 
 describe('EthereumUtils', () => {
   const provider = new MockedProvider();

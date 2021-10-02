@@ -42,7 +42,7 @@ export const handler = async (argv: Arguments<any>): Promise<void> => {
   try {
     const res = await axios.get(`http://${argv.rest.host}:${argv.rest.port}${path}`, {
       headers: {
-        'TS': ts,
+        'TS': ts.toString(),
         'API-KEY': argv.key,
         'API-HMAC': hmac,
       },

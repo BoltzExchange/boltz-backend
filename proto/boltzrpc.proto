@@ -125,4 +125,7 @@ message AddReferralRequest {
   uint32 fee_share = 2;
   string routing_node = 3;
 }
-message AddReferralResponse {}
+message AddReferralResponse {
+  string api_key = 1;
+  string api_secret = 2;
+}

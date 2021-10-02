@@ -106,7 +106,8 @@ export type ScriptPubKey = {
   hex: string;
   reqSigs: number;
   type: string;
-  addresses: string[];
+  address?: string;
+  addresses?: string[];
 };
 
 export type Output = {

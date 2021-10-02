@@ -1,12 +1,14 @@
 import { Request, Response } from 'express';
 import Errors from './Errors';
 import Logger from '../Logger';
+import Bouncer from './Bouncer';
 import Service from '../service/Service';
 import SwapNursery from '../swap/SwapNursery';
 import ServiceErrors from '../service/Errors';
 import { SwapUpdate } from '../service/EventHandler';
 import { SwapType, SwapUpdateEvent } from '../consts/Enums';
 import { getChainCurrency, getHexBuffer, getVersion, mapToObject, splitPairId, stringify } from '../Utils';
+import ReferralStats from '../data/ReferralStats';
 
 type ApiArgument = {
   name: string,
@@ -409,6 +411,22 @@ class Controller {
     }
   }
 
+  public queryReferrals = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const referral = await Bouncer.validateRequestAuthentication(req);
+      const stats = await new ReferralStats(
+        this.service.swapManager.swapRepository,
+        this.service.swapManager.reverseSwapRepository,
+      ).generate({
+        referral: referral.id,
+      });
+
+      this.successResponse(res, stats);
+    } catch (error) {
+      this.errorResponse(req, res, error, 401);
+    }
+  }
+
   // EventSource streams
   public streamSwapStatus = (req: Request, res: Response): void => {
     try {
@@ -492,7 +510,14 @@ class Controller {
 
   private successResponse = (res: Response, data: unknown) => {
     this.setContentTypeJson(res);
-    res.status(200).json(data);
+    res.status(200);
+
+    if (typeof data === 'object') {
+      res.json(data);
+    } else {
+      res.write(data);
+      res.end();
+    }
   }
 
   private createdResponse = (res: Response, data: unknown) => {

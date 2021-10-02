@@ -40,13 +40,15 @@ class Report {
   public static getSuccessfulSwaps = async (
     swapRepository: SwapRepository,
     reverseSwapRepository: ReverseSwapRepository,
+    options?: Record<string, any>,
   ): Promise<SwapArrays> => {
-
     const [swaps, reverseSwaps] = await Promise.all([
       swapRepository.getSwaps({
+        ...options,
         status: SwapUpdateEvent.TransactionClaimed,
       }),
       reverseSwapRepository.getReverseSwaps({
+        ...options,
         status: SwapUpdateEvent.InvoiceSettled,
       }),
     ]);

@@ -367,7 +367,6 @@ class CommandHandler {
 
   private getReferrals = async () => {
     const stats = await new ReferralStats(
-      this.service.referralRepository,
       this.service.swapManager.swapRepository,
       this.service.swapManager.reverseSwapRepository,
     ).generate();

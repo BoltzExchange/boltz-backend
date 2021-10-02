@@ -2,8 +2,8 @@ import { BigNumber } from 'ethers';
 import { Transaction } from 'bitcoinjs-lib';
 import Logger from '../../Logger';
 import ChainClient from '../../chain/ChainClient';
-import WalletProviderInterface, { SentTransaction, WalletBalance } from './WalletProviderInterface';
 import { transactionHashToId } from '../../Utils';
+import WalletProviderInterface, { SentTransaction, WalletBalance } from './WalletProviderInterface';
 
 class CoreWalletProvider implements WalletProviderInterface {
   public readonly symbol: string;
@@ -51,7 +51,12 @@ class CoreWalletProvider implements WalletProviderInterface {
     for (let i = 0; i < rawTransaction.outs.length; i += 1) {
       outputSum = outputSum.add(rawTransaction.outs[i].value);
 
-      if (rawTransactionVerbose.vout[i].scriptPubKey.addresses.includes(address)) {
+      const scriptPubKey = rawTransactionVerbose.vout[i].scriptPubKey;
+
+      if (
+        scriptPubKey.address === address ||
+        (scriptPubKey.addresses && scriptPubKey.addresses.includes(address))
+      ) {
         vout = i;
       }
     }

@@ -81,13 +81,21 @@ class GrpcService {
         routingNode,
       } = call.request.toObject();
 
-      await this.service.addReferral({
+      const {
+        apiKey,
+        apiSecret,
+      } = await this.service.addReferral({
         id,
         feeShare,
         routingNode: routingNode === '' ? undefined : routingNode,
       });
 
-      callback(null, new boltzrpc.AddReferralResponse());
+      const response = new boltzrpc.AddReferralResponse();
+
+      response.setApiKey(apiKey);
+      response.setApiSecret(apiSecret);
+
+      callback(null, response);
     } catch (error) {
       callback((error as any), null);
     }

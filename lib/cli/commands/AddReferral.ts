@@ -1,6 +1,6 @@
 import { Arguments } from 'yargs';
-import { AddReferralRequest } from '../../proto/boltzrpc_pb';
 import { callback, loadBoltzClient } from '../Command';
+import { AddReferralRequest } from '../../proto/boltzrpc_pb';
 
 export const command = 'addreferral <id> <feeShare> [routingNode]';
 

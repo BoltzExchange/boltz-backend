@@ -30,7 +30,11 @@ const mockSendCoins = jest.fn().mockResolvedValue(sendCoinsData);
 
 const mockUpdateTimeoutBlockDelta = jest.fn().mockImplementation(() => {});
 
-const mockAddReferral = jest.fn().mockImplementation(() => {});
+const mockAddReferralResponse = {
+  apiKey: 'key',
+  apiSecret: 'secret',
+} ;
+const mockAddReferral = jest.fn().mockImplementation(() => mockAddReferralResponse);
 
 jest.mock('../../../lib/service/Service', () => {
   return jest.fn().mockImplementation(() => {
@@ -158,7 +162,9 @@ describe('GrpcService', () => {
 
     grpcService.addReferral(createCall(callData), createCallback((error, response) => {
       expect(error).toEqual(null);
-      expect(response).not.toEqual(null);
+
+      expect(response!.getApiKey()).toEqual(mockAddReferralResponse.apiKey);
+      expect(response!.getApiSecret()).toEqual(mockAddReferralResponse.apiSecret);
     }));
 
     expect(mockAddReferral).toHaveBeenCalledTimes(1);

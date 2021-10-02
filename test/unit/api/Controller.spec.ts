@@ -8,6 +8,7 @@ import { ReverseSwapType } from '../../../lib/db/models/ReverseSwap';
 import { SwapType as SwapDbType } from '../../../lib/db/models/Swap';
 import { SwapUpdateEvent, SwapType } from '../../../lib/consts/Enums';
 import { mapToObject, getHexBuffer, getVersion } from '../../../lib/Utils';
+import Bouncer from '../../../lib/api/Bouncer';
 
 type closeResponseCallback = () => void;
 type swapUpdateCallback = (id: string, message: string) => void;
@@ -189,6 +190,28 @@ jest.mock('../../../lib/service/Service', () => {
 
 const mockedService = <jest.Mock<Service>><any>Service;
 
+let mockValidateRequestAuthenticationResult: any = null;
+const mockValidateRequestAuthentication = jest.fn().mockImplementation(() => {
+  if (mockValidateRequestAuthenticationResult === null) {
+    throw 'unauthorized';
+  } else {
+    return mockValidateRequestAuthenticationResult;
+  }
+});
+
+Bouncer.validateRequestAuthentication = mockValidateRequestAuthentication;
+
+const mockGenerateReferralStatsResult = 'some stats';
+const mockGenerateReferralStats = jest.fn().mockImplementation(() => {
+  return mockGenerateReferralStatsResult;
+});
+
+jest.mock('../../../lib/data/ReferralStats', () => {
+  return jest.fn().mockImplementation(() => ({
+    generate: mockGenerateReferralStats,
+  }));
+});
+
 const mockRequest = (body: any, query?: any) => ({
   body,
   query,
@@ -199,6 +222,7 @@ const mockResponse = () => {
 
   res.json = jest.fn().mockReturnValue(res);
   res.write = jest.fn().mockReturnValue(true);
+  res.end = jest.fn().mockResolvedValue(undefined);
   res.status = jest.fn().mockReturnValue(res);
   res.writeHead = jest.fn().mockReturnValue(res);
   res.setTimeout = jest.fn().mockReturnValue(res);
@@ -917,6 +941,32 @@ describe('Controller', () => {
 
     expect(res.status).toHaveBeenNthCalledWith(6, 201);
     expect(res.json).toHaveBeenNthCalledWith(6, await mockCreateReverseSwap());
+  });
+
+  test('should query referrals', async () => {
+    const res = mockResponse();
+
+    mockValidateRequestAuthenticationResult = null;
+    await controller.queryReferrals(mockRequest({}, {}), res);
+
+    expect(mockValidateRequestAuthentication).toHaveBeenCalledTimes(1);
+
+    expect(res.status).toHaveBeenNthCalledWith(1, 401);
+    expect(res.json).toHaveBeenNthCalledWith(1, {
+      error: 'unauthorized',
+    });
+
+    mockValidateRequestAuthenticationResult = {
+      id: 'referralId',
+    };
+
+    await controller.queryReferrals(mockRequest({}, {}), res);
+
+    expect(mockValidateRequestAuthentication).toHaveBeenCalledTimes(2);
+
+    expect(res.status).toHaveBeenNthCalledWith(2, 200);
+    expect(res.write).toHaveBeenNthCalledWith(1, mockGenerateReferralStatsResult);
+    expect(res.end).toHaveBeenCalledTimes(1);
   });
 
   test('should stream swap status updates', () => {

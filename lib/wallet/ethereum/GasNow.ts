@@ -74,7 +74,7 @@ class GasNow {
       this.startTimeout();
 
       try {
-        const data = JSON.parse(event as string);
+        const data = JSON.parse(event.toString());
 
         if (data.type === 'gasprice_s') {
           GasNow.latestGasPrice = BigNumber.from(data.data.fast);
@@ -114,7 +114,7 @@ class GasNow {
 
   private updateGasPrice = async () => {
     try {
-      const response = await Axios.get(`${GasNow.gasNowApiUrl}/gas/price`);
+      const response = await Axios.get<any, any>(`${GasNow.gasNowApiUrl}/gas/price`);
       GasNow.latestGasPrice = BigNumber.from(response.data.data.fast);
 
       this.logger.silly(`Got updated GasNow gas price: ${GasNow.latestGasPrice}`);

@@ -9,18 +9,18 @@ import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 
 class ReferralStats {
   constructor(
-    private referralRepository: ReferralRepository,
     private swapRepository: SwapRepository,
     private reverseSwapRepository: ReverseSwapRepository,
   ) {}
 
-  public generate = async (): Promise<string> => {
+  public generate = async (queryOptions?: Record<string, any>): Promise<string> => {
     const {
       swaps,
       reverseSwaps,
     } = await Report.getSuccessfulSwaps(
       this.swapRepository,
       this.reverseSwapRepository,
+      queryOptions,
     );
 
     const swapsPerYear = new Map<number, Map<number, SwapArrays>>();
@@ -107,7 +107,7 @@ class ReferralStats {
   }
 
   private getReferrals = async (): Promise<Map<string, Referral>> => {
-    const referrals = await this.referralRepository.getReferrals();
+    const referrals = await ReferralRepository.getReferrals();
     const referralsMap = new Map<string, Referral>();
 
     for (const referral of referrals) {

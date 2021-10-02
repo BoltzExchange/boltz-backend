@@ -1,5 +1,6 @@
 import os from 'os';
 import path from 'path';
+import { randomBytes } from 'crypto';
 import { OutputType, Scripts } from 'boltz-core';
 import { Transaction, crypto } from 'bitcoinjs-lib';
 import bolt11, { RoutingInfo } from '@boltz/bolt11';
@@ -459,4 +460,8 @@ export const getBiggerBigNumber = (a: BigNumber, b: BigNumber): BigNumber => {
  */
 export const hashString = (input: string): string => {
   return getHexString(crypto.sha256(Buffer.from(input, 'utf-8')));
+};
+
+export const createApiCredential = (): string => {
+  return randomBytes(32).toString('hex');
 };

@@ -10,7 +10,6 @@ import { ConfigType } from '../Config';
 import EventHandler from './EventHandler';
 import { PairConfig } from '../consts/Types';
 import { encodeBip21 } from './PaymentRequestUtils';
-import { ReferralType } from '../db/models/Referral';
 import InvoiceExpiryHelper from './InvoiceExpiryHelper';
 import { Payment, RouteHint } from '../proto/lnd/rpc_pb';
 import TimeoutDeltaProvider from './TimeoutDeltaProvider';
@@ -35,6 +34,7 @@ import {
   WalletBalance,
 } from '../proto/boltzrpc_pb';
 import {
+  createApiCredential,
   decodeInvoice,
   formatError,
   getChainCurrency,
@@ -62,8 +62,6 @@ class Service {
   public swapManager: SwapManager;
   public eventHandler: EventHandler;
 
-  public referralRepository: ReferralRepository;
-
   private prepayMinerFee: boolean;
 
   private pairRepository: PairRepository;
@@ -85,7 +83,6 @@ class Service {
     this.logger.debug(`Prepay miner fee for Reverse Swaps is ${this.prepayMinerFee ? 'enabled' : 'disabled' }`);
 
     this.pairRepository = new PairRepository();
-    this.referralRepository = new ReferralRepository();
 
     this.timeoutDeltaProvider = new TimeoutDeltaProvider(this.logger, config);
 
@@ -537,7 +534,14 @@ class Service {
     this.logger.info(`Updated timeout block delta of ${pairId} to ${newDelta} minutes`);
   }
 
-  public addReferral = async (referral: ReferralType): Promise<void> => {
+  public addReferral = async (referral: {
+    id: string,
+    feeShare: number,
+    routingNode?: string,
+  }): Promise<{
+    apiKey: string,
+    apiSecret: string,
+  }> => {
     if (referral.id === '') {
       throw new Error('referral IDs cannot be empty');
     }
@@ -546,10 +550,23 @@ class Service {
       throw new Error('referral fee share must be between 0 and 100');
     }
 
-    await this.referralRepository.addReferral(referral);
+    const apiKey = createApiCredential();
+    const apiSecret = createApiCredential();
+
+    await ReferralRepository.addReferral({
+      ...referral,
+      apiKey,
+      apiSecret,
+    });
+
     this.logger.info(`Added referral ${ referral.id } with ${
       referral.routingNode !== undefined ? `routing node ${ referral.routingNode } and ` : ''
     }fee share ${ referral.feeShare }%`);
+
+    return {
+      apiKey,
+      apiSecret,
+    };
   };
 
   /**
@@ -1120,7 +1137,7 @@ class Service {
     }
 
     if (routingNode) {
-      const referral = await this.referralRepository.getReferralByRoutingNode(routingNode);
+      const referral = await ReferralRepository.getReferralByRoutingNode(routingNode);
 
       if (referral) {
         return referral.id;

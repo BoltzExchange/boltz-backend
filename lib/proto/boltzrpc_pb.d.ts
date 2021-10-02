@@ -492,6 +492,10 @@ export namespace AddReferralRequest {
 }
 
 export class AddReferralResponse extends jspb.Message { 
+    getApiKey(): string;
+    setApiKey(value: string): AddReferralResponse;
+    getApiSecret(): string;
+    setApiSecret(value: string): AddReferralResponse;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): AddReferralResponse.AsObject;
@@ -505,6 +509,8 @@ export class AddReferralResponse extends jspb.Message {
 
 export namespace AddReferralResponse {
     export type AsObject = {
+        apiKey: string,
+        apiSecret: string,
     }
 }
 

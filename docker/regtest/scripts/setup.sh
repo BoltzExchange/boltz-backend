@@ -5,7 +5,7 @@ source utils.sh
 function waitForLndToSync () {
   while true; do
     if $1 getinfo 2>&1 | grep synced_to_chain.*true  > /dev/null 2>&1; then
-      break	
+      break
     fi
     sleep 1
   done
@@ -34,7 +34,7 @@ function openChannel () {
     numActiveChannels="$($2 getinfo | jq -r ".num_active_channels")"
 
     if [[ ${numActiveChannels} == "1" ]]; then
-      break	
+      break
     fi
     sleep 1
   done
@@ -67,12 +67,6 @@ openChannel bitcoin-cli \
   "lncli --lnddir=/root/.lnd-btc --rpcserver=127.0.0.1:10009 --network=regtest" \
   "lncli --lnddir=/root/.lnd-btc --rpcserver=127.0.0.1:10011 --network=regtest" \
   9736
-
-echo "Opening LTC channel"
-openChannel litecoin-cli \
-  "lncli --lnddir=/root/.lnd-ltc --rpcserver=127.0.0.1:11009 --chain=litecoin --network=regtest" \
-  "lncli --lnddir=/root/.lnd-ltc2 --rpcserver=127.0.0.1:11010 --chain=litecoin --network=regtest" \
-  10736
 
 stopLnds
 stopNodes

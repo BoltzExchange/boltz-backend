@@ -197,7 +197,7 @@ class CommandHandler {
 
       await this.discord.sendMessage(message);
     }
-  }
+  };
 
   private getFees = async () => {
     let message = 'Fees:\n';
@@ -213,7 +213,7 @@ class CommandHandler {
     });
 
     await this.discord.sendMessage(message);
-  }
+  };
 
   private swapInfo = async (args: string[]) => {
     if (args.length === 0) {
@@ -247,13 +247,13 @@ class CommandHandler {
     }
 
     await this.sendCouldNotFindSwap(id);
-  }
+  };
 
   private getStats = async () => {
     const stats = await new Stats(this.service.swapManager.swapRepository, this.service.swapManager.reverseSwapRepository).generate();
 
     await this.discord.sendMessage(`${codeBlock}${stats}${codeBlock}`);
-  }
+  };
 
   private getBalance = async () => {
     const balances = (await this.service.getBalance()).getBalancesMap();
@@ -276,7 +276,7 @@ class CommandHandler {
     });
 
     await this.discord.sendMessage(message);
-  }
+  };
 
   private lockedFunds = async () => {
     const pendingReverseSwaps = await this.service.swapManager.reverseSwapRepository.getReverseSwaps({
@@ -320,7 +320,7 @@ class CommandHandler {
     }
 
     await this.discord.sendMessage(message);
-  }
+  };
 
   private pendingSwaps = async () => {
     const [pendingSwaps, pendingReverseSwaps] = await Promise.all([
@@ -363,7 +363,7 @@ class CommandHandler {
     formatSwapIds(true);
 
     await this.discord.sendMessage(message);
-  }
+  };
 
   private getReferrals = async () => {
     const stats = await new ReferralStats(
@@ -372,7 +372,7 @@ class CommandHandler {
     ).generate();
 
     await this.discord.sendMessage(`${codeBlock}${stats}${codeBlock}`);
-  }
+  };
 
   private backup = async () => {
     try {
@@ -382,7 +382,7 @@ class CommandHandler {
     } catch (error) {
       await this.discord.sendMessage(`Could not upload backup: ${error}`);
     }
-  }
+  };
 
   private getAddress = async (args: string[]) => {
     const sendError = (error: any) => {
@@ -402,7 +402,7 @@ class CommandHandler {
     } catch (error) {
       await sendError(error);
     }
-  }
+  };
 
   private withdraw = async (args: string[]) => {
     if (args.length !== 3 && args.length !== 4) {
@@ -448,7 +448,7 @@ class CommandHandler {
         await this.discord.sendMessage(`Could not send coins: ${formatError(error)}`);
       }
     }
-  }
+  };
 
   private toggleReverseSwaps = async () => {
     this.service.allowReverseSwaps = !this.service.allowReverseSwaps;
@@ -457,7 +457,7 @@ class CommandHandler {
 
     this.logger.info(message);
     await this.discord.sendMessage(message);
-  }
+  };
 
   /*
    * Helper functions
@@ -486,7 +486,7 @@ class CommandHandler {
     getFeeFromSwapMap(reverseSwaps, true);
 
     return fees;
-  }
+  };
 
   private sendSwapInfo = async (swap: Swap | ReverseSwap, isReverse: boolean, channelCreation?: ChannelCreation | null) => {
     const hasChannelCreation = channelCreation !== null && channelCreation !== undefined;
@@ -506,11 +506,11 @@ class CommandHandler {
     // tslint:disable-next-line: prefer-template
     await this.discord.sendMessage(`${name} \`${swap.id}\`:\n` +
         `${codeBlock}${stringify(swap)}${hasChannelCreation ? '\n' + stringify(channelCreation) : ''}${codeBlock}`);
-  }
+  };
 
   private sendCouldNotFindSwap = async (id: string) => {
     await this.discord.sendMessage(`Could not find swap with id: ${id}`);
-  }
+  };
 }
 
 export default CommandHandler;

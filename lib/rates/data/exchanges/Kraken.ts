@@ -18,7 +18,7 @@ class Kraken implements Exchange {
       case 'BTC': return 'XBT';
       default: return assetUpperCase;
     }
-  }
+  };
 }
 
 export default Kraken;

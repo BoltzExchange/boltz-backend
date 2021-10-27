@@ -48,7 +48,7 @@ class RateCalculator {
     }
 
     return rate;
-  }
+  };
 }
 
 export default RateCalculator;

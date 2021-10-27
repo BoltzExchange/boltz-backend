@@ -68,11 +68,11 @@ class FeeProvider {
     });
 
     this.logger.debug(`Prepared data for fee estimations: ${stringify(mapToObject(this.percentageFees))}`);
-  }
+  };
 
   public getPercentageFee = (pair: string): number => {
     return this.percentageFees.get(pair) || 0;
-  }
+  };
 
   public getFees = (
     pair: string,
@@ -97,7 +97,7 @@ class FeeProvider {
       percentageFee: Math.ceil(percentageFee),
       baseFee: this.getBaseFee(chainCurrency, type),
     };
-  }
+  };
 
   public getBaseFee = (chainCurrency: string, type: BaseFeeType): number => {
     const minerFeeMap = this.minerFees.get(chainCurrency)!;
@@ -119,7 +119,7 @@ class FeeProvider {
     }
 
     return baseFee;
-  }
+  };
 
   public updateMinerFees = async (chainCurrency: string): Promise<void> => {
     const feeMap = await this.getFeeEstimation(chainCurrency);
@@ -181,15 +181,15 @@ class FeeProvider {
         break;
       }
     }
-  }
+  };
 
   private calculateTokenGasCosts = (rate: number, gasPrice: number, gasUsage: number) => {
     return Math.ceil(rate * this.calculateEtherGasCost(gasPrice, gasUsage));
-  }
+  };
 
   private calculateEtherGasCost = (gasPrice: number, gasUsage: number) => {
     return BigNumber.from(gasPrice).mul(gweiDecimals).mul(gasUsage).div(etherDecimals).toNumber();
-  }
+  };
 }
 
 export default FeeProvider;

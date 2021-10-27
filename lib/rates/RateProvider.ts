@@ -139,11 +139,11 @@ class RateProvider {
     this.timer = setInterval(async () => {
       await this.updateRates();
     }, minutesToMilliseconds(this.rateUpdateInterval));
-  }
+  };
 
   public disconnect = (): void => {
     clearInterval(this.timer);
-  }
+  };
 
   /**
    * Returns whether 0-conf should be accepted for a specific amount on a specified chain
@@ -156,7 +156,7 @@ class RateProvider {
     } else {
       return false;
     }
-  }
+  };
 
   private updateRates = async () => {
     // The fees for the ERC20 tokens depend on the rates
@@ -220,7 +220,7 @@ class RateProvider {
     });
 
     this.logger.silly('Updated rates');
-  }
+  };
 
   private getLimits = (pair: string, base: string, quote: string, rate: number) => {
     const baseLimits = this.limits.get(base);
@@ -247,7 +247,7 @@ class RateProvider {
     }
 
     throw `Could not get limits for pair ${pair}`;
-  }
+  };
 
   private parseCurrencies = (currencies: Currency[]) => {
     for (const currency of currencies) {
@@ -271,7 +271,7 @@ class RateProvider {
         maximalZeroConf: currency.limits.maxZeroConfAmount || 0,
       });
     }
-  }
+  };
 
   private updateMinerFees = async () => {
     const promises: Promise<void>[] = [];
@@ -281,7 +281,7 @@ class RateProvider {
     }
 
     await Promise.all(promises);
-  }
+  };
 }
 
 export default RateProvider;

@@ -79,7 +79,7 @@ class WalletManager {
     fs.writeFileSync(mnemonicPath, mnemonic);
 
     return new WalletManager(logger, mnemonicPath, currencies, ethereumManager);
-  }
+  };
 
   public init = async (chainTipRepository: ChainTipRepository): Promise<void> => {
     const keyProviderMap = await this.getKeyProviderMap();
@@ -154,7 +154,7 @@ class WalletManager {
         this.wallets.set(symbol, ethereumWallet);
       }
     }
-  }
+  };
 
   private loadMnemonic = (filename: string) => {
     if (fs.existsSync(filename)) {
@@ -162,7 +162,7 @@ class WalletManager {
     }
 
     throw(Errors.NOT_INITIALIZED());
-  }
+  };
 
   private getKeyProviderMap = async () => {
     const map = new Map<string, KeyProviderType>();
@@ -177,7 +177,7 @@ class WalletManager {
     });
 
     return map;
-  }
+  };
 
   private getHighestDepthIndex = (map: Map<string, KeyProviderType>, depth: number): number => {
     if (depth === 0) {
@@ -196,7 +196,7 @@ class WalletManager {
     });
 
     return highestIndex;
-  }
+  };
 }
 
 export default WalletManager;

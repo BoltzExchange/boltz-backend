@@ -34,14 +34,14 @@ class InvoiceNursery extends EventEmitter {
 
     this.interval = setInterval(this.checkExpiredInvoices, InvoiceNursery.checkInterval * 1000);
     await this.checkExpiredInvoices();
-  }
+  };
 
   public destroy = (): void => {
     if (this.interval) {
       clearInterval(this.interval);
       this.interval = undefined;
     }
-  }
+  };
 
   private checkExpiredInvoices = async () => {
     const pendingSwaps = await this.reverseSwapRepository.getReverseSwaps({
@@ -69,7 +69,7 @@ class InvoiceNursery extends EventEmitter {
         this.emit('invoice.expired', reverseSwap);
       }
     }
-  }
+  };
 }
 
 export default InvoiceNursery;

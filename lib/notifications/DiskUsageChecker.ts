@@ -31,15 +31,15 @@ class DiskUsageChecker {
     } else {
       this.alertSent = false;
     }
-  }
+  };
 
   private formatNumber = (toFormat: number) => {
     return Number(toFormat.toFixed(2));
-  }
+  };
 
   private convertToGb = (bytes: number) => {
     return bytes / 1073741824;
-  }
+  };
 }
 
 export default DiskUsageChecker;

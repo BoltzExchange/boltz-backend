@@ -13,7 +13,7 @@ class Bitfinex implements Exchange {
    */
   private replaceUSDT = (asset: string) => {
     return asset === 'USDT' ? 'UST' : asset;
-  }
+  };
 }
 
 export default Bitfinex;

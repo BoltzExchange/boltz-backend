@@ -88,7 +88,7 @@ class EthereumNursery extends EventEmitter {
         // If the provider can't find the transaction, it is not on the Ethereum chain
       }
     }
-  }
+  };
 
   public listenContractTransaction = (reverseSwap: ReverseSwap, transaction: ContractTransaction): void => {
     transaction.wait(1).then(async () => {
@@ -104,7 +104,7 @@ class EthereumNursery extends EventEmitter {
         reason,
       );
     });
-  }
+  };
 
   private listenEtherSwap = () => {
     this.ethereumManager.contractEventHandler.on('eth.lockup', async (
@@ -191,7 +191,7 @@ class EthereumNursery extends EventEmitter {
 
       this.emit('claim', reverseSwap, preimage);
     });
-  }
+  };
 
   private listenERC20Swap = () => {
     this.ethereumManager.contractEventHandler.on('erc20.lockup', async (
@@ -289,7 +289,7 @@ class EthereumNursery extends EventEmitter {
 
       this.emit('claim', reverseSwap, preimage);
     });
-  }
+  };
 
   private listenBlocks = () => {
     this.ethereumManager.provider.on('block', async (height) => {
@@ -298,7 +298,7 @@ class EthereumNursery extends EventEmitter {
         this.checkExpiredReverseSwaps(height),
       ]);
     });
-  }
+  };
 
   private checkExpiredSwaps = async (height: number) => {
     const expirableSwaps = await this.swapRepository.getSwapsExpirable(height);
@@ -313,7 +313,7 @@ class EthereumNursery extends EventEmitter {
         this.emit('swap.expired', expirableSwap, wallet.symbol === 'ETH');
       }
     }
-  }
+  };
 
   private checkExpiredReverseSwaps = async (height: number) => {
     const expirableReverseSwaps = await this.reverseSwapRepository.getReverseSwapsExpirable(height);
@@ -328,7 +328,7 @@ class EthereumNursery extends EventEmitter {
         this.emit('reverseSwap.expired', expirableReverseSwap, wallet.symbol === 'ETH');
       }
     }
-  }
+  };
 
   /**
    * Returns a wallet in case there is one with the symbol and it is an Ethereum one
@@ -345,7 +345,7 @@ class EthereumNursery extends EventEmitter {
     }
 
     return;
-  }
+  };
 }
 
 export default EthereumNursery;

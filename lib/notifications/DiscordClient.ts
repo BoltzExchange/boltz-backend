@@ -52,12 +52,12 @@ class DiscordClient extends EventEmitter {
 
       this.client.login(this.token).catch(error => reject(error));
     });
-  }
+  };
 
   public destroy = (): void => {
     this.channel = undefined;
     this.client.destroy();
-  }
+  };
 
   public sendMessage = async (message: string): Promise<void> => {
     if (this.channel) {
@@ -85,7 +85,7 @@ class DiscordClient extends EventEmitter {
         }
       }
     }
-  }
+  };
 
   private listenForMessages = () => {
     if (this.channel) {
@@ -101,12 +101,12 @@ class DiscordClient extends EventEmitter {
     this.client.on('error', (error) => {
       this.emit('error', error);
     });
-  }
+  };
 
   private splitString = (toSplit: string, length: number): string[] => {
     const splitRegex = new RegExp(`[\\s\\S]{1,${length}}`, 'g');
     return toSplit.match(splitRegex) || [];
-  }
+  };
 }
 
 export default DiscordClient;

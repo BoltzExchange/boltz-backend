@@ -114,7 +114,7 @@ class Swap extends Model implements SwapType {
     Swap.belongsTo(Pair, {
       foreignKey: 'pair',
     });
-  }
+  };
 }
 
 export default Swap;

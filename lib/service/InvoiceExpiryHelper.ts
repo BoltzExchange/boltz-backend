@@ -15,7 +15,7 @@ class InvoiceExpiryHelper {
 
   public getExpiry = (symbol: string): number => {
     return this.invoiceExpiry.get(symbol) || InvoiceExpiryHelper.defaultInvoiceExpiry;
-  }
+  };
 
   /**
    * Calculates the expiry of an invoice
@@ -34,7 +34,7 @@ class InvoiceExpiryHelper {
     }
 
     return invoiceExpiry;
-  }
+  };
 }
 
 export default InvoiceExpiryHelper;

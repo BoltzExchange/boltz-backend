@@ -15,11 +15,11 @@ class ERC20WalletProvider implements WalletProviderInterface {
 
   public getTokenAddress = (): string => {
     return this.token.contract.address;
-  }
+  };
 
   public getAddress = (): Promise<string> => {
     return this.signer.getAddress();
-  }
+  };
 
   public getBalance = async (): Promise<WalletBalance> => {
     const balance = this.normalizeTokenAmount(
@@ -31,7 +31,7 @@ class ERC20WalletProvider implements WalletProviderInterface {
       confirmedBalance: balance,
       unconfirmedBalance: 0,
     };
-  }
+  };
 
   public sendToAddress = async (address: string, amount: number): Promise<SentTransaction> => {
     const actualAmount = this.formatTokenAmount(amount);
@@ -42,7 +42,7 @@ class ERC20WalletProvider implements WalletProviderInterface {
     return {
       transactionId: transaction.hash,
     };
-  }
+  };
 
   public sweepWallet = async (address: string): Promise<SentTransaction> => {
     const balance = await this.token.contract.balanceOf(await this.getAddress());
@@ -53,11 +53,11 @@ class ERC20WalletProvider implements WalletProviderInterface {
     return {
       transactionId: transaction.hash,
     };
-  }
+  };
 
   public getAllowance = async (spender: string): Promise<BigNumber> => {
     return this.token.contract.allowance(await this.signer.getAddress(), spender);
-  }
+  };
 
   public approve = async (spender: string, amount: BigNumber): Promise<SentTransaction> => {
     const transaction = await this.token.contract.approve(spender, amount, {
@@ -67,7 +67,7 @@ class ERC20WalletProvider implements WalletProviderInterface {
     return {
       transactionId: transaction.hash,
     };
-  }
+  };
 
   /**
    * Formats the token amount to send from 10 ** -8 decimals
@@ -86,7 +86,7 @@ class ERC20WalletProvider implements WalletProviderInterface {
         return amountBn.div(exponent);
       }
     }
-  }
+  };
 
   /**
    * Normalizes the token balance to 10 ** -8 decimals
@@ -103,7 +103,7 @@ class ERC20WalletProvider implements WalletProviderInterface {
         return amount.mul(exponent).toNumber();
       }
     }
-  }
+  };
 }
 
 export default ERC20WalletProvider;

@@ -169,7 +169,7 @@ class EthereumManager {
     }
 
     return wallets;
-  }
+  };
 
   private checkERC20Allowance = async (erc20Wallet: ERC20WalletProvider) => {
     const allowance = await erc20Wallet.getAllowance(this.ethereumConfig.erc20SwapAddress);
@@ -186,7 +186,7 @@ class EthereumManager {
 
       this.logger.info(`Set allowance of token ${erc20Wallet.symbol }: ${transactionId}`);
     }
-  }
+  };
 
   private checkContractVersion = async (name: string, contract: EtherSwap | ERC20Swap, supportedVersion: number) => {
     const contractVersion = await contract.version();
@@ -194,7 +194,7 @@ class EthereumManager {
     if (contractVersion !== supportedVersion) {
       throw Errors.UNSUPPORTED_CONTRACT_VERSION(name, contract.address, contractVersion, supportedVersion);
     }
-  }
+  };
 }
 
 export default EthereumManager;

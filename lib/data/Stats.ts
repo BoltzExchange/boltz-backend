@@ -90,7 +90,7 @@ class Stats {
     });
 
     return stringify(mapToObject(yearStats));
-  }
+  };
 
   private generateMonth = (swaps: {
     successfulSwaps: SwapArrays,
@@ -146,7 +146,7 @@ class Stats {
       volume: this.formatVolumeMap(volumeMap),
       trades: mapToObject(tradesPerPair),
     };
-  }
+  };
 
   private formatVolumeMap = (volumeMap: Map<string, number>) => {
     const volume = {};
@@ -156,7 +156,7 @@ class Stats {
     });
 
     return volume;
-  }
+  };
 
   private getSwapAmount = (isReverse: boolean, orderSide: number, onchainAmount: number, invoice: string) => {
     if (
@@ -167,7 +167,7 @@ class Stats {
     } else {
       return onchainAmount;
     }
-  }
+  };
 }
 
 export default Stats;

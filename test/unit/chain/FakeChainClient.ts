@@ -63,7 +63,7 @@ class FakedChainClient {
       verificationprogress: 0,
       initialblockdownload: '',
     };
-  }
+  };
 
   public getBlockhash = async (height: number): Promise<string> => {
     const hash = this.blockIndex.get(height);
@@ -73,7 +73,7 @@ class FakedChainClient {
     } else {
       throw 'could not find block';
     }
-  }
+  };
 
   public getBlock = async (hash: string): Promise<Block> => {
     const block = this.blocks.get(hash);
@@ -107,7 +107,7 @@ class FakedChainClient {
     } else {
       throw 'could not find block';
     }
-  }
+  };
 
   public getBlockVerbose = async (hash: string): Promise<BlockVerbose> => {
     if (this.disableGetBlockVerbose) {
@@ -156,7 +156,7 @@ class FakedChainClient {
     } else {
       throw 'could not find block';
     }
-  }
+  };
 
   public getRawTransaction = async (id: string): Promise<string> => {
     const transaction = this.transactions.get(id);
@@ -172,7 +172,7 @@ class FakedChainClient {
         throw 'could not find transaction';
       }
     }
-  }
+  };
 
   public getRawTransactionVerbose = async (id: string): Promise<RawTransaction> => {
     const verboseTransaction = {
@@ -212,7 +212,7 @@ class FakedChainClient {
         throw 'could not find transaction';
       }
     }
-  }
+  };
 
   public generateBlock = (height?: number, orphan = false): { hash: Buffer, block: Buffer, height: number } => {
     if (height !== undefined) {
@@ -255,11 +255,11 @@ class FakedChainClient {
     }
 
     return block;
-  }
+  };
 
   public sendRawTransaction = (transaction: Transaction): void => {
     this.mempoolTransactions.set(transaction.getId(), transaction);
-  }
+  };
 }
 
 export default FakedChainClient;

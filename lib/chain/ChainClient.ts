@@ -97,18 +97,18 @@ class ChainClient extends BaseClient {
     if (this.mempoolSpace) {
       await this.mempoolSpace.init();
     }
-  }
+  };
 
   public disconnect = (): void => {
     this.clearReconnectTimer();
 
     this.zmqClient.close();
     this.setClientStatus(ClientStatus.Disconnected);
-  }
+  };
 
   public getNetworkInfo = (): Promise<NetworkInfo> => {
     return this.client.request<NetworkInfo>('getnetworkinfo');
-  }
+  };
 
   public getBlockchainInfo = async (): Promise<BlockchainInfo & {
     scannedBlocks: number,
@@ -119,63 +119,63 @@ class ChainClient extends BaseClient {
       ...blockchainInfo,
       scannedBlocks: this.zmqClient.blockHeight,
     };
-  }
+  };
 
   public getBlock = (hash: string): Promise<Block> => {
     return this.client.request<Block>('getblock', [hash]);
-  }
+  };
 
   public getBlockVerbose = (hash: string): Promise<BlockVerbose> => {
     return this.client.request<BlockVerbose>('getblock', [hash, 2]);
-  }
+  };
 
   public getBlockhash = (height: number): Promise<string> => {
     return this.client.request<string>('getblockhash', [height]);
-  }
+  };
 
   /**
    * Add an output to the list of relevant ones
    */
   public addOutputFilter = (outputScript: Buffer): void => {
     this.zmqClient.relevantOutputs.add(getHexString(outputScript));
-  }
+  };
 
   /**
    * Removes an output from the list of relevant ones
    */
   public removeOutputFilter = (outputScript: Buffer): void => {
     this.zmqClient.relevantOutputs.delete(getHexString(outputScript));
-  }
+  };
 
   /**
    * Adds an input hash to the list of relevant ones
    */
   public addInputFilter = (inputHash: Buffer): void=> {
     this.zmqClient.relevantInputs.add(getHexString(inputHash));
-  }
+  };
 
   /**
    * Removes an input hash from the list of relevant ones
    */
   public removeInputFilter = (inputHash: Buffer): void => {
     this.zmqClient.relevantInputs.delete(getHexString(inputHash));
-  }
+  };
 
   public rescanChain = async (startHeight: number): Promise<void> => {
     await this.zmqClient.rescanChain(startHeight);
-  }
+  };
 
   public sendRawTransaction = (rawTransaction: string): Promise<string> => {
     return this.client.request<string>('sendrawtransaction', [rawTransaction]);
-  }
+  };
 
   public getRawTransaction = (id: string): Promise<string> => {
     return this.client.request<string>('getrawtransaction', [id]);
-  }
+  };
 
   public getRawTransactionVerbose = (id: string): Promise<RawTransaction> => {
     return this.client.request<RawTransaction>('getrawtransaction', [id, 1]);
-  }
+  };
 
   public estimateFee = async (confTarget = 2): Promise<number> => {
     const chainClientFee = await this.estimateFeeChainClient(confTarget);
@@ -190,7 +190,7 @@ class ChainClient extends BaseClient {
     } else {
       return chainClientFee;
     }
-  }
+  };
 
   public getWalletInfo = async (): Promise<WalletInfo> => {
     const result = await this.client.request<WalletInfo>('getwalletinfo');
@@ -201,7 +201,7 @@ class ChainClient extends BaseClient {
     result.immature_balance = result.immature_balance * ChainClient.decimals;
 
     return result;
-  }
+  };
 
   public sendToAddress = (address: string, amount: number, subtractFeeFromAmount = false): Promise<string> => {
     return this.client.request<string>('sendtoaddress', [
@@ -211,19 +211,19 @@ class ChainClient extends BaseClient {
       undefined,
       subtractFeeFromAmount,
     ]);
-  }
+  };
 
   public listUnspent = (): Promise<UnspentUtxo[]> => {
     return this.client.request<UnspentUtxo[]>('listunspent');
-  }
+  };
 
   public generate = async (blocks: number): Promise<string[]> => {
     return this.client.request<string[]>('generatetoaddress', [blocks, await this.getNewAddress()]);
-  }
+  };
 
   public getNewAddress = (): Promise<string> => {
     return this.client.request<string>('getnewaddress', [undefined, 'bech32']);
-  }
+  };
 
   private estimateFeeChainClient = async (confTarget = 2) => {
     try {
@@ -245,11 +245,11 @@ class ChainClient extends BaseClient {
 
       throw error;
     }
-  }
+  };
 
   private getZmqNotifications = (): Promise<ZmqNotification[]> => {
     return this.client.request<ZmqNotification[]>('getzmqnotifications');
-  }
+  };
 
   private listenToZmq = async (): Promise<void> => {
     const { scannedBlocks } = await this.getBlockchainInfo();
@@ -264,7 +264,7 @@ class ChainClient extends BaseClient {
     this.zmqClient.on('transaction', (transaction, confirmed) => {
       this.emit('transaction', transaction, confirmed);
     });
-  }
+  };
 }
 
 export default ChainClient;

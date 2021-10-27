@@ -146,7 +146,7 @@ class Service {
 
     this.rateProvider.feeProvider.init(configPairs);
     await this.rateProvider.init(configPairs);
-  }
+  };
 
   /**
    * Gets general information about this Boltz instance and the nodes it is connected to
@@ -212,7 +212,7 @@ class Service {
     }
 
     return response;
-  }
+  };
 
   /**
    * Gets the balance for either all wallets or just a single one if specified
@@ -262,7 +262,7 @@ class Service {
     }
 
     return response;
-  }
+  };
 
   /**
    * Gets all supported pairs and their conversion rates
@@ -288,7 +288,7 @@ class Service {
       warnings,
       pairs: this.rateProvider.pairs,
     };
-  }
+  };
 
   /**
    * Gets a map between the LND node keys and URIs and the symbol of the chains they are running on
@@ -307,7 +307,7 @@ class Service {
     }
 
     return response;
-  }
+  };
 
   public getRoutingHints = (symbol: string, routingNode: string): RouteHint.AsObject[] => {
     const response: RouteHint.AsObject[] = [];
@@ -316,7 +316,7 @@ class Service {
     hints.forEach((hint) => response.push(hint.toObject()));
 
     return response;
-  }
+  };
 
   /**
    * Gets the contract address used by the Boltz instance
@@ -342,7 +342,7 @@ class Service {
         ]),
       },
     };
-  }
+  };
 
   /**
    * Gets a hex encoded transaction from a transaction hash on the specified network
@@ -355,7 +355,7 @@ class Service {
     }
 
     return await currency.chainClient.getRawTransaction(transactionHash);
-  }
+  };
 
   /**
    * Gets the hex encoded lockup transaction of a Submarine Swap, the block height
@@ -400,7 +400,7 @@ class Service {
     }
 
     return response;
-  }
+  };
 
   public deriveKeys = (symbol: string, index: number): DeriveKeysResponse => {
     const wallet = this.walletManager.wallets.get(symbol.toUpperCase());
@@ -417,7 +417,7 @@ class Service {
     response.setPrivateKey(getHexString(keys.privateKey!));
 
     return response;
-  }
+  };
 
   /**
    * Gets an address of a specified wallet
@@ -430,7 +430,7 @@ class Service {
     }
 
     throw Errors.CURRENCY_NOT_FOUND(symbol);
-  }
+  };
 
   /**
    * Gets a fee estimation in satoshis per vbyte or GWEI for either all currencies or just a single one if specified
@@ -473,7 +473,7 @@ class Service {
     }
 
     return map;
-  }
+  };
 
   /**
    * Broadcast a hex encoded transaction on the specified network
@@ -523,7 +523,7 @@ class Service {
         throw error;
       }
     }
-  }
+  };
 
   /**
    * Updates the timeout block delta of a pair
@@ -532,7 +532,7 @@ class Service {
     this.timeoutDeltaProvider.setTimeout(pairId, newDelta);
 
     this.logger.info(`Updated timeout block delta of ${pairId} to ${newDelta} minutes`);
-  }
+  };
 
   public addReferral = async (referral: {
     id: string,
@@ -654,7 +654,7 @@ class Service {
       claimAddress,
       timeoutBlockHeight,
     };
-  }
+  };
 
   /**
    * Gets the rates for a Submarine Swap that has coins in its lockup address but no invoice yet
@@ -695,7 +695,7 @@ class Service {
         invoiceAmount,
       },
     };
-  }
+  };
 
   /**
    * Sets the invoice of Submarine Swap
@@ -778,7 +778,7 @@ class Service {
         getSwapMemo(lightningCurrency, false),
       ),
     };
-  }
+  };
 
   /**
    * Creates a Submarine Swap with an invoice
@@ -862,7 +862,7 @@ class Service {
 
       throw error;
     }
-  }
+  };
 
   /**
    * Creates a new Swap from Lightning to the chain
@@ -1078,7 +1078,7 @@ class Service {
     }
 
     return response;
-  }
+  };
 
   /**
    * Pays a lightning invoice
@@ -1091,7 +1091,7 @@ class Service {
     }
 
     return lndClient.sendPayment(invoice);
-  }
+  };
 
   /**
    * Sends coins to a specified address
@@ -1128,7 +1128,7 @@ class Service {
     }
 
     throw Errors.CURRENCY_NOT_FOUND(symbol);
-  }
+  };
 
   private getReferralId = async (referralId?: string, routingNode?: string): Promise<string | undefined> => {
     // An explicitly set referral ID trumps the routing node
@@ -1145,7 +1145,7 @@ class Service {
     }
 
     return;
-  }
+  };
 
   /**
    * Verifies that the requested amount is neither above the maximal nor beneath the minimal
@@ -1167,7 +1167,7 @@ class Service {
     } else {
       throw Errors.PAIR_NOT_FOUND(pairId);
     }
-  }
+  };
 
   /**
    * Calculates the amount of an invoice for a Submarine Swap
@@ -1180,7 +1180,7 @@ class Service {
     return Math.floor(
       ((onchainAmount - baseFee) * rate) / (1 + percentageFee),
     );
-  }
+  };
 
   private getPair = (pairId: string) => {
     const { base, quote } = splitPairId(pairId);
@@ -1196,7 +1196,7 @@ class Service {
       quote,
       ...pair,
     };
-  }
+  };
 
   private getCurrency = (symbol: string) => {
     const currency = this.currencies.get(symbol);
@@ -1206,7 +1206,7 @@ class Service {
     }
 
     return currency;
-  }
+  };
 
   private getOrderSide = (side: string) => {
     switch (side.toLowerCase()) {
@@ -1215,23 +1215,23 @@ class Service {
 
       default: throw Errors.ORDER_SIDE_NOT_FOUND(side);
     }
-  }
+  };
 
   private calculateTimeoutDate = (chain: string, blocksMissing: number) => {
     return getUnixTime() + (blocksMissing * TimeoutDeltaProvider.blockTimes.get(chain)! * 60);
-  }
+  };
 
   private validatePairHash = (pairId: string, pairHash: string) => {
      if (pairHash !== this.rateProvider.pairs.get(pairId)!.hash) {
        throw Errors.INVALID_PAIR_HASH();
      }
-  }
+  };
 
   private checkWholeNumber = (input: number) => {
     if (input % 1 !== 0) {
       throw Errors.NOT_WHOLE_NUMBER(input);
     }
-  }
+  };
 }
 
 export default Service;

@@ -16,12 +16,12 @@ class LndWalletProvider implements WalletProviderInterface {
 
   public getBalance = (): Promise<WalletBalance> => {
     return this.lndClient.getWalletBalance();
-  }
+  };
 
   public getAddress = async (): Promise<string> => {
     const response = await this.lndClient.newAddress(AddressType.WITNESS_PUBKEY_HASH);
     return response.address;
-  }
+  };
 
   public sendToAddress = async (address: string, amount: number, satPerVbyte?: number): Promise<SentTransaction> => {
     // To avoid weird race conditions (insanely unlikely but still), the start height of the LND transaction list call
@@ -30,7 +30,7 @@ class LndWalletProvider implements WalletProviderInterface {
     const response = await this.lndClient.sendCoins(address, amount, await this.getFeePerVbyte(satPerVbyte));
 
     return this.handleLndTransaction(response.txid, address, blockHeight);
-  }
+  };
 
   public sweepWallet = async (address: string, satPerVbyte?: number): Promise<SentTransaction> => {
     // See "sendToAddress"
@@ -38,7 +38,7 @@ class LndWalletProvider implements WalletProviderInterface {
     const response = await this.lndClient.sweepWallet(address, await this.getFeePerVbyte(satPerVbyte));
 
     return this.handleLndTransaction(response.txid, address, blockHeight);
-  }
+  };
 
   private handleLndTransaction = async (transactionId: string, address: string, listStartHeight: number): Promise<SentTransaction> => {
     const rawTransaction = await this.chainClient.getRawTransactionVerbose(transactionId);
@@ -75,11 +75,11 @@ class LndWalletProvider implements WalletProviderInterface {
 
       transaction: Transaction.fromHex(rawTransaction.hex),
     };
-  }
+  };
 
   private getFeePerVbyte = async (satPerVbyte?: number) => {
     return satPerVbyte || await this.chainClient.estimateFee();
-  }
+  };
 }
 
 export default LndWalletProvider;

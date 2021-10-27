@@ -18,7 +18,7 @@ class ChainTip extends Model implements ChainTipType {
       timestamps: false,
       tableName: 'chainTips',
     });
-  }
+  };
 }
 
 export default ChainTip;

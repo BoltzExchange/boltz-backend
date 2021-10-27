@@ -10,14 +10,14 @@ class PendingEthereumTransactionRepository {
         },
       }
     });
-  }
+  };
 
   public addTransaction = (hash: string, nonce: number): Promise<PendingEthereumTransaction> => {
     return PendingEthereumTransaction.create({
       hash,
       nonce,
     });
-  }
+  };
 }
 
 export default PendingEthereumTransactionRepository;

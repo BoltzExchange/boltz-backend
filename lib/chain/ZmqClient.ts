@@ -107,7 +107,7 @@ class ZmqClient extends EventEmitter {
         await this.initHashBlock();
       }
     }
-  }
+  };
 
   public close = (): void => {
     this.sockets.forEach((socket) => {
@@ -118,7 +118,7 @@ class ZmqClient extends EventEmitter {
         this.logger.debug(`${this.symbol} socket already closed: ${formatError(error)}`);
       }
     });
-  }
+  };
 
   public rescanChain = async (startHeight: number): Promise<void> => {
     const checkTransaction = (transaction: Transaction) => {
@@ -161,7 +161,7 @@ class ZmqClient extends EventEmitter {
         throw error;
       }
     }
-  }
+  };
 
   private initRawTransaction = async (address: string) => {
     const socket = await this.createSocket(address, 'rawtx');
@@ -192,7 +192,7 @@ class ZmqClient extends EventEmitter {
         }
       }
     });
-  }
+  };
 
   private initRawBlock = async (address: string) => {
     const socket = await this.createSocket(address, 'rawblock');
@@ -254,7 +254,7 @@ class ZmqClient extends EventEmitter {
         }
       }, () => {});
     });
-  }
+  };
 
   private initHashBlock = async () => {
     if (!this.hashBlockAddress) {
@@ -309,7 +309,7 @@ class ZmqClient extends EventEmitter {
         }
       }, () => {});
     });
-  }
+  };
 
   private isRelevantTransaction = (transaction: Transaction) => {
     for (const input of transaction.ins) {
@@ -325,21 +325,21 @@ class ZmqClient extends EventEmitter {
     }
 
     return false;
-  }
+  };
 
   private newChainTip = () => {
     this.logger.silly(`New ${this.symbol} chain tip #${this.blockHeight}: ${this.bestBlockHash}`);
 
     this.emit('block', this.blockHeight);
-  }
+  };
 
   private logReorganize = () => {
     this.logger.info(`Reorganized ${this.symbol} chain to #${this.blockHeight}: ${this.bestBlockHash}`);
-  }
+  };
 
   private logOrphanBlock = (hash: string) => {
     this.logger.verbose(`Found ${this.symbol} orphan block: ${hash}`);
-  }
+  };
 
   private createSocket = (address: string, filter: string) => {
     return new Promise<Socket>((resolve, reject) => {
@@ -358,7 +358,7 @@ class ZmqClient extends EventEmitter {
       socket.connect(address);
       socket.subscribe(filter);
     });
-  }
+  };
 }
 
 export default ZmqClient;

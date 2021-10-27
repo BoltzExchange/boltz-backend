@@ -40,7 +40,7 @@ class ConnectionHelper {
     }
 
     throw 'could not connect to any of the advertised addresses';
-  }
+  };
 }
 
 export default ConnectionHelper;

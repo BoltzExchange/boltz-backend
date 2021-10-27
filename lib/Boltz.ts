@@ -185,7 +185,7 @@ class Boltz {
       // eslint-disable-next-line no-process-exit
       process.exit(1);
     }
-  }
+  };
 
   private connectChainClient = async (client: ChainClient, chainTipRepository: ChainTipRepository) => {
     const service = `${client.symbol} chain`;
@@ -209,7 +209,7 @@ class Boltz {
     } catch (error) {
       this.logCouldNotConnect(service, error);
     }
-  }
+  };
 
   private connectLnd = async (client: LndClient) => {
     const service = `${client.symbol} LND`;
@@ -228,7 +228,7 @@ class Boltz {
     } catch (error) {
       this.logCouldNotConnect(service, error);
     }
-  }
+  };
 
   private parseCurrencies = (): Map<string, Currency> => {
     const result = new Map<string, Currency>();
@@ -270,15 +270,15 @@ class Boltz {
     });
 
     return result;
-  }
+  };
 
   private logStatus = (service: string, status: unknown) => {
     this.logger.verbose(`${service} status: ${JSON.stringify(status, undefined, 2)}`);
-  }
+  };
 
   private logCouldNotConnect = (service: string, error: any) => {
     this.logger.error(`Could not connect to ${service}: ${formatError(error)}`);
-  }
+  };
 }
 
 export default Boltz;

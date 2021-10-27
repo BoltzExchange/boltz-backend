@@ -26,11 +26,11 @@ class ZmqPublisher {
 
   public close = () => {
     this.socket.close();
-  }
+  };
 
   public sendMessage = (message: Buffer) => {
     this.socket.send([this.filter, message]);
-  }
+  };
 }
 
 describe('ZmqClient', () => {

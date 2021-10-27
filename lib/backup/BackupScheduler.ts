@@ -53,14 +53,14 @@ class BackupScheduler {
   private static getDate = (date: Date) => {
     return `${date.getFullYear()}${BackupScheduler.addLeadingZeros(date.getMonth())}${BackupScheduler.addLeadingZeros(date.getDate())}` +
       `-${BackupScheduler.addLeadingZeros(date.getHours())}${BackupScheduler.addLeadingZeros(date.getMinutes())}`;
-  }
+  };
 
   /**
    * Adds a leading 0 to the provided number if it is smaller than 10
    */
   private static addLeadingZeros = (number: number) => {
     return `${number}`.padStart(2, '0');
-  }
+  };
 
   public uploadDatabase = async (date: Date): Promise<void> => {
     if (!this.bucket) {
@@ -71,7 +71,7 @@ class BackupScheduler {
     this.logger.silly(`Backing up databases at: ${dateString}`);
 
     await this.uploadFile(this.dbpath, dateString);
-  }
+  };
 
   public uploadReport = async (): Promise<void> => {
     if (!this.bucket) {
@@ -80,7 +80,7 @@ class BackupScheduler {
 
     const data = await this.report.generate();
     await this.uploadString('report.csv', data);
-  }
+  };
 
   private uploadFile = async (path: string, date: string) => {
     const destination = `backend/database-${date}.db`;
@@ -95,7 +95,7 @@ class BackupScheduler {
       this.logger.warn(`Could not upload file ${destination}: ${error}`);
       throw error;
     }
-  }
+  };
 
   private uploadString = async (fileName: string, data: string) => {
     try {
@@ -107,7 +107,7 @@ class BackupScheduler {
       this.logger.warn(`Could not upload data to file ${fileName}: ${formatError(error)}`);
       throw error;
     }
-  }
+  };
 
   private subscribeChannelBackups = () => {
     this.eventHandler.on('channel.backup', async (currency: string, channelBackup: string) => {
@@ -115,7 +115,7 @@ class BackupScheduler {
 
       await this.uploadString(`lnd/${currency}/multiChannelBackup-${dateString}`, channelBackup);
     });
-  }
+  };
 }
 
 export default BackupScheduler;

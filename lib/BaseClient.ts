@@ -25,14 +25,14 @@ class BaseClient extends EventEmitter {
 
   protected setClientStatus = (status: ClientStatus): void => {
     this.status = status;
-  }
+  };
 
   protected clearReconnectTimer = (): void => {
     if (this.reconnectionTimer) {
       clearInterval(this.reconnectionTimer);
       this.reconnectionTimer = undefined;
     }
-  }
+  };
 }
 
 export default BaseClient;

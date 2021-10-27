@@ -126,7 +126,7 @@ class ChannelNursery extends EventEmitter {
       this.retryOpeningChannels(),
       this.settleCreatedChannels(),
     ]);
-  }
+  };
 
   // TODO: show and reject less than min channel size
   // TODO: handle errors that say that the max number of (pending) channels exceeded
@@ -208,7 +208,7 @@ class ChannelNursery extends EventEmitter {
 
       this.logger.verbose(`Could not open channel for Swap ${swap.id} to ${payeeNodeKey}: ${formattedError}`);
     }
-  }
+  };
 
   private retryOpeningChannels = async () => {
     await this.lock.acquire(ChannelNursery.channelCreationLock, async () => {
@@ -242,7 +242,7 @@ class ChannelNursery extends EventEmitter {
         }
       }
     });
-  }
+  };
 
   private settleChannel = async (swap: Swap, channelCreation: ChannelCreation): Promise<boolean> => {
     const chainCurrency = this.currencies.get(this.getCurrency(swap!, false))!;
@@ -280,7 +280,7 @@ class ChannelNursery extends EventEmitter {
     this.logger.verbose(`Could not settle Channel Creation Swap ${swap.id}: channel is not active`);
 
     return false;
-  }
+  };
 
   private settleChannelWrapper = async (swap: Swap, channelCreation: ChannelCreation, timeoutAmplifier = 1000) => {
     const settleSuccessful = await this.settleChannel(swap, channelCreation);
@@ -311,7 +311,7 @@ class ChannelNursery extends EventEmitter {
         this.settleRetries.delete(swap.id);
       }
     }
-  }
+  };
 
   private settleCreatedChannels = async () => {
     const unsettledChannels = await this.channelCreationRepository.getChannelCreations({
@@ -328,15 +328,15 @@ class ChannelNursery extends EventEmitter {
 
       await this.settleChannel(swap!, unsettledChannel);
     }
-  }
+  };
 
   private eligibleForChannel = (swap: Swap) => {
     return swap.lockupTransactionId !== null && swap.onchainAmount! >= swap.expectedAmount!;
-  }
+  };
 
   private parseFundingTransactionId = (fundingTransactionIdBytes: Uint8Array | string) => {
     return getHexString(reverseBuffer(Buffer.from(fundingTransactionIdBytes as string, 'base64')));
-  }
+  };
 
   private splitChannelPoint = (channelPoint: string) => {
     const split = channelPoint.split(':');
@@ -345,12 +345,12 @@ class ChannelNursery extends EventEmitter {
       id: split[0],
       vout: Number(split[1]),
     };
-  }
+  };
 
   private getCurrency = (swap: Swap, lightning: boolean) => {
     const { base, quote } = splitPairId(swap.pair);
     return lightning ? getLightningCurrency(base, quote, swap.orderSide, false) : getChainCurrency(base, quote, swap.orderSide, false);
-  }
+  };
 }
 
 export default ChannelNursery;

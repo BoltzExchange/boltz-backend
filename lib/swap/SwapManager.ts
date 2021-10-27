@@ -129,7 +129,7 @@ class SwapManager {
       lndClients,
     );
     await this.routingHints.start();
-  }
+  };
 
   /**
    * Creates a new Submarine Swap from the chain to Lightning with a preimage hash
@@ -259,7 +259,7 @@ class SwapManager {
 
       redeemScript: redeemScript ? getHexString(redeemScript) : undefined,
     };
-  }
+  };
 
   /**
    * Sets the invoice of a Submarine Swap
@@ -377,7 +377,7 @@ class SwapManager {
     }
 
     return response;
-  }
+  };
 
   /**
    * Creates a new reverse Swap from Lightning to the chain
@@ -561,7 +561,7 @@ class SwapManager {
       invoice: paymentRequest,
       redeemScript: redeemScript ? getHexString(redeemScript) : undefined,
     };
-  }
+  };
 
   // TODO: check current status of invoices or do the streams handle that already?
   private recreateFilters = (swaps: Swap[] | ReverseSwap[], isReverse: boolean) => {
@@ -605,7 +605,7 @@ class SwapManager {
         }
       }
     });
-  }
+  };
 
   /**
    * @returns whether the payment can be routed
@@ -639,7 +639,7 @@ class SwapManager {
       this.logger.debug(`Could not query routes: ${error}`);
       return false;
     }
-  }
+  };
 
   private getCurrencies = (baseCurrency: string, quoteCurrency: string, orderSide: OrderSide) => {
     const { sending, receiving } = getSendingReceivingCurrency(baseCurrency, quoteCurrency, orderSide);
@@ -654,7 +654,7 @@ class SwapManager {
         wallet: this.walletManager.wallets.get(receiving)!,
       },
     };
-  }
+  };
 
   private getCurrency = (currencySymbol: string) => {
     const currency = this.currencies.get(currencySymbol);
@@ -664,12 +664,12 @@ class SwapManager {
     }
 
     return currency;
-  }
+  };
 
   private getLockupContractAddress = (type: CurrencyType): string => {
     const ethereumManager = this.walletManager.ethereumManager!;
     return type === CurrencyType.Ether ? ethereumManager.etherSwap.address: ethereumManager.erc20Swap.address;
-  }
+  };
 }
 
 export default SwapManager;

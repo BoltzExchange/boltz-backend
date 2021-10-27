@@ -31,7 +31,7 @@ class MempoolSpace {
     this.fetchInterval = setInterval(async () => {
       await this.fetchRecommendedFees();
     }, MempoolSpace.fetchInterval);
-  }
+  };
 
   public stop = (): void => {
     if (this.fetchInterval) {
@@ -40,7 +40,7 @@ class MempoolSpace {
     }
 
     this.latestFee = undefined;
-  }
+  };
 
   private fetchRecommendedFees = async () => {
     try {
@@ -57,12 +57,12 @@ class MempoolSpace {
     } catch (error) {
       this.handleCouldNotFetch(error);
     }
-  }
+  };
 
   private handleCouldNotFetch = (error: any) => {
     this.latestFee = undefined;
     this.logger.warn(`Could not fetch ${this.symbol} MempoolSpace fee estimations: ${formatError(error)}`);
-  }
+  };
 }
 
 export default MempoolSpace;

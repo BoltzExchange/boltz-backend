@@ -12,7 +12,7 @@ class GrpcService {
     } catch (error) {
       callback((error as any), null);
     }
-  }
+  };
 
   public getBalance: handleUnaryCall<boltzrpc.GetBalanceRequest, boltzrpc.GetBalanceResponse> = async (_, callback) => {
     try {
@@ -20,7 +20,7 @@ class GrpcService {
     } catch (error) {
       callback((error as any), null);
     }
-  }
+  };
 
   public deriveKeys: handleUnaryCall<boltzrpc.DeriveKeysRequest, boltzrpc.DeriveKeysResponse> = async (call, callback) => {
     try {
@@ -30,7 +30,7 @@ class GrpcService {
     } catch (error) {
       callback((error as any), null);
     }
-  }
+  };
 
   public getAddress: handleUnaryCall<boltzrpc.GetAddressRequest, boltzrpc.GetAddressResponse> = async (call, callback) => {
     try {
@@ -45,7 +45,7 @@ class GrpcService {
     } catch (error) {
       callback((error as any), null);
     }
-  }
+  };
 
   public sendCoins: handleUnaryCall<boltzrpc.SendCoinsRequest, boltzrpc.SendCoinsResponse> = async (call, callback) => {
     try {
@@ -59,7 +59,7 @@ class GrpcService {
     } catch (error) {
       callback((error as any), null);
     }
-  }
+  };
 
   public updateTimeoutBlockDelta: handleUnaryCall<boltzrpc.UpdateTimeoutBlockDeltaRequest, boltzrpc.UpdateTimeoutBlockDeltaResponse> = async (call, callback) => {
     try {
@@ -71,7 +71,7 @@ class GrpcService {
     } catch (error) {
       callback((error as any), null);
     }
-  }
+  };
 
   public addReferral: handleUnaryCall<boltzrpc.AddReferralRequest, boltzrpc.AddReferralResponse> = async (call, callback) => {
     try {
@@ -99,7 +99,7 @@ class GrpcService {
     } catch (error) {
       callback((error as any), null);
     }
-  }
+  };
 }
 
 export default GrpcService;

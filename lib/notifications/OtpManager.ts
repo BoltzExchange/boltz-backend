@@ -44,7 +44,7 @@ class OtpManager {
     }
 
     return false;
-  }
+  };
 
   private generateUri = (prefix: string, secretPath: string) => {
     const uri = authenticator.keyuri(
@@ -56,7 +56,7 @@ class OtpManager {
     const path = join(dirname(secretPath), OtpManager.uriFile);
 
     writeFileSync(path, uri);
-  }
+  };
 }
 
 export default OtpManager;

@@ -46,7 +46,7 @@ class Api {
         resolve();
       });
     });
-  }
+  };
 
   private registerRoutes = (controller: Controller) => {
     // GET requests
@@ -74,7 +74,7 @@ class Api {
 
     // EventSource streams
     this.app.route('/streamswapstatus').get(controller.streamSwapStatus);
-  }
+  };
 }
 
 export default Api;

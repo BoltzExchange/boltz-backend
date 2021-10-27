@@ -96,11 +96,11 @@ class NotificationProvider {
     } catch (error) {
       this.logger.warn(`Could not start notification service: ${error}`);
     }
-  }
+  };
 
   public disconnect = (): void => {
     clearInterval(this.timer);
-  }
+  };
 
   private checkConnections = async () => {
     const info = await this.service.getInfo();
@@ -113,7 +113,7 @@ class NotificationProvider {
     });
 
     await Promise.all(promises);
-  }
+  };
 
   private checkConnection = async (service: string, object: ChainInfo | LndInfo | undefined) => {
     if (object !== undefined) {
@@ -125,13 +125,13 @@ class NotificationProvider {
     }
 
     await this.sendLostConnection(service);
-  }
+  };
 
   private listenToDiscord = () => {
     this.discord.on('error', (error) => {
       this.logger.warn(`Discord client threw: ${error.message}`);
     });
-  }
+  };
 
   private listenToService = () => {
     const getSwapTitle = (pair: string, orderSide: OrderSide, isReverse: boolean) => {
@@ -222,28 +222,28 @@ class NotificationProvider {
 
       await this.discord.sendMessage(`${message}${NotificationProvider.trailingWhitespace}`);
     });
-  }
+  };
 
   private sendLostConnection = async (service: string) => {
     if (!this.disconnected.has(service)) {
       this.disconnected.add(service);
       await this.discord.sendMessage(`**Lost connection to ${service}**`);
     }
-  }
+  };
 
   private sendReconnected = async (service: string) => {
     if (this.disconnected.has(service)) {
       this.disconnected.delete(service);
       await this.discord.sendMessage(`Reconnected to ${service}`);
     }
-  }
+  };
 
   private getSmallestDenomination = (symbol: string): string => {
     switch (symbol) {
       case 'LTC': return 'litoshi';
       default: return 'satoshi';
     }
-  }
+  };
 
   private numberToDecimal = (toFormat: number) => {
     // Numbers smaller 1e-6 are formatted in the scientific notation when converted to a string
@@ -261,7 +261,7 @@ class NotificationProvider {
     } else {
       return toFormat.toString();
     }
-  }
+  };
 }
 
 export default NotificationProvider;

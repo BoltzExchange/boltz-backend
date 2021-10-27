@@ -18,7 +18,7 @@ class ContractHandler {
   public init = (etherSwap: EtherSwap, erc20Swap: ERC20Swap): void => {
     this.etherSwap = etherSwap;
     this.erc20Swap = erc20Swap;
-  }
+  };
 
   public lockupEther = async (
     preimageHash: Buffer,
@@ -31,7 +31,7 @@ class ContractHandler {
       value: amount,
       ...await getGasPrices(this.etherSwap.provider),
     });
-  }
+  };
 
   public lockupEtherPrepayMinerfee = async (
     preimageHash: Buffer,
@@ -64,7 +64,7 @@ class ContractHandler {
         ...await getGasPrices(this.etherSwap.provider),
       },
     );
-  }
+  };
 
   public claimEther = async (
     preimage: Buffer,
@@ -82,7 +82,7 @@ class ContractHandler {
         ...await getGasPrices(this.etherSwap.provider),
       }
     );
-  }
+  };
 
   public refundEther = async (
     preimageHash: Buffer,
@@ -100,7 +100,7 @@ class ContractHandler {
         ...await getGasPrices(this.etherSwap.provider),
       }
     );
-  }
+  };
 
   public lockupToken = async (
     token: ERC20WalletProvider,
@@ -120,7 +120,7 @@ class ContractHandler {
         ...await getGasPrices(this.etherSwap.provider),
       }
     );
-  }
+  };
 
   public lockupTokenPrepayMinerfee = async (
     token: ERC20WalletProvider,
@@ -151,7 +151,7 @@ class ContractHandler {
         ...await getGasPrices(this.etherSwap.provider),
       },
     );
-  }
+  };
 
   public claimToken = async (
     token: ERC20WalletProvider,
@@ -171,7 +171,7 @@ class ContractHandler {
         ...await getGasPrices(this.etherSwap.provider),
       },
     );
-  }
+  };
 
   public refundToken = async (
     token: ERC20WalletProvider,
@@ -191,7 +191,7 @@ class ContractHandler {
         ...await getGasPrices(this.etherSwap.provider),
       },
     );
-  }
+  };
 }
 
 export default ContractHandler;

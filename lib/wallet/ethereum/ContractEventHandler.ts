@@ -46,7 +46,7 @@ class ContractEventHandler extends EventEmitter {
     this.logger.verbose('Starting contract event subscriptions');
 
     this.subscribeContractEvents();
-  }
+  };
 
   public rescan = async (startHeight: number): Promise<void> => {
     const etherLockups = await this.etherSwap.queryFilter(
@@ -110,7 +110,7 @@ class ContractEventHandler extends EventEmitter {
     erc20Refunds.forEach((event) => {
       this.emit('erc20.refund', event.transactionHash, parseBuffer(event.topics[1]));
     });
-  }
+  };
 
   private subscribeContractEvents = () => {
     this.etherSwap.on('Lockup', async (
@@ -172,7 +172,7 @@ class ContractEventHandler extends EventEmitter {
     this.erc20Swap.on('Refund', (preimageHash: string, event: Event) => {
       this.emit('erc20.refund', event.transactionHash, parseBuffer(preimageHash));
     });
-  }
+  };
 }
 
 export default ContractEventHandler;

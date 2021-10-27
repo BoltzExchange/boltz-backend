@@ -100,13 +100,13 @@ class InjectedProvider implements providers.Provider {
 
     this.network = networks[0];
     this.logger.info(`Connected to ${this.providers.size} Web3 providers:\n - ${Array.from(this.providers.keys()).join('\n - ')}`);
-  }
+  };
 
   public destroy = async (): Promise<void> => {
     for (const provider of this.providers.values()) {
       await provider.destroy();
     }
-  }
+  };
 
   /*
    * Method calls
@@ -117,47 +117,47 @@ class InjectedProvider implements providers.Provider {
     blockTag?: providers.BlockTag,
   ): Promise<string> => {
     return this.forwardMethod('call', transaction, blockTag);
-  }
+  };
 
   public estimateGas = (transaction: providers.TransactionRequest): Promise<BigNumber> => {
     return this.forwardMethod('estimateGas', transaction);
-  }
+  };
 
   public getBalance = (addressOrName: string, blockTag?: providers.BlockTag): Promise<BigNumber> => {
     return this.forwardMethod('getBalance', addressOrName, blockTag);
-  }
+  };
 
   public getBlock = (blockHashOrBlockTag: providers.BlockTag): Promise<providers.Block> => {
     return this.forwardMethod('getBlock', blockHashOrBlockTag);
-  }
+  };
 
   public getBlockNumber = (): Promise<number> => {
     return this.forwardMethod('getBlockNumber');
-  }
+  };
 
   public getBlockWithTransactions = (blockHashOrBlockTag: providers.BlockTag): Promise<BlockWithTransactions> => {
     return this.forwardMethod('getBlockWithTransactions', blockHashOrBlockTag);
-  }
+  };
 
   public getCode = (addressOrName: string, blockTag?: providers.BlockTag): Promise<string> => {
     return this.forwardMethod('getCode', addressOrName, blockTag);
-  }
+  };
 
   public getGasPrice = (): Promise<BigNumber> => {
     return this.forwardMethod('getGasPrice');
-  }
+  };
 
   public getFeeData = (): Promise<FeeData> => {
     return this.forwardMethod('getFeeData');
-  }
+  };
 
   public getLogs = (filter: providers.Filter): Promise<Array<providers.Log>> => {
     return this.forwardMethod('getLogs', filter);
-  }
+  };
 
   public getNetwork = async (): Promise<providers.Network> => {
     return this.network;
-  }
+  };
 
   public getStorageAt = (
     addressOrName: string,
@@ -165,30 +165,30 @@ class InjectedProvider implements providers.Provider {
     blockTag?: providers.BlockTag,
   ): Promise<string> => {
     return this.forwardMethod('getStorageAt', addressOrName, position, blockTag);
-  }
+  };
 
   public getTransaction = (transactionHash: string): Promise<providers.TransactionResponse> => {
     return this.forwardMethod('getTransaction', transactionHash);
-  }
+  };
 
   public getTransactionCount = (
     addressOrName: string,
     blockTag?: providers.BlockTag,
   ): Promise<number> => {
     return this.forwardMethod('getTransactionCount', addressOrName, blockTag);
-  }
+  };
 
   public getTransactionReceipt = (transactionHash: string): Promise<providers.TransactionReceipt> => {
     return this.forwardMethod('getTransactionReceipt', transactionHash);
-  }
+  };
 
   public lookupAddress = (address: string): Promise<string> => {
     return this.forwardMethod('lookupAddress', address);
-  }
+  };
 
   public resolveName = (name: string): Promise<string> => {
     return this.forwardMethod('resolveName', name);
-  }
+  };
 
   public sendTransaction = async (signedTransaction: string): Promise<providers.TransactionResponse> => {
     const transaction = utils.parseTransaction(signedTransaction);
@@ -211,7 +211,7 @@ class InjectedProvider implements providers.Provider {
     // Return the result from whichever provider resolved the Promise first
     // The other "sendTransaction" calls will still be executed but the result won't be returned
     return Promise.race(promises);
-  }
+  };
 
   public waitForTransaction = (transactionHash: string, confirmations?: number, timeout?: number): Promise<providers.TransactionReceipt> => {
     return this.forwardMethod('waitForTransaction', {
@@ -219,7 +219,7 @@ class InjectedProvider implements providers.Provider {
       confirmations,
       timeout,
     });
-  }
+  };
 
   /*
    * Listeners
@@ -231,11 +231,11 @@ class InjectedProvider implements providers.Provider {
     }
 
     return true;
-  }
+  };
 
   public addListener = (eventName: providers.EventType, listener: providers.Listener): providers.Provider => {
     return this.on(eventName, listener);
-  }
+  };
 
   public listenerCount(eventName?: providers.EventType): number {
     return Array.from(this.providers.values())[0].listenerCount(eventName);
@@ -251,7 +251,7 @@ class InjectedProvider implements providers.Provider {
     }
 
     return this;
-  }
+  };
 
   public on = (eventName: providers.EventType, listener: providers.Listener): providers.Provider => {
     const providerDeltas = new Map<number, number>();
@@ -281,7 +281,7 @@ class InjectedProvider implements providers.Provider {
     }
 
     return this;
-  }
+  };
 
   public once = (eventName: providers.EventType, listener: providers.Listener): providers.Provider => {
     let emittedEvent = false;
@@ -298,7 +298,7 @@ class InjectedProvider implements providers.Provider {
     }
 
     return this;
-  }
+  };
 
   public removeAllListeners(eventName?: providers.EventType): providers.Provider {
     for (const [, provider] of this.providers) {
@@ -310,7 +310,7 @@ class InjectedProvider implements providers.Provider {
 
   public removeListener = (eventName: providers.EventType, listener: providers.Listener): providers.Provider => {
     return this.off(eventName, listener);
-  }
+  };
 
   /*
    * Helper utils
@@ -346,7 +346,7 @@ class InjectedProvider implements providers.Provider {
     }
 
     throw Errors.REQUESTS_TO_PROVIDERS_FAILED(errors);
-  }
+  };
 
   private promiseWithTimeout = (promise: Promise<any>, errorMessage: string): Promise<any> => {
     let timeoutHandle: NodeJS.Timeout;
@@ -362,7 +362,7 @@ class InjectedProvider implements providers.Provider {
       clearTimeout(timeoutHandle);
       return result;
     });
-  }
+  };
 
   private hashCode = (value: string): number => {
     let hash = 0;
@@ -374,19 +374,19 @@ class InjectedProvider implements providers.Provider {
     }
 
     return hash;
-  }
+  };
 
   private logAddedProvider = (name: string, config: Record<string, any>) => {
     this.logger.debug(`Adding Web3 provider ${name}: ${stringify(config)}`);
-  }
+  };
 
   private logConnectedProvider = (name: string, network: providers.Network) => {
     this.logger.verbose(`Connected to Web3 provider ${name} on network: ${network.chainId}`);
-  }
+  };
 
   private logDisabledProvider = (name: string, reason: string) => {
     this.logger.warn(`Disabled ${name} Web3 provider: ${reason}`);
-  }
+  };
 }
 
 export default InjectedProvider;

@@ -120,14 +120,14 @@ class Controller {
           break;
       }
     }
-  }
+  };
 
   // GET requests
   public version = (_: Request, res: Response): void => {
     this.successResponse(res, {
       version: getVersion(),
     });
-  }
+  };
 
   public getPairs = (_: Request, res: Response): void => {
     const data = this.service.getPairs();
@@ -137,7 +137,7 @@ class Controller {
       warnings: data.warnings,
       pairs: mapToObject(data.pairs),
     });
-  }
+  };
 
   public getNodes = async (_: Request, res: Response): Promise<void> => {
     const nodes = await this.service.getNodes();
@@ -145,7 +145,7 @@ class Controller {
     this.successResponse(res, {
       nodes: mapToObject(nodes),
     });
-  }
+  };
 
   public getContracts = (req: Request, res: Response): void => {
     try {
@@ -161,13 +161,13 @@ class Controller {
     } catch (error) {
       this.errorResponse(req, res, error, 501);
     }
-  }
+  };
 
   public getFeeEstimation = async (_: Request, res: Response): Promise<void> => {
     const feeEstimation = await this.service.getFeeEstimation();
 
     this.successResponse(res, mapToObject(feeEstimation));
-  }
+  };
 
   // POST requests
   public routingHints = (req: Request, res: Response): void => {
@@ -185,7 +185,7 @@ class Controller {
     } catch (error) {
       this.errorResponse(req, res, error);
     }
-  }
+  };
 
   public swapStatus = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -203,7 +203,7 @@ class Controller {
     } catch (error) {
       this.errorResponse(req, res, error);
     }
-  }
+  };
 
   public swapRates = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -216,7 +216,7 @@ class Controller {
     } catch (error) {
       this.errorResponse(req, res, error);
     }
-  }
+  };
 
   public getTransaction = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -230,7 +230,7 @@ class Controller {
     } catch (error) {
       this.errorResponse(req, res, error);
     }
-  }
+  };
 
   public getSwapTransaction = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -243,7 +243,7 @@ class Controller {
     } catch (error) {
       this.errorResponse(req, res, error);
     }
-  }
+  };
 
   public broadcastTransaction = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -257,7 +257,7 @@ class Controller {
     } catch (error) {
       this.errorResponse(req, res, error);
     }
-  }
+  };
 
   public createSwap = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -280,7 +280,7 @@ class Controller {
     } catch (error) {
       this.errorResponse(req, res, error);
     }
-  }
+  };
 
   private createSubmarineSwap = async (req: Request, res: Response) => {
     const {
@@ -345,7 +345,7 @@ class Controller {
     this.logger.silly(`Swap ${response.id}: ${stringify(response)}`);
 
     this.createdResponse(res, response);
-  }
+  };
 
   private createReverseSubmarineSwap = async (req: Request, res: Response) => {
     const {
@@ -394,7 +394,7 @@ class Controller {
     this.logger.silly(`Reverse swap ${response.id}: ${stringify(response)}`);
 
     this.createdResponse(res, response);
-  }
+  };
 
   public setInvoice = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -409,7 +409,7 @@ class Controller {
     } catch (error) {
       this.errorResponse(req, res, error);
     }
-  }
+  };
 
   public queryReferrals = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -425,7 +425,7 @@ class Controller {
     } catch (error) {
       this.errorResponse(req, res, error, 401);
     }
-  }
+  };
 
   // EventSource streams
   public streamSwapStatus = (req: Request, res: Response): void => {
@@ -451,7 +451,7 @@ class Controller {
     } catch (error) {
       this.errorResponse(req, res, error);
     }
-  }
+  };
 
   /**
    * Validates that all required arguments were provided in the body correctly
@@ -486,7 +486,7 @@ class Controller {
     });
 
     return response;
-  }
+  };
 
   public errorResponse = (req: Request, res: Response, error: unknown, statusCode = 400): void => {
     if (typeof error === 'string') {
@@ -506,7 +506,7 @@ class Controller {
         this.writeErrorResponse(req, res, statusCode, { error: errorObject.message });
       }
     }
-  }
+  };
 
   private successResponse = (res: Response, data: unknown) => {
     this.setContentTypeJson(res);
@@ -518,23 +518,23 @@ class Controller {
       res.write(data);
       res.end();
     }
-  }
+  };
 
   private createdResponse = (res: Response, data: unknown) => {
     this.setContentTypeJson(res);
     res.status(201).json(data);
-  }
+  };
 
   private writeErrorResponse = (req: Request, res: Response, statusCode: number, error: unknown) => {
     this.logger.warn(`Request ${req.url} ${JSON.stringify(req.body)} failed: ${JSON.stringify(error)}`);
 
     this.setContentTypeJson(res);
     res.status(statusCode).json(error);
-  }
+  };
 
   private setContentTypeJson = (res: Response) => {
     res.set('Content-Type', 'application/json');
-  }
+  };
 
   private parseSwapType = (type: string) => {
     const lowerCaseType = type.toLowerCase();
@@ -546,13 +546,13 @@ class Controller {
     }
 
     throw `could not find swap type: ${type}`;
-  }
+  };
 
   private checkPreimageHashLength = (preimageHash: Buffer) => {
     if (preimageHash.length !== 32) {
       throw `invalid preimage hash length: ${preimageHash.length}`;
     }
-  }
+  };
 }
 
 export default Controller;

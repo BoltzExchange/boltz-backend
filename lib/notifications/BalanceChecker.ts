@@ -143,7 +143,7 @@ class BalanceChecker {
 
     this.logger.warn(`Balance warning: ${message}`);
     await this.discord.sendMessage(message);
-  }
+  };
 }
 
 export default BalanceChecker;

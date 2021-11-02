@@ -643,6 +643,10 @@ describe('Service', () => {
     expect(mockGetRoutingHints).toHaveBeenCalledWith(symbol, routingNode);
   });
 
+  test('should get timeouts', () => {
+    expect(service.getTimeouts()).toEqual(service['timeoutDeltaProvider'].timeoutDeltas);
+  });
+
   test('should get contracts', () => {
     const ethereumManager = {
       network: {

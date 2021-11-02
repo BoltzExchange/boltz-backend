@@ -147,6 +147,14 @@ class Controller {
     });
   };
 
+  public getTimeouts = async (_: Request, res: Response): Promise<void> => {
+    const timeouts = this.service.getTimeouts();
+
+    this.successResponse(res, {
+      timeouts: mapToObject(timeouts),
+    });
+  };
+
   public getContracts = (req: Request, res: Response): void => {
     try {
       const contracts = this.service.getContracts();

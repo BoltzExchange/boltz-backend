@@ -20,7 +20,7 @@ class TimeoutDeltaProvider {
     ['ETH', 0.25],
   ]);
 
-  private timeoutDeltas = new Map<string, PairTimeoutBlockDeltas>();
+  public timeoutDeltas = new Map<string, PairTimeoutBlockDeltas>();
 
   constructor(private logger: Logger, private config: ConfigType) {}
 

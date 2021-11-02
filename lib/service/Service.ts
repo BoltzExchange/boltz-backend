@@ -62,13 +62,12 @@ class Service {
   public swapManager: SwapManager;
   public eventHandler: EventHandler;
 
-  private prepayMinerFee: boolean;
-
   private pairRepository: PairRepository;
 
-  private timeoutDeltaProvider: TimeoutDeltaProvider;
+  private prepayMinerFee: boolean;
 
   private readonly rateProvider: RateProvider;
+  private readonly timeoutDeltaProvider: TimeoutDeltaProvider;
 
   private static MinInboundLiquidity = 10;
   private static MaxInboundLiquidity = 50;
@@ -316,6 +315,10 @@ class Service {
     hints.forEach((hint) => response.push(hint.toObject()));
 
     return response;
+  };
+
+  public getTimeouts = () => {
+    return this.timeoutDeltaProvider.timeoutDeltas;
   };
 
   /**

@@ -16,6 +16,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get install -y \
   net-tools \
   libgmp-dev \
   zlib1g-dev \
+  python3-pip \
   python3-mako \
   libsodium-dev \
   libsqlite3-dev \
@@ -26,11 +27,14 @@ RUN git clone https://github.com/ElementsProject/lightning.git
 WORKDIR /lightning
 
 RUN git checkout v${VERSION}
+RUN git submodule init && git submodule update
+
+RUN pip install mrkd
 
 RUN ./configure
-RUN make install
+RUN make install -j$(nproc)
 
-RUN strip --strip-all /usr/local/bin/*
+RUN strip --strip-all /usr/local/bin/lightningd /usr/local/bin/lightning-cli
 
 # Start again with a new image to reduce the size
 FROM ubuntu:${UBUNTU_VERSION}

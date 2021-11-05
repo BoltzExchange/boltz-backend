@@ -1,6 +1,6 @@
 import * as grpc from '@grpc/grpc-js';
-import getPort from 'get-port';
 import { readFileSync } from 'fs';
+import { getPort } from '../../Utils';
 import Logger from '../../../lib/Logger';
 import { bitcoinLndClient, lndDataPath } from '../Nodes';
 import LndClient from '../../../lib/lightning/LndClient';

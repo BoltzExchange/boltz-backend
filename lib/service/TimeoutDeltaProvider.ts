@@ -20,7 +20,7 @@ class TimeoutDeltaProvider {
     ['ETH', 0.25],
   ]);
 
-  private timeoutDeltas = new Map<string, PairTimeoutBlockDeltas>();
+  public timeoutDeltas = new Map<string, PairTimeoutBlockDeltas>();
 
   constructor(private logger: Logger, private config: ConfigType) {}
 
@@ -30,7 +30,7 @@ class TimeoutDeltaProvider {
     // In the context this function is used, we calculate the timeout of the first leg of a
     // reverse swap which has to be longer than the second one
     return Math.ceil(minutes / TimeoutDeltaProvider.getBlockTime(toSymbol)!);
-  }
+  };
 
   public init = (pairs: PairConfig[]): void => {
     for (const pair of pairs) {
@@ -43,7 +43,7 @@ class TimeoutDeltaProvider {
         throw Errors.NO_TIMEOUT_DELTA(pairId);
       }
     }
-  }
+  };
 
   public getTimeout = (pairId: string, orderSide: OrderSide, isReverse: boolean): number => {
     const timeout = this.timeoutDeltas.get(pairId);
@@ -59,7 +59,7 @@ class TimeoutDeltaProvider {
     } else {
       return orderSide === OrderSide.BUY ? quote : base;
     }
-  }
+  };
 
   public setTimeout = (pairId: string, newDelta: number): void => {
     if (this.timeoutDeltas.has(pairId)) {
@@ -81,7 +81,7 @@ class TimeoutDeltaProvider {
     } else {
       throw Errors.PAIR_NOT_FOUND(pairId);
     }
-  }
+  };
 
   private minutesToBlocks = (pair: string, minutes: number) => {
     const calculateBlocks = (symbol: string) => {
@@ -102,14 +102,14 @@ class TimeoutDeltaProvider {
       base: calculateBlocks(base),
       quote: calculateBlocks(quote),
     };
-  }
+  };
 
   /**
    * If the block time for the symbol is not hardcoded, it is assumed that the symbol belongs to an ERC20 token
    */
   private static getBlockTime = (symbol: string): number => {
     return TimeoutDeltaProvider.blockTimes.get(symbol) || TimeoutDeltaProvider.blockTimes.get('ETH')!;
-  }
+  };
 }
 
 export default TimeoutDeltaProvider;

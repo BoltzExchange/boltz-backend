@@ -17,7 +17,7 @@ class EtherWalletProvider implements WalletProviderInterface {
 
   public getAddress = (): Promise<string> => {
     return this.signer.getAddress();
-  }
+  };
 
   public getBalance = async (): Promise<WalletBalance> => {
     const balance = (await this.signer.getBalance()).div(etherDecimals).toNumber();
@@ -27,7 +27,7 @@ class EtherWalletProvider implements WalletProviderInterface {
       confirmedBalance: balance,
       unconfirmedBalance: 0,
     };
-  }
+  };
 
   public sendToAddress = async (address: string, amount: number): Promise<SentTransaction> => {
     const transaction = await this.signer.sendTransaction({
@@ -39,7 +39,7 @@ class EtherWalletProvider implements WalletProviderInterface {
     return {
       transactionId: transaction.hash,
     };
-  }
+  };
 
   public sweepWallet = async (address: string): Promise<SentTransaction> => {
     const balance = await this.signer.getBalance();
@@ -61,7 +61,7 @@ class EtherWalletProvider implements WalletProviderInterface {
     return {
       transactionId: transaction.hash,
     };
-  }
+  };
 }
 
 export default EtherWalletProvider;

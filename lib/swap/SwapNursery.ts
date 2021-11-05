@@ -353,7 +353,7 @@ class SwapNursery extends EventEmitter {
         });
       }, this.retryInterval * 1000);
     }
-  }
+  };
 
   public attemptSettleSwap = async (currency: Currency, swap: Swap, outgoingChannelId?: string): Promise<void> => {
     switch (currency.type) {
@@ -388,7 +388,7 @@ class SwapNursery extends EventEmitter {
         );
         break;
     }
-  }
+  };
 
   private listenEthereumNursery = async (ethereumNursery: EthereumNursery) => {
     const contractHandler = this.walletManager.ethereumManager!.contractHandler;
@@ -464,7 +464,7 @@ class SwapNursery extends EventEmitter {
     });
 
     await ethereumNursery.init();
-  }
+  };
 
   /**
    * Sets the rate for a Swap that doesn't have an invoice yet
@@ -479,7 +479,7 @@ class SwapNursery extends EventEmitter {
 
       await this.swapRepository.setRate(swap, rate);
     }
-  }
+  };
 
   private lockupUtxo = async (
     chainClient: ChainClient,
@@ -510,7 +510,7 @@ class SwapNursery extends EventEmitter {
     } catch (error) {
       await this.handleReverseSwapSendFailed(reverseSwap, wallet.symbol, lndClient, error);
     }
-  }
+  };
 
   private lockupEther = async (
     wallet: Wallet,
@@ -552,7 +552,7 @@ class SwapNursery extends EventEmitter {
     } catch (error) {
       await this.handleReverseSwapSendFailed(reverseSwap, wallet.symbol, lndClient, error);
     }
-  }
+  };
 
   private lockupERC20 = async (
     wallet: Wallet,
@@ -598,7 +598,7 @@ class SwapNursery extends EventEmitter {
     } catch (error) {
       await this.handleReverseSwapSendFailed(reverseSwap, wallet.symbol, lndClient, error);
     }
-  }
+  };
 
   private claimUtxo = async (
     chainClient: ChainClient,
@@ -653,7 +653,7 @@ class SwapNursery extends EventEmitter {
       await this.swapRepository.setMinerFee(swap, claimTransactionFee),
       channelCreation || undefined,
     );
-  }
+  };
 
   private claimEther = async (contractHandler: ContractHandler, swap: Swap, etherSwapValues: EtherSwapValues, outgoingChannelId?: string) => {
     const channelCreation = await this.channelCreationRepository.getChannelCreation({
@@ -674,7 +674,7 @@ class SwapNursery extends EventEmitter {
 
     this.logger.info(`Claimed Ether of Swap ${swap.id} in: ${contractTransaction.hash}`);
     this.emit('claim', await this.swapRepository.setMinerFee(swap, calculateEthereumTransactionFee(contractTransaction)), channelCreation || undefined);
-  }
+  };
 
   private claimERC20 = async (contractHandler: ContractHandler, swap: Swap, erc20SwapValues: ERC20SwapValues, outgoingChannelId?: string) => {
     const channelCreation = await this.channelCreationRepository.getChannelCreation({
@@ -701,7 +701,7 @@ class SwapNursery extends EventEmitter {
 
     this.logger.info(`Claimed ${chainCurrency} of Swap ${swap.id} in: ${contractTransaction.hash}`);
     this.emit('claim', await this.swapRepository.setMinerFee(swap, calculateEthereumTransactionFee(contractTransaction)), channelCreation || undefined);
-  }
+  };
 
   /**
    * "paySwapInvoice" takes care of paying invoices and handling the errors that can occur by doing that
@@ -794,7 +794,7 @@ class SwapNursery extends EventEmitter {
     }
 
     return;
-  }
+  };
 
   private settleReverseSwapInvoice = async (reverseSwap: ReverseSwap, preimage: Buffer) => {
     const { base, quote } = splitPairId(reverseSwap.pair);
@@ -806,7 +806,7 @@ class SwapNursery extends EventEmitter {
     this.logger.info(`Settled Reverse Swap ${reverseSwap.id}`);
 
     this.emit('invoice.settled', await this.reverseSwapRepository.setInvoiceSettled(reverseSwap, getHexString(preimage)));
-  }
+  };
 
   private handleReverseSwapSendFailed = async (reverseSwap: ReverseSwap, chainSymbol: string, lndClient: LndClient, error: unknown) => {
     await lndClient.cancelInvoice(getHexBuffer(reverseSwap.preimageHash));
@@ -817,12 +817,12 @@ class SwapNursery extends EventEmitter {
       SwapUpdateEvent.TransactionFailed,
       Errors.COINS_COULD_NOT_BE_SENT().message,
     ));
-  }
+  };
 
   private lockupFailed = async (swap: Swap, reason: string) => {
     this.logger.warn(`Lockup of Swap ${swap.id} failed: ${reason}`);
     this.emit('lockup.failed', await this.swapRepository.setSwapStatus(swap, SwapUpdateEvent.TransactionLockupFailed, reason));
-  }
+  };
 
   private expireSwap = async (swap: Swap) =>  {
     // Check "expireReverseSwap" for reason
@@ -839,7 +839,7 @@ class SwapNursery extends EventEmitter {
       await this.swapRepository.setSwapStatus(swap, SwapUpdateEvent.SwapExpired, Errors.ONCHAIN_HTLC_TIMED_OUT().message),
       false,
     );
-  }
+  };
 
   private expireReverseSwap = async (reverseSwap: ReverseSwap) => {
     // Sometimes, when blocks are mined quickly (realistically just regtest), it can happen that the
@@ -891,7 +891,7 @@ class SwapNursery extends EventEmitter {
     if (reverseSwap.minerFeeInvoicePreimage) {
       await lightningCurrency.lndClient!.cancelInvoice(crypto.sha256(getHexBuffer(reverseSwap.minerFeeInvoicePreimage)));
     }
-  }
+  };
 
   private refundUtxo = async (reverseSwap: ReverseSwap, chainSymbol: string) => {
     const chainCurrency = this.currencies.get(chainSymbol)!;
@@ -926,7 +926,7 @@ class SwapNursery extends EventEmitter {
       await this.reverseSwapRepository.setTransactionRefunded(reverseSwap, minerFee, Errors.REFUNDED_COINS(reverseSwap.transactionId!).message),
       refundTransaction.getId(),
     );
-  }
+  };
 
   private refundEther = async (reverseSwap: ReverseSwap) => {
     const ethereumManager = this.walletManager.ethereumManager!;
@@ -949,7 +949,7 @@ class SwapNursery extends EventEmitter {
       ),
       contractTransaction.hash,
     );
-  }
+  };
 
   private refundERC20 = async (reverseSwap: ReverseSwap, chainSymbol: string) => {
     const ethereumManager = this.walletManager.ethereumManager!;
@@ -974,7 +974,7 @@ class SwapNursery extends EventEmitter {
       ),
       contractTransaction.hash,
     );
-  }
+  };
 }
 
 export default SwapNursery;

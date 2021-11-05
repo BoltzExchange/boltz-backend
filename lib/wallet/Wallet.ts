@@ -41,7 +41,7 @@ class Wallet {
     this.highestUsedIndex = highestUsedIndex;
     this.masterNode = masterNode;
     this.keyRepository = keyRepository;
-  }
+  };
 
   /**
    * Gets a specific pair of keys
@@ -54,7 +54,7 @@ class Wallet {
     }
 
     return this.masterNode.derivePath(`${this.derivationPath}/${index}`);
-  }
+  };
 
   /**
    * Gets a new pair of keys
@@ -71,7 +71,7 @@ class Wallet {
       keys: this.getKeysByIndex(this.highestUsedIndex),
       index: this.highestUsedIndex,
     };
-  }
+  };
 
   /**
    * Encodes an address
@@ -95,7 +95,7 @@ class Wallet {
 
       throw error;
     }
-  }
+  };
 
   /**
    * Decodes an address
@@ -109,27 +109,27 @@ class Wallet {
       toDecode,
       this.network,
     );
-  }
+  };
 
   public getAddress = (): Promise<string> => {
     return this.walletProvider.getAddress();
-  }
+  };
 
   public getBalance = (): Promise<WalletBalance> => {
     return this.walletProvider.getBalance();
-  }
+  };
 
   public sendToAddress = (address: string, amount: number, satPerVbyte?: number): Promise<SentTransaction> => {
     this.logger.info(`Sending ${amount} ${this.symbol} to ${address}`);
 
     return this.walletProvider.sendToAddress(address, amount, satPerVbyte);
-  }
+  };
 
   public sweepWallet = (address: string, satPerVbyte?: number): Promise<SentTransaction> => {
     this.logger.warn(`Sweeping ${this.symbol} wallet to ${address}`);
 
     return this.walletProvider.sweepWallet(address, satPerVbyte);
-  }
+  };
 }
 
 export default Wallet;

@@ -57,15 +57,15 @@ class Db {
     ]);
 
     await ChannelCreation.sync();
-  }
+  };
 
   public migrate = async (currencies: Map<string, Currency>): Promise<void> => {
     await this.migration.migrate(currencies);
-  }
+  };
 
   public close = (): Promise<void> => {
     return this.sequelize.close();
-  }
+  };
 
   private loadModels = () => {
     Pair.load(this.sequelize);
@@ -77,7 +77,7 @@ class Db {
     ChannelCreation.load(this.sequelize);
     DatabaseVersion.load(this.sequelize);
     PendingEthereumTransaction.load(this.sequelize);
-  }
+  };
 }
 
 export default Db;

@@ -26,7 +26,7 @@ class PendingEthereumTransaction extends Model implements PendingEthereumTransac
         },
       ],
     });
-  }
+  };
 }
 
 export default PendingEthereumTransaction;

@@ -32,7 +32,7 @@ class Report {
   public static getMonth = (date: Date): number => {
     // date.getMonth() starts counting at 0
     return date.getMonth() + 1;
-  }
+  };
 
   /**
    * Gets all successful (reverse) swaps
@@ -57,7 +57,7 @@ class Report {
       swaps,
       reverseSwaps,
     };
-  }
+  };
 
   /**
    * Gets all failed (reverse) swaps
@@ -91,7 +91,7 @@ class Report {
       swaps,
       reverseSwaps,
     };
-  }
+  };
 
   public generate = async (): Promise<string> => {
     const {
@@ -113,7 +113,7 @@ class Report {
     });
 
     return this.arrayToCsv(entries);
-  }
+  };
 
   private swapsToEntries = (swaps: Swap[], reverseSwaps: ReverseSwap[], failed: boolean) => {
     const entries: Entry[] = [];
@@ -144,7 +144,7 @@ class Report {
     pushToEntries(reverseSwaps, true);
 
     return entries;
-  }
+  };
 
   private arrayToCsv = (entries: Entry[]) => {
     const lines: string[] = [];
@@ -164,15 +164,15 @@ class Report {
     });
 
     return lines.join('\n');
-  }
+  };
 
   private formatDate = (date: Date) => {
     return date.toLocaleString('en-US', { hour12: false }).replace(',', '');
-  }
+  };
 
   private formatAmount = (satoshis: number) => {
     return satoshisToCoins(satoshis).toFixed(8);
-  }
+  };
 
   private getSwapType = (orderSide: number, isReverse: boolean) => {
     if ((orderSide === 0 && !isReverse) || (orderSide !== 0 && isReverse)) {
@@ -180,7 +180,7 @@ class Report {
     } else {
       return 'Chain/Lightning';
     }
-  }
+  };
 }
 
 export default Report;

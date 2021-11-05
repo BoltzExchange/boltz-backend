@@ -17,7 +17,7 @@ class VersionCheck {
     if (version > maximal || version < minimal) {
       throw VersionCheck.unsupportedVersionError(`${symbol} Core`, version, maximal, minimal);
     }
-  }
+  };
 
   public static checkLndVersion = (symbol: string, version: string): void => {
     const parseStringVersion = (version: string) => {
@@ -30,11 +30,11 @@ class VersionCheck {
     if (versionNumber > parseStringVersion(maximal) || versionNumber < parseStringVersion(minimal)) {
       throw VersionCheck.unsupportedVersionError(`${symbol} LND`, version, maximal, minimal);
     }
-  }
+  };
 
   private static unsupportedVersionError = (service: string, actual: Version, maximal: Version, minimal: Version) => {
     return `unsupported ${service} version: ${actual}; min version ${minimal}; max version ${maximal}`;
-  }
+  };
 }
 
 export default VersionCheck;

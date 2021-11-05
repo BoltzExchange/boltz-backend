@@ -40,7 +40,7 @@ class Referral extends Model implements ReferralType {
         },
       ],
     });
-  }
+  };
 }
 
 export default Referral;

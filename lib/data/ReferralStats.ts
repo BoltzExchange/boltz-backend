@@ -66,7 +66,7 @@ class ReferralStats {
     }
 
     return stringify(mapToObject(yearStats));
-  }
+  };
 
   // TODO: to whole coins?
   private generateMonth = (referrals: Map<string, Referral>, swaps: SwapArrays) => {
@@ -104,7 +104,7 @@ class ReferralStats {
     swaps.reverseSwaps.forEach((reverseSwap) => addSwapToStats(reverseSwap));
 
     return mapToObject(referralStats);
-  }
+  };
 
   private getReferrals = async (): Promise<Map<string, Referral>> => {
     const referrals = await ReferralRepository.getReferrals();
@@ -115,7 +115,7 @@ class ReferralStats {
     }
 
     return referralsMap;
-  }
+  };
 }
 
 export default ReferralStats;

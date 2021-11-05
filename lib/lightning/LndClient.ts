@@ -117,7 +117,7 @@ class LndClient extends BaseClient implements LndClient {
 
   private throwFilesNotFound = () => {
     throw(Errors.COULD_NOT_FIND_FILES(this.symbol));
-  }
+  };
 
   /**
    * Returns a boolean determines whether LND is ready or not
@@ -152,7 +152,7 @@ class LndClient extends BaseClient implements LndClient {
     }
 
     return true;
-  }
+  };
 
   private reconnect = async () => {
     this.setClientStatus(ClientStatus.Disconnected);
@@ -178,7 +178,7 @@ class LndClient extends BaseClient implements LndClient {
 
       this.reconnectionTimer = setTimeout(this.reconnect, this.RECONNECT_INTERVAL);
     }
-  }
+  };
 
   /**
    * End all subscriptions and reconnection attempts.
@@ -219,7 +219,7 @@ class LndClient extends BaseClient implements LndClient {
     this.removeAllListeners();
 
     this.setClientStatus(ClientStatus.Disconnected);
-  }
+  };
 
   private unaryCall = <T, U>(client: any, methodName: string, params: T): Promise<U> => {
     return new Promise((resolve, reject) => {
@@ -231,15 +231,15 @@ class LndClient extends BaseClient implements LndClient {
         }
       });
     });
-  }
+  };
 
   private unaryInvoicesCall = <T, U>(methodName: keyof InvoicesClient, params: T): Promise<U> => {
     return this.unaryCall(this.invoices, methodName, params);
-  }
+  };
 
   private unaryLightningCall = <T, U>(methodName: keyof LightningClient, params: T): Promise<U> => {
     return this.unaryCall(this.lightning, methodName, params);
-  }
+  };
 
   /**
    * Return general information concerning the lightning node including it’s identity pubkey, alias, the chains it
@@ -247,7 +247,7 @@ class LndClient extends BaseClient implements LndClient {
    */
   public getInfo = (): Promise<lndrpc.GetInfoResponse.AsObject> => {
     return this.unaryLightningCall<lndrpc.GetInfoRequest, lndrpc.GetInfoResponse.AsObject>('getInfo', new lndrpc.GetInfoRequest());
-  }
+  };
 
   /**
    * Creates an invoice
@@ -269,7 +269,7 @@ class LndClient extends BaseClient implements LndClient {
     }
 
     return this.unaryLightningCall<lndrpc.Invoice, lndrpc.AddInvoiceResponse.AsObject>('addInvoice', request);
-  }
+  };
 
   /**
    * Creates a hold invoice with the supplied preimage hash
@@ -306,14 +306,14 @@ class LndClient extends BaseClient implements LndClient {
       'addHoldInvoice',
       request,
     );
-  }
+  };
 
   public lookupInvoice = (preimageHash: Buffer): Promise<lndrpc.Invoice.AsObject> => {
     const request = new lndrpc.PaymentHash();
     request.setRHash(preimageHash);
 
     return this.unaryLightningCall<lndrpc.PaymentHash, lndrpc.Invoice.AsObject>('lookupInvoice', request);
-  }
+  };
 
   public trackPayment = (preimageHash: Buffer): Promise<lndrpc.Payment.AsObject> => {
     return new Promise<lndrpc.Payment.AsObject>((resolve, reject) => {
@@ -342,7 +342,7 @@ class LndClient extends BaseClient implements LndClient {
         reject(error);
       });
     });
-  }
+  };
 
   /**
    * Pay an invoice through the Lightning Network.
@@ -389,7 +389,7 @@ class LndClient extends BaseClient implements LndClient {
         reject(error);
       });
     });
-  }
+  };
 
   /**
    *
@@ -402,7 +402,7 @@ class LndClient extends BaseClient implements LndClient {
       case lndrpc.PaymentFailureReason.FAILURE_REASON_INCORRECT_PAYMENT_DETAILS: return 'incorrect payment details';
       default: return 'unknown reason';
     }
-  }
+  };
 
   /**
    * Cancel a hold invoice
@@ -412,7 +412,7 @@ class LndClient extends BaseClient implements LndClient {
     request.setPaymentHash(Uint8Array.from(preimageHash));
 
     return this.unaryInvoicesCall<invoicesrpc.CancelInvoiceMsg, invoicesrpc.CancelInvoiceResp.AsObject>('cancelInvoice', request);
-  }
+  };
 
   /**
    * Settle a hold invoice with an already accepted HTLC
@@ -422,7 +422,7 @@ class LndClient extends BaseClient implements LndClient {
     request.setPreimage(Uint8Array.from(preimage));
 
     return this.unaryInvoicesCall<invoicesrpc.SettleInvoiceMsg, invoicesrpc.SettleInvoiceResp.AsObject>('settleInvoice', request);
-  }
+  };
 
   /**
    * Queries for a possible route to the target destination
@@ -433,7 +433,7 @@ class LndClient extends BaseClient implements LndClient {
     request.setAmt(amt);
 
     return this.unaryLightningCall<lndrpc.QueryRoutesRequest, lndrpc.QueryRoutesResponse.AsObject>('queryRoutes', request);
-  }
+  };
 
   /**
    * Decode an encoded payment request
@@ -445,7 +445,7 @@ class LndClient extends BaseClient implements LndClient {
     request.setPayReq(paymentRequest);
 
     return this.unaryLightningCall<lndrpc.PayReqString, lndrpc.PayReq.AsObject>('decodePayReq', request);
-  }
+  };
 
   /**
    * Returns the latest advertised, aggregated, and authenticated channel information for the specified node identified by its public key
@@ -456,7 +456,7 @@ class LndClient extends BaseClient implements LndClient {
     request.setIncludeChannels(false);
 
     return this.unaryLightningCall<lndrpc.NodeInfoRequest, lndrpc.NodeInfo.AsObject>('getNodeInfo', request);
-  }
+  };
 
   /**
    * Establish a connection to a remote peer
@@ -473,7 +473,7 @@ class LndClient extends BaseClient implements LndClient {
     request.setAddr(address);
 
     return this.unaryLightningCall<lndrpc.ConnectPeerRequest, lndrpc.ConnectPeerResponse.AsObject>('connectPeer', request);
-  }
+  };
 
   /**
    * Sends coins to a particular address
@@ -492,7 +492,7 @@ class LndClient extends BaseClient implements LndClient {
     }
 
     return this.unaryLightningCall<lndrpc.SendCoinsRequest, lndrpc.SendCoinsResponse.AsObject>('sendCoins', request);
-  }
+  };
 
   /**
    * Sends all coins of the wallet to a particular address
@@ -510,7 +510,7 @@ class LndClient extends BaseClient implements LndClient {
     }
 
     return this.unaryLightningCall<lndrpc.SendCoinsRequest, lndrpc.SendCoinsResponse.AsObject>('sendCoins', request);
-  }
+  };
 
   /**
    * Returns a list describing all the known transactions relevant to the wallet
@@ -520,7 +520,7 @@ class LndClient extends BaseClient implements LndClient {
     request.setStartHeight(startHeight);
 
     return this.unaryLightningCall<lndrpc.GetTransactionsRequest, lndrpc.TransactionDetails.AsObject>('getTransactions', request);
-  }
+  };
 
   /**
    * Creates a new address
@@ -532,7 +532,7 @@ class LndClient extends BaseClient implements LndClient {
     request.setType(addressType);
 
     return this.unaryLightningCall<lndrpc.NewAddressRequest, lndrpc.NewAddressResponse.AsObject>('newAddress', request);
-  }
+  };
 
   /**
    * Attempts to open a channel to a remote peer
@@ -558,7 +558,7 @@ class LndClient extends BaseClient implements LndClient {
     }
 
     return this.unaryLightningCall<lndrpc.OpenChannelRequest, lndrpc.ChannelPoint.AsObject>('openChannelSync', request);
-  }
+  };
 
   /**
    * Gets a list of all open channels
@@ -569,7 +569,7 @@ class LndClient extends BaseClient implements LndClient {
     request.setPrivateOnly(privateOnly);
 
     return this.unaryLightningCall<lndrpc.ListChannelsRequest, lndrpc.ListChannelsResponse.AsObject>('listChannels', request);
-  }
+  };
 
   /**
    * Gets the latest routing information of a given channel
@@ -579,14 +579,14 @@ class LndClient extends BaseClient implements LndClient {
     request.setChanId(channelId);
 
     return this.unaryLightningCall<lndrpc.ChanInfoRequest, lndrpc.ChannelEdge.AsObject>('getChanInfo', request);
-  }
+  };
 
   /**
    * Gets a list of all peers
    */
   public listPeers = (): Promise<lndrpc.ListPeersResponse.AsObject> => {
     return this.unaryLightningCall<lndrpc.ListPeersRequest, lndrpc.ListPeersResponse.AsObject>('listPeers', new lndrpc.ListPeersRequest());
-  }
+  };
 
   /**
    * Gets the balance of the onchain wallet
@@ -595,7 +595,7 @@ class LndClient extends BaseClient implements LndClient {
     const request = new lndrpc.WalletBalanceRequest();
 
     return this.unaryLightningCall<lndrpc.WalletBalanceRequest, lndrpc.WalletBalanceResponse.AsObject>('walletBalance', request);
-  }
+  };
 
   /**
    * Subscribe to events for a single invoice
@@ -630,7 +630,7 @@ class LndClient extends BaseClient implements LndClient {
         this.logger.error(`${LndClient.serviceName} ${this.symbol} invoice subscription errored: ${error.message}`);
         deleteSubscription();
       });
-  }
+  };
 
   private handleSubscriptionError = async (subscriptionName: string, error: any) => {
     this.logger.error(`${LndClient.serviceName} ${this.symbol} ${subscriptionName} subscription errored: ${formatError(error)}`);
@@ -639,7 +639,7 @@ class LndClient extends BaseClient implements LndClient {
       this.emit('subscription.error');
       await this.reconnect();
     }
-  }
+  };
 
   private subscribePeerEvents = () => {
     if (this.peerEventSubscription) {
@@ -655,7 +655,7 @@ class LndClient extends BaseClient implements LndClient {
       .on('error', async (error) => {
         await this.handleSubscriptionError('peer event', error);
       });
-  }
+  };
 
   private subscribeChannelEvents = () => {
     if (this.channelEventSubscription) {
@@ -671,7 +671,7 @@ class LndClient extends BaseClient implements LndClient {
       .on('error', async(error) => {
         await this.handleSubscriptionError('channel event', error);
       });
-  }
+  };
 
   private subscribeChannelBackups = () => {
     if (this.channelBackupSubscription) {
@@ -690,7 +690,7 @@ class LndClient extends BaseClient implements LndClient {
       .on('error', async (error) => {
         await this.handleSubscriptionError('channel backup', error);
       });
-  }
+  };
 
   private calculatePaymentFee = (invoice: string): number => {
     const invoiceAmt = bolt11.decode(invoice).satoshis || 0;
@@ -699,7 +699,7 @@ class LndClient extends BaseClient implements LndClient {
       Math.ceil(invoiceAmt * LndClient.maxPaymentFeeRatio),
       LndClient.minPaymentFee,
     );
-  }
+  };
 }
 
 export default LndClient;

@@ -40,7 +40,7 @@ class GrpcServer {
       });
     });
 
-  }
+  };
 
   public close = (): Promise<void> => {
     return new Promise((resolve) => {
@@ -49,7 +49,7 @@ class GrpcServer {
         resolve();
       });
     });
-  }
+  };
 }
 
 export default GrpcServer;

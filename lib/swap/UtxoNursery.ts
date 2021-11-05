@@ -73,7 +73,7 @@ class UtxoNursery extends EventEmitter {
         this.listenTransactions(currency.chainClient, wallet);
       }
     });
-  }
+  };
 
   private listenTransactions = (chainClient: ChainClient, wallet: Wallet) => {
     chainClient.on('transaction', async (transaction, confirmed) => {
@@ -84,7 +84,7 @@ class UtxoNursery extends EventEmitter {
         this.checkReverseSwapLockupsConfirmed(chainClient, wallet, transaction, confirmed),
       ]);
     });
-  }
+  };
 
   private checkSwapOutputs = async (chainClient: ChainClient, wallet: Wallet, transaction: Transaction, confirmed: boolean) => {
     await this.lock.acquire(UtxoNursery.swapLockupLock, async () => {
@@ -110,7 +110,7 @@ class UtxoNursery extends EventEmitter {
         await this.checkSwapTransaction(swap, chainClient, transaction, confirmed);
       }
     });
-  }
+  };
 
   private checkReverseSwapClaims = async (chainClient: ChainClient, transaction: Transaction) => {
     for (let vin = 0; vin < transaction.ins.length; vin += 1) {
@@ -136,7 +136,7 @@ class UtxoNursery extends EventEmitter {
       chainClient.removeInputFilter(input.hash);
       this.emit('reverseSwap.claimed', reverseSwap, detectPreimage(vin, transaction));
     }
-  }
+  };
 
   private checkReverseSwapLockupsConfirmed = async (chainClient: ChainClient, wallet: Wallet, transaction: Transaction, confirmed: boolean) => {
     await this.lock.acquire(UtxoNursery.reverseSwapLockupConfirmationLock, async () => {
@@ -153,7 +153,7 @@ class UtxoNursery extends EventEmitter {
         await this.reverseSwapLockupConfirmed(chainClient, wallet, reverseSwap, transaction);
       }
     });
-  }
+  };
 
   private listenBlocks = (chainClient: ChainClient, wallet: Wallet) => {
     chainClient.on('block', async (height) => {
@@ -165,7 +165,7 @@ class UtxoNursery extends EventEmitter {
         this.checkExpiredReverseSwaps(chainClient, height),
       ]);
     });
-  }
+  };
 
   private checkSwapMempoolTransactions = async (chainClient: ChainClient) => {
     await this.lock.acquire(UtxoNursery.swapLockupLock, async () => {
@@ -193,7 +193,7 @@ class UtxoNursery extends EventEmitter {
         }
       }
     });
-  }
+  };
 
   // This method is a fallback for "checkReverseSwapLockupsConfirmed" because that method sometimes misses transactions on mainnet for an unknown reason
   private checkReverseSwapMempoolTransactions = async (chainClient: ChainClient, wallet: Wallet) => {
@@ -217,7 +217,7 @@ class UtxoNursery extends EventEmitter {
         }
       }
     });
-  }
+  };
 
 
   private checkExpiredSwaps = async (chainClient: ChainClient, height: number) => {
@@ -234,7 +234,7 @@ class UtxoNursery extends EventEmitter {
         this.emit('swap.expired', expirableSwap);
       }
     }
-  }
+  };
 
   private checkExpiredReverseSwaps = async (chainClient: ChainClient, height: number) => {
     const expirableReverseSwaps = await this.reverseSwapRepository.getReverseSwapsExpirable(height);
@@ -254,7 +254,7 @@ class UtxoNursery extends EventEmitter {
         this.emit('reverseSwap.expired', expirableReverseSwap);
       }
     }
-  }
+  };
 
   private reverseSwapLockupConfirmed = async (chainClient: ChainClient, wallet: Wallet, reverseSwap: ReverseSwap, transaction: Transaction) => {
     this.logger.debug(`Lockup transaction of Reverse Swap ${reverseSwap.id} confirmed: ${transaction.getId()}`);
@@ -265,7 +265,7 @@ class UtxoNursery extends EventEmitter {
       await this.reverseSwapRepository.setReverseSwapStatus(reverseSwap, SwapUpdateEvent.TransactionConfirmed),
       transaction,
     );
-  }
+  };
 
   private checkSwapTransaction = async (swap: Swap, chainClient: ChainClient, transaction: Transaction, confirmed: boolean) => {
     this.logger.verbose(`Found ${confirmed ? '' : 'un'}confirmed lockup transaction for Swap ${swap.id}: ${transaction.getId()}`);
@@ -327,7 +327,7 @@ class UtxoNursery extends EventEmitter {
     chainClient.removeOutputFilter(swapOutput.script);
 
     this.emit('swap.lockup', updatedSwap, transaction, confirmed);
-  }
+  };
 
   /**
    * Detects whether the transaction signals RBF explicitly or inherently
@@ -356,7 +356,7 @@ class UtxoNursery extends EventEmitter {
     }
 
     return false;
-  }
+  };
 }
 
 export default UtxoNursery;

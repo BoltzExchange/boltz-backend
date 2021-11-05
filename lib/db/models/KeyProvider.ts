@@ -23,7 +23,7 @@ class KeyProvider extends Model implements KeyProviderType {
       tableName: 'keys',
       timestamps: false,
     });
-  }
+  };
 }
 
 export default KeyProvider;

@@ -349,7 +349,7 @@ class Config {
 
     deepMerge(this.config, args);
     return this.config;
-  }
+  };
 
   private parseCurrency = (args: string[], config: CurrencyConfig[]) => {
     args.forEach((currency) => {
@@ -370,7 +370,7 @@ class Config {
     return {
       currencies: config,
     };
-  }
+  };
 
   private parseTomlConfig = (filename: string): any => {
     if (fs.existsSync(filename)) {
@@ -385,7 +385,7 @@ class Config {
         throw Errors.COULD_NOT_PARSE_CONFIG(filename, JSON.stringify(error));
       }
     }
-  }
+  };
 
   private getDataDirPaths = (dataDir: string) => {
     return {
@@ -402,15 +402,15 @@ class Config {
         otpsecretpath: path.join(dataDir, Config.defaultOtpSecretPath),
       },
     };
-  }
+  };
 
   private resolveConfigPath = (configPath: string, fallback: string) => {
     return configPath ? resolveHome(configPath) : fallback;
-  }
+  };
 
   private getDefaultLogLevel = (): string => {
     return process.env.NODE_ENV === 'production' ? 'info' : 'debug';
-  }
+  };
 }
 
 export default Config;

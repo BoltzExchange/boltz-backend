@@ -15,7 +15,7 @@ class DatabaseVersion extends Model implements DatabaseVersionType {
       timestamps: false,
       tableName: 'version',
     });
-  }
+  };
 }
 
 export default DatabaseVersion;

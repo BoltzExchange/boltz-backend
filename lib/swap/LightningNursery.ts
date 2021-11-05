@@ -31,7 +31,7 @@ class LightningNursery extends EventEmitter {
         this.listenInvoices(currency.lndClient);
       }
     });
-  }
+  };
 
   private listenInvoices = (lndClient: LndClient) => {
     lndClient.on('htlc.accepted', async (invoice: string) => {
@@ -77,7 +77,7 @@ class LightningNursery extends EventEmitter {
         }
       }
     });
-  }
+  };
 }
 
 export default LightningNursery;

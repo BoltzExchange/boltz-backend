@@ -49,7 +49,7 @@ class CheckFailedSwaps {
       failureReasons: swapFailureReasons,
       expiryReasons: swapExpiryReasons,
     };
-  }
+  };
 
   private checkReverseSwaps = (failedReverseSwaps: ReverseSwap[]) => {
     const reverseSwapFailureReasons = {
@@ -63,7 +63,7 @@ class CheckFailedSwaps {
     return {
       failureReasons: reverseSwapFailureReasons,
     };
-  }
+  };
 
   public check = async (): Promise<{
     swaps: {
@@ -80,7 +80,7 @@ class CheckFailedSwaps {
       swaps: this.checkSwaps(failedSwaps.swaps),
       reverseSwaps: this.checkReverseSwaps(failedSwaps.reverseSwaps),
     };
-  }
+  };
 }
 
 export default CheckFailedSwaps;

@@ -21,7 +21,7 @@ class Pair extends Model implements PairType {
       tableName: 'pairs',
       timestamps: false,
     });
-  }
+  };
 }
 
 export default Pair;

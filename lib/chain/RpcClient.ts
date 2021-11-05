@@ -75,7 +75,7 @@ class RpcClient {
       request.write(serializedRequest);
       request.end();
     });
-  }
+  };
 }
 
 export default RpcClient;

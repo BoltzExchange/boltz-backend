@@ -31,7 +31,7 @@ class Logger {
 
   private getLogFormat = (colorize: boolean) => {
     return winston.format.printf(info => `${getTsString()} ${this.getLevel(info.level, colorize)}: ${info.message}`);
-  }
+  };
 
   private getLevel = (level: string, colorize: boolean) => {
     if (colorize) {
@@ -45,37 +45,37 @@ class Logger {
       }
     }
     return level;
-  }
+  };
 
   public error = (message: string): void => {
     this.log('error', message);
-  }
+  };
 
   public warn = (message: string): void => {
     this.log('warn', message);
-  }
+  };
 
   public info = (message: string): void => {
     this.log('info', message);
-  }
+  };
 
   public verbose = (message: string): void => {
     this.log('verbose', message);
-  }
+  };
 
   public debug = (message: string): void => {
     this.log('debug', message);
-  }
+  };
 
   public silly = (message: string): void => {
     this.log('silly', message);
-  }
+  };
 
   private log = (level: string, message: string) => {
     if (!this.disabled) {
       winston.log(level, message);
     }
-  }
+  };
 }
 
 export default Logger;

@@ -7,7 +7,7 @@ class SwapRepository {
     return Swap.findAll({
       where: options,
     });
-  }
+  };
 
   public getSwapsExpirable = (height: number): Promise<Swap[]> => {
     return Swap.findAll({
@@ -24,24 +24,24 @@ class SwapRepository {
         },
       },
     });
-  }
+  };
 
   public getSwap = (options: WhereOptions): Promise<Swap | null> => {
     return Swap.findOne({
       where: options,
     });
-  }
+  };
 
   public addSwap = (swap: SwapType): Promise<Swap> => {
     return Swap.create(swap);
-  }
+  };
 
   public setSwapStatus = (swap: Swap, status: string, failureReason?: string,): Promise<Swap> => {
     return swap.update({
       status,
       failureReason,
     });
-  }
+  };
 
   public setInvoice = (swap: Swap, invoice: string, expectedAmount: number, fee: number, acceptZeroConf: boolean): Promise<Swap> => {
     return swap.update({
@@ -51,7 +51,7 @@ class SwapRepository {
       expectedAmount,
       status: SwapUpdateEvent.InvoiceSet,
     });
-  }
+  };
 
   public setLockupTransaction = (
     swap: Swap,
@@ -66,31 +66,31 @@ class SwapRepository {
       lockupTransactionVout,
       status: confirmed ? SwapUpdateEvent.TransactionConfirmed : SwapUpdateEvent.TransactionMempool,
     });
-  }
+  };
 
   public setRate = (swap: Swap, rate: number): Promise<Swap> => {
     return swap.update({
       rate,
     });
-  }
+  };
 
   public setInvoicePaid = (swap: Swap, routingFee: number): Promise<Swap> => {
     return swap.update({
       routingFee,
       status: SwapUpdateEvent.InvoicePaid,
     });
-  }
+  };
 
   public setMinerFee = (swap: Swap, minerFee: number): Promise<Swap> => {
     return swap.update({
       minerFee,
       status: SwapUpdateEvent.TransactionClaimed,
     });
-  }
+  };
 
   public dropTable = (): Promise<void> => {
     return Swap.drop();
-  }
+  };
 }
 
 export default SwapRepository;

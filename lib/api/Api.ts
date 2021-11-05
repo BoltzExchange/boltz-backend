@@ -46,7 +46,7 @@ class Api {
         resolve();
       });
     });
-  }
+  };
 
   private registerRoutes = (controller: Controller) => {
     // GET requests
@@ -54,6 +54,7 @@ class Api {
 
     this.app.route('/getpairs').get(controller.getPairs);
     this.app.route('/getnodes').get(controller.getNodes);
+    this.app.route('/timeouts').get(controller.getTimeouts);
     this.app.route('/getcontracts').get(controller.getContracts);
     this.app.route('/getfeeestimation').get(controller.getFeeEstimation);
 
@@ -74,7 +75,7 @@ class Api {
 
     // EventSource streams
     this.app.route('/streamswapstatus').get(controller.streamSwapStatus);
-  }
+  };
 }
 
 export default Api;

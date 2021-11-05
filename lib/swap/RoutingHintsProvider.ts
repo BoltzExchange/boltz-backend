@@ -34,14 +34,14 @@ class RoutingHintsProvider {
     this.interval = setInterval(async () => {
       await this.updateChannels();
     }, minutesToMilliseconds(RoutingHintsProvider.channelFetchInterval));
-  }
+  };
 
   public stop = (): void => {
     if (this.interval !== undefined) {
       clearInterval(this.interval);
       this.interval = undefined;
     }
-  }
+  };
 
   public getRoutingHints = (symbol: string, nodeId: string): RouteHint[] => {
     const relevantChannels = this.channels.get(symbol)!.filter(
@@ -72,7 +72,7 @@ class RoutingHintsProvider {
     }
 
     return routeHints;
-  }
+  };
 
   private updateChannels = async () => {
     this.logger.silly('Updating channel lists for routing hint provider');
@@ -92,7 +92,7 @@ class RoutingHintsProvider {
       this.logger.silly(`Found ${channelInfos.length} private ${client.symbol} channels`);
       this.channels.set(client.symbol, channelInfos);
     }
-  }
+  };
 }
 
 export default RoutingHintsProvider;

@@ -260,19 +260,19 @@ class Migration {
       default:
         throw `found unexpected database version ${versionRow.version}`;
     }
-  }
+  };
 
   private dropTable = async (table: string) => {
     await this.sequelize.query(`DROP TABLE ${table}`);
-  }
+  };
 
   private getModelDataValues = (model: any) => {
     return model['dataValues'];
-  }
+  };
 
   private logUpdatingTable = (table: string) => {
     this.logger.verbose(`Updating database table ${table}`);
-  }
+  };
 
   private finishMigration = async (updatedFromVersion: number, currencies: Map<string, Currency>) => {
     const currentVersion = updatedFromVersion + 1;
@@ -284,12 +284,12 @@ class Migration {
     if (currentVersion !== Migration.latestSchemaVersion) {
       await this.migrate(currencies);
     }
-  }
+  };
 
   private logOutdatedVersion = (version: number) => {
     this.logger.warn(`Found database with outdated schema version ${version}`);
     this.logger.info(`Starting migration to database schema version ${version + 1}`);
-  }
+  };
 }
 
 export default Migration;

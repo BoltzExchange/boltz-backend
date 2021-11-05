@@ -52,7 +52,7 @@ class ChannelCreation extends Model implements ChannelCreationType {
     ChannelCreation.belongsTo(Swap, {
       foreignKey: 'swapId',
     });
-  }
+  };
 }
 
 export default ChannelCreation;

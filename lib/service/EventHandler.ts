@@ -58,11 +58,11 @@ class EventHandler extends EventEmitter {
 
   public emitSwapCreation = (id: string): void => {
     this.emit('swap.update', id, { status: SwapUpdateEvent.SwapCreated });
-  }
+  };
 
   public emitSwapInvoiceSet = (id: string): void => {
     this.emit('swap.update', id, { status: SwapUpdateEvent.InvoiceSet });
-  }
+  };
 
   /**
    * Subscribes transaction related swap events
@@ -94,7 +94,7 @@ class EventHandler extends EventEmitter {
         }
       }
     });
-  }
+  };
 
   /**
    * Subscribes to invoice related Swap events
@@ -122,7 +122,7 @@ class EventHandler extends EventEmitter {
     this.nursery.on('invoice.expired', (reverseSwap: ReverseSwap) => {
       this.emit('swap.update', reverseSwap.id, {  status: SwapUpdateEvent.InvoiceExpired });
     });
-  }
+  };
 
   /**
    * Subscribes Swap events
@@ -202,7 +202,7 @@ class EventHandler extends EventEmitter {
         failureReason: swap.failureReason,
       });
     });
-  }
+  };
 
   /**
    * Subscribes to a stream of channel backups
@@ -217,14 +217,14 @@ class EventHandler extends EventEmitter {
         });
       }
     });
-  }
+  };
 
   private handleFailedSwap = (swap: Swap, status: SwapUpdateEvent, failureReason: string) => {
     this.logger.warn(`Swap ${swap.id} failed: ${failureReason}`);
 
     this.emit('swap.update', swap.id, { status, failureReason });
     this.emit('swap.failure', swap, false, failureReason);
-  }
+  };
 
   private handleFailedReverseSwap = (
     reverseSwap: ReverseSwap,
@@ -235,7 +235,7 @@ class EventHandler extends EventEmitter {
 
     this.emit('swap.update', reverseSwap.id, { status, failureReason });
     this.emit('swap.failure', reverseSwap, true, failureReason);
-  }
+  };
 }
 
 export default EventHandler;

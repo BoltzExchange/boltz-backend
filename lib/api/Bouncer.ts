@@ -5,7 +5,7 @@ import Referral from '../db/models/Referral';
 import ReferralRepository from '../db/repositories/ReferralRepository';
 
 class Bouncer {
-  private static readonly timestampDeltaTolerance = 60
+  private static readonly timestampDeltaTolerance = 60;
 
   private static readonly errorUnauthorized = 'unauthorized';
 
@@ -47,7 +47,7 @@ class Bouncer {
     if (providedHmac !== hexHmac) {
       throw Bouncer.errorUnauthorized;
     }
-  }
+  };
 
   private static checkTimestamp = (providedTsRaw: string) => {
     const providedTs = parseInt(providedTsRaw);
@@ -63,7 +63,7 @@ class Bouncer {
     }
 
     return providedTs;
-  }
+  };
 
   private static fetchApiCredentials = async (apiKey: string) => {
     const referral = await ReferralRepository.getReferralByApiKey(apiKey);
@@ -83,7 +83,7 @@ class Bouncer {
     }
 
     return header;
-  }
+  };
 }
 
 export default Bouncer;

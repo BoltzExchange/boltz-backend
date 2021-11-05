@@ -16,7 +16,7 @@ class CoreWalletProvider implements WalletProviderInterface {
 
   public getAddress = (): Promise<string> => {
     return this.chainClient.getNewAddress();
-  }
+  };
 
   public getBalance = async (): Promise<WalletBalance> => {
     // TODO: use "getbalances" call if available
@@ -27,19 +27,19 @@ class CoreWalletProvider implements WalletProviderInterface {
       confirmedBalance: walletInfo.balance,
       unconfirmedBalance: walletInfo.unconfirmed_balance,
     };
-  }
+  };
 
   public sendToAddress = async (address: string, amount: number): Promise<SentTransaction> => {
     const transactionId = await this.chainClient.sendToAddress(address, amount);
     return await this.handleCoreTransaction(transactionId, address);
-  }
+  };
 
   public sweepWallet = async (address: string): Promise<SentTransaction> => {
     const { confirmedBalance } = await this.getBalance();
     const transactionId = await this.chainClient.sendToAddress(address, confirmedBalance, true);
 
     return await this.handleCoreTransaction(transactionId, address);
-  }
+  };
 
   private handleCoreTransaction = async (transactionId: string, address: string): Promise<SentTransaction> => {
     const rawTransactionVerbose = await this.chainClient.getRawTransactionVerbose(transactionId);
@@ -88,9 +88,9 @@ class CoreWalletProvider implements WalletProviderInterface {
       fee: inputSum.sub(outputSum).toNumber(),
       transaction: rawTransaction,
     };
-  }
+  };
 
-  private
+  private;
 }
 
 export default CoreWalletProvider;

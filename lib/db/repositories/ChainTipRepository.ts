@@ -3,7 +3,7 @@ import ChainTip from '../models/ChainTip';
 class ChainTipRepository {
   public getChainTips = (): Promise<ChainTip[]> => {
     return ChainTip.findAll();
-  }
+  };
 
   public findOrCreateTip = async (symbol: string, height: number): Promise<ChainTip> => {
     const [chainTip] = await ChainTip.findOrCreate({
@@ -17,13 +17,13 @@ class ChainTipRepository {
     });
 
     return chainTip;
-  }
+  };
 
   public updateTip = (chainTip: ChainTip, height: number): Promise<ChainTip> => {
     return chainTip.update({
       height,
     });
-  }
+  };
 }
 
 export default ChainTipRepository;

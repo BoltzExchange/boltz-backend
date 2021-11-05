@@ -18,7 +18,7 @@ class EthereumTransactionTracker {
     this.logger.info(`Starting Ethereum transaction tracker for address: ${this.walletAddress}`);
 
     await this.scanBlock(await this.provider.getBlockNumber());
-  }
+  };
 
   /**
    * Scans a block and removes pending transactions from the database in case they were confirmed
@@ -44,7 +44,7 @@ class EthereumTransactionTracker {
         }
       }
     }
-  }
+  };
 }
 
 export default EthereumTransactionTracker;

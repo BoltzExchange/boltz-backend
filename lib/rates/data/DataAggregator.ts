@@ -21,7 +21,7 @@ class DataAggregator {
 
   public registerPair = (baseAsset: string, quoteAsset: string): void => {
     this.pairs.add([baseAsset, quoteAsset]);
-  }
+  };
 
   public fetchPairs = async (): Promise<Map<string, number>> => {
     const rateMap = new Map<string, number>();
@@ -48,7 +48,7 @@ class DataAggregator {
 
     this.latestRates = rateMap;
     return rateMap;
-  }
+  };
 
   private getRate = async (baseAsset: string, quoteAsset: string) => {
     const promises: Promise<number>[] = [];
@@ -68,7 +68,7 @@ class DataAggregator {
     } else {
       return validResults[middle];
     }
-  }
+  };
 }
 
 export default DataAggregator;

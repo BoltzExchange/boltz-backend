@@ -133,7 +133,7 @@ class ReverseSwap extends Model implements ReverseSwapType {
     ReverseSwap.belongsTo(Pair, {
       foreignKey: 'pair',
     });
-  }
+  };
 }
 
 export default ReverseSwap;

@@ -81,6 +81,17 @@ const getNodes = new Map<string, {
 ]);
 const mockGetNodes = jest.fn().mockResolvedValue(getNodes);
 
+const timeouts = new Map<string, {
+  base: number;
+  quote: number;
+}>([
+  ['BTC/BTC', {
+    base: 12,
+    quote: 123,
+  }],
+]);
+const mockGetTimeouts = jest.fn().mockReturnValue(timeouts);
+
 const getContracts = {
   ethereum: {
     network: {
@@ -170,6 +181,7 @@ jest.mock('../../../lib/service/Service', () => {
 
       getPairs: mockGetPairs,
       getNodes: mockGetNodes,
+      getTimeouts: mockGetTimeouts,
       getContracts: mockGetContracts,
       getRoutingHints: mockGetRoutingHints,
       getFeeEstimation: mockGetFeeEstimation,
@@ -336,6 +348,19 @@ describe('Controller', () => {
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
       nodes: mapToObject(getNodes),
+    });
+  });
+
+  test('should get timeouts', async () => {
+    const res = mockResponse();
+
+    await controller.getTimeouts(mockRequest({}), res);
+
+    expect(mockGetTimeouts).toHaveBeenCalledTimes(1);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      timeouts: mapToObject(timeouts),
     });
   });
 

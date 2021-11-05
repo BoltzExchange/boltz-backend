@@ -15,6 +15,7 @@ module.exports = {
 
     'semi': 'error',
     'no-trailing-spaces': 'error',
+    'import/no-unresolved': 'off',
     'quotes': ['error', 'single', { 'avoidEscape': true }],
   },
   root: true,

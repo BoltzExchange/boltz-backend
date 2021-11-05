@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import { Client, TextChannel, Message } from 'discord.js';
+import { Client, TextChannel, Message, Intents } from 'discord.js';
 import { codeBlock } from './Markup';
 
 interface DiscordClient {
@@ -23,7 +23,12 @@ class DiscordClient extends EventEmitter {
   ) {
     super();
 
-    this.client = new Client();
+    this.client = new Client({
+      intents: [
+        Intents.FLAGS.GUILDS,
+        Intents.FLAGS.GUILD_MESSAGES,
+      ],
+    });
     this.prefix = `[${this.prefix}]: `;
   }
 
@@ -89,7 +94,7 @@ class DiscordClient extends EventEmitter {
 
   private listenForMessages = () => {
     if (this.channel) {
-      this.client.on('message', (message: Message) => {
+      this.client.on('messageCreate', (message: Message) => {
         if (message.author.bot) return;
 
         if (message.channel.id === this.channel!.id) {

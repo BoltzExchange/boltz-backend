@@ -1,3 +1,5 @@
+import { AddressInfo } from 'ws';
+import { createServer } from 'net';
 import { OutputType, Networks, Scripts } from 'boltz-core';
 import { TransactionInput } from 'bip174/src/lib/interfaces';
 import { ECPair, address, crypto, Psbt, Transaction } from 'bitcoinjs-lib';
@@ -62,4 +64,20 @@ export const constructTransaction = (rbf: boolean, input: string, outputAmount =
   psbt.finalizeAllInputs();
 
   return psbt.extractTransaction();
+};
+
+export const getPort = () => {
+  return new Promise<number>((resolve, reject) => {
+    const server = createServer();
+    server.unref();
+    server.on('error', reject);
+
+    server.listen(0, () => {
+      const { port } = server.address() as AddressInfo;
+
+      server.close(() => {
+        resolve(port);
+      });
+    });
+  });
 };

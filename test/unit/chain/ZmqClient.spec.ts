@@ -1,4 +1,3 @@
-import getPort from 'get-port';
 import zmq, { Socket } from 'zeromq';
 import { randomBytes } from 'crypto';
 import { OutputType } from 'boltz-core';
@@ -7,14 +6,14 @@ import Logger from '../../../lib/Logger';
 import Errors from '../../../lib/chain/Errors';
 import FakedChainClient from './FakeChainClient';
 import { getHexString, reverseBuffer } from '../../../lib/Utils';
-import { generateAddress, waitForFunctionToBeTrue, wait } from '../../Utils';
 import ZmqClient, { ZmqNotification, filters } from '../../../lib/chain/ZmqClient';
+import { generateAddress, waitForFunctionToBeTrue, wait, getPort } from '../../Utils';
 
 class ZmqPublisher {
   public address: string;
 
   private socket: Socket;
-  private filter: string;
+  private readonly filter: string;
 
   constructor(port: number, filter: string) {
     this.address = `tcp://127.0.0.1:${port}`;

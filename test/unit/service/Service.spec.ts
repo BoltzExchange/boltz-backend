@@ -1,6 +1,5 @@
 import { randomBytes } from 'crypto';
 import { Networks } from 'boltz-core';
-import { ECPair } from 'bitcoinjs-lib';
 import { BigNumber, providers } from 'ethers';
 import Logger from '../../../lib/Logger';
 import Swap from '../../../lib/db/models/Swap';
@@ -9,6 +8,7 @@ import ApiErrors from '../../../lib/api/Errors';
 import packageJson from '../../../package.json';
 import Errors from '../../../lib/service/Errors';
 import { ConfigType } from '../../../lib/Config';
+import { ECPair } from '../../../lib/ECPairHelper';
 import Service from '../../../lib/service/Service';
 import SwapManager from '../../../lib/swap/SwapManager';
 import LndClient from '../../../lib/lightning/LndClient';

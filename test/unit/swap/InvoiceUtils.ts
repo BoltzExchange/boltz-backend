@@ -1,6 +1,6 @@
 import bolt11 from '@boltz/bolt11';
 import { randomBytes } from 'crypto';
-import { ECPair } from 'bitcoinjs-lib';
+import { ECPair } from '../../../lib/ECPairHelper';
 import { getHexString, getUnixTime } from '../../../lib/Utils';
 
 const invoiceSigningKeys = ECPair.makeRandom();

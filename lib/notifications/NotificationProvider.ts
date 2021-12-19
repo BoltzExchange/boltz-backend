@@ -73,7 +73,9 @@ class NotificationProvider {
 
       for (const [, currency] of this.service.currencies) {
         if (currency.lndClient) {
-          currency.lndClient.on('subscription.error', async () => await this.sendLostConnection(`LND ${currency.symbol}`));
+          currency.lndClient.on('subscription.error', async (subscription?: string) => {
+            await this.sendLostConnection(`LND ${currency.symbol}`, subscription);
+          });
           currency.lndClient.on('subscription.reconnected', async () => await this.sendReconnected(`LND ${currency.symbol}`));
         }
       }
@@ -224,11 +226,17 @@ class NotificationProvider {
     });
   };
 
-  private sendLostConnection = async (service: string) => {
-    if (!this.disconnected.has(service)) {
-      this.disconnected.add(service);
-      await this.discord.sendMessage(`**Lost connection to ${service}**`);
+  private sendLostConnection = async (service: string, subscription?: string) => {
+    if (this.disconnected.has(service)) {
+      return;
     }
+
+    if (subscription === undefined) {
+      this.disconnected.add(service);
+    }
+
+    await this.discord.sendMessage(`**Lost connection to ${service}${subscription ?
+      ` ${subscription} subscription` : ''}**`);
   };
 
   private sendReconnected = async (service: string) => {

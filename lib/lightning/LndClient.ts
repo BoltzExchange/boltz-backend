@@ -45,8 +45,8 @@ interface LndClient {
   on(event: 'channel.backup', listener: (channelBackup: string) => void): this;
   emit(event: 'channel.backup', channelBackup: string): boolean;
 
-  on(event: 'subscription.error', listener: () => void): this;
-  emit(event: 'subscription.error'): this;
+  on(event: 'subscription.error', listener: (subscription?: string) => void): this;
+  emit(event: 'subscription.error', subscription?: string): this;
 
   on(event: 'subscription.reconnected', listener: () => void): this;
   emit(event: 'subscription.reconnected'): this;
@@ -688,7 +688,8 @@ class LndClient extends BaseClient implements LndClient {
         }
       })
       .on('error', async (error) => {
-        await this.handleSubscriptionError('channel backup', error);
+        this.logger.error(`${LndClient.serviceName} ${this.symbol} channel backup subscription errored: ${formatError(error)}`);
+        this.emit('subscription.error', 'channel backup');
       });
   };
 

@@ -1,4 +1,5 @@
-import { Network, address, BIP32Interface } from 'bitcoinjs-lib';
+import { BIP32Interface } from 'bip32';
+import { Network, address } from 'bitcoinjs-lib';
 import Errors from './Errors';
 import Logger from '../Logger';
 import { CurrencyType } from '../consts/Enums';

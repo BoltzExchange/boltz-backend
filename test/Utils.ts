@@ -2,7 +2,8 @@ import { AddressInfo } from 'ws';
 import { createServer } from 'net';
 import { OutputType, Networks, Scripts } from 'boltz-core';
 import { TransactionInput } from 'bip174/src/lib/interfaces';
-import { ECPair, address, crypto, Psbt, Transaction } from 'bitcoinjs-lib';
+import { address, crypto, Psbt, Transaction } from 'bitcoinjs-lib';
+import { ECPair } from '../lib/ECPairHelper';
 import { getPubkeyHashFunction } from '../lib/Utils';
 
 export const randomRange = (max: number): number => {
@@ -60,7 +61,6 @@ export const constructTransaction = (rbf: boolean, input: string, outputAmount =
 
   psbt.signInput(0, keys);
 
-  psbt.validateSignaturesOfAllInputs();
   psbt.finalizeAllInputs();
 
   return psbt.extractTransaction();

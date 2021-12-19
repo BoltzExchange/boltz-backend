@@ -1,12 +1,13 @@
 import { Op } from 'sequelize';
 import bolt11 from '@boltz/bolt11';
 import { randomBytes } from 'crypto';
-import { address, ECPair } from 'bitcoinjs-lib';
+import { address } from 'bitcoinjs-lib';
 import { Networks, OutputType } from 'boltz-core';
 import Logger from '../../../lib/Logger';
 import Errors from '../../../lib/swap/Errors';
 import Swap from '../../../lib/db/models/Swap';
 import Wallet from '../../../lib/wallet/Wallet';
+import { ECPair } from '../../../lib/ECPairHelper';
 import ChainClient from '../../../lib/chain/ChainClient';
 import LndClient from '../../../lib/lightning/LndClient';
 import RateProvider from '../../../lib/rates/RateProvider';

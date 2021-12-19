@@ -84,6 +84,7 @@ describe('ContractHandler', () => {
       maxFeePerGas: feeData.maxFeePerGas!,
       maxPriorityFeePerGas: feeData.maxPriorityFeePerGas!,
     });
+    await waitForTransaction(approveTransaction);
 
     const transaction = await contractHandler.lockupToken(
       erc20WalletProvider,
@@ -92,11 +93,7 @@ describe('ContractHandler', () => {
       await etherBase.getAddress(),
       timelock,
     );
-
-    await Promise.all([
-      waitForTransaction(approveTransaction),
-      waitForTransaction(transaction),
-    ]);
+    await waitForTransaction(transaction);
   };
 
   beforeAll(async () => {
@@ -204,6 +201,8 @@ describe('ContractHandler', () => {
       maxFeePerGas: feeData.maxFeePerGas!,
       maxPriorityFeePerGas: feeData.maxPriorityFeePerGas!,
     });
+    await waitForTransaction(approveTransaction);
+
     const transaction = await contractHandler.lockupTokenPrepayMinerfee(
       erc20WalletProvider,
       preimageHash,
@@ -212,11 +211,7 @@ describe('ContractHandler', () => {
       randomWallet.address,
       timelock,
     );
-
-    await Promise.all([
-      waitForTransaction(approveTransaction),
-      waitForTransaction(transaction),
-    ]);
+    await waitForTransaction(transaction);
 
     expect(transaction.gasLimit.toNumber()).toBeLessThan(200000);
 

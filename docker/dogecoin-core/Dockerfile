@@ -1,14 +1,9 @@
 ARG UBUNTU_VERSION
-ARG BERKELEY_VERSION
-
-FROM boltz/berkeley-db:${BERKELEY_VERSION} AS berkeley-db
 
 # Build Dogecoin Core
 FROM ubuntu:${UBUNTU_VERSION} as dogecoin-core
 
 ARG VERSION
-
-COPY --from=berkeley-db /opt /opt
 
 RUN apt-get update && apt-get -y upgrade
 RUN DEBIAN_FRONTEND=noninteractive apt-get -y install \
@@ -16,13 +11,16 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get -y install \
   libtool \
   python3 \
   automake \
+  libdb5.3++ \
   pkg-config \
   libssl-dev \
   libzmq3-dev \
   bsdmainutils \
   libevent-dev \
+  libdb5.3-dev \
   autotools-dev \
-  build-essential \ 
+  libdb5.3++-dev \
+  build-essential \
   libboost-test-dev \
   libboost-chrono-dev \
   libboost-system-dev \
@@ -39,7 +37,7 @@ RUN tar -xzf *.tar.gz
 WORKDIR /dogecoin-${VERSION}
 
 RUN ./autogen.sh
-RUN ./configure LDFLAGS=-L`ls -d /opt/db*`/lib/ CPPFLAGS=-I`ls -d /opt/db*`/include/ \
+RUN ./configure \
     --prefix=${DOGECOIN_PREFIX} \
     --mandir=/usr/share/man \
     --disable-ccache \
@@ -65,6 +63,7 @@ ARG VERSION
 RUN apt-get update && apt-get -y upgrade
 RUN apt-get -y install \
   openssl \
+  libdb5.3++ \
   libzmq3-dev \
   libevent-dev \
   libboost-chrono-dev \

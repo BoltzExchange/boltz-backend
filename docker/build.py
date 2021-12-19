@@ -27,7 +27,7 @@ UBUNTU_VERSION = BuildArgument(
 
 GOLANG_VERSION = BuildArgument(
     name="GOLANG_VERSION",
-    value="1.17.1-buster"
+    value="1.17.5-buster"
 )
 
 BERKELEY_4_VERSION = BuildArgument(
@@ -42,13 +42,13 @@ BERKELEY_5_VERSION = BuildArgument(
 
 BITCOIN_VERSION = "22.0"
 LITECOIN_VERSION = "0.18.1"
-DOGECOIN_VERSION = "1.14.4"
+DOGECOIN_VERSION = "1.14.5"
 ZCASH_VERSION = "4.5.1-1"
-GETH_VERSION = "1.10.9"
+GETH_VERSION = "1.10.13"
 
 C_LIGHTNING_VERSION = "0.10.2"
 ECLAIR_VERSION = "0.6.2"
-LND_VERSION = "0.13.3-beta"
+LND_VERSION = "0.14.1-beta"
 
 IMAGES: Dict[str, Image] = {
     "berkeley-db": Image(
@@ -114,7 +114,7 @@ IMAGES: Dict[str, Image] = {
         ],
     ),
     "regtest": Image(
-        tags=["3.3.1"],
+        tags=["3.3.2"],
         arguments=[
             UBUNTU_VERSION,
             BuildArgument(

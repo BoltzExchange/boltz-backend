@@ -31,7 +31,7 @@ function startNodes ()  {
   # Wait for the nodes to start
   waitForNode bitcoin-cli
   waitForNode litecoin-cli
-  waitForNode elementsd-cli
+  waitForNode elements-cli
 
   echo "Started nodes"
 }

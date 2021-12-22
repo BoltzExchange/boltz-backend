@@ -46,7 +46,7 @@ COPY --from=lnd /bin/lncli /bin/
 # Copy configuration files
 COPY regtest/data/core/config.conf /root/.bitcoin/bitcoin.conf
 COPY regtest/data/core/config.conf /root/.litecoin/litecoin.conf
-COPY regtest/data/elements/elements.conf /home/elements/.elements/elements.conf
+COPY regtest/data/elements/elements.conf /root/.elements/elements.conf
 
 
 COPY regtest/data/lnd/lnd.conf /root/.lnd-btc/

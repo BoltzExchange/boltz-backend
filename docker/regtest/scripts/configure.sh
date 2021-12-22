@@ -13,6 +13,6 @@ echo "zmqpubrawblock=tcp://0.0.0.0:30001" >> /root/.litecoin/litecoin.conf
 echo "zmqpubhashblock=tcp://0.0.0.0:30002" >> /root/.litecoin/litecoin.conf
 
 # Elements Core
-echo "zmqpubrawtx=tcp://0.0.0.0:31000" >> /home/elements/.elements/elements.conf
-echo "zmqpubrawblock=tcp://0.0.0.0:31001" >> /home/elements/.elements/elements.conf
-echo "zmqpubhashblock=tcp://0.0.0.0:31002" >> /home/elements/.elements/elements.conf
+echo "zmqpubrawtx=tcp://0.0.0.0:31000" >> /root/.elements/elements.conf
+echo "zmqpubrawblock=tcp://0.0.0.0:31001" >> /root/.elements/elements.conf
+echo "zmqpubhashblock=tcp://0.0.0.0:31002" >> /root/.elements/elements.conf

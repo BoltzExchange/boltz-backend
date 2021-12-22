@@ -34,7 +34,8 @@
   },
   "cross-os": {
     "postcompile": {
-      "linux": "rsync -am --include '*/' --include '*.js*' --exclude '*' lib/proto/ dist/lib/proto"
+      "linux": "rsync -am --include '*/' --include '*.js*' --exclude '*' lib/proto/ dist/lib/proto",
+      "darwin": "cp -R lib/proto/ dist/lib/proto/"
     }
   },
   "license": "AGPL-3.0",
@@ -62,6 +63,7 @@
     "bip39": "^3.0.4",
     "bitcoinjs-lib": "^6.0.1",
     "boltz-core": "^0.5.0",
+    "boltz-core-liquid": "^0.5.0",
     "cors": "^2.8.5",
     "cross-os": "^1.4.0",
     "discord.js": "^13.3.1",
@@ -104,8 +106,6 @@
     "eslint-plugin-jest": "^25.3.0",
     "eslint-plugin-node": "^11.1.0",
     "ethereum-waffle": "^3.4.0",
-    "grpc_tools_node_protoc_ts": "^5.3.2",
-    "grpc-tools": "^1.11.2",
     "hardhat": "^2.8.0",
     "hardhat-gas-reporter": "^1.0.6",
     "jest": "27.4.5",

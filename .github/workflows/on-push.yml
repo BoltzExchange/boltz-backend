@@ -2,23 +2,19 @@ name: Docker
 
 on:
   push:
-    # Publish `master` as Docker `latest` image.
     branches:
       - add-elements-docker
 
 env:
-  # TODO: Change variable to your image's name.
   IMAGE_NAME: ghcr.io/tiero/regtest
-  VERSION: 0.21.0.1
-  UBUNTU_VERSION: 20.04 
-  BITCOIN_VERSION: 22.0 
-  LITECOIN_VERSION: 0.18.1 
-  ELEMENTS_VERSION: 0.21.0.1
-  LND_VERSION: 0.14.1-beta
+  UBUNTU_VERSION: "20.04" 
+  BITCOIN_VERSION: "22.0" 
+  LITECOIN_VERSION: "0.18.1" 
+  ELEMENTS_VERSION: "0.21.0.1"
+  LND_VERSION: "0.14.1-beta"
   
 jobs:
   # Push image to GitHub Packages.
-  # See also https://docs.docker.com/docker-hub/builds/
   push:
     runs-on: ubuntu-latest
     if: github.event_name == 'push'

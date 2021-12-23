@@ -50,7 +50,7 @@ jobs:
           --build-arg LITECOIN_VERSION=$LITECOIN_VERSION 
           --build-arg ELEMENTS_VERSION=$ELEMENTS_VERSION
           --build-arg LND_VERSION=$LND_VERSION
-          --platform linux/arm64,linux/amd64 
+          --platform linux/amd64 
           --tag $IMAGE_NAME:latest 
           .
 

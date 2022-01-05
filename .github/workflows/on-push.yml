@@ -6,7 +6,7 @@ on:
       - add-elements-docker
 
 env:
-  IMAGE_NAME: ghcr.io/tiero/boltz-backend
+  IMAGE_NAME: ghcr.io/tiero/boltz-regtest
   UBUNTU_VERSION: "20.04" 
   BITCOIN_VERSION: "22.0" 
   LITECOIN_VERSION: "0.18.1" 
@@ -43,7 +43,7 @@ jobs:
       - name: Build image
         working-directory: ./docker
         run:  >-
-          docker buildx build 
+          docker buildx build --push
           --file regtest/Dockerfile 
           --build-arg UBUNTU_VERSION=$UBUNTU_VERSION
           --build-arg BITCOIN_VERSION=$BITCOIN_VERSION
@@ -53,6 +53,3 @@ jobs:
           --platform linux/amd64 
           --tag $IMAGE_NAME:latest 
           .
-
-      - name: Push image
-        run: docker push $IMAGE_NAME:latest

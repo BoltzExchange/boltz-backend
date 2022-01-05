@@ -2,6 +2,10 @@ name: Docker
 
 on:
   workflow_dispatch:
+  # TODO: remove before merge
+  push:
+    branches:
+      - add-elements-docker
 
 env:
   IMAGE_NAME: ghcr.io/boltzexchange/regtest
@@ -38,4 +42,4 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
     
       - name: Push image
-        docker push $IMAGE_NAME:latest
+        run: docker push $IMAGE_NAME:latest

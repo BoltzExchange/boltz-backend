@@ -1,12 +1,10 @@
-TODO: update
-
 # Deployment of the Boltz Backend
 
 Deploying the Boltz backend has to be done with great care since it will have full control over the Lightning Node it is connected to. *With great power comes great responsibility.*
 
 Prerequisites:
 
-* The latest Node.js LTS release (`v12.16.3` as of writing this)
+* The latest Node.js LTS release (`v16.13.1` as of writing this)
 * `rsync` (needed to compile the TypeScript code)
 
 The Boltz backend requires a synced Bitcoin Core or Litecoin Core instance to connect to the Bitcoin or Litecoin chain. These nodes need to:
@@ -139,6 +137,14 @@ maxZeroConfAmount = 10_000_000
 
   # Optional API endpoint of a MempoolSpace instance running on the chain of the configured client
   mempoolSpace = "https://mempool.space/api"
+
+  # The ZMQ endpoints for a chain can be configured here
+  # If they are not set, those endpoints are fetched via the "getzmqnotifications" RPC method of the node
+  zmqpubrawtx = "tcp://0.0.0.0:29000"
+  zmqpubrawblock = "tcp://0.0.0.0:29001"
+  
+  # hashblock is not required and should only be used as fallback in case rawblock is not available 
+  # zmqpubhashblock = ""
 
   [currencies.lnd]
   host = "127.0.0.1"

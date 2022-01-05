@@ -60,14 +60,10 @@ class ChainClient extends BaseClient {
 
     let zmqNotifications: ZmqNotification[] = [];
 
-    // Dogecoin Core and Zcash don't support the "getzmqnotifications" method *yet*
-    // Therefore the host and ports for these chains have to be configured manually
-    try {
-      zmqNotifications = await this.getZmqNotifications();
-    } catch (error) {
-      if ((error as any).message !== 'Method not found') {
-        throw error;
-      }
+    if (this.config.zmqpubrawtx !== undefined &&
+      (this.config.zmqpubrawblock !== undefined || this.config.zmqpubhashblock !== undefined))
+    {
+      this.logger.debug(`Using configured ZMQ endpoints for ${this.symbol} client`);
 
       if (this.config.zmqpubrawtx) {
         zmqNotifications.push({
@@ -88,6 +84,20 @@ class ChainClient extends BaseClient {
           type: filters.hashBlock,
           address: this.config.zmqpubhashblock,
         });
+      }
+    } else {
+      this.logger.debug(`ZMQ endpoints for ${this.symbol} client not configured; fetching from RPC`);
+
+      // Dogecoin Core and Zcash don't support the "getzmqnotifications" method *yet*
+      // Therefore, the hosts and ports for these chains have to be configured manually
+      try {
+        zmqNotifications = await this.getZmqNotifications();
+      } catch (error) {
+        if ((error as any).message === 'Method not found') {
+          this.logger.warn(`${this.symbol} client does not support fetching ZMQ endpoints. Please set them in the config`);
+        }
+
+        throw error;
       }
     }
 

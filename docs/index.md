@@ -1,6 +1,6 @@
-# Boltz v3.1.4 Documentation
+# Boltz v3.1.5 Documentation
 
-This is the documentation of [Boltz](https://boltz.exchange) version 3.1.4.
+This is the documentation of [Boltz](https://boltz.exchange) version 3.1.5.
 
 ## What is Boltz
 

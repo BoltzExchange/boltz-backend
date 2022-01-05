@@ -6,7 +6,7 @@ on:
       - add-elements-docker
 
 env:
-  IMAGE_NAME: ghcr.io/tiero/regtest
+  IMAGE_NAME: ghcr.io/tiero/boltz-backend
   UBUNTU_VERSION: "20.04" 
   BITCOIN_VERSION: "22.0" 
   LITECOIN_VERSION: "0.18.1" 

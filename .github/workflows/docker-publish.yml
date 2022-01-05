@@ -26,18 +26,16 @@ jobs:
 
       - uses: actions/checkout@v2
 
+      - name: Build image
+        working-directory: ./docker
+        run:  python3 build.py
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v1
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build & Push image
-        working-directory: ./docker
-        run:  >-
-          docker buildx build --push
-          --file regtest/Dockerfile 
-          --platform linux/amd64 
-          --tag $IMAGE_NAME:latest 
-          .
+    
+      - name: Push image
+        docker push $IMAGE_NAME:latest

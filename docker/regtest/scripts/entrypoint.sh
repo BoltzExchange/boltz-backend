@@ -10,6 +10,8 @@ startLnds
 mkdir -p /cookies
 cp /root/.bitcoin/regtest/.cookie /cookies/.bitcoin-cookie
 cp /root/.litecoin/regtest/.cookie /cookies/.litecoin-cookie
+cp /root/.elements/liquidregtest/.cookie /cookies/.elements-cookie
+
 
 chmod 777 /cookies/.*
 

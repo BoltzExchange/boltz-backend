@@ -42,6 +42,7 @@ BERKELEY_5_VERSION = BuildArgument(
 
 BITCOIN_VERSION = "22.0"
 LITECOIN_VERSION = "0.18.1"
+ELEMENTS_VERSION = "0.21.0.1"
 DOGECOIN_VERSION = "1.14.5"
 ZCASH_VERSION = "4.5.1-1"
 GETH_VERSION = "1.10.13"
@@ -124,6 +125,10 @@ IMAGES: Dict[str, Image] = {
             BuildArgument(
                 name="LITECOIN_VERSION",
                 value=LITECOIN_VERSION,
+            ),
+             BuildArgument(
+                name="ELEMENTS_VERSION",
+                value=ELEMENTS_VERSION,
             ),
             BuildArgument(
                 name="LND_VERSION",

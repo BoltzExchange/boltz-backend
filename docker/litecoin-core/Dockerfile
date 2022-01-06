@@ -1,14 +1,9 @@
 ARG UBUNTU_VERSION
-ARG BERKELEY_VERSION
-
-FROM boltz/berkeley-db:${BERKELEY_VERSION} AS berkeley-db
 
 # Build Litecoin Core
 FROM ubuntu:${UBUNTU_VERSION} as litecoin-core
 
 ARG VERSION
-
-COPY --from=berkeley-db /opt /opt
 
 RUN apt-get update && apt-get -y upgrade
 RUN DEBIAN_FRONTEND=noninteractive apt-get -y install \
@@ -16,8 +11,10 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get -y install \
   libtool \
   python3 \
   automake \
+  libdb-dev \
   pkg-config \
   libssl-dev \
+  libdb++-dev \
   libzmq3-dev \
   bsdmainutils \
   libevent-dev \
@@ -38,7 +35,7 @@ RUN tar -xzf *.tar.gz
 WORKDIR /litecoin-${VERSION}
 
 RUN ./autogen.sh
-RUN ./configure LDFLAGS=-L`ls -d /opt/db*`/lib/ CPPFLAGS=-I`ls -d /opt/db*`/include/ \
+RUN ./configure \
     --prefix=${LITECOIN_PREFIX} \
     --mandir=/usr/share/man \
     --disable-ccache \
@@ -47,7 +44,8 @@ RUN ./configure LDFLAGS=-L`ls -d /opt/db*`/lib/ CPPFLAGS=-I`ls -d /opt/db*`/incl
     --without-gui \
     --with-daemon \
     --with-utils \
-    --with-libs
+    --with-libs \
+    --with-incompatible-bdb
 
 RUN make -j$(nproc)
 RUN make install
@@ -65,6 +63,8 @@ ARG VERSION
 RUN apt-get update && apt-get -y upgrade
 RUN apt-get -y install \
   openssl \
+  libdb-dev \
+  libdb++-dev \
   libzmq3-dev \
   libevent-dev \
   libboost-chrono-dev \

@@ -1,14 +1,9 @@
 ARG UBUNTU_VERSION
-ARG BERKELEY_VERSION
-
-FROM boltz/berkeley-db:${BERKELEY_VERSION} AS berkeley-db
 
 # Build Bitcoin Core
 FROM ubuntu:${UBUNTU_VERSION} AS bitcoin-core
 
 ARG VERSION
-
-COPY --from=berkeley-db /opt /opt
 
 RUN apt-get update && apt-get -y upgrade
 RUN DEBIAN_FRONTEND=noninteractive apt-get -y install \
@@ -16,7 +11,9 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get -y install \
   libtool \
   python3 \
   automake \
+  libdb-dev \
   pkg-config \
+  libdb++-dev \
   libzmq3-dev \
   bsdmainutils \
   libevent-dev \
@@ -39,7 +36,7 @@ RUN tar -xzf *.tar.gz
 WORKDIR /bitcoin-${VERSION}
 
 RUN ./autogen.sh
-RUN ./configure LDFLAGS=-L`ls -d /opt/db*`/lib/ CPPFLAGS=-I`ls -d /opt/db*`/include/ \
+RUN ./configure \
     --prefix=${BITCOIN_PREFIX} \
     --enable-endomorphism \
     --mandir=/usr/share/man \
@@ -49,7 +46,8 @@ RUN ./configure LDFLAGS=-L`ls -d /opt/db*`/lib/ CPPFLAGS=-I`ls -d /opt/db*`/incl
     --without-gui \
     --with-daemon \
     --with-utils \
-    --with-libs
+    --with-libs \
+    --with-incompatible-bdb
 
 RUN make -j$(nproc)
 RUN make install
@@ -67,6 +65,8 @@ ARG VERSION
 RUN apt-get update && apt-get -y upgrade
 RUN apt-get -y install \
   libzmq3-dev \
+  libdb-dev \
+  libdb++-dev \
   libevent-dev \
   libboost-chrono-dev \
   libboost-system-dev \

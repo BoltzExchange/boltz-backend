@@ -8,7 +8,8 @@ on:
       - add-elements-docker
 
 env:
-  IMAGE_NAME: ghcr.io/boltzexchange/regtest
+  # TODO: update before merge
+  IMAGE_NAME: ghcr.io/tiero/regtest
   
 jobs:
   # Push image to GitHub Packages.

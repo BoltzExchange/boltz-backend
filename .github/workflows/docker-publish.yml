@@ -21,7 +21,7 @@ jobs:
 
       - name: Build image
         working-directory: ./docker
-        run:  python3 build.py build
+        run:  python3 build.py build regtest
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v1

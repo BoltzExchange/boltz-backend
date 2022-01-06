@@ -9,7 +9,7 @@ on:
 
 env:
   # TODO: update before merge
-  IMAGE_NAME: ghcr.io/tiero/regtest
+  IMAGE_NAME: ghcr.io/tiero/boltz-regtest
   
 jobs:
   # Push image to GitHub Packages.

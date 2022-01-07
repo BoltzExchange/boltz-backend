@@ -167,7 +167,7 @@ def list_images(to_list: List[str]):
 
         print()
 
-def build_images(to_build: List[str], no_cache: bool, buildx: bool, platform = ""):
+def build_images(to_build: List[str], organisation: str, no_cache: bool, buildx: bool, platform = ""):
     """Builds one or more images"""
 
     change_working_directory()
@@ -198,7 +198,7 @@ def build_images(to_build: List[str], no_cache: bool, buildx: bool, platform = "
 
             command = command.format(
                 tag=tag,
-                name="boltz/{}".format(image),
+                name="{}/{}".format(organisation, image),
                 dockerfile="{}/Dockerfile".format(image),
                 args=build_args,
             )
@@ -243,10 +243,16 @@ if __name__ == "__main__":
 
     BUILD_PARSER.add_argument("images", type=str, nargs="*")
     BUILD_PARSER.add_argument("--no-cache", dest="no_cache", action="store_true")
+    BUILD_PARSER.add_argument("--organisation", default="boltz", help="The organisation to use for the image names")
 
     BUILDX_PARSER.add_argument("images", type=str, nargs="*")
     BUILDX_PARSER.add_argument("--no-cache", dest="no_cache", action="store_true")
-    BUILDX_PARSER.add_argument("--platform", dest="platform", action="store_true", default="linux/amd64,linux/arm64")
+    BUILDX_PARSER.add_argument("--platform",
+        action="store_true",
+        default="linux/amd64,linux/arm64",
+        help="The platforms to build for",
+    )
+    BUILDX_PARSER.add_argument("--organisation", default="boltz", help="The organisation to use for the image names")
 
     ARGS = PARSER.parse_args()
 
@@ -255,6 +261,6 @@ if __name__ == "__main__":
     if ARGS.command == "list":
         list_images(PARSED_IMAGES)
     elif ARGS.command == "build":
-        build_images(PARSED_IMAGES, ARGS.no_cache, False)
+        build_images(PARSED_IMAGES, ARGS.organisation, ARGS.no_cache, False)
     elif ARGS.command == "buildx":
-        build_images(PARSED_IMAGES, ARGS.no_cache, True, ARGS.platform)
+        build_images(PARSED_IMAGES, ARGS.organisation, ARGS.no_cache, True, ARGS.platform)

@@ -3,7 +3,7 @@ import { BigNumber, ContractTransaction } from 'ethers';
 import { getHexBuffer } from '../../../Utils';
 import { etherDecimals } from '../../../consts/Consts';
 import BuilderComponents from '../../BuilderComponents';
-import { Constants, connectEthereum, getContracts, getBoltzAddress } from '../EthereumUtils';
+import { connectEthereum, getContracts, getBoltzAddress } from '../EthereumUtils';
 
 export const command = 'lock <preimageHash> <amount> <timelock> [token]';
 
@@ -26,8 +26,8 @@ export const builder = {
 };
 
 export const handler = async (argv: Arguments<any>): Promise<void> => {
-  const signer = connectEthereum(argv.provider, argv.signer);
-  const { etherSwap, erc20Swap, token } = getContracts(signer);
+  const signer = connectEthereum(argv.provider);
+  const { etherSwap, erc20Swap, token } = await getContracts(signer);
 
   const preimageHash = getHexBuffer(argv.preimageHash);
   const amount = BigNumber.from(argv.amount).mul(etherDecimals);
@@ -42,12 +42,12 @@ export const handler = async (argv: Arguments<any>): Promise<void> => {
   let transaction: ContractTransaction;
 
   if (argv.token) {
-    await token.approve(Constants.erc20SwapAddress, amount);
+    await token.approve(erc20Swap.address, amount);
 
     transaction = await erc20Swap.lock(
       preimageHash,
       amount,
-      Constants.erc20TokenAddress,
+      token.address,
       boltzAddress,
       argv.timelock,
     );

@@ -1,16 +1,21 @@
 import { randomBytes } from 'crypto';
 import { crypto } from 'bitcoinjs-lib';
 import { BigNumber, constants } from 'ethers';
+import { ERC20 } from 'boltz-core/typechain/ERC20';
+import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
+import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import Logger from '../../../../lib/Logger';
 import { waitForFunctionToBeTrue } from '../../../Utils';
+import { fundSignerWallet, getSigner } from '../EthereumTools';
 import ContractEventHandler from '../../../../lib/wallet/ethereum/ContractEventHandler';
-import { fundSignerWallet, getSigner, getSwapContracts, getTokenContract } from '../EthereumTools';
+import { getContracts } from '../../../../lib/cli/ethereum/EthereumUtils';
 
 describe('ContractEventHandler', () => {
   const { signer, provider, etherBase } = getSigner();
 
-  const tokenContract = getTokenContract(signer);
-  const { etherSwap, erc20Swap } = getSwapContracts(signer);
+  let etherSwap: EtherSwap;
+  let erc20Swap: ERC20Swap;
+  let tokenContract: ERC20;
 
   const contractEventHandler = new ContractEventHandler(Logger.disabledLogger);
 
@@ -29,7 +34,7 @@ describe('ContractEventHandler', () => {
 
   const erc20SwapValues = {
     amount: BigNumber.from(1),
-    tokenAddress: tokenContract.address,
+    tokenAddress: '',
     claimAddress: '',
     timelock: 3,
   };
@@ -132,6 +137,14 @@ describe('ContractEventHandler', () => {
   };
 
   beforeAll(async () => {
+    const contracts = await getContracts(signer);
+
+    etherSwap = contracts.etherSwap;
+    erc20Swap = contracts.erc20Swap;
+    tokenContract = contracts.token;
+
+    erc20SwapValues.tokenAddress = tokenContract.address;
+
     startingHeight = await provider.getBlockNumber() + 1;
 
     etherSwapValues.claimAddress = await etherBase.getAddress();

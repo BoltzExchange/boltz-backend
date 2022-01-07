@@ -1,25 +1,34 @@
 import { BigNumber } from 'ethers';
+import { ERC20 } from 'boltz-core/typechain/ERC20';
 import Logger from '../../../../lib/Logger';
-import { fundSignerWallet, getSigner, getTokenContract, waitForTransactionHash } from '../EthereumTools';
+import { Token } from '../../../../lib/consts/Types';
 import ERC20WalletProvider from '../../../../lib/wallet/providers/ERC20WalletProvider';
+import { fundSignerWallet, getSigner, waitForTransactionHash } from '../EthereumTools';
+import { getContracts } from '../../../../lib/cli/ethereum/EthereumUtils';
 
 describe('ERC20WalletProvider', () => {
   const { provider, signer, etherBase } = getSigner();
-  const contract = getTokenContract(signer);
 
-  const token = {
-    contract,
+  let token: Token;
+  let contract: ERC20;
+  let wallet: ERC20WalletProvider;
 
-    symbol: 'TRC',
-    decimals: 18,
-    address: contract.address,
-  };
+  beforeAll(async () => {
+    contract = (await getContracts(signer)).token;
 
-  const wallet = new ERC20WalletProvider(
-    Logger.disabledLogger,
-    signer,
-    token,
-  );
+    token = {
+      contract,
+
+      symbol: 'TRC',
+      decimals: 18,
+    };
+
+    wallet = new ERC20WalletProvider(
+      Logger.disabledLogger,
+      signer,
+      token,
+    );
+  });
 
   test('should get contract address', () => {
     expect(wallet.getTokenAddress()).toEqual(contract.address);

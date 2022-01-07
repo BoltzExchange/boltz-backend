@@ -30,56 +30,34 @@ GOLANG_VERSION = BuildArgument(
     value="1.17.5-buster"
 )
 
-BERKELEY_4_VERSION = BuildArgument(
-    name="BERKELEY_VERSION",
-    value="4.8.30"
-)
-
-BERKELEY_5_VERSION = BuildArgument(
-    name="BERKELEY_VERSION",
-    value="5.1.29"
-)
-
 BITCOIN_VERSION = "22.0"
 LITECOIN_VERSION = "0.18.1"
 ELEMENTS_VERSION = "0.21.0.1"
 DOGECOIN_VERSION = "1.14.5"
 ZCASH_VERSION = "4.5.1-1"
-GETH_VERSION = "1.10.13"
+GETH_VERSION = "1.10.15"
 
 C_LIGHTNING_VERSION = "0.10.2"
 ECLAIR_VERSION = "0.6.2"
 LND_VERSION = "0.14.1-beta"
 
 IMAGES: Dict[str, Image] = {
-    "berkeley-db": Image(
-        tags=[
-            BERKELEY_4_VERSION.value,
-            BERKELEY_5_VERSION.value,
-        ],
-        arguments=[
-            UBUNTU_VERSION,
-        ],
-    ),
     "bitcoin-core": Image(
         tags=[BITCOIN_VERSION],
         arguments=[
             UBUNTU_VERSION,
-            BERKELEY_4_VERSION,
         ],
     ),
     "litecoin-core": Image(
         tags=[LITECOIN_VERSION],
         arguments=[
             UBUNTU_VERSION,
-            BERKELEY_4_VERSION,
         ],
     ),
     "dogecoin-core": Image(
         tags=[DOGECOIN_VERSION],
         arguments=[
             UBUNTU_VERSION,
-            BERKELEY_5_VERSION,
         ],
     ),
     "zcash": Image(
@@ -189,31 +167,7 @@ def list_images(to_list: List[str]):
 
         print()
 
-def push_images(to_push: List[str]):
-    """Pushes one or more images to the Docker Hub"""
-
-    for image in to_push:
-        build_details = get_build_details(image)
-
-        for tag in build_details.tags:
-            command = "docker push {name}:{tag}".format(
-                name="boltz/{}".format(image),
-                tag=tag
-            )
-
-            print()
-            print_step("Pushing {image}:{tag}".format(image=image, tag=tag))
-
-            print(command)
-            print()
-
-            if system(command) != 0:
-                print_error("Could not push image {}".format(image))
-                sys.exit(1)
-
-    print_step("Pushed images: {}".format(", ".join(to_push)))
-
-def build_images(to_build: List[str], no_cache: bool):
+def build_images(to_build: List[str], organisation: str, no_cache: bool, buildx: bool, platform = ""):
     """Builds one or more images"""
 
     change_working_directory()
@@ -234,12 +188,19 @@ def build_images(to_build: List[str], no_cache: bool):
                     value=argument.value,
                 ))
 
-            command = "docker build -t {name}:{tag} -f {dockerfile} {args} .".format(
+            # Add the prefix "--build-arg " to every entry and join the array to a string
+            build_args = " ".join(["--build-arg " + entry for entry in build_args])
+
+            if buildx:
+                command = "docker buildx build --push {args} --platform " + platform + " --file {dockerfile} --tag {name}:{tag} ."
+            else:
+                command = "docker build -t {name}:{tag} -f {dockerfile} {args} ."
+
+            command = command.format(
                 tag=tag,
-                name="boltz/{}".format(image),
+                name="{}/{}".format(organisation, image),
                 dockerfile="{}/Dockerfile".format(image),
-                # Add the prefix "--build-arg " to every entry and join the array to a string
-                args=" ".join(["--build-arg " + entry for entry in build_args])
+                args=build_args,
             )
 
             if no_cache:
@@ -274,16 +235,24 @@ if __name__ == "__main__":
     SUB_PARSERS.required = True
 
     LIST_PARSER = SUB_PARSERS.add_parser("list")
-    PUSH_PARSER = SUB_PARSERS.add_parser("push")
     BUILD_PARSER = SUB_PARSERS.add_parser("build")
+    BUILDX_PARSER = SUB_PARSERS.add_parser("buildx")
 
     # CLI arguments
     LIST_PARSER.add_argument("images", type=str, nargs="*")
 
-    PUSH_PARSER.add_argument("images", type=str, nargs="*")
-
-    BUILD_PARSER.add_argument("--no-cache", dest="no_cache", action="store_true")
     BUILD_PARSER.add_argument("images", type=str, nargs="*")
+    BUILD_PARSER.add_argument("--no-cache", dest="no_cache", action="store_true")
+    BUILD_PARSER.add_argument("--organisation", default="boltz", help="The organisation to use for the image names")
+
+    BUILDX_PARSER.add_argument("images", type=str, nargs="*")
+    BUILDX_PARSER.add_argument("--no-cache", dest="no_cache", action="store_true")
+    BUILDX_PARSER.add_argument("--platform",
+        action="store_true",
+        default="linux/amd64,linux/arm64",
+        help="The platforms to build for",
+    )
+    BUILDX_PARSER.add_argument("--organisation", default="boltz", help="The organisation to use for the image names")
 
     ARGS = PARSER.parse_args()
 
@@ -291,7 +260,7 @@ if __name__ == "__main__":
 
     if ARGS.command == "list":
         list_images(PARSED_IMAGES)
-    elif ARGS.command == "push":
-        push_images(PARSED_IMAGES)
     elif ARGS.command == "build":
-        build_images(PARSED_IMAGES, ARGS.no_cache)
+        build_images(PARSED_IMAGES, ARGS.organisation, ARGS.no_cache, False)
+    elif ARGS.command == "buildx":
+        build_images(PARSED_IMAGES, ARGS.organisation, ARGS.no_cache, True, ARGS.platform)

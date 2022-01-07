@@ -21,8 +21,8 @@ export const builder = {
 };
 
 export const handler = async (argv: Arguments<any>): Promise<void> => {
-  const signer = connectEthereum(argv.provider, argv.signer);
-  const { token } = getContracts(signer);
+  const signer = connectEthereum(argv.provider);
+  const { token } = await getContracts(signer);
 
   const amount = BigNumber.from(argv.amount).mul(etherDecimals);
 

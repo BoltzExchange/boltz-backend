@@ -1,34 +1,26 @@
 import { randomBytes } from 'crypto';
 import { crypto } from 'bitcoinjs-lib';
+import { ERC20 } from 'boltz-core/typechain/ERC20';
 import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import { BigNumber, ContractTransaction, Wallet } from 'ethers';
 import Logger from '../../../../lib/Logger';
+import { fundSignerWallet, getSigner } from '../EthereumTools';
+import { getContracts } from '../../../../lib/cli/ethereum/EthereumUtils';
 import ContractHandler from '../../../../lib/wallet/ethereum/ContractHandler';
 import ERC20WalletProvider from '../../../../lib/wallet/providers/ERC20WalletProvider';
-import { fundSignerWallet, getSigner, getSwapContracts, getTokenContract } from '../EthereumTools';
 
 describe('ContractHandler', () => {
   const { signer, provider, etherBase } = getSigner();
 
-  const tokenContract = getTokenContract(signer);
-  const { etherSwap, erc20Swap } = getSwapContracts(signer);
+  let etherSwap: EtherSwap;
+  let erc20Swap: ERC20Swap;
+  let tokenContract: ERC20;
 
-  const erc20WalletProvider = new ERC20WalletProvider(
-    Logger.disabledLogger,
-    signer,
-    {
-      decimals: 18,
-      symbol: 'TRC',
-      contract: tokenContract,
-    },
-  );
+  let erc20WalletProvider: ERC20WalletProvider;
 
   const contractHandler = new ContractHandler(Logger.disabledLogger);
   const contractHandlerEtherBase = new ContractHandler(Logger.disabledLogger);
-
-  contractHandler.init(etherSwap, erc20Swap);
-  contractHandlerEtherBase.init(etherSwap.connect(etherBase), erc20Swap.connect(etherBase));
 
   const amount = BigNumber.from(10).pow(17);
   const preimage = randomBytes(32);
@@ -97,6 +89,25 @@ describe('ContractHandler', () => {
   };
 
   beforeAll(async () => {
+    const contracts = await getContracts(signer);
+
+    etherSwap = contracts.etherSwap;
+    erc20Swap = contracts.erc20Swap;
+    tokenContract = contracts.token;
+
+    erc20WalletProvider = new ERC20WalletProvider(
+      Logger.disabledLogger,
+      signer,
+      {
+        decimals: 18,
+        symbol: 'TRC',
+        contract: tokenContract,
+      },
+    );
+
+    contractHandler.init(etherSwap, erc20Swap);
+    contractHandlerEtherBase.init(etherSwap.connect(etherBase), erc20Swap.connect(etherBase));
+
     timelock = await provider.getBlockNumber();
 
     await fundSignerWallet(signer, etherBase, tokenContract);

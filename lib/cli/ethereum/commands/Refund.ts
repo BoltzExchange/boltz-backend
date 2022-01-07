@@ -18,8 +18,8 @@ export const builder = {
 };
 
 export const handler = async (argv: Arguments<any>): Promise<void> => {
-  const signer = connectEthereum(argv.provider, argv.signer);
-  const { etherSwap, erc20Swap } = getContracts(signer);
+  const signer = connectEthereum(argv.provider);
+  const { etherSwap, erc20Swap } = await getContracts(signer);
 
   const preimageHash = getHexBuffer(argv.preimageHash);
 

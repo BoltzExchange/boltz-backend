@@ -20,6 +20,8 @@ RUN apt-get -y install \
   jq \
   psmisc \
   openssl \
+  libdb-dev \
+  libdb++-dev \
   libzmq3-dev \
   libevent-dev \
   libevent-dev \

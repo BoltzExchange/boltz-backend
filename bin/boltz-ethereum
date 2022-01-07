@@ -8,12 +8,6 @@ require('yargs')
       type: 'string',
       alias: 'p',
     },
-    'signer': {
-      describe: 'address for the JsonRpcSigner',
-      default: '0x266EbB05615Df91BD5769BDCdC3Af431fb429632',
-      type: 'string',
-      alias: 's',
-    },
   })
   .commandDir('../dist/lib/cli/ethereum/commands/')
   .demandCommand(1, '')

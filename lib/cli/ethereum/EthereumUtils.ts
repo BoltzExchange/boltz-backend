@@ -4,42 +4,39 @@ import { existsSync, readFileSync } from 'fs';
 import { ERC20 } from 'boltz-core/typechain/ERC20';
 import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
-import { Signer, providers, Contract, Wallet } from 'ethers';
+import { Signer, providers, Contract, Wallet, ContractInterface } from 'ethers';
 
-const Constants = {
-  erc20TokenAddress: '0x4786cCc4b50709877E08Ae0bFfF1F51568bC3eCB',
-
-  etherSwapAddress: '0x9eDF3425e2742d7769c0D03F0357fD08C4715EfB',
-  erc20SwapAddress: '0xc1a0860de55b21EE3D1Ea0FF471b508f2c33D159',
-};
-
-const connectEthereum = (providerUrl: string, signerAddress: string): Signer => {
+export const connectEthereum = (providerUrl: string): Signer => {
   const provider = new providers.JsonRpcProvider(providerUrl);
-  return provider.getSigner(signerAddress);
+  return provider.getSigner(0);
 };
 
-const getContracts = (signer: Signer): { token: ERC20, etherSwap: EtherSwap, erc20Swap: ERC20Swap } => {
-  return {
-    token: new Contract(
-      Constants.erc20TokenAddress,
-      ContractABIs.ERC20,
-      signer,
-    ) as any as ERC20,
+export const getContracts = async (signer: Signer): Promise<{
+  token: ERC20,
+  etherSwap: EtherSwap,
+  erc20Swap: ERC20Swap,
+}> => {
+  const getCreateTxFromBlock = async <T>(blockNumber: number, abi: ContractInterface): Promise<T> => {
+    const block = await signer.provider!.getBlock(blockNumber);
+    const tx = await signer.provider!.getTransaction(block.transactions[0]);
 
-    etherSwap: new Contract(
-      Constants.etherSwapAddress,
-      ContractABIs.EtherSwap,
-      signer,
-    ) as any as EtherSwap,
-    erc20Swap: new Contract(
-      Constants.erc20SwapAddress,
-      ContractABIs.ERC20Swap,
-      signer,
-    ) as any as ERC20Swap,
+    return new Contract((tx as any).creates, abi, signer) as unknown as T;
+  };
+
+  const [etherSwap, erc20Swap, token] = await Promise.all([
+    getCreateTxFromBlock<EtherSwap>(1, ContractABIs.EtherSwap),
+    getCreateTxFromBlock<ERC20Swap>(2, ContractABIs.ERC20Swap),
+    getCreateTxFromBlock<ERC20>(3, ContractABIs.ERC20),
+  ]);
+
+  return {
+    etherSwap,
+    erc20Swap,
+    token,
   };
 };
 
-const getBoltzAddress = async (): Promise<string | undefined> => {
+export const getBoltzAddress = async (): Promise<string | undefined> => {
   const filePath = join(process.env.HOME!, '.boltz/seed.dat');
 
   if (existsSync(filePath)) {
@@ -52,12 +49,4 @@ const getBoltzAddress = async (): Promise<string | undefined> => {
   }
 
   return;
-};
-
-export {
-  Constants,
-
-  getContracts,
-  connectEthereum,
-  getBoltzAddress,
 };

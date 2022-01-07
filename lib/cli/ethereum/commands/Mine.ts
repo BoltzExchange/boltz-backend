@@ -13,7 +13,7 @@ export const builder = {
 };
 
 export const handler = async (argv: Arguments<any>): Promise<void> => {
-  const signer = connectEthereum(argv.provider, argv.signer);
+  const signer = connectEthereum(argv.provider);
   const signerAddress = await signer.getAddress();
 
   // Since Ganache mines a block whenever a transaction is sent, we are just going to send transactions

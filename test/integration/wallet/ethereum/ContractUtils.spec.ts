@@ -1,8 +1,11 @@
 import { randomBytes } from 'crypto';
 import { crypto } from 'bitcoinjs-lib';
 import { BigNumber, constants } from 'ethers';
+import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
+import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
+import { getSigner } from '../EthereumTools';
+import { getContracts } from '../../../../lib/cli/ethereum/EthereumUtils';
 import { ERC20SwapValues, EtherSwapValues } from '../../../../lib/consts/Types';
-import { getSigner, getSwapContracts, getTokenContract } from '../EthereumTools';
 import {
   queryEtherSwapValues,
   queryERC20SwapValues,
@@ -13,8 +16,8 @@ import {
 describe('ContractUtils', () => {
   const { etherBase, signer, provider } = getSigner();
 
-  const tokenContract = getTokenContract(etherBase);
-  const { etherSwap, erc20Swap } = getSwapContracts(etherBase);
+  let etherSwap: EtherSwap;
+  let erc20Swap: ERC20Swap;
 
   const preimage = randomBytes(32);
   const preimageHash = crypto.sha256(preimage);
@@ -26,6 +29,11 @@ describe('ContractUtils', () => {
   let erc20SwapLockTransactionHash: string;
 
   beforeAll(async () => {
+    const contracts = await getContracts(etherBase);
+
+    etherSwap = contracts.etherSwap;
+    erc20Swap = contracts.erc20Swap;
+
     // EtherSwap
     etherSwapValues = {
       preimageHash,
@@ -52,12 +60,12 @@ describe('ContractUtils', () => {
       preimageHash,
       timelock: 2,
       amount: BigNumber.from(2),
-      tokenAddress: tokenContract.address,
+      tokenAddress: contracts.token.address,
       claimAddress: await signer.getAddress(),
       refundAddress: await etherBase.getAddress(),
     };
 
-    await tokenContract.approve(erc20Swap.address, constants.MaxUint256);
+    await contracts.token.approve(erc20Swap.address, constants.MaxUint256);
     const erc20SwapLock = await erc20Swap.lock(
       erc20SwapValues.preimageHash,
       erc20SwapValues.amount,

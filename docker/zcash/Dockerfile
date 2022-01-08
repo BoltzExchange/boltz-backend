@@ -23,7 +23,6 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get -y install \
   ncurses-dev \
   python3-zmq \
   bsdmainutils \
-  g++-multilib \
   build-essential
 
 RUN wget https://github.com/zcash/zcash/archive/v${VERSION}.tar.gz

@@ -79,7 +79,7 @@ const getNodes = new Map<string, {
     ],
   }],
 ]);
-const mockGetNodes = jest.fn().mockResolvedValue(getNodes);
+const mockGetNodes = jest.fn().mockReturnValue(getNodes);
 
 const timeouts = new Map<string, {
   base: number;

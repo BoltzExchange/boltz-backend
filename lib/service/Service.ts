@@ -3,6 +3,7 @@ import { OutputType } from 'boltz-core';
 import { Transaction } from 'bitcoinjs-lib';
 import Errors from './Errors';
 import Logger from '../Logger';
+import NodeUris from './NodeUris';
 import Swap from '../db/models/Swap';
 import ApiErrors from '../api/Errors';
 import Wallet from '../wallet/Wallet';
@@ -51,14 +52,10 @@ import {
   splitPairId,
 } from '../Utils';
 
-type LndNodeInfo = {
-  nodeKey: string,
-  uris: string[],
-};
-
 class Service {
   public allowReverseSwaps = true;
 
+  private nodeUris: NodeUris;
   public swapManager: SwapManager;
   public eventHandler: EventHandler;
 
@@ -108,6 +105,8 @@ class Service {
       this.currencies,
       this.swapManager.nursery,
     );
+
+    this.nodeUris = new NodeUris(this.currencies);
   }
 
   public init = async (configPairs: PairConfig[]): Promise<void> => {
@@ -145,6 +144,8 @@ class Service {
 
     this.rateProvider.feeProvider.init(configPairs);
     await this.rateProvider.init(configPairs);
+
+    await this.nodeUris.init();
   };
 
   /**
@@ -292,20 +293,8 @@ class Service {
   /**
    * Gets a map between the LND node keys and URIs and the symbol of the chains they are running on
    */
-  public getNodes = async (): Promise<Map<string, LndNodeInfo>> => {
-    const response = new Map<string, LndNodeInfo>();
-
-    for (const [symbol, currency] of this.currencies) {
-      if (currency.lndClient) {
-        const lndInfo = await currency.lndClient.getInfo();
-        response.set(symbol, {
-          uris: lndInfo.urisList,
-          nodeKey: lndInfo.identityPubkey,
-        });
-      }
-    }
-
-    return response;
+  public getNodes = () => {
+    return this.nodeUris.getNodes();
   };
 
   public getRoutingHints = (symbol: string, routingNode: string): RouteHint.AsObject[] => {

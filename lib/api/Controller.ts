@@ -139,8 +139,8 @@ class Controller {
     });
   };
 
-  public getNodes = async (_: Request, res: Response): Promise<void> => {
-    const nodes = await this.service.getNodes();
+  public getNodes = (_: Request, res: Response): void => {
+    const nodes = this.service.getNodes();
 
     this.successResponse(res, {
       nodes: mapToObject(nodes),

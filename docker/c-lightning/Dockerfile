@@ -23,16 +23,17 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get install -y \
   build-essential \
   python-is-python3
 
+RUN pip3 install mrkd mistune==0.8.4
+
 RUN git clone https://github.com/ElementsProject/lightning.git
 WORKDIR /lightning
 
 RUN git checkout v${VERSION}
 RUN git submodule init && git submodule update
 
-RUN pip install mrkd
-
 RUN ./configure
-RUN make install -j$(nproc)
+RUN make -j$(nproc)
+RUN make install
 
 RUN strip --strip-all /usr/local/bin/lightningd /usr/local/bin/lightning-cli
 

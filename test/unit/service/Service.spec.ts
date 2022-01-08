@@ -617,8 +617,8 @@ describe('Service', () => {
     service['prepayMinerFee'] = false;
   });
 
-  test('should get nodes', async () => {
-    expect(await service.getNodes()).toEqual(new Map<string, { nodeKey: string, uris: string[] }>([
+  test('should get nodes', () => {
+    expect(service.getNodes()).toEqual(new Map<string, { nodeKey: string, uris: string[] }>([
       ['BTC', {
         nodeKey: lndInfo.identityPubkey,
         uris: lndInfo.urisList,

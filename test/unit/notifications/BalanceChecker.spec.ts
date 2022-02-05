@@ -78,12 +78,22 @@ describe('BalanceChecker', () => {
     const mockCheckCurrency = jest.fn().mockResolvedValue(undefined);
     checker['checkCurrency'] = mockCheckCurrency;
 
+    const btcWalletBalance = new WalletBalance();
+    btcWalletBalance.setTotalBalance(1);
+
+    const btcLightningBalance = new LightningBalance();
+    btcLightningBalance.setLocalBalance(2);
+    btcLightningBalance.setRemoteBalance(3);
+
     const btcBalance = new Balance();
-    btcBalance.setWalletBalance(new WalletBalance().setTotalBalance(1));
-    btcBalance.setLightningBalance(new LightningBalance().setLocalBalance(2).setRemoteBalance(3));
+    btcBalance.setWalletBalance(btcWalletBalance);
+    btcBalance.setLightningBalance(btcLightningBalance);
+
+    const usdtWalletBalance = new WalletBalance();
+    usdtWalletBalance.setTotalBalance(123);
 
     const usdtBalance = new Balance();
-    usdtBalance.setWalletBalance(new WalletBalance().setTotalBalance(123));
+    usdtBalance.setWalletBalance(usdtWalletBalance);
 
     mockGetBalanceResponse = new GetBalanceResponse();
     mockGetBalanceResponse.getBalancesMap().set(btcCurrency.symbol, btcBalance);

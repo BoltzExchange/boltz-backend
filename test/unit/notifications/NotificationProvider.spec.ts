@@ -60,7 +60,7 @@ jest.mock('../../../lib/backup/BackupScheduler', () => {
 
 const mockedBackupScheduler = <jest.Mock<BackupScheduler>><any>BackupScheduler;
 
-const mockSendMessage = jest.fn().mockImplementation(() => Promise.resolve());
+const mockSendMessage = jest.fn().mockImplementation(async () => {});
 
 jest.mock('../../../lib/notifications/DiscordClient', () => {
   return jest.fn().mockImplementation(() => {

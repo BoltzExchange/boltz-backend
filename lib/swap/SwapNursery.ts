@@ -745,7 +745,7 @@ class SwapNursery extends EventEmitter {
         this.logger.verbose(`Invoice payment of Swap ${swap.id} is still pending after ${raceTimeout} seconds`);
       }
     } catch (error) {
-      const errorMessage = typeof error === 'number' ? LndClient.formatPaymentFailureReason(error) : formatError(error);
+      const errorMessage = typeof error === 'number' ? LndClient.formatPaymentFailureReason(error as any) : formatError(error);
 
       if (outgoingChannelId !== undefined) {
         throw errorMessage;

@@ -394,7 +394,7 @@ class LndClient extends BaseClient implements LndClient {
   /**
    *
    */
-  public static formatPaymentFailureReason = (reason: lndrpc.PaymentFailureReason): string => {
+  public static formatPaymentFailureReason = (reason: lndrpc.PaymentFailureReasonMap[keyof lndrpc.PaymentFailureReasonMap]): string => {
     switch (reason) {
       case lndrpc.PaymentFailureReason.FAILURE_REASON_TIMEOUT: return 'timeout';
       case lndrpc.PaymentFailureReason.FAILURE_REASON_NO_ROUTE: return 'no route';
@@ -527,7 +527,7 @@ class LndClient extends BaseClient implements LndClient {
    *
    * @param addressType type of the address
    */
-  public newAddress = (addressType = lndrpc.AddressType.NESTED_PUBKEY_HASH): Promise<lndrpc.NewAddressResponse.AsObject> => {
+  public newAddress = (addressType: lndrpc.AddressTypeMap[keyof lndrpc.AddressTypeMap] = lndrpc.AddressType.NESTED_PUBKEY_HASH): Promise<lndrpc.NewAddressResponse.AsObject> => {
     const request = new lndrpc.NewAddressRequest();
     request.setType(addressType);
 

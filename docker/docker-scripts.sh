@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Boltz Docker regtest
-boltzDir="/home/dni/repos/boltz-backend"
+boltzDir=$(pwd)
 boltzDataDir="$boltzDir/docker/regtest/data"
 
 cookieDir="$boltzDataDir/core/cookies"

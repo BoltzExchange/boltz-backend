@@ -10,5 +10,6 @@ WORKDIR boltz-backend
 RUN npm ci
 RUN npm run compile
 
-EXPOSE 5000
+EXPOSE 9000 9001
+
 ENTRYPOINT ["/boltz-backend/bin/boltzd"]

@@ -23,14 +23,7 @@ import ReferralRepository from '../../../lib/db/repositories/ReferralRepository'
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
 import { etherDecimals, ethereumPrepayMinerFeeGasLimit, gweiDecimals } from '../../../lib/consts/Consts';
-import {
-  BaseFeeType,
-  CurrencyType,
-  OrderSide,
-  ServiceInfo,
-  ServiceWarning,
-  SwapUpdateEvent
-} from '../../../lib/consts/Enums';
+import { BaseFeeType, CurrencyType, OrderSide, ServiceInfo, ServiceWarning, SwapUpdateEvent } from '../../../lib/consts/Enums';
 
 const mockGetPairs = jest.fn().mockResolvedValue([]);
 const mockAddPair = jest.fn().mockReturnValue(Promise.resolve());
@@ -398,10 +391,18 @@ const mockListChannels = jest.fn().mockResolvedValue({
   ],
 });
 
+const decodedInvoice: any = {
+  featuresMap: [],
+};
+const mockDecodePayReq = jest.fn().mockImplementation(async () => {
+  return decodedInvoice;
+});
+
 jest.mock('../../../lib/lightning/LndClient', () => {
   return jest.fn().mockImplementation(() => ({
     on: () => {},
     getInfo: mockGetInfo,
+    decodePayReq: mockDecodePayReq,
     sendPayment: mockSendPayment,
     listChannels: mockListChannels,
   }));
@@ -1063,6 +1064,33 @@ describe('Service', () => {
 
     await expect(service.setSwapInvoice(mockGetSwapResult.id, ''))
       .rejects.toEqual(Errors.SWAP_HAS_INVOICE_ALREADY(mockGetSwapResult.id));
+  });
+
+  test('should reject setting AMP invoices swap', async () => {
+    mockGetSwapResult = {
+      id: 'invoiceId',
+      pair: 'BTC/BTC',
+      orderSide: 0,
+      lockupAddress: 'bcrt1qae5nuz2cv7gu2dpps8rwrhsfv6tjkyvpd8hqsu',
+    };
+
+    decodedInvoice.featuresMap = [
+      [
+        30,
+        {
+          name: 'amp',
+          isKnown: true,
+          isRequired: true,
+        }
+      ]
+    ];
+
+    const invoice = 'lnbcinvoice';
+    await expect(
+      service.setSwapInvoice(mockGetSwapResult.id, invoice),
+    ).rejects.toEqual(Errors.AMP_INVOICES_NOT_SUPPORTED());
+    expect(mockDecodePayReq).toHaveBeenCalledTimes(1);
+    expect(mockDecodePayReq).toHaveBeenCalledWith(invoice);
   });
 
   // TODO: channel creation logic

@@ -718,6 +718,13 @@ class Service {
     const chainCurrency = getChainCurrency(base, quote, swap.orderSide, false);
     const lightningCurrency = getLightningCurrency(base, quote, swap.orderSide, false);
 
+    const decodedInvoice = await this.getCurrency(lightningCurrency).lndClient!.decodePayReq(invoice);
+    for (const [, feature] of decodedInvoice.featuresMap) {
+      if (feature.name == 'amp') {
+        throw Errors.AMP_INVOICES_NOT_SUPPORTED();
+      }
+    }
+
     const invoiceAmount = decodeInvoice(invoice).satoshis!;
     const rate = swap.rate || getRate(pairRate, swap.orderSide, false);
 

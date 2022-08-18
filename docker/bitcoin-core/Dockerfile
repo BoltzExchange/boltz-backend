@@ -18,6 +18,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get -y install \
   bsdmainutils \
   libevent-dev \
   autotools-dev \
+  libsqlite3-dev \
   build-essential \
   libboost-test-dev \
   libboost-chrono-dev \
@@ -68,6 +69,7 @@ RUN apt-get -y install \
   libdb-dev \
   libdb++-dev \
   libevent-dev \
+  libsqlite3-dev \
   libboost-chrono-dev \
   libboost-system-dev \
   libboost-thread-dev \

@@ -111,4 +111,8 @@ export default {
     message: `${input} is not a whole number`,
     code: concatErrorCode(ErrorCodePrefix.Service, 30),
   }),
+  AMP_INVOICES_NOT_SUPPORTED: (): Error => ({
+    message: 'AMP invoices not supported',
+    code: concatErrorCode(ErrorCodePrefix.Service, 31),
+  }),
 };

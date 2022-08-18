@@ -27,19 +27,19 @@ UBUNTU_VERSION = BuildArgument(
 
 GOLANG_VERSION = BuildArgument(
     name="GOLANG_VERSION",
-    value="1.17.6-buster"
+    value="1.18.5-buster"
 )
 
-BITCOIN_VERSION = "22.0"
+BITCOIN_VERSION = "23.0"
 LITECOIN_VERSION = "0.18.1"
 ELEMENTS_VERSION = "0.21.0.1"
 DOGECOIN_VERSION = "1.14.5"
 ZCASH_VERSION = "4.6.0-1"
-GETH_VERSION = "1.10.15"
+GETH_VERSION = "1.10.21"
 
 C_LIGHTNING_VERSION = "0.10.2"
 ECLAIR_VERSION = "0.6.2"
-LND_VERSION = "0.14.2-beta"
+LND_VERSION = "0.14.3-beta"
 
 IMAGES: Dict[str, Image] = {
     "bitcoin-core": Image(
@@ -93,7 +93,7 @@ IMAGES: Dict[str, Image] = {
         ],
     ),
     "regtest": Image(
-        tags=["3.3.3"],
+        tags=["3.3.4"],
         arguments=[
             UBUNTU_VERSION,
             BuildArgument(

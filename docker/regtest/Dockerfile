@@ -25,6 +25,7 @@ RUN apt-get -y install \
   libzmq3-dev \
   libevent-dev \
   libevent-dev \
+  libsqlite3-dev \
   libboost-chrono-dev \
   libboost-system-dev \
   libboost-thread-dev \

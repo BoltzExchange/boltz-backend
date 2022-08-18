@@ -102,6 +102,7 @@ describe('LndWalletProvider', () => {
 
   test('should sweep the wallet', async () => {
     await bitcoinClient.generate(1);
+    await wait(250);
 
     const { blockHeight } = await bitcoinLndClient.getInfo();
     const balance = await provider.getBalance();

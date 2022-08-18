@@ -1,7 +1,7 @@
 import { OutputType } from 'boltz-core';
 import { bitcoinClient } from '../Nodes';
 import { getHexBuffer, reverseBuffer } from '../../../lib/Utils';
-import { waitForFunctionToBeTrue, generateAddress } from '../../Utils';
+import { waitForFunctionToBeTrue, generateAddress, wait } from '../../Utils';
 import ChainTipRepository from '../../../lib/db/repositories/ChainTipRepository';
 
 const mockFindOrCreateTip = jest.fn().mockImplementation(async () => {
@@ -185,6 +185,7 @@ describe('ChainClient', () => {
     });
 
     const blockchainInfo = await bitcoinClient.getBlockchainInfo();
+    await wait(250);
 
     expect(bestBlockHeight).toEqual(blockchainInfo.blocks);
   });

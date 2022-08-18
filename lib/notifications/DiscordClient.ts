@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events';
-import { Client, TextChannel, Message, Intents } from 'discord.js';
+import { Client, TextChannel, Message } from 'discord.js';
+import { GatewayIntentBits } from 'discord-api-types/v10';
 import { codeBlock } from './Markup';
 
 interface DiscordClient {
@@ -25,8 +26,9 @@ class DiscordClient extends EventEmitter {
 
     this.client = new Client({
       intents: [
-        Intents.FLAGS.GUILDS,
-        Intents.FLAGS.GUILD_MESSAGES,
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent,
       ],
     });
     this.prefix = `[${this.prefix}]: `;

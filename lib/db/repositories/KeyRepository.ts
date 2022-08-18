@@ -17,7 +17,7 @@ class KeyRepository {
     return KeyProvider.create(wallet);
   };
 
-  public setHighestUsedIndex = (symbol: string, highestUsedIndex: number): Promise<[number, KeyProviderType[]]> => {
+  public setHighestUsedIndex = (symbol: string, highestUsedIndex: number): Promise<[number]> => {
     return KeyProvider.update({
       highestUsedIndex,
     }, {

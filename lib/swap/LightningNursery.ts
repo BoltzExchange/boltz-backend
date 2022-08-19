@@ -1,4 +1,5 @@
 import { Op } from 'sequelize';
+import AsyncLock from 'async-lock';
 import { EventEmitter } from 'events';
 import Logger from '../Logger';
 import { Invoice } from '../proto/lnd/rpc_pb';
@@ -18,6 +19,10 @@ interface LightningNursery {
 }
 
 class LightningNursery extends EventEmitter {
+  private lock = new AsyncLock();
+
+  private static invoiceLock = 'invoice';
+
   constructor(
     private logger: Logger,
     private reverseSwapRepository: ReverseSwapRepository,
@@ -35,47 +40,49 @@ class LightningNursery extends EventEmitter {
 
   private listenInvoices = (lndClient: LndClient) => {
     lndClient.on('htlc.accepted', async (invoice: string) => {
-      let reverseSwap = await this.reverseSwapRepository.getReverseSwap({
-        [Op.or]: [
-          {
-            invoice,
-          },
-          {
-            minerFeeInvoice: invoice,
-          },
-        ],
-      });
+      await this.lock.acquire(LightningNursery.invoiceLock, async () => {
+        let reverseSwap = await this.reverseSwapRepository.getReverseSwap({
+          [Op.or]: [
+            {
+              invoice,
+            },
+            {
+              minerFeeInvoice: invoice,
+            },
+          ],
+        });
 
-      if (!reverseSwap) {
-        return;
-      }
+        if (!reverseSwap) {
+          return;
+        }
 
-      if (reverseSwap.invoice === invoice) {
-        this.logger.verbose(`Hold invoice of Reverse Swap ${reverseSwap.id} was accepted`);
+        if (reverseSwap.invoice === invoice) {
+          this.logger.verbose(`Hold invoice of Reverse Swap ${reverseSwap.id} was accepted`);
 
-        if (reverseSwap.minerFeeInvoicePreimage === null || reverseSwap.status === SwapUpdateEvent.MinerFeePaid) {
-          if (reverseSwap.minerFeeInvoicePreimage) {
-            await lndClient.settleInvoice(getHexBuffer(reverseSwap.minerFeeInvoicePreimage));
+          if (reverseSwap.minerFeeInvoicePreimage === null || reverseSwap.status === SwapUpdateEvent.MinerFeePaid) {
+            if (reverseSwap.minerFeeInvoicePreimage) {
+              await lndClient.settleInvoice(getHexBuffer(reverseSwap.minerFeeInvoicePreimage));
+            }
+
+            this.emit('invoice.paid', reverseSwap);
+          } else {
+            this.logger.debug(`Did not send onchain coins for Reverse Swap ${reverseSwap!.id} because miner fee invoice was not paid yet`);
           }
-
-          this.emit('invoice.paid', reverseSwap);
         } else {
-          this.logger.debug(`Did not send onchain coins for Reverse Swap ${reverseSwap!.id} because miner fee invoice was not paid yet`);
+          this.logger.debug(`Minerfee prepayment of Reverse Swap ${reverseSwap.id} was accepted`);
+
+          reverseSwap = await this.reverseSwapRepository.setReverseSwapStatus(reverseSwap, SwapUpdateEvent.MinerFeePaid);
+          this.emit('minerfee.invoice.paid', reverseSwap);
+
+          // Settle the prepay invoice and emit the "invoice.paid" event in case the hold invoice was paid first
+          const holdInvoice = await lndClient.lookupInvoice(getHexBuffer(decodeInvoice(reverseSwap.invoice).paymentHash!));
+
+          if (holdInvoice.state === Invoice.InvoiceState.ACCEPTED) {
+            await lndClient.settleInvoice(getHexBuffer(reverseSwap.minerFeeInvoicePreimage!));
+            this.emit('invoice.paid', reverseSwap);
+          }
         }
-      } else {
-        this.logger.debug(`Minerfee prepayment of Reverse Swap ${reverseSwap.id} was accepted`);
-
-        reverseSwap = await this.reverseSwapRepository.setReverseSwapStatus(reverseSwap, SwapUpdateEvent.MinerFeePaid);
-        this.emit('minerfee.invoice.paid', reverseSwap);
-
-        // Settle the prepay invoice and emit the "invoice.paid" event in case the hold invoice was paid first
-        const holdInvoice = await lndClient.lookupInvoice(getHexBuffer(decodeInvoice(reverseSwap.invoice).paymentHash!));
-
-        if (holdInvoice.state === Invoice.InvoiceState.ACCEPTED) {
-          await lndClient.settleInvoice(getHexBuffer(reverseSwap.minerFeeInvoicePreimage!));
-          this.emit('invoice.paid', reverseSwap);
-        }
-      }
+      });
     });
   };
 }

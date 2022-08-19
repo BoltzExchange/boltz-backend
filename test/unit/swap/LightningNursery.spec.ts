@@ -12,7 +12,7 @@ import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepos
 
 import InvoiceState = Invoice.InvoiceState;
 
-type htlcAcceptedCallback = (invoice: string) => void;
+type htlcAcceptedCallback = (invoice: string) => Promise<void>;
 
 let emitHtlcAccepted: htlcAcceptedCallback;
 
@@ -251,5 +251,30 @@ describe('LightningNursery', () => {
 
     expect(mockSetReverseSwapStatus).toHaveBeenCalledTimes(1);
     expect(mockSetReverseSwapStatus).toHaveBeenCalledWith(mockGetReverseSwapResult, SwapUpdateEvent.MinerFeePaid);
+  });
+
+  test('should handle htlc.accepted event sequentially', async () => {
+    let eventsEmitted = 0;
+    nursery.on('invoice.paid', () => {
+      eventsEmitted++;
+    });
+
+    mockGetReverseSwapResult = {
+      invoice,
+      minerFeeInvoicePreimage: null,
+    };
+
+    const lock = nursery['lock'];
+    const invoiceLock = LightningNursery['invoiceLock'];
+
+    expect(lock.isBusy(invoiceLock)).toEqual(false);
+
+    const emitPromise = emitHtlcAccepted(invoice);
+
+    expect(lock.isBusy(invoiceLock)).toEqual(true);
+    await emitPromise;
+
+    expect(eventsEmitted).toEqual(1);
+    expect(lock.isBusy(invoiceLock)).toEqual(false);
   });
 });

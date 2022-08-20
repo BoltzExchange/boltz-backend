@@ -4,8 +4,8 @@ import Logger from '../Logger';
 import { SwapUpdateEvent } from '../consts/Enums';
 import ReverseSwap from '../db/models/ReverseSwap';
 import { decodeInvoice, getUnixTime } from '../Utils';
-import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import InvoiceExpiryHelper from '../service/InvoiceExpiryHelper';
+import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 
 interface InvoiceNursery {
   on(event: 'invoice.expired', listener: (reverseSwap: ReverseSwap) => void): this;

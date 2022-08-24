@@ -31,15 +31,14 @@ GOLANG_VERSION = BuildArgument(
 )
 
 BITCOIN_VERSION = "23.0"
-LITECOIN_VERSION = "0.18.1"
+LITECOIN_VERSION = "0.21.2.1"
 ELEMENTS_VERSION = "0.21.0.1"
-DOGECOIN_VERSION = "1.14.5"
 ZCASH_VERSION = "4.6.0-1"
-GETH_VERSION = "1.10.21"
+GETH_VERSION = "1.10.23"
 
 C_LIGHTNING_VERSION = "0.10.2"
 ECLAIR_VERSION = "0.6.2"
-LND_VERSION = "0.14.3-beta"
+LND_VERSION = "0.15.0-beta"
 
 IMAGES: Dict[str, Image] = {
     "bitcoin-core": Image(
@@ -50,12 +49,6 @@ IMAGES: Dict[str, Image] = {
     ),
     "litecoin-core": Image(
         tags=[LITECOIN_VERSION],
-        arguments=[
-            UBUNTU_VERSION,
-        ],
-    ),
-    "dogecoin-core": Image(
-        tags=[DOGECOIN_VERSION],
         arguments=[
             UBUNTU_VERSION,
         ],
@@ -93,16 +86,12 @@ IMAGES: Dict[str, Image] = {
         ],
     ),
     "regtest": Image(
-        tags=["3.3.4"],
+        tags=["3.4.0"],
         arguments=[
             UBUNTU_VERSION,
             BuildArgument(
                 name="BITCOIN_VERSION",
                 value=BITCOIN_VERSION,
-            ),
-            BuildArgument(
-                name="LITECOIN_VERSION",
-                value=LITECOIN_VERSION,
             ),
              BuildArgument(
                 name="ELEMENTS_VERSION",

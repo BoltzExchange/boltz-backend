@@ -12,8 +12,9 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get -y install \
   python3 \
   automake \
   libdb-dev \
-  pkg-config \
+  libfmt-dev \
   libssl-dev \
+  pkg-config \
   libdb++-dev \
   libzmq3-dev \
   bsdmainutils \

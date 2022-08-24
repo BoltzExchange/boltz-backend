@@ -48,14 +48,10 @@ elements-cli createwallet $DEFAULT_WALLET_NAME > /dev/null
 
 # Mine 101 blocks so that the coinbase of the first block is spendable
 bitcoinAddress=$(bitcoin-cli getnewaddress)
-litecoinAddress=$(litecoin-cli getnewaddress)
 elementsAddress=$(elements-cli getnewaddress)
 
-
 bitcoin-cli generatetoaddress 101 ${bitcoinAddress} > /dev/null
-litecoin-cli generatetoaddress 101 ${litecoinAddress} > /dev/null
 elements-cli generatetoaddress 101 ${elementsAddress} > /dev/null
-
 
 echo "Restarting nodes"
 

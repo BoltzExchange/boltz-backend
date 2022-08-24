@@ -84,6 +84,9 @@ export class SendPaymentRequest extends jspb.Message {
   getAmp(): boolean;
   setAmp(value: boolean): void;
 
+  getTimePref(): number;
+  setTimePref(value: number): void;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): SendPaymentRequest.AsObject;
   static toObject(includeInstance: boolean, msg: SendPaymentRequest): SendPaymentRequest.AsObject;
@@ -118,6 +121,7 @@ export namespace SendPaymentRequest {
     noInflightUpdates: boolean,
     maxShardSizeMsat: number,
     amp: boolean,
+    timePref: number,
   }
 }
 
@@ -1024,6 +1028,14 @@ export class ForwardHtlcInterceptResponse extends jspb.Message {
   getPreimage_asB64(): string;
   setPreimage(value: Uint8Array | string): void;
 
+  getFailureMessage(): Uint8Array | string;
+  getFailureMessage_asU8(): Uint8Array;
+  getFailureMessage_asB64(): string;
+  setFailureMessage(value: Uint8Array | string): void;
+
+  getFailureCode(): lnd_rpc_pb.Failure.FailureCodeMap[keyof lnd_rpc_pb.Failure.FailureCodeMap];
+  setFailureCode(value: lnd_rpc_pb.Failure.FailureCodeMap[keyof lnd_rpc_pb.Failure.FailureCodeMap]): void;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ForwardHtlcInterceptResponse.AsObject;
   static toObject(includeInstance: boolean, msg: ForwardHtlcInterceptResponse): ForwardHtlcInterceptResponse.AsObject;
@@ -1039,6 +1051,8 @@ export namespace ForwardHtlcInterceptResponse {
     incomingCircuitKey?: CircuitKey.AsObject,
     action: ResolveHoldForwardActionMap[keyof ResolveHoldForwardActionMap],
     preimage: Uint8Array | string,
+    failureMessage: Uint8Array | string,
+    failureCode: lnd_rpc_pb.Failure.FailureCodeMap[keyof lnd_rpc_pb.Failure.FailureCodeMap],
   }
 }
 

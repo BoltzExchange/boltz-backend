@@ -29,12 +29,12 @@ class GrpcServer {
     assert(Number.isInteger(port) && port > 1023 && port < 65536, 'port must be an integer between 1024 and 65536');
 
     return new Promise<void>((resolve, reject) => {
-      this.server.bindAsync(`${host}:${port}`, ServerCredentials.createInsecure(), (error, port) => {
+      this.server.bindAsync(`${host}:${port}`, ServerCredentials.createInsecure(), (error, bindPort) => {
         if (error) {
           reject(Errors.COULD_NOT_BIND(host, port, error.message));
         } else {
           this.server.start();
-          this.logger.info(`gRPC server listening on: ${host}:${port}`);
+          this.logger.info(`gRPC server listening on: ${host}:${bindPort}`);
           resolve();
         }
       });

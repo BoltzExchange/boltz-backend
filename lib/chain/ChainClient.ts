@@ -3,12 +3,12 @@ import Logger from '../Logger';
 import RpcClient from './RpcClient';
 import BaseClient from '../BaseClient';
 import { ChainConfig } from '../Config';
+import { getHexString } from '../Utils';
 import MempoolSpace from './MempoolSpace';
 import { ClientStatus } from '../consts/Enums';
-import { getHexString, stringify } from '../Utils';
-import ZmqClient, { ZmqNotification, filters } from './ZmqClient';
+import ZmqClient, { filters, ZmqNotification } from './ZmqClient';
 import ChainTipRepository from '../db/repositories/ChainTipRepository';
-import { Block, BlockchainInfo, RawTransaction, BlockVerbose, NetworkInfo, UnspentUtxo, WalletInfo } from '../consts/Types';
+import { Block, BlockchainInfo, BlockVerbose, NetworkInfo, RawTransaction, UnspentUtxo, WalletInfo } from '../consts/Types';
 
 interface ChainClient {
   on(event: 'block', listener: (height: number) => void): this;
@@ -191,11 +191,6 @@ class ChainClient extends BaseClient {
     const chainClientFee = await this.estimateFeeChainClient(confTarget);
 
     if (this.mempoolSpace && this.mempoolSpace.latestFee) {
-      this.logger.debug(`Got ${this.symbol} fee estimations: ${stringify({
-        core: chainClientFee,
-        mempoolSpace: this.mempoolSpace.latestFee,
-      })}`);
-
       return Math.max(this.mempoolSpace.latestFee, 2);
     } else {
       return chainClientFee;

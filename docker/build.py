@@ -32,12 +32,11 @@ GOLANG_VERSION = BuildArgument(
 
 BITCOIN_VERSION = "23.0"
 LITECOIN_VERSION = "0.21.2.1"
-ELEMENTS_VERSION = "0.21.0.1"
-ZCASH_VERSION = "4.6.0-1"
+ELEMENTS_VERSION = "0.21.0.2"
 GETH_VERSION = "1.10.23"
 
-C_LIGHTNING_VERSION = "0.10.2"
-ECLAIR_VERSION = "0.6.2"
+C_LIGHTNING_VERSION = "0.12.0"
+ECLAIR_VERSION = "0.7.0-patch-disconnect"
 LND_VERSION = "0.15.0-beta"
 
 IMAGES: Dict[str, Image] = {
@@ -49,12 +48,6 @@ IMAGES: Dict[str, Image] = {
     ),
     "litecoin-core": Image(
         tags=[LITECOIN_VERSION],
-        arguments=[
-            UBUNTU_VERSION,
-        ],
-    ),
-    "zcash": Image(
-        tags=[ZCASH_VERSION],
         arguments=[
             UBUNTU_VERSION,
         ],

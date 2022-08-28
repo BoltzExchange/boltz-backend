@@ -15,8 +15,6 @@ RUN git checkout v${VERSION}
 
 RUN mvn package -pl eclair-node -am -Dmaven.test.skip=true
 
-RUN ls /eclair/eclair-node/target
-
 # Start again with a new image to reduce the size
 FROM ubuntu:${UBUNTU_VERSION}
 

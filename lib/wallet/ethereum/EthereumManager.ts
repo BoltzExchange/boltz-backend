@@ -12,10 +12,10 @@ import ContractHandler from './ContractHandler';
 import InjectedProvider from './InjectedProvider';
 import { CurrencyType } from '../../consts/Enums';
 import ContractEventHandler from './ContractEventHandler';
-import ChainTipRepository from '../../db/repositories/ChainTipRepository';
 import EtherWalletProvider from '../providers/EtherWalletProvider';
 import ERC20WalletProvider from '../providers/ERC20WalletProvider';
 import EthereumTransactionTracker from './EthereumTransactionTracker';
+import ChainTipRepository from '../../db/repositories/ChainTipRepository';
 
 type Network = {
   chainId: number;
@@ -75,7 +75,7 @@ class EthereumManager {
 
   public init = async (mnemonic: string, chainTipRepository: ChainTipRepository): Promise<Map<string, Wallet>> => {
     await this.provider.init();
-    this.logger.info('Initialized web3 providers');
+    this.logger.info('Initialized Web3 providers');
 
     const network = await this.provider.getNetwork();
     this.network = {

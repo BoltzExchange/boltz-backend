@@ -7,19 +7,19 @@ import { EthereumConfig, EthProviderServiceConfig } from '../../Config';
 import PendingEthereumTransactionRepository from '../../db/repositories/PendingEthereumTransactionRepository';
 
 enum EthProviderService {
+  Node = 'Node',
   Infura = 'Infura',
   Alchemy = 'Alchemy',
-  Websocket = 'WebSocket'
 }
 
 /**
- * This provider is a wrapper for the WebSocketProvider of ethers but it writes sent transactions to the database
+ * This provider is a wrapper for the JsonRpcProvider of ethers, but it writes sent transactions to the database
  * and, depending on the configuration, falls back to Alchemy and Infura as Web3 provider
  */
 class InjectedProvider implements providers.Provider {
   public _isProvider = true;
 
-  private providers = new Map<string, providers.WebSocketProvider>();
+  private providers = new Map<string, providers.JsonRpcProvider>();
   private pendingEthereumTransactionRepository = new PendingEthereumTransactionRepository();
 
   private network!: providers.Network;
@@ -28,10 +28,10 @@ class InjectedProvider implements providers.Provider {
 
   constructor(private logger: Logger, config: EthereumConfig) {
     if (config.providerEndpoint) {
-      this.providers.set(EthProviderService.Websocket, new providers.WebSocketProvider(config.providerEndpoint));
-      this.logAddedProvider(EthProviderService.Websocket, { endpoint: config.providerEndpoint });
+      this.providers.set(EthProviderService.Node, new providers.JsonRpcProvider(config.providerEndpoint));
+      this.logAddedProvider(EthProviderService.Node, { endpoint: config.providerEndpoint });
     } else {
-      this.logDisabledProvider(EthProviderService.Websocket, 'no endpoint was specified');
+      this.logDisabledProvider(EthProviderService.Node, 'no endpoint was specified');
     }
 
     const addEthProvider = (name: EthProviderService, providerConfig: EthProviderServiceConfig) => {
@@ -47,14 +47,14 @@ class InjectedProvider implements providers.Provider {
 
       switch (name) {
         case EthProviderService.Infura:
-          this.providers.set(name, new providers.InfuraWebSocketProvider(
+          this.providers.set(name, new providers.InfuraProvider(
             providerConfig.network,
             providerConfig.apiKey,
           ));
           break;
 
         case EthProviderService.Alchemy:
-          this.providers.set(name, new providers.AlchemyWebSocketProvider(
+          this.providers.set(name, new providers.AlchemyProvider(
             providerConfig.network,
             providerConfig.apiKey,
           ));
@@ -100,12 +100,6 @@ class InjectedProvider implements providers.Provider {
 
     this.network = networks[0];
     this.logger.info(`Connected to ${this.providers.size} Web3 providers:\n - ${Array.from(this.providers.keys()).join('\n - ')}`);
-  };
-
-  public destroy = async (): Promise<void> => {
-    for (const provider of this.providers.values()) {
-      await provider.destroy();
-    }
   };
 
   /*
@@ -202,7 +196,7 @@ class InjectedProvider implements providers.Provider {
     const promises: Promise<providers.TransactionResponse>[] = [];
 
     // When sending a transaction, you want it to propagate on the network as quickly as possible
-    // Therefore, we send the it to all available providers
+    // Therefore, we send it to all available providers
     for (const provider of this.providers.values()) {
       // TODO: handle rejections
       promises.push(provider.sendTransaction(signedTransaction));

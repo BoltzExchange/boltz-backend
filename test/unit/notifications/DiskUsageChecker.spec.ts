@@ -1,8 +1,6 @@
-import { platform } from 'os';
-import { DiskUsage } from 'diskusage';
 import Logger from '../../../lib/Logger';
 import DiscordClient from '../../../lib/notifications/DiscordClient';
-import DiskUsageChecker from '../../../lib/notifications/DiskUsageChecker';
+import DiskUsageChecker, { DiskUsage } from '../../../lib/notifications/DiskUsageChecker';
 
 const mockSendMessage = jest.fn().mockImplementation(() => Promise.resolve());
 
@@ -14,35 +12,24 @@ jest.mock('../../../lib/notifications/DiscordClient', () => {
 
 const mockedDiscordClient = <jest.Mock<DiscordClient>><any>DiscordClient;
 
-const gigabyte = 1073741824;
+const gigabyte = DiskUsageChecker['gigabyte'];
 
 const highDiskUsage: DiskUsage = {
   available: 0,
-  free: 5 * gigabyte,
   total: 20 * gigabyte,
 };
 
 const lowDiskUsage: DiskUsage = {
-  free: 5.05 * gigabyte,
   available: 5 * gigabyte,
   total: 10 * gigabyte,
 };
 
 let diskUsage: DiskUsage = {
-  free: 2 * gigabyte,
   total: 10 * gigabyte,
   available: gigabyte,
 };
 
-const mockCheck = jest.fn().mockImplementation(() => diskUsage);
-
-jest.mock('diskusage', () => {
-  return {
-    check: async () => {
-      return mockCheck();
-    },
-  };
-});
+const mockGetUsage = jest.fn().mockImplementation(async () => diskUsage);
 
 describe('DiskUsageChecker', () => {
   const discordClient = mockedDiscordClient();
@@ -50,14 +37,7 @@ describe('DiskUsageChecker', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-  });
-
-  test('should get correct root path', () => {
-    if (platform() !== 'win32') {
-      expect(DiskUsageChecker['rootDir']).toEqual('/');
-    } else {
-      expect(DiskUsageChecker['rootDir']).toEqual('C:');
-    }
+    checker['getUsage'] = mockGetUsage;
   });
 
   test('should format numbers', () => {
@@ -73,6 +53,16 @@ describe('DiskUsageChecker', () => {
     expect(convertToGb(536870912)).toEqual(0.5);
     expect(convertToGb(1073741824)).toEqual(1);
     expect(convertToGb(2147483648)).toEqual(2);
+  });
+
+  test('should get disk usage from df command', async () => {
+    const diskUsage = await new DiskUsageChecker(Logger.disabledLogger, discordClient)['getUsage']();
+
+    expect(diskUsage.total).toBeDefined();
+    expect(diskUsage.available).toBeDefined();
+
+    expect(typeof diskUsage.total).toEqual('number');
+    expect(typeof diskUsage.available).toEqual('number');
   });
 
   test('should send a warning if disk usage is 90% or greater', async () => {

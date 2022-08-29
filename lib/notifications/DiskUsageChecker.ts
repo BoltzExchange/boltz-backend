@@ -1,19 +1,24 @@
-import { platform } from 'os';
-import { check } from 'diskusage';
+import { execFile } from 'child_process';
 import Logger from '../Logger';
 import { Emojis } from './Markup';
 import DiscordClient from './DiscordClient';
 
+type DiskUsage = {
+  total: number;
+  available: number;
+};
+
 class DiskUsageChecker {
   private alertSent = false;
 
+  private static rootDir = '/';
+  private static gigabyte = 1024 ** 3;
   private static warningThreshold = 0.9;
-  private static rootDir = platform() !== 'win32' ? '/' : 'C:';
 
   constructor(private logger: Logger, private discord: DiscordClient) {}
 
   public checkUsage = async (): Promise<void> => {
-    const { available, total } = await check(DiskUsageChecker.rootDir);
+    const { available, total } = await this.getUsage();
 
     const used = total - available;
     const usedPercentage = used / total;
@@ -33,13 +38,40 @@ class DiskUsageChecker {
     }
   };
 
+  private getUsage = async (): Promise<DiskUsage> => {
+    return new Promise((resolve, reject) => {
+      execFile('df', ['-P', '-k', DiskUsageChecker.rootDir], (error, stdout) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+
+        const lines = stdout.split('\n');
+
+        if (lines.length < 2) {
+          throw new Error(`unexpected df output: ${stdout}`);
+        }
+
+        const parts = lines[1]
+          .split(' ')
+          .filter((x) => { return x !== ''; });
+
+        resolve({
+          total: Number(parts[1]),
+          available: Number(parts[3]),
+        });
+      });
+    });
+  };
+
   private formatNumber = (toFormat: number) => {
     return Number(toFormat.toFixed(2));
   };
 
   private convertToGb = (bytes: number) => {
-    return bytes / 1073741824;
+    return bytes / DiskUsageChecker.gigabyte;
   };
 }
 
 export default DiskUsageChecker;
+export { DiskUsage };

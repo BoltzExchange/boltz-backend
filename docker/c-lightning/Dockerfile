@@ -1,5 +1,9 @@
 ARG UBUNTU_VERSION
 
+ARG BITCOIN_VERSION
+
+FROM boltz/bitcoin-core:${BITCOIN_VERSION} AS bitcoin-core
+
 FROM ubuntu:${UBUNTU_VERSION} AS builder
 
 ARG VERSION
@@ -34,7 +38,7 @@ RUN git checkout v${VERSION}
 RUN git submodule init && git submodule update
 
 RUN ./configure
-RUN make
+RUN make -j$(nproc)
 RUN make install
 
 RUN strip --strip-all /usr/local/bin/lightningd
@@ -44,11 +48,16 @@ RUN strip --strip-all /usr/local/bin/lightning-cli
 FROM ubuntu:${UBUNTU_VERSION}
 
 RUN apt-get update && apt-get -y upgrade
-RUN apt-get -y install sqlite3 libsodium23
+RUN apt-get -y install \
+  sqlite3 \
+  libsodium23 \
+  libevent-dev
 
-# Copy the binaries and entrypoint from the builder image.
+# Copy binaries
 COPY --from=builder /usr/local/bin/lightningd /bin/
 COPY --from=builder /usr/local/bin/lightning-cli /bin/
 COPY --from=builder /usr/local/libexec /usr/libexec
+
+COPY --from=bitcoin-core /bin/bitcoin-cli /bin/
 
 ENTRYPOINT ["lightningd"]

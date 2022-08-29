@@ -39,6 +39,11 @@ C_LIGHTNING_VERSION = "0.12.0"
 ECLAIR_VERSION = "0.7.0-patch-disconnect"
 LND_VERSION = "0.15.0-beta"
 
+BITCOIN_BUILD_ARG = BuildArgument(
+    name="BITCOIN_VERSION",
+    value=BITCOIN_VERSION,
+)
+
 IMAGES: Dict[str, Image] = {
     "bitcoin-core": Image(
         tags=[BITCOIN_VERSION],
@@ -69,6 +74,7 @@ IMAGES: Dict[str, Image] = {
         tags=[C_LIGHTNING_VERSION],
         arguments=[
             UBUNTU_VERSION,
+            BITCOIN_BUILD_ARG,
         ],
     ),
     "lnd": Image(
@@ -78,14 +84,15 @@ IMAGES: Dict[str, Image] = {
             GOLANG_VERSION,
         ],
     ),
+    "boltz": Image(
+        tags=["latest"],
+        arguments=[],
+    ),
     "regtest": Image(
         tags=["3.4.0"],
         arguments=[
             UBUNTU_VERSION,
-            BuildArgument(
-                name="BITCOIN_VERSION",
-                value=BITCOIN_VERSION,
-            ),
+            BITCOIN_BUILD_ARG,
              BuildArgument(
                 name="ELEMENTS_VERSION",
                 value=ELEMENTS_VERSION,

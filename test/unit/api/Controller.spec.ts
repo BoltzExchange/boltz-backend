@@ -1014,8 +1014,8 @@ describe('Controller', () => {
 
     expect(controller['pendingSwapStreams'].get(id)).not.toBeUndefined();
 
-    expect(res.setTimeout).toBeCalledWith(0);
-    expect(res.writeHead).toBeCalledWith(200, {
+    expect(res.setTimeout).toHaveBeenCalledWith(0);
+    expect(res.writeHead).toHaveBeenCalledWith(200, {
       Connection: 'keep-alive',
       'X-Accel-Buffering': 'no',
       'Cache-Control': 'no-cache',
@@ -1053,12 +1053,12 @@ describe('Controller', () => {
 
     // Undefined parameter
     expect(() => validateRequest({}, checks))
-      .toThrowError(`undefined parameter: ${checks[0].name}`);
+      .toThrow(`undefined parameter: ${checks[0].name}`);
 
     // Invalid parameter
     expect(() => validateRequest({
       test: 0,
-    }, checks)).toThrowError(`invalid parameter: ${checks[0].name}`);
+    }, checks)).toThrow(`invalid parameter: ${checks[0].name}`);
 
     // Ignore empty hex
     expect(validateRequest({
@@ -1154,10 +1154,10 @@ describe('Controller', () => {
     // Check errors
     expect(
       () => checkPreimageHashLength(getHexBuffer('34786bcde69ec5873bcf2e8a42c47fbcc762bdb1096c1077709cb9854fef308')),
-    ).toThrowError('invalid preimage hash length: 31');
+    ).toThrow('invalid preimage hash length: 31');
 
     expect(
       () => checkPreimageHashLength(getHexBuffer('34786bcde69ec5873bcf2e8a42c47fbcc762bdb1096c1077709cb9854fef308dff')),
-    ).toThrowError('invalid preimage hash length: 33');
+    ).toThrow('invalid preimage hash length: 33');
   });
 });

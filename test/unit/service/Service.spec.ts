@@ -1559,8 +1559,8 @@ describe('Service', () => {
 
     const response = await service.payInvoice(symbol, invoice);
 
-    expect(mockSendPayment).toBeCalledTimes(1);
-    expect(mockSendPayment).toBeCalledWith(invoice);
+    expect(mockSendPayment).toHaveBeenCalledTimes(1);
+    expect(mockSendPayment).toHaveBeenCalledWith(invoice);
 
     expect(response).toEqual(await mockSendPayment());
   });

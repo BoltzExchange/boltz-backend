@@ -292,7 +292,7 @@ describe('CommandHandler', () => {
     await wait(50);
 
     expect(mockSendMessage).toHaveBeenCalledTimes(3);
-    expect(mockSendMessage).toBeCalledWith(
+    expect(mockSendMessage).toHaveBeenCalledWith(
       `Reverse Swap \`${reverseSwapExample.id}\`:\n\`\`\`${stringify(await reverseSwapRepository.getReverseSwap({ id: reverseSwapExample.id }))}\`\`\``,
     );
 
@@ -501,7 +501,7 @@ describe('CommandHandler', () => {
     sendMessage('withdraw invalid token provided');
     await wait(5);
 
-    expect(mockVerify).toBeCalledTimes(6);
+    expect(mockVerify).toHaveBeenCalledTimes(6);
     expect(mockVerify).toHaveBeenNthCalledWith(6, 'invalid');
 
     expect(mockSendMessage).toHaveBeenCalledTimes(7);

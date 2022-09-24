@@ -125,11 +125,13 @@ class RateProvider {
       }
     });
 
-    const pairsToQuery: string[] = [];
-    this.dataAggregator.pairs.forEach(([base, quote]) => {
-      pairsToQuery.push(getPairId({ base, quote }));
-    });
-    this.logger.debug(`Prepared data for requests to exchanges: \n  - ${pairsToQuery.join('\n  - ')}`);
+    if (this.dataAggregator.pairs.size > 0) {
+      const pairsToQuery: string[] = [];
+      this.dataAggregator.pairs.forEach(([base, quote]) => {
+        pairsToQuery.push(getPairId({ base, quote }));
+      });
+      this.logger.debug(`Prepared data for requests to exchanges: \n  - ${pairsToQuery.join('\n  - ')}`);
+    }
 
     await this.updateRates();
 

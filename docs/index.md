@@ -15,6 +15,9 @@ The Rest API can be accessed at:
 * [Testnet](https://testnet.boltz.exchange/api)
 * [Mainnet](https://boltz.exchange/api)
 
+> Note: If you access from your browser, you will get 404.
+> run `curl https://boltz.exchange/api/version`, (or `curl https://testnet.boltz.exchange/api/version` in testnet) to check that its running.
+
 ## Useful Links
 
 * [Source Code](https://github.com/boltzexchange)

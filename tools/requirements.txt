@@ -16,7 +16,7 @@ importlib-metadata==4.8.1
 ipaddr==2.2.0
 isort==5.7.0
 Jinja2==2.11.3
-joblib==1.0.1
+joblib==1.2.0
 lazy-object-proxy==1.5.2
 livereload==2.6.3
 lockfile==0.12.2

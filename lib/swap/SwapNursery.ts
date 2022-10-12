@@ -734,12 +734,17 @@ class SwapNursery extends EventEmitter {
         (await chainCurrency.chainClient.getBlockchainInfo()).blocks :
         await this.ethereumNursery!.ethereumManager.provider.getBlockNumber();
 
-      const blocksLeft = TimeoutDeltaProvider.convertBlocks(chainSymbol, lightningSymbol, swap.timeoutBlockHeight - currentBlock);
+      const blockLeft = TimeoutDeltaProvider.convertBlocks(chainSymbol, lightningSymbol, swap.timeoutBlockHeight - currentBlock);
+      const cltvLimit = Math.floor(blockLeft - 2);
+
+      if (cltvLimit < 2) {
+        throw 'CLTV limit to small';
+      }
 
       const payResponse = await Promise.race([
         lightningCurrency.lndClient!.sendPayment(
           swap.invoice!,
-          Math.floor(blocksLeft - 2),
+          cltvLimit,
           outgoingChannelId,
         ),
         new Promise<undefined>((resolve) => {

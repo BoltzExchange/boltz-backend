@@ -18,6 +18,7 @@ import RateProvider from '../rates/RateProvider';
 import SwapRepository from '../db/repositories/SwapRepository';
 import LightningNursery from './LightningNursery';
 import ReverseSwap from '../db/models/ReverseSwap';
+import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
 import { Invoice, PaymentFailureReason } from '../proto/lnd/rpc_pb';
 import ChannelCreation from '../db/models/ChannelCreation';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
@@ -42,7 +43,6 @@ import {
   splitPairId,
 } from '../Utils';
 import InvoiceState = Invoice.InvoiceState;
-import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
 
 interface SwapNursery {
   // UTXO based chains emit the "Transaction" object and Ethereum based ones just the transaction hash
@@ -730,13 +730,16 @@ class SwapNursery extends EventEmitter {
       // Wait 15 seconds for a response
       const raceTimeout = 15;
 
-      let blocksLeft = swap.timeoutBlockHeight - (await chainCurrency.chainClient!.getBlockchainInfo()).blocks;
-      blocksLeft = TimeoutDeltaProvider.convertBlocks(chainSymbol, lightningSymbol, blocksLeft);
+      const currentBlock = chainCurrency.chainClient?
+        (await chainCurrency.chainClient.getBlockchainInfo()).blocks :
+        await this.ethereumNursery!.ethereumManager.provider.getBlockNumber();
+
+      const blocksLeft = TimeoutDeltaProvider.convertBlocks(chainSymbol, lightningSymbol, swap.timeoutBlockHeight - currentBlock);
 
       const payResponse = await Promise.race([
         lightningCurrency.lndClient!.sendPayment(
           swap.invoice!,
-          Math.floor(blocksLeft) - 2,
+          Math.floor(blocksLeft - 2),
           outgoingChannelId,
         ),
         new Promise<undefined>((resolve) => {

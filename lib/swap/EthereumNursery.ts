@@ -46,7 +46,7 @@ interface EthereumNursery {
 }
 
 class EthereumNursery extends EventEmitter {
-  private ethereumManager: EthereumManager;
+  public ethereumManager: EthereumManager;
 
   constructor(
     private logger: Logger,

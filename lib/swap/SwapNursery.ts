@@ -42,6 +42,7 @@ import {
   splitPairId,
 } from '../Utils';
 import InvoiceState = Invoice.InvoiceState;
+import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
 
 interface SwapNursery {
   // UTXO based chains emit the "Transaction" object and Ethereum based ones just the transaction hash
@@ -719,18 +720,23 @@ class SwapNursery extends EventEmitter {
     };
 
     const { base, quote } = splitPairId(swap.pair);
+    const chainSymbol = getChainCurrency(base, quote, swap.orderSide, false);
     const lightningSymbol = getLightningCurrency(base, quote, swap.orderSide, false);
 
     const lightningCurrency = this.currencies.get(lightningSymbol)!;
+    const chainCurrency = this.currencies.get(chainSymbol)!;
 
     try {
       // Wait 15 seconds for a response
       const raceTimeout = 15;
 
+      let blocksLeft = swap.timeoutBlockHeight - (await chainCurrency.chainClient!.getBlockchainInfo()).blocks;
+      blocksLeft = TimeoutDeltaProvider.convertBlocks(chainSymbol, lightningSymbol, blocksLeft);
+
       const payResponse = await Promise.race([
         lightningCurrency.lndClient!.sendPayment(
           swap.invoice!,
-          Math.floor(swap.timeoutBlockHeight - (await lightningCurrency.chainClient!.getBlockchainInfo()).blocks) - 2,
+          Math.floor(blocksLeft) - 2,
           outgoingChannelId,
         ),
         new Promise<undefined>((resolve) => {

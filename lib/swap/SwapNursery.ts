@@ -728,7 +728,11 @@ class SwapNursery extends EventEmitter {
       const raceTimeout = 15;
 
       const payResponse = await Promise.race([
-        lightningCurrency.lndClient!.sendPayment(swap.invoice!, outgoingChannelId),
+        lightningCurrency.lndClient!.sendPayment(
+          swap.invoice!,
+          Math.floor(swap.timeoutBlockHeight - (await lightningCurrency.chainClient!.getBlockchainInfo()).blocks) - 2,
+          outgoingChannelId,
+        ),
         new Promise<undefined>((resolve) => {
           setTimeout(() => {
             resolve(undefined);

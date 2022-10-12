@@ -586,6 +586,10 @@ class Service {
     // Is undefined when Bitcoin or Litecoin is swapped to Lightning
     claimAddress?: string,
   }> => {
+    if (args.pairId.toLocaleLowerCase().includes('eth')) {
+      throw 'disabled';
+    }
+
     const swap = await this.swapManager.swapRepository.getSwap({
       preimageHash: getHexString(args.preimageHash),
     });

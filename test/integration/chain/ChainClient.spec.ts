@@ -207,7 +207,15 @@ describe('ChainClient', () => {
     });
   });
 
+  test('should format getTransaction errors', async () => {
+    const txId = '277014b6ff0b872dbd6dbfe506b1bfc7b5467a4096a0a27a06b0924423541e33';
+    const expectedError = `No such mempool or blockchain transaction. Use gettransaction for wallet transactions. ID: ${txId}`;
+
+    await expect(bitcoinClient.getRawTransaction(txId)).rejects.toEqual(expectedError);
+    await expect(bitcoinClient.getRawTransactionVerbose(txId)).rejects.toEqual(expectedError);
+  });
+
   afterAll(async () => {
-    await bitcoinClient.disconnect();
+    bitcoinClient.disconnect();
   });
 });

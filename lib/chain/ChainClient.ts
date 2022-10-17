@@ -3,9 +3,9 @@ import Logger from '../Logger';
 import RpcClient from './RpcClient';
 import BaseClient from '../BaseClient';
 import { ChainConfig } from '../Config';
-import { getHexString } from '../Utils';
 import MempoolSpace from './MempoolSpace';
 import { ClientStatus } from '../consts/Enums';
+import { formatError, getHexString } from '../Utils';
 import ZmqClient, { filters, ZmqNotification } from './ZmqClient';
 import ChainTipRepository from '../db/repositories/ChainTipRepository';
 import { Block, BlockchainInfo, BlockVerbose, NetworkInfo, RawTransaction, UnspentUtxo, WalletInfo } from '../consts/Types';
@@ -179,12 +179,20 @@ class ChainClient extends BaseClient {
     return this.client.request<string>('sendrawtransaction', [rawTransaction]);
   };
 
-  public getRawTransaction = (id: string): Promise<string> => {
-    return this.client.request<string>('getrawtransaction', [id]);
+  public getRawTransaction = async (id: string): Promise<string> => {
+    try {
+      return await this.client.request<string>('getrawtransaction', [id]);
+    } catch (error) {
+      throw this.formatGetTransactionError(id, error);
+    }
   };
 
-  public getRawTransactionVerbose = (id: string): Promise<RawTransaction> => {
-    return this.client.request<RawTransaction>('getrawtransaction', [id, 1]);
+  public getRawTransactionVerbose = async (id: string): Promise<RawTransaction> => {
+    try {
+      return await this.client.request<RawTransaction>('getrawtransaction', [id, 1]);
+    } catch (error) {
+      throw this.formatGetTransactionError(id, error);
+    }
   };
 
   public estimateFee = async (confTarget = 2): Promise<number> => {
@@ -269,6 +277,15 @@ class ChainClient extends BaseClient {
     this.zmqClient.on('transaction', (transaction, confirmed) => {
       this.emit('transaction', transaction, confirmed);
     });
+  };
+
+  private formatGetTransactionError = (id: string, error: any): string => {
+    const formattedError = formatError(error);
+    if (formattedError.includes('No such mempool or blockchain transaction')) {
+      return `${formattedError} ID: ${id}`;
+    }
+
+    return error;
   };
 }
 

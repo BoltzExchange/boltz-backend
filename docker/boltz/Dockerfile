@@ -11,6 +11,7 @@ RUN apt-get -y install \
     rsync \
     python3 \
     libc-dev \
+    libzmq3-dev \
     python3-dev
 
 RUN git clone --depth=1 https://github.com/BoltzExchange/boltz-backend.git

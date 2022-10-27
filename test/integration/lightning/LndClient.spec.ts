@@ -70,6 +70,7 @@ describe('LndClient', () => {
 
     const serverHost = '127.0.0.1';
     const serverPort = await getPort();
+    const maxPaymentFeeRatio = 0.03;
 
     const bindPort = await new Promise((resolve) => {
       server.bindAsync(`${serverHost}:${serverPort}`, grpc.ServerCredentials.createSsl(null,
@@ -96,6 +97,7 @@ describe('LndClient', () => {
         port: serverPort,
         certpath: `${lndDataPath}/certificates/tls.cert`,
         macaroonpath: `${lndDataPath}/macaroons/admin.macaroon`,
+        maxPaymentFeeRatio: maxPaymentFeeRatio,
       },
     );
     await lndClient.connect(false);

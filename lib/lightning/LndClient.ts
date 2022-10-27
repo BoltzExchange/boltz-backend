@@ -21,6 +21,7 @@ type LndConfig = {
   port: number;
   certpath: string;
   macaroonpath: string;
+  maxPaymentFeeRatio: number;
 };
 
 type LndMethodFunction = (params: any, meta: Metadata, listener) => any;
@@ -67,7 +68,7 @@ class LndClient extends BaseClient implements LndClient {
 
   private static readonly minPaymentFee = 21;
   private static readonly paymentTimeout = 60;
-  private static readonly maxPaymentFeeRatio = 0.03;
+  private static maxPaymentFeeRatio: number;
 
   private readonly uri!: string;
   private readonly credentials!: ChannelCredentials;
@@ -92,7 +93,9 @@ class LndClient extends BaseClient implements LndClient {
   ) {
     super();
 
-    const { host, port, certpath, macaroonpath } = config;
+    const { host, port, certpath, macaroonpath, maxPaymentFeeRatio } = config;
+
+    LndClient.maxPaymentFeeRatio = maxPaymentFeeRatio > 0 ? maxPaymentFeeRatio: 0.03;
 
     if (fs.existsSync(certpath)) {
       this.uri = `${host}:${port}`;

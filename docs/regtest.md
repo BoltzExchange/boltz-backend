@@ -68,6 +68,7 @@ maxZeroConfAmount = 10_000_000
   port = 10_009
   certpath = "docker/regtest/data/lnd/certificates/tls.cert"
   macaroonpath = "docker/regtest/data/lnd/macaroons/admin.macaroon"
+  maxPaymentFeeRatio = 0.03
 
 [[currencies]]
 symbol = "LTC"
@@ -90,6 +91,7 @@ maxZeroConfAmount = 0
   port = 11_009
   certpath = "docker/regtest/data/lnd/certificates/tls.cert"
   macaroonpath = "docker/regtest/data/lnd/macaroons/admin.macaroon"
+  maxPaymentFeeRatio = 0.03
 
 [ethereum]
 providerEndpoint = "http://127.0.0.1:8546"

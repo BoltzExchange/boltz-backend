@@ -151,6 +151,7 @@ maxZeroConfAmount = 10_000_000
   port = 10_009
   certpath = "/home/boltz/.lnd/bitcoin/tls.cert"
   macaroonpath = "/home/boltz/.lnd/bitcoin/admin.macaroon"
+  maxPaymentFeeRatio = 0.03
 
 [[currencies]]
 symbol = "LTC"
@@ -175,4 +176,5 @@ maxZeroConfAmount = 1_000_000_000
   port = 11_009
   certpath = "/home/boltz/.lnd/litecoin/tls.cert"
   macaroonpath = "/home/boltz/.lnd/litecoin/admin.macaroon"
+  maxPaymentFeeRatio = 0.03
 ```

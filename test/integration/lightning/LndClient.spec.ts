@@ -20,10 +20,11 @@ describe('LndClient', () => {
     const calculatePaymentFee = bitcoinLndClient['calculatePaymentFee'];
 
     const bigInvoiceAmount = 8754398;
+    const maxPaymentFeeRatio = 0.03;
     let invoice = await bitcoinLndClient.addInvoice(bigInvoiceAmount);
 
     // Should use the payment fee ratio for big payments
-    expect(calculatePaymentFee(invoice.paymentRequest)).toEqual(Math.ceil(bigInvoiceAmount * LndClient['maxPaymentFeeRatio']));
+    expect(calculatePaymentFee(invoice.paymentRequest)).toEqual(Math.ceil(bigInvoiceAmount * maxPaymentFeeRatio));
 
     // Should use the minimal payment fee for small payments
     invoice = await bitcoinLndClient.addInvoice(1);

@@ -68,7 +68,7 @@ class LndClient extends BaseClient implements LndClient {
 
   private static readonly minPaymentFee = 21;
   private static readonly paymentTimeout = 60;
-  private static maxPaymentFeeRatio: number;
+  private maxPaymentFeeRatio: number;
 
   private readonly uri!: string;
   private readonly credentials!: ChannelCredentials;
@@ -95,7 +95,7 @@ class LndClient extends BaseClient implements LndClient {
 
     const { host, port, certpath, macaroonpath, maxPaymentFeeRatio } = config;
 
-    LndClient.maxPaymentFeeRatio = maxPaymentFeeRatio > 0 ? maxPaymentFeeRatio: 0.03;
+    this.maxPaymentFeeRatio = maxPaymentFeeRatio > 0 ? maxPaymentFeeRatio: 0.03;
 
     if (fs.existsSync(certpath)) {
       this.uri = `${host}:${port}`;
@@ -700,7 +700,7 @@ class LndClient extends BaseClient implements LndClient {
     const invoiceAmt = bolt11.decode(invoice).satoshis || 0;
 
     return Math.max(
-      Math.ceil(invoiceAmt * LndClient.maxPaymentFeeRatio),
+      Math.ceil(invoiceAmt * this.maxPaymentFeeRatio),
       LndClient.minPaymentFee,
     );
   };

@@ -20,10 +20,11 @@ describe('LndClient', () => {
     const calculatePaymentFee = bitcoinLndClient['calculatePaymentFee'];
 
     const bigInvoiceAmount = 8754398;
+    const maxPaymentFeeRatio = 0.03;
     let invoice = await bitcoinLndClient.addInvoice(bigInvoiceAmount);
 
     // Should use the payment fee ratio for big payments
-    expect(calculatePaymentFee(invoice.paymentRequest)).toEqual(Math.ceil(bigInvoiceAmount * LndClient['maxPaymentFeeRatio']));
+    expect(calculatePaymentFee(invoice.paymentRequest)).toEqual(Math.ceil(bigInvoiceAmount * maxPaymentFeeRatio));
 
     // Should use the minimal payment fee for small payments
     invoice = await bitcoinLndClient.addInvoice(1);
@@ -70,6 +71,7 @@ describe('LndClient', () => {
 
     const serverHost = '127.0.0.1';
     const serverPort = await getPort();
+    const maxPaymentFeeRatio = 0.03;
 
     const bindPort = await new Promise((resolve) => {
       server.bindAsync(`${serverHost}:${serverPort}`, grpc.ServerCredentials.createSsl(null,
@@ -96,6 +98,7 @@ describe('LndClient', () => {
         port: serverPort,
         certpath: `${lndDataPath}/certificates/tls.cert`,
         macaroonpath: `${lndDataPath}/macaroons/admin.macaroon`,
+        maxPaymentFeeRatio: maxPaymentFeeRatio,
       },
     );
     await lndClient.connect(false);

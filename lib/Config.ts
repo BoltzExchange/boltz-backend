@@ -35,6 +35,8 @@ type CurrencyConfig = {
 
   // Expiry for invoices of this currency in seconds
   invoiceExpiry?: number;
+  // Max fee ratio for LND's sendPayment
+  maxPaymentFeeRatio?: number;
 
   maxSwapAmount: number;
   minSwapAmount: number;
@@ -264,6 +266,7 @@ class Config {
             port: 10009,
             certpath: path.join(getServiceDataDir('lnd'), 'tls.cert'),
             macaroonpath: path.join(getServiceDataDir('lnd'), 'data', 'chain', 'bitcoin', Network.Testnet, 'admin.macaroon'),
+            maxPaymentFeeRatio: 0.03,
           },
         },
         {
@@ -291,6 +294,7 @@ class Config {
             port: 11009,
             certpath: path.join(getServiceDataDir('lnd'), 'tls.cert'),
             macaroonpath: path.join(getServiceDataDir('lnd'), 'data', 'chain', 'litecoin', Network.Testnet, 'admin.macaroon'),
+            maxPaymentFeeRatio: 0.03,
           },
         },
       ],

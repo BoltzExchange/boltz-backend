@@ -8,15 +8,15 @@ Boltz is a privacy first, account-free crypto exchange built on top of second la
 
 ## Instances
 
-We are running and maintaining two Boltz instances that can be used - one on [testnet](https://testnet.boltz.exchange) and one on [mainnet](https://boltz.exchange).
+We are running and maintaining two Boltz instances that can be used - one on [testnet](https://testnet-diamond-boltz.web.app/) and one on [mainnet](http://swap.diamondhands.technology/).
 
 The Rest API can be accessed at:
 
-* [Testnet](https://testnet.boltz.exchange/api)
-* [Mainnet](https://boltz.exchange/api)
+* [Testnet](https://testnet.dlc.soy/9001/api)
+* [Mainnet](https://boltz.diamondhands.technology/api)
 
 > Note: If you access the API from your browser, you will get 404.
-> Run `curl https://boltz.exchange/api/version`, (or `curl https://testnet.boltz.exchange/api/version` for testnet) to check that it is available.
+> Run `curl https://boltz.diamondhands.technology/api/version`, (or `curl https://testnet.dlc.soy/9001/version` for testnet) to check that it is available.
 
 ## Useful Links
 

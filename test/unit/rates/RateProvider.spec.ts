@@ -25,6 +25,11 @@ const percentageFees = new Map<string, number>([
   ['BTC/BTC', 0.005],
 ]);
 
+const percentageSwapInFees = new Map<string, number>([
+  ['LTC/BTC', 0.01],
+  ['BTC/BTC', -0.01],
+]);
+
 const minerFees = new Map<string, MinerFees>([
   [
     'BTC',
@@ -70,6 +75,7 @@ jest.mock('../../../lib/rates/FeeProvider', () => {
     return {
       minerFees,
       percentageFees,
+      percentageSwapInFees,
       getBaseFee: mockGetBaseFee,
       updateMinerFees: mockUpdateMinerFees,
     };
@@ -193,6 +199,14 @@ describe('RateProvider', () => {
 
     percentageFees.forEach((_, pairId) => {
       expect(pairs.get(pairId)!.fees.percentage).toEqual(percentageFees.get(pairId)! * 100);
+    });
+  });
+
+  test('should get percentage fees for swapin', () => {
+    const { pairs } = rateProvider;
+
+    percentageSwapInFees.forEach((_, pairId) => {
+      expect(pairs.get(pairId)!.fees.swapInFee).toEqual(percentageSwapInFees.get(pairId)! * 100);
     });
   });
 

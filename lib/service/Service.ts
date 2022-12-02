@@ -734,13 +734,21 @@ class Service {
 
     this.verifyAmount(swap.pair, rate, invoiceAmount, swap.orderSide, false);
 
-    let { baseFee, percentageFee, percentageSwapInFee } = this.rateProvider.feeProvider.getFees(
+    const { baseFee, percentageSwapInFee } = this.rateProvider.feeProvider.getFees(
       swap.pair,
       rate,
       swap.orderSide,
       invoiceAmount,
       BaseFeeType.NormalClaim,
     );
+    let { percentageFee } = this.rateProvider.feeProvider.getFees(
+      swap.pair,
+      rate,
+      swap.orderSide,
+      invoiceAmount,
+      BaseFeeType.NormalClaim,
+    );
+
     if (percentageSwapInFee !== 0) {
       percentageFee = percentageSwapInFee;
     }
@@ -752,7 +760,7 @@ class Service {
         rate,
         swap.onchainAmount,
         baseFee,
-        this.rateProvider.feeProvider.getPercentageFee(swap.pair),
+        Math.max(this.rateProvider.feeProvider.getPercentageFee(swap.pair),this.rateProvider.feeProvider.getPercentageSwapInFee(swap.pair)),
       );
 
       throw Errors.INVALID_INVOICE_AMOUNT(maxInvoiceAmount);

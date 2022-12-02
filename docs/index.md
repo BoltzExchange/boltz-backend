@@ -8,7 +8,7 @@ Boltz is a privacy first, account-free crypto exchange built on top of second la
 
 ## Instances
 
-We are running and maintaining two Boltz instances that can be used - one on [testnet](https://testnet.boltz.exchange) and one on [mainnet](https://boltz.exchange).technology/).
+We are running and maintaining two Boltz instances that can be used - one on [testnet](https://testnet.boltz.exchange) and one on [mainnet](https://boltz.exchange)).
 
 The Rest API can be accessed at:
 

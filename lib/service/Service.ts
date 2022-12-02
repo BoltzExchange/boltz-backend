@@ -734,14 +734,7 @@ class Service {
 
     this.verifyAmount(swap.pair, rate, invoiceAmount, swap.orderSide, false);
 
-    const { baseFee, percentageSwapInFee } = this.rateProvider.feeProvider.getFees(
-      swap.pair,
-      rate,
-      swap.orderSide,
-      invoiceAmount,
-      BaseFeeType.NormalClaim,
-    );
-    let { percentageFee } = this.rateProvider.feeProvider.getFees(
+    const { baseFee, percentageFee, percentageSwapInFee } = this.rateProvider.feeProvider.getFees(
       swap.pair,
       rate,
       swap.orderSide,
@@ -749,10 +742,11 @@ class Service {
       BaseFeeType.NormalClaim,
     );
 
+    let serviceFee = percentageFee;
     if (percentageSwapInFee !== 0) {
-      percentageFee = percentageSwapInFee;
+      serviceFee = percentageSwapInFee;
     }
-    const expectedAmount = Math.floor(invoiceAmount * rate) + baseFee + percentageFee;
+    const expectedAmount = Math.floor(invoiceAmount * rate) + baseFee + serviceFee;
 
     if (swap.onchainAmount && expectedAmount > swap.onchainAmount) {
       const maxInvoiceAmount = this.calculateInvoiceAmount(
@@ -772,7 +766,7 @@ class Service {
       swap,
       invoice,
       expectedAmount,
-      percentageFee,
+      serviceFee,
       acceptZeroConf,
       this.eventHandler.emitSwapInvoiceSet,
     );

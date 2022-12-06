@@ -44,6 +44,8 @@ RUN ./configure \
     --disable-ccache \
     --disable-tests \
     --disable-bench \
+    --disable-fuzz \
+    --disable-fuzz-binary \
     --without-gui \
     --with-daemon \
     --with-utils \

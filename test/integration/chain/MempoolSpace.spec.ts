@@ -59,7 +59,7 @@ describe('MempoolSpace', () => {
     const invalidMempoolSpace = new MempoolSpace(
       Logger.disabledLogger,
       'BTC',
-      'https://notmempool.space/api',
+      'notEvenAnUrl',
     );
 
     const sanityCheckFailedHandling = async () => {

@@ -26,8 +26,8 @@
     "test:int": "jest test/integration --runInBand --testTimeout 10000",
     "changelog": "conventional-changelog -p angular -i CHANGELOG.md -s",
     "prepublishOnly": "npm run compile && rm -f dist/package.json",
-    "python:install": "pip install -r tools/requirements.txt",
-    "python:lint": "pylint tools/*.py docker/*.py"
+    "python:install": "cd tools && poetry install",
+    "python:lint": "cd tools && poetry run ruff *.py ../docker/*.py"
   },
   "bin": {
     "boltzd": "./bin/boltzd",

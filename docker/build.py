@@ -156,7 +156,13 @@ def list_images(to_list: List[str]):
 
         print()
 
-def build_images(to_build: List[str], organisation: str, no_cache: bool, buildx: bool, platform = ""):
+def build_images(
+    to_build: List[str],
+    organisation: str,
+    no_cache: bool,
+    buildx: bool,
+    platform = "",
+):
     """Builds one or more images"""
 
     change_working_directory()
@@ -177,11 +183,13 @@ def build_images(to_build: List[str], organisation: str, no_cache: bool, buildx:
                     value=argument.value,
                 ))
 
-            # Add the prefix "--build-arg " to every entry and join the array to a string
+            # Add the prefix "--build-arg " to every entry and
+            # join the array to a string
             build_args = " ".join(["--build-arg " + entry for entry in build_args])
 
             if buildx:
-                command = "docker buildx build --push {args} --platform " + platform + " --file {dockerfile} --tag {name}:{tag} ."
+                command = "docker buildx build --push {args} --platform " + \
+                    platform + " --file {dockerfile} --tag {name}:{tag} ."
             else:
                 command = "docker build -t {name}:{tag} -f {dockerfile} {args} ."
 
@@ -232,7 +240,11 @@ if __name__ == "__main__":
 
     BUILD_PARSER.add_argument("images", type=str, nargs="*")
     BUILD_PARSER.add_argument("--no-cache", dest="no_cache", action="store_true")
-    BUILD_PARSER.add_argument("--organisation", default="boltz", help="The organisation to use for the image names")
+    BUILD_PARSER.add_argument(
+        "--organisation",
+        default="boltz",
+        help="The organisation to use for the image names",
+    )
 
     BUILDX_PARSER.add_argument("images", type=str, nargs="*")
     BUILDX_PARSER.add_argument("--no-cache", dest="no_cache", action="store_true")
@@ -241,7 +253,11 @@ if __name__ == "__main__":
         default="linux/amd64,linux/arm64",
         help="The platforms to build for",
     )
-    BUILDX_PARSER.add_argument("--organisation", default="boltz", help="The organisation to use for the image names")
+    BUILDX_PARSER.add_argument(
+        "--organisation",
+        default="boltz",
+        help="The organisation to use for the image names",
+    )
 
     ARGS = PARSER.parse_args()
 
@@ -252,4 +268,10 @@ if __name__ == "__main__":
     elif ARGS.command == "build":
         build_images(PARSED_IMAGES, ARGS.organisation, ARGS.no_cache, False)
     elif ARGS.command == "buildx":
-        build_images(PARSED_IMAGES, ARGS.organisation, ARGS.no_cache, True, ARGS.platform)
+        build_images(
+            PARSED_IMAGES,
+            ARGS.organisation,
+            ARGS.no_cache,
+            True,
+            ARGS.platform,
+        )

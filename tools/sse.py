@@ -26,7 +26,12 @@ if __name__ == '__main__':
     PARSER = ArgumentParser(description="Stream Server-Sent events")
 
     # CLI arguments
-    PARSER.add_argument("url", help="URL of the Server-Sent event stream", type=str, nargs=1)
+    PARSER.add_argument(
+        "url",
+        help="URL of the Server-Sent event stream",
+        type=str,
+        nargs=1,
+    )
 
     ARGS = PARSER.parse_args()
 

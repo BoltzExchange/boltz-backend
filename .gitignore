@@ -65,6 +65,7 @@ site/
 
 # Virtual Python environment
 .venv
+.ruff_cache
 
 # Visual Studio Code configuration
 .vscode/

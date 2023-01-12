@@ -1,4 +1,4 @@
-import Axios, { AxiosResponse } from 'axios';
+import axios, { AxiosResponse } from 'axios';
 import Logger from '../Logger';
 import { formatError, stringify } from '../Utils';
 
@@ -44,7 +44,7 @@ class MempoolSpace {
 
   private fetchRecommendedFees = async () => {
     try {
-      const response = await Axios.get<any, AxiosResponse<RecommendedFees>>(`${this.apiUrl}/v1/fees/recommended`);
+      const response = await axios.get<any, AxiosResponse<RecommendedFees>>(`${this.apiUrl}/v1/fees/recommended`);
 
       if (typeof response.data.fastestFee !== 'number') {
         this.handleCouldNotFetch('invalid response');

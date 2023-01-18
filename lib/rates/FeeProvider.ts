@@ -19,6 +19,7 @@ type MinerFees = {
 class FeeProvider {
   // A map between the symbols of the pairs and their percentage fees
   public percentageFees = new Map<string, number>();
+  public percentageSwapInFees = new Map<string, number>();
 
   public minerFees = new Map<string, MinerFees>();
 
@@ -65,6 +66,9 @@ class FeeProvider {
       }
 
       this.percentageFees.set(getPairId(pair), percentage / 100);
+
+      const percentageSwapIn = pair.swapInFee !== undefined ? pair.swapInFee : 0;
+      this.percentageSwapInFees.set(getPairId(pair), percentageSwapIn / 100);
     });
 
     this.logger.debug(`Prepared data for fee estimations: ${stringify(mapToObject(this.percentageFees))}`);
@@ -72,6 +76,10 @@ class FeeProvider {
 
   public getPercentageFee = (pair: string): number => {
     return this.percentageFees.get(pair) || 0;
+  };
+
+  public getPercentageSwapInFee = (pair: string): number => {
+    return this.percentageSwapInFees.get(pair) || 0;
   };
 
   public getFees = (
@@ -83,11 +91,17 @@ class FeeProvider {
   ): {
     baseFee: number,
     percentageFee: number,
+    percentageSwapInFee: number,
   } => {
     let percentageFee = this.getPercentageFee(pair);
+    let percentageSwapInFee = this.getPercentageSwapInFee(pair);
 
     if (percentageFee !== 0) {
       percentageFee = percentageFee * amount * rate;
+    }
+
+    if (percentageSwapInFee !== 0) {
+      percentageSwapInFee = percentageSwapInFee * amount * rate;
     }
 
     const { base, quote } = splitPairId(pair);
@@ -95,6 +109,7 @@ class FeeProvider {
 
     return {
       percentageFee: Math.ceil(percentageFee),
+      percentageSwapInFee: Math.ceil(percentageSwapInFee),
       baseFee: this.getBaseFee(chainCurrency, type),
     };
   };

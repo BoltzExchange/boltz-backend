@@ -37,6 +37,7 @@ type PairType = {
   };
   fees: {
     percentage: number;
+    swapInFee: number;
     minerFees: {
       baseAsset: MinerFees,
       quoteAsset: MinerFees,
@@ -64,6 +65,7 @@ class RateProvider {
 
   // A copy of the "percentageFees" Map in the FeeProvider but all values are multiplied with 100
   private percentageFees = new Map<string, number>();
+  private percentageSwapInFees = new Map<string, number>();
 
   private timer!: any;
 
@@ -83,6 +85,11 @@ class RateProvider {
       this.percentageFees.set(pair, percentage * 100);
     });
 
+    this.feeProvider.percentageSwapInFees.forEach((swapInFee, pair) => {
+      // Multiply with 100 to get the percentage
+      this.percentageSwapInFees.set(pair, swapInFee * 100);
+    });
+
     await this.updateMinerFees();
 
     pairs.forEach((pair) => {
@@ -99,6 +106,7 @@ class RateProvider {
           limits: this.getLimits(id, pair.base, pair.quote, pair.rate),
           fees: {
             percentage: this.percentageFees.get(id)!,
+            swapInFee: this.percentageSwapInFees.get(id)!,
             minerFees: {
               baseAsset: emptyMinerFees,
               quoteAsset: emptyMinerFees,
@@ -189,6 +197,7 @@ class RateProvider {
           hash: '',
           fees: {
             percentage: this.percentageFees.get(pairId)!,
+            swapInFee: this.percentageSwapInFees.get(pairId)!,
             minerFees: {
               baseAsset: this.feeProvider.minerFees.get(base)!,
               quoteAsset: this.feeProvider.minerFees.get(quote)!,

@@ -240,6 +240,7 @@ const mockInitFeeProvider = jest.fn().mockReturnValue(undefined);
 const mockGetFees = jest.fn().mockReturnValue({
   baseFee: 1,
   percentageFee: 1,
+  percentageSwapInFee: 0,
 });
 
 const mockGetBaseFeeResult = 320;
@@ -248,12 +249,16 @@ const mockGetBaseFee = jest.fn().mockReturnValue(mockGetBaseFeeResult);
 const mockGetPercentageFeeResult = 0.02;
 const mockGetPercentageFee = jest.fn().mockReturnValue(mockGetPercentageFeeResult);
 
+const mockGetPercentageSwapInFeeResult = 0.02;
+const mockGetPercentageSwapInFee = jest.fn().mockReturnValue(mockGetPercentageSwapInFeeResult);
+
 jest.mock('../../../lib/rates/FeeProvider', () => {
   return jest.fn().mockImplementation(() => ({
     init: mockInitFeeProvider,
     getFees: mockGetFees,
     getBaseFee: mockGetBaseFee,
     getPercentageFee: mockGetPercentageFee,
+    getPercentageSwapInFee: mockGetPercentageSwapInFee,
   }));
 });
 
@@ -965,6 +970,7 @@ describe('Service', () => {
     })).rejects.toEqual(Errors.SWAP_WITH_PREIMAGE_EXISTS());
   });
 
+  // TODO: Add anohter test for swapInFee
   test('should get swap rates', async () => {
     const id = 'id';
 
@@ -993,6 +999,7 @@ describe('Service', () => {
     await expect(service.getSwapRates(id)).rejects.toEqual(Errors.SWAP_NOT_FOUND(id));
   });
 
+  // TODO: Add anohter test for swapInFee
   test('should set invoices of swaps', async () => {
     mockGetSwapResult = {
       id: 'invoiceId',

@@ -34,11 +34,13 @@ describe('FeeProvider', () => {
         base: 'LTC',
         quote: 'BTC',
         fee: 2,
+        swapInFee: -1,
       },
       {
         base: 'BTC',
         quote: 'BTC',
         fee: 0,
+        swapInFee: -1,
       },
       {
         base: 'LTC',
@@ -46,6 +48,7 @@ describe('FeeProvider', () => {
 
         // The FeeProvider should set this to 1
         fee: undefined,
+        swapInFee: undefined,
       },
     ]);
 
@@ -112,11 +115,13 @@ describe('FeeProvider', () => {
     expect(feeProvider.getFees('LTC/BTC', 2, OrderSide.BUY, amount, BaseFeeType.NormalClaim)).toEqual({
       baseFee: 6120,
       percentageFee: 4000000,
+      percentageSwapInFee: -2000000,
     });
 
     expect(feeProvider.getFees('LTC/BTC', 2, OrderSide.BUY, amount, BaseFeeType.ReverseLockup)).toEqual({
       baseFee: 459,
       percentageFee: 4000000,
+      percentageSwapInFee: -2000000,
     });
   });
 

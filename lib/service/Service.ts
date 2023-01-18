@@ -674,9 +674,13 @@ class Service {
 
     const rate = getRate(swap.rate!, swap.orderSide, false);
 
-    const percentageFee = this.rateProvider.feeProvider.getPercentageFee(swap.pair);
+    let percentageFee = this.rateProvider.feeProvider.getPercentageFee(swap.pair);
+    const percentageSwapInFee = this.rateProvider.feeProvider.getPercentageSwapInFee(swap.pair);
     const baseFee = this.rateProvider.feeProvider.getBaseFee(onchainCurrency, BaseFeeType.NormalClaim);
 
+    if (percentageSwapInFee !== 0) {
+      percentageFee = percentageSwapInFee;
+    }
     const invoiceAmount = this.calculateInvoiceAmount(swap.orderSide, rate, swap.onchainAmount, baseFee, percentageFee);
 
     this.verifyAmount(swap.pair, rate, invoiceAmount, swap.orderSide, false);
@@ -730,14 +734,19 @@ class Service {
 
     this.verifyAmount(swap.pair, rate, invoiceAmount, swap.orderSide, false);
 
-    const { baseFee, percentageFee } = this.rateProvider.feeProvider.getFees(
+    const { baseFee, percentageFee, percentageSwapInFee } = this.rateProvider.feeProvider.getFees(
       swap.pair,
       rate,
       swap.orderSide,
       invoiceAmount,
       BaseFeeType.NormalClaim,
     );
-    const expectedAmount = Math.floor(invoiceAmount * rate) + baseFee + percentageFee;
+
+    let serviceFee = percentageFee;
+    if (percentageSwapInFee !== 0) {
+      serviceFee = percentageSwapInFee;
+    }
+    const expectedAmount = Math.floor(invoiceAmount * rate) + baseFee + serviceFee;
 
     if (swap.onchainAmount && expectedAmount > swap.onchainAmount) {
       const maxInvoiceAmount = this.calculateInvoiceAmount(
@@ -745,7 +754,7 @@ class Service {
         rate,
         swap.onchainAmount,
         baseFee,
-        this.rateProvider.feeProvider.getPercentageFee(swap.pair),
+        Math.max(this.rateProvider.feeProvider.getPercentageFee(swap.pair),this.rateProvider.feeProvider.getPercentageSwapInFee(swap.pair)),
       );
 
       throw Errors.INVALID_INVOICE_AMOUNT(maxInvoiceAmount);
@@ -757,7 +766,7 @@ class Service {
       swap,
       invoice,
       expectedAmount,
-      percentageFee,
+      serviceFee,
       acceptZeroConf,
       this.eventHandler.emitSwapInvoiceSet,
     );

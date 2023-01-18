@@ -29,7 +29,11 @@ if __name__ == "__main__":
     PARSER = ArgumentParser(description="Calculate the miner fee of a transaction")
 
     # CLI arguments
-    PARSER.add_argument("rpcport", help="RPC port of the Bitcoin or Litecoin Core daemon", type=int)
+    PARSER.add_argument(
+        "rpcport",
+        help="RPC port of the Bitcoin or Litecoin Core daemon",
+        type=int,
+    )
     PARSER.add_argument(
         "transaction",
         help="Transaction of which the miner fee should be calculated",

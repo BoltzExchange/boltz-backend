@@ -4,7 +4,7 @@ source utils.sh
 
 function waitForLndToSync () {
   while true; do
-    if $1 getinfo 2>&1 | grep synced_to_chain.*true  > /dev/null 2>&1; then
+    if $1 getinfo 2>&1 | grep synced_to_chain.*true > /dev/null 2>&1; then
       break
     fi
     sleep 1
@@ -26,14 +26,14 @@ function openChannel () {
   waitForLndToSync "$2"
 
   $2 connect ${lnd2Pubkey}@127.0.0.1:$4 > /dev/null
-  $2 openchannel --node_key ${lnd2Pubkey} --local_amt 100000000 --push_amt 50000000 > /dev/null
+  $2 openchannel --node_key ${lnd2Pubkey} --local_amt 100000000 --push_amt 50000000 --private > /dev/null
 
   $1 generatetoaddress 6 ${nodeAddress} > /dev/null
 
   while true; do
-    numActiveChannels="$($2 getinfo | jq -r ".num_active_channels")"
+    numPendingChannels="$($2 getinfo | jq -r ".num_pending_channels")"
 
-    if [[ ${numActiveChannels} == "1" ]]; then
+    if [[ ${numPendingChannels} == "0" ]]; then
       break
     fi
     sleep 1
@@ -65,11 +65,15 @@ elements-cli loadwallet $DEFAULT_WALLET_NAME > /dev/null
 
 startLnds
 
-echo "Opening BTC channel"
+echo "Opening channels"
 openChannel bitcoin-cli \
   "lncli --lnddir=/root/.lnd-btc --rpcserver=127.0.0.1:10009 --network=regtest" \
   "lncli --lnddir=/root/.lnd-btc --rpcserver=127.0.0.1:10011 --network=regtest" \
   9736
+openChannel bitcoin-cli \
+  "lncli --lnddir=/root/.lnd-btc --rpcserver=127.0.0.1:10009 --network=regtest" \
+  "lncli --network=regtest --lnddir=/root/.lnd-btc-shard --rpcserver=127.0.0.1:10012" \
+  9737
 
 stopLnds
 stopNodes

@@ -47,14 +47,17 @@ COPY regtest/data/elements/elements.conf /root/.elements/elements.conf
 
 COPY regtest/data/lnd/lnd.conf /root/.lnd-btc/
 COPY regtest/data/lnd/lnd.conf /root/.lnd-btc2/
+COPY regtest/data/lnd/lnd.conf /root/.lnd-btc-shard/
 
 # Copy certificates for the LNDs
 COPY regtest/data/lnd/certificates /root/.lnd-btc/
 COPY regtest/data/lnd/certificates /root/.lnd-btc2/
+COPY regtest/data/lnd/certificates /root/.lnd-btc-shard/
 
 # Copy macaroons for the LNDs
 COPY regtest/data/lnd/macaroons /root/.lnd-btc/data/chain/bitcoin/regtest/
 COPY regtest/data/lnd/macaroons /root/.lnd-btc2/data/chain/bitcoin/regtest/
+COPY regtest/data/lnd/macaroons /root/.lnd-btc-shard/data/chain/bitcoin/regtest/
 
 # Copy start scripts
 COPY regtest/scripts /bin/
@@ -74,9 +77,9 @@ EXPOSE 29000 29001 29002 30000 30001 30002 31000 31001 31002
 EXPOSE 9735
 
 # Expose gRPC ports of the LNDs
-EXPOSE 10009 10011 11009 11010
+EXPOSE 10009 10011 11009 11010 12009 10012
 
 # Expose REST API ports of the LNDs
-EXPOSE 8080 8081
+EXPOSE 8080 8081 8082
 
 ENTRYPOINT ["entrypoint.sh"]

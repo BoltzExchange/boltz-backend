@@ -89,7 +89,7 @@ IMAGES: Dict[str, Image] = {
         arguments=[],
     ),
     "regtest": Image(
-        tags=["3.4.5"],
+        tags=["3.5.0"],
         arguments=[
             UBUNTU_VERSION,
             BITCOIN_BUILD_ARG,

@@ -38,12 +38,14 @@ function startLnds () {
   echo "Starting LNDs"
 
   # Start the LNDs
-  nohup lnd --lnddir=/root/.lnd-btc --listen=0.0.0.0:9735 --rpclisten=0.0.0.0:10009 --restlisten=0.0.0.0:8080 --bitcoin.active --bitcoin.regtest --bitcoin.node=bitcoind --bitcoind.rpchost=127.0.0.1:18443 > /dev/null 2>&1 & num="0"
-  nohup lnd --lnddir=/root/.lnd-btc2 --listen=127.0.0.1:9736 --rpclisten=0.0.0.0:10011 --restlisten=0.0.0.0:8081 --bitcoin.active --bitcoin.regtest --bitcoin.node=bitcoind --bitcoind.rpchost=127.0.0.1:18443 > /dev/null 2>&1 & num="0"
+  nohup lnd --lnddir=/root/.lnd-btc --listen=0.0.0.0:9735 --rpclisten=0.0.0.0:10009 --restlisten=0.0.0.0:8080 > /dev/null 2>&1 & num="0"
+  nohup lnd --lnddir=/root/.lnd-btc2 --listen=127.0.0.1:9736 --rpclisten=0.0.0.0:10011 --restlisten=0.0.0.0:8081 > /dev/null 2>&1 & num="0"
+  nohup lnd --lnddir=/root/.lnd-btc-shard --listen=127.0.0.1:9737 --rpclisten=0.0.0.0:10012 --restlisten=0.0.0.0:8082 --protocol.zero-conf > /dev/null 2>&1 & num="0"
 
   # Wait for the LNDs to start
-  waitForLnd "lncli --lnddir=/root/.lnd-btc --rpcserver=127.0.0.1:10009 --network=regtest"
-  waitForLnd "lncli --lnddir=/root/.lnd-btc2 --rpcserver=127.0.0.1:10011 --network=regtest"
+  waitForLnd "lncli --network=regtest --lnddir=/root/.lnd-btc --rpcserver=127.0.0.1:10009"
+  waitForLnd "lncli --network=regtest --lnddir=/root/.lnd-btc2 --rpcserver=127.0.0.1:10011"
+  waitForLnd "lncli --network=regtest --lnddir=/root/.lnd-btc-shard --rpcserver=127.0.0.1:10012"
 
   echo "Started LNDs"
 }

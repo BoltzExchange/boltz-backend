@@ -68,6 +68,7 @@ class LndClient extends BaseClient implements LndClient {
 
   private static readonly minPaymentFee = 21;
   private static readonly paymentTimeout = 60;
+  private static readonly defaultPaymentFeeRatio = 0.03;
 
   private readonly uri!: string;
   private readonly maxPaymentFeeRatio!: number;
@@ -95,7 +96,7 @@ class LndClient extends BaseClient implements LndClient {
 
     const { host, port, certpath, macaroonpath, maxPaymentFeeRatio } = config;
 
-    this.maxPaymentFeeRatio = maxPaymentFeeRatio > 0 ? maxPaymentFeeRatio: 0.03;
+    this.maxPaymentFeeRatio = maxPaymentFeeRatio > 0 ? maxPaymentFeeRatio : LndClient.defaultPaymentFeeRatio;
 
     if (fs.existsSync(certpath)) {
       this.uri = `${host}:${port}`;

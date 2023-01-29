@@ -15,10 +15,11 @@ export const bitcoinClient = new ChainClient(Logger.disabledLogger, {
 
 export const lndDataPath = `${path.resolve(__dirname, '..', '..')}/docker/regtest/data/lnd`;
 
-export const bitcoinLndClient = new LndClient(Logger.disabledLogger, 'BTC', {
+export const bitcoinLndClientConfig = {
   host,
   port: 10009,
   certpath: `${lndDataPath}/certificates/tls.cert`,
   macaroonpath: `${lndDataPath}/macaroons/admin.macaroon`,
   maxPaymentFeeRatio: 0.03,
-});
+};
+export const bitcoinLndClient = new LndClient(Logger.disabledLogger, 'BTC', bitcoinLndClientConfig);

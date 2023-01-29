@@ -2,7 +2,7 @@ import * as grpc from '@grpc/grpc-js';
 import { readFileSync } from 'fs';
 import { getPort } from '../../Utils';
 import Logger from '../../../lib/Logger';
-import { bitcoinLndClient, lndDataPath } from '../Nodes';
+import {bitcoinLndClient, bitcoinLndClientConfig, lndDataPath} from '../Nodes';
 import LndClient from '../../../lib/lightning/LndClient';
 import { LightningClient, LightningService } from '../../../lib/proto/lnd/rpc_grpc_pb';
 import { GetInfoResponse, Transaction, TransactionDetails } from '../../../lib/proto/lnd/rpc_pb';
@@ -32,6 +32,28 @@ describe('LndClient', () => {
 
     invoice = await bitcoinLndClient.addInvoice(0);
     expect(calculatePaymentFee(invoice.paymentRequest)).toEqual(LndClient['minPaymentFee']);
+  });
+
+  test('should set default payment fee ratio', () => {
+    expect(bitcoinLndClient['maxPaymentFeeRatio']).toEqual(LndClient['defaultPaymentFeeRatio']);
+
+    let client = new LndClient(Logger.disabledLogger, 'MOCK', {
+      ...bitcoinLndClientConfig,
+      maxPaymentFeeRatio: 0,
+    });
+    expect(client['maxPaymentFeeRatio']).toEqual(LndClient['defaultPaymentFeeRatio']);
+
+    client = new LndClient(Logger.disabledLogger, 'MOCK', {
+      ...bitcoinLndClientConfig,
+      maxPaymentFeeRatio: 1,
+    });
+    expect(client['maxPaymentFeeRatio']).toEqual(1);
+
+    client = new LndClient(Logger.disabledLogger, 'MOCK', {
+      ...bitcoinLndClientConfig,
+      maxPaymentFeeRatio: undefined as any,
+    });
+    expect(client['maxPaymentFeeRatio']).toEqual(LndClient['defaultPaymentFeeRatio']);
   });
 
   test('should handle messages longer than the default gRPC limit', async () => {

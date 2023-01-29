@@ -17,18 +17,29 @@ class InvoiceClient extends LndBaseClient implements IInvoiceClient{
   constructor(
     logger: Logger,
     public readonly symbol: string,
+    private readonly needsRoutingHints: boolean,
     config: LndBaseConfig,
   ) {
     super(logger, symbol, InvoiceClient.serviceName, config);
   }
 
-  public startSubscriptions = (): void => {};
+  public startSubscriptions = async () => {
+    if (this.needsRoutingHints) {
+      const info = await this.getInfo();
+      this.logger.info(`Using ${info.alias} (${info.identityPubkey}) for ${this.symbol} invoicing`);
+    }
+  };
   public stopSubscriptions = (): void => {};
 
   /**
    * Creates an invoice
    */
-  public addInvoice = (value: number, expiry?: number, memo?: string, routingHints?: lndrpc.RouteHint[]): Promise<lndrpc.AddInvoiceResponse.AsObject> => {
+  public addInvoice = async (
+    value: number,
+    expiry?: number,
+    memo?: string,
+    routingHints?: lndrpc.RouteHint[],
+  ): Promise<lndrpc.AddInvoiceResponse.AsObject> => {
     const request = new lndrpc.Invoice();
     request.setValue(value);
 
@@ -40,17 +51,15 @@ class InvoiceClient extends LndBaseClient implements IInvoiceClient{
       request.setMemo(memo);
     }
 
-    if (routingHints) {
-      request.setRouteHintsList(routingHints);
-    }
+    await this.prepareRoutingHints(request, routingHints);
 
-    return this.unaryLightningCall<lndrpc.Invoice, lndrpc.AddInvoiceResponse.AsObject>('addInvoice', request);
+    return await this.unaryLightningCall<lndrpc.Invoice, lndrpc.AddInvoiceResponse.AsObject>('addInvoice', request);
   };
 
   /**
    * Creates a hold invoice with the supplied preimage hash
    */
-  public addHoldInvoice = (
+  public addHoldInvoice = async (
     value: number,
     preimageHash: Buffer,
     cltvExpiry?: number,
@@ -74,11 +83,9 @@ class InvoiceClient extends LndBaseClient implements IInvoiceClient{
       request.setMemo(memo);
     }
 
-    if (routingHints) {
-      request.setRouteHintsList(routingHints);
-    }
+    await this.prepareRoutingHints(request, routingHints);
 
-    return this.unaryInvoicesCall<invoicesrpc.AddHoldInvoiceRequest, invoicesrpc.AddHoldInvoiceResp.AsObject>(
+    return await this.unaryInvoicesCall<invoicesrpc.AddHoldInvoiceRequest, invoicesrpc.AddHoldInvoiceResp.AsObject>(
       'addHoldInvoice',
       request,
     );
@@ -144,6 +151,52 @@ class InvoiceClient extends LndBaseClient implements IInvoiceClient{
         this.logger.error(`${InvoiceClient.serviceName} ${this.symbol} invoice subscription errored: ${error.message}`);
         deleteSubscription();
       });
+  };
+
+  private prepareRoutingHints = async (
+    req: lndrpc.Invoice | invoicesrpc.AddHoldInvoiceRequest,
+    routingHints?: lndrpc.RouteHint[],
+  ) => {
+    if (routingHints) {
+      req.setPrivate(true);
+      req.setRouteHintsList(routingHints);
+    } else if (this.needsRoutingHints) {
+      req.setPrivate(true);
+
+      for (const channel of (await this.listChannels()).channelsList) {
+        const hopHint = new lndrpc.HopHint();
+
+        hopHint.setChanId(channel.chanId);
+        hopHint.setNodeId(channel.remotePubkey);
+
+        const channelInfo = await this.getChannelInfo(channel.chanId);
+        const channelPolicy = channelInfo.node1Pub === channel.remotePubkey ?
+          channelInfo.node1Policy : channelInfo.node2Policy;
+
+        hopHint.setFeeBaseMsat(channelPolicy!.feeBaseMsat);
+        hopHint.setCltvExpiryDelta(channelPolicy!.timeLockDelta);
+        hopHint.setFeeProportionalMillionths(channelPolicy!.feeRateMilliMsat);
+
+        const routeHints = new lndrpc.RouteHint();
+        routeHints.addHopHints(hopHint);
+        req.addRouteHints(routeHints);
+      }
+    }
+  };
+
+  private listChannels = (): Promise<lndrpc.ListChannelsResponse.AsObject> => {
+    const request = new lndrpc.ListChannelsRequest();
+    request.setActiveOnly(true);
+    request.setPrivateOnly(true);
+
+    return this.unaryLightningCall<lndrpc.ListChannelsRequest, lndrpc.ListChannelsResponse.AsObject>('listChannels', request);
+  };
+
+  public getChannelInfo = (channelId: string): Promise<lndrpc.ChannelEdge.AsObject> => {
+    const request = new lndrpc.ChanInfoRequest();
+    request.setChanId(channelId);
+
+    return this.unaryLightningCall<lndrpc.ChanInfoRequest, lndrpc.ChannelEdge.AsObject>('getChanInfo', request);
   };
 }
 

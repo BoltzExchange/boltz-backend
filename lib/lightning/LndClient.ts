@@ -57,8 +57,7 @@ class LndClient extends EventEmitter implements ILndClient {
     super();
 
     this.routerClient = new RouterClient(logger, symbol, config);
-    // todo: check if it is the same as router -> if not -> include payment hints
-    this.invoiceClient = new InvoiceClient(logger, symbol, config.invoice || config);
+    this.invoiceClient = new InvoiceClient(logger, symbol, config.invoice !== undefined, config.invoice || config);
     this.paymentClient = new PaymentClient(logger, symbol, config.payment || config);
 
     this.clients = [this.routerClient, this.invoiceClient, this.paymentClient];

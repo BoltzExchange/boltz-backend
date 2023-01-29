@@ -89,7 +89,7 @@ abstract class LndBaseClient extends BaseClient implements ILndBaseClient {
     return this.unaryLightningCall<lndrpc.GetInfoRequest, lndrpc.GetInfoResponse.AsObject>('getInfo', new lndrpc.GetInfoRequest());
   };
 
-  abstract startSubscriptions(): void;
+  abstract startSubscriptions(): Promise<void>;
   abstract stopSubscriptions(): void;
 
   /**
@@ -105,7 +105,7 @@ abstract class LndBaseClient extends BaseClient implements ILndBaseClient {
         await this.getInfo();
 
         if (startSubscriptions) {
-          this.startSubscriptions();
+          await this.startSubscriptions();
         }
 
         this.clearReconnectTimer();

@@ -26,8 +26,8 @@ class PaymentClient extends LndBaseClient {
     this.maxPaymentFeeRatio = maxPaymentFeeRatio > 0 ? maxPaymentFeeRatio : PaymentClient.defaultPaymentFeeRatio;
   }
 
-  public startSubscriptions = (): void => {};
-  public stopSubscriptions = (): void => {};
+  public startSubscriptions = async () => {};
+  public stopSubscriptions = () => {};
 
   public trackPayment = (preimageHash: Buffer): Promise<lndrpc.Payment.AsObject> => {
     return new Promise<lndrpc.Payment.AsObject>((resolve, reject) => {

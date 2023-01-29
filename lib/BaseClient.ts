@@ -15,14 +15,6 @@ class BaseClient extends EventEmitter {
     return this.status === ClientStatus.Connected;
   }
 
-  public isDisconnected(): boolean {
-    return this.status === ClientStatus.Disconnected;
-  }
-
-  public isOutOfSync(): boolean {
-    return this.status === ClientStatus.OutOfSync;
-  }
-
   protected setClientStatus = (status: ClientStatus): void => {
     this.status = status;
   };

@@ -187,7 +187,7 @@ class Service {
 
       if (currency.lndClient) {
         try {
-          const lndInfo = await currency.lndClient.getInfo();
+          const lndInfo = await currency.lndClient.routerClient.getInfo();
 
           const channels = new LndChannels();
 
@@ -238,7 +238,7 @@ class Service {
       if (currencyInfo && currencyInfo.lndClient) {
         const lightningBalance = new LightningBalance();
 
-        const { channelsList } = await currencyInfo.lndClient.listChannels();
+        const { channelsList } = await currencyInfo.lndClient.routerClient.listChannels();
 
         let localBalance = 0;
         let remoteBalance = 0;
@@ -718,7 +718,7 @@ class Service {
     const chainCurrency = getChainCurrency(base, quote, swap.orderSide, false);
     const lightningCurrency = getLightningCurrency(base, quote, swap.orderSide, false);
 
-    const decodedInvoice = await this.getCurrency(lightningCurrency).lndClient!.decodePayReq(invoice);
+    const decodedInvoice = await this.getCurrency(lightningCurrency).lndClient!.routerClient.decodePayReq(invoice);
     for (const [, feature] of decodedInvoice.featuresMap) {
       if (feature.name == 'amp') {
         throw Errors.AMP_INVOICES_NOT_SUPPORTED();
@@ -1089,7 +1089,7 @@ class Service {
       throw Errors.NO_LND_CLIENT(symbol);
     }
 
-    return lndClient.sendPayment(invoice);
+    return lndClient.paymentClient.sendPayment(invoice);
   };
 
   /**

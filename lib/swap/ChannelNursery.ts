@@ -144,7 +144,7 @@ class ChannelNursery extends EventEmitter {
 
     // TODO: handle custom errors (c-lightning plugin)?
     try {
-      const { fundingTxidBytes, outputIndex } = await lightningCurrency.lndClient!.openChannel(
+      const { fundingTxidBytes, outputIndex } = await lightningCurrency.lndClient!.routerClient.openChannel(
         payeeNodeKey!,
         channelCapacity,
         channelCreation.private,
@@ -231,7 +231,7 @@ class ChannelNursery extends EventEmitter {
         const lightningCurrency = this.getCurrency(swap!, true);
         const currency = this.currencies.get(lightningCurrency)!;
 
-        const peers = await currency.lndClient!.listPeers();
+        const peers = await currency.lndClient!.routerClient.listPeers();
 
         // Only try to open a channel if other side is connected to us
         for (const peer of peers.peersList) {
@@ -248,7 +248,7 @@ class ChannelNursery extends EventEmitter {
     const chainCurrency = this.currencies.get(this.getCurrency(swap!, false))!;
     const lightningCurrency = this.currencies.get(this.getCurrency(swap!, true))!;
 
-    const activeChannels = await lightningCurrency.lndClient!.listChannels(true);
+    const activeChannels = await lightningCurrency.lndClient!.routerClient.listChannels(true);
 
     for (const channel of activeChannels.channelsList) {
       const channelPoint = this.splitChannelPoint(channel.channelPoint);

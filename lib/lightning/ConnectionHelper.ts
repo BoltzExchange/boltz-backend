@@ -9,7 +9,7 @@ class ConnectionHelper {
     this.logger.verbose(`Trying to connect to LND ${lndClient.symbol} node: ${publicKey}`);
 
     // Fetch the publicly advertised addresses of the other LND node
-    const nodeInfo = await lndClient.getNodeInfo(publicKey);
+    const nodeInfo = await lndClient.routerClient.getNodeInfo(publicKey);
 
     if (nodeInfo.node === undefined || nodeInfo.node.addressesList.length === 0) {
       throw 'node does not advertise addresses';
@@ -27,7 +27,7 @@ class ConnectionHelper {
       this.logger.debug(`Trying to connect to LND ${lndClient.symbol} addresses: ${publicKey}@${address.addr}`);
 
       try {
-        await lndClient.connectPeer(publicKey, address.addr);
+        await lndClient.routerClient.connectPeer(publicKey, address.addr);
       } catch (error) {
         this.logger.debug(`Could not connect to to LND ${lndClient.symbol} address ${publicKey}@${address.addr}: ${formatError(error)}`);
 

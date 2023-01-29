@@ -15,18 +15,19 @@ import LndClient from '../lightning/LndClient';
 import ChainClient from '../chain/ChainClient';
 import EthereumNursery from './EthereumNursery';
 import RateProvider from '../rates/RateProvider';
-import SwapRepository from '../db/repositories/SwapRepository';
 import LightningNursery from './LightningNursery';
 import ReverseSwap from '../db/models/ReverseSwap';
-import { Invoice, PaymentFailureReason } from '../proto/lnd/rpc_pb';
+import PaymentClient from '../lightning/PaymentClient';
 import ChannelCreation from '../db/models/ChannelCreation';
-import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
+import SwapRepository from '../db/repositories/SwapRepository';
 import ContractHandler from '../wallet/ethereum/ContractHandler';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import { ERC20SwapValues, EtherSwapValues } from '../consts/Types';
-import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
+import { Invoice, PaymentFailureReason } from '../proto/lnd/rpc_pb';
 import { etherDecimals, ReverseSwapOutputType } from '../consts/Consts';
 import ERC20WalletProvider from '../wallet/providers/ERC20WalletProvider';
+import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
+import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import { ChannelCreationStatus, CurrencyType, SwapUpdateEvent } from '../consts/Enums';
 import { queryERC20SwapValuesFromLock, queryEtherSwapValuesFromLock } from '../wallet/ethereum/ContractUtils';
 import {
@@ -289,7 +290,7 @@ class SwapNursery extends EventEmitter {
 
         try {
           // Check if the hold invoice has pending HTLCs before actually cancelling
-          const { htlcsList, state } = await lndClient.lookupInvoice(getHexBuffer(reverseSwap.preimageHash));
+          const { htlcsList, state } = await lndClient.invoiceClient.lookupInvoice(getHexBuffer(reverseSwap.preimageHash));
 
           if (state === InvoiceState.CANCELED) {
             this.logger.debug(`Invoice${plural} of Reverse Swap ${reverseSwap.id} already cancelled`);
@@ -301,10 +302,10 @@ class SwapNursery extends EventEmitter {
 
             this.logger.debug(`Cancelling expired hold invoice${plural} of Reverse Swap ${reverseSwap.id}`);
 
-            await lndClient.cancelInvoice(getHexBuffer(reverseSwap.preimageHash));
+            await lndClient.invoiceClient.cancelInvoice(getHexBuffer(reverseSwap.preimageHash));
 
             if (reverseSwap.minerFeeInvoicePreimage) {
-              await lndClient.cancelInvoice(crypto.sha256(getHexBuffer(reverseSwap.minerFeeInvoicePreimage)));
+              await lndClient.invoiceClient.cancelInvoice(crypto.sha256(getHexBuffer(reverseSwap.minerFeeInvoicePreimage)));
             }
           }
         } catch (error) {
@@ -728,7 +729,7 @@ class SwapNursery extends EventEmitter {
       const raceTimeout = 15;
 
       const payResponse = await Promise.race([
-        lightningCurrency.lndClient!.sendPayment(swap.invoice!, outgoingChannelId),
+        lightningCurrency.lndClient!.paymentClient.sendPayment(swap.invoice!, outgoingChannelId),
         new Promise<undefined>((resolve) => {
           setTimeout(() => {
             resolve(undefined);
@@ -745,7 +746,7 @@ class SwapNursery extends EventEmitter {
         this.logger.verbose(`Invoice payment of Swap ${swap.id} is still pending after ${raceTimeout} seconds`);
       }
     } catch (error) {
-      const errorMessage = typeof error === 'number' ? LndClient.formatPaymentFailureReason(error as any) : formatError(error);
+      const errorMessage = typeof error === 'number' ? PaymentClient.formatPaymentFailureReason(error as any) : formatError(error);
 
       if (outgoingChannelId !== undefined) {
         throw errorMessage;
@@ -753,7 +754,7 @@ class SwapNursery extends EventEmitter {
 
       // Catch cases in which the invoice was paid already
       if ((error as any).code === 6 && (error as any).details === 'invoice is already paid') {
-        const payment = await lightningCurrency.lndClient!.trackPayment(getHexBuffer(swap.preimageHash));
+        const payment = await lightningCurrency.lndClient!.paymentClient.trackPayment(getHexBuffer(swap.preimageHash));
         this.logger.debug(`Invoice of Swap ${swap.id} is paid already: ${payment.paymentPreimage}`);
         await setInvoicePaid(payment.feeMsat);
 
@@ -801,7 +802,7 @@ class SwapNursery extends EventEmitter {
     const lightningCurrency = getLightningCurrency(base, quote, reverseSwap.orderSide, true);
 
     const { lndClient } = this.currencies.get(lightningCurrency)!;
-    await lndClient!.settleInvoice(preimage);
+    await lndClient!.invoiceClient.settleInvoice(preimage);
 
     this.logger.info(`Settled Reverse Swap ${reverseSwap.id}`);
 
@@ -809,7 +810,7 @@ class SwapNursery extends EventEmitter {
   };
 
   private handleReverseSwapSendFailed = async (reverseSwap: ReverseSwap, chainSymbol: string, lndClient: LndClient, error: unknown) => {
-    await lndClient.cancelInvoice(getHexBuffer(reverseSwap.preimageHash));
+    await lndClient.invoiceClient.cancelInvoice(getHexBuffer(reverseSwap.preimageHash));
 
     this.logger.warn(`Failed to lockup ${reverseSwap.onchainAmount} ${chainSymbol} for Reverse Swap ${reverseSwap.id}: ${formatError(error)}`);
     this.emit('coins.failedToSend', await this.reverseSwapRepository.setReverseSwapStatus(
@@ -886,10 +887,10 @@ class SwapNursery extends EventEmitter {
       );
     }
 
-    await lightningCurrency.lndClient!.cancelInvoice(getHexBuffer(reverseSwap.preimageHash));
+    await lightningCurrency.lndClient!.invoiceClient.cancelInvoice(getHexBuffer(reverseSwap.preimageHash));
 
     if (reverseSwap.minerFeeInvoicePreimage) {
-      await lightningCurrency.lndClient!.cancelInvoice(crypto.sha256(getHexBuffer(reverseSwap.minerFeeInvoicePreimage)));
+      await lightningCurrency.lndClient!.invoiceClient.cancelInvoice(crypto.sha256(getHexBuffer(reverseSwap.minerFeeInvoicePreimage)));
     }
   };
 

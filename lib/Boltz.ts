@@ -17,9 +17,9 @@ import ChainClient from './chain/ChainClient';
 import Config, { ConfigType } from './Config';
 import { CurrencyType } from './consts/Enums';
 import BackupScheduler from './backup/BackupScheduler';
-import ChainTipRepository from './db/repositories/ChainTipRepository';
 import EthereumManager from './wallet/ethereum/EthereumManager';
 import WalletManager, { Currency } from './wallet/WalletManager';
+import ChainTipRepository from './db/repositories/ChainTipRepository';
 import NotificationProvider from './notifications/NotificationProvider';
 
 class Boltz {
@@ -217,10 +217,11 @@ class Boltz {
     try {
       await client.connect();
 
-      const info = await client.getInfo();
+      for (const lndClient of client.clients) {
+        VersionCheck.checkLndVersion(lndClient.symbol, (await lndClient.getInfo()).version);
+      }
 
-      VersionCheck.checkLndVersion(client.symbol, info.version);
-
+      const info = await client.routerClient.getInfo();
       // The featuresMap is just annoying to see on startup
       info.featuresMap = undefined as any;
 

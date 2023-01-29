@@ -9,6 +9,7 @@ import SwapNursery from './SwapNursery';
 import LndClient from '../lightning/LndClient';
 import RateProvider from '../rates/RateProvider';
 import ReverseSwap from '../db/models/ReverseSwap';
+import PaymentClient from '../lightning/PaymentClient';
 import { ReverseSwapOutputType } from '../consts/Consts';
 import RoutingHintsProvider from './RoutingHintsProvider';
 import SwapRepository from '../db/repositories/SwapRepository';
@@ -443,7 +444,7 @@ class SwapManager {
       this.routingHints.getRoutingHints(receivingCurrency.symbol, args.routingNode) :
       undefined;
 
-    const { paymentRequest } = await receivingCurrency.lndClient.addHoldInvoice(
+    const { paymentRequest } = await receivingCurrency.lndClient.invoiceClient.addHoldInvoice(
       args.holdInvoiceAmount,
       args.preimageHash,
       args.lightningTimeoutBlockDelta,
@@ -452,7 +453,7 @@ class SwapManager {
       routingHints,
     );
 
-    receivingCurrency.lndClient.subscribeSingleInvoice(args.preimageHash);
+    receivingCurrency.lndClient.invoiceClient.subscribeSingleInvoice(args.preimageHash);
 
     let minerFeeInvoice: string | undefined = undefined;
     let minerFeeInvoicePreimage: string | undefined = undefined;
@@ -463,7 +464,7 @@ class SwapManager {
 
       const minerFeeInvoicePreimageHash = crypto.sha256(preimage);
 
-      const prepayInvoice = await receivingCurrency.lndClient.addHoldInvoice(
+      const prepayInvoice = await receivingCurrency.lndClient.invoiceClient.addHoldInvoice(
         args.prepayMinerFeeInvoiceAmount,
         minerFeeInvoicePreimageHash,
         undefined,
@@ -473,7 +474,7 @@ class SwapManager {
       );
       minerFeeInvoice = prepayInvoice.paymentRequest;
 
-      receivingCurrency.lndClient.subscribeSingleInvoice(minerFeeInvoicePreimageHash);
+      receivingCurrency.lndClient.invoiceClient.subscribeSingleInvoice(minerFeeInvoicePreimageHash);
 
       if (args.prepayMinerFeeOnchainAmount) {
         this.logger.debug(`Sending ${args.prepayMinerFeeOnchainAmount} Ether as prepay miner fee for Reverse Swap: ${id}`);
@@ -576,10 +577,10 @@ class SwapManager {
         const { lndClient } = this.currencies.get(lightningCurrency)!;
 
         if (reverseSwap.minerFeeInvoice && swap.status !== SwapUpdateEvent.MinerFeePaid) {
-          lndClient!.subscribeSingleInvoice(getHexBuffer(decodeInvoice(reverseSwap.minerFeeInvoice).paymentHash!));
+          lndClient!.invoiceClient.subscribeSingleInvoice(getHexBuffer(decodeInvoice(reverseSwap.minerFeeInvoice).paymentHash!));
         }
 
-        lndClient!.subscribeSingleInvoice(getHexBuffer(decodeInvoice(reverseSwap.invoice).paymentHash!));
+        lndClient!.invoiceClient.subscribeSingleInvoice(getHexBuffer(decodeInvoice(reverseSwap.invoice).paymentHash!));
 
       } else if ((swap.status === SwapUpdateEvent.TransactionMempool || swap.status === SwapUpdateEvent.TransactionConfirmed) && isReverse) {
         const { chainClient } = this.currencies.get(chainCurrency)!;
@@ -613,7 +614,7 @@ class SwapManager {
   private checkRoutability = async (lnd: LndClient, invoice: string) => {
     try {
       // TODO: do MPP probing once it is available
-      const decodedInvoice = await lnd.decodePayReq(invoice);
+      const decodedInvoice = await lnd.routerClient.decodePayReq(invoice);
 
       // Check whether the the receiving side supports MPP and if so,
       // query a route for the number of sats of the invoice divided
@@ -628,10 +629,10 @@ class SwapManager {
       }
 
       const amountToQuery = supportsMpp ?
-        Math.round(decodedInvoice.numSatoshis / LndClient.paymentMaxParts) :
+        Math.round(decodedInvoice.numSatoshis / PaymentClient.paymentMaxParts) :
         decodedInvoice.numSatoshis;
 
-      const routes = await lnd.queryRoutes(decodedInvoice.destination, amountToQuery);
+      const routes = await lnd.paymentClient.queryRoutes(decodedInvoice.destination, amountToQuery);
 
       // TODO: "routes.routesList.length >= LndClient.paymentParts" when receiver supports MPP?
       return routes.routesList.length > 0;

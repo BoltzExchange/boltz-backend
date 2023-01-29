@@ -2,7 +2,6 @@ import { Transaction } from 'bitcoinjs-lib';
 import Logger from '../../Logger';
 import LndClient from '../../lightning/LndClient';
 import ChainClient from '../../chain/ChainClient';
-import { AddressType } from '../../proto/lnd/rpc_pb';
 import WalletProviderInterface, { WalletBalance, SentTransaction } from './WalletProviderInterface';
 
 class LndWalletProvider implements WalletProviderInterface {
@@ -15,27 +14,27 @@ class LndWalletProvider implements WalletProviderInterface {
   }
 
   public getBalance = (): Promise<WalletBalance> => {
-    return this.lndClient.getWalletBalance();
+    return this.lndClient.routerClient.getWalletBalance();
   };
 
   public getAddress = async (): Promise<string> => {
-    const response = await this.lndClient.newAddress(AddressType.WITNESS_PUBKEY_HASH);
+    const response = await this.lndClient.routerClient.newAddress();
     return response.address;
   };
 
   public sendToAddress = async (address: string, amount: number, satPerVbyte?: number): Promise<SentTransaction> => {
     // To avoid weird race conditions (insanely unlikely but still), the start height of the LND transaction list call
     // is queried *before* sending the onchain transaction
-    const { blockHeight } = await this.lndClient.getInfo();
-    const response = await this.lndClient.sendCoins(address, amount, await this.getFeePerVbyte(satPerVbyte));
+    const { blockHeight } = await this.lndClient.routerClient.getInfo();
+    const response = await this.lndClient.routerClient.sendCoins(address, amount, await this.getFeePerVbyte(satPerVbyte));
 
     return this.handleLndTransaction(response.txid, address, blockHeight);
   };
 
   public sweepWallet = async (address: string, satPerVbyte?: number): Promise<SentTransaction> => {
     // See "sendToAddress"
-    const { blockHeight } = await this.lndClient.getInfo();
-    const response = await this.lndClient.sweepWallet(address, await this.getFeePerVbyte(satPerVbyte));
+    const { blockHeight } = await this.lndClient.routerClient.getInfo();
+    const response = await this.lndClient.routerClient.sweepWallet(address, await this.getFeePerVbyte(satPerVbyte));
 
     return this.handleLndTransaction(response.txid, address, blockHeight);
   };
@@ -57,7 +56,7 @@ class LndWalletProvider implements WalletProviderInterface {
     let fee = 0;
 
     // To limit the number of onchain transactions LND has to query, the start height is set
-    const { transactionsList } = await this.lndClient.getOnchainTransactions(listStartHeight);
+    const { transactionsList } = await this.lndClient.routerClient.getOnchainTransactions(listStartHeight);
 
     for (let i = 0; i < transactionsList.length; i += 1) {
       const transaction = transactionsList[i];

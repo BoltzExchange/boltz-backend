@@ -13,7 +13,7 @@ class NodeUris {
   public init = async () => {
     for (const [symbol, currency] of this.currencies) {
       if (currency.lndClient) {
-        const lndInfo = await currency.lndClient.getInfo();
+        const lndInfo = await currency.lndClient.routerClient.getInfo();
         this.uris.set(symbol, {
           uris: lndInfo.urisList,
           nodeKey: lndInfo.identityPubkey,

@@ -80,12 +80,12 @@ class RoutingHintsProvider {
     for (const client of this.lndClients) {
       const channelInfos: ChannelWithRoutingInfo[] = [];
 
-      const channels = await client.listChannels(true, true);
+      const channels = await client.routerClient.listChannels(true, true);
 
       for (const channel of channels.channelsList) {
         channelInfos.push({
           channel,
-          routingInfo: await client.getChannelInfo(channel.chanId),
+          routingInfo: await client.routerClient.getChannelInfo(channel.chanId),
         });
       }
 

@@ -61,7 +61,7 @@ class LightningNursery extends EventEmitter {
 
           if (reverseSwap.minerFeeInvoicePreimage === null || reverseSwap.status === SwapUpdateEvent.MinerFeePaid) {
             if (reverseSwap.minerFeeInvoicePreimage) {
-              await lndClient.settleInvoice(getHexBuffer(reverseSwap.minerFeeInvoicePreimage));
+              await lndClient.invoiceClient.settleInvoice(getHexBuffer(reverseSwap.minerFeeInvoicePreimage));
             }
 
             this.emit('invoice.paid', reverseSwap);
@@ -75,10 +75,10 @@ class LightningNursery extends EventEmitter {
           this.emit('minerfee.invoice.paid', reverseSwap);
 
           // Settle the prepay invoice and emit the "invoice.paid" event in case the hold invoice was paid first
-          const holdInvoice = await lndClient.lookupInvoice(getHexBuffer(decodeInvoice(reverseSwap.invoice).paymentHash!));
+          const holdInvoice = await lndClient.invoiceClient.lookupInvoice(getHexBuffer(decodeInvoice(reverseSwap.invoice).paymentHash!));
 
           if (holdInvoice.state === Invoice.InvoiceState.ACCEPTED) {
-            await lndClient.settleInvoice(getHexBuffer(reverseSwap.minerFeeInvoicePreimage!));
+            await lndClient.invoiceClient.settleInvoice(getHexBuffer(reverseSwap.minerFeeInvoicePreimage!));
             this.emit('invoice.paid', reverseSwap);
           }
         }

@@ -674,7 +674,7 @@ class Service {
 
     const rate = getRate(swap.rate!, swap.orderSide, false);
 
-    const percentageFee = this.rateProvider.feeProvider.getPercentageFee(swap.pair);
+    const percentageFee = this.rateProvider.feeProvider.getPercentageFee(swap.pair, false);
     const baseFee = this.rateProvider.feeProvider.getBaseFee(onchainCurrency, BaseFeeType.NormalClaim);
 
     const invoiceAmount = this.calculateInvoiceAmount(swap.orderSide, rate, swap.onchainAmount, baseFee, percentageFee);
@@ -737,6 +737,7 @@ class Service {
       invoiceAmount,
       BaseFeeType.NormalClaim,
     );
+
     const expectedAmount = Math.floor(invoiceAmount * rate) + baseFee + percentageFee;
 
     if (swap.onchainAmount && expectedAmount > swap.onchainAmount) {
@@ -745,7 +746,7 @@ class Service {
         rate,
         swap.onchainAmount,
         baseFee,
-        this.rateProvider.feeProvider.getPercentageFee(swap.pair),
+        this.rateProvider.feeProvider.getPercentageFee(swap.pair, false),
       );
 
       throw Errors.INVALID_INVOICE_AMOUNT(maxInvoiceAmount);
@@ -955,7 +956,7 @@ class Service {
     lightningTimeoutBlockDelta += sending === receiving ? 3 : Math.ceil(lightningTimeoutBlockDelta * 0.1);
 
     const rate = getRate(pairRate, side, true);
-    const feePercent = this.rateProvider.feeProvider.getPercentageFee(args.pairId)!;
+    const feePercent = this.rateProvider.feeProvider.getPercentageFee(args.pairId, true);
     const baseFee = this.rateProvider.feeProvider.getBaseFee(sendingCurrency.symbol, BaseFeeType.ReverseLockup);
 
     let onchainAmount: number;

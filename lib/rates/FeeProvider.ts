@@ -19,6 +19,7 @@ type MinerFees = {
 class FeeProvider {
   // A map between the symbols of the pairs and their percentage fees
   public percentageFees = new Map<string, number>();
+  public percentageSwapInFees = new Map<string, number>();
 
   public minerFees = new Map<string, MinerFees>();
 
@@ -49,6 +50,8 @@ class FeeProvider {
     },
   };
 
+  private static readonly defaultFee = 1;
+
   constructor(
     private logger: Logger,
     private dataAggregator: DataAggregator,
@@ -58,19 +61,28 @@ class FeeProvider {
   public init = (pairs: PairConfig[]): void => {
     pairs.forEach((pair) => {
       // Set the configured fee or fallback to 1% if it is not defined
-      const percentage = pair.fee !== undefined ? pair.fee : 1;
+      let percentage = pair.fee;
 
-      if (pair.fee === undefined) {
-        this.logger.warn(`Setting default fee of ${percentage}% for pair ${pair.base}/${pair.quote} because none was specified`);
+      if (percentage === undefined) {
+        percentage = FeeProvider.defaultFee;
+        this.logger.warn(`Setting default fee of ${percentage}% for pair ${getPairId(pair)} because none was specified`);
       }
 
       this.percentageFees.set(getPairId(pair), percentage / 100);
+
+      if (pair.swapInFee) {
+        this.percentageSwapInFees.set(getPairId(pair), pair.swapInFee / 100);
+      }
     });
 
     this.logger.debug(`Prepared data for fee estimations: ${stringify(mapToObject(this.percentageFees))}`);
   };
 
-  public getPercentageFee = (pair: string): number => {
+  public getPercentageFee = (pair: string, isReverse: boolean): number => {
+    if (!isReverse && this.percentageSwapInFees.has(pair)) {
+      return this.percentageSwapInFees.get(pair)!;
+    }
+
     return this.percentageFees.get(pair) || 0;
   };
 
@@ -84,14 +96,16 @@ class FeeProvider {
     baseFee: number,
     percentageFee: number,
   } => {
-    let percentageFee = this.getPercentageFee(pair);
+    const isReverse = type !== BaseFeeType.NormalClaim;
+
+    let percentageFee = this.getPercentageFee(pair, isReverse);
 
     if (percentageFee !== 0) {
       percentageFee = percentageFee * amount * rate;
     }
 
     const { base, quote } = splitPairId(pair);
-    const chainCurrency = getChainCurrency(base, quote, orderSide, type !== BaseFeeType.NormalClaim);
+    const chainCurrency = getChainCurrency(base, quote, orderSide, isReverse);
 
     return {
       percentageFee: Math.ceil(percentageFee),

@@ -92,6 +92,7 @@ otpsecretpath = "/home/boltz/.boltz/otpSecret.dat"
 #             - Kraken
 #             - Poloniex
 # - "fee": percentage of the swapped amount that should be charged as fee
+# - "swapInFee" (optional): same as "fee" but for swaps from onchain to lightning; defaults to "fee" if not set 
 
 [[pairs]]
 base = "LTC"
@@ -109,6 +110,7 @@ base = "LTC"
 quote = "LTC"
 rate = 1
 fee = 0.5
+swapInFee = 0.2
 timeoutDelta = 300
 
 # The array "currencies" configures the chain and LND clients for the "pairs"

@@ -674,13 +674,9 @@ class Service {
 
     const rate = getRate(swap.rate!, swap.orderSide, false);
 
-    let percentageFee = this.rateProvider.feeProvider.getPercentageFee(swap.pair);
-    const percentageSwapInFee = this.rateProvider.feeProvider.getPercentageSwapInFee(swap.pair);
+    const percentageFee = this.rateProvider.feeProvider.getPercentageFee(swap.pair, false);
     const baseFee = this.rateProvider.feeProvider.getBaseFee(onchainCurrency, BaseFeeType.NormalClaim);
 
-    if (percentageSwapInFee !== 0) {
-      percentageFee = percentageSwapInFee;
-    }
     const invoiceAmount = this.calculateInvoiceAmount(swap.orderSide, rate, swap.onchainAmount, baseFee, percentageFee);
 
     this.verifyAmount(swap.pair, rate, invoiceAmount, swap.orderSide, false);
@@ -734,7 +730,7 @@ class Service {
 
     this.verifyAmount(swap.pair, rate, invoiceAmount, swap.orderSide, false);
 
-    const { baseFee, percentageFee, percentageSwapInFee } = this.rateProvider.feeProvider.getFees(
+    const { baseFee, percentageFee } = this.rateProvider.feeProvider.getFees(
       swap.pair,
       rate,
       swap.orderSide,
@@ -742,11 +738,7 @@ class Service {
       BaseFeeType.NormalClaim,
     );
 
-    let serviceFee = percentageFee;
-    if (percentageSwapInFee !== 0) {
-      serviceFee = percentageSwapInFee;
-    }
-    const expectedAmount = Math.floor(invoiceAmount * rate) + baseFee + serviceFee;
+    const expectedAmount = Math.floor(invoiceAmount * rate) + baseFee + percentageFee;
 
     if (swap.onchainAmount && expectedAmount > swap.onchainAmount) {
       const maxInvoiceAmount = this.calculateInvoiceAmount(
@@ -754,7 +746,7 @@ class Service {
         rate,
         swap.onchainAmount,
         baseFee,
-        Math.max(this.rateProvider.feeProvider.getPercentageFee(swap.pair),this.rateProvider.feeProvider.getPercentageSwapInFee(swap.pair)),
+        this.rateProvider.feeProvider.getPercentageFee(swap.pair, false),
       );
 
       throw Errors.INVALID_INVOICE_AMOUNT(maxInvoiceAmount);
@@ -766,7 +758,7 @@ class Service {
       swap,
       invoice,
       expectedAmount,
-      serviceFee,
+      percentageFee,
       acceptZeroConf,
       this.eventHandler.emitSwapInvoiceSet,
     );
@@ -964,7 +956,7 @@ class Service {
     lightningTimeoutBlockDelta += sending === receiving ? 3 : Math.ceil(lightningTimeoutBlockDelta * 0.1);
 
     const rate = getRate(pairRate, side, true);
-    const feePercent = this.rateProvider.feeProvider.getPercentageFee(args.pairId)!;
+    const feePercent = this.rateProvider.feeProvider.getPercentageFee(args.pairId, true);
     const baseFee = this.rateProvider.feeProvider.getBaseFee(sendingCurrency.symbol, BaseFeeType.ReverseLockup);
 
     let onchainAmount: number;

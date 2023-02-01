@@ -970,7 +970,6 @@ describe('Service', () => {
     })).rejects.toEqual(Errors.SWAP_WITH_PREIMAGE_EXISTS());
   });
 
-  // TODO: Add anohter test for swapInFee
   test('should get swap rates', async () => {
     const id = 'id';
 
@@ -999,7 +998,6 @@ describe('Service', () => {
     await expect(service.getSwapRates(id)).rejects.toEqual(Errors.SWAP_NOT_FOUND(id));
   });
 
-  // TODO: Add anohter test for swapInFee
   test('should set invoices of swaps', async () => {
     mockGetSwapResult = {
       id: 'invoiceId',
@@ -1225,7 +1223,7 @@ describe('Service', () => {
     });
 
     expect(mockGetPercentageFee).toHaveBeenCalledTimes(1);
-    expect(mockGetPercentageFee).toHaveBeenCalledWith(pair);
+    expect(mockGetPercentageFee).toHaveBeenCalledWith(pair, true);
 
     expect(mockGetBaseFee).toHaveBeenCalledTimes(1);
     expect(mockGetBaseFee).toHaveBeenCalledWith('BTC', BaseFeeType.ReverseLockup);

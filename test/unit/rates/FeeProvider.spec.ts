@@ -56,12 +56,20 @@ describe('FeeProvider', () => {
     expect(feeMap.size).toEqual(3);
   });
 
-  test('should get percentage fees', () => {
-    expect(feeProvider.getPercentageFee('LTC/BTC')).toEqual(0.02);
-    expect(feeProvider.getPercentageFee('BTC/BTC')).toEqual(0);
+  test('should get percentage fees of normal swaps', () => {
+    expect(feeProvider.getPercentageFee('LTC/BTC', false)).toEqual(-0.01);
+    expect(feeProvider.getPercentageFee('BTC/BTC', false)).toEqual(-0.01);
 
     // Should set undefined fees to 1%
-    expect(feeProvider.getPercentageFee('LTC/LTC')).toEqual(0.01);
+    expect(feeProvider.getPercentageFee('LTC/LTC', false)).toEqual(0.01);
+  });
+
+  test('should get percentage fees of reverse swaps', () => {
+    expect(feeProvider.getPercentageFee('LTC/BTC', true)).toEqual(0.02);
+    expect(feeProvider.getPercentageFee('BTC/BTC', true)).toEqual(0);
+
+    // Should set undefined fees to 1%
+    expect(feeProvider.getPercentageFee('LTC/LTC', true)).toEqual(0.01);
   });
 
   test('should update miner fees', async () => {
@@ -114,14 +122,12 @@ describe('FeeProvider', () => {
 
     expect(feeProvider.getFees('LTC/BTC', 2, OrderSide.BUY, amount, BaseFeeType.NormalClaim)).toEqual({
       baseFee: 6120,
-      percentageFee: 4000000,
-      percentageSwapInFee: -2000000,
+      percentageFee: -2000000,
     });
 
     expect(feeProvider.getFees('LTC/BTC', 2, OrderSide.BUY, amount, BaseFeeType.ReverseLockup)).toEqual({
       baseFee: 459,
       percentageFee: 4000000,
-      percentageSwapInFee: -2000000,
     });
   });
 

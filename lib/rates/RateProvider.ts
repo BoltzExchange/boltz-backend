@@ -23,6 +23,11 @@ const emptyMinerFees = {
   },
 };
 
+type PercentageFees = {
+  percentage: number;
+  percentageSwapIn: number;
+};
+
 type PairType = {
   hash: string;
   rate: number;
@@ -35,9 +40,7 @@ type PairType = {
       quoteAsset: number;
     }
   };
-  fees: {
-    percentage: number;
-    swapInFee: number;
+  fees: PercentageFees & {
     minerFees: {
       baseAsset: MinerFees,
       quoteAsset: MinerFees,
@@ -63,10 +66,6 @@ class RateProvider {
   // A map between assets and their limits
   private limits = new Map<string, CurrencyLimits>();
 
-  // A copy of the "percentageFees" Map in the FeeProvider but all values are multiplied with 100
-  private percentageFees = new Map<string, number>();
-  private percentageSwapInFees = new Map<string, number>();
-
   private timer!: any;
 
   constructor(
@@ -80,16 +79,6 @@ class RateProvider {
   }
 
   public init = async (pairs: PairConfig[]): Promise<void> => {
-    this.feeProvider.percentageFees.forEach((percentage, pair) => {
-      // Multiply with 100 to get the percentage
-      this.percentageFees.set(pair, percentage * 100);
-    });
-
-    this.feeProvider.percentageSwapInFees.forEach((swapInFee, pair) => {
-      // Multiply with 100 to get the percentage
-      this.percentageSwapInFees.set(pair, swapInFee * 100);
-    });
-
     await this.updateMinerFees();
 
     pairs.forEach((pair) => {
@@ -105,8 +94,7 @@ class RateProvider {
           rate: pair.rate,
           limits: this.getLimits(id, pair.base, pair.quote, pair.rate),
           fees: {
-            percentage: this.percentageFees.get(id)!,
-            swapInFee: this.percentageSwapInFees.get(id)!,
+            ...this.getPercentageFees(id),
             minerFees: {
               baseAsset: emptyMinerFees,
               quoteAsset: emptyMinerFees,
@@ -196,8 +184,7 @@ class RateProvider {
           limits,
           hash: '',
           fees: {
-            percentage: this.percentageFees.get(pairId)!,
-            swapInFee: this.percentageSwapInFees.get(pairId)!,
+            ...this.getPercentageFees(pairId),
             minerFees: {
               baseAsset: this.feeProvider.minerFees.get(base)!,
               quoteAsset: this.feeProvider.minerFees.get(quote)!,
@@ -231,6 +218,16 @@ class RateProvider {
     });
 
     this.logger.silly('Updated rates');
+  };
+
+  private getPercentageFees = (pairId: string): PercentageFees => {
+    const percentage = this.feeProvider.percentageFees.get(pairId)!;
+    const percentageSwapIn = this.feeProvider.percentageSwapInFees.get(pairId) || percentage;
+
+    return {
+      percentage: percentage * 100,
+      percentageSwapIn: percentageSwapIn * 100,
+    };
   };
 
   private getLimits = (pair: string, base: string, quote: string, rate: number) => {

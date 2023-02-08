@@ -5,16 +5,21 @@ import { ECPair } from '../../ECPairHelper';
 import BuilderComponents from '../BuilderComponents';
 import { getHexBuffer, stringify } from '../../Utils';
 
-export const command = 'refund <network> <privateKey> <redeemScript> <rawTransaction> <destinationAddress>';
+export const command = 'refund <network> <privateKey> <timeoutBlockHeight> <redeemScript> <rawTransaction> <destinationAddress> [feePerVbyte]';
 
 export const describe = 'refunds submarine or chain to chain swaps';
 
 export const builder = {
   network: BuilderComponents.network,
   privateKey: BuilderComponents.privateKey,
+  timeoutBlockHeight: {
+    describe: 'timeout block height of the swap',
+    type: 'number',
+  },
   redeemScript: BuilderComponents.redeemScript,
   rawTransaction: BuilderComponents.rawTransaction,
   destinationAddress: BuilderComponents.destinationAddress,
+  feePerVbyte: BuilderComponents.feePerVbyte,
 };
 
 export const handler = (argv: Arguments<any>): void => {
@@ -33,8 +38,8 @@ export const handler = (argv: Arguments<any>): void => {
       keys: ECPair.fromPrivateKey(getHexBuffer(argv.privateKey)),
     }],
     address.toOutputScript(argv.destinationAddress, network),
-    0,
-    2,
+    argv.timeoutBlockHeight,
+    argv.feePerVbyte,
     true,
   ).toHex();
 

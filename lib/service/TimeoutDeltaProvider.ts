@@ -17,7 +17,7 @@ class TimeoutDeltaProvider {
   public static blockTimes = new Map<string, number>([
     ['BTC', 10],
     ['LTC', 2.5],
-    ['ETH', 0.25],
+    ['ETH', 0.2],
   ]);
 
   public timeoutDeltas = new Map<string, PairTimeoutBlockDeltas>();

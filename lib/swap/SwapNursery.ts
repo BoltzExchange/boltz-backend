@@ -18,6 +18,7 @@ import RateProvider from '../rates/RateProvider';
 import SwapRepository from '../db/repositories/SwapRepository';
 import LightningNursery from './LightningNursery';
 import ReverseSwap from '../db/models/ReverseSwap';
+import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
 import { Invoice, PaymentFailureReason } from '../proto/lnd/rpc_pb';
 import ChannelCreation from '../db/models/ChannelCreation';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
@@ -719,16 +720,33 @@ class SwapNursery extends EventEmitter {
     };
 
     const { base, quote } = splitPairId(swap.pair);
+    const chainSymbol = getChainCurrency(base, quote, swap.orderSide, false);
     const lightningSymbol = getLightningCurrency(base, quote, swap.orderSide, false);
 
     const lightningCurrency = this.currencies.get(lightningSymbol)!;
+    const chainCurrency = this.currencies.get(chainSymbol)!;
 
     try {
       // Wait 15 seconds for a response
       const raceTimeout = 15;
 
+      const currentBlock = chainCurrency.chainClient?
+        (await chainCurrency.chainClient.getBlockchainInfo()).blocks :
+        await this.ethereumNursery!.ethereumManager.provider.getBlockNumber();
+
+      const blockLeft = TimeoutDeltaProvider.convertBlocks(chainSymbol, lightningSymbol, swap.timeoutBlockHeight - currentBlock);
+      const cltvLimit = Math.floor(blockLeft - 2);
+
+      if (cltvLimit < 2) {
+        throw 'CLTV limit to small';
+      }
+
       const payResponse = await Promise.race([
-        lightningCurrency.lndClient!.sendPayment(swap.invoice!, outgoingChannelId),
+        lightningCurrency.lndClient!.sendPayment(
+          swap.invoice!,
+          cltvLimit,
+          outgoingChannelId,
+        ),
         new Promise<undefined>((resolve) => {
           setTimeout(() => {
             resolve(undefined);

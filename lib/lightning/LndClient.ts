@@ -353,7 +353,7 @@ class LndClient extends BaseClient implements LndClient {
    * @param invoice an invoice for a payment within the Lightning Network
    * @param outgoingChannelId channel through which the invoice should be paid
    */
-  public sendPayment = (invoice: string, outgoingChannelId?: string): Promise<lndrpc.Payment.AsObject> => {
+  public sendPayment = (invoice: string, cltvDelta?: number, outgoingChannelId?: string): Promise<lndrpc.Payment.AsObject> => {
     return new Promise<lndrpc.Payment.AsObject>((resolve, reject) => {
       const request = new routerrpc.SendPaymentRequest();
 
@@ -362,6 +362,10 @@ class LndClient extends BaseClient implements LndClient {
       request.setFeeLimitSat(this.calculatePaymentFee(invoice));
 
       request.setPaymentRequest(invoice);
+
+      if (cltvDelta) {
+        request.setCltvLimit(cltvDelta);
+      }
 
       if (outgoingChannelId) {
         request.setOutgoingChanId(outgoingChannelId);

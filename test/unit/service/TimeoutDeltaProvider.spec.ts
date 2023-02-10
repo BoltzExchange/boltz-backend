@@ -115,8 +115,8 @@ describe('TimeoutDeltaProvider', () => {
     const minutesToBlocks = deltaProvider['minutesToBlocks'];
 
     expect(minutesToBlocks('USDT/USDC', 1)).toEqual({
-      base: 4,
-      quote: 4,
+      base: 5,
+      quote: 5,
     });
   });
 

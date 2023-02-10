@@ -1509,7 +1509,7 @@ describe('Service', () => {
       baseCurrency: 'ETH',
       quoteCurrency: 'BTC',
       orderSide: OrderSide.BUY,
-      onchainTimeoutBlockDelta: 720,
+      onchainTimeoutBlockDelta: 900,
       lightningTimeoutBlockDelta: 20,
       claimAddress: args.claimAddress,
       preimageHash: args.preimageHash,

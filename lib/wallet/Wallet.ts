@@ -90,11 +90,8 @@ class Wallet {
         this.network,
       );
     } catch (error) {
-      if ((error as any).toString().includes('OP_RETURN')) {
-        return '';
-      }
-
-      throw error;
+      // Ignore invalid addresses
+      return '';
     }
   };
 

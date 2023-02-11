@@ -14,9 +14,10 @@ RUN apt-get -y install \
     libzmq3-dev \
     python3-dev
 
-RUN git clone --depth=1 https://github.com/BoltzExchange/boltz-backend.git
+RUN git clone https://github.com/BoltzExchange/boltz-backend.git
 WORKDIR /boltz-backend
 
+RUN git checkout ${VERSION}
 RUN npm install -g npm
 
 # Remove dependency that is not needed for the build and unavailable on ARM64
@@ -27,7 +28,9 @@ RUN npm run compile
 
 FROM node:lts-buster-slim as final
 
-COPY --from=builder /boltz-backend/ /boltz-backend
+COPY --from=builder /boltz-backend/bin /boltz-backend/bin
+COPY --from=builder /boltz-backend/dist /boltz-backend/dist
+COPY --from=builder /boltz-backend/node_modules /boltz-backend/node_modules
 
 EXPOSE 9000 9001
 

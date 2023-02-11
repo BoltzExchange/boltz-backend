@@ -24,7 +24,7 @@
     "test:unit": "jest test/unit",
     "test:unit:coverage": "jest test/unit --coverage",
     "test:int": "jest test/integration --runInBand --testTimeout 10000",
-    "changelog": "conventional-changelog -p angular -i CHANGELOG.md -s",
+    "changelog": "git-cliff -o CHANGELOG.md",
     "prepublishOnly": "npm run compile && rm -f dist/package.json",
     "python:install": "cd tools && poetry install",
     "python:lint": "cd tools && poetry run ruff *.py ../docker/*.py"
@@ -99,8 +99,6 @@
     "@typescript-eslint/eslint-plugin": "^5.51.0",
     "@typescript-eslint/parser": "^5.51.0",
     "concurrently": "^7.6.0",
-    "conventional-changelog": "^3.1.25",
-    "conventional-changelog-cli": "^2.2.2",
     "eslint": "^8.34.0",
     "eslint-plugin-import": "^2.27.5",
     "eslint-plugin-jest": "^27.2.1",

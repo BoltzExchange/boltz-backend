@@ -4,8 +4,8 @@ import { PairConfig } from '../consts/Types';
 import RateCalculator from './RateCalculator';
 import DataAggregator from './data/DataAggregator';
 import { Currency } from '../wallet/WalletManager';
-import FeeProvider, { MinerFees } from './FeeProvider';
 import { BaseFeeType, CurrencyType } from '../consts/Enums';
+import FeeProvider, { MinerFees, PercentageFees } from './FeeProvider';
 import { getPairId, hashString, mapToObject, minutesToMilliseconds, splitPairId, stringify } from '../Utils';
 
 type CurrencyLimits = {
@@ -21,11 +21,6 @@ const emptyMinerFees = {
     claim: 0,
     lockup: 0,
   },
-};
-
-type PercentageFees = {
-  percentage: number;
-  percentageSwapIn: number;
 };
 
 type PairType = {
@@ -94,7 +89,7 @@ class RateProvider {
           rate: pair.rate,
           limits: this.getLimits(id, pair.base, pair.quote, pair.rate),
           fees: {
-            ...this.getPercentageFees(id),
+            ...this.feeProvider.getPercentageFees(id),
             minerFees: {
               baseAsset: emptyMinerFees,
               quoteAsset: emptyMinerFees,
@@ -184,7 +179,7 @@ class RateProvider {
           limits,
           hash: '',
           fees: {
-            ...this.getPercentageFees(pairId),
+            ...this.feeProvider.getPercentageFees(pairId),
             minerFees: {
               baseAsset: this.feeProvider.minerFees.get(base)!,
               quoteAsset: this.feeProvider.minerFees.get(quote)!,
@@ -218,16 +213,6 @@ class RateProvider {
     });
 
     this.logger.silly('Updated rates');
-  };
-
-  private getPercentageFees = (pairId: string): PercentageFees => {
-    const percentage = this.feeProvider.percentageFees.get(pairId)!;
-    const percentageSwapIn = this.feeProvider.percentageSwapInFees.get(pairId) || percentage;
-
-    return {
-      percentage: percentage * 100,
-      percentageSwapIn: percentageSwapIn * 100,
-    };
   };
 
   private getLimits = (pair: string, base: string, quote: string, rate: number) => {

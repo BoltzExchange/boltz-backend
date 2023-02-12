@@ -61,6 +61,13 @@ const mockGetBaseFee = jest.fn().mockImplementation(() => {
 
 const mockUpdateMinerFees = jest.fn().mockImplementation(async () => {});
 
+const mockGetPercentageFees = jest.fn().mockImplementation((pair) => {
+  return {
+    percentage: percentageFees.get(pair)! * 100,
+    percentageSwapIn: (percentageSwapInFees.get(pair) || percentageFees.get(pair))! * 100,
+  };
+});
+
 const btcFee = 36;
 const ltcFee = 3;
 
@@ -79,6 +86,7 @@ jest.mock('../../../lib/rates/FeeProvider', () => {
       percentageSwapInFees,
       getBaseFee: mockGetBaseFee,
       updateMinerFees: mockUpdateMinerFees,
+      getPercentageFees: mockGetPercentageFees,
     };
   });
 });

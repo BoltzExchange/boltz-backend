@@ -56,6 +56,21 @@ describe('FeeProvider', () => {
     expect(feeMap.size).toEqual(3);
   });
 
+  test('should get percentage fees of a pair', () => {
+    expect(feeProvider.getPercentageFees('LTC/BTC')).toEqual({
+      percentage: 2,
+      percentageSwapIn: -1,
+    });
+    expect(feeProvider.getPercentageFees('BTC/BTC')).toEqual({
+      percentage: 0,
+      percentageSwapIn: -1,
+    });
+    expect(feeProvider.getPercentageFees('LTC/LTC')).toEqual({
+      percentage: 1,
+      percentageSwapIn: 1,
+    });
+  });
+
   test('should get percentage fees of normal swaps', () => {
     expect(feeProvider.getPercentageFee('LTC/BTC', false)).toEqual(-0.01);
     expect(feeProvider.getPercentageFee('BTC/BTC', false)).toEqual(-0.01);

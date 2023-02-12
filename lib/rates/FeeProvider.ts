@@ -4,7 +4,12 @@ import { PairConfig } from '../consts/Types';
 import DataAggregator from './data/DataAggregator';
 import { BaseFeeType, OrderSide } from '../consts/Enums';
 import { etherDecimals, gweiDecimals } from '../consts/Consts';
-import { getChainCurrency, getPairId, mapToObject, splitPairId, stringify } from '../Utils';
+import { getChainCurrency, getPairId, splitPairId, stringify } from '../Utils';
+
+type PercentageFees = {
+  percentage: number;
+  percentageSwapIn: number;
+};
 
 type ReverseMinerFees = {
   lockup: number;
@@ -59,23 +64,39 @@ class FeeProvider {
   ) {}
 
   public init = (pairs: PairConfig[]): void => {
+    const feesToPrint = {};
+
     pairs.forEach((pair) => {
+      const pairId = getPairId(pair);
+
       // Set the configured fee or fallback to 1% if it is not defined
       let percentage = pair.fee;
 
       if (percentage === undefined) {
         percentage = FeeProvider.defaultFee;
-        this.logger.warn(`Setting default fee of ${percentage}% for pair ${getPairId(pair)} because none was specified`);
+        this.logger.warn(`Setting default fee of ${percentage}% for pair ${pairId} because none was specified`);
       }
 
-      this.percentageFees.set(getPairId(pair), percentage / 100);
+      this.percentageFees.set(pairId, percentage / 100);
 
       if (pair.swapInFee) {
-        this.percentageSwapInFees.set(getPairId(pair), pair.swapInFee / 100);
+        this.percentageSwapInFees.set(pairId, pair.swapInFee / 100);
       }
+
+      feesToPrint[pairId] = this.getPercentageFees(pairId);
     });
 
-    this.logger.debug(`Prepared data for fee estimations: ${stringify(mapToObject(this.percentageFees))}`);
+    this.logger.debug(`Prepared data for fee estimations: ${stringify(feesToPrint)}`);
+  };
+
+  public getPercentageFees = (pairId: string): PercentageFees => {
+    const percentage = this.percentageFees.get(pairId)!;
+    const percentageSwapIn = this.percentageSwapInFees.get(pairId) || percentage;
+
+    return {
+      percentage: percentage * 100,
+      percentageSwapIn: percentageSwapIn * 100,
+    };
   };
 
   public getPercentageFee = (pair: string, isReverse: boolean): number => {
@@ -207,4 +228,4 @@ class FeeProvider {
 }
 
 export default FeeProvider;
-export { ReverseMinerFees, MinerFees };
+export { ReverseMinerFees, MinerFees, PercentageFees };

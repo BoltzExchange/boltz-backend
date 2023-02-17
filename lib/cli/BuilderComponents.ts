@@ -27,4 +27,9 @@ export default {
     describe: 'whether a token should be claimed',
     type: 'boolean',
   },
+  feePerVbyte: {
+    describe: 'fee per vByte',
+    default: 2,
+    type: 'number',
+  },
 };

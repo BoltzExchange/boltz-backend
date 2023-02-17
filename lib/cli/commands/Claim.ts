@@ -5,7 +5,7 @@ import { ECPair } from '../../ECPairHelper';
 import BuilderComponents from '../BuilderComponents';
 import { getHexBuffer, stringify } from '../../Utils';
 
-export const command = 'claim <network> <preimage> <privateKey> <redeemScript> <rawTransaction> <destinationAddress>';
+export const command = 'claim <network> <preimage> <privateKey> <redeemScript> <rawTransaction> <destinationAddress> [feePerVbyte]';
 
 export const describe = 'claims reverse submarine or chain to chain swaps';
 
@@ -19,6 +19,7 @@ export const builder = {
     describe: 'preimage of the swap',
     type: 'string',
   },
+  feePerVbyte: BuilderComponents.feePerVbyte,
 };
 
 export const handler = (argv: Arguments<any>): void => {
@@ -38,7 +39,7 @@ export const handler = (argv: Arguments<any>): void => {
       keys: ECPair.fromPrivateKey(getHexBuffer(argv.privateKey)),
     }],
     address.toOutputScript(argv.destinationAddress, network),
-    2,
+    argv.feePerVbyte,
     true,
   ).toHex();
 

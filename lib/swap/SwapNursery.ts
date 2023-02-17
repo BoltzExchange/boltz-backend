@@ -22,6 +22,7 @@ import ChannelCreation from '../db/models/ChannelCreation';
 import SwapRepository from '../db/repositories/SwapRepository';
 import ContractHandler from '../wallet/ethereum/ContractHandler';
 import WalletManager, { Currency } from '../wallet/WalletManager';
+import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
 import { ERC20SwapValues, EtherSwapValues } from '../consts/Types';
 import { Invoice, PaymentFailureReason } from '../proto/lnd/rpc_pb';
 import { etherDecimals, ReverseSwapOutputType } from '../consts/Consts';
@@ -720,16 +721,33 @@ class SwapNursery extends EventEmitter {
     };
 
     const { base, quote } = splitPairId(swap.pair);
+    const chainSymbol = getChainCurrency(base, quote, swap.orderSide, false);
     const lightningSymbol = getLightningCurrency(base, quote, swap.orderSide, false);
 
     const lightningCurrency = this.currencies.get(lightningSymbol)!;
+    const chainCurrency = this.currencies.get(chainSymbol)!;
 
     try {
       // Wait 15 seconds for a response
       const raceTimeout = 15;
 
+      const currentBlock = chainCurrency.chainClient?
+        (await chainCurrency.chainClient.getBlockchainInfo()).blocks :
+        await this.ethereumNursery!.ethereumManager.provider.getBlockNumber();
+
+      const blockLeft = TimeoutDeltaProvider.convertBlocks(chainSymbol, lightningSymbol, swap.timeoutBlockHeight - currentBlock);
+      const cltvLimit = Math.floor(blockLeft - 2);
+
+      if (cltvLimit < 2) {
+        throw 'CLTV limit to small';
+      }
+
       const payResponse = await Promise.race([
-        lightningCurrency.lndClient!.paymentClient.sendPayment(swap.invoice!, outgoingChannelId),
+        lightningCurrency.lndClient!.paymentClient.sendPayment(
+          swap.invoice!,
+          cltvLimit,
+          outgoingChannelId,
+        ),
         new Promise<undefined>((resolve) => {
           setTimeout(() => {
             resolve(undefined);

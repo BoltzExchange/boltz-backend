@@ -4,7 +4,12 @@ import { PairConfig } from '../consts/Types';
 import DataAggregator from './data/DataAggregator';
 import { BaseFeeType, OrderSide } from '../consts/Enums';
 import { etherDecimals, gweiDecimals } from '../consts/Consts';
-import { getChainCurrency, getPairId, mapToObject, splitPairId, stringify } from '../Utils';
+import { getChainCurrency, getPairId, splitPairId, stringify } from '../Utils';
+
+type PercentageFees = {
+  percentage: number;
+  percentageSwapIn: number;
+};
 
 type ReverseMinerFees = {
   lockup: number;
@@ -19,6 +24,7 @@ type MinerFees = {
 class FeeProvider {
   // A map between the symbols of the pairs and their percentage fees
   public percentageFees = new Map<string, number>();
+  public percentageSwapInFees = new Map<string, number>();
 
   public minerFees = new Map<string, MinerFees>();
 
@@ -49,6 +55,8 @@ class FeeProvider {
     },
   };
 
+  private static readonly defaultFee = 1;
+
   constructor(
     private logger: Logger,
     private dataAggregator: DataAggregator,
@@ -56,21 +64,46 @@ class FeeProvider {
   ) {}
 
   public init = (pairs: PairConfig[]): void => {
-    pairs.forEach((pair) => {
-      // Set the configured fee or fallback to 1% if it is not defined
-      const percentage = pair.fee !== undefined ? pair.fee : 1;
+    const feesToPrint = {};
 
-      if (pair.fee === undefined) {
-        this.logger.warn(`Setting default fee of ${percentage}% for pair ${pair.base}/${pair.quote} because none was specified`);
+    pairs.forEach((pair) => {
+      const pairId = getPairId(pair);
+
+      // Set the configured fee or fallback to 1% if it is not defined
+      let percentage = pair.fee;
+
+      if (percentage === undefined) {
+        percentage = FeeProvider.defaultFee;
+        this.logger.warn(`Setting default fee of ${percentage}% for pair ${pairId} because none was specified`);
       }
 
-      this.percentageFees.set(getPairId(pair), percentage / 100);
+      this.percentageFees.set(pairId, percentage / 100);
+
+      if (pair.swapInFee) {
+        this.percentageSwapInFees.set(pairId, pair.swapInFee / 100);
+      }
+
+      feesToPrint[pairId] = this.getPercentageFees(pairId);
     });
 
-    this.logger.debug(`Prepared data for fee estimations: ${stringify(mapToObject(this.percentageFees))}`);
+    this.logger.debug(`Prepared data for fee estimations: ${stringify(feesToPrint)}`);
   };
 
-  public getPercentageFee = (pair: string): number => {
+  public getPercentageFees = (pairId: string): PercentageFees => {
+    const percentage = this.percentageFees.get(pairId)!;
+    const percentageSwapIn = this.percentageSwapInFees.get(pairId) || percentage;
+
+    return {
+      percentage: percentage * 100,
+      percentageSwapIn: percentageSwapIn * 100,
+    };
+  };
+
+  public getPercentageFee = (pair: string, isReverse: boolean): number => {
+    if (!isReverse && this.percentageSwapInFees.has(pair)) {
+      return this.percentageSwapInFees.get(pair)!;
+    }
+
     return this.percentageFees.get(pair) || 0;
   };
 
@@ -84,14 +117,16 @@ class FeeProvider {
     baseFee: number,
     percentageFee: number,
   } => {
-    let percentageFee = this.getPercentageFee(pair);
+    const isReverse = type !== BaseFeeType.NormalClaim;
+
+    let percentageFee = this.getPercentageFee(pair, isReverse);
 
     if (percentageFee !== 0) {
       percentageFee = percentageFee * amount * rate;
     }
 
     const { base, quote } = splitPairId(pair);
-    const chainCurrency = getChainCurrency(base, quote, orderSide, type !== BaseFeeType.NormalClaim);
+    const chainCurrency = getChainCurrency(base, quote, orderSide, isReverse);
 
     return {
       percentageFee: Math.ceil(percentageFee),
@@ -193,4 +228,4 @@ class FeeProvider {
 }
 
 export default FeeProvider;
-export { ReverseMinerFees, MinerFees };
+export { ReverseMinerFees, MinerFees, PercentageFees };

@@ -1,4 +1,5 @@
 import { BIP32Factory } from 'bip32';
+import { randomBytes } from 'crypto';
 import ops from '@boltz/bitcoin-ops';
 import { Networks } from 'boltz-core';
 import * as ecc from 'tiny-secp256k1';
@@ -133,10 +134,36 @@ describe('Wallet', () => {
   test('should ignore OP_RETURN outputs', () => {
     const outputScript = script.compile([
       ops.OP_RETURN,
-      crypto.sha256(Buffer.alloc(0)),
+      crypto.sha256(randomBytes(64)),
     ]);
 
     expect(wallet.encodeAddress(outputScript)).toEqual('');
+  });
+
+  test('should ignore all invalid addresses', () => {
+    const invalidScripts = [
+      script.compile([
+        ops.OP_1,
+        randomBytes(32),
+      ]),
+      script.compile([
+        randomBytes(32),
+      ]),
+      script.compile([
+        ops.OP_6,
+      ]),
+      script.compile([
+        ops.OP_NUMEQUAL,
+        ops.OP_4,
+        ops.OP_NOP1,
+        ops.OP_NUMNOTEQUAL,
+        ops.OP_CHECKSIGVERIFY,
+      ]),
+    ];
+
+    for (const script of invalidScripts) {
+      expect(wallet.encodeAddress(script)).toEqual('');
+    }
   });
 
   test('should decode addresses', () => {

@@ -4,8 +4,8 @@ import { PairConfig } from '../consts/Types';
 import RateCalculator from './RateCalculator';
 import DataAggregator from './data/DataAggregator';
 import { Currency } from '../wallet/WalletManager';
-import FeeProvider, { MinerFees } from './FeeProvider';
 import { BaseFeeType, CurrencyType } from '../consts/Enums';
+import FeeProvider, { MinerFees, PercentageFees } from './FeeProvider';
 import { getPairId, hashString, mapToObject, minutesToMilliseconds, splitPairId, stringify } from '../Utils';
 
 type CurrencyLimits = {
@@ -35,8 +35,7 @@ type PairType = {
       quoteAsset: number;
     }
   };
-  fees: {
-    percentage: number;
+  fees: PercentageFees & {
     minerFees: {
       baseAsset: MinerFees,
       quoteAsset: MinerFees,
@@ -62,9 +61,6 @@ class RateProvider {
   // A map between assets and their limits
   private limits = new Map<string, CurrencyLimits>();
 
-  // A copy of the "percentageFees" Map in the FeeProvider but all values are multiplied with 100
-  private percentageFees = new Map<string, number>();
-
   private timer!: any;
 
   constructor(
@@ -78,11 +74,6 @@ class RateProvider {
   }
 
   public init = async (pairs: PairConfig[]): Promise<void> => {
-    this.feeProvider.percentageFees.forEach((percentage, pair) => {
-      // Multiply with 100 to get the percentage
-      this.percentageFees.set(pair, percentage * 100);
-    });
-
     await this.updateMinerFees();
 
     pairs.forEach((pair) => {
@@ -98,7 +89,7 @@ class RateProvider {
           rate: pair.rate,
           limits: this.getLimits(id, pair.base, pair.quote, pair.rate),
           fees: {
-            percentage: this.percentageFees.get(id)!,
+            ...this.feeProvider.getPercentageFees(id),
             minerFees: {
               baseAsset: emptyMinerFees,
               quoteAsset: emptyMinerFees,
@@ -188,7 +179,7 @@ class RateProvider {
           limits,
           hash: '',
           fees: {
-            percentage: this.percentageFees.get(pairId)!,
+            ...this.feeProvider.getPercentageFees(pairId),
             minerFees: {
               baseAsset: this.feeProvider.minerFees.get(base)!,
               quoteAsset: this.feeProvider.minerFees.get(quote)!,

@@ -85,7 +85,7 @@ IMAGES: Dict[str, Image] = {
         ],
     ),
     "boltz": Image(
-        tags=["latest"],
+        tags=["3.1.5"],
         arguments=[],
     ),
     "regtest": Image(

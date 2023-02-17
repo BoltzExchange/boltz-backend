@@ -3,10 +3,10 @@ import Database from '../../../lib/db/Database';
 import { hashString } from '../../../lib/Utils';
 import { Network } from '../../../lib/consts/Enums';
 import RateProvider from '../../../lib/rates/RateProvider';
-import PairRepository from '../../../lib/db/repositories/PairRepository';
 import { Currency } from '../../../lib/wallet/WalletManager';
 import DataAggregator from '../../../lib/rates/data/DataAggregator';
 import FeeProvider, { MinerFees } from '../../../lib/rates/FeeProvider';
+import PairRepository from '../../../lib/db/repositories/PairRepository';
 
 FeeProvider.transactionSizes = {
   normalClaim: 170,
@@ -23,6 +23,12 @@ const rates = {
 const percentageFees = new Map<string, number>([
   ['LTC/BTC', 0.01],
   ['BTC/BTC', 0.005],
+  ['LTC/LTC', 0.015],
+]);
+
+const percentageSwapInFees = new Map<string, number>([
+  ['LTC/BTC', 0.01],
+  ['BTC/BTC', -0.01],
 ]);
 
 const minerFees = new Map<string, MinerFees>([
@@ -55,6 +61,13 @@ const mockGetBaseFee = jest.fn().mockImplementation(() => {
 
 const mockUpdateMinerFees = jest.fn().mockImplementation(async () => {});
 
+const mockGetPercentageFees = jest.fn().mockImplementation((pair) => {
+  return {
+    percentage: percentageFees.get(pair)! * 100,
+    percentageSwapIn: (percentageSwapInFees.get(pair) || percentageFees.get(pair))! * 100,
+  };
+});
+
 const btcFee = 36;
 const ltcFee = 3;
 
@@ -70,8 +83,10 @@ jest.mock('../../../lib/rates/FeeProvider', () => {
     return {
       minerFees,
       percentageFees,
+      percentageSwapInFees,
       getBaseFee: mockGetBaseFee,
       updateMinerFees: mockUpdateMinerFees,
+      getPercentageFees: mockGetPercentageFees,
     };
   });
 });
@@ -90,6 +105,7 @@ jest.mock('../../../lib/rates/data/DataAggregator', () => {
       fetchPairs: async () => {
         latestRates.set('BTC/BTC', rates.BTC);
         latestRates.set('LTC/BTC', rates.LTC);
+        latestRates.set('LTC/LTC', rates.BTC);
         return latestRates;
       },
     };
@@ -150,6 +166,11 @@ describe('RateProvider', () => {
         base: 'BTC',
         quote: 'BTC',
       }),
+      pairRepository.addPair({
+        id: 'LTC/LTC',
+        base: 'LTC',
+        quote: 'LTC',
+      }),
     ]);
   });
 
@@ -196,11 +217,29 @@ describe('RateProvider', () => {
     });
   });
 
+  test('should get percentage fees for normal swaps', () => {
+    const { pairs } = rateProvider;
+
+    percentageSwapInFees.forEach((_, pairId) => {
+      expect(pairs.get(pairId)!.fees.percentageSwapIn).toEqual(percentageSwapInFees.get(pairId)! * 100);
+    });
+
+    const ltcPair = 'LTC/LTC';
+    expect(percentageSwapInFees.has(ltcPair)).toBeFalsy();
+    expect(pairs.get(ltcPair)!.fees.percentageSwapIn).toEqual(percentageFees.get(ltcPair)! * 100);
+  });
+
   test('should get miner fees', () => {
     const { pairs } = rateProvider;
 
-    expect(pairs.get('BTC/BTC')!.fees.minerFees).toEqual({ baseAsset: minerFees.get('BTC'), quoteAsset: minerFees.get('BTC'), });
-    expect(pairs.get('LTC/BTC')!.fees.minerFees).toEqual({ baseAsset: minerFees.get('LTC'), quoteAsset: minerFees.get('BTC'), });
+    expect(pairs.get('BTC/BTC')!.fees.minerFees).toEqual({
+      baseAsset: minerFees.get('BTC'),
+      quoteAsset: minerFees.get('BTC'),
+    });
+    expect(pairs.get('LTC/BTC')!.fees.minerFees).toEqual({
+      baseAsset: minerFees.get('LTC'),
+      quoteAsset: minerFees.get('BTC'),
+    });
   });
 
   test('should calculate hashes', () => {
@@ -223,10 +262,19 @@ describe('RateProvider', () => {
     // Should return false for undefined maximal allowed amounts
     expect(rateProvider.acceptZeroConf('ETH', 0)).toEqual(false);
 
-    expect(rateProvider.acceptZeroConf('BTC', btcCurrency.limits.maxZeroConfAmount! + 1)).toEqual(false);
+    expect(rateProvider.acceptZeroConf(
+      'BTC',
+      btcCurrency.limits.maxZeroConfAmount! + 1,
+    )).toEqual(false);
 
-    expect(rateProvider.acceptZeroConf('BTC', btcCurrency.limits.maxZeroConfAmount!)).toEqual(true);
-    expect(rateProvider.acceptZeroConf('BTC', btcCurrency.limits.maxZeroConfAmount! - 1)).toEqual(true);
+    expect(rateProvider.acceptZeroConf(
+      'BTC',
+      btcCurrency.limits.maxZeroConfAmount!,
+    )).toEqual(true);
+    expect(rateProvider.acceptZeroConf(
+      'BTC',
+      btcCurrency.limits.maxZeroConfAmount! - 1,
+    )).toEqual(true);
   });
 
   test('should adjust minimal limits based on current miner fees', async () => {

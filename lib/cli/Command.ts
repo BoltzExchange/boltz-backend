@@ -1,5 +1,5 @@
-import { credentials } from '@grpc/grpc-js';
 import { Arguments } from 'yargs';
+import { credentials } from '@grpc/grpc-js';
 import { BoltzClient } from '../proto/boltzrpc_grpc_pb';
 
 export interface GrpcResponse {

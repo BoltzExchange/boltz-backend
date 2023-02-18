@@ -24,11 +24,10 @@ class InvoiceClient extends LndBaseClient implements IInvoiceClient{
   }
 
   public startSubscriptions = async () => {
-    if (this.needsRoutingHints) {
-      const info = await this.getInfo();
-      this.logger.info(`Using ${info.alias} (${info.identityPubkey}) for ${this.symbol} invoicing`);
-    }
+    const info = await this.getInfo();
+    this.logger.debug(`Using ${info.alias} (${info.identityPubkey}) for ${this.symbol} invoicing`);
   };
+
   public stopSubscriptions = (): void => {};
 
   /**

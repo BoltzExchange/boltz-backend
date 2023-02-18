@@ -61,6 +61,7 @@ class LndClient extends EventEmitter implements ILndClient {
     this.paymentClient = new PaymentClient(logger, symbol, config.payment || config);
 
     this.clients = [this.routerClient, this.invoiceClient, this.paymentClient];
+    this.forwardEvents();
   }
 
   public connect = async (startSubscriptions = true) => {
@@ -75,7 +76,47 @@ class LndClient extends EventEmitter implements ILndClient {
     });
   };
 
-  // todo: forward events
+  private forwardEvents = () => {
+    const events: { client: EventEmitter, name: string }[] = [
+      {
+        client: this.invoiceClient,
+        name: 'htlc.accepted',
+      },
+      {
+        client: this.invoiceClient,
+        name: 'invoice.settled',
+      },
+      {
+        client: this.routerClient,
+        name: 'peer.online',
+      },
+      {
+        client: this.routerClient,
+        name: 'channel.active',
+      },
+      {
+        client: this.routerClient,
+        name: 'channel.backup',
+      },
+    ];
+
+    for (const client of this.clients) {
+      events.push({
+        client,
+        name: 'subscription.error'
+      });
+      events.push({
+        client,
+        name: 'subscription.reconnected'
+      });
+    }
+
+    for (const event of events) {
+      event.client.on(event.name, (...args: any[]) => {
+        this.emit(event.name, ...args);
+      });
+    }
+  };
 }
 
 export default LndClient;

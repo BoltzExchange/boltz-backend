@@ -67,11 +67,11 @@ startLnds
 
 echo "Opening channels"
 openChannel bitcoin-cli \
-  "lncli --lnddir=/root/.lnd-btc --rpcserver=127.0.0.1:10009 --network=regtest" \
-  "lncli --lnddir=/root/.lnd-btc --rpcserver=127.0.0.1:10011 --network=regtest" \
+  "lncli --network=regtest --lnddir=/root/.lnd-btc --rpcserver=127.0.0.1:10009" \
+  "lncli --network=regtest --lnddir=/root/.lnd-btc --rpcserver=127.0.0.1:10011" \
   9736
 openChannel bitcoin-cli \
-  "lncli --lnddir=/root/.lnd-btc --rpcserver=127.0.0.1:10009 --network=regtest" \
+  "lncli --network=regtest --lnddir=/root/.lnd-btc --rpcserver=127.0.0.1:10009" \
   "lncli --network=regtest --lnddir=/root/.lnd-btc-shard --rpcserver=127.0.0.1:10012" \
   9737
 

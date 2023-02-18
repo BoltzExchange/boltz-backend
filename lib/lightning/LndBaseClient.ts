@@ -200,4 +200,4 @@ abstract class LndBaseClient extends BaseClient implements ILndBaseClient {
 }
 
 export default LndBaseClient;
-export { LndBaseConfig, ILndBaseClient };
+export { LndBaseConfig };

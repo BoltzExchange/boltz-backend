@@ -8,6 +8,8 @@ type ChannelWithRoutingInfo = {
   routingInfo: ChannelEdge.AsObject;
 }
 
+// TODO: how does this behave with a separate InvoiceClient?
+
 class RoutingHintsProvider {
   // How often the channel lists should be updated in minutes
   private static readonly channelFetchInterval = 5;

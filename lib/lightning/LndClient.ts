@@ -70,6 +70,12 @@ class LndClient extends EventEmitter implements ILndClient {
     }
   };
 
+  public disconnect = () => {
+    for (const client of this.clients) {
+      client.disconnect();
+    }
+  };
+
   public isConnected = (): boolean => {
     return this.clients.every((client) => {
       return client.isConnected();

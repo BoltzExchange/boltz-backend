@@ -16,8 +16,10 @@ const mockConnectPeer = jest.fn().mockImplementation(async () => {
 
 jest.mock('../../../lib/lightning/LndClient', () => {
   return jest.fn().mockImplementation(() => ({
-    connectPeer: mockConnectPeer,
-    getNodeInfo: mockGetNodeInfo,
+    routerClient: {
+      connectPeer: mockConnectPeer,
+      getNodeInfo: mockGetNodeInfo,
+    },
   }));
 });
 

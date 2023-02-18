@@ -2,8 +2,9 @@ import * as grpc from '@grpc/grpc-js';
 import { readFileSync } from 'fs';
 import { getPort } from '../../Utils';
 import Logger from '../../../lib/Logger';
-import {bitcoinLndClient, bitcoinLndClientConfig, lndDataPath} from '../Nodes';
 import LndClient from '../../../lib/lightning/LndClient';
+import PaymentClient from '../../../lib/lightning/PaymentClient';
+import { bitcoinLndClient, bitcoinLndClientConfig, lndDataPath } from '../Nodes';
 import { LightningClient, LightningService } from '../../../lib/proto/lnd/rpc_grpc_pb';
 import { GetInfoResponse, Transaction, TransactionDetails } from '../../../lib/proto/lnd/rpc_pb';
 
@@ -17,37 +18,37 @@ describe('LndClient', () => {
   });
 
   test('should calculate payment fees', async () => {
-    const calculatePaymentFee = bitcoinLndClient['calculatePaymentFee'];
+    const calculatePaymentFee = bitcoinLndClient.paymentClient['calculatePaymentFee'];
 
     const bigInvoiceAmount = 8754398;
     const maxPaymentFeeRatio = 0.03;
-    let invoice = await bitcoinLndClient.addInvoice(bigInvoiceAmount);
+    let invoice = await bitcoinLndClient.invoiceClient.addInvoice(bigInvoiceAmount);
 
     // Should use the payment fee ratio for big payments
     expect(calculatePaymentFee(invoice.paymentRequest)).toEqual(Math.ceil(bigInvoiceAmount * maxPaymentFeeRatio));
 
     // Should use the minimal payment fee for small payments
-    invoice = await bitcoinLndClient.addInvoice(1);
-    expect(calculatePaymentFee(invoice.paymentRequest)).toEqual(LndClient['minPaymentFee']);
+    invoice = await bitcoinLndClient.invoiceClient.addInvoice(1);
+    expect(calculatePaymentFee(invoice.paymentRequest)).toEqual(PaymentClient['minPaymentFee']);
 
-    invoice = await bitcoinLndClient.addInvoice(0);
-    expect(calculatePaymentFee(invoice.paymentRequest)).toEqual(LndClient['minPaymentFee']);
+    invoice = await bitcoinLndClient.invoiceClient.addInvoice(0);
+    expect(calculatePaymentFee(invoice.paymentRequest)).toEqual(PaymentClient['minPaymentFee']);
   });
 
   test('should set default payment fee ratio', () => {
-    expect(bitcoinLndClient['maxPaymentFeeRatio']).toEqual(LndClient['defaultPaymentFeeRatio']);
+    expect(bitcoinLndClient.paymentClient['maxPaymentFeeRatio']).toEqual(PaymentClient['defaultPaymentFeeRatio']);
 
     let client = new LndClient(Logger.disabledLogger, 'MOCK', {
       ...bitcoinLndClientConfig,
       maxPaymentFeeRatio: 0,
     });
-    expect(client['maxPaymentFeeRatio']).toEqual(LndClient['defaultPaymentFeeRatio']);
+    expect(client.paymentClient['maxPaymentFeeRatio']).toEqual(PaymentClient['defaultPaymentFeeRatio']);
 
     client = new LndClient(Logger.disabledLogger, 'MOCK', {
       ...bitcoinLndClientConfig,
       maxPaymentFeeRatio: 1,
     });
-    expect(client['maxPaymentFeeRatio']).toEqual(1);
+    expect(client.paymentClient['maxPaymentFeeRatio']).toEqual(1);
 
     client = new LndClient(Logger.disabledLogger, 'MOCK', {
       ...bitcoinLndClientConfig,
@@ -128,7 +129,7 @@ describe('LndClient', () => {
     // This call will fetch "randomDataLength" of data
     // The default gRPC limit is 4 MB
     // Therefore, if this call does not throw, the default maximal receive message length was overwritten
-    const response = await lndClient.getOnchainTransactions(0);
+    const response = await lndClient.routerClient.getOnchainTransactions(0);
 
     // Sanity check that the received data was actually longer than the default gRPC limit
     expect(JSON.stringify(response).length).toBeGreaterThan(defaultGrpcLimit);

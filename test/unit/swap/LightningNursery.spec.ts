@@ -36,8 +36,10 @@ const mockSettleInvoice = jest.fn().mockImplementation(async () => {});
 jest.mock('../../../lib/lightning/LndClient', () => {
   return jest.fn().mockImplementation(() => ({
     on: mockOn,
-    lookupInvoice: mockLookupInvoice,
-    settleInvoice: mockSettleInvoice,
+    invoiceClient: {
+      lookupInvoice: mockLookupInvoice,
+      settleInvoice: mockSettleInvoice,
+    },
   }));
 });
 

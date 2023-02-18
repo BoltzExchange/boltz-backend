@@ -16,6 +16,7 @@ const mockListChannelsResult: any = [
     chanId: 987,
   },
 ];
+
 const mockListChannels = jest.fn().mockImplementation(async () => {
   return {
     channelsList: mockListChannelsResult,
@@ -67,8 +68,10 @@ jest.mock('../../../lib/lightning/LndClient', () => {
   return jest.fn().mockImplementation(() => {
     return {
       symbol: lndSymbol,
-      listChannels: mockListChannels,
-      getChannelInfo: mockGetChannelInfo,
+      routerClient: {
+        listChannels: mockListChannels,
+        getChannelInfo: mockGetChannelInfo,
+      },
     };
   });
 });

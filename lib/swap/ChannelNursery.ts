@@ -4,13 +4,13 @@ import AsyncLock from 'async-lock';
 import { EventEmitter } from 'events';
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';
-import SwapRepository from '../db/repositories/SwapRepository';
 import { Currency } from '../wallet/WalletManager';
 import { ChannelPoint } from '../proto/lnd/rpc_pb';
 import ChannelCreation from '../db/models/ChannelCreation';
 import ConnectionHelper from '../lightning/ConnectionHelper';
-import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
+import SwapRepository from '../db/repositories/SwapRepository';
 import { ChannelCreationStatus, SwapUpdateEvent } from '../consts/Enums';
+import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import {
   formatError,
   splitPairId,
@@ -20,12 +20,12 @@ import {
   getLightningCurrency,
 } from '../Utils';
 
-interface ChannelNursery {
+interface IChannelNursery {
   on(event: 'channel.created', listener: (swap: Swap, channelCreation: ChannelCreation) => void): this;
   emit(event: 'channel.created', swap: Swap, channelCreation: ChannelCreation): boolean;
 }
 
-class ChannelNursery extends EventEmitter {
+class ChannelNursery extends EventEmitter implements IChannelNursery {
   private connectionHelper: ConnectionHelper;
 
   private lock = new AsyncLock();

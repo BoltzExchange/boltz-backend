@@ -13,6 +13,10 @@ interface IInvoiceClient {
 
 class InvoiceClient extends LndBaseClient implements IInvoiceClient{
   public static readonly serviceName = 'LNDInvoicing';
+  private static readonly updateRouteHintInterval = 30 * 1000;
+
+  private routeHints: lndrpc.RouteHint[] = [];
+  private updateRouteHintsInterval: any;
 
   constructor(
     logger: Logger,
@@ -25,10 +29,19 @@ class InvoiceClient extends LndBaseClient implements IInvoiceClient{
 
   public startSubscriptions = async () => {
     const info = await this.getInfo();
-    this.logger.debug(`Using ${info.alias} (${info.identityPubkey}) for ${this.symbol} invoicing`);
+    this.logger.verbose(`Using ${info.alias} (${info.identityPubkey}) for ${this.symbol} invoicing`);
+
+    if (this.needsRoutingHints) {
+      this.logger.debug(`Updating default routing hints every ${InvoiceClient.updateRouteHintInterval / 1000}s`);
+
+      await this.updateDefaultRouteHints();
+      this.updateRouteHintsInterval = setInterval(this.updateDefaultRouteHints, InvoiceClient.updateRouteHintInterval);
+    }
   };
 
-  public stopSubscriptions = (): void => {};
+  public stopSubscriptions = (): void => {
+    clearInterval(this.updateRouteHintsInterval);
+  };
 
   /**
    * Creates an invoice
@@ -161,26 +174,34 @@ class InvoiceClient extends LndBaseClient implements IInvoiceClient{
       req.setRouteHintsList(routingHints);
     } else if (this.needsRoutingHints) {
       req.setPrivate(true);
-
-      for (const channel of (await this.listChannels()).channelsList) {
-        const hopHint = new lndrpc.HopHint();
-
-        hopHint.setChanId(channel.chanId);
-        hopHint.setNodeId(channel.remotePubkey);
-
-        const channelInfo = await this.getChannelInfo(channel.chanId);
-        const channelPolicy = channelInfo.node1Pub === channel.remotePubkey ?
-          channelInfo.node1Policy : channelInfo.node2Policy;
-
-        hopHint.setFeeBaseMsat(channelPolicy!.feeBaseMsat);
-        hopHint.setCltvExpiryDelta(channelPolicy!.timeLockDelta);
-        hopHint.setFeeProportionalMillionths(channelPolicy!.feeRateMilliMsat);
-
-        const routeHints = new lndrpc.RouteHint();
-        routeHints.addHopHints(hopHint);
-        req.addRouteHints(routeHints);
-      }
+      req.setRouteHintsList(this.routeHints!);
     }
+  };
+
+  private updateDefaultRouteHints = async () => {
+    const routeHints: lndrpc.RouteHint[] = [];
+
+    for (const channel of (await this.listChannels()).channelsList) {
+      const hopHint = new lndrpc.HopHint();
+
+      hopHint.setChanId(channel.chanId);
+      hopHint.setNodeId(channel.remotePubkey);
+
+      const channelInfo = await this.getChannelInfo(channel.chanId);
+      const channelPolicy = channelInfo.node1Pub === channel.remotePubkey ?
+        channelInfo.node1Policy : channelInfo.node2Policy;
+
+      hopHint.setFeeBaseMsat(channelPolicy!.feeBaseMsat);
+      hopHint.setCltvExpiryDelta(channelPolicy!.timeLockDelta);
+      hopHint.setFeeProportionalMillionths(channelPolicy!.feeRateMilliMsat);
+
+      const routeHint = new lndrpc.RouteHint();
+      routeHint.addHopHints(hopHint);
+
+      routeHints.push(routeHint);
+    }
+
+    this.routeHints = routeHints;
   };
 
   private listChannels = (): Promise<lndrpc.ListChannelsResponse.AsObject> => {

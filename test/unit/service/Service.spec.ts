@@ -406,10 +406,14 @@ const mockDecodePayReq = jest.fn().mockImplementation(async () => {
 jest.mock('../../../lib/lightning/LndClient', () => {
   return jest.fn().mockImplementation(() => ({
     on: () => {},
-    getInfo: mockGetInfo,
-    decodePayReq: mockDecodePayReq,
-    sendPayment: mockSendPayment,
-    listChannels: mockListChannels,
+    routerClient: {
+      getInfo: mockGetInfo,
+      decodePayReq: mockDecodePayReq,
+      listChannels: mockListChannels,
+    },
+    paymentClient: {
+      sendPayment: mockSendPayment,
+    },
   }));
 });
 

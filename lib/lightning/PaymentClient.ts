@@ -28,7 +28,7 @@ class PaymentClient extends LndBaseClient {
 
   public startSubscriptions = async () => {
     const info = await this.getInfo();
-    this.logger.debug(`Using ${info.alias} (${info.identityPubkey}) for ${this.symbol} payments`);
+    this.logger.verbose(`Using ${info.alias} (${info.identityPubkey}) for ${this.symbol} payments`);
   };
 
   public stopSubscriptions = () => {};
@@ -66,6 +66,7 @@ class PaymentClient extends LndBaseClient {
    * Pay an invoice through the Lightning Network.
    *
    * @param invoice an invoice for a payment within the Lightning Network
+   * @param cltvDelta maximal CTLV delta of the payment
    * @param outgoingChannelId channel through which the invoice should be paid
    */
   public sendPayment = (invoice: string, cltvDelta?: number, outgoingChannelId?: string): Promise<lndrpc.Payment.AsObject> => {

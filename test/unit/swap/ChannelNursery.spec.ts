@@ -127,9 +127,11 @@ jest.mock('../../../lib/lightning/LndClient', () => {
   return jest.fn().mockImplementation(() => {
     return {
       on: mockOnLndClient,
-      listPeers: mockListPeers,
-      openChannel: mockOpenChannel,
-      listChannels: mockListChannels,
+      routerClient: {
+        listPeers: mockListPeers,
+        openChannel: mockOpenChannel,
+        listChannels: mockListChannels,
+      },
     };
   });
 });
@@ -483,8 +485,8 @@ describe('ChannelNursery', () => {
 
     expect(await settleChannel(swap, channelCreation)).toEqual(true);
 
-    expect(btcCurrency.lndClient!.listChannels).toHaveBeenCalledTimes(1);
-    expect(btcCurrency.lndClient!.listChannels).toHaveBeenCalledWith(true);
+    expect(btcCurrency.lndClient!.routerClient.listChannels).toHaveBeenCalledTimes(1);
+    expect(btcCurrency.lndClient!.routerClient.listChannels).toHaveBeenCalledWith(true);
 
     expect(mockSettleSwap).toHaveBeenCalledTimes(1);
     expect(mockSettleSwap).toHaveBeenCalledWith(ltcCurrency, swap, 'correct');

@@ -10,7 +10,9 @@ const mockGetInfo = jest.fn().mockImplementation(async (symbol: string) => {
 
 jest.mock('../../../lib/lightning/LndClient', () => {
   return jest.fn().mockImplementation((symbol: string) => ({
-    getInfo: () => mockGetInfo(symbol),
+    routerClient: {
+      getInfo: () => mockGetInfo(symbol)
+    },
   }));
 });
 

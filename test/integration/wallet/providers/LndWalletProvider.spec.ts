@@ -6,7 +6,7 @@ import LndWalletProvider from '../../../../lib/wallet/providers/LndWalletProvide
 import { ListUnspentRequest, ListUnspentResponse } from '../../../../lib/proto/lnd/rpc_pb';
 import { SentTransaction } from '../../../../lib/wallet/providers/WalletProviderInterface';
 
-const spyGetOnchainTransactions = jest.spyOn(bitcoinLndClient, 'getOnchainTransactions');
+const spyGetOnchainTransactions = jest.spyOn(bitcoinLndClient.routerClient, 'getOnchainTransactions');
 
 describe('LndWalletProvider', () => {
   const provider = new LndWalletProvider(Logger.disabledLogger, bitcoinLndClient, bitcoinClient);
@@ -19,7 +19,7 @@ describe('LndWalletProvider', () => {
     const expectedAmount = isSweep ? Math.round(amount - sentTransaction.fee!) : amount;
     expect(Math.round(coinsToSatoshis(rawTransaction.vout[sentTransaction.vout!].value))).toEqual(expectedAmount);
 
-    const { transactionsList } = await bitcoinLndClient.getOnchainTransactions(0);
+    const { transactionsList } = await bitcoinLndClient.routerClient.getOnchainTransactions(0);
 
     for (let i = 0; i < transactionsList.length; i += 1) {
       const transaction = transactionsList[i];
@@ -36,9 +36,13 @@ describe('LndWalletProvider', () => {
     }
 
     const { utxosList } = await new Promise<ListUnspentResponse.AsObject>((resolve) => {
-      bitcoinLndClient['lightning']!.listUnspent(new ListUnspentRequest(), bitcoinLndClient['meta'], (_, response) => {
-        resolve(response.toObject());
-      });
+      bitcoinLndClient.routerClient['lightning']!.listUnspent(
+        new ListUnspentRequest(),
+        bitcoinLndClient.routerClient['meta'],
+        (_, response) => {
+          resolve(response.toObject());
+        },
+      );
     });
 
     for (let i = 0; i < utxosList.length; i += 1) {
@@ -87,7 +91,7 @@ describe('LndWalletProvider', () => {
   });
 
   test('should send transactions', async () => {
-    const { blockHeight } = await bitcoinLndClient.getInfo();
+    const { blockHeight } = await bitcoinLndClient.routerClient.getInfo();
 
     const amount = 2498572;
     const destination = await provider.getAddress();
@@ -104,7 +108,7 @@ describe('LndWalletProvider', () => {
     await bitcoinClient.generate(1);
     await wait(250);
 
-    const { blockHeight } = await bitcoinLndClient.getInfo();
+    const { blockHeight } = await bitcoinLndClient.routerClient.getInfo();
     const balance = await provider.getBalance();
 
     const destination = await provider.getAddress();

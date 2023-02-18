@@ -12,6 +12,7 @@ import ChainClient from '../../../lib/chain/ChainClient';
 import LndClient from '../../../lib/lightning/LndClient';
 import RateProvider from '../../../lib/rates/RateProvider';
 import ReverseSwap from '../../../lib/db/models/ReverseSwap';
+import PaymentClient from '../../../lib/lightning/PaymentClient';
 import InvoiceExpiryHelper from '../../../lib/service/InvoiceExpiryHelper';
 import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
 import SwapManager, { ChannelCreationInfo } from '../../../lib/swap/SwapManager';
@@ -211,21 +212,22 @@ const mockAddHoldInvoice = jest.fn().mockResolvedValue({
 const mockSubscribeSingleInvoice = jest.fn().mockResolvedValue(undefined);
 
 jest.mock('../../../lib/lightning/LndClient', () => {
-  const mockedImplementation = jest.fn().mockImplementation(() => {
+  return jest.fn().mockImplementation(() => {
     return {
       on: () => {},
-      queryRoutes: mockQueryRoutes,
-      decodePayReq: mockDecodePayReq,
-      listChannels: mockListChannels,
-      addHoldInvoice: mockAddHoldInvoice,
-      subscribeSingleInvoice: mockSubscribeSingleInvoice,
+      routerClient: {
+        listChannels: mockListChannels,
+        decodePayReq: mockDecodePayReq,
+      },
+      invoiceClient: {
+        addHoldInvoice: mockAddHoldInvoice,
+        subscribeSingleInvoice: mockSubscribeSingleInvoice,
+      },
+      paymentClient: {
+        queryRoutes: mockQueryRoutes,
+      }
     };
   });
-
-  // Hack to set the static property
-  (mockedImplementation as any).paymentMaxParts = 3;
-
-  return mockedImplementation;
 });
 
 const MockedLndClient = <jest.Mock<LndClient>><any>LndClient;
@@ -1062,7 +1064,9 @@ describe('SwapManager', () => {
     expect(mockQueryRoutes).toHaveBeenCalledWith('single', mockDecodedInvoiceAmount);
 
     expect(await checkRoutability(lndClient, 'multi')).toEqual(true);
-    expect(mockQueryRoutes).toHaveBeenCalledWith('multi', Math.round(mockDecodedInvoiceAmount / 3));
+    expect(mockQueryRoutes).toHaveBeenCalledWith('multi', Math.round(
+      mockDecodedInvoiceAmount / PaymentClient.paymentMaxParts,
+    ));
 
     expect(await checkRoutability(lndClient, 'throw')).toEqual(false);
   });

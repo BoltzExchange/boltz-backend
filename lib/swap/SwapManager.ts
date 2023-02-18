@@ -616,7 +616,7 @@ class SwapManager {
       // TODO: do MPP probing once it is available
       const decodedInvoice = await lnd.routerClient.decodePayReq(invoice);
 
-      // Check whether the the receiving side supports MPP and if so,
+      // Check whether the receiving side supports MPP and if so,
       // query a route for the number of sats of the invoice divided
       // by the max payment parts we tell to LND to use
       let supportsMpp = false;

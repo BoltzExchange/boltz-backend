@@ -184,27 +184,6 @@ class RouterClient extends LndBaseClient implements IRouterClient {
   };
 
   /**
-   * Gets a list of all open channels
-   */
-  public listChannels = (activeOnly = false, privateOnly = false): Promise<lndrpc.ListChannelsResponse.AsObject> => {
-    const request = new lndrpc.ListChannelsRequest();
-    request.setActiveOnly(activeOnly);
-    request.setPrivateOnly(privateOnly);
-
-    return this.unaryLightningCall<lndrpc.ListChannelsRequest, lndrpc.ListChannelsResponse.AsObject>('listChannels', request);
-  };
-
-  /**
-   * Gets the latest routing information of a given channel
-   */
-  public getChannelInfo = (channelId: string): Promise<lndrpc.ChannelEdge.AsObject> => {
-    const request = new lndrpc.ChanInfoRequest();
-    request.setChanId(channelId);
-
-    return this.unaryLightningCall<lndrpc.ChanInfoRequest, lndrpc.ChannelEdge.AsObject>('getChanInfo', request);
-  };
-
-  /**
    * Gets a list of all peers
    */
   public listPeers = (): Promise<lndrpc.ListPeersResponse.AsObject> => {

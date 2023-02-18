@@ -68,7 +68,7 @@ jest.mock('../../../lib/lightning/LndClient', () => {
   return jest.fn().mockImplementation(() => {
     return {
       symbol: lndSymbol,
-      routerClient: {
+      invoiceClient: {
         listChannels: mockListChannels,
         getChannelInfo: mockGetChannelInfo,
       },

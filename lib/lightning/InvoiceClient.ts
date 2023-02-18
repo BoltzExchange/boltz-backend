@@ -181,7 +181,7 @@ class InvoiceClient extends LndBaseClient implements IInvoiceClient{
   private updateDefaultRouteHints = async () => {
     const routeHints: lndrpc.RouteHint[] = [];
 
-    for (const channel of (await this.listChannels()).channelsList) {
+    for (const channel of (await this.listChannels(true, true)).channelsList) {
       const hopHint = new lndrpc.HopHint();
 
       hopHint.setChanId(channel.chanId);
@@ -202,21 +202,6 @@ class InvoiceClient extends LndBaseClient implements IInvoiceClient{
     }
 
     this.routeHints = routeHints;
-  };
-
-  private listChannels = (): Promise<lndrpc.ListChannelsResponse.AsObject> => {
-    const request = new lndrpc.ListChannelsRequest();
-    request.setActiveOnly(true);
-    request.setPrivateOnly(true);
-
-    return this.unaryLightningCall<lndrpc.ListChannelsRequest, lndrpc.ListChannelsResponse.AsObject>('listChannels', request);
-  };
-
-  public getChannelInfo = (channelId: string): Promise<lndrpc.ChannelEdge.AsObject> => {
-    const request = new lndrpc.ChanInfoRequest();
-    request.setChanId(channelId);
-
-    return this.unaryLightningCall<lndrpc.ChanInfoRequest, lndrpc.ChannelEdge.AsObject>('getChanInfo', request);
   };
 }
 

@@ -216,10 +216,10 @@ jest.mock('../../../lib/lightning/LndClient', () => {
     return {
       on: () => {},
       routerClient: {
-        listChannels: mockListChannels,
         decodePayReq: mockDecodePayReq,
       },
       invoiceClient: {
+        listChannels: mockListChannels,
         addHoldInvoice: mockAddHoldInvoice,
         subscribeSingleInvoice: mockSubscribeSingleInvoice,
       },

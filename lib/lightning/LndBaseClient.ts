@@ -151,6 +151,24 @@ abstract class LndBaseClient extends BaseClient implements ILndBaseClient {
     this.setClientStatus(ClientStatus.Disconnected);
   };
 
+  public listChannels = (activeOnly = false, privateOnly = false): Promise<lndrpc.ListChannelsResponse.AsObject> => {
+    const request = new lndrpc.ListChannelsRequest();
+    request.setActiveOnly(activeOnly);
+    request.setPrivateOnly(privateOnly);
+
+    return this.unaryLightningCall<lndrpc.ListChannelsRequest, lndrpc.ListChannelsResponse.AsObject>('listChannels', request);
+  };
+
+  /**
+   * Gets the latest routing information of a given channel
+   */
+  public getChannelInfo = (channelId: string): Promise<lndrpc.ChannelEdge.AsObject> => {
+    const request = new lndrpc.ChanInfoRequest();
+    request.setChanId(channelId);
+
+    return this.unaryLightningCall<lndrpc.ChanInfoRequest, lndrpc.ChannelEdge.AsObject>('getChanInfo', request);
+  };
+
   protected reconnect = async () => {
     this.setClientStatus(ClientStatus.Disconnected);
 

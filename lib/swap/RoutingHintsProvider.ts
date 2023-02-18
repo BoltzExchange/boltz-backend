@@ -8,8 +8,6 @@ type ChannelWithRoutingInfo = {
   routingInfo: ChannelEdge.AsObject;
 }
 
-// TODO: how does this behave with a separate InvoiceClient?
-
 class RoutingHintsProvider {
   // How often the channel lists should be updated in minutes
   private static readonly channelFetchInterval = 5;
@@ -33,9 +31,10 @@ class RoutingHintsProvider {
 
     this.logger.debug(`Fetching channels for routing hints provider every ${RoutingHintsProvider.channelFetchInterval} minutes`);
 
-    this.interval = setInterval(async () => {
-      await this.updateChannels();
-    }, minutesToMilliseconds(RoutingHintsProvider.channelFetchInterval));
+    this.interval = setInterval(
+      this.updateChannels,
+      minutesToMilliseconds(RoutingHintsProvider.channelFetchInterval),
+    );
   };
 
   public stop = (): void => {
@@ -82,12 +81,12 @@ class RoutingHintsProvider {
     for (const client of this.lndClients) {
       const channelInfos: ChannelWithRoutingInfo[] = [];
 
-      const channels = await client.routerClient.listChannels(true, true);
+      const channels = await client.invoiceClient.listChannels(true, true);
 
       for (const channel of channels.channelsList) {
         channelInfos.push({
           channel,
-          routingInfo: await client.routerClient.getChannelInfo(channel.chanId),
+          routingInfo: await client.invoiceClient.getChannelInfo(channel.chanId),
         });
       }
 

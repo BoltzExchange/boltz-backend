@@ -22,20 +22,20 @@ class Image:
 
 UBUNTU_VERSION = BuildArgument(
     name="UBUNTU_VERSION",
-    value="20.04"
+    value="22.04"
 )
 
 GOLANG_VERSION = BuildArgument(
     name="GOLANG_VERSION",
-    value="1.19.4-buster"
+    value="1.19.7-buster"
 )
 
 BITCOIN_VERSION = "24.0.1"
-LITECOIN_VERSION = "0.21.2.1"
-ELEMENTS_VERSION = "0.21.0.2"
-GETH_VERSION = "1.10.26"
+LITECOIN_VERSION = "0.21.2.2 "
+ELEMENTS_VERSION = "22.0.2"
+GETH_VERSION = "1.11.4"
 
-C_LIGHTNING_VERSION = "22.11.1"
+C_LIGHTNING_VERSION = "23.02"
 ECLAIR_VERSION = "0.8.0"
 LND_VERSION = "0.15.5-beta"
 

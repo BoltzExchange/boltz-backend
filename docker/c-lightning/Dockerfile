@@ -25,6 +25,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get install -y \
   libsodium-dev \
   libsqlite3-dev \
   build-essential \
+  protobuf-compiler \
   python-is-python3
 
 RUN pip3 install --upgrade pip

@@ -1,9 +1,9 @@
+import { MaxUint256 } from 'ethers';
 import { randomBytes } from 'crypto';
 import { crypto } from 'bitcoinjs-lib';
-import { BigNumber, constants } from 'ethers';
 import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
-import { getSigner } from '../EthereumTools';
+import { EthereumSetup, getSigner } from '../EthereumTools';
 import { getContracts } from '../../../../lib/cli/ethereum/EthereumUtils';
 import { ERC20SwapValues, EtherSwapValues } from '../../../../lib/consts/Types';
 import {
@@ -14,7 +14,7 @@ import {
 } from '../../../../lib/wallet/ethereum/ContractUtils';
 
 describe('ContractUtils', () => {
-  const { etherBase, signer, provider } = getSigner();
+  let setup: EthereumSetup;
 
   let etherSwap: EtherSwap;
   let erc20Swap: ERC20Swap;
@@ -29,7 +29,8 @@ describe('ContractUtils', () => {
   let erc20SwapLockTransactionHash: string;
 
   beforeAll(async () => {
-    const contracts = await getContracts(etherBase);
+    setup = await getSigner();
+    const contracts = await getContracts(setup.etherBase);
 
     etherSwap = contracts.etherSwap;
     erc20Swap = contracts.erc20Swap;
@@ -38,9 +39,9 @@ describe('ContractUtils', () => {
     etherSwapValues = {
       preimageHash,
       timelock: 1,
-      amount: BigNumber.from(1),
-      claimAddress: await signer.getAddress(),
-      refundAddress: await etherBase.getAddress(),
+      amount: BigInt(1),
+      claimAddress: await setup.signer.getAddress(),
+      refundAddress: await setup.etherBase.getAddress(),
     };
 
     const etherSwapLock = await etherSwap.lock(
@@ -51,7 +52,6 @@ describe('ContractUtils', () => {
         value: etherSwapValues.amount,
       }
     );
-    await etherSwapLock.wait(1);
 
     etherSwapLockTransactionHash = etherSwapLock.hash;
 
@@ -59,13 +59,13 @@ describe('ContractUtils', () => {
     erc20SwapValues = {
       preimageHash,
       timelock: 2,
-      amount: BigNumber.from(2),
-      tokenAddress: contracts.token.address,
-      claimAddress: await signer.getAddress(),
-      refundAddress: await etherBase.getAddress(),
+      amount: BigInt(2),
+      tokenAddress: await contracts.token.getAddress(),
+      claimAddress: await setup.signer.getAddress(),
+      refundAddress: await setup.etherBase.getAddress(),
     };
 
-    await contracts.token.approve(erc20Swap.address, constants.MaxUint256);
+    await contracts.token.approve(await erc20Swap.getAddress(), MaxUint256);
     const erc20SwapLock = await erc20Swap.lock(
       erc20SwapValues.preimageHash,
       erc20SwapValues.amount,
@@ -73,17 +73,25 @@ describe('ContractUtils', () => {
       erc20SwapValues.claimAddress,
       erc20SwapValues.timelock,
     );
-    await erc20SwapLock.wait(1);
 
     erc20SwapLockTransactionHash = erc20SwapLock.hash;
+
+    await Promise.all([
+      erc20SwapLock.wait(1),
+      etherSwapLock.wait(1),
+    ]);
   });
 
   test('should query EtherSwap values from lock transaction hash', async () => {
-    expect(await queryEtherSwapValuesFromLock(etherSwap, etherSwapLockTransactionHash)).toEqual(etherSwapValues);
+    expect(
+      await queryEtherSwapValuesFromLock(setup.provider, etherSwap, etherSwapLockTransactionHash)
+    ).toEqual(etherSwapValues);
   });
 
   test('should query ERC20Swap values from lock transaction hash', async () => {
-    expect(await queryERC20SwapValuesFromLock(erc20Swap, erc20SwapLockTransactionHash)).toEqual(erc20SwapValues);
+    expect(
+      await queryERC20SwapValuesFromLock(setup.provider, erc20Swap, erc20SwapLockTransactionHash)
+    ).toEqual(erc20SwapValues);
   });
 
   test('should query EtherSwap values from preimage hash', async () => {
@@ -94,7 +102,7 @@ describe('ContractUtils', () => {
     expect(await queryERC20SwapValues(erc20Swap, erc20SwapValues.preimageHash)).toEqual(erc20SwapValues);
   });
 
-  afterAll(async () => {
-    await provider.destroy();
+  afterAll(() => {
+    setup.provider.destroy();
   });
 });

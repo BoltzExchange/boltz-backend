@@ -1,14 +1,14 @@
-import { BigNumber, providers } from 'ethers';
+import { Provider } from 'ethers';
 import { getHexBuffer } from '../../../../lib/Utils';
 import { getGasPrices, parseBuffer } from '../../../../lib/wallet/ethereum/EthereumUtils';
 
 const mockGetFeeDataResult = {
-  maxFeePerGas: BigNumber.from(100),
-  maxPriorityFeePerGas: BigNumber.from(2),
+  maxFeePerGas: BigInt(100),
+  maxPriorityFeePerGas: BigInt(2),
 };
 const mockGetFeeData = jest.fn().mockResolvedValue(mockGetFeeDataResult);
 
-const MockedProvider = <jest.Mock<providers.Provider>><any>jest.fn().mockImplementation(() => ({
+const MockedProvider = <jest.Mock<Provider>><any>jest.fn().mockImplementation(() => ({
   getFeeData: mockGetFeeData,
 }));
 

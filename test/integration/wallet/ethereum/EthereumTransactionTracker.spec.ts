@@ -1,34 +1,35 @@
 import Logger from '../../../../lib/Logger';
-import { fundSignerWallet, getSigner } from '../EthereumTools';
+import { EthereumSetup, fundSignerWallet, getSigner } from '../EthereumTools';
 import EthereumTransactionTracker from '../../../../lib/wallet/ethereum/EthereumTransactionTracker';
 
 const mockAddTransaction = jest.fn().mockImplementation(async () => {});
 
-const mockFindByNonceResult = [{
+const mockGetTransactionsResult: any[] = [{
   destroy: jest.fn().mockImplementation(async () => {}),
 }];
-const mockFindByNonce = jest.fn().mockImplementation(async () => {
-  return mockFindByNonceResult;
+const mockGetTransactions = jest.fn().mockImplementation(async () => {
+  return mockGetTransactionsResult;
 });
 
 jest.mock('../../../../lib/db/repositories/PendingEthereumTransactionRepository', () => {
   return jest.fn().mockImplementation(() => ({
-    findByNonce: mockFindByNonce,
+    getTransactions: mockGetTransactions,
     addTransaction: mockAddTransaction,
   }));
 });
 
 describe('EthereumTransactionTracker', () => {
-  const { etherBase, provider, signer } = getSigner();
-
-  const transactionTracker = new EthereumTransactionTracker(
-    Logger.disabledLogger,
-    provider,
-    signer,
-  );
+  let setup: EthereumSetup;
+  let transactionTracker: EthereumTransactionTracker;
 
   beforeAll(async () => {
-    await fundSignerWallet(signer, etherBase);
+    setup = await getSigner();
+    transactionTracker = new EthereumTransactionTracker(
+      Logger.disabledLogger,
+      setup.provider,
+      setup.signer,
+    );
+    await fundSignerWallet(setup.signer, setup.etherBase);
   });
 
   beforeEach(() => {
@@ -36,34 +37,31 @@ describe('EthereumTransactionTracker', () => {
   });
 
   test('should init', async () => {
-    const realScanBlock = transactionTracker.scanBlock;
-    transactionTracker.scanBlock = jest.fn().mockImplementation();
+    const realScanBlock = transactionTracker.scanPendingTransactions;
+    transactionTracker.scanPendingTransactions = jest.fn().mockImplementation();
 
     await transactionTracker.init();
 
-    expect(transactionTracker.scanBlock).toHaveBeenCalledTimes(1);
-    expect(transactionTracker.scanBlock).toHaveBeenCalledWith(await provider.getBlockNumber());
+    expect(transactionTracker.scanPendingTransactions).toHaveBeenCalledTimes(1);
 
-    expect(transactionTracker['walletAddress']).toEqual((await signer.getAddress()).toLowerCase());
-
-    transactionTracker.scanBlock = realScanBlock;
+    transactionTracker.scanPendingTransactions = realScanBlock;
   });
 
   test('should scan new blocks', async () => {
-    const transaction = await signer.sendTransaction({
-      to: await signer.getAddress(),
+    const transaction = await setup.signer.sendTransaction({
+      to: await setup.signer.getAddress(),
     });
-    const transactionReceipt = await transaction.wait(1);
+    mockGetTransactionsResult[0].hash = transaction.hash;
 
-    await transactionTracker.scanBlock(transactionReceipt.blockNumber);
+    await transaction.wait(1);
 
-    expect(mockFindByNonce).toHaveBeenCalledTimes(1);
-    expect(mockFindByNonce).toHaveBeenCalledWith(transaction.nonce);
+    await transactionTracker.scanPendingTransactions();
 
-    expect(mockFindByNonceResult[0].destroy).toHaveBeenCalledTimes(1);
+    expect(mockGetTransactions).toHaveBeenCalledTimes(1);
+    expect(mockGetTransactionsResult[0].destroy).toHaveBeenCalledTimes(1);
   });
 
   afterAll(async () => {
-    await provider.destroy();
+    await setup.provider.destroy();
   });
 });

@@ -1,4 +1,3 @@
-import { utils } from 'ethers';
 import { OutputType } from 'boltz-core';
 import { Transaction } from 'bitcoinjs-lib';
 import Errors from './Errors';
@@ -20,7 +19,7 @@ import RateProvider, { PairType } from '../rates/RateProvider';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import ReferralRepository from '../db/repositories/ReferralRepository';
 import SwapManager, { ChannelCreationInfo } from '../swap/SwapManager';
-import { etherDecimals, ethereumPrepayMinerFeeGasLimit, gweiDecimals } from '../consts/Consts';
+import {etherDecimals, ethereumPrepayMinerFeeGasLimit, gweiDecimals} from '../consts/Consts';
 import { BaseFeeType, CurrencyType, OrderSide, ServiceInfo, ServiceWarning } from '../consts/Enums';
 import {
   Balance,
@@ -51,6 +50,7 @@ import {
   reverseBuffer,
   splitPairId,
 } from '../Utils';
+import { getAddress } from 'ethers';
 
 class Service {
   public allowReverseSwaps = true;
@@ -313,13 +313,13 @@ class Service {
   /**
    * Gets the contract address used by the Boltz instance
    */
-  public getContracts = (): {
+  public getContracts = async (): Promise<{
     ethereum: {
       network: Network,
       swapContracts: Map<string, string>,
       tokens: Map<string, string>,
     },
-  } => {
+  }> => {
     if (this.walletManager.ethereumManager === undefined) {
       throw Errors.ETHEREUM_NOT_ENABLED();
     }
@@ -329,8 +329,8 @@ class Service {
         network: this.walletManager.ethereumManager.network,
         tokens: this.walletManager.ethereumManager.tokenAddresses,
         swapContracts: new Map<string, string>([
-          ['EtherSwap', this.walletManager.ethereumManager.etherSwap.address],
-          ['ERC20Swap', this.walletManager.ethereumManager.erc20Swap.address],
+          ['EtherSwap', await this.walletManager.ethereumManager.etherSwap.getAddress()],
+          ['ERC20Swap', await this.walletManager.ethereumManager.erc20Swap.getAddress()],
         ]),
       },
     };
@@ -436,10 +436,7 @@ class Service {
       if (currency.chainClient) {
         return currency.chainClient.estimateFee(numBlocks);
       } else if (currency.provider) {
-        // TODO: also show EIP-1559 estimations
-        const gasPrice = await currency.provider.getGasPrice();
-
-        return gasPrice.div(gweiDecimals).toNumber();
+        return Number(await this.getGasPrice(currency) / gweiDecimals);
       } else {
         throw Errors.NOT_SUPPORTED_BY_SYMBOL(currency.symbol);
       }
@@ -940,7 +937,7 @@ class Service {
 
         try {
           // Get a checksum address and verify that the address is valid
-          args.claimAddress = utils.getAddress(args.claimAddress);
+          args.claimAddress = getAddress(args.claimAddress);
         } catch (error) {
           throw Errors.INVALID_ETHEREUM_ADDRESS();
         }
@@ -1012,8 +1009,8 @@ class Service {
         prepayMinerFeeInvoiceAmount = Math.ceil(baseFee / rate);
         holdInvoiceAmount = Math.floor(holdInvoiceAmount - prepayMinerFeeInvoiceAmount);
       } else {
-        const gasPrice = await sendingCurrency.provider!.getGasPrice();
-        prepayMinerFeeOnchainAmount = ethereumPrepayMinerFeeGasLimit.mul(gasPrice).div(etherDecimals).toNumber();
+        const gasPrice = await this.getGasPrice(sendingCurrency);
+        prepayMinerFeeOnchainAmount = Number((gasPrice * ethereumPrepayMinerFeeGasLimit) / etherDecimals);
 
         const sendingAmountRate = sending === 'ETH' ? 1 : this.rateProvider.rateCalculator.calculateRate('ETH', sending);
 
@@ -1132,6 +1129,11 @@ class Service {
     }
 
     throw Errors.CURRENCY_NOT_FOUND(symbol);
+  };
+
+  private getGasPrice = async (currency: Currency) => {
+    const feeData = await currency.provider!.getFeeData();
+    return (feeData.gasPrice || feeData.maxFeePerGas)!;
   };
 
   private getReferralId = async (referralId?: string, routingNode?: string): Promise<string | undefined> => {

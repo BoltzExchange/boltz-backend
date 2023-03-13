@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import { BigNumber, Event } from 'ethers';
+import { ContractEventPayload } from 'ethers';
 import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import Logger from '../../Logger';
@@ -7,7 +7,7 @@ import { parseBuffer } from './EthereumUtils';
 import { ERC20SwapValues, EtherSwapValues } from '../../consts/Types';
 import { formatERC20SwapValues, formatEtherSwapValues } from './ContractUtils';
 
-interface ContractEventHandler {
+interface IContractEventHandler {
   // EtherSwap contract events
   on(event: 'eth.lockup', listener: (transactionHash: string, etherSwapValues: EtherSwapValues) => void): this;
   emit(event: 'eth.lockup', transactionHash: string, etherSwapValues: EtherSwapValues): boolean;
@@ -29,7 +29,7 @@ interface ContractEventHandler {
   emit(event: 'erc20.refund', transactionHash: string, preimageHash: Buffer): boolean;
 }
 
-class ContractEventHandler extends EventEmitter {
+class ContractEventHandler extends EventEmitter implements IContractEventHandler {
   private etherSwap!: EtherSwap;
   private erc20Swap!: ERC20Swap;
 
@@ -39,28 +39,28 @@ class ContractEventHandler extends EventEmitter {
     super();
   }
 
-  public init = (etherSwap: EtherSwap, erc20Swap: ERC20Swap): void => {
+  public init = async (etherSwap: EtherSwap, erc20Swap: ERC20Swap): Promise<void> => {
     this.etherSwap = etherSwap;
     this.erc20Swap = erc20Swap;
 
     this.logger.verbose('Starting contract event subscriptions');
 
-    this.subscribeContractEvents();
+    await this.subscribeContractEvents();
   };
 
   public rescan = async (startHeight: number): Promise<void> => {
     const etherLockups = await this.etherSwap.queryFilter(
-      this.etherSwap.filters.Lockup(null, null, null, null, null),
+      this.etherSwap.filters.Lockup(),
       startHeight,
     );
 
     const etherClaims = await this.etherSwap.queryFilter(
-      this.etherSwap.filters.Claim(null, null),
+      this.etherSwap.filters.Claim(),
       startHeight,
     );
 
     const etherRefunds = await this.etherSwap.queryFilter(
-      this.etherSwap.filters.Refund(null),
+      this.etherSwap.filters.Refund(),
       startHeight,
     );
 
@@ -81,17 +81,17 @@ class ContractEventHandler extends EventEmitter {
     });
 
     const erc20Lockups = await this.erc20Swap.queryFilter(
-      this.erc20Swap.filters.Lockup(null, null, null, null, null, null),
+      this.erc20Swap.filters.Lockup(),
       startHeight,
     );
 
     const erc20Claims = await this.erc20Swap.queryFilter(
-      this.erc20Swap.filters.Claim(null, null),
+      this.erc20Swap.filters.Claim(),
       startHeight,
     );
 
     const erc20Refunds = await this.erc20Swap.queryFilter(
-      this.erc20Swap.filters.Refund(null),
+      this.erc20Swap.filters.Refund(),
       startHeight,
     );
 
@@ -112,65 +112,65 @@ class ContractEventHandler extends EventEmitter {
     });
   };
 
-  private subscribeContractEvents = () => {
-    this.etherSwap.on('Lockup', async (
+  private subscribeContractEvents = async () => {
+    await this.etherSwap.on('Lockup' as any, async (
       preimageHash: string,
-      amount: BigNumber,
+      amount: bigint,
       claimAddress: string,
       refundAddress: string,
-      timelock: BigNumber,
-      event: Event,
+      timelock: bigint,
+      event: ContractEventPayload,
     ) => {
       this.emit(
         'eth.lockup',
-        event.transactionHash,
+        event.log.transactionHash,
         {
           amount,
           claimAddress,
           refundAddress,
+          timelock: Number(timelock),
           preimageHash: parseBuffer(preimageHash),
-          timelock: timelock.toNumber(),
         },
       );
     });
 
-    this.etherSwap.on('Claim', (preimageHash: string, preimage: string, event: Event) => {
-      this.emit('eth.claim', event.transactionHash, parseBuffer(preimageHash), parseBuffer(preimage));
+    await this.etherSwap.on('Claim' as any, (preimageHash: string, preimage: string, event: ContractEventPayload) => {
+      this.emit('eth.claim', event.log.transactionHash, parseBuffer(preimageHash), parseBuffer(preimage));
     });
 
-    this.etherSwap.on('Refund', (preimageHash: string, event: Event) => {
-      this.emit('eth.refund', event.transactionHash, parseBuffer(preimageHash));
+    await this.etherSwap.on('Refund' as any, (preimageHash: string, event: ContractEventPayload) => {
+      this.emit('eth.refund', event.log.transactionHash, parseBuffer(preimageHash));
     });
 
-    this.erc20Swap.on('Lockup', async (
+    await this.erc20Swap.on('Lockup' as any, async (
       preimageHash: string,
-      amount: BigNumber,
+      amount: bigint,
       tokenAddress: string,
       claimAddress: string,
       refundAddress: string,
-      timelock: BigNumber,
-      event: Event,
+      timelock: bigint,
+      event: ContractEventPayload,
     ) => {
       this.emit(
         'erc20.lockup',
-        event.transactionHash,
+        event.log.transactionHash,
         {
           amount,
           tokenAddress,
           claimAddress,
           refundAddress,
+          timelock: Number(timelock),
           preimageHash: parseBuffer(preimageHash),
-          timelock: timelock.toNumber(),
         },
       );
     });
 
-    this.erc20Swap.on('Claim', (preimageHash: string, preimage: string, event: Event) => {
-      this.emit('erc20.claim', event.transactionHash, parseBuffer(preimageHash), parseBuffer(preimage));
+    await this.erc20Swap.on('Claim' as any, (preimageHash: string, preimage: string, event: ContractEventPayload) => {
+      this.emit('erc20.claim', event.log.transactionHash, parseBuffer(preimageHash), parseBuffer(preimage));
     });
 
-    this.erc20Swap.on('Refund', (preimageHash: string, event: Event) => {
-      this.emit('erc20.refund', event.transactionHash, parseBuffer(preimageHash));
+    await this.erc20Swap.on('Refund' as any, (preimageHash: string, event: ContractEventPayload) => {
+      this.emit('erc20.refund', event.log.transactionHash, parseBuffer(preimageHash));
     });
   };
 }

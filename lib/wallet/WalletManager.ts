@@ -1,5 +1,5 @@
 import fs from 'fs';
-import { providers } from 'ethers';
+import { Provider } from 'ethers';
 import * as ecc from 'tiny-secp256k1';
 import { Network } from 'bitcoinjs-lib';
 import BIP32Factory, { BIP32Interface } from 'bip32';
@@ -11,12 +11,12 @@ import { splitDerivationPath } from '../Utils';
 import ChainClient from '../chain/ChainClient';
 import LndClient from '../lightning/LndClient';
 import { CurrencyType } from '../consts/Enums';
-import KeyRepository from '../db/repositories/KeyRepository';
 import EthereumManager from './ethereum/EthereumManager';
-import ChainTipRepository from '../db/repositories/ChainTipRepository';
 import { KeyProviderType } from '../db/models/KeyProvider';
+import KeyRepository from '../db/repositories/KeyRepository';
 import LndWalletProvider from './providers/LndWalletProvider';
 import CoreWalletProvider from './providers/CoreWalletProvider';
+import ChainTipRepository from '../db/repositories/ChainTipRepository';
 import WalletProviderInterface from './providers/WalletProviderInterface';
 
 type CurrencyLimits = {
@@ -42,7 +42,7 @@ type Currency = {
   chainClient?: ChainClient;
 
   // Needed for Ether and tokens on Ethereum
-  provider?: providers.Provider;
+  provider?: Provider;
 };
 
 const bip32 = BIP32Factory(ecc);

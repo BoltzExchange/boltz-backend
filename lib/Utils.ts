@@ -1,9 +1,9 @@
 import os from 'os';
 import path from 'path';
 import { randomBytes } from 'crypto';
+import { ContractTransactionResponse } from 'ethers';
 import { Transaction, crypto } from 'bitcoinjs-lib';
 import bolt11, { RoutingInfo } from '@boltz/bolt11';
-import { BigNumber, ContractTransaction } from 'ethers';
 import { Errors, OutputType, Scripts } from 'boltz-core';
 import commitHash from './Version';
 import packageJson from '../package.json';
@@ -449,14 +449,13 @@ export const calculateUtxoTransactionFee = async (chainClient: ChainClient, tran
 /**
  * Calculates the transaction fee of an Ethereum contract interaction and rounds it to 10 ** -8 decimals
  */
-export const calculateEthereumTransactionFee = (transaction: ContractTransaction): number => {
-  return transaction.gasLimit.mul(
-    transaction.type === 2 ? transaction.maxFeePerGas! : transaction.gasPrice!,
-  ).div(etherDecimals).toNumber();
-};
-
-export const getBiggerBigNumber = (a: BigNumber, b: BigNumber): BigNumber => {
-  return a.gt(b) ? a : b;
+export const calculateEthereumTransactionFee = (transaction: ContractTransactionResponse): number => {
+  return Number(
+    (transaction.gasLimit! * (transaction.type === 2
+      ? transaction.maxFeePerGas!
+      : transaction.gasPrice!
+    )) / etherDecimals,
+  );
 };
 
 /**

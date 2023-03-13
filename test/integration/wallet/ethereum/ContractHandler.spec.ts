@@ -1,17 +1,17 @@
 import { randomBytes } from 'crypto';
 import { crypto } from 'bitcoinjs-lib';
 import { ERC20 } from 'boltz-core/typechain/ERC20';
+import { Wallet } from 'ethers';
 import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
-import { BigNumber, ContractTransaction, Wallet } from 'ethers';
 import Logger from '../../../../lib/Logger';
-import { fundSignerWallet, getSigner } from '../EthereumTools';
 import { getContracts } from '../../../../lib/cli/ethereum/EthereumUtils';
 import ContractHandler from '../../../../lib/wallet/ethereum/ContractHandler';
+import { EthereumSetup, fundSignerWallet, getSigner } from '../EthereumTools';
 import ERC20WalletProvider from '../../../../lib/wallet/providers/ERC20WalletProvider';
 
 describe('ContractHandler', () => {
-  const { signer, provider, etherBase } = getSigner();
+  let setup: EthereumSetup;
 
   let etherSwap: EtherSwap;
   let erc20Swap: ERC20Swap;
@@ -22,22 +22,18 @@ describe('ContractHandler', () => {
   const contractHandler = new ContractHandler(Logger.disabledLogger);
   const contractHandlerEtherBase = new ContractHandler(Logger.disabledLogger);
 
-  const amount = BigNumber.from(10).pow(17);
+  const amount = BigInt(10) ** BigInt(17);
   const preimage = randomBytes(32);
   const preimageHash = crypto.sha256(preimage);
 
   let timelock: number;
-
-  const waitForTransaction = async (transaction: ContractTransaction) => {
-    return transaction.wait(1);
-  };
 
   const hashEtherSwapValues = async (claimAddress: string) => {
     return etherSwap.hashValues(
       preimageHash,
       amount,
       claimAddress,
-      await signer.getAddress(),
+      await setup.signer.getAddress(),
       timelock,
     );
   };
@@ -46,9 +42,9 @@ describe('ContractHandler', () => {
     return erc20Swap.hashValues(
       preimageHash,
       amount,
-      tokenContract.address,
+      await tokenContract.getAddress(),
       claimAddress,
-      await signer.getAddress(),
+      await setup.signer.getAddress(),
       timelock,
     );
   };
@@ -62,34 +58,35 @@ describe('ContractHandler', () => {
     const transaction = await contractHandler.lockupEther(
       preimageHash,
       amount,
-      await etherBase.getAddress(),
+      await setup.etherBase.getAddress(),
       timelock,
     );
 
-    await waitForTransaction(transaction);
+    await transaction.wait(1);
   };
 
   const lockupErc20 = async () => {
-    const feeData = await provider.getFeeData();
-    const approveTransaction = await tokenContract.approve(erc20Swap.address, amount, {
+    const feeData = await setup.provider.getFeeData();
+    const approveTransaction = await tokenContract.approve(await erc20Swap.getAddress(), amount, {
       type: 2,
       maxFeePerGas: feeData.maxFeePerGas!,
       maxPriorityFeePerGas: feeData.maxPriorityFeePerGas!,
     });
-    await waitForTransaction(approveTransaction);
+    await approveTransaction.wait(1);
 
     const transaction = await contractHandler.lockupToken(
       erc20WalletProvider,
       preimageHash,
       amount,
-      await etherBase.getAddress(),
+      await setup.etherBase.getAddress(),
       timelock,
     );
-    await waitForTransaction(transaction);
+    await transaction.wait(1);
   };
 
   beforeAll(async () => {
-    const contracts = await getContracts(signer);
+    setup = await getSigner();
+    const contracts = await getContracts(setup.signer);
 
     etherSwap = contracts.etherSwap;
     erc20Swap = contracts.erc20Swap;
@@ -97,20 +94,25 @@ describe('ContractHandler', () => {
 
     erc20WalletProvider = new ERC20WalletProvider(
       Logger.disabledLogger,
-      signer,
+      setup.signer,
       {
         decimals: 18,
         symbol: 'TRC',
         contract: tokenContract,
+        address: await tokenContract.getAddress(),
       },
     );
 
-    contractHandler.init(etherSwap, erc20Swap);
-    contractHandlerEtherBase.init(etherSwap.connect(etherBase), erc20Swap.connect(etherBase));
+    contractHandler.init(setup.provider, etherSwap, erc20Swap);
+    contractHandlerEtherBase.init(
+      setup.provider,
+      etherSwap.connect(setup.etherBase) as EtherSwap,
+      erc20Swap.connect(setup.etherBase) as ERC20Swap,
+    );
 
-    timelock = await provider.getBlockNumber();
+    timelock = await setup.provider.getBlockNumber();
 
-    await fundSignerWallet(signer, etherBase, tokenContract);
+    await fundSignerWallet(setup.signer, setup.etherBase, tokenContract);
   });
 
   test('should lockup Ether', async () => {
@@ -118,16 +120,16 @@ describe('ContractHandler', () => {
 
     expect(await querySwap(
       etherSwap,
-      await hashEtherSwapValues(await etherBase.getAddress()),
+      await hashEtherSwapValues(await setup.etherBase.getAddress()),
     )).toEqual(true);
   });
 
   test('should lockup Ether with prepay miner fee', async () => {
-    const randomWallet = Wallet.createRandom().connect(provider);
+    const randomWallet = Wallet.createRandom().connect(setup.provider);
 
-    expect(await randomWallet.getBalance()).toEqual(BigNumber.from(0));
+    expect(await setup.provider.getBalance(await randomWallet.getAddress())).toEqual(BigInt(0));
 
-    const amountPrepay = BigNumber.from(1);
+    const amountPrepay = BigInt(1);
 
     const transaction = await contractHandler.lockupEtherPrepayMinerfee(
       preimageHash,
@@ -136,13 +138,13 @@ describe('ContractHandler', () => {
       randomWallet.address,
       timelock,
     );
-    await waitForTransaction(transaction);
+    await transaction.wait(1);
 
     // Sanity check the gas limit
-    expect(transaction.gasLimit.toNumber()).toBeLessThan(150000);
+    expect(Number(transaction.gasLimit)).toBeLessThan(150000);
 
     // Check that the prepay amount was forwarded to the claim address
-    expect(await randomWallet.getBalance()).toEqual(amountPrepay);
+    expect(await setup.provider.getBalance(await randomWallet.getAddress())).toEqual(amountPrepay);
 
     // Make sure the funds were locked in the contract
     expect(await querySwap(
@@ -155,14 +157,14 @@ describe('ContractHandler', () => {
     const transaction = await contractHandlerEtherBase.claimEther(
       preimage,
       amount,
-      await signer.getAddress(),
+      await setup.signer.getAddress(),
       timelock,
     );
-    await waitForTransaction(transaction);
+    await transaction.wait(1);
 
     expect(await querySwap(
       etherSwap,
-      await hashEtherSwapValues(await etherBase.getAddress()),
+      await hashEtherSwapValues(await setup.etherBase.getAddress()),
     )).toEqual(false);
   });
 
@@ -172,20 +174,20 @@ describe('ContractHandler', () => {
 
     expect(await querySwap(
       etherSwap,
-      await hashEtherSwapValues(await etherBase.getAddress()),
+      await hashEtherSwapValues(await setup.etherBase.getAddress()),
     )).toEqual(true);
 
-    const transactionHash = await contractHandler.refundEther(
+    const transaction = await contractHandler.refundEther(
       preimageHash,
       amount,
-      await etherBase.getAddress(),
+      await setup.etherBase.getAddress(),
       timelock,
     );
-    await waitForTransaction(transactionHash);
+    await transaction.wait(1);
 
     expect(await querySwap(
       etherSwap,
-      await hashEtherSwapValues(await etherBase.getAddress()),
+      await hashEtherSwapValues(await setup.etherBase.getAddress()),
     )).toEqual(false);
   });
 
@@ -194,25 +196,25 @@ describe('ContractHandler', () => {
 
     expect(await querySwap(
       erc20Swap,
-      await hashErc20SwapValues(await etherBase.getAddress()),
+      await hashErc20SwapValues(await setup.etherBase.getAddress()),
     )).toEqual(true);
   });
 
   test('should lockup ERC20 tokens with prepay miner fee', async () => {
     // For explanations check the "should lockup Ether with prepay miner fee" test
-    const randomWallet = Wallet.createRandom().connect(provider);
+    const randomWallet = Wallet.createRandom().connect(setup.provider);
 
-    expect(await randomWallet.getBalance()).toEqual(BigNumber.from(0));
+    expect(await setup.provider.getBalance(await randomWallet.getAddress())).toEqual(BigInt(0));
 
-    const amountPrepay = BigNumber.from(1);
+    const amountPrepay = BigInt(1);
 
-    const feeData = await provider.getFeeData();
-    const approveTransaction = await tokenContract.approve(erc20Swap.address, amount, {
+    const feeData = await setup.provider.getFeeData();
+    const approveTransaction = await tokenContract.approve(await erc20Swap.getAddress(), amount, {
       type: 2,
       maxFeePerGas: feeData.maxFeePerGas!,
       maxPriorityFeePerGas: feeData.maxPriorityFeePerGas!,
     });
-    await waitForTransaction(approveTransaction);
+    await approveTransaction.wait(1);
 
     const transaction = await contractHandler.lockupTokenPrepayMinerfee(
       erc20WalletProvider,
@@ -222,11 +224,11 @@ describe('ContractHandler', () => {
       randomWallet.address,
       timelock,
     );
-    await waitForTransaction(transaction);
+    await transaction.wait(1);
 
-    expect(transaction.gasLimit.toNumber()).toBeLessThan(200000);
+    expect(Number(transaction.gasLimit)).toBeLessThan(200000);
 
-    expect(await randomWallet.getBalance()).toEqual(amountPrepay);
+    expect(await setup.provider.getBalance(await randomWallet.getAddress())).toEqual(amountPrepay);
 
     expect(await querySwap(
       erc20Swap,
@@ -235,18 +237,18 @@ describe('ContractHandler', () => {
   });
 
   test('should claim ERC20 tokens', async () => {
-    const transactionHash = await contractHandlerEtherBase.claimToken(
+    const transaction = await contractHandlerEtherBase.claimToken(
       erc20WalletProvider,
       preimage,
       amount,
-      await signer.getAddress(),
+      await setup.signer.getAddress(),
       timelock,
     );
-    await waitForTransaction(transactionHash);
+    await transaction.wait(1);
 
     expect(await querySwap(
       erc20Swap,
-      await hashErc20SwapValues(await etherBase.getAddress()),
+      await hashErc20SwapValues(await setup.etherBase.getAddress()),
     )).toEqual(false);
   });
 
@@ -256,26 +258,26 @@ describe('ContractHandler', () => {
 
     expect(await querySwap(
       erc20Swap,
-      await hashErc20SwapValues(await etherBase.getAddress()),
+      await hashErc20SwapValues(await setup.etherBase.getAddress()),
     )).toEqual(true);
 
-    const transactionHash = await contractHandler.refundToken(
+    const transaction = await contractHandler.refundToken(
       erc20WalletProvider,
       preimageHash,
       amount,
-      await etherBase.getAddress(),
+      await setup.etherBase.getAddress(),
       timelock,
     );
-    await waitForTransaction(transactionHash);
+    await transaction.wait(1);
 
     expect(await querySwap(
       erc20Swap,
-      await hashErc20SwapValues(await etherBase.getAddress()),
+      await hashErc20SwapValues(await setup.etherBase.getAddress()),
     )).toEqual(false);
   });
 
   afterAll(async () => {
-    await provider.destroy();
+    setup.provider.destroy();
   });
 });
 

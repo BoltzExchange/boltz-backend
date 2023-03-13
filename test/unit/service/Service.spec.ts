@@ -1,6 +1,6 @@
+import { Provider } from 'ethers';
 import { randomBytes } from 'crypto';
 import { Networks } from 'boltz-core';
-import { BigNumber, providers } from 'ethers';
 import Logger from '../../../lib/Logger';
 import Swap from '../../../lib/db/models/Swap';
 import Wallet from '../../../lib/wallet/Wallet';
@@ -415,11 +415,15 @@ jest.mock('../../../lib/lightning/LndClient', () => {
 
 const mockedLndClient = <jest.Mock<LndClient>><any>LndClient;
 
-const mockGetGasPriceResult = 10;
-const mockGetGasPrice = jest.fn().mockResolvedValue(BigNumber.from(mockGetGasPriceResult).mul(gweiDecimals));
+const mockGetFeeDataResult: any = {
+  gasPrice: BigInt(10) * gweiDecimals,
+};
+const mockGetFeeData = jest.fn().mockImplementation(async () => {
+  return mockGetFeeDataResult;
+});
 
-const mockedProvider = <jest.Mock<providers.Provider>><any>jest.fn().mockImplementation(() => ({
-  getGasPrice: mockGetGasPrice,
+const mockedProvider = <jest.Mock<Provider>><any>jest.fn().mockImplementation(() => ({
+  getFeeData: mockGetFeeData,
 }));
 
 describe('Service', () => {
@@ -653,16 +657,16 @@ describe('Service', () => {
     expect(service.getTimeouts()).toEqual(service['timeoutDeltaProvider'].timeoutDeltas);
   });
 
-  test('should get contracts', () => {
+  test('should get contracts', async () => {
     const ethereumManager = {
       network: {
         some: 'networkData',
       },
       etherSwap: {
-        address: '0x18A4374d714762FA7DE346E997f7e28Fb3744EC1'
+        getAddress: async () => { return '0x18A4374d714762FA7DE346E997f7e28Fb3744EC1'; },
       },
       erc20Swap: {
-        address: '0xC685b2c4369D7bf9242DA54E9c391948079d83Cd',
+        getAddress: async () => { return '0xC685b2c4369D7bf9242DA54E9c391948079d83Cd'; },
       },
       tokenAddresses: new Map<string, string>([
         ['USDT', '0xDf567Cd5d0cf3d90cE6E3E9F897e092f9ECE359a']
@@ -671,13 +675,13 @@ describe('Service', () => {
 
     service['walletManager']['ethereumManager'] = ethereumManager as any;
 
-    expect(service.getContracts()).toEqual({
+    expect(await service.getContracts()).toEqual({
       ethereum: {
         network: ethereumManager.network,
         tokens: ethereumManager.tokenAddresses,
         swapContracts: new Map<string, string>([
-          ['EtherSwap', ethereumManager.etherSwap.address],
-          ['ERC20Swap', ethereumManager.erc20Swap.address],
+          ['EtherSwap', await ethereumManager.etherSwap.getAddress()],
+          ['ERC20Swap', await ethereumManager.erc20Swap.getAddress()],
         ]),
       },
     });
@@ -685,7 +689,7 @@ describe('Service', () => {
     // Should throw when the Ethereum integration is not enabled
     service['walletManager']['ethereumManager'] = undefined;
 
-    expect(() => service.getContracts()).toThrow(Errors.ETHEREUM_NOT_ENABLED().message);
+    await expect(service.getContracts()).rejects.toEqual(Errors.ETHEREUM_NOT_ENABLED());
   });
 
   test('should get transactions', async () => {
@@ -788,13 +792,13 @@ describe('Service', () => {
     expect(feeEstimation).toEqual(new Map<string, number>([
       ['BTC', 2],
       ['LTC', 2],
-      ['ETH', mockGetGasPriceResult],
+      ['ETH', Number(mockGetFeeDataResult.gasPrice / gweiDecimals)],
     ]));
 
     expect(mockEstimateFee).toHaveBeenCalledTimes(2);
     expect(mockEstimateFee).toHaveBeenNthCalledWith(1, 2);
 
-    expect(mockGetGasPrice).toHaveBeenCalledTimes(1);
+    expect(mockGetFeeData).toHaveBeenCalledTimes(1);
 
     // Get fee estimation for a single currency
     expect(await service.getFeeEstimation('BTC')).toEqual(new Map<string, number>([
@@ -814,10 +818,10 @@ describe('Service', () => {
 
     // Get fee estimation for an ERC20 token
     expect(await service.getFeeEstimation('USDT')).toEqual(new Map<string, number>([
-      ['ETH', mockGetGasPriceResult],
+      ['ETH', Number(mockGetFeeDataResult.gasPrice / gweiDecimals)],
     ]));
 
-    expect(mockGetGasPrice).toHaveBeenCalledTimes(2);
+    expect(mockGetFeeData).toHaveBeenCalledTimes(2);
 
     // Get fee estimation for a single currency that cannot be found
     const notFound = 'notFound';
@@ -1483,7 +1487,9 @@ describe('Service', () => {
     const percentageFee = Math.ceil(pairRate * args.invoiceAmount * mockGetPercentageFeeResult);
     const onchainAmount = Math.floor(pairRate * args.invoiceAmount - percentageFee - mockGetBaseFeeResult) - response.prepayMinerFeeAmount!;
 
-    const prepayMinerFeeOnchainAmount = ethereumPrepayMinerFeeGasLimit.mul(mockGetGasPriceResult).mul(gweiDecimals).div(etherDecimals).toNumber();
+    const prepayMinerFeeOnchainAmount = Number(
+      (ethereumPrepayMinerFeeGasLimit * await service['getGasPrice'](currencies.get('ETH')!)) / etherDecimals,
+    );
     const prepayMinerFeeInvoiceAmount = prepayMinerFeeOnchainAmount * (1 / pairRate);
 
     expect(response).toEqual({
@@ -1539,7 +1545,9 @@ describe('Service', () => {
     const pairRate = 1 / pairs.get(args.pairId)!.rate;
     const invoiceAmount = Math.ceil(((args.onchainAmount + mockGetBaseFeeResult) / pairRate) / (1 - mockGetPercentageFeeResult));
 
-    const prepayMinerFeeOnchainAmount = ethereumPrepayMinerFeeGasLimit.mul(mockGetGasPriceResult).mul(gweiDecimals).div(etherDecimals).toNumber();
+    const prepayMinerFeeOnchainAmount = Number(
+      (ethereumPrepayMinerFeeGasLimit * mockGetFeeDataResult.gasPrice) / etherDecimals,
+    );
     const prepayMinerFeeInvoiceAmount = prepayMinerFeeOnchainAmount * (1 / pairRate);
 
     expect(mockCreateReverseSwap).toHaveBeenCalledWith({
@@ -1715,6 +1723,17 @@ describe('Service', () => {
       sendAll: false,
       symbol: notFound,
     })).rejects.toEqual(Errors.CURRENCY_NOT_FOUND(notFound));
+  });
+
+  test('should get gas price', async () => {
+    await expect(service['getGasPrice'](currencies.get('ETH')!)).resolves.toEqual(mockGetFeeDataResult.gasPrice);
+
+    mockGetFeeDataResult.maxFeePerGas = mockGetFeeDataResult.gasPrice;
+    mockGetFeeDataResult.maxFeePerGas += BigInt(1);
+    await expect(service['getGasPrice'](currencies.get('ETH')!)).resolves.toEqual(mockGetFeeDataResult.gasPrice);
+
+    mockGetFeeDataResult.gasPrice = undefined;
+    await expect(service['getGasPrice'](currencies.get('ETH')!)).resolves.toEqual(mockGetFeeDataResult.maxFeePerGas);
   });
 
   test('should get referral IDs', async () => {

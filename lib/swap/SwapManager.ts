@@ -220,7 +220,7 @@ class SwapManager {
         redeemScript: getHexString(redeemScript),
       });
     } else {
-      address = this.getLockupContractAddress(receivingCurrency.type);
+      address = await this.getLockupContractAddress(receivingCurrency.type);
 
       const blockNumber = await receivingCurrency.provider!.getBlockNumber();
       timeoutBlockHeight = blockNumber + args.timeoutBlockDelta;
@@ -528,8 +528,7 @@ class SwapManager {
       const blockNumber = await sendingCurrency.provider!.getBlockNumber();
       timeoutBlockHeight = blockNumber + args.onchainTimeoutBlockDelta;
 
-      lockupAddress = this.getLockupContractAddress(sendingCurrency.type);
-
+      lockupAddress = await this.getLockupContractAddress(sendingCurrency.type);
       refundAddress = await this.walletManager.wallets.get(sendingCurrency.symbol)!.getAddress();
 
       await this.reverseSwapRepository.addReverseSwap({
@@ -666,9 +665,11 @@ class SwapManager {
     return currency;
   };
 
-  private getLockupContractAddress = (type: CurrencyType): string => {
+  private getLockupContractAddress = (type: CurrencyType): Promise<string> => {
     const ethereumManager = this.walletManager.ethereumManager!;
-    return type === CurrencyType.Ether ? ethereumManager.etherSwap.address: ethereumManager.erc20Swap.address;
+    return type === CurrencyType.Ether ?
+      ethereumManager.etherSwap.getAddress() :
+      ethereumManager.erc20Swap.getAddress();
   };
 }
 

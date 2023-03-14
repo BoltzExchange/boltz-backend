@@ -155,9 +155,9 @@ class Controller {
     });
   };
 
-  public getContracts = (req: Request, res: Response): void => {
+  public getContracts = async (req: Request, res: Response): Promise<void> => {
     try {
-      const contracts = this.service.getContracts();
+      const contracts = await this.service.getContracts();
 
       this.successResponse(res, {
         ethereum: {

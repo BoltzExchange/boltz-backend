@@ -364,10 +364,10 @@ describe('Controller', () => {
     });
   });
 
-  test('should get contracts', () => {
+  test('should get contracts', async () => {
     const res = mockResponse();
 
-    controller.getContracts(mockRequest({}), res);
+    await controller.getContracts(mockRequest({}), res);
 
     expect(mockGetContracts).toHaveBeenCalledTimes(1);
 

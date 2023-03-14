@@ -2,7 +2,7 @@ import { ContractABIs } from 'boltz-core';
 import { ERC20 } from 'boltz-core/typechain/ERC20';
 import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
-import { constants, Contract, utils, Wallet as EthersWallet } from 'ethers';
+import { getAddress, MaxUint256, Contract, Wallet as EthersWallet } from 'ethers';
 import Errors from '../Errors';
 import Wallet from '../Wallet';
 import Logger from '../../Logger';
@@ -18,7 +18,7 @@ import EthereumTransactionTracker from './EthereumTransactionTracker';
 import ChainTipRepository from '../../db/repositories/ChainTipRepository';
 
 type Network = {
-  chainId: number;
+  chainId: bigint;
 
   // Undefined for networks that are not recognised by Ethers
   name?: string;
@@ -79,19 +79,19 @@ class EthereumManager {
 
     const network = await this.provider.getNetwork();
     this.network = {
-      name: network.name !== 'unknown' ? network.name : undefined,
       chainId: network.chainId,
+      name: network.name !== 'unknown' ? network.name : undefined,
     };
 
-    const signer = EthersWallet.fromMnemonic(mnemonic).connect(this.provider);
+    const signer = EthersWallet.fromPhrase(mnemonic).connect(this.provider);
     this.address = await signer.getAddress();
 
-    this.etherSwap = this.etherSwap.connect(signer);
-    this.erc20Swap = this.erc20Swap.connect(signer);
+    this.etherSwap = this.etherSwap.connect(signer) as EtherSwap;
+    this.erc20Swap = this.erc20Swap.connect(signer) as ERC20Swap;
 
     await Promise.all([
-      this.checkContractVersion('EtherSwap', this.etherSwap, EthereumManager.supportedContractVersions.EtherSwap),
-      this.checkContractVersion('ERC20Swap', this.erc20Swap, EthereumManager.supportedContractVersions.ERC20Swap),
+      this.checkContractVersion('EtherSwap', this.etherSwap, BigInt(EthereumManager.supportedContractVersions.EtherSwap)),
+      this.checkContractVersion('ERC20Swap', this.erc20Swap, BigInt(EthereumManager.supportedContractVersions.ERC20Swap)),
     ]);
 
     this.logger.verbose(`Using Ethereum signer: ${this.address}`);
@@ -99,15 +99,15 @@ class EthereumManager {
     const currentBlock = await signer.provider!.getBlockNumber();
     const chainTip = await chainTipRepository.findOrCreateTip('ETH', currentBlock);
 
-    this.contractHandler.init(this.etherSwap, this.erc20Swap);
-    this.contractEventHandler.init(this.etherSwap, this.erc20Swap);
+    this.contractHandler.init(this.provider, this.etherSwap, this.erc20Swap);
+    await this.contractEventHandler.init(this.etherSwap, this.erc20Swap);
 
     this.logger.verbose(`Ethereum chain status: ${stringify({
-      chainId: await signer.getChainId(),
       blockNumber: currentBlock,
+      chainId: Number(this.network.chainId),
     })}`);
 
-    const transactionTracker = await new EthereumTransactionTracker(
+    const transactionTracker = new EthereumTransactionTracker(
       this.logger,
       this.provider,
       signer,
@@ -115,12 +115,12 @@ class EthereumManager {
 
     await transactionTracker.init();
 
-    this.provider.on('block', async (blockNumber: number) => {
+    await this.provider.on('block', async (blockNumber: number) => {
       this.logger.silly(`Got new Ethereum block: ${ blockNumber }`);
 
       await Promise.all([
         chainTipRepository.updateTip(chainTip, blockNumber),
-        transactionTracker.scanBlock(blockNumber),
+        transactionTracker.scanPendingTransactions(),
       ]);
     });
 
@@ -130,11 +130,13 @@ class EthereumManager {
       if (token.contractAddress) {
         if (token.decimals) {
           if (!wallets.has(token.symbol)) {
-            // Wrap the address in "utils.getAddress" to make sure it is a checksum one
-            this.tokenAddresses.set(token.symbol, utils.getAddress(token.contractAddress));
+            // Wrap the address in "getAddress" to make sure it is a checksum one
+            const checksumAddress = getAddress(token.contractAddress);
+            this.tokenAddresses.set(token.symbol, checksumAddress);
             const provider = new ERC20WalletProvider(this.logger, signer, {
               symbol: token.symbol,
               decimals: token.decimals,
+              address: checksumAddress,
               contract: new Contract(token.contractAddress, ContractABIs.ERC20, signer) as any as ERC20,
             });
 
@@ -176,23 +178,27 @@ class EthereumManager {
 
     this.logger.debug(`Allowance of ${erc20Wallet.symbol} is ${allowance.toString()}`);
 
-    if (allowance.isZero()) {
+    if (allowance == BigInt(0)) {
       this.logger.verbose(`Setting allowance of ${erc20Wallet.symbol}`);
 
       const { transactionId } = await erc20Wallet.approve(
         this.ethereumConfig.erc20SwapAddress,
-        constants.MaxUint256,
+        MaxUint256,
       );
 
       this.logger.info(`Set allowance of token ${erc20Wallet.symbol }: ${transactionId}`);
     }
   };
 
-  private checkContractVersion = async (name: string, contract: EtherSwap | ERC20Swap, supportedVersion: number) => {
+  private checkContractVersion = async (
+    name: string,
+    contract: EtherSwap | ERC20Swap,
+    supportedVersion: bigint,
+  ) => {
     const contractVersion = await contract.version();
 
     if (contractVersion !== supportedVersion) {
-      throw Errors.UNSUPPORTED_CONTRACT_VERSION(name, contract.address, contractVersion, supportedVersion);
+      throw Errors.UNSUPPORTED_CONTRACT_VERSION(name, await contract.getAddress(), contractVersion, supportedVersion);
     }
   };
 }

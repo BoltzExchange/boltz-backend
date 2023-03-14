@@ -1,20 +1,19 @@
 import { Op } from 'sequelize';
-import { BigNumber } from 'ethers';
 import { crypto } from 'bitcoinjs-lib';
 import { wait } from '../../Utils';
 import Logger from '../../../lib/Logger';
 import Errors from '../../../lib/swap/Errors';
 import Swap from '../../../lib/db/models/Swap';
 import Wallet from '../../../lib/wallet/Wallet';
-import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import EthereumNursery from '../../../lib/swap/EthereumNursery';
 import { getHexBuffer, getHexString } from '../../../lib/Utils';
-import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
+import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import EthereumManager from '../../../lib/wallet/ethereum/EthereumManager';
 import { ERC20SwapValues, EtherSwapValues } from '../../../lib/consts/Types';
 import EtherWalletProvider from '../../../lib/wallet/providers/EtherWalletProvider';
 import ERC20WalletProvider from '../../../lib/wallet/providers/ERC20WalletProvider';
 import { CurrencyType, OrderSide, SwapUpdateEvent } from '../../../lib/consts/Enums';
+import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 
 type blockCallback = (height: number) => void;
 
@@ -35,12 +34,12 @@ const MockedEtherWalletProvider = <jest.Mock<EtherWalletProvider>>EtherWalletPro
 const mockTokenAddress = '0xdac17f958d2ee523a2206206994597c13d831ec7';
 const mockGetTokenAddress = jest.fn().mockReturnValue(mockTokenAddress);
 
-const mockNormalizeTokenAmount = jest.fn().mockImplementation((amount: BigNumber) => {
-  return amount.div(BigNumber.from(10).pow(2)).toNumber();
+const mockNormalizeTokenAmount = jest.fn().mockImplementation((amount: bigint) => {
+  return Number(amount / (BigInt(10) ** BigInt(2)));
 });
 
 const mockFormatTokenAmount = jest.fn().mockImplementation((amount: number) => {
-  return BigNumber.from(amount).mul(BigNumber.from(10).pow(2));
+  return BigInt(amount) * (BigInt(10) ** BigInt(2));
 });
 
 jest.mock('../../../lib/wallet/providers/ERC20WalletProvider', () => {
@@ -59,11 +58,11 @@ const MockedErc20WalletProvider = <jest.Mock<ERC20WalletProvider>>ERC20WalletPro
 
 let emitBlock: blockCallback;
 
-const mockOnProvider = jest.fn().mockImplementation((event: string, callback: any) => {
+const mockOnProvider = jest.fn().mockImplementation((event: string, callback: any): any => {
   switch (event) {
     case 'block':
       emitBlock = callback;
-      break;
+      return new Promise(() => {});
   }
 });
 
@@ -303,7 +302,7 @@ describe('EthereumNursery', () => {
 
     const suppliedEtherSwapValues = {
       claimAddress: mockAddress,
-      amount: BigNumber.from('100000000000'),
+      amount: BigInt('100000000000'),
       preimageHash: getHexString(examplePreimageHash),
       timelock: mockGetSwapResult.timeoutBlockHeight,
     } as any;
@@ -386,7 +385,7 @@ describe('EthereumNursery', () => {
 
     // Amount is less than expected
     suppliedEtherSwapValues.timelock = mockGetSwapResult.timeoutBlockHeight;
-    suppliedEtherSwapValues.amount = BigNumber.from('99999999999');
+    suppliedEtherSwapValues.amount = BigInt('99999999999');
 
     nursery.once('lockup.failed', (_, error) => {
       expect(error).toEqual(Errors.INSUFFICIENT_AMOUNT(
@@ -491,9 +490,9 @@ describe('EthereumNursery', () => {
     };
 
     const suppliedERC20SwapValues = {
+      amount: BigInt('1000'),
       claimAddress: mockAddress,
       tokenAddress: mockTokenAddress,
-      amount: BigNumber.from('1000'),
       timelock: mockGetSwapResult.timeoutBlockHeight,
       preimageHash: getHexString(examplePreimageHash),
     } as any;
@@ -604,7 +603,7 @@ describe('EthereumNursery', () => {
 
     // Amount is less than expected
     suppliedERC20SwapValues.timelock = mockGetSwapResult.timeoutBlockHeight;
-    suppliedERC20SwapValues.amount = BigNumber.from('999');
+    suppliedERC20SwapValues.amount = BigInt('999');
 
     nursery.once('lockup.failed', (_, error) => {
       expect(error).toEqual(Errors.INSUFFICIENT_AMOUNT(

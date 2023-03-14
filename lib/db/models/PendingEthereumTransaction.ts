@@ -2,10 +2,12 @@ import { DataTypes, Model, Sequelize } from 'sequelize';
 
 type PendingEthereumTransactionType = {
   hash: string;
+  nonce: number;
 };
 
 class PendingEthereumTransaction extends Model implements PendingEthereumTransactionType {
   public hash!: string;
+  public nonce!: number;
 
   public static load = (sequelize: Sequelize): void => {
     PendingEthereumTransaction.init({

@@ -1,17 +1,17 @@
+import { MaxUint256 } from 'ethers';
 import { randomBytes } from 'crypto';
 import { crypto } from 'bitcoinjs-lib';
-import { BigNumber, constants } from 'ethers';
 import { ERC20 } from 'boltz-core/typechain/ERC20';
 import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import Logger from '../../../../lib/Logger';
 import { waitForFunctionToBeTrue } from '../../../Utils';
-import { fundSignerWallet, getSigner } from '../EthereumTools';
-import ContractEventHandler from '../../../../lib/wallet/ethereum/ContractEventHandler';
 import { getContracts } from '../../../../lib/cli/ethereum/EthereumUtils';
+import { EthereumSetup, fundSignerWallet, getSigner } from '../EthereumTools';
+import ContractEventHandler from '../../../../lib/wallet/ethereum/ContractEventHandler';
 
 describe('ContractEventHandler', () => {
-  const { signer, provider, etherBase } = getSigner();
+  let setup: EthereumSetup;
 
   let etherSwap: EtherSwap;
   let erc20Swap: ERC20Swap;
@@ -27,13 +27,13 @@ describe('ContractEventHandler', () => {
   const preimageHash = crypto.sha256(preimage);
 
   const etherSwapValues = {
-    amount: BigNumber.from(1),
+    amount: BigInt(1),
     claimAddress: '',
     timelock: 2,
   };
 
   const erc20SwapValues = {
-    amount: BigNumber.from(1),
+    amount: BigInt(1),
     tokenAddress: '',
     claimAddress: '',
     timelock: 3,
@@ -62,7 +62,7 @@ describe('ContractEventHandler', () => {
         preimageHash,
         amount: etherSwapValues.amount,
         timelock: etherSwapValues.timelock,
-        refundAddress: await signer.getAddress(),
+        refundAddress: await setup.signer.getAddress(),
         claimAddress: etherSwapValues.claimAddress,
       });
 
@@ -104,8 +104,8 @@ describe('ContractEventHandler', () => {
         preimageHash,
         amount: erc20SwapValues.amount,
         timelock: erc20SwapValues.timelock,
-        tokenAddress: tokenContract.address,
-        refundAddress: await signer.getAddress(),
+        tokenAddress: await tokenContract.getAddress(),
+        refundAddress: await setup.signer.getAddress(),
         claimAddress: erc20SwapValues.claimAddress,
       });
 
@@ -137,20 +137,21 @@ describe('ContractEventHandler', () => {
   };
 
   beforeAll(async () => {
-    const contracts = await getContracts(signer);
+    setup = await getSigner();
+    const contracts = await getContracts(setup.signer);
 
     etherSwap = contracts.etherSwap;
     erc20Swap = contracts.erc20Swap;
     tokenContract = contracts.token;
 
-    erc20SwapValues.tokenAddress = tokenContract.address;
+    erc20SwapValues.tokenAddress = await tokenContract.getAddress();
 
-    startingHeight = await provider.getBlockNumber() + 1;
+    startingHeight = await setup.provider.getBlockNumber() + 1;
 
-    etherSwapValues.claimAddress = await etherBase.getAddress();
-    erc20SwapValues.claimAddress = await etherBase.getAddress();
+    etherSwapValues.claimAddress = await setup.etherBase.getAddress();
+    erc20SwapValues.claimAddress = await setup.etherBase.getAddress();
 
-    await fundSignerWallet(signer, etherBase, tokenContract);
+    await fundSignerWallet(setup.signer, setup.etherBase, tokenContract);
   });
 
   beforeEach(() => {
@@ -180,10 +181,10 @@ describe('ContractEventHandler', () => {
     });
 
     // Claim
-    const claimTransaction = await etherSwap.connect(etherBase).claim(
+    const claimTransaction = await (etherSwap.connect(setup.etherBase) as EtherSwap).claim(
       preimage,
       etherSwapValues.amount,
-      await signer.getAddress(),
+      await setup.signer.getAddress(),
       etherSwapValues.timelock,
     );
     etherSwapTransactionHashes.claim = claimTransaction.hash;
@@ -219,7 +220,7 @@ describe('ContractEventHandler', () => {
   test('should subscribe to the ERC20 Swap contract events', async () => {
     registerErc20SwapListeners();
 
-    await tokenContract.approve(erc20Swap.address, constants.MaxUint256);
+    await (await tokenContract.approve(await erc20Swap.getAddress(), MaxUint256)).wait(1);
 
     // Lockup
     let lockupTransaction = await erc20Swap.lock(
@@ -238,11 +239,11 @@ describe('ContractEventHandler', () => {
     });
 
     // Claim
-    const claimTransaction = await erc20Swap.connect(etherBase).claim(
+    const claimTransaction = await (erc20Swap.connect(setup.etherBase) as ERC20Swap).claim(
       preimage,
       erc20SwapValues.amount,
       erc20SwapValues.tokenAddress,
-      await signer.getAddress(),
+      await setup.signer.getAddress(),
       erc20SwapValues.timelock,
     );
     erc20SwapTransactionHashes.claim = claimTransaction.hash;
@@ -278,7 +279,7 @@ describe('ContractEventHandler', () => {
       return eventsEmitted === 3;
     });
 
-    await tokenContract.approve(erc20Swap.address, 0);
+    await tokenContract.approve(await erc20Swap.getAddress(), 0);
   });
 
   test('should rescan', async () => {
@@ -292,9 +293,8 @@ describe('ContractEventHandler', () => {
     });
   });
 
-  afterAll(async () => {
+  afterAll(() => {
     contractEventHandler.removeAllListeners();
-
-    await provider.destroy();
+    setup.provider.destroy();
   });
 });

@@ -1,5 +1,5 @@
 import { Arguments } from 'yargs';
-import { BigNumber, ContractTransaction } from 'ethers';
+import { ContractTransactionResponse } from 'ethers';
 import { getHexBuffer } from '../../../Utils';
 import { etherDecimals } from '../../../consts/Consts';
 import BuilderComponents from '../../BuilderComponents';
@@ -26,11 +26,11 @@ export const builder = {
 };
 
 export const handler = async (argv: Arguments<any>): Promise<void> => {
-  const signer = connectEthereum(argv.provider);
+  const signer = await connectEthereum(argv.provider);
   const { etherSwap, erc20Swap, token } = await getContracts(signer);
 
   const preimageHash = getHexBuffer(argv.preimageHash);
-  const amount = BigNumber.from(argv.amount).mul(etherDecimals);
+  const amount = BigInt(argv.amount) * etherDecimals;
 
   const boltzAddress = await getBoltzAddress();
 
@@ -39,15 +39,15 @@ export const handler = async (argv: Arguments<any>): Promise<void> => {
     return;
   }
 
-  let transaction: ContractTransaction;
+  let transaction: ContractTransactionResponse;
 
   if (argv.token) {
-    await token.approve(erc20Swap.address, amount);
+    await token.approve(await erc20Swap.getAddress(), amount);
 
     transaction = await erc20Swap.lock(
       preimageHash,
       amount,
-      token.address,
+      await token.getAddress(),
       boltzAddress,
       argv.timelock,
     );

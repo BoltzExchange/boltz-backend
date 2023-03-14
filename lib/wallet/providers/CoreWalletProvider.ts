@@ -1,4 +1,3 @@
-import { BigNumber } from 'ethers';
 import { Transaction } from 'bitcoinjs-lib';
 import Logger from '../../Logger';
 import ChainClient from '../../chain/ChainClient';
@@ -46,10 +45,10 @@ class CoreWalletProvider implements WalletProviderInterface {
     const rawTransaction = Transaction.fromHex(rawTransactionVerbose.hex);
 
     let vout = 0;
-    let outputSum = BigNumber.from(0);
+    let outputSum = BigInt(0);
 
     for (let i = 0; i < rawTransaction.outs.length; i += 1) {
-      outputSum = outputSum.add(rawTransaction.outs[i].value);
+      outputSum += BigInt(rawTransaction.outs[i].value);
 
       const scriptPubKey = rawTransactionVerbose.vout[i].scriptPubKey;
 
@@ -70,7 +69,7 @@ class CoreWalletProvider implements WalletProviderInterface {
       }
     }
 
-    let inputSum = BigNumber.from(0);
+    let inputSum = BigInt(0);
 
     for (const input of rawTransaction.ins) {
       const inputTransactionId = transactionHashToId(input.hash);
@@ -78,15 +77,15 @@ class CoreWalletProvider implements WalletProviderInterface {
       const inputTransaction = Transaction.fromHex(fetchedTransaction.get(inputTransactionId)!);
       const inputVout = inputTransaction.outs[input.index];
 
-      inputSum = inputSum.add(inputVout.value);
+      inputSum += BigInt(inputVout.value);
     }
 
     return {
       vout,
       transactionId,
 
-      fee: inputSum.sub(outputSum).toNumber(),
       transaction: rawTransaction,
+      fee: Number(inputSum - outputSum),
     };
   };
 

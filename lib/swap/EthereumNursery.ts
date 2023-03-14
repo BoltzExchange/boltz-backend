@@ -1,6 +1,6 @@
 import { Op } from 'sequelize';
 import { EventEmitter } from 'events';
-import { BigNumber, ContractTransaction } from 'ethers';
+import { TransactionResponse } from 'ethers';
 import Errors from './Errors';
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';
@@ -13,10 +13,10 @@ import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import { CurrencyType, SwapUpdateEvent } from '../consts/Enums';
 import EthereumManager from '../wallet/ethereum/EthereumManager';
 import { ERC20SwapValues, EtherSwapValues } from '../consts/Types';
-import { getChainCurrency, getHexString, splitPairId } from '../Utils';
+import {formatError, getChainCurrency, getHexString, splitPairId} from '../Utils';
 import ERC20WalletProvider from '../wallet/providers/ERC20WalletProvider';
 
-interface EthereumNursery {
+interface IEthereumNursery {
   // EtherSwap
   on(event: 'eth.lockup', listener: (swap: Swap, transactionHash: string, etherSwapValues: EtherSwapValues) => void): this;
   emit(event: 'eth.lockup', swap: Swap, transactionHash: string, etherSwapValues: EtherSwapValues): boolean;
@@ -45,7 +45,7 @@ interface EthereumNursery {
   emit(event: 'claim', reverseSwap: ReverseSwap, preimage: Buffer): boolean;
 }
 
-class EthereumNursery extends EventEmitter {
+class EthereumNursery extends EventEmitter implements IEthereumNursery {
   public ethereumManager: EthereumManager;
 
   constructor(
@@ -90,7 +90,7 @@ class EthereumNursery extends EventEmitter {
     }
   };
 
-  public listenContractTransaction = (reverseSwap: ReverseSwap, transaction: ContractTransaction): void => {
+  public listenContractTransaction = (reverseSwap: ReverseSwap, transaction: TransactionResponse): void => {
     transaction.wait(1).then(async () => {
       this.emit(
         'lockup.confirmed',
@@ -137,7 +137,7 @@ class EthereumNursery extends EventEmitter {
       swap = await this.swapRepository.setLockupTransaction(
         swap,
         transactionHash,
-        etherSwapValues.amount.div(etherDecimals).toNumber(),
+        Number(etherSwapValues.amount / etherDecimals),
         true,
       );
 
@@ -160,13 +160,13 @@ class EthereumNursery extends EventEmitter {
       }
 
       if (swap.expectedAmount) {
-        const expectedAmount = BigNumber.from(swap.expectedAmount).mul(etherDecimals);
+        const expectedAmount = BigInt(swap.expectedAmount) * etherDecimals;
 
-        if (expectedAmount.gt(etherSwapValues.amount)) {
+        if (expectedAmount > etherSwapValues.amount) {
           this.emit(
             'lockup.failed',
             swap,
-            Errors.INSUFFICIENT_AMOUNT(etherSwapValues.amount.div(etherDecimals).toNumber(), swap.expectedAmount).message,
+            Errors.INSUFFICIENT_AMOUNT(Number(etherSwapValues.amount / etherDecimals), swap.expectedAmount).message,
           );
           return;
         }
@@ -260,7 +260,7 @@ class EthereumNursery extends EventEmitter {
       }
 
       if (swap.expectedAmount) {
-        if (erc20Wallet.formatTokenAmount(swap.expectedAmount).gt(erc20SwapValues.amount)) {
+        if (erc20Wallet.formatTokenAmount(swap.expectedAmount) > erc20SwapValues.amount) {
           this.emit(
             'lockup.failed',
             swap,
@@ -297,6 +297,8 @@ class EthereumNursery extends EventEmitter {
         this.checkExpiredSwaps(height),
         this.checkExpiredReverseSwaps(height),
       ]);
+    }).catch((err) => {
+      this.logger.error(`Could not subscribe to Ethereum blocks: ${formatError(err)}`);
     });
   };
 

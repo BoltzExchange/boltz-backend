@@ -104,10 +104,10 @@ class EthereumManager {
 
     this.logger.verbose(`Ethereum chain status: ${stringify({
       blockNumber: currentBlock,
-      chainId: (await signer.provider!.getNetwork()).chainId,
+      chainId: Number(this.network.chainId),
     })}`);
 
-    const transactionTracker = await new EthereumTransactionTracker(
+    const transactionTracker = new EthereumTransactionTracker(
       this.logger,
       this.provider,
       signer,

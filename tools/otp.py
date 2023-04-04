@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Generates OTP tokens"""
+"""Generates OTP tokens."""
 from argparse import ArgumentParser
+
 import pyotp
 
 if __name__ == "__main__":
@@ -17,4 +18,4 @@ if __name__ == "__main__":
     ARGS = PARSER.parse_args()
 
     TOTP = pyotp.TOTP(ARGS.secret[0])
-    print("Token: {}".format(TOTP.now()))
+    print(f"Token: {TOTP.now()}")

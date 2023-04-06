@@ -151,6 +151,26 @@ export namespace TrackPaymentRequest {
   }
 }
 
+export class TrackPaymentsRequest extends jspb.Message {
+  getNoInflightUpdates(): boolean;
+  setNoInflightUpdates(value: boolean): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): TrackPaymentsRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: TrackPaymentsRequest): TrackPaymentsRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: TrackPaymentsRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): TrackPaymentsRequest;
+  static deserializeBinaryFromReader(message: TrackPaymentsRequest, reader: jspb.BinaryReader): TrackPaymentsRequest;
+}
+
+export namespace TrackPaymentsRequest {
+  export type AsObject = {
+    noInflightUpdates: boolean,
+  }
+}
+
 export class RouteFeeRequest extends jspb.Message {
   getDest(): Uint8Array | string;
   getDest_asU8(): Uint8Array;
@@ -212,6 +232,9 @@ export class SendToRouteRequest extends jspb.Message {
   getRoute(): lnd_rpc_pb.Route | undefined;
   setRoute(value?: lnd_rpc_pb.Route): void;
 
+  getSkipTempErr(): boolean;
+  setSkipTempErr(value: boolean): void;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): SendToRouteRequest.AsObject;
   static toObject(includeInstance: boolean, msg: SendToRouteRequest): SendToRouteRequest.AsObject;
@@ -226,6 +249,7 @@ export namespace SendToRouteRequest {
   export type AsObject = {
     paymentHash: Uint8Array | string,
     route?: lnd_rpc_pb.Route.AsObject,
+    skipTempErr: boolean,
   }
 }
 
@@ -535,6 +559,20 @@ export class MissionControlConfig extends jspb.Message {
   getMinimumFailureRelaxInterval(): number;
   setMinimumFailureRelaxInterval(value: number): void;
 
+  getModel(): MissionControlConfig.ProbabilityModelMap[keyof MissionControlConfig.ProbabilityModelMap];
+  setModel(value: MissionControlConfig.ProbabilityModelMap[keyof MissionControlConfig.ProbabilityModelMap]): void;
+
+  hasApriori(): boolean;
+  clearApriori(): void;
+  getApriori(): AprioriParameters | undefined;
+  setApriori(value?: AprioriParameters): void;
+
+  hasBimodal(): boolean;
+  clearBimodal(): void;
+  getBimodal(): BimodalParameters | undefined;
+  setBimodal(value?: BimodalParameters): void;
+
+  getEstimatorconfigCase(): MissionControlConfig.EstimatorconfigCase;
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): MissionControlConfig.AsObject;
   static toObject(includeInstance: boolean, msg: MissionControlConfig): MissionControlConfig.AsObject;
@@ -552,6 +590,82 @@ export namespace MissionControlConfig {
     weight: number,
     maximumPaymentResults: number,
     minimumFailureRelaxInterval: number,
+    model: MissionControlConfig.ProbabilityModelMap[keyof MissionControlConfig.ProbabilityModelMap],
+    apriori?: AprioriParameters.AsObject,
+    bimodal?: BimodalParameters.AsObject,
+  }
+
+  export interface ProbabilityModelMap {
+    APRIORI: 0;
+    BIMODAL: 1;
+  }
+
+  export const ProbabilityModel: ProbabilityModelMap;
+
+  export enum EstimatorconfigCase {
+    ESTIMATORCONFIG_NOT_SET = 0,
+    APRIORI = 7,
+    BIMODAL = 8,
+  }
+}
+
+export class BimodalParameters extends jspb.Message {
+  getNodeWeight(): number;
+  setNodeWeight(value: number): void;
+
+  getScaleMsat(): number;
+  setScaleMsat(value: number): void;
+
+  getDecayTime(): number;
+  setDecayTime(value: number): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): BimodalParameters.AsObject;
+  static toObject(includeInstance: boolean, msg: BimodalParameters): BimodalParameters.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: BimodalParameters, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): BimodalParameters;
+  static deserializeBinaryFromReader(message: BimodalParameters, reader: jspb.BinaryReader): BimodalParameters;
+}
+
+export namespace BimodalParameters {
+  export type AsObject = {
+    nodeWeight: number,
+    scaleMsat: number,
+    decayTime: number,
+  }
+}
+
+export class AprioriParameters extends jspb.Message {
+  getHalfLifeSeconds(): number;
+  setHalfLifeSeconds(value: number): void;
+
+  getHopProbability(): number;
+  setHopProbability(value: number): void;
+
+  getWeight(): number;
+  setWeight(value: number): void;
+
+  getCapacityFraction(): number;
+  setCapacityFraction(value: number): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): AprioriParameters.AsObject;
+  static toObject(includeInstance: boolean, msg: AprioriParameters): AprioriParameters.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: AprioriParameters, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): AprioriParameters;
+  static deserializeBinaryFromReader(message: AprioriParameters, reader: jspb.BinaryReader): AprioriParameters;
+}
+
+export namespace AprioriParameters {
+  export type AsObject = {
+    halfLifeSeconds: number,
+    hopProbability: number,
+    weight: number,
+    capacityFraction: number,
   }
 }
 
@@ -732,6 +846,16 @@ export class HtlcEvent extends jspb.Message {
   getLinkFailEvent(): LinkFailEvent | undefined;
   setLinkFailEvent(value?: LinkFailEvent): void;
 
+  hasSubscribedEvent(): boolean;
+  clearSubscribedEvent(): void;
+  getSubscribedEvent(): SubscribedEvent | undefined;
+  setSubscribedEvent(value?: SubscribedEvent): void;
+
+  hasFinalHtlcEvent(): boolean;
+  clearFinalHtlcEvent(): void;
+  getFinalHtlcEvent(): FinalHtlcEvent | undefined;
+  setFinalHtlcEvent(value?: FinalHtlcEvent): void;
+
   getEventCase(): HtlcEvent.EventCase;
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): HtlcEvent.AsObject;
@@ -755,6 +879,8 @@ export namespace HtlcEvent {
     forwardFailEvent?: ForwardFailEvent.AsObject,
     settleEvent?: SettleEvent.AsObject,
     linkFailEvent?: LinkFailEvent.AsObject,
+    subscribedEvent?: SubscribedEvent.AsObject,
+    finalHtlcEvent?: FinalHtlcEvent.AsObject,
   }
 
   export interface EventTypeMap {
@@ -772,6 +898,8 @@ export namespace HtlcEvent {
     FORWARD_FAIL_EVENT = 8,
     SETTLE_EVENT = 9,
     LINK_FAIL_EVENT = 10,
+    SUBSCRIBED_EVENT = 11,
+    FINAL_HTLC_EVENT = 12,
   }
 }
 
@@ -864,6 +992,46 @@ export class SettleEvent extends jspb.Message {
 export namespace SettleEvent {
   export type AsObject = {
     preimage: Uint8Array | string,
+  }
+}
+
+export class FinalHtlcEvent extends jspb.Message {
+  getSettled(): boolean;
+  setSettled(value: boolean): void;
+
+  getOffchain(): boolean;
+  setOffchain(value: boolean): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): FinalHtlcEvent.AsObject;
+  static toObject(includeInstance: boolean, msg: FinalHtlcEvent): FinalHtlcEvent.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: FinalHtlcEvent, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): FinalHtlcEvent;
+  static deserializeBinaryFromReader(message: FinalHtlcEvent, reader: jspb.BinaryReader): FinalHtlcEvent;
+}
+
+export namespace FinalHtlcEvent {
+  export type AsObject = {
+    settled: boolean,
+    offchain: boolean,
+  }
+}
+
+export class SubscribedEvent extends jspb.Message {
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): SubscribedEvent.AsObject;
+  static toObject(includeInstance: boolean, msg: SubscribedEvent): SubscribedEvent.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: SubscribedEvent, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): SubscribedEvent;
+  static deserializeBinaryFromReader(message: SubscribedEvent, reader: jspb.BinaryReader): SubscribedEvent;
+}
+
+export namespace SubscribedEvent {
+  export type AsObject = {
   }
 }
 
@@ -990,6 +1158,9 @@ export class ForwardHtlcInterceptRequest extends jspb.Message {
   getOnionBlob_asB64(): string;
   setOnionBlob(value: Uint8Array | string): void;
 
+  getAutoFailHeight(): number;
+  setAutoFailHeight(value: number): void;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ForwardHtlcInterceptRequest.AsObject;
   static toObject(includeInstance: boolean, msg: ForwardHtlcInterceptRequest): ForwardHtlcInterceptRequest.AsObject;
@@ -1011,6 +1182,7 @@ export namespace ForwardHtlcInterceptRequest {
     outgoingExpiry: number,
     customRecordsMap: Array<[number, Uint8Array | string]>,
     onionBlob: Uint8Array | string,
+    autoFailHeight: number,
   }
 }
 

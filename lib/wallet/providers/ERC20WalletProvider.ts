@@ -1,4 +1,4 @@
-import { BigNumber, Signer } from 'ethers';
+import { Signer } from 'ethers';
 import Logger from '../../Logger';
 import { Token } from '../../consts/Types';
 import { getGasPrices } from '../ethereum/EthereumUtils';
@@ -9,12 +9,11 @@ class ERC20WalletProvider implements WalletProviderInterface {
 
   constructor(private logger: Logger, private signer: Signer, private token: Token) {
     this.symbol = token.symbol;
-
-    this.logger.info(`Initialized ${this.symbol} ERC20 wallet with contract: ${token.contract.address}`);
+    this.logger.info(`Initialized ${this.symbol} ERC20 wallet with contract: ${this.token.address}`);
   }
 
   public getTokenAddress = (): string => {
-    return this.token.contract.address;
+    return this.token.address;
   };
 
   public getAddress = (): Promise<string> => {
@@ -55,11 +54,11 @@ class ERC20WalletProvider implements WalletProviderInterface {
     };
   };
 
-  public getAllowance = async (spender: string): Promise<BigNumber> => {
+  public getAllowance = async (spender: string): Promise<bigint> => {
     return this.token.contract.allowance(await this.signer.getAddress(), spender);
   };
 
-  public approve = async (spender: string, amount: BigNumber): Promise<SentTransaction> => {
+  public approve = async (spender: string, amount: bigint): Promise<SentTransaction> => {
     const transaction = await this.token.contract.approve(spender, amount, {
       ...await getGasPrices(this.signer.provider!),
     });
@@ -72,18 +71,18 @@ class ERC20WalletProvider implements WalletProviderInterface {
   /**
    * Formats the token amount to send from 10 ** -8 decimals
    */
-  public formatTokenAmount = (amount: number): BigNumber => {
-    const amountBn = BigNumber.from(amount);
+  public formatTokenAmount = (amount: number): bigint => {
+    const amountBn = BigInt(amount);
 
     if (this.token.decimals === 8) {
       return amountBn;
     } else {
-      const exponent = BigNumber.from(10).pow(BigNumber.from(Math.abs(this.token.decimals - 8)));
+      const exponent = BigInt(10) ** BigInt(Math.abs(this.token.decimals - 8));
 
       if (this.token.decimals > 8) {
-        return amountBn.mul(exponent);
+        return amountBn * exponent;
       } else {
-        return amountBn.div(exponent);
+        return amountBn / exponent;
       }
     }
   };
@@ -91,16 +90,16 @@ class ERC20WalletProvider implements WalletProviderInterface {
   /**
    * Normalizes the token balance to 10 ** -8 decimals
    */
-  public normalizeTokenAmount = (amount: BigNumber): number => {
+  public normalizeTokenAmount = (amount: bigint): number => {
     if (this.token.decimals === 8) {
-      return amount.toNumber();
+      return Number(amount);
     } else {
-      const exponent = BigNumber.from(10).pow(BigNumber.from(Math.abs(this.token.decimals - 8)));
+      const exponent = BigInt(10) ** (BigInt(Math.abs(this.token.decimals - 8)));
 
       if (this.token.decimals > 8) {
-        return amount.div(exponent).toNumber();
+        return Number(amount / exponent);
       } else {
-        return amount.mul(exponent).toNumber();
+        return Number(amount * exponent);
       }
     }
   };

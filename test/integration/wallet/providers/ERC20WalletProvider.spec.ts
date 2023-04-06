@@ -1,48 +1,49 @@
-import { BigNumber } from 'ethers';
 import { ERC20 } from 'boltz-core/typechain/ERC20';
 import Logger from '../../../../lib/Logger';
 import { Token } from '../../../../lib/consts/Types';
-import ERC20WalletProvider from '../../../../lib/wallet/providers/ERC20WalletProvider';
-import { fundSignerWallet, getSigner, waitForTransactionHash } from '../EthereumTools';
 import { getContracts } from '../../../../lib/cli/ethereum/EthereumUtils';
+import ERC20WalletProvider from '../../../../lib/wallet/providers/ERC20WalletProvider';
+import { EthereumSetup, fundSignerWallet, getSigner, waitForTransactionHash } from '../EthereumTools';
 
 describe('ERC20WalletProvider', () => {
-  const { provider, signer, etherBase } = getSigner();
+  let setup: EthereumSetup;
 
   let token: Token;
   let contract: ERC20;
   let wallet: ERC20WalletProvider;
 
   beforeAll(async () => {
-    contract = (await getContracts(signer)).token;
+    setup = await getSigner();
+    contract = (await getContracts(setup.signer)).token;
 
     token = {
       contract,
 
-      symbol: 'TRC',
       decimals: 18,
+      symbol: 'TRC',
+      address: await contract.getAddress(),
     };
 
     wallet = new ERC20WalletProvider(
       Logger.disabledLogger,
-      signer,
+      setup.signer,
       token,
     );
   });
 
   test('should get contract address', () => {
-    expect(wallet.getTokenAddress()).toEqual(contract.address);
+    expect(wallet.getTokenAddress()).toEqual(token.address);
   });
 
   test('should get address', async () => {
-    expect(await wallet.getAddress()).toEqual(await signer.getAddress());
+    expect(await wallet.getAddress()).toEqual(await setup.signer.getAddress());
   });
 
   test('should get balance', async () => {
-    await fundSignerWallet(signer, etherBase, token.contract);
+    await fundSignerWallet(setup.signer, setup.etherBase, token.contract);
 
-    const balance = await token.contract.balanceOf(await signer.getAddress());
-    const normalizedAmount = balance.div(BigNumber.from(10).pow(10)).toNumber();
+    const balance = await token.contract.balanceOf(await setup.signer.getAddress());
+    const normalizedAmount = Number(balance / (BigInt(10) ** BigInt(10)));
 
     expect(await wallet.getBalance()).toEqual({
       totalBalance: normalizedAmount,
@@ -53,47 +54,47 @@ describe('ERC20WalletProvider', () => {
 
   test('should send to address', async () => {
     const amount = 1000000;
-    const { transactionId } = await wallet.sendToAddress(await etherBase.getAddress(), amount);
+    const { transactionId } = await wallet.sendToAddress(await setup.etherBase.getAddress(), amount);
 
-    const transaction = await provider.getTransaction(transactionId);
-    const receipt = await transaction.wait(1);
+    const transaction = await setup.provider.getTransaction(transactionId);
+    const receipt = await transaction!.wait(1);
 
-    expect(BigNumber.from(receipt.logs[0].data)).toEqual(BigNumber.from(amount).mul(BigNumber.from(10).pow(10)));
+    expect(BigInt(receipt!.logs[0].data)).toEqual(BigInt(amount) * (BigInt(10) ** BigInt(10)));
   });
 
   test('should sweep wallet', async () => {
-    const balance = await token.contract.balanceOf(await signer.getAddress());
+    const balance = await token.contract.balanceOf(await setup.signer.getAddress());
 
-    const { transactionId } = await wallet.sweepWallet(await etherBase.getAddress());
+    const { transactionId } = await wallet.sweepWallet(await setup.etherBase.getAddress());
 
-    const transaction = await provider.getTransaction(transactionId);
-    const receipt = await transaction.wait(1);
+    const transaction = await setup.provider.getTransaction(transactionId);
+    const receipt = await transaction!.wait(1);
 
-    expect(BigNumber.from(receipt.logs[0].data)).toEqual(balance);
-    expect((await token.contract.balanceOf(await signer.getAddress())).toNumber()).toEqual(0);
+    expect(BigInt(receipt!.logs[0].data)).toEqual(balance);
+    expect(await token.contract.balanceOf(await setup.signer.getAddress())).toEqual(BigInt(0));
   });
 
   test('should get allowance', async () => {
-    const address = await signer.getAddress();
+    const address = await setup.signer.getAddress();
 
     const allowance = await token.contract.allowance(address, address);
     expect(await wallet.getAllowance(address)).toEqual(allowance);
   });
 
   test('should approve', async () => {
-    const address = await signer.getAddress();
-    let newAllowance = BigNumber.from(1);
+    const address = await setup.signer.getAddress();
+    let newAllowance = BigInt(1);
 
-    await waitForTransactionHash(provider, (await wallet.approve(address, newAllowance)).transactionId);
+    await waitForTransactionHash(setup.provider, (await wallet.approve(address, newAllowance)).transactionId);
     expect(await token.contract.allowance(address, address)).toEqual(newAllowance);
 
-    newAllowance = BigNumber.from(0);
-    await waitForTransactionHash(provider, (await wallet.approve(address, newAllowance)).transactionId);
+    newAllowance = BigInt(0);
+    await waitForTransactionHash(setup.provider, (await wallet.approve(address, newAllowance)).transactionId);
     expect(await token.contract.allowance(address, address)).toEqual(newAllowance);
   });
 
   test('should normalize token balance', () => {
-    const amount = BigNumber.from(190000000);
+    const amount = BigInt(190000000);
 
     token.decimals = 8;
     expect(wallet.normalizeTokenAmount(amount)).toEqual(190000000);
@@ -119,26 +120,26 @@ describe('ERC20WalletProvider', () => {
     const amount = 190000000;
 
     token.decimals = 8;
-    expect(wallet.formatTokenAmount(amount)).toEqual(BigNumber.from(190000000));
+    expect(wallet.formatTokenAmount(amount)).toEqual(BigInt(190000000));
 
     token.decimals = 9;
-    expect(wallet.formatTokenAmount(amount)).toEqual(BigNumber.from(1900000000));
+    expect(wallet.formatTokenAmount(amount)).toEqual(BigInt(1900000000));
     token.decimals = 10;
-    expect(wallet.formatTokenAmount(amount)).toEqual(BigNumber.from(19000000000));
+    expect(wallet.formatTokenAmount(amount)).toEqual(BigInt(19000000000));
     token.decimals = 16;
-    expect(wallet.formatTokenAmount(amount)).toEqual(BigNumber.from('19000000000000000'));
+    expect(wallet.formatTokenAmount(amount)).toEqual(BigInt('19000000000000000'));
 
     token.decimals = 7;
-    expect(wallet.formatTokenAmount(amount)).toEqual(BigNumber.from(19000000));
+    expect(wallet.formatTokenAmount(amount)).toEqual(BigInt(19000000));
     token.decimals = 6;
-    expect(wallet.formatTokenAmount(amount)).toEqual(BigNumber.from(1900000));
+    expect(wallet.formatTokenAmount(amount)).toEqual(BigInt(1900000));
     token.decimals = 5;
-    expect(wallet.formatTokenAmount(amount)).toEqual(BigNumber.from(190000));
+    expect(wallet.formatTokenAmount(amount)).toEqual(BigInt(190000));
 
     token.decimals = 18;
   });
 
-  afterAll(async () => {
-    await provider.destroy();
+  afterAll(() => {
+    setup.provider.destroy();
   });
 });

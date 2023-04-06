@@ -21,14 +21,17 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
 
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
       - name: Install dependencies
         run: npm ci
 
       - name: Start containers
-        run: npm run docker:regtest && npm run docker:geth
+        run: npm run docker:regtest && npm run docker:solidity
 
       - name: Deploy Ethereum contracts
-        run: sleep 15 && npm run docker:geth:deploy
+        run: npm run docker:solidity:deploy
 
       - name: Compile
         run: npm run compile

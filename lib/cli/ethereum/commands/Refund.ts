@@ -1,5 +1,5 @@
 import { Arguments } from 'yargs';
-import { ContractTransaction } from 'ethers';
+import { ContractTransactionResponse } from 'ethers';
 import { getHexBuffer } from '../../../Utils';
 import BuilderComponents from '../../BuilderComponents';
 import { connectEthereum, getContracts } from '../EthereumUtils';
@@ -18,12 +18,12 @@ export const builder = {
 };
 
 export const handler = async (argv: Arguments<any>): Promise<void> => {
-  const signer = connectEthereum(argv.provider);
+  const signer = await connectEthereum(argv.provider);
   const { etherSwap, erc20Swap } = await getContracts(signer);
 
   const preimageHash = getHexBuffer(argv.preimageHash);
 
-  let transaction: ContractTransaction;
+  let transaction: ContractTransactionResponse;
 
   if (argv.token) {
     const erc20SwapValues = await queryERC20SwapValues(erc20Swap, preimageHash);

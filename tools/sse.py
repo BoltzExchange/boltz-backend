@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""This module allows listening to Server-Send events via the CLI"""
+"""Listen to Server-Send events via the CLI."""
 from argparse import ArgumentParser
+
 from sseclient import SSEClient
 
-def stream_server_side_events(url: str):
-    """Listens to a stream of events and prints them to the console"""
 
-    print("Listening to: {}".format(url))
+def stream_server_side_events(url: str) -> None:
+    """Listen to a stream of events and prints them to the console."""
+    print(f"Listening to: {url}")
 
     try:
         client = SSEClient(url)
@@ -14,15 +15,16 @@ def stream_server_side_events(url: str):
         for message in client:
             print(message)
 
-    except Exception as exception: # pylint: disable=broad-except
-        print("Could not listen to {url}: {exception}".format(
-            url=url,
-            exception=exception
-        ))
     except KeyboardInterrupt:
         print("Cancelling stream")
 
-if __name__ == '__main__':
+    except Exception as exception:
+        print("Could not listen to {url}: {exception}".format(
+            url=url,
+            exception=exception,
+        ))
+
+if __name__ == "__main__":
     PARSER = ArgumentParser(description="Stream Server-Sent events")
 
     # CLI arguments

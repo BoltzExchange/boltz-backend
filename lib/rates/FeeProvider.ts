@@ -1,4 +1,3 @@
-import { BigNumber } from 'ethers';
 import Logger from '../Logger';
 import { PairConfig } from '../consts/Types';
 import DataAggregator from './data/DataAggregator';
@@ -223,7 +222,7 @@ class FeeProvider {
   };
 
   private calculateEtherGasCost = (gasPrice: number, gasUsage: number) => {
-    return BigNumber.from(gasPrice).mul(gweiDecimals).mul(gasUsage).div(etherDecimals).toNumber();
+    return Number((BigInt(gasPrice) * gweiDecimals * BigInt(gasUsage)) / etherDecimals);
   };
 }
 

@@ -1,5 +1,4 @@
 import { Arguments } from 'yargs';
-import { BigNumber } from 'ethers';
 import { etherDecimals } from '../../../consts/Consts';
 import BuilderComponents from '../../BuilderComponents';
 import { connectEthereum, getBoltzAddress, getContracts } from '../EthereumUtils';
@@ -21,10 +20,10 @@ export const builder = {
 };
 
 export const handler = async (argv: Arguments<any>): Promise<void> => {
-  const signer = connectEthereum(argv.provider);
+  const signer = await connectEthereum(argv.provider);
   const { token } = await getContracts(signer);
 
-  const amount = BigNumber.from(argv.amount).mul(etherDecimals);
+  const amount = BigInt(argv.amount) * etherDecimals;
 
   let transactionHash: string;
 

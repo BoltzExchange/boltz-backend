@@ -1,7 +1,7 @@
 import AsyncLock from 'async-lock';
 import { EventEmitter } from 'events';
 import { crypto, Transaction } from 'bitcoinjs-lib';
-import { BigNumber, ContractTransaction } from 'ethers';
+import { ContractTransactionResponse } from 'ethers';
 import { constructClaimTransaction, constructRefundTransaction, detectSwap, OutputType } from 'boltz-core';
 import Errors from './Errors';
 import Logger from '../Logger';
@@ -45,7 +45,7 @@ import {
 } from '../Utils';
 import InvoiceState = Invoice.InvoiceState;
 
-interface SwapNursery {
+interface ISwapNursery {
   // UTXO based chains emit the "Transaction" object and Ethereum based ones just the transaction hash
   on(event: 'transaction', listener: (swap: Swap | ReverseSwap, transaction: Transaction | string, confirmed: boolean, isReverse: boolean) => void): this;
   emit(event: 'transaction', swap: Swap | ReverseSwap, transaction: Transaction | string, confirmed: boolean, isReverse: boolean): boolean;
@@ -93,7 +93,7 @@ interface SwapNursery {
   emit(event: 'invoice.settled', reverseSwap: ReverseSwap): boolean;
 }
 
-class SwapNursery extends EventEmitter {
+class SwapNursery extends EventEmitter implements ISwapNursery {
   // Constants
   public static reverseSwapMempoolEta = 2;
 
@@ -376,7 +376,11 @@ class SwapNursery extends EventEmitter {
         await this.claimEther(
           this.walletManager.ethereumManager!.contractHandler,
           swap,
-          await queryEtherSwapValuesFromLock(this.walletManager.ethereumManager!.etherSwap, swap.lockupTransactionId!),
+          await queryEtherSwapValuesFromLock(
+            this.walletManager.ethereumManager!.provider,
+            this.walletManager.ethereumManager!.etherSwap,
+            swap.lockupTransactionId!,
+          ),
           outgoingChannelId,
         );
         break;
@@ -385,7 +389,11 @@ class SwapNursery extends EventEmitter {
         await this.claimERC20(
           this.walletManager.ethereumManager!.contractHandler,
           swap,
-          await queryERC20SwapValuesFromLock(this.walletManager.ethereumManager!.erc20Swap, swap.lockupTransactionId!),
+          await queryERC20SwapValuesFromLock(
+            this.walletManager.ethereumManager!.provider,
+            this.walletManager.ethereumManager!.erc20Swap,
+            swap.lockupTransactionId!,
+          ),
           outgoingChannelId,
         );
         break;
@@ -520,20 +528,20 @@ class SwapNursery extends EventEmitter {
     reverseSwap: ReverseSwap,
   ) => {
     try {
-      let contractTransaction: ContractTransaction;
+      let contractTransaction: ContractTransactionResponse;
 
       if (reverseSwap.minerFeeOnchainAmount) {
         contractTransaction = await this.walletManager.ethereumManager!.contractHandler.lockupEtherPrepayMinerfee(
           getHexBuffer(reverseSwap.preimageHash),
-          BigNumber.from(reverseSwap.onchainAmount).mul(etherDecimals),
-          BigNumber.from(reverseSwap.minerFeeOnchainAmount).mul(etherDecimals),
+          BigInt(reverseSwap.onchainAmount) * etherDecimals,
+          BigInt(reverseSwap.minerFeeOnchainAmount) * etherDecimals,
           reverseSwap.claimAddress!,
           reverseSwap.timeoutBlockHeight,
         );
       } else {
         contractTransaction = await this.walletManager.ethereumManager!.contractHandler.lockupEther(
           getHexBuffer(reverseSwap.preimageHash),
-          BigNumber.from(reverseSwap.onchainAmount).mul(etherDecimals),
+          BigInt(reverseSwap.onchainAmount) * etherDecimals,
           reverseSwap.claimAddress!,
           reverseSwap.timeoutBlockHeight,
         );
@@ -564,14 +572,14 @@ class SwapNursery extends EventEmitter {
     try {
       const walletProvider = wallet.walletProvider as ERC20WalletProvider;
 
-      let contractTransaction: ContractTransaction;
+      let contractTransaction: ContractTransactionResponse;
 
       if (reverseSwap.minerFeeOnchainAmount) {
         contractTransaction = await this.walletManager.ethereumManager!.contractHandler.lockupTokenPrepayMinerfee(
           walletProvider,
           getHexBuffer(reverseSwap.preimageHash),
           walletProvider.formatTokenAmount(reverseSwap.onchainAmount),
-          BigNumber.from(reverseSwap.minerFeeOnchainAmount).mul(etherDecimals),
+          BigInt(reverseSwap.minerFeeOnchainAmount) * etherDecimals,
           reverseSwap.claimAddress!,
           reverseSwap.timeoutBlockHeight,
         );
@@ -950,7 +958,11 @@ class SwapNursery extends EventEmitter {
   private refundEther = async (reverseSwap: ReverseSwap) => {
     const ethereumManager = this.walletManager.ethereumManager!;
 
-    const etherSwapValues = await queryEtherSwapValuesFromLock(ethereumManager.etherSwap, reverseSwap.transactionId!);
+    const etherSwapValues = await queryEtherSwapValuesFromLock(
+      ethereumManager!.provider,
+      ethereumManager.etherSwap,
+      reverseSwap.transactionId!,
+    );
     const contractTransaction = await ethereumManager.contractHandler.refundEther(
       getHexBuffer(reverseSwap.preimageHash),
       etherSwapValues.amount,
@@ -974,7 +986,11 @@ class SwapNursery extends EventEmitter {
     const ethereumManager = this.walletManager.ethereumManager!;
     const walletProvider = this.walletManager.wallets.get(chainSymbol)!.walletProvider as ERC20WalletProvider;
 
-    const erc20SwapValues = await queryERC20SwapValuesFromLock(ethereumManager.erc20Swap, reverseSwap.transactionId!);
+    const erc20SwapValues = await queryERC20SwapValuesFromLock(
+      ethereumManager.provider,
+      ethereumManager.erc20Swap,
+      reverseSwap.transactionId!,
+    );
     const contractTransaction = await ethereumManager.contractHandler.refundToken(
       walletProvider,
       getHexBuffer(reverseSwap.preimageHash),

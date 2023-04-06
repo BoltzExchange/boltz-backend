@@ -1,4 +1,4 @@
-import { Overrides, providers } from 'ethers';
+import { Overrides, Provider } from 'ethers';
 import { getHexBuffer } from '../../Utils';
 
 /**
@@ -8,7 +8,7 @@ export const parseBuffer = (input: string): Buffer => {
   return getHexBuffer(input.slice(2));
 };
 
-export const getGasPrices = async (provider: providers.Provider): Promise<Overrides> => {
+export const getGasPrices = async (provider: Provider): Promise<Overrides> => {
   const feeData = await provider.getFeeData();
 
   return {

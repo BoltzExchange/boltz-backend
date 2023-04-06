@@ -1,23 +1,20 @@
-import { BigNumber, providers, Signer } from 'ethers';
+import { Provider, Signer } from 'ethers';
 import Logger from '../../Logger';
 import PendingEthereumTransactionRepository from '../../db/repositories/PendingEthereumTransactionRepository';
 
 class EthereumTransactionTracker {
   private pendingEthereumTransactionRepository = new PendingEthereumTransactionRepository();
 
-  private walletAddress!: string;
-
   constructor(
     private logger: Logger,
-    private provider: providers.Provider,
+    private provider: Provider,
     private wallet: Signer,
   ) {}
 
   public init = async (): Promise<void> => {
-    this.walletAddress = (await this.wallet.getAddress()).toLowerCase();
-    this.logger.info(`Starting Ethereum transaction tracker for address: ${this.walletAddress}`);
+    this.logger.info(`Starting Ethereum transaction tracker for address: ${await this.wallet.getAddress()}`);
 
-    await this.scanBlock(await this.provider.getBlockNumber());
+    await this.scanPendingTransactions();
   };
 
   /**
@@ -25,23 +22,13 @@ class EthereumTransactionTracker {
    * This method is public and gets called from "EthereumManager" because there is a block subscription
    * in that class already
    */
-  public scanBlock = async (blockNumber: number): Promise<void> => {
-    const block = await this.provider.getBlockWithTransactions(blockNumber);
+  public scanPendingTransactions = async (): Promise<void> => {
+    for (const transaction of await this.pendingEthereumTransactionRepository.getTransactions()) {
+      const receipt = await this.provider.getTransactionReceipt(transaction.hash);
 
-    for (const transaction of block.transactions) {
-      if (transaction.from.toLowerCase() === this.walletAddress) {
-        const confirmedTransactions = await this.pendingEthereumTransactionRepository.findByNonce(
-          BigNumber.from(transaction.nonce).toNumber(),
-        );
-
-        if (confirmedTransactions.length > 0) {
-          this.logger.debug(`Removing ${confirmedTransactions.length} confirmed Ethereum transactions`);
-
-          for (const confirmedTransaction of confirmedTransactions) {
-            this.logger.silly(`Removing confirmed Ethereum transaction: ${confirmedTransaction.hash}`);
-            await confirmedTransaction.destroy();
-          }
-        }
+      if (receipt && (await receipt.confirmations()) > 0) {
+        this.logger.silly(`Removing confirmed Ethereum transaction: ${transaction.hash}`);
+        await transaction.destroy();
       }
     }
   };

@@ -1,50 +1,53 @@
 #!/usr/bin/env python3
-"""Script for building and pushing the Boltz Docker images"""
+"""Script for building and pushing the Boltz Docker images."""
 import sys
-from typing import List, Dict
-from dataclasses import dataclass
-from os import system, chdir, path
 from argparse import ArgumentParser
+from dataclasses import dataclass
+from os import chdir, system
+from pathlib import Path
+
 
 @dataclass
 class BuildArgument:
-    """Argument of the "docker build" command"""
+
+    """Argument of the "docker build" command."""
 
     name: str
     value: str
 
 @dataclass
 class Image:
-    """The tags and build arguments of a Docker image"""
 
-    tags: List[str]
-    arguments: List[BuildArgument]
+    """The tags and build arguments of a Docker image."""
+
+    tags: list[str]
+    arguments: list[BuildArgument]
 
 UBUNTU_VERSION = BuildArgument(
     name="UBUNTU_VERSION",
-    value="20.04"
+    value="22.04",
 )
 
 GOLANG_VERSION = BuildArgument(
     name="GOLANG_VERSION",
-    value="1.19.4-buster"
+    value="1.20.3-buster",
 )
 
 BITCOIN_VERSION = "24.0.1"
-LITECOIN_VERSION = "0.21.2.1"
-ELEMENTS_VERSION = "0.21.0.2"
-GETH_VERSION = "1.10.26"
+LITECOIN_VERSION = "0.21.2.2 "
+ELEMENTS_VERSION = "22.0.2"
+GETH_VERSION = "1.11.5"
 
-C_LIGHTNING_VERSION = "22.11.1"
+C_LIGHTNING_VERSION = "23.02.2"
 ECLAIR_VERSION = "0.8.0"
-LND_VERSION = "0.15.5-beta"
+LND_VERSION = "0.16.0-beta"
 
 BITCOIN_BUILD_ARG = BuildArgument(
     name="BITCOIN_VERSION",
     value=BITCOIN_VERSION,
 )
 
-IMAGES: Dict[str, Image] = {
+IMAGES: dict[str, Image] = {
     "bitcoin-core": Image(
         tags=[BITCOIN_VERSION],
         arguments=[
@@ -102,47 +105,44 @@ IMAGES: Dict[str, Image] = {
                 value=LND_VERSION,
             ),
         ],
-    )
+    ),
 }
 
-def print_step(message: str):
-    """Prints green text and is used to log the step of a process"""
-    print("\033[0;32m{}\033[0;0m".format(message))
+def print_step(message: str) -> None:
+    """Print green text and is used to log the step of a process."""
+    print(f"\033[0;32m{message}\033[0;0m")
 
-def print_error(message: str):
-    """Prints red text and is used to report errors"""
-    print("\033[1;31m{}\033[0;0m".format(message))
+def print_error(message: str) -> None:
+    """Print red text and is used to report errors."""
+    print(f"\033[1;31m{message}\033[0;0m")
 
-def change_working_directory():
-    """Changes the working directory to the one this script is located in"""
-
-    directory = path.dirname(path.abspath(__file__))
+def change_working_directory() -> None:
+    """Change the working directory to the one this script is located in."""
+    directory = Path(__file__).parent
     chdir(directory)
 
 def get_build_details(image: str) -> Image:
-    """Gets the build details of an image or exits the script if they can't be found"""
-
+    """Get the build details of an image or exits the script if they can't be found."""
     build_details = IMAGES.get(image)
 
     if not build_details:
-        print_error("Could not find image {}".format(image))
+        print_error(f"Could not find image {image}")
         sys.exit(1)
 
     return build_details
 
-def list_images(to_list: List[str]):
-    """Lists the version and build arguments of either one or all images"""
-
+def list_images(to_list: list[str]) -> None:
+    """List the version and build arguments of either one or all images."""
     print("Images:")
 
     for image in to_list:
         build_details = get_build_details(image)
 
-        print("  - {}".format(image))
+        print(f"  - {image}")
         print("    Tags:")
 
         for tag in build_details.tags:
-            print("      - {}".format(tag))
+            print(f"      - {tag}")
 
         print()
 
@@ -151,31 +151,30 @@ def list_images(to_list: List[str]):
         for argument in build_details.arguments:
             print("      - {name}:{value}".format(
                 name=argument.name,
-                value=argument.value
+                value=argument.value,
             ))
 
         print()
 
 def build_images(
-    to_build: List[str],
+    to_build: list[str],
     organisation: str,
     no_cache: bool,
     buildx: bool,
-    platform = "",
-):
-    """Builds one or more images"""
-
+    platform: str = "",
+) -> None:
+    """Build one or more images."""
     change_working_directory()
 
     for image in to_build:
         build_details = get_build_details(image)
 
         for tag in build_details.tags:
-            build_args: List[str] = []
+            build_args: list[str] = []
 
             # The regtest image doesn't need the version as a build flag
             if image != "regtest":
-                build_args.append("VERSION={}".format(tag))
+                build_args.append(f"VERSION={tag}")
 
             for argument in build_details.arguments:
                 build_args.append("{name}={value}".format(
@@ -195,8 +194,8 @@ def build_images(
 
             command = command.format(
                 tag=tag,
-                name="{}/{}".format(organisation, image),
-                dockerfile="{}/Dockerfile".format(image),
+                name=f"{organisation}/{image}",
+                dockerfile=f"{image}/Dockerfile",
                 args=build_args,
             )
 
@@ -204,21 +203,20 @@ def build_images(
                 command = command + " --no-cache"
 
             print()
-            print_step("Building {image}:{tag}".format(image=image, tag=tag))
+            print_step(f"Building {image}:{tag}")
 
             print(command)
             print()
 
             if system(command) != 0:
-                print_error("Could not build image {}".format(image))
+                print_error(f"Could not build image {image}")
                 sys.exit(1)
 
     print()
     print_step("Built images: {}".format(", ".join(to_build)))
 
-def parse_images(to_parse: List[str]) -> List[str]:
-    """Returns all available images if none was specified"""
-
+def parse_images(to_parse: list[str]) -> list[str]:
+    """Return all available images if none was specified."""
     if not to_parse:
         return list(IMAGES.keys())
 
@@ -228,7 +226,7 @@ if __name__ == "__main__":
     PARSER = ArgumentParser(description="Build or push Docker images")
 
     # CLI commands
-    SUB_PARSERS = PARSER.add_subparsers(dest='command')
+    SUB_PARSERS = PARSER.add_subparsers(dest="command")
     SUB_PARSERS.required = True
 
     LIST_PARSER = SUB_PARSERS.add_parser("list")

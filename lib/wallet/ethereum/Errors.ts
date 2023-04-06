@@ -1,4 +1,4 @@
-import { providers } from 'ethers';
+import { Network } from 'ethers';
 import { Error } from '../../consts/Types';
 import { concatErrorCode } from '../../Utils';
 import { ErrorCodePrefix } from '../../consts/Enums';
@@ -16,9 +16,9 @@ export default {
     message: `lockup transaction is invalid: ${transactionHash}`,
     code: concatErrorCode(ErrorCodePrefix.Ethereum, 2),
   }),
-  UNEQUAL_PROVIDER_NETWORKS: (networks: providers.Network[]): Error => {
+  UNEQUAL_PROVIDER_NETWORKS: (networks: Network[]): Error => {
     const networkStrings: number[] = [];
-    networks.forEach((network) => networkStrings.push(network.chainId));
+    networks.forEach((network) => networkStrings.push(Number(network.chainId!)));
 
     return {
       message: `not all web3 provider networks are equal: ${networkStrings.join(', ')}`,

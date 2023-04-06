@@ -1,9 +1,8 @@
-import { BigNumber } from 'ethers';
 import { ERC20 } from 'boltz-core/typechain/ERC20';
 
 export type EtherSwapValues = {
   preimageHash: Buffer;
-  amount: BigNumber;
+  amount: bigint;
   claimAddress: string;
   refundAddress: string;
   timelock: number;
@@ -22,6 +21,7 @@ export type Token = {
   symbol: string;
 
   contract: ERC20;
+  address: string;
   decimals: number;
 };
 

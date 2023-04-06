@@ -20,4 +20,3 @@ export const handler = (argv: Arguments<any>): void => {
     hash: getHexString(crypto.sha256(preimage)),
   }));
 };
-

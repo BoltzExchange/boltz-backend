@@ -187,7 +187,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
 
       this.utxoNursery.on('swap.lockup.zeroconf.rejected', async (swap, transaction, reason) => {
       await this.lock.acquire(SwapNursery.swapLock, async () => {
-        this.logger.warn(`Rejected 0-conf lockup transaction (${transaction.getId()}) of ${swap.id}: ${reason}`);
+        this.logger.warn(`Rejected 0-conf lockup transaction (${transaction.getId()}:${swap.lockupTransactionVout}) of ${swap.id}: ${reason}`);
 
         if (!swap.invoice) {
           await this.setSwapRate(swap);

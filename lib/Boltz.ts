@@ -17,9 +17,9 @@ import ChainClient from './chain/ChainClient';
 import Config, { ConfigType } from './Config';
 import { CurrencyType } from './consts/Enums';
 import BackupScheduler from './backup/BackupScheduler';
-import ChainTipRepository from './db/repositories/ChainTipRepository';
 import EthereumManager from './wallet/ethereum/EthereumManager';
 import WalletManager, { Currency } from './wallet/WalletManager';
+import ChainTipRepository from './db/repositories/ChainTipRepository';
 import NotificationProvider from './notifications/NotificationProvider';
 
 class Boltz {
@@ -168,6 +168,11 @@ class Boltz {
             rescanPromises.push(this.walletManager.ethereumManager.contractEventHandler.rescan(chainTip.height));
           }
         } else {
+          if (!this.currencies.has(chainTip.symbol)) {
+            this.logger.warn(`Not rescanning ${chainTip.symbol} because not chain client was configured`);
+            continue;
+          }
+
           const { chainClient } = this.currencies.get(chainTip.symbol)!;
 
           if (chainClient) {

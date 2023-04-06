@@ -5,10 +5,10 @@ import Bouncer from './Bouncer';
 import Service from '../service/Service';
 import SwapNursery from '../swap/SwapNursery';
 import ServiceErrors from '../service/Errors';
+import ReferralStats from '../data/ReferralStats';
 import { SwapUpdate } from '../service/EventHandler';
 import { SwapType, SwapUpdateEvent } from '../consts/Enums';
 import { getChainCurrency, getHexBuffer, getVersion, mapToObject, splitPairId, stringify } from '../Utils';
-import ReferralStats from '../data/ReferralStats';
 
 type ApiArgument = {
   name: string,
@@ -21,6 +21,7 @@ class Controller {
   // A map between the ids and HTTP streams of all pending swaps
   private pendingSwapStreams = new Map<string, Response>();
 
+  // TODO: refactor
   // A map between the ids and statuses of the swaps
   private pendingSwapInfos = new Map<string, SwapUpdate>();
 
@@ -38,6 +39,8 @@ class Controller {
   }
 
   public init = async (): Promise<void> => {
+    this.logger.verbose('Fetching swaps status from database');
+
     // Get the latest status of all swaps in the database
     const [swaps, reverseSwaps] = await Promise.all([
       this.service.swapManager.swapRepository.getSwaps(),

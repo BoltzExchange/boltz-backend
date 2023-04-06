@@ -268,9 +268,8 @@ class UtxoNursery extends EventEmitter {
   };
 
   private checkSwapTransaction = async (swap: Swap, chainClient: ChainClient, transaction: Transaction, confirmed: boolean) => {
-    this.logger.verbose(`Found ${confirmed ? '' : 'un'}confirmed lockup transaction for Swap ${swap.id}: ${transaction.getId()}`);
-
     const swapOutput = detectSwap(getHexBuffer(swap.redeemScript!), transaction)!;
+    this.logger.verbose(`Found ${confirmed ? '' : 'un'}confirmed lockup transaction for Swap ${swap.id}: ${transaction.getId()}:${swapOutput.vout}`);
 
     const updatedSwap = await this.swapRepository.setLockupTransaction(
       swap,
@@ -321,7 +320,7 @@ class UtxoNursery extends EventEmitter {
         return;
       }
 
-      this.logger.debug(`Accepted 0-conf lockup transaction for Swap ${updatedSwap.id}: ${transaction.getId()}`);
+      this.logger.debug(`Accepted 0-conf lockup transaction for Swap ${updatedSwap.id}: ${transaction.getId()}:${swapOutput.vout}`);
     }
 
     chainClient.removeOutputFilter(swapOutput.script);

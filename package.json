@@ -85,6 +85,7 @@
   },
   "devDependencies": {
     "@boltz/bitcoin-ops": "^2.0.0",
+    "@openzeppelin/contracts": "^4.8.2",
     "@types/async-lock": "^1.4.0",
     "@types/cors": "^2.8.13",
     "@types/express": "^4.17.17",

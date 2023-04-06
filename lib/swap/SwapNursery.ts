@@ -15,32 +15,32 @@ import LndClient from '../lightning/LndClient';
 import ChainClient from '../chain/ChainClient';
 import EthereumNursery from './EthereumNursery';
 import RateProvider from '../rates/RateProvider';
-import SwapRepository from '../db/repositories/SwapRepository';
 import LightningNursery from './LightningNursery';
 import ReverseSwap from '../db/models/ReverseSwap';
-import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
-import { Invoice, PaymentFailureReason } from '../proto/lnd/rpc_pb';
 import ChannelCreation from '../db/models/ChannelCreation';
-import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
+import SwapRepository from '../db/repositories/SwapRepository';
 import ContractHandler from '../wallet/ethereum/ContractHandler';
 import WalletManager, { Currency } from '../wallet/WalletManager';
+import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
 import { ERC20SwapValues, EtherSwapValues } from '../consts/Types';
-import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import { etherDecimals, ReverseSwapOutputType } from '../consts/Consts';
 import ERC20WalletProvider from '../wallet/providers/ERC20WalletProvider';
+import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
+import { Invoice, Payment, PaymentFailureReason } from '../proto/lnd/rpc_pb';
+import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import { ChannelCreationStatus, CurrencyType, SwapUpdateEvent } from '../consts/Enums';
 import { queryERC20SwapValuesFromLock, queryEtherSwapValuesFromLock } from '../wallet/ethereum/ContractUtils';
 import {
-  calculateEthereumTransactionFee,
-  calculateUtxoTransactionFee,
-  decodeInvoice,
+  getRate,
   formatError,
-  getChainCurrency,
+  splitPairId,
   getHexBuffer,
   getHexString,
+  decodeInvoice,
+  getChainCurrency,
   getLightningCurrency,
-  getRate,
-  splitPairId,
+  calculateUtxoTransactionFee,
+  calculateEthereumTransactionFee,
 } from '../Utils';
 import InvoiceState = Invoice.InvoiceState;
 
@@ -634,7 +634,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
 
     const output = transaction.outs[swap.lockupTransactionVout!];
 
-    const claimTransaction = await constructClaimTransaction(
+    const claimTransaction = constructClaimTransaction(
       [
         {
           preimage,
@@ -723,16 +723,25 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
       this.emit('invoice.pending', await this.swapRepository.setSwapStatus(swap, SwapUpdateEvent.InvoicePending));
     }
 
-    const setInvoicePaid = async (feeMsat: number) => {
-      this.emit('invoice.paid', await this.swapRepository.setInvoicePaid(swap, feeMsat));
-    };
-
     const { base, quote } = splitPairId(swap.pair);
     const chainSymbol = getChainCurrency(base, quote, swap.orderSide, false);
     const lightningSymbol = getLightningCurrency(base, quote, swap.orderSide, false);
 
     const lightningCurrency = this.currencies.get(lightningSymbol)!;
     const chainCurrency = this.currencies.get(chainSymbol)!;
+
+    const settleInvoice = async (response: { paymentPreimage: string, feeMsat: number }): Promise<Buffer> => {
+      this.logger.verbose(
+        `Paid invoice of Swap ${swap.id}: ${response.paymentPreimage}`
+      );
+
+      this.emit(
+        'invoice.paid',
+        await this.swapRepository.setInvoicePaid(swap, response.feeMsat)
+      );
+
+      return getHexBuffer(response.paymentPreimage);
+    };
 
     try {
       // Wait 15 seconds for a response
@@ -763,27 +772,28 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
       ]);
 
       if (payResponse !== undefined) {
-        this.logger.debug(`Paid invoice of Swap ${swap.id}: ${payResponse.paymentPreimage}`);
-        await setInvoicePaid(payResponse.feeMsat);
-
-        return getHexBuffer(payResponse.paymentPreimage);
+        return await settleInvoice(payResponse);
       } else {
         this.logger.verbose(`Invoice payment of Swap ${swap.id} is still pending after ${raceTimeout} seconds`);
       }
     } catch (error) {
-      const errorMessage = typeof error === 'number' ? LndClient.formatPaymentFailureReason(error as any) : formatError(error);
+      const errorMessage = typeof error === 'number' ?
+        LndClient.formatPaymentFailureReason(error as any) :
+        formatError(error);
 
       if (outgoingChannelId !== undefined) {
         throw errorMessage;
       }
 
-      // Catch cases in which the invoice was paid already
-      if ((error as any).code === 6 && (error as any).details === 'invoice is already paid') {
+      if (
+        LightningNursery.errIsInvoicePaid(error) ||
+        LightningNursery.errIsCltvLimitExceeded(error)
+      ) {
         const payment = await lightningCurrency.lndClient!.trackPayment(getHexBuffer(swap.preimageHash));
-        this.logger.debug(`Invoice of Swap ${swap.id} is paid already: ${payment.paymentPreimage}`);
-        await setInvoicePaid(payment.feeMsat);
-
-        return getHexBuffer(payment.paymentPreimage);
+        if (payment.status === Payment.PaymentStatus.SUCCEEDED) {
+          this.logger.debug(`Invoice of Swap ${swap.id} is paid already`);
+          return settleInvoice(payment);
+        }
       }
 
       this.logger.warn(`Could not pay invoice of Swap ${swap.id} because: ${errorMessage}`);

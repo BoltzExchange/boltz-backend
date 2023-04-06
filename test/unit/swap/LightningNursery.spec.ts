@@ -93,6 +93,38 @@ describe('LightningNursery', () => {
     mockGetReverseSwapResult = null;
   });
 
+  test('should detect "invoice already paid" errors', () => {
+    const code = 6;
+    const details = 'invoice is already paid';
+
+    expect(LightningNursery.errIsInvoicePaid({
+      code,
+      details,
+    })).toEqual(true);
+
+    expect(LightningNursery.errIsInvoicePaid({
+      code,
+    })).toEqual(false);
+    expect(LightningNursery.errIsInvoicePaid({
+      details,
+    })).toEqual(false);
+    expect(LightningNursery.errIsInvoicePaid({})).toEqual(false);
+    expect(LightningNursery.errIsInvoicePaid(null)).toEqual(false);
+    expect(LightningNursery.errIsInvoicePaid(undefined)).toEqual(false);
+  });
+
+  test('should detect "cltv limit should be greater than" errors', () => {
+    expect(LightningNursery.errIsCltvLimitExceeded({
+      details: 'cltv limit 29 should be greater than 147',
+    })).toEqual(true);
+    expect(LightningNursery.errIsCltvLimitExceeded({
+      details: 'cltv limit 141 should be greater than 147',
+    })).toEqual(true);
+    expect(LightningNursery.errIsCltvLimitExceeded({})).toEqual(false);
+    expect(LightningNursery.errIsCltvLimitExceeded(null)).toEqual(false);
+    expect(LightningNursery.errIsCltvLimitExceeded(undefined)).toEqual(false);
+  });
+
   test('should bind currencies', () => {
     nursery.bindCurrencies(currencies);
 

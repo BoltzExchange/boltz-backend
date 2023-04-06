@@ -30,6 +30,24 @@ class LightningNursery extends EventEmitter {
     super();
   }
 
+  public static errIsInvoicePaid = (error: unknown): boolean => {
+    return (
+      (error !== undefined && error !== null) &&
+      (error as any).code === 6 &&
+      (error as any).details === 'invoice is already paid'
+    );
+  };
+
+  public static errIsCltvLimitExceeded = (error: unknown): boolean => {
+    if (error === undefined || error === null) {
+      return false;
+    }
+
+    return /^(cltv limit )(\d{1,3}) (should be greater than )(\d{1,3})$/gm.test(
+      (error as any).details
+    );
+  };
+
   public bindCurrencies = (currencies: Currency[]): void => {
     currencies.forEach((currency) => {
       if (currency.lndClient) {

@@ -758,6 +758,7 @@ class Service {
     await this.swapManager.setSwapInvoice(
       swap,
       invoice,
+      invoiceAmount,
       expectedAmount,
       percentageFee,
       acceptZeroConf,

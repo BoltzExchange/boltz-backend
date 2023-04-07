@@ -3,7 +3,6 @@ import { scheduleJob } from 'node-schedule';
 import { Storage, Bucket } from '@google-cloud/storage';
 import Errors from './Errors';
 import Logger from '../Logger';
-import Report from '../data/Report';
 import { formatError } from '../Utils';
 import { BackupConfig } from '../Config';
 import EventHandler from '../service/EventHandler';
@@ -15,8 +14,8 @@ class BackupScheduler {
     private logger: Logger,
     private dbpath: string,
     private config: BackupConfig,
-    private eventHandler: EventHandler,
-    private report: Report) {
+    private eventHandler: EventHandler
+  ) {
 
     if (
       config.email === '' ||
@@ -43,7 +42,6 @@ class BackupScheduler {
       this.logger.verbose(`Scheduling database backups: ${this.config.interval}`);
       scheduleJob(this.config.interval, async (date) => {
         await this.uploadDatabase(date);
-        await this.uploadReport();
       });
     } catch (error) {
       this.logger.warn(`Could not start backup scheduler: ${error}`);
@@ -71,15 +69,6 @@ class BackupScheduler {
     this.logger.silly(`Backing up databases at: ${dateString}`);
 
     await this.uploadFile(this.dbpath, dateString);
-  };
-
-  public uploadReport = async (): Promise<void> => {
-    if (!this.bucket) {
-      return;
-    }
-
-    const data = await this.report.generate();
-    await this.uploadString('report.csv', data);
   };
 
   private uploadFile = async (path: string, date: string) => {

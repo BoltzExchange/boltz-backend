@@ -1,14 +1,15 @@
 import { Request, Response } from 'express';
 import Logger from '../../../lib/Logger';
+import Bouncer from '../../../lib/api/Bouncer';
 import Service from '../../../lib/service/Service';
 import Controller from '../../../lib/api/Controller';
 import SwapNursery from '../../../lib/swap/SwapNursery';
+import ReferralStats from '../../../lib/data/ReferralStats';
 import ChannelCreation from '../../../lib/db/models/ChannelCreation';
 import { ReverseSwapType } from '../../../lib/db/models/ReverseSwap';
 import { SwapType as SwapDbType } from '../../../lib/db/models/Swap';
 import { SwapUpdateEvent, SwapType } from '../../../lib/consts/Enums';
 import { mapToObject, getHexBuffer, getVersion } from '../../../lib/Utils';
-import Bouncer from '../../../lib/api/Bouncer';
 
 type closeResponseCallback = () => void;
 type swapUpdateCallback = (id: string, message: string) => void;
@@ -218,11 +219,7 @@ const mockGenerateReferralStats = jest.fn().mockImplementation(() => {
   return mockGenerateReferralStatsResult;
 });
 
-jest.mock('../../../lib/data/ReferralStats', () => {
-  return jest.fn().mockImplementation(() => ({
-    generate: mockGenerateReferralStats,
-  }));
-});
+jest.mock('../../../lib/data/ReferralStats');
 
 const mockRequest = (body: any, query?: any) => ({
   body,
@@ -262,6 +259,10 @@ describe('Controller', () => {
     Logger.disabledLogger,
     service,
   );
+
+  beforeEach(() => {
+    ReferralStats.generate = mockGenerateReferralStats;
+  });
 
   test('should load status of all swaps on init', async () => {
     await controller.init();

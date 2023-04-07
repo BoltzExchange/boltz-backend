@@ -43,10 +43,18 @@ class SwapRepository {
     });
   };
 
-  public setInvoice = (swap: Swap, invoice: string, expectedAmount: number, fee: number, acceptZeroConf: boolean): Promise<Swap> => {
+  public setInvoice = (
+    swap: Swap,
+    invoice: string,
+    invoiceAmount: number,
+    expectedAmount: number,
+    fee: number,
+    acceptZeroConf: boolean,
+  ): Promise<Swap> => {
     return swap.update({
       fee,
       invoice,
+      invoiceAmount,
       acceptZeroConf,
       expectedAmount,
       status: SwapUpdateEvent.InvoiceSet,

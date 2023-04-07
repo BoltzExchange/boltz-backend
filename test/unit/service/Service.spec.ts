@@ -96,6 +96,7 @@ const mockCreateSwap = jest.fn().mockResolvedValue(mockedSwap);
 const mockSetSwapInvoice = jest.fn().mockImplementation(async (
   swap: Swap,
   _invoice: string,
+  _invoiceAmount: number,
   _expectedAmount: number,
   _percentageFee: number,
   _acceptZeroConf: boolean,
@@ -1041,7 +1042,7 @@ describe('Service', () => {
     expect(mockAcceptZeroConf).toHaveBeenCalledWith('BTC', invoiceAmount + 2);
 
     expect(mockSetSwapInvoice).toHaveBeenCalledTimes(1);
-    expect(mockSetSwapInvoice).toHaveBeenCalledWith(mockGetSwapResult, invoice, invoiceAmount + 2, 1, true, expect.anything());
+    expect(mockSetSwapInvoice).toHaveBeenCalledWith(mockGetSwapResult, invoice, invoiceAmount, invoiceAmount + 2, 1, true, expect.anything());
 
     // Should execute with valid pair hash (it should just not throw)
     await service.setSwapInvoice(mockGetSwapResult.id, invoice, pairs.get('BTC/BTC')!.hash);

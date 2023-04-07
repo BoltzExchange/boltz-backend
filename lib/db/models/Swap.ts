@@ -21,6 +21,7 @@ type SwapType = {
 
   preimageHash: string;
   invoice?: string;
+  invoiceAmount?: number;
 
   acceptZeroConf?: boolean;
   timeoutBlockHeight: number;
@@ -52,6 +53,7 @@ class Swap extends Model implements SwapType {
 
   public preimageHash!: string;
   public invoice?: string;
+  public invoiceAmount?: number;
 
   public acceptZeroConf?: boolean;
   public timeoutBlockHeight!: number;
@@ -80,6 +82,7 @@ class Swap extends Model implements SwapType {
       failureReason: { type: new DataTypes.STRING(255), allowNull: true },
       preimageHash: { type: new DataTypes.STRING(255), allowNull: false, unique: true },
       invoice: { type: new DataTypes.STRING(255), allowNull: true, unique: true },
+      invoiceAmount: { type: new DataTypes.INTEGER(), allowNull: true },
       acceptZeroConf: { type: DataTypes.BOOLEAN, allowNull: true },
       timeoutBlockHeight: { type: new DataTypes.INTEGER(), allowNull: false },
       rate: { type: new DataTypes.REAL(), allowNull: true },

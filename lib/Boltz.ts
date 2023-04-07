@@ -4,7 +4,6 @@ import { Networks } from 'boltz-core';
 import { generateMnemonic } from 'bip39';
 import Api from './api/Api';
 import Logger from './Logger';
-import Report from './data/Report';
 import Database from './db/Database';
 import { formatError } from './Utils';
 import Service from './service/Service';
@@ -84,10 +83,6 @@ class Boltz {
         this.config.dbpath,
         this.config.backup,
         this.service.eventHandler,
-        new Report(
-          this.service.swapManager.swapRepository,
-          this.service.swapManager.reverseSwapRepository,
-        ),
       );
 
       this.notifications = new NotificationProvider(

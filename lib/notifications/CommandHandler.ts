@@ -1,7 +1,6 @@
 import { Op } from 'sequelize';
 import Logger from '../Logger';
 import Stats from '../data/Stats';
-import Report from '../data/Report';
 import { codeBlock } from './Markup';
 import Swap from '../db/models/Swap';
 import OtpManager from './OtpManager';
@@ -14,6 +13,7 @@ import ReferralStats from '../data/ReferralStats';
 import ReverseSwap from '../db/models/ReverseSwap';
 import BackupScheduler from '../backup/BackupScheduler';
 import ChannelCreation from '../db/models/ChannelCreation';
+import FeeRepository from '../db/repositories/FeeRepository';
 import { coinsToSatoshis, satoshisToCoins } from '../DenominationConverter';
 import { getChainCurrency, stringify, splitPairId, formatError } from '../Utils';
 
@@ -201,15 +201,8 @@ class CommandHandler {
 
   private getFees = async () => {
     let message = 'Fees:\n';
-
-    const { swaps, reverseSwaps } = await Report.getSuccessfulSwaps(
-      this.service.swapManager.swapRepository,
-      this.service.swapManager.reverseSwapRepository,
-    );
-    const fees = this.getFeeOfSwaps(swaps, reverseSwaps);
-
-    fees.forEach((fee, symbol) => {
-      message += `\n**${symbol}**: ${satoshisToCoins(fee)} ${symbol}`;
+    (await FeeRepository.getFees()).forEach(({ asset, sum }) => {
+      message += `\n**${asset}**: ${satoshisToCoins(sum)} ${asset}`;
     });
 
     await this.discord.sendMessage(message);
@@ -250,9 +243,9 @@ class CommandHandler {
   };
 
   private getStats = async () => {
-    const stats = await new Stats(this.service.swapManager.swapRepository, this.service.swapManager.reverseSwapRepository).generate();
-
-    await this.discord.sendMessage(`${codeBlock}${stats}${codeBlock}`);
+    await this.discord.sendMessage(`${codeBlock}${
+      stringify(await Stats.generate())
+    }${codeBlock}`);
   };
 
   private getBalance = async () => {
@@ -261,14 +254,12 @@ class CommandHandler {
     let message = 'Balances:';
 
     balances.forEach((balance: Balance, symbol: string) => {
-      // tslint:disable-next-line:prefer-template
       message += `\n\n**${symbol}**\n` +
         `Wallet: ${satoshisToCoins(balance.getWalletBalance()!.getTotalBalance())} ${symbol}`;
 
       const lightningBalance = balance.getLightningBalance();
 
       if (lightningBalance) {
-        // tslint:disable-next-line:prefer-template
         message += '\n\nLND:\n' +
           `  Local: ${satoshisToCoins(lightningBalance.getLocalBalance())} ${symbol}\n` +
           `  Remote: ${satoshisToCoins(lightningBalance.getRemoteBalance())} ${symbol}`;
@@ -366,12 +357,9 @@ class CommandHandler {
   };
 
   private getReferrals = async () => {
-    const stats = await new ReferralStats(
-      this.service.swapManager.swapRepository,
-      this.service.swapManager.reverseSwapRepository,
-    ).generate();
-
-    await this.discord.sendMessage(`${codeBlock}${stats}${codeBlock}`);
+    await this.discord.sendMessage(`${codeBlock}${
+      stringify(await ReferralStats.generate())
+    }${codeBlock}`);
   };
 
   private backup = async () => {
@@ -463,31 +451,6 @@ class CommandHandler {
    * Helper functions
    */
 
-  private getFeeOfSwaps = (swaps: Swap[], reverseSwaps: ReverseSwap[]) => {
-    // A map between the symbols of the currencies and the fees collected on that chain
-    const fees = new Map<string, number>();
-
-    const getFeeFromSwapMap = (array: Swap[] | ReverseSwap[], isReverse: boolean) => {
-      array.forEach((swap: Swap | ReverseSwap) => {
-        const { base, quote } = splitPairId(swap.pair);
-        const feeSymbol = getChainCurrency(base, quote, swap.orderSide, isReverse);
-
-        const fee = fees.get(feeSymbol);
-
-        if (fee) {
-          fees.set(feeSymbol, fee + swap.fee!);
-        } else {
-          fees.set(feeSymbol, swap.fee!);
-        }
-      });
-    };
-
-    getFeeFromSwapMap(swaps, false);
-    getFeeFromSwapMap(reverseSwaps, true);
-
-    return fees;
-  };
-
   private sendSwapInfo = async (swap: Swap | ReverseSwap, isReverse: boolean, channelCreation?: ChannelCreation | null) => {
     const hasChannelCreation = channelCreation !== null && channelCreation !== undefined;
 
@@ -503,7 +466,6 @@ class CommandHandler {
       }
     }
 
-    // tslint:disable-next-line: prefer-template
     await this.discord.sendMessage(`${name} \`${swap.id}\`:\n` +
         `${codeBlock}${stringify(swap)}${hasChannelCreation ? '\n' + stringify(channelCreation) : ''}${codeBlock}`);
   };

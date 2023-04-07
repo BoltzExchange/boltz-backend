@@ -266,6 +266,7 @@ class SwapManager {
    *
    * @param swap database object of the swap
    * @param invoice invoice of the Swap
+   * @param invoiceAmount amount of the invoice in satoshis
    * @param expectedAmount amount that is expected onchain
    * @param percentageFee fee Boltz charges for the Swap
    * @param acceptZeroConf whether 0-conf transactions should be accepted
@@ -274,6 +275,7 @@ class SwapManager {
   public setSwapInvoice = async (
     swap: Swap,
     invoice: string,
+    invoiceAmount: number,
     expectedAmount: number,
     percentageFee: number,
     acceptZeroConf: boolean,
@@ -357,7 +359,14 @@ class SwapManager {
     const previousStatus = swap.status;
 
     this.logger.debug(`Setting invoice of Swap ${swap.id}: ${invoice}`);
-    const updatedSwap = await this.swapRepository.setInvoice(swap, invoice, expectedAmount, percentageFee, acceptZeroConf);
+    const updatedSwap = await this.swapRepository.setInvoice(
+      swap,
+      invoice,
+      invoiceAmount,
+      expectedAmount,
+      percentageFee,
+      acceptZeroConf,
+    );
 
     // Not the most elegant way to emit this event but the only option
     // to emit it before trying to claim the swap
@@ -518,6 +527,7 @@ class SwapManager {
         orderSide: args.orderSide,
         onchainAmount: args.onchainAmount,
         status: SwapUpdateEvent.SwapCreated,
+        invoiceAmount: args.holdInvoiceAmount,
         redeemScript: getHexString(redeemScript),
         preimageHash: getHexString(args.preimageHash),
         minerFeeInvoicePreimage: minerFeeInvoicePreimage,
@@ -545,6 +555,7 @@ class SwapManager {
         claimAddress: args.claimAddress!,
         onchainAmount: args.onchainAmount,
         status: SwapUpdateEvent.SwapCreated,
+        invoiceAmount: args.holdInvoiceAmount,
         preimageHash: getHexString(args.preimageHash),
         minerFeeInvoicePreimage: minerFeeInvoicePreimage,
         minerFeeOnchainAmount: args.prepayMinerFeeOnchainAmount,

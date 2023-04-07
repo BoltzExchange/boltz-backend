@@ -21,6 +21,7 @@ import {
   channelCreationExample,
   pendingReverseSwapExample,
 } from './ExampleSwaps';
+import ReferralStats from '../../../lib/data/ReferralStats';
 
 const getRandomNumber = () => Math.floor(Math.random() * 10000);
 
@@ -47,13 +48,7 @@ const referralStats = 'referralStats';
 
 const mockGenerateReferralStats = jest.fn().mockImplementation(() => Promise.resolve(referralStats));
 
-jest.mock('../../../lib/data/ReferralStats', () => {
-  return jest.fn().mockImplementation(() => {
-    return {
-      generate: mockGenerateReferralStats,
-    };
-  });
-});
+jest.mock('../../../lib/data/ReferralStats');
 
 const mockedDiscordClient = <jest.Mock<DiscordClient>><any>DiscordClient;
 
@@ -197,6 +192,7 @@ describe('CommandHandler', () => {
 
   beforeEach(() => {
     mockSendMessage.mockClear();
+    ReferralStats.generate = mockGenerateReferralStats;
   });
 
   test('should not respond to messages that are no commands', async () => {
@@ -323,15 +319,15 @@ describe('CommandHandler', () => {
       `\`\`\`${stringify({
         [new Date().getFullYear()]: {
           [new Date().getMonth() + 1]: {
-            failureRates: {
-              swaps: 0,
-              reverseSwaps: 0,
-            },
             volume: {
               BTC: 0.03,
             },
             trades: {
               'LTC/BTC': 3,
+            },
+            failureRates: {
+              swaps: 0,
+              reverseSwaps: 0,
             },
           },
         },
@@ -389,7 +385,7 @@ describe('CommandHandler', () => {
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(
-      `\`\`\`${referralStats}\`\`\``,
+      `\`\`\`${stringify(referralStats)}\`\`\``,
     );
   });
 

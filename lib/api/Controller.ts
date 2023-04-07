@@ -425,12 +425,7 @@ class Controller {
   public queryReferrals = async (req: Request, res: Response): Promise<void> => {
     try {
       const referral = await Bouncer.validateRequestAuthentication(req);
-      const stats = await new ReferralStats(
-        this.service.swapManager.swapRepository,
-        this.service.swapManager.reverseSwapRepository,
-      ).generate({
-        referral: referral.id,
-      });
+      const stats = await ReferralStats.generate(referral.id);
 
       this.successResponse(res, stats);
     } catch (error) {

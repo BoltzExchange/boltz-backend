@@ -548,6 +548,7 @@ describe('SwapManager', () => {
     await manager.setSwapInvoice(
       swap,
       invoice,
+      invoiceEncode.satoshis!,
       expectedAmount,
       percentageFee,
       acceptZeroConf,
@@ -563,7 +564,7 @@ describe('SwapManager', () => {
     expect(mockCheckRoutability).toHaveBeenCalledWith(btcCurrency.lndClient, invoice);
 
     expect(mockSetInvoice).toHaveBeenCalledTimes(1);
-    expect(mockSetInvoice).toHaveBeenCalledWith(swap, invoice, expectedAmount, percentageFee, acceptZeroConf);
+    expect(mockSetInvoice).toHaveBeenCalledWith(swap, invoice, invoiceEncode.satoshis, expectedAmount, percentageFee, acceptZeroConf);
 
     expect(emitSwapInvoiceSet).toHaveBeenCalledTimes(1);
     expect(emitSwapInvoiceSet).toHaveBeenCalledWith(swap.id);
@@ -584,6 +585,7 @@ describe('SwapManager', () => {
     await manager.setSwapInvoice(
       swap,
       invoice,
+      invoiceEncode.satoshis!,
       expectedAmount,
       percentageFee,
       acceptZeroConf,
@@ -605,6 +607,7 @@ describe('SwapManager', () => {
     await manager.setSwapInvoice(
       swap,
       invoice,
+      invoiceEncode.satoshis!,
       expectedAmount,
       percentageFee,
       acceptZeroConf,
@@ -626,6 +629,7 @@ describe('SwapManager', () => {
     await manager.setSwapInvoice(
       swap,
       invoice,
+      invoiceEncode.satoshis!,
       expectedAmount,
       percentageFee,
       acceptZeroConf,
@@ -644,6 +648,7 @@ describe('SwapManager', () => {
     await manager.setSwapInvoice(
       swap,
       invoice,
+      invoiceEncode.satoshis!,
       expectedAmount,
       percentageFee,
       acceptZeroConf,
@@ -665,6 +670,7 @@ describe('SwapManager', () => {
       await manager.setSwapInvoice(
         swap,
         invoice,
+        invoiceEncode.satoshis!,
         expectedAmount,
         percentageFee,
         acceptZeroConf,
@@ -701,6 +707,7 @@ describe('SwapManager', () => {
       await manager.setSwapInvoice(
         swap,
         invoiceNoExpiry,
+        invoiceNoExpiryEncode.satoshis!,
         expectedAmount,
         percentageFee,
         acceptZeroConf,
@@ -720,6 +727,7 @@ describe('SwapManager', () => {
       await manager.setSwapInvoice(
         swap,
         invoiceExpired,
+        decodeInvoice(invoiceExpired).satoshis!,
         expectedAmount,
         percentageFee,
         acceptZeroConf,
@@ -740,6 +748,7 @@ describe('SwapManager', () => {
     await expect(manager.setSwapInvoice(
       swap,
       invoice,
+      invoiceEncode.satoshis!,
       expectedAmount,
       percentageFee,
       acceptZeroConf,
@@ -754,6 +763,7 @@ describe('SwapManager', () => {
     await expect(manager.setSwapInvoice(
       swap,
       invoice,
+      invoiceEncode.satoshis!,
       expectedAmount,
       percentageFee,
       acceptZeroConf,
@@ -827,6 +837,7 @@ describe('SwapManager', () => {
       id: reverseSwap.id,
       minerFeeInvoice: undefined,
       invoice: mockAddHoldInvoiceResult,
+      invoiceAmount: holdInvoiceAmount,
       status: SwapUpdateEvent.SwapCreated,
       keyIndex: mockGetNewKeysResult.index,
       pair: `${baseCurrency}/${quoteCurrency}`,
@@ -900,6 +911,7 @@ describe('SwapManager', () => {
 
       id: prepayReverseSwap.id,
       invoice: mockAddHoldInvoiceResult,
+      invoiceAmount: holdInvoiceAmount,
       status: SwapUpdateEvent.SwapCreated,
       keyIndex: mockGetNewKeysResult.index,
       pair: `${baseCurrency}/${quoteCurrency}`,

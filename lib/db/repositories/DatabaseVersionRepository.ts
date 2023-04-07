@@ -1,17 +1,17 @@
 import DatabaseVersion from '../models/DatabaseVersion';
 
 class DatabaseVersionRepository {
-  public getVersion = (): Promise<DatabaseVersion | null> => {
+  public static getVersion = (): Promise<DatabaseVersion | null> => {
     return DatabaseVersion.findOne();
   };
 
-  public createVersion = (version: number): Promise<DatabaseVersion> => {
+  public static createVersion = (version: number): Promise<DatabaseVersion> => {
     return DatabaseVersion.create({
       version,
     });
   };
 
-  public updateVersion = async (newVersion: number): Promise<void> => {
+  public static updateVersion = async (newVersion: number): Promise<void> => {
     await DatabaseVersion.update({
       version: newVersion,
     }, {
@@ -19,7 +19,7 @@ class DatabaseVersionRepository {
     });
   };
 
-  public dropTable = (): Promise<void> => {
+  public static dropTable = (): Promise<void> => {
     return DatabaseVersion.drop();
   };
 }

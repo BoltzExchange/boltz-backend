@@ -16,7 +16,6 @@ import { KeyProviderType } from '../db/models/KeyProvider';
 import KeyRepository from '../db/repositories/KeyRepository';
 import LndWalletProvider from './providers/LndWalletProvider';
 import CoreWalletProvider from './providers/CoreWalletProvider';
-import ChainTipRepository from '../db/repositories/ChainTipRepository';
 import WalletProviderInterface from './providers/WalletProviderInterface';
 
 type CurrencyLimits = {
@@ -58,15 +57,12 @@ class WalletManager {
 
   private readonly mnemonic: string;
   private readonly masterNode: BIP32Interface;
-  private readonly keyRepository: KeyRepository;
 
   private readonly derivationPath = 'm/0';
 
   constructor(private logger: Logger, mnemonicPath: string, private currencies: Currency[], ethereumManager?: EthereumManager) {
     this.mnemonic = this.loadMnemonic(mnemonicPath);
     this.masterNode = bip32.fromSeed(mnemonicToSeedSync(this.mnemonic));
-
-    this.keyRepository = new KeyRepository();
 
     this.ethereumManager = ethereumManager;
   }
@@ -84,7 +80,7 @@ class WalletManager {
     return new WalletManager(logger, mnemonicPath, currencies, ethereumManager);
   };
 
-  public init = async (chainTipRepository: ChainTipRepository): Promise<void> => {
+  public init = async (): Promise<void> => {
     const keyProviderMap = await this.getKeyProviderMap();
 
     for (const currency of this.currencies) {
@@ -127,7 +123,7 @@ class WalletManager {
 
         keyProviderMap.set(currency.symbol, keyProviderInfo);
 
-        await this.keyRepository.addKeyProvider({
+        await KeyRepository.addKeyProvider({
           ...keyProviderInfo,
           symbol: currency.symbol,
         });
@@ -144,14 +140,13 @@ class WalletManager {
         keyProviderInfo.derivationPath,
         keyProviderInfo.highestUsedIndex,
         this.masterNode,
-        this.keyRepository,
       );
 
       this.wallets.set(currency.symbol, wallet);
     }
 
     if (this.ethereumManager) {
-      const ethereumWallets = await this.ethereumManager.init(this.mnemonic, chainTipRepository);
+      const ethereumWallets = await this.ethereumManager.init(this.mnemonic);
 
       for (const [symbol, ethereumWallet] of ethereumWallets) {
         this.wallets.set(symbol, ethereumWallet);
@@ -169,7 +164,7 @@ class WalletManager {
 
   private getKeyProviderMap = async () => {
     const map = new Map<string, KeyProviderType>();
-    const keyProviders = await this.keyRepository.getKeyProviders();
+    const keyProviders = await KeyRepository.getKeyProviders();
 
     keyProviders.forEach((keyProvider) => {
       map.set(keyProvider.symbol, {

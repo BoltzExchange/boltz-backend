@@ -109,16 +109,7 @@ const mockGetSwapsExpirable = jest.fn().mockImplementation(async () => {
 
 const mockSetLockupTransaction = jest.fn().mockImplementation(async (arg) => arg);
 
-jest.mock('../../../lib/db/repositories/SwapRepository', () => {
-  return jest.fn().mockImplementation(() => ({
-    getSwap: mockGetSwap,
-    getSwaps: mockGetSwaps,
-    getSwapsExpirable: mockGetSwapsExpirable,
-    setLockupTransaction: mockSetLockupTransaction,
-  }));
-});
-
-const MockedSwapRepository = <jest.Mock<SwapRepository>>SwapRepository;
+jest.mock('../../../lib/db/repositories/SwapRepository');
 
 let mockGetReverseSwapResult: any = null;
 const mockGetReverseSwap = jest.fn().mockImplementation(async () => {
@@ -137,16 +128,7 @@ const mockGetReverseSwapsExpirable = jest.fn().mockImplementation(async() => {
 
 const mockSetReverseSwapStatus = jest.fn().mockImplementation(async (arg) => arg);
 
-jest.mock('../../../lib/db/repositories/ReverseSwapRepository', () => {
-  return jest.fn().mockImplementation(() => ({
-    getReverseSwap: mockGetReverseSwap,
-    getReverseSwaps: mockGetReverseSwaps,
-    setReverseSwapStatus: mockSetReverseSwapStatus,
-    getReverseSwapsExpirable: mockGetReverseSwapsExpirable
-  }));
-});
-
-const MockedReverseSwapRepository = <jest.Mock<ReverseSwapRepository>>ReverseSwapRepository;
+jest.mock('../../../lib/db/repositories/ReverseSwapRepository');
 
 describe('UtxoNursery', () => {
   const btcWallet = new MockedWallet();
@@ -159,14 +141,23 @@ describe('UtxoNursery', () => {
         ['BTC', btcWallet],
       ]),
     } as any,
-    new MockedSwapRepository(),
-    new MockedReverseSwapRepository(),
   );
 
   beforeEach(() => {
     mockGetReverseSwapsResult = [];
 
     jest.clearAllMocks();
+
+    SwapRepository.getSwap = mockGetSwap;
+    SwapRepository.getSwaps = mockGetSwaps;
+    SwapRepository.getSwapsExpirable = mockGetSwapsExpirable;
+    SwapRepository.setLockupTransaction = mockSetLockupTransaction;
+
+    ReverseSwapRepository.getReverseSwap = mockGetReverseSwap;
+    ReverseSwapRepository.getReverseSwaps = mockGetReverseSwaps;
+    ReverseSwapRepository.setReverseSwapStatus = mockSetReverseSwapStatus;
+    ReverseSwapRepository.getReverseSwapsExpirable = mockGetReverseSwapsExpirable;
+
     nursery.removeAllListeners();
   });
 

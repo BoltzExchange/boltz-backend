@@ -22,10 +22,7 @@ class InvoiceNursery extends EventEmitter {
 
   private interval: any;
 
-  constructor(
-    private logger: Logger,
-    private reverseSwapRepository: ReverseSwapRepository,
-  ) {
+  constructor(private logger: Logger) {
     super();
   }
 
@@ -44,7 +41,7 @@ class InvoiceNursery extends EventEmitter {
   };
 
   private checkExpiredInvoices = async () => {
-    const pendingSwaps = await this.reverseSwapRepository.getReverseSwaps({
+    const pendingSwaps = await ReverseSwapRepository.getReverseSwaps({
       status: {
         [Op.or]: [
           SwapUpdateEvent.SwapCreated,

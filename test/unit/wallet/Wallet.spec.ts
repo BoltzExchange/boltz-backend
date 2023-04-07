@@ -9,8 +9,8 @@ import Logger from '../../../lib/Logger';
 import Wallet from '../../../lib/wallet/Wallet';
 import Database from '../../../lib/db/Database';
 import { getHexBuffer } from '../../../lib/Utils';
-import KeyRepository from '../../../lib/db/repositories/KeyRepository';
 import { CurrencyType } from '../../../lib/consts/Enums';
+import KeyRepository from '../../../lib/db/repositories/KeyRepository';
 import LndWalletProvider from '../../../lib/wallet/providers/LndWalletProvider';
 import { SentTransaction, WalletBalance } from '../../../lib/wallet/providers/WalletProviderInterface';
 
@@ -65,8 +65,6 @@ describe('Wallet', () => {
 
   const database = new Database(Logger.disabledLogger, ':memory:');
 
-  const keyRepository = new KeyRepository();
-
   const derivationPath = 'm/0/0';
   let highestUsedIndex = 21;
 
@@ -85,7 +83,6 @@ describe('Wallet', () => {
     derivationPath,
     highestUsedIndex,
     masterNode,
-    keyRepository,
   );
 
   const incrementIndex = () => {
@@ -99,7 +96,7 @@ describe('Wallet', () => {
   beforeAll(async () => {
     await database.init();
 
-    await keyRepository.addKeyProvider({
+    await KeyRepository.addKeyProvider({
       symbol,
       derivationPath,
       highestUsedIndex,
@@ -171,7 +168,7 @@ describe('Wallet', () => {
   });
 
   test('should update highest used index in database', async () => {
-    const dbKeyProvider = await keyRepository.getKeyProvider(symbol);
+    const dbKeyProvider = await KeyRepository.getKeyProvider(symbol);
 
     expect(dbKeyProvider!.highestUsedIndex).toEqual(highestUsedIndex);
   });

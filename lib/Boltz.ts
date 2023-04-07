@@ -117,14 +117,12 @@ class Boltz {
       await this.db.migrate(this.currencies);
       await this.db.init();
 
-      const chainTipRepository = new ChainTipRepository();
-
       // Query the chain tips now to avoid them being updated after the chain clients are initialized
-      const chainTips = await chainTipRepository.getChainTips();
+      const chainTips = await ChainTipRepository.getChainTips();
 
       for (const [, currency] of this.currencies) {
         if (currency.chainClient) {
-          await this.connectChainClient(currency.chainClient, chainTipRepository);
+          await this.connectChainClient(currency.chainClient);
 
           if (currency.lndClient) {
             await this.connectLnd(currency.lndClient);
@@ -132,7 +130,7 @@ class Boltz {
         }
       }
 
-      await this.walletManager.init(chainTipRepository);
+      await this.walletManager.init();
       await this.service.init(this.config.pairs);
 
       await this.service.swapManager.init(Array.from(this.currencies.values()));
@@ -187,11 +185,11 @@ class Boltz {
     }
   };
 
-  private connectChainClient = async (client: ChainClient, chainTipRepository: ChainTipRepository) => {
+  private connectChainClient = async (client: ChainClient) => {
     const service = `${client.symbol} chain`;
 
     try {
-      await client.connect(chainTipRepository);
+      await client.connect();
 
       const blockchainInfo = await client.getBlockchainInfo();
       const networkInfo = await client.getNetworkInfo();

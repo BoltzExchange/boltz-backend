@@ -4,6 +4,7 @@ import { stringify } from '../../../lib/Utils';
 import Database from '../../../lib/db/Database';
 import Service from '../../../lib/service/Service';
 import { NotificationConfig } from '../../../lib/Config';
+import ReferralStats from '../../../lib/data/ReferralStats';
 import BackupScheduler from '../../../lib/backup/BackupScheduler';
 import DiscordClient from '../../../lib/notifications/DiscordClient';
 import CommandHandler from '../../../lib/notifications/CommandHandler';
@@ -21,7 +22,6 @@ import {
   channelCreationExample,
   pendingReverseSwapExample,
 } from './ExampleSwaps';
-import ReferralStats from '../../../lib/data/ReferralStats';
 
 const getRandomNumber = () => Math.floor(Math.random() * 10000);
 
@@ -77,12 +77,6 @@ const newAddress = 'bcrt1qymqsjl5qre2zc94wd04nd27p5vkvxqge7f0a8k';
 
 const database = new Database(Logger.disabledLogger, ':memory:');
 
-const pairRepository = new PairRepository();
-
-const swapRepository = new SwapRepository();
-const reverseSwapRepository = new ReverseSwapRepository();
-const channelCreationRepository = new ChannelCreationRepository();
-
 const mockGetAddress = jest.fn().mockResolvedValue(newAddress);
 
 const invoicePreimage = '765895dd514ce9358f1412c6b416d6a8f8ecea1a4e442d1e15ea8b76152fd241';
@@ -114,11 +108,6 @@ const mockSendCoins = jest.fn().mockImplementation(async (args: {
 jest.mock('../../../lib/service/Service', () => {
   return jest.fn().mockImplementation(() => {
     return {
-      swapManager: {
-        swapRepository,
-        reverseSwapRepository,
-        channelCreationRepository,
-      },
       getBalance: () => Promise.resolve({
         getBalancesMap: () => new Map<string, Balance>([
           ['BTC', btcBalance],
@@ -172,21 +161,21 @@ describe('CommandHandler', () => {
   beforeAll(async () => {
     await database.init();
 
-    await pairRepository.addPair({
+    await PairRepository.addPair({
       id: 'LTC/BTC',
       base: 'LTC',
       quote: 'BTC',
     });
 
     await Promise.all([
-      swapRepository.addSwap(swapExample),
-      swapRepository.addSwap(pendingSwapExample),
+      SwapRepository.addSwap(swapExample),
+      SwapRepository.addSwap(pendingSwapExample),
 
-      reverseSwapRepository.addReverseSwap(reverseSwapExample),
-      reverseSwapRepository.addReverseSwap(pendingReverseSwapExample),
+      ReverseSwapRepository.addReverseSwap(reverseSwapExample),
+      ReverseSwapRepository.addReverseSwap(pendingReverseSwapExample),
 
-      swapRepository.addSwap(channelSwapExample),
-      channelCreationRepository.addChannelCreation(channelCreationExample),
+      SwapRepository.addSwap(channelSwapExample),
+      ChannelCreationRepository.addChannelCreation(channelCreationExample),
     ]);
   });
 
@@ -268,7 +257,7 @@ describe('CommandHandler', () => {
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(
-      `Swap \`${swapExample.id}\`:\n\`\`\`${stringify(await swapRepository.getSwap({ id: swapExample.id }))}\`\`\``,
+      `Swap \`${swapExample.id}\`:\n\`\`\`${stringify(await SwapRepository.getSwap({ id: swapExample.id }))}\`\`\``,
     );
 
     // Channel Creation Swap
@@ -279,8 +268,8 @@ describe('CommandHandler', () => {
     expect(mockSendMessage).toHaveBeenCalledWith(
       // tslint:disable-next-line:prefer-template
       `Channel Creation \`${channelSwapExample.id}\`:\n\`\`\`` +
-      `${stringify(await swapRepository.getSwap({ id: channelSwapExample.id })) }\n` +
-      `${stringify(await channelCreationRepository.getChannelCreation({ swapId: channelSwapExample.id }))}\`\`\``,
+      `${stringify(await SwapRepository.getSwap({ id: channelSwapExample.id })) }\n` +
+      `${stringify(await ChannelCreationRepository.getChannelCreation({ swapId: channelSwapExample.id }))}\`\`\``,
     );
 
     // Reverse Swap
@@ -289,7 +278,9 @@ describe('CommandHandler', () => {
 
     expect(mockSendMessage).toHaveBeenCalledTimes(3);
     expect(mockSendMessage).toHaveBeenCalledWith(
-      `Reverse Swap \`${reverseSwapExample.id}\`:\n\`\`\`${stringify(await reverseSwapRepository.getReverseSwap({ id: reverseSwapExample.id }))}\`\`\``,
+      `Reverse Swap \`${reverseSwapExample.id}\`:\n\`\`\`${
+        stringify(await ReverseSwapRepository.getReverseSwap({ id: reverseSwapExample.id }))
+      }\`\`\``,
     );
 
     const errorMessage = 'Could not find swap with id: ';
@@ -541,14 +532,14 @@ describe('CommandHandler', () => {
   });
 
   afterAll(async () => {
-    await channelCreationRepository.dropTable();
+    await ChannelCreationRepository.dropTable();
 
     await Promise.all([
-      swapRepository.dropTable(),
-      reverseSwapRepository.dropTable(),
+      SwapRepository.dropTable(),
+      ReverseSwapRepository.dropTable(),
     ]);
 
-    await pairRepository.dropTable();
+    await PairRepository.dropTable();
     await database.close();
   });
 });

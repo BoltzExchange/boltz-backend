@@ -1,15 +1,15 @@
 import Pair, { PairType } from '../models/Pair';
 
 class PairRepository {
-  public getPairs = (): Promise<Pair[]> => {
+  public static getPairs = (): Promise<Pair[]> => {
     return Pair.findAll({});
   };
 
-  public addPair = (pair: PairType): Promise<Pair> => {
+  public static addPair = (pair: PairType): Promise<Pair> => {
     return Pair.create(pair);
   };
 
-  public removePair = (id: string): Promise<number> => {
+  public static removePair = (id: string): Promise<number> => {
     return Pair.destroy({
       where: {
         id,
@@ -17,7 +17,7 @@ class PairRepository {
     });
   };
 
-  public dropTable = async (): Promise<void> => {
+  public static dropTable = async (): Promise<void> => {
     return Pair.drop();
   };
 }

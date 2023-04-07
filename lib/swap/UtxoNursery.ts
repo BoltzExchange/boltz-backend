@@ -8,18 +8,18 @@ import Logger from '../Logger';
 import Swap from '../db/models/Swap';
 import Wallet from '../wallet/Wallet';
 import ChainClient from '../chain/ChainClient';
-import SwapRepository from '../db/repositories/SwapRepository';
 import { SwapUpdateEvent } from '../consts/Enums';
 import ReverseSwap from '../db/models/ReverseSwap';
-import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
+import SwapRepository from '../db/repositories/SwapRepository';
 import WalletManager, { Currency } from '../wallet/WalletManager';
+import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import {
-  calculateUtxoTransactionFee,
-  getChainCurrency,
+  splitPairId,
   getHexBuffer,
   reverseBuffer,
-  splitPairId,
+  getChainCurrency,
   transactionHashToId,
+  calculateUtxoTransactionFee,
   transactionSignalsRbfExplicitly
 } from '../Utils';
 
@@ -58,8 +58,6 @@ class UtxoNursery extends EventEmitter {
   constructor(
     private logger: Logger,
     private walletManager: WalletManager,
-    private swapRepository: SwapRepository,
-    private reverseSwapRepository: ReverseSwapRepository,
   ) {
     super();
   }
@@ -91,7 +89,7 @@ class UtxoNursery extends EventEmitter {
       for (let vout = 0; vout < transaction.outs.length; vout += 1) {
         const output = transaction.outs[vout];
 
-        const swap = await this.swapRepository.getSwap({
+        const swap = await SwapRepository.getSwap({
           status: {
             [Op.or]: [
               SwapUpdateEvent.SwapCreated,
@@ -116,7 +114,7 @@ class UtxoNursery extends EventEmitter {
     for (let vin = 0; vin < transaction.ins.length; vin += 1) {
       const input = transaction.ins[vin];
 
-      const reverseSwap = await this.reverseSwapRepository.getReverseSwap({
+      const reverseSwap = await ReverseSwapRepository.getReverseSwap({
         status: {
           [Op.or]: [
             SwapUpdateEvent.TransactionMempool,
@@ -144,7 +142,7 @@ class UtxoNursery extends EventEmitter {
         return;
       }
 
-      const reverseSwap = await this.reverseSwapRepository.getReverseSwap({
+      const reverseSwap = await ReverseSwapRepository.getReverseSwap({
         status: SwapUpdateEvent.TransactionMempool,
         transactionId: transaction.getId(),
       });
@@ -169,7 +167,7 @@ class UtxoNursery extends EventEmitter {
 
   private checkSwapMempoolTransactions = async (chainClient: ChainClient) => {
     await this.lock.acquire(UtxoNursery.swapLockupLock, async () => {
-      const mempoolSwaps = await this.swapRepository.getSwaps({
+      const mempoolSwaps = await SwapRepository.getSwaps({
         status: {
           [Op.or]: [
             SwapUpdateEvent.TransactionMempool,
@@ -198,7 +196,7 @@ class UtxoNursery extends EventEmitter {
   // This method is a fallback for "checkReverseSwapLockupsConfirmed" because that method sometimes misses transactions on mainnet for an unknown reason
   private checkReverseSwapMempoolTransactions = async (chainClient: ChainClient, wallet: Wallet) => {
     await this.lock.acquire(UtxoNursery.reverseSwapLockupConfirmationLock, async () => {
-      const mempoolReverseSwaps = await this.reverseSwapRepository.getReverseSwaps({
+      const mempoolReverseSwaps = await ReverseSwapRepository.getReverseSwaps({
         status: SwapUpdateEvent.TransactionMempool,
       });
 
@@ -221,7 +219,7 @@ class UtxoNursery extends EventEmitter {
 
 
   private checkExpiredSwaps = async (chainClient: ChainClient, height: number) => {
-    const expirableSwaps = await this.swapRepository.getSwapsExpirable(height);
+    const expirableSwaps = await SwapRepository.getSwapsExpirable(height);
 
     for (const expirableSwap of expirableSwaps) {
       const { base, quote } = splitPairId(expirableSwap.pair);
@@ -237,7 +235,7 @@ class UtxoNursery extends EventEmitter {
   };
 
   private checkExpiredReverseSwaps = async (chainClient: ChainClient, height: number) => {
-    const expirableReverseSwaps = await this.reverseSwapRepository.getReverseSwapsExpirable(height);
+    const expirableReverseSwaps = await ReverseSwapRepository.getReverseSwapsExpirable(height);
 
     for (const expirableReverseSwap of expirableReverseSwaps) {
       const { base, quote } = splitPairId(expirableReverseSwap.pair);
@@ -262,7 +260,7 @@ class UtxoNursery extends EventEmitter {
     chainClient.removeOutputFilter(wallet.decodeAddress(reverseSwap.lockupAddress));
     this.emit(
       'reverseSwap.lockup.confirmed',
-      await this.reverseSwapRepository.setReverseSwapStatus(reverseSwap, SwapUpdateEvent.TransactionConfirmed),
+      await ReverseSwapRepository.setReverseSwapStatus(reverseSwap, SwapUpdateEvent.TransactionConfirmed),
       transaction,
     );
   };
@@ -271,7 +269,7 @@ class UtxoNursery extends EventEmitter {
     const swapOutput = detectSwap(getHexBuffer(swap.redeemScript!), transaction)!;
     this.logger.verbose(`Found ${confirmed ? '' : 'un'}confirmed lockup transaction for Swap ${swap.id}: ${transaction.getId()}:${swapOutput.vout}`);
 
-    const updatedSwap = await this.swapRepository.setLockupTransaction(
+    const updatedSwap = await SwapRepository.setLockupTransaction(
       swap,
       transaction.getId(),
       swapOutput.value,

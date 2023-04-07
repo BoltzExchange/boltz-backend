@@ -1,6 +1,6 @@
 import { QueryTypes } from 'sequelize';
 import Database from '../Database';
-import {StatsDate} from './StatsRepository';
+import { StatsDate } from './StatsRepository';
 import { arrayToSqlInClause } from '../Utils';
 import Referral, { ReferralType } from '../models/Referral';
 import { SuccessSwapUpdateEvents } from '../../consts/Enums';
@@ -45,6 +45,7 @@ class ReferralRepository {
 
   private static referralsQuery = (referralKey?: string): string => {
     const keyClause = referralKey !== undefined ? 'AND referral = ?' : '';
+
     return `
 WITH data AS (
     SELECT pair, status, fee, referral, createdAt FROM swaps

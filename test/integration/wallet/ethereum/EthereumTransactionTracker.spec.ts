@@ -1,6 +1,7 @@
 import Logger from '../../../../lib/Logger';
 import { EthereumSetup, fundSignerWallet, getSigner } from '../EthereumTools';
 import EthereumTransactionTracker from '../../../../lib/wallet/ethereum/EthereumTransactionTracker';
+import PendingEthereumTransactionRepository from '../../../../lib/db/repositories/PendingEthereumTransactionRepository';
 
 const mockAddTransaction = jest.fn().mockImplementation(async () => {});
 
@@ -11,12 +12,7 @@ const mockGetTransactions = jest.fn().mockImplementation(async () => {
   return mockGetTransactionsResult;
 });
 
-jest.mock('../../../../lib/db/repositories/PendingEthereumTransactionRepository', () => {
-  return jest.fn().mockImplementation(() => ({
-    getTransactions: mockGetTransactions,
-    addTransaction: mockAddTransaction,
-  }));
-});
+jest.mock('../../../../lib/db/repositories/PendingEthereumTransactionRepository');
 
 describe('EthereumTransactionTracker', () => {
   let setup: EthereumSetup;
@@ -30,6 +26,9 @@ describe('EthereumTransactionTracker', () => {
       setup.signer,
     );
     await fundSignerWallet(setup.signer, setup.etherBase);
+
+    PendingEthereumTransactionRepository.getTransactions = mockGetTransactions;
+    PendingEthereumTransactionRepository.addTransaction = mockAddTransaction;
   });
 
   beforeEach(() => {

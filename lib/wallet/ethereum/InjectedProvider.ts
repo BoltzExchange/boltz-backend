@@ -38,7 +38,6 @@ class InjectedProvider implements Provider {
   public readonly provider: this;
 
   private providers = new Map<string, JsonRpcProvider>();
-  private pendingEthereumTransactionRepository = new PendingEthereumTransactionRepository();
 
   private network!: Network;
 
@@ -396,7 +395,7 @@ class InjectedProvider implements Provider {
 
   private addToTransactionDatabase = async (hash: string, nonce: number) => {
     this.logger.silly(`Sending Ethereum transaction: ${hash}`);
-    await this.pendingEthereumTransactionRepository.addTransaction(
+    await PendingEthereumTransactionRepository.addTransaction(
       hash,
       nonce,
     );

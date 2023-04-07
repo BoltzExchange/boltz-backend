@@ -8,6 +8,9 @@ import ServiceErrors from '../service/Errors';
 import ReferralStats from '../data/ReferralStats';
 import { SwapUpdate } from '../service/EventHandler';
 import { SwapType, SwapUpdateEvent } from '../consts/Enums';
+import SwapRepository from '../db/repositories/SwapRepository';
+import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
+import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import { getChainCurrency, getHexBuffer, getVersion, mapToObject, splitPairId, stringify } from '../Utils';
 
 type ApiArgument = {
@@ -43,8 +46,8 @@ class Controller {
 
     // Get the latest status of all swaps in the database
     const [swaps, reverseSwaps] = await Promise.all([
-      this.service.swapManager.swapRepository.getSwaps(),
-      this.service.swapManager.reverseSwapRepository.getReverseSwaps(),
+      SwapRepository.getSwaps(),
+      ReverseSwapRepository.getReverseSwaps(),
     ]);
 
     for (const swap of swaps) {
@@ -52,7 +55,7 @@ class Controller {
 
       switch (status) {
         case SwapUpdateEvent.ChannelCreated: {
-          const channelCreation = await this.service.swapManager.channelCreationRepository.getChannelCreation({
+          const channelCreation = await ChannelCreationRepository.getChannelCreation({
             swapId: swap.id,
           });
 

@@ -9,7 +9,6 @@ import ChainClient from '../../../lib/chain/ChainClient';
 import LndClient from '../../../lib/lightning/LndClient';
 import { CurrencyType } from '../../../lib/consts/Enums';
 import KeyRepository from '../../../lib/db/repositories/KeyRepository';
-import ChainTipRepository from '../../../lib/db/repositories/ChainTipRepository';
 import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
 
 const symbol = 'BTC';
@@ -68,8 +67,6 @@ describe('WalletManager', () => {
   const mnemonic = generateMnemonic();
 
   const database = new Database(Logger.disabledLogger, ':memory:');
-  const keyRepository = new KeyRepository();
-  const chainTipRepository = new ChainTipRepository();
 
   const btcClient = mockedChainClient();
   btcClient['symbol' as any] = 'BTC';
@@ -135,7 +132,7 @@ describe('WalletManager', () => {
     ];
 
     const noLndWalletManager = new WalletManager(Logger.disabledLogger, mnemonicPath, currenciesNoLnd);
-    await noLndWalletManager.init(chainTipRepository);
+    await noLndWalletManager.init();
 
     expect(noLndWalletManager.wallets.get(currenciesNoLnd[0].symbol)).toBeDefined();
   });
@@ -153,12 +150,12 @@ describe('WalletManager', () => {
     };
 
     const noLndWalletManager = new WalletManager(Logger.disabledLogger, mnemonicPath, currenciesNoLnd);
-    await expect(noLndWalletManager.init(chainTipRepository)).rejects.toEqual(WalletErrors.NO_WALLET_SUPPORT(currenciesNoLnd[0].symbol));
+    await expect(noLndWalletManager.init()).rejects.toEqual(WalletErrors.NO_WALLET_SUPPORT(currenciesNoLnd[0].symbol));
   });
 
   test('should initialize with an existing mnemonic', async () => {
     walletManager = new WalletManager(Logger.disabledLogger, mnemonicPath, currencies);
-    await walletManager.init(chainTipRepository);
+    await walletManager.init();
   });
 
   test('should initialize a new wallet for each currency', async () => {
@@ -171,7 +168,7 @@ describe('WalletManager', () => {
       const derivationPath = wallet!['derivationPath'];
       const highestUsedIndex = wallet!['highestUsedIndex'];
 
-      const keyProvider = await keyRepository.getKeyProvider(currency.symbol);
+      const keyProvider = await KeyRepository.getKeyProvider(currency.symbol);
 
       // Compare with values in the database
       expect(derivationPath).toEqual(keyProvider!.derivationPath);

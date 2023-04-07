@@ -20,24 +20,20 @@ import {
 
 // TODO: integration tests for actual migrations
 class Migration {
-  private versionRepository: DatabaseVersionRepository;
-
   private static latestSchemaVersion = 6;
 
-  constructor(private logger: Logger, private sequelize: Sequelize) {
-    this.versionRepository = new DatabaseVersionRepository();
-  }
+  constructor(private logger: Logger, private sequelize: Sequelize) {}
 
   public migrate = async (currencies: Map<string, Currency>): Promise<void> => {
     await DatabaseVersion.sync();
-    const versionRow = await this.versionRepository.getVersion();
+    const versionRow = await DatabaseVersionRepository.getVersion();
 
     // When no version row is found, just insert the latest version into the database
     if (!versionRow) {
       this.logger.verbose('No schema version found in database');
       this.logger.debug(`Inserting latest schema version ${Migration.latestSchemaVersion} in database`);
 
-      await this.versionRepository.createVersion(Migration.latestSchemaVersion);
+      await DatabaseVersionRepository.createVersion(Migration.latestSchemaVersion);
       return;
     }
 
@@ -352,7 +348,7 @@ class Migration {
     const currentVersion = updatedFromVersion + 1;
 
     this.logger.info(`Finished database migration to schema version ${currentVersion}`);
-    await this.versionRepository.updateVersion(currentVersion);
+    await DatabaseVersionRepository.updateVersion(currentVersion);
 
     // Run the migration again if the current schema version is not the latest one
     if (currentVersion !== Migration.latestSchemaVersion) {

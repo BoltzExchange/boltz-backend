@@ -5,13 +5,13 @@ import Logger from '../../../lib/Logger';
 import Swap from '../../../lib/db/models/Swap';
 import ChainClient from '../../../lib/chain/ChainClient';
 import LndClient from '../../../lib/lightning/LndClient';
-import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import { Currency } from '../../../lib/wallet/WalletManager';
 import { ChannelPoint } from '../../../lib/proto/lnd/rpc_pb';
 import ChannelNursery from '../../../lib/swap/ChannelNursery';
 import ChannelCreation from '../../../lib/db/models/ChannelCreation';
-import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
+import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import { ChannelCreationStatus, OrderSide, SwapUpdateEvent } from '../../../lib/consts/Enums';
+import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
 
 let mockGetSwapResult: any = {
   some: 'swapData',
@@ -22,16 +22,7 @@ const mockGetSwap = jest.fn().mockImplementation(async () => {
 
 const mockSetSwapStatus = jest.fn().mockResolvedValue(undefined);
 
-jest.mock('../../../lib/db/repositories/SwapRepository', () => {
-  return jest.fn().mockImplementation(() => {
-    return {
-      getSwap: mockGetSwap,
-      setSwapStatus: mockSetSwapStatus,
-    };
-  });
-});
-
-const MockedSwapRepository = <jest.Mock<SwapRepository>>SwapRepository;
+jest.mock('../../../lib/db/repositories/SwapRepository');
 
 const mockSetSettled = jest.fn().mockResolvedValue(undefined);
 
@@ -53,20 +44,7 @@ const mockSetFundingTransaction = jest.fn().mockImplementation(async (arg) => {
   return arg;
 });
 
-jest.mock('../../../lib/db/repositories/ChannelCreationRepository', () => {
-  return jest.fn().mockImplementation(() => {
-    return {
-      setSettled: mockSetSettled,
-      setAbandoned: mockSetAbandoned,
-      setAttempted: mockSetAttempted,
-      getChannelCreation: mockGetChannelCreation,
-      getChannelCreations: mockGetChannelCreations,
-      setFundingTransaction: mockSetFundingTransaction,
-    };
-  });
-});
-
-const MockedChannelCreationRepository = <jest.Mock<ChannelCreationRepository>>ChannelCreationRepository;
+jest.mock('../../../lib/db/repositories/ChannelCreationRepository');
 
 const mockEstimateFee = jest.fn().mockResolvedValue(3);
 
@@ -176,11 +154,19 @@ describe('ChannelNursery', () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
+    SwapRepository.getSwap = mockGetSwap;
+    SwapRepository.setSwapStatus = mockSetSwapStatus;
+
+    ChannelCreationRepository.setSettled = mockSetSettled;
+    ChannelCreationRepository.setAbandoned = mockSetAbandoned;
+    ChannelCreationRepository.setAttempted = mockSetAttempted;
+    ChannelCreationRepository.getChannelCreation = mockGetChannelCreation;
+    ChannelCreationRepository.getChannelCreations = mockGetChannelCreations;
+    ChannelCreationRepository.setFundingTransaction = mockSetFundingTransaction;
+
     // Reset the injected mocked methods
     channelNursery = new ChannelNursery(
       Logger.disabledLogger,
-      new MockedSwapRepository(),
-      new MockedChannelCreationRepository(),
       mockSettleSwap,
     );
 

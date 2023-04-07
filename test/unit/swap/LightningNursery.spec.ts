@@ -55,14 +55,7 @@ const mockSetReverseSwapStatus = jest.fn().mockImplementation(async (reverseSwap
   };
 });
 
-jest.mock('../../../lib/db/repositories/ReverseSwapRepository', () => {
-  return jest.fn().mockImplementation(() => ({
-    getReverseSwap: mockGetReverseSwap,
-    setReverseSwapStatus: mockSetReverseSwapStatus,
-  }));
-});
-
-const MockedReverseSwapRepository = <jest.Mock<ReverseSwapRepository>>ReverseSwapRepository;
+jest.mock('../../../lib/db/repositories/ReverseSwapRepository');
 
 describe('LightningNursery', () => {
   const invoice = 'lnbcrt1p0csqltpp5xv57wt3s57gm50jksvyhuhmahnvtaw5q5elcuhkcpf9k7jcuey6qdqqcqzpgsp5t4t0aqn5jleve60dalh9t23r6ahana9t7c8steerurtt7x0x0xts9qy9qsqsas984xcqdxrd3l7kfzhejnjky3a2hhk0zp0chn43pjp0g49g825pazmdjppqvvdqsyc6euy6lg2xatrsf3pgavs0f62pg3xagljgrcpnrn4r5';
@@ -70,10 +63,7 @@ describe('LightningNursery', () => {
   const minerFeeInvoicePreimage = getHexString(randomBytes(32));
   const minerFeeInvoice = 'lnbcrt21u1psprx5xpp5xa0d3f37sz5cmp34cm0hd2tujuxctw6ydge27cd0cp8k0cu5ynnsdqqcqzpgsp55tje9q5t5xnkk03tgvv50tle49gf5nxeec03lvsaal3v2hcner7q9qy9qsqdgmep4nwprmtslrztla04jyvhc7rw8gtf5kydakz95tserqcchjx6f3u3yrupuadle2rqq8w27885h33v4gysl0ch5cxa5faz3akk0sqykdymf';
 
-  const nursery = new LightningNursery(
-    Logger.disabledLogger,
-    MockedReverseSwapRepository(),
-  );
+  const nursery = new LightningNursery(Logger.disabledLogger);
 
   const btcLndClient = MockedLndClient();
   const currencies: Currency[] = [
@@ -89,6 +79,9 @@ describe('LightningNursery', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     nursery.removeAllListeners();
+
+    ReverseSwapRepository.getReverseSwap = mockGetReverseSwap;
+    ReverseSwapRepository.setReverseSwapStatus = mockSetReverseSwapStatus;
 
     mockGetReverseSwapResult = null;
   });

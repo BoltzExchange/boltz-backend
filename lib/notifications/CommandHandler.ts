@@ -16,6 +16,9 @@ import ChannelCreation from '../db/models/ChannelCreation';
 import FeeRepository from '../db/repositories/FeeRepository';
 import { coinsToSatoshis, satoshisToCoins } from '../DenominationConverter';
 import { getChainCurrency, stringify, splitPairId, formatError } from '../Utils';
+import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
+import SwapRepository from '../db/repositories/SwapRepository';
+import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 
 enum Command {
   Help = 'help',
@@ -216,12 +219,12 @@ class CommandHandler {
 
     const id = args[0];
 
-    const swap = await this.service.swapManager.swapRepository.getSwap({
+    const swap = await SwapRepository.getSwap({
       id,
     });
 
     if (swap) {
-      const channelCreation = await this.service.swapManager.channelCreationRepository.getChannelCreation({
+      const channelCreation = await ChannelCreationRepository.getChannelCreation({
         swapId: id,
       });
 
@@ -229,7 +232,7 @@ class CommandHandler {
       return;
     } else {
       // Query for a reverse swap because there was no normal one found with the specified id
-      const reverseSwap = await this.service.swapManager.reverseSwapRepository.getReverseSwap({
+      const reverseSwap = await ReverseSwapRepository.getReverseSwap({
         id,
       });
 
@@ -270,7 +273,7 @@ class CommandHandler {
   };
 
   private lockedFunds = async () => {
-    const pendingReverseSwaps = await this.service.swapManager.reverseSwapRepository.getReverseSwaps({
+    const pendingReverseSwaps = await ReverseSwapRepository.getReverseSwaps({
       status: {
         [Op.or]: [
           SwapUpdateEvent.TransactionMempool,
@@ -315,7 +318,7 @@ class CommandHandler {
 
   private pendingSwaps = async () => {
     const [pendingSwaps, pendingReverseSwaps] = await Promise.all([
-      this.service.swapManager.swapRepository.getSwaps({
+      SwapRepository.getSwaps({
         status: {
           [Op.notIn]: [
             SwapUpdateEvent.SwapExpired,
@@ -324,7 +327,7 @@ class CommandHandler {
           ],
         },
       }),
-      this.service.swapManager.reverseSwapRepository.getReverseSwaps({
+      ReverseSwapRepository.getReverseSwaps({
         status: {
           [Op.notIn]: [
             SwapUpdateEvent.SwapExpired,

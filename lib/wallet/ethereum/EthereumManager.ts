@@ -73,7 +73,7 @@ class EthereumManager {
     this.contractEventHandler = new ContractEventHandler(this.logger);
   }
 
-  public init = async (mnemonic: string, chainTipRepository: ChainTipRepository): Promise<Map<string, Wallet>> => {
+  public init = async (mnemonic: string): Promise<Map<string, Wallet>> => {
     await this.provider.init();
     this.logger.info('Initialized Web3 providers');
 
@@ -97,7 +97,7 @@ class EthereumManager {
     this.logger.verbose(`Using Ethereum signer: ${this.address}`);
 
     const currentBlock = await signer.provider!.getBlockNumber();
-    const chainTip = await chainTipRepository.findOrCreateTip('ETH', currentBlock);
+    const chainTip = await ChainTipRepository.findOrCreateTip('ETH', currentBlock);
 
     this.contractHandler.init(this.provider, this.etherSwap, this.erc20Swap);
     await this.contractEventHandler.init(this.etherSwap, this.erc20Swap);
@@ -119,7 +119,7 @@ class EthereumManager {
       this.logger.silly(`Got new Ethereum block: ${ blockNumber }`);
 
       await Promise.all([
-        chainTipRepository.updateTip(chainTip, blockNumber),
+        ChainTipRepository.updateTip(chainTip, blockNumber),
         transactionTracker.scanPendingTransactions(),
       ]);
     });

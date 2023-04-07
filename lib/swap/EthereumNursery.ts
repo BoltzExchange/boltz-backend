@@ -6,15 +6,15 @@ import Logger from '../Logger';
 import Swap from '../db/models/Swap';
 import Wallet from '../wallet/Wallet';
 import { etherDecimals } from '../consts/Consts';
-import SwapRepository from '../db/repositories/SwapRepository';
 import ReverseSwap from '../db/models/ReverseSwap';
 import WalletManager from '../wallet/WalletManager';
-import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
+import SwapRepository from '../db/repositories/SwapRepository';
 import { CurrencyType, SwapUpdateEvent } from '../consts/Enums';
 import EthereumManager from '../wallet/ethereum/EthereumManager';
 import { ERC20SwapValues, EtherSwapValues } from '../consts/Types';
-import {formatError, getChainCurrency, getHexString, splitPairId} from '../Utils';
 import ERC20WalletProvider from '../wallet/providers/ERC20WalletProvider';
+import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
+import { formatError, getChainCurrency, getHexString, splitPairId } from '../Utils';
 
 interface IEthereumNursery {
   // EtherSwap
@@ -51,8 +51,6 @@ class EthereumNursery extends EventEmitter implements IEthereumNursery {
   constructor(
     private logger: Logger,
     private walletManager: WalletManager,
-    private swapRepository: SwapRepository,
-    private reverseSwapRepository: ReverseSwapRepository,
   ) {
     super();
 
@@ -66,7 +64,7 @@ class EthereumNursery extends EventEmitter implements IEthereumNursery {
 
   public init = async (): Promise<void> => {
     // Fetch all Reverse Swaps with a pending lockup transaction
-    const mempoolReverseSwaps = await this.reverseSwapRepository.getReverseSwaps({
+    const mempoolReverseSwaps = await ReverseSwapRepository.getReverseSwaps({
       status: SwapUpdateEvent.TransactionMempool,
     });
 
@@ -94,13 +92,13 @@ class EthereumNursery extends EventEmitter implements IEthereumNursery {
     transaction.wait(1).then(async () => {
       this.emit(
         'lockup.confirmed',
-        await this.reverseSwapRepository.setReverseSwapStatus(reverseSwap, SwapUpdateEvent.TransactionConfirmed),
+        await ReverseSwapRepository.setReverseSwapStatus(reverseSwap, SwapUpdateEvent.TransactionConfirmed),
         transaction.hash,
       );
     }).catch(async (reason) => {
       this.emit(
         'lockup.failedToSend',
-        await this.reverseSwapRepository.setReverseSwapStatus(reverseSwap, SwapUpdateEvent.TransactionFailed),
+        await ReverseSwapRepository.setReverseSwapStatus(reverseSwap, SwapUpdateEvent.TransactionFailed),
         reason,
       );
     });
@@ -111,7 +109,7 @@ class EthereumNursery extends EventEmitter implements IEthereumNursery {
       transactionHash,
       etherSwapValues,
     ) => {
-      let swap = await this.swapRepository.getSwap({
+      let swap = await SwapRepository.getSwap({
         preimageHash: getHexString(etherSwapValues.preimageHash),
         status: {
           [Op.or]: [
@@ -134,7 +132,7 @@ class EthereumNursery extends EventEmitter implements IEthereumNursery {
 
       this.logger.debug(`Found lockup in EtherSwap contract for Swap ${swap.id}: ${transactionHash}`);
 
-      swap = await this.swapRepository.setLockupTransaction(
+      swap = await SwapRepository.setLockupTransaction(
         swap,
         transactionHash,
         Number(etherSwapValues.amount / etherDecimals),
@@ -176,7 +174,7 @@ class EthereumNursery extends EventEmitter implements IEthereumNursery {
     });
 
     this.ethereumManager.contractEventHandler.on('eth.claim', async (transactionHash, preimageHash, preimage) => {
-      const reverseSwap = await this.reverseSwapRepository.getReverseSwap({
+      const reverseSwap = await ReverseSwapRepository.getReverseSwap({
         preimageHash: getHexString(preimageHash),
         status: {
           [Op.not]: SwapUpdateEvent.InvoiceSettled,
@@ -198,7 +196,7 @@ class EthereumNursery extends EventEmitter implements IEthereumNursery {
       transactionHash,
       erc20SwapValues,
     ) => {
-      let swap = await this.swapRepository.getSwap({
+      let swap = await SwapRepository.getSwap({
         preimageHash: getHexString(erc20SwapValues.preimageHash),
         status: {
           [Op.or]: [
@@ -225,7 +223,7 @@ class EthereumNursery extends EventEmitter implements IEthereumNursery {
 
       this.logger.debug(`Found lockup in ERC20Swap contract for Swap ${swap.id}: ${transactionHash}`);
 
-      swap = await this.swapRepository.setLockupTransaction(
+      swap = await SwapRepository.setLockupTransaction(
         swap,
         transactionHash,
         erc20Wallet.normalizeTokenAmount(erc20SwapValues.amount),
@@ -274,7 +272,7 @@ class EthereumNursery extends EventEmitter implements IEthereumNursery {
     });
 
     this.ethereumManager.contractEventHandler.on('erc20.claim', async (transactionHash, preimageHash, preimage) => {
-      const reverseSwap = await this.reverseSwapRepository.getReverseSwap({
+      const reverseSwap = await ReverseSwapRepository.getReverseSwap({
         preimageHash: getHexString(preimageHash),
         status: {
           [Op.not]: SwapUpdateEvent.InvoiceSettled,
@@ -303,7 +301,7 @@ class EthereumNursery extends EventEmitter implements IEthereumNursery {
   };
 
   private checkExpiredSwaps = async (height: number) => {
-    const expirableSwaps = await this.swapRepository.getSwapsExpirable(height);
+    const expirableSwaps = await SwapRepository.getSwapsExpirable(height);
 
     for (const expirableSwap of expirableSwaps) {
       const { base, quote } = splitPairId(expirableSwap.pair);
@@ -318,7 +316,7 @@ class EthereumNursery extends EventEmitter implements IEthereumNursery {
   };
 
   private checkExpiredReverseSwaps = async (height: number) => {
-    const expirableReverseSwaps = await this.reverseSwapRepository.getReverseSwapsExpirable(height);
+    const expirableReverseSwaps = await ReverseSwapRepository.getReverseSwapsExpirable(height);
 
     for (const expirableReverseSwap of expirableReverseSwaps) {
       const { base, quote } = splitPairId(expirableReverseSwap.pair);

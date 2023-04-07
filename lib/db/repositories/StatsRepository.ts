@@ -1,7 +1,7 @@
 import { QueryTypes } from 'sequelize';
 import Database from '../Database';
 import { arrayToSqlInClause } from '../Utils';
-import {FailedSwapUpdateEvents, SuccessSwapUpdateEvents} from '../../consts/Enums';
+import { FailedSwapUpdateEvents, SuccessSwapUpdateEvents } from '../../consts/Enums';
 
 type StatsDate = {
   year: number;

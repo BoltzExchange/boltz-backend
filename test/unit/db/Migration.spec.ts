@@ -2,6 +2,7 @@ import { Sequelize } from 'sequelize';
 import Logger from '../../../lib/Logger';
 import Migration from '../../../lib/db/Migration';
 import DatabaseVersion from '../../../lib/db/models/DatabaseVersion';
+import DatabaseVersionRepository from '../../../lib/db/repositories/DatabaseVersionRepository';
 
 const MockedSequelize = <Sequelize><any>jest.fn().mockImplementation(() => {});
 
@@ -16,14 +17,7 @@ const mockGetVersion = jest.fn().mockImplementation(async () => {
 
 const mockCreateVersion = jest.fn().mockResolvedValue(undefined);
 
-jest.mock('../../../lib/db/repositories/DatabaseVersionRepository', () => {
-  return jest.fn().mockImplementation(() => {
-    return {
-      getVersion: mockGetVersion,
-      createVersion: mockCreateVersion,
-    };
-  });
-});
+jest.mock('../../../lib/db/repositories/DatabaseVersionRepository');
 
 describe('Migration', () => {
   const emptyCurrenciesMap = new Map<any, any>();
@@ -32,6 +26,9 @@ describe('Migration', () => {
 
   beforeEach(() => {
     mockGetVersionResult = undefined;
+
+    DatabaseVersionRepository.getVersion = mockGetVersion;
+    DatabaseVersionRepository.createVersion = mockCreateVersion;
 
     jest.clearAllMocks();
   });

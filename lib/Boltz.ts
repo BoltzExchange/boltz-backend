@@ -162,7 +162,7 @@ class Boltz {
           }
         } else {
           if (!this.currencies.has(chainTip.symbol)) {
-            this.logger.warn(`Not rescanning ${chainTip.symbol} because not chain client was configured`);
+            this.logger.warn(`Not rescanning ${chainTip.symbol} because no chain client was configured`);
             continue;
           }
 

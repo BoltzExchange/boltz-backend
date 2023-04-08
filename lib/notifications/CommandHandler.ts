@@ -14,10 +14,10 @@ import ReverseSwap from '../db/models/ReverseSwap';
 import BackupScheduler from '../backup/BackupScheduler';
 import ChannelCreation from '../db/models/ChannelCreation';
 import FeeRepository from '../db/repositories/FeeRepository';
-import { coinsToSatoshis, satoshisToCoins } from '../DenominationConverter';
-import { getChainCurrency, stringify, splitPairId, formatError } from '../Utils';
-import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
+import { coinsToSatoshis, satoshisToCoins } from '../DenominationConverter';
+import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
+import { getChainCurrency, stringify, splitPairId, formatError } from '../Utils';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 
 enum Command {

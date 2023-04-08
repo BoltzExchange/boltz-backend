@@ -14,7 +14,7 @@ class BackupScheduler {
     private logger: Logger,
     private dbpath: string,
     private config: BackupConfig,
-    private eventHandler: EventHandler
+    private eventHandler: EventHandler,
   ) {
 
     if (

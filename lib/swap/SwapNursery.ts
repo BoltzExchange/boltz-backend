@@ -119,9 +119,6 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
     private logger: Logger,
     private rateProvider: RateProvider,
     private walletManager: WalletManager,
-    private swapRepository: SwapRepository,
-    private reverseSwapRepository: ReverseSwapRepository,
-    private channelCreationRepository: ChannelCreationRepository,
     private swapOutputType: OutputType,
     private retryInterval: number,
   ) {
@@ -129,38 +126,15 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
 
     this.logger.info(`Setting Swap retry interval to ${retryInterval} seconds`);
 
-    this.utxoNursery = new UtxoNursery(
-      this.logger,
-      this.walletManager,
-      this.swapRepository,
-      this.reverseSwapRepository,
-    );
-
-    this.lightningNursery = new LightningNursery(
-      this.logger,
-      this.reverseSwapRepository,
-    );
-
-    this.invoiceNursery = new InvoiceNursery(
-      this.logger,
-      this.reverseSwapRepository,
-    );
+    this.utxoNursery = new UtxoNursery(this.logger, this.walletManager);
+    this.lightningNursery = new LightningNursery(this.logger);
+    this.invoiceNursery = new InvoiceNursery(this.logger);
 
     if (this.walletManager.ethereumManager) {
-      this.ethereumNursery = new EthereumNursery(
-        this.logger,
-        this.walletManager,
-        this.swapRepository,
-        this.reverseSwapRepository,
-      );
+      this.ethereumNursery = new EthereumNursery(this.logger, this.walletManager);
     }
 
-    this.channelNursery = new ChannelNursery(
-      this.logger,
-      this.swapRepository,
-      this.channelCreationRepository,
-      this.attemptSettleSwap,
-    );
+    this.channelNursery = new ChannelNursery(this.logger, this.attemptSettleSwap);
   }
 
   public init = async (currencies: Currency[]): Promise<void> => {
@@ -193,7 +167,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
           await this.setSwapRate(swap);
         }
 
-        this.emit('zeroconf.rejected', await this.swapRepository.setSwapStatus(swap, SwapUpdateEvent.TransactionZeroConfRejected));
+        this.emit('zeroconf.rejected', await SwapRepository.setSwapStatus(swap, SwapUpdateEvent.TransactionZeroConfRejected));
       });
     });
 
@@ -319,7 +293,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
           }
         }
 
-        this.emit('invoice.expired', await this.reverseSwapRepository.setReverseSwapStatus(reverseSwap, SwapUpdateEvent.InvoiceExpired));
+        this.emit('invoice.expired', await ReverseSwapRepository.setReverseSwapStatus(reverseSwap, SwapUpdateEvent.InvoiceExpired));
       });
     });
 
@@ -340,7 +314,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
 
         await this.lock.acquire(SwapNursery.retryLock, async () => {
           await this.lock.acquire(SwapNursery.swapLock, async () => {
-            const pendingInvoiceSwaps = await this.swapRepository.getSwaps({
+            const pendingInvoiceSwaps = await SwapRepository.getSwaps({
               status: SwapUpdateEvent.InvoicePending,
             });
 
@@ -486,7 +460,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
         false
       );
 
-      await this.swapRepository.setRate(swap, rate);
+      await SwapRepository.setRate(swap, rate);
     }
   };
 
@@ -515,7 +489,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
       // For the "transaction.confirmed" event of the lockup transaction
       chainClient.addOutputFilter(wallet.decodeAddress(reverseSwap.lockupAddress));
 
-      this.emit('coins.sent', await this.reverseSwapRepository.setLockupTransaction(reverseSwap, transactionId, fee!, vout!), transaction!);
+      this.emit('coins.sent', await ReverseSwapRepository.setLockupTransaction(reverseSwap, transactionId, fee!, vout!), transaction!);
     } catch (error) {
       await this.handleReverseSwapSendFailed(reverseSwap, wallet.symbol, lndClient, error);
     }
@@ -551,7 +525,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
 
       this.emit(
         'coins.sent',
-        await this.reverseSwapRepository.setLockupTransaction(
+        await ReverseSwapRepository.setLockupTransaction(
           reverseSwap,
           contractTransaction.hash,
           calculateEthereumTransactionFee(contractTransaction),
@@ -597,7 +571,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
 
       this.emit(
         'coins.sent',
-        await this.reverseSwapRepository.setLockupTransaction(
+        await ReverseSwapRepository.setLockupTransaction(
           reverseSwap,
           contractTransaction.hash,
           calculateEthereumTransactionFee(contractTransaction),
@@ -616,7 +590,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
     transaction: Transaction,
     outgoingChannelId?: string,
   ) => {
-    const channelCreation = await this.channelCreationRepository.getChannelCreation({
+    const channelCreation = await ChannelCreationRepository.getChannelCreation({
       swapId: swap.id,
     });
     const preimage = await this.paySwapInvoice(swap, channelCreation, outgoingChannelId);
@@ -659,13 +633,13 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
 
     this.emit(
       'claim',
-      await this.swapRepository.setMinerFee(swap, claimTransactionFee),
+      await SwapRepository.setMinerFee(swap, claimTransactionFee),
       channelCreation || undefined,
     );
   };
 
   private claimEther = async (contractHandler: ContractHandler, swap: Swap, etherSwapValues: EtherSwapValues, outgoingChannelId?: string) => {
-    const channelCreation = await this.channelCreationRepository.getChannelCreation({
+    const channelCreation = await ChannelCreationRepository.getChannelCreation({
       swapId: swap.id,
     });
     const preimage = await this.paySwapInvoice(swap, channelCreation, outgoingChannelId);
@@ -682,11 +656,11 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
     );
 
     this.logger.info(`Claimed Ether of Swap ${swap.id} in: ${contractTransaction.hash}`);
-    this.emit('claim', await this.swapRepository.setMinerFee(swap, calculateEthereumTransactionFee(contractTransaction)), channelCreation || undefined);
+    this.emit('claim', await SwapRepository.setMinerFee(swap, calculateEthereumTransactionFee(contractTransaction)), channelCreation || undefined);
   };
 
   private claimERC20 = async (contractHandler: ContractHandler, swap: Swap, erc20SwapValues: ERC20SwapValues, outgoingChannelId?: string) => {
-    const channelCreation = await this.channelCreationRepository.getChannelCreation({
+    const channelCreation = await ChannelCreationRepository.getChannelCreation({
       swapId: swap.id,
     });
     const preimage = await this.paySwapInvoice(swap, channelCreation, outgoingChannelId);
@@ -709,7 +683,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
     );
 
     this.logger.info(`Claimed ${chainCurrency} of Swap ${swap.id} in: ${contractTransaction.hash}`);
-    this.emit('claim', await this.swapRepository.setMinerFee(swap, calculateEthereumTransactionFee(contractTransaction)), channelCreation || undefined);
+    this.emit('claim', await SwapRepository.setMinerFee(swap, calculateEthereumTransactionFee(contractTransaction)), channelCreation || undefined);
   };
 
   /**
@@ -720,7 +694,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
     this.logger.verbose(`Paying invoice of Swap ${swap.id}`);
 
     if (swap.status !== SwapUpdateEvent.InvoicePending && swap.status !== SwapUpdateEvent.ChannelCreated) {
-      this.emit('invoice.pending', await this.swapRepository.setSwapStatus(swap, SwapUpdateEvent.InvoicePending));
+      this.emit('invoice.pending', await SwapRepository.setSwapStatus(swap, SwapUpdateEvent.InvoicePending));
     }
 
     const { base, quote } = splitPairId(swap.pair);
@@ -737,7 +711,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
 
       this.emit(
         'invoice.paid',
-        await this.swapRepository.setInvoicePaid(swap, response.feeMsat)
+        await SwapRepository.setInvoicePaid(swap, response.feeMsat)
       );
 
       return getHexBuffer(response.paymentPreimage);
@@ -806,7 +780,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
         this.logger.warn(`Abandoning Swap ${swap.id} because: ${errorMessage}`);
         this.emit(
           'invoice.failedToPay',
-          await this.swapRepository.setSwapStatus(
+          await SwapRepository.setSwapStatus(
             swap,
             SwapUpdateEvent.InvoiceFailedToPay,
             Errors.INVOICE_COULD_NOT_BE_PAID().message,
@@ -841,14 +815,14 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
 
     this.logger.info(`Settled Reverse Swap ${reverseSwap.id}`);
 
-    this.emit('invoice.settled', await this.reverseSwapRepository.setInvoiceSettled(reverseSwap, getHexString(preimage)));
+    this.emit('invoice.settled', await ReverseSwapRepository.setInvoiceSettled(reverseSwap, getHexString(preimage)));
   };
 
   private handleReverseSwapSendFailed = async (reverseSwap: ReverseSwap, chainSymbol: string, lndClient: LndClient, error: unknown) => {
     await lndClient.cancelInvoice(getHexBuffer(reverseSwap.preimageHash));
 
     this.logger.warn(`Failed to lockup ${reverseSwap.onchainAmount} ${chainSymbol} for Reverse Swap ${reverseSwap.id}: ${formatError(error)}`);
-    this.emit('coins.failedToSend', await this.reverseSwapRepository.setReverseSwapStatus(
+    this.emit('coins.failedToSend', await ReverseSwapRepository.setReverseSwapStatus(
       reverseSwap,
       SwapUpdateEvent.TransactionFailed,
       Errors.COINS_COULD_NOT_BE_SENT().message,
@@ -857,12 +831,12 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
 
   private lockupFailed = async (swap: Swap, reason: string) => {
     this.logger.warn(`Lockup of Swap ${swap.id} failed: ${reason}`);
-    this.emit('lockup.failed', await this.swapRepository.setSwapStatus(swap, SwapUpdateEvent.TransactionLockupFailed, reason));
+    this.emit('lockup.failed', await SwapRepository.setSwapStatus(swap, SwapUpdateEvent.TransactionLockupFailed, reason));
   };
 
   private expireSwap = async (swap: Swap) =>  {
     // Check "expireReverseSwap" for reason
-    const queriedSwap = await this.swapRepository.getSwap({
+    const queriedSwap = await SwapRepository.getSwap({
       id: swap.id,
     });
 
@@ -872,7 +846,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
 
     this.emit(
       'expiration',
-      await this.swapRepository.setSwapStatus(swap, SwapUpdateEvent.SwapExpired, Errors.ONCHAIN_HTLC_TIMED_OUT().message),
+      await SwapRepository.setSwapStatus(swap, SwapUpdateEvent.SwapExpired, Errors.ONCHAIN_HTLC_TIMED_OUT().message),
       false,
     );
   };
@@ -881,7 +855,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
     // Sometimes, when blocks are mined quickly (realistically just regtest), it can happen that the
     // nurseries, which are not in the async lock, send the expiration event of a Swap multiple times.
     // To handle this scenario, the Swap is queried again to ensure that it should actually be expired or refunded
-    const queriedReverseSwap = await this.reverseSwapRepository.getReverseSwap({
+    const queriedReverseSwap = await ReverseSwapRepository.getReverseSwap({
       id: reverseSwap.id,
     });
 
@@ -913,7 +887,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
     } else {
       this.emit(
         'expiration',
-        await this.reverseSwapRepository.setReverseSwapStatus(
+        await ReverseSwapRepository.setReverseSwapStatus(
           reverseSwap,
           SwapUpdateEvent.SwapExpired,
           Errors.ONCHAIN_HTLC_TIMED_OUT().message,
@@ -959,7 +933,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
     this.logger.info(`Refunded ${chainSymbol} of Reverse Swap ${reverseSwap.id} in: ${refundTransaction.getId()}`);
     this.emit(
       'refund',
-      await this.reverseSwapRepository.setTransactionRefunded(reverseSwap, minerFee, Errors.REFUNDED_COINS(reverseSwap.transactionId!).message),
+      await ReverseSwapRepository.setTransactionRefunded(reverseSwap, minerFee, Errors.REFUNDED_COINS(reverseSwap.transactionId!).message),
       refundTransaction.getId(),
     );
   };
@@ -982,7 +956,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
     this.logger.info(`Refunded Ether of Reverse Swap ${reverseSwap.id} in: ${contractTransaction.hash}`);
     this.emit(
       'refund',
-      await this.reverseSwapRepository.setTransactionRefunded(
+      await ReverseSwapRepository.setTransactionRefunded(
         reverseSwap,
         calculateEthereumTransactionFee(contractTransaction),
         Errors.REFUNDED_COINS(reverseSwap.transactionId!).message,
@@ -1011,7 +985,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
     this.logger.info(`Refunded ${chainSymbol} of Reverse Swap ${reverseSwap.id} in: ${contractTransaction.hash}`);
     this.emit(
       'refund',
-      await this.reverseSwapRepository.setTransactionRefunded(
+      await ReverseSwapRepository.setTransactionRefunded(
         reverseSwap,
         calculateEthereumTransactionFee(contractTransaction),
         Errors.REFUNDED_COINS(reverseSwap.transactionId!).message,

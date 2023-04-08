@@ -12,9 +12,12 @@ import ChainClient from '../../../lib/chain/ChainClient';
 import LndClient from '../../../lib/lightning/LndClient';
 import RateProvider from '../../../lib/rates/RateProvider';
 import ReverseSwap from '../../../lib/db/models/ReverseSwap';
+import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import InvoiceExpiryHelper from '../../../lib/service/InvoiceExpiryHelper';
 import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
 import SwapManager, { ChannelCreationInfo } from '../../../lib/swap/SwapManager';
+import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
+import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
 import { ChannelCreationType, CurrencyType, OrderSide, SwapUpdateEvent } from '../../../lib/consts/Enums';
 import { decodeInvoice, getHexBuffer, getHexString, getUnixTime, reverseBuffer } from '../../../lib/Utils';
 
@@ -29,15 +32,7 @@ const mockSetInvoice = jest.fn().mockImplementation(async (arg) => {
   return arg;
 });
 
-jest.mock('../../../lib/db/repositories/SwapRepository', () => {
-  return jest.fn().mockImplementation(() => {
-    return {
-      addSwap: mockAddSwap,
-      getSwaps: mockGetSwaps,
-      setInvoice: mockSetInvoice,
-    };
-  });
-});
+jest.mock('../../../lib/db/repositories/SwapRepository');
 
 const mockAddReverseSwap = jest.fn().mockResolvedValue(undefined);
 
@@ -46,14 +41,7 @@ const mockGetReverseSwaps = jest.fn().mockImplementation(async () => {
   return mockGetReverseSwapsResult;
 });
 
-jest.mock('../../../lib/db/repositories/ReverseSwapRepository', () => {
-  return jest.fn().mockImplementation(() => {
-    return {
-      addReverseSwap: mockAddReverseSwap,
-      getReverseSwaps: mockGetReverseSwaps,
-    };
-  });
-});
+jest.mock('../../../lib/db/repositories/ReverseSwapRepository');
 
 const mockSetNodePublicKey = jest.fn().mockResolvedValue(undefined);
 
@@ -69,16 +57,7 @@ const mockGetChannelCreations = jest.fn().mockImplementation(async () => {
   return mockGetChannelCreationsResult;
 });
 
-jest.mock('../../../lib/db/repositories/ChannelCreationRepository', () => {
-  return jest.fn().mockImplementation(() => {
-    return {
-      setNodePublicKey: mockSetNodePublicKey,
-      addChannelCreation: mockAddChannelCreation,
-      getChannelCreation: mockGetChannelCreation,
-      getChannelCreations: mockGetChannelCreations,
-    };
-  });
-});
+jest.mock('../../../lib/db/repositories/ChannelCreationRepository');
 
 jest.mock('../../../lib/rates/RateProvider', () => {
   return jest.fn().mockImplementation(() => {
@@ -284,6 +263,18 @@ describe('SwapManager', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+
+    SwapRepository.addSwap = mockAddSwap;
+    SwapRepository.getSwaps = mockGetSwaps;
+    SwapRepository.setInvoice = mockSetInvoice;
+
+    ReverseSwapRepository.addReverseSwap = mockAddReverseSwap;
+    ReverseSwapRepository.getReverseSwaps = mockGetReverseSwaps;
+
+    ChannelCreationRepository.setNodePublicKey = mockSetNodePublicKey;
+    ChannelCreationRepository.addChannelCreation = mockAddChannelCreation;
+    ChannelCreationRepository.getChannelCreation = mockGetChannelCreation;
+    ChannelCreationRepository.getChannelCreations = mockGetChannelCreations;
 
     if (manager !== undefined && manager.routingHints !== undefined) {
       if (manager.routingHints.stop !== undefined && typeof manager.routingHints.stop === 'function') {
@@ -548,6 +539,7 @@ describe('SwapManager', () => {
     await manager.setSwapInvoice(
       swap,
       invoice,
+      invoiceEncode.satoshis!,
       expectedAmount,
       percentageFee,
       acceptZeroConf,
@@ -563,7 +555,7 @@ describe('SwapManager', () => {
     expect(mockCheckRoutability).toHaveBeenCalledWith(btcCurrency.lndClient, invoice);
 
     expect(mockSetInvoice).toHaveBeenCalledTimes(1);
-    expect(mockSetInvoice).toHaveBeenCalledWith(swap, invoice, expectedAmount, percentageFee, acceptZeroConf);
+    expect(mockSetInvoice).toHaveBeenCalledWith(swap, invoice, invoiceEncode.satoshis, expectedAmount, percentageFee, acceptZeroConf);
 
     expect(emitSwapInvoiceSet).toHaveBeenCalledTimes(1);
     expect(emitSwapInvoiceSet).toHaveBeenCalledWith(swap.id);
@@ -584,6 +576,7 @@ describe('SwapManager', () => {
     await manager.setSwapInvoice(
       swap,
       invoice,
+      invoiceEncode.satoshis!,
       expectedAmount,
       percentageFee,
       acceptZeroConf,
@@ -605,6 +598,7 @@ describe('SwapManager', () => {
     await manager.setSwapInvoice(
       swap,
       invoice,
+      invoiceEncode.satoshis!,
       expectedAmount,
       percentageFee,
       acceptZeroConf,
@@ -626,6 +620,7 @@ describe('SwapManager', () => {
     await manager.setSwapInvoice(
       swap,
       invoice,
+      invoiceEncode.satoshis!,
       expectedAmount,
       percentageFee,
       acceptZeroConf,
@@ -644,6 +639,7 @@ describe('SwapManager', () => {
     await manager.setSwapInvoice(
       swap,
       invoice,
+      invoiceEncode.satoshis!,
       expectedAmount,
       percentageFee,
       acceptZeroConf,
@@ -665,6 +661,7 @@ describe('SwapManager', () => {
       await manager.setSwapInvoice(
         swap,
         invoice,
+        invoiceEncode.satoshis!,
         expectedAmount,
         percentageFee,
         acceptZeroConf,
@@ -701,6 +698,7 @@ describe('SwapManager', () => {
       await manager.setSwapInvoice(
         swap,
         invoiceNoExpiry,
+        invoiceNoExpiryEncode.satoshis!,
         expectedAmount,
         percentageFee,
         acceptZeroConf,
@@ -720,6 +718,7 @@ describe('SwapManager', () => {
       await manager.setSwapInvoice(
         swap,
         invoiceExpired,
+        decodeInvoice(invoiceExpired).satoshis!,
         expectedAmount,
         percentageFee,
         acceptZeroConf,
@@ -740,6 +739,7 @@ describe('SwapManager', () => {
     await expect(manager.setSwapInvoice(
       swap,
       invoice,
+      invoiceEncode.satoshis!,
       expectedAmount,
       percentageFee,
       acceptZeroConf,
@@ -754,6 +754,7 @@ describe('SwapManager', () => {
     await expect(manager.setSwapInvoice(
       swap,
       invoice,
+      invoiceEncode.satoshis!,
       expectedAmount,
       percentageFee,
       acceptZeroConf,
@@ -827,6 +828,7 @@ describe('SwapManager', () => {
       id: reverseSwap.id,
       minerFeeInvoice: undefined,
       invoice: mockAddHoldInvoiceResult,
+      invoiceAmount: holdInvoiceAmount,
       status: SwapUpdateEvent.SwapCreated,
       keyIndex: mockGetNewKeysResult.index,
       pair: `${baseCurrency}/${quoteCurrency}`,
@@ -900,6 +902,7 @@ describe('SwapManager', () => {
 
       id: prepayReverseSwap.id,
       invoice: mockAddHoldInvoiceResult,
+      invoiceAmount: holdInvoiceAmount,
       status: SwapUpdateEvent.SwapCreated,
       keyIndex: mockGetNewKeysResult.index,
       pair: `${baseCurrency}/${quoteCurrency}`,

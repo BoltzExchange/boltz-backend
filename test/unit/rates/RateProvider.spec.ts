@@ -150,23 +150,22 @@ describe('RateProvider', () => {
   rateProvider['dataProvider'] = mockedDataProvider();
 
   const db = new Database(Logger.disabledLogger, ':memory:');
-  const pairRepository = new PairRepository();
 
   beforeAll(async () => {
     await db.init();
 
     await Promise.all([
-      pairRepository.addPair({
+      PairRepository.addPair({
         id: 'LTC/BTC',
         base: 'LTC',
         quote: 'BTC',
       }),
-      pairRepository.addPair({
+      PairRepository.addPair({
         id: 'BTC/BTC',
         base: 'BTC',
         quote: 'BTC',
       }),
-      pairRepository.addPair({
+      PairRepository.addPair({
         id: 'LTC/LTC',
         base: 'LTC',
         quote: 'LTC',
@@ -175,7 +174,7 @@ describe('RateProvider', () => {
   });
 
   test('should init', async () => {
-    const dbPairs = await pairRepository.getPairs();
+    const dbPairs = await PairRepository.getPairs();
     await rateProvider.init(dbPairs);
   });
 

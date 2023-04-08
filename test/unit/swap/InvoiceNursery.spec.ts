@@ -11,22 +11,16 @@ const mockGetReverseSwaps = jest.fn().mockImplementation(async () => {
   return mockGetReverseSwapsResult;
 });
 
-jest.mock('../../../lib/db/repositories/ReverseSwapRepository', () => {
-  return jest.fn().mockImplementation(() => ({
-    getReverseSwaps: mockGetReverseSwaps,
-  }));
-});
-
-const mockedReverseSwapRepository = <jest.Mock<ReverseSwapRepository>><any>ReverseSwapRepository;
+jest.mock('../../../lib/db/repositories/ReverseSwapRepository');
 
 describe('InvoiceNursery', () => {
-  const nursery = new InvoiceNursery(
-    Logger.disabledLogger,
-    mockedReverseSwapRepository(),
-  );
+  const nursery = new InvoiceNursery(Logger.disabledLogger);
 
   beforeEach(() => {
     jest.clearAllMocks();
+
+    ReverseSwapRepository.getReverseSwaps = mockGetReverseSwaps;
+
     mockGetReverseSwapsResult = [];
   });
 

@@ -21,10 +21,8 @@ interface ChainClient {
 class ChainClient extends BaseClient {
   public static readonly decimals = 100000000;
 
-  public zmqClient: ZmqClient;
-
   private client: RpcClient;
-  private chainTipRepository!: ChainTipRepository;
+  public zmqClient: ZmqClient;
 
   private readonly mempoolSpace?: MempoolSpace;
 
@@ -55,9 +53,7 @@ class ChainClient extends BaseClient {
     }
   }
 
-  public connect = async (chainTipRepository: ChainTipRepository): Promise<void> => {
-    this.chainTipRepository = chainTipRepository;
-
+  public connect = async (): Promise<void> => {
     let zmqNotifications: ZmqNotification[] = [];
 
     if (this.config.zmqpubrawtx !== undefined &&
@@ -266,11 +262,11 @@ class ChainClient extends BaseClient {
 
   private listenToZmq = async (): Promise<void> => {
     const { scannedBlocks } = await this.getBlockchainInfo();
-    const chainTip = await this.chainTipRepository.findOrCreateTip(this.symbol, scannedBlocks);
+    const chainTip = await ChainTipRepository.findOrCreateTip(this.symbol, scannedBlocks);
 
     this.zmqClient.on('block', async (height) => {
       this.logger.silly(`Got new ${this.symbol} block: ${height}`);
-      await this.chainTipRepository.updateTip(chainTip, height);
+      await ChainTipRepository.updateTip(chainTip, height);
       this.emit('block', height);
     });
 

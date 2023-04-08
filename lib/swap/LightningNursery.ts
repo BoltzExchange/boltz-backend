@@ -23,10 +23,7 @@ class LightningNursery extends EventEmitter {
 
   private static invoiceLock = 'invoice';
 
-  constructor(
-    private logger: Logger,
-    private reverseSwapRepository: ReverseSwapRepository,
-  ) {
+  constructor(private logger: Logger) {
     super();
   }
 
@@ -59,7 +56,7 @@ class LightningNursery extends EventEmitter {
   private listenInvoices = (lndClient: LndClient) => {
     lndClient.on('htlc.accepted', async (invoice: string) => {
       await this.lock.acquire(LightningNursery.invoiceLock, async () => {
-        let reverseSwap = await this.reverseSwapRepository.getReverseSwap({
+        let reverseSwap = await ReverseSwapRepository.getReverseSwap({
           [Op.or]: [
             {
               invoice,
@@ -89,7 +86,7 @@ class LightningNursery extends EventEmitter {
         } else {
           this.logger.debug(`Minerfee prepayment of Reverse Swap ${reverseSwap.id} was accepted`);
 
-          reverseSwap = await this.reverseSwapRepository.setReverseSwapStatus(reverseSwap, SwapUpdateEvent.MinerFeePaid);
+          reverseSwap = await ReverseSwapRepository.setReverseSwapStatus(reverseSwap, SwapUpdateEvent.MinerFeePaid);
           this.emit('minerfee.invoice.paid', reverseSwap);
 
           // Settle the prepay invoice and emit the "invoice.paid" event in case the hold invoice was paid first

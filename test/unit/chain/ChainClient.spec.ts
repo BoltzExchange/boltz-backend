@@ -45,14 +45,7 @@ jest.mock('../../../lib/chain/ZmqClient', () => {
   });
 });
 
-jest.mock('../../../lib/db/repositories/ChainTipRepository', () => {
-  return jest.fn().mockImplementation(() => ({
-    findOrCreateTip: jest.fn().mockResolvedValue({}),
-    updateTip: jest.fn().mockResolvedValue(undefined),
-  }));
-});
-
-const MockedChainTipRepository = <jest.Mock<ChainTipRepository>>ChainTipRepository;
+jest.mock('../../../lib/db/repositories/ChainTipRepository');
 
 describe('ChainClient', () => {
   const inputs = [
@@ -73,8 +66,12 @@ describe('ChainClient', () => {
     cookie: '',
   }, 'BTC');
 
-  chainClient['chainTipRepository'] = MockedChainTipRepository();
   chainClient['listenToZmq']();
+
+  beforeEach(() => {
+    ChainTipRepository.findOrCreateTip = jest.fn().mockResolvedValue({});
+    ChainTipRepository.updateTip = jest.fn().mockResolvedValue(undefined);
+  });
 
   test('should estimate fee', async () => {
     // Verify that the default fee is 2 sats/vbyte

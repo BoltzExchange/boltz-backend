@@ -1,32 +1,36 @@
 import { Request, Response } from 'express';
 import Logger from '../../../lib/Logger';
+import Bouncer from '../../../lib/api/Bouncer';
+import Swap from '../../../lib/db/models/Swap';
 import Service from '../../../lib/service/Service';
 import Controller from '../../../lib/api/Controller';
 import SwapNursery from '../../../lib/swap/SwapNursery';
+import ReferralStats from '../../../lib/data/ReferralStats';
+import ReverseSwap from '../../../lib/db/models/ReverseSwap';
 import ChannelCreation from '../../../lib/db/models/ChannelCreation';
-import { ReverseSwapType } from '../../../lib/db/models/ReverseSwap';
-import { SwapType as SwapDbType } from '../../../lib/db/models/Swap';
 import { SwapUpdateEvent, SwapType } from '../../../lib/consts/Enums';
+import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import { mapToObject, getHexBuffer, getVersion } from '../../../lib/Utils';
-import Bouncer from '../../../lib/api/Bouncer';
+import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
+import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
 
 type closeResponseCallback = () => void;
 type swapUpdateCallback = (id: string, message: string) => void;
 
-const swaps: SwapDbType[] = [
+const swaps: Swap[] = [
   {
     id: 'status',
     status: SwapUpdateEvent.InvoicePaid,
-  } as any as SwapDbType,
+  } as any as Swap,
   {
     id: 'channel',
     status: SwapUpdateEvent.ChannelCreated,
-  } as any as SwapDbType,
+  } as any as Swap,
   {
     id: 'failureReason',
     status: SwapUpdateEvent.TransactionLockupFailed,
     failureReason: 'lockupFailed',
-  } as any as SwapDbType,
+  } as any as Swap,
 ];
 
 const channelCreation = {
@@ -34,30 +38,30 @@ const channelCreation = {
   fundingTransactionVout: 42,
 } as any as ChannelCreation;
 
-const reverseSwaps: ReverseSwapType[] = [
+const reverseSwaps: ReverseSwap[] = [
   {
     id: 'rStatus',
     status: SwapUpdateEvent.InvoiceSettled,
-  } as any as ReverseSwapType,
+  } as any as ReverseSwap,
   {
     id: 'rStatusSettled',
     orderSide: 0,
     pair: 'BTC/BTC',
     transactionId: 'transaction',
     status: SwapUpdateEvent.TransactionConfirmed,
-  } as any as ReverseSwapType,
+  } as any as ReverseSwap,
   {
     id: 'rStatusMempool',
     orderSide: 0,
     pair: 'BTC/BTC',
     transactionId: 'transactionMempool',
     status: SwapUpdateEvent.TransactionMempool,
-  } as any as ReverseSwapType,
+  } as any as ReverseSwap,
   {
     id: 'r',
     invoice: 'invoice',
     status: SwapUpdateEvent.MinerFeePaid,
-  } as any as ReverseSwapType,
+  } as any as ReverseSwap,
 ];
 
 let swapUpdate: swapUpdateCallback;
@@ -167,17 +171,6 @@ jest.mock('../../../lib/service/Service', () => {
           swapUpdate = callback;
         },
       },
-      swapManager: {
-        swapRepository: {
-          getSwaps: () => Promise.resolve(swaps),
-        },
-        reverseSwapRepository: {
-          getReverseSwaps: () => Promise.resolve(reverseSwaps),
-        },
-        channelCreationRepository: {
-          getChannelCreation: () => Promise.resolve(channelCreation),
-        },
-      },
 
       getPairs: mockGetPairs,
       getNodes: mockGetNodes,
@@ -218,11 +211,7 @@ const mockGenerateReferralStats = jest.fn().mockImplementation(() => {
   return mockGenerateReferralStatsResult;
 });
 
-jest.mock('../../../lib/data/ReferralStats', () => {
-  return jest.fn().mockImplementation(() => ({
-    generate: mockGenerateReferralStats,
-  }));
-});
+jest.mock('../../../lib/data/ReferralStats');
 
 const mockRequest = (body: any, query?: any) => ({
   body,
@@ -262,6 +251,14 @@ describe('Controller', () => {
     Logger.disabledLogger,
     service,
   );
+
+  beforeEach(() => {
+    ReferralStats.generate = mockGenerateReferralStats;
+
+    SwapRepository.getSwaps = () => Promise.resolve(swaps);
+    ReverseSwapRepository.getReverseSwaps = () => Promise.resolve(reverseSwaps);
+    ChannelCreationRepository.getChannelCreation = () => Promise.resolve(channelCreation);
+  });
 
   test('should load status of all swaps on init', async () => {
     await controller.init();

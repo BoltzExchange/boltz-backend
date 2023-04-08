@@ -16,6 +16,7 @@ import ChainClient from '../../../lib/chain/ChainClient';
 import FeeProvider from '../../../lib/rates/FeeProvider';
 import { CurrencyInfo } from '../../../lib/proto/boltzrpc_pb';
 import RateCalculator from '../../../lib/rates/RateCalculator';
+import PairRepository from '../../../lib/db/repositories/PairRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
 import { decodeInvoice, getHexBuffer, getHexString } from '../../../lib/Utils';
@@ -28,12 +29,7 @@ import { BaseFeeType, CurrencyType, OrderSide, ServiceInfo, ServiceWarning, Swap
 const mockGetPairs = jest.fn().mockResolvedValue([]);
 const mockAddPair = jest.fn().mockReturnValue(Promise.resolve());
 
-jest.mock('../../../lib/db/repositories/PairRepository', () => {
-  return jest.fn().mockImplementation(() => ({
-    addPair: mockAddPair,
-    getPairs: mockGetPairs,
-  }));
-});
+jest.mock('../../../lib/db/repositories/PairRepository');
 
 let mockGetSwapResult: any = undefined;
 const mockGetSwap = jest.fn().mockImplementation(async () => {
@@ -42,12 +38,7 @@ const mockGetSwap = jest.fn().mockImplementation(async () => {
 
 const mockAddSwap = jest.fn().mockResolvedValue(undefined);
 
-jest.mock('../../../lib/db/repositories/SwapRepository', () => {
-  return jest.fn().mockImplementation(() => ({
-    getSwap: mockGetSwap,
-    addSwap: mockAddSwap,
-  }));
-});
+jest.mock('../../../lib/db/repositories/SwapRepository');
 
 const mockedSwapRepository = <jest.Mock<SwapRepository>><any>SwapRepository;
 
@@ -66,11 +57,7 @@ const mockGetChannelCreation = jest.fn().mockImplementation(() => {
   return mockGetChannelCreationResult;
 });
 
-jest.mock('../../../lib/db/repositories/ChannelCreationRepository', () => {
-  return jest.fn().mockImplementation(() => ({
-    getChannelCreation: mockGetChannelCreation,
-  }));
-});
+jest.mock('../../../lib/db/repositories/ChannelCreationRepository');
 
 const mockedChannelCreationRepository = <jest.Mock<ChannelCreationRepository>><any>ChannelCreationRepository;
 
@@ -96,6 +83,7 @@ const mockCreateSwap = jest.fn().mockResolvedValue(mockedSwap);
 const mockSetSwapInvoice = jest.fn().mockImplementation(async (
   swap: Swap,
   _invoice: string,
+  _invoiceAmount: number,
   _expectedAmount: number,
   _percentageFee: number,
   _acceptZeroConf: boolean,
@@ -496,6 +484,14 @@ describe('Service', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+
+    PairRepository.addPair = mockAddPair;
+    PairRepository.getPairs = mockGetPairs;
+
+    SwapRepository.getSwap = mockGetSwap;
+    SwapRepository.addSwap = mockAddSwap;
+
+    ChannelCreationRepository.getChannelCreation = mockGetChannelCreation;
   });
 
   test('should not init if a currency of a pair cannot be found', async () => {
@@ -1041,7 +1037,7 @@ describe('Service', () => {
     expect(mockAcceptZeroConf).toHaveBeenCalledWith('BTC', invoiceAmount + 2);
 
     expect(mockSetSwapInvoice).toHaveBeenCalledTimes(1);
-    expect(mockSetSwapInvoice).toHaveBeenCalledWith(mockGetSwapResult, invoice, invoiceAmount + 2, 1, true, expect.anything());
+    expect(mockSetSwapInvoice).toHaveBeenCalledWith(mockGetSwapResult, invoice, invoiceAmount, invoiceAmount + 2, 1, true, expect.anything());
 
     // Should execute with valid pair hash (it should just not throw)
     await service.setSwapInvoice(mockGetSwapResult.id, invoice, pairs.get('BTC/BTC')!.hash);

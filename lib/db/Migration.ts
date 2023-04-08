@@ -1,6 +1,6 @@
-import { DataTypes, Sequelize } from 'sequelize';
 import { detectSwap } from 'boltz-core';
 import { Transaction } from 'bitcoinjs-lib';
+import { DataTypes, Op, Sequelize } from 'sequelize';
 import Logger from '../Logger';
 import Swap from './models/Swap';
 import Referral from './models/Referral';
@@ -9,28 +9,31 @@ import { Currency } from '../wallet/WalletManager';
 import ChannelCreation from './models/ChannelCreation';
 import DatabaseVersion from './models/DatabaseVersion';
 import DatabaseVersionRepository from './repositories/DatabaseVersionRepository';
-import { createApiCredential, decodeInvoice, formatError, getChainCurrency, getHexBuffer, splitPairId } from '../Utils';
+import {
+  formatError,
+  splitPairId,
+  getHexBuffer,
+  decodeInvoice,
+  getChainCurrency,
+  createApiCredential,
+} from '../Utils';
 
 // TODO: integration tests for actual migrations
 class Migration {
-  private versionRepository: DatabaseVersionRepository;
+  private static latestSchemaVersion = 6;
 
-  private static latestSchemaVersion = 5;
-
-  constructor(private logger: Logger, private sequelize: Sequelize) {
-    this.versionRepository = new DatabaseVersionRepository();
-  }
+  constructor(private logger: Logger, private sequelize: Sequelize) {}
 
   public migrate = async (currencies: Map<string, Currency>): Promise<void> => {
     await DatabaseVersion.sync();
-    const versionRow = await this.versionRepository.getVersion();
+    const versionRow = await DatabaseVersionRepository.getVersion();
 
     // When no version row is found, just insert the latest version into the database
     if (!versionRow) {
       this.logger.verbose('No schema version found in database');
       this.logger.debug(`Inserting latest schema version ${Migration.latestSchemaVersion} in database`);
 
-      await this.versionRepository.createVersion(Migration.latestSchemaVersion);
+      await DatabaseVersionRepository.createVersion(Migration.latestSchemaVersion);
       return;
     }
 
@@ -257,6 +260,73 @@ class Migration {
         break;
       }
 
+      case 5: {
+        this.logUpdatingTable('swaps');
+
+        await this.sequelize.getQueryInterface().addColumn(
+          'swaps',
+          'invoiceAmount',
+          {
+            allowNull: true,
+            type: new DataTypes.INTEGER(),
+          },
+        );
+
+        await this.logProgress(
+          'swaps',
+          100,
+          await Swap.findAll({
+            attributes: ['id', 'invoice'],
+            where: {
+              invoice: {
+                [Op.not]: null,
+              },
+            },
+          }),
+          async (swap) => {
+            await swap.update({
+              invoiceAmount: decodeInvoice(swap.invoice!).satoshis,
+            });
+          },
+        );
+
+        this.logUpdatingTable('reverseSwaps');
+
+        await this.sequelize.getQueryInterface().addColumn(
+          'reverseSwaps',
+          'invoiceAmount',
+          {
+            type: new DataTypes.INTEGER(),
+          },
+        );
+
+        await this.logProgress(
+          'reverseSwaps',
+          100,
+          await ReverseSwap.findAll({
+            attributes: ['id', 'invoice'],
+          }),
+          async (reverseSwap) => {
+            await reverseSwap.update({
+              invoiceAmount: decodeInvoice(reverseSwap.invoice).satoshis,
+            });
+          },
+        );
+
+        await this.sequelize.getQueryInterface().changeColumn(
+          'reverseSwaps',
+          'invoiceAmount',
+          {
+            allowNull: false,
+            type: new DataTypes.INTEGER(),
+          },
+        );
+
+        await this.finishMigration(versionRow.version, currencies);
+
+        break;
+      }
+
       default:
         throw `found unexpected database version ${versionRow.version}`;
     }
@@ -278,7 +348,7 @@ class Migration {
     const currentVersion = updatedFromVersion + 1;
 
     this.logger.info(`Finished database migration to schema version ${currentVersion}`);
-    await this.versionRepository.updateVersion(currentVersion);
+    await DatabaseVersionRepository.updateVersion(currentVersion);
 
     // Run the migration again if the current schema version is not the latest one
     if (currentVersion !== Migration.latestSchemaVersion) {
@@ -289,6 +359,23 @@ class Migration {
   private logOutdatedVersion = (version: number) => {
     this.logger.warn(`Found database with outdated schema version ${version}`);
     this.logger.info(`Starting migration to database schema version ${version + 1}`);
+  };
+
+  private logProgress = async <T>(
+    name: string,
+    logIncrement: number,
+    entries: T[],
+    cb: (entry: T) => Promise<void>,
+  ) => {
+    this.logger.debug(`Migrating ${entries.length} ${name}`);
+
+    for (const [index, entry] of entries.entries()) {
+      await cb(entry);
+
+      if (index !== 0 && index % logIncrement === 0) {
+        this.logger.debug(`Migrated ${index}/${entries.length} ${name}`);
+      }
+    }
   };
 }
 

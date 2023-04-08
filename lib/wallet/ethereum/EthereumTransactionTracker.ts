@@ -3,8 +3,6 @@ import Logger from '../../Logger';
 import PendingEthereumTransactionRepository from '../../db/repositories/PendingEthereumTransactionRepository';
 
 class EthereumTransactionTracker {
-  private pendingEthereumTransactionRepository = new PendingEthereumTransactionRepository();
-
   constructor(
     private logger: Logger,
     private provider: Provider,
@@ -23,7 +21,7 @@ class EthereumTransactionTracker {
    * in that class already
    */
   public scanPendingTransactions = async (): Promise<void> => {
-    for (const transaction of await this.pendingEthereumTransactionRepository.getTransactions()) {
+    for (const transaction of await PendingEthereumTransactionRepository.getTransactions()) {
       const receipt = await this.provider.getTransactionReceipt(transaction.hash);
 
       if (receipt && (await receipt.confirmations()) > 0) {

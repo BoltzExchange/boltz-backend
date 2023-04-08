@@ -1,11 +1,8 @@
 import { Bucket } from '@google-cloud/storage';
 import Logger from '../../../lib/Logger';
-import Report from '../../../lib/data/Report';
 import Swap from '../../../lib/db/models/Swap';
 import { OrderSide } from '../../../lib/consts/Enums';
 import EventHandler from '../../../lib/service/EventHandler';
-import SwapRepository from '../../../lib/db/repositories/SwapRepository';
-import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import BackupScheduler, { BackupConfig } from '../../../lib/backup/BackupScheduler';
 
 type callback = (currency: string, channelBackup: string) => void;
@@ -39,8 +36,6 @@ jest.mock('../../../lib/db/repositories/SwapRepository', () => {
   });
 });
 
-const mockedSwapRepository = <jest.Mock<SwapRepository>><any>SwapRepository;
-
 jest.mock('../../../lib/db/repositories/ReverseSwapRepository', () => {
   return jest.fn().mockImplementation(() => {
     return {
@@ -48,8 +43,6 @@ jest.mock('../../../lib/db/repositories/ReverseSwapRepository', () => {
     };
   });
 });
-
-const mockedReverseSwapRepository = <jest.Mock<ReverseSwapRepository>><any>ReverseSwapRepository;
 
 let emitChannelBackup: callback;
 
@@ -77,11 +70,6 @@ describe('BackupScheduler', () => {
 
   const eventHandler = mockedEventHandler();
 
-  const report = new Report(
-    mockedSwapRepository(),
-    mockedReverseSwapRepository(),
-  );
-
   const backupConfig: BackupConfig = {
     email: '',
     privatekeypath: '',
@@ -96,7 +84,6 @@ describe('BackupScheduler', () => {
     dbPath,
     backupConfig,
     eventHandler,
-    report,
   );
 
   backupScheduler['bucket'] = {
@@ -140,15 +127,6 @@ describe('BackupScheduler', () => {
     );
   });
 
-  test('should upload the report', async () => {
-    await backupScheduler.uploadReport();
-
-    const csv = await report.generate();
-
-    expect(mockSave).toHaveBeenCalledTimes(1);
-    expect(mockSave).toHaveBeenCalledWith(csv);
-  });
-
   test('should upload LND multi channel backups', async () => {
     const channelBackup = 'b3be5ae30c223333b693a1f310e92edbae2c354abfd8a87ec2c36862c576cde4';
 
@@ -172,7 +150,6 @@ describe('BackupScheduler', () => {
         interval: '0 0 * * *',
       },
       eventHandler,
-      report,
     );
 
     expect(mockWarn).toHaveBeenCalledTimes(1);

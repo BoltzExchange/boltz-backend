@@ -3,13 +3,13 @@ import Swap, { SwapType } from '../models/Swap';
 import { SwapUpdateEvent } from '../../consts/Enums';
 
 class SwapRepository {
-  public getSwaps = (options?: WhereOptions): Promise<Swap[]> => {
+  public static getSwaps = (options?: WhereOptions): Promise<Swap[]> => {
     return Swap.findAll({
       where: options,
     });
   };
 
-  public getSwapsExpirable = (height: number): Promise<Swap[]> => {
+  public static getSwapsExpirable = (height: number): Promise<Swap[]> => {
     return Swap.findAll({
       where: {
         status: {
@@ -26,34 +26,42 @@ class SwapRepository {
     });
   };
 
-  public getSwap = (options: WhereOptions): Promise<Swap | null> => {
+  public static getSwap = (options: WhereOptions): Promise<Swap | null> => {
     return Swap.findOne({
       where: options,
     });
   };
 
-  public addSwap = (swap: SwapType): Promise<Swap> => {
+  public static addSwap = (swap: SwapType): Promise<Swap> => {
     return Swap.create(swap);
   };
 
-  public setSwapStatus = (swap: Swap, status: string, failureReason?: string,): Promise<Swap> => {
+  public static setSwapStatus = (swap: Swap, status: string, failureReason?: string,): Promise<Swap> => {
     return swap.update({
       status,
       failureReason,
     });
   };
 
-  public setInvoice = (swap: Swap, invoice: string, expectedAmount: number, fee: number, acceptZeroConf: boolean): Promise<Swap> => {
+  public static setInvoice = (
+    swap: Swap,
+    invoice: string,
+    invoiceAmount: number,
+    expectedAmount: number,
+    fee: number,
+    acceptZeroConf: boolean,
+  ): Promise<Swap> => {
     return swap.update({
       fee,
       invoice,
+      invoiceAmount,
       acceptZeroConf,
       expectedAmount,
       status: SwapUpdateEvent.InvoiceSet,
     });
   };
 
-  public setLockupTransaction = (
+  public static setLockupTransaction = (
     swap: Swap,
     lockupTransactionId: string,
     onchainAmount: number,
@@ -68,27 +76,27 @@ class SwapRepository {
     });
   };
 
-  public setRate = (swap: Swap, rate: number): Promise<Swap> => {
+  public static setRate = (swap: Swap, rate: number): Promise<Swap> => {
     return swap.update({
       rate,
     });
   };
 
-  public setInvoicePaid = (swap: Swap, routingFee: number): Promise<Swap> => {
+  public static setInvoicePaid = (swap: Swap, routingFee: number): Promise<Swap> => {
     return swap.update({
       routingFee,
       status: SwapUpdateEvent.InvoicePaid,
     });
   };
 
-  public setMinerFee = (swap: Swap, minerFee: number): Promise<Swap> => {
+  public static setMinerFee = (swap: Swap, minerFee: number): Promise<Swap> => {
     return swap.update({
       minerFee,
       status: SwapUpdateEvent.TransactionClaimed,
     });
   };
 
-  public dropTable = (): Promise<void> => {
+  public static dropTable = (): Promise<void> => {
     return Swap.drop();
   };
 }

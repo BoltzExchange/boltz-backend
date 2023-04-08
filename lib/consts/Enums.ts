@@ -51,6 +51,18 @@ export enum SwapUpdateEvent {
   InvoiceExpired = 'invoice.expired',
 }
 
+export const SuccessSwapUpdateEvents = [
+  SwapUpdateEvent.InvoiceSettled,
+  SwapUpdateEvent.TransactionClaimed,
+];
+
+export const FailedSwapUpdateEvents = [
+  SwapUpdateEvent.SwapExpired,
+  SwapUpdateEvent.TransactionFailed,
+  SwapUpdateEvent.InvoiceFailedToPay,
+  SwapUpdateEvent.TransactionRefunded,
+];
+
 export enum ChannelCreationType {
   Auto = 'auto',
   Create = 'create',

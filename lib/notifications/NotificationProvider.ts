@@ -144,7 +144,6 @@ class NotificationProvider {
     };
 
     const getBasicSwapInfo = (swap: Swap | ReverseSwap, onchainSymbol: string, lightningSymbol: string) => {
-      // tslint:disable-next-line: prefer-template
       let message = `ID: ${swap.id}\n` +
         `Pair: ${swap.pair}\n` +
         `Order side: ${swap.orderSide === OrderSide.BUY ? 'buy' : 'sell'}`;
@@ -184,7 +183,6 @@ class NotificationProvider {
         channelCreation !== undefined &&
         channelCreation.fundingTransactionId !== null;
 
-      // tslint:disable-next-line: prefer-template
       let message = `**Swap ${getSwapTitle(swap.pair, swap.orderSide, isReverse)}${hasChannelCreation ? ' :construction_site:' : ''}**\n` +
         `${getBasicSwapInfo(swap, onchainSymbol, lightningSymbol)}\n` +
         `Fees earned: ${this.numberToDecimal(satoshisToCoins(swap.fee!))} ${onchainSymbol}\n` +
@@ -196,7 +194,6 @@ class NotificationProvider {
       }
 
       if (hasChannelCreation) {
-        // tslint:disable-next-line:prefer-template
         message += '\n\n**Channel Creation:**\n' +
           `Private: ${channelCreation!.private}\n` +
           `Inbound: ${channelCreation!.inboundLiquidity}%\n` +
@@ -210,7 +207,6 @@ class NotificationProvider {
     this.service.eventHandler.on('swap.failure', async (swap, isReverse, reason) => {
       const { onchainSymbol, lightningSymbol } = getSymbols(swap.pair, swap.orderSide, isReverse);
 
-      // tslint:disable-next-line: prefer-template
       let message = `**Swap ${getSwapTitle(swap.pair, swap.orderSide, isReverse)} failed: ${reason}**\n` +
         `${getBasicSwapInfo(swap, onchainSymbol, lightningSymbol)}`;
 

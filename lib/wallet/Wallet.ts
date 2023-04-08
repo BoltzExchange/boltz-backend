@@ -13,7 +13,6 @@ class Wallet {
   private derivationPath?: string;
   private highestUsedIndex?: number;
   private masterNode?: BIP32Interface;
-  private keyRepository?: KeyRepository;
 
   /**
    * Wallet is a hierarchical deterministic wallet for a currency
@@ -35,13 +34,11 @@ class Wallet {
     derivationPath: string,
     highestUsedIndex: number,
     masterNode: BIP32Interface,
-    keyRepository: KeyRepository,
   ): void => {
     this.network = network;
     this.derivationPath = derivationPath;
     this.highestUsedIndex = highestUsedIndex;
     this.masterNode = masterNode;
-    this.keyRepository = keyRepository;
   };
 
   /**
@@ -61,12 +58,12 @@ class Wallet {
    * Gets a new pair of keys
    */
   public getNewKeys = (): { keys: BIP32Interface, index: number } => {
-    if (this.highestUsedIndex === undefined || this.keyRepository === undefined) {
+    if (this.highestUsedIndex === undefined) {
       throw Errors.NOT_SUPPORTED_BY_WALLET(this.symbol, 'getNewKeys');
     }
 
     this.highestUsedIndex += 1;
-    this.keyRepository.setHighestUsedIndex(this.symbol, this.highestUsedIndex).then();
+    KeyRepository.setHighestUsedIndex(this.symbol, this.highestUsedIndex).then();
 
     return {
       keys: this.getKeysByIndex(this.highestUsedIndex),

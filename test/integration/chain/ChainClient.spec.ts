@@ -9,18 +9,9 @@ const mockFindOrCreateTip = jest.fn().mockImplementation(async () => {
 });
 const mockUpdateTip = jest.fn().mockImplementation();
 
-jest.mock('../../../lib/db/repositories/ChainTipRepository', () => {
-  return jest.fn().mockImplementation(() => ({
-    findOrCreateTip: mockFindOrCreateTip,
-    updateTip: mockUpdateTip,
-  }));
-});
-
-const MockedChainTipRepository = <jest.Mock<ChainTipRepository>><any>ChainTipRepository;
+jest.mock('../../../lib/db/repositories/ChainTipRepository');
 
 describe('ChainClient', () => {
-  const chainTipRepository = new MockedChainTipRepository();
-
   const numTransactions = 15;
 
   let transactionWithRelevantInput = '';
@@ -34,10 +25,13 @@ describe('ChainClient', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+
+    ChainTipRepository.updateTip = mockUpdateTip;
+    ChainTipRepository.findOrCreateTip = mockFindOrCreateTip;
   });
 
   test('should init', async () => {
-    await bitcoinClient.connect(chainTipRepository);
+    await bitcoinClient.connect();
     await bitcoinClient.generate(1);
   });
 

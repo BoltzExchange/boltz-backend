@@ -51,10 +51,6 @@ class SwapManager {
 
   public nursery: SwapNursery;
 
-  public swapRepository: SwapRepository;
-  public reverseSwapRepository: ReverseSwapRepository;
-  public channelCreationRepository: ChannelCreationRepository;
-
   public routingHints!: RoutingHintsProvider;
 
   constructor(
@@ -65,17 +61,10 @@ class SwapManager {
     private swapOutputType: OutputType,
     retryInterval: number,
   ) {
-    this.channelCreationRepository = new ChannelCreationRepository();
-
-    this.swapRepository = new SwapRepository();
-    this.reverseSwapRepository = new ReverseSwapRepository();
     this.nursery = new SwapNursery(
       this.logger,
       rateProvider,
       this.walletManager,
-      this.swapRepository,
-      this.reverseSwapRepository,
-      this.channelCreationRepository,
       this.swapOutputType,
       retryInterval,
     );
@@ -89,7 +78,7 @@ class SwapManager {
     await this.nursery.init(currencies);
 
     const [pendingSwaps, pendingReverseSwaps] = await Promise.all([
-      this.swapRepository.getSwaps({
+      SwapRepository.getSwaps({
         status: {
           [Op.notIn]: [
             SwapUpdateEvent.SwapExpired,
@@ -99,7 +88,7 @@ class SwapManager {
           ],
         },
       }),
-      this.reverseSwapRepository.getReverseSwaps({
+      ReverseSwapRepository.getReverseSwaps({
         status: {
           [Op.notIn]: [
             SwapUpdateEvent.SwapExpired,
@@ -206,7 +195,7 @@ class SwapManager {
 
       receivingCurrency.chainClient!.addOutputFilter(outputScript);
 
-      await this.swapRepository.addSwap({
+      await SwapRepository.addSwap({
         id,
         pair,
         timeoutBlockHeight,
@@ -227,7 +216,7 @@ class SwapManager {
 
       claimAddress = await receivingCurrency.wallet.getAddress();
 
-      await this.swapRepository.addSwap({
+      await SwapRepository.addSwap({
         id,
         pair,
         timeoutBlockHeight,
@@ -243,7 +232,7 @@ class SwapManager {
     if (args.channel !== undefined) {
       this.logger.verbose(`Adding Channel Creation for Swap: ${id}`);
 
-      await this.channelCreationRepository.addChannelCreation({
+      await ChannelCreationRepository.addChannelCreation({
         swapId: id,
         private: args.channel.private,
         type: args.channel.auto ? ChannelCreationType.Auto : ChannelCreationType.Create,
@@ -266,6 +255,7 @@ class SwapManager {
    *
    * @param swap database object of the swap
    * @param invoice invoice of the Swap
+   * @param invoiceAmount amount of the invoice in satoshis
    * @param expectedAmount amount that is expected onchain
    * @param percentageFee fee Boltz charges for the Swap
    * @param acceptZeroConf whether 0-conf transactions should be accepted
@@ -274,6 +264,7 @@ class SwapManager {
   public setSwapInvoice = async (
     swap: Swap,
     invoice: string,
+    invoiceAmount: number,
     expectedAmount: number,
     percentageFee: number,
     acceptZeroConf: boolean,
@@ -296,7 +287,7 @@ class SwapManager {
       throw Errors.INVOICE_EXPIRED_ALREADY();
     }
 
-    const channelCreation = await this.channelCreationRepository.getChannelCreation({
+    const channelCreation = await ChannelCreationRepository.getChannelCreation({
       swapId: swap.id,
     });
 
@@ -345,7 +336,7 @@ class SwapManager {
         }
       }
 
-      await this.channelCreationRepository.setNodePublicKey(channelCreation, decodedInvoice.payeeNodeKey!);
+      await ChannelCreationRepository.setNodePublicKey(channelCreation, decodedInvoice.payeeNodeKey!);
 
     // If there are route hints the routability check could fail although LND could pay the invoice
     } else if (!decodedInvoice.routingInfo || (decodedInvoice.routingInfo && decodedInvoice.routingInfo.length === 0)) {
@@ -357,7 +348,14 @@ class SwapManager {
     const previousStatus = swap.status;
 
     this.logger.debug(`Setting invoice of Swap ${swap.id}: ${invoice}`);
-    const updatedSwap = await this.swapRepository.setInvoice(swap, invoice, expectedAmount, percentageFee, acceptZeroConf);
+    const updatedSwap = await SwapRepository.setInvoice(
+      swap,
+      invoice,
+      invoiceAmount,
+      expectedAmount,
+      percentageFee,
+      acceptZeroConf,
+    );
 
     // Not the most elegant way to emit this event but the only option
     // to emit it before trying to claim the swap
@@ -504,7 +502,7 @@ class SwapManager {
       const outputScript = getScriptHashFunction(ReverseSwapOutputType)(redeemScript);
       lockupAddress = sendingCurrency.wallet.encodeAddress(outputScript);
 
-      await this.reverseSwapRepository.addReverseSwap({
+      await ReverseSwapRepository.addReverseSwap({
         id,
         pair,
         lockupAddress,
@@ -518,6 +516,7 @@ class SwapManager {
         orderSide: args.orderSide,
         onchainAmount: args.onchainAmount,
         status: SwapUpdateEvent.SwapCreated,
+        invoiceAmount: args.holdInvoiceAmount,
         redeemScript: getHexString(redeemScript),
         preimageHash: getHexString(args.preimageHash),
         minerFeeInvoicePreimage: minerFeeInvoicePreimage,
@@ -531,7 +530,7 @@ class SwapManager {
       lockupAddress = await this.getLockupContractAddress(sendingCurrency.type);
       refundAddress = await this.walletManager.wallets.get(sendingCurrency.symbol)!.getAddress();
 
-      await this.reverseSwapRepository.addReverseSwap({
+      await ReverseSwapRepository.addReverseSwap({
         id,
         pair,
         lockupAddress,
@@ -545,6 +544,7 @@ class SwapManager {
         claimAddress: args.claimAddress!,
         onchainAmount: args.onchainAmount,
         status: SwapUpdateEvent.SwapCreated,
+        invoiceAmount: args.holdInvoiceAmount,
         preimageHash: getHexString(args.preimageHash),
         minerFeeInvoicePreimage: minerFeeInvoicePreimage,
         minerFeeOnchainAmount: args.prepayMinerFeeOnchainAmount,
@@ -614,7 +614,7 @@ class SwapManager {
       // TODO: do MPP probing once it is available
       const decodedInvoice = await lnd.decodePayReq(invoice);
 
-      // Check whether the the receiving side supports MPP and if so,
+      // Check whether the receiving side supports MPP and if so,
       // query a route for the number of sats of the invoice divided
       // by the max payment parts we tell to LND to use
       let supportsMpp = false;

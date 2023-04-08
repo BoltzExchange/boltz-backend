@@ -5,10 +5,13 @@ import Bouncer from './Bouncer';
 import Service from '../service/Service';
 import SwapNursery from '../swap/SwapNursery';
 import ServiceErrors from '../service/Errors';
+import ReferralStats from '../data/ReferralStats';
 import { SwapUpdate } from '../service/EventHandler';
 import { SwapType, SwapUpdateEvent } from '../consts/Enums';
+import SwapRepository from '../db/repositories/SwapRepository';
+import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
+import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import { getChainCurrency, getHexBuffer, getVersion, mapToObject, splitPairId, stringify } from '../Utils';
-import ReferralStats from '../data/ReferralStats';
 
 type ApiArgument = {
   name: string,
@@ -21,6 +24,7 @@ class Controller {
   // A map between the ids and HTTP streams of all pending swaps
   private pendingSwapStreams = new Map<string, Response>();
 
+  // TODO: refactor
   // A map between the ids and statuses of the swaps
   private pendingSwapInfos = new Map<string, SwapUpdate>();
 
@@ -38,10 +42,12 @@ class Controller {
   }
 
   public init = async (): Promise<void> => {
+    this.logger.verbose('Fetching swaps status from database');
+
     // Get the latest status of all swaps in the database
     const [swaps, reverseSwaps] = await Promise.all([
-      this.service.swapManager.swapRepository.getSwaps(),
-      this.service.swapManager.reverseSwapRepository.getReverseSwaps(),
+      SwapRepository.getSwaps(),
+      ReverseSwapRepository.getReverseSwaps(),
     ]);
 
     for (const swap of swaps) {
@@ -49,7 +55,7 @@ class Controller {
 
       switch (status) {
         case SwapUpdateEvent.ChannelCreated: {
-          const channelCreation = await this.service.swapManager.channelCreationRepository.getChannelCreation({
+          const channelCreation = await ChannelCreationRepository.getChannelCreation({
             swapId: swap.id,
           });
 
@@ -422,12 +428,7 @@ class Controller {
   public queryReferrals = async (req: Request, res: Response): Promise<void> => {
     try {
       const referral = await Bouncer.validateRequestAuthentication(req);
-      const stats = await new ReferralStats(
-        this.service.swapManager.swapRepository,
-        this.service.swapManager.reverseSwapRepository,
-      ).generate({
-        referral: referral.id,
-      });
+      const stats = await ReferralStats.generate(referral.id);
 
       this.successResponse(res, stats);
     } catch (error) {

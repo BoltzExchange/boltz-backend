@@ -28,6 +28,11 @@ UBUNTU_VERSION = BuildArgument(
     value="22.04",
 )
 
+NODE_VERSION = BuildArgument(
+    name="NODE_VERSION",
+    value="lts-bullseye-slim",
+)
+
 GOLANG_VERSION = BuildArgument(
     name="GOLANG_VERSION",
     value="1.20.3-buster",
@@ -88,8 +93,10 @@ IMAGES: dict[str, Image] = {
         ],
     ),
     "boltz": Image(
-        tags=["3.1.5"],
-        arguments=[],
+        tags=["3.2.0"],
+        arguments=[
+            NODE_VERSION,
+        ],
     ),
     "regtest": Image(
         tags=["3.4.7"],

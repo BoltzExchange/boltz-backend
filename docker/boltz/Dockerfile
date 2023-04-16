@@ -1,6 +1,7 @@
 ARG VERSION
+ARG NODE_VERSION
 
-FROM node:lts-buster-slim as builder
+FROM node:${NODE_VERSION} AS builder
 
 RUN apt-get update && apt-get -y upgrade
 RUN apt-get -y install \
@@ -26,7 +27,7 @@ RUN sed -i "/grpc-tools/d" package.json
 RUN npm install
 RUN npm run compile
 
-FROM node:lts-buster-slim as final
+FROM node:${NODE_VERSION} AS final
 
 COPY --from=builder /boltz-backend/bin /boltz-backend/bin
 COPY --from=builder /boltz-backend/dist /boltz-backend/dist

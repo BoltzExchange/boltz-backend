@@ -6,7 +6,9 @@ import Errors from './consts/Errors';
 import { Network } from './consts/Enums';
 import { PairConfig } from './consts/Types';
 import { LndConfig } from './lightning/LndClient';
-import { deepMerge, resolveHome, getServiceDataDir } from './Utils';
+import { WebdavConfig } from './backup/providers/Webdav';
+import { GoogleCloudConfig } from './backup/providers/GoogleCloud';
+import { deepMerge, getServiceDataDir, resolveHome } from './Utils';
 
 type ChainConfig = {
   host: string;
@@ -96,13 +98,11 @@ type RatesConfig = {
 };
 
 type BackupConfig = {
-  email: string;
-  privatekeypath: string;
-
-  bucketname: string;
-
   // The interval has to be a cron schedule expression
   interval: string;
+
+  webdav?: WebdavConfig;
+  gcloud?: GoogleCloudConfig;
 };
 
 type NotificationConfig = {
@@ -202,12 +202,19 @@ class Config {
       },
 
       backup: {
-        email: '',
-        privatekeypath: backup.privatekeypath,
-
-        bucketname: '',
-
         interval: '0 0 * * *',
+
+        gcloud: {
+          email: '',
+          privatekeypath: backup.privatekeypath,
+
+          bucketname: '',
+        },
+        webdav: {
+          url: '',
+          username: '',
+          password: '',
+        },
       },
 
       notification: {

@@ -1,9 +1,8 @@
-import { Bucket } from '@google-cloud/storage';
 import Logger from '../../../lib/Logger';
-import Swap from '../../../lib/db/models/Swap';
-import { OrderSide } from '../../../lib/consts/Enums';
+import { BackupConfig } from '../../../lib/Config';
 import EventHandler from '../../../lib/service/EventHandler';
-import BackupScheduler, { BackupConfig } from '../../../lib/backup/BackupScheduler';
+import BackupScheduler from '../../../lib/backup/BackupScheduler';
+import Webdav from '../../../lib/backup/providers/Webdav';
 
 type callback = (currency: string, channelBackup: string) => void;
 
@@ -19,30 +18,7 @@ jest.mock('../../../lib/Logger', () => {
   }));
 });
 
-const mockedLogger = <jest.Mock<Logger>><any>Logger;
-
-const swap = {
-  fee: 780,
-  pair: 'BTC/BTC',
-  orderSide: OrderSide.BUY,
-  createdAt: '2019-04-19 09:21:01.156 +00:00',
-} as any as Swap;
-
-jest.mock('../../../lib/db/repositories/SwapRepository', () => {
-  return jest.fn().mockImplementation(() => {
-    return {
-      getSwaps: () => Promise.resolve([swap]),
-    };
-  });
-});
-
-jest.mock('../../../lib/db/repositories/ReverseSwapRepository', () => {
-  return jest.fn().mockImplementation(() => {
-    return {
-      getReverseSwaps: () => Promise.resolve([]),
-    };
-  });
-});
+const mockedLogger = <jest.Mock<Logger>><any> Logger;
 
 let emitChannelBackup: callback;
 
@@ -58,10 +34,21 @@ jest.mock('../../../lib/service/EventHandler', () => {
   });
 });
 
-const mockedEventHandler = <jest.Mock<EventHandler>><any>EventHandler;
+const mockedEventHandler = <jest.Mock<EventHandler>><any> EventHandler;
 
-const mockSave = jest.fn().mockImplementation(() => Promise.resolve());
-const mockUpload = jest.fn().mockImplementation(() => Promise.resolve());
+const mockUploadString = jest.fn().mockImplementation(() => Promise.resolve());
+const mockUploadFile = jest.fn().mockImplementation(() => Promise.resolve());
+
+jest.mock('../../../lib/backup/providers/Webdav', () => {
+  return jest.fn().mockImplementation(() => {
+    return {
+      uploadString: mockUploadString,
+      uploadFile: mockUploadFile,
+    };
+  });
+});
+
+const mockedWebdav = <jest.Mock<Webdav>><any> Webdav;
 
 describe('BackupScheduler', () => {
   const dbPath = 'backend.db';
@@ -71,11 +58,6 @@ describe('BackupScheduler', () => {
   const eventHandler = mockedEventHandler();
 
   const backupConfig: BackupConfig = {
-    email: '',
-    privatekeypath: '',
-
-    bucketname: '',
-
     interval: '',
   };
 
@@ -86,19 +68,12 @@ describe('BackupScheduler', () => {
     eventHandler,
   );
 
-  backupScheduler['bucket'] = {
-    upload: mockUpload,
-
-    file: () => ({
-      save: mockSave,
-    }),
-  } as any as Bucket;
+  beforeAll(() => {
+    backupScheduler['providers'].push(mockedWebdav());
+  });
 
   beforeEach(() => {
-    mockWarn.mockClear();
-
-    mockSave.mockClear();
-    mockUpload.mockClear();
+    jest.clearAllMocks();
   });
 
   test('should format date correctly', () => {
@@ -118,36 +93,42 @@ describe('BackupScheduler', () => {
 
     await backupScheduler.uploadDatabase(date);
 
-    expect(mockUpload).toHaveBeenCalledTimes(1);
-    expect(mockUpload).toHaveBeenCalledWith(
+    expect(mockUploadFile).toHaveBeenCalledTimes(1);
+    expect(mockUploadFile).toHaveBeenCalledWith(
+      `backend/database-${dateString}.db`,
       dbPath,
-      {
-        destination: `backend/database-${dateString}.db`,
-      },
     );
   });
 
   test('should upload LND multi channel backups', async () => {
+    const date = new Date();
+    const dateString = BackupScheduler['getDate'](date);
     const channelBackup = 'b3be5ae30c223333b693a1f310e92edbae2c354abfd8a87ec2c36862c576cde4';
 
     backupScheduler['subscribeChannelBackups']();
     emitChannelBackup(channelBackupCurrency, channelBackup);
 
-    expect(mockSave).toHaveBeenCalledTimes(1);
-    expect(mockSave).toHaveBeenCalledWith(channelBackup);
+    expect(mockUploadString).toHaveBeenCalledTimes(1);
+    expect(mockUploadString).toHaveBeenCalledWith(
+      `lnd/BTC/multiChannelBackup-${dateString}`,
+      channelBackup,
+    );
   });
 
-  test('should not throw if the private key does not exist', () => {
+  test('should not throw if the Google API private key does not exist', () => {
     const path = 'path';
 
     new BackupScheduler(
       mockedLogger(),
       dbPath,
       {
-        email: '@',
-        bucketname: 'bucket',
-        privatekeypath: path,
         interval: '0 0 * * *',
+
+        gcloud: {
+          email: '@',
+          bucketname: 'bucket',
+          privatekeypath: path,
+        },
       },
       eventHandler,
     );

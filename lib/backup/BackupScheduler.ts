@@ -1,14 +1,19 @@
-import { readFileSync } from 'fs';
 import { scheduleJob } from 'node-schedule';
-import { Storage, Bucket } from '@google-cloud/storage';
 import Errors from './Errors';
 import Logger from '../Logger';
 import { formatError } from '../Utils';
+import Webdav from './providers/Webdav';
 import { BackupConfig } from '../Config';
+import GoogleCloud from './providers/GoogleCloud';
 import EventHandler from '../service/EventHandler';
 
+interface BackupProvider {
+  uploadString(path: string, data: string): Promise<void>;
+  uploadFile(path: string, file: string): Promise<void>;
+}
+
 class BackupScheduler {
-  private bucket?: Bucket;
+  private readonly providers: BackupProvider[] = [];
 
   constructor(
     private logger: Logger,
@@ -16,25 +21,21 @@ class BackupScheduler {
     private config: BackupConfig,
     private eventHandler: EventHandler,
   ) {
-
-    if (
-      config.email === '' ||
-      config.privatekeypath === '' ||
-      config.bucketname === ''
-    ) {
-      this.logger.warn('Disabled backups because of incomplete configuration');
-      return;
-    }
-
     try {
-      const storage = new Storage({
-        credentials: {
-          client_email: config.email,
-          private_key: readFileSync(config.privatekeypath, 'utf-8'),
-        },
-      });
+      if (config.gcloud && GoogleCloud.configValid(config.gcloud)) {
+        this.providers.push(new GoogleCloud(config.gcloud));
+        this.logProviderEnabled('Google Cloud Storage');
+      }
 
-      this.bucket = storage.bucket(config.bucketname);
+      if (config.webdav && Webdav.configValid(config.webdav)) {
+        this.providers.push(new Webdav(config.webdav));
+        this.logProviderEnabled('WebDav');
+      }
+
+      if (this.providers.length === 0) {
+        this.logger.warn('Disabled backups because no provider was specified');
+        return;
+      }
 
       this.subscribeChannelBackups();
       this.logger.info('Started channel backup subscription');
@@ -49,8 +50,20 @@ class BackupScheduler {
   }
 
   private static getDate = (date: Date) => {
-    return `${date.getFullYear()}${BackupScheduler.addLeadingZeros(date.getMonth())}${BackupScheduler.addLeadingZeros(date.getDate())}` +
-      `-${BackupScheduler.addLeadingZeros(date.getHours())}${BackupScheduler.addLeadingZeros(date.getMinutes())}`;
+    let str = '';
+
+    for (const elem of [
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+      '-',
+      date.getHours(),
+      date.getMinutes(),
+    ]) {
+      str += typeof elem === 'number' ? BackupScheduler.addLeadingZeros(elem) : elem;
+    }
+
+    return str;
   };
 
   /**
@@ -61,39 +74,36 @@ class BackupScheduler {
   };
 
   public uploadDatabase = async (date: Date): Promise<void> => {
-    if (!this.bucket) {
+    if (this.providers.length === 0) {
       throw Errors.BACKUP_DISABLED();
     }
 
     const dateString = BackupScheduler.getDate(date);
     this.logger.silly(`Backing up databases at: ${dateString}`);
 
-    await this.uploadFile(this.dbpath, dateString);
+    await this.uploadFile(`backend/database-${dateString}.db`, this.dbpath);
   };
 
-  private uploadFile = async (path: string, date: string) => {
-    const destination = `backend/database-${date}.db`;
-
+  private uploadFile = async (path: string, file: string) => {
     try {
-      await this.bucket!.upload(path, {
-        destination,
-      });
-
-      this.logger.silly(`Uploaded file ${path} to: ${destination}`);
+      await Promise.all(this.providers
+        .map((provider) => provider.uploadFile(path, file))
+      );
+      this.logger.silly(`Uploaded file ${file} to: ${path}`);
     } catch (error) {
-      this.logger.warn(`Could not upload file ${destination}: ${error}`);
+      this.logger.warn(`Could not upload file ${path}: ${error}`);
       throw error;
     }
   };
 
-  private uploadString = async (fileName: string, data: string) => {
+  private uploadString = async (path: string, data: string) => {
     try {
-      const file = this.bucket!.file(fileName);
-      await file.save(data);
-
-      this.logger.silly(`Uploaded data into file: ${fileName}`);
+      await Promise.all(this.providers
+        .map((provider) => provider.uploadString(path, data))
+      );
+      this.logger.silly(`Uploaded data into file: ${path}`);
     } catch (error) {
-      this.logger.warn(`Could not upload data to file ${fileName}: ${formatError(error)}`);
+      this.logger.warn(`Could not upload data to file ${path}: ${formatError(error)}`);
       throw error;
     }
   };
@@ -105,7 +115,11 @@ class BackupScheduler {
       await this.uploadString(`lnd/${currency}/multiChannelBackup-${dateString}`, channelBackup);
     });
   };
+
+  private logProviderEnabled = (name: string) => {
+    this.logger.verbose(`Enabled ${name} backup provider`);
+  };
 }
 
 export default BackupScheduler;
-export { BackupConfig };
+export { BackupProvider };

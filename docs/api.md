@@ -228,13 +228,6 @@ Response:
         "03f060953bef5b777dc77e44afa3859d022fc1a77c55138deb232ad7255e869c00@35.237.24.136:9735",
         "03f060953bef5b777dc77e44afa3859d022fc1a77c55138deb232ad7255e869c00@idz7qlezif6hgmjkpmuelnsssyxea2lwan562a5gla7jmlxsl5cb2cad.onion:9735"
       ]
-    },
-    "LTC": {
-      "nodeKey": "0278d27617616c156c879dd51d61313795e3782abda2cd7a37d9d24ece6c309064",
-      "uris": [
-        "0278d27617616c156c879dd51d61313795e3782abda2cd7a37d9d24ece6c309064@35.237.24.136:10735",
-        "03f060953bef5b777dc77e44afa3859d022fc1a77c55138deb232ad7255e869c00@idz7qlezif6hgmjkpmuelnsssyxea2lwan562a5gla7jmlxsl5cb2cad.onion:9735"
-      ]
     }
   }
 }

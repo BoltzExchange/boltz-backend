@@ -57,13 +57,15 @@ class DiscordClient extends EventEmitter {
         resolve();
       });
 
-      this.client.login(this.token).catch(error => reject(error));
+      this.client.login(this.token).catch((error) => reject(error));
     });
   };
 
   public destroy = (): void => {
     this.channel = undefined;
-    this.client.destroy();
+    if (this.client.isReady()) {
+      this.client.destroy();
+    }
   };
 
   public sendMessage = async (message: string): Promise<void> => {
@@ -74,21 +76,27 @@ class DiscordClient extends EventEmitter {
         let toSplit = message;
         let maxPartLen = DiscordClient.maxMessageLen;
 
-        const isCodeBlock = message.startsWith(codeBlock) && message.endsWith(codeBlock);
+        const isCodeBlock =
+          message.startsWith(codeBlock) && message.endsWith(codeBlock);
 
         if (isCodeBlock) {
           // When splitting code blocks we need to account for the length the code block markup needs
           maxPartLen -= codeBlock.length * 2;
 
           // Trim the code block markup from the original message that will be split
-          toSplit = toSplit.substring(codeBlock.length, toSplit.length - codeBlock.length);
+          toSplit = toSplit.substring(
+            codeBlock.length,
+            toSplit.length - codeBlock.length,
+          );
         }
 
         await this.channel.send(this.prefix);
 
         for (const part of this.splitString(toSplit, maxPartLen)) {
-          const getBlockMarkup = () => isCodeBlock ? codeBlock : '';
-          await this.channel.send(`${getBlockMarkup()}${part}${getBlockMarkup()}`);
+          const getBlockMarkup = () => (isCodeBlock ? codeBlock : '');
+          await this.channel.send(
+            `${getBlockMarkup()}${part}${getBlockMarkup()}`,
+          );
         }
       }
     }

@@ -9,7 +9,13 @@ const testAddress = 'bcrt1q54g5dyexre4dg78ymnzz2y8h9xfptjrtxxakn6';
 describe('CoreWalletProvider', () => {
   const provider = new CoreWalletProvider(Logger.disabledLogger, bitcoinClient);
 
-  const verifySentTransaction = async (sentTransaction: SentTransaction, destination: string, amount: number, isSweep: boolean) => {
+  const verifySentTransaction = async (
+    sentTransaction: SentTransaction,
+    destination: string,
+    amount: number,
+    isSweep: boolean,
+    feePerVbyte?: number,
+  ) => {
     const rawTransaction = await bitcoinClient.getRawTransactionVerbose(sentTransaction.transactionId);
 
     expect(sentTransaction.transactionId).toEqual(rawTransaction.txid);
@@ -25,7 +31,7 @@ describe('CoreWalletProvider', () => {
     let outputSum = 0;
 
     for (const vout of sentTransaction.transaction!.outs) {
-      outputSum += vout.value;
+      outputSum += vout.value as number;
     }
 
     let inputSum = 0;
@@ -36,6 +42,10 @@ describe('CoreWalletProvider', () => {
     }
 
     expect(sentTransaction.fee).toEqual(inputSum - outputSum);
+
+    if (feePerVbyte) {
+      expect(Math.round(sentTransaction.fee as number / rawTransaction.vsize)).toEqual(feePerVbyte);
+    }
   };
 
   beforeEach(async () => {
@@ -58,6 +68,15 @@ describe('CoreWalletProvider', () => {
     const sentTransaction = await provider.sendToAddress(testAddress, amount);
 
     await verifySentTransaction(sentTransaction, testAddress, amount, false);
+  });
+
+  it('should send transactions with a specific fee', async () => {
+    const amount = 45789;
+    const feePerVByte = 21;
+
+    const tx = await provider.sendToAddress(testAddress, amount, feePerVByte);
+
+    await verifySentTransaction(tx, testAddress, amount, false, feePerVByte);
   });
 
   it('should sweep the wallet', async () => {

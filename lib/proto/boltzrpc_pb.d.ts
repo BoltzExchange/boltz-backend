@@ -435,8 +435,14 @@ export class UpdateTimeoutBlockDeltaRequest extends jspb.Message {
   getPair(): string;
   setPair(value: string): void;
 
-  getNewDelta(): number;
-  setNewDelta(value: number): void;
+  getReverseTimeout(): number;
+  setReverseTimeout(value: number): void;
+
+  getSwapMinimalTimeout(): number;
+  setSwapMinimalTimeout(value: number): void;
+
+  getSwapMaximalTimeout(): number;
+  setSwapMaximalTimeout(value: number): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): UpdateTimeoutBlockDeltaRequest.AsObject;
@@ -451,7 +457,9 @@ export class UpdateTimeoutBlockDeltaRequest extends jspb.Message {
 export namespace UpdateTimeoutBlockDeltaRequest {
   export type AsObject = {
     pair: string,
-    newDelta: number,
+    reverseTimeout: number,
+    swapMinimalTimeout: number,
+    swapMaximalTimeout: number,
   }
 }
 

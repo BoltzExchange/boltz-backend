@@ -28,17 +28,9 @@ type ChainConfig = {
   mempoolSpace?: string;
 };
 
-type CurrencyConfig = {
-  symbol: string,
+type BaseCurrencyConfig = {
+  symbol: string;
   network: Network;
-
-  chain: ChainConfig;
-  lnd?: LndConfig;
-
-  // Expiry for invoices of this currency in seconds
-  invoiceExpiry?: number;
-  // Max fee ratio for LND's sendPayment
-  maxPaymentFeeRatio?: number;
 
   maxSwapAmount: number;
   minSwapAmount: number;
@@ -46,10 +38,21 @@ type CurrencyConfig = {
   minWalletBalance: number;
   maxWalletBalance?: number;
 
+  maxZeroConfAmount: number;
+
+  chain: ChainConfig;
+};
+
+type CurrencyConfig = BaseCurrencyConfig & {
+  lnd?: LndConfig;
+
+  // Expiry for invoices of this currency in seconds
+  invoiceExpiry?: number;
+  // Max fee ratio for LND's sendPayment
+  maxPaymentFeeRatio?: number;
+
   minLocalBalance: number;
   minRemoteBalance: number;
-
-  maxZeroConfAmount: number;
 };
 
 type TokenConfig = {
@@ -138,6 +141,8 @@ type ConfigType = {
 
   pairs: PairConfig[];
   currencies: CurrencyConfig[];
+
+  liquid?: BaseCurrencyConfig;
 
   ethereum: EthereumConfig;
 };

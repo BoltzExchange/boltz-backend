@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events';
 import { Transaction } from 'bitcoinjs-lib';
+import { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';
 import SwapNursery from '../swap/SwapNursery';
@@ -76,7 +77,7 @@ class EventHandler extends EventEmitter {
       } else {
         // Reverse Swaps only emit the "transaction.confirmed" event
         // "transaction.mempool" is handled by the event "coins.sent"
-        if (transaction instanceof Transaction) {
+        if (transaction instanceof Transaction || transaction instanceof LiquidTransaction) {
           this.emit('swap.update', swap.id, {
             status: SwapUpdateEvent.TransactionConfirmed,
             transaction: {
@@ -159,7 +160,7 @@ class EventHandler extends EventEmitter {
     });
 
     this.nursery.on('coins.sent', (reverseSwap, transaction) => {
-      if (transaction instanceof Transaction) {
+      if (transaction instanceof Transaction || transaction instanceof LiquidTransaction) {
         this.emit('swap.update', reverseSwap.id, {
           status: SwapUpdateEvent.TransactionMempool,
           transaction: {

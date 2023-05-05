@@ -28,14 +28,14 @@ class CoreWalletProvider implements WalletProviderInterface {
     };
   };
 
-  public sendToAddress = async (address: string, amount: number): Promise<SentTransaction> => {
-    const transactionId = await this.chainClient.sendToAddress(address, amount);
+  public sendToAddress = async (address: string, amount: number, satPerVbyte?: number): Promise<SentTransaction> => {
+    const transactionId = await this.chainClient.sendToAddress(address, amount, satPerVbyte);
     return await this.handleCoreTransaction(transactionId, address);
   };
 
-  public sweepWallet = async (address: string): Promise<SentTransaction> => {
+  public sweepWallet = async (address: string, satPerVbyte?: number | undefined): Promise<SentTransaction> => {
     const { confirmedBalance } = await this.getBalance();
-    const transactionId = await this.chainClient.sendToAddress(address, confirmedBalance, true);
+    const transactionId = await this.chainClient.sendToAddress(address, confirmedBalance, satPerVbyte, true);
 
     return await this.handleCoreTransaction(transactionId, address);
   };
@@ -88,8 +88,6 @@ class CoreWalletProvider implements WalletProviderInterface {
       fee: Number(inputSum - outputSum),
     };
   };
-
-  private;
 }
 
 export default CoreWalletProvider;

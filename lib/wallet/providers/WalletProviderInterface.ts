@@ -1,4 +1,5 @@
 import { Transaction } from 'bitcoinjs-lib';
+import { Transaction as LiquidTransaction } from 'liquidjs-lib';
 
 type WalletBalance = {
   totalBalance: number;
@@ -12,7 +13,7 @@ type SentTransaction = {
   vout?: number;
   transactionId: string;
 
-  transaction?: Transaction;
+  transaction?: Transaction | LiquidTransaction;
 };
 
 interface WalletProviderInterface {

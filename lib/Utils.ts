@@ -5,6 +5,7 @@ import { ContractTransactionResponse } from 'ethers';
 import { Transaction, crypto } from 'bitcoinjs-lib';
 import bolt11, { RoutingInfo } from '@boltz/bolt11';
 import { Errors, OutputType, Scripts } from 'boltz-core';
+import { Transaction as LiquidTransaction, confidential } from 'liquidjs-lib';
 import commitHash from './Version';
 import packageJson from '../package.json';
 import { OrderSide } from './consts/Enums';
@@ -20,7 +21,8 @@ const {
   p2shP2wpkhOutput,
 } = Scripts;
 
-const idPossibilities = 'ABCDEFGHIJKLMNPQRSTUVWXYZabcdefghklmnopqrstuvwxyz123456789';
+const idPossibilities =
+  'ABCDEFGHIJKLMNPQRSTUVWXYZabcdefghklmnopqrstuvwxyz123456789';
 
 /**
  * Generate an ID for a swap
@@ -31,7 +33,9 @@ export const generateId = (length = 6): string => {
   let id = '';
 
   for (let i = 0; i < length; i += 1) {
-    id += idPossibilities.charAt(Math.floor(Math.random() * idPossibilities.length));
+    id += idPossibilities.charAt(
+      Math.floor(Math.random() * idPossibilities.length),
+    );
   }
 
   return id;
@@ -60,16 +64,18 @@ export const mapToObject = (map: Map<any, any>): any => {
 /**
  * Get the pair id of a pair
  */
-export const getPairId = (pair: { base: string, quote: string }): string => {
+export const getPairId = (pair: { base: string; quote: string }): string => {
   return `${pair.base}/${pair.quote}`;
 };
 
 /**
  * Get the quote and base asset of a pair id
  */
-export const splitPairId = (pairId: string): {
-  base: string,
-  quote: string,
+export const splitPairId = (
+  pairId: string,
+): {
+  base: string;
+  quote: string;
 } => {
   const split = pairId.split('/');
 
@@ -86,31 +92,40 @@ export const minutesToMilliseconds = (minutes: number): number => {
   return minutes * 60 * 1000;
 };
 
-export const decodeInvoice = (invoice: string): bolt11.PaymentRequestObject & {
-  satoshis: number,
-  paymentHash: string | undefined,
-  routingInfo: bolt11.RoutingInfo | undefined,
+export const decodeInvoice = (
+  invoice: string,
+): bolt11.PaymentRequestObject & {
+  satoshis: number;
+  paymentHash: string | undefined;
+  routingInfo: bolt11.RoutingInfo | undefined;
+  minFinalCltvExpiry: number | undefined;
 } => {
   const decoded = bolt11.decode(invoice);
 
-  let payment_hash: string | undefined;
-  let routing_info: bolt11.RoutingInfo | undefined;
+  let paymentHash: string | undefined;
+  let routingInfo: bolt11.RoutingInfo | undefined;
+  let minFinalCltvExpiry: number | undefined;
 
   for (const tag of decoded.tags) {
     switch (tag.tagName) {
       case 'payment_hash':
-        payment_hash = tag.data as string;
+        paymentHash = tag.data as string;
         break;
       case 'routing_info':
-        routing_info = tag.data as RoutingInfo;
+        routingInfo = tag.data as RoutingInfo;
+        break;
+
+      case 'min_final_cltv_expiry':
+        minFinalCltvExpiry = tag.data as number;
         break;
     }
   }
 
   return {
     ...decoded,
-    paymentHash: payment_hash,
-    routingInfo: routing_info,
+    routingInfo,
+    paymentHash,
+    minFinalCltvExpiry,
     satoshis: decoded.satoshis || 0,
   };
 };
@@ -118,7 +133,9 @@ export const decodeInvoice = (invoice: string): bolt11.PaymentRequestObject & {
 /**
  * Splits a derivation path into multiple parts
  */
-export const splitDerivationPath = (path: string): { master: string, sub: number[] } => {
+export const splitDerivationPath = (
+  path: string,
+): { master: string; sub: number[] } => {
   const split = path.split('/');
   const master = split.shift()!;
 
@@ -195,9 +212,15 @@ export const getTsString = (): string => {
     return input.toString().padStart(maxLength, '0');
   };
 
-  return `${pad(date.getUTCDate())}/${pad(date.getUTCMonth() + 1)}/${date.getUTCFullYear()}` +
-    ` ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}:` +
-    `${pad(date.getUTCMilliseconds(), 3)}`;
+  return (
+    `${pad(date.getUTCDate())}/${pad(
+      date.getUTCMonth() + 1,
+    )}/${date.getUTCFullYear()}` +
+    ` ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(
+      date.getUTCSeconds(),
+    )}:` +
+    `${pad(date.getUTCMilliseconds(), 3)}`
+  );
 };
 
 /**
@@ -207,7 +230,10 @@ export const getTsString = (): string => {
  * @param target The destination object to merge into.
  * @param sources The sources objects to copy from.
  */
-export const deepMerge = (target: Record<string, any>, ...sources: any[]): unknown => {
+export const deepMerge = (
+  target: Record<string, any>,
+  ...sources: any[]
+): unknown => {
   if (!sources.length) return target;
   const source = sources.shift();
 
@@ -230,7 +256,7 @@ export const deepMerge = (target: Record<string, any>, ...sources: any[]): unkno
  *
  * @param listen string of format host:port
  */
-export const splitListen = (listen: string): { host: string, port: string } =>  {
+export const splitListen = (listen: string): { host: string; port: string } => {
   const split = listen.split(':');
   return {
     host: split[0],
@@ -243,9 +269,12 @@ export const splitListen = (listen: string): { host: string, port: string } =>  
  */
 export const getSystemHomeDir = (): string => {
   switch (os.platform()) {
-    case 'win32': return process.env.LOCALAPPDATA!;
-    case 'darwin': return path.join(process.env.HOME!, 'Library', 'Application Support');
-    default: return process.env.HOME!;
+    case 'win32':
+      return process.env.LOCALAPPDATA!;
+    case 'darwin':
+      return path.join(process.env.HOME!, 'Library', 'Application Support');
+    default:
+      return process.env.HOME!;
   }
 };
 
@@ -261,7 +290,8 @@ export const getServiceDataDir = (service: string): string => {
     case 'darwin':
       return path.join(homeDir, capitalizeFirstLetter(serviceDir));
 
-    default: return path.join(homeDir, `.${serviceDir}`);
+    default:
+      return path.join(homeDir, `.${serviceDir}`);
   }
 };
 
@@ -271,21 +301,26 @@ export const getOutputType = (type?: number): OutputType => {
   }
 
   switch (type) {
-    case 0: return OutputType.Bech32;
-    case 1: return OutputType.Compatibility;
-    case 2: return OutputType.Legacy;
+    case 0:
+      return OutputType.Bech32;
+    case 1:
+      return OutputType.Compatibility;
+    case 2:
+      return OutputType.Legacy;
 
-    default: throw Error('type does not exist');
+    default:
+      throw Error('type does not exist');
   }
 };
 
-export const getPubkeyHashFunction = (outputType: OutputType): (
-  ((hash: Buffer) => Buffer) |
-  ((hash: Buffer) => {
-    redeemScript: Buffer,
-    outputScript: Buffer,
-  })
-) => {
+export const getPubkeyHashFunction = (
+  outputType: OutputType,
+):
+  | ((hash: Buffer) => Buffer)
+  | ((hash: Buffer) => {
+      redeemScript: Buffer;
+      outputScript: Buffer;
+    }) => {
   switch (outputType) {
     case OutputType.Bech32:
       return p2wpkhOutput;
@@ -301,7 +336,9 @@ export const getPubkeyHashFunction = (outputType: OutputType): (
   }
 };
 
-export const getScriptHashFunction = (outputType: OutputType): (scriptHex: Buffer) => Buffer => {
+export const getScriptHashFunction = (
+  outputType: OutputType,
+): ((scriptHex: Buffer) => Buffer) => {
   switch (outputType) {
     case OutputType.Bech32:
       return p2wshOutput;
@@ -334,9 +371,7 @@ export const reverseBuffer = (input: Buffer): Buffer => {
  * and convert it back to a string to get the id of the transaction that is used by BTCD
  */
 export const transactionHashToId = (transactionHash: Buffer): string => {
-  return getHexString(
-    reverseBuffer(transactionHash),
-  );
+  return getHexString(reverseBuffer(transactionHash));
 };
 
 /**
@@ -344,7 +379,9 @@ export const transactionHashToId = (transactionHash: Buffer): string => {
  *
  * @param transaction the transactions to scan
  */
-export const transactionSignalsRbfExplicitly = (transaction: Transaction): boolean => {
+export const transactionSignalsRbfExplicitly = (
+  transaction: Transaction | LiquidTransaction,
+): boolean => {
   for (const input of transaction.ins) {
     if (input.sequence < 0xffffffff - 1) {
       return true;
@@ -354,9 +391,13 @@ export const transactionSignalsRbfExplicitly = (transaction: Transaction): boole
   return false;
 };
 
-export const getSendingReceivingCurrency = (baseCurrency: string, quoteCurrency: string, orderSide: OrderSide): {
-  sending: string,
-  receiving: string,
+export const getSendingReceivingCurrency = (
+  baseCurrency: string,
+  quoteCurrency: string,
+  orderSide: OrderSide,
+): {
+  sending: string;
+  receiving: string;
 } => {
   const isBuy = orderSide === OrderSide.BUY;
 
@@ -366,7 +407,11 @@ export const getSendingReceivingCurrency = (baseCurrency: string, quoteCurrency:
   };
 };
 
-export const getRate = (rate: number, orderSide: OrderSide, isReverse: boolean): number => {
+export const getRate = (
+  rate: number,
+  orderSide: OrderSide,
+  isReverse: boolean,
+): number => {
   if (isReverse) {
     return orderSide === OrderSide.BUY ? 1 / rate : rate;
   } else {
@@ -374,7 +419,12 @@ export const getRate = (rate: number, orderSide: OrderSide, isReverse: boolean):
   }
 };
 
-export const getChainCurrency = (base: string, quote: string, orderSide: OrderSide, isReverse: boolean): string => {
+export const getChainCurrency = (
+  base: string,
+  quote: string,
+  orderSide: OrderSide,
+  isReverse: boolean,
+): string => {
   if (isReverse) {
     return orderSide === OrderSide.BUY ? base : quote;
   } else {
@@ -382,7 +432,12 @@ export const getChainCurrency = (base: string, quote: string, orderSide: OrderSi
   }
 };
 
-export const getLightningCurrency = (base: string, quote: string, orderSide: OrderSide, isReverse: boolean): string => {
+export const getLightningCurrency = (
+  base: string,
+  quote: string,
+  orderSide: OrderSide,
+  isReverse: boolean,
+): string => {
   if (isReverse) {
     return orderSide === OrderSide.BUY ? quote : base;
   } else {
@@ -396,11 +451,16 @@ export const getLightningCurrency = (base: string, quote: string, orderSide: Ord
  * @param sendingCurrency currency Boltz sends and the user is receiving
  * @param isReverse whether the swap is a reverse one
  */
-export const getSwapMemo = (sendingCurrency: string, isReverse: boolean): string => {
+export const getSwapMemo = (
+  sendingCurrency: string,
+  isReverse: boolean,
+): string => {
   return `Send to ${sendingCurrency} ${isReverse ? 'address' : 'lightning'}`;
 };
 
-export const getPrepayMinerFeeInvoiceMemo = (sendingCurrency: string): string => {
+export const getPrepayMinerFeeInvoiceMemo = (
+  sendingCurrency: string,
+): string => {
   return `Miner fee for sending to ${sendingCurrency} address`;
 };
 
@@ -425,7 +485,10 @@ export const getUnixTime = (): number => {
 /**
  * Calculates the miner fee of a transaction on a UTXO based chain
  */
-export const calculateUtxoTransactionFee = async (chainClient: ChainClient, transaction: Transaction): Promise<number> => {
+export const calculateUtxoTransactionFee = async (
+  chainClient: ChainClient,
+  transaction: Transaction,
+): Promise<number> => {
   let fee = 0;
 
   for (const input of transaction.ins) {
@@ -445,16 +508,28 @@ export const calculateUtxoTransactionFee = async (chainClient: ChainClient, tran
   return fee;
 };
 
+export const calculateLiquidTransactionFee = (
+  transaction: LiquidTransaction,
+) => {
+  return confidential.confidentialValueToSatoshi(
+    (transaction as LiquidTransaction).outs.find(
+      (out) => out.script.length === 0,
+    )!.value,
+  );
+};
 
 /**
  * Calculates the transaction fee of an Ethereum contract interaction and rounds it to 10 ** -8 decimals
  */
-export const calculateEthereumTransactionFee = (transaction: ContractTransactionResponse): number => {
+export const calculateEthereumTransactionFee = (
+  transaction: ContractTransactionResponse,
+): number => {
   return Number(
-    (transaction.gasLimit! * (transaction.type === 2
-      ? transaction.maxFeePerGas!
-      : transaction.gasPrice!
-    )) / etherDecimals,
+    (transaction.gasLimit! *
+      (transaction.type === 2
+        ? transaction.maxFeePerGas!
+        : transaction.gasPrice!)) /
+      etherDecimals,
   );
 };
 

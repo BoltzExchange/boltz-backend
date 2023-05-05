@@ -33,8 +33,10 @@ const mockUpdateTimeoutBlockDelta = jest.fn().mockImplementation(() => {});
 const mockAddReferralResponse = {
   apiKey: 'key',
   apiSecret: 'secret',
-} ;
-const mockAddReferral = jest.fn().mockImplementation(() => mockAddReferralResponse);
+};
+const mockAddReferral = jest
+  .fn()
+  .mockImplementation(() => mockAddReferralResponse);
 
 jest.mock('../../../lib/service/Service', () => {
   return jest.fn().mockImplementation(() => {
@@ -50,7 +52,7 @@ jest.mock('../../../lib/service/Service', () => {
   });
 });
 
-const mockedService = <jest.Mock<Service>><any>Service;
+const mockedService = <jest.Mock<Service>>(<any>Service);
 
 const createCall = (data: any) => {
   return {
@@ -62,8 +64,10 @@ const createCall = (data: any) => {
   } as any;
 };
 
-const createCallback = (callback: (error: ServiceError | any | null, response: any) => void) => {
-  return (error: ServiceError | any |null, response: any) => {
+const createCallback = (
+  callback: (error: ServiceError | any | null, response: any) => void,
+) => {
+  return (error: ServiceError | any | null, response: any) => {
     expect(error).toBeNull();
     callback(error, response);
   };
@@ -75,19 +79,25 @@ describe('GrpcService', () => {
   const grpcService = new GrpcService(service);
 
   test('should handle GetInfo', () => {
-    grpcService.getInfo(createCall({}), createCallback((error, response) => {
-      expect(error).toEqual(null);
-      expect(response).toEqual(getInfoData);
-    }));
+    grpcService.getInfo(
+      createCall({}),
+      createCallback((error, response) => {
+        expect(error).toEqual(null);
+        expect(response).toEqual(getInfoData);
+      }),
+    );
 
     expect(mockGetInfo).toHaveBeenCalledTimes(1);
   });
 
   test('should handle GetBalance', () => {
-    grpcService.getBalance(createCall({}), createCallback((error, response) => {
-      expect(error).toEqual(null);
-      expect(response).toEqual(getBalanceData);
-    }));
+    grpcService.getBalance(
+      createCall({}),
+      createCallback((error, response) => {
+        expect(error).toEqual(null);
+        expect(response).toEqual(getBalanceData);
+      }),
+    );
 
     expect(mockGetBalance).toHaveBeenCalledTimes(1);
   });
@@ -98,13 +108,19 @@ describe('GrpcService', () => {
       index: 123,
     };
 
-    grpcService.deriveKeys(createCall(callData), createCallback((error, response) => {
-      expect(error).toEqual(null);
-      expect(response).toEqual(mockDeriveKeysData);
-    }));
+    grpcService.deriveKeys(
+      createCall(callData),
+      createCallback((error, response) => {
+        expect(error).toEqual(null);
+        expect(response).toEqual(mockDeriveKeysData);
+      }),
+    );
 
     expect(mockDeriveKeys).toHaveBeenCalledTimes(1);
-    expect(mockDeriveKeys).toHaveBeenCalledWith(callData.symbol, callData.index);
+    expect(mockDeriveKeys).toHaveBeenCalledWith(
+      callData.symbol,
+      callData.index,
+    );
   });
 
   test('should handle GetAddress', () => {
@@ -112,10 +128,13 @@ describe('GrpcService', () => {
       symbol: 'symbol',
     };
 
-    grpcService.getAddress(createCall(callData), createCallback((error, response) => {
-      expect(error).toEqual(null);
-      expect(response!.getAddress()).toEqual(gewAddressData);
-    }));
+    grpcService.getAddress(
+      createCall(callData),
+      createCallback((error, response) => {
+        expect(error).toEqual(null);
+        expect(response!.getAddress()).toEqual(gewAddressData);
+      }),
+    );
 
     expect(mockGetAddress).toHaveBeenCalledTimes(1);
     expect(mockGetAddress).toHaveBeenCalledWith(callData.symbol);
@@ -127,12 +146,17 @@ describe('GrpcService', () => {
       random: 'random',
     };
 
-    grpcService.sendCoins(createCall(callData), createCallback((error, response) => {
-      expect(error).toEqual(null);
+    grpcService.sendCoins(
+      createCall(callData),
+      createCallback((error, response) => {
+        expect(error).toEqual(null);
 
-      expect(response!.getVout()).toEqual(sendCoinsData.vout);
-      expect(response!.getTransactionId()).toEqual(sendCoinsData.transactionId);
-    }));
+        expect(response!.getVout()).toEqual(sendCoinsData.vout);
+        expect(response!.getTransactionId()).toEqual(
+          sendCoinsData.transactionId,
+        );
+      }),
+    );
 
     expect(mockSendCoins).toHaveBeenCalledTimes(1);
     expect(mockSendCoins).toHaveBeenCalledWith(callData);
@@ -141,16 +165,25 @@ describe('GrpcService', () => {
   test('should handle UpdateTimeoutBlockDelta', () => {
     const callData = {
       pair: 'pair',
-      newDelta: 123,
+      reverseTimeout: 1,
+      swapMinimalTimeout: 2,
+      swapMaximalTimeout: 3,
     };
 
-    grpcService.updateTimeoutBlockDelta(createCall(callData), createCallback((error, response) => {
-      expect(error).toEqual(null);
-      expect(response).not.toEqual(null);
-    }));
+    grpcService.updateTimeoutBlockDelta(
+      createCall(callData),
+      createCallback((error, response) => {
+        expect(error).toEqual(null);
+        expect(response).not.toEqual(null);
+      }),
+    );
 
     expect(mockUpdateTimeoutBlockDelta).toHaveBeenCalledTimes(1);
-    expect(mockUpdateTimeoutBlockDelta).toHaveBeenCalledWith(callData.pair, callData.newDelta);
+    expect(mockUpdateTimeoutBlockDelta).toHaveBeenCalledWith(callData.pair, {
+      reverse: callData.reverseTimeout,
+      swapMinimal: callData.swapMinimalTimeout,
+      swapMaximal: callData.swapMaximalTimeout,
+    });
   });
 
   test('should handle AddReferral', () => {
@@ -160,12 +193,17 @@ describe('GrpcService', () => {
       routingNode: '03',
     };
 
-    grpcService.addReferral(createCall(callData), createCallback((error, response) => {
-      expect(error).toEqual(null);
+    grpcService.addReferral(
+      createCall(callData),
+      createCallback((error, response) => {
+        expect(error).toEqual(null);
 
-      expect(response!.getApiKey()).toEqual(mockAddReferralResponse.apiKey);
-      expect(response!.getApiSecret()).toEqual(mockAddReferralResponse.apiSecret);
-    }));
+        expect(response!.getApiKey()).toEqual(mockAddReferralResponse.apiKey);
+        expect(response!.getApiSecret()).toEqual(
+          mockAddReferralResponse.apiSecret,
+        );
+      }),
+    );
 
     expect(mockAddReferral).toHaveBeenCalledTimes(1);
     expect(mockAddReferral).toHaveBeenCalledWith({
@@ -174,10 +212,13 @@ describe('GrpcService', () => {
 
     callData.routingNode = '';
 
-    grpcService.addReferral(createCall(callData), createCallback((error, response) => {
-      expect(error).toEqual(null);
-      expect(response).not.toEqual(null);
-    }));
+    grpcService.addReferral(
+      createCall(callData),
+      createCallback((error, response) => {
+        expect(error).toEqual(null);
+        expect(response).not.toEqual(null);
+      }),
+    );
 
     expect(mockAddReferral).toHaveBeenCalledTimes(2);
     expect(mockAddReferral).toHaveBeenCalledWith({

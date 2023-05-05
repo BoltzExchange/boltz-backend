@@ -1,11 +1,11 @@
 import { Arguments } from 'yargs';
-import { address, Transaction } from 'bitcoinjs-lib';
-import { Networks, constructRefundTransaction, detectSwap } from 'boltz-core';
-import { ECPair } from '../../ECPairHelper';
+import { prepareTx } from '../Command';
+import { stringify } from '../../Utils';
 import BuilderComponents from '../BuilderComponents';
-import { getHexBuffer, stringify } from '../../Utils';
+import { constructRefundTransaction } from '../../Core';
 
-export const command = 'refund <network> <privateKey> <timeoutBlockHeight> <redeemScript> <rawTransaction> <destinationAddress> [feePerVbyte]';
+export const command =
+  'refund <network> <privateKey> <timeoutBlockHeight> <redeemScript> <rawTransaction> <destinationAddress> [feePerVbyte]';
 
 export const describe = 'refunds submarine or chain to chain swaps';
 
@@ -23,24 +23,31 @@ export const builder = {
 };
 
 export const handler = (argv: Arguments<any>): void => {
-  const network = Networks[argv.network];
-
-  const redeemScript = getHexBuffer(argv.redeemScript);
-  const transaction = Transaction.fromHex(argv.rawTransaction);
-
-  const swapOutput = detectSwap(redeemScript, transaction)!;
+  const {
+    type,
+    network,
+    keys,
+    swapOutput,
+    transaction,
+    redeemScript,
+    destinationAddress,
+  } = prepareTx(argv);
 
   const refundTransaction = constructRefundTransaction(
-    [{
-      ...swapOutput,
-      txHash: transaction.getHash(),
-      redeemScript: getHexBuffer(argv.redeemScript),
-      keys: ECPair.fromPrivateKey(getHexBuffer(argv.privateKey)),
-    }],
-    address.toOutputScript(argv.destinationAddress, network),
+    type,
+    [
+      {
+        ...swapOutput,
+        keys,
+        redeemScript,
+        txHash: transaction.getHash(),
+      } as any,
+    ],
+    destinationAddress,
     argv.timeoutBlockHeight,
     argv.feePerVbyte,
-    true,
+    // Needed for Liquid
+    network.assetHash,
   ).toHex();
 
   console.log(stringify({ refundTransaction }));

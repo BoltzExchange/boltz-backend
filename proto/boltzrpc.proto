@@ -116,7 +116,11 @@ message SendCoinsResponse {
 
 message UpdateTimeoutBlockDeltaRequest {
   string pair = 1;
-  uint32 new_delta = 2;
+
+  uint32 reverse_timeout = 2;
+
+  uint32 swap_minimal_timeout = 3;
+  uint32 swap_maximal_timeout = 4;
 }
 message UpdateTimeoutBlockDeltaResponse {}
 

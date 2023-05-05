@@ -6,10 +6,10 @@ import Errors from '../../../lib/swap/Errors';
 import Wallet from '../../../lib/wallet/Wallet';
 import UtxoNursery from '../../../lib/swap/UtxoNursery';
 import ChainClient from '../../../lib/chain/ChainClient';
-import { OrderSide, SwapUpdateEvent } from '../../../lib/consts/Enums';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
-import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
+import { CurrencyType, OrderSide, SwapUpdateEvent } from '../../../lib/consts/Enums';
 import { getHexBuffer, reverseBuffer, transactionHashToId } from '../../../lib/Utils';
+import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 
 type blockCallback = (height: number) => void;
 
@@ -62,6 +62,7 @@ const mockGetRawTransactionVerbose = jest.fn().mockImplementation(async (transac
 jest.mock('../../../lib/chain/ChainClient', () => {
   return jest.fn().mockImplementation((symbol) => ({
     symbol,
+    currencyType: CurrencyType.BitcoinLike,
     on: mockOnChainClient,
     estimateFee: mockEstimateFee,
     getRawTransaction: mockGetRawTransaction,

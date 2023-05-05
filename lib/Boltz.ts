@@ -2,6 +2,7 @@ import fs from 'fs';
 import { Arguments } from 'yargs';
 import { Networks } from 'boltz-core';
 import { generateMnemonic } from 'bip39';
+import { Networks as LiquidNetworks } from 'boltz-core-liquid';
 import Api from './api/Api';
 import Logger from './Logger';
 import Database from './db/Database';
@@ -15,6 +16,7 @@ import ChainClient from './chain/ChainClient';
 import Config, { ConfigType } from './Config';
 import { CurrencyType } from './consts/Enums';
 import { formatError, getVersion } from './Utils';
+import ElementsClient from './chain/ElementsClient';
 import BackupScheduler from './backup/BackupScheduler';
 import EthereumManager from './wallet/ethereum/EthereumManager';
 import WalletManager, { Currency } from './wallet/WalletManager';
@@ -47,6 +49,11 @@ class Boltz {
     process.on('unhandledRejection', ((reason) => {
       this.logger.error(`Unhandled rejection: ${formatError(reason)}`);
     }));
+
+    process.on('exit', () => {
+      this.logger.error('Application shutting down because:');
+      console.trace();
+    });
 
     this.db = new Database(this.logger, this.config.dbpath);
 
@@ -268,6 +275,19 @@ class Boltz {
         provider: this.ethereumManager?.provider,
       });
     });
+
+    if (this.config.liquid) {
+      const { symbol, chain, network } = this.config.liquid;
+      result.set(symbol, {
+        type: CurrencyType.Liquid,
+        symbol: symbol,
+        network: LiquidNetworks[network],
+        chainClient: new ElementsClient(this.logger, chain, symbol),
+        limits: {
+          ...this.config.liquid,
+        },
+      });
+    }
 
     return result;
   };

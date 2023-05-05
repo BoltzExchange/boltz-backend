@@ -5,7 +5,6 @@ import { generateMnemonic } from 'bip39';
 import Api from './api/Api';
 import Logger from './Logger';
 import Database from './db/Database';
-import { formatError } from './Utils';
 import Service from './service/Service';
 import VersionCheck from './VersionCheck';
 import GrpcServer from './grpc/GrpcServer';
@@ -15,6 +14,7 @@ import LndClient from './lightning/LndClient';
 import ChainClient from './chain/ChainClient';
 import Config, { ConfigType } from './Config';
 import { CurrencyType } from './consts/Enums';
+import { formatError, getVersion } from './Utils';
 import BackupScheduler from './backup/BackupScheduler';
 import EthereumManager from './wallet/ethereum/EthereumManager';
 import WalletManager, { Currency } from './wallet/WalletManager';
@@ -41,6 +41,8 @@ class Boltz {
   constructor(config: Arguments<any>) {
     this.config = new Config().load(config);
     this.logger = new Logger(this.config.loglevel, this.config.logpath);
+
+    this.logger.info(`Starting Boltz ${getVersion()}`);
 
     process.on('unhandledRejection', ((reason) => {
       this.logger.error(`Unhandled rejection: ${formatError(reason)}`);

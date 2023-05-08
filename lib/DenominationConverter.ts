@@ -1,4 +1,4 @@
-const decimals = 100000000;
+const decimals = 100_000_000;
 
 /**
  * Convert whole coins to satoshis

@@ -10,8 +10,8 @@ import Wallet from '../wallet/Wallet';
 import { ConfigType } from '../Config';
 import EventHandler from './EventHandler';
 import { PairConfig } from '../consts/Types';
-import { encodeBip21 } from './PaymentRequestUtils';
 import InvoiceExpiryHelper from './InvoiceExpiryHelper';
+import PaymentRequestUtils from './PaymentRequestUtils';
 import { Payment, RouteHint } from '../proto/lnd/rpc_pb';
 import { Network } from '../wallet/ethereum/EthereumManager';
 import PairRepository from '../db/repositories/PairRepository';
@@ -77,6 +77,7 @@ class Service {
   private prepayMinerFee: boolean;
 
   private readonly rateProvider: RateProvider;
+  private readonly paymentRequestUtils: PaymentRequestUtils;
   private readonly timeoutDeltaProvider: TimeoutDeltaProvider;
 
   private static MinInboundLiquidity = 10;
@@ -95,8 +96,10 @@ class Service {
       }`,
     );
 
+    this.paymentRequestUtils = new PaymentRequestUtils(
+      this.currencies.get('L-BTC'),
+    );
     this.timeoutDeltaProvider = new TimeoutDeltaProvider(this.logger, config);
-
     this.rateProvider = new RateProvider(
       this.logger,
       config.rates.interval,
@@ -881,7 +884,7 @@ class Service {
     return {
       expectedAmount,
       acceptZeroConf,
-      bip21: encodeBip21(
+      bip21: this.paymentRequestUtils.encodeBip21(
         chainCurrency,
         swap.lockupAddress,
         expectedAmount,

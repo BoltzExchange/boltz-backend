@@ -1438,7 +1438,7 @@ describe('Service', () => {
       quoteCurrency: 'BTC',
       orderSide: OrderSide.BUY,
       onchainTimeoutBlockDelta: 160,
-      lightningTimeoutBlockDelta: 44,
+      lightningTimeoutBlockDelta: 50,
       holdInvoiceAmount: invoiceAmount,
       onchainAmount:
         invoiceAmount * pairRate - percentageFee - mockGetBaseFeeResult,
@@ -1712,7 +1712,7 @@ describe('Service', () => {
       quoteCurrency: 'BTC',
       orderSide: OrderSide.BUY,
       onchainTimeoutBlockDelta: 900,
-      lightningTimeoutBlockDelta: 20,
+      lightningTimeoutBlockDelta: 23,
       claimAddress: args.claimAddress,
       preimageHash: args.preimageHash,
       holdInvoiceAmount: args.invoiceAmount - prepayMinerFeeInvoiceAmount,

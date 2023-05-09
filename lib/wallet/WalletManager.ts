@@ -7,6 +7,7 @@ import { mnemonicToSeedSync, validateMnemonic } from 'bip39';
 import Errors from './Errors';
 import Wallet from './Wallet';
 import Logger from '../Logger';
+import { CurrencyConfig } from '../Config';
 import { splitDerivationPath } from '../Utils';
 import ChainClient from '../chain/ChainClient';
 import LndClient from '../lightning/LndClient';
@@ -34,7 +35,7 @@ type CurrencyLimits = {
 
 type Currency = {
   symbol: string;
-  type: CurrencyType,
+  type: CurrencyType;
   limits: CurrencyLimits;
 
   // Needed for UTXO based coins
@@ -62,7 +63,12 @@ class WalletManager {
 
   private readonly derivationPath = 'm/0';
 
-  constructor(private logger: Logger, mnemonicPath: string, private currencies: Currency[], ethereumManager?: EthereumManager) {
+  constructor(
+    private logger: Logger,
+    mnemonicPath: string,
+    private currencies: Currency[],
+    ethereumManager?: EthereumManager,
+  ) {
     this.mnemonic = this.loadMnemonic(mnemonicPath);
     this.masterNode = bip32.fromSeed(mnemonicToSeedSync(this.mnemonic));
 
@@ -72,9 +78,15 @@ class WalletManager {
   /**
    * Initializes a new WalletManager with a mnemonic
    */
-  public static fromMnemonic = (logger: Logger, mnemonic: string, mnemonicPath: string, currencies: Currency[], ethereumManager?: EthereumManager): WalletManager => {
+  public static fromMnemonic = (
+    logger: Logger,
+    mnemonic: string,
+    mnemonicPath: string,
+    currencies: Currency[],
+    ethereumManager?: EthereumManager,
+  ): WalletManager => {
     if (!validateMnemonic(mnemonic)) {
-      throw(Errors.INVALID_MNEMONIC(mnemonic));
+      throw Errors.INVALID_MNEMONIC(mnemonic);
     }
 
     fs.writeFileSync(mnemonicPath, mnemonic);
@@ -82,26 +94,42 @@ class WalletManager {
     return new WalletManager(logger, mnemonicPath, currencies, ethereumManager);
   };
 
-  public init = async (): Promise<void> => {
+  public init = async (configCurrencies: CurrencyConfig[]): Promise<void> => {
     const keyProviderMap = await this.getKeyProviderMap();
 
     for (const currency of this.currencies) {
-      if (currency.type !== CurrencyType.BitcoinLike && currency.type !== CurrencyType.Liquid) {
+      if (
+        currency.type !== CurrencyType.BitcoinLike &&
+        currency.type !== CurrencyType.Liquid
+      ) {
         continue;
       }
 
       let walletProvider: WalletProviderInterface | undefined = undefined;
 
       // The LND client is also used as onchain wallet for UTXO based chains if available
-      if (currency.lndClient !== undefined) {
-        walletProvider = new LndWalletProvider(this.logger, currency.lndClient, currency.chainClient!);
-
-      // Else the Bitcoin Core wallet is used
+      if (
+        configCurrencies.find((config) => config.symbol === currency.symbol)
+          ?.preferredWallet !== 'core' &&
+        currency.lndClient
+      ) {
+        walletProvider = new LndWalletProvider(
+          this.logger,
+          currency.lndClient,
+          currency.chainClient!,
+        );
       } else {
+        // Else the Bitcoin Core wallet is used
         if (currency.type === CurrencyType.BitcoinLike) {
-          walletProvider = new CoreWalletProvider(this.logger, currency.chainClient!);
+          walletProvider = new CoreWalletProvider(
+            this.logger,
+            currency.chainClient!,
+          );
         } else {
-          walletProvider = new ElementsWalletProvider(this.logger, currency.chainClient! as ElementsClient);
+          walletProvider = new ElementsWalletProvider(
+            this.logger,
+            currency.chainClient! as ElementsClient,
+          );
         }
 
         // Sanity check that wallet support is compiled in
@@ -124,7 +152,9 @@ class WalletManager {
         keyProviderInfo = {
           highestUsedIndex: 0,
           symbol: currency.symbol,
-          derivationPath: `${this.derivationPath}/${this.getHighestDepthIndex(keyProviderMap, 2) + 1}`,
+          derivationPath: `${this.derivationPath}/${
+            this.getHighestDepthIndex(keyProviderMap, 2) + 1
+          }`,
         };
 
         keyProviderMap.set(currency.symbol, keyProviderInfo);
@@ -135,11 +165,7 @@ class WalletManager {
         });
       }
 
-      const wallet = new Wallet(
-        this.logger,
-        currency.type,
-        walletProvider,
-      );
+      const wallet = new Wallet(this.logger, currency.type, walletProvider);
 
       wallet.initKeyProvider(
         currency.network!,
@@ -165,7 +191,7 @@ class WalletManager {
       return fs.readFileSync(filename, 'utf-8').trim();
     }
 
-    throw(Errors.NOT_INITIALIZED());
+    throw Errors.NOT_INITIALIZED();
   };
 
   private getKeyProviderMap = async () => {
@@ -183,9 +209,12 @@ class WalletManager {
     return map;
   };
 
-  private getHighestDepthIndex = (map: Map<string, KeyProviderType>, depth: number): number => {
+  private getHighestDepthIndex = (
+    map: Map<string, KeyProviderType>,
+    depth: number,
+  ): number => {
     if (depth === 0) {
-      throw(Errors.INVALID_DEPTH_INDEX(depth));
+      throw Errors.INVALID_DEPTH_INDEX(depth);
     }
 
     let highestIndex = -1;

@@ -50,7 +50,7 @@ jest.mock('../../../lib/chain/ChainClient', () => {
   });
 });
 
-const mockedChainClient = <jest.Mock<ChainClient>><any>ChainClient;
+const mockedChainClient = <jest.Mock<ChainClient>>(<any>ChainClient);
 
 jest.mock('../../../lib/lightning/LndClient', () => {
   return jest.fn().mockImplementation(() => {
@@ -58,7 +58,7 @@ jest.mock('../../../lib/lightning/LndClient', () => {
   });
 });
 
-const mockedLndClient = <jest.Mock<LndClient>><any>LndClient;
+const mockedLndClient = <jest.Mock<LndClient>>(<any>LndClient);
 
 // TODO: test ethereum wallet initialization
 describe('WalletManager', () => {
@@ -114,11 +114,18 @@ describe('WalletManager', () => {
   });
 
   test('should not initialize without seed file', () => {
-    expect(() => new WalletManager(Logger.disabledLogger, mnemonicPath, currencies)).toThrow(WalletErrors.NOT_INITIALIZED().message);
+    expect(
+      () => new WalletManager(Logger.disabledLogger, mnemonicPath, currencies),
+    ).toThrow(WalletErrors.NOT_INITIALIZED().message);
   });
 
   test('should initialize with a new menmonic and write it to the disk', () => {
-    WalletManager.fromMnemonic(Logger.disabledLogger, mnemonic, mnemonicPath, currencies, );
+    WalletManager.fromMnemonic(
+      Logger.disabledLogger,
+      mnemonic,
+      mnemonicPath,
+      currencies,
+    );
 
     expect(fs.existsSync(mnemonicPath)).toBeTruthy();
   });
@@ -131,10 +138,16 @@ describe('WalletManager', () => {
       },
     ];
 
-    const noLndWalletManager = new WalletManager(Logger.disabledLogger, mnemonicPath, currenciesNoLnd);
-    await noLndWalletManager.init();
+    const noLndWalletManager = new WalletManager(
+      Logger.disabledLogger,
+      mnemonicPath,
+      currenciesNoLnd,
+    );
+    await noLndWalletManager.init(currencies as any);
 
-    expect(noLndWalletManager.wallets.get(currenciesNoLnd[0].symbol)).toBeDefined();
+    expect(
+      noLndWalletManager.wallets.get(currenciesNoLnd[0].symbol),
+    ).toBeDefined();
   });
 
   test('should not initialize a Bitcoin Core wallet when no wallet support is compiled in', async () => {
@@ -149,13 +162,23 @@ describe('WalletManager', () => {
       message: 'Method not found',
     };
 
-    const noLndWalletManager = new WalletManager(Logger.disabledLogger, mnemonicPath, currenciesNoLnd);
-    await expect(noLndWalletManager.init()).rejects.toEqual(WalletErrors.NO_WALLET_SUPPORT(currenciesNoLnd[0].symbol));
+    const noLndWalletManager = new WalletManager(
+      Logger.disabledLogger,
+      mnemonicPath,
+      currenciesNoLnd,
+    );
+    await expect(noLndWalletManager.init(currencies as any)).rejects.toEqual(
+      WalletErrors.NO_WALLET_SUPPORT(currenciesNoLnd[0].symbol),
+    );
   });
 
   test('should initialize with an existing mnemonic', async () => {
-    walletManager = new WalletManager(Logger.disabledLogger, mnemonicPath, currencies);
-    await walletManager.init();
+    walletManager = new WalletManager(
+      Logger.disabledLogger,
+      mnemonicPath,
+      currencies,
+    );
+    await walletManager.init(currencies as any);
   });
 
   test('should initialize a new wallet for each currency', async () => {
@@ -190,8 +213,14 @@ describe('WalletManager', () => {
   test('should not accept invalid mnemonics', () => {
     const invalidMnemonic = 'invalid';
 
-    expect(() => WalletManager.fromMnemonic(Logger.disabledLogger, invalidMnemonic, '', []))
-      .toThrow(WalletErrors.INVALID_MNEMONIC(invalidMnemonic).message);
+    expect(() =>
+      WalletManager.fromMnemonic(
+        Logger.disabledLogger,
+        invalidMnemonic,
+        '',
+        [],
+      ),
+    ).toThrow(WalletErrors.INVALID_MNEMONIC(invalidMnemonic).message);
   });
 
   afterAll(async () => {

@@ -44,6 +44,8 @@ type BaseCurrencyConfig = {
 };
 
 type CurrencyConfig = BaseCurrencyConfig & {
+  preferredWallet: 'lnd' | 'core' | undefined;
+
   lnd?: LndConfig;
 
   // Expiry for invoices of this currency in seconds
@@ -92,8 +94,8 @@ type ApiConfig = {
 };
 
 type GrpcConfig = {
-  host: string,
-  port: number,
+  host: string;
+  port: number;
 };
 
 type RatesConfig = {
@@ -169,14 +171,8 @@ class Config {
   constructor() {
     this.dataDir = getServiceDataDir('boltz');
 
-    const {
-      dbpath,
-      backup,
-      logpath,
-      configpath,
-      mnemonicpath,
-      notification,
-    } = this.getDataDirPaths(this.dataDir);
+    const { dbpath, backup, logpath, configpath, mnemonicpath, notification } =
+      this.getDataDirPaths(this.dataDir);
 
     this.config = {
       configpath,
@@ -257,6 +253,8 @@ class Config {
           symbol: 'BTC',
           network: Network.Testnet,
 
+          preferredWallet: 'lnd',
+
           maxSwapAmount: 100000,
           minSwapAmount: 1000,
 
@@ -277,13 +275,22 @@ class Config {
             host: '127.0.0.1',
             port: 10009,
             certpath: path.join(getServiceDataDir('lnd'), 'tls.cert'),
-            macaroonpath: path.join(getServiceDataDir('lnd'), 'data', 'chain', 'bitcoin', Network.Testnet, 'admin.macaroon'),
+            macaroonpath: path.join(
+              getServiceDataDir('lnd'),
+              'data',
+              'chain',
+              'bitcoin',
+              Network.Testnet,
+              'admin.macaroon',
+            ),
             maxPaymentFeeRatio: 0.03,
           },
         },
         {
           symbol: 'LTC',
           network: Network.Testnet,
+
+          preferredWallet: 'lnd',
 
           maxSwapAmount: 10000000,
           minSwapAmount: 10000,
@@ -305,7 +312,14 @@ class Config {
             host: '127.0.0.1',
             port: 11009,
             certpath: path.join(getServiceDataDir('lnd'), 'tls.cert'),
-            macaroonpath: path.join(getServiceDataDir('lnd'), 'data', 'chain', 'litecoin', Network.Testnet, 'admin.macaroon'),
+            macaroonpath: path.join(
+              getServiceDataDir('lnd'),
+              'data',
+              'chain',
+              'litecoin',
+              Network.Testnet,
+              'admin.macaroon',
+            ),
             maxPaymentFeeRatio: 0.03,
           },
         },
@@ -336,7 +350,10 @@ class Config {
    * This loads arguments specified by the user either with a TOML config file or via command line arguments
    */
   public load = (args: Arguments<any>): ConfigType => {
-    const boltzConfigFile = this.resolveConfigPath(args.configpath, this.config.configpath);
+    const boltzConfigFile = this.resolveConfigPath(
+      args.configpath,
+      this.config.configpath,
+    );
 
     if (fs.existsSync(boltzConfigFile)) {
       const tomlConfig = this.parseTomlConfig(boltzConfigFile);
@@ -358,7 +375,10 @@ class Config {
     }
 
     if (args.currencies) {
-      const currencies = this.parseCurrency(args.currencies, this.config.currencies);
+      const currencies = this.parseCurrency(
+        args.currencies,
+        this.config.currencies,
+      );
       args.currencies = currencies.currencies;
       deepMerge(this.config, currencies);
     }

@@ -73,7 +73,9 @@ class FeeProvider {
 
       if (percentage === undefined) {
         percentage = FeeProvider.defaultFee;
-        this.logger.warn(`Setting default fee of ${percentage}% for pair ${pairId} because none was specified`);
+        this.logger.warn(
+          `Setting default fee of ${percentage}% for pair ${pairId} because none was specified`,
+        );
       }
 
       this.percentageFees.set(pairId, percentage / 100);
@@ -85,12 +87,15 @@ class FeeProvider {
       feesToPrint[pairId] = this.getPercentageFees(pairId);
     });
 
-    this.logger.debug(`Prepared data for fee estimations: ${stringify(feesToPrint)}`);
+    this.logger.debug(
+      `Prepared data for fee estimations: ${stringify(feesToPrint)}`,
+    );
   };
 
   public getPercentageFees = (pairId: string): PercentageFees => {
     const percentage = this.percentageFees.get(pairId)!;
-    const percentageSwapIn = this.percentageSwapInFees.get(pairId) || percentage;
+    const percentageSwapIn =
+      this.percentageSwapInFees.get(pairId) || percentage;
 
     return {
       percentage: percentage * 100,
@@ -113,8 +118,8 @@ class FeeProvider {
     amount: number,
     type: BaseFeeType,
   ): {
-    baseFee: number,
-    percentageFee: number,
+    baseFee: number;
+    percentageFee: number;
   } => {
     const isReverse = type !== BaseFeeType.NormalClaim;
 
@@ -166,10 +171,16 @@ class FeeProvider {
         const relativeFee = feeMap.get(chainCurrency)!;
 
         this.minerFees.set(chainCurrency, {
-          normal: relativeFee * FeeProvider.transactionSizes.normalClaim,
+          normal: Math.ceil(
+            relativeFee * FeeProvider.transactionSizes.normalClaim,
+          ),
           reverse: {
-            claim: relativeFee * FeeProvider.transactionSizes.reverseClaim,
-            lockup: relativeFee * FeeProvider.transactionSizes.reverseLockup,
+            claim: Math.ceil(
+              relativeFee * FeeProvider.transactionSizes.reverseClaim,
+            ),
+            lockup: Math.ceil(
+              relativeFee * FeeProvider.transactionSizes.reverseLockup,
+            ),
           },
         });
 
@@ -178,13 +189,19 @@ class FeeProvider {
 
       case 'ETH': {
         const relativeFee = feeMap.get(chainCurrency)!;
-        const claimCost = this.calculateEtherGasCost(relativeFee, FeeProvider.gasUsage.EtherSwap.claim);
+        const claimCost = this.calculateEtherGasCost(
+          relativeFee,
+          FeeProvider.gasUsage.EtherSwap.claim,
+        );
 
         this.minerFees.set(chainCurrency, {
           normal: claimCost,
           reverse: {
             claim: claimCost,
-            lockup: this.calculateEtherGasCost(relativeFee, FeeProvider.gasUsage.EtherSwap.lockup),
+            lockup: this.calculateEtherGasCost(
+              relativeFee,
+              FeeProvider.gasUsage.EtherSwap.lockup,
+            ),
           },
         });
 
@@ -194,7 +211,9 @@ class FeeProvider {
       // If it is not BTC, LTC or ETH, it is an ERC20 token
       default: {
         const relativeFee = feeMap.get('ETH')!;
-        const rate = this.dataAggregator.latestRates.get(getPairId({ base: 'ETH', quote: chainCurrency }))!;
+        const rate = this.dataAggregator.latestRates.get(
+          getPairId({ base: 'ETH', quote: chainCurrency }),
+        )!;
 
         const claimCost = this.calculateTokenGasCosts(
           rate,
@@ -210,20 +229,26 @@ class FeeProvider {
               rate,
               relativeFee,
               FeeProvider.gasUsage.ERC20Swap.lockup,
-            )
-          }
+            ),
+          },
         });
         break;
       }
     }
   };
 
-  private calculateTokenGasCosts = (rate: number, gasPrice: number, gasUsage: number) => {
+  private calculateTokenGasCosts = (
+    rate: number,
+    gasPrice: number,
+    gasUsage: number,
+  ) => {
     return Math.ceil(rate * this.calculateEtherGasCost(gasPrice, gasUsage));
   };
 
   private calculateEtherGasCost = (gasPrice: number, gasUsage: number) => {
-    return Number((BigInt(gasPrice) * gweiDecimals * BigInt(gasUsage)) / etherDecimals);
+    return Number(
+      (BigInt(gasPrice) * gweiDecimals * BigInt(gasUsage)) / etherDecimals,
+    );
   };
 }
 

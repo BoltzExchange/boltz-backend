@@ -44,6 +44,7 @@ class ChainClient extends BaseClient {
 
   protected client: RpcClient;
   protected zmqClient: ZmqClient;
+  protected feeFloor = 2;
 
   private readonly mempoolSpace?: MempoolSpace;
 
@@ -222,13 +223,7 @@ class ChainClient extends BaseClient {
   };
 
   public estimateFee = async (confTarget = 2): Promise<number> => {
-    const chainClientFee = await this.estimateFeeChainClient(confTarget);
-
-    if (this.mempoolSpace && this.mempoolSpace.latestFee) {
-      return Math.max(this.mempoolSpace.latestFee, 2);
-    } else {
-      return chainClientFee;
-    }
+    return this.estimateFeeWithFloor(confTarget);
   };
 
   public getWalletInfo = async (): Promise<WalletInfo> => {
@@ -278,6 +273,15 @@ class ChainClient extends BaseClient {
     return this.client.request<string>('getnewaddress', [undefined, 'bech32']);
   };
 
+  protected estimateFeeWithFloor = async (confTarget: number) => {
+    const estimation =
+      this.mempoolSpace && this.mempoolSpace.latestFee
+        ? this.mempoolSpace.latestFee
+        : await this.estimateFeeChainClient(confTarget);
+
+    return Math.max(estimation, this.feeFloor);
+  };
+
   private estimateFeeChainClient = async (confTarget = 2) => {
     try {
       const response = await this.client.request<any>('estimatesmartfee', [
@@ -289,7 +293,7 @@ class ChainClient extends BaseClient {
         return Math.max(Math.round(feePerKb / 1000), 2);
       }
 
-      return 2;
+      return this.feeFloor;
     } catch (error) {
       if ((error as any).message === 'Method not found') {
         // TODO: use estimatefee for outdated node versions

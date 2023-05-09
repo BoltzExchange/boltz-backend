@@ -51,7 +51,7 @@ class ElementsWalletProvider implements WalletProviderInterface {
     const transactionId = await this.chainClient.sendToAddress(
       address,
       amount,
-      satPerVbyte,
+      await this.getFeePerVbyte(satPerVbyte),
     );
     return this.handleLiquidTransaction(transactionId, address);
   };
@@ -64,7 +64,7 @@ class ElementsWalletProvider implements WalletProviderInterface {
     const transactionId = await this.chainClient.sendToAddress(
       address,
       balance.totalBalance,
-      satPerVbyte,
+      await this.getFeePerVbyte(satPerVbyte),
       true,
     );
 
@@ -96,6 +96,10 @@ class ElementsWalletProvider implements WalletProviderInterface {
         )!.value * ChainClient.decimals,
       ),
     };
+  };
+
+  private getFeePerVbyte = async (satPerVbyte?: number) => {
+    return satPerVbyte || (await this.chainClient.estimateFee());
   };
 }
 

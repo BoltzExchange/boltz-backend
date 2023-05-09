@@ -2,7 +2,10 @@ import { Transaction } from 'bitcoinjs-lib';
 import Logger from '../../Logger';
 import ChainClient from '../../chain/ChainClient';
 import { transactionHashToId } from '../../Utils';
-import WalletProviderInterface, { SentTransaction, WalletBalance } from './WalletProviderInterface';
+import WalletProviderInterface, {
+  SentTransaction,
+  WalletBalance,
+} from './WalletProviderInterface';
 
 class CoreWalletProvider implements WalletProviderInterface {
   public readonly symbol: string;
@@ -28,20 +31,40 @@ class CoreWalletProvider implements WalletProviderInterface {
     };
   };
 
-  public sendToAddress = async (address: string, amount: number, satPerVbyte?: number): Promise<SentTransaction> => {
-    const transactionId = await this.chainClient.sendToAddress(address, amount, satPerVbyte);
+  public sendToAddress = async (
+    address: string,
+    amount: number,
+    satPerVbyte?: number,
+  ): Promise<SentTransaction> => {
+    const transactionId = await this.chainClient.sendToAddress(
+      address,
+      amount,
+      await this.getFeePerVbyte(satPerVbyte),
+    );
     return await this.handleCoreTransaction(transactionId, address);
   };
 
-  public sweepWallet = async (address: string, satPerVbyte?: number | undefined): Promise<SentTransaction> => {
+  public sweepWallet = async (
+    address: string,
+    satPerVbyte?: number | undefined,
+  ): Promise<SentTransaction> => {
     const { confirmedBalance } = await this.getBalance();
-    const transactionId = await this.chainClient.sendToAddress(address, confirmedBalance, satPerVbyte, true);
+    const transactionId = await this.chainClient.sendToAddress(
+      address,
+      confirmedBalance,
+      await this.getFeePerVbyte(satPerVbyte),
+      true,
+    );
 
     return await this.handleCoreTransaction(transactionId, address);
   };
 
-  private handleCoreTransaction = async (transactionId: string, address: string): Promise<SentTransaction> => {
-    const rawTransactionVerbose = await this.chainClient.getRawTransactionVerbose(transactionId);
+  private handleCoreTransaction = async (
+    transactionId: string,
+    address: string,
+  ): Promise<SentTransaction> => {
+    const rawTransactionVerbose =
+      await this.chainClient.getRawTransactionVerbose(transactionId);
     const rawTransaction = Transaction.fromHex(rawTransactionVerbose.hex);
 
     let vout = 0;
@@ -65,7 +88,10 @@ class CoreWalletProvider implements WalletProviderInterface {
 
     for (const input of rawTransactionVerbose.vin) {
       if (!fetchedTransaction.has(input.txid)) {
-        fetchedTransaction.set(input.txid, await this.chainClient.getRawTransaction(input.txid));
+        fetchedTransaction.set(
+          input.txid,
+          await this.chainClient.getRawTransaction(input.txid),
+        );
       }
     }
 
@@ -74,7 +100,9 @@ class CoreWalletProvider implements WalletProviderInterface {
     for (const input of rawTransaction.ins) {
       const inputTransactionId = transactionHashToId(input.hash);
 
-      const inputTransaction = Transaction.fromHex(fetchedTransaction.get(inputTransactionId)!);
+      const inputTransaction = Transaction.fromHex(
+        fetchedTransaction.get(inputTransactionId)!,
+      );
       const inputVout = inputTransaction.outs[input.index];
 
       inputSum += BigInt(inputVout.value);
@@ -85,8 +113,12 @@ class CoreWalletProvider implements WalletProviderInterface {
       transactionId,
 
       transaction: rawTransaction,
-      fee: Number(inputSum - outputSum),
+      fee: Math.ceil(Number(inputSum - outputSum)),
     };
+  };
+
+  private getFeePerVbyte = async (satPerVbyte?: number) => {
+    return satPerVbyte || (await this.chainClient.estimateFee());
   };
 }
 

@@ -1,17 +1,61 @@
 import Logger from '../../../lib/Logger';
-import MempoolSpace from '../../../lib/chain/MempoolSpace';
 import { wait } from '../../Utils';
+import MempoolSpace, {
+  MempoolSpaceClient,
+} from '../../../lib/chain/MempoolSpace';
 
 describe('MempoolSpace', () => {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
-  MempoolSpace['fetchInterval'] = 500;
+  MempoolSpaceClient['fetchInterval'] = 500;
 
-  const mempoolSpace = new MempoolSpace(
+  const mempool = new MempoolSpace(
+    Logger.disabledLogger,
+    'BTC',
+    'https://mempool.space/api,https://mempool.michael1011.at/api',
+  );
+
+  afterAll(() => {
+    mempool.stop();
+  });
+
+  test('should init', async () => {
+    expect(mempool['apis']).toHaveLength(2);
+
+    expect(mempool.latestFee()).toBeUndefined();
+    await mempool.init();
+    expect(mempool.latestFee()).not.toBeUndefined();
+  });
+
+  test('should pick results in order', async () => {
+    mempool.stop();
+
+    const expectedFee = 42;
+
+    mempool['apis'][0]['latestFee'] = expectedFee;
+    mempool['apis'][1]['latestFee'] = expectedFee - 12;
+    expect(mempool.latestFee()).toEqual(expectedFee);
+
+    mempool['apis'][0]['latestFee'] = undefined;
+    mempool['apis'][1]['latestFee'] = expectedFee;
+    expect(mempool.latestFee()).toEqual(expectedFee);
+  });
+});
+
+describe('MempoolSpaceClient', () => {
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
+  MempoolSpaceClient['fetchInterval'] = 500;
+
+  const mempoolSpace = new MempoolSpaceClient(
     Logger.disabledLogger,
     'BTC',
     'https://mempool.space/api',
   );
+
+  afterAll(() => {
+    mempoolSpace.stop();
+  });
 
   test('should init', async () => {
     expect(mempoolSpace.latestFee).toBeUndefined();
@@ -56,7 +100,7 @@ describe('MempoolSpace', () => {
   });
 
   test('should handle failed requests', async () => {
-    const invalidMempoolSpace = new MempoolSpace(
+    const invalidMempoolSpace = new MempoolSpaceClient(
       Logger.disabledLogger,
       'BTC',
       'notEvenAnUrl',

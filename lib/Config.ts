@@ -25,6 +25,7 @@ type ChainConfig = {
   zmqpubhashblock?: string;
 
   // API endpoint of a MempoolSpace instance running on the chain of the configured client
+  // Comma seperated for multiple endpoints
   mempoolSpace?: string;
 };
 

@@ -274,15 +274,17 @@ class ChainClient extends BaseClient {
   };
 
   protected estimateFeeWithFloor = async (confTarget: number) => {
+    const mempoolFee = this.mempoolSpace?.latestFee();
+
     const estimation =
-      this.mempoolSpace && this.mempoolSpace.latestFee
-        ? this.mempoolSpace.latestFee
+      mempoolFee !== undefined
+        ? mempoolFee
         : await this.estimateFeeChainClient(confTarget);
 
     return Math.max(estimation, this.feeFloor);
   };
 
-  private estimateFeeChainClient = async (confTarget = 2) => {
+  private estimateFeeChainClient = async (confTarget = 1) => {
     try {
       const response = await this.client.request<any>('estimatesmartfee', [
         confTarget,

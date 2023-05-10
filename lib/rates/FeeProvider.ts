@@ -40,6 +40,12 @@ class FeeProvider {
     reverseLockup: 153,
   };
 
+  public static transactionSizesLiquid = {
+    normalClaim: 251,
+    reverseLockup: 296,
+    reverseClaim: 217,
+  };
+
   // TODO: query those estimations from the provider
   public static gasUsage = {
     EtherSwap: {
@@ -170,17 +176,16 @@ class FeeProvider {
       case 'L-BTC': {
         const relativeFee = feeMap.get(chainCurrency)!;
 
+        const sizes =
+          chainCurrency === 'L-BTC'
+            ? FeeProvider.transactionSizesLiquid
+            : FeeProvider.transactionSizes;
+
         this.minerFees.set(chainCurrency, {
-          normal: Math.ceil(
-            relativeFee * FeeProvider.transactionSizes.normalClaim,
-          ),
+          normal: Math.ceil(relativeFee * sizes.normalClaim),
           reverse: {
-            claim: Math.ceil(
-              relativeFee * FeeProvider.transactionSizes.reverseClaim,
-            ),
-            lockup: Math.ceil(
-              relativeFee * FeeProvider.transactionSizes.reverseLockup,
-            ),
+            claim: Math.ceil(relativeFee * sizes.reverseClaim),
+            lockup: Math.ceil(relativeFee * sizes.reverseLockup),
           },
         });
 

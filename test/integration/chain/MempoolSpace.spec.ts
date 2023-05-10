@@ -1,5 +1,5 @@
-import Logger from '../../../lib/Logger';
 import { wait } from '../../Utils';
+import Logger from '../../../lib/Logger';
 import MempoolSpace, {
   MempoolSpaceClient,
 } from '../../../lib/chain/MempoolSpace';

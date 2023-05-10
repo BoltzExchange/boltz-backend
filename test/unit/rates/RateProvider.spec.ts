@@ -45,13 +45,13 @@ const minerFees = new Map<string, MinerFees>([
   [
     'LTC',
     {
-      normal: FeeProvider.transactionSizes.normalClaim ,
+      normal: FeeProvider.transactionSizes.normalClaim,
       reverse: {
         lockup: FeeProvider.transactionSizes.reverseLockup,
         claim: FeeProvider.transactionSizes.reverseClaim,
       },
     },
-  ]
+  ],
 ]);
 
 let mockGetBaseFeeResult = 0;
@@ -64,19 +64,21 @@ const mockUpdateMinerFees = jest.fn().mockImplementation(async () => {});
 const mockGetPercentageFees = jest.fn().mockImplementation((pair) => {
   return {
     percentage: percentageFees.get(pair)! * 100,
-    percentageSwapIn: (percentageSwapInFees.get(pair) || percentageFees.get(pair))! * 100,
+    percentageSwapIn:
+      (percentageSwapInFees.get(pair) || percentageFees.get(pair))! * 100,
   };
 });
 
 const btcFee = 36;
 const ltcFee = 3;
 
-const getFeeEstimation = () => Promise.resolve(
-  new Map([
-    ['BTC', btcFee],
-    ['LTC', ltcFee],
-  ]),
-);
+const getFeeEstimation = () =>
+  Promise.resolve(
+    new Map([
+      ['BTC', btcFee],
+      ['LTC', ltcFee],
+    ]),
+  );
 
 jest.mock('../../../lib/rates/FeeProvider', () => {
   return jest.fn().mockImplementation(() => {
@@ -112,7 +114,7 @@ jest.mock('../../../lib/rates/data/DataAggregator', () => {
   });
 });
 
-const mockedDataProvider = <jest.Mock<DataAggregator>><any>DataAggregator;
+const mockedDataProvider = <jest.Mock<DataAggregator>>(<any>DataAggregator);
 
 describe('RateProvider', () => {
   const btcCurrency = {
@@ -198,8 +200,14 @@ describe('RateProvider', () => {
       },
     });
     expect(pairs.get('LTC/BTC')!.limits).toEqual({
-      maximal: Math.min(btcCurrency.limits.maxSwapAmount, ltcCurrency.limits.maxSwapAmount * rates.LTC),
-      minimal: Math.max(btcCurrency.limits.minSwapAmount, ltcCurrency.limits.minSwapAmount * rates.LTC),
+      maximal: Math.min(
+        btcCurrency.limits.maxSwapAmount,
+        ltcCurrency.limits.maxSwapAmount * rates.LTC,
+      ),
+      minimal: Math.max(
+        btcCurrency.limits.minSwapAmount,
+        ltcCurrency.limits.minSwapAmount * rates.LTC,
+      ),
 
       maximalZeroConf: {
         baseAsset: ltcCurrency.limits.maxZeroConfAmount,
@@ -212,7 +220,9 @@ describe('RateProvider', () => {
     const { pairs } = rateProvider;
 
     percentageFees.forEach((_, pairId) => {
-      expect(pairs.get(pairId)!.fees.percentage).toEqual(percentageFees.get(pairId)! * 100);
+      expect(pairs.get(pairId)!.fees.percentage).toEqual(
+        percentageFees.get(pairId)! * 100,
+      );
     });
   });
 
@@ -220,12 +230,16 @@ describe('RateProvider', () => {
     const { pairs } = rateProvider;
 
     percentageSwapInFees.forEach((_, pairId) => {
-      expect(pairs.get(pairId)!.fees.percentageSwapIn).toEqual(percentageSwapInFees.get(pairId)! * 100);
+      expect(pairs.get(pairId)!.fees.percentageSwapIn).toEqual(
+        percentageSwapInFees.get(pairId)! * 100,
+      );
     });
 
     const ltcPair = 'LTC/LTC';
     expect(percentageSwapInFees.has(ltcPair)).toBeFalsy();
-    expect(pairs.get(ltcPair)!.fees.percentageSwapIn).toEqual(percentageFees.get(ltcPair)! * 100);
+    expect(pairs.get(ltcPair)!.fees.percentageSwapIn).toEqual(
+      percentageFees.get(ltcPair)! * 100,
+    );
   });
 
   test('should get miner fees', () => {
@@ -244,36 +258,47 @@ describe('RateProvider', () => {
   test('should calculate hashes', () => {
     const { pairs } = rateProvider;
 
-    expect(pairs.get('BTC/BTC')!.hash).toEqual(hashString(JSON.stringify({
-      rate: pairs.get('BTC/BTC')!.rate,
-      fees: pairs.get('BTC/BTC')!.fees,
-      limits: pairs.get('BTC/BTC')!.limits,
-    })));
+    expect(pairs.get('BTC/BTC')!.hash).toEqual(
+      hashString(
+        JSON.stringify({
+          rate: pairs.get('BTC/BTC')!.rate,
+          fees: pairs.get('BTC/BTC')!.fees,
+          limits: pairs.get('BTC/BTC')!.limits,
+        }),
+      ),
+    );
 
-    expect(pairs.get('LTC/BTC')!.hash).toEqual(hashString(JSON.stringify({
-      rate: pairs.get('LTC/BTC')!.rate,
-      fees: pairs.get('LTC/BTC')!.fees,
-      limits: pairs.get('LTC/BTC')!.limits,
-    })));
+    expect(pairs.get('LTC/BTC')!.hash).toEqual(
+      hashString(
+        JSON.stringify({
+          rate: pairs.get('LTC/BTC')!.rate,
+          fees: pairs.get('LTC/BTC')!.fees,
+          limits: pairs.get('LTC/BTC')!.limits,
+        }),
+      ),
+    );
   });
 
   test('should accept 0-conf for amounts lower than threshold', () => {
     // Should return false for undefined maximal allowed amounts
     expect(rateProvider.acceptZeroConf('ETH', 0)).toEqual(false);
 
-    expect(rateProvider.acceptZeroConf(
-      'BTC',
-      btcCurrency.limits.maxZeroConfAmount! + 1,
-    )).toEqual(false);
+    expect(
+      rateProvider.acceptZeroConf(
+        'BTC',
+        btcCurrency.limits.maxZeroConfAmount! + 1,
+      ),
+    ).toEqual(false);
 
-    expect(rateProvider.acceptZeroConf(
-      'BTC',
-      btcCurrency.limits.maxZeroConfAmount!,
-    )).toEqual(true);
-    expect(rateProvider.acceptZeroConf(
-      'BTC',
-      btcCurrency.limits.maxZeroConfAmount! - 1,
-    )).toEqual(true);
+    expect(
+      rateProvider.acceptZeroConf('BTC', btcCurrency.limits.maxZeroConfAmount!),
+    ).toEqual(true);
+    expect(
+      rateProvider.acceptZeroConf(
+        'BTC',
+        btcCurrency.limits.maxZeroConfAmount! - 1,
+      ),
+    ).toEqual(true);
   });
 
   test('should adjust minimal limits based on current miner fees', async () => {
@@ -281,8 +306,12 @@ describe('RateProvider', () => {
 
     await rateProvider['updateRates']();
 
-    expect(rateProvider.pairs.get('BTC/BTC')!.limits.minimal).toEqual(mockGetBaseFeeResult * 4);
-    expect(rateProvider.pairs.get('LTC/BTC')!.limits.minimal).toEqual(mockGetBaseFeeResult * 4);
+    expect(rateProvider.pairs.get('BTC/BTC')!.limits.minimal).toEqual(
+      mockGetBaseFeeResult * RateProvider['minLimitFactor'],
+    );
+    expect(rateProvider.pairs.get('LTC/BTC')!.limits.minimal).toEqual(
+      mockGetBaseFeeResult * RateProvider['minLimitFactor'],
+    );
   });
 
   afterAll(async () => {

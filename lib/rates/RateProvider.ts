@@ -6,7 +6,14 @@ import DataAggregator from './data/DataAggregator';
 import { Currency } from '../wallet/WalletManager';
 import { BaseFeeType, CurrencyType } from '../consts/Enums';
 import FeeProvider, { MinerFees, PercentageFees } from './FeeProvider';
-import { getPairId, hashString, mapToObject, minutesToMilliseconds, splitPairId, stringify } from '../Utils';
+import {
+  getPairId,
+  hashString,
+  mapToObject,
+  minutesToMilliseconds,
+  splitPairId,
+  stringify,
+} from '../Utils';
 
 type CurrencyLimits = {
   minimal: number;
@@ -33,17 +40,19 @@ type PairType = {
     maximalZeroConf: {
       baseAsset: number;
       quoteAsset: number;
-    }
+    };
   };
   fees: PercentageFees & {
     minerFees: {
-      baseAsset: MinerFees,
-      quoteAsset: MinerFees,
+      baseAsset: MinerFees;
+      quoteAsset: MinerFees;
     };
   };
 };
 
 class RateProvider {
+  private static minLimitFactor = 2;
+
   public feeProvider: FeeProvider;
 
   public dataAggregator = new DataAggregator();
@@ -56,7 +65,7 @@ class RateProvider {
   public configPairs = new Set<string>();
 
   // A map of all pairs with hardcoded rates
-  private hardcodedPairs = new Map<string, { base: string, quote: string }>();
+  private hardcodedPairs = new Map<string, { base: string; quote: string }>();
 
   // A map between assets and their limits
   private limits = new Map<string, CurrencyLimits>();
@@ -69,7 +78,11 @@ class RateProvider {
     private currencies: Map<string, Currency>,
     private getFeeEstimation: (symbol: string) => Promise<Map<string, number>>,
   ) {
-    this.feeProvider = new FeeProvider(this.logger, this.dataAggregator, this.getFeeEstimation);
+    this.feeProvider = new FeeProvider(
+      this.logger,
+      this.dataAggregator,
+      this.getFeeEstimation,
+    );
     this.parseCurrencies(Array.from(currencies.values()));
   }
 
@@ -82,7 +95,9 @@ class RateProvider {
 
       // If a pair has a hardcoded rate the rate doesn't have to be queried from the exchanges
       if (pair.rate) {
-        this.logger.debug(`Setting hardcoded rate for pair ${id}: ${pair.rate}`);
+        this.logger.debug(
+          `Setting hardcoded rate for pair ${id}: ${pair.rate}`,
+        );
 
         this.pairs.set(id, {
           hash: '',
@@ -121,13 +136,19 @@ class RateProvider {
       this.dataAggregator.pairs.forEach(([base, quote]) => {
         pairsToQuery.push(getPairId({ base, quote }));
       });
-      this.logger.debug(`Prepared data for requests to exchanges: \n  - ${pairsToQuery.join('\n  - ')}`);
+      this.logger.debug(
+        `Prepared data for requests to exchanges: \n  - ${pairsToQuery.join(
+          '\n  - ',
+        )}`,
+      );
     }
 
     await this.updateRates();
 
     this.logger.silly(`Got pairs: ${stringify(mapToObject(this.pairs))}`);
-    this.logger.debug(`Updating rates every ${this.rateUpdateInterval} minutes`);
+    this.logger.debug(
+      `Updating rates every ${this.rateUpdateInterval} minutes`,
+    );
 
     this.timer = setInterval(async () => {
       await this.updateRates();
@@ -186,7 +207,6 @@ class RateProvider {
             },
           },
         });
-
       } else {
         this.logger.warn(`Could not fetch rates of ${pairId}`);
       }
@@ -200,36 +220,65 @@ class RateProvider {
         baseAsset: this.feeProvider.minerFees.get(base)!,
         quoteAsset: this.feeProvider.minerFees.get(quote)!,
       };
+      pairInfo.limits = this.getLimits(pair, base, quote, pairInfo.rate);
 
       this.pairs.set(pair, pairInfo);
     });
 
     this.pairs.forEach((pair, symbol) => {
-      this.pairs.get(symbol)!.hash = hashString(JSON.stringify({
-        rate: pair.rate,
-        fees: pair.fees,
-        limits: pair.limits,
-      }));
+      this.pairs.get(symbol)!.hash = hashString(
+        JSON.stringify({
+          rate: pair.rate,
+          fees: pair.fees,
+          limits: pair.limits,
+        }),
+      );
     });
 
     this.logger.silly('Updated rates');
   };
 
-  private getLimits = (pair: string, base: string, quote: string, rate: number) => {
+  private getLimits = (
+    pair: string,
+    base: string,
+    quote: string,
+    rate: number,
+  ) => {
     const baseLimits = this.limits.get(base);
     const quoteLimits = this.limits.get(quote);
 
     if (baseLimits && quoteLimits) {
-      let minimalLimit = Math.max(quoteLimits.minimal, baseLimits.minimal * rate);
+      let minimalLimit = Math.max(
+        quoteLimits.minimal,
+        baseLimits.minimal * rate,
+      );
 
       // Make sure the minimal limit is at least 4 times the fee needed to claim
-      const minimalLimitQuoteTransactionFee = this.feeProvider.getBaseFee(quote, BaseFeeType.NormalClaim) * 4;
-      const minimalLimitBaseTransactionFee = this.feeProvider.getBaseFee(base, BaseFeeType.NormalClaim) * rate * 4;
+      if (pair !== 'L-BTC/BTC') {
+        const minimalLimitQuoteTransactionFee =
+          this.feeProvider.getBaseFee(quote, BaseFeeType.NormalClaim) *
+          RateProvider.minLimitFactor;
+        const minimalLimitBaseTransactionFee =
+          this.feeProvider.getBaseFee(base, BaseFeeType.NormalClaim) *
+          rate *
+          RateProvider.minLimitFactor;
 
-      minimalLimit = Math.max(minimalLimit, minimalLimitBaseTransactionFee, minimalLimitQuoteTransactionFee);
+        minimalLimit = Math.max(
+          minimalLimit,
+          minimalLimitBaseTransactionFee,
+          minimalLimitQuoteTransactionFee,
+        );
+      } else {
+        minimalLimit = Math.max(
+          minimalLimit,
+          this.feeProvider.getBaseFee('L-BTC', BaseFeeType.NormalClaim),
+        );
+      }
 
       return {
-        maximal: Math.floor(Math.min(quoteLimits.maximal, baseLimits.maximal * rate)),
+        maximal: Math.floor(
+          Math.min(quoteLimits.maximal, baseLimits.maximal * rate),
+        ),
         minimal: Math.ceil(minimalLimit),
 
         maximalZeroConf: {
@@ -245,7 +294,9 @@ class RateProvider {
   private parseCurrencies = (currencies: Currency[]) => {
     for (const currency of currencies) {
       if (currency.limits.maxZeroConfAmount === undefined) {
-        this.logger.warn(`Maximal 0-conf amount not set for ${currency.symbol}`);
+        this.logger.warn(
+          `Maximal 0-conf amount not set for ${currency.symbol}`,
+        );
       }
 
       if (currency.limits.maxSwapAmount === undefined) {

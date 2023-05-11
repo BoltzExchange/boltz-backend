@@ -25,6 +25,7 @@ import ChainTipRepository from './db/repositories/ChainTipRepository';
 import NotificationProvider from './notifications/NotificationProvider';
 
 // TODO: refunds
+// TODO: private key for swaps
 
 class Boltz {
   private readonly logger: Logger;

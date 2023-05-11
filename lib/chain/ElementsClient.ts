@@ -40,7 +40,7 @@ class ElementsClient extends ChainClient {
       undefined,
       undefined,
       undefined,
-      undefined,
+      false,
       satPerVbyte,
     ]);
   };

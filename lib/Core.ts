@@ -173,29 +173,38 @@ export const constructClaimTransaction = (
 };
 
 export const constructRefundTransaction = (
-  type: CurrencyType,
+  wallet: Wallet,
   refundDetails: RefundDetailsBitcoin[] | RefundDetailsLiquid[],
-  destinationAddress: Buffer,
+  destinationAddress: string,
   timeoutBlockHeight: number,
   feePerVbyte: number,
   assetHash?: string,
 ) => {
-  return isBitcoin(type)
-    ? constructRefundTransactionBitcoin(
-        refundDetails as RefundDetailsBitcoin[],
-        destinationAddress,
-        timeoutBlockHeight,
-        feePerVbyte,
-        true,
-      )
-    : constructRefundTransactionLiquid(
+  if (isBitcoin(wallet.type)) {
+    return constructRefundTransactionBitcoin(
+      refundDetails as RefundDetailsBitcoin[],
+      wallet.decodeAddress(destinationAddress),
+      timeoutBlockHeight,
+      feePerVbyte,
+      true,
+    );
+  }
+
+  const decodedAddress = addressLiquid.fromConfidential(destinationAddress);
+  return targetFee(feePerVbyte, (fee) =>
+    constructRefundTransactionLiquid(
+      populateBlindingKeys(
+        wallet as WalletLiquid,
         refundDetails as RefundDetailsLiquid[],
-        destinationAddress,
-        timeoutBlockHeight,
-        feePerVbyte,
-        true,
-        assetHash,
-      );
+      ),
+      decodedAddress.scriptPubKey!,
+      timeoutBlockHeight,
+      fee,
+      true,
+      assetHash,
+      decodedAddress.blindingKey,
+    ),
+  );
 };
 
 export const calculateTransactionFee = async (
@@ -223,7 +232,7 @@ const populateBlindingKeys = <
   utxos: T[],
 ): T[] => {
   for (const utxo of utxos) {
-    utxo.blindinkPrivKey = wallet.deriveBlindingKeyFromScript(
+    utxo.blindingPrivKey = wallet.deriveBlindingKeyFromScript(
       utxo.script,
     ).privateKey!;
   }

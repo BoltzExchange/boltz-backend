@@ -1163,7 +1163,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
 
     const lockupOutput = lockupTransaction.outs[reverseSwap.transactionVout!];
     const refundTransaction = constructRefundTransaction(
-      chainClient.currencyType,
+      wallet,
       [
         {
           ...lockupOutput,
@@ -1174,7 +1174,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
           redeemScript: getHexBuffer(reverseSwap.redeemScript!),
         },
       ] as RefundDetailsBitcoin[] | RefundDetailsLiquid[],
-      wallet.decodeAddress(await wallet.getAddress()),
+      await wallet.getAddress(),
       reverseSwap.timeoutBlockHeight,
       await chainCurrency.chainClient!.estimateFee(),
       getAssetHash(chainClient.currencyType, wallet.network),

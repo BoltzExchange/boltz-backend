@@ -157,6 +157,9 @@ class SwapManager {
     // Specified when either Ether or ERC20 tokens or swapped to Lightning
     // So that the user can specify the claim address (Boltz) in the lockup transaction to the contract
     claimAddress?: string;
+
+    // For blinded Liquid swaps
+    blindingKey?: string;
   }> => {
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(
       args.baseCurrency,
@@ -186,6 +189,7 @@ class SwapManager {
     let address: string;
     let timeoutBlockHeight: number;
 
+    let blindingKey: Buffer | undefined;
     let redeemScript: Buffer | undefined;
 
     let claimAddress: string | undefined;
@@ -214,6 +218,12 @@ class SwapManager {
 
       address = receivingCurrency.wallet.encodeAddress(outputScript);
       receivingCurrency.chainClient!.addOutputFilter(outputScript);
+
+      if (receivingCurrency.type === CurrencyType.Liquid) {
+        blindingKey = (
+          receivingCurrency.wallet as WalletLiquid
+        ).deriveBlindingKeyFromScript(outputScript).privateKey;
+      }
 
       await SwapRepository.addSwap({
         id,
@@ -269,6 +279,7 @@ class SwapManager {
       timeoutBlockHeight,
 
       redeemScript: redeemScript ? getHexString(redeemScript) : undefined,
+      blindingKey: blindingKey ? getHexString(blindingKey) : undefined,
     };
   };
 

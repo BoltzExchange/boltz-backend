@@ -660,6 +660,8 @@ class Service {
 
     // Is undefined when Bitcoin or Litecoin is swapped to Lightning
     claimAddress?: string;
+
+    blindingKey?: string;
   }> => {
     const swap = await SwapRepository.getSwap({
       preimageHash: getHexString(args.preimageHash),
@@ -707,24 +709,31 @@ class Service {
 
     const referralId = await this.getReferralId(args.referralId);
 
-    const { id, address, redeemScript, claimAddress, timeoutBlockHeight } =
-      await this.swapManager.createSwap({
-        orderSide,
-        referralId,
-        timeoutBlockDelta,
+    const {
+      id,
+      address,
+      redeemScript,
+      claimAddress,
+      timeoutBlockHeight,
+      blindingKey,
+    } = await this.swapManager.createSwap({
+      orderSide,
+      referralId,
+      timeoutBlockDelta,
 
-        baseCurrency: base,
-        quoteCurrency: quote,
-        channel: args.channel,
-        preimageHash: args.preimageHash,
-        refundPublicKey: args.refundPublicKey,
-      });
+      baseCurrency: base,
+      quoteCurrency: quote,
+      channel: args.channel,
+      preimageHash: args.preimageHash,
+      refundPublicKey: args.refundPublicKey,
+    });
 
     this.eventHandler.emitSwapCreation(id);
 
     return {
       id,
       address,
+      blindingKey,
       redeemScript,
       claimAddress,
       timeoutBlockHeight,
@@ -927,6 +936,8 @@ class Service {
 
     // Is undefined when Bitcoin or Litecoin is swapped to Lightning
     claimAddress?: string;
+
+    blindingKey?: string;
   }> => {
     let swap = await SwapRepository.getSwap({
       invoice,
@@ -938,16 +949,22 @@ class Service {
 
     const preimageHash = getHexBuffer(decodeInvoice(invoice).paymentHash!);
 
-    const { id, address, claimAddress, redeemScript, timeoutBlockHeight } =
-      await this.createSwap({
-        pairId,
-        channel,
-        invoice,
-        orderSide,
-        referralId,
-        preimageHash,
-        refundPublicKey,
-      });
+    const {
+      id,
+      address,
+      blindingKey,
+      claimAddress,
+      redeemScript,
+      timeoutBlockHeight,
+    } = await this.createSwap({
+      pairId,
+      channel,
+      invoice,
+      orderSide,
+      referralId,
+      preimageHash,
+      refundPublicKey,
+    });
 
     try {
       const { bip21, acceptZeroConf, expectedAmount } =
@@ -957,6 +974,7 @@ class Service {
         id,
         bip21,
         address,
+        blindingKey,
         claimAddress,
         redeemScript,
         acceptZeroConf,

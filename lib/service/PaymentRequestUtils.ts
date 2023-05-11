@@ -1,11 +1,12 @@
 import { encode } from 'querystring';
+import { networks as networksLiquid } from 'liquidjs-lib';
 import { getAssetHash } from '../Core';
 import { CurrencyType } from '../consts/Enums';
 import { Currency } from '../wallet/WalletManager';
 import { satoshisToCoins } from '../DenominationConverter';
 
 class PaymentRequestUtils {
-  private static prefixes = new Map<string, string>([
+  private prefixes = new Map<string, string>([
     ['BTC', 'bitcoin'],
     ['L-BTC', 'liquidnetwork'],
     ['LTC', 'litecoin'],
@@ -16,6 +17,10 @@ class PaymentRequestUtils {
   constructor(liquid?: Currency) {
     if (liquid) {
       this.lbtcAssetHash = getAssetHash(CurrencyType.Liquid, liquid.network!);
+
+      if (liquid.network! === networksLiquid.testnet) {
+        this.prefixes.set('L-BTC', 'liquidtestnet');
+      }
     }
   }
 
@@ -54,7 +59,7 @@ class PaymentRequestUtils {
    * Get the BIP21 prefix for a currency
    */
   private getBip21Prefix = (symbol: string): string | undefined => {
-    return PaymentRequestUtils.prefixes.get(symbol);
+    return this.prefixes.get(symbol);
   };
 }
 

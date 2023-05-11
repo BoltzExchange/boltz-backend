@@ -97,6 +97,32 @@ describe('PaymentRequestUtils', () => {
     });
   });
 
+  test('should encode testnet L-BTCC BIP21', () => {
+    const symbol = 'L-BTC';
+    const address =
+      'ert1qmlpr7ujjcjmm95gg7hrmhcetty59yck9rxrg3qm3dsl0juhrhpvqy7m2jq';
+    const satoshi = 34522334;
+    const label = 'Swap from Lightning';
+
+    const pruTestnet = new PaymentRequestUtils({
+      network: networks.testnet,
+    } as any);
+
+    expect(
+      decodeBip21(
+        pruTestnet.encodeBip21(symbol, address, satoshi, label)!,
+        'liquidtestnet',
+      ),
+    ).toEqual({
+      address,
+      options: {
+        label,
+        amount: `${satoshisToCoins(satoshi)}`,
+        assetid: networks.testnet.assetHash,
+      },
+    });
+  });
+
   test('should not encode L-BTC BIP21 when asset hash is missing', () => {
     const symbol = 'L-BTC';
     const address =

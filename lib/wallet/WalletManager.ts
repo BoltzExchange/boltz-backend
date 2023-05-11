@@ -1,12 +1,14 @@
 import fs from 'fs';
 import { Provider } from 'ethers';
 import * as ecc from 'tiny-secp256k1';
+import { SLIP77Factory, Slip77Interface } from 'slip77';
 import { Network } from 'bitcoinjs-lib';
 import BIP32Factory, { BIP32Interface } from 'bip32';
 import { mnemonicToSeedSync, validateMnemonic } from 'bip39';
 import Errors from './Errors';
 import Wallet from './Wallet';
 import Logger from '../Logger';
+import WalletLiquid from './WalletLiquid';
 import { CurrencyConfig } from '../Config';
 import { splitDerivationPath } from '../Utils';
 import ChainClient from '../chain/ChainClient';
@@ -48,6 +50,7 @@ type Currency = {
 };
 
 const bip32 = BIP32Factory(ecc);
+const slip77 = SLIP77Factory(ecc);
 
 /**
  * WalletManager creates wallets instances that generate keys derived from the seed and
@@ -59,6 +62,7 @@ class WalletManager {
   public ethereumManager?: EthereumManager;
 
   private readonly mnemonic: string;
+  private readonly slip77: Slip77Interface;
   private readonly masterNode: BIP32Interface;
 
   private readonly derivationPath = 'm/0';
@@ -71,6 +75,7 @@ class WalletManager {
   ) {
     this.mnemonic = this.loadMnemonic(mnemonicPath);
     this.masterNode = bip32.fromSeed(mnemonicToSeedSync(this.mnemonic));
+    this.slip77 = slip77.fromSeed(this.mnemonic);
 
     this.ethereumManager = ethereumManager;
   }
@@ -165,7 +170,10 @@ class WalletManager {
         });
       }
 
-      const wallet = new Wallet(this.logger, currency.type, walletProvider);
+      const wallet =
+        currency.type !== CurrencyType.Liquid
+          ? new Wallet(this.logger, currency.type, walletProvider)
+          : new WalletLiquid(this.logger, walletProvider, this.slip77);
 
       wallet.initKeyProvider(
         currency.network!,

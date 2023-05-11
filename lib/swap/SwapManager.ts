@@ -1,13 +1,15 @@
 import { Op } from 'sequelize';
 import { randomBytes } from 'crypto';
 import { crypto } from 'bitcoinjs-lib';
-import { OutputType, reverseSwapScript, swapScript } from 'boltz-core';
+import { reverseSwapScript, swapScript } from 'boltz-core';
 import Errors from './Errors';
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';
 import SwapNursery from './SwapNursery';
+import SwapOutputType from './OutputType';
 import LndClient from '../lightning/LndClient';
 import RateProvider from '../rates/RateProvider';
+import WalletLiquid from '../wallet/WalletLiquid';
 import ReverseSwap from '../db/models/ReverseSwap';
 import { ReverseSwapOutputType } from '../consts/Consts';
 import RoutingHintsProvider from './RoutingHintsProvider';
@@ -63,7 +65,7 @@ class SwapManager {
     private walletManager: WalletManager,
     rateProvider: RateProvider,
     private invoiceExpiryHelper: InvoiceExpiryHelper,
-    private swapOutputType: OutputType,
+    private swapOutputType: SwapOutputType,
     retryInterval: number,
   ) {
     this.nursery = new SwapNursery(
@@ -205,11 +207,12 @@ class SwapManager {
         timeoutBlockHeight,
       );
 
-      const encodeFunction = getScriptHashFunction(this.swapOutputType);
+      const encodeFunction = getScriptHashFunction(
+        this.swapOutputType.get(receivingCurrency.type),
+      );
       const outputScript = encodeFunction(redeemScript);
 
       address = receivingCurrency.wallet.encodeAddress(outputScript);
-
       receivingCurrency.chainClient!.addOutputFilter(outputScript);
 
       await SwapRepository.addSwap({
@@ -467,6 +470,9 @@ class SwapManager {
     // This is either the generated address for Bitcoin like chains, or the address of the contract
     // to which Boltz will send the lockup transaction for Ether and ERC20 tokens
     lockupAddress: string;
+
+    // For blinded Liquid reverse swaps
+    blindingKey?: string;
   }> => {
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(
       args.baseCurrency,
@@ -547,6 +553,7 @@ class SwapManager {
     let lockupAddress: string;
     let timeoutBlockHeight: number;
 
+    let blindingKey: Buffer | undefined;
     let redeemScript: Buffer | undefined;
 
     let refundAddress: string | undefined;
@@ -570,6 +577,12 @@ class SwapManager {
         redeemScript,
       );
       lockupAddress = sendingCurrency.wallet.encodeAddress(outputScript);
+
+      if (sendingCurrency.type === CurrencyType.Liquid) {
+        blindingKey = (
+          sendingCurrency.wallet as WalletLiquid
+        ).deriveBlindingKeyFromScript(outputScript).privateKey;
+      }
 
       await ReverseSwapRepository.addReverseSwap({
         id,
@@ -628,6 +641,7 @@ class SwapManager {
       minerFeeInvoice,
       timeoutBlockHeight,
       invoice: paymentRequest,
+      blindingKey: blindingKey ? getHexString(blindingKey) : undefined,
       redeemScript: redeemScript ? getHexString(redeemScript) : undefined,
     };
   };

@@ -48,6 +48,33 @@ export const stringify = (object: unknown): string => {
   return JSON.stringify(object, undefined, 2);
 };
 
+const sanitizeObject = (object: unknown): unknown => {
+  if (typeof object !== 'object') {
+    return;
+  }
+
+  const cpy = Object.assign({}, object);
+  for (const [key, value] of Object.entries(cpy)) {
+    switch (typeof value) {
+      case 'object':
+        cpy[key] = sanitizeObject(value);
+        break;
+
+      case 'string':
+        if (value.length > 1000) {
+          cpy[key] = undefined;
+        }
+        break;
+    }
+  }
+
+  return cpy;
+};
+
+export const saneStringify = (object: unknown): string => {
+  return stringify(sanitizeObject(object));
+};
+
 /**
  * Turn a map into an object
  */

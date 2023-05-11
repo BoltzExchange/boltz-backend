@@ -1,6 +1,5 @@
 import { getAddress } from 'ethers';
 import { OutputType } from 'boltz-core';
-import { Transaction } from 'bitcoinjs-lib';
 import Errors from './Errors';
 import Logger from '../Logger';
 import NodeUris from './NodeUris';
@@ -9,7 +8,9 @@ import ApiErrors from '../api/Errors';
 import Wallet from '../wallet/Wallet';
 import { ConfigType } from '../Config';
 import EventHandler from './EventHandler';
+import { parseTransaction } from '../Core';
 import { PairConfig } from '../consts/Types';
+import SwapOutputType from '../swap/OutputType';
 import InvoiceExpiryHelper from './InvoiceExpiryHelper';
 import PaymentRequestUtils from './PaymentRequestUtils';
 import { Payment, RouteHint } from '../proto/lnd/rpc_pb';
@@ -37,33 +38,33 @@ import {
   ServiceWarning,
 } from '../consts/Enums';
 import {
-  LndInfo,
   Balance,
   ChainInfo,
-  LndChannels,
   CurrencyInfo,
-  WalletBalance,
-  GetInfoResponse,
-  LightningBalance,
   DeriveKeysResponse,
   GetBalanceResponse,
+  GetInfoResponse,
+  LightningBalance,
+  LndChannels,
+  LndInfo,
+  WalletBalance,
 } from '../proto/boltzrpc_pb';
 import {
-  getRate,
-  getPairId,
-  getVersion,
+  createApiCredential,
+  decodeInvoice,
   formatError,
-  getSwapMemo,
-  getUnixTime,
-  splitPairId,
+  getChainCurrency,
   getHexBuffer,
   getHexString,
-  decodeInvoice,
-  reverseBuffer,
-  getChainCurrency,
-  createApiCredential,
   getLightningCurrency,
+  getPairId,
+  getRate,
   getSendingReceivingCurrency,
+  getSwapMemo,
+  getUnixTime,
+  getVersion,
+  reverseBuffer,
+  splitPairId,
   stringify,
 } from '../Utils';
 
@@ -118,7 +119,11 @@ class Service {
       this.walletManager,
       this.rateProvider,
       new InvoiceExpiryHelper(config.currencies),
-      config.swapwitnessaddress ? OutputType.Bech32 : OutputType.Compatibility,
+      new SwapOutputType(
+        config.swapwitnessaddress
+          ? OutputType.Bech32
+          : OutputType.Compatibility,
+      ),
       config.retryInterval,
     );
 
@@ -536,7 +541,10 @@ class Service {
           'non-mandatory-script-verify-flag (Locktime requirement not satisfied)',
         )
       ) {
-        const refundTransaction = Transaction.fromHex(transactionHex);
+        const refundTransaction = parseTransaction(
+          currency.type,
+          transactionHex,
+        );
 
         let swap: Swap | null | undefined;
 
@@ -1000,9 +1008,10 @@ class Service {
   }): Promise<{
     id: string;
     invoice: string;
+    blindingKey?: string;
+    lockupAddress: string;
     redeemScript?: string;
     refundAddress?: string;
-    lockupAddress: string;
     onchainAmount?: number;
     minerFeeInvoice?: string;
     timeoutBlockHeight: number;
@@ -1178,6 +1187,7 @@ class Service {
     const {
       id,
       invoice,
+      blindingKey,
       redeemScript,
       refundAddress,
       lockupAddress,
@@ -1207,6 +1217,7 @@ class Service {
     const response: any = {
       id,
       invoice,
+      blindingKey,
       redeemScript,
       refundAddress,
       lockupAddress,

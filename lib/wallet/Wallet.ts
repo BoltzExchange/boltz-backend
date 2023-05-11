@@ -90,11 +90,6 @@ class Wallet {
     }
 
     try {
-      // Fee output of Liquid
-      if (this.type === CurrencyType.Liquid && outputScript.length == 0) {
-        return '';
-      }
-
       return fromOutputScript(this.type, outputScript, this.network);
     } catch (error) {
       // Ignore invalid addresses

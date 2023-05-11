@@ -18,6 +18,7 @@ import {
   detectPreimage,
   detectSwap,
   getOutputValue,
+  parseTransaction,
 } from '../Core';
 import {
   splitPairId,
@@ -168,6 +169,7 @@ class UtxoNursery extends EventEmitter {
         await this.checkSwapTransaction(
           swap,
           chainClient,
+          wallet,
           transaction,
           confirmed,
         );
@@ -245,7 +247,7 @@ class UtxoNursery extends EventEmitter {
   private listenBlocks = (chainClient: ChainClient, wallet: Wallet) => {
     chainClient.on('block', async (height) => {
       await Promise.all([
-        this.checkSwapMempoolTransactions(chainClient),
+        this.checkSwapMempoolTransactions(chainClient, wallet),
         this.checkReverseSwapMempoolTransactions(chainClient, wallet),
 
         this.checkExpiredSwaps(chainClient, height),
@@ -254,7 +256,10 @@ class UtxoNursery extends EventEmitter {
     });
   };
 
-  private checkSwapMempoolTransactions = async (chainClient: ChainClient) => {
+  private checkSwapMempoolTransactions = async (
+    chainClient: ChainClient,
+    wallet: Wallet,
+  ) => {
     await this.lock.acquire(UtxoNursery.swapLockupLock, async () => {
       const mempoolSwaps = await SwapRepository.getSwaps({
         status: {
@@ -289,7 +294,8 @@ class UtxoNursery extends EventEmitter {
           await this.checkSwapTransaction(
             swap,
             chainClient,
-            Transaction.fromHex(lockupTransaction.hex),
+            wallet,
+            parseTransaction(wallet.type, lockupTransaction.hex),
             true,
           );
         }
@@ -333,7 +339,7 @@ class UtxoNursery extends EventEmitter {
               chainClient,
               wallet,
               reverseSwap,
-              Transaction.fromHex(transaction.hex),
+              parseTransaction(wallet.type, transaction.hex),
             );
           }
         }
@@ -428,6 +434,7 @@ class UtxoNursery extends EventEmitter {
   private checkSwapTransaction = async (
     swap: Swap,
     chainClient: ChainClient,
+    wallet: Wallet,
     transaction: Transaction | LiquidTransaction,
     confirmed: boolean,
   ) => {
@@ -443,7 +450,7 @@ class UtxoNursery extends EventEmitter {
       }: ${transaction.getId()}:${swapOutput.vout}`,
     );
 
-    const outputValue = getOutputValue(chainClient.currencyType, swapOutput);
+    const outputValue = getOutputValue(wallet, swapOutput);
     const updatedSwap = await SwapRepository.setLockupTransaction(
       swap,
       transaction.getId(),
@@ -550,7 +557,7 @@ class UtxoNursery extends EventEmitter {
       if (!inputTransaction.confirmations) {
         const inputSignalsRbf = await this.transactionSignalsRbf(
           chainClient,
-          Transaction.fromHex(inputTransaction.hex),
+          parseTransaction(chainClient.currencyType, inputTransaction.hex),
         );
 
         if (inputSignalsRbf) {

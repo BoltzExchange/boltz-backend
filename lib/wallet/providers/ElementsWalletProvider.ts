@@ -1,6 +1,7 @@
-import { Transaction } from 'liquidjs-lib';
 import Logger from '../../Logger';
 import { getHexBuffer } from '../../Utils';
+import { parseTransaction } from '../../Core';
+import { CurrencyType } from '../../consts/Enums';
 import ChainClient from '../../chain/ChainClient';
 import ElementsClient from '../../chain/ElementsClient';
 import WalletProviderInterface, {
@@ -83,7 +84,10 @@ class ElementsWalletProvider implements WalletProviderInterface {
     const decodedAddress = addressInfo.unconfidential;
     return {
       transactionId,
-      transaction: Transaction.fromHex(transactionVerbose.hex),
+      transaction: parseTransaction(
+        CurrencyType.Liquid,
+        transactionVerbose.hex,
+      ),
       vout: transactionVerbose.vout.find(
         (output) =>
           output.scriptPubKey.address === decodedAddress ||

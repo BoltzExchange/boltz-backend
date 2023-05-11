@@ -2,9 +2,10 @@ import fs from 'fs';
 import { Arguments } from 'yargs';
 import { Networks } from 'boltz-core';
 import { generateMnemonic } from 'bip39';
-import { Networks as LiquidNetworks } from 'boltz-core-liquid';
+import { Networks as LiquidNetworks } from 'boltz-core-liquid-michael1011';
 import Api from './api/Api';
 import Logger from './Logger';
+import { setup } from './Core';
 import Database from './db/Database';
 import Service from './service/Service';
 import VersionCheck from './VersionCheck';
@@ -22,6 +23,8 @@ import EthereumManager from './wallet/ethereum/EthereumManager';
 import WalletManager, { Currency } from './wallet/WalletManager';
 import ChainTipRepository from './db/repositories/ChainTipRepository';
 import NotificationProvider from './notifications/NotificationProvider';
+
+// TODO: refunds
 
 class Boltz {
   private readonly logger: Logger;
@@ -46,13 +49,13 @@ class Boltz {
 
     this.logger.info(`Starting Boltz ${getVersion()}`);
 
-    process.on('unhandledRejection', (reason) => {
+    process.on('unhandledRejection', (reason, promise) => {
+      console.log(promise);
       this.logger.error(`Unhandled rejection: ${formatError(reason)}`);
     });
 
     process.on('exit', () => {
       this.logger.error('Application shutting down because:');
-      console.trace();
     });
 
     this.db = new Database(this.logger, this.config.dbpath);
@@ -131,6 +134,8 @@ class Boltz {
   }
 
   public start = async (): Promise<void> => {
+    await setup();
+
     try {
       await this.db.migrate(this.currencies);
       await this.db.init();

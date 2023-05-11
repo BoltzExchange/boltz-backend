@@ -1,11 +1,11 @@
 import { Arguments } from 'yargs';
-import { prepareTx } from '../Command';
 import BuilderComponents from '../BuilderComponents';
+import { prepareTx } from '../Command';
 import { getHexBuffer, stringify } from '../../Utils';
-import { constructClaimTransaction } from '../../Core';
+import { constructClaimTransaction, toOutputScript } from '../../Core';
 
 export const command =
-  'claim <network> <preimage> <privateKey> <redeemScript> <rawTransaction> <destinationAddress> [feePerVbyte]';
+  'claim <network> <preimage> <privateKey> <redeemScript> <rawTransaction> <destinationAddress> [feePerVbyte] [blindingKey]';
 
 export const describe = 'claims reverse submarine or chain to chain swaps';
 
@@ -20,21 +20,32 @@ export const builder = {
     type: 'string',
   },
   feePerVbyte: BuilderComponents.feePerVbyte,
+  blindingKey: {
+    describe: 'Liquid blinding key for the HTLC address',
+    type: 'string',
+  },
 };
 
-export const handler = (argv: Arguments<any>): void => {
+export const handler = async (argv: Arguments<any>): Promise<void> => {
   const {
     keys,
     type,
     network,
     swapOutput,
+    blindingKey,
     transaction,
     redeemScript,
     destinationAddress,
-  } = prepareTx(argv);
+  } = await prepareTx(argv);
 
   const claimTransaction = constructClaimTransaction(
-    type,
+    {
+      type,
+      deriveBlindingKeyFromScript: () => ({
+        privateKey: blindingKey,
+      }),
+      decodeAddress: toOutputScript(type, argv.destinationAddress, network),
+    } as any,
     [
       {
         ...swapOutput,

@@ -16,6 +16,7 @@ import {
   getHexBuffer,
   getVersion,
   mapToObject,
+  saneStringify,
   splitPairId,
   stringify,
 } from '../Utils';
@@ -37,7 +38,7 @@ class Controller {
 
   constructor(private logger: Logger, private service: Service) {
     this.service.eventHandler.on('swap.update', (id, message) => {
-      this.logger.debug(`Swap ${id} update: ${stringify(message)}`);
+      this.logger.debug(`Swap ${id} update: ${saneStringify(message)}`);
       this.pendingSwapInfos.set(id, message);
 
       const response = this.pendingSwapStreams.get(id);

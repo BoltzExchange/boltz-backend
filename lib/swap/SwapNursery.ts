@@ -1,6 +1,6 @@
+import { Op } from 'sequelize';
 import AsyncLock from 'async-lock';
 import { EventEmitter } from 'events';
-import { OutputType } from 'boltz-core';
 import { crypto, Transaction } from 'bitcoinjs-lib';
 import { ContractTransactionResponse } from 'ethers';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib';
@@ -9,6 +9,7 @@ import Logger from '../Logger';
 import Swap from '../db/models/Swap';
 import Wallet from '../wallet/Wallet';
 import UtxoNursery from './UtxoNursery';
+import SwapOutputType from './OutputType';
 import ChannelNursery from './ChannelNursery';
 import InvoiceNursery from './InvoiceNursery';
 import PaymentHandler from './PaymentHandler';
@@ -47,15 +48,15 @@ import {
 } from '../Utils';
 import {
   calculateTransactionFee,
-  constructClaimTransaction,
   ClaimDetailsBitcoin,
   ClaimDetailsLiquid,
+  constructClaimTransaction,
+  constructRefundTransaction,
+  detectSwap,
+  getAssetHash,
+  parseTransaction,
   RefundDetailsBitcoin,
   RefundDetailsLiquid,
-  parseTransaction,
-  constructRefundTransaction,
-  getAssetHash,
-  detectSwap,
 } from '../Core';
 
 interface ISwapNursery {
@@ -187,7 +188,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
     private logger: Logger,
     private rateProvider: RateProvider,
     private walletManager: WalletManager,
-    private swapOutputType: OutputType,
+    private swapOutputType: SwapOutputType,
     private retryInterval: number,
   ) {
     super();
@@ -468,7 +469,12 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
         await this.lock.acquire(SwapNursery.retryLock, async () => {
           await this.lock.acquire(SwapNursery.swapLock, async () => {
             const pendingInvoiceSwaps = await SwapRepository.getSwaps({
-              status: SwapUpdateEvent.InvoicePending,
+              status: {
+                [Op.in]: [
+                  SwapUpdateEvent.InvoicePending,
+                  SwapUpdateEvent.InvoicePaid,
+                ],
+              },
             });
 
             for (const pendingInvoiceSwap of pendingInvoiceSwaps) {
@@ -496,7 +502,8 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
     outgoingChannelId?: string,
   ): Promise<void> => {
     switch (currency.type) {
-      case CurrencyType.BitcoinLike: {
+      case CurrencyType.BitcoinLike:
+      case CurrencyType.Liquid: {
         const lockupTransactionHex =
           await currency.chainClient!.getRawTransaction(
             swap.lockupTransactionId!,
@@ -506,7 +513,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
           currency.chainClient!,
           this.walletManager.wallets.get(currency.symbol)!,
           swap,
-          Transaction.fromHex(lockupTransactionHex),
+          parseTransaction(currency.type, lockupTransactionHex),
           outgoingChannelId,
         );
         break;
@@ -862,19 +869,19 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
 
     const output = transaction.outs[swap.lockupTransactionVout!];
     const claimTransaction = constructClaimTransaction(
-      chainClient.currencyType,
+      wallet,
       [
         {
           ...output,
           preimage,
           vout: swap.lockupTransactionVout!,
-          type: this.swapOutputType,
+          type: this.swapOutputType.get(wallet.type),
           txHash: transaction.getHash(),
           keys: wallet.getKeysByIndex(swap.keyIndex!),
           redeemScript: getHexBuffer(swap.redeemScript!),
         },
       ] as ClaimDetailsBitcoin[] | ClaimDetailsLiquid[],
-      wallet.decodeAddress(destinationAddress),
+      destinationAddress,
       await chainClient.estimateFee(),
       getAssetHash(chainClient.currencyType, wallet.network),
     );

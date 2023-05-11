@@ -1,17 +1,12 @@
-import ChainClient from './chain/ChainClient';
-import { CurrencyType } from './consts/Enums';
+import zkp from '@vulpemventures/secp256k1-zkp';
 import { Network as NetworkLiquid } from 'liquidjs-lib/src/networks';
 import { address, Network, Transaction, TxOutput } from 'bitcoinjs-lib';
 import {
-  confidential,
   address as addressLiquid,
-  TxOutput as TxOutputLiquid,
+  confidential,
   Transaction as TransactionLiquid,
+  TxOutput as TxOutputLiquid,
 } from 'liquidjs-lib';
-import {
-  calculateLiquidTransactionFee,
-  calculateUtxoTransactionFee,
-} from './Utils';
 import {
   ClaimDetails as ClaimDetailsBitcoin,
   RefundDetails as RefundDetailsBitcoin,
@@ -19,7 +14,7 @@ import {
 import {
   ClaimDetails as ClaimDetailsLiquid,
   RefundDetails as RefundDetailsLiquid,
-} from 'boltz-core-liquid/dist/lib/consts/Types';
+} from 'boltz-core-liquid-michael1011/dist/consts/Types';
 import {
   constructClaimTransaction as constructClaimTransactionBitcoin,
   constructRefundTransaction as constructRefundTransactionBitcoin,
@@ -31,7 +26,27 @@ import {
   constructRefundTransaction as constructRefundTransactionLiquid,
   detectPreimage as detectPreimageLiquid,
   detectSwap as detectSwapLiquid,
-} from 'boltz-core-liquid';
+  targetFee,
+  prepareConfidential,
+} from 'boltz-core-liquid-michael1011';
+import Wallet from './wallet/Wallet';
+import ChainClient from './chain/ChainClient';
+import { CurrencyType } from './consts/Enums';
+import WalletLiquid from './wallet/WalletLiquid';
+import {
+  getHexString,
+  reverseBuffer,
+  calculateUtxoTransactionFee,
+  calculateLiquidTransactionFee,
+} from './Utils';
+
+let confi: confidential.Confidential;
+
+export const setup = async () => {
+  const zkpLib = await zkp();
+  confi = new confidential.Confidential(zkpLib);
+  prepareConfidential(zkpLib);
+};
 
 export const parseTransaction = (
   type: CurrencyType,
@@ -69,12 +84,40 @@ export const toOutputScript = (
 };
 
 export const getOutputValue = (
-  type: CurrencyType,
+  wallet: Wallet,
   output: TxOutput | TxOutputLiquid,
 ) => {
-  return isBitcoin(type)
-    ? (output.value as number)
-    : confidential.confidentialValueToSatoshi(output.value as Buffer);
+  if (isBitcoin(wallet.type)) {
+    return output.value as number;
+  }
+
+  let value: number;
+  let asset: Buffer;
+
+  if ((output as TxOutputLiquid).rangeProof?.length !== 0) {
+    const unblinded = confi.unblindOutputWithKey(
+      output as TxOutputLiquid,
+      (wallet as WalletLiquid).deriveBlindingKeyFromScript(output.script)
+        .privateKey!,
+    );
+
+    value = Number(unblinded.value);
+    asset = unblinded.asset;
+  } else {
+    value = confidential.confidentialValueToSatoshi(output.value as Buffer);
+    asset = (output as TxOutputLiquid).asset;
+    // Remove the un-confidential prefix
+    asset = asset.slice(1, asset.length);
+  }
+
+  if (
+    getHexString(reverseBuffer(asset)) !==
+    (wallet.network as NetworkLiquid).assetHash
+  ) {
+    return 0;
+  }
+
+  return value;
 };
 
 export const detectSwap = (
@@ -98,26 +141,35 @@ export const detectPreimage = (
 };
 
 export const constructClaimTransaction = (
-  type: CurrencyType,
+  wallet: Wallet,
   claimDetails: ClaimDetailsBitcoin[] | ClaimDetailsLiquid[],
-  destinationAddress: Buffer,
+  destinationAddress: string,
   feePerVbyte: number,
   assetHash?: string,
 ) => {
-  return isBitcoin(type)
-    ? constructClaimTransactionBitcoin(
-        claimDetails as ClaimDetailsBitcoin[],
-        destinationAddress,
-        feePerVbyte,
-        true,
-      )
-    : constructClaimTransactionLiquid(
+  if (isBitcoin(wallet.type)) {
+    return constructClaimTransactionBitcoin(
+      claimDetails as ClaimDetailsBitcoin[],
+      wallet.decodeAddress(destinationAddress),
+      feePerVbyte,
+      true,
+    );
+  }
+
+  const decodedAddress = addressLiquid.fromConfidential(destinationAddress);
+  return targetFee(feePerVbyte, (fee) =>
+    constructClaimTransactionLiquid(
+      populateBlindingKeys(
+        wallet as WalletLiquid,
         claimDetails as ClaimDetailsLiquid[],
-        destinationAddress,
-        feePerVbyte,
-        true,
-        assetHash,
-      );
+      ),
+      decodedAddress.scriptPubKey!,
+      fee,
+      true,
+      assetHash,
+      decodedAddress.blindingKey,
+    ),
+  );
 };
 
 export const constructRefundTransaction = (
@@ -163,6 +215,21 @@ export const getAssetHash = (
 };
 
 const isBitcoin = (type: CurrencyType) => type === CurrencyType.BitcoinLike;
+
+const populateBlindingKeys = <
+  T extends ClaimDetailsLiquid | RefundDetailsLiquid,
+>(
+  wallet: WalletLiquid,
+  utxos: T[],
+): T[] => {
+  for (const utxo of utxos) {
+    utxo.blindinkPrivKey = wallet.deriveBlindingKeyFromScript(
+      utxo.script,
+    ).privateKey!;
+  }
+
+  return utxos;
+};
 
 export {
   ClaimDetailsBitcoin,

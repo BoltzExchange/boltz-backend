@@ -1,8 +1,5 @@
 import { Arguments } from 'yargs';
-import { prepareTx } from '../Command';
-import { stringify } from '../../Utils';
 import BuilderComponents from '../BuilderComponents';
-import { constructRefundTransaction } from '../../Core';
 
 export const command =
   'refund <network> <privateKey> <timeoutBlockHeight> <redeemScript> <rawTransaction> <destinationAddress> [feePerVbyte]';
@@ -22,7 +19,8 @@ export const builder = {
   feePerVbyte: BuilderComponents.feePerVbyte,
 };
 
-export const handler = (argv: Arguments<any>): void => {
+export const handler = (_argv: Arguments<any>): void => {
+  /*
   const {
     type,
     network,
@@ -51,4 +49,5 @@ export const handler = (argv: Arguments<any>): void => {
   ).toHex();
 
   console.log(stringify({ refundTransaction }));
+   */
 };

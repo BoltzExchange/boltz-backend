@@ -40,11 +40,10 @@ class FeeProvider {
     reverseLockup: 153,
   };
 
-  // TODO: actual sizes
   public static transactionSizesLiquid = {
-    normalClaim: 251 * 10 * 2,
-    reverseLockup: 296 * 10 * 2,
-    reverseClaim: 217 * 10 * 2,
+    normalClaim: 1333,
+    reverseLockup: 2503,
+    reverseClaim: 1334,
   };
 
   // TODO: query those estimations from the provider

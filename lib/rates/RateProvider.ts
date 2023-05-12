@@ -270,8 +270,9 @@ class RateProvider {
         );
       } else {
         minimalLimit = Math.max(
-          minimalLimit,
-          this.feeProvider.getBaseFee('L-BTC', BaseFeeType.NormalClaim),
+          baseLimits.minimal,
+          this.feeProvider.getBaseFee('L-BTC', BaseFeeType.NormalClaim) *
+            RateProvider.minLimitFactor,
         );
       }
 

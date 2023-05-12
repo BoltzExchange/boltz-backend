@@ -8,7 +8,7 @@ class ElementsClient extends ChainClient {
   constructor(logger: Logger, config: ChainConfig, readonly symbol: string) {
     super(logger, config, symbol);
     this.currencyType = CurrencyType.Liquid;
-    this.feeFloor = 0.2;
+    this.feeFloor = 0.11;
   }
 
   public getBalances = async () => {
@@ -45,8 +45,8 @@ class ElementsClient extends ChainClient {
     ]);
   };
 
-  public override estimateFee = async (confTarget = 2): Promise<number> => {
-    return this.estimateFeeWithFloor(confTarget);
+  public override estimateFee = async (): Promise<number> => {
+    return 0.11;
   };
 
   public getAddressInfo = (address: string): Promise<AddressInfo> => {

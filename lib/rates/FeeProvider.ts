@@ -43,7 +43,7 @@ class FeeProvider {
   public static transactionSizesLiquid = {
     normalClaim: 1333,
     reverseLockup: 2503,
-    reverseClaim: 1334,
+    reverseClaim: 1378,
   };
 
   // TODO: query those estimations from the provider

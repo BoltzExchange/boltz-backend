@@ -19,6 +19,13 @@ import {
   WalletInfo,
 } from '../consts/Types';
 
+enum AddressType {
+  Legacy = 'legacy',
+  P2shegwit = 'p2sh-segwit',
+  Bech32 = 'bech32',
+  Taproot = 'bech32m',
+}
+
 interface ChainClient {
   on(event: 'block', listener: (height: number) => void): this;
   emit(event: 'block', height: number): boolean;
@@ -227,15 +234,7 @@ class ChainClient extends BaseClient {
   };
 
   public getWalletInfo = async (): Promise<WalletInfo> => {
-    const result = await this.client.request<WalletInfo>('getwalletinfo');
-
-    // Format the amounts
-    result.balance = result.balance * ChainClient.decimals;
-    result.unconfirmed_balance =
-      result.unconfirmed_balance * ChainClient.decimals;
-    result.immature_balance = result.immature_balance * ChainClient.decimals;
-
-    return result;
+    return this.client.request<WalletInfo>('getwalletinfo');
   };
 
   public sendToAddress = (
@@ -258,8 +257,8 @@ class ChainClient extends BaseClient {
     ]);
   };
 
-  public listUnspent = (): Promise<UnspentUtxo[]> => {
-    return this.client.request<UnspentUtxo[]>('listunspent');
+  public listUnspent = (minconf = 0): Promise<UnspentUtxo[]> => {
+    return this.client.request<UnspentUtxo[]>('listunspent', [minconf]);
   };
 
   public generate = async (blocks: number): Promise<string[]> => {
@@ -269,8 +268,10 @@ class ChainClient extends BaseClient {
     ]);
   };
 
-  public getNewAddress = (): Promise<string> => {
-    return this.client.request<string>('getnewaddress', [undefined, 'bech32']);
+  public getNewAddress = (
+    type: AddressType = AddressType.Bech32,
+  ): Promise<string> => {
+    return this.client.request<string>('getnewaddress', [undefined, type]);
   };
 
   protected estimateFeeWithFloor = async (confTarget: number) => {
@@ -343,3 +344,4 @@ class ChainClient extends BaseClient {
 }
 
 export default ChainClient;
+export { AddressType };

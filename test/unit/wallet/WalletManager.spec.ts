@@ -13,16 +13,13 @@ import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
 
 const symbol = 'BTC';
 
-let walletInfo: any = {
-  balance: 10,
-  unconfirmed_balance: 0,
-};
-const mockGetWalletInfo = jest.fn().mockImplementation(async () => {
-  if (walletInfo.message) {
-    throw walletInfo;
-  } else {
-    return walletInfo;
+let listInfoException: any;
+const mockListUnspent = jest.fn().mockImplementation(async () => {
+  if (listInfoException) {
+    throw listInfoException;
   }
+
+  return [];
 });
 
 const blockchainInfo = {
@@ -44,7 +41,7 @@ jest.mock('../../../lib/chain/ChainClient', () => {
     return {
       symbol,
 
-      getWalletInfo: mockGetWalletInfo,
+      listUnspent: mockListUnspent,
       getBlockchainInfo: () => Promise.resolve(blockchainInfo),
     };
   });
@@ -158,7 +155,7 @@ describe('WalletManager', () => {
       },
     ];
 
-    walletInfo = {
+    listInfoException = {
       message: 'Method not found',
     };
 

@@ -154,13 +154,13 @@ export type NetworkInfo = {
 export type UnspentUtxo = {
   txid: string;
   vout: number;
-  address: string;
-  label: string;
+  address?: string;
+  label?: string;
   scriptPubKey: string;
   amount: number;
   confirmations: number;
-  redeemScript: string;
-  witnessScript: string;
+  redeemScript?: string;
+  witnessScript?: string;
   spendable: boolean;
   solvable: boolean;
   desc?: string;

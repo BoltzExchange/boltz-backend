@@ -1,7 +1,7 @@
 import { Transaction } from 'bitcoinjs-lib';
 import Logger from '../../Logger';
-import ChainClient from '../../chain/ChainClient';
 import { transactionHashToId } from '../../Utils';
+import ChainClient, { AddressType } from '../../chain/ChainClient';
 import WalletProviderInterface, {
   SentTransaction,
   WalletBalance,
@@ -16,18 +16,32 @@ class CoreWalletProvider implements WalletProviderInterface {
     this.logger.info(`Initialized ${this.symbol} Core wallet`);
   }
 
-  public getAddress = (): Promise<string> => {
-    return this.chainClient.getNewAddress();
+  public getAddress = (
+    type: AddressType = AddressType.Taproot,
+  ): Promise<string> => {
+    return this.chainClient.getNewAddress(type);
   };
 
   public getBalance = async (): Promise<WalletBalance> => {
-    // TODO: use "getbalances" call if available
-    const walletInfo = await this.chainClient.getWalletInfo();
+    const utxos = await this.chainClient.listUnspent(0);
+
+    let confirmed = BigInt(0);
+    let unconfirmed = BigInt(0);
+
+    utxos.forEach((utxo) => {
+      const amount = BigInt(Math.round(utxo.amount * ChainClient.decimals));
+
+      if (utxo.confirmations > 0) {
+        confirmed += amount;
+      } else {
+        unconfirmed += amount;
+      }
+    });
 
     return {
-      totalBalance: walletInfo.balance + walletInfo.unconfirmed_balance,
-      confirmedBalance: walletInfo.balance,
-      unconfirmedBalance: walletInfo.unconfirmed_balance,
+      totalBalance: Number(confirmed + unconfirmed),
+      confirmedBalance: Number(confirmed),
+      unconfirmedBalance: Number(unconfirmed),
     };
   };
 

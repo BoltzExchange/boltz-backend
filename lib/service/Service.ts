@@ -10,7 +10,7 @@ import { ConfigType } from '../Config';
 import EventHandler from './EventHandler';
 import { parseTransaction } from '../Core';
 import { PairConfig } from '../consts/Types';
-import SwapOutputType from '../swap/OutputType';
+import SwapOutputType from '../swap/SwapOutputType';
 import InvoiceExpiryHelper from './InvoiceExpiryHelper';
 import PaymentRequestUtils from './PaymentRequestUtils';
 import { Payment, RouteHint } from '../proto/lnd/rpc_pb';

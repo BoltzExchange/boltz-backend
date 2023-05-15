@@ -82,7 +82,11 @@ describe('Wallet', () => {
 
   const walletProvider = new mockedLndWalletProvider();
 
-  const wallet = new Wallet(Logger.disabledLogger, walletProvider);
+  const wallet = new Wallet(
+    Logger.disabledLogger,
+    CurrencyType.BitcoinLike,
+    walletProvider,
+  );
 
   wallet.initKeyProvider(network, derivationPath, highestUsedIndex, masterNode);
 

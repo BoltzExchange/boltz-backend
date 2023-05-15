@@ -72,13 +72,9 @@ describe('Core', () => {
       outputAmount,
     );
 
-    expect(
-      getOutputValue(
-        CurrencyType.BitcoinLike,
-        wallet,
-        transaction!.outs[vout!],
-      ),
-    ).toEqual(outputAmount);
+    expect(getOutputValue(wallet, transaction!.outs[vout!])).toEqual(
+      outputAmount,
+    );
   });
 
   test('should get output value of unblinded Liquid transactions', async () => {
@@ -98,7 +94,6 @@ describe('Core', () => {
 
     expect(
       getOutputValue(
-        CurrencyType.Liquid,
         walletLiquid,
         (transaction as TransactionLiquid).outs[vout!],
       ),
@@ -108,7 +103,6 @@ describe('Core', () => {
     walletLiquid['network'] = networks.liquid;
     expect(
       getOutputValue(
-        CurrencyType.Liquid,
         walletLiquid,
         (transaction as TransactionLiquid).outs[vout!],
       ),
@@ -132,7 +126,6 @@ describe('Core', () => {
 
     expect(
       getOutputValue(
-        CurrencyType.Liquid,
         walletLiquid,
         (transaction as TransactionLiquid).outs[vout!],
       ),
@@ -142,7 +135,6 @@ describe('Core', () => {
     walletLiquid['network'] = networks.liquid;
     expect(
       getOutputValue(
-        CurrencyType.Liquid,
         walletLiquid,
         (transaction as TransactionLiquid).outs[vout!],
       ),

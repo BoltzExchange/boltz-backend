@@ -5,7 +5,7 @@ import { ECPair } from '../ECPairHelper';
 import { CurrencyType } from '../consts/Enums';
 import { getHexBuffer, stringify } from '../Utils';
 import { BoltzClient } from '../proto/boltzrpc_grpc_pb';
-import { detectSwap, parseTransaction, setup } from '../Core';
+import { detectSwap, parseTransaction, setup, toOutputScript } from '../Core';
 
 export interface GrpcResponse {
   toObject: () => any;
@@ -51,6 +51,14 @@ export const prepareTx = async (argv: Arguments<any>) => {
     transaction,
     redeemScript,
     blindingKey,
+    walletStub: {
+      type,
+      deriveBlindingKeyFromScript: () => ({
+        privateKey: blindingKey,
+      }),
+      decodeAddress: () =>
+        toOutputScript(type, argv.destinationAddress, network),
+    } as any,
     destinationAddress: argv.destinationAddress,
     swapOutput: detectSwap(type, redeemScript, transaction),
     keys: ECPair.fromPrivateKey(getHexBuffer(argv.privateKey)),

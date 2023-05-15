@@ -9,7 +9,7 @@ import Logger from '../Logger';
 import Swap from '../db/models/Swap';
 import Wallet from '../wallet/Wallet';
 import UtxoNursery from './UtxoNursery';
-import SwapOutputType from './OutputType';
+import SwapOutputType from './SwapOutputType';
 import ChannelNursery from './ChannelNursery';
 import InvoiceNursery from './InvoiceNursery';
 import PaymentHandler from './PaymentHandler';

@@ -71,7 +71,7 @@ interface LndClient {
 class LndClient extends BaseClient implements LndClient {
   public static readonly serviceName = 'LND';
 
-  public static readonly paymentMaxParts = 3;
+  public static readonly paymentMaxParts = 5;
 
   private static readonly grpcOptions = {
     // 200 MB which is the same value lncli uses: https://github.com/lightningnetwork/lnd/commit/7470f696aebc51b4ab354324e6536f54446538e1
@@ -79,7 +79,7 @@ class LndClient extends BaseClient implements LndClient {
   };
 
   private static readonly minPaymentFee = 21;
-  private static readonly paymentTimeout = 60;
+  private static readonly paymentTimeout = 120;
 
   private readonly uri!: string;
   private readonly maxPaymentFeeRatio!: number;

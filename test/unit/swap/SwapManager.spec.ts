@@ -12,6 +12,7 @@ import ChainClient from '../../../lib/chain/ChainClient';
 import LndClient from '../../../lib/lightning/LndClient';
 import RateProvider from '../../../lib/rates/RateProvider';
 import ReverseSwap from '../../../lib/db/models/ReverseSwap';
+import SwapOutputType from '../../../lib/swap/SwapOutputType';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import InvoiceExpiryHelper from '../../../lib/service/InvoiceExpiryHelper';
 import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
@@ -327,7 +328,7 @@ describe('SwapManager', () => {
       new MockedWalletManager(),
       new MockedRateProvider(),
       new MockedInvoiceExpiryHelper(),
-      OutputType.Compatibility,
+      new SwapOutputType(OutputType.Compatibility),
       0,
     );
 

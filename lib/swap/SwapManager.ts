@@ -6,7 +6,7 @@ import Errors from './Errors';
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';
 import SwapNursery from './SwapNursery';
-import SwapOutputType from './OutputType';
+import SwapOutputType from './SwapOutputType';
 import LndClient from '../lightning/LndClient';
 import RateProvider from '../rates/RateProvider';
 import WalletLiquid from '../wallet/WalletLiquid';

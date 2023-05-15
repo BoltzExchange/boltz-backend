@@ -1,8 +1,11 @@
 import { Arguments } from 'yargs';
+import { prepareTx } from '../Command';
+import { stringify } from '../../Utils';
 import BuilderComponents from '../BuilderComponents';
+import { constructRefundTransaction } from '../../Core';
 
 export const command =
-  'refund <network> <privateKey> <timeoutBlockHeight> <redeemScript> <rawTransaction> <destinationAddress> [feePerVbyte]';
+  'refund <network> <privateKey> <timeoutBlockHeight> <redeemScript> <rawTransaction> <destinationAddress> [feePerVbyte] [blindingKey]';
 
 export const describe = 'refunds submarine or chain to chain swaps';
 
@@ -17,22 +20,22 @@ export const builder = {
   rawTransaction: BuilderComponents.rawTransaction,
   destinationAddress: BuilderComponents.destinationAddress,
   feePerVbyte: BuilderComponents.feePerVbyte,
+  blindingKey: BuilderComponents.blindingKey,
 };
 
-export const handler = (_argv: Arguments<any>): void => {
-  /*
+export const handler = async (argv: Arguments<any>): Promise<void> => {
   const {
-    type,
-    network,
     keys,
+    network,
+    walletStub,
     swapOutput,
     transaction,
     redeemScript,
     destinationAddress,
-  } = prepareTx(argv);
+  } = await prepareTx(argv);
 
   const refundTransaction = constructRefundTransaction(
-    type,
+    walletStub,
     [
       {
         ...swapOutput,
@@ -49,5 +52,4 @@ export const handler = (_argv: Arguments<any>): void => {
   ).toHex();
 
   console.log(stringify({ refundTransaction }));
-   */
 };

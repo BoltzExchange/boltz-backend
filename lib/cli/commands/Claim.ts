@@ -1,8 +1,8 @@
 import { Arguments } from 'yargs';
-import BuilderComponents from '../BuilderComponents';
 import { prepareTx } from '../Command';
+import BuilderComponents from '../BuilderComponents';
 import { getHexBuffer, stringify } from '../../Utils';
-import { constructClaimTransaction, toOutputScript } from '../../Core';
+import { constructClaimTransaction } from '../../Core';
 
 export const command =
   'claim <network> <preimage> <privateKey> <redeemScript> <rawTransaction> <destinationAddress> [feePerVbyte] [blindingKey]';
@@ -20,32 +20,22 @@ export const builder = {
     type: 'string',
   },
   feePerVbyte: BuilderComponents.feePerVbyte,
-  blindingKey: {
-    describe: 'Liquid blinding key for the HTLC address',
-    type: 'string',
-  },
+  blindingKey: BuilderComponents.blindingKey,
 };
 
 export const handler = async (argv: Arguments<any>): Promise<void> => {
   const {
     keys,
-    type,
     network,
+    walletStub,
     swapOutput,
-    blindingKey,
     transaction,
     redeemScript,
     destinationAddress,
   } = await prepareTx(argv);
 
   const claimTransaction = constructClaimTransaction(
-    {
-      type,
-      deriveBlindingKeyFromScript: () => ({
-        privateKey: blindingKey,
-      }),
-      decodeAddress: toOutputScript(type, argv.destinationAddress, network),
-    } as any,
+    walletStub,
     [
       {
         ...swapOutput,

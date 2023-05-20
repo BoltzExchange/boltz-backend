@@ -1133,14 +1133,18 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
       );
     }
 
-    await lightningCurrency.lndClient!.cancelInvoice(
-      getHexBuffer(reverseSwap.preimageHash),
-    );
-
-    if (reverseSwap.minerFeeInvoicePreimage) {
+    try {
       await lightningCurrency.lndClient!.cancelInvoice(
-        crypto.sha256(getHexBuffer(reverseSwap.minerFeeInvoicePreimage)),
+        getHexBuffer(reverseSwap.preimageHash),
       );
+
+      if (reverseSwap.minerFeeInvoicePreimage) {
+        await lightningCurrency.lndClient!.cancelInvoice(
+          crypto.sha256(getHexBuffer(reverseSwap.minerFeeInvoicePreimage)),
+        );
+      }
+    } catch (e) {
+      this.logger.debug(`Could not cancel invoices of reverse swap ${reverseSwap.id} because: ${formatError(e)}`);
     }
   };
 

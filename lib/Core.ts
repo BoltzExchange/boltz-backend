@@ -1,6 +1,13 @@
+import * as ecc from 'tiny-secp256k1';
 import zkp from '@vulpemventures/secp256k1-zkp';
 import { Network as NetworkLiquid } from 'liquidjs-lib/src/networks';
-import { address, Network, Transaction, TxOutput } from 'bitcoinjs-lib';
+import {
+  address,
+  Network,
+  TxOutput,
+  initEccLib,
+  Transaction,
+} from 'bitcoinjs-lib';
 import {
   address as addressLiquid,
   confidential,
@@ -45,6 +52,7 @@ let confi: confidential.Confidential;
 export const setup = async () => {
   const zkpLib = await zkp();
   confi = new confidential.Confidential(zkpLib);
+  initEccLib(ecc);
   prepareConfidential(zkpLib);
 };
 

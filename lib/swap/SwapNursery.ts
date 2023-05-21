@@ -1144,7 +1144,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
         );
       }
     } catch (e) {
-      this.logger.debug(`Could not cancel invoices of reverse swap ${reverseSwap.id} because: ${formatError(e)}`);
+      this.logger.debug(`Could not cancel invoices of Reverse Swap ${reverseSwap.id} because: ${formatError(e)}`);
     }
   };
 

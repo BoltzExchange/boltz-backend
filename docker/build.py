@@ -38,12 +38,12 @@ GOLANG_VERSION = BuildArgument(
     value="1.20.3-buster",
 )
 
-BITCOIN_VERSION = "24.0.1"
+BITCOIN_VERSION = "24.1"
 LITECOIN_VERSION = "0.21.2.2"
 ELEMENTS_VERSION = "22.1.1"
 GETH_VERSION = "1.11.6"
 
-C_LIGHTNING_VERSION = "23.02.2"
+C_LIGHTNING_VERSION = "23.05"
 ECLAIR_VERSION = "0.8.0"
 LND_VERSION = "0.16.2-beta"
 
@@ -99,7 +99,7 @@ IMAGES: dict[str, Image] = {
         ],
     ),
     "regtest": Image(
-        tags=["3.5.0"],
+        tags=["3.5.1"],
         arguments=[
             UBUNTU_VERSION,
             BITCOIN_BUILD_ARG,

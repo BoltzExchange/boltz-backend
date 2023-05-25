@@ -1003,17 +1003,21 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
     );
 
     const { lndClient } = this.currencies.get(lightningCurrency)!;
-    await lndClient!.settleInvoice(preimage);
+    try {
+      await lndClient!.settleInvoice(preimage);
 
-    this.logger.info(`Settled Reverse Swap ${reverseSwap.id}`);
+      this.logger.info(`Settled Reverse Swap ${reverseSwap.id}`);
 
-    this.emit(
-      'invoice.settled',
-      await ReverseSwapRepository.setInvoiceSettled(
-        reverseSwap,
-        getHexString(preimage),
-      ),
-    );
+      this.emit(
+        'invoice.settled',
+        await ReverseSwapRepository.setInvoiceSettled(
+          reverseSwap,
+          getHexString(preimage),
+        ),
+      );
+    } catch (e) {
+      this.logger.warn(`Could not settle invoice: ${formatError(e)}`);
+    }
   };
 
   private handleReverseSwapSendFailed = async (
@@ -1144,7 +1148,11 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
         );
       }
     } catch (e) {
-      this.logger.debug(`Could not cancel invoices of Reverse Swap ${reverseSwap.id} because: ${formatError(e)}`);
+      this.logger.debug(
+        `Could not cancel invoices of Reverse Swap ${
+          reverseSwap.id
+        } because: ${formatError(e)}`,
+      );
     }
   };
 

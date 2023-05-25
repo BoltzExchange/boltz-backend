@@ -24,8 +24,6 @@ import WalletManager, { Currency } from './wallet/WalletManager';
 import ChainTipRepository from './db/repositories/ChainTipRepository';
 import NotificationProvider from './notifications/NotificationProvider';
 
-// TODO: refunds
-
 class Boltz {
   private readonly logger: Logger;
   private readonly config: ConfigType;
@@ -54,8 +52,12 @@ class Boltz {
       this.logger.error(`Unhandled rejection: ${formatError(reason)}`);
     });
 
-    process.on('exit', () => {
-      this.logger.error('Application shutting down because:');
+    process.on('uncaughtException', (error) => {
+      this.logger.error(`Uncaught exception: ${formatError(error)}`);
+    });
+
+    process.on('exit', (code) => {
+      this.logger.error(`Application shutting down with code: ${code}`);
     });
 
     this.db = new Database(this.logger, this.config.dbpath);

@@ -79,7 +79,7 @@ class LndClient extends BaseClient implements LndClient {
   };
 
   private static readonly minPaymentFee = 21;
-  private static readonly paymentTimeout = 120;
+  private static readonly paymentTimeout = 300;
 
   private readonly uri!: string;
   private readonly maxPaymentFeeRatio!: number;

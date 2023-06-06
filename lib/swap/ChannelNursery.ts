@@ -13,11 +13,11 @@ import { ChannelCreationStatus, SwapUpdateEvent } from '../consts/Enums';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import {
   formatError,
-  splitPairId,
-  getHexString,
-  reverseBuffer,
   getChainCurrency,
+  getHexString,
   getLightningCurrency,
+  reverseBuffer,
+  splitPairId,
 } from '../Utils';
 
 interface ChannelNursery {
@@ -87,7 +87,11 @@ class ChannelNursery extends EventEmitter {
               const swap = await SwapRepository.getSwap({
                 id: channelCreation.swapId,
                 status: {
-                  [Op.not]: SwapUpdateEvent.SwapExpired,
+                  [Op.notIn]: [
+                    SwapUpdateEvent.SwapExpired,
+                    SwapUpdateEvent.InvoicePaid,
+                    SwapUpdateEvent.TransactionClaimed,
+                  ],
                 },
               });
 
@@ -273,9 +277,7 @@ class ChannelNursery extends EventEmitter {
       for (const channelToOpen of channelsToOpen) {
         const swap = await SwapRepository.getSwap({
           id: channelToOpen.swapId,
-          status: {
-            [Op.not]: SwapUpdateEvent.SwapExpired,
-          },
+          status: SwapUpdateEvent.InvoicePending,
         });
 
         if (!swap || !this.eligibleForChannel(swap!)) {

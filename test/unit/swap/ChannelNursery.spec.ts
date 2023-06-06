@@ -234,7 +234,11 @@ describe('ChannelNursery', () => {
     expect(mockGetSwap).toHaveBeenCalledWith({
       id: mockGetChannelCreationsResult[0].swapId,
       status: {
-        [Op.not]: SwapUpdateEvent.SwapExpired,
+        [Op.notIn]: [
+          SwapUpdateEvent.SwapExpired,
+          SwapUpdateEvent.InvoicePaid,
+          SwapUpdateEvent.TransactionClaimed,
+        ],
       },
     });
 
@@ -438,9 +442,7 @@ describe('ChannelNursery', () => {
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockGetSwap).toHaveBeenCalledWith({
       id: mockGetChannelCreationsResult[0].swapId,
-      status: {
-        [Op.not]: SwapUpdateEvent.SwapExpired,
-      },
+      status: SwapUpdateEvent.InvoicePending,
     });
 
     expect(mockListPeers).toHaveBeenCalledTimes(1);

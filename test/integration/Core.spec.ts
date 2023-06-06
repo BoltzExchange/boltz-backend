@@ -56,6 +56,14 @@ describe('Core', () => {
 
     await bitcoinClient.connect();
     await elementsClient.connect();
+
+    // To have a blinded output in the Elements wallet
+    await elementsClient.sendToAddress(
+      await elementsClient.getNewAddress(),
+      10 ** 8,
+    );
+
+    await Promise.all([bitcoinClient.generate(1), elementsClient.generate(1)]);
   });
 
   afterAll(async () => {

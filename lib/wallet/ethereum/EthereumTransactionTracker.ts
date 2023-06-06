@@ -10,7 +10,9 @@ class EthereumTransactionTracker {
   ) {}
 
   public init = async (): Promise<void> => {
-    this.logger.info(`Starting Ethereum transaction tracker for address: ${await this.wallet.getAddress()}`);
+    this.logger.info(
+      `Starting Ethereum transaction tracker for address: ${await this.wallet.getAddress()}`,
+    );
 
     await this.scanPendingTransactions();
   };
@@ -22,10 +24,14 @@ class EthereumTransactionTracker {
    */
   public scanPendingTransactions = async (): Promise<void> => {
     for (const transaction of await PendingEthereumTransactionRepository.getTransactions()) {
-      const receipt = await this.provider.getTransactionReceipt(transaction.hash);
+      const receipt = await this.provider.getTransactionReceipt(
+        transaction.hash,
+      );
 
       if (receipt && (await receipt.confirmations()) > 0) {
-        this.logger.silly(`Removing confirmed Ethereum transaction: ${transaction.hash}`);
+        this.logger.silly(
+          `Removing confirmed Ethereum transaction: ${transaction.hash}`,
+        );
         await transaction.destroy();
       }
     }

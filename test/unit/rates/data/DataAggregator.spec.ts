@@ -7,7 +7,7 @@ jest.mock('../../../../lib/rates/data/exchanges/Binance', () => {
   });
 });
 
-const mockedExchange = <jest.Mock<Binance>><any>Binance;
+const mockedExchange = <jest.Mock<Binance>>(<any>Binance);
 
 describe('DataAggregator', () => {
   const createExchange = (price: number, throwError = false) => {
@@ -29,18 +29,7 @@ describe('DataAggregator', () => {
   const baseAsset = 'LTC';
   const quoteAsset = 'BTC';
 
-  const prices = [
-    10,
-    2,
-    38,
-    23,
-    38,
-    23,
-    21,
-    16,
-    1000,
-    0,
-  ];
+  const prices = [10, 2, 38, 23, 38, 23, 21, 16, 1000, 0];
 
   const dataProvider = new DataAggregator();
 

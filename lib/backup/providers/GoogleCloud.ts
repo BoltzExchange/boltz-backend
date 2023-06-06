@@ -24,9 +24,11 @@ class GoogleCloud implements BackupProvider {
   }
 
   public static configValid = (config: GoogleCloudConfig): boolean => {
-    return config.email !== '' &&
+    return (
+      config.email !== '' &&
       config.privatekeypath !== '' &&
-      config.bucketname !== '';
+      config.bucketname !== ''
+    );
   };
 
   public uploadString = (path: string, data: string): Promise<void> => {

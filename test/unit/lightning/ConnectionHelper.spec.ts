@@ -21,11 +21,12 @@ jest.mock('../../../lib/lightning/LndClient', () => {
   }));
 });
 
-const MockedLndClient = <jest.Mock<LndClient>><any>LndClient;
+const MockedLndClient = <jest.Mock<LndClient>>(<any>LndClient);
 
 describe('ConnectionHelper', () => {
   const lndClient = new MockedLndClient();
-  const remotePublicKey = '0307ddfc30d0bbe50c52efcf05e6946dd1822854ca0c3edad73dc07fd88a8db1a0';
+  const remotePublicKey =
+    '0307ddfc30d0bbe50c52efcf05e6946dd1822854ca0c3edad73dc07fd88a8db1a0';
 
   const connectionHelper = new ConnectionHelper(Logger.disabledLogger);
 
@@ -57,7 +58,9 @@ describe('ConnectionHelper', () => {
 
     // No node info at all
     mockGetNodeInfoResult = {};
-    await expect(connectionHelper.connectByPublicKey(lndClient, remotePublicKey)).rejects.toEqual(expectedError);
+    await expect(
+      connectionHelper.connectByPublicKey(lndClient, remotePublicKey),
+    ).rejects.toEqual(expectedError);
 
     // No publicly advertised addresses
     mockGetNodeInfoResult = {
@@ -65,7 +68,9 @@ describe('ConnectionHelper', () => {
         addressesList: [],
       },
     };
-    await expect(connectionHelper.connectByPublicKey(lndClient, remotePublicKey)).rejects.toEqual(expectedError);
+    await expect(
+      connectionHelper.connectByPublicKey(lndClient, remotePublicKey),
+    ).rejects.toEqual(expectedError);
   });
 
   test('should throw when connecting to all addresses fails', async () => {
@@ -79,12 +84,12 @@ describe('ConnectionHelper', () => {
             addr: '1.1.1.1',
           },
         ],
-      }
+      },
     };
     mockConnectPeerThrows = true;
 
-    await expect(connectionHelper.connectByPublicKey(lndClient, remotePublicKey)).rejects.toEqual(
-      'could not connect to any of the advertised addresses',
-    );
+    await expect(
+      connectionHelper.connectByPublicKey(lndClient, remotePublicKey),
+    ).rejects.toEqual('could not connect to any of the advertised addresses');
   });
 });

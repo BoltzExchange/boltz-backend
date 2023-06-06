@@ -11,7 +11,7 @@ export const randomRange = (max: number): number => {
 };
 
 export const wait = (ms: number): Promise<void> => {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 };
 
 export const waitForFunctionToBeTrue = (func: () => boolean): Promise<void> => {
@@ -25,7 +25,9 @@ export const waitForFunctionToBeTrue = (func: () => boolean): Promise<void> => {
   });
 };
 
-export const generateAddress = (outputType: OutputType): { outputScript: Buffer, address: string } => {
+export const generateAddress = (
+  outputType: OutputType,
+): { outputScript: Buffer; address: string } => {
   const keys = ECPair.makeRandom({ network: Networks.bitcoinRegtest });
   const encodeFunction = getPubkeyHashFunction(outputType);
 
@@ -37,7 +39,11 @@ export const generateAddress = (outputType: OutputType): { outputScript: Buffer,
   };
 };
 
-export const constructTransaction = (rbf: boolean, input: string, outputAmount = 1): Transaction => {
+export const constructTransaction = (
+  rbf: boolean,
+  input: string,
+  outputAmount = 1,
+): Transaction => {
   const { outputScript } = generateAddress(OutputType.Bech32);
   const keys = ECPair.makeRandom({ network: Networks.bitcoinRegtest });
 
@@ -48,7 +54,7 @@ export const constructTransaction = (rbf: boolean, input: string, outputAmount =
   psbt.addInput({
     hash: input,
     index: 0,
-    sequence: rbf  ? 0xfffffffd : 0xffffffff,
+    sequence: rbf ? 0xfffffffd : 0xffffffff,
     witnessUtxo: {
       value: outputAmount + 1,
       script: Scripts.p2wpkhOutput(crypto.hash160(keys.publicKey)),

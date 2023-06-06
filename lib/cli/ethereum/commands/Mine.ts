@@ -3,7 +3,8 @@ import { connectEthereum } from '../EthereumUtils';
 
 export const command = 'mine <blocks>';
 
-export const describe = 'mines the specified number of blocks on the Ganache chain';
+export const describe =
+  'mines the specified number of blocks on the Ganache chain';
 
 export const builder = {
   blocks: {

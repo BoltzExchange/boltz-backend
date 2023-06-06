@@ -2,7 +2,7 @@ import Logger from '../Logger';
 import { Emojis } from './Markup';
 import Service from '../service/Service';
 import { CurrencyConfig, TokenConfig } from '../Config';
-import DiscordClient  from './DiscordClient';
+import DiscordClient from './DiscordClient';
 import { Balance } from '../proto/boltzrpc_pb';
 import { satoshisToCoins } from '../DenominationConverter';
 
@@ -43,7 +43,10 @@ class BalanceChecker {
   }
 
   public check = async (): Promise<void> => {
-    const balances = (await this.service.getBalance()).getBalancesMap() as Map<string, Balance>;
+    const balances = (await this.service.getBalance()).getBalancesMap() as Map<
+      string,
+      Balance
+    >;
 
     for (const currency of this.currencies) {
       const balance = balances.get(currency.symbol);
@@ -54,7 +57,10 @@ class BalanceChecker {
     }
   };
 
-  private checkCurrency = async (currency: CurrenyThresholds, balance: Balance.AsObject) => {
+  private checkCurrency = async (
+    currency: CurrenyThresholds,
+    balance: Balance.AsObject,
+  ) => {
     const walletBalance = balance.walletBalance;
 
     if (walletBalance) {
@@ -82,7 +88,11 @@ class BalanceChecker {
     }
   };
 
-  private checkBalance = async (currency: CurrenyThresholds, type: BalanceType, balance: number) => {
+  private checkBalance = async (
+    currency: CurrenyThresholds,
+    type: BalanceType,
+    balance: number,
+  ) => {
     let isInBounds: boolean;
     let notificationSet: Set<string>;
 
@@ -91,15 +101,19 @@ class BalanceChecker {
 
       const { minWalletBalance, maxWalletBalance } = currency;
 
-      isInBounds = minWalletBalance <= balance && balance <= (maxWalletBalance || Number.MAX_SAFE_INTEGER);
+      isInBounds =
+        minWalletBalance <= balance &&
+        balance <= (maxWalletBalance || Number.MAX_SAFE_INTEGER);
     } else {
-      notificationSet = type === BalanceType.ChannelLocal ?
-        this.localBalanceAlerts :
-        this.remoteBalanceAlerts;
+      notificationSet =
+        type === BalanceType.ChannelLocal
+          ? this.localBalanceAlerts
+          : this.remoteBalanceAlerts;
 
-      const minThreshold = type === BalanceType.ChannelLocal ?
-        currency.minLocalBalance :
-        currency.minRemoteBalance;
+      const minThreshold =
+        type === BalanceType.ChannelLocal
+          ? currency.minLocalBalance
+          : currency.minRemoteBalance;
 
       isInBounds = minThreshold! <= balance;
     }
@@ -117,27 +131,55 @@ class BalanceChecker {
     }
   };
 
-  private sendAlert = async (currency: CurrenyThresholds, type: BalanceType, isInBounds: boolean, balance: number) => {
+  private sendAlert = async (
+    currency: CurrenyThresholds,
+    type: BalanceType,
+    isInBounds: boolean,
+    balance: number,
+  ) => {
     let message: string;
 
     if (isInBounds) {
       if (type === BalanceType.Wallet) {
-        message = `${Emojis.Checkmark} ${currency.symbol} wallet balance of ${satoshisToCoins(balance)} is in bounds again ${Emojis.Checkmark}`;
+        message = `${Emojis.Checkmark} ${
+          currency.symbol
+        } wallet balance of ${satoshisToCoins(balance)} is in bounds again ${
+          Emojis.Checkmark
+        }`;
       } else {
-        message = `${Emojis.Checkmark} ${currency.symbol} ${type === BalanceType.ChannelLocal ? 'local' : 'remote'} channel balance ` +
+        message =
+          `${Emojis.Checkmark} ${currency.symbol} ${
+            type === BalanceType.ChannelLocal ? 'local' : 'remote'
+          } channel balance ` +
           `of ${satoshisToCoins(balance)} is more than expected ` +
-          `${satoshisToCoins(type === BalanceType.ChannelLocal ? currency.minLocalBalance! : currency.minRemoteBalance!)} again ${Emojis.Checkmark}`;
+          `${satoshisToCoins(
+            type === BalanceType.ChannelLocal
+              ? currency.minLocalBalance!
+              : currency.minRemoteBalance!,
+          )} again ${Emojis.Checkmark}`;
       }
     } else {
       if (type === BalanceType.Wallet) {
-        message = `${Emojis.RotatingLight} **${currency.symbol} wallet balance is out of bounds** ${Emojis.RotatingLight}\n` +
+        message =
+          `${Emojis.RotatingLight} **${currency.symbol} wallet balance is out of bounds** ${Emojis.RotatingLight}\n` +
           `  Balance: ${satoshisToCoins(balance)}\n` +
-          `${currency.maxWalletBalance ? `    Max: ${satoshisToCoins(currency.maxWalletBalance)}\n` : ''}` +
+          `${
+            currency.maxWalletBalance
+              ? `    Max: ${satoshisToCoins(currency.maxWalletBalance)}\n`
+              : ''
+          }` +
           `    Min: ${satoshisToCoins(currency.minWalletBalance)}`;
       } else {
-        message = `${Emojis.RotatingLight} **${currency.symbol} ${type === BalanceType.ChannelLocal ? 'local' : 'remote'} channel balance ` +
+        message =
+          `${Emojis.RotatingLight} **${currency.symbol} ${
+            type === BalanceType.ChannelLocal ? 'local' : 'remote'
+          } channel balance ` +
           `of ${satoshisToCoins(balance)} is less than expected ` +
-          `${satoshisToCoins(type === BalanceType.ChannelLocal ? currency.minLocalBalance! : currency.minRemoteBalance!)}** ${Emojis.RotatingLight}`;
+          `${satoshisToCoins(
+            type === BalanceType.ChannelLocal
+              ? currency.minLocalBalance!
+              : currency.minRemoteBalance!,
+          )}** ${Emojis.RotatingLight}`;
       }
     }
 

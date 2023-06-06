@@ -12,21 +12,37 @@ import DiscordClient from '../../../lib/notifications/DiscordClient';
 import { satoshisToCoins } from '../../../lib/DenominationConverter';
 import ChannelCreation from '../../../lib/db/models/ChannelCreation';
 import NotificationProvider from '../../../lib/notifications/NotificationProvider';
-import { swapExample, reverseSwapExample, channelCreationExample } from './ExampleSwaps';
+import {
+  swapExample,
+  reverseSwapExample,
+  channelCreationExample,
+} from './ExampleSwaps';
 
-type successCallback = (swap: Swap | ReverseSwap, isReverse: boolean, channelCreation?: ChannelCreation) => void;
-type failureCallback = (swap: Swap | ReverseSwap, isReverse: boolean, reason: string) => void;
+type successCallback = (
+  swap: Swap | ReverseSwap,
+  isReverse: boolean,
+  channelCreation?: ChannelCreation,
+) => void;
+type failureCallback = (
+  swap: Swap | ReverseSwap,
+  isReverse: boolean,
+  reason: string,
+) => void;
 
 let emitSwapSuccess: successCallback;
 let emitSwapFailure: failureCallback;
 
-const mockGetInfo = jest.fn().mockImplementation(() => Promise.resolve({
-  getChainsMap: () => [],
-}));
+const mockGetInfo = jest.fn().mockImplementation(() =>
+  Promise.resolve({
+    getChainsMap: () => [],
+  }),
+);
 
-const mockGetBalance = jest.fn().mockImplementation(() => Promise.resolve({
-  getBalancesMap: () => {},
-}));
+const mockGetBalance = jest.fn().mockImplementation(() =>
+  Promise.resolve({
+    getBalancesMap: () => {},
+  }),
+);
 
 jest.mock('../../../lib/service/Service', () => {
   return jest.fn().mockImplementation(() => {
@@ -50,7 +66,7 @@ jest.mock('../../../lib/service/Service', () => {
   });
 });
 
-const mockedService = <jest.Mock<Service>><any>Service;
+const mockedService = <jest.Mock<Service>>(<any>Service);
 
 jest.mock('../../../lib/backup/BackupScheduler', () => {
   return jest.fn().mockImplementation(() => {
@@ -58,7 +74,9 @@ jest.mock('../../../lib/backup/BackupScheduler', () => {
   });
 });
 
-const mockedBackupScheduler = <jest.Mock<BackupScheduler>><any>BackupScheduler;
+const mockedBackupScheduler = <jest.Mock<BackupScheduler>>(
+  (<any>BackupScheduler)
+);
 
 const mockSendMessage = jest.fn().mockImplementation(async () => {});
 
@@ -72,7 +90,7 @@ jest.mock('../../../lib/notifications/DiscordClient', () => {
   });
 });
 
-const mockedDiscordClient = <jest.Mock<DiscordClient>><any>DiscordClient;
+const mockedDiscordClient = <jest.Mock<DiscordClient>>(<any>DiscordClient);
 
 describe('NotificationProvider', () => {
   const swap = {
@@ -127,15 +145,17 @@ describe('NotificationProvider', () => {
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(
       '**Swap BTC -> LTC :zap:**\n' +
-      `ID: ${swap.id}\n` +
-      `Pair: ${swap.pair}\n` +
-      'Order side: buy\n' +
-      `Onchain amount: ${satoshisToCoins(swap.onchainAmount!)} BTC\n` +
-      `Lightning amount: ${satoshisToCoins(decodeInvoice(swap.invoice!).satoshis)} LTC\n` +
-      `Fees earned: ${satoshisToCoins(swap.fee!)} BTC\n` +
-      `Miner fees: ${satoshisToCoins(swap.minerFee!)} BTC\n` +
-      `Routing fees: ${swap.routingFee! / 1000} litoshi` +
-      NotificationProvider['trailingWhitespace'],
+        `ID: ${swap.id}\n` +
+        `Pair: ${swap.pair}\n` +
+        'Order side: buy\n' +
+        `Onchain amount: ${satoshisToCoins(swap.onchainAmount!)} BTC\n` +
+        `Lightning amount: ${satoshisToCoins(
+          decodeInvoice(swap.invoice!).satoshis,
+        )} LTC\n` +
+        `Fees earned: ${satoshisToCoins(swap.fee!)} BTC\n` +
+        `Miner fees: ${satoshisToCoins(swap.minerFee!)} BTC\n` +
+        `Routing fees: ${swap.routingFee! / 1000} litoshi` +
+        NotificationProvider['trailingWhitespace'],
     );
   });
 
@@ -148,13 +168,15 @@ describe('NotificationProvider', () => {
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(
       `**Swap BTC -> LTC :zap: failed: ${failureReason}**\n` +
-      `ID: ${swap.id}\n` +
-      `Pair: ${swap.pair}\n` +
-      'Order side: buy\n' +
-      `Onchain amount: ${satoshisToCoins(swap.onchainAmount!)} BTC\n` +
-      `Lightning amount: ${satoshisToCoins(decodeInvoice(swap.invoice!).satoshis)} LTC\n` +
-      `Invoice: ${swap.invoice}` +
-      NotificationProvider['trailingWhitespace'],
+        `ID: ${swap.id}\n` +
+        `Pair: ${swap.pair}\n` +
+        'Order side: buy\n' +
+        `Onchain amount: ${satoshisToCoins(swap.onchainAmount!)} BTC\n` +
+        `Lightning amount: ${satoshisToCoins(
+          decodeInvoice(swap.invoice!).satoshis,
+        )} LTC\n` +
+        `Invoice: ${swap.invoice}` +
+        NotificationProvider['trailingWhitespace'],
     );
   });
 
@@ -165,14 +187,16 @@ describe('NotificationProvider', () => {
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(
       '**Swap LTC :zap: -> BTC**\n' +
-      `ID: ${reverseSwap.id}\n` +
-      `Pair: ${reverseSwap.pair}\n` +
-      'Order side: sell\n' +
-      `Onchain amount: ${satoshisToCoins(reverseSwap.onchainAmount!)} BTC\n` +
-      `Lightning amount: ${satoshisToCoins(decodeInvoice(reverseSwap.invoice).satoshis)} LTC\n` +
-      `Fees earned: ${satoshisToCoins(reverseSwap.fee)} BTC\n` +
-      `Miner fees: ${satoshisToCoins(reverseSwap.minerFee!)} BTC` +
-      NotificationProvider['trailingWhitespace'],
+        `ID: ${reverseSwap.id}\n` +
+        `Pair: ${reverseSwap.pair}\n` +
+        'Order side: sell\n' +
+        `Onchain amount: ${satoshisToCoins(reverseSwap.onchainAmount!)} BTC\n` +
+        `Lightning amount: ${satoshisToCoins(
+          decodeInvoice(reverseSwap.invoice).satoshis,
+        )} LTC\n` +
+        `Fees earned: ${satoshisToCoins(reverseSwap.fee)} BTC\n` +
+        `Miner fees: ${satoshisToCoins(reverseSwap.minerFee!)} BTC` +
+        NotificationProvider['trailingWhitespace'],
     );
   });
 
@@ -183,32 +207,42 @@ describe('NotificationProvider', () => {
     await wait(5);
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
-    expect(mockSendMessage).toHaveBeenNthCalledWith(1,
+    expect(mockSendMessage).toHaveBeenNthCalledWith(
+      1,
       `**Swap LTC :zap: -> BTC failed: ${failureReason}**\n` +
-      `ID: ${reverseSwap.id}\n` +
-      `Pair: ${reverseSwap.pair}\n` +
-      'Order side: sell\n' +
-      `Onchain amount: ${satoshisToCoins(reverseSwap.onchainAmount!)} BTC\n` +
-      `Lightning amount: ${satoshisToCoins(decodeInvoice(reverseSwap.invoice).satoshis)} LTC\n` +
-      `Miner fees: ${satoshisToCoins(reverseSwap.minerFee)} BTC` +
-      NotificationProvider['trailingWhitespace'],
+        `ID: ${reverseSwap.id}\n` +
+        `Pair: ${reverseSwap.pair}\n` +
+        'Order side: sell\n' +
+        `Onchain amount: ${satoshisToCoins(reverseSwap.onchainAmount!)} BTC\n` +
+        `Lightning amount: ${satoshisToCoins(
+          decodeInvoice(reverseSwap.invoice).satoshis,
+        )} LTC\n` +
+        `Miner fees: ${satoshisToCoins(reverseSwap.minerFee)} BTC` +
+        NotificationProvider['trailingWhitespace'],
     );
 
-    emitSwapFailure({
-      ...reverseSwap,
-      minerFee: undefined,
-    } as any as ReverseSwap, true, failureReason);
+    emitSwapFailure(
+      {
+        ...reverseSwap,
+        minerFee: undefined,
+      } as any as ReverseSwap,
+      true,
+      failureReason,
+    );
     await wait(5);
 
     expect(mockSendMessage).toHaveBeenCalledTimes(2);
-    expect(mockSendMessage).toHaveBeenNthCalledWith(2,
+    expect(mockSendMessage).toHaveBeenNthCalledWith(
+      2,
       `**Swap LTC :zap: -> BTC failed: ${failureReason}**\n` +
-      `ID: ${reverseSwap.id}\n` +
-      `Pair: ${reverseSwap.pair}\n` +
-      'Order side: sell\n' +
-      `Onchain amount: ${satoshisToCoins(reverseSwap.onchainAmount!)} BTC\n` +
-      `Lightning amount: ${satoshisToCoins(decodeInvoice(reverseSwap.invoice).satoshis)} LTC` +
-      NotificationProvider['trailingWhitespace'],
+        `ID: ${reverseSwap.id}\n` +
+        `Pair: ${reverseSwap.pair}\n` +
+        'Order side: sell\n' +
+        `Onchain amount: ${satoshisToCoins(reverseSwap.onchainAmount!)} BTC\n` +
+        `Lightning amount: ${satoshisToCoins(
+          decodeInvoice(reverseSwap.invoice).satoshis,
+        )} LTC` +
+        NotificationProvider['trailingWhitespace'],
     );
   });
 
@@ -219,20 +253,22 @@ describe('NotificationProvider', () => {
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(
       '**Swap BTC -> LTC :zap: :construction_site:**\n' +
-      `ID: ${swap.id}\n` +
-      `Pair: ${swap.pair}\n` +
-      'Order side: buy\n' +
-      `Onchain amount: ${satoshisToCoins(swap.onchainAmount!)} BTC\n` +
-      `Lightning amount: ${satoshisToCoins(decodeInvoice(swap.invoice!).satoshis)} LTC\n` +
-      `Fees earned: ${satoshisToCoins(swap.fee!)} BTC\n` +
-      `Miner fees: ${satoshisToCoins(swap.minerFee!)} BTC\n` +
-      `Routing fees: ${swap.routingFee! / 1000} litoshi\n\n` +
-      '**Channel Creation:**\n' +
-      `Private: ${channelCreation.private}\n` +
-      `Inbound: ${channelCreation.inboundLiquidity}%\n` +
-      `Node: ${channelCreation.nodePublicKey}\n` +
-      `Funding: ${channelCreation.fundingTransactionId}:${channelCreation.fundingTransactionVout}` +
-      NotificationProvider['trailingWhitespace'],
+        `ID: ${swap.id}\n` +
+        `Pair: ${swap.pair}\n` +
+        'Order side: buy\n' +
+        `Onchain amount: ${satoshisToCoins(swap.onchainAmount!)} BTC\n` +
+        `Lightning amount: ${satoshisToCoins(
+          decodeInvoice(swap.invoice!).satoshis,
+        )} LTC\n` +
+        `Fees earned: ${satoshisToCoins(swap.fee!)} BTC\n` +
+        `Miner fees: ${satoshisToCoins(swap.minerFee!)} BTC\n` +
+        `Routing fees: ${swap.routingFee! / 1000} litoshi\n\n` +
+        '**Channel Creation:**\n' +
+        `Private: ${channelCreation.private}\n` +
+        `Inbound: ${channelCreation.inboundLiquidity}%\n` +
+        `Node: ${channelCreation.nodePublicKey}\n` +
+        `Funding: ${channelCreation.fundingTransactionId}:${channelCreation.fundingTransactionVout}` +
+        NotificationProvider['trailingWhitespace'],
     );
 
     // Should skip the Channel Creation part in case no channel was opened
@@ -244,34 +280,41 @@ describe('NotificationProvider', () => {
     await wait(5);
 
     expect(mockSendMessage).toHaveBeenCalledTimes(2);
-    expect(mockSendMessage).toHaveBeenNthCalledWith(2,
+    expect(mockSendMessage).toHaveBeenNthCalledWith(
+      2,
       '**Swap BTC -> LTC :zap:**\n' +
-      `ID: ${swap.id}\n` +
-      `Pair: ${swap.pair}\n` +
-      'Order side: buy\n' +
-      `Onchain amount: ${satoshisToCoins(swap.onchainAmount!)} BTC\n` +
-      `Lightning amount: ${satoshisToCoins(decodeInvoice(swap.invoice!).satoshis)} LTC\n` +
-      `Fees earned: ${satoshisToCoins(swap.fee!)} BTC\n` +
-      `Miner fees: ${satoshisToCoins(swap.minerFee!)} BTC\n` +
-      `Routing fees: ${swap.routingFee! / 1000} litoshi` +
-      NotificationProvider['trailingWhitespace'],
+        `ID: ${swap.id}\n` +
+        `Pair: ${swap.pair}\n` +
+        'Order side: buy\n' +
+        `Onchain amount: ${satoshisToCoins(swap.onchainAmount!)} BTC\n` +
+        `Lightning amount: ${satoshisToCoins(
+          decodeInvoice(swap.invoice!).satoshis,
+        )} LTC\n` +
+        `Fees earned: ${satoshisToCoins(swap.fee!)} BTC\n` +
+        `Miner fees: ${satoshisToCoins(swap.minerFee!)} BTC\n` +
+        `Routing fees: ${swap.routingFee! / 1000} litoshi` +
+        NotificationProvider['trailingWhitespace'],
     );
   });
 
   test('should format failed swaps with no invoice', () => {
     const failureReason = 'because';
-    emitSwapFailure({
-      ...swap,
-      invoice: undefined,
-    } as Swap, false, failureReason);
+    emitSwapFailure(
+      {
+        ...swap,
+        invoice: undefined,
+      } as Swap,
+      false,
+      failureReason,
+    );
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(
       '**Swap BTC -> LTC :zap: failed: because**\n' +
-      'ID: 123456\n' +
-      'Pair: LTC/BTC\n' +
-      'Order side: buy\n' +
-      '** **',
+        'ID: 123456\n' +
+        'Pair: LTC/BTC\n' +
+        'Order side: buy\n' +
+        '** **',
     );
   });
 

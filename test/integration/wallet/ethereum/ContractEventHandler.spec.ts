@@ -52,88 +52,106 @@ describe('ContractEventHandler', () => {
   };
 
   const registerEtherSwapListeners = () => {
-    contractEventHandler.once('eth.lockup', async (transactionHash, emittedEtherSwapValues) => {
-      await waitForFunctionToBeTrue(() => {
-        return etherSwapTransactionHashes.lockup !== '';
-      });
+    contractEventHandler.once(
+      'eth.lockup',
+      async (transactionHash, emittedEtherSwapValues) => {
+        await waitForFunctionToBeTrue(() => {
+          return etherSwapTransactionHashes.lockup !== '';
+        });
 
-      expect(transactionHash).toEqual(etherSwapTransactionHashes.lockup);
-      expect(emittedEtherSwapValues).toEqual({
-        preimageHash,
-        amount: etherSwapValues.amount,
-        timelock: etherSwapValues.timelock,
-        refundAddress: await setup.signer.getAddress(),
-        claimAddress: etherSwapValues.claimAddress,
-      });
+        expect(transactionHash).toEqual(etherSwapTransactionHashes.lockup);
+        expect(emittedEtherSwapValues).toEqual({
+          preimageHash,
+          amount: etherSwapValues.amount,
+          timelock: etherSwapValues.timelock,
+          refundAddress: await setup.signer.getAddress(),
+          claimAddress: etherSwapValues.claimAddress,
+        });
 
-      eventsEmitted += 1;
-    });
+        eventsEmitted += 1;
+      },
+    );
 
-    contractEventHandler.once('eth.claim', async (transactionHash, emittedPreimageHash, emittedPreimage) => {
-      await waitForFunctionToBeTrue(() => {
-        return etherSwapTransactionHashes.claim !== '';
-      });
+    contractEventHandler.once(
+      'eth.claim',
+      async (transactionHash, emittedPreimageHash, emittedPreimage) => {
+        await waitForFunctionToBeTrue(() => {
+          return etherSwapTransactionHashes.claim !== '';
+        });
 
-      expect(transactionHash).toEqual(etherSwapTransactionHashes.claim);
-      expect(emittedPreimageHash).toEqual(preimageHash);
-      expect(preimage).toEqual(emittedPreimage);
+        expect(transactionHash).toEqual(etherSwapTransactionHashes.claim);
+        expect(emittedPreimageHash).toEqual(preimageHash);
+        expect(preimage).toEqual(emittedPreimage);
 
-      eventsEmitted += 1;
-    });
+        eventsEmitted += 1;
+      },
+    );
 
-    contractEventHandler.once('eth.refund', async (transactionHash, emittedPreimageHash) => {
-      await waitForFunctionToBeTrue(() => {
-        return etherSwapTransactionHashes.refund !== '';
-      });
+    contractEventHandler.once(
+      'eth.refund',
+      async (transactionHash, emittedPreimageHash) => {
+        await waitForFunctionToBeTrue(() => {
+          return etherSwapTransactionHashes.refund !== '';
+        });
 
-      expect(transactionHash).toEqual(etherSwapTransactionHashes.refund);
-      expect(emittedPreimageHash).toEqual(preimageHash);
+        expect(transactionHash).toEqual(etherSwapTransactionHashes.refund);
+        expect(emittedPreimageHash).toEqual(preimageHash);
 
-      eventsEmitted += 1;
-    });
+        eventsEmitted += 1;
+      },
+    );
   };
 
   const registerErc20SwapListeners = () => {
-    contractEventHandler.once('erc20.lockup', async (transactionHash, emittedErc20SwapValues) => {
-      await waitForFunctionToBeTrue(() => {
-        return erc20SwapTransactionHashes.lockup !== '';
-      });
+    contractEventHandler.once(
+      'erc20.lockup',
+      async (transactionHash, emittedErc20SwapValues) => {
+        await waitForFunctionToBeTrue(() => {
+          return erc20SwapTransactionHashes.lockup !== '';
+        });
 
-      expect(transactionHash).toEqual(erc20SwapTransactionHashes.lockup);
-      expect(emittedErc20SwapValues).toEqual({
-        preimageHash,
-        amount: erc20SwapValues.amount,
-        timelock: erc20SwapValues.timelock,
-        tokenAddress: await tokenContract.getAddress(),
-        refundAddress: await setup.signer.getAddress(),
-        claimAddress: erc20SwapValues.claimAddress,
-      });
+        expect(transactionHash).toEqual(erc20SwapTransactionHashes.lockup);
+        expect(emittedErc20SwapValues).toEqual({
+          preimageHash,
+          amount: erc20SwapValues.amount,
+          timelock: erc20SwapValues.timelock,
+          tokenAddress: await tokenContract.getAddress(),
+          refundAddress: await setup.signer.getAddress(),
+          claimAddress: erc20SwapValues.claimAddress,
+        });
 
-      eventsEmitted += 1;
-    });
+        eventsEmitted += 1;
+      },
+    );
 
-    contractEventHandler.once('erc20.claim', async (transactionHash, emittedPreimageHash, emittedPreimage) => {
-      await waitForFunctionToBeTrue(() => {
-        return erc20SwapTransactionHashes.claim !== '';
-      });
+    contractEventHandler.once(
+      'erc20.claim',
+      async (transactionHash, emittedPreimageHash, emittedPreimage) => {
+        await waitForFunctionToBeTrue(() => {
+          return erc20SwapTransactionHashes.claim !== '';
+        });
 
-      expect(transactionHash).toEqual(erc20SwapTransactionHashes.claim);
-      expect(preimage).toEqual(emittedPreimage);
-      expect(emittedPreimageHash).toEqual(preimageHash);
+        expect(transactionHash).toEqual(erc20SwapTransactionHashes.claim);
+        expect(preimage).toEqual(emittedPreimage);
+        expect(emittedPreimageHash).toEqual(preimageHash);
 
-      eventsEmitted += 1;
-    });
+        eventsEmitted += 1;
+      },
+    );
 
-    contractEventHandler.once('erc20.refund', async (transactionHash, emittedPreimageHash) => {
-      await waitForFunctionToBeTrue(() => {
-        return erc20SwapTransactionHashes.refund !== '';
-      });
+    contractEventHandler.once(
+      'erc20.refund',
+      async (transactionHash, emittedPreimageHash) => {
+        await waitForFunctionToBeTrue(() => {
+          return erc20SwapTransactionHashes.refund !== '';
+        });
 
-      expect(transactionHash).toEqual(erc20SwapTransactionHashes.refund);
-      expect(emittedPreimageHash).toEqual(preimageHash);
+        expect(transactionHash).toEqual(erc20SwapTransactionHashes.refund);
+        expect(emittedPreimageHash).toEqual(preimageHash);
 
-      eventsEmitted += 1;
-    });
+        eventsEmitted += 1;
+      },
+    );
   };
 
   beforeAll(async () => {
@@ -146,7 +164,7 @@ describe('ContractEventHandler', () => {
 
     erc20SwapValues.tokenAddress = await tokenContract.getAddress();
 
-    startingHeight = await setup.provider.getBlockNumber() + 1;
+    startingHeight = (await setup.provider.getBlockNumber()) + 1;
 
     etherSwapValues.claimAddress = await setup.etherBase.getAddress();
     erc20SwapValues.claimAddress = await setup.etherBase.getAddress();
@@ -159,19 +177,21 @@ describe('ContractEventHandler', () => {
   });
 
   test('should init', async () => {
-    await contractEventHandler.init(
-      etherSwap,
-      erc20Swap,
-    );
+    await contractEventHandler.init(etherSwap, erc20Swap);
   });
 
   test('should subscribe to the Ethereum Swap contract events', async () => {
     registerEtherSwapListeners();
 
     // Lockup
-    let lockupTransaction = await etherSwap.lock(preimageHash, etherSwapValues.claimAddress, etherSwapValues.timelock, {
-      value: etherSwapValues.amount,
-    });
+    let lockupTransaction = await etherSwap.lock(
+      preimageHash,
+      etherSwapValues.claimAddress,
+      etherSwapValues.timelock,
+      {
+        value: etherSwapValues.amount,
+      },
+    );
     etherSwapTransactionHashes.lockup = lockupTransaction.hash;
 
     await lockupTransaction.wait(1);
@@ -181,7 +201,9 @@ describe('ContractEventHandler', () => {
     });
 
     // Claim
-    const claimTransaction = await (etherSwap.connect(setup.etherBase) as EtherSwap).claim(
+    const claimTransaction = await (
+      etherSwap.connect(setup.etherBase) as EtherSwap
+    ).claim(
       preimage,
       etherSwapValues.amount,
       await setup.signer.getAddress(),
@@ -196,9 +218,14 @@ describe('ContractEventHandler', () => {
     });
 
     // Refund
-    lockupTransaction = await etherSwap.lock(preimageHash, etherSwapValues.claimAddress, etherSwapValues.timelock, {
-      value: etherSwapValues.amount,
-    });
+    lockupTransaction = await etherSwap.lock(
+      preimageHash,
+      etherSwapValues.claimAddress,
+      etherSwapValues.timelock,
+      {
+        value: etherSwapValues.amount,
+      },
+    );
 
     await lockupTransaction.wait(1);
 
@@ -220,7 +247,9 @@ describe('ContractEventHandler', () => {
   test('should subscribe to the ERC20 Swap contract events', async () => {
     registerErc20SwapListeners();
 
-    await (await tokenContract.approve(await erc20Swap.getAddress(), MaxUint256)).wait(1);
+    await (
+      await tokenContract.approve(await erc20Swap.getAddress(), MaxUint256)
+    ).wait(1);
 
     // Lockup
     let lockupTransaction = await erc20Swap.lock(
@@ -239,7 +268,9 @@ describe('ContractEventHandler', () => {
     });
 
     // Claim
-    const claimTransaction = await (erc20Swap.connect(setup.etherBase) as ERC20Swap).claim(
+    const claimTransaction = await (
+      erc20Swap.connect(setup.etherBase) as ERC20Swap
+    ).claim(
       preimage,
       erc20SwapValues.amount,
       erc20SwapValues.tokenAddress,

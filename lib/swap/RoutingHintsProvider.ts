@@ -6,7 +6,7 @@ import { Channel, ChannelEdge, HopHint, RouteHint } from '../proto/lnd/rpc_pb';
 type ChannelWithRoutingInfo = {
   channel: Channel.AsObject;
   routingInfo: ChannelEdge.AsObject;
-}
+};
 
 class RoutingHintsProvider {
   // How often the channel lists should be updated in minutes
@@ -16,20 +16,23 @@ class RoutingHintsProvider {
 
   private channels = new Map<string, ChannelWithRoutingInfo[]>();
 
-  constructor(
-    private logger: Logger,
-    private lndClients: LndClient[],
-  ) {
+  constructor(private logger: Logger, private lndClients: LndClient[]) {
     const lndSymbols: string[] = [];
     this.lndClients.forEach((client) => lndSymbols.push(client.symbol));
 
-    this.logger.debug(`Initializing routing hints provider for LND clients: ${lndSymbols.join(', ')}`);
+    this.logger.debug(
+      `Initializing routing hints provider for LND clients: ${lndSymbols.join(
+        ', ',
+      )}`,
+    );
   }
 
   public start = async (): Promise<void> => {
     await this.updateChannels();
 
-    this.logger.debug(`Fetching channels for routing hints provider every ${RoutingHintsProvider.channelFetchInterval} minutes`);
+    this.logger.debug(
+      `Fetching channels for routing hints provider every ${RoutingHintsProvider.channelFetchInterval} minutes`,
+    );
 
     this.interval = setInterval(async () => {
       await this.updateChannels();
@@ -44,16 +47,19 @@ class RoutingHintsProvider {
   };
 
   public getRoutingHints = (symbol: string, nodeId: string): RouteHint[] => {
-    const relevantChannels = this.channels.get(symbol)!.filter(
-      (channelInfo) => channelInfo.channel.remotePubkey === nodeId,
-    );
+    const relevantChannels = this.channels
+      .get(symbol)!
+      .filter((channelInfo) => channelInfo.channel.remotePubkey === nodeId);
 
     const routeHints: RouteHint[] = [];
 
     for (const channelInfo of relevantChannels) {
       const { channel, routingInfo } = channelInfo;
 
-      const remotePolicy = routingInfo.node1Pub === nodeId ? routingInfo.node1Policy : routingInfo.node2Policy;
+      const remotePolicy =
+        routingInfo.node1Pub === nodeId
+          ? routingInfo.node1Policy
+          : routingInfo.node2Policy;
 
       if (remotePolicy) {
         const hopHint = new HopHint();
@@ -89,7 +95,9 @@ class RoutingHintsProvider {
         });
       }
 
-      this.logger.silly(`Found ${channelInfos.length} private ${client.symbol} channels`);
+      this.logger.silly(
+        `Found ${channelInfos.length} private ${client.symbol} channels`,
+      );
       this.channels.set(client.symbol, channelInfos);
     }
   };

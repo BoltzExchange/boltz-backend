@@ -9,7 +9,10 @@ describe('DataProvider', () => {
     dataAggregator.registerPair(baseAsset, quoteAsset);
 
     expect(dataAggregator.pairs.size).toEqual(1);
-    expect(Array.from(dataAggregator.pairs.values())[0]).toEqual([baseAsset, quoteAsset]);
+    expect(Array.from(dataAggregator.pairs.values())[0]).toEqual([
+      baseAsset,
+      quoteAsset,
+    ]);
   });
 
   test('should calculate the median price', async () => {

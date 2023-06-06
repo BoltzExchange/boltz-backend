@@ -4,8 +4,15 @@ import { getPort } from '../../Utils';
 import Logger from '../../../lib/Logger';
 import { bitcoinLndClient, lndDataPath } from '../Nodes';
 import LndClient from '../../../lib/lightning/LndClient';
-import { LightningClient, LightningService } from '../../../lib/proto/lnd/rpc_grpc_pb';
-import { GetInfoResponse, Transaction, TransactionDetails } from '../../../lib/proto/lnd/rpc_pb';
+import {
+  LightningClient,
+  LightningService,
+} from '../../../lib/proto/lnd/rpc_grpc_pb';
+import {
+  GetInfoResponse,
+  Transaction,
+  TransactionDetails,
+} from '../../../lib/proto/lnd/rpc_pb';
 
 describe('LndClient', () => {
   beforeAll(async () => {
@@ -24,14 +31,20 @@ describe('LndClient', () => {
     let invoice = await bitcoinLndClient.addInvoice(bigInvoiceAmount);
 
     // Should use the payment fee ratio for big payments
-    expect(calculatePaymentFee(invoice.paymentRequest)).toEqual(Math.ceil(bigInvoiceAmount * maxPaymentFeeRatio));
+    expect(calculatePaymentFee(invoice.paymentRequest)).toEqual(
+      Math.ceil(bigInvoiceAmount * maxPaymentFeeRatio),
+    );
 
     // Should use the minimal payment fee for small payments
     invoice = await bitcoinLndClient.addInvoice(1);
-    expect(calculatePaymentFee(invoice.paymentRequest)).toEqual(LndClient['minPaymentFee']);
+    expect(calculatePaymentFee(invoice.paymentRequest)).toEqual(
+      LndClient['minPaymentFee'],
+    );
 
     invoice = await bitcoinLndClient.addInvoice(0);
-    expect(calculatePaymentFee(invoice.paymentRequest)).toEqual(LndClient['minPaymentFee']);
+    expect(calculatePaymentFee(invoice.paymentRequest)).toEqual(
+      LndClient['minPaymentFee'],
+    );
   });
 
   test('should handle messages longer than the default gRPC limit', async () => {
@@ -74,11 +87,14 @@ describe('LndClient', () => {
     const maxPaymentFeeRatio = 0.03;
 
     const bindPort = await new Promise((resolve) => {
-      server.bindAsync(`${serverHost}:${serverPort}`, grpc.ServerCredentials.createSsl(null,
-        [{
-          cert_chain: readFileSync(`${lndDataPath}/certificates/tls.cert`),
-          private_key: readFileSync(`${lndDataPath}/certificates/tls.key`),
-        }]),
+      server.bindAsync(
+        `${serverHost}:${serverPort}`,
+        grpc.ServerCredentials.createSsl(null, [
+          {
+            cert_chain: readFileSync(`${lndDataPath}/certificates/tls.cert`),
+            private_key: readFileSync(`${lndDataPath}/certificates/tls.key`),
+          },
+        ]),
         (_, port) => {
           resolve(port);
         },
@@ -90,17 +106,13 @@ describe('LndClient', () => {
     server.start();
 
     // Connect to the mocked LND gRPC server
-    const lndClient = new LndClient(
-      Logger.disabledLogger,
-      'MOCK',
-      {
-        host: serverHost,
-        port: serverPort,
-        certpath: `${lndDataPath}/certificates/tls.cert`,
-        macaroonpath: `${lndDataPath}/macaroons/admin.macaroon`,
-        maxPaymentFeeRatio: maxPaymentFeeRatio,
-      },
-    );
+    const lndClient = new LndClient(Logger.disabledLogger, 'MOCK', {
+      host: serverHost,
+      port: serverPort,
+      certpath: `${lndDataPath}/certificates/tls.cert`,
+      macaroonpath: `${lndDataPath}/macaroons/admin.macaroon`,
+      maxPaymentFeeRatio: maxPaymentFeeRatio,
+    });
     await lndClient.connect(false);
 
     // This call will fetch "randomDataLength" of data

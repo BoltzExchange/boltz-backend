@@ -19,7 +19,10 @@ export default {
     message: `the preimage hash of the invoice does not match the one of the Swap: ${preimageHash}`,
     code: concatErrorCode(ErrorCodePrefix.Swap, 3),
   }),
-  INVOICE_EXPIRES_TOO_EARLY: (invoiceExpiry: number, timeoutTimestamp: number): Error => ({
+  INVOICE_EXPIRES_TOO_EARLY: (
+    invoiceExpiry: number,
+    timeoutTimestamp: number,
+  ): Error => ({
     message: `invoice expiry ${invoiceExpiry} is before Swap timeout: ${timeoutTimestamp}`,
     code: concatErrorCode(ErrorCodePrefix.Swap, 4),
   }),
@@ -27,19 +30,31 @@ export default {
     message: 'onchain coins could not be sent',
     code: concatErrorCode(ErrorCodePrefix.Swap, 5),
   }),
-  INSUFFICIENT_AMOUNT: (actualAmount: number, expectedAmount: number): Error => ({
+  INSUFFICIENT_AMOUNT: (
+    actualAmount: number,
+    expectedAmount: number,
+  ): Error => ({
     message: `locked ${actualAmount} is less than expected ${expectedAmount}`,
     code: concatErrorCode(ErrorCodePrefix.Swap, 6),
   }),
-  INVALID_TOKEN_LOCKED: (actualToken: string, expectedToken: string): Error => ({
+  INVALID_TOKEN_LOCKED: (
+    actualToken: string,
+    expectedToken: string,
+  ): Error => ({
     message: `the locked token ${actualToken} is not expected ${expectedToken}`,
     code: concatErrorCode(ErrorCodePrefix.Swap, 7),
   }),
-  INVALID_CLAIM_ADDRESS: (actualAddress: string, expectedAddress: string): Error => ({
+  INVALID_CLAIM_ADDRESS: (
+    actualAddress: string,
+    expectedAddress: string,
+  ): Error => ({
     message: `the specified claim address ${actualAddress} is not expected ${expectedAddress}`,
     code: concatErrorCode(ErrorCodePrefix.Swap, 8),
   }),
-  INVALID_TIMELOCK: (actualTimelock: number, expectedTimelock: number): Error => ({
+  INVALID_TIMELOCK: (
+    actualTimelock: number,
+    expectedTimelock: number,
+  ): Error => ({
     message: `the specified timelock ${actualTimelock} is not expected ${expectedTimelock}`,
     code: concatErrorCode(ErrorCodePrefix.Swap, 9),
   }),

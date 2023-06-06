@@ -3,23 +3,50 @@ import Logger from '../../../../lib/Logger';
 import { bitcoinLndClient, bitcoinClient } from '../../Nodes';
 import { coinsToSatoshis } from '../../../../lib/DenominationConverter';
 import LndWalletProvider from '../../../../lib/wallet/providers/LndWalletProvider';
-import { ListUnspentRequest, ListUnspentResponse } from '../../../../lib/proto/lnd/rpc_pb';
+import {
+  ListUnspentRequest,
+  ListUnspentResponse,
+} from '../../../../lib/proto/lnd/rpc_pb';
 import { SentTransaction } from '../../../../lib/wallet/providers/WalletProviderInterface';
 
-const spyGetOnchainTransactions = jest.spyOn(bitcoinLndClient, 'getOnchainTransactions');
+const spyGetOnchainTransactions = jest.spyOn(
+  bitcoinLndClient,
+  'getOnchainTransactions',
+);
 
 describe('LndWalletProvider', () => {
-  const provider = new LndWalletProvider(Logger.disabledLogger, bitcoinLndClient, bitcoinClient);
+  const provider = new LndWalletProvider(
+    Logger.disabledLogger,
+    bitcoinLndClient,
+    bitcoinClient,
+  );
 
-  const verifySentTransaction = async (sentTransaction: SentTransaction, destination: string, amount: number, isSweep: boolean) => {
-    const rawTransaction = await bitcoinClient.getRawTransactionVerbose(sentTransaction.transactionId);
+  const verifySentTransaction = async (
+    sentTransaction: SentTransaction,
+    destination: string,
+    amount: number,
+    isSweep: boolean,
+  ) => {
+    const rawTransaction = await bitcoinClient.getRawTransactionVerbose(
+      sentTransaction.transactionId,
+    );
 
-    expect(sentTransaction.transactionId).toEqual(sentTransaction.transaction!.getId());
+    expect(sentTransaction.transactionId).toEqual(
+      sentTransaction.transaction!.getId(),
+    );
 
-    const expectedAmount = isSweep ? Math.round(amount - sentTransaction.fee!) : amount;
-    expect(Math.round(coinsToSatoshis(rawTransaction.vout[sentTransaction.vout!].value))).toEqual(expectedAmount);
+    const expectedAmount = isSweep
+      ? Math.round(amount - sentTransaction.fee!)
+      : amount;
+    expect(
+      Math.round(
+        coinsToSatoshis(rawTransaction.vout[sentTransaction.vout!].value),
+      ),
+    ).toEqual(expectedAmount);
 
-    const { transactionsList } = await bitcoinLndClient.getOnchainTransactions(0);
+    const { transactionsList } = await bitcoinLndClient.getOnchainTransactions(
+      0,
+    );
 
     for (let i = 0; i < transactionsList.length; i += 1) {
       const transaction = transactionsList[i];
@@ -35,16 +62,25 @@ describe('LndWalletProvider', () => {
       }
     }
 
-    const { utxosList } = await new Promise<ListUnspentResponse.AsObject>((resolve) => {
-      bitcoinLndClient['lightning']!.listUnspent(new ListUnspentRequest(), bitcoinLndClient['meta'], (_, response) => {
-        resolve(response.toObject());
-      });
-    });
+    const { utxosList } = await new Promise<ListUnspentResponse.AsObject>(
+      (resolve) => {
+        bitcoinLndClient['lightning']!.listUnspent(
+          new ListUnspentRequest(),
+          bitcoinLndClient['meta'],
+          (_, response) => {
+            resolve(response.toObject());
+          },
+        );
+      },
+    );
 
     for (let i = 0; i < utxosList.length; i += 1) {
       const utxo = utxosList[i];
 
-      if (utxo.outpoint!.txidStr === sentTransaction.transactionId && utxo.outpoint!.outputIndex === sentTransaction.vout) {
+      if (
+        utxo.outpoint!.txidStr === sentTransaction.transactionId &&
+        utxo.outpoint!.outputIndex === sentTransaction.vout
+      ) {
         expect(utxo.address).toEqual(destination);
         expect(utxo.amountSat).toEqual(expectedAmount);
 
@@ -83,7 +119,9 @@ describe('LndWalletProvider', () => {
     expect(balance.confirmedBalance).toBeGreaterThan(0);
     expect(balance.unconfirmedBalance).toEqual(unconfirmedAmount);
 
-    expect(balance.totalBalance).toEqual(balance.confirmedBalance + balance.unconfirmedBalance);
+    expect(balance.totalBalance).toEqual(
+      balance.confirmedBalance + balance.unconfirmedBalance,
+    );
   });
 
   test('should send transactions', async () => {
@@ -113,7 +151,12 @@ describe('LndWalletProvider', () => {
     expect(spyGetOnchainTransactions).toHaveBeenCalledTimes(1);
     expect(spyGetOnchainTransactions).toHaveBeenCalledWith(blockHeight);
 
-    await verifySentTransaction(sentTransaction, destination, balance.totalBalance, true);
+    await verifySentTransaction(
+      sentTransaction,
+      destination,
+      balance.totalBalance,
+      true,
+    );
 
     expect((await provider.getBalance()).confirmedBalance).toEqual(0);
   });

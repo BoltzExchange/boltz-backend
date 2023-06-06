@@ -6,21 +6,37 @@ import ElementsClient from '../../lib/chain/ElementsClient';
 
 const host = process.platform === 'win32' ? '192.168.99.100' : '127.0.0.1';
 
-const cookieBasePath = `${resolve(__dirname, '..', '..')}/docker/regtest/data/core/cookies`;
+const cookieBasePath = `${resolve(
+  __dirname,
+  '..',
+  '..',
+)}/docker/regtest/data/core/cookies`;
 
-export const bitcoinClient = new ChainClient(Logger.disabledLogger, {
-  host,
-  port: 18443,
-  cookie: `${cookieBasePath}/.bitcoin-cookie`,
-}, 'BTC');
+export const bitcoinClient = new ChainClient(
+  Logger.disabledLogger,
+  {
+    host,
+    port: 18443,
+    cookie: `${cookieBasePath}/.bitcoin-cookie`,
+  },
+  'BTC',
+);
 
-export const elementsClient = new ElementsClient(Logger.disabledLogger, {
-  host,
-  port: 18884,
-  cookie: `${cookieBasePath}/.elements-cookie`,
-}, 'L-BTC');
+export const elementsClient = new ElementsClient(
+  Logger.disabledLogger,
+  {
+    host,
+    port: 18884,
+    cookie: `${cookieBasePath}/.elements-cookie`,
+  },
+  'L-BTC',
+);
 
-export const lndDataPath = `${resolve(__dirname, '..', '..')}/docker/regtest/data/lnd`;
+export const lndDataPath = `${resolve(
+  __dirname,
+  '..',
+  '..',
+)}/docker/regtest/data/lnd`;
 
 export const bitcoinLndClient = new LndClient(Logger.disabledLogger, 'BTC', {
   host,

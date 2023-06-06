@@ -60,7 +60,13 @@ class NotificationProvider {
       this.backup,
     );
 
-    this.balanceChecker = new BalanceChecker(this.logger, this.service, this.discord, this.currencies, this.tokenConfigs);
+    this.balanceChecker = new BalanceChecker(
+      this.logger,
+      this.service,
+      this.discord,
+      this.currencies,
+      this.tokenConfigs,
+    );
     this.diskUsageChecker = new DiskUsageChecker(this.logger, this.discord);
   }
 
@@ -73,10 +79,19 @@ class NotificationProvider {
 
       for (const [, currency] of this.service.currencies) {
         if (currency.lndClient) {
-          currency.lndClient.on('subscription.error', async (subscription?: string) => {
-            await this.sendLostConnection(`LND ${currency.symbol}`, subscription);
-          });
-          currency.lndClient.on('subscription.reconnected', async () => await this.sendReconnected(`LND ${currency.symbol}`));
+          currency.lndClient.on(
+            'subscription.error',
+            async (subscription?: string) => {
+              await this.sendLostConnection(
+                `LND ${currency.symbol}`,
+                subscription,
+              );
+            },
+          );
+          currency.lndClient.on(
+            'subscription.reconnected',
+            async () => await this.sendReconnected(`LND ${currency.symbol}`),
+          );
         }
       }
 
@@ -90,7 +105,9 @@ class NotificationProvider {
 
       await check();
 
-      this.logger.debug(`Checking balances and connection status every ${this.config.interval} minutes`);
+      this.logger.debug(
+        `Checking balances and connection status every ${this.config.interval} minutes`,
+      );
 
       this.timer = setInterval(async () => {
         await check();
@@ -111,13 +128,18 @@ class NotificationProvider {
 
     info.getChainsMap().forEach((currency: CurrencyInfo, symbol: string) => {
       promises.push(this.checkConnection(`LND ${symbol}`, currency.getLnd()));
-      promises.push(this.checkConnection(`${symbol} node`, currency.getChain()));
+      promises.push(
+        this.checkConnection(`${symbol} node`, currency.getChain()),
+      );
     });
 
     await Promise.all(promises);
   };
 
-  private checkConnection = async (service: string, object: ChainInfo | LndInfo | undefined) => {
+  private checkConnection = async (
+    service: string,
+    object: ChainInfo | LndInfo | undefined,
+  ) => {
     if (object !== undefined) {
       if (object.getError() === '') {
         await this.sendReconnected(service);
@@ -136,34 +158,67 @@ class NotificationProvider {
   };
 
   private listenToService = () => {
-    const getSwapTitle = (pair: string, orderSide: OrderSide, isReverse: boolean) => {
+    const getSwapTitle = (
+      pair: string,
+      orderSide: OrderSide,
+      isReverse: boolean,
+    ) => {
       const { base, quote } = splitPairId(pair);
-      const { sending, receiving } = getSendingReceivingCurrency(base, quote, orderSide);
+      const { sending, receiving } = getSendingReceivingCurrency(
+        base,
+        quote,
+        orderSide,
+      );
 
-      return `${receiving}${isReverse ? ' :zap:' : ''} -> ${sending}${!isReverse ? ' :zap:' : ''}`;
+      return `${receiving}${isReverse ? ' :zap:' : ''} -> ${sending}${
+        !isReverse ? ' :zap:' : ''
+      }`;
     };
 
-    const getBasicSwapInfo = (swap: Swap | ReverseSwap, onchainSymbol: string, lightningSymbol: string) => {
-      let message = `ID: ${swap.id}\n` +
+    const getBasicSwapInfo = (
+      swap: Swap | ReverseSwap,
+      onchainSymbol: string,
+      lightningSymbol: string,
+    ) => {
+      let message =
+        `ID: ${swap.id}\n` +
         `Pair: ${swap.pair}\n` +
         `Order side: ${swap.orderSide === OrderSide.BUY ? 'buy' : 'sell'}`;
 
       if (swap.invoice) {
         const lightningAmount = decodeInvoice(swap.invoice).satoshis;
 
-        message += `${swap.onchainAmount ? `\nOnchain amount: ${satoshisToCoins(swap.onchainAmount)} ${onchainSymbol}` : ''}` +
-          `\nLightning amount: ${satoshisToCoins(lightningAmount)} ${lightningSymbol}`;
+        message +=
+          `${
+            swap.onchainAmount
+              ? `\nOnchain amount: ${satoshisToCoins(
+                  swap.onchainAmount,
+                )} ${onchainSymbol}`
+              : ''
+          }` +
+          `\nLightning amount: ${satoshisToCoins(
+            lightningAmount,
+          )} ${lightningSymbol}`;
       }
 
       return message;
     };
 
-    const getSymbols = (pairId: string, orderSide: number, isReverse: boolean) => {
+    const getSymbols = (
+      pairId: string,
+      orderSide: number,
+      isReverse: boolean,
+    ) => {
       const { base, quote } = splitPairId(pairId);
 
       return {
         onchainSymbol: getChainCurrency(base, quote, orderSide, isReverse),
-        lightningSymbol: getLightningCurrency(base, quote, orderSide, isReverse),
+        lightningSymbol: getLightningCurrency(
+          base,
+          quote,
+          orderSide,
+          isReverse,
+        ),
       };
     };
 
@@ -175,54 +230,94 @@ class NotificationProvider {
       }
     };
 
-    this.service.eventHandler.on('swap.success', async (swap, isReverse, channelCreation) => {
-      const { onchainSymbol, lightningSymbol } = getSymbols(swap.pair, swap.orderSide, isReverse);
+    this.service.eventHandler.on(
+      'swap.success',
+      async (swap, isReverse, channelCreation) => {
+        const { onchainSymbol, lightningSymbol } = getSymbols(
+          swap.pair,
+          swap.orderSide,
+          isReverse,
+        );
 
-      const hasChannelCreation =
-        channelCreation !== null &&
-        channelCreation !== undefined &&
-        channelCreation.fundingTransactionId !== null;
+        const hasChannelCreation =
+          channelCreation !== null &&
+          channelCreation !== undefined &&
+          channelCreation.fundingTransactionId !== null;
 
-      let message = `**Swap ${getSwapTitle(swap.pair, swap.orderSide, isReverse)}${hasChannelCreation ? ' :construction_site:' : ''}**\n` +
-        `${getBasicSwapInfo(swap, onchainSymbol, lightningSymbol)}\n` +
-        `Fees earned: ${this.numberToDecimal(satoshisToCoins(swap.fee!))} ${onchainSymbol}\n` +
-        `Miner fees: ${satoshisToCoins(swap.minerFee!)} ${getMinerFeeSymbol(onchainSymbol)}`;
+        let message =
+          `**Swap ${getSwapTitle(swap.pair, swap.orderSide, isReverse)}${
+            hasChannelCreation ? ' :construction_site:' : ''
+          }**\n` +
+          `${getBasicSwapInfo(swap, onchainSymbol, lightningSymbol)}\n` +
+          `Fees earned: ${this.numberToDecimal(
+            satoshisToCoins(swap.fee!),
+          )} ${onchainSymbol}\n` +
+          `Miner fees: ${satoshisToCoins(swap.minerFee!)} ${getMinerFeeSymbol(
+            onchainSymbol,
+          )}`;
 
-      if (!isReverse) {
-        // The routing fees are denominated in millisatoshi
-        message += `\nRouting fees: ${(swap as Swap).routingFee! / 1000} ${this.getSmallestDenomination(lightningSymbol)}`;
-      }
-
-      if (hasChannelCreation) {
-        message += '\n\n**Channel Creation:**\n' +
-          `Private: ${channelCreation!.private}\n` +
-          `Inbound: ${channelCreation!.inboundLiquidity}%\n` +
-          `Node: ${channelCreation!.nodePublicKey}\n` +
-          `Funding: ${channelCreation!.fundingTransactionId}:${channelCreation!.fundingTransactionVout}`;
-      }
-
-      await this.discord.sendMessage(`${message}${NotificationProvider.trailingWhitespace}`);
-    });
-
-    this.service.eventHandler.on('swap.failure', async (swap, isReverse, reason) => {
-      const { onchainSymbol, lightningSymbol } = getSymbols(swap.pair, swap.orderSide, isReverse);
-
-      let message = `**Swap ${getSwapTitle(swap.pair, swap.orderSide, isReverse)} failed: ${reason}**\n` +
-        `${getBasicSwapInfo(swap, onchainSymbol, lightningSymbol)}`;
-
-      if (isReverse) {
-        if (swap.minerFee) {
-          message += `\nMiner fees: ${satoshisToCoins(swap.minerFee)} ${onchainSymbol}`;
+        if (!isReverse) {
+          // The routing fees are denominated in millisatoshi
+          message += `\nRouting fees: ${
+            (swap as Swap).routingFee! / 1000
+          } ${this.getSmallestDenomination(lightningSymbol)}`;
         }
-      } else if (swap.invoice) {
-        message += `\nInvoice: ${swap.invoice}`;
-      }
 
-      await this.discord.sendMessage(`${message}${NotificationProvider.trailingWhitespace}`);
-    });
+        if (hasChannelCreation) {
+          message +=
+            '\n\n**Channel Creation:**\n' +
+            `Private: ${channelCreation!.private}\n` +
+            `Inbound: ${channelCreation!.inboundLiquidity}%\n` +
+            `Node: ${channelCreation!.nodePublicKey}\n` +
+            `Funding: ${channelCreation!.fundingTransactionId}:${
+              channelCreation!.fundingTransactionVout
+            }`;
+        }
+
+        await this.discord.sendMessage(
+          `${message}${NotificationProvider.trailingWhitespace}`,
+        );
+      },
+    );
+
+    this.service.eventHandler.on(
+      'swap.failure',
+      async (swap, isReverse, reason) => {
+        const { onchainSymbol, lightningSymbol } = getSymbols(
+          swap.pair,
+          swap.orderSide,
+          isReverse,
+        );
+
+        let message =
+          `**Swap ${getSwapTitle(
+            swap.pair,
+            swap.orderSide,
+            isReverse,
+          )} failed: ${reason}**\n` +
+          `${getBasicSwapInfo(swap, onchainSymbol, lightningSymbol)}`;
+
+        if (isReverse) {
+          if (swap.minerFee) {
+            message += `\nMiner fees: ${satoshisToCoins(
+              swap.minerFee,
+            )} ${onchainSymbol}`;
+          }
+        } else if (swap.invoice) {
+          message += `\nInvoice: ${swap.invoice}`;
+        }
+
+        await this.discord.sendMessage(
+          `${message}${NotificationProvider.trailingWhitespace}`,
+        );
+      },
+    );
   };
 
-  private sendLostConnection = async (service: string, subscription?: string) => {
+  private sendLostConnection = async (
+    service: string,
+    subscription?: string,
+  ) => {
     if (this.disconnected.has(service)) {
       return;
     }
@@ -231,8 +326,11 @@ class NotificationProvider {
       this.disconnected.add(service);
     }
 
-    await this.discord.sendMessage(`**Lost connection to ${service}${subscription ?
-      ` ${subscription} subscription` : ''}**`);
+    await this.discord.sendMessage(
+      `**Lost connection to ${service}${
+        subscription ? ` ${subscription} subscription` : ''
+      }**`,
+    );
   };
 
   private sendReconnected = async (service: string) => {
@@ -244,8 +342,10 @@ class NotificationProvider {
 
   private getSmallestDenomination = (symbol: string): string => {
     switch (symbol) {
-      case 'LTC': return 'litoshi';
-      default: return 'satoshi';
+      case 'LTC':
+        return 'litoshi';
+      default:
+        return 'satoshi';
     }
   };
 

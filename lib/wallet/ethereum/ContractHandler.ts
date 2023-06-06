@@ -13,11 +13,13 @@ class ContractHandler {
   private etherSwap!: EtherSwap;
   private erc20Swap!: ERC20Swap;
 
-  constructor(
-    private logger: Logger,
-  ) {}
+  constructor(private logger: Logger) {}
 
-  public init = (provider: Provider, etherSwap: EtherSwap, erc20Swap: ERC20Swap): void => {
+  public init = (
+    provider: Provider,
+    etherSwap: EtherSwap,
+    erc20Swap: ERC20Swap,
+  ): void => {
     this.provider = provider;
     this.etherSwap = etherSwap;
     this.erc20Swap = erc20Swap;
@@ -29,10 +31,14 @@ class ContractHandler {
     claimAddress: string,
     timeLock: number,
   ): Promise<ContractTransactionResponse> => {
-    this.logger.debug(`Locking ${amount} Ether with preimage hash: ${getHexString(preimageHash)}`);
+    this.logger.debug(
+      `Locking ${amount} Ether with preimage hash: ${getHexString(
+        preimageHash,
+      )}`,
+    );
     return this.etherSwap.lock(preimageHash, claimAddress, timeLock, {
       value: amount,
-      ...await getGasPrices(this.provider),
+      ...(await getGasPrices(this.provider)),
     });
   };
 
@@ -45,16 +51,21 @@ class ContractHandler {
   ): Promise<ContractTransactionResponse> => {
     const transactionValue = amount + amountPrepay;
 
-    const gasLimitEstimationWithoutPrepay = await this.etherSwap.lock.estimateGas(
-      preimageHash,
-      claimAddress,
-      timeLock,
-      {
-        value: transactionValue,
-      },
-    );
+    const gasLimitEstimationWithoutPrepay =
+      await this.etherSwap.lock.estimateGas(
+        preimageHash,
+        claimAddress,
+        timeLock,
+        {
+          value: transactionValue,
+        },
+      );
 
-    this.logger.debug(`Locking ${amount} and sending prepay ${amountPrepay} Ether with preimage hash: ${getHexString(preimageHash)}`);
+    this.logger.debug(
+      `Locking ${amount} and sending prepay ${amountPrepay} Ether with preimage hash: ${getHexString(
+        preimageHash,
+      )}`,
+    );
     return this.etherSwap.lockPrepayMinerfee(
       preimageHash,
       claimAddress,
@@ -63,8 +74,9 @@ class ContractHandler {
       {
         value: transactionValue,
         // TODO: integration test that tries to exploit the attack vector of using an insane amount of gas in the fallback function of the contract at the claim address
-        gasLimit: gasLimitEstimationWithoutPrepay + ethereumPrepayMinerFeeGasLimit,
-        ...await getGasPrices(this.provider),
+        gasLimit:
+          gasLimitEstimationWithoutPrepay + ethereumPrepayMinerFeeGasLimit,
+        ...(await getGasPrices(this.provider)),
       },
     );
   };
@@ -75,16 +87,12 @@ class ContractHandler {
     refundAddress: string,
     timelock: number,
   ): Promise<ContractTransactionResponse> => {
-    this.logger.debug(`Claiming Ether with preimage: ${getHexString(preimage)}`);
-    return this.etherSwap.claim(
-      preimage,
-      amount,
-      refundAddress,
-      timelock,
-      {
-        ...await getGasPrices(this.provider),
-      }
+    this.logger.debug(
+      `Claiming Ether with preimage: ${getHexString(preimage)}`,
     );
+    return this.etherSwap.claim(preimage, amount, refundAddress, timelock, {
+      ...(await getGasPrices(this.provider)),
+    });
   };
 
   public refundEther = async (
@@ -93,16 +101,12 @@ class ContractHandler {
     claimAddress: string,
     timelock: number,
   ): Promise<ContractTransactionResponse> => {
-    this.logger.debug(`Refunding Ether with preimage hash: ${getHexString(preimageHash)}`);
-    return this.etherSwap.refund(
-      preimageHash,
-      amount,
-      claimAddress,
-      timelock,
-      {
-        ...await getGasPrices(this.provider),
-      }
+    this.logger.debug(
+      `Refunding Ether with preimage hash: ${getHexString(preimageHash)}`,
     );
+    return this.etherSwap.refund(preimageHash, amount, claimAddress, timelock, {
+      ...(await getGasPrices(this.provider)),
+    });
   };
 
   public lockupToken = async (
@@ -112,7 +116,11 @@ class ContractHandler {
     claimAddress: string,
     timeLock: number,
   ): Promise<ContractTransactionResponse> => {
-    this.logger.debug(`Locking ${amount} ${token.symbol} with preimage hash: ${getHexString(preimageHash)}`);
+    this.logger.debug(
+      `Locking ${amount} ${token.symbol} with preimage hash: ${getHexString(
+        preimageHash,
+      )}`,
+    );
     return this.erc20Swap.lock(
       preimageHash,
       amount,
@@ -120,8 +128,8 @@ class ContractHandler {
       claimAddress,
       timeLock,
       {
-        ...await getGasPrices(this.provider),
-      }
+        ...(await getGasPrices(this.provider)),
+      },
     );
   };
 
@@ -133,15 +141,22 @@ class ContractHandler {
     claimAddress: string,
     timeLock: number,
   ): Promise<ContractTransactionResponse> => {
-    const gasLimitEstimationWithoutPrepay = await this.erc20Swap.lock.estimateGas(
-      preimageHash,
-      amount,
-      token.getTokenAddress(),
-      claimAddress,
-      timeLock,
-    );
+    const gasLimitEstimationWithoutPrepay =
+      await this.erc20Swap.lock.estimateGas(
+        preimageHash,
+        amount,
+        token.getTokenAddress(),
+        claimAddress,
+        timeLock,
+      );
 
-    this.logger.debug(`Locking ${amount} ${token.symbol} and sending prepay ${amountPrepay} Ether with preimage hash: ${getHexString(preimageHash)}`);
+    this.logger.debug(
+      `Locking ${amount} ${
+        token.symbol
+      } and sending prepay ${amountPrepay} Ether with preimage hash: ${getHexString(
+        preimageHash,
+      )}`,
+    );
     return this.erc20Swap.lockPrepayMinerfee(
       preimageHash,
       amount,
@@ -150,8 +165,9 @@ class ContractHandler {
       timeLock,
       {
         value: amountPrepay,
-        gasLimit: gasLimitEstimationWithoutPrepay + ethereumPrepayMinerFeeGasLimit,
-        ...await getGasPrices(this.provider),
+        gasLimit:
+          gasLimitEstimationWithoutPrepay + ethereumPrepayMinerFeeGasLimit,
+        ...(await getGasPrices(this.provider)),
       },
     );
   };
@@ -163,7 +179,9 @@ class ContractHandler {
     refundAddress: string,
     timeLock: number,
   ): Promise<ContractTransactionResponse> => {
-    this.logger.debug(`Claiming ${token.symbol} with preimage: ${getHexString(preimage)}`);
+    this.logger.debug(
+      `Claiming ${token.symbol} with preimage: ${getHexString(preimage)}`,
+    );
     return this.erc20Swap.claim(
       preimage,
       amount,
@@ -171,7 +189,7 @@ class ContractHandler {
       refundAddress,
       timeLock,
       {
-        ...await getGasPrices(this.provider),
+        ...(await getGasPrices(this.provider)),
       },
     );
   };
@@ -183,7 +201,11 @@ class ContractHandler {
     claimAddress: string,
     timeLock: number,
   ): Promise<ContractTransactionResponse> => {
-    this.logger.debug(`Refunding ${token.symbol} with preimage hash: ${getHexString(preimageHash)}`);
+    this.logger.debug(
+      `Refunding ${token.symbol} with preimage hash: ${getHexString(
+        preimageHash,
+      )}`,
+    );
     return this.erc20Swap.refund(
       preimageHash,
       amount,
@@ -191,7 +213,7 @@ class ContractHandler {
       claimAddress,
       timeLock,
       {
-        ...await getGasPrices(this.provider),
+        ...(await getGasPrices(this.provider)),
       },
     );
   };

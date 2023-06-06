@@ -14,16 +14,22 @@ jest.mock('../../../lib/lightning/LndClient', () => {
   }));
 });
 
-const mockedLndClient = <jest.Mock<LndClient>><any>LndClient;
+const mockedLndClient = <jest.Mock<LndClient>>(<any>LndClient);
 
 describe('NodeUris', () => {
   const currencies = new Map<string, any>([
-    ['BTC', {
-      lndClient: mockedLndClient('BTC'),
-    }],
-    ['LTC', {
-      lndClient: mockedLndClient('LTC'),
-    }],
+    [
+      'BTC',
+      {
+        lndClient: mockedLndClient('BTC'),
+      },
+    ],
+    [
+      'LTC',
+      {
+        lndClient: mockedLndClient('LTC'),
+      },
+    ],
   ]);
 
   const nodeUris = new NodeUris(currencies);

@@ -5,7 +5,10 @@ class ChainTipRepository {
     return ChainTip.findAll();
   };
 
-  public static findOrCreateTip = async (symbol: string, height: number): Promise<ChainTip> => {
+  public static findOrCreateTip = async (
+    symbol: string,
+    height: number,
+  ): Promise<ChainTip> => {
     const [chainTip] = await ChainTip.findOrCreate({
       where: {
         symbol,
@@ -19,7 +22,10 @@ class ChainTipRepository {
     return chainTip;
   };
 
-  public static updateTip = (chainTip: ChainTip, height: number): Promise<ChainTip> => {
+  public static updateTip = (
+    chainTip: ChainTip,
+    height: number,
+  ): Promise<ChainTip> => {
     return chainTip.update({
       height,
     });

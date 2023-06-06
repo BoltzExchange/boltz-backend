@@ -1,10 +1,10 @@
 type MyLiquidBalances = {
-  trusted: Record<string, number>,
-  untrusted_pending: Record<string, number>,
+  trusted: Record<string, number>;
+  untrusted_pending: Record<string, number>;
 };
 
 export type LiquidBalances = {
-  mine: MyLiquidBalances,
+  mine: MyLiquidBalances;
 };
 
 export type AddressInfo = {
@@ -28,4 +28,4 @@ export type AddressInfo = {
   hdseedid: string;
   hdmasterfingerprint: string;
   labels?: string[];
-}
+};

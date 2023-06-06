@@ -8,7 +8,10 @@ import InvoiceExpiryHelper from '../service/InvoiceExpiryHelper';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 
 interface InvoiceNursery {
-  on(event: 'invoice.expired', listener: (reverseSwap: ReverseSwap) => void): this;
+  on(
+    event: 'invoice.expired',
+    listener: (reverseSwap: ReverseSwap) => void,
+  ): this;
   emit(event: 'invoice.expired', reverseSwap: ReverseSwap): boolean;
 }
 
@@ -27,9 +30,14 @@ class InvoiceNursery extends EventEmitter {
   }
 
   public init = async (): Promise<void> => {
-    this.logger.debug(`Checking for expired invoices every ${InvoiceNursery.checkInterval} seconds`);
+    this.logger.debug(
+      `Checking for expired invoices every ${InvoiceNursery.checkInterval} seconds`,
+    );
 
-    this.interval = setInterval(this.checkExpiredInvoices, InvoiceNursery.checkInterval * 1000);
+    this.interval = setInterval(
+      this.checkExpiredInvoices,
+      InvoiceNursery.checkInterval * 1000,
+    );
     await this.checkExpiredInvoices();
   };
 
@@ -43,10 +51,7 @@ class InvoiceNursery extends EventEmitter {
   private checkExpiredInvoices = async () => {
     const pendingSwaps = await ReverseSwapRepository.getReverseSwaps({
       status: {
-        [Op.or]: [
-          SwapUpdateEvent.SwapCreated,
-          SwapUpdateEvent.MinerFeePaid,
-        ],
+        [Op.or]: [SwapUpdateEvent.SwapCreated, SwapUpdateEvent.MinerFeePaid],
       },
     });
 
@@ -54,13 +59,18 @@ class InvoiceNursery extends EventEmitter {
       return;
     }
 
-    this.logger.silly(`Checking ${pendingSwaps.length} Reverse Swaps for expired invoices`);
+    this.logger.silly(
+      `Checking ${pendingSwaps.length} Reverse Swaps for expired invoices`,
+    );
 
     const currentTime = getUnixTime();
 
     for (const reverseSwap of pendingSwaps) {
       const { timestamp, timeExpireDate } = decodeInvoice(reverseSwap.invoice);
-      const invoiceExpiry = InvoiceExpiryHelper.getInvoiceExpiry(timestamp, timeExpireDate);
+      const invoiceExpiry = InvoiceExpiryHelper.getInvoiceExpiry(
+        timestamp,
+        timeExpireDate,
+      );
 
       if (currentTime > invoiceExpiry) {
         this.emit('invoice.expired', reverseSwap);

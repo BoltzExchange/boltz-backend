@@ -36,7 +36,11 @@ class SwapRepository {
     return Swap.create(swap);
   };
 
-  public static setSwapStatus = (swap: Swap, status: string, failureReason?: string,): Promise<Swap> => {
+  public static setSwapStatus = (
+    swap: Swap,
+    status: string,
+    failureReason?: string,
+  ): Promise<Swap> => {
     return swap.update({
       status,
       failureReason,
@@ -72,7 +76,9 @@ class SwapRepository {
       onchainAmount,
       lockupTransactionId,
       lockupTransactionVout,
-      status: confirmed ? SwapUpdateEvent.TransactionConfirmed : SwapUpdateEvent.TransactionMempool,
+      status: confirmed
+        ? SwapUpdateEvent.TransactionConfirmed
+        : SwapUpdateEvent.TransactionMempool,
     });
   };
 
@@ -82,7 +88,10 @@ class SwapRepository {
     });
   };
 
-  public static setInvoicePaid = (swap: Swap, routingFee: number): Promise<Swap> => {
+  public static setInvoicePaid = (
+    swap: Swap,
+    routingFee: number,
+  ): Promise<Swap> => {
     return swap.update({
       routingFee,
       status: SwapUpdateEvent.InvoicePaid,

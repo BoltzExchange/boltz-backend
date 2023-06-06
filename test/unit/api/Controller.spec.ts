@@ -72,27 +72,37 @@ const mockGetPairs = jest.fn().mockReturnValue({
   pairs: [],
 });
 
-const getNodes = new Map<string, {
-  nodeKey: string,
-  uris: string[],
-}>([
-  ['BTC', {
-    nodeKey: '321',
-    uris: [
-      '321@127.0.0.1:9735',
-    ],
-  }],
+const getNodes = new Map<
+  string,
+  {
+    nodeKey: string;
+    uris: string[];
+  }
+>([
+  [
+    'BTC',
+    {
+      nodeKey: '321',
+      uris: ['321@127.0.0.1:9735'],
+    },
+  ],
 ]);
 const mockGetNodes = jest.fn().mockReturnValue(getNodes);
 
-const timeouts = new Map<string, {
-  base: number;
-  quote: number;
-}>([
-  ['BTC/BTC', {
-    base: 12,
-    quote: 123,
-  }],
+const timeouts = new Map<
+  string,
+  {
+    base: number;
+    quote: number;
+  }
+>([
+  [
+    'BTC/BTC',
+    {
+      base: 12,
+      quote: 123,
+    },
+  ],
 ]);
 const mockGetTimeouts = jest.fn().mockReturnValue(timeouts);
 
@@ -106,7 +116,7 @@ const getContracts = {
       ['ERC20Swap', '0xC685b2c4369D7bf9242DA54E9c391948079d83Cd'],
     ]),
     tokens: new Map<string, string>([
-      ['USDT', '0xDf567Cd5d0cf3d90cE6E3E9F897e092f9ECE359a']
+      ['USDT', '0xDf567Cd5d0cf3d90cE6E3E9F897e092f9ECE359a'],
     ]),
   },
 };
@@ -120,11 +130,13 @@ const mockGetRoutingHintsResult = [
     test: 'data',
   },
 ];
-const mockGetRoutingHints = jest.fn().mockReturnValue(mockGetRoutingHintsResult);
+const mockGetRoutingHints = jest
+  .fn()
+  .mockReturnValue(mockGetRoutingHintsResult);
 
-const mockGetFeeEstimation = jest.fn().mockResolvedValue(new Map<string, number>([
-  ['BTC', 1],
-]));
+const mockGetFeeEstimation = jest
+  .fn()
+  .mockResolvedValue(new Map<string, number>([['BTC', 1]]));
 
 const mockSetInvoice = jest.fn().mockResolvedValue({
   set: 'invoice',
@@ -193,7 +205,7 @@ jest.mock('../../../lib/service/Service', () => {
   });
 });
 
-const mockedService = <jest.Mock<Service>><any>Service;
+const mockedService = <jest.Mock<Service>>(<any>Service);
 
 let mockValidateRequestAuthenticationResult: any = null;
 const mockValidateRequestAuthentication = jest.fn().mockImplementation(() => {
@@ -213,10 +225,11 @@ const mockGenerateReferralStats = jest.fn().mockImplementation(() => {
 
 jest.mock('../../../lib/data/ReferralStats');
 
-const mockRequest = (body: any, query?: any) => ({
-  body,
-  query,
-} as Request);
+const mockRequest = (body: any, query?: any) =>
+  ({
+    body,
+    query,
+  } as Request);
 
 const mockResponse = () => {
   const res = {} as any as Response;
@@ -235,11 +248,13 @@ const mockResponse = () => {
     return res;
   });
 
-  res.on = jest.fn().mockImplementation((event: string, callback: closeResponseCallback) => {
-    expect(event).toEqual('close');
+  res.on = jest
+    .fn()
+    .mockImplementation((event: string, callback: closeResponseCallback) => {
+      expect(event).toEqual('close');
 
-    emitClose = callback;
-  });
+      emitClose = callback;
+    });
 
   return res;
 };
@@ -247,17 +262,15 @@ const mockResponse = () => {
 describe('Controller', () => {
   const service = mockedService();
 
-  const controller = new Controller(
-    Logger.disabledLogger,
-    service,
-  );
+  const controller = new Controller(Logger.disabledLogger, service);
 
   beforeEach(() => {
     ReferralStats.generate = mockGenerateReferralStats;
 
     SwapRepository.getSwaps = () => Promise.resolve(swaps);
     ReverseSwapRepository.getReverseSwaps = () => Promise.resolve(reverseSwaps);
-    ChannelCreationRepository.getChannelCreation = () => Promise.resolve(channelCreation);
+    ChannelCreationRepository.getChannelCreation = () =>
+      Promise.resolve(channelCreation);
   });
 
   test('should load status of all swaps on init', async () => {
@@ -266,8 +279,14 @@ describe('Controller', () => {
     const pendingSwaps = controller['pendingSwapInfos'];
 
     expect(mockGetTransaction).toHaveBeenCalledTimes(2);
-    expect(mockGetTransaction).toHaveBeenCalledWith('BTC', reverseSwaps[1].transactionId);
-    expect(mockGetTransaction).toHaveBeenCalledWith('BTC', reverseSwaps[2].transactionId);
+    expect(mockGetTransaction).toHaveBeenCalledWith(
+      'BTC',
+      reverseSwaps[1].transactionId,
+    );
+    expect(mockGetTransaction).toHaveBeenCalledWith(
+      'BTC',
+      reverseSwaps[2].transactionId,
+    );
 
     expect(pendingSwaps.get(swaps[0].id)).toEqual({
       status: swaps[0].status,
@@ -387,9 +406,7 @@ describe('Controller', () => {
 
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith(
-      mapToObject(
-        await service.getFeeEstimation(),
-      ),
+      mapToObject(await service.getFeeEstimation()),
     );
   });
 
@@ -398,13 +415,11 @@ describe('Controller', () => {
 
     const request: any = {
       symbol: 'BTC',
-      routingNode: '031015a7839468a3c266d662d5bb21ea4cea24226936e2864a7ca4f2c3939836e0',
+      routingNode:
+        '031015a7839468a3c266d662d5bb21ea4cea24226936e2864a7ca4f2c3939836e0',
     };
 
-    controller.routingHints(
-      mockRequest(request),
-      res,
-    );
+    controller.routingHints(mockRequest(request), res);
 
     expect(res.status).toHaveBeenCalledTimes(1);
     expect(res.status).toHaveBeenCalledWith(200);
@@ -415,22 +430,22 @@ describe('Controller', () => {
     });
 
     expect(mockGetRoutingHints).toHaveBeenCalledTimes(1);
-    expect(mockGetRoutingHints).toHaveBeenCalledWith(request.symbol, request.routingNode);
+    expect(mockGetRoutingHints).toHaveBeenCalledWith(
+      request.symbol,
+      request.routingNode,
+    );
 
     // Missing parameter
     request.symbol = undefined;
 
-    controller.routingHints(
-      mockRequest(request),
-      res,
-    );
+    controller.routingHints(mockRequest(request), res);
 
     expect(res.status).toHaveBeenCalledTimes(2);
     expect(res.status).toHaveBeenNthCalledWith(2, 400);
 
     expect(res.json).toHaveBeenCalledTimes(2);
     expect(res.json).toHaveBeenNthCalledWith(2, {
-      error:'undefined parameter: symbol',
+      error: 'undefined parameter: symbol',
     });
   });
 
@@ -448,9 +463,12 @@ describe('Controller', () => {
     // No swap with this id found
     const id = 'notFound';
 
-    await controller.swapStatus(mockRequest({
-      id,
-    }), res);
+    await controller.swapStatus(
+      mockRequest({
+        id,
+      }),
+      res,
+    );
 
     expect(res.status).toHaveBeenCalledWith(404);
     expect(res.json).toHaveBeenCalledWith({
@@ -458,9 +476,12 @@ describe('Controller', () => {
     });
 
     // Successful request
-    await controller.swapStatus(mockRequest({
-      id: swaps[0].id,
-    }), res);
+    await controller.swapStatus(
+      mockRequest({
+        id: swaps[0].id,
+      }),
+      res,
+    );
 
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
@@ -540,9 +561,7 @@ describe('Controller', () => {
 
     await controller.getSwapTransaction(mockRequest(requestData), res);
 
-    expect(service.getSwapTransaction).toHaveBeenCalledWith(
-      requestData.id,
-    );
+    expect(service.getSwapTransaction).toHaveBeenCalledWith(requestData.id);
 
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
@@ -619,7 +638,10 @@ describe('Controller', () => {
     );
 
     expect(res.status).toHaveBeenNthCalledWith(2, 201);
-    expect(res.json).toHaveBeenNthCalledWith(2, await mockCreateSwapWithInvoice());
+    expect(res.json).toHaveBeenNthCalledWith(
+      2,
+      await mockCreateSwapWithInvoice(),
+    );
 
     // Should convert all letters of invoice to lower case
     requestData.invoice = 'UPPERCASE';
@@ -627,7 +649,8 @@ describe('Controller', () => {
 
     await controller.createSwap(mockRequest(requestData), res);
 
-    expect(service.createSwapWithInvoice).toHaveBeenNthCalledWith(3,
+    expect(service.createSwapWithInvoice).toHaveBeenNthCalledWith(
+      3,
       requestData.pairId,
       requestData.orderSide,
       getHexBuffer(requestData.refundPublicKey),
@@ -638,7 +661,10 @@ describe('Controller', () => {
     );
 
     expect(res.status).toHaveBeenNthCalledWith(3, 201);
-    expect(res.json).toHaveBeenNthCalledWith(3, await mockCreateSwapWithInvoice());
+    expect(res.json).toHaveBeenNthCalledWith(
+      3,
+      await mockCreateSwapWithInvoice(),
+    );
 
     // Should parse and pass channel object
     requestData.channel = {
@@ -649,7 +675,8 @@ describe('Controller', () => {
 
     await controller.createSwap(mockRequest(requestData), res);
 
-    expect(service.createSwapWithInvoice).toHaveBeenNthCalledWith(5,
+    expect(service.createSwapWithInvoice).toHaveBeenNthCalledWith(
+      5,
       requestData.pairId,
       requestData.orderSide,
       getHexBuffer(requestData.refundPublicKey),
@@ -660,7 +687,10 @@ describe('Controller', () => {
     );
 
     expect(res.status).toHaveBeenNthCalledWith(4, 201);
-    expect(res.json).toHaveBeenNthCalledWith(4, await mockCreateSwapWithInvoice());
+    expect(res.json).toHaveBeenNthCalledWith(
+      4,
+      await mockCreateSwapWithInvoice(),
+    );
 
     requestData.channel = undefined;
 
@@ -669,7 +699,8 @@ describe('Controller', () => {
 
     await controller.createSwap(mockRequest(requestData), res);
 
-    expect(service.createSwapWithInvoice).toHaveBeenNthCalledWith(7,
+    expect(service.createSwapWithInvoice).toHaveBeenNthCalledWith(
+      7,
       requestData.pairId,
       requestData.orderSide,
       getHexBuffer(requestData.refundPublicKey),
@@ -680,7 +711,10 @@ describe('Controller', () => {
     );
 
     expect(res.status).toHaveBeenNthCalledWith(5, 201);
-    expect(res.json).toHaveBeenNthCalledWith(5, await mockCreateSwapWithInvoice());
+    expect(res.json).toHaveBeenNthCalledWith(
+      5,
+      await mockCreateSwapWithInvoice(),
+    );
 
     requestData.pairHash = undefined;
 
@@ -689,7 +723,8 @@ describe('Controller', () => {
 
     await controller.createSwap(mockRequest(requestData), res);
 
-    expect(service.createSwapWithInvoice).toHaveBeenNthCalledWith(9,
+    expect(service.createSwapWithInvoice).toHaveBeenNthCalledWith(
+      9,
       requestData.pairId,
       requestData.orderSide,
       getHexBuffer(requestData.refundPublicKey),
@@ -700,7 +735,10 @@ describe('Controller', () => {
     );
 
     expect(res.status).toHaveBeenNthCalledWith(6, 201);
-    expect(res.json).toHaveBeenNthCalledWith(6, await mockCreateSwapWithInvoice());
+    expect(res.json).toHaveBeenNthCalledWith(
+      6,
+      await mockCreateSwapWithInvoice(),
+    );
   });
 
   test('should create submarine swaps with preimage hashes', async () => {
@@ -735,7 +773,8 @@ describe('Controller', () => {
     });
 
     // Successful request
-    requestData.preimageHash = 'e3ed8e78cddaa8165ca26c199f6dc03ec2abf3a40eb2f7eb87dbd8d33c47e39f';
+    requestData.preimageHash =
+      'e3ed8e78cddaa8165ca26c199f6dc03ec2abf3a40eb2f7eb87dbd8d33c47e39f';
 
     await controller.createSwap(mockRequest(requestData), res);
 
@@ -822,7 +861,8 @@ describe('Controller', () => {
 
     await controller.setInvoice(mockRequest(requestData), res);
 
-    expect(service.setSwapInvoice).toHaveBeenNthCalledWith(3,
+    expect(service.setSwapInvoice).toHaveBeenNthCalledWith(
+      3,
       requestData.id,
       requestData.invoice.toLowerCase(),
       undefined,
@@ -836,7 +876,8 @@ describe('Controller', () => {
 
     await controller.setInvoice(mockRequest(requestData), res);
 
-    expect(service.setSwapInvoice).toHaveBeenNthCalledWith(5,
+    expect(service.setSwapInvoice).toHaveBeenNthCalledWith(
+      5,
       requestData.id,
       requestData.invoice.toLowerCase(),
       requestData.pairHash,
@@ -868,7 +909,8 @@ describe('Controller', () => {
       orderSide: 'buy',
       invoiceAmount: 321,
       claimPublicKey: '298ae8cc',
-      preimageHash: '98aed2bbba02f46751d1d4f687642df910cd1a6b85ba8adfabdbe7d82c8a4e6c',
+      preimageHash:
+        '98aed2bbba02f46751d1d4f687642df910cd1a6b85ba8adfabdbe7d82c8a4e6c',
     };
 
     await controller.createSwap(mockRequest(requestData), res);
@@ -889,16 +931,14 @@ describe('Controller', () => {
 
     await controller.createSwap(mockRequest(requestData), res);
 
-    expect(service.createReverseSwap).toHaveBeenNthCalledWith(3,
-      {
-        pairId: requestData.pairId,
-        pairHash: requestData.pairHash,
-        orderSide: requestData.orderSide,
-        preimageHash: getHexBuffer(requestData.preimageHash),
-        invoiceAmount: requestData.invoiceAmount,
-        claimPublicKey: getHexBuffer(requestData.claimPublicKey),
-      },
-    );
+    expect(service.createReverseSwap).toHaveBeenNthCalledWith(3, {
+      pairId: requestData.pairId,
+      pairHash: requestData.pairHash,
+      orderSide: requestData.orderSide,
+      preimageHash: getHexBuffer(requestData.preimageHash),
+      invoiceAmount: requestData.invoiceAmount,
+      claimPublicKey: getHexBuffer(requestData.claimPublicKey),
+    });
 
     expect(res.status).toHaveBeenNthCalledWith(3, 201);
     expect(res.json).toHaveBeenNthCalledWith(3, await mockCreateReverseSwap());
@@ -910,16 +950,14 @@ describe('Controller', () => {
 
     await controller.createSwap(mockRequest(requestData), res);
 
-    expect(service.createReverseSwap).toHaveBeenNthCalledWith(5,
-      {
-        prepayMinerFee: true,
-        pairId: requestData.pairId,
-        orderSide: requestData.orderSide,
-        preimageHash: getHexBuffer(requestData.preimageHash),
-        invoiceAmount: requestData.invoiceAmount,
-        claimPublicKey: getHexBuffer(requestData.claimPublicKey),
-      },
-    );
+    expect(service.createReverseSwap).toHaveBeenNthCalledWith(5, {
+      prepayMinerFee: true,
+      pairId: requestData.pairId,
+      orderSide: requestData.orderSide,
+      preimageHash: getHexBuffer(requestData.preimageHash),
+      invoiceAmount: requestData.invoiceAmount,
+      claimPublicKey: getHexBuffer(requestData.claimPublicKey),
+    });
 
     expect(res.status).toHaveBeenNthCalledWith(4, 201);
     expect(res.json).toHaveBeenNthCalledWith(4, await mockCreateReverseSwap());
@@ -930,16 +968,14 @@ describe('Controller', () => {
 
     await controller.createSwap(mockRequest(requestData), res);
 
-    expect(service.createReverseSwap).toHaveBeenNthCalledWith(7,
-      {
-        prepayMinerFee: true,
-        pairId: requestData.pairId,
-        orderSide: requestData.orderSide,
-        preimageHash: getHexBuffer(requestData.preimageHash),
-        onchainAmount: requestData.onchainAmount,
-        claimPublicKey: getHexBuffer(requestData.claimPublicKey),
-      },
-    );
+    expect(service.createReverseSwap).toHaveBeenNthCalledWith(7, {
+      prepayMinerFee: true,
+      pairId: requestData.pairId,
+      orderSide: requestData.orderSide,
+      preimageHash: getHexBuffer(requestData.preimageHash),
+      onchainAmount: requestData.onchainAmount,
+      claimPublicKey: getHexBuffer(requestData.claimPublicKey),
+    });
 
     expect(res.status).toHaveBeenNthCalledWith(5, 201);
     expect(res.json).toHaveBeenNthCalledWith(5, await mockCreateReverseSwap());
@@ -949,17 +985,15 @@ describe('Controller', () => {
 
     await controller.createSwap(mockRequest(requestData), res);
 
-    expect(service.createReverseSwap).toHaveBeenNthCalledWith(9,
-      {
-        prepayMinerFee: true,
-        pairId: requestData.pairId,
-        orderSide: requestData.orderSide,
-        referralId: requestData.referralId,
-        preimageHash: getHexBuffer(requestData.preimageHash),
-        onchainAmount: requestData.onchainAmount,
-        claimPublicKey: getHexBuffer(requestData.claimPublicKey),
-      },
-    );
+    expect(service.createReverseSwap).toHaveBeenNthCalledWith(9, {
+      prepayMinerFee: true,
+      pairId: requestData.pairId,
+      orderSide: requestData.orderSide,
+      referralId: requestData.referralId,
+      preimageHash: getHexBuffer(requestData.preimageHash),
+      onchainAmount: requestData.onchainAmount,
+      claimPublicKey: getHexBuffer(requestData.claimPublicKey),
+    });
 
     expect(res.status).toHaveBeenNthCalledWith(6, 201);
     expect(res.json).toHaveBeenNthCalledWith(6, await mockCreateReverseSwap());
@@ -987,7 +1021,10 @@ describe('Controller', () => {
     expect(mockValidateRequestAuthentication).toHaveBeenCalledTimes(2);
 
     expect(res.status).toHaveBeenNthCalledWith(2, 200);
-    expect(res.write).toHaveBeenNthCalledWith(1, mockGenerateReferralStatsResult);
+    expect(res.write).toHaveBeenNthCalledWith(
+      1,
+      mockGenerateReferralStatsResult,
+    );
     expect(res.end).toHaveBeenCalledTimes(1);
   });
 
@@ -1005,9 +1042,15 @@ describe('Controller', () => {
     // Successful request
     const id = 'id';
 
-    controller.streamSwapStatus(mockRequest({}, {
-      id,
-    }), res);
+    controller.streamSwapStatus(
+      mockRequest(
+        {},
+        {
+          id,
+        },
+      ),
+      res,
+    );
 
     expect(controller['pendingSwapStreams'].get(id)).not.toBeUndefined();
 
@@ -1031,58 +1074,86 @@ describe('Controller', () => {
   test('should validate requests', () => {
     const validateRequest = controller['validateRequest'];
 
-    const checks = [{
-      name: 'test',
-      type: 'string',
-    }];
+    const checks = [
+      {
+        name: 'test',
+        type: 'string',
+      },
+    ];
 
-    const hexChecks = [{
-      name: 'test',
-      type: 'string',
-      hex: true,
-    }];
+    const hexChecks = [
+      {
+        name: 'test',
+        type: 'string',
+        hex: true,
+      },
+    ];
 
-    const optionalChecks = [{
-      name: 'test',
-      type: 'string',
-      optional: true,
-    }];
+    const optionalChecks = [
+      {
+        name: 'test',
+        type: 'string',
+        optional: true,
+      },
+    ];
 
     // Undefined parameter
-    expect(() => validateRequest({}, checks))
-      .toThrow(`undefined parameter: ${checks[0].name}`);
+    expect(() => validateRequest({}, checks)).toThrow(
+      `undefined parameter: ${checks[0].name}`,
+    );
 
     // Invalid parameter
-    expect(() => validateRequest({
-      test: 0,
-    }, checks)).toThrow(`invalid parameter: ${checks[0].name}`);
+    expect(() =>
+      validateRequest(
+        {
+          test: 0,
+        },
+        checks,
+      ),
+    ).toThrow(`invalid parameter: ${checks[0].name}`);
 
     // Ignore empty hex
-    expect(validateRequest({
-      test: '',
-    }, hexChecks)).toEqual({
+    expect(
+      validateRequest(
+        {
+          test: '',
+        },
+        hexChecks,
+      ),
+    ).toEqual({
       test: '',
     });
 
     // Successful validation
     expect(
-      validateRequest({
-        test: 'test',
-      }, checks),
+      validateRequest(
+        {
+          test: 'test',
+        },
+        checks,
+      ),
     ).toEqual({ test: 'test' });
 
     // Successful hex validation
     expect(
-      validateRequest({
-        test: '298ae8cc',
-      }, hexChecks),
+      validateRequest(
+        {
+          test: '298ae8cc',
+        },
+        hexChecks,
+      ),
     ).toEqual({ test: getHexBuffer('298ae8cc') });
 
     // Optional argument
     expect(validateRequest({}, optionalChecks)).toEqual({});
-    expect(validateRequest({
-      test: 'test',
-    }, optionalChecks)).toEqual({ test: 'test' });
+    expect(
+      validateRequest(
+        {
+          test: 'test',
+        },
+        optionalChecks,
+      ),
+    ).toEqual({ test: 'test' });
   });
 
   test('should handle error responses', () => {
@@ -1137,24 +1208,42 @@ describe('Controller', () => {
     expect(parseSwapType('sUbMaRiNe')).toEqual(SwapType.Submarine);
     expect(parseSwapType('SUBMARINE')).toEqual(SwapType.Submarine);
 
-    expect(parseSwapType('reversesubmarine')).toEqual(SwapType.ReverseSubmarine);
-    expect(parseSwapType('reverseSubmarine')).toEqual(SwapType.ReverseSubmarine);
+    expect(parseSwapType('reversesubmarine')).toEqual(
+      SwapType.ReverseSubmarine,
+    );
+    expect(parseSwapType('reverseSubmarine')).toEqual(
+      SwapType.ReverseSubmarine,
+    );
 
-    expect(() => parseSwapType('notFound')).toThrow('could not find swap type: notFound');
+    expect(() => parseSwapType('notFound')).toThrow(
+      'could not find swap type: notFound',
+    );
   });
 
   test('should check preimage hash length', () => {
     const checkPreimageHashLength = controller['checkPreimageHashLength'];
 
-    checkPreimageHashLength(getHexBuffer('34786bcde69ec5873bcf2e8a42c47fbcc762bdb1096c1077709cb9854fef308d'));
+    checkPreimageHashLength(
+      getHexBuffer(
+        '34786bcde69ec5873bcf2e8a42c47fbcc762bdb1096c1077709cb9854fef308d',
+      ),
+    );
 
     // Check errors
-    expect(
-      () => checkPreimageHashLength(getHexBuffer('34786bcde69ec5873bcf2e8a42c47fbcc762bdb1096c1077709cb9854fef308')),
+    expect(() =>
+      checkPreimageHashLength(
+        getHexBuffer(
+          '34786bcde69ec5873bcf2e8a42c47fbcc762bdb1096c1077709cb9854fef308',
+        ),
+      ),
     ).toThrow('invalid preimage hash length: 31');
 
-    expect(
-      () => checkPreimageHashLength(getHexBuffer('34786bcde69ec5873bcf2e8a42c47fbcc762bdb1096c1077709cb9854fef308dff')),
+    expect(() =>
+      checkPreimageHashLength(
+        getHexBuffer(
+          '34786bcde69ec5873bcf2e8a42c47fbcc762bdb1096c1077709cb9854fef308dff',
+        ),
+      ),
     ).toThrow('invalid preimage hash length: 33');
   });
 });

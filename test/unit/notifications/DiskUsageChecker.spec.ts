@@ -1,6 +1,8 @@
 import Logger from '../../../lib/Logger';
 import DiscordClient from '../../../lib/notifications/DiscordClient';
-import DiskUsageChecker, { DiskUsage } from '../../../lib/notifications/DiskUsageChecker';
+import DiskUsageChecker, {
+  DiskUsage,
+} from '../../../lib/notifications/DiskUsageChecker';
 
 const mockSendMessage = jest.fn().mockImplementation(() => Promise.resolve());
 
@@ -10,7 +12,7 @@ jest.mock('../../../lib/notifications/DiscordClient', () => {
   }));
 });
 
-const mockedDiscordClient = <jest.Mock<DiscordClient>><any>DiscordClient;
+const mockedDiscordClient = <jest.Mock<DiscordClient>>(<any>DiscordClient);
 
 const gigabyte = DiskUsageChecker['gigabyte'];
 
@@ -56,7 +58,10 @@ describe('DiskUsageChecker', () => {
   });
 
   test('should get disk usage from df command', async () => {
-    const diskUsage = await new DiskUsageChecker(Logger.disabledLogger, discordClient)['getUsage']();
+    const diskUsage = await new DiskUsageChecker(
+      Logger.disabledLogger,
+      discordClient,
+    )['getUsage']();
 
     expect(diskUsage.total).toBeDefined();
     expect(diskUsage.available).toBeDefined();
@@ -71,7 +76,9 @@ describe('DiskUsageChecker', () => {
     expect(checker['alertSent']).toBeTruthy();
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
-    expect(mockSendMessage).toHaveBeenCalledWith(':rotating_light: Disk usage is **90%**: **1 GB** of **10 GB** available :rotating_light:');
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      ':rotating_light: Disk usage is **90%**: **1 GB** of **10 GB** available :rotating_light:',
+    );
 
     diskUsage = highDiskUsage;
 
@@ -81,7 +88,9 @@ describe('DiskUsageChecker', () => {
     expect(checker['alertSent']).toBeTruthy();
 
     expect(mockSendMessage).toHaveBeenCalledTimes(2);
-    expect(mockSendMessage).toHaveBeenCalledWith(':rotating_light: Disk usage is **100%**: **0 GB** of **20 GB** available :rotating_light:');
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      ':rotating_light: Disk usage is **100%**: **0 GB** of **20 GB** available :rotating_light:',
+    );
   });
 
   test('should not send a warning if disk usage is less than 90%', async () => {

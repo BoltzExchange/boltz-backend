@@ -14,7 +14,9 @@ class InvoiceExpiryHelper {
   }
 
   public getExpiry = (symbol: string): number => {
-    return this.invoiceExpiry.get(symbol) || InvoiceExpiryHelper.defaultInvoiceExpiry;
+    return (
+      this.invoiceExpiry.get(symbol) || InvoiceExpiryHelper.defaultInvoiceExpiry
+    );
   };
 
   /**
@@ -24,7 +26,10 @@ class InvoiceExpiryHelper {
    * @param timestamp creation timestamp of the invoice
    * @param timeExpireDate expiry timestamp of the invoice
    */
-  public static getInvoiceExpiry = (timestamp?: number, timeExpireDate?: number): number => {
+  public static getInvoiceExpiry = (
+    timestamp?: number,
+    timeExpireDate?: number,
+  ): number => {
     let invoiceExpiry = timestamp || 0;
 
     if (timeExpireDate) {

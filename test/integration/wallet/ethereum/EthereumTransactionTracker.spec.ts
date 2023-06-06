@@ -5,14 +5,18 @@ import PendingEthereumTransactionRepository from '../../../../lib/db/repositorie
 
 const mockAddTransaction = jest.fn().mockImplementation(async () => {});
 
-const mockGetTransactionsResult: any[] = [{
-  destroy: jest.fn().mockImplementation(async () => {}),
-}];
+const mockGetTransactionsResult: any[] = [
+  {
+    destroy: jest.fn().mockImplementation(async () => {}),
+  },
+];
 const mockGetTransactions = jest.fn().mockImplementation(async () => {
   return mockGetTransactionsResult;
 });
 
-jest.mock('../../../../lib/db/repositories/PendingEthereumTransactionRepository');
+jest.mock(
+  '../../../../lib/db/repositories/PendingEthereumTransactionRepository',
+);
 
 describe('EthereumTransactionTracker', () => {
   let setup: EthereumSetup;

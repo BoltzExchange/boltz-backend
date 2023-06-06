@@ -30,7 +30,11 @@ interface WalletProviderInterface {
    * @param amount
    * @param relativeFee
    */
-  sendToAddress: (address: string, amount: number, relativeFee?: number) => Promise<SentTransaction>;
+  sendToAddress: (
+    address: string,
+    amount: number,
+    relativeFee?: number,
+  ) => Promise<SentTransaction>;
 
   /**
    * Sweeps the wallet
@@ -38,7 +42,10 @@ interface WalletProviderInterface {
    * @param address
    * @param relativeFee
    */
-  sweepWallet: (address: string, relativeFee?: number) => Promise<SentTransaction>;
+  sweepWallet: (
+    address: string,
+    relativeFee?: number,
+  ) => Promise<SentTransaction>;
 }
 
 export default WalletProviderInterface;

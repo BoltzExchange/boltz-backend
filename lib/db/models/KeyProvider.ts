@@ -14,15 +14,22 @@ class KeyProvider extends Model implements KeyProviderType {
   public highestUsedIndex!: number;
 
   public static load = (sequelize: Sequelize): void => {
-    KeyProvider.init({
-      symbol: { type: new DataTypes.STRING(255), primaryKey: true, allowNull: false },
-      derivationPath: { type: new DataTypes.STRING(255), allowNull: false },
-      highestUsedIndex: { type: new DataTypes.INTEGER(), allowNull: false },
-    }, {
-      sequelize,
-      tableName: 'keys',
-      timestamps: false,
-    });
+    KeyProvider.init(
+      {
+        symbol: {
+          type: new DataTypes.STRING(255),
+          primaryKey: true,
+          allowNull: false,
+        },
+        derivationPath: { type: new DataTypes.STRING(255), allowNull: false },
+        highestUsedIndex: { type: new DataTypes.INTEGER(), allowNull: false },
+      },
+      {
+        sequelize,
+        tableName: 'keys',
+        timestamps: false,
+      },
+    );
   };
 }
 

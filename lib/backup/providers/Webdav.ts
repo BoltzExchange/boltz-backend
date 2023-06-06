@@ -20,9 +20,9 @@ class Webdav implements BackupProvider {
   }
 
   public static configValid = (config: WebdavConfig): boolean => {
-    return config.url !== '' &&
-      config.username !== '' &&
-      config.password !== '';
+    return (
+      config.url !== '' && config.username !== '' && config.password !== ''
+    );
   };
 
   public uploadString = async (path: string, data: string): Promise<void> => {
@@ -37,17 +37,19 @@ class Webdav implements BackupProvider {
 
     return new Promise((resolve, reject) => {
       const stats = fs.statSync(file);
-      fs.createReadStream(file).pipe(
-        this.client.createWriteStream(path, {
-          headers: {
-            'Content-Length': stats.size.toString(),
-          },
-          overwrite: true,
-        })
-          .on('error', (error) => {
-            reject(error);
-          }),
-      )
+      fs.createReadStream(file)
+        .pipe(
+          this.client
+            .createWriteStream(path, {
+              headers: {
+                'Content-Length': stats.size.toString(),
+              },
+              overwrite: true,
+            })
+            .on('error', (error) => {
+              reject(error);
+            }),
+        )
         .on('finish', () => {
           resolve();
         })

@@ -12,7 +12,8 @@ export default {
     code: concatErrorCode(ErrorCodePrefix.Chain, 2),
   }),
   NO_BLOCK_FALLBACK: (): Error => ({
-    message: 'could not fall back to pubhashblock ZMQ filter because it is not enabled',
+    message:
+      'could not fall back to pubhashblock ZMQ filter because it is not enabled',
     code: concatErrorCode(ErrorCodePrefix.Chain, 3),
   }),
   INVALID_COOKIE_FILE: (path: string): Error => ({
@@ -23,7 +24,11 @@ export default {
     message: 'no or invalid authentication specified',
     code: concatErrorCode(ErrorCodePrefix.Chain, 5),
   }),
-  ZMQ_CONNECTION_TIMEOUT: (symbol: string, filter: string, address: string): Error => ({
+  ZMQ_CONNECTION_TIMEOUT: (
+    symbol: string,
+    filter: string,
+    address: string,
+  ): Error => ({
     message: `connection attempt to ${symbol} ZMQ filter ${filter} (${address}) timed out`,
     code: concatErrorCode(ErrorCodePrefix.Chain, 6),
   }),

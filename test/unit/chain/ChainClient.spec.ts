@@ -17,7 +17,7 @@ jest.mock('../../../lib/chain/RpcClient', () => {
             return new Promise((resolve) => {
               if (blocks === 2) {
                 resolve({
-                  feerate: 0.00010640,
+                  feerate: 0.0001064,
                 });
               } else {
                 resolve({});
@@ -60,11 +60,15 @@ describe('ChainClient', () => {
     '9b0fc92260312ce44e74ef369f5c66bbb85848f2eddd5a7a1cde251e54ccfdd5',
   ];
 
-  const chainClient = new ChainClient(Logger.disabledLogger, {
-    host: '',
-    port: 0,
-    cookie: '',
-  }, 'BTC');
+  const chainClient = new ChainClient(
+    Logger.disabledLogger,
+    {
+      host: '',
+      port: 0,
+      cookie: '',
+    },
+    'BTC',
+  );
 
   chainClient['listenToZmq']();
 
@@ -75,7 +79,9 @@ describe('ChainClient', () => {
 
   test('should estimate fee', async () => {
     // Verify that the default fee is 2 sats/vbyte
-    await expect(chainClient.estimateFee(Number.MAX_SAFE_INTEGER)).resolves.toEqual(2);
+    await expect(
+      chainClient.estimateFee(Number.MAX_SAFE_INTEGER),
+    ).resolves.toEqual(2);
 
     // Verify that the fee is calculated correctly
     await expect(chainClient.estimateFee(2)).resolves.toEqual(11);

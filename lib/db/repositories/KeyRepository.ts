@@ -5,7 +5,9 @@ class KeyRepository {
     return KeyProvider.findAll();
   };
 
-  public static getKeyProvider = (symbol: string): Promise<KeyProviderType | null> => {
+  public static getKeyProvider = (
+    symbol: string,
+  ): Promise<KeyProviderType | null> => {
     return KeyProvider.findOne({
       where: {
         symbol,
@@ -13,18 +15,26 @@ class KeyRepository {
     });
   };
 
-  public static addKeyProvider = (wallet: KeyProviderType): Promise<KeyProviderType> => {
+  public static addKeyProvider = (
+    wallet: KeyProviderType,
+  ): Promise<KeyProviderType> => {
     return KeyProvider.create(wallet);
   };
 
-  public static setHighestUsedIndex = (symbol: string, highestUsedIndex: number): Promise<[number]> => {
-    return KeyProvider.update({
-      highestUsedIndex,
-    }, {
-      where: {
-        symbol,
+  public static setHighestUsedIndex = (
+    symbol: string,
+    highestUsedIndex: number,
+  ): Promise<[number]> => {
+    return KeyProvider.update(
+      {
+        highestUsedIndex,
       },
-    });
+      {
+        where: {
+          symbol,
+        },
+      },
+    );
   };
 }
 

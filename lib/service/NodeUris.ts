@@ -1,8 +1,8 @@
 import { Currency } from '../wallet/WalletManager';
 
 type LndNodeInfo = {
-  nodeKey: string,
-  uris: string[],
+  nodeKey: string;
+  uris: string[];
 };
 
 class NodeUris {

@@ -17,8 +17,12 @@ describe('InvoiceExpiryHelper', () => {
 
   test('should get expiry of invoices', () => {
     // Defined in the currency array
-    expect(helper.getExpiry(currencies[0].symbol)).toEqual(currencies[0].invoiceExpiry);
-    expect(helper.getExpiry(currencies[1].symbol)).toEqual(currencies[1].invoiceExpiry);
+    expect(helper.getExpiry(currencies[0].symbol)).toEqual(
+      currencies[0].invoiceExpiry,
+    );
+    expect(helper.getExpiry(currencies[1].symbol)).toEqual(
+      currencies[1].invoiceExpiry,
+    );
 
     // Default value
     expect(helper.getExpiry('DOGE')).toEqual(3600);

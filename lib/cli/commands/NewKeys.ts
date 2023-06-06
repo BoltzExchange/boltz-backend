@@ -10,8 +10,10 @@ export const builder = {};
 export const handler = (): void => {
   const keys = ECPair.makeRandom({});
 
-  console.log(stringify({
-    publicKey: getHexString(keys.publicKey),
-    privateKey: getHexString(keys.privateKey as Buffer),
-  }));
+  console.log(
+    stringify({
+      publicKey: getHexString(keys.publicKey),
+      privateKey: getHexString(keys.privateKey as Buffer),
+    }),
+  );
 };

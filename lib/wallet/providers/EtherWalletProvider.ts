@@ -2,7 +2,10 @@ import { Signer } from 'ethers';
 import Logger from '../../Logger';
 import { etherDecimals } from '../../consts/Consts';
 import { getGasPrices } from '../ethereum/EthereumUtils';
-import WalletProviderInterface, { SentTransaction, WalletBalance } from './WalletProviderInterface';
+import WalletProviderInterface, {
+  SentTransaction,
+  WalletBalance,
+} from './WalletProviderInterface';
 
 class EtherWalletProvider implements WalletProviderInterface {
   public readonly symbol: string;
@@ -20,9 +23,10 @@ class EtherWalletProvider implements WalletProviderInterface {
   };
 
   public getBalance = async (): Promise<WalletBalance> => {
-    const balance = Number((
-      await this.signer.provider!.getBalance(await this.getAddress())
-    ) / etherDecimals);
+    const balance = Number(
+      (await this.signer.provider!.getBalance(await this.getAddress())) /
+        etherDecimals,
+    );
 
     return {
       totalBalance: balance,
@@ -31,11 +35,14 @@ class EtherWalletProvider implements WalletProviderInterface {
     };
   };
 
-  public sendToAddress = async (address: string, amount: number): Promise<SentTransaction> => {
+  public sendToAddress = async (
+    address: string,
+    amount: number,
+  ): Promise<SentTransaction> => {
     const transaction = await this.signer.sendTransaction({
       to: address,
       value: BigInt(amount) * etherDecimals,
-      ...await getGasPrices(this.signer.provider!),
+      ...(await getGasPrices(this.signer.provider!)),
     });
 
     return {
@@ -44,9 +51,13 @@ class EtherWalletProvider implements WalletProviderInterface {
   };
 
   public sweepWallet = async (address: string): Promise<SentTransaction> => {
-    const balance = await this.signer.provider!.getBalance(await this.getAddress());
+    const balance = await this.signer.provider!.getBalance(
+      await this.getAddress(),
+    );
 
-    const { type, maxPriorityFeePerGas, maxFeePerGas } = await getGasPrices(this.signer.provider!);
+    const { type, maxPriorityFeePerGas, maxFeePerGas } = await getGasPrices(
+      this.signer.provider!,
+    );
     const gasCost = this.ethTransferGas * BigInt(maxFeePerGas!);
 
     const value = balance - gasCost;

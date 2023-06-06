@@ -2,14 +2,23 @@ import { Signer } from 'ethers';
 import Logger from '../../Logger';
 import { Token } from '../../consts/Types';
 import { getGasPrices } from '../ethereum/EthereumUtils';
-import WalletProviderInterface, { SentTransaction, WalletBalance } from './WalletProviderInterface';
+import WalletProviderInterface, {
+  SentTransaction,
+  WalletBalance,
+} from './WalletProviderInterface';
 
 class ERC20WalletProvider implements WalletProviderInterface {
   public readonly symbol: string;
 
-  constructor(private logger: Logger, private signer: Signer, private token: Token) {
+  constructor(
+    private logger: Logger,
+    private signer: Signer,
+    private token: Token,
+  ) {
     this.symbol = token.symbol;
-    this.logger.info(`Initialized ${this.symbol} ERC20 wallet with contract: ${this.token.address}`);
+    this.logger.info(
+      `Initialized ${this.symbol} ERC20 wallet with contract: ${this.token.address}`,
+    );
   }
 
   public getTokenAddress = (): string => {
@@ -32,11 +41,18 @@ class ERC20WalletProvider implements WalletProviderInterface {
     };
   };
 
-  public sendToAddress = async (address: string, amount: number): Promise<SentTransaction> => {
+  public sendToAddress = async (
+    address: string,
+    amount: number,
+  ): Promise<SentTransaction> => {
     const actualAmount = this.formatTokenAmount(amount);
-    const transaction = await this.token.contract.transfer(address, actualAmount, {
-      ...await getGasPrices(this.signer.provider!),
-    });
+    const transaction = await this.token.contract.transfer(
+      address,
+      actualAmount,
+      {
+        ...(await getGasPrices(this.signer.provider!)),
+      },
+    );
 
     return {
       transactionId: transaction.hash,
@@ -44,9 +60,11 @@ class ERC20WalletProvider implements WalletProviderInterface {
   };
 
   public sweepWallet = async (address: string): Promise<SentTransaction> => {
-    const balance = await this.token.contract.balanceOf(await this.getAddress());
+    const balance = await this.token.contract.balanceOf(
+      await this.getAddress(),
+    );
     const transaction = await this.token.contract.transfer(address, balance, {
-      ...await getGasPrices(this.signer.provider!),
+      ...(await getGasPrices(this.signer.provider!)),
     });
 
     return {
@@ -55,12 +73,18 @@ class ERC20WalletProvider implements WalletProviderInterface {
   };
 
   public getAllowance = async (spender: string): Promise<bigint> => {
-    return this.token.contract.allowance(await this.signer.getAddress(), spender);
+    return this.token.contract.allowance(
+      await this.signer.getAddress(),
+      spender,
+    );
   };
 
-  public approve = async (spender: string, amount: bigint): Promise<SentTransaction> => {
+  public approve = async (
+    spender: string,
+    amount: bigint,
+  ): Promise<SentTransaction> => {
     const transaction = await this.token.contract.approve(spender, amount, {
-      ...await getGasPrices(this.signer.provider!),
+      ...(await getGasPrices(this.signer.provider!)),
     });
 
     return {
@@ -94,7 +118,7 @@ class ERC20WalletProvider implements WalletProviderInterface {
     if (this.token.decimals === 8) {
       return Number(amount);
     } else {
-      const exponent = BigInt(10) ** (BigInt(Math.abs(this.token.decimals - 8)));
+      const exponent = BigInt(10) ** BigInt(Math.abs(this.token.decimals - 8));
 
       if (this.token.decimals > 8) {
         return Number(amount / exponent);

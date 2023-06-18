@@ -249,7 +249,7 @@ class ChainClient extends BaseClient {
       undefined,
       undefined,
       subtractFeeFromAmount,
-      undefined,
+      false,
       undefined,
       undefined,
       undefined,

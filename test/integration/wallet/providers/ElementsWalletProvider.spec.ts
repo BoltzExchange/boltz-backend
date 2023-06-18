@@ -136,6 +136,16 @@ describe('ElementsWalletProvider', () => {
     );
   });
 
+  it('should send transactions that do not signal RBF', async () => {
+    const amount = 31222;
+    const addr = await provider.getAddress();
+    const { transaction } = await provider.sendToAddress(addr, amount);
+    expect(transaction).toBeDefined();
+    expect(
+      transaction!.ins.every((vin) => vin.sequence === 0xffffffff - 1),
+    ).toBeTruthy();
+  });
+
   it('should sweep the wallet', async () => {
     const balance = await provider.getBalance();
     const sweepAddress = await provider.getAddress();

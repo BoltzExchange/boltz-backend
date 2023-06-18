@@ -35,7 +35,7 @@ class ElementsClient extends ChainClient {
       undefined,
       undefined,
       subtractFeeFromAmount,
-      undefined,
+      false,
       undefined,
       undefined,
       undefined,

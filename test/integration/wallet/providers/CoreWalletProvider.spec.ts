@@ -98,8 +98,10 @@ describe('CoreWalletProvider', () => {
     expect(
       (await provider.getAddress(AddressType.P2shegwit)).startsWith('2'),
     ).toBeTruthy();
+
+    const legacyAddress = await provider.getAddress(AddressType.Legacy);
     expect(
-      (await provider.getAddress(AddressType.Legacy)).startsWith('m'),
+      legacyAddress.startsWith('m') || legacyAddress.startsWith('n'),
     ).toBeTruthy();
   });
 

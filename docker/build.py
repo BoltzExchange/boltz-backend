@@ -35,7 +35,7 @@ NODE_VERSION = BuildArgument(
 
 GOLANG_VERSION = BuildArgument(
     name="GOLANG_VERSION",
-    value="1.20.4-buster",
+    value="1.20.5-buster",
 )
 
 BITCOIN_VERSION = "25.0"
@@ -43,9 +43,9 @@ LITECOIN_VERSION = "0.21.2.2"
 ELEMENTS_VERSION = "22.1.1"
 GETH_VERSION = "1.12.0"
 
-C_LIGHTNING_VERSION = "23.05"
+C_LIGHTNING_VERSION = "23.05.1"
 ECLAIR_VERSION = "0.8.0"
-LND_VERSION = "0.16.2-beta"
+LND_VERSION = "0.16.3-beta"
 
 BITCOIN_BUILD_ARG = BuildArgument(
     name="BITCOIN_VERSION",
@@ -99,7 +99,7 @@ IMAGES: dict[str, Image] = {
         ],
     ),
     "regtest": Image(
-        tags=["3.5.1"],
+        tags=["3.5.2"],
         arguments=[
             UBUNTU_VERSION,
             BITCOIN_BUILD_ARG,

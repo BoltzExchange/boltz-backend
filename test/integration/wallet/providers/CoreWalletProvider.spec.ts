@@ -135,7 +135,7 @@ describe('CoreWalletProvider', () => {
     await verifySentTransaction(tx, testAddress, amount, false, feePerVByte);
   });
 
-  it('should send transactions that do not   signal RBF', async () => {
+  it('should send transactions that do not signal RBF', async () => {
     const amount = 321312;
     const addr = await provider.getAddress();
     const { transaction } = await provider.sendToAddress(addr, amount);

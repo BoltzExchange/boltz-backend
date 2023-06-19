@@ -11,7 +11,7 @@ type RecommendedFees = {
 
 class MempoolSpaceClient {
   private static readonly factor = 1.1;
-  private static readonly fetchInterval = 10000;
+  private static readonly fetchInterval = 2.5 * 60 * 1000;
 
   // Undefined in case the latest request failed
   public latestFee?: number;

@@ -12,7 +12,7 @@ class DiskUsageChecker {
   private alertSent = false;
 
   private static rootDir = '/';
-  private static gigabyte = 1024 ** 3;
+  private static gigabyte = 1024 ** 2;
   private static warningThreshold = 0.9;
 
   constructor(private logger: Logger, private discord: DiscordClient) {}

@@ -52,9 +52,9 @@ describe('DiskUsageChecker', () => {
   test('should convert bytes to gigabytes', () => {
     const convertToGb = checker['convertToGb'];
 
-    expect(convertToGb(536870912)).toEqual(0.5);
-    expect(convertToGb(1073741824)).toEqual(1);
-    expect(convertToGb(2147483648)).toEqual(2);
+    expect(convertToGb(536870912)).toEqual(512);
+    expect(convertToGb(1073741824)).toEqual(1024);
+    expect(convertToGb(2147483648)).toEqual(2048);
   });
 
   test('should get disk usage from df command', async () => {

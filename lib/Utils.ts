@@ -572,3 +572,12 @@ export const hashString = (input: string): string => {
 export const createApiCredential = (): string => {
   return randomBytes(32).toString('hex');
 };
+
+export const splitChannelPoint = (channelPoint: string) => {
+  const split = channelPoint.split(':');
+
+  return {
+    id: split[0],
+    vout: Number(split[1]),
+  };
+};

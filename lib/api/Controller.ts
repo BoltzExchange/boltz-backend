@@ -180,6 +180,14 @@ class Controller {
     });
   };
 
+  public getNodeStats = (_: Request, res: Response): void => {
+    const stats = this.service.getNodeStats();
+
+    this.successResponse(res, {
+      nodes: mapToObject(stats),
+    });
+  };
+
   public getTimeouts = async (_: Request, res: Response): Promise<void> => {
     const timeouts = this.service.getTimeouts();
 

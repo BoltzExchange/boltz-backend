@@ -6,6 +6,7 @@ import commitHash from '../../lib/Version';
 import packageJson from '../../package.json';
 import { OrderSide } from '../../lib/consts/Enums';
 import { constructTransaction, randomRange } from '../Utils';
+import { splitChannelPoint } from '../../lib/Utils';
 
 describe('Utils', () => {
   let pairId: string;
@@ -320,5 +321,16 @@ describe('Utils', () => {
     expect(utils.hashString('bar')).toEqual(
       'fcde2b2edba56bf408601fb721fe9b5c338d10ee429ea04fae5511b68fbf8fb9',
     );
+  });
+
+  test('should split channel points', () => {
+    expect(
+      splitChannelPoint(
+        '059a4a673f9984e236037b04317f7d042378227bfdd82e12dd55b0bf67a6773e:1',
+      ),
+    ).toEqual({
+      vout: 1,
+      id: '059a4a673f9984e236037b04317f7d042378227bfdd82e12dd55b0bf67a6773e',
+    });
   });
 });

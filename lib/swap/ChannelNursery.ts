@@ -17,6 +17,7 @@ import {
   getHexString,
   getLightningCurrency,
   reverseBuffer,
+  splitChannelPoint,
   splitPairId,
 } from '../Utils';
 
@@ -44,7 +45,7 @@ class ChannelNursery extends EventEmitter {
   // This map is needed because when the node on the other side of a Channel Creation Swap
   // is c-lightning, there is a bug in LND that causes the "channel.active" event to fire
   // although the channel is still marked as inactive in "listchannels" and cannot be used yet.
-  // Therefore we need to retry after a couple seconds in order to settle the Swap.
+  // Therefore, we need to retry after a couple seconds in order to settle the Swap.
   private settleRetries = new Map<string, number>();
 
   private static channelSettleLock = 'channelSettle';
@@ -314,7 +315,7 @@ class ChannelNursery extends EventEmitter {
     );
 
     for (const channel of activeChannels.channelsList) {
-      const channelPoint = this.splitChannelPoint(channel.channelPoint);
+      const channelPoint = splitChannelPoint(channel.channelPoint);
 
       if (
         channelPoint.id === channelCreation.fundingTransactionId &&
@@ -432,15 +433,6 @@ class ChannelNursery extends EventEmitter {
     return getHexString(
       reverseBuffer(Buffer.from(fundingTransactionIdBytes as string, 'base64')),
     );
-  };
-
-  private splitChannelPoint = (channelPoint: string) => {
-    const split = channelPoint.split(':');
-
-    return {
-      id: split[0],
-      vout: Number(split[1]),
-    };
   };
 
   private getCurrency = (swap: Swap, lightning: boolean) => {

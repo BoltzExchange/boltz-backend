@@ -678,17 +678,6 @@ describe('ChannelNursery', () => {
     );
   });
 
-  test('should split channel points', () => {
-    expect(
-      channelNursery['splitChannelPoint'](
-        '059a4a673f9984e236037b04317f7d042378227bfdd82e12dd55b0bf67a6773e:1',
-      ),
-    ).toEqual({
-      vout: 1,
-      id: '059a4a673f9984e236037b04317f7d042378227bfdd82e12dd55b0bf67a6773e',
-    });
-  });
-
   test('should get currencies', () => {
     const getCurrency = channelNursery['getCurrency'];
 

@@ -64,6 +64,7 @@ class Api {
 
     this.app.route('/getpairs').get(controller.getPairs);
     this.app.route('/getnodes').get(controller.getNodes);
+    this.app.route('/nodestats').get(controller.getNodeStats);
     this.app.route('/timeouts').get(controller.getTimeouts);
     this.app.route('/getcontracts').get(controller.getContracts);
     this.app.route('/getfeeestimation').get(controller.getFeeEstimation);

@@ -2,7 +2,7 @@ import { getAddress } from 'ethers';
 import { OutputType } from 'boltz-core';
 import Errors from './Errors';
 import Logger from '../Logger';
-import NodeUris from './NodeUris';
+import NodeInfo from './NodeInfo';
 import Swap from '../db/models/Swap';
 import ApiErrors from '../api/Errors';
 import Wallet from '../wallet/Wallet';
@@ -71,7 +71,7 @@ import {
 class Service {
   public allowReverseSwaps = true;
 
-  private nodeUris: NodeUris;
+  private nodeInfo: NodeInfo;
   public swapManager: SwapManager;
   public eventHandler: EventHandler;
 
@@ -133,7 +133,7 @@ class Service {
       this.swapManager.nursery,
     );
 
-    this.nodeUris = new NodeUris(this.currencies);
+    this.nodeInfo = new NodeInfo(Logger.disabledLogger, this.currencies);
   }
 
   public init = async (configPairs: PairConfig[]): Promise<void> => {
@@ -172,7 +172,7 @@ class Service {
     this.rateProvider.feeProvider.init(configPairs);
     await this.rateProvider.init(configPairs);
 
-    await this.nodeUris.init();
+    await this.nodeInfo.init();
   };
 
   /**
@@ -321,7 +321,11 @@ class Service {
    * Gets a map between the LND node keys and URIs and the symbol of the chains they are running on
    */
   public getNodes = () => {
-    return this.nodeUris.getNodes();
+    return this.nodeInfo.getUris();
+  };
+
+  public getNodeStats = () => {
+    return this.nodeInfo.getStats();
   };
 
   public getRoutingHints = (

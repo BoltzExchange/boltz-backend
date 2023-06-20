@@ -427,18 +427,10 @@ const channelBalance = {
   localBalance: 2,
   remoteBalance: 4,
 };
+let mockListChannelsResult = {};
 
-const mockListChannels = jest.fn().mockResolvedValue({
-  channelsList: [
-    {
-      localBalance: channelBalance.localBalance / 2,
-      remoteBalance: channelBalance.remoteBalance / 2,
-    },
-    {
-      localBalance: channelBalance.localBalance / 2,
-      remoteBalance: channelBalance.remoteBalance / 2,
-    },
-  ],
+const mockListChannels = jest.fn().mockImplementation(async () => {
+  return mockListChannelsResult;
 });
 
 const decodedInvoice: any = {
@@ -563,6 +555,23 @@ describe('Service', () => {
     SwapRepository.addSwap = mockAddSwap;
 
     ChannelCreationRepository.getChannelCreation = mockGetChannelCreation;
+
+    mockListChannelsResult = {
+      channelsList: [
+        {
+          localBalance: channelBalance.localBalance / 2,
+          remoteBalance: channelBalance.remoteBalance / 2,
+        },
+        {
+          localBalance: channelBalance.localBalance / 2,
+          remoteBalance: channelBalance.remoteBalance / 2,
+        },
+      ],
+    };
+  });
+
+  afterAll(() => {
+    service['nodeInfo'].stopSchedule();
   });
 
   test('should not init if a currency of a pair cannot be found', async () => {
@@ -579,6 +588,7 @@ describe('Service', () => {
   });
 
   test('should init', async () => {
+    mockListChannelsResult = { channelsList: [] };
     await service.init(configPairs);
 
     expect(mockGetPairs).toHaveBeenCalledTimes(1);

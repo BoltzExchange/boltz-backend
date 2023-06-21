@@ -32,6 +32,7 @@ interface ILightningService
   closedChannels: ILightningService_IClosedChannels;
   openChannelSync: ILightningService_IOpenChannelSync;
   openChannel: ILightningService_IOpenChannel;
+  batchOpenChannel: ILightningService_IBatchOpenChannel;
   fundingStateStep: ILightningService_IFundingStateStep;
   channelAcceptor: ILightningService_IChannelAcceptor;
   closeChannel: ILightningService_ICloseChannel;
@@ -46,6 +47,7 @@ interface ILightningService
   subscribeInvoices: ILightningService_ISubscribeInvoices;
   decodePayReq: ILightningService_IDecodePayReq;
   listPayments: ILightningService_IListPayments;
+  deletePayment: ILightningService_IDeletePayment;
   deleteAllPayments: ILightningService_IDeleteAllPayments;
   describeGraph: ILightningService_IDescribeGraph;
   getNodeMetrics: ILightningService_IGetNodeMetrics;
@@ -68,6 +70,12 @@ interface ILightningService
   listMacaroonIDs: ILightningService_IListMacaroonIDs;
   deleteMacaroonID: ILightningService_IDeleteMacaroonID;
   listPermissions: ILightningService_IListPermissions;
+  checkMacaroonPermissions: ILightningService_ICheckMacaroonPermissions;
+  registerRPCMiddleware: ILightningService_IRegisterRPCMiddleware;
+  sendCustomMessage: ILightningService_ISendCustomMessage;
+  subscribeCustomMessages: ILightningService_ISubscribeCustomMessages;
+  listAliases: ILightningService_IListAliases;
+  lookupHtlcResolution: ILightningService_ILookupHtlcResolution;
 }
 
 interface ILightningService_IWalletBalance
@@ -369,6 +377,19 @@ interface ILightningService_IOpenChannel
   responseSerialize: grpc.serialize<lnd_rpc_pb.OpenStatusUpdate>;
   responseDeserialize: grpc.deserialize<lnd_rpc_pb.OpenStatusUpdate>;
 }
+interface ILightningService_IBatchOpenChannel
+  extends grpc.MethodDefinition<
+    lnd_rpc_pb.BatchOpenChannelRequest,
+    lnd_rpc_pb.BatchOpenChannelResponse
+  > {
+  path: '/lnrpc.Lightning/BatchOpenChannel';
+  requestStream: false;
+  responseStream: false;
+  requestSerialize: grpc.serialize<lnd_rpc_pb.BatchOpenChannelRequest>;
+  requestDeserialize: grpc.deserialize<lnd_rpc_pb.BatchOpenChannelRequest>;
+  responseSerialize: grpc.serialize<lnd_rpc_pb.BatchOpenChannelResponse>;
+  responseDeserialize: grpc.deserialize<lnd_rpc_pb.BatchOpenChannelResponse>;
+}
 interface ILightningService_IFundingStateStep
   extends grpc.MethodDefinition<
     lnd_rpc_pb.FundingTransitionMsg,
@@ -544,6 +565,19 @@ interface ILightningService_IListPayments
   requestDeserialize: grpc.deserialize<lnd_rpc_pb.ListPaymentsRequest>;
   responseSerialize: grpc.serialize<lnd_rpc_pb.ListPaymentsResponse>;
   responseDeserialize: grpc.deserialize<lnd_rpc_pb.ListPaymentsResponse>;
+}
+interface ILightningService_IDeletePayment
+  extends grpc.MethodDefinition<
+    lnd_rpc_pb.DeletePaymentRequest,
+    lnd_rpc_pb.DeletePaymentResponse
+  > {
+  path: '/lnrpc.Lightning/DeletePayment';
+  requestStream: false;
+  responseStream: false;
+  requestSerialize: grpc.serialize<lnd_rpc_pb.DeletePaymentRequest>;
+  requestDeserialize: grpc.deserialize<lnd_rpc_pb.DeletePaymentRequest>;
+  responseSerialize: grpc.serialize<lnd_rpc_pb.DeletePaymentResponse>;
+  responseDeserialize: grpc.deserialize<lnd_rpc_pb.DeletePaymentResponse>;
 }
 interface ILightningService_IDeleteAllPayments
   extends grpc.MethodDefinition<
@@ -831,6 +865,84 @@ interface ILightningService_IListPermissions
   responseSerialize: grpc.serialize<lnd_rpc_pb.ListPermissionsResponse>;
   responseDeserialize: grpc.deserialize<lnd_rpc_pb.ListPermissionsResponse>;
 }
+interface ILightningService_ICheckMacaroonPermissions
+  extends grpc.MethodDefinition<
+    lnd_rpc_pb.CheckMacPermRequest,
+    lnd_rpc_pb.CheckMacPermResponse
+  > {
+  path: '/lnrpc.Lightning/CheckMacaroonPermissions';
+  requestStream: false;
+  responseStream: false;
+  requestSerialize: grpc.serialize<lnd_rpc_pb.CheckMacPermRequest>;
+  requestDeserialize: grpc.deserialize<lnd_rpc_pb.CheckMacPermRequest>;
+  responseSerialize: grpc.serialize<lnd_rpc_pb.CheckMacPermResponse>;
+  responseDeserialize: grpc.deserialize<lnd_rpc_pb.CheckMacPermResponse>;
+}
+interface ILightningService_IRegisterRPCMiddleware
+  extends grpc.MethodDefinition<
+    lnd_rpc_pb.RPCMiddlewareResponse,
+    lnd_rpc_pb.RPCMiddlewareRequest
+  > {
+  path: '/lnrpc.Lightning/RegisterRPCMiddleware';
+  requestStream: true;
+  responseStream: true;
+  requestSerialize: grpc.serialize<lnd_rpc_pb.RPCMiddlewareResponse>;
+  requestDeserialize: grpc.deserialize<lnd_rpc_pb.RPCMiddlewareResponse>;
+  responseSerialize: grpc.serialize<lnd_rpc_pb.RPCMiddlewareRequest>;
+  responseDeserialize: grpc.deserialize<lnd_rpc_pb.RPCMiddlewareRequest>;
+}
+interface ILightningService_ISendCustomMessage
+  extends grpc.MethodDefinition<
+    lnd_rpc_pb.SendCustomMessageRequest,
+    lnd_rpc_pb.SendCustomMessageResponse
+  > {
+  path: '/lnrpc.Lightning/SendCustomMessage';
+  requestStream: false;
+  responseStream: false;
+  requestSerialize: grpc.serialize<lnd_rpc_pb.SendCustomMessageRequest>;
+  requestDeserialize: grpc.deserialize<lnd_rpc_pb.SendCustomMessageRequest>;
+  responseSerialize: grpc.serialize<lnd_rpc_pb.SendCustomMessageResponse>;
+  responseDeserialize: grpc.deserialize<lnd_rpc_pb.SendCustomMessageResponse>;
+}
+interface ILightningService_ISubscribeCustomMessages
+  extends grpc.MethodDefinition<
+    lnd_rpc_pb.SubscribeCustomMessagesRequest,
+    lnd_rpc_pb.CustomMessage
+  > {
+  path: '/lnrpc.Lightning/SubscribeCustomMessages';
+  requestStream: false;
+  responseStream: true;
+  requestSerialize: grpc.serialize<lnd_rpc_pb.SubscribeCustomMessagesRequest>;
+  requestDeserialize: grpc.deserialize<lnd_rpc_pb.SubscribeCustomMessagesRequest>;
+  responseSerialize: grpc.serialize<lnd_rpc_pb.CustomMessage>;
+  responseDeserialize: grpc.deserialize<lnd_rpc_pb.CustomMessage>;
+}
+interface ILightningService_IListAliases
+  extends grpc.MethodDefinition<
+    lnd_rpc_pb.ListAliasesRequest,
+    lnd_rpc_pb.ListAliasesResponse
+  > {
+  path: '/lnrpc.Lightning/ListAliases';
+  requestStream: false;
+  responseStream: false;
+  requestSerialize: grpc.serialize<lnd_rpc_pb.ListAliasesRequest>;
+  requestDeserialize: grpc.deserialize<lnd_rpc_pb.ListAliasesRequest>;
+  responseSerialize: grpc.serialize<lnd_rpc_pb.ListAliasesResponse>;
+  responseDeserialize: grpc.deserialize<lnd_rpc_pb.ListAliasesResponse>;
+}
+interface ILightningService_ILookupHtlcResolution
+  extends grpc.MethodDefinition<
+    lnd_rpc_pb.LookupHtlcResolutionRequest,
+    lnd_rpc_pb.LookupHtlcResolutionResponse
+  > {
+  path: '/lnrpc.Lightning/LookupHtlcResolution';
+  requestStream: false;
+  responseStream: false;
+  requestSerialize: grpc.serialize<lnd_rpc_pb.LookupHtlcResolutionRequest>;
+  requestDeserialize: grpc.deserialize<lnd_rpc_pb.LookupHtlcResolutionRequest>;
+  responseSerialize: grpc.serialize<lnd_rpc_pb.LookupHtlcResolutionResponse>;
+  responseDeserialize: grpc.deserialize<lnd_rpc_pb.LookupHtlcResolutionResponse>;
+}
 
 export const LightningService: ILightningService;
 
@@ -927,6 +1039,10 @@ export interface ILightningServer extends grpc.UntypedServiceImplementation {
     lnd_rpc_pb.OpenChannelRequest,
     lnd_rpc_pb.OpenStatusUpdate
   >;
+  batchOpenChannel: grpc.handleUnaryCall<
+    lnd_rpc_pb.BatchOpenChannelRequest,
+    lnd_rpc_pb.BatchOpenChannelResponse
+  >;
   fundingStateStep: grpc.handleUnaryCall<
     lnd_rpc_pb.FundingTransitionMsg,
     lnd_rpc_pb.FundingStateStepResp
@@ -982,6 +1098,10 @@ export interface ILightningServer extends grpc.UntypedServiceImplementation {
   listPayments: grpc.handleUnaryCall<
     lnd_rpc_pb.ListPaymentsRequest,
     lnd_rpc_pb.ListPaymentsResponse
+  >;
+  deletePayment: grpc.handleUnaryCall<
+    lnd_rpc_pb.DeletePaymentRequest,
+    lnd_rpc_pb.DeletePaymentResponse
   >;
   deleteAllPayments: grpc.handleUnaryCall<
     lnd_rpc_pb.DeleteAllPaymentsRequest,
@@ -1070,6 +1190,30 @@ export interface ILightningServer extends grpc.UntypedServiceImplementation {
   listPermissions: grpc.handleUnaryCall<
     lnd_rpc_pb.ListPermissionsRequest,
     lnd_rpc_pb.ListPermissionsResponse
+  >;
+  checkMacaroonPermissions: grpc.handleUnaryCall<
+    lnd_rpc_pb.CheckMacPermRequest,
+    lnd_rpc_pb.CheckMacPermResponse
+  >;
+  registerRPCMiddleware: grpc.handleBidiStreamingCall<
+    lnd_rpc_pb.RPCMiddlewareResponse,
+    lnd_rpc_pb.RPCMiddlewareRequest
+  >;
+  sendCustomMessage: grpc.handleUnaryCall<
+    lnd_rpc_pb.SendCustomMessageRequest,
+    lnd_rpc_pb.SendCustomMessageResponse
+  >;
+  subscribeCustomMessages: grpc.handleServerStreamingCall<
+    lnd_rpc_pb.SubscribeCustomMessagesRequest,
+    lnd_rpc_pb.CustomMessage
+  >;
+  listAliases: grpc.handleUnaryCall<
+    lnd_rpc_pb.ListAliasesRequest,
+    lnd_rpc_pb.ListAliasesResponse
+  >;
+  lookupHtlcResolution: grpc.handleUnaryCall<
+    lnd_rpc_pb.LookupHtlcResolutionRequest,
+    lnd_rpc_pb.LookupHtlcResolutionResponse
   >;
 }
 
@@ -1566,6 +1710,30 @@ export interface ILightningClient {
     metadata?: grpc.Metadata,
     options?: Partial<grpc.CallOptions>,
   ): grpc.ClientReadableStream<lnd_rpc_pb.OpenStatusUpdate>;
+  batchOpenChannel(
+    request: lnd_rpc_pb.BatchOpenChannelRequest,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.BatchOpenChannelResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  batchOpenChannel(
+    request: lnd_rpc_pb.BatchOpenChannelRequest,
+    metadata: grpc.Metadata,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.BatchOpenChannelResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  batchOpenChannel(
+    request: lnd_rpc_pb.BatchOpenChannelRequest,
+    metadata: grpc.Metadata,
+    options: Partial<grpc.CallOptions>,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.BatchOpenChannelResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
   fundingStateStep(
     request: lnd_rpc_pb.FundingTransitionMsg,
     callback: (
@@ -1845,6 +2013,30 @@ export interface ILightningClient {
       response: lnd_rpc_pb.ListPaymentsResponse,
     ) => void,
   ): grpc.ClientUnaryCall;
+  deletePayment(
+    request: lnd_rpc_pb.DeletePaymentRequest,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.DeletePaymentResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  deletePayment(
+    request: lnd_rpc_pb.DeletePaymentRequest,
+    metadata: grpc.Metadata,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.DeletePaymentResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  deletePayment(
+    request: lnd_rpc_pb.DeletePaymentRequest,
+    metadata: grpc.Metadata,
+    options: Partial<grpc.CallOptions>,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.DeletePaymentResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
   deleteAllPayments(
     request: lnd_rpc_pb.DeleteAllPaymentsRequest,
     callback: (
@@ -2341,6 +2533,128 @@ export interface ILightningClient {
     callback: (
       error: grpc.ServiceError | null,
       response: lnd_rpc_pb.ListPermissionsResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  checkMacaroonPermissions(
+    request: lnd_rpc_pb.CheckMacPermRequest,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.CheckMacPermResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  checkMacaroonPermissions(
+    request: lnd_rpc_pb.CheckMacPermRequest,
+    metadata: grpc.Metadata,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.CheckMacPermResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  checkMacaroonPermissions(
+    request: lnd_rpc_pb.CheckMacPermRequest,
+    metadata: grpc.Metadata,
+    options: Partial<grpc.CallOptions>,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.CheckMacPermResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  registerRPCMiddleware(): grpc.ClientDuplexStream<
+    lnd_rpc_pb.RPCMiddlewareResponse,
+    lnd_rpc_pb.RPCMiddlewareRequest
+  >;
+  registerRPCMiddleware(
+    options: Partial<grpc.CallOptions>,
+  ): grpc.ClientDuplexStream<
+    lnd_rpc_pb.RPCMiddlewareResponse,
+    lnd_rpc_pb.RPCMiddlewareRequest
+  >;
+  registerRPCMiddleware(
+    metadata: grpc.Metadata,
+    options?: Partial<grpc.CallOptions>,
+  ): grpc.ClientDuplexStream<
+    lnd_rpc_pb.RPCMiddlewareResponse,
+    lnd_rpc_pb.RPCMiddlewareRequest
+  >;
+  sendCustomMessage(
+    request: lnd_rpc_pb.SendCustomMessageRequest,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.SendCustomMessageResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  sendCustomMessage(
+    request: lnd_rpc_pb.SendCustomMessageRequest,
+    metadata: grpc.Metadata,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.SendCustomMessageResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  sendCustomMessage(
+    request: lnd_rpc_pb.SendCustomMessageRequest,
+    metadata: grpc.Metadata,
+    options: Partial<grpc.CallOptions>,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.SendCustomMessageResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  subscribeCustomMessages(
+    request: lnd_rpc_pb.SubscribeCustomMessagesRequest,
+    options?: Partial<grpc.CallOptions>,
+  ): grpc.ClientReadableStream<lnd_rpc_pb.CustomMessage>;
+  subscribeCustomMessages(
+    request: lnd_rpc_pb.SubscribeCustomMessagesRequest,
+    metadata?: grpc.Metadata,
+    options?: Partial<grpc.CallOptions>,
+  ): grpc.ClientReadableStream<lnd_rpc_pb.CustomMessage>;
+  listAliases(
+    request: lnd_rpc_pb.ListAliasesRequest,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.ListAliasesResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  listAliases(
+    request: lnd_rpc_pb.ListAliasesRequest,
+    metadata: grpc.Metadata,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.ListAliasesResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  listAliases(
+    request: lnd_rpc_pb.ListAliasesRequest,
+    metadata: grpc.Metadata,
+    options: Partial<grpc.CallOptions>,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.ListAliasesResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  lookupHtlcResolution(
+    request: lnd_rpc_pb.LookupHtlcResolutionRequest,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.LookupHtlcResolutionResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  lookupHtlcResolution(
+    request: lnd_rpc_pb.LookupHtlcResolutionRequest,
+    metadata: grpc.Metadata,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.LookupHtlcResolutionResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  lookupHtlcResolution(
+    request: lnd_rpc_pb.LookupHtlcResolutionRequest,
+    metadata: grpc.Metadata,
+    options: Partial<grpc.CallOptions>,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.LookupHtlcResolutionResponse,
     ) => void,
   ): grpc.ClientUnaryCall;
 }
@@ -2843,6 +3157,30 @@ export class LightningClient extends grpc.Client implements ILightningClient {
     metadata?: grpc.Metadata,
     options?: Partial<grpc.CallOptions>,
   ): grpc.ClientReadableStream<lnd_rpc_pb.OpenStatusUpdate>;
+  public batchOpenChannel(
+    request: lnd_rpc_pb.BatchOpenChannelRequest,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.BatchOpenChannelResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public batchOpenChannel(
+    request: lnd_rpc_pb.BatchOpenChannelRequest,
+    metadata: grpc.Metadata,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.BatchOpenChannelResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public batchOpenChannel(
+    request: lnd_rpc_pb.BatchOpenChannelRequest,
+    metadata: grpc.Metadata,
+    options: Partial<grpc.CallOptions>,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.BatchOpenChannelResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
   public fundingStateStep(
     request: lnd_rpc_pb.FundingTransitionMsg,
     callback: (
@@ -3108,6 +3446,30 @@ export class LightningClient extends grpc.Client implements ILightningClient {
     callback: (
       error: grpc.ServiceError | null,
       response: lnd_rpc_pb.ListPaymentsResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public deletePayment(
+    request: lnd_rpc_pb.DeletePaymentRequest,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.DeletePaymentResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public deletePayment(
+    request: lnd_rpc_pb.DeletePaymentRequest,
+    metadata: grpc.Metadata,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.DeletePaymentResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public deletePayment(
+    request: lnd_rpc_pb.DeletePaymentRequest,
+    metadata: grpc.Metadata,
+    options: Partial<grpc.CallOptions>,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.DeletePaymentResponse,
     ) => void,
   ): grpc.ClientUnaryCall;
   public deleteAllPayments(
@@ -3606,6 +3968,124 @@ export class LightningClient extends grpc.Client implements ILightningClient {
     callback: (
       error: grpc.ServiceError | null,
       response: lnd_rpc_pb.ListPermissionsResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public checkMacaroonPermissions(
+    request: lnd_rpc_pb.CheckMacPermRequest,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.CheckMacPermResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public checkMacaroonPermissions(
+    request: lnd_rpc_pb.CheckMacPermRequest,
+    metadata: grpc.Metadata,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.CheckMacPermResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public checkMacaroonPermissions(
+    request: lnd_rpc_pb.CheckMacPermRequest,
+    metadata: grpc.Metadata,
+    options: Partial<grpc.CallOptions>,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.CheckMacPermResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public registerRPCMiddleware(
+    options?: Partial<grpc.CallOptions>,
+  ): grpc.ClientDuplexStream<
+    lnd_rpc_pb.RPCMiddlewareResponse,
+    lnd_rpc_pb.RPCMiddlewareRequest
+  >;
+  public registerRPCMiddleware(
+    metadata?: grpc.Metadata,
+    options?: Partial<grpc.CallOptions>,
+  ): grpc.ClientDuplexStream<
+    lnd_rpc_pb.RPCMiddlewareResponse,
+    lnd_rpc_pb.RPCMiddlewareRequest
+  >;
+  public sendCustomMessage(
+    request: lnd_rpc_pb.SendCustomMessageRequest,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.SendCustomMessageResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public sendCustomMessage(
+    request: lnd_rpc_pb.SendCustomMessageRequest,
+    metadata: grpc.Metadata,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.SendCustomMessageResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public sendCustomMessage(
+    request: lnd_rpc_pb.SendCustomMessageRequest,
+    metadata: grpc.Metadata,
+    options: Partial<grpc.CallOptions>,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.SendCustomMessageResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public subscribeCustomMessages(
+    request: lnd_rpc_pb.SubscribeCustomMessagesRequest,
+    options?: Partial<grpc.CallOptions>,
+  ): grpc.ClientReadableStream<lnd_rpc_pb.CustomMessage>;
+  public subscribeCustomMessages(
+    request: lnd_rpc_pb.SubscribeCustomMessagesRequest,
+    metadata?: grpc.Metadata,
+    options?: Partial<grpc.CallOptions>,
+  ): grpc.ClientReadableStream<lnd_rpc_pb.CustomMessage>;
+  public listAliases(
+    request: lnd_rpc_pb.ListAliasesRequest,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.ListAliasesResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public listAliases(
+    request: lnd_rpc_pb.ListAliasesRequest,
+    metadata: grpc.Metadata,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.ListAliasesResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public listAliases(
+    request: lnd_rpc_pb.ListAliasesRequest,
+    metadata: grpc.Metadata,
+    options: Partial<grpc.CallOptions>,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.ListAliasesResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public lookupHtlcResolution(
+    request: lnd_rpc_pb.LookupHtlcResolutionRequest,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.LookupHtlcResolutionResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public lookupHtlcResolution(
+    request: lnd_rpc_pb.LookupHtlcResolutionRequest,
+    metadata: grpc.Metadata,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.LookupHtlcResolutionResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public lookupHtlcResolution(
+    request: lnd_rpc_pb.LookupHtlcResolutionRequest,
+    metadata: grpc.Metadata,
+    options: Partial<grpc.CallOptions>,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.LookupHtlcResolutionResponse,
     ) => void,
   ): grpc.ClientUnaryCall;
 }

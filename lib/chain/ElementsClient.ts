@@ -5,8 +5,10 @@ import { CurrencyType } from '../consts/Enums';
 import { AddressInfo, LiquidBalances } from '../consts/LiquidTypes';
 
 class ElementsClient extends ChainClient {
-  constructor(logger: Logger, config: ChainConfig, readonly symbol: string) {
-    super(logger, config, symbol);
+  public static readonly symbol = 'L-BTC';
+
+  constructor(logger: Logger, config: ChainConfig) {
+    super(logger, config, ElementsClient.symbol);
     this.currencyType = CurrencyType.Liquid;
     this.feeFloor = 0.11;
   }

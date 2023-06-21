@@ -1,6 +1,9 @@
 // package: routerrpc
 // file: lnd/router.proto
 
+/* tslint:disable */
+/* eslint-disable */
+
 import * as jspb from 'google-protobuf';
 import * as lnd_rpc_pb from '../lnd/rpc_pb';
 
@@ -8,58 +11,44 @@ export class SendPaymentRequest extends jspb.Message {
   getDest(): Uint8Array | string;
   getDest_asU8(): Uint8Array;
   getDest_asB64(): string;
-  setDest(value: Uint8Array | string): void;
-
+  setDest(value: Uint8Array | string): SendPaymentRequest;
   getAmt(): number;
-  setAmt(value: number): void;
-
+  setAmt(value: number): SendPaymentRequest;
   getAmtMsat(): number;
-  setAmtMsat(value: number): void;
-
+  setAmtMsat(value: number): SendPaymentRequest;
   getPaymentHash(): Uint8Array | string;
   getPaymentHash_asU8(): Uint8Array;
   getPaymentHash_asB64(): string;
-  setPaymentHash(value: Uint8Array | string): void;
-
+  setPaymentHash(value: Uint8Array | string): SendPaymentRequest;
   getFinalCltvDelta(): number;
-  setFinalCltvDelta(value: number): void;
-
+  setFinalCltvDelta(value: number): SendPaymentRequest;
   getPaymentAddr(): Uint8Array | string;
   getPaymentAddr_asU8(): Uint8Array;
   getPaymentAddr_asB64(): string;
-  setPaymentAddr(value: Uint8Array | string): void;
-
+  setPaymentAddr(value: Uint8Array | string): SendPaymentRequest;
   getPaymentRequest(): string;
-  setPaymentRequest(value: string): void;
-
+  setPaymentRequest(value: string): SendPaymentRequest;
   getTimeoutSeconds(): number;
-  setTimeoutSeconds(value: number): void;
-
+  setTimeoutSeconds(value: number): SendPaymentRequest;
   getFeeLimitSat(): number;
-  setFeeLimitSat(value: number): void;
-
+  setFeeLimitSat(value: number): SendPaymentRequest;
   getFeeLimitMsat(): number;
-  setFeeLimitMsat(value: number): void;
-
+  setFeeLimitMsat(value: number): SendPaymentRequest;
   getOutgoingChanId(): string;
-  setOutgoingChanId(value: string): void;
-
+  setOutgoingChanId(value: string): SendPaymentRequest;
   clearOutgoingChanIdsList(): void;
   getOutgoingChanIdsList(): Array<number>;
-  setOutgoingChanIdsList(value: Array<number>): void;
+  setOutgoingChanIdsList(value: Array<number>): SendPaymentRequest;
   addOutgoingChanIds(value: number, index?: number): number;
-
   getLastHopPubkey(): Uint8Array | string;
   getLastHopPubkey_asU8(): Uint8Array;
   getLastHopPubkey_asB64(): string;
-  setLastHopPubkey(value: Uint8Array | string): void;
-
+  setLastHopPubkey(value: Uint8Array | string): SendPaymentRequest;
   getCltvLimit(): number;
-  setCltvLimit(value: number): void;
-
+  setCltvLimit(value: number): SendPaymentRequest;
   clearRouteHintsList(): void;
   getRouteHintsList(): Array<lnd_rpc_pb.RouteHint>;
-  setRouteHintsList(value: Array<lnd_rpc_pb.RouteHint>): void;
+  setRouteHintsList(value: Array<lnd_rpc_pb.RouteHint>): SendPaymentRequest;
   addRouteHints(
     value?: lnd_rpc_pb.RouteHint,
     index?: number,
@@ -68,34 +57,24 @@ export class SendPaymentRequest extends jspb.Message {
   getDestCustomRecordsMap(): jspb.Map<number, Uint8Array | string>;
   clearDestCustomRecordsMap(): void;
   getAllowSelfPayment(): boolean;
-  setAllowSelfPayment(value: boolean): void;
-
+  setAllowSelfPayment(value: boolean): SendPaymentRequest;
   clearDestFeaturesList(): void;
-  getDestFeaturesList(): Array<
-    lnd_rpc_pb.FeatureBitMap[keyof lnd_rpc_pb.FeatureBitMap]
-  >;
-  setDestFeaturesList(
-    value: Array<lnd_rpc_pb.FeatureBitMap[keyof lnd_rpc_pb.FeatureBitMap]>,
-  ): void;
+  getDestFeaturesList(): Array<lnd_rpc_pb.FeatureBit>;
+  setDestFeaturesList(value: Array<lnd_rpc_pb.FeatureBit>): SendPaymentRequest;
   addDestFeatures(
-    value: lnd_rpc_pb.FeatureBitMap[keyof lnd_rpc_pb.FeatureBitMap],
+    value: lnd_rpc_pb.FeatureBit,
     index?: number,
-  ): lnd_rpc_pb.FeatureBitMap[keyof lnd_rpc_pb.FeatureBitMap];
-
+  ): lnd_rpc_pb.FeatureBit;
   getMaxParts(): number;
-  setMaxParts(value: number): void;
-
+  setMaxParts(value: number): SendPaymentRequest;
   getNoInflightUpdates(): boolean;
-  setNoInflightUpdates(value: boolean): void;
-
+  setNoInflightUpdates(value: boolean): SendPaymentRequest;
   getMaxShardSizeMsat(): number;
-  setMaxShardSizeMsat(value: number): void;
-
+  setMaxShardSizeMsat(value: number): SendPaymentRequest;
   getAmp(): boolean;
-  setAmp(value: boolean): void;
-
+  setAmp(value: boolean): SendPaymentRequest;
   getTimePref(): number;
-  setTimePref(value: number): void;
+  setTimePref(value: number): SendPaymentRequest;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): SendPaymentRequest.AsObject;
@@ -135,11 +114,10 @@ export namespace SendPaymentRequest {
     lastHopPubkey: Uint8Array | string;
     cltvLimit: number;
     routeHintsList: Array<lnd_rpc_pb.RouteHint.AsObject>;
+
     destCustomRecordsMap: Array<[number, Uint8Array | string]>;
     allowSelfPayment: boolean;
-    destFeaturesList: Array<
-      lnd_rpc_pb.FeatureBitMap[keyof lnd_rpc_pb.FeatureBitMap]
-    >;
+    destFeaturesList: Array<lnd_rpc_pb.FeatureBit>;
     maxParts: number;
     noInflightUpdates: boolean;
     maxShardSizeMsat: number;
@@ -152,10 +130,9 @@ export class TrackPaymentRequest extends jspb.Message {
   getPaymentHash(): Uint8Array | string;
   getPaymentHash_asU8(): Uint8Array;
   getPaymentHash_asB64(): string;
-  setPaymentHash(value: Uint8Array | string): void;
-
+  setPaymentHash(value: Uint8Array | string): TrackPaymentRequest;
   getNoInflightUpdates(): boolean;
-  setNoInflightUpdates(value: boolean): void;
+  setNoInflightUpdates(value: boolean): TrackPaymentRequest;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): TrackPaymentRequest.AsObject;
@@ -187,7 +164,7 @@ export namespace TrackPaymentRequest {
 
 export class TrackPaymentsRequest extends jspb.Message {
   getNoInflightUpdates(): boolean;
-  setNoInflightUpdates(value: boolean): void;
+  setNoInflightUpdates(value: boolean): TrackPaymentsRequest;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): TrackPaymentsRequest.AsObject;
@@ -220,10 +197,9 @@ export class RouteFeeRequest extends jspb.Message {
   getDest(): Uint8Array | string;
   getDest_asU8(): Uint8Array;
   getDest_asB64(): string;
-  setDest(value: Uint8Array | string): void;
-
+  setDest(value: Uint8Array | string): RouteFeeRequest;
   getAmtSat(): number;
-  setAmtSat(value: number): void;
+  setAmtSat(value: number): RouteFeeRequest;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): RouteFeeRequest.AsObject;
@@ -255,10 +231,9 @@ export namespace RouteFeeRequest {
 
 export class RouteFeeResponse extends jspb.Message {
   getRoutingFeeMsat(): number;
-  setRoutingFeeMsat(value: number): void;
-
+  setRoutingFeeMsat(value: number): RouteFeeResponse;
   getTimeLockDelay(): number;
-  setTimeLockDelay(value: number): void;
+  setTimeLockDelay(value: number): RouteFeeResponse;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): RouteFeeResponse.AsObject;
@@ -292,15 +267,14 @@ export class SendToRouteRequest extends jspb.Message {
   getPaymentHash(): Uint8Array | string;
   getPaymentHash_asU8(): Uint8Array;
   getPaymentHash_asB64(): string;
-  setPaymentHash(value: Uint8Array | string): void;
+  setPaymentHash(value: Uint8Array | string): SendToRouteRequest;
 
   hasRoute(): boolean;
   clearRoute(): void;
   getRoute(): lnd_rpc_pb.Route | undefined;
-  setRoute(value?: lnd_rpc_pb.Route): void;
-
+  setRoute(value?: lnd_rpc_pb.Route): SendToRouteRequest;
   getSkipTempErr(): boolean;
-  setSkipTempErr(value: boolean): void;
+  setSkipTempErr(value: boolean): SendToRouteRequest;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): SendToRouteRequest.AsObject;
@@ -335,12 +309,12 @@ export class SendToRouteResponse extends jspb.Message {
   getPreimage(): Uint8Array | string;
   getPreimage_asU8(): Uint8Array;
   getPreimage_asB64(): string;
-  setPreimage(value: Uint8Array | string): void;
+  setPreimage(value: Uint8Array | string): SendToRouteResponse;
 
   hasFailure(): boolean;
   clearFailure(): void;
   getFailure(): lnd_rpc_pb.Failure | undefined;
-  setFailure(value?: lnd_rpc_pb.Failure): void;
+  setFailure(value?: lnd_rpc_pb.Failure): SendToRouteResponse;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): SendToRouteResponse.AsObject;
@@ -451,7 +425,7 @@ export namespace QueryMissionControlRequest {
 export class QueryMissionControlResponse extends jspb.Message {
   clearPairsList(): void;
   getPairsList(): Array<PairHistory>;
-  setPairsList(value: Array<PairHistory>): void;
+  setPairsList(value: Array<PairHistory>): QueryMissionControlResponse;
   addPairs(value?: PairHistory, index?: number): PairHistory;
 
   serializeBinary(): Uint8Array;
@@ -484,11 +458,10 @@ export namespace QueryMissionControlResponse {
 export class XImportMissionControlRequest extends jspb.Message {
   clearPairsList(): void;
   getPairsList(): Array<PairHistory>;
-  setPairsList(value: Array<PairHistory>): void;
+  setPairsList(value: Array<PairHistory>): XImportMissionControlRequest;
   addPairs(value?: PairHistory, index?: number): PairHistory;
-
   getForce(): boolean;
-  setForce(value: boolean): void;
+  setForce(value: boolean): XImportMissionControlRequest;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): XImportMissionControlRequest.AsObject;
@@ -548,17 +521,16 @@ export class PairHistory extends jspb.Message {
   getNodeFrom(): Uint8Array | string;
   getNodeFrom_asU8(): Uint8Array;
   getNodeFrom_asB64(): string;
-  setNodeFrom(value: Uint8Array | string): void;
-
+  setNodeFrom(value: Uint8Array | string): PairHistory;
   getNodeTo(): Uint8Array | string;
   getNodeTo_asU8(): Uint8Array;
   getNodeTo_asB64(): string;
-  setNodeTo(value: Uint8Array | string): void;
+  setNodeTo(value: Uint8Array | string): PairHistory;
 
   hasHistory(): boolean;
   clearHistory(): void;
   getHistory(): PairData | undefined;
-  setHistory(value?: PairData): void;
+  setHistory(value?: PairData): PairHistory;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): PairHistory.AsObject;
@@ -591,22 +563,17 @@ export namespace PairHistory {
 
 export class PairData extends jspb.Message {
   getFailTime(): number;
-  setFailTime(value: number): void;
-
+  setFailTime(value: number): PairData;
   getFailAmtSat(): number;
-  setFailAmtSat(value: number): void;
-
+  setFailAmtSat(value: number): PairData;
   getFailAmtMsat(): number;
-  setFailAmtMsat(value: number): void;
-
+  setFailAmtMsat(value: number): PairData;
   getSuccessTime(): number;
-  setSuccessTime(value: number): void;
-
+  setSuccessTime(value: number): PairData;
   getSuccessAmtSat(): number;
-  setSuccessAmtSat(value: number): void;
-
+  setSuccessAmtSat(value: number): PairData;
   getSuccessAmtMsat(): number;
-  setSuccessAmtMsat(value: number): void;
+  setSuccessAmtMsat(value: number): PairData;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): PairData.AsObject;
@@ -667,7 +634,7 @@ export class GetMissionControlConfigResponse extends jspb.Message {
   hasConfig(): boolean;
   clearConfig(): void;
   getConfig(): MissionControlConfig | undefined;
-  setConfig(value?: MissionControlConfig): void;
+  setConfig(value?: MissionControlConfig): GetMissionControlConfigResponse;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GetMissionControlConfigResponse.AsObject;
@@ -700,7 +667,7 @@ export class SetMissionControlConfigRequest extends jspb.Message {
   hasConfig(): boolean;
   clearConfig(): void;
   getConfig(): MissionControlConfig | undefined;
-  setConfig(value?: MissionControlConfig): void;
+  setConfig(value?: MissionControlConfig): SetMissionControlConfigRequest;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): SetMissionControlConfigRequest.AsObject;
@@ -757,36 +724,30 @@ export namespace SetMissionControlConfigResponse {
 
 export class MissionControlConfig extends jspb.Message {
   getHalfLifeSeconds(): number;
-  setHalfLifeSeconds(value: number): void;
-
+  setHalfLifeSeconds(value: number): MissionControlConfig;
   getHopProbability(): number;
-  setHopProbability(value: number): void;
-
+  setHopProbability(value: number): MissionControlConfig;
   getWeight(): number;
-  setWeight(value: number): void;
-
+  setWeight(value: number): MissionControlConfig;
   getMaximumPaymentResults(): number;
-  setMaximumPaymentResults(value: number): void;
-
+  setMaximumPaymentResults(value: number): MissionControlConfig;
   getMinimumFailureRelaxInterval(): number;
-  setMinimumFailureRelaxInterval(value: number): void;
-
-  getModel(): MissionControlConfig.ProbabilityModelMap[keyof MissionControlConfig.ProbabilityModelMap];
-  setModel(
-    value: MissionControlConfig.ProbabilityModelMap[keyof MissionControlConfig.ProbabilityModelMap],
-  ): void;
+  setMinimumFailureRelaxInterval(value: number): MissionControlConfig;
+  getModel(): MissionControlConfig.ProbabilityModel;
+  setModel(value: MissionControlConfig.ProbabilityModel): MissionControlConfig;
 
   hasApriori(): boolean;
   clearApriori(): void;
   getApriori(): AprioriParameters | undefined;
-  setApriori(value?: AprioriParameters): void;
+  setApriori(value?: AprioriParameters): MissionControlConfig;
 
   hasBimodal(): boolean;
   clearBimodal(): void;
   getBimodal(): BimodalParameters | undefined;
-  setBimodal(value?: BimodalParameters): void;
+  setBimodal(value?: BimodalParameters): MissionControlConfig;
 
   getEstimatorconfigCase(): MissionControlConfig.EstimatorconfigCase;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): MissionControlConfig.AsObject;
   static toObject(
@@ -815,17 +776,15 @@ export namespace MissionControlConfig {
     weight: number;
     maximumPaymentResults: number;
     minimumFailureRelaxInterval: number;
-    model: MissionControlConfig.ProbabilityModelMap[keyof MissionControlConfig.ProbabilityModelMap];
+    model: MissionControlConfig.ProbabilityModel;
     apriori?: AprioriParameters.AsObject;
     bimodal?: BimodalParameters.AsObject;
   };
 
-  export interface ProbabilityModelMap {
-    APRIORI: 0;
-    BIMODAL: 1;
+  export enum ProbabilityModel {
+    APRIORI = 0,
+    BIMODAL = 1,
   }
-
-  export const ProbabilityModel: ProbabilityModelMap;
 
   export enum EstimatorconfigCase {
     ESTIMATORCONFIG_NOT_SET = 0,
@@ -836,13 +795,11 @@ export namespace MissionControlConfig {
 
 export class BimodalParameters extends jspb.Message {
   getNodeWeight(): number;
-  setNodeWeight(value: number): void;
-
+  setNodeWeight(value: number): BimodalParameters;
   getScaleMsat(): number;
-  setScaleMsat(value: number): void;
-
+  setScaleMsat(value: number): BimodalParameters;
   getDecayTime(): number;
-  setDecayTime(value: number): void;
+  setDecayTime(value: number): BimodalParameters;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): BimodalParameters.AsObject;
@@ -875,16 +832,13 @@ export namespace BimodalParameters {
 
 export class AprioriParameters extends jspb.Message {
   getHalfLifeSeconds(): number;
-  setHalfLifeSeconds(value: number): void;
-
+  setHalfLifeSeconds(value: number): AprioriParameters;
   getHopProbability(): number;
-  setHopProbability(value: number): void;
-
+  setHopProbability(value: number): AprioriParameters;
   getWeight(): number;
-  setWeight(value: number): void;
-
+  setWeight(value: number): AprioriParameters;
   getCapacityFraction(): number;
-  setCapacityFraction(value: number): void;
+  setCapacityFraction(value: number): AprioriParameters;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): AprioriParameters.AsObject;
@@ -920,15 +874,13 @@ export class QueryProbabilityRequest extends jspb.Message {
   getFromNode(): Uint8Array | string;
   getFromNode_asU8(): Uint8Array;
   getFromNode_asB64(): string;
-  setFromNode(value: Uint8Array | string): void;
-
+  setFromNode(value: Uint8Array | string): QueryProbabilityRequest;
   getToNode(): Uint8Array | string;
   getToNode_asU8(): Uint8Array;
   getToNode_asB64(): string;
-  setToNode(value: Uint8Array | string): void;
-
+  setToNode(value: Uint8Array | string): QueryProbabilityRequest;
   getAmtMsat(): number;
-  setAmtMsat(value: number): void;
+  setAmtMsat(value: number): QueryProbabilityRequest;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): QueryProbabilityRequest.AsObject;
@@ -961,12 +913,12 @@ export namespace QueryProbabilityRequest {
 
 export class QueryProbabilityResponse extends jspb.Message {
   getProbability(): number;
-  setProbability(value: number): void;
+  setProbability(value: number): QueryProbabilityResponse;
 
   hasHistory(): boolean;
   clearHistory(): void;
   getHistory(): PairData | undefined;
-  setHistory(value?: PairData): void;
+  setHistory(value?: PairData): QueryProbabilityResponse;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): QueryProbabilityResponse.AsObject;
@@ -998,28 +950,24 @@ export namespace QueryProbabilityResponse {
 
 export class BuildRouteRequest extends jspb.Message {
   getAmtMsat(): number;
-  setAmtMsat(value: number): void;
-
+  setAmtMsat(value: number): BuildRouteRequest;
   getFinalCltvDelta(): number;
-  setFinalCltvDelta(value: number): void;
-
+  setFinalCltvDelta(value: number): BuildRouteRequest;
   getOutgoingChanId(): string;
-  setOutgoingChanId(value: string): void;
-
+  setOutgoingChanId(value: string): BuildRouteRequest;
   clearHopPubkeysList(): void;
   getHopPubkeysList(): Array<Uint8Array | string>;
   getHopPubkeysList_asU8(): Array<Uint8Array>;
   getHopPubkeysList_asB64(): Array<string>;
-  setHopPubkeysList(value: Array<Uint8Array | string>): void;
+  setHopPubkeysList(value: Array<Uint8Array | string>): BuildRouteRequest;
   addHopPubkeys(
     value: Uint8Array | string,
     index?: number,
   ): Uint8Array | string;
-
   getPaymentAddr(): Uint8Array | string;
   getPaymentAddr_asU8(): Uint8Array;
   getPaymentAddr_asB64(): string;
-  setPaymentAddr(value: Uint8Array | string): void;
+  setPaymentAddr(value: Uint8Array | string): BuildRouteRequest;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): BuildRouteRequest.AsObject;
@@ -1056,7 +1004,7 @@ export class BuildRouteResponse extends jspb.Message {
   hasRoute(): boolean;
   clearRoute(): void;
   getRoute(): lnd_rpc_pb.Route | undefined;
-  setRoute(value?: lnd_rpc_pb.Route): void;
+  setRoute(value?: lnd_rpc_pb.Route): BuildRouteResponse;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): BuildRouteResponse.AsObject;
@@ -1113,56 +1061,50 @@ export namespace SubscribeHtlcEventsRequest {
 
 export class HtlcEvent extends jspb.Message {
   getIncomingChannelId(): number;
-  setIncomingChannelId(value: number): void;
-
+  setIncomingChannelId(value: number): HtlcEvent;
   getOutgoingChannelId(): number;
-  setOutgoingChannelId(value: number): void;
-
+  setOutgoingChannelId(value: number): HtlcEvent;
   getIncomingHtlcId(): number;
-  setIncomingHtlcId(value: number): void;
-
+  setIncomingHtlcId(value: number): HtlcEvent;
   getOutgoingHtlcId(): number;
-  setOutgoingHtlcId(value: number): void;
-
+  setOutgoingHtlcId(value: number): HtlcEvent;
   getTimestampNs(): number;
-  setTimestampNs(value: number): void;
-
-  getEventType(): HtlcEvent.EventTypeMap[keyof HtlcEvent.EventTypeMap];
-  setEventType(
-    value: HtlcEvent.EventTypeMap[keyof HtlcEvent.EventTypeMap],
-  ): void;
+  setTimestampNs(value: number): HtlcEvent;
+  getEventType(): HtlcEvent.EventType;
+  setEventType(value: HtlcEvent.EventType): HtlcEvent;
 
   hasForwardEvent(): boolean;
   clearForwardEvent(): void;
   getForwardEvent(): ForwardEvent | undefined;
-  setForwardEvent(value?: ForwardEvent): void;
+  setForwardEvent(value?: ForwardEvent): HtlcEvent;
 
   hasForwardFailEvent(): boolean;
   clearForwardFailEvent(): void;
   getForwardFailEvent(): ForwardFailEvent | undefined;
-  setForwardFailEvent(value?: ForwardFailEvent): void;
+  setForwardFailEvent(value?: ForwardFailEvent): HtlcEvent;
 
   hasSettleEvent(): boolean;
   clearSettleEvent(): void;
   getSettleEvent(): SettleEvent | undefined;
-  setSettleEvent(value?: SettleEvent): void;
+  setSettleEvent(value?: SettleEvent): HtlcEvent;
 
   hasLinkFailEvent(): boolean;
   clearLinkFailEvent(): void;
   getLinkFailEvent(): LinkFailEvent | undefined;
-  setLinkFailEvent(value?: LinkFailEvent): void;
+  setLinkFailEvent(value?: LinkFailEvent): HtlcEvent;
 
   hasSubscribedEvent(): boolean;
   clearSubscribedEvent(): void;
   getSubscribedEvent(): SubscribedEvent | undefined;
-  setSubscribedEvent(value?: SubscribedEvent): void;
+  setSubscribedEvent(value?: SubscribedEvent): HtlcEvent;
 
   hasFinalHtlcEvent(): boolean;
   clearFinalHtlcEvent(): void;
   getFinalHtlcEvent(): FinalHtlcEvent | undefined;
-  setFinalHtlcEvent(value?: FinalHtlcEvent): void;
+  setFinalHtlcEvent(value?: FinalHtlcEvent): HtlcEvent;
 
   getEventCase(): HtlcEvent.EventCase;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): HtlcEvent.AsObject;
   static toObject(includeInstance: boolean, msg: HtlcEvent): HtlcEvent.AsObject;
@@ -1188,7 +1130,7 @@ export namespace HtlcEvent {
     incomingHtlcId: number;
     outgoingHtlcId: number;
     timestampNs: number;
-    eventType: HtlcEvent.EventTypeMap[keyof HtlcEvent.EventTypeMap];
+    eventType: HtlcEvent.EventType;
     forwardEvent?: ForwardEvent.AsObject;
     forwardFailEvent?: ForwardFailEvent.AsObject;
     settleEvent?: SettleEvent.AsObject;
@@ -1197,14 +1139,12 @@ export namespace HtlcEvent {
     finalHtlcEvent?: FinalHtlcEvent.AsObject;
   };
 
-  export interface EventTypeMap {
-    UNKNOWN: 0;
-    SEND: 1;
-    RECEIVE: 2;
-    FORWARD: 3;
+  export enum EventType {
+    UNKNOWN = 0,
+    SEND = 1,
+    RECEIVE = 2,
+    FORWARD = 3,
   }
-
-  export const EventType: EventTypeMap;
 
   export enum EventCase {
     EVENT_NOT_SET = 0,
@@ -1219,16 +1159,13 @@ export namespace HtlcEvent {
 
 export class HtlcInfo extends jspb.Message {
   getIncomingTimelock(): number;
-  setIncomingTimelock(value: number): void;
-
+  setIncomingTimelock(value: number): HtlcInfo;
   getOutgoingTimelock(): number;
-  setOutgoingTimelock(value: number): void;
-
+  setOutgoingTimelock(value: number): HtlcInfo;
   getIncomingAmtMsat(): number;
-  setIncomingAmtMsat(value: number): void;
-
+  setIncomingAmtMsat(value: number): HtlcInfo;
   getOutgoingAmtMsat(): number;
-  setOutgoingAmtMsat(value: number): void;
+  setOutgoingAmtMsat(value: number): HtlcInfo;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): HtlcInfo.AsObject;
@@ -1261,7 +1198,7 @@ export class ForwardEvent extends jspb.Message {
   hasInfo(): boolean;
   clearInfo(): void;
   getInfo(): HtlcInfo | undefined;
-  setInfo(value?: HtlcInfo): void;
+  setInfo(value?: HtlcInfo): ForwardEvent;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ForwardEvent.AsObject;
@@ -1320,7 +1257,7 @@ export class SettleEvent extends jspb.Message {
   getPreimage(): Uint8Array | string;
   getPreimage_asU8(): Uint8Array;
   getPreimage_asB64(): string;
-  setPreimage(value: Uint8Array | string): void;
+  setPreimage(value: Uint8Array | string): SettleEvent;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): SettleEvent.AsObject;
@@ -1351,10 +1288,9 @@ export namespace SettleEvent {
 
 export class FinalHtlcEvent extends jspb.Message {
   getSettled(): boolean;
-  setSettled(value: boolean): void;
-
+  setSettled(value: boolean): FinalHtlcEvent;
   getOffchain(): boolean;
-  setOffchain(value: boolean): void;
+  setOffchain(value: boolean): FinalHtlcEvent;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): FinalHtlcEvent.AsObject;
@@ -1414,18 +1350,13 @@ export class LinkFailEvent extends jspb.Message {
   hasInfo(): boolean;
   clearInfo(): void;
   getInfo(): HtlcInfo | undefined;
-  setInfo(value?: HtlcInfo): void;
-
-  getWireFailure(): lnd_rpc_pb.Failure.FailureCodeMap[keyof lnd_rpc_pb.Failure.FailureCodeMap];
-  setWireFailure(
-    value: lnd_rpc_pb.Failure.FailureCodeMap[keyof lnd_rpc_pb.Failure.FailureCodeMap],
-  ): void;
-
-  getFailureDetail(): FailureDetailMap[keyof FailureDetailMap];
-  setFailureDetail(value: FailureDetailMap[keyof FailureDetailMap]): void;
-
+  setInfo(value?: HtlcInfo): LinkFailEvent;
+  getWireFailure(): lnd_rpc_pb.Failure.FailureCode;
+  setWireFailure(value: lnd_rpc_pb.Failure.FailureCode): LinkFailEvent;
+  getFailureDetail(): FailureDetail;
+  setFailureDetail(value: FailureDetail): LinkFailEvent;
   getFailureString(): string;
-  setFailureString(value: string): void;
+  setFailureString(value: string): LinkFailEvent;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): LinkFailEvent.AsObject;
@@ -1451,24 +1382,22 @@ export class LinkFailEvent extends jspb.Message {
 export namespace LinkFailEvent {
   export type AsObject = {
     info?: HtlcInfo.AsObject;
-    wireFailure: lnd_rpc_pb.Failure.FailureCodeMap[keyof lnd_rpc_pb.Failure.FailureCodeMap];
-    failureDetail: FailureDetailMap[keyof FailureDetailMap];
+    wireFailure: lnd_rpc_pb.Failure.FailureCode;
+    failureDetail: FailureDetail;
     failureString: string;
   };
 }
 
 export class PaymentStatus extends jspb.Message {
-  getState(): PaymentStateMap[keyof PaymentStateMap];
-  setState(value: PaymentStateMap[keyof PaymentStateMap]): void;
-
+  getState(): PaymentState;
+  setState(value: PaymentState): PaymentStatus;
   getPreimage(): Uint8Array | string;
   getPreimage_asU8(): Uint8Array;
   getPreimage_asB64(): string;
-  setPreimage(value: Uint8Array | string): void;
-
+  setPreimage(value: Uint8Array | string): PaymentStatus;
   clearHtlcsList(): void;
   getHtlcsList(): Array<lnd_rpc_pb.HTLCAttempt>;
-  setHtlcsList(value: Array<lnd_rpc_pb.HTLCAttempt>): void;
+  setHtlcsList(value: Array<lnd_rpc_pb.HTLCAttempt>): PaymentStatus;
   addHtlcs(
     value?: lnd_rpc_pb.HTLCAttempt,
     index?: number,
@@ -1497,7 +1426,7 @@ export class PaymentStatus extends jspb.Message {
 
 export namespace PaymentStatus {
   export type AsObject = {
-    state: PaymentStateMap[keyof PaymentStateMap];
+    state: PaymentState;
     preimage: Uint8Array | string;
     htlcsList: Array<lnd_rpc_pb.HTLCAttempt.AsObject>;
   };
@@ -1505,10 +1434,9 @@ export namespace PaymentStatus {
 
 export class CircuitKey extends jspb.Message {
   getChanId(): number;
-  setChanId(value: number): void;
-
+  setChanId(value: number): CircuitKey;
   getHtlcId(): number;
-  setHtlcId(value: number): void;
+  setHtlcId(value: number): CircuitKey;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): CircuitKey.AsObject;
@@ -1542,37 +1470,30 @@ export class ForwardHtlcInterceptRequest extends jspb.Message {
   hasIncomingCircuitKey(): boolean;
   clearIncomingCircuitKey(): void;
   getIncomingCircuitKey(): CircuitKey | undefined;
-  setIncomingCircuitKey(value?: CircuitKey): void;
-
+  setIncomingCircuitKey(value?: CircuitKey): ForwardHtlcInterceptRequest;
   getIncomingAmountMsat(): number;
-  setIncomingAmountMsat(value: number): void;
-
+  setIncomingAmountMsat(value: number): ForwardHtlcInterceptRequest;
   getIncomingExpiry(): number;
-  setIncomingExpiry(value: number): void;
-
+  setIncomingExpiry(value: number): ForwardHtlcInterceptRequest;
   getPaymentHash(): Uint8Array | string;
   getPaymentHash_asU8(): Uint8Array;
   getPaymentHash_asB64(): string;
-  setPaymentHash(value: Uint8Array | string): void;
-
+  setPaymentHash(value: Uint8Array | string): ForwardHtlcInterceptRequest;
   getOutgoingRequestedChanId(): number;
-  setOutgoingRequestedChanId(value: number): void;
-
+  setOutgoingRequestedChanId(value: number): ForwardHtlcInterceptRequest;
   getOutgoingAmountMsat(): number;
-  setOutgoingAmountMsat(value: number): void;
-
+  setOutgoingAmountMsat(value: number): ForwardHtlcInterceptRequest;
   getOutgoingExpiry(): number;
-  setOutgoingExpiry(value: number): void;
+  setOutgoingExpiry(value: number): ForwardHtlcInterceptRequest;
 
   getCustomRecordsMap(): jspb.Map<number, Uint8Array | string>;
   clearCustomRecordsMap(): void;
   getOnionBlob(): Uint8Array | string;
   getOnionBlob_asU8(): Uint8Array;
   getOnionBlob_asB64(): string;
-  setOnionBlob(value: Uint8Array | string): void;
-
+  setOnionBlob(value: Uint8Array | string): ForwardHtlcInterceptRequest;
   getAutoFailHeight(): number;
-  setAutoFailHeight(value: number): void;
+  setAutoFailHeight(value: number): ForwardHtlcInterceptRequest;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ForwardHtlcInterceptRequest.AsObject;
@@ -1604,6 +1525,7 @@ export namespace ForwardHtlcInterceptRequest {
     outgoingRequestedChanId: number;
     outgoingAmountMsat: number;
     outgoingExpiry: number;
+
     customRecordsMap: Array<[number, Uint8Array | string]>;
     onionBlob: Uint8Array | string;
     autoFailHeight: number;
@@ -1614,27 +1536,21 @@ export class ForwardHtlcInterceptResponse extends jspb.Message {
   hasIncomingCircuitKey(): boolean;
   clearIncomingCircuitKey(): void;
   getIncomingCircuitKey(): CircuitKey | undefined;
-  setIncomingCircuitKey(value?: CircuitKey): void;
-
-  getAction(): ResolveHoldForwardActionMap[keyof ResolveHoldForwardActionMap];
-  setAction(
-    value: ResolveHoldForwardActionMap[keyof ResolveHoldForwardActionMap],
-  ): void;
-
+  setIncomingCircuitKey(value?: CircuitKey): ForwardHtlcInterceptResponse;
+  getAction(): ResolveHoldForwardAction;
+  setAction(value: ResolveHoldForwardAction): ForwardHtlcInterceptResponse;
   getPreimage(): Uint8Array | string;
   getPreimage_asU8(): Uint8Array;
   getPreimage_asB64(): string;
-  setPreimage(value: Uint8Array | string): void;
-
+  setPreimage(value: Uint8Array | string): ForwardHtlcInterceptResponse;
   getFailureMessage(): Uint8Array | string;
   getFailureMessage_asU8(): Uint8Array;
   getFailureMessage_asB64(): string;
-  setFailureMessage(value: Uint8Array | string): void;
-
-  getFailureCode(): lnd_rpc_pb.Failure.FailureCodeMap[keyof lnd_rpc_pb.Failure.FailureCodeMap];
+  setFailureMessage(value: Uint8Array | string): ForwardHtlcInterceptResponse;
+  getFailureCode(): lnd_rpc_pb.Failure.FailureCode;
   setFailureCode(
-    value: lnd_rpc_pb.Failure.FailureCodeMap[keyof lnd_rpc_pb.Failure.FailureCodeMap],
-  ): void;
+    value: lnd_rpc_pb.Failure.FailureCode,
+  ): ForwardHtlcInterceptResponse;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ForwardHtlcInterceptResponse.AsObject;
@@ -1660,10 +1576,10 @@ export class ForwardHtlcInterceptResponse extends jspb.Message {
 export namespace ForwardHtlcInterceptResponse {
   export type AsObject = {
     incomingCircuitKey?: CircuitKey.AsObject;
-    action: ResolveHoldForwardActionMap[keyof ResolveHoldForwardActionMap];
+    action: ResolveHoldForwardAction;
     preimage: Uint8Array | string;
     failureMessage: Uint8Array | string;
-    failureCode: lnd_rpc_pb.Failure.FailureCodeMap[keyof lnd_rpc_pb.Failure.FailureCodeMap];
+    failureCode: lnd_rpc_pb.Failure.FailureCode;
   };
 }
 
@@ -1671,10 +1587,9 @@ export class UpdateChanStatusRequest extends jspb.Message {
   hasChanPoint(): boolean;
   clearChanPoint(): void;
   getChanPoint(): lnd_rpc_pb.ChannelPoint | undefined;
-  setChanPoint(value?: lnd_rpc_pb.ChannelPoint): void;
-
-  getAction(): ChanStatusActionMap[keyof ChanStatusActionMap];
-  setAction(value: ChanStatusActionMap[keyof ChanStatusActionMap]): void;
+  setChanPoint(value?: lnd_rpc_pb.ChannelPoint): UpdateChanStatusRequest;
+  getAction(): ChanStatusAction;
+  setAction(value: ChanStatusAction): UpdateChanStatusRequest;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): UpdateChanStatusRequest.AsObject;
@@ -1700,7 +1615,7 @@ export class UpdateChanStatusRequest extends jspb.Message {
 export namespace UpdateChanStatusRequest {
   export type AsObject = {
     chanPoint?: lnd_rpc_pb.ChannelPoint.AsObject;
-    action: ChanStatusActionMap[keyof ChanStatusActionMap];
+    action: ChanStatusAction;
   };
 }
 
@@ -1730,58 +1645,50 @@ export namespace UpdateChanStatusResponse {
   export type AsObject = {};
 }
 
-export interface FailureDetailMap {
-  UNKNOWN: 0;
-  NO_DETAIL: 1;
-  ONION_DECODE: 2;
-  LINK_NOT_ELIGIBLE: 3;
-  ON_CHAIN_TIMEOUT: 4;
-  HTLC_EXCEEDS_MAX: 5;
-  INSUFFICIENT_BALANCE: 6;
-  INCOMPLETE_FORWARD: 7;
-  HTLC_ADD_FAILED: 8;
-  FORWARDS_DISABLED: 9;
-  INVOICE_CANCELED: 10;
-  INVOICE_UNDERPAID: 11;
-  INVOICE_EXPIRY_TOO_SOON: 12;
-  INVOICE_NOT_OPEN: 13;
-  MPP_INVOICE_TIMEOUT: 14;
-  ADDRESS_MISMATCH: 15;
-  SET_TOTAL_MISMATCH: 16;
-  SET_TOTAL_TOO_LOW: 17;
-  SET_OVERPAID: 18;
-  UNKNOWN_INVOICE: 19;
-  INVALID_KEYSEND: 20;
-  MPP_IN_PROGRESS: 21;
-  CIRCULAR_ROUTE: 22;
+export enum FailureDetail {
+  UNKNOWN = 0,
+  NO_DETAIL = 1,
+  ONION_DECODE = 2,
+  LINK_NOT_ELIGIBLE = 3,
+  ON_CHAIN_TIMEOUT = 4,
+  HTLC_EXCEEDS_MAX = 5,
+  INSUFFICIENT_BALANCE = 6,
+  INCOMPLETE_FORWARD = 7,
+  HTLC_ADD_FAILED = 8,
+  FORWARDS_DISABLED = 9,
+  INVOICE_CANCELED = 10,
+  INVOICE_UNDERPAID = 11,
+  INVOICE_EXPIRY_TOO_SOON = 12,
+  INVOICE_NOT_OPEN = 13,
+  MPP_INVOICE_TIMEOUT = 14,
+  ADDRESS_MISMATCH = 15,
+  SET_TOTAL_MISMATCH = 16,
+  SET_TOTAL_TOO_LOW = 17,
+  SET_OVERPAID = 18,
+  UNKNOWN_INVOICE = 19,
+  INVALID_KEYSEND = 20,
+  MPP_IN_PROGRESS = 21,
+  CIRCULAR_ROUTE = 22,
 }
 
-export const FailureDetail: FailureDetailMap;
-
-export interface PaymentStateMap {
-  IN_FLIGHT: 0;
-  SUCCEEDED: 1;
-  FAILED_TIMEOUT: 2;
-  FAILED_NO_ROUTE: 3;
-  FAILED_ERROR: 4;
-  FAILED_INCORRECT_PAYMENT_DETAILS: 5;
-  FAILED_INSUFFICIENT_BALANCE: 6;
+export enum PaymentState {
+  IN_FLIGHT = 0,
+  SUCCEEDED = 1,
+  FAILED_TIMEOUT = 2,
+  FAILED_NO_ROUTE = 3,
+  FAILED_ERROR = 4,
+  FAILED_INCORRECT_PAYMENT_DETAILS = 5,
+  FAILED_INSUFFICIENT_BALANCE = 6,
 }
 
-export const PaymentState: PaymentStateMap;
-
-export interface ResolveHoldForwardActionMap {
-  SETTLE: 0;
-  FAIL: 1;
-  RESUME: 2;
+export enum ResolveHoldForwardAction {
+  SETTLE = 0,
+  FAIL = 1,
+  RESUME = 2,
 }
 
-export const ResolveHoldForwardAction: ResolveHoldForwardActionMap;
-
-export interface ChanStatusActionMap {
-  ENABLE: 0;
-  DISABLE: 1;
-  AUTO: 2;
+export enum ChanStatusAction {
+  ENABLE = 0,
+  DISABLE = 1,
+  AUTO = 2,
 }
-
-export const ChanStatusAction: ChanStatusActionMap;

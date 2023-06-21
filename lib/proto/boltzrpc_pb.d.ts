@@ -1,6 +1,9 @@
 // package: boltzrpc
 // file: boltzrpc.proto
 
+/* tslint:disable */
+/* eslint-disable */
+
 import * as jspb from 'google-protobuf';
 
 export class GetInfoRequest extends jspb.Message {
@@ -31,10 +34,11 @@ export namespace GetInfoRequest {
 
 export class GetInfoResponse extends jspb.Message {
   getVersion(): string;
-  setVersion(value: string): void;
+  setVersion(value: string): GetInfoResponse;
 
   getChainsMap(): jspb.Map<string, CurrencyInfo>;
   clearChainsMap(): void;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GetInfoResponse.AsObject;
   static toObject(
@@ -59,6 +63,7 @@ export class GetInfoResponse extends jspb.Message {
 export namespace GetInfoResponse {
   export type AsObject = {
     version: string;
+
     chainsMap: Array<[string, CurrencyInfo.AsObject]>;
   };
 }
@@ -67,12 +72,12 @@ export class CurrencyInfo extends jspb.Message {
   hasChain(): boolean;
   clearChain(): void;
   getChain(): ChainInfo | undefined;
-  setChain(value?: ChainInfo): void;
+  setChain(value?: ChainInfo): CurrencyInfo;
 
   hasLnd(): boolean;
   clearLnd(): void;
   getLnd(): LndInfo | undefined;
-  setLnd(value?: LndInfo): void;
+  setLnd(value?: LndInfo): CurrencyInfo;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): CurrencyInfo.AsObject;
@@ -104,19 +109,15 @@ export namespace CurrencyInfo {
 
 export class ChainInfo extends jspb.Message {
   getVersion(): number;
-  setVersion(value: number): void;
-
+  setVersion(value: number): ChainInfo;
   getBlocks(): number;
-  setBlocks(value: number): void;
-
+  setBlocks(value: number): ChainInfo;
   getScannedBlocks(): number;
-  setScannedBlocks(value: number): void;
-
+  setScannedBlocks(value: number): ChainInfo;
   getConnections(): number;
-  setConnections(value: number): void;
-
+  setConnections(value: number): ChainInfo;
   getError(): string;
-  setError(value: string): void;
+  setError(value: string): ChainInfo;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ChainInfo.AsObject;
@@ -148,18 +149,16 @@ export namespace ChainInfo {
 
 export class LndInfo extends jspb.Message {
   getVersion(): string;
-  setVersion(value: string): void;
+  setVersion(value: string): LndInfo;
 
   hasLndChannels(): boolean;
   clearLndChannels(): void;
   getLndChannels(): LndChannels | undefined;
-  setLndChannels(value?: LndChannels): void;
-
+  setLndChannels(value?: LndChannels): LndInfo;
   getBlockHeight(): number;
-  setBlockHeight(value: number): void;
-
+  setBlockHeight(value: number): LndInfo;
   getError(): string;
-  setError(value: string): void;
+  setError(value: string): LndInfo;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): LndInfo.AsObject;
@@ -190,13 +189,11 @@ export namespace LndInfo {
 
 export class LndChannels extends jspb.Message {
   getActive(): number;
-  setActive(value: number): void;
-
+  setActive(value: number): LndChannels;
   getInactive(): number;
-  setInactive(value: number): void;
-
+  setInactive(value: number): LndChannels;
   getPending(): number;
-  setPending(value: number): void;
+  setPending(value: number): LndChannels;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): LndChannels.AsObject;
@@ -256,6 +253,7 @@ export namespace GetBalanceRequest {
 export class GetBalanceResponse extends jspb.Message {
   getBalancesMap(): jspb.Map<string, Balance>;
   clearBalancesMap(): void;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GetBalanceResponse.AsObject;
   static toObject(
@@ -287,12 +285,12 @@ export class Balance extends jspb.Message {
   hasWalletBalance(): boolean;
   clearWalletBalance(): void;
   getWalletBalance(): WalletBalance | undefined;
-  setWalletBalance(value?: WalletBalance): void;
+  setWalletBalance(value?: WalletBalance): Balance;
 
   hasLightningBalance(): boolean;
   clearLightningBalance(): void;
   getLightningBalance(): LightningBalance | undefined;
-  setLightningBalance(value?: LightningBalance): void;
+  setLightningBalance(value?: LightningBalance): Balance;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): Balance.AsObject;
@@ -321,10 +319,9 @@ export namespace Balance {
 
 export class LightningBalance extends jspb.Message {
   getLocalBalance(): number;
-  setLocalBalance(value: number): void;
-
+  setLocalBalance(value: number): LightningBalance;
   getRemoteBalance(): number;
-  setRemoteBalance(value: number): void;
+  setRemoteBalance(value: number): LightningBalance;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): LightningBalance.AsObject;
@@ -356,13 +353,11 @@ export namespace LightningBalance {
 
 export class WalletBalance extends jspb.Message {
   getTotalBalance(): number;
-  setTotalBalance(value: number): void;
-
+  setTotalBalance(value: number): WalletBalance;
   getConfirmedBalance(): number;
-  setConfirmedBalance(value: number): void;
-
+  setConfirmedBalance(value: number): WalletBalance;
   getUnconfirmedBalance(): number;
-  setUnconfirmedBalance(value: number): void;
+  setUnconfirmedBalance(value: number): WalletBalance;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): WalletBalance.AsObject;
@@ -395,10 +390,9 @@ export namespace WalletBalance {
 
 export class DeriveKeysRequest extends jspb.Message {
   getSymbol(): string;
-  setSymbol(value: string): void;
-
+  setSymbol(value: string): DeriveKeysRequest;
   getIndex(): number;
-  setIndex(value: number): void;
+  setIndex(value: number): DeriveKeysRequest;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): DeriveKeysRequest.AsObject;
@@ -430,10 +424,9 @@ export namespace DeriveKeysRequest {
 
 export class DeriveKeysResponse extends jspb.Message {
   getPublicKey(): string;
-  setPublicKey(value: string): void;
-
+  setPublicKey(value: string): DeriveKeysResponse;
   getPrivateKey(): string;
-  setPrivateKey(value: string): void;
+  setPrivateKey(value: string): DeriveKeysResponse;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): DeriveKeysResponse.AsObject;
@@ -463,9 +456,74 @@ export namespace DeriveKeysResponse {
   };
 }
 
+export class DeriveBlindingKeyRequest extends jspb.Message {
+  getAddress(): string;
+  setAddress(value: string): DeriveBlindingKeyRequest;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): DeriveBlindingKeyRequest.AsObject;
+  static toObject(
+    includeInstance: boolean,
+    msg: DeriveBlindingKeyRequest,
+  ): DeriveBlindingKeyRequest.AsObject;
+  static extensions: { [key: number]: jspb.ExtensionFieldInfo<jspb.Message> };
+  static extensionsBinary: {
+    [key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>;
+  };
+  static serializeBinaryToWriter(
+    message: DeriveBlindingKeyRequest,
+    writer: jspb.BinaryWriter,
+  ): void;
+  static deserializeBinary(bytes: Uint8Array): DeriveBlindingKeyRequest;
+  static deserializeBinaryFromReader(
+    message: DeriveBlindingKeyRequest,
+    reader: jspb.BinaryReader,
+  ): DeriveBlindingKeyRequest;
+}
+
+export namespace DeriveBlindingKeyRequest {
+  export type AsObject = {
+    address: string;
+  };
+}
+
+export class DeriveBlindingKeyResponse extends jspb.Message {
+  getPublicKey(): string;
+  setPublicKey(value: string): DeriveBlindingKeyResponse;
+  getPrivateKey(): string;
+  setPrivateKey(value: string): DeriveBlindingKeyResponse;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): DeriveBlindingKeyResponse.AsObject;
+  static toObject(
+    includeInstance: boolean,
+    msg: DeriveBlindingKeyResponse,
+  ): DeriveBlindingKeyResponse.AsObject;
+  static extensions: { [key: number]: jspb.ExtensionFieldInfo<jspb.Message> };
+  static extensionsBinary: {
+    [key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>;
+  };
+  static serializeBinaryToWriter(
+    message: DeriveBlindingKeyResponse,
+    writer: jspb.BinaryWriter,
+  ): void;
+  static deserializeBinary(bytes: Uint8Array): DeriveBlindingKeyResponse;
+  static deserializeBinaryFromReader(
+    message: DeriveBlindingKeyResponse,
+    reader: jspb.BinaryReader,
+  ): DeriveBlindingKeyResponse;
+}
+
+export namespace DeriveBlindingKeyResponse {
+  export type AsObject = {
+    publicKey: string;
+    privateKey: string;
+  };
+}
+
 export class GetAddressRequest extends jspb.Message {
   getSymbol(): string;
-  setSymbol(value: string): void;
+  setSymbol(value: string): GetAddressRequest;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GetAddressRequest.AsObject;
@@ -496,7 +554,7 @@ export namespace GetAddressRequest {
 
 export class GetAddressResponse extends jspb.Message {
   getAddress(): string;
-  setAddress(value: string): void;
+  setAddress(value: string): GetAddressResponse;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GetAddressResponse.AsObject;
@@ -527,19 +585,15 @@ export namespace GetAddressResponse {
 
 export class SendCoinsRequest extends jspb.Message {
   getSymbol(): string;
-  setSymbol(value: string): void;
-
+  setSymbol(value: string): SendCoinsRequest;
   getAddress(): string;
-  setAddress(value: string): void;
-
+  setAddress(value: string): SendCoinsRequest;
   getAmount(): number;
-  setAmount(value: number): void;
-
+  setAmount(value: number): SendCoinsRequest;
   getFee(): number;
-  setFee(value: number): void;
-
+  setFee(value: number): SendCoinsRequest;
   getSendAll(): boolean;
-  setSendAll(value: boolean): void;
+  setSendAll(value: boolean): SendCoinsRequest;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): SendCoinsRequest.AsObject;
@@ -574,10 +628,9 @@ export namespace SendCoinsRequest {
 
 export class SendCoinsResponse extends jspb.Message {
   getTransactionId(): string;
-  setTransactionId(value: string): void;
-
+  setTransactionId(value: string): SendCoinsResponse;
   getVout(): number;
-  setVout(value: number): void;
+  setVout(value: number): SendCoinsResponse;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): SendCoinsResponse.AsObject;
@@ -609,16 +662,13 @@ export namespace SendCoinsResponse {
 
 export class UpdateTimeoutBlockDeltaRequest extends jspb.Message {
   getPair(): string;
-  setPair(value: string): void;
-
+  setPair(value: string): UpdateTimeoutBlockDeltaRequest;
   getReverseTimeout(): number;
-  setReverseTimeout(value: number): void;
-
+  setReverseTimeout(value: number): UpdateTimeoutBlockDeltaRequest;
   getSwapMinimalTimeout(): number;
-  setSwapMinimalTimeout(value: number): void;
-
+  setSwapMinimalTimeout(value: number): UpdateTimeoutBlockDeltaRequest;
   getSwapMaximalTimeout(): number;
-  setSwapMaximalTimeout(value: number): void;
+  setSwapMaximalTimeout(value: number): UpdateTimeoutBlockDeltaRequest;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): UpdateTimeoutBlockDeltaRequest.AsObject;
@@ -678,13 +728,11 @@ export namespace UpdateTimeoutBlockDeltaResponse {
 
 export class AddReferralRequest extends jspb.Message {
   getId(): string;
-  setId(value: string): void;
-
+  setId(value: string): AddReferralRequest;
   getFeeShare(): number;
-  setFeeShare(value: number): void;
-
+  setFeeShare(value: number): AddReferralRequest;
   getRoutingNode(): string;
-  setRoutingNode(value: string): void;
+  setRoutingNode(value: string): AddReferralRequest;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): AddReferralRequest.AsObject;
@@ -717,10 +765,9 @@ export namespace AddReferralRequest {
 
 export class AddReferralResponse extends jspb.Message {
   getApiKey(): string;
-  setApiKey(value: string): void;
-
+  setApiKey(value: string): AddReferralResponse;
   getApiSecret(): string;
-  setApiSecret(value: string): void;
+  setApiSecret(value: string): AddReferralResponse;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): AddReferralResponse.AsObject;
@@ -750,10 +797,8 @@ export namespace AddReferralResponse {
   };
 }
 
-export interface OutputTypeMap {
-  BECH32: 0;
-  COMPATIBILITY: 1;
-  LEGACY: 2;
+export enum OutputType {
+  BECH32 = 0,
+  COMPATIBILITY = 1,
+  LEGACY = 2,
 }
-
-export const OutputType: OutputTypeMap;

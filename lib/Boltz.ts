@@ -318,7 +318,7 @@ class Boltz {
         type: CurrencyType.Liquid,
         symbol: symbol,
         network: LiquidNetworks[network],
-        chainClient: new ElementsClient(this.logger, chain, symbol),
+        chainClient: new ElementsClient(this.logger, chain),
         limits: {
           ...this.config.liquid,
         },

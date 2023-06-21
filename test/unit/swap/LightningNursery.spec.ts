@@ -24,7 +24,7 @@ const mockOn = jest.fn().mockImplementation((event: string, callback: any) => {
   }
 });
 
-let mockLookupInvoiceState: Invoice.InvoiceStateMap[keyof Invoice.InvoiceStateMap];
+let mockLookupInvoiceState: Invoice.InvoiceState;
 const mockLookupInvoice = jest.fn().mockImplementation(async () => {
   return {
     state: mockLookupInvoiceState,

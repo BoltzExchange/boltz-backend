@@ -14,6 +14,7 @@ interface IInvoicesService
   cancelInvoice: IInvoicesService_ICancelInvoice;
   addHoldInvoice: IInvoicesService_IAddHoldInvoice;
   settleInvoice: IInvoicesService_ISettleInvoice;
+  lookupInvoiceV2: IInvoicesService_ILookupInvoiceV2;
 }
 
 interface IInvoicesService_ISubscribeSingleInvoice
@@ -68,6 +69,19 @@ interface IInvoicesService_ISettleInvoice
   responseSerialize: grpc.serialize<lnd_invoices_pb.SettleInvoiceResp>;
   responseDeserialize: grpc.deserialize<lnd_invoices_pb.SettleInvoiceResp>;
 }
+interface IInvoicesService_ILookupInvoiceV2
+  extends grpc.MethodDefinition<
+    lnd_invoices_pb.LookupInvoiceMsg,
+    lnd_rpc_pb.Invoice
+  > {
+  path: '/invoicesrpc.Invoices/LookupInvoiceV2';
+  requestStream: false;
+  responseStream: false;
+  requestSerialize: grpc.serialize<lnd_invoices_pb.LookupInvoiceMsg>;
+  requestDeserialize: grpc.deserialize<lnd_invoices_pb.LookupInvoiceMsg>;
+  responseSerialize: grpc.serialize<lnd_rpc_pb.Invoice>;
+  responseDeserialize: grpc.deserialize<lnd_rpc_pb.Invoice>;
+}
 
 export const InvoicesService: IInvoicesService;
 
@@ -87,6 +101,10 @@ export interface IInvoicesServer extends grpc.UntypedServiceImplementation {
   settleInvoice: grpc.handleUnaryCall<
     lnd_invoices_pb.SettleInvoiceMsg,
     lnd_invoices_pb.SettleInvoiceResp
+  >;
+  lookupInvoiceV2: grpc.handleUnaryCall<
+    lnd_invoices_pb.LookupInvoiceMsg,
+    lnd_rpc_pb.Invoice
   >;
 }
 
@@ -170,6 +188,30 @@ export interface IInvoicesClient {
     callback: (
       error: grpc.ServiceError | null,
       response: lnd_invoices_pb.SettleInvoiceResp,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  lookupInvoiceV2(
+    request: lnd_invoices_pb.LookupInvoiceMsg,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.Invoice,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  lookupInvoiceV2(
+    request: lnd_invoices_pb.LookupInvoiceMsg,
+    metadata: grpc.Metadata,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.Invoice,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  lookupInvoiceV2(
+    request: lnd_invoices_pb.LookupInvoiceMsg,
+    metadata: grpc.Metadata,
+    options: Partial<grpc.CallOptions>,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.Invoice,
     ) => void,
   ): grpc.ClientUnaryCall;
 }
@@ -259,6 +301,30 @@ export class InvoicesClient extends grpc.Client implements IInvoicesClient {
     callback: (
       error: grpc.ServiceError | null,
       response: lnd_invoices_pb.SettleInvoiceResp,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public lookupInvoiceV2(
+    request: lnd_invoices_pb.LookupInvoiceMsg,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.Invoice,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public lookupInvoiceV2(
+    request: lnd_invoices_pb.LookupInvoiceMsg,
+    metadata: grpc.Metadata,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.Invoice,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public lookupInvoiceV2(
+    request: lnd_invoices_pb.LookupInvoiceMsg,
+    metadata: grpc.Metadata,
+    options: Partial<grpc.CallOptions>,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: lnd_rpc_pb.Invoice,
     ) => void,
   ): grpc.ClientUnaryCall;
 }

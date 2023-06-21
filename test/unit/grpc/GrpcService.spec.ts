@@ -1,4 +1,6 @@
 import { ServiceError } from '@grpc/grpc-js';
+import * as boltzrpc from '../../../lib/proto/boltzrpc_pb';
+import { getHexBuffer, getHexString } from '../../../lib/Utils';
 import Service from '../../../lib/service/Service';
 import GrpcService from '../../../lib/grpc/GrpcService';
 
@@ -38,12 +40,21 @@ const mockAddReferral = jest
   .fn()
   .mockImplementation(() => mockAddReferralResponse);
 
+const mockDeriveBlindingKeysResponse = {
+  publicKey: getHexBuffer('aa'),
+  privateKey: getHexBuffer('bb'),
+};
+const mockDeriveBlindingKeys = jest
+  .fn()
+  .mockReturnValue(mockDeriveBlindingKeysResponse);
+
 jest.mock('../../../lib/service/Service', () => {
   return jest.fn().mockImplementation(() => {
     return {
       getInfo: mockGetInfo,
       getBalance: mockGetBalance,
       deriveKeys: mockDeriveKeys,
+      deriveBlindingKeys: mockDeriveBlindingKeys,
       getAddress: mockGetAddress,
       sendCoins: mockSendCoins,
       updateTimeoutBlockDelta: mockUpdateTimeoutBlockDelta,
@@ -121,6 +132,25 @@ describe('GrpcService', () => {
       callData.symbol,
       callData.index,
     );
+  });
+
+  test('should handle DeriveBlindingKeys', () => {
+    const callData = {
+      address:
+        'el1qqww2k9af23daf05txwvr6wk0n4wufpjks3yp7rfll5lwseruxf42egqn08jcypll40ph6m0dh00505s43tslxxchmvh8zlxuw',
+    };
+
+    const cb = jest.fn();
+    grpcService.deriveBlindingKeys(createCall(callData), cb);
+
+    expect(cb).toHaveBeenCalledTimes(1);
+    const res = new boltzrpc.DeriveBlindingKeyResponse();
+    res.setPublicKey(getHexString(mockDeriveBlindingKeysResponse.publicKey));
+    res.setPrivateKey(getHexString(mockDeriveBlindingKeysResponse.privateKey));
+    expect(cb).toHaveBeenCalledWith(null, res);
+
+    expect(mockDeriveBlindingKeys).toHaveBeenCalledTimes(1);
+    expect(mockDeriveBlindingKeys).toHaveBeenCalledWith(callData.address);
   });
 
   test('should handle GetAddress', () => {

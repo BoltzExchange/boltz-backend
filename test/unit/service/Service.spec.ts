@@ -211,6 +211,17 @@ const tokenTransaction = {
 const mockSendToken = jest.fn().mockResolvedValue(tokenTransaction);
 const mockSweepToken = jest.fn().mockResolvedValue(tokenTransaction);
 
+const mockDecodeAddress = jest.fn().mockReturnValue(getHexBuffer('ff'));
+const mockDeriveBlindingKeyFromScript = jest.fn().mockReturnValue({
+  publicKey: getHexBuffer('ee'),
+  privateKey: getHexBuffer('dd'),
+});
+
+const liquidWallet = {
+  decodeAddress: mockDecodeAddress,
+  deriveBlindingKeyFromScript: mockDeriveBlindingKeyFromScript,
+};
+
 jest.mock('../../../lib/wallet/WalletManager', () => {
   return jest.fn().mockImplementation(() => ({
     wallets: new Map<string, Wallet>([
@@ -878,6 +889,34 @@ describe('Service', () => {
     expect(() => service.deriveKeys(notFoundSymbol, 321)).toThrow(
       Errors.CURRENCY_NOT_FOUND(notFoundSymbol).message,
     );
+  });
+
+  test('should derive Liquid blinding keys', () => {
+    const address =
+      'el1qq073hujxgeqmpt722mgqqva66xvjw4y5nsvc20wj9d6hu5a8f8xuts2swzc39ph56aajx9hcjq4mn96ux57xgj9u2q2hl2qt9';
+
+    expect(() => service.deriveBlindingKeys(address)).toThrow(
+      Errors.CURRENCY_NOT_FOUND('L-BTC') as any,
+    );
+
+    service['walletManager'].wallets.set(
+      'L-BTC',
+      liquidWallet as any as Wallet,
+    );
+
+    const { publicKey, privateKey } = service.deriveBlindingKeys(address);
+
+    expect(mockDecodeAddress).toHaveBeenCalledTimes(1);
+    expect(mockDecodeAddress).toHaveBeenCalledWith(address);
+    expect(mockDeriveBlindingKeyFromScript).toHaveBeenCalledTimes(1);
+    expect(mockDeriveBlindingKeyFromScript).toHaveBeenCalledWith(
+      mockDecodeAddress(),
+    );
+
+    expect(publicKey).toEqual(mockDeriveBlindingKeyFromScript().publicKey);
+    expect(privateKey).toEqual(mockDeriveBlindingKeyFromScript().privateKey);
+
+    service['walletManager'].wallets.delete('L-BTC');
   });
 
   test('should get new addresses', async () => {

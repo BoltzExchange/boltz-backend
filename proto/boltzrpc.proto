@@ -12,6 +12,8 @@ service Boltz {
   /* Derives a keypair from the index of an HD wallet */
   rpc DeriveKeys (DeriveKeysRequest) returns (DeriveKeysResponse);
 
+  rpc DeriveBlindingKeys (DeriveBlindingKeyRequest) returns (DeriveBlindingKeyResponse);
+
   /* Gets an address of a specified wallet */
   rpc GetAddress (GetAddressRequest) returns (GetAddressResponse);
 
@@ -89,6 +91,15 @@ message DeriveKeysRequest {
 }
 
 message DeriveKeysResponse {
+  string public_key = 1;
+  string private_key = 2;
+}
+
+message DeriveBlindingKeyRequest {
+  string address = 1;
+}
+
+message DeriveBlindingKeyResponse {
   string public_key = 1;
   string private_key = 2;
 }

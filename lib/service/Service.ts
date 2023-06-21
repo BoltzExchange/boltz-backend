@@ -10,7 +10,9 @@ import { ConfigType } from '../Config';
 import EventHandler from './EventHandler';
 import { parseTransaction } from '../Core';
 import { PairConfig } from '../consts/Types';
+import WalletLiquid from '../wallet/WalletLiquid';
 import SwapOutputType from '../swap/SwapOutputType';
+import ElementsClient from '../chain/ElementsClient';
 import InvoiceExpiryHelper from './InvoiceExpiryHelper';
 import PaymentRequestUtils from './PaymentRequestUtils';
 import { Payment, RouteHint } from '../proto/lnd/rpc_pb';
@@ -462,6 +464,23 @@ class Service {
     response.setPrivateKey(getHexString(keys.privateKey!));
 
     return response;
+  };
+
+  public deriveBlindingKeys = (address: any) => {
+    const wallet = this.walletManager.wallets.get(ElementsClient.symbol) as
+      | WalletLiquid
+      | undefined;
+    if (wallet === undefined) {
+      throw Errors.CURRENCY_NOT_FOUND(ElementsClient.symbol);
+    }
+
+    const { publicKey, privateKey } = wallet.deriveBlindingKeyFromScript(
+      wallet.decodeAddress(address),
+    );
+    return {
+      publicKey: publicKey!,
+      privateKey: privateKey!,
+    };
   };
 
   /**

@@ -1,4 +1,5 @@
 import { handleUnaryCall } from '@grpc/grpc-js';
+import { getHexString } from '../Utils';
 import Service from '../service/Service';
 import * as boltzrpc from '../proto/boltzrpc_pb';
 
@@ -35,6 +36,25 @@ class GrpcService {
       const { symbol, index } = call.request.toObject();
 
       callback(null, this.service.deriveKeys(symbol, index));
+    } catch (error) {
+      callback(error as any, null);
+    }
+  };
+
+  public deriveBlindingKeys: handleUnaryCall<
+    boltzrpc.DeriveBlindingKeyRequest,
+    boltzrpc.DeriveBlindingKeyResponse
+  > = (call, callback) => {
+    try {
+      const { address } = call.request.toObject();
+      const { publicKey, privateKey } =
+        this.service.deriveBlindingKeys(address);
+
+      const res = new boltzrpc.DeriveBlindingKeyResponse();
+      res.setPublicKey(getHexString(publicKey));
+      res.setPrivateKey(getHexString(privateKey));
+
+      callback(null, res);
     } catch (error) {
       callback(error as any, null);
     }

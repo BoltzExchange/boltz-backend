@@ -12,6 +12,7 @@ interface IRouterService
   extends grpc.ServiceDefinition<grpc.UntypedServiceImplementation> {
   sendPaymentV2: IRouterService_ISendPaymentV2;
   trackPaymentV2: IRouterService_ITrackPaymentV2;
+  trackPayments: IRouterService_ITrackPayments;
   estimateRouteFee: IRouterService_IEstimateRouteFee;
   sendToRoute: IRouterService_ISendToRoute;
   sendToRouteV2: IRouterService_ISendToRouteV2;
@@ -52,6 +53,19 @@ interface IRouterService_ITrackPaymentV2
   responseStream: true;
   requestSerialize: grpc.serialize<lnd_router_pb.TrackPaymentRequest>;
   requestDeserialize: grpc.deserialize<lnd_router_pb.TrackPaymentRequest>;
+  responseSerialize: grpc.serialize<lnd_rpc_pb.Payment>;
+  responseDeserialize: grpc.deserialize<lnd_rpc_pb.Payment>;
+}
+interface IRouterService_ITrackPayments
+  extends grpc.MethodDefinition<
+    lnd_router_pb.TrackPaymentsRequest,
+    lnd_rpc_pb.Payment
+  > {
+  path: '/routerrpc.Router/TrackPayments';
+  requestStream: false;
+  responseStream: true;
+  requestSerialize: grpc.serialize<lnd_router_pb.TrackPaymentsRequest>;
+  requestDeserialize: grpc.deserialize<lnd_router_pb.TrackPaymentsRequest>;
   responseSerialize: grpc.serialize<lnd_rpc_pb.Payment>;
   responseDeserialize: grpc.deserialize<lnd_rpc_pb.Payment>;
 }
@@ -262,6 +276,10 @@ export interface IRouterServer extends grpc.UntypedServiceImplementation {
     lnd_router_pb.TrackPaymentRequest,
     lnd_rpc_pb.Payment
   >;
+  trackPayments: grpc.handleServerStreamingCall<
+    lnd_router_pb.TrackPaymentsRequest,
+    lnd_rpc_pb.Payment
+  >;
   estimateRouteFee: grpc.handleUnaryCall<
     lnd_router_pb.RouteFeeRequest,
     lnd_router_pb.RouteFeeResponse
@@ -340,6 +358,15 @@ export interface IRouterClient {
   ): grpc.ClientReadableStream<lnd_rpc_pb.Payment>;
   trackPaymentV2(
     request: lnd_router_pb.TrackPaymentRequest,
+    metadata?: grpc.Metadata,
+    options?: Partial<grpc.CallOptions>,
+  ): grpc.ClientReadableStream<lnd_rpc_pb.Payment>;
+  trackPayments(
+    request: lnd_router_pb.TrackPaymentsRequest,
+    options?: Partial<grpc.CallOptions>,
+  ): grpc.ClientReadableStream<lnd_rpc_pb.Payment>;
+  trackPayments(
+    request: lnd_router_pb.TrackPaymentsRequest,
     metadata?: grpc.Metadata,
     options?: Partial<grpc.CallOptions>,
   ): grpc.ClientReadableStream<lnd_rpc_pb.Payment>;
@@ -674,6 +701,15 @@ export class RouterClient extends grpc.Client implements IRouterClient {
   ): grpc.ClientReadableStream<lnd_rpc_pb.Payment>;
   public trackPaymentV2(
     request: lnd_router_pb.TrackPaymentRequest,
+    metadata?: grpc.Metadata,
+    options?: Partial<grpc.CallOptions>,
+  ): grpc.ClientReadableStream<lnd_rpc_pb.Payment>;
+  public trackPayments(
+    request: lnd_router_pb.TrackPaymentsRequest,
+    options?: Partial<grpc.CallOptions>,
+  ): grpc.ClientReadableStream<lnd_rpc_pb.Payment>;
+  public trackPayments(
+    request: lnd_router_pb.TrackPaymentsRequest,
     metadata?: grpc.Metadata,
     options?: Partial<grpc.CallOptions>,
   ): grpc.ClientReadableStream<lnd_rpc_pb.Payment>;

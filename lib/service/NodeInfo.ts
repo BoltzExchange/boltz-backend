@@ -27,7 +27,7 @@ class NodeInfo {
   ) {}
 
   public init = () => {
-    this.job = scheduleJob('0 */12 * * *', async () => {
+    this.job = scheduleJob('0 0 * * *', async () => {
       this.logger.debug('Updating lightning node stats');
       await this.update();
     });

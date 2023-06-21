@@ -283,20 +283,26 @@ class UtxoNursery extends EventEmitter {
           continue;
         }
 
-        const lockupTransaction = await chainClient.getRawTransactionVerbose(
-          swap.lockupTransactionId!,
-        );
+        try {
+          const lockupTransaction = await chainClient.getRawTransactionVerbose(
+            swap.lockupTransactionId!,
+          );
 
-        if (
-          lockupTransaction.confirmations &&
-          lockupTransaction.confirmations !== 0
-        ) {
-          await this.checkSwapTransaction(
-            swap,
-            chainClient,
-            wallet,
-            parseTransaction(wallet.type, lockupTransaction.hex),
-            true,
+          if (
+            lockupTransaction.confirmations &&
+            lockupTransaction.confirmations !== 0
+          ) {
+            await this.checkSwapTransaction(
+              swap,
+              chainClient,
+              wallet,
+              parseTransaction(wallet.type, lockupTransaction.hex),
+              true,
+            );
+          }
+        } catch (e) {
+          this.logger.silly(
+            `Could not find lockup transaction of swap ${swap.id}: ${swap.lockupTransactionId}`,
           );
         }
       }

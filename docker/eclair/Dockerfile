@@ -5,7 +5,7 @@ FROM ubuntu:${UBUNTU_VERSION} AS builder
 ARG VERSION
 
 RUN apt-get update && apt-get -y upgrade
-RUN DEBIAN_FRONTEND=noninteractive apt-get -y install git openjdk-11-jdk openjdk-11-jdk-headless maven
+RUN DEBIAN_FRONTEND=noninteractive apt-get -y install git openjdk-11-jdk-headless maven
 
 RUN git clone https://github.com/ACINQ/eclair.git
 
@@ -27,7 +27,7 @@ COPY --from=builder /eclair/eclair-core/eclair-cli /usr/local/bin/
 COPY --from=builder /eclair/eclair-node/target/eclair-node-*.zip /eclair-node.zip
 
 RUN apt-get update && apt-get -y upgrade
-RUN apt-get install -y jq curl unzip openjdk-11-jdk openjdk-11-jdk-headless
+RUN apt-get install -y jq curl unzip openjdk-11-jre-headless
 
 RUN unzip eclair-node.zip && rm eclair-node.zip && mv eclair-node-* eclair-node
 

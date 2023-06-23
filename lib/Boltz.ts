@@ -2,7 +2,7 @@ import fs from 'fs';
 import { Arguments } from 'yargs';
 import { Networks } from 'boltz-core';
 import { generateMnemonic } from 'bip39';
-import { Networks as LiquidNetworks } from 'boltz-core-liquid-michael1011';
+import { Networks as LiquidNetworks } from 'boltz-core/dist/lib/liquid';
 import Api from './api/Api';
 import Logger from './Logger';
 import { setup } from './Core';
@@ -29,6 +29,7 @@ class Boltz {
   private readonly config: ConfigType;
 
   private readonly service!: Service;
+  private readonly backup: BackupScheduler;
   private readonly walletManager: WalletManager;
 
   private readonly currencies: Map<string, Currency>;
@@ -105,7 +106,7 @@ class Boltz {
         this.currencies,
       );
 
-      const backup = new BackupScheduler(
+      this.backup = new BackupScheduler(
         this.logger,
         this.config.dbpath,
         this.config.backup,
@@ -115,7 +116,7 @@ class Boltz {
       this.notifications = new NotificationProvider(
         this.logger,
         this.service,
-        backup,
+        this.backup,
         this.config.notification,
         this.config.currencies,
         this.config.ethereum.tokens,
@@ -141,6 +142,7 @@ class Boltz {
     try {
       await this.db.migrate(this.currencies);
       await this.db.init();
+      await this.backup.init();
 
       // Query the chain tips now to avoid them being updated after the chain clients are initialized
       const chainTips = await ChainTipRepository.getChainTips();

@@ -2,6 +2,7 @@ import { Op } from 'sequelize';
 import AsyncLock from 'async-lock';
 import { EventEmitter } from 'events';
 import { Transaction } from 'bitcoinjs-lib';
+import { detectPreimage, detectSwap } from 'boltz-core';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import Errors from './Errors';
 import Logger from '../Logger';
@@ -14,11 +15,9 @@ import SwapRepository from '../db/repositories/SwapRepository';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import {
-  calculateTransactionFee,
-  detectPreimage,
-  detectSwap,
   getOutputValue,
   parseTransaction,
+  calculateTransactionFee,
 } from '../Core';
 import {
   splitPairId,
@@ -209,7 +208,7 @@ class UtxoNursery extends EventEmitter {
       this.emit(
         'reverseSwap.claimed',
         reverseSwap,
-        detectPreimage(chainClient.currencyType, vin, transaction),
+        detectPreimage(vin, transaction),
       );
     }
   };
@@ -445,7 +444,6 @@ class UtxoNursery extends EventEmitter {
     confirmed: boolean,
   ) => {
     const swapOutput = detectSwap(
-      chainClient.currencyType,
       getHexBuffer(swap.redeemScript!),
       transaction,
     )!;

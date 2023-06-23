@@ -1,6 +1,7 @@
 import { Op } from 'sequelize';
 import AsyncLock from 'async-lock';
 import { EventEmitter } from 'events';
+import { detectSwap } from 'boltz-core';
 import { crypto, Transaction } from 'bitcoinjs-lib';
 import { ContractTransactionResponse } from 'ethers';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib';
@@ -47,16 +48,15 @@ import {
   splitPairId,
 } from '../Utils';
 import {
+  ClaimDetails,
+  getAssetHash,
+  RefundDetails,
+  parseTransaction,
+  LiquidClaimDetails,
+  LiquidRefundDetails,
   calculateTransactionFee,
-  ClaimDetailsBitcoin,
-  ClaimDetailsLiquid,
   constructClaimTransaction,
   constructRefundTransaction,
-  detectSwap,
-  getAssetHash,
-  parseTransaction,
-  RefundDetailsBitcoin,
-  RefundDetailsLiquid,
 } from '../Core';
 
 interface ISwapNursery {
@@ -861,7 +861,6 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
     // Compatibility mode with database schema version 0 in which this column didn't exist
     if (swap.lockupTransactionVout === undefined) {
       swap.lockupTransactionVout = detectSwap(
-        chainClient.currencyType,
         getHexBuffer(swap.redeemScript!),
         transaction,
       )!.vout;
@@ -880,7 +879,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
           keys: wallet.getKeysByIndex(swap.keyIndex!),
           redeemScript: getHexBuffer(swap.redeemScript!),
         },
-      ] as ClaimDetailsBitcoin[] | ClaimDetailsLiquid[],
+      ] as ClaimDetails[] | LiquidClaimDetails[],
       destinationAddress,
       await chainClient.estimateFee(),
       getAssetHash(chainClient.currencyType, wallet.network),
@@ -1185,7 +1184,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
           keys: wallet.getKeysByIndex(reverseSwap.keyIndex!),
           redeemScript: getHexBuffer(reverseSwap.redeemScript!),
         },
-      ] as RefundDetailsBitcoin[] | RefundDetailsLiquid[],
+      ] as RefundDetails[] | LiquidRefundDetails[],
       await wallet.getAddress(),
       reverseSwap.timeoutBlockHeight,
       await chainCurrency.chainClient!.estimateFee(),

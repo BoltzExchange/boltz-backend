@@ -1,11 +1,12 @@
 import { Arguments } from 'yargs';
 import { credentials } from '@grpc/grpc-js';
-import { Networks } from 'boltz-core-liquid-michael1011';
+import { detectSwap, Networks } from 'boltz-core';
+import { Networks as LiquidNetworks } from 'boltz-core/dist/lib/liquid';
 import { ECPair } from '../ECPairHelper';
 import { CurrencyType } from '../consts/Enums';
 import { getHexBuffer, stringify } from '../Utils';
 import { BoltzClient } from '../proto/boltzrpc_grpc_pb';
-import { detectSwap, parseTransaction, setup, toOutputScript } from '../Core';
+import { parseTransaction, setup, toOutputScript } from '../Core';
 
 export interface GrpcResponse {
   toObject: () => any;
@@ -33,13 +34,17 @@ export const callback = (error: Error | null, response: GrpcResponse): void => {
 
 export const prepareTx = async (argv: Arguments<any>) => {
   await setup();
-  const network = Networks[argv.network];
 
   const redeemScript = getHexBuffer(argv.redeemScript);
 
   const type = argv.network.includes('liquid')
     ? CurrencyType.Liquid
     : CurrencyType.BitcoinLike;
+  const network =
+    type === CurrencyType.BitcoinLike
+      ? Networks[argv.network]
+      : LiquidNetworks[argv.network];
+
   const transaction = parseTransaction(type, argv.rawTransaction);
 
   const blindingKey =
@@ -60,7 +65,7 @@ export const prepareTx = async (argv: Arguments<any>) => {
         toOutputScript(type, argv.destinationAddress, network),
     } as any,
     destinationAddress: argv.destinationAddress,
-    swapOutput: detectSwap(type, redeemScript, transaction),
+    swapOutput: detectSwap(redeemScript, transaction),
     keys: ECPair.fromPrivateKey(getHexBuffer(argv.privateKey)),
   };
 };

@@ -51,6 +51,14 @@ class BackupScheduler {
     }
   }
 
+  public init = async () => {
+    for (const provider of this.providers) {
+      if (provider instanceof Webdav) {
+        await provider.init();
+      }
+    }
+  };
+
   private static getDate = (date: Date) => {
     let str = '';
 

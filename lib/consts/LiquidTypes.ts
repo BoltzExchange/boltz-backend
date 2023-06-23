@@ -1,3 +1,5 @@
+export const liquidSymbol = 'L-BTC';
+
 type MyLiquidBalances = {
   trusted: Record<string, number>;
   untrusted_pending: Record<string, number>;

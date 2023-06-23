@@ -2,10 +2,14 @@ import Logger from '../Logger';
 import ChainClient from './ChainClient';
 import { ChainConfig } from '../Config';
 import { CurrencyType } from '../consts/Enums';
-import { AddressInfo, LiquidBalances } from '../consts/LiquidTypes';
+import {
+  AddressInfo,
+  liquidSymbol,
+  LiquidBalances,
+} from '../consts/LiquidTypes';
 
 class ElementsClient extends ChainClient {
-  public static readonly symbol = 'L-BTC';
+  public static readonly symbol = liquidSymbol;
 
   constructor(logger: Logger, config: ChainConfig) {
     super(logger, config, ElementsClient.symbol);

@@ -59,4 +59,4 @@ const boltz = new Boltz(argv);
 
 (async () => {
   await boltz.start();
-})()
+})();

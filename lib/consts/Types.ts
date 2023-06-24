@@ -39,6 +39,9 @@ export type PairConfig = {
 
   // The timeout of the swaps on this pair in minutes
   timeoutDelta?: PairTimeoutBlocksDelta | number;
+
+  minSwapAmount: number;
+  maxSwapAmount: number;
 };
 
 /**

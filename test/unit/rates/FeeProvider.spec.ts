@@ -37,12 +37,16 @@ describe('FeeProvider', () => {
         quote: 'BTC',
         fee: 2,
         swapInFee: -1,
+        minSwapAmount: 1,
+        maxSwapAmount: 2,
       },
       {
         base: 'BTC',
         quote: 'BTC',
         fee: 0,
         swapInFee: -1,
+        minSwapAmount: 1,
+        maxSwapAmount: 2,
       },
       {
         base: 'LTC',
@@ -51,6 +55,9 @@ describe('FeeProvider', () => {
         // The FeeProvider should set this to 1
         fee: undefined,
         swapInFee: undefined,
+
+        minSwapAmount: 1,
+        maxSwapAmount: 2,
       },
     ]);
 

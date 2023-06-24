@@ -100,7 +100,7 @@ class Service {
     );
 
     this.paymentRequestUtils = new PaymentRequestUtils(
-      this.currencies.get('L-BTC'),
+      this.currencies.get(ElementsClient.symbol),
     );
     this.timeoutDeltaProvider = new TimeoutDeltaProvider(this.logger, config);
     this.rateProvider = new RateProvider(

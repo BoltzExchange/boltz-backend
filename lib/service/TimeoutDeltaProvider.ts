@@ -5,6 +5,7 @@ import Logger from '../Logger';
 import { ConfigType } from '../Config';
 import { OrderSide } from '../consts/Enums';
 import { PairConfig } from '../consts/Types';
+import ElementsClient from '../chain/ElementsClient';
 import { decodeInvoice, getPairId, splitPairId, stringify } from '../Utils';
 
 type PairTimeoutBlocksDelta = {
@@ -25,9 +26,9 @@ class TimeoutDeltaProvider {
   // A map of the symbols of currencies and their block times in minutes
   public static blockTimes = new Map<string, number>([
     ['BTC', 10],
-    ['L-BTC', 1],
     ['LTC', 2.5],
     ['ETH', 0.2],
+    [ElementsClient.symbol, 1],
   ]);
 
   public timeoutDeltas = new Map<string, PairTimeoutBlockDeltas>();

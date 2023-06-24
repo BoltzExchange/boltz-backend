@@ -14,20 +14,19 @@ import {
   TxOutput as TxOutputLiquid,
   Transaction as TransactionLiquid,
 } from 'liquidjs-lib';
-import { ClaimDetails, RefundDetails } from 'boltz-core/dist/lib/consts/Types';
 import {
-  LiquidClaimDetails,
-  LiquidRefundDetails,
-} from 'boltz-core/dist/lib/liquid/consts/Types';
-import {
+  ClaimDetails,
+  RefundDetails,
+  targetFee,
   constructClaimTransaction as constructClaimTransactionBitcoin,
   constructRefundTransaction as constructRefundTransactionBitcoin,
-  targetFee,
 } from 'boltz-core';
 import {
+  init as initLiquid,
+  LiquidClaimDetails,
+  LiquidRefundDetails,
   constructClaimTransaction as constructClaimTransactionLiquid,
   constructRefundTransaction as constructRefundTransactionLiquid,
-  init as initLiquid,
 } from 'boltz-core/dist/lib/liquid';
 import Wallet from './wallet/Wallet';
 import ChainClient from './chain/ChainClient';

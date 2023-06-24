@@ -24,9 +24,6 @@ import ElementsWalletProvider from './providers/ElementsWalletProvider';
 import WalletProviderInterface from './providers/WalletProviderInterface';
 
 type CurrencyLimits = {
-  maxSwapAmount: number;
-  minSwapAmount: number;
-
   minWalletBalance: number;
 
   minLocalBalance?: number;

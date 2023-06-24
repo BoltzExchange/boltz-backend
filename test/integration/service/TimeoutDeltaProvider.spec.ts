@@ -31,6 +31,8 @@ describe('TimeoutDeltaProvider', () => {
         base,
         quote,
         timeoutDelta,
+        minSwapAmount: 0,
+        maxSwapAmount: 1,
       },
     ]);
   });

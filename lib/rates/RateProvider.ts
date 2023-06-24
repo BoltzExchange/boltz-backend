@@ -1,4 +1,3 @@
-import Errors from './Errors';
 import Logger from '../Logger';
 import { PairConfig } from '../consts/Types';
 import RateCalculator from './RateCalculator';
@@ -14,13 +13,7 @@ import {
   splitPairId,
   stringify,
 } from '../Utils';
-
-type CurrencyLimits = {
-  minimal: number;
-  maximal: number;
-
-  maximalZeroConf: number;
-};
+import Errors from './Errors';
 
 const emptyMinerFees = {
   normal: 0,
@@ -67,8 +60,8 @@ class RateProvider {
   // A map of all pairs with hardcoded rates
   private hardcodedPairs = new Map<string, { base: string; quote: string }>();
 
-  // A map between assets and their limits
-  private limits = new Map<string, CurrencyLimits>();
+  private zeroConfAmounts = new Map<string, number>();
+  private pairConfigs = new Map<string, PairConfig>();
 
   private timer!: any;
 
@@ -87,11 +80,23 @@ class RateProvider {
   }
 
   public init = async (pairs: PairConfig[]): Promise<void> => {
+    pairs.forEach((pair) => {
+      this.pairConfigs.set(getPairId(pair), pair);
+    });
+
     await this.updateMinerFees();
 
     pairs.forEach((pair) => {
       const id = getPairId(pair);
       this.configPairs.add(id);
+
+      if (pair.maxSwapAmount === undefined) {
+        throw Errors.CONFIGURATION_INCOMPLETE(id, 'maxSwapAmount');
+      }
+
+      if (pair.minSwapAmount === undefined) {
+        throw Errors.CONFIGURATION_INCOMPLETE(id, 'minSwapAmount');
+      }
 
       // If a pair has a hardcoded rate the rate doesn't have to be queried from the exchanges
       if (pair.rate) {
@@ -102,7 +107,7 @@ class RateProvider {
         this.pairs.set(id, {
           hash: '',
           rate: pair.rate,
-          limits: this.getLimits(id, pair.base, pair.quote, pair.rate),
+          limits: this.getLimits(id, pair.rate),
           fees: {
             ...this.feeProvider.getPercentageFees(id),
             minerFees: {
@@ -163,10 +168,10 @@ class RateProvider {
    * Returns whether 0-conf should be accepted for a specific amount on a specified chain
    */
   public acceptZeroConf = (chainCurrency: string, amount: number): boolean => {
-    const limits = this.limits.get(chainCurrency);
+    const limits = this.zeroConfAmounts.get(chainCurrency);
 
     if (limits) {
-      return amount <= limits.maximalZeroConf;
+      return amount <= limits;
     } else {
       return false;
     }
@@ -193,12 +198,10 @@ class RateProvider {
       // If the rate returned is "undefined" or "NaN" that means that all requests to the APIs of the exchanges
       // failed and that the pairs and limits don't have to be updated
       if (rate && !isNaN(rate)) {
-        const limits = this.getLimits(pairId, base, quote, rate);
-
         this.pairs.set(pairId, {
           rate,
-          limits,
           hash: '',
+          limits: this.getLimits(pairId, rate),
           fees: {
             ...this.feeProvider.getPercentageFees(pairId),
             minerFees: {
@@ -220,7 +223,7 @@ class RateProvider {
         baseAsset: this.feeProvider.minerFees.get(base)!,
         quoteAsset: this.feeProvider.minerFees.get(quote)!,
       };
-      pairInfo.limits = this.getLimits(pair, base, quote, pairInfo.rate);
+      pairInfo.limits = this.getLimits(pair, pairInfo.rate);
 
       this.pairs.set(pair, pairInfo);
     });
@@ -238,58 +241,54 @@ class RateProvider {
     this.logger.silly('Updated rates');
   };
 
-  private getLimits = (
-    pair: string,
-    base: string,
-    quote: string,
-    rate: number,
-  ) => {
-    const baseLimits = this.limits.get(base);
-    const quoteLimits = this.limits.get(quote);
+  private getLimits = (pair: string, rate: number) => {
+    const config = this.pairConfigs.get(pair);
 
-    if (baseLimits && quoteLimits) {
-      let minimalLimit = Math.max(
-        quoteLimits.minimal,
-        baseLimits.minimal * rate,
-      );
-
-      // Make sure the minimal limit is at least 4 times the fee needed to claim
-      if (pair !== 'L-BTC/BTC') {
-        const minimalLimitQuoteTransactionFee =
-          this.feeProvider.getBaseFee(quote, BaseFeeType.NormalClaim) *
-          RateProvider.minLimitFactor;
-        const minimalLimitBaseTransactionFee =
-          this.feeProvider.getBaseFee(base, BaseFeeType.NormalClaim) *
-          rate *
-          RateProvider.minLimitFactor;
-
-        minimalLimit = Math.max(
-          minimalLimit,
-          minimalLimitBaseTransactionFee,
-          minimalLimitQuoteTransactionFee,
-        );
-      } else {
-        minimalLimit = Math.max(
-          baseLimits.minimal,
-          this.feeProvider.getBaseFee('L-BTC', BaseFeeType.NormalClaim) *
-            RateProvider.minLimitFactor,
-        );
-      }
-
-      return {
-        maximal: Math.floor(
-          Math.min(quoteLimits.maximal, baseLimits.maximal * rate),
-        ),
-        minimal: Math.ceil(minimalLimit),
-
-        maximalZeroConf: {
-          baseAsset: baseLimits.maximalZeroConf,
-          quoteAsset: quoteLimits.maximalZeroConf,
-        },
-      };
+    if (config === undefined) {
+      throw `Could not get limits for pair ${pair}`;
     }
 
-    throw `Could not get limits for pair ${pair}`;
+    const { base, quote } = splitPairId(pair);
+    const minimalLimits = [config.minSwapAmount];
+
+    [
+      [base, quote],
+      [quote, base],
+    ]
+      .filter(([chain, lightning]) =>
+        this.isPossibleChainCurrency(chain, lightning),
+      )
+      .map(([currency]) => currency)
+      .forEach((currency) => {
+        let limit =
+          this.feeProvider.getBaseFee(currency, BaseFeeType.NormalClaim) *
+          RateProvider.minLimitFactor;
+        if (currency === base) {
+          limit *= rate;
+        }
+
+        minimalLimits.push(limit);
+      });
+
+    return {
+      maximal: config.maxSwapAmount,
+      minimal: Math.ceil(Math.max(...minimalLimits)),
+
+      maximalZeroConf: {
+        baseAsset: this.zeroConfAmounts.get(base)!,
+        quoteAsset: this.zeroConfAmounts.get(quote)!,
+      },
+    };
+  };
+
+  private isPossibleChainCurrency = (
+    cur: string,
+    lightningCur: string,
+  ): boolean => {
+    return (
+      this.currencies.get(cur)!.chainClient !== undefined &&
+      this.currencies.get(lightningCur)!.lndClient !== undefined
+    );
   };
 
   private parseCurrencies = (currencies: Currency[]) => {
@@ -300,32 +299,20 @@ class RateProvider {
         );
       }
 
-      if (currency.limits.maxSwapAmount === undefined) {
-        throw Errors.CONFIGURATION_INCOMPLETE(currency.symbol, 'maxSwapAmount');
-      }
-
-      if (currency.limits.minSwapAmount === undefined) {
-        throw Errors.CONFIGURATION_INCOMPLETE(currency.symbol, 'minSwapAmount');
-      }
-
-      this.limits.set(currency.symbol, {
-        maximal: currency.limits.maxSwapAmount,
-        minimal: currency.limits.minSwapAmount,
-
-        // Set the maximal 0-conf amount to 0 if it wasn't set explicitly
-        maximalZeroConf: currency.limits.maxZeroConfAmount || 0,
-      });
+      // Set the maximal 0-conf amount to 0 if it wasn't set explicitly
+      this.zeroConfAmounts.set(
+        currency.symbol,
+        currency.limits.maxZeroConfAmount || 0,
+      );
     }
   };
 
   private updateMinerFees = async () => {
-    const promises: Promise<void>[] = [];
-
-    for (const [symbol] of this.limits) {
-      promises.push(this.feeProvider.updateMinerFees(symbol));
-    }
-
-    await Promise.all(promises);
+    await Promise.all(
+      Array.from(this.currencies.keys()).map((currency) =>
+        this.feeProvider.updateMinerFees(currency),
+      ),
+    );
   };
 }
 

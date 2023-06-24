@@ -10,6 +10,7 @@ import Errors from '../../../lib/service/Errors';
 import { ConfigType } from '../../../lib/Config';
 import { ECPair } from '../../../lib/ECPairHelper';
 import Service from '../../../lib/service/Service';
+import { PairConfig } from '../../../lib/consts/Types';
 import SwapManager from '../../../lib/swap/SwapManager';
 import LndClient from '../../../lib/lightning/LndClient';
 import ChainClient from '../../../lib/chain/ChainClient';
@@ -483,20 +484,26 @@ describe('Service', () => {
       quote: 'BTC',
       fee: 1,
       timeoutDelta: 10,
+      minSwapAmount: 50000,
+      maxSwapAmount: 100000000,
     },
     {
       base: 'LTC',
       quote: 'BTC',
       fee: 5,
       timeoutDelta: 400,
+      minSwapAmount: 50000,
+      maxSwapAmount: 100000000,
     },
     {
       base: 'ETH',
       quote: 'BTC',
       fee: 2,
       timeoutDelta: 180,
+      minSwapAmount: 100000,
+      maxSwapAmount: 10000000,
     },
-  ];
+  ] as PairConfig[];
 
   const currencies = new Map<string, Currency>([
     [
@@ -593,6 +600,8 @@ describe('Service', () => {
           quote: 'BTC',
           fee: 0,
           timeoutDelta: 0,
+          minSwapAmount: 1,
+          maxSwapAmount: 2,
         },
       ]),
     ).rejects.toEqual(Errors.CURRENCY_NOT_FOUND('not'));

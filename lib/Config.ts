@@ -33,9 +33,6 @@ type BaseCurrencyConfig = {
   symbol: string;
   network: Network;
 
-  maxSwapAmount: number;
-  minSwapAmount: number;
-
   minWalletBalance: number;
   maxWalletBalance?: number;
 
@@ -64,9 +61,6 @@ type TokenConfig = {
   // Must not be set for Ether
   decimals?: number;
   contractAddress?: string;
-
-  maxSwapAmount: number;
-  minSwapAmount: number;
 
   minWalletBalance: number;
   maxWalletBalance?: number;
@@ -234,18 +228,24 @@ class Config {
           base: 'LTC',
           quote: 'BTC',
           fee: 5,
+          minSwapAmount: 10000,
+          maxSwapAmount: 10000000,
         },
         {
           base: 'BTC',
           quote: 'BTC',
           fee: 1,
           rate: 1,
+          minSwapAmount: 1000,
+          maxSwapAmount: 10000000,
         },
         {
           base: 'LTC',
           quote: 'LTC',
           fee: 1,
           rate: 1,
+          minSwapAmount: 2000,
+          maxSwapAmount: 20000000,
         },
       ],
 
@@ -255,9 +255,6 @@ class Config {
           network: Network.Testnet,
 
           preferredWallet: 'lnd',
-
-          maxSwapAmount: 100000,
-          minSwapAmount: 1000,
 
           minWalletBalance: 1000000,
 
@@ -292,9 +289,6 @@ class Config {
           network: Network.Testnet,
 
           preferredWallet: 'lnd',
-
-          maxSwapAmount: 10000000,
-          minSwapAmount: 10000,
 
           minWalletBalance: 100000000,
 

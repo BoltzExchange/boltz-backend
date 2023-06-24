@@ -3,13 +3,14 @@ import { networks as networksLiquid } from 'liquidjs-lib';
 import { getAssetHash } from '../Core';
 import { CurrencyType } from '../consts/Enums';
 import { Currency } from '../wallet/WalletManager';
+import ElementsClient from '../chain/ElementsClient';
 import { satoshisToCoins } from '../DenominationConverter';
 
 class PaymentRequestUtils {
   private prefixes = new Map<string, string>([
     ['BTC', 'bitcoin'],
-    ['L-BTC', 'liquidnetwork'],
     ['LTC', 'litecoin'],
+    [ElementsClient.symbol, 'liquidnetwork'],
   ]);
 
   private readonly lbtcAssetHash?: string;
@@ -19,7 +20,7 @@ class PaymentRequestUtils {
       this.lbtcAssetHash = getAssetHash(CurrencyType.Liquid, liquid.network!);
 
       if (liquid.network! === networksLiquid.testnet) {
-        this.prefixes.set('L-BTC', 'liquidtestnet');
+        this.prefixes.set(ElementsClient.symbol, 'liquidtestnet');
       }
     }
   }
@@ -34,7 +35,7 @@ class PaymentRequestUtils {
     label?: string,
   ): string | undefined => {
     const prefix = this.getBip21Prefix(symbol);
-    const isLbtc = symbol === 'L-BTC';
+    const isLbtc = symbol === ElementsClient.symbol;
 
     if (prefix === undefined || (isLbtc && this.lbtcAssetHash === undefined)) {
       return;

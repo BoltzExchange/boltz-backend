@@ -1,6 +1,6 @@
+import Errors from '../../../lib/rates/Errors';
 import RateCalculator from '../../../lib/rates/RateCalculator';
 import DataAggregator from '../../../lib/rates/data/DataAggregator';
-import Errors from '../../../lib/rates/Errors';
 
 const ethBtcRate = 0.04269969;
 const ltcBtcRate = 0.0043206;

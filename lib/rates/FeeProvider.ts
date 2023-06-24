@@ -1,6 +1,7 @@
 import Logger from '../Logger';
 import { PairConfig } from '../consts/Types';
 import DataAggregator from './data/DataAggregator';
+import ElementsClient from '../chain/ElementsClient';
 import { BaseFeeType, OrderSide } from '../consts/Enums';
 import { etherDecimals, gweiDecimals } from '../consts/Consts';
 import { getChainCurrency, getPairId, splitPairId, stringify } from '../Utils';
@@ -173,11 +174,11 @@ class FeeProvider {
     switch (chainCurrency) {
       case 'BTC':
       case 'LTC':
-      case 'L-BTC': {
+      case ElementsClient.symbol: {
         const relativeFee = feeMap.get(chainCurrency)!;
 
         const sizes =
-          chainCurrency === 'L-BTC'
+          chainCurrency === ElementsClient.symbol
             ? FeeProvider.transactionSizesLiquid
             : FeeProvider.transactionSizes;
 

@@ -53,6 +53,8 @@ elementsAddress=$(elements-cli getnewaddress)
 bitcoin-cli generatetoaddress 101 ${bitcoinAddress} > /dev/null
 elements-cli generatetoaddress 101 ${elementsAddress} > /dev/null
 
+elements-cli rescanblockchain > /dev/null
+
 echo "Restarting nodes"
 
 stopNodes

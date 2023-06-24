@@ -12,7 +12,9 @@ type MonthStats = {
 };
 
 class Stats {
-  public static generate = async (): Promise<Record<string, Record<string, MonthStats>>> => {
+  public static generate = async (): Promise<
+    Record<string, Record<string, MonthStats>>
+  > => {
     const [volumes, tradeCounts, failureRates] = await Promise.all([
       StatsRepository.getVolume(),
       StatsRepository.getTradeCounts(),
@@ -26,7 +28,7 @@ class Stats {
     };
 
     volumes.forEach((volume) => {
-      const obj = getNestedObject(getMonthObj(volume),'volume');
+      const obj = getNestedObject(getMonthObj(volume), 'volume');
       obj[volume.asset] = satoshisToCoins(volume.sum);
     });
 

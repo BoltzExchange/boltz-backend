@@ -105,6 +105,13 @@ quote = "BTC"
 rate = 1
 timeoutDelta = 400
 
+# Alternatively, the timeouts of swaps of a pair can be set like this
+#  [pairs.timeoutDelta]
+#  reverse = 1440
+#  swapMinimal = 1440
+#  swapMaximal = 2880
+
+
 [[pairs]]
 base = "LTC"
 quote = "LTC"

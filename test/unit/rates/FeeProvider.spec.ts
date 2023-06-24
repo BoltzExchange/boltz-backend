@@ -17,16 +17,18 @@ const getFeeEstimation = async () => {
 
 jest.mock('../../../lib/rates/data/DataAggregator', () => {
   return jest.fn().mockImplementation(() => ({
-    latestRates: new Map<string, number>([
-      ['ETH/USDT', 2],
-    ]),
+    latestRates: new Map<string, number>([['ETH/USDT', 2]]),
   }));
 });
 
 const MockedDataAggregator = <jest.Mock<DataAggregator>>DataAggregator;
 
 describe('FeeProvider', () => {
-  const feeProvider = new FeeProvider(Logger.disabledLogger, MockedDataAggregator(), getFeeEstimation);
+  const feeProvider = new FeeProvider(
+    Logger.disabledLogger,
+    MockedDataAggregator(),
+    getFeeEstimation,
+  );
 
   test('should init', () => {
     feeProvider.init([
@@ -35,12 +37,16 @@ describe('FeeProvider', () => {
         quote: 'BTC',
         fee: 2,
         swapInFee: -1,
+        minSwapAmount: 1,
+        maxSwapAmount: 2,
       },
       {
         base: 'BTC',
         quote: 'BTC',
         fee: 0,
         swapInFee: -1,
+        minSwapAmount: 1,
+        maxSwapAmount: 2,
       },
       {
         base: 'LTC',
@@ -49,6 +55,9 @@ describe('FeeProvider', () => {
         // The FeeProvider should set this to 1
         fee: undefined,
         swapInFee: undefined,
+
+        minSwapAmount: 1,
+        maxSwapAmount: 2,
       },
     ]);
 
@@ -135,21 +144,43 @@ describe('FeeProvider', () => {
   test('should get fees of a Swap', () => {
     const amount = 100000000;
 
-    expect(feeProvider.getFees('LTC/BTC', 2, OrderSide.BUY, amount, BaseFeeType.NormalClaim)).toEqual({
+    expect(
+      feeProvider.getFees(
+        'LTC/BTC',
+        2,
+        OrderSide.BUY,
+        amount,
+        BaseFeeType.NormalClaim,
+      ),
+    ).toEqual({
       baseFee: 6120,
       percentageFee: -2000000,
     });
 
-    expect(feeProvider.getFees('LTC/BTC', 2, OrderSide.BUY, amount, BaseFeeType.ReverseLockup)).toEqual({
+    expect(
+      feeProvider.getFees(
+        'LTC/BTC',
+        2,
+        OrderSide.BUY,
+        amount,
+        BaseFeeType.ReverseLockup,
+      ),
+    ).toEqual({
       baseFee: 459,
       percentageFee: 4000000,
     });
   });
 
   test('should get base fees', () => {
-    expect(feeProvider.getBaseFee('BTC', BaseFeeType.NormalClaim)).toEqual(6120);
-    expect(feeProvider.getBaseFee('BTC', BaseFeeType.ReverseClaim)).toEqual(4968);
-    expect(feeProvider.getBaseFee('BTC', BaseFeeType.ReverseLockup)).toEqual(5508);
+    expect(feeProvider.getBaseFee('BTC', BaseFeeType.NormalClaim)).toEqual(
+      6120,
+    );
+    expect(feeProvider.getBaseFee('BTC', BaseFeeType.ReverseClaim)).toEqual(
+      4968,
+    );
+    expect(feeProvider.getBaseFee('BTC', BaseFeeType.ReverseLockup)).toEqual(
+      5508,
+    );
 
     expect(feeProvider.getBaseFee('LTC', BaseFeeType.NormalClaim)).toEqual(510);
   });

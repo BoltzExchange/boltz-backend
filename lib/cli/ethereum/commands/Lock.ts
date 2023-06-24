@@ -3,11 +3,16 @@ import { ContractTransactionResponse } from 'ethers';
 import { getHexBuffer } from '../../../Utils';
 import { etherDecimals } from '../../../consts/Consts';
 import BuilderComponents from '../../BuilderComponents';
-import { connectEthereum, getContracts, getBoltzAddress } from '../EthereumUtils';
+import {
+  connectEthereum,
+  getContracts,
+  getBoltzAddress,
+} from '../EthereumUtils';
 
 export const command = 'lock <preimageHash> <amount> <timelock> [token]';
 
-export const describe = 'locks Ether or a ERC20 token in the corresponding swap contract';
+export const describe =
+  'locks Ether or a ERC20 token in the corresponding swap contract';
 
 export const builder = {
   preimageHash: {
@@ -35,7 +40,9 @@ export const handler = async (argv: Arguments<any>): Promise<void> => {
   const boltzAddress = await getBoltzAddress();
 
   if (boltzAddress === undefined) {
-    console.log('Could not lock coins because the address of Boltz could not be queried');
+    console.log(
+      'Could not lock coins because the address of Boltz could not be queried',
+    );
     return;
   }
 
@@ -64,5 +71,7 @@ export const handler = async (argv: Arguments<any>): Promise<void> => {
 
   await transaction.wait(1);
 
-  console.log(`Sent ${argv.token ? 'ERC20 token' : 'Ether'} in: ${transaction.hash}`);
+  console.log(
+    `Sent ${argv.token ? 'ERC20 token' : 'Ether'} in: ${transaction.hash}`,
+  );
 };

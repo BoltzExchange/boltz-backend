@@ -47,13 +47,24 @@ class InjectedProvider implements Provider {
     this.provider = this;
 
     if (config.providerEndpoint) {
-      this.providers.set(EthProviderService.Node, new JsonRpcProvider(config.providerEndpoint));
-      this.logAddedProvider(EthProviderService.Node, { endpoint: config.providerEndpoint });
+      this.providers.set(
+        EthProviderService.Node,
+        new JsonRpcProvider(config.providerEndpoint),
+      );
+      this.logAddedProvider(EthProviderService.Node, {
+        endpoint: config.providerEndpoint,
+      });
     } else {
-      this.logDisabledProvider(EthProviderService.Node, 'no endpoint was specified');
+      this.logDisabledProvider(
+        EthProviderService.Node,
+        'no endpoint was specified',
+      );
     }
 
-    const addEthProvider = (name: EthProviderService, providerConfig: EthProviderServiceConfig) => {
+    const addEthProvider = (
+      name: EthProviderService,
+      providerConfig: EthProviderServiceConfig,
+    ) => {
       if (!providerConfig.apiKey) {
         this.logDisabledProvider(name, 'no api key was set');
         return;
@@ -66,17 +77,17 @@ class InjectedProvider implements Provider {
 
       switch (name) {
         case EthProviderService.Infura:
-          this.providers.set(name, new InfuraProvider(
-            providerConfig.network,
-            providerConfig.apiKey,
-          ));
+          this.providers.set(
+            name,
+            new InfuraProvider(providerConfig.network, providerConfig.apiKey),
+          );
           break;
 
         case EthProviderService.Alchemy:
-          this.providers.set(name, new AlchemyProvider(
-            providerConfig.network,
-            providerConfig.apiKey,
-          ));
+          this.providers.set(
+            name,
+            new AlchemyProvider(providerConfig.network, providerConfig.apiKey),
+          );
           break;
 
         default:
@@ -96,9 +107,11 @@ class InjectedProvider implements Provider {
   }
 
   public init = async (): Promise<void> => {
-    this.logger.verbose(`Trying to connect to ${this.providers.size} Web3 providers:\n - ${
-      Array.from(this.providers.keys()).join('\n - ')
-    }`);
+    this.logger.verbose(
+      `Trying to connect to ${
+        this.providers.size
+      } Web3 providers:\n - ${Array.from(this.providers.keys()).join('\n - ')}`,
+    );
 
     const networks: Network[] = [];
 
@@ -108,21 +121,28 @@ class InjectedProvider implements Provider {
         this.logConnectedProvider(providerName, network);
         networks.push(network);
       } catch (error) {
-        this.logDisabledProvider(providerName, `could not connect: ${formatError(error)}`);
+        this.logDisabledProvider(
+          providerName,
+          `could not connect: ${formatError(error)}`,
+        );
         this.providers.delete(providerName);
       }
     }
 
-    const networksAreSame = networks.every((network) => network.chainId === networks[0].chainId);
+    const networksAreSame = networks.every(
+      (network) => network.chainId === networks[0].chainId,
+    );
 
     if (!networksAreSame) {
       throw Errors.UNEQUAL_PROVIDER_NETWORKS(networks);
     }
 
     this.network = networks[0];
-    this.logger.info(`Connected to ${this.providers.size} Web3 providers:\n - ${
-      Array.from(this.providers.keys()).join('\n - ')
-    }`);
+    this.logger.info(
+      `Connected to ${this.providers.size} Web3 providers:\n - ${Array.from(
+        this.providers.keys(),
+      ).join('\n - ')}`,
+    );
   };
 
   /*
@@ -144,7 +164,10 @@ class InjectedProvider implements Provider {
     return this.forwardMethod('estimateGas', transaction);
   };
 
-  public getBalance = (addressOrName: string, blockTag?: BlockTag): Promise<bigint> => {
+  public getBalance = (
+    addressOrName: string,
+    blockTag?: BlockTag,
+  ): Promise<bigint> => {
     return this.forwardMethod('getBalance', addressOrName, blockTag);
   };
 
@@ -156,17 +179,19 @@ class InjectedProvider implements Provider {
     return this.forwardMethod('getBlockNumber');
   };
 
-  public getCode = (addressOrName: string, blockTag?: BlockTag): Promise<string> => {
+  public getCode = (
+    addressOrName: string,
+    blockTag?: BlockTag,
+  ): Promise<string> => {
     return this.forwardMethod('getCode', addressOrName, blockTag);
   };
 
-  public getStorage = (address: AddressLike, position: BigNumberish, blockTag?: BlockTag | undefined): Promise<string> => {
-    return this.forwardMethod(
-      'getStorage',
-      address,
-      position,
-      blockTag,
-    );
+  public getStorage = (
+    address: AddressLike,
+    position: BigNumberish,
+    blockTag?: BlockTag | undefined,
+  ): Promise<string> => {
+    return this.forwardMethod('getStorage', address, position, blockTag);
   };
 
   public getGasPrice = (): Promise<bigint> => {
@@ -190,10 +215,17 @@ class InjectedProvider implements Provider {
     position: BigNumberish,
     blockTag?: BlockTag,
   ): Promise<string> => {
-    return this.forwardMethod('getStorageAt', addressOrName, position, blockTag);
+    return this.forwardMethod(
+      'getStorageAt',
+      addressOrName,
+      position,
+      blockTag,
+    );
   };
 
-  public getTransaction = (transactionHash: string): Promise<TransactionResponse> => {
+  public getTransaction = (
+    transactionHash: string,
+  ): Promise<TransactionResponse> => {
     return this.forwardMethod('getTransaction', transactionHash);
   };
 
@@ -204,7 +236,9 @@ class InjectedProvider implements Provider {
     return this.forwardMethod('getTransactionCount', addressOrName, blockTag);
   };
 
-  public getTransactionReceipt = (transactionHash: string): Promise<TransactionReceipt> => {
+  public getTransactionReceipt = (
+    transactionHash: string,
+  ): Promise<TransactionReceipt> => {
     return this.forwardMethod('getTransactionReceipt', transactionHash);
   };
 
@@ -220,7 +254,9 @@ class InjectedProvider implements Provider {
     return this.forwardMethod('resolveName', name);
   };
 
-  public broadcastTransaction = async (signedTransaction: string): Promise<TransactionResponse> => {
+  public broadcastTransaction = async (
+    signedTransaction: string,
+  ): Promise<TransactionResponse> => {
     const transaction = Transaction.from(signedTransaction);
     await this.addToTransactionDatabase(transaction.hash!, transaction.nonce);
 
@@ -238,14 +274,23 @@ class InjectedProvider implements Provider {
     return Promise.race(promises);
   };
 
-  public sendTransaction = async (tx: TransactionRequest): Promise<TransactionResponse> => {
-    const res = await this.forwardMethod<Promise<TransactionResponse>>('sendTransaction', tx);
+  public sendTransaction = async (
+    tx: TransactionRequest,
+  ): Promise<TransactionResponse> => {
+    const res = await this.forwardMethod<Promise<TransactionResponse>>(
+      'sendTransaction',
+      tx,
+    );
     await this.addToTransactionDatabase(res.hash, res.nonce);
 
     return res;
   };
 
-  public waitForTransaction = (transactionHash: string, confirmations?: number, timeout?: number): Promise<TransactionReceipt> => {
+  public waitForTransaction = (
+    transactionHash: string,
+    confirmations?: number,
+    timeout?: number,
+  ): Promise<TransactionReceipt> => {
     return this.forwardMethod(
       'waitForTransaction',
       transactionHash,
@@ -262,7 +307,10 @@ class InjectedProvider implements Provider {
    * Listeners
    */
 
-  public emit = async (eventName: ProviderEvent, ...args: Array<any>): Promise<boolean> => {
+  public emit = async (
+    eventName: ProviderEvent,
+    ...args: Array<any>
+  ): Promise<boolean> => {
     for (const [, provider] of this.providers) {
       await provider.emit(eventName, args);
     }
@@ -270,7 +318,10 @@ class InjectedProvider implements Provider {
     return true;
   };
 
-  public addListener = async (eventName: ProviderEvent, listener: Listener): Promise<this> => {
+  public addListener = async (
+    eventName: ProviderEvent,
+    listener: Listener,
+  ): Promise<this> => {
     return this.on(eventName, listener);
   };
 
@@ -278,11 +329,16 @@ class InjectedProvider implements Provider {
     return Array.from(this.providers.values())[0].listenerCount(eventName);
   };
 
-  public listeners = async (eventName?: ProviderEvent): Promise<Array<Listener>> => {
+  public listeners = async (
+    eventName?: ProviderEvent,
+  ): Promise<Array<Listener>> => {
     return Array.from(this.providers.values())[0].listeners(eventName);
   };
 
-  public off = async (eventName: ProviderEvent, listener?: Listener): Promise<this> => {
+  public off = async (
+    eventName: ProviderEvent,
+    listener?: Listener,
+  ): Promise<this> => {
     for (const [, provider] of this.providers) {
       await provider.off(eventName, listener);
     }
@@ -290,7 +346,10 @@ class InjectedProvider implements Provider {
     return this;
   };
 
-  public on = async (eventName: ProviderEvent, listener: Listener): Promise<this> => {
+  public on = async (
+    eventName: ProviderEvent,
+    listener: Listener,
+  ): Promise<this> => {
     const providerDeltas = new Map<number, number>();
 
     const injectedListener = (...args: any[]) => {
@@ -299,7 +358,9 @@ class InjectedProvider implements Provider {
         return;
       }
 
-      const hashCode = this.hashCode(args.map((entry) => JSON.stringify(entry)).join());
+      const hashCode = this.hashCode(
+        args.map((entry) => JSON.stringify(entry)).join(),
+      );
       const currentDelta = providerDeltas.get(hashCode) || 0;
 
       if (currentDelta === this.providers.size - 1) {
@@ -320,7 +381,10 @@ class InjectedProvider implements Provider {
     return this;
   };
 
-  public once = async (eventName: ProviderEvent, listener: Listener): Promise<this> => {
+  public once = async (
+    eventName: ProviderEvent,
+    listener: Listener,
+  ): Promise<this> => {
     let emittedEvent = false;
 
     const injectedListener = (...args: any[]) => {
@@ -337,7 +401,9 @@ class InjectedProvider implements Provider {
     return this;
   };
 
-  public removeAllListeners = async (eventName?: ProviderEvent): Promise<this> => {
+  public removeAllListeners = async (
+    eventName?: ProviderEvent,
+  ): Promise<this> => {
     for (const [, provider] of this.providers) {
       await provider.removeAllListeners(eventName);
     }
@@ -345,7 +411,10 @@ class InjectedProvider implements Provider {
     return this;
   };
 
-  public removeListener = (eventName: ProviderEvent, listener: Listener): Promise<this> => {
+  public removeListener = (
+    eventName: ProviderEvent,
+    listener: Listener,
+  ): Promise<this> => {
     return this.off(eventName, listener);
   };
 
@@ -353,7 +422,10 @@ class InjectedProvider implements Provider {
    * Helper utils
    */
 
-  private forwardMethod = async <T = any>(method: string, ...args: any[]): Promise<T> => {
+  private forwardMethod = async <T = any>(
+    method: string,
+    ...args: any[]
+  ): Promise<T> => {
     const errors: string[] = [];
 
     for (const [providerName, provider] of this.providers) {
@@ -369,7 +441,9 @@ class InjectedProvider implements Provider {
       } catch (error) {
         const formattedError = formatError(error);
 
-        this.logger.warn(`Request to ${providerName} Web3 provider failed: ${method}: ${formattedError}`);
+        this.logger.warn(
+          `Request to ${providerName} Web3 provider failed: ${method}: ${formattedError}`,
+        );
         errors.push(formattedError);
       }
     }
@@ -377,17 +451,20 @@ class InjectedProvider implements Provider {
     throw Errors.REQUESTS_TO_PROVIDERS_FAILED(errors);
   };
 
-  private promiseWithTimeout = async (promise: Promise<any>, errorMessage: string): Promise<any> => {
+  private promiseWithTimeout = async (
+    promise: Promise<any>,
+    errorMessage: string,
+  ): Promise<any> => {
     let timeoutHandle: NodeJS.Timeout;
 
     const timeoutPromise = new Promise<void>((_, reject) => {
-      timeoutHandle = setTimeout(() => reject(errorMessage), InjectedProvider.requestTimeout);
+      timeoutHandle = setTimeout(
+        () => reject(errorMessage),
+        InjectedProvider.requestTimeout,
+      );
     });
 
-    return Promise.race([
-      promise,
-      timeoutPromise,
-    ]).then((result) => {
+    return Promise.race([promise, timeoutPromise]).then((result) => {
       clearTimeout(timeoutHandle);
       return result;
     });
@@ -395,10 +472,7 @@ class InjectedProvider implements Provider {
 
   private addToTransactionDatabase = async (hash: string, nonce: number) => {
     this.logger.silly(`Sending Ethereum transaction: ${hash}`);
-    await PendingEthereumTransactionRepository.addTransaction(
-      hash,
-      nonce,
-    );
+    await PendingEthereumTransactionRepository.addTransaction(hash, nonce);
   };
 
   private hashCode = (value: string): number => {
@@ -406,7 +480,7 @@ class InjectedProvider implements Provider {
 
     for (let i = 0; i < value.length; i++) {
       const char = value.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
+      hash = (hash << 5) - hash + char;
       hash |= 0;
     }
 
@@ -418,7 +492,9 @@ class InjectedProvider implements Provider {
   };
 
   private logConnectedProvider = (name: string, network: Network) => {
-    this.logger.verbose(`Connected to Web3 provider ${name} on network: ${network.chainId}`);
+    this.logger.verbose(
+      `Connected to Web3 provider ${name} on network: ${network.chainId}`,
+    );
   };
 
   private logDisabledProvider = (name: string, reason: string) => {

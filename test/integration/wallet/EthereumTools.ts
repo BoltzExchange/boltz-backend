@@ -2,9 +2,9 @@ import { ERC20 } from 'boltz-core/typechain/ERC20';
 import { Signer, Wallet, JsonRpcProvider } from 'ethers';
 
 export type EthereumSetup = {
-  signer: Signer,
-    etherBase: Signer,
-    provider: JsonRpcProvider,
+  signer: Signer;
+  etherBase: Signer;
+  provider: JsonRpcProvider;
 };
 
 export const getSigner = async (): Promise<EthereumSetup> => {
@@ -20,7 +20,11 @@ export const getSigner = async (): Promise<EthereumSetup> => {
   };
 };
 
-export const fundSignerWallet = async (signer: Signer, etherBase: Signer, token?: ERC20): Promise<void> => {
+export const fundSignerWallet = async (
+  signer: Signer,
+  etherBase: Signer,
+  token?: ERC20,
+): Promise<void> => {
   const signerAddress = await signer.getAddress();
   const transferAmount = BigInt(10) ** BigInt(18);
 
@@ -42,7 +46,10 @@ export const fundSignerWallet = async (signer: Signer, etherBase: Signer, token?
   await etherFundingTransaction.wait(1);
 };
 
-export const waitForTransactionHash = async (provider: JsonRpcProvider,  transactionHash: string): Promise<void> => {
+export const waitForTransactionHash = async (
+  provider: JsonRpcProvider,
+  transactionHash: string,
+): Promise<void> => {
   const transaction = await provider.getTransaction(transactionHash);
   await transaction!.wait(1);
 };

@@ -48,8 +48,19 @@ export default {
     message: `"${method}" not supported by ${symbol}`,
     code: concatErrorCode(ErrorCodePrefix.Wallet, 9),
   }),
-  UNSUPPORTED_CONTRACT_VERSION: (name: string, address: string, actualVersion: bigint, supportedVersion: bigint): Error => ({
-    message: `unsupported ${name} (${address}) contract version ${Number(actualVersion)}; support version: ${Number(supportedVersion)}`,
+  UNSUPPORTED_CONTRACT_VERSION: (
+    name: string,
+    address: string,
+    actualVersion: bigint,
+    supportedVersion: bigint,
+  ): Error => ({
+    message: `unsupported ${name} (${address}) contract version ${Number(
+      actualVersion,
+    )}; support version: ${Number(supportedVersion)}`,
     code: concatErrorCode(ErrorCodePrefix.Wallet, 10),
+  }),
+  TAPROOT_BLINDING_NOT_SUPPORTED: (): Error => ({
+    code: concatErrorCode(ErrorCodePrefix.Wallet, 11),
+    message: 'blinding of Taproot addresses not supported',
   }),
 };

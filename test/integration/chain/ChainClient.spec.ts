@@ -45,7 +45,9 @@ describe('ChainClient', () => {
       bitcoinClient.addOutputFilter(outputScript);
     }
 
-    expect(bitcoinClient['zmqClient'].relevantOutputs.size).toEqual(numTransactions);
+    expect(bitcoinClient['zmqClient'].relevantOutputs.size).toEqual(
+      numTransactions,
+    );
   });
 
   test('should emit an event on mempool acceptance of relevant output', async () => {
@@ -92,7 +94,9 @@ describe('ChainClient', () => {
       bitcoinClient.addInputFilter(input);
     }
 
-    expect(bitcoinClient['zmqClient'].relevantInputs.size).toEqual(unspentUtxos.length);
+    expect(bitcoinClient['zmqClient'].relevantInputs.size).toEqual(
+      unspentUtxos.length,
+    );
   });
 
   test('should emit an event on mempool acceptance of relevant inputs', async () => {
@@ -202,11 +206,16 @@ describe('ChainClient', () => {
   });
 
   test('should format getTransaction errors', async () => {
-    const txId = '277014b6ff0b872dbd6dbfe506b1bfc7b5467a4096a0a27a06b0924423541e33';
+    const txId =
+      '277014b6ff0b872dbd6dbfe506b1bfc7b5467a4096a0a27a06b0924423541e33';
     const expectedError = `No such mempool or blockchain transaction. Use gettransaction for wallet transactions. ID: ${txId}`;
 
-    await expect(bitcoinClient.getRawTransaction(txId)).rejects.toEqual(expectedError);
-    await expect(bitcoinClient.getRawTransactionVerbose(txId)).rejects.toEqual(expectedError);
+    await expect(bitcoinClient.getRawTransaction(txId)).rejects.toEqual(
+      expectedError,
+    );
+    await expect(bitcoinClient.getRawTransactionVerbose(txId)).rejects.toEqual(
+      expectedError,
+    );
   });
 
   afterAll(async () => {

@@ -5,26 +5,41 @@ import Logger from '../Logger';
 import { ConfigType } from '../Config';
 import { OrderSide } from '../consts/Enums';
 import { PairConfig } from '../consts/Types';
-import { getPairId, splitPairId } from '../Utils';
+import ElementsClient from '../chain/ElementsClient';
+import { decodeInvoice, getPairId, splitPairId, stringify } from '../Utils';
+
+type PairTimeoutBlocksDelta = {
+  reverse: number;
+
+  swapMinimal: number;
+  swapMaximal: number;
+};
 
 type PairTimeoutBlockDeltas = {
-  base: number;
-  quote: number;
+  base: PairTimeoutBlocksDelta;
+  quote: PairTimeoutBlocksDelta;
 };
 
 class TimeoutDeltaProvider {
+  public static minCltvOffset = 6;
+
   // A map of the symbols of currencies and their block times in minutes
   public static blockTimes = new Map<string, number>([
     ['BTC', 10],
     ['LTC', 2.5],
     ['ETH', 0.2],
+    [ElementsClient.symbol, 1],
   ]);
 
   public timeoutDeltas = new Map<string, PairTimeoutBlockDeltas>();
 
   constructor(private logger: Logger, private config: ConfigType) {}
 
-  public static convertBlocks = (fromSymbol: string, toSymbol: string, blocks: number): number => {
+  public static convertBlocks = (
+    fromSymbol: string,
+    toSymbol: string,
+    blocks: number,
+  ): number => {
     const minutes = blocks * TimeoutDeltaProvider.getBlockTime(fromSymbol)!;
 
     // In the context this function is used, we calculate the timeout of the first leg of a
@@ -37,39 +52,42 @@ class TimeoutDeltaProvider {
       const pairId = getPairId(pair);
 
       if (pair.timeoutDelta !== undefined) {
-        this.logger.debug(`Setting timeout block delta of ${pairId} to ${pair.timeoutDelta} minutes`);
-        this.timeoutDeltas.set(pairId, this.minutesToBlocks(pairId, pair.timeoutDelta));
+        // Compatibility mode with legacy config
+        if (typeof pair.timeoutDelta === 'number') {
+          pair.timeoutDelta = {
+            reverse: pair.timeoutDelta,
+            swapMaximal: pair.timeoutDelta,
+            swapMinimal: pair.timeoutDelta,
+          };
+        }
+
+        this.logger.debug(
+          `Setting timeout block delta of ${pairId} to minutes: ${stringify(
+            pair.timeoutDelta,
+          )}`,
+        );
+        this.timeoutDeltas.set(
+          pairId,
+          this.minutesToBlocks(pairId, pair.timeoutDelta),
+        );
       } else {
         throw Errors.NO_TIMEOUT_DELTA(pairId);
       }
     }
   };
 
-  public getTimeout = (pairId: string, orderSide: OrderSide, isReverse: boolean): number => {
-    const timeout = this.timeoutDeltas.get(pairId);
-
-    if (!timeout) {
-      throw Errors.PAIR_NOT_FOUND(pairId);
-    }
-
-    const { base, quote } = timeout;
-
-    if (isReverse) {
-      return orderSide === OrderSide.BUY ? base : quote;
-    } else {
-      return orderSide === OrderSide.BUY ? quote : base;
-    }
-  };
-
-  public setTimeout = (pairId: string, newDelta: number): void => {
+  public setTimeout = (
+    pairId: string,
+    newDeltas: PairTimeoutBlocksDelta,
+  ): void => {
     if (this.timeoutDeltas.has(pairId)) {
-      const blocks = this.minutesToBlocks(pairId, newDelta);
+      const blocks = this.minutesToBlocks(pairId, newDeltas);
 
       this.timeoutDeltas.set(pairId, blocks);
 
       for (let i = 0; i < this.config.pairs.length; i += 1) {
         if (getPairId(this.config.pairs[i]) === pairId) {
-          this.config.pairs[i].timeoutDelta = newDelta;
+          this.config.pairs[i].timeoutDelta = newDeltas;
 
           break;
         }
@@ -83,8 +101,57 @@ class TimeoutDeltaProvider {
     }
   };
 
-  private minutesToBlocks = (pair: string, minutes: number) => {
-    const calculateBlocks = (symbol: string) => {
+  public getTimeout = (
+    pairId: string,
+    orderSide: OrderSide,
+    isReverse: boolean,
+    invoice?: string,
+  ): number => {
+    const timeout = this.timeoutDeltas.get(pairId);
+
+    if (!timeout) {
+      throw Errors.PAIR_NOT_FOUND(pairId);
+    }
+
+    const { base, quote } = timeout;
+
+    if (isReverse) {
+      return orderSide === OrderSide.BUY ? base.reverse : quote.reverse;
+    } else {
+      const deltas = orderSide === OrderSide.BUY ? quote : base;
+      return invoice
+        ? this.getTimeoutInvoice(deltas, invoice)
+        : deltas.swapMinimal;
+    }
+  };
+
+  private getTimeoutInvoice = (
+    timeout: PairTimeoutBlocksDelta,
+    invoice: string,
+  ): number => {
+    const { minFinalCltvExpiry } = decodeInvoice(invoice);
+
+    let blocks = timeout.swapMinimal;
+
+    if (minFinalCltvExpiry) {
+      const minTimeout =
+        minFinalCltvExpiry + TimeoutDeltaProvider.minCltvOffset;
+
+      if (minTimeout > timeout.swapMaximal) {
+        throw Errors.MIN_CLTV_TOO_BIG(timeout.swapMaximal, minFinalCltvExpiry);
+      }
+
+      blocks = Math.max(timeout.swapMinimal, minTimeout);
+    }
+
+    return blocks;
+  };
+
+  private minutesToBlocks = (
+    pair: string,
+    newDeltas: PairTimeoutBlocksDelta,
+  ) => {
+    const calculateBlocks = (symbol: string, minutes: number) => {
       const minutesPerBlock = TimeoutDeltaProvider.getBlockTime(symbol);
       const blocks = minutes / minutesPerBlock;
 
@@ -96,11 +163,19 @@ class TimeoutDeltaProvider {
       return blocks;
     };
 
+    const convertToBlocks = (symbol: string): PairTimeoutBlocksDelta => {
+      return {
+        reverse: calculateBlocks(symbol, newDeltas.reverse),
+        swapMinimal: calculateBlocks(symbol, newDeltas.swapMinimal),
+        swapMaximal: calculateBlocks(symbol, newDeltas.swapMaximal),
+      };
+    };
+
     const { base, quote } = splitPairId(pair);
 
     return {
-      base: calculateBlocks(base),
-      quote: calculateBlocks(quote),
+      base: convertToBlocks(base),
+      quote: convertToBlocks(quote),
     };
   };
 
@@ -108,8 +183,12 @@ class TimeoutDeltaProvider {
    * If the block time for the symbol is not hardcoded, it is assumed that the symbol belongs to an ERC20 token
    */
   private static getBlockTime = (symbol: string): number => {
-    return TimeoutDeltaProvider.blockTimes.get(symbol) || TimeoutDeltaProvider.blockTimes.get('ETH')!;
+    return (
+      TimeoutDeltaProvider.blockTimes.get(symbol) ||
+      TimeoutDeltaProvider.blockTimes.get('ETH')!
+    );
   };
 }
 
 export default TimeoutDeltaProvider;
+export { PairTimeoutBlocksDelta };

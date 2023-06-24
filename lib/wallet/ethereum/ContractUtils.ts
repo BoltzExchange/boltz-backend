@@ -1,6 +1,12 @@
 import { Provider, Result } from 'ethers';
-import { EtherSwap, LockupEvent as EtherSwapLockupEvent } from 'boltz-core/typechain/EtherSwap';
-import { ERC20Swap, LockupEvent as ERC20SwapLockupEvent } from 'boltz-core/typechain/ERC20Swap';
+import {
+  EtherSwap,
+  LockupEvent as EtherSwapLockupEvent,
+} from 'boltz-core/typechain/EtherSwap';
+import {
+  ERC20Swap,
+  LockupEvent as ERC20SwapLockupEvent,
+} from 'boltz-core/typechain/ERC20Swap';
 import Errors from './Errors';
 import { parseBuffer } from './EthereumUtils';
 import { ERC20SwapValues, EtherSwapValues } from '../../consts/Types';
@@ -12,7 +18,9 @@ export const queryEtherSwapValuesFromLock = async (
   etherSwap: EtherSwap,
   lockTransactionHash: string,
 ): Promise<EtherSwapValues> => {
-  const lockTransactionReceipt = await provider.getTransactionReceipt(lockTransactionHash);
+  const lockTransactionReceipt = await provider.getTransactionReceipt(
+    lockTransactionHash,
+  );
 
   const topicHash = etherSwap.filters.Lockup().fragment.topicHash;
 
@@ -33,7 +41,9 @@ export const queryERC20SwapValuesFromLock = async (
   erc20Swap: ERC20Swap,
   lockTransactionHash: string,
 ): Promise<ERC20SwapValues> => {
-  const lockTransactionReceipt = await provider.getTransactionReceipt(lockTransactionHash);
+  const lockTransactionReceipt = await provider.getTransactionReceipt(
+    lockTransactionHash,
+  );
 
   const topicHash = erc20Swap.filters.Lockup().fragment.topicHash;
 
@@ -49,7 +59,10 @@ export const queryERC20SwapValuesFromLock = async (
   throw Errors.INVALID_LOCKUP_TRANSACTION(lockTransactionHash);
 };
 
-export const queryEtherSwapValues = async (etherSwap: EtherSwap, preimageHash: Buffer): Promise<EtherSwapValues> => {
+export const queryEtherSwapValues = async (
+  etherSwap: EtherSwap,
+  preimageHash: Buffer,
+): Promise<EtherSwapValues> => {
   const events = await etherSwap.queryFilter(
     etherSwap.filters.Lockup(preimageHash),
   );
@@ -63,7 +76,10 @@ export const queryEtherSwapValues = async (etherSwap: EtherSwap, preimageHash: B
   return formatEtherSwapValues(event.args!);
 };
 
-export const queryERC20SwapValues = async (erc20Swap: ERC20Swap, preimageHash: Buffer): Promise<ERC20SwapValues> => {
+export const queryERC20SwapValues = async (
+  erc20Swap: ERC20Swap,
+  preimageHash: Buffer,
+): Promise<ERC20SwapValues> => {
   const events = await erc20Swap.queryFilter(
     erc20Swap.filters.Lockup(preimageHash),
   );
@@ -77,7 +93,9 @@ export const queryERC20SwapValues = async (erc20Swap: ERC20Swap, preimageHash: B
   return formatERC20SwapValues(event.args!);
 };
 
-export const formatEtherSwapValues = (args: Result | EtherSwapLockupEvent.OutputObject): EtherSwapValues => {
+export const formatEtherSwapValues = (
+  args: Result | EtherSwapLockupEvent.OutputObject,
+): EtherSwapValues => {
   return {
     amount: args.amount,
     claimAddress: args.claimAddress,
@@ -87,7 +105,9 @@ export const formatEtherSwapValues = (args: Result | EtherSwapLockupEvent.Output
   };
 };
 
-export const formatERC20SwapValues = (args: Result | ERC20SwapLockupEvent.OutputObject): ERC20SwapValues => {
+export const formatERC20SwapValues = (
+  args: Result | ERC20SwapLockupEvent.OutputObject,
+): ERC20SwapValues => {
   return {
     amount: args.amount,
     claimAddress: args.claimAddress,

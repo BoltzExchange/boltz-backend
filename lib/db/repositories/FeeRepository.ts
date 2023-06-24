@@ -6,7 +6,7 @@ import { SuccessSwapUpdateEvents } from '../../consts/Enums';
 type Fee = {
   asset: string;
   sum: number;
-}
+};
 
 class FeeRepository {
   private static queryFees = `

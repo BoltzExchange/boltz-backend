@@ -3,10 +3,9 @@ import { Transaction, crypto } from 'bitcoinjs-lib';
 import { getHexString, reverseBuffer } from '../../../lib/Utils';
 import {
   Block,
-  BlockchainInfo,
   BlockVerbose,
   RawTransaction,
-  Transaction as TransactionType
+  Transaction as TransactionType,
 } from '../../../lib/consts/Types';
 
 type RawBlock = {
@@ -24,7 +23,10 @@ class FakedChainClient {
   ]);
 
   private blocks = new Map<string, RawBlock>([
-    [getHexString(FakedChainClient.genesisBlock.hash), FakedChainClient.genesisBlock],
+    [
+      getHexString(FakedChainClient.genesisBlock.hash),
+      FakedChainClient.genesisBlock,
+    ],
   ]);
 
   private blockTransactions = new Map<string, string[]>([
@@ -44,14 +46,15 @@ class FakedChainClient {
     return this.blockIndex.size - 1;
   }
 
-  public getBlockchainInfo = async (): Promise<BlockchainInfo> => {
-    const bestBlock = this.blocks.get(this.blockIndex.get(this.bestBlockHeight)!)!;
+  public getBlockchainInfo = async () => {
+    const bestBlock = this.blocks.get(
+      this.blockIndex.get(this.bestBlockHeight)!,
+    )!;
 
     return {
       blocks: this.bestBlockHeight,
-      bestblockhash: getHexString(
-        reverseBuffer(bestBlock.hash),
-      ),
+      scannedBlocks: this.bestBlockHeight,
+      bestblockhash: getHexString(reverseBuffer(bestBlock.hash)),
 
       chain: '',
       headers: 0,
@@ -152,7 +155,6 @@ class FakedChainClient {
         strippedsize: 0,
         confirmations: 0,
       };
-
     } else {
       throw 'could not find block';
     }
@@ -174,7 +176,9 @@ class FakedChainClient {
     }
   };
 
-  public getRawTransactionVerbose = async (id: string): Promise<RawTransaction> => {
+  public getRawTransactionVerbose = async (
+    id: string,
+  ): Promise<RawTransaction> => {
     const verboseTransaction = {
       hex: '',
       vin: [],
@@ -214,17 +218,26 @@ class FakedChainClient {
     }
   };
 
-  public generateBlock = (height?: number, orphan = false): { hash: Buffer, block: Buffer, height: number } => {
+  public generateBlock = (
+    height?: number,
+    orphan = false,
+  ): { hash: Buffer; block: Buffer; height: number } => {
     if (height !== undefined) {
       if (height > this.bestBlockHeight + 1) {
         throw 'cannot generate block greater than best block height';
       }
     }
 
-    const previousBlockHeight = height !== undefined ? height - 1 : this.bestBlockHeight;
-    const previousBlock = this.blocks.get(this.blockIndex.get(previousBlockHeight)!)!;
+    const previousBlockHeight =
+      height !== undefined ? height - 1 : this.bestBlockHeight;
+    const previousBlock = this.blocks.get(
+      this.blockIndex.get(previousBlockHeight)!,
+    )!;
 
-    const data = Buffer.concat([randomBytes(4), previousBlock.hash, randomBytes(44)], 80);
+    const data = Buffer.concat(
+      [randomBytes(4), previousBlock.hash, randomBytes(44)],
+      80,
+    );
     const hash = crypto.sha256(crypto.sha256(data));
 
     const block = {

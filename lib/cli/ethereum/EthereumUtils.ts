@@ -25,12 +25,16 @@ class TransactionIterator {
 
   public getNextTransaction = async (): Promise<TransactionResponse | null> => {
     if (this.block === undefined) {
-      this.block = (await this.provider.getBlock(TransactionIterator.firstBlock))!;
+      this.block = (await this.provider.getBlock(
+        TransactionIterator.firstBlock,
+      ))!;
     }
 
     if (this.txCount < this.block.transactions.length) {
       this.txCount++;
-      return this.provider.getTransaction(this.block.transactions[this.txCount - 1]);
+      return this.provider.getTransaction(
+        this.block.transactions[this.txCount - 1],
+      );
     } else {
       this.txCount = 0;
       this.block = (await this.provider.getBlock(this.block.number + 1))!;
@@ -44,10 +48,12 @@ export const connectEthereum = async (providerUrl: string): Promise<Signer> => {
   return provider.getSigner(0);
 };
 
-export const getContracts = async (signer: Signer): Promise<{
-  token: ERC20,
-  etherSwap: EtherSwap,
-  erc20Swap: ERC20Swap,
+export const getContracts = async (
+  signer: Signer,
+): Promise<{
+  token: ERC20;
+  etherSwap: EtherSwap;
+  erc20Swap: ERC20Swap;
 }> => {
   const contractsAbis = [
     ContractABIs.EtherSwap,
@@ -74,12 +80,11 @@ export const getBoltzAddress = async (): Promise<string | undefined> => {
   const filePath = join(process.env.HOME!, '.boltz/seed.dat');
 
   if (existsSync(filePath)) {
-    return Wallet.fromPhrase(readFileSync(
-      filePath,
-      {
+    return Wallet.fromPhrase(
+      readFileSync(filePath, {
         encoding: 'utf-8',
-      },
-    )).getAddress();
+      }),
+    ).getAddress();
   }
 
   return;

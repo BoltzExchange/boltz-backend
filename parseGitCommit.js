@@ -33,11 +33,15 @@ const versionFilePath = `${__dirname}/lib/Version.ts`;
 try {
   // Delete the version file if it exists
   fs.unlinkSync(versionFilePath);
-} catch (error) {}
+} catch (error) {
+  /* empty */
+}
 
 const commitHash = getCommitHash();
 
 fs.writeFileSync(
   versionFilePath,
-  `export default '${commitHash === '' ? '' : '-' + commitHash}${isDirty() ? '-dirty' : ''}';\n`,
+  `export default '${commitHash === '' ? '' : '-' + commitHash}${
+    isDirty() ? '-dirty' : ''
+  }';\n`,
 );

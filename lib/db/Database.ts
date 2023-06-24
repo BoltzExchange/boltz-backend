@@ -36,7 +36,11 @@ class Database {
   public init = async (): Promise<void> => {
     try {
       await Database.sequelize.authenticate();
-      this.logger.info(`Connected to database: ${this.storage === ':memory:' ? 'in memory' : this.storage}`);
+      this.logger.info(
+        `Connected to database: ${
+          this.storage === ':memory:' ? 'in memory' : this.storage
+        }`,
+      );
     } catch (error) {
       this.logger.error(`Could not connect to database: ${error}`);
       throw error;
@@ -51,10 +55,7 @@ class Database {
       PendingEthereumTransaction.sync(),
     ]);
 
-    await Promise.all([
-      Swap.sync(),
-      ReverseSwap.sync(),
-    ]);
+    await Promise.all([Swap.sync(), ReverseSwap.sync()]);
 
     await ChannelCreation.sync();
   };

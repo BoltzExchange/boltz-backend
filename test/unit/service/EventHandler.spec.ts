@@ -24,16 +24,33 @@ type invoiceSettledCallback = (reverseSwap: ReverseSwap) => void;
 type invoiceExpiredCallback = (reverseSwap: ReverseSwap) => void;
 type coinsFailedToSendCallback = (reverseSwap: ReverseSwap) => void;
 type claimCallback = (swap: Swap, channelCreation?: ChannelCreation) => void;
-type expirationCallback = (swap: Swap | ReverseSwap, isReverse: boolean) => void;
-type channelCreatedCallback = (swap: Swap, channelCreation: ChannelCreation) => void;
-type coinsSentCallback = (reverseSwap: ReverseSwap, transaction: Transaction) => void;
-type transactionCallback = (swap: Swap | ReverseSwap, transaction: Transaction, confirmed: boolean, isReverse: boolean) => void;
+type expirationCallback = (
+  swap: Swap | ReverseSwap,
+  isReverse: boolean,
+) => void;
+type channelCreatedCallback = (
+  swap: Swap,
+  channelCreation: ChannelCreation,
+) => void;
+type coinsSentCallback = (
+  reverseSwap: ReverseSwap,
+  transaction: Transaction,
+) => void;
+type transactionCallback = (
+  swap: Swap | ReverseSwap,
+  transaction: Transaction,
+  confirmed: boolean,
+  isReverse: boolean,
+) => void;
 
 let emitChannelBackup: channelBackupCallback;
 
 jest.mock('../../../lib/lightning/LndClient', () => {
   return jest.fn().mockImplementation(() => ({
-    on: (event: string, callback: channelBackupCallback | invoiceSettledCallback) => {
+    on: (
+      event: string,
+      callback: channelBackupCallback | invoiceSettledCallback,
+    ) => {
       switch (event) {
         case 'channel.backup':
           emitChannelBackup = callback as channelBackupCallback;
@@ -43,7 +60,7 @@ jest.mock('../../../lib/lightning/LndClient', () => {
   }));
 });
 
-const mockedLndClient = <jest.Mock<LndClient>><any>LndClient;
+const mockedLndClient = <jest.Mock<LndClient>>(<any>LndClient);
 
 let emitClaim: claimCallback;
 let emitRefund: refundCallback;
@@ -130,7 +147,7 @@ jest.mock('../../../lib/swap/SwapNursery', () => {
   }));
 });
 
-const mockedSwapNursery = <jest.Mock<SwapNursery>><any>SwapNursery;
+const mockedSwapNursery = <jest.Mock<SwapNursery>>(<any>SwapNursery);
 
 const swap = {
   id: 'id',
@@ -165,12 +182,15 @@ describe('EventHandler', () => {
   const symbol = 'BTC';
 
   const currencies = new Map<string, Currency>([
-    [symbol, {
+    [
       symbol,
-      chainClient: {} as any,
-      lndClient: mockedLndClient(),
-      network: Networks.bitcoinRegtest,
-    } as any as Currency],
+      {
+        symbol,
+        chainClient: {} as any,
+        lndClient: mockedLndClient(),
+        network: Networks.bitcoinRegtest,
+      } as any as Currency,
+    ],
   ]);
 
   const eventHandler = new EventHandler(
@@ -350,7 +370,7 @@ describe('EventHandler', () => {
     let eventsEmitted = 0;
 
     // Claim
-      // Swap without Channel Creation
+    // Swap without Channel Creation
     eventHandler.once('swap.update', (id, message) => {
       expect(id).toEqual(swap.id);
       expect(message).toEqual({ status: SwapUpdateEvent.TransactionClaimed });
@@ -370,7 +390,7 @@ describe('EventHandler', () => {
     expect(eventsEmitted).toEqual(2);
     eventsEmitted = 0;
 
-      // Swap with Channel Creation
+    // Swap with Channel Creation
     eventHandler.once('swap.update', (id, message) => {
       expect(id).toEqual(swap.id);
       expect(message).toEqual({ status: SwapUpdateEvent.TransactionClaimed });
@@ -378,13 +398,16 @@ describe('EventHandler', () => {
       eventsEmitted += 1;
     });
 
-    eventHandler.once('swap.success', (successfulSwap, isReverse, successfulChannelCreation) => {
-      expect(successfulSwap).toEqual(swap);
-      expect(isReverse).toEqual(false);
-      expect(successfulChannelCreation).toEqual(channelCreation);
+    eventHandler.once(
+      'swap.success',
+      (successfulSwap, isReverse, successfulChannelCreation) => {
+        expect(successfulSwap).toEqual(swap);
+        expect(isReverse).toEqual(false);
+        expect(successfulChannelCreation).toEqual(channelCreation);
 
-      eventsEmitted += 1;
-    });
+        eventsEmitted += 1;
+      },
+    );
 
     emitClaim(swap, channelCreation);
 
@@ -392,7 +415,7 @@ describe('EventHandler', () => {
     eventsEmitted = 0;
 
     // Expiration
-      // Swap
+    // Swap
     eventHandler.once('swap.update', (id, message) => {
       expect(id).toEqual(swap.id);
       expect(message).toEqual({
@@ -418,7 +441,7 @@ describe('EventHandler', () => {
     expect(eventsEmitted).toEqual(2);
     eventsEmitted = 0;
 
-      // Reverse swap
+    // Reverse swap
     eventHandler.once('swap.update', (id, message) => {
       expect(id).toEqual(reverseSwap.id);
       expect(message).toEqual({
@@ -510,7 +533,8 @@ describe('EventHandler', () => {
     eventsEmitted = 0;
 
     // Refund
-    const transactionId = '168bf6ae0a7de57d6aa38042bdde38873bd37b55f53fd727ff827d33316b6d05';
+    const transactionId =
+      '168bf6ae0a7de57d6aa38042bdde38873bd37b55f53fd727ff827d33316b6d05';
 
     eventHandler.once('swap.update', (id, message) => {
       expect(id).toEqual(reverseSwap.id);
@@ -530,7 +554,8 @@ describe('EventHandler', () => {
       eventsEmitted += 1;
     });
 
-    reverseSwap.failureReason = SwapErrors.REFUNDED_COINS(transactionId).message;
+    reverseSwap.failureReason =
+      SwapErrors.REFUNDED_COINS(transactionId).message;
     emitRefund(reverseSwap);
     reverseSwap.failureReason = undefined;
 

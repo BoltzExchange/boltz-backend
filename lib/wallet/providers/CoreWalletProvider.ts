@@ -1,8 +1,11 @@
 import { Transaction } from 'bitcoinjs-lib';
 import Logger from '../../Logger';
-import ChainClient from '../../chain/ChainClient';
 import { transactionHashToId } from '../../Utils';
-import WalletProviderInterface, { SentTransaction, WalletBalance } from './WalletProviderInterface';
+import ChainClient, { AddressType } from '../../chain/ChainClient';
+import WalletProviderInterface, {
+  SentTransaction,
+  WalletBalance,
+} from './WalletProviderInterface';
 
 class CoreWalletProvider implements WalletProviderInterface {
   public readonly symbol: string;
@@ -13,35 +16,69 @@ class CoreWalletProvider implements WalletProviderInterface {
     this.logger.info(`Initialized ${this.symbol} Core wallet`);
   }
 
-  public getAddress = (): Promise<string> => {
-    return this.chainClient.getNewAddress();
+  public getAddress = (
+    type: AddressType = AddressType.Taproot,
+  ): Promise<string> => {
+    return this.chainClient.getNewAddress(type);
   };
 
   public getBalance = async (): Promise<WalletBalance> => {
-    // TODO: use "getbalances" call if available
-    const walletInfo = await this.chainClient.getWalletInfo();
+    const utxos = await this.chainClient.listUnspent(0);
+
+    let confirmed = BigInt(0);
+    let unconfirmed = BigInt(0);
+
+    utxos.forEach((utxo) => {
+      const amount = BigInt(Math.round(utxo.amount * ChainClient.decimals));
+
+      if (utxo.confirmations > 0) {
+        confirmed += amount;
+      } else {
+        unconfirmed += amount;
+      }
+    });
 
     return {
-      totalBalance: walletInfo.balance + walletInfo.unconfirmed_balance,
-      confirmedBalance: walletInfo.balance,
-      unconfirmedBalance: walletInfo.unconfirmed_balance,
+      totalBalance: Number(confirmed + unconfirmed),
+      confirmedBalance: Number(confirmed),
+      unconfirmedBalance: Number(unconfirmed),
     };
   };
 
-  public sendToAddress = async (address: string, amount: number): Promise<SentTransaction> => {
-    const transactionId = await this.chainClient.sendToAddress(address, amount);
+  public sendToAddress = async (
+    address: string,
+    amount: number,
+    satPerVbyte?: number,
+  ): Promise<SentTransaction> => {
+    const transactionId = await this.chainClient.sendToAddress(
+      address,
+      amount,
+      await this.getFeePerVbyte(satPerVbyte),
+    );
     return await this.handleCoreTransaction(transactionId, address);
   };
 
-  public sweepWallet = async (address: string): Promise<SentTransaction> => {
+  public sweepWallet = async (
+    address: string,
+    satPerVbyte?: number | undefined,
+  ): Promise<SentTransaction> => {
     const { confirmedBalance } = await this.getBalance();
-    const transactionId = await this.chainClient.sendToAddress(address, confirmedBalance, true);
+    const transactionId = await this.chainClient.sendToAddress(
+      address,
+      confirmedBalance,
+      await this.getFeePerVbyte(satPerVbyte),
+      true,
+    );
 
     return await this.handleCoreTransaction(transactionId, address);
   };
 
-  private handleCoreTransaction = async (transactionId: string, address: string): Promise<SentTransaction> => {
-    const rawTransactionVerbose = await this.chainClient.getRawTransactionVerbose(transactionId);
+  private handleCoreTransaction = async (
+    transactionId: string,
+    address: string,
+  ): Promise<SentTransaction> => {
+    const rawTransactionVerbose =
+      await this.chainClient.getRawTransactionVerbose(transactionId);
     const rawTransaction = Transaction.fromHex(rawTransactionVerbose.hex);
 
     let vout = 0;
@@ -65,7 +102,10 @@ class CoreWalletProvider implements WalletProviderInterface {
 
     for (const input of rawTransactionVerbose.vin) {
       if (!fetchedTransaction.has(input.txid)) {
-        fetchedTransaction.set(input.txid, await this.chainClient.getRawTransaction(input.txid));
+        fetchedTransaction.set(
+          input.txid,
+          await this.chainClient.getRawTransaction(input.txid),
+        );
       }
     }
 
@@ -74,7 +114,9 @@ class CoreWalletProvider implements WalletProviderInterface {
     for (const input of rawTransaction.ins) {
       const inputTransactionId = transactionHashToId(input.hash);
 
-      const inputTransaction = Transaction.fromHex(fetchedTransaction.get(inputTransactionId)!);
+      const inputTransaction = Transaction.fromHex(
+        fetchedTransaction.get(inputTransactionId)!,
+      );
       const inputVout = inputTransaction.outs[input.index];
 
       inputSum += BigInt(inputVout.value);
@@ -85,11 +127,13 @@ class CoreWalletProvider implements WalletProviderInterface {
       transactionId,
 
       transaction: rawTransaction,
-      fee: Number(inputSum - outputSum),
+      fee: Math.ceil(Number(inputSum - outputSum)),
     };
   };
 
-  private;
+  private getFeePerVbyte = async (satPerVbyte?: number) => {
+    return satPerVbyte || (await this.chainClient.estimateFee());
+  };
 }
 
 export default CoreWalletProvider;

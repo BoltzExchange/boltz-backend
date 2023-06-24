@@ -10,7 +10,7 @@ import {
   queryEtherSwapValues,
   queryERC20SwapValues,
   queryEtherSwapValuesFromLock,
-  queryERC20SwapValuesFromLock
+  queryERC20SwapValuesFromLock,
 } from '../../../../lib/wallet/ethereum/ContractUtils';
 
 describe('ContractUtils', () => {
@@ -50,7 +50,7 @@ describe('ContractUtils', () => {
       etherSwapValues.timelock,
       {
         value: etherSwapValues.amount,
-      }
+      },
     );
 
     etherSwapLockTransactionHash = etherSwapLock.hash;
@@ -76,30 +76,39 @@ describe('ContractUtils', () => {
 
     erc20SwapLockTransactionHash = erc20SwapLock.hash;
 
-    await Promise.all([
-      erc20SwapLock.wait(1),
-      etherSwapLock.wait(1),
-    ]);
+    await Promise.all([erc20SwapLock.wait(1), etherSwapLock.wait(1)]);
   });
 
   test('should query EtherSwap values from lock transaction hash', async () => {
     expect(
-      await queryEtherSwapValuesFromLock(setup.provider, etherSwap, etherSwapLockTransactionHash)
+      await queryEtherSwapValuesFromLock(
+        setup.provider,
+        etherSwap,
+        etherSwapLockTransactionHash,
+      ),
     ).toEqual(etherSwapValues);
   });
 
   test('should query ERC20Swap values from lock transaction hash', async () => {
     expect(
-      await queryERC20SwapValuesFromLock(setup.provider, erc20Swap, erc20SwapLockTransactionHash)
+      await queryERC20SwapValuesFromLock(
+        setup.provider,
+        erc20Swap,
+        erc20SwapLockTransactionHash,
+      ),
     ).toEqual(erc20SwapValues);
   });
 
   test('should query EtherSwap values from preimage hash', async () => {
-    expect(await queryEtherSwapValues(etherSwap, etherSwapValues.preimageHash)).toEqual(etherSwapValues);
+    expect(
+      await queryEtherSwapValues(etherSwap, etherSwapValues.preimageHash),
+    ).toEqual(etherSwapValues);
   });
 
   test('should query ERC20Swap values from preimage hash', async () => {
-    expect(await queryERC20SwapValues(erc20Swap, erc20SwapValues.preimageHash)).toEqual(erc20SwapValues);
+    expect(
+      await queryERC20SwapValues(erc20Swap, erc20SwapValues.preimageHash),
+    ).toEqual(erc20SwapValues);
   });
 
   afterAll(() => {

@@ -17,7 +17,8 @@ export const builder = {
   },
   routingNode: {
     type: 'string',
-    describe: 'optional routing node with which the referral ID should be associated',
+    describe:
+      'optional routing node with which the referral ID should be associated',
   },
 };
 

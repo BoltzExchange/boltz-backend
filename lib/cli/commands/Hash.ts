@@ -16,7 +16,9 @@ export const builder = {
 export const handler = (argv: Arguments<any>): void => {
   const preimage = getHexBuffer(argv.value);
 
-  console.log(stringify({
-    hash: getHexString(crypto.sha256(preimage)),
-  }));
+  console.log(
+    stringify({
+      hash: getHexString(crypto.sha256(preimage)),
+    }),
+  );
 };

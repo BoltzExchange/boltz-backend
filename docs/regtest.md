@@ -93,6 +93,20 @@ maxZeroConfAmount = 0
   macaroonpath = "docker/regtest/data/lnd/macaroons/admin.macaroon"
   maxPaymentFeeRatio = 0.03
 
+[liquid]
+symbol = "L-BTC"
+network = "liquidRegtest"
+
+maxSwapAmount = 4_294_967
+minSwapAmount = 10_000
+
+minWalletBalance = 10_000_000
+
+  [liquid.chain]
+  host = "127.0.0.1"
+  port = 18884
+  cookie = "docker/regtest/data/core/cookies/.elements-cookie"
+
 [ethereum]
 providerEndpoint = "http://127.0.0.1:8546"
 

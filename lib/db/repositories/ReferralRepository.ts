@@ -20,7 +20,9 @@ class ReferralRepository {
     return Referral.findAll();
   };
 
-  public static getReferralByApiKey = (apiKey: string): Promise<Referral | null> => {
+  public static getReferralByApiKey = (
+    apiKey: string,
+  ): Promise<Referral | null> => {
     return Referral.findOne({
       where: {
         apiKey,
@@ -28,7 +30,9 @@ class ReferralRepository {
     });
   };
 
-  public static getReferralByRoutingNode = (routingNode: string): Promise<Referral | null> => {
+  public static getReferralByRoutingNode = (
+    routingNode: string,
+  ): Promise<Referral | null> => {
     return Referral.findOne({
       where: {
         routingNode,
@@ -36,7 +40,9 @@ class ReferralRepository {
     });
   };
 
-  public static getReferralSum = (referralKey?: string): Promise<ReferralSumRow[]> => {
+  public static getReferralSum = (
+    referralKey?: string,
+  ): Promise<ReferralSumRow[]> => {
     return Database.sequelize.query(this.referralsQuery(referralKey), {
       replacements: referralKey !== undefined ? [referralKey] : [],
       type: QueryTypes.SELECT,
@@ -70,6 +76,4 @@ ORDER BY year, month;
 }
 
 export default ReferralRepository;
-export {
-  ReferralType
-};
+export { ReferralType };

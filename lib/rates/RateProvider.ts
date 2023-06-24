@@ -1,4 +1,3 @@
-import Errors from './Errors';
 import Logger from '../Logger';
 import { PairConfig } from '../consts/Types';
 import RateCalculator from './RateCalculator';
@@ -6,14 +5,15 @@ import DataAggregator from './data/DataAggregator';
 import { Currency } from '../wallet/WalletManager';
 import { BaseFeeType, CurrencyType } from '../consts/Enums';
 import FeeProvider, { MinerFees, PercentageFees } from './FeeProvider';
-import { getPairId, hashString, mapToObject, minutesToMilliseconds, splitPairId, stringify } from '../Utils';
-
-type CurrencyLimits = {
-  minimal: number;
-  maximal: number;
-
-  maximalZeroConf: number;
-};
+import {
+  getPairId,
+  hashString,
+  mapToObject,
+  minutesToMilliseconds,
+  splitPairId,
+  stringify,
+} from '../Utils';
+import Errors from './Errors';
 
 const emptyMinerFees = {
   normal: 0,
@@ -33,17 +33,19 @@ type PairType = {
     maximalZeroConf: {
       baseAsset: number;
       quoteAsset: number;
-    }
+    };
   };
   fees: PercentageFees & {
     minerFees: {
-      baseAsset: MinerFees,
-      quoteAsset: MinerFees,
+      baseAsset: MinerFees;
+      quoteAsset: MinerFees;
     };
   };
 };
 
 class RateProvider {
+  private static minLimitFactor = 2;
+
   public feeProvider: FeeProvider;
 
   public dataAggregator = new DataAggregator();
@@ -56,10 +58,10 @@ class RateProvider {
   public configPairs = new Set<string>();
 
   // A map of all pairs with hardcoded rates
-  private hardcodedPairs = new Map<string, { base: string, quote: string }>();
+  private hardcodedPairs = new Map<string, { base: string; quote: string }>();
 
-  // A map between assets and their limits
-  private limits = new Map<string, CurrencyLimits>();
+  private zeroConfAmounts = new Map<string, number>();
+  private pairConfigs = new Map<string, PairConfig>();
 
   private timer!: any;
 
@@ -69,25 +71,43 @@ class RateProvider {
     private currencies: Map<string, Currency>,
     private getFeeEstimation: (symbol: string) => Promise<Map<string, number>>,
   ) {
-    this.feeProvider = new FeeProvider(this.logger, this.dataAggregator, this.getFeeEstimation);
+    this.feeProvider = new FeeProvider(
+      this.logger,
+      this.dataAggregator,
+      this.getFeeEstimation,
+    );
     this.parseCurrencies(Array.from(currencies.values()));
   }
 
   public init = async (pairs: PairConfig[]): Promise<void> => {
+    pairs.forEach((pair) => {
+      this.pairConfigs.set(getPairId(pair), pair);
+    });
+
     await this.updateMinerFees();
 
     pairs.forEach((pair) => {
       const id = getPairId(pair);
       this.configPairs.add(id);
 
+      if (pair.maxSwapAmount === undefined) {
+        throw Errors.CONFIGURATION_INCOMPLETE(id, 'maxSwapAmount');
+      }
+
+      if (pair.minSwapAmount === undefined) {
+        throw Errors.CONFIGURATION_INCOMPLETE(id, 'minSwapAmount');
+      }
+
       // If a pair has a hardcoded rate the rate doesn't have to be queried from the exchanges
       if (pair.rate) {
-        this.logger.debug(`Setting hardcoded rate for pair ${id}: ${pair.rate}`);
+        this.logger.debug(
+          `Setting hardcoded rate for pair ${id}: ${pair.rate}`,
+        );
 
         this.pairs.set(id, {
           hash: '',
           rate: pair.rate,
-          limits: this.getLimits(id, pair.base, pair.quote, pair.rate),
+          limits: this.getLimits(id, pair.rate),
           fees: {
             ...this.feeProvider.getPercentageFees(id),
             minerFees: {
@@ -121,13 +141,19 @@ class RateProvider {
       this.dataAggregator.pairs.forEach(([base, quote]) => {
         pairsToQuery.push(getPairId({ base, quote }));
       });
-      this.logger.debug(`Prepared data for requests to exchanges: \n  - ${pairsToQuery.join('\n  - ')}`);
+      this.logger.debug(
+        `Prepared data for requests to exchanges: \n  - ${pairsToQuery.join(
+          '\n  - ',
+        )}`,
+      );
     }
 
     await this.updateRates();
 
     this.logger.silly(`Got pairs: ${stringify(mapToObject(this.pairs))}`);
-    this.logger.debug(`Updating rates every ${this.rateUpdateInterval} minutes`);
+    this.logger.debug(
+      `Updating rates every ${this.rateUpdateInterval} minutes`,
+    );
 
     this.timer = setInterval(async () => {
       await this.updateRates();
@@ -142,10 +168,10 @@ class RateProvider {
    * Returns whether 0-conf should be accepted for a specific amount on a specified chain
    */
   public acceptZeroConf = (chainCurrency: string, amount: number): boolean => {
-    const limits = this.limits.get(chainCurrency);
+    const limits = this.zeroConfAmounts.get(chainCurrency);
 
     if (limits) {
-      return amount <= limits.maximalZeroConf;
+      return amount <= limits;
     } else {
       return false;
     }
@@ -172,12 +198,10 @@ class RateProvider {
       // If the rate returned is "undefined" or "NaN" that means that all requests to the APIs of the exchanges
       // failed and that the pairs and limits don't have to be updated
       if (rate && !isNaN(rate)) {
-        const limits = this.getLimits(pairId, base, quote, rate);
-
         this.pairs.set(pairId, {
           rate,
-          limits,
           hash: '',
+          limits: this.getLimits(pairId, rate),
           fees: {
             ...this.feeProvider.getPercentageFees(pairId),
             minerFees: {
@@ -186,7 +210,6 @@ class RateProvider {
             },
           },
         });
-
       } else {
         this.logger.warn(`Could not fetch rates of ${pairId}`);
       }
@@ -200,80 +223,96 @@ class RateProvider {
         baseAsset: this.feeProvider.minerFees.get(base)!,
         quoteAsset: this.feeProvider.minerFees.get(quote)!,
       };
+      pairInfo.limits = this.getLimits(pair, pairInfo.rate);
 
       this.pairs.set(pair, pairInfo);
     });
 
     this.pairs.forEach((pair, symbol) => {
-      this.pairs.get(symbol)!.hash = hashString(JSON.stringify({
-        rate: pair.rate,
-        fees: pair.fees,
-        limits: pair.limits,
-      }));
+      this.pairs.get(symbol)!.hash = hashString(
+        JSON.stringify({
+          rate: pair.rate,
+          fees: pair.fees,
+          limits: pair.limits,
+        }),
+      );
     });
 
     this.logger.silly('Updated rates');
   };
 
-  private getLimits = (pair: string, base: string, quote: string, rate: number) => {
-    const baseLimits = this.limits.get(base);
-    const quoteLimits = this.limits.get(quote);
+  private getLimits = (pair: string, rate: number) => {
+    const config = this.pairConfigs.get(pair);
 
-    if (baseLimits && quoteLimits) {
-      let minimalLimit = Math.max(quoteLimits.minimal, baseLimits.minimal * rate);
-
-      // Make sure the minimal limit is at least 4 times the fee needed to claim
-      const minimalLimitQuoteTransactionFee = this.feeProvider.getBaseFee(quote, BaseFeeType.NormalClaim) * 4;
-      const minimalLimitBaseTransactionFee = this.feeProvider.getBaseFee(base, BaseFeeType.NormalClaim) * rate * 4;
-
-      minimalLimit = Math.max(minimalLimit, minimalLimitBaseTransactionFee, minimalLimitQuoteTransactionFee);
-
-      return {
-        maximal: Math.floor(Math.min(quoteLimits.maximal, baseLimits.maximal * rate)),
-        minimal: Math.ceil(minimalLimit),
-
-        maximalZeroConf: {
-          baseAsset: baseLimits.maximalZeroConf,
-          quoteAsset: quoteLimits.maximalZeroConf,
-        },
-      };
+    if (config === undefined) {
+      throw `Could not get limits for pair ${pair}`;
     }
 
-    throw `Could not get limits for pair ${pair}`;
+    const { base, quote } = splitPairId(pair);
+    const minimalLimits = [config.minSwapAmount];
+
+    [
+      [base, quote],
+      [quote, base],
+    ]
+      .filter(([chain, lightning]) =>
+        this.isPossibleChainCurrency(chain, lightning),
+      )
+      .map(([currency]) => currency)
+      .forEach((currency) => {
+        let limit =
+          this.feeProvider.getBaseFee(currency, BaseFeeType.NormalClaim) *
+          RateProvider.minLimitFactor;
+        if (currency === base) {
+          limit *= rate;
+        }
+
+        minimalLimits.push(limit);
+      });
+
+    return {
+      maximal: config.maxSwapAmount,
+      minimal: Math.ceil(Math.max(...minimalLimits)),
+
+      maximalZeroConf: {
+        baseAsset: this.zeroConfAmounts.get(base)!,
+        quoteAsset: this.zeroConfAmounts.get(quote)!,
+      },
+    };
+  };
+
+  private isPossibleChainCurrency = (
+    cur: string,
+    lightningCur: string,
+  ): boolean => {
+    return (
+      this.currencies.get(cur)!.chainClient !== undefined &&
+      this.currencies.get(lightningCur)!.lndClient !== undefined
+    );
   };
 
   private parseCurrencies = (currencies: Currency[]) => {
     for (const currency of currencies) {
       if (currency.limits.maxZeroConfAmount === undefined) {
-        this.logger.warn(`Maximal 0-conf amount not set for ${currency.symbol}`);
+        this.logger.warn(
+          `Maximal 0-conf amount not set for ${currency.symbol}`,
+        );
       }
 
-      if (currency.limits.maxSwapAmount === undefined) {
-        throw Errors.CONFIGURATION_INCOMPLETE(currency.symbol, 'maxSwapAmount');
-      }
-
-      if (currency.limits.minSwapAmount === undefined) {
-        throw Errors.CONFIGURATION_INCOMPLETE(currency.symbol, 'minSwapAmount');
-      }
-
-      this.limits.set(currency.symbol, {
-        maximal: currency.limits.maxSwapAmount,
-        minimal: currency.limits.minSwapAmount,
-
-        // Set the maximal 0-conf amount to 0 if it wasn't set explicitly
-        maximalZeroConf: currency.limits.maxZeroConfAmount || 0,
-      });
+      // Set the maximal 0-conf amount to 0 if it wasn't set explicitly
+      this.zeroConfAmounts.set(
+        currency.symbol,
+        currency.limits.maxZeroConfAmount || 0,
+      );
     }
   };
 
   private updateMinerFees = async () => {
-    const promises: Promise<void>[] = [];
-
-    for (const [symbol] of this.limits) {
-      promises.push(this.feeProvider.updateMinerFees(symbol));
-    }
-
-    await Promise.all(promises);
+    await Promise.all(
+      Array.from(this.currencies.keys()).map((currency) =>
+        this.feeProvider.updateMinerFees(currency),
+      ),
+    );
   };
 }
 

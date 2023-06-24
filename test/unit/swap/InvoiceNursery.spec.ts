@@ -39,10 +39,7 @@ describe('InvoiceNursery', () => {
     expect(mockGetReverseSwaps).toHaveBeenCalledTimes(1);
     expect(mockGetReverseSwaps).toHaveBeenCalledWith({
       status: {
-        [Op.or]: [
-          SwapUpdateEvent.SwapCreated,
-          SwapUpdateEvent.MinerFeePaid,
-        ],
+        [Op.or]: [SwapUpdateEvent.SwapCreated, SwapUpdateEvent.MinerFeePaid],
       },
     });
   });
@@ -51,12 +48,9 @@ describe('InvoiceNursery', () => {
     const currentTime = getUnixTime();
 
     const invoice = createInvoice(undefined, currentTime);
-    const expiredInvoice = createInvoice(undefined, currentTime - (3600 * 2));
+    const expiredInvoice = createInvoice(undefined, currentTime - 3600 * 2);
 
-    mockGetReverseSwapsResult = [
-      { invoice },
-      { invoice: expiredInvoice },
-    ];
+    mockGetReverseSwapsResult = [{ invoice }, { invoice: expiredInvoice }];
 
     let eventsEmitted = 0;
 
@@ -75,10 +69,7 @@ describe('InvoiceNursery', () => {
     expect(mockGetReverseSwaps).toHaveBeenCalledTimes(1);
     expect(mockGetReverseSwaps).toHaveBeenCalledWith({
       status: {
-        [Op.or]: [
-          SwapUpdateEvent.SwapCreated,
-          SwapUpdateEvent.MinerFeePaid,
-        ],
+        [Op.or]: [SwapUpdateEvent.SwapCreated, SwapUpdateEvent.MinerFeePaid],
       },
     });
   });

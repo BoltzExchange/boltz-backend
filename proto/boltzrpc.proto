@@ -12,6 +12,8 @@ service Boltz {
   /* Derives a keypair from the index of an HD wallet */
   rpc DeriveKeys (DeriveKeysRequest) returns (DeriveKeysResponse);
 
+  rpc DeriveBlindingKeys (DeriveBlindingKeyRequest) returns (DeriveBlindingKeyResponse);
+
   /* Gets an address of a specified wallet */
   rpc GetAddress (GetAddressRequest) returns (GetAddressResponse);
 
@@ -93,6 +95,15 @@ message DeriveKeysResponse {
   string private_key = 2;
 }
 
+message DeriveBlindingKeyRequest {
+  string address = 1;
+}
+
+message DeriveBlindingKeyResponse {
+  string public_key = 1;
+  string private_key = 2;
+}
+
 message GetAddressRequest {
   string symbol = 1;
 }
@@ -116,7 +127,11 @@ message SendCoinsResponse {
 
 message UpdateTimeoutBlockDeltaRequest {
   string pair = 1;
-  uint32 new_delta = 2;
+
+  uint32 reverse_timeout = 2;
+
+  uint32 swap_minimal_timeout = 3;
+  uint32 swap_maximal_timeout = 4;
 }
 message UpdateTimeoutBlockDeltaResponse {}
 

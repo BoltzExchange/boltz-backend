@@ -32,4 +32,8 @@ export default {
     default: 2,
     type: 'number',
   },
+  blindingKey: {
+    describe: 'Liquid blinding key for the HTLC address',
+    type: 'string',
+  },
 };

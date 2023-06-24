@@ -7,10 +7,11 @@ type RecommendedFees = {
   halfHourFee?: number;
   hourFee?: number;
   minimumFee?: number;
-}
+};
 
-class MempoolSpace {
-  private static readonly fetchInterval = 30000;
+class MempoolSpaceClient {
+  private static readonly factor = 1.1;
+  private static readonly fetchInterval = 2.5 * 60 * 1000;
 
   // Undefined in case the latest request failed
   public latestFee?: number;
@@ -21,16 +22,14 @@ class MempoolSpace {
     private logger: Logger,
     private symbol: string,
     private apiUrl: string,
-  ) {
-    this.logger.info(`Enabling MempoolSpace fee estimations for ${this.symbol}: ${this.apiUrl}`);
-  }
+  ) {}
 
   public init = async (): Promise<void> => {
     await this.fetchRecommendedFees();
 
     this.fetchInterval = setInterval(async () => {
       await this.fetchRecommendedFees();
-    }, MempoolSpace.fetchInterval);
+    }, MempoolSpaceClient.fetchInterval);
   };
 
   public stop = (): void => {
@@ -44,16 +43,24 @@ class MempoolSpace {
 
   private fetchRecommendedFees = async () => {
     try {
-      const response = await axios.get<any, AxiosResponse<RecommendedFees>>(`${this.apiUrl}/v1/fees/recommended`);
+      const response = await axios.get<any, AxiosResponse<RecommendedFees>>(
+        `${this.apiUrl}/v1/fees/recommended`,
+      );
 
       if (typeof response.data.fastestFee !== 'number') {
         this.handleCouldNotFetch('invalid response');
         return;
       }
 
-      this.logger.silly(`Fetched latest ${this.symbol} MempoolSpace fee estimations: ${stringify(response.data)}`);
+      this.logger.silly(
+        `Fetched latest ${
+          this.symbol
+        } MempoolSpace fee estimations: ${stringify(response.data)}`,
+      );
 
-      this.latestFee = response.data.fastestFee;
+      this.latestFee = Math.ceil(
+        response.data.fastestFee * MempoolSpaceClient.factor,
+      );
     } catch (error) {
       this.handleCouldNotFetch(error);
     }
@@ -61,8 +68,49 @@ class MempoolSpace {
 
   private handleCouldNotFetch = (error: any) => {
     this.latestFee = undefined;
-    this.logger.warn(`Could not fetch ${this.symbol} MempoolSpace fee estimations: ${formatError(error)}`);
+    this.logger.warn(
+      `Could not fetch ${this.symbol} MempoolSpace fee estimations from ${
+        this.apiUrl
+      }: ${formatError(error)}`,
+    );
+  };
+}
+
+class MempoolSpace {
+  private apis: MempoolSpaceClient[] = [];
+
+  constructor(private logger: Logger, private symbol: string, apiUrls: string) {
+    const apis = apiUrls.split(',').map((apiUrl) => apiUrl.trim());
+    this.logger.info(
+      `Enabling MempoolSpace fee estimations for ${this.symbol}: ${stringify(
+        apis,
+      )}`,
+    );
+
+    apis.forEach((api) =>
+      this.apis.push(new MempoolSpaceClient(this.logger, this.symbol, api)),
+    );
+  }
+
+  public init = async (): Promise<void> => {
+    await Promise.all(this.apis.map((api) => api.init()));
+  };
+
+  public latestFee = (): number | undefined => {
+    for (const api of this.apis) {
+      if (api.latestFee !== undefined) {
+        return api.latestFee;
+      }
+    }
+
+    this.logger.warn(`All ${this.symbol} MempoolSpace endpoints failed`);
+    return undefined;
+  };
+
+  public stop = () => {
+    this.apis.forEach((api) => api.stop());
   };
 }
 
 export default MempoolSpace;
+export { MempoolSpaceClient };

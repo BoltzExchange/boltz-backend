@@ -42,7 +42,9 @@ describe('OtpManager', () => {
     expect(existsSync(config.otpsecretpath)).toBeTruthy();
     expect(existsSync(uriFilePath)).toBeTruthy();
 
-    expect(readFileSync(config.otpsecretpath, { encoding: 'utf8' })).toEqual(secret);
+    expect(readFileSync(config.otpsecretpath, { encoding: 'utf8' })).toEqual(
+      secret,
+    );
 
     const uriFile = readFileSync(uriFilePath, { encoding: 'utf8' });
     expect(uriFile.includes(secret)).toBeTruthy();

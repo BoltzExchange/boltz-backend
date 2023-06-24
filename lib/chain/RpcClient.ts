@@ -24,7 +24,9 @@ class RpcClient {
       const cookieFile = readFileSync(config.cookie, 'utf-8').trim();
       this.auth = Buffer.from(cookieFile).toString('base64');
     } else if (config.user && config.password) {
-      this.auth = Buffer.from(`${config.user}:${config.password}`).toString('base64');
+      this.auth = Buffer.from(`${config.user}:${config.password}`).toString(
+        'base64',
+      );
     } else {
       throw Errors.NO_AUTHENTICATION();
     }

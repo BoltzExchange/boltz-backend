@@ -1,15 +1,20 @@
 import { BIP32Interface } from 'bip32';
-import { Network, address } from 'bitcoinjs-lib';
+import { Network } from 'bitcoinjs-lib';
 import Errors from './Errors';
 import Logger from '../Logger';
 import { CurrencyType } from '../consts/Enums';
+import { fromOutputScript, toOutputScript } from '../Core';
 import KeyRepository from '../db/repositories/KeyRepository';
-import WalletProviderInterface, { SentTransaction, WalletBalance } from './providers/WalletProviderInterface';
+import WalletProviderInterface, {
+  SentTransaction,
+  WalletBalance,
+} from './providers/WalletProviderInterface';
 
 class Wallet {
   public readonly symbol: string;
 
-  private network?: Network;
+  public network!: Network;
+
   private derivationPath?: string;
   private highestUsedIndex?: number;
   private masterNode?: BIP32Interface;
@@ -57,13 +62,16 @@ class Wallet {
   /**
    * Gets a new pair of keys
    */
-  public getNewKeys = (): { keys: BIP32Interface, index: number } => {
+  public getNewKeys = (): { keys: BIP32Interface; index: number } => {
     if (this.highestUsedIndex === undefined) {
       throw Errors.NOT_SUPPORTED_BY_WALLET(this.symbol, 'getNewKeys');
     }
 
     this.highestUsedIndex += 1;
-    KeyRepository.setHighestUsedIndex(this.symbol, this.highestUsedIndex).then();
+    KeyRepository.setHighestUsedIndex(
+      this.symbol,
+      this.highestUsedIndex,
+    ).then();
 
     return {
       keys: this.getKeysByIndex(this.highestUsedIndex),
@@ -82,10 +90,7 @@ class Wallet {
     }
 
     try {
-      return address.fromOutputScript(
-        outputScript,
-        this.network,
-      );
+      return fromOutputScript(this.type, outputScript, this.network);
     } catch (error) {
       // Ignore invalid addresses
       return '';
@@ -100,10 +105,7 @@ class Wallet {
       throw Errors.NOT_SUPPORTED_BY_WALLET(this.symbol, 'decodeAddress');
     }
 
-    return address.toOutputScript(
-      toDecode,
-      this.network,
-    );
+    return toOutputScript(this.type, toDecode, this.network);
   };
 
   public getAddress = (): Promise<string> => {
@@ -114,13 +116,20 @@ class Wallet {
     return this.walletProvider.getBalance();
   };
 
-  public sendToAddress = (address: string, amount: number, satPerVbyte?: number): Promise<SentTransaction> => {
+  public sendToAddress = (
+    address: string,
+    amount: number,
+    satPerVbyte?: number,
+  ): Promise<SentTransaction> => {
     this.logger.info(`Sending ${amount} ${this.symbol} to ${address}`);
 
     return this.walletProvider.sendToAddress(address, amount, satPerVbyte);
   };
 
-  public sweepWallet = (address: string, satPerVbyte?: number): Promise<SentTransaction> => {
+  public sweepWallet = (
+    address: string,
+    satPerVbyte?: number,
+  ): Promise<SentTransaction> => {
     this.logger.warn(`Sweeping ${this.symbol} wallet to ${address}`);
 
     return this.walletProvider.sweepWallet(address, satPerVbyte);

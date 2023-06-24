@@ -9,9 +9,13 @@ class Bouncer {
 
   private static readonly errorUnauthorized = 'unauthorized';
 
-  public static validateRequestAuthentication = async (req: Request): Promise<Referral> => {
+  public static validateRequestAuthentication = async (
+    req: Request,
+  ): Promise<Referral> => {
     const ts = Bouncer.checkTimestamp(Bouncer.getRequestHeader(req, 'TS'));
-    const referral = await Bouncer.fetchApiCredentials(Bouncer.getRequestHeader(req, 'API-KEY'));
+    const referral = await Bouncer.fetchApiCredentials(
+      Bouncer.getRequestHeader(req, 'API-KEY'),
+    );
 
     Bouncer.verifyHmac(
       Bouncer.getRequestHeader(req, 'API-HMAC'),
@@ -35,8 +39,9 @@ class Bouncer {
     path: string,
     body: string,
   ) => {
-    let hmac = createHmac('sha256', referral.apiSecret)
-      .update(`${ts}${method}${path}`);
+    let hmac = createHmac('sha256', referral.apiSecret).update(
+      `${ts}${method}${path}`,
+    );
 
     if (method === 'POST') {
       hmac = hmac.update(body);
@@ -58,7 +63,10 @@ class Bouncer {
 
     const now = getUnixTime();
 
-    if (providedTs > now + Bouncer.timestampDeltaTolerance || providedTs < now - Bouncer.timestampDeltaTolerance) {
+    if (
+      providedTs > now + Bouncer.timestampDeltaTolerance ||
+      providedTs < now - Bouncer.timestampDeltaTolerance
+    ) {
       throw `TS header deviates from server time by more than ${Bouncer.timestampDeltaTolerance} seconds`;
     }
 

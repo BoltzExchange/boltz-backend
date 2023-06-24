@@ -18,10 +18,14 @@ export default {
   }),
   UNEQUAL_PROVIDER_NETWORKS: (networks: Network[]): Error => {
     const networkStrings: number[] = [];
-    networks.forEach((network) => networkStrings.push(Number(network.chainId!)));
+    networks.forEach((network) =>
+      networkStrings.push(Number(network.chainId!)),
+    );
 
     return {
-      message: `not all web3 provider networks are equal: ${networkStrings.join(', ')}`,
+      message: `not all web3 provider networks are equal: ${networkStrings.join(
+        ', ',
+      )}`,
       code: concatErrorCode(ErrorCodePrefix.Ethereum, 3),
     };
   },

@@ -5,7 +5,10 @@ class PendingEthereumTransactionRepository {
     return PendingEthereumTransaction.findAll();
   };
 
-  public static addTransaction = (hash: string, nonce: number): Promise<PendingEthereumTransaction> => {
+  public static addTransaction = (
+    hash: string,
+    nonce: number,
+  ): Promise<PendingEthereumTransaction> => {
     return PendingEthereumTransaction.create({
       hash,
       nonce,

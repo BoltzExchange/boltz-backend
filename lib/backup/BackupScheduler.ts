@@ -40,7 +40,9 @@ class BackupScheduler {
       this.subscribeChannelBackups();
       this.logger.info('Started channel backup subscription');
 
-      this.logger.verbose(`Scheduling database backups: ${this.config.interval}`);
+      this.logger.verbose(
+        `Scheduling database backups: ${this.config.interval}`,
+      );
       scheduleJob(this.config.interval, async (date) => {
         await this.uploadDatabase(date);
       });
@@ -48,6 +50,14 @@ class BackupScheduler {
       this.logger.warn(`Could not start backup scheduler: ${error}`);
     }
   }
+
+  public init = async () => {
+    for (const provider of this.providers) {
+      if (provider instanceof Webdav) {
+        await provider.init();
+      }
+    }
+  };
 
   private static getDate = (date: Date) => {
     let str = '';
@@ -60,7 +70,8 @@ class BackupScheduler {
       date.getHours(),
       date.getMinutes(),
     ]) {
-      str += typeof elem === 'number' ? BackupScheduler.addLeadingZeros(elem) : elem;
+      str +=
+        typeof elem === 'number' ? BackupScheduler.addLeadingZeros(elem) : elem;
     }
 
     return str;
@@ -86,34 +97,40 @@ class BackupScheduler {
 
   private uploadFile = async (path: string, file: string) => {
     try {
-      await Promise.all(this.providers
-        .map((provider) => provider.uploadFile(path, file))
+      await Promise.all(
+        this.providers.map((provider) => provider.uploadFile(path, file)),
       );
       this.logger.silly(`Uploaded file ${file} to: ${path}`);
     } catch (error) {
       this.logger.warn(`Could not upload file ${path}: ${error}`);
-      throw error;
     }
   };
 
   private uploadString = async (path: string, data: string) => {
     try {
-      await Promise.all(this.providers
-        .map((provider) => provider.uploadString(path, data))
+      await Promise.all(
+        this.providers.map((provider) => provider.uploadString(path, data)),
       );
       this.logger.silly(`Uploaded data into file: ${path}`);
     } catch (error) {
-      this.logger.warn(`Could not upload data to file ${path}: ${formatError(error)}`);
-      throw error;
+      this.logger.warn(
+        `Could not upload data to file ${path}: ${formatError(error)}`,
+      );
     }
   };
 
   private subscribeChannelBackups = () => {
-    this.eventHandler.on('channel.backup', async (currency: string, channelBackup: string) => {
-      const dateString = BackupScheduler.getDate(new Date());
+    this.eventHandler.on(
+      'channel.backup',
+      async (currency: string, channelBackup: string) => {
+        const dateString = BackupScheduler.getDate(new Date());
 
-      await this.uploadString(`lnd/${currency}/multiChannelBackup-${dateString}`, channelBackup);
-    });
+        await this.uploadString(
+          `lnd/${currency}/multiChannelBackup-${dateString}`,
+          channelBackup,
+        );
+      },
+    );
   };
 
   private logProviderEnabled = (name: string) => {

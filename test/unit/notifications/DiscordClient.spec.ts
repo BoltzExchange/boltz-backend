@@ -5,11 +5,7 @@ import DiscordClient from '../../../lib/notifications/DiscordClient';
 const mockSend = jest.fn().mockImplementation(async () => {});
 
 describe('DiscordClient', () => {
-  const client = new DiscordClient(
-    '',
-    '',
-    'unit',
-  );
+  const client = new DiscordClient('', '', 'unit');
 
   const prefix = client['prefix'];
   const maxMessageLen = DiscordClient['maxMessageLen'];
@@ -55,8 +51,14 @@ describe('DiscordClient', () => {
 
     expect(mockSend).toHaveBeenCalledTimes(5);
     expect(mockSend).toHaveBeenNthCalledWith(3, prefix);
-    expect(mockSend).toHaveBeenNthCalledWith(4, message.substring(0, maxMessageLen));
-    expect(mockSend).toHaveBeenNthCalledWith(5, message.substring(maxMessageLen));
+    expect(mockSend).toHaveBeenNthCalledWith(
+      4,
+      message.substring(0, maxMessageLen),
+    );
+    expect(mockSend).toHaveBeenNthCalledWith(
+      5,
+      message.substring(maxMessageLen),
+    );
 
     // Code blocks
     message = `${codeBlock}${getRandomString(maxMessageLen + 1)}${codeBlock}`;
@@ -65,8 +67,14 @@ describe('DiscordClient', () => {
 
     expect(mockSend).toHaveBeenCalledTimes(8);
     expect(mockSend).toHaveBeenNthCalledWith(6, prefix);
-    expect(mockSend).toHaveBeenNthCalledWith(7, `${message.substring(0, maxMessageLen - codeBlock.length)}${codeBlock}`);
-    expect(mockSend).toHaveBeenNthCalledWith(8, `${codeBlock}${message.substring(maxMessageLen - codeBlock.length)}`);
+    expect(mockSend).toHaveBeenNthCalledWith(
+      7,
+      `${message.substring(0, maxMessageLen - codeBlock.length)}${codeBlock}`,
+    );
+    expect(mockSend).toHaveBeenNthCalledWith(
+      8,
+      `${codeBlock}${message.substring(maxMessageLen - codeBlock.length)}`,
+    );
   });
 
   it('should split strings into parts', () => {
@@ -81,7 +89,9 @@ describe('DiscordClient', () => {
       const splitPart = split[i];
 
       expect(splitPart.length).toEqual(splitLen);
-      expect(splitPart).toEqual(randomString.substring(splitLen * i, splitLen * (i + 1)));
+      expect(splitPart).toEqual(
+        randomString.substring(splitLen * i, splitLen * (i + 1)),
+      );
     }
   });
 
@@ -91,5 +101,7 @@ describe('DiscordClient', () => {
 });
 
 const getRandomString = (length: number) => {
-  return randomBytes(Math.ceil(length / 2)).toString('hex').substring(0, length);
+  return randomBytes(Math.ceil(length / 2))
+    .toString('hex')
+    .substring(0, length);
 };

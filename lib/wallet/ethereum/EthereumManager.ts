@@ -2,7 +2,12 @@ import { ContractABIs } from 'boltz-core';
 import { ERC20 } from 'boltz-core/typechain/ERC20';
 import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
-import { getAddress, MaxUint256, Contract, Wallet as EthersWallet } from 'ethers';
+import {
+  getAddress,
+  MaxUint256,
+  Contract,
+  Wallet as EthersWallet,
+} from 'ethers';
 import Errors from '../Errors';
 import Wallet from '../Wallet';
 import Logger from '../../Logger';
@@ -39,25 +44,26 @@ class EthereumManager {
   public tokenAddresses = new Map<string, string>();
 
   private static supportedContractVersions = {
-    'EtherSwap': 2,
-    'ERC20Swap': 2,
+    EtherSwap: 2,
+    ERC20Swap: 2,
   };
 
-  constructor(
-    private logger: Logger,
-    private ethereumConfig: EthereumConfig,
-  ) {
-    if (this.ethereumConfig.etherSwapAddress === '' || this.ethereumConfig.erc20SwapAddress === '') {
+  constructor(private logger: Logger, private ethereumConfig: EthereumConfig) {
+    if (
+      this.ethereumConfig.etherSwapAddress === '' ||
+      this.ethereumConfig.erc20SwapAddress === ''
+    ) {
       throw Errors.MISSING_SWAP_CONTRACTS();
     }
 
-    this.provider = new InjectedProvider(
-      this.logger,
-      this.ethereumConfig,
-    );
+    this.provider = new InjectedProvider(this.logger, this.ethereumConfig);
 
-    this.logger.debug(`Using Ether Swap contract: ${this.ethereumConfig.etherSwapAddress}`);
-    this.logger.debug(`Using ERC20 Swap contract: ${this.ethereumConfig.erc20SwapAddress}`);
+    this.logger.debug(
+      `Using Ether Swap contract: ${this.ethereumConfig.etherSwapAddress}`,
+    );
+    this.logger.debug(
+      `Using ERC20 Swap contract: ${this.ethereumConfig.erc20SwapAddress}`,
+    );
 
     this.etherSwap = new Contract(
       ethereumConfig.etherSwapAddress,
@@ -90,22 +96,35 @@ class EthereumManager {
     this.erc20Swap = this.erc20Swap.connect(signer) as ERC20Swap;
 
     await Promise.all([
-      this.checkContractVersion('EtherSwap', this.etherSwap, BigInt(EthereumManager.supportedContractVersions.EtherSwap)),
-      this.checkContractVersion('ERC20Swap', this.erc20Swap, BigInt(EthereumManager.supportedContractVersions.ERC20Swap)),
+      this.checkContractVersion(
+        'EtherSwap',
+        this.etherSwap,
+        BigInt(EthereumManager.supportedContractVersions.EtherSwap),
+      ),
+      this.checkContractVersion(
+        'ERC20Swap',
+        this.erc20Swap,
+        BigInt(EthereumManager.supportedContractVersions.ERC20Swap),
+      ),
     ]);
 
     this.logger.verbose(`Using Ethereum signer: ${this.address}`);
 
     const currentBlock = await signer.provider!.getBlockNumber();
-    const chainTip = await ChainTipRepository.findOrCreateTip('ETH', currentBlock);
+    const chainTip = await ChainTipRepository.findOrCreateTip(
+      'ETH',
+      currentBlock,
+    );
 
     this.contractHandler.init(this.provider, this.etherSwap, this.erc20Swap);
     await this.contractEventHandler.init(this.etherSwap, this.erc20Swap);
 
-    this.logger.verbose(`Ethereum chain status: ${stringify({
-      blockNumber: currentBlock,
-      chainId: Number(this.network.chainId),
-    })}`);
+    this.logger.verbose(
+      `Ethereum chain status: ${stringify({
+        blockNumber: currentBlock,
+        chainId: Number(this.network.chainId),
+      })}`,
+    );
 
     const transactionTracker = new EthereumTransactionTracker(
       this.logger,
@@ -116,7 +135,7 @@ class EthereumManager {
     await transactionTracker.init();
 
     await this.provider.on('block', async (blockNumber: number) => {
-      this.logger.silly(`Got new Ethereum block: ${ blockNumber }`);
+      this.logger.silly(`Got new Ethereum block: ${blockNumber}`);
 
       await Promise.all([
         ChainTipRepository.updateTip(chainTip, blockNumber),
@@ -137,35 +156,49 @@ class EthereumManager {
               symbol: token.symbol,
               decimals: token.decimals,
               address: checksumAddress,
-              contract: new Contract(token.contractAddress, ContractABIs.ERC20, signer) as any as ERC20,
+              contract: new Contract(
+                token.contractAddress,
+                ContractABIs.ERC20,
+                signer,
+              ) as any as ERC20,
             });
 
-            wallets.set(token.symbol, new Wallet(
-              this.logger,
-              CurrencyType.ERC20,
-              provider,
-            ));
+            wallets.set(
+              token.symbol,
+              new Wallet(this.logger, CurrencyType.ERC20, provider),
+            );
 
             await this.checkERC20Allowance(provider);
           } else {
-            throw Errors.INVALID_ETHEREUM_CONFIGURATION(`duplicate ${token.symbol} token config`);
+            throw Errors.INVALID_ETHEREUM_CONFIGURATION(
+              `duplicate ${token.symbol} token config`,
+            );
           }
         } else {
-          throw Errors.INVALID_ETHEREUM_CONFIGURATION(`missing decimals configuration for token: ${token.symbol}`);
+          throw Errors.INVALID_ETHEREUM_CONFIGURATION(
+            `missing decimals configuration for token: ${token.symbol}`,
+          );
         }
       } else {
         if (token.symbol === 'ETH') {
           if (!wallets.has('ETH')) {
-            wallets.set('ETH', new Wallet(
-              this.logger,
-              CurrencyType.Ether,
-              new EtherWalletProvider(this.logger, signer),
-            ));
+            wallets.set(
+              'ETH',
+              new Wallet(
+                this.logger,
+                CurrencyType.Ether,
+                new EtherWalletProvider(this.logger, signer),
+              ),
+            );
           } else {
-            throw Errors.INVALID_ETHEREUM_CONFIGURATION('duplicate Ether token config');
+            throw Errors.INVALID_ETHEREUM_CONFIGURATION(
+              'duplicate Ether token config',
+            );
           }
         } else {
-          throw Errors.INVALID_ETHEREUM_CONFIGURATION(`missing token contract address for: ${stringify(token)}`);
+          throw Errors.INVALID_ETHEREUM_CONFIGURATION(
+            `missing token contract address for: ${stringify(token)}`,
+          );
         }
       }
     }
@@ -174,9 +207,13 @@ class EthereumManager {
   };
 
   private checkERC20Allowance = async (erc20Wallet: ERC20WalletProvider) => {
-    const allowance = await erc20Wallet.getAllowance(this.ethereumConfig.erc20SwapAddress);
+    const allowance = await erc20Wallet.getAllowance(
+      this.ethereumConfig.erc20SwapAddress,
+    );
 
-    this.logger.debug(`Allowance of ${erc20Wallet.symbol} is ${allowance.toString()}`);
+    this.logger.debug(
+      `Allowance of ${erc20Wallet.symbol} is ${allowance.toString()}`,
+    );
 
     if (allowance == BigInt(0)) {
       this.logger.verbose(`Setting allowance of ${erc20Wallet.symbol}`);
@@ -186,7 +223,9 @@ class EthereumManager {
         MaxUint256,
       );
 
-      this.logger.info(`Set allowance of token ${erc20Wallet.symbol }: ${transactionId}`);
+      this.logger.info(
+        `Set allowance of token ${erc20Wallet.symbol}: ${transactionId}`,
+      );
     }
   };
 
@@ -198,7 +237,12 @@ class EthereumManager {
     const contractVersion = await contract.version();
 
     if (contractVersion !== supportedVersion) {
-      throw Errors.UNSUPPORTED_CONTRACT_VERSION(name, await contract.getAddress(), contractVersion, supportedVersion);
+      throw Errors.UNSUPPORTED_CONTRACT_VERSION(
+        name,
+        await contract.getAddress(),
+        contractVersion,
+        supportedVersion,
+      );
     }
   };
 }

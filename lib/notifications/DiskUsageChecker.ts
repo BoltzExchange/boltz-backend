@@ -12,7 +12,7 @@ class DiskUsageChecker {
   private alertSent = false;
 
   private static rootDir = '/';
-  private static gigabyte = 1024 ** 3;
+  private static gigabyte = 1024 ** 2;
   private static warningThreshold = 0.9;
 
   constructor(private logger: Logger, private discord: DiscordClient) {}
@@ -25,8 +25,15 @@ class DiskUsageChecker {
 
     if (usedPercentage >= DiskUsageChecker.warningThreshold) {
       if (!this.alertSent) {
-        const message = `${Emojis.RotatingLight} Disk usage is **${this.formatNumber(usedPercentage * 100)}%**: ` +
-          `**${this.formatNumber(this.convertToGb(available))} GB** of **${this.formatNumber(this.convertToGb(total))} GB** available ${Emojis.RotatingLight}`;
+        const message =
+          `${Emojis.RotatingLight} Disk usage is **${this.formatNumber(
+            usedPercentage * 100,
+          )}%**: ` +
+          `**${this.formatNumber(
+            this.convertToGb(available),
+          )} GB** of **${this.formatNumber(
+            this.convertToGb(total),
+          )} GB** available ${Emojis.RotatingLight}`;
 
         this.logger.warn(message);
         await this.discord.sendMessage(message);
@@ -40,27 +47,31 @@ class DiskUsageChecker {
 
   private getUsage = async (): Promise<DiskUsage> => {
     return new Promise((resolve, reject) => {
-      execFile('df', ['-P', '-k', DiskUsageChecker.rootDir], (error, stdout) => {
-        if (error) {
-          reject(error);
-          return;
-        }
+      execFile(
+        'df',
+        ['-P', '-k', DiskUsageChecker.rootDir],
+        (error, stdout) => {
+          if (error) {
+            reject(error);
+            return;
+          }
 
-        const lines = stdout.split('\n');
+          const lines = stdout.split('\n');
 
-        if (lines.length < 2) {
-          throw new Error(`unexpected df output: ${stdout}`);
-        }
+          if (lines.length < 2) {
+            throw new Error(`unexpected df output: ${stdout}`);
+          }
 
-        const parts = lines[1]
-          .split(' ')
-          .filter((x) => { return x !== ''; });
+          const parts = lines[1].split(' ').filter((x) => {
+            return x !== '';
+          });
 
-        resolve({
-          total: Number(parts[1]),
-          available: Number(parts[3]),
-        });
-      });
+          resolve({
+            total: Number(parts[1]),
+            available: Number(parts[3]),
+          });
+        },
+      );
     });
   };
 

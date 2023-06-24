@@ -1,20 +1,14 @@
+import Errors from '../../../lib/rates/Errors';
 import RateCalculator from '../../../lib/rates/RateCalculator';
 import DataAggregator from '../../../lib/rates/data/DataAggregator';
-import Errors from '../../../lib/rates/Errors';
 
 const ethBtcRate = 0.04269969;
-const ltcBtcRate = 0.00432060;
+const ltcBtcRate = 0.0043206;
 
 const aggregator = {
   latestRates: new Map<string, number>([
-    [
-      'ETH/BTC',
-      ethBtcRate,
-    ],
-    [
-      'LTC/BTC',
-      ltcBtcRate,
-    ],
+    ['ETH/BTC', ethBtcRate],
+    ['LTC/BTC', ltcBtcRate],
   ]),
 } as any as DataAggregator;
 
@@ -30,7 +24,9 @@ describe('RateCalculator', () => {
   });
 
   test('should route rate calculations via the BTC pairs', () => {
-    expect(calculator.calculateRate('ETH', 'LTC')).toEqual(ethBtcRate / ltcBtcRate);
+    expect(calculator.calculateRate('ETH', 'LTC')).toEqual(
+      ethBtcRate / ltcBtcRate,
+    );
   });
 
   test('should throw when rate cannot be calculated', () => {

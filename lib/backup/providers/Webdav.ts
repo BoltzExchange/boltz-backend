@@ -1,6 +1,6 @@
 import fs from 'fs';
 import { dirname } from 'path';
-import { createClient, WebDAVClient } from 'webdav';
+import { type WebDAVClient } from 'webdav';
 import { BackupProvider } from '../BackupScheduler';
 
 type WebdavConfig = {
@@ -10,19 +10,25 @@ type WebdavConfig = {
 };
 
 class Webdav implements BackupProvider {
-  private readonly client: WebDAVClient;
+  private client!: WebDAVClient;
 
-  constructor(config: WebdavConfig) {
-    this.client = createClient(config.url, {
-      username: config.username,
-      password: config.password,
+  constructor(private config: WebdavConfig) {}
+
+  public init = async () => {
+    // Hack to import the module in CommonJS
+    const imp = await (eval("import('webdav')") as Promise<
+      typeof import('webdav')
+    >);
+    this.client = imp.createClient(this.config.url, {
+      username: this.config.username,
+      password: this.config.password,
     });
-  }
+  };
 
   public static configValid = (config: WebdavConfig): boolean => {
-    return config.url !== '' &&
-      config.username !== '' &&
-      config.password !== '';
+    return (
+      config.url !== '' && config.username !== '' && config.password !== ''
+    );
   };
 
   public uploadString = async (path: string, data: string): Promise<void> => {
@@ -37,17 +43,19 @@ class Webdav implements BackupProvider {
 
     return new Promise((resolve, reject) => {
       const stats = fs.statSync(file);
-      fs.createReadStream(file).pipe(
-        this.client.createWriteStream(path, {
-          headers: {
-            'Content-Length': stats.size.toString(),
-          },
-          overwrite: true,
-        })
-          .on('error', (error) => {
-            reject(error);
-          }),
-      )
+      fs.createReadStream(file)
+        .pipe(
+          this.client
+            .createWriteStream(path, {
+              headers: {
+                'Content-Length': stats.size.toString(),
+              },
+              overwrite: true,
+            })
+            .on('error', (error) => {
+              reject(error);
+            }),
+        )
         .on('finish', () => {
           resolve();
         })

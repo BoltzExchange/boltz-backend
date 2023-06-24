@@ -18,7 +18,7 @@ jest.mock('../../../lib/Logger', () => {
   }));
 });
 
-const mockedLogger = <jest.Mock<Logger>><any> Logger;
+const mockedLogger = <jest.Mock<Logger>>(<any>Logger);
 
 let emitChannelBackup: callback;
 
@@ -34,10 +34,17 @@ jest.mock('../../../lib/service/EventHandler', () => {
   });
 });
 
-const mockedEventHandler = <jest.Mock<EventHandler>><any> EventHandler;
+const mockedEventHandler = <jest.Mock<EventHandler>>(<any>EventHandler);
 
-const mockUploadString = jest.fn().mockImplementation(() => Promise.resolve());
-const mockUploadFile = jest.fn().mockImplementation(() => Promise.resolve());
+let mockUploadStringImplementation = () => Promise.resolve();
+const mockUploadString = jest
+  .fn()
+  .mockImplementation(() => mockUploadStringImplementation());
+
+let mockUploadFileImplementation = () => Promise.resolve();
+const mockUploadFile = jest
+  .fn()
+  .mockImplementation(() => mockUploadFileImplementation());
 
 jest.mock('../../../lib/backup/providers/Webdav', () => {
   return jest.fn().mockImplementation(() => {
@@ -48,7 +55,7 @@ jest.mock('../../../lib/backup/providers/Webdav', () => {
   });
 });
 
-const mockedWebdav = <jest.Mock<Webdav>><any> Webdav;
+const mockedWebdav = <jest.Mock<Webdav>>(<any>Webdav);
 
 describe('BackupScheduler', () => {
   const dbPath = 'backend.db';
@@ -83,11 +90,16 @@ describe('BackupScheduler', () => {
     const addLeadingZeros = BackupScheduler['addLeadingZeros'];
 
     expect(dateString).toEqual(
-      `${date.getFullYear()}${addLeadingZeros(date.getMonth())}${addLeadingZeros(date.getDate())}` +
-      `-${addLeadingZeros(date.getHours())}${addLeadingZeros(date.getMinutes())}`);
+      `${date.getFullYear()}${addLeadingZeros(
+        date.getMonth(),
+      )}${addLeadingZeros(date.getDate())}` +
+        `-${addLeadingZeros(date.getHours())}${addLeadingZeros(
+          date.getMinutes(),
+        )}`,
+    );
   });
 
-  test('should upload the database', async () =>  {
+  test('should upload the database', async () => {
     const date = new Date();
     const dateString = BackupScheduler['getDate'](date);
 
@@ -103,7 +115,8 @@ describe('BackupScheduler', () => {
   test('should upload LND multi channel backups', async () => {
     const date = new Date();
     const dateString = BackupScheduler['getDate'](date);
-    const channelBackup = 'b3be5ae30c223333b693a1f310e92edbae2c354abfd8a87ec2c36862c576cde4';
+    const channelBackup =
+      'b3be5ae30c223333b693a1f310e92edbae2c354abfd8a87ec2c36862c576cde4';
 
     backupScheduler['subscribeChannelBackups']();
     emitChannelBackup(channelBackupCurrency, channelBackup);
@@ -113,6 +126,19 @@ describe('BackupScheduler', () => {
       `lnd/BTC/multiChannelBackup-${dateString}`,
       channelBackup,
     );
+  });
+
+  test('should not throw when upload fails', async () => {
+    mockUploadStringImplementation = () => Promise.reject('service offline');
+
+    backupScheduler['subscribeChannelBackups']();
+    emitChannelBackup(channelBackupCurrency, 'some-data');
+    expect(mockUploadString).toHaveBeenCalledTimes(1);
+
+    mockUploadFileImplementation = () => Promise.reject('not working');
+
+    await backupScheduler.uploadDatabase(new Date());
+    expect(mockUploadString).toHaveBeenCalledTimes(1);
   });
 
   test('should not throw if the Google API private key does not exist', () => {
@@ -134,6 +160,8 @@ describe('BackupScheduler', () => {
     );
 
     expect(mockWarn).toHaveBeenCalledTimes(1);
-    expect(mockWarn).toHaveBeenCalledWith(`Could not start backup scheduler: Error: ENOENT: no such file or directory, open '${path}'`);
+    expect(mockWarn).toHaveBeenCalledWith(
+      `Could not start backup scheduler: Error: ENOENT: no such file or directory, open '${path}'`,
+    );
   });
 });

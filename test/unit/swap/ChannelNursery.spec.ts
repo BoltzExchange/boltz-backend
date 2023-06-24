@@ -10,7 +10,11 @@ import { ChannelPoint } from '../../../lib/proto/lnd/rpc_pb';
 import ChannelNursery from '../../../lib/swap/ChannelNursery';
 import ChannelCreation from '../../../lib/db/models/ChannelCreation';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
-import { ChannelCreationStatus, OrderSide, SwapUpdateEvent } from '../../../lib/consts/Enums';
+import {
+  ChannelCreationStatus,
+  OrderSide,
+  SwapUpdateEvent,
+} from '../../../lib/consts/Enums';
 import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
 
 let mockGetSwapResult: any = {
@@ -56,24 +60,28 @@ jest.mock('../../../lib/chain/ChainClient', () => {
   });
 });
 
-const MockedChainClient = <jest.Mock<ChainClient>><any>ChainClient;
+const MockedChainClient = <jest.Mock<ChainClient>>(<any>ChainClient);
 
 type peerOnlineCallback = (nodePublicKey: string) => Promise<void>;
-type channelActiveCallback = (channelPoint: ChannelPoint.AsObject) => Promise<void>;
+type channelActiveCallback = (
+  channelPoint: ChannelPoint.AsObject,
+) => Promise<void>;
 
 let emitPeerOnline: peerOnlineCallback;
 let emitChannelActive: channelActiveCallback;
 
-const mockOnLndClient = jest.fn().mockImplementation((event: string, callback: any) => {
-  switch (event) {
-    case 'peer.online':
-      emitPeerOnline = callback;
-      break;
-    case 'channel.active':
-      emitChannelActive = callback;
-      break;
-  }
-});
+const mockOnLndClient = jest
+  .fn()
+  .mockImplementation((event: string, callback: any) => {
+    switch (event) {
+      case 'peer.online':
+        emitPeerOnline = callback;
+        break;
+      case 'channel.active':
+        emitChannelActive = callback;
+        break;
+    }
+  });
 
 let mockListPeersResult: any[] = [];
 const mockListPeers = jest.fn().mockImplementation(async () => {
@@ -112,7 +120,7 @@ jest.mock('../../../lib/lightning/LndClient', () => {
   });
 });
 
-const MockedLndClient = <jest.Mock<LndClient>><any>LndClient;
+const MockedLndClient = <jest.Mock<LndClient>>(<any>LndClient);
 
 let mockConnectByPublicKeyShouldThrow = false;
 const mockConnectByPublicKey = jest.fn().mockImplementation(async () => {
@@ -165,10 +173,7 @@ describe('ChannelNursery', () => {
     ChannelCreationRepository.setFundingTransaction = mockSetFundingTransaction;
 
     // Reset the injected mocked methods
-    channelNursery = new ChannelNursery(
-      Logger.disabledLogger,
-      mockSettleSwap,
-    );
+    channelNursery = new ChannelNursery(Logger.disabledLogger, mockSettleSwap);
 
     channelNursery['currencies'].set(btcCurrency.symbol, btcCurrency);
     channelNursery['currencies'].set(ltcCurrency.symbol, ltcCurrency);
@@ -229,7 +234,11 @@ describe('ChannelNursery', () => {
     expect(mockGetSwap).toHaveBeenCalledWith({
       id: mockGetChannelCreationsResult[0].swapId,
       status: {
-        [Op.not]: SwapUpdateEvent.SwapExpired,
+        [Op.notIn]: [
+          SwapUpdateEvent.SwapExpired,
+          SwapUpdateEvent.InvoicePaid,
+          SwapUpdateEvent.TransactionClaimed,
+        ],
       },
     });
 
@@ -262,7 +271,8 @@ describe('ChannelNursery', () => {
     expect(mockGetChannelCreation).toHaveBeenCalledWith({
       fundingTransactionVout: 1,
       status: ChannelCreationStatus.Created,
-      fundingTransactionId: '059a4a673f9984e236037b04317f7d042378227bfdd82e12dd55b0bf67a6773e',
+      fundingTransactionId:
+        '059a4a673f9984e236037b04317f7d042378227bfdd82e12dd55b0bf67a6773e',
     });
 
     expect(mockGetSwap).toHaveBeenCalledTimes(4);
@@ -274,7 +284,10 @@ describe('ChannelNursery', () => {
     });
 
     expect(mockSettleChannelWrapper).toHaveBeenCalledTimes(1);
-    expect(mockSettleChannelWrapper).toHaveBeenCalledWith(mockGetSwapResult, mockGetChannelCreationResult);
+    expect(mockSettleChannelWrapper).toHaveBeenCalledWith(
+      mockGetSwapResult,
+      mockGetChannelCreationResult,
+    );
 
     // Should not settle expired Swaps
     mockGetSwapResult.status = SwapUpdateEvent.SwapExpired;
@@ -295,7 +308,8 @@ describe('ChannelNursery', () => {
 
   test('should open channels', async () => {
     const swap = {
-      invoice: 'lnbcrt10m1p0delccpp5p5cac22nngz4qhauqp26dqpjpcj0axgqdlvpuu3nl43vcftez46qdqqcqzpgsp5vc9fq50g5g4mazplly5ac906udwx345uk75rad5fh8m75c8xupeq9qy9qsqyc78aqkraklr0jcg6lrg6ha736y7c6ldvjvqfn6zqq90azvzn2znyhdvz0applw2cym58gs32zytlzz943pr9csfluhhxpl88efglycpfqzqy9',
+      invoice:
+        'lnbcrt10m1p0delccpp5p5cac22nngz4qhauqp26dqpjpcj0axgqdlvpuu3nl43vcftez46qdqqcqzpgsp5vc9fq50g5g4mazplly5ac906udwx345uk75rad5fh8m75c8xupeq9qy9qsqyc78aqkraklr0jcg6lrg6ha736y7c6ldvjvqfn6zqq90azvzn2znyhdvz0applw2cym58gs32zytlzz943pr9csfluhhxpl88efglycpfqzqy9',
     } as any as Swap;
 
     const channelCreation = {
@@ -311,12 +325,15 @@ describe('ChannelNursery', () => {
 
     let eventEmitted = false;
 
-    channelNursery.once('channel.created', (eventSwap: Swap, eventChannelCreation: ChannelCreation) => {
-      expect(eventSwap).toEqual(swap);
-      expect(eventChannelCreation).toEqual(channelCreation);
+    channelNursery.once(
+      'channel.created',
+      (eventSwap: Swap, eventChannelCreation: ChannelCreation) => {
+        expect(eventSwap).toEqual(swap);
+        expect(eventChannelCreation).toEqual(channelCreation);
 
-      eventEmitted = true;
-    });
+        eventEmitted = true;
+      },
+    );
 
     await channelNursery.openChannel(btcCurrency, swap, channelCreation);
 
@@ -336,13 +353,21 @@ describe('ChannelNursery', () => {
     );
 
     expect(mockSetSwapStatus).toHaveBeenCalledTimes(1);
-    expect(mockSetSwapStatus).toHaveBeenCalledWith(swap, SwapUpdateEvent.ChannelCreated);
+    expect(mockSetSwapStatus).toHaveBeenCalledWith(
+      swap,
+      SwapUpdateEvent.ChannelCreated,
+    );
 
     expect(mockSetFundingTransaction).toHaveBeenCalledTimes(1);
-    expect(mockSetFundingTransaction).toHaveBeenCalledWith(channelCreation, '4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b', 2);
+    expect(mockSetFundingTransaction).toHaveBeenCalledWith(
+      channelCreation,
+      '4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b',
+      2,
+    );
 
     // Should retry when the error indicates that our LND is syncing
-    mockOpenChannelResponse = '2 UNKNOWN: channels cannot be created before the wallet is fully synced';
+    mockOpenChannelResponse =
+      '2 UNKNOWN: channels cannot be created before the wallet is fully synced';
 
     setTimeout(() => {
       mockOpenChannelResponse = {};
@@ -353,7 +378,8 @@ describe('ChannelNursery', () => {
     expect(mockOpenChannel).toHaveBeenCalledTimes(3);
 
     // Should retry when the error indicated that the remote LND is syncing
-    mockOpenChannelResponse = '2 UNKNOWN: received funding error from 0380e1dbcae8ca0df4eb8dca5b7262808c68c9a4eb662fa599db3e6fbaad95e97b: chan_id=4c63f4f69b447ff1c3bb2d729b0ae9349c6687a65540edcf15abb1c936dd24d0, err=Synchronizing blockchain';
+    mockOpenChannelResponse =
+      '2 UNKNOWN: received funding error from 0380e1dbcae8ca0df4eb8dca5b7262808c68c9a4eb662fa599db3e6fbaad95e97b: chan_id=4c63f4f69b447ff1c3bb2d729b0ae9349c6687a65540edcf15abb1c936dd24d0, err=Synchronizing blockchain';
 
     setTimeout(() => {
       mockOpenChannelResponse = {};
@@ -365,7 +391,8 @@ describe('ChannelNursery', () => {
 
     // Should try to connect to remote node when not connected already
     mockConnectByPublicKeyShouldThrow = false;
-    mockOpenChannelResponse = '2 UNKNOWN: peer 02d4c41c75f79c52d31014f0665f327c47f92505217d9a8b75019374a6ebd04ce0 is not online';
+    mockOpenChannelResponse =
+      '2 UNKNOWN: peer 02d4c41c75f79c52d31014f0665f327c47f92505217d9a8b75019374a6ebd04ce0 is not online';
 
     await channelNursery.openChannel(btcCurrency, swap, channelCreation);
 
@@ -415,15 +442,17 @@ describe('ChannelNursery', () => {
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockGetSwap).toHaveBeenCalledWith({
       id: mockGetChannelCreationsResult[0].swapId,
-      status: {
-        [Op.not]: SwapUpdateEvent.SwapExpired,
-      },
+      status: SwapUpdateEvent.InvoicePending,
     });
 
     expect(mockListPeers).toHaveBeenCalledTimes(1);
 
     expect(mockOpenChannel).toHaveBeenCalledTimes(1);
-    expect(mockOpenChannel).toHaveBeenCalledWith(btcCurrency, mockGetSwapResult, mockGetChannelCreationsResult[0]);
+    expect(mockOpenChannel).toHaveBeenCalledWith(
+      btcCurrency,
+      mockGetSwapResult,
+      mockGetChannelCreationsResult[0],
+    );
 
     // Should not try to open a channel if no or too little onchain coins were sent
     mockGetSwapResult.expectedAmount = mockGetSwapResult.onchainAmount + 1;
@@ -454,15 +483,18 @@ describe('ChannelNursery', () => {
     } as any as ChannelCreation;
 
     mockListChannelsResult = [
-      { channelPoint: `someOtherChannel:${ channelCreation.fundingTransactionVout }`,
+      {
+        channelPoint: `someOtherChannel:${channelCreation.fundingTransactionVout}`,
         chanId: 'wrong',
       },
       {
-        channelPoint: `${ channelCreation.fundingTransactionId }:${ channelCreation.fundingTransactionVout! - 1 }`,
+        channelPoint: `${channelCreation.fundingTransactionId}:${
+          channelCreation.fundingTransactionVout! - 1
+        }`,
         chanId: 'wrong',
       },
       {
-        channelPoint: `${ channelCreation.fundingTransactionId }:${ channelCreation.fundingTransactionVout }`,
+        channelPoint: `${channelCreation.fundingTransactionId}:${channelCreation.fundingTransactionVout}`,
         chanId: 'correct',
       },
     ];
@@ -587,8 +619,16 @@ describe('ChannelNursery', () => {
     await channelNursery['settleCreatedChannels']();
 
     expect(settleChannel).toHaveBeenCalledTimes(2);
-    expect(settleChannel).toHaveBeenNthCalledWith(1, mockGetSwapResult, mockGetChannelCreationsResult[0]);
-    expect(settleChannel).toHaveBeenNthCalledWith(2, mockGetSwapResult, mockGetChannelCreationsResult[1]);
+    expect(settleChannel).toHaveBeenNthCalledWith(
+      1,
+      mockGetSwapResult,
+      mockGetChannelCreationsResult[0],
+    );
+    expect(settleChannel).toHaveBeenNthCalledWith(
+      2,
+      mockGetSwapResult,
+      mockGetChannelCreationsResult[1],
+    );
 
     expect(mockGetChannelCreations).toHaveBeenCalledTimes(1);
     expect(mockGetChannelCreations).toHaveBeenCalledWith({
@@ -630,15 +670,12 @@ describe('ChannelNursery', () => {
 
   test('should parse IDs of funding transactions', () => {
     expect(
-      channelNursery['parseFundingTransactionId']('PnemZ7+wVd0SLtj9eyJ4IwR9fzEEewM24oSZP2dKmgU='),
-    ).toEqual('059a4a673f9984e236037b04317f7d042378227bfdd82e12dd55b0bf67a6773e');
-  });
-
-  test('should split channel points', () => {
-    expect(channelNursery['splitChannelPoint']('059a4a673f9984e236037b04317f7d042378227bfdd82e12dd55b0bf67a6773e:1')).toEqual({
-      vout: 1,
-      id: '059a4a673f9984e236037b04317f7d042378227bfdd82e12dd55b0bf67a6773e',
-    });
+      channelNursery['parseFundingTransactionId'](
+        'PnemZ7+wVd0SLtj9eyJ4IwR9fzEEewM24oSZP2dKmgU=',
+      ),
+    ).toEqual(
+      '059a4a673f9984e236037b04317f7d042378227bfdd82e12dd55b0bf67a6773e',
+    );
   });
 
   test('should get currencies', () => {

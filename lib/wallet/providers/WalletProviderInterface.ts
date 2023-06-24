@@ -1,4 +1,5 @@
 import { Transaction } from 'bitcoinjs-lib';
+import { Transaction as LiquidTransaction } from 'liquidjs-lib';
 
 type WalletBalance = {
   totalBalance: number;
@@ -12,7 +13,7 @@ type SentTransaction = {
   vout?: number;
   transactionId: string;
 
-  transaction?: Transaction;
+  transaction?: Transaction | LiquidTransaction;
 };
 
 interface WalletProviderInterface {
@@ -29,7 +30,11 @@ interface WalletProviderInterface {
    * @param amount
    * @param relativeFee
    */
-  sendToAddress: (address: string, amount: number, relativeFee?: number) => Promise<SentTransaction>;
+  sendToAddress: (
+    address: string,
+    amount: number,
+    relativeFee?: number,
+  ) => Promise<SentTransaction>;
 
   /**
    * Sweeps the wallet
@@ -37,7 +42,10 @@ interface WalletProviderInterface {
    * @param address
    * @param relativeFee
    */
-  sweepWallet: (address: string, relativeFee?: number) => Promise<SentTransaction>;
+  sweepWallet: (
+    address: string,
+    relativeFee?: number,
+  ) => Promise<SentTransaction>;
 }
 
 export default WalletProviderInterface;

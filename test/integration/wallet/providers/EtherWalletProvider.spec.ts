@@ -19,9 +19,10 @@ describe('EtherWalletProvider', () => {
   test('should get balance', async () => {
     await fundSignerWallet(setup.signer, setup.etherBase);
 
-    const balance = Number((
-      await setup.provider.getBalance(await setup.signer.getAddress())
-    ) / etherDecimals);
+    const balance = Number(
+      (await setup.provider.getBalance(await setup.signer.getAddress())) /
+        etherDecimals,
+    );
 
     expect(await wallet.getBalance()).toEqual({
       totalBalance: balance,
@@ -32,7 +33,10 @@ describe('EtherWalletProvider', () => {
 
   test('should send to address', async () => {
     const amount = 1000000;
-    const { transactionId } = await wallet.sendToAddress(await setup.signer.getAddress(), amount);
+    const { transactionId } = await wallet.sendToAddress(
+      await setup.signer.getAddress(),
+      amount,
+    );
     await setup.provider!.waitForTransaction(transactionId);
 
     const transaction = await setup.provider.getTransaction(transactionId);
@@ -40,20 +44,25 @@ describe('EtherWalletProvider', () => {
   });
 
   test('should sweep wallet', async () => {
-    const balance = await setup.provider.getBalance(await setup.signer.getAddress());
+    const balance = await setup.provider.getBalance(
+      await setup.signer.getAddress(),
+    );
 
-    const { transactionId } = await wallet.sweepWallet(await setup.etherBase.getAddress());
+    const { transactionId } = await wallet.sweepWallet(
+      await setup.etherBase.getAddress(),
+    );
 
     const transaction = await setup.provider.getTransaction(transactionId);
     const receipt = await setup.provider.waitForTransaction(transactionId);
 
-    const sentInTransaction = transaction!.value + (receipt!.gasUsed * (transaction!.maxFeePerGas!));
+    const sentInTransaction =
+      transaction!.value + receipt!.gasUsed * transaction!.maxFeePerGas!;
 
     expect(balance).toEqual(sentInTransaction);
 
     expect(
-      await setup.provider.getBalance(await setup.signer.getAddress())
-    ).toEqual((transaction!.maxFeePerGas! * receipt!.gasUsed) - receipt!.fee);
+      await setup.provider.getBalance(await setup.signer.getAddress()),
+    ).toEqual(transaction!.maxFeePerGas! * receipt!.gasUsed - receipt!.fee);
   });
 
   afterAll(() => {

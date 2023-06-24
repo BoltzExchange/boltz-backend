@@ -1,13 +1,23 @@
-import zmq, { Socket } from 'zeromq';
 import { randomBytes } from 'crypto';
 import { OutputType } from 'boltz-core';
-import { Transaction, crypto } from 'bitcoinjs-lib';
+import { socket, Socket } from 'zeromq';
+import { crypto, Transaction } from 'bitcoinjs-lib';
 import Logger from '../../../lib/Logger';
 import Errors from '../../../lib/chain/Errors';
 import FakedChainClient from './FakeChainClient';
+import { CurrencyType } from '../../../lib/consts/Enums';
 import { getHexString, reverseBuffer } from '../../../lib/Utils';
-import ZmqClient, { ZmqNotification, filters } from '../../../lib/chain/ZmqClient';
-import { generateAddress, waitForFunctionToBeTrue, wait, getPort } from '../../Utils';
+import ZmqClient, {
+  filters,
+  ZmqNotification,
+} from '../../../lib/chain/ZmqClient';
+import {
+  generateAddress,
+  getPort,
+  wait,
+  waitForFunctionToBeTrue,
+} from '../../Utils';
+import ChainClient from '../../../lib/chain/ChainClient';
 
 class ZmqPublisher {
   public address: string;
@@ -19,7 +29,7 @@ class ZmqPublisher {
     this.address = `tcp://127.0.0.1:${port}`;
     this.filter = filter.replace('pub', '');
 
-    this.socket = zmq.socket('pub');
+    this.socket = socket('pub');
     this.socket.bindSync(this.address);
   }
 
@@ -68,11 +78,7 @@ describe('ZmqClient', () => {
   const zmqClient = new ZmqClient(
     'BTC',
     Logger.disabledLogger,
-    chainClient.getBlock,
-    chainClient.getBlockchainInfo,
-    chainClient.getBlockhash,
-    chainClient.getBlockVerbose,
-    chainClient.getRawTransactionVerbose,
+    chainClient as unknown as ChainClient,
   );
 
   beforeAll(async () => {
@@ -86,15 +92,13 @@ describe('ZmqClient', () => {
     const rejectZmqClient = new ZmqClient(
       'BTC',
       Logger.disabledLogger,
-      chainClient.getBlock,
-      chainClient.getBlockchainInfo,
-      chainClient.getBlockhash,
-      chainClient.getBlockVerbose,
-      chainClient.getRawTransactionVerbose,
+      chainClient as unknown as ChainClient,
     );
     const notifications: ZmqNotification[] = [];
 
-    await expect(rejectZmqClient.init(notifications)).rejects.toEqual(Errors.NO_RAWTX());
+    await expect(
+      rejectZmqClient.init(CurrencyType.BitcoinLike, notifications),
+    ).rejects.toEqual(Errors.NO_RAWTX());
     await rejectZmqClient.close();
 
     notifications.push({
@@ -102,7 +106,9 @@ describe('ZmqClient', () => {
       address: rawTx.address,
     });
 
-    await expect(rejectZmqClient.init(notifications)).rejects.toEqual(Errors.NO_BLOCK_NOTIFICATIONS());
+    await expect(
+      rejectZmqClient.init(CurrencyType.BitcoinLike, notifications),
+    ).rejects.toEqual(Errors.NO_BLOCK_NOTIFICATIONS());
     await rejectZmqClient.close();
   });
 
@@ -122,7 +128,7 @@ describe('ZmqClient', () => {
       },
     ];
 
-    await zmqClient.init(notifications);
+    await zmqClient.init(CurrencyType.BitcoinLike, notifications);
 
     zmqClient.relevantOutputs.add(getHexString(outputScript));
   });
@@ -178,7 +184,7 @@ describe('ZmqClient', () => {
   });
 
   test('should handle raw transactions', async () => {
-    let blockAcceptance  = false;
+    let blockAcceptance = false;
     let mempoolAcceptance = false;
 
     zmqClient.on('transaction', (_, confirmed) => {
@@ -334,12 +340,20 @@ describe('ZmqClient', () => {
 
     expect(zmqClient['sockets'].length).toEqual(3);
 
-    await expect(createSocket(rawTx.address, filter)).resolves.toEqual(expect.anything());
+    await expect(createSocket(rawTx.address, filter)).resolves.toEqual(
+      expect.anything(),
+    );
 
     expect(zmqClient['sockets'].length).toEqual(4);
 
     const invalidAddress = `tcp://127.0.0.1:${await getPort()}`;
-    await expect(createSocket(invalidAddress, filter)).rejects.toEqual(Errors.ZMQ_CONNECTION_TIMEOUT(zmqClient['symbol'], filter, invalidAddress));
+    await expect(createSocket(invalidAddress, filter)).rejects.toEqual(
+      Errors.ZMQ_CONNECTION_TIMEOUT(
+        zmqClient['symbol'],
+        filter,
+        invalidAddress,
+      ),
+    );
 
     expect(zmqClient['sockets'].length).toEqual(5);
   });

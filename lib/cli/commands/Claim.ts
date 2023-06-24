@@ -1,11 +1,11 @@
 import { Arguments } from 'yargs';
-import { address, Transaction } from 'bitcoinjs-lib';
-import { Networks, constructClaimTransaction, detectSwap } from 'boltz-core';
-import { ECPair } from '../../ECPairHelper';
+import { prepareTx } from '../Command';
 import BuilderComponents from '../BuilderComponents';
 import { getHexBuffer, stringify } from '../../Utils';
+import { constructClaimTransaction } from '../../Core';
 
-export const command = 'claim <network> <preimage> <privateKey> <redeemScript> <rawTransaction> <destinationAddress> [feePerVbyte]';
+export const command =
+  'claim <network> <preimage> <privateKey> <redeemScript> <rawTransaction> <destinationAddress> [feePerVbyte] [blindingKey]';
 
 export const describe = 'claims reverse submarine or chain to chain swaps';
 
@@ -20,27 +20,35 @@ export const builder = {
     type: 'string',
   },
   feePerVbyte: BuilderComponents.feePerVbyte,
+  blindingKey: BuilderComponents.blindingKey,
 };
 
-export const handler = (argv: Arguments<any>): void => {
-  const network = Networks[argv.network];
-
-  const redeemScript = getHexBuffer(argv.redeemScript);
-  const transaction = Transaction.fromHex(argv.rawTransaction);
-
-  const swapOutput = detectSwap(redeemScript, transaction)!;
+export const handler = async (argv: Arguments<any>): Promise<void> => {
+  const {
+    keys,
+    network,
+    walletStub,
+    swapOutput,
+    transaction,
+    redeemScript,
+    destinationAddress,
+  } = await prepareTx(argv);
 
   const claimTransaction = constructClaimTransaction(
-    [{
-      ...swapOutput,
-      txHash: transaction.getHash(),
-      preimage: getHexBuffer(argv.preimage),
-      redeemScript: getHexBuffer(argv.redeemScript),
-      keys: ECPair.fromPrivateKey(getHexBuffer(argv.privateKey)),
-    }],
-    address.toOutputScript(argv.destinationAddress, network),
+    walletStub,
+    [
+      {
+        ...swapOutput,
+        keys,
+        redeemScript,
+        txHash: transaction.getHash(),
+        preimage: getHexBuffer(argv.preimage),
+      } as any,
+    ],
+    destinationAddress,
     argv.feePerVbyte,
-    true,
+    // Needed for Liquid
+    network.assetHash,
   ).toHex();
 
   console.log(stringify({ claimTransaction }));

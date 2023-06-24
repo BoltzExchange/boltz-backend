@@ -4,11 +4,15 @@ import { ContractTransactionResponse } from 'ethers';
 import { getHexBuffer } from '../../../Utils';
 import BuilderComponents from '../../BuilderComponents';
 import { connectEthereum, getContracts } from '../EthereumUtils';
-import { queryERC20SwapValues, queryEtherSwapValues } from '../../../wallet/ethereum/ContractUtils';
+import {
+  queryERC20SwapValues,
+  queryEtherSwapValues,
+} from '../../../wallet/ethereum/ContractUtils';
 
 export const command = 'claim <preimage> [token]';
 
-export const describe = 'claims Ether or a ERC20 token from the corresponding swap contract';
+export const describe =
+  'claims Ether or a ERC20 token from the corresponding swap contract';
 
 export const builder = {
   preimage: {
@@ -27,7 +31,10 @@ export const handler = async (argv: Arguments<any>): Promise<void> => {
   let transaction: ContractTransactionResponse;
 
   if (argv.token) {
-    const erc20SwapValues = await queryERC20SwapValues(erc20Swap, crypto.sha256(preimage));
+    const erc20SwapValues = await queryERC20SwapValues(
+      erc20Swap,
+      crypto.sha256(preimage),
+    );
     transaction = await erc20Swap.claim(
       preimage,
       erc20SwapValues.amount,
@@ -36,7 +43,10 @@ export const handler = async (argv: Arguments<any>): Promise<void> => {
       erc20SwapValues.timelock,
     );
   } else {
-    const etherSwapValues = await queryEtherSwapValues(etherSwap, crypto.sha256(preimage));
+    const etherSwapValues = await queryEtherSwapValues(
+      etherSwap,
+      crypto.sha256(preimage),
+    );
     transaction = await etherSwap.claim(
       preimage,
       etherSwapValues.amount,
@@ -47,5 +57,7 @@ export const handler = async (argv: Arguments<any>): Promise<void> => {
 
   await transaction.wait(1);
 
-  console.log(`Claimed ${argv.token ? 'ERC20 token' : 'Ether'} in: ${transaction.hash}`);
+  console.log(
+    `Claimed ${argv.token ? 'ERC20 token' : 'Ether'} in: ${transaction.hash}`,
+  );
 };

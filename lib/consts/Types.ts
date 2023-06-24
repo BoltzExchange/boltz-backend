@@ -1,4 +1,5 @@
 import { ERC20 } from 'boltz-core/typechain/ERC20';
+import { PairTimeoutBlocksDelta } from '../service/TimeoutDeltaProvider';
 
 export type EtherSwapValues = {
   preimageHash: Buffer;
@@ -37,7 +38,10 @@ export type PairConfig = {
   rate?: number;
 
   // The timeout of the swaps on this pair in minutes
-  timeoutDelta?: number;
+  timeoutDelta?: PairTimeoutBlocksDelta | number;
+
+  minSwapAmount: number;
+  maxSwapAmount: number;
 };
 
 /**
@@ -153,13 +157,13 @@ export type NetworkInfo = {
 export type UnspentUtxo = {
   txid: string;
   vout: number;
-  address: string;
-  label: string;
+  address?: string;
+  label?: string;
   scriptPubKey: string;
   amount: number;
   confirmations: number;
-  redeemScript: string;
-  witnessScript: string;
+  redeemScript?: string;
+  witnessScript?: string;
   spendable: boolean;
   solvable: boolean;
   desc?: string;

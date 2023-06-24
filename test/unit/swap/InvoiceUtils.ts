@@ -5,7 +5,10 @@ import { getHexString, getUnixTime } from '../../../lib/Utils';
 
 const invoiceSigningKeys = ECPair.makeRandom();
 
-export const createInvoice = (preimageHash?: string, timestamp?: number): string => {
+export const createInvoice = (
+  preimageHash?: string,
+  timestamp?: number,
+): string => {
   const invoiceEncode = bolt11.encode({
     satoshis: 100,
     timestamp: timestamp || getUnixTime(),
@@ -18,5 +21,6 @@ export const createInvoice = (preimageHash?: string, timestamp?: number): string
     ],
   });
 
-  return bolt11.sign(invoiceEncode, invoiceSigningKeys.privateKey!).paymentRequest!;
+  return bolt11.sign(invoiceEncode, invoiceSigningKeys.privateKey!)
+    .paymentRequest!;
 };

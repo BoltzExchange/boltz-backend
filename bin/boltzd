@@ -56,4 +56,7 @@ delete argv.help;
 delete argv.$0;
 
 const boltz = new Boltz(argv);
-boltz.start();
+
+(async () => {
+  await boltz.start();
+})();

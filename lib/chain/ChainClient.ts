@@ -1,28 +1,57 @@
 import { Transaction } from 'bitcoinjs-lib';
+import { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import Logger from '../Logger';
 import RpcClient from './RpcClient';
 import BaseClient from '../BaseClient';
 import { ChainConfig } from '../Config';
 import MempoolSpace from './MempoolSpace';
-import { ClientStatus } from '../consts/Enums';
 import { formatError, getHexString } from '../Utils';
+import { ClientStatus, CurrencyType } from '../consts/Enums';
 import ZmqClient, { filters, ZmqNotification } from './ZmqClient';
 import ChainTipRepository from '../db/repositories/ChainTipRepository';
-import { Block, BlockchainInfo, BlockVerbose, NetworkInfo, RawTransaction, UnspentUtxo, WalletInfo } from '../consts/Types';
+import {
+  Block,
+  BlockchainInfo,
+  BlockVerbose,
+  NetworkInfo,
+  RawTransaction,
+  UnspentUtxo,
+  WalletInfo,
+} from '../consts/Types';
+
+enum AddressType {
+  Legacy = 'legacy',
+  P2shegwit = 'p2sh-segwit',
+  Bech32 = 'bech32',
+  Taproot = 'bech32m',
+}
 
 interface ChainClient {
   on(event: 'block', listener: (height: number) => void): this;
   emit(event: 'block', height: number): boolean;
 
-  on(event: 'transaction', listener: (transaction: Transaction, confirmed: boolean) => void): this;
-  emit(event: 'transaction', transaction: Transaction, confirmed: boolean): boolean;
+  on(
+    event: 'transaction',
+    listener: (
+      transaction: Transaction | LiquidTransaction,
+      confirmed: boolean,
+    ) => void,
+  ): this;
+  emit(
+    event: 'transaction',
+    transaction: Transaction | LiquidTransaction,
+    confirmed: boolean,
+  ): boolean;
 }
 
 class ChainClient extends BaseClient {
   public static readonly decimals = 100000000;
 
-  private client: RpcClient;
-  public zmqClient: ZmqClient;
+  public currencyType: CurrencyType = CurrencyType.BitcoinLike;
+
+  protected client: RpcClient;
+  protected zmqClient: ZmqClient;
+  protected feeFloor = 2;
 
   private readonly mempoolSpace?: MempoolSpace;
 
@@ -34,15 +63,7 @@ class ChainClient extends BaseClient {
     super();
 
     this.client = new RpcClient(this.config);
-    this.zmqClient = new ZmqClient(
-      symbol,
-      logger,
-      this.getBlock,
-      this.getBlockchainInfo,
-      this.getBlockhash,
-      this.getBlockVerbose,
-      this.getRawTransactionVerbose,
-    );
+    this.zmqClient = new ZmqClient(symbol, logger, this);
 
     if (this.config.mempoolSpace && this.config.mempoolSpace !== '') {
       this.mempoolSpace = new MempoolSpace(
@@ -56,10 +77,14 @@ class ChainClient extends BaseClient {
   public connect = async (): Promise<void> => {
     let zmqNotifications: ZmqNotification[] = [];
 
-    if (this.config.zmqpubrawtx !== undefined &&
-      (this.config.zmqpubrawblock !== undefined || this.config.zmqpubhashblock !== undefined))
-    {
-      this.logger.debug(`Using configured ZMQ endpoints for ${this.symbol} client`);
+    if (
+      this.config.zmqpubrawtx !== undefined &&
+      (this.config.zmqpubrawblock !== undefined ||
+        this.config.zmqpubhashblock !== undefined)
+    ) {
+      this.logger.debug(
+        `Using configured ZMQ endpoints for ${this.symbol} client`,
+      );
 
       if (this.config.zmqpubrawtx) {
         zmqNotifications.push({
@@ -82,22 +107,26 @@ class ChainClient extends BaseClient {
         });
       }
     } else {
-      this.logger.debug(`ZMQ endpoints for ${this.symbol} client not configured; fetching from RPC`);
+      this.logger.debug(
+        `ZMQ endpoints for ${this.symbol} client not configured; fetching from RPC`,
+      );
 
-      // Dogecoin Core and Zcash don't support the "getzmqnotifications" method *yet*
+      // Dogecoin Core and Zcash don't support the 'getzmqnotifications' method *yet*
       // Therefore, the hosts and ports for these chains have to be configured manually
       try {
         zmqNotifications = await this.getZmqNotifications();
       } catch (error) {
         if ((error as any).message === 'Method not found') {
-          this.logger.warn(`${this.symbol} client does not support fetching ZMQ endpoints. Please set them in the config`);
+          this.logger.warn(
+            `${this.symbol} client does not support fetching ZMQ endpoints. Please set them in the config`,
+          );
         }
 
         throw error;
       }
     }
 
-    await this.zmqClient.init(zmqNotifications);
+    await this.zmqClient.init(this.currencyType, zmqNotifications);
     await this.listenToZmq();
 
     if (this.mempoolSpace) {
@@ -116,10 +145,14 @@ class ChainClient extends BaseClient {
     return this.client.request<NetworkInfo>('getnetworkinfo');
   };
 
-  public getBlockchainInfo = async (): Promise<BlockchainInfo & {
-    scannedBlocks: number,
-  }> => {
-    const blockchainInfo = await this.client.request<BlockchainInfo>('getblockchaininfo');
+  public getBlockchainInfo = async (): Promise<
+    BlockchainInfo & {
+      scannedBlocks: number;
+    }
+  > => {
+    const blockchainInfo = await this.client.request<BlockchainInfo>(
+      'getblockchaininfo',
+    );
 
     return {
       ...blockchainInfo,
@@ -156,7 +189,7 @@ class ChainClient extends BaseClient {
   /**
    * Adds an input hash to the list of relevant ones
    */
-  public addInputFilter = (inputHash: Buffer): void=> {
+  public addInputFilter = (inputHash: Buffer): void => {
     this.zmqClient.relevantInputs.add(getHexString(inputHash));
   };
 
@@ -183,71 +216,93 @@ class ChainClient extends BaseClient {
     }
   };
 
-  public getRawTransactionVerbose = async (id: string): Promise<RawTransaction> => {
+  public getRawTransactionVerbose = async (
+    id: string,
+  ): Promise<RawTransaction> => {
     try {
-      return await this.client.request<RawTransaction>('getrawtransaction', [id, 1]);
+      return await this.client.request<RawTransaction>('getrawtransaction', [
+        id,
+        1,
+      ]);
     } catch (error) {
       throw this.formatGetTransactionError(id, error);
     }
   };
 
   public estimateFee = async (confTarget = 2): Promise<number> => {
-    const chainClientFee = await this.estimateFeeChainClient(confTarget);
-
-    if (this.mempoolSpace && this.mempoolSpace.latestFee) {
-      return Math.max(this.mempoolSpace.latestFee, 2);
-    } else {
-      return chainClientFee;
-    }
+    return this.estimateFeeWithFloor(confTarget);
   };
 
   public getWalletInfo = async (): Promise<WalletInfo> => {
-    const result = await this.client.request<WalletInfo>('getwalletinfo');
-
-    // Format the amounts
-    result.balance = result.balance * ChainClient.decimals;
-    result.unconfirmed_balance = result.unconfirmed_balance * ChainClient.decimals;
-    result.immature_balance = result.immature_balance * ChainClient.decimals;
-
-    return result;
+    return this.client.request<WalletInfo>('getwalletinfo');
   };
 
-  public sendToAddress = (address: string, amount: number, subtractFeeFromAmount = false): Promise<string> => {
+  public sendToAddress = (
+    address: string,
+    amount: number,
+    satPerVbyte?: number,
+    subtractFeeFromAmount = false,
+  ): Promise<string> => {
     return this.client.request<string>('sendtoaddress', [
       address,
       amount / ChainClient.decimals,
       undefined,
       undefined,
       subtractFeeFromAmount,
+      false,
+      undefined,
+      undefined,
+      undefined,
+      satPerVbyte,
     ]);
   };
 
-  public listUnspent = (): Promise<UnspentUtxo[]> => {
-    return this.client.request<UnspentUtxo[]>('listunspent');
+  public listUnspent = (minconf = 0): Promise<UnspentUtxo[]> => {
+    return this.client.request<UnspentUtxo[]>('listunspent', [minconf]);
   };
 
   public generate = async (blocks: number): Promise<string[]> => {
-    return this.client.request<string[]>('generatetoaddress', [blocks, await this.getNewAddress()]);
+    return this.client.request<string[]>('generatetoaddress', [
+      blocks,
+      await this.getNewAddress(),
+    ]);
   };
 
-  public getNewAddress = (): Promise<string> => {
-    return this.client.request<string>('getnewaddress', [undefined, 'bech32']);
+  public getNewAddress = (
+    type: AddressType = AddressType.Bech32,
+  ): Promise<string> => {
+    return this.client.request<string>('getnewaddress', [undefined, type]);
   };
 
-  private estimateFeeChainClient = async (confTarget = 2) => {
+  protected estimateFeeWithFloor = async (confTarget: number) => {
+    const mempoolFee = this.mempoolSpace?.latestFee();
+
+    const estimation =
+      mempoolFee !== undefined
+        ? mempoolFee
+        : await this.estimateFeeChainClient(confTarget);
+
+    return Math.max(estimation, this.feeFloor);
+  };
+
+  private estimateFeeChainClient = async (confTarget = 1) => {
     try {
-      const response = await this.client.request<any>('estimatesmartfee', [confTarget]);
+      const response = await this.client.request<any>('estimatesmartfee', [
+        confTarget,
+      ]);
 
       if (response.feerate) {
         const feePerKb = response.feerate * ChainClient.decimals;
         return Math.max(Math.round(feePerKb / 1000), 2);
       }
 
-      return 2;
+      return this.feeFloor;
     } catch (error) {
       if ((error as any).message === 'Method not found') {
         // TODO: use estimatefee for outdated node versions
-        this.logger.warn(`"estimatesmartfee" method not found on ${this.symbol} chain`);
+        this.logger.warn(
+          `'estimatesmartfee' method not found on ${this.symbol} chain`,
+        );
 
         return 2;
       }
@@ -262,7 +317,10 @@ class ChainClient extends BaseClient {
 
   private listenToZmq = async (): Promise<void> => {
     const { scannedBlocks } = await this.getBlockchainInfo();
-    const chainTip = await ChainTipRepository.findOrCreateTip(this.symbol, scannedBlocks);
+    const chainTip = await ChainTipRepository.findOrCreateTip(
+      this.symbol,
+      scannedBlocks,
+    );
 
     this.zmqClient.on('block', async (height) => {
       this.logger.silly(`Got new ${this.symbol} block: ${height}`);
@@ -286,3 +344,4 @@ class ChainClient extends BaseClient {
 }
 
 export default ChainClient;
+export { AddressType };

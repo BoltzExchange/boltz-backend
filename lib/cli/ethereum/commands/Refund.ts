@@ -3,11 +3,15 @@ import { ContractTransactionResponse } from 'ethers';
 import { getHexBuffer } from '../../../Utils';
 import BuilderComponents from '../../BuilderComponents';
 import { connectEthereum, getContracts } from '../EthereumUtils';
-import { queryERC20SwapValues, queryEtherSwapValues } from '../../../wallet/ethereum/ContractUtils';
+import {
+  queryERC20SwapValues,
+  queryEtherSwapValues,
+} from '../../../wallet/ethereum/ContractUtils';
 
 export const command = 'refund <preimageHash> [token]';
 
-export const describe = 'refunds Ether or a ERC20 token from the corresponding swap contract';
+export const describe =
+  'refunds Ether or a ERC20 token from the corresponding swap contract';
 
 export const builder = {
   preimageHash: {
@@ -46,5 +50,7 @@ export const handler = async (argv: Arguments<any>): Promise<void> => {
 
   await transaction.wait(1);
 
-  console.log(`Refunded ${argv.token ? 'ERC20 token' : 'Ether'} in: ${transaction.hash}`);
+  console.log(
+    `Refunded ${argv.token ? 'ERC20 token' : 'Ether'} in: ${transaction.hash}`,
+  );
 };

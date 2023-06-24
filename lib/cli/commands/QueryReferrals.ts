@@ -23,7 +23,7 @@ export const builder = {
   },
   key: {
     type: 'string',
-    describe: 'API key'
+    describe: 'API key',
   },
   secret: {
     type: 'string',
@@ -40,13 +40,16 @@ export const handler = async (argv: Arguments<any>): Promise<void> => {
     .digest('hex');
 
   try {
-    const res = await axios.get(`http://${argv.rest.host}:${argv.rest.port}${path}`, {
-      headers: {
-        'TS': ts.toString(),
-        'API-KEY': argv.key,
-        'API-HMAC': hmac,
+    const res = await axios.get(
+      `http://${argv.rest.host}:${argv.rest.port}${path}`,
+      {
+        headers: {
+          TS: ts.toString(),
+          'API-KEY': argv.key,
+          'API-HMAC': hmac,
+        },
       },
-    });
+    );
 
     console.log(stringify(res.data));
   } catch (e) {

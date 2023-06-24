@@ -12,11 +12,14 @@ class DatabaseVersionRepository {
   };
 
   public static updateVersion = async (newVersion: number): Promise<void> => {
-    await DatabaseVersion.update({
-      version: newVersion,
-    }, {
-      where: {},
-    });
+    await DatabaseVersion.update(
+      {
+        version: newVersion,
+      },
+      {
+        where: {},
+      },
+    );
   };
 
   public static dropTable = (): Promise<void> => {

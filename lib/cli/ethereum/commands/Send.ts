@@ -1,7 +1,11 @@
 import { Arguments } from 'yargs';
 import { etherDecimals } from '../../../consts/Consts';
 import BuilderComponents from '../../BuilderComponents';
-import { connectEthereum, getBoltzAddress, getContracts } from '../EthereumUtils';
+import {
+  connectEthereum,
+  getBoltzAddress,
+  getContracts,
+} from '../EthereumUtils';
 
 export const command = 'send <amount> [destination] [token]';
 
@@ -27,7 +31,7 @@ export const handler = async (argv: Arguments<any>): Promise<void> => {
 
   let transactionHash: string;
 
-  const destination = argv.destination || await getBoltzAddress();
+  const destination = argv.destination || (await getBoltzAddress());
 
   if (destination === undefined) {
     console.log('Did not send coins because no onchain address was specified');
@@ -49,5 +53,7 @@ export const handler = async (argv: Arguments<any>): Promise<void> => {
     transactionHash = transaction.hash;
   }
 
-  console.log(`Sent ${argv.token ? 'ERC20 token' : 'Ether'} in: ${transactionHash}`);
+  console.log(
+    `Sent ${argv.token ? 'ERC20 token' : 'Ether'} in: ${transactionHash}`,
+  );
 };

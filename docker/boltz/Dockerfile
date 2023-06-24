@@ -18,7 +18,7 @@ RUN apt-get -y install \
 RUN git clone https://github.com/BoltzExchange/boltz-backend.git
 WORKDIR /boltz-backend
 
-RUN git checkout liquid
+RUN git checkout ${VERSION}
 RUN npm install -g npm
 
 # Remove dependency that is not needed for the build and unavailable on ARM64

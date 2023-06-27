@@ -59,6 +59,9 @@ class Api {
   };
 
   private registerRoutes = (controller: Controller) => {
+    // Static files
+    this.app.route('/').get(controller.landingPage);
+
     // GET requests
     this.app.route('/version').get(controller.version);
 

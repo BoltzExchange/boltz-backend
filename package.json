@@ -38,8 +38,8 @@
   },
   "cross-os": {
     "postcompile": {
-      "linux": "rsync -am --include '*/' --include '*.js*' --exclude '*' lib/proto/ dist/lib/proto",
-      "darwin": "cp -R lib/proto/ dist/lib/proto/"
+      "linux": "cp -R lib/api/static dist/lib/api/static && rsync -am --include '*/' --include '*.js*' --exclude '*' lib/proto/ dist/lib/proto",
+      "darwin": "cp -R lib/api/static dist/lib/api/static && cp -R lib/proto/ dist/lib/proto/"
     }
   },
   "license": "AGPL-3.0",
@@ -100,8 +100,8 @@
     "@types/node-schedule": "^2.1.0",
     "@types/yargs": "^17.0.24",
     "@types/zeromq": "^5.2.2",
-    "@typescript-eslint/eslint-plugin": "^5.60.0",
-    "@typescript-eslint/parser": "^5.60.0",
+    "@typescript-eslint/eslint-plugin": "^5.60.1",
+    "@typescript-eslint/parser": "^5.60.1",
     "eslint": "^8.43.0",
     "eslint-plugin-import": "^2.27.5",
     "eslint-plugin-jest": "^27.2.2",

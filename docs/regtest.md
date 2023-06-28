@@ -2,13 +2,10 @@
 
 Prerequisites:
 
-* Node.js version `v12.18.0` or higher (preferably the latest LTS)
+* Node.js version `v18.16.1` or higher (preferably the latest LTS)
 * Docker
 
-The regtest environment of the Boltz backend consists of two Docker images:
-
-* [boltz/regtest](https://hub.docker.com/r/boltz/regtest) (Bitcoin Core, Litecoin Core and 2 LNDs on each chain)
-* [boltz/geth](https://hub.docker.com/r/boltz/geth) (Go Ethereum with a preconfigured development chain)
+The regtest environment of the Boltz backend is based on this Docker image [boltz/regtest](https://hub.docker.com/r/boltz/regtest) (Bitcoin Core, Litecoin Core and 2 LNDs on each chain)
 
 To start those images run `npm run docker:start` and to stop them again use `npm run docker:stop` to stop and remove the containers.
 
@@ -20,6 +17,8 @@ base = "LTC"
 quote = "BTC"
 fee = 2
 timeoutDelta = 400
+maxSwapAmount = 4_294_967
+minSwapAmount = 10_000
 
 [[pairs]]
 base = "BTC"
@@ -27,6 +26,8 @@ quote = "BTC"
 rate = 1
 fee = 0.5
 timeoutDelta = 1_440
+maxSwapAmount = 4_294_967
+minSwapAmount = 10_000
 
 [[pairs]]
 base = "LTC"
@@ -34,26 +35,30 @@ quote = "LTC"
 rate = 1
 fee = 0.5
 timeoutDelta = 1_440
+maxSwapAmount = 2_000_000_000
+minSwapAmount = 100_000
 
 [[pairs]]
 base = "ETH"
 quote = "BTC"
 fee = 5
 timeoutDelta = 180
+maxSwapAmount = 4_294_967
+minSwapAmount = 50_000
 
 [[pairs]]
 base = "BTC"
 quote = "USDT"
 fee = 5
 timeoutDelta = 180
+maxSwapAmount = 4_294_967
+minSwapAmount = 50_000
 
 [[currencies]]
 symbol = "BTC"
 network = "bitcoinRegtest"
 minWalletBalance = 10_000_000
 minChannelBalance = 10_000_000
-maxSwapAmount = 4_294_967
-minSwapAmount = 10_000
 maxZeroConfAmount = 10_000_000
 
   [currencies.chain]
@@ -75,8 +80,6 @@ symbol = "LTC"
 network = "litecoinRegtest"
 minWalletBalance = 110_000_000
 minChannelBalance = 110_000_000
-maxSwapAmount = 2000_000_000
-minSwapAmount = 100_000
 maxZeroConfAmount = 0
 
   [currencies.chain]
@@ -96,10 +99,6 @@ maxZeroConfAmount = 0
 [liquid]
 symbol = "L-BTC"
 network = "liquidRegtest"
-
-maxSwapAmount = 4_294_967
-minSwapAmount = 10_000
-
 minWalletBalance = 10_000_000
 
   [liquid.chain]
@@ -116,16 +115,10 @@ erc20SwapAddress = "0x0Cd61AD302e9B2D76015050D44218eCF53cFadC9"
   [[ethereum.tokens]]
   symbol = "ETH"
 
-  maxSwapAmount = 4_294_96700
-  minSwapAmount = 10000
-
   [[ethereum.tokens]]
   symbol = "USDT"
   decimals = 18
   contractAddress = "0x504eF817bFdE039b33189C7eb8aa8861c25392C1"
-
-  maxSwapAmount = 4_294_96700000
-  minSwapAmount = 10000
 ```
 
 It is really handy to have the executables of Boltz and some aliases to control the nodes in your path. Therefore, it is recommended to add the following to your `.bashrc`:

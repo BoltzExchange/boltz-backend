@@ -1,6 +1,6 @@
-# Boltz v3.1.5 Documentation
+# Boltz v3.2.0 Documentation
 
-This is the documentation of [Boltz](https://boltz.exchange) version 3.1.5.
+This is the documentation of [Boltz](https://boltz.exchange) version v3.2.0.
 
 ## What is Boltz
 
@@ -13,10 +13,10 @@ We are running and maintaining two Boltz instances that can be used - one on [te
 The Rest API can be accessed at:
 
 * [Testnet](https://testnet.boltz.exchange/api)
-* [Mainnet](https://boltz.exchange/api)
+* [Mainnet](https://api.boltz.exchange)
 
 > Note: If you access the API from your browser, you will get 404.
-> Run `curl https://boltz.exchange/api/version`, (or `curl https://testnet.boltz.exchange/api/version` for testnet) to check that it is available.
+> Run `curl https://api.boltz.exchange/version`, (or `curl https://testnet.boltz.exchange/api/version` for testnet) to check that it is available.
 
 ## Useful Links
 

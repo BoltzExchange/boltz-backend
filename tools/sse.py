@@ -24,6 +24,7 @@ def stream_server_side_events(url: str) -> None:
             exception=exception,
         ))
 
+
 if __name__ == "__main__":
     PARSER = ArgumentParser(description="Stream Server-Sent events")
 

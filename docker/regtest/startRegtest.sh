@@ -4,6 +4,7 @@ docker run \
   -d \
   --name regtest \
   --volume "${PWD}"/docker/regtest/data/core/cookies:/cookies \
+  --volume "${PWD}"/tools:/tools \
   -p 10735:10735 \
   -p 9736:9735 \
   -p 18443:18443 \

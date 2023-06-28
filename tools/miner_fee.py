@@ -8,10 +8,12 @@ from bitcoinrpc.authproxy import AuthServiceProxy
 
 SAT_FACTOR = 10 ** 8
 
+
 @dataclass
 class MinerFee:
     total: float
     per_vbyte: int
+
 
 def get_rpc_connection(rpc_port: int, cookie_file: str) -> AuthServiceProxy:
     """Initialize the RPC connection to the daemon."""
@@ -25,13 +27,15 @@ def get_rpc_connection(rpc_port: int, cookie_file: str) -> AuthServiceProxy:
             rpc_port,
         ))
 
+
 def get_raw_transaction(rpc_connection: AuthServiceProxy, transaction_id: str) -> any:
     """Query a raw transaction verbosely."""
     return rpc_connection.getrawtransaction(transaction_id, 1)
 
+
 def calculate_miner_fee(
-    rpc_connection: AuthServiceProxy,
-    transaction_id: str,
+        rpc_connection: AuthServiceProxy,
+        transaction_id: str,
 ) -> MinerFee:
     """Calcalute the miner fee of a transaction."""
     miner_fee = 0
@@ -45,6 +49,7 @@ def calculate_miner_fee(
         miner_fee -= output["value"]
 
     return MinerFee(miner_fee, (miner_fee * SAT_FACTOR) / raw_transaction["vsize"])
+
 
 if __name__ == "__main__":
     PARSER = ArgumentParser(description="Calculate the miner fee of a transaction")

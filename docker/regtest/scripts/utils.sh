@@ -6,10 +6,10 @@ export DEFAULT_WALLET_NAME
 function waitForNode () {
   while true; do
     if $1 getblockchaininfo 2>&1 | grep blocks > /dev/null 2>&1; then
-      break	
+      break
     fi
     sleep 1
-  done  
+  done
 }
 
 function waitForLnd () {
@@ -17,6 +17,19 @@ function waitForLnd () {
     if $1 getinfo 2>&1 | grep version > /dev/null 2>&1; then
       break
     fi
+    sleep 1
+  done
+}
+
+function waitForCln () {
+  while true; do
+    cln_height=$(lightning-cli getinfo 2> /dev/null | jq .blockheight)
+    core_height=$(bitcoin-cli getblockchaininfo | jq .blocks)
+
+    if [ "$cln_height" == "$core_height" ]; then
+      break
+    fi
+
     sleep 1
   done
 }
@@ -48,6 +61,15 @@ function startLnds () {
   echo "Started LNDs"
 }
 
+function startCln () {
+  echo "Starting CLN"
+
+  nohup lightningd > /dev/null 2>&1 & num="0"
+  waitForCln
+
+  echo "Started CLN"
+}
+
 function stopNodes () {
   killall bitcoind
   killall elementsd
@@ -55,4 +77,8 @@ function stopNodes () {
 
 function stopLnds () {
   killall lnd
+}
+
+function stopCln () {
+  killall lightningd
 }

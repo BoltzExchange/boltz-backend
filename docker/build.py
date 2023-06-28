@@ -111,6 +111,10 @@ IMAGES: dict[str, Image] = {
                 name="LND_VERSION",
                 value=LND_VERSION,
             ),
+            BuildArgument(
+                name="C_LIGHTNING_VERSION",
+                value=C_LIGHTNING_VERSION,
+            ),
         ],
     ),
 }

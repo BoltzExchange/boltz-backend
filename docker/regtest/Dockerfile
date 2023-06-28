@@ -4,11 +4,13 @@ ARG BITCOIN_VERSION
 ARG ELEMENTS_VERSION
 
 ARG LND_VERSION
+ARG C_LIGHTNING_VERSION
 
 FROM boltz/bitcoin-core:${BITCOIN_VERSION} AS bitcoin-core
 FROM ghcr.io/vulpemventures/elements:${ELEMENTS_VERSION} AS elements-core
 
 FROM boltz/lnd:${LND_VERSION} as lnd
+FROM boltz/c-lightning:${C_LIGHTNING_VERSION} as cln
 
 FROM ubuntu:${UBUNTU_VERSION}
 
@@ -18,6 +20,7 @@ RUN apt-get -y install \
   jq \
   psmisc \
   openssl \
+  python3 \
   libdb-dev \
   libdb++-dev \
   libzmq3-dev \
@@ -41,12 +44,19 @@ COPY --from=elements-core /usr/local/bin/elements-cli /bin/
 COPY --from=lnd /bin/lnd /bin/
 COPY --from=lnd /bin/lncli /bin/
 
+# Copy the Core Lightning executables
+COPY --from=cln /bin/lightningd /bin/
+COPY --from=cln /bin/lightning-cli /bin/
+COPY --from=cln /usr/libexec /usr/libexec
+
 # Copy configuration files
 COPY regtest/data/core/config.conf /root/.bitcoin/bitcoin.conf
 COPY regtest/data/elements/elements.conf /root/.elements/elements.conf
 
 COPY regtest/data/lnd/lnd.conf /root/.lnd-btc/
 COPY regtest/data/lnd/lnd.conf /root/.lnd-btc2/
+
+COPY regtest/data/cln/config /root/.lightning/config
 
 # Copy certificates for the LNDs
 COPY regtest/data/lnd/certificates /root/.lnd-btc/

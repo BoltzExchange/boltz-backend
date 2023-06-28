@@ -13,10 +13,10 @@ import { Payment, PaymentFailureReason } from '../proto/lnd/rpc_pb';
 import { ChannelCreationStatus, SwapUpdateEvent } from '../consts/Enums';
 import {
   formatError,
-  getChainCurrency,
-  getHexBuffer,
-  getLightningCurrency,
   splitPairId,
+  getHexBuffer,
+  getChainCurrency,
+  getLightningCurrency,
 } from '../Utils';
 
 class PaymentHandler {
@@ -177,8 +177,13 @@ class PaymentHandler {
         ),
       );
 
-      // If the invoice could not be paid but the Swap has a Channel Creation attached to it, a channel will be opened
-    } else if (
+      return undefined;
+    }
+
+    await lightningCurrency.lndClient!.resetMissionControl();
+
+    // If the invoice could not be paid but the Swap has a Channel Creation attached to it, a channel will be opened
+    if (
       typeof error === 'number' &&
       channelCreation &&
       channelCreation.status !== ChannelCreationStatus.Created
@@ -187,7 +192,6 @@ class PaymentHandler {
         case PaymentFailureReason.FAILURE_REASON_TIMEOUT:
         case PaymentFailureReason.FAILURE_REASON_NO_ROUTE:
         case PaymentFailureReason.FAILURE_REASON_INSUFFICIENT_BALANCE:
-          // TODO: !formattedError.startsWith('unable to route payment to destination: UnknownNextPeer')
           await this.channelNursery.openChannel(
             lightningCurrency,
             swap,

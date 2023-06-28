@@ -2,8 +2,9 @@ import * as grpc from '@grpc/grpc-js';
 import { readFileSync } from 'fs';
 import { getPort } from '../../Utils';
 import Logger from '../../../lib/Logger';
-import { bitcoinLndClient, lndDataPath } from '../Nodes';
+import Database from '../../../lib/db/Database';
 import LndClient from '../../../lib/lightning/LndClient';
+import { bitcoinClient, bitcoinLndClient, lndDataPath } from '../Nodes';
 import {
   LightningClient,
   LightningService,
@@ -15,37 +16,37 @@ import {
 } from '../../../lib/proto/lnd/rpc_pb';
 
 describe('LndClient', () => {
+  const db = new Database(Logger.disabledLogger, Database.memoryDatabase);
+
   beforeAll(async () => {
-    await bitcoinLndClient.connect();
+    await db.init();
+    await bitcoinClient.connect();
+    await Promise.all([bitcoinLndClient.connect(), bitcoinClient.generate(1)]);
   });
 
   afterAll(async () => {
+    await db.close();
+
+    bitcoinClient.disconnect();
     bitcoinLndClient.disconnect();
   });
 
-  test('should calculate payment fees', async () => {
-    const calculatePaymentFee = bitcoinLndClient['calculatePaymentFee'];
-
-    const bigInvoiceAmount = 8754398;
-    const maxPaymentFeeRatio = 0.03;
-    let invoice = await bitcoinLndClient.addInvoice(bigInvoiceAmount);
-
-    // Should use the payment fee ratio for big payments
-    expect(calculatePaymentFee(invoice.paymentRequest)).toEqual(
-      Math.ceil(bigInvoiceAmount * maxPaymentFeeRatio),
-    );
-
-    // Should use the minimal payment fee for small payments
-    invoice = await bitcoinLndClient.addInvoice(1);
-    expect(calculatePaymentFee(invoice.paymentRequest)).toEqual(
-      LndClient['minPaymentFee'],
-    );
-
-    invoice = await bitcoinLndClient.addInvoice(0);
-    expect(calculatePaymentFee(invoice.paymentRequest)).toEqual(
-      LndClient['minPaymentFee'],
-    );
-  });
+  test.each`
+    fee                           | amount
+    ${10000}                      | ${1000000}
+    ${87544}                      | ${8754398}
+    ${LndClient['paymentMinFee']} | ${0}
+    ${LndClient['paymentMinFee']} | ${1}
+  `(
+    'should calculate payment fee $fee for invoice amount $amount',
+    async ({ fee, amount }) => {
+      expect(
+        bitcoinLndClient['calculatePaymentFee'](
+          (await bitcoinLndClient.addInvoice(amount)).paymentRequest,
+        ),
+      ).toEqual(fee);
+    },
+  );
 
   test('should handle messages longer than the default gRPC limit', async () => {
     // 4 MB is the default gRPC limit

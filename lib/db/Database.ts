@@ -13,6 +13,8 @@ import ChannelCreation from './models/ChannelCreation';
 import PendingEthereumTransaction from './models/PendingEthereumTransaction';
 
 class Database {
+  public static readonly memoryDatabase = ':memory:';
+
   public static sequelize: Sequelize.Sequelize;
 
   private migration: Migration;

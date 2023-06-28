@@ -71,15 +71,15 @@ interface LndClient {
 class LndClient extends BaseClient implements LndClient {
   public static readonly serviceName = 'LND';
 
-  public static readonly paymentMaxParts = 5;
-
   private static readonly grpcOptions = {
     // 200 MB which is the same value lncli uses: https://github.com/lightningnetwork/lnd/commit/7470f696aebc51b4ab354324e6536f54446538e1
     'grpc.max_receive_message_length': 1024 * 1024 * 200,
   };
 
-  private static readonly minPaymentFee = 21;
+  public static readonly paymentMaxParts = 5;
+  private static readonly paymentMinFee = 121;
   private static readonly paymentTimeout = 300;
+  private static readonly paymentTimePreference = 0.9;
 
   private readonly uri!: string;
   private readonly maxPaymentFeeRatio!: number;
@@ -108,7 +108,7 @@ class LndClient extends BaseClient implements LndClient {
     const { host, port, certpath, macaroonpath, maxPaymentFeeRatio } = config;
 
     this.maxPaymentFeeRatio =
-      maxPaymentFeeRatio > 0 ? maxPaymentFeeRatio : 0.03;
+      maxPaymentFeeRatio > 0 ? maxPaymentFeeRatio : 0.01;
 
     if (fs.existsSync(certpath)) {
       this.uri = `${host}:${port}`;
@@ -291,6 +291,13 @@ class LndClient extends BaseClient implements LndClient {
     return this.unaryCall(this.invoices, methodName, params, true);
   };
 
+  private unaryRouterCall = <T, U>(
+    methodName: keyof RouterClient,
+    params: T,
+  ): Promise<U> => {
+    return this.unaryCall(this.router, methodName, params, true);
+  };
+
   private unaryLightningCall = <T, U>(
     methodName: keyof LightningClient,
     params: T,
@@ -437,6 +444,7 @@ class LndClient extends BaseClient implements LndClient {
 
       request.setMaxParts(LndClient.paymentMaxParts);
       request.setTimeoutSeconds(LndClient.paymentTimeout);
+      request.setTimePref(LndClient.paymentTimePreference);
       request.setFeeLimitSat(this.calculatePaymentFee(invoice));
 
       request.setPaymentRequest(invoice);
@@ -476,9 +484,6 @@ class LndClient extends BaseClient implements LndClient {
     });
   };
 
-  /**
-   *
-   */
   public static formatPaymentFailureReason = (
     reason: lndrpc.PaymentFailureReason,
   ): string => {
@@ -494,6 +499,13 @@ class LndClient extends BaseClient implements LndClient {
       default:
         return 'unknown reason';
     }
+  };
+
+  public resetMissionControl = () => {
+    return this.unaryRouterCall<
+      routerrpc.ResetMissionControlRequest,
+      routerrpc.ResetMissionControlResponse.AsObject
+    >('resetMissionControl', new routerrpc.ResetMissionControlRequest());
   };
 
   /**
@@ -579,7 +591,8 @@ class LndClient extends BaseClient implements LndClient {
   };
 
   /**
-   * Returns the latest advertised, aggregated, and authenticated channel information for the specified node identified by its public key
+   * Returns the latest advertised, aggregated, and authenticated channel information
+   * for the specified node identified by its public key
    */
   public getNodeInfo = (
     publicKey: string,
@@ -922,10 +935,8 @@ class LndClient extends BaseClient implements LndClient {
 
   private calculatePaymentFee = (invoice: string): number => {
     const invoiceAmt = bolt11.decode(invoice).satoshis || 0;
-
-    return Math.max(
-      Math.ceil(invoiceAmt * this.maxPaymentFeeRatio),
-      LndClient.minPaymentFee,
+    return Math.ceil(
+      Math.max(invoiceAmt * this.maxPaymentFeeRatio, LndClient.paymentMinFee),
     );
   };
 }

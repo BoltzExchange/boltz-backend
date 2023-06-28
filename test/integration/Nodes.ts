@@ -39,5 +39,5 @@ export const bitcoinLndClient = new LndClient(Logger.disabledLogger, 'BTC', {
   port: 10009,
   certpath: `${lndDataPath}/certificates/tls.cert`,
   macaroonpath: `${lndDataPath}/macaroons/admin.macaroon`,
-  maxPaymentFeeRatio: 0.03,
+  maxPaymentFeeRatio: 0.01,
 });

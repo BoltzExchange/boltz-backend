@@ -16,7 +16,6 @@ import ElementsClient from '../chain/ElementsClient';
 import InvoiceExpiryHelper from './InvoiceExpiryHelper';
 import PaymentRequestUtils from './PaymentRequestUtils';
 import { Payment, RouteHint } from '../proto/lnd/rpc_pb';
-import { Network } from '../wallet/ethereum/EthereumManager';
 import PairRepository from '../db/repositories/PairRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import RateProvider, { PairType } from '../rates/RateProvider';
@@ -354,7 +353,10 @@ class Service {
    */
   public getContracts = async (): Promise<{
     ethereum: {
-      network: Network;
+      network: {
+        chainId: number;
+        name?: string;
+      };
       swapContracts: Map<string, string>;
       tokens: Map<string, string>;
     };
@@ -365,7 +367,10 @@ class Service {
 
     return {
       ethereum: {
-        network: this.walletManager.ethereumManager.network,
+        network: {
+          chainId: Number(this.walletManager.ethereumManager.network.chainId),
+          name: this.walletManager.ethereumManager.network.name,
+        },
         tokens: this.walletManager.ethereumManager.tokenAddresses,
         swapContracts: new Map<string, string>([
           [

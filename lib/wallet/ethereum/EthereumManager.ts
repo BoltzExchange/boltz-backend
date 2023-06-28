@@ -248,4 +248,3 @@ class EthereumManager {
 }
 
 export default EthereumManager;
-export { Network };

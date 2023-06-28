@@ -48,7 +48,7 @@ const hmac = createHmac('sha256', argv.secret)
   .digest('hex');
 
 try {
-  const res = await axios.get(`http://${argv.rest.host}:${argv.rest.port}${path}`, {
+  const res = await axios.get(`https://${argv.rest.host}:${argv.rest.port}${path}`, {
     headers: {
       'TS': ts,
       'API-KEY': argv.key,
@@ -67,9 +67,9 @@ try {
 
 To get the version of the deployed Boltz backed instance one has to query this API endpoint.
 
-| URL            | Response
-|----------------|------------
-| `GET /version` | JSON object
+| URL            | Response    |
+|----------------|-------------|
+| `GET /version` | JSON object |
 
 Status Codes:
 
@@ -93,9 +93,9 @@ Response object:
 
 To work with the instance one first has to know what pairs are supported and what kind of rates, limits and fees can be expected when creating a new swap. To get that kind of information the following call is used.
 
-| URL             | Response
-|-----------------|------------
-| `GET /getpairs` | JSON object
+| URL             | Response    |
+|-----------------|-------------|
+| `GET /getpairs` | JSON object |
 
 Status Codes:
 
@@ -199,9 +199,9 @@ Response:
 
 This endpoint allows you to query the node public keys and URIs of the Lightning nodes run by Boltz.
 
-| URL             | Response
-|-----------------|------------
-| `GET /getnodes` | JSON object
+| URL             | Response    |
+|-----------------|-------------|
+| `GET /getnodes` | JSON object |
 
 Status Codes:
 
@@ -237,9 +237,9 @@ Response:
 
 Boltz Swaps have different timeouts for each pair. This endpoint allows querying those timeouts denominated in blocks of the base and quote chain. 
 
-| URL             | Response
-|-----------------|------------
-| `GET /timeouts` | JSON object
+| URL             | Response    |
+|-----------------|-------------|
+| `GET /timeouts` | JSON object |
 
 Status Codes:
 
@@ -287,9 +287,9 @@ Response:
 
 To query the addresses of the contracts Boltz uses on account based chains this endpoint must be queried. 
 
-| URL                 | Response
-|---------------------|------------
-| `GET /getcontracts` | JSON object
+| URL                 | Response    |
+|---------------------|-------------|
+| `GET /getcontracts` | JSON object |
 
 Status Codes:
 
@@ -335,9 +335,9 @@ For UTXO based chains like Bitcoin it is important to mention that if 0-conf wan
 
 If the instance supports Ether or ERC20 tokens, only `ETH` will be in the response. This value is for the Ethereum chain and not the Ether asset and denominated in GWEI.
 
-| URL                     | Response
-|-------------------------|------------
-| `GET /getfeeestimation` | JSON object
+| URL                     | Response    |
+|-------------------------|-------------|
+| `GET /getfeeestimation` | JSON object |
 
 Status Codes:
 
@@ -370,9 +370,9 @@ Requests querying for transactions have to be `POST` and contain two arguments i
 - `currency`: which chain should be queried for the transaction
 - `transactionId`: the id of the transaction that should be queried
 
-| URL                    | Response
-|------------------------|------------
-| `POST /gettransaction` | JSON object
+| URL                    | Response    |
+|------------------------|-------------|
+| `POST /gettransaction` | JSON object |
 
 Status Codes:
 
@@ -410,9 +410,9 @@ Requests querying the lockup transactions on UTXO based chains of Submarine Swap
 
 - `id`: id of the Submarine Swap
 
-| URL                        | Response
-| ---------------------------|------------
-| `POST /getswaptransaction` | JSON object
+| URL                        | Response    |
+|----------------------------|-------------|
+| `POST /getswaptransaction` | JSON object |
 
 Status Codes:
 
@@ -478,9 +478,9 @@ Requests broadcasting transactions have to be `POST` and contain two arguments i
 - `currency`: to which network the transaction should be broadcasted
 - `transactionHex`: the HEX encoded transaction itself
 
-| URL                          | Response
-|------------------------------|------------
-| `POST /broadcasttransaction` | JSON object
+| URL                          | Response    |
+|------------------------------|-------------|
+| `POST /broadcasttransaction` | JSON object |
 
 Status Codes:
 
@@ -551,9 +551,9 @@ Requests querying the status of a swap have to be `POST` and contain a single va
 
 - `id`: the id of the swap of which the status should be queried
 
-| URL                | Response
-|--------------------|------------
-| `POST /swapstatus` | JSON object
+| URL                | Response    |
+|--------------------|-------------|
+| `POST /swapstatus` | JSON object |
 
 Status Codes:
 
@@ -641,9 +641,9 @@ Requests to this enpoint have to provide the required `id` parameter via an URL 
 
 Every event in the Server-Side stream has data that is encoded exactly like the JSON object of the [`/swapstatus`](#getting-status-of-a-swap) endpoint. Please have a look at the examples below for a reference implementation in JavaScript of hanlding the stream.
 
-| URL                     | Response
-|-------------------------|-------------------------
-| `GET /streamswapstatus` | Server-Side event stream
+| URL                     | Response                 |
+|-------------------------|--------------------------|
+| `GET /streamswapstatus` | Server-Side event stream |
 
 **Examples:**
 
@@ -673,10 +673,9 @@ data: {"status":"invoice.paid"}
 
 Boltz partners can request a referral key to get a percentage of the fees earned from Swaps through their integration. To query for their referrals, they can send an [authenticated](#authentication) request to this endpoint.
 
-| URL                    | Response
-|------------------------|------------
-| `GET /referrals/query` | JSON object
-
+| URL                    | Response    |
+|------------------------|-------------|
+| `GET /referrals/query` | JSON object |
 
 Status Codes:
 
@@ -736,9 +735,9 @@ Boltz also supports opening a channel to your node before paying your invoice. T
 
 To find out how to enforce that the requested channel was actually opened and the invoice paid through it have a look at [this document where we wrote down some possible solutions](channel-creation.md).
 
-| URL                | Response
-|--------------------|------------
-| `POST /createswap` | JSON object
+| URL                | Response    |
+|--------------------|-------------|
+| `POST /createswap` | JSON object |
 
 Status Codes:
 
@@ -760,7 +759,7 @@ If you set the invoice you will also have these values in the response:
 
 ### UTXO based chains
 
-Swaps from UTXO based chains like Bitcoin work by deriving an address based on the preimage hash of the invoice and the refund publick key of the user and waiting until the user sends coins to that generated address.
+Swaps from UTXO based chains like Bitcoin work by deriving an address based on the preimage hash of the invoice and the refund public key of the user and waiting until the user sends coins to that generated address.
 
 Requests have to contain one additional parameter:
 
@@ -882,9 +881,9 @@ When sending onchain coins before setting the invoice of a Submarine Swap, you n
 
 - `id`: id of the Submarine Swap
 
-| URL               | Response
-|-------------------|------------
-| `POST /swaprates` | JSON object
+| URL               | Response    |
+|-------------------|-------------|
+| `POST /swaprates` | JSON object |
 
 Status Codes:
 
@@ -920,9 +919,9 @@ In case the amount to be swapped is not known when creating the Submarine Swap, 
 - `id`: id of the Submarine Swap for which the invoice should be set
 - `invoice`: invoice of the user that should be paid
 
-| URL                | Response
-|--------------------|------------
-| `POST /setinvoice` | JSON object
+| URL                | Response    |
+|--------------------|-------------|
+| `POST /setinvoice` | JSON object |
 
 Status Codes:
 
@@ -1033,9 +1032,9 @@ In case the client wants to verify the pair data fetched by it is still accurate
 
 - `pairHash`: `hash` string in the pair object of [`/getpairs`](#getting-pairs)
 
-| URL                | Response
-|--------------------|------------
-| `POST /createswap` | JSON object
+| URL                | Response    |
+|--------------------|-------------|
+| `POST /createswap` | JSON object |
 
 Status Codes:
 

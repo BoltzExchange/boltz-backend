@@ -233,6 +233,46 @@ Response:
 }
 ```
 
+## Node statistics
+
+For display purposes on our website, basic statistics about the lightning nodes are exposed in the API.
+
+| URL              | Response    |
+|------------------|-------------|
+| `GET /nodestats` | JSON object |
+
+Status Codes:
+
+- `200 OK`
+
+Response object:
+
+- `nodes`: a JSON with the symbol of the chain on which the Lightning node is running as key, and a JSON object as key
+    - `peers`: number of peers
+    - `channels`: number of public channels
+    - `oldestChannel`: UNIX timestamp of the block in which the opening transaction of the oldest channel was included
+    - `capacity`: sum of the capacity of all public channels
+
+**Examples:**
+
+`GET /nodestats`
+
+Response:
+
+```json
+{
+  "nodes": {
+    "BTC": {
+      "peers": 79,
+      "channels": 103,
+      "oldestChannel": 1590772669,
+      "capacity": 369879555
+    }
+  }
+}
+```
+
+
 ## Get timeouts
 
 Boltz Swaps have different timeouts for each pair. This endpoint allows querying those timeouts denominated in blocks of the base and quote chain. 
@@ -769,6 +809,10 @@ Responses also contain one additional value:
 
 - `redeemScript`: redeem script from which the `address` is derived. The redeem script can and should be used to verify that the Boltz instance didn't try to cheat by providing an address without a HTLC
 
+In case the address is for the Liquid network, it will be blinded by a key that is also in the response:
+
+- `blindingKey`: hex encoded private key with which the address was blinded
+
 If the invoice has been set in the request, you will also get this value:
 
 - `bip21`: a [BIP21 payment request](https://github.com/bitcoin/bips/blob/master/bip-0021.mediawiki) for the `expectedAmount` of coins and the `address`
@@ -1063,6 +1107,10 @@ The request has to contain one additional value:
 And so has the response:
 
 - `redeemScript`: redeem script from which the lockup address was derived. The redeem script can and should be used to verify that the Boltz instance didn't try to cheat by creating an address without a HTLC
+
+In case the lockup address is for the Liquid network, it will be blinded by a key that is also in the response:
+
+- `blindingKey`: hex encoded private key with which the address was blinded
 
 **Examples:**
 

@@ -771,7 +771,8 @@ describe('Service', () => {
   test('should get contracts', async () => {
     const ethereumManager = {
       network: {
-        some: 'networkData',
+        chainId: BigInt(123),
+        name: 'hello',
       },
       etherSwap: {
         getAddress: async () => {
@@ -792,7 +793,10 @@ describe('Service', () => {
 
     expect(await service.getContracts()).toEqual({
       ethereum: {
-        network: ethereumManager.network,
+        network: {
+          name: ethereumManager.network.name,
+          chainId: Number(ethereumManager.network.chainId),
+        },
         tokens: ethereumManager.tokenAddresses,
         swapContracts: new Map<string, string>([
           ['EtherSwap', await ethereumManager.etherSwap.getAddress()],

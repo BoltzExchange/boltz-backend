@@ -180,6 +180,13 @@ class PaymentHandler {
       return undefined;
     }
 
+    if (
+      LightningNursery.errIsPaymentInTransition(error) ||
+      LightningNursery.errIsCltvLimitExceeded(error)
+    ) {
+      return undefined;
+    }
+
     await lightningCurrency.lndClient!.resetMissionControl();
 
     // If the invoice could not be paid but the Swap has a Channel Creation attached to it, a channel will be opened

@@ -122,11 +122,11 @@ export default {
     message: 'AMP invoices not supported',
     code: concatErrorCode(ErrorCodePrefix.Service, 31),
   }),
-  MIN_CLTV_TOO_BIG: (
+  MIN_EXPIRY_TOO_BIG: (
     swapMaximal: number,
     minFinalCltvExpiry: number,
   ): Error => ({
-    message: `minimal CLTV expiry ${minFinalCltvExpiry} of invoice plus the minimal offset ${TimeoutDeltaProvider.minCltvOffset} is greater than max swap timeout ${swapMaximal}`,
+    message: `minimal swap expiry ${minFinalCltvExpiry} plus the minimal offset ${TimeoutDeltaProvider.minCltvOffset} minutes is greater than max swap timeout ${swapMaximal}`,
     code: concatErrorCode(ErrorCodePrefix.Service, 32),
   }),
 };

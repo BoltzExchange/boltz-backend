@@ -116,6 +116,24 @@ describe('LightningNursery', () => {
     expect(LightningNursery.errIsInvoicePaid(undefined)).toEqual(false);
   });
 
+  test.each`
+    expected | error
+    ${true}  | ${{ code: 6, details: 'payment is in transition' }}
+    ${false} | ${{ code: 6, details: 'payment is not in transition' }}
+    ${false} | ${{ code: 5, details: 'payment is in transition' }}
+    ${false} | ${{ code: 6 }}
+    ${false} | ${{}}
+    ${false} | ${undefined}
+    ${false} | ${null}
+  `(
+    'should detect "payment is in transition" error for $error',
+    ({ error, expected }) => {
+      expect(LightningNursery.errIsPaymentInTransition(error)).toEqual(
+        expected,
+      );
+    },
+  );
+
   test('should detect "cltv limit should be greater than" errors', () => {
     expect(
       LightningNursery.errIsCltvLimitExceeded({

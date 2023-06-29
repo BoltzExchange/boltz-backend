@@ -1,5 +1,5 @@
 import { parse } from '@iarna/toml';
-import { existsSync, unlinkSync, readFileSync } from 'fs';
+import { existsSync, readFileSync, unlinkSync } from 'fs';
 import Logger from '../../../lib/Logger';
 import Errors from '../../../lib/service/Errors';
 import { ConfigType } from '../../../lib/Config';
@@ -13,12 +13,25 @@ const currencies = [
   {
     base: 'BTC',
     quote: 'BTC',
-    timeoutDelta: 360,
+    timeoutDelta: {
+      reverse: 1440,
+      swapMinimal: 360,
+      swapMaximal: 2880,
+    },
   },
   {
     base: 'LTC',
     quote: 'BTC',
     timeoutDelta: 20,
+  },
+  {
+    base: 'L-BTC',
+    quote: 'BTC',
+    timeoutDelta: {
+      reverse: 1440,
+      swapMinimal: 1400,
+      swapMaximal: 2880,
+    },
   },
 ] as any as PairConfig[];
 
@@ -52,17 +65,29 @@ describe('TimeoutDeltaProvider', () => {
 
   beforeAll(() => {
     cleanup();
+
+    deltaProvider.init(currencies);
+  });
+
+  afterAll(() => {
+    cleanup();
   });
 
   test('should init', () => {
-    deltaProvider.init(currencies);
-
     const deltas = deltaProvider['timeoutDeltas'];
 
-    expect(deltas.size).toEqual(2);
+    expect(deltas.size).toEqual(currencies.length);
     expect(deltas.get('BTC/BTC')).toEqual({
-      base: createDeltas(36),
-      quote: createDeltas(36),
+      base: {
+        reverse: 144,
+        swapMinimal: 36,
+        swapMaximal: 288,
+      },
+      quote: {
+        reverse: 144,
+        swapMinimal: 36,
+        swapMaximal: 288,
+      },
     });
     expect(deltas.get('LTC/BTC')).toEqual({
       base: createDeltas(8),
@@ -167,7 +192,22 @@ describe('TimeoutDeltaProvider', () => {
     expect(TimeoutDeltaProvider.convertBlocks('BTC', 'LTC', 3)).toEqual(12);
   });
 
-  afterAll(() => {
-    cleanup();
-  });
+  test.each`
+    desc                       | chain      | lightning | deltas         | timeout | invoice
+    ${'routing hints'}         | ${'BTC'}   | ${'BTC'}  | ${'BTC/BTC'}   | ${150}  | ${'lnbc100u1pjfmfrcpp533fk6s5pjp55cv2zms6x4z0kkwyyrt2252pgxdxpklk6tnlw99yqdqqxqyjw5q9q7sqqqqqqqqqqqqqqqqqqqqqqqqq9qsqsp5cdt869pnacqmw60ugma0sdgtsrh3g66mhheh3pwvjxrpn4l364fsrzjqwryaup9lh50kkranzgcdnn2fgvx390wgj5jd07rwr3vxeje0glcllcyzdrt8pcdlgqqqqlgqqqqqeqqjqpnppy43z486f0d5u856svstzwax80a8x53xa8lksrr40fprd8fckkewhkke59q4cex9udhp9u9dgsy8j60g7kytfm9aj904phm8mdsgp3329uv'}
+    ${'minFinalCltvExpiry'}    | ${'BTC'}   | ${'BTC'}  | ${'BTC/BTC'}   | ${153}  | ${'lnbc4651250n1pjfmvphpp58xdd4f4kycjhvr2cq3g8jljz6phfrehqhm9jxk7gyc84m4sfyjlsdql2djkuepqw3hjqsj5gvsxzerywfjhxuccqzynxqrrsssp55wjzuzjkcqaam5e94wcjzva6hgx69xu30exqxeqwccuzk4um46ys9qyyssq3fwqktxlgn6vunvcgnrqcg04e8yes8fk5658nnnml5zmwajr9p9y8jc60dhmhw269k9wfjdjflkhwe9edygg2ae2u0hz2tynwh4c9lgp7qq23f'}
+    ${'block time conversion'} | ${'L-BTC'} | ${'BTC'}  | ${'L-BTC/BTC'} | ${1530} | ${'lnbc4651250n1pjfmvphpp58xdd4f4kycjhvr2cq3g8jljz6phfrehqhm9jxk7gyc84m4sfyjlsdql2djkuepqw3hjqsj5gvsxzerywfjhxuccqzynxqrrsssp55wjzuzjkcqaam5e94wcjzva6hgx69xu30exqxeqwccuzk4um46ys9qyyssq3fwqktxlgn6vunvcgnrqcg04e8yes8fk5658nnnml5zmwajr9p9y8jc60dhmhw269k9wfjdjflkhwe9edygg2ae2u0hz2tynwh4c9lgp7qq23f'}
+  `(
+    'should get timeout for invoice with routing hints for case "$desc"',
+    ({ chain, lightning, deltas, timeout, invoice }) => {
+      expect(
+        deltaProvider['getTimeoutInvoice'](
+          chain,
+          lightning,
+          deltaProvider['timeoutDeltas'].get(deltas)!.base,
+          invoice,
+        ),
+      ).toEqual(timeout);
+    },
+  );
 });

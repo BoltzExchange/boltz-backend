@@ -29,6 +29,7 @@ type PairTimeoutBlockDeltas = {
 
 class TimeoutDeltaProvider {
   public static minCltvOffset = 60;
+  private static routingOffset = 90;
 
   // A map of the symbols of currencies and their block times in minutes
   public static blockTimes = new Map<string, number>([
@@ -154,9 +155,15 @@ class TimeoutDeltaProvider {
       );
 
     if (deltas.length > 0) {
+      let maxDelta = Math.max(...deltas);
+
+      // Add some buffer to make sure we have enough limit to route to the hop hint
+      if (routingInfo !== undefined) {
+        maxDelta += TimeoutDeltaProvider.routingOffset;
+      }
+
       const finalExpiry = Math.ceil(
-        Math.max(...deltas) *
-          TimeoutDeltaProvider.getBlockTime(lightningCurrency),
+        maxDelta * TimeoutDeltaProvider.getBlockTime(lightningCurrency),
       );
 
       const minTimeout = Math.ceil(

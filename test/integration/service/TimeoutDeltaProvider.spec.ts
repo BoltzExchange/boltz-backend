@@ -17,7 +17,7 @@ describe('TimeoutDeltaProvider', () => {
   const { base, quote } = splitPairId(pair);
   const timeoutDelta = {
     reverse: 1400,
-    swapMinimal: 1000,
+    swapMinimal: 190,
     swapMaximal: 2800,
   };
 
@@ -79,26 +79,44 @@ describe('TimeoutDeltaProvider', () => {
     );
 
     // Greater than minimum
-    for (const amount of [101, 150, 274]) {
+    for (const cltvDelta of [140, 150, 274]) {
+      const ltcBlocks = Math.ceil(
+        cltvDelta / TimeoutDeltaProvider.blockTimes.get(base)!,
+      );
       expect(
         deltaProvider.getTimeout(
           pair,
           OrderSide.BUY,
           false,
-          await createInvoice(amount),
+          await createInvoice(ltcBlocks),
         ),
-      ).toEqual(amount + TimeoutDeltaProvider.minCltvOffset);
+      ).toEqual(
+        Math.ceil(
+          (cltvDelta + TimeoutDeltaProvider.minCltvOffset) /
+            TimeoutDeltaProvider.blockTimes.get(quote)!,
+        ),
+      );
     }
 
     // Greater than maximum
     const swapMaximal =
-      timeoutDelta.swapMaximal / TimeoutDeltaProvider.blockTimes.get(quote)!;
-    const invoiceCltv = swapMaximal - TimeoutDeltaProvider.minCltvOffset + 1;
+      timeoutDelta.swapMaximal / TimeoutDeltaProvider.blockTimes.get(base)!;
+    const invoiceCltv =
+      swapMaximal -
+      TimeoutDeltaProvider.minCltvOffset /
+        TimeoutDeltaProvider.blockTimes.get(base)! +
+      1;
     const invoice = await createInvoice(invoiceCltv);
 
     expect(() =>
       deltaProvider.getTimeout(pair, OrderSide.BUY, false, invoice),
-    ).toThrow(Errors.MIN_CLTV_TOO_BIG(swapMaximal, invoiceCltv).message);
+    ).toThrow(
+      Errors.MIN_EXPIRY_TOO_BIG(
+        timeoutDelta.swapMaximal / TimeoutDeltaProvider.blockTimes.get(quote)!,
+        timeoutDelta.swapMaximal / TimeoutDeltaProvider.blockTimes.get(quote)! +
+          1,
+      ).message,
+    );
   });
 
   test('should get timeouts of reverse swaps', () => {

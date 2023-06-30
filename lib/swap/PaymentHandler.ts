@@ -101,6 +101,9 @@ class PaymentHandler {
       throw 'CLTV limit to small';
     }
 
+    this.logger.debug(
+      `Paying invoice of swap ${swap.id} with cltvLimit: ${cltvLimit}`,
+    );
     const payResponse = await Promise.race([
       lightningCurrency.lndClient!.sendPayment(
         swap.invoice!,
@@ -180,6 +183,16 @@ class PaymentHandler {
       return undefined;
     }
 
+    if (
+      LightningNursery.errIsPaymentInTransition(error) ||
+      LightningNursery.errIsCltvLimitExceeded(error)
+    ) {
+      return undefined;
+    }
+
+    this.logger.debug(
+      `Resetting ${lightningCurrency.symbol} lightning mission control`,
+    );
     await lightningCurrency.lndClient!.resetMissionControl();
 
     // If the invoice could not be paid but the Swap has a Channel Creation attached to it, a channel will be opened

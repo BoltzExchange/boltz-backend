@@ -6,7 +6,14 @@ import { ConfigType } from '../Config';
 import { OrderSide } from '../consts/Enums';
 import { PairConfig } from '../consts/Types';
 import ElementsClient from '../chain/ElementsClient';
-import { decodeInvoice, getPairId, splitPairId, stringify } from '../Utils';
+import {
+  getPairId,
+  stringify,
+  splitPairId,
+  decodeInvoice,
+  getChainCurrency,
+  getLightningCurrency,
+} from '../Utils';
 
 type PairTimeoutBlocksDelta = {
   reverse: number;
@@ -21,7 +28,8 @@ type PairTimeoutBlockDeltas = {
 };
 
 class TimeoutDeltaProvider {
-  public static minCltvOffset = 6;
+  public static minCltvOffset = 60;
+  private static routingOffset = 90;
 
   // A map of the symbols of currencies and their block times in minutes
   public static blockTimes = new Map<string, number>([
@@ -107,38 +115,64 @@ class TimeoutDeltaProvider {
     isReverse: boolean,
     invoice?: string,
   ): number => {
-    const timeout = this.timeoutDeltas.get(pairId);
+    const timeouts = this.timeoutDeltas.get(pairId);
 
-    if (!timeout) {
+    if (!timeouts) {
       throw Errors.PAIR_NOT_FOUND(pairId);
     }
 
-    const { base, quote } = timeout;
-
     if (isReverse) {
-      return orderSide === OrderSide.BUY ? base.reverse : quote.reverse;
+      return orderSide === OrderSide.BUY
+        ? timeouts.base.reverse
+        : timeouts.quote.reverse;
     } else {
-      const deltas = orderSide === OrderSide.BUY ? quote : base;
+      const { base, quote } = splitPairId(pairId);
+      const chain = getChainCurrency(base, quote, orderSide, false);
+      const lightning = getLightningCurrency(base, quote, orderSide, false);
+
+      const deltas =
+        orderSide === OrderSide.BUY ? timeouts.quote : timeouts.base;
       return invoice
-        ? this.getTimeoutInvoice(deltas, invoice)
+        ? this.getTimeoutInvoice(chain, lightning, deltas, invoice)
         : deltas.swapMinimal;
     }
   };
 
   private getTimeoutInvoice = (
+    chainCurrency: string,
+    lightningCurrency: string,
     timeout: PairTimeoutBlocksDelta,
     invoice: string,
   ): number => {
-    const { minFinalCltvExpiry } = decodeInvoice(invoice);
+    const { minFinalCltvExpiry, routingInfo } = decodeInvoice(invoice);
 
     let blocks = timeout.swapMinimal;
 
-    if (minFinalCltvExpiry) {
-      const minTimeout =
-        minFinalCltvExpiry + TimeoutDeltaProvider.minCltvOffset;
+    const deltas = [minFinalCltvExpiry]
+      .concat((routingInfo || []).map((info) => info.cltv_expiry_delta))
+      .filter(
+        (val): val is Exclude<typeof val, undefined> => val !== undefined,
+      );
+
+    if (deltas.length > 0) {
+      let maxDelta = Math.max(...deltas);
+
+      // Add some buffer to make sure we have enough limit to route to the hop hint
+      if (routingInfo !== undefined) {
+        maxDelta += TimeoutDeltaProvider.routingOffset;
+      }
+
+      const finalExpiry = Math.ceil(
+        maxDelta * TimeoutDeltaProvider.getBlockTime(lightningCurrency),
+      );
+
+      const minTimeout = Math.ceil(
+        (TimeoutDeltaProvider.minCltvOffset + finalExpiry) /
+          TimeoutDeltaProvider.getBlockTime(chainCurrency),
+      );
 
       if (minTimeout > timeout.swapMaximal) {
-        throw Errors.MIN_CLTV_TOO_BIG(timeout.swapMaximal, minFinalCltvExpiry);
+        throw Errors.MIN_EXPIRY_TOO_BIG(timeout.swapMaximal, minTimeout);
       }
 
       blocks = Math.max(timeout.swapMinimal, minTimeout);

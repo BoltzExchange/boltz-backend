@@ -39,6 +39,15 @@ class LightningNursery extends EventEmitter {
     );
   };
 
+  public static errIsPaymentInTransition = (error: unknown): boolean => {
+    return (
+      error !== undefined &&
+      error !== null &&
+      (error as any).code === 6 &&
+      (error as any).details === 'payment is in transition'
+    );
+  };
+
   public static errIsCltvLimitExceeded = (error: unknown): boolean => {
     if (error === undefined || error === null) {
       return false;

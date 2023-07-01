@@ -1,6 +1,7 @@
 #!/usr/bin/env /tools/.venv/bin/python3
 import json
 from collections import defaultdict
+from dataclasses import dataclass
 from enum import Enum
 from hashlib import sha256
 from typing import Any, ClassVar, TypeVar
@@ -18,11 +19,11 @@ PLUGIN_NAME = "hold"
 DATASTORE_NOT_EXISTS_ERROR_CODE = 1202
 
 
-class HtlcFailureMessage(str, Enum):
+class HtlcFailureMessage(Enum):
     IncorrectPaymentDetails = "15"
 
 
-class InvoiceState(str, Enum):
+class InvoiceState(Enum):
     Paid = "paid"
     Unpaid = "unpaid"
     Accepted = "accepted"
@@ -61,18 +62,12 @@ POSSIBLE_STATE_TRANSITIONS = {
 HoldInvoiceType = TypeVar("HoldInvoiceType", bound="HoldInvoice")
 
 
+@dataclass
 class HoldInvoice:
-    def __init__(
-            self,
-            state: InvoiceState,
-            bolt11: str,
-            payment_hash: str,
-            payment_preimage: str | None,
-    ) -> None:
-        self.state = state
-        self.bolt11 = bolt11
-        self.payment_hash = payment_hash
-        self.payment_preimage = payment_preimage
+    state: InvoiceState
+    bolt11: str
+    payment_hash: str
+    payment_preimage: str | None
 
     def set_state(self, new_state: InvoiceState) -> None:
         if new_state not in POSSIBLE_STATE_TRANSITIONS[self.state]:
@@ -81,7 +76,10 @@ class HoldInvoice:
         self.state = new_state
 
     def to_json(self) -> str:
-        return json.dumps(self.__dict__)
+        return json.dumps(
+            self.__dict__,
+            default=lambda x: x.value if isinstance(x, Enum) else x,
+        )
 
     @classmethod
     def from_json(cls: type[HoldInvoiceType], json_str: str) -> HoldInvoiceType:

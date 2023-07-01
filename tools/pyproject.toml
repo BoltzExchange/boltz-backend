@@ -12,6 +12,7 @@ sseclient = "^0.0.27"
 ruff = "^0.0.275"
 mkdocs = "^1.4.2"
 pyln-client = "^23.5"
+webdavclient3 = "^3.14.6"
 
 [build-system]
 requires = ["poetry-core"]

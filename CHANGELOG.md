@@ -2,6 +2,102 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.2.0] - 2023-06-30
+
+### Bug Fixes
+
+- Stringify of BigInt
+- Show output index of Swap transactions
+- Handle cltv limit should be greater than errors
+- Allow disabling currencies gracefully
+- Mininmal amount calculations on interval
+- Liquid testnet BIP21
+- Liquid transaction sizes
+- Allow lower limits on Liquid
+- Do not throw when WebDAV backup fails
+- Increase estimated size for Liquid claim transactions
+- Broken tests
+- Crash after LND restart with invoice GC
+- Missing initEccLib call to bitcoinjs-lib
+- Handle invoice settlement error
+- Channel open after successful swap
+- CoreWalletProvider integration test
+- Handling replaced swap transactions
+- Chain ID serialization
+- Broken service test
+- Lightning payment reliability (#358)
+- Swap timeout for cross chain
+- Buffer to reach routing hints
+
+### Documentation
+
+- Rm ltc sample from /getnodes (#321)
+- Markdown style fixes
+- Update according to changes in Liquid branch
+- Update config sample
+
+### Features
+
+- LND v0.16.0-beta support (#316)
+- Add boltz-cli command to hash hex values
+- Backups to WebDav (#330)
+- Liquid integration
+- Liquid BIP21
+- Configurable wallet backend
+- Liquid 0.2 sat/vbyte floor
+- Mempool.space API fallbacks
+- Blinding key of swaps
+- Use Taproot addresses by default in Bitcoin Core wallet
+- Node stats enpoint
+- Deriving blinding keys via gRPC
+- API landing page
+
+### Miscellaneous Tasks
+
+- Update changelog
+- Bump undici from 5.14.0 to 5.19.1 (#309)
+- Bump sequelize from 6.28.0 to 6.28.2 (#310)
+- Bump sequelize from 6.28.2 to 6.29.0 (#311)
+- Update GitHub CI Action (#312)
+- Bump minimist from 1.2.5 to 1.2.6 (#313)
+- Update Docker images
+- Update sqlite3 to 5.1.5
+- Update CLN Docker image to 23.02.2
+- Improve miner_fee script
+- Minor style fixes
+- Update boltz Docker image
+- Bump @openzeppelin/contracts from 4.8.2 to 4.8.3 (#320)
+- Update LND to 0.16.1-beta (#324)
+- Update LND to 0.16.2-beta (#328)
+- Print version on startup
+- Increasize liquid fees
+- Bump boltz-core-liquid
+- Hardcode Liquid tx fee to 0.11 sat/vbyte
+- Bump requests from 2.28.2 to 2.31.0 in /tools (#334)
+- Update regtest container
+- Run prettier on whole project
+- Bump @openzeppelin/contracts from 4.8.3 to 4.9.1 (#348)
+- Bump dottie from 2.0.3 to 2.0.4 (#349)
+- Update Docker images
+- Increase Mempool.space refresh interval
+- Bump @openzeppelin/contracts from 4.9.1 to 4.9.2 (#352)
+- Update Eclair Docker image
+- Update dependencies
+- Revert version to v3.2.0
+- Bump fast-xml-parser from 4.2.4 to 4.2.5 (#355)
+- Bump CI Node.js version (#356)
+- Update CLN Docker image to v23.05.2
+
+### Refactor
+
+- Dockerfile of backend for tagged image builds
+- Fee estimation preparation log
+- Update to Ethers v6
+- Querying statistics
+- Make database repositories static
+- Disable RBF for lockup transactions
+- Set limit of pairs in pair
+
 ## [3.1.5] - 2023-02-11
 
 ### Bug Fixes

@@ -12,18 +12,17 @@ from pyln.client.plugin import Request
 # TODO: fix shebang line
 # TODO: restart handling
 # TODO: MPP
-# TODO: routing hints
 
 PLUGIN_NAME = "hold"
 
 DATASTORE_NOT_EXISTS_ERROR_CODE = 1202
 
 
-class HtlcFailureMessage(Enum):
-    IncorrectPaymentDetails = "15"
+class HtlcFailureMessage(str, Enum):
+    IncorrectPaymentDetails = "400F"
 
 
-class InvoiceState(Enum):
+class InvoiceState(str, Enum):
     Paid = "paid"
     Unpaid = "unpaid"
     Accepted = "accepted"
@@ -89,38 +88,37 @@ class HoldInvoice:
 
 class Settler:
     _plugin: Plugin
-    _instance = None
     _requests: ClassVar[dict[str, list[Request]]] = defaultdict(list)
 
-    def __new__(cls) -> TypeVar:
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-
-        return cls._instance
-
-    def init(self, plugin: Plugin) -> None:
+    def __init__(self, plugin: Plugin) -> None:
         self._plugin = plugin
 
     def handle_htlc(self, req: Request, invoice: HoldInvoice) -> None:
         if invoice.state == InvoiceState.Paid:
             self._settle_callback(req, invoice.payment_preimage)
-        elif invoice.state == InvoiceState.Cancelled:
+            return
+
+        if invoice.state == InvoiceState.Cancelled:
             self.fail_callback(req, HtlcFailureMessage.IncorrectPaymentDetails)
+            return
 
         invoice.set_state(InvoiceState.Accepted)
         self._requests[invoice.payment_hash].append(req)
-        DataStore().save_invoice(invoice, mode="must-replace")
+        ds.save_invoice(invoice, mode="must-replace")
         self._plugin.log(f"Accepted hold invoice {invoice.payment_hash}")
 
     def settle(self, invoice: HoldInvoice) -> None:
         invoice.set_state(InvoiceState.Paid)
-        for req in self._requests.pop(invoice.payment_hash):
+        for req in self._pop_requests(invoice.payment_hash):
             self._settle_callback(req, invoice.payment_preimage)
 
     def cancel(self, invoice: HoldInvoice) -> None:
         invoice.set_state(InvoiceState.Cancelled)
-        for req in self._requests.pop(invoice.payment_hash):
+        for req in self._pop_requests(invoice.payment_hash):
             self.fail_callback(req, HtlcFailureMessage.IncorrectPaymentDetails)
+
+    def _pop_requests(self, payment_hash: str) -> list[Request]:
+        return self._requests.pop(payment_hash, [])
 
     @staticmethod
     def fail_callback(req: Request, message: HtlcFailureMessage) -> None:
@@ -145,17 +143,9 @@ class Settler:
 
 class DataStore:
     _plugin: Plugin
-    _instance = None
-
     _invoices_key = "invoices"
 
-    def __new__(cls) -> TypeVar:
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-
-        return cls._instance
-
-    def init(self, plugin: Plugin) -> None:
+    def __init__(self, plugin: Plugin) -> None:
         self._plugin = plugin
 
     def save_invoice(self, invoice: HoldInvoice, mode: str = "must-create") -> None:
@@ -197,11 +187,11 @@ class DataStore:
     def settle_invoice(self, invoice: HoldInvoice, preimage: str) -> None:
         # TODO: save in the normal invoice table of CLN
         invoice.payment_preimage = preimage
-        Settler().settle(invoice)
+        settler.settle(invoice)
         self.save_invoice(invoice, mode="must-replace")
 
     def cancel_invoice(self, invoice: HoldInvoice) -> None:
-        Settler().cancel(invoice)
+        settler.cancel(invoice)
         self.save_invoice(invoice, mode="must-replace")
 
     def delete_invoices(self) -> int:
@@ -224,6 +214,9 @@ class DataStore:
 
 pl = Plugin()
 
+ds = DataStore(pl)
+settler = Settler(pl)
+
 
 @pl.init()
 def init(
@@ -232,28 +225,26 @@ def init(
         plugin: Plugin,
         **kwargs: dict[str, Any],
 ) -> None:
-    Settler().init(plugin)
-    DataStore().init(plugin)
     plugin.log(f"Plugin {PLUGIN_NAME} initialized")
 
 
 @pl.method("holdinvoice")
-def holdinvoice(plugin: Plugin, bolt11: str) -> dict[str, Any]:
+def hold_invoice(plugin: Plugin, bolt11: str) -> dict[str, Any]:
     dec = plugin.rpc.decodepay(bolt11)
     payment_hash = dec["payment_hash"]
 
     if len(plugin.rpc.listinvoices(payment_hash=payment_hash)["invoices"]) > 0:
         return Errors.invoice_exists
 
-    plugin.log(f"Adding hold invoice {payment_hash} for {dec['amount_msat']}")
     signed = plugin.rpc.call("signinvoice", {
         "invstring": bolt11,
     })["bolt11"]
 
     try:
-        DataStore().save_invoice(
+        ds.save_invoice(
             HoldInvoice(InvoiceState.Unpaid, signed, payment_hash, None),
         )
+        plugin.log(f"Added hold invoice {payment_hash} for {dec['amount_msat']}")
     except RpcError as e:
         if e.error["code"] == DATASTORE_NOT_EXISTS_ERROR_CODE:
             return Errors.invoice_exists
@@ -266,22 +257,22 @@ def holdinvoice(plugin: Plugin, bolt11: str) -> dict[str, Any]:
 
 
 @pl.method("listholdinvoices")
-def listholdinvoices(plugin: Plugin, payment_hash: str = "") -> dict[str, Any]:
-    invoices = DataStore().list_invoices(None if payment_hash == "" else payment_hash)
+def list_hold_invoices(plugin: Plugin, payment_hash: str = "") -> dict[str, Any]:
+    invoices = ds.list_invoices(None if payment_hash == "" else payment_hash)
     return {
         "holdinvoices": [i.__dict__ for i in invoices],
     }
 
 
 @pl.method("settleholdinvoice")
-def settleholdinvoice(plugin: Plugin, payment_preimage: str) -> dict[str, Any]:
+def settle_hold_invoice(plugin: Plugin, payment_preimage: str) -> dict[str, Any]:
     payment_hash = sha256(bytes.fromhex(payment_preimage)).hexdigest()
-    invoice = DataStore().get_invoice(payment_hash)
+    invoice = ds.get_invoice(payment_hash)
     if invoice is None:
         return Errors.invoice_not_exists
 
     try:
-        DataStore().settle_invoice(invoice, payment_preimage)
+        ds.settle_invoice(invoice, payment_preimage)
         plugin.log(f"Settled hold invoice {payment_hash}")
     except HoldInvoiceStateError as e:
         return e.error
@@ -290,13 +281,13 @@ def settleholdinvoice(plugin: Plugin, payment_preimage: str) -> dict[str, Any]:
 
 
 @pl.method("cancelholdinvoice")
-def cancelholdinvoice(plugin: Plugin, payment_hash: str) -> dict[str, Any]:
-    invoice = DataStore().get_invoice(payment_hash)
+def cancel_hold_invoice(plugin: Plugin, payment_hash: str) -> dict[str, Any]:
+    invoice = ds.get_invoice(payment_hash)
     if invoice is None:
         return Errors.invoice_not_exists
 
     try:
-        DataStore().cancel_invoice(invoice)
+        ds.cancel_invoice(invoice)
         plugin.log(f"Cancelled hold invoice {payment_hash}")
     except HoldInvoiceStateError as e:
         return e.error
@@ -305,12 +296,12 @@ def cancelholdinvoice(plugin: Plugin, payment_hash: str) -> dict[str, Any]:
 
 
 @pl.method("dev-wipeholdinvoices")
-def wipeholdinvoices(plugin: Plugin, payment_hash: str = "") -> dict[str, Any]:
+def wipe_hold_invoices(plugin: Plugin, payment_hash: str = "") -> dict[str, Any]:
     if payment_hash == "":
         plugin.log("Deleting all hold invoices", level="warn")
-        deleted_count = DataStore().delete_invoices()
+        deleted_count = ds.delete_invoices()
     else:
-        if not DataStore().delete_invoice(payment_hash):
+        if not ds.delete_invoice(payment_hash):
             return Errors.invoice_not_exists
 
         deleted_count = 1
@@ -332,13 +323,14 @@ def on_htlc_accepted(
     # Ignore forwards
     if "forward_to" in kwargs:
         Settler.continue_callback(request)
+        return
 
-    # TODO: check the htlc details
-    invoice = DataStore().get_invoice(htlc["payment_hash"])
+    invoice = ds.get_invoice(htlc["payment_hash"])
 
     # Ignore invoices that aren't hold invoices
     if invoice is None:
         Settler.continue_callback(request)
+        return
 
     dec = plugin.rpc.decodepay(invoice.bolt11)
     invoice_msat = int(dec["amount_msat"])
@@ -351,8 +343,18 @@ def on_htlc_accepted(
             level="warn",
         )
         Settler.fail_callback(request, HtlcFailureMessage.IncorrectPaymentDetails)
+        return
 
-    Settler().handle_htlc(request, invoice)
+    if htlc["cltv_expiry_relative"] < dec["min_final_cltv_expiry"]:
+        plugin.log(
+            f"Rejected hold invoice {invoice.payment_hash}: CLTV too little "
+            f"({htlc['cltv_expiry_relative']} < {dec['min_final_cltv_expiry']})",
+            level="warn",
+        )
+        Settler.fail_callback(request, HtlcFailureMessage.IncorrectPaymentDetails)
+        return
+
+    settler.handle_htlc(request, invoice)
 
 
 pl.run()

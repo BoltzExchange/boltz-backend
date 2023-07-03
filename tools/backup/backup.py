@@ -9,6 +9,8 @@ from webdav3.client import Client, unquote
 
 PLUGIN_NAME = "backup"
 
+BACKUP_UPLOAD_DESC = "Upload a backup of the current SCB to the configured WebDAV"
+
 
 class OptionKeys(str, Enum):
     WebDavHost = f"{PLUGIN_NAME}-webdav-host"
@@ -85,7 +87,12 @@ def init(
         log_could_not_init(str(e))
 
 
-@pl.method("backup-upload")
+@pl.method(
+    "backup-upload",
+    category="backup",
+    desc=BACKUP_UPLOAD_DESC,
+    long_desc=BACKUP_UPLOAD_DESC,
+)
 def backup_upload(plugin: Plugin) -> dict[str, Any]:
     try:
         wd.upload_backup()

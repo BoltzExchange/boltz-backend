@@ -68,7 +68,13 @@ openChannel bitcoin-cli \
   "lncli --lnddir=/root/.lnd-btc --rpcserver=127.0.0.1:10009 --network=regtest" \
   $(lightning-cli getinfo | jq -r .id) \
   9737
-echo "Opened channel to CLN"
+
+openChannel bitcoin-cli \
+  "lncli --lnddir=/root/.lnd-btc --rpcserver=127.0.0.1:10011 --network=regtest" \
+  $(lightning-cli getinfo | jq -r .id) \
+  9737
+
+echo "Opened channels to CLN"
 
 stopCln
 stopLnds

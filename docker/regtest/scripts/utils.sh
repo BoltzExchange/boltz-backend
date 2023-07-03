@@ -80,5 +80,5 @@ function stopLnds () {
 }
 
 function stopCln () {
-  killall lightningd
+  lightning-cli stop
 }

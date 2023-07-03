@@ -30,7 +30,7 @@
     "changelog": "git-cliff -o CHANGELOG.md",
     "prepublishOnly": "npm run compile && rm -f dist/package.json",
     "python:install": "cd tools && poetry install",
-    "python:lint": "cd tools && poetry run ruff *.py hold/*.py backup/*.py ../docker/*.py"
+    "python:lint": "cd tools && poetry run ruff *.py hold/ backup/*.py ../docker/*.py"
   },
   "bin": {
     "boltzd": "./bin/boltzd",

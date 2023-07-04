@@ -15,7 +15,10 @@ from pyln.client.plugin import Request
 
 PLUGIN_NAME = "hold"
 
-DATASTORE_NOT_EXISTS_ERROR_CODE = 1202
+
+class DataErrorCodes(int, Enum):
+    KeyDoesNotExist = 1200
+    KeyExists = 1202
 
 
 class HtlcFailureMessage(str, Enum):
@@ -177,7 +180,7 @@ class DataStore:
                 [PLUGIN_NAME, DataStore._invoices_key, payment_hash],
             )
         except RpcError as e:
-            if e.error["code"] == DATASTORE_NOT_EXISTS_ERROR_CODE:
+            if e.error["code"] == DataErrorCodes.KeyDoesNotExist:
                 return False
 
             raise
@@ -246,7 +249,7 @@ def hold_invoice(plugin: Plugin, bolt11: str) -> dict[str, Any]:
         )
         plugin.log(f"Added hold invoice {payment_hash} for {dec['amount_msat']}")
     except RpcError as e:
-        if e.error["code"] == DATASTORE_NOT_EXISTS_ERROR_CODE:
+        if e.error["code"] == DataErrorCodes.KeyExists:
             return Errors.invoice_exists
 
         raise

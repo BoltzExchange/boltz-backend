@@ -29,13 +29,29 @@ function openChannel () {
   $1 generatetoaddress 6 ${nodeAddress} > /dev/null
 
   while true; do
-    numActiveChannels="$($2 getinfo | jq -r ".num_pending_channels")"
+    numPendingChannels="$($2 getinfo | jq -r ".num_pending_channels")"
 
-    if [[ ${numActiveChannels} == "0" ]]; then
+    if [[ ${numPendingChannels} == "0" ]]; then
       break
     fi
     sleep 1
   done
+}
+
+function waitForClnChannel () {
+  bitcoin-cli generatetoaddress 6 $(bitcoin-cli getnewaddress) > /dev/null
+
+  while true; do
+    numPendingChannels="$(lightning-cli getinfo | jq -r .num_pending_channels)"
+
+    if [[ ${numPendingChannels} == "0" ]]; then
+      break
+    fi
+    sleep 1
+  done
+
+  # Give it some time to gossip
+  sleep 25
 }
 
 startNodes
@@ -75,6 +91,8 @@ openChannel bitcoin-cli \
   9737
 
 echo "Opened channels to CLN"
+
+waitForClnChannel
 
 stopCln
 stopLnds

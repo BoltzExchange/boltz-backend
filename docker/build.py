@@ -15,6 +15,7 @@ class BuildArgument:
     name: str
     value: str
 
+
 @dataclass
 class Image:
 
@@ -22,6 +23,7 @@ class Image:
 
     tags: list[str]
     arguments: list[BuildArgument]
+
 
 UBUNTU_VERSION = BuildArgument(
     name="UBUNTU_VERSION",
@@ -99,11 +101,11 @@ IMAGES: dict[str, Image] = {
         ],
     ),
     "regtest": Image(
-        tags=["3.5.3"],
+        tags=["4.0.0"],
         arguments=[
             UBUNTU_VERSION,
             BITCOIN_BUILD_ARG,
-             BuildArgument(
+            BuildArgument(
                 name="ELEMENTS_VERSION",
                 value=ELEMENTS_VERSION,
             ),
@@ -119,18 +121,22 @@ IMAGES: dict[str, Image] = {
     ),
 }
 
+
 def print_step(message: str) -> None:
     """Print green text and is used to log the step of a process."""
     print(f"\033[0;32m{message}\033[0;0m")
+
 
 def print_error(message: str) -> None:
     """Print red text and is used to report errors."""
     print(f"\033[1;31m{message}\033[0;0m")
 
+
 def change_working_directory() -> None:
     """Change the working directory to the one this script is located in."""
     directory = Path(__file__).parent
     chdir(directory)
+
 
 def get_build_details(image: str) -> Image:
     """Get the build details of an image or exits the script if they can't be found."""
@@ -141,6 +147,7 @@ def get_build_details(image: str) -> Image:
         sys.exit(1)
 
     return build_details
+
 
 def list_images(to_list: list[str]) -> None:
     """List the version and build arguments of either one or all images."""
@@ -167,12 +174,13 @@ def list_images(to_list: list[str]) -> None:
 
         print()
 
+
 def build_images(
-    to_build: list[str],
-    organisation: str,
-    no_cache: bool,
-    buildx: bool,
-    platform: str = "",
+        to_build: list[str],
+        organisation: str,
+        no_cache: bool,
+        buildx: bool,
+        platform: str = "",
 ) -> None:
     """Build one or more images."""
     change_working_directory()
@@ -195,19 +203,19 @@ def build_images(
 
             # Add the prefix "--build-arg " to every entry and
             # join the array to a string
-            build_args = " ".join(["--build-arg " + entry for entry in build_args])
+            args = " ".join(["--build-arg " + entry for entry in build_args])
 
             if buildx:
                 command = "docker buildx build --push {args} --platform " + \
-                    platform + " --file {dockerfile} --tag {name}:{tag} ."
+                          platform + " --file {dockerfile} --tag {name}:{tag} ."
             else:
                 command = "docker build -t {name}:{tag} -f {dockerfile} {args} ."
 
             command = command.format(
                 tag=tag,
+                args=args,
                 name=f"{organisation}/{image}",
                 dockerfile=f"{image}/Dockerfile",
-                args=build_args,
             )
 
             if no_cache:
@@ -226,12 +234,14 @@ def build_images(
     print()
     print_step("Built images: {}".format(", ".join(to_build)))
 
+
 def parse_images(to_parse: list[str]) -> list[str]:
     """Return all available images if none was specified."""
     if not to_parse:
         return list(IMAGES.keys())
 
     return to_parse
+
 
 if __name__ == "__main__":
     PARSER = ArgumentParser(description="Build or push Docker images")
@@ -258,10 +268,10 @@ if __name__ == "__main__":
     BUILDX_PARSER.add_argument("images", type=str, nargs="*")
     BUILDX_PARSER.add_argument("--no-cache", dest="no_cache", action="store_true")
     BUILDX_PARSER.add_argument("--platform",
-        action="store_true",
-        default="linux/amd64,linux/arm64",
-        help="The platforms to build for",
-    )
+                               action="store_true",
+                               default="linux/amd64,linux/arm64",
+                               help="The platforms to build for",
+                               )
     BUILDX_PARSER.add_argument(
         "--organisation",
         default="boltz",

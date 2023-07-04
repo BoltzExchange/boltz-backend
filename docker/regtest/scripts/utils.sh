@@ -76,7 +76,8 @@ function stopNodes () {
 }
 
 function stopLnds () {
-  killall lnd
+  lncli --lnddir=/root/.lnd-btc --rpcserver=127.0.0.1:10009 --network=regtest stop
+  lncli --lnddir=/root/.lnd-btc2 --rpcserver=127.0.0.1:10011 --network=regtest stop
 }
 
 function stopCln () {

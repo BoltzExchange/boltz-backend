@@ -15,7 +15,10 @@ class ElementsWalletProvider implements WalletProviderInterface {
 
   public readonly symbol: string;
 
-  constructor(public logger: Logger, public chainClient: ElementsClient) {
+  constructor(
+    public logger: Logger,
+    public chainClient: ElementsClient,
+  ) {
     this.symbol = chainClient.symbol;
 
     this.logger.info(`Initialized ${this.symbol} Elements wallet`);

@@ -15,7 +15,10 @@ class DiskUsageChecker {
   private static gigabyte = 1024 ** 2;
   private static warningThreshold = 0.9;
 
-  constructor(private logger: Logger, private discord: DiscordClient) {}
+  constructor(
+    private logger: Logger,
+    private discord: DiscordClient,
+  ) {}
 
   public checkUsage = async (): Promise<void> => {
     const { available, total } = await this.getUsage();

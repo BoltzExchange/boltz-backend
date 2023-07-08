@@ -13,7 +13,10 @@ class OtpManager {
   private static service = 'Boltz';
   private static uriFile = 'otpUri.txt';
 
-  constructor(private logger: Logger, config: NotificationConfig) {
+  constructor(
+    private logger: Logger,
+    config: NotificationConfig,
+  ) {
     if (existsSync(config.otpsecretpath)) {
       this.secret = readFileSync(config.otpsecretpath, { encoding: 'utf8' });
 

@@ -5,7 +5,11 @@ import { getTsString } from './Utils';
 class Logger {
   public static readonly disabledLogger = new Logger('', undefined, true);
 
-  constructor(level: string, filename?: string, private disabled = false) {
+  constructor(
+    level: string,
+    filename?: string,
+    private disabled = false,
+  ) {
     if (disabled) {
       return;
     }

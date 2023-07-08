@@ -37,7 +37,10 @@ class Controller {
   // A map between the ids and statuses of the swaps
   private pendingSwapInfos = new Map<string, SwapUpdate>();
 
-  constructor(private logger: Logger, private service: Service) {
+  constructor(
+    private logger: Logger,
+    private service: Service,
+  ) {
     this.service.eventHandler.on('swap.update', (id, message) => {
       this.logger.debug(`Swap ${id} update: ${saneStringify(message)}`);
       this.pendingSwapInfos.set(id, message);

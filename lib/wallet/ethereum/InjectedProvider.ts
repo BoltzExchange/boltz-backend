@@ -43,7 +43,10 @@ class InjectedProvider implements Provider {
 
   private static readonly requestTimeout = 5000;
 
-  constructor(private logger: Logger, config: EthereumConfig) {
+  constructor(
+    private logger: Logger,
+    config: EthereumConfig,
+  ) {
     this.provider = this;
 
     if (config.providerEndpoint) {

@@ -10,7 +10,10 @@ import WalletProviderInterface, {
 class CoreWalletProvider implements WalletProviderInterface {
   public readonly symbol: string;
 
-  constructor(public logger: Logger, public chainClient: ChainClient) {
+  constructor(
+    public logger: Logger,
+    public chainClient: ChainClient,
+  ) {
     this.symbol = chainClient.symbol;
 
     this.logger.info(`Initialized ${this.symbol} Core wallet`);

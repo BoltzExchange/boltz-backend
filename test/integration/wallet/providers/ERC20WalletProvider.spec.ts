@@ -105,9 +105,7 @@ describe('ERC20WalletProvider', () => {
 
     await waitForTransactionHash(
       setup.provider,
-      (
-        await wallet.approve(address, newAllowance)
-      ).transactionId,
+      (await wallet.approve(address, newAllowance)).transactionId,
     );
     expect(await token.contract.allowance(address, address)).toEqual(
       newAllowance,
@@ -116,9 +114,7 @@ describe('ERC20WalletProvider', () => {
     newAllowance = BigInt(0);
     await waitForTransactionHash(
       setup.provider,
-      (
-        await wallet.approve(address, newAllowance)
-      ).transactionId,
+      (await wallet.approve(address, newAllowance)).transactionId,
     );
     expect(await token.contract.allowance(address, address)).toEqual(
       newAllowance,

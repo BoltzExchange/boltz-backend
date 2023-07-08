@@ -229,7 +229,7 @@ const mockRequest = (body: any, query?: any) =>
   ({
     body,
     query,
-  } as Request);
+  }) as Request;
 
 const mockResponse = () => {
   const res = {} as any as Response;

@@ -79,7 +79,11 @@ class MempoolSpaceClient {
 class MempoolSpace {
   private apis: MempoolSpaceClient[] = [];
 
-  constructor(private logger: Logger, private symbol: string, apiUrls: string) {
+  constructor(
+    private logger: Logger,
+    private symbol: string,
+    apiUrls: string,
+  ) {
     const apis = apiUrls.split(',').map((apiUrl) => apiUrl.trim());
     this.logger.info(
       `Enabling MempoolSpace fee estimations for ${this.symbol}: ${stringify(

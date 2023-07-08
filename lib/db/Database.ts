@@ -23,7 +23,10 @@ class Database {
    * @param logger logger that should be used
    * @param storage the file path to the SQLite database; if ':memory:' the database will be stored in the memory
    */
-  constructor(private logger: Logger, private storage: string) {
+  constructor(
+    private logger: Logger,
+    private storage: string,
+  ) {
     Database.sequelize = new Sequelize.Sequelize({
       storage,
       dialect: 'sqlite',

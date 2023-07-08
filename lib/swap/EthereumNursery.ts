@@ -107,7 +107,10 @@ interface IEthereumNursery {
 class EthereumNursery extends EventEmitter implements IEthereumNursery {
   public ethereumManager: EthereumManager;
 
-  constructor(private logger: Logger, private walletManager: WalletManager) {
+  constructor(
+    private logger: Logger,
+    private walletManager: WalletManager,
+  ) {
     super();
 
     this.ethereumManager = walletManager.ethereumManager!;

@@ -8,7 +8,7 @@ class VersionCheck {
 
   private static lndVersionLimits = {
     minimal: '0.15.0',
-    maximal: '0.16.3',
+    maximal: '0.16.4',
   };
 
   public static checkChainClientVersion = (

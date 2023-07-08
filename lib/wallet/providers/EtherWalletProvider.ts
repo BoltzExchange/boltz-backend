@@ -13,7 +13,10 @@ class EtherWalletProvider implements WalletProviderInterface {
   // The gas needed for sending Ether is 21000
   private readonly ethTransferGas = BigInt(21000);
 
-  constructor(private logger: Logger, private signer: Signer) {
+  constructor(
+    private logger: Logger,
+    private signer: Signer,
+  ) {
     this.symbol = 'ETH';
     this.logger.info('Initialized Ether wallet');
   }

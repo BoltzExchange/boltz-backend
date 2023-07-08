@@ -48,7 +48,10 @@ class EthereumManager {
     ERC20Swap: 2,
   };
 
-  constructor(private logger: Logger, private ethereumConfig: EthereumConfig) {
+  constructor(
+    private logger: Logger,
+    private ethereumConfig: EthereumConfig,
+  ) {
     if (
       this.ethereumConfig.etherSwapAddress === '' ||
       this.ethereumConfig.erc20SwapAddress === ''

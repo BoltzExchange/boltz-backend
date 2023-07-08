@@ -108,7 +108,10 @@ class UtxoNursery extends EventEmitter {
   private static reverseSwapLockupConfirmationLock =
     'reverseSwapLockupConfirmation';
 
-  constructor(private logger: Logger, private walletManager: WalletManager) {
+  constructor(
+    private logger: Logger,
+    private walletManager: WalletManager,
+  ) {
     super();
   }
 

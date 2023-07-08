@@ -16,7 +16,10 @@ class RoutingHintsProvider {
 
   private channels = new Map<string, ChannelWithRoutingInfo[]>();
 
-  constructor(private logger: Logger, private lndClients: LndClient[]) {
+  constructor(
+    private logger: Logger,
+    private lndClients: LndClient[],
+  ) {
     const lndSymbols: string[] = [];
     this.lndClients.forEach((client) => lndSymbols.push(client.symbol));
 

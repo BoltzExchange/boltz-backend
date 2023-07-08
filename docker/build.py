@@ -45,7 +45,7 @@ GETH_VERSION = "1.12.0"
 
 C_LIGHTNING_VERSION = "23.05.2"
 ECLAIR_VERSION = "0.9.0"
-LND_VERSION = "0.16.3-beta"
+LND_VERSION = "0.16.4-beta"
 
 BITCOIN_BUILD_ARG = BuildArgument(
     name="BITCOIN_VERSION",
@@ -99,7 +99,7 @@ IMAGES: dict[str, Image] = {
         ],
     ),
     "regtest": Image(
-        tags=["3.5.2"],
+        tags=["3.5.3"],
         arguments=[
             UBUNTU_VERSION,
             BITCOIN_BUILD_ARG,

@@ -22,7 +22,10 @@ import {
 class Migration {
   private static latestSchemaVersion = 6;
 
-  constructor(private logger: Logger, private sequelize: Sequelize) {}
+  constructor(
+    private logger: Logger,
+    private sequelize: Sequelize,
+  ) {}
 
   public migrate = async (currencies: Map<string, Currency>): Promise<void> => {
     await DatabaseVersion.sync();

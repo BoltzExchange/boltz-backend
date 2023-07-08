@@ -41,7 +41,10 @@ class TimeoutDeltaProvider {
 
   public timeoutDeltas = new Map<string, PairTimeoutBlockDeltas>();
 
-  constructor(private logger: Logger, private config: ConfigType) {}
+  constructor(
+    private logger: Logger,
+    private config: ConfigType,
+  ) {}
 
   public static convertBlocks = (
     fromSymbol: string,

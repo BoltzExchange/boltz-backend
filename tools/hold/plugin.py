@@ -1,7 +1,9 @@
 #!/usr/bin/env /tools/.venv/bin/python3
 import json
-from collections import defaultdict
+import threading
+from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from enum import Enum
 from hashlib import sha256
 from typing import Any, ClassVar, TypeVar
@@ -15,6 +17,9 @@ from pyln.client.plugin import Request
 
 PLUGIN_NAME = "hold"
 
+TIMEOUT_CANCEL = 60
+TIMEOUT_CHECK_INTERVAL = 10
+
 
 class DataErrorCodes(int, Enum):
     KeyDoesNotExist = 1200
@@ -22,6 +27,7 @@ class DataErrorCodes(int, Enum):
 
 
 class HtlcFailureMessage(str, Enum):
+    MppTimeout = "0017"
     IncorrectPaymentDetails = "400F"
 
 
@@ -89,26 +95,103 @@ class HoldInvoice:
         return cls(**json_dict)
 
 
+def time_now() -> datetime:
+    return datetime.now(tz=timezone.utc)
+
+
+T = TypeVar("T")
+
+
+def partition(iterable: list[T], pred: Callable[[T], bool]) -> tuple[list[T], list[T]]:
+    trues = []
+    falses = []
+
+    for item in iterable:
+        if pred(item):
+            trues.append(item)
+        else:
+            falses.append(item)
+
+    return trues, falses
+
+
+@dataclass
+class Htlc:
+    msat: int
+    request: Request
+    creation_time: datetime
+
+
+class Htlcs:
+    htlcs: list[Htlc]
+
+    def __init__(self, invoice_amount: int) -> None:
+        self.htlcs = []
+        self.invoice_amount = invoice_amount
+
+    def add_htlc(self, htlc_msat: int, req: Request) -> None:
+        self.htlcs.append(Htlc(htlc_msat, req, time_now()))
+
+    def is_fully_paid(self) -> bool:
+        return self.invoice_amount <= sum(h.msat for h in self.htlcs)
+
+    def requests(self) -> list[Request]:
+        return [h.request for h in self.htlcs]
+
+    def cancel_expired(self) -> None:
+        expired, not_expired = partition(
+            self.htlcs,
+            lambda htlc: (
+                                 time_now() - htlc.creation_time
+                         ).total_seconds() > TIMEOUT_CANCEL,
+        )
+
+        self.htlcs = not_expired
+        for h in expired:
+            Settler.fail_callback(h.request, HtlcFailureMessage.MppTimeout)
+
+
 class Settler:
     _plugin: Plugin
-    _requests: ClassVar[dict[str, list[Request]]] = defaultdict(list)
+    _lock = threading.Lock()
+    _htlcs: ClassVar[dict[str, Htlcs]] = {}
 
     def __init__(self, plugin: Plugin) -> None:
         self._plugin = plugin
+        self._start_timeout_interval()
 
-    def handle_htlc(self, req: Request, invoice: HoldInvoice) -> None:
-        if invoice.state == InvoiceState.Paid:
-            self._settle_callback(req, invoice.payment_preimage)
-            return
+    def handle_htlc(
+            self,
+            invoice: HoldInvoice,
+            dec_invoice: dict[str, Any],
+            htlc_msat: int,
+            req: Request,
+    ) -> None:
+        with self._lock:
+            if invoice.state == InvoiceState.Paid:
+                self._settle_callback(req, invoice.payment_preimage)
+                return
 
-        if invoice.state == InvoiceState.Cancelled:
-            self.fail_callback(req, HtlcFailureMessage.IncorrectPaymentDetails)
-            return
+            if invoice.state == InvoiceState.Cancelled:
+                self.fail_callback(req, HtlcFailureMessage.IncorrectPaymentDetails)
+                return
 
-        invoice.set_state(InvoiceState.Accepted)
-        self._requests[invoice.payment_hash].append(req)
-        ds.save_invoice(invoice, mode="must-replace")
-        self._plugin.log(f"Accepted hold invoice {invoice.payment_hash}")
+            if invoice.payment_hash not in self._htlcs:
+                invoice_msat = int(dec_invoice["amount_msat"])
+                self._htlcs[invoice.payment_hash] = Htlcs(invoice_msat)
+
+            htlcs = self._htlcs[invoice.payment_hash]
+            htlcs.add_htlc(htlc_msat, req)
+
+            if not htlcs.is_fully_paid():
+                return
+
+            invoice.set_state(InvoiceState.Accepted)
+            ds.save_invoice(invoice, mode="must-replace")
+            self._plugin.log(
+                f"Accepted hold invoice {invoice.payment_hash} "
+                f"with {len(htlcs.htlcs)} HTLCs",
+            )
 
     def settle(self, invoice: HoldInvoice) -> None:
         invoice.set_state(InvoiceState.Paid)
@@ -121,7 +204,22 @@ class Settler:
             self.fail_callback(req, HtlcFailureMessage.IncorrectPaymentDetails)
 
     def _pop_requests(self, payment_hash: str) -> list[Request]:
-        return self._requests.pop(payment_hash, [])
+        return self._htlcs.pop(payment_hash, Htlcs(0)).requests()
+
+    def _start_timeout_interval(self) -> None:
+        self._stop_timeout_interval = threading.Event()
+
+        def loop() -> None:
+            while not self._stop_timeout_interval.wait(TIMEOUT_CHECK_INTERVAL):
+                self._timeout_handler()
+
+        threading.Thread(target=loop).start()
+
+    def _timeout_handler(self) -> None:
+        with self._lock:
+            for htlcs in self._htlcs.values():
+                if not htlcs.is_fully_paid():
+                    htlcs.cancel_expired()
 
     @staticmethod
     def fail_callback(req: Request, message: HtlcFailureMessage) -> None:
@@ -335,19 +433,9 @@ def on_htlc_accepted(
         Settler.continue_callback(request)
         return
 
+    # TODO: mpp timeout
+
     dec = plugin.rpc.decodepay(invoice.bolt11)
-    invoice_msat = int(dec["amount_msat"])
-    htlc_msat = int(htlc["amount_msat"])
-
-    if htlc_msat != invoice_msat:
-        plugin.log(
-            f"Rejected hold invoice {invoice.payment_hash}: amount mismatch "
-            f"({htlc_msat} != {invoice_msat})",
-            level="warn",
-        )
-        Settler.fail_callback(request, HtlcFailureMessage.IncorrectPaymentDetails)
-        return
-
     if htlc["cltv_expiry_relative"] < dec["min_final_cltv_expiry"]:
         plugin.log(
             f"Rejected hold invoice {invoice.payment_hash}: CLTV too little "
@@ -357,7 +445,7 @@ def on_htlc_accepted(
         Settler.fail_callback(request, HtlcFailureMessage.IncorrectPaymentDetails)
         return
 
-    settler.handle_htlc(request, invoice)
+    settler.handle_htlc(invoice, dec, int(htlc["amount_msat"]), request)
 
 
 pl.run()

@@ -72,12 +72,14 @@ class LndPay(Thread):
             self,
             node: LndNode,
             invoice: str,
+            max_shard_size: int | None = None,
             outgoing_chan_id: str | None = None,
     ) -> None:
         Thread.__init__(self)
 
         self.node = node
         self.invoice = invoice
+        self.max_shard_size = max_shard_size
         self.outgoing_chan_id = outgoing_chan_id
 
     def run(self) -> None:
@@ -85,6 +87,9 @@ class LndPay(Thread):
 
         if self.outgoing_chan_id is not None:
             cmd += f" --outgoing_chan_id {self.outgoing_chan_id}"
+
+        if self.max_shard_size is not None:
+            cmd += f" --max_shard_size_sat {self.max_shard_size}"
 
         res = lnd_raw(self.node, f"{cmd} {self.invoice} 2> /dev/null")
         res = res[res.find("{"):]
@@ -165,7 +170,7 @@ class TestHold:
         pay = LndPay(LndNode.One, invoice)
         pay.start()
 
-        time.sleep(0.5)
+        time.sleep(1)
 
         assert cln(
             "listholdinvoices",
@@ -176,6 +181,32 @@ class TestHold:
         pay.join()
 
         assert pay.res["status"] == "SUCCEEDED"
+
+        assert cln(
+            "listholdinvoices",
+            payment_hash,
+        )["holdinvoices"][0]["state"] == "paid"
+
+    @pytest.mark.parametrize("parts", [2, 4])
+    def test_settle_accepted_mpp(self, cln: CliCaller, parts: int) -> None:
+        payment_secret, payment_hash, invoice = add_hold_invoice(cln)
+        amount = int(lnd(LndNode.One, "decodepayreq", invoice)["num_satoshis"])
+
+        pay = LndPay(LndNode.One, invoice, max_shard_size=int(amount/parts))
+        pay.start()
+
+        time.sleep(1)
+
+        assert cln(
+            "listholdinvoices",
+            payment_hash,
+        )["holdinvoices"][0]["state"] == "accepted"
+
+        cln("settleholdinvoice", payment_secret)
+        pay.join()
+
+        assert pay.res["status"] == "SUCCEEDED"
+        assert len(pay.res["htlcs"]) == parts
 
         assert cln(
             "listholdinvoices",
@@ -258,6 +289,24 @@ class TestHold:
         assert res["code"] == 2102
         assert res["message"] == "hold invoice with that payment hash does not exist"
 
+    def test_mpp_timeout(self, cln: CliCaller) -> None:
+        _, payment_hash, invoice = add_hold_invoice(cln)
+        amount = lnd(LndNode.One, "decodepayreq", invoice)["num_satoshis"]
+        cln_node = cln("getinfo")["id"]
+
+        routes = lnd(LndNode.One, "queryroutes", cln_node, str(int(amount) - 1))
+
+        res = lnd(
+            LndNode.One,
+            "sendtoroute",
+            "--payment_hash",
+            payment_hash,
+            format_json(routes),
+        )
+
+        assert res["status"] == "FAILED"
+        assert res["failure"]["code"] == "MPP_TIMEOUT"
+
     def test_htlc_too_little_cltv(self, cln: CliCaller) -> None:
         _, payment_hash, invoice = add_hold_invoice(cln)
         amount = lnd(LndNode.One, "decodepayreq", invoice)["num_satoshis"]
@@ -273,29 +322,6 @@ class TestHold:
             "--payment_hash",
             payment_hash,
             format_json(routes),
-        )
-
-        assert res["status"] == "FAILED"
-        assert res["failure"]["code"] == "INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS"
-
-        assert cln(
-            "listholdinvoices",
-            payment_hash,
-        )["holdinvoices"][0]["state"] == "unpaid"
-
-    @pytest.mark.parametrize("delta", [1, (-1)])
-    def test_htlc_too_little_amount(self, cln: CliCaller, delta: int) -> None:
-        _, payment_hash, invoice = add_hold_invoice(cln)
-        cln_node = cln("getinfo")["id"]
-        amount = lnd(LndNode.One, "decodepayreq", invoice)["num_satoshis"]
-        amount = str(int(amount) + delta)
-
-        res = lnd(
-            LndNode.One,
-            "sendtoroute",
-            "--payment_hash",
-            payment_hash,
-            format_json(lnd(LndNode.One, "queryroutes", cln_node, amount)),
         )
 
         assert res["status"] == "FAILED"
@@ -338,6 +364,7 @@ class TestHold:
 
         assert pay.res["status"] == "SUCCEEDED"
 
+    @pytest.mark.skip("forwarding over the CLN node is broken in regtest setup")
     def test_ignore_forward(self, cln: CliCaller) -> None:
         cln_id = cln("getinfo")["id"]
         channels = lnd(LndNode.Two, "listchannels")["channels"]

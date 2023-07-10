@@ -1,6 +1,6 @@
 module.exports = {
-  'env': {
-    'node': true
+  env: {
+    node: true,
   },
   rules: {
     'jest/expect-expect': 'off',
@@ -13,19 +13,14 @@ module.exports = {
     '@typescript-eslint/no-non-null-assertion': 'off',
     '@typescript-eslint/adjacent-overload-signatures': 'off',
 
-    'semi': 'error',
+    semi: 'error',
     'no-trailing-spaces': 'error',
     'import/no-unresolved': 'off',
-    'quotes': ['error', 'single', { 'avoidEscape': true }],
+    quotes: ['error', 'single', { avoidEscape: true }],
   },
   root: true,
   parser: '@typescript-eslint/parser',
-  ignorePatterns: [
-    'dist/',
-    'lib/proto/',
-    'contracts/',
-    'node_modules/',
-  ],
+  ignorePatterns: ['dist/', 'lib/proto/', 'contracts/', 'node_modules/'],
   plugins: [
     'jest',
     'eslint-plugin-import',

@@ -134,7 +134,7 @@ class Service {
       this.swapManager.nursery,
     );
 
-    this.nodeInfo = new NodeInfo(Logger.disabledLogger, this.currencies);
+    this.nodeInfo = new NodeInfo(this.logger, this.currencies);
   }
 
   public init = async (configPairs: PairConfig[]): Promise<void> => {

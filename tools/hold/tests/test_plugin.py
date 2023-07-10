@@ -40,6 +40,19 @@ def format_json(args: dict[str, Any] | list[Any]) -> str:
     return json.dumps(args).replace('"', '\\"').replace(" ", "")
 
 
+def connect_peers(cln: CliCaller) -> None:
+    cln_id = cln("getinfo")["id"]
+
+    def lnd_connect(node: LndNode) -> None:
+        if len(lnd(node, "listpeers")["peers"]) == 2:
+            return
+
+        lnd(node, "connect", f"{cln_id}@127.0.0.1:9737")
+
+    for i in LndNode:
+        lnd_connect(i)
+
+
 def stop_plugin(cln: CliCaller) -> None:
     plugins = cln("plugin", "list")["plugins"]
     if not any(PLUGIN_PATH in plugin["name"] for plugin in plugins):
@@ -107,6 +120,8 @@ class TestHold:
         stop_plugin(cln_con)
         cln_con("plugin", "start", PLUGIN_PATH)
         cln_con("dev-wipeholdinvoices")
+
+        connect_peers(cln_con)
 
         yield cln_con
 
@@ -364,7 +379,6 @@ class TestHold:
 
         assert pay.res["status"] == "SUCCEEDED"
 
-    @pytest.mark.skip("forwarding over the CLN node is broken in regtest setup")
     def test_ignore_forward(self, cln: CliCaller) -> None:
         cln_id = cln("getinfo")["id"]
         channels = lnd(LndNode.Two, "listchannels")["channels"]

@@ -13,7 +13,6 @@ from pyln.client.plugin import Request
 
 # TODO: fix shebang line
 # TODO: restart handling
-# TODO: MPP
 
 PLUGIN_NAME = "hold"
 

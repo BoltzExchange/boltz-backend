@@ -48,7 +48,7 @@ class Controller {
       const response = this.pendingSwapStreams.get(id);
 
       if (response) {
-        response.write(`data: ${JSON.stringify(message)}\n\n`);
+        this.writeToSse(response, message);
       }
     });
   }
@@ -520,6 +520,11 @@ class Controller {
 
       res.setTimeout(0);
 
+      const lastUpdate = this.pendingSwapInfos.get(id);
+      if (lastUpdate) {
+        this.writeToSse(res, lastUpdate);
+      }
+
       this.pendingSwapStreams.set(id, res);
 
       res.on('close', () => {
@@ -650,6 +655,10 @@ class Controller {
     if (preimageHash.length !== 32) {
       throw `invalid preimage hash length: ${preimageHash.length}`;
     }
+  };
+
+  private writeToSse = (res: Response, message: SwapUpdate) => {
+    res.write(`data: ${JSON.stringify(message)}\n\n`);
   };
 }
 

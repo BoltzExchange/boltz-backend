@@ -46,4 +46,4 @@ jobs:
         run: npm run test:unit
 
       - name: Integration tests
-        run: npm run test:int
+        run: node run-int.js

@@ -2,17 +2,21 @@ import fs from 'fs';
 import toml from '@iarna/toml';
 import Errors from './Errors';
 import Logger from '../Logger';
+import Swap from '../db/models/Swap';
 import { ConfigType } from '../Config';
 import { OrderSide } from '../consts/Enums';
 import { PairConfig } from '../consts/Types';
+import { PayReq } from '../proto/lnd/rpc_pb';
+import LndClient from '../lightning/LndClient';
+import { Currency } from '../wallet/WalletManager';
 import ElementsClient from '../chain/ElementsClient';
+import EthereumManager from '../wallet/ethereum/EthereumManager';
 import {
-  getPairId,
-  stringify,
-  splitPairId,
-  decodeInvoice,
   getChainCurrency,
   getLightningCurrency,
+  getPairId,
+  splitPairId,
+  stringify,
 } from '../Utils';
 
 type PairTimeoutBlocksDelta = {
@@ -28,8 +32,8 @@ type PairTimeoutBlockDeltas = {
 };
 
 class TimeoutDeltaProvider {
-  public static minCltvOffset = 60;
-  private static routingOffset = 90;
+  public static routingOffset = 60;
+  public static readonly noRoutes = -1;
 
   // A map of the symbols of currencies and their block times in minutes
   public static blockTimes = new Map<string, number>([
@@ -44,6 +48,8 @@ class TimeoutDeltaProvider {
   constructor(
     private logger: Logger,
     private config: ConfigType,
+    private currencies: Map<string, Currency>,
+    private ethereumManager: EthereumManager,
   ) {}
 
   public static convertBlocks = (
@@ -112,12 +118,31 @@ class TimeoutDeltaProvider {
     }
   };
 
-  public getTimeout = (
+  public getCltvLimit = async (swap: Swap): Promise<number> => {
+    const { base, quote } = splitPairId(swap.pair);
+    const chainCurrency = this.currencies.get(
+      getChainCurrency(base, quote, swap.orderSide, false),
+    )!;
+
+    const currentBlock = chainCurrency.chainClient
+      ? (await chainCurrency.chainClient.getBlockchainInfo()).blocks
+      : await this.ethereumManager.provider.getBlockNumber();
+
+    const blockLeft = TimeoutDeltaProvider.convertBlocks(
+      chainCurrency.symbol,
+      getLightningCurrency(base, quote, swap.orderSide, false),
+      swap.timeoutBlockHeight - currentBlock,
+    );
+
+    return Math.floor(blockLeft - 2);
+  };
+
+  public getTimeout = async (
     pairId: string,
     orderSide: OrderSide,
     isReverse: boolean,
     invoice?: string,
-  ): number => {
+  ): Promise<[number, boolean]> => {
     const timeouts = this.timeoutDeltas.get(pairId);
 
     if (!timeouts) {
@@ -125,63 +150,130 @@ class TimeoutDeltaProvider {
     }
 
     if (isReverse) {
-      return orderSide === OrderSide.BUY
-        ? timeouts.base.reverse
-        : timeouts.quote.reverse;
+      return [
+        orderSide === OrderSide.BUY
+          ? timeouts.base.reverse
+          : timeouts.quote.reverse,
+        false,
+      ];
     } else {
       const { base, quote } = splitPairId(pairId);
       const chain = getChainCurrency(base, quote, orderSide, false);
       const lightning = getLightningCurrency(base, quote, orderSide, false);
 
-      const deltas =
+      const chainDeltas =
         orderSide === OrderSide.BUY ? timeouts.quote : timeouts.base;
+      const lightningDeltas =
+        orderSide === OrderSide.BUY ? timeouts.base : timeouts.quote;
+
       return invoice
-        ? this.getTimeoutInvoice(chain, lightning, deltas, invoice)
-        : deltas.swapMinimal;
+        ? await this.getTimeoutInvoice(
+            chain,
+            lightning,
+            chainDeltas,
+            lightningDeltas,
+            invoice,
+          )
+        : [chainDeltas.swapMinimal, true];
     }
   };
 
-  private getTimeoutInvoice = (
+  public checkRoutability = async (
+    lnd: LndClient,
+    decodedInvoice: PayReq,
+    cltvLimit: number,
+  ) => {
+    try {
+      // Check whether the receiving side supports MPP and if so,
+      // query a route for the number of sats of the invoice divided
+      // by the max payment parts we tell to LND to use
+      const supportsMpp = decodedInvoice
+        .toObject()
+        .featuresMap.map(
+          ([, feature]) =>
+            feature.name === 'multi-path-payments' &&
+            (feature.isKnown || feature.isRequired),
+        )
+        .some((val) => val);
+
+      const amountToQuery = Math.max(
+        supportsMpp
+          ? Math.ceil(
+              decodedInvoice.getNumSatoshis() / LndClient.paymentMaxParts,
+            )
+          : decodedInvoice.getNumSatoshis(),
+        1,
+      );
+
+      const routes = await lnd.queryRoutes(
+        decodedInvoice.getDestination(),
+        amountToQuery,
+        cltvLimit,
+        decodedInvoice.getCltvExpiry(),
+        decodedInvoice.getRouteHintsList(),
+      );
+
+      return routes.routesList.reduce(
+        (highest, r) => (highest > r.totalTimeLock ? highest : r.totalTimeLock),
+        TimeoutDeltaProvider.noRoutes,
+      );
+    } catch (error) {
+      this.logger.debug(`Could not query routes: ${error}`);
+      return TimeoutDeltaProvider.noRoutes;
+    }
+  };
+
+  private getTimeoutInvoice = async (
     chainCurrency: string,
     lightningCurrency: string,
-    timeout: PairTimeoutBlocksDelta,
+    chainTimeout: PairTimeoutBlocksDelta,
+    lightningTimeout: PairTimeoutBlocksDelta,
     invoice: string,
-  ): number => {
-    const { minFinalCltvExpiry, routingInfo } = decodeInvoice(invoice);
+  ): Promise<[number, boolean]> => {
+    const { lndClient, chainClient } = this.currencies.get(lightningCurrency)!;
+    const decodedInvoice = await lndClient!.decodePayReqRawResponse(invoice);
 
-    let blocks = timeout.swapMinimal;
+    const [routeTimeLock, chainInfo] = await Promise.all([
+      this.checkRoutability(
+        lndClient!,
+        decodedInvoice,
+        lightningTimeout.swapMaximal,
+      ),
+      chainClient!.getBlockchainInfo(),
+    ]);
 
-    const deltas = [minFinalCltvExpiry]
-      .concat((routingInfo || []).map((info) => info.cltv_expiry_delta))
-      .filter(
-        (val): val is Exclude<typeof val, undefined> => val !== undefined,
-      );
-
-    if (deltas.length > 0) {
-      let maxDelta = Math.max(...deltas);
-
-      // Add some buffer to make sure we have enough limit to route to the hop hint
-      if (routingInfo !== undefined) {
-        maxDelta += TimeoutDeltaProvider.routingOffset;
-      }
-
-      const finalExpiry = Math.ceil(
-        maxDelta * TimeoutDeltaProvider.getBlockTime(lightningCurrency),
-      );
-
-      const minTimeout = Math.ceil(
-        (TimeoutDeltaProvider.minCltvOffset + finalExpiry) /
-          TimeoutDeltaProvider.getBlockTime(chainCurrency),
-      );
-
-      if (minTimeout > timeout.swapMaximal) {
-        throw Errors.MIN_EXPIRY_TOO_BIG(timeout.swapMaximal, minTimeout);
-      }
-
-      blocks = Math.max(timeout.swapMinimal, minTimeout);
+    if (routeTimeLock === TimeoutDeltaProvider.noRoutes) {
+      return [chainTimeout.swapMaximal, false];
     }
 
-    return blocks;
+    const routeDeltaRelative = routeTimeLock - chainInfo.blocks;
+    this.logger.debug(
+      `CLTV needed to route: ${routeDeltaRelative} ${lightningCurrency} blocks`,
+    );
+
+    // Add some buffer to make sure we have enough limit when the transaction confirms
+    const routeDeltaMinutes = Math.ceil(
+      routeDeltaRelative * TimeoutDeltaProvider.getBlockTime(lightningCurrency),
+    );
+    const finalExpiry = routeDeltaMinutes + TimeoutDeltaProvider.routingOffset;
+
+    const minTimeout = Math.ceil(
+      finalExpiry / TimeoutDeltaProvider.getBlockTime(chainCurrency),
+    );
+
+    if (minTimeout > chainTimeout.swapMaximal) {
+      throw Errors.MIN_EXPIRY_TOO_BIG(
+        Math.ceil(
+          chainTimeout.swapMaximal *
+            TimeoutDeltaProvider.getBlockTime(chainCurrency),
+        ),
+        routeDeltaMinutes,
+      );
+    }
+
+    const cltv = Math.max(chainTimeout.swapMinimal, minTimeout);
+    this.logger.debug(`Using timeout of: ${cltv} ${chainCurrency} blocks`);
+    return [cltv, true];
   };
 
   private minutesToBlocks = (

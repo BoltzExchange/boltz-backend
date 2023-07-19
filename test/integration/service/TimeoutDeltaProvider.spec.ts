@@ -1,28 +1,71 @@
 import { randomBytes } from 'crypto';
 import Logger from '../../../lib/Logger';
-import { bitcoinLndClient } from '../Nodes';
 import Errors from '../../../lib/service/Errors';
 import { ConfigType } from '../../../lib/Config';
 import { splitPairId } from '../../../lib/Utils';
 import { OrderSide } from '../../../lib/consts/Enums';
+import { Currency } from '../../../lib/wallet/WalletManager';
+import EthereumManager from '../../../lib/wallet/ethereum/EthereumManager';
 import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
+import {
+  bitcoinClient,
+  bitcoinLndClient,
+  bitcoinLndClient2,
+  elementsClient,
+} from '../Nodes';
+
+jest.mock('../../../lib/db/repositories/ChainTipRepository');
+
+jest.mock('../../../lib/wallet/ethereum/EthereumManager', () => {
+  return jest.fn().mockImplementation(() => {});
+});
 
 describe('TimeoutDeltaProvider', () => {
-  const deltaProvider = new TimeoutDeltaProvider(Logger.disabledLogger, {
-    configpath: '',
-    pairs: [],
-  } as any as ConfigType);
+  const deltaProvider = new TimeoutDeltaProvider(
+    Logger.disabledLogger,
+    {
+      configpath: '',
+      pairs: [],
+    } as any as ConfigType,
+    new Map<string, Currency>([
+      [
+        'BTC',
+        {
+          chainClient: bitcoinClient,
+          lndClient: bitcoinLndClient,
+        } as Currency,
+      ],
+      [
+        'L-BTC',
+        {
+          chainClient: elementsClient,
+        } as unknown as Currency,
+      ],
+    ]),
+    (<jest.Mock<EthereumManager>>(<any>EthereumManager))(),
+  );
 
-  const pair = 'LTC/BTC';
+  const pair = 'L-BTC/BTC';
   const { base, quote } = splitPairId(pair);
   const timeoutDelta = {
     reverse: 1400,
-    swapMinimal: 190,
+    swapMinimal: 1400,
     swapMaximal: 2800,
   };
 
   beforeAll(async () => {
-    await bitcoinLndClient.connect(false);
+    await Promise.all([
+      bitcoinClient.connect(),
+      elementsClient.connect(),
+      bitcoinLndClient.connect(false),
+      bitcoinLndClient2.connect(false),
+    ]);
+  });
+
+  afterAll(() => {
+    [bitcoinClient, elementsClient, bitcoinLndClient, bitcoinLndClient2].map(
+      (client) => client.disconnect(),
+    );
   });
 
   test('should init', () => {
@@ -37,18 +80,24 @@ describe('TimeoutDeltaProvider', () => {
     ]);
   });
 
-  test('should get timeouts of swaps without invoices', () => {
-    expect(deltaProvider.getTimeout(pair, OrderSide.BUY, false)).toEqual(
+  test('should get timeouts of swaps without invoices', async () => {
+    await expect(
+      deltaProvider.getTimeout(pair, OrderSide.BUY, false),
+    ).resolves.toEqual([
       timeoutDelta.swapMinimal / TimeoutDeltaProvider.blockTimes.get(quote)!,
-    );
-    expect(deltaProvider.getTimeout(pair, OrderSide.SELL, false)).toEqual(
+      true,
+    ]);
+    await expect(
+      deltaProvider.getTimeout(pair, OrderSide.SELL, false),
+    ).resolves.toEqual([
       timeoutDelta.swapMinimal / TimeoutDeltaProvider.blockTimes.get(base)!,
-    );
+      true,
+    ]);
   });
 
   test('should get timeouts of swaps with invoices', async () => {
     const createInvoice = async (cltvExpiry: number) => {
-      const { paymentRequest } = await bitcoinLndClient.addHoldInvoice(
+      const { paymentRequest } = await bitcoinLndClient2.addHoldInvoice(
         1,
         randomBytes(32),
         cltvExpiry,
@@ -57,75 +106,96 @@ describe('TimeoutDeltaProvider', () => {
     };
 
     // Minima
-    expect(
+    await expect(
       deltaProvider.getTimeout(
         pair,
-        OrderSide.BUY,
+        OrderSide.SELL,
         false,
         await createInvoice(18),
       ),
-    ).toEqual(
-      timeoutDelta.swapMinimal / TimeoutDeltaProvider.blockTimes.get(quote)!,
-    );
-    expect(
+    ).resolves.toEqual([
+      timeoutDelta.swapMinimal / TimeoutDeltaProvider.blockTimes.get(base)!,
+      true,
+    ]);
+    await expect(
       deltaProvider.getTimeout(
         pair,
-        OrderSide.BUY,
+        OrderSide.SELL,
         false,
         await createInvoice(40),
       ),
-    ).toEqual(
-      timeoutDelta.swapMinimal / TimeoutDeltaProvider.blockTimes.get(quote)!,
-    );
+    ).resolves.toEqual([
+      timeoutDelta.swapMinimal / TimeoutDeltaProvider.blockTimes.get(base)!,
+      true,
+    ]);
 
     // Greater than minimum
     for (const cltvDelta of [140, 150, 274]) {
-      const ltcBlocks = Math.ceil(
-        cltvDelta / TimeoutDeltaProvider.blockTimes.get(base)!,
-      );
-      expect(
+      await expect(
         deltaProvider.getTimeout(
           pair,
-          OrderSide.BUY,
+          OrderSide.SELL,
           false,
-          await createInvoice(ltcBlocks),
+          await createInvoice(
+            Math.ceil(cltvDelta / TimeoutDeltaProvider.blockTimes.get(base)!),
+          ),
         ),
-      ).toEqual(
+      ).resolves.toEqual([
         Math.ceil(
-          (cltvDelta + TimeoutDeltaProvider.minCltvOffset) /
-            TimeoutDeltaProvider.blockTimes.get(quote)!,
+          (cltvDelta * TimeoutDeltaProvider.blockTimes.get(quote)! +
+            TimeoutDeltaProvider.routingOffset) /
+            TimeoutDeltaProvider.blockTimes.get(base)!,
         ),
-      );
+        true,
+      ]);
     }
 
     // Greater than maximum
     const swapMaximal =
-      timeoutDelta.swapMaximal / TimeoutDeltaProvider.blockTimes.get(base)!;
+      timeoutDelta.swapMaximal / TimeoutDeltaProvider.blockTimes.get(quote)!;
     const invoiceCltv =
       swapMaximal -
-      TimeoutDeltaProvider.minCltvOffset /
-        TimeoutDeltaProvider.blockTimes.get(base)! +
+      TimeoutDeltaProvider.routingOffset /
+        TimeoutDeltaProvider.blockTimes.get(quote)! +
       1;
     const invoice = await createInvoice(invoiceCltv);
-
-    expect(() =>
-      deltaProvider.getTimeout(pair, OrderSide.BUY, false, invoice),
-    ).toThrow(
+    await expect(
+      deltaProvider.getTimeout(pair, OrderSide.SELL, false, invoice),
+    ).rejects.toEqual(
       Errors.MIN_EXPIRY_TOO_BIG(
-        timeoutDelta.swapMaximal / TimeoutDeltaProvider.blockTimes.get(quote)!,
-        timeoutDelta.swapMaximal / TimeoutDeltaProvider.blockTimes.get(quote)! +
-          1,
-      ).message,
+        timeoutDelta.swapMaximal,
+        invoiceCltv * TimeoutDeltaProvider.blockTimes.get(quote)!,
+      ),
     );
   });
 
-  test('should get timeouts of reverse swaps', () => {
-    expect(deltaProvider.getTimeout(pair, OrderSide.BUY, true)).toEqual(
+  test('should return max timeout for invoices that cannot be routed', async () => {
+    await expect(
+      deltaProvider.getTimeout(
+        pair,
+        OrderSide.SELL,
+        false,
+        'lnbcrt1n1pjtwpszsp53ap24lskmwzre57a7dzyvv3fr4j0xpnj84zedp2mx4xkvyd00mmqpp57dxxsvrtw6dhxzv09ufvjl2nwta65csqqv5rw7akvscv9aqlqclsdqqxqyjw5qcqp29qxpqysgq7t354a4juq8869psw0fp59g57fdh63cad4gdd0hl6pp7t2ytsexzq8qex4nx0a05n8u4kvh5ttv5zdm7d3uwjf6cglxstu7gfy56fqqp6wscqc',
+      ),
+    ).resolves.toEqual([
+      timeoutDelta.swapMaximal * TimeoutDeltaProvider.blockTimes.get(base)!,
+      false,
+    ]);
+  });
+
+  test('should get timeouts of reverse swaps', async () => {
+    await expect(
+      deltaProvider.getTimeout(pair, OrderSide.BUY, true),
+    ).resolves.toEqual([
       timeoutDelta.reverse / TimeoutDeltaProvider.blockTimes.get(base)!,
-    );
-    expect(deltaProvider.getTimeout(pair, OrderSide.SELL, true)).toEqual(
+      false,
+    ]);
+    await expect(
+      deltaProvider.getTimeout(pair, OrderSide.SELL, true),
+    ).resolves.toEqual([
       timeoutDelta.reverse / TimeoutDeltaProvider.blockTimes.get(quote)!,
-    );
+      false,
+    ]);
   });
 
   afterAll(() => {

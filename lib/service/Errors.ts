@@ -56,10 +56,6 @@ export default {
     message: `could not find timeout delta of pair: ${pairId}`,
     code: concatErrorCode(ErrorCodePrefix.Service, 14),
   }),
-  NO_LND_CLIENT: (symbol: string): Error => ({
-    message: `${symbol} has no LND client`,
-    code: concatErrorCode(ErrorCodePrefix.Service, 15),
-  }),
   SWAP_WITH_PREIMAGE_EXISTS: (): Error => ({
     message: 'a swap with this preimage hash exists already',
     code: concatErrorCode(ErrorCodePrefix.Service, 17),
@@ -126,7 +122,7 @@ export default {
     swapMaximal: number,
     minFinalCltvExpiry: number,
   ): Error => ({
-    message: `minimal swap expiry ${minFinalCltvExpiry} plus the minimal offset ${TimeoutDeltaProvider.minCltvOffset} minutes is greater than max swap timeout ${swapMaximal}`,
+    message: `minimal swap expiry ${minFinalCltvExpiry} plus the routing offset ${TimeoutDeltaProvider.routingOffset} minutes is greater than max swap timeout ${swapMaximal}`,
     code: concatErrorCode(ErrorCodePrefix.Service, 32),
   }),
 };

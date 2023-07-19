@@ -16,11 +16,12 @@ import SwapOutputType from '../../../lib/swap/SwapOutputType';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import InvoiceExpiryHelper from '../../../lib/service/InvoiceExpiryHelper';
 import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
+import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
+import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
+import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
 import SwapManager, {
   ChannelCreationInfo,
 } from '../../../lib/swap/SwapManager';
-import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
-import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
 import {
   ChannelCreationType,
   CurrencyType,
@@ -241,6 +242,22 @@ jest.mock('../../../lib/lightning/LndClient', () => {
 
 const MockedLndClient = <jest.Mock<LndClient>>(<any>LndClient);
 
+jest.mock('../../../lib/service/TimeoutDeltaProvider', () => {
+  const mockedImplementation = jest.fn().mockImplementation(() => {
+    return {};
+  });
+
+  (mockedImplementation as any).blockTimes = {
+    get: jest.fn().mockReturnValue(10),
+  };
+
+  return mockedImplementation;
+});
+
+const MockedTimeoutDeltaProvider = <jest.Mock<TimeoutDeltaProvider>>(
+  (<any>TimeoutDeltaProvider)
+);
+
 const mockGetExpiryResult = 123321;
 const mockGetExpiry = jest.fn().mockImplementation(() => {
   return mockGetExpiryResult;
@@ -327,6 +344,7 @@ describe('SwapManager', () => {
       Logger.disabledLogger,
       new MockedWalletManager(),
       new MockedRateProvider(),
+      new MockedTimeoutDeltaProvider(),
       new MockedInvoiceExpiryHelper(),
       new SwapOutputType(OutputType.Compatibility),
       0,
@@ -561,17 +579,10 @@ describe('SwapManager', () => {
         refundPublicKey: refundKey,
         baseCurrency: notFoundSymbol,
       }),
-    ).rejects.toEqual(Errors.NO_LND_CLIENT(notFoundSymbol));
+    ).rejects.toEqual(Errors.NO_LIGHTNING_SUPPORT(notFoundSymbol));
   });
 
   test('should set invoices of Swaps', async () => {
-    let mockCheckRoutabilityResult = true;
-    const mockCheckRoutability = jest.fn().mockImplementation(async () => {
-      return mockCheckRoutabilityResult;
-    });
-
-    manager['checkRoutability'] = mockCheckRoutability;
-
     const swap = {
       id: 'id',
       pair: 'BTC/BTC',
@@ -612,6 +623,7 @@ describe('SwapManager', () => {
       expectedAmount,
       percentageFee,
       acceptZeroConf,
+      true,
       emitSwapInvoiceSet,
     );
 
@@ -619,12 +631,6 @@ describe('SwapManager', () => {
     expect(mockGetChannelCreation).toHaveBeenCalledWith({
       swapId: swap.id,
     });
-
-    expect(mockCheckRoutability).toHaveBeenCalledTimes(1);
-    expect(mockCheckRoutability).toHaveBeenCalledWith(
-      btcCurrency.lndClient,
-      invoice,
-    );
 
     expect(mockSetInvoice).toHaveBeenCalledTimes(1);
     expect(mockSetInvoice).toHaveBeenCalledWith(
@@ -661,6 +667,7 @@ describe('SwapManager', () => {
       expectedAmount,
       percentageFee,
       acceptZeroConf,
+      true,
       emitSwapInvoiceSet,
     );
 
@@ -683,6 +690,7 @@ describe('SwapManager', () => {
       expectedAmount,
       percentageFee,
       acceptZeroConf,
+      true,
       emitSwapInvoiceSet,
     );
 
@@ -706,6 +714,7 @@ describe('SwapManager', () => {
       expectedAmount,
       percentageFee,
       acceptZeroConf,
+      true,
       emitSwapInvoiceSet,
     );
 
@@ -725,10 +734,9 @@ describe('SwapManager', () => {
       expectedAmount,
       percentageFee,
       acceptZeroConf,
+      true,
       emitSwapInvoiceSet,
     );
-
-    expect(mockCheckRoutability).toHaveBeenCalledTimes(4);
 
     expect(mockGetChannelCreation).toHaveBeenCalledTimes(5);
     expect(mockSetInvoice).toHaveBeenCalledTimes(5);
@@ -747,6 +755,7 @@ describe('SwapManager', () => {
         expectedAmount,
         percentageFee,
         acceptZeroConf,
+        true,
         emitSwapInvoiceSet,
       );
     } catch (e) {
@@ -795,6 +804,7 @@ describe('SwapManager', () => {
         expectedAmount,
         percentageFee,
         acceptZeroConf,
+        true,
         emitSwapInvoiceSet,
       );
     } catch (e) {
@@ -822,6 +832,7 @@ describe('SwapManager', () => {
         expectedAmount,
         percentageFee,
         acceptZeroConf,
+        true,
         emitSwapInvoiceSet,
       );
     } catch (e) {
@@ -844,6 +855,7 @@ describe('SwapManager', () => {
         expectedAmount,
         percentageFee,
         acceptZeroConf,
+        true,
         emitSwapInvoiceSet,
       ),
     ).rejects.toEqual(Errors.INVOICE_INVALID_PREIMAGE_HASH(swap.preimageHash));
@@ -851,8 +863,6 @@ describe('SwapManager', () => {
     swap.preimageHash = invoicePreimageHash;
 
     // Routability check fails
-    mockCheckRoutabilityResult = false;
-
     await expect(
       manager.setSwapInvoice(
         swap,
@@ -861,11 +871,11 @@ describe('SwapManager', () => {
         expectedAmount,
         percentageFee,
         acceptZeroConf,
+        false,
         emitSwapInvoiceSet,
       ),
     ).rejects.toEqual(Errors.NO_ROUTE_FOUND());
 
-    mockCheckRoutabilityResult = true;
     mockAttemptSettleSwapThrow = false;
   });
 
@@ -1111,7 +1121,7 @@ describe('SwapManager', () => {
         claimPublicKey: claimKey,
         quoteCurrency: notFoundSymbol,
       }),
-    ).rejects.toEqual(Errors.NO_LND_CLIENT(notFoundSymbol));
+    ).rejects.toEqual(Errors.NO_LIGHTNING_SUPPORT(notFoundSymbol));
   });
 
   test('should recreate filters', () => {
@@ -1216,28 +1226,6 @@ describe('SwapManager', () => {
       2,
       address.toOutputScript(swaps[0].lockupAddress, Networks.bitcoinRegtest),
     );
-  });
-
-  test('should check routability', async () => {
-    const lndClient = new MockedLndClient();
-
-    const checkRoutability = manager['checkRoutability'];
-
-    expect(await checkRoutability(lndClient, 'single')).toEqual(true);
-    expect(mockQueryRoutes).toHaveBeenCalledWith(
-      'single',
-      mockDecodedInvoiceAmount,
-      undefined,
-    );
-
-    expect(await checkRoutability(lndClient, 'multi')).toEqual(true);
-    expect(mockQueryRoutes).toHaveBeenCalledWith(
-      'multi',
-      Math.round(mockDecodedInvoiceAmount / 3),
-      undefined,
-    );
-
-    expect(await checkRoutability(lndClient, 'throw')).toEqual(false);
   });
 
   test('it should get currencies', () => {

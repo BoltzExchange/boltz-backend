@@ -5,6 +5,10 @@ import Errors from '../../../lib/service/Errors';
 import { ConfigType } from '../../../lib/Config';
 import { OrderSide } from '../../../lib/consts/Enums';
 import { PairConfig } from '../../../lib/consts/Types';
+import { PayReq } from '../../../lib/proto/lnd/rpc_pb';
+import LndClient from '../../../lib/lightning/LndClient';
+import { Currency } from '../../../lib/wallet/WalletManager';
+import EthereumManager from '../../../lib/wallet/ethereum/EthereumManager';
 import TimeoutDeltaProvider, {
   PairTimeoutBlocksDelta,
 } from '../../../lib/service/TimeoutDeltaProvider';
@@ -45,15 +49,20 @@ describe('TimeoutDeltaProvider', () => {
     }
   };
 
-  const deltaProvider = new TimeoutDeltaProvider(Logger.disabledLogger, {
-    configpath,
-    pairs: [
-      {
-        base: 'LTC',
-        quote: 'BTC',
-      },
-    ],
-  } as ConfigType);
+  const deltaProvider = new TimeoutDeltaProvider(
+    Logger.disabledLogger,
+    {
+      configpath,
+      pairs: [
+        {
+          base: 'LTC',
+          quote: 'BTC',
+        },
+      ],
+    } as ConfigType,
+    new Map<string, Currency>(),
+    {} as unknown as EthereumManager,
+  );
 
   const createDeltas = (val: number): PairTimeoutBlocksDelta => {
     return {
@@ -106,21 +115,29 @@ describe('TimeoutDeltaProvider', () => {
     ).toThrow(Errors.NO_TIMEOUT_DELTA('should/throw').message);
   });
 
-  test('should get timeout deltas', () => {
+  test('should get timeout deltas', async () => {
     const pairId = 'LTC/BTC';
 
-    expect(deltaProvider.getTimeout(pairId, OrderSide.BUY, true)).toEqual(8);
-    expect(deltaProvider.getTimeout(pairId, OrderSide.BUY, false)).toEqual(2);
+    await expect(
+      deltaProvider.getTimeout(pairId, OrderSide.BUY, true),
+    ).resolves.toEqual([8, false]);
+    await expect(
+      deltaProvider.getTimeout(pairId, OrderSide.BUY, false),
+    ).resolves.toEqual([2, true]);
 
-    expect(deltaProvider.getTimeout(pairId, OrderSide.SELL, true)).toEqual(2);
-    expect(deltaProvider.getTimeout(pairId, OrderSide.SELL, false)).toEqual(8);
+    await expect(
+      deltaProvider.getTimeout(pairId, OrderSide.SELL, true),
+    ).resolves.toEqual([2, false]);
+    await expect(
+      deltaProvider.getTimeout(pairId, OrderSide.SELL, false),
+    ).resolves.toEqual([8, true]);
 
     // Should throw if pair cannot be found
     const notFound = 'notFound';
 
-    expect(() =>
+    await expect(
       deltaProvider.getTimeout(notFound, OrderSide.SELL, true),
-    ).toThrow(Errors.PAIR_NOT_FOUND(notFound).message);
+    ).rejects.toEqual(Errors.PAIR_NOT_FOUND(notFound));
   });
 
   test('should set timeout deltas', () => {
@@ -192,23 +209,87 @@ describe('TimeoutDeltaProvider', () => {
     expect(TimeoutDeltaProvider.convertBlocks('BTC', 'LTC', 3)).toEqual(12);
   });
 
-  test.each`
-    desc                                     | chain      | lightning | deltas         | timeout | invoice
-    ${'routing hints'}                       | ${'BTC'}   | ${'BTC'}  | ${'BTC/BTC'}   | ${240}  | ${'lnbc100u1pjfmfrcpp533fk6s5pjp55cv2zms6x4z0kkwyyrt2252pgxdxpklk6tnlw99yqdqqxqyjw5q9q7sqqqqqqqqqqqqqqqqqqqqqqqqq9qsqsp5cdt869pnacqmw60ugma0sdgtsrh3g66mhheh3pwvjxrpn4l364fsrzjqwryaup9lh50kkranzgcdnn2fgvx390wgj5jd07rwr3vxeje0glcllcyzdrt8pcdlgqqqqlgqqqqqeqqjqpnppy43z486f0d5u856svstzwax80a8x53xa8lksrr40fprd8fckkewhkke59q4cex9udhp9u9dgsy8j60g7kytfm9aj904phm8mdsgp3329uv'}
-    ${'minFinalCltvExpiry'}                  | ${'BTC'}   | ${'BTC'}  | ${'BTC/BTC'}   | ${153}  | ${'lnbc4651250n1pjfmvphpp58xdd4f4kycjhvr2cq3g8jljz6phfrehqhm9jxk7gyc84m4sfyjlsdql2djkuepqw3hjqsj5gvsxzerywfjhxuccqzynxqrrsssp55wjzuzjkcqaam5e94wcjzva6hgx69xu30exqxeqwccuzk4um46ys9qyyssq3fwqktxlgn6vunvcgnrqcg04e8yes8fk5658nnnml5zmwajr9p9y8jc60dhmhw269k9wfjdjflkhwe9edygg2ae2u0hz2tynwh4c9lgp7qq23f'}
-    ${'block time conversion routing hints'} | ${'L-BTC'} | ${'BTC'}  | ${'L-BTC/BTC'} | ${2400} | ${'lnbc100u1pjfmfrcpp533fk6s5pjp55cv2zms6x4z0kkwyyrt2252pgxdxpklk6tnlw99yqdqqxqyjw5q9q7sqqqqqqqqqqqqqqqqqqqqqqqqq9qsqsp5cdt869pnacqmw60ugma0sdgtsrh3g66mhheh3pwvjxrpn4l364fsrzjqwryaup9lh50kkranzgcdnn2fgvx390wgj5jd07rwr3vxeje0glcllcyzdrt8pcdlgqqqqlgqqqqqeqqjqpnppy43z486f0d5u856svstzwax80a8x53xa8lksrr40fprd8fckkewhkke59q4cex9udhp9u9dgsy8j60g7kytfm9aj904phm8mdsgp3329uv'}
-    ${'block time conversion'}               | ${'L-BTC'} | ${'BTC'}  | ${'L-BTC/BTC'} | ${1530} | ${'lnbc4651250n1pjfmvphpp58xdd4f4kycjhvr2cq3g8jljz6phfrehqhm9jxk7gyc84m4sfyjlsdql2djkuepqw3hjqsj5gvsxzerywfjhxuccqzynxqrrsssp55wjzuzjkcqaam5e94wcjzva6hgx69xu30exqxeqwccuzk4um46ys9qyyssq3fwqktxlgn6vunvcgnrqcg04e8yes8fk5658nnnml5zmwajr9p9y8jc60dhmhw269k9wfjdjflkhwe9edygg2ae2u0hz2tynwh4c9lgp7qq23f'}
-  `(
-    'should get timeout for invoice with routing hints for case "$desc"',
-    ({ chain, lightning, deltas, timeout, invoice }) => {
-      expect(
-        deltaProvider['getTimeoutInvoice'](
-          chain,
-          lightning,
-          deltaProvider['timeoutDeltas'].get(deltas)!.base,
-          invoice,
-        ),
-      ).toEqual(timeout);
-    },
-  );
+  test('should detect invoice MPP support', async () => {
+    const mockQueryRoutes = jest.fn().mockResolvedValue({ routesList: [] });
+    const lnd = {
+      queryRoutes: mockQueryRoutes,
+    } as unknown as LndClient;
+
+    const dec = {
+      getNumSatoshis: () => 10_000,
+      getDestination: () => 'dest',
+      getCltvExpiry: () => 80,
+      getRouteHintsList: () => [],
+    } as unknown as PayReq;
+
+    const cltvLimit = 123;
+
+    await deltaProvider.checkRoutability(
+      lnd,
+      {
+        ...dec,
+        toObject: () => ({ featuresMap: [] }),
+      } as unknown as PayReq,
+      cltvLimit,
+    );
+    expect(mockQueryRoutes).toHaveBeenNthCalledWith(
+      1,
+      dec.getDestination(),
+      dec.getNumSatoshis(),
+      cltvLimit,
+      dec.getCltvExpiry(),
+      dec.getRouteHintsList(),
+    );
+
+    await deltaProvider.checkRoutability(
+      lnd,
+      {
+        ...dec,
+        toObject: () => ({
+          featuresMap: [
+            [
+              0,
+              { name: 'multi-path-payments', isKnown: true, isRequired: false },
+            ],
+          ],
+        }),
+      } as unknown as PayReq,
+      cltvLimit,
+    );
+    expect(mockQueryRoutes).toHaveBeenNthCalledWith(
+      2,
+      dec.getDestination(),
+      Math.ceil(dec.getNumSatoshis() / LndClient.paymentMaxParts),
+      cltvLimit,
+      dec.getCltvExpiry(),
+      dec.getRouteHintsList(),
+    );
+  });
+
+  test('should have a floor of 1 sat for querying routes', async () => {
+    const mockQueryRoutes = jest.fn().mockResolvedValue({ routesList: [] });
+    const lnd = {
+      queryRoutes: mockQueryRoutes,
+    } as unknown as LndClient;
+
+    const dec = {
+      getNumSatoshis: () => 0,
+      getDestination: () => 'dest',
+      getCltvExpiry: () => 80,
+      getRouteHintsList: () => [],
+      toObject: () => ({ featuresMap: [] }),
+    } as unknown as PayReq;
+
+    const cltvLimit = 210;
+
+    await deltaProvider.checkRoutability(lnd, dec, cltvLimit);
+    expect(mockQueryRoutes).toHaveBeenNthCalledWith(
+      1,
+      dec.getDestination(),
+      1,
+      cltvLimit,
+      dec.getCltvExpiry(),
+      dec.getRouteHintsList(),
+    );
+  });
 });

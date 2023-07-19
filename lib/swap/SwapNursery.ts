@@ -27,6 +27,7 @@ import SwapRepository from '../db/repositories/SwapRepository';
 import { CurrencyType, SwapUpdateEvent } from '../consts/Enums';
 import ContractHandler from '../wallet/ethereum/ContractHandler';
 import WalletManager, { Currency } from '../wallet/WalletManager';
+import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
 import { ERC20SwapValues, EtherSwapValues } from '../consts/Types';
 import { etherDecimals, ReverseSwapOutputType } from '../consts/Consts';
 import ERC20WalletProvider from '../wallet/providers/ERC20WalletProvider';
@@ -187,6 +188,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
   constructor(
     private logger: Logger,
     private rateProvider: RateProvider,
+    timeoutDeltaProvider: TimeoutDeltaProvider,
     private walletManager: WalletManager,
     private swapOutputType: SwapOutputType,
     private retryInterval: number,
@@ -214,10 +216,10 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
       this.logger,
       this.currencies,
       this.channelNursery,
+      timeoutDeltaProvider,
       (eventName: string, ...args: any[]) => {
         this.emit(eventName, ...args);
       },
-      this.ethereumNursery,
     );
   }
 

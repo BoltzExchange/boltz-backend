@@ -419,6 +419,8 @@ class Controller {
     this.logger.verbose(`Created new Swap with id: ${response.id}`);
     this.logger.silly(`Swap ${response.id}: ${stringify(response)}`);
 
+    delete response.canBeRouted;
+
     this.createdResponse(res, response);
   };
 
@@ -479,7 +481,7 @@ class Controller {
         { name: 'pairHash', type: 'string', optional: true },
       ]);
 
-      const response = await this.service.setSwapInvoice(
+      const response = await this.service.setInvoice(
         id,
         invoice.toLowerCase(),
         pairHash,

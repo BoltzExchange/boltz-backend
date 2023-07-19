@@ -191,8 +191,8 @@ jest.mock('../../../lib/service/Service', () => {
       getRoutingHints: mockGetRoutingHints,
       getFeeEstimation: mockGetFeeEstimation,
 
+      setInvoice: mockSetInvoice,
       getSwapRates: mockGetSwapRates,
-      setSwapInvoice: mockSetInvoice,
       getTransaction: mockGetTransaction,
       getSwapTransaction: mockGetSwapTransaction,
       broadcastTransaction: mockBroadcastTransaction,
@@ -846,7 +846,7 @@ describe('Controller', () => {
 
     await controller.setInvoice(mockRequest(requestData), res);
 
-    expect(service.setSwapInvoice).toHaveBeenCalledWith(
+    expect(service.setInvoice).toHaveBeenCalledWith(
       requestData.id,
       requestData.invoice,
       undefined,
@@ -861,7 +861,7 @@ describe('Controller', () => {
 
     await controller.setInvoice(mockRequest(requestData), res);
 
-    expect(service.setSwapInvoice).toHaveBeenNthCalledWith(
+    expect(service.setInvoice).toHaveBeenNthCalledWith(
       3,
       requestData.id,
       requestData.invoice.toLowerCase(),
@@ -876,7 +876,7 @@ describe('Controller', () => {
 
     await controller.setInvoice(mockRequest(requestData), res);
 
-    expect(service.setSwapInvoice).toHaveBeenNthCalledWith(
+    expect(service.setInvoice).toHaveBeenNthCalledWith(
       5,
       requestData.id,
       requestData.invoice.toLowerCase(),

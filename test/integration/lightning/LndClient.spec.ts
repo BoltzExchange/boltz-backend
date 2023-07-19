@@ -25,10 +25,10 @@ describe('LndClient', () => {
   });
 
   afterAll(async () => {
-    await db.close();
-
     bitcoinClient.disconnect();
     bitcoinLndClient.disconnect();
+
+    await db.close();
   });
 
   test.each`

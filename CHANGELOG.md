@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.2.1] - 2023-07-19
+
+### Bug Fixes
+
+- Use correct Logger for NodeInfo
+- Remove tslint config
+- Mine block before generating invoices in integration test
+
+### Features
+
+- Send latest Swap status on SSE connect
+- Use queryRoutes to estimate timeout of swaps
+
+### Miscellaneous Tasks
+
+- Update CHANGELOG.md for v3.2.0
+- Update LND to v0.16.4 (#362)
+- Bump semver from 6.3.0 to 6.3.1 (#364)
+- Update ESLint TypeScript plugins
+- Update backend version
+
 ## [3.2.0] - 2023-06-30
 
 ### Bug Fixes

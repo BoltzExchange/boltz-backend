@@ -7,6 +7,7 @@ import Swap from '../db/models/Swap';
 import ApiErrors from '../api/Errors';
 import Wallet from '../wallet/Wallet';
 import { ConfigType } from '../Config';
+import ErrorsSwap from '../swap/Errors';
 import EventHandler from './EventHandler';
 import { parseTransaction } from '../Core';
 import { PairConfig } from '../consts/Types';
@@ -101,7 +102,12 @@ class Service {
     this.paymentRequestUtils = new PaymentRequestUtils(
       this.currencies.get(ElementsClient.symbol),
     );
-    this.timeoutDeltaProvider = new TimeoutDeltaProvider(this.logger, config);
+    this.timeoutDeltaProvider = new TimeoutDeltaProvider(
+      this.logger,
+      config,
+      currencies,
+      this.walletManager.ethereumManager!,
+    );
     this.rateProvider = new RateProvider(
       this.logger,
       config.rates.interval,
@@ -119,6 +125,7 @@ class Service {
       this.logger,
       this.walletManager,
       this.rateProvider,
+      this.timeoutDeltaProvider,
       new InvoiceExpiryHelper(config.currencies),
       new SwapOutputType(
         config.swapwitnessaddress
@@ -134,7 +141,7 @@ class Service {
       this.swapManager.nursery,
     );
 
-    this.nodeInfo = new NodeInfo(Logger.disabledLogger, this.currencies);
+    this.nodeInfo = new NodeInfo(this.logger, this.currencies);
   }
 
   public init = async (configPairs: PairConfig[]): Promise<void> => {
@@ -681,6 +688,7 @@ class Service {
   }): Promise<{
     id: string;
     address: string;
+    canBeRouted: boolean;
     timeoutBlockHeight: number;
 
     // Is undefined when Ether or ERC20 tokens are swapped to Lightning
@@ -712,6 +720,17 @@ class Service {
         break;
     }
 
+    const lightningCurrency = getLightningCurrency(
+      base,
+      quote,
+      orderSide,
+      false,
+    );
+
+    if (this.getCurrency(lightningCurrency).lndClient === undefined) {
+      throw ErrorsSwap.NO_LIGHTNING_SUPPORT(lightningCurrency);
+    }
+
     if (args.channel) {
       if (args.channel.inboundLiquidity > Service.MaxInboundLiquidity) {
         throw Errors.EXCEEDS_MAX_INBOUND_LIQUIDITY(
@@ -728,12 +747,19 @@ class Service {
       }
     }
 
-    const timeoutBlockDelta = this.timeoutDeltaProvider.getTimeout(
-      args.pairId,
-      orderSide,
-      false,
-      args.invoice,
-    );
+    const [timeoutBlockDelta, canBeRouted] =
+      await this.timeoutDeltaProvider.getTimeout(
+        args.pairId,
+        orderSide,
+        false,
+        args.invoice,
+      );
+
+    if (!canBeRouted) {
+      this.logger.warn(
+        `Could not query ${lightningCurrency} routes for: ${args.invoice}`,
+      );
+    }
 
     const referralId = await this.getReferralId(args.referralId);
 
@@ -761,6 +787,7 @@ class Service {
     return {
       id,
       address,
+      canBeRouted,
       blindingKey,
       redeemScript,
       claimAddress,
@@ -828,21 +855,11 @@ class Service {
     };
   };
 
-  /**
-   * Sets the invoice of Submarine Swap
-   */
-  public setSwapInvoice = async (
+  public setInvoice = async (
     id: string,
     invoice: string,
     pairHash?: string,
-  ): Promise<
-    | {
-        bip21: string;
-        expectedAmount: number;
-        acceptZeroConf: boolean;
-      }
-    | Record<string, any>
-  > => {
+  ) => {
     const swap = await SwapRepository.getSwap({
       id,
     });
@@ -855,6 +872,49 @@ class Service {
       throw Errors.SWAP_HAS_INVOICE_ALREADY(id);
     }
 
+    const { base, quote } = splitPairId(swap.pair);
+    const lightningCurrency = getLightningCurrency(
+      base,
+      quote,
+      swap.orderSide,
+      false,
+    );
+    const lndClient = this.currencies.get(lightningCurrency)!.lndClient!;
+
+    const [cltvLimit, decodedInvoice] = await Promise.all([
+      this.timeoutDeltaProvider.getCltvLimit(swap),
+      lndClient.decodePayReqRawResponse(invoice),
+    ]);
+
+    const requiredTimeout = await this.timeoutDeltaProvider.checkRoutability(
+      lndClient,
+      decodedInvoice,
+      cltvLimit,
+    );
+
+    if (requiredTimeout == TimeoutDeltaProvider.noRoutes) {
+      throw ErrorsSwap.NO_ROUTE_FOUND();
+    }
+
+    return this.setSwapInvoice(swap, invoice, false, pairHash);
+  };
+
+  /**
+   * Sets the invoice for Submarine Swap
+   */
+  private setSwapInvoice = async (
+    swap: Swap,
+    invoice: string,
+    canBeRouted: boolean,
+    pairHash?: string,
+  ): Promise<
+    | {
+        bip21: string;
+        expectedAmount: number;
+        acceptZeroConf: boolean;
+      }
+    | Record<string, any>
+  > => {
     const { base, quote, rate: pairRate } = this.getPair(swap.pair);
 
     if (pairHash !== undefined) {
@@ -918,6 +978,7 @@ class Service {
       expectedAmount,
       percentageFee,
       acceptZeroConf,
+      canBeRouted,
       this.eventHandler.emitSwapInvoiceSet,
     );
 
@@ -980,6 +1041,7 @@ class Service {
     const {
       id,
       address,
+      canBeRouted,
       blindingKey,
       claimAddress,
       redeemScript,
@@ -996,7 +1058,14 @@ class Service {
 
     try {
       const { bip21, acceptZeroConf, expectedAmount } =
-        await this.setSwapInvoice(id, invoice, pairHash);
+        await this.setSwapInvoice(
+          (await SwapRepository.getSwap({
+            id,
+          }))!,
+          invoice,
+          canBeRouted,
+          pairHash,
+        );
 
       return {
         id,
@@ -1110,11 +1179,8 @@ class Service {
         break;
     }
 
-    const onchainTimeoutBlockDelta = this.timeoutDeltaProvider.getTimeout(
-      args.pairId,
-      side,
-      true,
-    );
+    const [onchainTimeoutBlockDelta] =
+      await this.timeoutDeltaProvider.getTimeout(args.pairId, side, true);
 
     let lightningTimeoutBlockDelta = TimeoutDeltaProvider.convertBlocks(
       sending,
@@ -1292,7 +1358,7 @@ class Service {
     const { lndClient } = this.getCurrency(symbol);
 
     if (!lndClient) {
-      throw Errors.NO_LND_CLIENT(symbol);
+      throw ErrorsSwap.NO_LIGHTNING_SUPPORT(symbol);
     }
 
     return lndClient.sendPayment(invoice);

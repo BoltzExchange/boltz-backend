@@ -8,6 +8,8 @@ import { AddressType } from '../../../../lib/chain/ChainClient';
 import CoreWalletProvider from '../../../../lib/wallet/providers/CoreWalletProvider';
 import { SentTransaction } from '../../../../lib/wallet/providers/WalletProviderInterface';
 
+jest.mock('../../../../lib/db/repositories/ChainTipRepository');
+
 const testAddress = 'bcrt1q54g5dyexre4dg78ymnzz2y8h9xfptjrtxxakn6';
 
 describe('CoreWalletProvider', () => {
@@ -70,8 +72,13 @@ describe('CoreWalletProvider', () => {
     }
   };
 
-  beforeAll(() => {
+  beforeAll(async () => {
     initEccLib(ecc);
+    await bitcoinClient.connect();
+  });
+
+  afterAll(() => {
+    bitcoinClient.disconnect();
   });
 
   beforeEach(async () => {

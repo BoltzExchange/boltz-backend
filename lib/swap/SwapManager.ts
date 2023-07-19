@@ -64,6 +64,7 @@ class SwapManager {
     private logger: Logger,
     private walletManager: WalletManager,
     rateProvider: RateProvider,
+    timeoutDeltaProvider: TimeoutDeltaProvider,
     private invoiceExpiryHelper: InvoiceExpiryHelper,
     private swapOutputType: SwapOutputType,
     retryInterval: number,
@@ -71,6 +72,7 @@ class SwapManager {
     this.nursery = new SwapNursery(
       this.logger,
       rateProvider,
+      timeoutDeltaProvider,
       this.walletManager,
       this.swapOutputType,
       retryInterval,
@@ -168,7 +170,7 @@ class SwapManager {
     );
 
     if (!sendingCurrency.lndClient) {
-      throw Errors.NO_LND_CLIENT(sendingCurrency.symbol);
+      throw Errors.NO_LIGHTNING_SUPPORT(sendingCurrency.symbol);
     }
 
     const id = generateId();
@@ -284,7 +286,7 @@ class SwapManager {
   };
 
   /**
-   * Sets the invoice of a Submarine Swap
+   * Sets the invoice for a Submarine Swap
    *
    * @param swap database object of the swap
    * @param invoice invoice of the Swap
@@ -292,6 +294,7 @@ class SwapManager {
    * @param expectedAmount amount that is expected onchain
    * @param percentageFee fee Boltz charges for the Swap
    * @param acceptZeroConf whether 0-conf transactions should be accepted
+   * @param canBeRouted whether the invoice for the swap
    * @param emitSwapInvoiceSet method to emit an event after the invoice has been set
    */
   public setSwapInvoice = async (
@@ -301,12 +304,13 @@ class SwapManager {
     expectedAmount: number,
     percentageFee: number,
     acceptZeroConf: boolean,
+    canBeRouted: boolean,
     emitSwapInvoiceSet: (id: string) => void,
   ): Promise<SetSwapInvoiceResponse> => {
     const response: SetSwapInvoiceResponse = {};
 
     const { base, quote } = splitPairId(swap.pair);
-    const { sendingCurrency, receivingCurrency } = this.getCurrencies(
+    const { receivingCurrency } = this.getCurrencies(
       base,
       quote,
       swap.orderSide,
@@ -377,9 +381,7 @@ class SwapManager {
 
           await channelCreation.destroy();
 
-          if (
-            !(await this.checkRoutability(sendingCurrency.lndClient!, invoice))
-          ) {
+          if (!canBeRouted) {
             throw Errors.NO_ROUTE_FOUND();
           }
 
@@ -397,7 +399,7 @@ class SwapManager {
       !decodedInvoice.routingInfo ||
       (decodedInvoice.routingInfo && decodedInvoice.routingInfo.length === 0)
     ) {
-      if (!(await this.checkRoutability(sendingCurrency.lndClient!, invoice))) {
+      if (!canBeRouted) {
         throw Errors.NO_ROUTE_FOUND();
       }
     }
@@ -492,7 +494,7 @@ class SwapManager {
     );
 
     if (!receivingCurrency.lndClient) {
-      throw Errors.NO_LND_CLIENT(receivingCurrency.symbol);
+      throw Errors.NO_LIGHTNING_SUPPORT(receivingCurrency.symbol);
     }
 
     const id = generateId();
@@ -732,46 +734,6 @@ class SwapManager {
         }
       }
     });
-  };
-
-  /**
-   * @returns whether the payment can be routed
-   */
-  private checkRoutability = async (lnd: LndClient, invoice: string) => {
-    try {
-      // TODO: do MPP probing once it is available
-      const decodedInvoice = await lnd.decodePayReqRawResponse(invoice);
-
-      // Check whether the receiving side supports MPP and if so,
-      // query a route for the number of sats of the invoice divided
-      // by the max payment parts we tell to LND to use
-      let supportsMpp = false;
-
-      for (const [, feature] of decodedInvoice.toObject().featuresMap) {
-        if (feature.name === 'multi-path-payments' && feature.isKnown) {
-          supportsMpp = true;
-          break;
-        }
-      }
-
-      const amountToQuery = supportsMpp
-        ? Math.round(
-            decodedInvoice.getNumSatoshis() / LndClient.paymentMaxParts,
-          )
-        : decodedInvoice.getNumSatoshis();
-
-      const routes = await lnd.queryRoutes(
-        decodedInvoice.getDestination(),
-        amountToQuery,
-        decodedInvoice.getRouteHintsList(),
-      );
-
-      // TODO: "routes.routesList.length >= LndClient.paymentParts" when receiver supports MPP?
-      return routes.routesList.length > 0;
-    } catch (error) {
-      this.logger.debug(`Could not query routes: ${error}`);
-      return false;
-    }
   };
 
   private getCurrencies = (

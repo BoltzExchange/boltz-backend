@@ -544,11 +544,23 @@ class LndClient extends BaseClient implements LndClient {
   public queryRoutes = (
     destination: string,
     amt: number,
+    cltvLimit?: number,
+    finalCltvDelta?: number,
     routingHints?: lndrpc.RouteHint[],
   ): Promise<lndrpc.QueryRoutesResponse.AsObject> => {
     const request = new lndrpc.QueryRoutesRequest();
-    request.setPubKey(destination);
     request.setAmt(amt);
+    request.setPubKey(destination);
+    request.setUseMissionControl(true);
+    request.setTimePref(LndClient.paymentTimePreference);
+
+    if (cltvLimit) {
+      request.setCltvLimit(cltvLimit);
+    }
+
+    if (finalCltvDelta) {
+      request.setFinalCltvDelta(finalCltvDelta);
+    }
 
     if (routingHints) {
       request.setRouteHintsList(routingHints);

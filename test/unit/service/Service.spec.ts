@@ -45,7 +45,11 @@ jest.mock('../../../lib/db/repositories/PairRepository');
 
 let mockGetSwapResult: any = undefined;
 const mockGetSwap = jest.fn().mockImplementation(async () => {
-  return mockGetSwapResult;
+  if (Array.isArray(mockGetSwapResult)) {
+    return mockGetSwapResult.shift();
+  } else {
+    return mockGetSwapResult;
+  }
 });
 
 const mockAddSwap = jest.fn().mockResolvedValue(undefined);
@@ -106,6 +110,7 @@ const mockSetSwapInvoice = jest
       _expectedAmount: number,
       _percentageFee: number,
       _acceptZeroConf: boolean,
+      _canBeRouted: boolean,
       emitSwapInvoiceSet: (id: string) => void,
     ) => {
       emitSwapInvoiceSet(swap.id);
@@ -452,13 +457,37 @@ const mockDecodePayReq = jest.fn().mockImplementation(async () => {
   return decodedInvoice;
 });
 
+const mockDecodePayReqRaw = jest.fn().mockImplementation(async () => {
+  return {
+    getDestination: () => '',
+    getNumSatoshis: () => 1,
+    getCltvExpiry: () => 80,
+    getRouteHintsList: () => [],
+    toObject: () => ({
+      featuresMap: [],
+    }),
+  };
+});
+
+const mockQueryRoutes = jest.fn().mockImplementation(async () => {
+  return {
+    routesList: [
+      {
+        totalTimeLock: 80,
+      },
+    ],
+  };
+});
+
 jest.mock('../../../lib/lightning/LndClient', () => {
   return jest.fn().mockImplementation(() => ({
     on: () => {},
     getInfo: mockGetInfo,
-    decodePayReq: mockDecodePayReq,
     sendPayment: mockSendPayment,
+    queryRoutes: mockQueryRoutes,
     listChannels: mockListChannels,
+    decodePayReq: mockDecodePayReq,
+    decodePayReqRawResponse: mockDecodePayReqRaw,
   }));
 });
 
@@ -1125,6 +1154,7 @@ describe('Service', () => {
     expect(emittedId).toEqual(response.id);
     expect(response).toEqual({
       id: mockedSwap.id,
+      canBeRouted: true,
       address: mockedSwap.address,
       redeemScript: mockedSwap.redeemScript,
       timeoutBlockHeight: mockedSwap.timeoutBlockHeight,
@@ -1211,10 +1241,7 @@ describe('Service', () => {
       emittedId = id;
     });
 
-    const response = await service.setSwapInvoice(
-      mockGetSwapResult.id,
-      invoice,
-    );
+    const response = await service.setInvoice(mockGetSwapResult.id, invoice);
 
     expect(emittedId).toEqual(mockGetSwapResult.id);
     expect(response).toEqual({
@@ -1249,11 +1276,12 @@ describe('Service', () => {
       invoiceAmount + 2,
       1,
       true,
+      false,
       expect.anything(),
     );
 
     // Should execute with valid pair hash (it should just not throw)
-    await service.setSwapInvoice(
+    await service.setInvoice(
       mockGetSwapResult.id,
       invoice,
       pairs.get('BTC/BTC')!.hash,
@@ -1261,10 +1289,10 @@ describe('Service', () => {
 
     // Throw when an invalid pair hash is provided
     await expect(
-      service.setSwapInvoice(mockGetSwapResult.id, invoice, 'wrongHash'),
+      service.setInvoice(mockGetSwapResult.id, invoice, 'wrongHash'),
     ).rejects.toEqual(Errors.INVALID_PAIR_HASH());
     await expect(
-      service.setSwapInvoice(mockGetSwapResult.id, invoice, ''),
+      service.setInvoice(mockGetSwapResult.id, invoice, ''),
     ).rejects.toEqual(Errors.INVALID_PAIR_HASH());
 
     // Throw if a swap doesn't respect the limits
@@ -1273,14 +1301,14 @@ describe('Service', () => {
     const invoiceLimitAmount = 0;
 
     await expect(
-      service.setSwapInvoice(mockGetSwapResult.id, invoiceLimit),
+      service.setInvoice(mockGetSwapResult.id, invoiceLimit),
     ).rejects.toEqual(Errors.BENEATH_MINIMAL_AMOUNT(invoiceLimitAmount, 1));
 
     // Throw if swap with id does not exist
     mockGetSwapResult = undefined;
     const notFoundId = 'asdfasdf';
 
-    await expect(service.setSwapInvoice(notFoundId, '')).rejects.toEqual(
+    await expect(service.setInvoice(notFoundId, '')).rejects.toEqual(
       Errors.SWAP_NOT_FOUND(notFoundId),
     );
 
@@ -1289,9 +1317,9 @@ describe('Service', () => {
       invoice: 'invoice',
     };
 
-    await expect(
-      service.setSwapInvoice(mockGetSwapResult.id, ''),
-    ).rejects.toEqual(Errors.SWAP_HAS_INVOICE_ALREADY(mockGetSwapResult.id));
+    await expect(service.setInvoice(mockGetSwapResult.id, '')).rejects.toEqual(
+      Errors.SWAP_HAS_INVOICE_ALREADY(mockGetSwapResult.id),
+    );
   });
 
   test('should reject setting AMP invoices swap', async () => {
@@ -1315,10 +1343,12 @@ describe('Service', () => {
 
     const invoice = 'lnbcinvoice';
     await expect(
-      service.setSwapInvoice(mockGetSwapResult.id, invoice),
+      service.setInvoice(mockGetSwapResult.id, invoice),
     ).rejects.toEqual(Errors.AMP_INVOICES_NOT_SUPPORTED());
     expect(mockDecodePayReq).toHaveBeenCalledTimes(1);
     expect(mockDecodePayReq).toHaveBeenCalledWith(invoice);
+
+    decodedInvoice.featuresMap = [];
   });
 
   // TODO: channel creation logic
@@ -1341,9 +1371,14 @@ describe('Service', () => {
 
     // Inject mocks into the service
     service.createSwap = jest.fn().mockResolvedValue(createSwapResult);
-    service.setSwapInvoice = jest.fn().mockResolvedValue(setSwapInvoiceResult);
+    service['setSwapInvoice'] = jest
+      .fn()
+      .mockResolvedValue(setSwapInvoiceResult);
 
-    mockGetSwapResult = undefined;
+    mockGetSwapResult = [
+      undefined,
+      { pair: 'BTC/BTC', lockupAddress: createSwapResult.address },
+    ];
 
     const pair = 'BTC/BTC';
     const orderSide = 'sell';
@@ -1378,10 +1413,11 @@ describe('Service', () => {
       preimageHash: getHexBuffer(decodeInvoice(invoice).paymentHash!),
     });
 
-    expect(service.setSwapInvoice).toHaveBeenCalledTimes(1);
-    expect(service.setSwapInvoice).toHaveBeenCalledWith(
-      response.id,
+    expect(service['setSwapInvoice']).toHaveBeenCalledTimes(1);
+    expect(service['setSwapInvoice']).toHaveBeenCalledWith(
+      { pair: 'BTC/BTC', lockupAddress: createSwapResult.address },
       invoice,
+      undefined,
       undefined,
     );
 
@@ -1392,7 +1428,7 @@ describe('Service', () => {
 
     const mockDestroySwap = jest.fn().mockResolvedValue({});
     const mockDestroyChannelCreation = jest.fn().mockResolvedValue({});
-    service.setSwapInvoice = jest.fn().mockImplementation(async () => {
+    service['setSwapInvoice'] = jest.fn().mockImplementation(async () => {
       mockGetSwapResult = {
         destroy: mockDestroySwap,
       };

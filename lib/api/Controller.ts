@@ -48,7 +48,7 @@ class Controller {
       const response = this.pendingSwapStreams.get(id);
 
       if (response) {
-        response.write(`data: ${JSON.stringify(message)}\n\n`);
+        this.writeToSse(response, message);
       }
     });
   }
@@ -419,6 +419,8 @@ class Controller {
     this.logger.verbose(`Created new Swap with id: ${response.id}`);
     this.logger.silly(`Swap ${response.id}: ${stringify(response)}`);
 
+    delete response.canBeRouted;
+
     this.createdResponse(res, response);
   };
 
@@ -479,7 +481,7 @@ class Controller {
         { name: 'pairHash', type: 'string', optional: true },
       ]);
 
-      const response = await this.service.setSwapInvoice(
+      const response = await this.service.setInvoice(
         id,
         invoice.toLowerCase(),
         pairHash,
@@ -519,6 +521,11 @@ class Controller {
       });
 
       res.setTimeout(0);
+
+      const lastUpdate = this.pendingSwapInfos.get(id);
+      if (lastUpdate) {
+        this.writeToSse(res, lastUpdate);
+      }
 
       this.pendingSwapStreams.set(id, res);
 
@@ -650,6 +657,10 @@ class Controller {
     if (preimageHash.length !== 32) {
       throw `invalid preimage hash length: ${preimageHash.length}`;
     }
+  };
+
+  private writeToSse = (res: Response, message: SwapUpdate) => {
+    res.write(`data: ${JSON.stringify(message)}\n\n`);
   };
 }
 

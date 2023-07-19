@@ -3,7 +3,6 @@ import Logger from '../Logger';
 import Swap from '../db/models/Swap';
 import ChannelNursery from './ChannelNursery';
 import LndClient from '../lightning/LndClient';
-import EthereumNursery from './EthereumNursery';
 import LightningNursery from './LightningNursery';
 import { Currency } from '../wallet/WalletManager';
 import ChannelCreation from '../db/models/ChannelCreation';
@@ -15,7 +14,6 @@ import {
   formatError,
   splitPairId,
   getHexBuffer,
-  getChainCurrency,
   getLightningCurrency,
 } from '../Utils';
 
@@ -26,8 +24,8 @@ class PaymentHandler {
     private readonly logger: Logger,
     private readonly currencies: Map<string, Currency>,
     public readonly channelNursery: ChannelNursery,
+    private readonly timeoutDeltaProvider: TimeoutDeltaProvider,
     private emit: (eventName: string, ...args: any[]) => void,
-    private readonly ethereumNursery?: EthereumNursery,
   ) {}
 
   public payInvoice = async (
@@ -51,7 +49,6 @@ class PaymentHandler {
     }
 
     const { base, quote } = splitPairId(swap.pair);
-    const chainSymbol = getChainCurrency(base, quote, swap.orderSide, false);
     const lightningSymbol = getLightningCurrency(
       base,
       quote,
@@ -59,14 +56,12 @@ class PaymentHandler {
       false,
     );
 
-    const chainCurrency = this.currencies.get(chainSymbol)!;
     const lightningCurrency = this.currencies.get(lightningSymbol)!;
 
     try {
       return await this.racePayInvoice(
         swap,
         outgoingChannelId,
-        chainCurrency,
         lightningCurrency,
       );
     } catch (error) {
@@ -83,19 +78,9 @@ class PaymentHandler {
   private racePayInvoice = async (
     swap: Swap,
     outgoingChannelId: string | undefined,
-    chainCurrency: Currency,
     lightningCurrency: Currency,
   ): Promise<Buffer | undefined> => {
-    const currentBlock = chainCurrency.chainClient
-      ? (await chainCurrency.chainClient.getBlockchainInfo()).blocks
-      : await this.ethereumNursery!.ethereumManager.provider.getBlockNumber();
-
-    const blockLeft = TimeoutDeltaProvider.convertBlocks(
-      chainCurrency.symbol,
-      lightningCurrency.symbol,
-      swap.timeoutBlockHeight - currentBlock,
-    );
-    const cltvLimit = Math.floor(blockLeft - 2);
+    const cltvLimit = await this.timeoutDeltaProvider.getCltvLimit(swap);
 
     if (cltvLimit < 2) {
       throw 'CLTV limit to small';

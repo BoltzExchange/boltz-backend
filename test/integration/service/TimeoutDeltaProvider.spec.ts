@@ -60,6 +60,8 @@ describe('TimeoutDeltaProvider', () => {
       bitcoinLndClient.connect(false),
       bitcoinLndClient2.connect(false),
     ]);
+
+    await bitcoinClient.generate(1);
   });
 
   afterAll(() => {

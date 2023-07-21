@@ -1509,7 +1509,7 @@ describe('Service', () => {
       quoteCurrency: 'BTC',
       orderSide: OrderSide.BUY,
       onchainTimeoutBlockDelta: 1,
-      lightningTimeoutBlockDelta: 4,
+      lightningTimeoutBlockDelta: 16,
       holdInvoiceAmount: invoiceAmount,
       percentageFee: invoiceAmount * mockGetPercentageFeeResult,
     });
@@ -1669,7 +1669,7 @@ describe('Service', () => {
       quoteCurrency: 'BTC',
       orderSide: OrderSide.BUY,
       onchainTimeoutBlockDelta: 1,
-      lightningTimeoutBlockDelta: 4,
+      lightningTimeoutBlockDelta: 16,
       holdInvoiceAmount: invoiceAmount,
       percentageFee: invoiceAmount * mockGetPercentageFeeResult,
     });
@@ -1748,7 +1748,7 @@ describe('Service', () => {
       quoteCurrency: 'BTC',
       orderSide: OrderSide.BUY,
       onchainTimeoutBlockDelta: 1,
-      lightningTimeoutBlockDelta: 4,
+      lightningTimeoutBlockDelta: 16,
       prepayMinerFeeInvoiceAmount: mockGetBaseFeeResult,
       holdInvoiceAmount: invoiceAmount - mockGetBaseFeeResult,
       percentageFee: invoiceAmount * mockGetPercentageFeeResult,

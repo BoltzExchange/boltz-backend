@@ -101,14 +101,16 @@ class MempoolSpace {
   };
 
   public latestFee = (): number | undefined => {
-    for (const api of this.apis) {
-      if (api.latestFee !== undefined) {
-        return api.latestFee;
-      }
+    const fees = this.apis
+      .map((c) => c.latestFee)
+      .filter((val): val is number => val !== undefined);
+
+    if (fees.length === 0) {
+      this.logger.warn(`All ${this.symbol} MempoolSpace endpoints failed`);
+      return undefined;
     }
 
-    this.logger.warn(`All ${this.symbol} MempoolSpace endpoints failed`);
-    return undefined;
+    return Math.max(...fees);
   };
 
   public stop = () => {

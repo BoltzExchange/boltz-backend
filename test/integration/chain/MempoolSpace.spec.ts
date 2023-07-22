@@ -27,13 +27,13 @@ describe('MempoolSpace', () => {
     expect(mempool.latestFee()).not.toBeUndefined();
   });
 
-  test('should pick results in order', async () => {
+  test('should pick highest returned fee', async () => {
     mempool.stop();
 
     const expectedFee = 42;
 
-    mempool['apis'][0]['latestFee'] = expectedFee;
-    mempool['apis'][1]['latestFee'] = expectedFee - 12;
+    mempool['apis'][0]['latestFee'] = expectedFee - 12;
+    mempool['apis'][1]['latestFee'] = expectedFee;
     expect(mempool.latestFee()).toEqual(expectedFee);
 
     mempool['apis'][0]['latestFee'] = undefined;

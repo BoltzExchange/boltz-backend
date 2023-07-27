@@ -1,7 +1,7 @@
 # Table of contents
 
-* [Swap Lifecycle](README.md)
-* [0-confirmation](<README (1).md>)
+* [Swap Lifecycle](lifecycle.md)
+* [0-confirmation](0-confirmation.md)
 * [REST API Documentation](api.md)
 * [Channel Creation Docs](channel-creation.md)
 * [Deployment of the Boltz Backend](deployment.md)

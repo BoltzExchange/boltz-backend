@@ -10,17 +10,16 @@ coverY: 0
 
 ## Instances
 
-We are running and maintaining two Boltz instances that can be used - one on [testnet](https://testnet.boltz.exchange) and one on [mainnet](https://boltz.exchange).
+We offer Boltz on [testnet](https://testnet.boltz.exchange) for development and testing purposes as well as our production service on [mainnet](https://boltz.exchange).
 
-The Rest API can be accessed at:
+The corresponding REST API can be accessed at:
 
-* [Testnet](https://testnet.boltz.exchange/api)
-* [Mainnet](https://api.boltz.exchange)
+* `https://api.boltz.exchange/`
+* `https://testnet.boltz.exchange/api/`
 
-> Note: If you access the API from your browser, you will get 404. Run `curl https://api.boltz.exchange/version`, (or `curl https://testnet.boltz.exchange/api/version` for testnet) to check that it is available.
+> Note: To access the API from your browser, simply append an [endpoint](api.md) to the address:
+>
+> [`https://api.boltz.exchange/version`](https://api.boltz.exchange/version) or
+>
+> [`https://testnet.boltz.exchange/api/version`](https://testnet.boltz.exchange/api/version)
 
-## Useful Links
-
-* [Source Code](https://github.com/boltzexchange)
-* [Frequently Asked Questions](https://boltz.exchange/faq)
-* [Discord](https://discordapp.com/invite/QBvZGcW) [![Discord](https://img.shields.io/discord/547454030801272832.svg)](https://discordapp.com/invite/QBvZGcW)

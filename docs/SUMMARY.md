@@ -1,8 +1,8 @@
 # Table of contents
 
 * [👋 Introduction](README.md)
-* [Swap Types & Lifecycle](<README (1).md>)
-* [REST API Documentation](api.md)
+* [🔁 Swap Types & Phases](<README (1).md>)
+* [🤖 REST API Documentation](api.md)
 * [0-confirmation](0-confirmation.md)
 * [Channel Creation Docs](channel-creation.md)
 * [Scripting](scripting.md)

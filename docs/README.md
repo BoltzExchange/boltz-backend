@@ -1,8 +1,8 @@
 ---
 description: >-
   With Boltz, users can seamlessly swap their Bitcoin between different layers
-  to e.g. use advanced financial products with their Bitcoin or manage liquidity
-  of their lightning channels
+  to e.g. use advanced financial products or manage liquidity of lightning
+  channels
 cover: .gitbook/assets/Screenshot from 2023-07-27 16-48-01.png
 coverY: 0
 ---

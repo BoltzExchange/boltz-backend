@@ -581,9 +581,9 @@ Response:
 
 ## Getting status of a Swap
 
-**Before being able to handle the status events of this method it is recommended to read:** [**Swap lifecycle**](./)
+**Before being able to handle the status events of this method it is recommended to read:** [**Swap lifecycle**](<README (1).md>)
 
-To query the status of a swap one can use this endpoint which returns a JSON object containing the status of the swap. All the possible status events are documented [here](./).
+To query the status of a swap one can use this endpoint which returns a JSON object containing the status of the swap. All the possible status events are documented [here](<README (1).md>).
 
 Requests querying the status of a swap have to be `POST` and contain a single value in its JSON encoded body:
 
@@ -972,13 +972,13 @@ Status Codes:
 
 Response objects:
 
-What is returned when the invoice is set depends on the status of the Submarine Swap. If no coins were sent already (status [`swap.created`](./#normal-submarine-swaps)) the endpoint will return a JSON object with these values:
+What is returned when the invoice is set depends on the status of the Submarine Swap. If no coins were sent already (status [`swap.created`](<README (1).md#normal-submarine-swaps>)) the endpoint will return a JSON object with these values:
 
 * `acceptZeroConf`: whether Boltz will accept 0-conf for this swap
 * `expectedAmount`: the amount that Boltz expects you to lock in the onchain HTLC
 * `bip21`: a [BIP21 payment request](https://github.com/bitcoin/bips/blob/master/bip-0021.mediawiki) for the `expectedAmount` of coins and the `address` (only set when swapping from UTXO based chains)
 
-If onchain coins were sent already (status [`transaction.mempool`](./#normal-submarine-swaps) or [`transaction.confirmed`](./#normal-submarine-swaps)) the endpoint will return an empty JSON object.
+If onchain coins were sent already (status [`transaction.mempool`](<README (1).md#normal-submarine-swaps>) or [`transaction.confirmed`](<README (1).md#normal-submarine-swaps>)) the endpoint will return an empty JSON object.
 
 In case this endpoint is called again after an invoice was set and Boltz tried to pay it already:
 

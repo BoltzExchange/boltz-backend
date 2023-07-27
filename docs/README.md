@@ -1,16 +1,20 @@
 ---
+description: >-
+  With Boltz, users can seamlessly swap their Bitcoin between different layers
+  to e.g. use advanced financial products with their Bitcoin or manage liquidity
+  of their lightning channels
 cover: .gitbook/assets/Screenshot from 2023-07-27 16-48-01.png
 coverY: 0
 ---
 
-# Swap Lifecycle
+# Introduction
 
-## Introduction
+## Swap Types
 
-There are two types of [Atomic Swaps](https://en.bitcoin.it/wiki/Atomic\_swap):
+As of today, Boltz offers two types of [Atomic Swaps](https://en.bitcoin.it/wiki/Atomic\_swap):
 
-* [Normal Submarine Swaps](./#normal-submarine-swaps)
-* [Reverse Submarine Swaps](./#reverse-submarine-swaps)
+* [Normal Submarine Swaps](./#normal-submarine-swaps) (Chain -> Lightning)
+* [Reverse Submarine Swaps](./#reverse-submarine-swaps) (Lightning -> Chain)
 
 ## Normal Submarine Swaps
 
@@ -20,7 +24,7 @@ Normal swaps are from onchain coins to lightning ones. Which means the user crea
 2. `transaction.mempool`: a transaction that sends coins to the onchain address of the swap is found in the mempool
 3. `transaction.confirmed`: that transaction was included in a block
 4. `invoice.set`: when the invoice of the Submarine Swap was set
-5. once the said transaction is included in a block (or found in the mempool in case of [0-confirmation](<README (1).md>)) Boltz will try to pay the invoice provided by the user in order to claim the onchain coins
+5. once the said transaction is included in a block (or found in the mempool in case of [0-confirmation](0-confirmation.md)) Boltz will try to pay the invoice provided by the user in order to claim the onchain coins
    * `invoice.paid`: if paying the invoice was successful
    * `invoice.failedToPay`: if paying the invoice failed. In which case the locked up onchain coins should be refunded
 6. `transaction.claimed`: indicates that the invoice was successfully paid for and that the onchain coins were claimed by the Boltz instance

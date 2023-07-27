@@ -1,6 +1,6 @@
 # Table of contents
 
-* [Swap Lifecycle](lifecycle.md)
+* [Introduction](README.md)
 * [0-confirmation](0-confirmation.md)
 * [REST API Documentation](api.md)
 * [Channel Creation Docs](channel-creation.md)

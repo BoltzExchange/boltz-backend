@@ -369,7 +369,7 @@ Response:
 
 Boltz provides an API endpoint that returns fee estimations for all chains that are configured on that instance. These fee estimations are _not_ enforced by Boltz and are just a recommendation.
 
-For UTXO based chains like Bitcoin it is important to mention that if 0-conf wants to be used with normal swaps, the lockup transaction has to have at least 80% of the recommended `sat/vbyte` value. One can read more about the what and why in the [0-confirmation docs](<README (1).md>).
+For UTXO based chains like Bitcoin it is important to mention that if 0-conf wants to be used with normal swaps, the lockup transaction has to have at least 80% of the recommended `sat/vbyte` value. One can read more about the what and why in the [0-confirmation docs](0-confirmation.md).
 
 If the instance supports Ether or ERC20 tokens, only `ETH` will be in the response. This value is for the Ethereum chain and not the Ether asset and denominated in GWEI.
 

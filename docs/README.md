@@ -20,3 +20,5 @@ The corresponding REST API can be accessed at:
 > Note: To access the API via browser, simply append an [endpoint](api.md) to the address, e.g.:
 >
 > [`https://api.boltz.exchange/version`](https://api.boltz.exchange/version)
+
+In the following section we'll walk through existing swap types & states and then describe the REST API in the next section.

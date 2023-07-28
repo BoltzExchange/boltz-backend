@@ -1,8 +1,8 @@
-# REST API Documentation
+# 🤖 REST API Documentation
 
 ## Introduction
 
-Boltz exposes a Restful HTTP API that cannot only be used to query information about the Boltz instance, and the pairs it supports but also to create swaps and interact with the blockchains that are configured on that specific instance. This page lists all the available endpoints and shows how to use them correctly.
+Boltz exposes a RESTful HTTP API that can be used to query information like supported pairs as well as to create and monitor swaps. This page lists all the available endpoints and shows how to use them.
 
 ### Response and request encoding
 

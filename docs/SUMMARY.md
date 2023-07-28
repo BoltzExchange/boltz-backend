@@ -1,7 +1,7 @@
 # Table of contents
 
 * [👋 Introduction](README.md)
-* [🔁 Swap Types & Phases](<README (1).md>)
+* [🔁 Swap Types & States](<README (1).md>)
 * [REST API Documentation](api.md)
 * [0-confirmation](0-confirmation.md)
 * [Channel Creation Docs](channel-creation.md)

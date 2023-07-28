@@ -21,7 +21,7 @@ If a call fails for some reason the returned [HTTP status code](https://en.wikip
 }
 ```
 
-## Getting version
+## Backend Version
 
 Returns the version of [Boltz Backend](https://github.com/BoltzExchange/boltz-backend).
 
@@ -47,7 +47,7 @@ Response object:
 }
 ```
 
-## Getting pairs
+## Supported Pairs
 
 In order to create a swap, one first has to know which pairs are supported and what kind of rates, limits and fees are applied when creating a new swap. The following call returns this information.
 
@@ -62,17 +62,18 @@ Status Codes:
 Response object:
 
 * `info`: contains information about special configuration parameters of the Boltz Backend deployment. As of writing this there is only one possible value:
-  * `prepay.minerfee`: if the array contains this value, the instance requires a small invoice for the miner fee to be paid before the actual hold invoice of a Reverse Swap is revealed. Otherwise the array is empty.
+  * `prepay.minerfee`: If the array contains this value, the corresponding Boltz instance requires a small invoice for the miner fee to be paid before the actual hold invoice of a Reverse Swap is revealed. As of writing, our [mainnet instance](https://boltz.exchange/) does not require this prepayment and thus returns an empty array.
 * `warnings`: an array of strings that indicate that some feature of Boltz might me disabled or restricted. An example of a warning is:
-  * `reverse.swaps.disabled`: means that all reverse swaps (from Lightning to the chain) are disabled
-* `pairs`: an object containing of the supported pairs of that particular Bolt instance. The keys of the values are the IDs of the pairs and the values itself contain information about the trading pair:
-  * `rate`: the exchange rate of the pair
-  * `limits`: a JSON object containing the minimal and maximal amount that a swap of that pair is allowed to have. The numbers are denominated **10 \*\* -8** of the _quote currency_
-    * `maximalZeroConf`: the maximal amounts that will be accepted as 0-confirmation by Boltz
-  * `fees`: is a JSON object that has two different kinds of fees:
-    * `percentage`: the configured percentage fee that is charged by Boltz
-    * `minerFees`: are the miner fees that are expected when locking up or claiming funds. These values are absolute, denominated in **10 \*\* -8** of the currency and just estimations that are not actually enforced
-    * `hash`: SHA256 hash of the JSON encoded data in the pair object (in the order `rate`, `fees`, `limits`)
+  * `reverse.swaps.disabled`: Means that all reverse swaps (from Lightning to the chain) are disabled.
+* `pairs`: an object containing the supported pairs. The keys of the values are the IDs of the pairs (`BTC/BTC` is a special case with mainchain Bitcoin as _base asset_ and Lightning Bitcoin as _quote asset_) and the values itself contain information about the pair:
+  * `hash`: SHA256 hash of the `JSON` encoded data in the pair object.
+  * `rate`: The exchange rate of the pair.
+  * `limits`: a `JSON` Object containing the minimal and maximal amount of the pair's swap. The numbers are denominated **10 \*\* -8** of the _quote asset._
+    * `maximalZeroConf`: The maximal amounts that will be accepted without chain confirmations by Boltz.
+  * `fees`: A `JSON` object that contains different kinds of fees:
+    * `percentage`: The percentage of the "send amount" that is charged by Boltz as "Boltz Fee" for swaps from quote to base asset (e.g. Lightning -> Bitcoin).
+    * `percentageSwapIn`: The percentage of the "send amount" that is charged by Boltz as "Boltz Fee" for a swap from base to quote asset (e.g. Bitcoin -> Lightning).
+    * `minerFees`: The network fees charged for locking up and claiming funds onchain. These values are absolute, denominated in **10 \*\* -8** of the quote asset.
 
 **Examples:**
 
@@ -82,80 +83,80 @@ Response:
 
 ```json
 {
-  "info": [
-    "prepay.minerfee"
-  ],
+  "info": [],
   "warnings": [],
   "pairs": {
     "BTC/BTC": {
+      "hash": "05d0f522ef08dd66fa0f87f167cc1380eaf7e5227e698941ecb44876e0736cb8",
       "rate": 1,
       "limits": {
-        "maximal": 4294967,
-        "minimal": 10000,
+        "maximal": 10000000,
+        "minimal": 50000,
         "maximalZeroConf": {
-          "baseAsset": 10000000,
-          "quoteAsset": 10000000
+          "baseAsset": 0,
+          "quoteAsset": 0
         }
       },
       "fees": {
         "percentage": 0.5,
+        "percentageSwapIn": 0.1,
         "minerFees": {
           "baseAsset": {
-            "normal": 340,
+            "normal": 1360,
             "reverse": {
-              "claim": 276,
-              "lockup": 306
+              "claim": 1104,
+              "lockup": 1224
             }
           },
           "quoteAsset": {
-            "normal": 340,
+            "normal": 1360,
             "reverse": {
-              "claim": 276,
-              "lockup": 306
+              "claim": 1104,
+              "lockup": 1224
             }
           }
         }
-      },
-      "hash": "9bd7be89256a2afa5933cd1771e621558197d11cbbc98be1c5ebc2d085e34c29"
+      }
     },
-    "ETH/BTC": {
-      "rate": 0.026357,
+    "L-BTC/BTC": {
+      "hash": "769215ae0f8cb14d250374a77de530ac2887c927dc08f8efce74f3634df03171",
+      "rate": 1,
       "limits": {
-        "maximal": 4294967,
+        "maximal": 10000000,
         "minimal": 10000,
         "maximalZeroConf": {
           "baseAsset": 0,
-          "quoteAsset": 10000000
+          "quoteAsset": 0
         }
       },
       "fees": {
-        "percentage": 5,
+        "percentage": 0.25,
+        "percentageSwapIn": 0.1,
         "minerFees": {
           "baseAsset": {
-            "normal": 24924,
+            "normal": 147,
             "reverse": {
-              "claim": 24924,
-              "lockup": 46460
+              "claim": 152,
+              "lockup": 276
             }
           },
           "quoteAsset": {
-            "normal": 340,
+            "normal": 1360,
             "reverse": {
-              "claim": 276,
-              "lockup": 306
+              "claim": 1104,
+              "lockup": 1224
             }
           }
         }
-      },
-      "hash": "d0e48159d717634478574ad8263267cecd69ad5ea102889d6f6908ff67af6f26"
+      }
     }
   }
 }
 ```
 
-## Getting Lightning nodes
+## Lightning Node Info
 
-This endpoint allows you to query the node public keys and URIs of the Lightning nodes run by Boltz.
+This endpoint allows you to query info like the node public keys and URIs of the Lightning nodes operated by Boltz.
 
 | URL             | Response    |
 | --------------- | ----------- |
@@ -168,8 +169,8 @@ Status Codes:
 Response object:
 
 * `nodes`: a JSON with the symbol of the chain on which the Lightning node is running as key, and a JSON object as key
-  * `nodeKey`: public key of the Lightning node
-  * `uris`: array of the URIs to which the LND node listens
+  * `nodeKey`: public key of the lightning node
+  * `uris`: array of the URIs on which the lightning node is reachable
 
 **Examples:**
 
@@ -181,19 +182,19 @@ Response:
 {
   "nodes": {
     "BTC": {
-      "nodeKey": "03be597bb2c8e5ff2592b226f4433b557c34158a95699384fcadc7a2f153e7272b",
       "uris": [
-        "03f060953bef5b777dc77e44afa3859d022fc1a77c55138deb232ad7255e869c00@35.237.24.136:9735",
-        "03f060953bef5b777dc77e44afa3859d022fc1a77c55138deb232ad7255e869c00@idz7qlezif6hgmjkpmuelnsssyxea2lwan562a5gla7jmlxsl5cb2cad.onion:9735"
-      ]
+        "026165850492521f4ac8abd9bd8088123446d126f648ca35e60f88177dc149ceb2@45.86.229.190:9735",
+        "026165850492521f4ac8abd9bd8088123446d126f648ca35e60f88177dc149ceb2@d7kak4gpnbamm3b4ufq54aatgm3alhx3jwmu6kyy2bgjaauinkipz3id.onion:9735"
+      ],
+      "nodeKey": "026165850492521f4ac8abd9bd8088123446d126f648ca35e60f88177dc149ceb2"
     }
   }
 }
 ```
 
-## Node statistics
+## Lightning Node Statistics
 
-For display purposes on our website, basic statistics about the lightning nodes are exposed in the API.
+For display purposes on our website, basic statistics about our lightning nodes are exposed via the following endpoint:
 
 | URL              | Response    |
 | ---------------- | ----------- |
@@ -230,7 +231,7 @@ Response:
 }
 ```
 
-## Get timeouts
+## Swap Timeouts
 
 Boltz Swaps have different timeouts for each pair. This endpoint allows querying those timeouts denominated in blocks of the base and quote chain.
 
@@ -244,7 +245,7 @@ Status Codes:
 
 Response object:
 
-* `timeouts`: a JSON object with the pairs as keys and a JSON object with the timeouts as values
+* `timeouts`: a `JSON` object with the pairs as keys and a `JSON` object with the timeouts as values
 
 **Examples:**
 
@@ -255,33 +256,37 @@ Response:
 ```json
 {
   "timeouts": {
-    "LTC/BTC": {
-      "base": 160,
-      "quote": 40
-    },
     "BTC/BTC": {
-      "base": 144,
-      "quote": 144
+      "base": {
+        "reverse": 144,
+        "swapMinimal": 144,
+        "swapMaximal": 288
+      },
+      "quote": {
+        "reverse": 144,
+        "swapMinimal": 144,
+        "swapMaximal": 288
+      }
     },
-    "LTC/LTC": {
-      "base": 576,
-      "quote": 576
-    },
-    "ETH/BTC": {
-      "base": 720,
-      "quote": 18
-    },
-    "BTC/USDT": {
-      "base": 18,
-      "quote": 720
+    "L-BTC/BTC": {
+      "base": {
+        "reverse": 1440,
+        "swapMinimal": 1440,
+        "swapMaximal": 2880
+      },
+      "quote": {
+        "reverse": 144,
+        "swapMinimal": 144,
+        "swapMaximal": 288
+      }
     }
   }
 }
 ```
 
-## Getting contracts
+## Swap Contracts
 
-To query the addresses of the contracts Boltz uses on account based chains this endpoint must be queried.
+To query the addresses of contracts used by Boltz for swaps on EVM chains like [RSK](https://rootstock.io/), the following endpoint can be queried:
 
 | URL                 | Response    |
 | ------------------- | ----------- |
@@ -293,12 +298,12 @@ Status Codes:
 
 Response object:
 
-* `ethereum`: a JSON object that contains all relevant Ethereum addresses
-  * `network`: JSON object that contains information about the Ethereum network the backend is running on
-    * `chainId`: id of the Ethereum the backend in running on
-    * `name`: if the Ethereum network of the backend is public, this property will be set to its name. Else this value stays `undefined`
-  * `swapContracts`: JSON object with the keys `EtherSwap` and `ERC20Swap` and the corresponding addresses as values
-  * `tokens`: JSON object with the ticker symbol of the token as key and its address as value
+* `rsk`: a `JSON` object that contains all relevant RSK addresses
+  * `network`: `JSON` object that contains information about the network
+    * `chainId`: id of the RSK chain
+    * `name`: if the RSK network of the backend is public, this property will be set to its name. Else this value stays `undefined`.
+  * `swapContracts`: `JSON` object containing swap contract addresses as values
+  * `tokens`: `JSON` object with the ticker symbol of the supported token as key and its address as value
 
 **Examples:**
 
@@ -308,28 +313,25 @@ Response:
 
 ```json
 {
-  "ethereum": {
+  "rsk": {
     "network": {
       "chainId": 1337
     },
     "swapContracts": {
-      "EtherSwap": "0x76562e81C099cdFfbF6cCB664543817028552634",
-      "ERC20Swap": "0xD104195e630A2E26D33c8B215710E940Ca041351"
+      "rBTCSwap": "0x0",
+      "TokenSwap": "0x0"
     },
     "tokens": {
-      "USDT": "0x52926360A75EB50A9B242E748f094eCd73193036"
     }
   }
 }
 ```
 
-## Getting fee estimations
+## Fee Estimations
 
-Boltz provides an API endpoint that returns fee estimations for all chains that are configured on that instance. These fee estimations are _not_ enforced by Boltz and are just a recommendation.
+Boltz provides an API endpoint that returns fee estimations for all supported chains. These fee estimations are _not_ enforced by Boltz and merely represent a recommendation.
 
-For UTXO based chains like Bitcoin it is important to mention that if 0-conf wants to be used with normal swaps, the lockup transaction has to have at least 80% of the recommended `sat/vbyte` value. One can read more about the what and why in the [0-confirmation docs](0-confirmation.md).
-
-If the instance supports Ether or ERC20 tokens, only `ETH` will be in the response. This value is for the Ethereum chain and not the Ether asset and denominated in GWEI.
+For UTXO chains like Bitcoin it is important to mention that if 0-conf is accepted by Boltz  for a particular pair (see [section](api.md#getting-pairs) above) and to be used with Normal Submarine Swaps, the lockup transaction has to have at least 80% of the recommended `sat/vbyte` value. One can read more about the what and why in the [0-conf docs](0-confirmation.md).
 
 | URL                     | Response    |
 | ----------------------- | ----------- |
@@ -341,7 +343,7 @@ Status Codes:
 
 Response object:
 
-This endpoint returns a JSON object of which each key is the symbol of a chain and each value the estimated fee for that chain denominated in `sat/vbyte` or `GWEI`.
+This endpoint returns a `JSON` object of which each key is the symbol of a chain and each value the estimated fee for that chain denominated in `sat/vbyte` for UTXO chains like Bitcoin or `GWEI` for EVM chains like RSK.
 
 **Examples:**
 
@@ -351,15 +353,14 @@ Response:
 
 ```json
 {
-  "BTC": 34,
-  "LTC": 2,
-  "ETH": 10
+  "BTC": 16,
+  "L-BTC": 0.11
 }
 ```
 
-## Querying transactions
+## Raw Transactions
 
-The Boltz API also allows for querying raw transactions for all supported UTXO based chains. Irrespective of whether the transactions are still in the mempool or already included in a block; Boltz should find them either way. But it should be noted that unlike SPV and Neutrino servers, Boltz doesn't provide any kind of proof that the transaction was included in a block.
+Boltz API also allows for querying raw transactions of all supported UTXO chains, irrespective of whether the transactions are still in the mempool or already included in a block. Note, that Boltz does _not_ provide any kind of cryptographic proof that the transaction was included in a block. Also this call is primarily kept for backward compatibility with integrations, it is not needed to construct transactions as the response of [`/swapstatus`](api.md#getting-status-of-a-swap) provides all necessary info.
 
 Requests querying for transactions have to be `POST` and contain two arguments in its JSON encoded body:
 
@@ -388,7 +389,7 @@ Request body:
 ```json
 {
   "currency": "BTC",
-  "transactionId": "52ff6682b0bff109e6c6d97de6b6d075f7241c9ac364e02de6315281e423d816"
+  "transactionId": "0e3e2357e806b6cdb1f70b54c3a3a17b6714ee1f0e68bebb44a74b1efd512098"
 }
 ```
 
@@ -396,13 +397,13 @@ Response:
 
 ```json
 {
-  "transactionHex": "02000000000101f7ddc247aad2c1e91b2495cf6814aa183b46785cf21f44f43a3c3419c09d377201000000171600142a805e4cfaa6fb79360917a5b0b9c5fcb0dfe6e9ffffffff02938601000000000017a9141137c50104d0814e8663ded75b43ddaa7b9d192b87e8cc96000000000017a9148f6df517d00e650d8c5e6bfa0986b775b256609e870247304402202e8a8572ce3cb232a7b48483bdc280feba7f9cf8c163ac2df091e54dfcf90bb6022042ba2b3e4d89220b3b39b52a444dff2010b22144099aaa348d83301f2ae456be01210341720559e7375a409b03e814415a6c15fc142c5a9e78a83831ff6fe4706d352900000000"
+	"transactionHex": "01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff0704ffff001d0104ffffffff0100f2052a0100000043410496b538e853519c726a2c91e61ec11600ae1390813a627c66fb8be7947be63c52da7589379515d4e0a604f8141781e62294721166bf621e73a82cbf2342c858eeac00000000"
 }
 ```
 
-## Querying lockup Transactions
+## Lockup Transactions
 
-Requests querying the lockup transactions on UTXO based chains of Submarine Swaps have to be `POST` and contain one argument in its JSON encoded body:
+The following endpoint can be used to query the user's lockup transaction of a Normal Submarine Swap on UTXO chains. The request has to be `POST` and contain the following argument in the `JSON` encoded body:
 
 * `id`: id of the Submarine Swap
 
@@ -417,7 +418,7 @@ Status Codes:
 
 Response object:
 
-* `transactionHex`: the lockup transaction of the Submarine Swap encoded in hex
+* `transactionHex`: the lockup transaction of the Normal Submarine Swap encoded in hex
 * `timeoutBlockHeight`: block height at which the HTLC in the lockup transaction will time out
 
 If the HTLC has not timed out yet, there will be an additional value in the response:
@@ -446,30 +447,19 @@ Response:
 }
 ```
 
-`POST /getswaptransaction`
-
-Request body:
+This call works for Normal Submarine Swaps only. If used for Reverse Submarine Swaps, the response will be:
 
 ```json
 {
-  "id": "KR8XaB"
-}
-```
-
-Response:
-
-```json
-{
-  "transactionHex": "020000000001015bf3fe03071edae971276831963d45821ce6bc95c567fd7832bee3b1848254ba0000000000feffffff02b82a75e80000000017a914ca9b26af0865c2a59f0d6c41ede68f03264a52398700e1f5050000000017a914d2271732308baf018a1c2c751a3afb197f2a2e7e870247304402200206ae10cd66267caea1c6e0fca0275924a85fa377572f599304c1abb6a3a97302204335eed108151048de7ba56fd644352831e3d453b412547d8b762f4e96ee1e310121035b6440fe45a8bf7c1d9d238fa39a128ee78b58df73377bfeb1d6d752849714c800000000",
-  "timeoutBlockHeight": 252
+	"error": "could not find swap with id: CR8XaB"
 }
 ```
 
 ## Broadcasting transactions
 
-This endpoint is really similar to the one for querying transactions (and it works only on UTXO based chains too). But instead of getting existing transactions this one will broadcast new ones to the network. Also it returns the id of the broacasted transaction.
+This endpoint is used to broadcast transactions on UTXO chains. It is similar to [`/gettransaction`](api.md#raw-transactions) but instead of getting the hex representation of existing transactions on the chain, this call broadcasts _new_ transactions to the network. It is mainly intended to be used to broadcast refund transactions on the user's behalf. It returns the id of the broacasted transaction,which can be used to verify that the refund transaction was broadcasted successfully.
 
-Requests broadcasting transactions have to be `POST` and contain two arguments in its JSON encoded body:
+Requests broadcasting transactions have to be `POST` and contain two arguments in the JSON encoded body:
 
 * `currency`: to which network the transaction should be broadcasted
 * `transactionHex`: the HEX encoded transaction itself
@@ -487,13 +477,7 @@ Response object:
 
 * `transactionId`: the id of the transaction that was broadcasted
 
-There is one special case when trying to broadcast a refund transaction for a Submarine Swap that has not timed out yet: the backend will not only return `error` in the JSON encoded response but also some information alongside that error to make your life a little bit easier:
-
-* `error`: the reason for which the broadcasting failed. In this special case always: `non-mandatory-script-verify-flag (Locktime requirement not satisfied) (code 64)`
-* `timeoutEta`: UNIX timestamp at which the HTLC is expected to time out
-* `timeoutBlockHeight`: block height at which the HTLC in the lockup transaction will time out
-
-**Examples:**
+**Example:**
 
 `POST /broadcasttransaction`
 
@@ -514,7 +498,13 @@ Response:
 }
 ```
 
-_Special case when broadcasting a refund for a Submarine Swap that has not timed out yet:_
+There is one special case when trying to broadcast a refund transaction for a swap that has not timed out yet: the backend will not only return the `error` in the JSON encoded response but also some additional information:
+
+* `error`: the reason for which the broadcasting failed. In this special case always: `non-mandatory-script-verify-flag (Locktime requirement not satisfied) (code 64)`
+* `timeoutEta`: UNIX timestamp at which the HTLC is expected to time out
+* `timeoutBlockHeight`: block height at which the HTLC in the lockup transaction will time out
+
+**Example:**
 
 `POST /broadcasttransaction`
 
@@ -537,9 +527,9 @@ Response:
 }
 ```
 
-## Getting status of a Swap
+## Status of a Swap
 
-**Before being able to handle the status events of this method it is recommended to read:** [**Swap lifecycle**](<README (1).md>)
+**Before handling status events of this method it is recommended to read:** [**Swap Types & States**](<README (1).md>)
 
 To query the status of a swap one can use this endpoint which returns a JSON object containing the status of the swap. All the possible status events are documented [here](<README (1).md>).
 
@@ -562,8 +552,8 @@ Response object:
 * `status`: status of the swap
 * `transaction`: in case of a reverse swap the lockup transaction details are not in the response of the call which creates the swap. Therefore, the events `transaction.mempool` and `transaction.confirmed` contain it
   * `id`: id of the lockup transaction
-  * `hex`: hex encoded lockup transaction (only set for transactions on UTXO based chains)
-  * `eta`: if the status is `transaction.mempool`, this value is the estimated time of arrival (ETA) in blocks of when the transaction will be confirmed (only set for transactions on UTXO based chains)
+  * `hex`: hex encoded lockup transaction (only set for transactions on UTXO chains)
+  * `eta`: if the status is `transaction.mempool`, this value is the estimated time of arrival (ETA) in blocks of when the transaction will be confirmed (only set for transactions on UTXO chains)
 * `zeroConfRejected`: set to `true` for Swaps with the status `transaction.mempool` and a lockup transaction that is not eligible for 0-conf
 * `failureReason`: set if the status indicates that the Swap failed and the status itself would be ambiguous
 
@@ -702,7 +692,7 @@ Response:
 
 ## Creating Swaps
 
-To create a swap from onchain coins to lightning ones just a single request has to be sent. This `POST` request slightly deviates depending on the kind of currencies that are swapped. You can find further information on the differences between swapping from UTXO based chains and Ethereum underneath. **Please note that Boltz works with 10 \*\* -8 decimals internally** and all amounts in the API endpoints have this denomination regardless of the decimals, regardless of the swapped coin or token.
+To create a swap from onchain coins to lightning ones just a single request has to be sent. This `POST` request slightly deviates depending on the kind of currencies that are swapped. You can find further information on the differences between swapping from UTXO chains and Ethereum underneath. **Please note that Boltz works with 10 \*\* -8 decimals internally** and all amounts in the API endpoints have this denomination regardless of the decimals, regardless of the swapped coin or token.
 
 Also, all kinds of requests to create Swaps have common values in the API request:
 
@@ -746,16 +736,16 @@ You will always have these values in the response object:
 
 * `id`: id of the freshly created swap
 * `timeoutBlockHeight`: block height at which the swap will be cancelled
-* `address`: address in which the coins will be locked up. For UTXO based chains this is a SegWit P2SHP2WSH (P2WSH nested in a P2SH) for the sake of compatibility and for Ethereum it is the address of the contract that needs to be used
+* `address`: address in which the coins will be locked up. For UTXO chains this is a SegWit P2SHP2WSH (P2WSH nested in a P2SH) for the sake of compatibility and for Ethereum it is the address of the contract that needs to be used
 
 If you set the invoice you will also have these values in the response:
 
 * `acceptZeroConf`: whether Boltz will accept 0-conf for this swap
 * `expectedAmount`: the amount that Boltz expects you to lock in the onchain HTLC
 
-### UTXO based chains
+### UTXO Chains
 
-Swaps from UTXO based chains like Bitcoin work by deriving an address based on the preimage hash of the invoice and the refund public key of the user and waiting until the user sends coins to that generated address.
+Swaps from UTXO chains like Bitcoin work by deriving an address based on the preimage hash of the invoice and the refund public key of the user and waiting until the user sends coins to that generated address.
 
 Requests have to contain one additional parameter:
 

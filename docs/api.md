@@ -1,71 +1,29 @@
+---
+description: >-
+  Boltz exposes a RESTful HTTP API that can be used to query information like
+  supported pairs as well as to create and monitor swaps. This page lists all
+  available endpoints and shows how to use them.
+---
+
 # 🤖 REST API Documentation
-
-## Introduction
-
-Boltz exposes a RESTful HTTP API that can be used to query information like supported pairs as well as to create and monitor swaps. This page lists all the available endpoints and shows how to use them.
 
 ### Response and request encoding
 
-All the responses to all calls are encoded as JSON objects. If endpoints require the client to provide any kind of arguments these also have to be encoded as JSON and sent in the body of a POST request.
-
-Please make sure to set the `Content-Type` header of your `POST` requests to `application/json` if you are sending JSON encoded data in the body of the request.
+All the responses to all calls are encoded as `JSON` objects. If endpoints require the client to provide any kind of arguments these also have to be encoded as `JSON` and sent in the body of a `POST` request. Make sure to set the `Content-Type` header of your `POST` requests to `application/json` if you are sending `JSON` encoded data in the body of the request.
 
 ### Error handling
 
-If a call fails for some reason the returned [HTTP status code](https://en.wikipedia.org/wiki/List\_of\_HTTP\_status\_codes) will indicate that, and an object will be returned that looks like this and gives the reason for which the call errored:
+If a call fails for some reason the returned [HTTP status code](https://en.wikipedia.org/wiki/List\_of\_HTTP\_status\_codes) will indicate that, and an object will be returned that looks like this and gives the reason why the call failed:
 
 ```json
 {
-  "error": "some message explaining why the call failed"
-}
-```
-
-## Authentication
-
-Some API endpoints, like for example [querying referral fees](api.md#querying-referral-fees), require clients to authenticate their requests.
-
-To authenticate your API request, three request headers have to be set:
-
-* `TS`: current UNIX timestamp (can only deviate from server time by 1 minute at most)
-* `API-KEY`: your API key
-* `API-HMAC`: SHA256 HMAC encoded as HEX of the following values:
-  * value of the `TS` header
-  * method of the HTTP request (e.g. `GET` or `POST`)
-  * request path, including the leading slash (e.g. `/referrals/query`)
-  * if the request method is `POST`, the body of the request
-
-TypeScript Node.js example:
-
-```typescript
-import axios from 'axios';
-import { createHmac } from 'crypto';
-
-const path = '/referrals/query';
-
-const ts = Math.round(new Date().getTime() / 1000);
-const hmac = createHmac('sha256', argv.secret)
-  .update(`${ts}GET${path}`)
-  .digest('hex');
-
-try {
-  const res = await axios.get(`https://${argv.rest.host}:${argv.rest.port}${path}`, {
-    headers: {
-      'TS': ts,
-      'API-KEY': argv.key,
-      'API-HMAC': hmac,
-    },
-  });
-
-  console.log(JSON.stringify(res.data, undefined, 2));
-} catch (e) {
-  const error = e as any;
-  console.log(`${error.message}: ${JSON.stringify(error.response.data)}`);
+  "error": "message explaining why the call failed"
 }
 ```
 
 ## Getting version
 
-To get the version of the deployed Boltz backed instance one has to query this API endpoint.
+Returns the version of [Boltz Backend](https://github.com/BoltzExchange/boltz-backend).
 
 | URL            | Response    |
 | -------------- | ----------- |
@@ -77,7 +35,7 @@ Status Codes:
 
 Response object:
 
-* `version`: the deployed version of the Boltz backend
+* `version`: the deployed version of Boltz Backend
 
 **Examples:**
 
@@ -85,13 +43,13 @@ Response object:
 
 ```json
 {
-  "version": "3.0.0-beta-f7f57b7-dirty"
+  "version":"3.2.1-7c38088"
 }
 ```
 
 ## Getting pairs
 
-To work with the instance one first has to know what pairs are supported and what kind of rates, limits and fees can be expected when creating a new swap. To get that kind of information the following call is used.
+In order to create a swap, one first has to know which pairs are supported and what kind of rates, limits and fees are applied when creating a new swap. The following call returns this information.
 
 | URL             | Response    |
 | --------------- | ----------- |
@@ -103,9 +61,9 @@ Status Codes:
 
 Response object:
 
-* `info`: contains information about the configuration of the Boltz backend instance. As of writing this there is only one info status:
-  * `prepay.minerfee`: if the array contains this value, the instance requires a small invoice for the miner fee to be paid before the actual hold invoice of a Reverse Swap is revealed
-* `warnings`: an array of strings that can indicate that some feature of Boltz might me disabled or restricted. Currently, there is only a single warning that could be in that array:
+* `info`: contains information about special configuration parameters of the Boltz Backend deployment. As of writing this there is only one possible value:
+  * `prepay.minerfee`: if the array contains this value, the instance requires a small invoice for the miner fee to be paid before the actual hold invoice of a Reverse Swap is revealed. Otherwise the array is empty.
+* `warnings`: an array of strings that indicate that some feature of Boltz might me disabled or restricted. An example of a warning is:
   * `reverse.swaps.disabled`: means that all reverse swaps (from Lightning to the chain) are disabled
 * `pairs`: an object containing of the supported pairs of that particular Bolt instance. The keys of the values are the IDs of the pairs and the values itself contain information about the trading pair:
   * `rate`: the exchange rate of the pair
@@ -1166,6 +1124,49 @@ Response body:
   "onchainAmount": 98694,
   "timeoutBlockHeight": 398,
   "minerFeeInvoice": "lnbcrt3060n1p0dhjr3pp5sk2u4rt0z8rrl6jj62d6szqvsdejj8kjcxa8tdt4dau5rtyskj6qdp4f45kuetjypnx2efqvehhygznwashqgr5dusyy4zrypskgerjv4ehxcqzpgsp5qtsm5vfy9yq8kjpthla67jagmcxnj529pm3edk94npf6fekq2sxq9qy9qsqmun0z8ed4kp9dhp7lthvzdrx3ngmjs32smx6l4hvyyktv92mf348aftgrwf44sl94ewywr3sw8dc4acy63yamxxpjtd4pkkr2uw2h5gpqc3d3y"
+}
+```
+
+## Authentication
+
+Some API endpoints, like for example [querying referral fees](api.md#querying-referral-fees), require clients to authenticate their requests.
+
+To authenticate your API request, three request headers have to be set:
+
+* `TS`: current UNIX timestamp (can only deviate from server time by 1 minute at most)
+* `API-KEY`: your API key
+* `API-HMAC`: SHA256 HMAC encoded as HEX of the following values:
+  * value of the `TS` header
+  * method of the HTTP request (e.g. `GET` or `POST`)
+  * request path, including the leading slash (e.g. `/referrals/query`)
+  * if the request method is `POST`, the body of the request
+
+TypeScript Node.js example:
+
+```typescript
+import axios from 'axios';
+import { createHmac } from 'crypto';
+
+const path = '/referrals/query';
+
+const ts = Math.round(new Date().getTime() / 1000);
+const hmac = createHmac('sha256', argv.secret)
+  .update(`${ts}GET${path}`)
+  .digest('hex');
+
+try {
+  const res = await axios.get(`https://${argv.rest.host}:${argv.rest.port}${path}`, {
+    headers: {
+      'TS': ts,
+      'API-KEY': argv.key,
+      'API-HMAC': hmac,
+    },
+  });
+
+  console.log(JSON.stringify(res.data, undefined, 2));
+} catch (e) {
+  const error = e as any;
+  console.log(`${error.message}: ${JSON.stringify(error.response.data)}`);
 }
 ```
 

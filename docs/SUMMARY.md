@@ -2,7 +2,7 @@
 
 * [👋 Introduction](README.md)
 * [🔁 Swap Types & States](<README (1).md>)
-* [🤖 REST API Documentation](api.md)
+* [🤖 REST API](api.md)
 * [0-confirmation](0-confirmation.md)
 * [Channel Creation Docs](channel-creation.md)
 * [Scripting](scripting.md)

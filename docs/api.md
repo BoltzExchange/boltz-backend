@@ -5,7 +5,7 @@ description: >-
   available endpoints and shows how to use them.
 ---
 
-# 🤖 REST API Documentation
+# 🤖 REST API
 
 ### Response and request encoding
 
@@ -156,7 +156,7 @@ Response:
 
 ## Lightning Node Info
 
-This endpoint allows you to query info like the node public keys and URIs of the Lightning nodes operated by Boltz.
+This endpoint allows you to query info like public keys and URIs of the Lightning nodes operated by Boltz.
 
 | URL             | Response    |
 | --------------- | ----------- |
@@ -360,7 +360,7 @@ Response:
 
 ## Raw Transactions
 
-Boltz API also allows for querying raw transactions of all supported UTXO chains, irrespective of whether the transactions are still in the mempool or already included in a block. Note, that Boltz does _not_ provide any kind of cryptographic proof that the transaction was included in a block. Also this call is primarily kept for backward compatibility with integrations, it is not needed to construct transactions as the response of [`/swapstatus`](api.md#getting-status-of-a-swap) provides all necessary info.
+Boltz API also allows for querying raw transactions of all supported UTXO chains, irrespective of whether the transactions are still in the mempool or already included in a block. Note, that Boltz does _not_ provide any kind of cryptographic proof that the transaction was included in a block. Also this call is primarily kept for backward compatibility with integrations, it is not needed to construct transactions as the response of [`/swapstatus`](api.md#status-of-a-swap) provides all necessary info.
 
 Requests querying for transactions have to be `POST` and contain two arguments in its JSON encoded body:
 
@@ -498,7 +498,7 @@ Response:
 }
 ```
 
-There is one special case when trying to broadcast a refund transaction for a swap that has not timed out yet: the backend will not only return the `error` in the JSON encoded response but also some additional information:
+There is one special case: when trying to broadcast a refund transaction for a swap that has not timed out yet, the backend will not only return the `error` in the JSON encoded response but also some additional information:
 
 * `error`: the reason for which the broadcasting failed. In this special case always: `non-mandatory-script-verify-flag (Locktime requirement not satisfied) (code 64)`
 * `timeoutEta`: UNIX timestamp at which the HTLC is expected to time out
@@ -527,11 +527,11 @@ Response:
 }
 ```
 
-## Status of a Swap
+## Swap Status
 
-**Before handling status events of this method it is recommended to read:** [**Swap Types & States**](<README (1).md>)
+_Before handling status events of this method it is recommended to read:_ [_Swap Types & States_](<README (1).md>)
 
-To query the status of a swap one can use this endpoint which returns a JSON object containing the status of the swap. All the possible status events are documented [here](<README (1).md>).
+To query the status of a swap one can use this endpoint which returns a `JSON` object containing the status of the swap. Possible states and status events are documented [here](<README (1).md>).
 
 Requests querying the status of a swap have to be `POST` and contain a single value in its JSON encoded body:
 
@@ -550,12 +550,12 @@ Status Codes:
 Response object:
 
 * `status`: status of the swap
-* `transaction`: in case of a reverse swap the lockup transaction details are not in the response of the call which creates the swap. Therefore, the events `transaction.mempool` and `transaction.confirmed` contain it
-  * `id`: id of the lockup transaction
-  * `hex`: hex encoded lockup transaction (only set for transactions on UTXO chains)
-  * `eta`: if the status is `transaction.mempool`, this value is the estimated time of arrival (ETA) in blocks of when the transaction will be confirmed (only set for transactions on UTXO chains)
-* `zeroConfRejected`: set to `true` for Swaps with the status `transaction.mempool` and a lockup transaction that is not eligible for 0-conf
-* `failureReason`: set if the status indicates that the Swap failed and the status itself would be ambiguous
+* `transaction`: in case of a Reverse Submarine Swap, the lockup transaction details are not in the response of the call which creates the swap. Therefore, the events `transaction.mempool` and `transaction.confirmed` contain it
+* `id`: id of the lockup transaction
+* `hex`: hex encoded lockup transaction (only set for transactions on UTXO chains)
+* `eta`: if the status is `transaction.mempool`, this value is the estimated time of arrival (ETA) in blocks of when the transaction will be confirmed. Only set for transactions on UTXO chains.
+* `zeroConfRejected`: set to `true` for Swaps with the status `transaction.mempool` and a lockup transaction that is not eligible for [0-conf](0-confirmation.md)
+* `failureReason`: set when it's necessary to further clarify the failure reason
 
 **Examples:**
 
@@ -619,13 +619,13 @@ Response:
 }
 ```
 
-## Streaming status updates of a Swap
+## Swap Status Stream
 
-To not having to query the [`/swapstatus`](api.md#getting-status-of-a-swap) endpoint regularly in order to always have the lastet swap status there is a seperate endpoint for streaming swap status updates via [Server-Side events](https://www.w3schools.com/html/html5\_serversentevents.asp).
+To avoid querying the [`/swapstatus`](api.md#swap-status) endpoint regularly to get the latest swap status, this endpoint streams swap status updates via [Server-Side events](https://www.w3schools.com/html/html5\_serversentevents.asp).
 
-Requests to this enpoint have to provide the required `id` parameter via an URL parameter because all requests have to be of the method `GET`.
+Requests to this endpoint have to provide the required swap `id` parameter via an URL parameter because all requests have to be of the method `GET`.
 
-Every event in the Server-Side stream has data that is encoded exactly like the JSON object of the [`/swapstatus`](api.md#getting-status-of-a-swap) endpoint. Please have a look at the examples below for a reference implementation in JavaScript of hanlding the stream.
+Every event in the Server-Side stream has data that is encoded exactly like the JSON object of the `/swapstatus` endpoint. Please have a look at the examples below for a reference implementation in JavaScript of handling the stream.
 
 | URL                     | Response                 |
 | ----------------------- | ------------------------ |
@@ -633,7 +633,7 @@ Every event in the Server-Side stream has data that is encoded exactly like the 
 
 **Examples:**
 
-Server-Side event streams have to be handled different from normal HTTP responses. Below is a sample implementation in JavaScript and also what a raw response of a Server-Side event stream looks like.
+Server-Side event streams have to be handled differently from regular HTTP responses. Below is a sample implementation in JavaScript and also what a raw response of a Server-Side event stream looks like.
 
 Sample implementation in JavaScript:
 
@@ -655,44 +655,9 @@ data: {"status":"transaction.mempool"}
 data: {"status":"invoice.paid"}
 ```
 
-## Querying referral fees
-
-Boltz partners can request a referral key to get a percentage of the fees earned from Swaps through their integration. To query for their referrals, they can send an [authenticated](api.md#authentication) request to this endpoint.
-
-| URL                    | Response    |
-| ---------------------- | ----------- |
-| `GET /referrals/query` | JSON object |
-
-Status Codes:
-
-* `200 OK`
-* `401 Unauthorized`: missing or invalid request authentication
-
-Response object:
-
-The response of a valid request is grouped by year, month and referral key. The amounts are denominated in 10 \*\* -8.
-
-**Examples:**
-
-`GET /referrals/query`
-
-Response:
-
-```json
-{
-  "2021": {
-    "9": {
-      "cliTest": {
-        "BTC": 60
-      }
-    }
-  }
-}
-```
-
 ## Creating Swaps
 
-To create a swap from onchain coins to lightning ones just a single request has to be sent. This `POST` request slightly deviates depending on the kind of currencies that are swapped. You can find further information on the differences between swapping from UTXO chains and Ethereum underneath. **Please note that Boltz works with 10 \*\* -8 decimals internally** and all amounts in the API endpoints have this denomination regardless of the decimals, regardless of the swapped coin or token.
+The following request creates a Normal Submarine Swap (Chain -> Lightning). This `POST` request slightly differs depending on the kind of currencies that are swapped. You can find further information on the differences between swapping from UTXO chains and Ethereum underneath. **Please note that Boltz works with 10 \*\* -8 decimals internally** and all amounts in the API endpoints have this denomination regardless of the decimals, regardless of the swapped coin or token.
 
 Also, all kinds of requests to create Swaps have common values in the API request:
 
@@ -1157,6 +1122,41 @@ try {
 } catch (e) {
   const error = e as any;
   console.log(`${error.message}: ${JSON.stringify(error.response.data)}`);
+}
+```
+
+## Querying referral fees
+
+Boltz partners can request a referral key to get a percentage of the fees earned from Swaps through their integration. To query for their referrals, they can send an [authenticated](api.md#authentication) request to this endpoint.
+
+| URL                    | Response    |
+| ---------------------- | ----------- |
+| `GET /referrals/query` | JSON object |
+
+Status Codes:
+
+* `200 OK`
+* `401 Unauthorized`: missing or invalid request authentication
+
+Response object:
+
+The response of a valid request is grouped by year, month and referral key. The amounts are denominated in 10 \*\* -8.
+
+**Examples:**
+
+`GET /referrals/query`
+
+Response:
+
+```json
+{
+  "2021": {
+    "9": {
+      "cliTest": {
+        "BTC": 60
+      }
+    }
+  }
 }
 ```
 

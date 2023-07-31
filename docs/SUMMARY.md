@@ -3,7 +3,7 @@
 * [👋 Introduction](README.md)
 * [🔁 Swap Types & States](<README (1).md>)
 * [🤖 REST API](api.md)
-* [0-confirmation](0-confirmation.md)
+* [⏩ 0-conf](0-confirmation.md)
 * [Channel Creation Docs](channel-creation.md)
 * [Scripting](scripting.md)
 * [Swap files](swap-files.md)

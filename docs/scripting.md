@@ -1,20 +1,26 @@
-# Scripting
+---
+description: >-
+  This section gives you an overview of the low-level scripting that might be
+  required for your Boltz API client.
+---
 
-## UTXO based chains
+# 🧾 Scripting
 
-Boltz theoretically supports three types of outputs and addresses:
+## UTXO Chains
 
-- P2SH
-- P2SH nested P2WSH
-- P2WSH
+Boltz supports three types of outputs and addresses:
 
-Our instances are using *P2SH nested P2WSH* addresses for Submarine Swaps and *P2WSH* addresses for Reverse ones. The address type for Submarine Swaps is [configurable](deployment.md) and can be either *P2WSH* or *P2SH nested P2WSH*.
+* P2SH
+* P2SH nested P2WSH
+* P2WSH
+
+Boltz is currently using _P2SH nested P2WSH_ addresses for Normal Submarine Swaps and _P2WSH_ addresses for Reverse Submarine Swaps. The address type for Submarine Swaps is [configurable](deployment.md) and can be either _P2WSH_ or _P2SH nested P2WSH_.
 
 ### Address Generation
 
-The Boltz API returns a redeem script, and an address for locking up coins. After verifying that the redeem script is valid (checking preimage hash, public key, timeout block height of the HTLC and OP codes), the correctness of the address should be double-checked.
+Boltz API returns a redeem script and an address for locking up coins. After verifying that the redeem script is valid (checking preimage hash, public key, timeout block height of the HTLC and OP codes), the correctness of the address should be double-checked.
 
-A list of all OP codes and their meanings can be found on the [Bitcoin Wiki](https://en.bitcoin.it/wiki/Script).
+A list of all OP codes and their meaning can be found on the [Bitcoin Wiki](https://en.bitcoin.it/wiki/Script).
 
 #### P2SH
 
@@ -47,7 +53,7 @@ OP_EQUAL
 
 #### Examples
 
-Examples for generating all of these addresses with Node.js can be found in the [`boltz-core` repository](https://github.com/BoltzExchange/boltz-core/blob/master/lib/swap/Scripts.ts).
+Examples for generating all of these addresses with `Node.js` can be found in the [`boltz-core` r](https://github.com/BoltzExchange/boltz-core/blob/master/lib/swap/Scripts.ts)eference library.
 
 ### Claim transactions
 
@@ -69,34 +75,22 @@ Spending a P2WSH output is similar to the P2SH ones. But here those values are a
 
 #### P2SH nested P2WSH
 
-When spending a P2SH nested P2WSH output the signature, preimage and original reedem script are added to the witness of the input as if the output was a P2WSH one, but you also have to add the OP code `OP_0` and the SHA256 hash of the redeem script to the signature script of the input. 
+When spending a P2SH nested P2WSH output the signature, preimage and original reedem script are added to the witness of the input as if the output was a P2WSH one, but you also have to add the OP code `OP_0` and the SHA256 hash of the redeem script to the signature script of the input.
 
 #### Examples
 
-Examples for all three output types can be found in the [`boltz-core` repository](https://github.com/BoltzExchange/boltz-core/blob/master/lib/swap/Claim.ts#L23).
+Examples for all three output types can be found in the [`boltz-core` ](https://github.com/BoltzExchange/boltz-core/blob/master/lib/swap/Claim.ts#L23)[r](https://github.com/BoltzExchange/boltz-core/blob/master/lib/swap/Scripts.ts)eference library.
 
 ### Refund transactions
 
-Refunding an output works just like claiming. Since the refunder doesn't know the preimage (or knows it but can't use it since that would require the claim keys) any value apart from the actual preimage can be used but there has to be a value to prevent the signature from being hashed and compared to the preimage hash. To save transaction fees, a 0 value should be used.
+Refunding an output works just like claiming. Since the refund process doesn't know the preimage (or knows it but can't use it since that would require the claim keys) any value apart from the actual preimage can be used but there has to be a value to prevent the signature from being hashed and compared to the preimage hash. To save transaction fees, a 0 value should be used.
 
 There is one more difference when compared to claim transactions: the `nLockTime` of the transaction has to be set to a value equal to or greater than the timeout block height of the HTLC. Else the bitcoin network will not accept your transaction.
 
 #### Examples
 
-An example for this can be found in the [`boltz-core` repository](https://github.com/BoltzExchange/boltz-core/blob/master/lib/swap/Refund.ts#L20). The linked function uses the claim function from above but requires the timeout block height as argument and sets an empty preimage.
+An example for this can be found in the [`boltz-core`](https://github.com/BoltzExchange/boltz-core/blob/master/lib/swap/Refund.ts#L20) reference library. The linked function uses the claim function from above but requires the timeout block height as argument and sets an empty preimage.
 
 ## EVM chains
 
-The HTLCs that Boltz uses on EVM chains are not single use scripts but contracts. One contract is called EtherSwap and the other one is ERC20Swap. The source for the those contracts and some additional ones used for integration testing the Swap contracts can be found [in the `boltz-core` repository](https://github.com/BoltzExchange/boltz-core/tree/master/contracts).
-
-### EtherSwap
-
-Is used to, as the name indicates, swap Ether. [The way it transfers Ether out of the contract](https://github.com/BoltzExchange/boltz-core/blob/v0.4.1/contracts/TransferHelper.sol#L14) forwards all leftover gas which means that other contracts can easily build on top of it.
-
-On mainnet the latest version of the contract is deployed at [0x76C725fEA03B179d326a3689C36218c0a3b42720](https://etherscan.io/address/0x76C725fEA03B179d326a3689C36218c0a3b42720).
-
-### ERC20Swap
-
-Works exactly like EtherSwap but is used for ERC20 tokens.  
-
-On mainnet the latest version of the contract is deployed at [0x964B943cF21A9f8987d80F9143955d7aed14F78A](https://etherscan.io/address/0x964B943cF21A9f8987d80F9143955d7aed14F78A).
+The HTLCs that Boltz uses on EVM chains are not single use scripts but contracts. One contract is called EtherSwap and the other one is ERC20Swap. The source for the those contracts and some additional ones used for integration testing the Swap contracts can be found in the [`boltz-core`](https://github.com/BoltzExchange/boltz-core/tree/master/contracts) [r](https://github.com/BoltzExchange/boltz-core/blob/master/lib/swap/Scripts.ts)eference library.

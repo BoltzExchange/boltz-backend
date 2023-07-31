@@ -1,15 +1,15 @@
-# Setting up the regtest Docker environment
+# 🐳 Docker Regtest Environment
 
 Prerequisites:
 
-* Node.js version `v18.16.1` or higher (preferably the latest LTS)
+* The latest `Node.js` LTS release
 * Docker
 
-The regtest environment of the Boltz backend is based on this Docker image [boltz/regtest](https://hub.docker.com/r/boltz/regtest) (Bitcoin Core, Litecoin Core and 2 LNDs on each chain)
+The regtest environment of Boltz Backend is based on the [boltz/regtest](https://hub.docker.com/r/boltz/regtest)&#x20;
 
-To start those images run `npm run docker:start` and to stop them again use `npm run docker:stop` to stop and remove the containers.
+To start the images run `npm run docker:start` and to stop them again use `npm run docker:stop` to stop and remove the containers.
 
-To use the nodes in the container with Boltz backend use a configuration similar to this one:
+To use the nodes in the container with Boltz Backend, use a configuration similar to this one:
 
 ```toml
 [[pairs]]

@@ -1,21 +1,28 @@
-# Swap files
+---
+description: >-
+  Rescue files are files users download that let them reclaim funds of a failed
+  swap. They exist as a 2nd layer of defense against loss of funds, in case the
+  swap info stored by the client is lost.
+---
 
-All applications that save files for Swaps to the disk should format them in a standardized way. This is especially important for Normal Submarine Swaps so that they can be refunded not only in the application but also in our Boltz frontend.
+# 📩 Rescue Files
 
-## Refund Files
+All applications that save rescue files for Swaps should format them in a standardized way. This is especially important for Normal Submarine Swaps so that they can be refunded not only in the application but also with the [official Boltz Web App](https://boltz.exchange/).
 
-The refund files our frontend generates are PNG QR codes because iOS browsers don't allow any other files than images to be downloaded to the device. This might not be applicable to you and therefore our frontend also parses files with any other extension and treats them as raw JSON.
+## Rescue Files
 
-The data that should be in the file or encoded in the QR code is a JSON object with the following values:
- 
- - `id`: the ID of the swap
- - `currency`: symbol of the chain on which coins were locked up
- - `redeemScript`: the redeem script of the lockup address
- - `privateKey`: the private key of the refund key pair
- - `timeoutBlockHeight`: block height at which the Swaps times out
- 
-The values of `id`, `redeemScript` and `timeoutBlockHeight` are returned by the Boltz API when the Swap gets created. `currency` and `privateKey` are obviously known by the application anyways.
- 
+The rescue files Boltz Web App generates are `JSON` on Desktop and `PNG` QR codes on mobile because iOS browsers don't allow any other files than images to be downloaded to the device. Boltz parses files with any other extension and treats them as raw `JSON`.
+
+The data that should be in the file or encoded in the QR code is a `JSON` object with the following values:
+
+* `id`: the ID of the swap
+* `currency`: symbol of the chain on which bitcoin were locked up
+* `redeemScript`: the redeem script of the lockup address
+* `privateKey`: the private key of the refund key pair
+* `timeoutBlockHeight`: block height at which the swap times out
+
+The values of `id`, `redeemScript` and `timeoutBlockHeight` are returned by the Boltz API when the Swap is created. `currency` and `privateKey` are known by the application already.
+
 Example:
 
 ```json

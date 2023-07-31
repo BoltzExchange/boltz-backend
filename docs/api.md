@@ -284,7 +284,7 @@ Response:
 }
 ```
 
-## Swap Contracts
+## Swap Contracts (In Development)
 
 To query the addresses of contracts used by Boltz for swaps on EVM chains like [RSK](https://rootstock.io/), the following endpoint can be queried:
 
@@ -657,11 +657,11 @@ data: {"status":"invoice.paid"}
 
 ## Creating Normal Submarine Swaps
 
-Requests of `/createswap` differ slightly depending on the kind of Bitcoin that are swapped, more information below. **Please note that Boltz works with 10 \*\* -8 decimals internally** and all amounts in the API endpoints follow this denomination. All requests to create swaps have the following common values in the API request:
+Requests creating Normal Submarine Swaps (Chain -> Lightning) differ slightly depending on the kind of Bitcoin that are swapped, more information below. **Please note that Boltz works with 10 \*\* -8 decimals internally** and all amounts in the API endpoints follow this denomination. All requests to create swaps have the following common values in the API request:
 
-* `type`: type of the swap to create; type `submarine` covers all swaps involving lightning, Normal Submarine Swaps as well as Reverse Submarine Swaps
+* `type`: type of the swap to create. For Normal Submarine Swaps this is  `submarine` , for Reverse Submarine Swaps it is `reversesubmarine`.
 * `pairId`: the pair of which the swap should be created, for more check [#supported-pairs](api.md#supported-pairs "mention")
-* `orderSide`: for type `submarine`, `sell` for a Normal Submarine Swap or `buy` for a Reverse Submarine Swap
+* `orderSide`: for consistency we recommend using `sell` across all pairs of swap type `submarine`. The value `buy` for e.g. the `L-BTC/BTC` pair signifies a swap from mainchain Bitcoin to Liquid Lightning. As of writing, this is not supported and the backend will return `"error": "L-BTC has no lightning support"`
 
 Normal Submarine Swaps: If you already know the amount to be swapped, you should also set `invoice`.
 
@@ -793,7 +793,7 @@ Response:
 }
 ```
 
-### EVM Chains
+### EVM Chains (In Development!)
 
 Swaps from account-based EVM chains like RSK do not require a new address for every swap. `/createswap` takes the details of the swap (like lightning invoice and pair) and Boltz waits until the user locked e.g. rBTC in the contract. The addresses of those contracts can be queried with [`/getcontracts`](http://localhost:8000/api/#getting-contracts) and the address of the contract that needs to be used for the swap is also returned in the response of this request.
 
@@ -831,7 +831,7 @@ Response:
 }
 ```
 
-## Swap Rates
+### Swap Rates
 
 When sending onchain Bitcoin, before setting the invoice of a Submarine Swap, you'll need to use this endpoint to figure out what the amount of the invoice you set should be. Send a `POST` request with a `JSON` encoded body with this value:
 
@@ -868,11 +868,11 @@ Response:
 }
 ```
 
-## Setting the invoice of a Swap
+### Setting the Invoice of a Normal Submarine Swap
 
-In case the amount to be swapped is not known when creating the Submarine Swap, the invoice can be set afterward and even if the onchain coins were sent already. Please keep in mind that the invoice of a Submarine Swap **has to have the same preimage hash** that was specified when creating the Submarine Swap. Although the invoice can be changed after setting it initially, this enpoint will only work if Boltz did not try to pay the initial invoice yet. Requests to this endpoint have to be `POST` and should have the following values in its JSON encoded body:
+In case the amount to be swapped is not known when creating a Normal Submarine Swap, the invoice can be set afterwards; even if the chain Bitcoin were sent already. Please keep in mind that the invoice **has to have the same preimage hash** that was specified when creating the swap. Although the invoice can be changed after setting it initially, this endpoint will only work if Boltz did not try to pay the initial invoice yet. Requests to this endpoint have to be `POST` and should have the following values in its JSON encoded body:
 
-* `id`: id of the Submarine Swap for which the invoice should be set
+* `id`: id of the swap for which the invoice should be set
 * `invoice`: invoice of the user that should be paid
 
 | URL                | Response    |
@@ -886,22 +886,22 @@ Status Codes:
 
 Response objects:
 
-What is returned when the invoice is set depends on the status of the Submarine Swap. If no coins were sent already (status [`swap.created`](<README (1).md#normal-submarine-swaps>)) the endpoint will return a JSON object with these values:
+What is returned when the invoice is set depends on the status of the Submarine Swap. If no funds were sent (status [`swap.created`](<README (1).md#normal-submarine-swaps>)) the endpoint will return a `JSON` object with these values:
 
 * `acceptZeroConf`: whether Boltz will accept 0-conf for this swap
 * `expectedAmount`: the amount that Boltz expects you to lock in the onchain HTLC
 * `bip21`: a [BIP21 payment request](https://github.com/bitcoin/bips/blob/master/bip-0021.mediawiki) for the `expectedAmount` of coins and the `address` (only set when swapping from UTXO based chains)
 
-If onchain coins were sent already (status [`transaction.mempool`](<README (1).md#normal-submarine-swaps>) or [`transaction.confirmed`](<README (1).md#normal-submarine-swaps>)) the endpoint will return an empty JSON object.
+If chain Bitcoin were sent already (status [`transaction.mempool`](<README (1).md#normal-submarine-swaps>) or [`transaction.confirmed`](<README (1).md#normal-submarine-swaps>)) the endpoint will return an empty `JSON` object, signifying success.
 
 In case this endpoint is called again after an invoice was set and Boltz tried to pay it already:
 
 * `error`: error message explaining that Boltz tried to pay the invoice already and that it cannot be changed anymore
-* `invoice`: the invoice that set by the client and will be used for the Submarine Swap
+* `invoice`: the invoice that was set and that will be used for the swap
 
 **Examples:**
 
-_If no coins were sent yet:_
+_If no Bitcoin were sent yet:_
 
 `POST /setinvoice`
 
@@ -920,11 +920,11 @@ Response:
 {
   "acceptZeroConf": true,
   "expectedAmount": 1359564,
-  "bip21": "litecoin:QNaGS7WM31xANXQCbmrhXfnxUjxiGFpFwM?amount=0.01359564&label=Submarine%20Swap%20to%20BTC"
+  "bip21": "bitcoin:QNaGS7WM31xANXQCbmrhXfnxUjxiGFpFwM?amount=0.01359564&label=Submarine%20Swap%20to%20BTC"
 }
 ```
 
-_If coins were sent to the lockup address already:_
+_If Bitcoin were sent already:_
 
 `POST /setinvoice`
 
@@ -943,7 +943,7 @@ Response:
 {}
 ```
 
-_If the invoice was set and Boltz tried to pay it already:_
+_If the invoice was previously set and Boltz tried to pay it already:_
 
 `POST /setinvoice`
 
@@ -965,9 +965,9 @@ Response:
 }
 ```
 
-## Creating Reverse Swaps
+## Creating Reverse Submarine Swaps
 
-Creating reverse swaps (lightning to onchain coins) is pretty similar to creating normal ones. Similarly, the requests and responses also slightly change based on the coin or token you are swapping from. Keep in mind that **Boltz uses 10 \*\* -8 as denomination** in the API.
+Creating Reverse Submarine Swaps (Lightning -> Chain) is similar to creating Normal Submarine Swaps. Similarly, the requests and responses change slightly depending on the kind of Bitcoin involved in the swap. Keep in mind that **Boltz uses 10 \*\* -8 as denomination** throughout the API.
 
 All requests bodies extend from:
 

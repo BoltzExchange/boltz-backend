@@ -7,6 +7,8 @@ description: >-
 
 # 🤖 REST API
 
+## Basics
+
 ### Response and request encoding
 
 All the responses to all calls are encoded as `JSON` objects. If endpoints require the client to provide any kind of arguments these also have to be encoded as `JSON` and sent in the body of a `POST` request. Make sure to set the `Content-Type` header of your `POST` requests to `application/json` if you are sending `JSON` encoded data in the body of the request.
@@ -21,9 +23,9 @@ If a call fails for some reason the returned [HTTP status code](https://en.wikip
 }
 ```
 
-## Backend Version
+### Backend Version
 
-Returns the version of [Boltz Backend](https://github.com/BoltzExchange/boltz-backend).
+Returns the version of [Boltz Backend](https://github.com/BoltzExchange/boltz-backend) serving the API. A good call to get started and see if Boltz API requests and responses are working.
 
 | URL            | Response    |
 | -------------- | ----------- |
@@ -156,7 +158,7 @@ Response:
 
 ## Creating Normal Submarine Swaps
 
-Requests creating Normal Submarine Swaps (Chain -> Lightning) differ slightly depending on the kind of Bitcoin that are swapped, more information below. **Please note that Boltz works with 10 \*\* -8 decimals internally** and all amounts in the API endpoints follow this denomination. All requests to create swaps have the following common values in the API request:
+This section walks you through the endpoints needed to create Normal Submarine Swaps (Chain -> Lightning). They differ slightly depending on the kind of Bitcoin that are swapped, more information below. **Please note that Boltz works with 10 \*\* -8 decimals internally** and all amounts in the API endpoints follow this denomination. All requests to create swaps have the following common values in the API request:
 
 * `type`: type of the swap to create. For Normal Submarine Swaps this is  `submarine` .
 * `pairId`: the pair of which the swap should be created, for more check [#supported-pairs](api.md#supported-pairs "mention")
@@ -466,7 +468,7 @@ Response:
 
 ## Creating Reverse Submarine Swaps
 
-Creating Reverse Submarine Swaps (Lightning -> Chain) is similar to creating Normal Submarine Swaps. Similarly, the requests and responses change slightly depending on the kind of Bitcoin involved in the swap. Keep in mind, **Boltz uses 10 \*\* -8 as denomination** for responses in the API.
+This section walks you through the endpoints needed to create Reverse Submarine Swaps (Lightning -> Chain) and is similar to creating Normal Submarine Swaps. In the same way, requests and responses change slightly depending on the kind of Bitcoin involved in the swap. Keep in mind, **Boltz uses 10 \*\* -8 as denomination** for responses on the API.
 
 All requests bodies extend from:
 

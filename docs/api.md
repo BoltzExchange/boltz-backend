@@ -634,81 +634,132 @@ Response body:
 }
 ```
 
-## Lightning Node Info
+## Swap Status
 
-This endpoint allows you to query info like public keys and URIs of the lightning nodes operated by Boltz.
+_Before handling status events of this method it is recommended to read:_ [_Swap Types & States_](<README (1).md>)
 
-| URL             | Response    |
-| --------------- | ----------- |
-| `GET /getnodes` | JSON object |
+To query the status of a swap one can use this endpoint which returns a `JSON` object containing the status of the swap. Possible states and status events are documented in the section [Swap Types & States](<README (1).md>)_._
+
+Requests querying the status of a swap have to be `POST` and contain a single value in its JSON encoded body:
+
+* `id`: the id of the swap of which the status should be queried
+
+| URL                | Response    |
+| ------------------ | ----------- |
+| `POST /swapstatus` | JSON object |
 
 Status Codes:
 
 * `200 OK`
+* `404 Not Found`: if the swap with the provided id couldn't be found
+* `400 Bad Request`: if the `id` argument wasn't provided
 
 Response object:
 
-* `nodes`: a JSON with the symbol of the chain on which the Lightning node is running as key, and a JSON object as key
-  * `nodeKey`: public key of the lightning node
-  * `uris`: array of the URIs on which the lightning node is reachable
+* `status`: status of the swap, e.g. `transaction.mempool` & `transaction.claimed` for successful Normal Submarine Swaps and `transaction.mempool` and `transaction.confirmed` for successful Reverse Submarine Swaps
+* `transaction`: for Reverse Submarine Swaps, this field contains lockup transaction details in the states`transaction.mempool` and `transaction.confirmed`
+  * `id`: id of the lockup transaction
+  * `hex`: hex encoded lockup transaction (only set for transactions on UTXO chains)
+  * `eta`: if the status is `transaction.mempool`, this value is the estimated time of arrival (ETA) in blocks of when the transaction will be confirmed. Only set for transactions on UTXO chains.
+* `zeroConfRejected`: set to `true` for Swaps with the status `transaction.mempool` and a lockup transaction that is not eligible for [0-conf](0-confirmation.md)
+* `failureReason`: set when it's necessary to further clarify the failure reason
 
 **Examples:**
 
-`GET /getnodes`
+`POST /swapstatus`
+
+Request body:
+
+```json
+{
+  "id": "Asnj2Y"
+}
+```
 
 Response:
 
 ```json
 {
-  "nodes": {
-    "BTC": {
-      "uris": [
-        "026165850492521f4ac8abd9bd8088123446d126f648ca35e60f88177dc149ceb2@45.86.229.190:9735",
-        "026165850492521f4ac8abd9bd8088123446d126f648ca35e60f88177dc149ceb2@d7kak4gpnbamm3b4ufq54aatgm3alhx3jwmu6kyy2bgjaauinkipz3id.onion:9735"
-      ],
-      "nodeKey": "026165850492521f4ac8abd9bd8088123446d126f648ca35e60f88177dc149ceb2"
-    }
+  "status": "invoice.paid"
+}
+```
+
+`POST /swapstatus`
+
+Request body:
+
+```json
+{
+  "id": "ryUK9G"
+}
+```
+
+Response:
+
+```json
+{
+  "status": "transaction.mempool",
+  "transaction": {
+    "id": "31fcddf287d985eef85211b75976cd903dba3008a8e13b597e1b54941278c29f",
+    "hex": "01000000000101618cd5c50221577a1b98ae4a73f652917f9d2e343b9bc6a978239da78dfcbc630000000000ffffffff02b878010000000000220020ddc8dd3bcb45660e421fc3129bfdcb317446c27ce909369d4c8cb17bbd6d4951c718393b00000000160014ea9e0fc9432fc8b6831e94ac3974d46d1ba1c62f024830450221008b14ecce2eebb2ec7e56c53de4796603fbd22cfd269f3a5249446b79987dec36022059b68568a57ebfbd50cc792af3d514c507af20e795ff5f0bf2a02d2fc44be223012103a1ad2a3891018e856700a20a4dea6bea9f4bba58ab3ca7cbaefaa06e805770d100000000",
+    "eta": 2
   }
 }
 ```
 
-## Lightning Node Statistics
+`POST /swapstatus`
 
-For display purposes on our website, basic statistics about our lightning nodes are exposed via the following endpoint:
+Request body:
 
-| URL              | Response    |
-| ---------------- | ----------- |
-| `GET /nodestats` | JSON object |
-
-Status Codes:
-
-* `200 OK`
-
-Response object:
-
-* `nodes`: a JSON with the symbol of the chain on which the Lightning node is running as key, and a JSON object as key
-  * `peers`: number of peers
-  * `channels`: number of public channels
-  * `oldestChannel`: UNIX timestamp of the block in which the opening transaction of the oldest channel was included
-  * `capacity`: sum of the capacity of all public channels
-
-**Examples:**
-
-`GET /nodestats`
+```json
+{
+  "id": "gnIthU"
+}
+```
 
 Response:
 
 ```json
 {
-  "nodes": {
-    "BTC": {
-      "peers": 79,
-      "channels": 103,
-      "oldestChannel": 1590772669,
-      "capacity": 369879555
-    }
-  }
+  "status": "transaction.lockupFailed",
+  "failureReason": "locked 1396075383 is less than expected 1396075384"
 }
+```
+
+## Swap Status Stream
+
+To avoid querying the [`/swapstatus`](api.md#swap-status) endpoint regularly to get the latest swap status, this endpoint streams swap status updates via [Server-Side Events](https://www.w3schools.com/html/html5\_serversentevents.asp).
+
+Requests to this endpoint have to provide the required swap `id` parameter via an URL parameter because all requests have to be of the method `GET`.
+
+Every event in the Server-Side stream has data that is encoded exactly like the JSON object of the `/swapstatus` endpoint. Please have a look at the examples below for a reference implementation in JavaScript of handling the stream.
+
+| URL                     | Response                 |
+| ----------------------- | ------------------------ |
+| `GET /streamswapstatus` | Server-Side event stream |
+
+**Examples:**
+
+Server-Side event streams have to be handled differently from regular HTTP responses. Below is a sample implementation in JavaScript and also what a raw response of a Server-Side event stream looks like.
+
+Sample implementation in JavaScript:
+
+```javascript
+var stream = new EventSource(boltzApi + '/streamswapstatus?id=' + swapId);
+
+source.onmessage = function(event) {
+  const data = JSON.parse(event.data);
+
+  console.log('Swap status update:' + data.status);
+};
+```
+
+Raw response:
+
+```
+data: {"status":"transaction.mempool"}
+
+data: {"status":"invoice.paid"}
 ```
 
 ## Swap Timeouts
@@ -1007,136 +1058,6 @@ Response:
 }
 ```
 
-## Swap Status
-
-_Before handling status events of this method it is recommended to read:_ [_Swap Types & States_](<README (1).md>)
-
-To query the status of a swap one can use this endpoint which returns a `JSON` object containing the status of the swap. Possible states and status events are documented in the section [Swap Types & States](<README (1).md>)_._
-
-Requests querying the status of a swap have to be `POST` and contain a single value in its JSON encoded body:
-
-* `id`: the id of the swap of which the status should be queried
-
-| URL                | Response    |
-| ------------------ | ----------- |
-| `POST /swapstatus` | JSON object |
-
-Status Codes:
-
-* `200 OK`
-* `404 Not Found`: if the swap with the provided id couldn't be found
-* `400 Bad Request`: if the `id` argument wasn't provided
-
-Response object:
-
-* `status`: status of the swap, e.g. `transaction.mempool` & `transaction.claimed` for successful Normal Submarine Swaps and `transaction.mempool` and `transaction.confirmed` for successful Reverse Submarine Swaps
-* `transaction`: for Reverse Submarine Swaps, this field contains lockup transaction details in the states`transaction.mempool` and `transaction.confirmed`
-  * `id`: id of the lockup transaction
-  * `hex`: hex encoded lockup transaction (only set for transactions on UTXO chains)
-  * `eta`: if the status is `transaction.mempool`, this value is the estimated time of arrival (ETA) in blocks of when the transaction will be confirmed. Only set for transactions on UTXO chains.
-* `zeroConfRejected`: set to `true` for Swaps with the status `transaction.mempool` and a lockup transaction that is not eligible for [0-conf](0-confirmation.md)
-* `failureReason`: set when it's necessary to further clarify the failure reason
-
-**Examples:**
-
-`POST /swapstatus`
-
-Request body:
-
-```json
-{
-  "id": "Asnj2Y"
-}
-```
-
-Response:
-
-```json
-{
-  "status": "invoice.paid"
-}
-```
-
-`POST /swapstatus`
-
-Request body:
-
-```json
-{
-  "id": "ryUK9G"
-}
-```
-
-Response:
-
-```json
-{
-  "status": "transaction.mempool",
-  "transaction": {
-    "id": "31fcddf287d985eef85211b75976cd903dba3008a8e13b597e1b54941278c29f",
-    "hex": "01000000000101618cd5c50221577a1b98ae4a73f652917f9d2e343b9bc6a978239da78dfcbc630000000000ffffffff02b878010000000000220020ddc8dd3bcb45660e421fc3129bfdcb317446c27ce909369d4c8cb17bbd6d4951c718393b00000000160014ea9e0fc9432fc8b6831e94ac3974d46d1ba1c62f024830450221008b14ecce2eebb2ec7e56c53de4796603fbd22cfd269f3a5249446b79987dec36022059b68568a57ebfbd50cc792af3d514c507af20e795ff5f0bf2a02d2fc44be223012103a1ad2a3891018e856700a20a4dea6bea9f4bba58ab3ca7cbaefaa06e805770d100000000",
-    "eta": 2
-  }
-}
-```
-
-`POST /swapstatus`
-
-Request body:
-
-```json
-{
-  "id": "gnIthU"
-}
-```
-
-Response:
-
-```json
-{
-  "status": "transaction.lockupFailed",
-  "failureReason": "locked 1396075383 is less than expected 1396075384"
-}
-```
-
-## Swap Status Stream
-
-To avoid querying the [`/swapstatus`](api.md#swap-status) endpoint regularly to get the latest swap status, this endpoint streams swap status updates via [Server-Side Events](https://www.w3schools.com/html/html5\_serversentevents.asp).
-
-Requests to this endpoint have to provide the required swap `id` parameter via an URL parameter because all requests have to be of the method `GET`.
-
-Every event in the Server-Side stream has data that is encoded exactly like the JSON object of the `/swapstatus` endpoint. Please have a look at the examples below for a reference implementation in JavaScript of handling the stream.
-
-| URL                     | Response                 |
-| ----------------------- | ------------------------ |
-| `GET /streamswapstatus` | Server-Side event stream |
-
-**Examples:**
-
-Server-Side event streams have to be handled differently from regular HTTP responses. Below is a sample implementation in JavaScript and also what a raw response of a Server-Side event stream looks like.
-
-Sample implementation in JavaScript:
-
-```javascript
-var stream = new EventSource(boltzApi + '/streamswapstatus?id=' + swapId);
-
-source.onmessage = function(event) {
-  const data = JSON.parse(event.data);
-
-  console.log('Swap status update:' + data.status);
-};
-```
-
-Raw response:
-
-```
-data: {"status":"transaction.mempool"}
-
-data: {"status":"invoice.paid"}
-```
-
-##
-
 ## Authentication
 
 Boltz API does not require any sort of authentication to perform swaps. However, some API endpoints like [querying referral fees](api.md#querying-referral-fees) for members of our partner program, do.
@@ -1214,3 +1135,81 @@ Response:
   }
 }
 ```
+
+## Lightning Node Info
+
+This endpoint allows you to query info like public keys and URIs of the lightning nodes operated by Boltz.
+
+| URL             | Response    |
+| --------------- | ----------- |
+| `GET /getnodes` | JSON object |
+
+Status Codes:
+
+* `200 OK`
+
+Response object:
+
+* `nodes`: a JSON with the symbol of the chain on which the Lightning node is running as key, and a JSON object as key
+  * `nodeKey`: public key of the lightning node
+  * `uris`: array of the URIs on which the lightning node is reachable
+
+**Examples:**
+
+`GET /getnodes`
+
+Response:
+
+```json
+{
+  "nodes": {
+    "BTC": {
+      "uris": [
+        "026165850492521f4ac8abd9bd8088123446d126f648ca35e60f88177dc149ceb2@45.86.229.190:9735",
+        "026165850492521f4ac8abd9bd8088123446d126f648ca35e60f88177dc149ceb2@d7kak4gpnbamm3b4ufq54aatgm3alhx3jwmu6kyy2bgjaauinkipz3id.onion:9735"
+      ],
+      "nodeKey": "026165850492521f4ac8abd9bd8088123446d126f648ca35e60f88177dc149ceb2"
+    }
+  }
+}
+```
+
+## Lightning Node Statistics
+
+For display purposes on our website, basic statistics about our lightning nodes are exposed via the following endpoint:
+
+| URL              | Response    |
+| ---------------- | ----------- |
+| `GET /nodestats` | JSON object |
+
+Status Codes:
+
+* `200 OK`
+
+Response object:
+
+* `nodes`: a JSON with the symbol of the chain on which the Lightning node is running as key, and a JSON object as key
+  * `peers`: number of peers
+  * `channels`: number of public channels
+  * `oldestChannel`: UNIX timestamp of the block in which the opening transaction of the oldest channel was included
+  * `capacity`: sum of the capacity of all public channels
+
+**Examples:**
+
+`GET /nodestats`
+
+Response:
+
+```json
+{
+  "nodes": {
+    "BTC": {
+      "peers": 79,
+      "channels": 103,
+      "oldestChannel": 1590772669,
+      "capacity": 369879555
+    }
+  }
+}
+```
+

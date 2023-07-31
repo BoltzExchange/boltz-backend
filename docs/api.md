@@ -154,6 +154,484 @@ Response:
 }
 ```
 
+## Creating Normal Submarine Swaps
+
+Requests creating Normal Submarine Swaps (Chain -> Lightning) differ slightly depending on the kind of Bitcoin that are swapped, more information below. **Please note that Boltz works with 10 \*\* -8 decimals internally** and all amounts in the API endpoints follow this denomination. All requests to create swaps have the following common values in the API request:
+
+* `type`: type of the swap to create. For Normal Submarine Swaps this is  `submarine` .
+* `pairId`: the pair of which the swap should be created, for more check [#supported-pairs](api.md#supported-pairs "mention")
+* `orderSide`: currently we recommend using `sell` across all pairs of swap type `submarine`. The value `buy` for e.g. the `L-BTC/BTC` pair signifies a swap from mainchain Bitcoin to Liquid Lightning. As of writing, this is not supported and the backend will return `"error": "L-BTC has no lightning support"`
+
+Normal Submarine Swaps: If you already know the amount to be swapped, you should also set `invoice`.
+
+* `invoice`: the invoice of the user that should be paid
+
+If the amount is **not** known yet, a **preimage hash has be specified**. The invoice that is provided later[ during the lifecycle of the Submarine Swap](api.md#setting-the-invoice-of-a-swap) has to have the _same preimage hash_ as the one specified here.
+
+* `preimageHash`: hash of a preimage that will be used for the invoice that is set later on
+
+We recommend verifing that pair data fetched previously is still accurate by additionally passing the `pairHash` argument in this call.
+
+* `pairHash`: `hash` string in the pair object of [`/getpairs`](api.md#getting-pairs)
+
+_Note: Channel creation is currently disabled!_
+
+~~Boltz also supports opening a channel to your node before paying your invoice. To ensure that this service works as advertised **make sure to connect your Lightning node to ours** before creating the swap. You can either query the URIs of our Lightning nodes with~~ [~~`/getnodes`~~](api.md#getting-lightning-nodes)~~, find them in the FAQ section of our website or on Lightning explorers like~~ [~~1ML~~](https://1ml.com) ~~under the query "Boltz". To let Boltz open a channel to you have to set a couple more values in the request when creating a swap:~~
+
+* ~~`channel`: a JSON object that contains all the information relevant to the creation of the channel~~
+  * ~~`auto`: whether Boltz should dynamically decide if a channel should be created based on whether the invoice you provided can be paid without opening a channel. More modes will be added in the future~~
+  * ~~`private`: whether the channel to your node should be private~~
+  * ~~`inboundLiquidity`: percentage of the channel balance that Boltz should provide as inbound liquidity for your node. The maximal value here is `50`, which means that the channel will be perfectly balanced 50/50~~
+
+~~To find out how to enforce that the requested channel was actually opened and the invoice paid through it have a look at~~ [~~this document where we wrote down some possible solutions~~](channel-creation.md)~~.~~
+
+| URL                | Response    |
+| ------------------ | ----------- |
+| `POST /createswap` | JSON object |
+
+Status Codes:
+
+* `201 Created`
+* `400 Bad Request`: if the swap could not be created. Check the `error` string in the `JSON` object of the body of the response for more information
+
+Response objects:
+
+Response objects of all swaps have these value in common:
+
+* `id`: id of the newly created swap
+* `timeoutBlockHeight`: base asset block height at which the swap will expire and be cancelled
+* `address`: address in which the coins will be locked up. For UTXO chains this is a SegWit `P2SHP2WSH` (`P2WSH` nested in a `P2SH`) for the sake of compatibility and for RSK it is the address of the contract that needs to be used
+
+If a lightning invoice is set in this call, one will also find the following values in the response:
+
+* `acceptZeroConf`: whether Boltz will accept 0-conf for this swap
+* `expectedAmount`: the amount that Boltz expects to be locked onchain
+
+### UTXO Chains
+
+Normal Submarine Swaps from UTXO chains like Bitcoin work by deriving an address based on the preimage hash (of the invoice) and the refund public key of the user. Boltz then waits until the user sent coins to the generated address.
+
+Requests for these kind of swaps have to contain one additional parameter:
+
+* `refundPublicKey`: public key of a keypair that will allow the user to refund the locked up coins once the time lock is expired. This keypair has to be generated and stored by the client integrating Boltz API.
+
+Responses also contain one additional value:
+
+* `redeemScript`: redeem script from which the `address` is derived. The redeem script can (and should!) be used to verify that the Boltz didn't try to cheat by providing an address without HTLC
+
+In case the address is for the Liquid Network, it will be blinded by a key that is also in the response:
+
+* `blindingKey`: hex encoded private key with which the address was blinded
+
+If the invoice has been set, you will also get this value:
+
+* `bip21`: a [BIP21 payment request](https://github.com/bitcoin/bips/blob/master/bip-0021.mediawiki) for the `expectedAmount` and the `address`
+
+**Examples:**
+
+`POST /createswap`
+
+Request body:
+
+```json
+{
+  "type": "submarine",
+  "pairId": "BTC/BTC",
+  "orderSide": "sell",
+  "refundPublicKey": "AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBGBkraVi05Eyn6slRQV5h+fX6rtpudOq0LqPEnbnbxRshMdhS56vKWawUNLkLZZ4hKsTdbJZvgTtO/rDc2WI/Gw",
+  "invoice": "lntb1m1pjv0dt5pp5y9dl3z50c5g6p26a86g432zdzvdlx6a565hk55a2ellz3t9f84jsdqqcqzzsxqyz5vqsp5a4k0f59u62na3fngv24nv5xjuxyf6qjnnj806se373h4gt9fmejq9qyyssqpeh42yy72pqzfwdfehvuru9s735vrgg324lxdp9gg8w6m379w8ajd3sxyy6f0qqfqa6vhk5k4pqfz6nys3u5xf68wcjyjygykn7za6cqf6flce"
+}
+```
+
+Response:
+
+```json
+{
+	"id": "E63LC4",
+	"bip21": "bitcoin:2NBBYeBZgY64nJKiibnGokwrBBPjoQeMzyx?amount=0.0010054&label=Send%20to%20BTC%20lightning",
+	"address": "2NBBYeBZgY64nJKiibnGokwrBBPjoQeMzyx",
+	"redeemScript": "a9148f8d01a3e1a794024fa78bd9c81d5ae9bb1c56d287632102bba4fbfe50ea8caf880cb367f7b0083c7e91c2bc2808c817823bd36385e3a376670319b125b17503aaaae268ac",
+	"acceptZeroConf": false,
+	"expectedAmount": 100540,
+	"timeoutBlockHeight": 2470169
+}
+```
+
+_Submarine Swap that includes the_ [_creation of a new channel_](channel-creation.md)_:_
+
+`POST /createswap`
+
+Request body:
+
+```json
+{
+  "type": "submarine",
+  "pairId": "BTC/BTC",
+  "orderSide": "sell",
+  "refundPublicKey": "AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBGBkraVi05Eyn6slRQV5h+fX6rtpudOq0LqPEnbnbxRshMdhS56vKWawUNLkLZZ4hKsTdbJZvgTtO/rDc2WI/Gw",
+  "invoice": "lntb10m1pjv0w7jpp5upaf56avdlkjv9h602m9heaa004reuc36yjf2hwzcv3tk0kjaekqdqqcqzzsxqyz5vqsp5klkwplct9kuzp8whrmjvqxqjhnga907aa953xdeaqypa8mn6chtq9qyyssqlywerx9cdqxukf640kphw2rtz6uamtc0g94h7jt99jpspjxn653h6gn30a6ejndh4xuxuf2gxn2sndgqhvs33s5ayg70z4p4f7n267gp4tytl0",
+  "channel": {
+  "auto": true,
+    "private": false,
+    "inboundLiquidity": 30
+  }
+}
+```
+
+Response:
+
+```json
+{
+	"id": "e1Qtxa",
+	"bip21": "bitcoin:2Muq74He81w8Ts4n3zhPFd1JZbuWC62czux?amount=0.0100234&label=Send%20to%20BTC%20lightning",
+	"address": "2Muq74He81w8Ts4n3zhPFd1JZbuWC62czux",
+	"redeemScript": "a91479674970eaa348958799f6fc41ef379d00f9060f8763210385ad894cdd1f27f4c88ef403100420eed6cc006965a3a58e277cb05c6f469d6667031ab125b17503aaaae268ac",
+	"acceptZeroConf": false,
+	"expectedAmount": 1002340,
+	"timeoutBlockHeight": 2470170
+}
+```
+
+### EVM Chains (In Development!)
+
+Swaps from account-based EVM chains like RSK do not require a new address for every swap. `/createswap` takes the details of the swap (like lightning invoice and pair) and Boltz waits until the user locked e.g. rBTC in the contract. The addresses of those contracts can be queried with [`/getcontracts`](http://localhost:8000/api/#getting-contracts) and the address of the contract that needs to be used for the swap is also returned in the response of this request.
+
+The request does not require any additional values.
+
+But the response has one additional value:
+
+* `claimAddress`: which is e.g. the RSK address of Boltz. It is specified in the`lock` function of the swap contract
+
+**Examples:**
+
+`POST /createswap`
+
+Request body:
+
+```json
+{
+  "type": "submarine",
+  "pairId": "BTC/RBTC",
+  "orderSide": "buy",
+  "invoice": "lnbcrt1m1p0c26rvpp5hctw8zukj00tsxay5436y43qxc5gwvdc6k9zcxnce4zer7p5a4eqdqqcqzpgsp59mwcr4cj6wq68qj6pzyjtq2j89vnpumsejdmhw5uy4yukq3vd64s9qy9qsq2537ph4kt4xryq27g5juc27v2tkx9y90hpweyqluku9rt5zfexfj6n2fqcgy7g8xx72fklr6r7qul27jd0jzvssvrhxmwth7w4lrq7sqgyv0m7"
+}
+```
+
+Response:
+
+```json
+{
+  "id": "7PSEtx",
+  "address": "0xD104195e630A2E26D33c8B215710E940Ca041351",
+  "claimAddress": "0xe20fC13bad486fEB7F0C87Cad42bC74aAc319684",
+  "acceptZeroConf": false,
+  "expectedAmount": 1387707329,
+  "timeoutBlockHeight": 2006
+}
+```
+
+### Swap Rates
+
+When sending onchain Bitcoin, before setting the invoice of a Submarine Swap, you'll need to use this endpoint to figure out what the amount of the invoice you set should be. Send a `POST` request with a `JSON` encoded body with this value:
+
+* `id`: id of the Submarine Swap
+
+| URL               | Response    |
+| ----------------- | ----------- |
+| `POST /swaprates` | JSON object |
+
+Status Codes:
+
+* `200 OK`
+* `400 Bad Request`: if the invoice amount could not be calculated. Check the `error` string in the `JSON` object of the body of the response for more information. A common case is where the user did not lock up onchain Bitcoin yet, which is a requirement in order to calculate an invoice amount: `"error": "no coins were locked up yet"`
+
+Response object:
+
+* `invoiceAmount`: amount of the invoice that should be set with [/setinvoice](api.md#setting-the-invoice-of-a-swap)
+
+**Examples:**
+
+Request body:
+
+```json
+{
+  "id": "BY8asG"
+}
+```
+
+Response:
+
+```json
+{
+  "invoiceAmount": 15713393
+}
+```
+
+### Setting an Invoice
+
+In case the amount to be swapped is not known when creating a Normal Submarine Swap, the invoice can be set afterwards; even if the chain Bitcoin were sent already. Please keep in mind that the invoice **has to have the same preimage hash** that was specified when creating the swap. Although the invoice can be changed after setting it initially, this endpoint will only work if Boltz did not try to pay the initial invoice yet. Requests to this endpoint have to be `POST` and should have the following values in its JSON encoded body:
+
+* `id`: id of the swap for which the invoice should be set
+* `invoice`: invoice of the user that should be paid
+
+| URL                | Response    |
+| ------------------ | ----------- |
+| `POST /setinvoice` | JSON object |
+
+Status Codes:
+
+* `200 OK`
+* `400 Bad Request`: if the invoice could not be set. Check the `error` string in the JSON object of the body of the response for more information
+
+Response objects:
+
+What is returned when the invoice is set depends on the status of the Submarine Swap. If no funds were sent (status [`swap.created`](<README (1).md#normal-submarine-swaps>)) the endpoint will return a `JSON` object with these values:
+
+* `acceptZeroConf`: whether Boltz will accept 0-conf for this swap
+* `expectedAmount`: the amount that Boltz expects you to lock in the onchain HTLC
+* `bip21`: a [BIP21 payment request](https://github.com/bitcoin/bips/blob/master/bip-0021.mediawiki) for the `expectedAmount` of coins and the `address` (only set when swapping from UTXO based chains)
+
+If chain Bitcoin were sent already (status [`transaction.mempool`](<README (1).md#normal-submarine-swaps>) or [`transaction.confirmed`](<README (1).md#normal-submarine-swaps>)) the endpoint will return an empty `JSON` object, signifying success.
+
+In case this endpoint is called again after an invoice was set and Boltz tried to pay it already:
+
+* `error`: error message explaining that Boltz tried to pay the invoice already and that it cannot be changed anymore
+* `invoice`: the invoice that was set and that will be used for the swap
+
+**Examples:**
+
+_If no Bitcoin were sent yet:_
+
+`POST /setinvoice`
+
+Request body:
+
+```json
+{
+  "id": "UwHIPg",
+  "invoice": "lnbcrt1m1p08epqjpp5yvv222x7te9asyzuhmjym083lwqpp5vlem09ewfeufyrp6f76w2sdql2djkuepqw3hjqnz5gvsxzerywfjhxuccqzpgsp5u6kxgf9daf64ptvl2ht74m6duc2neywx3ecvwxs07vf7egw5dy5s9qy9qsqakms0e7ww46q9cq2fa2ymrcx6nucfknjalkm5w4ywvjpfxdp5ya82drvdvxhqzzt2ysysh5u7rellzjse37fng3vsqafuwwz3kv4ykcquy8k29"
+}
+```
+
+Response:
+
+```json
+{
+  "acceptZeroConf": true,
+  "expectedAmount": 1359564,
+  "bip21": "bitcoin:QNaGS7WM31xANXQCbmrhXfnxUjxiGFpFwM?amount=0.01359564&label=Submarine%20Swap%20to%20BTC"
+}
+```
+
+_If Bitcoin were sent already:_
+
+`POST /setinvoice`
+
+Request body:
+
+```json
+{
+  "id": "UwHIPg",
+  "invoice": "lnbcrt1m1p08epqjpp5yvv222x7te9asyzuhmjym083lwqpp5vlem09ewfeufyrp6f76w2sdql2djkuepqw3hjqnz5gvsxzerywfjhxuccqzpgsp5u6kxgf9daf64ptvl2ht74m6duc2neywx3ecvwxs07vf7egw5dy5s9qy9qsqakms0e7ww46q9cq2fa2ymrcx6nucfknjalkm5w4ywvjpfxdp5ya82drvdvxhqzzt2ysysh5u7rellzjse37fng3vsqafuwwz3kv4ykcquy8k29"
+}
+```
+
+Response:
+
+```json
+{}
+```
+
+_If the invoice was previously set and Boltz tried to pay it already:_
+
+`POST /setinvoice`
+
+Request body:
+
+```json
+{
+  "id": "UwHIPg",
+  "invoice": "lnbcrt100u1p0gv8hjpp5j0vs0te6wykahrp3aammm46m73n2afzk6a87ezfp3p58qpcpu4wqdqqcqzpgsp5j6wue634lac577xnupy8auvq7n9062vshvvc6xszq4jt5q9phhzq9qy9qsqhs7zrs98tu669xz7w0gqy96g5pvs9p6lssmyseg7a92kpjlzramk8khyzkd8x4nl2zasekmwt45z6pe78rk032lkmshjdnesw2vukwgqtglt89"
+}
+```
+
+Response:
+
+```json
+{
+  "error": "lightning payment in progress already",
+  "invoice": "lnbcrt1m1p08epqjpp5yvv222x7te9asyzuhmjym083lwqpp5vlem09ewfeufyrp6f76w2sdql2djkuepqw3hjqnz5gvsxzerywfjhxuccqzpgsp5u6kxgf9daf64ptvl2ht74m6duc2neywx3ecvwxs07vf7egw5dy5s9qy9qsqakms0e7ww46q9cq2fa2ymrcx6nucfknjalkm5w4ywvjpfxdp5ya82drvdvxhqzzt2ysysh5u7rellzjse37fng3vsqafuwwz3kv4ykcquy8k29"
+}
+```
+
+## Creating Reverse Submarine Swaps
+
+Creating Reverse Submarine Swaps (Lightning -> Chain) is similar to creating Normal Submarine Swaps. Similarly, the requests and responses change slightly depending on the kind of Bitcoin involved in the swap. Keep in mind, **Boltz uses 10 \*\* -8 as denomination** for responses in the API.
+
+All requests bodies extend from:
+
+* `type`: type of the swap to create. For Reverse Submarine Swaps this is `reversesubmarine`.
+* `pairId`: the pair of which the swap should be created, for more check [#supported-pairs](api.md#supported-pairs "mention")
+* `orderSide`: currently we recommend using `buy` across all pairs of swap type `reversesubmarine`. The value `sell` for e.g. the `L-BTC/BTC` pair signifies a swap from mainchain Bitcoin to Lightning on Liquid. As of writing, this is not supported and the backend will return `"error": "L-BTC has no lightning support"`
+* `preimageHash`: the SHA256 hash of a preimage that was generated by the client. The size of that preimage has to be 32 bytes or claiming will fail
+
+There are two ways to set the amount of a Reverse Swap. Either by specifying the amount of the invoice Boltz will generate:
+
+* `invoiceAmount`: amount of the invoice that will be generated by Boltz
+
+Or by setting the amount that will be locked in the onchain HTLC. That amount is _not_ what you will actually receive because of transaction fees required to claim the HTLC. But those can be approximated easily in advance and when overestimating a little, a quick confirmation of the claim transaction can be ensured.
+
+* `onchainAmount`: amount Boltz will lock in the onchain HTLC
+
+We recommend verifing that pair data fetched previously is still accurate by additionally passing the `pairHash` argument in this call.
+
+* `pairHash`: `hash` string in the pair object of [`/getpairs`](api.md#getting-pairs)
+
+| URL                | Response    |
+| ------------------ | ----------- |
+| `POST /createswap` | JSON object |
+
+Status Codes:
+
+* `201 Created`
+* `400 Bad Request`: if the swap could not be created. Check the `error` string in the `JSON` object of the body of the response for more information
+
+The `JSON` object in the response extends from:
+
+* `id`: id of the newly created swap
+* `lockupAddress`: address derived from the `redeemScript` or contract to which Boltz will lock up coins
+* `invoice`: hold invoice that needs to be paid before Boltz locks up coins
+* `timeoutBlockHeight`: block height at which the Reverse Swap will be cancelled
+
+In case the invoice amount was specified, the amount that will be locked in the onchain HTLC is also returned:
+
+* `onchainAmount`: amount of onchain coins that will be locked by Boltz
+
+Boltz backend also supports a different protocol that requires an invoice for miner fees to be paid before the actual hold `invoice` of the Reverse Submarine Swap. If that protocol is enabled, the response object will also contain a `minerFeeInvoice`. Once the `minerFeeInvoice` is paid, Boltz will send the event `minerfee.paid` and when the actual hold `invoice` is paid, the onchain coins will be sent.
+
+### UTXO based chains
+
+The request has to contain one additional value:
+
+* `claimPublicKey`: public key of a keypair that will allow the user to claim the locked up coins with the preimage. This keypair has to be generated and stored by the client integrating Boltz API.
+
+And so has the response:
+
+* `redeemScript`: redeem script from which the lockup address was derived. The redeem script can (and should!) be used to verify that the Boltz instance didn't try to cheat by creating an address without a HTLC
+
+In case the lockup address is on the Liquid Network, it will be blinded by a key that is also in the response:
+
+* `blindingKey`: hex encoded private key with which the address was blinded
+
+**Examples:**
+
+`POST /createswap`
+
+Request body:
+
+```json
+{
+  "type": "reversesubmarine",
+  "pairId": "L-BTC/BTC",
+  "orderSide": "buy",
+  "invoiceAmount": 1000000,
+  "preimageHash": "51a05b15e66ecd12bf6b1b62a678e63add0185bc5f41d2cd013611f7a4b6703f",
+  "claimPublicKey": "03b76c1fe14bab50e52a026f35287fda75b9304bcf311ee85b4d32482400a436f5"
+}
+```
+
+Response:
+
+```json
+{
+  "id": "v3CfMa",
+  "invoice": "lntb10m1pjvsy8ppp52xs9k90xdmx390mtrd32v78x8twsrpdutaqa9ngpxcgl0f9kwqlsdpz2djkuepqw3hjqnpdgf2yxgrpv3j8yetnwvcqz95xqrrsssp5hzcjq972f9cl8c6u3zechepm65hjceaqvlzye6kc23qkz5rhva6q9qyyssq4kkw9fwjq7n9cm4j3ajj2a92ka0zyeg3sxppfy932c62pnsqkw7nhvg9rrxztszw37wqtal4cchw2f4s09qe48pngsl9euv7wjlz93qqrfx60s",
+  "blindingKey": "897034f717beb12a3c2b7ae8c08c5c4def7bc7cfb6efa3713c617f28d90d1419",
+  "redeemScript": "8201208763a914be1abd8e8d7ef7e64a9c6e1e2f498f3a92e078a2882103b76c1fe14bab50e52a026f35287fda75b9304bcf311ee85b4d32482400a436f5677503dbf40eb175210330fd4cfd53b5c20886415c1b67d2daa87bce2761b9be009e9d1f9eec4419ba5968ac",
+  "lockupAddress": "tlq1qqdd0v79wcqnpvujf5mfp88d5cz8rynk0awr6m84ca8pzn39kwagsh4z204s9d5sww3cxckd47wjxlqwl3u6tgdqfa877txqt9m8wgk22qwyp5yzxaf40",
+  "timeoutBlockHeight": 980187,
+  "onchainAmount": 995724
+}
+```
+
+_In case the prepay miner fee protocol is enabled:_
+
+Request body:
+
+```json
+{
+  "type": "reversesubmarine",
+  "pairId": "BTC/BTC",
+  "orderSide": "buy",
+  "claimPublicKey": "0391fbaf549578fd7c2cb26b216441825bd780d85dba1f3d706e2f206587e96266",
+  "invoiceAmount": 100000,
+  "preimageHash": "2215034def003b63b2717fccd4ce8259f4807a39318c14e2bdd42639ca989a45"
+}
+```
+
+Response body:
+
+```json
+{
+  "id": "mVSKyF",
+  "invoice": "lnbcrt996940n1p0dhjr3pp5yg2sxn00qqak8vn30lxdfn5zt86gq73exxxpfc4a6snrnj5cnfzsdql2djkuepqw3hjqsj5gvsxzerywfjhxuccqzy0sp5hjcvwl2glrq9n3vzm8072cdruz3hhz70edml8g0u76gryve6np4q9qy9qsqzw5w8ulxjgrg478hz4enjrw0a9tedl8s3n879xqh3mhn0pxrvajrz9qnnsr58twx4a30gk57d4fykm7x3v2vcamw7k4ny9fkpwl65vcpw8v5em",
+  "redeemScript": "8201208763a914fb75ff5dc4272c2da33d744615905f54b62de41588210391fbaf549578fd7c2cb26b216441825bd780d85dba1f3d706e2f206587e962666775028e01b1752102c22801bd7dd3a6afb780671c1c983fcd91fa46826eadd82e325e7e13bb348a9768ac",
+  "lockupAddress": "bcrt1qweryu6nk8gn5lj8ar5kjdy476wynheszg0lumu6jx83l2v6f435stlel03",
+  "onchainAmount": 98694,
+  "timeoutBlockHeight": 398,
+  "minerFeeInvoice": "lnbcrt3060n1p0dhjr3pp5sk2u4rt0z8rrl6jj62d6szqvsdejj8kjcxa8tdt4dau5rtyskj6qdp4f45kuetjypnx2efqvehhygznwashqgr5dusyy4zrypskgerjv4ehxcqzpgsp5qtsm5vfy9yq8kjpthla67jagmcxnj529pm3edk94npf6fekq2sxq9qy9qsqmun0z8ed4kp9dhp7lthvzdrx3ngmjs32smx6l4hvyyktv92mf348aftgrwf44sl94ewywr3sw8dc4acy63yamxxpjtd4pkkr2uw2h5gpqc3d3y"
+}
+```
+
+### EVM Chains (In Development!)
+
+Requests to create swaps for Reverse Submarine Swaps from account-based EVM chains like RSK  have to contain one additional value:
+
+* `claimAddress`: address from which the coins will be claimed
+
+The response also has one more property:
+
+* `refundAddress`: the address of Boltz which is specified as refund address when it is locking up funds
+
+Also, Boltz offers an optional protocol called EVM prepay miner fee that allows the user to pay an additional lightning invoice to pay for gas on the EVM chain to claim funds. In this process, Boltz sends some e.g. rBTC to the `claimAddress` in the lockup process in case the user's `claimAddress` does not have enough rBTC to pay gas to claim the funds. To use that protocol set the following property in the request body to `true`.
+
+* `prepayMinerFee`: if the Ethereum prepay miner fee protocol should be used for the Reverse Swap
+
+When the Ethereum prepay miner fee protocol is used the response will contain two more values. One is the amount of Ether that will be sent to `claimAddress` in the lockup process. The other is an invoice for the Ether sent. Only when both invoices are paid the onchain coins will get locked.
+
+* `prepayMinerFeeAmount`: amount of e.g. rBTC that will be sent to the `claimAddress` with the lockup transaction from Boltz
+* `minerFeeInvoice`: invoice that pays for the Ether sent in the lockup process
+
+**Examples:**
+
+`POST /createswap`
+
+Request body:
+
+```json
+{
+  "type": "reversesubmarine",
+  "pairId": "rBTC/BTC",
+  "orderSide": "sell",
+  "claimAddress": "0x88532974EC20559608681A53F4Ac8C34dd5e2804",
+  "invoiceAmount": 100000,
+  "preimageHash": "295b93a766959d607861ab7b7a6bf9e178e7c69c3cc4ca715065dfe9d6eea351"
+}
+```
+
+Response body:
+
+```json
+{
+  "id": "1H6eCx",
+  "invoice": "lnbcrt1m1p0ega6epp599de8fmxjkwkq7rp4dah56leu9uw035u8nzv5u2svh07n4hw5dgsdpq2djkuepqw3hjq42ng32zqctyv3ex2umncqzphsp5gxshtrx3y0mt3llm3537qqy0ylf722hykv2zm777dwap9e60glfq9qy9qsqa93q725njkt9dupu9cddtchwcmyg7zsltrw8gcyzsc4tv74ss26y00z7tutrqks8wgh8s286ayy2tmrul0q0ysvxjzv793ylcdr553gqjhgny2",
+  "refundAddress": "0xe20fC13bad486fEB7F0C87Cad42bC74aAc319684",
+  "lockupAddress": "0xD104195e630A2E26D33c8B215710E940Ca041351",
+  "onchainAmount": 1210297576,
+  "timeoutBlockHeight": 2006
+}
+```
+
 ## Lightning Node Info
 
 This endpoint allows you to query info like public keys and URIs of the lightning nodes operated by Boltz.
@@ -655,483 +1133,7 @@ data: {"status":"transaction.mempool"}
 data: {"status":"invoice.paid"}
 ```
 
-## Creating Normal Submarine Swaps
-
-Requests creating Normal Submarine Swaps (Chain -> Lightning) differ slightly depending on the kind of Bitcoin that are swapped, more information below. **Please note that Boltz works with 10 \*\* -8 decimals internally** and all amounts in the API endpoints follow this denomination. All requests to create swaps have the following common values in the API request:
-
-* `type`: type of the swap to create. For Normal Submarine Swaps this is  `submarine` .
-* `pairId`: the pair of which the swap should be created, for more check [#supported-pairs](api.md#supported-pairs "mention")
-* `orderSide`: currently we recommend using `sell` across all pairs of swap type `submarine`. The value `buy` for e.g. the `L-BTC/BTC` pair signifies a swap from mainchain Bitcoin to Liquid Lightning. As of writing, this is not supported and the backend will return `"error": "L-BTC has no lightning support"`
-
-Normal Submarine Swaps: If you already know the amount to be swapped, you should also set `invoice`.
-
-* `invoice`: the invoice of the user that should be paid
-
-If the amount is **not** known yet, a **preimage hash has be specified**. The invoice that is provided later[ during the lifecycle of the Submarine Swap](api.md#setting-the-invoice-of-a-swap) has to have the _same preimage hash_ as the one specified here.
-
-* `preimageHash`: hash of a preimage that will be used for the invoice that is set later on
-
-We recommend verifing that pair data fetched previously is still accurate by additionally passing the `pairHash` argument in this call.
-
-* `pairHash`: `hash` string in the pair object of [`/getpairs`](api.md#getting-pairs)
-
-_Note: Channel creation is currently disabled!_
-
-~~Boltz also supports opening a channel to your node before paying your invoice. To ensure that this service works as advertised **make sure to connect your Lightning node to ours** before creating the swap. You can either query the URIs of our Lightning nodes with~~ [~~`/getnodes`~~](api.md#getting-lightning-nodes)~~, find them in the FAQ section of our website or on Lightning explorers like~~ [~~1ML~~](https://1ml.com) ~~under the query "Boltz". To let Boltz open a channel to you have to set a couple more values in the request when creating a swap:~~
-
-* ~~`channel`: a JSON object that contains all the information relevant to the creation of the channel~~
-  * ~~`auto`: whether Boltz should dynamically decide if a channel should be created based on whether the invoice you provided can be paid without opening a channel. More modes will be added in the future~~
-  * ~~`private`: whether the channel to your node should be private~~
-  * ~~`inboundLiquidity`: percentage of the channel balance that Boltz should provide as inbound liquidity for your node. The maximal value here is `50`, which means that the channel will be perfectly balanced 50/50~~
-
-~~To find out how to enforce that the requested channel was actually opened and the invoice paid through it have a look at~~ [~~this document where we wrote down some possible solutions~~](channel-creation.md)~~.~~
-
-| URL                | Response    |
-| ------------------ | ----------- |
-| `POST /createswap` | JSON object |
-
-Status Codes:
-
-* `201 Created`
-* `400 Bad Request`: if the swap could not be created. Check the `error` string in the `JSON` object of the body of the response for more information
-
-Response objects:
-
-Response objects of all swaps have these value in common:
-
-* `id`: id of the newly created swap
-* `timeoutBlockHeight`: base asset block height at which the swap will expire and be cancelled
-* `address`: address in which the coins will be locked up. For UTXO chains this is a SegWit `P2SHP2WSH` (`P2WSH` nested in a `P2SH`) for the sake of compatibility and for RSK it is the address of the contract that needs to be used
-
-If a lightning invoice is set in this call, one will also find the following values in the response:
-
-* `acceptZeroConf`: whether Boltz will accept 0-conf for this swap
-* `expectedAmount`: the amount that Boltz expects to be locked onchain
-
-### UTXO Chains
-
-Normal Submarine Swaps from UTXO chains like Bitcoin work by deriving an address based on the preimage hash (of the invoice) and the refund public key of the user. Boltz then waits until the user sent coins to the generated address.
-
-Requests for these kind of swaps have to contain one additional parameter:
-
-* `refundPublicKey`: public key of a keypair that will allow the user to refund the locked up coins once the time lock is expired. This keypair has to be generated and stored by the client integrating Boltz API.
-
-Responses also contain one additional value:
-
-* `redeemScript`: redeem script from which the `address` is derived. The redeem script can (and should!) be used to verify that the Boltz didn't try to cheat by providing an address without HTLC
-
-In case the address is for the Liquid Network, it will be blinded by a key that is also in the response:
-
-* `blindingKey`: hex encoded private key with which the address was blinded
-
-If the invoice has been set, you will also get this value:
-
-* `bip21`: a [BIP21 payment request](https://github.com/bitcoin/bips/blob/master/bip-0021.mediawiki) for the `expectedAmount` and the `address`
-
-**Examples:**
-
-`POST /createswap`
-
-Request body:
-
-```json
-{
-  "type": "submarine",
-  "pairId": "BTC/BTC",
-  "orderSide": "sell",
-  "refundPublicKey": "AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBGBkraVi05Eyn6slRQV5h+fX6rtpudOq0LqPEnbnbxRshMdhS56vKWawUNLkLZZ4hKsTdbJZvgTtO/rDc2WI/Gw",
-  "invoice": "lntb1m1pjv0dt5pp5y9dl3z50c5g6p26a86g432zdzvdlx6a565hk55a2ellz3t9f84jsdqqcqzzsxqyz5vqsp5a4k0f59u62na3fngv24nv5xjuxyf6qjnnj806se373h4gt9fmejq9qyyssqpeh42yy72pqzfwdfehvuru9s735vrgg324lxdp9gg8w6m379w8ajd3sxyy6f0qqfqa6vhk5k4pqfz6nys3u5xf68wcjyjygykn7za6cqf6flce"
-}
-```
-
-Response:
-
-```json
-{
-	"id": "E63LC4",
-	"bip21": "bitcoin:2NBBYeBZgY64nJKiibnGokwrBBPjoQeMzyx?amount=0.0010054&label=Send%20to%20BTC%20lightning",
-	"address": "2NBBYeBZgY64nJKiibnGokwrBBPjoQeMzyx",
-	"redeemScript": "a9148f8d01a3e1a794024fa78bd9c81d5ae9bb1c56d287632102bba4fbfe50ea8caf880cb367f7b0083c7e91c2bc2808c817823bd36385e3a376670319b125b17503aaaae268ac",
-	"acceptZeroConf": false,
-	"expectedAmount": 100540,
-	"timeoutBlockHeight": 2470169
-}
-```
-
-_Submarine Swap that includes the_ [_creation of a new channel_](channel-creation.md)_:_
-
-`POST /createswap`
-
-Request body:
-
-```json
-{
-  "type": "submarine",
-  "pairId": "BTC/BTC",
-  "orderSide": "sell",
-  "refundPublicKey": "AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBGBkraVi05Eyn6slRQV5h+fX6rtpudOq0LqPEnbnbxRshMdhS56vKWawUNLkLZZ4hKsTdbJZvgTtO/rDc2WI/Gw",
-  "invoice": "lntb10m1pjv0w7jpp5upaf56avdlkjv9h602m9heaa004reuc36yjf2hwzcv3tk0kjaekqdqqcqzzsxqyz5vqsp5klkwplct9kuzp8whrmjvqxqjhnga907aa953xdeaqypa8mn6chtq9qyyssqlywerx9cdqxukf640kphw2rtz6uamtc0g94h7jt99jpspjxn653h6gn30a6ejndh4xuxuf2gxn2sndgqhvs33s5ayg70z4p4f7n267gp4tytl0",
-  "channel": {
-  "auto": true,
-    "private": false,
-    "inboundLiquidity": 30
-  }
-}
-```
-
-Response:
-
-```json
-{
-	"id": "e1Qtxa",
-	"bip21": "bitcoin:2Muq74He81w8Ts4n3zhPFd1JZbuWC62czux?amount=0.0100234&label=Send%20to%20BTC%20lightning",
-	"address": "2Muq74He81w8Ts4n3zhPFd1JZbuWC62czux",
-	"redeemScript": "a91479674970eaa348958799f6fc41ef379d00f9060f8763210385ad894cdd1f27f4c88ef403100420eed6cc006965a3a58e277cb05c6f469d6667031ab125b17503aaaae268ac",
-	"acceptZeroConf": false,
-	"expectedAmount": 1002340,
-	"timeoutBlockHeight": 2470170
-}
-```
-
-### EVM Chains (In Development!)
-
-Swaps from account-based EVM chains like RSK do not require a new address for every swap. `/createswap` takes the details of the swap (like lightning invoice and pair) and Boltz waits until the user locked e.g. rBTC in the contract. The addresses of those contracts can be queried with [`/getcontracts`](http://localhost:8000/api/#getting-contracts) and the address of the contract that needs to be used for the swap is also returned in the response of this request.
-
-The request does not require any additional values.
-
-But the response has one additional value:
-
-* `claimAddress`: which is e.g. the RSK address of Boltz. It is specified in the`lock` function of the swap contract
-
-**Examples:**
-
-`POST /createswap`
-
-Request body:
-
-```json
-{
-  "type": "submarine",
-  "pairId": "BTC/RBTC",
-  "orderSide": "buy",
-  "invoice": "lnbcrt1m1p0c26rvpp5hctw8zukj00tsxay5436y43qxc5gwvdc6k9zcxnce4zer7p5a4eqdqqcqzpgsp59mwcr4cj6wq68qj6pzyjtq2j89vnpumsejdmhw5uy4yukq3vd64s9qy9qsq2537ph4kt4xryq27g5juc27v2tkx9y90hpweyqluku9rt5zfexfj6n2fqcgy7g8xx72fklr6r7qul27jd0jzvssvrhxmwth7w4lrq7sqgyv0m7"
-}
-```
-
-Response:
-
-```json
-{
-  "id": "7PSEtx",
-  "address": "0xD104195e630A2E26D33c8B215710E940Ca041351",
-  "claimAddress": "0xe20fC13bad486fEB7F0C87Cad42bC74aAc319684",
-  "acceptZeroConf": false,
-  "expectedAmount": 1387707329,
-  "timeoutBlockHeight": 2006
-}
-```
-
-### Swap Rates
-
-When sending onchain Bitcoin, before setting the invoice of a Submarine Swap, you'll need to use this endpoint to figure out what the amount of the invoice you set should be. Send a `POST` request with a `JSON` encoded body with this value:
-
-* `id`: id of the Submarine Swap
-
-| URL               | Response    |
-| ----------------- | ----------- |
-| `POST /swaprates` | JSON object |
-
-Status Codes:
-
-* `200 OK`
-* `400 Bad Request`: if the invoice amount could not be calculated. Check the `error` string in the `JSON` object of the body of the response for more information. A common case is where the user did not lock up onchain Bitcoin yet, which is a requirement in order to calculate an invoice amount: `"error": "no coins were locked up yet"`
-
-Response object:
-
-* `invoiceAmount`: amount of the invoice that should be set with [/setinvoice](api.md#setting-the-invoice-of-a-swap)
-
-**Examples:**
-
-Request body:
-
-```json
-{
-  "id": "BY8asG"
-}
-```
-
-Response:
-
-```json
-{
-  "invoiceAmount": 15713393
-}
-```
-
-### Setting an Invoice
-
-In case the amount to be swapped is not known when creating a Normal Submarine Swap, the invoice can be set afterwards; even if the chain Bitcoin were sent already. Please keep in mind that the invoice **has to have the same preimage hash** that was specified when creating the swap. Although the invoice can be changed after setting it initially, this endpoint will only work if Boltz did not try to pay the initial invoice yet. Requests to this endpoint have to be `POST` and should have the following values in its JSON encoded body:
-
-* `id`: id of the swap for which the invoice should be set
-* `invoice`: invoice of the user that should be paid
-
-| URL                | Response    |
-| ------------------ | ----------- |
-| `POST /setinvoice` | JSON object |
-
-Status Codes:
-
-* `200 OK`
-* `400 Bad Request`: if the invoice could not be set. Check the `error` string in the JSON object of the body of the response for more information
-
-Response objects:
-
-What is returned when the invoice is set depends on the status of the Submarine Swap. If no funds were sent (status [`swap.created`](<README (1).md#normal-submarine-swaps>)) the endpoint will return a `JSON` object with these values:
-
-* `acceptZeroConf`: whether Boltz will accept 0-conf for this swap
-* `expectedAmount`: the amount that Boltz expects you to lock in the onchain HTLC
-* `bip21`: a [BIP21 payment request](https://github.com/bitcoin/bips/blob/master/bip-0021.mediawiki) for the `expectedAmount` of coins and the `address` (only set when swapping from UTXO based chains)
-
-If chain Bitcoin were sent already (status [`transaction.mempool`](<README (1).md#normal-submarine-swaps>) or [`transaction.confirmed`](<README (1).md#normal-submarine-swaps>)) the endpoint will return an empty `JSON` object, signifying success.
-
-In case this endpoint is called again after an invoice was set and Boltz tried to pay it already:
-
-* `error`: error message explaining that Boltz tried to pay the invoice already and that it cannot be changed anymore
-* `invoice`: the invoice that was set and that will be used for the swap
-
-**Examples:**
-
-_If no Bitcoin were sent yet:_
-
-`POST /setinvoice`
-
-Request body:
-
-```json
-{
-  "id": "UwHIPg",
-  "invoice": "lnbcrt1m1p08epqjpp5yvv222x7te9asyzuhmjym083lwqpp5vlem09ewfeufyrp6f76w2sdql2djkuepqw3hjqnz5gvsxzerywfjhxuccqzpgsp5u6kxgf9daf64ptvl2ht74m6duc2neywx3ecvwxs07vf7egw5dy5s9qy9qsqakms0e7ww46q9cq2fa2ymrcx6nucfknjalkm5w4ywvjpfxdp5ya82drvdvxhqzzt2ysysh5u7rellzjse37fng3vsqafuwwz3kv4ykcquy8k29"
-}
-```
-
-Response:
-
-```json
-{
-  "acceptZeroConf": true,
-  "expectedAmount": 1359564,
-  "bip21": "bitcoin:QNaGS7WM31xANXQCbmrhXfnxUjxiGFpFwM?amount=0.01359564&label=Submarine%20Swap%20to%20BTC"
-}
-```
-
-_If Bitcoin were sent already:_
-
-`POST /setinvoice`
-
-Request body:
-
-```json
-{
-  "id": "UwHIPg",
-  "invoice": "lnbcrt1m1p08epqjpp5yvv222x7te9asyzuhmjym083lwqpp5vlem09ewfeufyrp6f76w2sdql2djkuepqw3hjqnz5gvsxzerywfjhxuccqzpgsp5u6kxgf9daf64ptvl2ht74m6duc2neywx3ecvwxs07vf7egw5dy5s9qy9qsqakms0e7ww46q9cq2fa2ymrcx6nucfknjalkm5w4ywvjpfxdp5ya82drvdvxhqzzt2ysysh5u7rellzjse37fng3vsqafuwwz3kv4ykcquy8k29"
-}
-```
-
-Response:
-
-```json
-{}
-```
-
-_If the invoice was previously set and Boltz tried to pay it already:_
-
-`POST /setinvoice`
-
-Request body:
-
-```json
-{
-  "id": "UwHIPg",
-  "invoice": "lnbcrt100u1p0gv8hjpp5j0vs0te6wykahrp3aammm46m73n2afzk6a87ezfp3p58qpcpu4wqdqqcqzpgsp5j6wue634lac577xnupy8auvq7n9062vshvvc6xszq4jt5q9phhzq9qy9qsqhs7zrs98tu669xz7w0gqy96g5pvs9p6lssmyseg7a92kpjlzramk8khyzkd8x4nl2zasekmwt45z6pe78rk032lkmshjdnesw2vukwgqtglt89"
-}
-```
-
-Response:
-
-```json
-{
-  "error": "lightning payment in progress already",
-  "invoice": "lnbcrt1m1p08epqjpp5yvv222x7te9asyzuhmjym083lwqpp5vlem09ewfeufyrp6f76w2sdql2djkuepqw3hjqnz5gvsxzerywfjhxuccqzpgsp5u6kxgf9daf64ptvl2ht74m6duc2neywx3ecvwxs07vf7egw5dy5s9qy9qsqakms0e7ww46q9cq2fa2ymrcx6nucfknjalkm5w4ywvjpfxdp5ya82drvdvxhqzzt2ysysh5u7rellzjse37fng3vsqafuwwz3kv4ykcquy8k29"
-}
-```
-
-## Creating Reverse Submarine Swaps
-
-Creating Reverse Submarine Swaps (Lightning -> Chain) is similar to creating Normal Submarine Swaps. Similarly, the requests and responses change slightly depending on the kind of Bitcoin involved in the swap. Keep in mind, **Boltz uses 10 \*\* -8 as denomination** for responses in the API.
-
-All requests bodies extend from:
-
-* `type`: type of the swap to create. For Reverse Submarine Swaps this is `reversesubmarine`.
-* `pairId`: the pair of which the swap should be created, for more check [#supported-pairs](api.md#supported-pairs "mention")
-* `orderSide`: currently we recommend using `buy` across all pairs of swap type `reversesubmarine`. The value `sell` for e.g. the `L-BTC/BTC` pair signifies a swap from mainchain Bitcoin to Lightning on Liquid. As of writing, this is not supported and the backend will return `"error": "L-BTC has no lightning support"`
-* `preimageHash`: the SHA256 hash of a preimage that was generated by the client. The size of that preimage has to be 32 bytes or claiming will fail
-
-There are two ways to set the amount of a Reverse Swap. Either by specifying the amount of the invoice Boltz will generate:
-
-* `invoiceAmount`: amount of the invoice that will be generated by Boltz
-
-Or by setting the amount that will be locked in the onchain HTLC. That amount is _not_ what you will actually receive because of transaction fees required to claim the HTLC. But those can be approximated easily in advance and when overestimating a little, a quick confirmation of the claim transaction can be ensured.
-
-* `onchainAmount`: amount Boltz will lock in the onchain HTLC
-
-We recommend verifing that pair data fetched previously is still accurate by additionally passing the `pairHash` argument in this call.
-
-* `pairHash`: `hash` string in the pair object of [`/getpairs`](api.md#getting-pairs)
-
-| URL                | Response    |
-| ------------------ | ----------- |
-| `POST /createswap` | JSON object |
-
-Status Codes:
-
-* `201 Created`
-* `400 Bad Request`: if the swap could not be created. Check the `error` string in the `JSON` object of the body of the response for more information
-
-The `JSON` object in the response extends from:
-
-* `id`: id of the newly created swap
-* `lockupAddress`: address derived from the `redeemScript` or contract to which Boltz will lock up coins
-* `invoice`: hold invoice that needs to be paid before Boltz locks up coins
-* `timeoutBlockHeight`: block height at which the Reverse Swap will be cancelled
-
-In case the invoice amount was specified, the amount that will be locked in the onchain HTLC is also returned:
-
-* `onchainAmount`: amount of onchain coins that will be locked by Boltz
-
-Boltz backend also supports a different protocol that requires an invoice for miner fees to be paid before the actual hold `invoice` of the Reverse Submarine Swap. If that protocol is enabled, the response object will also contain a `minerFeeInvoice`. Once the `minerFeeInvoice` is paid, Boltz will send the event `minerfee.paid` and when the actual hold `invoice` is paid, the onchain coins will be sent.
-
-### UTXO based chains
-
-The request has to contain one additional value:
-
-* `claimPublicKey`: public key of a keypair that will allow the user to claim the locked up coins with the preimage. This keypair has to be generated and stored by the client integrating Boltz API.
-
-And so has the response:
-
-* `redeemScript`: redeem script from which the lockup address was derived. The redeem script can (and should!) be used to verify that the Boltz instance didn't try to cheat by creating an address without a HTLC
-
-In case the lockup address is on the Liquid Network, it will be blinded by a key that is also in the response:
-
-* `blindingKey`: hex encoded private key with which the address was blinded
-
-**Examples:**
-
-`POST /createswap`
-
-Request body:
-
-```json
-{
-  "type": "reversesubmarine",
-  "pairId": "L-BTC/BTC",
-  "orderSide": "buy",
-  "invoiceAmount": 1000000,
-  "preimageHash": "51a05b15e66ecd12bf6b1b62a678e63add0185bc5f41d2cd013611f7a4b6703f",
-  "claimPublicKey": "03b76c1fe14bab50e52a026f35287fda75b9304bcf311ee85b4d32482400a436f5"
-}
-```
-
-Response:
-
-```json
-{
-  "id": "v3CfMa",
-  "invoice": "lntb10m1pjvsy8ppp52xs9k90xdmx390mtrd32v78x8twsrpdutaqa9ngpxcgl0f9kwqlsdpz2djkuepqw3hjqnpdgf2yxgrpv3j8yetnwvcqz95xqrrsssp5hzcjq972f9cl8c6u3zechepm65hjceaqvlzye6kc23qkz5rhva6q9qyyssq4kkw9fwjq7n9cm4j3ajj2a92ka0zyeg3sxppfy932c62pnsqkw7nhvg9rrxztszw37wqtal4cchw2f4s09qe48pngsl9euv7wjlz93qqrfx60s",
-  "blindingKey": "897034f717beb12a3c2b7ae8c08c5c4def7bc7cfb6efa3713c617f28d90d1419",
-  "redeemScript": "8201208763a914be1abd8e8d7ef7e64a9c6e1e2f498f3a92e078a2882103b76c1fe14bab50e52a026f35287fda75b9304bcf311ee85b4d32482400a436f5677503dbf40eb175210330fd4cfd53b5c20886415c1b67d2daa87bce2761b9be009e9d1f9eec4419ba5968ac",
-  "lockupAddress": "tlq1qqdd0v79wcqnpvujf5mfp88d5cz8rynk0awr6m84ca8pzn39kwagsh4z204s9d5sww3cxckd47wjxlqwl3u6tgdqfa877txqt9m8wgk22qwyp5yzxaf40",
-  "timeoutBlockHeight": 980187,
-  "onchainAmount": 995724
-}
-```
-
-_In case the prepay miner fee protocol is enabled:_
-
-Request body:
-
-```json
-{
-  "type": "reversesubmarine",
-  "pairId": "BTC/BTC",
-  "orderSide": "buy",
-  "claimPublicKey": "0391fbaf549578fd7c2cb26b216441825bd780d85dba1f3d706e2f206587e96266",
-  "invoiceAmount": 100000,
-  "preimageHash": "2215034def003b63b2717fccd4ce8259f4807a39318c14e2bdd42639ca989a45"
-}
-```
-
-Response body:
-
-```json
-{
-  "id": "mVSKyF",
-  "invoice": "lnbcrt996940n1p0dhjr3pp5yg2sxn00qqak8vn30lxdfn5zt86gq73exxxpfc4a6snrnj5cnfzsdql2djkuepqw3hjqsj5gvsxzerywfjhxuccqzy0sp5hjcvwl2glrq9n3vzm8072cdruz3hhz70edml8g0u76gryve6np4q9qy9qsqzw5w8ulxjgrg478hz4enjrw0a9tedl8s3n879xqh3mhn0pxrvajrz9qnnsr58twx4a30gk57d4fykm7x3v2vcamw7k4ny9fkpwl65vcpw8v5em",
-  "redeemScript": "8201208763a914fb75ff5dc4272c2da33d744615905f54b62de41588210391fbaf549578fd7c2cb26b216441825bd780d85dba1f3d706e2f206587e962666775028e01b1752102c22801bd7dd3a6afb780671c1c983fcd91fa46826eadd82e325e7e13bb348a9768ac",
-  "lockupAddress": "bcrt1qweryu6nk8gn5lj8ar5kjdy476wynheszg0lumu6jx83l2v6f435stlel03",
-  "onchainAmount": 98694,
-  "timeoutBlockHeight": 398,
-  "minerFeeInvoice": "lnbcrt3060n1p0dhjr3pp5sk2u4rt0z8rrl6jj62d6szqvsdejj8kjcxa8tdt4dau5rtyskj6qdp4f45kuetjypnx2efqvehhygznwashqgr5dusyy4zrypskgerjv4ehxcqzpgsp5qtsm5vfy9yq8kjpthla67jagmcxnj529pm3edk94npf6fekq2sxq9qy9qsqmun0z8ed4kp9dhp7lthvzdrx3ngmjs32smx6l4hvyyktv92mf348aftgrwf44sl94ewywr3sw8dc4acy63yamxxpjtd4pkkr2uw2h5gpqc3d3y"
-}
-```
-
-### EVM Chains (In Development!)
-
-Requests to create swaps for Reverse Submarine Swaps from account-based EVM chains like RSK  have to contain one additional value:
-
-* `claimAddress`: address from which the coins will be claimed
-
-The response also has one more property:
-
-* `refundAddress`: the address of Boltz which is specified as refund address when it is locking up funds
-
-Also, Boltz offers an optional protocol called EVM prepay miner fee that allows the user to pay an additional lightning invoice to pay for gas on the EVM chain to claim funds. In this process, Boltz sends some e.g. rBTC to the `claimAddress` in the lockup process in case the user's `claimAddress` does not have enough rBTC to pay gas to claim the funds. To use that protocol set the following property in the request body to `true`.
-
-* `prepayMinerFee`: if the Ethereum prepay miner fee protocol should be used for the Reverse Swap
-
-When the Ethereum prepay miner fee protocol is used the response will contain two more values. One is the amount of Ether that will be sent to `claimAddress` in the lockup process. The other is an invoice for the Ether sent. Only when both invoices are paid the onchain coins will get locked.
-
-* `prepayMinerFeeAmount`: amount of e.g. rBTC that will be sent to the `claimAddress` with the lockup transaction from Boltz
-* `minerFeeInvoice`: invoice that pays for the Ether sent in the lockup process
-
-**Examples:**
-
-`POST /createswap`
-
-Request body:
-
-```json
-{
-  "type": "reversesubmarine",
-  "pairId": "rBTC/BTC",
-  "orderSide": "sell",
-  "claimAddress": "0x88532974EC20559608681A53F4Ac8C34dd5e2804",
-  "invoiceAmount": 100000,
-  "preimageHash": "295b93a766959d607861ab7b7a6bf9e178e7c69c3cc4ca715065dfe9d6eea351"
-}
-```
-
-Response body:
-
-```json
-{
-  "id": "1H6eCx",
-  "invoice": "lnbcrt1m1p0ega6epp599de8fmxjkwkq7rp4dah56leu9uw035u8nzv5u2svh07n4hw5dgsdpq2djkuepqw3hjq42ng32zqctyv3ex2umncqzphsp5gxshtrx3y0mt3llm3537qqy0ylf722hykv2zm777dwap9e60glfq9qy9qsqa93q725njkt9dupu9cddtchwcmyg7zsltrw8gcyzsc4tv74ss26y00z7tutrqks8wgh8s286ayy2tmrul0q0ysvxjzv793ylcdr553gqjhgny2",
-  "refundAddress": "0xe20fC13bad486fEB7F0C87Cad42bC74aAc319684",
-  "lockupAddress": "0xD104195e630A2E26D33c8B215710E940Ca041351",
-  "onchainAmount": 1210297576,
-  "timeoutBlockHeight": 2006
-}
-```
+##
 
 ## Authentication
 

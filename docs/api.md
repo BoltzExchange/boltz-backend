@@ -1,7 +1,7 @@
 ---
 description: >-
   Boltz exposes a RESTful HTTP API that can be used to query information like
-  supported pairs as well as to create and monitor swaps. This page lists all
+  supported pairs and to create as well as monitor swaps. This page lists all
   available endpoints and shows how to use them.
 ---
 
@@ -360,7 +360,7 @@ Response:
 
 ## Raw Transactions
 
-Boltz API also allows for querying raw transactions of all supported UTXO chains, irrespective of whether the transactions are still in the mempool or already included in a block. Note, that Boltz does _not_ provide any kind of cryptographic proof that the transaction was included in a block. Also this call is primarily kept for backward compatibility with integrations, it is not needed to construct transactions as the response of [`/swapstatus`](api.md#status-of-a-swap) provides all necessary info.
+Boltz API also allows for querying raw transactions of all supported UTXO chains, irrespective of whether the transactions are still in the mempool or already included in a block. Note, that Boltz does _not_ provide any kind of cryptographic proof that the transaction was included in a block. Also this call is primarily kept for backward compatibility with older integrations, it is _not_ needed to construct transactions as the response of [`/swapstatus`](api.md#status-of-a-swap) provides all necessary info.
 
 Requests querying for transactions have to be `POST` and contain two arguments in its JSON encoded body:
 
@@ -457,7 +457,7 @@ This call works for Normal Submarine Swaps only. If used for Reverse Submarine S
 
 ## Broadcasting transactions
 
-This endpoint is used to broadcast transactions on UTXO chains. It is similar to [`/gettransaction`](api.md#raw-transactions) but instead of getting the hex representation of existing transactions on the chain, this call broadcasts _new_ transactions to the network. It is mainly intended to be used to broadcast refund transactions on the user's behalf. It returns the id of the broacasted transaction,which can be used to verify that the refund transaction was broadcasted successfully.
+This endpoint is used to broadcast transactions on UTXO chains. It is similar to [`/gettransaction`](api.md#raw-transactions) but instead of getting the hex representation of existing transactions on the chain, this call broadcasts _new_ transactions to the network. It is mainly intended to be used to broadcast refund transactions on user's behalf. It returns the id of the broacasted transaction,which can be used to verify that the refund transaction was broadcasted successfully.
 
 Requests broadcasting transactions have to be `POST` and contain two arguments in the JSON encoded body:
 
@@ -498,7 +498,7 @@ Response:
 }
 ```
 
-There is one special case: when trying to broadcast a refund transaction for a swap that has not timed out yet, the backend will not only return the `error` in the JSON encoded response but also some additional information:
+There is one special case: when trying to broadcast a refund transaction for a swap that has not timed out yet, the backend will return some additional information in addition to the `error` in the `JSON` encoded response:
 
 * `error`: the reason for which the broadcasting failed. In this special case always: `non-mandatory-script-verify-flag (Locktime requirement not satisfied) (code 64)`
 * `timeoutEta`: UNIX timestamp at which the HTLC is expected to time out
@@ -531,7 +531,7 @@ Response:
 
 _Before handling status events of this method it is recommended to read:_ [_Swap Types & States_](<README (1).md>)
 
-To query the status of a swap one can use this endpoint which returns a `JSON` object containing the status of the swap. Possible states and status events are documented [here](<README (1).md>).
+To query the status of a swap one can use this endpoint which returns a `JSON` object containing the status of the swap. Possible states and status events are documented in the section [Swap Types & States](<README (1).md>)_._
 
 Requests querying the status of a swap have to be `POST` and contain a single value in its JSON encoded body:
 
@@ -549,11 +549,11 @@ Status Codes:
 
 Response object:
 
-* `status`: status of the swap
-* `transaction`: in case of a Reverse Submarine Swap, the lockup transaction details are not in the response of the call which creates the swap. Therefore, the events `transaction.mempool` and `transaction.confirmed` contain it
-* `id`: id of the lockup transaction
-* `hex`: hex encoded lockup transaction (only set for transactions on UTXO chains)
-* `eta`: if the status is `transaction.mempool`, this value is the estimated time of arrival (ETA) in blocks of when the transaction will be confirmed. Only set for transactions on UTXO chains.
+* `status`: status of the swap, e.g. `transaction.mempool` & `transaction.claimed` for successful Normal Submarine Swaps and `transaction.mempool` and `transaction.confirmed` for successful Reverse Submarine Swaps
+* `transaction`: for Reverse Submarine Swaps, this field contains lockup transaction details in the states`transaction.mempool` and `transaction.confirmed`
+  * `id`: id of the lockup transaction
+  * `hex`: hex encoded lockup transaction (only set for transactions on UTXO chains)
+  * `eta`: if the status is `transaction.mempool`, this value is the estimated time of arrival (ETA) in blocks of when the transaction will be confirmed. Only set for transactions on UTXO chains.
 * `zeroConfRejected`: set to `true` for Swaps with the status `transaction.mempool` and a lockup transaction that is not eligible for [0-conf](0-confirmation.md)
 * `failureReason`: set when it's necessary to further clarify the failure reason
 
@@ -621,7 +621,7 @@ Response:
 
 ## Swap Status Stream
 
-To avoid querying the [`/swapstatus`](api.md#swap-status) endpoint regularly to get the latest swap status, this endpoint streams swap status updates via [Server-Side events](https://www.w3schools.com/html/html5\_serversentevents.asp).
+To avoid querying the [`/swapstatus`](api.md#swap-status) endpoint regularly to get the latest swap status, this endpoint streams swap status updates via [Server-Side Events](https://www.w3schools.com/html/html5\_serversentevents.asp).
 
 Requests to this endpoint have to provide the required swap `id` parameter via an URL parameter because all requests have to be of the method `GET`.
 
@@ -655,36 +655,36 @@ data: {"status":"transaction.mempool"}
 data: {"status":"invoice.paid"}
 ```
 
-## Creating Swaps
+## Creating Normal Submarine Swaps
 
-The following request creates a Normal Submarine Swap (Chain -> Lightning). This `POST` request slightly differs depending on the kind of currencies that are swapped. You can find further information on the differences between swapping from UTXO chains and Ethereum underneath. **Please note that Boltz works with 10 \*\* -8 decimals internally** and all amounts in the API endpoints have this denomination regardless of the decimals, regardless of the swapped coin or token.
+Requests of `/createswap` differ slightly depending on the kind of Bitcoin that are swapped, more information below. **Please note that Boltz works with 10 \*\* -8 decimals internally** and all amounts in the API endpoints follow this denomination. All requests to create swaps have the following common values in the API request:
 
-Also, all kinds of requests to create Swaps have common values in the API request:
+* `type`: type of the swap to create; type `submarine` covers all swaps involving lightning, Normal Submarine Swaps as well as Reverse Submarine Swaps
+* `pairId`: the pair of which the swap should be created, for more check [#supported-pairs](api.md#supported-pairs "mention")
+* `orderSide`: for type `submarine`, `sell` for a Normal Submarine Swap or `buy` for a Reverse Submarine Swap
 
-* `type`: type of the swap to create; always `submarine` for normal swaps
-* `pairId`: the pair on which the swap should be created
-* `orderSide`: either `buy` or `sell` depending on what the user wants
-
-If you already know the amount you want to swap you should also set `invoice`.
+Normal Submarine Swaps: If you already know the amount to be swapped, you should also set `invoice`.
 
 * `invoice`: the invoice of the user that should be paid
 
-If the amount is **not** known, a **preimage hash should be specified**. The invoice that is [set during the lifecycle of the Submarine Swap](api.md#setting-the-invoice-of-a-swap) has to have the same preimage hash as the one specified when creating the swap.
+If the amount is **not** known yet, a **preimage hash should be specified**. The invoice that is provided later[ during the lifecycle of the Submarine Swap](api.md#setting-the-invoice-of-a-swap) has to have the _same preimage hash_ as the one specified here.
 
 * `preimageHash`: hash of a preimage that will be used for the invoice that is set later on
 
-In case the client wants to verify the pair data fetched by it is still accurate, the `pairHash` argument can be passed.
+We recommend verifing that pair data fetched previously is still accurate by additionally passing the `pairHash` argument in this call
 
 * `pairHash`: `hash` string in the pair object of [`/getpairs`](api.md#getting-pairs)
 
-Boltz also supports opening a channel to your node before paying your invoice. To ensure that this service works as advertised **make sure to connect your Lightning node to ours** before creating the swap. You can either query the URIs of our Lightning nodes with [`/getnodes`](api.md#getting-lightning-nodes), find them in the FAQ section of our website or on Lightning explorers like [1ML](https://1ml.com) under the query "Boltz". To let Boltz open a channel to you have to set a couple more values in the request when creating a swap:
+_Note: Channel creation is currently disabled!_
 
-* `channel`: a JSON object that contains all the information relevant to the creation of the channel
-  * `auto`: whether Boltz should dynamically decide if a channel should be created based on whether the invoice you provided can be paid without opening a channel. More modes will be added in the future
-  * `private`: whether the channel to your node should be private
-  * `inboundLiquidity`: percentage of the channel balance that Boltz should provide as inbound liquidity for your node. The maximal value here is `50`, which means that the channel will be perfectly balanced 50/50
+~~Boltz also supports opening a channel to your node before paying your invoice. To ensure that this service works as advertised **make sure to connect your Lightning node to ours** before creating the swap. You can either query the URIs of our Lightning nodes with~~ [~~`/getnodes`~~](api.md#getting-lightning-nodes)~~, find them in the FAQ section of our website or on Lightning explorers like~~ [~~1ML~~](https://1ml.com) ~~under the query "Boltz". To let Boltz open a channel to you have to set a couple more values in the request when creating a swap:~~
 
-To find out how to enforce that the requested channel was actually opened and the invoice paid through it have a look at [this document where we wrote down some possible solutions](channel-creation.md).
+* ~~`channel`: a JSON object that contains all the information relevant to the creation of the channel~~
+  * ~~`auto`: whether Boltz should dynamically decide if a channel should be created based on whether the invoice you provided can be paid without opening a channel. More modes will be added in the future~~
+  * ~~`private`: whether the channel to your node should be private~~
+  * ~~`inboundLiquidity`: percentage of the channel balance that Boltz should provide as inbound liquidity for your node. The maximal value here is `50`, which means that the channel will be perfectly balanced 50/50~~
+
+~~To find out how to enforce that the requested channel was actually opened and the invoice paid through it have a look at~~ [~~this document where we wrote down some possible solutions~~](channel-creation.md)~~.~~
 
 | URL                | Response    |
 | ------------------ | ----------- |
@@ -693,40 +693,40 @@ To find out how to enforce that the requested channel was actually opened and th
 Status Codes:
 
 * `201 Created`
-* `400 Bad Request`: if the swap could not be created. Check the `error` string in the JSON object of the body of the response for more information
+* `400 Bad Request`: if the swap could not be created. Check the `error` string in the `JSON` object of the body of the response for more information
 
 Response objects:
 
-You will always have these values in the response object:
+Response objects of all swaps have these value in common:
 
-* `id`: id of the freshly created swap
-* `timeoutBlockHeight`: block height at which the swap will be cancelled
-* `address`: address in which the coins will be locked up. For UTXO chains this is a SegWit P2SHP2WSH (P2WSH nested in a P2SH) for the sake of compatibility and for Ethereum it is the address of the contract that needs to be used
+* `id`: id of the newly created swap
+* `timeoutBlockHeight`: base asset block height at which the swap will expire and be cancelled
+* `address`: address in which the coins will be locked up. For UTXO chains this is a SegWit `P2SHP2WSH` (`P2WSH` nested in a `P2SH`) for the sake of compatibility and for RSK it is the address of the contract that needs to be used
 
-If you set the invoice you will also have these values in the response:
+If a lightning invoice is set in this call, one will also find the following values in the response:
 
 * `acceptZeroConf`: whether Boltz will accept 0-conf for this swap
-* `expectedAmount`: the amount that Boltz expects you to lock in the onchain HTLC
+* `expectedAmount`: the amount that Boltz expects to be locked onchain
 
 ### UTXO Chains
 
-Swaps from UTXO chains like Bitcoin work by deriving an address based on the preimage hash of the invoice and the refund public key of the user and waiting until the user sends coins to that generated address.
+Normal Submarine Swaps from UTXO chains like Bitcoin work by deriving an address based on the preimage hash (of the invoice) and the refund public key of the user. Boltz then waits until the user sent coins to the generated address.
 
-Requests have to contain one additional parameter:
+Requests for these kind of swaps have to contain one additional parameter:
 
-* `refundPublicKey`: public key of a keypair that will allow the user to refund the locked up coins once the time lock is expired
+* `refundPublicKey`: public key of a keypair that will allow the user to refund the locked up coins once the time lock is expired. This keypair has to be generated and stored by the implementation.
 
 Responses also contain one additional value:
 
-* `redeemScript`: redeem script from which the `address` is derived. The redeem script can and should be used to verify that the Boltz instance didn't try to cheat by providing an address without a HTLC
+* `redeemScript`: redeem script from which the `address` is derived. The redeem script can (and should!) be used to verify that the Boltz didn't try to cheat by providing an address without HTLC
 
 In case the address is for the Liquid network, it will be blinded by a key that is also in the response:
 
 * `blindingKey`: hex encoded private key with which the address was blinded
 
-If the invoice has been set in the request, you will also get this value:
+If the invoice has been set, you will also get this value:
 
-* `bip21`: a [BIP21 payment request](https://github.com/bitcoin/bips/blob/master/bip-0021.mediawiki) for the `expectedAmount` of coins and the `address`
+* `bip21`: a [BIP21 payment request](https://github.com/bitcoin/bips/blob/master/bip-0021.mediawiki) for the `expectedAmount` and the `address`
 
 **Examples:**
 
@@ -737,10 +737,10 @@ Request body:
 ```json
 {
   "type": "submarine",
-  "pairId": "LTC/BTC",
+  "pairId": "BTC/BTC",
   "orderSide": "sell",
-  "refundPublicKey": "03b76c1fe14bab50e52a026f35287fda75b9304bcf311ee85b4d32482400a436f5",
-  "invoice": "lnbcrt100u1pw54eudpp5e42ls0apxfm2790aesc92v5kppkr5dluvv0545v6zr593498s8zsdqqcqzpgpyaz550xmqkr6v5x8cn3qxyxmuxp7xa28xlr7qhkxlde3xm8xjyyqqurx5nq8tdeejvm4jnuw468lxjtnfj8v49hsg8tkhjz9haj65sps8xdv0"
+  "refundPublicKey": "AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBGBkraVi05Eyn6slRQV5h+fX6rtpudOq0LqPEnbnbxRshMdhS56vKWawUNLkLZZ4hKsTdbJZvgTtO/rDc2WI/Gw",
+  "invoice": "lntb1m1pjv0dt5pp5y9dl3z50c5g6p26a86g432zdzvdlx6a565hk55a2ellz3t9f84jsdqqcqzzsxqyz5vqsp5a4k0f59u62na3fngv24nv5xjuxyf6qjnnj806se373h4gt9fmejq9qyyssqpeh42yy72pqzfwdfehvuru9s735vrgg324lxdp9gg8w6m379w8ajd3sxyy6f0qqfqa6vhk5k4pqfz6nys3u5xf68wcjyjygykn7za6cqf6flce"
 }
 ```
 
@@ -748,17 +748,17 @@ Response:
 
 ```json
 {
-  "id": "SWxaMe",
-  "acceptZeroConf": true,
-  "expectedAmount": 1359564,
-  "timeoutBlockHeight": 120,
-  "address": "QNaGS7WM31xANXQCbmrhXfnxUjxiGFpFwM",
-  "bip21": "litecoin:QNaGS7WM31xANXQCbmrhXfnxUjxiGFpFwM?amount=0.01359564&label=Submarine%20Swap%20to%20BTC",
-  "redeemScript": "a9140b8d541b172265d880331130438e69661cc5303487632102ea2e82321fd8cfa4efc3615fe3cb2675d75f0964d033d2853c37fbd99ced363d670178b17542a9142f7150b969c9c9fb9094a187f8fb41d617a65e20876300670171b1752102e317e5607e757e9c4448fe458876d7e361222d2cbee33ece9e3a7b2e2359be4d68ac68ac"
+	"id": "E63LC4",
+	"bip21": "bitcoin:2NBBYeBZgY64nJKiibnGokwrBBPjoQeMzyx?amount=0.0010054&label=Send%20to%20BTC%20lightning",
+	"address": "2NBBYeBZgY64nJKiibnGokwrBBPjoQeMzyx",
+	"redeemScript": "a9148f8d01a3e1a794024fa78bd9c81d5ae9bb1c56d287632102bba4fbfe50ea8caf880cb367f7b0083c7e91c2bc2808c817823bd36385e3a376670319b125b17503aaaae268ac",
+	"acceptZeroConf": false,
+	"expectedAmount": 100540,
+	"timeoutBlockHeight": 2470169
 }
 ```
 
-_Submarine Swap that includes the creation of a new channel:_
+_Submarine Swap that includes the_ [_creation of a new channel_](channel-creation.md)_:_
 
 `POST /createswap`
 
@@ -767,12 +767,13 @@ Request body:
 ```json
 {
   "type": "submarine",
-  "pairId": "LTC/BTC",
+  "pairId": "BTC/BTC",
   "orderSide": "sell",
-  "refundPublicKey": "03b76c1fe14bab50e52a026f35287fda75b9304bcf311ee85b4d32482400a436f5",
-  "invoice": "lnbcrt100u1pw54eudpp5e42ls0apxfm2790aesc92v5kppkr5dluvv0545v6zr593498s8zsdqqcqzpgpyaz550xmqkr6v5x8cn3qxyxmuxp7xa28xlr7qhkxlde3xm8xjyyqqurx5nq8tdeejvm4jnuw468lxjtnfj8v49hsg8tkhjz9haj65sps8xdv0",
+  "refundPublicKey": "AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBGBkraVi05Eyn6slRQV5h+fX6rtpudOq0LqPEnbnbxRshMdhS56vKWawUNLkLZZ4hKsTdbJZvgTtO/rDc2WI/Gw",
+  "invoice": "lntb10m1pjv0w7jpp5upaf56avdlkjv9h602m9heaa004reuc36yjf2hwzcv3tk0kjaekqdqqcqzzsxqyz5vqsp5klkwplct9kuzp8whrmjvqxqjhnga907aa953xdeaqypa8mn6chtq9qyyssqlywerx9cdqxukf640kphw2rtz6uamtc0g94h7jt99jpspjxn653h6gn30a6ejndh4xuxuf2gxn2sndgqhvs33s5ayg70z4p4f7n267gp4tytl0",
   "channel": {
-    "private": true,
+  "auto": true,
+    "private": false,
     "inboundLiquidity": 30
   }
 }
@@ -782,25 +783,25 @@ Response:
 
 ```json
 {
-  "id": "SIqEW9",
-  "acceptZeroConf": true,
-  "expectedAmount": 1005340,
-  "timeoutBlockHeight": 252,
-  "address": "2NBFGsAUUa9qgoMFPLrmAquCLv2qunUPDAU",
-  "bip21": "bitcoin:2NBFGsAUUa9qgoMFPLrmAquCLv2qunUPDAU?amount=0.0100534&label=Send%20to%20BTC%20lightning",
-  "redeemScript": "a9141384278c2be432627fd934e0f13b3e0c3edbbe458763210250035e2afeb9b2213d01f8374afabff4e4bdfee71909c3cd28ba37571d7a289e6702fc00b1752103e25b3f3bb7f9978410d52b4c763e3c8fe6d43cf462e91138c5b0f61b92c93d7068ac"
+	"id": "e1Qtxa",
+	"bip21": "bitcoin:2Muq74He81w8Ts4n3zhPFd1JZbuWC62czux?amount=0.0100234&label=Send%20to%20BTC%20lightning",
+	"address": "2Muq74He81w8Ts4n3zhPFd1JZbuWC62czux",
+	"redeemScript": "a91479674970eaa348958799f6fc41ef379d00f9060f8763210385ad894cdd1f27f4c88ef403100420eed6cc006965a3a58e277cb05c6f469d6667031ab125b17503aaaae268ac",
+	"acceptZeroConf": false,
+	"expectedAmount": 1002340,
+	"timeoutBlockHeight": 2470170
 }
 ```
 
-### Ethereum
+### EVM Chains
 
-Swaps from the Ethereum do not need a new address for every Swap. They work by registering the details of the Swap (like invoice and pair) in our database and waiting until the user locks either Ether in the `EtherSwap` or ERC20 tokens in the `ERC20Swap` contract. The addresses of those contracts can be queried with [`/getcontracts`](http://localhost:8000/api/#getting-contracts) and the address of the contract that needs to be used for the Swap is also in the response of the API request.
+Swaps from account-based EVM chains like RSK do not require a new address for every swap. `/createswap` takes the details of the swap (like lightning invoice and pair) and Boltz waits until the user locked e.g. rBTC in the contract. The addresses of those contracts can be queried with [`/getcontracts`](http://localhost:8000/api/#getting-contracts) and the address of the contract that needs to be used for the swap is also returned in the response of this request.
 
 The request does not require any additional values.
 
-But the response has one more value:
+But the response has one additional value:
 
-* `claimAddress`: which is the Ethereum address of Boltz. It has to be specified in the `lock` function of the swap contract
+* `claimAddress`: which is e.g. the RSK address of Boltz. It is specified in the`lock` function of the swap contract
 
 **Examples:**
 
@@ -811,7 +812,7 @@ Request body:
 ```json
 {
   "type": "submarine",
-  "pairId": "BTC/USDT",
+  "pairId": "BTC/RBTC",
   "orderSide": "buy",
   "invoice": "lnbcrt1m1p0c26rvpp5hctw8zukj00tsxay5436y43qxc5gwvdc6k9zcxnce4zer7p5a4eqdqqcqzpgsp59mwcr4cj6wq68qj6pzyjtq2j89vnpumsejdmhw5uy4yukq3vd64s9qy9qsq2537ph4kt4xryq27g5juc27v2tkx9y90hpweyqluku9rt5zfexfj6n2fqcgy7g8xx72fklr6r7qul27jd0jzvssvrhxmwth7w4lrq7sqgyv0m7"
 }
@@ -830,9 +831,9 @@ Response:
 }
 ```
 
-## Getting Swap rates
+## Swap Rates
 
-When sending onchain coins before setting the invoice of a Submarine Swap, you need to use this endpoint to figure out what the amount of the invoice you set should be. Send a `POST` request with a JSON encoded body with this value:
+When sending onchain Bitcoin, before setting the invoice of a Submarine Swap, you'll need to use this endpoint to figure out what the amount of the invoice you set should be. Send a `POST` request with a `JSON` encoded body with this value:
 
 * `id`: id of the Submarine Swap
 
@@ -843,7 +844,7 @@ When sending onchain coins before setting the invoice of a Submarine Swap, you n
 Status Codes:
 
 * `200 OK`
-* `400 Bad Request`: if the invoice amount could not be calculated. Check the `error` string in the JSON object of the body of the response for more information
+* `400 Bad Request`: if the invoice amount could not be calculated. Check the `error` string in the `JSON` object of the body of the response for more information. A common case is where the user did not lock up onchain Bitcoin yet, which is a requirement in order to calculate an invoice amount: `"error": "no coins were locked up yet"`
 
 Response object:
 

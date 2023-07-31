@@ -294,7 +294,7 @@ Response:
 }
 ```
 
-### EVM Chains (In Development!)
+### EVM Chains (Temporarily Unavailable!)
 
 Swaps from account-based EVM chains like RSK do not require a new address for every swap. `/createswap` takes the details of the swap (like lightning invoice and pair) and Boltz waits until the user locked e.g. rBTC in the contract. The addresses of those contracts can be queried with [`/getcontracts`](http://localhost:8000/api/#getting-contracts) and the address of the contract that needs to be used for the swap is also returned in the response of this request.
 
@@ -585,7 +585,7 @@ Response body:
 }
 ```
 
-### EVM Chains (In Development!)
+### EVM Chains (Temporarily Unavailable!)
 
 Requests to create swaps for Reverse Submarine Swaps from account-based EVM chains like RSK  have to contain one additional value:
 
@@ -764,7 +764,7 @@ Response:
 }
 ```
 
-## Swap Contracts (In Development)
+## Swap Contracts (Temporarily Unavailable!)
 
 To query the addresses of contracts used by Boltz for swaps on EVM chains like [RSK](https://rootstock.io/), the following endpoint can be queried:
 

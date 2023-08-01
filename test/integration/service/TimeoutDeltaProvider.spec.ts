@@ -14,6 +14,15 @@ import {
   elementsClient,
 } from '../Nodes';
 
+const mockGetOffsetValue = 60;
+const mockGetOffset = jest.fn().mockReturnValue(mockGetOffsetValue);
+
+jest.mock('../../../lib/service/RoutingOffsets', () => {
+  return jest.fn().mockImplementation(() => ({
+    getOffset: mockGetOffset,
+  }));
+});
+
 jest.mock('../../../lib/db/repositories/ChainTipRepository');
 
 jest.mock('../../../lib/wallet/ethereum/EthereumManager', () => {
@@ -145,7 +154,7 @@ describe('TimeoutDeltaProvider', () => {
       ).resolves.toEqual([
         Math.ceil(
           (cltvDelta * TimeoutDeltaProvider.blockTimes.get(quote)! +
-            TimeoutDeltaProvider.routingOffset) /
+            mockGetOffsetValue) /
             TimeoutDeltaProvider.blockTimes.get(base)!,
         ),
         true,
@@ -157,8 +166,7 @@ describe('TimeoutDeltaProvider', () => {
       timeoutDelta.swapMaximal / TimeoutDeltaProvider.blockTimes.get(quote)!;
     const invoiceCltv =
       swapMaximal -
-      TimeoutDeltaProvider.routingOffset /
-        TimeoutDeltaProvider.blockTimes.get(quote)! +
+      mockGetOffsetValue / TimeoutDeltaProvider.blockTimes.get(quote)! +
       1;
     const invoice = await createInvoice(invoiceCltv);
     await expect(
@@ -167,6 +175,7 @@ describe('TimeoutDeltaProvider', () => {
       Errors.MIN_EXPIRY_TOO_BIG(
         timeoutDelta.swapMaximal,
         invoiceCltv * TimeoutDeltaProvider.blockTimes.get(quote)!,
+        mockGetOffsetValue,
       ),
     );
   });

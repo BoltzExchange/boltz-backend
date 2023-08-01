@@ -41,10 +41,16 @@ type BaseCurrencyConfig = {
   chain: ChainConfig;
 };
 
+type RoutingOffsetException = {
+  nodeId: string;
+  offset: number;
+};
+
 type CurrencyConfig = BaseCurrencyConfig & {
   preferredWallet: 'lnd' | 'core' | undefined;
 
   lnd?: LndConfig;
+  routingOffsetExceptions?: RoutingOffsetException[];
 
   // Expiry for invoices of this currency in seconds
   invoiceExpiry?: number;

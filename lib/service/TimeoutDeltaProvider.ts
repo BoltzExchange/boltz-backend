@@ -7,6 +7,7 @@ import { ConfigType } from '../Config';
 import { OrderSide } from '../consts/Enums';
 import { PairConfig } from '../consts/Types';
 import { PayReq } from '../proto/lnd/rpc_pb';
+import RoutingOffsets from './RoutingOffsets';
 import LndClient from '../lightning/LndClient';
 import { Currency } from '../wallet/WalletManager';
 import ElementsClient from '../chain/ElementsClient';
@@ -32,7 +33,6 @@ type PairTimeoutBlockDeltas = {
 };
 
 class TimeoutDeltaProvider {
-  public static routingOffset = 60;
   public static readonly noRoutes = -1;
 
   // A map of the symbols of currencies and their block times in minutes
@@ -45,12 +45,16 @@ class TimeoutDeltaProvider {
 
   public timeoutDeltas = new Map<string, PairTimeoutBlockDeltas>();
 
+  private routingOffsets: RoutingOffsets;
+
   constructor(
     private logger: Logger,
     private config: ConfigType,
     private currencies: Map<string, Currency>,
     private ethereumManager: EthereumManager,
-  ) {}
+  ) {
+    this.routingOffsets = new RoutingOffsets(config);
+  }
 
   public static convertBlocks = (
     fromSymbol: string,
@@ -168,6 +172,7 @@ class TimeoutDeltaProvider {
 
       return invoice
         ? await this.getTimeoutInvoice(
+            pairId,
             chain,
             lightning,
             chainDeltas,
@@ -224,6 +229,7 @@ class TimeoutDeltaProvider {
   };
 
   private getTimeoutInvoice = async (
+    pair: string,
     chainCurrency: string,
     lightningCurrency: string,
     chainTimeout: PairTimeoutBlocksDelta,
@@ -255,7 +261,14 @@ class TimeoutDeltaProvider {
     const routeDeltaMinutes = Math.ceil(
       routeDeltaRelative * TimeoutDeltaProvider.getBlockTime(lightningCurrency),
     );
-    const finalExpiry = routeDeltaMinutes + TimeoutDeltaProvider.routingOffset;
+
+    const routingOffset = this.routingOffsets.getOffset(
+      pair,
+      decodedInvoice.getNumSatoshis(),
+      lightningCurrency,
+      decodedInvoice.getDestination(),
+    );
+    const finalExpiry = routeDeltaMinutes + routingOffset;
 
     const minTimeout = Math.ceil(
       finalExpiry / TimeoutDeltaProvider.getBlockTime(chainCurrency),
@@ -268,6 +281,7 @@ class TimeoutDeltaProvider {
             TimeoutDeltaProvider.getBlockTime(chainCurrency),
         ),
         routeDeltaMinutes,
+        routingOffset,
       );
     }
 

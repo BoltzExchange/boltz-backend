@@ -59,7 +59,8 @@ describe('TimeoutDeltaProvider', () => {
           quote: 'BTC',
         },
       ],
-    } as ConfigType,
+      currencies: [],
+    } as unknown as ConfigType,
     new Map<string, Currency>(),
     {} as unknown as EthereumManager,
   );

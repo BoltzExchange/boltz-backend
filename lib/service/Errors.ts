@@ -1,7 +1,6 @@
 import { Error } from '../consts/Types';
 import { concatErrorCode } from '../Utils';
 import { ErrorCodePrefix } from '../consts/Enums';
-import TimeoutDeltaProvider from './TimeoutDeltaProvider';
 
 export default {
   CURRENCY_NOT_FOUND: (currency: string): Error => ({
@@ -121,8 +120,9 @@ export default {
   MIN_EXPIRY_TOO_BIG: (
     swapMaximal: number,
     minFinalCltvExpiry: number,
+    routingOffset: number,
   ): Error => ({
-    message: `minimal swap expiry ${minFinalCltvExpiry} plus the routing offset ${TimeoutDeltaProvider.routingOffset} minutes is greater than max swap timeout ${swapMaximal}`,
+    message: `minimal swap expiry ${minFinalCltvExpiry} plus the routing offset ${routingOffset} minutes is greater than max swap timeout ${swapMaximal}`,
     code: concatErrorCode(ErrorCodePrefix.Service, 32),
   }),
 };

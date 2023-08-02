@@ -183,7 +183,7 @@ We recommend verifing that pair data fetched previously is still accurate by add
 * ~~`channel`: a `JSON` object that contains all the information relevant to the creation of the channel~~
   * ~~`auto`: whether Boltz should dynamically decide if a channel should be created based on whether the invoice you provided can be paid without opening a channel. More modes will be added in the future~~
   * ~~`private`: whether the channel to your node should be private~~
-  * ~~`inboundLiquidity`: percentage of the channel balance that Boltz should provide as inbound liquidity for your node. The maximal value here is `50`, which means that the channel will be balanced 50/50~~
+  * ~~`inboundLiquidity`: percentage of the channel balance that Boltz should provide as inbound liquidity for your node. The maximal value here is `50`, which means that the channel will be balanced 50/50, minimum value is 10, which means that the channel will be balanced 90 on user, 10 on Boltz side.~~
 
 ~~To find out how to enforce that the requested channel was actually opened and the invoice paid through it have a look at~~ [~~this document where we wrote down some possible solutions~~](channel-creation.md)~~.~~
 
@@ -1066,7 +1066,7 @@ To authenticate your API request, three request headers have to be set:
 
 * `TS`: current UNIX timestamp (can only deviate from server time by 1 minute at most)
 * `API-KEY`: your API key
-* `API-HMAC`: SHA256 HMAC encoded as HEX of the following values:
+* `API-HMAC`: SHA256 HMAC encoded as HEX (lower case letters!) of the following values:
   * value of the `TS` header
   * method of the HTTP request (e.g. `GET` or `POST`)
   * request path, including the leading slash (e.g. `/referrals/query`)

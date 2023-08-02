@@ -93,4 +93,4 @@ An example for this can be found in the [`boltz-core`](https://github.com/BoltzE
 
 ## EVM chains
 
-The HTLCs that Boltz uses on EVM chains are not single use scripts but contracts. One contract is called EtherSwap and the other one is ERC20Swap. The source for the those contracts and some additional ones used for integration testing the Swap contracts can be found in the [`boltz-core`](https://github.com/BoltzExchange/boltz-core/tree/master/contracts) [r](https://github.com/BoltzExchange/boltz-core/blob/master/lib/swap/Scripts.ts)eference library.
+The HTLCs that Boltz uses on EVM chains are not single use scripts, but contracts. The source for the those contracts and integration tests can be found in the [`boltz-core`](https://github.com/BoltzExchange/boltz-core/tree/master/contracts) [r](https://github.com/BoltzExchange/boltz-core/blob/master/lib/swap/Scripts.ts)eference library.

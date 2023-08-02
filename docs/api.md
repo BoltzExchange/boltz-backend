@@ -294,32 +294,32 @@ Response:
 }
 ```
 
-### EVM Chains (Temporarily Unavailable!)
+### EVM Chains (Coming Soon!)
 
-Swaps from account-based EVM chains like RSK do not require a new address for every swap. `/createswap` takes the details of the swap (like lightning invoice and pair) and Boltz waits until the user locked e.g. rBTC in the contract. The addresses of those contracts can be queried with [`/getcontracts`](http://localhost:8000/api/#getting-contracts) and the address of the contract that needs to be used for the swap is also returned in the response of this request.
+~~Swaps from account-based EVM chains like RSK do not require a new address for every swap. `/createswap` takes the details of the swap (like lightning invoice and pair) and Boltz waits until the user locked e.g. rBTC in the contract. The addresses of those contracts can be queried with~~ [~~`/getcontracts`~~](http://localhost:8000/api/#getting-contracts) ~~and the address of the contract that needs to be used for the swap is also returned in the response of this request.~~
 
-The request does not require any additional values.
+~~The request does not require any additional values.~~
 
-But the response has one additional value:
+~~But the response has one additional value:~~
 
-* `claimAddress`: which is e.g. the RSK address of Boltz. It is specified in the`lock` function of the swap contract
+* ~~`claimAddress`: which is e.g. the RSK address of Boltz. It is specified in the`lock` function of the swap contract~~
 
-**Examples:**
+~~**Examples:**~~
 
-`POST /createswap`
+~~`POST /createswap`~~
 
-Request body:
+~~Request body:~~
 
 ```json
 {
   "type": "submarine",
-  "pairId": "BTC/RBTC",
+  "pairId": "RBTC/BTC",
   "orderSide": "buy",
   "invoice": "lnbcrt1m1p0c26rvpp5hctw8zukj00tsxay5436y43qxc5gwvdc6k9zcxnce4zer7p5a4eqdqqcqzpgsp59mwcr4cj6wq68qj6pzyjtq2j89vnpumsejdmhw5uy4yukq3vd64s9qy9qsq2537ph4kt4xryq27g5juc27v2tkx9y90hpweyqluku9rt5zfexfj6n2fqcgy7g8xx72fklr6r7qul27jd0jzvssvrhxmwth7w4lrq7sqgyv0m7"
 }
 ```
 
-Response:
+~~Response:~~
 
 ```json
 {
@@ -338,9 +338,9 @@ When sending onchain Bitcoin, before setting the invoice of a Submarine Swap, yo
 
 * `id`: id of the Submarine Swap
 
-| URL               | Response    |
-| ----------------- | ----------- |
-| `POST /swaprates` | JSON object |
+| URL               | Response      |
+| ----------------- | ------------- |
+| `POST /swaprates` | `JSON` object |
 
 Status Codes:
 
@@ -376,9 +376,9 @@ In case the amount to be swapped is not known when creating a Normal Submarine S
 * `id`: id of the swap for which the invoice should be set
 * `invoice`: invoice of the user that should be paid
 
-| URL                | Response    |
-| ------------------ | ----------- |
-| `POST /setinvoice` | JSON object |
+| URL                | Response      |
+| ------------------ | ------------- |
+| `POST /setinvoice` | `JSON` object |
 
 Status Codes:
 
@@ -489,9 +489,9 @@ We recommend verifing that pair data fetched previously is still accurate by add
 
 * `pairHash`: `hash` string in the pair object of [`/getpairs`](api.md#getting-pairs)
 
-| URL                | Response    |
-| ------------------ | ----------- |
-| `POST /createswap` | JSON object |
+| URL                | Response      |
+| ------------------ | ------------- |
+| `POST /createswap` | `JSON` object |
 
 Status Codes:
 
@@ -585,7 +585,7 @@ Response body:
 }
 ```
 
-### EVM Chains (In The Works!)
+### EVM Chains (Coming Soon!)
 
 ~~Requests to create swaps for Reverse Submarine Swaps from account-based EVM chains like RSK have to contain one additional value:~~
 
@@ -640,13 +640,13 @@ _Before handling status events of this method it is recommended to read:_ [_Swap
 
 To query the status of a swap one can use this endpoint which returns a `JSON` object containing the status of the swap. Possible states and status events are documented in the section [Swap Types & States](<README (1).md>)_._
 
-Requests querying the status of a swap have to be `POST` and contain a single value in its JSON encoded body:
+Requests querying the status of a swap have to be `POST` and contain a single value in its `JSON` encoded body:
 
 * `id`: the id of the swap of which the status should be queried
 
-| URL                | Response    |
-| ------------------ | ----------- |
-| `POST /swapstatus` | JSON object |
+| URL                | Response      |
+| ------------------ | ------------- |
+| `POST /swapstatus` | `JSON` object |
 
 Status Codes:
 
@@ -732,7 +732,7 @@ To avoid querying the [`/swapstatus`](api.md#swap-status) endpoint regularly to 
 
 Requests to this endpoint have to provide the required swap `id` parameter via an URL parameter because all requests have to be of the method `GET`.
 
-Every event in the Server-Side stream has data that is encoded exactly like the JSON object of the `/swapstatus` endpoint. Please have a look at the examples below for a reference implementation in JavaScript of handling the stream.
+Every event in the Server-Side stream has data that is encoded exactly like the `JSON` object of the `/swapstatus` endpoint. Please have a look at the examples below for a reference implementation in JavaScript of handling the stream.
 
 | URL                     | Response                 |
 | ----------------------- | ------------------------ |
@@ -766,9 +766,9 @@ data: {"status":"invoice.paid"}
 
 Boltz Swaps have different timeouts for each pair. This endpoint allows querying those timeouts denominated in blocks of the base and quote chain.
 
-| URL             | Response    |
-| --------------- | ----------- |
-| `GET /timeouts` | JSON object |
+| URL             | Response      |
+| --------------- | ------------- |
+| `GET /timeouts` | `JSON` object |
 
 Status Codes:
 
@@ -815,32 +815,32 @@ Response:
 }
 ```
 
-## Swap Contracts (Temporarily Unavailable!)
+## Swap Contracts (Coming Soon!)
 
-To query the addresses of contracts used by Boltz for swaps on EVM chains like [RSK](https://rootstock.io/), the following endpoint can be queried:
+~~To query the addresses of contracts used by Boltz for swaps on EVM chains like~~ [~~RSK~~](https://rootstock.io/)~~, the following endpoint can be queried:~~
 
-| URL                 | Response    |
-| ------------------- | ----------- |
-| `GET /getcontracts` | JSON object |
+| URL                 | Response      |
+| ------------------- | ------------- |
+| `GET /getcontracts` | `JSON` object |
 
-Status Codes:
+~~Status Codes:~~
 
-* `200 OK`
+* ~~`200 OK`~~
 
-Response object:
+~~Response object:~~
 
-* `rsk`: a `JSON` object that contains all relevant RSK addresses
-  * `network`: `JSON` object that contains information about the network
-    * `chainId`: id of the RSK chain
-    * `name`: if the RSK network of the backend is public, this property will be set to its name. Else this value stays `undefined`.
-  * `swapContracts`: `JSON` object containing swap contract addresses as values
-  * `tokens`: `JSON` object with the ticker symbol of the supported token as key and its address as value
+* ~~`rsk`: a `JSON` object that contains all relevant RSK addresses~~
+  * ~~`network`: `JSON` object that contains information about the network~~
+    * ~~`chainId`: id of the RSK chain~~
+    * ~~`name`: if the RSK network of the backend is public, this property will be set to its name. Else this value stays `undefined`.~~
+  * ~~`swapContracts`: `JSON` object containing swap contract addresses as values~~
+  * ~~`tokens`: `JSON` object with the ticker symbol of the supported token as key and its address as value~~
 
-**Examples:**
+~~**Examples:**~~
 
-`GET /getcontracts`
+~~`GET /getcontracts`~~
 
-Response:
+~~Response:~~
 
 ```json
 {
@@ -864,9 +864,9 @@ Boltz provides an API endpoint that returns fee estimations for all supported ch
 
 For UTXO chains like Bitcoin it is important to mention that if 0-conf is accepted by Boltz  for a particular pair (see [section](api.md#getting-pairs) above) and to be used with Normal Submarine Swaps, the lockup transaction has to have at least 80% of the recommended `sat/vbyte` value. One can read more about the what and why in the [0-conf docs](0-confirmation.md).
 
-| URL                     | Response    |
-| ----------------------- | ----------- |
-| `GET /getfeeestimation` | JSON object |
+| URL                     | Response      |
+| ----------------------- | ------------- |
+| `GET /getfeeestimation` | `JSON` object |
 
 Status Codes:
 
@@ -898,9 +898,9 @@ Requests querying for transactions have to be `POST` and contain two arguments i
 * `currency`: which chain should be queried for the transaction
 * `transactionId`: the id of the transaction that should be queried
 
-| URL                    | Response    |
-| ---------------------- | ----------- |
-| `POST /gettransaction` | JSON object |
+| URL                    | Response      |
+| ---------------------- | ------------- |
+| `POST /gettransaction` | `JSON` object |
 
 Status Codes:
 
@@ -938,9 +938,9 @@ The following endpoint can be used to query the user's lockup transaction of a N
 
 * `id`: id of the Submarine Swap
 
-| URL                        | Response    |
-| -------------------------- | ----------- |
-| `POST /getswaptransaction` | JSON object |
+| URL                        | Response      |
+| -------------------------- | ------------- |
+| `POST /getswaptransaction` | `JSON` object |
 
 Status Codes:
 
@@ -990,14 +990,14 @@ This call works for Normal Submarine Swaps only. If used for Reverse Submarine S
 
 This endpoint is used to broadcast transactions on UTXO chains. It is similar to [`/gettransaction`](api.md#raw-transactions) but instead of getting the hex representation of existing transactions on the chain, this call broadcasts _new_ transactions to the network. It is mainly intended to be used to broadcast refund transactions on user's behalf. It returns the id of the broacasted transaction,which can be used to verify that the refund transaction was broadcasted successfully.
 
-Requests broadcasting transactions have to be `POST` and contain two arguments in the JSON encoded body:
+Requests broadcasting transactions have to be `POST` and contain two arguments in the `JSON` encoded body:
 
 * `currency`: to which network the transaction should be broadcasted
 * `transactionHex`: the HEX encoded transaction itself
 
-| URL                          | Response    |
-| ---------------------------- | ----------- |
-| `POST /broadcasttransaction` | JSON object |
+| URL                          | Response      |
+| ---------------------------- | ------------- |
+| `POST /broadcasttransaction` | `JSON` object |
 
 Status Codes:
 
@@ -1105,9 +1105,9 @@ try {
 
 Members of the Boltz partner program can request a referral key ([hi@bol.tz](mailto:hi@bol.tz)) to get a percentage of the fees earned from Swaps through their integration. To query for their referrals, they can send an [authenticated](api.md#authentication) request to this endpoint.
 
-| URL                    | Response    |
-| ---------------------- | ----------- |
-| `GET /referrals/query` | JSON object |
+| URL                    | Response      |
+| ---------------------- | ------------- |
+| `GET /referrals/query` | `JSON` object |
 
 Status Codes:
 
@@ -1140,9 +1140,9 @@ Response:
 
 This endpoint allows you to query info like public keys and URIs of the lightning nodes operated by Boltz.
 
-| URL             | Response    |
-| --------------- | ----------- |
-| `GET /getnodes` | JSON object |
+| URL             | Response      |
+| --------------- | ------------- |
+| `GET /getnodes` | `JSON` object |
 
 Status Codes:
 
@@ -1178,9 +1178,9 @@ Response:
 
 For display purposes on our website, basic statistics about our lightning nodes are exposed via the following endpoint:
 
-| URL              | Response    |
-| ---------------- | ----------- |
-| `GET /nodestats` | JSON object |
+| URL              | Response      |
+| ---------------- | ------------- |
+| `GET /nodestats` | `JSON` object |
 
 Status Codes:
 

@@ -15,18 +15,25 @@ class WalletLiquid extends Wallet {
     super(logger, CurrencyType.Liquid, walletProvider);
   }
 
-  public override encodeAddress = (outputScript: Buffer): string => {
+  public override encodeAddress = (
+    outputScript: Buffer,
+    shouldBlind = true,
+  ): string => {
     try {
       // Fee output of Liquid
       if (outputScript.length == 0) {
         return '';
       }
 
-      return this.getPaymentFunc(outputScript)({
+      const res = this.getPaymentFunc(outputScript)({
         output: outputScript,
         network: this.network as networks.Network,
-        blindkey: this.deriveBlindingKeyFromScript(outputScript).publicKey!,
-      }).confidentialAddress!;
+        blindkey: shouldBlind
+          ? this.deriveBlindingKeyFromScript(outputScript).publicKey!
+          : undefined,
+      });
+
+      return shouldBlind ? res.confidentialAddress! : res.address!;
     } catch (error) {
       // Ignore invalid addresses
       return '';

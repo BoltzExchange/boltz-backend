@@ -19,17 +19,27 @@ export const loadBoltzClient = (argv: Arguments<any>): BoltzClient => {
   );
 };
 
-export const callback = (error: Error | null, response: GrpcResponse): void => {
-  if (error) {
-    printError(error);
-  } else {
-    const responseObj = response.toObject();
-    if (Object.keys(responseObj).length === 0) {
-      console.log('success');
+export const callback = <T extends GrpcResponse>(
+  formatter?: (res: T) => any,
+): ((error: Error | null, response: T) => void) => {
+  return (error: Error | null, response: T) => {
+    if (error) {
+      printError(error);
+
+      // eslint-disable-next-line no-process-exit
+      process.exit(1);
     } else {
-      printResponse(responseObj);
+      const responseObj = response.toObject();
+
+      if (Object.keys(responseObj).length === 0) {
+        console.log('success');
+      } else {
+        printResponse(
+          formatter !== undefined ? formatter(response) : responseObj,
+        );
+      }
     }
-  }
+  };
 };
 
 export const prepareTx = async (argv: Arguments<any>) => {

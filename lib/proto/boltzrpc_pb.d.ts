@@ -521,6 +521,156 @@ export namespace DeriveBlindingKeyResponse {
   };
 }
 
+export class UnblindOutputsRequest extends jspb.Message {
+  hasId(): boolean;
+  clearId(): void;
+  getId(): string;
+  setId(value: string): UnblindOutputsRequest;
+
+  hasHex(): boolean;
+  clearHex(): void;
+  getHex(): string;
+  setHex(value: string): UnblindOutputsRequest;
+
+  getTransactionCase(): UnblindOutputsRequest.TransactionCase;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): UnblindOutputsRequest.AsObject;
+  static toObject(
+    includeInstance: boolean,
+    msg: UnblindOutputsRequest,
+  ): UnblindOutputsRequest.AsObject;
+  static extensions: { [key: number]: jspb.ExtensionFieldInfo<jspb.Message> };
+  static extensionsBinary: {
+    [key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>;
+  };
+  static serializeBinaryToWriter(
+    message: UnblindOutputsRequest,
+    writer: jspb.BinaryWriter,
+  ): void;
+  static deserializeBinary(bytes: Uint8Array): UnblindOutputsRequest;
+  static deserializeBinaryFromReader(
+    message: UnblindOutputsRequest,
+    reader: jspb.BinaryReader,
+  ): UnblindOutputsRequest;
+}
+
+export namespace UnblindOutputsRequest {
+  export type AsObject = {
+    id: string;
+    hex: string;
+  };
+
+  export enum TransactionCase {
+    TRANSACTION_NOT_SET = 0,
+    ID = 1,
+    HEX = 2,
+  }
+}
+
+export class UnblindOutputsResponse extends jspb.Message {
+  clearOutputsList(): void;
+  getOutputsList(): Array<UnblindOutputsResponse.UnblindedOutput>;
+  setOutputsList(
+    value: Array<UnblindOutputsResponse.UnblindedOutput>,
+  ): UnblindOutputsResponse;
+  addOutputs(
+    value?: UnblindOutputsResponse.UnblindedOutput,
+    index?: number,
+  ): UnblindOutputsResponse.UnblindedOutput;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): UnblindOutputsResponse.AsObject;
+  static toObject(
+    includeInstance: boolean,
+    msg: UnblindOutputsResponse,
+  ): UnblindOutputsResponse.AsObject;
+  static extensions: { [key: number]: jspb.ExtensionFieldInfo<jspb.Message> };
+  static extensionsBinary: {
+    [key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>;
+  };
+  static serializeBinaryToWriter(
+    message: UnblindOutputsResponse,
+    writer: jspb.BinaryWriter,
+  ): void;
+  static deserializeBinary(bytes: Uint8Array): UnblindOutputsResponse;
+  static deserializeBinaryFromReader(
+    message: UnblindOutputsResponse,
+    reader: jspb.BinaryReader,
+  ): UnblindOutputsResponse;
+}
+
+export namespace UnblindOutputsResponse {
+  export type AsObject = {
+    outputsList: Array<UnblindOutputsResponse.UnblindedOutput.AsObject>;
+  };
+
+  export class UnblindedOutput extends jspb.Message {
+    getValue(): number;
+    setValue(value: number): UnblindedOutput;
+    getAsset(): Uint8Array | string;
+    getAsset_asU8(): Uint8Array;
+    getAsset_asB64(): string;
+    setAsset(value: Uint8Array | string): UnblindedOutput;
+    getIsLbtc(): boolean;
+    setIsLbtc(value: boolean): UnblindedOutput;
+    getScript(): Uint8Array | string;
+    getScript_asU8(): Uint8Array;
+    getScript_asB64(): string;
+    setScript(value: Uint8Array | string): UnblindedOutput;
+    getNonce(): Uint8Array | string;
+    getNonce_asU8(): Uint8Array;
+    getNonce_asB64(): string;
+    setNonce(value: Uint8Array | string): UnblindedOutput;
+
+    hasRangeProof(): boolean;
+    clearRangeProof(): void;
+    getRangeProof(): Uint8Array | string;
+    getRangeProof_asU8(): Uint8Array;
+    getRangeProof_asB64(): string;
+    setRangeProof(value: Uint8Array | string): UnblindedOutput;
+
+    hasSurjectionProof(): boolean;
+    clearSurjectionProof(): void;
+    getSurjectionProof(): Uint8Array | string;
+    getSurjectionProof_asU8(): Uint8Array;
+    getSurjectionProof_asB64(): string;
+    setSurjectionProof(value: Uint8Array | string): UnblindedOutput;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): UnblindedOutput.AsObject;
+    static toObject(
+      includeInstance: boolean,
+      msg: UnblindedOutput,
+    ): UnblindedOutput.AsObject;
+    static extensions: { [key: number]: jspb.ExtensionFieldInfo<jspb.Message> };
+    static extensionsBinary: {
+      [key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>;
+    };
+    static serializeBinaryToWriter(
+      message: UnblindedOutput,
+      writer: jspb.BinaryWriter,
+    ): void;
+    static deserializeBinary(bytes: Uint8Array): UnblindedOutput;
+    static deserializeBinaryFromReader(
+      message: UnblindedOutput,
+      reader: jspb.BinaryReader,
+    ): UnblindedOutput;
+  }
+
+  export namespace UnblindedOutput {
+    export type AsObject = {
+      value: number;
+      asset: Uint8Array | string;
+      isLbtc: boolean;
+      script: Uint8Array | string;
+      nonce: Uint8Array | string;
+      rangeProof: Uint8Array | string;
+      surjectionProof: Uint8Array | string;
+    };
+  }
+}
+
 export class GetAddressRequest extends jspb.Message {
   getSymbol(): string;
   setSymbol(value: string): GetAddressRequest;

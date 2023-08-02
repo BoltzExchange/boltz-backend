@@ -13,6 +13,7 @@ service Boltz {
   rpc DeriveKeys (DeriveKeysRequest) returns (DeriveKeysResponse);
 
   rpc DeriveBlindingKeys (DeriveBlindingKeyRequest) returns (DeriveBlindingKeyResponse);
+  rpc UnblindOutputs (UnblindOutputsRequest) returns (UnblindOutputsResponse);
 
   /* Gets an address of a specified wallet */
   rpc GetAddress (GetAddressRequest) returns (GetAddressResponse);
@@ -104,9 +105,31 @@ message DeriveBlindingKeyResponse {
   string private_key = 2;
 }
 
+message UnblindOutputsRequest {
+  oneof transaction {
+    string id = 1;
+    string hex = 2;
+  };
+}
+
+message UnblindOutputsResponse {
+  message UnblindedOutput {
+    uint64 value = 1;
+    bytes asset = 2;
+    bool is_lbtc = 3;
+    bytes script = 4;
+    bytes nonce = 5;
+    optional bytes range_proof = 6;
+    optional bytes surjection_proof = 7;
+  }
+
+  repeated UnblindedOutput outputs = 1;
+}
+
 message GetAddressRequest {
   string symbol = 1;
 }
+
 message GetAddressResponse {
   string address = 1;
 }

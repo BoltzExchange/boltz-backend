@@ -98,6 +98,19 @@ describe('Wallet', () => {
     return masterNode.derivePath(`${derivationPath}/${index}`);
   };
 
+  const walletLiquid = new WalletLiquid(
+    Logger.disabledLogger,
+    walletProvider,
+    slip77.fromSeed(mnemonic),
+  );
+
+  walletLiquid.initKeyProvider(
+    networkLiquid.liquid,
+    derivationPath,
+    highestUsedIndex,
+    masterNode,
+  );
+
   beforeAll(async () => {
     await database.init();
 
@@ -106,6 +119,10 @@ describe('Wallet', () => {
       derivationPath,
       highestUsedIndex,
     });
+  });
+
+  afterAll(async () => {
+    await database.close();
   });
 
   test('should init', () => {
@@ -208,26 +225,15 @@ describe('Wallet', () => {
   });
 
   test('should blind Liquid addresses', () => {
-    const walletLiquid = new WalletLiquid(
-      Logger.disabledLogger,
-      walletProvider,
-      slip77.fromSeed(mnemonic),
-    );
     expect(walletLiquid.type).toEqual(CurrencyType.Liquid);
-
-    walletLiquid.initKeyProvider(
-      networkLiquid.liquid,
-      derivationPath,
-      highestUsedIndex,
-      masterNode,
-    );
-
     expect(
       walletLiquid.encodeAddress(encodeOutput).startsWith('lq1qq'),
     ).toBeTruthy();
   });
 
-  afterAll(async () => {
-    await database.close();
+  test('should encode unblinded Liquid addresses', () => {
+    expect(
+      walletLiquid.encodeAddress(encodeOutput, false).startsWith('ex'),
+    ).toBeTruthy();
   });
 });

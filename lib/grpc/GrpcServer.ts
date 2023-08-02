@@ -21,6 +21,7 @@ class GrpcServer {
       getBalance: grpcService.getBalance,
       deriveKeys: grpcService.deriveKeys,
       deriveBlindingKeys: grpcService.deriveBlindingKeys,
+      unblindOutputs: grpcService.unblindOutputs,
       getAddress: grpcService.getAddress,
       sendCoins: grpcService.sendCoins,
       updateTimeoutBlockDelta: grpcService.updateTimeoutBlockDelta,

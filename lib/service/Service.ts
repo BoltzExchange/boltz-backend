@@ -11,7 +11,7 @@ import ErrorsSwap from '../swap/Errors';
 import EventHandler from './EventHandler';
 import { parseTransaction } from '../Core';
 import { PairConfig } from '../consts/Types';
-import WalletLiquid from '../wallet/WalletLiquid';
+import ElementsService from './ElementsService';
 import SwapOutputType from '../swap/SwapOutputType';
 import ElementsClient from '../chain/ElementsClient';
 import InvoiceExpiryHelper from './InvoiceExpiryHelper';
@@ -76,6 +76,7 @@ class Service {
   private nodeInfo: NodeInfo;
   public swapManager: SwapManager;
   public eventHandler: EventHandler;
+  public elementsService: ElementsService;
 
   private prepayMinerFee: boolean;
 
@@ -142,6 +143,10 @@ class Service {
     );
 
     this.nodeInfo = new NodeInfo(this.logger, this.currencies);
+    this.elementsService = new ElementsService(
+      this.currencies,
+      this.walletManager,
+    );
   }
 
   public init = async (configPairs: PairConfig[]): Promise<void> => {
@@ -476,23 +481,6 @@ class Service {
     response.setPrivateKey(getHexString(keys.privateKey!));
 
     return response;
-  };
-
-  public deriveBlindingKeys = (address: any) => {
-    const wallet = this.walletManager.wallets.get(ElementsClient.symbol) as
-      | WalletLiquid
-      | undefined;
-    if (wallet === undefined) {
-      throw Errors.CURRENCY_NOT_FOUND(ElementsClient.symbol);
-    }
-
-    const { publicKey, privateKey } = wallet.deriveBlindingKeyFromScript(
-      wallet.decodeAddress(address),
-    );
-    return {
-      publicKey: publicKey!,
-      privateKey: privateKey!,
-    };
   };
 
   /**

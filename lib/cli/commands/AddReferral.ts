@@ -29,5 +29,5 @@ export const handler = (argv: Arguments<any>): void => {
   request.setFeeShare(argv.feeShare);
   request.setRoutingNode(argv.routingNode);
 
-  loadBoltzClient(argv).addReferral(request, callback);
+  loadBoltzClient(argv).addReferral(request, callback());
 };

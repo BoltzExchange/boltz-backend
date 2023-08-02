@@ -124,11 +124,10 @@ describe('Core', () => {
       await walletLiquid.getAddress(),
       walletLiquid.network,
     );
-    const addr = walletLiquid.encodeAddress(script);
 
     const outputAmount = 1245412;
     const { transaction, vout } = await walletLiquid.sendToAddress(
-      addr,
+      walletLiquid.encodeAddress(script),
       outputAmount,
     );
 

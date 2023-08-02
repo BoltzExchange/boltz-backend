@@ -334,7 +334,7 @@ Response:
 
 ### Swap Rates
 
-When sending chain Bitcoin, before setting the invoice of a Submarine Swap, you'll need to use this endpoint to figure out what the amount of the invoice you set should be. Send a `POST` request with a `JSON` encoded body with this value:
+When sending chain bitcoin, before setting the invoice of a Normal Submarine Swap, you'll need to use this endpoint to figure out what the amount of the invoice you set should be. Send a `POST` request with a `JSON` encoded body with this value:
 
 * `id`: id of the Submarine Swap
 
@@ -371,7 +371,7 @@ Response:
 
 ### Setting an Invoice
 
-In case the amount to be swapped is not known when creating a Normal Submarine Swap, the invoice can be set afterwards; even if the chain Bitcoin were sent already. Please keep in mind that the invoice **has to have the same preimage hash** that was specified when creating the swap. Although the invoice can be changed after setting it initially, this endpoint will only work if Boltz did not try to pay the initial invoice yet. Requests to this endpoint have to be `POST` and should have the following values in its `JSON` encoded body:
+In case the amount to be swapped is not known when creating a Normal Submarine Swap, the invoice can be set afterwards; even if the chain bitcoin were sent already. Please keep in mind that the invoice **has to have the same preimage hash** that was specified when creating the swap. Although the invoice can be changed after setting it initially, this endpoint will only work if Boltz did not try to pay the initial invoice yet. Requests to this endpoint have to be `POST` and should have the following values in its `JSON` encoded body:
 
 * `id`: id of the swap for which the invoice should be set
 * `invoice`: invoice of the user that should be paid
@@ -393,7 +393,7 @@ What is returned when the invoice is set depends on the status of the Submarine 
 * `expectedAmount`: the amount that Boltz expects you to lock in the chain HTLC
 * `bip21`: a [BIP21 payment request](https://github.com/bitcoin/bips/blob/master/bip-0021.mediawiki) for the `expectedAmount` of bitcoin and the `address` (only set when swapping from UTXO based chains)
 
-If chain Bitcoin were sent already (status [`transaction.mempool`](<README (1).md#normal-submarine-swaps>) or [`transaction.confirmed`](<README (1).md#normal-submarine-swaps>)) the endpoint will return an empty `JSON` object, signifying success.
+If chain bitcoin were sent already (status [`transaction.mempool`](<README (1).md#normal-submarine-swaps>) or [`transaction.confirmed`](<README (1).md#normal-submarine-swaps>)) the endpoint will return an empty `JSON` object, signifying success.
 
 In case this endpoint is called again after an invoice was set and Boltz tried to pay it already:
 
@@ -402,7 +402,7 @@ In case this endpoint is called again after an invoice was set and Boltz tried t
 
 **Examples:**
 
-_If no Bitcoin were sent yet:_
+If _no_ bitcoin were sent yet:
 
 `POST /setinvoice`
 
@@ -425,7 +425,7 @@ Response:
 }
 ```
 
-_If Bitcoin were sent already:_
+If bitcoin _were sent_ already:
 
 `POST /setinvoice`
 
@@ -444,7 +444,7 @@ Response:
 {}
 ```
 
-_If the invoice was previously set and Boltz tried to pay it already:_
+If the invoice was previously set and Boltz tried to pay it already:
 
 `POST /setinvoice`
 
@@ -468,7 +468,7 @@ Response:
 
 ## Creating Reverse Submarine Swaps
 
-This section walks you creating Reverse Submarine Swaps (Lightning -> Chain) and is similar to creating Normal Submarine Swaps. In the same way, requests and responses change slightly depending on the kind of Bitcoin involved in the swap. Keep in mind, **Boltz uses 10 \*\* -8 as denomination** for responses on the API.
+This section walks you creating Reverse Submarine Swaps (Lightning -> Chain) and is similar to creating Normal Submarine Swaps. In the same way, requests and responses change slightly depending on the kind of bitcoin involved in the swap. Keep in mind, **Boltz uses 10 \*\* -8 as denomination** for responses on the API.
 
 All requests bodies extend from:
 

@@ -67,7 +67,7 @@ Response object:
   * `prepay.minerfee`: If the array contains this value, Boltz requires a small invoice for the miner fee to be paid before the actual hold invoice of a Reverse Swap is revealed. As of writing, Boltz does _not_ require this prepayment and thus returns an empty array.
 * `warnings`: an array of strings that indicate that some feature of Boltz might me disabled or restricted. An example of a warning is:
   * `reverse.swaps.disabled`: Means that all reverse swaps (from Lightning to the chain) are disabled.
-* `pairs`: an object containing the supported pairs. The keys of the values are the IDs of the pairs (`BTC/BTC` is a special case with mainchain Bitcoin as _base asset_ and Lightning Bitcoin as _quote asset_) and the values itself contain information about the pair:
+* `pairs`: an object containing the supported pairs. The keys of the values are the IDs of the pairs (`BTC/BTC` is a special case with mainchain bitcoin as _base asset_ and Lightning bitcoin as _quote asset_) and the values itself contain information about the pair:
   * `hash`: SHA256 hash of the `JSON` encoded data in the pair object.
   * `rate`: The exchange rate of the pair.
   * `limits`: a `JSON` Object containing the minimal and maximal amount of the pair's swap. The numbers are denominated **10 \*\* -8** of the _quote asset._
@@ -75,7 +75,7 @@ Response object:
   * `fees`: A `JSON` object that contains different kinds of fees:
     * `percentage`: The percentage of the "send amount" that is charged by Boltz as "Boltz Fee" for swaps from quote to base asset (e.g. Lightning -> Bitcoin).
     * `percentageSwapIn`: The percentage of the "send amount" that is charged by Boltz as "Boltz Fee" for a swap from base to quote asset (e.g. Bitcoin -> Lightning).
-    * `minerFees`: The network fees charged for locking up and claiming funds onchain. These values are absolute, denominated in **10 \*\* -8** of the quote asset.
+    * `minerFees`: The network fees charged for locking up and claiming funds on the chain. These values are absolute, denominated in **10 \*\* -8** of the quote asset.
 
 **Examples:**
 
@@ -158,7 +158,7 @@ Response:
 
 ## Creating Normal Submarine Swaps
 
-This section walks you through creating Normal Submarine Swaps (Chain -> Lightning). They differ slightly depending on the kind of Bitcoin that are swapped, more information below. **Please note that Boltz works with 10 \*\* -8 decimals internally** and all amounts in the API endpoints follow this denomination. All requests to create swaps have the following common values in the API request:
+This section walks you through creating Normal Submarine Swaps (Chain -> Lightning). They differ slightly depending on the kind of bitcoin that are swapped, more information below. **Please note that Boltz works with 10 \*\* -8 decimals internally** and all amounts in the API endpoints follow this denomination. All requests to create swaps have the following common values in the API request:
 
 * `type`: type of the swap to create. For Normal Submarine Swaps this is  `submarine` .
 * `pairId`: the pair of which the swap should be created, for more check [#supported-pairs](api.md#supported-pairs "mention")
@@ -207,7 +207,7 @@ Response objects of all swaps have these value in common:
 If a lightning invoice is set in this call, one will also find the following values in the response:
 
 * `acceptZeroConf`: whether Boltz will accept 0-conf for this swap
-* `expectedAmount`: the amount that Boltz expects to be locked onchain
+* `expectedAmount`: the amount that Boltz expects to be locked on the chain
 
 ### UTXO Chains
 
@@ -334,7 +334,7 @@ Response:
 
 ### Swap Rates
 
-When sending onchain Bitcoin, before setting the invoice of a Submarine Swap, you'll need to use this endpoint to figure out what the amount of the invoice you set should be. Send a `POST` request with a `JSON` encoded body with this value:
+When sending chain Bitcoin, before setting the invoice of a Submarine Swap, you'll need to use this endpoint to figure out what the amount of the invoice you set should be. Send a `POST` request with a `JSON` encoded body with this value:
 
 * `id`: id of the Submarine Swap
 
@@ -345,7 +345,7 @@ When sending onchain Bitcoin, before setting the invoice of a Submarine Swap, yo
 Status Codes:
 
 * `200 OK`
-* `400 Bad Request`: if the invoice amount could not be calculated. Check the `error` string in the `JSON` object of the body of the response for more information. A common case is where the user did not lock up onchain Bitcoin yet, which is a requirement in order to calculate an invoice amount: `"error": "no coins were locked up yet"`
+* `400 Bad Request`: if the invoice amount could not be calculated. Check the `error` string in the `JSON` object of the body of the response for more information. A common case is where the user did not lock up chain bitcoin yet, which is a requirement in order to calculate an invoice amount: `"error": "no coins were locked up yet"`
 
 Response object:
 
@@ -390,7 +390,7 @@ Response objects:
 What is returned when the invoice is set depends on the status of the Submarine Swap. If no funds were sent (status [`swap.created`](<README (1).md#normal-submarine-swaps>)) the endpoint will return a `JSON` object with these values:
 
 * `acceptZeroConf`: whether Boltz will accept 0-conf for this swap
-* `expectedAmount`: the amount that Boltz expects you to lock in the onchain HTLC
+* `expectedAmount`: the amount that Boltz expects you to lock in the chain HTLC
 * `bip21`: a [BIP21 payment request](https://github.com/bitcoin/bips/blob/master/bip-0021.mediawiki) for the `expectedAmount` of bitcoin and the `address` (only set when swapping from UTXO based chains)
 
 If chain Bitcoin were sent already (status [`transaction.mempool`](<README (1).md#normal-submarine-swaps>) or [`transaction.confirmed`](<README (1).md#normal-submarine-swaps>)) the endpoint will return an empty `JSON` object, signifying success.
@@ -481,9 +481,9 @@ There are two ways to set the amount of a Reverse Swap. Either by specifying the
 
 * `invoiceAmount`: amount of the invoice that will be generated by Boltz
 
-Or by setting the amount that will be locked in the onchain HTLC. That amount is _not_ what you will actually receive because of transaction fees required to claim the HTLC. But those can be approximated easily in advance and when overestimating a little, a quick confirmation of the claim transaction can be ensured.
+Or by setting the amount that will be locked in the chain HTLC. That amount is _not_ what you will actually receive because of transaction fees required to claim the HTLC. But those can be approximated easily in advance and when overestimating a little, a quick confirmation of the claim transaction can be ensured.
 
-* `onchainAmount`: amount Boltz will lock in the onchain HTLC
+* `onchainAmount`: amount Boltz will lock in the chain HTLC
 
 We recommend verifing that pair data fetched previously is still accurate by additionally passing the `pairHash` argument in this call.
 
@@ -505,7 +505,7 @@ The `JSON` object in the response extends from:
 * `invoice`: hold invoice that needs to be paid before Boltz locks up bitcoin
 * `timeoutBlockHeight`: block height at which the Reverse Swap will be cancelled
 
-In case the invoice amount was specified, the amount that will be locked in the onchain HTLC is also returned:
+In case the invoice amount was specified, the amount that will be locked in the chain HTLC is also returned:
 
 * `onchainAmount`: amount of chain bitcoin that will be locked by Boltz
 

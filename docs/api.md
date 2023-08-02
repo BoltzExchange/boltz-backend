@@ -1150,7 +1150,7 @@ Status Codes:
 
 Response object:
 
-* `nodes`: a JSON with the symbol of the chain on which the Lightning node is running as key, and a JSON object as key
+* `nodes`: a `JSON` with the symbol of the chain on which the Lightning node is running as key, and a `JSON` object as key
   * `nodeKey`: public key of the lightning node
   * `uris`: array of the URIs on which the lightning node is reachable
 
@@ -1188,7 +1188,7 @@ Status Codes:
 
 Response object:
 
-* `nodes`: a JSON with the symbol of the chain on which the Lightning node is running as key, and a JSON object as key
+* `nodes`: a `JSON` with the symbol of the chain on which the Lightning node is running as key, and a `JSON` object as key
   * `peers`: number of peers
   * `channels`: number of public channels
   * `oldestChannel`: UNIX timestamp of the block in which the opening transaction of the oldest channel was included

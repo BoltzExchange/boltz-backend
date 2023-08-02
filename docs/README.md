@@ -12,10 +12,10 @@ coverY: 0
 
 We offer Boltz on [testnet](https://testnet.boltz.exchange) for development & testing purposes and our production service on [mainnet](https://boltz.exchange).
 
-The corresponding REST API can be accessed at:
+The corresponding REST APIs can be accessed at:
 
-* Mainnet: `https://api.boltz.exchange/`
 * Testnet: `https://testnet.boltz.exchange/api/`
+* Mainnet: `https://api.boltz.exchange/`
 
 > Note: To access the API via browser, simply append an [endpoint](api.md) to the address, e.g.:
 >

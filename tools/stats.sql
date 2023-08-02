@@ -112,3 +112,33 @@ SELECT round((count(*) * 100) / cast((
 ) + count(*) AS REAL), 4) AS failureRate
 FROM swaps
 WHERE status = 'invoice.failedToPay';
+
+-- Volume shares
+
+CREATE VIEW IF NOT EXISTS allSwaps AS
+    SELECT id, pair, status, createdAt, onchainAmount
+	FROM reverseSwaps
+	UNION
+	SELECT id, pair, status, createdAt, onchainAmount
+	FROM swaps;
+
+WITH successful AS (
+	SELECT
+	    pair,
+	    strftime('%Y-%m', createdAt) AS date,
+	    count(*) AS count,
+	    sum(onchainAmount) / pow(10, 8) AS volume
+	FROM allSwaps
+	WHERE status IN ('invoice.settled', 'transaction.claimed')
+	GROUP BY pair, date
+)
+SELECT
+	date,
+	pair,
+	count,
+	(0.0+count) / sum(count) OVER (PARTITION BY date) AS count_pct,
+	volume,
+	volume / sum(volume) OVER (PARTITION BY date) AS volume_pct
+FROM successful
+GROUP BY pair, date
+ORDER BY date, pair;

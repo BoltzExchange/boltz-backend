@@ -12,5 +12,5 @@ export const builder = {
 };
 
 export const handler = (argv: Arguments<any>): void => {
-  loadBoltzClient(argv).getBalance(new GetBalanceRequest(), callback);
+  loadBoltzClient(argv).getBalance(new GetBalanceRequest(), callback());
 };

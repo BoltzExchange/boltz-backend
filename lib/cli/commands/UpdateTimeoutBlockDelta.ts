@@ -33,7 +33,7 @@ const handler = (argv: Arguments<any>): void => {
   request.setSwapMinimalTimeout(argv.swap_min);
   request.setSwapMaximalTimeout(argv.swap_max);
 
-  loadBoltzClient(argv).updateTimeoutBlockDelta(request, callback);
+  loadBoltzClient(argv).updateTimeoutBlockDelta(request, callback());
 };
 
 export { builder, command, handler, describe };

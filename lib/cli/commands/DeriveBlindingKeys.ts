@@ -17,5 +17,5 @@ export const handler = (argv: Arguments<any>): void => {
   const request = new DeriveBlindingKeyRequest();
   request.setAddress(argv.address);
 
-  loadBoltzClient(argv).deriveBlindingKeys(request, callback);
+  loadBoltzClient(argv).deriveBlindingKeys(request, callback());
 };

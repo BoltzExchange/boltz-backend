@@ -1,8 +1,10 @@
+import { randomBytes } from 'crypto';
 import { ServiceError } from '@grpc/grpc-js';
-import * as boltzrpc from '../../../lib/proto/boltzrpc_pb';
-import { getHexBuffer, getHexString } from '../../../lib/Utils';
 import Service from '../../../lib/service/Service';
 import GrpcService from '../../../lib/grpc/GrpcService';
+import { CurrencyType } from '../../../lib/consts/Enums';
+import * as boltzrpc from '../../../lib/proto/boltzrpc_pb';
+import { getHexBuffer, getHexString } from '../../../lib/Utils';
 
 const getInfoData = {
   method: 'getInfo',
@@ -48,13 +50,69 @@ const mockDeriveBlindingKeys = jest
   .fn()
   .mockReturnValue(mockDeriveBlindingKeysResponse);
 
+const mockUnblindOutputsFromIdResult = [
+  {
+    value: 1,
+    asset: randomBytes(32),
+    isLbtc: true,
+    script: randomBytes(60),
+    nonce: randomBytes(32),
+  },
+  {
+    value: 2,
+    asset: randomBytes(32),
+    isLbtc: true,
+    script: randomBytes(60),
+    nonce: randomBytes(32),
+    rangeProof: randomBytes(128),
+    surjectionProof: randomBytes(33),
+  },
+];
+const mockUnblindOutputsFromId = jest
+  .fn()
+  .mockResolvedValue(mockUnblindOutputsFromIdResult);
+
+const mockUnblindOutputs = jest
+  .fn()
+  .mockResolvedValue(mockUnblindOutputsFromIdResult);
+
+const transformOutputs = (outputs: any[]) => {
+  const res = new boltzrpc.UnblindOutputsResponse();
+  res.setOutputsList(
+    outputs.map((out) => {
+      const rpcOut = new boltzrpc.UnblindOutputsResponse.UnblindedOutput();
+      rpcOut.setValue(out.value);
+      rpcOut.setAsset(out.asset);
+      rpcOut.setIsLbtc(out.isLbtc);
+      rpcOut.setScript(out.script);
+      rpcOut.setNonce(out.nonce);
+
+      if (out.rangeProof) {
+        rpcOut.setRangeProof(out.rangeProof);
+      }
+
+      if (out.surjectionProof) {
+        rpcOut.setSurjectionProof(out.surjectionProof);
+      }
+
+      return rpcOut;
+    }),
+  );
+
+  return res;
+};
+
 jest.mock('../../../lib/service/Service', () => {
   return jest.fn().mockImplementation(() => {
     return {
+      elementsService: {
+        unblindOutputs: mockUnblindOutputs,
+        deriveBlindingKeys: mockDeriveBlindingKeys,
+        unblindOutputsFromId: mockUnblindOutputsFromId,
+      },
       getInfo: mockGetInfo,
       getBalance: mockGetBalance,
       deriveKeys: mockDeriveKeys,
-      deriveBlindingKeys: mockDeriveBlindingKeys,
       getAddress: mockGetAddress,
       sendCoins: mockSendCoins,
       updateTimeoutBlockDelta: mockUpdateTimeoutBlockDelta,
@@ -64,6 +122,17 @@ jest.mock('../../../lib/service/Service', () => {
 });
 
 const mockedService = <jest.Mock<Service>>(<any>Service);
+
+const mockParseTransactionResult = 'parsed tx';
+const mockParseTransaction = jest
+  .fn()
+  .mockReturnValue(mockParseTransactionResult);
+
+jest.mock('../../../lib/Core', () => {
+  return {
+    parseTransaction: (...args: any[]) => mockParseTransaction(...args),
+  };
+});
 
 const createCall = (data: any) => {
   return {
@@ -134,23 +203,84 @@ describe('GrpcService', () => {
     );
   });
 
-  test('should handle DeriveBlindingKeys', () => {
+  test('should handle DeriveBlindingKeys', async () => {
     const callData = {
       address:
         'el1qqww2k9af23daf05txwvr6wk0n4wufpjks3yp7rfll5lwseruxf42egqn08jcypll40ph6m0dh00505s43tslxxchmvh8zlxuw',
     };
 
     const cb = jest.fn();
-    grpcService.deriveBlindingKeys(createCall(callData), cb);
+    await grpcService.deriveBlindingKeys(createCall(callData), cb);
 
     expect(cb).toHaveBeenCalledTimes(1);
+
     const res = new boltzrpc.DeriveBlindingKeyResponse();
     res.setPublicKey(getHexString(mockDeriveBlindingKeysResponse.publicKey));
     res.setPrivateKey(getHexString(mockDeriveBlindingKeysResponse.privateKey));
+
     expect(cb).toHaveBeenCalledWith(null, res);
 
     expect(mockDeriveBlindingKeys).toHaveBeenCalledTimes(1);
     expect(mockDeriveBlindingKeys).toHaveBeenCalledWith(callData.address);
+  });
+
+  test('should handle UnblindOutputs with transaction id set', async () => {
+    const req: any = {
+      request: {
+        hasId: () => true,
+        getId: () => 'id',
+      },
+    };
+
+    const cb = jest.fn();
+    await grpcService.unblindOutputs(req, cb);
+
+    expect(cb).toHaveBeenCalledTimes(1);
+    expect(cb).toHaveBeenCalledWith(
+      null,
+      transformOutputs(mockUnblindOutputsFromIdResult),
+    );
+
+    expect(mockUnblindOutputsFromId).toHaveBeenCalledTimes(1);
+    expect(mockUnblindOutputsFromId).toHaveBeenCalledWith(req.request.getId());
+  });
+
+  test('should handle UnblindOutputs with transaction hex set', async () => {
+    for (const [i, request] of [
+      {
+        hasId: () => false,
+        getHex: () => 'hex',
+      },
+      {
+        hasId: () => true,
+        getId: () => '',
+        getHex: () => 'hex',
+      },
+    ].entries()) {
+      const req: any = {
+        request,
+      };
+
+      const cb = jest.fn();
+      await grpcService.unblindOutputs(req, cb);
+
+      expect(cb).toHaveBeenCalledTimes(1);
+      expect(cb).toHaveBeenCalledWith(
+        null,
+        transformOutputs(mockUnblindOutputsFromIdResult),
+      );
+
+      expect(mockParseTransaction).toHaveBeenCalledTimes(i + 1);
+      expect(mockParseTransaction).toHaveBeenCalledWith(
+        CurrencyType.Liquid,
+        request.getHex(),
+      );
+
+      expect(mockUnblindOutputs).toHaveBeenCalledTimes(i + 1);
+      expect(mockUnblindOutputs).toHaveBeenCalledWith(
+        mockParseTransactionResult,
+      );
+    }
   });
 
   test('should handle GetAddress', () => {
@@ -255,5 +385,47 @@ describe('GrpcService', () => {
       ...callData,
       routingNode: undefined,
     });
+  });
+
+  test('should handle resolved callbacks', async () => {
+    const call = randomBytes(32);
+    const cb = jest.fn();
+    const handler = jest.fn().mockResolvedValue(1);
+
+    await grpcService['handleCallback'](call, cb, handler);
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler).toHaveBeenCalledWith(call);
+
+    expect(cb).toHaveBeenCalledTimes(1);
+    expect(cb).toHaveBeenCalledWith(null, await handler());
+  });
+
+  test('should handle rejected callbacks', async () => {
+    const call = randomBytes(32);
+    const cb = jest.fn();
+
+    let rejection: any = { message: 'no' };
+    const handler = jest.fn().mockImplementation(() => {
+      throw rejection;
+    });
+
+    await grpcService['handleCallback'](call, cb, handler);
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler).toHaveBeenCalledWith(call);
+
+    expect(cb).toHaveBeenCalledTimes(1);
+    expect(cb).toHaveBeenCalledWith(rejection, null);
+
+    rejection = 'some string';
+
+    await grpcService['handleCallback'](call, cb, handler);
+
+    expect(handler).toHaveBeenCalledTimes(2);
+    expect(handler).toHaveBeenCalledWith(call);
+
+    expect(cb).toHaveBeenCalledTimes(2);
+    expect(cb).toHaveBeenCalledWith({ message: rejection }, null);
   });
 });

@@ -37,5 +37,5 @@ export const handler = (argv: Arguments<any>): void => {
   request.setFee(argv.fee);
   request.setSendAll(argv.send_all);
 
-  loadBoltzClient(argv).sendCoins(request, callback);
+  loadBoltzClient(argv).sendCoins(request, callback());
 };

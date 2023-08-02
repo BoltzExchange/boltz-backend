@@ -34,11 +34,16 @@ import { CurrencyType } from './consts/Enums';
 import WalletLiquid from './wallet/WalletLiquid';
 import { liquidSymbol } from './consts/LiquidTypes';
 import {
-  getHexString,
+  getHexBuffer,
   reverseBuffer,
   calculateUtxoTransactionFee,
   calculateLiquidTransactionFee,
 } from './Utils';
+
+type UnblindedOutput = Omit<TxOutputLiquid, 'value'> & {
+  value: number;
+  isLbtc: boolean;
+};
 
 let confi: confidential.Confidential;
 
@@ -84,6 +89,41 @@ export const toOutputScript = (
     : addressLiquid.toOutputScript(toDecode, network as LiquidNetwork);
 };
 
+export const unblindOutput = (
+  wallet: Wallet,
+  output: TxOutputLiquid,
+  blindingKey?: Buffer,
+): UnblindedOutput => {
+  let value = 0;
+  let asset = output.asset;
+
+  if (output.rangeProof?.length !== 0) {
+    if (blindingKey !== undefined) {
+      const unblinded = confi.unblindOutputWithKey(output, blindingKey!);
+
+      value = Number(unblinded.value);
+      asset = unblinded.asset;
+    }
+  } else {
+    value = confidential.confidentialValueToSatoshi(output.value as Buffer);
+    asset = output.asset;
+
+    // Remove the un-confidential prefix
+    asset = asset.slice(1, asset.length);
+  }
+
+  asset = reverseBuffer(asset);
+
+  return {
+    ...output,
+    value: value,
+    asset: asset,
+    isLbtc: asset.equals(
+      getHexBuffer((wallet.network as LiquidNetwork).assetHash),
+    ),
+  };
+};
+
 export const getOutputValue = (
   wallet: Wallet,
   output: TxOutput | TxOutputLiquid,
@@ -92,33 +132,14 @@ export const getOutputValue = (
     return output.value as number;
   }
 
-  let value: number;
-  let asset: Buffer;
+  const unblinded = unblindOutput(
+    wallet,
+    output as TxOutputLiquid,
+    (wallet as WalletLiquid).deriveBlindingKeyFromScript(output.script)
+      .privateKey!,
+  );
 
-  if ((output as TxOutputLiquid).rangeProof?.length !== 0) {
-    const unblinded = confi.unblindOutputWithKey(
-      output as TxOutputLiquid,
-      (wallet as WalletLiquid).deriveBlindingKeyFromScript(output.script)
-        .privateKey!,
-    );
-
-    value = Number(unblinded.value);
-    asset = unblinded.asset;
-  } else {
-    value = confidential.confidentialValueToSatoshi(output.value as Buffer);
-    asset = (output as TxOutputLiquid).asset;
-    // Remove the un-confidential prefix
-    asset = asset.slice(1, asset.length);
-  }
-
-  if (
-    getHexString(reverseBuffer(asset)) !==
-    (wallet.network as LiquidNetwork).assetHash
-  ) {
-    return 0;
-  }
-
-  return value;
+  return unblinded.isLbtc ? unblinded.value : 0;
 };
 
 export const constructClaimTransaction = (
@@ -229,4 +250,10 @@ const populateBlindingKeys = <
   return utxos;
 };
 
-export { ClaimDetails, RefundDetails, LiquidClaimDetails, LiquidRefundDetails };
+export {
+  ClaimDetails,
+  RefundDetails,
+  LiquidClaimDetails,
+  LiquidRefundDetails,
+  UnblindedOutput,
+};

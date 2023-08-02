@@ -13,6 +13,7 @@ interface IBoltzService
   getBalance: IBoltzService_IGetBalance;
   deriveKeys: IBoltzService_IDeriveKeys;
   deriveBlindingKeys: IBoltzService_IDeriveBlindingKeys;
+  unblindOutputs: IBoltzService_IUnblindOutputs;
   getAddress: IBoltzService_IGetAddress;
   sendCoins: IBoltzService_ISendCoins;
   updateTimeoutBlockDelta: IBoltzService_IUpdateTimeoutBlockDelta;
@@ -70,6 +71,19 @@ interface IBoltzService_IDeriveBlindingKeys
   requestDeserialize: grpc.deserialize<boltzrpc_pb.DeriveBlindingKeyRequest>;
   responseSerialize: grpc.serialize<boltzrpc_pb.DeriveBlindingKeyResponse>;
   responseDeserialize: grpc.deserialize<boltzrpc_pb.DeriveBlindingKeyResponse>;
+}
+interface IBoltzService_IUnblindOutputs
+  extends grpc.MethodDefinition<
+    boltzrpc_pb.UnblindOutputsRequest,
+    boltzrpc_pb.UnblindOutputsResponse
+  > {
+  path: '/boltzrpc.Boltz/UnblindOutputs';
+  requestStream: false;
+  responseStream: false;
+  requestSerialize: grpc.serialize<boltzrpc_pb.UnblindOutputsRequest>;
+  requestDeserialize: grpc.deserialize<boltzrpc_pb.UnblindOutputsRequest>;
+  responseSerialize: grpc.serialize<boltzrpc_pb.UnblindOutputsResponse>;
+  responseDeserialize: grpc.deserialize<boltzrpc_pb.UnblindOutputsResponse>;
 }
 interface IBoltzService_IGetAddress
   extends grpc.MethodDefinition<
@@ -142,6 +156,10 @@ export interface IBoltzServer extends grpc.UntypedServiceImplementation {
   deriveBlindingKeys: grpc.handleUnaryCall<
     boltzrpc_pb.DeriveBlindingKeyRequest,
     boltzrpc_pb.DeriveBlindingKeyResponse
+  >;
+  unblindOutputs: grpc.handleUnaryCall<
+    boltzrpc_pb.UnblindOutputsRequest,
+    boltzrpc_pb.UnblindOutputsResponse
   >;
   getAddress: grpc.handleUnaryCall<
     boltzrpc_pb.GetAddressRequest,
@@ -256,6 +274,30 @@ export interface IBoltzClient {
     callback: (
       error: grpc.ServiceError | null,
       response: boltzrpc_pb.DeriveBlindingKeyResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  unblindOutputs(
+    request: boltzrpc_pb.UnblindOutputsRequest,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: boltzrpc_pb.UnblindOutputsResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  unblindOutputs(
+    request: boltzrpc_pb.UnblindOutputsRequest,
+    metadata: grpc.Metadata,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: boltzrpc_pb.UnblindOutputsResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  unblindOutputs(
+    request: boltzrpc_pb.UnblindOutputsRequest,
+    metadata: grpc.Metadata,
+    options: Partial<grpc.CallOptions>,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: boltzrpc_pb.UnblindOutputsResponse,
     ) => void,
   ): grpc.ClientUnaryCall;
   getAddress(
@@ -456,6 +498,30 @@ export class BoltzClient extends grpc.Client implements IBoltzClient {
     callback: (
       error: grpc.ServiceError | null,
       response: boltzrpc_pb.DeriveBlindingKeyResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public unblindOutputs(
+    request: boltzrpc_pb.UnblindOutputsRequest,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: boltzrpc_pb.UnblindOutputsResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public unblindOutputs(
+    request: boltzrpc_pb.UnblindOutputsRequest,
+    metadata: grpc.Metadata,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: boltzrpc_pb.UnblindOutputsResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public unblindOutputs(
+    request: boltzrpc_pb.UnblindOutputsRequest,
+    metadata: grpc.Metadata,
+    options: Partial<grpc.CallOptions>,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: boltzrpc_pb.UnblindOutputsResponse,
     ) => void,
   ): grpc.ClientUnaryCall;
   public getAddress(

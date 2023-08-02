@@ -21,5 +21,5 @@ export const handler = (argv: Arguments<any>): void => {
   request.setSymbol(argv.symbol);
   request.setIndex(argv.index);
 
-  loadBoltzClient(argv).deriveKeys(request, callback);
+  loadBoltzClient(argv).deriveKeys(request, callback());
 };

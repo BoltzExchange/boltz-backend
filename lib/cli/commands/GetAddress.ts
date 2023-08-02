@@ -16,5 +16,5 @@ export const handler = (argv: Arguments<any>): void => {
 
   request.setSymbol(argv.symbol);
 
-  loadBoltzClient(argv).getAddress(request, callback);
+  loadBoltzClient(argv).getAddress(request, callback());
 };

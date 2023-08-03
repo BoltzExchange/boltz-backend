@@ -17,7 +17,9 @@ Boltz currently offers two types of [Atomic Swaps](https://en.bitcoin.it/wiki/At
 
 ### Normal Submarine Swaps
 
-"Normal Submarine Swaps" move bitcoin from the chain to Lightning. "Chain" can be the Bitcoin mainchain or, for instance, the Liquid sidechain. Typically the user creates a Lightning invoice, sends bitcoin to a provided chain address and Boltz takes care of everything else. When a Normal Submarine Swap is created, it passes through the following states:
+"Normal Submarine Swaps" move bitcoin from the chain to Lightning. "Chain" can be the Bitcoin mainchain or, for instance, the Liquid sidechain. Typically the user creates a Lightning invoice, sends bitcoin to a provided chain address and Boltz takes care of everything else.
+
+When a Normal Submarine Swap is created, it passes through the following states:
 
 1. `swap.created`: initial state of the swap; _optionally_ the initial state can also be `invoice.set` in case the invoice was already specified in the `/createswap` request. [Boltz Web App](https://github.com/BoltzExchange/boltz-web-app) is an example for a client that sets the invoice with `/createswap` already.
 2. `transaction.mempool`: a transaction that sends bitcoin to the chain address is found in the mempool, meaning user sent funds to the lockup chain address.

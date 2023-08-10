@@ -9,11 +9,12 @@ python = "^3.10"
 python-bitcoinrpc = "^1.0"
 pyotp = "^2.8.0"
 sseclient = "^0.0.27"
-ruff = "^0.0.275"
+ruff = "^0.0.284"
 mkdocs = "^1.4.2"
 pyln-client = "^23.5"
 webdavclient3 = "^3.14.6"
 pytest = "^7.4.0"
+bolt11 = "^1.0.4"
 
 [build-system]
 requires = ["poetry-core"]
@@ -24,5 +25,5 @@ select = ["ALL"]
 ignore = [
     "T201", "D101", "D211", "D213", "INP001", "BLE001", "FBT001", "FBT002", "FBT003", "S605",
     "TD002", "TD003", "FIX002", "ANN101", "D102", "D103", "D107", "D100", "SLOT000", "S101",
-    "PLR2004", "ARG001"
+    "PLR2004", "ARG001", "PLR0913", "D104"
 ]

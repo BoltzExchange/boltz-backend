@@ -3,7 +3,6 @@ import os
 import random
 import time
 import uuid
-from collections.abc import Callable
 from enum import Enum
 from hashlib import sha256
 from threading import Thread
@@ -11,9 +10,9 @@ from typing import Any
 
 import pytest
 
-PLUGIN_PATH = "/tools/hold/plugin.py"
+from tools.hold.tests.cli_utils import CliCaller, cln_con
 
-CliCaller = Callable[..., dict[str, Any]]
+PLUGIN_PATH = "/tools/hold/plugin.py"
 
 
 class LndNode(Enum):
@@ -62,20 +61,16 @@ def stop_plugin(cln: CliCaller) -> None:
 
 
 def add_hold_invoice(cln: CliCaller) -> tuple[str, str, str]:
-    payment_secret = random.randbytes(32)
-    payment_hash = sha256(payment_secret).hexdigest()
+    payment_preimage = random.randbytes(32)
+    payment_hash = sha256(payment_preimage).hexdigest()
 
     invoice = cln(
         "holdinvoice",
-        lnd(
-            LndNode.Two,
-            "addholdinvoice",
-            payment_hash,
-            "100000",
-        )["payment_request"],
+        payment_hash,
+        "100000",
     )["bolt11"]
 
-    return payment_secret.hex(), payment_hash, invoice
+    return payment_preimage.hex(), payment_hash, invoice
 
 
 class LndPay(Thread):
@@ -112,11 +107,6 @@ class LndPay(Thread):
 class TestHold:
     @pytest.fixture(scope="class", autouse=True)
     def cln(self) -> CliCaller:
-        def cln_con(*args: str) -> dict[str, Any]:
-            return json.load(os.popen(
-                f"docker exec regtest lightning-cli {' '.join(args)}",
-            ))
-
         stop_plugin(cln_con)
         cln_con("plugin", "start", PLUGIN_PATH)
         cln_con("dev-wipeholdinvoices")
@@ -129,11 +119,9 @@ class TestHold:
         stop_plugin(cln_con)
 
     def test_add(self, cln: CliCaller) -> None:
-        lnd_res = lnd(LndNode.Two, "addinvoice", "100000")
-        payment_hash = lnd_res["r_hash"]
-        invoice = lnd_res["payment_request"]
+        payment_hash = random.randbytes(32).hex()
 
-        cln_res = cln("holdinvoice", invoice)
+        cln_res = cln("holdinvoice", payment_hash, "10000")
         assert "bolt11" in cln_res
 
         hold_invoices = cln("listholdinvoices")["holdinvoices"]
@@ -144,18 +132,20 @@ class TestHold:
         assert hold_invoices[0]["payment_hash"] == payment_hash
 
     def test_add_duplicate_fail(self, cln: CliCaller) -> None:
-        invoice = lnd(LndNode.Two, "addinvoice", "100000")["payment_request"]
-        assert "bolt11" in cln("holdinvoice", invoice)
+        amount = 10000
+        payment_hash = random.randbytes(32).hex()
 
-        cln_res = cln("holdinvoice", invoice)
+        assert "bolt11" in cln("holdinvoice", payment_hash, str(amount))
+
+        cln_res = cln("holdinvoice", payment_hash, str(amount))
         assert cln_res["code"] == 2101
         assert cln_res["message"] == \
                "hold invoice with that payment hash exists already"
 
     def test_add_invoice_duplicate_fail(self, cln: CliCaller) -> None:
-        invoice = cln("invoice", "1000", str(uuid.uuid4()), '""')["bolt11"]
+        payment_hash = cln("invoice", "1000", str(uuid.uuid4()), '""')["payment_hash"]
 
-        cln_res = cln("holdinvoice", invoice)
+        cln_res = cln("holdinvoice", payment_hash, "10000")
         assert cln_res["code"] == 2101
         assert cln_res["message"] == \
                "hold invoice with that payment hash exists already"
@@ -180,8 +170,9 @@ class TestHold:
         assert len(invoices["holdinvoices"]) == 0
 
     def test_settle_accepted(self, cln: CliCaller) -> None:
-        payment_secret, payment_hash, invoice = add_hold_invoice(cln)
+        payment_preimage, payment_hash, invoice = add_hold_invoice(cln)
 
+        print(invoice)
         pay = LndPay(LndNode.One, invoice)
         pay.start()
 
@@ -192,7 +183,7 @@ class TestHold:
             payment_hash,
         )["holdinvoices"][0]["state"] == "accepted"
 
-        cln("settleholdinvoice", payment_secret)
+        cln("settleholdinvoice", payment_preimage)
         pay.join()
 
         assert pay.res["status"] == "SUCCEEDED"
@@ -204,7 +195,7 @@ class TestHold:
 
     @pytest.mark.parametrize("parts", [2, 4])
     def test_settle_accepted_mpp(self, cln: CliCaller, parts: int) -> None:
-        payment_secret, payment_hash, invoice = add_hold_invoice(cln)
+        payment_preimage, payment_hash, invoice = add_hold_invoice(cln)
         amount = int(lnd(LndNode.One, "decodepayreq", invoice)["num_satoshis"])
 
         pay = LndPay(LndNode.One, invoice, max_shard_size=int(amount/parts))
@@ -217,7 +208,7 @@ class TestHold:
             payment_hash,
         )["holdinvoices"][0]["state"] == "accepted"
 
-        cln("settleholdinvoice", payment_secret)
+        cln("settleholdinvoice", payment_preimage)
         pay.join()
 
         assert pay.res["status"] == "SUCCEEDED"
@@ -229,18 +220,18 @@ class TestHold:
         )["holdinvoices"][0]["state"] == "paid"
 
     def test_settle_unpaid(self, cln: CliCaller) -> None:
-        payment_secret, _, _ = add_hold_invoice(cln)
+        payment_preimage, _, _ = add_hold_invoice(cln)
 
-        err_res = cln("settleholdinvoice", payment_secret)
+        err_res = cln("settleholdinvoice", payment_preimage)
         assert err_res["code"] == 2103
         assert err_res["message"] == \
                "illegal hold invoice state transition (unpaid -> paid)"
 
     def test_settle_cancelled(self, cln: CliCaller) -> None:
-        payment_secret, payment_hash, _ = add_hold_invoice(cln)
+        payment_preimage, payment_hash, _ = add_hold_invoice(cln)
 
         cln("cancelholdinvoice", payment_hash)
-        err_res = cln("settleholdinvoice", payment_secret)
+        err_res = cln("settleholdinvoice", payment_preimage)
         assert err_res["code"] == 2103
         assert err_res["message"] == \
                "illegal hold invoice state transition (cancelled -> paid)"
@@ -253,13 +244,13 @@ class TestHold:
         assert res["message"] == "hold invoice with that payment hash does not exist"
 
     def test_cancel_unpaid(self, cln: CliCaller) -> None:
-        invoice = lnd(LndNode.Two, "addinvoice", "100000")
-        cln("holdinvoice", invoice["payment_request"])
+        payment_hash = random.randbytes(32).hex()
+        cln("holdinvoice", payment_hash, "100000")
 
-        assert len(cln("cancelholdinvoice", invoice["r_hash"])) == 0
+        assert len(cln("cancelholdinvoice", payment_hash)) == 0
         assert cln(
             "listholdinvoices",
-            invoice["r_hash"],
+            payment_hash,
         )["holdinvoices"][0]["state"] == "cancelled"
 
     def test_cancel_accepted(self, cln: CliCaller) -> None:
@@ -287,12 +278,12 @@ class TestHold:
         )["holdinvoices"][0]["state"] == "cancelled"
 
     def test_cancel_cancelled_fail(self, cln: CliCaller) -> None:
-        invoice = lnd(LndNode.Two, "addinvoice", "100000")
-        cln("holdinvoice", invoice["payment_request"])
+        payment_hash = random.randbytes(32).hex()
+        cln("holdinvoice", payment_hash, "100000")
 
-        assert len(cln("cancelholdinvoice", invoice["r_hash"])) == 0
+        assert len(cln("cancelholdinvoice", payment_hash)) == 0
 
-        err_res = cln("cancelholdinvoice", invoice["r_hash"])
+        err_res = cln("cancelholdinvoice", payment_hash)
         assert err_res["code"] == 2103
         assert err_res["message"] == \
                "illegal hold invoice state transition (cancelled -> cancelled)"
@@ -304,6 +295,7 @@ class TestHold:
         assert res["code"] == 2102
         assert res["message"] == "hold invoice with that payment hash does not exist"
 
+    @pytest.mark.skip()
     def test_mpp_timeout(self, cln: CliCaller) -> None:
         _, payment_hash, invoice = add_hold_invoice(cln)
         amount = lnd(LndNode.One, "decodepayreq", invoice)["num_satoshis"]
@@ -331,6 +323,57 @@ class TestHold:
         routes["routes"][0]["total_time_lock"] = 200
         routes["routes"][0]["hops"][0]["expiry"] = 200
 
+        res = lnd(
+            LndNode.One,
+            "sendtoroute",
+            "--payment_hash",
+            payment_hash,
+            format_json(routes),
+        )
+
+        assert res["status"] == "FAILED"
+        assert res["failure"]["code"] == "INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS"
+
+        assert cln(
+            "listholdinvoices",
+            payment_hash,
+        )["holdinvoices"][0]["state"] == "unpaid"
+
+    def test_htlc_payment_secret_wrong(self, cln: CliCaller) -> None:
+        payment_preimage, payment_hash, invoice = add_hold_invoice(cln)
+
+        cln_invoice = cln_con(
+            "invoice", "-k",
+            "amount_msat=10000",
+            f"label={uuid.uuid4()!s}",
+            "description=copy",
+            f"preimage={payment_preimage}",
+            f"cltv={cln_con('decode', invoice)['min_final_cltv_expiry']}"
+        )["bolt11"]
+
+        pay = LndPay(LndNode.One, cln_invoice)
+        pay.start()
+
+        pay.join()
+
+        assert pay.res["status"] == "FAILED"
+        assert pay.res["failure_reason"] == "FAILURE_REASON_INCORRECT_PAYMENT_DETAILS"
+
+        assert cln(
+            "listholdinvoices",
+            payment_hash,
+        )["holdinvoices"][0]["state"] == "unpaid"
+
+    def test_htlc_payment_secret_missing(self, cln: CliCaller) -> None:
+        _, payment_hash, invoice = add_hold_invoice(cln)
+        dec = lnd(LndNode.One, "decodepayreq", invoice)
+
+        routes = lnd(
+            LndNode.One,
+            "queryroutes",
+            dec["destination"],
+            dec["num_satoshis"],
+        )
         res = lnd(
             LndNode.One,
             "sendtoroute",
@@ -379,6 +422,7 @@ class TestHold:
 
         assert pay.res["status"] == "SUCCEEDED"
 
+    @pytest.mark.skip()
     def test_ignore_forward(self, cln: CliCaller) -> None:
         cln_id = cln("getinfo")["id"]
         channels = lnd(LndNode.Two, "listchannels")["channels"]

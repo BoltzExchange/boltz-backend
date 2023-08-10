@@ -47,7 +47,13 @@ def hold_invoice(
     if len(plugin.rpc.listinvoices(payment_hash=payment_hash)["invoices"]) > 0:
         return Errors.invoice_exists
 
-    bolt11 = encoder.encode(payment_hash, amount_msat, memo, expiry, min_final_cltv_expiry)
+    bolt11 = encoder.encode(
+        payment_hash,
+        amount_msat,
+        memo,
+        expiry,
+        min_final_cltv_expiry,
+    )
     signed = plugin.rpc.call("signinvoice", {
         "invstring": bolt11,
     })["bolt11"]

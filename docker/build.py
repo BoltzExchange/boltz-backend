@@ -167,10 +167,7 @@ def list_images(to_list: list[str]) -> None:
         if build_details.arguments:
             print("    Build arguments:")
         for argument in build_details.arguments:
-            print("      - {name}:{value}".format(
-                name=argument.name,
-                value=argument.value,
-            ))
+            print(f"      - {argument.name}:{argument.value}")
 
         print()
 
@@ -189,17 +186,11 @@ def build_images(
         build_details = get_build_details(image)
 
         for tag in build_details.tags:
-            build_args: list[str] = []
+            build_args = [f"{arg.name}={arg.value}" for arg in build_details.arguments]
 
             # The regtest image doesn't need the version as a build flag
             if image != "regtest":
                 build_args.append(f"VERSION={tag}")
-
-            for argument in build_details.arguments:
-                build_args.append("{name}={value}".format(
-                    name=argument.name,
-                    value=argument.value,
-                ))
 
             # Add the prefix "--build-arg " to every entry and
             # join the array to a string

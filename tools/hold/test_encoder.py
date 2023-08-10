@@ -1,10 +1,9 @@
 import random
 
 import pytest
-
-from tools.hold.encoder import Defaults, Encoder, get_network_prefix, get_payment_secret
-from tools.hold.tests.cli_utils import cln_con
-from tools.hold.utils import time_now
+from cli_utils import cln_con
+from encoder import Defaults, Encoder, get_network_prefix, get_payment_secret
+from utils import time_now
 
 
 class RpcCaller:
@@ -66,7 +65,12 @@ class TestEncoder:
 
     @pytest.mark.parametrize("cltv", [1, 2, 3, 80, 90, 144, 150])
     def test_encode_min_final_cltv_expiry(self, cltv: int) -> None:
-        invoice = self.en.encode(random.randbytes(32).hex(), 10_000, "memo", min_final_cltv_expiry=cltv)
+        invoice = self.en.encode(
+            random.randbytes(32).hex(),
+            10_000,
+            "memo",
+            min_final_cltv_expiry=cltv,
+        )
         dec = cln_con("decode", invoice)
 
         assert dec["min_final_cltv_expiry"] == cltv

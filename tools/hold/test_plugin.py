@@ -9,8 +9,7 @@ from threading import Thread
 from typing import Any
 
 import pytest
-
-from tools.hold.tests.cli_utils import CliCaller, cln_con
+from cli_utils import CliCaller, cln_con
 
 PLUGIN_PATH = "/tools/hold/plugin.py"
 
@@ -341,6 +340,7 @@ class TestHold:
 
     def test_htlc_payment_secret_wrong(self, cln: CliCaller) -> None:
         payment_preimage, payment_hash, invoice = add_hold_invoice(cln)
+        cltv = cln_con("decode", invoice)["min_final_cltv_expiry"]
 
         cln_invoice = cln_con(
             "invoice", "-k",
@@ -348,7 +348,7 @@ class TestHold:
             f"label={uuid.uuid4()!s}",
             "description=copy",
             f"preimage={payment_preimage}",
-            f"cltv={cln_con('decode', invoice)['min_final_cltv_expiry']}"
+            f"cltv={cltv}",
         )["bolt11"]
 
         pay = LndPay(LndNode.One, cln_invoice)

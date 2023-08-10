@@ -19,10 +19,7 @@ def stream_server_side_events(url: str) -> None:
         print("Cancelling stream")
 
     except Exception as exception:
-        print("Could not listen to {url}: {exception}".format(
-            url=url,
-            exception=exception,
-        ))
+        print(f"Could not listen to {url}: {exception}")
 
 
 if __name__ == "__main__":

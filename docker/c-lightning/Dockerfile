@@ -38,7 +38,7 @@ WORKDIR /lightning
 RUN git checkout v${VERSION}
 RUN git submodule init && git submodule update
 
-RUN ./configure
+RUN ./configure --enable-developer
 RUN make -j$(nproc)
 RUN make install
 

@@ -6,3 +6,5 @@ log-file=/root/.lightning/cln.log
 fee-base=0
 fee-per-satoshi=1
 large-channels
+
+dev-fast-gossip

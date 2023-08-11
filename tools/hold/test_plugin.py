@@ -12,6 +12,7 @@ import bolt11
 import pytest
 from bolt11.types import MilliSatoshi
 from cli_utils import CliCaller, cln_con
+from encoder import Defaults
 
 PLUGIN_PATH = "/root/hold-start.sh"
 
@@ -137,6 +138,65 @@ class TestHold:
         assert hold_invoices[0]["bolt11"] == cln_res["bolt11"]
         assert hold_invoices[0]["payment_hash"] == payment_hash
 
+    def test_add_defaults(self, cln: CliCaller) -> None:
+        amount = 10000
+        payment_hash = random.randbytes(32).hex()
+
+        invoice = cln("holdinvoice", payment_hash, str(amount))["bolt11"]
+
+        dec = cln("decode", invoice)
+        assert dec["valid"]
+        assert dec["amount_msat"] == amount
+        assert dec["expiry"] == Defaults.Expiry
+        assert dec["payment_hash"] == payment_hash
+        assert dec["description"] == "Hold invoice"
+        assert dec["min_final_cltv_expiry"] == Defaults.MinFinalCltvExpiry
+
+    @pytest.mark.parametrize("description", ["some", "text", "Send to BTC address"])
+    def test_add_description(self, cln: CliCaller, description: str) -> None:
+        invoice = cln(
+            "holdinvoice",
+            random.randbytes(32).hex(),
+            "10000",
+            f'"{description}"',
+        )["bolt11"]
+
+        dec = cln("decode", invoice)
+        assert dec["valid"]
+        assert dec["description"] == description
+
+    @pytest.mark.parametrize("expiry", [1, 2, 3, 3600, 24000, 86400])
+    def test_add_expiry(self, cln: CliCaller, expiry: int) -> None:
+        invoice = cln(
+            "-k",
+            "holdinvoice",
+            f"payment_hash={random.randbytes(32).hex()}",
+            "amount_msat=10000",
+            f"expiry={expiry}",
+        )["bolt11"]
+
+        dec = cln("decode", invoice)
+        assert dec["valid"]
+        assert dec["expiry"] == expiry
+
+    @pytest.mark.parametrize("min_final_cltv_expiry", [1, 2, 3, 80, 144, 150, 200])
+    def test_add_min_final_cltv_expiry(
+            self,
+            cln: CliCaller,
+            min_final_cltv_expiry: int,
+    ) -> None:
+        invoice = cln(
+            "-k",
+            "holdinvoice",
+            f"payment_hash={random.randbytes(32).hex()}",
+            "amount_msat=10000",
+            f"min_final_cltv_expiry={min_final_cltv_expiry}",
+        )["bolt11"]
+
+        dec = cln("decode", invoice)
+        assert dec["valid"]
+        assert dec["min_final_cltv_expiry"] == min_final_cltv_expiry
+
     def test_add_duplicate_fail(self, cln: CliCaller) -> None:
         amount = 10000
         payment_hash = random.randbytes(32).hex()
@@ -158,7 +218,7 @@ class TestHold:
 
     def test_list(self, cln: CliCaller) -> None:
         invoices = cln("listholdinvoices")["holdinvoices"]
-        assert len(invoices) == 2
+        assert len(invoices) > 1
 
     def test_list_single(self, cln: CliCaller) -> None:
         invoices = cln("listholdinvoices")["holdinvoices"]
@@ -327,12 +387,19 @@ class TestHold:
 
     def test_htlc_too_little_cltv(self, cln: CliCaller) -> None:
         _, payment_hash, invoice = add_hold_invoice(cln)
-        amount = lnd(LndNode.One, "decodepayreq", invoice)["num_satoshis"]
-        cln_node = cln("getinfo")["id"]
+        dec = lnd(LndNode.One, "decodepayreq", invoice)
+        block_height = lnd(LndNode.One, "getinfo")["block_height"]
 
-        routes = lnd(LndNode.One, "queryroutes", cln_node, amount)
-        routes["routes"][0]["total_time_lock"] = 200
-        routes["routes"][0]["hops"][0]["expiry"] = 200
+        routes = lnd(
+            LndNode.One,
+            "queryroutes",
+            dec["destination"],
+            dec["num_satoshis"],
+        )
+
+        time_lock = int(block_height) + int(dec["cltv_expiry"]) - 1
+        routes["routes"][0]["total_time_lock"] = time_lock
+        routes["routes"][0]["hops"][0]["expiry"] = time_lock
 
         res = lnd(
             LndNode.One,

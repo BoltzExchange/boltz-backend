@@ -61,7 +61,7 @@ class Encoder:
             self,
             payment_hash: str,
             amount_msat: int,
-            memo: str,
+            description: str,
             expiry: int = Defaults.Expiry,
             min_final_cltv_expiry: int = Defaults.MinFinalCltvExpiry,
             payment_secret: str | None = None,
@@ -71,7 +71,7 @@ class Encoder:
             int(time_now().timestamp()),
             {
                 "p": payment_hash,
-                "d": memo,
+                "d": description,
                 "x": expiry,
                 "c": min_final_cltv_expiry,
                 "s": get_payment_secret(payment_secret),

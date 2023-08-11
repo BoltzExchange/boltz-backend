@@ -43,7 +43,7 @@ def hold_invoice(
         payment_hash: str,
         amount_msat: int,
         # TODO: remove default when library can handle empty strings
-        memo: str = "Hold invoice",
+        description: str = "Hold invoice",
         expiry: int = Defaults.Expiry,
         min_final_cltv_expiry: int = Defaults.MinFinalCltvExpiry,
 ) -> dict[str, Any]:
@@ -53,7 +53,7 @@ def hold_invoice(
     bolt11 = encoder.encode(
         payment_hash,
         amount_msat,
-        memo,
+        description,
         expiry,
         min_final_cltv_expiry,
     )
@@ -160,6 +160,7 @@ def on_htlc_accepted(
             f"({htlc['cltv_expiry_relative']} < {dec['min_final_cltv_expiry']})",
             level="warn",
         )
+        # TODO: use incorrect_cltv_expiry or expiry_too_soon error?
         Settler.fail_callback(request, HtlcFailureMessage.IncorrectPaymentDetails)
         return
 

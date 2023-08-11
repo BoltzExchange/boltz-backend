@@ -74,3 +74,16 @@ class TestEncoder:
         dec = cln_con("decode", invoice)
 
         assert dec["min_final_cltv_expiry"] == cltv
+
+    def test_encode_payment_secret(self) -> None:
+        payment_secret = random.randbytes(32).hex()
+
+        invoice = self.en.encode(
+            random.randbytes(32).hex(),
+            10_000,
+            "memo",
+            payment_secret=payment_secret,
+        )
+        dec = cln_con("decode", invoice)
+
+        assert dec["payment_secret"] == payment_secret

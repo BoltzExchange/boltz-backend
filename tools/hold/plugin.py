@@ -1,4 +1,4 @@
-#!/usr/bin/env /tools/.venv/bin/python3
+#!/usr/bin/env python3
 import hashlib
 from typing import Any
 
@@ -12,7 +12,6 @@ from pyln.client import Plugin, RpcError
 from pyln.client.plugin import Request
 from settler import HtlcFailureMessage, Settler
 
-# TODO: fix shebang line
 # TODO: restart handling
 # TODO: docstrings
 # TODO: gRPC with subs

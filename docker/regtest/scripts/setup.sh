@@ -54,6 +54,9 @@ function waitForClnChannel () {
   sleep 25
 }
 
+echo "/tools/.venv/bin/python3 /tools/hold/plugin.py" > /root/hold-start.sh
+chmod +x /root/hold-start.sh
+
 startNodes
 
 bitcoin-cli createwallet $DEFAULT_WALLET_NAME > /dev/null

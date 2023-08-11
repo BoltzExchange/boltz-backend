@@ -1,4 +1,4 @@
-#!/usr/bin/env /tools/.venv/bin/python3
+#!/usr/bin/env python3
 import json
 from datetime import datetime, timezone
 from enum import Enum

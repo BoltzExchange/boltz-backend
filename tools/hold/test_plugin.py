@@ -13,7 +13,7 @@ import pytest
 from bolt11.types import MilliSatoshi
 from cli_utils import CliCaller, cln_con
 
-PLUGIN_PATH = "/tools/hold/plugin.py"
+PLUGIN_PATH = "/root/hold-start.sh"
 
 
 class LndNode(Enum):

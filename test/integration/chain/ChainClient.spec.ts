@@ -95,7 +95,8 @@ describe('ChainClient', () => {
     }
 
     expect(bitcoinClient['zmqClient'].relevantInputs.size).toEqual(
-      unspentUtxos.length,
+      // In case the wallet has multiple outputs from the same transaction
+      new Set<string>(unspentUtxos.map((utxo) => utxo.txid)).size,
     );
   });
 

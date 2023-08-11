@@ -2,7 +2,12 @@ import threading
 from typing import Any
 from urllib.request import Request
 
-from consts import TIMEOUT_CHECK_INTERVAL
+from consts import (
+    TIMEOUT_CANCEL,
+    TIMEOUT_CANCEL_REGTEST,
+    TIMEOUT_CHECK_INTERVAL,
+    Network,
+)
 from datastore import DataStore
 from invoice import HoldInvoice, InvoiceState
 from pyln.client import Plugin
@@ -20,8 +25,17 @@ class HtlcHandler:
         self._plugin = plugin
         self._ds = ds
         self._settler = settler
+        self._timeout = TIMEOUT_CANCEL
 
         self._start_timeout_interval()
+
+    def init(self) -> None:
+        if self._plugin.rpc.getinfo()["network"] == Network.Regtest:
+            self._timeout = TIMEOUT_CANCEL_REGTEST
+            self._plugin.log(
+                f"Using regtest MPP timeout of {self._timeout} seconds",
+                level="warn",
+            )
 
     def handle_htlc(
             self,
@@ -69,4 +83,4 @@ class HtlcHandler:
         with self._lock:
             for htlcs in self._settler.htlcs.values():
                 if not htlcs.is_fully_paid():
-                    htlcs.cancel_expired()
+                    htlcs.cancel_expired(self._timeout)

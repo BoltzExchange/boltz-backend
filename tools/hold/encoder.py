@@ -3,6 +3,7 @@ from enum import Enum
 
 from bolt11 import Bolt11, Feature, Features, FeatureState, encode
 from bolt11.types import MilliSatoshi
+from consts import Network
 from pyln.client import Plugin
 from secp256k1 import PrivateKey
 from utils import time_now
@@ -11,10 +12,10 @@ from utils import time_now
 
 
 NETWORK_PREFIXES = {
-    "bitcoin": "bc",
-    "testnet": "tb",
-    "signet": "tbs",
-    "regtest": "bcrt",
+    Network.Mainnet: "bc",
+    Network.Testnet: "tb",
+    Network.Signet: "tbs",
+    Network.Regtest: "bcrt",
 }
 
 
@@ -24,8 +25,9 @@ class Defaults(int, Enum):
 
 
 def get_network_prefix(network: str) -> str:
+    # noinspection PyTypeChecker
     return NETWORK_PREFIXES[network] if network in NETWORK_PREFIXES \
-        else NETWORK_PREFIXES["bitcoin"]
+        else NETWORK_PREFIXES[Network.Mainnet]
 
 
 def get_payment_secret(val: str | None) -> str:

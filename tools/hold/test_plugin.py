@@ -8,7 +8,9 @@ from hashlib import sha256
 from threading import Thread
 from typing import Any
 
+import bolt11
 import pytest
+from bolt11.types import MilliSatoshi
 from cli_utils import CliCaller, cln_con
 
 PLUGIN_PATH = "/tools/hold/plugin.py"
@@ -81,10 +83,12 @@ class LndPay(Thread):
             invoice: str,
             max_shard_size: int | None = None,
             outgoing_chan_id: str | None = None,
+            timeout: int | None = None,
     ) -> None:
         Thread.__init__(self)
 
         self.node = node
+        self.timeout = timeout
         self.invoice = invoice
         self.max_shard_size = max_shard_size
         self.outgoing_chan_id = outgoing_chan_id
@@ -97,6 +101,9 @@ class LndPay(Thread):
 
         if self.max_shard_size is not None:
             cmd += f" --max_shard_size_sat {self.max_shard_size}"
+
+        if self.timeout is not None:
+            cmd += f" --timeout {self.timeout}s"
 
         res = lnd_raw(self.node, f"{cmd} {self.invoice} 2> /dev/null")
         res = res[res.find("{"):]
@@ -171,7 +178,6 @@ class TestHold:
     def test_settle_accepted(self, cln: CliCaller) -> None:
         payment_preimage, payment_hash, invoice = add_hold_invoice(cln)
 
-        print(invoice)
         pay = LndPay(LndNode.One, invoice)
         pay.start()
 
@@ -294,24 +300,30 @@ class TestHold:
         assert res["code"] == 2102
         assert res["message"] == "hold invoice with that payment hash does not exist"
 
-    @pytest.mark.skip()
     def test_mpp_timeout(self, cln: CliCaller) -> None:
         _, payment_hash, invoice = add_hold_invoice(cln)
-        amount = lnd(LndNode.One, "decodepayreq", invoice)["num_satoshis"]
-        cln_node = cln("getinfo")["id"]
+        dec = bolt11.decode(invoice)
+        dec.amount_msat = MilliSatoshi(dec.amount_msat - 1000)
 
-        routes = lnd(LndNode.One, "queryroutes", cln_node, str(int(amount) - 1))
+        less_invoice = cln("signinvoice", bolt11.encode(dec))["bolt11"]
 
-        res = lnd(
-            LndNode.One,
-            "sendtoroute",
-            "--payment_hash",
+        pay = LndPay(LndNode.One, less_invoice, timeout=5)
+        pay.start()
+
+        time.sleep(0.5)
+        assert cln(
+            "listholdinvoices",
             payment_hash,
-            format_json(routes),
-        )
+        )["holdinvoices"][0]["state"] == "unpaid"
 
-        assert res["status"] == "FAILED"
-        assert res["failure"]["code"] == "MPP_TIMEOUT"
+        pay.join()
+
+        assert pay.res["status"] == "FAILED"
+        assert pay.res["failure_reason"] == "FAILURE_REASON_TIMEOUT"
+        assert len(pay.res["htlcs"]) == 1
+
+        htlc = pay.res["htlcs"][0]
+        assert htlc["failure"]["code"] == "MPP_TIMEOUT"
 
     def test_htlc_too_little_cltv(self, cln: CliCaller) -> None:
         _, payment_hash, invoice = add_hold_invoice(cln)
@@ -422,7 +434,6 @@ class TestHold:
 
         assert pay.res["status"] == "SUCCEEDED"
 
-    @pytest.mark.skip()
     def test_ignore_forward(self, cln: CliCaller) -> None:
         cln_id = cln("getinfo")["id"]
         channels = lnd(LndNode.Two, "listchannels")["channels"]

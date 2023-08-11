@@ -3,7 +3,6 @@ from datetime import datetime
 from enum import Enum
 from typing import ClassVar
 
-from consts import TIMEOUT_CANCEL
 from invoice import HoldInvoice, InvoiceState
 from pyln.client.plugin import Request
 from utils import partition, time_now
@@ -37,12 +36,12 @@ class Htlcs:
     def requests(self) -> list[Request]:
         return [h.request for h in self.htlcs]
 
-    def cancel_expired(self) -> None:
+    def cancel_expired(self, expiry: int) -> None:
         expired, not_expired = partition(
             self.htlcs,
             lambda htlc: (
                                  time_now() - htlc.creation_time
-                         ).total_seconds() > TIMEOUT_CANCEL,
+                         ).total_seconds() > expiry,
         )
 
         self.htlcs = not_expired

@@ -14,6 +14,8 @@ from settler import HtlcFailureMessage, Settler
 
 # TODO: fix shebang line
 # TODO: restart handling
+# TODO: docstrings
+# TODO: gRPC with subs
 
 
 pl = Plugin()
@@ -31,6 +33,7 @@ def init(
         plugin: Plugin,
         **kwargs: dict[str, Any],
 ) -> None:
+    handler.init()
     encoder.init()
     plugin.log(f"Plugin {PLUGIN_NAME} initialized")
 
@@ -40,6 +43,7 @@ def hold_invoice(
         plugin: Plugin,
         payment_hash: str,
         amount_msat: int,
+        # TODO: remove default when library can handle empty strings
         memo: str = "Hold invoice",
         expiry: int = Defaults.Expiry,
         min_final_cltv_expiry: int = Defaults.MinFinalCltvExpiry,

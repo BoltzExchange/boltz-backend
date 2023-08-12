@@ -45,6 +45,10 @@ jobs:
       - name: Deploy Ethereum contracts
         run: npm run docker:solidity:deploy
 
+      - name: Set Python symlink in regtest container
+        run: docker exec regtest mkdir -p $pythonLocation/bin &&
+            docker exec regtest ln -s /usr/bin/python3 $pythonLocation/bin/python
+
       - name: Compile
         run: npm run compile
 
@@ -63,5 +67,5 @@ jobs:
       - name: Integration tests
         run: node run-int.js
 
-      - name: Python integration tests
-        run: chmod -R 777 tools/.venv && npm run python:test
+      - name: Python plugin tests
+        run: npm run python:test

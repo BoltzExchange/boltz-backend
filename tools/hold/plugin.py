@@ -27,10 +27,10 @@ encoder = Encoder(pl)
 
 @pl.init()
 def init(
-        options: dict[str, Any],
-        configuration: dict[str, Any],
-        plugin: Plugin,
-        **kwargs: dict[str, Any],
+    options: dict[str, Any],
+    configuration: dict[str, Any],
+    plugin: Plugin,
+    **kwargs: dict[str, Any],
 ) -> None:
     handler.init()
     encoder.init()
@@ -39,13 +39,12 @@ def init(
 
 @pl.method("holdinvoice")
 def hold_invoice(
-        plugin: Plugin,
-        payment_hash: str,
-        amount_msat: int,
-        # TODO: remove default when library can handle empty strings
-        description: str = "Hold invoice",
-        expiry: int = Defaults.Expiry,
-        min_final_cltv_expiry: int = Defaults.MinFinalCltvExpiry,
+    plugin: Plugin,
+    payment_hash: str,
+    amount_msat: int,
+    description: str = "",
+    expiry: int = Defaults.Expiry,
+    min_final_cltv_expiry: int = Defaults.MinFinalCltvExpiry,
 ) -> dict[str, Any]:
     if len(plugin.rpc.listinvoices(payment_hash=payment_hash)["invoices"]) > 0:
         return Errors.invoice_exists
@@ -57,9 +56,12 @@ def hold_invoice(
         expiry,
         min_final_cltv_expiry,
     )
-    signed = plugin.rpc.call("signinvoice", {
-        "invstring": bolt11,
-    })["bolt11"]
+    signed = plugin.rpc.call(
+        "signinvoice",
+        {
+            "invstring": bolt11,
+        },
+    )["bolt11"]
 
     try:
         ds.save_invoice(
@@ -135,11 +137,11 @@ def wipe_hold_invoices(plugin: Plugin, payment_hash: str = "") -> dict[str, Any]
 
 @pl.async_hook("htlc_accepted")
 def on_htlc_accepted(
-        onion: dict[str, Any],
-        htlc: dict[str, Any],
-        request: Request,
-        plugin: Plugin,
-        **kwargs: dict[str, Any],
+    onion: dict[str, Any],
+    htlc: dict[str, Any],
+    request: Request,
+    plugin: Plugin,
+    **kwargs: dict[str, Any],
 ) -> None:
     # Ignore forwards
     if "forward_to" in kwargs:
@@ -164,8 +166,10 @@ def on_htlc_accepted(
         Settler.fail_callback(request, HtlcFailureMessage.IncorrectPaymentDetails)
         return
 
-    if ("payment_secret" not in onion or
-            onion["payment_secret"] != dec["payment_secret"]):
+    if (
+        "payment_secret" not in onion
+        or onion["payment_secret"] != dec["payment_secret"]
+    ):
         plugin.log(
             f"Rejected hold invoice {invoice.payment_hash}: incorrect payment secret",
             level="warn",

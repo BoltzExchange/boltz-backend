@@ -173,11 +173,11 @@ def list_images(to_list: list[str]) -> None:
 
 
 def build_images(
-        to_build: list[str],
-        organisation: str,
-        no_cache: bool,
-        buildx: bool,
-        platform: str = "",
+    to_build: list[str],
+    organisation: str,
+    no_cache: bool,
+    buildx: bool,
+    platform: str = "",
 ) -> None:
     """Build one or more images."""
     change_working_directory()
@@ -197,8 +197,11 @@ def build_images(
             args = " ".join(["--build-arg " + entry for entry in build_args])
 
             if buildx:
-                command = "docker buildx build --push {args} --platform " + \
-                          platform + " --file {dockerfile} --tag {name}:{tag} ."
+                command = (
+                    "docker buildx build --push {args} --platform "
+                    + platform
+                    + " --file {dockerfile} --tag {name}:{tag} ."
+                )
             else:
                 command = "docker build -t {name}:{tag} -f {dockerfile} {args} ."
 
@@ -258,11 +261,12 @@ if __name__ == "__main__":
 
     BUILDX_PARSER.add_argument("images", type=str, nargs="*")
     BUILDX_PARSER.add_argument("--no-cache", dest="no_cache", action="store_true")
-    BUILDX_PARSER.add_argument("--platform",
-                               action="store_true",
-                               default="linux/amd64,linux/arm64",
-                               help="The platforms to build for",
-                               )
+    BUILDX_PARSER.add_argument(
+        "--platform",
+        action="store_true",
+        default="linux/amd64,linux/arm64",
+        help="The platforms to build for",
+    )
     BUILDX_PARSER.add_argument(
         "--organisation",
         default="boltz",

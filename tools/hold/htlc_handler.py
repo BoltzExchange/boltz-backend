@@ -38,11 +38,11 @@ class HtlcHandler:
             )
 
     def handle_htlc(
-            self,
-            invoice: HoldInvoice,
-            dec_invoice: dict[str, Any],
-            htlc_msat: int,
-            req: Request,
+        self,
+        invoice: HoldInvoice,
+        dec_invoice: dict[str, Any],
+        htlc_msat: int,
+        req: Request,
     ) -> None:
         with self._lock:
             if invoice.state == InvoiceState.Paid:

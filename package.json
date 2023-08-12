@@ -31,6 +31,7 @@
     "prepublishOnly": "npm run compile && rm -f dist/package.json",
     "python:install": "cd tools && poetry install",
     "python:lint": "cd tools && poetry run ruff *.py hold/ backup/*.py ../docker/*.py",
+    "python:black": "cd tools && poetry run black . ../docker/",
     "python:test": "cd tools && poetry run pytest"
   },
   "bin": {

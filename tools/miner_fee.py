@@ -6,7 +6,7 @@ from pathlib import Path
 
 from bitcoinrpc.authproxy import AuthServiceProxy
 
-SAT_FACTOR = 10 ** 8
+SAT_FACTOR = 10**8
 
 
 @dataclass
@@ -21,11 +21,13 @@ def get_rpc_connection(rpc_port: int, cookie_file: str) -> AuthServiceProxy:
 
     with cookie_path.open() as cookie:
         cookie_parts = cookie.read().split(":")
-        return AuthServiceProxy("http://{}:{}@127.0.0.1:{}".format(
-            cookie_parts[0],
-            cookie_parts[1],
-            rpc_port,
-        ))
+        return AuthServiceProxy(
+            "http://{}:{}@127.0.0.1:{}".format(
+                cookie_parts[0],
+                cookie_parts[1],
+                rpc_port,
+            )
+        )
 
 
 def get_raw_transaction(rpc_connection: AuthServiceProxy, transaction_id: str) -> any:
@@ -34,8 +36,8 @@ def get_raw_transaction(rpc_connection: AuthServiceProxy, transaction_id: str) -
 
 
 def calculate_miner_fee(
-        rpc_connection: AuthServiceProxy,
-        transaction_id: str,
+    rpc_connection: AuthServiceProxy,
+    transaction_id: str,
 ) -> MinerFee:
     """Calcalute the miner fee of a transaction."""
     miner_fee = 0

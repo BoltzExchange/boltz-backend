@@ -25,11 +25,13 @@ class WebDav:
     def init(self, plugin: Plugin, host: str, user: str, password: str) -> None:
         self.plugin = plugin
 
-        client = Client({
-            "webdav_hostname": host,
-            "webdav_login": user,
-            "webdav_password": password,
-        })
+        client = Client(
+            {
+                "webdav_hostname": host,
+                "webdav_login": user,
+                "webdav_password": password,
+            }
+        )
         # Sanity check the configuration
         client.info(unquote(client.root))
         self.client = client
@@ -57,10 +59,10 @@ wd = WebDav()
 
 @pl.init()
 def init(
-        plugin: Plugin,
-        options: dict[str, Any],
-        configuration: dict[str: Any],
-        **kwargs: dict[str, Any],
+    plugin: Plugin,
+    options: dict[str, Any],
+    configuration: dict[str:Any],
+    **kwargs: dict[str, Any],
 ) -> None:
     host = options[OptionKeys.WebDavHost]
 
@@ -109,9 +111,9 @@ def backup_upload(plugin: Plugin) -> dict[str, Any]:
 
 @pl.subscribe("channel_opened")
 def on_channel(
-        plugin: Plugin,
-        channel_opened: dict[str, Any],
-        **kwargs: dict[str, Any],
+    plugin: Plugin,
+    channel_opened: dict[str, Any],
+    **kwargs: dict[str, Any],
 ) -> None:
     try:
         wd.upload_backup()

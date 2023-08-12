@@ -33,9 +33,11 @@ class DataStore:
         if payment_hash is not None:
             key.append(payment_hash)
 
-        return self._parse_invoices(self._plugin.rpc.listdatastore(
-            key=key,
-        ))
+        return self._parse_invoices(
+            self._plugin.rpc.listdatastore(
+                key=key,
+            )
+        )
 
     def get_invoice(self, payment_hash: str) -> HoldInvoice | None:
         invoices = self.list_invoices(payment_hash)

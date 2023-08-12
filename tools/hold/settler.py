@@ -39,9 +39,7 @@ class Htlcs:
     def cancel_expired(self, expiry: int) -> None:
         expired, not_expired = partition(
             self.htlcs,
-            lambda htlc: (
-                                 time_now() - htlc.creation_time
-                         ).total_seconds() > expiry,
+            lambda htlc: (time_now() - htlc.creation_time).total_seconds() > expiry,
         )
 
         self.htlcs = not_expired
@@ -67,20 +65,26 @@ class Settler:
 
     @staticmethod
     def fail_callback(req: Request, message: HtlcFailureMessage) -> None:
-        req.set_result({
-            "result": "fail",
-            "failure_message": message,
-        })
+        req.set_result(
+            {
+                "result": "fail",
+                "failure_message": message,
+            }
+        )
 
     @staticmethod
     def continue_callback(req: Request) -> None:
-        req.set_result({
-            "result": "continue",
-        })
+        req.set_result(
+            {
+                "result": "continue",
+            }
+        )
 
     @staticmethod
     def settle_callback(req: Request, preimage: str) -> None:
-        req.set_result({
-            "result": "resolve",
-            "payment_key": preimage,
-        })
+        req.set_result(
+            {
+                "result": "resolve",
+                "payment_key": preimage,
+            }
+        )

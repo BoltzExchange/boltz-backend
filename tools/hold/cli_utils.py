@@ -7,6 +7,8 @@ CliCaller = Callable[..., dict[str, Any]]
 
 
 def cln_con(*args: str) -> dict[str, Any]:
-    return json.load(os.popen(
-        f"docker exec regtest lightning-cli {' '.join(args)}",
-    ))
+    return json.load(
+        os.popen(
+            f"docker exec regtest lightning-cli {' '.join(args)}",
+        )
+    )

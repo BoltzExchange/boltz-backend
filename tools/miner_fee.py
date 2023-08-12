@@ -6,12 +6,14 @@ from pathlib import Path
 
 from bitcoinrpc.authproxy import AuthServiceProxy
 
-SAT_FACTOR = 10 ** 8
+SAT_FACTOR = 10**8
+
 
 @dataclass
 class MinerFee:
     total: float
     per_vbyte: int
+
 
 def get_rpc_connection(rpc_port: int, cookie_file: str) -> AuthServiceProxy:
     """Initialize the RPC connection to the daemon."""
@@ -19,15 +21,19 @@ def get_rpc_connection(rpc_port: int, cookie_file: str) -> AuthServiceProxy:
 
     with cookie_path.open() as cookie:
         cookie_parts = cookie.read().split(":")
-        return AuthServiceProxy("http://{}:{}@127.0.0.1:{}".format(
-            cookie_parts[0],
-            cookie_parts[1],
-            rpc_port,
-        ))
+        return AuthServiceProxy(
+            "http://{}:{}@127.0.0.1:{}".format(
+                cookie_parts[0],
+                cookie_parts[1],
+                rpc_port,
+            )
+        )
+
 
 def get_raw_transaction(rpc_connection: AuthServiceProxy, transaction_id: str) -> any:
     """Query a raw transaction verbosely."""
     return rpc_connection.getrawtransaction(transaction_id, 1)
+
 
 def calculate_miner_fee(
     rpc_connection: AuthServiceProxy,
@@ -45,6 +51,7 @@ def calculate_miner_fee(
         miner_fee -= output["value"]
 
     return MinerFee(miner_fee, (miner_fee * SAT_FACTOR) / raw_transaction["vsize"])
+
 
 if __name__ == "__main__":
     PARSER = ArgumentParser(description="Calculate the miner fee of a transaction")

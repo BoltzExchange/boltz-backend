@@ -8,6 +8,7 @@ jobs:
       matrix:
         platform: [ubuntu-latest]
         node-version: [18, 20]
+        python-version: ['3.10']
 
     runs-on: ${{ matrix.platform }}
 
@@ -21,17 +22,32 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
 
+      - name: Use Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Use Poetry
+        uses: abatilo/actions-poetry@v2
+
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
 
-      - name: Install dependencies
+      - name: Install Node.js dependencies
         run: npm ci
+
+      - name: Install Python dependencies
+        run: poetry config virtualenvs.in-project true && npm run python:install
 
       - name: Start containers
         run: npm run docker:regtest && npm run docker:solidity
 
       - name: Deploy Ethereum contracts
         run: npm run docker:solidity:deploy
+
+      - name: Set Python symlink in regtest container
+        run: docker exec regtest mkdir -p $pythonLocation/bin &&
+            docker exec regtest ln -s /usr/bin/python3 $pythonLocation/bin/python
 
       - name: Compile
         run: npm run compile
@@ -42,8 +58,14 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Python lint
+        run: npm run python:lint
+
       - name: Unit tests
         run: npm run test:unit
 
       - name: Integration tests
         run: node run-int.js
+
+      - name: Python plugin tests
+        run: npm run python:test

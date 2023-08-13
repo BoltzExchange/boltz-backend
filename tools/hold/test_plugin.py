@@ -1,65 +1,24 @@
-import json
-import os
 import random
 import time
 import uuid
-from enum import Enum
 from hashlib import sha256
-from threading import Thread
-from typing import Any
 
 import bolt11
 import pytest
 from bolt11.types import MilliSatoshi
-from cli_utils import CliCaller, cln_con
 from encoder import Defaults
-
-PLUGIN_PATH = "/root/hold-start.sh"
-
-
-class LndNode(Enum):
-    One = 1
-    Two = 2
-
-
-def lnd_raw(node: LndNode, *args: str) -> str:
-    node_cmd = "docker exec regtest lncli --network regtest --lnddir /root/.lnd-btc"
-
-    if node == LndNode.Two:
-        node_cmd += " --rpcserver localhost:10011"
-
-    return os.popen(
-        f"{node_cmd} {' '.join(args)}",
-    ).read()
-
-
-def lnd(node: LndNode, *args: str) -> dict[str, Any]:
-    return json.loads(lnd_raw(node, *args))
-
-
-def format_json(args: dict[str, Any] | list[Any]) -> str:
-    return json.dumps(args).replace('"', '\\"').replace(" ", "")
-
-
-def connect_peers(cln: CliCaller) -> None:
-    cln_id = cln("getinfo")["id"]
-
-    def lnd_connect(node: LndNode) -> None:
-        if len(lnd(node, "listpeers")["peers"]) == 2:
-            return
-
-        lnd(node, "connect", f"{cln_id}@127.0.0.1:9737")
-
-    for i in LndNode:
-        lnd_connect(i)
-
-
-def stop_plugin(cln: CliCaller) -> None:
-    plugins = cln("plugin", "list")["plugins"]
-    if not any(PLUGIN_PATH in plugin["name"] for plugin in plugins):
-        return
-
-    cln("plugin", "stop", PLUGIN_PATH)
+from test_utils import (
+    PLUGIN_PATH,
+    CliCaller,
+    LndNode,
+    LndPay,
+    cln_con,
+    connect_peers,
+    format_json,
+    lnd,
+    start_plugin,
+    stop_plugin,
+)
 
 
 def add_hold_invoice(cln: CliCaller) -> tuple[str, str, str]:
@@ -75,47 +34,11 @@ def add_hold_invoice(cln: CliCaller) -> tuple[str, str, str]:
     return payment_preimage.hex(), payment_hash, invoice
 
 
-class LndPay(Thread):
-    res: dict[str, Any] = None
-
-    def __init__(
-        self,
-        node: LndNode,
-        invoice: str,
-        max_shard_size: int | None = None,
-        outgoing_chan_id: str | None = None,
-        timeout: int | None = None,
-    ) -> None:
-        Thread.__init__(self)
-
-        self.node = node
-        self.timeout = timeout
-        self.invoice = invoice
-        self.max_shard_size = max_shard_size
-        self.outgoing_chan_id = outgoing_chan_id
-
-    def run(self) -> None:
-        cmd = "payinvoice --force --json"
-
-        if self.outgoing_chan_id is not None:
-            cmd += f" --outgoing_chan_id {self.outgoing_chan_id}"
-
-        if self.max_shard_size is not None:
-            cmd += f" --max_shard_size_sat {self.max_shard_size}"
-
-        if self.timeout is not None:
-            cmd += f" --timeout {self.timeout}s"
-
-        res = lnd_raw(self.node, f"{cmd} {self.invoice} 2> /dev/null")
-        res = res[res.find("{") :]
-        self.res = json.loads(res)
-
-
 class TestHold:
     @pytest.fixture(scope="class", autouse=True)
     def cln(self) -> CliCaller:
         stop_plugin(cln_con)
-        cln_con("plugin", "start", PLUGIN_PATH)
+        start_plugin(cln_con)
         cln_con("dev-wipeholdinvoices")
 
         connect_peers(cln_con)
@@ -220,6 +143,7 @@ class TestHold:
 
     def test_list(self, cln: CliCaller) -> None:
         invoices = cln("listholdinvoices")["holdinvoices"]
+        # TODO: assert properties
         assert len(invoices) > 1
 
     def test_list_single(self, cln: CliCaller) -> None:
@@ -328,8 +252,8 @@ class TestHold:
         )
 
     def test_settle_non_existent(self, cln: CliCaller) -> None:
-        payment_hash = random.randbytes(32).hex()
-        res = cln("cancelholdinvoice", payment_hash)
+        payment_preimage = random.randbytes(32).hex()
+        res = cln("settleholdinvoice", payment_preimage)
 
         assert res["code"] == 2102
         assert res["message"] == "hold invoice with that payment hash does not exist"

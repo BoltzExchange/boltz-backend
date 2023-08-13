@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package hold;
+
+service Hold {
+  rpc Invoice (InvoiceRequest) returns (InvoiceResponse) {}
+  rpc Settle (SettleRequest) returns (SettleResponse) {}
+  rpc Cancel (CancelRequest) returns (CancelResponse) {}
+  rpc List (ListRequest) returns (ListResponse) {}
+}
+
+message InvoiceRequest {
+  string payment_hash = 1;
+  uint64 amount_msat = 2;
+  optional string description = 3;
+  optional uint64 expiry = 4;
+  optional uint64 min_final_cltv_expiry = 5;
+}
+message InvoiceResponse {
+  string bolt11 = 1;
+}
+
+message SettleRequest {
+  string payment_preimage = 1;
+}
+message SettleResponse {}
+
+message CancelRequest {
+  string payment_hash = 1;
+}
+message CancelResponse {}
+
+message ListRequest {
+  optional string payment_hash = 1;
+}
+
+enum InvoiceState {
+  InvoiceUnpaid = 0;
+  InvoiceAccepted = 1;
+  InvoicePaid = 2;
+  InvoiceCancelled = 3;
+}
+
+message Invoice {
+  string payment_hash = 1;
+  optional string payment_preimage = 2;
+  InvoiceState state = 3;
+  string bolt11 = 4;
+}
+
+message ListResponse {
+  repeated Invoice invoices = 1;
+}

@@ -73,6 +73,7 @@ class DataStore:
         key = [PLUGIN_NAME, DataStore._invoices_key]
         invoices = self._plugin.rpc.listdatastore(key=key)["datastore"]
         for invoice in invoices:
+            # TODO: also cancel?
             self._plugin.rpc.deldatastore(invoice["key"])
 
         return len(invoices)

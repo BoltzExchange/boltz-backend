@@ -17,6 +17,9 @@ from settler import HtlcFailureMessage, Htlcs, Settler
 class HtlcHandler:
     _lock = threading.Lock()
 
+    _interval_thread: threading.Thread
+    _stop_timeout_interval: threading.Event
+
     _plugin: Plugin
     _ds: DataStore
     _settler: Settler
@@ -36,6 +39,10 @@ class HtlcHandler:
                 f"Using regtest MPP timeout of {self._timeout} seconds",
                 level="warn",
             )
+
+    def stop(self) -> None:
+        self._stop_timeout_interval.set()
+        self._interval_thread.join()
 
     def handle_htlc(
         self,
@@ -77,7 +84,8 @@ class HtlcHandler:
             while not self._stop_timeout_interval.wait(TIMEOUT_CHECK_INTERVAL):
                 self._timeout_handler()
 
-        threading.Thread(target=loop).start()
+        self._interval_thread = threading.Thread(target=loop)
+        self._interval_thread.start()
 
     def _timeout_handler(self) -> None:
         with self._lock:

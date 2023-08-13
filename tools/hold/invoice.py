@@ -3,12 +3,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import TypeVar
 
-
-class InvoiceState(str, Enum):
-    Paid = "paid"
-    Unpaid = "unpaid"
-    Accepted = "accepted"
-    Cancelled = "cancelled"
+from enums import POSSIBLE_STATE_TRANSITIONS, InvoiceState
+from tracker import Tracker
 
 
 class HoldInvoiceStateError(ValueError):
@@ -22,14 +18,6 @@ class HoldInvoiceStateError(ValueError):
         }
 
 
-POSSIBLE_STATE_TRANSITIONS = {
-    InvoiceState.Paid: [],
-    InvoiceState.Cancelled: [],
-    InvoiceState.Accepted: [InvoiceState.Cancelled, InvoiceState.Paid],
-    InvoiceState.Unpaid: [InvoiceState.Accepted, InvoiceState.Cancelled],
-}
-
-
 HoldInvoiceType = TypeVar("HoldInvoiceType", bound="HoldInvoice")
 
 
@@ -40,11 +28,12 @@ class HoldInvoice:
     payment_hash: str
     payment_preimage: str | None
 
-    def set_state(self, new_state: InvoiceState) -> None:
+    def set_state(self, tracker: Tracker, new_state: InvoiceState) -> None:
         if new_state not in POSSIBLE_STATE_TRANSITIONS[self.state]:
             raise HoldInvoiceStateError(self.state, new_state)
 
         self.state = new_state
+        tracker.send_update(self.payment_hash, self.state)
 
     def to_json(self) -> str:
         return json.dumps(

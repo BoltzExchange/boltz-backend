@@ -1,8 +1,8 @@
 import random
 
 import pytest
-from cli_utils import cln_con
 from encoder import Defaults, Encoder, get_network_prefix, get_payment_secret
+from test_utils import cln_con
 from utils import time_now
 
 

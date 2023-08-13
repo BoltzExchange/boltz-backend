@@ -52,6 +52,7 @@ class DataStore:
                 [PLUGIN_NAME, DataStore._invoices_key, payment_hash],
             )
         except RpcError as e:
+            # noinspection PyTypeChecker
             if e.error["code"] == DataErrorCodes.KeyDoesNotExist:
                 return False
 
@@ -73,6 +74,7 @@ class DataStore:
         key = [PLUGIN_NAME, DataStore._invoices_key]
         invoices = self._plugin.rpc.listdatastore(key=key)["datastore"]
         for invoice in invoices:
+            # TODO: also cancel?
             self._plugin.rpc.deldatastore(invoice["key"])
 
         return len(invoices)

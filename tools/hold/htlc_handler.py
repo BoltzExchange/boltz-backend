@@ -12,19 +12,26 @@ from datastore import DataStore
 from invoice import HoldInvoice, InvoiceState
 from pyln.client import Plugin
 from settler import HtlcFailureMessage, Htlcs, Settler
+from tracker import Tracker
 
 
 class HtlcHandler:
     _lock = threading.Lock()
 
+    _interval_thread: threading.Thread
+    _stop_timeout_interval: threading.Event
+
     _plugin: Plugin
     _ds: DataStore
     _settler: Settler
 
-    def __init__(self, plugin: Plugin, ds: DataStore, settler: Settler) -> None:
+    def __init__(
+        self, plugin: Plugin, ds: DataStore, settler: Settler, tracker: Tracker
+    ) -> None:
         self._plugin = plugin
         self._ds = ds
         self._settler = settler
+        self._tracker = tracker
         self._timeout = TIMEOUT_CANCEL
 
         self._start_timeout_interval()
@@ -36,6 +43,10 @@ class HtlcHandler:
                 f"Using regtest MPP timeout of {self._timeout} seconds",
                 level="warn",
             )
+
+    def stop(self) -> None:
+        self._stop_timeout_interval.set()
+        self._interval_thread.join()
 
     def handle_htlc(
         self,
@@ -63,7 +74,7 @@ class HtlcHandler:
             if not htlcs.is_fully_paid():
                 return
 
-            invoice.set_state(InvoiceState.Accepted)
+            invoice.set_state(self._tracker, InvoiceState.Accepted)
             self._ds.save_invoice(invoice, mode="must-replace")
             self._plugin.log(
                 f"Accepted hold invoice {invoice.payment_hash} "
@@ -77,7 +88,8 @@ class HtlcHandler:
             while not self._stop_timeout_interval.wait(TIMEOUT_CHECK_INTERVAL):
                 self._timeout_handler()
 
-        threading.Thread(target=loop).start()
+        self._interval_thread = threading.Thread(target=loop)
+        self._interval_thread.start()
 
     def _timeout_handler(self) -> None:
         with self._lock:

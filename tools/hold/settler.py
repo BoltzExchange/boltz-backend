@@ -5,6 +5,7 @@ from typing import ClassVar
 
 from invoice import HoldInvoice, InvoiceState
 from pyln.client.plugin import Request
+from tracker import Tracker
 from utils import partition, time_now
 
 
@@ -20,6 +21,7 @@ class Htlc:
     creation_time: datetime
 
 
+# TODO: save information about HTLCs
 class Htlcs:
     htlcs: list[Htlc]
 
@@ -50,13 +52,16 @@ class Htlcs:
 class Settler:
     htlcs: ClassVar[dict[str, Htlcs]] = {}
 
+    def __init__(self, tracker: Tracker) -> None:
+        self._tracker = tracker
+
     def settle(self, invoice: HoldInvoice) -> None:
-        invoice.set_state(InvoiceState.Paid)
+        invoice.set_state(self._tracker, InvoiceState.Paid)
         for req in self._pop_requests(invoice.payment_hash):
             self.settle_callback(req, invoice.payment_preimage)
 
     def cancel(self, invoice: HoldInvoice) -> None:
-        invoice.set_state(InvoiceState.Cancelled)
+        invoice.set_state(self._tracker, InvoiceState.Cancelled)
         for req in self._pop_requests(invoice.payment_hash):
             self.fail_callback(req, HtlcFailureMessage.IncorrectPaymentDetails)
 

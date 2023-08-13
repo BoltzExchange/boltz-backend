@@ -120,3 +120,19 @@ class TrackResponse(_message.Message):
     STATE_FIELD_NUMBER: _ClassVar[int]
     state: InvoiceState
     def __init__(self, state: _Optional[_Union[InvoiceState, str]] = ...) -> None: ...
+
+class TrackAllRequest(_message.Message):
+    __slots__ = []
+    def __init__(self) -> None: ...
+
+class TrackAllResponse(_message.Message):
+    __slots__ = ["payment_hash", "state"]
+    PAYMENT_HASH_FIELD_NUMBER: _ClassVar[int]
+    STATE_FIELD_NUMBER: _ClassVar[int]
+    payment_hash: str
+    state: InvoiceState
+    def __init__(
+        self,
+        payment_hash: _Optional[str] = ...,
+        state: _Optional[_Union[InvoiceState, str]] = ...,
+    ) -> None: ...

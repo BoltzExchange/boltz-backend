@@ -1,7 +1,7 @@
 import random
 
 from enums import InvoiceState
-from tracker import Tracker
+from tracker import InvoiceUpdate, Tracker
 
 
 class TestTracker:
@@ -11,8 +11,8 @@ class TestTracker:
         track = Tracker()
         q = track.track(payment_hash)
 
-        assert len(track._qs[payment_hash]) == 1  # noqa: SLF001
-        assert track._qs[payment_hash][0] == q  # noqa: SLF001
+        assert track._fwds[payment_hash].size() == 1  # noqa: SLF001
+        assert track._fwds[payment_hash]._qs[0] == q  # noqa: SLF001
 
     def test_track_existing_payment_hash(self) -> None:
         payment_hash = random.randbytes(32).hex()
@@ -21,9 +21,9 @@ class TestTracker:
         q1 = track.track(payment_hash)
         q2 = track.track(payment_hash)
 
-        assert len(track._qs[payment_hash]) == 2  # noqa: SLF001
-        assert track._qs[payment_hash][0] == q1  # noqa: SLF001
-        assert track._qs[payment_hash][1] == q2  # noqa: SLF001
+        assert track._fwds[payment_hash].size() == 2  # noqa: SLF001
+        assert track._fwds[payment_hash]._qs[0] == q1  # noqa: SLF001
+        assert track._fwds[payment_hash]._qs[1] == q2  # noqa: SLF001
 
     def test_stop_tracking_empty_afterwards(self) -> None:
         payment_hash = random.randbytes(32).hex()
@@ -32,7 +32,7 @@ class TestTracker:
 
         track.stop_tracking(payment_hash, q)
 
-        assert len(track._qs) == 0  # noqa: SLF001
+        assert len(track._fwds) == 0  # noqa: SLF001
 
     def test_stop_tracking(self) -> None:
         payment_hash = random.randbytes(32).hex()
@@ -42,8 +42,8 @@ class TestTracker:
 
         track.stop_tracking(payment_hash, q1)
 
-        assert len(track._qs[payment_hash]) == 1  # noqa: SLF001
-        assert track._qs[payment_hash][0] == q2  # noqa: SLF001
+        assert track._fwds[payment_hash].size() == 1  # noqa: SLF001
+        assert track._fwds[payment_hash]._qs[0] == q2  # noqa: SLF001
 
     def test_send_update_no_queues(self) -> None:
         payment_hash = random.randbytes(32).hex()
@@ -71,3 +71,44 @@ class TestTracker:
 
         assert q1.get() == update
         assert q2.get() == update
+
+    def test_track_all(self) -> None:
+        track = Tracker()
+        q = track.track_all()
+
+        assert track._all_fwds is not None  # noqa: SLF001
+        assert track._all_fwds.size() == 1  # noqa: SLF001
+        assert track._all_fwds._qs[0] == q  # noqa: SLF001
+
+    def test_stop_tracking_all(self) -> None:
+        track = Tracker()
+        q1 = track.track_all()
+        q2 = track.track_all()
+
+        track.stop_tracking_all(q1)
+
+        assert track._all_fwds.size() == 1  # noqa: SLF001
+        assert track._all_fwds._qs[0] == q2  # noqa: SLF001
+
+    def test_send_update_all(self) -> None:
+        payment_hash = random.randbytes(32).hex()
+        track = Tracker()
+        q = track.track_all()
+
+        update = InvoiceState.Accepted
+        track.send_update(payment_hash, update)
+
+        assert q.get() == InvoiceUpdate(payment_hash, update)
+
+    def test_send_update_single_all(self) -> None:
+        payment_hash = random.randbytes(32).hex()
+        track = Tracker()
+
+        q = track.track(payment_hash)
+        q_all = track.track_all()
+
+        update = InvoiceState.Accepted
+        track.send_update(payment_hash, update)
+
+        assert q.get() == update
+        assert q_all.get() == InvoiceUpdate(payment_hash, update)

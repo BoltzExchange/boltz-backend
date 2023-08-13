@@ -60,9 +60,9 @@ class Hold:
         )["bolt11"]
 
         try:
-            self.ds.save_invoice(
-                HoldInvoice(InvoiceState.Unpaid, signed, payment_hash, None),
-            )
+            hi = HoldInvoice(InvoiceState.Unpaid, signed, payment_hash, None)
+            self.ds.save_invoice(hi)
+            self.tracker.send_update(hi.payment_hash, hi.state)
             self._plugin.log(f"Added hold invoice {payment_hash} for {amount_msat}")
         except RpcError as e:
             # noinspection PyTypeChecker

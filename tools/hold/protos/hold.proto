@@ -9,6 +9,7 @@ service Hold {
   rpc List (ListRequest) returns (ListResponse) {}
 
   rpc Track (TrackRequest) returns (stream TrackResponse) {}
+  rpc TrackAll (TrackAllRequest) returns (stream TrackAllResponse) {}
 }
 
 message InvoiceRequest {
@@ -60,4 +61,10 @@ message TrackRequest {
 
 message TrackResponse {
   InvoiceState state = 1;
+}
+
+message TrackAllRequest {}
+message TrackAllResponse {
+  string payment_hash = 1;
+  InvoiceState state = 2;
 }

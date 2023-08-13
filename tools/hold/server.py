@@ -1,5 +1,6 @@
 import threading
 from concurrent import futures
+from queue import Empty
 from typing import Callable, Iterable, TypeVar
 
 import grpc
@@ -7,7 +8,7 @@ from encoder import Defaults
 from enums import invoice_state_final
 
 # noinspection PyProtectedMember
-from grpc._server import _Context, _Server
+from grpc._server import _Server
 from grpc_interceptor import ServerInterceptor
 from protos.hold_pb2 import (
     CancelRequest,
@@ -18,6 +19,8 @@ from protos.hold_pb2 import (
     ListResponse,
     SettleRequest,
     SettleResponse,
+    TrackAllRequest,
+    TrackAllResponse,
     TrackRequest,
     TrackResponse,
 )
@@ -27,6 +30,16 @@ from transformers import INVOICE_STATE_TO_GRPC, Transformers
 
 from hold import Hold, NoSuchInvoiceError
 
+
+def handle_grpc_error(
+    plugin: Plugin, method_name: str, context: grpc.ServicerContext, e: Exception
+) -> None:
+    estr = str(e) if str(e) != "" else repr(e)
+
+    plugin.log(f"gRPC call {method_name} failed: {estr}", level="warn")
+    context.abort(grpc.StatusCode.INTERNAL, estr)
+
+
 T = TypeVar("T")
 
 
@@ -35,11 +48,12 @@ def optional_default(value: T | None, default: T, fallback: T) -> T:
 
 
 class HoldService(HoldServicer):
-    def __init__(self, hold: Hold) -> None:
+    def __init__(self, plugin: Plugin, hold: Hold) -> None:
+        self._plugin = plugin
         self._hold = hold
 
     def Invoice(  # noqa: N802
-        self, request: InvoiceRequest, context: _Context  # noqa: ARG002
+        self, request: InvoiceRequest, context: grpc.ServicerContext  # noqa: ARG002
     ) -> InvoiceResponse:
         return InvoiceResponse(
             bolt11=self._hold.invoice(
@@ -54,19 +68,19 @@ class HoldService(HoldServicer):
         )
 
     def Settle(  # noqa: N802
-        self, request: SettleRequest, context: _Context  # noqa: ARG002
+        self, request: SettleRequest, context: grpc.ServicerContext  # noqa: ARG002
     ) -> SettleResponse:
         self._hold.settle(request.payment_preimage)
         return SettleResponse()
 
     def Cancel(  # noqa: N802
-        self, request: CancelRequest, context: _Context  # noqa: ARG002
+        self, request: CancelRequest, context: grpc.ServicerContext  # noqa: ARG002
     ) -> CancelResponse:
         self._hold.cancel(request.payment_hash)
         return CancelResponse()
 
     def List(  # noqa: N802
-        self, request: ListRequest, context: _Context  # noqa: ARG002
+        self, request: ListRequest, context: grpc.ServicerContext  # noqa: ARG002
     ) -> ListResponse:
         return ListResponse(
             invoices=[
@@ -76,25 +90,47 @@ class HoldService(HoldServicer):
         )
 
     def Track(  # noqa: N802
-        self, request: TrackRequest, context: _Context
+        self, request: TrackRequest, context: grpc.ServicerContext
     ) -> Iterable[TrackResponse]:
-        queue = self._hold.tracker.track(request.payment_hash)
-        invoices = self._hold.list_invoices(request.payment_hash)
+        try:
+            queue = self._hold.tracker.track(request.payment_hash)
+            invoices = self._hold.list_invoices(request.payment_hash)
 
-        if len(invoices) == 0:
+            if len(invoices) == 0:
+                self._hold.tracker.stop_tracking(request.payment_hash, queue)
+                raise NoSuchInvoiceError  # noqa: TRY301
+
+            yield TrackResponse(state=INVOICE_STATE_TO_GRPC[invoices[0].state])
+
+            while context.is_active():
+                state = queue.get()
+                yield TrackResponse(state=INVOICE_STATE_TO_GRPC[state])
+
+                if invoice_state_final(state):
+                    break
+
             self._hold.tracker.stop_tracking(request.payment_hash, queue)
-            raise NoSuchInvoiceError
+        except Exception as e:
+            handle_grpc_error(self._plugin, self.Track.__name__, context, e)
 
-        yield TrackResponse(state=INVOICE_STATE_TO_GRPC[invoices[0].state])
+    def TrackAll(  # noqa: N802
+        self, request: TrackAllRequest, context: grpc.ServicerContext  # noqa: ARG002
+    ) -> Iterable[TrackAllResponse]:
+        try:
+            queue = self._hold.tracker.track_all()
 
-        while context.is_active():
-            state = queue.get()
-            yield TrackResponse(state=INVOICE_STATE_TO_GRPC[state])
-
-            if invoice_state_final(state):
-                break
-
-        self._hold.tracker.stop_tracking(request.payment_hash, queue)
+            while context.is_active():
+                # Trick to stop the stream when the client cancels
+                try:
+                    ev = queue.get(block=True, timeout=1)
+                    yield TrackAllResponse(
+                        payment_hash=ev.payment_hash,
+                        state=INVOICE_STATE_TO_GRPC[ev.update],
+                    )
+                except Empty:  # noqa: PERF203
+                    pass
+        except Exception as e:
+            handle_grpc_error(self._plugin, self.TrackAll.__name__, context, e)
 
 
 class ServerError(Exception):
@@ -119,10 +155,7 @@ class LogInterceptor(ServerInterceptor):
             self._plugin.log(f"gRPC call {method_name}", level="debug")
             return method(request, context)
         except Exception as e:
-            estr = str(e) if str(e) != "" else repr(e)
-
-            self._plugin.log(f"gRPC call {method_name} failed: {estr}", level="warn")
-            context.abort(grpc.StatusCode.INTERNAL, estr)
+            handle_grpc_error(self._plugin, method_name, context, e)
 
 
 class Server:
@@ -142,7 +175,7 @@ class Server:
         self._server = grpc.server(
             futures.ThreadPoolExecutor(), interceptors=[LogInterceptor(self._plugin)]
         )
-        add_HoldServicer_to_server(HoldService(self._hold), self._server)
+        add_HoldServicer_to_server(HoldService(self._plugin, self._hold), self._server)
 
         address = f"{host}:{port}"
         self._server.add_insecure_port(address)

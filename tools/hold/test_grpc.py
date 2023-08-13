@@ -9,7 +9,7 @@ from consts import GRPC_PORT
 from encoder import Defaults
 
 # noinspection PyProtectedMember
-from grpc._channel import _InactiveRpcError
+from grpc._channel import _InactiveRpcError, _MultiThreadedRendezvous
 from protos.hold_pb2 import (
     CancelRequest,
     InvoiceAccepted,
@@ -20,6 +20,7 @@ from protos.hold_pb2 import (
     InvoiceUnpaid,
     ListRequest,
     SettleRequest,
+    TrackAllRequest,
     TrackRequest,
 )
 from protos.hold_pb2_grpc import HoldStub
@@ -217,6 +218,15 @@ class TestGrpc:
         assert err.value.code() == grpc.StatusCode.INTERNAL
         assert err.value.details() == "NoSuchInvoiceError()"
 
+    def test_track_non_existent(self, cl: HoldStub) -> None:
+        payment_hash = random.randbytes(32).hex()
+
+        with pytest.raises(_MultiThreadedRendezvous) as err:
+            cl.Track(TrackRequest(payment_hash=payment_hash)).__next__()
+
+        assert err.value.code() == grpc.StatusCode.INTERNAL
+        assert err.value.details() == "NoSuchInvoiceError()"
+
     def test_track_settle(self, cl: HoldStub) -> None:
         payment_preimage, payment_hash, invoice = add_hold_invoice(cl)
 
@@ -337,3 +347,49 @@ class TestGrpc:
             res = [fut.result() for fut in futs]
             assert res[0] == [InvoiceUnpaid]
             assert res[1] == [InvoiceUnpaid, InvoiceAccepted, InvoiceCancelled]
+
+    def test_track_all(self, cl: HoldStub) -> None:
+        expected_events = 6
+
+        def track_states() -> list[tuple[str, str]]:
+            evs = []
+
+            sub = cl.TrackAll(TrackAllRequest())
+            for ev in sub:
+                evs.append((ev.payment_hash, ev.state))
+                if len(evs) == expected_events:
+                    sub.cancel()
+                    break
+
+            return evs
+
+        with concurrent.futures.ThreadPoolExecutor() as pool:
+            fut = pool.submit(track_states)
+
+            _, payment_hash_created, _ = add_hold_invoice(cl)
+            _, payment_hash_cancelled, _ = add_hold_invoice(cl)
+            (
+                payment_preimage_settled,
+                payment_hash_settled,
+                invoice_settled,
+            ) = add_hold_invoice(cl)
+
+            cl.Cancel(CancelRequest(payment_hash=payment_hash_cancelled))
+
+            pay = LndPay(LndNode.One, invoice_settled)
+            pay.start()
+            time.sleep(1)
+
+            cl.Settle(SettleRequest(payment_preimage=payment_preimage_settled))
+            pay.join()
+
+            res = fut.result()
+            assert len(res) == expected_events
+            assert res == [
+                (payment_hash_created, InvoiceUnpaid),
+                (payment_hash_cancelled, InvoiceUnpaid),
+                (payment_hash_settled, InvoiceUnpaid),
+                (payment_hash_cancelled, InvoiceCancelled),
+                (payment_hash_settled, InvoiceAccepted),
+                (payment_hash_settled, InvoicePaid),
+            ]

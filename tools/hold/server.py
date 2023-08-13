@@ -95,8 +95,10 @@ class LogInterceptor(ServerInterceptor):
             self._plugin.log(f"gRPC call {method_name}", level="debug")
             return method(request, context)
         except Exception as e:
-            self._plugin.log(f"gRPC call {method_name} failed: {e!s}", level="warn")
-            raise
+            estr = str(e) if str(e) != "" else repr(e)
+
+            self._plugin.log(f"gRPC call {method_name} failed: {estr}", level="warn")
+            context.abort(grpc.StatusCode.INTERNAL, estr)
 
 
 class Server:

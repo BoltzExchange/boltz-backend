@@ -6,6 +6,9 @@ import grpc
 import pytest
 from consts import GRPC_PORT
 from encoder import Defaults
+
+# noinspection PyProtectedMember
+from grpc._channel import _InactiveRpcError
 from protos.hold_pb2 import (
     CancelRequest,
     InvoiceAccepted,
@@ -171,6 +174,27 @@ class TestGrpc:
             == InvoicePaid
         )
 
+    def test_settle_unpaid(self, cl: HoldStub) -> None:
+        payment_preimage, _, _ = add_hold_invoice(cl)
+
+        with pytest.raises(_InactiveRpcError) as err:
+            cl.Settle(SettleRequest(payment_preimage=payment_preimage))
+
+        assert err.value.code() == grpc.StatusCode.INTERNAL
+        assert (
+            err.value.details()
+            == "illegal hold invoice state transition (unpaid -> paid)"
+        )
+
+    def test_settle_non_existent(self, cl: HoldStub) -> None:
+        payment_preimage = random.randbytes(32).hex()
+
+        with pytest.raises(_InactiveRpcError) as err:
+            cl.Settle(SettleRequest(payment_preimage=payment_preimage))
+
+        assert err.value.code() == grpc.StatusCode.INTERNAL
+        assert err.value.details() == "NoSuchInvoiceError()"
+
     def test_cancel_unpaid(self, cl: HoldStub) -> None:
         payment_preimage, payment_hash, invoice = add_hold_invoice(cl)
         cl.Cancel(CancelRequest(payment_hash=payment_hash))
@@ -179,3 +203,12 @@ class TestGrpc:
             cl.List(ListRequest(payment_hash=payment_hash)).invoices[0].state
             == InvoiceCancelled
         )
+
+    def test_cancel_non_existent(self, cl: HoldStub) -> None:
+        payment_hash = random.randbytes(32).hex()
+
+        with pytest.raises(_InactiveRpcError) as err:
+            cl.Cancel(CancelRequest(payment_hash=payment_hash))
+
+        assert err.value.code() == grpc.StatusCode.INTERNAL
+        assert err.value.details() == "NoSuchInvoiceError()"

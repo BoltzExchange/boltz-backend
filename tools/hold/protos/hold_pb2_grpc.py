@@ -34,6 +34,11 @@ class HoldStub(object):
             request_serializer=hold__pb2.ListRequest.SerializeToString,
             response_deserializer=hold__pb2.ListResponse.FromString,
         )
+        self.Track = channel.unary_stream(
+            "/hold.Hold/Track",
+            request_serializer=hold__pb2.TrackRequest.SerializeToString,
+            response_deserializer=hold__pb2.TrackResponse.FromString,
+        )
 
 
 class HoldServicer(object):
@@ -63,6 +68,12 @@ class HoldServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def Track(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_HoldServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -85,6 +96,11 @@ def add_HoldServicer_to_server(servicer, server):
             servicer.List,
             request_deserializer=hold__pb2.ListRequest.FromString,
             response_serializer=hold__pb2.ListResponse.SerializeToString,
+        ),
+        "Track": grpc.unary_stream_rpc_method_handler(
+            servicer.Track,
+            request_deserializer=hold__pb2.TrackRequest.FromString,
+            response_serializer=hold__pb2.TrackResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -203,6 +219,35 @@ class Hold(object):
             "/hold.Hold/List",
             hold__pb2.ListRequest.SerializeToString,
             hold__pb2.ListResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def Track(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            "/hold.Hold/Track",
+            hold__pb2.TrackRequest.SerializeToString,
+            hold__pb2.TrackResponse.FromString,
             options,
             channel_credentials,
             insecure,

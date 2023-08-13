@@ -7,6 +7,8 @@ service Hold {
   rpc Settle (SettleRequest) returns (SettleResponse) {}
   rpc Cancel (CancelRequest) returns (CancelResponse) {}
   rpc List (ListRequest) returns (ListResponse) {}
+
+  rpc Track (TrackRequest) returns (stream TrackResponse) {}
 }
 
 message InvoiceRequest {
@@ -50,4 +52,12 @@ message Invoice {
 
 message ListResponse {
   repeated Invoice invoices = 1;
+}
+
+message TrackRequest {
+  string payment_hash = 1;
+}
+
+message TrackResponse {
+  InvoiceState state = 1;
 }

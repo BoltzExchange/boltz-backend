@@ -67,3 +67,21 @@ class TestServer:
             "gRPC call /hold.Hold/Invoice failed: critical error",
         )
         assert self.plugin.log.call_args_list[3][1] == {"level": "warn"}
+
+    def test_log_error_repr(self, client: HoldStub) -> None:
+        class CustomNameError(Exception):
+            pass
+
+        self.hold.invoice.side_effect = CustomNameError()
+
+        with pytest.raises(_InactiveRpcError):
+            client.Invoice(InvoiceRequest())
+
+        assert self.hold.invoice.call_count == 3
+        assert self.plugin.log.call_count == 6
+        assert self.plugin.log.call_args_list[4][0] == ("gRPC call /hold.Hold/Invoice",)
+        assert self.plugin.log.call_args_list[4][1] == {"level": "debug"}
+        assert self.plugin.log.call_args_list[5][0] == (
+            f"gRPC call /hold.Hold/Invoice failed: {CustomNameError()!r}",
+        )
+        assert self.plugin.log.call_args_list[5][1] == {"level": "warn"}

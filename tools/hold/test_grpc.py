@@ -1,3 +1,4 @@
+import concurrent.futures
 import random
 import time
 from hashlib import sha256
@@ -15,8 +16,11 @@ from protos.hold_pb2 import (
     InvoiceCancelled,
     InvoicePaid,
     InvoiceRequest,
+    InvoiceState,
+    InvoiceUnpaid,
     ListRequest,
     SettleRequest,
+    TrackRequest,
 )
 from protos.hold_pb2_grpc import HoldStub
 from test_utils import (
@@ -212,3 +216,124 @@ class TestGrpc:
 
         assert err.value.code() == grpc.StatusCode.INTERNAL
         assert err.value.details() == "NoSuchInvoiceError()"
+
+    def test_track_settle(self, cl: HoldStub) -> None:
+        payment_preimage, payment_hash, invoice = add_hold_invoice(cl)
+
+        def track_states() -> list[InvoiceState]:
+            return [
+                update.state
+                for update in cl.Track(TrackRequest(payment_hash=payment_hash))
+            ]
+
+        with concurrent.futures.ThreadPoolExecutor() as pool:
+            fut = pool.submit(track_states)
+
+            pay = LndPay(LndNode.One, invoice)
+            pay.start()
+            time.sleep(1)
+
+            cl.Settle(SettleRequest(payment_preimage=payment_preimage))
+            pay.join()
+
+            assert fut.result() == [InvoiceUnpaid, InvoiceAccepted, InvoicePaid]
+
+    def test_track_cancel(self, cl: HoldStub) -> None:
+        _, payment_hash, invoice = add_hold_invoice(cl)
+
+        def track_states() -> list[InvoiceState]:
+            return [
+                update.state
+                for update in cl.Track(TrackRequest(payment_hash=payment_hash))
+            ]
+
+        with concurrent.futures.ThreadPoolExecutor() as pool:
+            fut = pool.submit(track_states)
+
+            pay = LndPay(LndNode.One, invoice)
+            pay.start()
+            time.sleep(1)
+
+            cl.Cancel(CancelRequest(payment_hash=payment_hash))
+            pay.join()
+
+            assert fut.result() == [InvoiceUnpaid, InvoiceAccepted, InvoiceCancelled]
+
+    def test_track_multiple(self, cl: HoldStub) -> None:
+        _, payment_hash, invoice = add_hold_invoice(cl)
+
+        def track_states() -> list[InvoiceState]:
+            return [
+                update.state
+                for update in cl.Track(TrackRequest(payment_hash=payment_hash))
+            ]
+
+        with concurrent.futures.ThreadPoolExecutor() as pool:
+            futs = [pool.submit(track_states), pool.submit(track_states)]
+
+            pay = LndPay(LndNode.One, invoice)
+            pay.start()
+            time.sleep(1)
+
+            cl.Cancel(CancelRequest(payment_hash=payment_hash))
+            pay.join()
+
+            for res in [fut.result() for fut in futs]:
+                assert res == [InvoiceUnpaid, InvoiceAccepted, InvoiceCancelled]
+
+    def test_track_cancelled_sub(self, cl: HoldStub) -> None:
+        _, payment_hash, invoice = add_hold_invoice(cl)
+
+        sub = cl.Track(TrackRequest(payment_hash=payment_hash))
+
+        for update in sub:
+            assert update.state == InvoiceUnpaid
+            break
+
+        assert sub.cancel()
+
+        pay = LndPay(LndNode.One, invoice)
+        pay.start()
+        time.sleep(1)
+
+        cl.Cancel(CancelRequest(payment_hash=payment_hash))
+        pay.join()
+
+        # Make sure the plugin is still alive
+        invoice_res = cl.List(ListRequest(payment_hash=payment_hash)).invoices[0]
+        assert invoice_res.bolt11 == invoice
+        assert invoice_res.state == InvoiceCancelled
+
+    def test_track_multiple_cancelled_sub(self, cl: HoldStub) -> None:
+        _, payment_hash, invoice = add_hold_invoice(cl)
+
+        def track_states(cancel: bool) -> list[InvoiceState]:
+            if cancel:
+                sub = cl.Track(TrackRequest(payment_hash=payment_hash))
+
+                updates = []
+                for update in sub:
+                    updates = [update.state]
+                    sub.cancel()
+                    break
+
+                return updates
+
+            return [
+                update.state
+                for update in cl.Track(TrackRequest(payment_hash=payment_hash))
+            ]
+
+        with concurrent.futures.ThreadPoolExecutor(2) as pool:
+            futs = [pool.submit(track_states, True), pool.submit(track_states, False)]
+
+            pay = LndPay(LndNode.One, invoice)
+            pay.start()
+            time.sleep(1)
+
+            cl.Cancel(CancelRequest(payment_hash=payment_hash))
+            pay.join()
+
+            res = [fut.result() for fut in futs]
+            assert res[0] == [InvoiceUnpaid]
+            assert res[1] == [InvoiceUnpaid, InvoiceAccepted, InvoiceCancelled]

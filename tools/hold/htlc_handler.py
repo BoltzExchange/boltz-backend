@@ -12,6 +12,7 @@ from datastore import DataStore
 from invoice import HoldInvoice, InvoiceState
 from pyln.client import Plugin
 from settler import HtlcFailureMessage, Htlcs, Settler
+from tracker import Tracker
 
 
 class HtlcHandler:
@@ -24,10 +25,13 @@ class HtlcHandler:
     _ds: DataStore
     _settler: Settler
 
-    def __init__(self, plugin: Plugin, ds: DataStore, settler: Settler) -> None:
+    def __init__(
+        self, plugin: Plugin, ds: DataStore, settler: Settler, tracker: Tracker
+    ) -> None:
         self._plugin = plugin
         self._ds = ds
         self._settler = settler
+        self._tracker = tracker
         self._timeout = TIMEOUT_CANCEL
 
         self._start_timeout_interval()
@@ -70,7 +74,7 @@ class HtlcHandler:
             if not htlcs.is_fully_paid():
                 return
 
-            invoice.set_state(InvoiceState.Accepted)
+            invoice.set_state(self._tracker, InvoiceState.Accepted)
             self._ds.save_invoice(invoice, mode="must-replace")
             self._plugin.log(
                 f"Accepted hold invoice {invoice.payment_hash} "

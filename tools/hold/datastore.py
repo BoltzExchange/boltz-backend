@@ -52,6 +52,7 @@ class DataStore:
                 [PLUGIN_NAME, DataStore._invoices_key, payment_hash],
             )
         except RpcError as e:
+            # noinspection PyTypeChecker
             if e.error["code"] == DataErrorCodes.KeyDoesNotExist:
                 return False
 

@@ -6,6 +6,7 @@ from htlc_handler import HtlcHandler
 from invoice import HoldInvoice, InvoiceState
 from pyln.client import Plugin, RpcError
 from settler import Settler
+from tracker import Tracker
 
 
 class InvoiceExistsError(Exception):
@@ -19,11 +20,12 @@ class NoSuchInvoiceError(Exception):
 class Hold:
     def __init__(self, plugin: Plugin) -> None:
         self._plugin = plugin
-        self._settler = Settler()
+        self.tracker = Tracker()
+        self._settler = Settler(self.tracker)
         self._encoder = Encoder(plugin)
 
         self.ds = DataStore(plugin, self._settler)
-        self.handler = HtlcHandler(plugin, self.ds, self._settler)
+        self.handler = HtlcHandler(plugin, self.ds, self._settler, self.tracker)
 
     def init(self) -> None:
         self.handler.init()

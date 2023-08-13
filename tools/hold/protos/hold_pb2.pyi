@@ -108,3 +108,15 @@ class ListResponse(_message.Message):
     def __init__(
         self, invoices: _Optional[_Iterable[_Union[Invoice, _Mapping]]] = ...
     ) -> None: ...
+
+class TrackRequest(_message.Message):
+    __slots__ = ["payment_hash"]
+    PAYMENT_HASH_FIELD_NUMBER: _ClassVar[int]
+    payment_hash: str
+    def __init__(self, payment_hash: _Optional[str] = ...) -> None: ...
+
+class TrackResponse(_message.Message):
+    __slots__ = ["state"]
+    STATE_FIELD_NUMBER: _ClassVar[int]
+    state: InvoiceState
+    def __init__(self, state: _Optional[_Union[InvoiceState, str]] = ...) -> None: ...

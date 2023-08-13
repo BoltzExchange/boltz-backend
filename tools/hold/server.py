@@ -1,9 +1,10 @@
 import threading
 from concurrent import futures
-from typing import Callable, TypeVar
+from typing import Callable, Iterable, TypeVar
 
 import grpc
 from encoder import Defaults
+from enums import invoice_state_final
 
 # noinspection PyProtectedMember
 from grpc._server import _Context, _Server
@@ -17,12 +18,14 @@ from protos.hold_pb2 import (
     ListResponse,
     SettleRequest,
     SettleResponse,
+    TrackRequest,
+    TrackResponse,
 )
 from protos.hold_pb2_grpc import HoldServicer, add_HoldServicer_to_server
 from pyln.client import Plugin
-from transformers import Transformers
+from transformers import INVOICE_STATE_TO_GRPC, Transformers
 
-from hold import Hold
+from hold import Hold, NoSuchInvoiceError
 
 T = TypeVar("T")
 
@@ -71,6 +74,27 @@ class HoldService(HoldServicer):
                 for inv in self._hold.list_invoices(request.payment_hash)
             ]
         )
+
+    def Track(  # noqa: N802
+        self, request: TrackRequest, context: _Context
+    ) -> Iterable[TrackResponse]:
+        queue = self._hold.tracker.track(request.payment_hash)
+        invoices = self._hold.list_invoices(request.payment_hash)
+
+        if len(invoices) == 0:
+            self._hold.tracker.stop_tracking(request.payment_hash, queue)
+            raise NoSuchInvoiceError
+
+        yield TrackResponse(state=INVOICE_STATE_TO_GRPC[invoices[0].state])
+
+        while context.is_active():
+            state = queue.get()
+            yield TrackResponse(state=INVOICE_STATE_TO_GRPC[state])
+
+            if invoice_state_final(state):
+                break
+
+        self._hold.tracker.stop_tracking(request.payment_hash, queue)
 
 
 class ServerError(Exception):

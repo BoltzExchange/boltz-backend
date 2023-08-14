@@ -1,14 +1,12 @@
 import threading
+from collections.abc import Callable, Iterable
 from concurrent import futures
 from queue import Empty
-from typing import Callable, Iterable, TypeVar
+from typing import TypeVar
 
 import grpc
 from encoder import Defaults
 from enums import invoice_state_final
-
-# noinspection PyProtectedMember
-from grpc._server import _Server
 from grpc_interceptor import ServerInterceptor
 from protos.hold_pb2 import (
     CancelRequest,
@@ -17,6 +15,8 @@ from protos.hold_pb2 import (
     InvoiceResponse,
     ListRequest,
     ListResponse,
+    RoutingHintsRequest,
+    RoutingHintsResponse,
     SettleRequest,
     SettleResponse,
     TrackAllRequest,
@@ -64,7 +64,27 @@ class HoldService(HoldServicer):
                 optional_default(
                     request.min_final_cltv_expiry, 0, Defaults.MinFinalCltvExpiry
                 ),
+                Transformers.routing_hints_from_grpc(list(request.routing_hints)),
             )
+        )
+
+    def RoutingHints(  # noqa: N802
+        self,
+        request: RoutingHintsRequest,
+        context: grpc.ServicerContext,  # noqa: ARG002
+    ) -> RoutingHintsResponse:
+        return Transformers.routing_hints_to_grpc(
+            self._hold.get_private_channels(request.node)
+        )
+
+    def List(  # noqa: N802
+        self, request: ListRequest, context: grpc.ServicerContext  # noqa: ARG002
+    ) -> ListResponse:
+        return ListResponse(
+            invoices=[
+                Transformers.invoice_to_grpc(inv)
+                for inv in self._hold.list_invoices(request.payment_hash)
+            ]
         )
 
     def Settle(  # noqa: N802
@@ -78,16 +98,6 @@ class HoldService(HoldServicer):
     ) -> CancelResponse:
         self._hold.cancel(request.payment_hash)
         return CancelResponse()
-
-    def List(  # noqa: N802
-        self, request: ListRequest, context: grpc.ServicerContext  # noqa: ARG002
-    ) -> ListResponse:
-        return ListResponse(
-            invoices=[
-                Transformers.invoice_to_grpc(inv)
-                for inv in self._hold.list_invoices(request.payment_hash)
-            ]
-        )
 
     def Track(  # noqa: N802
         self, request: TrackRequest, context: grpc.ServicerContext
@@ -162,7 +172,7 @@ class Server:
     _hold: Hold
 
     _plugin: Plugin
-    _server: _Server | None
+    _server: grpc.Server | None
 
     _server_thread: threading.Thread
 

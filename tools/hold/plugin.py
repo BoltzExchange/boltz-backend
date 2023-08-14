@@ -10,12 +10,12 @@ from pyln.client import Plugin
 from pyln.client.plugin import Request
 from server import Server
 from settler import HtlcFailureMessage, Settler
+from transformers import Transformers
 
 from hold import Hold, InvoiceExistsError, NoSuchInvoiceError
 
 # TODO: restart handling
 # TODO: docstrings
-# TODO: command to get private channels for <node id>
 
 pl = Plugin()
 hold = Hold(pl)
@@ -50,11 +50,19 @@ def hold_invoice(
     description: str = "",
     expiry: int = Defaults.Expiry,
     min_final_cltv_expiry: int = Defaults.MinFinalCltvExpiry,
+    routing_hints: list[Any] | None = None,
 ) -> dict[str, Any]:
     try:
         return {
             "bolt11": hold.invoice(
-                payment_hash, amount_msat, description, expiry, min_final_cltv_expiry
+                payment_hash,
+                amount_msat,
+                description,
+                expiry,
+                min_final_cltv_expiry,
+                Transformers.routing_hints_from_json(routing_hints)
+                if routing_hints is not None
+                else None,
             ),
         }
     except InvoiceExistsError:
@@ -90,6 +98,13 @@ def cancel_hold_invoice(plugin: Plugin, payment_hash: str) -> dict[str, Any]:
         return e.error
 
     return {}
+
+
+@pl.method("routinghints")
+def get_routing_hints(plugin: Plugin, node: str) -> dict[str, Any]:
+    return {
+        "hints": Transformers.named_tuples_to_dict(hold.get_private_channels(node)),
+    }
 
 
 @pl.method("dev-wipeholdinvoices")

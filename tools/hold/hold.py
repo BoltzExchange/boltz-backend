@@ -1,10 +1,12 @@
 import hashlib
 
+from bolt11.types import RouteHint
 from datastore import DataErrorCodes, DataStore
 from encoder import Encoder
 from htlc_handler import HtlcHandler
 from invoice import HoldInvoice, InvoiceState
 from pyln.client import Plugin, RpcError
+from route_hints import RouteHints
 from settler import Settler
 from tracker import Tracker
 
@@ -23,6 +25,7 @@ class Hold:
         self.tracker = Tracker()
         self._settler = Settler(self.tracker)
         self._encoder = Encoder(plugin)
+        self._route_hints = RouteHints(plugin)
 
         self.ds = DataStore(plugin, self._settler)
         self.handler = HtlcHandler(plugin, self.ds, self._settler, self.tracker)
@@ -30,6 +33,7 @@ class Hold:
     def init(self) -> None:
         self.handler.init()
         self._encoder.init()
+        self._route_hints.init()
 
     def invoice(
         self,
@@ -38,6 +42,7 @@ class Hold:
         description: str,
         expiry: int,
         min_final_cltv_expiry: int,
+        route_hints: list[RouteHint] | None = None,
     ) -> str:
         if (
             len(self._plugin.rpc.listinvoices(payment_hash=payment_hash)["invoices"])
@@ -51,6 +56,7 @@ class Hold:
             description,
             expiry,
             min_final_cltv_expiry,
+            route_hints=route_hints,
         )
         signed = self._plugin.rpc.call(
             "signinvoice",
@@ -103,3 +109,6 @@ class Hold:
             return 1
 
         raise NoSuchInvoiceError
+
+    def get_private_channels(self, node: str) -> list[RouteHint]:
+        return self._route_hints.get_private_channels(node)

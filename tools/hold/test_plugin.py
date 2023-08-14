@@ -15,6 +15,7 @@ from test_utils import (
     cln_con,
     connect_peers,
     format_json,
+    get_channel_info,
     lnd,
     start_plugin,
     stop_plugin,
@@ -119,6 +120,52 @@ class TestHold:
         dec = cln("decode", invoice)
         assert dec["valid"]
         assert dec["min_final_cltv_expiry"] == min_final_cltv_expiry
+
+    def test_invoice_routing_hints(self, cln: CliCaller) -> None:
+        lnd_pubkey = lnd(LndNode.One, "getinfo")["identity_pubkey"]
+        hints = cln("routinghints", lnd_pubkey)["hints"]
+
+        invoice = cln(
+            "-k",
+            "holdinvoice",
+            f"payment_hash={random.randbytes(32).hex()}",
+            "amount_msat=10000",
+            f"routing_hints={format_json(hints)}",
+        )["bolt11"]
+
+        dec = cln_con("decode", invoice)
+        assert dec["valid"]
+        assert len(dec["routes"]) == 1
+        assert len(dec["routes"][0]) == 1
+
+        hop = dec["routes"][0][0]
+        hint = hints[0]["routes"][0]
+
+        assert hop["pubkey"] == hint["public_key"]
+        assert hop["fee_base_msat"] == hint["base_fee"]
+        assert hop["short_channel_id"] == hint["short_channel_id"]
+        assert hop["fee_proportional_millionths"] == hint["ppm_fee"]
+
+    def test_invoice_routing_hints_multiple(self, cln: CliCaller) -> None:
+        lnd_pubkey = lnd(LndNode.One, "getinfo")["identity_pubkey"]
+        hints = cln("routinghints", lnd_pubkey)["hints"]
+        hints.append(hints[0])
+
+        invoice = cln(
+            "-k",
+            "holdinvoice",
+            f"payment_hash={random.randbytes(32).hex()}",
+            "amount_msat=10000",
+            f"routing_hints={format_json(hints)}",
+        )["bolt11"]
+
+        dec = cln_con("decode", invoice)
+        assert dec["valid"]
+        assert len(dec["routes"]) == 2
+        assert len(dec["routes"][0]) == 1
+        assert len(dec["routes"][1]) == 1
+
+        assert dec["routes"][0] == dec["routes"][1]
 
     def test_add_duplicate_fail(self, cln: CliCaller) -> None:
         amount = 10000
@@ -457,6 +504,29 @@ class TestHold:
             == "unpaid"
         )
 
+    def test_routinghints(self, cln: CliCaller) -> None:
+        lnd_pubkey = lnd(LndNode.One, "getinfo")["identity_pubkey"]
+        hints = cln("routinghints", lnd_pubkey)["hints"]
+        assert len(hints) == 1
+
+        routes = hints[0]
+        assert len(routes) == 1
+        assert len(routes["routes"]) == 1
+
+        route = routes["routes"][0]
+
+        channel_info = get_channel_info(lnd_pubkey, route["short_channel_id"])
+
+        assert route["cltv_expiry_delta"] == channel_info["delay"]
+        assert route["ppm_fee"] == channel_info["fee_per_millionth"]
+        assert route["base_fee"] == channel_info["base_fee_millisatoshi"]
+        assert route["short_channel_id"] == channel_info["short_channel_id"]
+
+    def test_routinghints_none_found(self, cln: CliCaller) -> None:
+        res = cln("routinghints", "none")
+        assert "hints" in res
+        assert len(res["hints"]) == 0
+
     def test_wipe_single(self, cln: CliCaller) -> None:
         _, payment_hash, _ = add_hold_invoice(cln)
         res = cln("dev-wipeholdinvoices", payment_hash)
@@ -491,14 +561,14 @@ class TestHold:
 
     def test_ignore_forward(self, cln: CliCaller) -> None:
         cln_id = cln("getinfo")["id"]
-        channels = lnd(LndNode.Two, "listchannels")["channels"]
+        channels = lnd(LndNode.One, "listchannels")["channels"]
         cln_channel = next(c for c in channels if c["remote_pubkey"] == cln_id)[
             "chan_id"
         ]
 
-        invoice = lnd(LndNode.One, "addinvoice", "10000")["payment_request"]
+        invoice = lnd(LndNode.Two, "addinvoice", "10000")["payment_request"]
 
-        pay = LndPay(LndNode.Two, invoice, outgoing_chan_id=cln_channel)
+        pay = LndPay(LndNode.One, invoice, outgoing_chan_id=cln_channel)
         pay.start()
         pay.join()
 

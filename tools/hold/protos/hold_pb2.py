@@ -13,7 +13,7 @@ _sym_db = _symbol_database.Default()
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n\nhold.proto\x12\x04hold"\xc3\x01\n\x0eInvoiceRequest\x12\x14\n\x0cpayment_hash\x18\x01 \x01(\t\x12\x13\n\x0b\x61mount_msat\x18\x02 \x01(\x04\x12\x18\n\x0b\x64\x65scription\x18\x03 \x01(\tH\x00\x88\x01\x01\x12\x13\n\x06\x65xpiry\x18\x04 \x01(\x04H\x01\x88\x01\x01\x12"\n\x15min_final_cltv_expiry\x18\x05 \x01(\x04H\x02\x88\x01\x01\x42\x0e\n\x0c_descriptionB\t\n\x07_expiryB\x18\n\x16_min_final_cltv_expiry"!\n\x0fInvoiceResponse\x12\x0e\n\x06\x62olt11\x18\x01 \x01(\t")\n\rSettleRequest\x12\x18\n\x10payment_preimage\x18\x01 \x01(\t"\x10\n\x0eSettleResponse"%\n\rCancelRequest\x12\x14\n\x0cpayment_hash\x18\x01 \x01(\t"\x10\n\x0e\x43\x61ncelResponse"9\n\x0bListRequest\x12\x19\n\x0cpayment_hash\x18\x01 \x01(\tH\x00\x88\x01\x01\x42\x0f\n\r_payment_hash"\x86\x01\n\x07Invoice\x12\x14\n\x0cpayment_hash\x18\x01 \x01(\t\x12\x1d\n\x10payment_preimage\x18\x02 \x01(\tH\x00\x88\x01\x01\x12!\n\x05state\x18\x03 \x01(\x0e\x32\x12.hold.InvoiceState\x12\x0e\n\x06\x62olt11\x18\x04 \x01(\tB\x13\n\x11_payment_preimage"/\n\x0cListResponse\x12\x1f\n\x08invoices\x18\x01 \x03(\x0b\x32\r.hold.Invoice"$\n\x0cTrackRequest\x12\x14\n\x0cpayment_hash\x18\x01 \x01(\t"2\n\rTrackResponse\x12!\n\x05state\x18\x01 \x01(\x0e\x32\x12.hold.InvoiceState"\x11\n\x0fTrackAllRequest"K\n\x10TrackAllResponse\x12\x14\n\x0cpayment_hash\x18\x01 \x01(\t\x12!\n\x05state\x18\x02 \x01(\x0e\x32\x12.hold.InvoiceState*]\n\x0cInvoiceState\x12\x11\n\rInvoiceUnpaid\x10\x00\x12\x13\n\x0fInvoiceAccepted\x10\x01\x12\x0f\n\x0bInvoicePaid\x10\x02\x12\x14\n\x10InvoiceCancelled\x10\x03\x32\xd4\x02\n\x04Hold\x12\x38\n\x07Invoice\x12\x14.hold.InvoiceRequest\x1a\x15.hold.InvoiceResponse"\x00\x12\x35\n\x06Settle\x12\x13.hold.SettleRequest\x1a\x14.hold.SettleResponse"\x00\x12\x35\n\x06\x43\x61ncel\x12\x13.hold.CancelRequest\x1a\x14.hold.CancelResponse"\x00\x12/\n\x04List\x12\x11.hold.ListRequest\x1a\x12.hold.ListResponse"\x00\x12\x34\n\x05Track\x12\x12.hold.TrackRequest\x1a\x13.hold.TrackResponse"\x00\x30\x01\x12=\n\x08TrackAll\x12\x15.hold.TrackAllRequest\x1a\x16.hold.TrackAllResponse"\x00\x30\x01\x62\x06proto3'
+    b'\n\nhold.proto\x12\x04hold"\xed\x01\n\x0eInvoiceRequest\x12\x14\n\x0cpayment_hash\x18\x01 \x01(\t\x12\x13\n\x0b\x61mount_msat\x18\x02 \x01(\x04\x12\x18\n\x0b\x64\x65scription\x18\x03 \x01(\tH\x00\x88\x01\x01\x12\x13\n\x06\x65xpiry\x18\x04 \x01(\x04H\x01\x88\x01\x01\x12"\n\x15min_final_cltv_expiry\x18\x05 \x01(\x04H\x02\x88\x01\x01\x12(\n\rrouting_hints\x18\x06 \x03(\x0b\x32\x11.hold.RoutingHintB\x0e\n\x0c_descriptionB\t\n\x07_expiryB\x18\n\x16_min_final_cltv_expiry"!\n\x0fInvoiceResponse\x12\x0e\n\x06\x62olt11\x18\x01 \x01(\t"#\n\x13RoutingHintsRequest\x12\x0c\n\x04node\x18\x01 \x01(\t"q\n\x03Hop\x12\x12\n\npublic_key\x18\x01 \x01(\t\x12\x18\n\x10short_channel_id\x18\x02 \x01(\t\x12\x10\n\x08\x62\x61se_fee\x18\x03 \x01(\x04\x12\x0f\n\x07ppm_fee\x18\x04 \x01(\x04\x12\x19\n\x11\x63ltv_expiry_delta\x18\x05 \x01(\x04"&\n\x0bRoutingHint\x12\x17\n\x04hops\x18\x01 \x03(\x0b\x32\t.hold.Hop"8\n\x14RoutingHintsResponse\x12 \n\x05hints\x18\x01 \x03(\x0b\x32\x11.hold.RoutingHint"9\n\x0bListRequest\x12\x19\n\x0cpayment_hash\x18\x01 \x01(\tH\x00\x88\x01\x01\x42\x0f\n\r_payment_hash"\x86\x01\n\x07Invoice\x12\x14\n\x0cpayment_hash\x18\x01 \x01(\t\x12\x1d\n\x10payment_preimage\x18\x02 \x01(\tH\x00\x88\x01\x01\x12!\n\x05state\x18\x03 \x01(\x0e\x32\x12.hold.InvoiceState\x12\x0e\n\x06\x62olt11\x18\x04 \x01(\tB\x13\n\x11_payment_preimage"/\n\x0cListResponse\x12\x1f\n\x08invoices\x18\x01 \x03(\x0b\x32\r.hold.Invoice")\n\rSettleRequest\x12\x18\n\x10payment_preimage\x18\x01 \x01(\t"\x10\n\x0eSettleResponse"%\n\rCancelRequest\x12\x14\n\x0cpayment_hash\x18\x01 \x01(\t"\x10\n\x0e\x43\x61ncelResponse"$\n\x0cTrackRequest\x12\x14\n\x0cpayment_hash\x18\x01 \x01(\t"2\n\rTrackResponse\x12!\n\x05state\x18\x01 \x01(\x0e\x32\x12.hold.InvoiceState"\x11\n\x0fTrackAllRequest"K\n\x10TrackAllResponse\x12\x14\n\x0cpayment_hash\x18\x01 \x01(\t\x12!\n\x05state\x18\x02 \x01(\x0e\x32\x12.hold.InvoiceState*]\n\x0cInvoiceState\x12\x11\n\rInvoiceUnpaid\x10\x00\x12\x13\n\x0fInvoiceAccepted\x10\x01\x12\x0f\n\x0bInvoicePaid\x10\x02\x12\x14\n\x10InvoiceCancelled\x10\x03\x32\x9d\x03\n\x04Hold\x12\x38\n\x07Invoice\x12\x14.hold.InvoiceRequest\x1a\x15.hold.InvoiceResponse"\x00\x12G\n\x0cRoutingHints\x12\x19.hold.RoutingHintsRequest\x1a\x1a.hold.RoutingHintsResponse"\x00\x12/\n\x04List\x12\x11.hold.ListRequest\x1a\x12.hold.ListResponse"\x00\x12\x35\n\x06Settle\x12\x13.hold.SettleRequest\x1a\x14.hold.SettleResponse"\x00\x12\x35\n\x06\x43\x61ncel\x12\x13.hold.CancelRequest\x1a\x14.hold.CancelResponse"\x00\x12\x34\n\x05Track\x12\x12.hold.TrackRequest\x1a\x13.hold.TrackResponse"\x00\x30\x01\x12=\n\x08TrackAll\x12\x15.hold.TrackAllRequest\x1a\x16.hold.TrackAllResponse"\x00\x30\x01\x62\x06proto3'
 )
 
 _globals = globals()
@@ -21,34 +21,42 @@ _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, "hold_pb2", _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
     DESCRIPTOR._options = None
-    _globals["_INVOICESTATE"]._serialized_start = 802
-    _globals["_INVOICESTATE"]._serialized_end = 895
+    _globals["_INVOICESTATE"]._serialized_start = 1094
+    _globals["_INVOICESTATE"]._serialized_end = 1187
     _globals["_INVOICEREQUEST"]._serialized_start = 21
-    _globals["_INVOICEREQUEST"]._serialized_end = 216
-    _globals["_INVOICERESPONSE"]._serialized_start = 218
-    _globals["_INVOICERESPONSE"]._serialized_end = 251
-    _globals["_SETTLEREQUEST"]._serialized_start = 253
-    _globals["_SETTLEREQUEST"]._serialized_end = 294
-    _globals["_SETTLERESPONSE"]._serialized_start = 296
-    _globals["_SETTLERESPONSE"]._serialized_end = 312
-    _globals["_CANCELREQUEST"]._serialized_start = 314
-    _globals["_CANCELREQUEST"]._serialized_end = 351
-    _globals["_CANCELRESPONSE"]._serialized_start = 353
-    _globals["_CANCELRESPONSE"]._serialized_end = 369
-    _globals["_LISTREQUEST"]._serialized_start = 371
-    _globals["_LISTREQUEST"]._serialized_end = 428
-    _globals["_INVOICE"]._serialized_start = 431
-    _globals["_INVOICE"]._serialized_end = 565
-    _globals["_LISTRESPONSE"]._serialized_start = 567
-    _globals["_LISTRESPONSE"]._serialized_end = 614
-    _globals["_TRACKREQUEST"]._serialized_start = 616
-    _globals["_TRACKREQUEST"]._serialized_end = 652
-    _globals["_TRACKRESPONSE"]._serialized_start = 654
-    _globals["_TRACKRESPONSE"]._serialized_end = 704
-    _globals["_TRACKALLREQUEST"]._serialized_start = 706
-    _globals["_TRACKALLREQUEST"]._serialized_end = 723
-    _globals["_TRACKALLRESPONSE"]._serialized_start = 725
-    _globals["_TRACKALLRESPONSE"]._serialized_end = 800
-    _globals["_HOLD"]._serialized_start = 898
-    _globals["_HOLD"]._serialized_end = 1238
+    _globals["_INVOICEREQUEST"]._serialized_end = 258
+    _globals["_INVOICERESPONSE"]._serialized_start = 260
+    _globals["_INVOICERESPONSE"]._serialized_end = 293
+    _globals["_ROUTINGHINTSREQUEST"]._serialized_start = 295
+    _globals["_ROUTINGHINTSREQUEST"]._serialized_end = 330
+    _globals["_HOP"]._serialized_start = 332
+    _globals["_HOP"]._serialized_end = 445
+    _globals["_ROUTINGHINT"]._serialized_start = 447
+    _globals["_ROUTINGHINT"]._serialized_end = 485
+    _globals["_ROUTINGHINTSRESPONSE"]._serialized_start = 487
+    _globals["_ROUTINGHINTSRESPONSE"]._serialized_end = 543
+    _globals["_LISTREQUEST"]._serialized_start = 545
+    _globals["_LISTREQUEST"]._serialized_end = 602
+    _globals["_INVOICE"]._serialized_start = 605
+    _globals["_INVOICE"]._serialized_end = 739
+    _globals["_LISTRESPONSE"]._serialized_start = 741
+    _globals["_LISTRESPONSE"]._serialized_end = 788
+    _globals["_SETTLEREQUEST"]._serialized_start = 790
+    _globals["_SETTLEREQUEST"]._serialized_end = 831
+    _globals["_SETTLERESPONSE"]._serialized_start = 833
+    _globals["_SETTLERESPONSE"]._serialized_end = 849
+    _globals["_CANCELREQUEST"]._serialized_start = 851
+    _globals["_CANCELREQUEST"]._serialized_end = 888
+    _globals["_CANCELRESPONSE"]._serialized_start = 890
+    _globals["_CANCELRESPONSE"]._serialized_end = 906
+    _globals["_TRACKREQUEST"]._serialized_start = 908
+    _globals["_TRACKREQUEST"]._serialized_end = 944
+    _globals["_TRACKRESPONSE"]._serialized_start = 946
+    _globals["_TRACKRESPONSE"]._serialized_end = 996
+    _globals["_TRACKALLREQUEST"]._serialized_start = 998
+    _globals["_TRACKALLREQUEST"]._serialized_end = 1015
+    _globals["_TRACKALLRESPONSE"]._serialized_start = 1017
+    _globals["_TRACKALLRESPONSE"]._serialized_end = 1092
+    _globals["_HOLD"]._serialized_start = 1190
+    _globals["_HOLD"]._serialized_end = 1603
 # @@protoc_insertion_point(module_scope)

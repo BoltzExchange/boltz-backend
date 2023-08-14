@@ -19,6 +19,16 @@ class HoldStub(object):
             request_serializer=hold__pb2.InvoiceRequest.SerializeToString,
             response_deserializer=hold__pb2.InvoiceResponse.FromString,
         )
+        self.RoutingHints = channel.unary_unary(
+            "/hold.Hold/RoutingHints",
+            request_serializer=hold__pb2.RoutingHintsRequest.SerializeToString,
+            response_deserializer=hold__pb2.RoutingHintsResponse.FromString,
+        )
+        self.List = channel.unary_unary(
+            "/hold.Hold/List",
+            request_serializer=hold__pb2.ListRequest.SerializeToString,
+            response_deserializer=hold__pb2.ListResponse.FromString,
+        )
         self.Settle = channel.unary_unary(
             "/hold.Hold/Settle",
             request_serializer=hold__pb2.SettleRequest.SerializeToString,
@@ -28,11 +38,6 @@ class HoldStub(object):
             "/hold.Hold/Cancel",
             request_serializer=hold__pb2.CancelRequest.SerializeToString,
             response_deserializer=hold__pb2.CancelResponse.FromString,
-        )
-        self.List = channel.unary_unary(
-            "/hold.Hold/List",
-            request_serializer=hold__pb2.ListRequest.SerializeToString,
-            response_deserializer=hold__pb2.ListResponse.FromString,
         )
         self.Track = channel.unary_stream(
             "/hold.Hold/Track",
@@ -55,6 +60,18 @@ class HoldServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def RoutingHints(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def List(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def Settle(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -62,12 +79,6 @@ class HoldServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def Cancel(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def List(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -93,6 +104,16 @@ def add_HoldServicer_to_server(servicer, server):
             request_deserializer=hold__pb2.InvoiceRequest.FromString,
             response_serializer=hold__pb2.InvoiceResponse.SerializeToString,
         ),
+        "RoutingHints": grpc.unary_unary_rpc_method_handler(
+            servicer.RoutingHints,
+            request_deserializer=hold__pb2.RoutingHintsRequest.FromString,
+            response_serializer=hold__pb2.RoutingHintsResponse.SerializeToString,
+        ),
+        "List": grpc.unary_unary_rpc_method_handler(
+            servicer.List,
+            request_deserializer=hold__pb2.ListRequest.FromString,
+            response_serializer=hold__pb2.ListResponse.SerializeToString,
+        ),
         "Settle": grpc.unary_unary_rpc_method_handler(
             servicer.Settle,
             request_deserializer=hold__pb2.SettleRequest.FromString,
@@ -102,11 +123,6 @@ def add_HoldServicer_to_server(servicer, server):
             servicer.Cancel,
             request_deserializer=hold__pb2.CancelRequest.FromString,
             response_serializer=hold__pb2.CancelResponse.SerializeToString,
-        ),
-        "List": grpc.unary_unary_rpc_method_handler(
-            servicer.List,
-            request_deserializer=hold__pb2.ListRequest.FromString,
-            response_serializer=hold__pb2.ListResponse.SerializeToString,
         ),
         "Track": grpc.unary_stream_rpc_method_handler(
             servicer.Track,
@@ -148,6 +164,64 @@ class Hold(object):
             "/hold.Hold/Invoice",
             hold__pb2.InvoiceRequest.SerializeToString,
             hold__pb2.InvoiceResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def RoutingHints(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/hold.Hold/RoutingHints",
+            hold__pb2.RoutingHintsRequest.SerializeToString,
+            hold__pb2.RoutingHintsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def List(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/hold.Hold/List",
+            hold__pb2.ListRequest.SerializeToString,
+            hold__pb2.ListResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -206,35 +280,6 @@ class Hold(object):
             "/hold.Hold/Cancel",
             hold__pb2.CancelRequest.SerializeToString,
             hold__pb2.CancelResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-        )
-
-    @staticmethod
-    def List(
-        request,
-        target,
-        options=(),
-        channel_credentials=None,
-        call_credentials=None,
-        insecure=False,
-        compression=None,
-        wait_for_ready=None,
-        timeout=None,
-        metadata=None,
-    ):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            "/hold.Hold/List",
-            hold__pb2.ListRequest.SerializeToString,
-            hold__pb2.ListResponse.FromString,
             options,
             channel_credentials,
             insecure,

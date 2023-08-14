@@ -1,19 +1,22 @@
 import random
 
 import pytest
+from bolt11.models.routehint import Route, RouteHint
 from encoder import Defaults, Encoder, get_network_prefix, get_payment_secret
-from test_utils import cln_con
+from test_utils import RpcPlugin, cln_con
 from utils import time_now
 
-
-class RpcCaller:
-    @staticmethod
-    def getinfo() -> dict:
-        return cln_con("getinfo")
-
-
-class RpcPlugin:
-    rpc = RpcCaller()
+route_hint = RouteHint(
+    routes=[
+        Route(
+            public_key="02e425026d928083eb432886c4c209abff4aea1e6bafca208671fdb0e42be4b63d",
+            short_channel_id="117x1x0",
+            base_fee=1000,
+            ppm_fee=1,
+            cltv_expiry_delta=80,
+        )
+    ]
+)
 
 
 class TestEncoder:
@@ -88,6 +91,7 @@ class TestEncoder:
         )
         dec = cln_con("decode", invoice)
 
+        assert dec["valid"]
         assert dec["min_final_cltv_expiry"] == cltv
 
     def test_encode_payment_secret(self) -> None:
@@ -101,4 +105,44 @@ class TestEncoder:
         )
 
         dec = cln_con("decode", invoice)
+
+        assert dec["valid"]
         assert dec["payment_secret"] == payment_secret
+
+    def test_encode_route_hints(self) -> None:
+        invoice = self.en.encode(
+            random.randbytes(32).hex(),
+            10_000,
+            "memo",
+            route_hints=[route_hint],
+        )
+
+        dec = cln_con("decode", invoice)
+        assert dec["valid"]
+
+        routes = dec["routes"]
+        assert len(routes) == 1
+
+        route = routes[0]
+        assert len(route) == 1
+
+        hop = route[0]
+        assert hop["pubkey"] == route_hint.routes[0].public_key
+        assert hop["fee_base_msat"] == route_hint.routes[0].base_fee
+        assert hop["short_channel_id"] == route_hint.routes[0].short_channel_id
+        assert hop["fee_proportional_millionths"] == route_hint.routes[0].ppm_fee
+
+    def test_encode_route_hints_multiple(self) -> None:
+        invoice = self.en.encode(
+            random.randbytes(32).hex(),
+            10_000,
+            "memo",
+            route_hints=[route_hint, route_hint],
+        )
+
+        dec = cln_con("decode", invoice)
+        assert dec["valid"]
+
+        routes = dec["routes"]
+        assert len(routes) == 2
+        assert routes[0] == routes[1]

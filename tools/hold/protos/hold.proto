@@ -4,9 +4,11 @@ package hold;
 
 service Hold {
   rpc Invoice (InvoiceRequest) returns (InvoiceResponse) {}
+  rpc RoutingHints (RoutingHintsRequest) returns (RoutingHintsResponse) {}
+  rpc List (ListRequest) returns (ListResponse) {}
+
   rpc Settle (SettleRequest) returns (SettleResponse) {}
   rpc Cancel (CancelRequest) returns (CancelResponse) {}
-  rpc List (ListRequest) returns (ListResponse) {}
 
   rpc Track (TrackRequest) returns (stream TrackResponse) {}
   rpc TrackAll (TrackAllRequest) returns (stream TrackAllResponse) {}
@@ -18,20 +20,31 @@ message InvoiceRequest {
   optional string description = 3;
   optional uint64 expiry = 4;
   optional uint64 min_final_cltv_expiry = 5;
+  repeated RoutingHint routing_hints = 6;
 }
 message InvoiceResponse {
   string bolt11 = 1;
 }
 
-message SettleRequest {
-  string payment_preimage = 1;
+message RoutingHintsRequest {
+  string node = 1;
 }
-message SettleResponse {}
 
-message CancelRequest {
-  string payment_hash = 1;
+message Hop {
+  string public_key = 1;
+  string short_channel_id = 2;
+  uint64 base_fee = 3;
+  uint64 ppm_fee = 4;
+  uint64 cltv_expiry_delta = 5;
 }
-message CancelResponse {}
+
+message RoutingHint {
+  repeated Hop hops = 1;
+}
+
+message RoutingHintsResponse {
+  repeated RoutingHint hints = 1;
+}
 
 message ListRequest {
   optional string payment_hash = 1;
@@ -55,10 +68,19 @@ message ListResponse {
   repeated Invoice invoices = 1;
 }
 
+message SettleRequest {
+  string payment_preimage = 1;
+}
+message SettleResponse {}
+
+message CancelRequest {
+  string payment_hash = 1;
+}
+message CancelResponse {}
+
 message TrackRequest {
   string payment_hash = 1;
 }
-
 message TrackResponse {
   InvoiceState state = 1;
 }

@@ -19,6 +19,8 @@ from protos.hold_pb2 import (
     InvoiceState,
     InvoiceUnpaid,
     ListRequest,
+    RoutingHintsRequest,
+    RoutingHintsResponse,
     SettleRequest,
     TrackAllRequest,
     TrackRequest,
@@ -29,6 +31,8 @@ from test_utils import (
     LndPay,
     cln_con,
     connect_peers,
+    get_channel_info,
+    lnd,
     start_plugin,
     stop_plugin,
 )
@@ -92,7 +96,7 @@ class TestGrpc:
         assert dec["min_final_cltv_expiry"] == Defaults.MinFinalCltvExpiry
 
     @pytest.mark.parametrize("description", ["some", "text", "Send to BTC address"])
-    def test_add_description(self, cl: HoldStub, description: str) -> None:
+    def test_invoice_description(self, cl: HoldStub, description: str) -> None:
         invoice = cl.Invoice(
             InvoiceRequest(
                 payment_hash=random.randbytes(32).hex(),
@@ -106,7 +110,7 @@ class TestGrpc:
         assert dec["description"] == description
 
     @pytest.mark.parametrize("expiry", [1, 2, 3, 3600, 24000, 86400])
-    def test_add_expiry(self, cl: HoldStub, expiry: int) -> None:
+    def test_invoice_expiry(self, cl: HoldStub, expiry: int) -> None:
         invoice = cl.Invoice(
             InvoiceRequest(
                 payment_hash=random.randbytes(32).hex(),
@@ -120,7 +124,7 @@ class TestGrpc:
         assert dec["expiry"] == expiry
 
     @pytest.mark.parametrize("min_final_cltv_expiry", [1, 2, 3, 80, 144, 150, 200])
-    def test_add_min_final_cltv_expiry(
+    def test_invoice_min_final_cltv_expiry(
         self,
         cl: HoldStub,
         min_final_cltv_expiry: int,
@@ -136,6 +140,83 @@ class TestGrpc:
         dec = cln_con("decode", invoice)
         assert dec["valid"]
         assert dec["min_final_cltv_expiry"] == min_final_cltv_expiry
+
+    def test_invoice_routing_hints(self, cl: HoldStub) -> None:
+        lnd_pubkey = lnd(LndNode.One, "getinfo")["identity_pubkey"]
+        routing_hints: RoutingHintsResponse = cl.RoutingHints(
+            RoutingHintsRequest(node=lnd_pubkey)
+        )
+
+        invoice = cl.Invoice(
+            InvoiceRequest(
+                payment_hash=random.randbytes(32).hex(),
+                amount_msat=10_000,
+                routing_hints=routing_hints.hints,
+            )
+        ).bolt11
+
+        dec = cln_con("decode", invoice)
+        assert dec["valid"]
+        assert len(dec["routes"]) == 1
+        assert len(dec["routes"][0]) == 1
+
+        hop = dec["routes"][0][0]
+        hint = routing_hints.hints[0].hops[0]
+
+        assert hop["pubkey"] == hint.public_key
+        assert hop["fee_base_msat"] == hint.base_fee
+        assert hop["short_channel_id"] == hint.short_channel_id
+        assert hop["fee_proportional_millionths"] == hint.ppm_fee
+
+    def test_invoice_routing_hints_multiple(self, cl: HoldStub) -> None:
+        lnd_pubkey = lnd(LndNode.One, "getinfo")["identity_pubkey"]
+        routing_hints: RoutingHintsResponse = cl.RoutingHints(
+            RoutingHintsRequest(node=lnd_pubkey)
+        )
+
+        routing_hints.hints.append(routing_hints.hints[0])
+
+        invoice = cl.Invoice(
+            InvoiceRequest(
+                payment_hash=random.randbytes(32).hex(),
+                amount_msat=10_000,
+                routing_hints=routing_hints.hints,
+            )
+        ).bolt11
+
+        dec = cln_con("decode", invoice)
+        assert dec["valid"]
+        assert len(dec["routes"]) == 2
+        assert len(dec["routes"][0]) == 1
+        assert len(dec["routes"][1]) == 1
+
+        assert dec["routes"][0] == dec["routes"][1]
+
+    def test_routing_hints(self, cl: HoldStub) -> None:
+        lnd_pubkey = lnd(LndNode.One, "getinfo")["identity_pubkey"]
+
+        res: RoutingHintsResponse = cl.RoutingHints(
+            RoutingHintsRequest(node=lnd_pubkey)
+        )
+        assert len(res.hints) == 1
+
+        hops = res.hints[0].hops
+        assert len(hops) == 1
+
+        hop = hops[0]
+
+        channel_info = get_channel_info(lnd_pubkey, hop.short_channel_id)
+
+        assert hop.cltv_expiry_delta == channel_info["delay"]
+        assert hop.ppm_fee == channel_info["fee_per_millionth"]
+        assert hop.base_fee == channel_info["base_fee_millisatoshi"]
+        assert hop.short_channel_id == channel_info["short_channel_id"]
+
+    def test_routing_hints_none_found(self, cl: HoldStub) -> None:
+        res: RoutingHintsResponse = cl.RoutingHints(
+            RoutingHintsRequest(node="not found")
+        )
+        assert len(res.hints) == 0
 
     def test_list(self, cl: HoldStub) -> None:
         invoices = cl.List(ListRequest()).invoices

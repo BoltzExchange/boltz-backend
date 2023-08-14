@@ -23,8 +23,13 @@ function openChannel () {
 
   waitForLndToSync "$2"
 
-  $2 connect $3@127.0.0.1:$4 > /dev/null
-  $2 openchannel --node_key $3 --local_amt 100000000 --push_amt 50000000 > /dev/null
+  $2 connect $3@127.0.0.1:$4 > /dev/null 2> /dev/null
+
+  if $5; then
+    $2 openchannel --node_key $3 --local_amt 100000000 --push_amt 50000000 --private > /dev/null
+  else
+    $2 openchannel --node_key $3 --local_amt 100000000 --push_amt 50000000 > /dev/null
+  fi
 
   $1 generatetoaddress 6 ${nodeAddress} > /dev/null
 
@@ -54,8 +59,8 @@ function waitForClnChannel () {
   sleep 25
 }
 
-echo "/tools/.venv/bin/python3 /tools/hold/plugin.py" > /root/hold-start.sh
-chmod +x /root/hold-start.sh
+echo "/tools/.venv/bin/python3 /tools/hold/plugin.py" > /root/hold.sh
+chmod +x /root/hold.sh
 
 startNodes
 
@@ -80,18 +85,23 @@ echo "Opening BTC channels"
 openChannel bitcoin-cli \
   "lncli --lnddir=/root/.lnd-btc --rpcserver=127.0.0.1:10009 --network=regtest" \
   $(lncli --lnddir=/root/.lnd-btc --rpcserver=127.0.0.1:10011 --network=regtest getinfo | jq -r '.identity_pubkey') \
-  9736
+  9736 false
 echo "Opened channel to LND"
 
 openChannel bitcoin-cli \
   "lncli --lnddir=/root/.lnd-btc --rpcserver=127.0.0.1:10009 --network=regtest" \
   $(lightning-cli getinfo | jq -r .id) \
-  9737
+  9737 false
+
+openChannel bitcoin-cli \
+  "lncli --lnddir=/root/.lnd-btc --rpcserver=127.0.0.1:10009 --network=regtest" \
+  $(lightning-cli getinfo | jq -r .id) \
+  9737 true
 
 openChannel bitcoin-cli \
   "lncli --lnddir=/root/.lnd-btc --rpcserver=127.0.0.1:10011 --network=regtest" \
   $(lightning-cli getinfo | jq -r .id) \
-  9737
+  9737 false
 
 echo "Opened channels to CLN"
 

@@ -34,4 +34,4 @@ docker run \
   -p 31000:31000 \
   -p 31001:31001 \
   -p 31002:31002 \
-  boltz/regtest:4.0.0
+  boltz/regtest:4.0.1

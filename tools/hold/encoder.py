@@ -2,14 +2,11 @@ import random
 from enum import Enum
 
 from bolt11 import Bolt11, Feature, Features, FeatureState, encode
-from bolt11.types import MilliSatoshi, Tag, TagChar, Tags
+from bolt11.types import MilliSatoshi, RouteHint, Tag, TagChar, Tags
 from consts import Network
 from pyln.client import Plugin
 from secp256k1 import PrivateKey
 from utils import time_now
-
-# TODO: routing hints
-
 
 NETWORK_PREFIXES = {
     Network.Mainnet: "bc",
@@ -71,21 +68,27 @@ class Encoder:
         expiry: int = Defaults.Expiry,
         min_final_cltv_expiry: int = Defaults.MinFinalCltvExpiry,
         payment_secret: str | None = None,
+        route_hints: list[RouteHint] | None = None,
     ) -> str:
+        tags = Tags(
+            [
+                Tag(TagChar.payment_hash, payment_hash),
+                Tag(TagChar.description, description),
+                Tag(TagChar.expire_time, expiry),
+                Tag(TagChar.min_final_cltv_expiry, min_final_cltv_expiry),
+                Tag(TagChar.payment_secret, get_payment_secret(payment_secret)),
+                Tag(TagChar.features, self._features),
+            ]
+        )
+
+        if route_hints is not None:
+            tags.tags.extend([Tag(TagChar.route_hint, route) for route in route_hints])
+
         return encode(
             Bolt11(
                 self._prefix,
                 int(time_now().timestamp()),
-                Tags(
-                    [
-                        Tag(TagChar.payment_hash, payment_hash),
-                        Tag(TagChar.description, description),
-                        Tag(TagChar.expire_time, expiry),
-                        Tag(TagChar.min_final_cltv_expiry, min_final_cltv_expiry),
-                        Tag(TagChar.payment_secret, get_payment_secret(payment_secret)),
-                        Tag(TagChar.features, self._features),
-                    ]
-                ),
+                tags,
                 MilliSatoshi(amount_msat),
             ),
             self._key,

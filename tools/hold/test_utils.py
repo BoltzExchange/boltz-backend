@@ -5,9 +5,27 @@ from enum import Enum
 from threading import Thread
 from typing import Any
 
-PLUGIN_PATH = "/root/hold-start.sh"
+PLUGIN_PATH = "/root/hold.sh"
 
 CliCaller = Callable[..., dict[str, Any]]
+
+
+class RpcCaller:
+    @staticmethod
+    def getinfo() -> dict:
+        return cln_con("getinfo")
+
+    @staticmethod
+    def listchannels(**kwargs: dict[str, str]) -> dict:
+        args = "listchannels -k"
+        for key, val in kwargs.items():
+            args += f" {key}={val}"
+
+        return cln_con(args)
+
+
+class RpcPlugin:
+    rpc = RpcCaller()
 
 
 class LndNode(Enum):
@@ -101,3 +119,10 @@ def cln_con(*args: str) -> dict[str, Any]:
             f"docker exec regtest lightning-cli {' '.join(args)}",
         )
     )
+
+
+def get_channel_info(node: str, short_chan_id: str | int) -> dict[str, Any]:
+    channel_infos = cln_con("listchannels", "-k", f"short_channel_id={short_chan_id}")[
+        "channels"
+    ]
+    return channel_infos[0] if channel_infos[0]["source"] == node else channel_infos[1]

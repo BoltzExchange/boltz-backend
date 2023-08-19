@@ -1,6 +1,6 @@
 import { wait } from '../../Utils';
 import Logger from '../../../lib/Logger';
-import { stringify } from '../../../lib/Utils';
+import { getHexBuffer, getHexString, stringify } from '../../../lib/Utils';
 import Database from '../../../lib/db/Database';
 import Service from '../../../lib/service/Service';
 import { NotificationConfig } from '../../../lib/Config';
@@ -88,14 +88,15 @@ const database = new Database(Logger.disabledLogger, ':memory:');
 
 const mockGetAddress = jest.fn().mockResolvedValue(newAddress);
 
-const invoicePreimage =
-  '765895dd514ce9358f1412c6b416d6a8f8ecea1a4e442d1e15ea8b76152fd241';
+const invoicePreimage = getHexBuffer(
+  '765895dd514ce9358f1412c6b416d6a8f8ecea1a4e442d1e15ea8b76152fd241',
+);
 const mockPayInvoice = jest
   .fn()
   .mockImplementation(async (_: string, invoice: string) => {
     if (invoice !== 'throw') {
       return {
-        paymentPreimage: invoicePreimage,
+        preimage: invoicePreimage,
       };
     } else {
       throw 'lnd error';
@@ -446,7 +447,7 @@ describe('CommandHandler', () => {
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(
-      `Paid lightning invoice\nPreimage: ${invoicePreimage}`,
+      `Paid lightning invoice\nPreimage: ${getHexString(invoicePreimage)}`,
     );
 
     // Send onchain coins and respond with transaction id and vout

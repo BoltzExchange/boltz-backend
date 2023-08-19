@@ -3,10 +3,12 @@
 docker run \
   -d \
   --name regtest \
-  --volume "${PWD}"/docker/regtest/data/core/cookies:/cookies \
+  --volume "${PWD}"/docker/regtest/data/core/cookies:/cookies/ \
+  --volume "${PWD}"/docker/regtest/data/cln/regtest:/root/.lightning/regtest/certs \
   --volume "${PWD}"/tools:/tools \
   -p 10735:10735 \
   -p 9736:9735 \
+  -p 9291:9291 \
   -p 9292:9292 \
   -p 18443:18443 \
   -p 18444:18444 \
@@ -34,4 +36,7 @@ docker run \
   -p 31000:31000 \
   -p 31001:31001 \
   -p 31002:31002 \
-  boltz/regtest:4.0.1
+  boltz/regtest:4.0.2
+
+docker exec regtest bash -c "cp /root/.lightning/regtest/*.pem /root/.lightning/regtest/certs"
+docker exec regtest chmod -R 777 /root/.lightning/regtest/certs

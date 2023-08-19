@@ -5,12 +5,15 @@ from queue import Empty
 from typing import TypeVar
 
 import grpc
+from consts import VERSION
 from encoder import Defaults
 from enums import invoice_state_final
 from grpc_interceptor import ServerInterceptor
 from protos.hold_pb2 import (
     CancelRequest,
     CancelResponse,
+    GetInfoRequest,
+    GetInfoResponse,
     InvoiceRequest,
     InvoiceResponse,
     ListRequest,
@@ -51,6 +54,11 @@ class HoldService(HoldServicer):
     def __init__(self, plugin: Plugin, hold: Hold) -> None:
         self._plugin = plugin
         self._hold = hold
+
+    def GetInfo(  # noqa: N802
+        self, request: GetInfoRequest, context: grpc.ServicerContext  # noqa: ARG002
+    ) -> GetInfoResponse:
+        return GetInfoResponse(version=VERSION)
 
     def Invoice(  # noqa: N802
         self, request: InvoiceRequest, context: grpc.ServicerContext  # noqa: ARG002
@@ -110,7 +118,7 @@ class HoldService(HoldServicer):
                 self._hold.tracker.stop_tracking(request.payment_hash, queue)
                 raise NoSuchInvoiceError  # noqa: TRY301
 
-            yield TrackResponse(state=INVOICE_STATE_TO_GRPC[invoices[0].state])
+            yield TrackResponse(state=INVOICE_STATE_TO_GRPC[invoices[0].invoice.state])
 
             while context.is_active():
                 state = queue.get()
@@ -135,6 +143,7 @@ class HoldService(HoldServicer):
                     ev = queue.get(block=True, timeout=1)
                     yield TrackAllResponse(
                         payment_hash=ev.payment_hash,
+                        bolt11=ev.bolt11,
                         state=INVOICE_STATE_TO_GRPC[ev.update],
                     )
                 except Empty:  # noqa: PERF203

@@ -14,9 +14,7 @@ import SwapOutputType from './SwapOutputType';
 import ChannelNursery from './ChannelNursery';
 import InvoiceNursery from './InvoiceNursery';
 import PaymentHandler from './PaymentHandler';
-import { Invoice } from '../proto/lnd/rpc_pb';
 import FeeProvider from '../rates/FeeProvider';
-import LndClient from '../lightning/LndClient';
 import ChainClient from '../chain/ChainClient';
 import EthereumNursery from './EthereumNursery';
 import RateProvider from '../rates/RateProvider';
@@ -32,6 +30,7 @@ import { ERC20SwapValues, EtherSwapValues } from '../consts/Types';
 import { etherDecimals, ReverseSwapOutputType } from '../consts/Consts';
 import ERC20WalletProvider from '../wallet/providers/ERC20WalletProvider';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
+import { InvoiceState, LightningClient } from '../lightning/LightningClient';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import {
   queryERC20SwapValuesFromLock,
@@ -59,6 +58,7 @@ import {
   constructClaimTransaction,
   constructRefundTransaction,
 } from '../Core';
+import NodeSwitch from './NodeSwitch';
 
 interface ISwapNursery {
   // UTXO based chains emit the "Transaction" object and Ethereum based ones just the transaction hash
@@ -332,7 +332,10 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
         );
 
         const chainCurrency = this.currencies.get(chainSymbol)!;
-        const { lndClient } = this.currencies.get(lightningSymbol)!;
+        const lightningClient = NodeSwitch.getReverseSwapNode(
+          this.currencies.get(lightningSymbol)!,
+          reverseSwap,
+        );
 
         const wallet = this.walletManager.wallets.get(chainSymbol)!;
 
@@ -342,17 +345,17 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
             await this.lockupUtxo(
               chainCurrency.chainClient!,
               this.walletManager.wallets.get(chainSymbol)!,
-              lndClient!,
+              lightningClient,
               reverseSwap,
             );
             break;
 
           case CurrencyType.Ether:
-            await this.lockupEther(wallet, lndClient!, reverseSwap);
+            await this.lockupEther(wallet, lightningClient, reverseSwap);
             break;
 
           case CurrencyType.ERC20:
-            await this.lockupERC20(wallet, lndClient!, reverseSwap);
+            await this.lockupERC20(wallet, lightningClient, reverseSwap);
             break;
         }
       });
@@ -378,23 +381,26 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
             reverseSwap.orderSide,
             true,
           );
-          const lndClient = this.currencies.get(receiveCurrency)!.lndClient!;
+          const lightningClient = NodeSwitch.getReverseSwapNode(
+            this.currencies.get(receiveCurrency)!,
+            reverseSwap,
+          );
 
           const plural =
             reverseSwap.minerFeeInvoicePreimage === null ? '' : 's';
 
           try {
             // Check if the hold invoice has pending HTLCs before actually cancelling
-            const { htlcsList, state } = await lndClient.lookupInvoice(
+            const { htlcs, state } = await lightningClient.lookupHoldInvoice(
               getHexBuffer(reverseSwap.preimageHash),
             );
 
-            if (state === Invoice.InvoiceState.CANCELED) {
+            if (state === InvoiceState.Cancelled) {
               this.logger.debug(
                 `Invoice${plural} of Reverse Swap ${reverseSwap.id} already cancelled`,
               );
             } else {
-              if (htlcsList.length !== 0) {
+              if (htlcs.length !== 0) {
                 this.logger.info(
                   `Not cancelling expired hold invoice${plural} of Reverse Swap ${reverseSwap.id} because it has pending HTLCs`,
                 );
@@ -405,12 +411,12 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
                 `Cancelling expired hold invoice${plural} of Reverse Swap ${reverseSwap.id}`,
               );
 
-              await lndClient.cancelInvoice(
+              await lightningClient.cancelHoldInvoice(
                 getHexBuffer(reverseSwap.preimageHash),
               );
 
               if (reverseSwap.minerFeeInvoicePreimage) {
-                await lndClient.cancelInvoice(
+                await lightningClient.cancelHoldInvoice(
                   crypto.sha256(
                     getHexBuffer(reverseSwap.minerFeeInvoicePreimage),
                   ),
@@ -623,7 +629,10 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
           await this.handleReverseSwapSendFailed(
             reverseSwap,
             chainSymbol,
-            this.currencies.get(lightningSymbol)!.lndClient!,
+            NodeSwitch.getReverseSwapNode(
+              this.currencies.get(lightningSymbol)!,
+              reverseSwap,
+            ),
             reason,
           );
         });
@@ -666,7 +675,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
   private lockupUtxo = async (
     chainClient: ChainClient,
     wallet: Wallet,
-    lndClient: LndClient,
+    lightningClient: LightningClient,
     reverseSwap: ReverseSwap,
   ) => {
     try {
@@ -720,7 +729,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
       await this.handleReverseSwapSendFailed(
         reverseSwap,
         wallet.symbol,
-        lndClient,
+        lightningClient,
         error,
       );
     }
@@ -728,7 +737,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
 
   private lockupEther = async (
     wallet: Wallet,
-    lndClient: LndClient,
+    lightningClient: LightningClient,
     reverseSwap: ReverseSwap,
   ) => {
     try {
@@ -774,7 +783,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
       await this.handleReverseSwapSendFailed(
         reverseSwap,
         wallet.symbol,
-        lndClient,
+        lightningClient,
         error,
       );
     }
@@ -782,7 +791,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
 
   private lockupERC20 = async (
     wallet: Wallet,
-    lndClient: LndClient,
+    lightningClient: LightningClient,
     reverseSwap: ReverseSwap,
   ) => {
     try {
@@ -832,7 +841,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
       await this.handleReverseSwapSendFailed(
         reverseSwap,
         wallet.symbol,
-        lndClient,
+        lightningClient,
         error,
       );
     }
@@ -1003,9 +1012,12 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
       true,
     );
 
-    const { lndClient } = this.currencies.get(lightningCurrency)!;
+    const lightningClient = NodeSwitch.getReverseSwapNode(
+      this.currencies.get(lightningCurrency)!,
+      reverseSwap,
+    );
     try {
-      await lndClient!.settleInvoice(preimage);
+      await lightningClient.settleHoldInvoice(preimage);
 
       this.logger.info(`Settled Reverse Swap ${reverseSwap.id}`);
 
@@ -1024,10 +1036,12 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
   private handleReverseSwapSendFailed = async (
     reverseSwap: ReverseSwap,
     chainSymbol: string,
-    lndClient: LndClient,
+    lightningClient: LightningClient,
     error: unknown,
   ) => {
-    await lndClient.cancelInvoice(getHexBuffer(reverseSwap.preimageHash));
+    await lightningClient.cancelHoldInvoice(
+      getHexBuffer(reverseSwap.preimageHash),
+    );
 
     this.logger.warn(
       `Failed to lockup ${
@@ -1138,13 +1152,18 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
       );
     }
 
+    const lightningClient = NodeSwitch.getReverseSwapNode(
+      lightningCurrency,
+      reverseSwap,
+    );
+
     try {
-      await lightningCurrency.lndClient!.cancelInvoice(
+      await lightningClient.cancelHoldInvoice(
         getHexBuffer(reverseSwap.preimageHash),
       );
 
       if (reverseSwap.minerFeeInvoicePreimage) {
-        await lightningCurrency.lndClient!.cancelInvoice(
+        await lightningClient.cancelHoldInvoice(
           crypto.sha256(getHexBuffer(reverseSwap.minerFeeInvoicePreimage)),
         );
       }

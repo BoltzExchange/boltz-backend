@@ -5,19 +5,21 @@ from hashlib import sha256
 
 import grpc
 import pytest
-from consts import GRPC_PORT
+from consts import GRPC_PORT, VERSION
 from encoder import Defaults
 
 # noinspection PyProtectedMember
 from grpc._channel import _InactiveRpcError, _MultiThreadedRendezvous
 from protos.hold_pb2 import (
+    INVOICE_ACCEPTED,
+    INVOICE_CANCELLED,
+    INVOICE_PAID,
+    INVOICE_UNPAID,
     CancelRequest,
-    InvoiceAccepted,
-    InvoiceCancelled,
-    InvoicePaid,
+    GetInfoRequest,
+    GetInfoResponse,
     InvoiceRequest,
     InvoiceState,
-    InvoiceUnpaid,
     ListRequest,
     RoutingHintsRequest,
     RoutingHintsResponse,
@@ -67,6 +69,10 @@ class TestGrpc:
 
         cln_con("dev-wipeholdinvoices")
         stop_plugin(cln_con)
+
+    def test_get_info(self, cl: HoldStub) -> None:
+        res: GetInfoResponse = cl.GetInfo(GetInfoRequest())
+        assert res.version == VERSION
 
     def test_invoice(self, cl: HoldStub) -> None:
         amount = 10_000
@@ -247,7 +253,7 @@ class TestGrpc:
 
         assert (
             cl.List(ListRequest(payment_hash=payment_hash)).invoices[0].state
-            == InvoiceAccepted
+            == INVOICE_ACCEPTED
         )
 
         cl.Settle(SettleRequest(payment_preimage=payment_preimage))
@@ -257,7 +263,7 @@ class TestGrpc:
 
         assert (
             cl.List(ListRequest(payment_hash=payment_hash)).invoices[0].state
-            == InvoicePaid
+            == INVOICE_PAID
         )
 
     def test_settle_unpaid(self, cl: HoldStub) -> None:
@@ -287,7 +293,7 @@ class TestGrpc:
 
         assert (
             cl.List(ListRequest(payment_hash=payment_hash)).invoices[0].state
-            == InvoiceCancelled
+            == INVOICE_CANCELLED
         )
 
     def test_cancel_non_existent(self, cl: HoldStub) -> None:
@@ -327,7 +333,7 @@ class TestGrpc:
             cl.Settle(SettleRequest(payment_preimage=payment_preimage))
             pay.join()
 
-            assert fut.result() == [InvoiceUnpaid, InvoiceAccepted, InvoicePaid]
+            assert fut.result() == [INVOICE_UNPAID, INVOICE_ACCEPTED, INVOICE_PAID]
 
     def test_track_cancel(self, cl: HoldStub) -> None:
         _, payment_hash, invoice = add_hold_invoice(cl)
@@ -348,7 +354,7 @@ class TestGrpc:
             cl.Cancel(CancelRequest(payment_hash=payment_hash))
             pay.join()
 
-            assert fut.result() == [InvoiceUnpaid, InvoiceAccepted, InvoiceCancelled]
+            assert fut.result() == [INVOICE_UNPAID, INVOICE_ACCEPTED, INVOICE_CANCELLED]
 
     def test_track_multiple(self, cl: HoldStub) -> None:
         _, payment_hash, invoice = add_hold_invoice(cl)
@@ -370,7 +376,7 @@ class TestGrpc:
             pay.join()
 
             for res in [fut.result() for fut in futs]:
-                assert res == [InvoiceUnpaid, InvoiceAccepted, InvoiceCancelled]
+                assert res == [INVOICE_UNPAID, INVOICE_ACCEPTED, INVOICE_CANCELLED]
 
     def test_track_cancelled_sub(self, cl: HoldStub) -> None:
         _, payment_hash, invoice = add_hold_invoice(cl)
@@ -378,7 +384,7 @@ class TestGrpc:
         sub = cl.Track(TrackRequest(payment_hash=payment_hash))
 
         for update in sub:
-            assert update.state == InvoiceUnpaid
+            assert update.state == INVOICE_UNPAID
             break
 
         assert sub.cancel()
@@ -393,7 +399,7 @@ class TestGrpc:
         # Make sure the plugin is still alive
         invoice_res = cl.List(ListRequest(payment_hash=payment_hash)).invoices[0]
         assert invoice_res.bolt11 == invoice
-        assert invoice_res.state == InvoiceCancelled
+        assert invoice_res.state == INVOICE_CANCELLED
 
     def test_track_multiple_cancelled_sub(self, cl: HoldStub) -> None:
         _, payment_hash, invoice = add_hold_invoice(cl)
@@ -426,18 +432,18 @@ class TestGrpc:
             pay.join()
 
             res = [fut.result() for fut in futs]
-            assert res[0] == [InvoiceUnpaid]
-            assert res[1] == [InvoiceUnpaid, InvoiceAccepted, InvoiceCancelled]
+            assert res[0] == [INVOICE_UNPAID]
+            assert res[1] == [INVOICE_UNPAID, INVOICE_ACCEPTED, INVOICE_CANCELLED]
 
     def test_track_all(self, cl: HoldStub) -> None:
         expected_events = 6
 
-        def track_states() -> list[tuple[str, str]]:
+        def track_states() -> list[tuple[str, str, str]]:
             evs = []
 
             sub = cl.TrackAll(TrackAllRequest())
             for ev in sub:
-                evs.append((ev.payment_hash, ev.state))
+                evs.append((ev.payment_hash, ev.bolt11, ev.state))
                 if len(evs) == expected_events:
                     sub.cancel()
                     break
@@ -447,8 +453,8 @@ class TestGrpc:
         with concurrent.futures.ThreadPoolExecutor() as pool:
             fut = pool.submit(track_states)
 
-            _, payment_hash_created, _ = add_hold_invoice(cl)
-            _, payment_hash_cancelled, _ = add_hold_invoice(cl)
+            _, payment_hash_created, invoice_created = add_hold_invoice(cl)
+            _, payment_hash_cancelled, invoice_cancelled = add_hold_invoice(cl)
             (
                 payment_preimage_settled,
                 payment_hash_settled,
@@ -467,10 +473,10 @@ class TestGrpc:
             res = fut.result()
             assert len(res) == expected_events
             assert res == [
-                (payment_hash_created, InvoiceUnpaid),
-                (payment_hash_cancelled, InvoiceUnpaid),
-                (payment_hash_settled, InvoiceUnpaid),
-                (payment_hash_cancelled, InvoiceCancelled),
-                (payment_hash_settled, InvoiceAccepted),
-                (payment_hash_settled, InvoicePaid),
+                (payment_hash_created, invoice_created, INVOICE_UNPAID),
+                (payment_hash_cancelled, invoice_cancelled, INVOICE_UNPAID),
+                (payment_hash_settled, invoice_settled, INVOICE_UNPAID),
+                (payment_hash_cancelled, invoice_cancelled, INVOICE_CANCELLED),
+                (payment_hash_settled, invoice_settled, INVOICE_ACCEPTED),
+                (payment_hash_settled, invoice_settled, INVOICE_PAID),
             ]

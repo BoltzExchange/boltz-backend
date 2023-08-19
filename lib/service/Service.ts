@@ -14,9 +14,13 @@ import { PairConfig } from '../consts/Types';
 import ElementsService from './ElementsService';
 import SwapOutputType from '../swap/SwapOutputType';
 import ElementsClient from '../chain/ElementsClient';
+import {
+  HopHint,
+  InvoiceFeature,
+  PaymentResponse,
+} from '../lightning/LightningClient';
 import InvoiceExpiryHelper from './InvoiceExpiryHelper';
 import PaymentRequestUtils from './PaymentRequestUtils';
-import { Payment, RouteHint } from '../proto/lnd/rpc_pb';
 import PairRepository from '../db/repositories/PairRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import RateProvider, { PairType } from '../rates/RateProvider';
@@ -231,18 +235,22 @@ class Service {
 
           const channels = new LndChannels();
 
-          channels.setActive(lndInfo.numActiveChannels);
-          channels.setInactive(lndInfo.numInactiveChannels);
-          channels.setPending(lndInfo.numPendingChannels);
+          channels.setActive(lndInfo.channels.active);
+          channels.setInactive(lndInfo.channels.inactive);
+          channels.setPending(lndInfo.channels.pending);
 
           lnd.setLndChannels(channels);
 
           lnd.setVersion(lndInfo.version);
           lnd.setBlockHeight(lndInfo.blockHeight);
         } catch (error) {
-          lnd.setError((error as any).details);
+          lnd.setError(
+            typeof error === 'object' ? (error as any).details : error,
+          );
         }
       }
+
+      // TODO: cln
 
       const currencyInfo = new CurrencyInfo();
       currencyInfo.setChain(chain);
@@ -278,7 +286,7 @@ class Service {
       if (currencyInfo && currencyInfo.lndClient) {
         const lightningBalance = new LightningBalance();
 
-        const { channelsList } = await currencyInfo.lndClient.listChannels();
+        const channelsList = await currencyInfo.lndClient.listChannels();
 
         let localBalance = 0;
         let remoteBalance = 0;
@@ -344,16 +352,8 @@ class Service {
   public getRoutingHints = (
     symbol: string,
     routingNode: string,
-  ): RouteHint.AsObject[] => {
-    const response: RouteHint.AsObject[] = [];
-
-    const hints = this.swapManager.routingHints.getRoutingHints(
-      symbol,
-      routingNode,
-    );
-    hints.forEach((hint) => response.push(hint.toObject()));
-
-    return response;
+  ): Promise<HopHint[][]> => {
+    return this.swapManager.routingHints.getRoutingHints(symbol, routingNode);
   };
 
   public getTimeouts = () => {
@@ -867,11 +867,12 @@ class Service {
       swap.orderSide,
       false,
     );
+    // TODO: swap in cln
     const lndClient = this.currencies.get(lightningCurrency)!.lndClient!;
 
     const [cltvLimit, decodedInvoice] = await Promise.all([
       this.timeoutDeltaProvider.getCltvLimit(swap),
-      lndClient.decodePayReqRawResponse(invoice),
+      lndClient.decodeInvoice(invoice),
     ]);
 
     const requiredTimeout = await this.timeoutDeltaProvider.checkRoutability(
@@ -917,13 +918,12 @@ class Service {
       false,
     );
 
-    const decodedInvoice = await this.getCurrency(
-      lightningCurrency,
-    ).lndClient!.decodePayReq(invoice);
-    for (const [, feature] of decodedInvoice.featuresMap) {
-      if (feature.name == 'amp') {
-        throw Errors.AMP_INVOICES_NOT_SUPPORTED();
-      }
+    const decodedInvoice =
+      await this.getCurrency(lightningCurrency).lndClient!.decodeInvoice(
+        invoice,
+      );
+    if (decodedInvoice.features.has(InvoiceFeature.AMP)) {
+      throw Errors.AMP_INVOICES_NOT_SUPPORTED();
     }
 
     const invoiceAmount = decodeInvoice(invoice).satoshis!;
@@ -1342,7 +1342,7 @@ class Service {
   public payInvoice = async (
     symbol: string,
     invoice: string,
-  ): Promise<Payment.AsObject> => {
+  ): Promise<PaymentResponse> => {
     const { lndClient } = this.getCurrency(symbol);
 
     if (!lndClient) {
@@ -1398,9 +1398,8 @@ class Service {
     }
 
     if (routingNode) {
-      const referral = await ReferralRepository.getReferralByRoutingNode(
-        routingNode,
-      );
+      const referral =
+        await ReferralRepository.getReferralByRoutingNode(routingNode);
 
       if (referral) {
         return referral.id;

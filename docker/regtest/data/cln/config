@@ -7,4 +7,6 @@ fee-base=0
 fee-per-satoshi=1
 large-channels
 
+grpc-port=9291
+
 dev-fast-gossip

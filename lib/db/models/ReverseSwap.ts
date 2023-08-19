@@ -1,6 +1,11 @@
 import { Model, Sequelize, DataTypes } from 'sequelize';
 import Pair from './Pair';
 
+enum NodeType {
+  LND = 0,
+  CLN = 1,
+}
+
 type ReverseSwapType = {
   id: string;
 
@@ -24,6 +29,7 @@ type ReverseSwapType = {
 
   timeoutBlockHeight: number;
 
+  node: NodeType;
   invoice: string;
   invoiceAmount: number;
 
@@ -63,6 +69,8 @@ class ReverseSwap extends Model implements ReverseSwapType {
 
   public timeoutBlockHeight!: number;
 
+  public node!: NodeType;
+
   public invoice!: string;
   public invoiceAmount!: number;
 
@@ -101,6 +109,15 @@ class ReverseSwap extends Model implements ReverseSwapType {
         status: { type: new DataTypes.STRING(255), allowNull: false },
         failureReason: { type: new DataTypes.STRING(255), allowNull: true },
         timeoutBlockHeight: { type: new DataTypes.INTEGER(), allowNull: false },
+        node: {
+          type: new DataTypes.INTEGER(),
+          allowNull: false,
+          validate: {
+            isIn: [
+              Object.values(NodeType).filter((val) => typeof val === 'number'),
+            ],
+          },
+        },
         invoice: {
           type: new DataTypes.STRING(255),
           allowNull: false,
@@ -166,4 +183,4 @@ class ReverseSwap extends Model implements ReverseSwapType {
 }
 
 export default ReverseSwap;
-export { ReverseSwapType };
+export { ReverseSwapType, NodeType };

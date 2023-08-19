@@ -17,6 +17,7 @@ import ChainClient from '../../../lib/chain/ChainClient';
 import FeeProvider from '../../../lib/rates/FeeProvider';
 import { CurrencyInfo } from '../../../lib/proto/boltzrpc_pb';
 import RateCalculator from '../../../lib/rates/RateCalculator';
+import { InvoiceFeature } from '../../../lib/lightning/LightningClient';
 import PairRepository from '../../../lib/db/repositories/PairRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
@@ -129,17 +130,10 @@ const mockedReverseSwap = {
 const mockCreateReverseSwap = jest.fn().mockResolvedValue(mockedReverseSwap);
 
 const mockGetRoutingHintsResultToObjectResult = { some: 'routingData' };
-const mockGetRoutingHintsResultToObject = jest
-  .fn()
-  .mockReturnValue(mockGetRoutingHintsResultToObjectResult);
 
 const mockGetRoutingHintsResult = [
-  {
-    toObject: mockGetRoutingHintsResultToObject,
-  },
-  {
-    toObject: mockGetRoutingHintsResultToObject,
-  },
+  mockGetRoutingHintsResultToObjectResult,
+  mockGetRoutingHintsResultToObjectResult,
 ];
 const mockGetRoutingHints = jest
   .fn()
@@ -397,6 +391,12 @@ const mockSendRawTransaction = jest.fn().mockImplementation(async () => {
   }
 });
 
+const mockGetRawTransactionVerbose = jest.fn().mockImplementation(async () => {
+  return {
+    blockTime: 21,
+  };
+});
+
 jest.mock('../../../lib/chain/ChainClient', () => {
   return jest.fn().mockImplementation(() => ({
     on: () => {},
@@ -405,21 +405,22 @@ jest.mock('../../../lib/chain/ChainClient', () => {
     getBlockchainInfo: mockGetBlockchainInfo,
     getRawTransaction: mockGetRawTransaction,
     sendRawTransaction: mockSendRawTransaction,
+    getRawTransactionVerbose: mockGetRawTransactionVerbose,
   }));
 });
 
 const mockedChainClient = <jest.Mock<ChainClient>>(<any>ChainClient);
 
 const lndInfo = {
+  pubkey: '321',
   blockHeight: 123,
   version: '0.7.1-beta commit=v0.7.1-beta',
-
-  numActiveChannels: 3,
-  numInactiveChannels: 2,
-  numPendingChannels: 1,
-
-  identityPubkey: '321',
-  urisList: ['321@127.0.0.1:9735', '321@hidden.onion:9735'],
+  uris: ['321@127.0.0.1:9735', '321@hidden.onion:9735'],
+  channels: {
+    active: 3,
+    inactive: 2,
+    pending: 1,
+  },
 };
 const mockGetInfo = jest.fn().mockResolvedValue(lndInfo);
 
@@ -433,39 +434,25 @@ const channelBalance = {
   localBalance: 2,
   remoteBalance: 4,
 };
-let mockListChannelsResult = {};
+let mockListChannelsResult: any[] = [];
 
 const mockListChannels = jest.fn().mockImplementation(async () => {
   return mockListChannelsResult;
 });
 
 const decodedInvoice: any = {
-  featuresMap: [],
+  features: new Set<InvoiceFeature>(),
 };
-const mockDecodePayReq = jest.fn().mockImplementation(async () => {
+const mockDecodeInvoice = jest.fn().mockImplementation(async () => {
   return decodedInvoice;
 });
 
-const mockDecodePayReqRaw = jest.fn().mockImplementation(async () => {
-  return {
-    getDestination: () => '',
-    getNumSatoshis: () => 1,
-    getCltvExpiry: () => 80,
-    getRouteHintsList: () => [],
-    toObject: () => ({
-      featuresMap: [],
-    }),
-  };
-});
-
 const mockQueryRoutes = jest.fn().mockImplementation(async () => {
-  return {
-    routesList: [
-      {
-        totalTimeLock: 80,
-      },
-    ],
-  };
+  return [
+    {
+      totalTimeLock: 80,
+    },
+  ];
 });
 
 jest.mock('../../../lib/lightning/LndClient', () => {
@@ -475,8 +462,7 @@ jest.mock('../../../lib/lightning/LndClient', () => {
     sendPayment: mockSendPayment,
     queryRoutes: mockQueryRoutes,
     listChannels: mockListChannels,
-    decodePayReq: mockDecodePayReq,
-    decodePayReqRawResponse: mockDecodePayReqRaw,
+    decodeInvoice: mockDecodeInvoice,
   }));
 });
 
@@ -593,18 +579,16 @@ describe('Service', () => {
 
     ChannelCreationRepository.getChannelCreation = mockGetChannelCreation;
 
-    mockListChannelsResult = {
-      channelsList: [
-        {
-          localBalance: channelBalance.localBalance / 2,
-          remoteBalance: channelBalance.remoteBalance / 2,
-        },
-        {
-          localBalance: channelBalance.localBalance / 2,
-          remoteBalance: channelBalance.remoteBalance / 2,
-        },
-      ],
-    };
+    mockListChannelsResult = [
+      {
+        localBalance: channelBalance.localBalance / 2,
+        remoteBalance: channelBalance.remoteBalance / 2,
+      },
+      {
+        localBalance: channelBalance.localBalance / 2,
+        remoteBalance: channelBalance.remoteBalance / 2,
+      },
+    ];
   });
 
   afterAll(() => {
@@ -627,7 +611,7 @@ describe('Service', () => {
   });
 
   test('should init', async () => {
-    mockListChannelsResult = { channelsList: [] };
+    mockListChannelsResult = [];
     await service.init(configPairs);
 
     expect(mockGetPairs).toHaveBeenCalledTimes(1);
@@ -683,9 +667,9 @@ describe('Service', () => {
       blockHeight: lndInfo.blockHeight,
 
       lndChannels: {
-        active: lndInfo.numActiveChannels,
-        inactive: lndInfo.numInactiveChannels,
-        pending: lndInfo.numPendingChannels,
+        active: lndInfo.channels.active,
+        inactive: lndInfo.channels.inactive,
+        pending: lndInfo.channels.pending,
       },
     });
   });
@@ -750,26 +734,26 @@ describe('Service', () => {
         [
           'BTC',
           {
-            nodeKey: lndInfo.identityPubkey,
-            uris: lndInfo.urisList,
+            nodeKey: lndInfo.pubkey,
+            uris: lndInfo.uris,
           },
         ],
         [
           'LTC',
           {
-            nodeKey: lndInfo.identityPubkey,
-            uris: lndInfo.urisList,
+            nodeKey: lndInfo.pubkey,
+            uris: lndInfo.uris,
           },
         ],
       ]),
     );
   });
 
-  test('should get routing hints', () => {
+  test('should get routing hints', async () => {
     const symbol = 'BTC';
     const routingNode = '2someNode';
 
-    const routingHints = service.getRoutingHints(symbol, routingNode);
+    const routingHints = await service.getRoutingHints(symbol, routingNode);
 
     expect(routingHints.length).toEqual(mockGetRoutingHintsResult.length);
     expect(routingHints).toEqual([
@@ -1292,25 +1276,16 @@ describe('Service', () => {
       lockupAddress: 'bcrt1qae5nuz2cv7gu2dpps8rwrhsfv6tjkyvpd8hqsu',
     };
 
-    decodedInvoice.featuresMap = [
-      [
-        30,
-        {
-          name: 'amp',
-          isKnown: true,
-          isRequired: true,
-        },
-      ],
-    ];
+    decodedInvoice.features = new Set<InvoiceFeature>([InvoiceFeature.AMP]);
 
     const invoice = 'lnbcinvoice';
     await expect(
       service.setInvoice(mockGetSwapResult.id, invoice),
     ).rejects.toEqual(Errors.AMP_INVOICES_NOT_SUPPORTED());
-    expect(mockDecodePayReq).toHaveBeenCalledTimes(1);
-    expect(mockDecodePayReq).toHaveBeenCalledWith(invoice);
+    expect(mockDecodeInvoice).toHaveBeenCalledTimes(2);
+    expect(mockDecodeInvoice).toHaveBeenCalledWith(invoice);
 
-    decodedInvoice.featuresMap = [];
+    decodedInvoice.features = new Set<InvoiceFeature>();
   });
 
   // TODO: channel creation logic

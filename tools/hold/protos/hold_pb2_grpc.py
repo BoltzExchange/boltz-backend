@@ -14,6 +14,11 @@ class HoldStub(object):
         Args:
             channel: A grpc.Channel.
         """
+        self.GetInfo = channel.unary_unary(
+            "/hold.Hold/GetInfo",
+            request_serializer=hold__pb2.GetInfoRequest.SerializeToString,
+            response_deserializer=hold__pb2.GetInfoResponse.FromString,
+        )
         self.Invoice = channel.unary_unary(
             "/hold.Hold/Invoice",
             request_serializer=hold__pb2.InvoiceRequest.SerializeToString,
@@ -53,6 +58,12 @@ class HoldStub(object):
 
 class HoldServicer(object):
     """Missing associated documentation comment in .proto file."""
+
+    def GetInfo(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
 
     def Invoice(self, request, context):
         """Missing associated documentation comment in .proto file."""
@@ -99,6 +110,11 @@ class HoldServicer(object):
 
 def add_HoldServicer_to_server(servicer, server):
     rpc_method_handlers = {
+        "GetInfo": grpc.unary_unary_rpc_method_handler(
+            servicer.GetInfo,
+            request_deserializer=hold__pb2.GetInfoRequest.FromString,
+            response_serializer=hold__pb2.GetInfoResponse.SerializeToString,
+        ),
         "Invoice": grpc.unary_unary_rpc_method_handler(
             servicer.Invoice,
             request_deserializer=hold__pb2.InvoiceRequest.FromString,
@@ -144,6 +160,35 @@ def add_HoldServicer_to_server(servicer, server):
 # This class is part of an EXPERIMENTAL API.
 class Hold(object):
     """Missing associated documentation comment in .proto file."""
+
+    @staticmethod
+    def GetInfo(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/hold.Hold/GetInfo",
+            hold__pb2.GetInfoRequest.SerializeToString,
+            hold__pb2.GetInfoResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
 
     @staticmethod
     def Invoice(

@@ -5,13 +5,16 @@ import Errors from '../../../lib/service/Errors';
 import { ConfigType } from '../../../lib/Config';
 import { OrderSide } from '../../../lib/consts/Enums';
 import { PairConfig } from '../../../lib/consts/Types';
-import { PayReq } from '../../../lib/proto/lnd/rpc_pb';
 import LndClient from '../../../lib/lightning/LndClient';
 import { Currency } from '../../../lib/wallet/WalletManager';
 import EthereumManager from '../../../lib/wallet/ethereum/EthereumManager';
 import TimeoutDeltaProvider, {
   PairTimeoutBlocksDelta,
 } from '../../../lib/service/TimeoutDeltaProvider';
+import {
+  DecodedInvoice,
+  InvoiceFeature,
+} from '../../../lib/lightning/LightningClient';
 
 const currencies = [
   {
@@ -216,54 +219,41 @@ describe('TimeoutDeltaProvider', () => {
       queryRoutes: mockQueryRoutes,
     } as unknown as LndClient;
 
-    const dec = {
-      getNumSatoshis: () => 10_000,
-      getDestination: () => 'dest',
-      getCltvExpiry: () => 80,
-      getRouteHintsList: () => [],
-    } as unknown as PayReq;
+    const dec: DecodedInvoice = {
+      value: 10_000,
+      destination: 'dest',
+      cltvExpiry: 80,
+      routingHints: [],
+      features: new Set<InvoiceFeature>(),
+    };
 
     const cltvLimit = 123;
 
-    await deltaProvider.checkRoutability(
-      lnd,
-      {
-        ...dec,
-        toObject: () => ({ featuresMap: [] }),
-      } as unknown as PayReq,
-      cltvLimit,
-    );
+    await deltaProvider.checkRoutability(lnd, dec, cltvLimit);
     expect(mockQueryRoutes).toHaveBeenNthCalledWith(
       1,
-      dec.getDestination(),
-      dec.getNumSatoshis(),
+      dec.destination,
+      dec.value,
       cltvLimit,
-      dec.getCltvExpiry(),
-      dec.getRouteHintsList(),
+      dec.cltvExpiry,
+      dec.routingHints,
     );
 
     await deltaProvider.checkRoutability(
       lnd,
       {
         ...dec,
-        toObject: () => ({
-          featuresMap: [
-            [
-              0,
-              { name: 'multi-path-payments', isKnown: true, isRequired: false },
-            ],
-          ],
-        }),
-      } as unknown as PayReq,
+        features: new Set<InvoiceFeature>([InvoiceFeature.MPP]),
+      },
       cltvLimit,
     );
     expect(mockQueryRoutes).toHaveBeenNthCalledWith(
       2,
-      dec.getDestination(),
-      Math.ceil(dec.getNumSatoshis() / LndClient.paymentMaxParts),
+      dec.destination,
+      Math.ceil(dec.value / LndClient.paymentMaxParts),
       cltvLimit,
-      dec.getCltvExpiry(),
-      dec.getRouteHintsList(),
+      dec.cltvExpiry,
+      dec.routingHints,
     );
   });
 
@@ -273,24 +263,24 @@ describe('TimeoutDeltaProvider', () => {
       queryRoutes: mockQueryRoutes,
     } as unknown as LndClient;
 
-    const dec = {
-      getNumSatoshis: () => 0,
-      getDestination: () => 'dest',
-      getCltvExpiry: () => 80,
-      getRouteHintsList: () => [],
-      toObject: () => ({ featuresMap: [] }),
-    } as unknown as PayReq;
+    const dec: DecodedInvoice = {
+      value: 0,
+      destination: 'dest',
+      cltvExpiry: 80,
+      routingHints: [],
+      features: new Set<InvoiceFeature>(),
+    };
 
     const cltvLimit = 210;
 
     await deltaProvider.checkRoutability(lnd, dec, cltvLimit);
     expect(mockQueryRoutes).toHaveBeenNthCalledWith(
       1,
-      dec.getDestination(),
+      dec.destination,
       1,
       cltvLimit,
-      dec.getCltvExpiry(),
-      dec.getRouteHintsList(),
+      dec.cltvExpiry,
+      dec.routingHints,
     );
   });
 });

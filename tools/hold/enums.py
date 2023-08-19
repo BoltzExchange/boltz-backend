@@ -11,7 +11,11 @@ class InvoiceState(str, Enum):
 POSSIBLE_STATE_TRANSITIONS = {
     InvoiceState.Paid: [],
     InvoiceState.Cancelled: [],
-    InvoiceState.Accepted: [InvoiceState.Cancelled, InvoiceState.Paid],
+    InvoiceState.Accepted: [
+        InvoiceState.Cancelled,
+        InvoiceState.Paid,
+        InvoiceState.Accepted,
+    ],
     InvoiceState.Unpaid: [InvoiceState.Accepted, InvoiceState.Cancelled],
 }
 

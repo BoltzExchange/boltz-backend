@@ -7,14 +7,13 @@ import Logger from '../Logger';
 import Swap from '../db/models/Swap';
 import SwapNursery from './SwapNursery';
 import SwapOutputType from './SwapOutputType';
-import LndClient from '../lightning/LndClient';
 import RateProvider from '../rates/RateProvider';
+import RoutingHints from './routing/RoutingHints';
 import WalletLiquid from '../wallet/WalletLiquid';
-import ReverseSwap from '../db/models/ReverseSwap';
 import { ReverseSwapOutputType } from '../consts/Consts';
-import RoutingHintsProvider from './RoutingHintsProvider';
 import SwapRepository from '../db/repositories/SwapRepository';
 import InvoiceExpiryHelper from '../service/InvoiceExpiryHelper';
+import ReverseSwap, { NodeType } from '../db/models/ReverseSwap';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
@@ -42,6 +41,7 @@ import {
   reverseBuffer,
   splitPairId,
 } from '../Utils';
+import NodeSwitch from './NodeSwitch';
 
 type ChannelCreationInfo = {
   auto: boolean;
@@ -58,7 +58,7 @@ class SwapManager {
 
   public nursery: SwapNursery;
 
-  public routingHints!: RoutingHintsProvider;
+  public routingHints!: RoutingHints;
 
   constructor(
     private logger: Logger,
@@ -116,15 +116,7 @@ class SwapManager {
       'Recreated input and output filters and invoice subscriptions',
     );
 
-    const lndClients: LndClient[] = [];
-
-    for (const currency of currencies) {
-      if (currency.lndClient) {
-        lndClients.push(currency.lndClient);
-      }
-    }
-
-    this.routingHints = new RoutingHintsProvider(this.logger, lndClients);
+    this.routingHints = new RoutingHints(this.logger, currencies);
     await this.routingHints.start();
   };
 
@@ -169,7 +161,7 @@ class SwapManager {
       args.orderSide,
     );
 
-    if (!sendingCurrency.lndClient) {
+    if (!NodeSwitch.hasClient(sendingCurrency)) {
       throw Errors.NO_LIGHTNING_SUPPORT(sendingCurrency.symbol);
     }
 
@@ -493,7 +485,7 @@ class SwapManager {
       args.orderSide,
     );
 
-    if (!receivingCurrency.lndClient) {
+    if (!NodeSwitch.hasClient(receivingCurrency)) {
       throw Errors.NO_LIGHTNING_SUPPORT(receivingCurrency.symbol);
     }
 
@@ -501,6 +493,13 @@ class SwapManager {
 
     this.logger.verbose(
       `Creating new Reverse Swap from ${receivingCurrency.symbol} to ${sendingCurrency.symbol}: ${id}`,
+    );
+
+    const { nodeType, lightningClient } = NodeSwitch.getNodeForReverseSwap(
+      this.logger,
+      id,
+      receivingCurrency,
+      args.holdInvoiceAmount,
     );
 
     if (args.referralId) {
@@ -511,13 +510,13 @@ class SwapManager {
 
     const routingHints =
       args.routingNode !== undefined
-        ? this.routingHints.getRoutingHints(
+        ? await this.routingHints.getRoutingHints(
             receivingCurrency.symbol,
             args.routingNode,
           )
         : undefined;
 
-    const { paymentRequest } = await receivingCurrency.lndClient.addHoldInvoice(
+    const paymentRequest = await lightningClient.addHoldInvoice(
       args.holdInvoiceAmount,
       args.preimageHash,
       args.lightningTimeoutBlockDelta,
@@ -526,7 +525,7 @@ class SwapManager {
       routingHints,
     );
 
-    receivingCurrency.lndClient.subscribeSingleInvoice(args.preimageHash);
+    lightningClient.subscribeSingleInvoice(args.preimageHash);
 
     let minerFeeInvoice: string | undefined = undefined;
     let minerFeeInvoicePreimage: string | undefined = undefined;
@@ -537,7 +536,7 @@ class SwapManager {
 
       const minerFeeInvoicePreimageHash = crypto.sha256(preimage);
 
-      const prepayInvoice = await receivingCurrency.lndClient.addHoldInvoice(
+      minerFeeInvoice = await lightningClient.addHoldInvoice(
         args.prepayMinerFeeInvoiceAmount,
         minerFeeInvoicePreimageHash,
         undefined,
@@ -545,11 +544,8 @@ class SwapManager {
         getPrepayMinerFeeInvoiceMemo(sendingCurrency.symbol),
         routingHints,
       );
-      minerFeeInvoice = prepayInvoice.paymentRequest;
 
-      receivingCurrency.lndClient.subscribeSingleInvoice(
-        minerFeeInvoicePreimageHash,
-      );
+      lightningClient.subscribeSingleInvoice(minerFeeInvoicePreimageHash);
 
       if (args.prepayMinerFeeOnchainAmount) {
         this.logger.debug(
@@ -604,6 +600,7 @@ class SwapManager {
         minerFeeInvoice,
         timeoutBlockHeight,
 
+        node: nodeType,
         keyIndex: index,
         fee: args.percentageFee,
         invoice: paymentRequest,
@@ -633,6 +630,7 @@ class SwapManager {
         minerFeeInvoice,
         timeoutBlockHeight,
 
+        node: nodeType,
         fee: args.percentageFee,
         invoice: paymentRequest,
         orderSide: args.orderSide,
@@ -689,6 +687,7 @@ class SwapManager {
         const { lndClient } = this.currencies.get(lightningCurrency)!;
 
         if (
+          reverseSwap.node === NodeType.LND &&
           reverseSwap.minerFeeInvoice &&
           swap.status !== SwapUpdateEvent.MinerFeePaid
         ) {

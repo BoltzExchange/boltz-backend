@@ -1,11 +1,11 @@
 import { SwapType } from '../../../lib/db/models/Swap';
-import { ReverseSwapType } from '../../../lib/db/models/ReverseSwap';
+import { NodeType, ReverseSwapType } from '../../../lib/db/models/ReverseSwap';
 import { ChannelCreationType } from '../../../lib/db/models/ChannelCreation';
 import {
-  OrderSide,
-  SwapUpdateEvent,
   ChannelCreationStatus,
   ChannelCreationType as ChannelType,
+  OrderSide,
+  SwapUpdateEvent,
 } from '../../../lib/consts/Enums';
 
 export const swapExample: SwapType = {
@@ -47,6 +47,7 @@ export const reverseSwapExample: ReverseSwapType = {
   id: 'r123456',
 
   fee: 200,
+  node: NodeType.LND,
   orderSide: OrderSide.SELL,
   keyIndex: 321,
   minerFee: 306,

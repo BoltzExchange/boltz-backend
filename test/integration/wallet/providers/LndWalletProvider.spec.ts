@@ -44,9 +44,8 @@ describe('LndWalletProvider', () => {
       ),
     ).toEqual(expectedAmount);
 
-    const { transactionsList } = await bitcoinLndClient.getOnchainTransactions(
-      0,
-    );
+    const { transactionsList } =
+      await bitcoinLndClient.getOnchainTransactions(0);
 
     for (let i = 0; i < transactionsList.length; i += 1) {
       const transaction = transactionsList[i];

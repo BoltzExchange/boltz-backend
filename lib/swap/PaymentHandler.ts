@@ -7,15 +7,18 @@ import LightningNursery from './LightningNursery';
 import { Currency } from '../wallet/WalletManager';
 import ChannelCreation from '../db/models/ChannelCreation';
 import SwapRepository from '../db/repositories/SwapRepository';
+import { PaymentResponse } from '../lightning/LightningClient';
 import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
 import { Payment, PaymentFailureReason } from '../proto/lnd/rpc_pb';
 import { ChannelCreationStatus, SwapUpdateEvent } from '../consts/Enums';
 import {
   formatError,
-  splitPairId,
   getHexBuffer,
+  getHexString,
   getLightningCurrency,
+  splitPairId,
 } from '../Utils';
+import NodeSwitch from './NodeSwitch';
 
 class PaymentHandler {
   private static readonly raceTimeout = 15;
@@ -90,7 +93,7 @@ class PaymentHandler {
       `Paying invoice of swap ${swap.id} with cltvLimit: ${cltvLimit}`,
     );
     const payResponse = await Promise.race([
-      lightningCurrency.lndClient!.sendPayment(
+      NodeSwitch.getSwapNode(this.logger, lightningCurrency, swap).sendPayment(
         swap.invoice!,
         cltvLimit,
         outgoingChannelId,
@@ -113,6 +116,7 @@ class PaymentHandler {
     return undefined;
   };
 
+  // TODO: adjust for CLN compatibility
   private handlePaymentFailure = async (
     swap: Swap,
     channelCreation: ChannelCreation | null,
@@ -134,12 +138,16 @@ class PaymentHandler {
       LightningNursery.errIsCltvLimitExceeded(error)
     ) {
       try {
-        const payment = await lightningCurrency.lndClient!.trackPayment(
-          getHexBuffer(swap.preimageHash),
-        );
+        const payment =
+          await (lightningCurrency.lndClient as LndClient)!.trackPayment(
+            getHexBuffer(swap.preimageHash),
+          );
         if (payment.status === Payment.PaymentStatus.SUCCEEDED) {
           this.logger.debug(`Invoice of Swap ${swap.id} is paid already`);
-          return this.settleInvoice(swap, payment);
+          return this.settleInvoice(swap, {
+            feeMsat: payment.feeMsat,
+            preimage: getHexBuffer(payment.paymentPreimage),
+          });
         }
       } catch (e) {
         /* empty */
@@ -175,10 +183,12 @@ class PaymentHandler {
       return undefined;
     }
 
-    this.logger.debug(
-      `Resetting ${lightningCurrency.symbol} lightning mission control`,
-    );
-    await lightningCurrency.lndClient!.resetMissionControl();
+    if (lightningCurrency.lndClient instanceof LndClient) {
+      this.logger.debug(
+        `Resetting ${lightningCurrency.symbol} lightning mission control`,
+      );
+      await lightningCurrency.lndClient!.resetMissionControl();
+    }
 
     // If the invoice could not be paid but the Swap has a Channel Creation attached to it, a channel will be opened
     if (
@@ -203,13 +213,10 @@ class PaymentHandler {
 
   private settleInvoice = async (
     swap: Swap,
-    response: {
-      paymentPreimage: string;
-      feeMsat: number;
-    },
+    response: PaymentResponse,
   ): Promise<Buffer> => {
     this.logger.verbose(
-      `Paid invoice of Swap ${swap.id}: ${response.paymentPreimage}`,
+      `Paid invoice of Swap ${swap.id}: ${getHexString(response.preimage)}`,
     );
 
     this.emit(
@@ -217,7 +224,7 @@ class PaymentHandler {
       await SwapRepository.setInvoicePaid(swap, response.feeMsat),
     );
 
-    return getHexBuffer(response.paymentPreimage);
+    return response.preimage;
   };
 }
 

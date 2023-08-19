@@ -63,7 +63,7 @@ class Controller {
     ]);
 
     for (const swap of swaps) {
-      const status = swap.status as SwapUpdateEvent;
+      const status = swap.status;
 
       switch (status) {
         case SwapUpdateEvent.ChannelCreated: {
@@ -101,7 +101,7 @@ class Controller {
     }
 
     for (const reverseSwap of reverseSwaps) {
-      const status = reverseSwap.status as SwapUpdateEvent;
+      const status = reverseSwap.status;
 
       switch (status) {
         case SwapUpdateEvent.TransactionMempool:
@@ -153,7 +153,9 @@ class Controller {
         }
 
         default:
-          this.pendingSwapInfos.set(reverseSwap.id, { status });
+          this.pendingSwapInfos.set(reverseSwap.id, {
+            status: status as SwapUpdateEvent,
+          });
           break;
       }
     }
@@ -231,14 +233,17 @@ class Controller {
   };
 
   // POST requests
-  public routingHints = (req: Request, res: Response): void => {
+  public routingHints = async (req: Request, res: Response): Promise<void> => {
     try {
       const { symbol, routingNode } = this.validateRequest(req.body, [
         { name: 'symbol', type: 'string' },
         { name: 'routingNode', type: 'string' },
       ]);
 
-      const routingHints = this.service.getRoutingHints(symbol, routingNode);
+      const routingHints = await this.service.getRoutingHints(
+        symbol,
+        routingNode,
+      );
 
       this.successResponse(res, {
         routingHints,

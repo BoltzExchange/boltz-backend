@@ -2,7 +2,14 @@
 import sys
 from typing import Any
 
-from consts import GRPC_HOST, GRPC_HOST_REGTEST, GRPC_PORT, PLUGIN_NAME, Network
+from consts import (
+    GRPC_HOST,
+    GRPC_HOST_REGTEST,
+    GRPC_PORT,
+    PLUGIN_NAME,
+    VERSION,
+    Network,
+)
 from encoder import Defaults
 from errors import Errors
 from invoice import HoldInvoiceStateError
@@ -39,7 +46,7 @@ def init(
     )
     server.start(grpc_host, GRPC_PORT)
 
-    pl.log(f"Plugin {PLUGIN_NAME} initialized")
+    pl.log(f"Plugin {PLUGIN_NAME} v{VERSION} initialized")
 
 
 @pl.method("holdinvoice")
@@ -71,8 +78,15 @@ def hold_invoice(
 
 @pl.method("listholdinvoices")
 def list_hold_invoices(plugin: Plugin, payment_hash: str = "") -> dict[str, Any]:
+    invoices = []
+
+    for i in hold.list_invoices(payment_hash):
+        invoice = i.invoice.__dict__
+        invoice["htlcs"] = [htlc.to_dict() for htlc in i.htlcs]
+        invoices.append(invoice)
+
     return {
-        "holdinvoices": [i.__dict__ for i in hold.list_invoices(payment_hash)],
+        "holdinvoices": invoices,
     }
 
 
@@ -130,12 +144,14 @@ def on_htlc_accepted(
         Settler.continue_callback(request)
         return
 
-    invoice = hold.ds.get_invoice(htlc["payment_hash"])
+    invoice_htlcs = hold.ds.get_invoice(htlc["payment_hash"])
 
     # Ignore invoices that aren't hold invoices
-    if invoice is None:
+    if invoice_htlcs is None:
         Settler.continue_callback(request)
         return
+
+    invoice = invoice_htlcs.invoice
 
     dec = plugin.rpc.decodepay(invoice.bolt11)
     if htlc["cltv_expiry_relative"] < dec["min_final_cltv_expiry"]:

@@ -80,6 +80,8 @@ elements-cli rescanblockchain > /dev/null
 startCln
 startLnds
 
+mkdir /root/.lightning/regtest/certs
+
 echo "Opening BTC channels"
 
 openChannel bitcoin-cli \

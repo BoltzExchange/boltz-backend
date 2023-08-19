@@ -104,9 +104,7 @@ const mockOpenChannel = jest.fn().mockImplementation(async () => {
 
 let mockListChannelsResult: any[] = [];
 const mockListChannels = jest.fn().mockImplementation(async () => {
-  return {
-    channelsList: mockListChannelsResult,
-  };
+  return mockListChannelsResult;
 });
 
 jest.mock('../../../lib/lightning/LndClient', () => {
@@ -173,7 +171,11 @@ describe('ChannelNursery', () => {
     ChannelCreationRepository.setFundingTransaction = mockSetFundingTransaction;
 
     // Reset the injected mocked methods
-    channelNursery = new ChannelNursery(Logger.disabledLogger, mockSettleSwap);
+    channelNursery = new ChannelNursery(
+      Logger.disabledLogger,
+      mockSettleSwap,
+      true,
+    );
 
     channelNursery['currencies'].set(btcCurrency.symbol, btcCurrency);
     channelNursery['currencies'].set(ltcCurrency.symbol, ltcCurrency);
@@ -488,13 +490,13 @@ describe('ChannelNursery', () => {
         chanId: 'wrong',
       },
       {
-        channelPoint: `${channelCreation.fundingTransactionId}:${
-          channelCreation.fundingTransactionVout! - 1
-        }`,
+        fundingTransactionId: channelCreation.fundingTransactionId,
+        fundingTransactionVout: channelCreation.fundingTransactionVout! - 1,
         chanId: 'wrong',
       },
       {
-        channelPoint: `${channelCreation.fundingTransactionId}:${channelCreation.fundingTransactionVout}`,
+        fundingTransactionId: channelCreation.fundingTransactionId,
+        fundingTransactionVout: channelCreation.fundingTransactionVout,
         chanId: 'correct',
       },
     ];

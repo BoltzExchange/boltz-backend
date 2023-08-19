@@ -61,6 +61,9 @@ jobs:
       - name: Python lint
         run: npm run python:lint
 
+      - name: Start hold invoice plugin
+        run: docker exec regtest lightning-cli plugin start /root/hold.sh
+
       - name: Unit tests
         run: npm run test:unit
 

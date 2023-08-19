@@ -9,6 +9,7 @@ import { LndConfig } from './lightning/LndClient';
 import { WebdavConfig } from './backup/providers/Webdav';
 import { GoogleCloudConfig } from './backup/providers/GoogleCloud';
 import { deepMerge, getServiceDataDir, resolveHome } from './Utils';
+import { ClnConfig } from './lightning/ClnClient';
 
 type ChainConfig = {
   host: string;
@@ -50,6 +51,7 @@ type CurrencyConfig = BaseCurrencyConfig & {
   preferredWallet: 'lnd' | 'core' | undefined;
 
   lnd?: LndConfig;
+  cln?: ClnConfig;
   routingOffsetExceptions?: RoutingOffsetException[];
 
   // Expiry for invoices of this currency in seconds

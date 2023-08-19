@@ -14,15 +14,34 @@ DESCRIPTOR: _descriptor.FileDescriptor
 
 class InvoiceState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = []
-    InvoiceUnpaid: _ClassVar[InvoiceState]
-    InvoiceAccepted: _ClassVar[InvoiceState]
-    InvoicePaid: _ClassVar[InvoiceState]
-    InvoiceCancelled: _ClassVar[InvoiceState]
+    INVOICE_UNPAID: _ClassVar[InvoiceState]
+    INVOICE_ACCEPTED: _ClassVar[InvoiceState]
+    INVOICE_PAID: _ClassVar[InvoiceState]
+    INVOICE_CANCELLED: _ClassVar[InvoiceState]
 
-InvoiceUnpaid: InvoiceState
-InvoiceAccepted: InvoiceState
-InvoicePaid: InvoiceState
-InvoiceCancelled: InvoiceState
+class HtlcState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = []
+    HTLC_ACCEPTED: _ClassVar[HtlcState]
+    HTLC_SETTLED: _ClassVar[HtlcState]
+    HTLC_CANCELLED: _ClassVar[HtlcState]
+
+INVOICE_UNPAID: InvoiceState
+INVOICE_ACCEPTED: InvoiceState
+INVOICE_PAID: InvoiceState
+INVOICE_CANCELLED: InvoiceState
+HTLC_ACCEPTED: HtlcState
+HTLC_SETTLED: HtlcState
+HTLC_CANCELLED: HtlcState
+
+class GetInfoRequest(_message.Message):
+    __slots__ = []
+    def __init__(self) -> None: ...
+
+class GetInfoResponse(_message.Message):
+    __slots__ = ["version"]
+    VERSION_FIELD_NUMBER: _ClassVar[int]
+    version: str
+    def __init__(self, version: _Optional[str] = ...) -> None: ...
 
 class InvoiceRequest(_message.Message):
     __slots__ = [
@@ -116,22 +135,40 @@ class ListRequest(_message.Message):
     payment_hash: str
     def __init__(self, payment_hash: _Optional[str] = ...) -> None: ...
 
+class Htlc(_message.Message):
+    __slots__ = ["state", "msat", "creation_time"]
+    STATE_FIELD_NUMBER: _ClassVar[int]
+    MSAT_FIELD_NUMBER: _ClassVar[int]
+    CREATION_TIME_FIELD_NUMBER: _ClassVar[int]
+    state: HtlcState
+    msat: int
+    creation_time: int
+    def __init__(
+        self,
+        state: _Optional[_Union[HtlcState, str]] = ...,
+        msat: _Optional[int] = ...,
+        creation_time: _Optional[int] = ...,
+    ) -> None: ...
+
 class Invoice(_message.Message):
-    __slots__ = ["payment_hash", "payment_preimage", "state", "bolt11"]
+    __slots__ = ["payment_hash", "payment_preimage", "state", "bolt11", "htlcs"]
     PAYMENT_HASH_FIELD_NUMBER: _ClassVar[int]
     PAYMENT_PREIMAGE_FIELD_NUMBER: _ClassVar[int]
     STATE_FIELD_NUMBER: _ClassVar[int]
     BOLT11_FIELD_NUMBER: _ClassVar[int]
+    HTLCS_FIELD_NUMBER: _ClassVar[int]
     payment_hash: str
     payment_preimage: str
     state: InvoiceState
     bolt11: str
+    htlcs: _containers.RepeatedCompositeFieldContainer[Htlc]
     def __init__(
         self,
         payment_hash: _Optional[str] = ...,
         payment_preimage: _Optional[str] = ...,
         state: _Optional[_Union[InvoiceState, str]] = ...,
         bolt11: _Optional[str] = ...,
+        htlcs: _Optional[_Iterable[_Union[Htlc, _Mapping]]] = ...,
     ) -> None: ...
 
 class ListResponse(_message.Message):
@@ -179,13 +216,16 @@ class TrackAllRequest(_message.Message):
     def __init__(self) -> None: ...
 
 class TrackAllResponse(_message.Message):
-    __slots__ = ["payment_hash", "state"]
+    __slots__ = ["payment_hash", "bolt11", "state"]
     PAYMENT_HASH_FIELD_NUMBER: _ClassVar[int]
+    BOLT11_FIELD_NUMBER: _ClassVar[int]
     STATE_FIELD_NUMBER: _ClassVar[int]
     payment_hash: str
+    bolt11: str
     state: InvoiceState
     def __init__(
         self,
         payment_hash: _Optional[str] = ...,
+        bolt11: _Optional[str] = ...,
         state: _Optional[_Union[InvoiceState, str]] = ...,
     ) -> None: ...

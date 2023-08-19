@@ -17,13 +17,14 @@ import FeeRepository from '../db/repositories/FeeRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import { coinsToSatoshis, satoshisToCoins } from '../DenominationConverter';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
-import {
-  getChainCurrency,
-  stringify,
-  splitPairId,
-  formatError,
-} from '../Utils';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
+import {
+  formatError,
+  getChainCurrency,
+  getHexString,
+  splitPairId,
+  stringify,
+} from '../Utils';
 
 enum Command {
   Help = 'help',
@@ -481,7 +482,9 @@ class CommandHandler {
         const response = await this.service.payInvoice(symbol, args[2]);
 
         await this.discord.sendMessage(
-          `Paid lightning invoice\nPreimage: ${response.paymentPreimage}`,
+          `Paid lightning invoice\nPreimage: ${getHexString(
+            response.preimage,
+          )}`,
         );
       } catch (error) {
         await this.discord.sendMessage(

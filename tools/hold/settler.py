@@ -20,6 +20,15 @@ class Htlc:
     request: Request
     creation_time: datetime
 
+    def to_dict(self) -> object:
+        self_without_request = {
+            k: v for k, v in self.__dict__.items() if not isinstance(v, Request)
+        }
+        return {
+            k: int(v.timestamp()) if isinstance(v, datetime) else v
+            for k, v in self_without_request.items()
+        }
+
 
 # TODO: save information about HTLCs
 class Htlcs:

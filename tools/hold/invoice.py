@@ -33,7 +33,7 @@ class HoldInvoice:
             raise HoldInvoiceStateError(self.state, new_state)
 
         self.state = new_state
-        tracker.send_update(self.payment_hash, self.state)
+        tracker.send_update(self.payment_hash, self.bolt11, self.state)
 
     def to_json(self) -> str:
         return json.dumps(

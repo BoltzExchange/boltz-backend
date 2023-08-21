@@ -40,20 +40,19 @@ import {
   RoutingHintsProvider,
 } from './LightningClient';
 
-type ClnConfig = {
+type BaseConfig = {
   host: string;
   port: number;
 
   rootCertPath: string;
   privateKeyPath: string;
   certChainPath: string;
+};
 
+type ClnConfig = BaseConfig & {
   maxPaymentFeeRatio: number;
 
-  hold: {
-    host: string;
-    port: number;
-  };
+  hold: BaseConfig;
 };
 
 class ClnClient
@@ -76,6 +75,7 @@ class ClnClient
   private readonly nodeMeta = new Metadata();
 
   private holdClient?: HoldClient;
+  private readonly holdCreds: ChannelCredentials;
   private readonly holdMeta = new Metadata();
 
   private trackAllSubscription?: ClientReadableStream<holdrpc.TrackAllResponse>;
@@ -90,24 +90,10 @@ class ClnClient
     this.maxPaymentFeeRatio =
       config.maxPaymentFeeRatio > 0 ? config.maxPaymentFeeRatio : 0.01;
 
-    const certFiles = [
-      config.rootCertPath,
-      config.privateKeyPath,
-      config.certChainPath,
-    ];
-
-    if (
-      !certFiles.map((file) => fs.existsSync(file)).every((exists) => exists)
-    ) {
-      throw Errors.COULD_NOT_FIND_FILES(symbol, ClnClient.serviceName);
-    }
+    this.nodeCreds = this.createSsl(config);
+    this.holdCreds = this.createSsl(config.hold);
 
     this.nodeUri = `${config.host}:${config.port}`;
-    const [rootCert, privateKey, certChain] = certFiles.map((file) =>
-      fs.readFileSync(file),
-    );
-    this.nodeCreds = credentials.createSsl(rootCert, privateKey, certChain);
-
     this.holdUri = `${config.hold.host}:${config.hold.port}`;
   }
 
@@ -122,14 +108,12 @@ class ClnClient
         'grpc.ssl_target_name_override': 'cln',
       });
 
-      this.holdClient = new HoldClient(
-        this.holdUri,
-        credentials.createInsecure(),
-        grpcOptions,
-      );
+      this.holdClient = new HoldClient(this.holdUri, this.holdCreds, {
+        ...grpcOptions,
+        'grpc.ssl_target_name_override': 'hold',
+      });
 
       try {
-        // TODO: sanity check hold invoice plugin is running
         await this.getInfo();
 
         if (startSubscriptions) {
@@ -686,6 +670,25 @@ class ClnClient
       this.emit('subscription.error');
       await this.reconnect();
     }
+  };
+
+  private createSsl = (config: BaseConfig): ChannelCredentials => {
+    const certFiles = [
+      config.rootCertPath,
+      config.privateKeyPath,
+      config.certChainPath,
+    ];
+
+    if (
+      !certFiles.map((file) => fs.existsSync(file)).every((exists) => exists)
+    ) {
+      throw Errors.COULD_NOT_FIND_FILES(this.symbol, ClnClient.serviceName);
+    }
+
+    const [rootCert, privateKey, certChain] = certFiles.map((file) =>
+      fs.readFileSync(file),
+    );
+    return credentials.createSsl(rootCert, privateKey, certChain);
   };
 }
 

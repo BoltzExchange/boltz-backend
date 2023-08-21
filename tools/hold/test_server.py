@@ -28,7 +28,7 @@ class TestServer:
         host = "127.0.0.1"
         port = free_port()
         server = Server(self.plugin, self.hold)
-        server.start(host, port)
+        server.start(host, port, None)
 
         channel = grpc.insecure_channel(f"{host}:{port}")
         hold = HoldStub(channel)

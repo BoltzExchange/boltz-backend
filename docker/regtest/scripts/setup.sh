@@ -81,6 +81,7 @@ startCln
 startLnds
 
 mkdir /root/.lightning/regtest/certs
+mkdir /root/.lightning/regtest/hold
 
 echo "Opening BTC channels"
 

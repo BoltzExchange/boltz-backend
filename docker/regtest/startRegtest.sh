@@ -4,7 +4,8 @@ docker run \
   -d \
   --name regtest \
   --volume "${PWD}"/docker/regtest/data/core/cookies:/cookies/ \
-  --volume "${PWD}"/docker/regtest/data/cln/regtest:/root/.lightning/regtest/certs \
+  --volume "${PWD}"/docker/regtest/data/cln/certs:/root/.lightning/regtest/certs \
+  --volume "${PWD}"/docker/regtest/data/cln/hold:/root/.lightning/regtest/hold \
   --volume "${PWD}"/tools:/tools \
   -p 10735:10735 \
   -p 9736:9735 \

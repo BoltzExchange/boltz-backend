@@ -55,17 +55,23 @@ export const clnDataPath = `${resolve(
   __dirname,
   '..',
   '..',
-)}/docker/regtest/data/cln/regtest`;
+)}/docker/regtest/data/cln`;
+
+export const clnCertsPath = `${clnDataPath}/certs`;
+export const clnHoldPath = `${clnDataPath}/hold`;
 
 export const clnClient = new ClnClient(Logger.disabledLogger, 'BTC', {
   host: host,
   port: 9291,
   maxPaymentFeeRatio: 0.01,
-  rootCertPath: `${clnDataPath}/ca.pem`,
-  privateKeyPath: `${clnDataPath}/client-key.pem`,
-  certChainPath: `${clnDataPath}/client.pem`,
+  rootCertPath: `${clnCertsPath}/ca.pem`,
+  privateKeyPath: `${clnCertsPath}/client-key.pem`,
+  certChainPath: `${clnCertsPath}/client.pem`,
   hold: {
     host: host,
     port: 9292,
+    rootCertPath: `${clnHoldPath}/ca.pem`,
+    privateKeyPath: `${clnHoldPath}/client-key.pem`,
+    certChainPath: `${clnHoldPath}/client.pem`,
   },
 });

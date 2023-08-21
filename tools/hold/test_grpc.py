@@ -2,6 +2,7 @@ import concurrent.futures
 import random
 import time
 from hashlib import sha256
+from pathlib import Path
 
 import grpc
 import pytest
@@ -63,7 +64,17 @@ class TestGrpc:
 
         connect_peers(cln_con)
 
-        channel = grpc.insecure_channel(f"127.0.0.1:{OptionDefaults.GrpcPort}")
+        cert_path = Path("../docker/regtest/data/cln/hold")
+        creds = grpc.ssl_channel_credentials(
+            root_certificates=cert_path.joinpath("ca.pem").read_bytes(),
+            private_key=cert_path.joinpath("client-key.pem").read_bytes(),
+            certificate_chain=cert_path.joinpath("client.pem").read_bytes(),
+        )
+        channel = grpc.secure_channel(
+            f"127.0.0.1:{OptionDefaults.GrpcPort}",
+            creds,
+            options=(("grpc.ssl_target_name_override", "hold"),),
+        )
         client = HoldStub(channel)
 
         yield client

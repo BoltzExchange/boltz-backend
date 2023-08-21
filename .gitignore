@@ -83,4 +83,5 @@ contracts/
 docker/regtest/data/core/cookies/
 
 # CLN data directory
-docker/regtest/data/cln/regtest
+docker/regtest/data/cln/hold
+docker/regtest/data/cln/certs

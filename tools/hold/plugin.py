@@ -38,7 +38,7 @@ def init(
     hold.init()
 
     if cfg.grpc_port != -1:
-        server.start(cfg.grpc_host, cfg.grpc_port)
+        server.start(cfg.grpc_host, cfg.grpc_port, configuration["lightning-dir"])
     else:
         plugin.log("Not starting gRPC server")
 

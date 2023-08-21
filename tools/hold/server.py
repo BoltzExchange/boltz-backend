@@ -5,6 +5,7 @@ from queue import Empty
 from typing import TypeVar
 
 import grpc
+from certs import load_certs
 from consts import VERSION
 from encoder import Defaults
 from enums import invoice_state_final
@@ -190,15 +191,24 @@ class Server:
         self._plugin = plugin
         self._server = None
 
-    def start(self, host: str, port: int) -> None:
-        # TODO: authentication (same as cln itself?)
+    def start(self, host: str, port: int, lightning_dir: str | None) -> None:
         self._server = grpc.server(
             futures.ThreadPoolExecutor(), interceptors=[LogInterceptor(self._plugin)]
         )
         add_HoldServicer_to_server(HoldService(self._plugin, self._hold), self._server)
 
         address = f"{host}:{port}"
-        self._server.add_insecure_port(address)
+
+        if lightning_dir is not None:
+            ca_cert, server_cert = load_certs(f"{lightning_dir}/hold")
+            self._server.add_secure_port(
+                address,
+                grpc.ssl_server_credentials(
+                    [(server_cert.key, server_cert.cert)], ca_cert.cert, True
+                ),
+            )
+        else:
+            self._server.add_insecure_port(address)
 
         def start_server() -> None:
             self._server.start()

@@ -35,6 +35,7 @@ class Transformers:
             payment_preimage=invoice.invoice.payment_preimage,
             state=INVOICE_STATE_TO_GRPC[invoice.invoice.state],
             bolt11=invoice.invoice.bolt11,
+            created_at=int(invoice.invoice.created_at.timestamp()),
             htlcs=[Transformers.htlc_to_grpc(htlc) for htlc in invoice.htlcs],
         )
 
@@ -43,7 +44,7 @@ class Transformers:
         return HtlcGrpc(
             state=HtlcState.HTLC_ACCEPTED,
             msat=htlc.msat,
-            creation_time=int(htlc.creation_time.timestamp()),
+            created_at=int(htlc.created_at.timestamp()),
         )
 
     @staticmethod

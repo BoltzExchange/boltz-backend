@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from invoice import HoldInvoice, InvoiceState
 from pyln.client.plugin import Request
@@ -18,9 +18,9 @@ class HtlcFailureMessage(str, Enum):
 class Htlc:
     msat: int
     request: Request
-    creation_time: datetime
+    created_at: datetime
 
-    def to_dict(self) -> object:
+    def to_dict(self) -> dict[str, Any]:
         self_without_request = {
             k: v for k, v in self.__dict__.items() if not isinstance(v, Request)
         }
@@ -50,7 +50,7 @@ class Htlcs:
     def cancel_expired(self, expiry: int) -> None:
         expired, not_expired = partition(
             self.htlcs,
-            lambda htlc: (time_now() - htlc.creation_time).total_seconds() > expiry,
+            lambda htlc: (time_now() - htlc.created_at).total_seconds() > expiry,
         )
 
         self.htlcs = not_expired

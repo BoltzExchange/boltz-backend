@@ -73,7 +73,7 @@ enum HtlcState {
 message Htlc {
   HtlcState state = 1;
   uint64 msat = 2;
-  uint64 creation_time = 3;
+  uint64 created_at = 3;
 }
 
 message Invoice {
@@ -81,7 +81,8 @@ message Invoice {
   optional string payment_preimage = 2;
   InvoiceState state = 3;
   string bolt11 = 4;
-  repeated Htlc htlcs = 5;
+  uint64 created_at = 5;
+  repeated Htlc htlcs = 6;
 }
 
 message ListResponse {

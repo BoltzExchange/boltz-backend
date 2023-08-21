@@ -28,7 +28,6 @@ class DataStore:
         self._plugin = plugin
         self._settler = settler
 
-    # TODO: save creation time
     def save_invoice(self, invoice: HoldInvoice, mode: str = "must-create") -> None:
         self._plugin.rpc.datastore(
             key=[PLUGIN_NAME, DataStore._invoices_key, invoice.payment_hash],

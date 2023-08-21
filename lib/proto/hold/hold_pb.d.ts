@@ -323,8 +323,8 @@ export class Htlc extends jspb.Message {
   setState(value: HtlcState): Htlc;
   getMsat(): number;
   setMsat(value: number): Htlc;
-  getCreationTime(): number;
-  setCreationTime(value: number): Htlc;
+  getCreatedAt(): number;
+  setCreatedAt(value: number): Htlc;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): Htlc.AsObject;
@@ -348,7 +348,7 @@ export namespace Htlc {
   export type AsObject = {
     state: HtlcState;
     msat: number;
-    creationTime: number;
+    createdAt: number;
   };
 }
 
@@ -364,6 +364,8 @@ export class Invoice extends jspb.Message {
   setState(value: InvoiceState): Invoice;
   getBolt11(): string;
   setBolt11(value: string): Invoice;
+  getCreatedAt(): number;
+  setCreatedAt(value: number): Invoice;
   clearHtlcsList(): void;
   getHtlcsList(): Array<Htlc>;
   setHtlcsList(value: Array<Htlc>): Invoice;
@@ -393,6 +395,7 @@ export namespace Invoice {
     paymentPreimage?: string;
     state: InvoiceState;
     bolt11: string;
+    createdAt: number;
     htlcsList: Array<Htlc.AsObject>;
   };
 }

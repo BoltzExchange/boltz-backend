@@ -5,7 +5,8 @@ from hashlib import sha256
 
 import grpc
 import pytest
-from consts import GRPC_PORT, VERSION
+from config import OptionDefaults
+from consts import VERSION
 from encoder import Defaults
 
 # noinspection PyProtectedMember
@@ -21,6 +22,7 @@ from protos.hold_pb2 import (
     InvoiceRequest,
     InvoiceState,
     ListRequest,
+    ListResponse,
     RoutingHintsRequest,
     RoutingHintsResponse,
     SettleRequest,
@@ -38,6 +40,7 @@ from test_utils import (
     start_plugin,
     stop_plugin,
 )
+from utils import time_now
 
 
 def add_hold_invoice(cl: HoldStub) -> tuple[str, str, str]:
@@ -60,7 +63,7 @@ class TestGrpc:
 
         connect_peers(cln_con)
 
-        channel = grpc.insecure_channel(f"127.0.0.1:{GRPC_PORT}")
+        channel = grpc.insecure_channel(f"127.0.0.1:{OptionDefaults.GrpcPort}")
         client = HoldStub(channel)
 
         yield client
@@ -236,6 +239,14 @@ class TestGrpc:
         assert len(invoice) == 1
 
         assert invoice[0].payment_hash == query
+
+    def test_list_created_at(self, cl: HoldStub) -> None:
+        payment_hash = random.randbytes(32).hex()
+        cl.Invoice(InvoiceRequest(payment_hash=payment_hash, amount_msat=10_000))
+        res: ListResponse = cl.List(ListRequest(payment_hash=payment_hash))
+
+        now = int(time_now().timestamp())
+        assert now - res.invoices[0].created_at < 2
 
     def test_list_not_found(self, cl: HoldStub) -> None:
         payment_hash = random.randbytes(32).hex()

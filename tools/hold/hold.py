@@ -9,6 +9,7 @@ from pyln.client import Plugin, RpcError
 from route_hints import RouteHints
 from settler import Settler
 from tracker import Tracker
+from utils import time_now
 
 
 class InvoiceExistsError(Exception):
@@ -66,7 +67,13 @@ class Hold:
         )["bolt11"]
 
         try:
-            hi = HoldInvoice(InvoiceState.Unpaid, signed, payment_hash, None)
+            hi = HoldInvoice(
+                state=InvoiceState.Unpaid,
+                bolt11=signed,
+                payment_hash=payment_hash,
+                payment_preimage=None,
+                created_at=time_now(),
+            )
             self.ds.save_invoice(hi)
             self.tracker.send_update(hi.payment_hash, hi.bolt11, hi.state)
             self._plugin.log(f"Added hold invoice {payment_hash} for {amount_msat}")

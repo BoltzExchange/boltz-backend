@@ -188,6 +188,7 @@ class Server:
     def __init__(self, plugin: Plugin, hold: Hold) -> None:
         self._hold = hold
         self._plugin = plugin
+        self._server = None
 
     def start(self, host: str, port: int) -> None:
         # TODO: authentication (same as cln itself?)
@@ -208,8 +209,11 @@ class Server:
         self._server_thread = threading.Thread(target=start_server)
         self._server_thread.start()
 
+    def is_running(self) -> bool:
+        return self._server is not None
+
     def stop(self) -> None:
-        if self._server is not None:
+        if self.is_running():
             self._server.stop(False)
             self._server_thread.join()
             self._plugin.log("Stopped gRPC server")

@@ -136,31 +136,40 @@ class ListRequest(_message.Message):
     def __init__(self, payment_hash: _Optional[str] = ...) -> None: ...
 
 class Htlc(_message.Message):
-    __slots__ = ["state", "msat", "creation_time"]
+    __slots__ = ["state", "msat", "created_at"]
     STATE_FIELD_NUMBER: _ClassVar[int]
     MSAT_FIELD_NUMBER: _ClassVar[int]
-    CREATION_TIME_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     state: HtlcState
     msat: int
-    creation_time: int
+    created_at: int
     def __init__(
         self,
         state: _Optional[_Union[HtlcState, str]] = ...,
         msat: _Optional[int] = ...,
-        creation_time: _Optional[int] = ...,
+        created_at: _Optional[int] = ...,
     ) -> None: ...
 
 class Invoice(_message.Message):
-    __slots__ = ["payment_hash", "payment_preimage", "state", "bolt11", "htlcs"]
+    __slots__ = [
+        "payment_hash",
+        "payment_preimage",
+        "state",
+        "bolt11",
+        "created_at",
+        "htlcs",
+    ]
     PAYMENT_HASH_FIELD_NUMBER: _ClassVar[int]
     PAYMENT_PREIMAGE_FIELD_NUMBER: _ClassVar[int]
     STATE_FIELD_NUMBER: _ClassVar[int]
     BOLT11_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     HTLCS_FIELD_NUMBER: _ClassVar[int]
     payment_hash: str
     payment_preimage: str
     state: InvoiceState
     bolt11: str
+    created_at: int
     htlcs: _containers.RepeatedCompositeFieldContainer[Htlc]
     def __init__(
         self,
@@ -168,6 +177,7 @@ class Invoice(_message.Message):
         payment_preimage: _Optional[str] = ...,
         state: _Optional[_Union[InvoiceState, str]] = ...,
         bolt11: _Optional[str] = ...,
+        created_at: _Optional[int] = ...,
         htlcs: _Optional[_Iterable[_Union[Htlc, _Mapping]]] = ...,
     ) -> None: ...
 

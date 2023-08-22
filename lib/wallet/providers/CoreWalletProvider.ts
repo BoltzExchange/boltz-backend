@@ -19,6 +19,10 @@ class CoreWalletProvider implements WalletProviderInterface {
     this.logger.info(`Initialized ${this.symbol} Core wallet`);
   }
 
+  public serviceName = (): string => {
+    return 'Core';
+  };
+
   public getAddress = (
     type: AddressType = AddressType.Taproot,
   ): Promise<string> => {
@@ -42,7 +46,6 @@ class CoreWalletProvider implements WalletProviderInterface {
     });
 
     return {
-      totalBalance: Number(confirmed + unconfirmed),
       confirmedBalance: Number(confirmed),
       unconfirmedBalance: Number(unconfirmed),
     };

@@ -161,11 +161,12 @@ jest.mock('../../../lib/swap/SwapManager', () => {
 
 const mockedSwapManager = <jest.Mock<SwapManager>>(<any>SwapManager);
 
-const mockGetBalance = jest.fn().mockResolvedValue({
+const mockGetBalanceResult = {
   totalBalance: 1,
   confirmedBalance: 2,
   unconfirmedBalance: 3,
-});
+};
+const mockGetBalance = jest.fn().mockResolvedValue(mockGetBalanceResult);
 
 const newAddress = 'bcrt1';
 const mockGetAddress = jest.fn().mockResolvedValue(newAddress);
@@ -217,6 +218,7 @@ jest.mock('../../../lib/wallet/WalletManager', () => {
       [
         'BTC',
         {
+          serviceName: () => 'mockedCore',
           getBalance: mockGetBalance,
           getAddress: mockGetAddress,
           getKeysByIndex: mockGetKeysByIndex,
@@ -227,6 +229,7 @@ jest.mock('../../../lib/wallet/WalletManager', () => {
       [
         'LTC',
         {
+          serviceName: () => 'mockedCore',
           getBalance: () => ({
             totalBalance: 0,
             confirmedBalance: 0,
@@ -237,6 +240,7 @@ jest.mock('../../../lib/wallet/WalletManager', () => {
       [
         'ETH',
         {
+          serviceName: () => 'ETH',
           getAddress: mockGetEthereumAddress,
           sweepWallet: mockSweepEther,
           sendToAddress: mockSendEther,
@@ -249,6 +253,7 @@ jest.mock('../../../lib/wallet/WalletManager', () => {
       [
         'TRC',
         {
+          serviceName: () => 'TRC',
           getAddress: mockGetEthereumAddress,
           sweepWallet: mockSweepToken,
           sendToAddress: mockSendToken,
@@ -455,12 +460,22 @@ const mockQueryRoutes = jest.fn().mockImplementation(async () => {
   ];
 });
 
+const lndBalance = {
+  confirmedBalance: 123321,
+  unconfirmedBalance: 21,
+};
+const mockLndGetBalance = jest.fn().mockImplementation(async () => {
+  return lndBalance;
+});
+
 jest.mock('../../../lib/lightning/LndClient', () => {
   return jest.fn().mockImplementation(() => ({
     on: () => {},
+    serviceName: () => 'mockLnd',
     getInfo: mockGetInfo,
     sendPayment: mockSendPayment,
     queryRoutes: mockQueryRoutes,
+    getBalance: mockLndGetBalance,
     listChannels: mockListChannels,
     decodeInvoice: mockDecodeInvoice,
   }));
@@ -649,11 +664,14 @@ describe('Service', () => {
 
     expect(info.version.startsWith(packageJson.version)).toBeTruthy();
 
-    const currency = info.chainsMap[0] as CurrencyInfo.AsObject;
+    const [symbol, currency] = info.chainsMap[0] as [
+      string,
+      CurrencyInfo.AsObject,
+    ];
 
-    expect(currency[0]).toEqual('BTC');
+    expect(symbol).toEqual('BTC');
 
-    expect(currency[1].chain).toEqual({
+    expect(currency.chain).toEqual({
       ...(await mockGetNetworkInfo()),
       ...(await mockGetBlockchainInfo()),
       error: '',
@@ -661,17 +679,21 @@ describe('Service', () => {
 
     const lndInfo = await mockGetInfo();
 
-    expect(currency[1].lnd).toEqual({
-      error: '',
-      version: lndInfo.version,
-      blockHeight: lndInfo.blockHeight,
+    expect(currency.lightningMap.length).toEqual(1);
+    expect(currency.lightningMap[0]).toEqual([
+      'mockLnd',
+      {
+        error: '',
+        version: lndInfo.version,
+        blockHeight: lndInfo.blockHeight,
 
-      lndChannels: {
-        active: lndInfo.channels.active,
-        inactive: lndInfo.channels.inactive,
-        pending: lndInfo.channels.pending,
+        channels: {
+          active: lndInfo.channels.active,
+          inactive: lndInfo.channels.inactive,
+          pending: lndInfo.channels.pending,
+        },
       },
-    });
+    ]);
   });
 
   test('should get balance', async () => {
@@ -680,23 +702,56 @@ describe('Service', () => {
 
     expect(balances.get('LTC')).toBeDefined();
     expect(balances.get('BTC').toObject()).toEqual({
-      walletBalance: await mockGetBalance(),
-      lightningBalance: channelBalance,
+      walletsMap: [
+        [
+          'mockLnd',
+          {
+            confirmed: lndBalance.confirmedBalance,
+            unconfirmed: lndBalance.unconfirmedBalance,
+          },
+        ],
+        [
+          'mockedCore',
+          {
+            confirmed: mockGetBalanceResult.confirmedBalance,
+            unconfirmed: mockGetBalanceResult.unconfirmedBalance,
+          },
+        ],
+      ],
+      lightningMap: [
+        [
+          'mockLnd',
+          {
+            local: channelBalance.localBalance,
+            remote: channelBalance.remoteBalance,
+          },
+        ],
+      ],
     });
 
     expect(balances.get('ETH').toObject()).toEqual({
-      walletBalance: {
-        unconfirmedBalance: 0,
-        totalBalance: etherBalance,
-        confirmedBalance: etherBalance,
-      },
+      lightningMap: [],
+      walletsMap: [
+        [
+          'ETH',
+          {
+            unconfirmed: 0,
+            confirmed: etherBalance,
+          },
+        ],
+      ],
     });
     expect(balances.get('TRC').toObject()).toEqual({
-      walletBalance: {
-        unconfirmedBalance: 0,
-        totalBalance: tokenBalance,
-        confirmedBalance: tokenBalance,
-      },
+      lightningMap: [],
+      walletsMap: [
+        [
+          'TRC',
+          {
+            unconfirmed: 0,
+            confirmed: tokenBalance,
+          },
+        ],
+      ],
     });
   });
 

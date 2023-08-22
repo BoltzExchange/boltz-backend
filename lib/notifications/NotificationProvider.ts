@@ -9,15 +9,15 @@ import ReverseSwap from '../db/models/ReverseSwap';
 import BackupScheduler from '../backup/BackupScheduler';
 import { CurrencyType, OrderSide } from '../consts/Enums';
 import { satoshisToCoins } from '../DenominationConverter';
-import { ChainInfo, CurrencyInfo, LndInfo } from '../proto/boltzrpc_pb';
+import { ChainInfo, LightningInfo } from '../proto/boltzrpc_pb';
 import { CurrencyConfig, NotificationConfig, TokenConfig } from '../Config';
 import {
-  splitPairId,
   decodeInvoice,
   getChainCurrency,
   getLightningCurrency,
-  minutesToMilliseconds,
   getSendingReceivingCurrency,
+  minutesToMilliseconds,
+  splitPairId,
 } from '../Utils';
 
 // TODO: test balance and service alerts
@@ -122,15 +122,15 @@ class NotificationProvider {
   };
 
   private checkConnections = async () => {
-    const info = await this.service.getInfo();
+    const info = (await this.service.getInfo()).toObject();
 
     const promises: Promise<any>[] = [];
 
-    info.getChainsMap().forEach((currency: CurrencyInfo, symbol: string) => {
-      promises.push(this.checkConnection(`LND ${symbol}`, currency.getLnd()));
-      promises.push(
-        this.checkConnection(`${symbol} node`, currency.getChain()),
-      );
+    info.chainsMap.forEach(([symbol, currency]) => {
+      currency.lightningMap.forEach(([service, lnInfo]) => {
+        promises.push(this.checkConnection(`${symbol} ${service}`, lnInfo));
+      });
+      promises.push(this.checkConnection(`${symbol} node`, currency.chain));
     });
 
     await Promise.all(promises);
@@ -138,10 +138,10 @@ class NotificationProvider {
 
   private checkConnection = async (
     service: string,
-    object: ChainInfo | LndInfo | undefined,
+    object: ChainInfo.AsObject | LightningInfo.AsObject | undefined,
   ) => {
     if (object !== undefined) {
-      if (object.getError() === '') {
+      if (object.error === '') {
         await this.sendReconnected(service);
 
         return;

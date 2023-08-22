@@ -42,7 +42,7 @@ message GetInfoResponse {
 
 message CurrencyInfo {
   ChainInfo chain = 1;
-  LndInfo lnd = 2;
+  map<string, LightningInfo> lightning = 2;
 }
 
 message ChainInfo {
@@ -54,36 +54,37 @@ message ChainInfo {
   string error = 5;
 }
 
-message LndInfo {
+message LightningInfo {
+  message Channels {
+    uint32 active = 1;
+    uint32 inactive = 2;
+    uint32 pending = 3;
+  }
+
   string version = 1;
-  LndChannels lnd_channels = 2;
+  Channels channels = 2;
   uint64 block_height = 3;
 
   string error = 4;
 }
-message LndChannels {
-  uint32 active = 1;
-  uint32 inactive = 2;
-  uint32 pending = 3;
-}
 
 message GetBalanceRequest {}
 message GetBalanceResponse {
-  map<string, Balance> balances = 1;
+  map<string, Balances> balances = 1;
 }
 
-message Balance {
-  WalletBalance wallet_balance = 1;
-  LightningBalance lightning_balance = 2;
-}
-message LightningBalance {
-  uint64 local_balance = 1;
-  uint64 remote_balance = 2;
-}
-message WalletBalance {
-  uint64 total_balance = 1;
-  uint64 confirmed_balance = 2;
-  uint64 unconfirmed_balance = 3;
+message Balances {
+  message WalletBalance {
+    uint64 confirmed = 1;
+    uint64 unconfirmed = 2;
+  }
+  message LightningBalance {
+    uint64 local = 1;
+    uint64 remote = 2;
+  }
+
+  map<string, WalletBalance> wallets = 1;
+  map<string, LightningBalance> lightning = 2;
 }
 
 message DeriveKeysRequest {

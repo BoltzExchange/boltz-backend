@@ -11,6 +11,7 @@ import Logger from '../Logger';
 import BaseClient from '../BaseClient';
 import { ClientStatus } from '../consts/Enums';
 import * as noderpc from '../proto/cln/node_pb';
+import { ListfundsOutputs } from '../proto/cln/node_pb';
 import * as holdrpc from '../proto/hold/hold_pb';
 import { grpcOptions, unaryCall } from './GrpcUtils';
 import { formatError, getHexString } from '../Utils';
@@ -39,6 +40,8 @@ import {
   Route,
   RoutingHintsProvider,
 } from './LightningClient';
+import { WalletBalance } from '../wallet/providers/WalletProviderInterface';
+import ListfundsOutputsStatus = ListfundsOutputs.ListfundsOutputsStatus;
 
 type BaseConfig = {
   host: string;
@@ -208,6 +211,39 @@ class ClnClient
         pending: info.getNumPendingChannels(),
       },
     };
+  };
+
+  public getBalance = async (): Promise<WalletBalance> => {
+    const sumOutputs = (
+      outs: ListfundsOutputs.AsObject[],
+      status: ListfundsOutputsStatus,
+    ) =>
+      outs
+        .filter((out) => out.status === status)
+        .reduce((sum, out) => sum + msatToSat(out.amountMsat!.msat), 0);
+
+    const res = await this.listFunds();
+
+    return {
+      confirmedBalance: sumOutputs(
+        res.outputsList,
+        ListfundsOutputsStatus.CONFIRMED,
+      ),
+      unconfirmedBalance: sumOutputs(
+        res.outputsList,
+        ListfundsOutputsStatus.UNCONFIRMED,
+      ),
+    };
+  };
+
+  public listFunds = (): Promise<noderpc.ListfundsResponse.AsObject> => {
+    const req = new noderpc.ListfundsRequest();
+    req.setSpent(false);
+
+    return this.unaryNodeCall<
+      noderpc.ListfundsRequest,
+      noderpc.ListfundsResponse.AsObject
+    >('listFunds', req);
   };
 
   public getHoldInfo = (): Promise<holdrpc.GetInfoResponse.AsObject> => {

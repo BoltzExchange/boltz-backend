@@ -1,5 +1,6 @@
 import bolt11 from 'bolt11';
 import * as lndrpc from '../proto/lnd/rpc_pb';
+import { BalancerFetcher } from '../wallet/providers/WalletProviderInterface';
 
 enum InvoiceState {
   Open,
@@ -79,7 +80,7 @@ type Route = {
   feesMsat: number;
 };
 
-interface LightningClient {
+interface LightningClient extends BalancerFetcher {
   on(event: 'peer.online', listener: (publicKey: string) => void): void;
   emit(event: 'peer.online', publicKey: string): boolean;
 
@@ -109,7 +110,6 @@ interface LightningClient {
   emit(event: 'subscription.reconnected'): void;
 
   symbol: string;
-  serviceName(): string;
 
   connect(startSubscriptions?: boolean): Promise<boolean>;
   disconnect(): void;

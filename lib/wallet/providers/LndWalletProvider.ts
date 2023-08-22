@@ -21,6 +21,10 @@ class LndWalletProvider implements WalletProviderInterface {
     this.logger.info(`Initialized ${this.symbol} LND wallet`);
   }
 
+  public serviceName = (): string => {
+    return this.lndClient.serviceName();
+  };
+
   public getBalance = (): Promise<WalletBalance> => {
     return this.lndClient.getWalletBalance();
   };

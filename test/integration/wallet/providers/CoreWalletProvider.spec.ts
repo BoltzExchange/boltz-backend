@@ -116,9 +116,6 @@ describe('CoreWalletProvider', () => {
     const balance = await provider.getBalance();
 
     expect(balance.confirmedBalance).toBeGreaterThan(0);
-    expect(balance.totalBalance).toEqual(
-      balance.confirmedBalance + balance.unconfirmedBalance,
-    );
   });
 
   it('should get unconfirmed balance correctly', async () => {

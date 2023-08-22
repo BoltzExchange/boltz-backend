@@ -117,10 +117,6 @@ describe('LndWalletProvider', () => {
 
     expect(balance.confirmedBalance).toBeGreaterThan(0);
     expect(balance.unconfirmedBalance).toEqual(unconfirmedAmount);
-
-    expect(balance.totalBalance).toEqual(
-      balance.confirmedBalance + balance.unconfirmedBalance,
-    );
   });
 
   test('should send transactions', async () => {
@@ -153,7 +149,7 @@ describe('LndWalletProvider', () => {
     await verifySentTransaction(
       sentTransaction,
       destination,
-      balance.totalBalance,
+      balance.confirmedBalance + balance.unconfirmedBalance,
       true,
     );
 

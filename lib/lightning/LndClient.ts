@@ -37,6 +37,7 @@ import {
   PaymentResponse,
   Route,
 } from './LightningClient';
+import { WalletBalance } from '../wallet/providers/WalletProviderInterface';
 
 /**
  * The configurable options for the LND client
@@ -820,6 +821,15 @@ class LndClient extends BaseClient implements LightningClient {
       lndrpc.ListPeersRequest,
       lndrpc.ListPeersResponse.AsObject
     >('listPeers', new lndrpc.ListPeersRequest());
+  };
+
+  public getBalance = async (): Promise<WalletBalance> => {
+    const res = await this.getWalletBalance();
+
+    return {
+      confirmedBalance: res.confirmedBalance,
+      unconfirmedBalance: res.unconfirmedBalance,
+    };
   };
 
   /**

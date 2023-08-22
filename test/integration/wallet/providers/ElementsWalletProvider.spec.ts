@@ -92,9 +92,6 @@ describe('ElementsWalletProvider', () => {
     const balance = await provider.getBalance();
 
     expect(balance.confirmedBalance).toBeGreaterThan(0);
-    expect(balance.totalBalance).toEqual(
-      balance.confirmedBalance + balance.unconfirmedBalance,
-    );
   });
 
   it('should send transactions to confidential addresses', async () => {

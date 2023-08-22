@@ -24,6 +24,10 @@ class ElementsWalletProvider implements WalletProviderInterface {
     this.logger.info(`Initialized ${this.symbol} Elements wallet`);
   }
 
+  public serviceName = (): string => {
+    return 'Elements';
+  };
+
   public getBalance = async (): Promise<WalletBalance> => {
     const balances = await this.chainClient.getBalances();
 
@@ -35,7 +39,6 @@ class ElementsWalletProvider implements WalletProviderInterface {
     return {
       confirmedBalance,
       unconfirmedBalance,
-      totalBalance: confirmedBalance + unconfirmedBalance,
     };
   };
 
@@ -67,7 +70,7 @@ class ElementsWalletProvider implements WalletProviderInterface {
     const balance = await this.getBalance();
     const transactionId = await this.chainClient.sendToAddress(
       address,
-      balance.totalBalance,
+      balance.confirmedBalance + balance.unconfirmedBalance,
       await this.getFeePerVbyte(satPerVbyte),
       true,
     );

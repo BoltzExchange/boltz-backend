@@ -53,7 +53,6 @@ describe('ERC20WalletProvider', () => {
     const normalizedAmount = Number(balance / BigInt(10) ** BigInt(10));
 
     expect(await wallet.getBalance()).toEqual({
-      totalBalance: normalizedAmount,
       confirmedBalance: normalizedAmount,
       unconfirmedBalance: 0,
     });

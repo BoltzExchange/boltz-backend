@@ -7,7 +7,6 @@ import OtpManager from './OtpManager';
 import Service from '../service/Service';
 import DiscordClient from './DiscordClient';
 import { NotificationConfig } from '../Config';
-import { Balance } from '../proto/boltzrpc_pb';
 import { SwapUpdateEvent } from '../consts/Enums';
 import ReferralStats from '../data/ReferralStats';
 import ReverseSwap from '../db/models/ReverseSwap';
@@ -299,29 +298,29 @@ class CommandHandler {
   };
 
   private getBalance = async () => {
-    const balances = (await this.service.getBalance()).getBalancesMap();
+    const balances = (await this.service.getBalance()).toObject().balancesMap;
 
     let message = 'Balances:';
 
-    balances.forEach((balance: Balance, symbol: string) => {
-      message +=
-        `\n\n**${symbol}**\n` +
-        `Wallet: ${satoshisToCoins(
-          balance.getWalletBalance()!.getTotalBalance(),
+    balances.forEach(([symbol, bals]) => {
+      message += `\n\n**${symbol}**\n`;
+
+      bals.walletsMap.forEach(([service, walletBals]) => {
+        message += `\n${service} Wallet: ${satoshisToCoins(
+          walletBals.confirmed + walletBals.unconfirmed,
         )} ${symbol}`;
+      });
 
-      const lightningBalance = balance.getLightningBalance();
-
-      if (lightningBalance) {
-        message +=
-          '\n\nLND:\n' +
-          `  Local: ${satoshisToCoins(
-            lightningBalance.getLocalBalance(),
-          )} ${symbol}\n` +
-          `  Remote: ${satoshisToCoins(
-            lightningBalance.getRemoteBalance(),
-          )} ${symbol}`;
+      if (bals.lightningMap.length > 0) {
+        message += '\n';
       }
+
+      bals.lightningMap.forEach(([service, lightningBals]) => {
+        message +=
+          `\n${service}:\n` +
+          `  Local: ${satoshisToCoins(lightningBals.local)} ${symbol}\n` +
+          `  Remote: ${satoshisToCoins(lightningBals.remote)} ${symbol}`;
+      });
     });
 
     await this.discord.sendMessage(message);

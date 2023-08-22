@@ -4,23 +4,19 @@ import { getHexBuffer, getHexString, stringify } from '../../../lib/Utils';
 import Database from '../../../lib/db/Database';
 import Service from '../../../lib/service/Service';
 import { NotificationConfig } from '../../../lib/Config';
+import { Balances, GetBalanceResponse } from '../../../lib/proto/boltzrpc_pb';
 import ReferralStats from '../../../lib/data/ReferralStats';
 import BackupScheduler from '../../../lib/backup/BackupScheduler';
 import DiscordClient from '../../../lib/notifications/DiscordClient';
 import CommandHandler from '../../../lib/notifications/CommandHandler';
 import PairRepository from '../../../lib/db/repositories/PairRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
+import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
+import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
 import {
   satoshisToCoins,
   coinsToSatoshis,
 } from '../../../lib/DenominationConverter';
-import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
-import {
-  Balance,
-  WalletBalance,
-  LightningBalance,
-} from '../../../lib/proto/boltzrpc_pb';
-import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
 import {
   swapExample,
   channelSwapExample,
@@ -62,25 +58,24 @@ jest.mock('../../../lib/data/ReferralStats');
 const mockedDiscordClient = <jest.Mock<DiscordClient>>(<any>DiscordClient);
 
 const createWalletBalance = () => {
-  const walletBalance = new WalletBalance();
+  const walletBalance = new Balances.WalletBalance();
 
-  walletBalance.setTotalBalance(getRandomNumber());
-  walletBalance.setConfirmedBalance(getRandomNumber());
-  walletBalance.setUnconfirmedBalance(getRandomNumber());
+  walletBalance.setConfirmed(getRandomNumber());
+  walletBalance.setUnconfirmed(getRandomNumber());
 
   return walletBalance;
 };
 
-const btcBalance = new Balance();
+const btcBalance = new Balances();
 
-btcBalance.setWalletBalance(createWalletBalance());
+btcBalance.getWalletsMap().set('Core', createWalletBalance());
 
-const lightningBalance = new LightningBalance();
+const lightningBalance = new Balances.LightningBalance();
 
-lightningBalance.setLocalBalance(getRandomNumber());
-lightningBalance.setRemoteBalance(getRandomNumber());
+lightningBalance.setLocal(getRandomNumber());
+lightningBalance.setRemote(getRandomNumber());
 
-btcBalance.setLightningBalance(lightningBalance);
+btcBalance.getLightningMap().set('LND', lightningBalance);
 
 const newAddress = 'bcrt1qymqsjl5qre2zc94wd04nd27p5vkvxqge7f0a8k';
 
@@ -122,10 +117,13 @@ const mockSendCoins = jest
 jest.mock('../../../lib/service/Service', () => {
   return jest.fn().mockImplementation(() => {
     return {
-      getBalance: () =>
-        Promise.resolve({
-          getBalancesMap: () => new Map<string, Balance>([['BTC', btcBalance]]),
-        }),
+      getBalance: async () => {
+        const res = new GetBalanceResponse();
+
+        res.getBalancesMap().set('BTC', btcBalance);
+
+        return res;
+      },
       getAddress: mockGetAddress,
       payInvoice: mockPayInvoice,
       sendCoins: mockSendCoins,
@@ -362,20 +360,23 @@ describe('CommandHandler', () => {
     sendMessage('getbalance');
     await wait(5);
 
-    const lightningBalance = btcBalance.getLightningBalance()!;
+    const wallet: Balances.WalletBalance = btcBalance
+      .getWalletsMap()
+      .get('Core');
+    const lightning: Balances.LightningBalance = btcBalance
+      .getLightningMap()
+      .get('LND');
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(
       // tslint:disable-next-line: prefer-template
       'Balances:\n\n' +
-        `**BTC**\nWallet: ${satoshisToCoins(
-          btcBalance.getWalletBalance()!.getTotalBalance(),
+        `**BTC**\n\nCore Wallet: ${satoshisToCoins(
+          wallet.getConfirmed() + wallet.getUnconfirmed(),
         )} BTC\n\n` +
         'LND:\n' +
-        `  Local: ${satoshisToCoins(
-          lightningBalance.getLocalBalance(),
-        )} BTC\n` +
-        `  Remote: ${satoshisToCoins(lightningBalance.getRemoteBalance())} BTC`,
+        `  Local: ${satoshisToCoins(lightning.getLocal())} BTC\n` +
+        `  Remote: ${satoshisToCoins(lightning.getRemote())} BTC`,
     );
   });
 

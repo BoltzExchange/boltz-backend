@@ -6,11 +6,12 @@ import { CurrencyType } from '../consts/Enums';
 import { fromOutputScript, toOutputScript } from '../Core';
 import KeyRepository from '../db/repositories/KeyRepository';
 import WalletProviderInterface, {
+  BalancerFetcher,
   SentTransaction,
   WalletBalance,
 } from './providers/WalletProviderInterface';
 
-class Wallet {
+class Wallet implements BalancerFetcher {
   public readonly symbol: string;
 
   public network!: Network;
@@ -29,6 +30,10 @@ class Wallet {
   ) {
     this.symbol = this.walletProvider.symbol;
   }
+
+  public serviceName = (): string => {
+    return this.walletProvider.serviceName();
+  };
 
   /**
    * In case the Wallet should also provide keys and de/encode addresses

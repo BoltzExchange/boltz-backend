@@ -4,6 +4,8 @@ import Service from '../service/Service';
 import DiscordClient from './DiscordClient';
 import BalanceChecker from './BalanceChecker';
 import CommandHandler from './CommandHandler';
+import ClnClient from '../lightning/ClnClient';
+import LndClient from '../lightning/LndClient';
 import DiskUsageChecker from './DiskUsageChecker';
 import ReverseSwap from '../db/models/ReverseSwap';
 import BackupScheduler from '../backup/BackupScheduler';
@@ -12,12 +14,12 @@ import { satoshisToCoins } from '../DenominationConverter';
 import { ChainInfo, LightningInfo } from '../proto/boltzrpc_pb';
 import { CurrencyConfig, NotificationConfig, TokenConfig } from '../Config';
 import {
+  splitPairId,
   decodeInvoice,
   getChainCurrency,
   getLightningCurrency,
-  getSendingReceivingCurrency,
   minutesToMilliseconds,
-  splitPairId,
+  getSendingReceivingCurrency,
 } from '../Utils';
 
 // TODO: test balance and service alerts
@@ -77,22 +79,24 @@ class NotificationProvider {
       await this.discord.sendMessage('Started Boltz instance');
       this.logger.verbose('Connected to Discord');
 
-      for (const [, currency] of this.service.currencies) {
-        if (currency.lndClient) {
-          currency.lndClient.on(
-            'subscription.error',
-            async (subscription?: string) => {
+      for (const [symbol, currency] of this.service.currencies) {
+        [currency.lndClient, currency.clnClient]
+          .filter(
+            (client): client is LndClient | ClnClient => client !== undefined,
+          )
+          .forEach((client) => {
+            client.on('subscription.error', async (subscription?: string) => {
               await this.sendLostConnection(
-                `LND ${currency.symbol}`,
+                `${client.serviceName()} ${symbol}`,
                 subscription,
               );
-            },
-          );
-          currency.lndClient.on(
-            'subscription.reconnected',
-            async () => await this.sendReconnected(`LND ${currency.symbol}`),
-          );
-        }
+            });
+            client.on(
+              'subscription.reconnected',
+              async () =>
+                await this.sendReconnected(`${client.serviceName()} ${symbol}`),
+            );
+          });
       }
 
       const check = async () => {

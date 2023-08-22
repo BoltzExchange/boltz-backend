@@ -1,4 +1,6 @@
+import Errors from './Errors';
 import Logger from '../Logger';
+import NodeSwitch from '../swap/NodeSwitch';
 import { PairConfig } from '../consts/Types';
 import RateCalculator from './RateCalculator';
 import DataAggregator from './data/DataAggregator';
@@ -13,7 +15,6 @@ import {
   splitPairId,
   stringify,
 } from '../Utils';
-import Errors from './Errors';
 
 const emptyMinerFees = {
   normal: 0,
@@ -287,7 +288,7 @@ class RateProvider {
   ): boolean => {
     return (
       this.currencies.get(cur)!.chainClient !== undefined &&
-      this.currencies.get(lightningCur)!.lndClient !== undefined
+      NodeSwitch.hasClient(this.currencies.get(lightningCur)!)
     );
   };
 

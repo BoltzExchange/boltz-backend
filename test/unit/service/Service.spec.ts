@@ -1333,7 +1333,8 @@ describe('Service', () => {
 
     decodedInvoice.features = new Set<InvoiceFeature>([InvoiceFeature.AMP]);
 
-    const invoice = 'lnbcinvoice';
+    const invoice =
+      'lnbcrt1230n1pjw20v9pp5k4hlsgl93azhjkz5zxs3zsgnvksz2r6yee83av2r2jjncwrc0upsdqqcqzzsxq9z0rgqsp5ce7wh3ff7kz5f8sxfulcp48982gyqy935m6fzvrqr8547kh8rz2s9q8pqqqssq2u68l700shh7gzfeuetugp3h5kh80c40g5tsx7awwruy06309gy4ehwrw2h7vd7cwevc0p60td0wk22p5ldfp84nlueka8ft7kng0lsqwqjjq9';
     await expect(
       service.setInvoice(mockGetSwapResult.id, invoice),
     ).rejects.toEqual(Errors.AMP_INVOICES_NOT_SUPPORTED());
@@ -1864,7 +1865,8 @@ describe('Service', () => {
 
   test('should pay invoices', async () => {
     const symbol = 'BTC';
-    const invoice = 'invoice';
+    const invoice =
+      'lnbcrt1230n1pjw20dqpp55uh05ng79tg5znm88z8asurjy8g8l8r07hg86ma8ye7zknqszazqdqqcqzzsxqyz5vqsp5rd3det49e7jnpshu87uu5f4xvtte3xjycqp2tylcfwvv9pku957q9qyyssqydvetuyrfw02x56xkp7nvu2q4y4p0n4d75f2c4kasvucc7fxx6n8eas8tm5hgr32vme364hmwxjszwwvclyd2gy3w3yk6zg6njkrrfcqyanrh8';
 
     const response = await service.payInvoice(symbol, invoice);
 

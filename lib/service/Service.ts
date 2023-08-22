@@ -1,3 +1,4 @@
+import bolt11 from 'bolt11';
 import { getAddress } from 'ethers';
 import { OutputType } from 'boltz-core';
 import Errors from './Errors';
@@ -9,6 +10,7 @@ import { ConfigType } from '../Config';
 import ErrorsSwap from '../swap/Errors';
 import EventHandler from './EventHandler';
 import { parseTransaction } from '../Core';
+import NodeSwitch from '../swap/NodeSwitch';
 import { PairConfig } from '../consts/Types';
 import ClnClient from '../lightning/ClnClient';
 import LndClient from '../lightning/LndClient';
@@ -731,7 +733,7 @@ class Service {
       false,
     );
 
-    if (this.getCurrency(lightningCurrency).lndClient === undefined) {
+    if (!NodeSwitch.hasClient(this.getCurrency(lightningCurrency))) {
       throw ErrorsSwap.NO_LIGHTNING_SUPPORT(lightningCurrency);
     }
 
@@ -883,16 +885,19 @@ class Service {
       swap.orderSide,
       false,
     );
-    // TODO: swap in cln
-    const lndClient = this.currencies.get(lightningCurrency)!.lndClient!;
+    const lightningClient = NodeSwitch.getSwapNode(
+      this.logger,
+      this.currencies.get(lightningCurrency)!,
+      { ...swap, invoiceAmount: bolt11.decode(invoice).satoshis || 0 },
+    );
 
     const [cltvLimit, decodedInvoice] = await Promise.all([
       this.timeoutDeltaProvider.getCltvLimit(swap),
-      lndClient.decodeInvoice(invoice),
+      lightningClient.decodeInvoice(invoice),
     ]);
 
     const requiredTimeout = await this.timeoutDeltaProvider.checkRoutability(
-      lndClient,
+      lightningClient,
       decodedInvoice,
       cltvLimit,
     );
@@ -934,17 +939,18 @@ class Service {
       false,
     );
 
-    const decodedInvoice =
-      await this.getCurrency(lightningCurrency).lndClient!.decodeInvoice(
-        invoice,
-      );
+    const invoiceAmount = decodeInvoice(invoice).satoshis || 0;
+
+    const decodedInvoice = await NodeSwitch.getSwapNode(
+      this.logger,
+      this.getCurrency(lightningCurrency)!,
+      { ...swap, invoiceAmount },
+    ).decodeInvoice(invoice);
     if (decodedInvoice.features.has(InvoiceFeature.AMP)) {
       throw Errors.AMP_INVOICES_NOT_SUPPORTED();
     }
 
-    const invoiceAmount = decodeInvoice(invoice).satoshis!;
     const rate = swap.rate || getRate(pairRate, swap.orderSide, false);
-
     this.verifyAmount(swap.pair, rate, invoiceAmount, swap.orderSide, false);
 
     const { baseFee, percentageFee } = this.rateProvider.feeProvider.getFees(
@@ -1359,13 +1365,14 @@ class Service {
     symbol: string,
     invoice: string,
   ): Promise<PaymentResponse> => {
-    const { lndClient } = this.getCurrency(symbol);
+    const currency = this.getCurrency(symbol);
+    const lightningClient = currency.lndClient || currency.clnClient;
 
-    if (!lndClient) {
+    if (lightningClient === undefined) {
       throw ErrorsSwap.NO_LIGHTNING_SUPPORT(symbol);
     }
 
-    return lndClient.sendPayment(invoice);
+    return lightningClient.sendPayment(invoice);
   };
 
   /**
@@ -1439,7 +1446,6 @@ class Service {
       (!isReverse && orderSide === OrderSide.BUY) ||
       (isReverse && orderSide === OrderSide.SELL)
     ) {
-      // tslint:disable-next-line:no-parameter-reassignment
       amount = Math.floor(amount * rate);
     }
 

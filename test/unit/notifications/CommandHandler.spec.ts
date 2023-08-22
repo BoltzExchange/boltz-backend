@@ -218,7 +218,6 @@ describe('CommandHandler', () => {
     await wait(5);
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
-    // tslint:disable-next-line: prefer-template
     expect(mockSendMessage).toHaveBeenCalledWith(
       'Commands:\n\n' +
         '**help**: gets a list of all available commands\n' +
@@ -288,7 +287,6 @@ describe('CommandHandler', () => {
 
     expect(mockSendMessage).toHaveBeenCalledTimes(2);
     expect(mockSendMessage).toHaveBeenCalledWith(
-      // tslint:disable-next-line:prefer-template
       `Channel Creation \`${channelSwapExample.id}\`:\n\`\`\`` +
         `${stringify(
           await SwapRepository.getSwap({ id: channelSwapExample.id }),
@@ -369,7 +367,6 @@ describe('CommandHandler', () => {
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(
-      // tslint:disable-next-line: prefer-template
       'Balances:\n\n' +
         `**BTC**\n\nCore Wallet: ${satoshisToCoins(
           wallet.getConfirmed() + wallet.getUnconfirmed(),
@@ -386,7 +383,6 @@ describe('CommandHandler', () => {
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(
-      // tslint:disable-next-line: prefer-template
       '**Locked up funds:**\n\n' +
         '**BTC**\n' +
         '  - `r654321`: 0.01\n' +

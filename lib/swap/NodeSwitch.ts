@@ -1,5 +1,5 @@
 import Logger from '../Logger';
-import Swap from '../db/models/Swap';
+import { SwapType } from '../db/models/Swap';
 import { Currency } from '../wallet/WalletManager';
 import { LightningClient } from '../lightning/LightningClient';
 import ReverseSwap, { NodeType } from '../db/models/ReverseSwap';
@@ -10,7 +10,7 @@ class NodeSwitch {
   public static getSwapNode = (
     logger: Logger,
     currency: Currency,
-    swap: Swap,
+    swap: SwapType,
   ): LightningClient => {
     const client = NodeSwitch.fallback(
       currency,

@@ -2,7 +2,11 @@
 import sys
 from typing import Any
 
-from consts import GRPC_HOST, GRPC_HOST_REGTEST, GRPC_PORT, PLUGIN_NAME, Network
+from config import Config, register_options
+from consts import (
+    PLUGIN_NAME,
+    VERSION,
+)
 from encoder import Defaults
 from errors import Errors
 from invoice import HoldInvoiceStateError
@@ -15,11 +19,12 @@ from transformers import Transformers
 from hold import Hold, InvoiceExistsError, NoSuchInvoiceError
 
 # TODO: restart handling
-# TODO: docstrings
 
 pl = Plugin()
 hold = Hold(pl)
 server = Server(pl, hold)
+
+register_options(pl)
 
 
 @pl.init()
@@ -29,20 +34,21 @@ def init(
     plugin: Plugin,
     **kwargs: dict[str, Any],
 ) -> None:
+    cfg = Config(plugin, options)
     hold.init()
 
-    # TODO: cli params to configure
-    grpc_host = (
-        GRPC_HOST
-        if pl.rpc.getinfo()["network"] != Network.Regtest
-        else GRPC_HOST_REGTEST
-    )
-    server.start(grpc_host, GRPC_PORT)
+    if cfg.grpc_port != -1:
+        server.start(cfg.grpc_host, cfg.grpc_port, configuration["lightning-dir"])
+    else:
+        plugin.log("Not starting gRPC server")
 
-    pl.log(f"Plugin {PLUGIN_NAME} initialized")
+    pl.log(f"Plugin {PLUGIN_NAME} v{VERSION} initialized")
 
 
-@pl.method("holdinvoice")
+@pl.method(
+    method_name="holdinvoice",
+    category=PLUGIN_NAME,
+)
 def hold_invoice(
     plugin: Plugin,
     payment_hash: str,
@@ -52,6 +58,7 @@ def hold_invoice(
     min_final_cltv_expiry: int = Defaults.MinFinalCltvExpiry,
     routing_hints: list[Any] | None = None,
 ) -> dict[str, Any]:
+    """Create a new hold invoice."""
     try:
         return {
             "bolt11": hold.invoice(
@@ -69,15 +76,30 @@ def hold_invoice(
         return Errors.invoice_exists
 
 
-@pl.method("listholdinvoices")
+@pl.method(
+    method_name="listholdinvoices",
+    category=PLUGIN_NAME,
+)
 def list_hold_invoices(plugin: Plugin, payment_hash: str = "") -> dict[str, Any]:
+    """List one or more hold invoices."""
+    invoices = []
+
+    for i in hold.list_invoices(payment_hash):
+        invoice = i.invoice.to_dict()
+        invoice["htlcs"] = [htlc.to_dict() for htlc in i.htlcs]
+        invoices.append(invoice)
+
     return {
-        "holdinvoices": [i.__dict__ for i in hold.list_invoices(payment_hash)],
+        "holdinvoices": invoices,
     }
 
 
-@pl.method("settleholdinvoice")
+@pl.method(
+    method_name="settleholdinvoice",
+    category=PLUGIN_NAME,
+)
 def settle_hold_invoice(plugin: Plugin, payment_preimage: str) -> dict[str, Any]:
+    """Settle a hold invoice."""
     try:
         hold.settle(payment_preimage)
     except NoSuchInvoiceError:
@@ -88,8 +110,12 @@ def settle_hold_invoice(plugin: Plugin, payment_preimage: str) -> dict[str, Any]
     return {}
 
 
-@pl.method("cancelholdinvoice")
+@pl.method(
+    method_name="cancelholdinvoice",
+    category=PLUGIN_NAME,
+)
 def cancel_hold_invoice(plugin: Plugin, payment_hash: str) -> dict[str, Any]:
+    """Cancel a hold invoice."""
     try:
         hold.cancel(payment_hash)
     except NoSuchInvoiceError:
@@ -100,15 +126,23 @@ def cancel_hold_invoice(plugin: Plugin, payment_hash: str) -> dict[str, Any]:
     return {}
 
 
-@pl.method("routinghints")
+@pl.method(
+    method_name="routinghints",
+    category=PLUGIN_NAME,
+)
 def get_routing_hints(plugin: Plugin, node: str) -> dict[str, Any]:
+    """Get routing hints for the unannounced channels of a node."""
     return {
         "hints": Transformers.named_tuples_to_dict(hold.get_private_channels(node)),
     }
 
 
-@pl.method("dev-wipeholdinvoices")
+@pl.method(
+    method_name="dev-wipeholdinvoices",
+    category=PLUGIN_NAME,
+)
 def wipe_hold_invoices(plugin: Plugin, payment_hash: str = "") -> dict[str, Any]:
+    """Delete one or more hold invoices from the datastore."""
     try:
         return {
             "deleted_count": hold.wipe(payment_hash),
@@ -130,12 +164,14 @@ def on_htlc_accepted(
         Settler.continue_callback(request)
         return
 
-    invoice = hold.ds.get_invoice(htlc["payment_hash"])
+    invoice_htlcs = hold.ds.get_invoice(htlc["payment_hash"])
 
     # Ignore invoices that aren't hold invoices
-    if invoice is None:
+    if invoice_htlcs is None:
         Settler.continue_callback(request)
         return
+
+    invoice = invoice_htlcs.invoice
 
     dec = plugin.rpc.decodepay(invoice.bolt11)
     if htlc["cltv_expiry_relative"] < dec["min_final_cltv_expiry"]:
@@ -166,7 +202,9 @@ def on_htlc_accepted(
 def shutdown(**kwargs: dict[str, Any]) -> None:
     pl.log(f"Plugin {PLUGIN_NAME} stopping")
 
-    server.stop()
+    if server.is_running():
+        server.stop()
+
     hold.handler.stop()
 
     pl.log(f"Plugin {PLUGIN_NAME} stopped")

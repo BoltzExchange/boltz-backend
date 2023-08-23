@@ -9,6 +9,7 @@ from enums import InvoiceState
 @dataclass(frozen=True)
 class InvoiceUpdate:
     payment_hash: str
+    bolt11: str
     update: InvoiceState
 
 
@@ -48,14 +49,14 @@ class Tracker:
         self._all_fwds = MultiForward()
         self._lock = threading.Lock()
 
-    def send_update(self, payment_hash: str, update: InvoiceState) -> None:
+    def send_update(self, payment_hash: str, bolt11: str, update: InvoiceState) -> None:
         with self._lock:
             fwd = self._fwds.get(payment_hash)
             if fwd is not None:
                 fwd.send_update(update)
 
             self._all_fwds.send_update(
-                InvoiceUpdate(payment_hash=payment_hash, update=update)
+                InvoiceUpdate(payment_hash=payment_hash, bolt11=bolt11, update=update)
             )
 
     def track(self, payment_hash: str) -> SimpleQueue[InvoiceState]:

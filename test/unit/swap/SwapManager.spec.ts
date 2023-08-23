@@ -11,7 +11,7 @@ import { ECPair } from '../../../lib/ECPairHelper';
 import ChainClient from '../../../lib/chain/ChainClient';
 import LndClient from '../../../lib/lightning/LndClient';
 import RateProvider from '../../../lib/rates/RateProvider';
-import ReverseSwap from '../../../lib/db/models/ReverseSwap';
+import ReverseSwap, { NodeType } from '../../../lib/db/models/ReverseSwap';
 import SwapOutputType from '../../../lib/swap/SwapOutputType';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import InvoiceExpiryHelper from '../../../lib/service/InvoiceExpiryHelper';
@@ -210,23 +210,26 @@ const mockQueryRoutes = jest
 
 const mockListChannelsResult = [];
 const mockListChannels = jest.fn().mockImplementation(() => {
-  return {
-    channelsList: mockListChannelsResult,
-  };
+  return mockListChannelsResult;
 });
 
 const mockAddHoldInvoiceResult = 'holdInvoice';
-const mockAddHoldInvoice = jest.fn().mockResolvedValue({
-  paymentRequest: mockAddHoldInvoiceResult,
+const mockAddHoldInvoice = jest.fn().mockImplementation(async () => {
+  return mockAddHoldInvoiceResult;
 });
 
 const mockSubscribeSingleInvoice = jest.fn().mockResolvedValue(undefined);
+
+const mockServiceName = jest.fn().mockReturnValue('LND');
+const mockGetInfo = jest.fn().mockResolvedValue({ pubkey: 'me' });
 
 jest.mock('../../../lib/lightning/LndClient', () => {
   const mockedImplementation = jest.fn().mockImplementation(() => {
     return {
       on: () => {},
+      getInfo: mockGetInfo,
       queryRoutes: mockQueryRoutes,
+      serviceName: mockServiceName,
       listChannels: mockListChannels,
       addHoldInvoice: mockAddHoldInvoice,
       subscribeSingleInvoice: mockSubscribeSingleInvoice,
@@ -946,6 +949,7 @@ describe('SwapManager', () => {
       orderSide,
       onchainAmount,
       fee: percentageFee,
+      node: NodeType.LND,
       id: reverseSwap.id,
       minerFeeInvoice: undefined,
       invoice: mockAddHoldInvoiceResult,
@@ -1028,7 +1032,7 @@ describe('SwapManager', () => {
       orderSide,
       onchainAmount,
       fee: percentageFee,
-
+      node: NodeType.LND,
       id: prepayReverseSwap.id,
       invoice: mockAddHoldInvoiceResult,
       invoiceAmount: holdInvoiceAmount,
@@ -1130,6 +1134,7 @@ describe('SwapManager', () => {
     const reverseSwaps = [
       {
         pair: 'BTC/BTC',
+        node: NodeType.LND,
         orderSide: OrderSide.BUY,
         status: SwapUpdateEvent.SwapCreated,
         minerFeeInvoice:

@@ -266,9 +266,8 @@ class ZmqClient extends EventEmitter {
             // If there are many blocks added to the chain at once, Bitcoin Core might
             // take a few milliseconds to write all of them to the disk. Therefore,
             // we just get the height of the previous block and increase it by 1
-            const previousBlock = await this.chainClient.getBlock(
-              previousBlockHash,
-            );
+            const previousBlock =
+              await this.chainClient.getBlock(previousBlockHash);
             const height = previousBlock.height + 1;
 
             if (height > this.blockHeight) {

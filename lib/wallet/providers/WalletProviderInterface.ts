@@ -2,7 +2,6 @@ import { Transaction } from 'bitcoinjs-lib';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib';
 
 type WalletBalance = {
-  totalBalance: number;
   confirmedBalance: number;
   unconfirmedBalance: number;
 };
@@ -16,10 +15,13 @@ type SentTransaction = {
   transaction?: Transaction | LiquidTransaction;
 };
 
-interface WalletProviderInterface {
-  readonly symbol: string;
+interface BalancerFetcher {
+  serviceName(): string;
+  getBalance(): Promise<WalletBalance>;
+}
 
-  getBalance: () => Promise<WalletBalance>;
+interface WalletProviderInterface extends BalancerFetcher {
+  readonly symbol: string;
 
   getAddress: () => Promise<string>;
 
@@ -49,4 +51,4 @@ interface WalletProviderInterface {
 }
 
 export default WalletProviderInterface;
-export { WalletBalance, SentTransaction };
+export { SentTransaction, WalletBalance, BalancerFetcher };

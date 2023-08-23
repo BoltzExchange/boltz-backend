@@ -44,9 +44,8 @@ describe('LndWalletProvider', () => {
       ),
     ).toEqual(expectedAmount);
 
-    const { transactionsList } = await bitcoinLndClient.getOnchainTransactions(
-      0,
-    );
+    const { transactionsList } =
+      await bitcoinLndClient.getOnchainTransactions(0);
 
     for (let i = 0; i < transactionsList.length; i += 1) {
       const transaction = transactionsList[i];
@@ -118,10 +117,6 @@ describe('LndWalletProvider', () => {
 
     expect(balance.confirmedBalance).toBeGreaterThan(0);
     expect(balance.unconfirmedBalance).toEqual(unconfirmedAmount);
-
-    expect(balance.totalBalance).toEqual(
-      balance.confirmedBalance + balance.unconfirmedBalance,
-    );
   });
 
   test('should send transactions', async () => {
@@ -154,7 +149,7 @@ describe('LndWalletProvider', () => {
     await verifySentTransaction(
       sentTransaction,
       destination,
-      balance.totalBalance,
+      balance.confirmedBalance + balance.unconfirmedBalance,
       true,
     );
 

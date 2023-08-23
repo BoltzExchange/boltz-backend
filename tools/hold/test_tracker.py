@@ -48,7 +48,7 @@ class TestTracker:
     def test_send_update_no_queues(self) -> None:
         payment_hash = random.randbytes(32).hex()
         track = Tracker()
-        track.send_update(payment_hash, InvoiceState.Paid)
+        track.send_update(payment_hash, "invoice", InvoiceState.Paid)
 
     def test_send_update_queue(self) -> None:
         payment_hash = random.randbytes(32).hex()
@@ -56,7 +56,7 @@ class TestTracker:
         q = track.track(payment_hash)
 
         update = InvoiceState.Accepted
-        track.send_update(payment_hash, update)
+        track.send_update(payment_hash, "invoice", update)
 
         assert q.get() == update
 
@@ -67,7 +67,7 @@ class TestTracker:
         q2 = track.track(payment_hash)
 
         update = InvoiceState.Accepted
-        track.send_update(payment_hash, update)
+        track.send_update(payment_hash, "invoice", update)
 
         assert q1.get() == update
         assert q2.get() == update
@@ -95,12 +95,14 @@ class TestTracker:
         track = Tracker()
         q = track.track_all()
 
+        invoice = "lnbc"
         update = InvoiceState.Accepted
-        track.send_update(payment_hash, update)
+        track.send_update(payment_hash, invoice, update)
 
-        assert q.get() == InvoiceUpdate(payment_hash, update)
+        assert q.get() == InvoiceUpdate(payment_hash, invoice, update)
 
     def test_send_update_single_all(self) -> None:
+        invoice = "lnbcrt"
         payment_hash = random.randbytes(32).hex()
         track = Tracker()
 
@@ -108,7 +110,7 @@ class TestTracker:
         q_all = track.track_all()
 
         update = InvoiceState.Accepted
-        track.send_update(payment_hash, update)
+        track.send_update(payment_hash, invoice, update)
 
         assert q.get() == update
-        assert q_all.get() == InvoiceUpdate(payment_hash, update)
+        assert q_all.get() == InvoiceUpdate(payment_hash, invoice, update)

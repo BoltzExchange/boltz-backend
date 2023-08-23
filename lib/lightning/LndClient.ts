@@ -1,11 +1,9 @@
 import fs from 'fs';
-import bolt11 from '@boltz/bolt11';
 import {
   ChannelCredentials,
   ClientReadableStream,
   credentials,
   Metadata,
-  ServiceError,
 } from '@grpc/grpc-js';
 import Errors from './Errors';
 import Logger from '../Logger';
@@ -13,11 +11,33 @@ import BaseClient from '../BaseClient';
 import * as lndrpc from '../proto/lnd/rpc_pb';
 import { ClientStatus } from '../consts/Enums';
 import * as routerrpc from '../proto/lnd/router_pb';
-import { formatError, getHexString } from '../Utils';
+import { grpcOptions, unaryCall } from './GrpcUtils';
 import * as invoicesrpc from '../proto/lnd/invoices_pb';
 import { RouterClient } from '../proto/lnd/router_grpc_pb';
-import { LightningClient } from '../proto/lnd/rpc_grpc_pb';
 import { InvoicesClient } from '../proto/lnd/invoices_grpc_pb';
+import { LightningClient as LndLightningClient } from '../proto/lnd/rpc_grpc_pb';
+import {
+  formatError,
+  getHexBuffer,
+  getHexString,
+  splitChannelPoint,
+} from '../Utils';
+import {
+  calculatePaymentFee,
+  ChannelInfo,
+  DecodedInvoice,
+  HopHint,
+  Htlc,
+  HtlcState,
+  Invoice,
+  InvoiceFeature,
+  InvoiceState,
+  LightningClient,
+  NodeInfo,
+  PaymentResponse,
+  Route,
+} from './LightningClient';
+import { WalletBalance } from '../wallet/providers/WalletProviderInterface';
 
 /**
  * The configurable options for the LND client
@@ -30,54 +50,15 @@ type LndConfig = {
   maxPaymentFeeRatio: number;
 };
 
-type LndMethodFunction = (params: any, meta: Metadata, listener) => any;
-
-interface GrpcResponse {
-  toObject: () => any;
-}
-
-interface LndClient {
-  on(event: 'peer.online', listener: (publicKey: string) => void): this;
-  emit(event: 'peer.online', publicKey: string): boolean;
-
-  on(
-    even: 'channel.active',
-    listener: (channel: lndrpc.ChannelPoint.AsObject) => void,
-  ): this;
-  emit(even: 'channel.active', channel: lndrpc.ChannelPoint.AsObject): boolean;
-
-  on(event: 'htlc.accepted', listener: (invoice: string) => void): this;
-  emit(event: 'htlc.accepted', invoice: string): boolean;
-
-  on(event: 'invoice.settled', listener: (invoice: string) => void): this;
-  emit(event: 'invoice.settled', string: string): boolean;
-
-  on(event: 'channel.backup', listener: (channelBackup: string) => void): this;
-  emit(event: 'channel.backup', channelBackup: string): boolean;
-
-  on(
-    event: 'subscription.error',
-    listener: (subscription?: string) => void,
-  ): this;
-  emit(event: 'subscription.error', subscription?: string): this;
-
-  on(event: 'subscription.reconnected', listener: () => void): this;
-  emit(event: 'subscription.reconnected'): this;
-}
-
 /**
  * A class representing a client to interact with LND
  */
-class LndClient extends BaseClient implements LndClient {
+class LndClient extends BaseClient implements LightningClient {
   public static readonly serviceName = 'LND';
 
-  private static readonly grpcOptions = {
-    // 200 MB which is the same value lncli uses: https://github.com/lightningnetwork/lnd/commit/7470f696aebc51b4ab354324e6536f54446538e1
-    'grpc.max_receive_message_length': 1024 * 1024 * 200,
-  };
-
+  public static readonly paymentMinFee = 121;
   public static readonly paymentMaxParts = 5;
-  private static readonly paymentMinFee = 121;
+
   private static readonly paymentTimeout = 300;
   private static readonly paymentTimePreference = 0.9;
 
@@ -89,7 +70,7 @@ class LndClient extends BaseClient implements LndClient {
 
   private router?: RouterClient;
   private invoices?: InvoicesClient;
-  private lightning?: LightningClient;
+  private lightning?: LndLightningClient;
 
   private peerEventSubscription?: ClientReadableStream<lndrpc.PeerEvent>;
   private channelEventSubscription?: ClientReadableStream<lndrpc.ChannelEventUpdate>;
@@ -132,7 +113,11 @@ class LndClient extends BaseClient implements LndClient {
   }
 
   private throwFilesNotFound = () => {
-    throw Errors.COULD_NOT_FIND_FILES(this.symbol);
+    throw Errors.COULD_NOT_FIND_FILES(this.symbol, LndClient.serviceName);
+  };
+
+  public serviceName = (): string => {
+    return LndClient.serviceName;
   };
 
   /**
@@ -140,20 +125,16 @@ class LndClient extends BaseClient implements LndClient {
    */
   public connect = async (startSubscriptions = true): Promise<boolean> => {
     if (!this.isConnected()) {
-      this.router = new RouterClient(
-        this.uri,
-        this.credentials,
-        LndClient.grpcOptions,
-      );
+      this.router = new RouterClient(this.uri, this.credentials, grpcOptions);
       this.invoices = new InvoicesClient(
         this.uri,
         this.credentials,
-        LndClient.grpcOptions,
+        grpcOptions,
       );
-      this.lightning = new LightningClient(
+      this.lightning = new LndLightningClient(
         this.uri,
         this.credentials,
-        LndClient.grpcOptions,
+        grpcOptions,
       );
 
       try {
@@ -228,21 +209,6 @@ class LndClient extends BaseClient implements LndClient {
   public disconnect = (): void => {
     this.clearReconnectTimer();
 
-    if (this.lightning) {
-      this.lightning.close();
-      this.lightning = undefined;
-    }
-
-    if (this.router) {
-      this.router.close();
-      this.router = undefined;
-    }
-
-    if (this.invoices) {
-      this.invoices.close();
-      this.invoices = undefined;
-    }
-
     if (this.peerEventSubscription) {
       this.peerEventSubscription.cancel();
       this.peerEventSubscription = undefined;
@@ -258,63 +224,66 @@ class LndClient extends BaseClient implements LndClient {
       this.channelBackupSubscription = undefined;
     }
 
+    if (this.lightning) {
+      this.lightning.close();
+      this.lightning = undefined;
+    }
+
+    if (this.router) {
+      this.router.close();
+      this.router = undefined;
+    }
+
+    if (this.invoices) {
+      this.invoices.close();
+      this.invoices = undefined;
+    }
+
     this.removeAllListeners();
 
     this.setClientStatus(ClientStatus.Disconnected);
-  };
-
-  private unaryCall = <T, U>(
-    client: any,
-    methodName: string,
-    params: T,
-    toObject: boolean,
-  ): Promise<U> => {
-    return new Promise((resolve, reject) => {
-      (client[methodName] as LndMethodFunction)(
-        params,
-        this.meta,
-        (err: ServiceError, response: GrpcResponse) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(toObject ? response.toObject() : response);
-          }
-        },
-      );
-    });
   };
 
   private unaryInvoicesCall = <T, U>(
     methodName: keyof InvoicesClient,
     params: T,
   ): Promise<U> => {
-    return this.unaryCall(this.invoices, methodName, params, true);
+    return unaryCall(this.invoices, methodName, params, this.meta, true);
   };
 
   private unaryRouterCall = <T, U>(
     methodName: keyof RouterClient,
     params: T,
   ): Promise<U> => {
-    return this.unaryCall(this.router, methodName, params, true);
+    return unaryCall(this.router, methodName, params, this.meta, true);
   };
 
   private unaryLightningCall = <T, U>(
-    methodName: keyof LightningClient,
+    methodName: keyof LndLightningClient,
     params: T,
     toObject = true,
   ): Promise<U> => {
-    return this.unaryCall(this.lightning, methodName, params, toObject);
+    return unaryCall(this.lightning, methodName, params, this.meta, toObject);
   };
 
-  /**
-   * Return general information concerning the lightning node including it’s identity pubkey, alias, the chains it
-   * is connected to, and information concerning the number of open+pending channels
-   */
-  public getInfo = (): Promise<lndrpc.GetInfoResponse.AsObject> => {
-    return this.unaryLightningCall<
+  public getInfo = async (): Promise<NodeInfo> => {
+    const info = await this.unaryLightningCall<
       lndrpc.GetInfoRequest,
       lndrpc.GetInfoResponse.AsObject
     >('getInfo', new lndrpc.GetInfoRequest());
+
+    return {
+      version: info.version,
+      pubkey: info.identityPubkey,
+      uris: info.urisList,
+      peers: info.numPeers,
+      blockHeight: info.blockHeight,
+      channels: {
+        active: info.numActiveChannels,
+        inactive: info.numInactiveChannels,
+        pending: info.numPendingChannels,
+      },
+    };
   };
 
   /**
@@ -350,14 +319,14 @@ class LndClient extends BaseClient implements LndClient {
   /**
    * Creates a hold invoice with the supplied preimage hash
    */
-  public addHoldInvoice = (
+  public addHoldInvoice = async (
     value: number,
     preimageHash: Buffer,
     cltvExpiry?: number,
     expiry?: number,
     memo?: string,
-    routingHints?: lndrpc.RouteHint[],
-  ): Promise<invoicesrpc.AddHoldInvoiceResp.AsObject> => {
+    routingHints?: HopHint[][],
+  ): Promise<string> => {
     const request = new invoicesrpc.AddHoldInvoiceRequest();
     request.setValue(value);
     request.setHash(Uint8Array.from(preimageHash));
@@ -375,13 +344,23 @@ class LndClient extends BaseClient implements LndClient {
     }
 
     if (routingHints) {
-      request.setRouteHintsList(routingHints);
+      request.setRouteHintsList(LndClient.routingHintsToGrpc(routingHints));
     }
 
-    return this.unaryInvoicesCall<
-      invoicesrpc.AddHoldInvoiceRequest,
-      invoicesrpc.AddHoldInvoiceResp.AsObject
-    >('addHoldInvoice', request);
+    return (
+      await this.unaryInvoicesCall<
+        invoicesrpc.AddHoldInvoiceRequest,
+        invoicesrpc.AddHoldInvoiceResp.AsObject
+      >('addHoldInvoice', request)
+    ).paymentRequest;
+  };
+
+  public lookupHoldInvoice = async (preimageHash: Buffer): Promise<Invoice> => {
+    const res = await this.lookupInvoice(preimageHash);
+    return {
+      state: LndClient.invoiceStateFromGrpc(res.state),
+      htlcs: res.htlcsList.map(LndClient.htlcFromGrpc),
+    };
   };
 
   public lookupInvoice = (
@@ -438,14 +417,20 @@ class LndClient extends BaseClient implements LndClient {
     invoice: string,
     cltvDelta?: number,
     outgoingChannelId?: string,
-  ): Promise<lndrpc.Payment.AsObject> => {
-    return new Promise<lndrpc.Payment.AsObject>((resolve, reject) => {
+  ): Promise<PaymentResponse> => {
+    return new Promise<PaymentResponse>((resolve, reject) => {
       const request = new routerrpc.SendPaymentRequest();
 
       request.setMaxParts(LndClient.paymentMaxParts);
       request.setTimeoutSeconds(LndClient.paymentTimeout);
       request.setTimePref(LndClient.paymentTimePreference);
-      request.setFeeLimitSat(this.calculatePaymentFee(invoice));
+      request.setFeeLimitSat(
+        calculatePaymentFee(
+          invoice,
+          this.maxPaymentFeeRatio,
+          LndClient.paymentMinFee,
+        ),
+      );
 
       request.setPaymentRequest(invoice);
 
@@ -463,7 +448,10 @@ class LndClient extends BaseClient implements LndClient {
         switch (response.getStatus()) {
           case lndrpc.Payment.PaymentStatus.SUCCEEDED:
             stream.removeAllListeners();
-            resolve(response.toObject());
+            resolve({
+              feeMsat: response.getFeeMsat(),
+              preimage: getHexBuffer(response.getPaymentPreimage()),
+            });
             return;
 
           case lndrpc.Payment.PaymentStatus.FAILED:
@@ -511,13 +499,11 @@ class LndClient extends BaseClient implements LndClient {
   /**
    * Cancel a hold invoice
    */
-  public cancelInvoice = (
-    preimageHash: Buffer,
-  ): Promise<invoicesrpc.CancelInvoiceResp.AsObject> => {
+  public cancelHoldInvoice = async (preimageHash: Buffer): Promise<void> => {
     const request = new invoicesrpc.CancelInvoiceMsg();
     request.setPaymentHash(Uint8Array.from(preimageHash));
 
-    return this.unaryInvoicesCall<
+    await this.unaryInvoicesCall<
       invoicesrpc.CancelInvoiceMsg,
       invoicesrpc.CancelInvoiceResp.AsObject
     >('cancelInvoice', request);
@@ -526,13 +512,11 @@ class LndClient extends BaseClient implements LndClient {
   /**
    * Settle a hold invoice with an already accepted HTLC
    */
-  public settleInvoice = (
-    preimage: Buffer,
-  ): Promise<invoicesrpc.SettleInvoiceResp.AsObject> => {
+  public settleHoldInvoice = async (preimage: Buffer): Promise<void> => {
     const request = new invoicesrpc.SettleInvoiceMsg();
     request.setPreimage(Uint8Array.from(preimage));
 
-    return this.unaryInvoicesCall<
+    await this.unaryInvoicesCall<
       invoicesrpc.SettleInvoiceMsg,
       invoicesrpc.SettleInvoiceResp.AsObject
     >('settleInvoice', request);
@@ -541,13 +525,13 @@ class LndClient extends BaseClient implements LndClient {
   /**
    * Queries for a possible route to the target destination
    */
-  public queryRoutes = (
+  public queryRoutes = async (
     destination: string,
     amt: number,
     cltvLimit?: number,
     finalCltvDelta?: number,
-    routingHints?: lndrpc.RouteHint[],
-  ): Promise<lndrpc.QueryRoutesResponse.AsObject> => {
+    routingHints?: HopHint[][],
+  ): Promise<Route[]> => {
     const request = new lndrpc.QueryRoutesRequest();
     request.setAmt(amt);
     request.setPubKey(destination);
@@ -563,13 +547,43 @@ class LndClient extends BaseClient implements LndClient {
     }
 
     if (routingHints) {
-      request.setRouteHintsList(routingHints);
+      request.setRouteHintsList(LndClient.routingHintsToGrpc(routingHints));
     }
 
-    return this.unaryLightningCall<
+    const res = await this.unaryLightningCall<
       lndrpc.QueryRoutesRequest,
       lndrpc.QueryRoutesResponse.AsObject
     >('queryRoutes', request);
+
+    return res.routesList.map((route) => ({
+      ctlv: route.totalTimeLock,
+      feesMsat: route.totalFeesMsat,
+    }));
+  };
+
+  public decodeInvoice = async (invoice: string): Promise<DecodedInvoice> => {
+    const res = await this.decodePayReq(invoice);
+
+    const features = new Set<InvoiceFeature>();
+    for (const [, feature] of res.featuresMap) {
+      switch (feature.name) {
+        case 'amp':
+          features.add(InvoiceFeature.AMP);
+          break;
+
+        case 'multi-path-payments':
+          features.add(InvoiceFeature.MPP);
+          break;
+      }
+    }
+
+    return {
+      features,
+      value: res.numSatoshis,
+      cltvExpiry: res.cltvExpiry,
+      destination: res.destination,
+      routingHints: LndClient.routingHintsFromGrpc(res.routeHintsList),
+    };
   };
 
   /**
@@ -756,18 +770,32 @@ class LndClient extends BaseClient implements LndClient {
   /**
    * Gets a list of all open channels
    */
-  public listChannels = (
+  public listChannels = async (
     activeOnly = false,
     privateOnly = false,
-  ): Promise<lndrpc.ListChannelsResponse.AsObject> => {
+  ): Promise<ChannelInfo[]> => {
     const request = new lndrpc.ListChannelsRequest();
     request.setActiveOnly(activeOnly);
     request.setPrivateOnly(privateOnly);
 
-    return this.unaryLightningCall<
+    const res = await this.unaryLightningCall<
       lndrpc.ListChannelsRequest,
       lndrpc.ListChannelsResponse.AsObject
     >('listChannels', request);
+
+    return res.channelsList.map((chan) => {
+      const { id, vout } = splitChannelPoint(chan.channelPoint);
+      return {
+        chanId: chan.chanId,
+        capacity: chan.capacity,
+        private: chan.pb_private,
+        fundingTransactionId: id,
+        fundingTransactionVout: vout,
+        remotePubkey: chan.remotePubkey,
+        localBalance: chan.localBalance,
+        remoteBalance: chan.remoteBalance,
+      };
+    });
   };
 
   /**
@@ -793,6 +821,15 @@ class LndClient extends BaseClient implements LndClient {
       lndrpc.ListPeersRequest,
       lndrpc.ListPeersResponse.AsObject
     >('listPeers', new lndrpc.ListPeersRequest());
+  };
+
+  public getBalance = async (): Promise<WalletBalance> => {
+    const res = await this.getWalletBalance();
+
+    return {
+      confirmedBalance: res.confirmedBalance,
+      unconfirmedBalance: res.unconfirmedBalance,
+    };
   };
 
   /**
@@ -856,6 +893,67 @@ class LndClient extends BaseClient implements LndClient {
         );
         deleteSubscription();
       });
+  };
+
+  private static routingHintsToGrpc = (
+    routingHints: HopHint[][],
+  ): lndrpc.RouteHint[] => {
+    return routingHints.map((hints) => {
+      const routeHint = new lndrpc.RouteHint();
+      for (const hint of hints) {
+        const hopHint = new lndrpc.HopHint();
+        hopHint.setNodeId(hint.nodeId);
+        hopHint.setChanId(hint.chanId);
+        hopHint.setFeeBaseMsat(hint.feeBaseMsat);
+        hopHint.setFeeProportionalMillionths(hint.feeProportionalMillionths);
+        hopHint.setCltvExpiryDelta(hint.cltvExpiryDelta);
+
+        routeHint.addHopHints(hopHint);
+      }
+
+      return routeHint;
+    });
+  };
+
+  private static routingHintsFromGrpc = (
+    hints: lndrpc.RouteHint.AsObject[],
+  ): HopHint[][] => {
+    return hints.map((hint) => hint.hopHintsList.map((hop) => hop));
+  };
+
+  private static invoiceStateFromGrpc = (
+    state: lndrpc.Invoice.InvoiceState,
+  ): InvoiceState => {
+    switch (state) {
+      case lndrpc.Invoice.InvoiceState.OPEN:
+        return InvoiceState.Open;
+      case lndrpc.Invoice.InvoiceState.ACCEPTED:
+        return InvoiceState.Accepted;
+      case lndrpc.Invoice.InvoiceState.CANCELED:
+        return InvoiceState.Accepted;
+      case lndrpc.Invoice.InvoiceState.SETTLED:
+        return InvoiceState.Settled;
+    }
+  };
+
+  private static htlcFromGrpc = (htlc: lndrpc.InvoiceHTLC.AsObject): Htlc => {
+    return {
+      valueMsat: htlc.amtMsat,
+      state: LndClient.htlcStateFromGrpc(htlc.state),
+    };
+  };
+
+  private static htlcStateFromGrpc = (
+    state: lndrpc.InvoiceHTLCState,
+  ): HtlcState => {
+    switch (state) {
+      case lndrpc.InvoiceHTLCState.ACCEPTED:
+        return HtlcState.Accepted;
+      case lndrpc.InvoiceHTLCState.CANCELED:
+        return HtlcState.Cancelled;
+      case lndrpc.InvoiceHTLCState.SETTLED:
+        return HtlcState.Settled;
+    }
   };
 
   private handleSubscriptionError = async (
@@ -943,13 +1041,6 @@ class LndClient extends BaseClient implements LndClient {
         );
         this.emit('subscription.error', 'channel backup');
       });
-  };
-
-  private calculatePaymentFee = (invoice: string): number => {
-    const invoiceAmt = bolt11.decode(invoice).satoshis || 0;
-    return Math.ceil(
-      Math.max(invoiceAmt * this.maxPaymentFeeRatio, LndClient.paymentMinFee),
-    );
   };
 }
 

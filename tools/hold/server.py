@@ -5,12 +5,16 @@ from queue import Empty
 from typing import TypeVar
 
 import grpc
+from certs import load_certs
+from consts import VERSION
 from encoder import Defaults
 from enums import invoice_state_final
 from grpc_interceptor import ServerInterceptor
 from protos.hold_pb2 import (
     CancelRequest,
     CancelResponse,
+    GetInfoRequest,
+    GetInfoResponse,
     InvoiceRequest,
     InvoiceResponse,
     ListRequest,
@@ -51,6 +55,11 @@ class HoldService(HoldServicer):
     def __init__(self, plugin: Plugin, hold: Hold) -> None:
         self._plugin = plugin
         self._hold = hold
+
+    def GetInfo(  # noqa: N802
+        self, request: GetInfoRequest, context: grpc.ServicerContext  # noqa: ARG002
+    ) -> GetInfoResponse:
+        return GetInfoResponse(version=VERSION)
 
     def Invoice(  # noqa: N802
         self, request: InvoiceRequest, context: grpc.ServicerContext  # noqa: ARG002
@@ -110,7 +119,7 @@ class HoldService(HoldServicer):
                 self._hold.tracker.stop_tracking(request.payment_hash, queue)
                 raise NoSuchInvoiceError  # noqa: TRY301
 
-            yield TrackResponse(state=INVOICE_STATE_TO_GRPC[invoices[0].state])
+            yield TrackResponse(state=INVOICE_STATE_TO_GRPC[invoices[0].invoice.state])
 
             while context.is_active():
                 state = queue.get()
@@ -135,6 +144,7 @@ class HoldService(HoldServicer):
                     ev = queue.get(block=True, timeout=1)
                     yield TrackAllResponse(
                         payment_hash=ev.payment_hash,
+                        bolt11=ev.bolt11,
                         state=INVOICE_STATE_TO_GRPC[ev.update],
                     )
                 except Empty:  # noqa: PERF203
@@ -179,16 +189,26 @@ class Server:
     def __init__(self, plugin: Plugin, hold: Hold) -> None:
         self._hold = hold
         self._plugin = plugin
+        self._server = None
 
-    def start(self, host: str, port: int) -> None:
-        # TODO: authentication (same as cln itself?)
+    def start(self, host: str, port: int, lightning_dir: str | None) -> None:
         self._server = grpc.server(
             futures.ThreadPoolExecutor(), interceptors=[LogInterceptor(self._plugin)]
         )
         add_HoldServicer_to_server(HoldService(self._plugin, self._hold), self._server)
 
         address = f"{host}:{port}"
-        self._server.add_insecure_port(address)
+
+        if lightning_dir is not None:
+            ca_cert, server_cert = load_certs(f"{lightning_dir}/hold")
+            self._server.add_secure_port(
+                address,
+                grpc.ssl_server_credentials(
+                    [(server_cert.key, server_cert.cert)], ca_cert.cert, True
+                ),
+            )
+        else:
+            self._server.add_insecure_port(address)
 
         def start_server() -> None:
             self._server.start()
@@ -199,8 +219,11 @@ class Server:
         self._server_thread = threading.Thread(target=start_server)
         self._server_thread.start()
 
+    def is_running(self) -> bool:
+        return self._server is not None
+
     def stop(self) -> None:
-        if self._server is not None:
+        if self.is_running():
             self._server.stop(False)
             self._server_thread.join()
             self._plugin.log("Stopped gRPC server")

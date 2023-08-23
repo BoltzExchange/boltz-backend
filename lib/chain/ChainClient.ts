@@ -11,12 +11,12 @@ import ZmqClient, { filters, ZmqNotification } from './ZmqClient';
 import ChainTipRepository from '../db/repositories/ChainTipRepository';
 import {
   Block,
-  BlockchainInfo,
-  BlockVerbose,
-  NetworkInfo,
-  RawTransaction,
-  UnspentUtxo,
   WalletInfo,
+  NetworkInfo,
+  UnspentUtxo,
+  BlockVerbose,
+  BlockchainInfo,
+  RawTransaction,
 } from '../consts/Types';
 
 enum AddressType {
@@ -45,6 +45,7 @@ interface ChainClient {
 }
 
 class ChainClient extends BaseClient {
+  public static readonly serviceName = 'Core';
   public static readonly decimals = 100000000;
 
   public currencyType: CurrencyType = CurrencyType.BitcoinLike;
@@ -150,9 +151,8 @@ class ChainClient extends BaseClient {
       scannedBlocks: number;
     }
   > => {
-    const blockchainInfo = await this.client.request<BlockchainInfo>(
-      'getblockchaininfo',
-    );
+    const blockchainInfo =
+      await this.client.request<BlockchainInfo>('getblockchaininfo');
 
     return {
       ...blockchainInfo,

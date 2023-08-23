@@ -284,6 +284,7 @@ class EventHandler extends EventEmitter {
    */
   private subscribeChannelBackups = () => {
     this.currencies.forEach((currency) => {
+      // TODO: also do backups for CLN here?
       if (currency.lndClient) {
         const { symbol, lndClient } = currency;
 

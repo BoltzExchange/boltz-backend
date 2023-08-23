@@ -12,6 +12,7 @@ import VersionCheck from './VersionCheck';
 import GrpcServer from './grpc/GrpcServer';
 import ChainTip from './db/models/ChainTip';
 import GrpcService from './grpc/GrpcService';
+import ClnClient from './lightning/ClnClient';
 import LndClient from './lightning/LndClient';
 import ChainClient from './chain/ChainClient';
 import Config, { ConfigType } from './Config';
@@ -19,6 +20,7 @@ import { CurrencyType } from './consts/Enums';
 import { formatError, getVersion } from './Utils';
 import ElementsClient from './chain/ElementsClient';
 import BackupScheduler from './backup/BackupScheduler';
+import { LightningClient } from './lightning/LightningClient';
 import EthereumManager from './wallet/ethereum/EthereumManager';
 import WalletManager, { Currency } from './wallet/WalletManager';
 import ChainTipRepository from './db/repositories/ChainTipRepository';
@@ -147,15 +149,26 @@ class Boltz {
       // Query the chain tips now to avoid them being updated after the chain clients are initialized
       const chainTips = await ChainTipRepository.getChainTips();
 
-      for (const [, currency] of this.currencies) {
-        if (currency.chainClient) {
-          await this.connectChainClient(currency.chainClient);
+      await Promise.all(
+        Array.from(this.currencies.values()).flatMap((currency) => {
+          const prms: Promise<void>[] = [];
 
-          if (currency.lndClient) {
-            await this.connectLnd(currency.lndClient);
+          if (currency.chainClient) {
+            prms.push(this.connectChainClient(currency.chainClient));
           }
-        }
-      }
+
+          prms.concat(
+            [currency.lndClient, currency.clnClient]
+              .filter(
+                (client): client is ClnClient | LndClient =>
+                  client !== undefined,
+              )
+              .map((client) => this.connectLightningClient(client)),
+          );
+
+          return prms;
+        }),
+      );
 
       await this.walletManager.init(this.config.currencies);
       await this.service.init(this.config.pairs);
@@ -248,18 +261,27 @@ class Boltz {
     }
   };
 
-  private connectLnd = async (client: LndClient) => {
-    const service = `${client.symbol} LND`;
+  private connectLightningClient = async (client: LightningClient) => {
+    const service = `${client.symbol} ${client.serviceName()}`;
 
     try {
       await client.connect();
 
       const info = await client.getInfo();
+      VersionCheck.checkLightningVersion(
+        client.serviceName(),
+        client.symbol,
+        info.version,
+      );
 
-      VersionCheck.checkLndVersion(client.symbol, info.version);
-
-      // The featuresMap is just annoying to see on startup
-      info.featuresMap = undefined as any;
+      if (client instanceof ClnClient) {
+        const holdInfo = await client.getHoldInfo();
+        VersionCheck.checkLightningVersion(
+          ClnClient.serviceNameHold,
+          client.symbol,
+          holdInfo.version,
+        );
+      }
 
       this.logStatus(service, info);
     } catch (error) {
@@ -278,18 +300,19 @@ class Boltz {
           currency.symbol,
         );
 
-        let lndClient: LndClient | undefined;
-
-        if (currency.lnd) {
-          lndClient = new LndClient(this.logger, currency.symbol, currency.lnd);
-        }
-
         result.set(currency.symbol, {
-          lndClient,
           chainClient,
           symbol: currency.symbol,
           type: CurrencyType.BitcoinLike,
           network: Networks[currency.network],
+          lndClient:
+            currency.lnd !== undefined
+              ? new LndClient(this.logger, currency.symbol, currency.lnd)
+              : undefined,
+          clnClient:
+            currency.cln !== undefined
+              ? new ClnClient(this.logger, currency.symbol, currency.cln)
+              : undefined,
           limits: {
             ...currency,
           },

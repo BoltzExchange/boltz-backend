@@ -557,9 +557,8 @@ class UtxoNursery extends EventEmitter {
     // Check for inherited signalling from unconfirmed inputs
     for (const input of transaction.ins) {
       const inputId = transactionHashToId(input.hash);
-      const inputTransaction = await chainClient.getRawTransactionVerbose(
-        inputId,
-      );
+      const inputTransaction =
+        await chainClient.getRawTransactionVerbose(inputId);
 
       if (!inputTransaction.confirmations) {
         const inputSignalsRbf = await this.transactionSignalsRbf(

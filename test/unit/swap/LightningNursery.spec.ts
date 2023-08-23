@@ -24,20 +24,20 @@ const mockOn = jest.fn().mockImplementation((event: string, callback: any) => {
   }
 });
 
-let mockLookupInvoiceState: Invoice.InvoiceState;
-const mockLookupInvoice = jest.fn().mockImplementation(async () => {
+let mockLookupHoldInvoiceState: Invoice.InvoiceState;
+const mockLookupHoldInvoice = jest.fn().mockImplementation(async () => {
   return {
-    state: mockLookupInvoiceState,
+    state: mockLookupHoldInvoiceState,
   };
 });
 
-const mockSettleInvoice = jest.fn().mockImplementation(async () => {});
+const mockSettleHoldInvoice = jest.fn().mockImplementation(async () => {});
 
 jest.mock('../../../lib/lightning/LndClient', () => {
   return jest.fn().mockImplementation(() => ({
     on: mockOn,
-    lookupInvoice: mockLookupInvoice,
-    settleInvoice: mockSettleInvoice,
+    lookupHoldInvoice: mockLookupHoldInvoice,
+    settleHoldInvoice: mockSettleHoldInvoice,
   }));
 });
 
@@ -200,8 +200,8 @@ describe('LightningNursery', () => {
 
     await emitHtlcAccepted(invoice);
 
-    expect(mockLookupInvoice).toHaveBeenCalledTimes(0);
-    expect(mockSettleInvoice).toHaveBeenCalledTimes(0);
+    expect(mockLookupHoldInvoice).toHaveBeenCalledTimes(0);
+    expect(mockSettleHoldInvoice).toHaveBeenCalledTimes(0);
     expect(mockGetReverseSwap).toHaveBeenCalledTimes(1);
 
     expect(eventsEmitted).toEqual(1);
@@ -218,7 +218,7 @@ describe('LightningNursery', () => {
       eventsEmitted += 1;
     });
 
-    mockLookupInvoiceState = InvoiceState.OPEN;
+    mockLookupHoldInvoiceState = InvoiceState.OPEN;
 
     mockGetReverseSwapResult = {
       invoice,
@@ -231,12 +231,12 @@ describe('LightningNursery', () => {
 
     expect(eventsEmitted).toEqual(1);
 
-    expect(mockLookupInvoice).toHaveBeenCalledTimes(1);
-    expect(mockLookupInvoice).toHaveBeenCalledWith(
+    expect(mockLookupHoldInvoice).toHaveBeenCalledTimes(1);
+    expect(mockLookupHoldInvoice).toHaveBeenCalledWith(
       getHexBuffer(decodeInvoice(invoice).paymentHash!),
     );
 
-    expect(mockSettleInvoice).toHaveBeenCalledTimes(0);
+    expect(mockSettleHoldInvoice).toHaveBeenCalledTimes(0);
     expect(mockGetReverseSwap).toHaveBeenCalledTimes(1);
 
     nursery.on('invoice.paid', (reverseSwap) => {
@@ -251,8 +251,8 @@ describe('LightningNursery', () => {
 
     expect(eventsEmitted).toEqual(2);
 
-    expect(mockSettleInvoice).toHaveBeenCalledTimes(1);
-    expect(mockSettleInvoice).toHaveBeenCalledWith(
+    expect(mockSettleHoldInvoice).toHaveBeenCalledTimes(1);
+    expect(mockSettleHoldInvoice).toHaveBeenCalledWith(
       getHexBuffer(minerFeeInvoicePreimage),
     );
 
@@ -287,7 +287,7 @@ describe('LightningNursery', () => {
 
     expect(eventsEmitted).toEqual(0);
 
-    expect(mockSettleInvoice).toHaveBeenCalledTimes(0);
+    expect(mockSettleHoldInvoice).toHaveBeenCalledTimes(0);
     expect(mockGetReverseSwap).toHaveBeenCalledTimes(1);
 
     nursery.on('minerfee.invoice.paid', (reverseSwap) => {
@@ -298,20 +298,20 @@ describe('LightningNursery', () => {
       eventsEmitted += 1;
     });
 
-    mockLookupInvoiceState = InvoiceState.ACCEPTED;
+    mockLookupHoldInvoiceState = InvoiceState.ACCEPTED;
 
     // Accept HTLC(s) for the miner fee invoice
     await emitHtlcAccepted(minerFeeInvoice);
 
     expect(eventsEmitted).toEqual(2);
 
-    expect(mockLookupInvoice).toHaveBeenCalledTimes(1);
-    expect(mockLookupInvoice).toHaveBeenCalledWith(
+    expect(mockLookupHoldInvoice).toHaveBeenCalledTimes(1);
+    expect(mockLookupHoldInvoice).toHaveBeenCalledWith(
       getHexBuffer(decodeInvoice(invoice).paymentHash!),
     );
 
-    expect(mockSettleInvoice).toHaveBeenCalledTimes(1);
-    expect(mockSettleInvoice).toHaveBeenCalledWith(
+    expect(mockSettleHoldInvoice).toHaveBeenCalledTimes(1);
+    expect(mockSettleHoldInvoice).toHaveBeenCalledWith(
       getHexBuffer(minerFeeInvoicePreimage),
     );
 

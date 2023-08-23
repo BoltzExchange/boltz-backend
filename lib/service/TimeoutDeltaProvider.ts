@@ -6,12 +6,16 @@ import Swap from '../db/models/Swap';
 import { ConfigType } from '../Config';
 import { OrderSide } from '../consts/Enums';
 import { PairConfig } from '../consts/Types';
-import { PayReq } from '../proto/lnd/rpc_pb';
 import RoutingOffsets from './RoutingOffsets';
 import LndClient from '../lightning/LndClient';
 import { Currency } from '../wallet/WalletManager';
 import ElementsClient from '../chain/ElementsClient';
 import EthereumManager from '../wallet/ethereum/EthereumManager';
+import {
+  DecodedInvoice,
+  InvoiceFeature,
+  LightningClient,
+} from '../lightning/LightningClient';
 import {
   getChainCurrency,
   getLightningCurrency,
@@ -184,42 +188,34 @@ class TimeoutDeltaProvider {
   };
 
   public checkRoutability = async (
-    lnd: LndClient,
-    decodedInvoice: PayReq,
+    lnd: LightningClient,
+    decodedInvoice: DecodedInvoice,
     cltvLimit: number,
   ) => {
     try {
       // Check whether the receiving side supports MPP and if so,
       // query a route for the number of sats of the invoice divided
       // by the max payment parts we tell to LND to use
-      const supportsMpp = decodedInvoice
-        .toObject()
-        .featuresMap.map(
-          ([, feature]) =>
-            feature.name === 'multi-path-payments' &&
-            (feature.isKnown || feature.isRequired),
-        )
-        .some((val) => val);
+      const supportsMpp = decodedInvoice.features.has(InvoiceFeature.MPP);
 
+      // TODO: CLN adjustments
       const amountToQuery = Math.max(
         supportsMpp
-          ? Math.ceil(
-              decodedInvoice.getNumSatoshis() / LndClient.paymentMaxParts,
-            )
-          : decodedInvoice.getNumSatoshis(),
+          ? Math.ceil(decodedInvoice.value / LndClient.paymentMaxParts)
+          : decodedInvoice.value,
         1,
       );
 
       const routes = await lnd.queryRoutes(
-        decodedInvoice.getDestination(),
+        decodedInvoice.destination,
         amountToQuery,
         cltvLimit,
-        decodedInvoice.getCltvExpiry(),
-        decodedInvoice.getRouteHintsList(),
+        decodedInvoice.cltvExpiry,
+        decodedInvoice.routingHints,
       );
 
-      return routes.routesList.reduce(
-        (highest, r) => (highest > r.totalTimeLock ? highest : r.totalTimeLock),
+      return routes.reduce(
+        (highest, r) => (highest > r.ctlv ? highest : r.ctlv),
         TimeoutDeltaProvider.noRoutes,
       );
     } catch (error) {
@@ -237,7 +233,7 @@ class TimeoutDeltaProvider {
     invoice: string,
   ): Promise<[number, boolean]> => {
     const { lndClient, chainClient } = this.currencies.get(lightningCurrency)!;
-    const decodedInvoice = await lndClient!.decodePayReqRawResponse(invoice);
+    const decodedInvoice = await lndClient!.decodeInvoice(invoice);
 
     const [routeTimeLock, chainInfo] = await Promise.all([
       this.checkRoutability(
@@ -264,9 +260,9 @@ class TimeoutDeltaProvider {
 
     const routingOffset = this.routingOffsets.getOffset(
       pair,
-      decodedInvoice.getNumSatoshis(),
+      decodedInvoice.value,
       lightningCurrency,
-      decodedInvoice.getDestination(),
+      decodedInvoice.destination,
     );
     const finalExpiry = routeDeltaMinutes + routingOffset;
 

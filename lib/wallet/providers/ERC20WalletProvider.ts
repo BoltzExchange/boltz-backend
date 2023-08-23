@@ -21,6 +21,10 @@ class ERC20WalletProvider implements WalletProviderInterface {
     );
   }
 
+  public serviceName = (): string => {
+    return 'Wallet';
+  };
+
   public getTokenAddress = (): string => {
     return this.token.address;
   };
@@ -35,7 +39,6 @@ class ERC20WalletProvider implements WalletProviderInterface {
     );
 
     return {
-      totalBalance: balance,
       confirmedBalance: balance,
       unconfirmedBalance: 0,
     };

@@ -5,12 +5,7 @@ import DiscordClient from '../../../lib/notifications/DiscordClient';
 import BalanceChecker, {
   BalanceType,
 } from '../../../lib/notifications/BalanceChecker';
-import {
-  Balance,
-  GetBalanceResponse,
-  LightningBalance,
-  WalletBalance,
-} from '../../../lib/proto/boltzrpc_pb';
+import { Balances, GetBalanceResponse } from '../../../lib/proto/boltzrpc_pb';
 
 let mockGetBalanceResponse: any = null;
 const mockGetBalance = jest.fn().mockImplementation(async () => {
@@ -77,22 +72,22 @@ describe('BalanceChecker', () => {
     const mockCheckCurrency = jest.fn().mockResolvedValue(undefined);
     checker['checkCurrency'] = mockCheckCurrency;
 
-    const btcWalletBalance = new WalletBalance();
-    btcWalletBalance.setTotalBalance(1);
+    const btcWalletBalance = new Balances.WalletBalance();
+    btcWalletBalance.setConfirmed(1);
 
-    const btcLightningBalance = new LightningBalance();
-    btcLightningBalance.setLocalBalance(2);
-    btcLightningBalance.setRemoteBalance(3);
+    const btcLightningBalance = new Balances.LightningBalance();
+    btcLightningBalance.setLocal(2);
+    btcLightningBalance.setRemote(3);
 
-    const btcBalance = new Balance();
-    btcBalance.setWalletBalance(btcWalletBalance);
-    btcBalance.setLightningBalance(btcLightningBalance);
+    const btcBalance = new Balances();
+    btcBalance.getWalletsMap().set('Core', btcWalletBalance);
+    btcBalance.getLightningMap().set('LND', btcLightningBalance);
 
-    const usdtWalletBalance = new WalletBalance();
-    usdtWalletBalance.setTotalBalance(123);
+    const usdtWalletBalance = new Balances.WalletBalance();
+    usdtWalletBalance.setConfirmed(123);
 
-    const usdtBalance = new Balance();
-    usdtBalance.setWalletBalance(usdtWalletBalance);
+    const usdtBalance = new Balances();
+    usdtBalance.getWalletsMap().set('USDT', usdtWalletBalance);
 
     mockGetBalanceResponse = new GetBalanceResponse();
     mockGetBalanceResponse.getBalancesMap().set(btcCurrency.symbol, btcBalance);
@@ -123,56 +118,75 @@ describe('BalanceChecker', () => {
 
     // Currency with lightning
     await checkCurrency(btcCurrency, {
-      walletBalance: {
-        totalBalance: 1,
-        confirmedBalance: 0,
-        unconfirmedBalance: 0,
-      },
-      lightningBalance: {
-        localBalance: 2,
-        remoteBalance: 3,
-      },
+      walletsMap: [
+        [
+          'Core',
+          {
+            confirmed: 1,
+            unconfirmed: 0,
+          },
+        ],
+      ],
+      lightningMap: [
+        [
+          'LND',
+          {
+            local: 2,
+            remote: 3,
+          },
+        ],
+      ],
     });
 
     expect(mockCheckBalance).toHaveBeenCalledTimes(3);
     expect(mockCheckBalance).toHaveBeenNthCalledWith(
       1,
       btcCurrency,
+      'Core',
       BalanceType.Wallet,
       1,
     );
     expect(mockCheckBalance).toHaveBeenNthCalledWith(
       2,
       btcCurrency,
+      'LND',
       BalanceType.ChannelLocal,
       2,
     );
     expect(mockCheckBalance).toHaveBeenNthCalledWith(
       3,
       btcCurrency,
+      'LND',
       BalanceType.ChannelRemote,
       3,
     );
 
     // Currency without lightning
     await checkCurrency(usdtCurrency, {
-      walletBalance: {
-        totalBalance: 123,
-        confirmedBalance: 0,
-        unconfirmedBalance: 0,
-      },
+      walletsMap: [
+        [
+          'Core',
+          {
+            confirmed: 123,
+            unconfirmed: 0,
+          },
+        ],
+      ],
+      lightningMap: [],
     });
 
     expect(mockCheckBalance).toHaveBeenCalledTimes(4);
     expect(mockCheckBalance).toHaveBeenNthCalledWith(
       4,
       usdtCurrency,
+      'Core',
       BalanceType.Wallet,
       123,
     );
   });
 
   test('should check balance', () => {
+    const service = 'Core';
     const checkBalance = checker['checkBalance'];
 
     /*
@@ -182,7 +196,12 @@ describe('BalanceChecker', () => {
     expect(checker['walletBalanceAlerts'].size).toEqual(0);
 
     // Should ignore when in bounds
-    checkBalance(btcCurrency, BalanceType.Wallet, btcCurrency.minWalletBalance);
+    checkBalance(
+      btcCurrency,
+      service,
+      BalanceType.Wallet,
+      btcCurrency.minWalletBalance,
+    );
 
     expect(checker['walletBalanceAlerts'].size).toEqual(0);
     expect(mockSendMessage).toHaveBeenCalledTimes(0);
@@ -190,18 +209,24 @@ describe('BalanceChecker', () => {
     // Should send message when getting out of bounds
     checkBalance(
       btcCurrency,
+      service,
       BalanceType.Wallet,
       btcCurrency.minWalletBalance - 1,
     );
 
     expect(checker['walletBalanceAlerts'].size).toEqual(1);
-    expect(checker['walletBalanceAlerts'].has(btcCurrency.symbol)).toEqual(
-      true,
-    );
+    expect(
+      checker['walletBalanceAlerts'].has(`${btcCurrency.symbol}${service}`),
+    ).toEqual(true);
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
 
     // Should send message when getting in bounds again
-    checkBalance(btcCurrency, BalanceType.Wallet, Number.MAX_SAFE_INTEGER - 1);
+    checkBalance(
+      btcCurrency,
+      service,
+      BalanceType.Wallet,
+      Number.MAX_SAFE_INTEGER - 1,
+    );
 
     expect(checker['walletBalanceAlerts'].size).toEqual(0);
     expect(mockSendMessage).toHaveBeenCalledTimes(2);
@@ -209,14 +234,15 @@ describe('BalanceChecker', () => {
     // Should also check upper bounds
     checkBalance(
       usdtCurrency,
+      service,
       BalanceType.Wallet,
       usdtCurrency.maxWalletBalance! + 1,
     );
 
     expect(checker['walletBalanceAlerts'].size).toEqual(1);
-    expect(checker['walletBalanceAlerts'].has(usdtCurrency.symbol)).toEqual(
-      true,
-    );
+    expect(
+      checker['walletBalanceAlerts'].has(`${usdtCurrency.symbol}${service}`),
+    ).toEqual(true);
     expect(mockSendMessage).toHaveBeenCalledTimes(3);
 
     /*
@@ -226,15 +252,19 @@ describe('BalanceChecker', () => {
     // Local balances
     checkBalance(
       btcCurrency,
+      service,
       BalanceType.ChannelLocal,
       btcCurrency.minLocalBalance - 1,
     );
     expect(checker['localBalanceAlerts'].size).toEqual(1);
-    expect(checker['localBalanceAlerts'].has(btcCurrency.symbol)).toEqual(true);
+    expect(
+      checker['localBalanceAlerts'].has(`${btcCurrency.symbol}${service}`),
+    ).toEqual(true);
     expect(mockSendMessage).toHaveBeenCalledTimes(4);
 
     checkBalance(
       btcCurrency,
+      service,
       BalanceType.ChannelLocal,
       btcCurrency.minLocalBalance,
     );
@@ -244,17 +274,19 @@ describe('BalanceChecker', () => {
     // Remote balances
     checkBalance(
       btcCurrency,
+      service,
       BalanceType.ChannelRemote,
       btcCurrency.minRemoteBalance - 1,
     );
     expect(checker['remoteBalanceAlerts'].size).toEqual(1);
-    expect(checker['remoteBalanceAlerts'].has(btcCurrency.symbol)).toEqual(
-      true,
-    );
+    expect(
+      checker['remoteBalanceAlerts'].has(`${btcCurrency.symbol}${service}`),
+    ).toEqual(true);
     expect(mockSendMessage).toHaveBeenCalledTimes(6);
 
     checkBalance(
       btcCurrency,
+      service,
       BalanceType.ChannelRemote,
       btcCurrency.minRemoteBalance,
     );
@@ -263,61 +295,98 @@ describe('BalanceChecker', () => {
   });
 
   test('should send alerts', async () => {
+    const service = 'Core';
     const sendAlert = checker['sendAlert'];
 
     // Wallet alerts
-    await sendAlert(btcCurrency, BalanceType.Wallet, true, 999999999);
+    await sendAlert(btcCurrency, BalanceType.Wallet, service, true, 999999999);
     expect(mockSendMessage).toHaveBeenNthCalledWith(
       1,
-      ':white_check_mark: BTC wallet balance of 9.99999999 is in bounds again :white_check_mark:',
+      `:white_check_mark: BTC ${service} wallet balance of 9.99999999 is in bounds again :white_check_mark:`,
     );
 
-    await sendAlert(btcCurrency, BalanceType.Wallet, false, 99999999);
+    await sendAlert(btcCurrency, BalanceType.Wallet, service, false, 99999999);
     expect(mockSendMessage).toHaveBeenNthCalledWith(
       2,
-      ':rotating_light: **BTC wallet balance is out of bounds** :rotating_light:\n' +
+      `:rotating_light: **BTC ${service} wallet balance is out of bounds** :rotating_light:\n` +
         '  Balance: 0.99999999\n' +
         '    Min: 0.1',
     );
 
-    await sendAlert(usdtCurrency, BalanceType.Wallet, true, 150000000000);
+    await sendAlert(
+      usdtCurrency,
+      BalanceType.Wallet,
+      service,
+      true,
+      150000000000,
+    );
     expect(mockSendMessage).toHaveBeenNthCalledWith(
       3,
-      ':white_check_mark: USDT wallet balance of 1500 is in bounds again :white_check_mark:',
+      `:white_check_mark: USDT ${service} wallet balance of 1500 is in bounds again :white_check_mark:`,
     );
 
-    await sendAlert(usdtCurrency, BalanceType.Wallet, false, 10000000000);
+    await sendAlert(
+      usdtCurrency,
+      BalanceType.Wallet,
+      service,
+      false,
+      10000000000,
+    );
     expect(mockSendMessage).toHaveBeenNthCalledWith(
       4,
-      ':rotating_light: **USDT wallet balance is out of bounds** :rotating_light:\n' +
+      `:rotating_light: **USDT ${service} wallet balance is out of bounds** :rotating_light:\n` +
         '  Balance: 100\n' +
         '    Max: 2000\n' +
         '    Min: 1000',
     );
 
     // Channel alerts
-    await sendAlert(btcCurrency, BalanceType.ChannelLocal, true, 25000001);
+    await sendAlert(
+      btcCurrency,
+      BalanceType.ChannelLocal,
+      service,
+      true,
+      25000001,
+    );
     expect(mockSendMessage).toHaveBeenNthCalledWith(
       5,
-      ':white_check_mark: BTC local channel balance of 0.25000001 is more than expected 0.25 again :white_check_mark:',
+      `:white_check_mark: BTC ${service} local channel balance of 0.25000001 is more than expected 0.25 again :white_check_mark:`,
     );
 
-    await sendAlert(btcCurrency, BalanceType.ChannelRemote, true, 25000001);
+    await sendAlert(
+      btcCurrency,
+      BalanceType.ChannelRemote,
+      service,
+      true,
+      25000001,
+    );
     expect(mockSendMessage).toHaveBeenNthCalledWith(
       6,
-      ':white_check_mark: BTC remote channel balance of 0.25000001 is more than expected 0.24 again :white_check_mark:',
+      `:white_check_mark: BTC ${service} remote channel balance of 0.25000001 is more than expected 0.24 again :white_check_mark:`,
     );
 
-    await sendAlert(btcCurrency, BalanceType.ChannelLocal, false, 20000000);
+    await sendAlert(
+      btcCurrency,
+      BalanceType.ChannelLocal,
+      service,
+      false,
+      20000000,
+    );
     expect(mockSendMessage).toHaveBeenNthCalledWith(
       7,
-      ':rotating_light: **BTC local channel balance of 0.2 is less than expected 0.25** :rotating_light:',
+      `:rotating_light: **BTC ${service} local channel balance of 0.2 is less than expected 0.25** :rotating_light:`,
     );
 
-    await sendAlert(btcCurrency, BalanceType.ChannelRemote, false, 20000000);
+    await sendAlert(
+      btcCurrency,
+      BalanceType.ChannelRemote,
+      service,
+      false,
+      20000000,
+    );
     expect(mockSendMessage).toHaveBeenNthCalledWith(
       8,
-      ':rotating_light: **BTC remote channel balance of 0.2 is less than expected 0.24** :rotating_light:',
+      `:rotating_light: **BTC ${service} remote channel balance of 0.2 is less than expected 0.24** :rotating_light:`,
     );
   });
 });

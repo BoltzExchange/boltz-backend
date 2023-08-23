@@ -4,12 +4,14 @@ import Service from '../service/Service';
 import DiscordClient from './DiscordClient';
 import BalanceChecker from './BalanceChecker';
 import CommandHandler from './CommandHandler';
+import ClnClient from '../lightning/ClnClient';
+import LndClient from '../lightning/LndClient';
 import DiskUsageChecker from './DiskUsageChecker';
 import ReverseSwap from '../db/models/ReverseSwap';
 import BackupScheduler from '../backup/BackupScheduler';
 import { CurrencyType, OrderSide } from '../consts/Enums';
 import { satoshisToCoins } from '../DenominationConverter';
-import { ChainInfo, CurrencyInfo, LndInfo } from '../proto/boltzrpc_pb';
+import { ChainInfo, LightningInfo } from '../proto/boltzrpc_pb';
 import { CurrencyConfig, NotificationConfig, TokenConfig } from '../Config';
 import {
   splitPairId,
@@ -77,22 +79,24 @@ class NotificationProvider {
       await this.discord.sendMessage('Started Boltz instance');
       this.logger.verbose('Connected to Discord');
 
-      for (const [, currency] of this.service.currencies) {
-        if (currency.lndClient) {
-          currency.lndClient.on(
-            'subscription.error',
-            async (subscription?: string) => {
+      for (const [symbol, currency] of this.service.currencies) {
+        [currency.lndClient, currency.clnClient]
+          .filter(
+            (client): client is LndClient | ClnClient => client !== undefined,
+          )
+          .forEach((client) => {
+            client.on('subscription.error', async (subscription?: string) => {
               await this.sendLostConnection(
-                `LND ${currency.symbol}`,
+                `${client.serviceName()} ${symbol}`,
                 subscription,
               );
-            },
-          );
-          currency.lndClient.on(
-            'subscription.reconnected',
-            async () => await this.sendReconnected(`LND ${currency.symbol}`),
-          );
-        }
+            });
+            client.on(
+              'subscription.reconnected',
+              async () =>
+                await this.sendReconnected(`${client.serviceName()} ${symbol}`),
+            );
+          });
       }
 
       const check = async () => {
@@ -122,15 +126,15 @@ class NotificationProvider {
   };
 
   private checkConnections = async () => {
-    const info = await this.service.getInfo();
+    const info = (await this.service.getInfo()).toObject();
 
     const promises: Promise<any>[] = [];
 
-    info.getChainsMap().forEach((currency: CurrencyInfo, symbol: string) => {
-      promises.push(this.checkConnection(`LND ${symbol}`, currency.getLnd()));
-      promises.push(
-        this.checkConnection(`${symbol} node`, currency.getChain()),
-      );
+    info.chainsMap.forEach(([symbol, currency]) => {
+      currency.lightningMap.forEach(([service, lnInfo]) => {
+        promises.push(this.checkConnection(`${symbol} ${service}`, lnInfo));
+      });
+      promises.push(this.checkConnection(`${symbol} node`, currency.chain));
     });
 
     await Promise.all(promises);
@@ -138,10 +142,10 @@ class NotificationProvider {
 
   private checkConnection = async (
     service: string,
-    object: ChainInfo | LndInfo | undefined,
+    object: ChainInfo.AsObject | LightningInfo.AsObject | undefined,
   ) => {
     if (object !== undefined) {
-      if (object.getError() === '') {
+      if (object.error === '') {
         await this.sendReconnected(service);
 
         return;

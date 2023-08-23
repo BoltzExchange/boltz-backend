@@ -95,13 +95,13 @@ IMAGES: dict[str, Image] = {
         ],
     ),
     "boltz": Image(
-        tags=["3.2.1"],
+        tags=["3.3.0"],
         arguments=[
             NODE_VERSION,
         ],
     ),
     "regtest": Image(
-        tags=["4.0.1"],
+        tags=["4.0.2"],
         arguments=[
             UBUNTU_VERSION,
             BITCOIN_BUILD_ARG,

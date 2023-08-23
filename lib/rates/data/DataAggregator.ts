@@ -3,7 +3,6 @@ import Kraken from './exchanges/Kraken';
 import { getPairId } from '../../Utils';
 import Binance from './exchanges/Binance';
 import Bitfinex from './exchanges/Bitfinex';
-import Poloniex from './exchanges/Poloniex';
 import CoinbasePro from './exchanges/CoinbasePro';
 
 class DataAggregator {
@@ -11,7 +10,6 @@ class DataAggregator {
     new Kraken(),
     new Binance(),
     new Bitfinex(),
-    new Poloniex(),
     new CoinbasePro(),
   ];
 

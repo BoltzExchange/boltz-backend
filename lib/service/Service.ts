@@ -1,3 +1,4 @@
+import bolt11 from 'bolt11';
 import { getAddress } from 'ethers';
 import { OutputType } from 'boltz-core';
 import Errors from './Errors';
@@ -5,18 +6,19 @@ import Logger from '../Logger';
 import NodeInfo from './NodeInfo';
 import Swap from '../db/models/Swap';
 import ApiErrors from '../api/Errors';
-import Wallet from '../wallet/Wallet';
 import { ConfigType } from '../Config';
 import ErrorsSwap from '../swap/Errors';
 import EventHandler from './EventHandler';
 import { parseTransaction } from '../Core';
+import NodeSwitch from '../swap/NodeSwitch';
 import { PairConfig } from '../consts/Types';
+import ClnClient from '../lightning/ClnClient';
+import LndClient from '../lightning/LndClient';
 import ElementsService from './ElementsService';
 import SwapOutputType from '../swap/SwapOutputType';
 import ElementsClient from '../chain/ElementsClient';
 import InvoiceExpiryHelper from './InvoiceExpiryHelper';
 import PaymentRequestUtils from './PaymentRequestUtils';
-import { Payment, RouteHint } from '../proto/lnd/rpc_pb';
 import PairRepository from '../db/repositories/PairRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import RateProvider, { PairType } from '../rates/RateProvider';
@@ -24,6 +26,11 @@ import WalletManager, { Currency } from '../wallet/WalletManager';
 import ReferralRepository from '../db/repositories/ReferralRepository';
 import SwapManager, { ChannelCreationInfo } from '../swap/SwapManager';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
+import {
+  HopHint,
+  InvoiceFeature,
+  PaymentResponse,
+} from '../lightning/LightningClient';
 import {
   etherDecimals,
   ethereumPrepayMinerFeeGasLimit,
@@ -40,16 +47,13 @@ import {
   ServiceWarning,
 } from '../consts/Enums';
 import {
-  Balance,
+  Balances,
   ChainInfo,
   CurrencyInfo,
+  LightningInfo,
+  GetInfoResponse,
   DeriveKeysResponse,
   GetBalanceResponse,
-  GetInfoResponse,
-  LightningBalance,
-  LndChannels,
-  LndInfo,
-  WalletBalance,
 } from '../proto/boltzrpc_pb';
 import {
   createApiCredential,
@@ -199,12 +203,13 @@ class Service {
 
     for (const [symbol, currency] of this.currencies) {
       const chain = new ChainInfo();
-      const lnd = new LndInfo();
 
       if (currency.chainClient) {
         try {
-          const networkInfo = await currency.chainClient.getNetworkInfo();
-          const blockchainInfo = await currency.chainClient.getBlockchainInfo();
+          const [networkInfo, blockchainInfo] = await Promise.all([
+            currency.chainClient.getNetworkInfo(),
+            currency.chainClient.getBlockchainInfo(),
+          ]);
 
           chain.setVersion(networkInfo.version);
           chain.setConnections(networkInfo.connections);
@@ -225,28 +230,39 @@ class Service {
         }
       }
 
-      if (currency.lndClient) {
-        try {
-          const lndInfo = await currency.lndClient.getInfo();
-
-          const channels = new LndChannels();
-
-          channels.setActive(lndInfo.numActiveChannels);
-          channels.setInactive(lndInfo.numInactiveChannels);
-          channels.setPending(lndInfo.numPendingChannels);
-
-          lnd.setLndChannels(channels);
-
-          lnd.setVersion(lndInfo.version);
-          lnd.setBlockHeight(lndInfo.blockHeight);
-        } catch (error) {
-          lnd.setError((error as any).details);
-        }
-      }
-
       const currencyInfo = new CurrencyInfo();
       currencyInfo.setChain(chain);
-      currencyInfo.setLnd(lnd);
+
+      await Promise.all(
+        [currency.lndClient, currency.clnClient]
+          .filter(
+            (client): client is LndClient | ClnClient => client !== undefined,
+          )
+          .map(async (client) => {
+            const info = new LightningInfo();
+
+            try {
+              const infoRes = await client.getInfo();
+
+              const channels = new LightningInfo.Channels();
+
+              channels.setActive(infoRes.channels.active);
+              channels.setInactive(infoRes.channels.inactive);
+              channels.setPending(infoRes.channels.pending);
+
+              info.setChannels(channels);
+
+              info.setVersion(infoRes.version);
+              info.setBlockHeight(infoRes.blockHeight);
+            } catch (error) {
+              info.setError(
+                typeof error === 'object' ? (error as any).details : error,
+              );
+            }
+
+            currencyInfo.getLightningMap().set(client.serviceName(), info);
+          }),
+      );
 
       map.set(symbol, currencyInfo);
     }
@@ -261,44 +277,54 @@ class Service {
     const response = new GetBalanceResponse();
     const map = response.getBalancesMap();
 
-    const getBalance = async (symbol: string, wallet: Wallet) => {
-      const balance = new Balance();
-      const walletObject = new WalletBalance();
-
-      const walletBalance = await wallet.getBalance();
-
-      walletObject.setTotalBalance(walletBalance.totalBalance);
-      walletObject.setConfirmedBalance(walletBalance.confirmedBalance);
-      walletObject.setUnconfirmedBalance(walletBalance.unconfirmedBalance);
-
-      balance.setWalletBalance(walletObject);
-
-      const currencyInfo = this.currencies.get(symbol);
-
-      if (currencyInfo && currencyInfo.lndClient) {
-        const lightningBalance = new LightningBalance();
-
-        const { channelsList } = await currencyInfo.lndClient.listChannels();
-
-        let localBalance = 0;
-        let remoteBalance = 0;
-
-        channelsList.forEach((channel) => {
-          localBalance += channel.localBalance;
-          remoteBalance += channel.remoteBalance;
-        });
-
-        lightningBalance.setLocalBalance(localBalance);
-        lightningBalance.setRemoteBalance(remoteBalance);
-
-        balance.setLightningBalance(lightningBalance);
-      }
-
-      return balance;
-    };
-
     for (const [symbol, wallet] of this.walletManager.wallets) {
-      map.set(symbol, await getBalance(symbol, wallet));
+      const balances = new Balances();
+
+      const currency = this.currencies.get(symbol);
+
+      const lightningClients = currency
+        ? [currency.lndClient, currency.clnClient].filter(
+            (client): client is LndClient | ClnClient => client !== undefined,
+          )
+        : [];
+
+      await Promise.all(
+        [wallet, ...lightningClients].map(async (bf) => {
+          const res = await bf.getBalance();
+
+          const walletBal = new Balances.WalletBalance();
+
+          walletBal.setConfirmed(res.confirmedBalance);
+          walletBal.setUnconfirmed(res.unconfirmedBalance);
+
+          balances.getWalletsMap().set(bf.serviceName(), walletBal);
+        }),
+      );
+
+      await Promise.all(
+        lightningClients.map(async (client) => {
+          const lightningBalance = new Balances.LightningBalance();
+
+          const channelsList = await client.listChannels();
+
+          let localBalance = 0n;
+          let remoteBalance = 0n;
+
+          channelsList.forEach((channel) => {
+            localBalance += BigInt(channel.localBalance);
+            remoteBalance += BigInt(channel.remoteBalance);
+          });
+
+          lightningBalance.setLocal(Number(localBalance));
+          lightningBalance.setRemote(Number(remoteBalance));
+
+          balances
+            .getLightningMap()
+            .set(client.serviceName(), lightningBalance);
+        }),
+      );
+
+      map.set(symbol, balances);
     }
 
     return response;
@@ -344,16 +370,8 @@ class Service {
   public getRoutingHints = (
     symbol: string,
     routingNode: string,
-  ): RouteHint.AsObject[] => {
-    const response: RouteHint.AsObject[] = [];
-
-    const hints = this.swapManager.routingHints.getRoutingHints(
-      symbol,
-      routingNode,
-    );
-    hints.forEach((hint) => response.push(hint.toObject()));
-
-    return response;
+  ): Promise<HopHint[][]> => {
+    return this.swapManager.routingHints.getRoutingHints(symbol, routingNode);
   };
 
   public getTimeouts = () => {
@@ -715,7 +733,7 @@ class Service {
       false,
     );
 
-    if (this.getCurrency(lightningCurrency).lndClient === undefined) {
+    if (!NodeSwitch.hasClient(this.getCurrency(lightningCurrency))) {
       throw ErrorsSwap.NO_LIGHTNING_SUPPORT(lightningCurrency);
     }
 
@@ -867,15 +885,19 @@ class Service {
       swap.orderSide,
       false,
     );
-    const lndClient = this.currencies.get(lightningCurrency)!.lndClient!;
+    const lightningClient = NodeSwitch.getSwapNode(
+      this.logger,
+      this.currencies.get(lightningCurrency)!,
+      { ...swap, invoiceAmount: bolt11.decode(invoice).satoshis || 0 },
+    );
 
     const [cltvLimit, decodedInvoice] = await Promise.all([
       this.timeoutDeltaProvider.getCltvLimit(swap),
-      lndClient.decodePayReqRawResponse(invoice),
+      lightningClient.decodeInvoice(invoice),
     ]);
 
     const requiredTimeout = await this.timeoutDeltaProvider.checkRoutability(
-      lndClient,
+      lightningClient,
       decodedInvoice,
       cltvLimit,
     );
@@ -917,18 +939,18 @@ class Service {
       false,
     );
 
-    const decodedInvoice = await this.getCurrency(
-      lightningCurrency,
-    ).lndClient!.decodePayReq(invoice);
-    for (const [, feature] of decodedInvoice.featuresMap) {
-      if (feature.name == 'amp') {
-        throw Errors.AMP_INVOICES_NOT_SUPPORTED();
-      }
+    const invoiceAmount = decodeInvoice(invoice).satoshis || 0;
+
+    const decodedInvoice = await NodeSwitch.getSwapNode(
+      this.logger,
+      this.getCurrency(lightningCurrency)!,
+      { ...swap, invoiceAmount },
+    ).decodeInvoice(invoice);
+    if (decodedInvoice.features.has(InvoiceFeature.AMP)) {
+      throw Errors.AMP_INVOICES_NOT_SUPPORTED();
     }
 
-    const invoiceAmount = decodeInvoice(invoice).satoshis!;
     const rate = swap.rate || getRate(pairRate, swap.orderSide, false);
-
     this.verifyAmount(swap.pair, rate, invoiceAmount, swap.orderSide, false);
 
     const { baseFee, percentageFee } = this.rateProvider.feeProvider.getFees(
@@ -1342,14 +1364,15 @@ class Service {
   public payInvoice = async (
     symbol: string,
     invoice: string,
-  ): Promise<Payment.AsObject> => {
-    const { lndClient } = this.getCurrency(symbol);
+  ): Promise<PaymentResponse> => {
+    const currency = this.getCurrency(symbol);
+    const lightningClient = currency.lndClient || currency.clnClient;
 
-    if (!lndClient) {
+    if (lightningClient === undefined) {
       throw ErrorsSwap.NO_LIGHTNING_SUPPORT(symbol);
     }
 
-    return lndClient.sendPayment(invoice);
+    return lightningClient.sendPayment(invoice);
   };
 
   /**
@@ -1398,9 +1421,8 @@ class Service {
     }
 
     if (routingNode) {
-      const referral = await ReferralRepository.getReferralByRoutingNode(
-        routingNode,
-      );
+      const referral =
+        await ReferralRepository.getReferralByRoutingNode(routingNode);
 
       if (referral) {
         return referral.id;
@@ -1424,7 +1446,6 @@ class Service {
       (!isReverse && orderSide === OrderSide.BUY) ||
       (isReverse && orderSide === OrderSide.SELL)
     ) {
-      // tslint:disable-next-line:no-parameter-reassignment
       amount = Math.floor(amount * rate);
     }
 

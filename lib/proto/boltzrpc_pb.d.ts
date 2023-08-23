@@ -74,10 +74,8 @@ export class CurrencyInfo extends jspb.Message {
   getChain(): ChainInfo | undefined;
   setChain(value?: ChainInfo): CurrencyInfo;
 
-  hasLnd(): boolean;
-  clearLnd(): void;
-  getLnd(): LndInfo | undefined;
-  setLnd(value?: LndInfo): CurrencyInfo;
+  getLightningMap(): jspb.Map<string, LightningInfo>;
+  clearLightningMap(): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): CurrencyInfo.AsObject;
@@ -103,7 +101,8 @@ export class CurrencyInfo extends jspb.Message {
 export namespace CurrencyInfo {
   export type AsObject = {
     chain?: ChainInfo.AsObject;
-    lnd?: LndInfo.AsObject;
+
+    lightningMap: Array<[string, LightningInfo.AsObject]>;
   };
 }
 
@@ -147,81 +146,81 @@ export namespace ChainInfo {
   };
 }
 
-export class LndInfo extends jspb.Message {
+export class LightningInfo extends jspb.Message {
   getVersion(): string;
-  setVersion(value: string): LndInfo;
+  setVersion(value: string): LightningInfo;
 
-  hasLndChannels(): boolean;
-  clearLndChannels(): void;
-  getLndChannels(): LndChannels | undefined;
-  setLndChannels(value?: LndChannels): LndInfo;
+  hasChannels(): boolean;
+  clearChannels(): void;
+  getChannels(): LightningInfo.Channels | undefined;
+  setChannels(value?: LightningInfo.Channels): LightningInfo;
   getBlockHeight(): number;
-  setBlockHeight(value: number): LndInfo;
+  setBlockHeight(value: number): LightningInfo;
   getError(): string;
-  setError(value: string): LndInfo;
+  setError(value: string): LightningInfo;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): LndInfo.AsObject;
-  static toObject(includeInstance: boolean, msg: LndInfo): LndInfo.AsObject;
+  toObject(includeInstance?: boolean): LightningInfo.AsObject;
+  static toObject(
+    includeInstance: boolean,
+    msg: LightningInfo,
+  ): LightningInfo.AsObject;
   static extensions: { [key: number]: jspb.ExtensionFieldInfo<jspb.Message> };
   static extensionsBinary: {
     [key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>;
   };
   static serializeBinaryToWriter(
-    message: LndInfo,
+    message: LightningInfo,
     writer: jspb.BinaryWriter,
   ): void;
-  static deserializeBinary(bytes: Uint8Array): LndInfo;
+  static deserializeBinary(bytes: Uint8Array): LightningInfo;
   static deserializeBinaryFromReader(
-    message: LndInfo,
+    message: LightningInfo,
     reader: jspb.BinaryReader,
-  ): LndInfo;
+  ): LightningInfo;
 }
 
-export namespace LndInfo {
+export namespace LightningInfo {
   export type AsObject = {
     version: string;
-    lndChannels?: LndChannels.AsObject;
+    channels?: LightningInfo.Channels.AsObject;
     blockHeight: number;
     error: string;
   };
-}
 
-export class LndChannels extends jspb.Message {
-  getActive(): number;
-  setActive(value: number): LndChannels;
-  getInactive(): number;
-  setInactive(value: number): LndChannels;
-  getPending(): number;
-  setPending(value: number): LndChannels;
+  export class Channels extends jspb.Message {
+    getActive(): number;
+    setActive(value: number): Channels;
+    getInactive(): number;
+    setInactive(value: number): Channels;
+    getPending(): number;
+    setPending(value: number): Channels;
 
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): LndChannels.AsObject;
-  static toObject(
-    includeInstance: boolean,
-    msg: LndChannels,
-  ): LndChannels.AsObject;
-  static extensions: { [key: number]: jspb.ExtensionFieldInfo<jspb.Message> };
-  static extensionsBinary: {
-    [key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>;
-  };
-  static serializeBinaryToWriter(
-    message: LndChannels,
-    writer: jspb.BinaryWriter,
-  ): void;
-  static deserializeBinary(bytes: Uint8Array): LndChannels;
-  static deserializeBinaryFromReader(
-    message: LndChannels,
-    reader: jspb.BinaryReader,
-  ): LndChannels;
-}
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): Channels.AsObject;
+    static toObject(includeInstance: boolean, msg: Channels): Channels.AsObject;
+    static extensions: { [key: number]: jspb.ExtensionFieldInfo<jspb.Message> };
+    static extensionsBinary: {
+      [key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>;
+    };
+    static serializeBinaryToWriter(
+      message: Channels,
+      writer: jspb.BinaryWriter,
+    ): void;
+    static deserializeBinary(bytes: Uint8Array): Channels;
+    static deserializeBinaryFromReader(
+      message: Channels,
+      reader: jspb.BinaryReader,
+    ): Channels;
+  }
 
-export namespace LndChannels {
-  export type AsObject = {
-    active: number;
-    inactive: number;
-    pending: number;
-  };
+  export namespace Channels {
+    export type AsObject = {
+      active: number;
+      inactive: number;
+      pending: number;
+    };
+  }
 }
 
 export class GetBalanceRequest extends jspb.Message {
@@ -251,7 +250,7 @@ export namespace GetBalanceRequest {
 }
 
 export class GetBalanceResponse extends jspb.Message {
-  getBalancesMap(): jspb.Map<string, Balance>;
+  getBalancesMap(): jspb.Map<string, Balances>;
   clearBalancesMap(): void;
 
   serializeBinary(): Uint8Array;
@@ -277,115 +276,109 @@ export class GetBalanceResponse extends jspb.Message {
 
 export namespace GetBalanceResponse {
   export type AsObject = {
-    balancesMap: Array<[string, Balance.AsObject]>;
+    balancesMap: Array<[string, Balances.AsObject]>;
   };
 }
 
-export class Balance extends jspb.Message {
-  hasWalletBalance(): boolean;
-  clearWalletBalance(): void;
-  getWalletBalance(): WalletBalance | undefined;
-  setWalletBalance(value?: WalletBalance): Balance;
+export class Balances extends jspb.Message {
+  getWalletsMap(): jspb.Map<string, Balances.WalletBalance>;
+  clearWalletsMap(): void;
 
-  hasLightningBalance(): boolean;
-  clearLightningBalance(): void;
-  getLightningBalance(): LightningBalance | undefined;
-  setLightningBalance(value?: LightningBalance): Balance;
+  getLightningMap(): jspb.Map<string, Balances.LightningBalance>;
+  clearLightningMap(): void;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): Balance.AsObject;
-  static toObject(includeInstance: boolean, msg: Balance): Balance.AsObject;
+  toObject(includeInstance?: boolean): Balances.AsObject;
+  static toObject(includeInstance: boolean, msg: Balances): Balances.AsObject;
   static extensions: { [key: number]: jspb.ExtensionFieldInfo<jspb.Message> };
   static extensionsBinary: {
     [key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>;
   };
   static serializeBinaryToWriter(
-    message: Balance,
+    message: Balances,
     writer: jspb.BinaryWriter,
   ): void;
-  static deserializeBinary(bytes: Uint8Array): Balance;
+  static deserializeBinary(bytes: Uint8Array): Balances;
   static deserializeBinaryFromReader(
-    message: Balance,
+    message: Balances,
     reader: jspb.BinaryReader,
-  ): Balance;
+  ): Balances;
 }
 
-export namespace Balance {
+export namespace Balances {
   export type AsObject = {
-    walletBalance?: WalletBalance.AsObject;
-    lightningBalance?: LightningBalance.AsObject;
+    walletsMap: Array<[string, Balances.WalletBalance.AsObject]>;
+
+    lightningMap: Array<[string, Balances.LightningBalance.AsObject]>;
   };
-}
 
-export class LightningBalance extends jspb.Message {
-  getLocalBalance(): number;
-  setLocalBalance(value: number): LightningBalance;
-  getRemoteBalance(): number;
-  setRemoteBalance(value: number): LightningBalance;
+  export class WalletBalance extends jspb.Message {
+    getConfirmed(): number;
+    setConfirmed(value: number): WalletBalance;
+    getUnconfirmed(): number;
+    setUnconfirmed(value: number): WalletBalance;
 
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): LightningBalance.AsObject;
-  static toObject(
-    includeInstance: boolean,
-    msg: LightningBalance,
-  ): LightningBalance.AsObject;
-  static extensions: { [key: number]: jspb.ExtensionFieldInfo<jspb.Message> };
-  static extensionsBinary: {
-    [key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>;
-  };
-  static serializeBinaryToWriter(
-    message: LightningBalance,
-    writer: jspb.BinaryWriter,
-  ): void;
-  static deserializeBinary(bytes: Uint8Array): LightningBalance;
-  static deserializeBinaryFromReader(
-    message: LightningBalance,
-    reader: jspb.BinaryReader,
-  ): LightningBalance;
-}
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): WalletBalance.AsObject;
+    static toObject(
+      includeInstance: boolean,
+      msg: WalletBalance,
+    ): WalletBalance.AsObject;
+    static extensions: { [key: number]: jspb.ExtensionFieldInfo<jspb.Message> };
+    static extensionsBinary: {
+      [key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>;
+    };
+    static serializeBinaryToWriter(
+      message: WalletBalance,
+      writer: jspb.BinaryWriter,
+    ): void;
+    static deserializeBinary(bytes: Uint8Array): WalletBalance;
+    static deserializeBinaryFromReader(
+      message: WalletBalance,
+      reader: jspb.BinaryReader,
+    ): WalletBalance;
+  }
 
-export namespace LightningBalance {
-  export type AsObject = {
-    localBalance: number;
-    remoteBalance: number;
-  };
-}
+  export namespace WalletBalance {
+    export type AsObject = {
+      confirmed: number;
+      unconfirmed: number;
+    };
+  }
 
-export class WalletBalance extends jspb.Message {
-  getTotalBalance(): number;
-  setTotalBalance(value: number): WalletBalance;
-  getConfirmedBalance(): number;
-  setConfirmedBalance(value: number): WalletBalance;
-  getUnconfirmedBalance(): number;
-  setUnconfirmedBalance(value: number): WalletBalance;
+  export class LightningBalance extends jspb.Message {
+    getLocal(): number;
+    setLocal(value: number): LightningBalance;
+    getRemote(): number;
+    setRemote(value: number): LightningBalance;
 
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): WalletBalance.AsObject;
-  static toObject(
-    includeInstance: boolean,
-    msg: WalletBalance,
-  ): WalletBalance.AsObject;
-  static extensions: { [key: number]: jspb.ExtensionFieldInfo<jspb.Message> };
-  static extensionsBinary: {
-    [key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>;
-  };
-  static serializeBinaryToWriter(
-    message: WalletBalance,
-    writer: jspb.BinaryWriter,
-  ): void;
-  static deserializeBinary(bytes: Uint8Array): WalletBalance;
-  static deserializeBinaryFromReader(
-    message: WalletBalance,
-    reader: jspb.BinaryReader,
-  ): WalletBalance;
-}
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): LightningBalance.AsObject;
+    static toObject(
+      includeInstance: boolean,
+      msg: LightningBalance,
+    ): LightningBalance.AsObject;
+    static extensions: { [key: number]: jspb.ExtensionFieldInfo<jspb.Message> };
+    static extensionsBinary: {
+      [key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>;
+    };
+    static serializeBinaryToWriter(
+      message: LightningBalance,
+      writer: jspb.BinaryWriter,
+    ): void;
+    static deserializeBinary(bytes: Uint8Array): LightningBalance;
+    static deserializeBinaryFromReader(
+      message: LightningBalance,
+      reader: jspb.BinaryReader,
+    ): LightningBalance;
+  }
 
-export namespace WalletBalance {
-  export type AsObject = {
-    totalBalance: number;
-    confirmedBalance: number;
-    unconfirmedBalance: number;
-  };
+  export namespace LightningBalance {
+    export type AsObject = {
+      local: number;
+      remote: number;
+    };
+  }
 }
 
 export class DeriveKeysRequest extends jspb.Message {

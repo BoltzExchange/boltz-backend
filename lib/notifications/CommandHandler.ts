@@ -7,7 +7,6 @@ import OtpManager from './OtpManager';
 import Service from '../service/Service';
 import DiscordClient from './DiscordClient';
 import { NotificationConfig } from '../Config';
-import { Balance } from '../proto/boltzrpc_pb';
 import { SwapUpdateEvent } from '../consts/Enums';
 import ReferralStats from '../data/ReferralStats';
 import ReverseSwap from '../db/models/ReverseSwap';
@@ -17,13 +16,14 @@ import FeeRepository from '../db/repositories/FeeRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import { coinsToSatoshis, satoshisToCoins } from '../DenominationConverter';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
-import {
-  getChainCurrency,
-  stringify,
-  splitPairId,
-  formatError,
-} from '../Utils';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
+import {
+  formatError,
+  getChainCurrency,
+  getHexString,
+  splitPairId,
+  stringify,
+} from '../Utils';
 
 enum Command {
   Help = 'help',
@@ -298,29 +298,29 @@ class CommandHandler {
   };
 
   private getBalance = async () => {
-    const balances = (await this.service.getBalance()).getBalancesMap();
+    const balances = (await this.service.getBalance()).toObject().balancesMap;
 
     let message = 'Balances:';
 
-    balances.forEach((balance: Balance, symbol: string) => {
-      message +=
-        `\n\n**${symbol}**\n` +
-        `Wallet: ${satoshisToCoins(
-          balance.getWalletBalance()!.getTotalBalance(),
+    balances.forEach(([symbol, bals]) => {
+      message += `\n\n**${symbol}**\n`;
+
+      bals.walletsMap.forEach(([service, walletBals]) => {
+        message += `\n${service} Wallet: ${satoshisToCoins(
+          walletBals.confirmed + walletBals.unconfirmed,
         )} ${symbol}`;
+      });
 
-      const lightningBalance = balance.getLightningBalance();
-
-      if (lightningBalance) {
-        message +=
-          '\n\nLND:\n' +
-          `  Local: ${satoshisToCoins(
-            lightningBalance.getLocalBalance(),
-          )} ${symbol}\n` +
-          `  Remote: ${satoshisToCoins(
-            lightningBalance.getRemoteBalance(),
-          )} ${symbol}`;
+      if (bals.lightningMap.length > 0) {
+        message += '\n';
       }
+
+      bals.lightningMap.forEach(([service, lightningBals]) => {
+        message +=
+          `\n${service}:\n` +
+          `  Local: ${satoshisToCoins(lightningBals.local)} ${symbol}\n` +
+          `  Remote: ${satoshisToCoins(lightningBals.remote)} ${symbol}`;
+      });
     });
 
     await this.discord.sendMessage(message);
@@ -481,7 +481,9 @@ class CommandHandler {
         const response = await this.service.payInvoice(symbol, args[2]);
 
         await this.discord.sendMessage(
-          `Paid lightning invoice\nPreimage: ${response.paymentPreimage}`,
+          `Paid lightning invoice\nPreimage: ${getHexString(
+            response.preimage,
+          )}`,
         );
       } catch (error) {
         await this.discord.sendMessage(

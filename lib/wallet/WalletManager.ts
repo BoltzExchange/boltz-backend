@@ -1,9 +1,9 @@
 import fs from 'fs';
 import { Provider } from 'ethers';
 import * as ecc from 'tiny-secp256k1';
-import { SLIP77Factory, Slip77Interface } from 'slip77';
 import { Network } from 'bitcoinjs-lib';
 import BIP32Factory, { BIP32Interface } from 'bip32';
+import { SLIP77Factory, Slip77Interface } from 'slip77';
 import { mnemonicToSeedSync, validateMnemonic } from 'bip39';
 import Errors from './Errors';
 import Wallet from './Wallet';
@@ -12,8 +12,9 @@ import WalletLiquid from './WalletLiquid';
 import { CurrencyConfig } from '../Config';
 import { splitDerivationPath } from '../Utils';
 import ChainClient from '../chain/ChainClient';
-import LndClient from '../lightning/LndClient';
 import { CurrencyType } from '../consts/Enums';
+import ClnClient from '../lightning/ClnClient';
+import LndClient from '../lightning/LndClient';
 import ElementsClient from 'lib/chain/ElementsClient';
 import EthereumManager from './ethereum/EthereumManager';
 import { KeyProviderType } from '../db/models/KeyProvider';
@@ -40,6 +41,7 @@ type Currency = {
   // Needed for UTXO based coins
   network?: Network;
   lndClient?: LndClient;
+  clnClient?: ClnClient;
   chainClient?: ChainClient;
 
   // Needed for Ether and tokens on Ethereum

@@ -410,7 +410,7 @@ describe('Controller', () => {
     );
   });
 
-  test('should get routing hints', () => {
+  test('should get routing hints', async () => {
     const res = mockResponse();
 
     const request: any = {
@@ -419,7 +419,7 @@ describe('Controller', () => {
         '031015a7839468a3c266d662d5bb21ea4cea24226936e2864a7ca4f2c3939836e0',
     };
 
-    controller.routingHints(mockRequest(request), res);
+    await controller.routingHints(mockRequest(request), res);
 
     expect(res.status).toHaveBeenCalledTimes(1);
     expect(res.status).toHaveBeenCalledWith(200);

@@ -1,34 +1,50 @@
 from typing import Any
 
 from bolt11.models.routehint import Route, RouteHint
-from invoice import HoldInvoice, InvoiceState
+from datastore import HoldInvoiceHtlcs
+from invoice import InvoiceState
 from protos.hold_pb2 import (
+    INVOICE_ACCEPTED,
+    INVOICE_CANCELLED,
+    INVOICE_PAID,
+    INVOICE_UNPAID,
     Hop,
+    HtlcState,
     Invoice,
-    InvoiceAccepted,
-    InvoiceCancelled,
-    InvoicePaid,
-    InvoiceUnpaid,
     RoutingHint,
     RoutingHintsResponse,
 )
+from protos.hold_pb2 import (
+    Htlc as HtlcGrpc,
+)
+from settler import Htlc
 
 INVOICE_STATE_TO_GRPC = {
-    InvoiceState.Paid: InvoicePaid,
-    InvoiceState.Unpaid: InvoiceUnpaid,
-    InvoiceState.Accepted: InvoiceAccepted,
-    InvoiceState.Cancelled: InvoiceCancelled,
+    InvoiceState.Paid: INVOICE_PAID,
+    InvoiceState.Unpaid: INVOICE_UNPAID,
+    InvoiceState.Accepted: INVOICE_ACCEPTED,
+    InvoiceState.Cancelled: INVOICE_CANCELLED,
 }
 
 
 class Transformers:
     @staticmethod
-    def invoice_to_grpc(invoice: HoldInvoice) -> Invoice:
+    def invoice_to_grpc(invoice: HoldInvoiceHtlcs) -> Invoice:
         return Invoice(
-            payment_hash=invoice.payment_hash,
-            payment_preimage=invoice.payment_preimage,
-            state=INVOICE_STATE_TO_GRPC[invoice.state],
-            bolt11=invoice.bolt11,
+            payment_hash=invoice.invoice.payment_hash,
+            payment_preimage=invoice.invoice.payment_preimage,
+            state=INVOICE_STATE_TO_GRPC[invoice.invoice.state],
+            bolt11=invoice.invoice.bolt11,
+            created_at=int(invoice.invoice.created_at.timestamp()),
+            htlcs=[Transformers.htlc_to_grpc(htlc) for htlc in invoice.htlcs],
+        )
+
+    @staticmethod
+    def htlc_to_grpc(htlc: Htlc) -> HtlcGrpc:
+        return HtlcGrpc(
+            state=HtlcState.HTLC_ACCEPTED,
+            msat=htlc.msat,
+            created_at=int(htlc.created_at.timestamp()),
         )
 
     @staticmethod

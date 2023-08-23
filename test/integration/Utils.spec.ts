@@ -57,12 +57,12 @@ describe('Utils', () => {
     const cltvExpiry = 140;
     const preimageHash = randomBytes(32);
 
-    const { paymentRequest } = await bitcoinLndClient.addHoldInvoice(
+    const invoice = await bitcoinLndClient.addHoldInvoice(
       value,
       preimageHash,
       cltvExpiry,
     );
-    const decoded = decodeInvoice(paymentRequest);
+    const decoded = decodeInvoice(invoice);
 
     expect(decoded.satoshis).toEqual(value);
     expect(decoded.minFinalCltvExpiry).toEqual(cltvExpiry);

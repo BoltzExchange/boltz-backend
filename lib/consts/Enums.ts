@@ -4,7 +4,7 @@ export enum ErrorCodePrefix {
   Service = 2,
   Wallet = 3,
   Chain = 4,
-  Lnd = 5,
+  Lightning = 5,
   Swap = 6,
   Rates = 7,
   Backup = 8,

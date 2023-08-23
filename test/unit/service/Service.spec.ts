@@ -17,6 +17,7 @@ import ChainClient from '../../../lib/chain/ChainClient';
 import FeeProvider from '../../../lib/rates/FeeProvider';
 import { CurrencyInfo } from '../../../lib/proto/boltzrpc_pb';
 import RateCalculator from '../../../lib/rates/RateCalculator';
+import { InvoiceFeature } from '../../../lib/lightning/LightningClient';
 import PairRepository from '../../../lib/db/repositories/PairRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
@@ -129,17 +130,10 @@ const mockedReverseSwap = {
 const mockCreateReverseSwap = jest.fn().mockResolvedValue(mockedReverseSwap);
 
 const mockGetRoutingHintsResultToObjectResult = { some: 'routingData' };
-const mockGetRoutingHintsResultToObject = jest
-  .fn()
-  .mockReturnValue(mockGetRoutingHintsResultToObjectResult);
 
 const mockGetRoutingHintsResult = [
-  {
-    toObject: mockGetRoutingHintsResultToObject,
-  },
-  {
-    toObject: mockGetRoutingHintsResultToObject,
-  },
+  mockGetRoutingHintsResultToObjectResult,
+  mockGetRoutingHintsResultToObjectResult,
 ];
 const mockGetRoutingHints = jest
   .fn()
@@ -167,11 +161,12 @@ jest.mock('../../../lib/swap/SwapManager', () => {
 
 const mockedSwapManager = <jest.Mock<SwapManager>>(<any>SwapManager);
 
-const mockGetBalance = jest.fn().mockResolvedValue({
+const mockGetBalanceResult = {
   totalBalance: 1,
   confirmedBalance: 2,
   unconfirmedBalance: 3,
-});
+};
+const mockGetBalance = jest.fn().mockResolvedValue(mockGetBalanceResult);
 
 const newAddress = 'bcrt1';
 const mockGetAddress = jest.fn().mockResolvedValue(newAddress);
@@ -223,6 +218,7 @@ jest.mock('../../../lib/wallet/WalletManager', () => {
       [
         'BTC',
         {
+          serviceName: () => 'mockedCore',
           getBalance: mockGetBalance,
           getAddress: mockGetAddress,
           getKeysByIndex: mockGetKeysByIndex,
@@ -233,6 +229,7 @@ jest.mock('../../../lib/wallet/WalletManager', () => {
       [
         'LTC',
         {
+          serviceName: () => 'mockedCore',
           getBalance: () => ({
             totalBalance: 0,
             confirmedBalance: 0,
@@ -243,6 +240,7 @@ jest.mock('../../../lib/wallet/WalletManager', () => {
       [
         'ETH',
         {
+          serviceName: () => 'ETH',
           getAddress: mockGetEthereumAddress,
           sweepWallet: mockSweepEther,
           sendToAddress: mockSendEther,
@@ -255,6 +253,7 @@ jest.mock('../../../lib/wallet/WalletManager', () => {
       [
         'TRC',
         {
+          serviceName: () => 'TRC',
           getAddress: mockGetEthereumAddress,
           sweepWallet: mockSweepToken,
           sendToAddress: mockSendToken,
@@ -397,6 +396,12 @@ const mockSendRawTransaction = jest.fn().mockImplementation(async () => {
   }
 });
 
+const mockGetRawTransactionVerbose = jest.fn().mockImplementation(async () => {
+  return {
+    blockTime: 21,
+  };
+});
+
 jest.mock('../../../lib/chain/ChainClient', () => {
   return jest.fn().mockImplementation(() => ({
     on: () => {},
@@ -405,21 +410,22 @@ jest.mock('../../../lib/chain/ChainClient', () => {
     getBlockchainInfo: mockGetBlockchainInfo,
     getRawTransaction: mockGetRawTransaction,
     sendRawTransaction: mockSendRawTransaction,
+    getRawTransactionVerbose: mockGetRawTransactionVerbose,
   }));
 });
 
 const mockedChainClient = <jest.Mock<ChainClient>>(<any>ChainClient);
 
 const lndInfo = {
+  pubkey: '321',
   blockHeight: 123,
   version: '0.7.1-beta commit=v0.7.1-beta',
-
-  numActiveChannels: 3,
-  numInactiveChannels: 2,
-  numPendingChannels: 1,
-
-  identityPubkey: '321',
-  urisList: ['321@127.0.0.1:9735', '321@hidden.onion:9735'],
+  uris: ['321@127.0.0.1:9735', '321@hidden.onion:9735'],
+  channels: {
+    active: 3,
+    inactive: 2,
+    pending: 1,
+  },
 };
 const mockGetInfo = jest.fn().mockResolvedValue(lndInfo);
 
@@ -433,50 +439,45 @@ const channelBalance = {
   localBalance: 2,
   remoteBalance: 4,
 };
-let mockListChannelsResult = {};
+let mockListChannelsResult: any[] = [];
 
 const mockListChannels = jest.fn().mockImplementation(async () => {
   return mockListChannelsResult;
 });
 
 const decodedInvoice: any = {
-  featuresMap: [],
+  features: new Set<InvoiceFeature>(),
 };
-const mockDecodePayReq = jest.fn().mockImplementation(async () => {
+const mockDecodeInvoice = jest.fn().mockImplementation(async () => {
   return decodedInvoice;
 });
 
-const mockDecodePayReqRaw = jest.fn().mockImplementation(async () => {
-  return {
-    getDestination: () => '',
-    getNumSatoshis: () => 1,
-    getCltvExpiry: () => 80,
-    getRouteHintsList: () => [],
-    toObject: () => ({
-      featuresMap: [],
-    }),
-  };
+const mockQueryRoutes = jest.fn().mockImplementation(async () => {
+  return [
+    {
+      totalTimeLock: 80,
+    },
+  ];
 });
 
-const mockQueryRoutes = jest.fn().mockImplementation(async () => {
-  return {
-    routesList: [
-      {
-        totalTimeLock: 80,
-      },
-    ],
-  };
+const lndBalance = {
+  confirmedBalance: 123321,
+  unconfirmedBalance: 21,
+};
+const mockLndGetBalance = jest.fn().mockImplementation(async () => {
+  return lndBalance;
 });
 
 jest.mock('../../../lib/lightning/LndClient', () => {
   return jest.fn().mockImplementation(() => ({
     on: () => {},
+    serviceName: () => 'mockLnd',
     getInfo: mockGetInfo,
     sendPayment: mockSendPayment,
     queryRoutes: mockQueryRoutes,
+    getBalance: mockLndGetBalance,
     listChannels: mockListChannels,
-    decodePayReq: mockDecodePayReq,
-    decodePayReqRawResponse: mockDecodePayReqRaw,
+    decodeInvoice: mockDecodeInvoice,
   }));
 });
 
@@ -593,18 +594,16 @@ describe('Service', () => {
 
     ChannelCreationRepository.getChannelCreation = mockGetChannelCreation;
 
-    mockListChannelsResult = {
-      channelsList: [
-        {
-          localBalance: channelBalance.localBalance / 2,
-          remoteBalance: channelBalance.remoteBalance / 2,
-        },
-        {
-          localBalance: channelBalance.localBalance / 2,
-          remoteBalance: channelBalance.remoteBalance / 2,
-        },
-      ],
-    };
+    mockListChannelsResult = [
+      {
+        localBalance: channelBalance.localBalance / 2,
+        remoteBalance: channelBalance.remoteBalance / 2,
+      },
+      {
+        localBalance: channelBalance.localBalance / 2,
+        remoteBalance: channelBalance.remoteBalance / 2,
+      },
+    ];
   });
 
   afterAll(() => {
@@ -627,7 +626,7 @@ describe('Service', () => {
   });
 
   test('should init', async () => {
-    mockListChannelsResult = { channelsList: [] };
+    mockListChannelsResult = [];
     await service.init(configPairs);
 
     expect(mockGetPairs).toHaveBeenCalledTimes(1);
@@ -665,11 +664,14 @@ describe('Service', () => {
 
     expect(info.version.startsWith(packageJson.version)).toBeTruthy();
 
-    const currency = info.chainsMap[0] as CurrencyInfo.AsObject;
+    const [symbol, currency] = info.chainsMap[0] as [
+      string,
+      CurrencyInfo.AsObject,
+    ];
 
-    expect(currency[0]).toEqual('BTC');
+    expect(symbol).toEqual('BTC');
 
-    expect(currency[1].chain).toEqual({
+    expect(currency.chain).toEqual({
       ...(await mockGetNetworkInfo()),
       ...(await mockGetBlockchainInfo()),
       error: '',
@@ -677,17 +679,21 @@ describe('Service', () => {
 
     const lndInfo = await mockGetInfo();
 
-    expect(currency[1].lnd).toEqual({
-      error: '',
-      version: lndInfo.version,
-      blockHeight: lndInfo.blockHeight,
+    expect(currency.lightningMap.length).toEqual(1);
+    expect(currency.lightningMap[0]).toEqual([
+      'mockLnd',
+      {
+        error: '',
+        version: lndInfo.version,
+        blockHeight: lndInfo.blockHeight,
 
-      lndChannels: {
-        active: lndInfo.numActiveChannels,
-        inactive: lndInfo.numInactiveChannels,
-        pending: lndInfo.numPendingChannels,
+        channels: {
+          active: lndInfo.channels.active,
+          inactive: lndInfo.channels.inactive,
+          pending: lndInfo.channels.pending,
+        },
       },
-    });
+    ]);
   });
 
   test('should get balance', async () => {
@@ -696,23 +702,56 @@ describe('Service', () => {
 
     expect(balances.get('LTC')).toBeDefined();
     expect(balances.get('BTC').toObject()).toEqual({
-      walletBalance: await mockGetBalance(),
-      lightningBalance: channelBalance,
+      walletsMap: [
+        [
+          'mockLnd',
+          {
+            confirmed: lndBalance.confirmedBalance,
+            unconfirmed: lndBalance.unconfirmedBalance,
+          },
+        ],
+        [
+          'mockedCore',
+          {
+            confirmed: mockGetBalanceResult.confirmedBalance,
+            unconfirmed: mockGetBalanceResult.unconfirmedBalance,
+          },
+        ],
+      ],
+      lightningMap: [
+        [
+          'mockLnd',
+          {
+            local: channelBalance.localBalance,
+            remote: channelBalance.remoteBalance,
+          },
+        ],
+      ],
     });
 
     expect(balances.get('ETH').toObject()).toEqual({
-      walletBalance: {
-        unconfirmedBalance: 0,
-        totalBalance: etherBalance,
-        confirmedBalance: etherBalance,
-      },
+      lightningMap: [],
+      walletsMap: [
+        [
+          'ETH',
+          {
+            unconfirmed: 0,
+            confirmed: etherBalance,
+          },
+        ],
+      ],
     });
     expect(balances.get('TRC').toObject()).toEqual({
-      walletBalance: {
-        unconfirmedBalance: 0,
-        totalBalance: tokenBalance,
-        confirmedBalance: tokenBalance,
-      },
+      lightningMap: [],
+      walletsMap: [
+        [
+          'TRC',
+          {
+            unconfirmed: 0,
+            confirmed: tokenBalance,
+          },
+        ],
+      ],
     });
   });
 
@@ -750,26 +789,26 @@ describe('Service', () => {
         [
           'BTC',
           {
-            nodeKey: lndInfo.identityPubkey,
-            uris: lndInfo.urisList,
+            nodeKey: lndInfo.pubkey,
+            uris: lndInfo.uris,
           },
         ],
         [
           'LTC',
           {
-            nodeKey: lndInfo.identityPubkey,
-            uris: lndInfo.urisList,
+            nodeKey: lndInfo.pubkey,
+            uris: lndInfo.uris,
           },
         ],
       ]),
     );
   });
 
-  test('should get routing hints', () => {
+  test('should get routing hints', async () => {
     const symbol = 'BTC';
     const routingNode = '2someNode';
 
-    const routingHints = service.getRoutingHints(symbol, routingNode);
+    const routingHints = await service.getRoutingHints(symbol, routingNode);
 
     expect(routingHints.length).toEqual(mockGetRoutingHintsResult.length);
     expect(routingHints).toEqual([
@@ -1292,25 +1331,17 @@ describe('Service', () => {
       lockupAddress: 'bcrt1qae5nuz2cv7gu2dpps8rwrhsfv6tjkyvpd8hqsu',
     };
 
-    decodedInvoice.featuresMap = [
-      [
-        30,
-        {
-          name: 'amp',
-          isKnown: true,
-          isRequired: true,
-        },
-      ],
-    ];
+    decodedInvoice.features = new Set<InvoiceFeature>([InvoiceFeature.AMP]);
 
-    const invoice = 'lnbcinvoice';
+    const invoice =
+      'lnbcrt1230n1pjw20v9pp5k4hlsgl93azhjkz5zxs3zsgnvksz2r6yee83av2r2jjncwrc0upsdqqcqzzsxq9z0rgqsp5ce7wh3ff7kz5f8sxfulcp48982gyqy935m6fzvrqr8547kh8rz2s9q8pqqqssq2u68l700shh7gzfeuetugp3h5kh80c40g5tsx7awwruy06309gy4ehwrw2h7vd7cwevc0p60td0wk22p5ldfp84nlueka8ft7kng0lsqwqjjq9';
     await expect(
       service.setInvoice(mockGetSwapResult.id, invoice),
     ).rejects.toEqual(Errors.AMP_INVOICES_NOT_SUPPORTED());
-    expect(mockDecodePayReq).toHaveBeenCalledTimes(1);
-    expect(mockDecodePayReq).toHaveBeenCalledWith(invoice);
+    expect(mockDecodeInvoice).toHaveBeenCalledTimes(2);
+    expect(mockDecodeInvoice).toHaveBeenCalledWith(invoice);
 
-    decodedInvoice.featuresMap = [];
+    decodedInvoice.features = new Set<InvoiceFeature>();
   });
 
   // TODO: channel creation logic
@@ -1834,7 +1865,8 @@ describe('Service', () => {
 
   test('should pay invoices', async () => {
     const symbol = 'BTC';
-    const invoice = 'invoice';
+    const invoice =
+      'lnbcrt1230n1pjw20dqpp55uh05ng79tg5znm88z8asurjy8g8l8r07hg86ma8ye7zknqszazqdqqcqzzsxqyz5vqsp5rd3det49e7jnpshu87uu5f4xvtte3xjycqp2tylcfwvv9pku957q9qyyssqydvetuyrfw02x56xkp7nvu2q4y4p0n4d75f2c4kasvucc7fxx6n8eas8tm5hgr32vme364hmwxjszwwvclyd2gy3w3yk6zg6njkrrfcqyanrh8';
 
     const response = await service.payInvoice(symbol, invoice);
 

@@ -107,13 +107,8 @@ describe('TimeoutDeltaProvider', () => {
   });
 
   test('should get timeouts of swaps with invoices', async () => {
-    const createInvoice = async (cltvExpiry: number) => {
-      const { paymentRequest } = await bitcoinLndClient2.addHoldInvoice(
-        1,
-        randomBytes(32),
-        cltvExpiry,
-      );
-      return paymentRequest;
+    const createInvoice = (cltvExpiry: number) => {
+      return bitcoinLndClient2.addHoldInvoice(1, randomBytes(32), cltvExpiry);
     };
 
     // Minima

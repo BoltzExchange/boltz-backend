@@ -3,6 +3,8 @@ syntax = "proto3";
 package hold;
 
 service Hold {
+  rpc GetInfo (GetInfoRequest) returns (GetInfoResponse) {}
+
   rpc Invoice (InvoiceRequest) returns (InvoiceResponse) {}
   rpc RoutingHints (RoutingHintsRequest) returns (RoutingHintsResponse) {}
   rpc List (ListRequest) returns (ListResponse) {}
@@ -12,6 +14,11 @@ service Hold {
 
   rpc Track (TrackRequest) returns (stream TrackResponse) {}
   rpc TrackAll (TrackAllRequest) returns (stream TrackAllResponse) {}
+}
+
+message GetInfoRequest {}
+message GetInfoResponse {
+  string version = 1;
 }
 
 message InvoiceRequest {
@@ -51,10 +58,22 @@ message ListRequest {
 }
 
 enum InvoiceState {
-  InvoiceUnpaid = 0;
-  InvoiceAccepted = 1;
-  InvoicePaid = 2;
-  InvoiceCancelled = 3;
+  INVOICE_UNPAID = 0;
+  INVOICE_ACCEPTED = 1;
+  INVOICE_PAID = 2;
+  INVOICE_CANCELLED = 3;
+}
+
+enum HtlcState {
+  HTLC_ACCEPTED = 0;
+  HTLC_SETTLED = 1;
+  HTLC_CANCELLED = 2;
+}
+
+message Htlc {
+  HtlcState state = 1;
+  uint64 msat = 2;
+  uint64 created_at = 3;
 }
 
 message Invoice {
@@ -62,6 +81,8 @@ message Invoice {
   optional string payment_preimage = 2;
   InvoiceState state = 3;
   string bolt11 = 4;
+  uint64 created_at = 5;
+  repeated Htlc htlcs = 6;
 }
 
 message ListResponse {
@@ -88,5 +109,6 @@ message TrackResponse {
 message TrackAllRequest {}
 message TrackAllResponse {
   string payment_hash = 1;
-  InvoiceState state = 2;
+  string bolt11 = 2;
+  InvoiceState state = 3;
 }

@@ -4,6 +4,7 @@ import AsyncLock from 'async-lock';
 import { EventEmitter } from 'events';
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';
+import LndClient from '../lightning/LndClient';
 import { Currency } from '../wallet/WalletManager';
 import { ChannelPoint } from '../proto/lnd/rpc_pb';
 import ChannelCreation from '../db/models/ChannelCreation';
@@ -13,12 +14,11 @@ import { ChannelCreationStatus, SwapUpdateEvent } from '../consts/Enums';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import {
   formatError,
-  getChainCurrency,
-  getHexString,
-  getLightningCurrency,
-  reverseBuffer,
-  splitChannelPoint,
   splitPairId,
+  getHexString,
+  reverseBuffer,
+  getChainCurrency,
+  getLightningCurrency,
 } from '../Utils';
 
 interface ChannelNursery {
@@ -32,6 +32,8 @@ interface ChannelNursery {
     channelCreation: ChannelCreation,
   ): boolean;
 }
+
+// TODO: cln compatibility
 
 class ChannelNursery extends EventEmitter {
   private connectionHelper: ConnectionHelper;
@@ -60,6 +62,7 @@ class ChannelNursery extends EventEmitter {
       swap: Swap,
       outgoingChannelId: string,
     ) => Promise<void>,
+    private overrideAllow = false,
   ) {
     super();
 
@@ -67,6 +70,10 @@ class ChannelNursery extends EventEmitter {
   }
 
   public init = async (currencies: Currency[]): Promise<void> => {
+    if (!this.overrideAllow) {
+      return;
+    }
+
     currencies.forEach((currency) => {
       this.currencies.set(currency.symbol, currency);
 
@@ -159,6 +166,10 @@ class ChannelNursery extends EventEmitter {
     swap: Swap,
     channelCreation: ChannelCreation,
   ): Promise<void> => {
+    if (!this.overrideAllow) {
+      return;
+    }
+
     const { satoshis, payeeNodeKey } = bolt11.decode(
       swap.invoice!,
       lightningCurrency.network,
@@ -180,7 +191,7 @@ class ChannelNursery extends EventEmitter {
     // TODO: handle custom errors (c-lightning plugin)?
     try {
       const { fundingTxidBytes, outputIndex } =
-        await lightningCurrency.lndClient!.openChannel(
+        await (lightningCurrency.lndClient as LndClient)!.openChannel(
           payeeNodeKey!,
           channelCapacity,
           channelCreation.private,
@@ -247,7 +258,7 @@ class ChannelNursery extends EventEmitter {
         case `2 UNKNOWN: peer ${payeeNodeKey} is not online`:
           try {
             await this.connectionHelper.connectByPublicKey(
-              lightningCurrency.lndClient!,
+              lightningCurrency.lndClient! as LndClient,
               payeeNodeKey!,
             );
             // The channel opening should *not* be retried here since the "peer.online" subscription of the LND client does handle it already
@@ -288,7 +299,7 @@ class ChannelNursery extends EventEmitter {
         const lightningCurrency = this.getCurrency(swap!, true);
         const currency = this.currencies.get(lightningCurrency)!;
 
-        const peers = await currency.lndClient!.listPeers();
+        const peers = await (currency.lndClient as LndClient)!.listPeers();
 
         // Only try to open a channel if other side is connected to us
         for (const peer of peers.peersList) {
@@ -310,16 +321,14 @@ class ChannelNursery extends EventEmitter {
       this.getCurrency(swap!, true),
     )!;
 
-    const activeChannels = await lightningCurrency.lndClient!.listChannels(
-      true,
-    );
+    const activeChannels =
+      await lightningCurrency.lndClient!.listChannels(true);
 
-    for (const channel of activeChannels.channelsList) {
-      const channelPoint = splitChannelPoint(channel.channelPoint);
-
+    for (const channel of activeChannels) {
       if (
-        channelPoint.id === channelCreation.fundingTransactionId &&
-        channelPoint.vout === channelCreation.fundingTransactionVout
+        channel.fundingTransactionId === channelCreation.fundingTransactionId &&
+        channel.fundingTransactionVout ===
+          channelCreation.fundingTransactionVout
       ) {
         this.logger.verbose(
           `Attempting to settle Channel Creation Swap: ${swap!.id}`,

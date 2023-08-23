@@ -18,9 +18,8 @@ export const queryEtherSwapValuesFromLock = async (
   etherSwap: EtherSwap,
   lockTransactionHash: string,
 ): Promise<EtherSwapValues> => {
-  const lockTransactionReceipt = await provider.getTransactionReceipt(
-    lockTransactionHash,
-  );
+  const lockTransactionReceipt =
+    await provider.getTransactionReceipt(lockTransactionHash);
 
   const topicHash = etherSwap.filters.Lockup().fragment.topicHash;
 
@@ -41,9 +40,8 @@ export const queryERC20SwapValuesFromLock = async (
   erc20Swap: ERC20Swap,
   lockTransactionHash: string,
 ): Promise<ERC20SwapValues> => {
-  const lockTransactionReceipt = await provider.getTransactionReceipt(
-    lockTransactionHash,
-  );
+  const lockTransactionReceipt =
+    await provider.getTransactionReceipt(lockTransactionHash);
 
   const topicHash = erc20Swap.filters.Lockup().fragment.topicHash;
 

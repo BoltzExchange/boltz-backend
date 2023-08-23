@@ -21,6 +21,10 @@ class EtherWalletProvider implements WalletProviderInterface {
     this.logger.info('Initialized Ether wallet');
   }
 
+  public serviceName = (): string => {
+    return 'Wallet';
+  };
+
   public getAddress = (): Promise<string> => {
     return this.signer.getAddress();
   };
@@ -32,7 +36,6 @@ class EtherWalletProvider implements WalletProviderInterface {
     );
 
     return {
-      totalBalance: balance,
       confirmedBalance: balance,
       unconfirmedBalance: 0,
     };

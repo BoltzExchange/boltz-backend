@@ -1,6 +1,10 @@
-import Logger from '../../../lib/Logger';
-import LndClient from '../../../lib/lightning/LndClient';
-import RoutingHintsProvider from '../../../lib/swap/RoutingHintsProvider';
+import Logger from '../../../../lib/Logger';
+import LndClient from '../../../../lib/lightning/LndClient';
+import RoutingHintsLnd from '../../../../lib/swap/routing/RoutingHintsLnd';
+
+const mockGetInfo = jest.fn().mockResolvedValue({
+  pubkey: 'me',
+});
 
 const mockListChannelsResult: any = [
   {
@@ -17,9 +21,7 @@ const mockListChannelsResult: any = [
   },
 ];
 const mockListChannels = jest.fn().mockImplementation(async () => {
-  return {
-    channelsList: mockListChannelsResult,
-  };
+  return mockListChannelsResult;
 });
 
 const mockGetChannelInfoResults = new Map<string, any>([
@@ -37,7 +39,7 @@ const mockGetChannelInfoResults = new Map<string, any>([
   [
     mockListChannelsResult[1].chanId,
     {
-      node1Pub: 'some other node',
+      node1Pub: 'me',
       node2Policy: {
         feeBaseMsat: 1200,
         timeLockDelta: 420,
@@ -65,10 +67,11 @@ const mockGetChannelInfo = jest
 
 const lndSymbol = 'BTC';
 
-jest.mock('../../../lib/lightning/LndClient', () => {
+jest.mock('../../../../lib/lightning/LndClient', () => {
   return jest.fn().mockImplementation(() => {
     return {
       symbol: lndSymbol,
+      getInfo: mockGetInfo,
       listChannels: mockListChannels,
       getChannelInfo: mockGetChannelInfo,
     };
@@ -78,9 +81,10 @@ jest.mock('../../../lib/lightning/LndClient', () => {
 const MockedLndClient = <jest.Mock<LndClient>>(<any>LndClient);
 
 describe('RoutingHintsProvider', () => {
-  let provider = new RoutingHintsProvider(Logger.disabledLogger, [
+  let provider = new RoutingHintsLnd(
+    Logger.disabledLogger,
     new MockedLndClient(),
-  ]);
+  );
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -91,11 +95,11 @@ describe('RoutingHintsProvider', () => {
   });
 
   test('should initialize', async () => {
-    expect(RoutingHintsProvider['channelFetchInterval']).toEqual(5);
+    expect(RoutingHintsLnd['channelFetchInterval']).toEqual(15);
 
     // Inject a mock into the class to be able to check whether the function is called
     const mockUpdateChannels = jest.fn().mockImplementation();
-    provider['updateChannels'] = mockUpdateChannels;
+    provider['update'] = mockUpdateChannels;
 
     await provider.start();
 
@@ -104,9 +108,10 @@ describe('RoutingHintsProvider', () => {
     provider.stop();
 
     // Initialize a new routing hints provider without the injected mock
-    provider = new RoutingHintsProvider(Logger.disabledLogger, [
+    provider = new RoutingHintsLnd(
+      Logger.disabledLogger,
       new MockedLndClient(),
-    ]);
+    );
   });
 
   test('should clear interval when stopped', async () => {
@@ -120,7 +125,7 @@ describe('RoutingHintsProvider', () => {
   });
 
   test('should update private channel list', async () => {
-    await provider['updateChannels']();
+    await provider['update']();
 
     expect(mockListChannels).toHaveBeenCalledTimes(1);
     expect(mockListChannels).toHaveBeenCalledWith(true, true);
@@ -136,50 +141,46 @@ describe('RoutingHintsProvider', () => {
       );
     }
 
-    const channels = provider['channels'];
-    const lndChannels = channels.get(lndSymbol)!;
+    const channels = provider['channelInfos'];
 
-    expect(channels.size).toEqual(1);
-    expect(lndChannels.length).toEqual(mockListChannelsResult.length);
+    expect(channels.size).toEqual(2);
+    expect(channels.get('1')?.length).toEqual(2);
+    expect(channels.get('2')?.length).toEqual(1);
 
-    for (let i = 0; i < mockListChannelsResult.length; i++) {
-      expect(lndChannels[i]).toEqual({
-        channel: mockListChannelsResult[i],
-        routingInfo: mockGetChannelInfoResults.get(
-          mockListChannelsResult[i].chanId,
-        ),
-      });
+    for (const chan of mockListChannelsResult) {
+      const chanPolicy = mockGetChannelInfoResults.get(chan.chanId);
+      const policy = chanPolicy.node1Policy || chanPolicy.node2Policy;
+
+      const saved = channels.get(chan.remotePubkey);
+      expect(saved?.find((entry) => entry[0].chanId === chan.chanId)).toEqual([
+        {
+          nodeId: chan.remotePubkey,
+          chanId: chan.chanId,
+          feeBaseMsat: policy.feeBaseMsat,
+          cltvExpiryDelta: policy.timeLockDelta,
+          feeProportionalMillionths: policy.feeRateMilliMsat,
+        },
+      ]);
     }
   });
 
-  test('should get routing hints', () => {
-    const routingHints = provider.getRoutingHints(
-      lndSymbol,
-      mockListChannelsResult[0].remotePubkey,
-    );
+  test('should get routing hints', async () => {
+    const pubkey = mockListChannelsResult[0].remotePubkey;
+    const routingHints = await provider.routingHints(pubkey);
 
     expect(routingHints.length).toEqual(2);
 
-    for (let i = 0; i < routingHints.length; i++) {
-      const hintList = routingHints[i].getHopHintsList();
-
+    for (const hintList of routingHints) {
       expect(hintList.length).toEqual(1);
 
-      const channelInfo = mockGetChannelInfoResults.get(
-        mockListChannelsResult[i].chanId,
-      )!;
-      const routingInfo =
-        i === 0 ? channelInfo.node1Policy : channelInfo.node2Policy;
+      const chanPolicy = mockGetChannelInfoResults.get(hintList[0].chanId)!;
+      const routingInfo = chanPolicy.node1Policy || chanPolicy.node2Policy;
 
-      expect(hintList[0].getFeeBaseMsat()).toEqual(routingInfo.feeBaseMsat);
-      expect(hintList[0].getChanId()).toEqual(mockListChannelsResult[i].chanId);
-      expect(hintList[0].getCltvExpiryDelta()).toEqual(
-        routingInfo.timeLockDelta,
-      );
-      expect(hintList[0].getNodeId()).toEqual(
-        mockListChannelsResult[0].remotePubkey,
-      );
-      expect(hintList[0].getFeeProportionalMillionths()).toEqual(
+      const hint = hintList[0];
+      expect(hint.nodeId).toEqual(pubkey);
+      expect(hint.feeBaseMsat).toEqual(routingInfo.feeBaseMsat);
+      expect(hint.cltvExpiryDelta).toEqual(routingInfo.timeLockDelta);
+      expect(hint.feeProportionalMillionths).toEqual(
         routingInfo.feeRateMilliMsat,
       );
     }

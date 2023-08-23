@@ -25,7 +25,6 @@ describe('EtherWalletProvider', () => {
     );
 
     expect(await wallet.getBalance()).toEqual({
-      totalBalance: balance,
       confirmedBalance: balance,
       unconfirmedBalance: 0,
     });

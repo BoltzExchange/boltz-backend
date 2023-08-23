@@ -4,7 +4,7 @@ import { DataTypes, Op, Sequelize } from 'sequelize';
 import Logger from '../Logger';
 import Swap from './models/Swap';
 import Referral from './models/Referral';
-import ReverseSwap from './models/ReverseSwap';
+import ReverseSwap, { NodeType } from './models/ReverseSwap';
 import { Currency } from '../wallet/WalletManager';
 import ChannelCreation from './models/ChannelCreation';
 import DatabaseVersion from './models/DatabaseVersion';
@@ -20,7 +20,7 @@ import {
 
 // TODO: integration tests for actual migrations
 class Migration {
-  private static latestSchemaVersion = 6;
+  private static latestSchemaVersion = 7;
 
   constructor(
     private logger: Logger,
@@ -329,6 +329,36 @@ class Migration {
             allowNull: false,
             type: new DataTypes.INTEGER(),
           });
+
+        await this.finishMigration(versionRow.version, currencies);
+
+        break;
+      }
+
+      case 6: {
+        this.logUpdatingTable('reverseSwaps');
+
+        const attrs = {
+          type: new DataTypes.INTEGER(),
+          allowNull: true,
+          validate: {
+            isIn: [
+              Object.values(NodeType).filter((val) => typeof val === 'number'),
+            ],
+          },
+        };
+        await this.sequelize
+          .getQueryInterface()
+          .addColumn('reverseSwaps', 'node', attrs);
+
+        await this.sequelize
+          .getQueryInterface()
+          .bulkUpdate('reverseSwaps', { node: NodeType.LND }, {});
+
+        attrs.allowNull = false;
+        await this.sequelize
+          .getQueryInterface()
+          .changeColumn('reverseSwaps', 'node', attrs);
 
         await this.finishMigration(versionRow.version, currencies);
 

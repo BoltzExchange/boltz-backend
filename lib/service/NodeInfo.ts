@@ -1,7 +1,9 @@
 import { scheduleJob, Job } from 'node-schedule';
 import Logger from '../Logger';
-import { splitChannelPoint } from '../Utils';
+import ClnClient from '../lightning/ClnClient';
+import LndClient from '../lightning/LndClient';
 import { Currency } from '../wallet/WalletManager';
+import NodeSwitch from '../swap/NodeSwitch';
 
 type LndNodeInfo = {
   nodeKey: string;
@@ -52,38 +54,48 @@ class NodeInfo {
 
   private update = async () => {
     for (const [symbol, currency] of this.currencies) {
-      if (currency.lndClient === undefined) {
-        return;
+      if (!NodeSwitch.hasClient(currency)) {
+        continue;
       }
 
-      const lndInfo = await currency.lndClient.getInfo();
+      const clients = [currency.lndClient, currency.clnClient].filter(
+        (client): client is LndClient | ClnClient => client !== undefined,
+      );
+
+      const infos = await Promise.all(
+        clients.map((client) => client.getInfo()),
+      );
+
+      // TODO: how to handle both, lnd and cln
       this.uris.set(symbol, {
-        uris: lndInfo.urisList,
-        nodeKey: lndInfo.identityPubkey,
+        uris: infos[0].uris,
+        nodeKey: infos[0].pubkey,
       });
 
-      const channels = await currency.lndClient.listChannels();
-      const publicChannels = channels.channelsList.filter(
-        (chan) => !chan.pb_private,
+      const channelInfos = await Promise.all(
+        clients.map((client) => client?.listChannels()),
       );
+      const channels = channelInfos.flatMap((infos) => infos);
+
+      const publicChannels = channels.filter((chan) => !chan.private);
 
       let oldestChannelBlockTime: number | undefined;
 
-      if (channels.channelsList.length > 0) {
-        const oldestChannel = channels.channelsList.reduce((prev, cur) => {
+      if (channels.length > 0) {
+        const oldestChannel = channels.reduce((prev, cur) => {
           return Number(prev.chanId) < Number(cur.chanId) ? prev : cur;
         });
         oldestChannelBlockTime = (
           await currency.chainClient!.getRawTransactionVerbose(
-            splitChannelPoint(oldestChannel.channelPoint).id,
+            oldestChannel.fundingTransactionId,
           )
         ).blocktime;
       }
 
       this.stats.set(symbol, {
-        peers: lndInfo.numPeers,
         channels: publicChannels.length,
         oldestChannel: oldestChannelBlockTime,
+        peers: infos.reduce((sum, info) => sum + info.peers, 0),
         capacity: publicChannels.reduce((sum, chan) => sum + chan.capacity, 0),
       });
     }

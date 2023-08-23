@@ -95,7 +95,7 @@ IMAGES: dict[str, Image] = {
         ],
     ),
     "boltz": Image(
-        tags=["3.2.1"],
+        tags=["3.3.0"],
         arguments=[
             NODE_VERSION,
         ],

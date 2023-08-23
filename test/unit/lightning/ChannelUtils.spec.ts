@@ -7,9 +7,10 @@ import {
 
 describe('ChannelUtils', () => {
   test.each`
-    lnd                  | cln
-    ${'136339441909760'} | ${'124x1x0'}
-    ${'128642860515328'} | ${'117x1x0'}
+    lnd                      | cln
+    ${'136339441909760'}     | ${'124x1x0'}
+    ${'128642860515328'}     | ${'117x1x0'}
+    ${'2668607079591444481'} | ${'2427084x36x1'}
   `(
     'should convert LND ($lnd) to CLN ($cln) short channel id',
     ({ cln, lnd }) => {
@@ -18,9 +19,10 @@ describe('ChannelUtils', () => {
   );
 
   test.each`
-    lnd                  | cln
-    ${'136339441909760'} | ${'124x1x0'}
-    ${'128642860515328'} | ${'117x1x0'}
+    lnd                      | cln
+    ${'136339441909760'}     | ${'124x1x0'}
+    ${'128642860515328'}     | ${'117x1x0'}
+    ${'2668607079591444481'} | ${'2427084x36x1'}
   `(
     'should convert CLN ($cln) to LND ($lnd) short channel id',
     ({ cln, lnd }) => {

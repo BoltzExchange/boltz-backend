@@ -266,6 +266,11 @@ class ClnClient
       .getChannelsList()
       .filter(
         (chan) =>
+          chan.getShortChannelId() !== undefined &&
+          chan.getShortChannelId() !== '',
+      )
+      .filter(
+        (chan) =>
           !activeOnly ||
           (chan.getPeerConnected() &&
             chan.getState() ===

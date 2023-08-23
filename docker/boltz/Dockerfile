@@ -16,7 +16,6 @@ RUN apt-get -y install \
     python3-dev
 
 RUN git clone https://github.com/BoltzExchange/boltz-backend.git
-RUN git checkout cln
 WORKDIR /boltz-backend
 
 RUN git checkout ${VERSION}

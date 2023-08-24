@@ -38,13 +38,13 @@ class WebDav:
 
     def upload_backup(self) -> None:
         if self.client is None:
-            msg = "plugin was misconfigured"
+            msg = "plugin misconfigured"
             raise ValueError(msg)
 
         scb = self.plugin.rpc.call("staticbackup")
         date = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d-%H-%M-%S")
         file_name = f"scb-{date}.txt"
-        self.plugin.log(f"Uploading SCB {file_name} with {len(scb['scb'])} SCBs")
+        self.plugin.log(f"Uploading SCB {file_name} with {len(scb['scb'])} channels")
 
         self.client.execute_request(
             "upload",
@@ -84,6 +84,7 @@ def init(
             password=options[OptionKeys.WebDavPassword],
         )
         plugin.log(f"Plugin {PLUGIN_NAME} initialized")
+        wd.upload_backup()
 
     except Exception as e:
         log_could_not_init(str(e))
@@ -96,6 +97,7 @@ def init(
     long_desc=BACKUP_UPLOAD_DESC,
 )
 def backup_upload(plugin: Plugin) -> dict[str, Any]:
+    """Upload a backup of the current SCB to the configured WebDAV."""
     try:
         wd.upload_backup()
     except Exception as e:

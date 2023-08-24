@@ -276,6 +276,9 @@ class Boltz {
 
       if (client instanceof ClnClient) {
         const holdInfo = await client.getHoldInfo();
+        this.logger.verbose(
+          `${client.symbol} ${ClnClient.serviceNameHold} version: ${holdInfo.version}`,
+        );
         VersionCheck.checkLightningVersion(
           ClnClient.serviceNameHold,
           client.symbol,

@@ -29,8 +29,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get install -y \
   python-is-python3
 
 RUN pip3 install --upgrade pip
-RUN pip3 install --user poetry
-RUN pip3 install mako mistune==0.8.4 mrkd
+RUN pip3 install mako
 
 RUN git clone https://github.com/ElementsProject/lightning.git
 WORKDIR /lightning
@@ -39,8 +38,7 @@ RUN git checkout v${VERSION}
 RUN git submodule init && git submodule update
 
 RUN ./configure --enable-developer
-RUN make -j$(nproc)
-RUN make install
+RUN make install -j$(nproc)
 
 RUN strip --strip-all /usr/local/bin/lightningd
 RUN strip --strip-all /usr/local/bin/lightning-cli
@@ -50,9 +48,11 @@ FROM ubuntu:${UBUNTU_VERSION}
 
 RUN apt-get update && apt-get -y upgrade
 RUN apt-get -y install \
+  python3 \
   sqlite3 \
   libsodium23 \
-  libevent-dev
+  libevent-dev \
+  python-is-python3
 
 # Copy binaries
 COPY --from=builder /usr/local/bin/lightningd /bin/

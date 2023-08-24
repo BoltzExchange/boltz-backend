@@ -57,12 +57,16 @@ interface INodeService
   getRoute: INodeService_IGetRoute;
   listForwards: INodeService_IListForwards;
   listPays: INodeService_IListPays;
+  listHtlcs: INodeService_IListHtlcs;
   ping: INodeService_IPing;
   sendCustomMsg: INodeService_ISendCustomMsg;
   setChannel: INodeService_ISetChannel;
   signInvoice: INodeService_ISignInvoice;
   signMessage: INodeService_ISignMessage;
   stop: INodeService_IStop;
+  preApproveKeysend: INodeService_IPreApproveKeysend;
+  preApproveInvoice: INodeService_IPreApproveInvoice;
+  staticBackup: INodeService_IStaticBackup;
 }
 
 interface INodeService_IGetinfo
@@ -676,6 +680,19 @@ interface INodeService_IListPays
   responseSerialize: grpc.serialize<cln_node_pb.ListpaysResponse>;
   responseDeserialize: grpc.deserialize<cln_node_pb.ListpaysResponse>;
 }
+interface INodeService_IListHtlcs
+  extends grpc.MethodDefinition<
+    cln_node_pb.ListhtlcsRequest,
+    cln_node_pb.ListhtlcsResponse
+  > {
+  path: '/cln.Node/ListHtlcs';
+  requestStream: false;
+  responseStream: false;
+  requestSerialize: grpc.serialize<cln_node_pb.ListhtlcsRequest>;
+  requestDeserialize: grpc.deserialize<cln_node_pb.ListhtlcsRequest>;
+  responseSerialize: grpc.serialize<cln_node_pb.ListhtlcsResponse>;
+  responseDeserialize: grpc.deserialize<cln_node_pb.ListhtlcsResponse>;
+}
 interface INodeService_IPing
   extends grpc.MethodDefinition<
     cln_node_pb.PingRequest,
@@ -753,6 +770,45 @@ interface INodeService_IStop
   requestDeserialize: grpc.deserialize<cln_node_pb.StopRequest>;
   responseSerialize: grpc.serialize<cln_node_pb.StopResponse>;
   responseDeserialize: grpc.deserialize<cln_node_pb.StopResponse>;
+}
+interface INodeService_IPreApproveKeysend
+  extends grpc.MethodDefinition<
+    cln_node_pb.PreapprovekeysendRequest,
+    cln_node_pb.PreapprovekeysendResponse
+  > {
+  path: '/cln.Node/PreApproveKeysend';
+  requestStream: false;
+  responseStream: false;
+  requestSerialize: grpc.serialize<cln_node_pb.PreapprovekeysendRequest>;
+  requestDeserialize: grpc.deserialize<cln_node_pb.PreapprovekeysendRequest>;
+  responseSerialize: grpc.serialize<cln_node_pb.PreapprovekeysendResponse>;
+  responseDeserialize: grpc.deserialize<cln_node_pb.PreapprovekeysendResponse>;
+}
+interface INodeService_IPreApproveInvoice
+  extends grpc.MethodDefinition<
+    cln_node_pb.PreapproveinvoiceRequest,
+    cln_node_pb.PreapproveinvoiceResponse
+  > {
+  path: '/cln.Node/PreApproveInvoice';
+  requestStream: false;
+  responseStream: false;
+  requestSerialize: grpc.serialize<cln_node_pb.PreapproveinvoiceRequest>;
+  requestDeserialize: grpc.deserialize<cln_node_pb.PreapproveinvoiceRequest>;
+  responseSerialize: grpc.serialize<cln_node_pb.PreapproveinvoiceResponse>;
+  responseDeserialize: grpc.deserialize<cln_node_pb.PreapproveinvoiceResponse>;
+}
+interface INodeService_IStaticBackup
+  extends grpc.MethodDefinition<
+    cln_node_pb.StaticbackupRequest,
+    cln_node_pb.StaticbackupResponse
+  > {
+  path: '/cln.Node/StaticBackup';
+  requestStream: false;
+  responseStream: false;
+  requestSerialize: grpc.serialize<cln_node_pb.StaticbackupRequest>;
+  requestDeserialize: grpc.deserialize<cln_node_pb.StaticbackupRequest>;
+  responseSerialize: grpc.serialize<cln_node_pb.StaticbackupResponse>;
+  responseDeserialize: grpc.deserialize<cln_node_pb.StaticbackupResponse>;
 }
 
 export const NodeService: INodeService;
@@ -943,6 +999,10 @@ export interface INodeServer extends grpc.UntypedServiceImplementation {
     cln_node_pb.ListpaysRequest,
     cln_node_pb.ListpaysResponse
   >;
+  listHtlcs: grpc.handleUnaryCall<
+    cln_node_pb.ListhtlcsRequest,
+    cln_node_pb.ListhtlcsResponse
+  >;
   ping: grpc.handleUnaryCall<cln_node_pb.PingRequest, cln_node_pb.PingResponse>;
   sendCustomMsg: grpc.handleUnaryCall<
     cln_node_pb.SendcustommsgRequest,
@@ -961,6 +1021,18 @@ export interface INodeServer extends grpc.UntypedServiceImplementation {
     cln_node_pb.SignmessageResponse
   >;
   stop: grpc.handleUnaryCall<cln_node_pb.StopRequest, cln_node_pb.StopResponse>;
+  preApproveKeysend: grpc.handleUnaryCall<
+    cln_node_pb.PreapprovekeysendRequest,
+    cln_node_pb.PreapprovekeysendResponse
+  >;
+  preApproveInvoice: grpc.handleUnaryCall<
+    cln_node_pb.PreapproveinvoiceRequest,
+    cln_node_pb.PreapproveinvoiceResponse
+  >;
+  staticBackup: grpc.handleUnaryCall<
+    cln_node_pb.StaticbackupRequest,
+    cln_node_pb.StaticbackupResponse
+  >;
 }
 
 export interface INodeClient {
@@ -2092,6 +2164,30 @@ export interface INodeClient {
       response: cln_node_pb.ListpaysResponse,
     ) => void,
   ): grpc.ClientUnaryCall;
+  listHtlcs(
+    request: cln_node_pb.ListhtlcsRequest,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.ListhtlcsResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  listHtlcs(
+    request: cln_node_pb.ListhtlcsRequest,
+    metadata: grpc.Metadata,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.ListhtlcsResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  listHtlcs(
+    request: cln_node_pb.ListhtlcsRequest,
+    metadata: grpc.Metadata,
+    options: Partial<grpc.CallOptions>,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.ListhtlcsResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
   ping(
     request: cln_node_pb.PingRequest,
     callback: (
@@ -2234,6 +2330,78 @@ export interface INodeClient {
     callback: (
       error: grpc.ServiceError | null,
       response: cln_node_pb.StopResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  preApproveKeysend(
+    request: cln_node_pb.PreapprovekeysendRequest,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.PreapprovekeysendResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  preApproveKeysend(
+    request: cln_node_pb.PreapprovekeysendRequest,
+    metadata: grpc.Metadata,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.PreapprovekeysendResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  preApproveKeysend(
+    request: cln_node_pb.PreapprovekeysendRequest,
+    metadata: grpc.Metadata,
+    options: Partial<grpc.CallOptions>,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.PreapprovekeysendResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  preApproveInvoice(
+    request: cln_node_pb.PreapproveinvoiceRequest,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.PreapproveinvoiceResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  preApproveInvoice(
+    request: cln_node_pb.PreapproveinvoiceRequest,
+    metadata: grpc.Metadata,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.PreapproveinvoiceResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  preApproveInvoice(
+    request: cln_node_pb.PreapproveinvoiceRequest,
+    metadata: grpc.Metadata,
+    options: Partial<grpc.CallOptions>,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.PreapproveinvoiceResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  staticBackup(
+    request: cln_node_pb.StaticbackupRequest,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.StaticbackupResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  staticBackup(
+    request: cln_node_pb.StaticbackupRequest,
+    metadata: grpc.Metadata,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.StaticbackupResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  staticBackup(
+    request: cln_node_pb.StaticbackupRequest,
+    metadata: grpc.Metadata,
+    options: Partial<grpc.CallOptions>,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.StaticbackupResponse,
     ) => void,
   ): grpc.ClientUnaryCall;
 }
@@ -3372,6 +3540,30 @@ export class NodeClient extends grpc.Client implements INodeClient {
       response: cln_node_pb.ListpaysResponse,
     ) => void,
   ): grpc.ClientUnaryCall;
+  public listHtlcs(
+    request: cln_node_pb.ListhtlcsRequest,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.ListhtlcsResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public listHtlcs(
+    request: cln_node_pb.ListhtlcsRequest,
+    metadata: grpc.Metadata,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.ListhtlcsResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public listHtlcs(
+    request: cln_node_pb.ListhtlcsRequest,
+    metadata: grpc.Metadata,
+    options: Partial<grpc.CallOptions>,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.ListhtlcsResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
   public ping(
     request: cln_node_pb.PingRequest,
     callback: (
@@ -3514,6 +3706,78 @@ export class NodeClient extends grpc.Client implements INodeClient {
     callback: (
       error: grpc.ServiceError | null,
       response: cln_node_pb.StopResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public preApproveKeysend(
+    request: cln_node_pb.PreapprovekeysendRequest,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.PreapprovekeysendResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public preApproveKeysend(
+    request: cln_node_pb.PreapprovekeysendRequest,
+    metadata: grpc.Metadata,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.PreapprovekeysendResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public preApproveKeysend(
+    request: cln_node_pb.PreapprovekeysendRequest,
+    metadata: grpc.Metadata,
+    options: Partial<grpc.CallOptions>,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.PreapprovekeysendResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public preApproveInvoice(
+    request: cln_node_pb.PreapproveinvoiceRequest,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.PreapproveinvoiceResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public preApproveInvoice(
+    request: cln_node_pb.PreapproveinvoiceRequest,
+    metadata: grpc.Metadata,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.PreapproveinvoiceResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public preApproveInvoice(
+    request: cln_node_pb.PreapproveinvoiceRequest,
+    metadata: grpc.Metadata,
+    options: Partial<grpc.CallOptions>,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.PreapproveinvoiceResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public staticBackup(
+    request: cln_node_pb.StaticbackupRequest,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.StaticbackupResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public staticBackup(
+    request: cln_node_pb.StaticbackupRequest,
+    metadata: grpc.Metadata,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.StaticbackupResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public staticBackup(
+    request: cln_node_pb.StaticbackupRequest,
+    metadata: grpc.Metadata,
+    options: Partial<grpc.CallOptions>,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.StaticbackupResponse,
     ) => void,
   ): grpc.ClientUnaryCall;
 }

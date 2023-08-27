@@ -19,6 +19,8 @@ from protos.hold_pb2 import (
     InvoiceResponse,
     ListRequest,
     ListResponse,
+    PayStatusRequest,
+    PayStatusResponse,
     RoutingHintsRequest,
     RoutingHintsResponse,
     SettleRequest,
@@ -151,6 +153,13 @@ class HoldService(HoldServicer):
                     pass
         except Exception as e:
             handle_grpc_error(self._plugin, self.TrackAll.__name__, context, e)
+
+    def PayStatus(  # noqa: N802
+        self, request: PayStatusRequest, context: grpc.ServicerContext  # noqa: ARG002
+    ) -> PayStatusResponse:
+        return Transformers.pay_status_response_to_grpc(
+            self._plugin.rpc.paystatus(request.bolt11 if request.bolt11 != "" else None)
+        )
 
 
 class ServerError(Exception):

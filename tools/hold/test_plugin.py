@@ -354,18 +354,12 @@ class TestHold:
             == "cancelled"
         )
 
-    def test_cancel_cancelled_fail(self, cln: CliCaller) -> None:
+    def test_cancel_cancelled(self, cln: CliCaller) -> None:
         payment_hash = random.randbytes(32).hex()
         cln("holdinvoice", payment_hash, "100000")
 
         assert len(cln("cancelholdinvoice", payment_hash)) == 0
-
-        err_res = cln("cancelholdinvoice", payment_hash)
-        assert err_res["code"] == 2103
-        assert (
-            err_res["message"]
-            == "illegal hold invoice state transition (cancelled -> cancelled)"
-        )
+        assert len(cln("cancelholdinvoice", payment_hash)) == 0
 
     def test_cancel_non_existent(self, cln: CliCaller) -> None:
         payment_hash = random.randbytes(32).hex()

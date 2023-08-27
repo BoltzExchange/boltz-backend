@@ -43,6 +43,9 @@ class HoldInvoice:
     created_at: datetime.datetime
 
     def set_state(self, tracker: Tracker, new_state: InvoiceState) -> None:
+        if self.state == new_state:
+            return
+
         if new_state not in POSSIBLE_STATE_TRANSITIONS[self.state]:
             raise HoldInvoiceStateError(self.state, new_state)
 

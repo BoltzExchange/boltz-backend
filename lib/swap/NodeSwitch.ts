@@ -16,7 +16,10 @@ class NodeSwitch {
       currency,
       NodeSwitch.switch(currency, swap.invoiceAmount),
     );
-    logger.debug(`Using node ${client.serviceName()} for Swap ${swap.id}`);
+    logger.debug(
+      `Using node ${client.serviceName()} for Swap` +
+        (swap.id !== undefined ? ` ${swap.id}` : ''),
+    );
 
     return client;
   };

@@ -17,6 +17,7 @@ interface IHoldService
   cancel: IHoldService_ICancel;
   track: IHoldService_ITrack;
   trackAll: IHoldService_ITrackAll;
+  payStatus: IHoldService_IPayStatus;
 }
 
 interface IHoldService_IGetInfo
@@ -111,6 +112,19 @@ interface IHoldService_ITrackAll
   responseSerialize: grpc.serialize<hold_pb.TrackAllResponse>;
   responseDeserialize: grpc.deserialize<hold_pb.TrackAllResponse>;
 }
+interface IHoldService_IPayStatus
+  extends grpc.MethodDefinition<
+    hold_pb.PayStatusRequest,
+    hold_pb.PayStatusResponse
+  > {
+  path: '/hold.Hold/PayStatus';
+  requestStream: false;
+  responseStream: false;
+  requestSerialize: grpc.serialize<hold_pb.PayStatusRequest>;
+  requestDeserialize: grpc.deserialize<hold_pb.PayStatusRequest>;
+  responseSerialize: grpc.serialize<hold_pb.PayStatusResponse>;
+  responseDeserialize: grpc.deserialize<hold_pb.PayStatusResponse>;
+}
 
 export const HoldService: IHoldService;
 
@@ -137,6 +151,10 @@ export interface IHoldServer extends grpc.UntypedServiceImplementation {
   trackAll: grpc.handleServerStreamingCall<
     hold_pb.TrackAllRequest,
     hold_pb.TrackAllResponse
+  >;
+  payStatus: grpc.handleUnaryCall<
+    hold_pb.PayStatusRequest,
+    hold_pb.PayStatusResponse
   >;
 }
 
@@ -303,6 +321,30 @@ export interface IHoldClient {
     metadata?: grpc.Metadata,
     options?: Partial<grpc.CallOptions>,
   ): grpc.ClientReadableStream<hold_pb.TrackAllResponse>;
+  payStatus(
+    request: hold_pb.PayStatusRequest,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: hold_pb.PayStatusResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  payStatus(
+    request: hold_pb.PayStatusRequest,
+    metadata: grpc.Metadata,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: hold_pb.PayStatusResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  payStatus(
+    request: hold_pb.PayStatusRequest,
+    metadata: grpc.Metadata,
+    options: Partial<grpc.CallOptions>,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: hold_pb.PayStatusResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
 }
 
 export class HoldClient extends grpc.Client implements IHoldClient {
@@ -473,4 +515,28 @@ export class HoldClient extends grpc.Client implements IHoldClient {
     metadata?: grpc.Metadata,
     options?: Partial<grpc.CallOptions>,
   ): grpc.ClientReadableStream<hold_pb.TrackAllResponse>;
+  public payStatus(
+    request: hold_pb.PayStatusRequest,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: hold_pb.PayStatusResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public payStatus(
+    request: hold_pb.PayStatusRequest,
+    metadata: grpc.Metadata,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: hold_pb.PayStatusResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public payStatus(
+    request: hold_pb.PayStatusRequest,
+    metadata: grpc.Metadata,
+    options: Partial<grpc.CallOptions>,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: hold_pb.PayStatusResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
 }

@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any
 
 from bolt11.models.routehint import Route, RouteHint
@@ -11,6 +12,7 @@ from protos.hold_pb2 import (
     Hop,
     HtlcState,
     Invoice,
+    PayStatusResponse,
     RoutingHint,
     RoutingHintsResponse,
 )
@@ -24,6 +26,11 @@ INVOICE_STATE_TO_GRPC = {
     InvoiceState.Unpaid: INVOICE_UNPAID,
     InvoiceState.Accepted: INVOICE_ACCEPTED,
     InvoiceState.Cancelled: INVOICE_CANCELLED,
+}
+
+PAY_STATUS_STATE_TO_GRPC = {
+    "pending": PayStatusResponse.PayStatus.Attempt.AttemptState.ATTEMPT_PENDING,
+    "completed": PayStatusResponse.PayStatus.Attempt.AttemptState.ATTEMPT_COMPLETED,
 }
 
 
@@ -104,6 +111,72 @@ class Transformers:
             ppm_fee=hop["ppm_fee"],
             cltv_expiry_delta=hop["cltv_expiry_delta"],
         )
+
+    @staticmethod
+    def pay_status_response_to_grpc(res: dict[str, Any]) -> PayStatusResponse:
+        return PayStatusResponse(
+            status=[
+                PayStatusResponse.PayStatus(
+                    bolt11=status["bolt11"],
+                    amount_msat=int(status["amount_msat"]),
+                    destination=status["destination"],
+                    attempts=[
+                        Transformers.pay_status_attempt_to_grpc(attempt)
+                        for attempt in status["attempts"]
+                    ],
+                )
+                for status in res["pay"]
+            ]
+        )
+
+    @staticmethod
+    def pay_status_attempt_to_grpc(
+        res: dict[str, Any]
+    ) -> PayStatusResponse.PayStatus.Attempt:
+        def parse_time(time: str) -> int:
+            return int(datetime.strptime(time, "%Y-%m-%dT%H:%M:%S.%f%z").timestamp())
+
+        def transform_failure_data(
+            failure_data: dict[str, Any]
+        ) -> PayStatusResponse.PayStatus.Attempt.Failure.Data:
+            return PayStatusResponse.PayStatus.Attempt.Failure.Data(
+                id=failure_data["id"],
+                raw_message=failure_data["raw_message"],
+                fail_code=failure_data["failcode"],
+                fail_codename=failure_data["failcodename"],
+                erring_index=failure_data["erring_index"],
+                erring_node=failure_data["erring_node"],
+            )
+
+        def transform_failure(
+            failure: dict[str, Any]
+        ) -> PayStatusResponse.PayStatus.Attempt.Failure:
+            return PayStatusResponse.PayStatus.Attempt.Failure(
+                message=failure["message"],
+                code=failure["code"],
+                data=transform_failure_data(failure["data"])
+                if "data" in failure
+                else None,
+            )
+
+        attempt = PayStatusResponse.PayStatus.Attempt(
+            strategy=res["strategy"],
+            start_time=parse_time(res["start_time"]),
+            age_in_seconds=res["age_in_seconds"],
+            state=PAY_STATUS_STATE_TO_GRPC[res["state"]],
+            success=PayStatusResponse.PayStatus.Attempt.Success(
+                id=res["success"]["id"],
+                payment_preimage=res["success"]["payment_preimage"],
+            )
+            if "success" in res
+            else None,
+            failure=transform_failure(res["failure"]) if "failure" in res else None,
+        )
+
+        if "end_time" in res:
+            attempt.end_time = parse_time(res["end_time"])
+
+        return attempt
 
     @staticmethod
     def named_tuples_to_dict(val: object) -> object:

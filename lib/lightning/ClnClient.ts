@@ -11,13 +11,14 @@ import Logger from '../Logger';
 import BaseClient from '../BaseClient';
 import { ClientStatus } from '../consts/Enums';
 import * as noderpc from '../proto/cln/node_pb';
-import { ListfundsOutputs } from '../proto/cln/node_pb';
 import * as holdrpc from '../proto/hold/hold_pb';
 import { grpcOptions, unaryCall } from './GrpcUtils';
 import { formatError, getHexString } from '../Utils';
 import { NodeClient } from '../proto/cln/node_grpc_pb';
 import { HoldClient } from '../proto/hold/hold_grpc_pb';
+import { ListfundsOutputs } from '../proto/cln/node_pb';
 import * as primitivesrpc from '../proto/cln/primitives_pb';
+import { WalletBalance } from '../wallet/providers/WalletProviderInterface';
 import {
   msatToSat,
   satToMsat,
@@ -40,8 +41,6 @@ import {
   Route,
   RoutingHintsProvider,
 } from './LightningClient';
-import { WalletBalance } from '../wallet/providers/WalletProviderInterface';
-import ListfundsOutputsStatus = ListfundsOutputs.ListfundsOutputsStatus;
 
 type BaseConfig = {
   host: string;
@@ -99,6 +98,29 @@ class ClnClient
     this.nodeUri = `${config.host}:${config.port}`;
     this.holdUri = `${config.hold.host}:${config.hold.port}`;
   }
+
+  public static isRpcError = (error: any): boolean => {
+    return (
+      typeof error === 'object' &&
+      typeof (error as any).details === 'string' &&
+      (error as any).details !== ''
+    );
+  };
+
+  public static formatPaymentFailureReason = (error: {
+    details: string;
+  }): string => {
+    const split = error.details.split('"');
+    if (split.length !== 3) {
+      return error.details;
+    }
+
+    return split[1];
+  };
+
+  public static errIsIncorrectPaymentDetails = (err: string): boolean => {
+    return err.includes('WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS');
+  };
 
   public serviceName = (): string => {
     return ClnClient.serviceName;
@@ -216,9 +238,10 @@ class ClnClient
   public getBalance = async (): Promise<WalletBalance> => {
     const sumOutputs = (
       outs: ListfundsOutputs.AsObject[],
-      status: ListfundsOutputsStatus,
+      status: ListfundsOutputs.ListfundsOutputsStatus,
     ) =>
       outs
+        .filter((out) => !out.reserved)
         .filter((out) => out.status === status)
         .reduce((sum, out) => sum + msatToSat(out.amountMsat!.msat), 0);
 
@@ -227,11 +250,11 @@ class ClnClient
     return {
       confirmedBalance: sumOutputs(
         res.outputsList,
-        ListfundsOutputsStatus.CONFIRMED,
+        ListfundsOutputs.ListfundsOutputsStatus.CONFIRMED,
       ),
       unconfirmedBalance: sumOutputs(
         res.outputsList,
-        ListfundsOutputsStatus.UNCONFIRMED,
+        ListfundsOutputs.ListfundsOutputsStatus.UNCONFIRMED,
       ),
     };
   };
@@ -491,6 +514,8 @@ class ClnClient
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _?: string,
   ): Promise<PaymentResponse> => {
+    await this.checkPayStatusForError(invoice);
+
     const req = new noderpc.PayRequest();
 
     req.setBolt11(invoice);
@@ -604,6 +629,36 @@ class ClnClient
       case holdrpc.HtlcState.HTLC_SETTLED:
         return HtlcState.Settled;
     }
+  };
+
+  private checkPayStatusForError = async (invoice: string) => {
+    const res = await this.payStatus(invoice);
+    for (const pay of res.statusList) {
+      for (const attempt of pay.attemptsList) {
+        if (
+          attempt.state ===
+            holdrpc.PayStatusResponse.PayStatus.Attempt.AttemptState
+              .ATTEMPT_PENDING ||
+          attempt.failure === undefined
+        ) {
+          continue;
+        }
+
+        if (ClnClient.errIsIncorrectPaymentDetails(attempt.failure.message)) {
+          throw attempt.failure.message;
+        }
+      }
+    }
+  };
+
+  private payStatus = (invoice: string) => {
+    const req = new holdrpc.PayStatusRequest();
+    req.setBolt11(invoice);
+
+    return this.unaryHoldCall<
+      holdrpc.PayStatusRequest,
+      holdrpc.PayStatusResponse.AsObject
+    >('payStatus', req);
   };
 
   private queryRoute = async (

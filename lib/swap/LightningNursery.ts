@@ -59,6 +59,10 @@ class LightningNursery extends EventEmitter {
     );
   };
 
+  public static errIsInvoiceExpired = (error: string): boolean => {
+    return error.toLowerCase().includes('invoice expired');
+  };
+
   public bindCurrencies = (currencies: Currency[]): void => {
     currencies.forEach((currency) => {
       [currency.lndClient, currency.clnClient]

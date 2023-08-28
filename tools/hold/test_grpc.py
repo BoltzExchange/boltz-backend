@@ -24,6 +24,8 @@ from protos.hold_pb2 import (
     InvoiceState,
     ListRequest,
     ListResponse,
+    PayStatusRequest,
+    PayStatusResponse,
     RoutingHintsRequest,
     RoutingHintsResponse,
     SettleRequest,
@@ -502,3 +504,72 @@ class TestGrpc:
                 (payment_hash_settled, invoice_settled, INVOICE_ACCEPTED),
                 (payment_hash_settled, invoice_settled, INVOICE_PAID),
             ]
+
+    def test_pay_status_empty(self, cl: HoldStub) -> None:
+        _, _, invoice = add_hold_invoice(cl)
+        res: PayStatusResponse = cl.PayStatus(PayStatusRequest(bolt11=invoice))
+        assert res.status == []
+
+    def test_pay_status_success(self, cl: HoldStub) -> None:
+        amount = 100
+        inv_res = lnd(LndNode.One, "addinvoice", str(amount))
+        cln_con("pay", inv_res["payment_request"])
+
+        res: PayStatusResponse = cl.PayStatus(
+            PayStatusRequest(bolt11=inv_res["payment_request"])
+        )
+        assert len(res.status) == 1
+
+        status = res.status[0]
+
+        assert status.bolt11 == inv_res["payment_request"]
+        assert status.amount_msat == amount * 1000
+        assert status.destination == lnd(LndNode.One, "getinfo")["identity_pubkey"]
+
+        assert len(status.attempts) >= 1
+        attempt = status.attempts[len(status.attempts) - 1]
+
+        assert attempt.strategy == "Initial attempt"
+        assert attempt.start_time > 0
+        assert attempt.age_in_seconds in [0, 1]
+        assert attempt.end_time > 0
+        assert attempt.state == PayStatusResponse.PayStatus.Attempt.ATTEMPT_COMPLETED
+        assert attempt.success.id > 0
+        assert (
+            attempt.success.payment_preimage
+            == lnd(LndNode.One, "lookupinvoice", inv_res["r_hash"])["r_preimage"]
+        )
+
+    def test_pay_status_failure(self, cl: HoldStub) -> None:
+        amount = 100
+        inv_res = lnd(LndNode.One, "addinvoice", str(amount))
+        lnd(LndNode.One, "cancelinvoice", inv_res["r_hash"])
+        cln_con("pay", inv_res["payment_request"])
+
+        res: PayStatusResponse = cl.PayStatus(
+            PayStatusRequest(bolt11=inv_res["payment_request"])
+        )
+        assert len(res.status) == 1
+
+        status = res.status[0]
+        assert len(status.attempts) == 1
+        failure: PayStatusResponse.PayStatus.Attempt.Failure = status.attempts[
+            0
+        ].failure
+
+        assert failure.code == 203
+        assert (
+            failure.message
+            == "failed: WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS (reply from remote)"
+        )
+        assert failure.data.id > 0
+        assert failure.data.fail_codename == "WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS"
+        assert failure.data.fail_code == 16399
+        assert failure.data.erring_index == 1
+        assert (
+            failure.data.erring_node == lnd(LndNode.One, "getinfo")["identity_pubkey"]
+        )
+
+    def test_pay_status_all(self, cl: HoldStub) -> None:
+        res: PayStatusResponse = cl.PayStatus(PayStatusRequest())
+        assert len(res.status) > 1

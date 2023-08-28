@@ -54,6 +54,11 @@ class HoldStub(object):
             request_serializer=hold__pb2.TrackAllRequest.SerializeToString,
             response_deserializer=hold__pb2.TrackAllResponse.FromString,
         )
+        self.PayStatus = channel.unary_unary(
+            "/hold.Hold/PayStatus",
+            request_serializer=hold__pb2.PayStatusRequest.SerializeToString,
+            response_deserializer=hold__pb2.PayStatusResponse.FromString,
+        )
 
 
 class HoldServicer(object):
@@ -107,6 +112,12 @@ class HoldServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def PayStatus(self, request, context):
+        """Workaround to expose the paystatus command via gRPC, since CLN doesn't"""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_HoldServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -149,6 +160,11 @@ def add_HoldServicer_to_server(servicer, server):
             servicer.TrackAll,
             request_deserializer=hold__pb2.TrackAllRequest.FromString,
             response_serializer=hold__pb2.TrackAllResponse.SerializeToString,
+        ),
+        "PayStatus": grpc.unary_unary_rpc_method_handler(
+            servicer.PayStatus,
+            request_deserializer=hold__pb2.PayStatusRequest.FromString,
+            response_serializer=hold__pb2.PayStatusResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -383,6 +399,35 @@ class Hold(object):
             "/hold.Hold/TrackAll",
             hold__pb2.TrackAllRequest.SerializeToString,
             hold__pb2.TrackAllResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def PayStatus(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/hold.Hold/PayStatus",
+            hold__pb2.PayStatusRequest.SerializeToString,
+            hold__pb2.PayStatusResponse.FromString,
             options,
             channel_credentials,
             insecure,

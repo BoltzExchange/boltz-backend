@@ -4,46 +4,83 @@ import { Currency } from '../wallet/WalletManager';
 import { LightningClient } from '../lightning/LightningClient';
 import ReverseSwap, { NodeType } from '../db/models/ReverseSwap';
 
+type NodeSwitchConfig = {
+  clnAmountThreshold?: number;
+  referralsIds?: Record<string, string>;
+};
+
 class NodeSwitch {
-  private static readonly clnAmountThreshold = 1_000_000;
+  private static readonly defaultClnAmountThreshold = 1_000_000;
 
-  public static getSwapNode = (
-    logger: Logger,
-    currency: Currency,
-    swap: SwapType,
-  ): LightningClient => {
-    const client = NodeSwitch.fallback(
-      currency,
-      NodeSwitch.switch(currency, swap.invoiceAmount),
-    );
-    logger.debug(
-      `Using node ${client.serviceName()} for Swap` +
-        (swap.id !== undefined ? ` ${swap.id}` : ''),
-    );
+  private readonly clnAmountThreshold: number;
+  private readonly referralIds = new Map<string, NodeType>();
 
-    return client;
-  };
+  constructor(
+    private logger: Logger,
+    cfg?: NodeSwitchConfig,
+  ) {
+    this.clnAmountThreshold =
+      cfg?.clnAmountThreshold || NodeSwitch.defaultClnAmountThreshold;
+
+    for (const [referralId, nodeType] of Object.entries(
+      cfg?.referralsIds || {},
+    )) {
+      const nt = NodeType[nodeType];
+      if (nt === undefined) {
+        this.logger.warn(
+          `Invalid node type for referral id ${referralId}: "${nodeType}"; available options are: [${Object.values(
+            NodeType,
+          )
+            .filter((val) => typeof val === 'string')
+            .join(', ')}]`,
+        );
+        continue;
+      }
+
+      this.referralIds.set(referralId, nt);
+    }
+  }
 
   public static getReverseSwapNode = (
     currency: Currency,
     reverseSwap: ReverseSwap,
   ): LightningClient => {
-    return reverseSwap.node === NodeType.LND
-      ? currency.lndClient!
-      : currency.clnClient!;
+    return NodeSwitch.fallback(
+      currency,
+      NodeSwitch.switchOnNodeType(currency, reverseSwap.node),
+    );
   };
 
-  public static getNodeForReverseSwap = (
-    logger: Logger,
+  public static hasClient = (currency: Currency): boolean => {
+    return [currency.lndClient, currency.clnClient].some(
+      (client) => client !== undefined,
+    );
+  };
+
+  public getSwapNode = (
+    currency: Currency,
+    swap: SwapType,
+  ): LightningClient => {
+    const client = NodeSwitch.fallback(
+      currency,
+      this.switch(currency, swap.invoiceAmount, swap.referral),
+    );
+    this.logger.debug(`Using node ${client.serviceName()} for Swap ${swap.id}`);
+
+    return client;
+  };
+
+  public getNodeForReverseSwap = (
     id: string,
     currency: Currency,
     holdInvoiceAmount: number,
+    referralId?: string,
   ): { nodeType: NodeType; lightningClient: LightningClient } => {
     const client = NodeSwitch.fallback(
       currency,
-      NodeSwitch.switch(currency, holdInvoiceAmount),
+      this.switch(currency, holdInvoiceAmount, referralId),
     );
-    logger.debug(
+    this.logger.debug(
       `Using node ${client.serviceName()} for Reverse Swap Swap ${id}`,
     );
 
@@ -53,17 +90,28 @@ class NodeSwitch {
     };
   };
 
-  public static hasClient = (currency: Currency): boolean => {
-    return currency.lndClient !== undefined || currency.clnClient !== undefined;
-  };
-
-  private static switch = (
+  private switch = (
     currency: Currency,
     amount?: number,
+    referralId?: string,
   ): LightningClient | undefined => {
-    return (amount || 0) > NodeSwitch.clnAmountThreshold
+    if (referralId && this.referralIds.has(referralId)) {
+      return NodeSwitch.switchOnNodeType(
+        currency,
+        this.referralIds.get(referralId)!,
+      );
+    }
+
+    return (amount || 0) > this.clnAmountThreshold
       ? currency.lndClient
       : currency.clnClient;
+  };
+
+  private static switchOnNodeType = (
+    currency: Currency,
+    nodeType: NodeType,
+  ): LightningClient | undefined => {
+    return nodeType === NodeType.LND ? currency.lndClient : currency.clnClient;
   };
 
   private static fallback = (
@@ -75,3 +123,4 @@ class NodeSwitch {
 }
 
 export default NodeSwitch;
+export { NodeSwitchConfig };

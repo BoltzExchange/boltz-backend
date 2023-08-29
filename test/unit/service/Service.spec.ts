@@ -10,6 +10,7 @@ import Errors from '../../../lib/service/Errors';
 import { ConfigType } from '../../../lib/Config';
 import { ECPair } from '../../../lib/ECPairHelper';
 import Service from '../../../lib/service/Service';
+import NodeSwitch from '../../../lib/swap/NodeSwitch';
 import { PairConfig } from '../../../lib/consts/Types';
 import SwapManager from '../../../lib/swap/SwapManager';
 import LndClient from '../../../lib/lightning/LndClient';
@@ -577,6 +578,7 @@ describe('Service', () => {
       currencies: [],
     } as any as ConfigType,
     mockedWalletManager(),
+    new NodeSwitch(Logger.disabledLogger),
     currencies,
   );
 

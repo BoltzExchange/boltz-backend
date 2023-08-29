@@ -26,6 +26,7 @@ class PaymentHandler {
 
   constructor(
     private readonly logger: Logger,
+    private readonly nodeSwitch: NodeSwitch,
     private readonly currencies: Map<string, Currency>,
     public readonly channelNursery: ChannelNursery,
     private readonly timeoutDeltaProvider: TimeoutDeltaProvider,
@@ -61,8 +62,7 @@ class PaymentHandler {
     );
 
     const lightningCurrency = this.currencies.get(lightningSymbol)!;
-    const lightningClient = NodeSwitch.getSwapNode(
-      this.logger,
+    const lightningClient = this.nodeSwitch.getSwapNode(
       lightningCurrency,
       swap,
     );

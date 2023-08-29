@@ -8,13 +8,14 @@ import Errors from '../../../lib/swap/Errors';
 import Swap from '../../../lib/db/models/Swap';
 import Wallet from '../../../lib/wallet/Wallet';
 import { ECPair } from '../../../lib/ECPairHelper';
+import NodeSwitch from '../../../lib/swap/NodeSwitch';
 import ChainClient from '../../../lib/chain/ChainClient';
 import LndClient from '../../../lib/lightning/LndClient';
 import RateProvider from '../../../lib/rates/RateProvider';
-import ReverseSwap, { NodeType } from '../../../lib/db/models/ReverseSwap';
 import SwapOutputType from '../../../lib/swap/SwapOutputType';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import InvoiceExpiryHelper from '../../../lib/service/InvoiceExpiryHelper';
+import ReverseSwap, { NodeType } from '../../../lib/db/models/ReverseSwap';
 import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
 import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
@@ -23,16 +24,16 @@ import SwapManager, {
   ChannelCreationInfo,
 } from '../../../lib/swap/SwapManager';
 import {
-  ChannelCreationType,
-  CurrencyType,
   OrderSide,
+  CurrencyType,
   SwapUpdateEvent,
+  ChannelCreationType,
 } from '../../../lib/consts/Enums';
 import {
-  decodeInvoice,
+  getUnixTime,
   getHexBuffer,
   getHexString,
-  getUnixTime,
+  decodeInvoice,
   reverseBuffer,
 } from '../../../lib/Utils';
 
@@ -346,6 +347,7 @@ describe('SwapManager', () => {
     manager = new SwapManager(
       Logger.disabledLogger,
       new MockedWalletManager(),
+      new NodeSwitch(Logger.disabledLogger),
       new MockedRateProvider(),
       new MockedTimeoutDeltaProvider(),
       new MockedInvoiceExpiryHelper(),

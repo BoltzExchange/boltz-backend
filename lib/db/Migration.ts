@@ -4,10 +4,10 @@ import { DataTypes, Op, Sequelize } from 'sequelize';
 import Logger from '../Logger';
 import Swap from './models/Swap';
 import Referral from './models/Referral';
-import ReverseSwap, { NodeType } from './models/ReverseSwap';
 import { Currency } from '../wallet/WalletManager';
 import ChannelCreation from './models/ChannelCreation';
 import DatabaseVersion from './models/DatabaseVersion';
+import ReverseSwap, { NodeType } from './models/ReverseSwap';
 import DatabaseVersionRepository from './repositories/DatabaseVersionRepository';
 import {
   formatError,

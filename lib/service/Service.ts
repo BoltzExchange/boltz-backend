@@ -26,24 +26,24 @@ import WalletManager, { Currency } from '../wallet/WalletManager';
 import ReferralRepository from '../db/repositories/ReferralRepository';
 import SwapManager, { ChannelCreationInfo } from '../swap/SwapManager';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
+import TimeoutDeltaProvider, {
+  PairTimeoutBlocksDelta,
+} from './TimeoutDeltaProvider';
 import {
   HopHint,
   InvoiceFeature,
   PaymentResponse,
 } from '../lightning/LightningClient';
 import {
+  gweiDecimals,
   etherDecimals,
   ethereumPrepayMinerFeeGasLimit,
-  gweiDecimals,
 } from '../consts/Consts';
-import TimeoutDeltaProvider, {
-  PairTimeoutBlocksDelta,
-} from './TimeoutDeltaProvider';
 import {
-  BaseFeeType,
-  CurrencyType,
   OrderSide,
   ServiceInfo,
+  BaseFeeType,
+  CurrencyType,
   ServiceWarning,
 } from '../consts/Enums';
 import {
@@ -56,22 +56,22 @@ import {
   GetBalanceResponse,
 } from '../proto/boltzrpc_pb';
 import {
-  createApiCredential,
-  decodeInvoice,
-  formatError,
-  getChainCurrency,
-  getHexBuffer,
-  getHexString,
-  getLightningCurrency,
-  getPairId,
   getRate,
-  getSendingReceivingCurrency,
+  stringify,
+  getPairId,
+  getVersion,
+  formatError,
   getSwapMemo,
   getUnixTime,
-  getVersion,
-  reverseBuffer,
   splitPairId,
-  stringify,
+  getHexBuffer,
+  getHexString,
+  decodeInvoice,
+  reverseBuffer,
+  getChainCurrency,
+  createApiCredential,
+  getLightningCurrency,
+  getSendingReceivingCurrency,
 } from '../Utils';
 
 class Service {
@@ -95,6 +95,7 @@ class Service {
     private logger: Logger,
     config: ConfigType,
     private walletManager: WalletManager,
+    private nodeSwitch: NodeSwitch,
     public currencies: Map<string, Currency>,
   ) {
     this.prepayMinerFee = config.prepayminerfee;
@@ -129,6 +130,7 @@ class Service {
     this.swapManager = new SwapManager(
       this.logger,
       this.walletManager,
+      this.nodeSwitch,
       this.rateProvider,
       this.timeoutDeltaProvider,
       new InvoiceExpiryHelper(config.currencies),
@@ -885,10 +887,11 @@ class Service {
       swap.orderSide,
       false,
     );
-    const lightningClient = NodeSwitch.getSwapNode(
-      this.logger,
+
+    swap.invoiceAmount = bolt11.decode(invoice).satoshis || 0;
+    const lightningClient = this.nodeSwitch.getSwapNode(
       this.currencies.get(lightningCurrency)!,
-      { ...swap, invoiceAmount: bolt11.decode(invoice).satoshis || 0 },
+      swap,
     );
 
     const [cltvLimit, decodedInvoice] = await Promise.all([
@@ -939,30 +942,34 @@ class Service {
       false,
     );
 
-    const invoiceAmount = decodeInvoice(invoice).satoshis || 0;
+    swap.invoiceAmount = decodeInvoice(invoice).satoshis || 0;
 
-    const decodedInvoice = await NodeSwitch.getSwapNode(
-      this.logger,
-      this.getCurrency(lightningCurrency)!,
-      { ...swap, invoiceAmount },
-    ).decodeInvoice(invoice);
+    const decodedInvoice = await this.nodeSwitch
+      .getSwapNode(this.getCurrency(lightningCurrency)!, swap)
+      .decodeInvoice(invoice);
     if (decodedInvoice.features.has(InvoiceFeature.AMP)) {
       throw Errors.AMP_INVOICES_NOT_SUPPORTED();
     }
 
     const rate = swap.rate || getRate(pairRate, swap.orderSide, false);
-    this.verifyAmount(swap.pair, rate, invoiceAmount, swap.orderSide, false);
+    this.verifyAmount(
+      swap.pair,
+      rate,
+      swap.invoiceAmount,
+      swap.orderSide,
+      false,
+    );
 
     const { baseFee, percentageFee } = this.rateProvider.feeProvider.getFees(
       swap.pair,
       rate,
       swap.orderSide,
-      invoiceAmount,
+      swap.invoiceAmount,
       BaseFeeType.NormalClaim,
     );
 
     const expectedAmount =
-      Math.floor(invoiceAmount * rate) + baseFee + percentageFee;
+      Math.floor(swap.invoiceAmount * rate) + baseFee + percentageFee;
 
     if (swap.onchainAmount && expectedAmount > swap.onchainAmount) {
       const maxInvoiceAmount = this.calculateInvoiceAmount(
@@ -984,7 +991,7 @@ class Service {
     await this.swapManager.setSwapInvoice(
       swap,
       invoice,
-      invoiceAmount,
+      swap.invoiceAmount,
       expectedAmount,
       percentageFee,
       acceptZeroConf,

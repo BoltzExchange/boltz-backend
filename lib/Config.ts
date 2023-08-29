@@ -5,11 +5,12 @@ import { Arguments } from 'yargs';
 import Errors from './consts/Errors';
 import { Network } from './consts/Enums';
 import { PairConfig } from './consts/Types';
+import { ClnConfig } from './lightning/ClnClient';
 import { LndConfig } from './lightning/LndClient';
+import { NodeSwitchConfig } from './swap/NodeSwitch';
 import { WebdavConfig } from './backup/providers/Webdav';
 import { GoogleCloudConfig } from './backup/providers/GoogleCloud';
 import { deepMerge, getServiceDataDir, resolveHome } from './Utils';
-import { ClnConfig } from './lightning/ClnClient';
 
 type ChainConfig = {
   host: string;
@@ -143,6 +144,8 @@ type ConfigType = {
   rates: RatesConfig;
   backup: BackupConfig;
   notification: NotificationConfig;
+
+  nodeSwitch?: NodeSwitchConfig;
 
   pairs: PairConfig[];
   currencies: CurrencyConfig[];

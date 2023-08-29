@@ -63,6 +63,7 @@ class SwapManager {
   constructor(
     private logger: Logger,
     private walletManager: WalletManager,
+    private nodeSwitch: NodeSwitch,
     rateProvider: RateProvider,
     timeoutDeltaProvider: TimeoutDeltaProvider,
     private invoiceExpiryHelper: InvoiceExpiryHelper,
@@ -71,6 +72,7 @@ class SwapManager {
   ) {
     this.nursery = new SwapNursery(
       this.logger,
+      this.nodeSwitch,
       rateProvider,
       timeoutDeltaProvider,
       this.walletManager,
@@ -495,11 +497,11 @@ class SwapManager {
       `Creating new Reverse Swap from ${receivingCurrency.symbol} to ${sendingCurrency.symbol}: ${id}`,
     );
 
-    const { nodeType, lightningClient } = NodeSwitch.getNodeForReverseSwap(
-      this.logger,
+    const { nodeType, lightningClient } = this.nodeSwitch.getNodeForReverseSwap(
       id,
       receivingCurrency,
       args.holdInvoiceAmount,
+      args.referralId,
     );
 
     if (args.referralId) {

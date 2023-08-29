@@ -16,20 +16,59 @@ describe('NodeSwitch', () => {
   } as Currency;
 
   test.each`
-    amount       | client       | currency
-    ${1}         | ${clnClient} | ${currency}
-    ${21}        | ${clnClient} | ${currency}
-    ${1_000}     | ${clnClient} | ${currency}
-    ${1_000_000} | ${clnClient} | ${currency}
-    ${1_000_001} | ${lndClient} | ${currency}
-    ${2_000_000} | ${lndClient} | ${currency}
-    ${1}         | ${lndClient} | ${{ lndClient }}
-    ${2_000_000} | ${clnClient} | ${{ clnClient }}
+    config
+    ${undefined}
+    ${{}}
+  `('should handle empty config', ({ config }) => {
+    const ns = new NodeSwitch(config);
+    expect(ns['clnAmountThreshold']).toEqual(
+      NodeSwitch['defaultClnAmountThreshold'],
+    );
+    expect(ns['referralIds'].size).toEqual(0);
+  });
+
+  test('should parse config', () => {
+    const config = {
+      clnAmountThreshold: 21,
+      referralsIds: {
+        test: 'CLN',
+        breez: 'LND',
+        other: 'notFound',
+      },
+    };
+    const ns = new NodeSwitch(Logger.disabledLogger, config);
+
+    expect(ns['clnAmountThreshold']).toEqual(config.clnAmountThreshold);
+
+    const referrals = ns['referralIds'];
+    expect(referrals.size).toEqual(2);
+    expect(referrals.get('test')).toEqual(NodeType.CLN);
+    expect(referrals.get('breez')).toEqual(NodeType.LND);
+  });
+
+  test.each`
+    amount       | referral     | client       | currency
+    ${1}         | ${undefined} | ${clnClient} | ${currency}
+    ${21}        | ${undefined} | ${clnClient} | ${currency}
+    ${1_000}     | ${undefined} | ${clnClient} | ${currency}
+    ${1_000_000} | ${undefined} | ${clnClient} | ${currency}
+    ${1_000_001} | ${undefined} | ${lndClient} | ${currency}
+    ${2_000_000} | ${undefined} | ${lndClient} | ${currency}
+    ${1}         | ${'breez'}   | ${lndClient} | ${currency}
+    ${1_000}     | ${'breez'}   | ${lndClient} | ${currency}
+    ${1_000_000} | ${'breez'}   | ${lndClient} | ${currency}
+    ${2_000_000} | ${'breez'}   | ${lndClient} | ${currency}
+    ${2_000_000} | ${'breez'}   | ${clnClient} | ${{ clnClient }}
+    ${1}         | ${undefined} | ${lndClient} | ${{ lndClient }}
+    ${2_000_000} | ${undefined} | ${clnClient} | ${{ clnClient }}
   `(
-    'should get node for Swap of amount $amount',
-    ({ amount, client, currency }) => {
+    'should get node for Swap of amount $amount and referral id $referral',
+    ({ amount, client, currency, referral }) => {
       expect(
-        NodeSwitch.getSwapNode(Logger.disabledLogger, currency, {
+        new NodeSwitch(Logger.disabledLogger, {
+          referralsIds: { breez: 'LND' },
+        }).getSwapNode(currency, {
+          referral,
           invoiceAmount: amount,
         } as Swap),
       ).toEqual(client);
@@ -50,25 +89,25 @@ describe('NodeSwitch', () => {
   });
 
   test.each`
-    amount       | client       | type            | currency
-    ${1}         | ${clnClient} | ${NodeType.CLN} | ${currency}
-    ${21}        | ${clnClient} | ${NodeType.CLN} | ${currency}
-    ${1_000}     | ${clnClient} | ${NodeType.CLN} | ${currency}
-    ${1_000_000} | ${clnClient} | ${NodeType.CLN} | ${currency}
-    ${1_000_001} | ${lndClient} | ${NodeType.LND} | ${currency}
-    ${2_000_000} | ${lndClient} | ${NodeType.LND} | ${currency}
-    ${1}         | ${lndClient} | ${NodeType.LND} | ${{ lndClient }}
-    ${2_000_000} | ${clnClient} | ${NodeType.CLN} | ${{ clnClient }}
+    amount       | referral     | client       | type            | currency
+    ${1}         | ${undefined} | ${clnClient} | ${NodeType.CLN} | ${currency}
+    ${21}        | ${undefined} | ${clnClient} | ${NodeType.CLN} | ${currency}
+    ${1_000}     | ${undefined} | ${clnClient} | ${NodeType.CLN} | ${currency}
+    ${1_000_000} | ${undefined} | ${clnClient} | ${NodeType.CLN} | ${currency}
+    ${1_000_001} | ${undefined} | ${lndClient} | ${NodeType.LND} | ${currency}
+    ${2_000_000} | ${undefined} | ${lndClient} | ${NodeType.LND} | ${currency}
+    ${1}         | ${'breez'}   | ${lndClient} | ${NodeType.LND} | ${currency}
+    ${2_000_000} | ${'breez'}   | ${lndClient} | ${NodeType.LND} | ${currency}
+    ${2_000_000} | ${'breez'}   | ${clnClient} | ${NodeType.CLN} | ${{ clnClient }}
+    ${1}         | ${undefined} | ${lndClient} | ${NodeType.LND} | ${{ lndClient }}
+    ${2_000_000} | ${undefined} | ${clnClient} | ${NodeType.CLN} | ${{ clnClient }}
   `(
-    'should get node for Reverse Swap of amount $amount',
-    ({ amount, client, type, currency }) => {
+    'should get node for Reverse Swap for amount $amount and referral $referral',
+    ({ amount, referral, client, type, currency }) => {
       expect(
-        NodeSwitch.getNodeForReverseSwap(
-          Logger.disabledLogger,
-          '',
-          currency,
-          amount,
-        ),
+        new NodeSwitch(Logger.disabledLogger, {
+          referralsIds: { breez: 'LND' },
+        }).getNodeForReverseSwap('', currency, amount, referral),
       ).toEqual({ nodeType: type, lightningClient: client });
     },
   );

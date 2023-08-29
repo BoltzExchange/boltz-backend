@@ -9,6 +9,7 @@ import Errors from './Errors';
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';
 import Wallet from '../wallet/Wallet';
+import NodeSwitch from './NodeSwitch';
 import UtxoNursery from './UtxoNursery';
 import SwapOutputType from './SwapOutputType';
 import ChannelNursery from './ChannelNursery';
@@ -58,7 +59,6 @@ import {
   constructClaimTransaction,
   constructRefundTransaction,
 } from '../Core';
-import NodeSwitch from './NodeSwitch';
 
 interface ISwapNursery {
   // UTXO based chains emit the "Transaction" object and Ethereum based ones just the transaction hash
@@ -187,6 +187,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
 
   constructor(
     private logger: Logger,
+    private nodeSwitch: NodeSwitch,
     private rateProvider: RateProvider,
     timeoutDeltaProvider: TimeoutDeltaProvider,
     private walletManager: WalletManager,
@@ -214,6 +215,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
 
     this.paymentHandler = new PaymentHandler(
       this.logger,
+      this.nodeSwitch,
       this.currencies,
       this.channelNursery,
       timeoutDeltaProvider,

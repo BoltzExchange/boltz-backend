@@ -10,6 +10,7 @@ import Database from './db/Database';
 import Service from './service/Service';
 import VersionCheck from './VersionCheck';
 import GrpcServer from './grpc/GrpcServer';
+import NodeSwitch from './swap/NodeSwitch';
 import ChainTip from './db/models/ChainTip';
 import GrpcService from './grpc/GrpcService';
 import ClnClient from './lightning/ClnClient';
@@ -105,6 +106,7 @@ class Boltz {
         this.logger,
         this.config,
         this.walletManager,
+        new NodeSwitch(this.logger, this.config.nodeSwitch),
         this.currencies,
       );
 

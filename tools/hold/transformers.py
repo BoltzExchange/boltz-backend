@@ -134,7 +134,12 @@ class Transformers:
         res: dict[str, Any]
     ) -> PayStatusResponse.PayStatus.Attempt:
         def parse_time(time: str) -> int:
-            return int(datetime.strptime(time, "%Y-%m-%dT%H:%M:%S.%f%z").timestamp())
+            try:
+                return int(
+                    datetime.strptime(time, "%Y-%m-%dT%H:%M:%S.%f%z").timestamp()
+                )
+            except:  # noqa: E722
+                return 0
 
         def transform_failure_data(
             failure_data: dict[str, Any]
@@ -160,7 +165,7 @@ class Transformers:
             )
 
         attempt = PayStatusResponse.PayStatus.Attempt(
-            strategy=res["strategy"],
+            strategy=res["strategy"] if "strategy" in res else "",
             start_time=parse_time(res["start_time"]),
             age_in_seconds=res["age_in_seconds"],
             state=PAY_STATUS_STATE_TO_GRPC[res["state"]],

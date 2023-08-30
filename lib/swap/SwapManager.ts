@@ -693,14 +693,14 @@ class SwapManager {
           reverseSwap.minerFeeInvoice &&
           swap.status !== SwapUpdateEvent.MinerFeePaid
         ) {
-          lndClient!.subscribeSingleInvoice(
+          lndClient?.subscribeSingleInvoice(
             getHexBuffer(
               decodeInvoice(reverseSwap.minerFeeInvoice).paymentHash!,
             ),
           );
         }
 
-        lndClient!.subscribeSingleInvoice(
+        lndClient?.subscribeSingleInvoice(
           getHexBuffer(decodeInvoice(reverseSwap.invoice).paymentHash!),
         );
       } else if (

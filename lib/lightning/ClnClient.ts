@@ -633,6 +633,20 @@ class ClnClient
 
   private checkPayStatusForError = async (invoice: string) => {
     const res = await this.payStatus(invoice);
+
+    if (
+      res.statusList.some((pay) =>
+        pay.attemptsList.some(
+          (attempt) =>
+            attempt.state ===
+            holdrpc.PayStatusResponse.PayStatus.Attempt.AttemptState
+              .ATTEMPT_PENDING,
+        ),
+      )
+    ) {
+      throw 'payment already pending';
+    }
+
     for (const pay of res.statusList) {
       for (const attempt of pay.attemptsList) {
         if (

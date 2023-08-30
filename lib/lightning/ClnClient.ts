@@ -13,7 +13,7 @@ import { ClientStatus } from '../consts/Enums';
 import * as noderpc from '../proto/cln/node_pb';
 import * as holdrpc from '../proto/hold/hold_pb';
 import { grpcOptions, unaryCall } from './GrpcUtils';
-import { formatError, getHexString } from '../Utils';
+import { formatError, getHexBuffer, getHexString } from '../Utils';
 import { NodeClient } from '../proto/cln/node_grpc_pb';
 import { HoldClient } from '../proto/hold/hold_grpc_pb';
 import { ListfundsOutputs } from '../proto/cln/node_pb';
@@ -681,7 +681,7 @@ class ClnClient
     finalCltvDelta?: number,
   ): Promise<Route> => {
     const req = new noderpc.GetrouteRequest();
-    req.setId(destination);
+    req.setId(getHexBuffer(destination));
     req.setRiskfactor(0);
 
     const amtGrpc = new primitivesrpc.Amount();
@@ -689,7 +689,8 @@ class ClnClient
     req.setAmountMsat(amtGrpc);
 
     if (finalCltvDelta) {
-      req.setCltv(finalCltvDelta);
+      // Is broken (shouldn't be double in the gRPC)
+      // req.setCltv(finalCltvDelta);
     }
 
     const res = await this.unaryNodeCall<
@@ -703,7 +704,7 @@ class ClnClient
     }
 
     return {
-      ctlv: res.routeList[0].delay,
+      ctlv: res.routeList[0].delay + (finalCltvDelta || 0),
       feesMsat: Number(BigInt(res.routeList[0].amountMsat!.msat) - BigInt(amt)),
     };
   };

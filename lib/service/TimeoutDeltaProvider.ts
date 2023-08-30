@@ -17,6 +17,7 @@ import {
   LightningClient,
 } from '../lightning/LightningClient';
 import {
+  formatError,
   getChainCurrency,
   getLightningCurrency,
   getPairId,
@@ -188,7 +189,7 @@ class TimeoutDeltaProvider {
   };
 
   public checkRoutability = async (
-    lnd: LightningClient,
+    lightningClient: LightningClient,
     decodedInvoice: DecodedInvoice,
     cltvLimit: number,
   ) => {
@@ -206,7 +207,7 @@ class TimeoutDeltaProvider {
         1,
       );
 
-      const routes = await lnd.queryRoutes(
+      const routes = await lightningClient.queryRoutes(
         decodedInvoice.destination,
         amountToQuery,
         cltvLimit,
@@ -219,7 +220,7 @@ class TimeoutDeltaProvider {
         TimeoutDeltaProvider.noRoutes,
       );
     } catch (error) {
-      this.logger.debug(`Could not query routes: ${error}`);
+      this.logger.debug(`Could not query routes: ${formatError(error)}`);
       return TimeoutDeltaProvider.noRoutes;
     }
   };
@@ -232,12 +233,16 @@ class TimeoutDeltaProvider {
     lightningTimeout: PairTimeoutBlocksDelta,
     invoice: string,
   ): Promise<[number, boolean]> => {
-    const { lndClient, chainClient } = this.currencies.get(lightningCurrency)!;
-    const decodedInvoice = await lndClient!.decodeInvoice(invoice);
+    const { lndClient, clnClient, chainClient } =
+      this.currencies.get(lightningCurrency)!;
+
+    const lightningClient = (lndClient || clnClient)!;
+
+    const decodedInvoice = await lightningClient.decodeInvoice(invoice);
 
     const [routeTimeLock, chainInfo] = await Promise.all([
       this.checkRoutability(
-        lndClient!,
+        lightningClient,
         decodedInvoice,
         lightningTimeout.swapMaximal,
       ),
@@ -248,7 +253,10 @@ class TimeoutDeltaProvider {
       return [chainTimeout.swapMaximal, false];
     }
 
-    const routeDeltaRelative = routeTimeLock - chainInfo.blocks;
+    const routeDeltaRelative =
+      lightningClient instanceof LndClient
+        ? routeTimeLock - chainInfo.blocks
+        : routeTimeLock;
     this.logger.debug(
       `CLTV needed to route: ${routeDeltaRelative} ${lightningCurrency} blocks`,
     );

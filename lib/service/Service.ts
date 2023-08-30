@@ -909,7 +909,7 @@ class Service {
       throw ErrorsSwap.NO_ROUTE_FOUND();
     }
 
-    return this.setSwapInvoice(swap, invoice, false, pairHash);
+    return this.setSwapInvoice(swap, invoice, true, pairHash);
   };
 
   /**

@@ -109,6 +109,7 @@ class Service {
       config,
       currencies,
       this.walletManager.ethereumManager!,
+      this.nodeSwitch,
     );
     this.rateProvider = new RateProvider(
       this.logger,
@@ -763,6 +764,7 @@ class Service {
         orderSide,
         false,
         args.invoice,
+        args.referralId,
       );
 
     if (!canBeRouted) {

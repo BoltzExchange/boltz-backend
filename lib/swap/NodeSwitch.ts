@@ -90,7 +90,7 @@ class NodeSwitch {
     };
   };
 
-  private switch = (
+  public switch = (
     currency: Currency,
     amount?: number,
     referralId?: string,
@@ -107,18 +107,18 @@ class NodeSwitch {
       : currency.clnClient;
   };
 
+  public static fallback = (
+    currency: Currency,
+    client?: LightningClient,
+  ): LightningClient => {
+    return (client || currency.lndClient || currency.clnClient)!;
+  };
+
   private static switchOnNodeType = (
     currency: Currency,
     nodeType: NodeType,
   ): LightningClient | undefined => {
     return nodeType === NodeType.LND ? currency.lndClient : currency.clnClient;
-  };
-
-  private static fallback = (
-    currency: Currency,
-    client?: LightningClient,
-  ): LightningClient => {
-    return (client || currency.lndClient || currency.clnClient)!;
   };
 }
 

@@ -4,6 +4,7 @@ import Errors from './Errors';
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';
 import { ConfigType } from '../Config';
+import NodeSwitch from '../swap/NodeSwitch';
 import { OrderSide } from '../consts/Enums';
 import { PairConfig } from '../consts/Types';
 import RoutingOffsets from './RoutingOffsets';
@@ -57,6 +58,7 @@ class TimeoutDeltaProvider {
     private config: ConfigType,
     private currencies: Map<string, Currency>,
     private ethereumManager: EthereumManager,
+    private nodeSwitch: NodeSwitch,
   ) {
     this.routingOffsets = new RoutingOffsets(config);
   }
@@ -151,6 +153,7 @@ class TimeoutDeltaProvider {
     orderSide: OrderSide,
     isReverse: boolean,
     invoice?: string,
+    referralId?: string,
   ): Promise<[number, boolean]> => {
     const timeouts = this.timeoutDeltas.get(pairId);
 
@@ -183,6 +186,7 @@ class TimeoutDeltaProvider {
             chainDeltas,
             lightningDeltas,
             invoice,
+            referralId,
           )
         : [chainDeltas.swapMinimal, true];
     }
@@ -232,13 +236,16 @@ class TimeoutDeltaProvider {
     chainTimeout: PairTimeoutBlocksDelta,
     lightningTimeout: PairTimeoutBlocksDelta,
     invoice: string,
+    referralId?: string,
   ): Promise<[number, boolean]> => {
-    const { lndClient, clnClient, chainClient } =
-      this.currencies.get(lightningCurrency)!;
+    const currency = this.currencies.get(lightningCurrency)!;
 
-    const lightningClient = (lndClient || clnClient)!;
-
-    const decodedInvoice = await lightningClient.decodeInvoice(invoice);
+    const decodedInvoice =
+      await NodeSwitch.fallback(currency)!.decodeInvoice(invoice);
+    const lightningClient = NodeSwitch.fallback(
+      currency,
+      this.nodeSwitch.switch(currency, decodedInvoice.value, referralId),
+    );
 
     const [routeTimeLock, chainInfo] = await Promise.all([
       this.checkRoutability(
@@ -246,7 +253,7 @@ class TimeoutDeltaProvider {
         decodedInvoice,
         lightningTimeout.swapMaximal,
       ),
-      chainClient!.getBlockchainInfo(),
+      currency.chainClient!.getBlockchainInfo(),
     ]);
 
     if (routeTimeLock === TimeoutDeltaProvider.noRoutes) {

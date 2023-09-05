@@ -13,11 +13,11 @@ import { ClientStatus } from '../consts/Enums';
 import * as noderpc from '../proto/cln/node_pb';
 import * as holdrpc from '../proto/hold/hold_pb';
 import { grpcOptions, unaryCall } from './GrpcUtils';
-import { formatError, getHexBuffer, getHexString } from '../Utils';
 import { NodeClient } from '../proto/cln/node_grpc_pb';
 import { HoldClient } from '../proto/hold/hold_grpc_pb';
 import { ListfundsOutputs } from '../proto/cln/node_pb';
 import * as primitivesrpc from '../proto/cln/primitives_pb';
+import { formatError, getHexBuffer, getHexString } from '../Utils';
 import { WalletBalance } from '../wallet/providers/WalletProviderInterface';
 import {
   msatToSat,
@@ -514,7 +514,10 @@ class ClnClient
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _?: string,
   ): Promise<PaymentResponse> => {
-    await this.checkPayStatusForError(invoice);
+    const payStatus = await this.checkPayStatus(invoice);
+    if (payStatus !== undefined) {
+      return payStatus;
+    }
 
     const req = new noderpc.PayRequest();
 
@@ -631,9 +634,45 @@ class ClnClient
     }
   };
 
-  private checkPayStatusForError = async (invoice: string) => {
+  private checkPayStatus = async (
+    invoice: string,
+  ): Promise<PaymentResponse | undefined> => {
     const res = await this.payStatus(invoice);
 
+    // Check if the payment succeeded...
+    for (const pay of res.statusList) {
+      for (const attempt of pay.attemptsList) {
+        if (attempt.success?.paymentPreimage === undefined) {
+          continue;
+        }
+
+        const listPayReq = new noderpc.ListpaysRequest();
+        listPayReq.setBolt11(invoice);
+        listPayReq.setStatus(noderpc.ListpaysRequest.ListpaysStatus.COMPLETE);
+
+        const payStatusRes = await this.unaryNodeCall<
+          noderpc.ListpaysRequest,
+          noderpc.ListpaysResponse
+        >('listPays', listPayReq, false);
+        const payStatus = payStatusRes
+          .getPaysList()
+          .find((status) => status.getAmountSentMsat() !== undefined);
+        if (payStatus === undefined) {
+          break;
+        }
+
+        const fee =
+          BigInt(payStatus.getAmountSentMsat()!.getMsat()) -
+          BigInt(payStatus.getAmountMsat()!.getMsat());
+
+        return {
+          feeMsat: Number(fee),
+          preimage: Buffer.from(payStatus.getPreimage_asU8()),
+        };
+      }
+    }
+
+    // ... is still pending
     if (
       res.statusList.some((pay) =>
         pay.attemptsList.some(
@@ -647,6 +686,7 @@ class ClnClient
       throw 'payment already pending';
     }
 
+    // ... or has failed
     for (const pay of res.statusList) {
       for (const attempt of pay.attemptsList) {
         if (
@@ -663,6 +703,8 @@ class ClnClient
         }
       }
     }
+
+    return undefined;
   };
 
   private payStatus = (invoice: string) => {

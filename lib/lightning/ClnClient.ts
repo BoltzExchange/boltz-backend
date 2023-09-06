@@ -672,21 +672,7 @@ class ClnClient
       }
     }
 
-    // ... is still pending
-    if (
-      res.statusList.some((pay) =>
-        pay.attemptsList.some(
-          (attempt) =>
-            attempt.state ===
-            holdrpc.PayStatusResponse.PayStatus.Attempt.AttemptState
-              .ATTEMPT_PENDING,
-        ),
-      )
-    ) {
-      throw 'payment already pending';
-    }
-
-    // ... or has failed
+    // ... has failed
     for (const pay of res.statusList) {
       for (const attempt of pay.attemptsList) {
         if (
@@ -702,6 +688,20 @@ class ClnClient
           throw attempt.failure.message;
         }
       }
+    }
+
+    // ... or is still pending
+    if (
+      res.statusList.some((pay) =>
+        pay.attemptsList.some(
+          (attempt) =>
+            attempt.state ===
+            holdrpc.PayStatusResponse.PayStatus.Attempt.AttemptState
+              .ATTEMPT_PENDING,
+        ),
+      )
+    ) {
+      throw 'payment already pending';
     }
 
     return undefined;

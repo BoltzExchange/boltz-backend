@@ -3,6 +3,7 @@ import Logger from '../../../lib/Logger';
 import Errors from '../../../lib/service/Errors';
 import { ConfigType } from '../../../lib/Config';
 import { splitPairId } from '../../../lib/Utils';
+import NodeSwitch from '../../../lib/swap/NodeSwitch';
 import { OrderSide } from '../../../lib/consts/Enums';
 import { Currency } from '../../../lib/wallet/WalletManager';
 import EthereumManager from '../../../lib/wallet/ethereum/EthereumManager';
@@ -52,6 +53,7 @@ describe('TimeoutDeltaProvider', () => {
       ],
     ]),
     (<jest.Mock<EthereumManager>>(<any>EthereumManager))(),
+    new NodeSwitch(Logger.disabledLogger),
   );
 
   const pair = 'L-BTC/BTC';

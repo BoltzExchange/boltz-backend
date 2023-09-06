@@ -3,6 +3,7 @@ import { existsSync, readFileSync, unlinkSync } from 'fs';
 import Logger from '../../../lib/Logger';
 import Errors from '../../../lib/service/Errors';
 import { ConfigType } from '../../../lib/Config';
+import NodeSwitch from '../../../lib/swap/NodeSwitch';
 import { OrderSide } from '../../../lib/consts/Enums';
 import { PairConfig } from '../../../lib/consts/Types';
 import LndClient from '../../../lib/lightning/LndClient';
@@ -66,6 +67,7 @@ describe('TimeoutDeltaProvider', () => {
     } as unknown as ConfigType,
     new Map<string, Currency>(),
     {} as unknown as EthereumManager,
+    new NodeSwitch(Logger.disabledLogger),
   );
 
   const createDeltas = (val: number): PairTimeoutBlocksDelta => {

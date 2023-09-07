@@ -814,8 +814,12 @@ describe('Service', () => {
 
     expect(routingHints.length).toEqual(mockGetRoutingHintsResult.length);
     expect(routingHints).toEqual([
-      mockGetRoutingHintsResultToObjectResult,
-      mockGetRoutingHintsResultToObjectResult,
+      {
+        hopHintsList: mockGetRoutingHintsResultToObjectResult,
+      },
+      {
+        hopHintsList: mockGetRoutingHintsResultToObjectResult,
+      },
     ]);
 
     expect(mockGetRoutingHints).toHaveBeenCalledTimes(1);
@@ -1279,7 +1283,7 @@ describe('Service', () => {
       invoiceAmount + 2,
       1,
       true,
-      false,
+      true,
       expect.anything(),
     );
 

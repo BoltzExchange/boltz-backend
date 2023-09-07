@@ -5,6 +5,9 @@ from enum import Enum
 from threading import Thread
 from typing import Any
 
+import pytest
+from utils import parse_time
+
 PLUGIN_PATH = "/root/hold.sh"
 
 CliCaller = Callable[..., dict[str, Any]]
@@ -126,3 +129,16 @@ def get_channel_info(node: str, short_chan_id: str | int) -> dict[str, Any]:
         "channels"
     ]
     return channel_infos[0] if channel_infos[0]["source"] == node else channel_infos[1]
+
+
+class TestUtils:
+    @pytest.mark.parametrize(
+        ("data", "result"),
+        [
+            ("1970-01-01T00:00:48.1904", 0),
+            ("2023-09-04T00:37:36.349Z", 1693787856),
+            ("2023-09-05T10:56:22.874Z", 1693911382),
+        ],
+    )
+    def test_parse_time(self, data: str, result: int) -> None:
+        assert parse_time(data) == result

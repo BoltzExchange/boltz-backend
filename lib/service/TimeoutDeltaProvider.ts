@@ -4,6 +4,7 @@ import Errors from './Errors';
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';
 import { ConfigType } from '../Config';
+import NodeSwitch from '../swap/NodeSwitch';
 import { OrderSide } from '../consts/Enums';
 import { PairConfig } from '../consts/Types';
 import RoutingOffsets from './RoutingOffsets';
@@ -17,6 +18,7 @@ import {
   LightningClient,
 } from '../lightning/LightningClient';
 import {
+  formatError,
   getChainCurrency,
   getLightningCurrency,
   getPairId,
@@ -56,6 +58,7 @@ class TimeoutDeltaProvider {
     private config: ConfigType,
     private currencies: Map<string, Currency>,
     private ethereumManager: EthereumManager,
+    private nodeSwitch: NodeSwitch,
   ) {
     this.routingOffsets = new RoutingOffsets(config);
   }
@@ -150,6 +153,7 @@ class TimeoutDeltaProvider {
     orderSide: OrderSide,
     isReverse: boolean,
     invoice?: string,
+    referralId?: string,
   ): Promise<[number, boolean]> => {
     const timeouts = this.timeoutDeltas.get(pairId);
 
@@ -182,13 +186,14 @@ class TimeoutDeltaProvider {
             chainDeltas,
             lightningDeltas,
             invoice,
+            referralId,
           )
         : [chainDeltas.swapMinimal, true];
     }
   };
 
   public checkRoutability = async (
-    lnd: LightningClient,
+    lightningClient: LightningClient,
     decodedInvoice: DecodedInvoice,
     cltvLimit: number,
   ) => {
@@ -206,7 +211,7 @@ class TimeoutDeltaProvider {
         1,
       );
 
-      const routes = await lnd.queryRoutes(
+      const routes = await lightningClient.queryRoutes(
         decodedInvoice.destination,
         amountToQuery,
         cltvLimit,
@@ -219,7 +224,7 @@ class TimeoutDeltaProvider {
         TimeoutDeltaProvider.noRoutes,
       );
     } catch (error) {
-      this.logger.debug(`Could not query routes: ${error}`);
+      this.logger.debug(`Could not query routes: ${formatError(error)}`);
       return TimeoutDeltaProvider.noRoutes;
     }
   };
@@ -231,24 +236,34 @@ class TimeoutDeltaProvider {
     chainTimeout: PairTimeoutBlocksDelta,
     lightningTimeout: PairTimeoutBlocksDelta,
     invoice: string,
+    referralId?: string,
   ): Promise<[number, boolean]> => {
-    const { lndClient, chainClient } = this.currencies.get(lightningCurrency)!;
-    const decodedInvoice = await lndClient!.decodeInvoice(invoice);
+    const currency = this.currencies.get(lightningCurrency)!;
+
+    const decodedInvoice =
+      await NodeSwitch.fallback(currency)!.decodeInvoice(invoice);
+    const lightningClient = NodeSwitch.fallback(
+      currency,
+      this.nodeSwitch.switch(currency, decodedInvoice.value, referralId),
+    );
 
     const [routeTimeLock, chainInfo] = await Promise.all([
       this.checkRoutability(
-        lndClient!,
+        lightningClient,
         decodedInvoice,
         lightningTimeout.swapMaximal,
       ),
-      chainClient!.getBlockchainInfo(),
+      currency.chainClient!.getBlockchainInfo(),
     ]);
 
     if (routeTimeLock === TimeoutDeltaProvider.noRoutes) {
       return [chainTimeout.swapMaximal, false];
     }
 
-    const routeDeltaRelative = routeTimeLock - chainInfo.blocks;
+    const routeDeltaRelative =
+      lightningClient instanceof LndClient
+        ? routeTimeLock - chainInfo.blocks
+        : routeTimeLock;
     this.logger.debug(
       `CLTV needed to route: ${routeDeltaRelative} ${lightningCurrency} blocks`,
     );

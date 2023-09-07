@@ -29,49 +29,45 @@ import ChannelCreationRepository from '../db/repositories/ChannelCreationReposit
 import TimeoutDeltaProvider, {
   PairTimeoutBlocksDelta,
 } from './TimeoutDeltaProvider';
+import { InvoiceFeature, PaymentResponse } from '../lightning/LightningClient';
 import {
-  HopHint,
-  InvoiceFeature,
-  PaymentResponse,
-} from '../lightning/LightningClient';
-import {
-  gweiDecimals,
   etherDecimals,
   ethereumPrepayMinerFeeGasLimit,
+  gweiDecimals,
 } from '../consts/Consts';
 import {
-  OrderSide,
-  ServiceInfo,
   BaseFeeType,
   CurrencyType,
+  OrderSide,
+  ServiceInfo,
   ServiceWarning,
 } from '../consts/Enums';
 import {
   Balances,
   ChainInfo,
   CurrencyInfo,
-  LightningInfo,
-  GetInfoResponse,
   DeriveKeysResponse,
   GetBalanceResponse,
+  GetInfoResponse,
+  LightningInfo,
 } from '../proto/boltzrpc_pb';
 import {
-  getRate,
-  stringify,
-  getPairId,
-  getVersion,
+  createApiCredential,
+  decodeInvoice,
   formatError,
-  getSwapMemo,
-  getUnixTime,
-  splitPairId,
+  getChainCurrency,
   getHexBuffer,
   getHexString,
-  decodeInvoice,
-  reverseBuffer,
-  getChainCurrency,
-  createApiCredential,
   getLightningCurrency,
+  getPairId,
+  getRate,
   getSendingReceivingCurrency,
+  getSwapMemo,
+  getUnixTime,
+  getVersion,
+  reverseBuffer,
+  splitPairId,
+  stringify,
 } from '../Utils';
 
 class Service {
@@ -113,6 +109,7 @@ class Service {
       config,
       currencies,
       this.walletManager.ethereumManager!,
+      this.nodeSwitch,
     );
     this.rateProvider = new RateProvider(
       this.logger,
@@ -369,11 +366,17 @@ class Service {
     return this.nodeInfo.getStats();
   };
 
-  public getRoutingHints = (
+  public getRoutingHints = async (
     symbol: string,
     routingNode: string,
-  ): Promise<HopHint[][]> => {
-    return this.swapManager.routingHints.getRoutingHints(symbol, routingNode);
+  ): Promise<any> => {
+    const hints = await this.swapManager.routingHints.getRoutingHints(
+      symbol,
+      routingNode,
+    );
+    return hints.map((hop) => ({
+      hopHintsList: hop,
+    }));
   };
 
   public getTimeouts = () => {
@@ -761,6 +764,7 @@ class Service {
         orderSide,
         false,
         args.invoice,
+        args.referralId,
       );
 
     if (!canBeRouted) {
@@ -909,7 +913,7 @@ class Service {
       throw ErrorsSwap.NO_ROUTE_FOUND();
     }
 
-    return this.setSwapInvoice(swap, invoice, false, pairHash);
+    return this.setSwapInvoice(swap, invoice, true, pairHash);
   };
 
   /**

@@ -529,7 +529,7 @@ class TestHold:
         assert len(cln("listholdinvoices", payment_hash)["holdinvoices"]) == 0
 
     def test_wipe(self, cln: CliCaller) -> None:
-        for _ in range(0, 11):
+        for _ in range(11):
             add_hold_invoice(cln)
 
         invoices = len(cln("listholdinvoices")["holdinvoices"])

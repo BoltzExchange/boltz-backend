@@ -26,7 +26,6 @@ const slip77 = SLIP77Factory(ecc);
 const symbol = 'BTC';
 
 const balance: WalletBalance = {
-  totalBalance: 3,
   confirmedBalance: 1,
   unconfirmedBalance: 2,
 };

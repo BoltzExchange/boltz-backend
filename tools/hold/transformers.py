@@ -1,4 +1,3 @@
-from datetime import datetime
 from typing import Any
 
 from bolt11.models.routehint import Route, RouteHint
@@ -20,6 +19,7 @@ from protos.hold_pb2 import (
     Htlc as HtlcGrpc,
 )
 from settler import Htlc
+from utils import parse_time
 
 INVOICE_STATE_TO_GRPC = {
     InvoiceState.Paid: INVOICE_PAID,
@@ -133,9 +133,6 @@ class Transformers:
     def pay_status_attempt_to_grpc(
         res: dict[str, Any]
     ) -> PayStatusResponse.PayStatus.Attempt:
-        def parse_time(time: str) -> int:
-            return int(datetime.strptime(time, "%Y-%m-%dT%H:%M:%S.%f%z").timestamp())
-
         def transform_failure_data(
             failure_data: dict[str, Any]
         ) -> PayStatusResponse.PayStatus.Attempt.Failure.Data:
@@ -160,7 +157,7 @@ class Transformers:
             )
 
         attempt = PayStatusResponse.PayStatus.Attempt(
-            strategy=res["strategy"],
+            strategy=res["strategy"] if "strategy" in res else "",
             start_time=parse_time(res["start_time"]),
             age_in_seconds=res["age_in_seconds"],
             state=PAY_STATUS_STATE_TO_GRPC[res["state"]],

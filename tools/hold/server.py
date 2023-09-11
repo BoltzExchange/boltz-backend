@@ -15,6 +15,8 @@ from protos.hold_pb2 import (
     CancelResponse,
     GetInfoRequest,
     GetInfoResponse,
+    GetRouteRequest,
+    GetRouteResponse,
     InvoiceRequest,
     InvoiceResponse,
     ListRequest,
@@ -151,6 +153,7 @@ class HoldService(HoldServicer):
                     )
                 except Empty:  # noqa: PERF203
                     pass
+
         except Exception as e:
             handle_grpc_error(self._plugin, self.TrackAll.__name__, context, e)
 
@@ -159,6 +162,22 @@ class HoldService(HoldServicer):
     ) -> PayStatusResponse:
         return Transformers.pay_status_response_to_grpc(
             self._plugin.rpc.paystatus(request.bolt11 if request.bolt11 != "" else None)
+        )
+
+    def GetRoute(  # noqa: N802
+        self, request: GetRouteRequest, context: grpc.ServicerContext  # noqa: ARG002
+    ) -> GetRouteResponse:
+        route = self._hold.router.get_route(
+            request.destination,
+            request.amount_msat,
+            request.risk_factor,
+            request.max_cltv if request.max_cltv != 0 else None,
+            request.final_cltv_delta if request.final_cltv_delta != 0 else None,
+            request.max_retries if request.max_retries != 0 else None,
+        )
+        return GetRouteResponse(
+            hops=Transformers.route_to_grpc(route),
+            fees_msat=route[0].amount_msat - request.amount_msat,
         )
 
 

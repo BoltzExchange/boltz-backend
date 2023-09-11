@@ -1,10 +1,10 @@
 import fs from 'fs';
 import bolt11 from 'bolt11';
 import {
+  Metadata,
+  credentials,
   ChannelCredentials,
   ClientReadableStream,
-  credentials,
-  Metadata,
 } from '@grpc/grpc-js';
 import Errors from './Errors';
 import Logger from '../Logger';
@@ -12,12 +12,12 @@ import BaseClient from '../BaseClient';
 import { ClientStatus } from '../consts/Enums';
 import * as noderpc from '../proto/cln/node_pb';
 import * as holdrpc from '../proto/hold/hold_pb';
+import { formatError, getHexString } from '../Utils';
 import { grpcOptions, unaryCall } from './GrpcUtils';
 import { NodeClient } from '../proto/cln/node_grpc_pb';
 import { HoldClient } from '../proto/hold/hold_grpc_pb';
 import { ListfundsOutputs } from '../proto/cln/node_pb';
 import * as primitivesrpc from '../proto/cln/primitives_pb';
-import { formatError, getHexBuffer, getHexString } from '../Utils';
 import { WalletBalance } from '../wallet/providers/WalletProviderInterface';
 import {
   msatToSat,
@@ -469,7 +469,7 @@ class ClnClient
     routingHints?: HopHint[][],
   ): Promise<Route[]> => {
     const prms: Promise<Route>[] = [
-      this.queryRoute(destination, amt, finalCltvDelta),
+      this.queryRoute(destination, amt, cltvLimit, finalCltvDelta),
     ];
 
     if (routingHints) {
@@ -482,23 +482,19 @@ class ClnClient
           this.queryRoute(
             hint[0].nodeId,
             amt,
+            cltvLimit,
             (finalCltvDelta || 0) + hintCtlvs,
           ),
         );
       });
     }
 
-    let routes = (await Promise.allSettled(prms))
+    const routes = (await Promise.allSettled(prms))
       .filter(
         (res): res is PromiseFulfilledResult<Route> =>
           res.status === 'fulfilled',
       )
       .map((res) => res.value);
-
-    if (cltvLimit) {
-      // TODO: does this work in practice?
-      routes = routes.filter((route) => route.ctlv <= cltvLimit);
-    }
 
     if (routes.length === 0) {
       throw Errors.NO_ROUTE();
@@ -720,34 +716,30 @@ class ClnClient
   private queryRoute = async (
     destination: string,
     amt: number,
+    cltvLimit?: number,
     finalCltvDelta?: number,
   ): Promise<Route> => {
-    const req = new noderpc.GetrouteRequest();
-    req.setId(getHexBuffer(destination));
-    req.setRiskfactor(0);
+    const req = new holdrpc.GetRouteRequest();
+    req.setDestination(destination);
+    req.setRiskFactor(0);
+    req.setAmountMsat(amt);
 
-    const amtGrpc = new primitivesrpc.Amount();
-    amtGrpc.setMsat(satToMsat(amt));
-    req.setAmountMsat(amtGrpc);
+    if (cltvLimit) {
+      req.setMaxCltv(cltvLimit);
+    }
 
     if (finalCltvDelta) {
-      // Is broken (shouldn't be double in the gRPC)
-      // req.setCltv(finalCltvDelta);
+      req.setFinalCltvDelta(finalCltvDelta);
     }
 
-    const res = await this.unaryNodeCall<
-      noderpc.GetrouteRequest,
-      noderpc.GetrouteResponse.AsObject
+    const res = await this.unaryHoldCall<
+      holdrpc.GetRouteRequest,
+      holdrpc.GetRouteResponse.AsObject
     >('getRoute', req);
 
-    // TODO: does that happen or does CLN throw?
-    if (res.routeList.length === 0) {
-      throw Errors.NO_ROUTE();
-    }
-
     return {
-      ctlv: res.routeList[0].delay + (finalCltvDelta || 0),
-      feesMsat: Number(BigInt(res.routeList[0].amountMsat!.msat) - BigInt(amt)),
+      ctlv: res.hopsList[0].delay,
+      feesMsat: res.feesMsat,
     };
   };
 

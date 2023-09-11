@@ -17,6 +17,9 @@ service Hold {
 
   // Workaround to expose the paystatus command via gRPC, since CLN doesn't
   rpc PayStatus (PayStatusRequest) returns (PayStatusResponse) {}
+
+  // Custom algorithm that allows specifying a max delay
+  rpc GetRoute (GetRouteRequest) returns (GetRouteResponse);
 }
 
 message GetInfoRequest {}
@@ -164,4 +167,27 @@ message PayStatusResponse {
   }
 
   repeated PayStatus status = 1;
+}
+
+message GetRouteRequest {
+  string destination = 1;
+  uint64 amount_msat = 2;
+  uint32 max_retries = 3;
+  optional uint32 risk_factor = 4;
+  optional uint64 max_cltv = 5;
+  optional uint64 final_cltv_delta = 6;
+}
+
+message GetRouteResponse {
+  message Hop {
+    string id = 1;
+    string channel = 2;
+    uint32 direction = 3;
+    uint64 amount_msat = 4;
+    uint64 delay = 5;
+    string style = 6;
+  }
+
+  repeated Hop hops = 1;
+  uint64 fees_msat = 2;
 }

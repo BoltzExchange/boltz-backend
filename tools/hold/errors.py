@@ -10,3 +10,7 @@ class Errors:
         "code": 2102,
         "message": "hold invoice with that payment hash does not exist",
     }
+    not_route: ClassVar[dict[str, Any]] = {
+        "code": 2103,
+        "message": "no route found",
+    }

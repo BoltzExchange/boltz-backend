@@ -18,6 +18,7 @@ interface IHoldService
   track: IHoldService_ITrack;
   trackAll: IHoldService_ITrackAll;
   payStatus: IHoldService_IPayStatus;
+  getRoute: IHoldService_IGetRoute;
 }
 
 interface IHoldService_IGetInfo
@@ -125,6 +126,19 @@ interface IHoldService_IPayStatus
   responseSerialize: grpc.serialize<hold_pb.PayStatusResponse>;
   responseDeserialize: grpc.deserialize<hold_pb.PayStatusResponse>;
 }
+interface IHoldService_IGetRoute
+  extends grpc.MethodDefinition<
+    hold_pb.GetRouteRequest,
+    hold_pb.GetRouteResponse
+  > {
+  path: '/hold.Hold/GetRoute';
+  requestStream: false;
+  responseStream: false;
+  requestSerialize: grpc.serialize<hold_pb.GetRouteRequest>;
+  requestDeserialize: grpc.deserialize<hold_pb.GetRouteRequest>;
+  responseSerialize: grpc.serialize<hold_pb.GetRouteResponse>;
+  responseDeserialize: grpc.deserialize<hold_pb.GetRouteResponse>;
+}
 
 export const HoldService: IHoldService;
 
@@ -155,6 +169,10 @@ export interface IHoldServer extends grpc.UntypedServiceImplementation {
   payStatus: grpc.handleUnaryCall<
     hold_pb.PayStatusRequest,
     hold_pb.PayStatusResponse
+  >;
+  getRoute: grpc.handleUnaryCall<
+    hold_pb.GetRouteRequest,
+    hold_pb.GetRouteResponse
   >;
 }
 
@@ -343,6 +361,30 @@ export interface IHoldClient {
     callback: (
       error: grpc.ServiceError | null,
       response: hold_pb.PayStatusResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  getRoute(
+    request: hold_pb.GetRouteRequest,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: hold_pb.GetRouteResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  getRoute(
+    request: hold_pb.GetRouteRequest,
+    metadata: grpc.Metadata,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: hold_pb.GetRouteResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  getRoute(
+    request: hold_pb.GetRouteRequest,
+    metadata: grpc.Metadata,
+    options: Partial<grpc.CallOptions>,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: hold_pb.GetRouteResponse,
     ) => void,
   ): grpc.ClientUnaryCall;
 }
@@ -537,6 +579,30 @@ export class HoldClient extends grpc.Client implements IHoldClient {
     callback: (
       error: grpc.ServiceError | null,
       response: hold_pb.PayStatusResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public getRoute(
+    request: hold_pb.GetRouteRequest,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: hold_pb.GetRouteResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public getRoute(
+    request: hold_pb.GetRouteRequest,
+    metadata: grpc.Metadata,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: hold_pb.GetRouteResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public getRoute(
+    request: hold_pb.GetRouteRequest,
+    metadata: grpc.Metadata,
+    options: Partial<grpc.CallOptions>,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: hold_pb.GetRouteResponse,
     ) => void,
   ): grpc.ClientUnaryCall;
 }

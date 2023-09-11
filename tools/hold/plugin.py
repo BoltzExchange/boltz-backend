@@ -12,6 +12,7 @@ from errors import Errors
 from invoice import HoldInvoiceStateError
 from pyln.client import Plugin
 from pyln.client.plugin import Request
+from router import NoRouteError
 from server import Server
 from settler import HtlcFailureMessage, Settler
 from transformers import Transformers
@@ -124,6 +125,38 @@ def cancel_hold_invoice(plugin: Plugin, payment_hash: str) -> dict[str, Any]:
         return e.error
 
     return {}
+
+
+@pl.method(
+    method_name="hold-getroute",
+    category=PLUGIN_NAME,
+)
+def get_route(
+    plugin: Plugin,
+    destination: str,
+    amount_msat: int,
+    risk: int = 0,
+    max_ctlv: int | None = None,
+    final_cltv_delta: int | None = None,
+    max_retries: int | None = None,
+) -> dict[str, Any]:
+    """Get a route with less than a specified CLTV."""
+    try:
+        return {
+            "routes": [
+                hop.to_dict()
+                for hop in hold.router.get_route(
+                    destination,
+                    amount_msat,
+                    risk,
+                    max_ctlv,
+                    final_cltv_delta,
+                    max_retries,
+                )
+            ]
+        }
+    except NoRouteError:
+        return Errors.not_route
 
 
 @pl.method(

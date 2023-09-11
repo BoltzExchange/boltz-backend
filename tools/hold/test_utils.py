@@ -26,6 +26,17 @@ class RpcCaller:
 
         return cln_con(args)
 
+    @staticmethod
+    def getroute(**kwargs: dict[str, Any]) -> dict:
+        args = "getroute -k"
+        for key, val in kwargs.items():
+            if key == "exclude":
+                args += f" {key}={str(val).replace(' ', '')}"
+            else:
+                args += f" {key if key != 'node_id' else 'id'}={val}"
+
+        return cln_con(args)
+
 
 class RpcPlugin:
     rpc = RpcCaller()

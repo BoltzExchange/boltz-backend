@@ -392,3 +392,70 @@ class PayStatusResponse(_message.Message):
             _Iterable[_Union[PayStatusResponse.PayStatus, _Mapping]]
         ] = ...,
     ) -> None: ...
+
+class GetRouteRequest(_message.Message):
+    __slots__ = [
+        "destination",
+        "amount_msat",
+        "max_retries",
+        "risk_factor",
+        "max_cltv",
+        "final_cltv_delta",
+    ]
+    DESTINATION_FIELD_NUMBER: _ClassVar[int]
+    AMOUNT_MSAT_FIELD_NUMBER: _ClassVar[int]
+    MAX_RETRIES_FIELD_NUMBER: _ClassVar[int]
+    RISK_FACTOR_FIELD_NUMBER: _ClassVar[int]
+    MAX_CLTV_FIELD_NUMBER: _ClassVar[int]
+    FINAL_CLTV_DELTA_FIELD_NUMBER: _ClassVar[int]
+    destination: str
+    amount_msat: int
+    max_retries: int
+    risk_factor: int
+    max_cltv: int
+    final_cltv_delta: int
+    def __init__(
+        self,
+        destination: _Optional[str] = ...,
+        amount_msat: _Optional[int] = ...,
+        max_retries: _Optional[int] = ...,
+        risk_factor: _Optional[int] = ...,
+        max_cltv: _Optional[int] = ...,
+        final_cltv_delta: _Optional[int] = ...,
+    ) -> None: ...
+
+class GetRouteResponse(_message.Message):
+    __slots__ = ["hops", "fees_msat"]
+
+    class Hop(_message.Message):
+        __slots__ = ["id", "channel", "direction", "amount_msat", "delay", "style"]
+        ID_FIELD_NUMBER: _ClassVar[int]
+        CHANNEL_FIELD_NUMBER: _ClassVar[int]
+        DIRECTION_FIELD_NUMBER: _ClassVar[int]
+        AMOUNT_MSAT_FIELD_NUMBER: _ClassVar[int]
+        DELAY_FIELD_NUMBER: _ClassVar[int]
+        STYLE_FIELD_NUMBER: _ClassVar[int]
+        id: str
+        channel: str
+        direction: int
+        amount_msat: int
+        delay: int
+        style: str
+        def __init__(
+            self,
+            id: _Optional[str] = ...,
+            channel: _Optional[str] = ...,
+            direction: _Optional[int] = ...,
+            amount_msat: _Optional[int] = ...,
+            delay: _Optional[int] = ...,
+            style: _Optional[str] = ...,
+        ) -> None: ...
+    HOPS_FIELD_NUMBER: _ClassVar[int]
+    FEES_MSAT_FIELD_NUMBER: _ClassVar[int]
+    hops: _containers.RepeatedCompositeFieldContainer[GetRouteResponse.Hop]
+    fees_msat: int
+    def __init__(
+        self,
+        hops: _Optional[_Iterable[_Union[GetRouteResponse.Hop, _Mapping]]] = ...,
+        fees_msat: _Optional[int] = ...,
+    ) -> None: ...

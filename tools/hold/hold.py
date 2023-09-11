@@ -7,6 +7,7 @@ from htlc_handler import HtlcHandler
 from invoice import HoldInvoice, InvoiceState
 from pyln.client import Plugin, RpcError
 from route_hints import RouteHints
+from router import Router
 from settler import Settler
 from tracker import Tracker
 from utils import time_now
@@ -28,6 +29,7 @@ class Hold:
         self._encoder = Encoder(plugin)
         self._route_hints = RouteHints(plugin)
 
+        self.router = Router(plugin)
         self.ds = DataStore(plugin, self._settler)
         self.handler = HtlcHandler(plugin, self.ds, self._settler, self.tracker)
 

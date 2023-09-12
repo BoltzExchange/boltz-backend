@@ -1,5 +1,6 @@
 from typing import Any
 
+import router
 from bolt11.models.routehint import Route, RouteHint
 from datastore import HoldInvoiceHtlcs
 from invoice import InvoiceState
@@ -8,6 +9,7 @@ from protos.hold_pb2 import (
     INVOICE_CANCELLED,
     INVOICE_PAID,
     INVOICE_UNPAID,
+    GetRouteResponse,
     Hop,
     HtlcState,
     Invoice,
@@ -174,6 +176,20 @@ class Transformers:
             attempt.end_time = parse_time(res["end_time"])
 
         return attempt
+
+    @staticmethod
+    def route_to_grpc(route: list[router.Hop]) -> list[GetRouteResponse.Hop]:
+        return [
+            GetRouteResponse.Hop(
+                id=hop.node_id,
+                channel=hop.channel,
+                direction=hop.direction,
+                amount_msat=hop.amount_msat,
+                delay=hop.delay,
+                style=hop.style,
+            )
+            for hop in route
+        ]
 
     @staticmethod
     def named_tuples_to_dict(val: object) -> object:

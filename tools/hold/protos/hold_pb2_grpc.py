@@ -59,6 +59,11 @@ class HoldStub(object):
             request_serializer=hold__pb2.PayStatusRequest.SerializeToString,
             response_deserializer=hold__pb2.PayStatusResponse.FromString,
         )
+        self.GetRoute = channel.unary_unary(
+            "/hold.Hold/GetRoute",
+            request_serializer=hold__pb2.GetRouteRequest.SerializeToString,
+            response_deserializer=hold__pb2.GetRouteResponse.FromString,
+        )
 
 
 class HoldServicer(object):
@@ -118,6 +123,12 @@ class HoldServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetRoute(self, request, context):
+        """Custom algorithm that allows specifying a max delay"""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_HoldServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -165,6 +176,11 @@ def add_HoldServicer_to_server(servicer, server):
             servicer.PayStatus,
             request_deserializer=hold__pb2.PayStatusRequest.FromString,
             response_serializer=hold__pb2.PayStatusResponse.SerializeToString,
+        ),
+        "GetRoute": grpc.unary_unary_rpc_method_handler(
+            servicer.GetRoute,
+            request_deserializer=hold__pb2.GetRouteRequest.FromString,
+            response_serializer=hold__pb2.GetRouteResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -428,6 +444,35 @@ class Hold(object):
             "/hold.Hold/PayStatus",
             hold__pb2.PayStatusRequest.SerializeToString,
             hold__pb2.PayStatusResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetRoute(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/hold.Hold/GetRoute",
+            hold__pb2.GetRouteRequest.SerializeToString,
+            hold__pb2.GetRouteResponse.FromString,
             options,
             channel_credentials,
             insecure,

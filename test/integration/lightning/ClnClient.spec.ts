@@ -1,10 +1,12 @@
 import { randomBytes } from 'crypto';
 import { crypto } from 'bitcoinjs-lib';
-import { bitcoinLndClient, clnClient } from '../Nodes';
+import Errors from '../../../lib/lightning/Errors';
+import { bitcoinClient, bitcoinLndClient, clnClient } from '../Nodes';
 import { InvoiceFeature } from '../../../lib/lightning/LightningClient';
 
 describe('ClnClient', () => {
   beforeAll(async () => {
+    await bitcoinClient.generate(1);
     await bitcoinLndClient.connect(false);
   });
 
@@ -33,6 +35,46 @@ describe('ClnClient', () => {
     await expect(clnClient.settleHoldInvoice(preimageHash)).rejects.toEqual(
       expect.anything(),
     );
+  });
+
+  test('should query routes', async () => {
+    const { pubkey } = await bitcoinLndClient.getInfo();
+
+    let routes = await clnClient.queryRoutes(pubkey, 10_000);
+    expect(routes.length).toEqual(1);
+    expect(routes[0].ctlv).toEqual(9);
+    expect(routes[0].feesMsat).toEqual(0);
+
+    routes = await clnClient.queryRoutes(pubkey, 10_000, undefined, 89);
+    expect(routes.length).toEqual(1);
+    expect(routes[0].ctlv).toEqual(89);
+    expect(routes[0].feesMsat).toEqual(0);
+
+    await expect(clnClient.queryRoutes(pubkey, 10_000, 1)).rejects.toEqual(
+      Errors.NO_ROUTE(),
+    );
+  });
+
+  test('should detect pending payments', async () => {
+    const preimage = randomBytes(32);
+    const invoice = await bitcoinLndClient.addHoldInvoice(
+      10_000,
+      crypto.sha256(preimage),
+    );
+
+    bitcoinLndClient.subscribeSingleInvoice(crypto.sha256(preimage));
+    const acceptedPromise = new Promise((resolve) => {
+      bitcoinLndClient.on('htlc.accepted', resolve);
+    });
+    const payPromise = clnClient.sendPayment(invoice);
+    await acceptedPromise;
+
+    await expect(clnClient.sendPayment(invoice)).rejects.toEqual(
+      'payment already pending',
+    );
+
+    await bitcoinLndClient.settleHoldInvoice(preimage);
+    expect((await payPromise).preimage).toEqual(preimage);
   });
 
   test('should emit events for invoice acceptance and settlement', async () => {

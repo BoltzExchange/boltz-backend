@@ -9,7 +9,7 @@ class Network(str, Enum):
 
 
 PLUGIN_NAME = "hold"
-VERSION = "0.0.2"
+VERSION = "0.0.3"
 
 TIMEOUT_CANCEL = 60
 TIMEOUT_CANCEL_REGTEST = 5

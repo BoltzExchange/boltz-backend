@@ -977,6 +977,140 @@ export namespace PayStatusResponse {
   }
 }
 
+export class GetRouteRequest extends jspb.Message {
+  getDestination(): string;
+  setDestination(value: string): GetRouteRequest;
+  getAmountMsat(): number;
+  setAmountMsat(value: number): GetRouteRequest;
+  getMaxRetries(): number;
+  setMaxRetries(value: number): GetRouteRequest;
+
+  hasRiskFactor(): boolean;
+  clearRiskFactor(): void;
+  getRiskFactor(): number | undefined;
+  setRiskFactor(value: number): GetRouteRequest;
+
+  hasMaxCltv(): boolean;
+  clearMaxCltv(): void;
+  getMaxCltv(): number | undefined;
+  setMaxCltv(value: number): GetRouteRequest;
+
+  hasFinalCltvDelta(): boolean;
+  clearFinalCltvDelta(): void;
+  getFinalCltvDelta(): number | undefined;
+  setFinalCltvDelta(value: number): GetRouteRequest;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GetRouteRequest.AsObject;
+  static toObject(
+    includeInstance: boolean,
+    msg: GetRouteRequest,
+  ): GetRouteRequest.AsObject;
+  static extensions: { [key: number]: jspb.ExtensionFieldInfo<jspb.Message> };
+  static extensionsBinary: {
+    [key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>;
+  };
+  static serializeBinaryToWriter(
+    message: GetRouteRequest,
+    writer: jspb.BinaryWriter,
+  ): void;
+  static deserializeBinary(bytes: Uint8Array): GetRouteRequest;
+  static deserializeBinaryFromReader(
+    message: GetRouteRequest,
+    reader: jspb.BinaryReader,
+  ): GetRouteRequest;
+}
+
+export namespace GetRouteRequest {
+  export type AsObject = {
+    destination: string;
+    amountMsat: number;
+    maxRetries: number;
+    riskFactor?: number;
+    maxCltv?: number;
+    finalCltvDelta?: number;
+  };
+}
+
+export class GetRouteResponse extends jspb.Message {
+  clearHopsList(): void;
+  getHopsList(): Array<GetRouteResponse.Hop>;
+  setHopsList(value: Array<GetRouteResponse.Hop>): GetRouteResponse;
+  addHops(value?: GetRouteResponse.Hop, index?: number): GetRouteResponse.Hop;
+  getFeesMsat(): number;
+  setFeesMsat(value: number): GetRouteResponse;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GetRouteResponse.AsObject;
+  static toObject(
+    includeInstance: boolean,
+    msg: GetRouteResponse,
+  ): GetRouteResponse.AsObject;
+  static extensions: { [key: number]: jspb.ExtensionFieldInfo<jspb.Message> };
+  static extensionsBinary: {
+    [key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>;
+  };
+  static serializeBinaryToWriter(
+    message: GetRouteResponse,
+    writer: jspb.BinaryWriter,
+  ): void;
+  static deserializeBinary(bytes: Uint8Array): GetRouteResponse;
+  static deserializeBinaryFromReader(
+    message: GetRouteResponse,
+    reader: jspb.BinaryReader,
+  ): GetRouteResponse;
+}
+
+export namespace GetRouteResponse {
+  export type AsObject = {
+    hopsList: Array<GetRouteResponse.Hop.AsObject>;
+    feesMsat: number;
+  };
+
+  export class Hop extends jspb.Message {
+    getId(): string;
+    setId(value: string): Hop;
+    getChannel(): string;
+    setChannel(value: string): Hop;
+    getDirection(): number;
+    setDirection(value: number): Hop;
+    getAmountMsat(): number;
+    setAmountMsat(value: number): Hop;
+    getDelay(): number;
+    setDelay(value: number): Hop;
+    getStyle(): string;
+    setStyle(value: string): Hop;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): Hop.AsObject;
+    static toObject(includeInstance: boolean, msg: Hop): Hop.AsObject;
+    static extensions: { [key: number]: jspb.ExtensionFieldInfo<jspb.Message> };
+    static extensionsBinary: {
+      [key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>;
+    };
+    static serializeBinaryToWriter(
+      message: Hop,
+      writer: jspb.BinaryWriter,
+    ): void;
+    static deserializeBinary(bytes: Uint8Array): Hop;
+    static deserializeBinaryFromReader(
+      message: Hop,
+      reader: jspb.BinaryReader,
+    ): Hop;
+  }
+
+  export namespace Hop {
+    export type AsObject = {
+      id: string;
+      channel: string;
+      direction: number;
+      amountMsat: number;
+      delay: number;
+      style: string;
+    };
+  }
+}
+
 export enum InvoiceState {
   INVOICE_UNPAID = 0,
   INVOICE_ACCEPTED = 1,

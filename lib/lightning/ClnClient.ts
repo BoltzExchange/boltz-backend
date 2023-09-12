@@ -12,12 +12,12 @@ import BaseClient from '../BaseClient';
 import { ClientStatus } from '../consts/Enums';
 import * as noderpc from '../proto/cln/node_pb';
 import * as holdrpc from '../proto/hold/hold_pb';
-import { formatError, getHexString } from '../Utils';
 import { grpcOptions, unaryCall } from './GrpcUtils';
 import { NodeClient } from '../proto/cln/node_grpc_pb';
 import { HoldClient } from '../proto/hold/hold_grpc_pb';
 import { ListfundsOutputs } from '../proto/cln/node_pb';
 import * as primitivesrpc from '../proto/cln/primitives_pb';
+import { decodeInvoice, formatError, getHexString } from '../Utils';
 import { WalletBalance } from '../wallet/providers/WalletProviderInterface';
 import {
   msatToSat,
@@ -65,6 +65,7 @@ class ClnClient
   public static readonly serviceNameHold = 'hold';
 
   private static readonly paymentMinFee = 121;
+  private static readonly pendingTimeout = 120;
   private static readonly paymentTimeout = 300;
 
   private readonly maxPaymentFeeRatio!: number;
@@ -687,17 +688,46 @@ class ClnClient
     }
 
     // ... or is still pending
-    if (
-      res.statusList.some((pay) =>
-        pay.attemptsList.some(
-          (attempt) =>
-            attempt.state ===
-            holdrpc.PayStatusResponse.PayStatus.Attempt.AttemptState
-              .ATTEMPT_PENDING,
-        ),
-      )
-    ) {
-      throw 'payment already pending';
+    const pending = res.statusList.filter((pay) =>
+      pay.attemptsList.some(
+        (attempt) =>
+          attempt.state ===
+          holdrpc.PayStatusResponse.PayStatus.Attempt.AttemptState
+            .ATTEMPT_PENDING,
+      ),
+    );
+
+    if (pending.length > 0) {
+      const channels = await this.unaryNodeCall<
+        noderpc.ListpeerchannelsRequest,
+        noderpc.ListpeerchannelsResponse
+      >('listPeerChannels', new noderpc.ListpeerchannelsRequest(), false);
+
+      const pendingHtlcs = new Set<string>(
+        channels
+          .getChannelsList()
+          .flatMap((channel) =>
+            channel
+              .getHtlcsList()
+              .map((htlc) =>
+                getHexString(Buffer.from(htlc.getPaymentHash_asU8())),
+              ),
+          ),
+      );
+
+      if (
+        pending.filter((pay) => {
+          const { paymentHash } = decodeInvoice(invoice);
+
+          return pay.attemptsList.some(
+            (attempt) =>
+              attempt.ageInSeconds < ClnClient.pendingTimeout ||
+              pendingHtlcs.has(paymentHash!),
+          );
+        }).length > 0
+      ) {
+        throw 'payment already pending';
+      }
     }
 
     return undefined;

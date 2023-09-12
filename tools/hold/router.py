@@ -21,6 +21,7 @@ class Hop:
         return dict(self.__dict__.items())
 
 
+# TODO: exclude our channels where we don't have enough balance
 class Router:
     plugin: Plugin
 

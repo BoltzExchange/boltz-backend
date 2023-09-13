@@ -6,7 +6,7 @@ description: This Document describes a Docker regtest environment for developmen
 
 Prerequisites:
 
-* The latest [node.js lts and npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) installed. We recommend using [nvm](https://github.com/nvm-sh/nvm#install--update-script) to manage npm installs: `nvm install --lts`
+* The latest [Node.js LTS and npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) installed. We recommend using [nvm](https://github.com/nvm-sh/nvm#install--update-script) to manage npm installs: `nvm install --lts`
 * [Docker](https://docs.docker.com/engine/install/)
 
 The regtest environment of Boltz Backend is based on [boltz/regtest](https://hub.docker.com/r/boltz/regtest). To start the images run `npm run docker:start` and to stop them again use `npm run docker:stop` to stop and remove the containers.

@@ -17,8 +17,8 @@ The corresponding REST APIs can be accessed at:
 * Testnet: `https://testnet.boltz.exchange/api/`
 * Mainnet: `https://api.boltz.exchange/`
 
-> Note: To access the API via browser, simply append an [endpoint](api.md) to the address, e.g.:
+> Note: To test API accessibility via browser, simply append an [endpoint](api.md) to the address, e.g.:
 >
 > [`https://api.boltz.exchange/version`](https://api.boltz.exchange/version)
 
-In the following section we'll walk through existing swap types & states and then describe the REST API in the next section.
+In the following sections we'll walk through existing swap types & states, describe the REST API, how to handle refunds and more.

@@ -79,7 +79,7 @@ When spending a P2SH nested P2WSH output the signature, preimage and original re
 
 #### Examples
 
-Examples for all three output types can be found in the [`boltz-core` ](https://github.com/BoltzExchange/boltz-core/blob/master/lib/swap/Claim.ts#L23)[r](https://github.com/BoltzExchange/boltz-core/blob/master/lib/swap/Scripts.ts)eference library.
+Examples for all three output types can be found in the [`boltz-core` ](https://github.com/BoltzExchange/boltz-core/blob/master/lib/swap/Claim.ts#L23) [reference library](https://github.com/BoltzExchange/boltz-core/blob/master/lib/swap/Scripts.ts).
 
 ### Refund transactions
 

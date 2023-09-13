@@ -1,8 +1,7 @@
 ---
 description: >-
-  Boltz exposes a RESTful HTTP API that can be used to query information like
-  supported pairs and to create as well as monitor swaps. This page lists all
-  available endpoints and shows how to use them.
+  This page lists all available endpoints of Boltz's RESTful HTTP API and shows
+  how to use them.
 ---
 
 # 🤖 REST API

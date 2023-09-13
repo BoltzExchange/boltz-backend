@@ -113,7 +113,7 @@ minSwapAmount = 10_000
 #  swapMinimal = 1440
 #  swapMaximal = 2880
 [[pairs]]
-base = "BTC"
+base = "L-BTC"
 quote = "BTC"
 rate = 1
 fee = 0.5

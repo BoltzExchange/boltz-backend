@@ -23,7 +23,7 @@ If a call fails for some reason the returned [HTTP status code](https://en.wikip
 }
 ```
 
-### Backend Version
+## Backend Version
 
 Returns the version of [Boltz Backend](https://github.com/BoltzExchange/boltz-backend) serving the API. A good call to get started and see if Boltz API requests and responses are working.
 
@@ -387,13 +387,13 @@ Status Codes:
 
 Response objects:
 
-What is returned when the invoice is set depends on the status of the Submarine Swap. If no funds were sent (status [`swap.created`](<README (1).md#normal-submarine-swaps>)) the endpoint will return a `JSON` object with these values:
+What is returned when the invoice is set depends on the status of the Submarine Swap. If no funds were sent (status [`swap.created`](lifecycle.md#normal-submarine-swaps)) the endpoint will return a `JSON` object with these values:
 
 * `acceptZeroConf`: whether Boltz will accept 0-conf for this swap
 * `expectedAmount`: the amount that Boltz expects you to lock in the chain HTLC
 * `bip21`: a [BIP21 payment request](https://github.com/bitcoin/bips/blob/master/bip-0021.mediawiki) for the `expectedAmount` of bitcoin and the `address` (only set when swapping from UTXO based chains)
 
-If chain bitcoin were sent already (status [`transaction.mempool`](<README (1).md#normal-submarine-swaps>) or [`transaction.confirmed`](<README (1).md#normal-submarine-swaps>)) the endpoint will return an empty `JSON` object, signifying success.
+If chain bitcoin were sent already (status [`transaction.mempool`](lifecycle.md#normal-submarine-swaps) or [`transaction.confirmed`](lifecycle.md#normal-submarine-swaps)) the endpoint will return an empty `JSON` object, signifying success.
 
 In case this endpoint is called again after an invoice was set and Boltz tried to pay it already:
 
@@ -636,9 +636,9 @@ Response body:
 
 ## Swap Status
 
-_Before handling status events of this method it is recommended to read:_ [_Swap Types & States_](<README (1).md>)
+_Before handling status events of this method it is recommended to read:_ [_Swap Types & States_](lifecycle.md)
 
-To query the status of a swap one can use this endpoint which returns a `JSON` object containing the status of the swap. Possible states and status events are documented in the section [Swap Types & States](<README (1).md>)_._
+To query the status of a swap one can use this endpoint which returns a `JSON` object containing the status of the swap. Possible states and status events are documented in the section [Swap Types & States](lifecycle.md)_._
 
 Requests querying the status of a swap have to be `POST` and contain a single value in its `JSON` encoded body:
 

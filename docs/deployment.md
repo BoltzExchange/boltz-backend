@@ -12,7 +12,7 @@ Prerequisites:
 * The latest [node.js lts and npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) installed. We recommend using [nvm](https://github.com/nvm-sh/nvm#install--update-script) to manage npm installs: `nvm install --lts`
 * [rsync](https://github.com/WayneD/rsync) (needed to compile the `TypeScript` code)
 
-Boltz Backend requires a synced Bitcoin Core Instance to connect to the Bitcoin mainchain. Similarly Elements Core to connect to the Liquid sidechain etc. Bitcoin Core must
+Boltz Backend requires a synced Bitcoin Core Instance to connect to the Bitcoin mainchain. Similarly, Elements Core to connect to the Liquid sidechain etc. Bitcoin Core must:
 
 * Have the transaction index enabled: `txindex=1`
 * Enable ZeroMQ streams for raw blocks and raw transactions: (`zmqpubrawblock=tcp://<host>:<port>` and `zmqpubrawtx=tcp://<host>:<port>`)

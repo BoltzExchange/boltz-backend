@@ -10,8 +10,8 @@ description: >-
 
 Boltz currently offers two types of [Atomic Swaps](https://en.bitcoin.it/wiki/Atomic\_swap):
 
-* [Normal Submarine Swaps](<README (1).md#normal-submarine-swaps>) (Chain -> Lightning)
-* [Reverse Submarine Swaps](<README (1).md#reverse-submarine-swaps>) (Lightning -> Chain)
+* [Normal Submarine Swaps](lifecycle.md#normal-submarine-swaps) (Chain -> Lightning)
+* [Reverse Submarine Swaps](lifecycle.md#reverse-submarine-swaps) (Lightning -> Chain)
 
 ## Swap States
 

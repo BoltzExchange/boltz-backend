@@ -1,7 +1,7 @@
 # Table of contents
 
 * [👋 Introduction](README.md)
-* [🔁 Swap Types & States](<README (1).md>)
+* [🔁 Swap Types & States](lifecycle.md)
 * [🤖 REST API](api.md)
 * [📩 Refund Files](swap-files.md)
 * [🧾 Scripting](scripting.md)

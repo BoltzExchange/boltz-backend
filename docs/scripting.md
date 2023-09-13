@@ -53,7 +53,7 @@ OP_EQUAL
 
 #### Examples
 
-Examples for generating all of these addresses with `Node.js` can be found in the [`boltz-core` r](https://github.com/BoltzExchange/boltz-core/blob/master/lib/swap/Scripts.ts)eference library.
+Examples for generating all of these addresses with `Node.js` can be found in the [`boltz-core`](https://github.com/BoltzExchange/boltz-core/blob/master/lib/swap/Scripts.ts) reference library.
 
 ### Claim transactions
 

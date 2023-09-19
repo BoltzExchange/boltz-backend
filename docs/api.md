@@ -167,17 +167,17 @@ Normal Submarine Swaps: If you already know the amount to be swapped, you should
 
 * `invoice`: the invoice of the user that should be paid
 
-If the amount is **not** known yet, a **preimage hash has be specified**. The invoice that is provided later[ during the lifecycle of the Submarine Swap](api.md#setting-the-invoice-of-a-swap) has to have the _same preimage hash_ as the one specified here.
+If the amount is **not** known yet, a **preimage hash has be specified**. The invoice that is provided later [during the lifecycle of the Submarine Swap](api.md#set-invoice) has to have the _same preimage hash_ as the one specified here.
 
 * `preimageHash`: hash of a preimage that will be used for the invoice that is set later on
 
 We recommend verifing that pair data fetched previously is still accurate by additionally passing the `pairHash` argument in this call.
 
-* `pairHash`: `hash` string in the pair object of [`/getpairs`](api.md#getting-pairs)
+* `pairHash`: `hash` string in the pair object of [`/getpairs`](api.md#supported-pairs)
 
 > Note: Channel creation is currently disabled!
 
-~~Boltz also supports opening a channel to your node before paying your invoice. To ensure that this service works as advertised **make sure to connect your Lightning node to ours** before creating the swap. You can either query the URIs of our Lightning nodes with~~ [~~`/getnodes`~~](api.md#getting-lightning-nodes)~~, find them in the FAQ section of our website or on Lightning explorers like~~ [~~1ML~~](https://1ml.com) ~~under the query "Boltz". To let Boltz open a channel to you have to set a couple more values in the request when creating a swap:~~
+~~Boltz also supports opening a channel to your node before paying your invoice. To ensure that this service works as advertised **make sure to connect your Lightning node to ours** before creating the swap. You can either query the URIs of our Lightning nodes with~~ [~~`/getnodes`~~](api.md#lightning-node-info)~~, find them in the FAQ section of our website or on Lightning explorers like~~ [~~1ML~~](https://1ml.com) ~~under the query "Boltz". To let Boltz open a channel to you have to set a couple more values in the request when creating a swap:~~
 
 * ~~`channel`: a `JSON` object that contains all the information relevant to the creation of the channel~~
   * ~~`auto`: whether Boltz should dynamically decide if a channel should be created based on whether the invoice you provided can be paid without opening a channel. More modes will be added in the future~~

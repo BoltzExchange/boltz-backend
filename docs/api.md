@@ -295,7 +295,7 @@ Response:
 
 ### EVM Chains (Coming Soon!)
 
-~~Swaps from account-based EVM chains like RSK do not require a new address for every swap. `/createswap` takes the details of the swap (like lightning invoice and pair) and Boltz waits until the user locked e.g. rBTC in the contract. The addresses of those contracts can be queried with~~ [~~`/getcontracts`~~](http://localhost:8000/api/#getting-contracts) ~~and the address of the contract that needs to be used for the swap is also returned in the response of this request.~~
+~~Swaps from account-based EVM chains like RSK do not require a new address for every swap. `/createswap` takes the details of the swap (like lightning invoice and pair) and Boltz waits until the user locked e.g. rBTC in the contract. The addresses of those contracts can be queried with~~ [~~`/getcontracts`~~](api.md#swap-contracts-coming-soon) ~~and the address of the contract that needs to be used for the swap is also returned in the response of this request.~~
 
 ~~The request does not require any additional values.~~
 

@@ -15,7 +15,7 @@ As of writing, no Lightning implementation supports enforcing invoice payment th
 
 ### CLN - Plugin
 
-One way is to incorporate a logic similar to the one of the external daemon described below directly into the Lightning implementation. This can be done by modifying the source code of the client or by creating a plugin. We provide a [core lightning](https://github.com/ElementsProject/lightning) plugin for this use case. The full source code of the plugin can be found in [this repository](https://github.com/BoltzExchange/channel-creation-plugin).
+One way is to incorporate a logic similar to the one of the external daemon described below directly into the Lightning implementation. This can be done by modifying the source code of the client or by creating a plugin. We provide a [Core Lightning](https://github.com/ElementsProject/lightning) plugin for this use case. The full source code of the plugin can be found in [this repository](https://github.com/BoltzExchange/channel-creation-plugin).
 
 ### LND - External Daemon
 

@@ -2,7 +2,7 @@
 description: >-
   Boltz exposes a RESTful HTTP API that can be used to query information like
   supported pairs as well as to create and monitor swaps.
-cover: .gitbook/assets/Screenshot from 2023-09-19 18-09-16.png
+cover: .gitbook/assets/backend_header
 coverY: 0
 ---
 

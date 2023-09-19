@@ -486,7 +486,7 @@ Or by setting the amount that will be locked in the chain HTLC. That amount is _
 
 We recommend verifing that pair data fetched previously is still accurate by additionally passing the `pairHash` argument in this call.
 
-* `pairHash`: `hash` string in the pair object of [`/getpairs`](api.md#getting-pairs)
+* `pairHash`: `hash` string in the pair object of [`/getpairs`](api.md#supported-pairs)
 
 | URL                | Response      |
 | ------------------ | ------------- |

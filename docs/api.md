@@ -861,7 +861,7 @@ Response:
 
 Boltz provides an API endpoint that returns fee estimations for all supported chains. These fee estimations are _not_ enforced by Boltz and merely represent a recommendation.
 
-For UTXO chains like Bitcoin it is important to mention that if 0-conf is accepted by Boltz  for a particular pair (see [section](api.md#getting-pairs) above) and to be used with Normal Submarine Swaps, the lockup transaction has to have at least 80% of the recommended `sat/vbyte` value. One can read more about the what and why in the [0-conf docs](0-confirmation.md).
+For UTXO chains like Bitcoin it is important to mention that if 0-conf is accepted by Boltz for a particular pair and to be used with Normal Submarine Swaps, the lockup transaction has to have at least 80% of the recommended `sat/vbyte` value. One can read more about the what and why in the [0-conf docs](0-confirmation.md).
 
 | URL                     | Response      |
 | ----------------------- | ------------- |

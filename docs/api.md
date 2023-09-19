@@ -348,7 +348,7 @@ Status Codes:
 
 Response object:
 
-* `invoiceAmount`: amount of the invoice that should be set with [/setinvoice](api.md#setting-the-invoice-of-a-swap)
+* `invoiceAmount`: amount of the invoice that should be set with [/setinvoice](api.md#setting-an-invoice)
 
 **Examples:**
 

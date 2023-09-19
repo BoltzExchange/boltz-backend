@@ -348,7 +348,7 @@ Status Codes:
 
 Response object:
 
-* `invoiceAmount`: amount of the invoice that should be set with [`/setinvoice`](api.md#setting-an-invoice)
+* `invoiceAmount`: amount of the invoice that should be set with [`/setinvoice`](api.md#set-invoice)
 
 **Examples:**
 
@@ -368,7 +368,7 @@ Response:
 }
 ```
 
-### Setting an Invoice
+### Setting an Invoice <a href="#set-invoice" id="set-invoice"></a>
 
 In case the amount to be swapped is not known when creating a Normal Submarine Swap, the invoice can be set afterwards; even if the chain bitcoin were sent already. Please keep in mind that the invoice **has to have the same preimage hash** that was specified when creating the swap. Although the invoice can be changed after setting it initially, this endpoint will only work if Boltz did not try to pay the initial invoice yet. Requests to this endpoint have to be `POST` and should have the following values in its `JSON` encoded body:
 

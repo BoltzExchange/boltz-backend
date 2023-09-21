@@ -19,7 +19,7 @@ black = "^23.7.0"
 grpcio = "^1.58.0"
 grpcio-tools = "^1.58.0"
 grpc-interceptor = "^0.15.2"
-cryptography = "^41.0.3"
+cryptography = "^41.0.4"
 
 [build-system]
 requires = ["poetry-core"]

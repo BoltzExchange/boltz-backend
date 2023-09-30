@@ -1,7 +1,6 @@
 # Boltz-backend
 
 [![CI](https://github.com/BoltzExchange/boltz-backend/workflows/CI/badge.svg?branch=master)](https://github.com/BoltzExchange/boltz-backend/actions)
-[![Documentation Status](https://readthedocs.org/projects/boltz-backend/badge/?version=latest)](https://docs.boltz.exchange)
 [![Discord](https://img.shields.io/discord/547454030801272832.svg)](https://discordapp.com/invite/QBvZGcW)
 [![Version](https://img.shields.io/npm/v/boltz-backend.svg)](https://www.npmjs.com/package/boltz-backend)
 

@@ -1,20 +1,25 @@
-# Deployment of the Boltz Backend
+---
+description: >-
+  Deploying Boltz backend has to be done with great care since it will have full
+  control over the Lightning Node it is connected to. With great power comes
+  great responsibility.
+---
 
-Deploying the Boltz backend has to be done with great care since it will have full control over the Lightning Node it is connected to. *With great power comes great responsibility.*
+# 🚢 Deployment of Boltz Backend
 
 Prerequisites:
 
-* The latest Node.js LTS release (`v18.16.1` as of writing this)
-* `rsync` (needed to compile the TypeScript code)
+* The latest [node.js lts and npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) installed. We recommend using [nvm](https://github.com/nvm-sh/nvm#install--update-script) to manage npm installs: `nvm install --lts`
+* [rsync](https://github.com/WayneD/rsync) (needed to compile the `TypeScript` code)
 
-The Boltz backend requires a synced Bitcoin Core or Litecoin Core instance to connect to the Bitcoin or Litecoin chain. These nodes need to:
+Boltz Backend requires a synced Bitcoin Core Instance to connect to the Bitcoin mainchain. Similarly, Elements Core to connect to the Liquid sidechain etc. Bitcoin Core must:
 
-* Have the transaction index enabled `txindex=1`
-* Enable ZeroMQ streams for raw blocks and raw transactions (`zmqpubrawblock=tcp://<host>:<port>` and `zmqpubrawtx=tcp://<host>:<port>`)
+* Have the transaction index enabled: `txindex=1`
+* Enable ZeroMQ streams for raw blocks and raw transactions: (`zmqpubrawblock=tcp://<host>:<port>` and `zmqpubrawtx=tcp://<host>:<port>`)
 
-If the Bitcoin or Litecoin chain should also support Lightning, an [LND node](https://github.com/LightningNetwork/lnd) has to be running on the same chain. The LND node does not need to be configured in any special way but has to support `invoicesrpc`. This can be achieved by using an official release binary from the LND repository or by compiling LND with `-tags="invoicesrpc"`.
+Boltz requires a [LND](https://github.com/LightningNetwork/lnd) or [CLN](https://github.com/ElementsProject/lightning/) node running on Bitcoin to be present. For LND, no special configuration is needed, all [official release binaries](https://github.com/lightningnetwork/lnd/releases) are compatible.
 
-## Configuration
+## Config Sample
 
 ```toml
 configpath = "/home/boltz/.boltz/boltz.conf"
@@ -34,7 +39,7 @@ loglevel = "debug"
 #   - true: P2WSH
 swapwitnessaddress = false
 
-# Enables the prepay minerfee Reverse Swap procotol
+# Enables the prepay minerfee Reverse Submarine Swap procotol
 # If this value is "true", an invoice for the miner fee has to be paid
 # before hold invoice of the Revese Swap
 prepayminerfee = false
@@ -58,7 +63,7 @@ keypath = "/home/boltz/.boltz/tls.key"
 [rates]
 interval = 1
 
-# The Boltz Backend allows for backing up the LND channel backups and
+# Boltz Backend allows for backing up LND channel backups and
 # the database to a Google Cloud Storage Bucket
 [backup]
 email = ""
@@ -67,8 +72,8 @@ bucketname = ""
 # Cron interval at which a new backup should be uploaded. The default value is daily
 interval = "0 0 * * *"
 
-# The Boltz backend supports sending messages to Discord after successful and failed
-# Swaps and if the wallet or channel balance is underneath a configurable threshold 
+# Boltz backend supports sending messages to Discord after successful and failed
+# Swaps and if the wallet or channel balance is below a configurable threshold 
 [notification]
 token = ""
 channel = ""
@@ -93,15 +98,6 @@ otpsecretpath = "/home/boltz/.boltz/otpSecret.dat"
 #             - Poloniex
 # - "fee": percentage of the swapped amount that should be charged as fee
 # - "swapInFee" (optional): same as "fee" but for swaps from onchain to lightning; defaults to "fee" if not set 
-
-[[pairs]]
-base = "LTC"
-quote = "BTC"
-timeoutDelta = 400
-
-maxSwapAmount = 10_000_000
-minSwapAmount = 10_000
-
 [[pairs]]
 base = "BTC"
 quote = "BTC"
@@ -116,11 +112,9 @@ minSwapAmount = 10_000
 #  reverse = 1440
 #  swapMinimal = 1440
 #  swapMaximal = 2880
-
-
 [[pairs]]
-base = "LTC"
-quote = "LTC"
+base = "L-BTC"
+quote = "BTC"
 rate = 1
 fee = 0.5
 swapInFee = 0.2
@@ -167,28 +161,5 @@ maxZeroConfAmount = 10_000_000
   port = 10_009
   certpath = "/home/boltz/.lnd/bitcoin/tls.cert"
   macaroonpath = "/home/boltz/.lnd/bitcoin/admin.macaroon"
-  maxPaymentFeeRatio = 0.03
-
-[[currencies]]
-symbol = "LTC"
-network = "litecoinTestnet"
-minWalletBalance = 20_000_000
-minChannelBalance = 0
-maxZeroConfAmount = 1_000_000_000
-
-  [currencies.chain]
-  host = "127.0.0.1"
-  port = 19_332
-
-  cookie = ""
-
-  user = "litecoin"
-  password = "litecoin"
-
-  [currencies.lnd]
-  host = "127.0.0.1"
-  port = 11_009
-  certpath = "/home/boltz/.lnd/litecoin/tls.cert"
-  macaroonpath = "/home/boltz/.lnd/litecoin/admin.macaroon"
   maxPaymentFeeRatio = 0.03
 ```

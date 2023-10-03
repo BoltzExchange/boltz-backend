@@ -1,30 +1,38 @@
-# Swap Lifecycle
+---
+description: >-
+  Boltz offers several different swap types. This document describes the types
+  and different states a particular swap type traverses.
+---
 
-## Introduction
+# 🔁 Swap Types & States
 
-There are two types of [Atomic Swaps](https://en.bitcoin.it/wiki/Atomic_swap):
+## Swap Types
 
-- [Normal Submarine Swaps](#normal-submarine-swaps)
-- [Reverse Submarine Swaps](#reverse-submarine-swaps)
+Boltz currently offers two types of [Atomic Swaps](https://en.bitcoin.it/wiki/Atomic\_swap):
 
-## Normal Submarine Swaps
+* [Normal Submarine Swaps](lifecycle.md#normal-submarine-swaps) (Chain -> Lightning)
+* [Reverse Submarine Swaps](lifecycle.md#reverse-submarine-swaps) (Lightning -> Chain)
 
-Normal swaps are from onchain coins to lightning ones. Which means the user creates an invoice, sends coins to an provided onchain address and Boltz takes care of everything else. When a normal swap is created it doesn't have a status until:
+## Swap States
 
-1. `swap.created`: initial status of the Submarine Swap; the initial status could also be `invoice.set` in case the invoice was specified in the request creating the swap
-2. `transaction.mempool`: a transaction that sends coins to the onchain address of the swap is found in the mempool
-3. `transaction.confirmed`: that transaction was included in a block
-4. `invoice.set`: when the invoice of the Submarine Swap was set
-5. once the said transaction is included in a block (or found in the mempool in case of [0-confirmation](0-confirmation.md)) Boltz will try to pay the invoice provided by the user in order to claim the onchain coins
-    - `invoice.paid`: if paying the invoice was successful
-    - `invoice.failedToPay`: if paying the invoice failed. In which case the locked up onchain coins should be refunded
-6. `transaction.claimed`: indicates that the invoice was successfully paid for and that the onchain coins were claimed by the Boltz instance
+### Normal Submarine Swaps
 
-If the user doesn't send onchain coins until the time lock is expired, Boltz will set the status of the swap to `swap.expired` which means that it was abandoned and sending onchain coins will have no effect.
+"Normal Submarine Swaps" move bitcoin from the chain to Lightning. "Chain" can be the Bitcoin mainchain or, for instance, the Liquid sidechain. Typically the user creates a Lightning invoice, sends bitcoin to a provided chain address and Boltz takes care of everything else.
 
-For more information about the refunding onchain coins, checkout the [scripting docs](scripting.md).
+When a Normal Submarine Swap is created, it passes through the following states:
 
-When a Channel Creation is involved in the Swap protocol, the backend will send the event `channel.created` after `transaction.confirmed`. This event means that a channel has been opened to the requested node. Alongside the status update, the JSON object `channel` is sent, which contains information about the funding transaction of the opened channel:
+1. `swap.created`: initial state of the swap; _optionally_ the initial state can also be `invoice.set` in case the invoice was already specified in the `/createswap` request. [Boltz Web App](https://github.com/BoltzExchange/boltz-web-app) is an example for a client that sets the invoice with `/createswap` already.
+2. `transaction.mempool`: a transaction that sends bitcoin to the chain address is found in the mempool, meaning user sent funds to the lockup chain address.
+3. `transaction.confirmed`: the lockup transaction was included in a block. For mainchain swaps, Boltz always waits for one confirmation before continuing with the swap. The [`getpairs`](api.md#supported-pairs) call provides amount limits for which Boltz accepts [0-conf](0-confirmation.md#limits) per pair.
+4. `invoice.set`: if the invoice was _not_ set as part of the `/createswap` request, this state confirms that an invoice with the correct amount and hash was set.
+5. Once the user's lockup transaction is included in a block (or found in the mempool in case [0-conf](0-confirmation.md) applies), Boltz will try to pay the invoice provided by the user. When successful, Boltz obtains the preimage needed to claim the chain bitcoin. State of the Lightning payment is either:
+   * `invoice.paid`: if paying the invoice was successful or
+   * `invoice.failedToPay`: if paying the invoice failed. In this case the user needs to broadcast a refund transaction to reclaim the locked up chain bitcoin
+6. `transaction.claimed`: indicates that after the invoice was successfully paid, the chain Bitcoin were successfully claimed _by Boltz_. This is the final status of a successful Normal Submarine swap.
+
+If the user doesn't send chain bitcoin and the swap expires (approximately 24h), Boltz will set the state of the swap to `swap.expired` , which means that it was cancelled and chain bitcoin shouldn't be sent anymore. In case of `invoice.failedToPay` or `swap.expired` but bitcoin were sent, the user needs to submit a refund transaction to reclaim their locked chain bitcoin. For more information about how clients can construct & submit refund transactions for users, check out the [scripting](scripting.md) section.
+
+When a "Channel Creation" is involved in the swap protocol, Boltz will send the event `channel.created` after `transaction.confirmed`. This event means that a channel has been opened to the requested node. Alongside the state update, the `JSON` object `channel` is sent, which contains information about the funding transaction of the opened channel:
 
 ```json
 {
@@ -36,20 +44,20 @@ When a Channel Creation is involved in the Swap protocol, the backend will send 
 }
 ```
 
-## Reverse Submarine Swaps
+### Reverse Submarine Swaps
 
-Reverse swaps are from lightning to onchain coins. In this scenario the user generates a preimage, creates SHA256 hash of it and sends that hash to Boltz. With that hash Boltz creates a hold invoice, that can only be settled when the preimage is revealed to the boltz backend. The user pays that invoice, but the lightning coins are not transferred to Boltz yet because it doesn't know the preimage. Therefore, the backend locks up onchain coins using the same hash so that these can be claimed with the preimage. When the claim transaction is broadcasted by the user, Boltz detects the preimage and in turn claims the lightning coins.
+"Reverse Submarine Swaps" move bitcoin from Lightning to the chain. Again, "chain" can refer to the Bitcoin mainchain or, for instance, the Liquid sidechain. "Reverse Submarine Swaps" start with the client generating a preimage, then a SHA256 hash of it and sending that hash to Boltz. With this hash Boltz creates a hold invoice, that can only be settled when the preimage is revealed. The user pays the invoice, but the Lightning payment doesn't execute yet because Boltz doesn't know the preimage to claim it. Next, Boltz locks up chain bitcoin using the same hash so that these can be claimed with the previously generated preimage by the client. When the claim transaction for the chain bitcoin is broadcasted by the user, Boltz detects the preimage and in turn claims the lightning bitcoin. The [scripting](scripting.md) section contains details about how clients can construct claim transactions for their users.
 
-The [scripting docs](scripting.md) contain details about constructing claim transactions.
+The following states are traversed in the course of a Reverse Submarine Swap:
 
-1. `swap.created`: initial status of the Reverse Submarine Swap
-2. `minerfee.paid`: only if the instance requires prepaying miner fees (our official instance do not) or the Reverse Swap enabled the Ethereum prepay miner fee; event is sent when the miner fee invoice is paid
-3. `transaction.mempool`: the lockup transaction is found in the mempool which will happen after the user pay the hold invoice
-4. `transaction.confirmed`: the lockup transaction is included in a block. This status can and will be skipped if the user wants to accept a 0-conf transaction
-5. `invoice.settled`: the transaction claiming the onchain coins was broadcasted and Boltz received the offchain coins
+1. `swap.created`: initial state of the Reverse Submarine Swap
+2. `minerfee.paid`: optional and currently not enabled on Boltz. If Boltz requires prepaying miner fees via a separate Lightning invoice, this event is sent when the miner fee invoice is paid
+3. `transaction.mempool`: Boltz's lockup transaction is found in the mempool which will only happen after the user paid the Lightning hold invoice
+4. `transaction.confirmed`: the lockup transaction was included in a block. This state is skipped if the client optionally accepts the transaction without confirmation. Boltz broadcasts chain transactions non-RBF only.
+5. `invoice.settled`: the transaction claiming chain Bitcoin was broadcasted and Boltz received the Lightning bitcoin. This is the final status of a successful Reverse Submarine Swap.
 
-The status update `invoice.expired` is sent when the invoice(s) of Boltz expire and pending HTLCs are cancelled.
+The status `invoice.expired` is set when the invoice of Boltz expired and pending HTLCs are cancelled. If the swap expires without the lightning invoice being paid, the status of the swap will be `swap.expired`.
 
-If Boltz is unable to send the agreed amount of onchain coins after the invoice is paid, the status of the status will become `transaction.failed` and the pending lightning HTLC will be cancelled.
+If Boltz for some reason is unable to send the agreed amount of chain bitcoin after the user paid the Lightning invoice, the status of the swap will be `transaction.failed` and the pending lightning HTLC will be cancelled. The Lightning bitcoin automatically bounce back to the user, no further action or refund is required and the user didn't pay any fees.
 
-In case of the timelock expiring, Boltz will automatically refund its locked up coins. The status of the reverse swap will change to `transaction.refunded` and paying the invoice becomes futile because the locked up coins were already spent by the refunding transaction and only cause a pending HTLC in one of the channels of the user. If the reverse swap expires before the invoice is paid, the status of the swap will change to `swap.expired`.
+In case of the chain timelock expiring, Boltz will automatically refund its own locked chain Bitcoin. The status of the swap will be `transaction.refunded` and paying the invoice becomes futile because the locked up Bitcoin were already claimed back by Boltz and only cause a pending Lightning HTLC for the user, the payment won't execute.

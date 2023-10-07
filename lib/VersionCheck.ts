@@ -83,8 +83,8 @@ class VersionCheck {
       maximal: '0.0.3',
     },
     [LndClient.serviceName]: {
-      minimal: '0.15.0',
-      maximal: '0.16.4',
+      minimal: '0.16.0',
+      maximal: '0.17.0',
     },
   };
 

@@ -1,5 +1,6 @@
-import { getPairId } from '../Utils';
+import Logger from '../Logger';
 import { ConfigType } from '../Config';
+import { getPairId, mapToObject, stringify } from '../Utils';
 
 type Params = {
   k: number;
@@ -13,7 +14,10 @@ class RoutingOffsets {
   private params = new Map<string, Params>();
   private exceptions = new Map<string, Map<string, number>>();
 
-  constructor(config: ConfigType) {
+  constructor(
+    private logger: Logger,
+    config: ConfigType,
+  ) {
     config.pairs.forEach((pair) => {
       const k =
         (RoutingOffsets.maxOffset - RoutingOffsets.minOffset) /
@@ -26,14 +30,17 @@ class RoutingOffsets {
     });
 
     config.currencies.forEach((currency) => {
-      this.exceptions.set(
-        currency.symbol,
-        new Map<string, number>(
-          (currency.routingOffsetExceptions || []).map((exception) => [
-            exception.nodeId,
-            exception.offset,
-          ]),
-        ),
+      const exceptions = new Map<string, number>(
+        (currency.routingOffsetExceptions || []).map((exception) => [
+          exception.nodeId,
+          exception.offset,
+        ]),
+      );
+      this.exceptions.set(currency.symbol, exceptions);
+      this.logger.debug(
+        `Using routing offset exceptions for ${currency.symbol}: ${stringify(
+          mapToObject(exceptions),
+        )}`,
       );
     });
   }
@@ -42,12 +49,29 @@ class RoutingOffsets {
     pair: string,
     amount: number,
     lightningCurrency: string,
-    destination: string,
+    destinations: string[],
   ): number => {
-    return (
-      this.getOffsetException(lightningCurrency, destination) ||
-      this.calculateOffset(pair, amount)
-    );
+    const exceptions = destinations
+      .map((destination) => [
+        destination,
+        this.getOffsetException(lightningCurrency, destination),
+      ])
+      .filter(
+        (exception): exception is [string, number] =>
+          exception[1] !== undefined,
+      );
+
+    if (exceptions.length > 0) {
+      const exception = exceptions.reduce((e, max) => {
+        return e[1] > max[1] ? e : max;
+      });
+      this.logger.debug(
+        `Using routing exception of ${exception[0]}: ${exception[1]}`,
+      );
+      return exception[1];
+    }
+
+    return this.calculateOffset(pair, amount);
   };
 
   private getOffsetException = (

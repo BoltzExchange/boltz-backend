@@ -1,3 +1,4 @@
+import Logger from '../../../lib/Logger';
 import { getPairId } from '../../../lib/Utils';
 import { ConfigType } from '../../../lib/Config';
 import RoutingOffsets from '../../../lib/service/RoutingOffsets';
@@ -38,7 +39,7 @@ describe('RoutingOffsets', () => {
     ],
   } as unknown as ConfigType;
 
-  const offs = new RoutingOffsets(config);
+  const offs = new RoutingOffsets(Logger.disabledLogger, config);
 
   test('should calculate formula params on init', () => {
     expect(offs['params'].size).toEqual(config.pairs.length);
@@ -100,9 +101,12 @@ describe('RoutingOffsets', () => {
   );
 
   test.each`
-    pair         | amount    | lightningCurrency | destination    | expected
-    ${'BTC/BTC'} | ${50_000} | ${'BTC'}          | ${'node 1'}    | ${150}
-    ${'BTC/BTC'} | ${50_000} | ${'BTC'}          | ${'not found'} | ${60}
+    pair         | amount    | lightningCurrency | destination                                | expected
+    ${'BTC/BTC'} | ${50_000} | ${'BTC'}          | ${['node 1']}                              | ${150}
+    ${'BTC/BTC'} | ${50_000} | ${'BTC'}          | ${['some other node', 'node 1']}           | ${150}
+    ${'BTC/BTC'} | ${50_000} | ${'BTC'}          | ${['some other node', 'node 2']}           | ${120}
+    ${'BTC/BTC'} | ${50_000} | ${'BTC'}          | ${['some other node', 'node 2', 'node 1']} | ${150}
+    ${'BTC/BTC'} | ${50_000} | ${'BTC'}          | ${['not found']}                           | ${60}
   `(
     'should take offset exception over calculation',
     ({ pair, amount, lightningCurrency, destination, expected }) => {

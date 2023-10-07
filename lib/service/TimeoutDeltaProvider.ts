@@ -60,7 +60,7 @@ class TimeoutDeltaProvider {
     private ethereumManager: EthereumManager,
     private nodeSwitch: NodeSwitch,
   ) {
-    this.routingOffsets = new RoutingOffsets(config);
+    this.routingOffsets = new RoutingOffsets(this.logger, config);
   }
 
   public static convertBlocks = (
@@ -277,7 +277,9 @@ class TimeoutDeltaProvider {
       pair,
       decodedInvoice.value,
       lightningCurrency,
-      decodedInvoice.destination,
+      [decodedInvoice.destination].concat(
+        decodedInvoice.routingHints.map((hints) => hints[0].nodeId),
+      ),
     );
     const finalExpiry = routeDeltaMinutes + routingOffset;
 

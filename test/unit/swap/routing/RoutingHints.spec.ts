@@ -1,14 +1,17 @@
 import Logger from '../../../../lib/Logger';
 import { Currency } from '../../../../lib/wallet/WalletManager';
+import { NodeType } from '../../../../lib/db/models/ReverseSwap';
 import RoutingHints from '../../../../lib/swap/routing/RoutingHints';
 
 const mockStart = jest.fn().mockResolvedValue(undefined);
+const mockStop = jest.fn();
 const mockRoutingHints = jest.fn().mockResolvedValue('lnd');
 
 jest.mock('../../../../lib/swap/routing/RoutingHintsLnd', () => {
   return jest.fn().mockImplementation(() => {
     return {
       start: mockStart,
+      stop: mockStop,
       routingHints: mockRoutingHints,
     };
   });
@@ -16,6 +19,7 @@ jest.mock('../../../../lib/swap/routing/RoutingHintsLnd', () => {
 
 describe('RoutingHints', () => {
   const clnClient = {
+    stop: jest.fn(),
     routingHints: jest.fn().mockResolvedValue('cln'),
   };
 
@@ -52,6 +56,7 @@ describe('RoutingHints', () => {
       cln: clnClient,
       lnd: expect.anything(),
     });
+    expect(providers.get('neither')).toBeUndefined();
   });
 
   test('should start', async () => {
@@ -59,15 +64,45 @@ describe('RoutingHints', () => {
     expect(mockStart).toHaveBeenCalledTimes(2);
   });
 
+  test('should stop', async () => {
+    hints.stop();
+    expect(mockStop).toHaveBeenCalledTimes(2);
+    expect(clnClient.stop).toHaveBeenCalledTimes(2);
+  });
+
   test.each`
-    symbol       | expected
-    ${'lnd'}     | ${'lnd'}
-    ${'cln'}     | ${'cln'}
-    ${'both'}    | ${'lnd'}
-    ${'neither'} | ${[]}
-  `('should get routing hints for $symbol', async ({ symbol, expected }) => {
-    await expect(hints.getRoutingHints(symbol, 'node')).resolves.toEqual(
-      expected,
-    );
+    symbol       | nodeType        | expected
+    ${'lnd'}     | ${undefined}    | ${'lnd'}
+    ${'lnd'}     | ${NodeType.LND} | ${'lnd'}
+    ${'lnd'}     | ${NodeType.CLN} | ${'lnd'}
+    ${'cln'}     | ${undefined}    | ${'cln'}
+    ${'cln'}     | ${NodeType.LND} | ${'cln'}
+    ${'cln'}     | ${NodeType.CLN} | ${'cln'}
+    ${'both'}    | ${undefined}    | ${'lnd'}
+    ${'both'}    | ${NodeType.LND} | ${'lnd'}
+    ${'both'}    | ${NodeType.CLN} | ${'cln'}
+    ${'neither'} | ${undefined}    | ${[]}
+  `(
+    'should get routing hints for $symbol $nodeType',
+    async ({ symbol, nodeType, expected }) => {
+      await expect(
+        hints.getRoutingHints(symbol, 'node', nodeType),
+      ).resolves.toEqual(expected);
+    },
+  );
+
+  test.each`
+    type            | expected
+    ${NodeType.LND} | ${'lnd'}
+    ${NodeType.CLN} | ${'cln'}
+    ${'asdf'}       | ${undefined}
+    ${42}           | ${undefined}
+  `('should get provider for node type $type', ({ type, expected }) => {
+    expect(
+      RoutingHints['getProviderForNodeType'](
+        { lnd: 'lnd', cln: 'cln' } as any,
+        type,
+      ),
+    ).toEqual(expected);
   });
 });

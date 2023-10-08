@@ -1,5 +1,6 @@
 import bolt11 from 'bolt11';
 import * as lndrpc from '../proto/lnd/rpc_pb';
+import { ClientStatus } from '../consts/Enums';
 import { BalancerFetcher } from '../wallet/providers/WalletProviderInterface';
 
 enum InvoiceState {
@@ -111,6 +112,9 @@ interface LightningClient extends BalancerFetcher {
 
   symbol: string;
 
+  isConnected(): boolean;
+  setClientStatus(status: ClientStatus): void;
+
   connect(startSubscriptions?: boolean): Promise<boolean>;
   disconnect(): void;
 
@@ -151,6 +155,7 @@ interface LightningClient extends BalancerFetcher {
 }
 
 interface RoutingHintsProvider {
+  stop(): void;
   routingHints(nodeId: string): Promise<HopHint[][]>;
 }
 

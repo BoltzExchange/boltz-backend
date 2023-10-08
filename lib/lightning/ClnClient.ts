@@ -1,21 +1,21 @@
 import fs from 'fs';
 import bolt11 from 'bolt11';
 import {
-  Metadata,
-  credentials,
   ChannelCredentials,
   ClientReadableStream,
+  credentials,
+  Metadata,
 } from '@grpc/grpc-js';
 import Errors from './Errors';
 import Logger from '../Logger';
 import BaseClient from '../BaseClient';
 import { ClientStatus } from '../consts/Enums';
 import * as noderpc from '../proto/cln/node_pb';
+import { ListfundsOutputs } from '../proto/cln/node_pb';
 import * as holdrpc from '../proto/hold/hold_pb';
 import { grpcOptions, unaryCall } from './GrpcUtils';
 import { NodeClient } from '../proto/cln/node_grpc_pb';
 import { HoldClient } from '../proto/hold/hold_grpc_pb';
-import { ListfundsOutputs } from '../proto/cln/node_pb';
 import * as primitivesrpc from '../proto/cln/primitives_pb';
 import { decodeInvoice, formatError, getHexString } from '../Utils';
 import { WalletBalance } from '../wallet/providers/WalletProviderInterface';
@@ -145,6 +145,8 @@ class ClnClient
         if (startSubscriptions) {
           this.subscribeTrackHoldInvoices();
         }
+
+        this.setClientStatus(ClientStatus.Connected);
       } catch (error) {
         this.setClientStatus(ClientStatus.Disconnected);
 
@@ -316,6 +318,10 @@ class ClnClient
           remotePubkey: getHexString(Buffer.from(chan.getPeerId_asU8())),
         };
       });
+  };
+
+  public stop = (): void => {
+    // Just here for interface compatibility;
   };
 
   public routingHints = async (node: string): Promise<HopHint[][]> => {

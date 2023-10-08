@@ -473,6 +473,7 @@ jest.mock('../../../lib/lightning/LndClient', () => {
   return jest.fn().mockImplementation(() => ({
     on: () => {},
     serviceName: () => 'mockLnd',
+    isConnected: () => true,
     getInfo: mockGetInfo,
     sendPayment: mockSendPayment,
     queryRoutes: mockQueryRoutes,

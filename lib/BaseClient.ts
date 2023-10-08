@@ -23,7 +23,7 @@ class BaseClient extends EventEmitter {
     return this.status === ClientStatus.OutOfSync;
   }
 
-  protected setClientStatus = (status: ClientStatus): void => {
+  public setClientStatus = (status: ClientStatus): void => {
     this.status = status;
   };
 

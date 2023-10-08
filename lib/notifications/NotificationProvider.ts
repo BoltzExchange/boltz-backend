@@ -1,4 +1,5 @@
 import Logger from '../Logger';
+import { Emojis } from './Markup';
 import Swap from '../db/models/Swap';
 import Service from '../service/Service';
 import DiscordClient from './DiscordClient';
@@ -174,8 +175,8 @@ class NotificationProvider {
         orderSide,
       );
 
-      return `${receiving}${isReverse ? ' :zap:' : ''} -> ${sending}${
-        !isReverse ? ' :zap:' : ''
+      return `${receiving}${isReverse ? ` ${Emojis.Zap}` : ''} -> ${sending}${
+        !isReverse ? ` ${Emojis.Zap}` : ''
       }`;
     };
 

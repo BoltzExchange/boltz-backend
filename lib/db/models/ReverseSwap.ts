@@ -157,6 +157,10 @@ class ReverseSwap extends Model implements ReverseSwapType {
             fields: ['id'],
           },
           {
+            unique: false,
+            fields: ['status'],
+          },
+          {
             unique: true,
             fields: ['preimageHash'],
           },
@@ -171,6 +175,14 @@ class ReverseSwap extends Model implements ReverseSwapType {
           {
             unique: false,
             fields: ['referral'],
+          },
+          {
+            unique: false,
+            fields: ['lockupAddress'],
+          },
+          {
+            unique: false,
+            fields: ['transactionId'],
           },
         ],
       },

@@ -1,5 +1,5 @@
-// TODO: add all other used emojis to this object
 export const Emojis = {
+  Zap: ':zap:',
   Checkmark: ':white_check_mark:',
   RotatingLight: ':rotating_light:',
 };

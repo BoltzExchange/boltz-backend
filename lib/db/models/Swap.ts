@@ -120,6 +120,10 @@ class Swap extends Model implements SwapType {
             fields: ['id'],
           },
           {
+            unique: false,
+            fields: ['status'],
+          },
+          {
             unique: true,
             fields: ['preimageHash'],
           },
@@ -130,6 +134,14 @@ class Swap extends Model implements SwapType {
           {
             unique: false,
             fields: ['referral'],
+          },
+          {
+            unique: false,
+            fields: ['lockupAddress'],
+          },
+          {
+            unique: false,
+            fields: ['lockupTransactionId'],
           },
         ],
       },

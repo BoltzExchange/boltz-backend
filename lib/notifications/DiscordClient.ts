@@ -64,7 +64,7 @@ class DiscordClient extends EventEmitter {
   public destroy = (): void => {
     this.channel = undefined;
     if (this.client.isReady()) {
-      this.client.destroy();
+      this.client.destroy().then();
     }
   };
 

@@ -335,7 +335,7 @@ describe('BalanceChecker', () => {
     await sendAlert(btcCurrency, BalanceType.Wallet, service, true, 999999999);
     expect(mockSendMessage).toHaveBeenNthCalledWith(
       1,
-      `:white_check_mark: BTC ${service} wallet balance of 9.99999999 is in bounds again :white_check_mark:`,
+      `:white_check_mark: BTC ${service} wallet balance of 9.99,999,999 is in bounds again :white_check_mark:`,
       true,
     );
 
@@ -343,8 +343,8 @@ describe('BalanceChecker', () => {
     expect(mockSendMessage).toHaveBeenNthCalledWith(
       2,
       `:rotating_light: **BTC ${service} wallet balance is out of bounds** :rotating_light:\n` +
-        '  Balance: 0.99999999\n' +
-        '    Min: 0.1',
+        '  Balance: 0.99,999,999\n' +
+        '    Min: 0.10,000,000',
       true,
     );
 
@@ -357,7 +357,7 @@ describe('BalanceChecker', () => {
     );
     expect(mockSendMessage).toHaveBeenNthCalledWith(
       3,
-      `:white_check_mark: USDT ${service} wallet balance of 1500 is in bounds again :white_check_mark:`,
+      `:white_check_mark: USDT ${service} wallet balance of 1500.00,000,000 is in bounds again :white_check_mark:`,
       true,
     );
 
@@ -371,9 +371,9 @@ describe('BalanceChecker', () => {
     expect(mockSendMessage).toHaveBeenNthCalledWith(
       4,
       `:rotating_light: **USDT ${service} wallet balance is out of bounds** :rotating_light:\n` +
-        '  Balance: 100\n' +
-        '    Max: 2000\n' +
-        '    Min: 1000',
+        '  Balance: 100.00,000,000\n' +
+        '    Max: 2000.00,000,000\n' +
+        '    Min: 1000.00,000,000',
       true,
     );
 
@@ -387,7 +387,7 @@ describe('BalanceChecker', () => {
     );
     expect(mockSendMessage).toHaveBeenNthCalledWith(
       5,
-      `:white_check_mark: BTC ${service} local channel balance of 0.25000001 is more than expected 0.25 again :white_check_mark:`,
+      `:white_check_mark: BTC ${service} local channel balance of 0.25,000,001 is more than expected 0.25,000,000 again :white_check_mark:`,
       true,
     );
 
@@ -400,7 +400,7 @@ describe('BalanceChecker', () => {
     );
     expect(mockSendMessage).toHaveBeenNthCalledWith(
       6,
-      `:white_check_mark: BTC ${service} remote channel balance of 0.25000001 is more than expected 0.24 again :white_check_mark:`,
+      `:white_check_mark: BTC ${service} remote channel balance of 0.25,000,001 is more than expected 0.24,000,000 again :white_check_mark:`,
       true,
     );
 
@@ -413,7 +413,7 @@ describe('BalanceChecker', () => {
     );
     expect(mockSendMessage).toHaveBeenNthCalledWith(
       7,
-      `:rotating_light: **BTC ${service} local channel balance of 0.2 is less than expected 0.25** :rotating_light:`,
+      `:rotating_light: **BTC ${service} local channel balance of 0.20,000,000 is less than expected 0.25,000,000** :rotating_light:`,
       true,
     );
 
@@ -426,7 +426,7 @@ describe('BalanceChecker', () => {
     );
     expect(mockSendMessage).toHaveBeenNthCalledWith(
       8,
-      `:rotating_light: **BTC ${service} remote channel balance of 0.2 is less than expected 0.24** :rotating_light:`,
+      `:rotating_light: **BTC ${service} remote channel balance of 0.20,000,000 is less than expected 0.24,000,000** :rotating_light:`,
       true,
     );
   });

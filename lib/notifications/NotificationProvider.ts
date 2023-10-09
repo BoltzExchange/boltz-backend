@@ -11,7 +11,7 @@ import DiskUsageChecker from './DiskUsageChecker';
 import ReverseSwap from '../db/models/ReverseSwap';
 import BackupScheduler from '../backup/BackupScheduler';
 import { CurrencyType, OrderSide } from '../consts/Enums';
-import { satoshisToCoins } from '../DenominationConverter';
+import { satoshisToSatcomma } from '../DenominationConverter';
 import { ChainInfo, LightningInfo } from '../proto/boltzrpc_pb';
 import { TokenConfig, BaseCurrencyConfig, NotificationConfig } from '../Config';
 import {
@@ -192,12 +192,12 @@ class NotificationProvider {
         message +=
           `${
             swap.onchainAmount
-              ? `\nOnchain amount: ${satoshisToCoins(
+              ? `\nOnchain amount: ${satoshisToSatcomma(
                   swap.onchainAmount,
                 )} ${onchainSymbol}`
               : ''
           }` +
-          `\nLightning amount: ${satoshisToCoins(
+          `\nLightning amount: ${satoshisToSatcomma(
             lightningAmount,
           )} ${lightningSymbol}`;
       }
@@ -250,12 +250,10 @@ class NotificationProvider {
             hasChannelCreation ? ' :construction_site:' : ''
           }**\n` +
           `${getBasicSwapInfo(swap, onchainSymbol, lightningSymbol)}\n` +
-          `Fees earned: ${this.numberToDecimal(
-            satoshisToCoins(swap.fee!),
-          )} ${onchainSymbol}\n` +
-          `Miner fees: ${satoshisToCoins(swap.minerFee!)} ${getMinerFeeSymbol(
-            onchainSymbol,
-          )}`;
+          `Fees earned: ${satoshisToSatcomma(swap.fee!)} ${onchainSymbol}\n` +
+          `Miner fees: ${satoshisToSatcomma(
+            swap.minerFee!,
+          )} ${getMinerFeeSymbol(onchainSymbol)}`;
 
         if (!isReverse) {
           // The routing fees are denominated in millisatoshi
@@ -300,7 +298,7 @@ class NotificationProvider {
 
         if (isReverse) {
           if (swap.minerFee) {
-            message += `\nMiner fees: ${satoshisToCoins(
+            message += `\nMiner fees: ${satoshisToSatcomma(
               swap.minerFee,
             )} ${onchainSymbol}`;
           }
@@ -348,24 +346,6 @@ class NotificationProvider {
         return 'litoshi';
       default:
         return 'satoshi';
-    }
-  };
-
-  private numberToDecimal = (toFormat: number) => {
-    // Numbers smaller 1e-6 are formatted in the scientific notation when converted to a string
-    if (toFormat < 1e-6) {
-      let format = toFormat.toFixed(8);
-
-      // Trim the trailing zeros if they exist
-      const lastZero = format.lastIndexOf('0');
-
-      if (lastZero === format.length - 1) {
-        format = format.slice(0, format.length - 1);
-      }
-
-      return format;
-    } else {
-      return toFormat.toString();
     }
   };
 }

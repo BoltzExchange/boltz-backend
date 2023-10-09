@@ -14,16 +14,16 @@ import { Balances, GetBalanceResponse } from '../../../lib/proto/boltzrpc_pb';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
 import {
-  satoshisToCoins,
   coinsToSatoshis,
+  satoshisToSatcomma,
 } from '../../../lib/DenominationConverter';
 import {
-  swapExample,
+  channelCreationExample,
   channelSwapExample,
+  pendingReverseSwapExample,
   pendingSwapExample,
   reverseSwapExample,
-  channelCreationExample,
-  pendingReverseSwapExample,
+  swapExample,
 } from './ExampleSwaps';
 import Stats from '../../../lib/data/Stats';
 
@@ -264,7 +264,7 @@ describe('CommandHandler', () => {
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenLastCalledWith(
-      `Fees:\n\n**BTC**: ${satoshisToCoins(
+      `Fees:\n\n**BTC**: ${satoshisToSatcomma(
         swapExample.fee! + reverseSwapExample.fee,
       )} BTC`,
     );
@@ -342,8 +342,8 @@ describe('CommandHandler', () => {
         [new Date().getFullYear()]: {
           [new Date().getMonth() + 1]: {
             volume: {
-              total: 0.03,
-              'LTC/BTC': 0.03,
+              total: (0.03).toFixed(8),
+              'LTC/BTC': (0.03).toFixed(8),
             },
             trades: {
               total: 3,
@@ -394,12 +394,12 @@ describe('CommandHandler', () => {
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(
       'Balances:\n\n' +
-        `**BTC**\n\nCore Wallet: ${satoshisToCoins(
+        `**BTC**\n\nCore Wallet: ${satoshisToSatcomma(
           wallet.getConfirmed() + wallet.getUnconfirmed(),
         )} BTC\n\n` +
         'LND:\n' +
-        `  Local: ${satoshisToCoins(lightning.getLocal())} BTC\n` +
-        `  Remote: ${satoshisToCoins(lightning.getRemote())} BTC`,
+        `  Local: ${satoshisToSatcomma(lightning.getLocal())} BTC\n` +
+        `  Remote: ${satoshisToSatcomma(lightning.getRemote())} BTC`,
     );
   });
 
@@ -411,8 +411,8 @@ describe('CommandHandler', () => {
     expect(mockSendMessage).toHaveBeenCalledWith(
       '**Locked up funds:**\n\n' +
         '**BTC**\n' +
-        '  - `r654321`: 0.01\n' +
-        '\nTotal: 0.01\n',
+        '  - `r654321`: 0.01,000,000\n' +
+        '\nTotal: 0.01,000,000\n',
     );
   });
 

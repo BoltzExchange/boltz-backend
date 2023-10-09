@@ -4,8 +4,8 @@ import Service from '../service/Service';
 import DiscordClient from './DiscordClient';
 import { Balances } from '../proto/boltzrpc_pb';
 import { liquidSymbol } from '../consts/LiquidTypes';
-import { satoshisToCoins } from '../DenominationConverter';
 import { BaseCurrencyConfig, TokenConfig } from '../Config';
+import { satoshisToSatcomma } from '../DenominationConverter';
 
 enum BalanceType {
   Wallet,
@@ -152,7 +152,7 @@ class BalanceChecker {
       if (type === BalanceType.Wallet) {
         message = `${
           Emojis.Checkmark
-        } ${name} wallet balance of ${satoshisToCoins(
+        } ${name} wallet balance of ${satoshisToSatcomma(
           balance,
         )} is in bounds again ${Emojis.Checkmark}`;
       } else {
@@ -160,8 +160,8 @@ class BalanceChecker {
           `${Emojis.Checkmark} ${name} ${
             type === BalanceType.ChannelLocal ? 'local' : 'remote'
           } channel balance ` +
-          `of ${satoshisToCoins(balance)} is more than expected ` +
-          `${satoshisToCoins(
+          `of ${satoshisToSatcomma(balance)} is more than expected ` +
+          `${satoshisToSatcomma(
             type === BalanceType.ChannelLocal
               ? currency.minLocalBalance!
               : currency.minRemoteBalance!,
@@ -171,20 +171,20 @@ class BalanceChecker {
       if (type === BalanceType.Wallet) {
         message =
           `${Emojis.RotatingLight} **${name} wallet balance is out of bounds** ${Emojis.RotatingLight}\n` +
-          `  Balance: ${satoshisToCoins(balance)}\n` +
+          `  Balance: ${satoshisToSatcomma(balance)}\n` +
           `${
             currency.maxWalletBalance
-              ? `    Max: ${satoshisToCoins(currency.maxWalletBalance)}\n`
+              ? `    Max: ${satoshisToSatcomma(currency.maxWalletBalance)}\n`
               : ''
           }` +
-          `    Min: ${satoshisToCoins(currency.minWalletBalance)}`;
+          `    Min: ${satoshisToSatcomma(currency.minWalletBalance)}`;
       } else {
         message =
           `${Emojis.RotatingLight} **${name} ${
             type === BalanceType.ChannelLocal ? 'local' : 'remote'
           } channel balance ` +
-          `of ${satoshisToCoins(balance)} is less than expected ` +
-          `${satoshisToCoins(
+          `of ${satoshisToSatcomma(balance)} is less than expected ` +
+          `${satoshisToSatcomma(
             type === BalanceType.ChannelLocal
               ? currency.minLocalBalance!
               : currency.minRemoteBalance!,

@@ -1,11 +1,15 @@
 import { randomBytes } from 'crypto';
+import Logger from '../../../lib/Logger';
+import { NotificationConfig } from '../../../lib/Config';
 import { codeBlock } from '../../../lib/notifications/Markup';
 import DiscordClient from '../../../lib/notifications/DiscordClient';
 
 const mockSend = jest.fn().mockImplementation(async () => {});
 
 describe('DiscordClient', () => {
-  const client = new DiscordClient('', '', 'unit');
+  const client = new DiscordClient(Logger.disabledLogger, {
+    prefix: 'unit',
+  } as NotificationConfig);
 
   const prefix = client['prefix'];
   const maxMessageLen = DiscordClient['maxMessageLen'];
@@ -93,6 +97,39 @@ describe('DiscordClient', () => {
         randomString.substring(splitLen * i, splitLen * (i + 1)),
       );
     }
+  });
+
+  it('should send message to correct channel', async () => {
+    const message = 'msg';
+
+    await client.sendMessage(message);
+    expect(mockSend).toHaveBeenCalledTimes(1);
+    expect(mockSend).toHaveBeenLastCalledWith(prefix + message);
+
+    await client.sendMessage(message, false);
+    expect(mockSend).toHaveBeenCalledTimes(2);
+    expect(mockSend).toHaveBeenLastCalledWith(prefix + message);
+
+    await client.sendMessage(message, true);
+    expect(mockSend).toHaveBeenCalledTimes(3);
+    expect(mockSend).toHaveBeenLastCalledWith(prefix + message);
+
+    client['channelAlerts'] = {
+      send: jest.fn(),
+    } as any;
+
+    await client.sendMessage(message, false);
+    expect(mockSend).toHaveBeenCalledTimes(4);
+    expect(mockSend).toHaveBeenLastCalledWith(prefix + message);
+
+    await client.sendMessage(message, true);
+    expect(mockSend).toHaveBeenCalledTimes(4);
+    expect(client['channelAlerts']?.send).toHaveBeenCalledTimes(1);
+    expect(client['channelAlerts']?.send).toHaveBeenLastCalledWith(
+      prefix + message,
+    );
+
+    client['channelAlerts'] = undefined;
   });
 
   afterAll(() => {

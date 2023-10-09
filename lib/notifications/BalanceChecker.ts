@@ -3,8 +3,9 @@ import { Emojis } from './Markup';
 import Service from '../service/Service';
 import DiscordClient from './DiscordClient';
 import { Balances } from '../proto/boltzrpc_pb';
-import { CurrencyConfig, TokenConfig } from '../Config';
+import { liquidSymbol } from '../consts/LiquidTypes';
 import { satoshisToCoins } from '../DenominationConverter';
+import { BaseCurrencyConfig, TokenConfig } from '../Config';
 
 enum BalanceType {
   Wallet,
@@ -35,10 +36,17 @@ class BalanceChecker {
     private logger: Logger,
     private service: Service,
     private discord: DiscordClient,
-    currencyConfigs: CurrencyConfig[],
+    currencyConfigs: (BaseCurrencyConfig | undefined)[],
     tokenConfigs: TokenConfig[],
   ) {
-    currencyConfigs.forEach((config) => this.currencies.push(config));
+    currencyConfigs
+      .filter((config): config is BaseCurrencyConfig => config !== undefined)
+      .forEach((config) =>
+        this.currencies.push({
+          ...config,
+          symbol: config.symbol || liquidSymbol,
+        }),
+      );
     tokenConfigs.forEach((config) => this.currencies.push(config));
   }
 
@@ -185,7 +193,7 @@ class BalanceChecker {
     }
 
     this.logger.warn(`Balance warning: ${message}`);
-    await this.discord.sendMessage(message);
+    await this.discord.sendMessage(message, true);
   };
 }
 

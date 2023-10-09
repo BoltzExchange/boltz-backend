@@ -18,11 +18,11 @@ import { coinsToSatoshis, satoshisToCoins } from '../DenominationConverter';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import {
-  formatError,
-  getChainCurrency,
-  getHexString,
-  splitPairId,
   stringify,
+  splitPairId,
+  formatError,
+  getHexString,
+  getChainCurrency,
 } from '../Utils';
 
 enum Command {
@@ -262,33 +262,44 @@ class CommandHandler {
       return;
     }
 
-    const id = args[0];
+    const identifier = args[0];
 
-    const swap = await SwapRepository.getSwap({
-      id,
+    const swaps = await SwapRepository.getSwaps({
+      [Op.or]: {
+        id: identifier,
+        invoice: identifier,
+        preimageHash: identifier,
+        lockupAddress: identifier,
+        lockupTransactionId: identifier,
+      },
     });
 
-    if (swap) {
+    for (const swap of swaps) {
       const channelCreation =
         await ChannelCreationRepository.getChannelCreation({
-          swapId: id,
+          swapId: swap.id,
         });
 
       await this.sendSwapInfo(swap, false, channelCreation);
-      return;
-    } else {
-      // Query for a reverse swap because there was no normal one found with the specified id
-      const reverseSwap = await ReverseSwapRepository.getReverseSwap({
-        id,
-      });
-
-      if (reverseSwap) {
-        await this.sendSwapInfo(reverseSwap, true);
-        return;
-      }
     }
 
-    await this.sendCouldNotFindSwap(id);
+    const reverseSwaps = await ReverseSwapRepository.getReverseSwaps({
+      [Op.or]: {
+        id: identifier,
+        invoice: identifier,
+        preimageHash: identifier,
+        lockupAddress: identifier,
+        transactionId: identifier,
+      },
+    });
+
+    for (const reverseSwap of reverseSwaps) {
+      await this.sendSwapInfo(reverseSwap, true);
+    }
+
+    if (swaps.length === 0 && reverseSwaps.length === 0) {
+      await this.sendCouldNotFindSwap(identifier);
+    }
   };
 
   private getStats = async () => {

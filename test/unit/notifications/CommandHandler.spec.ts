@@ -1,16 +1,16 @@
 import { wait } from '../../Utils';
 import Logger from '../../../lib/Logger';
-import { getHexBuffer, getHexString, stringify } from '../../../lib/Utils';
 import Database from '../../../lib/db/Database';
 import Service from '../../../lib/service/Service';
 import { NotificationConfig } from '../../../lib/Config';
-import { Balances, GetBalanceResponse } from '../../../lib/proto/boltzrpc_pb';
 import ReferralStats from '../../../lib/data/ReferralStats';
 import BackupScheduler from '../../../lib/backup/BackupScheduler';
 import DiscordClient from '../../../lib/notifications/DiscordClient';
 import CommandHandler from '../../../lib/notifications/CommandHandler';
 import PairRepository from '../../../lib/db/repositories/PairRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
+import { getHexBuffer, getHexString, stringify } from '../../../lib/Utils';
+import { Balances, GetBalanceResponse } from '../../../lib/proto/boltzrpc_pb';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
 import {

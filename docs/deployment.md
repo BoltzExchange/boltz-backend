@@ -77,6 +77,10 @@ interval = "0 0 * * *"
 [notification]
 token = ""
 channel = ""
+
+# Optionally, important alerts can be sent to a different channel
+# channelAlerts = ""
+
 prefix = ""
 # Interval in minutes at which the wallet and channel balances should be checked 
 interval = 1

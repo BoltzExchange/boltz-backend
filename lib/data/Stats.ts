@@ -12,13 +12,16 @@ type MonthStats = {
 };
 
 class Stats {
-  public static generate = async (): Promise<
-    Record<string, Record<string, MonthStats>>
-  > => {
+  private static readonly totalString = 'total';
+
+  public static generate = async (
+    minYear: number,
+    minMonth: number,
+  ): Promise<Record<string, Record<string, MonthStats>>> => {
     const [volumes, tradeCounts, failureRates] = await Promise.all([
-      StatsRepository.getVolume(),
-      StatsRepository.getTradeCounts(),
-      StatsRepository.getFailureRates(),
+      StatsRepository.getVolume(minYear, minMonth),
+      StatsRepository.getTradeCounts(minYear, minMonth),
+      StatsRepository.getFailureRates(minYear, minMonth),
     ]);
 
     const stats = {};
@@ -29,12 +32,12 @@ class Stats {
 
     volumes.forEach((volume) => {
       const obj = getNestedObject(getMonthObj(volume), 'volume');
-      obj[volume.asset] = satoshisToCoins(volume.sum);
+      obj[volume.pair || Stats.totalString] = satoshisToCoins(volume.sum);
     });
 
     tradeCounts.forEach((counts) => {
       const obj = getNestedObject(getMonthObj(counts), 'trades');
-      obj[counts.pair] = counts.count;
+      obj[counts.pair || Stats.totalString] = counts.count;
     });
 
     failureRates.forEach((fails) => {

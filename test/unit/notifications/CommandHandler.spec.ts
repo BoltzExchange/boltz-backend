@@ -25,6 +25,7 @@ import {
   channelCreationExample,
   pendingReverseSwapExample,
 } from './ExampleSwaps';
+import Stats from '../../../lib/data/Stats';
 
 const getRandomNumber = () => Math.floor(Math.random() * 10000);
 
@@ -223,7 +224,7 @@ describe('CommandHandler', () => {
         '**help**: gets a list of all available commands\n' +
         '**getfees**: gets accumulated fees\n' +
         '**swapinfo**: gets all available information about a (reverse) swap\n' +
-        '**getstats**: gets stats of all successful swaps\n' +
+        '**getstats**: gets statistics grouped by year and month for the current and last 6 months\n' +
         '**getbalance**: gets the balance of the wallets and channels\n' +
         '**lockedfunds**: gets funds locked up by Boltz\n' +
         '**pendingswaps**: gets a list of pending (reverse) swaps\n' +
@@ -330,6 +331,8 @@ describe('CommandHandler', () => {
   });
 
   test('should get statistics', async () => {
+    const spy = jest.spyOn(Stats, 'generate');
+
     sendMessage('getstats');
     await wait(50);
 
@@ -339,9 +342,11 @@ describe('CommandHandler', () => {
         [new Date().getFullYear()]: {
           [new Date().getMonth() + 1]: {
             volume: {
-              BTC: 0.03,
+              total: 0.03,
+              'LTC/BTC': 0.03,
             },
             trades: {
+              total: 3,
               'LTC/BTC': 3,
             },
             failureRates: {
@@ -352,6 +357,27 @@ describe('CommandHandler', () => {
         },
       })}\`\`\``,
     );
+    expect(spy).toHaveBeenCalledTimes(1);
+
+    const date = new Date();
+    date.setMonth(date.getMonth() - 5);
+    expect(spy).toHaveBeenLastCalledWith(
+      date.getUTCFullYear(),
+      date.getUTCMonth(),
+    );
+
+    sendMessage('getstats all');
+    await wait(50);
+
+    expect(spy).toHaveBeenCalledTimes(2);
+    expect(spy).toHaveBeenLastCalledWith(0, 0);
+
+    sendMessage('getstats invalid');
+    await wait(50);
+
+    expect(mockSendMessage).toHaveBeenCalledTimes(3);
+    expect(mockSendMessage).toHaveBeenCalledWith('Invalid parameter: invalid');
+    expect(spy).toHaveBeenCalledTimes(2);
   });
 
   test('should get balances', async () => {

@@ -122,7 +122,7 @@ class Boltz {
         this.service,
         this.backup,
         this.config.notification,
-        this.config.currencies,
+        [this.config.liquid].concat(this.config.currencies),
         this.config.ethereum.tokens,
       );
 

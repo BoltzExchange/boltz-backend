@@ -117,6 +117,7 @@ type BackupConfig = {
 type NotificationConfig = {
   token: string;
   channel: string;
+  channelAlerts?: string;
 
   prefix: string;
   interval: number;
@@ -465,6 +466,7 @@ export {
   BackupConfig,
   EthereumConfig,
   CurrencyConfig,
+  BaseCurrencyConfig,
   NotificationConfig,
   EthProviderServiceConfig,
 };

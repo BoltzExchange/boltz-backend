@@ -1,7 +1,9 @@
 import { EventEmitter } from 'events';
 import { Client, TextChannel, Message } from 'discord.js';
 import { GatewayIntentBits } from 'discord-api-types/v10';
+import Logger from '../Logger';
 import { codeBlock } from './Markup';
+import { NotificationConfig } from '../Config';
 
 interface DiscordClient {
   on(event: 'message', listener: (message: string) => void): this;
@@ -15,12 +17,14 @@ class DiscordClient extends EventEmitter {
   private static readonly maxMessageLen = 2000;
 
   private readonly client: Client;
+  private readonly prefix: string;
+
   private channel?: TextChannel = undefined;
+  private channelAlerts?: TextChannel = undefined;
 
   constructor(
-    private readonly token: string,
-    private readonly channelName: string,
-    private readonly prefix: string,
+    private readonly logger: Logger,
+    private readonly config: NotificationConfig,
   ) {
     super();
 
@@ -31,11 +35,11 @@ class DiscordClient extends EventEmitter {
         GatewayIntentBits.MessageContent,
       ],
     });
-    this.prefix = `[${this.prefix}]: `;
+    this.prefix = `[${this.config.prefix}]: `;
   }
 
   public init = async (): Promise<void> => {
-    if (this.token === '') {
+    if (this.config.token === '') {
       throw 'no API token provided';
     }
 
@@ -43,61 +47,84 @@ class DiscordClient extends EventEmitter {
       this.client.on('ready', () => {
         for (const [, channel] of this.client.channels.cache) {
           if (channel instanceof TextChannel) {
-            if (channel.name === this.channelName) {
-              this.channel = channel;
+            switch (channel.name) {
+              case this.config.channel:
+                this.channel = channel;
+                break;
+
+              case this.config.channelAlerts:
+                this.channelAlerts = channel;
+                break;
             }
           }
         }
 
         if (!this.channel) {
-          reject(`Could not find Discord channel: ${this.channelName}`);
+          reject(`Could not find Discord channel: ${this.config.channel}`);
+        }
+
+        if (
+          this.config.channelAlerts !== undefined &&
+          this.channelAlerts === undefined
+        ) {
+          this.logger.warn(
+            `Discord alert channel "${this.config.channelAlerts}" configured but could not be found`,
+          );
         }
 
         this.listenForMessages();
         resolve();
       });
 
-      this.client.login(this.token).catch((error) => reject(error));
+      this.client.login(this.config.token).catch((error) => reject(error));
     });
   };
 
   public destroy = (): void => {
     this.channel = undefined;
+    this.channelAlerts = undefined;
+
     if (this.client.isReady()) {
       this.client.destroy().then();
     }
   };
 
-  public sendMessage = async (message: string): Promise<void> => {
-    if (this.channel) {
-      if (message.length + this.prefix.length <= DiscordClient.maxMessageLen) {
-        await this.channel.send(`${this.prefix}${message}`);
-      } else {
-        let toSplit = message;
-        let maxPartLen = DiscordClient.maxMessageLen;
+  public sendMessage = async (
+    message: string,
+    isAlert: boolean = false,
+  ): Promise<void> => {
+    const channel: TextChannel | undefined =
+      (isAlert ? this.channelAlerts : this.channel) || this.channel;
 
-        const isCodeBlock =
-          message.startsWith(codeBlock) && message.endsWith(codeBlock);
+    if (channel === undefined) {
+      return;
+    }
 
-        if (isCodeBlock) {
-          // When splitting code blocks we need to account for the length the code block markup needs
-          maxPartLen -= codeBlock.length * 2;
+    if (message.length + this.prefix.length <= DiscordClient.maxMessageLen) {
+      await channel.send(`${this.prefix}${message}`);
+    } else {
+      let toSplit = message;
+      let maxPartLen = DiscordClient.maxMessageLen;
 
-          // Trim the code block markup from the original message that will be split
-          toSplit = toSplit.substring(
-            codeBlock.length,
-            toSplit.length - codeBlock.length,
-          );
-        }
+      const isCodeBlock =
+        message.startsWith(codeBlock) && message.endsWith(codeBlock);
 
-        await this.channel.send(this.prefix);
+      if (isCodeBlock) {
+        // When splitting code blocks we need to account for the length the code block markup needs
+        maxPartLen -= codeBlock.length * 2;
 
-        for (const part of this.splitString(toSplit, maxPartLen)) {
-          const getBlockMarkup = () => (isCodeBlock ? codeBlock : '');
-          await this.channel.send(
-            `${getBlockMarkup()}${part}${getBlockMarkup()}`,
-          );
-        }
+        // Trim the code block markup from the original message that will be split
+        toSplit = toSplit.substring(
+          codeBlock.length,
+          toSplit.length - codeBlock.length,
+        );
+      }
+
+      await channel.send(this.prefix);
+
+      for (const part of this.splitString(toSplit, maxPartLen)) {
+        const getBlockMarkup = () => (isCodeBlock ? codeBlock : '');
+        await channel.send(`${getBlockMarkup()}${part}${getBlockMarkup()}`);
       }
     }
   };

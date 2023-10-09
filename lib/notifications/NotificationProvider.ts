@@ -13,7 +13,7 @@ import BackupScheduler from '../backup/BackupScheduler';
 import { CurrencyType, OrderSide } from '../consts/Enums';
 import { satoshisToCoins } from '../DenominationConverter';
 import { ChainInfo, LightningInfo } from '../proto/boltzrpc_pb';
-import { CurrencyConfig, NotificationConfig, TokenConfig } from '../Config';
+import { TokenConfig, BaseCurrencyConfig, NotificationConfig } from '../Config';
 import {
   splitPairId,
   decodeInvoice,
@@ -43,14 +43,10 @@ class NotificationProvider {
     private service: Service,
     private backup: BackupScheduler,
     private config: NotificationConfig,
-    private currencies: CurrencyConfig[],
-    private tokenConfigs: TokenConfig[],
+    currencies: (BaseCurrencyConfig | undefined)[],
+    tokenConfigs: TokenConfig[],
   ) {
-    this.discord = new DiscordClient(
-      config.token,
-      config.channel,
-      config.prefix,
-    );
+    this.discord = new DiscordClient(this.logger, config);
 
     this.listenToDiscord();
     this.listenToService();
@@ -67,8 +63,8 @@ class NotificationProvider {
       this.logger,
       this.service,
       this.discord,
-      this.currencies,
-      this.tokenConfigs,
+      currencies,
+      tokenConfigs,
     );
     this.diskUsageChecker = new DiskUsageChecker(this.logger, this.discord);
   }
@@ -335,13 +331,14 @@ class NotificationProvider {
       `**Lost connection to ${service}${
         subscription ? ` ${subscription} subscription` : ''
       }**`,
+      true,
     );
   };
 
   private sendReconnected = async (service: string) => {
     if (this.disconnected.has(service)) {
       this.disconnected.delete(service);
-      await this.discord.sendMessage(`Reconnected to ${service}`);
+      await this.discord.sendMessage(`Reconnected to ${service}`, true);
     }
   };
 

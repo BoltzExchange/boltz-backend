@@ -3,7 +3,8 @@ import RoutingHintsLnd from './RoutingHintsLnd';
 import ClnClient from '../../lightning/ClnClient';
 import LndClient from '../../lightning/LndClient';
 import { Currency } from '../../wallet/WalletManager';
-import { HopHint } from '../../lightning/LightningClient';
+import { NodeType } from '../../db/models/ReverseSwap';
+import { HopHint, RoutingHintsProvider } from '../../lightning/LightningClient';
 
 type Providers = { lnd?: RoutingHintsLnd; cln?: ClnClient };
 
@@ -45,7 +46,7 @@ class RoutingHints {
 
   public stop = (): void => {
     Array.from(this.providers.values())
-      .map((prov) => prov.lnd)
+      .flatMap((prov) => [prov.lnd, prov.cln])
       .filter((prov): prov is RoutingHintsLnd => prov !== undefined)
       .forEach((prov) => prov.stop());
   };
@@ -53,6 +54,7 @@ class RoutingHints {
   public getRoutingHints = async (
     symbol: string,
     nodeId: string,
+    nodeType?: NodeType,
   ): Promise<HopHint[][]> => {
     const providers = this.providers.get(symbol);
     if (providers === undefined) {
@@ -60,7 +62,28 @@ class RoutingHints {
     }
 
     // Prefer the LND routing hints provider
-    return (providers.lnd || providers.cln)?.routingHints(nodeId) || [];
+    return (
+      (
+        RoutingHints.getProviderForNodeType(providers, nodeType) ||
+        providers.lnd ||
+        providers.cln
+      )?.routingHints(nodeId) || []
+    );
+  };
+
+  private static getProviderForNodeType = (
+    providers: Providers,
+    nodeType?: NodeType,
+  ): RoutingHintsProvider | undefined => {
+    switch (nodeType) {
+      case NodeType.LND:
+        return providers.lnd;
+
+      case NodeType.CLN:
+        return providers.cln;
+    }
+
+    return undefined;
   };
 }
 

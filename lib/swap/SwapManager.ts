@@ -5,7 +5,9 @@ import { reverseSwapScript, swapScript } from 'boltz-core';
 import Errors from './Errors';
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';
+import NodeSwitch from './NodeSwitch';
 import SwapNursery from './SwapNursery';
+import NodeFallback from './NodeFallback';
 import SwapOutputType from './SwapOutputType';
 import RateProvider from '../rates/RateProvider';
 import RoutingHints from './routing/RoutingHints';
@@ -41,7 +43,6 @@ import {
   reverseBuffer,
   splitPairId,
 } from '../Utils';
-import NodeSwitch from './NodeSwitch';
 
 type ChannelCreationInfo = {
   auto: boolean;
@@ -57,8 +58,9 @@ class SwapManager {
   public currencies = new Map<string, Currency>();
 
   public nursery: SwapNursery;
-
   public routingHints!: RoutingHints;
+
+  private nodeFallback!: NodeFallback;
 
   constructor(
     private logger: Logger,
@@ -120,6 +122,12 @@ class SwapManager {
 
     this.routingHints = new RoutingHints(this.logger, currencies);
     await this.routingHints.start();
+
+    this.nodeFallback = new NodeFallback(
+      this.logger,
+      this.nodeSwitch,
+      this.routingHints,
+    );
   };
 
   /**
@@ -496,36 +504,24 @@ class SwapManager {
     this.logger.verbose(
       `Creating new Reverse Swap from ${receivingCurrency.symbol} to ${sendingCurrency.symbol}: ${id}`,
     );
-
-    const { nodeType, lightningClient } = this.nodeSwitch.getNodeForReverseSwap(
-      id,
-      receivingCurrency,
-      args.holdInvoiceAmount,
-      args.referralId,
-    );
-
     if (args.referralId) {
       this.logger.silly(
         `Using referral ID ${args.referralId} for Reverse Swap ${id}`,
       );
     }
 
-    const routingHints =
-      args.routingNode !== undefined
-        ? await this.routingHints.getRoutingHints(
-            receivingCurrency.symbol,
-            args.routingNode,
-          )
-        : undefined;
-
-    const paymentRequest = await lightningClient.addHoldInvoice(
-      args.holdInvoiceAmount,
-      args.preimageHash,
-      args.lightningTimeoutBlockDelta,
-      this.invoiceExpiryHelper.getExpiry(receivingCurrency.symbol),
-      getSwapMemo(sendingCurrency.symbol, true),
-      routingHints,
-    );
+    const { nodeType, lightningClient, paymentRequest, routingHints } =
+      await this.nodeFallback.getReverseSwapInvoice(
+        id,
+        args.referralId,
+        args.routingNode,
+        receivingCurrency,
+        args.holdInvoiceAmount,
+        args.preimageHash,
+        args.lightningTimeoutBlockDelta,
+        this.invoiceExpiryHelper.getExpiry(receivingCurrency.symbol),
+        getSwapMemo(sendingCurrency.symbol, true),
+      );
 
     lightningClient.subscribeSingleInvoice(args.preimageHash);
 

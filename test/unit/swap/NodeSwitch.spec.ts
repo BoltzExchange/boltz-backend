@@ -1,19 +1,37 @@
 import Logger from '../../../lib/Logger';
+import Errors from '../../../lib/swap/Errors';
 import Swap from '../../../lib/db/models/Swap';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
 import LndClient from '../../../lib/lightning/LndClient';
 import ClnClient from '../../../lib/lightning/ClnClient';
 import { Currency } from '../../../lib/wallet/WalletManager';
+import { LightningClient } from '../../../lib/lightning/LightningClient';
 import ReverseSwap, { NodeType } from '../../../lib/db/models/ReverseSwap';
 
 describe('NodeSwitch', () => {
-  const clnClient = { serviceName: () => ClnClient.serviceName };
-  const lndClient = { serviceName: () => LndClient.serviceName };
+  const createNode = (
+    service: string,
+    connected: boolean = true,
+  ): LightningClient =>
+    ({
+      serviceName: () => service,
+      isConnected: () => connected,
+    }) as LightningClient;
 
-  const currency = {
+  const clnClient = createNode(ClnClient.serviceName) as LndClient;
+  const lndClient = createNode(LndClient.serviceName) as ClnClient;
+
+  let currency = {
     clnClient,
     lndClient,
-  } as Currency;
+  } as unknown as Currency;
+
+  beforeEach(() => {
+    currency = {
+      clnClient,
+      lndClient,
+    } as unknown as Currency;
+  });
 
   test.each`
     config
@@ -120,5 +138,36 @@ describe('NodeSwitch', () => {
     ${false} | ${{}}
   `('should check if currency has clients', ({ has, currency }) => {
     expect(NodeSwitch.hasClient(currency)).toEqual(has);
+  });
+
+  test.each`
+    currency                                                         | client       | expected
+    ${{ lndClient: lndClient, clnClient: clnClient }}                | ${lndClient} | ${lndClient}
+    ${{ lndClient: lndClient, clnClient: clnClient }}                | ${clnClient} | ${clnClient}
+    ${{ lndClient: lndClient, clnClient: clnClient }}                | ${undefined} | ${lndClient}
+    ${{ clnClient: clnClient }}                                      | ${lndClient} | ${lndClient}
+    ${{ clnClient: clnClient }}                                      | ${undefined} | ${clnClient}
+    ${{ lndClient: createNode('LND', false), clnClient: clnClient }} | ${undefined} | ${clnClient}
+    ${{}}                                                            | ${lndClient} | ${lndClient}
+  `(
+    'should fallback based on client availability',
+    ({ currency, client, expected }) => {
+      expect(NodeSwitch.fallback(currency, client)).toEqual(expected);
+    },
+  );
+
+  test('should throw when no clients are available', () => {
+    expect(() => NodeSwitch.fallback({} as Currency)).toThrow(
+      Errors.NO_AVAILABLE_LIGHTNING_CLIENT().message,
+    );
+    expect(() =>
+      NodeSwitch.fallback({ lndClient: createNode('LND', false) } as Currency),
+    ).toThrow(Errors.NO_AVAILABLE_LIGHTNING_CLIENT().message);
+    expect(() =>
+      NodeSwitch.fallback({
+        lndClient: createNode('LND', false),
+        clnClient: createNode('CLN', false),
+      } as Currency),
+    ).toThrow(Errors.NO_AVAILABLE_LIGHTNING_CLIENT().message);
   });
 });

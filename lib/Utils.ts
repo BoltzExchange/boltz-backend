@@ -516,7 +516,7 @@ export const calculateUtxoTransactionFee = async (
   chainClient: ChainClient,
   transaction: Transaction,
 ): Promise<number> => {
-  let fee = 0;
+  let fee = 0n;
 
   for (const input of transaction.ins) {
     const inputId = transactionHashToId(input.hash);
@@ -525,14 +525,14 @@ export const calculateUtxoTransactionFee = async (
 
     const spentOutput = inputTransaction.outs[input.index];
 
-    fee += spentOutput.value;
+    fee += BigInt(spentOutput.value);
   }
 
   transaction.outs.forEach((output) => {
-    fee -= output.value;
+    fee -= BigInt(output.value);
   });
 
-  return fee;
+  return Number(fee);
 };
 
 export const calculateLiquidTransactionFee = (

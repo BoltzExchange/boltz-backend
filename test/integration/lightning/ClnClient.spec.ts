@@ -17,7 +17,9 @@ describe('ClnClient', () => {
   });
 
   test('should init', async () => {
+    expect(clnClient.isConnected()).toEqual(false);
     await clnClient.connect();
+    expect(clnClient.isConnected()).toEqual(true);
   });
 
   test('should generate hold invoices', async () => {

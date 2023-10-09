@@ -242,11 +242,11 @@ class TimeoutDeltaProvider {
 
     const decodedInvoice =
       await NodeSwitch.fallback(currency)!.decodeInvoice(invoice);
-    const lightningClient = NodeSwitch.fallback(
+    const lightningClient = this.nodeSwitch.switch(
       currency,
-      this.nodeSwitch.switch(currency, decodedInvoice.value, referralId),
+      decodedInvoice.value,
+      referralId,
     );
-
     const [routeTimeLock, chainInfo] = await Promise.all([
       this.checkRoutability(
         lightningClient,

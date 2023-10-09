@@ -228,6 +228,7 @@ jest.mock('../../../lib/lightning/LndClient', () => {
   const mockedImplementation = jest.fn().mockImplementation(() => {
     return {
       on: () => {},
+      isConnected: () => true,
       getInfo: mockGetInfo,
       queryRoutes: mockQueryRoutes,
       serviceName: mockServiceName,
@@ -885,6 +886,9 @@ describe('SwapManager', () => {
   });
 
   test('should create Reverse Swaps', async () => {
+    manager['recreateFilters'] = jest.fn().mockImplementation();
+    await manager.init([btcCurrency, ltcCurrency]);
+
     const preimageHash = getHexBuffer(
       '6b0d0275c597a18cfcc23261a62e095e2ba12ac5c866823d2926912806a5b10a',
     );
@@ -1060,7 +1064,9 @@ describe('SwapManager', () => {
     const mockGetRoutingHints = jest
       .fn()
       .mockImplementation(() => mockGetRoutingHintsResult);
-    manager['routingHints'] = {
+
+    manager['routingHints'].stop();
+    manager['nodeFallback']['routingHints'] = {
       getRoutingHints: mockGetRoutingHints,
     } as any;
 
@@ -1084,6 +1090,7 @@ describe('SwapManager', () => {
     expect(mockGetRoutingHints).toHaveBeenCalledWith(
       baseCurrency,
       nodePublicKey,
+      NodeType.LND,
     );
 
     expect(mockSubscribeSingleInvoice).toHaveBeenCalledTimes(5);

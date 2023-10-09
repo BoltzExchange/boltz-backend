@@ -1,3 +1,4 @@
+import Errors from './Errors';
 import Logger from '../Logger';
 import { SwapType } from '../db/models/Swap';
 import { Currency } from '../wallet/WalletManager';
@@ -94,24 +95,38 @@ class NodeSwitch {
     currency: Currency,
     amount?: number,
     referralId?: string,
-  ): LightningClient | undefined => {
+  ): LightningClient => {
     if (referralId && this.referralIds.has(referralId)) {
-      return NodeSwitch.switchOnNodeType(
+      return NodeSwitch.fallback(
         currency,
-        this.referralIds.get(referralId)!,
+        NodeSwitch.switchOnNodeType(
+          currency,
+          this.referralIds.get(referralId)!,
+        ),
       );
     }
 
-    return (amount || 0) > this.clnAmountThreshold
-      ? currency.lndClient
-      : currency.clnClient;
+    return NodeSwitch.fallback(
+      currency,
+      (amount || 0) > this.clnAmountThreshold
+        ? currency.lndClient
+        : currency.clnClient,
+    );
   };
 
   public static fallback = (
     currency: Currency,
     client?: LightningClient,
   ): LightningClient => {
-    return (client || currency.lndClient || currency.clnClient)!;
+    const clients = [client, currency.lndClient, currency.clnClient]
+      .filter((client): client is LightningClient => client !== undefined)
+      .filter((client) => client.isConnected());
+
+    if (clients.length === 0) {
+      throw Errors.NO_AVAILABLE_LIGHTNING_CLIENT();
+    }
+
+    return clients[0]!;
   };
 
   private static switchOnNodeType = (

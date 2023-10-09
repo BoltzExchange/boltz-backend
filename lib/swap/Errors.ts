@@ -86,4 +86,12 @@ export default {
     message: 'transaction fee is too low',
     code: concatErrorCode(ErrorCodePrefix.Swap, 16),
   }),
+  LIGHTNING_CLIENT_CALL_TIMEOUT: (): Error => ({
+    message: 'lightning client call timeout',
+    code: concatErrorCode(ErrorCodePrefix.Swap, 17),
+  }),
+  NO_AVAILABLE_LIGHTNING_CLIENT: (): Error => ({
+    message: 'no available lightning client',
+    code: concatErrorCode(ErrorCodePrefix.Swap, 18),
+  }),
 };

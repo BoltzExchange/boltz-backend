@@ -1,10 +1,7 @@
 import { QueryTypes } from 'sequelize';
 import Database from '../Database';
 import { arrayToSqlInClause } from '../Utils';
-import {
-  FailedSwapUpdateEvents,
-  SuccessSwapUpdateEvents,
-} from '../../consts/Enums';
+import { SwapUpdateEvent } from '../../consts/Enums';
 
 type StatsDate = {
   year: number;
@@ -12,12 +9,12 @@ type StatsDate = {
 };
 
 type Volume = StatsDate & {
-  asset: string;
+  pair?: string;
   sum: number;
 };
 
 type TradeCount = StatsDate & {
-  pair: string;
+  pair?: string;
   count: number;
 };
 
@@ -36,6 +33,7 @@ WITH data AS (
         CASE WHEN orderSide THEN invoiceAmount ELSE onchainAmount END AS amount,
         createdAt
     FROM swaps
+    WHERE status = ?
     UNION ALL
     SELECT
         pair,
@@ -43,33 +41,56 @@ WITH data AS (
         CASE WHEN orderSide THEN onchainAmount ELSE invoiceAmount END AS amount,
         createdAt
     FROM reverseSwaps
+    WHERE status = ?
+), groupedSwaps AS (
+    SELECT
+        CAST(STRFTIME('%Y', createdAt) AS INT) AS year,
+        CAST(STRFTIME('%m', createdAt) AS INT) AS month,
+        pair,
+        SUM(amount) AS sum
+    FROM data
+    GROUP BY year, month, pair
+    ORDER BY year, month, pair
+), groupedTotals AS (
+    SELECT * FROM groupedSwaps
+    UNION ALL
+    SELECT year, month, NULL AS pair, SUM(sum) AS sum
+    FROM groupedSwaps
+    GROUP BY year, month
 )
-SELECT
-    CAST(STRFTIME('%Y', createdAt) AS INT) AS year,
-    CAST(STRFTIME('%m', createdAt) AS INT) AS month,
-    SUBSTRING(pair, INSTR(pair, '/') + 1) AS asset,
-    SUM(amount) AS sum
-FROM data
-WHERE status IN (${arrayToSqlInClause(SuccessSwapUpdateEvents)})
-GROUP BY asset, year, month
-ORDER BY year, month;
+SELECT * FROM groupedTotals
+WHERE year >= ? AND month >= ?
+ORDER BY year, month, pair;
 `;
 
   private static queryTradeCounts = `
 WITH data AS (
-    SELECT pair, status, createdAt FROM swaps
+    SELECT pair, status, createdAt
+    FROM swaps
+    WHERE status = ?
     UNION ALL
-    SELECT pair, status, createdAt FROM reverseSwaps
+    SELECT pair, status, createdAt
+    FROM reverseSwaps
+    WHERE status = ?
+), groupedSwaps AS (
+    SELECT
+        CAST(STRFTIME('%Y', createdAt) AS INT) AS year,
+        CAST(STRFTIME('%m', createdAt) AS INT) AS month,
+        pair,
+        COUNT(*) AS count
+    FROM data
+    GROUP BY pair, year, month
+    ORDER BY year, month
+), groupedTotals AS (
+    SELECT * FROM groupedSwaps
+    UNION ALL
+    SELECT year, month, NULL AS pair, SUM(count) AS count
+    FROM groupedSwaps
+    GROUP BY year, month
 )
-SELECT
-    CAST(STRFTIME('%Y', createdAt) AS INT) AS year,
-    CAST(STRFTIME('%m', createdAt) AS INT) AS month,
-    pair,
-    COUNT(*) AS count
-FROM data
-WHERE status IN (${arrayToSqlInClause(SuccessSwapUpdateEvents)})
-GROUP BY pair, year, month
-ORDER BY year, month;
+SELECT * FROM groupedTotals
+WHERE year >= ? AND month >= ?
+ORDER BY year, month, pair;
 `;
 
   private static queryFailureRates = `
@@ -84,26 +105,61 @@ SELECT
     pair,
     isReverse,
     COUNT(*) FILTER (
-        WHERE status IN (${arrayToSqlInClause(FailedSwapUpdateEvents)})
+        WHERE status IN (${arrayToSqlInClause([
+          SwapUpdateEvent.TransactionFailed,
+          SwapUpdateEvent.InvoiceFailedToPay,
+          SwapUpdateEvent.TransactionRefunded,
+        ])})
     ) / CAST(COUNT(*) AS REAL) AS failureRate
 FROM data
-GROUP BY isReverse, year, month
+WHERE year >= ? AND month >= ?
+GROUP BY year, month, isReverse
 ORDER BY year, month, isReverse;
 `;
 
-  public static getVolume = (): Promise<Volume[]> => {
-    return StatsRepository.query(StatsRepository.queryVolume);
+  public static getVolume = (
+    minYear: number,
+    minMonth: number,
+  ): Promise<Volume[]> => {
+    return StatsRepository.query({
+      query: StatsRepository.queryVolume,
+      values: [
+        SwapUpdateEvent.TransactionClaimed,
+        SwapUpdateEvent.InvoiceSettled,
+        minYear,
+        minMonth,
+      ],
+    });
   };
 
-  public static getTradeCounts = (): Promise<TradeCount[]> => {
-    return StatsRepository.query(StatsRepository.queryTradeCounts);
+  public static getTradeCounts = (
+    minYear: number,
+    minMonth: number,
+  ): Promise<TradeCount[]> => {
+    return StatsRepository.query({
+      query: StatsRepository.queryTradeCounts,
+      values: [
+        SwapUpdateEvent.TransactionClaimed,
+        SwapUpdateEvent.InvoiceSettled,
+        minYear,
+        minMonth,
+      ],
+    });
   };
 
-  public static getFailureRates = (): Promise<FailureRate[]> => {
-    return StatsRepository.query(StatsRepository.queryFailureRates);
+  public static getFailureRates = (
+    minYear: number,
+    minMonth: number,
+  ): Promise<FailureRate[]> => {
+    return StatsRepository.query({
+      query: StatsRepository.queryFailureRates,
+      values: [minYear, minMonth],
+    });
   };
 
-  private static query = (query: string): Promise<any[]> => {
+  private static query = (
+    query: string | { query: string; values: unknown[] },
+  ): Promise<any[]> => {
     return Database.sequelize.query(query, {
       type: QueryTypes.SELECT,
     });

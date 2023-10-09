@@ -107,7 +107,14 @@ class CommandHandler {
         Command.GetStats,
         {
           executor: this.getStats,
-          description: 'gets stats of all successful swaps',
+          description:
+            'gets statistics grouped by year and month for the current and last 6 months',
+          usage: [
+            {
+              command: `${Command.GetStats} all`,
+              description: 'get statistics for all swaps in the database',
+            },
+          ],
         },
       ],
       [
@@ -302,9 +309,35 @@ class CommandHandler {
     }
   };
 
-  private getStats = async () => {
+  private getStats = async (args: string[]) => {
+    let minYear: number;
+    let minMonth: number;
+
+    if (args.length !== 0) {
+      switch (args[0].toLowerCase()) {
+        case 'all':
+          minYear = 0;
+          minMonth = 0;
+          break;
+
+        default:
+          await this.discord.sendMessage(`Invalid parameter: ${args[0]}`);
+          return;
+      }
+    } else {
+      const date = new Date();
+
+      // Only show the last 6 months by default
+      date.setMonth(date.getMonth() - 5);
+
+      minYear = date.getUTCFullYear();
+      minMonth = date.getUTCMonth();
+    }
+
     await this.discord.sendMessage(
-      `${codeBlock}${stringify(await Stats.generate())}${codeBlock}`,
+      `${codeBlock}${stringify(
+        await Stats.generate(minYear, minMonth),
+      )}${codeBlock}`,
     );
   };
 

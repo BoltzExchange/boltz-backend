@@ -21,10 +21,7 @@ WORKDIR /boltz-backend
 RUN git checkout ${VERSION}
 RUN npm install -g npm
 
-# Remove dependency that is not needed for the build and unavailable on ARM64
-RUN sed -i "/grpc-tools/d" package.json
-
-RUN npm install
+RUN npm ci
 RUN npm run compile
 
 FROM node:${NODE_VERSION} AS final

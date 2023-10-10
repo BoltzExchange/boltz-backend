@@ -28,8 +28,6 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build regtest image
-        run:  ./docker/build.py buildx regtest
-
-      - name: Build backend image
-        run:  ./docker/build.py buildx boltz
+      - name: Push backend image
+        # Cross compiling to ARM64 is broken right now
+        run: ./docker/build.py buildx --platform linux/amd64 boltz

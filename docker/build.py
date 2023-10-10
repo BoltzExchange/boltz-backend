@@ -176,6 +176,7 @@ def build_images(
     to_build: list[str],
     organisation: str,
     no_cache: bool,
+    no_latest: bool,
     buildx: bool,
     platform: str = "",
 ) -> None:
@@ -196,21 +197,20 @@ def build_images(
             # join the array to a string
             args = " ".join(["--build-arg " + entry for entry in build_args])
 
+            name = f"{organisation}/{image}"
+            dockerfile = f"{image}/Dockerfile"
+
             if buildx:
+                extra_tag = "" if no_latest else f"--tag {name}:latest"
                 command = (
-                    "docker buildx build --push {args} --platform "
-                    + platform
-                    + " --file {dockerfile} --tag {name}:{tag} ."
+                    f"docker buildx build --push {args} --platform {platform} "
+                    f"--file {dockerfile} --tag {name}:{tag} {extra_tag} ."
                 )
             else:
-                command = "docker build -t {name}:{tag} -f {dockerfile} {args} ."
-
-            command = command.format(
-                tag=tag,
-                args=args,
-                name=f"{organisation}/{image}",
-                dockerfile=f"{image}/Dockerfile",
-            )
+                extra_tag = "" if no_latest else f"-t {name}:latest"
+                command = (
+                    f"docker build -t {name}:{tag} {extra_tag} -f {dockerfile} {args} ."
+                )
 
             if no_cache:
                 command = command + " --no-cache"
@@ -253,6 +253,7 @@ if __name__ == "__main__":
 
     BUILD_PARSER.add_argument("images", type=str, nargs="*")
     BUILD_PARSER.add_argument("--no-cache", dest="no_cache", action="store_true")
+    BUILD_PARSER.add_argument("--no-latest", dest="no_latest", action="store_true")
     BUILD_PARSER.add_argument(
         "--organisation",
         default="boltz",
@@ -261,9 +262,9 @@ if __name__ == "__main__":
 
     BUILDX_PARSER.add_argument("images", type=str, nargs="*")
     BUILDX_PARSER.add_argument("--no-cache", dest="no_cache", action="store_true")
+    BUILDX_PARSER.add_argument("--no-latest", dest="no_latest", action="store_true")
     BUILDX_PARSER.add_argument(
         "--platform",
-        action="store_true",
         default="linux/amd64,linux/arm64",
         help="The platforms to build for",
     )
@@ -280,12 +281,15 @@ if __name__ == "__main__":
     if ARGS.command == "list":
         list_images(PARSED_IMAGES)
     elif ARGS.command == "build":
-        build_images(PARSED_IMAGES, ARGS.organisation, ARGS.no_cache, False)
+        build_images(
+            PARSED_IMAGES, ARGS.organisation, ARGS.no_cache, ARGS.no_latest, False
+        )
     elif ARGS.command == "buildx":
         build_images(
             PARSED_IMAGES,
             ARGS.organisation,
             ARGS.no_cache,
+            ARGS.no_latest,
             True,
             ARGS.platform,
         )

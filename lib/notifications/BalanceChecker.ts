@@ -41,6 +41,7 @@ class BalanceChecker {
   ) {
     currencyConfigs
       .filter((config): config is BaseCurrencyConfig => config !== undefined)
+      .filter((config) => config.minWalletBalance !== undefined)
       .forEach((config) =>
         this.currencies.push({
           ...config,

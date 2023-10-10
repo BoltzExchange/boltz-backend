@@ -71,6 +71,7 @@ describe('BalanceChecker', () => {
 
   test('should sanitize the liquid config', () => {
     const liquidConfig = {
+      minWalletBalance: 1_000,
       some: 'liquidRelatedStuff',
     } as unknown as BaseCurrencyConfig;
     const check = new BalanceChecker(
@@ -94,7 +95,13 @@ describe('BalanceChecker', () => {
       Logger.disabledLogger,
       new MockedService(),
       new MockedDiscordClient(),
-      [undefined, btcCurrency, undefined],
+      [
+        undefined,
+        btcCurrency,
+        undefined,
+        {},
+        { minWalletBalance: undefined } as any,
+      ],
       [],
     );
     expect(check['currencies'].length).toEqual(1);

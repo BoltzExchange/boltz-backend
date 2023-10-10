@@ -1,5 +1,5 @@
 import { getNestedObject } from './Utils';
-import { satoshisToCoins } from '../DenominationConverter';
+import { satoshisToPaddedCoins } from '../DenominationConverter';
 import StatsRepository, { StatsDate } from '../db/repositories/StatsRepository';
 
 type MonthStats = {
@@ -32,7 +32,7 @@ class Stats {
 
     volumes.forEach((volume) => {
       const obj = getNestedObject(getMonthObj(volume), 'volume');
-      obj[volume.pair || Stats.totalString] = satoshisToCoins(volume.sum);
+      obj[volume.pair || Stats.totalString] = satoshisToPaddedCoins(volume.sum);
     });
 
     tradeCounts.forEach((counts) => {

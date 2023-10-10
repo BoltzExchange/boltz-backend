@@ -14,8 +14,8 @@ import BackupScheduler from '../backup/BackupScheduler';
 import ChannelCreation from '../db/models/ChannelCreation';
 import FeeRepository from '../db/repositories/FeeRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
-import { coinsToSatoshis, satoshisToCoins } from '../DenominationConverter';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
+import { coinsToSatoshis, satoshisToSatcomma } from '../DenominationConverter';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import {
   stringify,
@@ -257,7 +257,7 @@ class CommandHandler {
   private getFees = async () => {
     let message = 'Fees:\n';
     (await FeeRepository.getFees()).forEach(({ asset, sum }) => {
-      message += `\n**${asset}**: ${satoshisToCoins(sum)} ${asset}`;
+      message += `\n**${asset}**: ${satoshisToSatcomma(sum)} ${asset}`;
     });
 
     await this.discord.sendMessage(message);
@@ -350,7 +350,7 @@ class CommandHandler {
       message += `\n\n**${symbol}**\n`;
 
       bals.walletsMap.forEach(([service, walletBals]) => {
-        message += `\n${service} Wallet: ${satoshisToCoins(
+        message += `\n${service} Wallet: ${satoshisToSatcomma(
           walletBals.confirmed + walletBals.unconfirmed,
         )} ${symbol}`;
       });
@@ -362,8 +362,8 @@ class CommandHandler {
       bals.lightningMap.forEach(([service, lightningBals]) => {
         message +=
           `\n${service}:\n` +
-          `  Local: ${satoshisToCoins(lightningBals.local)} ${symbol}\n` +
-          `  Remote: ${satoshisToCoins(lightningBals.remote)} ${symbol}`;
+          `  Local: ${satoshisToSatcomma(lightningBals.local)} ${symbol}\n` +
+          `  Remote: ${satoshisToSatcomma(lightningBals.remote)} ${symbol}`;
       });
     });
 
@@ -410,12 +410,12 @@ class CommandHandler {
 
       for (const pendingReverseSwap of chainArray) {
         symbolTotal += pendingReverseSwap.onchainAmount;
-        message += `\n  - \`${pendingReverseSwap.id}\`: ${satoshisToCoins(
+        message += `\n  - \`${pendingReverseSwap.id}\`: ${satoshisToSatcomma(
           pendingReverseSwap.onchainAmount,
         )}`;
       }
 
-      message += `\n\nTotal: ${satoshisToCoins(symbolTotal)}\n`;
+      message += `\n\nTotal: ${satoshisToSatcomma(symbolTotal)}\n`;
     }
 
     await this.discord.sendMessage(message);

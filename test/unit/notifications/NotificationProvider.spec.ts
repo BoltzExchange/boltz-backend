@@ -1,5 +1,5 @@
 import { join } from 'path';
-import { unlinkSync, existsSync } from 'fs';
+import { existsSync, unlinkSync } from 'fs';
 import { wait } from '../../Utils';
 import Logger from '../../../lib/Logger';
 import Swap from '../../../lib/db/models/Swap';
@@ -8,14 +8,14 @@ import { decodeInvoice } from '../../../lib/Utils';
 import { CurrencyType } from '../../../lib/consts/Enums';
 import ReverseSwap from '../../../lib/db/models/ReverseSwap';
 import BackupScheduler from '../../../lib/backup/BackupScheduler';
-import DiscordClient from '../../../lib/notifications/DiscordClient';
-import { satoshisToCoins } from '../../../lib/DenominationConverter';
 import ChannelCreation from '../../../lib/db/models/ChannelCreation';
+import DiscordClient from '../../../lib/notifications/DiscordClient';
+import { satoshisToSatcomma } from '../../../lib/DenominationConverter';
 import NotificationProvider from '../../../lib/notifications/NotificationProvider';
 import {
-  swapExample,
-  reverseSwapExample,
   channelCreationExample,
+  reverseSwapExample,
+  swapExample,
 } from './ExampleSwaps';
 
 type successCallback = (
@@ -148,12 +148,12 @@ describe('NotificationProvider', () => {
         `ID: ${swap.id}\n` +
         `Pair: ${swap.pair}\n` +
         'Order side: buy\n' +
-        `Onchain amount: ${satoshisToCoins(swap.onchainAmount!)} BTC\n` +
-        `Lightning amount: ${satoshisToCoins(
+        `Onchain amount: ${satoshisToSatcomma(swap.onchainAmount!)} BTC\n` +
+        `Lightning amount: ${satoshisToSatcomma(
           decodeInvoice(swap.invoice!).satoshis,
         )} LTC\n` +
-        `Fees earned: ${satoshisToCoins(swap.fee!)} BTC\n` +
-        `Miner fees: ${satoshisToCoins(swap.minerFee!)} BTC\n` +
+        `Fees earned: ${satoshisToSatcomma(swap.fee!)} BTC\n` +
+        `Miner fees: ${satoshisToSatcomma(swap.minerFee!)} BTC\n` +
         `Routing fees: ${swap.routingFee! / 1000} litoshi` +
         NotificationProvider['trailingWhitespace'],
     );
@@ -171,8 +171,8 @@ describe('NotificationProvider', () => {
         `ID: ${swap.id}\n` +
         `Pair: ${swap.pair}\n` +
         'Order side: buy\n' +
-        `Onchain amount: ${satoshisToCoins(swap.onchainAmount!)} BTC\n` +
-        `Lightning amount: ${satoshisToCoins(
+        `Onchain amount: ${satoshisToSatcomma(swap.onchainAmount!)} BTC\n` +
+        `Lightning amount: ${satoshisToSatcomma(
           decodeInvoice(swap.invoice!).satoshis,
         )} LTC\n` +
         `Invoice: ${swap.invoice}` +
@@ -190,12 +190,14 @@ describe('NotificationProvider', () => {
         `ID: ${reverseSwap.id}\n` +
         `Pair: ${reverseSwap.pair}\n` +
         'Order side: sell\n' +
-        `Onchain amount: ${satoshisToCoins(reverseSwap.onchainAmount!)} BTC\n` +
-        `Lightning amount: ${satoshisToCoins(
+        `Onchain amount: ${satoshisToSatcomma(
+          reverseSwap.onchainAmount!,
+        )} BTC\n` +
+        `Lightning amount: ${satoshisToSatcomma(
           decodeInvoice(reverseSwap.invoice).satoshis,
         )} LTC\n` +
-        `Fees earned: ${satoshisToCoins(reverseSwap.fee)} BTC\n` +
-        `Miner fees: ${satoshisToCoins(reverseSwap.minerFee!)} BTC` +
+        `Fees earned: ${satoshisToSatcomma(reverseSwap.fee)} BTC\n` +
+        `Miner fees: ${satoshisToSatcomma(reverseSwap.minerFee!)} BTC` +
         NotificationProvider['trailingWhitespace'],
     );
   });
@@ -213,11 +215,13 @@ describe('NotificationProvider', () => {
         `ID: ${reverseSwap.id}\n` +
         `Pair: ${reverseSwap.pair}\n` +
         'Order side: sell\n' +
-        `Onchain amount: ${satoshisToCoins(reverseSwap.onchainAmount!)} BTC\n` +
-        `Lightning amount: ${satoshisToCoins(
+        `Onchain amount: ${satoshisToSatcomma(
+          reverseSwap.onchainAmount!,
+        )} BTC\n` +
+        `Lightning amount: ${satoshisToSatcomma(
           decodeInvoice(reverseSwap.invoice).satoshis,
         )} LTC\n` +
-        `Miner fees: ${satoshisToCoins(reverseSwap.minerFee)} BTC` +
+        `Miner fees: ${satoshisToSatcomma(reverseSwap.minerFee)} BTC` +
         NotificationProvider['trailingWhitespace'],
     );
 
@@ -238,8 +242,10 @@ describe('NotificationProvider', () => {
         `ID: ${reverseSwap.id}\n` +
         `Pair: ${reverseSwap.pair}\n` +
         'Order side: sell\n' +
-        `Onchain amount: ${satoshisToCoins(reverseSwap.onchainAmount!)} BTC\n` +
-        `Lightning amount: ${satoshisToCoins(
+        `Onchain amount: ${satoshisToSatcomma(
+          reverseSwap.onchainAmount!,
+        )} BTC\n` +
+        `Lightning amount: ${satoshisToSatcomma(
           decodeInvoice(reverseSwap.invoice).satoshis,
         )} LTC` +
         NotificationProvider['trailingWhitespace'],
@@ -256,12 +262,12 @@ describe('NotificationProvider', () => {
         `ID: ${swap.id}\n` +
         `Pair: ${swap.pair}\n` +
         'Order side: buy\n' +
-        `Onchain amount: ${satoshisToCoins(swap.onchainAmount!)} BTC\n` +
-        `Lightning amount: ${satoshisToCoins(
+        `Onchain amount: ${satoshisToSatcomma(swap.onchainAmount!)} BTC\n` +
+        `Lightning amount: ${satoshisToSatcomma(
           decodeInvoice(swap.invoice!).satoshis,
         )} LTC\n` +
-        `Fees earned: ${satoshisToCoins(swap.fee!)} BTC\n` +
-        `Miner fees: ${satoshisToCoins(swap.minerFee!)} BTC\n` +
+        `Fees earned: ${satoshisToSatcomma(swap.fee!)} BTC\n` +
+        `Miner fees: ${satoshisToSatcomma(swap.minerFee!)} BTC\n` +
         `Routing fees: ${swap.routingFee! / 1000} litoshi\n\n` +
         '**Channel Creation:**\n' +
         `Private: ${channelCreation.private}\n` +
@@ -286,12 +292,12 @@ describe('NotificationProvider', () => {
         `ID: ${swap.id}\n` +
         `Pair: ${swap.pair}\n` +
         'Order side: buy\n' +
-        `Onchain amount: ${satoshisToCoins(swap.onchainAmount!)} BTC\n` +
-        `Lightning amount: ${satoshisToCoins(
+        `Onchain amount: ${satoshisToSatcomma(swap.onchainAmount!)} BTC\n` +
+        `Lightning amount: ${satoshisToSatcomma(
           decodeInvoice(swap.invoice!).satoshis,
         )} LTC\n` +
-        `Fees earned: ${satoshisToCoins(swap.fee!)} BTC\n` +
-        `Miner fees: ${satoshisToCoins(swap.minerFee!)} BTC\n` +
+        `Fees earned: ${satoshisToSatcomma(swap.fee!)} BTC\n` +
+        `Miner fees: ${satoshisToSatcomma(swap.minerFee!)} BTC\n` +
         `Routing fees: ${swap.routingFee! / 1000} litoshi` +
         NotificationProvider['trailingWhitespace'],
     );
@@ -316,17 +322,6 @@ describe('NotificationProvider', () => {
         'Order side: buy\n' +
         '** **',
     );
-  });
-
-  test('should format numbers to strings in decimal notation', () => {
-    const numberToDecimal = notificationProvider['numberToDecimal'];
-
-    expect(numberToDecimal(1)).toEqual('1');
-    expect(numberToDecimal(0.0001)).toEqual('0.0001');
-    expect(numberToDecimal(1e-6)).toEqual('0.000001');
-    expect(numberToDecimal(1e-7)).toEqual('0.0000001');
-    expect(numberToDecimal(10e-8)).toEqual('0.0000001');
-    expect(numberToDecimal(12e-8)).toEqual('0.00000012');
   });
 
   afterAll(() => {

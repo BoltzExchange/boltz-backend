@@ -849,7 +849,7 @@ class ClnClient
 
     if (this.status === ClientStatus.Connected) {
       this.emit('subscription.error');
-      await this.reconnect();
+      setTimeout(() => this.reconnect(), this.RECONNECT_INTERVAL);
     }
   };
 

@@ -1,9 +1,9 @@
 import { scheduleJob, Job } from 'node-schedule';
 import Logger from '../Logger';
+import NodeSwitch from '../swap/NodeSwitch';
 import ClnClient from '../lightning/ClnClient';
 import LndClient from '../lightning/LndClient';
 import { Currency } from '../wallet/WalletManager';
-import NodeSwitch from '../swap/NodeSwitch';
 
 type LndNodeInfo = {
   nodeKey: string;
@@ -18,7 +18,9 @@ type Stats = {
 };
 
 class NodeInfo {
+  private pubkeys = new Set<string>();
   private uris = new Map<string, LndNodeInfo>();
+
   private stats = new Map<string, Stats>();
 
   private job?: Job;
@@ -44,6 +46,8 @@ class NodeInfo {
     }
   };
 
+  public isOurNode = (pubkey: string): boolean => this.pubkeys.has(pubkey);
+
   public getStats = () => {
     return this.stats;
   };
@@ -65,6 +69,8 @@ class NodeInfo {
       const infos = await Promise.all(
         clients.map((client) => client.getInfo()),
       );
+
+      infos.forEach((info) => this.pubkeys.add(info.pubkey));
 
       // TODO: how to handle both, lnd and cln
       this.uris.set(symbol, {

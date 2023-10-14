@@ -951,6 +951,11 @@ class Service {
     const decodedInvoice = await this.nodeSwitch
       .getSwapNode(this.getCurrency(lightningCurrency)!, swap)
       .decodeInvoice(invoice);
+
+    if (this.nodeInfo.isOurNode(decodedInvoice.destination)) {
+      throw Errors.DESTINATION_BOLTZ_NODE();
+    }
+
     if (decodedInvoice.features.has(InvoiceFeature.AMP)) {
       throw Errors.AMP_INVOICES_NOT_SUPPORTED();
     }

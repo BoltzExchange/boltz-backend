@@ -2,6 +2,7 @@ import Logger from '../../../lib/Logger';
 import NodeInfo from '../../../lib/service/NodeInfo';
 import LndClient from '../../../lib/lightning/LndClient';
 import ChainClient from '../../../lib/chain/ChainClient';
+import { Currency } from '../../../lib/wallet/WalletManager';
 
 const getNodeInfo = (symbol: string) => ({
   pubkey: `${symbol}identityPubkey`,
@@ -61,7 +62,7 @@ jest.mock('../../../lib/chain/ChainClient', () => {
 const mockedChainClient = <jest.Mock<ChainClient>>(<any>ChainClient);
 
 describe('NodeInfo', () => {
-  const currencies = new Map<string, any>([
+  const currencies = new Map<string, Currency>([
     [
       'BTC',
       {
@@ -91,7 +92,7 @@ describe('NodeInfo', () => {
       },
     ],
     ['NEITHER', {}],
-  ]);
+  ] as [string, Currency][]);
   const nodeInfo = new NodeInfo(Logger.disabledLogger, currencies);
 
   afterAll(() => {
@@ -158,5 +159,24 @@ describe('NodeInfo', () => {
       oldestChannel: rawTxResult.blocktime,
       capacity: (channelsBtc[0].capacity + channelsBtc[1].capacity) * 2,
     });
+  });
+
+  test.each`
+    pubkey                      | isOurs
+    ${'BOTH_LNDidentityPubkey'} | ${true}
+    ${'BOTH_CLNidentityPubkey'} | ${true}
+    ${'LTCidentityPubkey'}      | ${true}
+    ${'CLNidentityPubkey'}      | ${true}
+    ${'notOurs'}                | ${false}
+  `('should check if node $pubkey is ours', ({ pubkey, isOurs }) => {
+    expect(nodeInfo['pubkeys'].size).toEqual(
+      Array.from(currencies.values()).reduce((count, currency) => {
+        [currency.lndClient, currency.clnClient]
+          .filter((client) => client !== undefined)
+          .forEach(() => count++);
+        return count;
+      }, 0),
+    );
+    expect(nodeInfo.isOurNode(pubkey)).toEqual(isOurs);
   });
 });

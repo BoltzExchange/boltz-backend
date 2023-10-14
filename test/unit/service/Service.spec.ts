@@ -32,10 +32,10 @@ import {
   gweiDecimals,
 } from '../../../lib/consts/Consts';
 import {
-  BaseFeeType,
-  CurrencyType,
   OrderSide,
+  BaseFeeType,
   ServiceInfo,
+  CurrencyType,
   ServiceWarning,
   SwapUpdateEvent,
 } from '../../../lib/consts/Enums';
@@ -1328,6 +1328,27 @@ describe('Service', () => {
     await expect(service.setInvoice(mockGetSwapResult.id, '')).rejects.toEqual(
       Errors.SWAP_HAS_INVOICE_ALREADY(mockGetSwapResult.id),
     );
+  });
+
+  test('should not set swap invoice if it is from one of our nodes', async () => {
+    mockGetSwapResult = {
+      id: 'swapOurPubkey',
+      pair: 'BTC/BTC',
+      orderSide: 0,
+      lockupAddress: 'bcrt1qae5nuz2cv7gu2dpps8rwrhsfv6tjkyvpd8hqsu',
+    };
+
+    const ourPubkey = 'pubkey';
+    service['nodeInfo']['pubkeys'].add(ourPubkey);
+    decodedInvoice.destination = ourPubkey;
+
+    const invoice =
+      'lnbcrt1230n1pjw20v9pp5k4hlsgl93azhjkz5zxs3zsgnvksz2r6yee83av2r2jjncwrc0upsdqqcqzzsxq9z0rgqsp5ce7wh3ff7kz5f8sxfulcp48982gyqy935m6fzvrqr8547kh8rz2s9q8pqqqssq2u68l700shh7gzfeuetugp3h5kh80c40g5tsx7awwruy06309gy4ehwrw2h7vd7cwevc0p60td0wk22p5ldfp84nlueka8ft7kng0lsqwqjjq9';
+    await expect(
+      service.setInvoice(mockGetSwapResult.id, invoice),
+    ).rejects.toEqual(Errors.DESTINATION_BOLTZ_NODE());
+
+    decodedInvoice.destination = undefined;
   });
 
   test('should reject setting AMP invoices swap', async () => {

@@ -125,4 +125,8 @@ export default {
     message: `minimal swap expiry ${minFinalCltvExpiry} plus the routing offset ${routingOffset} minutes is greater than max swap timeout ${swapMaximal}`,
     code: concatErrorCode(ErrorCodePrefix.Service, 32),
   }),
+  DESTINATION_BOLTZ_NODE: (): Error => ({
+    message: 'swap to Boltz lightning nodes are forbidden',
+    code: concatErrorCode(ErrorCodePrefix.Service, 33),
+  }),
 };

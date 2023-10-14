@@ -4,8 +4,8 @@ import Service from '../service/Service';
 import DiscordClient from './DiscordClient';
 import { Balances } from '../proto/boltzrpc_pb';
 import { liquidSymbol } from '../consts/LiquidTypes';
-import { BaseCurrencyConfig, TokenConfig } from '../Config';
 import { satoshisToSatcomma } from '../DenominationConverter';
+import { BaseCurrencyConfig, PreferredWallet, TokenConfig } from '../Config';
 
 enum BalanceType {
   Wallet,
@@ -16,8 +16,12 @@ enum BalanceType {
 type CurrenyThresholds = {
   symbol: string;
 
+  preferredWallet?: PreferredWallet;
+
   minWalletBalance: number;
   maxWalletBalance?: number;
+
+  maxUnusedWalletBalance?: number;
 
   minLocalBalance?: number;
   minRemoteBalance?: number;
@@ -76,6 +80,7 @@ class BalanceChecker {
         service,
         BalanceType.Wallet,
         balance.confirmed + balance.unconfirmed,
+        balances.walletsMap.length === 1,
       );
     }
 
@@ -101,18 +106,36 @@ class BalanceChecker {
     service: string,
     type: BalanceType,
     balance: number,
+    isOnlyWallet?: boolean,
   ) => {
     let isInBounds: boolean;
+    let isMainWallet = false;
     let notificationSet: Set<string>;
 
     if (type === BalanceType.Wallet) {
       notificationSet = this.walletBalanceAlerts;
 
-      const { minWalletBalance, maxWalletBalance } = currency;
+      const {
+        preferredWallet,
+        minWalletBalance,
+        maxWalletBalance,
+        maxUnusedWalletBalance,
+      } = currency;
 
-      isInBounds =
-        minWalletBalance <= balance &&
-        balance <= (maxWalletBalance || Number.MAX_SAFE_INTEGER);
+      if (
+        isOnlyWallet ||
+        (preferredWallet || 'lnd') === service.toLowerCase()
+      ) {
+        isMainWallet = true;
+        isInBounds =
+          minWalletBalance <= balance &&
+          balance <= (maxWalletBalance || Number.MAX_SAFE_INTEGER);
+      } else if (maxUnusedWalletBalance !== undefined) {
+        isInBounds = balance <= maxUnusedWalletBalance;
+      } else {
+        // Wallet does not need to be checked
+        return;
+      }
     } else {
       notificationSet =
         type === BalanceType.ChannelLocal
@@ -131,10 +154,24 @@ class BalanceChecker {
 
     if (!notificationSet.has(ident) && !isInBounds) {
       notificationSet.add(ident);
-      await this.sendAlert(currency, type, service, isInBounds, balance);
+      await this.sendAlert(
+        currency,
+        type,
+        service,
+        isInBounds,
+        isMainWallet,
+        balance,
+      );
     } else if (notificationSet.has(ident) && isInBounds) {
       notificationSet.delete(ident);
-      await this.sendAlert(currency, type, service, isInBounds, balance);
+      await this.sendAlert(
+        currency,
+        type,
+        service,
+        isInBounds,
+        isMainWallet,
+        balance,
+      );
     }
   };
 
@@ -143,6 +180,7 @@ class BalanceChecker {
     type: BalanceType,
     service: string,
     isInBounds: boolean,
+    isMainWallet: boolean,
     balance: number,
   ) => {
     const name = `${currency.symbol} ${service}`;
@@ -170,15 +208,17 @@ class BalanceChecker {
       }
     } else {
       if (type === BalanceType.Wallet) {
+        const limits = isMainWallet
+          ? `${
+              currency.maxWalletBalance
+                ? `    Max: ${satoshisToSatcomma(currency.maxWalletBalance)}\n`
+                : ''
+            }` + `    Min: ${satoshisToSatcomma(currency.minWalletBalance)}`
+          : `    Max: ${satoshisToSatcomma(currency.maxUnusedWalletBalance!)}`;
         message =
           `${Emojis.RotatingLight} **${name} wallet balance is out of bounds** ${Emojis.RotatingLight}\n` +
           `  Balance: ${satoshisToSatcomma(balance)}\n` +
-          `${
-            currency.maxWalletBalance
-              ? `    Max: ${satoshisToSatcomma(currency.maxWalletBalance)}\n`
-              : ''
-          }` +
-          `    Min: ${satoshisToSatcomma(currency.minWalletBalance)}`;
+          limits;
       } else {
         message =
           `${Emojis.RotatingLight} **${name} ${

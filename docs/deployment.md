@@ -138,6 +138,9 @@ minWalletBalance = 10_000_000
 minChannelBalance = 10_000_000
 maxZeroConfAmount = 10_000_000
 
+# Can be set to alert about the balance of an unused wallet being more than a certain threshold
+# maxUnusedWalletBalance = 100_000
+
   [currencies.chain]
   host = "127.0.0.1"
   port = 18_332

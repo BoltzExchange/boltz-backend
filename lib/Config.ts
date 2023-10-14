@@ -31,12 +31,18 @@ type ChainConfig = {
   mempoolSpace?: string;
 };
 
+type PreferredWallet = 'lnd' | 'core' | undefined;
+
 type BaseCurrencyConfig = {
   symbol: string;
   network: Network;
 
+  preferredWallet: PreferredWallet;
+
   minWalletBalance: number;
   maxWalletBalance?: number;
+
+  maxUnusedWalletBalance?: number;
 
   maxZeroConfAmount: number;
 
@@ -49,8 +55,6 @@ type RoutingOffsetException = {
 };
 
 type CurrencyConfig = BaseCurrencyConfig & {
-  preferredWallet: 'lnd' | 'core' | undefined;
-
   lnd?: LndConfig;
   cln?: ClnConfig;
   routingOffsetExceptions?: RoutingOffsetException[];
@@ -466,6 +470,7 @@ export {
   BackupConfig,
   EthereumConfig,
   CurrencyConfig,
+  PreferredWallet,
   BaseCurrencyConfig,
   NotificationConfig,
   EthProviderServiceConfig,

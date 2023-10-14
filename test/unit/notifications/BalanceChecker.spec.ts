@@ -7,6 +7,8 @@ import { Balances, GetBalanceResponse } from '../../../lib/proto/boltzrpc_pb';
 import BalanceChecker, {
   BalanceType,
 } from '../../../lib/notifications/BalanceChecker';
+import { Emojis } from '../../../lib/notifications/Markup';
+import { satoshisToSatcomma } from '../../../lib/DenominationConverter';
 
 let mockGetBalanceResponse: any = null;
 const mockGetBalance = jest.fn().mockImplementation(async () => {
@@ -185,6 +187,7 @@ describe('BalanceChecker', () => {
       'Core',
       BalanceType.Wallet,
       1,
+      true,
     );
     expect(mockCheckBalance).toHaveBeenNthCalledWith(
       2,
@@ -222,11 +225,13 @@ describe('BalanceChecker', () => {
       'Core',
       BalanceType.Wallet,
       123,
+      true,
     );
   });
 
   test('should check balance', () => {
     const service = 'Core';
+    const currency = { ...btcCurrency, preferredWallet: 'core' } as any;
     const checkBalance = checker['checkBalance'];
 
     /*
@@ -237,7 +242,7 @@ describe('BalanceChecker', () => {
 
     // Should ignore when in bounds
     checkBalance(
-      btcCurrency,
+      currency,
       service,
       BalanceType.Wallet,
       btcCurrency.minWalletBalance,
@@ -248,7 +253,7 @@ describe('BalanceChecker', () => {
 
     // Should send message when getting out of bounds
     checkBalance(
-      btcCurrency,
+      currency,
       service,
       BalanceType.Wallet,
       btcCurrency.minWalletBalance - 1,
@@ -262,7 +267,7 @@ describe('BalanceChecker', () => {
 
     // Should send message when getting in bounds again
     checkBalance(
-      btcCurrency,
+      currency,
       service,
       BalanceType.Wallet,
       Number.MAX_SAFE_INTEGER - 1,
@@ -277,6 +282,7 @@ describe('BalanceChecker', () => {
       service,
       BalanceType.Wallet,
       usdtCurrency.maxWalletBalance! + 1,
+      true,
     );
 
     expect(checker['walletBalanceAlerts'].size).toEqual(1);
@@ -339,14 +345,28 @@ describe('BalanceChecker', () => {
     const sendAlert = checker['sendAlert'];
 
     // Wallet alerts
-    await sendAlert(btcCurrency, BalanceType.Wallet, service, true, 999999999);
+    await sendAlert(
+      btcCurrency,
+      BalanceType.Wallet,
+      service,
+      true,
+      true,
+      999999999,
+    );
     expect(mockSendMessage).toHaveBeenNthCalledWith(
       1,
       `:white_check_mark: BTC ${service} wallet balance of 9.99,999,999 is in bounds again :white_check_mark:`,
       true,
     );
 
-    await sendAlert(btcCurrency, BalanceType.Wallet, service, false, 99999999);
+    await sendAlert(
+      btcCurrency,
+      BalanceType.Wallet,
+      service,
+      false,
+      true,
+      99999999,
+    );
     expect(mockSendMessage).toHaveBeenNthCalledWith(
       2,
       `:rotating_light: **BTC ${service} wallet balance is out of bounds** :rotating_light:\n` +
@@ -359,6 +379,7 @@ describe('BalanceChecker', () => {
       usdtCurrency,
       BalanceType.Wallet,
       service,
+      true,
       true,
       150000000000,
     );
@@ -373,6 +394,8 @@ describe('BalanceChecker', () => {
       BalanceType.Wallet,
       service,
       false,
+      true,
+
       10000000000,
     );
     expect(mockSendMessage).toHaveBeenNthCalledWith(
@@ -390,6 +413,8 @@ describe('BalanceChecker', () => {
       BalanceType.ChannelLocal,
       service,
       true,
+      true,
+
       25000001,
     );
     expect(mockSendMessage).toHaveBeenNthCalledWith(
@@ -402,6 +427,7 @@ describe('BalanceChecker', () => {
       btcCurrency,
       BalanceType.ChannelRemote,
       service,
+      true,
       true,
       25000001,
     );
@@ -416,6 +442,8 @@ describe('BalanceChecker', () => {
       BalanceType.ChannelLocal,
       service,
       false,
+      true,
+
       20000000,
     );
     expect(mockSendMessage).toHaveBeenNthCalledWith(
@@ -429,11 +457,100 @@ describe('BalanceChecker', () => {
       BalanceType.ChannelRemote,
       service,
       false,
+      true,
       20000000,
     );
     expect(mockSendMessage).toHaveBeenNthCalledWith(
       8,
       `:rotating_light: **BTC ${service} remote channel balance of 0.20,000,000 is less than expected 0.24,000,000** :rotating_light:`,
+      true,
+    );
+  });
+
+  test('should detect if it is the only wallet', async () => {
+    const mockedCheckBalance = jest.fn();
+    checker['checkBalance'] = mockedCheckBalance;
+
+    await checker['checkCurrency'](btcCurrency, {
+      walletsMap: [
+        [
+          'Core',
+          {
+            confirmed: 1,
+            unconfirmed: 0,
+          },
+        ],
+      ],
+      lightningMap: [],
+    });
+
+    expect(mockedCheckBalance).toHaveBeenCalledTimes(1);
+    expect(mockedCheckBalance).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      true,
+    );
+
+    await checker['checkCurrency'](btcCurrency, {
+      walletsMap: [
+        [
+          'Core',
+          {
+            confirmed: 1,
+            unconfirmed: 0,
+          },
+        ],
+        [
+          'LND',
+          {
+            confirmed: 2,
+            unconfirmed: 1,
+          },
+        ],
+      ],
+      lightningMap: [],
+    });
+
+    expect(mockedCheckBalance).toHaveBeenCalledTimes(3);
+    expect(mockedCheckBalance).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      false,
+    );
+  });
+
+  test('should ignore unused wallets when no max unused wallet balance is defined', async () => {
+    await checker['checkBalance'](
+      { ...btcCurrency, maxUnusedWalletBalance: undefined },
+      'CLN',
+      BalanceType.Wallet,
+      btcCurrency.maxWalletBalance! + 1,
+      false,
+    );
+
+    expect(mockSendMessage).toHaveBeenCalledTimes(0);
+  });
+
+  test('should check for max unused wallet balance for unused wallets', async () => {
+    const maxUnusedWalletBalance = 1_012_000;
+    await checker['checkBalance'](
+      { ...btcCurrency, maxUnusedWalletBalance },
+      'CLN',
+      BalanceType.Wallet,
+      maxUnusedWalletBalance + 1,
+      false,
+    );
+    expect(mockSendMessage).toHaveBeenCalledTimes(1);
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      `${Emojis.RotatingLight} **${
+        btcCurrency.symbol
+      } CLN wallet balance is out of bounds** ${Emojis.RotatingLight}
+  Balance: ${satoshisToSatcomma(maxUnusedWalletBalance + 1)}
+    Max: ${satoshisToSatcomma(maxUnusedWalletBalance)}`,
       true,
     );
   });

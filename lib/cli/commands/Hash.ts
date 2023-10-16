@@ -18,7 +18,8 @@ export const handler = (argv: Arguments<any>): void => {
 
   console.log(
     stringify({
-      hash: getHexString(crypto.sha256(preimage)),
+      sha256: getHexString(crypto.sha256(preimage)),
+      hash160: getHexString(crypto.hash160(preimage)),
     }),
   );
 };

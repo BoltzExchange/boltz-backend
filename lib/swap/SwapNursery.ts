@@ -2,7 +2,7 @@ import { Op } from 'sequelize';
 import AsyncLock from 'async-lock';
 import { EventEmitter } from 'events';
 import { detectSwap } from 'boltz-core';
-import { crypto, Transaction } from 'bitcoinjs-lib';
+import { Transaction } from 'bitcoinjs-lib';
 import { ContractTransactionResponse } from 'ethers';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import Errors from './Errors';
@@ -11,6 +11,7 @@ import Swap from '../db/models/Swap';
 import Wallet from '../wallet/Wallet';
 import NodeSwitch from './NodeSwitch';
 import UtxoNursery from './UtxoNursery';
+import { racePromise } from '../PromiseUtils';
 import SwapOutputType from './SwapOutputType';
 import ChannelNursery from './ChannelNursery';
 import InvoiceNursery from './InvoiceNursery';
@@ -397,8 +398,12 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
 
           try {
             // Check if the hold invoice has pending HTLCs before actually cancelling
-            const { htlcs, state } = await lightningClient.lookupHoldInvoice(
-              getHexBuffer(reverseSwap.preimageHash),
+            const { htlcs, state } = await racePromise(
+              lightningClient.lookupHoldInvoice(
+                getHexBuffer(reverseSwap.preimageHash),
+              ),
+              (reject) => reject('lookup for HTLCs of hold invoice timed out'),
+              LightningNursery.lightningClientCallTimeout,
             );
 
             if (state === InvoiceState.Cancelled) {
@@ -420,17 +425,11 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
                 `Cancelling expired hold invoice${plural} of Reverse Swap ${reverseSwap.id}`,
               );
 
-              await lightningClient.cancelHoldInvoice(
-                getHexBuffer(reverseSwap.preimageHash),
+              await LightningNursery.cancelReverseInvoices(
+                lightningClient,
+                reverseSwap,
+                true,
               );
-
-              if (reverseSwap.minerFeeInvoicePreimage) {
-                await lightningClient.cancelHoldInvoice(
-                  crypto.sha256(
-                    getHexBuffer(reverseSwap.minerFeeInvoicePreimage),
-                  ),
-                );
-              }
             }
           } catch (error) {
             // In case the LND client could not find the invoice(s) of the Reverse Swap, we just ignore the error and mark them as cancelled regardless
@@ -447,12 +446,10 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
               );
               return;
             } else {
-              this.logger.silly(
+              this.logger.warn(
                 `Cancelling invoice${plural} of Reverse Swap ${
                   reverseSwap.id
-                } failed although the LND client could find them: ${formatError(
-                  error,
-                )}`,
+                } failed although they could be found: ${formatError(error)}`,
               );
             }
           }
@@ -1026,7 +1023,13 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
       reverseSwap,
     );
     try {
-      await lightningClient.settleHoldInvoice(preimage);
+      await racePromise(
+        lightningClient.settleHoldInvoice(preimage),
+        (reject) => {
+          reject('invoice settlement timed out');
+        },
+        LightningNursery.lightningClientCallTimeout,
+      );
 
       this.logger.info(`Settled Reverse Swap ${reverseSwap.id}`);
 
@@ -1038,7 +1041,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
         ),
       );
     } catch (e) {
-      this.logger.warn(`Could not settle invoice: ${formatError(e)}`);
+      this.logger.error(`Could not settle invoice: ${formatError(e)}`);
     }
   };
 
@@ -1048,8 +1051,10 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
     lightningClient: LightningClient,
     error: unknown,
   ) => {
-    await lightningClient.cancelHoldInvoice(
-      getHexBuffer(reverseSwap.preimageHash),
+    await LightningNursery.cancelReverseInvoices(
+      lightningClient,
+      reverseSwap,
+      false,
     );
 
     this.logger.warn(
@@ -1167,15 +1172,11 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
     );
 
     try {
-      await lightningClient.cancelHoldInvoice(
-        getHexBuffer(reverseSwap.preimageHash),
+      await LightningNursery.cancelReverseInvoices(
+        lightningClient,
+        reverseSwap,
+        true,
       );
-
-      if (reverseSwap.minerFeeInvoicePreimage) {
-        await lightningClient.cancelHoldInvoice(
-          crypto.sha256(getHexBuffer(reverseSwap.minerFeeInvoicePreimage)),
-        );
-      }
     } catch (e) {
       this.logger.debug(
         `Could not cancel invoices of Reverse Swap ${

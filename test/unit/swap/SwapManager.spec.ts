@@ -3,6 +3,7 @@ import bolt11 from '@boltz/bolt11';
 import { randomBytes } from 'crypto';
 import { address } from 'bitcoinjs-lib';
 import { Networks, OutputType } from 'boltz-core';
+import { raceCall } from '../../Utils';
 import Logger from '../../../lib/Logger';
 import Errors from '../../../lib/swap/Errors';
 import Swap from '../../../lib/db/models/Swap';
@@ -227,6 +228,7 @@ const mockGetInfo = jest.fn().mockResolvedValue({ pubkey: 'me' });
 jest.mock('../../../lib/lightning/LndClient', () => {
   const mockedImplementation = jest.fn().mockImplementation(() => {
     return {
+      raceCall,
       on: () => {},
       isConnected: () => true,
       getInfo: mockGetInfo,

@@ -1,8 +1,6 @@
 import Errors from './Errors';
 import Logger from '../Logger';
 import NodeSwitch from './NodeSwitch';
-import { racePromise } from '../PromiseUtils';
-import { ClientStatus } from '../consts/Enums';
 import RoutingHints from './routing/RoutingHints';
 import { Currency } from '../wallet/WalletManager';
 import { NodeType } from '../db/models/ReverseSwap';
@@ -70,9 +68,7 @@ class NodeFallback {
               NodeFallback.addInvoiceTimeout
             }ms; trying next node`,
           );
-          nodeForSwap.lightningClient.setClientStatus(
-            ClientStatus.Disconnected,
-          );
+
           nodeForSwap = this.nodeSwitch.getNodeForReverseSwap(
             id,
             currency,
@@ -110,7 +106,7 @@ class NodeFallback {
           )
         : undefined;
 
-    return racePromise<InvoiceWithRoutingHints>(
+    return lightningClient.raceCall<InvoiceWithRoutingHints>(
       async (): Promise<InvoiceWithRoutingHints> => ({
         routingHints,
         paymentRequest: await lightningClient.addHoldInvoice(

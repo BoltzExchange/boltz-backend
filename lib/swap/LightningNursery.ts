@@ -3,7 +3,6 @@ import AsyncLock from 'async-lock';
 import { EventEmitter } from 'events';
 import { crypto } from 'bitcoinjs-lib';
 import Logger from '../Logger';
-import { racePromise } from '../PromiseUtils';
 import ClnClient from '../lightning/ClnClient';
 import LndClient from '../lightning/LndClient';
 import { SwapUpdateEvent } from '../consts/Enums';
@@ -72,7 +71,7 @@ class LightningNursery extends EventEmitter {
     reverseSwap: ReverseSwap,
     alsoMinerFeeInvoice: boolean,
   ) => {
-    await racePromise(
+    await lightningClient.raceCall(
       async () => {
         await lightningClient.cancelHoldInvoice(
           getHexBuffer(reverseSwap.preimageHash),
@@ -103,7 +102,7 @@ class LightningNursery extends EventEmitter {
     lightningClient.on('htlc.accepted', async (invoice: string) => {
       await this.lock.acquire(LightningNursery.invoiceLock, async () => {
         try {
-          await racePromise(
+          await lightningClient.raceCall(
             this.handleAcceptedInvoice(lightningClient, invoice),
             (reject) => reject('invoice acceptance handler timeout out'),
             LightningNursery.lightningClientCallTimeout,

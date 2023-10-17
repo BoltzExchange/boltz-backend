@@ -10,17 +10,17 @@ import LndClient from '../lightning/LndClient';
 import DiskUsageChecker from './DiskUsageChecker';
 import ReverseSwap from '../db/models/ReverseSwap';
 import BackupScheduler from '../backup/BackupScheduler';
-import { CurrencyType, OrderSide } from '../consts/Enums';
 import { satoshisToSatcomma } from '../DenominationConverter';
 import { ChainInfo, LightningInfo } from '../proto/boltzrpc_pb';
-import { TokenConfig, BaseCurrencyConfig, NotificationConfig } from '../Config';
+import { ClientStatus, CurrencyType, OrderSide } from '../consts/Enums';
+import { BaseCurrencyConfig, NotificationConfig, TokenConfig } from '../Config';
 import {
-  splitPairId,
   decodeInvoice,
   getChainCurrency,
   getLightningCurrency,
-  minutesToMilliseconds,
   getSendingReceivingCurrency,
+  minutesToMilliseconds,
+  splitPairId,
 } from '../Utils';
 
 // TODO: test balance and service alerts
@@ -82,12 +82,29 @@ class NotificationProvider {
             (client): client is LndClient | ClnClient => client !== undefined,
           )
           .forEach((client) => {
+            client.on('status.changed', async (status: ClientStatus) => {
+              switch (status) {
+                case ClientStatus.Connected:
+                  await this.sendReconnected(
+                    `${client.serviceName()} ${symbol}`,
+                  );
+                  break;
+
+                case ClientStatus.Disconnected:
+                  await this.sendLostConnection(
+                    `${client.serviceName()} ${symbol}`,
+                  );
+                  break;
+              }
+            });
+
             client.on('subscription.error', async (subscription?: string) => {
               await this.sendLostConnection(
                 `${client.serviceName()} ${symbol}`,
                 subscription,
               );
             });
+
             client.on(
               'subscription.reconnected',
               async () =>
@@ -125,7 +142,7 @@ class NotificationProvider {
   private checkConnections = async () => {
     const info = (await this.service.getInfo()).toObject();
 
-    const promises: Promise<any>[] = [];
+    const promises: Promise<void>[] = [];
 
     info.chainsMap.forEach(([symbol, currency]) => {
       currency.lightningMap.forEach(([service, lnInfo]) => {

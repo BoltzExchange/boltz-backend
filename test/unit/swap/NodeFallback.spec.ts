@@ -1,8 +1,8 @@
 import crypto from 'crypto';
+import { raceCall } from '../../Utils';
 import Logger from '../../../lib/Logger';
 import Errors from '../../../lib/swap/Errors';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
-import { ClientStatus } from '../../../lib/consts/Enums';
 import NodeFallback from '../../../lib/swap/NodeFallback';
 import { Currency } from '../../../lib/wallet/WalletManager';
 import { NodeType } from '../../../lib/db/models/ReverseSwap';
@@ -56,6 +56,7 @@ describe('NodeFallback', () => {
     nodeForReverseSwap = {
       nodeType,
       lightningClient: {
+        raceCall,
         addHoldInvoice: jest.fn().mockResolvedValue(invoice),
       },
     };
@@ -115,6 +116,7 @@ describe('NodeFallback', () => {
     nodeForReverseSwap = {
       nodeType,
       lightningClient: {
+        raceCall,
         addHoldInvoice: jest.fn().mockResolvedValue(invoice),
       },
     };
@@ -171,13 +173,11 @@ describe('NodeFallback', () => {
   });
 
   test('should fallback to different client after timeout', async () => {
-    const mockSetClientStatus = jest.fn();
-
     nodeForReverseSwap = {
       nodeType: NodeType.LND,
       lightningClient: {
+        raceCall,
         serviceName: () => 'LND',
-        setClientStatus: mockSetClientStatus,
         addHoldInvoice: jest
           .fn()
           .mockImplementation(() => new Promise(() => {})),
@@ -204,6 +204,7 @@ describe('NodeFallback', () => {
     nodeForReverseSwap = {
       nodeType: NodeType.CLN,
       lightningClient: {
+        raceCall,
         addHoldInvoice: jest.fn().mockResolvedValue(invoice),
       },
     };
@@ -213,8 +214,6 @@ describe('NodeFallback', () => {
     expect(
       nodeForReverseSwap.lightningClient.addHoldInvoice,
     ).toHaveBeenCalledTimes(1);
-    expect(mockSetClientStatus).toHaveBeenCalledTimes(1);
-    expect(mockSetClientStatus).toHaveBeenCalledWith(ClientStatus.Disconnected);
 
     expect(res.paymentRequest).toEqual(invoice);
     expect(res.routingHints).toBeUndefined();
@@ -231,6 +230,7 @@ describe('NodeFallback', () => {
     nodeForReverseSwap = {
       nodeType: NodeType.LND,
       lightningClient: {
+        raceCall,
         addHoldInvoice: jest.fn().mockRejectedValue(otherError),
       },
     };

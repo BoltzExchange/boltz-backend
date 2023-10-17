@@ -74,7 +74,7 @@ interface UtxoNursery {
     event: 'reverseSwap.expired',
     listener: (reverseSwap: ReverseSwap) => void,
   ): this;
-  emit(event: 'reverseSwap.expired', reverseSwap: ReverseSwap);
+  emit(event: 'reverseSwap.expired', reverseSwap: ReverseSwap): boolean;
 
   on(
     event: 'reverseSwap.lockup.confirmed',

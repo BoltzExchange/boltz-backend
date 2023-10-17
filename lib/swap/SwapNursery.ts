@@ -11,7 +11,6 @@ import Swap from '../db/models/Swap';
 import Wallet from '../wallet/Wallet';
 import NodeSwitch from './NodeSwitch';
 import UtxoNursery from './UtxoNursery';
-import { racePromise } from '../PromiseUtils';
 import SwapOutputType from './SwapOutputType';
 import ChannelNursery from './ChannelNursery';
 import InvoiceNursery from './InvoiceNursery';
@@ -398,7 +397,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
 
           try {
             // Check if the hold invoice has pending HTLCs before actually cancelling
-            const { htlcs, state } = await racePromise(
+            const { htlcs, state } = await lightningClient.raceCall(
               lightningClient.lookupHoldInvoice(
                 getHexBuffer(reverseSwap.preimageHash),
               ),
@@ -1023,7 +1022,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
       reverseSwap,
     );
     try {
-      await racePromise(
+      await lightningClient.raceCall(
         lightningClient.settleHoldInvoice(preimage),
         (reject) => {
           reject('invoice settlement timed out');

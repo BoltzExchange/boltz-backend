@@ -12,9 +12,9 @@ export enum ErrorCodePrefix {
 }
 
 export enum ClientStatus {
-  Disconnected,
-  Connected,
-  OutOfSync,
+  Disconnected = 'disconnected',
+  Connected = 'connected',
+  OutOfSync = 'out of sync',
 }
 
 export enum OrderSide {

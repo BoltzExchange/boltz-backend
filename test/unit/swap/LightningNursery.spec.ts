@@ -1,6 +1,7 @@
 import { Op } from 'sequelize';
 import { randomBytes } from 'crypto';
 import { Networks } from 'boltz-core';
+import { raceCall } from '../../Utils';
 import Logger from '../../../lib/Logger';
 import { Invoice } from '../../../lib/proto/lnd/rpc_pb';
 import LndClient from '../../../lib/lightning/LndClient';
@@ -9,8 +10,6 @@ import LightningNursery from '../../../lib/swap/LightningNursery';
 import { CurrencyType, SwapUpdateEvent } from '../../../lib/consts/Enums';
 import { decodeInvoice, getHexBuffer, getHexString } from '../../../lib/Utils';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
-
-import InvoiceState = Invoice.InvoiceState;
 
 type htlcAcceptedCallback = (invoice: string) => Promise<void>;
 
@@ -35,6 +34,7 @@ const mockSettleHoldInvoice = jest.fn().mockImplementation(async () => {});
 
 jest.mock('../../../lib/lightning/LndClient', () => {
   return jest.fn().mockImplementation(() => ({
+    raceCall,
     on: mockOn,
     lookupHoldInvoice: mockLookupHoldInvoice,
     settleHoldInvoice: mockSettleHoldInvoice,
@@ -218,7 +218,7 @@ describe('LightningNursery', () => {
       eventsEmitted += 1;
     });
 
-    mockLookupHoldInvoiceState = InvoiceState.OPEN;
+    mockLookupHoldInvoiceState = Invoice.InvoiceState.OPEN;
 
     mockGetReverseSwapResult = {
       invoice,
@@ -298,7 +298,7 @@ describe('LightningNursery', () => {
       eventsEmitted += 1;
     });
 
-    mockLookupHoldInvoiceState = InvoiceState.ACCEPTED;
+    mockLookupHoldInvoiceState = Invoice.InvoiceState.ACCEPTED;
 
     // Accept HTLC(s) for the miner fee invoice
     await emitHtlcAccepted(minerFeeInvoice);

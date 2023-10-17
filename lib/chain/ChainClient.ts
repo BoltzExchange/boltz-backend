@@ -57,11 +57,11 @@ class ChainClient extends BaseClient {
   private readonly mempoolSpace?: MempoolSpace;
 
   constructor(
-    private logger: Logger,
-    private config: ChainConfig,
+    logger: Logger,
+    private readonly config: ChainConfig,
     public readonly symbol: string,
   ) {
-    super();
+    super(logger, `${ChainClient.serviceName}-${symbol}`);
 
     this.client = new RpcClient(this.config);
     this.zmqClient = new ZmqClient(symbol, logger, this);

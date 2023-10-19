@@ -71,8 +71,8 @@ class Comperator {
 class VersionCheck {
   private static versionLimits = {
     [ChainClient.serviceName]: {
-      minimal: 180100,
-      maximal: 250000,
+      minimal: 220000,
+      maximal: 250100,
     },
     [ClnClient.serviceName]: {
       minimal: '23.05',

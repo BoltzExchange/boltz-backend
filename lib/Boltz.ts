@@ -20,6 +20,7 @@ import Config, { ConfigType } from './Config';
 import { CurrencyType } from './consts/Enums';
 import { formatError, getVersion } from './Utils';
 import ElementsClient from './chain/ElementsClient';
+import { registerExitHandler } from './ExitHandler';
 import BackupScheduler from './backup/BackupScheduler';
 import { LightningClient } from './lightning/LightningClient';
 import EthereumManager from './wallet/ethereum/EthereumManager';
@@ -47,9 +48,16 @@ class Boltz {
 
   constructor(config: Arguments<any>) {
     this.config = new Config().load(config);
-    this.logger = new Logger(this.config.loglevel, this.config.logpath);
+    this.logger = new Logger(
+      this.config.loglevel,
+      this.config.logpath,
+      this.config.lokiHost,
+      this.config.lokiNetwork,
+    );
 
     this.logger.info(`Starting Boltz ${getVersion()}`);
+
+    registerExitHandler(() => this.logger.close());
 
     process.on('unhandledRejection', (reason, promise) => {
       console.log(promise);
@@ -61,7 +69,9 @@ class Boltz {
     });
 
     process.on('exit', (code) => {
-      this.logger.error(`Application shutting down with code: ${code}`);
+      (code === 0 ? this.logger.debug : this.logger.error)(
+        `Application shutting down with code: ${code}`,
+      );
     });
 
     this.db = new Database(this.logger, this.config.dbpath);

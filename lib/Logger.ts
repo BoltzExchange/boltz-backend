@@ -1,13 +1,25 @@
 import winston from 'winston';
+import LokiTransport from 'winston-loki';
 import { red, yellow, green, cyan, blue, magenta } from 'colors/safe';
 import { getTsString } from './Utils';
+import { name } from '../package.json';
 
 class Logger {
-  public static readonly disabledLogger = new Logger('', undefined, true);
+  public static readonly disabledLogger = new Logger(
+    '',
+    undefined,
+    undefined,
+    undefined,
+    true,
+  );
+
+  private readonly loki?: LokiTransport;
 
   constructor(
     level: string,
     filename?: string,
+    lokiHost?: string,
+    lokiNetwork?: string,
     private disabled = false,
   ) {
     if (disabled) {
@@ -29,11 +41,39 @@ class Logger {
       );
     }
 
+    const lokiEnabled = [lokiHost, lokiNetwork].every(
+      (val) => val !== undefined,
+    );
+
+    if (lokiEnabled) {
+      this.loki = new LokiTransport({
+        host: lokiHost!,
+        labels: {
+          job: name,
+          network: lokiNetwork,
+        },
+      });
+      transports.push(this.loki!);
+    }
+
     winston.configure({
       level,
       transports,
     });
+
+    if (!lokiEnabled) {
+      this.warn('Disabled loki logger because of invalid configuration');
+    } else {
+      this.debug('Enabled loki logger');
+    }
   }
+
+  public close = async () => {
+    if (this.loki !== undefined) {
+      await this.loki.flush();
+      await (this.loki as any).close();
+    }
+  };
 
   private getLogFormat = (colorize: boolean) => {
     return winston.format.printf(

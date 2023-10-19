@@ -135,9 +135,12 @@ type ConfigType = {
   configpath: string;
   mnemonicpath: string;
   dbpath: string;
-  logpath: string;
 
+  logpath: string;
   loglevel: string;
+
+  lokiHost?: string;
+  lokiNetwork?: string;
 
   retryInterval: number;
 

@@ -57,7 +57,10 @@ class Boltz {
 
     this.logger.info(`Starting Boltz ${getVersion()}`);
 
-    registerExitHandler(() => this.logger.close());
+    registerExitHandler(async () => {
+      await this.db.close();
+      await this.logger.close();
+    });
 
     process.on('unhandledRejection', (reason, promise) => {
       console.log(promise);

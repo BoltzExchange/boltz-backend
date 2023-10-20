@@ -31,6 +31,10 @@ class Database {
       storage,
       dialect: 'sqlite',
       logging: this.logger.silly,
+      retry: {
+        max: 3,
+        match: ['SQLITE_BUSY'],
+      },
     });
 
     this.loadModels();

@@ -31,7 +31,11 @@ import { ERC20SwapValues, EtherSwapValues } from '../consts/Types';
 import { etherDecimals, ReverseSwapOutputType } from '../consts/Consts';
 import ERC20WalletProvider from '../wallet/providers/ERC20WalletProvider';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
-import { InvoiceState, LightningClient } from '../lightning/LightningClient';
+import {
+  HtlcState,
+  InvoiceState,
+  LightningClient,
+} from '../lightning/LightningClient';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import {
   queryERC20SwapValuesFromLock,
@@ -49,15 +53,15 @@ import {
   splitPairId,
 } from '../Utils';
 import {
-  ClaimDetails,
-  getAssetHash,
-  RefundDetails,
-  parseTransaction,
-  LiquidClaimDetails,
-  LiquidRefundDetails,
   calculateTransactionFee,
+  ClaimDetails,
   constructClaimTransaction,
   constructRefundTransaction,
+  getAssetHash,
+  LiquidClaimDetails,
+  LiquidRefundDetails,
+  parseTransaction,
+  RefundDetails,
 } from '../Core';
 
 interface ISwapNursery {
@@ -402,7 +406,10 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
                 `Invoice${plural} of Reverse Swap ${reverseSwap.id} already cancelled`,
               );
             } else {
-              if (htlcs.length !== 0) {
+              if (
+                htlcs.length !== 0 &&
+                htlcs.some((htlc) => htlc.state !== HtlcState.Cancelled)
+              ) {
                 this.logger.info(
                   `Not cancelling expired hold invoice${plural} of Reverse Swap ${reverseSwap.id} because it has pending HTLCs`,
                 );

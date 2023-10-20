@@ -930,7 +930,7 @@ class LndClient extends BaseClient implements LightningClient {
       case lndrpc.Invoice.InvoiceState.ACCEPTED:
         return InvoiceState.Accepted;
       case lndrpc.Invoice.InvoiceState.CANCELED:
-        return InvoiceState.Accepted;
+        return InvoiceState.Cancelled;
       case lndrpc.Invoice.InvoiceState.SETTLED:
         return InvoiceState.Settled;
     }

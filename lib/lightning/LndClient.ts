@@ -84,7 +84,7 @@ class LndClient extends BaseClient implements LightningClient {
     public readonly symbol: string,
     config: LndConfig,
   ) {
-    super(logger, `${LndClient.serviceName}-${symbol}`);
+    super(logger, symbol);
 
     const { host, port, certpath, macaroonpath, maxPaymentFeeRatio } = config;
 

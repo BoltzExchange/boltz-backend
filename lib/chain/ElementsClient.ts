@@ -17,6 +17,10 @@ class ElementsClient extends ChainClient {
     this.feeFloor = 0.11;
   }
 
+  public serviceName = (): string => {
+    return 'Elements';
+  };
+
   public getBalances = async () => {
     const res = await this.client.request<LiquidBalances>('getbalances');
 

@@ -2,6 +2,16 @@ import Logger from '../../lib/Logger';
 import BaseClient from '../../lib/BaseClient';
 import { ClientStatus } from '../../lib/consts/Enums';
 
+class BaseClientTest extends BaseClient {
+  constructor(symbol: string) {
+    super(Logger.disabledLogger, symbol);
+  }
+
+  public serviceName = (): string => {
+    return 'Test';
+  };
+}
+
 describe('BaseClient', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -17,8 +27,8 @@ describe('BaseClient', () => {
     async ({ status, statusFunc, loggerFunc }) => {
       const spy = jest.spyOn(Logger.disabledLogger, loggerFunc);
 
-      const name = 'test';
-      const client = new BaseClient(Logger.disabledLogger, name);
+      const symbol = 'BTC';
+      const client = new BaseClientTest(symbol);
 
       // To not have it ignore the status update by the new status being the same
       client['status'] =
@@ -38,13 +48,15 @@ describe('BaseClient', () => {
 
       expect(client[statusFunc]()).toEqual(true);
       expect(spy).toHaveBeenCalledTimes(1);
-      expect(spy).toHaveBeenCalledWith(`${name} status changed: ${status}`);
+      expect(spy).toHaveBeenCalledWith(
+        `${client.serviceName()}-${symbol} status changed: ${status}`,
+      );
     },
   );
 
   test('should ignore setClientStatus with same status as already set', () => {
     const spy = jest.spyOn(Logger.disabledLogger, 'error');
-    const client = new BaseClient(Logger.disabledLogger, '');
+    const client = new BaseClientTest('');
 
     client.setClientStatus(ClientStatus.Disconnected);
 

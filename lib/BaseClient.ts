@@ -8,18 +8,20 @@ interface IBaseClient {
   emit(event: 'status.changed', status: ClientStatus): void;
 }
 
-class BaseClient extends EventEmitter implements IBaseClient {
-  private status = ClientStatus.Disconnected;
-
+abstract class BaseClient extends EventEmitter implements IBaseClient {
   protected readonly RECONNECT_INTERVAL = 5000;
   protected reconnectionTimer?: any;
 
-  constructor(
+  private status = ClientStatus.Disconnected;
+
+  protected constructor(
     protected readonly logger: Logger,
-    private readonly name: string,
+    public readonly symbol: string,
   ) {
     super();
   }
+
+  public abstract serviceName(): string;
 
   public isConnected(): boolean {
     return this.status === ClientStatus.Connected;
@@ -41,7 +43,7 @@ class BaseClient extends EventEmitter implements IBaseClient {
     this.status = status;
 
     (status === ClientStatus.Connected ? this.logger.info : this.logger.error)(
-      `${this.name} status changed: ${status}`,
+      `${this.getName()} status changed: ${status}`,
     );
 
     this.emit('status.changed', status);
@@ -68,6 +70,8 @@ class BaseClient extends EventEmitter implements IBaseClient {
       this.reconnectionTimer = undefined;
     }
   };
+
+  private getName = () => `${this.serviceName()}-${this.symbol}`;
 }
 
 export default BaseClient;

@@ -88,7 +88,7 @@ class ClnClient
     public readonly symbol: string,
     config: ClnConfig,
   ) {
-    super(logger, `${ClnClient.serviceName}-${symbol}`);
+    super(logger, symbol);
 
     this.maxPaymentFeeRatio =
       config.maxPaymentFeeRatio > 0 ? config.maxPaymentFeeRatio : 0.01;

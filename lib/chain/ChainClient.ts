@@ -59,9 +59,9 @@ class ChainClient extends BaseClient {
   constructor(
     logger: Logger,
     private readonly config: ChainConfig,
-    public readonly symbol: string,
+    symbol: string,
   ) {
-    super(logger, `${ChainClient.serviceName}-${symbol}`);
+    super(logger, symbol);
 
     this.client = new RpcClient(this.config);
     this.zmqClient = new ZmqClient(symbol, logger, this);
@@ -74,6 +74,10 @@ class ChainClient extends BaseClient {
       );
     }
   }
+
+  public serviceName = (): string => {
+    return ChainClient.serviceName;
+  };
 
   public connect = async (): Promise<void> => {
     let zmqNotifications: ZmqNotification[] = [];

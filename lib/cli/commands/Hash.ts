@@ -4,7 +4,7 @@ import { getHexBuffer, getHexString, stringify } from '../../Utils';
 
 export const command = 'hash <value>';
 
-export const describe = 'parses a hex value and SHA256 hashes it';
+export const describe = 'parses a hex value and hashes it';
 
 export const builder = {
   value: {

@@ -63,6 +63,18 @@ export const FailedSwapUpdateEvents = [
   SwapUpdateEvent.TransactionRefunded,
 ];
 
+export const NotPendingSwapEvents = [
+  SwapUpdateEvent.SwapExpired,
+  SwapUpdateEvent.InvoiceFailedToPay,
+  SwapUpdateEvent.TransactionClaimed,
+];
+export const NotPendingReverseSwapEvents = [
+  SwapUpdateEvent.SwapExpired,
+  SwapUpdateEvent.InvoiceSettled,
+  SwapUpdateEvent.TransactionFailed,
+  SwapUpdateEvent.TransactionRefunded,
+];
+
 export enum ChannelCreationType {
   Auto = 'auto',
   Create = 'create',

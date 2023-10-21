@@ -9,13 +9,21 @@ export const racePromise = async <T>(
     timeout = setTimeout(() => raceHandler(reject), raceTimeout);
   });
 
-  const res = await Promise.race([
-    promise instanceof Promise ? promise : promise(),
-    timeoutPromise,
-  ]);
+  try {
+    const res = await Promise.race([
+      promise instanceof Promise ? promise : promise(),
+      timeoutPromise,
+    ]);
 
-  if (timeout !== undefined) {
-    clearTimeout(timeout);
+    if (timeout !== undefined) {
+      clearTimeout(timeout);
+    }
+    return res;
+  } catch (e) {
+    if (timeout !== undefined) {
+      clearTimeout(timeout);
+    }
+
+    throw e;
   }
-  return res;
 };

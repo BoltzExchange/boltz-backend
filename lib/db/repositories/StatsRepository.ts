@@ -1,7 +1,11 @@
 import { QueryTypes } from 'sequelize';
 import Database from '../Database';
 import { arrayToSqlInClause } from '../Utils';
-import { SwapUpdateEvent } from '../../consts/Enums';
+import {
+  NotPendingReverseSwapEvents,
+  NotPendingSwapEvents,
+  SwapUpdateEvent,
+} from '../../consts/Enums';
 
 type StatsDate = {
   year: number;
@@ -22,6 +26,31 @@ type FailureRate = StatsDate & {
   pair: string;
   isReverse: boolean;
   failureRate: number;
+};
+
+type SwapType = 'swap' | 'reverse';
+
+type BaseMetric = {
+  pair: string;
+  type: SwapType;
+};
+
+type SwapCount = BaseMetric & {
+  status: 'success' | 'failure' | 'timeout';
+  count: number;
+};
+
+type VolumePerPairType = BaseMetric & {
+  volume: number;
+};
+
+type PendingSwaps = BaseMetric & {
+  count: number;
+};
+
+type LockedFunds = {
+  pair: string;
+  locked: number;
 };
 
 class StatsRepository {
@@ -154,6 +183,130 @@ ORDER BY year, month, isReverse;
     return StatsRepository.query({
       query: StatsRepository.queryFailureRates,
       values: [minYear, minMonth],
+    });
+  };
+
+  public static getSwapCounts = (): Promise<SwapCount[]> => {
+    return StatsRepository.query({
+      query: `
+WITH data AS (
+    SELECT
+        pair,
+        'swap' AS type,
+        CASE
+            WHEN status == ? THEN 'success'
+            WHEN status == ? THEN 'failure'
+            ELSE 'timeout'
+        END AS status
+    FROM swaps
+    UNION ALL
+    SELECT
+        pair,
+        'reverse' AS type,
+        CASE
+            WHEN status == ? THEN 'success'
+            WHEN status IN (?) THEN 'failure'
+            ELSE 'timeout'
+        END AS status
+    FROM reverseSwaps
+)
+SELECT
+    pair,
+    type,
+    status,
+    COUNT(*) AS count
+FROM data
+GROUP BY pair, type, status;
+`,
+      values: [
+        SwapUpdateEvent.TransactionClaimed,
+        SwapUpdateEvent.InvoiceFailedToPay,
+        SwapUpdateEvent.InvoiceSettled,
+        [
+          SwapUpdateEvent.TransactionFailed,
+          SwapUpdateEvent.TransactionRefunded,
+        ],
+      ],
+    });
+  };
+
+  public static getVolumePerPairType = (): Promise<VolumePerPairType[]> => {
+    return StatsRepository.query({
+      query: `
+WITH data AS (
+    SELECT
+        pair,
+        'swap' AS type,
+        CASE WHEN orderSide THEN invoiceAmount ELSE onchainAmount END AS amount
+    FROM swaps
+    WHERE status = ?
+    UNION ALL
+    SELECT
+        pair,
+        'reverse' AS type,
+        CASE WHEN orderSide THEN onchainAmount ELSE invoiceAmount END AS amount
+    FROM reverseSwaps
+    WHERE status = ?
+)
+SELECT pair, type, SUM(amount) AS volume
+FROM data
+GROUP BY pair, type;
+    `,
+      values: [
+        SwapUpdateEvent.TransactionClaimed,
+        SwapUpdateEvent.InvoiceSettled,
+      ],
+    });
+  };
+
+  public static getPendingSwapsCounts = (): Promise<PendingSwaps[]> => {
+    return StatsRepository.query({
+      query: `
+WITH data AS (
+    SELECT
+        pair,
+        'swap' AS type
+    FROM swaps
+    WHERE status NOT IN (?)
+    UNION ALL
+    SELECT
+        pair,
+        'reverse' AS type
+    FROM reverseSwaps
+    WHERE status NOT IN (?)
+)
+SELECT
+    pair,
+    type,
+    COUNT(*) as count
+FROM data
+GROUP BY pair, type;
+      `,
+      values: [NotPendingSwapEvents, NotPendingReverseSwapEvents],
+    });
+  };
+
+  public static getLockedFunds = (): Promise<LockedFunds[]> => {
+    return StatsRepository.query({
+      query: `
+SELECT
+    pair,
+    SUM(amount) AS locked
+FROM (
+    SELECT
+        pair,
+        CASE WHEN orderSide THEN onchainAmount ELSE invoiceAmount END AS amount
+    FROM reverseSwaps
+    WHERE status IN (?)
+)
+GROUP BY pair;
+`,
+      values: [
+        [
+          SwapUpdateEvent.TransactionMempool,
+          SwapUpdateEvent.TransactionConfirmed,
+        ],
+      ],
     });
   };
 

@@ -1,9 +1,9 @@
 import { AddressInfo } from 'ws';
 import { createServer } from 'net';
 import { OutputType, Networks, Scripts } from 'boltz-core';
-import { TransactionInput } from 'bip174/src/lib/interfaces';
-import { address, crypto, Psbt, Transaction } from 'bitcoinjs-lib';
+import { address, crypto, Psbt, PsbtTxInput, Transaction } from 'bitcoinjs-lib';
 import { ECPair } from '../lib/ECPairHelper';
+import { racePromise } from '../lib/PromiseUtils';
 import { getPubkeyHashFunction } from '../lib/Utils';
 
 export const randomRange = (max: number): number => {
@@ -59,7 +59,7 @@ export const constructTransaction = (
       value: outputAmount + 1,
       script: Scripts.p2wpkhOutput(crypto.hash160(keys.publicKey)),
     },
-  } as any as TransactionInput);
+  } as any as PsbtTxInput);
   psbt.addOutput({
     script: outputScript,
     value: outputAmount,
@@ -87,3 +87,10 @@ export const getPort = () => {
     });
   });
 };
+
+export const raceCall = <T>(
+  promise: (() => Promise<T>) | Promise<T>,
+  raceHandler: (reason?: any) => void,
+  raceTimeout: number,
+): Promise<T> =>
+  racePromise(promise, (reject) => raceHandler(reject), raceTimeout);

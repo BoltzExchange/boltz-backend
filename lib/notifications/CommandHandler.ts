@@ -7,7 +7,11 @@ import OtpManager from './OtpManager';
 import Service from '../service/Service';
 import DiscordClient from './DiscordClient';
 import { NotificationConfig } from '../Config';
-import { SwapUpdateEvent } from '../consts/Enums';
+import {
+  NotPendingReverseSwapEvents,
+  NotPendingSwapEvents,
+  SwapUpdateEvent,
+} from '../consts/Enums';
 import ReferralStats from '../data/ReferralStats';
 import ReverseSwap from '../db/models/ReverseSwap';
 import BackupScheduler from '../backup/BackupScheduler';
@@ -425,21 +429,12 @@ class CommandHandler {
     const [pendingSwaps, pendingReverseSwaps] = await Promise.all([
       SwapRepository.getSwaps({
         status: {
-          [Op.notIn]: [
-            SwapUpdateEvent.SwapExpired,
-            SwapUpdateEvent.InvoiceFailedToPay,
-            SwapUpdateEvent.TransactionClaimed,
-          ],
+          [Op.notIn]: NotPendingSwapEvents,
         },
       }),
       ReverseSwapRepository.getReverseSwaps({
         status: {
-          [Op.notIn]: [
-            SwapUpdateEvent.SwapExpired,
-            SwapUpdateEvent.InvoiceSettled,
-            SwapUpdateEvent.TransactionFailed,
-            SwapUpdateEvent.TransactionRefunded,
-          ],
+          [Op.notIn]: NotPendingReverseSwapEvents,
         },
       }),
     ]);

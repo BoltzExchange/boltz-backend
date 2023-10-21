@@ -32,6 +32,23 @@ describe('PromiseUtils', () => {
 
     await expect(promise).rejects.toEqual(rejectionMessage);
     expect(raceHandler).toHaveBeenCalledTimes(1);
-    expect(raceHandler).toHaveBeenCalledWith(expect.anything());
+  });
+
+  test('should not call raceHandler when promise throws', async () => {
+    const raceMessage = 'rejected after timeout';
+    const raceHandler = jest
+      .fn()
+      .mockImplementation((reject) => reject(raceMessage));
+
+    const promiseRejection = 'promise threw';
+    const promise = racePromise(
+      new Promise<void>((_, reject) => reject(promiseRejection)),
+      raceHandler,
+      1000,
+    );
+    await expect(promise).rejects.toEqual(promiseRejection);
+
+    jest.runOnlyPendingTimers();
+    expect(raceHandler).toHaveBeenCalledTimes(0);
   });
 });

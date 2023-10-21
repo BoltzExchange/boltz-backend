@@ -2,6 +2,7 @@ import bolt11 from 'bolt11';
 import * as lndrpc from '../proto/lnd/rpc_pb';
 import { ClientStatus } from '../consts/Enums';
 import { BalancerFetcher } from '../wallet/providers/WalletProviderInterface';
+import { IBaseClient } from '../BaseClient';
 
 enum InvoiceState {
   Open,
@@ -81,7 +82,7 @@ type Route = {
   feesMsat: number;
 };
 
-interface LightningClient extends BalancerFetcher {
+interface LightningClient extends BalancerFetcher, IBaseClient {
   on(event: 'peer.online', listener: (publicKey: string) => void): void;
   emit(event: 'peer.online', publicKey: string): boolean;
 
@@ -110,10 +111,19 @@ interface LightningClient extends BalancerFetcher {
   on(event: 'subscription.reconnected', listener: () => void): void;
   emit(event: 'subscription.reconnected'): void;
 
+  on(event: 'status.changed', listener: (status: ClientStatus) => void): void;
+  emit(event: 'status.changed', status: ClientStatus): void;
+
   symbol: string;
 
   isConnected(): boolean;
   setClientStatus(status: ClientStatus): void;
+
+  raceCall<T>(
+    promise: (() => Promise<T>) | Promise<T>,
+    raceHandler: (reason?: any) => void,
+    raceTimeout: number,
+  ): Promise<T>;
 
   connect(startSubscriptions?: boolean): Promise<boolean>;
   disconnect(): void;

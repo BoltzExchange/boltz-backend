@@ -1,5 +1,5 @@
 import cors from 'cors';
-import express, { Application, Request, Response, NextFunction } from 'express';
+import express, { Application, NextFunction, Request, Response } from 'express';
 import Logger from '../Logger';
 import Controller from './Controller';
 import { ApiConfig } from '../Config';

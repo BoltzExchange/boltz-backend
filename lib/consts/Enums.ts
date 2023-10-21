@@ -12,9 +12,9 @@ export enum ErrorCodePrefix {
 }
 
 export enum ClientStatus {
-  Disconnected,
-  Connected,
-  OutOfSync,
+  Disconnected = 'disconnected',
+  Connected = 'connected',
+  OutOfSync = 'out of sync',
 }
 
 export enum OrderSide {
@@ -60,6 +60,18 @@ export const FailedSwapUpdateEvents = [
   SwapUpdateEvent.SwapExpired,
   SwapUpdateEvent.TransactionFailed,
   SwapUpdateEvent.InvoiceFailedToPay,
+  SwapUpdateEvent.TransactionRefunded,
+];
+
+export const NotPendingSwapEvents = [
+  SwapUpdateEvent.SwapExpired,
+  SwapUpdateEvent.InvoiceFailedToPay,
+  SwapUpdateEvent.TransactionClaimed,
+];
+export const NotPendingReverseSwapEvents = [
+  SwapUpdateEvent.SwapExpired,
+  SwapUpdateEvent.InvoiceSettled,
+  SwapUpdateEvent.TransactionFailed,
   SwapUpdateEvent.TransactionRefunded,
 ];
 

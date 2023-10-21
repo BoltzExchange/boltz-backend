@@ -7,6 +7,7 @@ import Api from './api/Api';
 import Logger from './Logger';
 import { setup } from './Core';
 import Database from './db/Database';
+import Prometheus from './Prometheus';
 import Service from './service/Service';
 import VersionCheck from './VersionCheck';
 import GrpcServer from './grpc/GrpcServer';
@@ -42,6 +43,7 @@ class Boltz {
   private notifications!: NotificationProvider;
 
   private api!: Api;
+  private readonly prometheus: Prometheus;
   private grpcServer!: GrpcServer;
 
   private readonly ethereumManager?: EthereumManager;
@@ -145,6 +147,8 @@ class Boltz {
         new GrpcService(this.service),
       );
 
+      this.prometheus = new Prometheus(this.logger, this.config.prometheus);
+
       this.api = new Api(this.logger, this.config.api, this.service);
     } catch (error) {
       this.logger.error(`Could not start Boltz: ${formatError(error)}`);
@@ -160,6 +164,8 @@ class Boltz {
       await this.db.migrate(this.currencies);
       await this.db.init();
       await this.backup.init();
+
+      await this.prometheus.start();
 
       // Query the chain tips now to avoid them being updated after the chain clients are initialized
       const chainTips = await ChainTipRepository.getChainTips();

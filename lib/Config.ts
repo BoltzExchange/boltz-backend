@@ -5,6 +5,7 @@ import { Arguments } from 'yargs';
 import Errors from './consts/Errors';
 import { Network } from './consts/Enums';
 import { PairConfig } from './consts/Types';
+import { PrometheusConfig } from './Prometheus';
 import { ClnConfig } from './lightning/ClnClient';
 import { LndConfig } from './lightning/LndClient';
 import { NodeSwitchConfig } from './swap/NodeSwitch';
@@ -141,6 +142,8 @@ type ConfigType = {
 
   lokiHost?: string;
   lokiNetwork?: string;
+
+  prometheus?: PrometheusConfig;
 
   retryInterval: number;
 

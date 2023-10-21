@@ -1,21 +1,21 @@
 import fs from 'fs';
 import bolt11 from 'bolt11';
 import {
+  Metadata,
+  credentials,
   ChannelCredentials,
   ClientReadableStream,
-  credentials,
-  Metadata,
 } from '@grpc/grpc-js';
 import Errors from './Errors';
 import Logger from '../Logger';
 import BaseClient from '../BaseClient';
 import { ClientStatus } from '../consts/Enums';
 import * as noderpc from '../proto/cln/node_pb';
-import { ListfundsOutputs } from '../proto/cln/node_pb';
 import * as holdrpc from '../proto/hold/hold_pb';
 import { grpcOptions, unaryCall } from './GrpcUtils';
 import { NodeClient } from '../proto/cln/node_grpc_pb';
 import { HoldClient } from '../proto/hold/hold_grpc_pb';
+import { ListfundsOutputs } from '../proto/cln/node_pb';
 import * as primitivesrpc from '../proto/cln/primitives_pb';
 import { decodeInvoice, formatError, getHexString } from '../Utils';
 import { WalletBalance } from '../wallet/providers/WalletProviderInterface';
@@ -26,20 +26,20 @@ import {
   scidLndToCln,
 } from './ChannelUtils';
 import {
-  calculatePaymentFee,
-  ChannelInfo,
-  DecodedInvoice,
-  HopHint,
   Htlc,
-  HtlcState,
-  Invoice,
-  InvoiceFeature,
-  InvoiceState,
-  LightningClient,
-  NodeInfo,
-  PaymentResponse,
   Route,
+  HopHint,
+  Invoice,
+  NodeInfo,
+  HtlcState,
+  ChannelInfo,
+  InvoiceState,
+  DecodedInvoice,
+  InvoiceFeature,
+  LightningClient,
+  PaymentResponse,
   RoutingHintsProvider,
+  calculatePaymentFee,
 } from './LightningClient';
 
 type BaseConfig = {
@@ -84,11 +84,11 @@ class ClnClient
   private trackAllSubscription?: ClientReadableStream<holdrpc.TrackAllResponse>;
 
   constructor(
-    private logger: Logger,
+    logger: Logger,
     public readonly symbol: string,
     config: ClnConfig,
   ) {
-    super();
+    super(logger, symbol);
 
     this.maxPaymentFeeRatio =
       config.maxPaymentFeeRatio > 0 ? config.maxPaymentFeeRatio : 0.01;
@@ -847,7 +847,7 @@ class ClnClient
       } ${subscriptionName} subscription errored: ${formatError(error)}`,
     );
 
-    if (this.status === ClientStatus.Connected) {
+    if (this.isConnected()) {
       this.emit('subscription.error');
       setTimeout(() => this.reconnect(), this.RECONNECT_INTERVAL);
     }

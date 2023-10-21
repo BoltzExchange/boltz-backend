@@ -1,9 +1,9 @@
 import fs from 'fs';
 import {
+  Metadata,
+  credentials,
   ChannelCredentials,
   ClientReadableStream,
-  credentials,
-  Metadata,
 } from '@grpc/grpc-js';
 import Errors from './Errors';
 import Logger from '../Logger';
@@ -15,6 +15,7 @@ import { grpcOptions, unaryCall } from './GrpcUtils';
 import * as invoicesrpc from '../proto/lnd/invoices_pb';
 import { RouterClient } from '../proto/lnd/router_grpc_pb';
 import { InvoicesClient } from '../proto/lnd/invoices_grpc_pb';
+import { WalletBalance } from '../wallet/providers/WalletProviderInterface';
 import { LightningClient as LndLightningClient } from '../proto/lnd/rpc_grpc_pb';
 import {
   formatError,
@@ -23,21 +24,20 @@ import {
   splitChannelPoint,
 } from '../Utils';
 import {
-  calculatePaymentFee,
-  ChannelInfo,
-  DecodedInvoice,
-  HopHint,
   Htlc,
-  HtlcState,
-  Invoice,
-  InvoiceFeature,
-  InvoiceState,
-  LightningClient,
-  NodeInfo,
-  PaymentResponse,
   Route,
+  HopHint,
+  Invoice,
+  NodeInfo,
+  HtlcState,
+  ChannelInfo,
+  InvoiceState,
+  DecodedInvoice,
+  InvoiceFeature,
+  LightningClient,
+  PaymentResponse,
+  calculatePaymentFee,
 } from './LightningClient';
-import { WalletBalance } from '../wallet/providers/WalletProviderInterface';
 
 /**
  * The configurable options for the LND client
@@ -80,11 +80,11 @@ class LndClient extends BaseClient implements LightningClient {
    * Create an LND client
    */
   constructor(
-    private logger: Logger,
+    logger: Logger,
     public readonly symbol: string,
     config: LndConfig,
   ) {
-    super();
+    super(logger, symbol);
 
     const { host, port, certpath, macaroonpath, maxPaymentFeeRatio } = config;
 
@@ -966,7 +966,7 @@ class LndClient extends BaseClient implements LightningClient {
       } ${subscriptionName} subscription errored: ${formatError(error)}`,
     );
 
-    if (this.status === ClientStatus.Connected) {
+    if (this.isConnected()) {
       this.emit('subscription.error');
       await this.reconnect();
     }

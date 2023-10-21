@@ -106,7 +106,7 @@ class Prometheus {
 
     this.swapRegistry!.registerMetric(
       new Gauge({
-        name: `${Prometheus.metric_prefix}swap_pending_count`,
+        name: `${Prometheus.metric_prefix}swap_pending_counts`,
         labelNames: ['pair', 'type'],
         help: 'count of pending swaps',
         collect: async function () {

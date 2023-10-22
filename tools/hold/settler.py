@@ -1,81 +1,79 @@
 from dataclasses import dataclass
-from datetime import datetime
-from enum import Enum
-from typing import Any, ClassVar
 
-from invoice import HoldInvoice, InvoiceState
+from enums import HtlcFailureMessage, HtlcState
+from invoice import HoldInvoice, Htlc, InvoiceState
 from pyln.client.plugin import Request
 from tracker import Tracker
-from utils import partition, time_now
-
-
-class HtlcFailureMessage(str, Enum):
-    MppTimeout = "0017"
-    IncorrectPaymentDetails = "400F"
 
 
 @dataclass
-class Htlc:
-    msat: int
+class HtlcRequest:
+    short_channel_id: str
+    channel_id: int
     request: Request
-    created_at: datetime
-
-    def to_dict(self) -> dict[str, Any]:
-        self_without_request = {
-            k: v for k, v in self.__dict__.items() if not isinstance(v, Request)
-        }
-        return {
-            k: int(v.timestamp()) if isinstance(v, datetime) else v
-            for k, v in self_without_request.items()
-        }
-
-
-# TODO: save information about HTLCs
-class Htlcs:
-    htlcs: list[Htlc]
-
-    def __init__(self, invoice_amount: int) -> None:
-        self.htlcs = []
-        self.invoice_amount = invoice_amount
-
-    def add_htlc(self, htlc_msat: int, req: Request) -> None:
-        self.htlcs.append(Htlc(htlc_msat, req, time_now()))
-
-    def is_fully_paid(self) -> bool:
-        return self.invoice_amount <= sum(h.msat for h in self.htlcs)
-
-    def requests(self) -> list[Request]:
-        return [h.request for h in self.htlcs]
-
-    def cancel_expired(self, expiry: int) -> None:
-        expired, not_expired = partition(
-            self.htlcs,
-            lambda htlc: (time_now() - htlc.created_at).total_seconds() > expiry,
-        )
-
-        self.htlcs = not_expired
-        for h in expired:
-            Settler.fail_callback(h.request, HtlcFailureMessage.MppTimeout)
 
 
 class Settler:
-    htlcs: ClassVar[dict[str, Htlcs]] = {}
+    _tracker: Tracker
+    _htlcs: dict[str, list[HtlcRequest]]
 
     def __init__(self, tracker: Tracker) -> None:
+        self._htlcs = {}
         self._tracker = tracker
 
+    def add_htlc(self, payment_hash: str, request: Request, htlc: Htlc) -> None:
+        if payment_hash not in self._htlcs:
+            self._htlcs[payment_hash] = []
+
+        self._htlcs[payment_hash].append(
+            HtlcRequest(
+                short_channel_id=htlc.short_channel_id,
+                channel_id=htlc.channel_id,
+                request=request,
+            )
+        )
+
     def settle(self, invoice: HoldInvoice) -> None:
+        for htlc in self._pop_requests(invoice.payment_hash):
+            self.settle_callback(htlc.request, invoice.payment_preimage)
+            Settler._update_htlc_state(invoice, htlc, HtlcState.Paid)
+
         invoice.set_state(self._tracker, InvoiceState.Paid)
-        for req in self._pop_requests(invoice.payment_hash):
-            self.settle_callback(req, invoice.payment_preimage)
 
     def cancel(self, invoice: HoldInvoice) -> None:
-        invoice.set_state(self._tracker, InvoiceState.Cancelled)
-        for req in self._pop_requests(invoice.payment_hash):
-            self.fail_callback(req, HtlcFailureMessage.IncorrectPaymentDetails)
+        for htlc in self._pop_requests(invoice.payment_hash):
+            self.fail_callback(htlc.request, HtlcFailureMessage.IncorrectPaymentDetails)
+            Settler._update_htlc_state(invoice, htlc, HtlcState.Cancelled)
 
-    def _pop_requests(self, payment_hash: str) -> list[Request]:
-        return self.htlcs.pop(payment_hash, Htlcs(0)).requests()
+        invoice.set_state(self._tracker, InvoiceState.Cancelled)
+
+    def pending_payment_hashes(self) -> list[str]:
+        return list(self._htlcs.keys())
+
+    def find_htlc_request(self, payment_hash: str, htlc: Htlc) -> Request | None:
+        if payment_hash not in self._htlcs:
+            return None
+
+        return next(
+            (
+                htlc_req.request
+                for htlc_req in self._htlcs[payment_hash]
+                if htlc_req.short_channel_id == htlc.short_channel_id
+                and htlc_req.channel_id == htlc.channel_id
+            ),
+            None,
+        )
+
+    def _pop_requests(self, payment_hash: str) -> list[HtlcRequest]:
+        return self._htlcs.pop(payment_hash, [])
+
+    @staticmethod
+    def _update_htlc_state(
+        invoice: HoldInvoice, htlc: HtlcRequest, new_state: HtlcState
+    ) -> None:
+        invoice.htlcs.find_htlc(
+            htlc.short_channel_id, htlc.channel_id
+        ).state = new_state
 
     @staticmethod
     def fail_callback(req: Request, message: HtlcFailureMessage) -> None:

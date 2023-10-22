@@ -1,5 +1,5 @@
 import threading
-from typing import Any
+from typing import Any, Callable
 from urllib.request import Request
 
 from consts import (
@@ -9,9 +9,10 @@ from consts import (
     Network,
 )
 from datastore import DataStore
-from invoice import HoldInvoice, InvoiceState
+from enums import HtlcState
+from invoice import HoldInvoice, Htlc, InvoiceState
 from pyln.client import Plugin
-from settler import HtlcFailureMessage, Htlcs, Settler
+from settler import HtlcFailureMessage, Settler
 from tracker import Tracker
 
 
@@ -51,34 +52,65 @@ class HtlcHandler:
     def handle_htlc(
         self,
         invoice: HoldInvoice,
-        dec_invoice: dict[str, Any],
-        htlc_msat: int,
-        req: Request,
+        onion: dict[str, Any],
+        htlc_dict: dict[str, str | int],
+        request: Request,
     ) -> None:
+        # TODO: also settle known HTLCs
+        # TODO: overpayment protection
+
+        dec = self._plugin.rpc.decodepay(invoice.bolt11)
+
+        # TODO: restart handling accept already accepted invoices
+        htlc = invoice.htlcs.add_htlc(htlc_dict)
+
+        def fail_and_save() -> None:
+            Settler.fail_callback(request, HtlcFailureMessage.IncorrectPaymentDetails)
+
+            htlc.state = HtlcState.Cancelled
+            self._ds.save_invoice(invoice, mode="must-replace")
+
+        if htlc_dict["cltv_expiry_relative"] < dec["min_final_cltv_expiry"]:
+            self._plugin.log(
+                f"Rejected hold invoice {invoice.payment_hash}: CLTV too little "
+                f"({htlc_dict['cltv_expiry_relative']} < "
+                f"{dec['min_final_cltv_expiry']})",
+                level="warn",
+            )
+            # TODO: use incorrect_cltv_expiry or expiry_too_soon error?
+
+            fail_and_save()
+            return
+
+        if (
+            "payment_secret" not in onion
+            or onion["payment_secret"] != dec["payment_secret"]
+        ):
+            self._plugin.log(
+                f"Rejected hold invoice {invoice.payment_hash}: "
+                f"incorrect payment secret",
+                level="warn",
+            )
+
+            fail_and_save()
+            return
+
         with self._lock:
-            if invoice.state == InvoiceState.Paid:
-                Settler.settle_callback(req, invoice.payment_preimage)
+            if invoice.state != InvoiceState.Unpaid:
+                fail_and_save()
                 return
 
-            if invoice.state == InvoiceState.Cancelled:
-                Settler.fail_callback(req, HtlcFailureMessage.IncorrectPaymentDetails)
-                return
+            self._settler.add_htlc(invoice.payment_hash, request, htlc)
 
-            if invoice.payment_hash not in self._settler.htlcs:
-                invoice_msat = int(dec_invoice["amount_msat"])
-                self._settler.htlcs[invoice.payment_hash] = Htlcs(invoice_msat)
-
-            htlcs = self._settler.htlcs[invoice.payment_hash]
-            htlcs.add_htlc(htlc_msat, req)
-
-            if not htlcs.is_fully_paid():
+            if not invoice.is_fully_paid():
+                self._ds.save_invoice(invoice, mode="must-replace")
                 return
 
             invoice.set_state(self._tracker, InvoiceState.Accepted)
             self._ds.save_invoice(invoice, mode="must-replace")
             self._plugin.log(
                 f"Accepted hold invoice {invoice.payment_hash} "
-                f"with {len(htlcs.htlcs)} HTLCs",
+                f"with {len(invoice.htlcs)} HTLCs",
             )
 
     def _start_timeout_interval(self) -> None:
@@ -93,6 +125,21 @@ class HtlcHandler:
 
     def _timeout_handler(self) -> None:
         with self._lock:
-            for htlcs in self._settler.htlcs.values():
-                if not htlcs.is_fully_paid():
-                    htlcs.cancel_expired(self._timeout)
+            for payment_hash in self._settler.pending_payment_hashes():
+                invoice = self._ds.get_invoice(payment_hash)
+
+                if invoice is not None and not invoice.is_fully_paid():
+                    invoice.htlcs.cancel_expired(
+                        self._timeout, self._fail_expired_callback(invoice)
+                    )
+                    self._ds.save_invoice(invoice, mode="must-replace")
+
+    def _fail_expired_callback(
+        self, invoice: HoldInvoice
+    ) -> Callable[[Htlc, HtlcFailureMessage], None]:
+        def callback(htlc: Htlc, message: HtlcFailureMessage) -> None:
+            request = self._settler.find_htlc_request(invoice.payment_hash, htlc)
+            if request is not None:
+                Settler.fail_callback(request, message)
+
+        return callback

@@ -325,6 +325,10 @@ export class Htlc extends jspb.Message {
   setMsat(value: number): Htlc;
   getCreatedAt(): number;
   setCreatedAt(value: number): Htlc;
+  getShortChannelId(): string;
+  setShortChannelId(value: string): Htlc;
+  getId(): number;
+  setId(value: number): Htlc;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): Htlc.AsObject;
@@ -349,6 +353,8 @@ export namespace Htlc {
     state: HtlcState;
     msat: number;
     createdAt: number;
+    shortChannelId: string;
+    id: number;
   };
 }
 
@@ -370,6 +376,8 @@ export class Invoice extends jspb.Message {
   getHtlcsList(): Array<Htlc>;
   setHtlcsList(value: Array<Htlc>): Invoice;
   addHtlcs(value?: Htlc, index?: number): Htlc;
+  getAmountMsat(): number;
+  setAmountMsat(value: number): Invoice;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): Invoice.AsObject;
@@ -397,6 +405,7 @@ export namespace Invoice {
     bolt11: string;
     createdAt: number;
     htlcsList: Array<Htlc.AsObject>;
+    amountMsat: number;
   };
 }
 

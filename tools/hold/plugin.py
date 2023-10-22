@@ -14,12 +14,10 @@ from pyln.client import Plugin
 from pyln.client.plugin import Request
 from router import NoRouteError
 from server import Server
-from settler import HtlcFailureMessage, Settler
+from settler import Settler
 from transformers import Transformers
 
 from hold import Hold, InvoiceExistsError, NoSuchInvoiceError
-
-# TODO: restart handling
 
 pl = Plugin()
 hold = Hold(pl)
@@ -83,15 +81,11 @@ def hold_invoice(
 )
 def list_hold_invoices(plugin: Plugin, payment_hash: str = "") -> dict[str, Any]:
     """List one or more hold invoices."""
-    invoices = []
-
-    for i in hold.list_invoices(payment_hash):
-        invoice = i.invoice.to_dict()
-        invoice["htlcs"] = [htlc.to_dict() for htlc in i.htlcs]
-        invoices.append(invoice)
-
+    # TODO: invoice as first param
     return {
-        "holdinvoices": invoices,
+        "holdinvoices": [
+            invoice.to_dict() for invoice in hold.list_invoices(payment_hash)
+        ],
     }
 
 
@@ -197,38 +191,14 @@ def on_htlc_accepted(
         Settler.continue_callback(request)
         return
 
-    invoice_htlcs = hold.ds.get_invoice(htlc["payment_hash"])
+    invoice = hold.ds.get_invoice(htlc["payment_hash"])
 
     # Ignore invoices that aren't hold invoices
-    if invoice_htlcs is None:
+    if invoice is None:
         Settler.continue_callback(request)
         return
 
-    invoice = invoice_htlcs.invoice
-
-    dec = plugin.rpc.decodepay(invoice.bolt11)
-    if htlc["cltv_expiry_relative"] < dec["min_final_cltv_expiry"]:
-        plugin.log(
-            f"Rejected hold invoice {invoice.payment_hash}: CLTV too little "
-            f"({htlc['cltv_expiry_relative']} < {dec['min_final_cltv_expiry']})",
-            level="warn",
-        )
-        # TODO: use incorrect_cltv_expiry or expiry_too_soon error?
-        Settler.fail_callback(request, HtlcFailureMessage.IncorrectPaymentDetails)
-        return
-
-    if (
-        "payment_secret" not in onion
-        or onion["payment_secret"] != dec["payment_secret"]
-    ):
-        plugin.log(
-            f"Rejected hold invoice {invoice.payment_hash}: incorrect payment secret",
-            level="warn",
-        )
-        Settler.fail_callback(request, HtlcFailureMessage.IncorrectPaymentDetails)
-        return
-
-    hold.handler.handle_htlc(invoice, dec, int(htlc["amount_msat"]), request)
+    hold.handler.handle_htlc(invoice, onion, htlc, request)
 
 
 @pl.subscribe("shutdown")

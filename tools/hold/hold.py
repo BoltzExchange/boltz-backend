@@ -1,10 +1,10 @@
 import hashlib
 
 from bolt11.types import RouteHint
-from datastore import DataErrorCodes, DataStore, HoldInvoiceHtlcs
+from datastore import DataErrorCodes, DataStore
 from encoder import Encoder
 from htlc_handler import HtlcHandler
-from invoice import HoldInvoice, InvoiceState
+from invoice import HoldInvoice, Htlcs, InvoiceState
 from pyln.client import Plugin, RpcError
 from route_hints import RouteHints
 from router import Router
@@ -72,8 +72,10 @@ class Hold:
             hi = HoldInvoice(
                 state=InvoiceState.Unpaid,
                 bolt11=signed,
+                amount_msat=amount_msat,
                 payment_hash=payment_hash,
                 payment_preimage=None,
+                htlcs=Htlcs(),
                 created_at=time_now(),
             )
             self.ds.save_invoice(hi)
@@ -94,7 +96,7 @@ class Hold:
         if invoice is None:
             raise NoSuchInvoiceError
 
-        self.ds.settle_invoice(invoice.invoice, payment_preimage)
+        self.ds.settle_invoice(invoice, payment_preimage)
         self._plugin.log(f"Settled hold invoice {payment_hash}")
 
     def cancel(self, payment_hash: str) -> None:
@@ -102,10 +104,10 @@ class Hold:
         if invoice is None:
             raise NoSuchInvoiceError
 
-        self.ds.cancel_invoice(invoice.invoice)
+        self.ds.cancel_invoice(invoice)
         self._plugin.log(f"Cancelled hold invoice {payment_hash}")
 
-    def list_invoices(self, payment_hash: str | None) -> list[HoldInvoiceHtlcs]:
+    def list_invoices(self, payment_hash: str | None) -> list[HoldInvoice]:
         return self.ds.list_invoices(None if payment_hash == "" else payment_hash)
 
     def wipe(self, payment_hash: str | None) -> int:

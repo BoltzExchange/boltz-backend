@@ -136,18 +136,24 @@ class ListRequest(_message.Message):
     def __init__(self, payment_hash: _Optional[str] = ...) -> None: ...
 
 class Htlc(_message.Message):
-    __slots__ = ["state", "msat", "created_at"]
+    __slots__ = ["state", "msat", "created_at", "short_channel_id", "id"]
     STATE_FIELD_NUMBER: _ClassVar[int]
     MSAT_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    SHORT_CHANNEL_ID_FIELD_NUMBER: _ClassVar[int]
+    ID_FIELD_NUMBER: _ClassVar[int]
     state: HtlcState
     msat: int
     created_at: int
+    short_channel_id: str
+    id: int
     def __init__(
         self,
         state: _Optional[_Union[HtlcState, str]] = ...,
         msat: _Optional[int] = ...,
         created_at: _Optional[int] = ...,
+        short_channel_id: _Optional[str] = ...,
+        id: _Optional[int] = ...,
     ) -> None: ...
 
 class Invoice(_message.Message):
@@ -158,6 +164,7 @@ class Invoice(_message.Message):
         "bolt11",
         "created_at",
         "htlcs",
+        "amount_msat",
     ]
     PAYMENT_HASH_FIELD_NUMBER: _ClassVar[int]
     PAYMENT_PREIMAGE_FIELD_NUMBER: _ClassVar[int]
@@ -165,12 +172,14 @@ class Invoice(_message.Message):
     BOLT11_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     HTLCS_FIELD_NUMBER: _ClassVar[int]
+    AMOUNT_MSAT_FIELD_NUMBER: _ClassVar[int]
     payment_hash: str
     payment_preimage: str
     state: InvoiceState
     bolt11: str
     created_at: int
     htlcs: _containers.RepeatedCompositeFieldContainer[Htlc]
+    amount_msat: int
     def __init__(
         self,
         payment_hash: _Optional[str] = ...,
@@ -179,6 +188,7 @@ class Invoice(_message.Message):
         bolt11: _Optional[str] = ...,
         created_at: _Optional[int] = ...,
         htlcs: _Optional[_Iterable[_Union[Htlc, _Mapping]]] = ...,
+        amount_msat: _Optional[int] = ...,
     ) -> None: ...
 
 class ListResponse(_message.Message):

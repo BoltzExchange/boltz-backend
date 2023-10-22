@@ -2,16 +2,18 @@ from typing import Any
 
 import router
 from bolt11.models.routehint import Route, RouteHint
-from datastore import HoldInvoiceHtlcs
-from invoice import InvoiceState
+from enums import HtlcState, InvoiceState
+from invoice import HoldInvoice, Htlc
 from protos.hold_pb2 import (
+    HTLC_ACCEPTED,
+    HTLC_CANCELLED,
+    HTLC_SETTLED,
     INVOICE_ACCEPTED,
     INVOICE_CANCELLED,
     INVOICE_PAID,
     INVOICE_UNPAID,
     GetRouteResponse,
     Hop,
-    HtlcState,
     Invoice,
     PayStatusResponse,
     RoutingHint,
@@ -20,7 +22,6 @@ from protos.hold_pb2 import (
 from protos.hold_pb2 import (
     Htlc as HtlcGrpc,
 )
-from settler import Htlc
 from utils import parse_time
 
 INVOICE_STATE_TO_GRPC = {
@@ -28,6 +29,12 @@ INVOICE_STATE_TO_GRPC = {
     InvoiceState.Unpaid: INVOICE_UNPAID,
     InvoiceState.Accepted: INVOICE_ACCEPTED,
     InvoiceState.Cancelled: INVOICE_CANCELLED,
+}
+
+HTLC_STATE_TO_GRPC = {
+    HtlcState.Paid: HTLC_SETTLED,
+    HtlcState.Accepted: HTLC_ACCEPTED,
+    HtlcState.Cancelled: HTLC_CANCELLED,
 }
 
 PAY_STATUS_STATE_TO_GRPC = {
@@ -38,22 +45,25 @@ PAY_STATUS_STATE_TO_GRPC = {
 
 class Transformers:
     @staticmethod
-    def invoice_to_grpc(invoice: HoldInvoiceHtlcs) -> Invoice:
+    def invoice_to_grpc(invoice: HoldInvoice) -> Invoice:
         return Invoice(
-            payment_hash=invoice.invoice.payment_hash,
-            payment_preimage=invoice.invoice.payment_preimage,
-            state=INVOICE_STATE_TO_GRPC[invoice.invoice.state],
-            bolt11=invoice.invoice.bolt11,
-            created_at=int(invoice.invoice.created_at.timestamp()),
-            htlcs=[Transformers.htlc_to_grpc(htlc) for htlc in invoice.htlcs],
+            payment_hash=invoice.payment_hash,
+            payment_preimage=invoice.payment_preimage,
+            state=INVOICE_STATE_TO_GRPC[invoice.state],
+            bolt11=invoice.bolt11,
+            amount_msat=invoice.amount_msat,
+            created_at=int(invoice.created_at.timestamp()),
+            htlcs=[Transformers.htlc_to_grpc(htlc) for htlc in invoice.htlcs.htlcs],
         )
 
     @staticmethod
     def htlc_to_grpc(htlc: Htlc) -> HtlcGrpc:
         return HtlcGrpc(
-            state=HtlcState.HTLC_ACCEPTED,
+            state=HTLC_STATE_TO_GRPC[htlc.state],
             msat=htlc.msat,
             created_at=int(htlc.created_at.timestamp()),
+            short_channel_id=htlc.short_channel_id,
+            id=htlc.channel_id,
         )
 
     @staticmethod

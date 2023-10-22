@@ -123,7 +123,7 @@ class HoldService(HoldServicer):
                 self._hold.tracker.stop_tracking(request.payment_hash, queue)
                 raise NoSuchInvoiceError  # noqa: TRY301
 
-            yield TrackResponse(state=INVOICE_STATE_TO_GRPC[invoices[0].invoice.state])
+            yield TrackResponse(state=INVOICE_STATE_TO_GRPC[invoices[0].state])
 
             while context.is_active():
                 state = queue.get()

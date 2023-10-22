@@ -20,6 +20,7 @@ from protos.hold_pb2 import (
     CancelRequest,
     GetInfoRequest,
     GetInfoResponse,
+    HtlcState,
     InvoiceRequest,
     InvoiceState,
     ListRequest,
@@ -245,13 +246,16 @@ class TestGrpc:
         assert len(invoices) > 1
 
     def test_list_single(self, cl: HoldStub) -> None:
-        invoices = cl.List(ListRequest()).invoices
+        amount_msat = 10_000
+        payment_hash = random.randbytes(32).hex()
 
-        query = invoices[0].payment_hash
-        invoice = cl.List(ListRequest(payment_hash=query)).invoices
+        cl.Invoice(InvoiceRequest(payment_hash=payment_hash, amount_msat=amount_msat))
+
+        invoice = cl.List(ListRequest(payment_hash=payment_hash)).invoices
+
         assert len(invoice) == 1
-
-        assert invoice[0].payment_hash == query
+        assert invoice[0].amount_msat == amount_msat
+        assert invoice[0].payment_hash == payment_hash
 
     def test_list_created_at(self, cl: HoldStub) -> None:
         payment_hash = random.randbytes(32).hex()
@@ -354,10 +358,20 @@ class TestGrpc:
             pay.start()
             time.sleep(1)
 
+            invoice_state = cl.List(ListRequest(payment_hash=payment_hash)).invoices[0]
+            assert len(invoice_state.htlcs) == 1
+            assert invoice_state.htlcs[0].state == HtlcState.HTLC_ACCEPTED
+            assert invoice_state.htlcs[0].id != 0
+            assert invoice_state.htlcs[0].short_channel_id != ""
+
             cl.Settle(SettleRequest(payment_preimage=payment_preimage))
             pay.join()
 
             assert fut.result() == [INVOICE_UNPAID, INVOICE_ACCEPTED, INVOICE_PAID]
+
+            invoice_state = cl.List(ListRequest(payment_hash=payment_hash)).invoices[0]
+            assert len(invoice_state.htlcs) == 1
+            assert invoice_state.htlcs[0].state == HtlcState.HTLC_SETTLED
 
     def test_track_cancel(self, cl: HoldStub) -> None:
         _, payment_hash, invoice = add_hold_invoice(cl)
@@ -379,6 +393,10 @@ class TestGrpc:
             pay.join()
 
             assert fut.result() == [INVOICE_UNPAID, INVOICE_ACCEPTED, INVOICE_CANCELLED]
+
+            invoice_state = cl.List(ListRequest(payment_hash=payment_hash)).invoices[0]
+            assert len(invoice_state.htlcs) == 1
+            assert invoice_state.htlcs[0].state == HtlcState.HTLC_CANCELLED
 
     def test_track_multiple(self, cl: HoldStub) -> None:
         _, payment_hash, invoice = add_hold_invoice(cl)

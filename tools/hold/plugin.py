@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
+import contextlib
 import sys
 from typing import Any
 
+import bolt11
+from bolt11.exceptions import Bolt11Bech32InvalidException
 from config import Config, register_options
 from consts import (
     PLUGIN_NAME,
@@ -18,6 +21,8 @@ from settler import Settler
 from transformers import Transformers
 
 from hold import Hold, InvoiceExistsError, NoSuchInvoiceError
+
+empty_value = ["", "none", "null", None]
 
 pl = Plugin()
 hold = Hold(pl)
@@ -79,9 +84,21 @@ def hold_invoice(
     method_name="listholdinvoices",
     category=PLUGIN_NAME,
 )
-def list_hold_invoices(plugin: Plugin, payment_hash: str = "") -> dict[str, Any]:
+def list_hold_invoices(
+    plugin: Plugin, payment_hash: str = "", invoice: str = ""
+) -> dict[str, Any]:
     """List one or more hold invoices."""
-    # TODO: invoice as first param
+    if payment_hash in empty_value and invoice not in empty_value:
+        payment_hash = bolt11.decode(invoice).payment_hash
+    elif (
+        payment_hash is not None
+        and len(payment_hash) > 64
+        and payment_hash.lower().startswith("ln")
+    ):
+        # To allow the first parameter to be the invoice
+        with contextlib.suppress(Bolt11Bech32InvalidException):
+            payment_hash = bolt11.decode(payment_hash).payment_hash
+
     return {
         "holdinvoices": [
             invoice.to_dict() for invoice in hold.list_invoices(payment_hash)

@@ -232,6 +232,25 @@ class TestHold:
         assert len(invoices) == 1
         assert invoices[0]["amount_msat"] == 1232323
 
+    @pytest.mark.parametrize("payment_hash_param", ["", "none", "null"])
+    def test_list_by_invoice(self, cln: CliCaller, payment_hash_param: str) -> None:
+        _, payment_hash, invoice = add_hold_invoice(cln)
+
+        invoice_res = cln("listholdinvoices", payment_hash_param, invoice)[
+            "holdinvoices"
+        ]
+        assert len(invoice_res) == 1
+        assert invoice_res[0]["bolt11"] == invoice
+        assert invoice_res[0]["payment_hash"] == payment_hash
+
+    def test_list_by_invoice_first_param(self, cln: CliCaller) -> None:
+        _, payment_hash, invoice = add_hold_invoice(cln)
+
+        invoice_res = cln("listholdinvoices", invoice)["holdinvoices"]
+        assert len(invoice_res) == 1
+        assert invoice_res[0]["bolt11"] == invoice
+        assert invoice_res[0]["payment_hash"] == payment_hash
+
     def test_list_not_found(self, cln: CliCaller) -> None:
         payment_hash = random.randbytes(32).hex()
         invoices = cln("listholdinvoices", payment_hash)

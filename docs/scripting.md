@@ -91,6 +91,6 @@ There is one more difference when compared to claim transactions: the `nLockTime
 
 An example for this can be found in the [`boltz-core`](https://github.com/BoltzExchange/boltz-core/blob/master/lib/swap/Refund.ts#L20) reference library. The linked function uses the claim function from above but requires the timeout block height as argument and sets an empty preimage.
 
-## EVM chains
+## EVM Chains
 
-The HTLCs that Boltz uses on EVM chains are not single use scripts, but contracts. The source for the those contracts and integration tests can be found in the [`boltz-core`](https://github.com/BoltzExchange/boltz-core/tree/master/contracts) [r](https://github.com/BoltzExchange/boltz-core/blob/master/lib/swap/Scripts.ts)eference library.
+The HTLCs that Boltz uses on EVM chains are not single use scripts, but contracts. The source for the those contracts and integration tests can be found in the [`boltz-core`](https://github.com/BoltzExchange/boltz-core/tree/master/contracts) reference library.

@@ -390,7 +390,7 @@ What is returned when the invoice is set depends on the status of the Submarine 
 
 * `acceptZeroConf`: whether Boltz will accept 0-conf for this swap
 * `expectedAmount`: the amount that Boltz expects you to lock in the chain HTLC
-* `bip21`: a [BIP21 payment request](https://github.com/bitcoin/bips/blob/master/bip-0021.mediawiki) for the `expectedAmount` of bitcoin and the `address` (only set when swapping from UTXO based chains)
+* `bip21`: a [BIP21 payment request](https://github.com/bitcoin/bips/blob/master/bip-0021.mediawiki) for the `expectedAmount` of bitcoin and the `address` (only set when swapping from UTXO chains)
 
 If chain bitcoin were sent already (status [`transaction.mempool`](lifecycle.md#normal-submarine-swaps) or [`transaction.confirmed`](lifecycle.md#normal-submarine-swaps)) the endpoint will return an empty `JSON` object, signifying success.
 
@@ -510,7 +510,7 @@ In case the invoice amount was specified, the amount that will be locked in the 
 
 Boltz backend also supports a different protocol that requires an invoice for miner fees to be paid before the actual hold `invoice` of the Reverse Submarine Swap. If that protocol is enabled, the response object will also contain a `minerFeeInvoice`. Once the `minerFeeInvoice` is paid, Boltz will send the event `minerfee.paid` and when the actual hold `invoice` is paid, the chain bitcoin will be sent.
 
-### UTXO based chains
+### UTXO Chains
 
 The request has to contain one additional value:
 

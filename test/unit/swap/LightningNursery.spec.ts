@@ -110,7 +110,7 @@ describe('LightningNursery', () => {
       LightningNursery.errIsInvoicePaid({
         details,
       }),
-    ).toEqual(false);
+    ).toEqual(true);
     expect(LightningNursery.errIsInvoicePaid({})).toEqual(false);
     expect(LightningNursery.errIsInvoicePaid(null)).toEqual(false);
     expect(LightningNursery.errIsInvoicePaid(undefined)).toEqual(false);
@@ -119,8 +119,8 @@ describe('LightningNursery', () => {
   test.each`
     expected | error
     ${true}  | ${{ code: 6, details: 'payment is in transition' }}
+    ${true}  | ${{ code: 5, details: 'payment is in transition' }}
     ${false} | ${{ code: 6, details: 'payment is not in transition' }}
-    ${false} | ${{ code: 5, details: 'payment is in transition' }}
     ${false} | ${{ code: 6 }}
     ${false} | ${{}}
     ${false} | ${undefined}

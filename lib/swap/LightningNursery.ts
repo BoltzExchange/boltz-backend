@@ -38,7 +38,6 @@ class LightningNursery extends EventEmitter {
     return (
       error !== undefined &&
       error !== null &&
-      (error as any).code === 6 &&
       (error as any).details === 'invoice is already paid'
     );
   };
@@ -47,7 +46,6 @@ class LightningNursery extends EventEmitter {
     return (
       error !== undefined &&
       error !== null &&
-      (error as any).code === 6 &&
       (error as any).details === 'payment is in transition'
     );
   };

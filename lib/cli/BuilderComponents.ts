@@ -36,4 +36,10 @@ export default {
     describe: 'Liquid blinding key for the HTLC address',
     type: 'string',
   },
+  queryStartHeightDelta: {
+    describe: 'offset of the start height of the logs query',
+    default: '1000',
+    type: 'number',
+    alias: 'd',
+  },
 };

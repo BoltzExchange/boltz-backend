@@ -59,7 +59,7 @@ interface IEthereumNursery {
     event: 'swap.expired',
     listener: (swap: Swap, isEtherSwap: boolean) => void,
   ): this;
-  emit(event: 'swap.expired', swap: Swap, isEtherSwap: boolean);
+  emit(event: 'swap.expired', swap: Swap, isEtherSwap: boolean): boolean;
 
   on(
     event: 'lockup.failed',
@@ -75,7 +75,7 @@ interface IEthereumNursery {
     event: 'reverseSwap.expired',
     reverseSwap: ReverseSwap,
     isEtherSwap: boolean,
-  );
+  ): boolean;
 
   on(
     event: 'lockup.failedToSend',
@@ -148,7 +148,7 @@ class EthereumNursery extends EventEmitter implements IEthereumNursery {
         this.logger.debug(
           `Found pending Ethereum lockup transaction of Reverse Swap ${mempoolReverseSwap.id}: ${mempoolReverseSwap.transactionId}`,
         );
-        this.listenContractTransaction(mempoolReverseSwap, transaction);
+        this.listenContractTransaction(mempoolReverseSwap, transaction!);
       } catch (error) {
         // TODO: retry finding that transaction
         // If the provider can't find the transaction, it is not on the Ethereum chain

@@ -5,9 +5,13 @@ import { Wallet } from 'ethers';
 import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import Logger from '../../../../lib/Logger';
-import { getContracts } from '../../../../lib/cli/ethereum/EthereumUtils';
 import ContractHandler from '../../../../lib/wallet/ethereum/ContractHandler';
-import { EthereumSetup, fundSignerWallet, getSigner } from '../EthereumTools';
+import {
+  EthereumSetup,
+  fundSignerWallet,
+  getContracts,
+  getSigner,
+} from '../EthereumTools';
 import ERC20WalletProvider from '../../../../lib/wallet/providers/ERC20WalletProvider';
 
 describe('ContractHandler', () => {

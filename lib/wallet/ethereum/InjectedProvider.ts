@@ -197,10 +197,6 @@ class InjectedProvider implements Provider {
     return this.forwardMethod('getStorage', address, position, blockTag);
   };
 
-  public getGasPrice = (): Promise<bigint> => {
-    return this.forwardMethod('getGasPrice');
-  };
-
   public getFeeData = (): Promise<FeeData> => {
     return this.forwardMethod('getFeeData');
   };
@@ -228,8 +224,8 @@ class InjectedProvider implements Provider {
 
   public getTransaction = (
     transactionHash: string,
-  ): Promise<TransactionResponse> => {
-    return this.forwardMethod('getTransaction', transactionHash);
+  ): Promise<TransactionResponse | null> => {
+    return this.forwardMethodNullable('getTransaction', transactionHash);
   };
 
   public getTransactionCount = (
@@ -241,12 +237,12 @@ class InjectedProvider implements Provider {
 
   public getTransactionReceipt = (
     transactionHash: string,
-  ): Promise<TransactionReceipt> => {
-    return this.forwardMethod('getTransactionReceipt', transactionHash);
+  ): Promise<TransactionReceipt | null> => {
+    return this.forwardMethodNullable('getTransactionReceipt', transactionHash);
   };
 
   public getTransactionResult = (hash: string): Promise<string | null> => {
-    return this.forwardMethod('getTransactionResult', hash);
+    return this.forwardMethodNullable('getTransactionResult', hash);
   };
 
   public lookupAddress = (address: string): Promise<string> => {
@@ -429,6 +425,18 @@ class InjectedProvider implements Provider {
     method: string,
     ...args: any[]
   ): Promise<T> => {
+    const res = await this.forwardMethodNullable<T>(method, ...args);
+    if (res === null) {
+      throw Errors.REQUESTS_TO_PROVIDERS_FAILED(['null returned']);
+    }
+
+    return res;
+  };
+
+  private forwardMethodNullable = async <T = any>(
+    method: string,
+    ...args: any[]
+  ): Promise<T | null> => {
     const errors: string[] = [];
 
     for (const [providerName, provider] of this.providers) {
@@ -451,7 +459,11 @@ class InjectedProvider implements Provider {
       }
     }
 
-    throw Errors.REQUESTS_TO_PROVIDERS_FAILED(errors);
+    if (errors.length > 0) {
+      throw Errors.REQUESTS_TO_PROVIDERS_FAILED(errors);
+    }
+
+    return null;
   };
 
   private promiseWithTimeout = async (

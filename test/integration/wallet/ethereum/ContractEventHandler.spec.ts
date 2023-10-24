@@ -6,9 +6,13 @@ import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import Logger from '../../../../lib/Logger';
 import { waitForFunctionToBeTrue } from '../../../Utils';
-import { getContracts } from '../../../../lib/cli/ethereum/EthereumUtils';
-import { EthereumSetup, fundSignerWallet, getSigner } from '../EthereumTools';
 import ContractEventHandler from '../../../../lib/wallet/ethereum/ContractEventHandler';
+import {
+  EthereumSetup,
+  fundSignerWallet,
+  getContracts,
+  getSigner,
+} from '../EthereumTools';
 
 describe('ContractEventHandler', () => {
   let setup: EthereumSetup;

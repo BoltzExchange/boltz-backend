@@ -1,11 +1,11 @@
 import { ERC20 } from 'boltz-core/typechain/ERC20';
 import Logger from '../../../../lib/Logger';
 import { Token } from '../../../../lib/consts/Types';
-import { getContracts } from '../../../../lib/cli/ethereum/EthereumUtils';
 import ERC20WalletProvider from '../../../../lib/wallet/providers/ERC20WalletProvider';
 import {
   EthereumSetup,
   fundSignerWallet,
+  getContracts,
   getSigner,
   waitForTransactionHash,
 } from '../EthereumTools';

@@ -3,7 +3,11 @@ import { crypto } from 'bitcoinjs-lib';
 import { ContractTransactionResponse } from 'ethers';
 import { getHexBuffer } from '../../../Utils';
 import BuilderComponents from '../../BuilderComponents';
-import { connectEthereum, getContracts } from '../EthereumUtils';
+import {
+  connectEthereum,
+  getContracts,
+  getLogsQueryStartHeight,
+} from '../EthereumUtils';
 import {
   queryERC20SwapValues,
   queryEtherSwapValues,
@@ -20,6 +24,7 @@ export const builder = {
     type: 'string',
   },
   token: BuilderComponents.token,
+  queryStartHeightDelta: BuilderComponents.queryStartHeightDelta,
 };
 
 export const handler = async (argv: Arguments<any>): Promise<void> => {
@@ -34,6 +39,10 @@ export const handler = async (argv: Arguments<any>): Promise<void> => {
     const erc20SwapValues = await queryERC20SwapValues(
       erc20Swap,
       crypto.sha256(preimage),
+      await getLogsQueryStartHeight(
+        signer.provider!,
+        argv.queryStartHeightDelta,
+      ),
     );
     transaction = await erc20Swap.claim(
       preimage,
@@ -46,6 +55,10 @@ export const handler = async (argv: Arguments<any>): Promise<void> => {
     const etherSwapValues = await queryEtherSwapValues(
       etherSwap,
       crypto.sha256(preimage),
+      await getLogsQueryStartHeight(
+        signer.provider!,
+        argv.queryStartHeightDelta,
+      ),
     );
     transaction = await etherSwap.claim(
       preimage,
@@ -54,8 +67,6 @@ export const handler = async (argv: Arguments<any>): Promise<void> => {
       etherSwapValues.timelock,
     );
   }
-
-  await transaction.wait(1);
 
   console.log(
     `Claimed ${argv.token ? 'ERC20 token' : 'Ether'} in: ${transaction.hash}`,

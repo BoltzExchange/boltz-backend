@@ -14,15 +14,16 @@ import { Payment, PaymentFailureReason } from '../proto/lnd/rpc_pb';
 import { ChannelCreationStatus, SwapUpdateEvent } from '../consts/Enums';
 import { LightningClient, PaymentResponse } from '../lightning/LightningClient';
 import {
-  splitPairId,
   formatError,
   getHexBuffer,
   getHexString,
   getLightningCurrency,
+  splitPairId,
 } from '../Utils';
 
 class PaymentHandler {
   private static readonly raceTimeout = 15;
+  private static readonly errCltvTooSmall = 'CLTV limit too small';
 
   constructor(
     private readonly logger: Logger,
@@ -93,28 +94,47 @@ class PaymentHandler {
     const cltvLimit = await this.timeoutDeltaProvider.getCltvLimit(swap);
 
     if (cltvLimit < 2) {
-      throw 'CLTV limit to small';
+      throw PaymentHandler.errCltvTooSmall;
     }
 
     this.logger.debug(
       `Paying invoice of swap ${swap.id} with CLTV limit: ${cltvLimit}`,
     );
 
-    const payResponse = await Promise.race([
-      lightningClient.sendPayment(swap.invoice!, cltvLimit, outgoingChannelId),
-      new Promise<undefined>((resolve) => {
-        setTimeout(() => {
-          resolve(undefined);
-        }, PaymentHandler.raceTimeout * 1000);
-      }),
-    ]);
+    let timeout: NodeJS.Timeout | undefined = undefined;
+    const racePromise = new Promise<undefined>((resolve) => {
+      timeout = setTimeout(() => {
+        resolve(undefined);
+      }, PaymentHandler.raceTimeout * 1000);
+    });
 
-    if (payResponse !== undefined) {
-      return await this.settleInvoice(swap, payResponse);
-    } else {
+    try {
+      const payResponse = await Promise.race([
+        lightningClient.sendPayment(
+          swap.invoice!,
+          cltvLimit,
+          outgoingChannelId,
+        ),
+        racePromise,
+      ]);
+
+      if (timeout !== undefined) {
+        clearTimeout(timeout);
+      }
+
+      if (payResponse !== undefined) {
+        return await this.settleInvoice(swap, payResponse);
+      }
+
       this.logger.verbose(
         `Invoice payment of Swap ${swap.id} is still pending after ${PaymentHandler.raceTimeout} seconds`,
       );
+    } catch (e) {
+      if (timeout !== undefined) {
+        clearTimeout(timeout);
+      }
+
+      throw e;
     }
 
     return undefined;
@@ -162,19 +182,25 @@ class PaymentHandler {
     }
 
     if (
+      errorMessage === PaymentHandler.errCltvTooSmall ||
       LightningNursery.errIsInvoicePaid(error) ||
-      LightningNursery.errIsCltvLimitExceeded(error)
+      LightningNursery.errIsCltvLimitExceeded(error) ||
+      LightningNursery.errIsInvoiceExpired(errorMessage)
     ) {
       try {
         const payment = await lndClient.trackPayment(
           getHexBuffer(swap.preimageHash),
         );
+
         if (payment.status === Payment.PaymentStatus.SUCCEEDED) {
           this.logger.debug(`Invoice of Swap ${swap.id} is paid already`);
           return this.settleInvoice(swap, {
             feeMsat: payment.feeMsat,
             preimage: getHexBuffer(payment.paymentPreimage),
           });
+        } else if (payment.status === Payment.PaymentStatus.IN_FLIGHT) {
+          this.logger.info(`Invoice of Swap ${swap.id} is still pending`);
+          return undefined;
         }
       } catch (e) {
         /* empty */

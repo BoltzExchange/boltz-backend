@@ -380,7 +380,7 @@ class LndClient extends BaseClient implements LightningClient {
   ): Promise<lndrpc.Payment.AsObject> => {
     return new Promise<lndrpc.Payment.AsObject>((resolve, reject) => {
       const request = new routerrpc.TrackPaymentRequest();
-      request.setNoInflightUpdates(true);
+      request.setNoInflightUpdates(false);
       request.setPaymentHash(preimageHash);
 
       const stream = this.router!.trackPaymentV2(request, this.meta);

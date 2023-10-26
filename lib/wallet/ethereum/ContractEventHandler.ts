@@ -6,6 +6,7 @@ import Logger from '../../Logger';
 import { parseBuffer } from './EthereumUtils';
 import { ERC20SwapValues, EtherSwapValues } from '../../consts/Types';
 import { formatERC20SwapValues, formatEtherSwapValues } from './ContractUtils';
+import { NetworkDetails } from './EvmNetworks';
 
 interface IContractEventHandler {
   // EtherSwap contract events
@@ -99,13 +100,16 @@ class ContractEventHandler
   }
 
   public init = async (
+    networkDetails: NetworkDetails,
     etherSwap: EtherSwap,
     erc20Swap: ERC20Swap,
   ): Promise<void> => {
     this.etherSwap = etherSwap;
     this.erc20Swap = erc20Swap;
 
-    this.logger.verbose('Starting contract event subscriptions');
+    this.logger.verbose(
+      `Starting ${networkDetails.name} contract event subscriptions`,
+    );
 
     await this.subscribeContractEvents();
   };

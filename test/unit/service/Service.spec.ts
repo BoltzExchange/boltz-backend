@@ -39,6 +39,7 @@ import {
   ServiceWarning,
   SwapUpdateEvent,
 } from '../../../lib/consts/Enums';
+import { Ethereum } from '../../../lib/wallet/ethereum/EvmNetworks';
 
 const mockGetPairs = jest.fn().mockResolvedValue([]);
 const mockAddPair = jest.fn().mockReturnValue(Promise.resolve());
@@ -162,6 +163,19 @@ jest.mock('../../../lib/swap/SwapManager', () => {
 
 const mockedSwapManager = <jest.Mock<SwapManager>>(<any>SwapManager);
 
+const mockGetFeeDataResult: any = {
+  gasPrice: BigInt(10) * gweiDecimals,
+};
+const mockGetFeeData = jest.fn().mockImplementation(async () => {
+  return mockGetFeeDataResult;
+});
+
+const mockedProvider = <jest.Mock<Provider>>(
+  (<any>jest.fn().mockImplementation(() => ({
+    getFeeData: mockGetFeeData,
+  })))
+);
+
 const mockGetBalanceResult = {
   totalBalance: 1,
   confirmedBalance: 2,
@@ -215,6 +229,13 @@ const mockSweepToken = jest.fn().mockResolvedValue(tokenTransaction);
 
 jest.mock('../../../lib/wallet/WalletManager', () => {
   return jest.fn().mockImplementation(() => ({
+    ethereumManagers: [
+      {
+        networkDetails: Ethereum,
+        provider: mockedProvider(),
+        hasSymbol: jest.fn().mockReturnValue(true),
+      },
+    ],
     wallets: new Map<string, Wallet>([
       [
         'BTC',
@@ -484,19 +505,6 @@ jest.mock('../../../lib/lightning/LndClient', () => {
 });
 
 const mockedLndClient = <jest.Mock<LndClient>>(<any>LndClient);
-
-const mockGetFeeDataResult: any = {
-  gasPrice: BigInt(10) * gweiDecimals,
-};
-const mockGetFeeData = jest.fn().mockImplementation(async () => {
-  return mockGetFeeDataResult;
-});
-
-const mockedProvider = <jest.Mock<Provider>>(
-  (<any>jest.fn().mockImplementation(() => ({
-    getFeeData: mockGetFeeData,
-  })))
-);
 
 describe('Service', () => {
   const configPairs = [
@@ -834,48 +842,55 @@ describe('Service', () => {
   });
 
   test('should get contracts', async () => {
-    const ethereumManager = {
-      network: {
-        chainId: BigInt(123),
-        name: 'hello',
-      },
-      etherSwap: {
-        getAddress: async () => {
-          return '0x18A4374d714762FA7DE346E997f7e28Fb3744EC1';
-        },
-      },
-      erc20Swap: {
-        getAddress: async () => {
-          return '0xC685b2c4369D7bf9242DA54E9c391948079d83Cd';
-        },
-      },
-      tokenAddresses: new Map<string, string>([
-        ['USDT', '0xDf567Cd5d0cf3d90cE6E3E9F897e092f9ECE359a'],
-      ]),
-    };
+    const managerPrev = service['walletManager']['ethereumManagers'];
 
-    service['walletManager']['ethereumManager'] = ethereumManager as any;
+    const ethereumManagers = [
+      {
+        networkDetails: Ethereum,
+        network: {
+          chainId: BigInt(123),
+          name: 'hello',
+        },
+        etherSwap: {
+          getAddress: async () => {
+            return '0x18A4374d714762FA7DE346E997f7e28Fb3744EC1';
+          },
+        },
+        erc20Swap: {
+          getAddress: async () => {
+            return '0xC685b2c4369D7bf9242DA54E9c391948079d83Cd';
+          },
+        },
+        tokenAddresses: new Map<string, string>([
+          ['USDT', '0xDf567Cd5d0cf3d90cE6E3E9F897e092f9ECE359a'],
+        ]),
+      },
+    ];
+
+    service['walletManager']['ethereumManagers'] = ethereumManagers as any;
 
     expect(await service.getContracts()).toEqual({
       ethereum: {
         network: {
-          name: ethereumManager.network.name,
-          chainId: Number(ethereumManager.network.chainId),
+          name: ethereumManagers[0].network.name,
+          chainId: Number(ethereumManagers[0].network.chainId),
         },
-        tokens: ethereumManager.tokenAddresses,
+        tokens: ethereumManagers[0].tokenAddresses,
         swapContracts: new Map<string, string>([
-          ['EtherSwap', await ethereumManager.etherSwap.getAddress()],
-          ['ERC20Swap', await ethereumManager.erc20Swap.getAddress()],
+          ['EtherSwap', await ethereumManagers[0].etherSwap.getAddress()],
+          ['ERC20Swap', await ethereumManagers[0].erc20Swap.getAddress()],
         ]),
       },
     });
 
     // Should throw when the Ethereum integration is not enabled
-    service['walletManager']['ethereumManager'] = undefined;
+    service['walletManager']['ethereumManagers'] = [];
 
     await expect(service.getContracts()).rejects.toEqual(
       Errors.ETHEREUM_NOT_ENABLED(),
     );
+
+    service['walletManager']['ethereumManagers'] = managerPrev;
   });
 
   test('should get transactions', async () => {
@@ -1000,7 +1015,7 @@ describe('Service', () => {
     expect(mockEstimateFee).toHaveBeenCalledTimes(2);
     expect(mockEstimateFee).toHaveBeenNthCalledWith(1, 2);
 
-    expect(mockGetFeeData).toHaveBeenCalledTimes(1);
+    expect(mockGetFeeData).toHaveBeenCalledTimes(2);
 
     // Get fee estimation for a single currency
     expect(await service.getFeeEstimation('BTC')).toEqual(
@@ -1025,7 +1040,7 @@ describe('Service', () => {
       ]),
     );
 
-    expect(mockGetFeeData).toHaveBeenCalledTimes(2);
+    expect(mockGetFeeData).toHaveBeenCalledTimes(3);
 
     // Get fee estimation for a single currency that cannot be found
     const notFound = 'notFound';
@@ -1801,7 +1816,7 @@ describe('Service', () => {
 
     const prepayMinerFeeOnchainAmount = Number(
       (ethereumPrepayMinerFeeGasLimit *
-        (await service['getGasPrice'](currencies.get('ETH')!))) /
+        (await service['getGasPrice'](currencies.get('ETH')!.provider!))) /
         etherDecimals,
     );
     const prepayMinerFeeInvoiceAmount =
@@ -2048,18 +2063,18 @@ describe('Service', () => {
 
   test('should get gas price', async () => {
     await expect(
-      service['getGasPrice'](currencies.get('ETH')!),
+      service['getGasPrice'](currencies.get('ETH')!.provider!),
     ).resolves.toEqual(mockGetFeeDataResult.gasPrice);
 
     mockGetFeeDataResult.maxFeePerGas = mockGetFeeDataResult.gasPrice;
     mockGetFeeDataResult.maxFeePerGas += BigInt(1);
     await expect(
-      service['getGasPrice'](currencies.get('ETH')!),
+      service['getGasPrice'](currencies.get('ETH')!.provider!),
     ).resolves.toEqual(mockGetFeeDataResult.gasPrice);
 
     mockGetFeeDataResult.gasPrice = undefined;
     await expect(
-      service['getGasPrice'](currencies.get('ETH')!),
+      service['getGasPrice'](currencies.get('ETH')!.provider!),
     ).resolves.toEqual(mockGetFeeDataResult.maxFeePerGas);
   });
 

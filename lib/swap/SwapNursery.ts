@@ -63,6 +63,7 @@ import {
   parseTransaction,
   RefundDetails,
 } from '../Core';
+import EthereumManager from '../wallet/ethereum/EthereumManager';
 
 interface ISwapNursery {
   // UTXO based chains emit the "Transaction" object and Ethereum based ones just the transaction hash
@@ -176,7 +177,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
   private readonly paymentHandler: PaymentHandler;
   private readonly lightningNursery: LightningNursery;
 
-  private readonly ethereumNursery?: EthereumNursery;
+  private readonly ethereumNurseries: EthereumNursery[];
 
   // Maps
   private currencies = new Map<string, Currency>();
@@ -210,12 +211,10 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
       this.attemptSettleSwap,
     );
 
-    if (this.walletManager.ethereumManager) {
-      this.ethereumNursery = new EthereumNursery(
-        this.logger,
-        this.walletManager,
-      );
-    }
+    this.ethereumNurseries = this.walletManager.ethereumManagers.map(
+      (manager) =>
+        new EthereumNursery(this.logger, this.walletManager, manager),
+    );
 
     this.paymentHandler = new PaymentHandler(
       this.logger,
@@ -234,9 +233,11 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
       this.currencies.set(currency.symbol, currency);
     });
 
-    if (this.ethereumNursery) {
-      await this.listenEthereumNursery(this.ethereumNursery);
-    }
+    await Promise.all(
+      this.ethereumNurseries.map((nursery) =>
+        this.listenEthereumNursery(nursery),
+      ),
+    );
 
     // Swap events
     this.utxoNursery.on('swap.expired', async (swap) => {
@@ -532,36 +533,46 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
         break;
       }
 
-      case CurrencyType.Ether:
+      case CurrencyType.Ether: {
+        const manager = this.findEthereumNursery(
+          currency.symbol,
+        )!.ethereumManager;
+
         await this.claimEther(
-          this.walletManager.ethereumManager!.contractHandler,
+          manager,
           swap,
           await queryEtherSwapValuesFromLock(
-            this.walletManager.ethereumManager!.provider,
-            this.walletManager.ethereumManager!.etherSwap,
+            manager.provider,
+            manager.etherSwap,
             swap.lockupTransactionId!,
           ),
           outgoingChannelId,
         );
         break;
+      }
 
-      case CurrencyType.ERC20:
+      case CurrencyType.ERC20: {
+        const manager = this.findEthereumNursery(
+          currency.symbol,
+        )!.ethereumManager;
+
         await this.claimERC20(
-          this.walletManager.ethereumManager!.contractHandler,
+          manager.contractHandler,
           swap,
           await queryERC20SwapValuesFromLock(
-            this.walletManager.ethereumManager!.provider,
-            this.walletManager.ethereumManager!.erc20Swap,
+            manager.provider,
+            manager.erc20Swap,
             swap.lockupTransactionId!,
           ),
           outgoingChannelId,
         );
         break;
+      }
     }
   };
 
   private listenEthereumNursery = async (ethereumNursery: EthereumNursery) => {
-    const contractHandler = this.walletManager.ethereumManager!.contractHandler;
+    const contractHandler = ethereumNursery.ethereumManager.contractHandler;
 
     // Swap events
     ethereumNursery.on('swap.expired', async (swap) => {
@@ -583,7 +594,11 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
           this.emit('transaction', swap, transactionHash, true, false);
 
           if (swap.invoice) {
-            await this.claimEther(contractHandler, swap, etherSwapValues);
+            await this.claimEther(
+              ethereumNursery.ethereumManager,
+              swap,
+              etherSwapValues,
+            );
           } else {
             await this.setSwapRate(swap);
           }
@@ -746,11 +761,13 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
     reverseSwap: ReverseSwap,
   ) => {
     try {
+      const nursery = this.findEthereumNursery(wallet.symbol)!;
+
       let contractTransaction: ContractTransactionResponse;
 
       if (reverseSwap.minerFeeOnchainAmount) {
         contractTransaction =
-          await this.walletManager.ethereumManager!.contractHandler.lockupEtherPrepayMinerfee(
+          await nursery.ethereumManager.contractHandler.lockupEtherPrepayMinerfee(
             getHexBuffer(reverseSwap.preimageHash),
             BigInt(reverseSwap.onchainAmount) * etherDecimals,
             BigInt(reverseSwap.minerFeeOnchainAmount) * etherDecimals,
@@ -759,7 +776,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
           );
       } else {
         contractTransaction =
-          await this.walletManager.ethereumManager!.contractHandler.lockupEther(
+          await nursery.ethereumManager.contractHandler.lockupEther(
             getHexBuffer(reverseSwap.preimageHash),
             BigInt(reverseSwap.onchainAmount) * etherDecimals,
             reverseSwap.claimAddress!,
@@ -767,12 +784,9 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
           );
       }
 
-      this.ethereumNursery!.listenContractTransaction(
-        reverseSwap,
-        contractTransaction,
-      );
+      nursery.listenContractTransaction(reverseSwap, contractTransaction);
       this.logger.verbose(
-        `Locked up ${reverseSwap.onchainAmount} Ether for Reverse Swap ${reverseSwap.id}: ${contractTransaction.hash}`,
+        `Locked up ${reverseSwap.onchainAmount} ${wallet.symbol} for Reverse Swap ${reverseSwap.id}: ${contractTransaction.hash}`,
       );
 
       this.emit(
@@ -800,13 +814,14 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
     reverseSwap: ReverseSwap,
   ) => {
     try {
+      const nursery = this.findEthereumNursery(wallet.symbol)!;
       const walletProvider = wallet.walletProvider as ERC20WalletProvider;
 
       let contractTransaction: ContractTransactionResponse;
 
       if (reverseSwap.minerFeeOnchainAmount) {
         contractTransaction =
-          await this.walletManager.ethereumManager!.contractHandler.lockupTokenPrepayMinerfee(
+          await nursery.ethereumManager.contractHandler.lockupTokenPrepayMinerfee(
             walletProvider,
             getHexBuffer(reverseSwap.preimageHash),
             walletProvider.formatTokenAmount(reverseSwap.onchainAmount),
@@ -816,7 +831,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
           );
       } else {
         contractTransaction =
-          await this.walletManager.ethereumManager!.contractHandler.lockupToken(
+          await nursery.ethereumManager.contractHandler.lockupToken(
             walletProvider,
             getHexBuffer(reverseSwap.preimageHash),
             walletProvider.formatTokenAmount(reverseSwap.onchainAmount),
@@ -825,10 +840,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
           );
       }
 
-      this.ethereumNursery!.listenContractTransaction(
-        reverseSwap,
-        contractTransaction,
-      );
+      nursery.listenContractTransaction(reverseSwap, contractTransaction);
       this.logger.verbose(
         `Locked up ${reverseSwap.onchainAmount} ${wallet.symbol} for Reverse Swap ${reverseSwap.id}: ${contractTransaction.hash}`,
       );
@@ -922,7 +934,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
   };
 
   private claimEther = async (
-    contractHandler: ContractHandler,
+    manager: EthereumManager,
     swap: Swap,
     etherSwapValues: EtherSwapValues,
     outgoingChannelId?: string,
@@ -940,7 +952,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
       return;
     }
 
-    const contractTransaction = await contractHandler.claimEther(
+    const contractTransaction = await manager.contractHandler.claimEther(
       preimage,
       etherSwapValues.amount,
       etherSwapValues.refundAddress,
@@ -948,7 +960,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
     );
 
     this.logger.info(
-      `Claimed Ether of Swap ${swap.id} in: ${contractTransaction.hash}`,
+      `Claimed ${manager.networkDetails.name} of Swap ${swap.id} in: ${contractTransaction.hash}`,
     );
     this.emit(
       'claim',
@@ -1146,7 +1158,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
           break;
 
         case CurrencyType.Ether:
-          await this.refundEther(reverseSwap);
+          await this.refundEther(reverseSwap, chainSymbol);
           break;
 
         case CurrencyType.ERC20:
@@ -1243,16 +1255,19 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
     );
   };
 
-  private refundEther = async (reverseSwap: ReverseSwap) => {
-    const ethereumManager = this.walletManager.ethereumManager!;
+  private refundEther = async (
+    reverseSwap: ReverseSwap,
+    chainSymbol: string,
+  ) => {
+    const nursery = this.findEthereumNursery(chainSymbol)!;
 
     const etherSwapValues = await queryEtherSwapValuesFromLock(
-      ethereumManager!.provider,
-      ethereumManager.etherSwap,
+      nursery.ethereumManager!.provider,
+      nursery.ethereumManager.etherSwap,
       reverseSwap.transactionId!,
     );
     const contractTransaction =
-      await ethereumManager.contractHandler.refundEther(
+      await nursery.ethereumManager.contractHandler.refundEther(
         getHexBuffer(reverseSwap.preimageHash),
         etherSwapValues.amount,
         etherSwapValues.claimAddress,
@@ -1260,7 +1275,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
       );
 
     this.logger.info(
-      `Refunded Ether of Reverse Swap ${reverseSwap.id} in: ${contractTransaction.hash}`,
+      `Refunded ${nursery.ethereumManager.networkDetails.name} of Reverse Swap ${reverseSwap.id} in: ${contractTransaction.hash}`,
     );
     this.emit(
       'refund',
@@ -1277,17 +1292,17 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
     reverseSwap: ReverseSwap,
     chainSymbol: string,
   ) => {
-    const ethereumManager = this.walletManager.ethereumManager!;
+    const nursery = this.findEthereumNursery(chainSymbol)!;
     const walletProvider = this.walletManager.wallets.get(chainSymbol)!
       .walletProvider as ERC20WalletProvider;
 
     const erc20SwapValues = await queryERC20SwapValuesFromLock(
-      ethereumManager.provider,
-      ethereumManager.erc20Swap,
+      nursery.ethereumManager.provider,
+      nursery.ethereumManager.erc20Swap,
       reverseSwap.transactionId!,
     );
     const contractTransaction =
-      await ethereumManager.contractHandler.refundToken(
+      await nursery.ethereumManager.contractHandler.refundToken(
         walletProvider,
         getHexBuffer(reverseSwap.preimageHash),
         erc20SwapValues.amount,
@@ -1307,6 +1322,18 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
       ),
       contractTransaction.hash,
     );
+  };
+
+  private findEthereumNursery = (
+    symbol: string,
+  ): EthereumNursery | undefined => {
+    for (const nursery of this.ethereumNurseries) {
+      if (nursery.ethereumManager.hasSymbol(symbol)) {
+        return nursery;
+      }
+    }
+
+    return undefined;
   };
 }
 

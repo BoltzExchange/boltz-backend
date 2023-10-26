@@ -35,29 +35,33 @@ const getBoltzWallet = (): HDNodeWallet => {
 const loadConfig = (): ConfigType =>
   new Config().load({ configpath: getBoltzFilePath('boltz.conf') });
 
-export const getContracts = async (
+export const getContracts = (
+  chain: 'rsk' | 'ethereum',
   signer: Signer,
-): Promise<{
+): {
   token: ERC20;
   etherSwap: EtherSwap;
   erc20Swap: ERC20Swap;
-}> => {
-  const config = loadConfig();
+} => {
+  const config = loadConfig()[chain];
+  if (config === undefined) {
+    throw `${chain} configuration missing`;
+  }
 
   const contracts: any = {};
 
   Object.entries({
     etherSwap: {
       abi: ContractABIs.EtherSwap,
-      address: config.ethereum.etherSwapAddress,
+      address: config.etherSwapAddress,
     },
     erc20Swap: {
       abi: ContractABIs.ERC20Swap,
-      address: config.ethereum.erc20SwapAddress,
+      address: config.erc20SwapAddress,
     },
     token: {
       abi: ContractABIs.ERC20,
-      address: config.ethereum.tokens.find(
+      address: config.tokens.find(
         (token) => token.contractAddress !== undefined,
       )!.contractAddress!,
     },

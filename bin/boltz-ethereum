@@ -8,6 +8,12 @@ require('yargs')
       type: 'string',
       alias: 'p',
     },
+    chain: {
+      describe: 'EVM chain to use ("rsk" or "ethereum")',
+      default: 'rsk',
+      type: 'string',
+      alias: 'c',
+    },
   })
   .commandDir('../dist/lib/cli/ethereum/commands/')
   .demandCommand(1, '')

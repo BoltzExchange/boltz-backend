@@ -37,7 +37,7 @@ export default {
     code: concatErrorCode(ErrorCodePrefix.Wallet, 7),
   }),
   MISSING_SWAP_CONTRACTS: (): Error => ({
-    message: 'missing Ethereum swap contracts',
+    message: 'missing swap contracts',
     code: concatErrorCode(ErrorCodePrefix.Wallet, 8),
   }),
   INVALID_ETHEREUM_CONFIGURATION: (reason: string): Error => ({

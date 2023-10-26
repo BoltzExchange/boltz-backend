@@ -1,17 +1,21 @@
 import { Provider, Signer } from 'ethers';
 import Logger from '../../Logger';
 import PendingEthereumTransactionRepository from '../../db/repositories/PendingEthereumTransactionRepository';
+import { NetworkDetails } from './EvmNetworks';
 
 class EthereumTransactionTracker {
   constructor(
-    private logger: Logger,
-    private provider: Provider,
-    private wallet: Signer,
+    private readonly logger: Logger,
+    private readonly networkDetails: NetworkDetails,
+    private readonly provider: Provider,
+    private readonly wallet: Signer,
   ) {}
 
   public init = async (): Promise<void> => {
     this.logger.info(
-      `Starting Ethereum transaction tracker for address: ${await this.wallet.getAddress()}`,
+      `Starting ${
+        this.networkDetails.name
+      } transaction tracker for address: ${await this.wallet.getAddress()}`,
     );
 
     await this.scanPendingTransactions();
@@ -30,7 +34,7 @@ class EthereumTransactionTracker {
 
       if (receipt && (await receipt.confirmations()) > 0) {
         this.logger.silly(
-          `Removing confirmed Ethereum transaction: ${transaction.hash}`,
+          `Removing confirmed ${this.networkDetails.name} transaction: ${transaction.hash}`,
         );
         await transaction.destroy();
       }

@@ -21,7 +21,11 @@ import {
 import Errors from './Errors';
 import Logger from '../../Logger';
 import { formatError, stringify } from '../../Utils';
-import { EthereumConfig, EthProviderServiceConfig } from '../../Config';
+import {
+  EthereumConfig,
+  EthProviderServiceConfig,
+  RskConfig,
+} from '../../Config';
 import PendingEthereumTransactionRepository from '../../db/repositories/PendingEthereumTransactionRepository';
 
 enum EthProviderService {
@@ -45,7 +49,7 @@ class InjectedProvider implements Provider {
 
   constructor(
     private logger: Logger,
-    config: EthereumConfig,
+    config: RskConfig | EthereumConfig,
   ) {
     this.provider = this;
 
@@ -64,45 +68,14 @@ class InjectedProvider implements Provider {
       );
     }
 
-    const addEthProvider = (
-      name: EthProviderService,
-      providerConfig: EthProviderServiceConfig,
-    ) => {
-      if (!providerConfig.apiKey) {
-        this.logDisabledProvider(name, 'no api key was set');
-        return;
-      }
-
-      if (!providerConfig.network) {
-        this.logDisabledProvider(name, 'no network was specified');
-        return;
-      }
-
-      switch (name) {
-        case EthProviderService.Infura:
-          this.providers.set(
-            name,
-            new InfuraProvider(providerConfig.network, providerConfig.apiKey),
-          );
-          break;
-
-        case EthProviderService.Alchemy:
-          this.providers.set(
-            name,
-            new AlchemyProvider(providerConfig.network, providerConfig.apiKey),
-          );
-          break;
-
-        default:
-          this.logDisabledProvider(name, 'provider not supported');
-          return;
-      }
-
-      this.logAddedProvider(name, providerConfig);
-    };
-
-    addEthProvider(EthProviderService.Infura, config.infura);
-    addEthProvider(EthProviderService.Alchemy, config.alchemy);
+    this.addEthProvider(
+      EthProviderService.Infura,
+      (config as EthereumConfig).infura,
+    );
+    this.addEthProvider(
+      EthProviderService.Alchemy,
+      (config as EthereumConfig).alchemy,
+    );
 
     if (this.providers.size === 0) {
       throw Errors.NO_PROVIDER_SPECIFIED();
@@ -146,6 +119,43 @@ class InjectedProvider implements Provider {
         this.providers.keys(),
       ).join('\n - ')}`,
     );
+  };
+
+  private addEthProvider = (
+    name: EthProviderService,
+    providerConfig: EthProviderServiceConfig,
+  ) => {
+    if (providerConfig === undefined || providerConfig.apiKey === undefined) {
+      this.logDisabledProvider(name, 'no api key was set');
+      return;
+    }
+
+    if (providerConfig.network === undefined) {
+      this.logDisabledProvider(name, 'no network was specified');
+      return;
+    }
+
+    switch (name) {
+      case EthProviderService.Infura:
+        this.providers.set(
+          name,
+          new InfuraProvider(providerConfig.network, providerConfig.apiKey),
+        );
+        break;
+
+      case EthProviderService.Alchemy:
+        this.providers.set(
+          name,
+          new AlchemyProvider(providerConfig.network, providerConfig.apiKey),
+        );
+        break;
+
+      default:
+        this.logDisabledProvider(name, 'provider not supported');
+        return;
+    }
+
+    this.logAddedProvider(name, providerConfig);
   };
 
   /*

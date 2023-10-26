@@ -6,6 +6,7 @@ import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import Logger from '../../../../lib/Logger';
 import { waitForFunctionToBeTrue } from '../../../Utils';
+import { Ethereum } from '../../../../lib/wallet/ethereum/EvmNetworks';
 import ContractEventHandler from '../../../../lib/wallet/ethereum/ContractEventHandler';
 import {
   EthereumSetup,
@@ -181,7 +182,7 @@ describe('ContractEventHandler', () => {
   });
 
   test('should init', async () => {
-    await contractEventHandler.init(etherSwap, erc20Swap);
+    await contractEventHandler.init(Ethereum, etherSwap, erc20Swap);
   });
 
   test('should subscribe to the Ethereum Swap contract events', async () => {

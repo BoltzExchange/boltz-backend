@@ -8,7 +8,6 @@ import { OrderSide } from '../../../lib/consts/Enums';
 import { PairConfig } from '../../../lib/consts/Types';
 import LndClient from '../../../lib/lightning/LndClient';
 import { Currency } from '../../../lib/wallet/WalletManager';
-import EthereumManager from '../../../lib/wallet/ethereum/EthereumManager';
 import TimeoutDeltaProvider, {
   PairTimeoutBlocksDelta,
 } from '../../../lib/service/TimeoutDeltaProvider';
@@ -66,7 +65,6 @@ describe('TimeoutDeltaProvider', () => {
       currencies: [],
     } as unknown as ConfigType,
     new Map<string, Currency>(),
-    {} as unknown as EthereumManager,
     new NodeSwitch(Logger.disabledLogger),
   );
 

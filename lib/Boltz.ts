@@ -1,7 +1,5 @@
-import fs from 'fs';
 import { Arguments } from 'yargs';
 import { Networks } from 'boltz-core';
-import { generateMnemonic } from 'bip39';
 import { Networks as LiquidNetworks } from 'boltz-core/dist/lib/liquid';
 import Api from './api/Api';
 import Logger from './Logger';
@@ -17,12 +15,13 @@ import GrpcService from './grpc/GrpcService';
 import ClnClient from './lightning/ClnClient';
 import LndClient from './lightning/LndClient';
 import ChainClient from './chain/ChainClient';
-import Config, { ConfigType } from './Config';
+import Config, { ConfigType, TokenConfig } from './Config';
 import { CurrencyType } from './consts/Enums';
 import { formatError, getVersion } from './Utils';
 import ElementsClient from './chain/ElementsClient';
 import { registerExitHandler } from './ExitHandler';
 import BackupScheduler from './backup/BackupScheduler';
+import { Ethereum, NetworkDetails, Rsk } from './wallet/ethereum/EvmNetworks';
 import { LightningClient } from './lightning/LightningClient';
 import EthereumManager from './wallet/ethereum/EthereumManager';
 import WalletManager, { Currency } from './wallet/WalletManager';
@@ -39,14 +38,14 @@ class Boltz {
 
   private readonly currencies: Map<string, Currency>;
 
-  private db: Database;
-  private notifications!: NotificationProvider;
+  private readonly db: Database;
+  private readonly notifications!: NotificationProvider;
 
-  private api!: Api;
+  private readonly api!: Api;
+  private readonly grpcServer!: GrpcServer;
   private readonly prometheus: Prometheus;
-  private grpcServer!: GrpcServer;
 
-  private readonly ethereumManager?: EthereumManager;
+  private readonly ethereumManagers: EthereumManager[];
 
   constructor(config: Arguments<any>) {
     this.config = new Config().load(config);
@@ -81,40 +80,33 @@ class Boltz {
 
     this.db = new Database(this.logger, this.config.dbpath);
 
-    try {
-      this.ethereumManager = new EthereumManager(
-        this.logger,
-        this.config.ethereum,
-      );
-    } catch (error) {
-      this.logger.warn(
-        `Disabled Ethereum integration because: ${formatError(error)}`,
-      );
-    }
+    this.ethereumManagers = [
+      { name: Ethereum.name, isRsk: false, config: this.config.ethereum },
+      { name: Rsk.name, isRsk: true, config: this.config.rsk },
+    ]
+      .map(({ name, isRsk, config }) => {
+        try {
+          return new EthereumManager(this.logger, isRsk, config);
+        } catch (error) {
+          this.logger.warn(
+            `Disabled ${name} integration because: ${formatError(error)}`,
+          );
+        }
+
+        return undefined;
+      })
+      .filter((manager): manager is EthereumManager => manager !== undefined);
 
     this.currencies = this.parseCurrencies();
 
     const walletCurrencies = Array.from(this.currencies.values());
 
-    if (fs.existsSync(this.config.mnemonicpath)) {
-      this.walletManager = new WalletManager(
-        this.logger,
-        this.config.mnemonicpath,
-        walletCurrencies,
-        this.ethereumManager,
-      );
-    } else {
-      const mnemonic = generateMnemonic();
-      this.logger.info(`Generated new mnemonic: ${mnemonic}`);
-
-      this.walletManager = WalletManager.fromMnemonic(
-        this.logger,
-        mnemonic,
-        this.config.mnemonicpath,
-        walletCurrencies,
-        this.ethereumManager,
-      );
-    }
+    this.walletManager = new WalletManager(
+      this.logger,
+      this.config.mnemonicpath,
+      walletCurrencies,
+      this.ethereumManagers,
+    );
 
     try {
       this.service = new Service(
@@ -135,6 +127,7 @@ class Boltz {
       this.notifications = new NotificationProvider(
         this.logger,
         this.service,
+        this.walletManager,
         this.backup,
         this.config.notification,
         [this.config.liquid].concat(this.config.currencies),
@@ -222,15 +215,15 @@ class Boltz {
       const rescanPromises: Promise<void>[] = [];
 
       for (const chainTip of chainTips) {
-        if (chainTip.symbol === 'ETH') {
-          if (this.walletManager.ethereumManager) {
-            logRescan(chainTip);
-            rescanPromises.push(
-              this.walletManager.ethereumManager.contractEventHandler.rescan(
-                chainTip.height,
-              ),
-            );
-          }
+        const ethereumManager = this.ethereumManagers.find(
+          (manager) => manager.networkDetails.symbol === chainTip.symbol,
+        );
+
+        if (ethereumManager !== undefined) {
+          logRescan(chainTip);
+          rescanPromises.push(
+            ethereumManager.contractEventHandler.rescan(chainTip.height),
+          );
         } else {
           if (!this.currencies.has(chainTip.symbol)) {
             this.logger.warn(
@@ -350,16 +343,48 @@ class Boltz {
       }
     });
 
-    this.config.ethereum.tokens.forEach((token) => {
-      result.set(token.symbol, {
-        symbol: token.symbol,
-        type: token.symbol === 'ETH' ? CurrencyType.Ether : CurrencyType.ERC20,
-        limits: {
-          ...token,
-        },
-        provider: this.ethereumManager?.provider,
+    [
+      { network: Ethereum, config: this.config.ethereum.tokens },
+      { network: Rsk, config: this.config.rsk?.tokens },
+    ]
+      .map((tokens) => {
+        const manager = this.ethereumManagers.find(
+          (manager) => manager.networkDetails === tokens.network,
+        );
+
+        if (manager === undefined) {
+          return undefined;
+        }
+
+        return {
+          ...tokens,
+          manager,
+        };
+      })
+      .filter(
+        (
+          tokens,
+        ): tokens is {
+          network: NetworkDetails;
+          manager: EthereumManager;
+          config: TokenConfig[];
+        } => tokens !== undefined && tokens.config !== undefined,
+      )
+      .forEach(({ config, manager, network }) => {
+        config.forEach((token) => {
+          result.set(token.symbol, {
+            symbol: token.symbol,
+            provider: manager.provider,
+            type:
+              token.symbol === network.symbol
+                ? CurrencyType.Ether
+                : CurrencyType.ERC20,
+            limits: {
+              ...token,
+            },
+          });
+        });
       });
-    });
 
     if (this.config.liquid) {
       const { symbol, chain, network } = this.config.liquid;

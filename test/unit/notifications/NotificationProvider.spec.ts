@@ -116,6 +116,7 @@ describe('NotificationProvider', () => {
   const notificationProvider = new NotificationProvider(
     Logger.disabledLogger,
     mockedService(),
+    {} as any,
     mockedBackupScheduler(),
     config,
     [],

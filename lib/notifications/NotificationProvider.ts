@@ -9,6 +9,7 @@ import ClnClient from '../lightning/ClnClient';
 import LndClient from '../lightning/LndClient';
 import DiskUsageChecker from './DiskUsageChecker';
 import ReverseSwap from '../db/models/ReverseSwap';
+import WalletManager from '../wallet/WalletManager';
 import BackupScheduler from '../backup/BackupScheduler';
 import { satoshisToSatcomma } from '../DenominationConverter';
 import { ChainInfo, LightningInfo } from '../proto/boltzrpc_pb';
@@ -41,6 +42,7 @@ class NotificationProvider {
   constructor(
     private logger: Logger,
     private service: Service,
+    private walletManager: WalletManager,
     private backup: BackupScheduler,
     private config: NotificationConfig,
     currencies: (BaseCurrencyConfig | undefined)[],
@@ -242,7 +244,9 @@ class NotificationProvider {
 
     const getMinerFeeSymbol = (symbol: string) => {
       if (this.service.currencies.get(symbol)!.type === CurrencyType.ERC20) {
-        return 'ETH';
+        return this.walletManager.ethereumManagers.find((manager) =>
+          manager.hasSymbol(symbol),
+        )!.networkDetails.symbol;
       } else {
         return symbol;
       }

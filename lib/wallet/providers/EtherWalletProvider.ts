@@ -1,7 +1,7 @@
 import { Signer } from 'ethers';
 import Logger from '../../Logger';
-import { etherDecimals } from '../../consts/Consts';
 import { getGasPrices } from '../ethereum/EthereumUtils';
+import { NetworkDetails } from '../ethereum/EvmNetworks';
 import WalletProviderInterface, {
   SentTransaction,
   WalletBalance,
@@ -13,12 +13,16 @@ class EtherWalletProvider implements WalletProviderInterface {
   // The gas needed for sending Ether is 21000
   private readonly ethTransferGas = BigInt(21000);
 
+  private readonly decimals: bigint;
+
   constructor(
     private logger: Logger,
     private signer: Signer,
+    networkDetails: NetworkDetails,
   ) {
-    this.symbol = 'ETH';
-    this.logger.info('Initialized Ether wallet');
+    this.symbol = networkDetails.symbol;
+    this.decimals = networkDetails.decimals;
+    this.logger.info(`Initialized ${this.symbol} wallet`);
   }
 
   public serviceName = (): string => {
@@ -32,7 +36,7 @@ class EtherWalletProvider implements WalletProviderInterface {
   public getBalance = async (): Promise<WalletBalance> => {
     const balance = Number(
       (await this.signer.provider!.getBalance(await this.getAddress())) /
-        etherDecimals,
+        this.decimals,
     );
 
     return {
@@ -47,7 +51,7 @@ class EtherWalletProvider implements WalletProviderInterface {
   ): Promise<SentTransaction> => {
     const transaction = await this.signer.sendTransaction({
       to: address,
-      value: BigInt(amount) * etherDecimals,
+      value: BigInt(amount) * this.decimals,
       ...(await getGasPrices(this.signer.provider!)),
     });
 

@@ -1,5 +1,6 @@
 import Logger from '../../../../lib/Logger';
 import { etherDecimals } from '../../../../lib/consts/Consts';
+import { Ethereum } from '../../../../lib/wallet/ethereum/EvmNetworks';
 import { EthereumSetup, fundSignerWallet, getSigner } from '../EthereumTools';
 import EtherWalletProvider from '../../../../lib/wallet/providers/EtherWalletProvider';
 
@@ -9,7 +10,11 @@ describe('EtherWalletProvider', () => {
 
   beforeAll(async () => {
     setup = await getSigner();
-    wallet = new EtherWalletProvider(Logger.disabledLogger, setup.signer);
+    wallet = new EtherWalletProvider(
+      Logger.disabledLogger,
+      setup.signer,
+      Ethereum,
+    );
   });
 
   test('should get address', async () => {

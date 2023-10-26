@@ -3,20 +3,21 @@ import { ERC20 } from 'boltz-core/typechain/ERC20';
 import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import {
+  Contract,
   getAddress,
   MaxUint256,
-  Contract,
   Wallet as EthersWallet,
 } from 'ethers';
 import Errors from '../Errors';
 import Wallet from '../Wallet';
 import Logger from '../../Logger';
 import { stringify } from '../../Utils';
-import { EthereumConfig } from '../../Config';
 import ContractHandler from './ContractHandler';
 import InjectedProvider from './InjectedProvider';
 import { CurrencyType } from '../../consts/Enums';
+import { EthereumConfig, RskConfig } from '../../Config';
 import ContractEventHandler from './ContractEventHandler';
+import { Ethereum, NetworkDetails, Rsk } from './EvmNetworks';
 import EtherWalletProvider from '../providers/EtherWalletProvider';
 import ERC20WalletProvider from '../providers/ERC20WalletProvider';
 import EthereumTransactionTracker from './EthereumTransactionTracker';
@@ -30,61 +31,72 @@ type Network = {
 };
 
 class EthereumManager {
-  public provider: InjectedProvider;
+  private static supportedContractVersions = {
+    EtherSwap: 2,
+    ERC20Swap: 2,
+  };
 
-  public contractHandler: ContractHandler;
-  public contractEventHandler: ContractEventHandler;
+  public readonly provider: InjectedProvider;
+
+  public readonly contractHandler: ContractHandler;
+  public readonly contractEventHandler: ContractEventHandler;
 
   public etherSwap: EtherSwap;
   public erc20Swap: ERC20Swap;
 
   public address!: string;
   public network!: Network;
+  public readonly networkDetails: NetworkDetails;
 
-  public tokenAddresses = new Map<string, string>();
+  public readonly tokenAddresses = new Map<string, string>();
 
-  private static supportedContractVersions = {
-    EtherSwap: 2,
-    ERC20Swap: 2,
-  };
+  private readonly config: RskConfig | EthereumConfig;
 
   constructor(
-    private logger: Logger,
-    private ethereumConfig: EthereumConfig,
+    private readonly logger: Logger,
+    isRsk: boolean,
+    config?: RskConfig | EthereumConfig,
   ) {
     if (
-      this.ethereumConfig.etherSwapAddress === '' ||
-      this.ethereumConfig.erc20SwapAddress === ''
+      config === undefined ||
+      config.etherSwapAddress === '' ||
+      config.erc20SwapAddress === ''
     ) {
       throw Errors.MISSING_SWAP_CONTRACTS();
     }
 
-    this.provider = new InjectedProvider(this.logger, this.ethereumConfig);
+    this.networkDetails = isRsk ? Rsk : Ethereum;
+
+    this.config = config;
+    this.provider = new InjectedProvider(this.logger, this.config);
 
     this.logger.debug(
-      `Using Ether Swap contract: ${this.ethereumConfig.etherSwapAddress}`,
+      `Using ${this.networkDetails.name} EtherSwap contract: ${this.config.etherSwapAddress}`,
     );
     this.logger.debug(
-      `Using ERC20 Swap contract: ${this.ethereumConfig.erc20SwapAddress}`,
+      `Using ${this.networkDetails.name} ERC20Swap contract: ${this.config.erc20SwapAddress}`,
     );
 
     this.etherSwap = new Contract(
-      ethereumConfig.etherSwapAddress,
+      config.etherSwapAddress,
       ContractABIs.EtherSwap as any,
     ) as any as EtherSwap;
 
     this.erc20Swap = new Contract(
-      ethereumConfig.erc20SwapAddress,
+      config.erc20SwapAddress,
       ContractABIs.ERC20Swap as any,
     ) as any as ERC20Swap;
 
-    this.contractHandler = new ContractHandler(this.logger);
+    this.contractHandler = new ContractHandler(
+      this.logger,
+      this.networkDetails,
+    );
     this.contractEventHandler = new ContractEventHandler(this.logger);
   }
 
   public init = async (mnemonic: string): Promise<Map<string, Wallet>> => {
     await this.provider.init();
-    this.logger.info('Initialized Web3 providers');
+    this.logger.info(`Initialized ${this.networkDetails.name} RPC providers`);
 
     const network = await this.provider.getNetwork();
     this.network = {
@@ -100,30 +112,36 @@ class EthereumManager {
 
     await Promise.all([
       this.checkContractVersion(
-        'EtherSwap',
+        `${this.networkDetails.name} EtherSwap`,
         this.etherSwap,
         BigInt(EthereumManager.supportedContractVersions.EtherSwap),
       ),
       this.checkContractVersion(
-        'ERC20Swap',
+        `${this.networkDetails.name} ERC20Swap`,
         this.erc20Swap,
         BigInt(EthereumManager.supportedContractVersions.ERC20Swap),
       ),
     ]);
 
-    this.logger.verbose(`Using Ethereum signer: ${this.address}`);
+    this.logger.verbose(
+      `Using ${this.networkDetails.name} signer: ${this.address}`,
+    );
 
     const currentBlock = await signer.provider!.getBlockNumber();
     const chainTip = await ChainTipRepository.findOrCreateTip(
-      'ETH',
+      this.networkDetails.symbol,
       currentBlock,
     );
 
     this.contractHandler.init(this.provider, this.etherSwap, this.erc20Swap);
-    await this.contractEventHandler.init(this.etherSwap, this.erc20Swap);
+    await this.contractEventHandler.init(
+      this.networkDetails,
+      this.etherSwap,
+      this.erc20Swap,
+    );
 
     this.logger.verbose(
-      `Ethereum chain status: ${stringify({
+      `${this.networkDetails.name} chain status: ${stringify({
         blockNumber: currentBlock,
         chainId: Number(this.network.chainId),
       })}`,
@@ -131,6 +149,7 @@ class EthereumManager {
 
     const transactionTracker = new EthereumTransactionTracker(
       this.logger,
+      this.networkDetails,
       this.provider,
       signer,
     );
@@ -138,7 +157,9 @@ class EthereumManager {
     await transactionTracker.init();
 
     await this.provider.on('block', async (blockNumber: number) => {
-      this.logger.silly(`Got new Ethereum block: ${blockNumber}`);
+      this.logger.silly(
+        `Got new ${this.networkDetails.name} block: ${blockNumber}`,
+      );
 
       await Promise.all([
         ChainTipRepository.updateTip(chainTip, blockNumber),
@@ -148,7 +169,7 @@ class EthereumManager {
 
     const wallets = new Map<string, Wallet>();
 
-    for (const token of this.ethereumConfig.tokens) {
+    for (const token of this.config.tokens) {
       if (token.contractAddress) {
         if (token.decimals) {
           if (!wallets.has(token.symbol)) {
@@ -183,14 +204,18 @@ class EthereumManager {
           );
         }
       } else {
-        if (token.symbol === 'ETH') {
-          if (!wallets.has('ETH')) {
+        if (token.symbol === this.networkDetails.symbol) {
+          if (!wallets.has(this.networkDetails.symbol)) {
             wallets.set(
-              'ETH',
+              this.networkDetails.symbol,
               new Wallet(
                 this.logger,
                 CurrencyType.Ether,
-                new EtherWalletProvider(this.logger, signer),
+                new EtherWalletProvider(
+                  this.logger,
+                  signer,
+                  this.networkDetails,
+                ),
               ),
             );
           } else {
@@ -209,9 +234,12 @@ class EthereumManager {
     return wallets;
   };
 
+  public hasSymbol = (symbol: string): boolean =>
+    this.networkDetails.symbol === symbol || this.tokenAddresses.has(symbol);
+
   private checkERC20Allowance = async (erc20Wallet: ERC20WalletProvider) => {
     const allowance = await erc20Wallet.getAllowance(
-      this.ethereumConfig.erc20SwapAddress,
+      this.config.erc20SwapAddress,
     );
 
     this.logger.debug(
@@ -222,7 +250,7 @@ class EthereumManager {
       this.logger.verbose(`Setting allowance of ${erc20Wallet.symbol}`);
 
       const { transactionId } = await erc20Wallet.approve(
-        this.ethereumConfig.erc20SwapAddress,
+        this.config.erc20SwapAddress,
         MaxUint256,
       );
 

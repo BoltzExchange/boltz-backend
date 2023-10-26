@@ -211,13 +211,20 @@ class Controller {
     try {
       const contracts = await this.service.getContracts();
 
-      this.successResponse(res, {
-        ethereum: {
-          network: contracts.ethereum.network,
-          swapContracts: mapToObject(contracts.ethereum.swapContracts),
-          tokens: mapToObject(contracts.ethereum.tokens),
-        },
-      });
+      const response: Record<string, any> = {};
+      for (const [network, networkContracts] of Object.entries(contracts)) {
+        if (contracts === undefined) {
+          continue;
+        }
+
+        response[network] = {
+          network: networkContracts.network,
+          swapContracts: mapToObject(networkContracts.swapContracts),
+          tokens: mapToObject(networkContracts.tokens),
+        };
+      }
+
+      this.successResponse(res, response);
     } catch (error) {
       this.errorResponse(req, res, error, 501);
     }

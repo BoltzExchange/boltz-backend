@@ -6,7 +6,6 @@ import { splitPairId } from '../../../lib/Utils';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
 import { OrderSide } from '../../../lib/consts/Enums';
 import { Currency } from '../../../lib/wallet/WalletManager';
-import EthereumManager from '../../../lib/wallet/ethereum/EthereumManager';
 import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
 import {
   bitcoinClient,
@@ -52,7 +51,6 @@ describe('TimeoutDeltaProvider', () => {
         } as unknown as Currency,
       ],
     ]),
-    (<jest.Mock<EthereumManager>>(<any>EthereumManager))(),
     new NodeSwitch(Logger.disabledLogger),
   );
 

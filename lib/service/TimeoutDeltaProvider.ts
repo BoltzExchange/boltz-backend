@@ -11,7 +11,7 @@ import RoutingOffsets from './RoutingOffsets';
 import LndClient from '../lightning/LndClient';
 import { Currency } from '../wallet/WalletManager';
 import ElementsClient from '../chain/ElementsClient';
-import EthereumManager from '../wallet/ethereum/EthereumManager';
+import { Ethereum, Rsk } from '../wallet/ethereum/EvmNetworks';
 import {
   DecodedInvoice,
   InvoiceFeature,
@@ -45,7 +45,8 @@ class TimeoutDeltaProvider {
   public static blockTimes = new Map<string, number>([
     ['BTC', 10],
     ['LTC', 2.5],
-    ['ETH', 0.2],
+    [Rsk.symbol, 0.5],
+    [Ethereum.symbol, 0.2],
     [ElementsClient.symbol, 1],
   ]);
 
@@ -54,11 +55,10 @@ class TimeoutDeltaProvider {
   private routingOffsets: RoutingOffsets;
 
   constructor(
-    private logger: Logger,
-    private config: ConfigType,
-    private currencies: Map<string, Currency>,
-    private ethereumManager: EthereumManager,
-    private nodeSwitch: NodeSwitch,
+    private readonly logger: Logger,
+    private readonly config: ConfigType,
+    private readonly currencies: Map<string, Currency>,
+    private readonly nodeSwitch: NodeSwitch,
   ) {
     this.routingOffsets = new RoutingOffsets(this.logger, config);
   }
@@ -137,7 +137,7 @@ class TimeoutDeltaProvider {
 
     const currentBlock = chainCurrency.chainClient
       ? (await chainCurrency.chainClient.getBlockchainInfo()).blocks
-      : await this.ethereumManager.provider.getBlockNumber();
+      : await chainCurrency.provider!.getBlockNumber();
 
     const blockLeft = TimeoutDeltaProvider.convertBlocks(
       chainCurrency.symbol,

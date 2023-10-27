@@ -21,7 +21,7 @@ class Image:
 
     """The tags and build arguments of a Docker image."""
 
-    tags: list[str]
+    tag: str
     arguments: list[BuildArgument]
 
 
@@ -56,52 +56,52 @@ BITCOIN_BUILD_ARG = BuildArgument(
 
 IMAGES: dict[str, Image] = {
     "bitcoin-core": Image(
-        tags=[BITCOIN_VERSION],
+        tag=BITCOIN_VERSION,
         arguments=[
             UBUNTU_VERSION,
         ],
     ),
     "litecoin-core": Image(
-        tags=[LITECOIN_VERSION],
+        tag=LITECOIN_VERSION,
         arguments=[
             UBUNTU_VERSION,
         ],
     ),
     "geth": Image(
-        tags=[GETH_VERSION],
+        tag=GETH_VERSION,
         arguments=[
             UBUNTU_VERSION,
             GOLANG_VERSION,
         ],
     ),
     "eclair": Image(
-        tags=[ECLAIR_VERSION],
+        tag=ECLAIR_VERSION,
         arguments=[
             UBUNTU_VERSION,
         ],
     ),
     "c-lightning": Image(
-        tags=[C_LIGHTNING_VERSION],
+        tag=C_LIGHTNING_VERSION,
         arguments=[
             UBUNTU_VERSION,
             BITCOIN_BUILD_ARG,
         ],
     ),
     "lnd": Image(
-        tags=[LND_VERSION],
+        tag=LND_VERSION,
         arguments=[
             UBUNTU_VERSION,
             GOLANG_VERSION,
         ],
     ),
     "boltz": Image(
-        tags=["3.3.0"],
+        tag="v3.3.0",
         arguments=[
             NODE_VERSION,
         ],
     ),
     "regtest": Image(
-        tags=["4.1.1"],
+        tag="4.1.1",
         arguments=[
             UBUNTU_VERSION,
             BITCOIN_BUILD_ARG,
@@ -157,10 +157,7 @@ def list_images(to_list: list[str]) -> None:
         build_details = get_build_details(image)
 
         print(f"  - {image}")
-        print("    Tags:")
-
-        for tag in build_details.tags:
-            print(f"      - {tag}")
+        print(f"  - Tag: {build_details.tag}")
 
         print()
 
@@ -177,6 +174,7 @@ def build_images(
     organisation: str,
     no_cache: bool,
     no_latest: bool,
+    branch: str,
     buildx: bool,
     platform: str = "",
 ) -> None:
@@ -185,45 +183,50 @@ def build_images(
 
     for image in to_build:
         build_details = get_build_details(image)
+        tag = build_details.tag
 
-        for tag in build_details.tags:
-            build_args = [f"{arg.name}={arg.value}" for arg in build_details.arguments]
+        if branch in ["master", "main"]:
+            tag = "latest"
+        elif branch != "":
+            tag = branch
 
-            # The regtest image doesn't need the version as a build flag
-            if image != "regtest":
-                build_args.append(f"VERSION={tag}")
+        build_args = [f"{arg.name}={arg.value}" for arg in build_details.arguments]
 
-            # Add the prefix "--build-arg " to every entry and
-            # join the array to a string
-            args = " ".join(["--build-arg " + entry for entry in build_args])
+        # The regtest image doesn't need the version as a build flag
+        if image != "regtest":
+            build_args.append(f"VERSION={tag if tag != 'latest' else branch}")
 
-            name = f"{organisation}/{image}"
-            dockerfile = f"{image}/Dockerfile"
+        # Add the prefix "--build-arg " to every entry and
+        # join the array to a string
+        args = " ".join(["--build-arg " + entry for entry in build_args])
 
-            if buildx:
-                extra_tag = "" if no_latest else f"--tag {name}:latest"
-                command = (
-                    f"docker buildx build --push {args} --platform {platform} "
-                    f"--file {dockerfile} --tag {name}:{tag} {extra_tag} ."
-                )
-            else:
-                extra_tag = "" if no_latest else f"-t {name}:latest"
-                command = (
-                    f"docker build -t {name}:{tag} {extra_tag} -f {dockerfile} {args} ."
-                )
+        name = f"{organisation}/{image}"
+        dockerfile = f"{image}/Dockerfile"
 
-            if no_cache:
-                command = command + " --no-cache"
+        if buildx:
+            extra_tag = "" if no_latest else f"--tag {name}:latest"
+            command = (
+                f"docker buildx build --push {args} --platform {platform} "
+                f"--file {dockerfile} --tag {name}:{tag} {extra_tag} ."
+            )
+        else:
+            extra_tag = "" if no_latest else f"-t {name}:latest"
+            command = (
+                f"docker build -t {name}:{tag} {extra_tag} -f {dockerfile} {args} ."
+            )
 
-            print()
-            print_step(f"Building {image}:{tag}")
+        if no_cache:
+            command = command + " --no-cache"
 
-            print(command)
-            print()
+        print()
+        print_step(f"Building {image}:{tag}")
 
-            if system(command) != 0:
-                print_error(f"Could not build image {image}")
-                sys.exit(1)
+        print(command)
+        print()
+
+        if system(command) != 0:
+            print_error(f"Could not build image {image}")
+            sys.exit(1)
 
     print()
     print_step("Built images: {}".format(", ".join(to_build)))
@@ -254,6 +257,7 @@ if __name__ == "__main__":
     BUILD_PARSER.add_argument("images", type=str, nargs="*")
     BUILD_PARSER.add_argument("--no-cache", dest="no_cache", action="store_true")
     BUILD_PARSER.add_argument("--no-latest", dest="no_latest", action="store_true")
+    BUILD_PARSER.add_argument("--branch", default="", help="Branch to build")
     BUILD_PARSER.add_argument(
         "--organisation",
         default="boltz",
@@ -263,6 +267,7 @@ if __name__ == "__main__":
     BUILDX_PARSER.add_argument("images", type=str, nargs="*")
     BUILDX_PARSER.add_argument("--no-cache", dest="no_cache", action="store_true")
     BUILDX_PARSER.add_argument("--no-latest", dest="no_latest", action="store_true")
+    BUILDX_PARSER.add_argument("--branch", default="", help="Branch to build")
     BUILDX_PARSER.add_argument(
         "--platform",
         default="linux/amd64,linux/arm64",
@@ -282,7 +287,12 @@ if __name__ == "__main__":
         list_images(PARSED_IMAGES)
     elif ARGS.command == "build":
         build_images(
-            PARSED_IMAGES, ARGS.organisation, ARGS.no_cache, ARGS.no_latest, False
+            PARSED_IMAGES,
+            ARGS.organisation,
+            ARGS.no_cache,
+            ARGS.no_latest,
+            ARGS.branch,
+            False,
         )
     elif ARGS.command == "buildx":
         build_images(
@@ -290,6 +300,7 @@ if __name__ == "__main__":
             ARGS.organisation,
             ARGS.no_cache,
             ARGS.no_latest,
+            ARGS.branch,
             True,
             ARGS.platform,
         )

@@ -293,21 +293,21 @@ Response:
 }
 ```
 
-### EVM Chains (Coming Soon!)
+### EVM Chains (Currently RSK Testnet Only!)
 
-~~Swaps from account-based EVM chains like RSK do not require a new address for every swap. `/createswap` takes the details of the swap (like lightning invoice and pair) and Boltz waits until the user locked e.g. rBTC in the contract. The addresses of those contracts can be queried with~~ [~~`/getcontracts`~~](api.md#swap-contracts-coming-soon) ~~and the address of the contract that needs to be used for the swap is also returned in the response of this request.~~
+Swaps from account-based EVM chains like RSK do not require a new address for every swap. `/createswap` takes the details of the swap (like lightning invoice and pair) and Boltz waits until the user locked e.g. rBTC in the contract. The addresses of those contracts can be queried with [`/getcontracts`](api.md#swap-contracts-coming-soon) and the address of the contract that needs to be used for the swap is also returned in the response of this request.
 
-~~The request does not require any additional values.~~
+The request does not require any additional values.
 
-~~But the response has one additional value:~~
+But the response has one additional value:
 
-* ~~`claimAddress`: which is e.g. the RSK address of Boltz. It is specified in the`lock` function of the swap contract~~
+* `claimAddress`: which is e.g. the RSK address of Boltz. It is specified in the`lock` function of the swap contract
 
-~~**Examples:**~~
+**Examples:**
 
-~~`POST /createswap`~~
+`POST /createswap`
 
-~~Request body:~~
+Request body:
 
 ```json
 {
@@ -318,7 +318,7 @@ Response:
 }
 ```
 
-~~Response:~~
+Response:
 
 ```json
 {
@@ -584,30 +584,30 @@ Response body:
 }
 ```
 
-### EVM Chains (Coming Soon!)
+### EVM Chains (Currently RSK Testnet Only!)
 
-~~Requests to create swaps for Reverse Submarine Swaps from account-based EVM chains like RSK have to contain one additional value:~~
+Requests to create swaps for Reverse Submarine Swaps from account-based EVM chains like RSK have to contain one additional value:
 
-* ~~`claimAddress`: address from which the bitcoin will be claimed~~
+* `claimAddress`: address from which the bitcoin will be claimed
 
-~~The response also has one more property:~~
+The response also has one more property:
 
-* ~~`refundAddress`: the address of Boltz which is specified as refund address when it is locking up funds~~
+* `refundAddress`: the address of Boltz which is specified as refund address when it is locking up funds
 
-~~Also, Boltz offers an optional protocol called EVM prepay miner fee that allows the user to pay an additional lightning invoice to pay for gas on the EVM chain to claim funds. In this process, Boltz sends some e.g. rBTC to the `claimAddress` in the lockup process in case the user's `claimAddress` does not have enough rBTC to pay gas to claim the funds. To use that protocol set the following property in the request body to `true`.~~
+Also, Boltz offers an optional protocol called EVM prepay miner fee that allows the user to pay an additional lightning invoice to pay for gas on the EVM chain to claim funds. In this process, Boltz sends some e.g. rBTC to the `claimAddress` in the lockup process in case the user's `claimAddress` does not have enough rBTC to pay gas to claim the funds. To use that protocol set the following property in the request body to `true`.
 
-* ~~`prepayMinerFee`: if the prepay miner fee protocol should be used for the Reverse Swap~~
+* `prepayMinerFee`: if the prepay miner fee protocol should be used for the Reverse Swap
 
-~~When the EVM prepay miner fee protocol is used the response will contain two more values. One is the amount of rBTC that will be sent to `claimAddress` in the lockup process. The other is an invoice for the rBTC sent. Only when both invoices are paid the chain bitcoin will get locked.~~
+When the EVM prepay miner fee protocol is used the response will contain two more values. One is the amount of rBTC that will be sent to `claimAddress` in the lockup process. The other is an invoice for the rBTC sent. Only when both invoices are paid the chain bitcoin will get locked.
 
-* ~~`prepayMinerFeeAmount`: amount of e.g. rBTC that will be sent to the `claimAddress` with the lockup transaction from Boltz~~
-* ~~`minerFeeInvoice`: invoice that pays for the rBTC sent in the lockup process~~
+* `prepayMinerFeeAmount`: amount of e.g. rBTC that will be sent to the `claimAddress` with the lockup transaction from Boltz
+* `minerFeeInvoice`: invoice that pays for the rBTC sent in the lockup process
 
-~~**Examples:**~~
+**Examples:**
 
-~~`POST /createswap`~~
+`POST /createswap`
 
-~~Request body:~~
+Request body:
 
 ```json
 {
@@ -620,7 +620,7 @@ Response body:
 }
 ```
 
-~~Response body:~~
+Response body:
 
 ```json
 {
@@ -814,32 +814,31 @@ Response:
 }
 ```
 
-## Swap Contracts (Coming Soon!)
+## Swap Contracts (Currently RSK Testnet Only!)
 
-~~To query the addresses of contracts used by Boltz for swaps on EVM chains like~~ [~~RSK~~](https://rootstock.io/)~~, the following endpoint can be queried:~~
+To query the addresses of contracts used by Boltz for swaps on EVM chains like [RSK](https://rootstock.io/), the following endpoint can be queried:
 
 | URL                 | Response      |
 | ------------------- | ------------- |
 | `GET /getcontracts` | `JSON` object |
 
-~~Status Codes:~~
+Status Codes:
 
-* ~~`200 OK`~~
+* `200 OK`
 
-~~Response object:~~
+Response object:
 
-* ~~`rsk`: a `JSON` object that contains all relevant RSK addresses~~
-  * ~~`network`: `JSON` object that contains information about the network~~
-    * ~~`chainId`: id of the RSK chain~~
-    * ~~`name`: if the RSK network of the backend is public, this property will be set to its name. Else this value stays `undefined`.~~
-  * ~~`swapContracts`: `JSON` object containing swap contract addresses as values~~
-  * ~~`tokens`: `JSON` object with the ticker symbol of the supported token as key and its address as value~~
+* `rsk`: a `JSON` object that contains all relevant RSK addresses
+  * `network`: `JSON` object that contains information about the network
+    * `chainId`: id of the RSK chain
+  * `swapContracts`: `JSON` object containing swap contract addresses as values
+  * `tokens`: `JSON` object with the ticker symbol of the supported token as key and its address as value
 
-~~**Examples:**~~
+**Examples:**
 
-~~`GET /getcontracts`~~
+`GET /getcontracts`
 
-~~Response:~~
+Response:
 
 ```json
 {
@@ -848,8 +847,8 @@ Response:
       "chainId": 1337
     },
     "swapContracts": {
-      "rBTCSwap": "0x0",
-      "TokenSwap": "0x0"
+      "EtherSwap": "0x165F8E654b3Fe310A854805323718D51977ad95F",
+      "ERC20Swap": "0x5F51247606d29Df75Af11475A85F7072f6472345"
     },
     "tokens": {
     }

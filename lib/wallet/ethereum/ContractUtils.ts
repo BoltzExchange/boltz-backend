@@ -60,9 +60,11 @@ export const queryERC20SwapValuesFromLock = async (
 export const queryEtherSwapValues = async (
   etherSwap: EtherSwap,
   preimageHash: Buffer,
+  startHeight?: number,
 ): Promise<EtherSwapValues> => {
   const events = await etherSwap.queryFilter(
     etherSwap.filters.Lockup(preimageHash),
+    startHeight,
   );
 
   if (events.length === 0) {
@@ -77,9 +79,11 @@ export const queryEtherSwapValues = async (
 export const queryERC20SwapValues = async (
   erc20Swap: ERC20Swap,
   preimageHash: Buffer,
+  startHeight?: number,
 ): Promise<ERC20SwapValues> => {
   const events = await erc20Swap.queryFilter(
     erc20Swap.filters.Lockup(preimageHash),
+    startHeight,
   );
 
   if (events.length === 0) {

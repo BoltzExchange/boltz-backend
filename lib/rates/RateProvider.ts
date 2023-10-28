@@ -4,8 +4,8 @@ import NodeSwitch from '../swap/NodeSwitch';
 import { PairConfig } from '../consts/Types';
 import RateCalculator from './RateCalculator';
 import DataAggregator from './data/DataAggregator';
-import { Currency } from '../wallet/WalletManager';
 import { BaseFeeType, CurrencyType } from '../consts/Enums';
+import WalletManager, { Currency } from '../wallet/WalletManager';
 import FeeProvider, { MinerFees, PercentageFees } from './FeeProvider';
 import {
   getPairId,
@@ -70,12 +70,14 @@ class RateProvider {
     private logger: Logger,
     private rateUpdateInterval: number,
     private currencies: Map<string, Currency>,
-    private getFeeEstimation: (symbol: string) => Promise<Map<string, number>>,
+    private readonly walletManager: WalletManager,
+    getFeeEstimation: (symbol: string) => Promise<Map<string, number>>,
   ) {
     this.feeProvider = new FeeProvider(
       this.logger,
+      walletManager,
       this.dataAggregator,
-      this.getFeeEstimation,
+      getFeeEstimation,
     );
     this.parseCurrencies(Array.from(currencies.values()));
   }
@@ -125,11 +127,16 @@ class RateProvider {
       } else {
         this.dataAggregator.registerPair(pair.base, pair.quote);
 
-        // TODO: find way to get ETH/<token> rate without having to hardcode it here
+        // TODO: find way to get <chain fee asset>/<token> rate without having to hardcode it here
         const checkAndRegisterToken = (symbol: string) => {
-          if (this.currencies.get(symbol)!.type === CurrencyType.ERC20) {
-            this.dataAggregator.registerPair('ETH', symbol);
+          if (this.currencies.get(symbol)!.type !== CurrencyType.ERC20) {
+            return;
           }
+
+          const chainFeeSymbol = this.walletManager.ethereumManagers.find(
+            (manager) => manager.hasSymbol(symbol),
+          )!.networkDetails.symbol;
+          this.dataAggregator.registerPair(chainFeeSymbol, symbol);
         };
 
         checkAndRegisterToken(pair.base);

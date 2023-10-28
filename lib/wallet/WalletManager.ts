@@ -4,7 +4,7 @@ import * as ecc from 'tiny-secp256k1';
 import { Network } from 'bitcoinjs-lib';
 import BIP32Factory, { BIP32Interface } from 'bip32';
 import { SLIP77Factory, Slip77Interface } from 'slip77';
-import { mnemonicToSeedSync, validateMnemonic } from 'bip39';
+import { generateMnemonic, mnemonicToSeedSync, validateMnemonic } from 'bip39';
 import Errors from './Errors';
 import Wallet from './Wallet';
 import Logger from '../Logger';
@@ -58,8 +58,6 @@ const slip77 = SLIP77Factory(ecc);
 class WalletManager {
   public wallets = new Map<string, Wallet>();
 
-  public ethereumManager?: EthereumManager;
-
   private readonly mnemonic: string;
   private readonly slip77: Slip77Interface;
   private readonly masterNode: BIP32Interface;
@@ -70,33 +68,18 @@ class WalletManager {
     private logger: Logger,
     mnemonicPath: string,
     private currencies: Currency[],
-    ethereumManager?: EthereumManager,
+    public ethereumManagers: EthereumManager[],
   ) {
+    if (!fs.existsSync(mnemonicPath)) {
+      this.logger.info('Generated new mnemonic');
+
+      fs.writeFileSync(mnemonicPath, generateMnemonic());
+    }
+
     this.mnemonic = this.loadMnemonic(mnemonicPath);
     this.masterNode = bip32.fromSeed(mnemonicToSeedSync(this.mnemonic));
     this.slip77 = slip77.fromSeed(this.mnemonic);
-
-    this.ethereumManager = ethereumManager;
   }
-
-  /**
-   * Initializes a new WalletManager with a mnemonic
-   */
-  public static fromMnemonic = (
-    logger: Logger,
-    mnemonic: string,
-    mnemonicPath: string,
-    currencies: Currency[],
-    ethereumManager?: EthereumManager,
-  ): WalletManager => {
-    if (!validateMnemonic(mnemonic)) {
-      throw Errors.INVALID_MNEMONIC(mnemonic);
-    }
-
-    fs.writeFileSync(mnemonicPath, mnemonic);
-
-    return new WalletManager(logger, mnemonicPath, currencies, ethereumManager);
-  };
 
   public init = async (configCurrencies: CurrencyConfig[]): Promise<void> => {
     const keyProviderMap = await this.getKeyProviderMap();
@@ -184,8 +167,8 @@ class WalletManager {
       this.wallets.set(currency.symbol, wallet);
     }
 
-    if (this.ethereumManager) {
-      const ethereumWallets = await this.ethereumManager.init(this.mnemonic);
+    for (const manager of this.ethereumManagers) {
+      const ethereumWallets = await manager.init(this.mnemonic);
 
       for (const [symbol, ethereumWallet] of ethereumWallets) {
         this.wallets.set(symbol, ethereumWallet);
@@ -194,11 +177,16 @@ class WalletManager {
   };
 
   private loadMnemonic = (filename: string) => {
-    if (fs.existsSync(filename)) {
-      return fs.readFileSync(filename, 'utf-8').trim();
+    if (!fs.existsSync(filename)) {
+      throw Errors.NOT_INITIALIZED();
     }
 
-    throw Errors.NOT_INITIALIZED();
+    const mnemonic = fs.readFileSync(filename, 'utf-8').trim();
+    if (!validateMnemonic(mnemonic)) {
+      throw Errors.INVALID_MNEMONIC(mnemonic);
+    }
+
+    return mnemonic;
   };
 
   private getKeyProviderMap = async () => {

@@ -1,9 +1,11 @@
 import Logger from '../Logger';
 import { PairConfig } from '../consts/Types';
 import DataAggregator from './data/DataAggregator';
+import WalletManager from '../wallet/WalletManager';
 import ElementsClient from '../chain/ElementsClient';
 import { BaseFeeType, OrderSide } from '../consts/Enums';
 import { etherDecimals, gweiDecimals } from '../consts/Consts';
+import { Ethereum, Rsk } from '../wallet/ethereum/EvmNetworks';
 import { getChainCurrency, getPairId, splitPairId, stringify } from '../Utils';
 
 type PercentageFees = {
@@ -65,6 +67,7 @@ class FeeProvider {
 
   constructor(
     private logger: Logger,
+    private walletManager: WalletManager,
     private dataAggregator: DataAggregator,
     private getFeeEstimation: (symbol: string) => Promise<Map<string, number>>,
   ) {}
@@ -193,9 +196,10 @@ class FeeProvider {
         break;
       }
 
-      case 'ETH': {
+      case Ethereum.symbol:
+      case Rsk.symbol: {
         const relativeFee = feeMap.get(chainCurrency)!;
-        const claimCost = this.calculateEtherGasCost(
+        const claimCost = FeeProvider.calculateEtherGasCost(
           relativeFee,
           FeeProvider.gasUsage.EtherSwap.claim,
         );
@@ -204,7 +208,7 @@ class FeeProvider {
           normal: claimCost,
           reverse: {
             claim: claimCost,
-            lockup: this.calculateEtherGasCost(
+            lockup: FeeProvider.calculateEtherGasCost(
               relativeFee,
               FeeProvider.gasUsage.EtherSwap.lockup,
             ),
@@ -216,12 +220,15 @@ class FeeProvider {
 
       // If it is not BTC, LTC or ETH, it is an ERC20 token
       default: {
-        const relativeFee = feeMap.get('ETH')!;
+        const networkSymbol = this.walletManager.ethereumManagers.find(
+          (manager) => manager.hasSymbol(chainCurrency),
+        )!.networkDetails.symbol;
+        const relativeFee = feeMap.get(networkSymbol)!;
         const rate = this.dataAggregator.latestRates.get(
-          getPairId({ base: 'ETH', quote: chainCurrency }),
+          getPairId({ base: networkSymbol, quote: chainCurrency }),
         )!;
 
-        const claimCost = this.calculateTokenGasCosts(
+        const claimCost = FeeProvider.calculateTokenGasCosts(
           rate,
           relativeFee,
           FeeProvider.gasUsage.ERC20Swap.claim,
@@ -231,7 +238,7 @@ class FeeProvider {
           normal: claimCost,
           reverse: {
             claim: claimCost,
-            lockup: this.calculateTokenGasCosts(
+            lockup: FeeProvider.calculateTokenGasCosts(
               rate,
               relativeFee,
               FeeProvider.gasUsage.ERC20Swap.lockup,
@@ -243,17 +250,23 @@ class FeeProvider {
     }
   };
 
-  private calculateTokenGasCosts = (
+  private static calculateTokenGasCosts = (
     rate: number,
     gasPrice: number,
     gasUsage: number,
   ) => {
-    return Math.ceil(rate * this.calculateEtherGasCost(gasPrice, gasUsage));
+    return Math.ceil(
+      rate * FeeProvider.calculateEtherGasCost(gasPrice, gasUsage),
+    );
   };
 
-  private calculateEtherGasCost = (gasPrice: number, gasUsage: number) => {
+  private static calculateEtherGasCost = (
+    gasPrice: number,
+    gasUsage: number,
+  ) => {
     return Number(
-      (BigInt(gasPrice) * gweiDecimals * BigInt(gasUsage)) / etherDecimals,
+      (BigInt(gasPrice * Number(gweiDecimals)) * BigInt(gasUsage)) /
+        etherDecimals,
     );
   };
 }

@@ -7,6 +7,8 @@ import Service from '../../../lib/service/Service';
 import { decodeInvoice } from '../../../lib/Utils';
 import { CurrencyType } from '../../../lib/consts/Enums';
 import ReverseSwap from '../../../lib/db/models/ReverseSwap';
+import WalletManager from '../../../lib/wallet/WalletManager';
+import { Rsk } from '../../../lib/wallet/ethereum/EvmNetworks';
 import BackupScheduler from '../../../lib/backup/BackupScheduler';
 import ChannelCreation from '../../../lib/db/models/ChannelCreation';
 import DiscordClient from '../../../lib/notifications/DiscordClient';
@@ -59,6 +61,8 @@ jest.mock('../../../lib/service/Service', () => {
       currencies: new Map<string, any>([
         ['BTC', { type: CurrencyType.BitcoinLike }],
         ['LTC', { type: CurrencyType.BitcoinLike }],
+        ['USDT', { type: CurrencyType.ERC20 }],
+        ['somethingElse', { type: CurrencyType.ERC20 }],
       ]),
       getInfo: mockGetInfo,
       getBalance: mockGetBalance,
@@ -92,6 +96,23 @@ jest.mock('../../../lib/notifications/DiscordClient', () => {
 
 const mockedDiscordClient = <jest.Mock<DiscordClient>>(<any>DiscordClient);
 
+jest.mock('../../../lib/wallet/WalletManager', () => {
+  return jest.fn().mockImplementation(() => {
+    return {
+      ethereumManagers: [
+        {
+          networkDetails: Rsk,
+          hasSymbol: jest
+            .fn()
+            .mockImplementation((symbol) => symbol === 'USDT'),
+        },
+      ],
+    };
+  });
+});
+
+const MockedWalletManager = <jest.Mock<WalletManager>>(<any>WalletManager);
+
 describe('NotificationProvider', () => {
   const swap = {
     ...swapExample,
@@ -113,9 +134,11 @@ describe('NotificationProvider', () => {
     otpsecretpath: `${__dirname}/otpSecret.dat`,
   };
 
+  const walletManager = MockedWalletManager();
   const notificationProvider = new NotificationProvider(
     Logger.disabledLogger,
     mockedService(),
+    walletManager,
     mockedBackupScheduler(),
     config,
     [],
@@ -125,7 +148,21 @@ describe('NotificationProvider', () => {
   notificationProvider['discord'] = mockedDiscordClient();
 
   beforeEach(() => {
-    mockSendMessage.mockClear();
+    jest.clearAllMocks();
+  });
+
+  afterAll(() => {
+    notificationProvider.disconnect();
+
+    if (existsSync(config.otpsecretpath)) {
+      unlinkSync(config.otpsecretpath);
+    }
+
+    const uriPath = join(__dirname, 'otpUri.txt');
+
+    if (existsSync(uriPath)) {
+      unlinkSync(uriPath);
+    }
   });
 
   test('should init', async () => {
@@ -324,17 +361,13 @@ describe('NotificationProvider', () => {
     );
   });
 
-  afterAll(() => {
-    notificationProvider.disconnect();
-
-    if (existsSync(config.otpsecretpath)) {
-      unlinkSync(config.otpsecretpath);
-    }
-
-    const uriPath = join(__dirname, 'otpUri.txt');
-
-    if (existsSync(uriPath)) {
-      unlinkSync(uriPath);
-    }
+  test.each`
+    symbol             | expected
+    ${'BTC'}           | ${'BTC'}
+    ${'LTC'}           | ${'LTC'}
+    ${'USDT'}          | ${'RBTC'}
+    ${'somethingElse'} | ${''}
+  `('should get miner fee symbol for $symbol', ({ symbol, expected }) => {
+    expect(notificationProvider['getMinerFeeSymbol'](symbol)).toEqual(expected);
   });
 });

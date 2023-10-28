@@ -243,7 +243,10 @@ class SwapManager {
         redeemScript: getHexString(redeemScript),
       });
     } else {
-      address = await this.getLockupContractAddress(receivingCurrency.type);
+      address = await this.getLockupContractAddress(
+        receivingCurrency.symbol,
+        receivingCurrency.type,
+      );
 
       const blockNumber = await receivingCurrency.provider!.getBlockNumber();
       timeoutBlockHeight = blockNumber + args.timeoutBlockDelta;
@@ -354,9 +357,13 @@ class SwapManager {
 
           // All currencies that are not Bitcoin-like are either Ether or an ERC20 token on the Ethereum chain
         } else {
+          const networkInfo = this.walletManager.ethereumManagers.find(
+            (manager) => manager.hasSymbol(currency.symbol),
+          )!.networkDetails;
+
           return {
             blocks: await currency.provider!.getBlockNumber(),
-            blockTime: TimeoutDeltaProvider.blockTimes.get('ETH')!,
+            blockTime: TimeoutDeltaProvider.blockTimes.get(networkInfo.symbol)!,
           };
         }
       };
@@ -616,7 +623,10 @@ class SwapManager {
       const blockNumber = await sendingCurrency.provider!.getBlockNumber();
       timeoutBlockHeight = blockNumber + args.onchainTimeoutBlockDelta;
 
-      lockupAddress = await this.getLockupContractAddress(sendingCurrency.type);
+      lockupAddress = await this.getLockupContractAddress(
+        sendingCurrency.symbol,
+        sendingCurrency.type,
+      );
       refundAddress = await this.walletManager.wallets
         .get(sendingCurrency.symbol)!
         .getAddress();
@@ -766,8 +776,14 @@ class SwapManager {
     return currency;
   };
 
-  private getLockupContractAddress = (type: CurrencyType): Promise<string> => {
-    const ethereumManager = this.walletManager.ethereumManager!;
+  private getLockupContractAddress = (
+    symbol: string,
+    type: CurrencyType,
+  ): Promise<string> => {
+    const ethereumManager = this.walletManager.ethereumManagers.find(
+      (manager) => manager.hasSymbol(symbol),
+    )!;
+
     return type === CurrencyType.Ether
       ? ethereumManager.etherSwap.getAddress()
       : ethereumManager.erc20Swap.getAddress();

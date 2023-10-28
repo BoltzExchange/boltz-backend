@@ -2,7 +2,11 @@ import { Arguments } from 'yargs';
 import { ContractTransactionResponse } from 'ethers';
 import { getHexBuffer } from '../../../Utils';
 import BuilderComponents from '../../BuilderComponents';
-import { connectEthereum, getContracts } from '../EthereumUtils';
+import {
+  connectEthereum,
+  getContracts,
+  getLogsQueryStartHeight,
+} from '../EthereumUtils';
 import {
   queryERC20SwapValues,
   queryEtherSwapValues,
@@ -23,14 +27,21 @@ export const builder = {
 
 export const handler = async (argv: Arguments<any>): Promise<void> => {
   const signer = await connectEthereum(argv.provider);
-  const { etherSwap, erc20Swap } = await getContracts(signer);
+  const { etherSwap, erc20Swap } = getContracts(argv.chain, signer);
 
   const preimageHash = getHexBuffer(argv.preimageHash);
 
   let transaction: ContractTransactionResponse;
 
   if (argv.token) {
-    const erc20SwapValues = await queryERC20SwapValues(erc20Swap, preimageHash);
+    const erc20SwapValues = await queryERC20SwapValues(
+      erc20Swap,
+      preimageHash,
+      await getLogsQueryStartHeight(
+        signer.provider!,
+        argv.queryStartHeightDelta,
+      ),
+    );
     transaction = await erc20Swap.refund(
       preimageHash,
       erc20SwapValues.amount,
@@ -39,7 +50,14 @@ export const handler = async (argv: Arguments<any>): Promise<void> => {
       erc20SwapValues.timelock,
     );
   } else {
-    const etherSwapValues = await queryEtherSwapValues(etherSwap, preimageHash);
+    const etherSwapValues = await queryEtherSwapValues(
+      etherSwap,
+      preimageHash,
+      await getLogsQueryStartHeight(
+        signer.provider!,
+        argv.queryStartHeightDelta,
+      ),
+    );
     transaction = await etherSwap.refund(
       preimageHash,
       etherSwapValues.amount,
@@ -47,8 +65,6 @@ export const handler = async (argv: Arguments<any>): Promise<void> => {
       etherSwapValues.timelock,
     );
   }
-
-  await transaction.wait(1);
 
   console.log(
     `Refunded ${argv.token ? 'ERC20 token' : 'Ether'} in: ${transaction.hash}`,

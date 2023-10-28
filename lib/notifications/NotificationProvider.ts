@@ -9,6 +9,7 @@ import ClnClient from '../lightning/ClnClient';
 import LndClient from '../lightning/LndClient';
 import DiskUsageChecker from './DiskUsageChecker';
 import ReverseSwap from '../db/models/ReverseSwap';
+import WalletManager from '../wallet/WalletManager';
 import BackupScheduler from '../backup/BackupScheduler';
 import { satoshisToSatcomma } from '../DenominationConverter';
 import { ChainInfo, LightningInfo } from '../proto/boltzrpc_pb';
@@ -41,6 +42,7 @@ class NotificationProvider {
   constructor(
     private logger: Logger,
     private service: Service,
+    private walletManager: WalletManager,
     private backup: BackupScheduler,
     private config: NotificationConfig,
     currencies: (BaseCurrencyConfig | undefined)[],
@@ -240,14 +242,6 @@ class NotificationProvider {
       };
     };
 
-    const getMinerFeeSymbol = (symbol: string) => {
-      if (this.service.currencies.get(symbol)!.type === CurrencyType.ERC20) {
-        return 'ETH';
-      } else {
-        return symbol;
-      }
-    };
-
     this.service.eventHandler.on(
       'swap.success',
       async (swap, isReverse, channelCreation) => {
@@ -270,7 +264,7 @@ class NotificationProvider {
           `Fees earned: ${satoshisToSatcomma(swap.fee!)} ${onchainSymbol}\n` +
           `Miner fees: ${satoshisToSatcomma(
             swap.minerFee!,
-          )} ${getMinerFeeSymbol(onchainSymbol)}`;
+          )} ${this.getMinerFeeSymbol(onchainSymbol)}`;
 
         if (!isReverse) {
           // The routing fees are denominated in millisatoshi
@@ -363,6 +357,18 @@ class NotificationProvider {
         return 'litoshi';
       default:
         return 'satoshi';
+    }
+  };
+
+  private getMinerFeeSymbol = (symbol: string) => {
+    if (this.service.currencies.get(symbol)!.type === CurrencyType.ERC20) {
+      return (
+        this.walletManager.ethereumManagers.find((manager) =>
+          manager.hasSymbol(symbol),
+        )?.networkDetails.symbol || ''
+      );
+    } else {
+      return symbol;
     }
   };
 }

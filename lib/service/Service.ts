@@ -1,6 +1,6 @@
 import bolt11 from 'bolt11';
-import { getAddress } from 'ethers';
 import { OutputType } from 'boltz-core';
+import { getAddress, Provider } from 'ethers';
 import Errors from './Errors';
 import Logger from '../Logger';
 import NodeInfo from './NodeInfo';
@@ -22,14 +22,15 @@ import PaymentRequestUtils from './PaymentRequestUtils';
 import PairRepository from '../db/repositories/PairRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import RateProvider, { PairType } from '../rates/RateProvider';
+import EthereumManager from '../wallet/ethereum/EthereumManager';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import ReferralRepository from '../db/repositories/ReferralRepository';
 import SwapManager, { ChannelCreationInfo } from '../swap/SwapManager';
+import { InvoiceFeature, PaymentResponse } from '../lightning/LightningClient';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import TimeoutDeltaProvider, {
   PairTimeoutBlocksDelta,
 } from './TimeoutDeltaProvider';
-import { InvoiceFeature, PaymentResponse } from '../lightning/LightningClient';
 import {
   etherDecimals,
   ethereumPrepayMinerFeeGasLimit,
@@ -70,6 +71,20 @@ import {
   stringify,
 } from '../Utils';
 
+type NetworkContracts = {
+  network: {
+    chainId: number;
+    name?: string;
+  };
+  swapContracts: Map<string, string>;
+  tokens: Map<string, string>;
+};
+
+type Contracts = {
+  ethereum?: NetworkContracts;
+  rsk?: NetworkContracts;
+};
+
 class Service {
   public allowReverseSwaps = true;
 
@@ -108,13 +123,13 @@ class Service {
       this.logger,
       config,
       currencies,
-      this.walletManager.ethereumManager!,
       this.nodeSwitch,
     );
     this.rateProvider = new RateProvider(
       this.logger,
       config.rates.interval,
       currencies,
+      this.walletManager,
       this.getFeeEstimation,
     );
 
@@ -183,7 +198,10 @@ class Service {
 
     this.logger.verbose('Updated pairs in the database');
 
-    this.timeoutDeltaProvider.init(configPairs);
+    this.timeoutDeltaProvider.init(
+      configPairs,
+      this.walletManager.ethereumManagers,
+    );
 
     this.rateProvider.feeProvider.init(configPairs);
     await this.rateProvider.init(configPairs);
@@ -386,39 +404,34 @@ class Service {
   /**
    * Gets the contract address used by the Boltz instance
    */
-  public getContracts = async (): Promise<{
-    ethereum: {
-      network: {
-        chainId: number;
-        name?: string;
-      };
-      swapContracts: Map<string, string>;
-      tokens: Map<string, string>;
-    };
-  }> => {
-    if (this.walletManager.ethereumManager === undefined) {
+  public getContracts = async (): Promise<Contracts> => {
+    if (this.walletManager.ethereumManagers.length === 0) {
       throw Errors.ETHEREUM_NOT_ENABLED();
     }
 
-    return {
-      ethereum: {
+    const result: Contracts = {};
+
+    const transformManager = async (manager: EthereumManager) => {
+      result[manager.networkDetails.name.toLowerCase()] = {
         network: {
-          chainId: Number(this.walletManager.ethereumManager.network.chainId),
-          name: this.walletManager.ethereumManager.network.name,
+          chainId: Number(manager.network.chainId),
+          name: manager.network.name,
         },
-        tokens: this.walletManager.ethereumManager.tokenAddresses,
+        tokens: manager.tokenAddresses,
         swapContracts: new Map<string, string>([
-          [
-            'EtherSwap',
-            await this.walletManager.ethereumManager.etherSwap.getAddress(),
-          ],
-          [
-            'ERC20Swap',
-            await this.walletManager.ethereumManager.erc20Swap.getAddress(),
-          ],
+          ['EtherSwap', await manager.etherSwap.getAddress()],
+          ['ERC20Swap', await manager.erc20Swap.getAddress()],
         ]),
-      },
+      };
     };
+
+    await Promise.all(
+      this.walletManager.ethereumManagers.map((manager) =>
+        transformManager(manager),
+      ),
+    );
+
+    return result;
   };
 
   /**
@@ -439,7 +452,7 @@ class Service {
 
   /**
    * Gets the hex encoded lockup transaction of a Submarine Swap, the block height
-   * at which it will timeout and the expected ETA for that block
+   * at which it will time out and the expected ETA for that block
    */
   public getSwapTransaction = async (
     id: string,
@@ -530,11 +543,14 @@ class Service {
 
     const numBlocks = blocks === undefined ? 2 : blocks;
 
+    const estimateFeeForProvider = async (provider: Provider) =>
+      Number(await this.getGasPrice(provider)) / Number(gweiDecimals);
+
     const estimateFee = async (currency: Currency): Promise<number> => {
       if (currency.chainClient) {
         return currency.chainClient.estimateFee(numBlocks);
       } else if (currency.provider) {
-        return Number((await this.getGasPrice(currency)) / gweiDecimals);
+        return estimateFeeForProvider(currency.provider);
       } else {
         throw Errors.NOT_SUPPORTED_BY_SYMBOL(currency.symbol);
       }
@@ -542,16 +558,26 @@ class Service {
 
     if (symbol !== undefined) {
       const currency = this.getCurrency(symbol);
-      const isERC20 = currency.type === CurrencyType.ERC20;
-
-      map.set(isERC20 ? 'ETH' : symbol, await estimateFee(currency));
+      if (currency.type !== CurrencyType.ERC20) {
+        map.set(symbol, await estimateFee(currency));
+      } else {
+        const manager = this.walletManager.ethereumManagers.find((manager) =>
+          manager.hasSymbol(currency.symbol),
+        )!;
+        map.set(manager.networkDetails.symbol, await estimateFee(currency));
+      }
     } else {
+      await Promise.all(
+        this.walletManager.ethereumManagers.map(async (manager) => {
+          map.set(
+            manager.networkDetails.symbol,
+            await estimateFeeForProvider(manager.provider),
+          );
+        }),
+      );
+
       for (const [symbol, currency] of this.currencies) {
         if (currency.type === CurrencyType.ERC20) {
-          if (!map.has('ETH')) {
-            map.set('ETH', await estimateFee(currency));
-          }
-
           continue;
         }
 
@@ -1283,20 +1309,30 @@ class Service {
           holdInvoiceAmount - prepayMinerFeeInvoiceAmount,
         );
       } else {
-        const gasPrice = await this.getGasPrice(sendingCurrency);
+        const gasPrice = await this.getGasPrice(sendingCurrency.provider!);
         prepayMinerFeeOnchainAmount = Number(
           (gasPrice * ethereumPrepayMinerFeeGasLimit) / etherDecimals,
         );
 
+        const chainFeeSymbol = this.walletManager.ethereumManagers.find(
+          (manager) => manager.hasSymbol(sendingCurrency.symbol),
+        )!.networkDetails.symbol;
+
         const sendingAmountRate =
-          sending === 'ETH'
+          sending === chainFeeSymbol
             ? 1
-            : this.rateProvider.rateCalculator.calculateRate('ETH', sending);
+            : this.rateProvider.rateCalculator.calculateRate(
+                chainFeeSymbol,
+                sending,
+              );
 
         const receivingAmountRate =
-          receiving === 'ETH'
+          receiving === chainFeeSymbol
             ? 1
-            : this.rateProvider.rateCalculator.calculateRate('ETH', receiving);
+            : this.rateProvider.rateCalculator.calculateRate(
+                chainFeeSymbol,
+                receiving,
+              );
         prepayMinerFeeInvoiceAmount = Math.ceil(
           prepayMinerFeeOnchainAmount * receivingAmountRate,
         );
@@ -1422,8 +1458,8 @@ class Service {
     throw Errors.CURRENCY_NOT_FOUND(symbol);
   };
 
-  private getGasPrice = async (currency: Currency) => {
-    const feeData = await currency.provider!.getFeeData();
+  private getGasPrice = async (provider: Provider) => {
+    const feeData = await provider.getFeeData();
     return (feeData.gasPrice || feeData.maxFeePerGas)!;
   };
 

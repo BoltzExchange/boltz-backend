@@ -11,9 +11,17 @@ export const parseBuffer = (input: string): Buffer => {
 export const getGasPrices = async (provider: Provider): Promise<Overrides> => {
   const feeData = await provider.getFeeData();
 
+  // Legacy pre EIP-1559 provider
+  if (feeData.maxFeePerGas === null || feeData.maxFeePerGas === undefined) {
+    return {
+      type: 0,
+      gasPrice: feeData.gasPrice,
+    };
+  }
+
   return {
     type: 2,
-    maxFeePerGas: feeData.maxFeePerGas!,
-    maxPriorityFeePerGas: feeData.maxPriorityFeePerGas!,
+    maxFeePerGas: feeData.maxFeePerGas,
+    maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
   };
 };

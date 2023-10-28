@@ -3,8 +3,7 @@ import { randomBytes } from 'crypto';
 import { crypto } from 'bitcoinjs-lib';
 import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
-import { EthereumSetup, getSigner } from '../EthereumTools';
-import { getContracts } from '../../../../lib/cli/ethereum/EthereumUtils';
+import { EthereumSetup, getContracts, getSigner } from '../EthereumTools';
 import { ERC20SwapValues, EtherSwapValues } from '../../../../lib/consts/Types';
 import {
   queryEtherSwapValues,

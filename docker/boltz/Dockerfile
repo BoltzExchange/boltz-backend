@@ -1,4 +1,3 @@
-ARG VERSION
 ARG NODE_VERSION
 
 FROM node:${NODE_VERSION} AS builder
@@ -15,14 +14,14 @@ RUN apt-get -y install \
     libzmq3-dev \
     python3-dev
 
-RUN git clone https://github.com/BoltzExchange/boltz-backend.git
+ARG VERSION
+RUN git clone --depth 1 https://github.com/BoltzExchange/boltz-backend.git -b ${VERSION}
 WORKDIR /boltz-backend
-
-RUN git checkout ${VERSION}
 
 # Remove dependency that is not needed for the build and unavailable on ARM64
 RUN sed -i "/grpc-tools/d" package.json
 
+RUN npm install -g npm
 RUN npm install
 RUN npm run compile
 

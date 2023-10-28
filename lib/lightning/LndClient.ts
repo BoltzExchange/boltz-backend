@@ -485,7 +485,7 @@ class LndClient extends BaseClient implements LightningClient {
       case lndrpc.PaymentFailureReason.FAILURE_REASON_INCORRECT_PAYMENT_DETAILS:
         return 'incorrect payment details';
       default:
-        return 'unknown reason';
+        return `unknown reason: ${reason.toString()}`;
     }
   };
 

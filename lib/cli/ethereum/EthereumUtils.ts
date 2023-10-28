@@ -1,91 +1,88 @@
-import { join } from 'path';
+import path from 'path';
+import * as process from 'process';
 import { ContractABIs } from 'boltz-core';
 import { existsSync, readFileSync } from 'fs';
 import { ERC20 } from 'boltz-core/typechain/ERC20';
 import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import {
-  Block,
+  Contract,
+  HDNodeWallet,
+  JsonRpcProvider,
+  Provider,
   Signer,
   Wallet,
-  Contract,
-  Provider,
-  JsonRpcProvider,
-  getCreateAddress,
-  TransactionResponse,
 } from 'ethers';
+import Config, { ConfigType } from '../../Config';
 
-class TransactionIterator {
-  private static readonly firstBlock = 1;
+const getBoltzFilePath = (file: string): string =>
+  path.join(process.env.HOME!, '.boltz', file);
 
-  private block?: Block;
-  private txCount = 0;
-
-  constructor(private provider: Provider) {}
-
-  public getNextTransaction = async (): Promise<TransactionResponse | null> => {
-    if (this.block === undefined) {
-      this.block = (await this.provider.getBlock(
-        TransactionIterator.firstBlock,
-      ))!;
-    }
-
-    if (this.txCount < this.block.transactions.length) {
-      this.txCount++;
-      return this.provider.getTransaction(
-        this.block.transactions[this.txCount - 1],
-      );
-    } else {
-      this.txCount = 0;
-      this.block = (await this.provider.getBlock(this.block.number + 1))!;
-      return this.getNextTransaction();
-    }
-  };
-}
-
-export const connectEthereum = async (providerUrl: string): Promise<Signer> => {
-  const provider = new JsonRpcProvider(providerUrl);
-  return provider.getSigner(0);
-};
-
-export const getContracts = async (
-  signer: Signer,
-): Promise<{
-  token: ERC20;
-  etherSwap: EtherSwap;
-  erc20Swap: ERC20Swap;
-}> => {
-  const contractsAbis = [
-    ContractABIs.EtherSwap,
-    ContractABIs.ERC20Swap,
-    ContractABIs.ERC20,
-  ];
-  const contracts: any[] = [];
-
-  const iter = new TransactionIterator(signer.provider!);
-
-  for (const abi of contractsAbis) {
-    const tx = await iter.getNextTransaction();
-    contracts.push(new Contract(getCreateAddress(tx!), abi, signer));
-  }
-
-  return {
-    etherSwap: contracts[0],
-    erc20Swap: contracts[1],
-    token: contracts[2],
-  };
-};
-
-export const getBoltzAddress = async (): Promise<string | undefined> => {
-  const filePath = join(process.env.HOME!, '.boltz/seed.dat');
+const getBoltzWallet = (): HDNodeWallet => {
+  const filePath = getBoltzFilePath('seed.dat');
 
   if (existsSync(filePath)) {
     return Wallet.fromPhrase(
       readFileSync(filePath, {
         encoding: 'utf-8',
-      }),
-    ).getAddress();
+      }).trim(),
+    );
   }
 
-  return;
+  throw 'no Boltz wallet found';
+};
+
+const loadConfig = (): ConfigType =>
+  new Config().load({ configpath: getBoltzFilePath('boltz.conf') });
+
+export const getContracts = (
+  chain: 'rsk' | 'ethereum',
+  signer: Signer,
+): {
+  token: ERC20;
+  etherSwap: EtherSwap;
+  erc20Swap: ERC20Swap;
+} => {
+  const config = loadConfig()[chain];
+  if (config === undefined) {
+    throw `${chain} configuration missing`;
+  }
+
+  const contracts: any = {};
+
+  Object.entries({
+    etherSwap: {
+      abi: ContractABIs.EtherSwap,
+      address: config.etherSwapAddress,
+    },
+    erc20Swap: {
+      abi: ContractABIs.ERC20Swap,
+      address: config.erc20SwapAddress,
+    },
+    token: {
+      abi: ContractABIs.ERC20,
+      address: config.tokens.find(
+        (token) => token.contractAddress !== undefined,
+      )!.contractAddress!,
+    },
+  }).forEach(
+    ([name, config]) =>
+      (contracts[name] = new Contract(config.address, config.abi, signer)),
+  );
+
+  return contracts;
+};
+
+export const getBoltzAddress = async (): Promise<string> =>
+  getBoltzWallet().getAddress();
+
+export const connectEthereum = async (providerUrl: string): Promise<Signer> =>
+  getBoltzWallet().connect(new JsonRpcProvider(providerUrl));
+
+export const getLogsQueryStartHeight = async (
+  provider: Provider,
+  delta: number,
+): Promise<number> => {
+  const blockHeight = await provider.getBlockNumber();
+  return blockHeight - delta;
 };

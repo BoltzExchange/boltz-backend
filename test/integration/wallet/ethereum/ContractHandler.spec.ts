@@ -1,14 +1,19 @@
+import { Wallet } from 'ethers';
 import { randomBytes } from 'crypto';
 import { crypto } from 'bitcoinjs-lib';
 import { ERC20 } from 'boltz-core/typechain/ERC20';
-import { Wallet } from 'ethers';
 import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import Logger from '../../../../lib/Logger';
-import { getContracts } from '../../../../lib/cli/ethereum/EthereumUtils';
+import { Ethereum } from '../../../../lib/wallet/ethereum/EvmNetworks';
 import ContractHandler from '../../../../lib/wallet/ethereum/ContractHandler';
-import { EthereumSetup, fundSignerWallet, getSigner } from '../EthereumTools';
 import ERC20WalletProvider from '../../../../lib/wallet/providers/ERC20WalletProvider';
+import {
+  EthereumSetup,
+  fundSignerWallet,
+  getContracts,
+  getSigner,
+} from '../EthereumTools';
 
 describe('ContractHandler', () => {
   let setup: EthereumSetup;
@@ -19,8 +24,11 @@ describe('ContractHandler', () => {
 
   let erc20WalletProvider: ERC20WalletProvider;
 
-  const contractHandler = new ContractHandler(Logger.disabledLogger);
-  const contractHandlerEtherBase = new ContractHandler(Logger.disabledLogger);
+  const contractHandler = new ContractHandler(Logger.disabledLogger, Ethereum);
+  const contractHandlerEtherBase = new ContractHandler(
+    Logger.disabledLogger,
+    Ethereum,
+  );
 
   const amount = BigInt(10) ** BigInt(17);
   const preimage = randomBytes(32);

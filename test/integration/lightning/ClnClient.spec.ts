@@ -68,6 +68,20 @@ describe('ClnClient', () => {
     const acceptedPromise = new Promise((resolve) => {
       bitcoinLndClient.on('htlc.accepted', resolve);
     });
+
+    // Wait for CLN to catch up with the chain
+    await new Promise<void>((resolve) => {
+      const timeout = setInterval(async () => {
+        if (
+          (await bitcoinClient.getBlockchainInfo()).blocks ===
+          (await clnClient.getInfo()).blockHeight
+        ) {
+          clearTimeout(timeout);
+          resolve();
+        }
+      });
+    });
+
     const payPromise = clnClient.sendPayment(invoice);
     await acceptedPromise;
 

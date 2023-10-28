@@ -1,19 +1,19 @@
 import {
-  Log,
+  AddressLike,
+  AlchemyProvider,
+  BigNumberish,
   Block,
-  Filter,
+  BlockTag,
   FeeData,
+  Filter,
+  InfuraProvider,
+  JsonRpcProvider,
+  Listener,
+  Log,
   Network,
   Provider,
-  BlockTag,
-  Listener,
-  AddressLike,
-  Transaction,
-  BigNumberish,
   ProviderEvent,
-  InfuraProvider,
-  AlchemyProvider,
-  JsonRpcProvider,
+  Transaction,
   TransactionReceipt,
   TransactionRequest,
   TransactionResponse,
@@ -21,8 +21,12 @@ import {
 import Errors from './Errors';
 import Logger from '../../Logger';
 import { formatError, stringify } from '../../Utils';
-import { EthereumConfig, EthProviderServiceConfig } from '../../Config';
 import PendingEthereumTransactionRepository from '../../db/repositories/PendingEthereumTransactionRepository';
+import {
+  EthereumConfig,
+  EthProviderServiceConfig,
+  RskConfig,
+} from '../../Config';
 
 enum EthProviderService {
   Node = 'Node',
@@ -45,7 +49,7 @@ class InjectedProvider implements Provider {
 
   constructor(
     private logger: Logger,
-    config: EthereumConfig,
+    config: RskConfig | EthereumConfig,
   ) {
     this.provider = this;
 
@@ -64,45 +68,14 @@ class InjectedProvider implements Provider {
       );
     }
 
-    const addEthProvider = (
-      name: EthProviderService,
-      providerConfig: EthProviderServiceConfig,
-    ) => {
-      if (!providerConfig.apiKey) {
-        this.logDisabledProvider(name, 'no api key was set');
-        return;
-      }
-
-      if (!providerConfig.network) {
-        this.logDisabledProvider(name, 'no network was specified');
-        return;
-      }
-
-      switch (name) {
-        case EthProviderService.Infura:
-          this.providers.set(
-            name,
-            new InfuraProvider(providerConfig.network, providerConfig.apiKey),
-          );
-          break;
-
-        case EthProviderService.Alchemy:
-          this.providers.set(
-            name,
-            new AlchemyProvider(providerConfig.network, providerConfig.apiKey),
-          );
-          break;
-
-        default:
-          this.logDisabledProvider(name, 'provider not supported');
-          return;
-      }
-
-      this.logAddedProvider(name, providerConfig);
-    };
-
-    addEthProvider(EthProviderService.Infura, config.infura);
-    addEthProvider(EthProviderService.Alchemy, config.alchemy);
+    this.addEthProvider(
+      EthProviderService.Infura,
+      (config as EthereumConfig).infura,
+    );
+    this.addEthProvider(
+      EthProviderService.Alchemy,
+      (config as EthereumConfig).alchemy,
+    );
 
     if (this.providers.size === 0) {
       throw Errors.NO_PROVIDER_SPECIFIED();
@@ -146,6 +119,43 @@ class InjectedProvider implements Provider {
         this.providers.keys(),
       ).join('\n - ')}`,
     );
+  };
+
+  private addEthProvider = (
+    name: EthProviderService,
+    providerConfig: EthProviderServiceConfig,
+  ) => {
+    if (providerConfig === undefined || providerConfig.apiKey === undefined) {
+      this.logDisabledProvider(name, 'no api key was set');
+      return;
+    }
+
+    if (providerConfig.network === undefined) {
+      this.logDisabledProvider(name, 'no network was specified');
+      return;
+    }
+
+    switch (name) {
+      case EthProviderService.Infura:
+        this.providers.set(
+          name,
+          new InfuraProvider(providerConfig.network, providerConfig.apiKey),
+        );
+        break;
+
+      case EthProviderService.Alchemy:
+        this.providers.set(
+          name,
+          new AlchemyProvider(providerConfig.network, providerConfig.apiKey),
+        );
+        break;
+
+      default:
+        this.logDisabledProvider(name, 'provider not supported');
+        return;
+    }
+
+    this.logAddedProvider(name, providerConfig);
   };
 
   /*
@@ -197,10 +207,6 @@ class InjectedProvider implements Provider {
     return this.forwardMethod('getStorage', address, position, blockTag);
   };
 
-  public getGasPrice = (): Promise<bigint> => {
-    return this.forwardMethod('getGasPrice');
-  };
-
   public getFeeData = (): Promise<FeeData> => {
     return this.forwardMethod('getFeeData');
   };
@@ -228,8 +234,8 @@ class InjectedProvider implements Provider {
 
   public getTransaction = (
     transactionHash: string,
-  ): Promise<TransactionResponse> => {
-    return this.forwardMethod('getTransaction', transactionHash);
+  ): Promise<TransactionResponse | null> => {
+    return this.forwardMethodNullable('getTransaction', transactionHash);
   };
 
   public getTransactionCount = (
@@ -241,12 +247,14 @@ class InjectedProvider implements Provider {
 
   public getTransactionReceipt = (
     transactionHash: string,
-  ): Promise<TransactionReceipt> => {
-    return this.forwardMethod('getTransactionReceipt', transactionHash);
+  ): Promise<TransactionReceipt | null> => {
+    return this.forwardMethodNullable('getTransactionReceipt', transactionHash);
   };
 
-  public getTransactionResult = (hash: string): Promise<string | null> => {
-    return this.forwardMethod('getTransactionResult', hash);
+  public getTransactionResult = (
+    transactionHash: string,
+  ): Promise<string | null> => {
+    return this.forwardMethodNullable('getTransactionResult', transactionHash);
   };
 
   public lookupAddress = (address: string): Promise<string> => {
@@ -263,18 +271,25 @@ class InjectedProvider implements Provider {
     const transaction = Transaction.from(signedTransaction);
     await this.addToTransactionDatabase(transaction.hash!, transaction.nonce);
 
-    const promises: Promise<TransactionResponse>[] = [];
-
     // When sending a transaction, you want it to propagate on the network as quickly as possible
     // Therefore, we send it to all available providers
-    for (const provider of this.providers.values()) {
-      // TODO: handle rejections
-      promises.push(provider.broadcastTransaction(signedTransaction));
+    const promises = Array.from(this.providers.values()).map((provider) =>
+      provider.broadcastTransaction(signedTransaction),
+    );
+
+    const settled = await Promise.allSettled(promises);
+    const results = settled
+      .filter(
+        (res): res is PromiseFulfilledResult<TransactionResponse> =>
+          res.status === 'fulfilled',
+      )
+      .map((res) => res.value);
+
+    if (results.length > 0) {
+      return results[0];
     }
 
-    // Return the result from whichever provider resolved the Promise first
-    // The other "sendTransaction" calls will still be executed but the result won't be returned
-    return Promise.race(promises);
+    throw (settled[0] as PromiseRejectedResult).reason;
   };
 
   public sendTransaction = async (
@@ -429,6 +444,18 @@ class InjectedProvider implements Provider {
     method: string,
     ...args: any[]
   ): Promise<T> => {
+    const res = await this.forwardMethodNullable<T>(method, ...args);
+    if (res === null) {
+      throw Errors.REQUESTS_TO_PROVIDERS_FAILED(['null returned']);
+    }
+
+    return res;
+  };
+
+  private forwardMethodNullable = async <T = any>(
+    method: string,
+    ...args: any[]
+  ): Promise<T | null> => {
     const errors: string[] = [];
 
     for (const [providerName, provider] of this.providers) {
@@ -451,7 +478,11 @@ class InjectedProvider implements Provider {
       }
     }
 
-    throw Errors.REQUESTS_TO_PROVIDERS_FAILED(errors);
+    if (errors.length > 0) {
+      throw Errors.REQUESTS_TO_PROVIDERS_FAILED(errors);
+    }
+
+    return null;
   };
 
   private promiseWithTimeout = async (
@@ -506,3 +537,4 @@ class InjectedProvider implements Provider {
 }
 
 export default InjectedProvider;
+export { EthProviderService };

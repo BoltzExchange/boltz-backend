@@ -32,7 +32,7 @@ export const builder = {
 
 export const handler = async (argv: Arguments<any>): Promise<void> => {
   const signer = await connectEthereum(argv.provider);
-  const { etherSwap, erc20Swap, token } = await getContracts(signer);
+  const { etherSwap, erc20Swap, token } = getContracts(argv.chain, signer);
 
   const preimageHash = getHexBuffer(argv.preimageHash);
   const amount = BigInt(argv.amount) * etherDecimals;
@@ -68,8 +68,6 @@ export const handler = async (argv: Arguments<any>): Promise<void> => {
       },
     );
   }
-
-  await transaction.wait(1);
 
   console.log(
     `Sent ${argv.token ? 'ERC20 token' : 'Ether'} in: ${transaction.hash}`,

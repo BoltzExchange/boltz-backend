@@ -7,17 +7,18 @@ import Swap from '../../../lib/db/models/Swap';
 import Wallet from '../../../lib/wallet/Wallet';
 import EthereumNursery from '../../../lib/swap/EthereumNursery';
 import { getHexBuffer, getHexString } from '../../../lib/Utils';
+import { Ethereum } from '../../../lib/wallet/ethereum/EvmNetworks';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import EthereumManager from '../../../lib/wallet/ethereum/EthereumManager';
 import { ERC20SwapValues, EtherSwapValues } from '../../../lib/consts/Types';
 import EtherWalletProvider from '../../../lib/wallet/providers/EtherWalletProvider';
 import ERC20WalletProvider from '../../../lib/wallet/providers/ERC20WalletProvider';
+import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import {
   CurrencyType,
   OrderSide,
   SwapUpdateEvent,
 } from '../../../lib/consts/Enums';
-import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 
 type blockCallback = (height: number) => void;
 
@@ -122,6 +123,7 @@ const mockAddress = '0x735Ec659CB2E2D2B778F8D4178ce2a521D617119';
 jest.mock('../../../lib/wallet/ethereum/EthereumManager', () => {
   return jest.fn().mockImplementation(() => ({
     address: mockAddress,
+    networkDetails: Ethereum,
     provider: {
       on: mockOnProvider,
       getTransaction: mockGetTransaction,
@@ -195,14 +197,17 @@ const exampleTransactionHash =
   '0x193be8365ec997f97156dbd894d446135eca8cfbfe3417404c50f32015ee5bb2';
 
 describe('EthereumNursery', () => {
-  const nursery = new EthereumNursery(Logger.disabledLogger, {
-    ethereumManager: new MockedEthereumManager(),
-    wallets: new Map<string, Wallet>([
-      ['BTC', {} as any],
-      ['ETH', new MockedEtherWalletProvider('ETH') as any],
-      ['USDT', new MockedErc20WalletProvider('USDT') as any],
-    ]),
-  } as any);
+  const nursery = new EthereumNursery(
+    Logger.disabledLogger,
+    {
+      wallets: new Map<string, Wallet>([
+        ['BTC', {} as any],
+        ['ETH', new MockedEtherWalletProvider('ETH') as any],
+        ['USDT', new MockedErc20WalletProvider('USDT') as any],
+      ]),
+    } as any,
+    new MockedEthereumManager(),
+  );
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -214,9 +219,9 @@ describe('EthereumNursery', () => {
     ReverseSwapRepository.getReverseSwap = mockGetReverseSwap;
     ReverseSwapRepository.getReverseSwaps = mockGetReverseSwaps;
     ReverseSwapRepository.setReverseSwapStatus = mockSetReverseSwapStatus;
-    (ReverseSwapRepository.getReverseSwapsExpirable =
-      mockGetReverseSwapsExpirable),
-      nursery.removeAllListeners();
+    ReverseSwapRepository.getReverseSwapsExpirable =
+      mockGetReverseSwapsExpirable;
+    nursery.removeAllListeners();
   });
 
   test('should init', async () => {

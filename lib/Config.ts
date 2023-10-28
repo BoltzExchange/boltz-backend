@@ -85,16 +85,18 @@ type EthProviderServiceConfig = {
   apiKey: string;
 };
 
-type EthereumConfig = {
+type RskConfig = {
   providerEndpoint: string;
-
-  infura: EthProviderServiceConfig;
-  alchemy: EthProviderServiceConfig;
 
   etherSwapAddress: string;
   erc20SwapAddress: string;
 
   tokens: TokenConfig[];
+};
+
+type EthereumConfig = RskConfig & {
+  infura: EthProviderServiceConfig;
+  alchemy: EthProviderServiceConfig;
 };
 
 type ApiConfig = {
@@ -163,6 +165,7 @@ type ConfigType = {
 
   liquid?: BaseCurrencyConfig;
 
+  rsk?: RskConfig;
   ethereum: EthereumConfig;
 };
 
@@ -469,6 +472,7 @@ class Config {
 export default Config;
 export {
   ApiConfig,
+  RskConfig,
   ConfigType,
   GrpcConfig,
   ChainConfig,

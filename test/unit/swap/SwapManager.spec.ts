@@ -14,8 +14,8 @@ import ChainClient from '../../../lib/chain/ChainClient';
 import LndClient from '../../../lib/lightning/LndClient';
 import RateProvider from '../../../lib/rates/RateProvider';
 import SwapOutputType from '../../../lib/swap/SwapOutputType';
+import { Ethereum } from '../../../lib/wallet/ethereum/EvmNetworks';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
-import InvoiceExpiryHelper from '../../../lib/service/InvoiceExpiryHelper';
 import ReverseSwap, { NodeType } from '../../../lib/db/models/ReverseSwap';
 import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
 import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
@@ -25,16 +25,17 @@ import SwapManager, {
   ChannelCreationInfo,
 } from '../../../lib/swap/SwapManager';
 import {
-  OrderSide,
-  CurrencyType,
-  SwapUpdateEvent,
   ChannelCreationType,
+  CurrencyType,
+  OrderSide,
+  SwapUpdateEvent,
 } from '../../../lib/consts/Enums';
 import {
-  getUnixTime,
+  decodeInvoice,
   getHexBuffer,
   getHexString,
-  decodeInvoice,
+  getPairId,
+  getUnixTime,
   reverseBuffer,
 } from '../../../lib/Utils';
 
@@ -125,6 +126,12 @@ jest.mock('../../../lib/wallet/WalletManager', () => {
   return jest.fn().mockImplementation(() => {
     return {
       wallets: mockWallets,
+      ethereumManagers: [
+        {
+          networkDetails: Ethereum,
+          hasSymbol: jest.fn().mockReturnValue(true),
+        },
+      ],
     };
   });
 });
@@ -293,10 +300,6 @@ jest.mock('../../../lib/service/InvoiceExpiryHelper', () => {
   return mockedImplementation;
 });
 
-const MockedInvoiceExpiryHelper = <jest.Mock<InvoiceExpiryHelper>>(
-  (<any>InvoiceExpiryHelper)
-);
-
 jest.mock('../../../lib/swap/SwapNursery', () => {
   return jest.fn().mockImplementation(() => ({
     init: jest.fn().mockImplementation(async () => {}),
@@ -353,7 +356,6 @@ describe('SwapManager', () => {
       new NodeSwitch(Logger.disabledLogger),
       new MockedRateProvider(),
       new MockedTimeoutDeltaProvider(),
-      new MockedInvoiceExpiryHelper(),
       new SwapOutputType(OutputType.Compatibility),
       0,
     );
@@ -392,7 +394,7 @@ describe('SwapManager', () => {
       },
     ];
 
-    await manager.init([btcCurrency, ltcCurrency]);
+    await manager.init([btcCurrency, ltcCurrency], []);
 
     expect(manager.currencies.size).toEqual(2);
 
@@ -889,7 +891,7 @@ describe('SwapManager', () => {
 
   test('should create Reverse Swaps', async () => {
     manager['recreateFilters'] = jest.fn().mockImplementation();
-    await manager.init([btcCurrency, ltcCurrency]);
+    await manager.init([btcCurrency, ltcCurrency], []);
 
     const preimageHash = getHexBuffer(
       '6b0d0275c597a18cfcc23261a62e095e2ba12ac5c866823d2926912806a5b10a',
@@ -933,7 +935,9 @@ describe('SwapManager', () => {
     });
 
     expect(mockGetExpiry).toHaveBeenCalledTimes(1);
-    expect(mockGetExpiry).toHaveBeenCalledWith(quoteCurrency);
+    expect(mockGetExpiry).toHaveBeenCalledWith(
+      getPairId({ base: baseCurrency, quote: quoteCurrency }),
+    );
 
     expect(mockAddHoldInvoice).toHaveBeenCalledTimes(1);
     expect(mockAddHoldInvoice).toHaveBeenCalledWith(

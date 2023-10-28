@@ -60,8 +60,6 @@ type CurrencyConfig = BaseCurrencyConfig & {
   cln?: ClnConfig;
   routingOffsetExceptions?: RoutingOffsetException[];
 
-  // Expiry for invoices of this currency in seconds
-  invoiceExpiry?: number;
   // Max fee ratio for LND's sendPayment
   maxPaymentFeeRatio?: number;
 

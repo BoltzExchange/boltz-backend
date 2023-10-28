@@ -15,18 +15,18 @@ import GrpcService from './grpc/GrpcService';
 import ClnClient from './lightning/ClnClient';
 import LndClient from './lightning/LndClient';
 import ChainClient from './chain/ChainClient';
-import Config, { ConfigType, TokenConfig } from './Config';
 import { CurrencyType } from './consts/Enums';
 import { formatError, getVersion } from './Utils';
 import ElementsClient from './chain/ElementsClient';
 import { registerExitHandler } from './ExitHandler';
 import BackupScheduler from './backup/BackupScheduler';
-import { Ethereum, NetworkDetails, Rsk } from './wallet/ethereum/EvmNetworks';
+import Config, { ConfigType, TokenConfig } from './Config';
 import { LightningClient } from './lightning/LightningClient';
 import EthereumManager from './wallet/ethereum/EthereumManager';
 import WalletManager, { Currency } from './wallet/WalletManager';
 import ChainTipRepository from './db/repositories/ChainTipRepository';
 import NotificationProvider from './notifications/NotificationProvider';
+import { Ethereum, NetworkDetails, Rsk } from './wallet/ethereum/EvmNetworks';
 
 class Boltz {
   private readonly logger: Logger;
@@ -187,7 +187,10 @@ class Boltz {
       await this.walletManager.init(this.config.currencies);
       await this.service.init(this.config.pairs);
 
-      await this.service.swapManager.init(Array.from(this.currencies.values()));
+      await this.service.swapManager.init(
+        Array.from(this.currencies.values()),
+        this.config.pairs,
+      );
 
       await this.notifications.init();
 

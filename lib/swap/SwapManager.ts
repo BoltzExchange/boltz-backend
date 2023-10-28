@@ -8,6 +8,7 @@ import Swap from '../db/models/Swap';
 import NodeSwitch from './NodeSwitch';
 import SwapNursery from './SwapNursery';
 import NodeFallback from './NodeFallback';
+import { PairConfig } from '../consts/Types';
 import SwapOutputType from './SwapOutputType';
 import RateProvider from '../rates/RateProvider';
 import RoutingHints from './routing/RoutingHints';
@@ -61,15 +62,15 @@ class SwapManager {
   public routingHints!: RoutingHints;
 
   private nodeFallback!: NodeFallback;
+  private invoiceExpiryHelper!: InvoiceExpiryHelper;
 
   constructor(
-    private logger: Logger,
-    private walletManager: WalletManager,
-    private nodeSwitch: NodeSwitch,
+    private readonly logger: Logger,
+    private readonly walletManager: WalletManager,
+    private readonly nodeSwitch: NodeSwitch,
     rateProvider: RateProvider,
-    timeoutDeltaProvider: TimeoutDeltaProvider,
-    private invoiceExpiryHelper: InvoiceExpiryHelper,
-    private swapOutputType: SwapOutputType,
+    private readonly timeoutDeltaProvider: TimeoutDeltaProvider,
+    private readonly swapOutputType: SwapOutputType,
     retryInterval: number,
   ) {
     this.nursery = new SwapNursery(
@@ -83,7 +84,10 @@ class SwapManager {
     );
   }
 
-  public init = async (currencies: Currency[]): Promise<void> => {
+  public init = async (
+    currencies: Currency[],
+    pairs: PairConfig[],
+  ): Promise<void> => {
     currencies.forEach((currency) => {
       this.currencies.set(currency.symbol, currency);
     });
@@ -127,6 +131,11 @@ class SwapManager {
       this.logger,
       this.nodeSwitch,
       this.routingHints,
+    );
+
+    this.invoiceExpiryHelper = new InvoiceExpiryHelper(
+      pairs,
+      this.timeoutDeltaProvider,
     );
   };
 
@@ -517,6 +526,11 @@ class SwapManager {
       );
     }
 
+    const pair = getPairId({
+      base: args.baseCurrency,
+      quote: args.quoteCurrency,
+    });
+
     const { nodeType, lightningClient, paymentRequest, routingHints } =
       await this.nodeFallback.getReverseSwapInvoice(
         id,
@@ -526,7 +540,7 @@ class SwapManager {
         args.holdInvoiceAmount,
         args.preimageHash,
         args.lightningTimeoutBlockDelta,
-        this.invoiceExpiryHelper.getExpiry(receivingCurrency.symbol),
+        this.invoiceExpiryHelper.getExpiry(pair),
         getSwapMemo(sendingCurrency.symbol, true),
       );
 
@@ -545,7 +559,7 @@ class SwapManager {
         args.prepayMinerFeeInvoiceAmount,
         minerFeeInvoicePreimageHash,
         undefined,
-        this.invoiceExpiryHelper.getExpiry(receivingCurrency.symbol),
+        this.invoiceExpiryHelper.getExpiry(pair),
         getPrepayMinerFeeInvoiceMemo(sendingCurrency.symbol),
         routingHints,
       );
@@ -554,15 +568,14 @@ class SwapManager {
 
       if (args.prepayMinerFeeOnchainAmount) {
         this.logger.debug(
-          `Sending ${args.prepayMinerFeeOnchainAmount} Ether as prepay miner fee for Reverse Swap: ${id}`,
+          `Sending ${args.prepayMinerFeeOnchainAmount} ${
+            this.walletManager.ethereumManagers.find((manager) =>
+              manager.hasSymbol(sendingCurrency.symbol),
+            )!.networkDetails.name
+          } as prepay miner fee for Reverse Swap: ${id}`,
         );
       }
     }
-
-    const pair = getPairId({
-      base: args.baseCurrency,
-      quote: args.quoteCurrency,
-    });
 
     let lockupAddress: string;
     let timeoutBlockHeight: number;

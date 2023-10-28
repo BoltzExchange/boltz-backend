@@ -1,8 +1,8 @@
 import bolt11 from 'bolt11';
 import * as lndrpc from '../proto/lnd/rpc_pb';
+import { IBaseClient } from '../BaseClient';
 import { ClientStatus } from '../consts/Enums';
 import { BalancerFetcher } from '../wallet/providers/WalletProviderInterface';
-import { IBaseClient } from '../BaseClient';
 
 enum InvoiceState {
   Open,

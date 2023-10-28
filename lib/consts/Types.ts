@@ -37,6 +37,10 @@ export type PairConfig = {
   // If there is a hardcoded rate the APIs of the exchanges will not be queried
   rate?: number;
 
+  // Expiry for invoices of this pair in seconds
+  // Defaults to 50% of the expiry time of reverse swaps
+  invoiceExpiry?: number;
+
   // The timeout of the swaps on this pair in minutes
   timeoutDelta?: PairTimeoutBlocksDelta | number;
 

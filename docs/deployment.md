@@ -106,16 +106,21 @@ otpsecretpath = "/home/boltz/.boltz/otpSecret.dat"
 base = "BTC"
 quote = "BTC"
 rate = 1
-timeoutDelta = 400
 
 maxSwapAmount = 10_000_000
 minSwapAmount = 10_000
 
+# Expiry of the invoices generated for reverse swaps of this pair
+# If not set, half of the expiry time of the reverse swap will be used
+invoiceExpiry = 7200
+
+timeoutDelta = 400
 # Alternatively, the timeouts of swaps of a pair can be set like this
 #  [pairs.timeoutDelta]
 #  reverse = 1440
 #  swapMinimal = 1440
 #  swapMaximal = 2880
+
 [[pairs]]
 base = "L-BTC"
 quote = "BTC"

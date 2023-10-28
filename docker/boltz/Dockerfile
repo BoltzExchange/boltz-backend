@@ -15,7 +15,7 @@ RUN apt-get -y install \
     python3-dev
 
 ARG VERSION
-RUN git clone --depth 1 https://github.com/BoltzExchange/boltz-backend.git -b ${VERSION}
+RUN git clone https://github.com/BoltzExchange/boltz-backend.git -b ${VERSION}
 WORKDIR /boltz-backend
 
 # Remove dependency that is not needed for the build and unavailable on ARM64

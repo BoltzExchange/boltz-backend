@@ -1,9 +1,12 @@
 import * as grpc from '@grpc/grpc-js';
 import { readFileSync } from 'fs';
+import { randomBytes } from 'crypto';
 import { getPort } from '../../Utils';
 import Logger from '../../../lib/Logger';
 import LndClient from '../../../lib/lightning/LndClient';
-import { lndDataPath } from '../Nodes';
+import { decodeInvoice, getUnixTime } from '../../../lib/Utils';
+import { bitcoinClient, bitcoinLndClient, lndDataPath } from '../Nodes';
+import InvoiceExpiryHelper from '../../../lib/service/InvoiceExpiryHelper';
 import {
   LightningClient,
   LightningService,
@@ -15,6 +18,38 @@ import {
 } from '../../../lib/proto/lnd/rpc_pb';
 
 describe('LndClient', () => {
+  beforeAll(async () => {
+    await bitcoinClient.generate(1);
+    await bitcoinLndClient.connect(false);
+  });
+
+  afterAll(() => {
+    bitcoinLndClient.removeAllListeners();
+    bitcoinLndClient.disconnect();
+    bitcoinLndClient.disconnect();
+  });
+
+  test.each`
+    expiry
+    ${60}
+    ${1200}
+    ${3600}
+    ${43200}
+  `('should create invoices with expiry $expiry', async ({ expiry }) => {
+    const invoice = await bitcoinLndClient.addHoldInvoice(
+      10_000,
+      randomBytes(32),
+      undefined,
+      expiry,
+    );
+    const { timestamp, timeExpireDate } = decodeInvoice(invoice);
+    expect(
+      getUnixTime() +
+        expiry -
+        InvoiceExpiryHelper.getInvoiceExpiry(timestamp, timeExpireDate),
+    ).toBeLessThanOrEqual(5);
+  });
+
   test('should handle messages longer than the default gRPC limit', async () => {
     // 4 MB is the default gRPC limit
     const defaultGrpcLimit = 1024 * 1024 * 4;
@@ -31,13 +66,19 @@ describe('LndClient', () => {
 
     // Define all needed methods of the LightningClient to work around gRPC throwing an error
     for (const method of Object.keys(LightningClient['service'])) {
-      serviceImplementation[method] = async (_, callback) => {
+      serviceImplementation[method] = async (
+        _: any | null,
+        callback: (error: any, res: GetInfoResponse) => void,
+      ) => {
         // "GetInfo" is the only call the LndClient is using on startup
         callback(null, new GetInfoResponse());
       };
     }
 
-    serviceImplementation['getTransactions'] = async (_, callback) => {
+    serviceImplementation['getTransactions'] = async (
+      _: any | null,
+      callback: (error: any, res: TransactionDetails) => void,
+    ) => {
       const response = new TransactionDetails();
 
       const randomTransaction = new Transaction();

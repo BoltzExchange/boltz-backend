@@ -1,8 +1,10 @@
 import { randomBytes } from 'crypto';
 import { crypto } from 'bitcoinjs-lib';
 import Errors from '../../../lib/lightning/Errors';
+import { decodeInvoice, getUnixTime } from '../../../lib/Utils';
 import { bitcoinClient, bitcoinLndClient, clnClient } from '../Nodes';
 import { InvoiceFeature } from '../../../lib/lightning/LightningClient';
+import InvoiceExpiryHelper from '../../../lib/service/InvoiceExpiryHelper';
 
 describe('ClnClient', () => {
   beforeAll(async () => {
@@ -25,6 +27,27 @@ describe('ClnClient', () => {
   test('should generate hold invoices', async () => {
     const invoice = await clnClient.addHoldInvoice(10_000, randomBytes(32));
     expect(invoice.startsWith('lnbcrt')).toBeTruthy();
+  });
+
+  test.each`
+    expiry
+    ${60}
+    ${1200}
+    ${3600}
+    ${43200}
+  `('should create invoices with expiry $expiry', async ({ expiry }) => {
+    const invoice = await clnClient.addHoldInvoice(
+      10_000,
+      randomBytes(32),
+      undefined,
+      expiry,
+    );
+    const { timestamp, timeExpireDate } = decodeInvoice(invoice);
+    expect(
+      getUnixTime() +
+        expiry -
+        InvoiceExpiryHelper.getInvoiceExpiry(timestamp, timeExpireDate),
+    ).toBeLessThanOrEqual(5);
   });
 
   test('should fail settle for invalid states', async () => {

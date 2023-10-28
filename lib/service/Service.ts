@@ -17,7 +17,6 @@ import LndClient from '../lightning/LndClient';
 import ElementsService from './ElementsService';
 import SwapOutputType from '../swap/SwapOutputType';
 import ElementsClient from '../chain/ElementsClient';
-import InvoiceExpiryHelper from './InvoiceExpiryHelper';
 import PaymentRequestUtils from './PaymentRequestUtils';
 import PairRepository from '../db/repositories/PairRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
@@ -145,7 +144,6 @@ class Service {
       this.nodeSwitch,
       this.rateProvider,
       this.timeoutDeltaProvider,
-      new InvoiceExpiryHelper(config.currencies),
       new SwapOutputType(
         config.swapwitnessaddress
           ? OutputType.Bech32

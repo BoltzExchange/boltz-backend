@@ -1,41 +1,89 @@
-import { CurrencyConfig } from '../../../lib/Config';
+import { getPairId } from '../../../lib/Utils';
+import { PairConfig } from '../../../lib/consts/Types';
 import InvoiceExpiryHelper from '../../../lib/service/InvoiceExpiryHelper';
+import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
+
+jest.mock('../../../lib/service/TimeoutDeltaProvider', () => {
+  return jest.fn().mockImplementation(() => ({
+    timeoutDeltas: new Map<string, any>([
+      [
+        'RBTC/BTC',
+        {
+          quote: {
+            swapMaximal: 0,
+            swapMinimal: 0,
+            reverse: 144,
+          },
+        },
+      ],
+    ]),
+  }));
+});
+
+const MockedTimeoutDeltaProvider = <jest.Mock<TimeoutDeltaProvider>>(
+  (<any>TimeoutDeltaProvider)
+);
+
+(MockedTimeoutDeltaProvider as any).blockTimes = new Map<string, number>([
+  ['BTC', 10],
+]);
 
 describe('InvoiceExpiryHelper', () => {
-  const currencies = [
+  const pairs = [
     {
-      symbol: 'BTC',
+      base: 'BTC',
+      quote: 'BTC',
       invoiceExpiry: 123,
     },
     {
-      symbol: 'LTC',
+      base: 'LTC',
+      quote: 'BTC',
       invoiceExpiry: 210,
     },
-  ] as any as CurrencyConfig[];
+    {
+      base: 'RBTC',
+      quote: 'BTC',
+    },
+  ] as any as PairConfig[];
 
-  const helper = new InvoiceExpiryHelper(currencies);
+  const timeoutDeltaProvider = MockedTimeoutDeltaProvider();
 
-  test('should get expiry of invoices', () => {
-    // Defined in the currency array
-    expect(helper.getExpiry(currencies[0].symbol)).toEqual(
-      currencies[0].invoiceExpiry,
-    );
-    expect(helper.getExpiry(currencies[1].symbol)).toEqual(
-      currencies[1].invoiceExpiry,
-    );
+  const helper = new InvoiceExpiryHelper(pairs, timeoutDeltaProvider);
 
-    // Default value
+  test.each`
+    pair                   | expected
+    ${getPairId(pairs[0])} | ${123}
+    ${getPairId(pairs[1])} | ${210}
+  `(
+    'should get expiry of invoices with set invoiceExpiry',
+    ({ pair, expected }) => {
+      expect(helper.getExpiry(pair)).toEqual(expected);
+    },
+  );
+
+  test('should use 50% of swap timeout for invoice expiry', () => {
+    expect(helper.getExpiry(getPairId(pairs[2]))).toEqual((144 * 10 * 60) / 2);
+  });
+
+  test('should default when pair cannot be found', () => {
     expect(helper.getExpiry('DOGE')).toEqual(3600);
+    expect(helper.getExpiry('DOGE/BTC')).toEqual(3600);
   });
 
-  test('should calculate expiry of invoices', () => {
-    // Should use expiry date when defined
-    expect(InvoiceExpiryHelper.getInvoiceExpiry(120, 360)).toEqual(360);
-
-    // Should add default expiry to timestamp when expiry is not defined
-    expect(InvoiceExpiryHelper.getInvoiceExpiry(120)).toEqual(3720);
-
-    // should use 0 as timestamp when not defined
-    expect(InvoiceExpiryHelper.getInvoiceExpiry()).toEqual(3600);
-  });
+  test.each`
+    timestamp    | timeExpiryDate | expected
+    ${120}       | ${360}         | ${360}
+    ${400}       | ${360}         | ${360}
+    ${400}       | ${1200}        | ${1200}
+    ${120}       | ${undefined}   | ${3720}
+    ${400}       | ${undefined}   | ${4000}
+    ${undefined} | ${undefined}   | ${3600}
+  `(
+    'should calculate expiry of invoice (timestamp $timestamp, timeExpiryDate $timeExpiryDate)',
+    ({ timestamp, timeExpiryDate, expected }) => {
+      expect(
+        InvoiceExpiryHelper.getInvoiceExpiry(timestamp, timeExpiryDate),
+      ).toEqual(expected);
+    },
+  );
 });

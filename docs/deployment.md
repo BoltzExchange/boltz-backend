@@ -35,7 +35,7 @@ mnemonicpath = "/home/boltz/.boltz/seed.dat"
 loglevel = "debug"
 
 # Logs can be sent to a Loki log aggregator
-# lokiHost = "http://10.0.0.9:3100"
+# lokiHost = "http://127.0.0.1:3100"
 # lokiNetwork = "regtest"
 
 # This value configures the type of the lockup address of normal Submarine Swaps:

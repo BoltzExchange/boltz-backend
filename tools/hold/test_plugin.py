@@ -268,9 +268,7 @@ class TestHold:
         list_invoice = cln(
             "listholdinvoices",
             payment_hash,
-        )[
-            "holdinvoices"
-        ][0]
+        )["holdinvoices"][0]
         assert list_invoice["state"] == "accepted"
         for htlc in list_invoice["htlcs"]:
             assert htlc["state"] == "accepted"
@@ -285,9 +283,7 @@ class TestHold:
         list_invoice = cln(
             "listholdinvoices",
             payment_hash,
-        )[
-            "holdinvoices"
-        ][0]
+        )["holdinvoices"][0]
 
         assert list_invoice["state"] == "paid"
         for htlc in list_invoice["htlcs"]:
@@ -308,9 +304,7 @@ class TestHold:
         list_invoice = cln(
             "listholdinvoices",
             payment_hash,
-        )[
-            "holdinvoices"
-        ][0]
+        )["holdinvoices"][0]
 
         assert list_invoice["state"] == "accepted"
         assert len(list_invoice["htlcs"]) == parts
@@ -326,9 +320,7 @@ class TestHold:
         list_invoice = cln(
             "listholdinvoices",
             payment_hash,
-        )[
-            "holdinvoices"
-        ][0]
+        )["holdinvoices"][0]
 
         assert list_invoice["state"] == "paid"
         assert len(list_invoice["htlcs"]) == parts
@@ -351,9 +343,7 @@ class TestHold:
         list_invoice = cln(
             "listholdinvoices",
             payment_hash,
-        )[
-            "holdinvoices"
-        ][0]
+        )["holdinvoices"][0]
         assert list_invoice["state"] == "paid"
         assert len(list_invoice["htlcs"]) == 1
         assert list_invoice["htlcs"][0]["state"] == "paid"
@@ -368,9 +358,7 @@ class TestHold:
         list_invoice = cln(
             "listholdinvoices",
             payment_hash,
-        )[
-            "holdinvoices"
-        ][0]
+        )["holdinvoices"][0]
         assert list_invoice["state"] == "paid"
         assert len(list_invoice["htlcs"]) == 2
         assert list_invoice["htlcs"][0]["state"] == "paid"
@@ -396,9 +384,7 @@ class TestHold:
         list_invoice = cln(
             "listholdinvoices",
             payment_hash,
-        )[
-            "holdinvoices"
-        ][0]
+        )["holdinvoices"][0]
         assert list_invoice["state"] == "accepted"
         assert len(list_invoice["htlcs"]) == 2
         assert list_invoice["htlcs"][0]["state"] == "accepted"
@@ -412,9 +398,7 @@ class TestHold:
         list_invoice = cln(
             "listholdinvoices",
             payment_hash,
-        )[
-            "holdinvoices"
-        ][0]
+        )["holdinvoices"][0]
         assert list_invoice["state"] == "paid"
         assert len(list_invoice["htlcs"]) == 2
         assert list_invoice["htlcs"][0]["state"] == "paid"
@@ -457,9 +441,7 @@ class TestHold:
             cln(
                 "listholdinvoices",
                 payment_hash,
-            )["holdinvoices"][
-                0
-            ]["state"]
+            )["holdinvoices"][0]["state"]
             == "cancelled"
         )
 
@@ -474,9 +456,7 @@ class TestHold:
         list_invoice = cln(
             "listholdinvoices",
             payment_hash,
-        )[
-            "holdinvoices"
-        ][0]
+        )["holdinvoices"][0]
         assert list_invoice["state"] == "accepted"
         assert len(list_invoice["htlcs"]) == 1
         assert list_invoice["htlcs"][0]["state"] == "accepted"
@@ -490,9 +470,7 @@ class TestHold:
         list_invoice = cln(
             "listholdinvoices",
             payment_hash,
-        )[
-            "holdinvoices"
-        ][0]
+        )["holdinvoices"][0]
         assert list_invoice["state"] == "cancelled"
         assert len(list_invoice["htlcs"]) == 1
         assert list_invoice["htlcs"][0]["state"] == "cancelled"
@@ -526,9 +504,7 @@ class TestHold:
             cln(
                 "listholdinvoices",
                 payment_hash,
-            )["holdinvoices"][
-                0
-            ]["state"]
+            )["holdinvoices"][0]["state"]
             == "unpaid"
         )
 
@@ -544,9 +520,7 @@ class TestHold:
         list_invoice = cln(
             "listholdinvoices",
             payment_hash,
-        )[
-            "holdinvoices"
-        ][0]
+        )["holdinvoices"][0]
         assert list_invoice["state"] == "unpaid"
         assert len(list_invoice["htlcs"]) == 1
         assert list_invoice["htlcs"][0]["state"] == "cancelled"
@@ -581,9 +555,7 @@ class TestHold:
         list_invoice = cln(
             "listholdinvoices",
             payment_hash,
-        )[
-            "holdinvoices"
-        ][0]
+        )["holdinvoices"][0]
         assert list_invoice["state"] == "unpaid"
         assert len(list_invoice["htlcs"]) == 1
         assert list_invoice["htlcs"][0]["state"] == "cancelled"
@@ -612,9 +584,7 @@ class TestHold:
         list_invoice = cln(
             "listholdinvoices",
             payment_hash,
-        )[
-            "holdinvoices"
-        ][0]
+        )["holdinvoices"][0]
         assert list_invoice["state"] == "unpaid"
         assert len(list_invoice["htlcs"]) == 1
         assert list_invoice["htlcs"][0]["state"] == "cancelled"
@@ -643,9 +613,7 @@ class TestHold:
         list_invoice = cln(
             "listholdinvoices",
             payment_hash,
-        )[
-            "holdinvoices"
-        ][0]
+        )["holdinvoices"][0]
         assert list_invoice["state"] == "unpaid"
         assert len(list_invoice["htlcs"]) == 1
         assert list_invoice["htlcs"][0]["state"] == "cancelled"

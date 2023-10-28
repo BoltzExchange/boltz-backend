@@ -213,10 +213,6 @@ class Controller {
 
       const response: Record<string, any> = {};
       for (const [network, networkContracts] of Object.entries(contracts)) {
-        if (contracts === undefined) {
-          continue;
-        }
-
         response[network] = {
           network: networkContracts.network,
           swapContracts: mapToObject(networkContracts.swapContracts),

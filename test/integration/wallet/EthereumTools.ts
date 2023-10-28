@@ -12,22 +12,29 @@ import {
   TransactionResponse,
   Wallet,
 } from 'ethers';
+import { generateMnemonic } from 'bip39';
 
 export type EthereumSetup = {
+  mnemonic: string;
   signer: Signer;
   etherBase: Signer;
   provider: JsonRpcProvider;
 };
 
+export const providerEndpoint = 'http://127.0.0.1:8545';
+
 export const getSigner = async (): Promise<EthereumSetup> => {
-  const provider = new JsonRpcProvider('http://127.0.0.1:8545', undefined, {
+  const provider = new JsonRpcProvider(providerEndpoint, undefined, {
     polling: true,
   });
   provider.pollingInterval = 500;
 
+  const mnemonic = generateMnemonic();
+
   return {
+    mnemonic,
     provider,
-    signer: Wallet.createRandom().connect(provider),
+    signer: Wallet.fromPhrase(mnemonic).connect(provider),
     etherBase: await provider.getSigner(0),
   };
 };

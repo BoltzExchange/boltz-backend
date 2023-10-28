@@ -106,7 +106,7 @@ const timeouts = new Map<
 ]);
 const mockGetTimeouts = jest.fn().mockReturnValue(timeouts);
 
-const getContracts = {
+const getContracts: Record<string, any> = {
   ethereum: {
     network: {
       some: 'networkData',
@@ -120,7 +120,7 @@ const getContracts = {
     ]),
   },
 };
-const mockGetContracts = jest.fn().mockReturnValue(getContracts);
+const mockGetContracts = jest.fn().mockImplementation(async () => getContracts);
 
 const mockGetRoutingHintsResult = [
   {
@@ -273,6 +273,10 @@ describe('Controller', () => {
       Promise.resolve(channelCreation);
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   test('should load status of all swaps on init', async () => {
     await controller.init();
 
@@ -393,6 +397,35 @@ describe('Controller', () => {
         network: getContracts.ethereum.network,
         swapContracts: mapToObject(getContracts.ethereum.swapContracts),
         tokens: mapToObject(getContracts.ethereum.tokens),
+      },
+    });
+  });
+
+  test('should get contracts for multiple chains', async () => {
+    getContracts.rsk = {
+      network: {
+        chainId: 123,
+      },
+      swapContracts: new Map<string, string>([['EtherSwap', '0x123']]),
+      tokens: new Map<string, string>(),
+    };
+
+    const res = mockResponse();
+    await controller.getContracts(mockRequest({}), res);
+
+    expect(mockGetContracts).toHaveBeenCalledTimes(1);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      ethereum: {
+        network: getContracts.ethereum.network,
+        swapContracts: mapToObject(getContracts.ethereum.swapContracts),
+        tokens: mapToObject(getContracts.ethereum.tokens),
+      },
+      rsk: {
+        network: getContracts.rsk.network,
+        swapContracts: mapToObject(getContracts.rsk.swapContracts),
+        tokens: {},
       },
     });
   });

@@ -200,4 +200,22 @@ describe('FeeProvider', () => {
 
     expect(feeProvider.getBaseFee('LTC', BaseFeeType.NormalClaim)).toEqual(510);
   });
+
+  test.each`
+    gasPrice    | gasUsage   | expected
+    ${0.065164} | ${100_000} | ${651}
+    ${0.06}     | ${100_000} | ${600}
+    ${0.042}    | ${100_000} | ${420}
+    ${0.042}    | ${50_000}  | ${210}
+    ${0.006}    | ${100_000} | ${60}
+    ${0.0006}   | ${100_000} | ${6}
+    ${0.0001}   | ${100_000} | ${1}
+  `(
+    'should calculate gas cost for gas price $gasPrice',
+    ({ gasPrice, gasUsage, expected }) => {
+      expect(FeeProvider['calculateEtherGasCost'](gasPrice, gasUsage)).toEqual(
+        expected,
+      );
+    },
+  );
 });

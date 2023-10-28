@@ -157,7 +157,7 @@ def list_images(to_list: list[str]) -> None:
         build_details = get_build_details(image)
 
         print(f"  - {image}")
-        print(f"  - Tag: {build_details.tag}")
+        print(f"    Tag: {build_details.tag}")
 
         print()
 

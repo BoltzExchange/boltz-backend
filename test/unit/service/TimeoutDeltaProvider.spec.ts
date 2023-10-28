@@ -8,6 +8,8 @@ import { OrderSide } from '../../../lib/consts/Enums';
 import { PairConfig } from '../../../lib/consts/Types';
 import LndClient from '../../../lib/lightning/LndClient';
 import { Currency } from '../../../lib/wallet/WalletManager';
+import { Ethereum, Rsk } from '../../../lib/wallet/ethereum/EvmNetworks';
+import EthereumManager from '../../../lib/wallet/ethereum/EthereumManager';
 import TimeoutDeltaProvider, {
   PairTimeoutBlocksDelta,
 } from '../../../lib/service/TimeoutDeltaProvider';
@@ -79,7 +81,19 @@ describe('TimeoutDeltaProvider', () => {
   beforeAll(() => {
     cleanup();
 
-    deltaProvider.init(currencies);
+    deltaProvider.init(currencies, [
+      {
+        networkDetails: Ethereum,
+        tokenAddresses: new Map<string, string>([
+          ['USDT', '0xUSDT'],
+          ['USDC', '0xUSDC'],
+        ]),
+      } as EthereumManager,
+      {
+        networkDetails: Rsk,
+        tokenAddresses: new Map<string, string>([['DLLR', '0xDLLR']]),
+      } as EthereumManager,
+    ]);
   });
 
   afterAll(() => {
@@ -110,13 +124,29 @@ describe('TimeoutDeltaProvider', () => {
 
   test('should not init if no timeout delta was provided', () => {
     expect(() =>
-      deltaProvider.init([
-        {
-          base: 'should',
-          quote: 'throw',
-        },
-      ] as PairConfig[]),
+      deltaProvider.init(
+        [
+          {
+            base: 'should',
+            quote: 'throw',
+          },
+        ] as PairConfig[],
+        [],
+      ),
     ).toThrow(Errors.NO_TIMEOUT_DELTA('should/throw').message);
+  });
+
+  test('should set block times of tokens', () => {
+    expect(TimeoutDeltaProvider.blockTimes.size).toEqual(8);
+    expect(TimeoutDeltaProvider.blockTimes.get('USDT')).toEqual(
+      TimeoutDeltaProvider.blockTimes.get(Ethereum.symbol),
+    );
+    expect(TimeoutDeltaProvider.blockTimes.get('USDC')).toEqual(
+      TimeoutDeltaProvider.blockTimes.get(Ethereum.symbol),
+    );
+    expect(TimeoutDeltaProvider.blockTimes.get('DLLR')).toEqual(
+      TimeoutDeltaProvider.blockTimes.get(Rsk.symbol),
+    );
   });
 
   test('should get timeout deltas', async () => {

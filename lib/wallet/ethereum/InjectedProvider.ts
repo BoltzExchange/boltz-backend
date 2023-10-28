@@ -1,19 +1,19 @@
 import {
-  Log,
+  AddressLike,
+  AlchemyProvider,
+  BigNumberish,
   Block,
-  Filter,
+  BlockTag,
   FeeData,
+  Filter,
+  InfuraProvider,
+  JsonRpcProvider,
+  Listener,
+  Log,
   Network,
   Provider,
-  BlockTag,
-  Listener,
-  AddressLike,
-  Transaction,
-  BigNumberish,
   ProviderEvent,
-  InfuraProvider,
-  AlchemyProvider,
-  JsonRpcProvider,
+  Transaction,
   TransactionReceipt,
   TransactionRequest,
   TransactionResponse,
@@ -21,12 +21,12 @@ import {
 import Errors from './Errors';
 import Logger from '../../Logger';
 import { formatError, stringify } from '../../Utils';
+import PendingEthereumTransactionRepository from '../../db/repositories/PendingEthereumTransactionRepository';
 import {
   EthereumConfig,
   EthProviderServiceConfig,
   RskConfig,
 } from '../../Config';
-import PendingEthereumTransactionRepository from '../../db/repositories/PendingEthereumTransactionRepository';
 
 enum EthProviderService {
   Node = 'Node',
@@ -251,8 +251,10 @@ class InjectedProvider implements Provider {
     return this.forwardMethodNullable('getTransactionReceipt', transactionHash);
   };
 
-  public getTransactionResult = (hash: string): Promise<string | null> => {
-    return this.forwardMethodNullable('getTransactionResult', hash);
+  public getTransactionResult = (
+    transactionHash: string,
+  ): Promise<string | null> => {
+    return this.forwardMethodNullable('getTransactionResult', transactionHash);
   };
 
   public lookupAddress = (address: string): Promise<string> => {
@@ -269,18 +271,25 @@ class InjectedProvider implements Provider {
     const transaction = Transaction.from(signedTransaction);
     await this.addToTransactionDatabase(transaction.hash!, transaction.nonce);
 
-    const promises: Promise<TransactionResponse>[] = [];
-
     // When sending a transaction, you want it to propagate on the network as quickly as possible
     // Therefore, we send it to all available providers
-    for (const provider of this.providers.values()) {
-      // TODO: handle rejections
-      promises.push(provider.broadcastTransaction(signedTransaction));
+    const promises = Array.from(this.providers.values()).map((provider) =>
+      provider.broadcastTransaction(signedTransaction),
+    );
+
+    const settled = await Promise.allSettled(promises);
+    const results = settled
+      .filter(
+        (res): res is PromiseFulfilledResult<TransactionResponse> =>
+          res.status === 'fulfilled',
+      )
+      .map((res) => res.value);
+
+    if (results.length > 0) {
+      return results[0];
     }
 
-    // Return the result from whichever provider resolved the Promise first
-    // The other "sendTransaction" calls will still be executed but the result won't be returned
-    return Promise.race(promises);
+    throw (settled[0] as PromiseRejectedResult).reason;
   };
 
   public sendTransaction = async (
@@ -528,3 +537,4 @@ class InjectedProvider implements Provider {
 }
 
 export default InjectedProvider;
+export { EthProviderService };

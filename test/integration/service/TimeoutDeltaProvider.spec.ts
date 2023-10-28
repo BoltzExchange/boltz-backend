@@ -80,15 +80,18 @@ describe('TimeoutDeltaProvider', () => {
   });
 
   test('should init', () => {
-    deltaProvider.init([
-      {
-        base,
-        quote,
-        timeoutDelta,
-        minSwapAmount: 0,
-        maxSwapAmount: 1,
-      },
-    ]);
+    deltaProvider.init(
+      [
+        {
+          base,
+          quote,
+          timeoutDelta,
+          minSwapAmount: 0,
+          maxSwapAmount: 1,
+        },
+      ],
+      [],
+    );
   });
 
   test('should get timeouts of swaps without invoices', async () => {

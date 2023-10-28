@@ -70,8 +70,8 @@ class RateProvider {
     private logger: Logger,
     private rateUpdateInterval: number,
     private currencies: Map<string, Currency>,
+    private readonly walletManager: WalletManager,
     getFeeEstimation: (symbol: string) => Promise<Map<string, number>>,
-    walletManager: WalletManager,
   ) {
     this.feeProvider = new FeeProvider(
       this.logger,
@@ -127,12 +127,16 @@ class RateProvider {
       } else {
         this.dataAggregator.registerPair(pair.base, pair.quote);
 
-        // TODO: find way to get ETH/<token> rate without having to hardcode it here
-        // TODO: RSK
+        // TODO: find way to get <chain fee asset>/<token> rate without having to hardcode it here
         const checkAndRegisterToken = (symbol: string) => {
-          if (this.currencies.get(symbol)!.type === CurrencyType.ERC20) {
-            this.dataAggregator.registerPair('ETH', symbol);
+          if (this.currencies.get(symbol)!.type !== CurrencyType.ERC20) {
+            return;
           }
+
+          const chainFeeSymbol = this.walletManager.ethereumManagers.find(
+            (manager) => manager.hasSymbol(symbol),
+          )!.networkDetails.symbol;
+          this.dataAggregator.registerPair(chainFeeSymbol, symbol);
         };
 
         checkAndRegisterToken(pair.base);

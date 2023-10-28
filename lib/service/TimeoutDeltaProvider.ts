@@ -25,6 +25,7 @@ import {
   splitPairId,
   stringify,
 } from '../Utils';
+import EthereumManager from '../wallet/ethereum/EthereumManager';
 
 type PairTimeoutBlocksDelta = {
   reverse: number;
@@ -68,14 +69,28 @@ class TimeoutDeltaProvider {
     toSymbol: string,
     blocks: number,
   ): number => {
-    const minutes = blocks * TimeoutDeltaProvider.getBlockTime(fromSymbol)!;
+    const minutes = blocks * TimeoutDeltaProvider.blockTimes.get(fromSymbol)!;
 
     // In the context this function is used, we calculate the timeout of the first leg of a
     // reverse swap which has to be longer than the second one
-    return Math.ceil(minutes / TimeoutDeltaProvider.getBlockTime(toSymbol)!);
+    return Math.ceil(minutes / TimeoutDeltaProvider.blockTimes.get(toSymbol)!);
   };
 
-  public init = (pairs: PairConfig[]): void => {
+  public init = (
+    pairs: PairConfig[],
+    ethereumManagers: EthereumManager[],
+  ): void => {
+    // Set the block time of the chain for its tokens
+    ethereumManagers.forEach((manager) => {
+      const blockTime = TimeoutDeltaProvider.blockTimes.get(
+        manager.networkDetails.symbol,
+      )!;
+
+      for (const token of manager.tokenAddresses.keys()) {
+        TimeoutDeltaProvider.blockTimes.set(token, blockTime);
+      }
+    });
+
     for (const pair of pairs) {
       const pairId = getPairId(pair);
 
@@ -270,7 +285,8 @@ class TimeoutDeltaProvider {
 
     // Add some buffer to make sure we have enough limit when the transaction confirms
     const routeDeltaMinutes = Math.ceil(
-      routeDeltaRelative * TimeoutDeltaProvider.getBlockTime(lightningCurrency),
+      routeDeltaRelative *
+        TimeoutDeltaProvider.blockTimes.get(lightningCurrency)!,
     );
 
     const routingOffset = this.routingOffsets.getOffset(
@@ -284,14 +300,14 @@ class TimeoutDeltaProvider {
     const finalExpiry = routeDeltaMinutes + routingOffset;
 
     const minTimeout = Math.ceil(
-      finalExpiry / TimeoutDeltaProvider.getBlockTime(chainCurrency),
+      finalExpiry / TimeoutDeltaProvider.blockTimes.get(chainCurrency)!,
     );
 
     if (minTimeout > chainTimeout.swapMaximal) {
       throw Errors.MIN_EXPIRY_TOO_BIG(
         Math.ceil(
           chainTimeout.swapMaximal *
-            TimeoutDeltaProvider.getBlockTime(chainCurrency),
+            TimeoutDeltaProvider.blockTimes.get(chainCurrency)!,
         ),
         routeDeltaMinutes,
         routingOffset,
@@ -308,7 +324,7 @@ class TimeoutDeltaProvider {
     newDeltas: PairTimeoutBlocksDelta,
   ) => {
     const calculateBlocks = (symbol: string, minutes: number) => {
-      const minutesPerBlock = TimeoutDeltaProvider.getBlockTime(symbol);
+      const minutesPerBlock = TimeoutDeltaProvider.blockTimes.get(symbol)!;
       const blocks = minutes / minutesPerBlock;
 
       // Sanity checks to make sure no impossible deltas are set
@@ -333,16 +349,6 @@ class TimeoutDeltaProvider {
       base: convertToBlocks(base),
       quote: convertToBlocks(quote),
     };
-  };
-
-  /**
-   * If the block time for the symbol is not hardcoded, it is assumed that the symbol belongs to an ERC20 token
-   */
-  private static getBlockTime = (symbol: string): number => {
-    return (
-      TimeoutDeltaProvider.blockTimes.get(symbol) ||
-      TimeoutDeltaProvider.blockTimes.get('ETH')!
-    );
   };
 }
 

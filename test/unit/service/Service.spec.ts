@@ -233,6 +233,7 @@ jest.mock('../../../lib/wallet/WalletManager', () => {
       {
         networkDetails: Ethereum,
         provider: mockedProvider(),
+        tokenAddresses: new Map<string, string>(),
         hasSymbol: jest.fn().mockReturnValue(true),
       },
     ],

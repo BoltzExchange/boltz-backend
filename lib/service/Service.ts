@@ -1,6 +1,6 @@
 import bolt11 from 'bolt11';
-import { getAddress, Provider } from 'ethers';
 import { OutputType } from 'boltz-core';
+import { getAddress, Provider } from 'ethers';
 import Errors from './Errors';
 import Logger from '../Logger';
 import NodeInfo from './NodeInfo';
@@ -22,14 +22,15 @@ import PaymentRequestUtils from './PaymentRequestUtils';
 import PairRepository from '../db/repositories/PairRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import RateProvider, { PairType } from '../rates/RateProvider';
+import EthereumManager from '../wallet/ethereum/EthereumManager';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import ReferralRepository from '../db/repositories/ReferralRepository';
 import SwapManager, { ChannelCreationInfo } from '../swap/SwapManager';
+import { InvoiceFeature, PaymentResponse } from '../lightning/LightningClient';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import TimeoutDeltaProvider, {
   PairTimeoutBlocksDelta,
 } from './TimeoutDeltaProvider';
-import { InvoiceFeature, PaymentResponse } from '../lightning/LightningClient';
 import {
   etherDecimals,
   ethereumPrepayMinerFeeGasLimit,
@@ -69,7 +70,6 @@ import {
   splitPairId,
   stringify,
 } from '../Utils';
-import EthereumManager from '../wallet/ethereum/EthereumManager';
 
 type NetworkContracts = {
   network: {
@@ -129,8 +129,8 @@ class Service {
       this.logger,
       config.rates.interval,
       currencies,
-      this.getFeeEstimation,
       this.walletManager,
+      this.getFeeEstimation,
     );
 
     this.logger.debug(
@@ -198,7 +198,10 @@ class Service {
 
     this.logger.verbose('Updated pairs in the database');
 
-    this.timeoutDeltaProvider.init(configPairs);
+    this.timeoutDeltaProvider.init(
+      configPairs,
+      this.walletManager.ethereumManagers,
+    );
 
     this.rateProvider.feeProvider.init(configPairs);
     await this.rateProvider.init(configPairs);
@@ -449,7 +452,7 @@ class Service {
 
   /**
    * Gets the hex encoded lockup transaction of a Submarine Swap, the block height
-   * at which it will timeout and the expected ETA for that block
+   * at which it will time out and the expected ETA for that block
    */
   public getSwapTransaction = async (
     id: string,
@@ -1311,16 +1314,25 @@ class Service {
           (gasPrice * ethereumPrepayMinerFeeGasLimit) / etherDecimals,
         );
 
-        // TODO
+        const chainFeeSymbol = this.walletManager.ethereumManagers.find(
+          (manager) => manager.hasSymbol(sendingCurrency.symbol),
+        )!.networkDetails.symbol;
+
         const sendingAmountRate =
-          sending === 'ETH'
+          sending === chainFeeSymbol
             ? 1
-            : this.rateProvider.rateCalculator.calculateRate('ETH', sending);
+            : this.rateProvider.rateCalculator.calculateRate(
+                chainFeeSymbol,
+                sending,
+              );
 
         const receivingAmountRate =
-          receiving === 'ETH'
+          receiving === chainFeeSymbol
             ? 1
-            : this.rateProvider.rateCalculator.calculateRate('ETH', receiving);
+            : this.rateProvider.rateCalculator.calculateRate(
+                chainFeeSymbol,
+                receiving,
+              );
         prepayMinerFeeInvoiceAmount = Math.ceil(
           prepayMinerFeeOnchainAmount * receivingAmountRate,
         );

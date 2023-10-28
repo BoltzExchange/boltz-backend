@@ -184,8 +184,8 @@ describe('RateProvider', () => {
       ['LTC', ltcCurrency],
       ['L-BTC', lbtcCurrency],
     ]),
-    getFeeEstimation,
     {} as any,
+    getFeeEstimation,
   );
 
   rateProvider['dataProvider'] = mockedDataProvider();

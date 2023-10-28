@@ -58,9 +58,11 @@ class EthereumManager {
     config?: RskConfig | EthereumConfig,
   ) {
     if (
+      config === null ||
       config === undefined ||
-      config.etherSwapAddress === '' ||
-      config.erc20SwapAddress === ''
+      [config.etherSwapAddress, config.erc20SwapAddress].some(
+        (value) => value === undefined || value === '',
+      )
     ) {
       throw Errors.MISSING_SWAP_CONTRACTS();
     }
@@ -232,6 +234,10 @@ class EthereumManager {
     }
 
     return wallets;
+  };
+
+  public destroy = async () => {
+    await this.provider.removeAllListeners();
   };
 
   public hasSymbol = (symbol: string): boolean =>

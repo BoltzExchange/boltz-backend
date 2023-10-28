@@ -199,7 +199,7 @@ class FeeProvider {
       case Ethereum.symbol:
       case Rsk.symbol: {
         const relativeFee = feeMap.get(chainCurrency)!;
-        const claimCost = this.calculateEtherGasCost(
+        const claimCost = FeeProvider.calculateEtherGasCost(
           relativeFee,
           FeeProvider.gasUsage.EtherSwap.claim,
         );
@@ -208,7 +208,7 @@ class FeeProvider {
           normal: claimCost,
           reverse: {
             claim: claimCost,
-            lockup: this.calculateEtherGasCost(
+            lockup: FeeProvider.calculateEtherGasCost(
               relativeFee,
               FeeProvider.gasUsage.EtherSwap.lockup,
             ),
@@ -228,7 +228,7 @@ class FeeProvider {
           getPairId({ base: networkSymbol, quote: chainCurrency }),
         )!;
 
-        const claimCost = this.calculateTokenGasCosts(
+        const claimCost = FeeProvider.calculateTokenGasCosts(
           rate,
           relativeFee,
           FeeProvider.gasUsage.ERC20Swap.claim,
@@ -238,7 +238,7 @@ class FeeProvider {
           normal: claimCost,
           reverse: {
             claim: claimCost,
-            lockup: this.calculateTokenGasCosts(
+            lockup: FeeProvider.calculateTokenGasCosts(
               rate,
               relativeFee,
               FeeProvider.gasUsage.ERC20Swap.lockup,
@@ -250,15 +250,20 @@ class FeeProvider {
     }
   };
 
-  private calculateTokenGasCosts = (
+  private static calculateTokenGasCosts = (
     rate: number,
     gasPrice: number,
     gasUsage: number,
   ) => {
-    return Math.ceil(rate * this.calculateEtherGasCost(gasPrice, gasUsage));
+    return Math.ceil(
+      rate * FeeProvider.calculateEtherGasCost(gasPrice, gasUsage),
+    );
   };
 
-  private calculateEtherGasCost = (gasPrice: number, gasUsage: number) => {
+  private static calculateEtherGasCost = (
+    gasPrice: number,
+    gasUsage: number,
+  ) => {
     return Number(
       (BigInt(gasPrice * Number(gweiDecimals)) * BigInt(gasUsage)) /
         etherDecimals,

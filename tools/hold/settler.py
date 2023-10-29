@@ -79,12 +79,8 @@ class Settler:
         return self._htlcs.pop(payment_hash, [])
 
     @staticmethod
-    def _update_htlc_state(
-        invoice: HoldInvoice, htlc: HtlcRequest, new_state: HtlcState
-    ) -> None:
-        invoice.htlcs.find_htlc(
-            htlc.short_channel_id, htlc.channel_id
-        ).state = new_state
+    def _update_htlc_state(invoice: HoldInvoice, htlc: HtlcRequest, new_state: HtlcState) -> None:
+        invoice.htlcs.find_htlc(htlc.short_channel_id, htlc.channel_id).state = new_state
 
     @staticmethod
     def fail_callback(req: Request, message: HtlcFailureMessage) -> None:

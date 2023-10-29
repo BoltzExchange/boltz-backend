@@ -183,9 +183,7 @@ def add_HoldServicer_to_server(servicer, server):
             response_serializer=hold__pb2.GetRouteResponse.SerializeToString,
         ),
     }
-    generic_handler = grpc.method_handlers_generic_handler(
-        "hold.Hold", rpc_method_handlers
-    )
+    generic_handler = grpc.method_handlers_generic_handler("hold.Hold", rpc_method_handlers)
     server.add_generic_rpc_handlers((generic_handler,))
 
 

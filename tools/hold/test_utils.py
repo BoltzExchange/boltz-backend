@@ -136,9 +136,7 @@ def cln_con(*args: str) -> dict[str, Any]:
 
 
 def get_channel_info(node: str, short_chan_id: str | int) -> dict[str, Any]:
-    channel_infos = cln_con("listchannels", "-k", f"short_channel_id={short_chan_id}")[
-        "channels"
-    ]
+    channel_infos = cln_con("listchannels", "-k", f"short_channel_id={short_chan_id}")["channels"]
     return channel_infos[0] if channel_infos[0]["source"] == node else channel_infos[1]
 
 

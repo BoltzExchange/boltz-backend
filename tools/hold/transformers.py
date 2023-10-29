@@ -110,9 +110,7 @@ class Transformers:
 
     @staticmethod
     def routing_hint_from_json(hint: dict[str, Any]) -> RouteHint:
-        return RouteHint(
-            routes=[Transformers.hop_from_json(hop) for hop in hint["routes"]]
-        )
+        return RouteHint(routes=[Transformers.hop_from_json(hop) for hop in hint["routes"]])
 
     @staticmethod
     def hop_from_json(hop: dict[str, str | int]) -> Route:
@@ -142,9 +140,7 @@ class Transformers:
         )
 
     @staticmethod
-    def pay_status_attempt_to_grpc(
-        res: dict[str, Any]
-    ) -> PayStatusResponse.PayStatus.Attempt:
+    def pay_status_attempt_to_grpc(res: dict[str, Any]) -> PayStatusResponse.PayStatus.Attempt:
         def transform_failure_data(
             failure_data: dict[str, Any]
         ) -> PayStatusResponse.PayStatus.Attempt.Failure.Data:
@@ -163,9 +159,7 @@ class Transformers:
             return PayStatusResponse.PayStatus.Attempt.Failure(
                 message=failure["message"],
                 code=failure["code"],
-                data=transform_failure_data(failure["data"])
-                if "data" in failure
-                else None,
+                data=transform_failure_data(failure["data"]) if "data" in failure else None,
             )
 
         attempt = PayStatusResponse.PayStatus.Attempt(
@@ -211,9 +205,6 @@ class Transformers:
             return Transformers.named_tuples_to_dict(val._asdict())
 
         if isinstance(val, dict):
-            return {
-                key: Transformers.named_tuples_to_dict(value)
-                for key, value in val.items()
-            }
+            return {key: Transformers.named_tuples_to_dict(value) for key, value in val.items()}
 
         return val

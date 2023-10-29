@@ -7,7 +7,7 @@ from hashlib import sha256
 import bolt11
 import pytest
 from bolt11.types import MilliSatoshi
-from consts import PLUGIN_NAME
+from consts import OVERPAYMENT_FACTOR, PLUGIN_NAME
 from encoder import Defaults
 from test_utils import (
     PLUGIN_PATH,
@@ -24,9 +24,7 @@ from test_utils import (
 )
 
 
-def add_hold_invoice(
-    cln: CliCaller, amount_msat: int = 100_000
-) -> tuple[str, str, str]:
+def add_hold_invoice(cln: CliCaller, amount_msat: int = 100_000) -> tuple[str, str, str]:
     payment_preimage = random.randbytes(32)
     payment_hash = sha256(payment_preimage).hexdigest()
 
@@ -179,18 +177,14 @@ class TestHold:
 
         cln_res = cln("holdinvoice", payment_hash, str(amount))
         assert cln_res["code"] == 2101
-        assert (
-            cln_res["message"] == "hold invoice with that payment hash exists already"
-        )
+        assert cln_res["message"] == "hold invoice with that payment hash exists already"
 
     def test_add_invoice_duplicate_fail(self, cln: CliCaller) -> None:
         payment_hash = cln("invoice", "1000", str(uuid.uuid4()), '""')["payment_hash"]
 
         cln_res = cln("holdinvoice", payment_hash, "10000")
         assert cln_res["code"] == 2101
-        assert (
-            cln_res["message"] == "hold invoice with that payment hash exists already"
-        )
+        assert cln_res["message"] == "hold invoice with that payment hash exists already"
 
     def test_list(self, cln: CliCaller) -> None:
         invoices = cln("listholdinvoices")["holdinvoices"]
@@ -211,13 +205,11 @@ class TestHold:
             "state": "unpaid",
             "payment_preimage": None,
             "created_at": 1697995743,
-            "payment_hash": "e3e9513787fae9478704447fc954cbd1de61299f4656f2b5afb7d1a02628d3be",  # noqa: E501
+            "payment_hash": "e3e9513787fae9478704447fc954cbd1de61299f4656f2b5afb7d1a02628d3be",
             "bolt11": "lnbcrt12323230p1pjn2k7lsp57u9d0zghvyenzmxtk4xzq2yjkgj3hspcg82jzp0szvyyqnl0cekspp5u054zdu8lt550pcyg3luj4xt680xz2vlget09dd0klg6qf3g6wlqdqqcqzzs9qxpqysgqlnxpq3fd0g9wsfvpmd0anlc6n6umef9v48wjgw8myp4c9fgsf68nt4hchp9v62s8ppqxa858gk4yyats6unr2nhv2r9jntu5sj79xxcpugvr9l",  # noqa: E501
         }
 
-        data_dump = (
-            json.dumps(data).replace('"', '\\"').replace("{", "\\{").replace("}", "\\}")
-        )
+        data_dump = json.dumps(data).replace('"', '\\"').replace("{", "\\{").replace("}", "\\}")
         cln(
             "datastore",
             format_json([PLUGIN_NAME, "invoices", data["payment_hash"]]),
@@ -236,9 +228,7 @@ class TestHold:
     def test_list_by_invoice(self, cln: CliCaller, payment_hash_param: str) -> None:
         _, payment_hash, invoice = add_hold_invoice(cln)
 
-        invoice_res = cln("listholdinvoices", payment_hash_param, invoice)[
-            "holdinvoices"
-        ]
+        invoice_res = cln("listholdinvoices", payment_hash_param, invoice)["holdinvoices"]
         assert len(invoice_res) == 1
         assert invoice_res[0]["bolt11"] == invoice
         assert invoice_res[0]["payment_hash"] == payment_hash
@@ -377,9 +367,7 @@ class TestHold:
         pay_two.join()
 
         assert pay_two.res["status"] == "FAILED"
-        assert (
-            pay_two.res["failure_reason"] == "FAILURE_REASON_INCORRECT_PAYMENT_DETAILS"
-        )
+        assert pay_two.res["failure_reason"] == "FAILURE_REASON_INCORRECT_PAYMENT_DETAILS"
 
         list_invoice = cln(
             "listholdinvoices",
@@ -409,10 +397,7 @@ class TestHold:
 
         err_res = cln("settleholdinvoice", payment_preimage)
         assert err_res["code"] == 2103
-        assert (
-            err_res["message"]
-            == "illegal hold invoice state transition (unpaid -> paid)"
-        )
+        assert err_res["message"] == "illegal hold invoice state transition (unpaid -> paid)"
 
     def test_settle_cancelled(self, cln: CliCaller) -> None:
         payment_preimage, payment_hash, _ = add_hold_invoice(cln)
@@ -420,10 +405,7 @@ class TestHold:
         cln("cancelholdinvoice", payment_hash)
         err_res = cln("settleholdinvoice", payment_preimage)
         assert err_res["code"] == 2103
-        assert (
-            err_res["message"]
-            == "illegal hold invoice state transition (cancelled -> paid)"
-        )
+        assert err_res["message"] == "illegal hold invoice state transition (cancelled -> paid)"
 
     def test_settle_non_existent(self, cln: CliCaller) -> None:
         payment_preimage = random.randbytes(32).hex()
@@ -621,7 +603,7 @@ class TestHold:
     def test_overpayment_protection(self, cln: CliCaller) -> None:
         _, payment_hash, invoice = add_hold_invoice(cln)
         dec = bolt11.decode(invoice)
-        dec.amount_msat = MilliSatoshi((dec.amount_msat * 2) + 1)
+        dec.amount_msat = MilliSatoshi((dec.amount_msat * OVERPAYMENT_FACTOR) + 1)
 
         overpay_invoice = cln("signinvoice", bolt11.encode(dec))["bolt11"]
 
@@ -711,9 +693,7 @@ class TestHold:
     def test_ignore_forward(self, cln: CliCaller) -> None:
         cln_id = cln("getinfo")["id"]
         channels = lnd(LndNode.One, "listchannels")["channels"]
-        cln_channel = next(c for c in channels if c["remote_pubkey"] == cln_id)[
-            "chan_id"
-        ]
+        cln_channel = next(c for c in channels if c["remote_pubkey"] == cln_id)["chan_id"]
 
         invoice = lnd(LndNode.Two, "addinvoice", "10000")["payment_request"]
 

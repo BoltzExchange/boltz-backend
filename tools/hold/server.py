@@ -40,7 +40,10 @@ from hold import Hold, NoSuchInvoiceError
 
 
 def handle_grpc_error(
-    plugin: Plugin, method_name: str, context: grpc.ServicerContext, e: Exception
+    plugin: Plugin,
+    method_name: str,
+    context: grpc.ServicerContext,
+    e: Exception,
 ) -> None:
     estr = str(e) if str(e) != "" else repr(e)
 
@@ -79,7 +82,9 @@ class HoldService(HoldServicer):
                 request.description,
                 optional_default(request.expiry, 0, Defaults.Expiry),
                 optional_default(
-                    request.min_final_cltv_expiry, 0, Defaults.MinFinalCltvExpiry
+                    request.min_final_cltv_expiry,
+                    0,
+                    Defaults.MinFinalCltvExpiry,
                 ),
                 Transformers.routing_hints_from_grpc(list(request.routing_hints)),
             )
@@ -90,9 +95,7 @@ class HoldService(HoldServicer):
         request: RoutingHintsRequest,
         context: grpc.ServicerContext,  # noqa: ARG002
     ) -> RoutingHintsResponse:
-        return Transformers.routing_hints_to_grpc(
-            self._hold.get_private_channels(request.node)
-        )
+        return Transformers.routing_hints_to_grpc(self._hold.get_private_channels(request.node))
 
     def List(  # noqa: N802
         self,
@@ -237,7 +240,8 @@ class Server:
 
     def start(self, host: str, port: int, lightning_dir: str | None) -> None:
         self._server = grpc.server(
-            futures.ThreadPoolExecutor(), interceptors=[LogInterceptor(self._plugin)]
+            futures.ThreadPoolExecutor(),
+            interceptors=[LogInterceptor(self._plugin)],
         )
         add_HoldServicer_to_server(HoldService(self._plugin, self._hold), self._server)
 

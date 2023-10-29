@@ -47,10 +47,7 @@ class Hold:
         min_final_cltv_expiry: int,
         route_hints: list[RouteHint] | None = None,
     ) -> str:
-        if (
-            len(self._plugin.rpc.listinvoices(payment_hash=payment_hash)["invoices"])
-            > 0
-        ):
+        if len(self._plugin.rpc.listinvoices(payment_hash=payment_hash)["invoices"]) > 0:
             raise InvoiceExistsError
 
         bolt11 = self._encoder.encode(

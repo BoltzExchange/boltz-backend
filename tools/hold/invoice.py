@@ -48,9 +48,7 @@ class Htlc:
 
     @classmethod
     def from_json_dict(cls: type[HtlcType], json_dict: dict[str, Any]) -> HtlcType:
-        json_dict["created_at"] = datetime.fromtimestamp(
-            json_dict["created_at"], tz=timezone.utc
-        )
+        json_dict["created_at"] = datetime.fromtimestamp(json_dict["created_at"], tz=timezone.utc)
 
         return cls(**json_dict)
 
@@ -79,14 +77,15 @@ class Htlcs:
             (
                 htlc
                 for htlc in self.htlcs
-                if htlc.short_channel_id == short_channel_id
-                and htlc.channel_id == channel_id
+                if htlc.short_channel_id == short_channel_id and htlc.channel_id == channel_id
             ),
             None,
         )
 
     def cancel_expired(
-        self, expiry: int, fail_callback: Callable[[Htlc, HtlcFailureMessage], None]
+        self,
+        expiry: int,
+        fail_callback: Callable[[Htlc, HtlcFailureMessage], None],
     ) -> None:
         for htlc in self.htlcs:
             if not (time_now() - htlc.created_at).total_seconds() > expiry:
@@ -156,9 +155,7 @@ class HoldInvoice:
 
     def sum_paid(self) -> int:
         return sum(
-            h.msat
-            for h in self.htlcs.htlcs
-            if h.state in [HtlcState.Paid, HtlcState.Accepted]
+            h.msat for h in self.htlcs.htlcs if h.state in [HtlcState.Paid, HtlcState.Accepted]
         )
 
     def to_json(self) -> str:
@@ -186,15 +183,11 @@ class HoldInvoice:
             json_str = json_str.removesuffix("\\}") + "}"
 
         json_dict = json.loads(json_str)
-        json_dict["created_at"] = datetime.fromtimestamp(
-            json_dict["created_at"], tz=timezone.utc
-        )
+        json_dict["created_at"] = datetime.fromtimestamp(json_dict["created_at"], tz=timezone.utc)
 
         if "amount_msat" not in json_dict:
             json_dict["amount_msat"] = bolt11.decode(json_dict["bolt11"]).amount_msat
 
-        json_dict["htlcs"] = (
-            Htlcs.from_json_arr(json_dict["htlcs"]) if "htlcs" in json_dict else []
-        )
+        json_dict["htlcs"] = Htlcs.from_json_arr(json_dict["htlcs"]) if "htlcs" in json_dict else []
 
         return cls(**json_dict)

@@ -27,9 +27,7 @@ class HtlcHandler:
     _ds: DataStore
     _settler: Settler
 
-    def __init__(
-        self, plugin: Plugin, ds: DataStore, settler: Settler, tracker: Tracker
-    ) -> None:
+    def __init__(self, plugin: Plugin, ds: DataStore, settler: Settler, tracker: Tracker) -> None:
         self._plugin = plugin
         self._ds = ds
         self._settler = settler
@@ -84,10 +82,7 @@ class HtlcHandler:
             self._fail_and_save_htlc(request, invoice, htlc)
             return
 
-        if (
-            "payment_secret" not in onion
-            or onion["payment_secret"] != dec["payment_secret"]
-        ):
+        if "payment_secret" not in onion or onion["payment_secret"] != dec["payment_secret"]:
             self._log_htlc_rejected(
                 invoice,
                 htlc,
@@ -97,9 +92,7 @@ class HtlcHandler:
             return
 
         if invoice.state != InvoiceState.Unpaid:
-            self._log_htlc_rejected(
-                invoice, htlc, f"invoice is in state {invoice.state}"
-            )
+            self._log_htlc_rejected(invoice, htlc, f"invoice is in state {invoice.state}")
             self._fail_and_save_htlc(request, invoice, htlc)
             return
 
@@ -122,13 +115,10 @@ class HtlcHandler:
         invoice.set_state(self._tracker, InvoiceState.Accepted)
         self._ds.save_invoice(invoice, mode="must-replace")
         self._plugin.log(
-            f"Accepted hold invoice {invoice.payment_hash} "
-            f"with {len(invoice.htlcs)} HTLCs",
+            f"Accepted hold invoice {invoice.payment_hash} " f"with {len(invoice.htlcs)} HTLCs",
         )
 
-    def handle_known_htlc(
-        self, invoice: HoldInvoice, htlc: Htlc, request: Request
-    ) -> None:
+    def handle_known_htlc(self, invoice: HoldInvoice, htlc: Htlc, request: Request) -> None:
         if htlc.state == HtlcState.Accepted:
             # Pass the request to the settler to handle in the future
             self._settler.add_htlc(invoice.payment_hash, request, htlc)

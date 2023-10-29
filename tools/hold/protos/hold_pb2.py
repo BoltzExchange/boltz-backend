@@ -6,7 +6,6 @@ from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
 from google.protobuf import symbol_database as _symbol_database
 from google.protobuf.internal import builder as _builder
-
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -77,13 +76,9 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_PAYSTATUSRESPONSE_PAYSTATUS_ATTEMPT_SUCCESS"]._serialized_end = 1963
     _globals["_PAYSTATUSRESPONSE_PAYSTATUS_ATTEMPT_FAILURE"]._serialized_start = 1966
     _globals["_PAYSTATUSRESPONSE_PAYSTATUS_ATTEMPT_FAILURE"]._serialized_end = 2216
-    _globals[
-        "_PAYSTATUSRESPONSE_PAYSTATUS_ATTEMPT_FAILURE_DATA"
-    ]._serialized_start = 2083
+    _globals["_PAYSTATUSRESPONSE_PAYSTATUS_ATTEMPT_FAILURE_DATA"]._serialized_start = 2083
     _globals["_PAYSTATUSRESPONSE_PAYSTATUS_ATTEMPT_FAILURE_DATA"]._serialized_end = 2207
-    _globals[
-        "_PAYSTATUSRESPONSE_PAYSTATUS_ATTEMPT_ATTEMPTSTATE"
-    ]._serialized_start = 2218
+    _globals["_PAYSTATUSRESPONSE_PAYSTATUS_ATTEMPT_ATTEMPTSTATE"]._serialized_start = 2218
     _globals["_PAYSTATUSRESPONSE_PAYSTATUS_ATTEMPT_ATTEMPTSTATE"]._serialized_end = 2276
     _globals["_GETROUTEREQUEST"]._serialized_start = 2316
     _globals["_GETROUTEREQUEST"]._serialized_end = 2526

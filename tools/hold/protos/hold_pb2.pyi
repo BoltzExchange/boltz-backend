@@ -87,13 +87,7 @@ class RoutingHintsRequest(_message.Message):
     def __init__(self, node: _Optional[str] = ...) -> None: ...
 
 class Hop(_message.Message):
-    __slots__ = [
-        "public_key",
-        "short_channel_id",
-        "base_fee",
-        "ppm_fee",
-        "cltv_expiry_delta",
-    ]
+    __slots__ = ["public_key", "short_channel_id", "base_fee", "ppm_fee", "cltv_expiry_delta"]
     PUBLIC_KEY_FIELD_NUMBER: _ClassVar[int]
     SHORT_CHANNEL_ID_FIELD_NUMBER: _ClassVar[int]
     BASE_FEE_FIELD_NUMBER: _ClassVar[int]
@@ -117,9 +111,7 @@ class RoutingHint(_message.Message):
     __slots__ = ["hops"]
     HOPS_FIELD_NUMBER: _ClassVar[int]
     hops: _containers.RepeatedCompositeFieldContainer[Hop]
-    def __init__(
-        self, hops: _Optional[_Iterable[_Union[Hop, _Mapping]]] = ...
-    ) -> None: ...
+    def __init__(self, hops: _Optional[_Iterable[_Union[Hop, _Mapping]]] = ...) -> None: ...
 
 class RoutingHintsResponse(_message.Message):
     __slots__ = ["hints"]
@@ -195,9 +187,7 @@ class ListResponse(_message.Message):
     __slots__ = ["invoices"]
     INVOICES_FIELD_NUMBER: _ClassVar[int]
     invoices: _containers.RepeatedCompositeFieldContainer[Invoice]
-    def __init__(
-        self, invoices: _Optional[_Iterable[_Union[Invoice, _Mapping]]] = ...
-    ) -> None: ...
+    def __init__(self, invoices: _Optional[_Iterable[_Union[Invoice, _Mapping]]] = ...) -> None: ...
 
 class SettleRequest(_message.Message):
     __slots__ = ["payment_preimage"]
@@ -258,10 +248,8 @@ class PayStatusRequest(_message.Message):
 
 class PayStatusResponse(_message.Message):
     __slots__ = ["status"]
-
     class PayStatus(_message.Message):
         __slots__ = ["bolt11", "amount_msat", "destination", "attempts"]
-
         class Attempt(_message.Message):
             __slots__ = [
                 "strategy",
@@ -272,18 +260,12 @@ class PayStatusResponse(_message.Message):
                 "success",
                 "failure",
             ]
-
             class AttemptState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
                 __slots__ = []
-                ATTEMPT_PENDING: _ClassVar[
-                    PayStatusResponse.PayStatus.Attempt.AttemptState
-                ]
-                ATTEMPT_COMPLETED: _ClassVar[
-                    PayStatusResponse.PayStatus.Attempt.AttemptState
-                ]
+                ATTEMPT_PENDING: _ClassVar[PayStatusResponse.PayStatus.Attempt.AttemptState]
+                ATTEMPT_COMPLETED: _ClassVar[PayStatusResponse.PayStatus.Attempt.AttemptState]
             ATTEMPT_PENDING: PayStatusResponse.PayStatus.Attempt.AttemptState
             ATTEMPT_COMPLETED: PayStatusResponse.PayStatus.Attempt.AttemptState
-
             class Success(_message.Message):
                 __slots__ = ["id", "payment_preimage"]
                 ID_FIELD_NUMBER: _ClassVar[int]
@@ -291,14 +273,10 @@ class PayStatusResponse(_message.Message):
                 id: int
                 payment_preimage: str
                 def __init__(
-                    self,
-                    id: _Optional[int] = ...,
-                    payment_preimage: _Optional[str] = ...,
+                    self, id: _Optional[int] = ..., payment_preimage: _Optional[str] = ...
                 ) -> None: ...
-
             class Failure(_message.Message):
                 __slots__ = ["message", "code", "data"]
-
                 class Data(_message.Message):
                     __slots__ = [
                         "id",
@@ -340,9 +318,7 @@ class PayStatusResponse(_message.Message):
                     message: _Optional[str] = ...,
                     code: _Optional[int] = ...,
                     data: _Optional[
-                        _Union[
-                            PayStatusResponse.PayStatus.Attempt.Failure.Data, _Mapping
-                        ]
+                        _Union[PayStatusResponse.PayStatus.Attempt.Failure.Data, _Mapping]
                     ] = ...,
                 ) -> None: ...
             STRATEGY_FIELD_NUMBER: _ClassVar[int]
@@ -382,9 +358,7 @@ class PayStatusResponse(_message.Message):
         bolt11: str
         amount_msat: int
         destination: str
-        attempts: _containers.RepeatedCompositeFieldContainer[
-            PayStatusResponse.PayStatus.Attempt
-        ]
+        attempts: _containers.RepeatedCompositeFieldContainer[PayStatusResponse.PayStatus.Attempt]
         def __init__(
             self,
             bolt11: _Optional[str] = ...,
@@ -397,10 +371,7 @@ class PayStatusResponse(_message.Message):
     STATUS_FIELD_NUMBER: _ClassVar[int]
     status: _containers.RepeatedCompositeFieldContainer[PayStatusResponse.PayStatus]
     def __init__(
-        self,
-        status: _Optional[
-            _Iterable[_Union[PayStatusResponse.PayStatus, _Mapping]]
-        ] = ...,
+        self, status: _Optional[_Iterable[_Union[PayStatusResponse.PayStatus, _Mapping]]] = ...
     ) -> None: ...
 
 class GetRouteRequest(_message.Message):
@@ -436,7 +407,6 @@ class GetRouteRequest(_message.Message):
 
 class GetRouteResponse(_message.Message):
     __slots__ = ["hops", "fees_msat"]
-
     class Hop(_message.Message):
         __slots__ = ["id", "channel", "direction", "amount_msat", "delay", "style"]
         ID_FIELD_NUMBER: _ClassVar[int]

@@ -208,14 +208,15 @@ def on_htlc_accepted(
         Settler.continue_callback(request)
         return
 
-    invoice = hold.ds.get_invoice(htlc["payment_hash"])
+    with hold.handler.lock:
+        invoice = hold.ds.get_invoice(htlc["payment_hash"])
 
-    # Ignore invoices that aren't hold invoices
-    if invoice is None:
-        Settler.continue_callback(request)
-        return
+        # Ignore invoices that aren't hold invoices
+        if invoice is None:
+            Settler.continue_callback(request)
+            return
 
-    hold.handler.handle_htlc(invoice, onion, htlc, request)
+        hold.handler.handle_htlc(invoice, htlc, onion, request)
 
 
 @pl.subscribe("shutdown")

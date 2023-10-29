@@ -64,6 +64,17 @@ class Settler:
             None,
         )
 
+    def remove_htlc(self, payment_hash: str, to_remove: Htlc) -> None:
+        if payment_hash not in self._htlcs:
+            return
+
+        self._htlcs[payment_hash] = [
+            htlc
+            for htlc in self._htlcs[payment_hash]
+            if htlc.short_channel_id != to_remove.short_channel_id
+            or htlc.channel_id != to_remove.channel_id
+        ]
+
     def _pop_requests(self, payment_hash: str) -> list[HtlcRequest]:
         return self._htlcs.pop(payment_hash, [])
 

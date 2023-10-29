@@ -618,6 +618,41 @@ class TestHold:
         assert len(list_invoice["htlcs"]) == 1
         assert list_invoice["htlcs"][0]["state"] == "cancelled"
 
+    def test_overpayment_protection(self, cln: CliCaller) -> None:
+        _, payment_hash, invoice = add_hold_invoice(cln)
+        dec = bolt11.decode(invoice)
+        dec.amount_msat = MilliSatoshi((dec.amount_msat * 2) + 1)
+
+        overpay_invoice = cln("signinvoice", bolt11.encode(dec))["bolt11"]
+
+        pay = LndPay(LndNode.One, overpay_invoice, timeout=5)
+        pay.start()
+
+        time.sleep(0.5)
+        assert (
+            cln(
+                "listholdinvoices",
+                payment_hash,
+            )["holdinvoices"][0]["state"]
+            == "unpaid"
+        )
+
+        pay.join()
+
+        assert pay.res["status"] == "FAILED"
+        assert pay.res["failure_reason"] == "FAILURE_REASON_INCORRECT_PAYMENT_DETAILS"
+
+        htlc = pay.res["htlcs"][0]
+        assert htlc["failure"]["code"] == "INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS"
+
+        list_invoice = cln(
+            "listholdinvoices",
+            payment_hash,
+        )["holdinvoices"][0]
+        assert list_invoice["state"] == "unpaid"
+        assert len(list_invoice["htlcs"]) == 1
+        assert list_invoice["htlcs"][0]["state"] == "cancelled"
+
     def test_routinghints(self, cln: CliCaller) -> None:
         lnd_pubkey = lnd(LndNode.One, "getinfo")["identity_pubkey"]
         hints = cln("routinghints", lnd_pubkey)["hints"]

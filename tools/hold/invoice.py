@@ -26,11 +26,25 @@ class Htlc:
     msat: int
     created_at: datetime
 
+    @property
+    def identifier(self) -> str:
+        return f"{self.short_channel_id}/{self.channel_id}"
+
     def to_dict(self) -> dict[str, Any]:
         return {
             k: int(v.timestamp()) if isinstance(v, datetime) else v
             for k, v in self.__dict__.items()
         }
+
+    @classmethod
+    def from_dict(cls: type[HtlcType], htlc_dict: dict[str, Any]) -> HtlcType:
+        return Htlc(
+            state=HtlcState.Accepted,
+            short_channel_id=htlc_dict["short_channel_id"],
+            channel_id=htlc_dict["id"],
+            msat=htlc_dict["amount_msat"],
+            created_at=time_now(),
+        )
 
     @classmethod
     def from_json_dict(cls: type[HtlcType], json_dict: dict[str, Any]) -> HtlcType:
@@ -54,16 +68,11 @@ class Htlcs:
         """Return the number of accepted HTLCs."""
         return len([h.msat for h in self.htlcs if h.state in HtlcState.Accepted])
 
-    def add_htlc(self, htlc_dict: dict[str, str | int]) -> Htlc:
-        htlc = Htlc(
-            state=HtlcState.Accepted,
-            short_channel_id=htlc_dict["short_channel_id"],
-            channel_id=htlc_dict["id"],
-            msat=htlc_dict["amount_msat"],
-            created_at=time_now(),
-        )
+    def add_htlc(self, htlc: Htlc) -> None:
         self.htlcs.append(htlc)
-        return htlc
+
+    def is_known(self, htlc: Htlc) -> bool:
+        return self.find_htlc(htlc.short_channel_id, htlc.channel_id) is not None
 
     def find_htlc(self, short_channel_id: str, channel_id: int) -> Htlc | None:
         return next(
@@ -143,7 +152,10 @@ class HoldInvoice:
         tracker.send_update(self.payment_hash, self.bolt11, self.state)
 
     def is_fully_paid(self) -> bool:
-        return self.amount_msat <= sum(
+        return self.amount_msat <= self.sum_paid()
+
+    def sum_paid(self) -> int:
+        return sum(
             h.msat
             for h in self.htlcs.htlcs
             if h.state in [HtlcState.Paid, HtlcState.Accepted]

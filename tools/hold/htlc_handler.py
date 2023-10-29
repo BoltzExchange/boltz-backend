@@ -3,6 +3,7 @@ from typing import Any, Callable
 from urllib.request import Request
 
 from consts import (
+    OVERPAYMENT_FACTOR,
     TIMEOUT_CANCEL,
     TIMEOUT_CANCEL_REGTEST,
     TIMEOUT_CHECK_INTERVAL,
@@ -17,7 +18,7 @@ from tracker import Tracker
 
 
 class HtlcHandler:
-    _lock = threading.Lock()
+    lock = threading.Lock()
 
     _interval_thread: threading.Thread
     _stop_timeout_interval: threading.Event
@@ -52,66 +53,91 @@ class HtlcHandler:
     def handle_htlc(
         self,
         invoice: HoldInvoice,
-        onion: dict[str, Any],
         htlc_dict: dict[str, str | int],
+        onion: dict[str, Any],
         request: Request,
     ) -> None:
-        # TODO: also settle known HTLCs
-        # TODO: overpayment protection
+        # TODO: test restart handling accept/settle already accepted/settled invoices
 
         dec = self._plugin.rpc.decodepay(invoice.bolt11)
 
-        # TODO: restart handling accept already accepted invoices
-        htlc = invoice.htlcs.add_htlc(htlc_dict)
+        htlc = Htlc.from_dict(htlc_dict)
 
-        def fail_and_save() -> None:
-            Settler.fail_callback(request, HtlcFailureMessage.IncorrectPaymentDetails)
+        if invoice.htlcs.is_known(htlc):
+            self.handle_known_htlc(
+                invoice,
+                invoice.htlcs.find_htlc(htlc.short_channel_id, htlc.channel_id),
+                request,
+            )
+            return
 
-            htlc.state = HtlcState.Cancelled
-            self._ds.save_invoice(invoice, mode="must-replace")
+        invoice.htlcs.add_htlc(htlc)
 
         if htlc_dict["cltv_expiry_relative"] < dec["min_final_cltv_expiry"]:
-            self._plugin.log(
-                f"Rejected hold invoice {invoice.payment_hash}: CLTV too little "
-                f"({htlc_dict['cltv_expiry_relative']} < "
+            self._log_htlc_rejected(
+                invoice,
+                htlc,
+                f"CLTV too little ({htlc_dict['cltv_expiry_relative']} < "
                 f"{dec['min_final_cltv_expiry']})",
-                level="warn",
             )
             # TODO: use incorrect_cltv_expiry or expiry_too_soon error?
-
-            fail_and_save()
+            self._fail_and_save_htlc(request, invoice, htlc)
             return
 
         if (
             "payment_secret" not in onion
             or onion["payment_secret"] != dec["payment_secret"]
         ):
-            self._plugin.log(
-                f"Rejected hold invoice {invoice.payment_hash}: "
-                f"incorrect payment secret",
-                level="warn",
+            self._log_htlc_rejected(
+                invoice,
+                htlc,
+                "incorrect payment secret",
             )
-
-            fail_and_save()
+            self._fail_and_save_htlc(request, invoice, htlc)
             return
 
-        with self._lock:
-            if invoice.state != InvoiceState.Unpaid:
-                fail_and_save()
-                return
+        if invoice.state != InvoiceState.Unpaid:
+            self._log_htlc_rejected(
+                invoice, htlc, f"invoice is in state {invoice.state}"
+            )
+            self._fail_and_save_htlc(request, invoice, htlc)
+            return
 
+        if invoice.amount_msat * OVERPAYMENT_FACTOR < invoice.sum_paid():
+            self._log_htlc_rejected(
+                invoice,
+                htlc,
+                f"overpayment protection; "
+                f"{invoice.sum_paid()} > {invoice.amount_msat * OVERPAYMENT_FACTOR}",
+            )
+            self._fail_and_save_htlc(request, invoice, htlc)
+            return
+
+        self._settler.add_htlc(invoice.payment_hash, request, htlc)
+
+        if not invoice.is_fully_paid():
+            self._ds.save_invoice(invoice, mode="must-replace")
+            return
+
+        invoice.set_state(self._tracker, InvoiceState.Accepted)
+        self._ds.save_invoice(invoice, mode="must-replace")
+        self._plugin.log(
+            f"Accepted hold invoice {invoice.payment_hash} "
+            f"with {len(invoice.htlcs)} HTLCs",
+        )
+
+    def handle_known_htlc(
+        self, invoice: HoldInvoice, htlc: Htlc, request: Request
+    ) -> None:
+        if htlc.state == HtlcState.Accepted:
+            # Pass the request to the settler to handle in the future
             self._settler.add_htlc(invoice.payment_hash, request, htlc)
 
-            if not invoice.is_fully_paid():
-                self._ds.save_invoice(invoice, mode="must-replace")
-                return
+        elif htlc.state == HtlcState.Paid:
+            Settler.settle_callback(request, invoice.payment_preimage)
 
-            invoice.set_state(self._tracker, InvoiceState.Accepted)
-            self._ds.save_invoice(invoice, mode="must-replace")
-            self._plugin.log(
-                f"Accepted hold invoice {invoice.payment_hash} "
-                f"with {len(invoice.htlcs)} HTLCs",
-            )
+        elif htlc.state == HtlcState.Cancelled:
+            Settler.fail_callback(request, HtlcFailureMessage.IncorrectPaymentDetails)
 
     def _start_timeout_interval(self) -> None:
         self._stop_timeout_interval = threading.Event()
@@ -124,7 +150,7 @@ class HtlcHandler:
         self._interval_thread.start()
 
     def _timeout_handler(self) -> None:
-        with self._lock:
+        with self.lock:
             for payment_hash in self._settler.pending_payment_hashes():
                 invoice = self._ds.get_invoice(payment_hash)
 
@@ -141,5 +167,25 @@ class HtlcHandler:
             request = self._settler.find_htlc_request(invoice.payment_hash, htlc)
             if request is not None:
                 Settler.fail_callback(request, message)
+                self._settler.remove_htlc(invoice.payment_hash, htlc)
 
         return callback
+
+    def _fail_and_save_htlc(
+        self,
+        request: Request,
+        invoice: HoldInvoice,
+        htlc: Htlc,
+        message: HtlcFailureMessage = HtlcFailureMessage.IncorrectPaymentDetails,
+    ) -> None:
+        Settler.fail_callback(request, message)
+
+        htlc.state = HtlcState.Cancelled
+        self._ds.save_invoice(invoice, mode="must-replace")
+
+    def _log_htlc_rejected(self, invoice: HoldInvoice, htlc: Htlc, msg: str) -> None:
+        self._plugin.log(
+            f"Rejected hold HTLC {htlc.identifier} for "
+            f"hold invoice {invoice.payment_hash}: {msg}",
+            level="warn",
+        )

@@ -2,6 +2,143 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.3.0] - 2023-10-30
+
+### Bug Fixes
+
+- Custom integration test runner for CI
+- Higher invoice CLTV offset for Reverse Swaps
+- Connect nodes for hold invoice test
+- Skipped hold invoice plugin tests
+- Too short CLTV expiry hold plugin test
+- Python plugin integration tests on CI
+- CLN to LND short channel id conversion
+- Various CLN bugs (#378)
+- CLN pay status gRPC
+- Duplicate CLN pay calls
+- Startup without LND
+- Route querying for CLN
+- Nested arrays in routing hints endpoint
+- Use correct lightning node to query route CLTV estimations
+- Check for paid invoices in paystatus
+- Check for temporary errors before pending
+- Improve detection of pending CLN payments
+- Filter configs with no min wallet balance for notifications
+- Reconnect to CLN subscription error on interval
+- Retry SQLITE_BUSY error
+- Detect open invoice with only cancelled HTLCs
+- Minor prometheus metric typo
+- Payment error handling (#417)
+- Handling of pending HTLCs for expired invoices (#419)
+- Minor adjustments for RSK compatibility
+- CI Docker build workflow
+- Commit version in Docker image build
+- Default metrics to 0
+- Logging of InjectedProvider
+
+### Documentation
+
+- Minor wording adjustment (#415)
+- Uncomment EVM RSK sections (#416)
+- Add API Onion address (#423)
+- RSK related rewording (#424)
+
+### Features
+
+- Increase routing offset based on amount (#372)
+- GRPC command to unblind outputs of a transaction (#373)
+- CLN hld invoice plugin
+- CLN SCB backup plugin
+- MPP support for CLN hold invoice plugin
+- GRPC for hold invoice plugin
+- Improve hold gRPC error handling
+- Track hold invoice state via gRPC
+- Hold gRPC steam to track all invoices
+- Routing hints in hold invoice plugin (#375)
+- CLN integration in backend
+- Save creation date of hold invoices
+- GRPC SSL for hold invoice plugin
+- Support for multiple wallets/nodes in gRPC
+- Upload SCB backup on plugin startup
+- Switch between LND and CLN based on referral (#379)
+- GetRoute in hold plugin for specifying max CLTV
+- Apply CLTV exceptions to routing hints
+- Query swapinfo by more columns (#399)
+- Fallback for timeouts when creating invoices (#398)
+- Separate notification channel for alerts (#400)
+- Use satcomma to format notification amounts (#403)
+- Max unused wallet balance alert (#405)
+- Forbid swaps to our own lightning nodes
+- Loki transport for logger (#410)
+- Race all locking lightning client calls
+- Log and send notification for client status changes
+- Prometheus metrics
+- RSK integration
+- Configurable expiry of reverse swap invoices (#422)
+- Save hold HTLC information in datastore
+- Query listholdinvoices by invoice
+- Prevent invoice overpayment in hold plugin
+- Throw error when creating invoices with hash length != 32
+
+### Miscellaneous Tasks
+
+- Update changelog
+- Speed up tests by disabling global type check
+- Bump certifi from 2022.12.7 to 2023.7.22 in /tools (#368)
+- Update NPM dependencies
+- Harden regtest Docker image build
+- Enable fast gossip for CLN in regtest image
+- Fix shebang line in Python plugins
+- Update geth Docker image to v1.12.2
+- Bump version to v3.3.0
+- Bump CLN to v23.08
+- Update dependencies
+- Update CLN Docker image
+- Bump max CLN version
+- Bump cryptography from 41.0.3 to 41.0.4 in /tools (#384)
+- Update dependencies
+- Remove docs build status
+- Bump urllib3 from 2.0.4 to 2.0.6 in /tools (#392)
+- Update LND to v0.17.0 (#397)
+- Update git-commit-template.txt (#393)
+- README Update (#389)
+- Push Docker image on push to master
+- Push Docker images with latest tag by default (#404)
+- Remove unused mkdocs dependency
+- Bump urllib3 from 2.0.6 to 2.0.7 in /tools (#409)
+- Bump @babel/traverse from 7.22.8 to 7.23.2 (#411)
+- Update to Bitcoin Core v25.1
+- Update dependencies
+- Dependency updates
+- Update dependencies
+- Fix .gitattributes
+- Switch from black to ruff Python formatter
+- Python format rule adjustments
+
+### Refactor
+
+- Use highest mempool.space fee estimation
+- Use bolt11 Python library
+- Update bolt11 library
+- Move docs to gitbook
+- Getstats command (#402)
+- Infer BaseClient log name from service name
+
+### Styling
+
+- Fix ruff warnings
+
+### Testing
+
+- Integration test for hold invoice CLN plugin
+- Fix broken tests
+- Fix broken TimeoutDeltaProvider tests
+- Add missing tests for RSK integration
+
+### Refator
+
+- Remove last hardcoded usages of LND client
+
 ## [3.2.1] - 2023-07-19
 
 ### Bug Fixes
@@ -19,7 +156,6 @@ All notable changes to this project will be documented in this file.
 
 - Update CHANGELOG.md for v3.2.0
 - Update LND to v0.16.4 (#362)
-- Bump semver from 6.3.0 to 6.3.1 (#364)
 - Update ESLint TypeScript plugins
 - Update backend version
 
@@ -76,36 +212,26 @@ All notable changes to this project will be documented in this file.
 ### Miscellaneous Tasks
 
 - Update changelog
-- Bump undici from 5.14.0 to 5.19.1 (#309)
-- Bump sequelize from 6.28.0 to 6.28.2 (#310)
-- Bump sequelize from 6.28.2 to 6.29.0 (#311)
 - Update GitHub CI Action (#312)
-- Bump minimist from 1.2.5 to 1.2.6 (#313)
 - Update Docker images
 - Update sqlite3 to 5.1.5
 - Update CLN Docker image to 23.02.2
 - Improve miner_fee script
 - Minor style fixes
 - Update boltz Docker image
-- Bump @openzeppelin/contracts from 4.8.2 to 4.8.3 (#320)
 - Update LND to 0.16.1-beta (#324)
 - Update LND to 0.16.2-beta (#328)
 - Print version on startup
 - Increasize liquid fees
 - Bump boltz-core-liquid
 - Hardcode Liquid tx fee to 0.11 sat/vbyte
-- Bump requests from 2.28.2 to 2.31.0 in /tools (#334)
 - Update regtest container
 - Run prettier on whole project
-- Bump @openzeppelin/contracts from 4.8.3 to 4.9.1 (#348)
-- Bump dottie from 2.0.3 to 2.0.4 (#349)
 - Update Docker images
 - Increase Mempool.space refresh interval
-- Bump @openzeppelin/contracts from 4.9.1 to 4.9.2 (#352)
 - Update Eclair Docker image
 - Update dependencies
 - Revert version to v3.2.0
-- Bump fast-xml-parser from 4.2.4 to 4.2.5 (#355)
 - Bump CI Node.js version (#356)
 - Update CLN Docker image to v23.05.2
 
@@ -212,9 +338,6 @@ All notable changes to this project will be documented in this file.
 - Update Zcash to v4.1.1
 - Decrease LND payment timeout to 15 seconds
 - Update GETH to v1.9.25
-- Bump ini from 1.3.5 to 1.3.8 (#228)
-- Bump node-notifier from 8.0.0 to 8.0.1 (#229)
-- Bump date-and-time from 0.14.1 to 0.14.2 (#231)
 - Update LND to v0.12.0
 - Update Docker images
 - Run Github actions only against Node v14
@@ -228,7 +351,6 @@ All notable changes to this project will be documented in this file.
 - Update NPM dependencies
 - Update NPM dependencies
 - Fix build (#256)
-- Bump urllib3 from 1.26.4 to 1.26.5 in /tools (#255)
 - Update dependencies
 - Update dependencies
 - Switch to grpc-js
@@ -239,7 +361,6 @@ All notable changes to this project will be documented in this file.
 - Update dependencies
 - Fix lint errors
 - Update c-lightning image to v0.10.2
-- Bump mkdocs from 1.2.2 to 1.2.3 in /tools (#266)
 - Update to Node v16 (#267)
 - Update dependencies
 - Update Docker images
@@ -259,7 +380,6 @@ All notable changes to this project will be documented in this file.
 - Bump max LND version 0.15.1
 - Update Docker images
 - Update Dockerfile for Boltz backend
-- Bump moment-timezone from 0.5.34 to 0.5.37 (#294)
 - Update dependencies
 - Update Docker images to LND 0.15.2-beta
 - Show TX ID when it cannot be found
@@ -271,7 +391,6 @@ All notable changes to this project will be documented in this file.
 - Update regtest Docker image
 - Update vulnerable dependencies
 - Update dependencies
-- Bump http-cache-semantics from 4.1.0 to 4.1.1 (#306)
 - Add SQL scripts to query stats
 - Update dependencies
 

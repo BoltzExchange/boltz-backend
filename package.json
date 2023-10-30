@@ -57,7 +57,7 @@
     "dist/**/!(tsconfig.tsbuildinfo)"
   ],
   "engines": {
-    "node": ">=16.13.0"
+    "node": ">=18.18.0"
   },
   "dependencies": {
     "@boltz/bolt11": "^1.2.7",
@@ -112,6 +112,7 @@
     "eslint-plugin-import": "^2.29.0",
     "eslint-plugin-jest": "^27.6.0",
     "eslint-plugin-node": "^11.1.0",
+    "git-cliff": "^1.4.0",
     "grpc_tools_node_protoc_ts": "^5.3.3",
     "grpc-tools": "^1.12.4",
     "jest": "29.7.0",

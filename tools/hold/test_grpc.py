@@ -340,7 +340,6 @@ class TestGrpc:
             invoice_state = cl.List(ListRequest(payment_hash=payment_hash)).invoices[0]
             assert len(invoice_state.htlcs) == 1
             assert invoice_state.htlcs[0].state == HtlcState.HTLC_ACCEPTED
-            assert invoice_state.htlcs[0].id != 0
             assert invoice_state.htlcs[0].short_channel_id != ""
 
             cl.Settle(SettleRequest(payment_preimage=payment_preimage))

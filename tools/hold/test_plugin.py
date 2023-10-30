@@ -65,7 +65,7 @@ class TestHold:
         assert hold_invoices[0]["payment_hash"] == payment_hash
 
     def test_add_defaults(self, cln: CliCaller) -> None:
-        amount = 10000
+        amount = 10_000
         payment_hash = random.randbytes(32).hex()
 
         invoice = cln("holdinvoice", payment_hash, str(amount))["bolt11"]
@@ -77,6 +77,15 @@ class TestHold:
         assert dec["expiry"] == Defaults.Expiry
         assert dec["payment_hash"] == payment_hash
         assert dec["min_final_cltv_expiry"] == Defaults.MinFinalCltvExpiry
+
+    @pytest.mark.parametrize("length", [30, 31, 33, 34, 64])
+    def test_add_invalid_payment_hash_length(self, cln: CliCaller, length: int) -> None:
+        amount = 10_000
+        payment_hash = random.randbytes(length).hex()
+
+        res = cln("holdinvoice", payment_hash, str(amount))
+        assert res["code"] == 2104
+        assert res["message"] == "invalid payment hash length"
 
     @pytest.mark.parametrize("description", ["some", "text", "Send to BTC address"])
     def test_add_description(self, cln: CliCaller, description: str) -> None:

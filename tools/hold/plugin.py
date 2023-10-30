@@ -20,7 +20,7 @@ from server import Server
 from settler import Settler
 from transformers import Transformers
 
-from hold import Hold, InvoiceExistsError, NoSuchInvoiceError
+from hold import Hold, InvalidPaymentHashLengthError, InvoiceExistsError, NoSuchInvoiceError
 
 empty_value = ["", "none", "null", None]
 
@@ -78,6 +78,8 @@ def hold_invoice(
         }
     except InvoiceExistsError:
         return Errors.invoice_exists
+    except InvalidPaymentHashLengthError:
+        return Errors.invalid_payment_hash_length
 
 
 @pl.method(

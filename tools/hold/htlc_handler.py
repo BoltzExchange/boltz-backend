@@ -175,7 +175,6 @@ class HtlcHandler:
 
     def _log_htlc_rejected(self, invoice: HoldInvoice, htlc: Htlc, msg: str) -> None:
         self._plugin.log(
-            f"Rejected HTLC {htlc.identifier} for "
-            f"hold invoice {invoice.payment_hash}: {msg}",
+            f"Rejected HTLC {htlc.identifier} for hold invoice {invoice.payment_hash}: {msg}",
             level="warn",
         )

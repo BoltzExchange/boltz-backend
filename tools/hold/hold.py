@@ -21,6 +21,10 @@ class NoSuchInvoiceError(Exception):
     pass
 
 
+class InvalidPaymentHashLengthError(Exception):
+    pass
+
+
 class Hold:
     def __init__(self, plugin: Plugin) -> None:
         self._plugin = plugin
@@ -47,6 +51,9 @@ class Hold:
         min_final_cltv_expiry: int,
         route_hints: list[RouteHint] | None = None,
     ) -> str:
+        if len(payment_hash) != 64:
+            raise InvalidPaymentHashLengthError
+
         if len(self._plugin.rpc.listinvoices(payment_hash=payment_hash)["invoices"]) > 0:
             raise InvoiceExistsError
 

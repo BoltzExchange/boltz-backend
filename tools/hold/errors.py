@@ -14,3 +14,7 @@ class Errors:
         "code": 2103,
         "message": "no route found",
     }
+    invalid_payment_hash_length: ClassVar[dict[str, Any]] = {
+        "code": 2104,
+        "message": "invalid payment hash length",
+    }

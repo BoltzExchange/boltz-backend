@@ -208,7 +208,7 @@ If a lightning invoice is set in this call, one will also find the following val
 * `acceptZeroConf`: whether Boltz will accept 0-conf for this swap
 * `expectedAmount`: the amount that Boltz expects to be locked on the chain
 
-### UTXO Chains
+### Normal Swaps: UTXO Chains
 
 Normal Submarine Swaps from UTXO chains like Bitcoin work by deriving an address based on the preimage hash (of the invoice) and the refund public key of the user. Boltz then waits until the user sent bitcoin to the generated address.
 
@@ -293,9 +293,11 @@ Response:
 }
 ```
 
-### EVM Chains (Currently RSK Testnet Only!)
+### Normal Swaps: EVM Chains
 
-Swaps from account-based EVM chains like RSK do not require a new address for every swap. `/createswap` takes the details of the swap (like lightning invoice and pair) and Boltz waits until the user locked e.g. rBTC in the contract. The addresses of those contracts can be queried with [`/getcontracts`](api.md#swap-contracts-coming-soon) and the address of the contract that needs to be used for the swap is also returned in the response of this request.
+> Currently Boltz only supports RSK Testnet
+
+Swaps from account-based EVM chains like RSK do not require a new address for every swap. `/createswap` takes the details of the swap (like lightning invoice and pair) and Boltz waits until the user locked e.g. RBTC in the contract. The addresses of those contracts can be queried with [`/getcontracts`](api.md#swap-contracts) and the address of the contract that needs to be used for the swap is also returned in the response of this request.
 
 The request does not require any additional values.
 
@@ -510,7 +512,7 @@ In case the invoice amount was specified, the amount that will be locked in the 
 
 Boltz backend also supports a different protocol that requires an invoice for miner fees to be paid before the actual hold `invoice` of the Reverse Submarine Swap. If that protocol is enabled, the response object will also contain a `minerFeeInvoice`. Once the `minerFeeInvoice` is paid, Boltz will send the event `minerfee.paid` and when the actual hold `invoice` is paid, the chain bitcoin will be sent.
 
-### UTXO Chains
+### Reverse Swaps: UTXO Chains
 
 The request has to contain one additional value:
 
@@ -584,7 +586,9 @@ Response body:
 }
 ```
 
-### EVM Chains (Currently RSK Testnet Only!)
+### Reverse Swaps: EVM Chains
+
+> Currently Boltz only supports RSK Testnet
 
 Requests to create swaps for Reverse Submarine Swaps from account-based EVM chains like RSK have to contain one additional value:
 
@@ -594,14 +598,14 @@ The response also has one more property:
 
 * `refundAddress`: the address of Boltz which is specified as refund address when it is locking up funds
 
-Also, Boltz offers an optional protocol called EVM prepay miner fee that allows the user to pay an additional lightning invoice to pay for gas on the EVM chain to claim funds. In this process, Boltz sends some e.g. rBTC to the `claimAddress` in the lockup process in case the user's `claimAddress` does not have enough rBTC to pay gas to claim the funds. To use that protocol set the following property in the request body to `true`.
+Also, Boltz offers an optional protocol called EVM prepay miner fee that allows the user to pay an additional lightning invoice to pay for gas on the EVM chain to claim funds. In this process, Boltz sends some e.g. RBTC to the `claimAddress` in the lockup process in case the user's `claimAddress` does not have enough RBTC to pay gas to claim the funds. To use that protocol set the following property in the request body to `true`.
 
 * `prepayMinerFee`: if the prepay miner fee protocol should be used for the Reverse Swap
 
-When the EVM prepay miner fee protocol is used the response will contain two more values. One is the amount of rBTC that will be sent to `claimAddress` in the lockup process. The other is an invoice for the rBTC sent. Only when both invoices are paid the chain bitcoin will get locked.
+When the EVM prepay miner fee protocol is used the response will contain two more values. One is the amount of RBTC that will be sent to `claimAddress` in the lockup process. The other is an invoice for the RBTC sent. Only when both invoices are paid the chain bitcoin will get locked.
 
-* `prepayMinerFeeAmount`: amount of e.g. rBTC that will be sent to the `claimAddress` with the lockup transaction from Boltz
-* `minerFeeInvoice`: invoice that pays for the rBTC sent in the lockup process
+* `prepayMinerFeeAmount`: amount of e.g. RBTC that will be sent to the `claimAddress` with the lockup transaction from Boltz
+* `minerFeeInvoice`: invoice that pays for the RBTC sent in the lockup process
 
 **Examples:**
 
@@ -612,7 +616,7 @@ Request body:
 ```json
 {
   "type": "reversesubmarine",
-  "pairId": "rBTC/BTC",
+  "pairId": "RBTC/BTC",
   "orderSide": "sell",
   "claimAddress": "0x88532974EC20559608681A53F4Ac8C34dd5e2804",
   "invoiceAmount": 100000,
@@ -814,7 +818,9 @@ Response:
 }
 ```
 
-## Swap Contracts (Currently RSK Testnet Only!)
+## Swap Contracts
+
+> Currently Boltz only supports RSK Testnet
 
 To query the addresses of contracts used by Boltz for swaps on EVM chains like [RSK](https://rootstock.io/), the following endpoint can be queried:
 

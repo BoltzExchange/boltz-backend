@@ -70,7 +70,11 @@ class EthereumManager {
     this.networkDetails = isRsk ? Rsk : Ethereum;
 
     this.config = config;
-    this.provider = new InjectedProvider(this.logger, this.config);
+    this.provider = new InjectedProvider(
+      this.logger,
+      this.networkDetails,
+      this.config,
+    );
 
     this.logger.debug(
       `Using ${this.networkDetails.name} EtherSwap contract: ${this.config.etherSwapAddress}`,

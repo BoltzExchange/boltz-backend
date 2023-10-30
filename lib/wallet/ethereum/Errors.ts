@@ -5,7 +5,7 @@ import { ErrorCodePrefix } from '../../consts/Enums';
 
 export default {
   NO_PROVIDER_SPECIFIED: (): Error => ({
-    message: 'no Web3 provider was specified',
+    message: 'no RPC provider was specified',
     code: concatErrorCode(ErrorCodePrefix.Ethereum, 0),
   }),
   NO_LOCKUP_FOUND: (): Error => ({
@@ -23,7 +23,7 @@ export default {
     );
 
     return {
-      message: `not all web3 provider networks are equal: ${networkStrings.join(
+      message: `not all RPC provider networks are equal: ${networkStrings.join(
         ', ',
       )}`,
       code: concatErrorCode(ErrorCodePrefix.Ethereum, 3),

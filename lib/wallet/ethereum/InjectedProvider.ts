@@ -20,6 +20,7 @@ import {
 } from 'ethers';
 import Errors from './Errors';
 import Logger from '../../Logger';
+import { NetworkDetails } from './EvmNetworks';
 import { formatError, stringify } from '../../Utils';
 import PendingEthereumTransactionRepository from '../../db/repositories/PendingEthereumTransactionRepository';
 import {
@@ -48,7 +49,8 @@ class InjectedProvider implements Provider {
   private static readonly requestTimeout = 5000;
 
   constructor(
-    private logger: Logger,
+    private readonly logger: Logger,
+    private readonly networkDetails: NetworkDetails,
     config: RskConfig | EthereumConfig,
   ) {
     this.provider = this;
@@ -84,9 +86,9 @@ class InjectedProvider implements Provider {
 
   public init = async (): Promise<void> => {
     this.logger.verbose(
-      `Trying to connect to ${
-        this.providers.size
-      } Web3 providers:\n - ${Array.from(this.providers.keys()).join('\n - ')}`,
+      `Trying to connect to ${this.providers.size} ${
+        this.networkDetails.name
+      } RPC providers:\n - ${Array.from(this.providers.keys()).join('\n - ')}`,
     );
 
     const networks: Network[] = [];
@@ -115,9 +117,9 @@ class InjectedProvider implements Provider {
 
     this.network = networks[0];
     this.logger.info(
-      `Connected to ${this.providers.size} Web3 providers:\n - ${Array.from(
-        this.providers.keys(),
-      ).join('\n - ')}`,
+      `Connected to ${this.providers.size} ${
+        this.networkDetails.name
+      } RPC providers:\n - ${Array.from(this.providers.keys()).join('\n - ')}`,
     );
   };
 
@@ -472,7 +474,7 @@ class InjectedProvider implements Provider {
         const formattedError = formatError(error);
 
         this.logger.warn(
-          `Request to ${providerName} Web3 provider failed: ${method}: ${formattedError}`,
+          `Request to ${this.networkDetails.name} RPC provider ${providerName} failed: ${method}: ${formattedError}`,
         );
         errors.push(formattedError);
       }
@@ -505,7 +507,9 @@ class InjectedProvider implements Provider {
   };
 
   private addToTransactionDatabase = async (hash: string, nonce: number) => {
-    this.logger.silly(`Sending Ethereum transaction: ${hash}`);
+    this.logger.silly(
+      `Sending ${this.networkDetails.name} transaction: ${hash}`,
+    );
     await PendingEthereumTransactionRepository.addTransaction(hash, nonce);
   };
 
@@ -522,17 +526,23 @@ class InjectedProvider implements Provider {
   };
 
   private logAddedProvider = (name: string, config: Record<string, any>) => {
-    this.logger.debug(`Adding Web3 provider ${name}: ${stringify(config)}`);
+    this.logger.debug(
+      `Adding ${this.networkDetails.name} RPC provider ${name}: ${stringify(
+        config,
+      )}`,
+    );
   };
 
   private logConnectedProvider = (name: string, network: Network) => {
     this.logger.verbose(
-      `Connected to Web3 provider ${name} on network: ${network.chainId}`,
+      `Connected to ${this.networkDetails.name} RPC provider ${name} on network: ${network.chainId}`,
     );
   };
 
   private logDisabledProvider = (name: string, reason: string) => {
-    this.logger.warn(`Disabled ${name} Web3 provider: ${reason}`);
+    this.logger.warn(
+      `Disabled ${this.networkDetails.name} RPC provider ${name}: ${reason}`,
+    );
   };
 }
 

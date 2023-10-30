@@ -437,7 +437,8 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
             if (
               typeof error !== 'object' ||
               ((error as any).details !== 'unable to locate invoice' &&
-                (error as any).details !== 'there are no existing invoices')
+                (error as any).details !== 'there are no existing invoices' &&
+                (error as any).message !== 'hold invoice not found')
             ) {
               this.logger.error(
                 `Could not cancel invoice${plural} of Reverse Swap ${
@@ -446,10 +447,12 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
               );
               return;
             } else {
-              this.logger.warn(
+              this.logger.silly(
                 `Cancelling invoice${plural} of Reverse Swap ${
                   reverseSwap.id
-                } failed although they could be found: ${formatError(error)}`,
+                } failed because they could not be found: ${formatError(
+                  error,
+                )}`,
               );
             }
           }

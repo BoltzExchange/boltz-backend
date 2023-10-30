@@ -20,6 +20,7 @@ from protos.hold_pb2 import (
     CancelRequest,
     GetInfoRequest,
     GetInfoResponse,
+    HtlcState,
     InvoiceRequest,
     InvoiceState,
     ListRequest,
@@ -165,9 +166,7 @@ class TestGrpc:
 
     def test_invoice_routing_hints(self, cl: HoldStub) -> None:
         lnd_pubkey = lnd(LndNode.One, "getinfo")["identity_pubkey"]
-        routing_hints: RoutingHintsResponse = cl.RoutingHints(
-            RoutingHintsRequest(node=lnd_pubkey)
-        )
+        routing_hints: RoutingHintsResponse = cl.RoutingHints(RoutingHintsRequest(node=lnd_pubkey))
 
         invoice = cl.Invoice(
             InvoiceRequest(
@@ -192,9 +191,7 @@ class TestGrpc:
 
     def test_invoice_routing_hints_multiple(self, cl: HoldStub) -> None:
         lnd_pubkey = lnd(LndNode.One, "getinfo")["identity_pubkey"]
-        routing_hints: RoutingHintsResponse = cl.RoutingHints(
-            RoutingHintsRequest(node=lnd_pubkey)
-        )
+        routing_hints: RoutingHintsResponse = cl.RoutingHints(RoutingHintsRequest(node=lnd_pubkey))
 
         routing_hints.hints.append(routing_hints.hints[0])
 
@@ -217,9 +214,7 @@ class TestGrpc:
     def test_routing_hints(self, cl: HoldStub) -> None:
         lnd_pubkey = lnd(LndNode.One, "getinfo")["identity_pubkey"]
 
-        res: RoutingHintsResponse = cl.RoutingHints(
-            RoutingHintsRequest(node=lnd_pubkey)
-        )
+        res: RoutingHintsResponse = cl.RoutingHints(RoutingHintsRequest(node=lnd_pubkey))
         assert len(res.hints) == 1
 
         hops = res.hints[0].hops
@@ -235,9 +230,7 @@ class TestGrpc:
         assert hop.short_channel_id == channel_info["short_channel_id"]
 
     def test_routing_hints_none_found(self, cl: HoldStub) -> None:
-        res: RoutingHintsResponse = cl.RoutingHints(
-            RoutingHintsRequest(node="not found")
-        )
+        res: RoutingHintsResponse = cl.RoutingHints(RoutingHintsRequest(node="not found"))
         assert len(res.hints) == 0
 
     def test_list(self, cl: HoldStub) -> None:
@@ -245,13 +238,16 @@ class TestGrpc:
         assert len(invoices) > 1
 
     def test_list_single(self, cl: HoldStub) -> None:
-        invoices = cl.List(ListRequest()).invoices
+        amount_msat = 10_000
+        payment_hash = random.randbytes(32).hex()
 
-        query = invoices[0].payment_hash
-        invoice = cl.List(ListRequest(payment_hash=query)).invoices
+        cl.Invoice(InvoiceRequest(payment_hash=payment_hash, amount_msat=amount_msat))
+
+        invoice = cl.List(ListRequest(payment_hash=payment_hash)).invoices
+
         assert len(invoice) == 1
-
-        assert invoice[0].payment_hash == query
+        assert invoice[0].amount_msat == amount_msat
+        assert invoice[0].payment_hash == payment_hash
 
     def test_list_created_at(self, cl: HoldStub) -> None:
         payment_hash = random.randbytes(32).hex()
@@ -275,20 +271,14 @@ class TestGrpc:
 
         time.sleep(1)
 
-        assert (
-            cl.List(ListRequest(payment_hash=payment_hash)).invoices[0].state
-            == INVOICE_ACCEPTED
-        )
+        assert cl.List(ListRequest(payment_hash=payment_hash)).invoices[0].state == INVOICE_ACCEPTED
 
         cl.Settle(SettleRequest(payment_preimage=payment_preimage))
         pay.join()
 
         assert pay.res["status"] == "SUCCEEDED"
 
-        assert (
-            cl.List(ListRequest(payment_hash=payment_hash)).invoices[0].state
-            == INVOICE_PAID
-        )
+        assert cl.List(ListRequest(payment_hash=payment_hash)).invoices[0].state == INVOICE_PAID
 
     def test_settle_unpaid(self, cl: HoldStub) -> None:
         payment_preimage, _, _ = add_hold_invoice(cl)
@@ -297,10 +287,7 @@ class TestGrpc:
             cl.Settle(SettleRequest(payment_preimage=payment_preimage))
 
         assert err.value.code() == grpc.StatusCode.INTERNAL
-        assert (
-            err.value.details()
-            == "illegal hold invoice state transition (unpaid -> paid)"
-        )
+        assert err.value.details() == "illegal hold invoice state transition (unpaid -> paid)"
 
     def test_settle_non_existent(self, cl: HoldStub) -> None:
         payment_preimage = random.randbytes(32).hex()
@@ -316,8 +303,7 @@ class TestGrpc:
         cl.Cancel(CancelRequest(payment_hash=payment_hash))
 
         assert (
-            cl.List(ListRequest(payment_hash=payment_hash)).invoices[0].state
-            == INVOICE_CANCELLED
+            cl.List(ListRequest(payment_hash=payment_hash)).invoices[0].state == INVOICE_CANCELLED
         )
 
     def test_cancel_non_existent(self, cl: HoldStub) -> None:
@@ -342,10 +328,7 @@ class TestGrpc:
         payment_preimage, payment_hash, invoice = add_hold_invoice(cl)
 
         def track_states() -> list[InvoiceState]:
-            return [
-                update.state
-                for update in cl.Track(TrackRequest(payment_hash=payment_hash))
-            ]
+            return [update.state for update in cl.Track(TrackRequest(payment_hash=payment_hash))]
 
         with concurrent.futures.ThreadPoolExecutor() as pool:
             fut = pool.submit(track_states)
@@ -354,19 +337,29 @@ class TestGrpc:
             pay.start()
             time.sleep(1)
 
+            invoice_state = cl.List(ListRequest(payment_hash=payment_hash)).invoices[0]
+            assert len(invoice_state.htlcs) == 1
+            assert invoice_state.htlcs[0].state == HtlcState.HTLC_ACCEPTED
+            assert invoice_state.htlcs[0].short_channel_id != ""
+
             cl.Settle(SettleRequest(payment_preimage=payment_preimage))
             pay.join()
 
-            assert fut.result() == [INVOICE_UNPAID, INVOICE_ACCEPTED, INVOICE_PAID]
+            assert fut.result() == [
+                INVOICE_UNPAID,
+                INVOICE_ACCEPTED,
+                INVOICE_PAID,
+            ]
+
+            invoice_state = cl.List(ListRequest(payment_hash=payment_hash)).invoices[0]
+            assert len(invoice_state.htlcs) == 1
+            assert invoice_state.htlcs[0].state == HtlcState.HTLC_SETTLED
 
     def test_track_cancel(self, cl: HoldStub) -> None:
         _, payment_hash, invoice = add_hold_invoice(cl)
 
         def track_states() -> list[InvoiceState]:
-            return [
-                update.state
-                for update in cl.Track(TrackRequest(payment_hash=payment_hash))
-            ]
+            return [update.state for update in cl.Track(TrackRequest(payment_hash=payment_hash))]
 
         with concurrent.futures.ThreadPoolExecutor() as pool:
             fut = pool.submit(track_states)
@@ -378,16 +371,21 @@ class TestGrpc:
             cl.Cancel(CancelRequest(payment_hash=payment_hash))
             pay.join()
 
-            assert fut.result() == [INVOICE_UNPAID, INVOICE_ACCEPTED, INVOICE_CANCELLED]
+            assert fut.result() == [
+                INVOICE_UNPAID,
+                INVOICE_ACCEPTED,
+                INVOICE_CANCELLED,
+            ]
+
+            invoice_state = cl.List(ListRequest(payment_hash=payment_hash)).invoices[0]
+            assert len(invoice_state.htlcs) == 1
+            assert invoice_state.htlcs[0].state == HtlcState.HTLC_CANCELLED
 
     def test_track_multiple(self, cl: HoldStub) -> None:
         _, payment_hash, invoice = add_hold_invoice(cl)
 
         def track_states() -> list[InvoiceState]:
-            return [
-                update.state
-                for update in cl.Track(TrackRequest(payment_hash=payment_hash))
-            ]
+            return [update.state for update in cl.Track(TrackRequest(payment_hash=payment_hash))]
 
         with concurrent.futures.ThreadPoolExecutor() as pool:
             futs = [pool.submit(track_states), pool.submit(track_states)]
@@ -400,7 +398,11 @@ class TestGrpc:
             pay.join()
 
             for res in [fut.result() for fut in futs]:
-                assert res == [INVOICE_UNPAID, INVOICE_ACCEPTED, INVOICE_CANCELLED]
+                assert res == [
+                    INVOICE_UNPAID,
+                    INVOICE_ACCEPTED,
+                    INVOICE_CANCELLED,
+                ]
 
     def test_track_cancelled_sub(self, cl: HoldStub) -> None:
         _, payment_hash, invoice = add_hold_invoice(cl)
@@ -440,13 +442,13 @@ class TestGrpc:
 
                 return updates
 
-            return [
-                update.state
-                for update in cl.Track(TrackRequest(payment_hash=payment_hash))
-            ]
+            return [update.state for update in cl.Track(TrackRequest(payment_hash=payment_hash))]
 
         with concurrent.futures.ThreadPoolExecutor(2) as pool:
-            futs = [pool.submit(track_states, True), pool.submit(track_states, False)]
+            futs = [
+                pool.submit(track_states, True),
+                pool.submit(track_states, False),
+            ]
 
             pay = LndPay(LndNode.One, invoice)
             pay.start()
@@ -457,7 +459,11 @@ class TestGrpc:
 
             res = [fut.result() for fut in futs]
             assert res[0] == [INVOICE_UNPAID]
-            assert res[1] == [INVOICE_UNPAID, INVOICE_ACCEPTED, INVOICE_CANCELLED]
+            assert res[1] == [
+                INVOICE_UNPAID,
+                INVOICE_ACCEPTED,
+                INVOICE_CANCELLED,
+            ]
 
     def test_track_all(self, cl: HoldStub) -> None:
         expected_events = 6
@@ -515,9 +521,7 @@ class TestGrpc:
         inv_res = lnd(LndNode.One, "addinvoice", str(amount))
         cln_con("pay", inv_res["payment_request"])
 
-        res: PayStatusResponse = cl.PayStatus(
-            PayStatusRequest(bolt11=inv_res["payment_request"])
-        )
+        res: PayStatusResponse = cl.PayStatus(PayStatusRequest(bolt11=inv_res["payment_request"]))
         assert len(res.status) == 1
 
         status = res.status[0]
@@ -546,16 +550,12 @@ class TestGrpc:
         lnd(LndNode.One, "cancelinvoice", inv_res["r_hash"])
         cln_con("pay", inv_res["payment_request"])
 
-        res: PayStatusResponse = cl.PayStatus(
-            PayStatusRequest(bolt11=inv_res["payment_request"])
-        )
+        res: PayStatusResponse = cl.PayStatus(PayStatusRequest(bolt11=inv_res["payment_request"]))
         assert len(res.status) == 1
 
         status = res.status[0]
         assert len(status.attempts) == 1
-        failure: PayStatusResponse.PayStatus.Attempt.Failure = status.attempts[
-            0
-        ].failure
+        failure: PayStatusResponse.PayStatus.Attempt.Failure = status.attempts[0].failure
 
         assert failure.code == 203
         assert (
@@ -566,9 +566,7 @@ class TestGrpc:
         assert failure.data.fail_codename == "WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS"
         assert failure.data.fail_code == 16399
         assert failure.data.erring_index == 1
-        assert (
-            failure.data.erring_node == lnd(LndNode.One, "getinfo")["identity_pubkey"]
-        )
+        assert failure.data.erring_node == lnd(LndNode.One, "getinfo")["identity_pubkey"]
 
     def test_pay_status_all(self, cl: HoldStub) -> None:
         res: PayStatusResponse = cl.PayStatus(PayStatusRequest())

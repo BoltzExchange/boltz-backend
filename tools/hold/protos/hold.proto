@@ -80,6 +80,8 @@ message Htlc {
   HtlcState state = 1;
   uint64 msat = 2;
   uint64 created_at = 3;
+  string short_channel_id = 4;
+  uint64 id = 5;
 }
 
 message Invoice {
@@ -89,6 +91,7 @@ message Invoice {
   string bolt11 = 4;
   uint64 created_at = 5;
   repeated Htlc htlcs = 6;
+  uint64 amount_msat = 7;
 }
 
 message ListResponse {

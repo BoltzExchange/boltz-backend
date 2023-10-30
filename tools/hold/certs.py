@@ -37,7 +37,8 @@ def get_cert(base_path: str, name: str, ca_key: bytes | None = None) -> Certific
 
     if all(Path.exists(Path(path)) for path in [cert_path, key_path]):
         return Certificate(
-            key=Path.read_bytes(Path(key_path)), cert=Path.read_bytes(Path(cert_path))
+            key=Path.read_bytes(Path(key_path)),
+            cert=Path.read_bytes(Path(cert_path)),
         )
 
     key = ec.generate_private_key(curve=SECP256R1())
@@ -49,26 +50,20 @@ def get_cert(base_path: str, name: str, ca_key: bytes | None = None) -> Certific
 
     cert = (
         x509.CertificateBuilder()
-        .subject_name(
-            issuer_name if is_ca else create_cert_name(f"{subject_prefix} {name}")
-        )
+        .subject_name(issuer_name if is_ca else create_cert_name(f"{subject_prefix} {name}"))
         .issuer_name(issuer_name)
         .public_key(key.public_key())
         .serial_number(x509.random_serial_number())
         .not_valid_before(time_now())
         .not_valid_after(time_now() + datetime.timedelta(weeks=52 * 10))
         .add_extension(
-            x509.SubjectAlternativeName(
-                [x509.DNSName(name) for name in ["hold", "localhost"]]
-            ),
+            x509.SubjectAlternativeName([x509.DNSName(name) for name in ["hold", "localhost"]]),
             critical=False,
         )
     )
 
     if is_ca:
-        cert = cert.add_extension(
-            x509.BasicConstraints(ca=True, path_length=None), critical=True
-        )
+        cert = cert.add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
 
     cert = cert.sign(
         serialization.load_pem_private_key(ca_key, password=None) if not is_ca else key,

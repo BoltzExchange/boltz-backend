@@ -28,7 +28,10 @@ type FailureRate = StatsDate & {
   failureRate: number;
 };
 
-type SwapType = 'swap' | 'reverse';
+enum SwapType {
+  Swap = 'swap',
+  Reverse = 'reverse',
+}
 
 type BaseMetric = {
   pair: string;
@@ -320,4 +323,4 @@ GROUP BY pair;
 }
 
 export default StatsRepository;
-export { StatsDate };
+export { SwapType, StatsDate };

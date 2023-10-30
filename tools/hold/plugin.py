@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
+import contextlib
 import sys
 from typing import Any
 
+import bolt11
+from bolt11.exceptions import Bolt11Bech32InvalidException
 from config import Config, register_options
 from consts import (
     PLUGIN_NAME,
@@ -14,12 +17,12 @@ from pyln.client import Plugin
 from pyln.client.plugin import Request
 from router import NoRouteError
 from server import Server
-from settler import HtlcFailureMessage, Settler
+from settler import Settler
 from transformers import Transformers
 
-from hold import Hold, InvoiceExistsError, NoSuchInvoiceError
+from hold import Hold, InvalidPaymentHashLengthError, InvoiceExistsError, NoSuchInvoiceError
 
-# TODO: restart handling
+empty_value = ["", "none", "null", None]
 
 pl = Plugin()
 hold = Hold(pl)
@@ -75,23 +78,29 @@ def hold_invoice(
         }
     except InvoiceExistsError:
         return Errors.invoice_exists
+    except InvalidPaymentHashLengthError:
+        return Errors.invalid_payment_hash_length
 
 
 @pl.method(
     method_name="listholdinvoices",
     category=PLUGIN_NAME,
 )
-def list_hold_invoices(plugin: Plugin, payment_hash: str = "") -> dict[str, Any]:
+def list_hold_invoices(plugin: Plugin, payment_hash: str = "", invoice: str = "") -> dict[str, Any]:
     """List one or more hold invoices."""
-    invoices = []
-
-    for i in hold.list_invoices(payment_hash):
-        invoice = i.invoice.to_dict()
-        invoice["htlcs"] = [htlc.to_dict() for htlc in i.htlcs]
-        invoices.append(invoice)
+    if payment_hash in empty_value and invoice not in empty_value:
+        payment_hash = bolt11.decode(invoice).payment_hash
+    elif (
+        payment_hash is not None
+        and len(payment_hash) > 64
+        and payment_hash.lower().startswith("ln")
+    ):
+        # To allow the first parameter to be the invoice
+        with contextlib.suppress(Bolt11Bech32InvalidException):
+            payment_hash = bolt11.decode(payment_hash).payment_hash
 
     return {
-        "holdinvoices": invoices,
+        "holdinvoices": [invoice.to_dict() for invoice in hold.list_invoices(payment_hash)],
     }
 
 
@@ -197,38 +206,15 @@ def on_htlc_accepted(
         Settler.continue_callback(request)
         return
 
-    invoice_htlcs = hold.ds.get_invoice(htlc["payment_hash"])
+    with hold.handler.lock:
+        invoice = hold.ds.get_invoice(htlc["payment_hash"])
 
-    # Ignore invoices that aren't hold invoices
-    if invoice_htlcs is None:
-        Settler.continue_callback(request)
-        return
+        # Ignore invoices that aren't hold invoices
+        if invoice is None:
+            Settler.continue_callback(request)
+            return
 
-    invoice = invoice_htlcs.invoice
-
-    dec = plugin.rpc.decodepay(invoice.bolt11)
-    if htlc["cltv_expiry_relative"] < dec["min_final_cltv_expiry"]:
-        plugin.log(
-            f"Rejected hold invoice {invoice.payment_hash}: CLTV too little "
-            f"({htlc['cltv_expiry_relative']} < {dec['min_final_cltv_expiry']})",
-            level="warn",
-        )
-        # TODO: use incorrect_cltv_expiry or expiry_too_soon error?
-        Settler.fail_callback(request, HtlcFailureMessage.IncorrectPaymentDetails)
-        return
-
-    if (
-        "payment_secret" not in onion
-        or onion["payment_secret"] != dec["payment_secret"]
-    ):
-        plugin.log(
-            f"Rejected hold invoice {invoice.payment_hash}: incorrect payment secret",
-            level="warn",
-        )
-        Settler.fail_callback(request, HtlcFailureMessage.IncorrectPaymentDetails)
-        return
-
-    hold.handler.handle_htlc(invoice, dec, int(htlc["amount_msat"]), request)
+        hold.handler.handle_htlc(invoice, htlc, onion, request)
 
 
 @pl.subscribe("shutdown")

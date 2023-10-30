@@ -34,6 +34,10 @@ mnemonicpath = "/home/boltz/.boltz/seed.dat"
 # Possible values are: error, warning, info, verbose, debug, silly
 loglevel = "debug"
 
+# Logs can be sent to a Loki log aggregator
+# lokiHost = "http://127.0.0.1:3100"
+# lokiNetwork = "regtest"
+
 # This value configures the type of the lockup address of normal Submarine Swaps:
 #   - false: P2SH nested P2WSH
 #   - true: P2WSH
@@ -50,6 +54,11 @@ prepayminerfee = false
 [api]
 host = "127.0.0.1"
 port = 9_001
+
+# The backend can expose a metrics endpoint about swap count, volume, etc
+# [prometheus]
+# host = "127.0.0.1"
+# port = 9_092
 
 # And this the gRPC API that is used by the boltz-cli executable
 [grpc]

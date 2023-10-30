@@ -1,15 +1,16 @@
 import Logger from '../../../../lib/Logger';
 import { RskConfig } from '../../../../lib/Config';
+import Errors from '../../../../lib/wallet/ethereum/Errors';
+import { Ethereum, Rsk } from '../../../../lib/wallet/ethereum/EvmNetworks';
+import PendingEthereumTransactionRepository from '../../../../lib/db/repositories/PendingEthereumTransactionRepository';
+import InjectedProvider, {
+  EthProviderService,
+} from '../../../../lib/wallet/ethereum/InjectedProvider';
 import {
   fundSignerWallet,
   getSigner,
   providerEndpoint,
 } from '../EthereumTools';
-import Errors from '../../../../lib/wallet/ethereum/Errors';
-import InjectedProvider, {
-  EthProviderService,
-} from '../../../../lib/wallet/ethereum/InjectedProvider';
-import PendingEthereumTransactionRepository from '../../../../lib/db/repositories/PendingEthereumTransactionRepository';
 
 jest.mock(
   '../../../../lib/db/repositories/PendingEthereumTransactionRepository',
@@ -22,7 +23,7 @@ describe('InjectedProvider', () => {
   let provider: InjectedProvider;
 
   beforeAll(async () => {
-    provider = new InjectedProvider(Logger.disabledLogger, {
+    provider = new InjectedProvider(Logger.disabledLogger, Ethereum, {
       providerEndpoint,
       tokens: [],
       etherSwapAddress: '0x',
@@ -33,7 +34,7 @@ describe('InjectedProvider', () => {
 
   test('should throw when no provider is set', () => {
     expect(
-      () => new InjectedProvider(Logger.disabledLogger, {} as RskConfig),
+      () => new InjectedProvider(Logger.disabledLogger, Rsk, {} as RskConfig),
     ).toThrow(Errors.NO_PROVIDER_SPECIFIED().message);
   });
 

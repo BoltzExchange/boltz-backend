@@ -140,7 +140,11 @@ class Boltz {
         new GrpcService(this.service),
       );
 
-      this.prometheus = new Prometheus(this.logger, this.config.prometheus);
+      this.prometheus = new Prometheus(
+        this.logger,
+        this.config.prometheus,
+        this.config.pairs,
+      );
 
       this.api = new Api(this.logger, this.config.api, this.service);
     } catch (error) {

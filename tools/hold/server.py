@@ -40,7 +40,10 @@ from hold import Hold, NoSuchInvoiceError
 
 
 def handle_grpc_error(
-    plugin: Plugin, method_name: str, context: grpc.ServicerContext, e: Exception
+    plugin: Plugin,
+    method_name: str,
+    context: grpc.ServicerContext,
+    e: Exception,
 ) -> None:
     estr = str(e) if str(e) != "" else repr(e)
 
@@ -61,12 +64,16 @@ class HoldService(HoldServicer):
         self._hold = hold
 
     def GetInfo(  # noqa: N802
-        self, request: GetInfoRequest, context: grpc.ServicerContext  # noqa: ARG002
+        self,
+        request: GetInfoRequest,  # noqa: ARG002
+        context: grpc.ServicerContext,  # noqa: ARG002
     ) -> GetInfoResponse:
         return GetInfoResponse(version=VERSION)
 
     def Invoice(  # noqa: N802
-        self, request: InvoiceRequest, context: grpc.ServicerContext  # noqa: ARG002
+        self,
+        request: InvoiceRequest,
+        context: grpc.ServicerContext,  # noqa: ARG002
     ) -> InvoiceResponse:
         return InvoiceResponse(
             bolt11=self._hold.invoice(
@@ -75,7 +82,9 @@ class HoldService(HoldServicer):
                 request.description,
                 optional_default(request.expiry, 0, Defaults.Expiry),
                 optional_default(
-                    request.min_final_cltv_expiry, 0, Defaults.MinFinalCltvExpiry
+                    request.min_final_cltv_expiry,
+                    0,
+                    Defaults.MinFinalCltvExpiry,
                 ),
                 Transformers.routing_hints_from_grpc(list(request.routing_hints)),
             )
@@ -86,12 +95,12 @@ class HoldService(HoldServicer):
         request: RoutingHintsRequest,
         context: grpc.ServicerContext,  # noqa: ARG002
     ) -> RoutingHintsResponse:
-        return Transformers.routing_hints_to_grpc(
-            self._hold.get_private_channels(request.node)
-        )
+        return Transformers.routing_hints_to_grpc(self._hold.get_private_channels(request.node))
 
     def List(  # noqa: N802
-        self, request: ListRequest, context: grpc.ServicerContext  # noqa: ARG002
+        self,
+        request: ListRequest,
+        context: grpc.ServicerContext,  # noqa: ARG002
     ) -> ListResponse:
         return ListResponse(
             invoices=[
@@ -101,13 +110,17 @@ class HoldService(HoldServicer):
         )
 
     def Settle(  # noqa: N802
-        self, request: SettleRequest, context: grpc.ServicerContext  # noqa: ARG002
+        self,
+        request: SettleRequest,
+        context: grpc.ServicerContext,  # noqa: ARG002
     ) -> SettleResponse:
         self._hold.settle(request.payment_preimage)
         return SettleResponse()
 
     def Cancel(  # noqa: N802
-        self, request: CancelRequest, context: grpc.ServicerContext  # noqa: ARG002
+        self,
+        request: CancelRequest,
+        context: grpc.ServicerContext,  # noqa: ARG002
     ) -> CancelResponse:
         self._hold.cancel(request.payment_hash)
         return CancelResponse()
@@ -123,7 +136,7 @@ class HoldService(HoldServicer):
                 self._hold.tracker.stop_tracking(request.payment_hash, queue)
                 raise NoSuchInvoiceError  # noqa: TRY301
 
-            yield TrackResponse(state=INVOICE_STATE_TO_GRPC[invoices[0].invoice.state])
+            yield TrackResponse(state=INVOICE_STATE_TO_GRPC[invoices[0].state])
 
             while context.is_active():
                 state = queue.get()
@@ -137,7 +150,9 @@ class HoldService(HoldServicer):
             handle_grpc_error(self._plugin, self.Track.__name__, context, e)
 
     def TrackAll(  # noqa: N802
-        self, request: TrackAllRequest, context: grpc.ServicerContext  # noqa: ARG002
+        self,
+        request: TrackAllRequest,  # noqa: ARG002
+        context: grpc.ServicerContext,
     ) -> Iterable[TrackAllResponse]:
         try:
             queue = self._hold.tracker.track_all()
@@ -158,14 +173,18 @@ class HoldService(HoldServicer):
             handle_grpc_error(self._plugin, self.TrackAll.__name__, context, e)
 
     def PayStatus(  # noqa: N802
-        self, request: PayStatusRequest, context: grpc.ServicerContext  # noqa: ARG002
+        self,
+        request: PayStatusRequest,
+        context: grpc.ServicerContext,  # noqa: ARG002
     ) -> PayStatusResponse:
         return Transformers.pay_status_response_to_grpc(
             self._plugin.rpc.paystatus(request.bolt11 if request.bolt11 != "" else None)
         )
 
     def GetRoute(  # noqa: N802
-        self, request: GetRouteRequest, context: grpc.ServicerContext  # noqa: ARG002
+        self,
+        request: GetRouteRequest,
+        context: grpc.ServicerContext,  # noqa: ARG002
     ) -> GetRouteResponse:
         route = self._hold.router.get_route(
             request.destination,
@@ -221,7 +240,8 @@ class Server:
 
     def start(self, host: str, port: int, lightning_dir: str | None) -> None:
         self._server = grpc.server(
-            futures.ThreadPoolExecutor(), interceptors=[LogInterceptor(self._plugin)]
+            futures.ThreadPoolExecutor(),
+            interceptors=[LogInterceptor(self._plugin)],
         )
         add_HoldServicer_to_server(HoldService(self._plugin, self._hold), self._server)
 

@@ -1,6 +1,17 @@
 from enum import Enum
 
 
+class HtlcFailureMessage(str, Enum):
+    MppTimeout = "0017"
+    IncorrectPaymentDetails = "400F"
+
+
+class HtlcState(str, Enum):
+    Paid = "paid"
+    Accepted = "accepted"
+    Cancelled = "cancelled"
+
+
 class InvoiceState(str, Enum):
     Paid = "paid"
     Unpaid = "unpaid"

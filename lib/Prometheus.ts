@@ -1,7 +1,9 @@
 import express, { Response } from 'express';
 import { collectDefaultMetrics, Gauge, Registry } from 'prom-client';
 import Logger from './Logger';
-import StatsRepository from './db/repositories/StatsRepository';
+import { getPairId } from './Utils';
+import { PairConfig } from './consts/Types';
+import StatsRepository, { SwapType } from './db/repositories/StatsRepository';
 
 type PrometheusConfig = {
   host?: string;
@@ -11,13 +13,18 @@ type PrometheusConfig = {
 class Prometheus {
   private static readonly metric_prefix = 'boltz_';
 
+  private readonly pairs = new Set<string>();
+
   private readonly nodeRegistry?: Registry;
   private readonly swapRegistry?: Registry;
 
   constructor(
     private readonly logger: Logger,
-    private readonly config?: PrometheusConfig,
+    private readonly config: PrometheusConfig | undefined,
+    pairs: PairConfig[],
   ) {
+    pairs.forEach((pair) => this.pairs.add(getPairId(pair)));
+
     if (
       this.config === undefined ||
       Object.values(this.config).some((value) => value === undefined)
@@ -71,6 +78,19 @@ class Prometheus {
       register: this.nodeRegistry,
     });
 
+    const defaults = Array.from(this.pairs.values()).flatMap((pair) =>
+      Object.values(SwapType).map((type) => ({
+        type,
+        pair,
+      })),
+    );
+
+    const setDefaults = (gauge: Gauge, defaultValue: number) => {
+      defaults.forEach((defaultLabels) => {
+        gauge.set(defaultLabels, defaultValue);
+      });
+    };
+
     this.swapRegistry!.registerMetric(
       new Gauge({
         name: `${Prometheus.metric_prefix}swap_counts`,
@@ -112,8 +132,9 @@ class Prometheus {
         collect: async function () {
           const counts = await StatsRepository.getPendingSwapsCounts();
 
-          counts.forEach((volume) =>
-            this.set({ pair: volume.pair, type: volume.type }, volume.count),
+          setDefaults(this, 0);
+          counts.forEach((count) =>
+            this.set({ pair: count.pair, type: count.type }, count.count),
           );
         },
       }),
@@ -127,6 +148,7 @@ class Prometheus {
         collect: async function () {
           const lockedFunds = await StatsRepository.getLockedFunds();
 
+          setDefaults(this, 0);
           lockedFunds.forEach((locked) =>
             this.set({ pair: locked.pair, type: 'reverse' }, locked.locked),
           );

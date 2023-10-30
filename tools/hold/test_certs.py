@@ -35,8 +35,6 @@ class TestCerts:
 
     def test_clean(self) -> None:
         for path in [
-            f"{name}{suffix}"
-            for name in [CA_NAME, CLIENT_NAME]
-            for suffix in [".pem", "-key.pem"]
+            f"{name}{suffix}" for name in [CA_NAME, CLIENT_NAME] for suffix in [".pem", "-key.pem"]
         ]:
             Path(path).unlink()

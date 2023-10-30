@@ -26,6 +26,7 @@ class RouteHints:
                 ]
             )
             for chan in filter(
-                lambda chan: not chan["public"] and chan["source"] == node, chans
+                lambda chan: not chan["public"] and chan["source"] == node,
+                chans,
             )
         ]

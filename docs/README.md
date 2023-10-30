@@ -16,7 +16,7 @@ The corresponding REST APIs can be accessed at:
 
 * Testnet: `https://testnet.boltz.exchange/api/`
 * Mainnet: `https://api.boltz.exchange/`
-* Mainnet Tor: `http://boltzzzbnus4m7mta3cxmflnps4fp7dueu2tgurstbvrbt6xswzcocyd.onion/api/`
+* Mainnet via [Tor](https://www.torproject.org/): `http://boltzzzbnus4m7mta3cxmflnps4fp7dueu2tgurstbvrbt6xswzcocyd.onion/api/`
 
 > Note: To test API accessibility via browser, simply append an [endpoint](api.md) to the address, e.g.:
 >

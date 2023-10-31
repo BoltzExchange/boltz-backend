@@ -25,6 +25,7 @@ import EthereumManager from '../wallet/ethereum/EthereumManager';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import ReferralRepository from '../db/repositories/ReferralRepository';
 import SwapManager, { ChannelCreationInfo } from '../swap/SwapManager';
+import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import { InvoiceFeature, PaymentResponse } from '../lightning/LightningClient';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import TimeoutDeltaProvider, {
@@ -1184,6 +1185,14 @@ class Service {
   }> => {
     if (!this.allowReverseSwaps) {
       throw Errors.REVERSE_SWAPS_DISABLED();
+    }
+
+    if (
+      (await ReverseSwapRepository.getReverseSwap({
+        preimageHash: getHexString(args.preimageHash),
+      })) !== null
+    ) {
+      throw Errors.SWAP_WITH_PREIMAGE_EXISTS();
     }
 
     const side = this.getOrderSide(args.orderSide);

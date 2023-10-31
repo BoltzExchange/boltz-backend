@@ -61,17 +61,15 @@ jest.mock('../../../lib/db/repositories/SwapRepository');
 
 const mockedSwapRepository = <jest.Mock<SwapRepository>>(<any>SwapRepository);
 
-const mockAddReverseSwap = jest.fn().mockResolvedValue(undefined);
+let mockGetReverseSwapResult: any = null;
 
 jest.mock('../../../lib/db/repositories/ReverseSwapRepository', () => {
-  return jest.fn().mockImplementation(() => ({
-    addReverseSwap: mockAddReverseSwap,
-  }));
+  return {
+    getReverseSwap: jest
+      .fn()
+      .mockImplementation(async () => mockGetReverseSwapResult),
+  };
 });
-
-const mockedReverseSwapRepository = <jest.Mock<ReverseSwapRepository>>(
-  (<any>ReverseSwapRepository)
-);
 
 let mockGetChannelCreationResult: any = undefined;
 const mockGetChannelCreation = jest.fn().mockImplementation(() => {
@@ -153,7 +151,6 @@ jest.mock('../../../lib/swap/SwapManager', () => {
       getRoutingHints: mockGetRoutingHints,
     },
     swapRepository: mockedSwapRepository(),
-    reverseSwapRepository: mockedReverseSwapRepository(),
     channelCreationRepository: mockedChannelCreationRepository(),
     createSwap: mockCreateSwap,
     setSwapInvoice: mockSetSwapInvoice,
@@ -1675,6 +1672,24 @@ describe('Service', () => {
         onchainAmount: invalidNumber,
       }),
     ).rejects.toEqual(Errors.NOT_WHOLE_NUMBER(invalidNumber));
+  });
+
+  test('should not create Reverse Swaps with reused preiamge hash', async () => {
+    mockGetReverseSwapResult = { id: 'something' };
+
+    const preimageHash = randomBytes(32);
+    await expect(
+      service.createReverseSwap({
+        preimageHash,
+      } as any),
+    ).rejects.toEqual(Errors.SWAP_WITH_PREIMAGE_EXISTS());
+
+    expect(ReverseSwapRepository.getReverseSwap).toHaveBeenCalledTimes(1);
+    expect(ReverseSwapRepository.getReverseSwap).toHaveBeenCalledWith({
+      preimageHash: getHexString(preimageHash),
+    });
+
+    mockGetReverseSwapResult = null;
   });
 
   test('should create Reverse Swaps with referral IDs', async () => {

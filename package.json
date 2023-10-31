@@ -32,9 +32,9 @@
     "changelog": "git-cliff -o CHANGELOG.md",
     "prepublishOnly": "npm run compile && rm -f dist/package.json",
     "python:install": "cd tools && poetry install",
-    "python:proto": "cd tools && poetry run python -m grpc_tools.protoc -I hold/protos --python_out=hold/protos --pyi_out=hold/protos --grpc_python_out=hold/protos hold/protos/hold.proto",
-    "python:lint": "cd tools && poetry run ruff *.py hold/ backup/*.py ../docker/*.py",
-    "python:format": "cd tools && poetry run ruff format **/* ../docker/ ",
+    "python:proto": "cd tools && poetry run python -m grpc_tools.protoc -I plugins/hold/protos --python_out=plugins/hold/protos --pyi_out=plugins/hold/protos --grpc_python_out=plugins/hold/protos plugins/hold/protos/hold.proto",
+    "python:lint": "cd tools && poetry run ruff . ../docker",
+    "python:format": "cd tools && poetry run ruff format . ../docker",
     "python:test": "cd tools && poetry run pytest"
   },
   "bin": {

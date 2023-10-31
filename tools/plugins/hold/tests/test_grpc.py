@@ -6,13 +6,14 @@ from pathlib import Path
 
 import grpc
 import pytest
-from config import OptionDefaults
-from consts import VERSION
-from encoder import Defaults
 
 # noinspection PyProtectedMember
 from grpc._channel import _InactiveRpcError, _MultiThreadedRendezvous
-from protos.hold_pb2 import (
+
+from plugins.hold.config import OptionDefaults
+from plugins.hold.consts import VERSION
+from plugins.hold.encoder import Defaults
+from plugins.hold.protos.hold_pb2 import (
     INVOICE_ACCEPTED,
     INVOICE_CANCELLED,
     INVOICE_PAID,
@@ -33,8 +34,8 @@ from protos.hold_pb2 import (
     TrackAllRequest,
     TrackRequest,
 )
-from protos.hold_pb2_grpc import HoldStub
-from test_utils import (
+from plugins.hold.protos.hold_pb2_grpc import HoldStub
+from plugins.hold.tests.utils import (
     LndNode,
     LndPay,
     cln_con,
@@ -44,7 +45,7 @@ from test_utils import (
     start_plugin,
     stop_plugin,
 )
-from utils import time_now
+from plugins.hold.utils import time_now
 
 
 def add_hold_invoice(cl: HoldStub) -> tuple[str, str, str]:

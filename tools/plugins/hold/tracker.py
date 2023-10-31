@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from queue import SimpleQueue
 from typing import Generic, TypeVar
 
-from enums import InvoiceState
+from plugins.hold.enums import InvoiceState
 
 
 @dataclass(frozen=True)

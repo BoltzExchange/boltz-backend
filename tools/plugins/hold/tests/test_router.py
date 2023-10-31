@@ -1,6 +1,7 @@
 import pytest
-from router import Hop, NoRouteError, Router
-from test_utils import LndNode, RpcPlugin, lnd
+
+from plugins.hold.router import Hop, NoRouteError, Router
+from plugins.hold.tests.utils import LndNode, RpcPlugin, lnd
 
 
 class TestRouter:

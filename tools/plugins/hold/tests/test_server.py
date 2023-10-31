@@ -7,9 +7,10 @@ import pytest
 
 # noinspection PyProtectedMember
 from grpc._channel import _InactiveRpcError
-from protos.hold_pb2 import InvoiceRequest
-from protos.hold_pb2_grpc import HoldStub
-from server import Server
+
+from plugins.hold.protos.hold_pb2 import InvoiceRequest
+from plugins.hold.protos.hold_pb2_grpc import HoldStub
+from plugins.hold.server import Server
 
 
 def free_port() -> int:

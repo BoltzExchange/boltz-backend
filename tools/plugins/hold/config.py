@@ -1,8 +1,9 @@
 from enum import Enum
 from typing import Any
 
-from consts import GRPC_HOST_REGTEST, PLUGIN_NAME, Network
 from pyln.client import Plugin
+
+from plugins.hold.consts import GRPC_HOST_REGTEST, PLUGIN_NAME, Network
 
 
 class OptionKeys(str, Enum):

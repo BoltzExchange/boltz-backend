@@ -3,10 +3,11 @@ from enum import Enum
 
 from bolt11 import Bolt11, Feature, Features, FeatureState, encode
 from bolt11.types import MilliSatoshi, RouteHint, Tag, TagChar, Tags
-from consts import Network
 from pyln.client import Plugin
 from secp256k1 import PrivateKey
-from utils import time_now
+
+from plugins.hold.consts import Network
+from plugins.hold.utils import time_now
 
 NETWORK_PREFIXES = {
     Network.Mainnet: "bc",

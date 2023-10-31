@@ -1,10 +1,11 @@
 from typing import Any
 
-import router
 from bolt11.models.routehint import Route, RouteHint
-from enums import HtlcState, InvoiceState
-from invoice import HoldInvoice, Htlc
-from protos.hold_pb2 import (
+
+from plugins.hold import router
+from plugins.hold.enums import HtlcState, InvoiceState
+from plugins.hold.invoice import HoldInvoice, Htlc
+from plugins.hold.protos.hold_pb2 import (
     HTLC_ACCEPTED,
     HTLC_CANCELLED,
     HTLC_SETTLED,
@@ -19,10 +20,10 @@ from protos.hold_pb2 import (
     RoutingHint,
     RoutingHintsResponse,
 )
-from protos.hold_pb2 import (
+from plugins.hold.protos.hold_pb2 import (
     Htlc as HtlcGrpc,
 )
-from utils import parse_time
+from plugins.hold.utils import parse_time
 
 INVOICE_STATE_TO_GRPC = {
     InvoiceState.Paid: INVOICE_PAID,

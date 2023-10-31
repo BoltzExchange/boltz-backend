@@ -9,7 +9,8 @@ from cryptography.hazmat.primitives.asymmetric.ec import (
     SECP256R1,
 )
 from cryptography.x509.oid import NameOID
-from utils import time_now
+
+from plugins.hold.utils import time_now
 
 
 @dataclass

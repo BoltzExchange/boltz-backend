@@ -6,7 +6,8 @@ from threading import Thread
 from typing import Any
 
 import pytest
-from utils import parse_time
+
+from plugins.hold.utils import parse_time
 
 PLUGIN_PATH = "/root/hold.sh"
 

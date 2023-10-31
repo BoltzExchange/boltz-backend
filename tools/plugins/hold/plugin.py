@@ -5,22 +5,27 @@ from typing import Any
 
 import bolt11
 from bolt11.exceptions import Bolt11Bech32InvalidException
-from config import Config, register_options
 from consts import (
     PLUGIN_NAME,
     VERSION,
 )
-from encoder import Defaults
-from errors import Errors
-from invoice import HoldInvoiceStateError
 from pyln.client import Plugin
 from pyln.client.plugin import Request
-from router import NoRouteError
-from server import Server
-from settler import Settler
-from transformers import Transformers
 
-from hold import Hold, InvalidPaymentHashLengthError, InvoiceExistsError, NoSuchInvoiceError
+from plugins.hold.config import Config, register_options
+from plugins.hold.encoder import Defaults
+from plugins.hold.errors import Errors
+from plugins.hold.hold import (
+    Hold,
+    InvalidPaymentHashLengthError,
+    InvoiceExistsError,
+    NoSuchInvoiceError,
+)
+from plugins.hold.invoice import HoldInvoiceStateError
+from plugins.hold.router import NoRouteError
+from plugins.hold.server import Server
+from plugins.hold.settler import Settler
+from plugins.hold.transformers import Transformers
 
 empty_value = ["", "none", "null", None]
 

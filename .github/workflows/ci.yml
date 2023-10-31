@@ -49,6 +49,9 @@ jobs:
         run: docker exec regtest mkdir -p $pythonLocation/bin &&
             docker exec regtest ln -s /usr/bin/python3 $pythonLocation/bin/python
 
+      - name: Install Python dependencies in regtest container
+        run: docker exec regtest bash /root/poetry-install.sh
+
       - name: Compile
         run: npm run compile
 

@@ -101,7 +101,7 @@ IMAGES: dict[str, Image] = {
         ],
     ),
     "regtest": Image(
-        tag="4.1.1",
+        tag="4.1.2",
         arguments=[
             UBUNTU_VERSION,
             BITCOIN_BUILD_ARG,

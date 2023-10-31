@@ -7,9 +7,10 @@ from hashlib import sha256
 import bolt11
 import pytest
 from bolt11.types import MilliSatoshi
-from consts import OVERPAYMENT_FACTOR, PLUGIN_NAME
-from encoder import Defaults
-from test_utils import (
+
+from plugins.hold.consts import OVERPAYMENT_FACTOR, PLUGIN_NAME
+from plugins.hold.encoder import Defaults
+from plugins.hold.tests.utils import (
     PLUGIN_PATH,
     CliCaller,
     LndNode,

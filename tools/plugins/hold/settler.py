@@ -1,9 +1,10 @@
 from dataclasses import dataclass
 
-from enums import HtlcFailureMessage, HtlcState
-from invoice import HoldInvoice, Htlc, InvoiceState
 from pyln.client.plugin import Request
-from tracker import Tracker
+
+from plugins.hold.enums import HtlcFailureMessage, HtlcState
+from plugins.hold.invoice import HoldInvoice, Htlc, InvoiceState
+from plugins.hold.tracker import Tracker
 
 
 @dataclass

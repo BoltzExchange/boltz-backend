@@ -5,12 +5,15 @@ from queue import Empty
 from typing import TypeVar
 
 import grpc
-from certs import load_certs
-from consts import VERSION
-from encoder import Defaults
-from enums import invoice_state_final
 from grpc_interceptor import ServerInterceptor
-from protos.hold_pb2 import (
+from pyln.client import Plugin
+
+from plugins.hold.certs import load_certs
+from plugins.hold.consts import VERSION
+from plugins.hold.encoder import Defaults
+from plugins.hold.enums import invoice_state_final
+from plugins.hold.hold import Hold, NoSuchInvoiceError
+from plugins.hold.protos.hold_pb2 import (
     CancelRequest,
     CancelResponse,
     GetInfoRequest,
@@ -32,11 +35,8 @@ from protos.hold_pb2 import (
     TrackRequest,
     TrackResponse,
 )
-from protos.hold_pb2_grpc import HoldServicer, add_HoldServicer_to_server
-from pyln.client import Plugin
-from transformers import INVOICE_STATE_TO_GRPC, Transformers
-
-from hold import Hold, NoSuchInvoiceError
+from plugins.hold.protos.hold_pb2_grpc import HoldServicer, add_HoldServicer_to_server
+from plugins.hold.transformers import INVOICE_STATE_TO_GRPC, Transformers
 
 
 def handle_grpc_error(

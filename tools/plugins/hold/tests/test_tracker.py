@@ -1,7 +1,7 @@
 import random
 
-from enums import InvoiceState
-from tracker import InvoiceUpdate, Tracker
+from plugins.hold.enums import InvoiceState
+from plugins.hold.tracker import InvoiceUpdate, Tracker
 
 
 class TestTracker:

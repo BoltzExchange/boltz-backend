@@ -1,5 +1,5 @@
-from route_hints import RouteHints
-from test_utils import LndNode, RpcPlugin, cln_con, get_channel_info, lnd
+from plugins.hold.route_hints import RouteHints
+from plugins.hold.tests.utils import LndNode, RpcPlugin, cln_con, get_channel_info, lnd
 
 
 class TestRouteHints:

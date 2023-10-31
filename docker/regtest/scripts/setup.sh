@@ -59,7 +59,10 @@ function waitForClnChannel () {
   sleep 25
 }
 
-echo "/tools/.venv/bin/python3 /tools/hold/plugin.py" > /root/hold.sh
+echo "cd /tools && /root/.local/bin/poetry install" > /root/poetry-install.sh
+chmod +x /root/poetry-install.sh
+
+echo "cd /tools && /root/.local/bin/poetry run python3 plugins/hold/plugin.py" > /root/hold.sh
 chmod +x /root/hold.sh
 
 startNodes

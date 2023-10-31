@@ -6,14 +6,15 @@ from json import JSONEncoder
 from typing import Any, Callable, TypeVar
 
 import bolt11
-from enums import (
+
+from plugins.hold.enums import (
     POSSIBLE_STATE_TRANSITIONS,
     HtlcFailureMessage,
     HtlcState,
     InvoiceState,
 )
-from tracker import Tracker
-from utils import time_now
+from plugins.hold.tracker import Tracker
+from plugins.hold.utils import time_now
 
 HtlcType = TypeVar("HtlcType", bound="Htlc")
 

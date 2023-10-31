@@ -1,10 +1,11 @@
 from enum import Enum
 from typing import Any
 
-from consts import PLUGIN_NAME
-from invoice import HoldInvoice
 from pyln.client import Plugin, RpcError
-from settler import Settler
+
+from plugins.hold.consts import PLUGIN_NAME
+from plugins.hold.invoice import HoldInvoice
+from plugins.hold.settler import Settler
 
 
 class DataErrorCodes(int, Enum):

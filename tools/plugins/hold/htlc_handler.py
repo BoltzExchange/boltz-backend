@@ -2,19 +2,20 @@ import threading
 from typing import Any, Callable
 from urllib.request import Request
 
-from consts import (
+from pyln.client import Plugin
+
+from plugins.hold.consts import (
     OVERPAYMENT_FACTOR,
     TIMEOUT_CANCEL,
     TIMEOUT_CANCEL_REGTEST,
     TIMEOUT_CHECK_INTERVAL,
     Network,
 )
-from datastore import DataStore
-from enums import HtlcState
-from invoice import HoldInvoice, Htlc, InvoiceState
-from pyln.client import Plugin
-from settler import HtlcFailureMessage, Settler
-from tracker import Tracker
+from plugins.hold.datastore import DataStore
+from plugins.hold.enums import HtlcState
+from plugins.hold.invoice import HoldInvoice, Htlc, InvoiceState
+from plugins.hold.settler import HtlcFailureMessage, Settler
+from plugins.hold.tracker import Tracker
 
 
 class HtlcHandler:

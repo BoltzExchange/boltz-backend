@@ -2,9 +2,10 @@ import random
 
 import pytest
 from bolt11.models.routehint import Route, RouteHint
-from encoder import Defaults, Encoder, get_network_prefix, get_payment_secret
-from test_utils import RpcPlugin, cln_con
-from utils import time_now
+
+from plugins.hold.encoder import Defaults, Encoder, get_network_prefix, get_payment_secret
+from plugins.hold.tests.utils import RpcPlugin, cln_con
+from plugins.hold.utils import time_now
 
 route_hint = RouteHint(
     routes=[

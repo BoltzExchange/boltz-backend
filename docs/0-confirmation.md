@@ -11,10 +11,12 @@ As a precautionary measure, Boltz enforces a few rules when it comes to 0-conf.
 
 It is important to note that:
 
-* In Normal Submarine Swaps in which the user sends the chain transaction, _Boltz_ is taking the risk by accepting unconfirmed transactions
-* In Reverse Submarine Swaps where the user receives the chain transaction from Boltz, _the user_ is at risk for accepting the unconfirmed transaction
+* In **Normal Submarine Swaps** in which the user sends the chain transaction, _Boltz_ is taking the risk by accepting unconfirmed transactions
+* In **Reverse Submarine Swaps** where the user receives the chain transaction from Boltz, _the user_ is at risk for accepting the unconfirmed transaction
 
 _0-conf Swaps are subject to network conditions and generally only available on UTXO chains like Bitcoin._
+
+> Note: Because of [growing support for `-mempoolfullrbf`](https://github.com/bitcoin/bitcoin/pull/28132) in Bitcoin Core and support from some miners who are processing such transactions already, Boltz had to set limits for the Bitcoin mainchain to 0, effectively not accepting 0-conf transactions for Normal Submarine Swaps as of now. It might be unfeasible for Boltz to accept 0-conf on the Bitcoin mainchain in the future.
 
 ## Limits
 
@@ -22,9 +24,7 @@ When it comes to accepting 0-conf transactions, Boltz has configurable limits in
 
 ## BIP 125 - Replace-By-Fee
 
-If a transaction locking up bitcoin is signalling Replace-By-Fee either explicitly or inherently (unconfirmed inputs of the transaction signal RBF), Boltz will not accept 0-conf for that transaction in Normal Submarine Swaps. Also note, that Boltz never sends transactions that signal RBF. For more information about RBF please read the [BIP 125 - Opt-in Full Replace-by-Fee Signaling](https://github.com/bitcoin/bips/blob/master/bip-0125.mediawiki).
-
-> Note: [Growing support for `-mempoolfullrbf`](https://github.com/bitcoin/bitcoin/pull/28132) in Bitcoin Core might make it unfeasible for Boltz to accept 0-conf for the Bitcoin mainchain again.
+If a transaction locking up bitcoin is signalling Replace-By-Fee either explicitly or inherently (unconfirmed inputs of the transaction signal RBF), Boltz will not accept 0-conf for that transaction in Normal Submarine Swaps. Also note, that Boltz never sends transactions that signal RBF. For more information about RBF please read [BIP 125 - Opt-in Full Replace-by-Fee Signaling](https://github.com/bitcoin/bips/blob/master/bip-0125.mediawiki).
 
 ## Miner fees
 

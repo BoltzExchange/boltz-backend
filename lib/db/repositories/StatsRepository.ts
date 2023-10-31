@@ -1,6 +1,6 @@
 import { QueryTypes } from 'sequelize';
-import Database from '../Database';
-import { arrayToSqlInClause } from '../Utils';
+import { Queries } from '../Utils';
+import Database, { DatabaseType } from '../Database';
 import {
   NotPendingReverseSwapEvents,
   NotPendingSwapEvents,
@@ -23,7 +23,6 @@ type TradeCount = StatsDate & {
 };
 
 type FailureRate = StatsDate & {
-  pair: string;
   isReverse: boolean;
   failureRate: number;
 };
@@ -57,7 +56,49 @@ type LockedFunds = {
 };
 
 class StatsRepository {
-  private static queryVolume = `
+  private static readonly queryVolume: Queries = {
+    // language=PostgreSQL
+    [DatabaseType.PostgreSQL]: `
+WITH data AS (
+    SELECT
+        pair,
+        status,
+        CASE WHEN "orderSide" = 1
+            THEN "invoiceAmount"
+            ELSE "onchainAmount"
+        END AS amount,
+        "createdAt"
+    FROM swaps
+    WHERE status = ?
+    UNION ALL
+    SELECT
+        pair,
+        status,
+        CASE WHEN "orderSide" = 1
+            THEN "onchainAmount"
+            ELSE "invoiceAmount"
+        END AS amount,
+        "createdAt"
+    FROM "reverseSwaps"
+    WHERE status = ?
+)
+SELECT
+    EXTRACT(YEAR FROM "createdAt") AS year,
+    EXTRACT(MONTH FROM "createdAt") AS month,
+    pair,
+    SUM(amount) AS sum
+FROM data
+WHERE EXTRACT(YEAR FROM "createdAt") >= ? AND
+    EXTRACT(MONTH FROM "createdAt") >= ?
+GROUP BY GROUPING SETS (
+    (year, month),
+    (year, month, pair)
+)
+ORDER BY year, month, pair NULLS FIRST;    
+`,
+
+    // language=SQLite
+    [DatabaseType.SQLite]: `
 WITH data AS (
     SELECT
         pair,
@@ -93,9 +134,38 @@ WITH data AS (
 SELECT * FROM groupedTotals
 WHERE year >= ? AND month >= ?
 ORDER BY year, month, pair;
-`;
+`,
+  };
 
-  private static queryTradeCounts = `
+  private static readonly queryTradeCounts: Queries = {
+    // language=PostgreSQL
+    [DatabaseType.PostgreSQL]: `
+WITH data AS (
+    SELECT pair, status, "createdAt"
+    FROM swaps
+    WHERE status = ?
+    UNION ALL
+    SELECT pair, status, "createdAt"
+    FROM "reverseSwaps"
+    WHERE status = ?
+)
+SELECT
+    EXTRACT(YEAR FROM "createdAt") AS year,
+    EXTRACT(MONTH FROM "createdAt") AS month,
+    pair,
+    COUNT(*) AS count
+FROM data
+WHERE EXTRACT(YEAR FROM "createdAt") >= ? AND
+    EXTRACT(MONTH FROM "createdAt") >= ?
+GROUP BY GROUPING SETS (
+    (year, month),
+    (pair, year, month)
+)
+ORDER BY year, month, pair NULLS FIRST;
+`,
+
+    // language=SQLite
+    [DatabaseType.SQLite]: `
 WITH data AS (
     SELECT pair, status, createdAt
     FROM swaps
@@ -123,9 +193,33 @@ WITH data AS (
 SELECT * FROM groupedTotals
 WHERE year >= ? AND month >= ?
 ORDER BY year, month, pair;
-`;
+`,
+  };
 
-  private static queryFailureRates = `
+  private static readonly queryFailureRates: Queries = {
+    // language=PostgreSQL
+    [DatabaseType.PostgreSQL]: `
+WITH data AS (
+    SELECT pair, false AS "isReverse", status, "createdAt" FROM swaps
+    UNION ALL
+    SELECT pair, true as "isReverse", status, "createdAt" FROM "reverseSwaps"
+)
+SELECT
+    EXTRACT(YEAR FROM "createdAt") AS year,
+    EXTRACT(MONTH FROM "createdAt") AS month,
+    "isReverse",
+    COUNT(*) FILTER (
+        WHERE status IN (?)
+    ) / CAST(COUNT(*) AS REAL) AS "failureRate"
+FROM data
+WHERE EXTRACT(YEAR FROM "createdAt") >= ? AND
+    EXTRACT(MONTH FROM "createdAt") >= ?
+GROUP BY year, month, "isReverse"
+ORDER BY year, month, "isReverse";
+`,
+
+    // language=SQLite
+    [DatabaseType.SQLite]: `
 WITH data AS (
     SELECT pair, false AS isReverse, status, createdAt FROM swaps
     UNION ALL
@@ -137,61 +231,50 @@ SELECT
     pair,
     isReverse,
     COUNT(*) FILTER (
-        WHERE status IN (${arrayToSqlInClause([
-          SwapUpdateEvent.TransactionFailed,
-          SwapUpdateEvent.InvoiceFailedToPay,
-          SwapUpdateEvent.TransactionRefunded,
-        ])})
+        WHERE status IN (?)
     ) / CAST(COUNT(*) AS REAL) AS failureRate
 FROM data
 WHERE year >= ? AND month >= ?
 GROUP BY year, month, isReverse
 ORDER BY year, month, isReverse;
-`;
-
-  public static getVolume = (
-    minYear: number,
-    minMonth: number,
-  ): Promise<Volume[]> => {
-    return StatsRepository.query({
-      query: StatsRepository.queryVolume,
-      values: [
-        SwapUpdateEvent.TransactionClaimed,
-        SwapUpdateEvent.InvoiceSettled,
-        minYear,
-        minMonth,
-      ],
-    });
+`,
   };
 
-  public static getTradeCounts = (
-    minYear: number,
-    minMonth: number,
-  ): Promise<TradeCount[]> => {
-    return StatsRepository.query({
-      query: StatsRepository.queryTradeCounts,
-      values: [
-        SwapUpdateEvent.TransactionClaimed,
-        SwapUpdateEvent.InvoiceSettled,
-        minYear,
-        minMonth,
-      ],
-    });
-  };
+  private static readonly querySwapCounts: Queries = {
+    // language=PostgreSQL
+    [DatabaseType.PostgreSQL]: `
+WITH data AS (
+    SELECT
+        pair,
+        'swap' AS type,
+        CASE
+            WHEN status = ? THEN 'success'
+            WHEN status = ? THEN 'failure'
+            ELSE 'timeout'
+        END AS status
+    FROM swaps
+    UNION ALL
+    SELECT
+        pair,
+        'reverse' AS type,
+        CASE
+            WHEN status = ? THEN 'success'
+            WHEN status IN (?) THEN 'failure'
+            ELSE 'timeout'
+        END AS status
+    FROM "reverseSwaps"
+)
+SELECT
+    pair,
+    type,
+    status,
+    COUNT(*) AS count
+FROM data
+GROUP BY pair, type, status;
+`,
 
-  public static getFailureRates = (
-    minYear: number,
-    minMonth: number,
-  ): Promise<FailureRate[]> => {
-    return StatsRepository.query({
-      query: StatsRepository.queryFailureRates,
-      values: [minYear, minMonth],
-    });
-  };
-
-  public static getSwapCounts = (): Promise<SwapCount[]> => {
-    return StatsRepository.query({
-      query: `
+    // language=SQLite
+    [DatabaseType.SQLite]: `
 WITH data AS (
     SELECT
         pair,
@@ -221,21 +304,39 @@ SELECT
 FROM data
 GROUP BY pair, type, status;
 `,
-      values: [
-        SwapUpdateEvent.TransactionClaimed,
-        SwapUpdateEvent.InvoiceFailedToPay,
-        SwapUpdateEvent.InvoiceSettled,
-        [
-          SwapUpdateEvent.TransactionFailed,
-          SwapUpdateEvent.TransactionRefunded,
-        ],
-      ],
-    });
   };
 
-  public static getVolumePerPairType = (): Promise<VolumePerPairType[]> => {
-    return StatsRepository.query({
-      query: `
+  private static readonly queryVolumePerPairType: Queries = {
+    // language=PostgreSQL
+    [DatabaseType.PostgreSQL]: `
+WITH data AS (
+    SELECT
+        pair,
+        'swap' AS type,
+        CASE WHEN "orderSide" = 1
+            THEN "invoiceAmount"
+            ELSE "onchainAmount"
+        END AS amount
+    FROM swaps
+    WHERE status = ?
+    UNION ALL
+    SELECT
+        pair,
+        'reverse' AS type,
+        CASE WHEN "orderSide" = 1
+            THEN "onchainAmount"
+            ELSE "invoiceAmount"
+        END AS amount
+    FROM "reverseSwaps"
+    WHERE status = ?
+)
+SELECT pair, type, SUM(amount)::BIGINT AS volume
+FROM data
+GROUP BY pair, type;
+`,
+
+    // language=SQLite
+    [DatabaseType.SQLite]: `
 WITH data AS (
     SELECT
         pair,
@@ -254,17 +355,35 @@ WITH data AS (
 SELECT pair, type, SUM(amount) AS volume
 FROM data
 GROUP BY pair, type;
-    `,
-      values: [
-        SwapUpdateEvent.TransactionClaimed,
-        SwapUpdateEvent.InvoiceSettled,
-      ],
-    });
+`,
   };
 
-  public static getPendingSwapsCounts = (): Promise<PendingSwaps[]> => {
-    return StatsRepository.query({
-      query: `
+  private static readonly queryPendingSwapsCounts: Queries = {
+    // language=PostgreSQL
+    [DatabaseType.PostgreSQL]: `
+WITH data AS (
+    SELECT
+        pair,
+        'swap' AS type
+    FROM swaps
+    WHERE status NOT IN (?)
+    UNION ALL
+    SELECT
+        pair,
+        'reverse' AS type
+    FROM "reverseSwaps"
+    WHERE status NOT IN (?)
+)
+SELECT
+    pair,
+    type,
+    COUNT(*) as count
+FROM data
+GROUP BY pair, type;
+`,
+
+    // language=SQLite
+    [DatabaseType.SQLite]: `
 WITH data AS (
     SELECT
         pair,
@@ -284,14 +403,27 @@ SELECT
     COUNT(*) as count
 FROM data
 GROUP BY pair, type;
-      `,
-      values: [NotPendingSwapEvents, NotPendingReverseSwapEvents],
-    });
+`,
   };
 
-  public static getLockedFunds = (): Promise<LockedFunds[]> => {
-    return StatsRepository.query({
-      query: `
+  private static readonly queryLockedFunds: Queries = {
+    // language=PostgreSQL
+    [DatabaseType.PostgreSQL]: `
+SELECT
+    pair,
+    SUM(
+        CASE WHEN "orderSide" = 1
+            THEN "onchainAmount"
+            ELSE "invoiceAmount"
+        END
+    ) AS locked
+FROM "reverseSwaps"
+WHERE status IN (?)
+GROUP BY pair;
+`,
+
+    // language=SQLite
+    [DatabaseType.SQLite]: `
 SELECT
     pair,
     SUM(amount) AS locked
@@ -304,6 +436,91 @@ FROM (
 )
 GROUP BY pair;
 `,
+  };
+
+  public static getVolume = (
+    minYear: number,
+    minMonth: number,
+  ): Promise<Volume[]> => {
+    return StatsRepository.query({
+      query: StatsRepository.queryVolume[Database.type],
+      values: [
+        SwapUpdateEvent.TransactionClaimed,
+        SwapUpdateEvent.InvoiceSettled,
+        minYear,
+        minMonth,
+      ],
+    });
+  };
+
+  public static getTradeCounts = (
+    minYear: number,
+    minMonth: number,
+  ): Promise<TradeCount[]> => {
+    return StatsRepository.query({
+      query: StatsRepository.queryTradeCounts[Database.type],
+      values: [
+        SwapUpdateEvent.TransactionClaimed,
+        SwapUpdateEvent.InvoiceSettled,
+        minYear,
+        minMonth,
+      ],
+    });
+  };
+
+  public static getFailureRates = (
+    minYear: number,
+    minMonth: number,
+  ): Promise<FailureRate[]> => {
+    return StatsRepository.query({
+      query: StatsRepository.queryFailureRates[Database.type],
+      values: [
+        [
+          SwapUpdateEvent.TransactionFailed,
+          SwapUpdateEvent.InvoiceFailedToPay,
+          SwapUpdateEvent.TransactionRefunded,
+        ],
+        minYear,
+        minMonth,
+      ],
+    });
+  };
+
+  public static getSwapCounts = (): Promise<SwapCount[]> => {
+    return StatsRepository.query({
+      query: StatsRepository.querySwapCounts[Database.type],
+      values: [
+        SwapUpdateEvent.TransactionClaimed,
+        SwapUpdateEvent.InvoiceFailedToPay,
+        SwapUpdateEvent.InvoiceSettled,
+        [
+          SwapUpdateEvent.TransactionFailed,
+          SwapUpdateEvent.TransactionRefunded,
+        ],
+      ],
+    });
+  };
+
+  public static getVolumePerPairType = (): Promise<VolumePerPairType[]> => {
+    return StatsRepository.query({
+      query: StatsRepository.queryVolumePerPairType[Database.type],
+      values: [
+        SwapUpdateEvent.TransactionClaimed,
+        SwapUpdateEvent.InvoiceSettled,
+      ],
+    });
+  };
+
+  public static getPendingSwapsCounts = (): Promise<PendingSwaps[]> => {
+    return StatsRepository.query({
+      query: StatsRepository.queryPendingSwapsCounts[Database.type],
+      values: [NotPendingSwapEvents, NotPendingReverseSwapEvents],
+    });
+  };
+
+  public static getLockedFunds = (): Promise<LockedFunds[]> => {
+    return StatsRepository.query({
+      query: StatsRepository.queryLockedFunds[Database.type],
       values: [
         [
           SwapUpdateEvent.TransactionMempool,

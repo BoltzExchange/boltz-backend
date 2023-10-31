@@ -1,6 +1,6 @@
 import { QueryTypes } from 'sequelize';
-import Database from '../Database';
-import { arrayToSqlInClause } from '../Utils';
+import { Queries } from '../Utils';
+import Database, { DatabaseType } from '../Database';
 import { SuccessSwapUpdateEvents } from '../../consts/Enums';
 
 type Fee = {
@@ -9,7 +9,41 @@ type Fee = {
 };
 
 class FeeRepository {
-  private static queryFees = `
+  private static queryFees: Queries = {
+    // language=PostgreSQL
+    [DatabaseType.PostgreSQL]: `
+WITH data AS (
+    SELECT
+        CASE WHEN "orderSide" = 1
+            THEN SPLIT_PART(pair, '/', 1)
+            ELSE SPLIT_PART(pair, '/', 2)
+        END AS asset,
+        pair,
+        status,
+        fee
+    FROM swaps
+    UNION ALL
+    SELECT
+        CASE WHEN "orderSide" = 1
+            THEN SPLIT_PART(pair, '/', 2)
+            ELSE SPLIT_PART(pair, '/', 1)
+        END AS asset,
+        pair,
+        status,
+        fee
+    FROM "reverseSwaps"
+)
+SELECT
+    asset,
+    SUM(fee) AS sum
+FROM data
+WHERE status IN (?)
+GROUP BY asset
+ORDER BY asset;
+`,
+
+    // language=SQLite
+    [DatabaseType.SQLite]: `
 WITH data AS (
     SELECT
         CASE WHEN orderSide
@@ -35,14 +69,21 @@ SELECT
     asset,
     SUM(fee) AS sum
 FROM data
-WHERE status IN (${arrayToSqlInClause(SuccessSwapUpdateEvents)})
+WHERE status IN (?)
 GROUP BY asset;
-`;
+    `,
+  };
 
   public static getFees = (): Promise<Fee[]> => {
-    return Database.sequelize.query(FeeRepository.queryFees, {
-      type: QueryTypes.SELECT,
-    });
+    return Database.sequelize.query(
+      {
+        query: FeeRepository.queryFees[Database.type],
+        values: [SuccessSwapUpdateEvents],
+      },
+      {
+        type: QueryTypes.SELECT,
+      },
+    );
   };
 }
 

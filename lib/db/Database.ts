@@ -1,3 +1,10 @@
+import { types } from 'pg';
+
+// To make sure that PostgreSQL types are parsed correctly
+types.setTypeParser(types.builtins.INT8, parseInt);
+types.setTypeParser(types.builtins.NUMERIC, parseFloat);
+types.setTypeParser(types.builtins.FLOAT8, parseFloat);
+
 import Sequelize from 'sequelize';
 import Logger from '../Logger';
 import Pair from './models/Pair';
@@ -5,6 +12,7 @@ import Swap from './models/Swap';
 import Migration from './Migration';
 import ChainTip from './models/ChainTip';
 import Referral from './models/Referral';
+import { PostgresConfig } from '../Config';
 import ReverseSwap from './models/ReverseSwap';
 import KeyProvider from './models/KeyProvider';
 import { Currency } from '../wallet/WalletManager';
@@ -12,30 +20,57 @@ import DatabaseVersion from './models/DatabaseVersion';
 import ChannelCreation from './models/ChannelCreation';
 import PendingEthereumTransaction from './models/PendingEthereumTransaction';
 
+enum DatabaseType {
+  'SQLite',
+  'PostgreSQL',
+}
+
 class Database {
   public static readonly memoryDatabase = ':memory:';
 
+  public static type: DatabaseType = DatabaseType.PostgreSQL;
   public static sequelize: Sequelize.Sequelize;
 
   private migration: Migration;
 
   /**
    * @param logger logger that should be used
-   * @param storage the file path to the SQLite database; if ':memory:' the database will be stored in the memory
+   * @param sqlitePath the file path to the SQLite database; if ':memory:' the database will be stored in the memory
+   * @param postgresConfig configuration of connection to a PostgreSQL database; takes precedence over SQLite if set
    */
   constructor(
-    private logger: Logger,
-    private storage: string,
+    private readonly logger: Logger,
+    private readonly sqlitePath: string,
+    postgresConfig?: PostgresConfig,
   ) {
-    Database.sequelize = new Sequelize.Sequelize({
-      storage,
-      dialect: 'sqlite',
-      logging: this.logger.silly,
-      retry: {
-        max: 3,
-        match: ['SQLITE_BUSY'],
-      },
-    });
+    if (
+      postgresConfig !== undefined &&
+      [postgresConfig.host, postgresConfig.port, postgresConfig.database].every(
+        (value) => value !== undefined,
+      )
+    ) {
+      Database.type = DatabaseType.PostgreSQL;
+      Database.sequelize = new Sequelize.Sequelize({
+        host: postgresConfig.host,
+        port: postgresConfig.port,
+        database: postgresConfig.database,
+        username: postgresConfig.username,
+        password: postgresConfig.password,
+        dialect: 'postgres',
+        logging: this.logger.silly,
+      });
+    } else {
+      Database.type = DatabaseType.SQLite;
+      Database.sequelize = new Sequelize.Sequelize({
+        dialect: 'sqlite',
+        storage: sqlitePath,
+        logging: this.logger.silly,
+        retry: {
+          max: 3,
+          match: ['SQLITE_BUSY'],
+        },
+      });
+    }
 
     this.loadModels();
 
@@ -45,11 +80,22 @@ class Database {
   public init = async (): Promise<void> => {
     try {
       await Database.sequelize.authenticate();
-      this.logger.info(
-        `Connected to database: ${
-          this.storage === ':memory:' ? 'in memory' : this.storage
-        }`,
-      );
+
+      switch (Database.type) {
+        case DatabaseType.PostgreSQL:
+          this.logger.info('Connected to PostgreSQL database');
+          break;
+
+        case DatabaseType.SQLite:
+          this.logger.info(
+            `Connected to database: ${
+              this.sqlitePath === Database.memoryDatabase
+                ? 'in memory'
+                : this.sqlitePath
+            }`,
+          );
+          break;
+      }
     } catch (error) {
       this.logger.error(`Could not connect to database: ${error}`);
       throw error;
@@ -91,3 +137,4 @@ class Database {
 }
 
 export default Database;
+export { DatabaseType };

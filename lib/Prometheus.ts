@@ -115,9 +115,9 @@ class Prometheus {
         labelNames: ['pair', 'type'],
         help: 'volume of swaps',
         collect: async function () {
-          const counts = await StatsRepository.getVolumePerPairType();
+          const volumes = await StatsRepository.getVolumePerPairType();
 
-          counts.forEach((volume) =>
+          volumes.forEach((volume) =>
             this.set({ pair: volume.pair, type: volume.type }, volume.volume),
           );
         },

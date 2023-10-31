@@ -1,7 +1,7 @@
 import { QueryTypes } from 'sequelize';
-import Database from '../Database';
+import { Queries } from '../Utils';
 import { StatsDate } from './StatsRepository';
-import { arrayToSqlInClause } from '../Utils';
+import Database, { DatabaseType } from '../Database';
 import Referral, { ReferralType } from '../models/Referral';
 import { SuccessSwapUpdateEvents } from '../../consts/Enums';
 
@@ -12,6 +12,48 @@ type ReferralSumRow = StatsDate & {
 };
 
 class ReferralRepository {
+  private static readonly referralSumQuery: Queries = {
+    // language=PostgreSQL
+    [DatabaseType.PostgreSQL]: `
+WITH data AS (
+    SELECT pair, status, fee, referral, "createdAt" FROM swaps
+    UNION ALL
+    SELECT pair, status, fee, referral, "createdAt" FROM "reverseSwaps"
+)
+SELECT
+    EXTRACT(YEAR from data."createdAt") AS year,
+    EXTRACT(MONTH from data."createdAt") AS month,
+    pair,
+    data.referral as referral,
+    (SUM(data.fee * r."feeShare") / 100)::BIGINT AS sum
+FROM data
+    INNER JOIN referrals r ON data.referral = r.id
+WHERE data.status IN (?)
+GROUP BY year, month, pair, data.referral
+ORDER BY year, month;
+    `,
+
+    // language=SQLite
+    [DatabaseType.SQLite]: `
+WITH data AS (
+    SELECT pair, status, fee, referral, createdAt FROM swaps
+    UNION ALL
+    SELECT pair, status, fee, referral, createdAt FROM reverseSwaps
+)
+SELECT
+    CAST(STRFTIME('%Y', data.createdAt) AS INT) AS year,
+    CAST(STRFTIME('%m', data.createdAt) AS INT) AS month,
+    pair,
+    referral,
+    SUM(data.fee * referrals.feeShare) / 100 AS sum
+FROM data
+    INNER JOIN referrals ON data.referral = referrals.id
+WHERE data.status IN (?)
+GROUP BY year, month, pair, referral
+ORDER BY year, month;
+`,
+  };
+
   public static addReferral = (referral: ReferralType): Promise<Referral> => {
     return Referral.create(referral);
   };
@@ -40,38 +82,24 @@ class ReferralRepository {
     });
   };
 
-  public static getReferralSum = (
+  public static getReferralSum = async (
     referralKey?: string,
   ): Promise<ReferralSumRow[]> => {
-    return Database.sequelize.query(this.referralsQuery(referralKey), {
-      replacements: referralKey !== undefined ? [referralKey] : [],
-      type: QueryTypes.SELECT,
-    });
-  };
+    const res: ReferralSumRow[] = await Database.sequelize.query(
+      {
+        query: ReferralRepository.referralSumQuery[Database.type],
+        values: [SuccessSwapUpdateEvents],
+      },
+      {
+        type: QueryTypes.SELECT,
+      },
+    );
 
-  private static referralsQuery = (referralKey?: string): string => {
-    const keyClause = referralKey !== undefined ? 'AND referral = ?' : '';
+    if (referralKey) {
+      return res.filter((row) => row.referral === referralKey);
+    }
 
-    return `
-WITH data AS (
-    SELECT pair, status, fee, referral, createdAt FROM swaps
-    UNION ALL
-    SELECT pair, status, fee, referral, createdAt FROM reverseSwaps
-)
-SELECT
-    CAST(STRFTIME('%Y', data.createdAt) AS INT) AS year,
-    CAST(STRFTIME('%m', data.createdAt) AS INT) AS month,
-    pair,
-    referral,
-    SUM(data.fee * referrals.feeShare) / 100 AS sum
-FROM data
-    INNER JOIN referrals ON data.referral = referrals.id
-WHERE data.status IN (
-    ${arrayToSqlInClause(SuccessSwapUpdateEvents)}
-) ${keyClause}
-GROUP BY pair, referral, year, month
-ORDER BY year, month;
-`;
+    return res;
   };
 }
 

@@ -1,3 +1,8 @@
-export const arrayToSqlInClause = (arr: string[]): string => {
-  return arr.map((event) => `'${event}'`).join(',');
+import { DatabaseType } from './Database';
+
+type Queries = {
+  [DatabaseType.SQLite]: string;
+  [DatabaseType.PostgreSQL]: string;
 };
+
+export { Queries };

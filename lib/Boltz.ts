@@ -78,7 +78,11 @@ class Boltz {
       );
     });
 
-    this.db = new Database(this.logger, this.config.dbpath);
+    this.db = new Database(
+      this.logger,
+      this.config.dbpath,
+      this.config.postgres,
+    );
 
     this.ethereumManagers = [
       { name: Ethereum.name, isRsk: false, config: this.config.ethereum },

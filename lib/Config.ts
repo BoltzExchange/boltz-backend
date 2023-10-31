@@ -13,6 +13,14 @@ import { WebdavConfig } from './backup/providers/Webdav';
 import { GoogleCloudConfig } from './backup/providers/GoogleCloud';
 import { deepMerge, getServiceDataDir, resolveHome } from './Utils';
 
+type PostgresConfig = {
+  host: string;
+  port: number;
+  database: string;
+  username: string;
+  password: string;
+};
+
 type ChainConfig = {
   host: string;
   port: number;
@@ -135,7 +143,9 @@ type ConfigType = {
 
   configpath: string;
   mnemonicpath: string;
+
   dbpath: string;
+  postgres?: PostgresConfig;
 
   logpath: string;
   loglevel: string;
@@ -477,6 +487,7 @@ export {
   TokenConfig,
   BackupConfig,
   EthereumConfig,
+  PostgresConfig,
   CurrencyConfig,
   PreferredWallet,
   BaseCurrencyConfig,

@@ -1,11 +1,8 @@
 ---
-description: >-
-  With refund files, users reclaim funds of a failed Normal Submarine Swap. They
-  are the last layer of defense against loss of funds, in case refund info
-  stored by the client is lost.
+description: For Reverse Submarine Swaps, a Boltz API client has to submit claim
 ---
 
-# 📩 Refund Files
+# 🧾 Scripting Transactions
 
 The concept of refunds currently only exists for failed Normal Submarine Swaps. In case of a failed Reverse Submarine Swaps, Lightning funds automatically bounce back to the user, no active refunding is needed. All clients that offer the option for users to save refund files should format them in a standardized way. This is necessary for refunds to not only work in a client, but also but also with the [Boltz Web App](https://boltz.exchange/refund).
 

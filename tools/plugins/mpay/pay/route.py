@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from itertools import pairwise
 from typing import Any
 
 from pyln.client import Millisatoshi
@@ -24,9 +25,29 @@ class Route:
         """Return the length of the route."""
         return len(self.route)
 
+    def __getitem__(self, item: int) -> dict[str, Any]:
+        """Get a hop from the route."""
+        return self.route[item]
+
     @property
     def fee(self) -> Millisatoshi:
         return self.route[0]["amount_msat"] - self.route[-1]["amount_msat"]
+
+    def most_expensive_channel(self) -> tuple[dict[str, Any], Millisatoshi]:
+        if len(self) == 0:
+            msg = "route needs at least one hop to calculate most expensive one"
+            raise ValueError(msg)
+
+        most_expensive: tuple[dict[str, Any], Millisatoshi] = (self.route[0], Millisatoshi(0))
+        if len(self) == 1:
+            return most_expensive
+
+        for first, second in pairwise(self.route):
+            fee = first["amount_msat"] - second["amount_msat"]
+            if fee > most_expensive[1]:
+                most_expensive = (first, fee)
+
+        return most_expensive
 
     def exceeds_fee(self, max_fee: Millisatoshi) -> bool:
         return self.fee > max_fee
@@ -60,6 +81,10 @@ class Route:
         return " -> ".join(
             [f"{network_info.get_node_alias(hop['id'])} ({hop['channel']})" for hop in self.route]
         )
+
+    @staticmethod
+    def channel_to_short_id(channel: dict[str, Any]) -> str:
+        return f"{channel['channel']}/{channel['direction']}"
 
     @staticmethod
     def from_channel_infos(amount: Millisatoshi, infos: list[dict[str, Any]]) -> "Route":

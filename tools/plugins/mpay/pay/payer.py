@@ -95,6 +95,7 @@ class Payer:
 
             self._check_timeout()
 
+        self._pl.log("Ran out of known routes to try; falling back to getroute")
         for max_hops in range(2, _MAX_HOPS + 1):
             res = self._send_via_get_route(max_hops, exclude_list)
             if res is not None:
@@ -135,11 +136,18 @@ class Payer:
         exclude_list: list[str],
     ) -> PaymentResult | None:
         if route.exceeds_fee(self._max_fee):
-            # TODO: exclude most expensive channel
             self._pl.log(
                 f"Not attempting route {route.pretty_print(self._network_info)}: "
                 f"fee {fee_with_percent(self._amount, route.fee)} exceeds budget"
             )
+
+            # TODO: more sophisticated approach
+            most_expensive, fee = route.most_expensive_channel()
+            most_expensive_id = Route.channel_to_short_id(most_expensive)
+            exclude_list.append(most_expensive_id)
+
+            self._pl.log(f"Excluding most expensive channel {most_expensive_id} ({fee})")
+
             return None
 
         route.add_cltv(self._dec["min_final_cltv_expiry"])

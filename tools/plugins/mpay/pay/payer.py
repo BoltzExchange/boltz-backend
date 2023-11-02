@@ -9,7 +9,7 @@ from plugins.mpay.data.route_stats import RouteStats
 from plugins.mpay.data.router import Router
 from plugins.mpay.db.helpers import insert_failed_attempt, insert_successful_attempt
 from plugins.mpay.db.models import Payment
-from plugins.mpay.pay.channels import ChannelsHelper, NoRouteError
+from plugins.mpay.pay.channels import ChannelsHelper, NoRouteError, PeerChannels
 from plugins.mpay.pay.route import Route
 from plugins.mpay.pay.sendpay import PaymentError, PaymentHelper, PaymentResult
 from plugins.mpay.utils import fee_with_percent
@@ -72,14 +72,16 @@ class Payer:
         self._max_fee = max_fee
         self._timeout = timeout
 
-    # TODO: check direct channels first (implicitly by increasing maxhops in queryroutes)
     # TODO: save exclude list of temporarily disabled channels
-    def start(
-        self,
-    ) -> PaymentResult:
+    def start(self) -> PaymentResult:
         self._start_time = perf_counter()
 
-        exclude_list = self._channels.get_channel_exclude_list(self._amount)
+        peer_channels = self._channels.get_peer_channels()
+        exclude_list = peer_channels.get_exclude_list(self._amount)
+
+        res = self._check_direct_channels(peer_channels, exclude_list)
+        if res is not None:
+            return res
 
         self._pl.log("Fetching known routes")
         for stats, route in self._router.fetch_routes(self._dec, self._amount, exclude_list):
@@ -94,23 +96,37 @@ class Payer:
             self._check_timeout()
 
         for max_hops in range(2, _MAX_HOPS + 1):
-            try:
-                for route in self._channels.get_route(self._dec, exclude_list, max_hops):
-                    res = self._send_payment(
-                        route,
-                        None,
-                        exclude_list,
-                    )
-                    if res is not None:
-                        return res
-
-                    self._check_timeout()
-
-            except NoRouteError:  # noqa: PERF203
-                # Continue in the loop incrementing the max hops
-                continue
+            res = self._send_via_get_route(max_hops, exclude_list)
+            if res is not None:
+                return res
 
         raise NoRouteError
+
+    def _check_direct_channels(
+        self, peer_channels: PeerChannels, exclude_list: list[str]
+    ) -> PaymentResult | None:
+        direct_channels = peer_channels.get_direct_channels(self._dec["payee"], self._amount)
+        if len(direct_channels) == 0:
+            return None
+
+        self._pl.log(f"Found {len(direct_channels)} suitable direct channels")
+        return self._send_via_get_route(1, exclude_list)
+
+    def _send_via_get_route(self, max_hops: int, exclude_list: list[str]) -> PaymentResult | None:
+        try:
+            for route in self._channels.get_route(self._dec, exclude_list, max_hops):
+                res = self._send_payment(
+                    route,
+                    None,
+                    exclude_list,
+                )
+                if res is not None:
+                    return res
+
+                self._check_timeout()
+
+        except NoRouteError:
+            return None
 
     def _send_payment(
         self,
@@ -139,7 +155,11 @@ class Payer:
         except PaymentError as e:
             exclude_list.append(f"{e.erring_channel}/{e.erring_direction}")
             insert_failed_attempt(self._session, self._payment, route, e)
-            raise
+
+            if e.is_permanent:
+                raise
+
+            return None
 
         insert_successful_attempt(self._session, self._payment, route, res.time)
 

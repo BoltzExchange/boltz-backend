@@ -21,7 +21,7 @@ class OptionDefaults(str, Enum):
     PostgresPort = 5432
     PostgresDatabase = "mpay"
     PostgresUser = "boltz"
-    PostgresPassword = "boltz"
+    PostgresPassword = "boltz"  # noqa: PIE796
 
     DefaultMaxFee = 0.25
 

@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Any, Iterator
 
 from pyln.client import Millisatoshi, Plugin, RpcError
@@ -10,24 +11,48 @@ class NoRouteError(Exception):
     pass
 
 
+@dataclass
+class PeerChannels:
+    channels: list[dict[str, Any]]
+
+    def get_direct_channels(self, destination: str, amount: Millisatoshi) -> list[str]:
+        return [
+            PeerChannels._get_channel_id(channel)
+            for channel in self.channels
+            if channel["peer_id"] == destination
+            and PeerChannels._channel_is_suitable(channel, amount)
+        ]
+
+    def get_exclude_list(self, amount: Millisatoshi) -> list[str]:
+        return [
+            PeerChannels._get_channel_id(channel)
+            for channel in self.channels
+            if not PeerChannels._channel_is_suitable(channel, amount)
+        ]
+
+    @staticmethod
+    def _channel_is_suitable(channel: dict[str, Any], amount: Millisatoshi) -> bool:
+        return (
+            channel["peer_connected"]
+            and channel["spendable_msat"] > amount
+            and channel["maximum_htlc_out_msat"] > amount
+            and channel["status"][-1].startswith("CHANNELD_NORMAL:Channel ready for use")
+        )
+
+    @staticmethod
+    def _get_channel_id(channel: dict[str, Any]) -> str:
+        return f"{channel['short_channel_id']}/{channel['direction']}"
+
+
 class ChannelsHelper:
     _pl: Plugin
 
     def __init__(self, pl: Plugin) -> None:
         self._pl = pl
 
-    def get_channel_exclude_list(self, amount: Millisatoshi) -> list[str]:
-        return [
-            channel["short_channel_id"] + suffix
-            for channel in self._pl.rpc.listpeerchannels()["channels"]
-            if not channel["peer_connected"]
-            or channel["spendable_msat"] < amount
-            or channel["maximum_htlc_out_msat"] < amount
-            or not channel["status"][-1].startswith("CHANNELD_NORMAL:Channel ready for use")
-            for suffix in ["/0", "/1"]
-        ]
+    def get_peer_channels(self) -> PeerChannels:
+        return PeerChannels(self._pl.rpc.listpeerchannels()["channels"])
 
-    # TODO: don't *always* use the routing hint but add it as option
     def get_route(
         self,
         dec: dict[str, Any],

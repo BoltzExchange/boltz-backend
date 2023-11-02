@@ -7,6 +7,7 @@ class OnlySingleRoutingHintsError(Exception):
     pass
 
 
+# TODO: don't *always* use the routing hint but add it as option
 def parse_routing_hints(dec: dict[str, Any]) -> tuple[bool, str, RoutingHint | None]:
     payee = dec["payee"]
 

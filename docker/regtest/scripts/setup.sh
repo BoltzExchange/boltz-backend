@@ -65,6 +65,9 @@ chmod +x /root/poetry-install.sh
 echo "cd /tools && /root/.local/bin/poetry run python3 plugins/hold/plugin.py" > /root/hold.sh
 chmod +x /root/hold.sh
 
+echo "cd /tools && /root/.local/bin/poetry run python3 plugins/mpay/mpay.py" > /root/mpay.sh
+chmod +x /root/mpay.sh
+
 startNodes
 
 bitcoin-cli createwallet $DEFAULT_WALLET_NAME > /dev/null

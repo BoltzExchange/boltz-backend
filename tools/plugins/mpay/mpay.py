@@ -12,6 +12,7 @@ from plugins.mpay.async_methods import thread_method
 from plugins.mpay.config import Config, register_options
 from plugins.mpay.consts import PLUGIN_NAME, VERSION
 from plugins.mpay.data.payments import Payments
+from plugins.mpay.data.reset import Reset
 from plugins.mpay.data.route_stats import RouteStatsFetcher
 from plugins.mpay.db.db import Database
 from plugins.mpay.errors import Errors
@@ -26,6 +27,7 @@ pl = Plugin()
 register_options(pl)
 
 db = Database(pl)
+reset = Reset(pl, db)
 payments_fetcher = Payments(pl, db)
 route_stats_fetcher = RouteStatsFetcher(pl, db)
 
@@ -134,6 +136,15 @@ def mpay_list(request: Request, bolt11: str = "", payment_hash: str = "") -> dic
         payments = payments_fetcher.fetch_all()
 
     return {"payments": payments}
+
+
+@pl.async_method(
+    method_name="mpay-resetpm",
+    category=PLUGIN_NAME,
+)
+@thread_method(executor=executor)
+def mpay_reset(request: Request) -> dict[str, Any]:
+    return {"deleted": reset.reset_all()}
 
 
 pl.run()

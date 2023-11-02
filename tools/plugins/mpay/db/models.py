@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from datetime import datetime
+from typing import Any
+
 from sqlalchemy import (
     BIGINT,
     TIMESTAMP,
@@ -12,6 +15,15 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+
+
+def to_dict(obj: object) -> dict[str, Any]:
+    return {
+        field.name: getattr(obj, field.name)
+        if not isinstance(getattr(obj, field.name), datetime)
+        else int(getattr(obj, field.name).timestamp())
+        for field in obj.__table__.c
+    }
 
 
 class Base(DeclarativeBase):
@@ -39,6 +51,12 @@ class Payment(Base):
         Index("payment_hash_idx", payment_hash),
     )
 
+    def to_dict(self) -> dict[str, Any]:
+        res = to_dict(self)
+        res["attempts"] = [a.to_dict() for a in self.attempts]
+
+        return res
+
 
 # TODO: save relative fee?
 class Attempt(Base):
@@ -57,6 +75,12 @@ class Attempt(Base):
 
     __table_args__ = (Index("payment_id_idx", payment_id),)
 
+    def to_dict(self) -> dict[str, Any]:
+        res = to_dict(self)
+        res["hops"] = [h.to_dict() for h in self.hops]
+
+        return res
+
 
 class Hop(Base):
     __tablename__ = "hops"
@@ -74,3 +98,6 @@ class Hop(Base):
         Index("node_idx", node),
         Index("channel_idx", channel),
     )
+
+    def to_dict(self) -> dict[str, Any]:
+        return to_dict(self)

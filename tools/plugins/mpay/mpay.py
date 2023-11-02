@@ -3,17 +3,22 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
+import bolt11
+from bolt11.exceptions import Bolt11Bech32InvalidException
 from pyln.client import Plugin
 from requests import Request
 
 from plugins.mpay.async_methods import thread_method
 from plugins.mpay.config import Config, register_options
 from plugins.mpay.consts import PLUGIN_NAME, VERSION
+from plugins.mpay.data.payments import Payments
 from plugins.mpay.data.route_stats import RouteStatsFetcher
 from plugins.mpay.db.db import Database
 from plugins.mpay.errors import Errors
 from plugins.mpay.pay.mpay import MPay
 from plugins.mpay.utils import format_error
+
+_EMPTY_VALUES = ["", "none", "null", None]
 
 executor = ThreadPoolExecutor()
 
@@ -21,6 +26,7 @@ pl = Plugin()
 register_options(pl)
 
 db = Database(pl)
+payments_fetcher = Payments(pl, db)
 route_stats_fetcher = RouteStatsFetcher(pl, db)
 
 mpay = MPay(pl, db, route_stats_fetcher)
@@ -108,6 +114,26 @@ def mpay_routes(
             for dest in destinations
         }
     }
+
+
+@pl.async_method(
+    method_name="mpay-list",
+    category=PLUGIN_NAME,
+)
+@thread_method(executor=executor)
+def mpay_list(request: Request, invoice: str = "", payment_hash: str = "") -> dict[str, Any]:
+    if invoice not in _EMPTY_VALUES:
+        try:
+            payment_hash = bolt11.decode(invoice).payment_hash
+        except Bolt11Bech32InvalidException:
+            return Errors.invalid_bolt11
+
+    if payment_hash not in _EMPTY_VALUES:
+        payments = payments_fetcher.fetch(payment_hash)
+    else:
+        payments = payments_fetcher.fetch_all()
+
+    return {"payments": payments}
 
 
 pl.run()

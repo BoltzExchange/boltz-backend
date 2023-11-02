@@ -159,7 +159,7 @@ Response:
 
 This section walks you through creating Normal Submarine Swaps (Chain -> Lightning). They differ slightly depending on the kind of bitcoin that are swapped, more information below. **Please note that Boltz works with 10 \*\* -8 decimals internally** and all amounts in the API endpoints follow this denomination. All requests to create swaps have the following common values in the API request:
 
-* `type`: type of the swap to create. For Normal Submarine Swaps this is  `submarine` .
+* `type`: type of the swap to create. For Normal Submarine Swaps this is `submarine` .
 * `pairId`: the pair of which the swap should be created, for more check [#supported-pairs](api.md#supported-pairs "mention")
 * `orderSide`: currently we recommend using `sell` across all pairs of swap type `submarine`. The value `buy` for e.g. the `L-BTC/BTC` pair signifies a swap from mainchain Bitcoin to Liquid Lightning. As of writing, this is not supported and the backend will return `"error": "L-BTC has no lightning support"`
 
@@ -315,8 +315,8 @@ Request body:
 {
   "type": "submarine",
   "pairId": "RBTC/BTC",
-  "orderSide": "buy",
-  "invoice": "lnbcrt1m1p0c26rvpp5hctw8zukj00tsxay5436y43qxc5gwvdc6k9zcxnce4zer7p5a4eqdqqcqzpgsp59mwcr4cj6wq68qj6pzyjtq2j89vnpumsejdmhw5uy4yukq3vd64s9qy9qsq2537ph4kt4xryq27g5juc27v2tkx9y90hpweyqluku9rt5zfexfj6n2fqcgy7g8xx72fklr6r7qul27jd0jzvssvrhxmwth7w4lrq7sqgyv0m7"
+  "orderSide": "sell",
+  "invoice": "lntb700u1pj5gft9pp5he32emhme8nrl6u7yyaa7s8svcl3kcwlwz99yzsck09rh4tr9fzqdqqcqzzsxqyz5vqsp5jztrjz3qx8tekwgwqlp7up2c0fvyvpdnd54flk6f9hgytv43ca7q9qyyssqk3l4zr9xs80x0ymg3jczd0t6crwpq5klv9uu6xzgn8fvsr9rraqhluaxstcnxg4ka0frerzrxh8ghgf2ey44hvgdhjke4zcrw8ukugspe9jrvy"
 }
 ```
 
@@ -324,12 +324,12 @@ Response:
 
 ```json
 {
-  "id": "7PSEtx",
-  "address": "0xD104195e630A2E26D33c8B215710E940Ca041351",
-  "claimAddress": "0xe20fC13bad486fEB7F0C87Cad42bC74aAc319684",
+  "id": "wXKtEu",
+  "address": "0x165F8E654b3Fe310A854805323718D51977ad95F",
+  "claimAddress": "0x4217BD283e9Dc9A2cE3d5D20fAE34AA0902C28db",
   "acceptZeroConf": false,
-  "expectedAmount": 1387707329,
-  "timeoutBlockHeight": 2006
+  "expectedAmount": 70513,
+  "timeoutBlockHeight": 4455644
 }
 ```
 
@@ -617,10 +617,10 @@ Request body:
 {
   "type": "reversesubmarine",
   "pairId": "RBTC/BTC",
-  "orderSide": "sell",
+  "orderSide": "buy",
   "claimAddress": "0x88532974EC20559608681A53F4Ac8C34dd5e2804",
   "invoiceAmount": 100000,
-  "preimageHash": "295b93a766959d607861ab7b7a6bf9e178e7c69c3cc4ca715065dfe9d6eea351"
+  "preimageHash": "295b93a766959d607861ab7b7a6bf9e178e7c69c3cc4ca715065dfe9d6eea352"
 }
 ```
 
@@ -628,12 +628,12 @@ Response body:
 
 ```json
 {
-  "id": "1H6eCx",
-  "invoice": "lnbcrt1m1p0ega6epp599de8fmxjkwkq7rp4dah56leu9uw035u8nzv5u2svh07n4hw5dgsdpq2djkuepqw3hjq42ng32zqctyv3ex2umncqzphsp5gxshtrx3y0mt3llm3537qqy0ylf722hykv2zm777dwap9e60glfq9qy9qsqa93q725njkt9dupu9cddtchwcmyg7zsltrw8gcyzsc4tv74ss26y00z7tutrqks8wgh8s286ayy2tmrul0q0ysvxjzv793ylcdr553gqjhgny2",
-  "refundAddress": "0xe20fC13bad486fEB7F0C87Cad42bC74aAc319684",
-  "lockupAddress": "0xD104195e630A2E26D33c8B215710E940Ca041351",
-  "onchainAmount": 1210297576,
-  "timeoutBlockHeight": 2006
+  "id": "NPT9VE",
+  "invoice": "lntb1m1pj5g2sssp5p4nn4jk4w7p208c22eytkvclleghsfeug4cu2u9qpaqnflrtp3yqpp599de8fmxjkwkq7rp4dah56leu9uw035u8nzv5u2svh07n4hw5dfqdpq2djkuepqw3hjq5jz23pjqctyv3ex2umnxqyp2xqcqz959qxpqysgqca37dvrmpy294383zsszeqyny0fdqtkr8tllnvvj0g2w65lgcwaszah5kcs4hej9dsm9c3tj43tklnc0y6fqy5964h4xz0rylz4nqugpz0y90y",
+  "refundAddress": "0x4217BD283e9Dc9A2cE3d5D20fAE34AA0902C28db",
+  "lockupAddress": "0x165F8E654b3Fe310A854805323718D51977ad95F",
+  "timeoutBlockHeight": 4454445,
+  "onchainAmount": 99195
 }
 ```
 
@@ -1216,4 +1216,3 @@ Response:
   }
 }
 ```
-

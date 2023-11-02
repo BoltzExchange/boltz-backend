@@ -33,12 +33,16 @@ class MPay:
         self._router = Router(pl, route_stats, self._network_info)
 
     def pay(self, bolt11: str, max_fee: int | None, exempt_fee: int, timeout: int) -> PaymentResult:
+        dec = self._pl.rpc.decodepay(bolt11)
+
+        amount = dec["amount_msat"]
+        payment_hash = dec["payment_hash"]
+
+        already_paid = self._check_for_paid(payment_hash)
+        if already_paid is not None:
+            return already_paid
+
         with Session(self._db.engine) as session:
-            dec = self._pl.rpc.decodepay(bolt11)
-
-            amount = dec["amount_msat"]
-            payment_hash = dec["payment_hash"]
-
             payment = Payment(
                 destination=dec["payee"], payment_hash=payment_hash, amount=int(amount)
             )
@@ -73,6 +77,20 @@ class MPay:
                 self._pl.log(f"Payment {payment_hash} failed: {format_error(e)}", level="warn")
 
                 raise
+
+    def _check_for_paid(self, payment_hash: str) -> PaymentResult | None:
+        res = self._pl.rpc.listpays(payment_hash=payment_hash, status="complete")["pays"]
+        if len(res) == 0:
+            return None
+
+        return PaymentResult(
+            payment_hash=payment_hash,
+            payment_preimage=res[0]["preimage"],
+            fee_msat=Millisatoshi(
+                sum(int(pay["amount_sent_msat"]) - int(pay["amount_msat"]) for pay in res)
+            ),
+            time=0,
+        )
 
     def _calculate_fee(
         self, amount: Millisatoshi, max_fee: int | None, exempt_fee: int

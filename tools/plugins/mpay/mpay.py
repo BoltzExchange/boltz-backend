@@ -3,7 +3,7 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
-import bolt11
+from bolt11 import decode as bolt11_decode
 from bolt11.exceptions import Bolt11Bech32InvalidException
 from pyln.client import Plugin
 from requests import Request
@@ -121,10 +121,10 @@ def mpay_routes(
     category=PLUGIN_NAME,
 )
 @thread_method(executor=executor)
-def mpay_list(request: Request, invoice: str = "", payment_hash: str = "") -> dict[str, Any]:
-    if invoice not in _EMPTY_VALUES:
+def mpay_list(request: Request, bolt11: str = "", payment_hash: str = "") -> dict[str, Any]:
+    if bolt11 not in _EMPTY_VALUES:
         try:
-            payment_hash = bolt11.decode(invoice).payment_hash
+            payment_hash = bolt11_decode(bolt11).payment_hash
         except Bolt11Bech32InvalidException:
             return Errors.invalid_bolt11
 

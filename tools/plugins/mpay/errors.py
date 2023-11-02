@@ -10,7 +10,4 @@ class Errors:
         "code": 4202,
         "message": "negative fees not allowed",
     }
-    invalid_bolt11: ClassVar[dict[str, Any]] = {
-        "code": 4203,
-        "message": "invalid bolt11"
-    }
+    invalid_bolt11: ClassVar[dict[str, Any]] = {"code": 4203, "message": "invalid bolt11"}

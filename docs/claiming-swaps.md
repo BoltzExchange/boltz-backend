@@ -1,17 +1,15 @@
 ---
 description: >-
-  This section provides an overview of what refunds are, how they work and
-  touches on the low-level scripting that might be required for your Boltz API
-  client to successfully submit a refund.
+  This document describes how Boltz API clients craft claim transactions for
+  Reverse Submarine Swaps and refund transactions for failed Normal Submarine
+  Swaps.
 ---
 
-# 🆘 Issuing Refunds
+# 🧾 Claiming Swaps & Refunds
 
 ## Basics
 
-A refund describes the process of a user actively recovering locked bitcoin of a failed swap. The concept of active refunds is needed because Boltz swaps are non-custodial, meaning Boltz cannot refund funds to the user that it can't control. Refunds are currently **only applicable to Normal Submarine Swaps** (Chain -> Lightning). In case of a failed Reverse Submarine Swap (Lightning -> Chain), Lightning funds automatically bounce back, no action by the user is required.
-
-## Constructing Refund Transactions
+lil intro
 
 ### UTXO Chains
 
@@ -62,7 +60,7 @@ OP_EQUAL
 
 Examples for generating all of these addresses with `Node.js` can be found in the [`boltz-core`](https://github.com/BoltzExchange/boltz-core/blob/master/lib/swap/Scripts.ts) reference library.
 
-### Claim transactions
+## Claim transactions
 
 Claiming works a little different for every output type, but you always need the preimage, private key and original redeem script, and the signature script or witness script of the input looks like this in all cases:
 
@@ -88,7 +86,11 @@ When spending a P2SH nested P2WSH output the signature, preimage and original re
 
 Examples for all three output types can be found in the [`boltz-core` ](https://github.com/BoltzExchange/boltz-core/blob/master/lib/swap/Claim.ts#L23)reference library.
 
-### Refund transactions
+## Refund transactions
+
+This section provides an overview of what refunds are, how they work and touches on the low-level scripting that might be required for your Boltz API client to successfully submit a refund.
+
+The concept of refunds currently only exists for failed Normal Submarine Swaps. In case of a failed Reverse Submarine Swaps, Lightning funds automatically bounce back to the user, no active refunding is needed. All clients that offer the option for users to save refund files should format them in a standardized way. This is necessary for refunds to not only work in a client, but also but also with the [Boltz Web App](https://boltz.exchange/refund).
 
 Refunding an output works just like claiming. Since the refund process doesn't know the preimage (or knows it but can't use it since that would require the claim keys) any value apart from the actual preimage can be used but there has to be a value to prevent the signature from being hashed and compared to the preimage hash. To save transaction fees, a 0 value should be used.
 
@@ -98,11 +100,17 @@ There is one more difference when compared to claim transactions: the `nLockTime
 
 An example for this can be found in the [`boltz-core`](https://github.com/BoltzExchange/boltz-core/blob/master/lib/swap/Refund.ts) reference library. The function uses the claim function but requires the timeout block height as argument and sets an empty preimage.
 
+### UTXO Chains
+
+Different for UTXO and EVM
+
+#### UTXO
+
+Store in local storage
+
 ### EVM Chains
 
 The HTLCs that Boltz uses on EVM chains are not single use scripts, but contracts. The source for the those contracts and integration tests can be found in the [`boltz-core`](https://github.com/BoltzExchange/boltz-core/tree/master/contracts) reference library.
-
-
 
 ## Emergency Procedures
 

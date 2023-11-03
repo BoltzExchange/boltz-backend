@@ -7,7 +7,7 @@ description: >-
 
 # ✨ Channel Creation
 
-> Note: Channel Creation is currently disabled on Boltz
+> Note: Channel Creation is currently disabled on Boltz Mainnet
 
 ## Enforcing a Channel Creation
 

@@ -1,8 +1,10 @@
 ---
-description: This Document describes a Docker regtest environment for development purposes.
+description: >-
+  This document describes how to set up a Docker regtest environment for
+  development purposes.
 ---
 
-# 🐳 Docker Regtest Environment
+# 🐳 Regtest Environment
 
 Prerequisites:
 

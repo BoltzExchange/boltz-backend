@@ -469,7 +469,9 @@ In case the invoice amount was specified, the amount that will be locked in the 
 
 * `onchainAmount`: Amount of chain bitcoin that will be locked by Boltz.
 
-Boltz Backend also features a so-called "Prepay Miner Fee" protocol that requires an invoice for network fees to be paid before the actual hold `invoice` of the Reverse Submarine Swap. This is mainly useful for swaps to chains on which a new user doesn't have corresponding bitcoin for claiming the swap yet. If this protocol is enabled, the response object will also contain a `minerFeeInvoice`. Once the `minerFeeInvoice` is paid, Boltz will send the event `minerfee.paid` and when the actual hold `invoice` is paid, the chain bitcoin of the actual swap will be sent.
+Boltz Backend finally features the so-called Prepay Miner Fee protocol that requires an invoice for network fees to be paid before the actual hold `invoice` of a Reverse Submarine Swap. If this protocol is enabled, the response object will also contain a `minerFeeInvoice`. Once the `minerFeeInvoice` is paid, Boltz will send the event `minerfee.paid` and when the actual hold `invoice` is paid, the chain bitcoin will be sent.
+
+> Note: This protocol is a countermeasure against a specific attack vector and is currently _not_ enabled on Boltz Mainnet.
 
 ### Reverse Swaps: UTXO Chains
 
@@ -516,7 +518,7 @@ Response:
 }
 ```
 
-_In case the prepay miner fee protocol is enabled:_
+_In case the Prepay Miner Fee protocol is enabled:_
 
 Request body:
 
@@ -557,16 +559,16 @@ The response also has one more property:
 
 * `refundAddress`: the address of Boltz which is specified as refund address when it is locking up funds
 
-The so-called "Prepay Miner Fee" protocol allows the user to pay an additional lightning invoice to pay for gas on the EVM chain to claim funds. In this process, Boltz sends some e.g. RBTC to the `claimAddress` in the lockup process in case the user's `claimAddress` does not have enough RBTC to pay gas to claim the funds. To use this protocol, set the following property in the request body to `true`.
+Boltz features an optional "gasless" protocol that allows a user to pay an additional lightning invoice to pay for gas on EVM chains like RSK to claim a reverse swap. This is useful for users who do not not have e.g. RBTC on RSK yet. In the gasless protocol, using the example of RSK, Boltz sends just enough RBTC to the `claimAddress` in the swap process for the user to successfully claim the swap. To use this protocol, set the following property in the request body to `true`.
 
-* `prepayMinerFee`: If the prepay miner fee protocol should be used for the reverse swap.
+* `gasless`: If the gasless protocol should be used for the reverse swap.
 
-When the EVM prepay miner fee protocol is used, the response will contain two more values. One is the amount of RBTC that will be sent to the `claimAddress`. The other one is an invoice for the prepay RBTC.
+When the gasless protocol is used, the response will contain two more values. One is the amount of RBTC that will be sent to the `claimAddress`. The other one is an invoice to pay for the sent `gasAssetAmount`.
 
-* `prepayMinerFeeAmount`: amount of e.g. RBTC that will be sent to the `claimAddress` with the lockup transaction from Boltz
-* `minerFeeInvoice`: invoice that pays for the RBTC sent in the lockup process
+* `gasAssetAmount`: Amount of e.g. RBTC that will be sent to the `claimAddress` to be used as gas to claim the swap.
+* `gaslessInvoice`: Invoice that pays for `gasAssetAmount`.
 
-Only when both invoices (`minerFeeInvoice` and `invoice)` are paid, Boltz will lock the chain bitcoin to proceed with the swap.
+Only when both invoices (`gaslessInvoice` and `invoice)` are paid, Boltz will lock the chain bitcoin to proceed with the swap.
 
 **Examples:**
 

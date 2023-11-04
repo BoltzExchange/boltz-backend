@@ -1,8 +1,8 @@
 # Table of contents
 
 * [👋 Introduction](README.md)
-* [🔁 Swap Types & States](lifecycle.md)
 * [🤖 REST API](api.md)
+* [🔁 Swap Types & States](lifecycle.md)
 * [🧾 Claiming Swaps & Refunds](claiming-swaps.md)
 * [⏩ 0-conf](0-conf.md)
 * [✨ Channel Creation](channel-creation.md)

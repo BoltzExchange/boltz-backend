@@ -22,4 +22,4 @@ The corresponding REST APIs can be accessed at:
 >
 > [`https://api.boltz.exchange/version`](https://api.boltz.exchange/version)
 
-In the following sections we'll walk through existing swap types & states, describe the REST API, how to handle refunds and more.
+In the following sections we'll describe the REST API, walk through swap types & states, how to craft transactions, handle refunds and more.

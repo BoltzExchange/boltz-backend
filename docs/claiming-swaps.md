@@ -1,15 +1,14 @@
 ---
 description: >-
-  This document describes how Boltz API clients craft claim transactions for
-  Reverse Submarine Swaps and refund transactions for failed Normal Submarine
-  Swaps.
+  This document describes how Boltz API clients craft claim and refund
+  transactions and emergency procedures for rescuing funds of failed swaps.
 ---
 
 # 🧾 Claiming Swaps & Refunds
 
 ## Basics
 
-lil intro
+Boltz API clients need to craft claim transactions for e.g. Reverse Submarine Swaps to claim the and refund transactions for failed Normal Submarine Swaps.
 
 ### UTXO Chains
 

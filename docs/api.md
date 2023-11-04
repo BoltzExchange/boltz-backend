@@ -998,7 +998,7 @@ Response:
 
 There is one special case: when trying to broadcast a refund transaction for a swap that has not timed out yet, the backend will return some additional information in addition to the `error` in the `JSON` encoded response:
 
-* `error`: The reason why broadcasting failed. In this special case always: `non-mandatory-script-verify-flag (Locktime requirement not satisfied) (code 64)`
+* `error`: The reason why broadcasting failed. In this special case always: `non-mandatory-script-verify-flag (Locktime requirement not satisfied) (code 64)`.
 * `timeoutEta`: UNIX timestamp at which the HTLC is expected to time out.
 * `timeoutBlockHeight`: Block height at which the HTLC in the lockup transaction will time out.
 
@@ -1118,8 +1118,8 @@ Status Codes:
 Response object:
 
 * `nodes`:  `JSON` with the symbol of the chain on which the Lightning node is running as key and the following objects:
-  * `nodeKey`: public key of the lightning node
-  * `uris`: array of the URIs on which the lightning node is reachable
+  * `nodeKey`: Public key of the Lightning node.
+  * `uris`: Array of the URIs on which the Lightning node is reachable.
 
 **Examples:**
 

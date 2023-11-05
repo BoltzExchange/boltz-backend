@@ -28,6 +28,15 @@ class RpcCaller:
         return cln_con(args)
 
     @staticmethod
+    def listnodes(pubkey: str | None = None) -> dict:
+        args = "listnodes"
+
+        if pubkey is not None:
+            args += f" {pubkey}"
+
+        return cln_con(args)
+
+    @staticmethod
     def getroute(**kwargs: dict[str, Any]) -> dict:
         args = "getroute -k"
         for key, val in kwargs.items():

@@ -8,18 +8,38 @@ from plugins.mpay.data.network_info import NetworkInfo
 
 
 @dataclass
+class Fees:
+    base_msat: int
+    proportional_millionths: int
+
+    @staticmethod
+    def from_channel_info(info: dict[str, Any]) -> "Fees":
+        return Fees(
+            base_msat=info["base_fee_millisatoshi"],
+            proportional_millionths=info["fee_per_millionth"],
+        )
+
+
+@dataclass
 class RoutingHint:
     hop_hint: dict[str, Any]
-    fee_base_msat: int
-    fee_proportional_millionths: int
     cltv_expiry_delta: int
+
+    fees: Fees
 
 
 class Route:
     route: list[dict[str, Any]]
 
-    def __init__(self, route: list[dict[str, Any]]) -> None:
+    fees: list[Fees]
+
+    def __init__(self, route: list[dict[str, Any]], fees: list[Fees]) -> None:
+        if len(route) != len(fees):
+            msg = "invalid length of route or fees"
+            raise ValueError(msg)
+
         self.route = route
+        self.fees = fees
 
     def __len__(self) -> int:
         """Return the length of the route."""
@@ -38,7 +58,10 @@ class Route:
             msg = "route needs at least one hop to calculate most expensive one"
             raise ValueError(msg)
 
-        most_expensive: tuple[dict[str, Any], Millisatoshi] = (self.route[0], Millisatoshi(0))
+        most_expensive: tuple[dict[str, Any], Millisatoshi] = (
+            self.route[0],
+            Millisatoshi(0),
+        )
         if len(self) == 1:
             return most_expensive
 
@@ -56,26 +79,28 @@ class Route:
         for hop in self.route:
             hop["delay"] += cltv
 
-    def add_fees(self, base_msat: int, proportional_millionths: int) -> None:
-        prev = None
+    def add_fees(self, index: int, base_msat: int, proportional_millionths: int) -> None:
+        self.fees[index + 1] = Fees(
+            base_msat=base_msat, proportional_millionths=proportional_millionths
+        )
+        hop = self[index]
 
-        for cur in reversed(self.route):
-            if prev is not None:
-                # TODO: do we have to round or ceil?
-                cur["amount_msat"] += Millisatoshi(
-                    round(int(prev["amount_msat"]) * proportional_millionths / 1_000_000)
-                )
-                cur["amount_msat"] += base_msat
+        ppm_fee = round(int(hop["amount_msat"]) * proportional_millionths / 1_000_000)
+        hop["amount_msat"] += base_msat + ppm_fee
 
-            prev = cur
+        for i in reversed(range(index)):
+            self[i]["amount_msat"] = Millisatoshi(int(self[i + 1]["amount_msat"]))
+
+            fees = self.fees[i + 1]
+            self.add_fees(i, fees.base_msat, fees.proportional_millionths)
 
     def add_routing_hint(self, hint: RoutingHint) -> None:
         self.add_cltv(hint.cltv_expiry_delta)
 
-        # We have to add the hint before adding the fees because
-        # the fees apply starting from the hop before the routing hint
         self.route.append(hint.hop_hint)
-        self.add_fees(hint.fee_base_msat, hint.fee_proportional_millionths)
+        self.fees.append(hint.fees)
+
+        self.add_fees(len(self) - 2, hint.fees.base_msat, hint.fees.proportional_millionths)
 
     def pretty_print(self, network_info: NetworkInfo) -> str:
         return " -> ".join(
@@ -92,14 +117,21 @@ class Route:
             msg = "needs at last one channel info to create route"
             raise ValueError(msg)
 
-        route = Route([Route._hop_from_channel_info(amount, infos[0])])
+        route = Route([], [])
 
-        for i, hop in enumerate(infos[1:]):
-            prev_amount = route.route[i]["amount_msat"]
+        for i, hop_dict in enumerate(infos):
+            fees = Fees(hop_dict["base_fee_millisatoshi"], hop_dict["fee_per_millionth"])
+            route.fees.append(fees)
 
-            route.add_cltv(hop["delay"])
-            route.route.append(Route._hop_from_channel_info(prev_amount, hop))
-            route.add_fees(hop["base_fee_millisatoshi"], hop["fee_per_millionth"])
+            if i != 0:
+                route.add_cltv(hop_dict["delay"])
+                route.add_fees(
+                    i - 1,
+                    fees.base_msat,
+                    fees.proportional_millionths,
+                )
+
+            route.route.append(Route._hop_from_channel_info(amount, hop_dict))
 
         return route
 

@@ -7,6 +7,7 @@ from plugins.mpay.data.router import Router
 from plugins.mpay.db.db import Database
 from plugins.mpay.db.models import Payment
 from plugins.mpay.pay.channels import ChannelsHelper
+from plugins.mpay.pay.excludes import Excludes, ExcludesPayment
 from plugins.mpay.pay.payer import Payer
 from plugins.mpay.pay.sendpay import PaymentHelper, PaymentResult
 from plugins.mpay.utils import fee_with_percent, format_error
@@ -20,6 +21,7 @@ class MPay:
 
     _router: Router
     _pay: PaymentHelper
+    _excludes: Excludes
     _channels: ChannelsHelper
     _network_info: NetworkInfo
 
@@ -28,8 +30,9 @@ class MPay:
         self._db = db
 
         self._pay = PaymentHelper(pl)
+        self._excludes = Excludes()
         self._network_info = NetworkInfo(pl)
-        self._channels = ChannelsHelper(pl)
+        self._channels = ChannelsHelper(pl, self._network_info)
         self._router = Router(pl, route_stats, self._network_info)
 
     def pay(self, bolt11: str, max_fee: int | None, exempt_fee: int, timeout: int) -> PaymentResult:
@@ -62,6 +65,7 @@ class MPay:
                     self._pay,
                     self._channels,
                     self._network_info,
+                    ExcludesPayment(self._excludes),
                     session,
                     payment,
                     bolt11,

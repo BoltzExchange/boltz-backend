@@ -4,6 +4,7 @@ from pyln.client import Millisatoshi, Plugin
 
 from plugins.mpay.data.network_info import NetworkInfo
 from plugins.mpay.data.route_stats import HOP_SEPERATOR, RouteStats, RouteStatsFetcher
+from plugins.mpay.pay.excludes import ExcludesPayment
 from plugins.mpay.pay.route import Route
 from plugins.mpay.routing_hints import parse_routing_hints
 from plugins.mpay.utils import format_error
@@ -31,7 +32,7 @@ class Router:
         self._network_info = network_info
 
     def fetch_routes(
-        self, dec: dict[str, Any], amount: Millisatoshi, exclude_list: list[str]
+        self, dec: dict[str, Any], amount: Millisatoshi, excludes: ExcludesPayment
     ) -> Iterator[tuple[RouteStats, Route]]:
         has_routing_hint, destination, routing_hint = parse_routing_hints(dec)
 
@@ -40,7 +41,7 @@ class Router:
 
         for stat_route in route_stats:
             try:
-                route = self._transform_stat_route(stat_route, amount, exclude_list)
+                route = self._transform_stat_route(stat_route, amount, excludes)
                 if has_routing_hint:
                     route.add_routing_hint(routing_hint)
 
@@ -52,13 +53,15 @@ class Router:
                 self._pl.log(f"Disregarding route {stat_route} because: {format_error(e)}")
 
     def _transform_stat_route(
-        self, stats: RouteStats, amount: Millisatoshi, exclude_list: list[str]
+        self, stats: RouteStats, amount: Millisatoshi, exclude_list: ExcludesPayment
     ) -> Route:
         for hop in stats.route:
             if hop in exclude_list:
                 raise InExcludeListError(hop)
 
         chan_infos = [self._get_channel_info(hop) for hop in stats.route]
+
+        # TODO: make sure all channels are active
 
         # Make sure the minimal htlc_maximum_msat size on the route is bigger than our amount
         if min(chan_infos, key=lambda e: e["htlc_maximum_msat"])["htlc_maximum_msat"] < amount:

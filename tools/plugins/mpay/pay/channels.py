@@ -3,7 +3,9 @@ from typing import Any, Iterator
 
 from pyln.client import Millisatoshi, Plugin, RpcError
 
-from plugins.mpay.pay.route import Route
+from plugins.mpay.data.network_info import NetworkInfo
+from plugins.mpay.pay.excludes import ExcludesPayment
+from plugins.mpay.pay.route import Fees, Route
 from plugins.mpay.routing_hints import parse_routing_hints
 
 
@@ -46,9 +48,11 @@ class PeerChannels:
 
 class ChannelsHelper:
     _pl: Plugin
+    _ni: NetworkInfo
 
-    def __init__(self, pl: Plugin) -> None:
+    def __init__(self, pl: Plugin, network_info: NetworkInfo) -> None:
         self._pl = pl
+        self._ni = network_info
 
     def get_peer_channels(self) -> PeerChannels:
         return PeerChannels(self._pl.rpc.listpeerchannels()["channels"])
@@ -56,7 +60,7 @@ class ChannelsHelper:
     def get_route(
         self,
         dec: dict[str, Any],
-        exclude: list[str],
+        excludes: ExcludesPayment,
         max_hops: int,
     ) -> Iterator[Route]:
         has_routing_hint, destination, routing_hint = parse_routing_hints(dec)
@@ -66,7 +70,7 @@ class ChannelsHelper:
                 res = self._pl.rpc.getroute(
                     node_id=destination,
                     amount_msat=dec["amount_msat"],
-                    exclude=exclude,
+                    exclude=excludes.to_list(),
                     maxhops=max_hops,
                     cltv=0,
                     riskfactor=0,
@@ -80,7 +84,15 @@ class ChannelsHelper:
             if "route" not in res:
                 raise NoRouteError
 
-            route = Route(res["route"])
+            route = Route(
+                res["route"],
+                [
+                    Fees.from_channel_info(
+                        self._ni.get_channel_info_side(hop["channel"], hop["direction"])
+                    )
+                    for hop in res["route"]
+                ],
+            )
 
             if has_routing_hint:
                 route.add_routing_hint(routing_hint)

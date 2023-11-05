@@ -1,6 +1,6 @@
 from typing import Any
 
-from plugins.mpay.pay.route import RoutingHint
+from plugins.mpay.pay.route import Fees, RoutingHint
 
 
 class OnlySingleRoutingHintsError(Exception):
@@ -21,16 +21,22 @@ def parse_routing_hints(dec: dict[str, Any]) -> tuple[bool, str, RoutingHint | N
 
     hop_hint = routing_hints[0][0]
 
-    return True, hop_hint["pubkey"], RoutingHint(
-        hop_hint={
-            "id": payee,
-            "channel": hop_hint["short_channel_id"],
-            "direction": 1,
-            "amount_msat": dec["amount_msat"],
-            "delay": 0,
-            "style": "tlv",
-        },
-        fee_base_msat=hop_hint["fee_base_msat"],
-        fee_proportional_millionths=hop_hint["fee_proportional_millionths"],
-        cltv_expiry_delta=hop_hint["cltv_expiry_delta"],
+    return (
+        True,
+        hop_hint["pubkey"],
+        RoutingHint(
+            hop_hint={
+                "id": payee,
+                "channel": hop_hint["short_channel_id"],
+                "direction": 1,
+                "amount_msat": dec["amount_msat"],
+                "delay": 0,
+                "style": "tlv",
+            },
+            fees=Fees(
+                base_msat=hop_hint["fee_base_msat"],
+                proportional_millionths=hop_hint["fee_proportional_millionths"],
+            ),
+            cltv_expiry_delta=hop_hint["cltv_expiry_delta"],
+        ),
     )

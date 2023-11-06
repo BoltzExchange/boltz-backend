@@ -19,17 +19,17 @@ class Certificate:
     cert: bytes
 
 
-def load_certs(base_path: str) -> tuple[Certificate, Certificate]:
+def load_certs(name: str, base_path: str) -> tuple[Certificate, Certificate]:
     Path(base_path).mkdir(exist_ok=True)
 
-    ca_cert = get_cert(base_path, "ca")
-    server_cert = get_cert(base_path, "server", ca_cert.key)
-    get_cert(base_path, "client", ca_cert.key)
+    ca_cert = get_cert(name, base_path, "ca")
+    server_cert = get_cert(name, base_path, "server", ca_cert.key)
+    get_cert(name, base_path, "client", ca_cert.key)
 
     return ca_cert, server_cert
 
 
-def get_cert(base_path: str, name: str, ca_key: bytes | None = None) -> Certificate:
+def get_cert(subject: str, base_path: str, name: str, ca_key: bytes | None = None) -> Certificate:
     def get_path(file_name: str) -> str:
         return str(Path(base_path).joinpath(Path(file_name)))
 
@@ -46,7 +46,7 @@ def get_cert(base_path: str, name: str, ca_key: bytes | None = None) -> Certific
 
     is_ca = ca_key is None
 
-    subject_prefix = "HOLD"
+    subject_prefix = subject.upper()
     issuer_name = create_cert_name(f"{subject_prefix} Root CA")
 
     cert = (
@@ -58,7 +58,7 @@ def get_cert(base_path: str, name: str, ca_key: bytes | None = None) -> Certific
         .not_valid_before(time_now())
         .not_valid_after(time_now() + datetime.timedelta(weeks=52 * 10))
         .add_extension(
-            x509.SubjectAlternativeName([x509.DNSName(name) for name in ["hold", "localhost"]]),
+            x509.SubjectAlternativeName([x509.DNSName(name) for name in [subject, "localhost"]]),
             critical=False,
         )
     )

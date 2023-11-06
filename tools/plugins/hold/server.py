@@ -1,17 +1,14 @@
-import threading
-from collections.abc import Callable, Iterable
-from concurrent import futures
+from collections.abc import Iterable
 from queue import Empty
 from typing import TypeVar
 
 import grpc
-from grpc_interceptor import ServerInterceptor
 from pyln.client import Plugin
 
-from plugins.hold.certs import load_certs
-from plugins.hold.consts import VERSION
+from plugins.hold.consts import PLUGIN_NAME, VERSION
 from plugins.hold.encoder import Defaults
 from plugins.hold.enums import invoice_state_final
+from plugins.hold.grpc_server import GrpcServer, handle_grpc_error
 from plugins.hold.hold import Hold, NoSuchInvoiceError
 from plugins.hold.protos.hold_pb2 import (
     CancelRequest,
@@ -37,19 +34,6 @@ from plugins.hold.protos.hold_pb2 import (
 )
 from plugins.hold.protos.hold_pb2_grpc import HoldServicer, add_HoldServicer_to_server
 from plugins.hold.transformers import INVOICE_STATE_TO_GRPC, Transformers
-
-
-def handle_grpc_error(
-    plugin: Plugin,
-    method_name: str,
-    context: grpc.ServicerContext,
-    e: Exception,
-) -> None:
-    estr = str(e) if str(e) != "" else repr(e)
-
-    plugin.log(f"gRPC call {method_name} failed: {estr}", level="warn")
-    context.abort(grpc.StatusCode.INTERNAL, estr)
-
 
 T = TypeVar("T")
 
@@ -200,81 +184,12 @@ class HoldService(HoldServicer):
         )
 
 
-class ServerError(Exception):
-    def __init__(self, message: str) -> None:
-        super().__init__(message)
-
-
-class LogInterceptor(ServerInterceptor):
-    _plugin: Plugin
-
-    def __init__(self, plugin: Plugin) -> None:
-        self._plugin = plugin
-
-    def intercept(
-        self,
-        method: Callable,
-        request: object,
-        context: grpc.ServicerContext,
-        method_name: str,
-    ) -> object:
-        try:
-            self._plugin.log(f"gRPC call {method_name}", level="debug")
-            return method(request, context)
-        except Exception as e:
-            handle_grpc_error(self._plugin, method_name, context, e)
-
-
-class Server:
+class Server(GrpcServer):
     _hold: Hold
 
-    _plugin: Plugin
-    _server: grpc.Server | None
-
-    _server_thread: threading.Thread
-
     def __init__(self, plugin: Plugin, hold: Hold) -> None:
+        super().__init__(PLUGIN_NAME, plugin)
         self._hold = hold
-        self._plugin = plugin
-        self._server = None
 
-    def start(self, host: str, port: int, lightning_dir: str | None) -> None:
-        self._server = grpc.server(
-            futures.ThreadPoolExecutor(),
-            interceptors=[LogInterceptor(self._plugin)],
-        )
+    def _register_service(self) -> None:
         add_HoldServicer_to_server(HoldService(self._plugin, self._hold), self._server)
-
-        address = f"{host}:{port}"
-
-        if lightning_dir is not None:
-            ca_cert, server_cert = load_certs(f"{lightning_dir}/hold")
-            self._server.add_secure_port(
-                address,
-                grpc.ssl_server_credentials(
-                    [(server_cert.key, server_cert.cert)], ca_cert.cert, True
-                ),
-            )
-        else:
-            self._server.add_insecure_port(address)
-
-        def start_server() -> None:
-            self._server.start()
-
-            self._plugin.log(f"Started gRPC server on {address}")
-            self._server.wait_for_termination()
-
-        self._server_thread = threading.Thread(target=start_server)
-        self._server_thread.start()
-
-    def is_running(self) -> bool:
-        return self._server is not None
-
-    def stop(self) -> None:
-        if self.is_running():
-            self._server.stop(False)
-            self._server_thread.join()
-            self._plugin.log("Stopped gRPC server")
-        else:
-            msg = "server not running"
-            raise ServerError(msg)

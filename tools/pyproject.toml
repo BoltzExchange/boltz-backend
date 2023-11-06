@@ -29,7 +29,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]
 select = ["ALL"]
-exclude = ["plugins/hold/protos"]
+exclude = ["plugins/hold/protos", "plugins/mpay/protos"]
 line-length = 100
 ignore = [
     "T201", "D101", "D211", "D213", "INP001", "BLE001", "FBT001", "FBT002", "FBT003", "S605",

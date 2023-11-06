@@ -2,13 +2,7 @@ from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
-from typing import (
-    ClassVar as _ClassVar,
-    Iterable as _Iterable,
-    Mapping as _Mapping,
-    Optional as _Optional,
-    Union as _Union,
-)
+from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Mapping, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
@@ -24,7 +18,6 @@ class HtlcState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     HTLC_ACCEPTED: _ClassVar[HtlcState]
     HTLC_SETTLED: _ClassVar[HtlcState]
     HTLC_CANCELLED: _ClassVar[HtlcState]
-
 INVOICE_UNPAID: InvoiceState
 INVOICE_ACCEPTED: InvoiceState
 INVOICE_PAID: InvoiceState
@@ -44,14 +37,7 @@ class GetInfoResponse(_message.Message):
     def __init__(self, version: _Optional[str] = ...) -> None: ...
 
 class InvoiceRequest(_message.Message):
-    __slots__ = [
-        "payment_hash",
-        "amount_msat",
-        "description",
-        "expiry",
-        "min_final_cltv_expiry",
-        "routing_hints",
-    ]
+    __slots__ = ["payment_hash", "amount_msat", "description", "expiry", "min_final_cltv_expiry", "routing_hints"]
     PAYMENT_HASH_FIELD_NUMBER: _ClassVar[int]
     AMOUNT_MSAT_FIELD_NUMBER: _ClassVar[int]
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
@@ -64,15 +50,7 @@ class InvoiceRequest(_message.Message):
     expiry: int
     min_final_cltv_expiry: int
     routing_hints: _containers.RepeatedCompositeFieldContainer[RoutingHint]
-    def __init__(
-        self,
-        payment_hash: _Optional[str] = ...,
-        amount_msat: _Optional[int] = ...,
-        description: _Optional[str] = ...,
-        expiry: _Optional[int] = ...,
-        min_final_cltv_expiry: _Optional[int] = ...,
-        routing_hints: _Optional[_Iterable[_Union[RoutingHint, _Mapping]]] = ...,
-    ) -> None: ...
+    def __init__(self, payment_hash: _Optional[str] = ..., amount_msat: _Optional[int] = ..., description: _Optional[str] = ..., expiry: _Optional[int] = ..., min_final_cltv_expiry: _Optional[int] = ..., routing_hints: _Optional[_Iterable[_Union[RoutingHint, _Mapping]]] = ...) -> None: ...
 
 class InvoiceResponse(_message.Message):
     __slots__ = ["bolt11"]
@@ -98,14 +76,7 @@ class Hop(_message.Message):
     base_fee: int
     ppm_fee: int
     cltv_expiry_delta: int
-    def __init__(
-        self,
-        public_key: _Optional[str] = ...,
-        short_channel_id: _Optional[str] = ...,
-        base_fee: _Optional[int] = ...,
-        ppm_fee: _Optional[int] = ...,
-        cltv_expiry_delta: _Optional[int] = ...,
-    ) -> None: ...
+    def __init__(self, public_key: _Optional[str] = ..., short_channel_id: _Optional[str] = ..., base_fee: _Optional[int] = ..., ppm_fee: _Optional[int] = ..., cltv_expiry_delta: _Optional[int] = ...) -> None: ...
 
 class RoutingHint(_message.Message):
     __slots__ = ["hops"]
@@ -117,9 +88,7 @@ class RoutingHintsResponse(_message.Message):
     __slots__ = ["hints"]
     HINTS_FIELD_NUMBER: _ClassVar[int]
     hints: _containers.RepeatedCompositeFieldContainer[RoutingHint]
-    def __init__(
-        self, hints: _Optional[_Iterable[_Union[RoutingHint, _Mapping]]] = ...
-    ) -> None: ...
+    def __init__(self, hints: _Optional[_Iterable[_Union[RoutingHint, _Mapping]]] = ...) -> None: ...
 
 class ListRequest(_message.Message):
     __slots__ = ["payment_hash"]
@@ -139,25 +108,10 @@ class Htlc(_message.Message):
     created_at: int
     short_channel_id: str
     id: int
-    def __init__(
-        self,
-        state: _Optional[_Union[HtlcState, str]] = ...,
-        msat: _Optional[int] = ...,
-        created_at: _Optional[int] = ...,
-        short_channel_id: _Optional[str] = ...,
-        id: _Optional[int] = ...,
-    ) -> None: ...
+    def __init__(self, state: _Optional[_Union[HtlcState, str]] = ..., msat: _Optional[int] = ..., created_at: _Optional[int] = ..., short_channel_id: _Optional[str] = ..., id: _Optional[int] = ...) -> None: ...
 
 class Invoice(_message.Message):
-    __slots__ = [
-        "payment_hash",
-        "payment_preimage",
-        "state",
-        "bolt11",
-        "created_at",
-        "htlcs",
-        "amount_msat",
-    ]
+    __slots__ = ["payment_hash", "payment_preimage", "state", "bolt11", "created_at", "htlcs", "amount_msat"]
     PAYMENT_HASH_FIELD_NUMBER: _ClassVar[int]
     PAYMENT_PREIMAGE_FIELD_NUMBER: _ClassVar[int]
     STATE_FIELD_NUMBER: _ClassVar[int]
@@ -172,16 +126,7 @@ class Invoice(_message.Message):
     created_at: int
     htlcs: _containers.RepeatedCompositeFieldContainer[Htlc]
     amount_msat: int
-    def __init__(
-        self,
-        payment_hash: _Optional[str] = ...,
-        payment_preimage: _Optional[str] = ...,
-        state: _Optional[_Union[InvoiceState, str]] = ...,
-        bolt11: _Optional[str] = ...,
-        created_at: _Optional[int] = ...,
-        htlcs: _Optional[_Iterable[_Union[Htlc, _Mapping]]] = ...,
-        amount_msat: _Optional[int] = ...,
-    ) -> None: ...
+    def __init__(self, payment_hash: _Optional[str] = ..., payment_preimage: _Optional[str] = ..., state: _Optional[_Union[InvoiceState, str]] = ..., bolt11: _Optional[str] = ..., created_at: _Optional[int] = ..., htlcs: _Optional[_Iterable[_Union[Htlc, _Mapping]]] = ..., amount_msat: _Optional[int] = ...) -> None: ...
 
 class ListResponse(_message.Message):
     __slots__ = ["invoices"]
@@ -233,12 +178,7 @@ class TrackAllResponse(_message.Message):
     payment_hash: str
     bolt11: str
     state: InvoiceState
-    def __init__(
-        self,
-        payment_hash: _Optional[str] = ...,
-        bolt11: _Optional[str] = ...,
-        state: _Optional[_Union[InvoiceState, str]] = ...,
-    ) -> None: ...
+    def __init__(self, payment_hash: _Optional[str] = ..., bolt11: _Optional[str] = ..., state: _Optional[_Union[InvoiceState, str]] = ...) -> None: ...
 
 class PayStatusRequest(_message.Message):
     __slots__ = ["bolt11"]
@@ -251,15 +191,7 @@ class PayStatusResponse(_message.Message):
     class PayStatus(_message.Message):
         __slots__ = ["bolt11", "amount_msat", "destination", "attempts"]
         class Attempt(_message.Message):
-            __slots__ = [
-                "strategy",
-                "start_time",
-                "age_in_seconds",
-                "end_time",
-                "state",
-                "success",
-                "failure",
-            ]
+            __slots__ = ["strategy", "start_time", "age_in_seconds", "end_time", "state", "success", "failure"]
             class AttemptState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
                 __slots__ = []
                 ATTEMPT_PENDING: _ClassVar[PayStatusResponse.PayStatus.Attempt.AttemptState]
@@ -272,20 +204,11 @@ class PayStatusResponse(_message.Message):
                 PAYMENT_PREIMAGE_FIELD_NUMBER: _ClassVar[int]
                 id: int
                 payment_preimage: str
-                def __init__(
-                    self, id: _Optional[int] = ..., payment_preimage: _Optional[str] = ...
-                ) -> None: ...
+                def __init__(self, id: _Optional[int] = ..., payment_preimage: _Optional[str] = ...) -> None: ...
             class Failure(_message.Message):
                 __slots__ = ["message", "code", "data"]
                 class Data(_message.Message):
-                    __slots__ = [
-                        "id",
-                        "raw_message",
-                        "fail_code",
-                        "fail_codename",
-                        "erring_index",
-                        "erring_node",
-                    ]
+                    __slots__ = ["id", "raw_message", "fail_code", "fail_codename", "erring_index", "erring_node"]
                     ID_FIELD_NUMBER: _ClassVar[int]
                     RAW_MESSAGE_FIELD_NUMBER: _ClassVar[int]
                     FAIL_CODE_FIELD_NUMBER: _ClassVar[int]
@@ -298,29 +221,14 @@ class PayStatusResponse(_message.Message):
                     fail_codename: str
                     erring_index: int
                     erring_node: str
-                    def __init__(
-                        self,
-                        id: _Optional[int] = ...,
-                        raw_message: _Optional[str] = ...,
-                        fail_code: _Optional[int] = ...,
-                        fail_codename: _Optional[str] = ...,
-                        erring_index: _Optional[int] = ...,
-                        erring_node: _Optional[str] = ...,
-                    ) -> None: ...
+                    def __init__(self, id: _Optional[int] = ..., raw_message: _Optional[str] = ..., fail_code: _Optional[int] = ..., fail_codename: _Optional[str] = ..., erring_index: _Optional[int] = ..., erring_node: _Optional[str] = ...) -> None: ...
                 MESSAGE_FIELD_NUMBER: _ClassVar[int]
                 CODE_FIELD_NUMBER: _ClassVar[int]
                 DATA_FIELD_NUMBER: _ClassVar[int]
                 message: str
                 code: int
                 data: PayStatusResponse.PayStatus.Attempt.Failure.Data
-                def __init__(
-                    self,
-                    message: _Optional[str] = ...,
-                    code: _Optional[int] = ...,
-                    data: _Optional[
-                        _Union[PayStatusResponse.PayStatus.Attempt.Failure.Data, _Mapping]
-                    ] = ...,
-                ) -> None: ...
+                def __init__(self, message: _Optional[str] = ..., code: _Optional[int] = ..., data: _Optional[_Union[PayStatusResponse.PayStatus.Attempt.Failure.Data, _Mapping]] = ...) -> None: ...
             STRATEGY_FIELD_NUMBER: _ClassVar[int]
             START_TIME_FIELD_NUMBER: _ClassVar[int]
             AGE_IN_SECONDS_FIELD_NUMBER: _ClassVar[int]
@@ -335,22 +243,7 @@ class PayStatusResponse(_message.Message):
             state: PayStatusResponse.PayStatus.Attempt.AttemptState
             success: PayStatusResponse.PayStatus.Attempt.Success
             failure: PayStatusResponse.PayStatus.Attempt.Failure
-            def __init__(
-                self,
-                strategy: _Optional[str] = ...,
-                start_time: _Optional[int] = ...,
-                age_in_seconds: _Optional[int] = ...,
-                end_time: _Optional[int] = ...,
-                state: _Optional[
-                    _Union[PayStatusResponse.PayStatus.Attempt.AttemptState, str]
-                ] = ...,
-                success: _Optional[
-                    _Union[PayStatusResponse.PayStatus.Attempt.Success, _Mapping]
-                ] = ...,
-                failure: _Optional[
-                    _Union[PayStatusResponse.PayStatus.Attempt.Failure, _Mapping]
-                ] = ...,
-            ) -> None: ...
+            def __init__(self, strategy: _Optional[str] = ..., start_time: _Optional[int] = ..., age_in_seconds: _Optional[int] = ..., end_time: _Optional[int] = ..., state: _Optional[_Union[PayStatusResponse.PayStatus.Attempt.AttemptState, str]] = ..., success: _Optional[_Union[PayStatusResponse.PayStatus.Attempt.Success, _Mapping]] = ..., failure: _Optional[_Union[PayStatusResponse.PayStatus.Attempt.Failure, _Mapping]] = ...) -> None: ...
         BOLT11_FIELD_NUMBER: _ClassVar[int]
         AMOUNT_MSAT_FIELD_NUMBER: _ClassVar[int]
         DESTINATION_FIELD_NUMBER: _ClassVar[int]
@@ -359,30 +252,13 @@ class PayStatusResponse(_message.Message):
         amount_msat: int
         destination: str
         attempts: _containers.RepeatedCompositeFieldContainer[PayStatusResponse.PayStatus.Attempt]
-        def __init__(
-            self,
-            bolt11: _Optional[str] = ...,
-            amount_msat: _Optional[int] = ...,
-            destination: _Optional[str] = ...,
-            attempts: _Optional[
-                _Iterable[_Union[PayStatusResponse.PayStatus.Attempt, _Mapping]]
-            ] = ...,
-        ) -> None: ...
+        def __init__(self, bolt11: _Optional[str] = ..., amount_msat: _Optional[int] = ..., destination: _Optional[str] = ..., attempts: _Optional[_Iterable[_Union[PayStatusResponse.PayStatus.Attempt, _Mapping]]] = ...) -> None: ...
     STATUS_FIELD_NUMBER: _ClassVar[int]
     status: _containers.RepeatedCompositeFieldContainer[PayStatusResponse.PayStatus]
-    def __init__(
-        self, status: _Optional[_Iterable[_Union[PayStatusResponse.PayStatus, _Mapping]]] = ...
-    ) -> None: ...
+    def __init__(self, status: _Optional[_Iterable[_Union[PayStatusResponse.PayStatus, _Mapping]]] = ...) -> None: ...
 
 class GetRouteRequest(_message.Message):
-    __slots__ = [
-        "destination",
-        "amount_msat",
-        "max_retries",
-        "risk_factor",
-        "max_cltv",
-        "final_cltv_delta",
-    ]
+    __slots__ = ["destination", "amount_msat", "max_retries", "risk_factor", "max_cltv", "final_cltv_delta"]
     DESTINATION_FIELD_NUMBER: _ClassVar[int]
     AMOUNT_MSAT_FIELD_NUMBER: _ClassVar[int]
     MAX_RETRIES_FIELD_NUMBER: _ClassVar[int]
@@ -395,15 +271,7 @@ class GetRouteRequest(_message.Message):
     risk_factor: int
     max_cltv: int
     final_cltv_delta: int
-    def __init__(
-        self,
-        destination: _Optional[str] = ...,
-        amount_msat: _Optional[int] = ...,
-        max_retries: _Optional[int] = ...,
-        risk_factor: _Optional[int] = ...,
-        max_cltv: _Optional[int] = ...,
-        final_cltv_delta: _Optional[int] = ...,
-    ) -> None: ...
+    def __init__(self, destination: _Optional[str] = ..., amount_msat: _Optional[int] = ..., max_retries: _Optional[int] = ..., risk_factor: _Optional[int] = ..., max_cltv: _Optional[int] = ..., final_cltv_delta: _Optional[int] = ...) -> None: ...
 
 class GetRouteResponse(_message.Message):
     __slots__ = ["hops", "fees_msat"]
@@ -421,21 +289,9 @@ class GetRouteResponse(_message.Message):
         amount_msat: int
         delay: int
         style: str
-        def __init__(
-            self,
-            id: _Optional[str] = ...,
-            channel: _Optional[str] = ...,
-            direction: _Optional[int] = ...,
-            amount_msat: _Optional[int] = ...,
-            delay: _Optional[int] = ...,
-            style: _Optional[str] = ...,
-        ) -> None: ...
+        def __init__(self, id: _Optional[str] = ..., channel: _Optional[str] = ..., direction: _Optional[int] = ..., amount_msat: _Optional[int] = ..., delay: _Optional[int] = ..., style: _Optional[str] = ...) -> None: ...
     HOPS_FIELD_NUMBER: _ClassVar[int]
     FEES_MSAT_FIELD_NUMBER: _ClassVar[int]
     hops: _containers.RepeatedCompositeFieldContainer[GetRouteResponse.Hop]
     fees_msat: int
-    def __init__(
-        self,
-        hops: _Optional[_Iterable[_Union[GetRouteResponse.Hop, _Mapping]]] = ...,
-        fees_msat: _Optional[int] = ...,
-    ) -> None: ...
+    def __init__(self, hops: _Optional[_Iterable[_Union[GetRouteResponse.Hop, _Mapping]]] = ..., fees_msat: _Optional[int] = ...) -> None: ...

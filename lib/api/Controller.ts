@@ -162,8 +162,10 @@ class Controller {
   };
 
   // Static files
-  public landingPage = (_: Request, res: Response): void => {
-    res.sendFile(path.join(__dirname, 'static', 'api.html'));
+  public serveFile = (fileName: string) => {
+    return (_: Request, res: Response): void => {
+      res.sendFile(path.join(__dirname, 'static', fileName));
+    };
   };
 
   // GET requests

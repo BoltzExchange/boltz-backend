@@ -1,23 +1,21 @@
 ---
 description: >-
-  This document gives an overview of how Boltz API clients verify
-  Boltz-generated addresses, craft claim & refund transactions and touches on
-  emergency procedures for rescuing funds of failed swaps.
+  This document gives an overview of how Boltz API clients craft claim & refund
+  transactions and touches on emergency procedures for rescuing funds of failed
+  swaps.
 ---
 
 # 🙋♂ Claim & Refund Transactions
 
 ## Basics
 
-Boltz API clients need to craft and broadcast **claim transactions** in order to claim chain bitcoin and successfully complete a **Reverse Submarine Swap**. Similarly, Boltz API clients need to be able to craft and broadcast **refund transactions** should a **Normal Submarine Swap** fail.
+Boltz API clients need to craft and broadcast **claim transactions** in order to claim chain bitcoin and successfully complete **Reverse Submarine Swaps**. Similarly, Boltz API clients need to be able to craft and broadcast **refund transactions** for failed **Normal Submarine Swaps**.
 
-###
+## Reverse Swaps
 
+## UTXO Chains: Claim Transactions
 
-
-## Reverse Swaps: Claim Transactions
-
-Claiming works a little different for every output type, but you always need the preimage, private key and original redeem script, and the signature script or witness script of the input looks like this in all cases:
+Claiming works a little different for every output type, but you always need the preimage, private key and original redeem script, and the signature script or witness script of the input always looks like this:
 
 ```
 <signature>
@@ -31,11 +29,11 @@ Spending a P2SH output is relatively simple. The signature, preimage and origina
 
 #### P2WSH
 
-Spending a P2WSH output is similar to the P2SH ones. But here those values are added to the witness of the input instead of the signature script.
+Spending a P2WSH output is similar to P2SH, but here the values are added to the \*witness\* of the input instead of the signature script.
 
 #### P2SH nested P2WSH
 
-When spending a P2SH nested P2WSH output the signature, preimage and original reedem script are added to the witness of the input as if the output was a P2WSH one, but you also have to add the OP code `OP_0` and the SHA256 hash of the redeem script to the signature script of the input.
+When spending a P2SH nested P2WSH output the signature, preimage and original reedem script are added to the witness of the input and one adds the OP code `OP_0` and the SHA256 hash of the redeem script to the signature script of the input.
 
 #### Examples
 

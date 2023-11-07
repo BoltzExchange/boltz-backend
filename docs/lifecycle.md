@@ -58,7 +58,7 @@ The following states are traversed in the course of a Reverse Submarine Swap:
 4. `transaction.confirmed`: the lockup transaction was included in a block. This state is skipped, if the client optionally accepts the transaction without confirmation. Boltz broadcasts chain transactions non-RBF only.
 5. `invoice.settled`: the transaction claiming chain Bitcoin was broadcasted by the user's client and Boltz used the preimage of this transaction to settle the Lightning invoice. This is the final status of a successful Reverse Submarine Swap.
 
-The status `invoice.expired` is set when the invoice of Boltz expired and pending HTLCs are cancelled. Boltz invoices currently expire after [50% of the swap timeout](http://127.0.0.1:5000/s/iBTK7bJaqd5nu3GZBpm7/) window passed. If the swap expires without the lightning invoice being paid, the final status of the swap will be `swap.expired`.
+The status `invoice.expired` is set when the invoice of Boltz expired and pending HTLCs are cancelled. Boltz invoices currently expire after [50% of the swap timeout window](https://github.com/BoltzExchange/boltz-backend/blob/master/lib/consts/Types.ts) passed. If the swap expires without the lightning invoice being paid, the final status of the swap will be `swap.expired`.
 
 In the unlikely event that Boltz is unable to send the agreed amount of chain bitcoin after the user set up the payment to the provided Lightning invoice, the status of the swap will be `transaction.failed` and the pending Lightning HTLC will be cancelled. The Lightning bitcoin automatically bounce back to the user, no further action or refund is required and the user didn't pay any fees.
 

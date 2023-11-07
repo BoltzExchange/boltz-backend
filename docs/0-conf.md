@@ -20,7 +20,7 @@ _0-conf Swaps are subject to network conditions and generally only available on 
 
 ## Limits
 
-When it comes to accepting 0-conf transactions, Boltz has configurable limits in place. These limits can be found via the [`getpairs`](api.md#supported-pairs) endpoint and are enforced only for Normal Submarine Swaps. When the user receives a chain transaction from Boltz, 0-conf acceptance is entirely up to the client and user.
+When it comes to accepting 0-conf transactions, Boltz has configurable limits in place. These limits can be found via the [`getpairs`](api.md#supported-pairs) endpoint and are enforced only for Normal Submarine Swaps. When the user receives a chain transaction from Boltz, 0-conf acceptance is entirely up to the API client.
 
 ## BIP 125 - Replace-By-Fee
 

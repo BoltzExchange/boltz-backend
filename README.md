@@ -4,7 +4,7 @@
 [![Discord](https://img.shields.io/discord/547454030801272832.svg)](https://discordapp.com/invite/QBvZGcW)
 [![Version](https://img.shields.io/npm/v/boltz-backend.svg)](https://www.npmjs.com/package/boltz-backend)
 
-[Boltz Backend](https://github.com/BoltzExchange/boltz-backend/) is the backend powering swaps at [Boltz](https://boltz.exchange/).  
+This is the source of the official Boltz Backend powering swaps at [boltz.exchange](https://boltz.exchange/). It enables **non-custodial** swaps between different Bitcoin layers.
 
 ## Documentation
 

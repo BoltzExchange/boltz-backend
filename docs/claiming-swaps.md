@@ -1,66 +1,21 @@
 ---
 description: >-
-  This document gives an overview of how Boltz API clients craft claim & refund
-  transactions and touches on emergency procedures for rescuing funds of failed
-  swaps.
+  This document gives an overview of how Boltz API clients verify
+  Boltz-generated addresses, craft claim & refund transactions and touches on
+  emergency procedures for rescuing funds of failed swaps.
 ---
 
-# 🧾 Claiming Swaps & Refunds
+# 🙋♂ Claim & Refund Transactions
 
 ## Basics
 
-Boltz API clients need to craft and broadcast **claim transactions for Reverse Submarine Swaps** to claim the locked up Bitcoin in order to successfully complete a swap. Similarly, Boltz API clients need to be able to craft and broadcast **refund transactions for Normal Submarine Swaps** should it fail.
+Boltz API clients need to craft and broadcast **claim transactions** in order to claim chain bitcoin and successfully complete a **Reverse Submarine Swap**. Similarly, Boltz API clients need to be able to craft and broadcast **refund transactions** should a **Normal Submarine Swap** fail.
 
-### UTXO Chains
+###
 
-Boltz supports three types of outputs and addresses:
 
-* P2SH
-* P2SH nested P2WSH
-* P2WSH
 
-Boltz is currently using _P2SH nested P2WSH_ addresses for Normal Submarine Swaps and _P2WSH_ addresses for Reverse Submarine Swaps. The address type for Submarine Swaps is [configurable](deployment.md) and can be either _P2WSH_ or _P2SH nested P2WSH_.
-
-### Address Generation
-
-Boltz API returns a redeem script and an address when bitcoin are locked up. After verifying that the redeem script is valid (checking preimage hash, public key, timeout block height of the HTLC and OP codes), the correctness of the address should be double-checked by the application.
-
-A list of all OP codes and their meaning can be found on the [Bitcoin Wiki](https://en.bitcoin.it/wiki/Script).
-
-#### P2SH
-
-To generate a P2SH address you have to hash the redeem script first with SHA256 and then with RIPEMD-160. The output script for P2SH address looks like this:
-
-```
-OP_HASH160
-<hash of the redeem script>
-OP_EQUAL
-```
-
-#### P2WSH
-
-In P2WSH addresses the reedem script is only hashed with SHA256. The output script is also a little simpler:
-
-```
-OP_0
-<hash of the redeem script>
-```
-
-#### P2SH nested P2WSH
-
-Although the output script of the P2SH nested P2WSH addresses is the same as the one of plain P2SH addresses, other data is hashed. Here, not the plain redeem script is hashed, but a P2WSH output script is constructed and hashed first with SHA256 and then with RIPEMD-160 as if it was the redeem script. The output script will look like this:
-
-```
-OP_HASH160
-<hash of the P2WSH output script>
-OP_EQUAL
-```
-
-#### Examples
-
-Examples for generating all of these addresses with `Node.js` can be found in the [`boltz-core`](https://github.com/BoltzExchange/boltz-core/blob/master/lib/swap/Scripts.ts) reference library.
-
-## Claim transactions
+## Reverse Swaps: Claim Transactions
 
 Claiming works a little different for every output type, but you always need the preimage, private key and original redeem script, and the signature script or witness script of the input looks like this in all cases:
 
@@ -86,7 +41,7 @@ When spending a P2SH nested P2WSH output the signature, preimage and original re
 
 Examples for all three output types can be found in the [`boltz-core` ](https://github.com/BoltzExchange/boltz-core/blob/master/lib/swap/Claim.ts#L23)reference library.
 
-## Refund transactions
+## Normal Swaps: Refund transactions
 
 This section provides an overview of what refunds are, how they work and touches on the low-level scripting that might be required for your Boltz API client to successfully submit a refund.
 

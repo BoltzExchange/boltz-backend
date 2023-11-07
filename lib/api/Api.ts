@@ -60,7 +60,10 @@ class Api {
 
   private registerRoutes = (controller: Controller) => {
     // Static files
-    this.app.route('/').get(controller.landingPage);
+    ['/', '/index.html'].forEach((path) => {
+      this.app.route(path).get(controller.serveFile('index.html'));
+    });
+    this.app.route('/favicon.ico').get(controller.serveFile('favicon.ico'));
 
     // GET requests
     this.app.route('/version').get(controller.version);

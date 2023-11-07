@@ -7,9 +7,7 @@ description: >-
 
 # ⏩ 0-conf
 
-As a precautionary measure, Boltz enforces a few rules when it comes to 0-conf.
-
-It is important to note that:
+As a precautionary measure, Boltz enforces a few rules when it comes to 0-conf. It is important to note that:
 
 * In **Normal Submarine Swaps** in which the user sends the chain transaction, _Boltz_ is taking the risk by accepting unconfirmed transactions.
 * In **Reverse Submarine Swaps** where the user receives the chain transaction from Boltz, _the user_ is at risk for accepting the unconfirmed transaction.

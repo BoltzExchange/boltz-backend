@@ -7,15 +7,18 @@ description: >-
 
 # 🙋♂ Claim & Refund Transactions
 
-## Basics
+## Reverse Swaps: Claim Transactions
 
-Boltz API clients need to craft and broadcast **claim transactions** in order to claim chain bitcoin and successfully complete **Reverse Submarine Swaps**. Similarly, Boltz API clients need to be able to craft and broadcast **refund transactions** for failed **Normal Submarine Swaps**.
+Boltz API clients need to craft and broadcast **claim transactions** in order to claim chain bitcoin and successfully complete **Reverse Submarine Swaps**.&#x20;
 
-## Reverse Swaps
+### UTXO Chains
 
-## UTXO Chains: Claim Transactions
+Boltz currently supports two types of outputs:
 
-Claiming works a little different for every output type, but you always need the preimage, private key and original redeem script, and the signature script or witness script of the input always looks like this:
+* [P2SH nested P2WSH](https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#user-content-P2WSH\_nested\_in\_BIP16\_P2SH) for Normal Submarine Swaps
+* [P2WSH](https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#user-content-P2WSH) for Reverse Submarine Swaps
+
+Claiming works a little different for every output type, but you always need the preimage, private key and original redeem script. Hence, Boltz API clients need to ensure a safe way to store these values until the swap reaches a [final state](lifecycle.md). The signature script or witness script of the input always looks like this:
 
 ```
 <signature>
@@ -23,57 +26,51 @@ Claiming works a little different for every output type, but you always need the
 <redeem script>
 ```
 
-#### P2SH
+#### P2SH nested P2WSH
 
-Spending a P2SH output is relatively simple. The signature, preimage and original redeem script have to be added to the signature script of the input that spends the HTLC UTXO.
+When spending a P2SH nested P2WSH output, the signature, preimage and original reedem script are added to the witness of the input and one adds the OP code `OP_0` and the SHA256 hash of the redeem script to the signature script of the input.
 
 #### P2WSH
 
-Spending a P2WSH output is similar to P2SH, but here the values are added to the \*witness\* of the input instead of the signature script.
-
-#### P2SH nested P2WSH
-
-When spending a P2SH nested P2WSH output the signature, preimage and original reedem script are added to the witness of the input and one adds the OP code `OP_0` and the SHA256 hash of the redeem script to the signature script of the input.
+To spend a P2WSH output, signature, preimage and original redeem script have to be added to the _witness_ of the input.
 
 #### Examples
 
-Examples for all three output types can be found in the [`boltz-core` ](https://github.com/BoltzExchange/boltz-core/blob/master/lib/swap/Claim.ts#L23)reference library.
-
-## Normal Swaps: Refund transactions
-
-This section provides an overview of what refunds are, how they work and touches on the low-level scripting that might be required for your Boltz API client to successfully submit a refund.
-
-The concept of refunds currently only exists for failed Normal Submarine Swaps. In case of a failed Reverse Submarine Swaps, Lightning funds automatically bounce back to the user, no active refunding is needed. All clients that offer the option for users to save refund files should format them in a standardized way. This is necessary for refunds to not only work in a client, but also but also with the [Boltz Web App](https://boltz.exchange/refund).
-
-Refunding an output works just like claiming. Since the refund process doesn't know the preimage (or knows it but can't use it since that would require the claim keys) any value apart from the actual preimage can be used but there has to be a value to prevent the signature from being hashed and compared to the preimage hash. To save transaction fees, a 0 value should be used.
-
-There is one more difference when compared to claim transactions: the `nLockTime` of the transaction has to be set to a value equal to or greater than the timeout block height of the HTLC. Otherwise, the bitcoin network will not accept your transaction.
-
-#### Examples
-
-An example for this can be found in the [`boltz-core`](https://github.com/BoltzExchange/boltz-core/blob/master/lib/swap/Refund.ts) reference library. The function uses the claim function but requires the timeout block height as argument and sets an empty preimage.
-
-### UTXO Chains
-
-Different for UTXO and EVM
-
-#### UTXO
-
-Store in local storage
+Examples for all output types can be found in the [`boltz-core` ](https://github.com/BoltzExchange/boltz-core/blob/master/lib/swap/Claim.ts#L23)reference library.
 
 ### EVM Chains
 
-The HTLCs that Boltz uses on EVM chains are not single use scripts, but contracts. The source for the those contracts and integration tests can be found in the [`boltz-core`](https://github.com/BoltzExchange/boltz-core/tree/master/contracts) reference library.
+The HTLCs that Boltz uses on EVM chains are not single use scripts, but contracts. The contract takes care of claiming funds to the specified `claimAddress`, a separate claim transaction is not necessary. The source for the contracts can be found in the [`boltz-core`](https://github.com/BoltzExchange/boltz-core/tree/master/contracts) reference library.
 
-## Emergency Procedures
+## Normal Swaps: Refund transactions
+
+Similar to claim transactions, Boltz API clients need to be able to craft and broadcast **refund transactions** for failed **Normal Submarine Swaps**. This section provides an overview of what refunds are, how they work and touches on the low-level scripting for your Boltz API client to successfully submit a refund.
+
+> The concept of refunds currently only exists for failed Normal Submarine Swaps. In case of a failed Reverse Submarine Swaps, Lightning funds automatically bounce back to the user, no active refunding is needed.
 
 ### UTXO Chains
 
-For UTXO chains we recommend providing a so-called refund file to , users reclaim funds of a failed Normal Submarine Swap. They are the last layer of defense against loss of funds, in case refund info stored by the client is lost.
+Refunding an output works just like claiming. Since the refund process doesn't know the preimage (or knows it but can't use it since that would require the claim keys) any value apart from the actual preimage can be used but there has to be a value to prevent the signature from being hashed and compared to the preimage hash. To save on transaction fees, we recommend using a 0 value.
 
-All clients that offer the option for users to save refund files should format them in a standardized way. This is necessary for refunds to not only work in a client, but also but also with the [Boltz Web App](https://boltz.exchange/refund).
+There is one more difference when compared to claim transactions: the `nLockTime` of the transaction has to be set to a value equal to or greater than the timeout block height of the HTLC. Otherwise, the Bitcoin network will not accept your transaction.
 
-The refund files Boltz Web App generates are `JSON` on Desktop and `PNG` QR codes on mobile because iOS browsers don't allow any other files than images to be downloaded. Boltz parses files with other extension than `.json` and `.png` and treats them as raw `JSON`.
+#### Examples
+
+An example can be found in the [`boltz-core`](https://github.com/BoltzExchange/boltz-core/blob/master/lib/swap/Refund.ts) reference library. The function uses the claim function but requires the timeout block height as argument and sets an empty preimage.
+
+### EVM Chains
+
+The HTLCs that Boltz uses on EVM chains are not single use scripts, but contracts. In order to submit a refund, one calls the `refund` function of the contract. Similar to UTXO chains, Boltz API clients need to ensure a safe way to store the required values until the swap reaches a [final state](lifecycle.md). The source for the contracts can be found in the [`boltz-core`](https://github.com/BoltzExchange/boltz-core/tree/master/contracts) reference library.
+
+### Emergency Procedures
+
+#### UTXO Chains
+
+For UTXO chains we recommend providing a so-called **refund file** as a last layer of defense against loss of funds to end users. This refund file contains all necessary information to successfully craft a refund transaction in case refund info stored by the API client is lost.
+
+All clients that offer the option for users to save refund files should format them in a standardized way. This is necessary for refunds to not only work in a client, but also but also with [Boltz](https://boltz.exchange/refund) directly.
+
+The refund files Boltz Web App generates are `JSON` on Desktop and `PNG` QR codes on mobile (because iOS browsers don't allow any other files than images to be downloaded). Boltz parses files with other extension than `.json` and `.png` and treats them as raw `JSON`.
 
 The data that should be in the file or encoded in the QR code is a `JSON` object with the following values:
 
@@ -97,6 +94,8 @@ Example:
 }
 ```
 
-### EVM Chains
+If a user lost all refund information, but still has access to the lightning invoice and can extract the preimage, this can be used to claim the locked bitcoin back to a user-controlled address. Feel free to [contact us](https://discord.gg/QBvZGcW) should you be in such a situation. We are happy to help!
 
-Contract Logs
+#### EVM Chains
+
+If refund information is lost involving an EVM Chain like RSK, one can retrieve the required values to call `refund` via contract call logs.

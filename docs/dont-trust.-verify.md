@@ -11,14 +11,12 @@ description: >-
 
 As a general concept, Boltz API clients should not trust any critical information obtained via the Boltz API. This applies _especially_ to chain addresses and lightning invoices where users will send bitcoin to.
 
-## UTXO Chain address verification
+## UTXO Chain Address Verification
 
-Boltz currently supports two types of outputs and addresses:
+Boltz currently supports two types of addresses:
 
-* P2SH nested P2WSH
-* P2WSH
-
-Boltz uses P2SH nested P2WSH addresses for Normal Submarine Swaps and P2WSH addresses for Reverse Submarine Swaps.
+* [P2SH nested P2WSH](https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#user-content-P2WSH\_nested\_in\_BIP16\_P2SH) for Normal Submarine Swaps
+* [P2WSH](https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#user-content-P2WSH) for Reverse Submarine Swaps
 
 Boltz API returns a redeem script and a derived chain address when creating swaps. After verifying that the redeem script is valid (checking preimage hash, public key, timeout block height of the HTLC and OP codes), Boltz API clients should verify the correctness of the address:
 

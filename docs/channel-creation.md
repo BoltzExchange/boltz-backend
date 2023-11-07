@@ -1,8 +1,8 @@
 ---
 description: >-
   Normal Submarine Swaps can be configured to create a channel to your node
-  before paying the invoice. This document elaborates how this works and how to
-  enforce the channel opening.
+  before paying the invoice. This document elaborates how to enforce a channel
+  creation.
 ---
 
 # ✨ Channel Creation

@@ -955,11 +955,11 @@ This call works for Normal Submarine Swaps only. If used for Reverse Submarine S
 
 ## Broadcasting Transactions
 
-This endpoint is used to broadcast transactions on UTXO chains. It is similar to [`/gettransaction`](api.md#raw-transactions) but instead of getting the hex representation of existing transactions, this call broadcasts _new_ transactions to the network. It is mainly intended to be used to broadcast refund transactions on user's behalf. It returns the id of the broadcasted transaction,which can be used to verify that the refund transaction was broadcasted successfully.
+This endpoint is used to broadcast transactions on UTXO chains. It is similar to [`/gettransaction`](api.md#raw-transactions) but instead of getting the hex representation of existing transactions, this call broadcasts _new_ transactions to the network. It is mainly intended to be used as an easy way to broadcast [claim & refund transactions](claiming-swaps.md) by Boltz API clients that don't have access to a full node. We encourage checking out alternatives like mempool.space's public API for [Bitcoin](https://mempool.space/docs/api/rest#post-transaction) or [Liquid](https://liquid.network/docs/api/rest#post-transaction) to reduce reliance on Boltz. The call returns the id of the broadcast transaction,which can be used to verify that the refund transaction was broadcast successfully using a third party service.
 
 Requests broadcasting transactions have to be `POST` and contain two arguments in the `JSON` encoded body:
 
-* `currency`: Which network the transaction should be broadcasted on.
+* `currency`: Which network the transaction should be broadcast on.
 * `transactionHex`: The HEX encoded transaction.
 
 | URL                          | Response      |
@@ -973,7 +973,7 @@ Status Codes:
 
 Response object:
 
-* `transactionId`: The id of the transaction that was broadcasted.
+* `transactionId`: The id of the transaction that was broadcast.
 
 **Example:**
 

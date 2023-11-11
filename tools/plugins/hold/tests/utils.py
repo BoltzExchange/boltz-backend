@@ -10,6 +10,7 @@ import pytest
 from plugins.hold.utils import parse_time
 
 PLUGIN_PATH = "/root/hold.sh"
+PLUGIN_PATH_MPAY = "/root/mpay.sh"
 
 CliCaller = Callable[..., dict[str, Any]]
 
@@ -18,6 +19,10 @@ class RpcCaller:
     @staticmethod
     def getinfo() -> dict:
         return cln_con("getinfo")
+
+    @staticmethod
+    def listpeerchannels() -> dict:
+        return cln_con("listpeerchannels")
 
     @staticmethod
     def listchannels(**kwargs: dict[str, str]) -> dict:
@@ -89,16 +94,16 @@ def connect_peers(cln: CliCaller) -> None:
         lnd_connect(i)
 
 
-def start_plugin(cln: CliCaller) -> None:
-    cln("plugin", "start", PLUGIN_PATH)
+def start_plugin(cln: CliCaller, path: str = PLUGIN_PATH) -> None:
+    cln("plugin", "start", path)
 
 
-def stop_plugin(cln: CliCaller) -> None:
+def stop_plugin(cln: CliCaller, path: str = PLUGIN_PATH) -> None:
     plugins = cln("plugin", "list")["plugins"]
-    if not any(PLUGIN_PATH in plugin["name"] for plugin in plugins):
+    if not any(path in plugin["name"] for plugin in plugins):
         return
 
-    cln("plugin", "stop", PLUGIN_PATH)
+    cln("plugin", "stop", path)
 
 
 class LndPay(Thread):

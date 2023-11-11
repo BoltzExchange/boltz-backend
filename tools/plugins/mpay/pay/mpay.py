@@ -82,6 +82,10 @@ class MPay:
 
                 raise
 
+    # Paying an already paid invoice would result in instant success regardless
+    # of the route through which the payment was attempted.
+    # Therefore, we have to check for already paid invoices first,
+    # to not distort our success heuristics
     def _check_for_paid(self, payment_hash: str) -> PaymentResult | None:
         res = self._pl.rpc.listpays(payment_hash=payment_hash, status="complete")["pays"]
         if len(res) == 0:

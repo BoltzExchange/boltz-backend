@@ -6,6 +6,7 @@ docker run \
   --volume "${PWD}"/docker/regtest/data/core/cookies:/cookies/ \
   --volume "${PWD}"/docker/regtest/data/cln/certs:/root/.lightning/regtest/certs \
   --volume "${PWD}"/docker/regtest/data/cln/hold:/root/.lightning/regtest/hold \
+  --volume "${PWD}"/docker/regtest/data/cln/mpay:/root/.lightning/regtest/mpay \
   --volume "${PWD}"/tools:/tools \
   --network host \
   boltz/regtest:4.1.2

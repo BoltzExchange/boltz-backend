@@ -38,6 +38,7 @@ class PeerChannels:
             channel["peer_connected"]
             and channel["spendable_msat"] > amount
             and channel["maximum_htlc_out_msat"] > amount
+            and len(channel["status"]) > 0
             and channel["status"][-1].startswith("CHANNELD_NORMAL:Channel ready for use")
         )
 

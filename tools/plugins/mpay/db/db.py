@@ -1,5 +1,5 @@
 from pyln.client import Plugin
-from sqlalchemy import URL, Connection, Engine, create_engine
+from sqlalchemy import Connection, Engine, create_engine
 
 from plugins.mpay.db.models import Base
 
@@ -13,18 +13,9 @@ class Database:
     def __init__(self, pl: Plugin) -> None:
         self._pl = pl
 
-    def connect(self, host: str, port: int, database: str, username: str, password: str) -> None:
-        url = URL.create(
-            drivername="postgresql+psycopg",
-            host=host,
-            port=port,
-            database=database,
-            username=username,
-            password=password,
-        )
-
+    def connect(self, connection: str) -> None:
         try:
-            self.engine = create_engine(url)
+            self.engine = create_engine(connection)
             self.con = self.engine.connect()
             Base.metadata.create_all(self.engine)
 

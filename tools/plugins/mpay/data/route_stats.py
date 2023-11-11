@@ -3,7 +3,7 @@ from typing import Hashable
 
 import pandas as pd
 from pyln.client import Plugin
-from sqlalchemy import distinct, func, select
+from sqlalchemy import String, distinct, func, select
 from sqlalchemy.orm import Session
 
 from plugins.mpay.db.db import Database
@@ -63,7 +63,9 @@ class RouteStatsFetcher:
                 select(
                     Attempt.id,
                     Hop.node,
-                    func.concat(Hop.channel, HOP_SEPERATOR, Hop.direction).label("channel"),
+                    (Hop.channel + HOP_SEPERATOR + func.Cast(Hop.direction, String)).label(
+                        "channel"
+                    ),
                     Hop.ok,
                     Attempt.created_at,
                 )

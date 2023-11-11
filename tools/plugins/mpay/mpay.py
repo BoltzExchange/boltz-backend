@@ -49,13 +49,7 @@ def init(
         cfg = Config(pl, options)
         mpay.default_max_fee_perc = cfg.default_max_fee
 
-        db.connect(
-            cfg.postgres_host,
-            cfg.postgres_port,
-            cfg.postgres_db,
-            cfg.postgres_user,
-            cfg.postgres_password,
-        )
+        db.connect(cfg.db)
 
         if cfg.grpc_port != -1:
             server.start(cfg.grpc_host, cfg.grpc_port, configuration["lightning-dir"])

@@ -7,6 +7,7 @@ import pytest
 
 # noinspection PyProtectedMember
 from grpc._channel import _InactiveRpcError
+
 from plugins.hold.tests.utils import (
     PLUGIN_PATH_MPAY,
     LndNode,

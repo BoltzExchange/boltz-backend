@@ -32,7 +32,7 @@ register_options(pl)
 db = Database(pl)
 reset = Reset(pl, db)
 payments_fetcher = Payments(pl, db)
-route_stats_fetcher = RouteStatsFetcher(pl, db)
+route_stats_fetcher = RouteStatsFetcher(db)
 
 mpay = MPay(pl, db, route_stats_fetcher)
 

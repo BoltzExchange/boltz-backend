@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from typing import Hashable
 
 import pandas as pd
-from pyln.client import Plugin
 from sqlalchemy import String, distinct, func, select
 from sqlalchemy.orm import Session
 
@@ -38,11 +37,9 @@ class RouteStats:
 
 
 class RouteStatsFetcher:
-    _pl: Plugin
     _db: Database
 
-    def __init__(self, pl: Plugin, db: Database) -> None:
-        self._pl = pl
+    def __init__(self, db: Database) -> None:
         self._db = db
 
     def get_destinations(self) -> list[str]:
@@ -72,7 +69,7 @@ class RouteStatsFetcher:
                 .join(Payment.attempts)
                 .join(Attempt.hops)
                 .where(Attempt.id.in_(attempts))
-                .order_by(Attempt.id)
+                .order_by(Attempt.id, Hop.id)
             )
             hops = pd.DataFrame(res.fetchall(), columns=list(res.keys()))
 

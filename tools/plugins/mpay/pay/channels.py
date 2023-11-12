@@ -1,3 +1,4 @@
+import copy
 from dataclasses import dataclass
 from typing import Any, Iterator
 
@@ -96,6 +97,6 @@ class ChannelsHelper:
             )
 
             if has_routing_hint:
-                route.add_routing_hint(routing_hint)
+                route.add_routing_hint(copy.deepcopy(routing_hint))
 
             yield route

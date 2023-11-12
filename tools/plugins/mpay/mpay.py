@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import sys
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from typing import Any
 
 from bolt11 import decode as bolt11_decode
@@ -46,6 +47,8 @@ def init(
     **kwargs: dict[str, Any],
 ) -> None:
     try:
+        Path(f"{pl.lightning_dir}/{PLUGIN_NAME}").mkdir(exist_ok=True)
+
         cfg = Config(pl, options)
         mpay.default_max_fee_perc = cfg.default_max_fee
 

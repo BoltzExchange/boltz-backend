@@ -1,3 +1,4 @@
+import copy
 from typing import Any, Iterator
 
 from pyln.client import Millisatoshi, Plugin
@@ -43,7 +44,7 @@ class Router:
             try:
                 route = self._transform_stat_route(stat_route, amount, excludes)
                 if has_routing_hint:
-                    route.add_routing_hint(routing_hint)
+                    route.add_routing_hint(copy.deepcopy(routing_hint))
 
                 yield stat_route, route
             except GeneratorExit:  # noqa: PERF203

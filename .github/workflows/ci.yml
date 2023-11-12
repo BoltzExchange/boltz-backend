@@ -37,7 +37,7 @@ jobs:
         run: npm ci
 
       - name: Install Python dependencies
-        run: poetry config virtualenvs.in-project true && npm run python:install
+        run: npm run python:install
 
       - name: Start containers
         run: npm run docker:regtest && npm run docker:solidity

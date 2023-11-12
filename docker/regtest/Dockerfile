@@ -28,6 +28,7 @@ RUN apt-get -y install \
   libevent-dev \
   libevent-dev \
   libsqlite3-dev \
+  python-is-python3 \
   libboost-chrono-dev \
   libboost-system-dev \
   libboost-thread-dev \

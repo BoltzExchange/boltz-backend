@@ -422,36 +422,43 @@ class SwapManager {
       }
     }
 
-    const previousStatus = swap.status;
-
     this.logger.debug(`Setting invoice of Swap ${swap.id}: ${invoice}`);
-    const updatedSwap = await SwapRepository.setInvoice(
-      swap,
-      invoice,
-      invoiceAmount,
-      expectedAmount,
-      percentageFee,
-      acceptZeroConf,
-    );
 
-    // Not the most elegant way to emit this event but the only option
-    // to emit it before trying to claim the swap
-    emitSwapInvoiceSet(updatedSwap.id);
+    await this.nursery.lock.acquire(SwapNursery.swapLock, async () => {
+      // Fetch the status again to make sure it is latest from the database
+      const previousStatus = (await swap.reload()).status;
 
-    // If the onchain coins were sent already and 0-conf can be accepted or
-    // the lockup transaction is confirmed the swap should be settled directly
-    if (
-      swap.lockupTransactionId &&
-      previousStatus !== SwapUpdateEvent.TransactionZeroConfRejected
-    ) {
-      try {
-        await this.nursery.attemptSettleSwap(receivingCurrency, updatedSwap);
-      } catch (error) {
-        this.logger.warn(
-          `Could not settle Swap ${swap.id}: ${formatError(error)}`,
-        );
+      await SwapRepository.setInvoice(
+        swap,
+        invoice,
+        invoiceAmount,
+        expectedAmount,
+        percentageFee,
+        acceptZeroConf,
+      );
+
+      // Fetch the swap
+      const updatedSwap = (await SwapRepository.getSwap({ id: swap.id }))!;
+
+      // Not the most elegant way to emit this event but the only option
+      // to emit it before trying to claim the swap
+      emitSwapInvoiceSet(updatedSwap.id);
+
+      // If the onchain coins were sent already and 0-conf can be accepted or
+      // the lockup transaction is confirmed the swap should be settled directly
+      if (
+        swap.lockupTransactionId &&
+        previousStatus !== SwapUpdateEvent.TransactionZeroConfRejected
+      ) {
+        try {
+          await this.nursery.attemptSettleSwap(receivingCurrency, updatedSwap);
+        } catch (error) {
+          this.logger.warn(
+            `Could not settle Swap ${swap.id}: ${formatError(error)}`,
+          );
+        }
       }
-    }
+    });
 
     return response;
   };

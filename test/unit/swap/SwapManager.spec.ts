@@ -1,4 +1,5 @@
 import { Op } from 'sequelize';
+import AsyncLock from 'async-lock';
 import bolt11 from '@boltz/bolt11';
 import { randomBytes } from 'crypto';
 import { address } from 'bitcoinjs-lib';
@@ -302,6 +303,7 @@ jest.mock('../../../lib/service/InvoiceExpiryHelper', () => {
 
 jest.mock('../../../lib/swap/SwapNursery', () => {
   return jest.fn().mockImplementation(() => ({
+    lock: new AsyncLock(),
     init: jest.fn().mockImplementation(async () => {}),
   }));
 });
@@ -599,7 +601,12 @@ describe('SwapManager', () => {
       orderSide: OrderSide.BUY,
       preimageHash:
         '1558d179d9e3de706997e3b6bb33f704a5b8086b27538fd04ef5e313467333b8',
+      reload: jest.fn().mockImplementation(async () => {
+        return swap;
+      }),
     } as any as Swap;
+
+    SwapRepository.getSwap = jest.fn().mockResolvedValue(swap);
 
     // The invoice has to be generated here because the timestamp is used when setting the invoice of a Swap
     const invoicePreimageHash = swap.preimageHash;

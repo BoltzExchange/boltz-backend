@@ -183,11 +183,11 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
   private currencies = new Map<string, Currency>();
 
   // Locks
-  private lock = new AsyncLock();
+  public readonly lock = new AsyncLock();
+
+  public static swapLock = 'swap';
 
   private static retryLock = 'retry';
-
-  private static swapLock = 'swap';
   private static reverseSwapLock = 'reverseSwap';
 
   constructor(

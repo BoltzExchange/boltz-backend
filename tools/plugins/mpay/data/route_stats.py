@@ -42,36 +42,37 @@ class RouteStatsFetcher:
     def __init__(self, db: Database) -> None:
         self._db = db
 
-    def get_destinations(self) -> list[str]:
-        with Session(self._db.engine) as s:
-            return [row[0] for row in s.execute(select(distinct(Hop.node)))]
+    @staticmethod
+    def get_destinations(s: Session) -> list[str]:
+        return [row[0] for row in s.execute(select(distinct(Hop.node)))]
 
     def get_routes(
-        self, destination: str | None, min_success_rate: float = 0, min_success_rate_ema: float = 0
+        self,
+        s: Session,
+        destination: str | None,
+        min_success_rate: float = 0,
+        min_success_rate_ema: float = 0,
     ) -> list[RouteStats]:
-        with Session(self._db.engine) as s:
-            attempts = [
-                row[0] for row in s.execute(select(Hop.attempt_id).where(Hop.node == destination))
-            ]
-            if len(attempts) == 0:
-                return []
+        attempts = [
+            row[0] for row in s.execute(select(Hop.attempt_id).where(Hop.node == destination))
+        ]
+        if len(attempts) == 0:
+            return []
 
-            res = s.execute(
-                select(
-                    Attempt.id,
-                    Hop.node,
-                    (Hop.channel + HOP_SEPERATOR + func.Cast(Hop.direction, String)).label(
-                        "channel"
-                    ),
-                    Hop.ok,
-                    Attempt.created_at,
-                )
-                .join(Payment.attempts)
-                .join(Attempt.hops)
-                .where(Attempt.id.in_(attempts))
-                .order_by(Attempt.id, Hop.id)
+        res = s.execute(
+            select(
+                Attempt.id,
+                Hop.node,
+                (Hop.channel + HOP_SEPERATOR + func.Cast(Hop.direction, String)).label("channel"),
+                Hop.ok,
+                Attempt.created_at,
             )
-            hops = pd.DataFrame(res.fetchall(), columns=list(res.keys()))
+            .join(Payment.attempts)
+            .join(Attempt.hops)
+            .where(Attempt.id.in_(attempts))
+            .order_by(Attempt.id, Hop.id)
+        )
+        hops = pd.DataFrame(res.fetchall(), columns=list(res.keys()))
 
         if hops.empty:
             return []

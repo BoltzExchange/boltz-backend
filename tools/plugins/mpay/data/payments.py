@@ -1,27 +1,22 @@
-from pyln.client import Plugin
-from sqlalchemy import select
-from sqlalchemy.orm import joinedload
+from typing import Iterator
 
-from plugins.mpay.db.db import Database
-from plugins.mpay.db.fetcher import DatabaseFetcher
+from sqlalchemy import select
+from sqlalchemy.orm import Session, joinedload
+
 from plugins.mpay.db.models import Attempt, Payment
 
 
 class Payments:
-    _pl: Plugin
-    _db: Database
+    @staticmethod
+    def fetch(s: Session, payment_hash: str) -> Iterator[Payment]:
+        return Payments._fetch(s, payment_hash)
 
-    def __init__(self, pl: Plugin, db: Database) -> None:
-        self._pl = pl
-        self._db = db
+    @staticmethod
+    def fetch_all(s: Session) -> Iterator[Payment]:
+        return Payments._fetch(s, None)
 
-    def fetch(self, payment_hash: str) -> DatabaseFetcher[Payment]:
-        return self._fetch(payment_hash)
-
-    def fetch_all(self) -> DatabaseFetcher[Payment]:
-        return self._fetch(None)
-
-    def _fetch(self, payment_hash: str | None) -> DatabaseFetcher[Payment]:
+    @staticmethod
+    def _fetch(s: Session, payment_hash: str | None) -> Iterator[Payment]:
         query = (
             select(Payment)
             .order_by(Payment.created_at)
@@ -31,4 +26,5 @@ class Payments:
         if payment_hash is not None:
             query = query.where(Payment.payment_hash == payment_hash)
 
-        return DatabaseFetcher[Payment](self._db, query)
+        for row in s.execute(query).unique():
+            yield row[0]

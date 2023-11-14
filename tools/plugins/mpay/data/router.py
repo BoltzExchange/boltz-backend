@@ -2,6 +2,7 @@ import copy
 from typing import Any, Iterator
 
 from pyln.client import Millisatoshi, Plugin
+from sqlalchemy.orm import Session
 
 from plugins.mpay.data.network_info import NetworkInfo
 from plugins.mpay.data.route_stats import HOP_SEPERATOR, RouteStats, RouteStatsFetcher
@@ -33,11 +34,12 @@ class Router:
         self._network_info = network_info
 
     def fetch_routes(
-        self, dec: dict[str, Any], amount: Millisatoshi, excludes: ExcludesPayment
+        self, s: Session, dec: dict[str, Any], amount: Millisatoshi, excludes: ExcludesPayment
     ) -> Iterator[tuple[RouteStats, Route]]:
         has_routing_hint, destination, routing_hint = parse_routing_hints(dec)
 
-        route_stats = self._stats.get_routes(destination, 0, _MIN_EMA_RATE)
+        route_stats = self._stats.get_routes(s, destination, 0, _MIN_EMA_RATE)
+
         self._pl.log(f"Found {len(route_stats)} potential known routes to {destination}")
 
         for stat_route in route_stats:

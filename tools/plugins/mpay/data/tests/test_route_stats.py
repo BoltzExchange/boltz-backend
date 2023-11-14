@@ -68,7 +68,8 @@ class TestRouteStatsFetcher:
             e.commit()
 
     def test_get_destinations(self) -> None:
-        dests = self.stats.get_destinations()
+        with Session(self.db.engine) as s:
+            dests = self.stats.get_destinations(s)
 
         assert len(dests) == 5
         for cmp in [
@@ -81,20 +82,27 @@ class TestRouteStatsFetcher:
             assert cmp in dests
 
     def test_get_routes(self) -> None:
-        res = self.stats.get_routes(self.destination)
+        with Session(self.db.engine) as s:
+            res = self.stats.get_routes(s, self.destination)
+
         assert len(res) == 3
         assert res == self.route_stats
 
     def test_get_routes_min_success(self) -> None:
-        res = self.stats.get_routes(self.destination, 0.75)
+        with Session(self.db.engine) as s:
+            res = self.stats.get_routes(s, self.destination, 0.75)
+
         assert len(res) == 2
         assert res == self.route_stats[:2]
 
     def test_get_routes_min_success_ema(self) -> None:
-        res = self.stats.get_routes(
-            self.destination,
-            0,
-            self.route_stats[1].success_rate_ema,
-        )
+        with Session(self.db.engine) as s:
+            res = self.stats.get_routes(
+                s,
+                self.destination,
+                0,
+                self.route_stats[1].success_rate_ema,
+            )
+
         assert len(res) == 2
         assert res == self.route_stats[:2]

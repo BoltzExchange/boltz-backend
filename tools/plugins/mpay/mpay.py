@@ -8,6 +8,7 @@ from bolt11 import decode as bolt11_decode
 from bolt11.exceptions import Bolt11Bech32InvalidException
 from pyln.client import Plugin
 from requests import Request
+from sqlalchemy.orm import Session
 
 from plugins.mpay.async_methods import thread_method
 from plugins.mpay.config import Config, register_options
@@ -30,13 +31,12 @@ pl = Plugin()
 register_options(pl)
 
 db = Database(pl)
-reset = Reset(pl, db)
-payments_fetcher = Payments(pl, db)
+reset = Reset(pl)
 route_stats_fetcher = RouteStatsFetcher(db)
 
 mpay = MPay(pl, db, route_stats_fetcher)
 
-server = Server(pl, mpay, payments_fetcher, route_stats_fetcher, reset)
+server = Server(pl, db, mpay, route_stats_fetcher, reset)
 
 
 @pl.init()
@@ -112,18 +112,21 @@ def mpay_method(
 def mpay_routes(
     request: Request, destination: str = "", min_success: float = 0, min_success_ema: float = 0
 ) -> dict[str, Any]:
-    if destination != "":
-        routes = route_stats_fetcher.get_routes(destination, min_success, min_success_ema)
-        res = {destination: [route.__dict__ for route in routes]}
-    else:
-        destinations = route_stats_fetcher.get_destinations()
-        res = {
-            dest: [
-                route.__dict__
-                for route in route_stats_fetcher.get_routes(dest, min_success, min_success_ema)
-            ]
-            for dest in destinations
-        }
+    with Session(db.engine) as s:
+        if destination != "":
+            routes = route_stats_fetcher.get_routes(s, destination, min_success, min_success_ema)
+            res = {destination: [route.__dict__ for route in routes]}
+        else:
+            destinations = RouteStatsFetcher.get_destinations(s)
+            res = {
+                dest: [
+                    route.__dict__
+                    for route in route_stats_fetcher.get_routes(
+                        s, dest, min_success, min_success_ema
+                    )
+                ]
+                for dest in destinations
+            }
 
     for key in [k for k, v in res.items() if len(v) == 0]:
         del res[key]
@@ -143,12 +146,12 @@ def mpay_list(request: Request, bolt11: str = "", payment_hash: str = "") -> dic
         except Bolt11Bech32InvalidException:
             return Errors.invalid_bolt11
 
-    if payment_hash not in _EMPTY_VALUES:
-        fetcher = payments_fetcher.fetch(payment_hash)
-    else:
-        fetcher = payments_fetcher.fetch_all()
+    with Session(db.engine) as s:
+        if payment_hash not in _EMPTY_VALUES:
+            res = Payments.fetch(s, payment_hash)
+        else:
+            res = Payments.fetch_all(s)
 
-    with fetcher as res:
         return {"payments": [payment.to_dict() for payment in res]}
 
 
@@ -158,7 +161,8 @@ def mpay_list(request: Request, bolt11: str = "", payment_hash: str = "") -> dic
 )
 @thread_method(executor=executor)
 def mpay_reset(request: Request) -> dict[str, Any]:
-    return {"deleted": reset.reset_all().to_dict()}
+    with Session(db.engine) as s:
+        return {"deleted": reset.reset_all(s).to_dict()}
 
 
 pl.run()

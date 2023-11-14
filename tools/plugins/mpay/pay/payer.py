@@ -89,7 +89,9 @@ class Payer:
             return res
 
         self._pl.log("Fetching known routes")
-        for stats, route in self._router.fetch_routes(self._dec, self._amount, self._excludes):
+        for stats, route in self._router.fetch_routes(
+            self._session, self._dec, self._amount, self._excludes
+        ):
             res = self._send_payment(
                 route,
                 stats,

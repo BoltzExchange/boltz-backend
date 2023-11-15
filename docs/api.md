@@ -70,7 +70,7 @@ Response object:
   * `hash`: SHA256 hash of the `JSON` encoded data in the pair object.
   * `rate`: The exchange rate of the pair.
   * `limits`: A `JSON` Object containing the minimal and maximal amount of the pair's swap. The numbers are denominated **10 \*\* -8** of the _quote asset._
-    * `maximalZeroConf`: The maximal amounts that will be accepted without chain confirmations by Boltz. 0 indicates that Boltz will not accept 0-conf. See [Broken link](broken-reference "mention")for more info.
+    * `maximalZeroConf`: The maximal amounts that will be accepted without chain confirmations by Boltz. 0 indicates that Boltz will not accept 0-conf. See [0-conf](0-conf.md) for more info.
   * `fees`: A `JSON` object that contains different kinds of fees:
     * `percentage`: The percentage of the "send amount" that is charged by Boltz as "Boltz Fee" for swaps from quote to base asset (e.g. Lightning -> Bitcoin).
     * `percentageSwapIn`: The percentage of the "send amount" that is charged by Boltz as "Boltz Fee" for swaps from base to quote asset (e.g. Bitcoin -> Lightning).
@@ -627,7 +627,7 @@ Response object:
   * `id`: Id of the lockup transaction.
   * `hex`: Hex encoded lockup transaction (only set for transactions on UTXO chains).
   * `eta`: If the status is `transaction.mempool`, this value is the estimated time of arrival (ETA) in blocks of when the transaction will be confirmed. Only set for transactions on UTXO chains.
-* `zeroConfRejected`: Set to `true` for Swaps with the status `transaction.mempool` and a lockup transaction that is not eligible for [0-conf](broken-reference).
+* `zeroConfRejected`: Set to `true` for Swaps with the status `transaction.mempool` and a lockup transaction that is not eligible for [0-conf](0-conf.md).
 * `failureReason`: Set when it's necessary to further clarify the failure reason.
 
 **Examples:**
@@ -829,7 +829,7 @@ Response:
 
 Boltz provides an API endpoint that returns fee estimations for all supported chains. These fee estimations are _not_ enforced by Boltz and merely represent a recommendation.
 
-For UTXO chains like Bitcoin it is important to mention that if 0-conf is accepted by Boltz for a particular pair and to be used with Normal Submarine Swaps, the lockup transaction has to have at least 80% of the recommended `sat/vbyte` value. For more information refer to the [0-conf ](broken-reference)section.
+For UTXO chains like Bitcoin it is important to mention that if 0-conf is accepted by Boltz for a particular pair and to be used with Normal Submarine Swaps, the lockup transaction has to have at least 80% of the recommended `sat/vbyte` value. For more information refer to the [0-conf](0-conf.md) section.
 
 | URL                     | Response      |
 | ----------------------- | ------------- |

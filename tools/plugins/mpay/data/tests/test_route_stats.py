@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from plugins.mpay.data.route_stats import RouteStats, RouteStatsFetcher
 from plugins.mpay.db.db import Database
+from plugins.mpay.pay.excludes import Excludes, ExcludesPayment
 
 
 class TestRouteStatsFetcher:
@@ -106,3 +107,19 @@ class TestRouteStatsFetcher:
 
         assert len(res) == 2
         assert res == self.route_stats[:2]
+
+    def test_get_routes_excludes(self) -> None:
+        excludes = ExcludesPayment(Excludes())
+        excludes.add("815007x921x1/0")
+
+        with Session(self.db.engine) as s:
+            res = self.stats.get_routes(
+                s,
+                self.destination,
+                0,
+                0,
+                excludes,
+            )
+
+        assert len(res) == 2
+        assert res == self.route_stats[1:]

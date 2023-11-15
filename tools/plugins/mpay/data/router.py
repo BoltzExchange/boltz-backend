@@ -38,7 +38,7 @@ class Router:
     ) -> Iterator[tuple[RouteStats, Route]]:
         has_routing_hint, destination, routing_hint = parse_routing_hints(dec)
 
-        route_stats = self._stats.get_routes(s, destination, 0, _MIN_EMA_RATE)
+        route_stats = self._stats.get_routes(s, destination, 0, _MIN_EMA_RATE, excludes)
 
         self._pl.log(f"Found {len(route_stats)} potential known routes to {destination}")
 

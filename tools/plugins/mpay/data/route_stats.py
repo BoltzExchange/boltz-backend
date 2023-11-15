@@ -6,7 +6,8 @@ from sqlalchemy import String, distinct, func, select
 from sqlalchemy.orm import Session
 
 from plugins.mpay.db.db import Database
-from plugins.mpay.db.models import Attempt, Hop, Payment
+from plugins.mpay.db.models import Attempt, Hop
+from plugins.mpay.pay.excludes import ExcludesPayment
 
 EMA_ALPHA = 0.4
 HOP_SEPERATOR = "/"
@@ -52,6 +53,7 @@ class RouteStatsFetcher:
         destination: str | None,
         min_success_rate: float = 0,
         min_success_rate_ema: float = 0,
+        excludes: ExcludesPayment | None = None,
     ) -> list[RouteStats]:
         attempts = [
             row[0] for row in s.execute(select(Hop.attempt_id).where(Hop.node == destination))
@@ -67,17 +69,19 @@ class RouteStatsFetcher:
                 Hop.ok,
                 Attempt.created_at,
             )
-            .join(Payment.attempts)
             .join(Attempt.hops)
             .where(Attempt.id.in_(attempts))
             .order_by(Attempt.id, Hop.id)
         )
         hops = pd.DataFrame(res.fetchall(), columns=list(res.keys()))
 
+        if excludes is not None:
+            hops = self._apply_exclude_list(hops, excludes)
+
         if hops.empty:
             return []
 
-        hops = self._exclude_post_destination(destination, hops)
+        hops = self._exclude_post_destination(hops, destination)
 
         route_stats = self._hops_to_route_stats(hops)
         route_stats = route_stats[
@@ -88,7 +92,13 @@ class RouteStatsFetcher:
         return [RouteStats.from_dataframe(*row) for row in route_stats.to_numpy()]
 
     @staticmethod
-    def _exclude_post_destination(destination: str, hops: pd.DataFrame) -> pd.DataFrame:
+    def _apply_exclude_list(hops: pd.DataFrame, excludes: ExcludesPayment) -> pd.DataFrame:
+        return hops.groupby(["id"]).filter(
+            lambda sf: all(channel not in excludes for channel in sf["channel"].to_numpy())
+        )
+
+    @staticmethod
+    def _exclude_post_destination(hops: pd.DataFrame, destination: str) -> pd.DataFrame:
         def exclude_post(arg: tuple[Hashable, pd.DataFrame]) -> pd.DataFrame:
             group = arg[1]
 

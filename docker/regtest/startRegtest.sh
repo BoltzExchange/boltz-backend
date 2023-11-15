@@ -9,7 +9,7 @@ docker run \
   --volume "${PWD}"/docker/regtest/data/cln/mpay:/root/.lightning/regtest/mpay \
   --volume "${PWD}"/tools:/tools \
   --network host \
-  boltz/regtest:4.1.2
+  boltz/regtest:4.2.1
 
 docker exec regtest bash -c "cp /root/.lightning/regtest/*.pem /root/.lightning/regtest/certs"
 docker exec regtest chmod -R 777 /root/.lightning/regtest/certs

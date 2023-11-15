@@ -18,6 +18,7 @@ FROM ubuntu:${UBUNTU_VERSION}
 RUN apt-get update && apt-get -y upgrade
 RUN apt-get -y install \
   jq \
+  curl \
   psmisc \
   openssl \
   python3 \
@@ -27,11 +28,14 @@ RUN apt-get -y install \
   libevent-dev \
   libevent-dev \
   libsqlite3-dev \
+  python-is-python3 \
   libboost-chrono-dev \
   libboost-system-dev \
   libboost-thread-dev \
   libboost-filesystem-dev \
   libboost-program-options-dev
+
+RUN curl -sSL https://install.python-poetry.org | python3 -
 
 # Copy node executables
 COPY --from=bitcoin-core /bin/bitcoind /bin/

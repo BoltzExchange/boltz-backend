@@ -416,7 +416,7 @@ SELECT
             THEN "onchainAmount"
             ELSE "invoiceAmount"
         END
-    ) AS locked
+    )::BIGINT AS locked
 FROM "reverseSwaps"
 WHERE status IN (?)
 GROUP BY pair;

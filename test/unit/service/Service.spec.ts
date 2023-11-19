@@ -167,9 +167,15 @@ const mockGetFeeData = jest.fn().mockImplementation(async () => {
   return mockGetFeeDataResult;
 });
 
+const mockGetBlockNumberResult = 100;
+const mockGetBlockNumber = jest
+  .fn()
+  .mockImplementation(async () => mockGetBlockNumberResult);
+
 const mockedProvider = <jest.Mock<Provider>>(
   (<any>jest.fn().mockImplementation(() => ({
     getFeeData: mockGetFeeData,
+    getBlockNumber: mockGetBlockNumber,
   })))
 );
 
@@ -920,6 +926,7 @@ describe('Service', () => {
 
     expect(response).toEqual({
       transactionHex: rawTransaction,
+      transactionId: mockGetSwapResult.lockupTransactionId,
       timeoutBlockHeight: mockGetSwapResult.timeoutBlockHeight,
       timeoutEta:
         Math.round(new Date().getTime() / 1000) + blockDelta * 10 * 60,
@@ -944,6 +951,7 @@ describe('Service', () => {
 
     expect(response).toEqual({
       transactionHex: rawTransaction,
+      transactionId: mockGetSwapResult.lockupTransactionId,
       timeoutBlockHeight: mockGetSwapResult.timeoutBlockHeight,
     });
 
@@ -964,6 +972,35 @@ describe('Service', () => {
     await expect(service.getSwapTransaction(id)).rejects.toEqual(
       Errors.SWAP_NOT_FOUND(id),
     );
+  });
+
+  test('should get lockup transactions of Ethereum swaps', async () => {
+    const blockDelta = 10;
+
+    mockGetSwapResult = {
+      id: '0xEthSwap',
+      pair: 'ETH/BTC',
+      orderSide: OrderSide.SELL,
+      timeoutBlockHeight: mockGetBlockNumberResult + blockDelta,
+      lockupTransactionId:
+        '0xeb63a8b1511f83c8d649fdaca26c4bc0dee4313689f62fd0f4ff8f71b963900d',
+    };
+
+    const response = await service.getSwapTransaction(mockGetSwapResult.id);
+
+    expect(response).toEqual({
+      transactionId: mockGetSwapResult.lockupTransactionId,
+      timeoutBlockHeight: mockGetSwapResult.timeoutBlockHeight,
+      timeoutEta:
+        Math.round(new Date().getTime() / 1000) + blockDelta * 0.2 * 60,
+    });
+
+    expect(mockGetSwap).toHaveBeenCalledTimes(1);
+    expect(mockGetSwap).toHaveBeenCalledWith({
+      id: mockGetSwapResult.id,
+    });
+
+    expect(mockGetBlockNumber).toHaveBeenCalledTimes(1);
   });
 
   test('should derive keys', async () => {

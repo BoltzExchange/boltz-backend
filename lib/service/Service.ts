@@ -476,20 +476,25 @@ class Service {
 
     const currency = this.getCurrency(chainCurrency);
 
-    if (currency.chainClient === undefined) {
-      throw Errors.NOT_SUPPORTED_BY_SYMBOL(currency.symbol);
-    }
-
-    const { blocks } = await currency.chainClient.getBlockchainInfo();
-    const transactionHex = await currency.chainClient.getRawTransaction(
-      swap.lockupTransactionId,
-    );
-
     const response: any = {
-      transactionHex,
+      transactionId: swap.lockupTransactionId,
+      timeoutBlockHeight: swap.timeoutBlockHeight,
     };
 
-    response.timeoutBlockHeight = swap.timeoutBlockHeight;
+    let blocks = 0;
+
+    if (currency.chainClient) {
+      const chainInfo = await currency.chainClient.getBlockchainInfo();
+      blocks = chainInfo.blocks;
+
+      response.transactionHex = await currency.chainClient.getRawTransaction(
+        swap.lockupTransactionId,
+      );
+    } else if (currency.provider) {
+      blocks = await currency.provider.getBlockNumber();
+    } else {
+      throw Errors.NOT_SUPPORTED_BY_SYMBOL(currency.symbol);
+    }
 
     if (blocks < swap.timeoutBlockHeight) {
       response.timeoutEta = this.calculateTimeoutDate(

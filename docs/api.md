@@ -463,7 +463,7 @@ Response objects:
 * `id`: Id of the newly created swap.
 * `lockupAddress`: Address derived from the `redeemScript` or contract in which Boltz will lock up bitcoin.
 * `invoice`: Hold invoice that needs to be paid before Boltz locks up bitcoin.
-* `timeoutBlockHeight`: Quote asset block height at which the swap will expire.
+* `timeoutBlockHeight`: Base asset block height at which the swap will expire.
 
 In case the invoice amount was specified, the amount that will be locked in the chain HTLC is also returned:
 

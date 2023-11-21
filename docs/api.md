@@ -175,6 +175,10 @@ We recommend verifying that pair data fetched previously (like `minerFees`) is s
 
 * `pairHash`: `hash` string of the pair object of [`/getpairs`](api.md#supported-pairs).
 
+Members of our [partner program](api.md#querying-referral-fees) may set this optional referral parameter to get a percentage of the fees earned from referred swaps as kickback.
+
+* `referral`: Partner referral ID&#x20;
+
 > Note: Channel creation as described in the section below is currently disabled on Boltz Mainnet.
 
 ~~Boltz also supports opening a channel to your node before paying your invoice. To ensure that this service works as advertised **make sure to connect your Lightning node to ours** before creating the swap. You can either query the URIs of our Lightning nodes with~~ [~~`/getnodes`~~](api.md#lightning-node-info)~~, find them in the FAQ section of our website or on Lightning explorers like~~ [~~1ML~~](https://1ml.com) ~~under the query "Boltz". To let Boltz open a channel to you have to set a couple more values in the request when creating a swap:~~
@@ -448,6 +452,10 @@ The second option is to specify the amount that will be locked in the chain HTLC
 We recommend verifying that pair data fetched previously (like `minerFees`) is still valid by additionally passing the `pairHash` argument in this call.
 
 * `pairHash`: `hash` string in the pair object of [`/getpairs`](api.md#supported-pairs).
+
+Members of our [partner program](api.md#querying-referral-fees) may set this optional referral parameter to get a percentage of the fees earned from referred swaps as kickback.
+
+* `referral`: Partner referral ID&#x20;
 
 | URL                | Response      |
 | ------------------ | ------------- |
@@ -1070,7 +1078,7 @@ try {
 
 ## Querying Referral Fees
 
-Members of the Boltz partner program can request a referral key ([hi@bol.tz](mailto:hi@bol.tz)) to get a percentage of the fees earned from Swaps through their integration. To query for their referrals, they can send an [authenticated](api.md#authentication) request to this endpoint.
+Members of the Boltz partner program can request a referral key ([hi@bol.tz](mailto:hi@bol.tz)) to get a percentage of the fees earned from referred swaps as kickback. To query for their referrals, they can send an [authenticated](api.md#authentication) request to this endpoint.
 
 | URL                    | Response      |
 | ---------------------- | ------------- |

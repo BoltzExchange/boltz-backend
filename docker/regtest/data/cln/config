@@ -9,6 +9,7 @@ large-channels
 
 grpc-port=9291
 
+developer
 dev-fast-gossip
 dev-fast-reconnect
 dev-bitcoind-poll=5

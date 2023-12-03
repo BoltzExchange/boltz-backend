@@ -2,7 +2,7 @@ const path = require('path');
 const childProcess = require('child_process');
 
 const protoDir = path.join(__dirname, 'proto');
-const protoDirHold = path.join(__dirname, 'tools/hold/protos');
+const protoDirHold = path.join(__dirname, 'tools/plugins/hold/protos');
 const libDir = path.join(__dirname, 'lib/proto');
 const protocPath = path.join(
   __dirname,

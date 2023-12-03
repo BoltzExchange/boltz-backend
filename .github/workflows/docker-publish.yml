@@ -29,5 +29,4 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Push backend image
-        # Cross compiling to ARM64 is broken right now
-        run: ./docker/build.py buildx --platform linux/amd64 --no-latest --branch ${GITHUB_REF##*/} boltz
+        run: ./docker/build.py buildx --platform linux/amd64,linux/arm64 --no-latest --branch ${GITHUB_REF##*/} boltz

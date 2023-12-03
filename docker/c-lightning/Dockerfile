@@ -37,7 +37,7 @@ WORKDIR /lightning
 RUN git checkout v${VERSION}
 RUN git submodule init && git submodule update
 
-RUN ./configure --enable-developer
+RUN ./configure
 RUN make install -j$(nproc)
 
 RUN strip --strip-all /usr/local/bin/lightningd

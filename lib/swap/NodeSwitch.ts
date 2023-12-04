@@ -7,6 +7,8 @@ import ReverseSwap, { NodeType } from '../db/models/ReverseSwap';
 
 type NodeSwitchConfig = {
   clnAmountThreshold?: number;
+
+  swapNode?: string;
   referralsIds?: Record<string, string>;
 };
 
@@ -16,6 +18,8 @@ class NodeSwitch {
   private readonly clnAmountThreshold: number;
   private readonly referralIds = new Map<string, NodeType>();
 
+  private readonly swapNode?: NodeType;
+
   constructor(
     private logger: Logger,
     cfg?: NodeSwitchConfig,
@@ -23,18 +27,19 @@ class NodeSwitch {
     this.clnAmountThreshold =
       cfg?.clnAmountThreshold || NodeSwitch.defaultClnAmountThreshold;
 
+    const swapNode =
+      cfg?.swapNode !== undefined
+        ? this.parseNodeType(cfg.swapNode, 'swap node')
+        : undefined;
+    if (swapNode !== undefined) {
+      this.swapNode = swapNode;
+    }
+
     for (const [referralId, nodeType] of Object.entries(
       cfg?.referralsIds || {},
     )) {
-      const nt = NodeType[nodeType];
+      const nt = this.parseNodeType(nodeType, `referral id ${referralId}`);
       if (nt === undefined) {
-        this.logger.warn(
-          `Invalid node type for referral id ${referralId}: "${nodeType}"; available options are: [${Object.values(
-            NodeType,
-          )
-            .filter((val) => typeof val === 'string')
-            .join(', ')}]`,
-        );
         continue;
       }
 
@@ -64,7 +69,9 @@ class NodeSwitch {
   ): LightningClient => {
     const client = NodeSwitch.fallback(
       currency,
-      this.switch(currency, swap.invoiceAmount, swap.referral),
+      this.swapNode !== undefined
+        ? NodeSwitch.switchOnNodeType(currency, this.swapNode)
+        : this.switch(currency, swap.invoiceAmount, swap.referral),
     );
     this.logger.debug(`Using node ${client.serviceName()} for Swap ${swap.id}`);
 
@@ -112,6 +119,25 @@ class NodeSwitch {
         ? currency.lndClient
         : currency.clnClient,
     );
+  };
+
+  private parseNodeType = (
+    nodeType: any,
+    valueContext: string,
+  ): NodeType | undefined => {
+    const nt = NodeType[nodeType as string];
+    if (nt === undefined || typeof nodeType !== 'string') {
+      this.logger.warn(
+        `Invalid node type for ${valueContext}: "${nodeType}"; available options are: [${Object.values(
+          NodeType,
+        )
+          .filter((val) => typeof val === 'string')
+          .join(', ')}]`,
+      );
+      return;
+    }
+
+    return nt;
   };
 
   public static fallback = (

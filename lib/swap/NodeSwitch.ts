@@ -32,6 +32,7 @@ class NodeSwitch {
         ? this.parseNodeType(cfg.swapNode, 'swap node')
         : undefined;
     if (swapNode !== undefined) {
+      this.logger.info(`Using ${cfg?.swapNode} for paying invoices of Swaps`);
       this.swapNode = swapNode;
     }
 

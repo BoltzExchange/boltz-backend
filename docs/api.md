@@ -159,7 +159,7 @@ Response:
 
 This section walks you through creating Normal Submarine Swaps (Chain -> Lightning). They differ slightly depending on the kind of bitcoin that are swapped, more information below. **Please note that Boltz works with 10 \*\* -8 decimals internally** and all amounts in the API endpoints follow this denomination. All requests to create swaps have the following common values in the API request:
 
-* `type`: type of the swap to create. For Normal Submarine Swaps this is  `submarine` .
+* `type`: type of the swap to create. For Normal Submarine Swaps this is `submarine` .
 * `pairId`: the pair of which the swap should be created, for more check [#supported-pairs](api.md#supported-pairs "mention")
 * `orderSide`: currently we recommend using `sell` across all pairs of swap type `submarine`. The value `buy` for e.g. the `L-BTC/BTC` pair signifies a swap from mainchain Bitcoin to Liquid Lightning. As of writing, this is not supported and the backend will return `"error": "L-BTC has no lightning support"`
 
@@ -174,17 +174,6 @@ If the amount is **not** known yet, a **preimage hash has be specified**. The in
 We recommend verifing that pair data fetched previously is still accurate by additionally passing the `pairHash` argument in this call.
 
 * `pairHash`: `hash` string in the pair object of [`/getpairs`](api.md#supported-pairs)
-
-> Note: Channel creation is currently disabled!
-
-~~Boltz also supports opening a channel to your node before paying your invoice. To ensure that this service works as advertised **make sure to connect your Lightning node to ours** before creating the swap. You can either query the URIs of our Lightning nodes with~~ [~~`/getnodes`~~](api.md#lightning-node-info)~~, find them in the FAQ section of our website or on Lightning explorers like~~ [~~1ML~~](https://1ml.com) ~~under the query "Boltz". To let Boltz open a channel to you have to set a couple more values in the request when creating a swap:~~
-
-* ~~`channel`: a `JSON` object that contains all the information relevant to the creation of the channel~~
-  * ~~`auto`: whether Boltz should dynamically decide if a channel should be created based on whether the invoice you provided can be paid without opening a channel. More modes will be added in the future~~
-  * ~~`private`: whether the channel to your node should be private~~
-  * ~~`inboundLiquidity`: percentage of the channel balance that Boltz should provide as inbound liquidity for your node. The maximal value here is `50`, which means that the channel will be balanced 50/50, minimum value is 10, which means that the channel will be balanced 90 on user, 10 on Boltz side.~~
-
-~~To find out how to enforce that the requested channel was actually opened and the invoice paid through it have a look at~~ [~~this document where we wrote down some possible solutions~~](channel-creation.md)~~.~~
 
 | URL                | Response      |
 | ------------------ | ------------- |
@@ -1216,4 +1205,3 @@ Response:
   }
 }
 ```
-

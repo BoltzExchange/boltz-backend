@@ -177,18 +177,7 @@ We recommend verifying that pair data fetched previously (like `minerFees`) is s
 
 Members of our [partner program](api.md#querying-referral-fees) may set this optional referral parameter to get a percentage of the fees earned from referred swaps as kickback.
 
-* `referral`: Partner referral ID&#x20;
-
-> Note: Channel creation as described in the section below is currently disabled on Boltz Mainnet.
-
-~~Boltz also supports opening a channel to your node before paying your invoice. To ensure that this service works as advertised **make sure to connect your Lightning node to ours** before creating the swap. You can either query the URIs of our Lightning nodes with~~ [~~`/getnodes`~~](api.md#lightning-node-info)~~, find them in the FAQ section of our website or on Lightning explorers like~~ [~~1ML~~](https://1ml.com) ~~under the query "Boltz". To let Boltz open a channel to you have to set a couple more values in the request when creating a swap:~~
-
-* ~~`channel`: A `JSON` object that contains all the information relevant to the creation of the channel.~~
-  * ~~`auto`: Whether Boltz should dynamically decide if a channel should be created based on whether the invoice you provided can be paid without opening a channel. More modes will be added in the future.~~
-  * ~~`private`: Whether the channel to your node should be private.~~
-  * ~~`inboundLiquidity`: Percentage of the channel balance that Boltz should provide as inbound liquidity for your node. The maximal value here is `50`, which means that the channel will be balanced 50/50, minimum value is 10, which means that the channel will be balanced 90 on user, 10 on Boltz side.~~
-
-~~To find out how to enforce that the requested channel was actually opened and the invoice paid through it have a look at~~ [~~this document where we wrote down some possible solutions~~](channel-creation.md)~~.~~
+* `referral`: Partner referral ID
 
 | URL                | Response      |
 | ------------------ | ------------- |

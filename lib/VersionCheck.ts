@@ -72,7 +72,7 @@ class VersionCheck {
   private static versionLimits = {
     [ChainClient.serviceName]: {
       minimal: 220000,
-      maximal: 250100,
+      maximal: 260000,
     },
     [ClnClient.serviceName]: {
       minimal: '23.05',
@@ -84,7 +84,7 @@ class VersionCheck {
     },
     [LndClient.serviceName]: {
       minimal: '0.16.0',
-      maximal: '0.17.2',
+      maximal: '0.17.3',
     },
   };
 

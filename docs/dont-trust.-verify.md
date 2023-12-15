@@ -58,8 +58,8 @@ Boltz API clients should also verify that amounts in user-provided invoices matc
 
 ## EVM Chain Contract Verification
 
-Boltz API Clients should verify that EVM swaps are carried out using the latest contract addresses found here. <mark style="color:orange;">TODO: when deployed, link latest rsk mainnet contract addresses in a queryable file</mark>
+Boltz API Clients should verify that EVM swaps are carried out using the correct contract by comparing the bytecode of the contract.
 
 ## General Measurements
 
-Verify that `expectedAmount` in Boltz API responses matches calculated amount.
+Boltz API Client should verify that `expectedAmount` in Boltz API responses matches locally calculated amount.

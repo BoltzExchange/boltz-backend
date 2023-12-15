@@ -62,7 +62,7 @@ Status Codes:
 
 Response object:
 
-* `info`: Contains information about special configuration parameters of the Boltz Backend deployment. An example is:
+* `info`: Contains information about special configuration parameters of the Boltz Backend deployment. Currently there is only one:
   * `prepay.minerfee`: If the array contains this value, Boltz requires a small invoice for the miner fee to be paid before the actual hold invoice of a Reverse Swap is revealed.
 * `warnings`: An array of strings that indicate that some feature of Boltz might me disabled or restricted. An example is:
   * `reverse.swaps.disabled`: Means that all reverse swaps (from Lightning to the chain) are disabled.

@@ -26,6 +26,7 @@ When a Normal Submarine Swap is created, it passes through the following states:
 3. `transaction.confirmed`: the lockup transaction was included in a block. For mainchain swaps, Boltz always waits for one confirmation before continuing with the swap. The [`getpairs`](api.md#supported-pairs) call provides amount limits for which Boltz accepts [0-conf](0-conf.md) per pair.
 4. `invoice.set`: if the invoice was _not_ set as part of the `/createswap` request, this state confirms that an invoice with the correct amount and hash was set.
 5. Once the user's lockup transaction is included in a block (or found in the mempool if [0-conf](0-conf.md) applies), Boltz will try to pay the invoice provided by the user. When successful, Boltz obtains the preimage needed to claim the chain bitcoin. State of the Lightning payment is either:
+   * `invoice.pending`: if paying the invoice is in progress
    * `invoice.paid`: if paying the invoice was successful or
    * `invoice.failedToPay`: if paying the invoice failed. In this case the user needs to broadcast a refund transaction to reclaim the locked up chain bitcoin
 6. `transaction.claimed`: indicates that after the invoice was successfully paid, the chain Bitcoin were successfully claimed _by Boltz_. This is the final status of a successful Normal Submarine swap.

@@ -33,20 +33,6 @@ When a Normal Submarine Swap is created, it passes through the following states:
 
 If the user doesn't send chain bitcoin and the swap expires (approximately 24h), Boltz will set the state of the swap to `swap.expired` , which means that it was cancelled and chain bitcoin shouldn't be sent anymore. In case of `invoice.failedToPay` or `swap.expired` but bitcoin were sent, the user needs to submit a refund transaction to reclaim their locked chain bitcoin. For more information about how Boltz API clients can construct & submit refund transactions for users, check the [Claiming Swaps & Refunds](claiming-swaps.md) section. The states `invoice.failedToPay` and `swap.expired` are final since Boltz is _not_ monitoring refund transactions on the chain.
 
-When a "Channel Creation" is involved in the swap protocol, Boltz will send the event `channel.created` after `transaction.confirmed`. This event means that a channel has been opened to the requested node. Alongside the state update, the `JSON` object `channel` is sent, which contains information about the funding transaction of the opened channel.
-
-> Note: Channel Creation is currently disabled on Boltz Mainnet
-
-```json
-{
-  "status": "channel.created",
-  "channel": {
-    "fundingTransactionId": "80a3718319b576b0422ab407a5766df052a89eccf9789d90e0d250e3fc2734f7",
-    "fundingTransactionVout": 0
-  }
-}
-```
-
 ### Reverse Submarine Swaps
 
 Reverse Submarine Swaps move bitcoin from **Lightning to the chain**. Again, "chain" can refer to the Bitcoin mainchain or, for instance, the Liquid sidechain. Reverse Submarine Swaps start with the client generating a preimage, then calculating the SHA256 hash of it and sending that hash to Boltz. With this hash, Boltz creates a hold invoice that can only be settled when the preimage is revealed by the user. The user pays the invoice, but the Lightning payment doesn't execute, because Boltz doesn't know the preimage yet. Next, Boltz locks up chain bitcoin using the same hash so that these can be claimed with the previously generated preimage by the client. Once the claim transaction for the chain bitcoin is broadcasted by the user's Boltz API client, Boltz detects the preimage in this transaction and in turn claims its bitcoin by settling the Lightning invoice. The [Claiming Swaps & Refunds](claiming-swaps.md) section contains details about how Boltz API clients can construct claim transactions for their users.

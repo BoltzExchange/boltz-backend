@@ -74,7 +74,7 @@ Response object:
   * `fees`: A `JSON` object that contains different kinds of fees:
     * `percentage`: The percentage of the "send amount" that is charged by Boltz as "Boltz Fee" for swaps from quote to base asset (e.g. Lightning -> Bitcoin).
     * `percentageSwapIn`: The percentage of the "send amount" that is charged by Boltz as "Boltz Fee" for swaps from base to quote asset (e.g. Bitcoin -> Lightning).
-    * `minerFees`: The network fees charged for locking up and claiming funds onchain. These values are absolute, denominated in **10 \*\* -8** of the quote asset, and are based on estimations from professional third party providers like [mempool.space](https://mempool.space/).
+    * `minerFees`: The network fees charged for locking up and claiming funds onchain. These values are absolute, denominated in **10 \*\* -8** of the quote asset.
 
 **Examples:**
 

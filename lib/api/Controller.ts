@@ -37,6 +37,11 @@ class Controller {
   // A map between the ids and statuses of the swaps
   private pendingSwapInfos = new Map<string, SwapUpdate>();
 
+  // Some endpoints are getting spammed on mainnet, so we don't log the warnings for them
+  private static readonly errorsNotToLog: any[] = [
+    ServiceErrors.SWAP_NO_LOCKUP().message,
+  ];
+
   constructor(
     private logger: Logger,
     private service: Service,
@@ -635,13 +640,15 @@ class Controller {
     req: Request,
     res: Response,
     statusCode: number,
-    error: unknown,
+    error: any,
   ) => {
-    this.logger.warn(
-      `Request ${req.url} ${JSON.stringify(req.body)} failed: ${JSON.stringify(
-        error,
-      )}`,
-    );
+    if (!Controller.errorsNotToLog.includes(error?.error || error)) {
+      this.logger.warn(
+        `Request ${req.url} ${JSON.stringify(
+          req.body,
+        )} failed: ${JSON.stringify(error)}`,
+      );
+    }
 
     this.setContentTypeJson(res);
     res.status(statusCode).json(error);

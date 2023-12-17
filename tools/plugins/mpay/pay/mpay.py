@@ -2,8 +2,8 @@ from pyln.client import Millisatoshi, Plugin
 from sqlalchemy.orm import Session
 
 from plugins.mpay.data.network_info import NetworkInfo
-from plugins.mpay.data.route_stats import RouteStatsFetcher
 from plugins.mpay.data.router import Router
+from plugins.mpay.data.routes import Routes
 from plugins.mpay.db.db import Database
 from plugins.mpay.db.models import Payment
 from plugins.mpay.pay.channels import ChannelsHelper
@@ -25,7 +25,7 @@ class MPay:
     _channels: ChannelsHelper
     _network_info: NetworkInfo
 
-    def __init__(self, pl: Plugin, db: Database, route_stats: RouteStatsFetcher) -> None:
+    def __init__(self, pl: Plugin, db: Database, routes: Routes) -> None:
         self._pl = pl
         self._db = db
 
@@ -33,7 +33,7 @@ class MPay:
         self._excludes = Excludes()
         self._network_info = NetworkInfo(pl)
         self._channels = ChannelsHelper(pl, self._network_info)
-        self._router = Router(pl, route_stats, self._network_info)
+        self._router = Router(pl, routes, self._network_info)
 
     def pay(self, bolt11: str, max_fee: int | None, exempt_fee: int, timeout: int) -> PaymentResult:
         dec = self._pl.rpc.decodepay(bolt11)

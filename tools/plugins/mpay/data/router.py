@@ -2,10 +2,10 @@ import copy
 from typing import Any, Iterator
 
 from pyln.client import Millisatoshi, Plugin
-from sqlalchemy.orm import Session
 
 from plugins.mpay.data.network_info import NetworkInfo
-from plugins.mpay.data.route_stats import HOP_SEPERATOR, RouteStats, RouteStatsFetcher
+from plugins.mpay.data.route_stats import HOP_SEPERATOR, RouteStats
+from plugins.mpay.data.routes import Routes
 from plugins.mpay.pay.excludes import ExcludesPayment
 from plugins.mpay.pay.route import Route
 from plugins.mpay.routing_hints import parse_routing_hints
@@ -24,21 +24,23 @@ class InExcludeListError(ValueError):
 
 
 class Router:
+    routes: Routes
+
     _pl: Plugin
-    _stats: RouteStatsFetcher
     _network_info: NetworkInfo
 
-    def __init__(self, pl: Plugin, stats: RouteStatsFetcher, network_info: NetworkInfo) -> None:
+    def __init__(self, pl: Plugin, routes: Routes, network_info: NetworkInfo) -> None:
+        self.routes = routes
+
         self._pl = pl
-        self._stats = stats
         self._network_info = network_info
 
     def fetch_routes(
-        self, s: Session, dec: dict[str, Any], amount: Millisatoshi, excludes: ExcludesPayment
+        self, dec: dict[str, Any], amount: Millisatoshi, excludes: ExcludesPayment
     ) -> Iterator[tuple[RouteStats, Route]]:
         has_routing_hint, destination, routing_hint = parse_routing_hints(dec)
 
-        route_stats = self._stats.get_routes(s, destination, 0, _MIN_EMA_RATE, excludes)
+        route_stats = self.routes.get_routes(destination, 0, _MIN_EMA_RATE, excludes)
 
         self._pl.log(f"Found {len(route_stats)} potential known routes to {destination}")
 

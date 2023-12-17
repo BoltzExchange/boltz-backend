@@ -14,8 +14,8 @@ from plugins.mpay.async_methods import thread_method
 from plugins.mpay.config import Config, register_options
 from plugins.mpay.consts import PLUGIN_NAME, VERSION
 from plugins.mpay.data.payments import Payments
-from plugins.mpay.data.reset import Reset
-from plugins.mpay.data.route_stats import RouteStatsFetcher
+from plugins.mpay.data.route_stats import RouteStats
+from plugins.mpay.data.routes import Routes
 from plugins.mpay.db.db import Database
 from plugins.mpay.defaults import DEFAULT_EXEMPT_FEE, DEFAULT_PAYMENT_TIMEOUT
 from plugins.mpay.errors import Errors
@@ -31,12 +31,11 @@ pl = Plugin()
 register_options(pl)
 
 db = Database(pl)
-reset = Reset(pl)
-route_stats_fetcher = RouteStatsFetcher(db)
 
-mpay = MPay(pl, db, route_stats_fetcher)
+routes = Routes(pl, db)
+mpay = MPay(pl, db, routes)
 
-server = Server(pl, db, mpay, route_stats_fetcher, reset)
+server = Server(pl, db, mpay, routes)
 
 
 @pl.init()
@@ -53,6 +52,7 @@ def init(
         mpay.default_max_fee_perc = cfg.default_max_fee
 
         db.connect(cfg.db)
+        routes.fetch_from_db()
 
         if cfg.grpc_port != -1:
             server.start(cfg.grpc_host, cfg.grpc_port, configuration["lightning-dir"])
@@ -112,21 +112,30 @@ def mpay_method(
 def mpay_routes(
     request: Request, destination: str = "", min_success: float = 0, min_success_ema: float = 0
 ) -> dict[str, Any]:
-    with Session(db.engine) as s:
-        if destination != "":
-            routes = route_stats_fetcher.get_routes(s, destination, min_success, min_success_ema)
-            res = {destination: [route.__dict__ for route in routes]}
-        else:
-            destinations = RouteStatsFetcher.get_destinations(s)
-            res = {
-                dest: [
-                    route.__dict__
-                    for route in route_stats_fetcher.get_routes(
-                        s, dest, min_success, min_success_ema
-                    )
-                ]
-                for dest in destinations
-            }
+    def transform_route(route: RouteStats) -> dict[str, Any]:
+        return {
+            "route": route.route,
+            "nodes": route.nodes,
+            "success_rate": route.success_rate,
+            "success_rate_ema": route.success_rate_ema,
+        }
+
+    if destination != "":
+        res = {
+            destination: [
+                transform_route(route)
+                for route in routes.get_routes(destination, min_success, min_success_ema)
+            ]
+        }
+    else:
+        destinations = routes.get_destinations()
+        res = {
+            dest: [
+                transform_route(route)
+                for route in routes.get_routes(dest, min_success, min_success_ema)
+            ]
+            for dest in destinations
+        }
 
     for key in [k for k, v in res.items() if len(v) == 0]:
         del res[key]
@@ -161,8 +170,7 @@ def mpay_list(request: Request, bolt11: str = "", payment_hash: str = "") -> dic
 )
 @thread_method(executor=executor)
 def mpay_reset(request: Request) -> dict[str, Any]:
-    with Session(db.engine) as s:
-        return {"deleted": reset.reset_all(s).to_dict()}
+    return {"deleted": routes.reset().to_dict()}
 
 
 pl.run()

@@ -28,7 +28,7 @@ Claiming works a little different for every output type, but you always need the
 
 #### P2SH nested P2WSH
 
-When spending a P2SH nested P2WSH output, the signature, preimage and original reedem script are added to the witness of the input and one adds the OP code `OP_0` and the SHA256 hash of the redeem script to the signature script of the input.
+When spending a P2SH nested P2WSH output, the signature, preimage and original reedem script are added to the witness of the input and one adds the Opcode `OP_0` and the SHA256 hash of the redeem script to the signature script of the input.
 
 #### P2WSH
 

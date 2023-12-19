@@ -1,0 +1,97 @@
+syntax = "proto3";
+
+package mpay;
+
+service Mpay {
+  rpc GetInfo (GetInfoRequest) returns (GetInfoResponse) {}
+
+  rpc GetRoutes (GetRoutesRequest) returns (GetRoutesResponse) {}
+  rpc ListPayments (ListPaymentsRequest) returns (ListPaymentsResponse) {}
+
+  rpc Pay (PayRequest) returns (PayResponse) {}
+
+  rpc ResetPathMemory (ResetPathMemoryRequest) returns (ResetPathMemoryResponse) {}
+}
+
+message GetInfoRequest {}
+message GetInfoResponse {
+  string version = 1;
+}
+
+message GetRoutesRequest {
+  optional string destination = 1;
+  optional float min_success = 2;
+  optional float min_success_ema = 3;
+}
+
+message GetRoutesResponse {
+  message Routes {
+    message Route {
+      repeated string route = 1;
+      double success_rate = 2;
+      double success_rate_ema = 3;
+    }
+
+    repeated Route routes = 2;
+  }
+
+  map<string, Routes> routes = 1;
+}
+
+message ListPaymentsRequest {
+  oneof identifier {
+    string bolt11 = 1;
+    string payment_hash = 2;
+  }
+}
+
+message ListPaymentsResponse {
+  message Payment {
+    message Attempt {
+      message Hop {
+        uint64 id = 1;
+        string node = 2;
+        string channel = 3;
+        uint64 direction = 4;
+        bool ok = 5;
+      }
+
+      uint64 id = 1;
+      bool ok = 2;
+      uint64 time = 3;
+      repeated Hop hops = 4;
+      uint64 created_at = 5;
+    }
+
+    uint64 id = 1;
+    string destination = 2;
+    string payment_hash = 3;
+    uint64 amount = 4;
+    bool ok = 5;
+    repeated Attempt attempts = 6;
+    uint64 created_at = 7;
+  }
+
+  repeated Payment payments = 1;
+}
+
+message PayRequest {
+  string bolt11 = 1;
+  optional uint64 max_fee_msat = 2;
+  optional uint64 exempt_fee_msat = 3;
+  optional uint64 timeout = 4;
+}
+
+message PayResponse {
+  string payment_hash = 1;
+  string payment_preimage = 2;
+  uint64 fee_msat = 3;
+  uint64 time = 4;
+}
+
+message ResetPathMemoryRequest {}
+message ResetPathMemoryResponse {
+  uint64 payments = 1;
+  uint64 attempts = 2;
+  uint64 hops = 3;
+}

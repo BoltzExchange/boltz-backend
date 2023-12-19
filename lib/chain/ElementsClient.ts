@@ -1,12 +1,16 @@
 import Logger from '../Logger';
-import ChainClient from './ChainClient';
 import { ChainConfig } from '../Config';
 import { CurrencyType } from '../consts/Enums';
+import ChainClient, { AddressType } from './ChainClient';
 import {
   AddressInfo,
   liquidSymbol,
   LiquidBalances,
 } from '../consts/LiquidTypes';
+
+enum LiquidAddressType {
+  Blech32 = 'blech32',
+}
 
 class ElementsClient extends ChainClient {
   public static readonly symbol = liquidSymbol;
@@ -31,6 +35,12 @@ class ElementsClient extends ChainClient {
     }
 
     return res;
+  };
+
+  public getNewAddress = (
+    type: AddressType | LiquidAddressType = LiquidAddressType.Blech32,
+  ): Promise<string> => {
+    return this.client.request<string>('getnewaddress', [undefined, type]);
   };
 
   public override sendToAddress = (
@@ -69,3 +79,4 @@ class ElementsClient extends ChainClient {
 }
 
 export default ElementsClient;
+export { LiquidAddressType };

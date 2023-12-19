@@ -48,6 +48,7 @@ describe('NodeSwitch', () => {
   test('should parse config', () => {
     const config = {
       clnAmountThreshold: 21,
+      swapNode: 'LND',
       referralsIds: {
         test: 'CLN',
         breez: 'LND',
@@ -57,6 +58,7 @@ describe('NodeSwitch', () => {
     const ns = new NodeSwitch(Logger.disabledLogger, config);
 
     expect(ns['clnAmountThreshold']).toEqual(config.clnAmountThreshold);
+    expect(ns['swapNode']).toEqual(NodeType.LND);
 
     const referrals = ns['referralIds'];
     expect(referrals.size).toEqual(2);
@@ -90,6 +92,22 @@ describe('NodeSwitch', () => {
           invoiceAmount: amount,
         } as Swap),
       ).toEqual(client);
+    },
+  );
+
+  test.each`
+    swapNode | currency         | expected
+    ${'LND'} | ${currency}      | ${lndClient}
+    ${'CLN'} | ${currency}      | ${clnClient}
+    ${'LND'} | ${{ clnClient }} | ${clnClient}
+  `(
+    'should get node for Swap with swapNode $swapNode configured',
+    ({ swapNode, currency, expected }) => {
+      expect(
+        new NodeSwitch(Logger.disabledLogger, {
+          swapNode,
+        }).getSwapNode(currency, {} as Swap),
+      ).toEqual(expected);
     },
   );
 

@@ -22,6 +22,7 @@ interface INodeService
   connectPeer: INodeService_IConnectPeer;
   createInvoice: INodeService_ICreateInvoice;
   datastore: INodeService_IDatastore;
+  datastoreUsage: INodeService_IDatastoreUsage;
   createOnion: INodeService_ICreateOnion;
   delDatastore: INodeService_IDelDatastore;
   delExpiredInvoice: INodeService_IDelExpiredInvoice;
@@ -53,6 +54,7 @@ interface INodeService
   decode: INodeService_IDecode;
   disconnect: INodeService_IDisconnect;
   feerates: INodeService_IFeerates;
+  fetchInvoice: INodeService_IFetchInvoice;
   fundChannel: INodeService_IFundChannel;
   getRoute: INodeService_IGetRoute;
   listForwards: INodeService_IListForwards;
@@ -63,6 +65,8 @@ interface INodeService
   setChannel: INodeService_ISetChannel;
   signInvoice: INodeService_ISignInvoice;
   signMessage: INodeService_ISignMessage;
+  waitBlockHeight: INodeService_IWaitBlockHeight;
+  wait: INodeService_IWait;
   stop: INodeService_IStop;
   preApproveKeysend: INodeService_IPreApproveKeysend;
   preApproveInvoice: INodeService_IPreApproveInvoice;
@@ -224,6 +228,19 @@ interface INodeService_IDatastore
   requestDeserialize: grpc.deserialize<cln_node_pb.DatastoreRequest>;
   responseSerialize: grpc.serialize<cln_node_pb.DatastoreResponse>;
   responseDeserialize: grpc.deserialize<cln_node_pb.DatastoreResponse>;
+}
+interface INodeService_IDatastoreUsage
+  extends grpc.MethodDefinition<
+    cln_node_pb.DatastoreusageRequest,
+    cln_node_pb.DatastoreusageResponse
+  > {
+  path: '/cln.Node/DatastoreUsage';
+  requestStream: false;
+  responseStream: false;
+  requestSerialize: grpc.serialize<cln_node_pb.DatastoreusageRequest>;
+  requestDeserialize: grpc.deserialize<cln_node_pb.DatastoreusageRequest>;
+  responseSerialize: grpc.serialize<cln_node_pb.DatastoreusageResponse>;
+  responseDeserialize: grpc.deserialize<cln_node_pb.DatastoreusageResponse>;
 }
 interface INodeService_ICreateOnion
   extends grpc.MethodDefinition<
@@ -628,6 +645,19 @@ interface INodeService_IFeerates
   responseSerialize: grpc.serialize<cln_node_pb.FeeratesResponse>;
   responseDeserialize: grpc.deserialize<cln_node_pb.FeeratesResponse>;
 }
+interface INodeService_IFetchInvoice
+  extends grpc.MethodDefinition<
+    cln_node_pb.FetchinvoiceRequest,
+    cln_node_pb.FetchinvoiceResponse
+  > {
+  path: '/cln.Node/FetchInvoice';
+  requestStream: false;
+  responseStream: false;
+  requestSerialize: grpc.serialize<cln_node_pb.FetchinvoiceRequest>;
+  requestDeserialize: grpc.deserialize<cln_node_pb.FetchinvoiceRequest>;
+  responseSerialize: grpc.serialize<cln_node_pb.FetchinvoiceResponse>;
+  responseDeserialize: grpc.deserialize<cln_node_pb.FetchinvoiceResponse>;
+}
 interface INodeService_IFundChannel
   extends grpc.MethodDefinition<
     cln_node_pb.FundchannelRequest,
@@ -758,6 +788,32 @@ interface INodeService_ISignMessage
   responseSerialize: grpc.serialize<cln_node_pb.SignmessageResponse>;
   responseDeserialize: grpc.deserialize<cln_node_pb.SignmessageResponse>;
 }
+interface INodeService_IWaitBlockHeight
+  extends grpc.MethodDefinition<
+    cln_node_pb.WaitblockheightRequest,
+    cln_node_pb.WaitblockheightResponse
+  > {
+  path: '/cln.Node/WaitBlockHeight';
+  requestStream: false;
+  responseStream: false;
+  requestSerialize: grpc.serialize<cln_node_pb.WaitblockheightRequest>;
+  requestDeserialize: grpc.deserialize<cln_node_pb.WaitblockheightRequest>;
+  responseSerialize: grpc.serialize<cln_node_pb.WaitblockheightResponse>;
+  responseDeserialize: grpc.deserialize<cln_node_pb.WaitblockheightResponse>;
+}
+interface INodeService_IWait
+  extends grpc.MethodDefinition<
+    cln_node_pb.WaitRequest,
+    cln_node_pb.WaitResponse
+  > {
+  path: '/cln.Node/Wait';
+  requestStream: false;
+  responseStream: false;
+  requestSerialize: grpc.serialize<cln_node_pb.WaitRequest>;
+  requestDeserialize: grpc.deserialize<cln_node_pb.WaitRequest>;
+  responseSerialize: grpc.serialize<cln_node_pb.WaitResponse>;
+  responseDeserialize: grpc.deserialize<cln_node_pb.WaitResponse>;
+}
 interface INodeService_IStop
   extends grpc.MethodDefinition<
     cln_node_pb.StopRequest,
@@ -861,6 +917,10 @@ export interface INodeServer extends grpc.UntypedServiceImplementation {
   datastore: grpc.handleUnaryCall<
     cln_node_pb.DatastoreRequest,
     cln_node_pb.DatastoreResponse
+  >;
+  datastoreUsage: grpc.handleUnaryCall<
+    cln_node_pb.DatastoreusageRequest,
+    cln_node_pb.DatastoreusageResponse
   >;
   createOnion: grpc.handleUnaryCall<
     cln_node_pb.CreateonionRequest,
@@ -983,6 +1043,10 @@ export interface INodeServer extends grpc.UntypedServiceImplementation {
     cln_node_pb.FeeratesRequest,
     cln_node_pb.FeeratesResponse
   >;
+  fetchInvoice: grpc.handleUnaryCall<
+    cln_node_pb.FetchinvoiceRequest,
+    cln_node_pb.FetchinvoiceResponse
+  >;
   fundChannel: grpc.handleUnaryCall<
     cln_node_pb.FundchannelRequest,
     cln_node_pb.FundchannelResponse
@@ -1020,6 +1084,11 @@ export interface INodeServer extends grpc.UntypedServiceImplementation {
     cln_node_pb.SignmessageRequest,
     cln_node_pb.SignmessageResponse
   >;
+  waitBlockHeight: grpc.handleUnaryCall<
+    cln_node_pb.WaitblockheightRequest,
+    cln_node_pb.WaitblockheightResponse
+  >;
+  wait: grpc.handleUnaryCall<cln_node_pb.WaitRequest, cln_node_pb.WaitResponse>;
   stop: grpc.handleUnaryCall<cln_node_pb.StopRequest, cln_node_pb.StopResponse>;
   preApproveKeysend: grpc.handleUnaryCall<
     cln_node_pb.PreapprovekeysendRequest,
@@ -1324,6 +1393,30 @@ export interface INodeClient {
       response: cln_node_pb.DatastoreResponse,
     ) => void,
   ): grpc.ClientUnaryCall;
+  datastoreUsage(
+    request: cln_node_pb.DatastoreusageRequest,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.DatastoreusageResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  datastoreUsage(
+    request: cln_node_pb.DatastoreusageRequest,
+    metadata: grpc.Metadata,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.DatastoreusageResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  datastoreUsage(
+    request: cln_node_pb.DatastoreusageRequest,
+    metadata: grpc.Metadata,
+    options: Partial<grpc.CallOptions>,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.DatastoreusageResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
   createOnion(
     request: cln_node_pb.CreateonionRequest,
     callback: (
@@ -2068,6 +2161,30 @@ export interface INodeClient {
       response: cln_node_pb.FeeratesResponse,
     ) => void,
   ): grpc.ClientUnaryCall;
+  fetchInvoice(
+    request: cln_node_pb.FetchinvoiceRequest,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.FetchinvoiceResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  fetchInvoice(
+    request: cln_node_pb.FetchinvoiceRequest,
+    metadata: grpc.Metadata,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.FetchinvoiceResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  fetchInvoice(
+    request: cln_node_pb.FetchinvoiceRequest,
+    metadata: grpc.Metadata,
+    options: Partial<grpc.CallOptions>,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.FetchinvoiceResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
   fundChannel(
     request: cln_node_pb.FundchannelRequest,
     callback: (
@@ -2306,6 +2423,54 @@ export interface INodeClient {
     callback: (
       error: grpc.ServiceError | null,
       response: cln_node_pb.SignmessageResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  waitBlockHeight(
+    request: cln_node_pb.WaitblockheightRequest,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.WaitblockheightResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  waitBlockHeight(
+    request: cln_node_pb.WaitblockheightRequest,
+    metadata: grpc.Metadata,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.WaitblockheightResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  waitBlockHeight(
+    request: cln_node_pb.WaitblockheightRequest,
+    metadata: grpc.Metadata,
+    options: Partial<grpc.CallOptions>,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.WaitblockheightResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  wait(
+    request: cln_node_pb.WaitRequest,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.WaitResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  wait(
+    request: cln_node_pb.WaitRequest,
+    metadata: grpc.Metadata,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.WaitResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  wait(
+    request: cln_node_pb.WaitRequest,
+    metadata: grpc.Metadata,
+    options: Partial<grpc.CallOptions>,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.WaitResponse,
     ) => void,
   ): grpc.ClientUnaryCall;
   stop(
@@ -2700,6 +2865,30 @@ export class NodeClient extends grpc.Client implements INodeClient {
       response: cln_node_pb.DatastoreResponse,
     ) => void,
   ): grpc.ClientUnaryCall;
+  public datastoreUsage(
+    request: cln_node_pb.DatastoreusageRequest,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.DatastoreusageResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public datastoreUsage(
+    request: cln_node_pb.DatastoreusageRequest,
+    metadata: grpc.Metadata,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.DatastoreusageResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public datastoreUsage(
+    request: cln_node_pb.DatastoreusageRequest,
+    metadata: grpc.Metadata,
+    options: Partial<grpc.CallOptions>,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.DatastoreusageResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
   public createOnion(
     request: cln_node_pb.CreateonionRequest,
     callback: (
@@ -3444,6 +3633,30 @@ export class NodeClient extends grpc.Client implements INodeClient {
       response: cln_node_pb.FeeratesResponse,
     ) => void,
   ): grpc.ClientUnaryCall;
+  public fetchInvoice(
+    request: cln_node_pb.FetchinvoiceRequest,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.FetchinvoiceResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public fetchInvoice(
+    request: cln_node_pb.FetchinvoiceRequest,
+    metadata: grpc.Metadata,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.FetchinvoiceResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public fetchInvoice(
+    request: cln_node_pb.FetchinvoiceRequest,
+    metadata: grpc.Metadata,
+    options: Partial<grpc.CallOptions>,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.FetchinvoiceResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
   public fundChannel(
     request: cln_node_pb.FundchannelRequest,
     callback: (
@@ -3682,6 +3895,54 @@ export class NodeClient extends grpc.Client implements INodeClient {
     callback: (
       error: grpc.ServiceError | null,
       response: cln_node_pb.SignmessageResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public waitBlockHeight(
+    request: cln_node_pb.WaitblockheightRequest,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.WaitblockheightResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public waitBlockHeight(
+    request: cln_node_pb.WaitblockheightRequest,
+    metadata: grpc.Metadata,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.WaitblockheightResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public waitBlockHeight(
+    request: cln_node_pb.WaitblockheightRequest,
+    metadata: grpc.Metadata,
+    options: Partial<grpc.CallOptions>,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.WaitblockheightResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public wait(
+    request: cln_node_pb.WaitRequest,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.WaitResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public wait(
+    request: cln_node_pb.WaitRequest,
+    metadata: grpc.Metadata,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.WaitResponse,
+    ) => void,
+  ): grpc.ClientUnaryCall;
+  public wait(
+    request: cln_node_pb.WaitRequest,
+    metadata: grpc.Metadata,
+    options: Partial<grpc.CallOptions>,
+    callback: (
+      error: grpc.ServiceError | null,
+      response: cln_node_pb.WaitResponse,
     ) => void,
   ): grpc.ClientUnaryCall;
   public stop(

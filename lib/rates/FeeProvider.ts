@@ -265,7 +265,7 @@ class FeeProvider {
     gasUsage: number,
   ) => {
     return Number(
-      (BigInt(gasPrice * Number(gweiDecimals)) * BigInt(gasUsage)) /
+      (BigInt(Math.round(gasPrice * Number(gweiDecimals))) * BigInt(gasUsage)) /
         etherDecimals,
     );
   };

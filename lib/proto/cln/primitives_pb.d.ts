@@ -477,6 +477,7 @@ export enum ChannelState {
   ONCHAIN = 8,
   DUALOPENDOPENINIT = 9,
   DUALOPENDAWAITINGLOCKIN = 10,
+  CHANNELDAWAITINGSPLICE = 11,
 }
 
 export enum HtlcState {

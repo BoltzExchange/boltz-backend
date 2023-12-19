@@ -85,3 +85,4 @@ docker/regtest/data/core/cookies/
 # CLN data directory
 docker/regtest/data/cln/hold
 docker/regtest/data/cln/certs
+docker/regtest/data/cln/mpay

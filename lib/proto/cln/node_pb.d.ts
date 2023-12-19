@@ -871,6 +871,8 @@ export namespace ListpeersPeersChannels {
     ONCHAIN = 8,
     DUALOPEND_OPEN_INIT = 9,
     DUALOPEND_AWAITING_LOCKIN = 10,
+    DUALOPEND_OPEN_COMMITTED = 11,
+    DUALOPEND_OPEN_COMMIT_READY = 12,
   }
 }
 
@@ -1459,6 +1461,15 @@ export namespace SendpayRequest {
 }
 
 export class SendpayResponse extends jspb.Message {
+  hasCreatedIndex(): boolean;
+  clearCreatedIndex(): void;
+  getCreatedIndex(): number | undefined;
+  setCreatedIndex(value: number): SendpayResponse;
+
+  hasUpdatedIndex(): boolean;
+  clearUpdatedIndex(): void;
+  getUpdatedIndex(): number | undefined;
+  setUpdatedIndex(value: number): SendpayResponse;
   getId(): number;
   setId(value: number): SendpayResponse;
 
@@ -1552,6 +1563,8 @@ export class SendpayResponse extends jspb.Message {
 
 export namespace SendpayResponse {
   export type AsObject = {
+    createdIndex?: number;
+    updatedIndex?: number;
     id: number;
     groupid?: number;
     paymentHash: Uint8Array | string;
@@ -2380,6 +2393,11 @@ export class CreateinvoiceResponse extends jspb.Message {
   getPaidAt(): number | undefined;
   setPaidAt(value: number): CreateinvoiceResponse;
 
+  hasPaidOutpoint(): boolean;
+  clearPaidOutpoint(): void;
+  getPaidOutpoint(): CreateinvoicePaid_outpoint | undefined;
+  setPaidOutpoint(value?: CreateinvoicePaid_outpoint): CreateinvoiceResponse;
+
   hasPaymentPreimage(): boolean;
   clearPaymentPreimage(): void;
   getPaymentPreimage(): Uint8Array | string;
@@ -2434,6 +2452,7 @@ export namespace CreateinvoiceResponse {
     payIndex?: number;
     amountReceivedMsat?: cln_primitives_pb.Amount.AsObject;
     paidAt?: number;
+    paidOutpoint?: CreateinvoicePaid_outpoint.AsObject;
     paymentPreimage: Uint8Array | string;
     localOfferId: Uint8Array | string;
     invreqPayerNote?: string;
@@ -2444,6 +2463,47 @@ export namespace CreateinvoiceResponse {
     EXPIRED = 1,
     UNPAID = 2,
   }
+}
+
+export class CreateinvoicePaid_outpoint extends jspb.Message {
+  hasTxid(): boolean;
+  clearTxid(): void;
+  getTxid(): Uint8Array | string;
+  getTxid_asU8(): Uint8Array;
+  getTxid_asB64(): string;
+  setTxid(value: Uint8Array | string): CreateinvoicePaid_outpoint;
+
+  hasOutnum(): boolean;
+  clearOutnum(): void;
+  getOutnum(): number | undefined;
+  setOutnum(value: number): CreateinvoicePaid_outpoint;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): CreateinvoicePaid_outpoint.AsObject;
+  static toObject(
+    includeInstance: boolean,
+    msg: CreateinvoicePaid_outpoint,
+  ): CreateinvoicePaid_outpoint.AsObject;
+  static extensions: { [key: number]: jspb.ExtensionFieldInfo<jspb.Message> };
+  static extensionsBinary: {
+    [key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>;
+  };
+  static serializeBinaryToWriter(
+    message: CreateinvoicePaid_outpoint,
+    writer: jspb.BinaryWriter,
+  ): void;
+  static deserializeBinary(bytes: Uint8Array): CreateinvoicePaid_outpoint;
+  static deserializeBinaryFromReader(
+    message: CreateinvoicePaid_outpoint,
+    reader: jspb.BinaryReader,
+  ): CreateinvoicePaid_outpoint;
+}
+
+export namespace CreateinvoicePaid_outpoint {
+  export type AsObject = {
+    txid: Uint8Array | string;
+    outnum?: number;
+  };
 }
 
 export class DatastoreRequest extends jspb.Message {
@@ -2563,6 +2623,106 @@ export namespace DatastoreResponse {
     generation?: number;
     hex: Uint8Array | string;
     string?: string;
+  };
+}
+
+export class DatastoreusageRequest extends jspb.Message {
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): DatastoreusageRequest.AsObject;
+  static toObject(
+    includeInstance: boolean,
+    msg: DatastoreusageRequest,
+  ): DatastoreusageRequest.AsObject;
+  static extensions: { [key: number]: jspb.ExtensionFieldInfo<jspb.Message> };
+  static extensionsBinary: {
+    [key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>;
+  };
+  static serializeBinaryToWriter(
+    message: DatastoreusageRequest,
+    writer: jspb.BinaryWriter,
+  ): void;
+  static deserializeBinary(bytes: Uint8Array): DatastoreusageRequest;
+  static deserializeBinaryFromReader(
+    message: DatastoreusageRequest,
+    reader: jspb.BinaryReader,
+  ): DatastoreusageRequest;
+}
+
+export namespace DatastoreusageRequest {
+  export type AsObject = {};
+}
+
+export class DatastoreusageResponse extends jspb.Message {
+  hasDatastoreusage(): boolean;
+  clearDatastoreusage(): void;
+  getDatastoreusage(): DatastoreusageDatastoreusage | undefined;
+  setDatastoreusage(
+    value?: DatastoreusageDatastoreusage,
+  ): DatastoreusageResponse;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): DatastoreusageResponse.AsObject;
+  static toObject(
+    includeInstance: boolean,
+    msg: DatastoreusageResponse,
+  ): DatastoreusageResponse.AsObject;
+  static extensions: { [key: number]: jspb.ExtensionFieldInfo<jspb.Message> };
+  static extensionsBinary: {
+    [key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>;
+  };
+  static serializeBinaryToWriter(
+    message: DatastoreusageResponse,
+    writer: jspb.BinaryWriter,
+  ): void;
+  static deserializeBinary(bytes: Uint8Array): DatastoreusageResponse;
+  static deserializeBinaryFromReader(
+    message: DatastoreusageResponse,
+    reader: jspb.BinaryReader,
+  ): DatastoreusageResponse;
+}
+
+export namespace DatastoreusageResponse {
+  export type AsObject = {
+    datastoreusage?: DatastoreusageDatastoreusage.AsObject;
+  };
+}
+
+export class DatastoreusageDatastoreusage extends jspb.Message {
+  hasKey(): boolean;
+  clearKey(): void;
+  getKey(): string | undefined;
+  setKey(value: string): DatastoreusageDatastoreusage;
+
+  hasTotalBytes(): boolean;
+  clearTotalBytes(): void;
+  getTotalBytes(): number | undefined;
+  setTotalBytes(value: number): DatastoreusageDatastoreusage;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): DatastoreusageDatastoreusage.AsObject;
+  static toObject(
+    includeInstance: boolean,
+    msg: DatastoreusageDatastoreusage,
+  ): DatastoreusageDatastoreusage.AsObject;
+  static extensions: { [key: number]: jspb.ExtensionFieldInfo<jspb.Message> };
+  static extensionsBinary: {
+    [key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>;
+  };
+  static serializeBinaryToWriter(
+    message: DatastoreusageDatastoreusage,
+    writer: jspb.BinaryWriter,
+  ): void;
+  static deserializeBinary(bytes: Uint8Array): DatastoreusageDatastoreusage;
+  static deserializeBinaryFromReader(
+    message: DatastoreusageDatastoreusage,
+    reader: jspb.BinaryReader,
+  ): DatastoreusageDatastoreusage;
+}
+
+export namespace DatastoreusageDatastoreusage {
+  export type AsObject = {
+    key?: string;
+    totalBytes?: number;
   };
 }
 
@@ -3449,6 +3609,13 @@ export class ListinvoicesInvoices extends jspb.Message {
   getPaidAt(): number | undefined;
   setPaidAt(value: number): ListinvoicesInvoices;
 
+  hasPaidOutpoint(): boolean;
+  clearPaidOutpoint(): void;
+  getPaidOutpoint(): ListinvoicesInvoicesPaid_outpoint | undefined;
+  setPaidOutpoint(
+    value?: ListinvoicesInvoicesPaid_outpoint,
+  ): ListinvoicesInvoices;
+
   hasPaymentPreimage(): boolean;
   clearPaymentPreimage(): void;
   getPaymentPreimage(): Uint8Array | string;
@@ -3494,6 +3661,7 @@ export namespace ListinvoicesInvoices {
     payIndex?: number;
     amountReceivedMsat?: cln_primitives_pb.Amount.AsObject;
     paidAt?: number;
+    paidOutpoint?: ListinvoicesInvoicesPaid_outpoint.AsObject;
     paymentPreimage: Uint8Array | string;
   };
 
@@ -3502,6 +3670,51 @@ export namespace ListinvoicesInvoices {
     PAID = 1,
     EXPIRED = 2,
   }
+}
+
+export class ListinvoicesInvoicesPaid_outpoint extends jspb.Message {
+  hasTxid(): boolean;
+  clearTxid(): void;
+  getTxid(): Uint8Array | string;
+  getTxid_asU8(): Uint8Array;
+  getTxid_asB64(): string;
+  setTxid(value: Uint8Array | string): ListinvoicesInvoicesPaid_outpoint;
+
+  hasOutnum(): boolean;
+  clearOutnum(): void;
+  getOutnum(): number | undefined;
+  setOutnum(value: number): ListinvoicesInvoicesPaid_outpoint;
+
+  serializeBinary(): Uint8Array;
+  toObject(
+    includeInstance?: boolean,
+  ): ListinvoicesInvoicesPaid_outpoint.AsObject;
+  static toObject(
+    includeInstance: boolean,
+    msg: ListinvoicesInvoicesPaid_outpoint,
+  ): ListinvoicesInvoicesPaid_outpoint.AsObject;
+  static extensions: { [key: number]: jspb.ExtensionFieldInfo<jspb.Message> };
+  static extensionsBinary: {
+    [key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>;
+  };
+  static serializeBinaryToWriter(
+    message: ListinvoicesInvoicesPaid_outpoint,
+    writer: jspb.BinaryWriter,
+  ): void;
+  static deserializeBinary(
+    bytes: Uint8Array,
+  ): ListinvoicesInvoicesPaid_outpoint;
+  static deserializeBinaryFromReader(
+    message: ListinvoicesInvoicesPaid_outpoint,
+    reader: jspb.BinaryReader,
+  ): ListinvoicesInvoicesPaid_outpoint;
+}
+
+export namespace ListinvoicesInvoicesPaid_outpoint {
+  export type AsObject = {
+    txid: Uint8Array | string;
+    outnum?: number;
+  };
 }
 
 export class SendonionRequest extends jspb.Message {
@@ -3605,6 +3818,10 @@ export namespace SendonionRequest {
 }
 
 export class SendonionResponse extends jspb.Message {
+  hasCreatedIndex(): boolean;
+  clearCreatedIndex(): void;
+  getCreatedIndex(): number | undefined;
+  setCreatedIndex(value: number): SendonionResponse;
   getId(): number;
   setId(value: number): SendonionResponse;
   getPaymentHash(): Uint8Array | string;
@@ -3653,6 +3870,11 @@ export class SendonionResponse extends jspb.Message {
   getPartid(): number | undefined;
   setPartid(value: number): SendonionResponse;
 
+  hasUpdatedIndex(): boolean;
+  clearUpdatedIndex(): void;
+  getUpdatedIndex(): number | undefined;
+  setUpdatedIndex(value: number): SendonionResponse;
+
   hasPaymentPreimage(): boolean;
   clearPaymentPreimage(): void;
   getPaymentPreimage(): Uint8Array | string;
@@ -3688,6 +3910,7 @@ export class SendonionResponse extends jspb.Message {
 
 export namespace SendonionResponse {
   export type AsObject = {
+    createdIndex?: number;
     id: number;
     paymentHash: Uint8Array | string;
     status: SendonionResponse.SendonionStatus;
@@ -3699,6 +3922,7 @@ export namespace SendonionResponse {
     bolt11?: string;
     bolt12?: string;
     partid?: number;
+    updatedIndex?: number;
     paymentPreimage: Uint8Array | string;
     message?: string;
   };
@@ -3769,6 +3993,21 @@ export class ListsendpaysRequest extends jspb.Message {
   getStatus(): ListsendpaysRequest.ListsendpaysStatus | undefined;
   setStatus(value: ListsendpaysRequest.ListsendpaysStatus): ListsendpaysRequest;
 
+  hasIndex(): boolean;
+  clearIndex(): void;
+  getIndex(): ListsendpaysRequest.ListsendpaysIndex | undefined;
+  setIndex(value: ListsendpaysRequest.ListsendpaysIndex): ListsendpaysRequest;
+
+  hasStart(): boolean;
+  clearStart(): void;
+  getStart(): number | undefined;
+  setStart(value: number): ListsendpaysRequest;
+
+  hasLimit(): boolean;
+  clearLimit(): void;
+  getLimit(): number | undefined;
+  setLimit(value: number): ListsendpaysRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ListsendpaysRequest.AsObject;
   static toObject(
@@ -3795,12 +4034,20 @@ export namespace ListsendpaysRequest {
     bolt11?: string;
     paymentHash: Uint8Array | string;
     status?: ListsendpaysRequest.ListsendpaysStatus;
+    index?: ListsendpaysRequest.ListsendpaysIndex;
+    start?: number;
+    limit?: number;
   };
 
   export enum ListsendpaysStatus {
     PENDING = 0,
     COMPLETE = 1,
     FAILED = 2,
+  }
+
+  export enum ListsendpaysIndex {
+    CREATED = 0,
+    UPDATED = 1,
   }
 }
 
@@ -3841,6 +4088,10 @@ export namespace ListsendpaysResponse {
 }
 
 export class ListsendpaysPayments extends jspb.Message {
+  hasCreatedIndex(): boolean;
+  clearCreatedIndex(): void;
+  getCreatedIndex(): number | undefined;
+  setCreatedIndex(value: number): ListsendpaysPayments;
   getId(): number;
   setId(value: number): ListsendpaysPayments;
   getGroupid(): number;
@@ -3854,6 +4105,11 @@ export class ListsendpaysPayments extends jspb.Message {
   getPaymentHash_asU8(): Uint8Array;
   getPaymentHash_asB64(): string;
   setPaymentHash(value: Uint8Array | string): ListsendpaysPayments;
+
+  hasUpdatedIndex(): boolean;
+  clearUpdatedIndex(): void;
+  getUpdatedIndex(): number | undefined;
+  setUpdatedIndex(value: number): ListsendpaysPayments;
   getStatus(): ListsendpaysPayments.ListsendpaysPaymentsStatus;
   setStatus(
     value: ListsendpaysPayments.ListsendpaysPaymentsStatus,
@@ -3935,10 +4191,12 @@ export class ListsendpaysPayments extends jspb.Message {
 
 export namespace ListsendpaysPayments {
   export type AsObject = {
+    createdIndex?: number;
     id: number;
     groupid: number;
     partid?: number;
     paymentHash: Uint8Array | string;
+    updatedIndex?: number;
     status: ListsendpaysPayments.ListsendpaysPaymentsStatus;
     amountMsat?: cln_primitives_pb.Amount.AsObject;
     destination: Uint8Array | string;
@@ -4647,6 +4905,11 @@ export class WaitanyinvoiceResponse extends jspb.Message {
   getPaidAt(): number | undefined;
   setPaidAt(value: number): WaitanyinvoiceResponse;
 
+  hasPaidOutpoint(): boolean;
+  clearPaidOutpoint(): void;
+  getPaidOutpoint(): WaitanyinvoicePaid_outpoint | undefined;
+  setPaidOutpoint(value?: WaitanyinvoicePaid_outpoint): WaitanyinvoiceResponse;
+
   hasPaymentPreimage(): boolean;
   clearPaymentPreimage(): void;
   getPaymentPreimage(): Uint8Array | string;
@@ -4690,6 +4953,7 @@ export namespace WaitanyinvoiceResponse {
     payIndex?: number;
     amountReceivedMsat?: cln_primitives_pb.Amount.AsObject;
     paidAt?: number;
+    paidOutpoint?: WaitanyinvoicePaid_outpoint.AsObject;
     paymentPreimage: Uint8Array | string;
   };
 
@@ -4697,6 +4961,47 @@ export namespace WaitanyinvoiceResponse {
     PAID = 0,
     EXPIRED = 1,
   }
+}
+
+export class WaitanyinvoicePaid_outpoint extends jspb.Message {
+  hasTxid(): boolean;
+  clearTxid(): void;
+  getTxid(): Uint8Array | string;
+  getTxid_asU8(): Uint8Array;
+  getTxid_asB64(): string;
+  setTxid(value: Uint8Array | string): WaitanyinvoicePaid_outpoint;
+
+  hasOutnum(): boolean;
+  clearOutnum(): void;
+  getOutnum(): number | undefined;
+  setOutnum(value: number): WaitanyinvoicePaid_outpoint;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): WaitanyinvoicePaid_outpoint.AsObject;
+  static toObject(
+    includeInstance: boolean,
+    msg: WaitanyinvoicePaid_outpoint,
+  ): WaitanyinvoicePaid_outpoint.AsObject;
+  static extensions: { [key: number]: jspb.ExtensionFieldInfo<jspb.Message> };
+  static extensionsBinary: {
+    [key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>;
+  };
+  static serializeBinaryToWriter(
+    message: WaitanyinvoicePaid_outpoint,
+    writer: jspb.BinaryWriter,
+  ): void;
+  static deserializeBinary(bytes: Uint8Array): WaitanyinvoicePaid_outpoint;
+  static deserializeBinaryFromReader(
+    message: WaitanyinvoicePaid_outpoint,
+    reader: jspb.BinaryReader,
+  ): WaitanyinvoicePaid_outpoint;
+}
+
+export namespace WaitanyinvoicePaid_outpoint {
+  export type AsObject = {
+    txid: Uint8Array | string;
+    outnum?: number;
+  };
 }
 
 export class WaitinvoiceRequest extends jspb.Message {
@@ -4784,6 +5089,11 @@ export class WaitinvoiceResponse extends jspb.Message {
   getPaidAt(): number | undefined;
   setPaidAt(value: number): WaitinvoiceResponse;
 
+  hasPaidOutpoint(): boolean;
+  clearPaidOutpoint(): void;
+  getPaidOutpoint(): WaitinvoicePaid_outpoint | undefined;
+  setPaidOutpoint(value?: WaitinvoicePaid_outpoint): WaitinvoiceResponse;
+
   hasPaymentPreimage(): boolean;
   clearPaymentPreimage(): void;
   getPaymentPreimage(): Uint8Array | string;
@@ -4827,6 +5137,7 @@ export namespace WaitinvoiceResponse {
     payIndex?: number;
     amountReceivedMsat?: cln_primitives_pb.Amount.AsObject;
     paidAt?: number;
+    paidOutpoint?: WaitinvoicePaid_outpoint.AsObject;
     paymentPreimage: Uint8Array | string;
   };
 
@@ -4834,6 +5145,47 @@ export namespace WaitinvoiceResponse {
     PAID = 0,
     EXPIRED = 1,
   }
+}
+
+export class WaitinvoicePaid_outpoint extends jspb.Message {
+  hasTxid(): boolean;
+  clearTxid(): void;
+  getTxid(): Uint8Array | string;
+  getTxid_asU8(): Uint8Array;
+  getTxid_asB64(): string;
+  setTxid(value: Uint8Array | string): WaitinvoicePaid_outpoint;
+
+  hasOutnum(): boolean;
+  clearOutnum(): void;
+  getOutnum(): number | undefined;
+  setOutnum(value: number): WaitinvoicePaid_outpoint;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): WaitinvoicePaid_outpoint.AsObject;
+  static toObject(
+    includeInstance: boolean,
+    msg: WaitinvoicePaid_outpoint,
+  ): WaitinvoicePaid_outpoint.AsObject;
+  static extensions: { [key: number]: jspb.ExtensionFieldInfo<jspb.Message> };
+  static extensionsBinary: {
+    [key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>;
+  };
+  static serializeBinaryToWriter(
+    message: WaitinvoicePaid_outpoint,
+    writer: jspb.BinaryWriter,
+  ): void;
+  static deserializeBinary(bytes: Uint8Array): WaitinvoicePaid_outpoint;
+  static deserializeBinaryFromReader(
+    message: WaitinvoicePaid_outpoint,
+    reader: jspb.BinaryReader,
+  ): WaitinvoicePaid_outpoint;
+}
+
+export namespace WaitinvoicePaid_outpoint {
+  export type AsObject = {
+    txid: Uint8Array | string;
+    outnum?: number;
+  };
 }
 
 export class WaitsendpayRequest extends jspb.Message {
@@ -4888,6 +5240,10 @@ export namespace WaitsendpayRequest {
 }
 
 export class WaitsendpayResponse extends jspb.Message {
+  hasCreatedIndex(): boolean;
+  clearCreatedIndex(): void;
+  getCreatedIndex(): number | undefined;
+  setCreatedIndex(value: number): WaitsendpayResponse;
   getId(): number;
   setId(value: number): WaitsendpayResponse;
 
@@ -4915,6 +5271,11 @@ export class WaitsendpayResponse extends jspb.Message {
   setDestination(value: Uint8Array | string): WaitsendpayResponse;
   getCreatedAt(): number;
   setCreatedAt(value: number): WaitsendpayResponse;
+
+  hasUpdatedIndex(): boolean;
+  clearUpdatedIndex(): void;
+  getUpdatedIndex(): number | undefined;
+  setUpdatedIndex(value: number): WaitsendpayResponse;
 
   hasCompletedAt(): boolean;
   clearCompletedAt(): void;
@@ -4976,6 +5337,7 @@ export class WaitsendpayResponse extends jspb.Message {
 
 export namespace WaitsendpayResponse {
   export type AsObject = {
+    createdIndex?: number;
     id: number;
     groupid?: number;
     paymentHash: Uint8Array | string;
@@ -4983,6 +5345,7 @@ export namespace WaitsendpayResponse {
     amountMsat?: cln_primitives_pb.Amount.AsObject;
     destination: Uint8Array | string;
     createdAt: number;
+    updatedIndex?: number;
     completedAt?: number;
     amountSentMsat?: cln_primitives_pb.Amount.AsObject;
     label?: string;
@@ -6548,6 +6911,8 @@ export namespace ListpeerchannelsChannels {
     DUALOPEND_OPEN_INIT = 9,
     DUALOPEND_AWAITING_LOCKIN = 10,
     CHANNELD_AWAITING_SPLICE = 11,
+    DUALOPEND_OPEN_COMMITTED = 12,
+    DUALOPEND_OPEN_COMMIT_READY = 13,
   }
 }
 
@@ -7351,6 +7716,7 @@ export namespace DecodepayFallbacks {
     P2SH = 1,
     P2WPKH = 2,
     P2WSH = 3,
+    P2TR = 4,
   }
 }
 
@@ -7801,6 +8167,13 @@ export class DecodeResponse extends jspb.Message {
   getHex_asB64(): string;
   setHex(value: Uint8Array | string): DecodeResponse;
 
+  hasDecrypted(): boolean;
+  clearDecrypted(): void;
+  getDecrypted(): Uint8Array | string;
+  getDecrypted_asU8(): Uint8Array;
+  getDecrypted_asB64(): string;
+  setDecrypted(value: Uint8Array | string): DecodeResponse;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): DecodeResponse.AsObject;
   static toObject(
@@ -7893,6 +8266,7 @@ export namespace DecodeResponse {
     restrictionsList: Array<DecodeRestrictions.AsObject>;
     warningRuneInvalidUtf8?: string;
     hex: Uint8Array | string;
+    decrypted: Uint8Array | string;
   };
 
   export enum DecodeType {
@@ -7901,6 +8275,7 @@ export namespace DecodeResponse {
     BOLT12_INVOICE_REQUEST = 2,
     BOLT11_INVOICE = 3,
     RUNE = 4,
+    EMERGENCY_RECOVER = 5,
   }
 }
 
@@ -8642,6 +9017,222 @@ export namespace FeeratesOnchain_fee_estimates {
   };
 }
 
+export class FetchinvoiceRequest extends jspb.Message {
+  getOffer(): string;
+  setOffer(value: string): FetchinvoiceRequest;
+
+  hasAmountMsat(): boolean;
+  clearAmountMsat(): void;
+  getAmountMsat(): cln_primitives_pb.Amount | undefined;
+  setAmountMsat(value?: cln_primitives_pb.Amount): FetchinvoiceRequest;
+
+  hasQuantity(): boolean;
+  clearQuantity(): void;
+  getQuantity(): number | undefined;
+  setQuantity(value: number): FetchinvoiceRequest;
+
+  hasRecurrenceCounter(): boolean;
+  clearRecurrenceCounter(): void;
+  getRecurrenceCounter(): number | undefined;
+  setRecurrenceCounter(value: number): FetchinvoiceRequest;
+
+  hasRecurrenceStart(): boolean;
+  clearRecurrenceStart(): void;
+  getRecurrenceStart(): number | undefined;
+  setRecurrenceStart(value: number): FetchinvoiceRequest;
+
+  hasRecurrenceLabel(): boolean;
+  clearRecurrenceLabel(): void;
+  getRecurrenceLabel(): string | undefined;
+  setRecurrenceLabel(value: string): FetchinvoiceRequest;
+
+  hasTimeout(): boolean;
+  clearTimeout(): void;
+  getTimeout(): number | undefined;
+  setTimeout(value: number): FetchinvoiceRequest;
+
+  hasPayerNote(): boolean;
+  clearPayerNote(): void;
+  getPayerNote(): string | undefined;
+  setPayerNote(value: string): FetchinvoiceRequest;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): FetchinvoiceRequest.AsObject;
+  static toObject(
+    includeInstance: boolean,
+    msg: FetchinvoiceRequest,
+  ): FetchinvoiceRequest.AsObject;
+  static extensions: { [key: number]: jspb.ExtensionFieldInfo<jspb.Message> };
+  static extensionsBinary: {
+    [key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>;
+  };
+  static serializeBinaryToWriter(
+    message: FetchinvoiceRequest,
+    writer: jspb.BinaryWriter,
+  ): void;
+  static deserializeBinary(bytes: Uint8Array): FetchinvoiceRequest;
+  static deserializeBinaryFromReader(
+    message: FetchinvoiceRequest,
+    reader: jspb.BinaryReader,
+  ): FetchinvoiceRequest;
+}
+
+export namespace FetchinvoiceRequest {
+  export type AsObject = {
+    offer: string;
+    amountMsat?: cln_primitives_pb.Amount.AsObject;
+    quantity?: number;
+    recurrenceCounter?: number;
+    recurrenceStart?: number;
+    recurrenceLabel?: string;
+    timeout?: number;
+    payerNote?: string;
+  };
+}
+
+export class FetchinvoiceResponse extends jspb.Message {
+  getInvoice(): string;
+  setInvoice(value: string): FetchinvoiceResponse;
+
+  hasChanges(): boolean;
+  clearChanges(): void;
+  getChanges(): FetchinvoiceChanges | undefined;
+  setChanges(value?: FetchinvoiceChanges): FetchinvoiceResponse;
+
+  hasNextPeriod(): boolean;
+  clearNextPeriod(): void;
+  getNextPeriod(): FetchinvoiceNext_period | undefined;
+  setNextPeriod(value?: FetchinvoiceNext_period): FetchinvoiceResponse;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): FetchinvoiceResponse.AsObject;
+  static toObject(
+    includeInstance: boolean,
+    msg: FetchinvoiceResponse,
+  ): FetchinvoiceResponse.AsObject;
+  static extensions: { [key: number]: jspb.ExtensionFieldInfo<jspb.Message> };
+  static extensionsBinary: {
+    [key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>;
+  };
+  static serializeBinaryToWriter(
+    message: FetchinvoiceResponse,
+    writer: jspb.BinaryWriter,
+  ): void;
+  static deserializeBinary(bytes: Uint8Array): FetchinvoiceResponse;
+  static deserializeBinaryFromReader(
+    message: FetchinvoiceResponse,
+    reader: jspb.BinaryReader,
+  ): FetchinvoiceResponse;
+}
+
+export namespace FetchinvoiceResponse {
+  export type AsObject = {
+    invoice: string;
+    changes?: FetchinvoiceChanges.AsObject;
+    nextPeriod?: FetchinvoiceNext_period.AsObject;
+  };
+}
+
+export class FetchinvoiceChanges extends jspb.Message {
+  hasDescriptionAppended(): boolean;
+  clearDescriptionAppended(): void;
+  getDescriptionAppended(): string | undefined;
+  setDescriptionAppended(value: string): FetchinvoiceChanges;
+
+  hasDescription(): boolean;
+  clearDescription(): void;
+  getDescription(): string | undefined;
+  setDescription(value: string): FetchinvoiceChanges;
+
+  hasVendorRemoved(): boolean;
+  clearVendorRemoved(): void;
+  getVendorRemoved(): string | undefined;
+  setVendorRemoved(value: string): FetchinvoiceChanges;
+
+  hasVendor(): boolean;
+  clearVendor(): void;
+  getVendor(): string | undefined;
+  setVendor(value: string): FetchinvoiceChanges;
+
+  hasAmountMsat(): boolean;
+  clearAmountMsat(): void;
+  getAmountMsat(): cln_primitives_pb.Amount | undefined;
+  setAmountMsat(value?: cln_primitives_pb.Amount): FetchinvoiceChanges;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): FetchinvoiceChanges.AsObject;
+  static toObject(
+    includeInstance: boolean,
+    msg: FetchinvoiceChanges,
+  ): FetchinvoiceChanges.AsObject;
+  static extensions: { [key: number]: jspb.ExtensionFieldInfo<jspb.Message> };
+  static extensionsBinary: {
+    [key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>;
+  };
+  static serializeBinaryToWriter(
+    message: FetchinvoiceChanges,
+    writer: jspb.BinaryWriter,
+  ): void;
+  static deserializeBinary(bytes: Uint8Array): FetchinvoiceChanges;
+  static deserializeBinaryFromReader(
+    message: FetchinvoiceChanges,
+    reader: jspb.BinaryReader,
+  ): FetchinvoiceChanges;
+}
+
+export namespace FetchinvoiceChanges {
+  export type AsObject = {
+    descriptionAppended?: string;
+    description?: string;
+    vendorRemoved?: string;
+    vendor?: string;
+    amountMsat?: cln_primitives_pb.Amount.AsObject;
+  };
+}
+
+export class FetchinvoiceNext_period extends jspb.Message {
+  getCounter(): number;
+  setCounter(value: number): FetchinvoiceNext_period;
+  getStarttime(): number;
+  setStarttime(value: number): FetchinvoiceNext_period;
+  getEndtime(): number;
+  setEndtime(value: number): FetchinvoiceNext_period;
+  getPaywindowStart(): number;
+  setPaywindowStart(value: number): FetchinvoiceNext_period;
+  getPaywindowEnd(): number;
+  setPaywindowEnd(value: number): FetchinvoiceNext_period;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): FetchinvoiceNext_period.AsObject;
+  static toObject(
+    includeInstance: boolean,
+    msg: FetchinvoiceNext_period,
+  ): FetchinvoiceNext_period.AsObject;
+  static extensions: { [key: number]: jspb.ExtensionFieldInfo<jspb.Message> };
+  static extensionsBinary: {
+    [key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>;
+  };
+  static serializeBinaryToWriter(
+    message: FetchinvoiceNext_period,
+    writer: jspb.BinaryWriter,
+  ): void;
+  static deserializeBinary(bytes: Uint8Array): FetchinvoiceNext_period;
+  static deserializeBinaryFromReader(
+    message: FetchinvoiceNext_period,
+    reader: jspb.BinaryReader,
+  ): FetchinvoiceNext_period;
+}
+
+export namespace FetchinvoiceNext_period {
+  export type AsObject = {
+    counter: number;
+    starttime: number;
+    endtime: number;
+    paywindowStart: number;
+    paywindowEnd: number;
+  };
+}
+
 export class FundchannelRequest extends jspb.Message {
   getId(): Uint8Array | string;
   getId_asU8(): Uint8Array;
@@ -8980,6 +9571,21 @@ export class ListforwardsRequest extends jspb.Message {
   getOutChannel(): string | undefined;
   setOutChannel(value: string): ListforwardsRequest;
 
+  hasIndex(): boolean;
+  clearIndex(): void;
+  getIndex(): ListforwardsRequest.ListforwardsIndex | undefined;
+  setIndex(value: ListforwardsRequest.ListforwardsIndex): ListforwardsRequest;
+
+  hasStart(): boolean;
+  clearStart(): void;
+  getStart(): number | undefined;
+  setStart(value: number): ListforwardsRequest;
+
+  hasLimit(): boolean;
+  clearLimit(): void;
+  getLimit(): number | undefined;
+  setLimit(value: number): ListforwardsRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ListforwardsRequest.AsObject;
   static toObject(
@@ -9006,6 +9612,9 @@ export namespace ListforwardsRequest {
     status?: ListforwardsRequest.ListforwardsStatus;
     inChannel?: string;
     outChannel?: string;
+    index?: ListforwardsRequest.ListforwardsIndex;
+    start?: number;
+    limit?: number;
   };
 
   export enum ListforwardsStatus {
@@ -9013,6 +9622,11 @@ export namespace ListforwardsRequest {
     SETTLED = 1,
     LOCAL_FAILED = 2,
     FAILED = 3,
+  }
+
+  export enum ListforwardsIndex {
+    CREATED = 0,
+    UPDATED = 1,
   }
 }
 
@@ -9053,6 +9667,10 @@ export namespace ListforwardsResponse {
 }
 
 export class ListforwardsForwards extends jspb.Message {
+  hasCreatedIndex(): boolean;
+  clearCreatedIndex(): void;
+  getCreatedIndex(): number | undefined;
+  setCreatedIndex(value: number): ListforwardsForwards;
   getInChannel(): string;
   setInChannel(value: string): ListforwardsForwards;
 
@@ -9081,6 +9699,11 @@ export class ListforwardsForwards extends jspb.Message {
   clearOutHtlcId(): void;
   getOutHtlcId(): number | undefined;
   setOutHtlcId(value: number): ListforwardsForwards;
+
+  hasUpdatedIndex(): boolean;
+  clearUpdatedIndex(): void;
+  getUpdatedIndex(): number | undefined;
+  setUpdatedIndex(value: number): ListforwardsForwards;
 
   hasStyle(): boolean;
   clearStyle(): void;
@@ -9122,6 +9745,7 @@ export class ListforwardsForwards extends jspb.Message {
 
 export namespace ListforwardsForwards {
   export type AsObject = {
+    createdIndex?: number;
     inChannel: string;
     inHtlcId?: number;
     inMsat?: cln_primitives_pb.Amount.AsObject;
@@ -9129,6 +9753,7 @@ export namespace ListforwardsForwards {
     receivedTime: number;
     outChannel?: string;
     outHtlcId?: number;
+    updatedIndex?: number;
     style?: ListforwardsForwards.ListforwardsForwardsStyle;
     feeMsat?: cln_primitives_pb.Amount.AsObject;
     outMsat?: cln_primitives_pb.Amount.AsObject;
@@ -9935,6 +10560,178 @@ export namespace SignmessageResponse {
     recid: Uint8Array | string;
     zbase: string;
   };
+}
+
+export class WaitblockheightRequest extends jspb.Message {
+  getBlockheight(): number;
+  setBlockheight(value: number): WaitblockheightRequest;
+
+  hasTimeout(): boolean;
+  clearTimeout(): void;
+  getTimeout(): number | undefined;
+  setTimeout(value: number): WaitblockheightRequest;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): WaitblockheightRequest.AsObject;
+  static toObject(
+    includeInstance: boolean,
+    msg: WaitblockheightRequest,
+  ): WaitblockheightRequest.AsObject;
+  static extensions: { [key: number]: jspb.ExtensionFieldInfo<jspb.Message> };
+  static extensionsBinary: {
+    [key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>;
+  };
+  static serializeBinaryToWriter(
+    message: WaitblockheightRequest,
+    writer: jspb.BinaryWriter,
+  ): void;
+  static deserializeBinary(bytes: Uint8Array): WaitblockheightRequest;
+  static deserializeBinaryFromReader(
+    message: WaitblockheightRequest,
+    reader: jspb.BinaryReader,
+  ): WaitblockheightRequest;
+}
+
+export namespace WaitblockheightRequest {
+  export type AsObject = {
+    blockheight: number;
+    timeout?: number;
+  };
+}
+
+export class WaitblockheightResponse extends jspb.Message {
+  getBlockheight(): number;
+  setBlockheight(value: number): WaitblockheightResponse;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): WaitblockheightResponse.AsObject;
+  static toObject(
+    includeInstance: boolean,
+    msg: WaitblockheightResponse,
+  ): WaitblockheightResponse.AsObject;
+  static extensions: { [key: number]: jspb.ExtensionFieldInfo<jspb.Message> };
+  static extensionsBinary: {
+    [key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>;
+  };
+  static serializeBinaryToWriter(
+    message: WaitblockheightResponse,
+    writer: jspb.BinaryWriter,
+  ): void;
+  static deserializeBinary(bytes: Uint8Array): WaitblockheightResponse;
+  static deserializeBinaryFromReader(
+    message: WaitblockheightResponse,
+    reader: jspb.BinaryReader,
+  ): WaitblockheightResponse;
+}
+
+export namespace WaitblockheightResponse {
+  export type AsObject = {
+    blockheight: number;
+  };
+}
+
+export class WaitRequest extends jspb.Message {
+  getSubsystem(): WaitRequest.WaitSubsystem;
+  setSubsystem(value: WaitRequest.WaitSubsystem): WaitRequest;
+  getIndexname(): WaitRequest.WaitIndexname;
+  setIndexname(value: WaitRequest.WaitIndexname): WaitRequest;
+  getNextvalue(): number;
+  setNextvalue(value: number): WaitRequest;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): WaitRequest.AsObject;
+  static toObject(
+    includeInstance: boolean,
+    msg: WaitRequest,
+  ): WaitRequest.AsObject;
+  static extensions: { [key: number]: jspb.ExtensionFieldInfo<jspb.Message> };
+  static extensionsBinary: {
+    [key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>;
+  };
+  static serializeBinaryToWriter(
+    message: WaitRequest,
+    writer: jspb.BinaryWriter,
+  ): void;
+  static deserializeBinary(bytes: Uint8Array): WaitRequest;
+  static deserializeBinaryFromReader(
+    message: WaitRequest,
+    reader: jspb.BinaryReader,
+  ): WaitRequest;
+}
+
+export namespace WaitRequest {
+  export type AsObject = {
+    subsystem: WaitRequest.WaitSubsystem;
+    indexname: WaitRequest.WaitIndexname;
+    nextvalue: number;
+  };
+
+  export enum WaitSubsystem {
+    INVOICES = 0,
+    FORWARDS = 1,
+    SENDPAYS = 2,
+  }
+
+  export enum WaitIndexname {
+    CREATED = 0,
+    UPDATED = 1,
+    DELETED = 2,
+  }
+}
+
+export class WaitResponse extends jspb.Message {
+  getSubsystem(): WaitResponse.WaitSubsystem;
+  setSubsystem(value: WaitResponse.WaitSubsystem): WaitResponse;
+
+  hasCreated(): boolean;
+  clearCreated(): void;
+  getCreated(): number | undefined;
+  setCreated(value: number): WaitResponse;
+
+  hasUpdated(): boolean;
+  clearUpdated(): void;
+  getUpdated(): number | undefined;
+  setUpdated(value: number): WaitResponse;
+
+  hasDeleted(): boolean;
+  clearDeleted(): void;
+  getDeleted(): number | undefined;
+  setDeleted(value: number): WaitResponse;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): WaitResponse.AsObject;
+  static toObject(
+    includeInstance: boolean,
+    msg: WaitResponse,
+  ): WaitResponse.AsObject;
+  static extensions: { [key: number]: jspb.ExtensionFieldInfo<jspb.Message> };
+  static extensionsBinary: {
+    [key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>;
+  };
+  static serializeBinaryToWriter(
+    message: WaitResponse,
+    writer: jspb.BinaryWriter,
+  ): void;
+  static deserializeBinary(bytes: Uint8Array): WaitResponse;
+  static deserializeBinaryFromReader(
+    message: WaitResponse,
+    reader: jspb.BinaryReader,
+  ): WaitResponse;
+}
+
+export namespace WaitResponse {
+  export type AsObject = {
+    subsystem: WaitResponse.WaitSubsystem;
+    created?: number;
+    updated?: number;
+    deleted?: number;
+  };
+
+  export enum WaitSubsystem {
+    INVOICES = 0,
+    FORWARDS = 1,
+    SENDPAYS = 2,
+  }
 }
 
 export class StopRequest extends jspb.Message {

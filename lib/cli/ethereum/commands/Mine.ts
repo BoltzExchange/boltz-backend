@@ -17,13 +17,15 @@ export const handler = async (argv: Arguments<any>): Promise<void> => {
   const signer = await connectEthereum(argv.provider);
   const signerAddress = await signer.getAddress();
 
-  // Since Ganache mines a block whenever a transaction is sent, we are just going to send transactions
+  const nonce = await signer.getNonce();
+
+  // Since Anvil mines a block whenever a transaction is sent, we are just going to send transactions
   // and wait for a confirmation until the specified number of blocks is mined
   for (let i = 0; i < argv.blocks; i += 1) {
-    const transaction = await signer.sendTransaction({
+    await signer.sendTransaction({
       to: signerAddress,
+      nonce: nonce + i,
     });
-    await transaction.wait(1);
   }
 
   console.log(`Mined ${argv.blocks} blocks`);

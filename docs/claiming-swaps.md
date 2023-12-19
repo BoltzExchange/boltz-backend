@@ -9,7 +9,7 @@ description: >-
 
 ## Reverse Swaps: Claim Transactions
 
-Boltz API clients need to craft and broadcast **claim transactions** in order to claim chain bitcoin and successfully complete **Reverse Submarine Swaps**.&#x20;
+Boltz API clients need to craft and broadcast **claim transactions** in order to claim chain bitcoin and successfully complete **Reverse Submarine Swaps**.
 
 ### UTXO Chains
 

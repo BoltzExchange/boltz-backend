@@ -52,7 +52,7 @@ def init(
         mpay.default_max_fee_perc = cfg.default_max_fee
 
         db.connect(cfg.db)
-        routes.fetch_from_db()
+        executor.submit(routes.fetch_from_db)
 
         if cfg.grpc_port != -1:
             server.start(cfg.grpc_host, cfg.grpc_port, configuration["lightning-dir"])
@@ -114,8 +114,8 @@ def mpay_routes(
 ) -> dict[str, Any]:
     def transform_route(route: RouteStats) -> dict[str, Any]:
         return {
-            "route": route.route,
-            "nodes": route.nodes,
+            "route": list(route.route),
+            "nodes": list(route.nodes),
             "success_rate": route.success_rate,
             "success_rate_ema": route.success_rate_ema,
         }

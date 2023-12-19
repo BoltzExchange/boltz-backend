@@ -1,8 +1,6 @@
 from dataclasses import dataclass
-from typing import Hashable
 
 from pandas import DataFrame, Series
-from pandas.core.groupby import DataFrameGroupBy
 from sqlalchemy import String, func, select
 from sqlalchemy.orm import Session
 
@@ -11,7 +9,11 @@ from plugins.mpay.db.models import Attempt, Hop
 EMA_ALPHA = 0.4
 HOP_SEPERATOR = "/"
 
-_ROUTE_SEPERATOR = "-"
+ROUTE_SEPERATOR = "-"
+
+
+class NotInRouteError(Exception):
+    pass
 
 
 @dataclass
@@ -20,22 +22,21 @@ class RouteStats:
     nodes: list[str]
     _attempts: DataFrame
 
-    @staticmethod
-    def from_dataframe(route_tuple: tuple[Hashable, DataFrame]) -> "RouteStats":
-        route = route_tuple[1]
-        return RouteStats(
-            route.iloc[0]["route"].split(_ROUTE_SEPERATOR),
-            route.iloc[0]["nodes"].split(_ROUTE_SEPERATOR),
-            route["ok"].reset_index().drop(columns=["id"]),
-        )
+    def __str__(self) -> str:
+        """Pretty print the route with statistics."""
+        return f"{' -> '.join(self.route)} {self.pretty_statistics}"
+
+    @property
+    def id(self) -> str:
+        return ROUTE_SEPERATOR.join(self.route)
 
     @property
     def success_rate(self) -> float:
-        return (self._attempts["ok"] == True).mean()  # noqa: E712
+        return (self._attempt_groups()["ok"] == True).mean()  # noqa: E712
 
     @property
     def success_rate_ema(self) -> float:
-        return self._attempts["ok"].ewm(alpha=EMA_ALPHA).mean().iloc[-1]
+        return self._attempt_groups()["ok"].ewm(alpha=EMA_ALPHA).mean().iloc[-1]
 
     @property
     def pretty_statistics(self) -> str:
@@ -44,17 +45,42 @@ class RouteStats:
             f"success_rate_ema: {round(self.success_rate_ema, 4)})"
         )
 
-    def add_attempt(self, success: bool) -> None:
-        self._attempts.loc[len(self._attempts)] = [success]
+    def slice_for_destination(self, destination: str) -> "RouteStats":
+        try:
+            destination_index = self.nodes.index(destination) + 1
+        except ValueError:
+            raise NotInRouteError from None
 
-    def __str__(self) -> str:
-        """Pretty print the route with statistics."""
-        return f"{' -> '.join(self.route)} {self.pretty_statistics}"
+        attempts = (
+            self._attempts.groupby(["attempt_id"])
+            .apply(lambda x: x[:destination_index])
+            .reset_index(drop=True)
+        )
+
+        return RouteStats(self.route[:destination_index], self.nodes[:destination_index], attempts)
+
+    def add_attempt(self, attempt_id: int, oks: list[bool]) -> None:
+        if len(oks) != len(self.route):
+            msg = "length of oks does not match length of route"
+            raise ValueError(msg)
+
+        for ok in oks:
+            self._attempts.loc[len(self._attempts)] = [attempt_id, ok]
+
+    def _attempt_groups(self) -> DataFrame:
+        def to_group(attempt: DataFrame) -> Series:
+            return Series(
+                {
+                    "ok": not attempt.query("ok == False").shape[0] > 0,
+                }
+            )
+
+        return self._attempts.groupby(["attempt_id"]).apply(to_group)
 
 
 class RouteStatsFetcher:
+    @staticmethod
     def get_routes(
-        self,
         s: Session,
     ) -> list[RouteStats]:
         res = s.execute(
@@ -73,19 +99,25 @@ class RouteStatsFetcher:
         if hops.empty:
             return []
 
-        route_stats = self._hops_to_route_stats(hops)
-        return [RouteStats.from_dataframe(route) for route in route_stats]
+        attempts = hops.groupby(["id"])
 
-    @staticmethod
-    def _hops_to_route_stats(hops: DataFrame) -> DataFrameGroupBy:
-        def hop_to_route(group: DataFrame) -> Series:
-            return Series(
-                {
-                    "route": _ROUTE_SEPERATOR.join(group["channel"].values),
-                    "nodes": _ROUTE_SEPERATOR.join(group["node"].values),
-                    "ok": not group.query("ok == False").shape[0] > 0,
-                    "created_at": group.iloc[0, group.columns.get_loc("created_at")],
-                }
-            )
+        routes: dict[str, RouteStats] = {}
 
-        return hops.groupby(["id"]).apply(hop_to_route).groupby(["route"])
+        for attempt in attempts:
+            attempt_id = attempt[0][0]
+            route = attempt[1]
+            route_id = ROUTE_SEPERATOR.join(route["channel"].values)
+
+            if route_id not in routes:
+                stats = RouteStats(
+                    route["channel"].to_list(),
+                    route["node"].to_list(),
+                    DataFrame(columns=["attempt_id", "ok"]),
+                )
+                routes[route_id] = stats
+            else:
+                stats = routes[route_id]
+
+            stats.add_attempt(attempt_id, route["ok"].values)
+
+        return list(routes.values())

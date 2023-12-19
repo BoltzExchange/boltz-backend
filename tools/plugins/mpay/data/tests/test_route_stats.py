@@ -7,9 +7,8 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from plugins.mpay.data.route_stats import RouteStats, RouteStatsFetcher
+from plugins.mpay.data.route_stats import RouteStatsFetcher
 from plugins.mpay.db.db import Database
-from plugins.mpay.pay.excludes import Excludes, ExcludesPayment
 
 
 class TestRouteStatsFetcher:
@@ -17,13 +16,11 @@ class TestRouteStatsFetcher:
     db = Database(pl)
     db.connect("sqlite+pysqlite://")
 
-    stats = RouteStatsFetcher(db)
-
     destination = "03aab7e9327716ee946b8fbfae039b0db85356549e72c5cca113ea67893d0821e5"
-    route_stats: ClassVar[list[RouteStats]] = [
-        RouteStats(["814829x1702x7/0", "815007x921x1/0"], 1, 1),
-        RouteStats(["809469x300x4/0", "797131x955x7/0"], 0.75, 0.5404411764705882),
-        RouteStats(["814196x3317x2/0", "783038x1808x1/0"], 0, 0),
+    route_stats: ClassVar[tuple[list[str], float, float]] = [
+        (["814196x3317x2/0", "783038x1808x1/0", "745530x1313x1/1"], 0, 0),
+        (["809469x300x4/0", "797131x955x7/0", "745530x1313x1/1"], 0.75, 0.5404411764705882),
+        (["814829x1702x7/0", "815007x921x1/0", "745530x1313x1/1"], 1, 1),
     ]
 
     @pytest.fixture(scope="class", autouse=True)
@@ -68,58 +65,27 @@ class TestRouteStatsFetcher:
                 e.execute(text(statement))
             e.commit()
 
-    def test_get_destinations(self) -> None:
-        with Session(self.db.engine) as s:
-            dests = self.stats.get_destinations(s)
-
-        assert len(dests) == 5
-        for cmp in [
-            "033b63e4a9931dc151037acbce12f4f8968c86f5655cf102bbfa85a26bd4adc6d9",
-            "03aab7e9327716ee946b8fbfae039b0db85356549e72c5cca113ea67893d0821e5",
-            "0294774ee02a9faa5a5870061f7f4833686184ad14a0b163c49442516c9edac1db",
-            "0380ef0209ff1b46c38a37cd40f613d1dae3eba481a909459d6c1434a0e56e5d8c",
-            "03a93b87bf9f052b8e862d51ebbac4ce5e97b5f4137563cd5128548d7f5978dda9",
-        ]:
-            assert cmp in dests
-
     def test_get_routes(self) -> None:
         with Session(self.db.engine) as s:
-            res = self.stats.get_routes(s, self.destination)
+            res = RouteStatsFetcher.get_routes(s)
 
         assert len(res) == 3
-        assert res == self.route_stats
 
-    def test_get_routes_min_success(self) -> None:
+        for elem in zip(res, self.route_stats):
+            route = elem[0]
+            expected = elem[1]
+
+            assert list(route.route) == expected[0]
+            assert route.success_rate == expected[1]
+            assert route.success_rate_ema == expected[2]
+
+    def test_route_slice(self) -> None:
         with Session(self.db.engine) as s:
-            res = self.stats.get_routes(s, self.destination, 0.75)
+            route = RouteStatsFetcher.get_routes(s)[1]
 
-        assert len(res) == 2
-        assert res == self.route_stats[:2]
+        sliced = route.slice_for_destination(route.nodes[0])
 
-    def test_get_routes_min_success_ema(self) -> None:
-        with Session(self.db.engine) as s:
-            res = self.stats.get_routes(
-                s,
-                self.destination,
-                0,
-                self.route_stats[1].success_rate_ema,
-            )
-
-        assert len(res) == 2
-        assert res == self.route_stats[:2]
-
-    def test_get_routes_excludes(self) -> None:
-        excludes = ExcludesPayment(Excludes())
-        excludes.add("815007x921x1/0")
-
-        with Session(self.db.engine) as s:
-            res = self.stats.get_routes(
-                s,
-                self.destination,
-                0,
-                0,
-                excludes,
-            )
-
-        assert len(res) == 2
-        assert res == self.route_stats[1:]
+        assert sliced.nodes == [route.nodes[0]]
+        assert sliced.route == [route.route[0]]
+        assert sliced.success_rate == 1.0
+        assert sliced.success_rate_ema == 1.0

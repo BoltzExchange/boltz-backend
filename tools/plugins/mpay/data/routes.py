@@ -1,19 +1,42 @@
+from __future__ import annotations
+
+import functools
 from collections import defaultdict
-from typing import Any
+from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
 import pandas as pd
-from pyln.client import Plugin
 from sqlalchemy.orm import Session
 
 from plugins.mpay.data.reset import RemovedEntries, Reset
-from plugins.mpay.data.route_stats import RouteStats, RouteStatsFetcher
-from plugins.mpay.db.db import Database
+from plugins.mpay.data.route_stats import ROUTE_SEPERATOR, RouteStats, RouteStatsFetcher
 from plugins.mpay.db.models import Attempt, Hop, Payment
-from plugins.mpay.pay.excludes import ExcludesPayment
-from plugins.mpay.pay.route import Route
-from plugins.mpay.pay.sendpay import PaymentError
 
-_ROUTE_SEPERATOR = "-"
+if TYPE_CHECKING:
+    from pyln.client import Plugin
+
+    from plugins.mpay.db.db import Database
+    from plugins.mpay.pay.excludes import ExcludesPayment
+    from plugins.mpay.pay.route import Route
+    from plugins.mpay.pay.sendpay import PaymentError
+
+
+class RoutesFetchingError(Exception):
+    def __init__(self) -> None:
+        super().__init__("Routes are still fetching")
+
+
+R = TypeVar("R")
+
+
+def _check_fetching(func: Callable[..., R]) -> Callable[..., R]:
+    @functools.wraps(func)
+    def wrapper(self: Routes, *args: tuple, **kwargs: dict[str, Any]) -> R:
+        if self._is_fetching:
+            raise RoutesFetchingError
+
+        return func(self, *args, **kwargs)
+
+    return wrapper
 
 
 def _hop_from_route(attempt: Attempt, hop: dict[str, Any], ok: bool) -> Hop:
@@ -35,6 +58,8 @@ class Routes:
     _routes: dict[str, RouteStats]
     _routes_for_node: defaultdict[str, list[RouteStats]]
 
+    _is_fetching: bool
+
     def __init__(self, pl: Plugin, db: Database) -> None:
         self._pl = pl
         self._db = db
@@ -44,15 +69,23 @@ class Routes:
         self._routes = {}
         self._routes_for_node = defaultdict(list)
 
+        self._is_fetching = False
+
     def fetch_from_db(self) -> None:
+        self._is_fetching = True
         self._pl.log("Fetching routes from database")
+
         with Session(self._db.engine) as s:
-            routes = self._fetcher.get_routes(s)
+            routes = [route for route in self._fetcher.get_routes(s) if len(route.route) > 1]
             self._pl.log(f"Found {len(routes)} routes")
 
         for route in routes:
             self._index_route(route)
 
+        self._is_fetching = False
+        self._pl.log("Finished indexing routes")
+
+    @_check_fetching
     def reset(self) -> RemovedEntries:
         self._routes.clear()
         self._routes_for_node.clear()
@@ -60,9 +93,11 @@ class Routes:
         with Session(self._db.engine) as s:
             return self._reset.reset_all(s)
 
+    @_check_fetching
     def get_destinations(self) -> list[str]:
-        return list(self._routes_for_node.keys())
+        return list(set(self._routes_for_node.keys()))
 
+    @_check_fetching
     def get_routes(
         self,
         destination: str,
@@ -70,7 +105,9 @@ class Routes:
         min_success_ema: float = 0,
         excludes: ExcludesPayment | None = None,
     ) -> list[RouteStats]:
-        routes = self._routes_for_node[destination]
+        routes = [
+            route.slice_for_destination(destination) for route in self._routes_for_node[destination]
+        ]
 
         return sorted(
             [
@@ -88,7 +125,6 @@ class Routes:
         self, session: Session, payment: Payment, route: Route, time: int
     ) -> None:
         payment.ok = True
-        self._append_attempt(route, payment.ok)
 
         attempt = Attempt(
             payment_id=payment.id,
@@ -105,6 +141,8 @@ class Routes:
         session.add_all(hops)
         session.commit()
 
+        self._append_attempt(route, attempt.id, [hop.ok for hop in hops])
+
     def insert_failed_attempt(
         self, session: Session, payment: Payment, route: Route, error: PaymentError
     ) -> None:
@@ -114,7 +152,6 @@ class Routes:
             return
 
         payment.ok = False
-        self._append_attempt(route, payment.ok)
 
         attempt = Attempt(
             payment_id=payment.id,
@@ -134,13 +171,15 @@ class Routes:
         session.add_all(hops)
         session.commit()
 
-    def _append_attempt(self, route: Route, success: bool) -> None:
+        self._append_attempt(route, attempt.id, [hop.ok for hop in hops])
+
+    def _append_attempt(self, route: Route, attempt_id: int, success: list[bool]) -> None:
         hops = [f"{hop['channel']}/{hop['direction']}" for hop in route.route]
-        route_id = _ROUTE_SEPERATOR.join(hops)
+        route_id = ROUTE_SEPERATOR.join(hops)
 
         if route_id in self._routes:
             stats = self._routes[route_id]
-            stats.add_attempt(success)
+            stats.add_attempt(attempt_id, success)
 
         else:
             stats = RouteStats(
@@ -149,7 +188,7 @@ class Routes:
             self._index_route(stats)
 
     def _index_route(self, route: RouteStats) -> None:
-        self._routes[_ROUTE_SEPERATOR.join(route.route)] = route
+        self._routes[route.id] = route
 
-        # TODO: partial routes
-        self._routes_for_node[route.nodes[-1]].append(route)
+        for node in route.nodes[1:]:
+            self._routes_for_node[node].append(route)

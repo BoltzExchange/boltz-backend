@@ -177,7 +177,7 @@ We recommend verifying that pair data fetched previously (like `minerFees`) is s
 
 Members of our [partner program](api.md#querying-referral-fees) may set this optional referral parameter to get a percentage of the fees earned from referred swaps as kickback.
 
-* `referral`: Partner referral ID
+* `referral`: Partner referral ID.
 
 | URL                | Response      |
 | ------------------ | ------------- |
@@ -444,7 +444,7 @@ We recommend verifying that pair data fetched previously (like `minerFees`) is s
 
 Members of our [partner program](api.md#querying-referral-fees) may set this optional referral parameter to get a percentage of the fees earned from referred swaps as kickback.
 
-* `referral`: Partner referral ID&#x20;
+* `referral`: Partner referral ID.
 
 | URL                | Response      |
 | ------------------ | ------------- |

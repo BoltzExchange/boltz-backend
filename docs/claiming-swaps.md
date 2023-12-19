@@ -18,7 +18,7 @@ Boltz currently supports two types of outputs:
 * [P2SH nested P2WSH](https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#user-content-P2WSH\_nested\_in\_BIP16\_P2SH) for Normal Submarine Swaps
 * [P2WSH](https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#user-content-P2WSH) for Reverse Submarine Swaps
 
-Claiming works a little different for every output type, but you always need the preimage, private key and original redeem script. Hence, Boltz API clients need to ensure a safe way to store these values until the swap reaches a [final state](lifecycle.md). The signature script or witness script of the input always looks like this:
+Claiming works a little different for every output type, but you always need the preimage, private key and original redeem script. Hence, Boltz API clients need to ensure a safe way to store these values until the swap reaches a [final state](lifecycle.md). The witness script of the input always looks like this:
 
 ```
 <signature>

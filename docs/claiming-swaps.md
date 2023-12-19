@@ -40,7 +40,7 @@ Examples for all output types can be found in the [`boltz-core`](https://github.
 
 ### EVM Chains
 
-The HTLCs that Boltz uses on EVM chains are not single use scripts, but contracts. The contract takes care of claiming funds to the specified `claimAddress`, a separate claim transaction is not necessary. The source of the contracts can be found [`here`](https://github.com/BoltzExchange/boltz-core/tree/master/contracts) .
+The HTLCs that Boltz uses on EVM chains are not single use scripts, but contracts. The source of the contracts can be found [`here`](https://github.com/BoltzExchange/boltz-core/tree/master/contracts).
 
 ## Normal Swaps: Refund transactions
 
@@ -60,7 +60,7 @@ An example can be found in the [`boltz-core`](https://github.com/BoltzExchange/b
 
 ### EVM Chains
 
-The HTLCs that Boltz uses on EVM chains are not single use scripts, but contracts. In order to submit a refund, one calls the `refund` function of the contract. Similar to UTXO chains, Boltz API clients need to ensure a safe way to store the required values until the swap reaches a [final state](lifecycle.md). The source of the contracts can be found [`here`](https://github.com/BoltzExchange/boltz-core/tree/master/contracts) .
+The HTLCs that Boltz uses on EVM chains are not single use scripts, but contracts. In order to submit a refund, one calls the `refund` function of the contract. Similar to UTXO chains, Boltz API clients need to ensure a safe way to store the required values until the swap reaches a [final state](lifecycle.md). The source of the contracts can be found [`here`](https://github.com/BoltzExchange/boltz-core/tree/master/contracts).
 
 ### Emergency Procedures
 

@@ -1,6 +1,3 @@
-from pyln.client import Millisatoshi, Plugin
-from sqlalchemy.orm import Session
-
 from plugins.mpay.data.network_info import NetworkInfo
 from plugins.mpay.data.router import Router
 from plugins.mpay.data.routes import Routes
@@ -11,6 +8,8 @@ from plugins.mpay.pay.excludes import Excludes, ExcludesPayment
 from plugins.mpay.pay.payer import Payer
 from plugins.mpay.pay.sendpay import PaymentHelper, PaymentResult
 from plugins.mpay.utils import fee_with_percent, format_error
+from pyln.client import Millisatoshi, Plugin
+from sqlalchemy.orm import Session
 
 
 class MPay:
@@ -87,7 +86,12 @@ class MPay:
     # Therefore, we have to check for already paid invoices first,
     # to not distort our success heuristics
     def _check_for_paid(self, payment_hash: str) -> PaymentResult | None:
-        res = self._pl.rpc.listpays(payment_hash=payment_hash, status="complete")["pays"]
+        res = [
+            entry
+            for entry in self._pl.rpc.listpays(payment_hash=payment_hash, status="complete")["pays"]
+            if "preimage" in entry
+        ]
+
         if len(res) == 0:
             return None
 

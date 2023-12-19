@@ -4,11 +4,10 @@ from typing import ClassVar
 from unittest.mock import MagicMock
 
 import pytest
-from sqlalchemy import text
-from sqlalchemy.orm import Session
-
 from plugins.mpay.data.route_stats import RouteStatsFetcher
 from plugins.mpay.db.db import Database
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 
 class TestRouteStatsFetcher:
@@ -89,3 +88,10 @@ class TestRouteStatsFetcher:
         assert sliced.route == [route.route[0]]
         assert sliced.success_rate == 1.0
         assert sliced.success_rate_ema == 1.0
+
+    def test_route_slice_add_attempt(self) -> None:
+        with Session(self.db.engine) as s:
+            route = RouteStatsFetcher.get_routes(s)[1]
+
+        sliced = route.slice_for_destination(route.nodes[1])
+        sliced.add_attempt(10, [True, True])

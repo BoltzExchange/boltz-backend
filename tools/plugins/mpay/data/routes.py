@@ -4,20 +4,17 @@ import functools
 from collections import defaultdict
 from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
-import pandas as pd
-from sqlalchemy.orm import Session
-
 from plugins.mpay.data.reset import RemovedEntries, Reset
 from plugins.mpay.data.route_stats import ROUTE_SEPERATOR, RouteStats, RouteStatsFetcher
 from plugins.mpay.db.models import Attempt, Hop, Payment
+from sqlalchemy.orm import Session
 
 if TYPE_CHECKING:
-    from pyln.client import Plugin
-
     from plugins.mpay.db.db import Database
     from plugins.mpay.pay.excludes import ExcludesPayment
     from plugins.mpay.pay.route import Route
     from plugins.mpay.pay.sendpay import PaymentError
+    from pyln.client import Plugin
 
 
 class RoutesFetchingError(Exception):
@@ -109,10 +106,18 @@ class Routes:
             route.slice_for_destination(destination) for route in self._routes_for_node[destination]
         ]
 
+        routes_dict: dict[str, RouteStats] = {}
+        for route in routes:
+            if (
+                route.id not in routes_dict
+                or routes_dict[route.id].len_attempts < route.len_attempts
+            ):
+                routes_dict[route.id] = route
+
         return sorted(
             [
                 route
-                for route in routes
+                for route in routes_dict.values()
                 if route.success_rate >= min_success
                 and route.success_rate_ema >= min_success_ema
                 and (excludes is None or all(hop not in excludes for hop in route.route))
@@ -173,19 +178,17 @@ class Routes:
 
         self._append_attempt(route, attempt.id, [hop.ok for hop in hops])
 
-    def _append_attempt(self, route: Route, attempt_id: int, success: list[bool]) -> None:
+    def _append_attempt(self, route: Route, attempt_id: int, oks: list[bool]) -> None:
         hops = [f"{hop['channel']}/{hop['direction']}" for hop in route.route]
         route_id = ROUTE_SEPERATOR.join(hops)
 
         if route_id in self._routes:
             stats = self._routes[route_id]
-            stats.add_attempt(attempt_id, success)
-
         else:
-            stats = RouteStats(
-                hops, [hop["id"] for hop in route.route], pd.DataFrame({"ok": [success]})
-            )
+            stats = RouteStats(hops, [hop["id"] for hop in route.route])
             self._index_route(stats)
+
+        stats.add_attempt(attempt_id, oks)
 
     def _index_route(self, route: RouteStats) -> None:
         self._routes[route.id] = route

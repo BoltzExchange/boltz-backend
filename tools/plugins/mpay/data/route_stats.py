@@ -1,10 +1,7 @@
-from dataclasses import dataclass
-
 from pandas import DataFrame, Series
+from plugins.mpay.db.models import Attempt, Hop
 from sqlalchemy import String, func, select
 from sqlalchemy.orm import Session
-
-from plugins.mpay.db.models import Attempt, Hop
 
 EMA_ALPHA = 0.4
 HOP_SEPERATOR = "/"
@@ -16,11 +13,15 @@ class NotInRouteError(Exception):
     pass
 
 
-@dataclass
 class RouteStats:
     route: list[str]
     nodes: list[str]
     _attempts: DataFrame
+
+    def __init__(self, route: list[str], nodes: list[str]) -> None:
+        self.route = route
+        self.nodes = nodes
+        self._attempts = DataFrame(columns=["attempt_id", "ok"])
 
     def __str__(self) -> str:
         """Pretty print the route with statistics."""
@@ -29,6 +30,10 @@ class RouteStats:
     @property
     def id(self) -> str:
         return ROUTE_SEPERATOR.join(self.route)
+
+    @property
+    def len_attempts(self) -> int:
+        return len(self._attempts)
 
     @property
     def success_rate(self) -> float:
@@ -51,13 +56,14 @@ class RouteStats:
         except ValueError:
             raise NotInRouteError from None
 
-        attempts = (
+        sliced = RouteStats(self.route[:destination_index], self.nodes[:destination_index])
+        sliced._attempts = (  # noqa: SLF001
             self._attempts.groupby(["attempt_id"])
             .apply(lambda x: x[:destination_index])
             .reset_index(drop=True)
         )
 
-        return RouteStats(self.route[:destination_index], self.nodes[:destination_index], attempts)
+        return sliced
 
     def add_attempt(self, attempt_id: int, oks: list[bool]) -> None:
         if len(oks) != len(self.route):
@@ -112,7 +118,6 @@ class RouteStatsFetcher:
                 stats = RouteStats(
                     route["channel"].to_list(),
                     route["node"].to_list(),
-                    DataFrame(columns=["attempt_id", "ok"]),
                 )
                 routes[route_id] = stats
             else:

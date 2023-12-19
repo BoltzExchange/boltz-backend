@@ -36,7 +36,7 @@ In P2WSH addresses the reedem script is only hashed with SHA256. The output scri
 
 ```
 OP_0
-<hash of the redeem script>
+<SHA256 hash of the redeem script>
 ```
 
 #### Examples

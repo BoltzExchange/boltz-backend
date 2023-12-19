@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import functools
+import time
 from collections import defaultdict
 from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
@@ -71,6 +72,7 @@ class Routes:
     def fetch_from_db(self) -> None:
         self._is_fetching = True
         self._pl.log("Fetching routes from database")
+        start_time = time.time()
 
         with Session(self._db.engine) as s:
             routes = [route for route in self._fetcher.get_routes(s) if len(route.route) > 1]
@@ -80,7 +82,7 @@ class Routes:
             self._index_route(route)
 
         self._is_fetching = False
-        self._pl.log("Finished indexing routes")
+        self._pl.log(f"Finished indexing routes in {(time.time() - start_time):.2f}s")
 
     @_check_fetching
     def reset(self) -> RemovedEntries:
@@ -102,17 +104,24 @@ class Routes:
         min_success_ema: float = 0,
         excludes: ExcludesPayment | None = None,
     ) -> list[RouteStats]:
-        routes = [
-            route.slice_for_destination(destination) for route in self._routes_for_node[destination]
-        ]
+        routes = self._routes_for_node[destination]
 
         routes_dict: dict[str, RouteStats] = {}
         for route in routes:
-            if (
-                route.id not in routes_dict
-                or routes_dict[route.id].len_attempts < route.len_attempts
-            ):
-                routes_dict[route.id] = route
+            if route.nodes[-1] != destination:
+                continue
+
+            routes_dict[route.id] = route
+
+        for route in routes:
+            if route.nodes[-1] == destination:
+                continue
+
+            sliced_id = ROUTE_SEPERATOR.join(route.route[: route.destination_index(destination)])
+            if sliced_id not in routes_dict:
+                sliced_route = route.slice_for_destination(destination)
+                routes_dict[sliced_id] = sliced_route
+                self._index_route(sliced_route)
 
         return sorted(
             [
@@ -127,14 +136,14 @@ class Routes:
         )
 
     def insert_successful_attempt(
-        self, session: Session, payment: Payment, route: Route, time: int
+        self, session: Session, payment: Payment, route: Route, duration: int
     ) -> None:
         payment.ok = True
 
         attempt = Attempt(
             payment_id=payment.id,
             ok=True,
-            time=time,
+            time=duration,
         )
         session.add(attempt)
 
@@ -179,16 +188,17 @@ class Routes:
         self._append_attempt(route, attempt.id, [hop.ok for hop in hops])
 
     def _append_attempt(self, route: Route, attempt_id: int, oks: list[bool]) -> None:
-        hops = [f"{hop['channel']}/{hop['direction']}" for hop in route.route]
-        route_id = ROUTE_SEPERATOR.join(hops)
+        for i in range(2, len(route.route) + 1):
+            hops = [f"{hop['channel']}/{hop['direction']}" for hop in route.route[:i]]
+            route_id = ROUTE_SEPERATOR.join(hops)
 
-        if route_id in self._routes:
-            stats = self._routes[route_id]
-        else:
-            stats = RouteStats(hops, [hop["id"] for hop in route.route])
-            self._index_route(stats)
+            if route_id in self._routes:
+                stats = self._routes[route_id]
+            else:
+                stats = RouteStats(hops, [hop["id"] for hop in route.route])
+                self._index_route(stats)
 
-        stats.add_attempt(attempt_id, oks)
+            stats.add_attempt(attempt_id, oks[:i])
 
     def _index_route(self, route: RouteStats) -> None:
         self._routes[route.id] = route

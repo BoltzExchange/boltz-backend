@@ -36,7 +36,7 @@ To spend a P2WSH output, signature, preimage and original redeem script have to 
 
 #### Examples
 
-Examples for all output types can be found in the [`boltz-core` ](https://github.com/BoltzExchange/boltz-core/blob/master/lib/swap/Claim.ts#L23)reference library.
+Examples for all output types can be found in the [`boltz-core`](https://github.com/BoltzExchange/boltz-core/blob/master/lib/swap/Claim.ts#L23) reference library.
 
 ### EVM Chains
 

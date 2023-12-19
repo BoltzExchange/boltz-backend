@@ -98,4 +98,4 @@ If a user lost all refund information, but still has access to the lightning inv
 
 #### EVM Chains
 
-If refund information is lost involving an EVM Chain like RSK, one can retrieve the required values to call `refund` via contract call logs.
+If refund information is lost involving an EVM Chain, one can retrieve the required values to call `refund` via contract call logs.

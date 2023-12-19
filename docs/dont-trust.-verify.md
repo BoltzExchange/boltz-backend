@@ -26,7 +26,7 @@ Although the output script of the P2SH nested P2WSH addresses is the same as the
 
 ```
 OP_HASH160
-<hash of the P2WSH output script>
+<RIPEMD-160 hash of the P2WSH output script>
 OP_EQUAL
 ```
 

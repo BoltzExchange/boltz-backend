@@ -4,10 +4,11 @@ from typing import ClassVar
 from unittest.mock import MagicMock
 
 import pytest
-from plugins.mpay.data.route_stats import RouteStatsFetcher
-from plugins.mpay.db.db import Database
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+
+from plugins.mpay.data.route_stats import RouteStatsFetcher
+from plugins.mpay.db.db import Database
 
 
 class TestRouteStatsFetcher:

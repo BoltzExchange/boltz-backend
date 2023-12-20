@@ -5,17 +5,19 @@ import time
 from collections import defaultdict
 from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
+from sqlalchemy.orm import Session
+
 from plugins.mpay.data.reset import RemovedEntries, Reset
 from plugins.mpay.data.route_stats import ROUTE_SEPERATOR, RouteStats, RouteStatsFetcher
 from plugins.mpay.db.models import Attempt, Hop, Payment
-from sqlalchemy.orm import Session
 
 if TYPE_CHECKING:
+    from pyln.client import Plugin
+
     from plugins.mpay.db.db import Database
     from plugins.mpay.pay.excludes import ExcludesPayment
     from plugins.mpay.pay.route import Route
     from plugins.mpay.pay.sendpay import PaymentError
-    from pyln.client import Plugin
 
 
 class RoutesFetchingError(Exception):
@@ -195,7 +197,7 @@ class Routes:
             if route_id in self._routes:
                 stats = self._routes[route_id]
             else:
-                stats = RouteStats(hops, [hop["id"] for hop in route.route])
+                stats = RouteStats(hops, [hop["id"] for hop in route.route[:i]])
                 self._index_route(stats)
 
             stats.add_attempt(attempt_id, oks[:i])

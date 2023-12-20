@@ -1,7 +1,8 @@
 from pandas import DataFrame, Series
-from plugins.mpay.db.models import Attempt, Hop
 from sqlalchemy import String, func, select
 from sqlalchemy.orm import Session
+
+from plugins.mpay.db.models import Attempt, Hop
 
 EMA_ALPHA = 0.4
 HOP_SEPERATOR = "/"

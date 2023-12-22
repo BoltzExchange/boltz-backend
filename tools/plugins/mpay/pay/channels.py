@@ -22,7 +22,8 @@ class PeerChannels:
         return [
             PeerChannels._get_channel_id(channel)
             for channel in self.channels
-            if channel["peer_id"] == destination
+            if PeerChannels._has_channel_id(channel)
+            and channel["peer_id"] == destination
             and PeerChannels._channel_is_suitable(channel, amount)
         ]
 
@@ -30,7 +31,8 @@ class PeerChannels:
         return [
             PeerChannels._get_channel_id(channel)
             for channel in self.channels
-            if not PeerChannels._channel_is_suitable(channel, amount)
+            if PeerChannels._has_channel_id(channel)
+            and not PeerChannels._channel_is_suitable(channel, amount)
         ]
 
     @staticmethod
@@ -46,6 +48,10 @@ class PeerChannels:
     @staticmethod
     def _get_channel_id(channel: dict[str, Any]) -> str:
         return f"{channel['short_channel_id']}/{channel['direction']}"
+
+    @staticmethod
+    def _has_channel_id(channel: dict[str, Any]) -> bool:
+        return "short_channel_id" in channel
 
 
 class ChannelsHelper:

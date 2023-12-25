@@ -143,7 +143,7 @@ class Transformers:
     @staticmethod
     def pay_status_attempt_to_grpc(res: dict[str, Any]) -> PayStatusResponse.PayStatus.Attempt:
         def transform_failure_data(
-            failure_data: dict[str, Any]
+            failure_data: dict[str, Any],
         ) -> PayStatusResponse.PayStatus.Attempt.Failure.Data:
             return PayStatusResponse.PayStatus.Attempt.Failure.Data(
                 id=failure_data["id"],
@@ -155,7 +155,7 @@ class Transformers:
             )
 
         def transform_failure(
-            failure: dict[str, Any]
+            failure: dict[str, Any],
         ) -> PayStatusResponse.PayStatus.Attempt.Failure:
             return PayStatusResponse.PayStatus.Attempt.Failure(
                 message=failure["message"],

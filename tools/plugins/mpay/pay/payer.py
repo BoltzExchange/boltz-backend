@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 from plugins.mpay.data.network_info import NetworkInfo
 from plugins.mpay.data.route_stats import RouteStats
 from plugins.mpay.data.router import Router
-from plugins.mpay.db.helpers import insert_failed_attempt, insert_successful_attempt
 from plugins.mpay.db.models import Payment
 from plugins.mpay.pay.channels import ChannelsHelper, NoRouteError, PeerChannels
 from plugins.mpay.pay.excludes import ExcludesPayment
@@ -89,9 +88,7 @@ class Payer:
             return res
 
         self._pl.log("Fetching known routes")
-        for stats, route in self._router.fetch_routes(
-            self._session, self._dec, self._amount, self._excludes
-        ):
+        for stats, route in self._router.fetch_routes(self._dec, self._amount, self._excludes):
             res = self._send_payment(
                 route,
                 stats,
@@ -165,14 +162,14 @@ class Payer:
         except PaymentError as e:
             # TODO: more granular handling of these errors
             self._excludes.add(f"{e.erring_channel}/{e.erring_direction}")
-            insert_failed_attempt(self._session, self._payment, route, e)
+            self._router.routes.insert_failed_attempt(self._session, self._payment, route, e)
 
             if e.is_permanent:
                 raise
 
             return None
 
-        insert_successful_attempt(self._session, self._payment, route, res.time)
+        self._router.routes.insert_successful_attempt(self._session, self._payment, route, res.time)
 
         res.time = self._time_elapsed
         self._pl.log(

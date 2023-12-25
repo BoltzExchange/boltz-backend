@@ -39,7 +39,34 @@ class TestPeerChannels:
                         "peer_id": "no match",
                     },
                 ],
-            )
+            ),
+            (
+                100,
+                "039277ad",
+                [0],
+                [
+                    {
+                        "peer_connected": True,
+                        "peer_id": "039277ad",
+                        "spendable_msat": Millisatoshi(101),
+                        "maximum_htlc_out_msat": Millisatoshi(101),
+                        "short_channel_id": "124x1x0",
+                        "direction": 0,
+                        "status": [
+                            "CHANNELD_NORMAL:Channel ready for use. Channel announced.",
+                        ],
+                    },
+                    {
+                        "peer_connected": True,
+                        "peer_id": "039277ad",
+                        "spendable_msat": Millisatoshi(101),
+                        "maximum_htlc_out_msat": Millisatoshi(101),
+                        "status": [
+                            "CHANNELD_NORMAL:Channel ready for use. Channel announced.",
+                        ],
+                    },
+                ],
+            ),
         ],
     )
     def test_get_direct_channels(
@@ -107,6 +134,28 @@ class TestPeerChannels:
                         "peer_connected": False,
                         "short_channel_id": "117x1x0",
                         "direction": 1,
+                    },
+                ],
+            ),
+            (
+                100,
+                [0],
+                [
+                    {
+                        "peer_connected": False,
+                        "short_channel_id": "124x1x0",
+                        "direction": 0,
+                    },
+                    {
+                        "peer_connected": True,
+                        "spendable_msat": Millisatoshi(101),
+                        "maximum_htlc_out_msat": Millisatoshi(101),
+                        "status": [
+                            "CHANNELD_NORMAL:Channel ready for use. Channel announced.",
+                        ],
+                    },
+                    {
+                        "peer_connected": False,
                     },
                 ],
             ),
@@ -187,6 +236,19 @@ class TestPeerChannels:
                     ],
                 },
             ),
+            (
+                False,
+                100,
+                {
+                    "peer_connected": True,
+                    "spendable_msat": Millisatoshi(101),
+                    "maximum_htlc_out_msat": Millisatoshi(101),
+                    "status": [
+                        "CHANNELD_NORMAL:Received ERROR channel redacted: invalid commitment",
+                        "CHANNELD_NORMAL:Channel ready for use. Channel announced.",
+                    ],
+                },
+            ),
         ],
     )
     def test_channel_is_suitable(
@@ -206,6 +268,20 @@ class TestPeerChannels:
         assert (
             PeerChannels._get_channel_id(channel)  # noqa: SLF001
             == f"{channel['short_channel_id']}/{channel['direction']}"
+        )
+
+    @pytest.mark.parametrize(
+        ("channel", "expected"),
+        [
+            ({"short_channel_id": "124x1x0", "direction": 0}, True),
+            ({"short_channel_id": "124x1x0"}, False),
+            ({"direction": 0}, False),
+        ],
+    )
+    def test_has_channel_id(self, channel: dict[str, Any], expected: bool) -> None:
+        assert (
+            PeerChannels._has_channel_id(channel)  # noqa: SLF001
+            == expected
         )
 
 

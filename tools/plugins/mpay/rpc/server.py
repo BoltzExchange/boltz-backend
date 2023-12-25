@@ -6,8 +6,7 @@ from sqlalchemy.orm import Session
 from plugins.hold.grpc_server import GrpcServer
 from plugins.mpay.consts import PLUGIN_NAME, VERSION
 from plugins.mpay.data.payments import Payments
-from plugins.mpay.data.reset import Reset
-from plugins.mpay.data.route_stats import RouteStatsFetcher
+from plugins.mpay.data.routes import Routes
 from plugins.mpay.db.db import Database
 from plugins.mpay.defaults import DEFAULT_EXEMPT_FEE, DEFAULT_PAYMENT_TIMEOUT
 from plugins.mpay.pay.mpay import MPay
@@ -30,20 +29,17 @@ from plugins.mpay.rpc.transformers import payment_to_grpc, routes_to_grpc
 class MpayService(MpayServicer):
     _db: Database
     _mpay: MPay
-    _reset: Reset
-    _route_stats_fetcher: RouteStatsFetcher
+    _routes: Routes
 
     def __init__(
         self,
         db: Database,
         mpay: MPay,
-        route_stats_fetcher: RouteStatsFetcher,
-        reset: Reset,
+        routes: Routes,
     ) -> None:
         self._db = db
         self._mpay = mpay
-        self._reset = reset
-        self._route_stats_fetcher = route_stats_fetcher
+        self._routes = routes
 
     def GetInfo(self, request: GetInfoRequest, context: grpc.ServicerContext) -> GetInfoResponse:  # noqa: N802, ARG002
         return GetInfoResponse(version=VERSION)
@@ -70,20 +66,17 @@ class MpayService(MpayServicer):
         request: GetRoutesRequest,
         context: grpc.ServicerContext,  # noqa: ARG002
     ) -> GetRoutesResponse:
-        with Session(self._db.engine) as s:
-            if request.destination != "":
-                destinations = [request.destination]
-            else:
-                destinations = self._route_stats_fetcher.get_destinations(s)
+        if request.destination != "":
+            destinations = [request.destination]
+        else:
+            destinations = self._routes.get_destinations()
 
-            routes = {
-                dest: routes_to_grpc(
-                    self._route_stats_fetcher.get_routes(
-                        s, dest, request.min_success, request.min_success_ema
-                    )
-                )
-                for dest in destinations
-            }
+        routes = {
+            dest: routes_to_grpc(
+                self._routes.get_routes(dest, request.min_success, request.min_success_ema)
+            )
+            for dest in destinations
+        }
 
         for key in [k for k, v in routes.items() if len(v.routes) == 0]:
             del routes[key]
@@ -109,8 +102,7 @@ class MpayService(MpayServicer):
         request: ResetPathMemoryRequest,  # noqa: ARG002
         context: grpc.ServicerContext,  # noqa: ARG002
     ) -> ResetPathMemoryResponse:
-        with Session(self._db.engine) as s:
-            res = self._reset.reset_all(s)
+        res = self._routes.reset()
 
         return ResetPathMemoryResponse(
             payments=res.payments,
@@ -122,26 +114,23 @@ class MpayService(MpayServicer):
 class Server(GrpcServer):
     _db: Database
     _mpay: MPay
-    _reset: Reset
-    _route_stats_fetcher: RouteStatsFetcher
+    _routes: Routes
 
     def __init__(
         self,
         pl: Plugin,
         db: Database,
         mpay: MPay,
-        route_stats_fetcher: RouteStatsFetcher,
-        reset: Reset,
+        routes: Routes,
     ) -> None:
         super().__init__(PLUGIN_NAME, pl)
 
         self._db = db
         self._mpay = mpay
-        self._reset = reset
-        self._route_stats_fetcher = route_stats_fetcher
+        self._routes = routes
 
     def _register_service(self) -> None:
         add_MpayServicer_to_server(
-            MpayService(self._db, self._mpay, self._route_stats_fetcher, self._reset),
+            MpayService(self._db, self._mpay, self._routes),
             self._server,
         )

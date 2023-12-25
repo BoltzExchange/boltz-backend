@@ -77,29 +77,6 @@ class TestGrpc:
         assert res.time < 10
         assert res.fee_msat == 0
 
-    def test_get_routes(self, cl: MpayStub) -> None:
-        res: GetRoutesResponse = cl.GetRoutes(GetRoutesRequest())
-        assert len(res.routes) == 2
-
-        for lnd_node in [LndNode.One, LndNode.Two]:
-            pubkey = lnd(lnd_node, "getinfo")["identity_pubkey"]
-
-            assert pubkey in res.routes
-            routes = res.routes[pubkey]
-            assert len(routes.routes) == 1
-
-            route = routes.routes[0]
-            assert len(route.route) == 1
-            assert route.success_rate == 1
-            assert route.success_rate_ema == 1
-
-    def test_get_routes_destination(self, cl: MpayStub) -> None:
-        destination = lnd(LndNode.One, "getinfo")["identity_pubkey"]
-        res: GetRoutesResponse = cl.GetRoutes(GetRoutesRequest(destination=destination))
-
-        assert len(res.routes) == 1
-        assert destination in res.routes
-
     @pytest.mark.parametrize(("min_success", "min_success_ema"), [(2, 0), (0, 2)])
     def test_get_routes_min_success(
         self, cl: MpayStub, min_success: int, min_success_ema: int

@@ -43,6 +43,7 @@ class PeerChannels:
             and channel["maximum_htlc_out_msat"] > amount
             and len(channel["status"]) > 0
             and channel["status"][-1].startswith("CHANNELD_NORMAL:Channel ready for use")
+            and all("ERROR" not in status for status in channel["status"])
         )
 
     @staticmethod
@@ -51,7 +52,7 @@ class PeerChannels:
 
     @staticmethod
     def _has_channel_id(channel: dict[str, Any]) -> bool:
-        return "short_channel_id" in channel
+        return "short_channel_id" in channel and "direction" in channel
 
 
 class ChannelsHelper:

@@ -69,7 +69,7 @@ class Routes:
         self._routes = {}
         self._routes_for_node = defaultdict(list)
 
-        self._is_fetching = False
+        self._is_fetching = True
 
     def fetch_from_db(self) -> None:
         self._is_fetching = True
@@ -96,7 +96,7 @@ class Routes:
 
     @_check_fetching
     def get_destinations(self) -> list[str]:
-        return list(set(self._routes_for_node.keys()))
+        return list(self._routes_for_node.keys())
 
     @_check_fetching
     def get_routes(
@@ -157,7 +157,7 @@ class Routes:
         session.add_all(hops)
         session.commit()
 
-        self._append_attempt(route, attempt.id, [hop.ok for hop in hops])
+        self._append_attempt(route, attempt, hops)
 
     def insert_failed_attempt(
         self, session: Session, payment: Payment, route: Route, error: PaymentError
@@ -187,9 +187,11 @@ class Routes:
         session.add_all(hops)
         session.commit()
 
-        self._append_attempt(route, attempt.id, [hop.ok for hop in hops])
+        self._append_attempt(route, attempt, hops)
 
-    def _append_attempt(self, route: Route, attempt_id: int, oks: list[bool]) -> None:
+    def _append_attempt(self, route: Route, attempt: Attempt, hops: list[Hop]) -> None:
+        oks = [hop.ok for hop in hops]
+
         for i in range(2, len(route.route) + 1):
             hops = [f"{hop['channel']}/{hop['direction']}" for hop in route.route[:i]]
             route_id = ROUTE_SEPERATOR.join(hops)
@@ -200,7 +202,7 @@ class Routes:
                 stats = RouteStats(hops, [hop["id"] for hop in route.route[:i]])
                 self._index_route(stats)
 
-            stats.add_attempt(attempt_id, oks[:i])
+            stats.add_attempt(attempt.id, oks[:i])
 
     def _index_route(self, route: RouteStats) -> None:
         self._routes[route.id] = route

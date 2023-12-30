@@ -1,8 +1,10 @@
 import cors from 'cors';
 import express, { Application, NextFunction, Request, Response } from 'express';
 import Logger from '../Logger';
+import ApiV2 from './v2/ApiV2';
 import Controller from './Controller';
 import { ApiConfig } from '../Config';
+import { errorResponse } from './Utils';
 import Service from '../service/Service';
 
 class Api {
@@ -34,14 +36,15 @@ class Api {
     this.app.use(
       (error: any, req: Request, res: Response, next: NextFunction) => {
         if (error instanceof SyntaxError) {
-          this.controller.errorResponse(req, res, error);
+          errorResponse(logger, req, res, error);
           return;
         }
 
-        next();
+        next(error);
       },
     );
 
+    new ApiV2(this.logger, service).registerRoutes(this.app);
     this.registerRoutes(this.controller);
   }
 

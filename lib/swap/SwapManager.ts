@@ -1,7 +1,14 @@
 import { Op } from 'sequelize';
 import { randomBytes } from 'crypto';
 import { crypto } from 'bitcoinjs-lib';
-import { reverseSwapScript, swapScript } from 'boltz-core';
+import {
+  reverseSwapScript,
+  Scripts,
+  swapScript,
+  swapTree,
+  SwapTreeSerializer,
+  Types,
+} from 'boltz-core';
 import Errors from './Errors';
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';
@@ -10,6 +17,7 @@ import SwapNursery from './SwapNursery';
 import NodeFallback from './NodeFallback';
 import { PairConfig } from '../consts/Types';
 import SwapOutputType from './SwapOutputType';
+import { createMusig, tweakMusig } from '../Core';
 import RateProvider from '../rates/RateProvider';
 import RoutingHints from './routing/RoutingHints';
 import WalletLiquid from '../wallet/WalletLiquid';
@@ -26,6 +34,8 @@ import {
   CurrencyType,
   OrderSide,
   SwapUpdateEvent,
+  SwapVersion,
+  swapVersionToString,
 } from '../consts/Enums';
 import {
   decodeInvoice,
@@ -53,6 +63,16 @@ type ChannelCreationInfo = {
 
 type SetSwapInvoiceResponse = {
   channelCreationError?: string;
+};
+
+type SerializedSwapTreeLeaf = {
+  version: number;
+  output: string;
+};
+
+type SerializedSwapTree = {
+  claimLeaf: SerializedSwapTreeLeaf;
+  refundLeaf: SerializedSwapTreeLeaf;
 };
 
 class SwapManager {
@@ -143,6 +163,8 @@ class SwapManager {
    * Creates a new Submarine Swap from the chain to Lightning with a preimage hash
    */
   public createSwap = async (args: {
+    version: SwapVersion;
+
     baseCurrency: string;
     quoteCurrency: string;
     orderSide: OrderSide;
@@ -167,6 +189,10 @@ class SwapManager {
     // Only set for Bitcoin like, UTXO based, chains
     redeemScript?: string;
 
+    // Only set for Taproot swaps
+    claimPublicKey?: string;
+    swapTree?: SerializedSwapTree;
+
     // Specified when either Ether or ERC20 tokens or swapped to Lightning
     // So that the user can specify the claim address (Boltz) in the lockup transaction to the contract
     claimAddress?: string;
@@ -184,10 +210,12 @@ class SwapManager {
       throw Errors.NO_LIGHTNING_SUPPORT(sendingCurrency.symbol);
     }
 
-    const id = generateId();
+    const id = generateId(args.version === SwapVersion.Legacy ? undefined : 12);
 
     this.logger.verbose(
-      `Creating new Swap from ${receivingCurrency.symbol} to ${sendingCurrency.symbol}: ${id}`,
+      `Creating new ${swapVersionToString(args.version)} Swap from ${
+        receivingCurrency.symbol
+      } to ${sendingCurrency.symbol}: ${id}`,
     );
 
     if (args.referralId) {
@@ -199,13 +227,9 @@ class SwapManager {
       quote: args.quoteCurrency,
     });
 
-    let address: string;
-    let timeoutBlockHeight: number;
-
-    let blindingKey: Buffer | undefined;
-    let redeemScript: Buffer | undefined;
-
-    let claimAddress: string | undefined;
+    const result: any = {
+      id,
+    };
 
     if (
       receivingCurrency.type === CurrencyType.BitcoinLike ||
@@ -213,27 +237,58 @@ class SwapManager {
     ) {
       const { blocks } =
         await receivingCurrency.chainClient!.getBlockchainInfo();
-      timeoutBlockHeight = blocks + args.timeoutBlockDelta;
+      result.timeoutBlockHeight = blocks + args.timeoutBlockDelta;
 
       const { keys, index } = receivingCurrency.wallet.getNewKeys();
 
-      redeemScript = swapScript(
-        args.preimageHash,
-        keys.publicKey,
-        args.refundPublicKey!,
-        timeoutBlockHeight,
-      );
+      let outputScript: Buffer;
+      let tree: Types.SwapTree | undefined;
 
-      const encodeFunction = getScriptHashFunction(
-        this.swapOutputType.get(receivingCurrency.type),
-      );
-      const outputScript = encodeFunction(redeemScript);
+      switch (args.version) {
+        case SwapVersion.Taproot: {
+          result.claimPublicKey = getHexString(keys.publicKey);
 
-      address = receivingCurrency.wallet.encodeAddress(outputScript);
+          tree = swapTree(
+            receivingCurrency.type === CurrencyType.Liquid,
+            args.preimageHash,
+            keys.publicKey,
+            args.refundPublicKey!,
+            result.timeoutBlockHeight,
+          );
+          result.swapTree = JSON.parse(
+            SwapTreeSerializer.serializeSwapTree(tree),
+          );
+
+          const musig = createMusig(keys, args.refundPublicKey!);
+          const tweakedKey = tweakMusig(receivingCurrency.type, musig, tree);
+          outputScript = Scripts.p2trOutput(tweakedKey);
+
+          break;
+        }
+
+        default: {
+          const redeemScript = swapScript(
+            args.preimageHash,
+            keys.publicKey,
+            args.refundPublicKey!,
+            result.timeoutBlockHeight,
+          );
+          result.redeemScript = getHexString(redeemScript);
+
+          const encodeFunction = getScriptHashFunction(
+            this.swapOutputType.get(receivingCurrency.type),
+          );
+          outputScript = encodeFunction(redeemScript);
+
+          break;
+        }
+      }
+
+      result.address = receivingCurrency.wallet.encodeAddress(outputScript);
       receivingCurrency.chainClient!.addOutputFilter(outputScript);
 
       if (receivingCurrency.type === CurrencyType.Liquid) {
-        blindingKey = (
+        result.blindingKey = (
           receivingCurrency.wallet as WalletLiquid
         ).deriveBlindingKeyFromScript(outputScript).privateKey;
       }
@@ -241,37 +296,42 @@ class SwapManager {
       await SwapRepository.addSwap({
         id,
         pair,
-        timeoutBlockHeight,
 
         keyIndex: index,
-        lockupAddress: address,
-        referral: args.referralId,
+        version: args.version,
         orderSide: args.orderSide,
+        referral: args.referralId,
+        lockupAddress: result.address,
         status: SwapUpdateEvent.SwapCreated,
+        timeoutBlockHeight: result.timeoutBlockHeight,
         preimageHash: getHexString(args.preimageHash),
-        redeemScript: getHexString(redeemScript),
+        redeemScript:
+          args.version === SwapVersion.Legacy
+            ? result.redeemScript
+            : SwapTreeSerializer.serializeSwapTree(tree!),
       });
     } else {
-      address = await this.getLockupContractAddress(
+      result.address = await this.getLockupContractAddress(
         receivingCurrency.symbol,
         receivingCurrency.type,
       );
 
       const blockNumber = await receivingCurrency.provider!.getBlockNumber();
-      timeoutBlockHeight = blockNumber + args.timeoutBlockDelta;
+      result.timeoutBlockHeight = blockNumber + args.timeoutBlockDelta;
 
-      claimAddress = await receivingCurrency.wallet.getAddress();
+      result.claimAddress = await receivingCurrency.wallet.getAddress();
 
       await SwapRepository.addSwap({
         id,
         pair,
-        timeoutBlockHeight,
 
-        lockupAddress: address,
+        lockupAddress: result.address,
         referral: args.referralId,
         orderSide: args.orderSide,
+        version: SwapVersion.Legacy,
         status: SwapUpdateEvent.SwapCreated,
         preimageHash: getHexString(args.preimageHash),
+        timeoutBlockHeight: result.timeoutBlockHeight,
       });
     }
 
@@ -288,15 +348,7 @@ class SwapManager {
       });
     }
 
-    return {
-      id,
-      address,
-      claimAddress,
-      timeoutBlockHeight,
-
-      redeemScript: redeemScript ? getHexString(redeemScript) : undefined,
-      blindingKey: blindingKey ? getHexString(blindingKey) : undefined,
-    };
+    return result;
   };
 
   /**
@@ -811,4 +863,4 @@ class SwapManager {
 }
 
 export default SwapManager;
-export { ChannelCreationInfo };
+export { ChannelCreationInfo, SerializedSwapTree };

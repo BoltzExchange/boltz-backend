@@ -62,12 +62,12 @@ export const prepareTx = async (argv: Arguments<any>) => {
 
   return {
     type,
-    network,
     transaction,
     redeemScript,
     blindingKey,
     walletStub: {
       type,
+      network,
       deriveBlindingKeyFromScript: () => ({
         privateKey: blindingKey,
       }),

@@ -1,8 +1,10 @@
 import { Model, Sequelize, DataTypes } from 'sequelize';
 import Pair from './Pair';
+import { SwapVersion } from '../../consts/Enums';
 
 type SwapType = {
   id: string;
+  version: SwapVersion;
 
   keyIndex?: number;
   redeemScript?: string;
@@ -35,6 +37,7 @@ type SwapType = {
 
 class Swap extends Model implements SwapType {
   public id!: string;
+  public version!: SwapVersion;
 
   public keyIndex?: number;
   public redeemScript?: string;
@@ -74,6 +77,17 @@ class Swap extends Model implements SwapType {
           type: new DataTypes.STRING(255),
           primaryKey: true,
           allowNull: false,
+        },
+        version: {
+          type: new DataTypes.INTEGER(),
+          allowNull: false,
+          validate: {
+            isIn: [
+              Object.values(SwapVersion).filter(
+                (val) => typeof val === 'number',
+              ),
+            ],
+          },
         },
         keyIndex: { type: new DataTypes.INTEGER(), allowNull: true },
         redeemScript: { type: new DataTypes.TEXT(), allowNull: true },

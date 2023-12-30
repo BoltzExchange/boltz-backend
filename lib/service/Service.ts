@@ -24,7 +24,10 @@ import RateProvider, { PairType } from '../rates/RateProvider';
 import EthereumManager from '../wallet/ethereum/EthereumManager';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import ReferralRepository from '../db/repositories/ReferralRepository';
-import SwapManager, { ChannelCreationInfo } from '../swap/SwapManager';
+import SwapManager, {
+  ChannelCreationInfo,
+  SerializedSwapTree,
+} from '../swap/SwapManager';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import { InvoiceFeature, PaymentResponse } from '../lightning/LightningClient';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
@@ -42,6 +45,7 @@ import {
   OrderSide,
   ServiceInfo,
   ServiceWarning,
+  SwapVersion,
 } from '../consts/Enums';
 import {
   Balances,
@@ -709,6 +713,7 @@ class Service {
     pairId: string;
     orderSide: string;
     preimageHash: Buffer;
+    version: SwapVersion;
     channel?: ChannelCreationInfo;
 
     // Referral ID for the swap
@@ -727,6 +732,10 @@ class Service {
 
     // Is undefined when Ether or ERC20 tokens are swapped to Lightning
     redeemScript?: string;
+
+    // Only set for Taproot swaps
+    claimPublicKey?: string;
+    swapTree?: SerializedSwapTree;
 
     // Is undefined when Bitcoin or Litecoin is swapped to Lightning
     claimAddress?: string;
@@ -752,6 +761,11 @@ class Service {
           throw ApiErrors.UNDEFINED_PARAMETER('refundPublicKey');
         }
         break;
+
+      default:
+        if (args.version !== SwapVersion.Legacy) {
+          throw Errors.UNSUPPORTED_SWAP_VERSION();
+        }
     }
 
     const lightningCurrency = getLightningCurrency(
@@ -786,6 +800,7 @@ class Service {
         args.pairId,
         orderSide,
         false,
+        args.version,
         args.invoice,
         args.referralId,
       );
@@ -801,10 +816,12 @@ class Service {
     const {
       id,
       address,
-      redeemScript,
-      claimAddress,
+      swapTree,
       timeoutBlockHeight,
       blindingKey,
+      redeemScript,
+      claimAddress,
+      claimPublicKey,
     } = await this.swapManager.createSwap({
       orderSide,
       referralId,
@@ -812,6 +829,7 @@ class Service {
 
       baseCurrency: base,
       quoteCurrency: quote,
+      version: args.version,
       channel: args.channel,
       preimageHash: args.preimageHash,
       refundPublicKey: args.refundPublicKey,
@@ -822,10 +840,12 @@ class Service {
     return {
       id,
       address,
+      swapTree,
       canBeRouted,
       blindingKey,
       redeemScript,
       claimAddress,
+      claimPublicKey,
       timeoutBlockHeight,
     };
   };
@@ -1061,6 +1081,7 @@ class Service {
     pairHash?: string,
     referralId?: string,
     channel?: ChannelCreationInfo,
+    version: SwapVersion = SwapVersion.Legacy,
   ): Promise<{
     id: string;
     bip21: string;
@@ -1071,6 +1092,10 @@ class Service {
 
     // Is undefined when Ether or ERC20 tokens are swapped to Lightning
     redeemScript?: string;
+
+    // Only set for Taproot swaps
+    claimPublicKey?: string;
+    swapTree?: SerializedSwapTree;
 
     // Is undefined when Bitcoin or Litecoin is swapped to Lightning
     claimAddress?: string;
@@ -1090,7 +1115,9 @@ class Service {
     const {
       id,
       address,
+      swapTree,
       canBeRouted,
+      claimPublicKey,
       blindingKey,
       claimAddress,
       redeemScript,
@@ -1098,6 +1125,7 @@ class Service {
     } = await this.createSwap({
       pairId,
       channel,
+      version,
       invoice,
       orderSide,
       referralId,
@@ -1120,11 +1148,13 @@ class Service {
         id,
         bip21,
         address,
+        swapTree,
         blindingKey,
         claimAddress,
         redeemScript,
         acceptZeroConf,
         expectedAmount,
+        claimPublicKey,
         timeoutBlockHeight,
       };
     } catch (error) {
@@ -1148,6 +1178,7 @@ class Service {
    */
   public createReverseSwap = async (args: {
     pairId: string;
+    version: SwapVersion;
     pairHash?: string;
     orderSide: string;
     preimageHash: Buffer;
@@ -1237,7 +1268,12 @@ class Service {
     }
 
     const [onchainTimeoutBlockDelta] =
-      await this.timeoutDeltaProvider.getTimeout(args.pairId, side, true);
+      await this.timeoutDeltaProvider.getTimeout(
+        args.pairId,
+        side,
+        true,
+        args.version,
+      );
 
     let lightningTimeoutBlockDelta = TimeoutDeltaProvider.convertBlocks(
       sending,

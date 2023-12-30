@@ -7,12 +7,22 @@ abstract class RouterBase {
   public readonly path: string;
 
   protected constructor(
-    private logger: Logger,
+    protected readonly logger: Logger,
     path: string,
   ) {
     this.path = path;
   }
 
+  /**
+   * @openapi
+   * components:
+   *   schemas:
+   *     ErrorResponse:
+   *       type: object
+   *       properties:
+   *         error:
+   *           type: string
+   */
   public abstract getRouter: () => Router;
 
   protected handleError = (

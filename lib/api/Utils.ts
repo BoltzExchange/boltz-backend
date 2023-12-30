@@ -137,3 +137,9 @@ export const writeErrorResponse = (
 export const setContentTypeJson = (res: Response) => {
   res.set('Content-Type', 'application/json');
 };
+
+export const checkPreimageHashLength = (preimageHash: Buffer) => {
+  if (preimageHash.length !== 32) {
+    throw `invalid preimage hash length: ${preimageHash.length}`;
+  }
+};

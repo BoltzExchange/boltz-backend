@@ -4,7 +4,7 @@ import { randomBytes } from 'crypto';
 import { ContractTransactionResponse } from 'ethers';
 import { Transaction, crypto } from 'bitcoinjs-lib';
 import bolt11, { RoutingInfo } from '@boltz/bolt11';
-import { Errors, OutputType, Scripts } from 'boltz-core';
+import { OutputType, Scripts } from 'boltz-core';
 import { Transaction as LiquidTransaction, confidential } from 'liquidjs-lib';
 import commitHash from './Version';
 import packageJson from '../package.json';
@@ -13,6 +13,7 @@ import ChainClient from './chain/ChainClient';
 import { etherDecimals } from './consts/Consts';
 
 const {
+  p2trOutput,
   p2shOutput,
   p2wshOutput,
   p2pkhOutput,
@@ -359,7 +360,7 @@ export const getPubkeyHashFunction = (
       return p2pkhOutput;
 
     case OutputType.Taproot:
-      throw Errors.TAPROOT_NOT_SUPPORTED;
+      throw p2trOutput;
   }
 };
 
@@ -377,7 +378,7 @@ export const getScriptHashFunction = (
       return p2shOutput;
 
     case OutputType.Taproot:
-      throw Errors.TAPROOT_NOT_SUPPORTED;
+      throw p2trOutput;
   }
 };
 

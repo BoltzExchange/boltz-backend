@@ -1,18 +1,22 @@
 import { BIP32Factory } from 'bip32';
+import { randomBytes } from 'crypto';
 import * as ecc from 'tiny-secp256k1';
 import { SLIP77Factory } from 'slip77';
-import { Networks } from 'boltz-core';
+import { Networks, swapTree } from 'boltz-core';
+import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371';
 import { generateMnemonic, mnemonicToSeedSync } from 'bip39';
 import { networks, Transaction as TransactionLiquid } from 'liquidjs-lib';
 import Logger from '../../lib/Logger';
 import Database from '../../lib/db/Database';
 import Wallet from '../../lib/wallet/Wallet';
+import { ECPair } from '../../lib/ECPairHelper';
 import { CurrencyType } from '../../lib/consts/Enums';
 import { bitcoinClient, elementsClient } from './Nodes';
 import WalletLiquid from '../../lib/wallet/WalletLiquid';
 import CoreWalletProvider from '../../lib/wallet/providers/CoreWalletProvider';
 import ElementsWalletProvider from '../../lib/wallet/providers/ElementsWalletProvider';
 import {
+  extractRefundPublicKeyFromSwapTree,
   fromOutputScript,
   getOutputValue,
   setup,
@@ -147,5 +151,20 @@ describe('Core', () => {
       ),
     ).toEqual(0);
     walletLiquid['network'] = networks.regtest;
+  });
+
+  test('should extract refund public key from swap tree', () => {
+    const refundKey = ECPair.makeRandom().publicKey;
+    const tree = swapTree(
+      false,
+      randomBytes(32),
+      ECPair.makeRandom().publicKey,
+      refundKey,
+      1,
+    );
+
+    expect(extractRefundPublicKeyFromSwapTree(tree)).toEqual(
+      toXOnly(refundKey),
+    );
   });
 });

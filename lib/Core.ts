@@ -1,8 +1,13 @@
 import * as ecc from 'tiny-secp256k1';
-import zkp from '@vulpemventures/secp256k1-zkp';
+import { randomBytes } from 'crypto';
+import { BIP32Interface } from 'bip32';
+import { ECPairInterface } from 'ecpair';
+import zkpInit from '@vulpemventures/secp256k1-zkp';
 import { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
+import zkpMusigInit, { Secp256k1ZKP } from '@michael1011/secp256k1-zkp';
 import {
   address,
+  script,
   Network,
   TxOutput,
   initEccLib,
@@ -15,9 +20,13 @@ import {
   Transaction as TransactionLiquid,
 } from 'liquidjs-lib';
 import {
+  Musig,
+  init,
+  Types,
+  targetFee,
+  TaprootUtils,
   ClaimDetails,
   RefundDetails,
-  targetFee,
   constructClaimTransaction as constructClaimTransactionBitcoin,
   constructRefundTransaction as constructRefundTransactionBitcoin,
 } from 'boltz-core';
@@ -25,10 +34,12 @@ import {
   init as initLiquid,
   LiquidClaimDetails,
   LiquidRefundDetails,
+  TaprootUtils as TaprootUtilsLiquid,
   constructClaimTransaction as constructClaimTransactionLiquid,
   constructRefundTransaction as constructRefundTransactionLiquid,
 } from 'boltz-core/dist/lib/liquid';
 import Wallet from './wallet/Wallet';
+import { ECPair } from './ECPairHelper';
 import ChainClient from './chain/ChainClient';
 import { CurrencyType } from './consts/Enums';
 import WalletLiquid from './wallet/WalletLiquid';
@@ -45,13 +56,18 @@ type UnblindedOutput = Omit<TxOutputLiquid, 'value'> & {
   isLbtc: boolean;
 };
 
+export let zkpMusig: Secp256k1ZKP;
 let confi: confidential.Confidential;
 
 export const setup = async () => {
-  const zkpLib = await zkp();
-  confi = new confidential.Confidential(zkpLib);
+  init(ecc);
   initEccLib(ecc);
-  initLiquid(zkpLib);
+
+  const zkp = await zkpInit();
+  confi = new confidential.Confidential(zkp);
+
+  zkpMusig = await zkpMusigInit();
+  initLiquid(zkpMusig);
 };
 
 export const parseTransaction = (
@@ -147,7 +163,6 @@ export const constructClaimTransaction = (
   claimDetails: ClaimDetails[] | LiquidClaimDetails[],
   destinationAddress: string,
   feePerVbyte: number,
-  assetHash?: string,
 ) => {
   if (isBitcoin(wallet.type)) {
     return targetFee(feePerVbyte, (fee) =>
@@ -172,7 +187,7 @@ export const constructClaimTransaction = (
       decodedAddress.scriptPubKey!,
       fee,
       true,
-      assetHash,
+      wallet.network as LiquidNetwork,
       decodedAddress.blindingKey,
     ),
   );
@@ -184,7 +199,6 @@ export const constructRefundTransaction = (
   destinationAddress: string,
   timeoutBlockHeight: number,
   feePerVbyte: number,
-  assetHash?: string,
 ) => {
   if (isBitcoin(wallet.type)) {
     return targetFee(feePerVbyte, (fee) =>
@@ -211,7 +225,7 @@ export const constructRefundTransaction = (
       timeoutBlockHeight,
       fee,
       true,
-      assetHash,
+      wallet.network as LiquidNetwork,
       decodedAddress.blindingKey,
     ),
   );
@@ -226,12 +240,30 @@ export const calculateTransactionFee = async (
     : calculateLiquidTransactionFee(transaction as TransactionLiquid);
 };
 
-export const getAssetHash = (
+export const extractRefundPublicKeyFromSwapTree = (
+  swapTree: Types.SwapTree,
+): Buffer => script.decompile(swapTree.refundLeaf.output)![0] as Buffer;
+
+export const createMusig = (
+  ourKeys: ECPairInterface | BIP32Interface,
+  refundPublicKey: Buffer,
+) =>
+  new Musig(
+    zkpMusig,
+    ECPair.fromPrivateKey(ourKeys.privateKey!),
+    randomBytes(32),
+    [ourKeys.publicKey, refundPublicKey],
+  );
+
+export const tweakMusig = (
   type: CurrencyType,
-  network: Network,
-): string | undefined => {
-  return isBitcoin(type) ? undefined : (network as LiquidNetwork).assetHash;
-};
+  musig: Musig,
+  swapTree: Types.SwapTree,
+) =>
+  (isBitcoin(type) ? TaprootUtils : TaprootUtilsLiquid).tweakMusig(
+    musig,
+    swapTree.tree,
+  );
 
 const isBitcoin = (type: CurrencyType) => type === CurrencyType.BitcoinLike;
 

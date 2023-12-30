@@ -2,14 +2,14 @@ import { Op } from 'sequelize';
 import AsyncLock from 'async-lock';
 import { EventEmitter } from 'events';
 import { Transaction } from 'bitcoinjs-lib';
-import { detectPreimage, detectSwap } from 'boltz-core';
+import { detectPreimage, detectSwap, SwapTreeSerializer } from 'boltz-core';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import Errors from './Errors';
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';
 import Wallet from '../wallet/Wallet';
 import ChainClient from '../chain/ChainClient';
-import { SwapUpdateEvent } from '../consts/Enums';
+import { SwapUpdateEvent, SwapVersion } from '../consts/Enums';
 import ReverseSwap from '../db/models/ReverseSwap';
 import SwapRepository from '../db/repositories/SwapRepository';
 import WalletManager, { Currency } from '../wallet/WalletManager';
@@ -18,6 +18,9 @@ import {
   getOutputValue,
   parseTransaction,
   calculateTransactionFee,
+  tweakMusig,
+  createMusig,
+  extractRefundPublicKeyFromSwapTree,
 } from '../Core';
 import {
   splitPairId,
@@ -446,10 +449,27 @@ class UtxoNursery extends EventEmitter {
     transaction: Transaction | LiquidTransaction,
     confirmed: boolean,
   ) => {
-    const swapOutput = detectSwap(
-      getHexBuffer(swap.redeemScript!),
-      transaction,
-    )!;
+    let redeemScriptOrTweakedKey: Buffer;
+
+    switch (swap.version) {
+      case SwapVersion.Taproot: {
+        const tree = SwapTreeSerializer.deserializeSwapTree(swap.redeemScript!);
+        const musig = createMusig(
+          wallet.getKeysByIndex(swap.keyIndex!),
+          extractRefundPublicKeyFromSwapTree(tree),
+        );
+        redeemScriptOrTweakedKey = tweakMusig(wallet.type, musig, tree);
+
+        break;
+      }
+
+      default: {
+        redeemScriptOrTweakedKey = getHexBuffer(swap.redeemScript!);
+        break;
+      }
+    }
+
+    const swapOutput = detectSwap(redeemScriptOrTweakedKey, transaction)!;
 
     this.logger.verbose(
       `Found ${confirmed ? '' : 'un'}confirmed lockup transaction for Swap ${

@@ -1,7 +1,7 @@
 import { Op } from 'sequelize';
 import AsyncLock from 'async-lock';
 import { EventEmitter } from 'events';
-import { detectSwap } from 'boltz-core';
+import { detectSwap, OutputType, SwapTreeSerializer } from 'boltz-core';
 import { Transaction } from 'bitcoinjs-lib';
 import { ContractTransactionResponse } from 'ethers';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib';
@@ -23,20 +23,21 @@ import LightningNursery from './LightningNursery';
 import ReverseSwap from '../db/models/ReverseSwap';
 import ChannelCreation from '../db/models/ChannelCreation';
 import SwapRepository from '../db/repositories/SwapRepository';
-import { CurrencyType, SwapUpdateEvent } from '../consts/Enums';
 import ContractHandler from '../wallet/ethereum/ContractHandler';
+import EthereumManager from '../wallet/ethereum/EthereumManager';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
 import { ERC20SwapValues, EtherSwapValues } from '../consts/Types';
 import { etherDecimals, ReverseSwapOutputType } from '../consts/Consts';
 import ERC20WalletProvider from '../wallet/providers/ERC20WalletProvider';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
+import { CurrencyType, SwapUpdateEvent, SwapVersion } from '../consts/Enums';
+import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import {
   HtlcState,
   InvoiceState,
   LightningClient,
 } from '../lightning/LightningClient';
-import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import {
   queryERC20SwapValuesFromLock,
   queryEtherSwapValuesFromLock,
@@ -57,13 +58,13 @@ import {
   ClaimDetails,
   constructClaimTransaction,
   constructRefundTransaction,
-  getAssetHash,
+  createMusig,
+  extractRefundPublicKeyFromSwapTree,
   LiquidClaimDetails,
   LiquidRefundDetails,
   parseTransaction,
   RefundDetails,
 } from '../Core';
-import EthereumManager from '../wallet/ethereum/EthereumManager';
 
 interface ISwapNursery {
   // UTXO based chains emit the "Transaction" object and Ethereum based ones just the transaction hash
@@ -898,22 +899,39 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
     }
 
     const output = transaction.outs[swap.lockupTransactionVout!];
+    const claimDetails = {
+      ...output,
+      preimage,
+      vout: swap.lockupTransactionVout!,
+      txHash: transaction.getHash(),
+      keys: wallet.getKeysByIndex(swap.keyIndex!),
+    } as ClaimDetails | LiquidClaimDetails;
+
+    switch (swap.version) {
+      case SwapVersion.Taproot: {
+        claimDetails.type = OutputType.Taproot;
+        claimDetails.cooperative = false;
+        claimDetails.swapTree = SwapTreeSerializer.deserializeSwapTree(
+          swap.redeemScript!,
+        );
+        claimDetails.internalKey = createMusig(
+          claimDetails.keys,
+          extractRefundPublicKeyFromSwapTree(claimDetails.swapTree),
+        ).getAggregatedPublicKey();
+        break;
+      }
+
+      default: {
+        claimDetails.type = this.swapOutputType.get(wallet.type);
+        claimDetails.redeemScript = getHexBuffer(swap.redeemScript!);
+      }
+    }
+
     const claimTransaction = constructClaimTransaction(
       wallet,
-      [
-        {
-          ...output,
-          preimage,
-          vout: swap.lockupTransactionVout!,
-          type: this.swapOutputType.get(wallet.type),
-          txHash: transaction.getHash(),
-          keys: wallet.getKeysByIndex(swap.keyIndex!),
-          redeemScript: getHexBuffer(swap.redeemScript!),
-        },
-      ] as ClaimDetails[] | LiquidClaimDetails[],
+      [claimDetails] as ClaimDetails[] | LiquidClaimDetails[],
       destinationAddress,
       await chainClient.estimateFee(),
-      getAssetHash(chainClient.currencyType, wallet.network),
     );
 
     const claimTransactionFee = await calculateTransactionFee(
@@ -1233,7 +1251,6 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
       await wallet.getAddress(),
       reverseSwap.timeoutBlockHeight,
       await chainCurrency.chainClient!.estimateFee(),
-      getAssetHash(chainClient.currencyType, wallet.network),
     );
     const minerFee = await calculateTransactionFee(
       chainCurrency.chainClient!,

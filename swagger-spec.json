@@ -61,6 +61,46 @@
           }
         }
       }
+    },
+    "/swap/submarine": {
+      "post": {
+        "description": "Create a new Submarine Swap from onchain to lightning",
+        "tags": [
+          "Swap"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmarineRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The created Submarine Swap",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error that caused the Submarine Swap creation to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -96,6 +136,47 @@
             "description": "UNIX timestamp of the block in which the funding transaction of the oldest channel was included"
           }
         }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        }
+      },
+      "SubmarineRequest": {
+        "type": "object",
+        "properties": {
+          "pairId": {
+            "type": "string",
+            "required": true
+          },
+          "orderSide": {
+            "type": "string",
+            "required": true,
+            "enum": [
+              "buy",
+              "sell"
+            ]
+          },
+          "refundPublicKey": {
+            "type": "string",
+            "required": true
+          },
+          "invoice": {
+            "type": "string"
+          },
+          "preimageHash": {
+            "type": "string"
+          },
+          "pairHash": {
+            "type": "string"
+          },
+          "referralId": {
+            "type": "string"
+          }
+        }
       }
     }
   },
@@ -103,6 +184,10 @@
     {
       "name": "Nodes",
       "description": "Lightning nodes"
+    },
+    {
+      "name": "Swap",
+      "description": "Swap related endpoints"
     }
   ],
   "servers": [

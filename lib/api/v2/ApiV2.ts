@@ -3,6 +3,7 @@ import Logger from '../../Logger';
 import { apiPrefix } from './Consts';
 import Service from '../../service/Service';
 import RouterBase from './routers/RouterBase';
+import SwapRouter from './routers/SwapRouter';
 import NodesRouter from './routers/NodesRouter';
 
 class ApiV2 {
@@ -12,7 +13,10 @@ class ApiV2 {
     private readonly logger: Logger,
     private readonly service: Service,
   ) {
-    this.routers = [new NodesRouter(this.logger, this.service)];
+    this.routers = [
+      new NodesRouter(this.logger, this.service),
+      new SwapRouter(this.logger, this.service),
+    ];
   }
 
   public registerRoutes = (app: Application) => {

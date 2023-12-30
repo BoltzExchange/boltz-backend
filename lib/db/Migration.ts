@@ -17,10 +17,11 @@ import {
   getChainCurrency,
   createApiCredential,
 } from '../Utils';
+import { SwapVersion } from '../consts/Enums';
 
 // TODO: integration tests for actual migrations
 class Migration {
-  private static latestSchemaVersion = 7;
+  private static latestSchemaVersion = 8;
 
   constructor(
     private logger: Logger,
@@ -362,6 +363,37 @@ class Migration {
 
         await this.finishMigration(versionRow.version, currencies);
 
+        break;
+      }
+
+      case 7: {
+        this.logUpdatingTable('swaps');
+
+        const attrs = {
+          type: new DataTypes.INTEGER(),
+          allowNull: true,
+          validate: {
+            isIn: [
+              Object.values(SwapVersion).filter(
+                (val) => typeof val === 'number',
+              ),
+            ],
+          },
+        };
+        await this.sequelize
+          .getQueryInterface()
+          .addColumn('swaps', 'version', attrs);
+
+        await this.sequelize
+          .getQueryInterface()
+          .bulkUpdate('swaps', { version: SwapVersion.Legacy }, {});
+
+        attrs.allowNull = false;
+        await this.sequelize
+          .getQueryInterface()
+          .changeColumn('swaps', 'version', attrs);
+
+        await this.finishMigration(versionRow.version, currencies);
         break;
       }
 

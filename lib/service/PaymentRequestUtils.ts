@@ -1,7 +1,6 @@
 import { encode } from 'querystring';
 import { networks as networksLiquid } from 'liquidjs-lib';
-import { getAssetHash } from '../Core';
-import { CurrencyType } from '../consts/Enums';
+import { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
 import { Currency } from '../wallet/WalletManager';
 import ElementsClient from '../chain/ElementsClient';
 import { satoshisToCoins } from '../DenominationConverter';
@@ -17,7 +16,7 @@ class PaymentRequestUtils {
 
   constructor(liquid?: Currency) {
     if (liquid) {
-      this.lbtcAssetHash = getAssetHash(CurrencyType.Liquid, liquid.network!);
+      this.lbtcAssetHash = (liquid.network as LiquidNetwork)!.assetHash;
 
       if (liquid.network! === networksLiquid.testnet) {
         this.prefixes.set(ElementsClient.symbol, 'liquidtestnet');

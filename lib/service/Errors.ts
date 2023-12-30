@@ -129,4 +129,8 @@ export default {
     message: 'swap to Boltz lightning nodes are forbidden',
     code: concatErrorCode(ErrorCodePrefix.Service, 33),
   }),
+  UNSUPPORTED_SWAP_VERSION: (): Error => ({
+    message: 'swap version not supported for pair',
+    code: concatErrorCode(ErrorCodePrefix.Service, 34),
+  }),
 };

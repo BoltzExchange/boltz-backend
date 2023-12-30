@@ -26,7 +26,6 @@ export const builder = {
 export const handler = async (argv: Arguments<any>): Promise<void> => {
   const {
     keys,
-    network,
     walletStub,
     swapOutput,
     transaction,
@@ -47,8 +46,6 @@ export const handler = async (argv: Arguments<any>): Promise<void> => {
     ],
     destinationAddress,
     argv.feePerVbyte,
-    // Needed for Liquid
-    network.assetHash,
   ).toHex();
 
   console.log(stringify({ claimTransaction }));

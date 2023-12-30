@@ -131,10 +131,16 @@ class GrpcService {
     boltzrpc.UpdateTimeoutBlockDeltaResponse
   > = async (call, callback) => {
     await this.handleCallback(call, callback, async () => {
-      const { pair, reverseTimeout, swapMinimalTimeout, swapMaximalTimeout } =
-        call.request.toObject();
+      const {
+        pair,
+        reverseTimeout,
+        swapMinimalTimeout,
+        swapMaximalTimeout,
+        swapTaproot,
+      } = call.request.toObject();
 
       this.service.updateTimeoutBlockDelta(pair, {
+        swapTaproot,
         reverse: reverseTimeout,
         swapMinimal: swapMinimalTimeout,
         swapMaximal: swapMaximalTimeout,

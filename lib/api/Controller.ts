@@ -10,8 +10,8 @@ import LndClient from '../lightning/LndClient';
 import ClnClient from '../lightning/ClnClient';
 import ReferralStats from '../data/ReferralStats';
 import { SwapUpdate } from '../service/EventHandler';
-import { SwapType, SwapUpdateEvent } from '../consts/Enums';
 import SwapRepository from '../db/repositories/SwapRepository';
+import { SwapType, SwapUpdateEvent, SwapVersion } from '../consts/Enums';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import {
@@ -23,6 +23,7 @@ import {
   stringify,
 } from '../Utils';
 import {
+  checkPreimageHashLength,
   createdResponse,
   errorResponse,
   successResponse,
@@ -434,7 +435,7 @@ class Controller {
         { name: 'preimageHash', type: 'string', hex: true },
       ]);
 
-      this.checkPreimageHashLength(preimageHash);
+      checkPreimageHashLength(preimageHash);
 
       response = await this.service.createSwap({
         pairId,
@@ -443,6 +444,7 @@ class Controller {
         referralId,
         preimageHash,
         refundPublicKey,
+        version: SwapVersion.Legacy,
       });
     }
 
@@ -481,7 +483,7 @@ class Controller {
       { name: 'claimPublicKey', type: 'string', hex: true, optional: true },
     ]);
 
-    this.checkPreimageHashLength(preimageHash);
+    checkPreimageHashLength(preimageHash);
 
     const response = await this.service.createReverseSwap({
       pairId,
@@ -495,6 +497,7 @@ class Controller {
       onchainAmount,
       claimPublicKey,
       prepayMinerFee,
+      version: SwapVersion.Legacy,
     });
 
     this.logger.verbose(`Created Reverse Swap with id: ${response.id}`);
@@ -577,12 +580,6 @@ class Controller {
     }
 
     throw `could not find swap type: ${type}`;
-  };
-
-  private checkPreimageHashLength = (preimageHash: Buffer) => {
-    if (preimageHash.length !== 32) {
-      throw `invalid preimage hash length: ${preimageHash.length}`;
-    }
   };
 
   private writeToSse = (res: Response, message: SwapUpdate) => {

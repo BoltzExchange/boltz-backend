@@ -1,11 +1,13 @@
 import path from 'path';
 import { Request, Response } from 'express';
-import Errors from './Errors';
 import Logger from '../Logger';
 import Bouncer from './Bouncer';
 import Service from '../service/Service';
+import NodeInfo from '../service/NodeInfo';
 import SwapNursery from '../swap/SwapNursery';
 import ServiceErrors from '../service/Errors';
+import LndClient from '../lightning/LndClient';
+import ClnClient from '../lightning/ClnClient';
 import ReferralStats from '../data/ReferralStats';
 import { SwapUpdate } from '../service/EventHandler';
 import { SwapType, SwapUpdateEvent } from '../consts/Enums';
@@ -14,20 +16,18 @@ import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import {
   getChainCurrency,
-  getHexBuffer,
   getVersion,
   mapToObject,
   saneStringify,
   splitPairId,
   stringify,
 } from '../Utils';
-
-type ApiArgument = {
-  name: string;
-  type: string;
-  hex?: boolean;
-  optional?: boolean;
-};
+import {
+  createdResponse,
+  errorResponse,
+  successResponse,
+  validateRequest,
+} from './Utils';
 
 class Controller {
   // A map between the ids and HTTP streams of all pending swaps
@@ -36,11 +36,6 @@ class Controller {
   // TODO: refactor
   // A map between the ids and statuses of the swaps
   private pendingSwapInfos = new Map<string, SwapUpdate>();
-
-  // Some endpoints are getting spammed on mainnet, so we don't log the warnings for them
-  private static readonly errorsNotToLog: any[] = [
-    ServiceErrors.SWAP_NO_LOCKUP().message,
-  ];
 
   constructor(
     private logger: Logger,
@@ -175,7 +170,7 @@ class Controller {
 
   // GET requests
   public version = (_: Request, res: Response): void => {
-    this.successResponse(res, {
+    successResponse(res, {
       version: getVersion(),
     });
   };
@@ -183,7 +178,7 @@ class Controller {
   public getPairs = (_: Request, res: Response): void => {
     const data = this.service.getPairs();
 
-    this.successResponse(res, {
+    successResponse(res, {
       info: data.info,
       warnings: data.warnings,
       pairs: mapToObject(data.pairs),
@@ -191,25 +186,39 @@ class Controller {
   };
 
   public getNodes = (_: Request, res: Response): void => {
-    const nodes = this.service.getNodes();
+    const result = Object.fromEntries(
+      Array.from(this.service.getNodes().entries()).map(
+        ([symbol, nodeInfo]) => {
+          return [
+            symbol,
+            nodeInfo.get(LndClient.serviceName) ||
+              nodeInfo.get(ClnClient.serviceName),
+          ];
+        },
+      ),
+    );
 
-    this.successResponse(res, {
-      nodes: mapToObject(nodes),
+    successResponse(res, {
+      nodes: result,
     });
   };
 
   public getNodeStats = (_: Request, res: Response): void => {
     const stats = this.service.getNodeStats();
 
-    this.successResponse(res, {
-      nodes: mapToObject(stats),
+    successResponse(res, {
+      nodes: Object.fromEntries(
+        Array.from(stats).map(([symbol, stats]) => {
+          return [symbol, stats.get(NodeInfo.totalStats)];
+        }),
+      ),
     });
   };
 
   public getTimeouts = async (_: Request, res: Response): Promise<void> => {
     const timeouts = this.service.getTimeouts();
 
-    this.successResponse(res, {
+    successResponse(res, {
       timeouts: mapToObject(timeouts),
     });
   };
@@ -227,9 +236,9 @@ class Controller {
         };
       }
 
-      this.successResponse(res, response);
+      successResponse(res, response);
     } catch (error) {
-      this.errorResponse(req, res, error, 501);
+      errorResponse(this.logger, req, res, error, 501);
     }
   };
 
@@ -239,13 +248,13 @@ class Controller {
   ): Promise<void> => {
     const feeEstimation = await this.service.getFeeEstimation();
 
-    this.successResponse(res, mapToObject(feeEstimation));
+    successResponse(res, mapToObject(feeEstimation));
   };
 
   // POST requests
   public routingHints = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { symbol, routingNode } = this.validateRequest(req.body, [
+      const { symbol, routingNode } = validateRequest(req.body, [
         { name: 'symbol', type: 'string' },
         { name: 'routingNode', type: 'string' },
       ]);
@@ -255,42 +264,48 @@ class Controller {
         routingNode,
       );
 
-      this.successResponse(res, {
+      successResponse(res, {
         routingHints,
       });
     } catch (error) {
-      this.errorResponse(req, res, error);
+      errorResponse(this.logger, req, res, error);
     }
   };
 
   public swapStatus = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { id } = this.validateRequest(req.body, [
+      const { id } = validateRequest(req.body, [
         { name: 'id', type: 'string' },
       ]);
 
       const response = this.pendingSwapInfos.get(id);
 
       if (response) {
-        this.successResponse(res, response);
+        successResponse(res, response);
       } else {
-        this.errorResponse(req, res, `could not find swap with id: ${id}`, 404);
+        errorResponse(
+          this.logger,
+          req,
+          res,
+          `could not find swap with id: ${id}`,
+          404,
+        );
       }
     } catch (error) {
-      this.errorResponse(req, res, error);
+      errorResponse(this.logger, req, res, error);
     }
   };
 
   public swapRates = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { id } = this.validateRequest(req.body, [
+      const { id } = validateRequest(req.body, [
         { name: 'id', type: 'string' },
       ]);
 
       const response = await this.service.getSwapRates(id);
-      this.successResponse(res, response);
+      successResponse(res, response);
     } catch (error) {
-      this.errorResponse(req, res, error);
+      errorResponse(this.logger, req, res, error);
     }
   };
 
@@ -299,7 +314,7 @@ class Controller {
     res: Response,
   ): Promise<void> => {
     try {
-      const { currency, transactionId } = this.validateRequest(req.body, [
+      const { currency, transactionId } = validateRequest(req.body, [
         { name: 'currency', type: 'string' },
         { name: 'transactionId', type: 'string' },
       ]);
@@ -308,9 +323,9 @@ class Controller {
         currency,
         transactionId,
       );
-      this.successResponse(res, { transactionHex: response });
+      successResponse(res, { transactionHex: response });
     } catch (error) {
-      this.errorResponse(req, res, error);
+      errorResponse(this.logger, req, res, error);
     }
   };
 
@@ -319,14 +334,14 @@ class Controller {
     res: Response,
   ): Promise<void> => {
     try {
-      const { id } = this.validateRequest(req.body, [
+      const { id } = validateRequest(req.body, [
         { name: 'id', type: 'string' },
       ]);
 
       const response = await this.service.getSwapTransaction(id);
-      this.successResponse(res, response);
+      successResponse(res, response);
     } catch (error) {
-      this.errorResponse(req, res, error);
+      errorResponse(this.logger, req, res, error);
     }
   };
 
@@ -335,7 +350,7 @@ class Controller {
     res: Response,
   ): Promise<void> => {
     try {
-      const { currency, transactionHex } = this.validateRequest(req.body, [
+      const { currency, transactionHex } = validateRequest(req.body, [
         { name: 'currency', type: 'string' },
         { name: 'transactionHex', type: 'string' },
       ]);
@@ -344,15 +359,15 @@ class Controller {
         currency,
         transactionHex,
       );
-      this.successResponse(res, { transactionId: response });
+      successResponse(res, { transactionId: response });
     } catch (error) {
-      this.errorResponse(req, res, error);
+      errorResponse(this.logger, req, res, error);
     }
   };
 
   public createSwap = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { type } = this.validateRequest(req.body, [
+      const { type } = validateRequest(req.body, [
         { name: 'type', type: 'string' },
       ]);
 
@@ -368,7 +383,7 @@ class Controller {
           break;
       }
     } catch (error) {
-      this.errorResponse(req, res, error);
+      errorResponse(this.logger, req, res, error);
     }
   };
 
@@ -382,7 +397,7 @@ class Controller {
       referralId,
       preimageHash,
       refundPublicKey,
-    } = this.validateRequest(req.body, [
+    } = validateRequest(req.body, [
       { name: 'pairId', type: 'string' },
       { name: 'orderSide', type: 'string' },
       { name: 'channel', type: 'object', optional: true },
@@ -394,7 +409,7 @@ class Controller {
     ]);
 
     if (channel !== undefined) {
-      this.validateRequest(channel, [
+      validateRequest(channel, [
         { name: 'auto', type: 'boolean' },
         { name: 'private', type: 'boolean' },
         { name: 'inboundLiquidity', type: 'number' },
@@ -415,7 +430,7 @@ class Controller {
       );
     } else {
       // Check that the preimage hash was set
-      this.validateRequest(req.body, [
+      validateRequest(req.body, [
         { name: 'preimageHash', type: 'string', hex: true },
       ]);
 
@@ -436,7 +451,7 @@ class Controller {
 
     delete response.canBeRouted;
 
-    this.createdResponse(res, response);
+    createdResponse(res, response);
   };
 
   private createReverseSubmarineSwap = async (req: Request, res: Response) => {
@@ -452,7 +467,7 @@ class Controller {
       onchainAmount,
       claimPublicKey,
       prepayMinerFee,
-    } = this.validateRequest(req.body, [
+    } = validateRequest(req.body, [
       { name: 'pairId', type: 'string' },
       { name: 'orderSide', type: 'string' },
       { name: 'preimageHash', type: 'string', hex: true },
@@ -485,12 +500,12 @@ class Controller {
     this.logger.verbose(`Created Reverse Swap with id: ${response.id}`);
     this.logger.silly(`Reverse swap ${response.id}: ${stringify(response)}`);
 
-    this.createdResponse(res, response);
+    createdResponse(res, response);
   };
 
   public setInvoice = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { id, invoice, pairHash } = this.validateRequest(req.body, [
+      const { id, invoice, pairHash } = validateRequest(req.body, [
         { name: 'id', type: 'string' },
         { name: 'invoice', type: 'string' },
         { name: 'pairHash', type: 'string', optional: true },
@@ -501,9 +516,9 @@ class Controller {
         invoice.toLowerCase(),
         pairHash,
       );
-      this.successResponse(res, response);
+      successResponse(res, response);
     } catch (error) {
-      this.errorResponse(req, res, error);
+      errorResponse(this.logger, req, res, error);
     }
   };
 
@@ -515,16 +530,16 @@ class Controller {
       const referral = await Bouncer.validateRequestAuthentication(req);
       const stats = await ReferralStats.generate(referral.id);
 
-      this.successResponse(res, stats);
+      successResponse(res, stats);
     } catch (error) {
-      this.errorResponse(req, res, error, 401);
+      errorResponse(this.logger, req, res, error, 401);
     }
   };
 
   // EventSource streams
   public streamSwapStatus = (req: Request, res: Response): void => {
     try {
-      const { id } = this.validateRequest(req.query, [
+      const { id } = validateRequest(req.query, [
         { name: 'id', type: 'string' },
       ]);
 
@@ -548,114 +563,8 @@ class Controller {
         this.pendingSwapStreams.delete(id);
       });
     } catch (error) {
-      this.errorResponse(req, res, error);
+      errorResponse(this.logger, req, res, error);
     }
-  };
-
-  /**
-   * Validates that all required arguments were provided in the body correctly
-   *
-   * @returns the validated arguments
-   */
-  private validateRequest = (
-    body: Record<string, any>,
-    argsToCheck: ApiArgument[],
-  ) => {
-    const response: any = {};
-
-    argsToCheck.forEach((arg) => {
-      const value = body[arg.name];
-
-      if (value !== undefined) {
-        if (typeof value === arg.type) {
-          if (arg.hex && value !== '') {
-            const buffer = getHexBuffer(value);
-
-            if (buffer.length === 0) {
-              throw Errors.COULD_NOT_PARSE_HEX(arg.name);
-            }
-
-            response[arg.name] = buffer;
-          } else {
-            response[arg.name] = value;
-          }
-        } else {
-          throw Errors.INVALID_PARAMETER(arg.name);
-        }
-      } else if (!arg.optional) {
-        throw Errors.UNDEFINED_PARAMETER(arg.name);
-      }
-    });
-
-    return response;
-  };
-
-  public errorResponse = (
-    req: Request,
-    res: Response,
-    error: unknown,
-    statusCode = 400,
-  ): void => {
-    if (typeof error === 'string') {
-      this.writeErrorResponse(req, res, statusCode, { error });
-    } else {
-      const errorObject = error as any;
-
-      // Bitcoin Core related errors
-      if (errorObject.details) {
-        this.writeErrorResponse(req, res, statusCode, {
-          error: errorObject.details,
-        });
-        // Custom error when broadcasting a refund transaction fails because
-        // the locktime requirement has not been met yet
-      } else if (errorObject.timeoutBlockHeight) {
-        this.writeErrorResponse(req, res, statusCode, error);
-        // Everything else
-      } else {
-        this.writeErrorResponse(req, res, statusCode, {
-          error: errorObject.message,
-        });
-      }
-    }
-  };
-
-  private successResponse = (res: Response, data: unknown) => {
-    this.setContentTypeJson(res);
-    res.status(200);
-
-    if (typeof data === 'object') {
-      res.json(data);
-    } else {
-      res.write(data);
-      res.end();
-    }
-  };
-
-  private createdResponse = (res: Response, data: unknown) => {
-    this.setContentTypeJson(res);
-    res.status(201).json(data);
-  };
-
-  private writeErrorResponse = (
-    req: Request,
-    res: Response,
-    statusCode: number,
-    error: any,
-  ) => {
-    if (!Controller.errorsNotToLog.includes(error?.error || error)) {
-      this.logger.warn(
-        `Request ${req.url} ${JSON.stringify(
-          req.body,
-        )} failed: ${JSON.stringify(error)}`,
-      );
-    }
-
-    this.setContentTypeJson(res);
-    res.status(statusCode).json(error);
-  };
-
-  private setContentTypeJson = (res: Response) => {
-    res.set('Content-Type', 'application/json');
   };
 
   private parseSwapType = (type: string) => {

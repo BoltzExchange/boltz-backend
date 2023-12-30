@@ -1,0 +1,122 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Boltz API",
+    "version": "3.4.0"
+  },
+  "paths": {
+    "/nodes": {
+      "get": {
+        "description": "Information about the Lightning nodes the backend is connected to",
+        "tags": [
+          "Nodes"
+        ],
+        "responses": {
+          "200": {
+            "description": "Lightning node information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "$ref": "#/components/schemas/NodeInfo"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/nodes/stats": {
+      "get": {
+        "description": "Statistics about the Lightning nodes the backend is connected to",
+        "tags": [
+          "Nodes"
+        ],
+        "responses": {
+          "200": {
+            "description": "Statistics about Lightning nodes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                      "total": {
+                        "$ref": "#/components/schemas/NodeStats"
+                      }
+                    },
+                    "additionalProperties": {
+                      "$ref": "#/components/schemas/NodeStats"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "NodeInfo": {
+        "type": "object",
+        "properties": {
+          "publicKey": {
+            "type": "string"
+          },
+          "uris": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "NodeStats": {
+        "type": "object",
+        "properties": {
+          "capacity": {
+            "type": "integer"
+          },
+          "channels": {
+            "type": "integer"
+          },
+          "peers": {
+            "type": "integer"
+          },
+          "oldestChannel": {
+            "type": "integer",
+            "description": "UNIX timestamp of the block in which the funding transaction of the oldest channel was included"
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Nodes",
+      "description": "Lightning nodes"
+    }
+  ],
+  "servers": [
+    {
+      "url": "https://api.boltz.exchange/v2",
+      "description": "Mainnet"
+    },
+    {
+      "url": "https://api.testnet.boltz.exchange/v2",
+      "description": "Testnet"
+    },
+    {
+      "url": "http://localhost:9001/v2",
+      "description": "Regtest"
+    }
+  ]
+}

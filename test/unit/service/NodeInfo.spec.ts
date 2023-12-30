@@ -36,6 +36,7 @@ const channelsBtc = [
 
 jest.mock('../../../lib/lightning/LndClient', () => {
   return jest.fn().mockImplementation((symbol: string) => ({
+    serviceName: jest.fn().mockReturnValue(symbol),
     getInfo: jest.fn().mockImplementation(async () => {
       return getNodeInfo(symbol);
     }),
@@ -108,57 +109,160 @@ describe('NodeInfo', () => {
   });
 
   test('should get node URIs', () => {
-    const uris = nodeInfo.getUris();
+    expect(nodeInfo.uris.size).toEqual(4);
 
-    expect(uris.size).toEqual(4);
-
-    expect(uris.get('BTC')).toEqual({
-      nodeKey: 'BTCidentityPubkey',
-      uris: ['BTC@127.0.0.1:9735', 'BTC@hidden.onion:9735'],
-    });
-    expect(uris.get('LTC')).toEqual({
-      nodeKey: 'LTCidentityPubkey',
-      uris: ['LTC@127.0.0.1:9735', 'LTC@hidden.onion:9735'],
-    });
-    expect(uris.get('CLN')).toEqual({
-      nodeKey: 'CLNidentityPubkey',
-      uris: ['CLN@127.0.0.1:9735', 'CLN@hidden.onion:9735'],
-    });
-    expect(uris.get('BOTH')).toEqual({
-      nodeKey: 'BOTH_LNDidentityPubkey',
-      uris: ['BOTH_LND@127.0.0.1:9735', 'BOTH_LND@hidden.onion:9735'],
-    });
+    expect(nodeInfo.uris.get('BTC')).toEqual(
+      new Map([
+        [
+          'BTC',
+          {
+            nodeKey: 'BTCidentityPubkey',
+            uris: ['BTC@127.0.0.1:9735', 'BTC@hidden.onion:9735'],
+          },
+        ],
+      ]),
+    );
+    expect(nodeInfo.uris.get('LTC')).toEqual(
+      new Map([
+        [
+          'LTC',
+          {
+            nodeKey: 'LTCidentityPubkey',
+            uris: ['LTC@127.0.0.1:9735', 'LTC@hidden.onion:9735'],
+          },
+        ],
+      ]),
+    );
+    expect(nodeInfo.uris.get('CLN')).toEqual(
+      new Map([
+        [
+          'CLN',
+          {
+            nodeKey: 'CLNidentityPubkey',
+            uris: ['CLN@127.0.0.1:9735', 'CLN@hidden.onion:9735'],
+          },
+        ],
+      ]),
+    );
+    expect(nodeInfo.uris.get('BOTH')).toEqual(
+      new Map([
+        [
+          'BOTH_LND',
+          {
+            nodeKey: 'BOTH_LNDidentityPubkey',
+            uris: ['BOTH_LND@127.0.0.1:9735', 'BOTH_LND@hidden.onion:9735'],
+          },
+        ],
+        [
+          'BOTH_CLN',
+          {
+            nodeKey: 'BOTH_CLNidentityPubkey',
+            uris: ['BOTH_CLN@127.0.0.1:9735', 'BOTH_CLN@hidden.onion:9735'],
+          },
+        ],
+      ]),
+    );
   });
 
   test('should get node stats', async () => {
     const info = getNodeInfo('BTC');
 
-    const nodeStats = nodeInfo.getStats();
-
-    expect(nodeStats.size).toEqual(4);
-    expect(nodeStats.get('BTC')).toEqual({
-      channels: 2,
-      peers: info.peers,
-      oldestChannel: rawTxResult.blocktime,
-      capacity: channelsBtc[0].capacity + channelsBtc[1].capacity,
-    });
-    expect(nodeStats.get('LTC')).toEqual({
-      capacity: 0,
-      channels: 0,
-      peers: info.peers,
-    });
-    expect(nodeStats.get('CLN')).toEqual({
-      channels: 2,
-      peers: info.peers,
-      oldestChannel: rawTxResult.blocktime,
-      capacity: channelsBtc[0].capacity + channelsBtc[1].capacity,
-    });
-    expect(nodeStats.get('BOTH')).toEqual({
-      channels: 4,
-      peers: info.peers * 2,
-      oldestChannel: rawTxResult.blocktime,
-      capacity: (channelsBtc[0].capacity + channelsBtc[1].capacity) * 2,
-    });
+    expect(nodeInfo.stats.size).toEqual(4);
+    expect(nodeInfo.stats.get('BTC')).toEqual(
+      new Map([
+        [
+          'BTC',
+          {
+            channels: 2,
+            peers: info.peers,
+            oldestChannel: rawTxResult.blocktime,
+            capacity: channelsBtc[0].capacity + channelsBtc[1].capacity,
+          },
+        ],
+        [
+          'total',
+          {
+            channels: 2,
+            peers: info.peers,
+            oldestChannel: rawTxResult.blocktime,
+            capacity: channelsBtc[0].capacity + channelsBtc[1].capacity,
+          },
+        ],
+      ]),
+    );
+    expect(nodeInfo.stats.get('LTC')).toEqual(
+      new Map([
+        [
+          'LTC',
+          {
+            capacity: 0,
+            channels: 0,
+            peers: info.peers,
+          },
+        ],
+        [
+          'total',
+          {
+            capacity: 0,
+            channels: 0,
+            peers: info.peers,
+          },
+        ],
+      ]),
+    );
+    expect(nodeInfo.stats.get('CLN')).toEqual(
+      new Map([
+        [
+          'CLN',
+          {
+            channels: 2,
+            peers: info.peers,
+            oldestChannel: rawTxResult.blocktime,
+            capacity: channelsBtc[0].capacity + channelsBtc[1].capacity,
+          },
+        ],
+        [
+          'total',
+          {
+            channels: 2,
+            peers: info.peers,
+            oldestChannel: rawTxResult.blocktime,
+            capacity: channelsBtc[0].capacity + channelsBtc[1].capacity,
+          },
+        ],
+      ]),
+    );
+    expect(nodeInfo.stats.get('BOTH')).toEqual(
+      new Map([
+        [
+          'BOTH_LND',
+          {
+            channels: 2,
+            peers: info.peers,
+            oldestChannel: rawTxResult.blocktime,
+            capacity: channelsBtc[0].capacity + channelsBtc[1].capacity,
+          },
+        ],
+        [
+          'BOTH_CLN',
+          {
+            channels: 2,
+            peers: info.peers,
+            oldestChannel: rawTxResult.blocktime,
+            capacity: channelsBtc[0].capacity + channelsBtc[1].capacity,
+          },
+        ],
+        [
+          'total',
+          {
+            channels: 4,
+            peers: info.peers * 2,
+            oldestChannel: rawTxResult.blocktime,
+            capacity: (channelsBtc[0].capacity + channelsBtc[1].capacity) * 2,
+          },
+        ],
+      ]),
+    );
   });
 
   test.each`

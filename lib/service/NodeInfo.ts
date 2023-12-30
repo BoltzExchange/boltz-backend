@@ -4,8 +4,12 @@ import NodeSwitch from '../swap/NodeSwitch';
 import ClnClient from '../lightning/ClnClient';
 import LndClient from '../lightning/LndClient';
 import { Currency } from '../wallet/WalletManager';
+import {
+  ChannelInfo,
+  NodeInfo as INodeInfo,
+} from '../lightning/LightningClient';
 
-type LndNodeInfo = {
+type LightningNodeInfo = {
   nodeKey: string;
   uris: string[];
 };
@@ -18,10 +22,12 @@ type Stats = {
 };
 
 class NodeInfo {
-  private pubkeys = new Set<string>();
-  private uris = new Map<string, LndNodeInfo>();
+  public static readonly totalStats = 'total';
 
-  private stats = new Map<string, Stats>();
+  public readonly stats = new Map<string, Map<'total' | string, Stats>>();
+  public readonly uris = new Map<string, Map<string, LightningNodeInfo>>();
+
+  private readonly pubkeys = new Set<string>();
 
   private job?: Job;
 
@@ -48,14 +54,6 @@ class NodeInfo {
 
   public isOurNode = (pubkey: string): boolean => this.pubkeys.has(pubkey);
 
-  public getStats = () => {
-    return this.stats;
-  };
-
-  public getUris = () => {
-    return this.uris;
-  };
-
   private update = async () => {
     for (const [symbol, currency] of this.currencies) {
       if (!NodeSwitch.hasClient(currency)) {
@@ -66,47 +64,89 @@ class NodeInfo {
         (client): client is LndClient | ClnClient => client !== undefined,
       );
 
-      const infos = await Promise.all(
-        clients.map((client) => client.getInfo()),
+      const infos: [string, INodeInfo, ChannelInfo[]][] = await Promise.all(
+        clients.map(async (client) => [
+          client.serviceName(),
+          await client.getInfo(),
+          await client?.listChannels(),
+        ]),
       );
 
-      infos.forEach((info) => this.pubkeys.add(info.pubkey));
-
-      // TODO: how to handle both, lnd and cln
-      this.uris.set(symbol, {
-        uris: infos[0].uris,
-        nodeKey: infos[0].pubkey,
-      });
-
-      const channelInfos = await Promise.all(
-        clients.map((client) => client?.listChannels()),
+      infos.forEach(([, info]) => this.pubkeys.add(info.pubkey));
+      this.uris.set(
+        symbol,
+        new Map<string, LightningNodeInfo>(
+          infos.map(([name, info]) => [
+            name,
+            {
+              uris: info.uris,
+              nodeKey: info.pubkey,
+            },
+          ]),
+        ),
       );
-      const channels = channelInfos.flatMap((infos) => infos);
 
-      const publicChannels = channels.filter((chan) => !chan.private);
+      const stats: [string, Stats][] = await Promise.all(
+        infos.map(async ([name, info, channels]) => [
+          name,
+          await this.calculateNodeStats(currency, channels, info.peers),
+        ]),
+      );
+      stats.push([
+        NodeInfo.totalStats,
+        {
+          capacity: stats.reduce((sum, [, stat]) => sum + stat.capacity, 0),
+          channels: stats.reduce((sum, [, stat]) => sum + stat.channels, 0),
+          peers: stats.reduce((sum, [, stat]) => sum + stat.peers, 0),
+          oldestChannel: stats.reduce(
+            (oldest: number | undefined, [, stat]) => {
+              if (stat.oldestChannel === undefined) {
+                return oldest;
+              }
 
-      let oldestChannelBlockTime: number | undefined;
+              if (oldest === undefined) {
+                return stat.oldestChannel;
+              }
 
-      if (channels.length > 0) {
-        const oldestChannel = channels.reduce((prev, cur) => {
-          return Number(prev.chanId) < Number(cur.chanId) ? prev : cur;
-        });
-        oldestChannelBlockTime = (
-          await currency.chainClient!.getRawTransactionVerbose(
-            oldestChannel.fundingTransactionId,
-          )
-        ).blocktime;
-      }
+              return oldest < stat.oldestChannel ? oldest : stat.oldestChannel;
+            },
+            undefined,
+          ),
+        },
+      ]);
 
-      this.stats.set(symbol, {
-        channels: publicChannels.length,
-        oldestChannel: oldestChannelBlockTime,
-        peers: infos.reduce((sum, info) => sum + info.peers, 0),
-        capacity: publicChannels.reduce((sum, chan) => sum + chan.capacity, 0),
-      });
+      this.stats.set(symbol, new Map<string, Stats>(stats));
     }
+  };
+
+  private calculateNodeStats = async (
+    currency: Currency,
+    channels: ChannelInfo[],
+    peers: number,
+  ): Promise<Stats> => {
+    let oldestChannelBlockTime: number | undefined;
+
+    if (channels.length > 0) {
+      const oldestChannel = channels.reduce((prev, cur) => {
+        return Number(prev.chanId) < Number(cur.chanId) ? prev : cur;
+      });
+      oldestChannelBlockTime = (
+        await currency.chainClient!.getRawTransactionVerbose(
+          oldestChannel.fundingTransactionId,
+        )
+      ).blocktime;
+    }
+
+    const publicChannels = channels.filter((chan) => !chan.private);
+
+    return {
+      capacity: publicChannels.reduce((sum, chan) => sum + chan.capacity, 0),
+      channels: publicChannels.length,
+      peers: peers,
+      oldestChannel: oldestChannelBlockTime,
+    };
   };
 }
 
 export default NodeInfo;
-export { LndNodeInfo, Stats };
+export { LightningNodeInfo, Stats };

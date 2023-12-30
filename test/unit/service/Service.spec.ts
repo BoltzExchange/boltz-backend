@@ -799,24 +799,7 @@ describe('Service', () => {
   });
 
   test('should get nodes', () => {
-    expect(service.getNodes()).toEqual(
-      new Map<string, { nodeKey: string; uris: string[] }>([
-        [
-          'BTC',
-          {
-            nodeKey: lndInfo.pubkey,
-            uris: lndInfo.uris,
-          },
-        ],
-        [
-          'LTC',
-          {
-            nodeKey: lndInfo.pubkey,
-            uris: lndInfo.uris,
-          },
-        ],
-      ]),
-    );
+    expect(service.getNodes()).toEqual(service['nodeInfo'].uris);
   });
 
   test('should get routing hints', async () => {

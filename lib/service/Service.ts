@@ -372,16 +372,9 @@ class Service {
     };
   };
 
-  /**
-   * Gets a map between the LND node keys and URIs and the symbol of the chains they are running on
-   */
-  public getNodes = () => {
-    return this.nodeInfo.getUris();
-  };
+  public getNodes = () => this.nodeInfo.uris;
 
-  public getNodeStats = () => {
-    return this.nodeInfo.getStats();
-  };
+  public getNodeStats = () => this.nodeInfo.stats;
 
   public getRoutingHints = async (
     symbol: string,

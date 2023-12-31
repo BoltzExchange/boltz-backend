@@ -1,11 +1,12 @@
 import { Request, Response, Router } from 'express';
 import Logger from '../../../Logger';
 import RouterBase from './RouterBase';
-import { stringify } from '../../../Utils';
+import { getHexString, stringify } from '../../../Utils';
 import Service from '../../../service/Service';
 import {
   checkPreimageHashLength,
   createdResponse,
+  successResponse,
   validateRequest,
 } from '../../Utils';
 import { SwapVersion } from '../../../consts/Enums';
@@ -85,6 +86,8 @@ class SwapRouter extends RouterBase {
      */
     router.post('/submarine', this.handleError(this.createSubmarine));
 
+    router.post('/submarine/refund', this.handleError(this.refundSubmarine));
+
     return router;
   };
 
@@ -144,6 +147,27 @@ class SwapRouter extends RouterBase {
     delete response.canBeRouted;
 
     createdResponse(res, response);
+  };
+
+  private refundSubmarine = async (req: Request, res: Response) => {
+    const { id, pubNonce, index, transaction } = validateRequest(req.body, [
+      { name: 'id', type: 'string' },
+      { name: 'index', type: 'number' },
+      { name: 'pubNonce', type: 'string', hex: true },
+      { name: 'transaction', type: 'string', hex: true },
+    ]);
+
+    const sig = await this.service.musigSigner.signSwapRefund(
+      id,
+      pubNonce,
+      transaction,
+      index,
+    );
+
+    successResponse(res, {
+      pubNonce: getHexString(sig.pubNonce),
+      partialSignature: getHexString(sig.signature),
+    });
   };
 }
 

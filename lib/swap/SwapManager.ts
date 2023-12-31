@@ -288,9 +288,11 @@ class SwapManager {
       receivingCurrency.chainClient!.addOutputFilter(outputScript);
 
       if (receivingCurrency.type === CurrencyType.Liquid) {
-        result.blindingKey = (
-          receivingCurrency.wallet as WalletLiquid
-        ).deriveBlindingKeyFromScript(outputScript).privateKey;
+        result.blindingKey = getHexString(
+          (
+            receivingCurrency.wallet as WalletLiquid
+          ).deriveBlindingKeyFromScript(outputScript).privateKey!,
+        );
       }
 
       await SwapRepository.addSwap({

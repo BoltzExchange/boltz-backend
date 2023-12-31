@@ -7,48 +7,50 @@ import { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
 import zkpMusigInit, { Secp256k1ZKP } from '@michael1011/secp256k1-zkp';
 import {
   address,
-  script,
-  Network,
-  TxOutput,
   initEccLib,
+  Network,
+  script,
   Transaction,
+  TxOutput,
 } from 'bitcoinjs-lib';
 import {
-  confidential,
   address as addressLiquid,
+  confidential,
+  Transaction as LiquidTransaction,
   TxOutput as TxOutputLiquid,
-  Transaction as TransactionLiquid,
 } from 'liquidjs-lib';
 import {
-  Musig,
-  init,
-  Types,
-  targetFee,
-  TaprootUtils,
   ClaimDetails,
-  RefundDetails,
   constructClaimTransaction as constructClaimTransactionBitcoin,
   constructRefundTransaction as constructRefundTransactionBitcoin,
+  init,
+  Musig,
+  RefundDetails,
+  TaprootUtils,
+  targetFee,
+  Types,
 } from 'boltz-core';
 import {
+  constructClaimTransaction as constructClaimTransactionLiquid,
+  constructRefundTransaction as constructRefundTransactionLiquid,
   init as initLiquid,
   LiquidClaimDetails,
   LiquidRefundDetails,
   TaprootUtils as TaprootUtilsLiquid,
-  constructClaimTransaction as constructClaimTransactionLiquid,
-  constructRefundTransaction as constructRefundTransactionLiquid,
 } from 'boltz-core/dist/lib/liquid';
 import Wallet from './wallet/Wallet';
 import { ECPair } from './ECPairHelper';
 import ChainClient from './chain/ChainClient';
 import { CurrencyType } from './consts/Enums';
 import WalletLiquid from './wallet/WalletLiquid';
+import { Currency } from './wallet/WalletManager';
 import { liquidSymbol } from './consts/LiquidTypes';
 import {
-  getHexBuffer,
-  reverseBuffer,
-  calculateUtxoTransactionFee,
   calculateLiquidTransactionFee,
+  calculateUtxoTransactionFee,
+  getHexBuffer,
+  getHexString,
+  reverseBuffer,
 } from './Utils';
 
 type UnblindedOutput = Omit<TxOutputLiquid, 'value'> & {
@@ -73,15 +75,15 @@ export const setup = async () => {
 export const parseTransaction = (
   type: CurrencyType,
   rawTx: string | Buffer,
-): Transaction | TransactionLiquid => {
+): Transaction | LiquidTransaction => {
   if (rawTx instanceof Buffer) {
     return isBitcoin(type)
       ? Transaction.fromBuffer(rawTx)
-      : TransactionLiquid.fromBuffer(rawTx);
+      : LiquidTransaction.fromBuffer(rawTx);
   } else {
     return isBitcoin(type)
       ? Transaction.fromHex(rawTx)
-      : TransactionLiquid.fromHex(rawTx);
+      : LiquidTransaction.fromHex(rawTx);
   }
 };
 
@@ -233,16 +235,20 @@ export const constructRefundTransaction = (
 
 export const calculateTransactionFee = async (
   chainClient: ChainClient,
-  transaction: Transaction | TransactionLiquid,
+  transaction: Transaction | LiquidTransaction,
 ) => {
   return chainClient.symbol !== liquidSymbol
     ? calculateUtxoTransactionFee(chainClient, transaction as Transaction)
-    : calculateLiquidTransactionFee(transaction as TransactionLiquid);
+    : calculateLiquidTransactionFee(transaction as LiquidTransaction);
 };
 
 export const extractRefundPublicKeyFromSwapTree = (
   swapTree: Types.SwapTree,
 ): Buffer => script.decompile(swapTree.refundLeaf.output)![0] as Buffer;
+
+export const extractClaimPublicKeyFromSwapTree = (
+  swapTree: Types.SwapTree,
+): Buffer => script.decompile(swapTree.claimLeaf.output)![3] as Buffer;
 
 export const createMusig = (
   ourKeys: ECPairInterface | BIP32Interface,
@@ -264,6 +270,48 @@ export const tweakMusig = (
     musig,
     swapTree.tree,
   );
+
+export const hashForWitnessV1 = async (
+  currency: Currency,
+  tx: Transaction | LiquidTransaction,
+  index: number,
+  leafHash?: Buffer,
+  hashType: number = Transaction.SIGHASH_DEFAULT,
+): Promise<Buffer> => {
+  const inputs = await Promise.all(
+    tx.ins.map(async (input) => {
+      const inTx = parseTransaction(
+        currency.type,
+        await currency.chainClient!.getRawTransaction(
+          getHexString(reverseBuffer(input.hash)),
+        ),
+      );
+      return inTx.outs[input.index];
+    }),
+  );
+
+  if (isBitcoin(currency.type)) {
+    return (tx as Transaction).hashForWitnessV1(
+      index,
+      inputs.map((input) => input.script),
+      inputs.map((input) => input.value as number),
+      hashType,
+      leafHash,
+    );
+  }
+
+  return (tx as LiquidTransaction).hashForWitnessV1(
+    index,
+    inputs.map((input) => input.script),
+    inputs.map((input) => ({
+      asset: (input as TxOutputLiquid).asset,
+      value: (input as TxOutputLiquid).value,
+    })),
+    hashType,
+    (currency.network as LiquidNetwork).genesisBlockHash,
+    leafHash,
+  );
+};
 
 const isBitcoin = (type: CurrencyType) => type === CurrencyType.BitcoinLike;
 

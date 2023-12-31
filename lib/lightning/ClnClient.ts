@@ -637,7 +637,7 @@ class ClnClient
     }
   };
 
-  private checkPayStatus = async (
+  public checkPayStatus = async (
     invoice: string,
   ): Promise<PaymentResponse | undefined> => {
     const res = await this.payStatus(invoice);

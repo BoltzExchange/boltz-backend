@@ -8,6 +8,7 @@ import Swap from '../db/models/Swap';
 import ApiErrors from '../api/Errors';
 import { ConfigType } from '../Config';
 import ErrorsSwap from '../swap/Errors';
+import MusigSigner from './MusigSigner';
 import EventHandler from './EventHandler';
 import { parseTransaction } from '../Core';
 import NodeSwitch from '../swap/NodeSwitch';
@@ -24,13 +25,13 @@ import RateProvider, { PairType } from '../rates/RateProvider';
 import EthereumManager from '../wallet/ethereum/EthereumManager';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import ReferralRepository from '../db/repositories/ReferralRepository';
+import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
+import { InvoiceFeature, PaymentResponse } from '../lightning/LightningClient';
+import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import SwapManager, {
   ChannelCreationInfo,
   SerializedSwapTree,
 } from '../swap/SwapManager';
-import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
-import { InvoiceFeature, PaymentResponse } from '../lightning/LightningClient';
-import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import TimeoutDeltaProvider, {
   PairTimeoutBlocksDelta,
 } from './TimeoutDeltaProvider';
@@ -96,6 +97,7 @@ class Service {
   public swapManager: SwapManager;
   public eventHandler: EventHandler;
   public elementsService: ElementsService;
+  public readonly musigSigner: MusigSigner;
 
   private prepayMinerFee: boolean;
 
@@ -140,7 +142,7 @@ class Service {
     this.logger.debug(
       `Using ${
         config.swapwitnessaddress ? 'P2WSH' : 'P2SH nested P2WSH'
-      } addresses for Submarine Swaps`,
+      } addresses for legacy Bitcoin Submarine Swaps`,
     );
 
     this.swapManager = new SwapManager(
@@ -165,6 +167,11 @@ class Service {
 
     this.nodeInfo = new NodeInfo(this.logger, this.currencies);
     this.elementsService = new ElementsService(
+      this.currencies,
+      this.walletManager,
+    );
+    this.musigSigner = new MusigSigner(
+      this.logger,
       this.currencies,
       this.walletManager,
     );

@@ -133,4 +133,8 @@ export default {
     message: 'swap version not supported for pair',
     code: concatErrorCode(ErrorCodePrefix.Service, 34),
   }),
+  NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND: (): Error => ({
+    message: 'swap not eligible for a cooperative refund',
+    code: concatErrorCode(ErrorCodePrefix.Service, 35),
+  }),
 };

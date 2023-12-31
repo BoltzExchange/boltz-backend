@@ -1,12 +1,14 @@
 import { Arguments } from 'yargs';
 import { credentials } from '@grpc/grpc-js';
 import { detectSwap, Networks } from 'boltz-core';
+import { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
 import { Networks as LiquidNetworks } from 'boltz-core/dist/lib/liquid';
 import { ECPair } from '../ECPairHelper';
 import { CurrencyType } from '../consts/Enums';
 import { getHexBuffer, stringify } from '../Utils';
 import { BoltzClient } from '../proto/boltzrpc_grpc_pb';
 import { parseTransaction, setup, toOutputScript } from '../Core';
+import { Network } from 'bitcoinjs-lib';
 
 export interface GrpcResponse {
   toObject: () => any;
@@ -47,38 +49,54 @@ export const prepareTx = async (argv: Arguments<any>) => {
 
   const redeemScript = getHexBuffer(argv.redeemScript);
 
-  const type = argv.network.includes('liquid')
-    ? CurrencyType.Liquid
-    : CurrencyType.BitcoinLike;
-  const network =
-    type === CurrencyType.BitcoinLike
-      ? Networks[argv.network]
-      : LiquidNetworks[argv.network];
+  const type = currencyTypeFromNetwork(argv.network);
+  const network = parseNetwork(argv.network);
 
   const transaction = parseTransaction(type, argv.rawTransaction);
-
-  const blindingKey =
-    type === CurrencyType.Liquid ? getHexBuffer(argv.blindingKey) : undefined;
+  const blindingKey = parseBlindingKey(type, argv.blindingKey);
 
   return {
     type,
     transaction,
     redeemScript,
     blindingKey,
-    walletStub: {
+    walletStub: getWalletStub(
       type,
       network,
-      deriveBlindingKeyFromScript: () => ({
-        privateKey: blindingKey,
-      }),
-      decodeAddress: () =>
-        toOutputScript(type, argv.destinationAddress, network),
-    } as any,
+      argv.destinationAddress,
+      argv.blindingKey,
+    ),
     destinationAddress: argv.destinationAddress,
     swapOutput: detectSwap(redeemScript, transaction),
     keys: ECPair.fromPrivateKey(getHexBuffer(argv.privateKey)),
   };
 };
+
+export const getWalletStub = (
+  type: CurrencyType,
+  network: Network | LiquidNetwork,
+  destinationAddress: string,
+  blindingKey: string,
+) =>
+  ({
+    type,
+    network,
+    deriveBlindingKeyFromScript: () => ({
+      privateKey: parseBlindingKey(type, blindingKey),
+    }),
+    decodeAddress: () => toOutputScript(type, destinationAddress, network),
+  }) as any;
+
+export const parseBlindingKey = (type: CurrencyType, blindingKey: string) =>
+  type === CurrencyType.Liquid ? getHexBuffer(blindingKey) : undefined;
+
+export const parseNetwork = (network: string) =>
+  currencyTypeFromNetwork(network) === CurrencyType.BitcoinLike
+    ? Networks[network]
+    : LiquidNetworks[network];
+
+export const currencyTypeFromNetwork = (network: string) =>
+  network.includes('liquid') ? CurrencyType.Liquid : CurrencyType.BitcoinLike;
 
 export const printResponse = (response: unknown): void => {
   console.log(stringify(response));

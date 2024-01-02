@@ -1,5 +1,5 @@
 import bolt11 from 'bolt11';
-import { OutputType } from 'boltz-core';
+import { OutputType, SwapTreeSerializer } from 'boltz-core';
 import { getAddress, Provider } from 'ethers';
 import Errors from './Errors';
 import Logger from '../Logger';
@@ -24,14 +24,11 @@ import SwapRepository from '../db/repositories/SwapRepository';
 import RateProvider, { PairType } from '../rates/RateProvider';
 import EthereumManager from '../wallet/ethereum/EthereumManager';
 import WalletManager, { Currency } from '../wallet/WalletManager';
+import SwapManager, { ChannelCreationInfo } from '../swap/SwapManager';
 import ReferralRepository from '../db/repositories/ReferralRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import { InvoiceFeature, PaymentResponse } from '../lightning/LightningClient';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
-import SwapManager, {
-  ChannelCreationInfo,
-  SerializedSwapTree,
-} from '../swap/SwapManager';
 import TimeoutDeltaProvider, {
   PairTimeoutBlocksDelta,
 } from './TimeoutDeltaProvider';
@@ -174,6 +171,7 @@ class Service {
       this.logger,
       this.currencies,
       this.walletManager,
+      this.swapManager.nursery,
     );
   }
 
@@ -742,7 +740,7 @@ class Service {
 
     // Only set for Taproot swaps
     claimPublicKey?: string;
-    swapTree?: SerializedSwapTree;
+    swapTree?: SwapTreeSerializer.SerializedTree;
 
     // Is undefined when Bitcoin or Litecoin is swapped to Lightning
     claimAddress?: string;
@@ -764,6 +762,7 @@ class Service {
       this.getCurrency(getChainCurrency(base, quote, orderSide, false)).type
     ) {
       case CurrencyType.BitcoinLike:
+      case CurrencyType.Liquid:
         if (args.refundPublicKey === undefined) {
           throw ApiErrors.UNDEFINED_PARAMETER('refundPublicKey');
         }
@@ -1102,7 +1101,7 @@ class Service {
 
     // Only set for Taproot swaps
     claimPublicKey?: string;
-    swapTree?: SerializedSwapTree;
+    swapTree?: SwapTreeSerializer.SerializedTree;
 
     // Is undefined when Bitcoin or Litecoin is swapped to Lightning
     claimAddress?: string;
@@ -1210,13 +1209,23 @@ class Service {
   }): Promise<{
     id: string;
     invoice: string;
+
     blindingKey?: string;
     lockupAddress: string;
+
     redeemScript?: string;
+
+    // Only set for Taproot swaps
+    refundPublicKey?: string;
+    swapTree?: SwapTreeSerializer.SerializedTree;
+
     refundAddress?: string;
+
     onchainAmount?: number;
     minerFeeInvoice?: string;
+
     timeoutBlockHeight: number;
+
     prepayMinerFeeAmount?: number;
   }> => {
     if (!this.allowReverseSwaps) {
@@ -1409,10 +1418,12 @@ class Service {
     const {
       id,
       invoice,
+      swapTree,
       blindingKey,
       redeemScript,
       refundAddress,
       lockupAddress,
+      refundPublicKey,
       minerFeeInvoice,
       timeoutBlockHeight,
     } = await this.swapManager.createReverseSwap({
@@ -1428,6 +1439,7 @@ class Service {
       orderSide: side,
       baseCurrency: base,
       quoteCurrency: quote,
+      version: args.version,
       routingNode: args.routingNode,
       claimAddress: args.claimAddress,
       preimageHash: args.preimageHash,
@@ -1439,10 +1451,12 @@ class Service {
     const response: any = {
       id,
       invoice,
+      swapTree,
       blindingKey,
       redeemScript,
       refundAddress,
       lockupAddress,
+      refundPublicKey,
       timeoutBlockHeight,
     };
 

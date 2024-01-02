@@ -250,6 +250,14 @@ export const extractClaimPublicKeyFromSwapTree = (
   swapTree: Types.SwapTree,
 ): Buffer => script.decompile(swapTree.claimLeaf.output)![3] as Buffer;
 
+export const extractClaimPublicKeyFromReverseSwapTree = (
+  swapTree: Types.SwapTree,
+): Buffer => script.decompile(swapTree.claimLeaf.output)![6] as Buffer;
+
+export const extractRefundPublicKeyFromReverseSwapTree = (
+  swapTree: Types.SwapTree,
+): Buffer => extractRefundPublicKeyFromSwapTree(swapTree);
+
 export const createMusig = (
   ourKeys: ECPairInterface | BIP32Interface,
   refundPublicKey: Buffer,

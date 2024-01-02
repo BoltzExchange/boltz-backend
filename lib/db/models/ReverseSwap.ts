@@ -1,5 +1,6 @@
 import { Model, Sequelize, DataTypes } from 'sequelize';
 import Pair from './Pair';
+import { SwapVersion } from '../../consts/Enums';
 
 enum NodeType {
   LND = 0,
@@ -8,6 +9,7 @@ enum NodeType {
 
 type ReverseSwapType = {
   id: string;
+  version: SwapVersion;
 
   lockupAddress: string;
 
@@ -48,6 +50,7 @@ type ReverseSwapType = {
 
 class ReverseSwap extends Model implements ReverseSwapType {
   public id!: string;
+  public version!: SwapVersion;
 
   public lockupAddress!: string;
 
@@ -96,6 +99,17 @@ class ReverseSwap extends Model implements ReverseSwapType {
           type: new DataTypes.STRING(255),
           primaryKey: true,
           allowNull: false,
+        },
+        version: {
+          type: new DataTypes.INTEGER(),
+          allowNull: false,
+          validate: {
+            isIn: [
+              Object.values(SwapVersion).filter(
+                (val) => typeof val === 'number',
+              ),
+            ],
+          },
         },
         lockupAddress: { type: new DataTypes.STRING(255), allowNull: false },
         keyIndex: { type: new DataTypes.INTEGER(), allowNull: true },

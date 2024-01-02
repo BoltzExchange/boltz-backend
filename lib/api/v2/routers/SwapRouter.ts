@@ -1,15 +1,15 @@
 import { Request, Response, Router } from 'express';
 import Logger from '../../../Logger';
 import RouterBase from './RouterBase';
-import { getHexString, stringify } from '../../../Utils';
+import { SwapVersion } from '../../../consts/Enums';
 import Service from '../../../service/Service';
+import { getHexString, stringify } from '../../../Utils';
 import {
   checkPreimageHashLength,
   createdResponse,
   successResponse,
   validateRequest,
 } from '../../Utils';
-import { SwapVersion } from '../../../consts/Enums';
 
 class SwapRouter extends RouterBase {
   constructor(
@@ -88,6 +88,10 @@ class SwapRouter extends RouterBase {
 
     router.post('/submarine/refund', this.handleError(this.refundSubmarine));
 
+    router.post('/reverse', this.handleError(this.createReverse));
+
+    router.post('/reverse/claim', this.handleError(this.claimReverse));
+
     return router;
   };
 
@@ -159,6 +163,80 @@ class SwapRouter extends RouterBase {
 
     const sig = await this.service.musigSigner.signSwapRefund(
       id,
+      pubNonce,
+      transaction,
+      index,
+    );
+
+    successResponse(res, {
+      pubNonce: getHexString(sig.pubNonce),
+      partialSignature: getHexString(sig.signature),
+    });
+  };
+
+  private createReverse = async (req: Request, res: Response) => {
+    const {
+      pairId,
+      pairHash,
+      orderSide,
+      referralId,
+      routingNode,
+      claimAddress,
+      preimageHash,
+      invoiceAmount,
+      onchainAmount,
+      claimPublicKey,
+    } = validateRequest(req.body, [
+      { name: 'pairId', type: 'string' },
+      { name: 'orderSide', type: 'string' },
+      { name: 'preimageHash', type: 'string', hex: true },
+      { name: 'claimPublicKey', type: 'string', hex: true },
+      { name: 'pairHash', type: 'string', optional: true },
+      { name: 'referralId', type: 'string', optional: true },
+      { name: 'routingNode', type: 'string', optional: true },
+      { name: 'claimAddress', type: 'string', optional: true },
+      { name: 'invoiceAmount', type: 'number', optional: true },
+      { name: 'onchainAmount', type: 'number', optional: true },
+    ]);
+
+    checkPreimageHashLength(preimageHash);
+
+    const response = await this.service.createReverseSwap({
+      pairId,
+      pairHash,
+      orderSide,
+      referralId,
+      routingNode,
+      claimAddress,
+      preimageHash,
+      invoiceAmount,
+      onchainAmount,
+      claimPublicKey,
+      prepayMinerFee: false,
+      version: SwapVersion.Taproot,
+    });
+
+    this.logger.verbose(`Created Reverse Swap with id: ${response.id}`);
+    this.logger.silly(`Reverse swap ${response.id}: ${stringify(response)}`);
+
+    createdResponse(res, response);
+  };
+
+  private claimReverse = async (req: Request, res: Response) => {
+    const { id, preimage, pubNonce, index, transaction } = validateRequest(
+      req.body,
+      [
+        { name: 'id', type: 'string' },
+        { name: 'index', type: 'number' },
+        { name: 'preimage', type: 'string', hex: true },
+        { name: 'pubNonce', type: 'string', hex: true },
+        { name: 'transaction', type: 'string', hex: true },
+      ],
+    );
+
+    const sig = await this.service.musigSigner.signReverseSwapClaim(
+      id,
+      preimage,
       pubNonce,
       transaction,
       index,

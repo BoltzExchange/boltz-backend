@@ -8,9 +8,9 @@ import { OutputType, Scripts } from 'boltz-core';
 import { Transaction as LiquidTransaction, confidential } from 'liquidjs-lib';
 import commitHash from './Version';
 import packageJson from '../package.json';
-import { OrderSide } from './consts/Enums';
 import ChainClient from './chain/ChainClient';
 import { etherDecimals } from './consts/Consts';
+import { OrderSide, SwapVersion } from './consts/Enums';
 
 const {
   p2trOutput,
@@ -41,6 +41,9 @@ export const generateId = (length = 6): string => {
 
   return id;
 };
+
+export const generateSwapId = (version: SwapVersion): string =>
+  generateId(version === SwapVersion.Legacy ? undefined : 12);
 
 /**
  * Stringify any object or array

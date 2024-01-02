@@ -19,6 +19,7 @@ import FeeProvider from '../rates/FeeProvider';
 import ChainClient from '../chain/ChainClient';
 import EthereumNursery from './EthereumNursery';
 import RateProvider from '../rates/RateProvider';
+import { etherDecimals } from '../consts/Consts';
 import LightningNursery from './LightningNursery';
 import ReverseSwap from '../db/models/ReverseSwap';
 import ChannelCreation from '../db/models/ChannelCreation';
@@ -28,7 +29,6 @@ import EthereumManager from '../wallet/ethereum/EthereumManager';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
 import { ERC20SwapValues, EtherSwapValues } from '../consts/Types';
-import { etherDecimals, ReverseSwapOutputType } from '../consts/Consts';
 import ERC20WalletProvider from '../wallet/providers/ERC20WalletProvider';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import { CurrencyType, SwapUpdateEvent, SwapVersion } from '../consts/Enums';
@@ -59,6 +59,7 @@ import {
   constructClaimTransaction,
   constructRefundTransaction,
   createMusig,
+  extractClaimPublicKeyFromReverseSwapTree,
   extractRefundPublicKeyFromSwapTree,
   LiquidClaimDetails,
   LiquidRefundDetails,
@@ -186,10 +187,10 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
   // Locks
   public readonly lock = new AsyncLock();
 
-  public static swapLock = 'swap';
+  public static readonly swapLock = 'swap';
+  public static readonly reverseSwapLock = 'reverseSwap';
 
   private static retryLock = 'retry';
-  private static reverseSwapLock = 'reverseSwap';
 
   constructor(
     private logger: Logger,
@@ -575,6 +576,45 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
     }
   };
 
+  public settleReverseSwapInvoice = async (
+    reverseSwap: ReverseSwap,
+    preimage: Buffer,
+  ) => {
+    const { base, quote } = splitPairId(reverseSwap.pair);
+    const lightningCurrency = getLightningCurrency(
+      base,
+      quote,
+      reverseSwap.orderSide,
+      true,
+    );
+
+    const lightningClient = NodeSwitch.getReverseSwapNode(
+      this.currencies.get(lightningCurrency)!,
+      reverseSwap,
+    );
+    try {
+      await lightningClient.raceCall(
+        lightningClient.settleHoldInvoice(preimage),
+        (reject) => {
+          reject('invoice settlement timed out');
+        },
+        LightningNursery.lightningClientCallTimeout,
+      );
+
+      this.logger.info(`Settled Reverse Swap ${reverseSwap.id}`);
+
+      this.emit(
+        'invoice.settled',
+        await ReverseSwapRepository.setInvoiceSettled(
+          reverseSwap,
+          getHexString(preimage),
+        ),
+      );
+    } catch (e) {
+      this.logger.error(`Could not settle invoice: ${formatError(e)}`);
+    }
+  };
+
   private listenEthereumNursery = async (ethereumNursery: EthereumNursery) => {
     const contractHandler = ethereumNursery.ethereumManager.contractHandler;
 
@@ -888,8 +928,6 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
       return;
     }
 
-    const destinationAddress = await wallet.getAddress();
-
     // Compatibility mode with database schema version 0 in which this column didn't exist
     if (swap.lockupTransactionVout === undefined) {
       swap.lockupTransactionVout = detectSwap(
@@ -918,19 +956,22 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
           claimDetails.keys,
           extractRefundPublicKeyFromSwapTree(claimDetails.swapTree),
         ).getAggregatedPublicKey();
+
         break;
       }
 
       default: {
         claimDetails.type = this.swapOutputType.get(wallet.type);
         claimDetails.redeemScript = getHexBuffer(swap.redeemScript!);
+
+        break;
       }
     }
 
     const claimTransaction = constructClaimTransaction(
       wallet,
       [claimDetails] as ClaimDetails[] | LiquidClaimDetails[],
-      destinationAddress,
+      await wallet.getAddress(),
       await chainClient.estimateFee(),
     );
 
@@ -1036,45 +1077,6 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
       ),
       channelCreation || undefined,
     );
-  };
-
-  private settleReverseSwapInvoice = async (
-    reverseSwap: ReverseSwap,
-    preimage: Buffer,
-  ) => {
-    const { base, quote } = splitPairId(reverseSwap.pair);
-    const lightningCurrency = getLightningCurrency(
-      base,
-      quote,
-      reverseSwap.orderSide,
-      true,
-    );
-
-    const lightningClient = NodeSwitch.getReverseSwapNode(
-      this.currencies.get(lightningCurrency)!,
-      reverseSwap,
-    );
-    try {
-      await lightningClient.raceCall(
-        lightningClient.settleHoldInvoice(preimage),
-        (reject) => {
-          reject('invoice settlement timed out');
-        },
-        LightningNursery.lightningClientCallTimeout,
-      );
-
-      this.logger.info(`Settled Reverse Swap ${reverseSwap.id}`);
-
-      this.emit(
-        'invoice.settled',
-        await ReverseSwapRepository.setInvoiceSettled(
-          reverseSwap,
-          getHexString(preimage),
-        ),
-      );
-    } catch (e) {
-      this.logger.error(`Could not settle invoice: ${formatError(e)}`);
-    }
   };
 
   private handleReverseSwapSendFailed = async (
@@ -1236,18 +1238,38 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
     );
 
     const lockupOutput = lockupTransaction.outs[reverseSwap.transactionVout!];
+    const refundDetails = {
+      ...lockupOutput,
+      vout: reverseSwap.transactionVout,
+      txHash: lockupTransaction.getHash(),
+      keys: wallet.getKeysByIndex(reverseSwap.keyIndex!),
+    } as RefundDetails | LiquidRefundDetails;
+
+    switch (reverseSwap.version) {
+      case SwapVersion.Taproot: {
+        refundDetails.type = OutputType.Taproot;
+        refundDetails.cooperative = false;
+        refundDetails.swapTree = SwapTreeSerializer.deserializeSwapTree(
+          reverseSwap.redeemScript!,
+        );
+        refundDetails.internalKey = createMusig(
+          refundDetails.keys,
+          extractClaimPublicKeyFromReverseSwapTree(refundDetails.swapTree),
+        ).getAggregatedPublicKey();
+        break;
+      }
+
+      default: {
+        refundDetails.type = this.swapOutputType.get(wallet.type);
+        refundDetails.redeemScript = getHexBuffer(reverseSwap.redeemScript!);
+
+        break;
+      }
+    }
+
     const refundTransaction = constructRefundTransaction(
       wallet,
-      [
-        {
-          ...lockupOutput,
-          type: ReverseSwapOutputType,
-          vout: reverseSwap.transactionVout!,
-          txHash: lockupTransaction.getHash(),
-          keys: wallet.getKeysByIndex(reverseSwap.keyIndex!),
-          redeemScript: getHexBuffer(reverseSwap.redeemScript!),
-        },
-      ] as RefundDetails[] | LiquidRefundDetails[],
+      [refundDetails] as RefundDetails[] | LiquidRefundDetails[],
       await wallet.getAddress(),
       reverseSwap.timeoutBlockHeight,
       await chainCurrency.chainClient!.estimateFee(),

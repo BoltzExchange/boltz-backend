@@ -137,4 +137,8 @@ export default {
     message: 'swap not eligible for a cooperative refund',
     code: concatErrorCode(ErrorCodePrefix.Service, 35),
   }),
+  INCORRECT_PREIMAGE: (): Error => ({
+    message: 'incorrect preimage',
+    code: concatErrorCode(ErrorCodePrefix.Service, 36),
+  }),
 };

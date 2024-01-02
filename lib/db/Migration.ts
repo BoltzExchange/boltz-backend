@@ -393,6 +393,22 @@ class Migration {
           .getQueryInterface()
           .changeColumn('swaps', 'version', attrs);
 
+        this.logUpdatingTable('reverseSwaps');
+
+        attrs.allowNull = true;
+        await this.sequelize
+          .getQueryInterface()
+          .addColumn('reverseSwaps', 'version', attrs);
+
+        await this.sequelize
+          .getQueryInterface()
+          .bulkUpdate('reverseSwaps', { version: SwapVersion.Legacy }, {});
+
+        attrs.allowNull = false;
+        await this.sequelize
+          .getQueryInterface()
+          .changeColumn('reverseSwaps', 'version', attrs);
+
         await this.finishMigration(versionRow.version, currencies);
         break;
       }

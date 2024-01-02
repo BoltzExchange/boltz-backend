@@ -3,22 +3,23 @@ import BoltzApiClient from '../BoltzApiClient';
 import BuilderComponents from '../BuilderComponents';
 import { getHexString, stringify } from '../../Utils';
 import {
+  extractRefundPublicKeyFromReverseSwapTree,
+  parseTransaction,
+} from '../../Core';
+import {
   finalizeCooperativeTransaction,
   prepareCooperativeTransaction,
   setupCooperativeTransaction,
 } from '../TaprootHelper';
-import {
-  extractClaimPublicKeyFromSwapTree,
-  parseTransaction,
-} from '../../Core';
 
 export const command =
-  'refund-cooperative <network> <privateKey> <swapId> <swapTree> <destinationAddress> [feePerVbyte] [blindingKey]';
+  'claim-cooperative <network> <preimage> <privateKey> <swapId> <swapTree> <destinationAddress> [feePerVbyte] [blindingKey]';
 
-export const describe = 'refunds a Taproot Submarine Swap cooperatively';
+export const describe = 'claims a Taproot Reverse Submarine Swap cooperatively';
 
 export const builder = {
   network: BuilderComponents.network,
+  preimage: BuilderComponents.preimage,
   privateKey: BuilderComponents.privateKey,
   swapId: BuilderComponents.swapId,
   swapTree: BuilderComponents.swapTree,
@@ -28,14 +29,20 @@ export const builder = {
 };
 
 export const handler = async (argv: Arguments<any>): Promise<void> => {
-  const { keys, network, currencyType, musig, tweakedKey, theirPublicKey } =
-    await setupCooperativeTransaction(argv, extractClaimPublicKeyFromSwapTree);
+  const { network, keys, tweakedKey, theirPublicKey, musig, currencyType } =
+    await setupCooperativeTransaction(
+      argv,
+      extractRefundPublicKeyFromReverseSwapTree,
+    );
 
   const boltzClient = new BoltzApiClient();
-  const lockupTx = parseTransaction(
-    currencyType,
-    (await boltzClient.getSwapTransaction(argv.swapId)).transactionHex,
-  );
+  const swapStatus = await boltzClient.getStatus(argv.swapId);
+
+  if (swapStatus.transaction === undefined) {
+    throw 'no transaction in swap status';
+  }
+
+  const lockupTx = parseTransaction(currencyType, swapStatus.transaction.hex);
 
   const { details, tx } = prepareCooperativeTransaction(
     argv,
@@ -46,13 +53,13 @@ export const handler = async (argv: Arguments<any>): Promise<void> => {
     lockupTx,
   );
 
-  const partialSig = await boltzClient.getSwapRefundPartialSignature(
+  const partialSig = await boltzClient.getReverseClaimPartialSignature(
     argv.swapId,
+    argv.preimage,
     tx.toHex(),
     0,
     getHexString(Buffer.from(musig.getPublicNonce())),
   );
-
   console.log(
     stringify({
       refundTransaction: finalizeCooperativeTransaction(

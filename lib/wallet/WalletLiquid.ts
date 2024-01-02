@@ -1,6 +1,6 @@
 import { Slip77Interface } from 'slip77';
+import { Payment } from 'liquidjs-lib/src/payments';
 import { address, networks, payments } from 'liquidjs-lib';
-import Errors from './Errors';
 import Wallet from './Wallet';
 import Logger from '../Logger';
 import { CurrencyType } from '../consts/Enums';
@@ -54,9 +54,36 @@ class WalletLiquid extends Wallet {
         return payments.p2wpkh;
       case address.ScriptType.P2Wsh:
         return payments.p2wsh;
-      case address.ScriptType.P2Tr:
-        throw Errors.TAPROOT_BLINDING_NOT_SUPPORTED();
+      default:
+        return WalletLiquid.blindP2tr;
     }
+  };
+
+  private static blindP2tr = (
+    payment: Payment,
+  ): {
+    address: string;
+    confidentialAddress: string | undefined;
+  } => {
+    const addr = address.fromOutputScript(payment.output!, payment.network);
+
+    const dec = address.fromBech32(addr);
+
+    let confidentialAddress: string | undefined;
+
+    if (payment.blindkey) {
+      confidentialAddress = address.toBlech32(
+        Buffer.concat([Buffer.from([dec.version, dec.data.length]), dec.data]),
+        payment.blindkey,
+        payment.network!.blech32,
+        dec.version,
+      );
+    }
+
+    return {
+      confidentialAddress,
+      address: addr,
+    };
   };
 }
 

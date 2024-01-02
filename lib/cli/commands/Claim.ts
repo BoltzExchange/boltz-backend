@@ -11,14 +11,11 @@ export const describe = 'claims reverse submarine or chain to chain swaps';
 
 export const builder = {
   network: BuilderComponents.network,
+  preimage: BuilderComponents.preimage,
   privateKey: BuilderComponents.privateKey,
   redeemScript: BuilderComponents.redeemScript,
   rawTransaction: BuilderComponents.rawTransaction,
   destinationAddress: BuilderComponents.destinationAddress,
-  preimage: {
-    describe: 'preimage of the swap',
-    type: 'string',
-  },
   feePerVbyte: BuilderComponents.feePerVbyte,
   blindingKey: BuilderComponents.blindingKey,
 };

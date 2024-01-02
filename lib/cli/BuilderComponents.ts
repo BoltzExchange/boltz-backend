@@ -50,4 +50,8 @@ export default {
     describe: 'SwapTree of the Swap',
     type: 'string',
   },
+  preimage: {
+    describe: 'preimage of the swap',
+    type: 'string',
+  },
 };

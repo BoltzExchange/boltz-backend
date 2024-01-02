@@ -2,8 +2,13 @@ import { Op } from 'sequelize';
 import AsyncLock from 'async-lock';
 import { EventEmitter } from 'events';
 import { Transaction } from 'bitcoinjs-lib';
-import { detectPreimage, detectSwap, SwapTreeSerializer } from 'boltz-core';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib';
+import {
+  detectPreimage,
+  detectSwap,
+  extractRefundPublicKeyFromSwapTree,
+  SwapTreeSerializer,
+} from 'boltz-core';
 import Errors from './Errors';
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';
@@ -20,7 +25,6 @@ import {
   calculateTransactionFee,
   tweakMusig,
   createMusig,
-  extractRefundPublicKeyFromSwapTree,
 } from '../Core';
 import {
   splitPairId,

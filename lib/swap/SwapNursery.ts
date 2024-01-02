@@ -1,10 +1,16 @@
 import { Op } from 'sequelize';
 import AsyncLock from 'async-lock';
 import { EventEmitter } from 'events';
-import { detectSwap, OutputType, SwapTreeSerializer } from 'boltz-core';
 import { Transaction } from 'bitcoinjs-lib';
 import { ContractTransactionResponse } from 'ethers';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib';
+import {
+  detectSwap,
+  extractClaimPublicKeyFromReverseSwapTree,
+  extractRefundPublicKeyFromSwapTree,
+  OutputType,
+  SwapTreeSerializer,
+} from 'boltz-core';
 import Errors from './Errors';
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';
@@ -59,8 +65,6 @@ import {
   constructClaimTransaction,
   constructRefundTransaction,
   createMusig,
-  extractClaimPublicKeyFromReverseSwapTree,
-  extractRefundPublicKeyFromSwapTree,
   LiquidClaimDetails,
   LiquidRefundDetails,
   parseTransaction,

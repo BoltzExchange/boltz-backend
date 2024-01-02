@@ -1,4 +1,9 @@
-import { SwapTreeSerializer, Types } from 'boltz-core';
+import {
+  extractClaimPublicKeyFromReverseSwapTree,
+  extractRefundPublicKeyFromSwapTree,
+  SwapTreeSerializer,
+  Types,
+} from 'boltz-core';
 import Errors from './Errors';
 import Logger from '../Logger';
 import Swap from '../db/models/Swap';
@@ -16,8 +21,6 @@ import { FailedSwapUpdateEvents, SwapUpdateEvent } from '../consts/Enums';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import {
   createMusig,
-  extractClaimPublicKeyFromReverseSwapTree,
-  extractRefundPublicKeyFromSwapTree,
   hashForWitnessV1,
   parseTransaction,
   tweakMusig,

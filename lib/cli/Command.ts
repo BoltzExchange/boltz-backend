@@ -1,14 +1,27 @@
 import { Arguments } from 'yargs';
+import { randomBytes } from 'crypto';
+import { Network } from 'bitcoinjs-lib';
 import { credentials } from '@grpc/grpc-js';
-import { detectSwap, Networks } from 'boltz-core';
+import {
+  detectSwap,
+  Musig,
+  Networks,
+  SwapTreeSerializer,
+  Types,
+} from 'boltz-core';
 import { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
 import { Networks as LiquidNetworks } from 'boltz-core/dist/lib/liquid';
 import { ECPair } from '../ECPairHelper';
 import { CurrencyType } from '../consts/Enums';
 import { getHexBuffer, stringify } from '../Utils';
 import { BoltzClient } from '../proto/boltzrpc_grpc_pb';
-import { parseTransaction, setup, toOutputScript } from '../Core';
-import { Network } from 'bitcoinjs-lib';
+import {
+  parseTransaction,
+  setup,
+  toOutputScript,
+  tweakMusig,
+  zkpMusig,
+} from '../Core';
 
 export interface GrpcResponse {
   toObject: () => any;
@@ -44,10 +57,11 @@ export const callback = <T extends GrpcResponse>(
   };
 };
 
-export const prepareTx = async (argv: Arguments<any>) => {
+export const prepareTx = async (
+  argv: Arguments<any>,
+  keyExtractionFunc: (tree: Types.SwapTree) => Buffer,
+) => {
   await setup();
-
-  const redeemScript = getHexBuffer(argv.redeemScript);
 
   const type = currencyTypeFromNetwork(argv.network);
   const network = parseNetwork(argv.network);
@@ -55,11 +69,10 @@ export const prepareTx = async (argv: Arguments<any>) => {
   const transaction = parseTransaction(type, argv.rawTransaction);
   const blindingKey = parseBlindingKey(type, argv.blindingKey);
 
-  return {
+  const res: any = {
     type,
-    transaction,
-    redeemScript,
     blindingKey,
+    transaction,
     walletStub: getWalletStub(
       type,
       network,
@@ -67,9 +80,32 @@ export const prepareTx = async (argv: Arguments<any>) => {
       argv.blindingKey,
     ),
     destinationAddress: argv.destinationAddress,
-    swapOutput: detectSwap(redeemScript, transaction),
     keys: ECPair.fromPrivateKey(getHexBuffer(argv.privateKey)),
   };
+
+  // If the redeem script can be parsed as JSON, it is a swap tree
+  try {
+    const tree = SwapTreeSerializer.deserializeSwapTree(argv.redeemScript);
+    const theirPublicKey = keyExtractionFunc(tree);
+
+    const musig = new Musig(zkpMusig, res.keys, randomBytes(32), [
+      theirPublicKey,
+      res.keys.publicKey,
+    ]);
+    const tweakedKey = tweakMusig(type, musig, tree);
+
+    const swapOutput: any = detectSwap(tweakedKey, transaction);
+
+    swapOutput.swapTree = tree;
+    swapOutput.internalKey = musig.getAggregatedPublicKey();
+
+    res.swapOutput = swapOutput;
+  } catch (e) {
+    res.redeemScript = getHexBuffer(argv.redeemScript);
+    res.swapOutput = detectSwap(res.redeemScript, transaction);
+  }
+
+  return res;
 };
 
 export const getWalletStub = (

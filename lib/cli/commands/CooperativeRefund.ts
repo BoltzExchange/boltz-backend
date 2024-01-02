@@ -1,4 +1,6 @@
 import { Arguments } from 'yargs';
+import { extractClaimPublicKeyFromSwapTree } from 'boltz-core';
+import { parseTransaction } from '../../Core';
 import BoltzApiClient from '../BoltzApiClient';
 import BuilderComponents from '../BuilderComponents';
 import { getHexString, stringify } from '../../Utils';
@@ -7,10 +9,6 @@ import {
   prepareCooperativeTransaction,
   setupCooperativeTransaction,
 } from '../TaprootHelper';
-import {
-  extractClaimPublicKeyFromSwapTree,
-  parseTransaction,
-} from '../../Core';
 
 export const command =
   'refund-cooperative <network> <privateKey> <swapId> <swapTree> <destinationAddress> [feePerVbyte] [blindingKey]';

@@ -9,7 +9,6 @@ import {
   address,
   initEccLib,
   Network,
-  script,
   Transaction,
   TxOutput,
 } from 'bitcoinjs-lib';
@@ -241,22 +240,6 @@ export const calculateTransactionFee = async (
     ? calculateUtxoTransactionFee(chainClient, transaction as Transaction)
     : calculateLiquidTransactionFee(transaction as LiquidTransaction);
 };
-
-export const extractRefundPublicKeyFromSwapTree = (
-  swapTree: Types.SwapTree,
-): Buffer => script.decompile(swapTree.refundLeaf.output)![0] as Buffer;
-
-export const extractClaimPublicKeyFromSwapTree = (
-  swapTree: Types.SwapTree,
-): Buffer => script.decompile(swapTree.claimLeaf.output)![3] as Buffer;
-
-export const extractClaimPublicKeyFromReverseSwapTree = (
-  swapTree: Types.SwapTree,
-): Buffer => script.decompile(swapTree.claimLeaf.output)![6] as Buffer;
-
-export const extractRefundPublicKeyFromReverseSwapTree = (
-  swapTree: Types.SwapTree,
-): Buffer => extractRefundPublicKeyFromSwapTree(swapTree);
 
 export const createMusig = (
   ourKeys: ECPairInterface | BIP32Interface,

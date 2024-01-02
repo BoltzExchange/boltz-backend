@@ -1,11 +1,11 @@
 import { scheduleJob } from 'node-schedule';
-import Errors from './Errors';
+import { BackupConfig } from '../Config';
 import Logger from '../Logger';
 import { formatError } from '../Utils';
-import Webdav from './providers/Webdav';
-import { BackupConfig } from '../Config';
-import GoogleCloud from './providers/GoogleCloud';
 import EventHandler from '../service/EventHandler';
+import Errors from './Errors';
+import GoogleCloud from './providers/GoogleCloud';
+import Webdav from './providers/Webdav';
 
 interface BackupProvider {
   uploadString(path: string, data: string): Promise<void>;

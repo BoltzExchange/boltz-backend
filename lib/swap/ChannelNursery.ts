@@ -1,25 +1,25 @@
-import { Op } from 'sequelize';
 import bolt11 from '@boltz/bolt11';
 import AsyncLock from 'async-lock';
 import { EventEmitter } from 'events';
+import { Op } from 'sequelize';
 import Logger from '../Logger';
-import Swap from '../db/models/Swap';
-import LndClient from '../lightning/LndClient';
-import { Currency } from '../wallet/WalletManager';
-import { ChannelPoint } from '../proto/lnd/rpc_pb';
-import ChannelCreation from '../db/models/ChannelCreation';
-import ConnectionHelper from '../lightning/ConnectionHelper';
-import SwapRepository from '../db/repositories/SwapRepository';
-import { ChannelCreationStatus, SwapUpdateEvent } from '../consts/Enums';
-import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import {
   formatError,
-  splitPairId,
-  getHexString,
-  reverseBuffer,
   getChainCurrency,
+  getHexString,
   getLightningCurrency,
+  reverseBuffer,
+  splitPairId,
 } from '../Utils';
+import { ChannelCreationStatus, SwapUpdateEvent } from '../consts/Enums';
+import ChannelCreation from '../db/models/ChannelCreation';
+import Swap from '../db/models/Swap';
+import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
+import SwapRepository from '../db/repositories/SwapRepository';
+import ConnectionHelper from '../lightning/ConnectionHelper';
+import LndClient from '../lightning/LndClient';
+import { ChannelPoint } from '../proto/lnd/rpc_pb';
+import { Currency } from '../wallet/WalletManager';
 
 interface ChannelNursery {
   on(

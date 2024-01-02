@@ -1,6 +1,6 @@
 import Logger from '../../../lib/Logger';
-import LndClient from '../../../lib/lightning/LndClient';
 import ConnectionHelper from '../../../lib/lightning/ConnectionHelper';
+import LndClient from '../../../lib/lightning/LndClient';
 
 let mockGetNodeInfoResult: any = {};
 const mockGetNodeInfo = jest.fn().mockImplementation(async () => {

@@ -1,19 +1,19 @@
-import { join } from 'path';
 import { existsSync, unlinkSync } from 'fs';
-import { wait } from '../../Utils';
+import { join } from 'path';
+import { satoshisToSatcomma } from '../../../lib/DenominationConverter';
 import Logger from '../../../lib/Logger';
-import Swap from '../../../lib/db/models/Swap';
-import Service from '../../../lib/service/Service';
 import { decodeInvoice } from '../../../lib/Utils';
+import BackupScheduler from '../../../lib/backup/BackupScheduler';
 import { CurrencyType } from '../../../lib/consts/Enums';
+import ChannelCreation from '../../../lib/db/models/ChannelCreation';
 import ReverseSwap from '../../../lib/db/models/ReverseSwap';
+import Swap from '../../../lib/db/models/Swap';
+import DiscordClient from '../../../lib/notifications/DiscordClient';
+import NotificationProvider from '../../../lib/notifications/NotificationProvider';
+import Service from '../../../lib/service/Service';
 import WalletManager from '../../../lib/wallet/WalletManager';
 import { Rsk } from '../../../lib/wallet/ethereum/EvmNetworks';
-import BackupScheduler from '../../../lib/backup/BackupScheduler';
-import ChannelCreation from '../../../lib/db/models/ChannelCreation';
-import DiscordClient from '../../../lib/notifications/DiscordClient';
-import { satoshisToSatcomma } from '../../../lib/DenominationConverter';
-import NotificationProvider from '../../../lib/notifications/NotificationProvider';
+import { wait } from '../../Utils';
 import {
   channelCreationExample,
   reverseSwapExample,

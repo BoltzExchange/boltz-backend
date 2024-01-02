@@ -1,12 +1,12 @@
 import ops from '@boltz/bitcoin-ops';
-import * as ecc from 'tiny-secp256k1';
+import { Transaction, address, initEccLib } from 'bitcoinjs-lib';
 import { Networks } from 'boltz-core';
-import { address, initEccLib, Transaction } from 'bitcoinjs-lib';
+import * as ecc from 'tiny-secp256k1';
 import Logger from '../../../../lib/Logger';
-import { bitcoinClient } from '../../Nodes';
 import { AddressType } from '../../../../lib/chain/ChainClient';
 import CoreWalletProvider from '../../../../lib/wallet/providers/CoreWalletProvider';
 import { SentTransaction } from '../../../../lib/wallet/providers/WalletProviderInterface';
+import { bitcoinClient } from '../../Nodes';
 
 jest.mock('../../../../lib/db/repositories/ChainTipRepository');
 

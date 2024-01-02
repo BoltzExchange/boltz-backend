@@ -2,10 +2,10 @@ import Logger from '../../../lib/Logger';
 import { getPairId, hashString } from '../../../lib/Utils';
 import { Network } from '../../../lib/consts/Enums';
 import { PairConfig } from '../../../lib/consts/Types';
-import RateProvider from '../../../lib/rates/RateProvider';
-import { Currency } from '../../../lib/wallet/WalletManager';
-import DataAggregator from '../../../lib/rates/data/DataAggregator';
 import FeeProvider, { MinerFees } from '../../../lib/rates/FeeProvider';
+import RateProvider from '../../../lib/rates/RateProvider';
+import DataAggregator from '../../../lib/rates/data/DataAggregator';
+import { Currency } from '../../../lib/wallet/WalletManager';
 
 FeeProvider.transactionSizes = {
   normalClaim: 170,

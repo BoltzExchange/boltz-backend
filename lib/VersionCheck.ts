@@ -1,6 +1,6 @@
+import ChainClient from './chain/ChainClient';
 import ClnClient from './lightning/ClnClient';
 import LndClient from './lightning/LndClient';
-import ChainClient from './chain/ChainClient';
 
 type Version = string | number;
 

@@ -1,8 +1,8 @@
-import { join } from 'path';
+import { existsSync, readFileSync, unlinkSync } from 'fs';
 import { authenticator } from 'otplib';
-import { unlinkSync, existsSync, readFileSync } from 'fs';
-import Logger from '../../../lib/Logger';
+import { join } from 'path';
 import { NotificationConfig } from '../../../lib/Config';
+import Logger from '../../../lib/Logger';
 import OtpManager from '../../../lib/notifications/OtpManager';
 
 const config: NotificationConfig = {

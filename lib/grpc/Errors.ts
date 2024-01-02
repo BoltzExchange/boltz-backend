@@ -1,6 +1,6 @@
-import { Error } from '../consts/Types';
-import { ErrorCodePrefix } from '../consts/Enums';
 import { concatErrorCode } from '../Utils';
+import { ErrorCodePrefix } from '../consts/Enums';
+import { Error } from '../consts/Types';
 
 export default {
   COULD_NOT_BIND: (

@@ -1,8 +1,8 @@
 import Logger from '../../../lib/Logger';
-import FeeProvider from '../../../lib/rates/FeeProvider';
-import WalletManager from '../../../lib/wallet/WalletManager';
 import { BaseFeeType, OrderSide } from '../../../lib/consts/Enums';
+import FeeProvider from '../../../lib/rates/FeeProvider';
 import DataAggregator from '../../../lib/rates/data/DataAggregator';
+import WalletManager from '../../../lib/wallet/WalletManager';
 import { Ethereum } from '../../../lib/wallet/ethereum/EvmNetworks';
 
 const btcFee = 36;

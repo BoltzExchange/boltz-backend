@@ -1,12 +1,12 @@
-import os from 'os';
-import { OutputType } from 'boltz-core';
 import { Transaction } from 'bitcoinjs-lib';
+import { OutputType } from 'boltz-core';
+import os from 'os';
 import * as utils from '../../lib/Utils';
-import commitHash from '../../lib/Version';
-import packageJson from '../../package.json';
-import { OrderSide } from '../../lib/consts/Enums';
-import { constructTransaction, randomRange } from '../Utils';
 import { splitChannelPoint } from '../../lib/Utils';
+import commitHash from '../../lib/Version';
+import { OrderSide } from '../../lib/consts/Enums';
+import packageJson from '../../package.json';
+import { constructTransaction, randomRange } from '../Utils';
 
 describe('Utils', () => {
   let pairId: string;

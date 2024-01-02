@@ -1,6 +1,6 @@
-import { Model, Sequelize, DataTypes } from 'sequelize';
-import Pair from './Pair';
+import { DataTypes, Model, Sequelize } from 'sequelize';
 import { SwapVersion } from '../../consts/Enums';
+import Pair from './Pair';
 
 enum NodeType {
   LND = 0,

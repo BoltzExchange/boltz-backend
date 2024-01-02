@@ -1,10 +1,10 @@
-import assert from 'assert';
 import { Server, ServerCredentials } from '@grpc/grpc-js';
-import Errors from './Errors';
-import Logger from '../Logger';
+import assert from 'assert';
 import { GrpcConfig } from '../Config';
-import GrpcService from './GrpcService';
+import Logger from '../Logger';
 import { BoltzService } from '../proto/boltzrpc_grpc_pb';
+import Errors from './Errors';
+import GrpcService from './GrpcService';
 
 class GrpcServer {
   private server: Server;

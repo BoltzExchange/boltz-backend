@@ -1,10 +1,10 @@
-import { MaxUint256 } from 'ethers';
 import { generateMnemonic } from 'bip39';
+import { MaxUint256 } from 'ethers';
 import Logger from '../../../../lib/Logger';
 import Errors from '../../../../lib/wallet/Errors';
 import Wallet from '../../../../lib/wallet/Wallet';
-import { Ethereum, Rsk } from '../../../../lib/wallet/ethereum/EvmNetworks';
 import EthereumManager from '../../../../lib/wallet/ethereum/EthereumManager';
+import { Ethereum, Rsk } from '../../../../lib/wallet/ethereum/EvmNetworks';
 import ERC20WalletProvider from '../../../../lib/wallet/providers/ERC20WalletProvider';
 import {
   EthereumSetup,

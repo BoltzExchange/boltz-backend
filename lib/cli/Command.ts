@@ -1,20 +1,16 @@
-import { Arguments } from 'yargs';
-import { randomBytes } from 'crypto';
-import { Network } from 'bitcoinjs-lib';
 import { credentials } from '@grpc/grpc-js';
+import { Network } from 'bitcoinjs-lib';
 import {
-  detectSwap,
   Musig,
   Networks,
   SwapTreeSerializer,
   Types,
+  detectSwap,
 } from 'boltz-core';
-import { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
 import { Networks as LiquidNetworks } from 'boltz-core/dist/lib/liquid';
-import { ECPair } from '../ECPairHelper';
-import { CurrencyType } from '../consts/Enums';
-import { getHexBuffer, stringify } from '../Utils';
-import { BoltzClient } from '../proto/boltzrpc_grpc_pb';
+import { randomBytes } from 'crypto';
+import { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
+import { Arguments } from 'yargs';
 import {
   parseTransaction,
   setup,
@@ -22,6 +18,10 @@ import {
   tweakMusig,
   zkpMusig,
 } from '../Core';
+import { ECPair } from '../ECPairHelper';
+import { getHexBuffer, stringify } from '../Utils';
+import { CurrencyType } from '../consts/Enums';
+import { BoltzClient } from '../proto/boltzrpc_grpc_pb';
 
 export interface GrpcResponse {
   toObject: () => any;

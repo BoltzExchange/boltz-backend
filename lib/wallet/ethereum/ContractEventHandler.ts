@@ -1,12 +1,12 @@
-import { EventEmitter } from 'events';
-import { ContractEventPayload } from 'ethers';
-import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
+import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
+import { ContractEventPayload } from 'ethers';
+import { EventEmitter } from 'events';
 import Logger from '../../Logger';
-import { parseBuffer } from './EthereumUtils';
-import { NetworkDetails } from './EvmNetworks';
 import { ERC20SwapValues, EtherSwapValues } from '../../consts/Types';
 import { formatERC20SwapValues, formatEtherSwapValues } from './ContractUtils';
+import { parseBuffer } from './EthereumUtils';
+import { NetworkDetails } from './EvmNetworks';
 
 interface IContractEventHandler {
   // EtherSwap contract events

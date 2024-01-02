@@ -1,5 +1,5 @@
-import { readFileSync } from 'fs';
 import { Bucket, Storage } from '@google-cloud/storage';
+import { readFileSync } from 'fs';
 import { BackupProvider } from '../BackupScheduler';
 
 type GoogleCloudConfig = {

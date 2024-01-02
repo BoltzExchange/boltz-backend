@@ -1,18 +1,18 @@
-import * as ecc from 'tiny-secp256k1';
-import { SLIP77Factory } from 'slip77';
-import { networks, Transaction } from 'liquidjs-lib';
 import { generateMnemonic, mnemonicToSeedSync } from 'bip39';
+import { Transaction, networks } from 'liquidjs-lib';
+import { SLIP77Factory } from 'slip77';
+import * as ecc from 'tiny-secp256k1';
+import { UnblindedOutput, setup } from '../../../lib/Core';
 import Logger from '../../../lib/Logger';
-import Wallet from '../../../lib/wallet/Wallet';
-import Errors from '../../../lib/service/Errors';
 import { getHexBuffer } from '../../../lib/Utils';
-import { bitcoinClient, elementsClient } from '../Nodes';
-import { setup, UnblindedOutput } from '../../../lib/Core';
-import WalletLiquid from '../../../lib/wallet/WalletLiquid';
 import ElementsClient from '../../../lib/chain/ElementsClient';
 import ElementsService from '../../../lib/service/ElementsService';
+import Errors from '../../../lib/service/Errors';
+import Wallet from '../../../lib/wallet/Wallet';
+import WalletLiquid from '../../../lib/wallet/WalletLiquid';
 import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
 import ElementsWalletProvider from '../../../lib/wallet/providers/ElementsWalletProvider';
+import { bitcoinClient, elementsClient } from '../Nodes';
 
 jest.mock('../../../lib/db/repositories/ChainTipRepository');
 

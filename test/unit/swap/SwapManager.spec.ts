@@ -1,37 +1,11 @@
-import { Op } from 'sequelize';
-import AsyncLock from 'async-lock';
 import bolt11 from '@boltz/bolt11';
-import { randomBytes } from 'crypto';
+import AsyncLock from 'async-lock';
 import { address } from 'bitcoinjs-lib';
 import { Networks, OutputType } from 'boltz-core';
-import { raceCall } from '../../Utils';
-import Logger from '../../../lib/Logger';
-import Errors from '../../../lib/swap/Errors';
-import Swap from '../../../lib/db/models/Swap';
-import Wallet from '../../../lib/wallet/Wallet';
+import { randomBytes } from 'crypto';
+import { Op } from 'sequelize';
 import { ECPair } from '../../../lib/ECPairHelper';
-import NodeSwitch from '../../../lib/swap/NodeSwitch';
-import ChainClient from '../../../lib/chain/ChainClient';
-import LndClient from '../../../lib/lightning/LndClient';
-import RateProvider from '../../../lib/rates/RateProvider';
-import SwapOutputType from '../../../lib/swap/SwapOutputType';
-import { Ethereum } from '../../../lib/wallet/ethereum/EvmNetworks';
-import SwapRepository from '../../../lib/db/repositories/SwapRepository';
-import ReverseSwap, { NodeType } from '../../../lib/db/models/ReverseSwap';
-import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
-import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
-import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
-import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
-import SwapManager, {
-  ChannelCreationInfo,
-} from '../../../lib/swap/SwapManager';
-import {
-  ChannelCreationType,
-  CurrencyType,
-  OrderSide,
-  SwapUpdateEvent,
-  SwapVersion,
-} from '../../../lib/consts/Enums';
+import Logger from '../../../lib/Logger';
 import {
   decodeInvoice,
   getHexBuffer,
@@ -40,6 +14,32 @@ import {
   getUnixTime,
   reverseBuffer,
 } from '../../../lib/Utils';
+import ChainClient from '../../../lib/chain/ChainClient';
+import {
+  ChannelCreationType,
+  CurrencyType,
+  OrderSide,
+  SwapUpdateEvent,
+  SwapVersion,
+} from '../../../lib/consts/Enums';
+import ReverseSwap, { NodeType } from '../../../lib/db/models/ReverseSwap';
+import Swap from '../../../lib/db/models/Swap';
+import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
+import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
+import SwapRepository from '../../../lib/db/repositories/SwapRepository';
+import LndClient from '../../../lib/lightning/LndClient';
+import RateProvider from '../../../lib/rates/RateProvider';
+import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
+import Errors from '../../../lib/swap/Errors';
+import NodeSwitch from '../../../lib/swap/NodeSwitch';
+import SwapManager, {
+  ChannelCreationInfo,
+} from '../../../lib/swap/SwapManager';
+import SwapOutputType from '../../../lib/swap/SwapOutputType';
+import Wallet from '../../../lib/wallet/Wallet';
+import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
+import { Ethereum } from '../../../lib/wallet/ethereum/EvmNetworks';
+import { raceCall } from '../../Utils';
 
 const mockAddSwap = jest.fn().mockResolvedValue(undefined);
 

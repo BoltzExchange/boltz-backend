@@ -1,32 +1,12 @@
-import { Provider } from 'ethers';
-import { randomBytes } from 'crypto';
 import { Networks } from 'boltz-core';
-import Logger from '../../../lib/Logger';
-import Swap from '../../../lib/db/models/Swap';
-import Wallet from '../../../lib/wallet/Wallet';
-import ApiErrors from '../../../lib/api/Errors';
-import packageJson from '../../../package.json';
-import Errors from '../../../lib/service/Errors';
+import { randomBytes } from 'crypto';
+import { Provider } from 'ethers';
 import { ConfigType } from '../../../lib/Config';
 import { ECPair } from '../../../lib/ECPairHelper';
-import Service from '../../../lib/service/Service';
-import NodeSwitch from '../../../lib/swap/NodeSwitch';
-import { PairConfig } from '../../../lib/consts/Types';
-import SwapManager from '../../../lib/swap/SwapManager';
-import LndClient from '../../../lib/lightning/LndClient';
-import ChainClient from '../../../lib/chain/ChainClient';
-import FeeProvider from '../../../lib/rates/FeeProvider';
-import { CurrencyInfo } from '../../../lib/proto/boltzrpc_pb';
-import RateCalculator from '../../../lib/rates/RateCalculator';
-import { Ethereum } from '../../../lib/wallet/ethereum/EvmNetworks';
-import { InvoiceFeature } from '../../../lib/lightning/LightningClient';
-import PairRepository from '../../../lib/db/repositories/PairRepository';
-import SwapRepository from '../../../lib/db/repositories/SwapRepository';
-import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
+import Logger from '../../../lib/Logger';
 import { decodeInvoice, getHexBuffer, getHexString } from '../../../lib/Utils';
-import ReferralRepository from '../../../lib/db/repositories/ReferralRepository';
-import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
-import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
+import ApiErrors from '../../../lib/api/Errors';
+import ChainClient from '../../../lib/chain/ChainClient';
 import {
   etherDecimals,
   ethereumPrepayMinerFeeGasLimit,
@@ -41,6 +21,26 @@ import {
   SwapUpdateEvent,
   SwapVersion,
 } from '../../../lib/consts/Enums';
+import { PairConfig } from '../../../lib/consts/Types';
+import Swap from '../../../lib/db/models/Swap';
+import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
+import PairRepository from '../../../lib/db/repositories/PairRepository';
+import ReferralRepository from '../../../lib/db/repositories/ReferralRepository';
+import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
+import SwapRepository from '../../../lib/db/repositories/SwapRepository';
+import { InvoiceFeature } from '../../../lib/lightning/LightningClient';
+import LndClient from '../../../lib/lightning/LndClient';
+import { CurrencyInfo } from '../../../lib/proto/boltzrpc_pb';
+import FeeProvider from '../../../lib/rates/FeeProvider';
+import RateCalculator from '../../../lib/rates/RateCalculator';
+import Errors from '../../../lib/service/Errors';
+import Service from '../../../lib/service/Service';
+import NodeSwitch from '../../../lib/swap/NodeSwitch';
+import SwapManager from '../../../lib/swap/SwapManager';
+import Wallet from '../../../lib/wallet/Wallet';
+import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
+import { Ethereum } from '../../../lib/wallet/ethereum/EvmNetworks';
+import packageJson from '../../../package.json';
 
 const mockGetPairs = jest.fn().mockResolvedValue([]);
 const mockAddPair = jest.fn().mockReturnValue(Promise.resolve());

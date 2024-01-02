@@ -1,9 +1,9 @@
-import { Arguments } from 'yargs';
 import { extractRefundPublicKeyFromReverseSwapTree } from 'boltz-core';
-import { prepareTx } from '../Command';
-import BuilderComponents from '../BuilderComponents';
-import { getHexBuffer, stringify } from '../../Utils';
+import { Arguments } from 'yargs';
 import { constructClaimTransaction } from '../../Core';
+import { getHexBuffer, stringify } from '../../Utils';
+import BuilderComponents from '../BuilderComponents';
+import { prepareTx } from '../Command';
 
 export const command =
   'claim <network> <preimage> <privateKey> <redeemScript> <rawTransaction> <destinationAddress> [feePerVbyte] [blindingKey]';

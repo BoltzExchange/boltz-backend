@@ -1,16 +1,16 @@
 import { Transaction } from 'bitcoinjs-lib';
-import { OutputType, Networks } from 'boltz-core';
+import { Networks, OutputType } from 'boltz-core';
 import Logger from '../../../lib/Logger';
-import { generateAddress } from '../../Utils';
+import { SwapUpdateEvent } from '../../../lib/consts/Enums';
+import ChannelCreation from '../../../lib/db/models/ChannelCreation';
+import ReverseSwap from '../../../lib/db/models/ReverseSwap';
 import Swap from '../../../lib/db/models/Swap';
+import LndClient from '../../../lib/lightning/LndClient';
+import EventHandler from '../../../lib/service/EventHandler';
 import SwapErrors from '../../../lib/swap/Errors';
 import SwapNursery from '../../../lib/swap/SwapNursery';
-import LndClient from '../../../lib/lightning/LndClient';
-import { SwapUpdateEvent } from '../../../lib/consts/Enums';
-import EventHandler from '../../../lib/service/EventHandler';
 import { Currency } from '../../../lib/wallet/WalletManager';
-import ReverseSwap from '../../../lib/db/models/ReverseSwap';
-import ChannelCreation from '../../../lib/db/models/ChannelCreation';
+import { generateAddress } from '../../Utils';
 
 type channelBackupCallback = (channelBackup: string) => void;
 

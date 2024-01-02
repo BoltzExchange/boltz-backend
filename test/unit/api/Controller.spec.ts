@@ -1,22 +1,22 @@
 import Logger from '../../../lib/Logger';
-import Bouncer from '../../../lib/api/Bouncer';
-import Swap from '../../../lib/db/models/Swap';
-import Service from '../../../lib/service/Service';
-import Controller from '../../../lib/api/Controller';
-import SwapNursery from '../../../lib/swap/SwapNursery';
-import ReferralStats from '../../../lib/data/ReferralStats';
-import ReverseSwap from '../../../lib/db/models/ReverseSwap';
-import { emitClose, mockRequest, mockResponse } from './Utils';
-import ChannelCreation from '../../../lib/db/models/ChannelCreation';
-import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import { getHexBuffer, getVersion, mapToObject } from '../../../lib/Utils';
-import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
-import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
+import Bouncer from '../../../lib/api/Bouncer';
+import Controller from '../../../lib/api/Controller';
 import {
   SwapType,
   SwapUpdateEvent,
   SwapVersion,
 } from '../../../lib/consts/Enums';
+import ReferralStats from '../../../lib/data/ReferralStats';
+import ChannelCreation from '../../../lib/db/models/ChannelCreation';
+import ReverseSwap from '../../../lib/db/models/ReverseSwap';
+import Swap from '../../../lib/db/models/Swap';
+import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
+import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
+import SwapRepository from '../../../lib/db/repositories/SwapRepository';
+import Service from '../../../lib/service/Service';
+import SwapNursery from '../../../lib/swap/SwapNursery';
+import { emitClose, mockRequest, mockResponse } from './Utils';
 
 type swapUpdateCallback = (id: string, message: string) => void;
 

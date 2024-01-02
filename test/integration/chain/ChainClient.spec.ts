@@ -1,8 +1,8 @@
 import { OutputType } from 'boltz-core';
-import { bitcoinClient } from '../Nodes';
 import { getHexBuffer, reverseBuffer } from '../../../lib/Utils';
-import { waitForFunctionToBeTrue, generateAddress, wait } from '../../Utils';
 import ChainTipRepository from '../../../lib/db/repositories/ChainTipRepository';
+import { generateAddress, wait, waitForFunctionToBeTrue } from '../../Utils';
+import { bitcoinClient } from '../Nodes';
 
 const mockFindOrCreateTip = jest.fn().mockImplementation(async () => {
   return {};

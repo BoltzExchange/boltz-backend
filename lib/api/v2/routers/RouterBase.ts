@@ -1,7 +1,7 @@
 import { Request, Response, Router } from 'express';
 import Logger from '../../../Logger';
-import { apiPrefix } from '../Consts';
 import { errorResponse } from '../../Utils';
+import { apiPrefix } from '../Consts';
 
 abstract class RouterBase {
   public readonly path: string;

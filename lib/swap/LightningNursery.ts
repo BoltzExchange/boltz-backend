@@ -1,16 +1,16 @@
-import { Op } from 'sequelize';
 import AsyncLock from 'async-lock';
-import { EventEmitter } from 'events';
 import { crypto } from 'bitcoinjs-lib';
+import { EventEmitter } from 'events';
+import { Op } from 'sequelize';
 import Logger from '../Logger';
-import ClnClient from '../lightning/ClnClient';
-import LndClient from '../lightning/LndClient';
+import { decodeInvoice, formatError, getHexBuffer } from '../Utils';
 import { SwapUpdateEvent } from '../consts/Enums';
 import ReverseSwap from '../db/models/ReverseSwap';
-import { Currency } from '../wallet/WalletManager';
-import { decodeInvoice, formatError, getHexBuffer } from '../Utils';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
+import ClnClient from '../lightning/ClnClient';
 import { InvoiceState, LightningClient } from '../lightning/LightningClient';
+import LndClient from '../lightning/LndClient';
+import { Currency } from '../wallet/WalletManager';
 
 interface LightningNursery {
   on(

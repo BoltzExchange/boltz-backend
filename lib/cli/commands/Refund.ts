@@ -1,9 +1,9 @@
-import { Arguments } from 'yargs';
 import { extractClaimPublicKeyFromSwapTree } from 'boltz-core';
-import { prepareTx } from '../Command';
+import { Arguments } from 'yargs';
+import { constructRefundTransaction } from '../../Core';
 import { stringify } from '../../Utils';
 import BuilderComponents from '../BuilderComponents';
-import { constructRefundTransaction } from '../../Core';
+import { prepareTx } from '../Command';
 
 export const command =
   'refund <network> <privateKey> <timeoutBlockHeight> <redeemScript> <rawTransaction> <destinationAddress> [feePerVbyte] [blindingKey]';

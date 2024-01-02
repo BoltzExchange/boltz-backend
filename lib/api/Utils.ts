@@ -1,8 +1,8 @@
 import { Request, Response } from 'express';
-import Errors from './Errors';
 import Logger from '../Logger';
 import { getHexBuffer } from '../Utils';
 import ServiceErrors from '../service/Errors';
+import Errors from './Errors';
 
 type ApiArgument = {
   name: string;

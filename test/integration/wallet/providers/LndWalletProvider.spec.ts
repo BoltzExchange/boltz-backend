@@ -1,13 +1,13 @@
-import { wait } from '../../../Utils';
-import Logger from '../../../../lib/Logger';
-import { bitcoinLndClient, bitcoinClient } from '../../Nodes';
 import { coinsToSatoshis } from '../../../../lib/DenominationConverter';
-import LndWalletProvider from '../../../../lib/wallet/providers/LndWalletProvider';
+import Logger from '../../../../lib/Logger';
 import {
   ListUnspentRequest,
   ListUnspentResponse,
 } from '../../../../lib/proto/lnd/rpc_pb';
+import LndWalletProvider from '../../../../lib/wallet/providers/LndWalletProvider';
 import { SentTransaction } from '../../../../lib/wallet/providers/WalletProviderInterface';
+import { wait } from '../../../Utils';
+import { bitcoinClient, bitcoinLndClient } from '../../Nodes';
 
 const spyGetOnchainTransactions = jest.spyOn(
   bitcoinLndClient,

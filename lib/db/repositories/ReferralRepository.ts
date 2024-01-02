@@ -1,9 +1,9 @@
 import { QueryTypes } from 'sequelize';
-import { Queries } from '../Utils';
-import { StatsDate } from './StatsRepository';
-import Database, { DatabaseType } from '../Database';
-import Referral, { ReferralType } from '../models/Referral';
 import { SuccessSwapUpdateEvents } from '../../consts/Enums';
+import Database, { DatabaseType } from '../Database';
+import { Queries } from '../Utils';
+import Referral, { ReferralType } from '../models/Referral';
+import { StatsDate } from './StatsRepository';
 
 type ReferralSumRow = StatsDate & {
   pair: string;

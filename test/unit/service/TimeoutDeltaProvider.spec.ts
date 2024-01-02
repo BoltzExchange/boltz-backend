@@ -1,22 +1,22 @@
 import { parse } from '@iarna/toml';
 import { existsSync, readFileSync, unlinkSync } from 'fs';
-import Logger from '../../../lib/Logger';
-import Errors from '../../../lib/service/Errors';
 import { ConfigType } from '../../../lib/Config';
-import NodeSwitch from '../../../lib/swap/NodeSwitch';
+import Logger from '../../../lib/Logger';
 import { OrderSide, SwapVersion } from '../../../lib/consts/Enums';
 import { PairConfig } from '../../../lib/consts/Types';
-import LndClient from '../../../lib/lightning/LndClient';
-import { Currency } from '../../../lib/wallet/WalletManager';
-import { Ethereum, Rsk } from '../../../lib/wallet/ethereum/EvmNetworks';
-import EthereumManager from '../../../lib/wallet/ethereum/EthereumManager';
-import TimeoutDeltaProvider, {
-  PairTimeoutBlocksDelta,
-} from '../../../lib/service/TimeoutDeltaProvider';
 import {
   DecodedInvoice,
   InvoiceFeature,
 } from '../../../lib/lightning/LightningClient';
+import LndClient from '../../../lib/lightning/LndClient';
+import Errors from '../../../lib/service/Errors';
+import TimeoutDeltaProvider, {
+  PairTimeoutBlocksDelta,
+} from '../../../lib/service/TimeoutDeltaProvider';
+import NodeSwitch from '../../../lib/swap/NodeSwitch';
+import { Currency } from '../../../lib/wallet/WalletManager';
+import EthereumManager from '../../../lib/wallet/ethereum/EthereumManager';
+import { Ethereum, Rsk } from '../../../lib/wallet/ethereum/EvmNetworks';
 
 const currencies = [
   {

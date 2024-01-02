@@ -1,8 +1,8 @@
 import { randomBytes } from 'crypto';
-import Logger from '../../../lib/Logger';
 import { NotificationConfig } from '../../../lib/Config';
-import { codeBlock } from '../../../lib/notifications/Markup';
+import Logger from '../../../lib/Logger';
 import DiscordClient from '../../../lib/notifications/DiscordClient';
+import { codeBlock } from '../../../lib/notifications/Markup';
 
 const mockSend = jest.fn().mockImplementation(async () => {});
 

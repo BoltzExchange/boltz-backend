@@ -1,20 +1,6 @@
-import Logger from '../Logger';
-import { Emojis } from './Markup';
-import Swap from '../db/models/Swap';
-import Service from '../service/Service';
-import DiscordClient from './DiscordClient';
-import BalanceChecker from './BalanceChecker';
-import CommandHandler from './CommandHandler';
-import ClnClient from '../lightning/ClnClient';
-import LndClient from '../lightning/LndClient';
-import DiskUsageChecker from './DiskUsageChecker';
-import ReverseSwap from '../db/models/ReverseSwap';
-import WalletManager from '../wallet/WalletManager';
-import BackupScheduler from '../backup/BackupScheduler';
-import { satoshisToSatcomma } from '../DenominationConverter';
-import { ChainInfo, LightningInfo } from '../proto/boltzrpc_pb';
-import { ClientStatus, CurrencyType, OrderSide } from '../consts/Enums';
 import { BaseCurrencyConfig, NotificationConfig, TokenConfig } from '../Config';
+import { satoshisToSatcomma } from '../DenominationConverter';
+import Logger from '../Logger';
 import {
   decodeInvoice,
   getChainCurrency,
@@ -23,6 +9,20 @@ import {
   minutesToMilliseconds,
   splitPairId,
 } from '../Utils';
+import BackupScheduler from '../backup/BackupScheduler';
+import { ClientStatus, CurrencyType, OrderSide } from '../consts/Enums';
+import ReverseSwap from '../db/models/ReverseSwap';
+import Swap from '../db/models/Swap';
+import ClnClient from '../lightning/ClnClient';
+import LndClient from '../lightning/LndClient';
+import { ChainInfo, LightningInfo } from '../proto/boltzrpc_pb';
+import Service from '../service/Service';
+import WalletManager from '../wallet/WalletManager';
+import BalanceChecker from './BalanceChecker';
+import CommandHandler from './CommandHandler';
+import DiscordClient from './DiscordClient';
+import DiskUsageChecker from './DiskUsageChecker';
+import { Emojis } from './Markup';
 
 // TODO: test balance and service alerts
 // TODO: use events instead of intervals to check connections and balances

@@ -1,10 +1,10 @@
 import { handleUnaryCall } from '@grpc/grpc-js';
 import { Transaction as TransactionLiquid } from 'liquidjs-lib';
-import { getHexString } from '../Utils';
-import Service from '../service/Service';
 import { parseTransaction } from '../Core';
+import { getHexString } from '../Utils';
 import { CurrencyType } from '../consts/Enums';
 import * as boltzrpc from '../proto/boltzrpc_pb';
+import Service from '../service/Service';
 
 class GrpcService {
   constructor(private service: Service) {}

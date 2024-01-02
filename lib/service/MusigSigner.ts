@@ -1,16 +1,17 @@
+import { crypto } from 'bitcoinjs-lib';
 import {
-  extractClaimPublicKeyFromReverseSwapTree,
-  extractRefundPublicKeyFromSwapTree,
   SwapTreeSerializer,
   Types,
+  extractClaimPublicKeyFromReverseSwapTree,
+  extractRefundPublicKeyFromSwapTree,
 } from 'boltz-core';
-import Errors from './Errors';
+import {
+  createMusig,
+  hashForWitnessV1,
+  parseTransaction,
+  tweakMusig,
+} from '../Core';
 import Logger from '../Logger';
-import Swap from '../db/models/Swap';
-import SwapNursery from '../swap/SwapNursery';
-import { Payment } from '../proto/lnd/rpc_pb';
-import SwapRepository from '../db/repositories/SwapRepository';
-import WalletManager, { Currency } from '../wallet/WalletManager';
 import {
   getChainCurrency,
   getHexBuffer,
@@ -18,14 +19,13 @@ import {
   splitPairId,
 } from '../Utils';
 import { FailedSwapUpdateEvents, SwapUpdateEvent } from '../consts/Enums';
+import Swap from '../db/models/Swap';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
-import {
-  createMusig,
-  hashForWitnessV1,
-  parseTransaction,
-  tweakMusig,
-} from '../Core';
-import { crypto } from 'bitcoinjs-lib';
+import SwapRepository from '../db/repositories/SwapRepository';
+import { Payment } from '../proto/lnd/rpc_pb';
+import SwapNursery from '../swap/SwapNursery';
+import WalletManager, { Currency } from '../wallet/WalletManager';
+import Errors from './Errors';
 
 type PartialSignature = {
   pubNonce: Buffer;

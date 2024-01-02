@@ -1,13 +1,13 @@
-import { EventEmitter } from 'events';
 import { Transaction } from 'bitcoinjs-lib';
+import { EventEmitter } from 'events';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import Logger from '../Logger';
+import { SwapUpdateEvent } from '../consts/Enums';
+import ChannelCreation from '../db/models/ChannelCreation';
+import ReverseSwap from '../db/models/ReverseSwap';
 import Swap from '../db/models/Swap';
 import SwapNursery from '../swap/SwapNursery';
-import { SwapUpdateEvent } from '../consts/Enums';
-import ReverseSwap from '../db/models/ReverseSwap';
 import { Currency } from '../wallet/WalletManager';
-import ChannelCreation from '../db/models/ChannelCreation';
 
 type TransactionInfo = {
   eta?: number;

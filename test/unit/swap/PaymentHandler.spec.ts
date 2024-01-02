@@ -1,15 +1,15 @@
-import { raceCall } from '../../Utils';
 import Logger from '../../../lib/Logger';
-import Swap from '../../../lib/db/models/Swap';
 import { getHexBuffer } from '../../../lib/Utils';
-import NodeSwitch from '../../../lib/swap/NodeSwitch';
-import { Payment } from '../../../lib/proto/lnd/rpc_pb';
-import LndClient from '../../../lib/lightning/LndClient';
 import { SwapUpdateEvent } from '../../../lib/consts/Enums';
-import { Currency } from '../../../lib/wallet/WalletManager';
-import ChannelNursery from '../../../lib/swap/ChannelNursery';
-import PaymentHandler from '../../../lib/swap/PaymentHandler';
+import Swap from '../../../lib/db/models/Swap';
+import LndClient from '../../../lib/lightning/LndClient';
+import { Payment } from '../../../lib/proto/lnd/rpc_pb';
 import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
+import ChannelNursery from '../../../lib/swap/ChannelNursery';
+import NodeSwitch from '../../../lib/swap/NodeSwitch';
+import PaymentHandler from '../../../lib/swap/PaymentHandler';
+import { Currency } from '../../../lib/wallet/WalletManager';
+import { raceCall } from '../../Utils';
 
 jest.mock('../../../lib/swap/NodeSwitch', () => {
   return jest.fn().mockImplementation(() => {

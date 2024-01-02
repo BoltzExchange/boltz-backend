@@ -1,24 +1,24 @@
-import { Op } from 'sequelize';
 import { crypto } from 'bitcoinjs-lib';
-import { wait } from '../../Utils';
+import { Op } from 'sequelize';
 import Logger from '../../../lib/Logger';
-import Errors from '../../../lib/swap/Errors';
-import Swap from '../../../lib/db/models/Swap';
-import Wallet from '../../../lib/wallet/Wallet';
-import EthereumNursery from '../../../lib/swap/EthereumNursery';
 import { getHexBuffer, getHexString } from '../../../lib/Utils';
-import { Ethereum } from '../../../lib/wallet/ethereum/EvmNetworks';
-import SwapRepository from '../../../lib/db/repositories/SwapRepository';
-import EthereumManager from '../../../lib/wallet/ethereum/EthereumManager';
-import { ERC20SwapValues, EtherSwapValues } from '../../../lib/consts/Types';
-import EtherWalletProvider from '../../../lib/wallet/providers/EtherWalletProvider';
-import ERC20WalletProvider from '../../../lib/wallet/providers/ERC20WalletProvider';
-import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import {
   CurrencyType,
   OrderSide,
   SwapUpdateEvent,
 } from '../../../lib/consts/Enums';
+import { ERC20SwapValues, EtherSwapValues } from '../../../lib/consts/Types';
+import Swap from '../../../lib/db/models/Swap';
+import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
+import SwapRepository from '../../../lib/db/repositories/SwapRepository';
+import Errors from '../../../lib/swap/Errors';
+import EthereumNursery from '../../../lib/swap/EthereumNursery';
+import Wallet from '../../../lib/wallet/Wallet';
+import EthereumManager from '../../../lib/wallet/ethereum/EthereumManager';
+import { Ethereum } from '../../../lib/wallet/ethereum/EvmNetworks';
+import ERC20WalletProvider from '../../../lib/wallet/providers/ERC20WalletProvider';
+import EtherWalletProvider from '../../../lib/wallet/providers/EtherWalletProvider';
+import { wait } from '../../Utils';
 
 type blockCallback = (height: number) => void;
 

@@ -1,15 +1,15 @@
 import { Request, Response, Router } from 'express';
 import Logger from '../../../Logger';
-import RouterBase from './RouterBase';
+import { getHexString, stringify } from '../../../Utils';
 import { SwapVersion } from '../../../consts/Enums';
 import Service from '../../../service/Service';
-import { getHexString, stringify } from '../../../Utils';
 import {
   checkPreimageHashLength,
   createdResponse,
   successResponse,
   validateRequest,
 } from '../../Utils';
+import RouterBase from './RouterBase';
 
 class SwapRouter extends RouterBase {
   constructor(

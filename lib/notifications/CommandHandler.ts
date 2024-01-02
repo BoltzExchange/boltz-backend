@@ -1,33 +1,33 @@
 import { Op } from 'sequelize';
-import Logger from '../Logger';
-import Stats from '../data/Stats';
-import { codeBlock } from './Markup';
-import Swap from '../db/models/Swap';
-import OtpManager from './OtpManager';
-import Service from '../service/Service';
-import DiscordClient from './DiscordClient';
 import { NotificationConfig } from '../Config';
+import { coinsToSatoshis, satoshisToSatcomma } from '../DenominationConverter';
+import Logger from '../Logger';
+import {
+  formatError,
+  getChainCurrency,
+  getHexString,
+  splitPairId,
+  stringify,
+} from '../Utils';
+import BackupScheduler from '../backup/BackupScheduler';
 import {
   NotPendingReverseSwapEvents,
   NotPendingSwapEvents,
   SwapUpdateEvent,
 } from '../consts/Enums';
 import ReferralStats from '../data/ReferralStats';
-import ReverseSwap from '../db/models/ReverseSwap';
-import BackupScheduler from '../backup/BackupScheduler';
+import Stats from '../data/Stats';
 import ChannelCreation from '../db/models/ChannelCreation';
-import FeeRepository from '../db/repositories/FeeRepository';
-import SwapRepository from '../db/repositories/SwapRepository';
-import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
-import { coinsToSatoshis, satoshisToSatcomma } from '../DenominationConverter';
+import ReverseSwap from '../db/models/ReverseSwap';
+import Swap from '../db/models/Swap';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
-import {
-  stringify,
-  splitPairId,
-  formatError,
-  getHexString,
-  getChainCurrency,
-} from '../Utils';
+import FeeRepository from '../db/repositories/FeeRepository';
+import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
+import SwapRepository from '../db/repositories/SwapRepository';
+import Service from '../service/Service';
+import DiscordClient from './DiscordClient';
+import { codeBlock } from './Markup';
+import OtpManager from './OtpManager';
 
 enum Command {
   Help = 'help',

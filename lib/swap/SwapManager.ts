@@ -1,43 +1,17 @@
-import { Op } from 'sequelize';
-import { randomBytes } from 'crypto';
 import { crypto } from 'bitcoinjs-lib';
 import {
-  reverseSwapScript,
-  reverseSwapTree,
   Scripts,
-  swapScript,
-  swapTree,
   SwapTreeSerializer,
   Types,
+  reverseSwapScript,
+  reverseSwapTree,
+  swapScript,
+  swapTree,
 } from 'boltz-core';
-import Errors from './Errors';
-import Logger from '../Logger';
-import Swap from '../db/models/Swap';
-import NodeSwitch from './NodeSwitch';
-import SwapNursery from './SwapNursery';
-import NodeFallback from './NodeFallback';
-import { PairConfig } from '../consts/Types';
-import SwapOutputType from './SwapOutputType';
+import { randomBytes } from 'crypto';
+import { Op } from 'sequelize';
 import { createMusig, tweakMusig } from '../Core';
-import RateProvider from '../rates/RateProvider';
-import RoutingHints from './routing/RoutingHints';
-import WalletLiquid from '../wallet/WalletLiquid';
-import { ReverseSwapOutputType } from '../consts/Consts';
-import SwapRepository from '../db/repositories/SwapRepository';
-import InvoiceExpiryHelper from '../service/InvoiceExpiryHelper';
-import ReverseSwap, { NodeType } from '../db/models/ReverseSwap';
-import WalletManager, { Currency } from '../wallet/WalletManager';
-import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
-import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
-import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
-import {
-  ChannelCreationType,
-  CurrencyType,
-  OrderSide,
-  SwapUpdateEvent,
-  SwapVersion,
-  swapVersionToString,
-} from '../consts/Enums';
+import Logger from '../Logger';
 import {
   decodeInvoice,
   formatError,
@@ -55,6 +29,32 @@ import {
   reverseBuffer,
   splitPairId,
 } from '../Utils';
+import { ReverseSwapOutputType } from '../consts/Consts';
+import {
+  ChannelCreationType,
+  CurrencyType,
+  OrderSide,
+  SwapUpdateEvent,
+  SwapVersion,
+  swapVersionToString,
+} from '../consts/Enums';
+import { PairConfig } from '../consts/Types';
+import ReverseSwap, { NodeType } from '../db/models/ReverseSwap';
+import Swap from '../db/models/Swap';
+import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
+import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
+import SwapRepository from '../db/repositories/SwapRepository';
+import RateProvider from '../rates/RateProvider';
+import InvoiceExpiryHelper from '../service/InvoiceExpiryHelper';
+import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
+import WalletLiquid from '../wallet/WalletLiquid';
+import WalletManager, { Currency } from '../wallet/WalletManager';
+import Errors from './Errors';
+import NodeFallback from './NodeFallback';
+import NodeSwitch from './NodeSwitch';
+import SwapNursery from './SwapNursery';
+import SwapOutputType from './SwapOutputType';
+import RoutingHints from './routing/RoutingHints';
 
 type ChannelCreationInfo = {
   auto: boolean;

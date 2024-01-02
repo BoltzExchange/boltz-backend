@@ -1,6 +1,6 @@
 import { Arguments } from 'yargs';
-import { loadBoltzClient, callback } from '../Command';
 import { UpdateTimeoutBlockDeltaRequest } from '../../proto/boltzrpc_pb';
+import { callback, loadBoltzClient } from '../Command';
 
 const command = 'updatetimeout <reverse> <swap_min> <swap_max> <swap_taproot>';
 

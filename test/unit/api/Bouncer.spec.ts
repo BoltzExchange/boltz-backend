@@ -1,6 +1,6 @@
 import { createHmac } from 'crypto';
-import Bouncer from '../../../lib/api/Bouncer';
 import { getUnixTime } from '../../../lib/Utils';
+import Bouncer from '../../../lib/api/Bouncer';
 import ReferralRepository from '../../../lib/db/repositories/ReferralRepository';
 
 let mockGetReferralByApiKeyResult: any = null;

@@ -1,19 +1,6 @@
-import path from 'path';
 import { Request, Response } from 'express';
+import path from 'path';
 import Logger from '../Logger';
-import Bouncer from './Bouncer';
-import Service from '../service/Service';
-import NodeInfo from '../service/NodeInfo';
-import SwapNursery from '../swap/SwapNursery';
-import ServiceErrors from '../service/Errors';
-import LndClient from '../lightning/LndClient';
-import ClnClient from '../lightning/ClnClient';
-import ReferralStats from '../data/ReferralStats';
-import { SwapUpdate } from '../service/EventHandler';
-import SwapRepository from '../db/repositories/SwapRepository';
-import { SwapType, SwapUpdateEvent, SwapVersion } from '../consts/Enums';
-import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
-import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import {
   getChainCurrency,
   getVersion,
@@ -22,6 +9,19 @@ import {
   splitPairId,
   stringify,
 } from '../Utils';
+import { SwapType, SwapUpdateEvent, SwapVersion } from '../consts/Enums';
+import ReferralStats from '../data/ReferralStats';
+import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
+import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
+import SwapRepository from '../db/repositories/SwapRepository';
+import ClnClient from '../lightning/ClnClient';
+import LndClient from '../lightning/LndClient';
+import ServiceErrors from '../service/Errors';
+import { SwapUpdate } from '../service/EventHandler';
+import NodeInfo from '../service/NodeInfo';
+import Service from '../service/Service';
+import SwapNursery from '../swap/SwapNursery';
+import Bouncer from './Bouncer';
 import {
   checkPreimageHashLength,
   createdResponse,

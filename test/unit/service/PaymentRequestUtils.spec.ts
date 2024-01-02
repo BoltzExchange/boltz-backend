@@ -1,5 +1,5 @@
 import { networks } from 'liquidjs-lib';
-import { decode, ParsedUrlQuery } from 'querystring';
+import { ParsedUrlQuery, decode } from 'querystring';
 import { satoshisToCoins } from '../../../lib/DenominationConverter';
 import PaymentRequestUtils from '../../../lib/service/PaymentRequestUtils';
 

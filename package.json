@@ -106,6 +106,7 @@
   "devDependencies": {
     "@boltz/bitcoin-ops": "^2.0.0",
     "@openzeppelin/contracts": "^5.0.1",
+    "@trivago/prettier-plugin-sort-imports": "^4.3.0",
     "@types/async-lock": "^1.4.2",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",

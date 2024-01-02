@@ -1,23 +1,23 @@
 import { BIP32Factory } from 'bip32';
-import * as ecc from 'tiny-secp256k1';
-import { SLIP77Factory } from 'slip77';
-import { Networks } from 'boltz-core';
 import { generateMnemonic, mnemonicToSeedSync } from 'bip39';
-import { networks, Transaction as TransactionLiquid } from 'liquidjs-lib';
-import Logger from '../../lib/Logger';
-import Database from '../../lib/db/Database';
-import Wallet from '../../lib/wallet/Wallet';
-import { CurrencyType } from '../../lib/consts/Enums';
-import { bitcoinClient, elementsClient } from './Nodes';
-import WalletLiquid from '../../lib/wallet/WalletLiquid';
-import CoreWalletProvider from '../../lib/wallet/providers/CoreWalletProvider';
-import ElementsWalletProvider from '../../lib/wallet/providers/ElementsWalletProvider';
+import { Networks } from 'boltz-core';
+import { Transaction as TransactionLiquid, networks } from 'liquidjs-lib';
+import { SLIP77Factory } from 'slip77';
+import * as ecc from 'tiny-secp256k1';
 import {
   fromOutputScript,
   getOutputValue,
   setup,
   toOutputScript,
 } from '../../lib/Core';
+import Logger from '../../lib/Logger';
+import { CurrencyType } from '../../lib/consts/Enums';
+import Database from '../../lib/db/Database';
+import Wallet from '../../lib/wallet/Wallet';
+import WalletLiquid from '../../lib/wallet/WalletLiquid';
+import CoreWalletProvider from '../../lib/wallet/providers/CoreWalletProvider';
+import ElementsWalletProvider from '../../lib/wallet/providers/ElementsWalletProvider';
+import { bitcoinClient, elementsClient } from './Nodes';
 
 describe('Core', () => {
   const bip32 = BIP32Factory(ecc);

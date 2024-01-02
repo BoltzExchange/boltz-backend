@@ -1,8 +1,8 @@
-import Logger from '../../../lib/Logger';
 import { BackupConfig } from '../../../lib/Config';
-import EventHandler from '../../../lib/service/EventHandler';
+import Logger from '../../../lib/Logger';
 import BackupScheduler from '../../../lib/backup/BackupScheduler';
 import Webdav from '../../../lib/backup/providers/Webdav';
+import EventHandler from '../../../lib/service/EventHandler';
 
 type callback = (currency: string, channelBackup: string) => void;
 

@@ -1,12 +1,4 @@
-import Errors from './Errors';
 import Logger from '../Logger';
-import NodeSwitch from '../swap/NodeSwitch';
-import { PairConfig } from '../consts/Types';
-import RateCalculator from './RateCalculator';
-import DataAggregator from './data/DataAggregator';
-import { BaseFeeType, CurrencyType } from '../consts/Enums';
-import WalletManager, { Currency } from '../wallet/WalletManager';
-import FeeProvider, { MinerFees, PercentageFees } from './FeeProvider';
 import {
   getPairId,
   hashString,
@@ -15,6 +7,14 @@ import {
   splitPairId,
   stringify,
 } from '../Utils';
+import { BaseFeeType, CurrencyType } from '../consts/Enums';
+import { PairConfig } from '../consts/Types';
+import NodeSwitch from '../swap/NodeSwitch';
+import WalletManager, { Currency } from '../wallet/WalletManager';
+import Errors from './Errors';
+import FeeProvider, { MinerFees, PercentageFees } from './FeeProvider';
+import RateCalculator from './RateCalculator';
+import DataAggregator from './data/DataAggregator';
 
 const emptyMinerFees = {
   normal: 0,

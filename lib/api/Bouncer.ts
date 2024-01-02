@@ -1,5 +1,5 @@
-import { Request } from 'express';
 import { createHmac } from 'crypto';
+import { Request } from 'express';
 import { getUnixTime } from '../Utils';
 import Referral from '../db/models/Referral';
 import ReferralRepository from '../db/repositories/ReferralRepository';

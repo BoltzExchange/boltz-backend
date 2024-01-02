@@ -1,5 +1,5 @@
 import express, { Response } from 'express';
-import { collectDefaultMetrics, Gauge, Registry } from 'prom-client';
+import { Gauge, Registry, collectDefaultMetrics } from 'prom-client';
 import Logger from './Logger';
 import { getPairId } from './Utils';
 import { PairConfig } from './consts/Types';

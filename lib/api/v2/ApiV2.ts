@@ -1,10 +1,10 @@
 import { Application } from 'express';
 import Logger from '../../Logger';
-import { apiPrefix } from './Consts';
 import Service from '../../service/Service';
+import { apiPrefix } from './Consts';
+import NodesRouter from './routers/NodesRouter';
 import RouterBase from './routers/RouterBase';
 import SwapRouter from './routers/SwapRouter';
-import NodesRouter from './routers/NodesRouter';
 
 class ApiV2 {
   private readonly routers: RouterBase[];

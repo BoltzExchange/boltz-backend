@@ -1,23 +1,23 @@
-import { Op } from 'sequelize';
+import { Transaction, address } from 'bitcoinjs-lib';
 import { Networks } from 'boltz-core';
-import { address, Transaction } from 'bitcoinjs-lib';
+import { Op } from 'sequelize';
 import Logger from '../../../lib/Logger';
-import Errors from '../../../lib/swap/Errors';
-import Wallet from '../../../lib/wallet/Wallet';
-import UtxoNursery from '../../../lib/swap/UtxoNursery';
-import ChainClient from '../../../lib/chain/ChainClient';
-import SwapRepository from '../../../lib/db/repositories/SwapRepository';
-import {
-  CurrencyType,
-  OrderSide,
-  SwapUpdateEvent,
-} from '../../../lib/consts/Enums';
 import {
   getHexBuffer,
   reverseBuffer,
   transactionHashToId,
 } from '../../../lib/Utils';
+import ChainClient from '../../../lib/chain/ChainClient';
+import {
+  CurrencyType,
+  OrderSide,
+  SwapUpdateEvent,
+} from '../../../lib/consts/Enums';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
+import SwapRepository from '../../../lib/db/repositories/SwapRepository';
+import Errors from '../../../lib/swap/Errors';
+import UtxoNursery from '../../../lib/swap/UtxoNursery';
+import Wallet from '../../../lib/wallet/Wallet';
 
 type blockCallback = (height: number) => void;
 

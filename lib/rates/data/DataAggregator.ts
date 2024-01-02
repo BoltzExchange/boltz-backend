@@ -1,9 +1,9 @@
-import Exchange from './Exchange';
-import Kraken from './exchanges/Kraken';
 import { getPairId } from '../../Utils';
+import Exchange from './Exchange';
 import Binance from './exchanges/Binance';
 import Bitfinex from './exchanges/Bitfinex';
 import CoinbasePro from './exchanges/CoinbasePro';
+import Kraken from './exchanges/Kraken';
 
 class DataAggregator {
   private readonly exchanges: Exchange[] = [

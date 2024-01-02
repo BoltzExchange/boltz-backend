@@ -2,8 +2,8 @@
 // file: boltzrpc.proto
 
 /* tslint:disable */
-/* eslint-disable */
 
+/* eslint-disable */
 import * as jspb from 'google-protobuf';
 
 export class GetInfoRequest extends jspb.Message {

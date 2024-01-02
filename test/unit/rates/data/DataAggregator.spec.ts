@@ -1,5 +1,5 @@
-import Binance from '../../../../lib/rates/data/exchanges/Binance';
 import DataAggregator from '../../../../lib/rates/data/DataAggregator';
+import Binance from '../../../../lib/rates/data/exchanges/Binance';
 
 jest.mock('../../../../lib/rates/data/exchanges/Binance', () => {
   return jest.fn().mockImplementation(() => {

@@ -1,9 +1,9 @@
-import { Arguments } from 'yargs';
 import { extractRefundPublicKeyFromReverseSwapTree } from 'boltz-core';
+import { Arguments } from 'yargs';
 import { parseTransaction } from '../../Core';
+import { getHexString, stringify } from '../../Utils';
 import BoltzApiClient from '../BoltzApiClient';
 import BuilderComponents from '../BuilderComponents';
-import { getHexString, stringify } from '../../Utils';
 import {
   finalizeCooperativeTransaction,
   prepareCooperativeTransaction,

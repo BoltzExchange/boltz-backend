@@ -1,7 +1,7 @@
 import { execFile } from 'child_process';
 import Logger from '../Logger';
-import { Emojis } from './Markup';
 import DiscordClient from './DiscordClient';
+import { Emojis } from './Markup';
 
 type DiskUsage = {
   total: number;

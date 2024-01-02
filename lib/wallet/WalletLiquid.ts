@@ -1,9 +1,9 @@
-import { Slip77Interface } from 'slip77';
-import { Payment } from 'liquidjs-lib/src/payments';
 import { address, networks, payments } from 'liquidjs-lib';
-import Wallet from './Wallet';
+import { Payment } from 'liquidjs-lib/src/payments';
+import { Slip77Interface } from 'slip77';
 import Logger from '../Logger';
 import { CurrencyType } from '../consts/Enums';
+import Wallet from './Wallet';
 import WalletProviderInterface from './providers/WalletProviderInterface';
 
 class WalletLiquid extends Wallet {

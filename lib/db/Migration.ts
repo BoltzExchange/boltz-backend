@@ -1,23 +1,23 @@
-import { detectSwap } from 'boltz-core';
 import { Transaction } from 'bitcoinjs-lib';
+import { detectSwap } from 'boltz-core';
 import { DataTypes, Op, Sequelize } from 'sequelize';
 import Logger from '../Logger';
-import Swap from './models/Swap';
-import Referral from './models/Referral';
+import {
+  createApiCredential,
+  decodeInvoice,
+  formatError,
+  getChainCurrency,
+  getHexBuffer,
+  splitPairId,
+} from '../Utils';
+import { SwapVersion } from '../consts/Enums';
 import { Currency } from '../wallet/WalletManager';
 import ChannelCreation from './models/ChannelCreation';
 import DatabaseVersion from './models/DatabaseVersion';
+import Referral from './models/Referral';
 import ReverseSwap, { NodeType } from './models/ReverseSwap';
+import Swap from './models/Swap';
 import DatabaseVersionRepository from './repositories/DatabaseVersionRepository';
-import {
-  formatError,
-  splitPairId,
-  getHexBuffer,
-  decodeInvoice,
-  getChainCurrency,
-  createApiCredential,
-} from '../Utils';
-import { SwapVersion } from '../consts/Enums';
 
 // TODO: integration tests for actual migrations
 class Migration {

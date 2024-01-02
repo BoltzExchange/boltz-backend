@@ -1,12 +1,12 @@
 import { randomBytes } from 'crypto';
 import Logger from '../../../lib/Logger';
 import { getHexBuffer } from '../../../lib/Utils';
-import { mockRequest, mockResponse } from './Utils';
 import {
   checkPreimageHashLength,
   errorResponse,
   validateRequest,
 } from '../../../lib/api/Utils';
+import { mockRequest, mockResponse } from './Utils';
 
 describe('Utils', () => {
   beforeEach(() => {

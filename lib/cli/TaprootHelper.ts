@@ -1,30 +1,30 @@
-import { Arguments } from 'yargs';
-import { randomBytes } from 'crypto';
-import { ECPairInterface } from 'ecpair';
 import { Network, Transaction } from 'bitcoinjs-lib';
-import { LiquidRefundDetails } from 'boltz-core/lib/liquid';
 import {
-  detectSwap,
   Musig,
   OutputType,
   RefundDetails,
   SwapTreeSerializer,
   TaprootUtils,
   Types,
+  detectSwap,
 } from 'boltz-core';
+import { TaprootUtils as LiquidTaprootDetails } from 'boltz-core/dist/lib/liquid';
+import { LiquidRefundDetails } from 'boltz-core/lib/liquid';
+import { randomBytes } from 'crypto';
+import { ECPairInterface } from 'ecpair';
 import { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib/src/transaction';
-import { TaprootUtils as LiquidTaprootDetails } from 'boltz-core/dist/lib/liquid';
-import { getHexBuffer } from '../Utils';
-import { ECPair } from '../ECPairHelper';
-import { CurrencyType } from '../consts/Enums';
-import { PartialSignature } from './BoltzApiClient';
+import { Arguments } from 'yargs';
 import {
   constructClaimTransaction,
   setup,
   tweakMusig,
   zkpMusig,
 } from '../Core';
+import { ECPair } from '../ECPairHelper';
+import { getHexBuffer } from '../Utils';
+import { CurrencyType } from '../consts/Enums';
+import { PartialSignature } from './BoltzApiClient';
 import {
   currencyTypeFromNetwork,
   getWalletStub,

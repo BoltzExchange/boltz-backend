@@ -1,10 +1,10 @@
-import { randomBytes } from 'crypto';
 import { ServiceError } from '@grpc/grpc-js';
-import Service from '../../../lib/service/Service';
-import GrpcService from '../../../lib/grpc/GrpcService';
-import { CurrencyType } from '../../../lib/consts/Enums';
-import * as boltzrpc from '../../../lib/proto/boltzrpc_pb';
+import { randomBytes } from 'crypto';
 import { getHexBuffer, getHexString } from '../../../lib/Utils';
+import { CurrencyType } from '../../../lib/consts/Enums';
+import GrpcService from '../../../lib/grpc/GrpcService';
+import * as boltzrpc from '../../../lib/proto/boltzrpc_pb';
+import Service from '../../../lib/service/Service';
 
 const getInfoData = {
   method: 'getInfo',

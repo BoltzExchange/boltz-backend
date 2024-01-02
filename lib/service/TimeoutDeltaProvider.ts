@@ -1,23 +1,7 @@
-import fs from 'fs';
 import toml from '@iarna/toml';
-import Errors from './Errors';
-import Logger from '../Logger';
-import Swap from '../db/models/Swap';
+import fs from 'fs';
 import { ConfigType } from '../Config';
-import NodeSwitch from '../swap/NodeSwitch';
-import { OrderSide, SwapVersion } from '../consts/Enums';
-import { PairConfig } from '../consts/Types';
-import RoutingOffsets from './RoutingOffsets';
-import LndClient from '../lightning/LndClient';
-import { Currency } from '../wallet/WalletManager';
-import ElementsClient from '../chain/ElementsClient';
-import { Ethereum, Rsk } from '../wallet/ethereum/EvmNetworks';
-import EthereumManager from '../wallet/ethereum/EthereumManager';
-import {
-  DecodedInvoice,
-  InvoiceFeature,
-  LightningClient,
-} from '../lightning/LightningClient';
+import Logger from '../Logger';
 import {
   formatError,
   getChainCurrency,
@@ -26,6 +10,22 @@ import {
   splitPairId,
   stringify,
 } from '../Utils';
+import ElementsClient from '../chain/ElementsClient';
+import { OrderSide, SwapVersion } from '../consts/Enums';
+import { PairConfig } from '../consts/Types';
+import Swap from '../db/models/Swap';
+import {
+  DecodedInvoice,
+  InvoiceFeature,
+  LightningClient,
+} from '../lightning/LightningClient';
+import LndClient from '../lightning/LndClient';
+import NodeSwitch from '../swap/NodeSwitch';
+import { Currency } from '../wallet/WalletManager';
+import EthereumManager from '../wallet/ethereum/EthereumManager';
+import { Ethereum, Rsk } from '../wallet/ethereum/EvmNetworks';
+import Errors from './Errors';
+import RoutingOffsets from './RoutingOffsets';
 
 type PairTimeoutBlocksDelta = {
   reverse: number;

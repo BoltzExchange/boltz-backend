@@ -1,27 +1,27 @@
 import { ContractABIs } from 'boltz-core';
 import { ERC20 } from 'boltz-core/typechain/ERC20';
-import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
+import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import {
   Contract,
-  getAddress,
-  MaxUint256,
   Wallet as EthersWallet,
+  MaxUint256,
+  getAddress,
 } from 'ethers';
-import Errors from '../Errors';
-import Wallet from '../Wallet';
+import { EthereumConfig, RskConfig } from '../../Config';
 import Logger from '../../Logger';
 import { stringify } from '../../Utils';
-import ContractHandler from './ContractHandler';
-import InjectedProvider from './InjectedProvider';
 import { CurrencyType } from '../../consts/Enums';
-import { EthereumConfig, RskConfig } from '../../Config';
-import ContractEventHandler from './ContractEventHandler';
-import { Ethereum, NetworkDetails, Rsk } from './EvmNetworks';
-import EtherWalletProvider from '../providers/EtherWalletProvider';
-import ERC20WalletProvider from '../providers/ERC20WalletProvider';
-import EthereumTransactionTracker from './EthereumTransactionTracker';
 import ChainTipRepository from '../../db/repositories/ChainTipRepository';
+import Errors from '../Errors';
+import Wallet from '../Wallet';
+import ERC20WalletProvider from '../providers/ERC20WalletProvider';
+import EtherWalletProvider from '../providers/EtherWalletProvider';
+import ContractEventHandler from './ContractEventHandler';
+import ContractHandler from './ContractHandler';
+import EthereumTransactionTracker from './EthereumTransactionTracker';
+import { Ethereum, NetworkDetails, Rsk } from './EvmNetworks';
+import InjectedProvider from './InjectedProvider';
 
 type Network = {
   chainId: bigint;

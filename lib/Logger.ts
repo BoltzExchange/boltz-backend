@@ -1,8 +1,8 @@
+import { blue, cyan, green, magenta, red, yellow } from 'colors/safe';
 import winston from 'winston';
 import LokiTransport from 'winston-loki';
-import { red, yellow, green, cyan, blue, magenta } from 'colors/safe';
-import { getTsString } from './Utils';
 import { name } from '../package.json';
+import { getTsString } from './Utils';
 
 class Logger {
   public static readonly disabledLogger = new Logger(

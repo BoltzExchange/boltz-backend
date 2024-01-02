@@ -1,8 +1,8 @@
-import Logger from '../../../../lib/Logger';
 import { RskConfig } from '../../../../lib/Config';
+import Logger from '../../../../lib/Logger';
+import PendingEthereumTransactionRepository from '../../../../lib/db/repositories/PendingEthereumTransactionRepository';
 import Errors from '../../../../lib/wallet/ethereum/Errors';
 import { Ethereum, Rsk } from '../../../../lib/wallet/ethereum/EvmNetworks';
-import PendingEthereumTransactionRepository from '../../../../lib/db/repositories/PendingEthereumTransactionRepository';
 import InjectedProvider, {
   EthProviderService,
 } from '../../../../lib/wallet/ethereum/InjectedProvider';

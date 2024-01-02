@@ -1,17 +1,17 @@
-import { Arguments } from 'yargs';
 import { crypto } from 'bitcoinjs-lib';
 import { ContractTransactionResponse } from 'ethers';
+import { Arguments } from 'yargs';
 import { getHexBuffer } from '../../../Utils';
+import {
+  queryERC20SwapValues,
+  queryEtherSwapValues,
+} from '../../../wallet/ethereum/ContractUtils';
 import BuilderComponents from '../../BuilderComponents';
 import {
   connectEthereum,
   getContracts,
   getLogsQueryStartHeight,
 } from '../EthereumUtils';
-import {
-  queryERC20SwapValues,
-  queryEtherSwapValues,
-} from '../../../wallet/ethereum/ContractUtils';
 
 export const command = 'claim <preimage> [token]';
 

@@ -1,11 +1,11 @@
 import cors from 'cors';
 import express, { Application, NextFunction, Request, Response } from 'express';
-import Logger from '../Logger';
-import ApiV2 from './v2/ApiV2';
-import Controller from './Controller';
 import { ApiConfig } from '../Config';
-import { errorResponse } from './Utils';
+import Logger from '../Logger';
 import Service from '../service/Service';
+import Controller from './Controller';
+import { errorResponse } from './Utils';
+import ApiV2 from './v2/ApiV2';
 
 class Api {
   private app: Application;

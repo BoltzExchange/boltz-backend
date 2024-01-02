@@ -1,7 +1,7 @@
-import { AddressInfo } from 'ws';
+import { Psbt, PsbtTxInput, Transaction, address, crypto } from 'bitcoinjs-lib';
+import { Networks, OutputType, Scripts } from 'boltz-core';
 import { createServer } from 'net';
-import { OutputType, Networks, Scripts } from 'boltz-core';
-import { address, crypto, Psbt, PsbtTxInput, Transaction } from 'bitcoinjs-lib';
+import { AddressInfo } from 'ws';
 import { ECPair } from '../lib/ECPairHelper';
 import { racePromise } from '../lib/PromiseUtils';
 import { getPubkeyHashFunction } from '../lib/Utils';

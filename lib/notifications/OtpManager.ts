@@ -1,8 +1,8 @@
-import { dirname, join } from 'path';
-import { authenticator } from 'otplib';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
-import Logger from '../Logger';
+import { authenticator } from 'otplib';
+import { dirname, join } from 'path';
 import { NotificationConfig } from '../Config';
+import Logger from '../Logger';
 
 class OtpManager {
   private readonly secret: string;

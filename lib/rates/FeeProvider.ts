@@ -1,12 +1,12 @@
 import Logger from '../Logger';
-import { PairConfig } from '../consts/Types';
-import DataAggregator from './data/DataAggregator';
-import WalletManager from '../wallet/WalletManager';
-import ElementsClient from '../chain/ElementsClient';
-import { BaseFeeType, OrderSide } from '../consts/Enums';
-import { etherDecimals, gweiDecimals } from '../consts/Consts';
-import { Ethereum, Rsk } from '../wallet/ethereum/EvmNetworks';
 import { getChainCurrency, getPairId, splitPairId, stringify } from '../Utils';
+import ElementsClient from '../chain/ElementsClient';
+import { etherDecimals, gweiDecimals } from '../consts/Consts';
+import { BaseFeeType, OrderSide } from '../consts/Enums';
+import { PairConfig } from '../consts/Types';
+import WalletManager from '../wallet/WalletManager';
+import { Ethereum, Rsk } from '../wallet/ethereum/EvmNetworks';
+import DataAggregator from './data/DataAggregator';
 
 type PercentageFees = {
   percentage: number;

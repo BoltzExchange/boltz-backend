@@ -1,39 +1,39 @@
-import { Op } from 'sequelize';
 import AsyncLock from 'async-lock';
-import { EventEmitter } from 'events';
 import { Transaction } from 'bitcoinjs-lib';
-import { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import {
+  SwapTreeSerializer,
   detectPreimage,
   detectSwap,
   extractRefundPublicKeyFromSwapTree,
-  SwapTreeSerializer,
 } from 'boltz-core';
-import Errors from './Errors';
-import Logger from '../Logger';
-import Swap from '../db/models/Swap';
-import Wallet from '../wallet/Wallet';
-import ChainClient from '../chain/ChainClient';
-import { SwapUpdateEvent, SwapVersion } from '../consts/Enums';
-import ReverseSwap from '../db/models/ReverseSwap';
-import SwapRepository from '../db/repositories/SwapRepository';
-import WalletManager, { Currency } from '../wallet/WalletManager';
-import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
+import { EventEmitter } from 'events';
+import { Transaction as LiquidTransaction } from 'liquidjs-lib';
+import { Op } from 'sequelize';
 import {
+  calculateTransactionFee,
+  createMusig,
   getOutputValue,
   parseTransaction,
-  calculateTransactionFee,
   tweakMusig,
-  createMusig,
 } from '../Core';
+import Logger from '../Logger';
 import {
-  splitPairId,
+  getChainCurrency,
   getHexBuffer,
   reverseBuffer,
-  getChainCurrency,
+  splitPairId,
   transactionHashToId,
   transactionSignalsRbfExplicitly,
 } from '../Utils';
+import ChainClient from '../chain/ChainClient';
+import { SwapUpdateEvent, SwapVersion } from '../consts/Enums';
+import ReverseSwap from '../db/models/ReverseSwap';
+import Swap from '../db/models/Swap';
+import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
+import SwapRepository from '../db/repositories/SwapRepository';
+import Wallet from '../wallet/Wallet';
+import WalletManager, { Currency } from '../wallet/WalletManager';
+import Errors from './Errors';
 
 interface UtxoNursery {
   // Swap

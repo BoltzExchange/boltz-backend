@@ -1,10 +1,10 @@
 import { Op } from 'sequelize';
 import Logger from '../../../lib/Logger';
-import { createInvoice } from './InvoiceUtils';
 import { getUnixTime } from '../../../lib/Utils';
 import { SwapUpdateEvent } from '../../../lib/consts/Enums';
-import InvoiceNursery from '../../../lib/swap/InvoiceNursery';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
+import InvoiceNursery from '../../../lib/swap/InvoiceNursery';
+import { createInvoice } from './InvoiceUtils';
 
 let mockGetReverseSwapsResult: any[] = [];
 const mockGetReverseSwaps = jest.fn().mockImplementation(async () => {

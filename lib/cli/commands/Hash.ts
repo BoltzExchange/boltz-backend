@@ -1,5 +1,5 @@
-import { Arguments } from 'yargs';
 import { crypto } from 'bitcoinjs-lib';
+import { Arguments } from 'yargs';
 import { getHexBuffer, getHexString, stringify } from '../../Utils';
 
 export const command = 'hash <value>';

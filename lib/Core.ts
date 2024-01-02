@@ -1,49 +1,43 @@
-import * as ecc from 'tiny-secp256k1';
-import { randomBytes } from 'crypto';
-import { BIP32Interface } from 'bip32';
-import { ECPairInterface } from 'ecpair';
-import zkpInit from '@vulpemventures/secp256k1-zkp';
-import { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
 import zkpMusigInit, { Secp256k1ZKP } from '@michael1011/secp256k1-zkp';
+import zkpInit from '@vulpemventures/secp256k1-zkp';
+import { BIP32Interface } from 'bip32';
 import {
-  address,
-  initEccLib,
   Network,
   Transaction,
   TxOutput,
+  address,
+  initEccLib,
 } from 'bitcoinjs-lib';
 import {
-  address as addressLiquid,
-  confidential,
-  Transaction as LiquidTransaction,
-  TxOutput as TxOutputLiquid,
-} from 'liquidjs-lib';
-import {
   ClaimDetails,
-  constructClaimTransaction as constructClaimTransactionBitcoin,
-  constructRefundTransaction as constructRefundTransactionBitcoin,
-  init,
   Musig,
   RefundDetails,
   TaprootUtils,
-  targetFee,
   Types,
+  constructClaimTransaction as constructClaimTransactionBitcoin,
+  constructRefundTransaction as constructRefundTransactionBitcoin,
+  init,
+  targetFee,
 } from 'boltz-core';
 import {
-  constructClaimTransaction as constructClaimTransactionLiquid,
-  constructRefundTransaction as constructRefundTransactionLiquid,
-  init as initLiquid,
   LiquidClaimDetails,
   LiquidRefundDetails,
   TaprootUtils as TaprootUtilsLiquid,
+  constructClaimTransaction as constructClaimTransactionLiquid,
+  constructRefundTransaction as constructRefundTransactionLiquid,
+  init as initLiquid,
 } from 'boltz-core/dist/lib/liquid';
-import Wallet from './wallet/Wallet';
+import { randomBytes } from 'crypto';
+import { ECPairInterface } from 'ecpair';
+import {
+  Transaction as LiquidTransaction,
+  TxOutput as TxOutputLiquid,
+  address as addressLiquid,
+  confidential,
+} from 'liquidjs-lib';
+import { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
+import * as ecc from 'tiny-secp256k1';
 import { ECPair } from './ECPairHelper';
-import ChainClient from './chain/ChainClient';
-import { CurrencyType } from './consts/Enums';
-import WalletLiquid from './wallet/WalletLiquid';
-import { Currency } from './wallet/WalletManager';
-import { liquidSymbol } from './consts/LiquidTypes';
 import {
   calculateLiquidTransactionFee,
   calculateUtxoTransactionFee,
@@ -51,6 +45,12 @@ import {
   getHexString,
   reverseBuffer,
 } from './Utils';
+import ChainClient from './chain/ChainClient';
+import { CurrencyType } from './consts/Enums';
+import { liquidSymbol } from './consts/LiquidTypes';
+import Wallet from './wallet/Wallet';
+import WalletLiquid from './wallet/WalletLiquid';
+import { Currency } from './wallet/WalletManager';
 
 type UnblindedOutput = Omit<TxOutputLiquid, 'value'> & {
   value: number;

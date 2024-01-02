@@ -1,24 +1,23 @@
 import { types } from 'pg';
+import Sequelize from 'sequelize';
+import { PostgresConfig } from '../Config';
+import Logger from '../Logger';
+import { Currency } from '../wallet/WalletManager';
+import Migration from './Migration';
+import ChainTip from './models/ChainTip';
+import ChannelCreation from './models/ChannelCreation';
+import DatabaseVersion from './models/DatabaseVersion';
+import KeyProvider from './models/KeyProvider';
+import Pair from './models/Pair';
+import PendingEthereumTransaction from './models/PendingEthereumTransaction';
+import Referral from './models/Referral';
+import ReverseSwap from './models/ReverseSwap';
+import Swap from './models/Swap';
 
 // To make sure that PostgreSQL types are parsed correctly
 types.setTypeParser(types.builtins.INT8, parseInt);
 types.setTypeParser(types.builtins.NUMERIC, parseFloat);
 types.setTypeParser(types.builtins.FLOAT8, parseFloat);
-
-import Sequelize from 'sequelize';
-import Logger from '../Logger';
-import Pair from './models/Pair';
-import Swap from './models/Swap';
-import Migration from './Migration';
-import ChainTip from './models/ChainTip';
-import Referral from './models/Referral';
-import { PostgresConfig } from '../Config';
-import ReverseSwap from './models/ReverseSwap';
-import KeyProvider from './models/KeyProvider';
-import { Currency } from '../wallet/WalletManager';
-import DatabaseVersion from './models/DatabaseVersion';
-import ChannelCreation from './models/ChannelCreation';
-import PendingEthereumTransaction from './models/PendingEthereumTransaction';
 
 enum DatabaseType {
   'SQLite',

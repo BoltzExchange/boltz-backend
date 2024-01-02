@@ -1,59 +1,9 @@
 import bolt11 from 'bolt11';
 import { OutputType, SwapTreeSerializer } from 'boltz-core';
-import { getAddress, Provider } from 'ethers';
-import Errors from './Errors';
-import Logger from '../Logger';
-import NodeInfo from './NodeInfo';
-import Swap from '../db/models/Swap';
-import ApiErrors from '../api/Errors';
+import { Provider, getAddress } from 'ethers';
 import { ConfigType } from '../Config';
-import ErrorsSwap from '../swap/Errors';
-import MusigSigner from './MusigSigner';
-import EventHandler from './EventHandler';
 import { parseTransaction } from '../Core';
-import NodeSwitch from '../swap/NodeSwitch';
-import { PairConfig } from '../consts/Types';
-import ClnClient from '../lightning/ClnClient';
-import LndClient from '../lightning/LndClient';
-import ElementsService from './ElementsService';
-import SwapOutputType from '../swap/SwapOutputType';
-import ElementsClient from '../chain/ElementsClient';
-import PaymentRequestUtils from './PaymentRequestUtils';
-import PairRepository from '../db/repositories/PairRepository';
-import SwapRepository from '../db/repositories/SwapRepository';
-import RateProvider, { PairType } from '../rates/RateProvider';
-import EthereumManager from '../wallet/ethereum/EthereumManager';
-import WalletManager, { Currency } from '../wallet/WalletManager';
-import SwapManager, { ChannelCreationInfo } from '../swap/SwapManager';
-import ReferralRepository from '../db/repositories/ReferralRepository';
-import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
-import { InvoiceFeature, PaymentResponse } from '../lightning/LightningClient';
-import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
-import TimeoutDeltaProvider, {
-  PairTimeoutBlocksDelta,
-} from './TimeoutDeltaProvider';
-import {
-  etherDecimals,
-  ethereumPrepayMinerFeeGasLimit,
-  gweiDecimals,
-} from '../consts/Consts';
-import {
-  BaseFeeType,
-  CurrencyType,
-  OrderSide,
-  ServiceInfo,
-  ServiceWarning,
-  SwapVersion,
-} from '../consts/Enums';
-import {
-  Balances,
-  ChainInfo,
-  CurrencyInfo,
-  DeriveKeysResponse,
-  GetBalanceResponse,
-  GetInfoResponse,
-  LightningInfo,
-} from '../proto/boltzrpc_pb';
+import Logger from '../Logger';
 import {
   createApiCredential,
   decodeInvoice,
@@ -72,6 +22,56 @@ import {
   splitPairId,
   stringify,
 } from '../Utils';
+import ApiErrors from '../api/Errors';
+import ElementsClient from '../chain/ElementsClient';
+import {
+  etherDecimals,
+  ethereumPrepayMinerFeeGasLimit,
+  gweiDecimals,
+} from '../consts/Consts';
+import {
+  BaseFeeType,
+  CurrencyType,
+  OrderSide,
+  ServiceInfo,
+  ServiceWarning,
+  SwapVersion,
+} from '../consts/Enums';
+import { PairConfig } from '../consts/Types';
+import Swap from '../db/models/Swap';
+import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
+import PairRepository from '../db/repositories/PairRepository';
+import ReferralRepository from '../db/repositories/ReferralRepository';
+import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
+import SwapRepository from '../db/repositories/SwapRepository';
+import ClnClient from '../lightning/ClnClient';
+import { InvoiceFeature, PaymentResponse } from '../lightning/LightningClient';
+import LndClient from '../lightning/LndClient';
+import {
+  Balances,
+  ChainInfo,
+  CurrencyInfo,
+  DeriveKeysResponse,
+  GetBalanceResponse,
+  GetInfoResponse,
+  LightningInfo,
+} from '../proto/boltzrpc_pb';
+import RateProvider, { PairType } from '../rates/RateProvider';
+import ErrorsSwap from '../swap/Errors';
+import NodeSwitch from '../swap/NodeSwitch';
+import SwapManager, { ChannelCreationInfo } from '../swap/SwapManager';
+import SwapOutputType from '../swap/SwapOutputType';
+import WalletManager, { Currency } from '../wallet/WalletManager';
+import EthereumManager from '../wallet/ethereum/EthereumManager';
+import ElementsService from './ElementsService';
+import Errors from './Errors';
+import EventHandler from './EventHandler';
+import MusigSigner from './MusigSigner';
+import NodeInfo from './NodeInfo';
+import PaymentRequestUtils from './PaymentRequestUtils';
+import TimeoutDeltaProvider, {
+  PairTimeoutBlocksDelta,
+} from './TimeoutDeltaProvider';
 
 type NetworkContracts = {
   network: {

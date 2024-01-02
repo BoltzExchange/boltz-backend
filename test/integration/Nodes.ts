@@ -1,9 +1,9 @@
 import { resolve } from 'path';
 import Logger from '../../lib/Logger';
-import LndClient from '../../lib/lightning/LndClient';
 import ChainClient from '../../lib/chain/ChainClient';
-import ClnClient from '../../lib/lightning/ClnClient';
 import ElementsClient from '../../lib/chain/ElementsClient';
+import ClnClient from '../../lib/lightning/ClnClient';
+import LndClient from '../../lib/lightning/LndClient';
 
 const host = process.platform === 'win32' ? '192.168.99.100' : '127.0.0.1';
 

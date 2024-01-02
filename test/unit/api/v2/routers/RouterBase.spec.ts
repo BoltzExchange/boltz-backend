@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import Logger from '../../../../../lib/Logger';
-import { mockRequest, mockResponse } from '../../Utils';
-import { apiPrefix } from '../../../../../lib/api/v2/Consts';
 import { errorResponse } from '../../../../../lib/api/Utils';
+import { apiPrefix } from '../../../../../lib/api/v2/Consts';
 import RouterBase from '../../../../../lib/api/v2/routers/RouterBase';
+import { mockRequest, mockResponse } from '../../Utils';
 
 jest.mock('../../../../../lib/api/Utils', () => ({
   errorResponse: jest.fn(),

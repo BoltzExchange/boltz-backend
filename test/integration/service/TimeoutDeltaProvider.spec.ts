@@ -1,12 +1,12 @@
 import { randomBytes } from 'crypto';
-import Logger from '../../../lib/Logger';
-import Errors from '../../../lib/service/Errors';
 import { ConfigType } from '../../../lib/Config';
+import Logger from '../../../lib/Logger';
 import { splitPairId } from '../../../lib/Utils';
+import { OrderSide, SwapVersion } from '../../../lib/consts/Enums';
+import Errors from '../../../lib/service/Errors';
+import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
 import { Currency } from '../../../lib/wallet/WalletManager';
-import { OrderSide, SwapVersion } from '../../../lib/consts/Enums';
-import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
 import {
   bitcoinClient,
   bitcoinLndClient,

@@ -1,4 +1,4 @@
-import { Model, Sequelize, DataTypes } from 'sequelize';
+import { DataTypes, Model, Sequelize } from 'sequelize';
 
 type ReferralType = {
   id: string;

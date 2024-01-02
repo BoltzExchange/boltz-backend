@@ -1,18 +1,4 @@
-import Errors from './Errors';
 import Logger from '../Logger';
-import Swap from '../db/models/Swap';
-import NodeSwitch from './NodeSwitch';
-import ChannelNursery from './ChannelNursery';
-import LndClient from '../lightning/LndClient';
-import ClnClient from '../lightning/ClnClient';
-import LightningNursery from './LightningNursery';
-import { Currency } from '../wallet/WalletManager';
-import ChannelCreation from '../db/models/ChannelCreation';
-import SwapRepository from '../db/repositories/SwapRepository';
-import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
-import { Payment, PaymentFailureReason } from '../proto/lnd/rpc_pb';
-import { ChannelCreationStatus, SwapUpdateEvent } from '../consts/Enums';
-import { LightningClient, PaymentResponse } from '../lightning/LightningClient';
 import {
   formatError,
   getHexBuffer,
@@ -20,6 +6,20 @@ import {
   getLightningCurrency,
   splitPairId,
 } from '../Utils';
+import { ChannelCreationStatus, SwapUpdateEvent } from '../consts/Enums';
+import ChannelCreation from '../db/models/ChannelCreation';
+import Swap from '../db/models/Swap';
+import SwapRepository from '../db/repositories/SwapRepository';
+import ClnClient from '../lightning/ClnClient';
+import { LightningClient, PaymentResponse } from '../lightning/LightningClient';
+import LndClient from '../lightning/LndClient';
+import { Payment, PaymentFailureReason } from '../proto/lnd/rpc_pb';
+import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
+import { Currency } from '../wallet/WalletManager';
+import ChannelNursery from './ChannelNursery';
+import Errors from './Errors';
+import LightningNursery from './LightningNursery';
+import NodeSwitch from './NodeSwitch';
 
 class PaymentHandler {
   private static readonly raceTimeout = 15;

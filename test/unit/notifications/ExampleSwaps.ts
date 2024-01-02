@@ -6,10 +6,12 @@ import {
   ChannelCreationType as ChannelType,
   OrderSide,
   SwapUpdateEvent,
+  SwapVersion,
 } from '../../../lib/consts/Enums';
 
 export const swapExample: SwapType = {
   id: '123456',
+  version: SwapVersion.Legacy,
 
   fee: 100,
   orderSide: OrderSide.BUY,
@@ -45,6 +47,7 @@ export const pendingSwapExample: SwapType = {
 
 export const reverseSwapExample: ReverseSwapType = {
   id: 'r123456',
+  version: SwapVersion.Legacy,
 
   fee: 200,
   node: NodeType.LND,
@@ -83,6 +86,7 @@ export const pendingReverseSwapExample = {
 
 export const channelSwapExample: SwapType = {
   id: 'channel',
+  version: SwapVersion.Legacy,
 
   fee: 0,
   orderSide: OrderSide.BUY,

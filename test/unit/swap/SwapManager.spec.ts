@@ -30,6 +30,7 @@ import {
   CurrencyType,
   OrderSide,
   SwapUpdateEvent,
+  SwapVersion,
 } from '../../../lib/consts/Enums';
 import {
   decodeInvoice,
@@ -460,6 +461,7 @@ describe('SwapManager', () => {
       quoteCurrency,
       timeoutBlockDelta,
       refundPublicKey: refundKey,
+      version: SwapVersion.Legacy,
     });
 
     expect(swap).toEqual({
@@ -484,6 +486,7 @@ describe('SwapManager', () => {
     expect(mockAddSwap).toHaveBeenCalledWith({
       orderSide,
       id: swap.id,
+      version: SwapVersion.Legacy,
       status: SwapUpdateEvent.SwapCreated,
       keyIndex: mockGetNewKeysResult.index,
       pair: `${baseCurrency}/${quoteCurrency}`,
@@ -510,6 +513,7 @@ describe('SwapManager', () => {
       quoteCurrency,
       timeoutBlockDelta,
       refundPublicKey: refundKey,
+      version: SwapVersion.Legacy,
     });
 
     expect(swapChannelCreation).toEqual({
@@ -535,6 +539,7 @@ describe('SwapManager', () => {
     expect(mockAddSwap).toHaveBeenNthCalledWith(2, {
       orderSide,
       id: swapChannelCreation.id,
+      version: SwapVersion.Legacy,
       status: SwapUpdateEvent.SwapCreated,
       keyIndex: mockGetNewKeysResult.index,
       pair: `${baseCurrency}/${quoteCurrency}`,
@@ -566,6 +571,7 @@ describe('SwapManager', () => {
       quoteCurrency,
       timeoutBlockDelta,
       refundPublicKey: refundKey,
+      version: SwapVersion.Legacy,
     });
 
     expect(mockAddChannelCreation).toHaveBeenCalledTimes(2);
@@ -589,6 +595,7 @@ describe('SwapManager', () => {
         quoteCurrency,
         timeoutBlockDelta,
         refundPublicKey: refundKey,
+        version: SwapVersion.Legacy,
         baseCurrency: notFoundSymbol,
       }),
     ).rejects.toEqual(Errors.NO_LIGHTNING_SUPPORT(notFoundSymbol));
@@ -927,6 +934,7 @@ describe('SwapManager', () => {
       onchainTimeoutBlockDelta,
       lightningTimeoutBlockDelta,
       claimPublicKey: claimKey,
+      version: SwapVersion.Legacy,
     });
 
     expect(reverseSwap).toEqual({
@@ -971,6 +979,7 @@ describe('SwapManager', () => {
       node: NodeType.LND,
       id: reverseSwap.id,
       minerFeeInvoice: undefined,
+      version: SwapVersion.Legacy,
       invoice: mockAddHoldInvoiceResult,
       invoiceAmount: holdInvoiceAmount,
       status: SwapUpdateEvent.SwapCreated,
@@ -1001,8 +1010,8 @@ describe('SwapManager', () => {
       lightningTimeoutBlockDelta,
       prepayMinerFeeInvoiceAmount,
       prepayMinerFeeOnchainAmount,
-
       claimPublicKey: claimKey,
+      version: SwapVersion.Legacy,
     });
 
     expect(prepayReverseSwap).toEqual({
@@ -1053,6 +1062,7 @@ describe('SwapManager', () => {
       fee: percentageFee,
       node: NodeType.LND,
       id: prepayReverseSwap.id,
+      version: SwapVersion.Legacy,
       invoice: mockAddHoldInvoiceResult,
       invoiceAmount: holdInvoiceAmount,
       status: SwapUpdateEvent.SwapCreated,
@@ -1093,10 +1103,10 @@ describe('SwapManager', () => {
       holdInvoiceAmount,
       onchainTimeoutBlockDelta,
       lightningTimeoutBlockDelta,
-
+      prepayMinerFeeInvoiceAmount,
       claimPublicKey: claimKey,
       routingNode: nodePublicKey,
-      prepayMinerFeeInvoiceAmount,
+      version: SwapVersion.Legacy,
     });
 
     expect(mockGetRoutingHints).toHaveBeenCalledTimes(1);
@@ -1145,6 +1155,7 @@ describe('SwapManager', () => {
         onchainTimeoutBlockDelta,
         lightningTimeoutBlockDelta,
         claimPublicKey: claimKey,
+        version: SwapVersion.Legacy,
         quoteCurrency: notFoundSymbol,
       }),
     ).rejects.toEqual(Errors.NO_LIGHTNING_SUPPORT(notFoundSymbol));

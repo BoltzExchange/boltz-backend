@@ -18,6 +18,7 @@ import ChainClient from '../../../lib/chain/ChainClient';
 import FeeProvider from '../../../lib/rates/FeeProvider';
 import { CurrencyInfo } from '../../../lib/proto/boltzrpc_pb';
 import RateCalculator from '../../../lib/rates/RateCalculator';
+import { Ethereum } from '../../../lib/wallet/ethereum/EvmNetworks';
 import { InvoiceFeature } from '../../../lib/lightning/LightningClient';
 import PairRepository from '../../../lib/db/repositories/PairRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
@@ -32,14 +33,14 @@ import {
   gweiDecimals,
 } from '../../../lib/consts/Consts';
 import {
-  OrderSide,
   BaseFeeType,
-  ServiceInfo,
   CurrencyType,
+  OrderSide,
+  ServiceInfo,
   ServiceWarning,
   SwapUpdateEvent,
+  SwapVersion,
 } from '../../../lib/consts/Enums';
-import { Ethereum } from '../../../lib/wallet/ethereum/EvmNetworks';
 
 const mockGetPairs = jest.fn().mockResolvedValue([]);
 const mockAddPair = jest.fn().mockReturnValue(Promise.resolve());
@@ -1190,6 +1191,7 @@ describe('Service', () => {
       preimageHash,
       refundPublicKey,
       pairId: pair,
+      version: SwapVersion.Legacy,
     });
 
     expect(emittedId).toEqual(response.id);
@@ -1215,6 +1217,7 @@ describe('Service', () => {
       quoteCurrency: 'BTC',
       timeoutBlockDelta: 1,
       orderSide: OrderSide.BUY,
+      version: SwapVersion.Legacy,
     });
 
     // Throw if swap with preimage exists already
@@ -1223,6 +1226,7 @@ describe('Service', () => {
       service.createSwap({
         pairId: '',
         orderSide: '',
+        version: SwapVersion.Legacy,
         preimageHash: Buffer.alloc(0),
       }),
     ).rejects.toEqual(Errors.SWAP_WITH_PREIMAGE_EXISTS());
@@ -1464,6 +1468,7 @@ describe('Service', () => {
       referralId,
       refundPublicKey,
       pairId: pair,
+      version: SwapVersion.Legacy,
       preimageHash: getHexBuffer(decodeInvoice(invoice).paymentHash!),
     });
 
@@ -1533,6 +1538,7 @@ describe('Service', () => {
       invoiceAmount,
       claimPublicKey,
       pairId: pair,
+      version: SwapVersion.Legacy,
     });
 
     expect(emittedId).toEqual(response.id);
@@ -1563,6 +1569,7 @@ describe('Service', () => {
       quoteCurrency: 'BTC',
       orderSide: OrderSide.BUY,
       onchainTimeoutBlockDelta: 1,
+      version: SwapVersion.Legacy,
       lightningTimeoutBlockDelta: 16,
       holdInvoiceAmount: invoiceAmount,
       percentageFee: invoiceAmount * mockGetPercentageFeeResult,
@@ -1579,6 +1586,7 @@ describe('Service', () => {
       invoiceAmount,
       claimPublicKey,
       pairId: pair,
+      version: SwapVersion.Legacy,
     });
 
     expect(mockCreateReverseSwap).toHaveBeenCalledTimes(2);
@@ -1589,6 +1597,7 @@ describe('Service', () => {
       baseCurrency: 'LTC',
       quoteCurrency: 'BTC',
       orderSide: OrderSide.BUY,
+      version: SwapVersion.Legacy,
       onchainTimeoutBlockDelta: 160,
       lightningTimeoutBlockDelta: 50,
       holdInvoiceAmount: invoiceAmount,
@@ -1605,6 +1614,7 @@ describe('Service', () => {
       invoiceAmount,
       claimPublicKey,
       pairId: pair,
+      version: SwapVersion.Legacy,
       pairHash: pairs.get(pair)!.hash,
     });
 
@@ -1617,6 +1627,7 @@ describe('Service', () => {
         claimPublicKey,
         pairId: pair,
         pairHash: 'wrongHash',
+        version: SwapVersion.Legacy,
       }),
     ).rejects.toEqual(Errors.INVALID_PAIR_HASH());
     await expect(
@@ -1627,6 +1638,7 @@ describe('Service', () => {
         claimPublicKey,
         pairId: pair,
         pairHash: '',
+        version: SwapVersion.Legacy,
       }),
     ).rejects.toEqual(Errors.INVALID_PAIR_HASH());
 
@@ -1638,6 +1650,7 @@ describe('Service', () => {
         claimPublicKey,
         pairId: pair,
         invoiceAmount: 1,
+        version: SwapVersion.Legacy,
       }),
     ).rejects.toEqual(Errors.ONCHAIN_AMOUNT_TOO_LOW());
 
@@ -1650,6 +1663,7 @@ describe('Service', () => {
         preimageHash,
         claimPublicKey,
         pairId: pair,
+        version: SwapVersion.Legacy,
         invoiceAmount: invoiceAmountLimit,
       }),
     ).rejects.toEqual(Errors.BENEATH_MINIMAL_AMOUNT(invoiceAmountLimit, 1));
@@ -1664,6 +1678,7 @@ describe('Service', () => {
         invoiceAmount,
         claimPublicKey,
         pairId: pair,
+        version: SwapVersion.Legacy,
       }),
     ).rejects.toEqual(Errors.REVERSE_SWAPS_DISABLED());
 
@@ -1678,6 +1693,7 @@ describe('Service', () => {
         preimageHash,
         claimPublicKey,
         pairId: pair,
+        version: SwapVersion.Legacy,
         invoiceAmount: invalidNumber,
       }),
     ).rejects.toEqual(Errors.NOT_WHOLE_NUMBER(invalidNumber));
@@ -1690,6 +1706,7 @@ describe('Service', () => {
         claimPublicKey,
         pairId: pair,
         onchainAmount: invalidNumber,
+        version: SwapVersion.Legacy,
       }),
     ).rejects.toEqual(Errors.NOT_WHOLE_NUMBER(invalidNumber));
   });
@@ -1730,6 +1747,7 @@ describe('Service', () => {
       invoiceAmount,
       claimPublicKey,
       pairId: pair,
+      version: SwapVersion.Legacy,
     });
 
     expect(mockCreateReverseSwap).toHaveBeenCalledWith({
@@ -1741,6 +1759,7 @@ describe('Service', () => {
       quoteCurrency: 'BTC',
       orderSide: OrderSide.BUY,
       onchainTimeoutBlockDelta: 1,
+      version: SwapVersion.Legacy,
       lightningTimeoutBlockDelta: 16,
       holdInvoiceAmount: invoiceAmount,
       percentageFee: invoiceAmount * mockGetPercentageFeeResult,
@@ -1766,6 +1785,7 @@ describe('Service', () => {
       onchainAmount,
       claimPublicKey,
       pairId: pair,
+      version: SwapVersion.Legacy,
     });
 
     expect(mockCreateReverseSwap).toHaveBeenCalledWith({
@@ -1776,6 +1796,7 @@ describe('Service', () => {
       baseCurrency: 'BTC',
       quoteCurrency: 'BTC',
       orderSide: OrderSide.BUY,
+      version: SwapVersion.Legacy,
       holdInvoiceAmount: invoiceAmount,
       onchainTimeoutBlockDelta: expect.anything(),
       lightningTimeoutBlockDelta: expect.anything(),
@@ -1799,6 +1820,7 @@ describe('Service', () => {
       invoiceAmount,
       claimPublicKey,
       pairId: pair,
+      version: SwapVersion.Legacy,
     });
 
     expect(response).toEqual({
@@ -1820,6 +1842,7 @@ describe('Service', () => {
       quoteCurrency: 'BTC',
       orderSide: OrderSide.BUY,
       onchainTimeoutBlockDelta: 1,
+      version: SwapVersion.Legacy,
       lightningTimeoutBlockDelta: 16,
       prepayMinerFeeInvoiceAmount: mockGetBaseFeeResult,
       holdInvoiceAmount: invoiceAmount - mockGetBaseFeeResult,

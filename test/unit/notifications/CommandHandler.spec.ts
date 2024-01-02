@@ -191,8 +191,9 @@ describe('CommandHandler', () => {
       ReverseSwapRepository.addReverseSwap(pendingReverseSwapExample),
 
       SwapRepository.addSwap(channelSwapExample),
-      ChannelCreationRepository.addChannelCreation(channelCreationExample),
     ]);
+
+    await ChannelCreationRepository.addChannelCreation(channelCreationExample);
   });
 
   beforeEach(() => {
@@ -200,7 +201,7 @@ describe('CommandHandler', () => {
     ReferralStats.generate = mockGenerateReferralStats;
   });
 
-  test('should not respond to messages that are no commands', async () => {
+  test('should not respond to messages that are not commands', async () => {
     sendMessage('clearly not a command');
     await wait(5);
 

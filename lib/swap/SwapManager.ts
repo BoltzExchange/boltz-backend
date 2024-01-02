@@ -66,6 +66,54 @@ type SetSwapInvoiceResponse = {
   channelCreationError?: string;
 };
 
+type CreatedSwap = {
+  id: string;
+  timeoutBlockHeight: number;
+
+  // This is either the generated address for Bitcoin like chains, or the address of the contract
+  // to which the user should send the lockup transaction for Ether and ERC20 tokens
+  address: string;
+
+  // Only set for Bitcoin like, UTXO based, chains
+  redeemScript?: string;
+
+  // Only set for Taproot swaps
+  claimPublicKey?: string;
+  swapTree?: SwapTreeSerializer.SerializedTree;
+
+  // Specified when either Ether or ERC20 tokens or swapped to Lightning
+  // So that the user can specify the claim address (Boltz) in the lockup transaction to the contract
+  claimAddress?: string;
+
+  // For blinded Liquid swaps
+  blindingKey?: string;
+};
+
+type CreatedReverseSwap = {
+  id: string;
+  timeoutBlockHeight: number;
+
+  invoice: string;
+  minerFeeInvoice: string | undefined;
+
+  // Only set for Bitcoin like, UTXO based, chains
+  redeemScript: string | undefined;
+
+  // Only set for Taproot swaps
+  refundPublicKey?: string;
+  swapTree?: SwapTreeSerializer.SerializedTree;
+
+  // Only set for Ethereum like chains
+  refundAddress: string | undefined;
+
+  // This is either the generated address for Bitcoin like chains, or the address of the contract
+  // to which Boltz will send the lockup transaction for Ether and ERC20 tokens
+  lockupAddress: string;
+
+  // For blinded Liquid reverse swaps
+  blindingKey?: string;
+};
+
 class SwapManager {
   public currencies = new Map<string, Currency>();
 
@@ -169,28 +217,7 @@ class SwapManager {
 
     // Only required for UTXO based chains
     refundPublicKey?: Buffer;
-  }): Promise<{
-    id: string;
-    timeoutBlockHeight: number;
-
-    // This is either the generated address for Bitcoin like chains, or the address of the contract
-    // to which the user should send the lockup transaction for Ether and ERC20 tokens
-    address: string;
-
-    // Only set for Bitcoin like, UTXO based, chains
-    redeemScript?: string;
-
-    // Only set for Taproot swaps
-    claimPublicKey?: string;
-    swapTree?: SwapTreeSerializer.SerializedTree;
-
-    // Specified when either Ether or ERC20 tokens or swapped to Lightning
-    // So that the user can specify the claim address (Boltz) in the lockup transaction to the contract
-    claimAddress?: string;
-
-    // For blinded Liquid swaps
-    blindingKey?: string;
-  }> => {
+  }): Promise<CreatedSwap> => {
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(
       args.baseCurrency,
       args.quoteCurrency,
@@ -218,7 +245,7 @@ class SwapManager {
       quote: args.quoteCurrency,
     });
 
-    const result: any = {
+    const result: Partial<CreatedSwap> = {
       id,
     };
 
@@ -339,7 +366,7 @@ class SwapManager {
       });
     }
 
-    return result;
+    return result as CreatedSwap;
   };
 
   /**
@@ -537,30 +564,7 @@ class SwapManager {
     // Only required for Swaps to Ether and ERC20 tokens
     // Address of the user to which the coins will be sent after a successful claim transaction
     claimAddress?: string;
-  }): Promise<{
-    id: string;
-    timeoutBlockHeight: number;
-
-    invoice: string;
-    minerFeeInvoice: string | undefined;
-
-    // Only set for Bitcoin like, UTXO based, chains
-    redeemScript: string | undefined;
-
-    // Only set for Taproot swaps
-    refundPublicKey?: string;
-    swapTree?: SwapTreeSerializer.SerializedTree;
-
-    // Only set for Ethereum like chains
-    refundAddress: string | undefined;
-
-    // This is either the generated address for Bitcoin like chains, or the address of the contract
-    // to which Boltz will send the lockup transaction for Ether and ERC20 tokens
-    lockupAddress: string;
-
-    // For blinded Liquid reverse swaps
-    blindingKey?: string;
-  }> => {
+  }): Promise<CreatedReverseSwap> => {
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(
       args.baseCurrency,
       args.quoteCurrency,
@@ -635,7 +639,7 @@ class SwapManager {
       }
     }
 
-    const result: any = {
+    const result: Partial<CreatedReverseSwap> = {
       id,
       minerFeeInvoice,
       invoice: paymentRequest,
@@ -682,7 +686,7 @@ class SwapManager {
           result.redeemScript = getHexString(redeemScript);
 
           outputScript = getScriptHashFunction(ReverseSwapOutputType)(
-            result.redeemScript,
+            redeemScript,
           );
 
           break;
@@ -759,7 +763,7 @@ class SwapManager {
       });
     }
 
-    return result;
+    return result as CreatedReverseSwap;
   };
 
   // TODO: check current status of invoices or do the streams handle that already?

@@ -8,11 +8,15 @@ import ReferralStats from '../../../lib/data/ReferralStats';
 import ReverseSwap from '../../../lib/db/models/ReverseSwap';
 import { emitClose, mockRequest, mockResponse } from './Utils';
 import ChannelCreation from '../../../lib/db/models/ChannelCreation';
-import { SwapType, SwapUpdateEvent } from '../../../lib/consts/Enums';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import { getHexBuffer, getVersion, mapToObject } from '../../../lib/Utils';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
+import {
+  SwapType,
+  SwapUpdateEvent,
+  SwapVersion,
+} from '../../../lib/consts/Enums';
 
 type swapUpdateCallback = (id: string, message: string) => void;
 
@@ -787,9 +791,10 @@ describe('Controller', () => {
 
     expect(service.createSwap).toHaveBeenCalledWith({
       pairId: requestData.pairId,
+      version: SwapVersion.Legacy,
       orderSide: requestData.orderSide,
-      refundPublicKey: getHexBuffer(requestData.refundPublicKey),
       preimageHash: getHexBuffer(requestData.preimageHash),
+      refundPublicKey: getHexBuffer(requestData.refundPublicKey),
     });
 
     expect(res.status).toHaveBeenNthCalledWith(3, 201);
@@ -806,10 +811,11 @@ describe('Controller', () => {
 
     expect(service.createSwap).toHaveBeenCalledWith({
       pairId: requestData.pairId,
-      orderSide: requestData.orderSide,
-      refundPublicKey: getHexBuffer(requestData.refundPublicKey),
-      preimageHash: getHexBuffer(requestData.preimageHash),
+      version: SwapVersion.Legacy,
       channel: requestData.channel,
+      orderSide: requestData.orderSide,
+      preimageHash: getHexBuffer(requestData.preimageHash),
+      refundPublicKey: getHexBuffer(requestData.refundPublicKey),
     });
 
     expect(res.status).toHaveBeenNthCalledWith(4, 201);
@@ -822,6 +828,7 @@ describe('Controller', () => {
 
     expect(service.createSwap).toHaveBeenCalledWith({
       pairId: requestData.pairId,
+      version: SwapVersion.Legacy,
       channel: requestData.channel,
       orderSide: requestData.orderSide,
       referralId: requestData.referralId,
@@ -924,9 +931,10 @@ describe('Controller', () => {
 
     expect(service.createReverseSwap).toHaveBeenCalledWith({
       pairId: requestData.pairId,
+      version: SwapVersion.Legacy,
       orderSide: requestData.orderSide,
-      preimageHash: getHexBuffer(requestData.preimageHash),
       invoiceAmount: requestData.invoiceAmount,
+      preimageHash: getHexBuffer(requestData.preimageHash),
       claimPublicKey: getHexBuffer(requestData.claimPublicKey),
     });
 
@@ -940,10 +948,11 @@ describe('Controller', () => {
 
     expect(service.createReverseSwap).toHaveBeenNthCalledWith(3, {
       pairId: requestData.pairId,
+      version: SwapVersion.Legacy,
       pairHash: requestData.pairHash,
       orderSide: requestData.orderSide,
-      preimageHash: getHexBuffer(requestData.preimageHash),
       invoiceAmount: requestData.invoiceAmount,
+      preimageHash: getHexBuffer(requestData.preimageHash),
       claimPublicKey: getHexBuffer(requestData.claimPublicKey),
     });
 
@@ -960,9 +969,10 @@ describe('Controller', () => {
     expect(service.createReverseSwap).toHaveBeenNthCalledWith(5, {
       prepayMinerFee: true,
       pairId: requestData.pairId,
+      version: SwapVersion.Legacy,
       orderSide: requestData.orderSide,
-      preimageHash: getHexBuffer(requestData.preimageHash),
       invoiceAmount: requestData.invoiceAmount,
+      preimageHash: getHexBuffer(requestData.preimageHash),
       claimPublicKey: getHexBuffer(requestData.claimPublicKey),
     });
 
@@ -978,9 +988,10 @@ describe('Controller', () => {
     expect(service.createReverseSwap).toHaveBeenNthCalledWith(7, {
       prepayMinerFee: true,
       pairId: requestData.pairId,
+      version: SwapVersion.Legacy,
       orderSide: requestData.orderSide,
-      preimageHash: getHexBuffer(requestData.preimageHash),
       onchainAmount: requestData.onchainAmount,
+      preimageHash: getHexBuffer(requestData.preimageHash),
       claimPublicKey: getHexBuffer(requestData.claimPublicKey),
     });
 
@@ -995,6 +1006,7 @@ describe('Controller', () => {
     expect(service.createReverseSwap).toHaveBeenNthCalledWith(9, {
       prepayMinerFee: true,
       pairId: requestData.pairId,
+      version: SwapVersion.Legacy,
       orderSide: requestData.orderSide,
       referralId: requestData.referralId,
       preimageHash: getHexBuffer(requestData.preimageHash),
@@ -1095,32 +1107,5 @@ describe('Controller', () => {
     expect(() => parseSwapType('notFound')).toThrow(
       'could not find swap type: notFound',
     );
-  });
-
-  test('should check preimage hash length', () => {
-    const checkPreimageHashLength = controller['checkPreimageHashLength'];
-
-    checkPreimageHashLength(
-      getHexBuffer(
-        '34786bcde69ec5873bcf2e8a42c47fbcc762bdb1096c1077709cb9854fef308d',
-      ),
-    );
-
-    // Check errors
-    expect(() =>
-      checkPreimageHashLength(
-        getHexBuffer(
-          '34786bcde69ec5873bcf2e8a42c47fbcc762bdb1096c1077709cb9854fef308',
-        ),
-      ),
-    ).toThrow('invalid preimage hash length: 31');
-
-    expect(() =>
-      checkPreimageHashLength(
-        getHexBuffer(
-          '34786bcde69ec5873bcf2e8a42c47fbcc762bdb1096c1077709cb9854fef308dff',
-        ),
-      ),
-    ).toThrow('invalid preimage hash length: 33');
   });
 });

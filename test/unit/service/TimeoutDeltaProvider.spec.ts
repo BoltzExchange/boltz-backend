@@ -4,7 +4,7 @@ import Logger from '../../../lib/Logger';
 import Errors from '../../../lib/service/Errors';
 import { ConfigType } from '../../../lib/Config';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
-import { OrderSide } from '../../../lib/consts/Enums';
+import { OrderSide, SwapVersion } from '../../../lib/consts/Enums';
 import { PairConfig } from '../../../lib/consts/Types';
 import LndClient from '../../../lib/lightning/LndClient';
 import { Currency } from '../../../lib/wallet/WalletManager';
@@ -26,6 +26,7 @@ const currencies = [
       reverse: 1440,
       swapMinimal: 360,
       swapMaximal: 2880,
+      swapTaproot: 10080,
     },
   },
   {
@@ -40,6 +41,7 @@ const currencies = [
       reverse: 1440,
       swapMinimal: 1400,
       swapMaximal: 2880,
+      swapTaproot: 10080,
     },
   },
 ] as any as PairConfig[];
@@ -75,6 +77,7 @@ describe('TimeoutDeltaProvider', () => {
       reverse: val,
       swapMinimal: val,
       swapMaximal: val,
+      swapTaproot: val,
     };
   };
 
@@ -109,11 +112,13 @@ describe('TimeoutDeltaProvider', () => {
         reverse: 144,
         swapMinimal: 36,
         swapMaximal: 288,
+        swapTaproot: 1008,
       },
       quote: {
         reverse: 144,
         swapMinimal: 36,
         swapMaximal: 288,
+        swapTaproot: 1008,
       },
     });
     expect(deltas.get('LTC/BTC')).toEqual({
@@ -153,24 +158,44 @@ describe('TimeoutDeltaProvider', () => {
     const pairId = 'LTC/BTC';
 
     await expect(
-      deltaProvider.getTimeout(pairId, OrderSide.BUY, true),
+      deltaProvider.getTimeout(pairId, OrderSide.BUY, true, SwapVersion.Legacy),
     ).resolves.toEqual([8, false]);
     await expect(
-      deltaProvider.getTimeout(pairId, OrderSide.BUY, false),
+      deltaProvider.getTimeout(
+        pairId,
+        OrderSide.BUY,
+        false,
+        SwapVersion.Legacy,
+      ),
     ).resolves.toEqual([2, true]);
 
     await expect(
-      deltaProvider.getTimeout(pairId, OrderSide.SELL, true),
+      deltaProvider.getTimeout(
+        pairId,
+        OrderSide.SELL,
+        true,
+        SwapVersion.Legacy,
+      ),
     ).resolves.toEqual([2, false]);
     await expect(
-      deltaProvider.getTimeout(pairId, OrderSide.SELL, false),
+      deltaProvider.getTimeout(
+        pairId,
+        OrderSide.SELL,
+        false,
+        SwapVersion.Legacy,
+      ),
     ).resolves.toEqual([8, true]);
 
     // Should throw if pair cannot be found
     const notFound = 'notFound';
 
     await expect(
-      deltaProvider.getTimeout(notFound, OrderSide.SELL, true),
+      deltaProvider.getTimeout(
+        notFound,
+        OrderSide.SELL,
+        true,
+        SwapVersion.Legacy,
+      ),
     ).rejects.toEqual(Errors.PAIR_NOT_FOUND(notFound));
   });
 
@@ -181,6 +206,7 @@ describe('TimeoutDeltaProvider', () => {
       reverse: newDelta,
       swapMinimal: newDelta,
       swapMaximal: newDelta,
+      swapTaproot: newDelta,
     });
 
     expect(deltaProvider['timeoutDeltas'].get(pairId)).toEqual({
@@ -201,6 +227,7 @@ describe('TimeoutDeltaProvider', () => {
         reverse: -newDelta,
         swapMinimal: -newDelta,
         swapMaximal: -newDelta,
+        swapTaproot: -newDelta,
       }),
     ).toThrow(Errors.INVALID_TIMEOUT_BLOCK_DELTA().message);
     expect(() =>
@@ -208,6 +235,7 @@ describe('TimeoutDeltaProvider', () => {
         reverse: 5,
         swapMinimal: 5,
         swapMaximal: 5,
+        swapTaproot: 5,
       }),
     ).toThrow(Errors.INVALID_TIMEOUT_BLOCK_DELTA().message);
   });
@@ -228,6 +256,7 @@ describe('TimeoutDeltaProvider', () => {
         reverse: 1,
         swapMinimal: 1,
         swapMaximal: 1,
+        swapTaproot: 1,
       }),
     ).toEqual({
       base: createDeltas(5),

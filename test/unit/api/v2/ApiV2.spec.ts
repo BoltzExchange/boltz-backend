@@ -14,6 +14,17 @@ jest.mock('../../../../lib/api/v2/routers/NodesRouter', () => {
   });
 });
 
+const mockSwapGetRouter = jest.fn().mockReturnValue(Router());
+
+jest.mock('../../../../lib/api/v2/routers/SwapRouter', () => {
+  return jest.fn().mockImplementation(() => {
+    return {
+      path: 'swap',
+      getRouter: mockSwapGetRouter,
+    };
+  });
+});
+
 describe('ApiV2', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -27,10 +38,14 @@ describe('ApiV2', () => {
     new ApiV2(Logger.disabledLogger, {} as any).registerRoutes(app);
 
     expect(mockNodesGetRouter).toHaveBeenCalledTimes(1);
-    expect(app.use).toHaveBeenCalledTimes(1);
+    expect(app.use).toHaveBeenCalledTimes(2);
     expect(app.use).toHaveBeenCalledWith(
       `${apiPrefix}/nodes`,
       mockNodesGetRouter(),
+    );
+    expect(app.use).toHaveBeenCalledWith(
+      `${apiPrefix}/swap`,
+      mockSwapGetRouter(),
     );
   });
 });

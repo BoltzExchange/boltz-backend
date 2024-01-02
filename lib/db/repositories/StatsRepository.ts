@@ -88,8 +88,10 @@ SELECT
     pair,
     SUM(amount) AS sum
 FROM data
-WHERE EXTRACT(YEAR FROM "createdAt") >= ? AND
-    EXTRACT(MONTH FROM "createdAt") >= ?
+WHERE (
+      EXTRACT(YEAR FROM "createdAt") >= ? AND
+      EXTRACT(MONTH FROM "createdAt") >= ?
+    ) OR EXTRACT(YEAR from "createdAt") > ?
 GROUP BY GROUPING SETS (
     (year, month),
     (year, month, pair)
@@ -132,7 +134,7 @@ WITH data AS (
     GROUP BY year, month
 )
 SELECT * FROM groupedTotals
-WHERE year >= ? AND month >= ?
+WHERE (year >= ? AND month >= ?) OR year > ?
 ORDER BY year, month, pair;
 `,
   };
@@ -155,8 +157,10 @@ SELECT
     pair,
     COUNT(*) AS count
 FROM data
-WHERE EXTRACT(YEAR FROM "createdAt") >= ? AND
-    EXTRACT(MONTH FROM "createdAt") >= ?
+WHERE (
+        EXTRACT(YEAR FROM "createdAt") >= ? AND
+        EXTRACT(MONTH FROM "createdAt") >= ?
+    ) OR EXTRACT(YEAR FROM "createdAt") > ?
 GROUP BY GROUPING SETS (
     (year, month),
     (pair, year, month)
@@ -191,7 +195,7 @@ WITH data AS (
     GROUP BY year, month
 )
 SELECT * FROM groupedTotals
-WHERE year >= ? AND month >= ?
+WHERE (year >= ? AND month >= ?) OR year > ?
 ORDER BY year, month, pair;
 `,
   };
@@ -212,8 +216,10 @@ SELECT
         WHERE status IN (?)
     ) / CAST(COUNT(*) AS REAL) AS "failureRate"
 FROM data
-WHERE EXTRACT(YEAR FROM "createdAt") >= ? AND
-    EXTRACT(MONTH FROM "createdAt") >= ?
+WHERE (
+        EXTRACT(YEAR FROM "createdAt") >= ? AND
+        EXTRACT(MONTH FROM "createdAt") >= ?
+    ) OR EXTRACT(YEAR FROM "createdAt") > ?
 GROUP BY year, month, "isReverse"
 ORDER BY year, month, "isReverse";
 `,
@@ -234,7 +240,7 @@ SELECT
         WHERE status IN (?)
     ) / CAST(COUNT(*) AS REAL) AS failureRate
 FROM data
-WHERE year >= ? AND month >= ?
+WHERE (year >= ? AND month >= ?) OR year > ?
 GROUP BY year, month, isReverse
 ORDER BY year, month, isReverse;
 `,
@@ -449,6 +455,7 @@ GROUP BY pair;
         SwapUpdateEvent.InvoiceSettled,
         minYear,
         minMonth,
+        minYear,
       ],
     });
   };
@@ -464,6 +471,7 @@ GROUP BY pair;
         SwapUpdateEvent.InvoiceSettled,
         minYear,
         minMonth,
+        minYear,
       ],
     });
   };
@@ -482,6 +490,7 @@ GROUP BY pair;
         ],
         minYear,
         minMonth,
+        minYear,
       ],
     });
   };

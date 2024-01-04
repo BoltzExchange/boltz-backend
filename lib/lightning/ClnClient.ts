@@ -63,6 +63,7 @@ class ClnClient
 {
   public static readonly serviceName = 'CLN';
   public static readonly serviceNameHold = 'hold';
+  public static readonly moddedVersionSuffix = '-modded';
 
   private static readonly paymentMinFee = 121;
   private static readonly pendingTimeout = 120;

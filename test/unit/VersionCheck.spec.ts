@@ -111,4 +111,14 @@ describe('VersionCheck', () => {
       ),
     ).not.toThrow();
   });
+
+  test('should allow modded versions of CLN', () => {
+    expect(() =>
+      VersionCheck.checkLightningVersion(
+        ClnClient.serviceName,
+        'BTC',
+        'v23.11.2-modded',
+      ),
+    ).not.toThrow();
+  });
 });

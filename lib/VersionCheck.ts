@@ -1,6 +1,6 @@
+import ChainClient from './chain/ChainClient';
 import ClnClient from './lightning/ClnClient';
 import LndClient from './lightning/LndClient';
-import ChainClient from './chain/ChainClient';
 
 type Version = string | number;
 
@@ -122,8 +122,15 @@ class VersionCheck {
 
       case ClnClient.serviceName:
         if (version.startsWith('v')) {
-          sanitizedVersion = version.slice(1);
+          sanitizedVersion = sanitizedVersion.slice(1);
         }
+        if (version.endsWith(ClnClient.moddedVersionSuffix)) {
+          sanitizedVersion = sanitizedVersion.slice(
+            0,
+            -ClnClient.moddedVersionSuffix.length,
+          );
+        }
+
         limits = VersionCheck.versionLimits[ClnClient.serviceName];
         break;
 

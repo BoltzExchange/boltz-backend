@@ -24,6 +24,13 @@ describe('ClnClient', () => {
     expect(clnClient.isConnected()).toEqual(true);
   });
 
+  test('should parse node URIs in getinfo', async () => {
+    const { pubkey, uris } = await clnClient.getInfo();
+
+    expect(uris).toHaveLength(1);
+    expect(uris[0]).toEqual(`${pubkey}@127.0.0.1:9737`);
+  });
+
   test('should generate hold invoices', async () => {
     const invoice = await clnClient.addHoldInvoice(10_000, randomBytes(32));
     expect(invoice.startsWith('lnbcrt')).toBeTruthy();

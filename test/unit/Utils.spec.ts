@@ -1,10 +1,16 @@
 import { Transaction } from 'bitcoinjs-lib';
-import { OutputType } from 'boltz-core';
+import { OutputType, Scripts } from 'boltz-core';
 import os from 'os';
 import * as utils from '../../lib/Utils';
-import { splitChannelPoint } from '../../lib/Utils';
+import {
+  TAPROOT_NOT_SUPPORTED,
+  generateSwapId,
+  getPubkeyHashFunction,
+  getScriptHashFunction,
+  splitChannelPoint,
+} from '../../lib/Utils';
 import commitHash from '../../lib/Version';
-import { OrderSide } from '../../lib/consts/Enums';
+import { OrderSide, SwapVersion } from '../../lib/consts/Enums';
 import packageJson from '../../package.json';
 import { constructTransaction, randomRange } from '../Utils';
 
@@ -24,6 +30,17 @@ describe('Utils', () => {
       '010000000001010dabcc426e9f5f57c1000e1560d06ebd21f510c74fe2d0c30fe8eefcabaf31f50200000000fdffffff02a086010000000000160014897ab9fb4e4bf920af9047b5a1896b4689a65bff0e52090000000000160014b3330dbbb43be7a4e2df367f58cf76c74f68141602483045022100ef83bcabb40debd4e13c0eda6b918b940b404344f41253a42c51fc76319ca64502205a1ad86d0bb92f25de75a6b37edf7118863ba9b7c438473ecde07765dedbb9ed012103df1535396d6f4c68458ef3ae86a32e5484e89d7bfc94cabd6c0c09ceaab0b2ab00000000',
     ),
   ];
+
+  test.each`
+    version                | expectedLength
+    ${SwapVersion.Legacy}  | ${6}
+    ${SwapVersion.Taproot} | ${12}
+  `(
+    'should generate swap id for version $version',
+    ({ version, expectedLength }) => {
+      expect(generateSwapId(version)).toHaveLength(expectedLength);
+    },
+  );
 
   test('should split derivation path', () => {
     const master = 'm';
@@ -332,5 +349,41 @@ describe('Utils', () => {
       vout: 1,
       id: '059a4a673f9984e236037b04317f7d042378227bfdd82e12dd55b0bf67a6773e',
     });
+  });
+
+  test.each`
+    outputType                  | expectedFunc
+    ${OutputType.Legacy}        | ${Scripts.p2pkhOutput}
+    ${OutputType.Compatibility} | ${Scripts.p2shP2wpkhOutput}
+    ${OutputType.Bech32}        | ${Scripts.p2wpkhOutput}
+  `(
+    'should get public key hash function for type $outputType',
+    ({ outputType, expectedFunc }) => {
+      expect(getPubkeyHashFunction(outputType)).toEqual(expectedFunc);
+    },
+  );
+
+  test('should throw when getting public key hash function for Taproot', () => {
+    expect(() => getPubkeyHashFunction(OutputType.Taproot)).toThrow(
+      TAPROOT_NOT_SUPPORTED,
+    );
+  });
+
+  test.each`
+    outputType                  | expectedFunc
+    ${OutputType.Legacy}        | ${Scripts.p2shOutput}
+    ${OutputType.Compatibility} | ${Scripts.p2shP2wshOutput}
+    ${OutputType.Bech32}        | ${Scripts.p2wshOutput}
+  `(
+    'should get script hash function for type $outputType',
+    ({ outputType, expectedFunc }) => {
+      expect(getScriptHashFunction(outputType)).toEqual(expectedFunc);
+    },
+  );
+
+  test('should throw when getting script hash function for Taproot', () => {
+    expect(() => getScriptHashFunction(OutputType.Taproot)).toThrow(
+      TAPROOT_NOT_SUPPORTED,
+    );
   });
 });

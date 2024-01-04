@@ -31,9 +31,9 @@ import { randomBytes } from 'crypto';
 import { ECPairInterface } from 'ecpair';
 import {
   Transaction as LiquidTransaction,
-  TxOutput as TxOutputLiquid,
-  address as addressLiquid,
+  TxOutput as LiquidTxOutput,
   confidential,
+  address as liquidAddress,
 } from 'liquidjs-lib';
 import { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
 import * as ecc from 'tiny-secp256k1';
@@ -52,7 +52,7 @@ import Wallet from './wallet/Wallet';
 import WalletLiquid from './wallet/WalletLiquid';
 import { Currency } from './wallet/WalletManager';
 
-type UnblindedOutput = Omit<TxOutputLiquid, 'value'> & {
+type UnblindedOutput = Omit<LiquidTxOutput, 'value'> & {
   value: number;
   isLbtc: boolean;
 };
@@ -93,7 +93,7 @@ export const fromOutputScript = (
 ) => {
   return isBitcoin(type)
     ? address.fromOutputScript(outputScript, network)
-    : addressLiquid.fromOutputScript(outputScript, network as LiquidNetwork);
+    : liquidAddress.fromOutputScript(outputScript, network as LiquidNetwork);
 };
 
 export const toOutputScript = (
@@ -103,12 +103,12 @@ export const toOutputScript = (
 ) => {
   return isBitcoin(type)
     ? address.toOutputScript(toDecode, network)
-    : addressLiquid.toOutputScript(toDecode, network as LiquidNetwork);
+    : liquidAddress.toOutputScript(toDecode, network as LiquidNetwork);
 };
 
 export const unblindOutput = (
   wallet: Wallet,
-  output: TxOutputLiquid,
+  output: LiquidTxOutput,
   blindingKey?: Buffer,
 ): UnblindedOutput => {
   let value = 0;
@@ -143,7 +143,7 @@ export const unblindOutput = (
 
 export const getOutputValue = (
   wallet: Wallet,
-  output: TxOutput | TxOutputLiquid,
+  output: TxOutput | LiquidTxOutput,
 ) => {
   if (isBitcoin(wallet.type)) {
     return output.value as number;
@@ -151,7 +151,7 @@ export const getOutputValue = (
 
   const unblinded = unblindOutput(
     wallet,
-    output as TxOutputLiquid,
+    output as LiquidTxOutput,
     (wallet as WalletLiquid).deriveBlindingKeyFromScript(output.script)
       .privateKey!,
   );
@@ -180,7 +180,7 @@ export const constructClaimTransaction = (
     wallet as WalletLiquid,
     claimDetails as LiquidClaimDetails[],
   );
-  const decodedAddress = addressLiquid.fromConfidential(destinationAddress);
+  const decodedAddress = liquidAddress.fromConfidential(destinationAddress);
 
   return targetFee(feePerVbyte, (fee) =>
     constructClaimTransactionLiquid(
@@ -217,7 +217,7 @@ export const constructRefundTransaction = (
     wallet as WalletLiquid,
     refundDetails as LiquidRefundDetails[],
   );
-  const decodedAddress = addressLiquid.fromConfidential(destinationAddress);
+  const decodedAddress = liquidAddress.fromConfidential(destinationAddress);
 
   return targetFee(feePerVbyte, (fee) =>
     constructRefundTransactionLiquid(
@@ -243,13 +243,13 @@ export const calculateTransactionFee = async (
 
 export const createMusig = (
   ourKeys: ECPairInterface | BIP32Interface,
-  refundPublicKey: Buffer,
+  theirPublicKey: Buffer,
 ) =>
   new Musig(
     zkpMusig,
     ECPair.fromPrivateKey(ourKeys.privateKey!),
     randomBytes(32),
-    [ourKeys.publicKey, refundPublicKey],
+    [ourKeys.publicKey, theirPublicKey],
   );
 
 export const tweakMusig = (
@@ -295,8 +295,8 @@ export const hashForWitnessV1 = async (
     index,
     inputs.map((input) => input.script),
     inputs.map((input) => ({
-      asset: (input as TxOutputLiquid).asset,
-      value: (input as TxOutputLiquid).value,
+      asset: (input as LiquidTxOutput).asset,
+      value: (input as LiquidTxOutput).value,
     })),
     hashType,
     (currency.network as LiquidNetwork).genesisBlockHash,

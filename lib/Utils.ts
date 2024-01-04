@@ -12,8 +12,9 @@ import ChainClient from './chain/ChainClient';
 import { etherDecimals } from './consts/Consts';
 import { OrderSide, SwapVersion } from './consts/Enums';
 
+export const TAPROOT_NOT_SUPPORTED = 'taproot not supported';
+
 const {
-  p2trOutput,
   p2shOutput,
   p2wshOutput,
   p2pkhOutput,
@@ -353,6 +354,9 @@ export const getPubkeyHashFunction = (
       outputScript: Buffer;
     }) => {
   switch (outputType) {
+    case OutputType.Taproot:
+      throw TAPROOT_NOT_SUPPORTED;
+
     case OutputType.Bech32:
       return p2wpkhOutput;
 
@@ -361,9 +365,6 @@ export const getPubkeyHashFunction = (
 
     case OutputType.Legacy:
       return p2pkhOutput;
-
-    case OutputType.Taproot:
-      throw p2trOutput;
   }
 };
 
@@ -371,6 +372,9 @@ export const getScriptHashFunction = (
   outputType: OutputType,
 ): ((scriptHex: Buffer) => Buffer) => {
   switch (outputType) {
+    case OutputType.Taproot:
+      throw TAPROOT_NOT_SUPPORTED;
+
     case OutputType.Bech32:
       return p2wshOutput;
 
@@ -379,9 +383,6 @@ export const getScriptHashFunction = (
 
     case OutputType.Legacy:
       return p2shOutput;
-
-    case OutputType.Taproot:
-      throw p2trOutput;
   }
 };
 

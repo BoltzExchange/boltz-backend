@@ -9,11 +9,15 @@ import WalletProviderInterface from './providers/WalletProviderInterface';
 class WalletLiquid extends Wallet {
   constructor(
     logger: Logger,
-    public walletProvider: WalletProviderInterface,
-    public slip77: Slip77Interface,
+    walletProvider: WalletProviderInterface,
+    private readonly slip77: Slip77Interface,
   ) {
     super(logger, CurrencyType.Liquid, walletProvider);
   }
+
+  public deriveBlindingKeyFromScript = (outputScript: Buffer) => {
+    return this.slip77.derive(outputScript);
+  };
 
   public override encodeAddress = (
     outputScript: Buffer,
@@ -40,10 +44,6 @@ class WalletLiquid extends Wallet {
     }
   };
 
-  public deriveBlindingKeyFromScript = (outputScript: Buffer) => {
-    return this.slip77.derive(outputScript);
-  };
-
   private getPaymentFunc = (outputScript: Buffer) => {
     switch (address.getScriptType(outputScript)) {
       case address.ScriptType.P2Pkh:
@@ -66,7 +66,6 @@ class WalletLiquid extends Wallet {
     confidentialAddress: string | undefined;
   } => {
     const addr = address.fromOutputScript(payment.output!, payment.network);
-
     const dec = address.fromBech32(addr);
 
     let confidentialAddress: string | undefined;

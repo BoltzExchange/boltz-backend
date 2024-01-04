@@ -328,6 +328,7 @@ describe('GrpcService', () => {
       reverseTimeout: 1,
       swapMinimalTimeout: 2,
       swapMaximalTimeout: 3,
+      swapTaproot: 4,
     };
 
     grpcService.updateTimeoutBlockDelta(
@@ -341,6 +342,7 @@ describe('GrpcService', () => {
     expect(mockUpdateTimeoutBlockDelta).toHaveBeenCalledTimes(1);
     expect(mockUpdateTimeoutBlockDelta).toHaveBeenCalledWith(callData.pair, {
       reverse: callData.reverseTimeout,
+      swapTaproot: callData.swapTaproot,
       swapMinimal: callData.swapMinimalTimeout,
       swapMaximal: callData.swapMaximalTimeout,
     });

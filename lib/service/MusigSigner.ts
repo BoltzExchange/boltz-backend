@@ -32,7 +32,7 @@ type PartialSignature = {
   signature: Buffer;
 };
 
-// TODO: verify
+// TODO: Should we verify what we are signing? And if so, how strict should we be?
 
 class MusigSigner {
   constructor(

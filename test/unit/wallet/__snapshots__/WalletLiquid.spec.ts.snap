@@ -1,0 +1,141 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`WalletLiquid should derive blinding keys from script for address AzpvTi6t8GTVxhg6tZ4vxNCdQKS9YYMMgJmxQAFYfhVvaogb6iVgTixvtv246tSbeM3zdgG1Z2ToreMt 1`] = `
+{
+  "data": [
+    106,
+    224,
+    188,
+    246,
+    172,
+    239,
+    156,
+    229,
+    189,
+    135,
+    73,
+    11,
+    203,
+    152,
+    88,
+    222,
+    36,
+    241,
+    201,
+    64,
+    47,
+    31,
+    102,
+    79,
+    140,
+    247,
+    159,
+    225,
+    105,
+    38,
+    82,
+    74,
+  ],
+  "type": "Buffer",
+}
+`;
+
+exports[`WalletLiquid should derive blinding keys from script for address CTEvqk9mbKSWnkPhF7DwqHf5X5Jx1Q25LXh4sprdqj4KRgMZTZaiGrhCCDfWrDyVqBbxUrhyCtLwgB7J 1`] = `
+{
+  "data": [
+    9,
+    92,
+    208,
+    181,
+    55,
+    69,
+    139,
+    221,
+    246,
+    80,
+    157,
+    160,
+    170,
+    232,
+    140,
+    154,
+    1,
+    116,
+    134,
+    90,
+    46,
+    200,
+    30,
+    67,
+    0,
+    44,
+    174,
+    107,
+    164,
+    253,
+    26,
+    160,
+  ],
+  "type": "Buffer",
+}
+`;
+
+exports[`WalletLiquid should derive blinding keys from script for address el1qqwxdjljvzdukcfxeammq6jktrvcurh329k7j208pm4rwe7anu2luhh7255kde06j2et2d0g5ym6yy949rx6rkp04xeav62vjp 1`] = `
+{
+  "data": [
+    171,
+    75,
+    129,
+    24,
+    207,
+    84,
+    235,
+    215,
+    147,
+    250,
+    37,
+    130,
+    147,
+    233,
+    213,
+    160,
+    19,
+    41,
+    33,
+    225,
+    54,
+    79,
+    71,
+    225,
+    253,
+    123,
+    142,
+    144,
+    95,
+    102,
+    250,
+    29,
+  ],
+  "type": "Buffer",
+}
+`;
+
+exports[`WalletLiquid should encode P2PKH address (confidential: false) 1`] = `"2df2n73X6jTPddy31rjMfgZhxC6bkcEU9XT"`;
+
+exports[`WalletLiquid should encode P2PKH address (confidential: true) 1`] = `"CTEnqWfNvTGTtoYYQL6WiAvNcHDWBWa1rSYBfph2zsUGHBafMs2P8wetoiQSwzvyzQjZK12EzBgZpkLW"`;
+
+exports[`WalletLiquid should encode P2SH address (confidential: false) 1`] = `"XGxGZfq18bFSncj9wc4g6WA5VPNprJdAmg"`;
+
+exports[`WalletLiquid should encode P2SH address (confidential: true) 1`] = `"Azppnmg47wJVTyJvBWUR4vkgZQ6gkK2VkJJrwsUbiLWGmFMWZDScTd6NmrX3LND5yM2UE9SGesLs5KfX"`;
+
+exports[`WalletLiquid should encode P2TR address (confidential: false) 1`] = `"ert1p7qypc2gpr437ws0yhl3yvk57rweq8pfdyw04g8vjmjxeus9ak0nqwf79lm"`;
+
+exports[`WalletLiquid should encode P2TR address (confidential: true) 1`] = `"el1pq2w6dcmt9smmce3ear69m9yuk328gm6hx05vyk93uutv0ugzx7mp0uqgrs5sz8truaq7f0lzgedfuxajqwzj6gul2swe9hydneqtmvlxvadnu96fepd2"`;
+
+exports[`WalletLiquid should encode P2WPKH address (confidential: false) 1`] = `"ert1q84ufadu3juwu6zjcdcweqhe9ewhwxrvtj3lmzj"`;
+
+exports[`WalletLiquid should encode P2WPKH address (confidential: true) 1`] = `"el1qqdx8446sv2hzmnphuzkt2ct848n05zt6r6ue72nl56l6xjf2p0exk0tcn6mer9cae599smsajp0jtjawuvxcklqsf6r8tdrqz"`;
+
+exports[`WalletLiquid should encode P2WSH address (confidential: false) 1`] = `"ert1qxxywq89mszpuv6t4puyfypf8qafcdg4zcwed69ku4sr6tlg0tteq7kr8c6"`;
+
+exports[`WalletLiquid should encode P2WSH address (confidential: true) 1`] = `"el1qqfq4vetpg6ly3dapjcltgyg0475nqcq4592tcvuc25t2t0y84s692vvguqwthqyrce5h2rcgjgzjwp6ns6329sajm5tdetq85h7s7khj388xz2mq4qgg"`;

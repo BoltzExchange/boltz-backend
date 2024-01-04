@@ -35,7 +35,7 @@ import {
   splitPairId,
 } from '../Utils';
 import ChainClient from '../chain/ChainClient';
-import { etherDecimals } from '../consts/Consts';
+import { LegacyReverseSwapOutputType, etherDecimals } from '../consts/Consts';
 import { CurrencyType, SwapUpdateEvent, SwapVersion } from '../consts/Enums';
 import { ERC20SwapValues, EtherSwapValues } from '../consts/Types';
 import ChannelCreation from '../db/models/ChannelCreation';
@@ -1264,9 +1264,8 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
       }
 
       default: {
-        refundDetails.type = this.swapOutputType.get(wallet.type);
+        refundDetails.type = LegacyReverseSwapOutputType;
         refundDetails.redeemScript = getHexBuffer(reverseSwap.redeemScript!);
-
         break;
       }
     }

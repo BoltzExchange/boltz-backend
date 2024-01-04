@@ -29,7 +29,7 @@ import {
   reverseBuffer,
   splitPairId,
 } from '../Utils';
-import { ReverseSwapOutputType } from '../consts/Consts';
+import { LegacyReverseSwapOutputType } from '../consts/Consts';
 import {
   ChannelCreationType,
   CurrencyType,
@@ -685,7 +685,7 @@ class SwapManager {
           );
           result.redeemScript = getHexString(redeemScript);
 
-          outputScript = getScriptHashFunction(ReverseSwapOutputType)(
+          outputScript = getScriptHashFunction(LegacyReverseSwapOutputType)(
             redeemScript,
           );
 

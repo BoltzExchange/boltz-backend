@@ -225,10 +225,20 @@ class ClnClient
       noderpc.GetinfoResponse
     >('getinfo', new noderpc.GetinfoRequest(), false);
 
+    const pubkey = getHexString(Buffer.from(info.getId_asU8()));
+
     return {
+      pubkey,
       version: info.getVersion(),
-      pubkey: getHexString(Buffer.from(info.getId_asU8())),
-      uris: [],
+      uris: info
+        .getAddressList()
+        .filter(
+          (address) =>
+            address.hasAddress() && address.getAddress() !== undefined,
+        )
+        .map(
+          (address) => `${pubkey}@${address.getAddress()}:${address.getPort()}`,
+        ),
       peers: info.getNumPeers(),
       blockHeight: info.getBlockheight(),
       channels: {

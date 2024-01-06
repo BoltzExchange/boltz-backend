@@ -1,9 +1,8 @@
 import { Transaction, address } from 'bitcoinjs-lib';
-import { Networks, Scripts, SwapTreeSerializer } from 'boltz-core';
+import { Networks, Scripts, SwapTreeSerializer, swapTree } from 'boltz-core';
 import { randomBytes } from 'crypto';
 import { ECPairInterface } from 'ecpair';
 import { Op } from 'sequelize';
-import SwapTree from '../../../../boltz-core/lib/swap/SwapTree';
 import { createMusig, setup, tweakMusig } from '../../../lib/Core';
 import { ECPair } from '../../../lib/ECPairHelper';
 import Logger from '../../../lib/Logger';
@@ -506,7 +505,7 @@ describe('UtxoNursery', () => {
     const ourKeys = ECPair.makeRandom();
     const theirPublicKey = ECPair.makeRandom().publicKey;
 
-    const tree = SwapTree(
+    const tree = swapTree(
       false,
       randomBytes(32),
       ourKeys.publicKey,
@@ -524,6 +523,7 @@ describe('UtxoNursery', () => {
       id: 'taproot',
       keyIndex: 123,
       version: SwapVersion.Taproot,
+      refundPublicKey: theirPublicKey,
       redeemScript: JSON.stringify(SwapTreeSerializer.serializeSwapTree(tree)),
     };
 

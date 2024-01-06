@@ -14,6 +14,7 @@ type ReverseSwapType = {
   lockupAddress: string;
 
   keyIndex?: number;
+  claimPublicKey?: string;
   redeemScript?: string;
 
   claimAddress?: string;
@@ -55,6 +56,7 @@ class ReverseSwap extends Model implements ReverseSwapType {
   public lockupAddress!: string;
 
   public keyIndex?: number;
+  public claimPublicKey?: string;
   public redeemScript?: string;
 
   public claimAddress?: string;
@@ -113,6 +115,7 @@ class ReverseSwap extends Model implements ReverseSwapType {
         },
         lockupAddress: { type: new DataTypes.STRING(255), allowNull: false },
         keyIndex: { type: new DataTypes.INTEGER(), allowNull: true },
+        claimPublicKey: { type: new DataTypes.STRING(), allowNull: true },
         redeemScript: { type: new DataTypes.TEXT(), allowNull: true },
         claimAddress: { type: new DataTypes.STRING(255), allowNull: true },
         fee: { type: new DataTypes.BIGINT(), allowNull: false },

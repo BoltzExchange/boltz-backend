@@ -7,6 +7,7 @@ type SwapType = {
   version: SwapVersion;
 
   keyIndex?: number;
+  refundPublicKey?: string;
   redeemScript?: string;
 
   fee?: number;
@@ -40,6 +41,7 @@ class Swap extends Model implements SwapType {
   public version!: SwapVersion;
 
   public keyIndex?: number;
+  public refundPublicKey?: string;
   public redeemScript?: string;
 
   public fee?: number;
@@ -90,6 +92,7 @@ class Swap extends Model implements SwapType {
           },
         },
         keyIndex: { type: new DataTypes.INTEGER(), allowNull: true },
+        refundPublicKey: { type: new DataTypes.STRING(), allowNull: true },
         redeemScript: { type: new DataTypes.TEXT(), allowNull: true },
         fee: { type: new DataTypes.BIGINT(), allowNull: true },
         referral: { type: new DataTypes.STRING(255), allowNull: true },

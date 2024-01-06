@@ -1,5 +1,4 @@
-import zkpMusigInit, { Secp256k1ZKP } from '@michael1011/secp256k1-zkp';
-import zkpInit from '@vulpemventures/secp256k1-zkp';
+import zkpInit, { Secp256k1ZKP } from '@vulpemventures/secp256k1-zkp';
 import { BIP32Interface } from 'bip32';
 import {
   Network,
@@ -57,18 +56,16 @@ type UnblindedOutput = Omit<LiquidTxOutput, 'value'> & {
   isLbtc: boolean;
 };
 
-export let zkpMusig: Secp256k1ZKP;
+export let zkp: Secp256k1ZKP;
 let confi: confidential.Confidential;
 
 export const setup = async () => {
   init(ecc);
   initEccLib(ecc);
 
-  const zkp = await zkpInit();
-  confi = new confidential.Confidential(zkp);
-
-  zkpMusig = await zkpMusigInit();
-  initLiquid(zkpMusig);
+  zkp = await zkpInit();
+  confi = new confidential.Confidential(zkp as any);
+  initLiquid(zkp);
 };
 
 export const parseTransaction = (
@@ -245,12 +242,10 @@ export const createMusig = (
   ourKeys: ECPairInterface | BIP32Interface,
   theirPublicKey: Buffer,
 ) =>
-  new Musig(
-    zkpMusig,
-    ECPair.fromPrivateKey(ourKeys.privateKey!),
-    randomBytes(32),
-    [ourKeys.publicKey, theirPublicKey],
-  );
+  new Musig(zkp, ECPair.fromPrivateKey(ourKeys.privateKey!), randomBytes(32), [
+    ourKeys.publicKey,
+    theirPublicKey,
+  ]);
 
 export const tweakMusig = (
   type: CurrencyType,

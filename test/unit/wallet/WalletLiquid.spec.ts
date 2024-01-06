@@ -2,7 +2,7 @@ import ops from '@boltz/bitcoin-ops';
 import { crypto } from 'bitcoinjs-lib';
 import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371';
 import { Scripts } from 'boltz-core';
-import Networks from 'boltz-core/lib/liquid/consts/Networks';
+import Networks from 'boltz-core/dist/lib/liquid/consts/Networks';
 import { address } from 'liquidjs-lib';
 import { SLIP77Factory } from 'slip77';
 import * as ecc from 'tiny-secp256k1';

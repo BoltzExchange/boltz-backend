@@ -490,6 +490,7 @@ describe('SwapManager', () => {
       status: SwapUpdateEvent.SwapCreated,
       keyIndex: mockGetNewKeysResult.index,
       pair: `${baseCurrency}/${quoteCurrency}`,
+      refundPublicKey: getHexString(refundKey),
       preimageHash: getHexString(preimageHash),
       lockupAddress: '2Mu28zPUNMkM5w9q3UhVhpw8p2p5zwtv9Ce',
       timeoutBlockHeight:
@@ -543,6 +544,7 @@ describe('SwapManager', () => {
       status: SwapUpdateEvent.SwapCreated,
       keyIndex: mockGetNewKeysResult.index,
       pair: `${baseCurrency}/${quoteCurrency}`,
+      refundPublicKey: getHexString(refundKey),
       preimageHash: getHexString(preimageHash),
       lockupAddress: '2Mu28zPUNMkM5w9q3UhVhpw8p2p5zwtv9Ce',
       timeoutBlockHeight:
@@ -984,6 +986,7 @@ describe('SwapManager', () => {
       invoiceAmount: holdInvoiceAmount,
       status: SwapUpdateEvent.SwapCreated,
       keyIndex: mockGetNewKeysResult.index,
+      claimPublicKey: getHexString(claimKey),
       pair: `${baseCurrency}/${quoteCurrency}`,
       preimageHash: getHexString(preimageHash),
       lockupAddress:
@@ -1067,6 +1070,7 @@ describe('SwapManager', () => {
       invoiceAmount: holdInvoiceAmount,
       status: SwapUpdateEvent.SwapCreated,
       keyIndex: mockGetNewKeysResult.index,
+      claimPublicKey: getHexString(claimKey),
       pair: `${baseCurrency}/${quoteCurrency}`,
       preimageHash: getHexString(preimageHash),
       minerFeeInvoice: mockAddHoldInvoiceResult,

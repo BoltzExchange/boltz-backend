@@ -1,12 +1,6 @@
 import AsyncLock from 'async-lock';
 import { Transaction } from 'bitcoinjs-lib';
-import {
-  OutputType,
-  SwapTreeSerializer,
-  detectSwap,
-  extractClaimPublicKeyFromReverseSwapTree,
-  extractRefundPublicKeyFromSwapTree,
-} from 'boltz-core';
+import { OutputType, SwapTreeSerializer, detectSwap } from 'boltz-core';
 import { ContractTransactionResponse } from 'ethers';
 import { EventEmitter } from 'events';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib';
@@ -958,7 +952,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
         );
         claimDetails.internalKey = createMusig(
           claimDetails.keys,
-          extractRefundPublicKeyFromSwapTree(claimDetails.swapTree),
+          getHexBuffer(swap.refundPublicKey!),
         ).getAggregatedPublicKey();
 
         break;
@@ -1258,7 +1252,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
         );
         refundDetails.internalKey = createMusig(
           refundDetails.keys,
-          extractClaimPublicKeyFromReverseSwapTree(refundDetails.swapTree),
+          getHexBuffer(reverseSwap.claimPublicKey!),
         ).getAggregatedPublicKey();
         break;
       }

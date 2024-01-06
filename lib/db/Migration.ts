@@ -393,6 +393,13 @@ class Migration {
           .getQueryInterface()
           .changeColumn('swaps', 'version', attrs);
 
+        await this.sequelize
+          .getQueryInterface()
+          .addColumn('swaps', 'refundPublicKey', {
+            type: new DataTypes.STRING(),
+            allowNull: true,
+          });
+
         this.logUpdatingTable('reverseSwaps');
 
         attrs.allowNull = true;
@@ -408,6 +415,13 @@ class Migration {
         await this.sequelize
           .getQueryInterface()
           .changeColumn('reverseSwaps', 'version', attrs);
+
+        await this.sequelize
+          .getQueryInterface()
+          .addColumn('reverseSwaps', 'claimPublicKey', {
+            type: new DataTypes.STRING(),
+            allowNull: true,
+          });
 
         await this.finishMigration(versionRow.version, currencies);
         break;

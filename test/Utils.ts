@@ -14,14 +14,17 @@ export const wait = (ms: number): Promise<void> => {
   return new Promise((resolve) => setTimeout(resolve, ms));
 };
 
-export const waitForFunctionToBeTrue = (func: () => boolean): Promise<void> => {
+export const waitForFunctionToBeTrue = (
+  func: () => boolean | Promise<boolean>,
+  interval = 25,
+): Promise<void> => {
   return new Promise((resolve) => {
-    const interval = setInterval(() => {
-      if (func()) {
-        clearInterval(interval);
+    const intervalNmb = setInterval(async () => {
+      if (await func()) {
+        clearInterval(intervalNmb);
         resolve();
       }
-    }, 25);
+    }, interval);
   });
 };
 

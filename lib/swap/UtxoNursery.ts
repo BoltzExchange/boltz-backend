@@ -1,11 +1,6 @@
 import AsyncLock from 'async-lock';
 import { Transaction } from 'bitcoinjs-lib';
-import {
-  SwapTreeSerializer,
-  detectPreimage,
-  detectSwap,
-  extractRefundPublicKeyFromSwapTree,
-} from 'boltz-core';
+import { SwapTreeSerializer, detectPreimage, detectSwap } from 'boltz-core';
 import { EventEmitter } from 'events';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import { Op } from 'sequelize';
@@ -460,7 +455,7 @@ class UtxoNursery extends EventEmitter {
         const tree = SwapTreeSerializer.deserializeSwapTree(swap.redeemScript!);
         const musig = createMusig(
           wallet.getKeysByIndex(swap.keyIndex!),
-          extractRefundPublicKeyFromSwapTree(tree),
+          getHexBuffer(swap.refundPublicKey!),
         );
         redeemScriptOrTweakedKey = tweakMusig(wallet.type, musig, tree);
 

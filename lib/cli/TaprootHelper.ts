@@ -8,19 +8,15 @@ import {
   Types,
   detectSwap,
 } from 'boltz-core';
-import { TaprootUtils as LiquidTaprootDetails } from 'boltz-core/dist/lib/liquid';
-import { LiquidRefundDetails } from 'boltz-core/lib/liquid';
-import { randomBytes } from 'crypto';
+import {
+  LiquidRefundDetails,
+  TaprootUtils as LiquidTaprootDetails,
+} from 'boltz-core/dist/lib/liquid';
 import { ECPairInterface } from 'ecpair';
 import { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib/src/transaction';
 import { Arguments } from 'yargs';
-import {
-  constructClaimTransaction,
-  setup,
-  tweakMusig,
-  zkpMusig,
-} from '../Core';
+import { constructClaimTransaction, setup } from '../Core';
 import { ECPair } from '../ECPairHelper';
 import { getHexBuffer } from '../Utils';
 import { CurrencyType } from '../consts/Enums';
@@ -28,12 +24,14 @@ import { PartialSignature } from './BoltzApiClient';
 import {
   currencyTypeFromNetwork,
   getWalletStub,
+  musigFromExtractedKey,
   parseNetwork,
 } from './Command';
 
 export const setupCooperativeTransaction = async (
   argv: Arguments<any>,
   keyExtractionFunc: (tree: Types.SwapTree) => Buffer,
+  lockupTx: Transaction | LiquidTransaction,
 ) => {
   await setup();
 
@@ -42,13 +40,14 @@ export const setupCooperativeTransaction = async (
 
   const swapTree = SwapTreeSerializer.deserializeSwapTree(argv.swapTree);
   const keys = ECPair.fromPrivateKey(getHexBuffer(argv.privateKey));
-  const theirPublicKey = keyExtractionFunc(swapTree);
 
-  const musig = new Musig(zkpMusig, keys, randomBytes(32), [
-    theirPublicKey,
-    keys.publicKey,
-  ]);
-  const tweakedKey = tweakMusig(currencyType, musig, swapTree);
+  const { musig, tweakedKey, theirPublicKey } = musigFromExtractedKey(
+    currencyType,
+    keys,
+    keyExtractionFunc(swapTree),
+    swapTree,
+    lockupTx,
+  );
 
   return {
     keys,

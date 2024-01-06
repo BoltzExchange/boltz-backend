@@ -1,5 +1,5 @@
 import { credentials } from '@grpc/grpc-js';
-import { Network } from 'bitcoinjs-lib';
+import { Network, Transaction } from 'bitcoinjs-lib';
 import {
   Musig,
   Networks,
@@ -9,6 +9,8 @@ import {
 } from 'boltz-core';
 import { Networks as LiquidNetworks } from 'boltz-core/dist/lib/liquid';
 import { randomBytes } from 'crypto';
+import { ECPairInterface } from 'ecpair';
+import { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
 import { Arguments } from 'yargs';
 import {
@@ -16,7 +18,7 @@ import {
   setup,
   toOutputScript,
   tweakMusig,
-  zkpMusig,
+  zkp,
 } from '../Core';
 import { ECPair } from '../ECPairHelper';
 import { getHexBuffer, stringify } from '../Utils';
@@ -86,20 +88,20 @@ export const prepareTx = async (
   // If the redeem script can be parsed as JSON, it is a swap tree
   try {
     const tree = SwapTreeSerializer.deserializeSwapTree(argv.redeemScript);
-    const theirPublicKey = keyExtractionFunc(tree);
 
-    const musig = new Musig(zkpMusig, res.keys, randomBytes(32), [
-      theirPublicKey,
-      res.keys.publicKey,
-    ]);
-    const tweakedKey = tweakMusig(type, musig, tree);
+    const { musig, swapOutput } = musigFromExtractedKey(
+      type,
+      res.keys,
+      keyExtractionFunc(tree),
+      tree,
+      transaction,
+    );
 
-    const swapOutput: any = detectSwap(tweakedKey, transaction);
-
-    swapOutput.swapTree = tree;
-    swapOutput.internalKey = musig.getAggregatedPublicKey();
-
-    res.swapOutput = swapOutput;
+    res.swapOutput = {
+      ...swapOutput,
+      swapTree: tree,
+      internalKey: musig.getAggregatedPublicKey(),
+    };
   } catch (e) {
     res.redeemScript = getHexBuffer(argv.redeemScript);
     res.swapOutput = detectSwap(res.redeemScript, transaction);
@@ -140,4 +142,37 @@ export const printResponse = (response: unknown): void => {
 
 export const printError = (error: Error): void => {
   console.error(`${error.name}: ${error.message}`);
+};
+
+export const musigFromExtractedKey = (
+  type: CurrencyType,
+  ourKeys: ECPairInterface,
+  theirPublicKey: Buffer,
+  tree: Types.SwapTree,
+  lockupTx: Transaction | LiquidTransaction,
+) => {
+  for (const tieBreaker of ['02', '03']) {
+    const compressedKey = Buffer.concat([
+      getHexBuffer(tieBreaker),
+      theirPublicKey,
+    ]);
+
+    const musig = new Musig(zkp, ourKeys, randomBytes(32), [
+      compressedKey,
+      ourKeys.publicKey,
+    ]);
+    const tweakedKey = tweakMusig(type, musig, tree);
+
+    const swapOutput = detectSwap(tweakedKey, lockupTx);
+    if (swapOutput !== undefined) {
+      return {
+        musig,
+        tweakedKey,
+        swapOutput,
+        theirPublicKey: compressedKey,
+      };
+    }
+  }
+
+  throw 'could not find swap output';
 };

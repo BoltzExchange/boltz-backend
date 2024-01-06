@@ -4,6 +4,7 @@ import { parseTransaction } from '../../Core';
 import { getHexString, stringify } from '../../Utils';
 import BoltzApiClient from '../BoltzApiClient';
 import BuilderComponents from '../BuilderComponents';
+import { currencyTypeFromNetwork, parseNetwork } from '../Command';
 import {
   finalizeCooperativeTransaction,
   prepareCooperativeTransaction,
@@ -27,12 +28,6 @@ export const builder = {
 };
 
 export const handler = async (argv: Arguments<any>): Promise<void> => {
-  const { network, keys, tweakedKey, theirPublicKey, musig, currencyType } =
-    await setupCooperativeTransaction(
-      argv,
-      extractRefundPublicKeyFromReverseSwapTree,
-    );
-
   const boltzClient = new BoltzApiClient();
   const swapStatus = await boltzClient.getStatus(argv.swapId);
 
@@ -40,7 +35,17 @@ export const handler = async (argv: Arguments<any>): Promise<void> => {
     throw 'no transaction in swap status';
   }
 
+  const network = parseNetwork(argv.network);
+  const currencyType = currencyTypeFromNetwork(argv.network);
+
   const lockupTx = parseTransaction(currencyType, swapStatus.transaction.hex);
+
+  const { keys, tweakedKey, theirPublicKey, musig } =
+    await setupCooperativeTransaction(
+      argv,
+      extractRefundPublicKeyFromReverseSwapTree,
+      lockupTx,
+    );
 
   const { details, tx } = prepareCooperativeTransaction(
     argv,
@@ -60,7 +65,7 @@ export const handler = async (argv: Arguments<any>): Promise<void> => {
   );
   console.log(
     stringify({
-      refundTransaction: finalizeCooperativeTransaction(
+      claimTransaction: finalizeCooperativeTransaction(
         tx,
         musig,
         network,

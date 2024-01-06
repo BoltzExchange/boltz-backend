@@ -323,6 +323,7 @@ class SwapManager {
         status: SwapUpdateEvent.SwapCreated,
         timeoutBlockHeight: result.timeoutBlockHeight,
         preimageHash: getHexString(args.preimageHash),
+        refundPublicKey: getHexString(args.refundPublicKey!),
         redeemScript:
           args.version === SwapVersion.Legacy
             ? result.redeemScript
@@ -722,6 +723,7 @@ class SwapManager {
         timeoutBlockHeight: result.timeoutBlockHeight,
         preimageHash: getHexString(args.preimageHash),
         minerFeeInvoicePreimage: minerFeeInvoicePreimage,
+        claimPublicKey: getHexString(args.claimPublicKey!),
         minerFeeOnchainAmount: args.prepayMinerFeeOnchainAmount,
         redeemScript:
           args.version === SwapVersion.Legacy

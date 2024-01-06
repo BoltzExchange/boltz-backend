@@ -1,10 +1,5 @@
 import { crypto } from 'bitcoinjs-lib';
-import {
-  SwapTreeSerializer,
-  Types,
-  extractClaimPublicKeyFromReverseSwapTree,
-  extractRefundPublicKeyFromSwapTree,
-} from 'boltz-core';
+import { SwapTreeSerializer, Types } from 'boltz-core';
 import {
   createMusig,
   hashForWitnessV1,
@@ -60,7 +55,7 @@ class MusigSigner {
 
     if (
       !FailedSwapUpdateEvents.includes(swap.status as SwapUpdateEvent) ||
-      (await this.hasPendingLightningPayment(currency, swap))
+      (await this.hasNonFailedLightningPayment(currency, swap))
     ) {
       this.logger.verbose(
         `Not creating partial signature for refund of Swap ${swap.id}: it is not eligible`,
@@ -77,7 +72,7 @@ class MusigSigner {
       currency,
       swapTree,
       swap.keyIndex!,
-      extractRefundPublicKeyFromSwapTree(swapTree),
+      getHexBuffer(swap.refundPublicKey!),
       theirNonce,
       rawTransaction,
       index,
@@ -120,9 +115,11 @@ class MusigSigner {
       `Creating partial signature for claim of Reverse Swap ${swap.id}`,
     );
 
-    await this.nursery.lock.acquire(SwapNursery.reverseSwapLock, async () => {
-      await this.nursery.settleReverseSwapInvoice(swap, preimage);
-    });
+    if (swap.status !== SwapUpdateEvent.InvoiceSettled) {
+      await this.nursery.lock.acquire(SwapNursery.reverseSwapLock, async () => {
+        await this.nursery.settleReverseSwapInvoice(swap, preimage);
+      });
+    }
 
     const { base, quote } = splitPairId(swap.pair);
     const swapTree = SwapTreeSerializer.deserializeSwapTree(swap.redeemScript!);
@@ -131,7 +128,7 @@ class MusigSigner {
       this.currencies.get(getChainCurrency(base, quote, swap.orderSide, true))!,
       swapTree,
       swap.keyIndex!,
-      extractClaimPublicKeyFromReverseSwapTree(swapTree),
+      getHexBuffer(swap.claimPublicKey!),
       theirNonce,
       rawTransaction,
       index,
@@ -166,7 +163,7 @@ class MusigSigner {
     };
   };
 
-  private hasPendingLightningPayment = async (
+  private hasNonFailedLightningPayment = async (
     currency: Currency,
     swap: Swap,
   ): Promise<boolean> => {

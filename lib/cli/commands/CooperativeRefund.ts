@@ -4,6 +4,7 @@ import { parseTransaction } from '../../Core';
 import { getHexString, stringify } from '../../Utils';
 import BoltzApiClient from '../BoltzApiClient';
 import BuilderComponents from '../BuilderComponents';
+import { currencyTypeFromNetwork, parseNetwork } from '../Command';
 import {
   finalizeCooperativeTransaction,
   prepareCooperativeTransaction,
@@ -26,14 +27,21 @@ export const builder = {
 };
 
 export const handler = async (argv: Arguments<any>): Promise<void> => {
-  const { keys, network, currencyType, musig, tweakedKey, theirPublicKey } =
-    await setupCooperativeTransaction(argv, extractClaimPublicKeyFromSwapTree);
+  const network = parseNetwork(argv.network);
+  const currencyType = currencyTypeFromNetwork(argv.network);
 
   const boltzClient = new BoltzApiClient();
   const lockupTx = parseTransaction(
     currencyType,
     (await boltzClient.getSwapTransaction(argv.swapId)).transactionHex,
   );
+
+  const { keys, musig, tweakedKey, theirPublicKey } =
+    await setupCooperativeTransaction(
+      argv,
+      extractClaimPublicKeyFromSwapTree,
+      lockupTx,
+    );
 
   const { details, tx } = prepareCooperativeTransaction(
     argv,

@@ -1,4 +1,3 @@
-import bolt11 from 'bolt11';
 import { OutputType, SwapTreeSerializer } from 'boltz-core';
 import { Provider, getAddress } from 'ethers';
 import { ConfigType } from '../Config';
@@ -7,6 +6,7 @@ import Logger from '../Logger';
 import {
   createApiCredential,
   decodeInvoice,
+  decodeInvoiceAmount,
   formatError,
   getChainCurrency,
   getHexBuffer,
@@ -941,7 +941,7 @@ class Service {
       false,
     );
 
-    swap.invoiceAmount = bolt11.decode(invoice).satoshis || 0;
+    swap.invoiceAmount = decodeInvoiceAmount(invoice);
     const lightningClient = this.nodeSwitch.getSwapNode(
       this.currencies.get(lightningCurrency)!,
       swap,
@@ -995,7 +995,7 @@ class Service {
       false,
     );
 
-    swap.invoiceAmount = decodeInvoice(invoice).satoshis || 0;
+    swap.invoiceAmount = decodeInvoice(invoice).satoshis;
 
     const decodedInvoice = await this.nodeSwitch
       .getSwapNode(this.getCurrency(lightningCurrency)!, swap)

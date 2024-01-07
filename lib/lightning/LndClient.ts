@@ -8,6 +8,7 @@ import fs from 'fs';
 import BaseClient from '../BaseClient';
 import Logger from '../Logger';
 import {
+  decodeInvoiceAmount,
   formatError,
   getHexBuffer,
   getHexString,
@@ -579,9 +580,9 @@ class LndClient extends BaseClient implements LightningClient {
 
     return {
       features,
-      value: res.numSatoshis,
       cltvExpiry: res.cltvExpiry,
       destination: res.destination,
+      value: decodeInvoiceAmount(invoice),
       routingHints: LndClient.routingHintsFromGrpc(res.routeHintsList),
     };
   };

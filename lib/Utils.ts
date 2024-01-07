@@ -124,6 +124,19 @@ export const minutesToMilliseconds = (minutes: number): number => {
   return minutes * 60 * 1000;
 };
 
+const coalesceInvoiceAmount = (
+  decoded: bolt11.PaymentRequestObject,
+): number => {
+  const decodedMsat = decoded.millisatoshis
+    ? Math.ceil(Number(decoded.millisatoshis) / 1000)
+    : undefined;
+
+  return decoded.satoshis || decodedMsat || 0;
+};
+
+export const decodeInvoiceAmount = (invoice: string): number =>
+  coalesceInvoiceAmount(bolt11.decode(invoice));
+
 export const decodeInvoice = (
   invoice: string,
 ): bolt11.PaymentRequestObject & {
@@ -158,7 +171,7 @@ export const decodeInvoice = (
     routingInfo,
     paymentHash,
     minFinalCltvExpiry,
-    satoshis: decoded.satoshis || 0,
+    satoshis: coalesceInvoiceAmount(decoded),
   };
 };
 

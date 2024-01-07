@@ -1,5 +1,5 @@
-import bolt11 from 'bolt11';
 import { IBaseClient } from '../BaseClient';
+import { decodeInvoiceAmount } from '../Utils';
 import { ClientStatus } from '../consts/Enums';
 import * as lndrpc from '../proto/lnd/rpc_pb';
 import { BalancerFetcher } from '../wallet/providers/WalletProviderInterface';
@@ -174,7 +174,7 @@ const calculatePaymentFee = (
   maxRatio: number,
   minFee: number,
 ): number => {
-  const invoiceAmt = bolt11.decode(invoice).satoshis || 0;
+  const invoiceAmt = decodeInvoiceAmount(invoice);
   return Math.ceil(Math.max(invoiceAmt * maxRatio, minFee));
 };
 

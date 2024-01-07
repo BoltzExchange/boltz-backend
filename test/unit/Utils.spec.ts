@@ -2,11 +2,11 @@ import os from 'os';
 import { OutputType } from 'boltz-core';
 import { Transaction } from 'bitcoinjs-lib';
 import * as utils from '../../lib/Utils';
+import { splitChannelPoint } from '../../lib/Utils';
 import commitHash from '../../lib/Version';
 import packageJson from '../../package.json';
 import { OrderSide } from '../../lib/consts/Enums';
 import { constructTransaction, randomRange } from '../Utils';
-import { splitChannelPoint } from '../../lib/Utils';
 
 describe('Utils', () => {
   let pairId: string;
@@ -196,6 +196,18 @@ describe('Utils', () => {
       },
     ]);
   });
+
+  test.each`
+    expectedSats | invoice
+    ${120001}    | ${'lnbcrt1200003230p1pje4yezsp5fcaw07mpwzqq4zxx349jfmp8rplpuznl3vl3jnz0gam4k97d3suqpp5rcrkszpgnkf7dqzrgmakmuvqyhe9df33fmavk3a8tpw3vzranm4qdq8v9ekgesxqyjw5qcqp2rzjqwdgldgs6nfufyx75x60nvjc0va7emuujkdqr7cuczfzrqyt3plvcqqqdcqqqqgqqqqqqqlgqqqqqqgq2q9qxpqysgqalxdy0fqurdu6z34uvcmz0hw5v6x5pf57yj7cwzdwdf4wt9m7y6jskkzeelpt9727ha7ktrl9s0x30hllc6twrnn7vlxka2dfaf9g9spgsjj0r'}
+    ${130001}    | ${'lnbcrt1300003230p1pje4yujsp54k30ymnuel6p7756nc00vq06stu8gdrn77z9frn6jxhpkf5fjekqpp57dz6tlrra5g2cs3k0relg55rt26hs4m9kjgt9nh8j5kuhuvuhrqsdqgv9ekgenxxqyjw5qcqp2rzjqtst8pw56xy8uydcjkd6t20rwux4uwkpsf7h7nwms4x2r6zgphyg6qqq0sqqqqgqqqqqqqlgqqqqqqgq2q9qxpqysgqed55scqulmlr5em9rww8v92rwmuefzpektrpmrvpyjprrjr23qckmh9cnst8crwspggm59366huqshtuwyawhj4tgmez0thfmfqrducqu8ez5v'}
+  `(
+    'should decode invoice with msats precision',
+    ({ expectedSats, invoice }) => {
+      expect(utils.decodeInvoiceAmount(invoice)).toEqual(expectedSats);
+      expect(utils.decodeInvoice(invoice).satoshis).toEqual(expectedSats);
+    },
+  );
 
   test('should get rate', () => {
     const rate = 2;

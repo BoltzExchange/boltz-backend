@@ -1,8 +1,8 @@
-import bolt11 from 'bolt11';
 import * as lndrpc from '../proto/lnd/rpc_pb';
 import { IBaseClient } from '../BaseClient';
 import { ClientStatus } from '../consts/Enums';
 import { BalancerFetcher } from '../wallet/providers/WalletProviderInterface';
+import { decodeInvoiceAmount } from '../Utils';
 
 enum InvoiceState {
   Open,
@@ -174,7 +174,7 @@ const calculatePaymentFee = (
   maxRatio: number,
   minFee: number,
 ): number => {
-  const invoiceAmt = bolt11.decode(invoice).satoshis || 0;
+  const invoiceAmt = decodeInvoiceAmount(invoice);
   return Math.ceil(Math.max(invoiceAmt * maxRatio, minFee));
 };
 

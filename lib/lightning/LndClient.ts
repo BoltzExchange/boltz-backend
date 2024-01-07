@@ -18,6 +18,7 @@ import { InvoicesClient } from '../proto/lnd/invoices_grpc_pb';
 import { WalletBalance } from '../wallet/providers/WalletProviderInterface';
 import { LightningClient as LndLightningClient } from '../proto/lnd/rpc_grpc_pb';
 import {
+  decodeInvoiceAmount,
   formatError,
   getHexBuffer,
   getHexString,
@@ -579,9 +580,9 @@ class LndClient extends BaseClient implements LightningClient {
 
     return {
       features,
-      value: res.numSatoshis,
       cltvExpiry: res.cltvExpiry,
       destination: res.destination,
+      value: decodeInvoiceAmount(invoice),
       routingHints: LndClient.routingHintsFromGrpc(res.routeHintsList),
     };
   };

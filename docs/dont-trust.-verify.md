@@ -22,12 +22,12 @@ Boltz API returns a redeem script and a derived chain address when creating swap
 
 #### P2SH nested P2WSH
 
-Although the output script of the P2SH nested P2WSH addresses is the same as the one of plain P2SH addresses, other data is hashed. Here, not the plain redeem script is hashed, but a P2WSH output script is constructed and hashed with RIPEMD-160. The output script will look like this:
+Although the output script of the P2SH nested P2WSH addresses is the same as the one of plain P2SH addresses, other data is hashed. Here, not the plain redeem script is hashed, but a P2WSH output script is constructed and first hashed with SHA256 and then hashed again with RIPEMD-160. The output script will look like this:
 
 ```
-OP_EQUAL
 OP_HASH160
 <RIPEMD-160 hash of the SHA256 hash of the P2WSH output script>
+OP_EQUAL
 ```
 
 #### P2WSH

@@ -36,11 +36,11 @@ To spend a P2WSH output, signature, preimage and original redeem script have to 
 
 #### Examples
 
-Examples for all output types can be found in the [`boltz-core`](https://github.com/BoltzExchange/boltz-core/blob/master/lib/swap/Claim.ts#L23) reference library.
+Examples for all output types can be found in the [`boltz-core`](https://github.com/BoltzExchange/boltz-core/blob/v2.0.1/lib/swap/Claim.ts#L83) reference library.
 
 ### EVM Chains
 
-The HTLCs that Boltz uses on EVM chains are not single use scripts, but contracts. The source of the contracts can be found [`here`](https://github.com/BoltzExchange/boltz-core/tree/master/contracts).
+The HTLCs that Boltz uses on EVM chains are not single use scripts, but contracts. The source of the contracts can be found [`here`](https://github.com/BoltzExchange/boltz-core/tree/v2.0.1/contracts).
 
 ## Normal Swaps: Refund transactions
 
@@ -50,17 +50,17 @@ Similar to claim transactions, Boltz API clients need to be able to craft and br
 
 ### UTXO Chains
 
-Refunding an output works just like claiming. Since the refund process doesn't know the preimage (or knows it but can't use it since that would require the claim keys) any value apart from the actual preimage can be used but there has to be a value to prevent the signature from being hashed and compared to the preimage hash. To save on transaction fees, we recommend using a 0 value.
+Refunding an output works just like claiming. Since the refund process doesn't need the preimage (or knows it but can't use it since that would require the claim keys) any value apart from the actual preimage can be used but there has to be a value to prevent the signature from being hashed and compared to the preimage hash. To save on transaction fees, we recommend using a 0 value.
 
-There is one more difference when compared to claim transactions: the `nLockTime` of the transaction has to be set to a value equal to or greater than the timeout block height of the HTLC. Otherwise, the Bitcoin network will not accept your transaction.
+There is one more difference when compared to claim transactions: the `nLockTime` of the transaction has to be set to a value equal to or greater than the timeout block height in the redeem script. Otherwise, the Bitcoin network will not accept your transaction.
 
 #### Examples
 
-An example can be found in the [`boltz-core`](https://github.com/BoltzExchange/boltz-core/blob/master/lib/swap/Refund.ts) reference library. The function uses the claim function but requires the timeout block height as argument and sets an empty preimage.
+An example can be found in the [`boltz-core`](https://github.com/BoltzExchange/boltz-core/blob/v2.0.1/lib/swap/Refund.ts) reference library. The function uses the claim function but requires the timeout block height as argument and sets an empty preimage.
 
 ### EVM Chains
 
-The HTLCs that Boltz uses on EVM chains are not single use scripts, but contracts. In order to submit a refund, one calls the `refund` function of the contract. Similar to UTXO chains, Boltz API clients need to ensure a safe way to store the required values until the swap reaches a [final state](lifecycle.md). The source of the contracts can be found [`here`](https://github.com/BoltzExchange/boltz-core/tree/master/contracts).
+The HTLCs that Boltz uses on EVM chains are not single use scripts, but contracts. In order to submit a refund, one calls the `refund` function of the contract. Similar to UTXO chains, Boltz API clients need to ensure a safe way to store the required values until the swap reaches a [final state](lifecycle.md). The source of the contracts can be found [`here`](https://github.com/BoltzExchange/boltz-core/tree/v2.0.1/contracts).
 
 ### Emergency Procedures
 

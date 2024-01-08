@@ -1,29 +1,41 @@
-from dataclasses import dataclass
-from typing import Hashable
-
-import pandas as pd
-from sqlalchemy import String, distinct, func, select
+from pandas import DataFrame, Series
+from sqlalchemy import String, func, select
 from sqlalchemy.orm import Session
 
-from plugins.mpay.db.db import Database
 from plugins.mpay.db.models import Attempt, Hop
-from plugins.mpay.pay.excludes import ExcludesPayment
 
 EMA_ALPHA = 0.4
 HOP_SEPERATOR = "/"
 
-_ROUTE_SEPERATOR = "-"
+ROUTE_SEPERATOR = "-"
 
 
-@dataclass
+class NotInRouteError(Exception):
+    pass
+
+
 class RouteStats:
+    id: str
     route: list[str]
+
+    nodes: list[str]
+
     success_rate: float
     success_rate_ema: float
 
-    @staticmethod
-    def from_dataframe(route: str, success_rate: float, success_rate_ema: float) -> "RouteStats":
-        return RouteStats(route.split(_ROUTE_SEPERATOR), success_rate, success_rate_ema)
+    _attempts: DataFrame
+
+    def __init__(self, route: list[str], nodes: list[str]) -> None:
+        self.route = route
+        self.id = ROUTE_SEPERATOR.join(self.route)
+
+        self.nodes = nodes
+
+        self._attempts = DataFrame(columns=["attempt_id", "ok"])
+
+    def __str__(self) -> str:
+        """Pretty print the route with statistics."""
+        return f"{' -> '.join(self.route)} {self.pretty_statistics}"
 
     @property
     def pretty_statistics(self) -> str:
@@ -32,35 +44,55 @@ class RouteStats:
             f"success_rate_ema: {round(self.success_rate_ema, 4)})"
         )
 
-    def __str__(self) -> str:
-        """Pretty print the route with statistics."""
-        return f"{' -> '.join(self.route)} {self.pretty_statistics}"
+    def slice_for_destination(self, destination: str) -> "RouteStats":
+        destination_index = self.destination_index(destination)
+
+        sliced = RouteStats(self.route[:destination_index], self.nodes[:destination_index])
+        sliced._attempts = (  # noqa: SLF001
+            self._attempts.groupby(["attempt_id"])
+            .apply(lambda x: x[:destination_index])
+            .reset_index(drop=True)
+        )
+        sliced.calculate_rates()
+
+        return sliced
+
+    def add_attempt(self, attempt_id: int, oks: list[bool], no_recalculate: bool = False) -> None:
+        if len(oks) != len(self.route):
+            msg = "length of oks does not match length of route"
+            raise ValueError(msg)
+
+        for ok in oks:
+            self._attempts.loc[len(self._attempts)] = [attempt_id, ok]
+
+        if not no_recalculate:
+            self.calculate_rates()
+
+    def calculate_rates(self) -> None:
+        def to_group(attempt: DataFrame) -> Series:
+            return Series(
+                {
+                    "ok": not attempt.query("ok == False").shape[0] > 0,
+                }
+            )
+
+        groups = self._attempts.groupby(["attempt_id"]).apply(to_group)
+
+        self.success_rate = (groups["ok"] == True).mean()  # noqa: E712
+        self.success_rate_ema = groups["ok"].ewm(alpha=EMA_ALPHA).mean().iloc[-1]
+
+    def destination_index(self, destination: str) -> int:
+        try:
+            return self.nodes.index(destination) + 1
+        except ValueError:
+            raise NotInRouteError from None
 
 
 class RouteStatsFetcher:
-    _db: Database
-
-    def __init__(self, db: Database) -> None:
-        self._db = db
-
     @staticmethod
-    def get_destinations(s: Session) -> list[str]:
-        return [row[0] for row in s.execute(select(distinct(Hop.node)))]
-
     def get_routes(
-        self,
         s: Session,
-        destination: str | None,
-        min_success_rate: float = 0,
-        min_success_rate_ema: float = 0,
-        excludes: ExcludesPayment | None = None,
     ) -> list[RouteStats]:
-        attempts = [
-            row[0] for row in s.execute(select(Hop.attempt_id).where(Hop.node == destination))
-        ]
-        if len(attempts) == 0:
-            return []
-
         res = s.execute(
             select(
                 Attempt.id,
@@ -70,70 +102,34 @@ class RouteStatsFetcher:
                 Attempt.created_at,
             )
             .join(Attempt.hops)
-            .where(Attempt.id.in_(attempts))
             .order_by(Attempt.id, Hop.id)
         )
-        hops = pd.DataFrame(res.fetchall(), columns=list(res.keys()))
-
-        if excludes is not None:
-            hops = self._apply_exclude_list(hops, excludes)
+        hops = DataFrame(res.fetchall(), columns=list(res.keys()))
 
         if hops.empty:
             return []
 
-        hops = self._exclude_post_destination(hops, destination)
+        attempts = hops.groupby(["id"])
 
-        route_stats = self._hops_to_route_stats(hops)
-        route_stats = route_stats[
-            (route_stats["success_rate"] >= min_success_rate)
-            & (route_stats["success_rate_ema"] >= min_success_rate_ema)
-        ]
+        routes: dict[str, RouteStats] = {}
 
-        return [RouteStats.from_dataframe(*row) for row in route_stats.to_numpy()]
+        for attempt in attempts:
+            attempt_id = attempt[0][0]
+            route = attempt[1]
+            route_id = ROUTE_SEPERATOR.join(route["channel"].values)
 
-    @staticmethod
-    def _apply_exclude_list(hops: pd.DataFrame, excludes: ExcludesPayment) -> pd.DataFrame:
-        return hops.groupby(["id"]).filter(
-            lambda sf: all(channel not in excludes for channel in sf["channel"].to_numpy())
-        )
+            if route_id not in routes:
+                stats = RouteStats(
+                    route["channel"].to_list(),
+                    route["node"].to_list(),
+                )
+                routes[route_id] = stats
+            else:
+                stats = routes[route_id]
 
-    @staticmethod
-    def _exclude_post_destination(hops: pd.DataFrame, destination: str) -> pd.DataFrame:
-        def exclude_post(arg: tuple[Hashable, pd.DataFrame]) -> pd.DataFrame:
-            group = arg[1]
+            stats.add_attempt(attempt_id, route["ok"].values, True)
 
-            if group["node"].iloc[-1] == destination:
-                return group
+        for route in routes.values():
+            route.calculate_rates()
 
-            group = group.reset_index()
-            return group[: group.loc[destination == group["node"]].index[0] + 1]
-
-        return pd.concat([exclude_post(group) for group in hops.groupby(["id"])])
-
-    @staticmethod
-    def _hops_to_route_stats(hops: pd.DataFrame) -> pd.DataFrame:
-        def hop_to_route(group: pd.DataFrame) -> pd.Series:
-            return pd.Series(
-                {
-                    "route": _ROUTE_SEPERATOR.join(group["channel"].values),
-                    "ok": not group.query("ok == False").shape[0] > 0,
-                    "created_at": group.iloc[0, group.columns.get_loc("created_at")],
-                }
-            )
-
-        def route_to_route_stats(group: pd.DataFrame) -> pd.Series:
-            return pd.Series(
-                {
-                    "success_rate": (group["ok"] == True).mean(),  # noqa: E712
-                    "success_rate_ema": group["ok"].ewm(alpha=EMA_ALPHA).mean().iloc[-1],
-                }
-            )
-
-        return (
-            hops.groupby(["id"])
-            .apply(hop_to_route)
-            .groupby(["route"])
-            .apply(route_to_route_stats)
-            .sort_values(by="success_rate", ascending=False)
-            .reset_index()
-        )
+        return list(routes.values())

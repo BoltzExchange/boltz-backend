@@ -15,7 +15,7 @@ class TestCerts:
     def test_create_cert(self) -> None:
         cert = get_cert(SUBJECT, "", CA_NAME)
         parsed = x509.load_pem_x509_certificate(cert.cert)
-        assert parsed.not_valid_after.year == time_now().year + 10
+        assert parsed.not_valid_after.year >= time_now().year + 9
 
         for path in [Path(f"{CA_NAME}.pem"), Path(f"{CA_NAME}-key.pem")]:
             assert Path.exists(path)

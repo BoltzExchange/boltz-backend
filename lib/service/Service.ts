@@ -1,4 +1,3 @@
-import bolt11 from 'bolt11';
 import { OutputType } from 'boltz-core';
 import { getAddress, Provider } from 'ethers';
 import Errors from './Errors';
@@ -55,6 +54,7 @@ import {
 import {
   createApiCredential,
   decodeInvoice,
+  decodeInvoiceAmount,
   formatError,
   getChainCurrency,
   getHexBuffer,
@@ -372,16 +372,9 @@ class Service {
     };
   };
 
-  /**
-   * Gets a map between the LND node keys and URIs and the symbol of the chains they are running on
-   */
-  public getNodes = () => {
-    return this.nodeInfo.getUris();
-  };
+  public getNodes = () => this.nodeInfo.uris;
 
-  public getNodeStats = () => {
-    return this.nodeInfo.getStats();
-  };
+  public getNodeStats = () => this.nodeInfo.stats;
 
   public getRoutingHints = async (
     symbol: string,
@@ -922,7 +915,7 @@ class Service {
       false,
     );
 
-    swap.invoiceAmount = bolt11.decode(invoice).satoshis || 0;
+    swap.invoiceAmount = decodeInvoiceAmount(invoice);
     const lightningClient = this.nodeSwitch.getSwapNode(
       this.currencies.get(lightningCurrency)!,
       swap,
@@ -976,7 +969,7 @@ class Service {
       false,
     );
 
-    swap.invoiceAmount = decodeInvoice(invoice).satoshis || 0;
+    swap.invoiceAmount = decodeInvoice(invoice).satoshis;
 
     const decodedInvoice = await this.nodeSwitch
       .getSwapNode(this.getCurrency(lightningCurrency)!, swap)

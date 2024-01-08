@@ -1,4 +1,3 @@
-import { Request, Response } from 'express';
 import Logger from '../../../lib/Logger';
 import Bouncer from '../../../lib/api/Bouncer';
 import Swap from '../../../lib/db/models/Swap';
@@ -7,14 +6,14 @@ import Controller from '../../../lib/api/Controller';
 import SwapNursery from '../../../lib/swap/SwapNursery';
 import ReferralStats from '../../../lib/data/ReferralStats';
 import ReverseSwap from '../../../lib/db/models/ReverseSwap';
+import { emitClose, mockRequest, mockResponse } from './Utils';
 import ChannelCreation from '../../../lib/db/models/ChannelCreation';
-import { SwapUpdateEvent, SwapType } from '../../../lib/consts/Enums';
+import { SwapType, SwapUpdateEvent } from '../../../lib/consts/Enums';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
-import { mapToObject, getHexBuffer, getVersion } from '../../../lib/Utils';
+import { getHexBuffer, getVersion, mapToObject } from '../../../lib/Utils';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
 
-type closeResponseCallback = () => void;
 type swapUpdateCallback = (id: string, message: string) => void;
 
 const swaps: Swap[] = [
@@ -65,7 +64,6 @@ const reverseSwaps: ReverseSwap[] = [
 ];
 
 let swapUpdate: swapUpdateCallback;
-let emitClose: closeResponseCallback;
 
 const mockGetPairs = jest.fn().mockReturnValue({
   warnings: [],
@@ -74,17 +72,25 @@ const mockGetPairs = jest.fn().mockReturnValue({
 
 const getNodes = new Map<
   string,
-  {
-    nodeKey: string;
-    uris: string[];
-  }
+  Map<
+    string,
+    {
+      nodeKey: string;
+      uris: string[];
+    }
+  >
 >([
   [
     'BTC',
-    {
-      nodeKey: '321',
-      uris: ['321@127.0.0.1:9735'],
-    },
+    new Map<string, { nodeKey: string; uris: string[] }>([
+      [
+        'LND',
+        {
+          nodeKey: '321',
+          uris: ['321@127.0.0.1:9735'],
+        },
+      ],
+    ]),
   ],
 ]);
 const mockGetNodes = jest.fn().mockReturnValue(getNodes);
@@ -225,40 +231,6 @@ const mockGenerateReferralStats = jest.fn().mockImplementation(() => {
 
 jest.mock('../../../lib/data/ReferralStats');
 
-const mockRequest = (body: any, query?: any) =>
-  ({
-    body,
-    query,
-  }) as Request;
-
-const mockResponse = () => {
-  const res = {} as any as Response;
-
-  res.json = jest.fn().mockReturnValue(res);
-  res.write = jest.fn().mockReturnValue(true);
-  res.end = jest.fn().mockResolvedValue(undefined);
-  res.status = jest.fn().mockReturnValue(res);
-  res.writeHead = jest.fn().mockReturnValue(res);
-  res.setTimeout = jest.fn().mockReturnValue(res);
-
-  res.set = jest.fn().mockImplementation((field: string, value: string) => {
-    expect(field).toEqual('Content-Type');
-    expect(value).toEqual('application/json');
-
-    return res;
-  });
-
-  res.on = jest
-    .fn()
-    .mockImplementation((event: string, callback: closeResponseCallback) => {
-      expect(event).toEqual('close');
-
-      emitClose = callback;
-    });
-
-  return res;
-};
-
 describe('Controller', () => {
   const service = mockedService();
 
@@ -367,7 +339,9 @@ describe('Controller', () => {
 
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
-      nodes: mapToObject(getNodes),
+      nodes: {
+        BTC: mockGetNodes().get('BTC').get('LND'),
+      },
     });
   });
 
@@ -1102,136 +1076,6 @@ describe('Controller', () => {
 
     emitClose();
     expect(controller['pendingSwapStreams'].get(id)).toBeUndefined();
-  });
-
-  test('should validate requests', () => {
-    const validateRequest = controller['validateRequest'];
-
-    const checks = [
-      {
-        name: 'test',
-        type: 'string',
-      },
-    ];
-
-    const hexChecks = [
-      {
-        name: 'test',
-        type: 'string',
-        hex: true,
-      },
-    ];
-
-    const optionalChecks = [
-      {
-        name: 'test',
-        type: 'string',
-        optional: true,
-      },
-    ];
-
-    // Undefined parameter
-    expect(() => validateRequest({}, checks)).toThrow(
-      `undefined parameter: ${checks[0].name}`,
-    );
-
-    // Invalid parameter
-    expect(() =>
-      validateRequest(
-        {
-          test: 0,
-        },
-        checks,
-      ),
-    ).toThrow(`invalid parameter: ${checks[0].name}`);
-
-    // Ignore empty hex
-    expect(
-      validateRequest(
-        {
-          test: '',
-        },
-        hexChecks,
-      ),
-    ).toEqual({
-      test: '',
-    });
-
-    // Successful validation
-    expect(
-      validateRequest(
-        {
-          test: 'test',
-        },
-        checks,
-      ),
-    ).toEqual({ test: 'test' });
-
-    // Successful hex validation
-    expect(
-      validateRequest(
-        {
-          test: '298ae8cc',
-        },
-        hexChecks,
-      ),
-    ).toEqual({ test: getHexBuffer('298ae8cc') });
-
-    // Optional argument
-    expect(validateRequest({}, optionalChecks)).toEqual({});
-    expect(
-      validateRequest(
-        {
-          test: 'test',
-        },
-        optionalChecks,
-      ),
-    ).toEqual({ test: 'test' });
-  });
-
-  test('should handle error responses', () => {
-    const req = mockRequest({});
-    const res = mockResponse();
-
-    let error: any = '123';
-
-    controller.errorResponse(req, res, error);
-
-    expect(res.status).toHaveBeenNthCalledWith(1, 400);
-    expect(res.json).toHaveBeenNthCalledWith(1, { error });
-
-    error = {
-      details: 'missing inputs',
-    };
-
-    controller.errorResponse(req, res, error);
-
-    expect(res.status).toHaveBeenNthCalledWith(2, 400);
-    expect(res.json).toHaveBeenNthCalledWith(2, { error: error.details });
-
-    error = {
-      timeoutBlockHeight: 321,
-      error: 'timelock requirement not met',
-    };
-
-    controller.errorResponse(req, res, error);
-
-    expect(res.status).toHaveBeenNthCalledWith(3, 400);
-    expect(res.json).toHaveBeenNthCalledWith(3, error);
-
-    error = {
-      message: 'some other error',
-    };
-
-    controller.errorResponse(req, res, error);
-
-    expect(res.status).toHaveBeenNthCalledWith(4, 400);
-    expect(res.json).toHaveBeenNthCalledWith(4, { error: error.message });
-
-    controller.errorResponse(req, res, error, 401);
-
-    expect(res.status).toHaveBeenNthCalledWith(5, 401);
-    expect(res.json).toHaveBeenNthCalledWith(5, { error: error.message });
   });
 
   test('should parse swap types', () => {

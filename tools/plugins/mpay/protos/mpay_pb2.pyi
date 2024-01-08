@@ -6,17 +6,17 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class GetInfoRequest(_message.Message):
-    __slots__ = []
+    __slots__ = ()
     def __init__(self) -> None: ...
 
 class GetInfoResponse(_message.Message):
-    __slots__ = ["version"]
+    __slots__ = ("version",)
     VERSION_FIELD_NUMBER: _ClassVar[int]
     version: str
     def __init__(self, version: _Optional[str] = ...) -> None: ...
 
 class GetRoutesRequest(_message.Message):
-    __slots__ = ["destination", "min_success", "min_success_ema"]
+    __slots__ = ("destination", "min_success", "min_success_ema")
     DESTINATION_FIELD_NUMBER: _ClassVar[int]
     MIN_SUCCESS_FIELD_NUMBER: _ClassVar[int]
     MIN_SUCCESS_EMA_FIELD_NUMBER: _ClassVar[int]
@@ -26,11 +26,11 @@ class GetRoutesRequest(_message.Message):
     def __init__(self, destination: _Optional[str] = ..., min_success: _Optional[float] = ..., min_success_ema: _Optional[float] = ...) -> None: ...
 
 class GetRoutesResponse(_message.Message):
-    __slots__ = ["routes"]
+    __slots__ = ("routes",)
     class Routes(_message.Message):
-        __slots__ = ["routes"]
+        __slots__ = ("routes",)
         class Route(_message.Message):
-            __slots__ = ["route", "success_rate", "success_rate_ema"]
+            __slots__ = ("route", "success_rate", "success_rate_ema")
             ROUTE_FIELD_NUMBER: _ClassVar[int]
             SUCCESS_RATE_FIELD_NUMBER: _ClassVar[int]
             SUCCESS_RATE_EMA_FIELD_NUMBER: _ClassVar[int]
@@ -42,7 +42,7 @@ class GetRoutesResponse(_message.Message):
         routes: _containers.RepeatedCompositeFieldContainer[GetRoutesResponse.Routes.Route]
         def __init__(self, routes: _Optional[_Iterable[_Union[GetRoutesResponse.Routes.Route, _Mapping]]] = ...) -> None: ...
     class RoutesEntry(_message.Message):
-        __slots__ = ["key", "value"]
+        __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
         VALUE_FIELD_NUMBER: _ClassVar[int]
         key: str
@@ -53,7 +53,7 @@ class GetRoutesResponse(_message.Message):
     def __init__(self, routes: _Optional[_Mapping[str, GetRoutesResponse.Routes]] = ...) -> None: ...
 
 class ListPaymentsRequest(_message.Message):
-    __slots__ = ["bolt11", "payment_hash"]
+    __slots__ = ("bolt11", "payment_hash")
     BOLT11_FIELD_NUMBER: _ClassVar[int]
     PAYMENT_HASH_FIELD_NUMBER: _ClassVar[int]
     bolt11: str
@@ -61,13 +61,13 @@ class ListPaymentsRequest(_message.Message):
     def __init__(self, bolt11: _Optional[str] = ..., payment_hash: _Optional[str] = ...) -> None: ...
 
 class ListPaymentsResponse(_message.Message):
-    __slots__ = ["payments"]
+    __slots__ = ("payments",)
     class Payment(_message.Message):
-        __slots__ = ["id", "destination", "payment_hash", "amount", "ok", "attempts", "created_at"]
+        __slots__ = ("id", "destination", "payment_hash", "amount", "ok", "attempts", "created_at")
         class Attempt(_message.Message):
-            __slots__ = ["id", "ok", "time", "hops", "created_at"]
+            __slots__ = ("id", "ok", "time", "hops", "created_at")
             class Hop(_message.Message):
-                __slots__ = ["id", "node", "channel", "direction", "ok"]
+                __slots__ = ("id", "node", "channel", "direction", "ok")
                 ID_FIELD_NUMBER: _ClassVar[int]
                 NODE_FIELD_NUMBER: _ClassVar[int]
                 CHANNEL_FIELD_NUMBER: _ClassVar[int]
@@ -110,7 +110,7 @@ class ListPaymentsResponse(_message.Message):
     def __init__(self, payments: _Optional[_Iterable[_Union[ListPaymentsResponse.Payment, _Mapping]]] = ...) -> None: ...
 
 class PayRequest(_message.Message):
-    __slots__ = ["bolt11", "max_fee_msat", "exempt_fee_msat", "timeout"]
+    __slots__ = ("bolt11", "max_fee_msat", "exempt_fee_msat", "timeout")
     BOLT11_FIELD_NUMBER: _ClassVar[int]
     MAX_FEE_MSAT_FIELD_NUMBER: _ClassVar[int]
     EXEMPT_FEE_MSAT_FIELD_NUMBER: _ClassVar[int]
@@ -122,7 +122,7 @@ class PayRequest(_message.Message):
     def __init__(self, bolt11: _Optional[str] = ..., max_fee_msat: _Optional[int] = ..., exempt_fee_msat: _Optional[int] = ..., timeout: _Optional[int] = ...) -> None: ...
 
 class PayResponse(_message.Message):
-    __slots__ = ["payment_hash", "payment_preimage", "fee_msat", "time"]
+    __slots__ = ("payment_hash", "payment_preimage", "fee_msat", "time")
     PAYMENT_HASH_FIELD_NUMBER: _ClassVar[int]
     PAYMENT_PREIMAGE_FIELD_NUMBER: _ClassVar[int]
     FEE_MSAT_FIELD_NUMBER: _ClassVar[int]
@@ -134,11 +134,11 @@ class PayResponse(_message.Message):
     def __init__(self, payment_hash: _Optional[str] = ..., payment_preimage: _Optional[str] = ..., fee_msat: _Optional[int] = ..., time: _Optional[int] = ...) -> None: ...
 
 class ResetPathMemoryRequest(_message.Message):
-    __slots__ = []
+    __slots__ = ()
     def __init__(self) -> None: ...
 
 class ResetPathMemoryResponse(_message.Message):
-    __slots__ = ["payments", "attempts", "hops"]
+    __slots__ = ("payments", "attempts", "hops")
     PAYMENTS_FIELD_NUMBER: _ClassVar[int]
     ATTEMPTS_FIELD_NUMBER: _ClassVar[int]
     HOPS_FIELD_NUMBER: _ClassVar[int]

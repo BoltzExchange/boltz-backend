@@ -145,6 +145,7 @@ class Service {
       this.nodeSwitch,
       this.rateProvider,
       this.timeoutDeltaProvider,
+      this.paymentRequestUtils,
       new SwapOutputType(
         config.swapwitnessaddress
           ? OutputType.Bech32
@@ -1169,6 +1170,9 @@ class Service {
 
     // Whether the Ethereum prepay miner fee should be enabled for the Reverse Swap
     prepayMinerFee?: boolean;
+
+    // Address of the user to encode in the invoice memo
+    userAddress?: string;
   }): Promise<{
     id: string;
     invoice: string;
@@ -1381,11 +1385,12 @@ class Service {
       lightningTimeoutBlockDelta,
       prepayMinerFeeInvoiceAmount,
       prepayMinerFeeOnchainAmount,
-
       orderSide: side,
+
       baseCurrency: base,
       quoteCurrency: quote,
       routingNode: args.routingNode,
+      userAddress: args.userAddress,
       claimAddress: args.claimAddress,
       preimageHash: args.preimageHash,
       claimPublicKey: args.claimPublicKey,

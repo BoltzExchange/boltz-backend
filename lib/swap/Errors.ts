@@ -94,4 +94,8 @@ export default {
     message: 'no available lightning client',
     code: concatErrorCode(ErrorCodePrefix.Swap, 18),
   }),
+  INVALID_ADDRESS: (): Error => ({
+    message: 'invalid address',
+    code: concatErrorCode(ErrorCodePrefix.Swap, 19),
+  }),
 };

@@ -24,7 +24,7 @@ const {
 } = Scripts;
 
 const idPossibilities =
-  'ABCDEFGHIJKLMNPQRSTUVWXYZabcdefghklmnopqrstuvwxyz123456789';
+  'ABCDEFGHIJKLMNPQRSTUVWXYZabcdefghkmnopqrstuvwxyz123456789';
 
 /**
  * Generate an ID for a swap

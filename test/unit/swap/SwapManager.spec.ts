@@ -17,6 +17,7 @@ import RateProvider from '../../../lib/rates/RateProvider';
 import SwapOutputType from '../../../lib/swap/SwapOutputType';
 import { Ethereum } from '../../../lib/wallet/ethereum/EvmNetworks';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
+import PaymentRequestUtils from '../../../lib/service/PaymentRequestUtils';
 import ReverseSwap, { NodeType } from '../../../lib/db/models/ReverseSwap';
 import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
 import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
@@ -358,6 +359,7 @@ describe('SwapManager', () => {
       new NodeSwitch(Logger.disabledLogger),
       new MockedRateProvider(),
       new MockedTimeoutDeltaProvider(),
+      {} as PaymentRequestUtils,
       new SwapOutputType(OutputType.Compatibility),
       0,
     );

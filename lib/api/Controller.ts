@@ -457,6 +457,7 @@ class Controller {
   private createReverseSubmarineSwap = async (req: Request, res: Response) => {
     const {
       pairId,
+      address,
       pairHash,
       orderSide,
       referralId,
@@ -470,6 +471,7 @@ class Controller {
     } = validateRequest(req.body, [
       { name: 'pairId', type: 'string' },
       { name: 'orderSide', type: 'string' },
+      { name: 'address', type: 'string', optional: true },
       { name: 'preimageHash', type: 'string', hex: true },
       { name: 'pairHash', type: 'string', optional: true },
       { name: 'referralId', type: 'string', optional: true },
@@ -495,6 +497,7 @@ class Controller {
       onchainAmount,
       claimPublicKey,
       prepayMinerFee,
+      userAddress: address,
     });
 
     this.logger.verbose(`Created Reverse Swap with id: ${response.id}`);

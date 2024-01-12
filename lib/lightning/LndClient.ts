@@ -294,7 +294,7 @@ class LndClient extends BaseClient implements LightningClient {
     value: number,
     expiry?: number,
     memo?: string,
-    routingHints?: lndrpc.RouteHint[],
+    routingHints?: HopHint[][],
   ): Promise<lndrpc.AddInvoiceResponse.AsObject> => {
     const request = new lndrpc.Invoice();
     request.setValue(value);
@@ -308,7 +308,7 @@ class LndClient extends BaseClient implements LightningClient {
     }
 
     if (routingHints) {
-      request.setRouteHintsList(routingHints);
+      request.setRouteHintsList(LndClient.routingHintsToGrpc(routingHints));
     }
 
     return this.unaryLightningCall<

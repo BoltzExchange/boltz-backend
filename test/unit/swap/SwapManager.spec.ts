@@ -29,6 +29,7 @@ import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepos
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import LndClient from '../../../lib/lightning/LndClient';
 import RateProvider from '../../../lib/rates/RateProvider';
+import PaymentRequestUtils from '../../../lib/service/PaymentRequestUtils';
 import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
 import Errors from '../../../lib/swap/Errors';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
@@ -359,6 +360,7 @@ describe('SwapManager', () => {
       new NodeSwitch(Logger.disabledLogger),
       new MockedRateProvider(),
       new MockedTimeoutDeltaProvider(),
+      {} as PaymentRequestUtils,
       new SwapOutputType(OutputType.Compatibility),
       0,
     );

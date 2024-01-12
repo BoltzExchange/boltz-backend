@@ -46,6 +46,7 @@ import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import RateProvider from '../rates/RateProvider';
 import InvoiceExpiryHelper from '../service/InvoiceExpiryHelper';
+import PaymentRequestUtils from '../service/PaymentRequestUtils';
 import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
 import WalletLiquid from '../wallet/WalletLiquid';
 import WalletManager, { Currency } from '../wallet/WalletManager';
@@ -127,8 +128,9 @@ class SwapManager {
     private readonly logger: Logger,
     private readonly walletManager: WalletManager,
     private readonly nodeSwitch: NodeSwitch,
-    rateProvider: RateProvider,
+    private readonly rateProvider: RateProvider,
     private readonly timeoutDeltaProvider: TimeoutDeltaProvider,
+    private readonly paymentRequestUtils: PaymentRequestUtils,
     private readonly swapOutputType: SwapOutputType,
     retryInterval: number,
   ) {
@@ -565,6 +567,8 @@ class SwapManager {
     // Only required for Swaps to Ether and ERC20 tokens
     // Address of the user to which the coins will be sent after a successful claim transaction
     claimAddress?: string;
+
+    userAddress?: string;
   }): Promise<CreatedReverseSwap> => {
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(
       args.baseCurrency,
@@ -594,6 +598,27 @@ class SwapManager {
       quote: args.quoteCurrency,
     });
 
+    let invoiceMemo = getSwapMemo(sendingCurrency.symbol, true);
+
+    if (args.userAddress) {
+      try {
+        this.walletManager.wallets
+          .get(sendingCurrency.symbol)!
+          .decodeAddress(args.userAddress);
+      } catch (e) {
+        throw Errors.INVALID_ADDRESS();
+      }
+
+      invoiceMemo =
+        this.paymentRequestUtils.encodeBip21(
+          sendingCurrency.symbol,
+          args.userAddress,
+          args.onchainAmount -
+            this.rateProvider.feeProvider.minerFees.get(sendingCurrency.symbol)!
+              .reverse.claim,
+        ) || invoiceMemo;
+    }
+
     const { nodeType, lightningClient, paymentRequest, routingHints } =
       await this.nodeFallback.getReverseSwapInvoice(
         id,
@@ -604,7 +629,7 @@ class SwapManager {
         args.preimageHash,
         args.lightningTimeoutBlockDelta,
         this.invoiceExpiryHelper.getExpiry(pair),
-        getSwapMemo(sendingCurrency.symbol, true),
+        invoiceMemo,
       );
 
     lightningClient.subscribeSingleInvoice(args.preimageHash);

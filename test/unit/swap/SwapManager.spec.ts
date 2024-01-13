@@ -812,8 +812,10 @@ describe('SwapManager', () => {
       },
       false,
     );
-    const invoiceNoExpiry = bolt11.sign(invoiceNoExpiryEncode, invoiceSignKeys)
-      .paymentRequest!;
+    const invoiceNoExpiry = bolt11.sign(
+      invoiceNoExpiryEncode,
+      invoiceSignKeys,
+    ).paymentRequest!;
 
     try {
       await manager.setSwapInvoice(

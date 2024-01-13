@@ -103,9 +103,8 @@ describe('EthereumManager', () => {
       await expect(throwManager.init(generateMnemonic())).rejects.toEqual(
         Errors.UNSUPPORTED_CONTRACT_VERSION(
           `${Ethereum.name} ${isEtherSwap ? 'EtherSwap' : 'ERC20Swap'}`,
-          await (isEtherSwap
-            ? manager.etherSwap
-            : manager.erc20Swap
+          await (
+            isEtherSwap ? manager.etherSwap : manager.erc20Swap
           ).getAddress(),
           BigInt(2),
           isEtherSwap ? versions.EtherSwap : versions.ERC20Swap,

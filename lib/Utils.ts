@@ -250,9 +250,7 @@ export const isObject = (val: unknown): boolean => {
 /**
  * Get the current date
  */
-export const getTsString = (): string => {
-  const date = new Date();
-
+export const getTsString = (date = new Date()): string => {
   const pad = (input: number, maxLength = 2) => {
     return input.toString().padStart(maxLength, '0');
   };

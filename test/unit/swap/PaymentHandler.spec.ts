@@ -49,6 +49,7 @@ jest.mock('../../../lib/lightning/LndClient', () => {
     const baseObject = Object.create(LndClient.prototype);
     return Object.assign(baseObject, {
       raceCall,
+      resetMissionControl: jest.fn().mockResolvedValue(undefined),
       trackPayment: jest.fn().mockImplementation(async () => {
         return trackPaymentResponse;
       }),
@@ -120,20 +121,55 @@ describe('PaymentHandler', () => {
     ${{ details: 'invoice expired' }}
   `('should check payment for pay error "$error"', async ({ error }) => {
     cltvLimit = 100;
-    trackPaymentResponse = {
-      status: Payment.PaymentStatus.IN_FLIGHT,
-    };
-
     sendPaymentError = error;
+    trackPaymentResponse = {
+      status: Payment.PaymentStatus.FAILED,
+    };
 
     await expect(handler.payInvoice(swap, null, undefined)).resolves.toEqual(
       undefined,
     );
 
     expect(mockedEmit).toHaveBeenCalledTimes(0);
+    expect(btcCurrency.lndClient!.resetMissionControl).toHaveBeenCalledTimes(0);
     expect(btcCurrency.lndClient!.trackPayment).toHaveBeenCalledTimes(1);
     expect(btcCurrency.lndClient!.trackPayment).toHaveBeenCalledWith(
       getHexBuffer(swap.preimageHash),
     );
+  });
+
+  test('should reset LND mission control only on interval', async () => {
+    cltvLimit = 100;
+    sendPaymentError = 'their node is offline';
+    trackPaymentResponse = {
+      status: Payment.PaymentStatus.FAILED,
+    };
+
+    await expect(handler.payInvoice(swap, null, undefined)).resolves.toEqual(
+      undefined,
+    );
+
+    expect(btcCurrency.lndClient!.resetMissionControl).toHaveBeenCalledTimes(1);
+    expect(handler['lastResetMissionControl']).not.toBeUndefined();
+    expect(handler['lastResetMissionControl']! - Date.now()).toBeLessThan(1000);
+
+    // Reset MC not called
+    const lastCallBefore = handler['lastResetMissionControl'];
+
+    await expect(handler.payInvoice(swap, null, undefined)).resolves.toEqual(
+      undefined,
+    );
+    expect(btcCurrency.lndClient!.resetMissionControl).toHaveBeenCalledTimes(1);
+    expect(handler['lastResetMissionControl']).toEqual(lastCallBefore);
+
+    // After interval, it is called again
+    jest.useFakeTimers();
+    jest.advanceTimersByTime(PaymentHandler['resetMissionControlInterval'] + 1);
+
+    await expect(handler.payInvoice(swap, null, undefined)).resolves.toEqual(
+      undefined,
+    );
+    expect(btcCurrency.lndClient!.resetMissionControl).toHaveBeenCalledTimes(2);
+    expect(handler['lastResetMissionControl']! - Date.now()).toBeLessThan(1000);
   });
 });

@@ -18,12 +18,16 @@ import {
   getHexBuffer,
   getHexString,
   getLightningCurrency,
+  getTsString,
   splitPairId,
 } from '../Utils';
 
 class PaymentHandler {
   private static readonly raceTimeout = 15;
+  private static readonly resetMissionControlInterval = 10 * 60 * 1000;
   private static readonly errCltvTooSmall = 'CLTV limit too small';
+
+  private lastResetMissionControl: number | undefined = undefined;
 
   constructor(
     private readonly logger: Logger,
@@ -200,8 +204,9 @@ class PaymentHandler {
           });
         } else if (payment.status === Payment.PaymentStatus.IN_FLIGHT) {
           this.logger.info(`Invoice of Swap ${swap.id} is still pending`);
-          return undefined;
         }
+
+        return undefined;
       } catch (e) {
         /* empty */
       }
@@ -225,10 +230,21 @@ class PaymentHandler {
       return undefined;
     }
 
-    this.logger.debug(
-      `Resetting ${lndClient.symbol} lightning mission control`,
-    );
-    await lndClient.resetMissionControl();
+    if (
+      this.lastResetMissionControl === undefined ||
+      Date.now() - this.lastResetMissionControl >=
+        PaymentHandler.resetMissionControlInterval
+    ) {
+      this.logger.debug(
+        `Resetting ${lndClient.symbol} ${LndClient.serviceName} mission control`,
+      );
+      this.lastResetMissionControl = Date.now();
+      await lndClient.resetMissionControl();
+    } else {
+      this.logger.debug(
+        `Not resetting ${lndClient.symbol} ${LndClient.serviceName} mission control because last reset was at ${getTsString(new Date(this.lastResetMissionControl))}`,
+      );
+    }
 
     // If the invoice could not be paid but the Swap has a Channel Creation attached to it, a channel will be opened
     if (

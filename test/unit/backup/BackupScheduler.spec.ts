@@ -2,6 +2,7 @@ import { BackupConfig } from '../../../lib/Config';
 import Logger from '../../../lib/Logger';
 import BackupScheduler from '../../../lib/backup/BackupScheduler';
 import Webdav from '../../../lib/backup/providers/Webdav';
+import Database, { DatabaseType } from '../../../lib/db/Database';
 import EventHandler from '../../../lib/service/EventHandler';
 
 type callback = (currency: string, channelBackup: string) => void;
@@ -71,11 +72,13 @@ describe('BackupScheduler', () => {
   const backupScheduler = new BackupScheduler(
     mockedLogger(),
     dbPath,
+    undefined,
     backupConfig,
     eventHandler,
   );
 
   beforeAll(() => {
+    Database.type = DatabaseType.SQLite;
     backupScheduler['providers'].push(mockedWebdav());
   });
 
@@ -147,6 +150,7 @@ describe('BackupScheduler', () => {
     new BackupScheduler(
       mockedLogger(),
       dbPath,
+      undefined,
       {
         interval: '0 0 * * *',
 

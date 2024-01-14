@@ -1,7 +1,10 @@
+import { exec } from 'child_process';
+import { unlinkSync } from 'fs';
 import { scheduleJob } from 'node-schedule';
-import { BackupConfig } from '../Config';
+import { BackupConfig, PostgresConfig } from '../Config';
 import Logger from '../Logger';
 import { formatError } from '../Utils';
+import Database, { DatabaseType } from '../db/Database';
 import EventHandler from '../service/EventHandler';
 import Errors from './Errors';
 import GoogleCloud from './providers/GoogleCloud';
@@ -16,10 +19,11 @@ class BackupScheduler {
   private readonly providers: BackupProvider[] = [];
 
   constructor(
-    private logger: Logger,
-    private dbpath: string,
-    private config: BackupConfig,
-    private eventHandler: EventHandler,
+    private readonly logger: Logger,
+    private readonly dbpath: string,
+    private readonly postgresConfig: PostgresConfig | undefined,
+    private readonly config: BackupConfig,
+    private readonly eventHandler: EventHandler,
   ) {
     try {
       if (config.gcloud && GoogleCloud.configValid(config.gcloud)) {
@@ -90,9 +94,36 @@ class BackupScheduler {
     }
 
     const dateString = BackupScheduler.getDate(date);
-    this.logger.silly(`Backing up databases at: ${dateString}`);
+    this.logger.silly(`Backing up ${Database.type} database at: ${dateString}`);
 
-    await this.uploadFile(`backend/database-${dateString}.db`, this.dbpath);
+    const backupPath = `backend/database-${dateString}.${Database.type === DatabaseType.SQLite ? 'db' : 'sql.gz'}`;
+
+    if (Database.type === DatabaseType.SQLite) {
+      await this.uploadFile(backupPath, this.dbpath);
+    } else {
+      const tempFilePath = `sql-backup-${Date.now().toString()}.temp`;
+
+      return new Promise<void>((resolve, reject) => {
+        const backupChild = exec(
+          `PGPASSWORD="${this.postgresConfig!.password}" pg_dump -U ${this.postgresConfig!.username} -h ${this.postgresConfig!.host} -p ${this.postgresConfig!.port} -d ${this.postgresConfig!.database} | gzip > ${tempFilePath}`,
+        );
+        backupChild.on('exit', (code) => {
+          if (code !== 0) {
+            reject(
+              `creating ${DatabaseType.PostgreSQL} backup failed with code: ${code}`,
+            );
+            return;
+          }
+
+          this.uploadFile(backupPath, tempFilePath)
+            .then(() => {
+              unlinkSync(tempFilePath);
+              resolve();
+            })
+            .catch(reject);
+        });
+      });
+    }
   };
 
   private uploadFile = async (path: string, file: string) => {

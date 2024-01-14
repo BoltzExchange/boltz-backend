@@ -27,6 +27,14 @@ RUN npm run compile
 
 FROM node:${NODE_VERSION} AS final
 
+RUN apt-get update && apt-get -y upgrade && \
+    apt-get -y install gnupg2 wget lsb-release && \
+    sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list' && \
+    wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - && \
+    apt-get update && \
+    apt-get -y install postgresql-client-14 postgresql-client-common && \
+    apt-get clean all && rm -rf /var/lib/apt/lists/*
+
 COPY --from=builder /boltz-backend/bin /boltz-backend/bin
 COPY --from=builder /boltz-backend/dist /boltz-backend/dist
 COPY --from=builder /boltz-backend/node_modules /boltz-backend/node_modules

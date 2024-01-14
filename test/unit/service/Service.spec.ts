@@ -4,7 +4,12 @@ import { Provider } from 'ethers';
 import { ConfigType } from '../../../lib/Config';
 import { ECPair } from '../../../lib/ECPairHelper';
 import Logger from '../../../lib/Logger';
-import { decodeInvoice, getHexBuffer, getHexString } from '../../../lib/Utils';
+import {
+  decodeInvoice,
+  getHexBuffer,
+  getHexString,
+  getPairId,
+} from '../../../lib/Utils';
 import ApiErrors from '../../../lib/api/Errors';
 import ChainClient from '../../../lib/chain/ChainClient';
 import {
@@ -669,6 +674,30 @@ describe('Service', () => {
 
     expect(mockInitRateProvider).toHaveBeenCalledTimes(1);
     expect(mockInitRateProvider).toHaveBeenCalledWith(configPairs);
+  });
+
+  test.each`
+    from     | to       | isReverse | expected
+    ${'LTC'} | ${'BTC'} | ${false}  | ${{ pairId: 'LTC/BTC', orderSide: 'sell' }}
+    ${'BTC'} | ${'LTC'} | ${false}  | ${{ pairId: 'LTC/BTC', orderSide: 'buy' }}
+    ${'LTC'} | ${'BTC'} | ${true}   | ${{ pairId: 'LTC/BTC', orderSide: 'buy' }}
+    ${'BTC'} | ${'LTC'} | ${true}   | ${{ pairId: 'LTC/BTC', orderSide: 'sell' }}
+  `(
+    'should convert from/to to pairId and order side',
+    ({ from, to, isReverse, expected }) => {
+      expect(service.convertToPairAndSide(from, to, isReverse)).toEqual(
+        expected,
+      );
+    },
+  );
+
+  test('should throw when converting non existent from/to to pairId and order side', () => {
+    const from = 'DOGE';
+    const to = 'BTC';
+
+    expect(() => service.convertToPairAndSide(from, to, false)).toThrow(
+      Errors.PAIR_NOT_FOUND(getPairId({ base: from, quote: to })).message,
+    );
   });
 
   test('should get info', async () => {

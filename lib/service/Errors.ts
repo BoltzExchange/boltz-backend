@@ -141,4 +141,8 @@ export default {
     message: 'incorrect preimage',
     code: concatErrorCode(ErrorCodePrefix.Service, 36),
   }),
+  INVALID_VIN: (): Error => ({
+    message: 'input index is out of range',
+    code: concatErrorCode(ErrorCodePrefix.Service, 37),
+  }),
 };

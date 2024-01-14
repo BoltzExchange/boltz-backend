@@ -9,6 +9,7 @@
     "precompile": "node parseGitCommit.js",
     "compile": "npm run swagger && tsc && cross-os postcompile",
     "swagger": "node swagger.js",
+    "swagger-ui": "docker run --rm -p 8082:8080 -e SWAGGER_JSON=/boltz-backend/swagger-spec.json -v .:/boltz-backend swaggerapi/swagger-ui",
     "compile:watch": "tsc -w",
     "start": "node bin/boltzd",
     "dev": "npm run compile && npm run start",

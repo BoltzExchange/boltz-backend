@@ -218,6 +218,34 @@ class Service {
     await this.nodeInfo.init();
   };
 
+  public convertToPairAndSide = (
+    from: string,
+    to: string,
+    isReverse: boolean,
+  ): { pairId: string; orderSide: string } => {
+    const pair = (
+      [
+        [getPairId({ base: from, quote: to }), false],
+        [getPairId({ base: to, quote: from }), true],
+      ] as [string, boolean][]
+    ).find(([val]) => this.rateProvider.pairs.has(val));
+
+    if (pair === undefined) {
+      throw Errors.PAIR_NOT_FOUND(getPairId({ base: from, quote: to }));
+    }
+
+    return {
+      pairId: pair[0],
+      orderSide: isReverse
+        ? pair[1]
+          ? 'sell'
+          : 'buy'
+        : pair[1]
+          ? 'buy'
+          : 'sell',
+    };
+  };
+
   /**
    * Gets general information about this Boltz instance and the nodes it is connected to
    */

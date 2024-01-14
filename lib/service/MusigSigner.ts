@@ -144,6 +144,11 @@ class MusigSigner {
     rawTransaction: Buffer | string,
     vin: number,
   ): Promise<PartialSignature> => {
+    const tx = parseTransaction(currency.type, rawTransaction);
+    if (vin < 0 || tx.ins.length <= vin) {
+      throw Errors.INVALID_VIN();
+    }
+
     const wallet = this.walletManager.wallets.get(currency.symbol)!;
 
     const ourKeys = wallet.getKeysByIndex(keyIndex);
@@ -153,7 +158,6 @@ class MusigSigner {
 
     musig.aggregateNonces([[theirPublicKey, theirNonce]]);
 
-    const tx = parseTransaction(currency.type, rawTransaction);
     const hash = await hashForWitnessV1(currency, tx, vin);
     musig.initializeSession(hash);
 

@@ -12,6 +12,7 @@ import {
   reverseSwapTree,
   swapTree,
 } from 'boltz-core';
+import { SwapTree } from 'boltz-core/dist/lib/consts/Types';
 import { randomBytes } from 'crypto';
 import { hashForWitnessV1, setup, tweakMusig, zkp } from '../../../lib/Core';
 import { ECPair } from '../../../lib/ECPairHelper';
@@ -395,4 +396,34 @@ describe('MusigSigner', () => {
       ),
     ).rejects.toEqual(Errors.INCORRECT_PREIMAGE());
   });
+
+  test.each`
+    vin
+    ${-1}
+    ${-23234}
+    ${5}
+    ${123}
+  `(
+    'should not create partial signature when vin ($vin) is out of bounds',
+    async ({ vin }) => {
+      const tx = await bitcoinClient.getRawTransaction(
+        await bitcoinClient.sendToAddress(
+          await bitcoinClient.getNewAddress(),
+          100_000,
+        ),
+      );
+
+      await expect(
+        signer['createPartialSignature'](
+          btcCurrency,
+          {} as SwapTree,
+          1,
+          Buffer.alloc(0),
+          Buffer.alloc(0),
+          tx,
+          vin,
+        ),
+      ).rejects.toEqual(Errors.INVALID_VIN());
+    },
+  );
 });

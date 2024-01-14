@@ -124,6 +124,7 @@ class Boltz {
       this.backup = new BackupScheduler(
         this.logger,
         this.config.dbpath,
+        this.config.postgres,
         this.config.backup,
         this.service.eventHandler,
       );

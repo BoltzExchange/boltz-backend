@@ -207,7 +207,7 @@ For UTXO chains, `/createswap` requests have to contain one additional parameter
 
 Responses also contain one additional value:
 
-* `redeemScript`: redeem script from which the `address` is derived. The redeem script can (and should!) be used to verify that Boltz didn't try to cheat by providing an address without HTLC.
+* `redeemScript`: redeem script from which the `address` is derived. The redeem script should be used, [to verify](dont-trust.-verify.md#utxo-chain-address-verification) that Boltz did provide the correct address.
 
 In case the address is for the Liquid Network, it will be blinded by a key that is also in the response:
 
@@ -478,7 +478,7 @@ For UTXO chains, `/createswap` requests have to contain one additional parameter
 
 Responses also contain one additional value:
 
-* `redeemScript`: Redeem script from which the lockup address was derived. The redeem script can (and should!) be used to verify that Boltz didn't try to cheat by creating an address without a HTLC.
+* `redeemScript`: Redeem script from which the lockup address is derived. The redeem script should be used, [to verify](dont-trust.-verify.md#utxo-chain-address-verification) that Boltz didn't try to cheat by creating an address without a HTLC.
 
 In case the lockup address is on the Liquid Network, it will be blinded by a key that is returned in the response too:
 
@@ -1114,7 +1114,7 @@ Status Codes:
 
 Response object:
 
-* `nodes`:  `JSON` with the symbol of the chain on which the Lightning node is running as key and the following objects:
+* `nodes`: `JSON` with the symbol of the chain on which the Lightning node is running as key and the following objects:
   * `nodeKey`: Public key of the Lightning node.
   * `uris`: Array of the URIs on which the Lightning node is reachable.
 

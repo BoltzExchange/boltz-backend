@@ -207,7 +207,7 @@ For UTXO chains, `/createswap` requests have to contain one additional parameter
 
 Responses also contain one additional value:
 
-* `redeemScript`: redeem script from which the `address` is derived. The redeem script should be used, [to verify](dont-trust.-verify.md#utxo-chain-address-verification) that Boltz didn't provide a different address.
+* `redeemScript`: redeem script from which the `address` is derived. The redeem script should be used, [to verify](dont-trust.-verify.md#utxo-chain-address-verification) that Boltz did provide the correct address.
 
 In case the address is for the Liquid Network, it will be blinded by a key that is also in the response:
 

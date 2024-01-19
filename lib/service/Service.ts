@@ -56,7 +56,8 @@ import {
   GetInfoResponse,
   LightningInfo,
 } from '../proto/boltzrpc_pb';
-import RateProvider, { PairType } from '../rates/RateProvider';
+import RateProvider from '../rates/RateProvider';
+import { PairTypeLegacy } from '../rates/providers/RateProviderLegacy';
 import ErrorsSwap from '../swap/Errors';
 import NodeSwitch from '../swap/NodeSwitch';
 import SwapManager, { ChannelCreationInfo } from '../swap/SwapManager';
@@ -95,10 +96,10 @@ class Service {
   public eventHandler: EventHandler;
   public elementsService: ElementsService;
   public readonly musigSigner: MusigSigner;
+  public readonly rateProvider: RateProvider;
 
   private prepayMinerFee: boolean;
 
-  private readonly rateProvider: RateProvider;
   private readonly paymentRequestUtils: PaymentRequestUtils;
   private readonly timeoutDeltaProvider: TimeoutDeltaProvider;
 
@@ -221,14 +222,13 @@ class Service {
   public convertToPairAndSide = (
     from: string,
     to: string,
-    isReverse: boolean,
   ): { pairId: string; orderSide: string } => {
     const pair = (
       [
         [getPairId({ base: from, quote: to }), false],
         [getPairId({ base: to, quote: from }), true],
       ] as [string, boolean][]
-    ).find(([val]) => this.rateProvider.pairs.has(val));
+    ).find(([val]) => this.rateProvider.has(val));
 
     if (pair === undefined) {
       throw Errors.PAIR_NOT_FOUND(getPairId({ base: from, quote: to }));
@@ -236,13 +236,7 @@ class Service {
 
     return {
       pairId: pair[0],
-      orderSide: isReverse
-        ? pair[1]
-          ? 'sell'
-          : 'buy'
-        : pair[1]
-          ? 'buy'
-          : 'sell',
+      orderSide: pair[1] ? 'buy' : 'sell',
     };
   };
 
@@ -390,24 +384,33 @@ class Service {
   public getPairs = (): {
     info: ServiceInfo[];
     warnings: ServiceWarning[];
-    pairs: Map<string, PairType>;
+    pairs: Map<string, PairTypeLegacy>;
   } => {
-    const info: ServiceInfo[] = [];
-    const warnings: ServiceWarning[] = [];
+    return {
+      info: this.getInfos(),
+      warnings: this.getWarnings(),
+      pairs: this.rateProvider.providers[SwapVersion.Legacy].pairs,
+    };
+  };
+
+  public getInfos = (): ServiceInfo[] => {
+    const infos: ServiceInfo[] = [];
 
     if (this.prepayMinerFee) {
-      info.push(ServiceInfo.PrepayMinerFee);
+      infos.push(ServiceInfo.PrepayMinerFee);
     }
+
+    return infos;
+  };
+
+  public getWarnings = (): ServiceWarning[] => {
+    const warnings: ServiceWarning[] = [];
 
     if (!this.allowReverseSwaps) {
       warnings.push(ServiceWarning.ReverseSwapsDisabled);
     }
 
-    return {
-      info,
-      warnings,
-      pairs: this.rateProvider.pairs,
-    };
+    return warnings;
   };
 
   public getNodes = () => this.nodeInfo.uris;
@@ -924,6 +927,7 @@ class Service {
     );
     const baseFee = this.rateProvider.feeProvider.getBaseFee(
       onchainCurrency,
+      swap.version,
       BaseFeeType.NormalClaim,
     );
 
@@ -1013,7 +1017,12 @@ class Service {
     const { base, quote, rate: pairRate } = this.getPair(swap.pair);
 
     if (pairHash !== undefined) {
-      this.validatePairHash(swap.pair, pairHash);
+      this.rateProvider.providers[swap.version].validatePairHash(
+        pairHash,
+        swap.pair,
+        swap.orderSide,
+        false,
+      );
     }
 
     const chainCurrency = getChainCurrency(base, quote, swap.orderSide, false);
@@ -1049,6 +1058,7 @@ class Service {
 
     const { baseFee, percentageFee } = this.rateProvider.feeProvider.getFees(
       swap.pair,
+      swap.version,
       rate,
       swap.orderSide,
       swap.invoiceAmount,
@@ -1276,7 +1286,12 @@ class Service {
     const { base, quote, rate: pairRate } = this.getPair(args.pairId);
 
     if (args.pairHash !== undefined) {
-      this.validatePairHash(args.pairId, args.pairHash);
+      this.rateProvider.providers[args.version].validatePairHash(
+        args.pairHash,
+        args.pairId,
+        side,
+        true,
+      );
     }
 
     const { sending, receiving } = getSendingReceivingCurrency(
@@ -1340,6 +1355,7 @@ class Service {
     );
     const baseFee = this.rateProvider.feeProvider.getBaseFee(
       sendingCurrency.symbol,
+      args.version,
       BaseFeeType.ReverseLockup,
     );
 
@@ -1628,7 +1644,8 @@ class Service {
   private getPair = (pairId: string) => {
     const { base, quote } = splitPairId(pairId);
 
-    const pair = this.rateProvider.pairs.get(pairId);
+    const pair =
+      this.rateProvider.providers[SwapVersion.Legacy].pairs.get(pairId);
 
     if (!pair) {
       throw Errors.PAIR_NOT_FOUND(pairId);
@@ -1668,12 +1685,6 @@ class Service {
       getUnixTime() +
       blocksMissing * TimeoutDeltaProvider.blockTimes.get(chain)! * 60
     );
-  };
-
-  private validatePairHash = (pairId: string, pairHash: string) => {
-    if (pairHash !== this.rateProvider.pairs.get(pairId)!.hash) {
-      throw Errors.INVALID_PAIR_HASH();
-    }
   };
 
   private checkWholeNumber = (input: number) => {

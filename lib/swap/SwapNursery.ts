@@ -725,7 +725,8 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
   private setSwapRate = async (swap: Swap) => {
     if (!swap.rate) {
       const rate = getRate(
-        this.rateProvider.pairs.get(swap.pair)!.rate,
+        this.rateProvider.providers[SwapVersion.Legacy].pairs.get(swap.pair)!
+          .rate,
         swap.orderSide,
         false,
       );
@@ -747,7 +748,9 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
         // TODO: how does this behave cross chain
         feePerVbyte = Math.round(
           decodeInvoice(reverseSwap.minerFeeInvoice).satoshis /
-            FeeProvider.transactionSizes.reverseLockup,
+            FeeProvider.transactionSizes[CurrencyType.BitcoinLike][
+              SwapVersion.Legacy
+            ].reverseLockup,
         );
         this.logger.debug(
           `Using prepay minerfee for lockup of Reverse Swap ${reverseSwap.id}: ${feePerVbyte} sat/vbyte`,

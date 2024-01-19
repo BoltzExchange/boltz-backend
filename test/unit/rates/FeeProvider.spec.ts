@@ -1,5 +1,5 @@
 import Logger from '../../../lib/Logger';
-import { BaseFeeType, OrderSide } from '../../../lib/consts/Enums';
+import { BaseFeeType, OrderSide, SwapVersion } from '../../../lib/consts/Enums';
 import FeeProvider from '../../../lib/rates/FeeProvider';
 import DataAggregator from '../../../lib/rates/data/DataAggregator';
 import WalletManager from '../../../lib/wallet/WalletManager';
@@ -125,34 +125,70 @@ describe('FeeProvider', () => {
 
   test('should calculate miner fees', () => {
     expect(feeProvider.minerFees.get('BTC')).toEqual({
-      normal: 6120,
-      reverse: {
-        claim: 4968,
-        lockup: 5508,
+      [SwapVersion.Taproot]: {
+        normal: 5436,
+        reverse: {
+          claim: 3996,
+          lockup: 5544,
+        },
+      },
+      [SwapVersion.Legacy]: {
+        normal: 6120,
+        reverse: {
+          claim: 4968,
+          lockup: 5508,
+        },
       },
     });
 
     expect(feeProvider.minerFees.get('LTC')).toEqual({
-      normal: 510,
-      reverse: {
-        claim: 414,
-        lockup: 459,
+      [SwapVersion.Taproot]: {
+        normal: 453,
+        reverse: {
+          claim: 333,
+          lockup: 462,
+        },
+      },
+      [SwapVersion.Legacy]: {
+        normal: 510,
+        reverse: {
+          claim: 414,
+          lockup: 459,
+        },
       },
     });
 
     expect(feeProvider.minerFees.get('ETH')).toEqual({
-      normal: 27416,
-      reverse: {
-        claim: 27416,
-        lockup: 51106,
+      [SwapVersion.Taproot]: {
+        normal: 27416,
+        reverse: {
+          claim: 27416,
+          lockup: 51106,
+        },
+      },
+      [SwapVersion.Legacy]: {
+        normal: 27416,
+        reverse: {
+          claim: 27416,
+          lockup: 51106,
+        },
       },
     });
 
     expect(feeProvider.minerFees.get('USDT')).toEqual({
-      normal: 53948,
-      reverse: {
-        claim: 53948,
-        lockup: 191356,
+      [SwapVersion.Taproot]: {
+        normal: 53948,
+        reverse: {
+          claim: 53948,
+          lockup: 191356,
+        },
+      },
+      [SwapVersion.Legacy]: {
+        normal: 53948,
+        reverse: {
+          claim: 53948,
+          lockup: 191356,
+        },
       },
     });
   });
@@ -163,6 +199,7 @@ describe('FeeProvider', () => {
     expect(
       feeProvider.getFees(
         'LTC/BTC',
+        SwapVersion.Legacy,
         2,
         OrderSide.BUY,
         amount,
@@ -176,6 +213,21 @@ describe('FeeProvider', () => {
     expect(
       feeProvider.getFees(
         'LTC/BTC',
+        SwapVersion.Taproot,
+        2,
+        OrderSide.BUY,
+        amount,
+        BaseFeeType.NormalClaim,
+      ),
+    ).toEqual({
+      baseFee: 5436,
+      percentageFee: -2000000,
+    });
+
+    expect(
+      feeProvider.getFees(
+        'LTC/BTC',
+        SwapVersion.Legacy,
         2,
         OrderSide.BUY,
         amount,
@@ -185,21 +237,37 @@ describe('FeeProvider', () => {
       baseFee: 459,
       percentageFee: 4000000,
     });
+
+    expect(
+      feeProvider.getFees(
+        'LTC/BTC',
+        SwapVersion.Taproot,
+        2,
+        OrderSide.BUY,
+        amount,
+        BaseFeeType.ReverseLockup,
+      ),
+    ).toEqual({
+      baseFee: 462,
+      percentageFee: 4000000,
+    });
   });
 
-  test('should get base fees', () => {
-    expect(feeProvider.getBaseFee('BTC', BaseFeeType.NormalClaim)).toEqual(
-      6120,
-    );
-    expect(feeProvider.getBaseFee('BTC', BaseFeeType.ReverseClaim)).toEqual(
-      4968,
-    );
-    expect(feeProvider.getBaseFee('BTC', BaseFeeType.ReverseLockup)).toEqual(
-      5508,
-    );
-
-    expect(feeProvider.getBaseFee('LTC', BaseFeeType.NormalClaim)).toEqual(510);
-  });
+  test.each`
+    symbol   | version                | type                         | expected
+    ${'BTC'} | ${SwapVersion.Legacy}  | ${BaseFeeType.NormalClaim}   | ${6120}
+    ${'BTC'} | ${SwapVersion.Taproot} | ${BaseFeeType.NormalClaim}   | ${5436}
+    ${'BTC'} | ${SwapVersion.Legacy}  | ${BaseFeeType.ReverseClaim}  | ${4968}
+    ${'BTC'} | ${SwapVersion.Taproot} | ${BaseFeeType.ReverseClaim}  | ${3996}
+    ${'BTC'} | ${SwapVersion.Legacy}  | ${BaseFeeType.ReverseLockup} | ${5508}
+    ${'BTC'} | ${SwapVersion.Taproot} | ${BaseFeeType.ReverseLockup} | ${5544}
+    ${'LTC'} | ${SwapVersion.Legacy}  | ${BaseFeeType.NormalClaim}   | ${510}
+  `(
+    'should get base fees (symbol: $symbol, version: $version, type: $type)',
+    ({ symbol, version, type, expected }) => {
+      expect(feeProvider.getBaseFee(symbol, version, type)).toEqual(expected);
+    },
+  );
 
   test.each`
     gasPrice    | gasUsage   | expected

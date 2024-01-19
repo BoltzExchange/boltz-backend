@@ -5,6 +5,74 @@
     "version": "3.4.0"
   },
   "paths": {
+    "/version": {
+      "get": {
+        "description": "Version of the backend",
+        "tags": [
+          "Info"
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "version": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/infos": {
+      "get": {
+        "description": "Information about the configuration of the backend",
+        "tags": [
+          "Info"
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/warnings": {
+      "get": {
+        "description": "Warnings about the configuration of the backend",
+        "tags": [
+          "Info"
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/nodes": {
       "get": {
         "description": "Information about the Lightning nodes the backend is connected to",
@@ -63,6 +131,30 @@
       }
     },
     "/swap/submarine": {
+      "get": {
+        "description": "Possible pairs for Submarine Swaps",
+        "tags": [
+          "Submarine"
+        ],
+        "responses": {
+          "200": {
+            "description": "Dictionary of the from -> to currencies that can be used in a Submarine Swap",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "$ref": "#/components/schemas/SubmarinePair"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "description": "Create a new Submarine Swap from onchain to lightning",
         "tags": [
@@ -143,6 +235,30 @@
       }
     },
     "/swap/reverse": {
+      "get": {
+        "description": "Possible pairs for Reverse Swaps",
+        "tags": [
+          "Reverse"
+        ],
+        "responses": {
+          "200": {
+            "description": "Dictionary of the from -> to currencies that can be used in a Reverse Swap",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "$ref": "#/components/schemas/ReversePair"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "description": "Create a new Reverse Swap from lightning to onchain",
         "tags": [
@@ -289,6 +405,49 @@
           }
         }
       },
+      "SubmarinePair": {
+        "type": "object",
+        "properties": {
+          "hash": {
+            "type": "string",
+            "description": "Hash of the pair that can be used when creating the Submarine Swap to ensure the information of the client is up-to-date"
+          },
+          "rate": {
+            "type": "number",
+            "description": "Exchange rate of the pair"
+          },
+          "limits": {
+            "type": "object",
+            "properties": {
+              "minimal": {
+                "type": "number",
+                "description": "Minimal amount that can be swapped in satoshis"
+              },
+              "maximal": {
+                "type": "number",
+                "description": "Maximal amount that can be swapped in satoshis"
+              },
+              "maximalZeroConfAmount": {
+                "type": "number",
+                "description": "Maximal amount that will be accepted 0-conf in satoshis"
+              }
+            }
+          },
+          "fees": {
+            "type": "object",
+            "properties": {
+              "percentage": {
+                "type": "number",
+                "description": "Relative fee that will be charged in percent"
+              },
+              "minerFees": {
+                "type": "number",
+                "description": "Absolute miner fee that will be charged in satoshis"
+              }
+            }
+          }
+        }
+      },
       "SubmarineRequest": {
         "type": "object",
         "properties": {
@@ -395,6 +554,54 @@
           "partialSignature": {
             "type": "string",
             "description": "Partial signature encoded as HEX"
+          }
+        }
+      },
+      "ReversePair": {
+        "type": "object",
+        "properties": {
+          "hash": {
+            "type": "string",
+            "description": "Hash of the pair that can be used when creating the Reverse Swap to ensure the information of the client is up-to-date"
+          },
+          "rate": {
+            "type": "number",
+            "description": "Exchange rate of the pair"
+          },
+          "limits": {
+            "type": "object",
+            "properties": {
+              "minimal": {
+                "type": "number",
+                "description": "Minimal amount that can be swapped in satoshis"
+              },
+              "maximal": {
+                "type": "number",
+                "description": "Maximal amount that can be swapped in satoshis"
+              }
+            }
+          },
+          "fees": {
+            "type": "object",
+            "properties": {
+              "percentage": {
+                "type": "number",
+                "description": "Relative fee that will be charged in percent"
+              },
+              "minerFees": {
+                "type": "object",
+                "properties": {
+                  "lockup": {
+                    "type": "number",
+                    "description": "Absolute miner fee that will be charged in satoshis"
+                  },
+                  "claim": {
+                    "type": "number",
+                    "description": "Absolute miner fee that we estimate for the claim transaction in satoshis"
+                  }
+                }
+              }
+            }
           }
         }
       },
@@ -506,6 +713,10 @@
     }
   },
   "tags": [
+    {
+      "name": "Info",
+      "description": "General information"
+    },
     {
       "name": "Nodes",
       "description": "Lightning nodes"

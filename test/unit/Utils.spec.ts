@@ -7,6 +7,7 @@ import {
   generateSwapId,
   getPubkeyHashFunction,
   getScriptHashFunction,
+  mapToObject,
   splitChannelPoint,
 } from '../../lib/Utils';
 import commitHash from '../../lib/Version';
@@ -397,5 +398,30 @@ describe('Utils', () => {
     expect(() => getScriptHashFunction(OutputType.Taproot)).toThrow(
       TAPROOT_NOT_SUPPORTED,
     );
+  });
+
+  test('should convert nested maps to objects', () => {
+    const map = new Map<string, number | Map<string, number>>([
+      ['a', new Map<string, number>([['aa', 2]])],
+      ['b', new Map<string, number>()],
+      ['c', 21],
+    ]);
+
+    expect(mapToObject(map)).toEqual({
+      a: {
+        aa: 2,
+      },
+      b: {},
+      c: 21,
+    });
+  });
+
+  test('mapToObjectInternal should throw when recursion level is too deep', () => {
+    const a = new Map();
+    const b = new Map();
+    a.set('b', b);
+    b.set('a', a);
+
+    expect(() => mapToObject(a)).toThrow('nested map recursion level too deep');
   });
 });

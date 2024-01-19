@@ -395,11 +395,30 @@ const mockAcceptZeroConf = jest.fn().mockReturnValue(true);
 
 jest.mock('../../../lib/rates/RateProvider', () => {
   return jest.fn().mockImplementation(() => ({
-    pairs,
+    providers: {
+      [SwapVersion.Legacy]: {
+        pairs,
+        validatePairHash: jest.fn().mockImplementation((hash) => {
+          if (['', 'wrongHash'].includes(hash)) {
+            throw Errors.INVALID_PAIR_HASH();
+          }
+        }),
+      },
+      [SwapVersion.Taproot]: {
+        validatePairHash: jest.fn().mockImplementation((hash) => {
+          if (['', 'wrongHash'].includes(hash)) {
+            throw Errors.INVALID_PAIR_HASH();
+          }
+        }),
+      },
+    },
     init: mockInitRateProvider,
     feeProvider: MockedFeeProvider(),
     acceptZeroConf: mockAcceptZeroConf,
     rateCalculator: MockedRateCalculator(),
+    has: jest
+      .fn()
+      .mockImplementation((pair) => ['BTC/BTC', 'LTC/BTC'].includes(pair)),
   }));
 });
 
@@ -677,17 +696,13 @@ describe('Service', () => {
   });
 
   test.each`
-    from     | to       | isReverse | expected
-    ${'LTC'} | ${'BTC'} | ${false}  | ${{ pairId: 'LTC/BTC', orderSide: 'sell' }}
-    ${'BTC'} | ${'LTC'} | ${false}  | ${{ pairId: 'LTC/BTC', orderSide: 'buy' }}
-    ${'LTC'} | ${'BTC'} | ${true}   | ${{ pairId: 'LTC/BTC', orderSide: 'buy' }}
-    ${'BTC'} | ${'LTC'} | ${true}   | ${{ pairId: 'LTC/BTC', orderSide: 'sell' }}
+    from     | to       | expected
+    ${'LTC'} | ${'BTC'} | ${{ pairId: 'LTC/BTC', orderSide: 'sell' }}
+    ${'BTC'} | ${'LTC'} | ${{ pairId: 'LTC/BTC', orderSide: 'buy' }}
   `(
     'should convert from/to to pairId and order side',
-    ({ from, to, isReverse, expected }) => {
-      expect(service.convertToPairAndSide(from, to, isReverse)).toEqual(
-        expected,
-      );
+    ({ from, to, expected }) => {
+      expect(service.convertToPairAndSide(from, to)).toEqual(expected);
     },
   );
 
@@ -695,7 +710,7 @@ describe('Service', () => {
     const from = 'DOGE';
     const to = 'BTC';
 
-    expect(() => service.convertToPairAndSide(from, to, false)).toThrow(
+    expect(() => service.convertToPairAndSide(from, to)).toThrow(
       Errors.PAIR_NOT_FOUND(getPairId({ base: from, quote: to })).message,
     );
   });
@@ -1301,6 +1316,7 @@ describe('Service', () => {
       id: 'invoiceId',
       pair: 'BTC/BTC',
       orderSide: 0,
+      version: SwapVersion.Taproot,
       lockupAddress: 'bcrt1qae5nuz2cv7gu2dpps8rwrhsfv6tjkyvpd8hqsu',
     };
 
@@ -1333,6 +1349,7 @@ describe('Service', () => {
     expect(mockGetFees).toHaveBeenCalledTimes(1);
     expect(mockGetFees).toHaveBeenCalledWith(
       mockGetSwapResult.pair,
+      mockGetSwapResult.version,
       1,
       mockGetSwapResult.orderSide,
       invoiceAmount,
@@ -1586,6 +1603,7 @@ describe('Service', () => {
     expect(mockGetBaseFee).toHaveBeenCalledTimes(1);
     expect(mockGetBaseFee).toHaveBeenCalledWith(
       'BTC',
+      SwapVersion.Legacy,
       BaseFeeType.ReverseLockup,
     );
 

@@ -80,18 +80,40 @@ export const saneStringify = (object: unknown): string => {
   return stringify(sanitizeObject(object));
 };
 
+type MapKey = string | number | symbol;
+
+type MapRecordType<T> =
+  T extends Map<infer U, infer V>
+    ? U extends MapKey
+      ? Record<U, V extends Map<any, any> ? MapRecordType<V> : V>
+      : never
+    : T;
+
 /**
  * Turn a map into an object
  */
-export const mapToObject = (map: Map<any, any>): any => {
+const mapToObjectInternal = <T extends Map<MapKey, any>>(
+  map: T,
+  recursionLevel = 0,
+): MapRecordType<T> => {
+  if (recursionLevel > 10) {
+    throw 'nested map recursion level too deep';
+  }
+
   const object: any = {};
 
   map.forEach((value, index) => {
-    object[index] = value;
+    object[index] =
+      value instanceof Map
+        ? mapToObjectInternal(value, recursionLevel + 1)
+        : value;
   });
 
   return object;
 };
+
+export const mapToObject = <T extends Map<MapKey, any>>(map: T) =>
+  mapToObjectInternal(map);
 
 /**
  * Get the pair id of a pair

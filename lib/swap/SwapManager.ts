@@ -614,8 +614,9 @@ class SwapManager {
           sendingCurrency.symbol,
           args.userAddress,
           args.onchainAmount -
-            this.rateProvider.feeProvider.minerFees.get(sendingCurrency.symbol)!
-              .reverse.claim,
+            this.rateProvider.feeProvider.minerFees.get(
+              sendingCurrency.symbol,
+            )![args.version].reverse.claim,
         ) || invoiceMemo;
     }
 

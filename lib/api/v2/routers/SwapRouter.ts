@@ -2,6 +2,7 @@ import { Request, Response, Router } from 'express';
 import Logger from '../../../Logger';
 import { getHexString, stringify } from '../../../Utils';
 import { SwapVersion } from '../../../consts/Enums';
+import RateProviderTaproot from '../../../rates/providers/RateProviderTaproot';
 import Service from '../../../service/Service';
 import {
   checkPreimageHashLength,
@@ -56,6 +57,62 @@ class SwapRouter extends RouterBase {
      *   name: Submarine
      *   description: Submarine Swap related endpoints
      */
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
+     *     SubmarinePair:
+     *       type: object
+     *       properties:
+     *         hash:
+     *           type: string
+     *           description: Hash of the pair that can be used when creating the Submarine Swap to ensure the information of the client is up-to-date
+     *         rate:
+     *           type: number
+     *           description: Exchange rate of the pair
+     *         limits:
+     *           type: object
+     *           properties:
+     *             minimal:
+     *               type: number
+     *               description: Minimal amount that can be swapped in satoshis
+     *             maximal:
+     *               type: number
+     *               description: Maximal amount that can be swapped in satoshis
+     *             maximalZeroConfAmount:
+     *               type: number
+     *               description: Maximal amount that will be accepted 0-conf in satoshis
+     *         fees:
+     *           type: object
+     *           properties:
+     *             percentage:
+     *               type: number
+     *               description: Relative fee that will be charged in percent
+     *             minerFees:
+     *               type: number
+     *               description: Absolute miner fee that will be charged in satoshis
+     */
+
+    /**
+     * @openapi
+     * /swap/submarine:
+     *   get:
+     *     description: Possible pairs for Submarine Swaps
+     *     tags: [Submarine]
+     *     responses:
+     *       '200':
+     *         description: Dictionary of the from -> to currencies that can be used in a Submarine Swap
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               additionalProperties:
+     *                 type: object
+     *                 additionalProperties:
+     *                   $ref: '#/components/schemas/SubmarinePair'
+     */
+    router.get('/submarine', this.handleError(this.getSubmarine));
 
     /**
      * @openapi
@@ -228,6 +285,65 @@ class SwapRouter extends RouterBase {
      * @openapi
      * components:
      *   schemas:
+     *     ReversePair:
+     *       type: object
+     *       properties:
+     *         hash:
+     *           type: string
+     *           description: Hash of the pair that can be used when creating the Reverse Swap to ensure the information of the client is up-to-date
+     *         rate:
+     *           type: number
+     *           description: Exchange rate of the pair
+     *         limits:
+     *           type: object
+     *           properties:
+     *             minimal:
+     *               type: number
+     *               description: Minimal amount that can be swapped in satoshis
+     *             maximal:
+     *               type: number
+     *               description: Maximal amount that can be swapped in satoshis
+     *         fees:
+     *           type: object
+     *           properties:
+     *             percentage:
+     *               type: number
+     *               description: Relative fee that will be charged in percent
+     *             minerFees:
+     *               type: object
+     *               properties:
+     *                 lockup:
+     *                   type: number
+     *                   description: Absolute miner fee that will be charged in satoshis
+     *                 claim:
+     *                   type: number
+     *                   description: Absolute miner fee that we estimate for the claim transaction in satoshis
+     */
+
+    /**
+     * @openapi
+     * /swap/reverse:
+     *   get:
+     *     description: Possible pairs for Reverse Swaps
+     *     tags: [Reverse]
+     *     responses:
+     *       '200':
+     *         description: Dictionary of the from -> to currencies that can be used in a Reverse Swap
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               additionalProperties:
+     *                 type: object
+     *                 additionalProperties:
+     *                   $ref: '#/components/schemas/ReversePair'
+     */
+    router.get('/reverse', this.handleError(this.getReverse));
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
      *     ReverseRequest:
      *       type: object
      *       properties:
@@ -379,6 +495,14 @@ class SwapRouter extends RouterBase {
     return router;
   };
 
+  private getSubmarine = (_req: Request, res: Response) =>
+    successResponse(
+      res,
+      RateProviderTaproot.serializePairs(
+        this.service.rateProvider.providers[SwapVersion.Taproot].submarinePairs,
+      ),
+    );
+
   private createSubmarine = async (req: Request, res: Response) => {
     const { to, from, invoice, pairHash, referralId, refundPublicKey } =
       validateRequest(req.body, [
@@ -390,11 +514,7 @@ class SwapRouter extends RouterBase {
         { name: 'referralId', type: 'string', optional: true },
       ]);
 
-    const { pairId, orderSide } = this.service.convertToPairAndSide(
-      from,
-      to,
-      false,
-    );
+    const { pairId, orderSide } = this.service.convertToPairAndSide(from, to);
 
     const response = await this.service.createSwapWithInvoice(
       pairId,
@@ -434,6 +554,14 @@ class SwapRouter extends RouterBase {
     });
   };
 
+  private getReverse = (_req: Request, res: Response) =>
+    successResponse(
+      res,
+      RateProviderTaproot.serializePairs(
+        this.service.rateProvider.providers[SwapVersion.Taproot].reversePairs,
+      ),
+    );
+
   private createReverse = async (req: Request, res: Response) => {
     const {
       to,
@@ -441,7 +569,6 @@ class SwapRouter extends RouterBase {
       pairHash,
       referralId,
       routingNode,
-      claimAddress,
       preimageHash,
       invoiceAmount,
       onchainAmount,
@@ -454,25 +581,19 @@ class SwapRouter extends RouterBase {
       { name: 'pairHash', type: 'string', optional: true },
       { name: 'referralId', type: 'string', optional: true },
       { name: 'routingNode', type: 'string', optional: true },
-      { name: 'claimAddress', type: 'string', optional: true },
       { name: 'invoiceAmount', type: 'number', optional: true },
       { name: 'onchainAmount', type: 'number', optional: true },
     ]);
 
     checkPreimageHashLength(preimageHash);
 
-    const { pairId, orderSide } = this.service.convertToPairAndSide(
-      from,
-      to,
-      true,
-    );
+    const { pairId, orderSide } = this.service.convertToPairAndSide(from, to);
     const response = await this.service.createReverseSwap({
       pairId,
       pairHash,
       orderSide,
       referralId,
       routingNode,
-      claimAddress,
       preimageHash,
       invoiceAmount,
       onchainAmount,

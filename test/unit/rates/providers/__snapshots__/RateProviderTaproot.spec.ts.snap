@@ -1,0 +1,3 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`RateProviderTaproot should hash pairs 1`] = `"aa172104157f71f6a7edda34d6551f3a01e4d39477dae0956e9405f57d9d6acc"`;

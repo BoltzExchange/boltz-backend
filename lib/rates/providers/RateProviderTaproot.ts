@@ -293,9 +293,14 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
     return NodeSwitch.hasClient(cur);
   };
 
-  // TODO: RSK
-  private canOnchain = (currency: string) =>
-    this.currencies.get(currency)?.chainClient !== undefined;
+  private canOnchain = (currency: string) => {
+    const cur = this.currencies.get(currency);
+    if (cur === undefined) {
+      return false;
+    }
+
+    return cur.chainClient !== undefined || cur.provider !== undefined;
+  };
 }
 
 export default RateProviderTaproot;

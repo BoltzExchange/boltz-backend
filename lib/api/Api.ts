@@ -68,6 +68,14 @@ class Api {
     });
     this.app.route('/favicon.ico').get(controller.serveFile('favicon.ico'));
 
+    ['/swagger', '/swagger.html'].forEach((path) => {
+      this.app.route(path).get(controller.serveFile('swagger.html'));
+    });
+
+    this.app
+      .route('/swagger-spec.json')
+      .get(controller.serveFile('swagger-spec.json'));
+
     // GET requests
     this.app.route('/version').get(controller.version);
 

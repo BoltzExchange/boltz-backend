@@ -36,6 +36,17 @@ jest.mock('../../../../lib/api/v2/routers/InfoRouter', () => {
   });
 });
 
+const mockGetChainRouter = jest.fn().mockReturnValue(Router());
+
+jest.mock('../../../../lib/api/v2/routers/ChainRouter', () => {
+  return jest.fn().mockImplementation(() => {
+    return {
+      path: 'chain',
+      getRouter: mockGetChainRouter,
+    };
+  });
+});
+
 describe('ApiV2', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -51,16 +62,21 @@ describe('ApiV2', () => {
     expect(mockGetInfoRouter).toHaveBeenCalledTimes(1);
     expect(mockSwapGetRouter).toHaveBeenCalledTimes(1);
     expect(mockNodesGetRouter).toHaveBeenCalledTimes(1);
+    expect(mockGetChainRouter).toHaveBeenCalledTimes(1);
 
-    expect(app.use).toHaveBeenCalledTimes(3);
+    expect(app.use).toHaveBeenCalledTimes(4);
     expect(app.use).toHaveBeenCalledWith(`${apiPrefix}/`, mockGetInfoRouter());
-    expect(app.use).toHaveBeenCalledWith(
-      `${apiPrefix}/nodes`,
-      mockNodesGetRouter(),
-    );
     expect(app.use).toHaveBeenCalledWith(
       `${apiPrefix}/swap`,
       mockSwapGetRouter(),
+    );
+    expect(app.use).toHaveBeenCalledWith(
+      `${apiPrefix}/chain`,
+      mockGetChainRouter(),
+    );
+    expect(app.use).toHaveBeenCalledWith(
+      `${apiPrefix}/nodes`,
+      mockNodesGetRouter(),
     );
   });
 });

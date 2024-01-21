@@ -47,8 +47,8 @@
   },
   "cross-os": {
     "postcompile": {
-      "linux": "cp package.json dist && cp -R lib/api/static dist/lib/api/static && rsync -am --include '*/' --include '*.js*' --exclude '*' lib/proto/ dist/lib/proto",
-      "darwin": "cp package.json dist && cp -R lib/api/static dist/lib/api/static && cp -R lib/proto/ dist/lib/proto/"
+      "linux": "cp package.json dist && cp -R lib/api/static dist/lib/api/static && cp swagger-spec.json dist/lib/api/static && rsync -am --include '*/' --include '*.js*' --exclude '*' lib/proto/ dist/lib/proto",
+      "darwin": "cp package.json dist && cp -R lib/api/static dist/lib/api/static && cp swagger-spec.json dist/lib/api/static && cp -R lib/proto/ dist/lib/proto/"
     }
   },
   "license": "AGPL-3.0",

@@ -395,7 +395,7 @@ describe('RateProviderTaproot', () => {
     currency   | expected
     ${'BTC'}   | ${true}
     ${'L-BTC'} | ${true}
-    ${'R-BTC'} | ${true}
+    ${'R-BTC'} | ${false}
     ${'CASHU'} | ${false}
   `(
     'should check if $currency can be used onchain',

@@ -41,6 +41,12 @@ class SwapRepository {
     status: string,
     failureReason?: string,
   ): Promise<Swap> => {
+    if (swap.failureReason) {
+      return swap.update({
+        status,
+      });
+    }
+
     return swap.update({
       status,
       failureReason,

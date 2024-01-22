@@ -44,7 +44,7 @@ class Api {
       },
     );
 
-    new ApiV2(this.logger, service).registerRoutes(this.app);
+    new ApiV2(this.logger, service, this.controller).registerRoutes(this.app);
     this.registerRoutes(this.controller);
   }
 

@@ -2,6 +2,7 @@ import { randomBytes } from 'crypto';
 import { Router } from 'express';
 import Logger from '../../../../../lib/Logger';
 import { getHexBuffer, getHexString } from '../../../../../lib/Utils';
+import Controller from '../../../../../lib/api/Controller';
 import SwapRouter from '../../../../../lib/api/v2/routers/SwapRouter';
 import { OrderSide, SwapVersion } from '../../../../../lib/consts/Enums';
 import RateProviderTaproot from '../../../../../lib/rates/providers/RateProviderTaproot';
@@ -64,7 +65,11 @@ describe('SwapRouter', () => {
     }),
   } as unknown as Service;
 
-  const swapRouter = new SwapRouter(Logger.disabledLogger, service);
+  const controller = {
+    pendingSwapInfos: new Map([['swapId', { some: 'statusData' }]]),
+  } as unknown as Controller;
+
+  const swapRouter = new SwapRouter(Logger.disabledLogger, service, controller);
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -80,7 +85,8 @@ describe('SwapRouter', () => {
 
     expect(Router).toHaveBeenCalledTimes(1);
 
-    expect(mockedRouter.get).toHaveBeenCalledTimes(3);
+    expect(mockedRouter.get).toHaveBeenCalledTimes(4);
+    expect(mockedRouter.get).toHaveBeenCalledWith('/:id', expect.anything());
     expect(mockedRouter.get).toHaveBeenCalledWith(
       '/submarine',
       expect.anything(),
@@ -111,6 +117,44 @@ describe('SwapRouter', () => {
       '/reverse/claim',
       expect.anything(),
     );
+  });
+
+  test.each`
+    error                        | params
+    ${'undefined parameter: id'} | ${{}}
+    ${'invalid parameter: id'}   | ${{ id: 1 }}
+  `(
+    'should not get status of swaps with invalid parameters ($error)',
+    ({ params, error }) => {
+      expect(() =>
+        swapRouter['getSwapStatus'](
+          mockRequest(undefined, undefined, params),
+          mockResponse(),
+        ),
+      ).toThrow(error);
+    },
+  );
+
+  test('should get status of swaps', () => {
+    const id = 'swapId';
+
+    const res = mockResponse();
+    swapRouter['getSwapStatus'](mockRequest(undefined, undefined, { id }), res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(controller.pendingSwapInfos.get(id));
+  });
+
+  test('should return 404 as status when swap id cannot be found', () => {
+    const id = 'notFound';
+
+    const res = mockResponse();
+    swapRouter['getSwapStatus'](mockRequest(undefined, undefined, { id }), res);
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({
+      error: `could not find swap with id: ${id}`,
+    });
   });
 
   test('should get submarine pairs', () => {

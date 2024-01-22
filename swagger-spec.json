@@ -310,6 +310,47 @@
         }
       }
     },
+    "/swap/{id}": {
+      "get": {
+        "tags": [
+          "Swap"
+        ],
+        "description": "Get the status of a Swap",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID of the Swap"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The latest status of the Swap",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SwapStatus"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "When no Swap with the ID could be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/swap/submarine": {
       "get": {
         "description": "Possible pairs for Submarine Swaps",
@@ -623,6 +664,33 @@
           },
           "refundLeaf": {
             "$ref": "#/components/schemas/SwapTreeLeaf"
+          }
+        }
+      },
+      "SwapStatus": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Status of the Swap"
+          },
+          "zeroConfRejected": {
+            "type": "boolean",
+            "description": "Whether 0-conf was accepted for the lockup transaction of the Submarine Swap"
+          },
+          "transaction": {
+            "type": "object",
+            "description": "Details of the lockup transaction of a Reverse Swap",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "ID of the transaction"
+              },
+              "hex": {
+                "type": "string",
+                "description": "Raw hex of the transaction"
+              }
+            }
           }
         }
       },
@@ -966,6 +1034,10 @@
     {
       "name": "Nodes",
       "description": "Lightning nodes"
+    },
+    {
+      "name": "Swap",
+      "description": "Generic Swap related endpoints"
     },
     {
       "name": "Submarine",

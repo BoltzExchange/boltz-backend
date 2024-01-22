@@ -4,9 +4,11 @@ import { getHexString, stringify } from '../../../Utils';
 import { SwapVersion } from '../../../consts/Enums';
 import RateProviderTaproot from '../../../rates/providers/RateProviderTaproot';
 import Service from '../../../service/Service';
+import Controller from '../../Controller';
 import {
   checkPreimageHashLength,
   createdResponse,
+  errorResponse,
   successResponse,
   validateRequest,
 } from '../../Utils';
@@ -16,6 +18,7 @@ class SwapRouter extends RouterBase {
   constructor(
     logger: Logger,
     private readonly service: Service,
+    private readonly controller: Controller,
   ) {
     super(logger, 'swap');
   }
@@ -50,6 +53,67 @@ class SwapRouter extends RouterBase {
      */
 
     const router = Router();
+
+    /**
+     * @openapi
+     * tags:
+     *   name: Swap
+     *   description: Generic Swap related endpoints
+     */
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
+     *     SwapStatus:
+     *       type: object
+     *       properties:
+     *         status:
+     *           type: string
+     *           description: Status of the Swap
+     *         zeroConfRejected:
+     *           type: boolean
+     *           description: Whether 0-conf was accepted for the lockup transaction of the Submarine Swap
+     *         transaction:
+     *           type: object
+     *           description: Details of the lockup transaction of a Reverse Swap
+     *           properties:
+     *             id:
+     *               type: string
+     *               description: ID of the transaction
+     *             hex:
+     *               type: string
+     *               description: Raw hex of the transaction
+     */
+
+    /**
+     * @openapi
+     * /swap/{id}:
+     *   get:
+     *     tags: [Swap]
+     *     description: Get the status of a Swap
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *         description: ID of the Swap
+     *     responses:
+     *       '200':
+     *         description: The latest status of the Swap
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/SwapStatus'
+     *       '404':
+     *         description: When no Swap with the ID could be found
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
+    router.get('/:id', this.handleError(this.getSwapStatus));
 
     /**
      * @openapi
@@ -546,6 +610,26 @@ class SwapRouter extends RouterBase {
     router.post('/reverse/claim', this.handleError(this.claimReverse));
 
     return router;
+  };
+
+  private getSwapStatus = (req: Request, res: Response) => {
+    const { id } = validateRequest(req.params, [
+      { name: 'id', type: 'string' },
+    ]);
+
+    const response = this.controller.pendingSwapInfos.get(id);
+
+    if (response) {
+      successResponse(res, response);
+    } else {
+      errorResponse(
+        this.logger,
+        req,
+        res,
+        `could not find swap with id: ${id}`,
+        404,
+      );
+    }
   };
 
   private getSubmarine = (_req: Request, res: Response) =>

@@ -31,12 +31,12 @@ import {
 } from './Utils';
 
 class Controller {
-  // A map between the ids and HTTP streams of all pending swaps
-  private pendingSwapStreams = new Map<string, Response>();
-
   // TODO: refactor
   // A map between the ids and statuses of the swaps
-  private pendingSwapInfos = new Map<string, SwapUpdate>();
+  public pendingSwapInfos = new Map<string, SwapUpdate>();
+
+  // A map between the ids and HTTP streams of all pending swaps
+  private pendingSwapStreams = new Map<string, Response>();
 
   constructor(
     private logger: Logger,

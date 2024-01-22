@@ -1,6 +1,7 @@
 import { Application } from 'express';
 import Logger from '../../Logger';
 import Service from '../../service/Service';
+import Controller from '../Controller';
 import { apiPrefix } from './Consts';
 import ChainRouter from './routers/ChainRouter';
 import InfoRouter from './routers/InfoRouter';
@@ -13,13 +14,14 @@ class ApiV2 {
 
   constructor(
     private readonly logger: Logger,
-    private readonly service: Service,
+    service: Service,
+    controller: Controller,
   ) {
     this.routers = [
-      new InfoRouter(this.logger, this.service),
-      new SwapRouter(this.logger, this.service),
-      new ChainRouter(this.logger, this.service),
-      new NodesRouter(this.logger, this.service),
+      new InfoRouter(this.logger, service),
+      new SwapRouter(this.logger, service, controller),
+      new ChainRouter(this.logger, service),
+      new NodesRouter(this.logger, service),
     ];
   }
 

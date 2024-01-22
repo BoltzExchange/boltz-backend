@@ -125,7 +125,9 @@ export const writeErrorResponse = (
   if (!errorsNotToLog.includes(error?.error || error)) {
     logger.warn(
       `Request ${req.method} ${urlPrefix + req.url} ${
-        Object.keys(req.body).length > 0 ? `${JSON.stringify(req.body)} ` : ''
+        req.body && Object.keys(req.body).length > 0
+          ? `${JSON.stringify(req.body)} `
+          : ''
       }failed: ${JSON.stringify(error)}`,
     );
   }

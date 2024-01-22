@@ -1,7 +1,7 @@
 import VersionCheck from '../../lib/VersionCheck';
 import ChainClient from '../../lib/chain/ChainClient';
-import ClnClient from '../../lib/lightning/ClnClient';
 import LndClient from '../../lib/lightning/LndClient';
+import ClnClient from '../../lib/lightning/cln/ClnClient';
 
 describe('VersionCheck', () => {
   test('should check version of chain clients', () => {

@@ -7,9 +7,9 @@ import { decodeInvoice, formatError, getHexBuffer } from '../Utils';
 import { SwapUpdateEvent } from '../consts/Enums';
 import ReverseSwap from '../db/models/ReverseSwap';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
-import ClnClient from '../lightning/ClnClient';
 import { InvoiceState, LightningClient } from '../lightning/LightningClient';
 import LndClient from '../lightning/LndClient';
+import ClnClient from '../lightning/cln/ClnClient';
 import { Currency } from '../wallet/WalletManager';
 
 interface LightningNursery {

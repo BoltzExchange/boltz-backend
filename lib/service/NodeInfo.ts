@@ -1,11 +1,11 @@
 import { Job, scheduleJob } from 'node-schedule';
 import Logger from '../Logger';
-import ClnClient from '../lightning/ClnClient';
 import {
   ChannelInfo,
   NodeInfo as INodeInfo,
 } from '../lightning/LightningClient';
 import LndClient from '../lightning/LndClient';
+import ClnClient from '../lightning/cln/ClnClient';
 import NodeSwitch from '../swap/NodeSwitch';
 import { Currency } from '../wallet/WalletManager';
 

@@ -44,9 +44,9 @@ import PairRepository from '../db/repositories/PairRepository';
 import ReferralRepository from '../db/repositories/ReferralRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
-import ClnClient from '../lightning/ClnClient';
 import { InvoiceFeature, PaymentResponse } from '../lightning/LightningClient';
 import LndClient from '../lightning/LndClient';
+import ClnClient from '../lightning/cln/ClnClient';
 import {
   Balances,
   ChainInfo,

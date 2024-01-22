@@ -35,7 +35,14 @@ class MPay:
         self._channels = ChannelsHelper(pl, self._network_info)
         self._router = Router(pl, routes, self._network_info)
 
-    def pay(self, bolt11: str, max_fee: int | None, exempt_fee: int, timeout: int) -> PaymentResult:
+    def pay(
+        self,
+        bolt11: str,
+        max_fee: int | None,
+        exempt_fee: int,
+        timeout: int,
+        max_delay: int | None = None,
+    ) -> PaymentResult:
         dec = self._pl.rpc.decodepay(bolt11)
 
         amount = dec["amount_msat"]
@@ -72,6 +79,7 @@ class MPay:
                     dec,
                     max_fee,
                     timeout,
+                    max_delay,
                 ).start()
             except BaseException as e:
                 if payment.ok or payment.ok is None:

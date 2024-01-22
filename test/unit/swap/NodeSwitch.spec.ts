@@ -1,9 +1,9 @@
 import Logger from '../../../lib/Logger';
 import ReverseSwap, { NodeType } from '../../../lib/db/models/ReverseSwap';
 import Swap from '../../../lib/db/models/Swap';
-import ClnClient from '../../../lib/lightning/ClnClient';
 import { LightningClient } from '../../../lib/lightning/LightningClient';
 import LndClient from '../../../lib/lightning/LndClient';
+import ClnClient from '../../../lib/lightning/cln/ClnClient';
 import Errors from '../../../lib/swap/Errors';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
 import { Currency } from '../../../lib/wallet/WalletManager';

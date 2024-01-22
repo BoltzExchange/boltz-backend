@@ -80,6 +80,7 @@ message PayRequest {
   optional uint64 max_fee_msat = 2;
   optional uint64 exempt_fee_msat = 3;
   optional uint64 timeout = 4;
+  optional uint64 max_delay = 5;
 }
 
 message PayResponse {

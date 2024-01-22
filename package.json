@@ -27,6 +27,8 @@
     "docker:start": "npm run docker:regtest && npm run docker:solidity && npm run docker:solidity:deploy && npm run docker:solidity:fund",
     "docker:python:install": "docker exec regtest bash /root/poetry-install.sh",
     "docker:cln:hold": "docker exec regtest lightning-cli plugin start /root/hold.sh",
+    "docker:cln:mpay": "docker exec regtest lightning-cli plugin start /root/mpay.sh",
+    "docker:cln:plugins": "npm run docker:cln:hold && npm run docker:cln:mpay",
     "docker:stop": "docker kill regtest && docker rm regtest && docker kill anvil && docker rm anvil",
     "test": "npm run test:unit && npm run docker:start && npm run test:int && npm run docker:stop",
     "test:nodocker": "npm run test:unit && npm run test:int",

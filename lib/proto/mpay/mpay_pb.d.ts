@@ -345,6 +345,11 @@ export class PayRequest extends jspb.Message {
     getTimeout(): number | undefined;
     setTimeout(value: number): PayRequest;
 
+    hasMaxDelay(): boolean;
+    clearMaxDelay(): void;
+    getMaxDelay(): number | undefined;
+    setMaxDelay(value: number): PayRequest;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): PayRequest.AsObject;
     static toObject(includeInstance: boolean, msg: PayRequest): PayRequest.AsObject;
@@ -361,6 +366,7 @@ export namespace PayRequest {
         maxFeeMsat?: number,
         exemptFeeMsat?: number,
         timeout?: number,
+        maxDelay?: number,
     }
 }
 

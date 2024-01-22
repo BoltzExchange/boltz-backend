@@ -18,9 +18,10 @@ import ChainTip from './db/models/ChainTip';
 import ChainTipRepository from './db/repositories/ChainTipRepository';
 import GrpcServer from './grpc/GrpcServer';
 import GrpcService from './grpc/GrpcService';
-import ClnClient from './lightning/ClnClient';
 import { LightningClient } from './lightning/LightningClient';
 import LndClient from './lightning/LndClient';
+import ClnClient from './lightning/cln/ClnClient';
+import MpayClient from './lightning/cln/MpayClient';
 import NotificationProvider from './notifications/NotificationProvider';
 import Service from './service/Service';
 import NodeSwitch from './swap/NodeSwitch';
@@ -310,6 +311,19 @@ class Boltz {
           client.symbol,
           holdInfo.version,
         );
+
+        if (client.useMpay()) {
+          const mpayInfo = await client.mpay!.getInfo();
+          this.logger.verbose(
+            `${client.symbol} ${MpayClient.serviceName} version: ${mpayInfo.version}`,
+          );
+
+          VersionCheck.checkLightningVersion(
+            MpayClient.serviceName,
+            client.symbol,
+            mpayInfo.version,
+          );
+        }
       }
 
       this.logStatus(service, info);

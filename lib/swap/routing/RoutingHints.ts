@@ -1,8 +1,8 @@
 import Logger from '../../Logger';
 import { NodeType } from '../../db/models/ReverseSwap';
-import ClnClient from '../../lightning/ClnClient';
 import { HopHint, RoutingHintsProvider } from '../../lightning/LightningClient';
 import LndClient from '../../lightning/LndClient';
+import ClnClient from '../../lightning/cln/ClnClient';
 import { Currency } from '../../wallet/WalletManager';
 import RoutingHintsLnd from './RoutingHintsLnd';
 

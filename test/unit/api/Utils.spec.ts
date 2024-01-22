@@ -1,7 +1,12 @@
+import { randomBytes } from 'crypto';
 import Logger from '../../../lib/Logger';
 import { getHexBuffer } from '../../../lib/Utils';
+import {
+  checkPreimageHashLength,
+  errorResponse,
+  validateRequest,
+} from '../../../lib/api/Utils';
 import { mockRequest, mockResponse } from './Utils';
-import { errorResponse, validateRequest } from '../../../lib/api/Utils';
 
 describe('Utils', () => {
   beforeEach(() => {
@@ -134,5 +139,25 @@ describe('Utils', () => {
 
     expect(res.status).toHaveBeenNthCalledWith(5, 401);
     expect(res.json).toHaveBeenNthCalledWith(5, { error: error.message });
+  });
+
+  test('should check preimage hash length', () => {
+    checkPreimageHashLength(
+      getHexBuffer(
+        '34786bcde69ec5873bcf2e8a42c47fbcc762bdb1096c1077709cb9854fef308d',
+      ),
+    );
+  });
+
+  test.each`
+    length
+    ${16}
+    ${31}
+    ${33}
+    ${64}
+  `('should throw on invalid preimage hash length $length', ({ length }) => {
+    expect(() => checkPreimageHashLength(randomBytes(length))).toThrow(
+      `invalid preimage hash length: ${length}`,
+    );
   });
 });

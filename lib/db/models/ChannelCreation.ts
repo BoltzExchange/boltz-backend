@@ -1,4 +1,4 @@
-import { Model, Sequelize, DataTypes } from 'sequelize';
+import { DataTypes, Model, Sequelize } from 'sequelize';
 import Swap from './Swap';
 
 type ChannelCreationType = {

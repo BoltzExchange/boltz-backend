@@ -1,23 +1,28 @@
+import { Transaction, address } from 'bitcoinjs-lib';
+import { Networks, Scripts, SwapTreeSerializer, swapTree } from 'boltz-core';
+import { randomBytes } from 'crypto';
+import { ECPairInterface } from 'ecpair';
 import { Op } from 'sequelize';
-import { Networks } from 'boltz-core';
-import { address, Transaction } from 'bitcoinjs-lib';
+import { createMusig, setup, tweakMusig } from '../../../lib/Core';
+import { ECPair } from '../../../lib/ECPairHelper';
 import Logger from '../../../lib/Logger';
-import Errors from '../../../lib/swap/Errors';
-import Wallet from '../../../lib/wallet/Wallet';
-import UtxoNursery from '../../../lib/swap/UtxoNursery';
-import ChainClient from '../../../lib/chain/ChainClient';
-import SwapRepository from '../../../lib/db/repositories/SwapRepository';
-import {
-  CurrencyType,
-  OrderSide,
-  SwapUpdateEvent,
-} from '../../../lib/consts/Enums';
 import {
   getHexBuffer,
   reverseBuffer,
   transactionHashToId,
 } from '../../../lib/Utils';
+import ChainClient from '../../../lib/chain/ChainClient';
+import {
+  CurrencyType,
+  OrderSide,
+  SwapUpdateEvent,
+  SwapVersion,
+} from '../../../lib/consts/Enums';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
+import SwapRepository from '../../../lib/db/repositories/SwapRepository';
+import Errors from '../../../lib/swap/Errors';
+import UtxoNursery from '../../../lib/swap/UtxoNursery';
+import Wallet from '../../../lib/wallet/Wallet';
 
 type blockCallback = (height: number) => void;
 
@@ -105,11 +110,17 @@ const mockEncodeAddress = jest.fn().mockImplementation((script: Buffer) => {
   return encodeAddress(script);
 });
 
+let mockGetKeysByIndexResult: ECPairInterface | undefined = undefined;
+const mockGetKeysByIndex = jest
+  .fn()
+  .mockImplementation(() => mockGetKeysByIndexResult);
+
 jest.mock('../../../lib/wallet/Wallet', () => {
   return jest.fn().mockImplementation(() => ({
     type: CurrencyType.BitcoinLike,
     decodeAddress: mockDecodeAddress,
     encodeAddress: mockEncodeAddress,
+    getKeysByIndex: mockGetKeysByIndex,
   }));
 });
 
@@ -164,6 +175,10 @@ describe('UtxoNursery', () => {
   const nursery = new UtxoNursery(Logger.disabledLogger, {
     wallets: new Map<string, any>([['BTC', btcWallet]]),
   } as any);
+
+  beforeAll(async () => {
+    await setup();
+  });
 
   beforeEach(() => {
     mockGetReverseSwapsResult = [];
@@ -482,6 +497,61 @@ describe('UtxoNursery', () => {
     );
 
     expect(mockRemoveOutputFilter).toHaveBeenCalledTimes(0);
+  });
+
+  test('should detect Taproot Swap outputs', async () => {
+    const checkSwapOutputs = nursery['checkSwapOutputs'];
+
+    const ourKeys = ECPair.makeRandom();
+    const theirPublicKey = ECPair.makeRandom().publicKey;
+
+    const tree = swapTree(
+      false,
+      randomBytes(32),
+      ourKeys.publicKey,
+      theirPublicKey,
+      210,
+    );
+    const musig = createMusig(ourKeys, theirPublicKey);
+    const tweakedKey = tweakMusig(CurrencyType.BitcoinLike, musig, tree);
+
+    const transaction = new Transaction();
+    transaction.addOutput(Scripts.p2trOutput(tweakedKey), 123);
+
+    mockGetKeysByIndexResult = ourKeys;
+    mockGetSwapResult = {
+      id: 'taproot',
+      keyIndex: 123,
+      version: SwapVersion.Taproot,
+      refundPublicKey: theirPublicKey,
+      redeemScript: JSON.stringify(SwapTreeSerializer.serializeSwapTree(tree)),
+    };
+
+    let eventEmitted = false;
+    nursery.once('swap.lockup', () => {
+      eventEmitted = true;
+    });
+
+    await checkSwapOutputs(btcChainClient, btcWallet, transaction, true);
+
+    expect(eventEmitted).toEqual(true);
+
+    expect(mockGetSwap).toHaveBeenCalledTimes(1);
+    expect(mockEncodeAddress).toHaveBeenCalledTimes(1);
+    expect(mockSetLockupTransaction).toHaveBeenCalledTimes(1);
+    expect(mockSetLockupTransaction).toHaveBeenCalledWith(
+      expect.anything(),
+      transaction.getId(),
+      transaction.outs[0].value,
+      true,
+      0,
+    );
+    expect(mockRemoveOutputFilter).toHaveBeenCalledTimes(1);
+    expect(mockRemoveOutputFilter).toHaveBeenCalledWith(
+      transaction.outs[0].script,
+    );
+    expect(mockGetKeysByIndex).toHaveBeenCalledTimes(1);
+    expect(mockGetKeysByIndex).toHaveBeenCalledWith(mockGetSwapResult.keyIndex);
   });
 
   test('should handle claimed Reverse Swaps', async () => {

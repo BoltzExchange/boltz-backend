@@ -2,8 +2,8 @@
 // file: cln/node.proto
 
 /* tslint:disable */
-/* eslint-disable */
 
+/* eslint-disable */
 import * as jspb from 'google-protobuf';
 import * as cln_primitives_pb from '../cln/primitives_pb';
 

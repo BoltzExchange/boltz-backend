@@ -1,10 +1,10 @@
-import Errors from './Errors';
 import Logger from '../Logger';
-import NodeSwitch from './NodeSwitch';
-import RoutingHints from './routing/RoutingHints';
-import { Currency } from '../wallet/WalletManager';
 import { NodeType } from '../db/models/ReverseSwap';
 import { HopHint, LightningClient } from '../lightning/LightningClient';
+import { Currency } from '../wallet/WalletManager';
+import Errors from './Errors';
+import NodeSwitch from './NodeSwitch';
+import RoutingHints from './routing/RoutingHints';
 
 type InvoiceWithRoutingHints = {
   paymentRequest: string;

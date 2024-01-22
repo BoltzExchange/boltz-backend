@@ -1,56 +1,8 @@
-import { OutputType } from 'boltz-core';
-import { getAddress, Provider } from 'ethers';
-import Errors from './Errors';
-import Logger from '../Logger';
-import NodeInfo from './NodeInfo';
-import Swap from '../db/models/Swap';
-import ApiErrors from '../api/Errors';
+import { OutputType, SwapTreeSerializer } from 'boltz-core';
+import { Provider, getAddress } from 'ethers';
 import { ConfigType } from '../Config';
-import ErrorsSwap from '../swap/Errors';
-import EventHandler from './EventHandler';
 import { parseTransaction } from '../Core';
-import NodeSwitch from '../swap/NodeSwitch';
-import { PairConfig } from '../consts/Types';
-import ClnClient from '../lightning/ClnClient';
-import LndClient from '../lightning/LndClient';
-import ElementsService from './ElementsService';
-import SwapOutputType from '../swap/SwapOutputType';
-import ElementsClient from '../chain/ElementsClient';
-import PaymentRequestUtils from './PaymentRequestUtils';
-import PairRepository from '../db/repositories/PairRepository';
-import SwapRepository from '../db/repositories/SwapRepository';
-import RateProvider, { PairType } from '../rates/RateProvider';
-import EthereumManager from '../wallet/ethereum/EthereumManager';
-import WalletManager, { Currency } from '../wallet/WalletManager';
-import ReferralRepository from '../db/repositories/ReferralRepository';
-import SwapManager, { ChannelCreationInfo } from '../swap/SwapManager';
-import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
-import { InvoiceFeature, PaymentResponse } from '../lightning/LightningClient';
-import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
-import TimeoutDeltaProvider, {
-  PairTimeoutBlocksDelta,
-} from './TimeoutDeltaProvider';
-import {
-  etherDecimals,
-  ethereumPrepayMinerFeeGasLimit,
-  gweiDecimals,
-} from '../consts/Consts';
-import {
-  BaseFeeType,
-  CurrencyType,
-  OrderSide,
-  ServiceInfo,
-  ServiceWarning,
-} from '../consts/Enums';
-import {
-  Balances,
-  ChainInfo,
-  CurrencyInfo,
-  DeriveKeysResponse,
-  GetBalanceResponse,
-  GetInfoResponse,
-  LightningInfo,
-} from '../proto/boltzrpc_pb';
+import Logger from '../Logger';
 import {
   createApiCredential,
   decodeInvoice,
@@ -70,6 +22,57 @@ import {
   splitPairId,
   stringify,
 } from '../Utils';
+import ApiErrors from '../api/Errors';
+import ElementsClient from '../chain/ElementsClient';
+import {
+  etherDecimals,
+  ethereumPrepayMinerFeeGasLimit,
+  gweiDecimals,
+} from '../consts/Consts';
+import {
+  BaseFeeType,
+  CurrencyType,
+  OrderSide,
+  ServiceInfo,
+  ServiceWarning,
+  SwapVersion,
+} from '../consts/Enums';
+import { PairConfig } from '../consts/Types';
+import Swap from '../db/models/Swap';
+import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
+import PairRepository from '../db/repositories/PairRepository';
+import ReferralRepository from '../db/repositories/ReferralRepository';
+import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
+import SwapRepository from '../db/repositories/SwapRepository';
+import ClnClient from '../lightning/ClnClient';
+import { InvoiceFeature, PaymentResponse } from '../lightning/LightningClient';
+import LndClient from '../lightning/LndClient';
+import {
+  Balances,
+  ChainInfo,
+  CurrencyInfo,
+  DeriveKeysResponse,
+  GetBalanceResponse,
+  GetInfoResponse,
+  LightningInfo,
+} from '../proto/boltzrpc_pb';
+import RateProvider from '../rates/RateProvider';
+import { PairTypeLegacy } from '../rates/providers/RateProviderLegacy';
+import ErrorsSwap from '../swap/Errors';
+import NodeSwitch from '../swap/NodeSwitch';
+import SwapManager, { ChannelCreationInfo } from '../swap/SwapManager';
+import SwapOutputType from '../swap/SwapOutputType';
+import WalletManager, { Currency } from '../wallet/WalletManager';
+import EthereumManager from '../wallet/ethereum/EthereumManager';
+import ElementsService from './ElementsService';
+import Errors from './Errors';
+import EventHandler from './EventHandler';
+import MusigSigner from './MusigSigner';
+import NodeInfo from './NodeInfo';
+import PaymentRequestUtils from './PaymentRequestUtils';
+import TimeoutDeltaProvider, {
+  PairTimeoutBlocksDelta,
+} from './TimeoutDeltaProvider';
 
 type NetworkContracts = {
   network: {
@@ -85,6 +88,13 @@ type Contracts = {
   rsk?: NetworkContracts;
 };
 
+type SwapTransaction = {
+  transactionId: string;
+  timeoutBlockHeight: number;
+  transactionHex?: string;
+  timeoutEta?: number;
+};
+
 class Service {
   public allowReverseSwaps = true;
 
@@ -92,10 +102,11 @@ class Service {
   public swapManager: SwapManager;
   public eventHandler: EventHandler;
   public elementsService: ElementsService;
+  public readonly musigSigner: MusigSigner;
+  public readonly rateProvider: RateProvider;
 
   private prepayMinerFee: boolean;
 
-  private readonly rateProvider: RateProvider;
   private readonly paymentRequestUtils: PaymentRequestUtils;
   private readonly timeoutDeltaProvider: TimeoutDeltaProvider;
 
@@ -136,7 +147,7 @@ class Service {
     this.logger.debug(
       `Using ${
         config.swapwitnessaddress ? 'P2WSH' : 'P2SH nested P2WSH'
-      } addresses for Submarine Swaps`,
+      } addresses for legacy Bitcoin Submarine Swaps`,
     );
 
     this.swapManager = new SwapManager(
@@ -164,6 +175,12 @@ class Service {
     this.elementsService = new ElementsService(
       this.currencies,
       this.walletManager,
+    );
+    this.musigSigner = new MusigSigner(
+      this.logger,
+      this.currencies,
+      this.walletManager,
+      this.swapManager.nursery,
     );
   }
 
@@ -207,6 +224,27 @@ class Service {
     await this.rateProvider.init(configPairs);
 
     await this.nodeInfo.init();
+  };
+
+  public convertToPairAndSide = (
+    from: string,
+    to: string,
+  ): { pairId: string; orderSide: string } => {
+    const pair = (
+      [
+        [getPairId({ base: from, quote: to }), false],
+        [getPairId({ base: to, quote: from }), true],
+      ] as [string, boolean][]
+    ).find(([val]) => this.rateProvider.has(val));
+
+    if (pair === undefined) {
+      throw Errors.PAIR_NOT_FOUND(getPairId({ base: from, quote: to }));
+    }
+
+    return {
+      pairId: pair[0],
+      orderSide: pair[1] ? 'buy' : 'sell',
+    };
   };
 
   /**
@@ -353,24 +391,33 @@ class Service {
   public getPairs = (): {
     info: ServiceInfo[];
     warnings: ServiceWarning[];
-    pairs: Map<string, PairType>;
+    pairs: Map<string, PairTypeLegacy>;
   } => {
-    const info: ServiceInfo[] = [];
-    const warnings: ServiceWarning[] = [];
+    return {
+      info: this.getInfos(),
+      warnings: this.getWarnings(),
+      pairs: this.rateProvider.providers[SwapVersion.Legacy].pairs,
+    };
+  };
+
+  public getInfos = (): ServiceInfo[] => {
+    const infos: ServiceInfo[] = [];
 
     if (this.prepayMinerFee) {
-      info.push(ServiceInfo.PrepayMinerFee);
+      infos.push(ServiceInfo.PrepayMinerFee);
     }
+
+    return infos;
+  };
+
+  public getWarnings = (): ServiceWarning[] => {
+    const warnings: ServiceWarning[] = [];
 
     if (!this.allowReverseSwaps) {
       warnings.push(ServiceWarning.ReverseSwapsDisabled);
     }
 
-    return {
-      info,
-      warnings,
-      pairs: this.rateProvider.pairs,
-    };
+    return warnings;
   };
 
   public getNodes = () => this.nodeInfo.uris;
@@ -447,12 +494,7 @@ class Service {
    * Gets the hex encoded lockup transaction of a Submarine Swap, the block height
    * at which it will time out and the expected ETA for that block
    */
-  public getSwapTransaction = async (
-    id: string,
-  ): Promise<{
-    transactionHex: string;
-    timeoutBlockHeight: number;
-  }> => {
+  public getSwapTransaction = async (id: string): Promise<SwapTransaction> => {
     const swap = await SwapRepository.getSwap({
       id,
     });
@@ -470,7 +512,7 @@ class Service {
 
     const currency = this.getCurrency(chainCurrency);
 
-    const response: any = {
+    const response: SwapTransaction = {
       transactionId: swap.lockupTransactionId,
       timeoutBlockHeight: swap.timeoutBlockHeight,
     };
@@ -710,6 +752,7 @@ class Service {
     pairId: string;
     orderSide: string;
     preimageHash: Buffer;
+    version: SwapVersion;
     channel?: ChannelCreationInfo;
 
     // Referral ID for the swap
@@ -728,6 +771,10 @@ class Service {
 
     // Is undefined when Ether or ERC20 tokens are swapped to Lightning
     redeemScript?: string;
+
+    // Only set for Taproot swaps
+    claimPublicKey?: string;
+    swapTree?: SwapTreeSerializer.SerializedTree;
 
     // Is undefined when Bitcoin or Litecoin is swapped to Lightning
     claimAddress?: string;
@@ -749,10 +796,16 @@ class Service {
       this.getCurrency(getChainCurrency(base, quote, orderSide, false)).type
     ) {
       case CurrencyType.BitcoinLike:
+      case CurrencyType.Liquid:
         if (args.refundPublicKey === undefined) {
           throw ApiErrors.UNDEFINED_PARAMETER('refundPublicKey');
         }
         break;
+
+      default:
+        if (args.version !== SwapVersion.Legacy) {
+          throw Errors.UNSUPPORTED_SWAP_VERSION();
+        }
     }
 
     const lightningCurrency = getLightningCurrency(
@@ -787,6 +840,7 @@ class Service {
         args.pairId,
         orderSide,
         false,
+        args.version,
         args.invoice,
         args.referralId,
       );
@@ -802,10 +856,12 @@ class Service {
     const {
       id,
       address,
-      redeemScript,
-      claimAddress,
+      swapTree,
       timeoutBlockHeight,
       blindingKey,
+      redeemScript,
+      claimAddress,
+      claimPublicKey,
     } = await this.swapManager.createSwap({
       orderSide,
       referralId,
@@ -813,6 +869,7 @@ class Service {
 
       baseCurrency: base,
       quoteCurrency: quote,
+      version: args.version,
       channel: args.channel,
       preimageHash: args.preimageHash,
       refundPublicKey: args.refundPublicKey,
@@ -823,10 +880,12 @@ class Service {
     return {
       id,
       address,
+      swapTree,
       canBeRouted,
       blindingKey,
       redeemScript,
       claimAddress,
+      claimPublicKey,
       timeoutBlockHeight,
     };
   };
@@ -870,6 +929,7 @@ class Service {
     );
     const baseFee = this.rateProvider.feeProvider.getBaseFee(
       onchainCurrency,
+      swap.version,
       BaseFeeType.NormalClaim,
     );
 
@@ -959,7 +1019,12 @@ class Service {
     const { base, quote, rate: pairRate } = this.getPair(swap.pair);
 
     if (pairHash !== undefined) {
-      this.validatePairHash(swap.pair, pairHash);
+      this.rateProvider.providers[swap.version].validatePairHash(
+        pairHash,
+        swap.pair,
+        swap.orderSide,
+        false,
+      );
     }
 
     const chainCurrency = getChainCurrency(base, quote, swap.orderSide, false);
@@ -995,6 +1060,7 @@ class Service {
 
     const { baseFee, percentageFee } = this.rateProvider.feeProvider.getFees(
       swap.pair,
+      swap.version,
       rate,
       swap.orderSide,
       swap.invoiceAmount,
@@ -1062,6 +1128,7 @@ class Service {
     pairHash?: string,
     referralId?: string,
     channel?: ChannelCreationInfo,
+    version: SwapVersion = SwapVersion.Legacy,
   ): Promise<{
     id: string;
     bip21: string;
@@ -1072,6 +1139,10 @@ class Service {
 
     // Is undefined when Ether or ERC20 tokens are swapped to Lightning
     redeemScript?: string;
+
+    // Only set for Taproot swaps
+    claimPublicKey?: string;
+    swapTree?: SwapTreeSerializer.SerializedTree;
 
     // Is undefined when Bitcoin or Litecoin is swapped to Lightning
     claimAddress?: string;
@@ -1091,7 +1162,9 @@ class Service {
     const {
       id,
       address,
+      swapTree,
       canBeRouted,
+      claimPublicKey,
       blindingKey,
       claimAddress,
       redeemScript,
@@ -1099,6 +1172,7 @@ class Service {
     } = await this.createSwap({
       pairId,
       channel,
+      version,
       invoice,
       orderSide,
       referralId,
@@ -1121,11 +1195,13 @@ class Service {
         id,
         bip21,
         address,
+        swapTree,
         blindingKey,
         claimAddress,
         redeemScript,
         acceptZeroConf,
         expectedAmount,
+        claimPublicKey,
         timeoutBlockHeight,
       };
     } catch (error) {
@@ -1149,6 +1225,7 @@ class Service {
    */
   public createReverseSwap = async (args: {
     pairId: string;
+    version: SwapVersion;
     pairHash?: string;
     orderSide: string;
     preimageHash: Buffer;
@@ -1176,13 +1253,23 @@ class Service {
   }): Promise<{
     id: string;
     invoice: string;
+
     blindingKey?: string;
     lockupAddress: string;
+
     redeemScript?: string;
+
+    // Only set for Taproot swaps
+    refundPublicKey?: string;
+    swapTree?: SwapTreeSerializer.SerializedTree;
+
     refundAddress?: string;
+
     onchainAmount?: number;
     minerFeeInvoice?: string;
+
     timeoutBlockHeight: number;
+
     prepayMinerFeeAmount?: number;
   }> => {
     if (!this.allowReverseSwaps) {
@@ -1201,7 +1288,12 @@ class Service {
     const { base, quote, rate: pairRate } = this.getPair(args.pairId);
 
     if (args.pairHash !== undefined) {
-      this.validatePairHash(args.pairId, args.pairHash);
+      this.rateProvider.providers[args.version].validatePairHash(
+        args.pairHash,
+        args.pairId,
+        side,
+        true,
+      );
     }
 
     const { sending, receiving } = getSendingReceivingCurrency(
@@ -1241,7 +1333,12 @@ class Service {
     }
 
     const [onchainTimeoutBlockDelta] =
-      await this.timeoutDeltaProvider.getTimeout(args.pairId, side, true);
+      await this.timeoutDeltaProvider.getTimeout(
+        args.pairId,
+        side,
+        true,
+        args.version,
+      );
 
     let lightningTimeoutBlockDelta = TimeoutDeltaProvider.convertBlocks(
       sending,
@@ -1260,6 +1357,7 @@ class Service {
     );
     const baseFee = this.rateProvider.feeProvider.getBaseFee(
       sendingCurrency.symbol,
+      args.version,
       BaseFeeType.ReverseLockup,
     );
 
@@ -1370,10 +1468,12 @@ class Service {
     const {
       id,
       invoice,
+      swapTree,
       blindingKey,
       redeemScript,
       refundAddress,
       lockupAddress,
+      refundPublicKey,
       minerFeeInvoice,
       timeoutBlockHeight,
     } = await this.swapManager.createReverseSwap({
@@ -1389,6 +1489,7 @@ class Service {
 
       baseCurrency: base,
       quoteCurrency: quote,
+      version: args.version,
       routingNode: args.routingNode,
       userAddress: args.userAddress,
       claimAddress: args.claimAddress,
@@ -1401,10 +1502,12 @@ class Service {
     const response: any = {
       id,
       invoice,
+      swapTree,
       blindingKey,
       redeemScript,
       refundAddress,
       lockupAddress,
+      refundPublicKey,
       timeoutBlockHeight,
     };
 
@@ -1543,7 +1646,8 @@ class Service {
   private getPair = (pairId: string) => {
     const { base, quote } = splitPairId(pairId);
 
-    const pair = this.rateProvider.pairs.get(pairId);
+    const pair =
+      this.rateProvider.providers[SwapVersion.Legacy].pairs.get(pairId);
 
     if (!pair) {
       throw Errors.PAIR_NOT_FOUND(pairId);
@@ -1583,12 +1687,6 @@ class Service {
       getUnixTime() +
       blocksMissing * TimeoutDeltaProvider.blockTimes.get(chain)! * 60
     );
-  };
-
-  private validatePairHash = (pairId: string, pairHash: string) => {
-    if (pairHash !== this.rateProvider.pairs.get(pairId)!.hash) {
-      throw Errors.INVALID_PAIR_HASH();
-    }
   };
 
   private checkWholeNumber = (input: number) => {

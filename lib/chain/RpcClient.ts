@@ -1,7 +1,7 @@
-import http from 'http';
 import { existsSync, readFileSync } from 'fs';
-import Errors from './Errors';
+import http from 'http';
 import { ChainConfig } from '../Config';
+import Errors from './Errors';
 
 class RpcClient {
   private readonly auth: string;

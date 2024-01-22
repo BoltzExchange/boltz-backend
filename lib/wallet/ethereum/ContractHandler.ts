@@ -1,12 +1,12 @@
-import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
+import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { ContractTransactionResponse, Provider } from 'ethers';
 import Logger from '../../Logger';
 import { getHexString } from '../../Utils';
+import { ethereumPrepayMinerFeeGasLimit } from '../../consts/Consts';
+import ERC20WalletProvider from '../providers/ERC20WalletProvider';
 import { getGasPrices } from './EthereumUtils';
 import { NetworkDetails } from './EvmNetworks';
-import ERC20WalletProvider from '../providers/ERC20WalletProvider';
-import { ethereumPrepayMinerFeeGasLimit } from '../../consts/Consts';
 
 class ContractHandler {
   private provider!: Provider;

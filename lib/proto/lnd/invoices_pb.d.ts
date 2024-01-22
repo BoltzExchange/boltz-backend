@@ -2,8 +2,8 @@
 // file: lnd/invoices.proto
 
 /* tslint:disable */
-/* eslint-disable */
 
+/* eslint-disable */
 import * as jspb from 'google-protobuf';
 import * as lnd_rpc_pb from '../lnd/rpc_pb';
 

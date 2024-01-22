@@ -1,32 +1,34 @@
-import { Op } from 'sequelize';
 import AsyncLock from 'async-lock';
-import { EventEmitter } from 'events';
 import { Transaction } from 'bitcoinjs-lib';
-import { detectPreimage, detectSwap } from 'boltz-core';
+import { SwapTreeSerializer, detectPreimage, detectSwap } from 'boltz-core';
+import { EventEmitter } from 'events';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib';
-import Errors from './Errors';
-import Logger from '../Logger';
-import Swap from '../db/models/Swap';
-import Wallet from '../wallet/Wallet';
-import ChainClient from '../chain/ChainClient';
-import { SwapUpdateEvent } from '../consts/Enums';
-import ReverseSwap from '../db/models/ReverseSwap';
-import SwapRepository from '../db/repositories/SwapRepository';
-import WalletManager, { Currency } from '../wallet/WalletManager';
-import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
+import { Op } from 'sequelize';
 import {
+  calculateTransactionFee,
+  createMusig,
   getOutputValue,
   parseTransaction,
-  calculateTransactionFee,
+  tweakMusig,
 } from '../Core';
+import Logger from '../Logger';
 import {
-  splitPairId,
+  getChainCurrency,
   getHexBuffer,
   reverseBuffer,
-  getChainCurrency,
+  splitPairId,
   transactionHashToId,
   transactionSignalsRbfExplicitly,
 } from '../Utils';
+import ChainClient from '../chain/ChainClient';
+import { SwapUpdateEvent, SwapVersion } from '../consts/Enums';
+import ReverseSwap from '../db/models/ReverseSwap';
+import Swap from '../db/models/Swap';
+import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
+import SwapRepository from '../db/repositories/SwapRepository';
+import Wallet from '../wallet/Wallet';
+import WalletManager, { Currency } from '../wallet/WalletManager';
+import Errors from './Errors';
 
 interface UtxoNursery {
   // Swap
@@ -446,10 +448,27 @@ class UtxoNursery extends EventEmitter {
     transaction: Transaction | LiquidTransaction,
     confirmed: boolean,
   ) => {
-    const swapOutput = detectSwap(
-      getHexBuffer(swap.redeemScript!),
-      transaction,
-    )!;
+    let redeemScriptOrTweakedKey: Buffer;
+
+    switch (swap.version) {
+      case SwapVersion.Taproot: {
+        const tree = SwapTreeSerializer.deserializeSwapTree(swap.redeemScript!);
+        const musig = createMusig(
+          wallet.getKeysByIndex(swap.keyIndex!),
+          getHexBuffer(swap.refundPublicKey!),
+        );
+        redeemScriptOrTweakedKey = tweakMusig(wallet.type, musig, tree);
+
+        break;
+      }
+
+      default: {
+        redeemScriptOrTweakedKey = getHexBuffer(swap.redeemScript!);
+        break;
+      }
+    }
+
+    const swapOutput = detectSwap(redeemScriptOrTweakedKey, transaction)!;
 
     this.logger.verbose(
       `Found ${confirmed ? '' : 'un'}confirmed lockup transaction for Swap ${

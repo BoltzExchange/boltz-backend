@@ -1,7 +1,7 @@
 import { Arguments } from 'yargs';
-import { callback, loadBoltzClient } from '../Command';
-import { UnblindOutputsRequest } from '../../proto/boltzrpc_pb';
 import { capitalizeFirstLetter, getHexString } from '../../Utils';
+import { UnblindOutputsRequest } from '../../proto/boltzrpc_pb';
+import { callback, loadBoltzClient } from '../Command';
 
 export const command = 'unblindoutputs [id] [hex]';
 

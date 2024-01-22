@@ -1,7 +1,7 @@
-import { AddressInfo } from 'ws';
+import { Psbt, PsbtTxInput, Transaction, address, crypto } from 'bitcoinjs-lib';
+import { Networks, OutputType, Scripts } from 'boltz-core';
 import { createServer } from 'net';
-import { OutputType, Networks, Scripts } from 'boltz-core';
-import { address, crypto, Psbt, PsbtTxInput, Transaction } from 'bitcoinjs-lib';
+import { AddressInfo } from 'ws';
 import { ECPair } from '../lib/ECPairHelper';
 import { racePromise } from '../lib/PromiseUtils';
 import { getPubkeyHashFunction } from '../lib/Utils';
@@ -14,14 +14,17 @@ export const wait = (ms: number): Promise<void> => {
   return new Promise((resolve) => setTimeout(resolve, ms));
 };
 
-export const waitForFunctionToBeTrue = (func: () => boolean): Promise<void> => {
+export const waitForFunctionToBeTrue = (
+  func: () => boolean | Promise<boolean>,
+  interval = 25,
+): Promise<void> => {
   return new Promise((resolve) => {
-    const interval = setInterval(() => {
-      if (func()) {
-        clearInterval(interval);
+    const intervalNmb = setInterval(async () => {
+      if (await func()) {
+        clearInterval(intervalNmb);
         resolve();
       }
-    }, 25);
+    }, interval);
   });
 };
 

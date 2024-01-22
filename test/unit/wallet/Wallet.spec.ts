@@ -1,19 +1,19 @@
-import { BIP32Factory } from 'bip32';
-import { randomBytes } from 'crypto';
 import ops from '@boltz/bitcoin-ops';
-import { Networks } from 'boltz-core';
-import * as ecc from 'tiny-secp256k1';
-import { SLIP77Factory } from 'slip77';
-import { networks as networkLiquid } from 'liquidjs-lib';
-import { crypto, script, Transaction } from 'bitcoinjs-lib';
+import { BIP32Factory } from 'bip32';
 import { generateMnemonic, mnemonicToSeedSync } from 'bip39';
+import { Transaction, crypto, script } from 'bitcoinjs-lib';
+import { Networks } from 'boltz-core';
+import { randomBytes } from 'crypto';
+import { networks as networkLiquid } from 'liquidjs-lib';
+import { SLIP77Factory } from 'slip77';
+import * as ecc from 'tiny-secp256k1';
 import Logger from '../../../lib/Logger';
-import Wallet from '../../../lib/wallet/Wallet';
-import Database from '../../../lib/db/Database';
 import { getHexBuffer } from '../../../lib/Utils';
 import { CurrencyType } from '../../../lib/consts/Enums';
-import WalletLiquid from '../../../lib/wallet/WalletLiquid';
+import Database from '../../../lib/db/Database';
 import KeyRepository from '../../../lib/db/repositories/KeyRepository';
+import Wallet from '../../../lib/wallet/Wallet';
+import WalletLiquid from '../../../lib/wallet/WalletLiquid';
 import LndWalletProvider from '../../../lib/wallet/providers/LndWalletProvider';
 import {
   SentTransaction,

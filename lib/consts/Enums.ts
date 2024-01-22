@@ -58,7 +58,7 @@ export const SuccessSwapUpdateEvents = [
 
 export const FailedSwapUpdateEvents = [
   SwapUpdateEvent.SwapExpired,
-  SwapUpdateEvent.TransactionFailed,
+  SwapUpdateEvent.TransactionLockupFailed,
   SwapUpdateEvent.InvoiceFailedToPay,
   SwapUpdateEvent.TransactionRefunded,
 ];
@@ -120,3 +120,17 @@ export enum CurrencyType {
   ERC20,
   Liquid,
 }
+
+export enum SwapVersion {
+  Legacy = 0,
+  Taproot = 1,
+}
+
+export const swapVersionToString = (version: SwapVersion): string => {
+  switch (version) {
+    case SwapVersion.Taproot:
+      return 'Taproot';
+    default:
+      return 'Legacy';
+  }
+};

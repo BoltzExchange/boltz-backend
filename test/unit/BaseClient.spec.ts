@@ -1,5 +1,5 @@
-import Logger from '../../lib/Logger';
 import BaseClient from '../../lib/BaseClient';
+import Logger from '../../lib/Logger';
 import { ClientStatus } from '../../lib/consts/Enums';
 
 class BaseClientTest extends BaseClient {

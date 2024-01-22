@@ -1,8 +1,8 @@
 import { Request, Response } from 'express';
-import Errors from './Errors';
 import Logger from '../Logger';
 import { getHexBuffer } from '../Utils';
 import ServiceErrors from '../service/Errors';
+import Errors from './Errors';
 
 type ApiArgument = {
   name: string;
@@ -124,9 +124,11 @@ export const writeErrorResponse = (
 ) => {
   if (!errorsNotToLog.includes(error?.error || error)) {
     logger.warn(
-      `Request ${urlPrefix + req.url} ${JSON.stringify(
-        req.body,
-      )} failed: ${JSON.stringify(error)}`,
+      `Request ${req.method} ${urlPrefix + req.url} ${
+        req.body && Object.keys(req.body).length > 0
+          ? `${JSON.stringify(req.body)} `
+          : ''
+      }failed: ${JSON.stringify(error)}`,
     );
   }
 
@@ -136,4 +138,10 @@ export const writeErrorResponse = (
 
 export const setContentTypeJson = (res: Response) => {
   res.set('Content-Type', 'application/json');
+};
+
+export const checkPreimageHashLength = (preimageHash: Buffer) => {
+  if (preimageHash.length !== 32) {
+    throw `invalid preimage hash length: ${preimageHash.length}`;
+  }
 };

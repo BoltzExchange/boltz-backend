@@ -1,8 +1,9 @@
+import { extractClaimPublicKeyFromSwapTree } from 'boltz-core';
 import { Arguments } from 'yargs';
-import { prepareTx } from '../Command';
+import { constructRefundTransaction } from '../../Core';
 import { stringify } from '../../Utils';
 import BuilderComponents from '../BuilderComponents';
-import { constructRefundTransaction } from '../../Core';
+import { prepareTx } from '../Command';
 
 export const command =
   'refund <network> <privateKey> <timeoutBlockHeight> <redeemScript> <rawTransaction> <destinationAddress> [feePerVbyte] [blindingKey]';
@@ -26,13 +27,12 @@ export const builder = {
 export const handler = async (argv: Arguments<any>): Promise<void> => {
   const {
     keys,
-    network,
     walletStub,
     swapOutput,
     transaction,
     redeemScript,
     destinationAddress,
-  } = await prepareTx(argv);
+  } = await prepareTx(argv, extractClaimPublicKeyFromSwapTree);
 
   const refundTransaction = constructRefundTransaction(
     walletStub,
@@ -47,8 +47,6 @@ export const handler = async (argv: Arguments<any>): Promise<void> => {
     destinationAddress,
     argv.timeoutBlockHeight,
     argv.feePerVbyte,
-    // Needed for Liquid
-    network.assetHash,
   ).toHex();
 
   console.log(stringify({ refundTransaction }));

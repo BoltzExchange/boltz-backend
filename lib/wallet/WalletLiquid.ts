@@ -1,19 +1,23 @@
-import { Slip77Interface } from 'slip77';
 import { address, networks, payments } from 'liquidjs-lib';
-import Errors from './Errors';
-import Wallet from './Wallet';
+import { Payment } from 'liquidjs-lib/src/payments';
+import { Slip77Interface } from 'slip77';
 import Logger from '../Logger';
 import { CurrencyType } from '../consts/Enums';
+import Wallet from './Wallet';
 import WalletProviderInterface from './providers/WalletProviderInterface';
 
 class WalletLiquid extends Wallet {
   constructor(
     logger: Logger,
-    public walletProvider: WalletProviderInterface,
-    public slip77: Slip77Interface,
+    walletProvider: WalletProviderInterface,
+    private readonly slip77: Slip77Interface,
   ) {
     super(logger, CurrencyType.Liquid, walletProvider);
   }
+
+  public deriveBlindingKeyFromScript = (outputScript: Buffer) => {
+    return this.slip77.derive(outputScript);
+  };
 
   public override encodeAddress = (
     outputScript: Buffer,
@@ -40,10 +44,6 @@ class WalletLiquid extends Wallet {
     }
   };
 
-  public deriveBlindingKeyFromScript = (outputScript: Buffer) => {
-    return this.slip77.derive(outputScript);
-  };
-
   private getPaymentFunc = (outputScript: Buffer) => {
     switch (address.getScriptType(outputScript)) {
       case address.ScriptType.P2Pkh:
@@ -54,9 +54,35 @@ class WalletLiquid extends Wallet {
         return payments.p2wpkh;
       case address.ScriptType.P2Wsh:
         return payments.p2wsh;
-      case address.ScriptType.P2Tr:
-        throw Errors.TAPROOT_BLINDING_NOT_SUPPORTED();
+      default:
+        return WalletLiquid.blindP2tr;
     }
+  };
+
+  private static blindP2tr = (
+    payment: Payment,
+  ): {
+    address: string;
+    confidentialAddress: string | undefined;
+  } => {
+    const addr = address.fromOutputScript(payment.output!, payment.network);
+    const dec = address.fromBech32(addr);
+
+    let confidentialAddress: string | undefined;
+
+    if (payment.blindkey) {
+      confidentialAddress = address.toBlech32(
+        Buffer.concat([Buffer.from([dec.version, dec.data.length]), dec.data]),
+        payment.blindkey,
+        payment.network!.blech32,
+        dec.version,
+      );
+    }
+
+    return {
+      confidentialAddress,
+      address: addr,
+    };
   };
 }
 

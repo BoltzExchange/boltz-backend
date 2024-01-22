@@ -1,7 +1,7 @@
 import Logger from '../../../../lib/Logger';
-import { Currency } from '../../../../lib/wallet/WalletManager';
 import { NodeType } from '../../../../lib/db/models/ReverseSwap';
 import RoutingHints from '../../../../lib/swap/routing/RoutingHints';
+import { Currency } from '../../../../lib/wallet/WalletManager';
 
 const mockStart = jest.fn().mockResolvedValue(undefined);
 const mockStop = jest.fn();

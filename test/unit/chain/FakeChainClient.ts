@@ -1,5 +1,5 @@
-import { randomBytes } from 'crypto';
 import { Transaction, crypto } from 'bitcoinjs-lib';
+import { randomBytes } from 'crypto';
 import { getHexString, reverseBuffer } from '../../../lib/Utils';
 import {
   Block,

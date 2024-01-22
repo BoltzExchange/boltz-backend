@@ -1,11 +1,11 @@
 import cors from 'cors';
 import express, { Application, NextFunction, Request, Response } from 'express';
-import Logger from '../Logger';
-import ApiV2 from './v2/ApiV2';
-import Controller from './Controller';
 import { ApiConfig } from '../Config';
-import { errorResponse } from './Utils';
+import Logger from '../Logger';
 import Service from '../service/Service';
+import Controller from './Controller';
+import { errorResponse } from './Utils';
+import ApiV2 from './v2/ApiV2';
 
 class Api {
   private app: Application;
@@ -44,7 +44,7 @@ class Api {
       },
     );
 
-    new ApiV2(this.logger, service).registerRoutes(this.app);
+    new ApiV2(this.logger, service, this.controller).registerRoutes(this.app);
     this.registerRoutes(this.controller);
   }
 
@@ -67,6 +67,14 @@ class Api {
       this.app.route(path).get(controller.serveFile('index.html'));
     });
     this.app.route('/favicon.ico').get(controller.serveFile('favicon.ico'));
+
+    ['/swagger', '/swagger.html'].forEach((path) => {
+      this.app.route(path).get(controller.serveFile('swagger.html'));
+    });
+
+    this.app
+      .route('/swagger-spec.json')
+      .get(controller.serveFile('swagger-spec.json'));
 
     // GET requests
     this.app.route('/version').get(controller.version);

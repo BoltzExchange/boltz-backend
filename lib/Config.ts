@@ -1,17 +1,17 @@
+import toml from '@iarna/toml';
 import fs from 'fs';
 import path from 'path';
-import toml from '@iarna/toml';
 import { Arguments } from 'yargs';
-import Errors from './consts/Errors';
-import { Network } from './consts/Enums';
-import { PairConfig } from './consts/Types';
 import { PrometheusConfig } from './Prometheus';
+import { deepMerge, getServiceDataDir, resolveHome } from './Utils';
+import { GoogleCloudConfig } from './backup/providers/GoogleCloud';
+import { WebdavConfig } from './backup/providers/Webdav';
+import { Network } from './consts/Enums';
+import Errors from './consts/Errors';
+import { PairConfig } from './consts/Types';
 import { ClnConfig } from './lightning/ClnClient';
 import { LndConfig } from './lightning/LndClient';
 import { NodeSwitchConfig } from './swap/NodeSwitch';
-import { WebdavConfig } from './backup/providers/Webdav';
-import { GoogleCloudConfig } from './backup/providers/GoogleCloud';
-import { deepMerge, getServiceDataDir, resolveHome } from './Utils';
 
 type PostgresConfig = {
   host: string;

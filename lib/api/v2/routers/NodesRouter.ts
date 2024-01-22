@@ -1,8 +1,8 @@
 import { Request, Response, Router } from 'express';
-import RouterBase from './RouterBase';
 import Logger from '../../../Logger';
-import { successResponse } from '../../Utils';
 import Service from '../../../service/Service';
+import { successResponse } from '../../Utils';
+import RouterBase from './RouterBase';
 
 class NodesRouter extends RouterBase {
   constructor(

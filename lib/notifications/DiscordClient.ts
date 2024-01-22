@@ -1,9 +1,9 @@
-import { EventEmitter } from 'events';
-import { Client, TextChannel, Message } from 'discord.js';
 import { GatewayIntentBits } from 'discord-api-types/v10';
+import { Client, Message, TextChannel } from 'discord.js';
+import { EventEmitter } from 'events';
+import { NotificationConfig } from '../Config';
 import Logger from '../Logger';
 import { codeBlock } from './Markup';
-import { NotificationConfig } from '../Config';
 
 interface DiscordClient {
   on(event: 'message', listener: (message: string) => void): this;

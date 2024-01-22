@@ -1,6 +1,6 @@
 import axios from 'axios';
-import { Arguments } from 'yargs';
 import { createHmac } from 'crypto';
+import { Arguments } from 'yargs';
 import { getUnixTime, stringify } from '../../Utils';
 
 export const command = 'queryreferrals <key> <secret>';

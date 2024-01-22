@@ -2,8 +2,8 @@
 // file: lnd/rpc.proto
 
 /* tslint:disable */
-/* eslint-disable */
 
+/* eslint-disable */
 import * as jspb from 'google-protobuf';
 
 export class LookupHtlcResolutionRequest extends jspb.Message {

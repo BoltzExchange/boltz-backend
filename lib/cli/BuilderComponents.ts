@@ -42,4 +42,16 @@ export default {
     type: 'number',
     alias: 'd',
   },
+  swapId: {
+    describe: 'id of the Swap',
+    type: 'string',
+  },
+  swapTree: {
+    describe: 'SwapTree of the Swap',
+    type: 'string',
+  },
+  preimage: {
+    describe: 'preimage of the swap',
+    type: 'string',
+  },
 };

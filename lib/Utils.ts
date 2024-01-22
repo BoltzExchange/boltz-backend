@@ -1,16 +1,18 @@
-import os from 'os';
-import path from 'path';
+import bolt11, { RoutingInfo } from '@boltz/bolt11';
+import { Transaction, crypto } from 'bitcoinjs-lib';
+import { OutputType, Scripts } from 'boltz-core';
 import { randomBytes } from 'crypto';
 import { ContractTransactionResponse } from 'ethers';
-import { Transaction, crypto } from 'bitcoinjs-lib';
-import bolt11, { RoutingInfo } from '@boltz/bolt11';
-import { Errors, OutputType, Scripts } from 'boltz-core';
 import { Transaction as LiquidTransaction, confidential } from 'liquidjs-lib';
-import commitHash from './Version';
+import os from 'os';
+import path from 'path';
 import packageJson from '../package.json';
-import { OrderSide } from './consts/Enums';
+import commitHash from './Version';
 import ChainClient from './chain/ChainClient';
 import { etherDecimals } from './consts/Consts';
+import { OrderSide, SwapVersion } from './consts/Enums';
+
+export const TAPROOT_NOT_SUPPORTED = 'taproot not supported';
 
 const {
   p2shOutput,
@@ -22,7 +24,7 @@ const {
 } = Scripts;
 
 const idPossibilities =
-  'ABCDEFGHIJKLMNPQRSTUVWXYZabcdefghklmnopqrstuvwxyz123456789';
+  'ABCDEFGHIJKLMNPQRSTUVWXYZabcdefghkmnopqrstuvwxyz123456789';
 
 /**
  * Generate an ID for a swap
@@ -40,6 +42,9 @@ export const generateId = (length = 6): string => {
 
   return id;
 };
+
+export const generateSwapId = (version: SwapVersion): string =>
+  generateId(version === SwapVersion.Legacy ? undefined : 12);
 
 /**
  * Stringify any object or array
@@ -75,18 +80,40 @@ export const saneStringify = (object: unknown): string => {
   return stringify(sanitizeObject(object));
 };
 
+type MapKey = string | number | symbol;
+
+type MapRecordType<T> =
+  T extends Map<infer U, infer V>
+    ? U extends MapKey
+      ? Record<U, V extends Map<any, any> ? MapRecordType<V> : V>
+      : never
+    : T;
+
 /**
  * Turn a map into an object
  */
-export const mapToObject = (map: Map<any, any>): any => {
+const mapToObjectInternal = <T extends Map<MapKey, any>>(
+  map: T,
+  recursionLevel = 0,
+): MapRecordType<T> => {
+  if (recursionLevel > 10) {
+    throw 'nested map recursion level too deep';
+  }
+
   const object: any = {};
 
   map.forEach((value, index) => {
-    object[index] = value;
+    object[index] =
+      value instanceof Map
+        ? mapToObjectInternal(value, recursionLevel + 1)
+        : value;
   });
 
   return object;
 };
+
+export const mapToObject = <T extends Map<MapKey, any>>(map: T) =>
+  mapToObjectInternal(map);
 
 /**
  * Get the pair id of a pair
@@ -360,6 +387,9 @@ export const getPubkeyHashFunction = (
       outputScript: Buffer;
     }) => {
   switch (outputType) {
+    case OutputType.Taproot:
+      throw TAPROOT_NOT_SUPPORTED;
+
     case OutputType.Bech32:
       return p2wpkhOutput;
 
@@ -368,9 +398,6 @@ export const getPubkeyHashFunction = (
 
     case OutputType.Legacy:
       return p2pkhOutput;
-
-    case OutputType.Taproot:
-      throw Errors.TAPROOT_NOT_SUPPORTED;
   }
 };
 
@@ -378,6 +405,9 @@ export const getScriptHashFunction = (
   outputType: OutputType,
 ): ((scriptHex: Buffer) => Buffer) => {
   switch (outputType) {
+    case OutputType.Taproot:
+      throw TAPROOT_NOT_SUPPORTED;
+
     case OutputType.Bech32:
       return p2wshOutput;
 
@@ -386,9 +416,6 @@ export const getScriptHashFunction = (
 
     case OutputType.Legacy:
       return p2shOutput;
-
-    case OutputType.Taproot:
-      throw Errors.TAPROOT_NOT_SUPPORTED;
   }
 };
 

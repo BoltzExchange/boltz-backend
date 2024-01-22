@@ -1,23 +1,23 @@
 import { Transaction } from 'bitcoinjs-lib';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib';
-import Logger from '../Logger';
-import RpcClient from './RpcClient';
 import BaseClient from '../BaseClient';
 import { ChainConfig } from '../Config';
-import MempoolSpace from './MempoolSpace';
+import Logger from '../Logger';
 import { formatError, getHexString } from '../Utils';
 import { ClientStatus, CurrencyType } from '../consts/Enums';
-import ZmqClient, { filters, ZmqNotification } from './ZmqClient';
-import ChainTipRepository from '../db/repositories/ChainTipRepository';
 import {
   Block,
-  WalletInfo,
-  NetworkInfo,
-  UnspentUtxo,
   BlockVerbose,
   BlockchainInfo,
+  NetworkInfo,
   RawTransaction,
+  UnspentUtxo,
+  WalletInfo,
 } from '../consts/Types';
+import ChainTipRepository from '../db/repositories/ChainTipRepository';
+import MempoolSpace from './MempoolSpace';
+import RpcClient from './RpcClient';
+import ZmqClient, { ZmqNotification, filters } from './ZmqClient';
 
 enum AddressType {
   Legacy = 'legacy',

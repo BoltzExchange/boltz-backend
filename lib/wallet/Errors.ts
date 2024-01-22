@@ -1,7 +1,7 @@
 import { OutputType } from 'boltz-core';
-import { Error } from '../consts/Types';
 import { concatErrorCode } from '../Utils';
 import { ErrorCodePrefix } from '../consts/Enums';
+import { Error } from '../consts/Types';
 
 export default {
   NOT_INITIALIZED: (): Error => ({

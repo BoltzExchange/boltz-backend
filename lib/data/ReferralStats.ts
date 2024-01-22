@@ -1,6 +1,6 @@
 import { splitPairId } from '../Utils';
-import { getNestedObject } from './Utils';
 import ReferralRepository from '../db/repositories/ReferralRepository';
+import { getNestedObject } from './Utils';
 
 class ReferralStats {
   public static generate = async (

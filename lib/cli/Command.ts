@@ -1,12 +1,29 @@
-import { Arguments } from 'yargs';
 import { credentials } from '@grpc/grpc-js';
-import { detectSwap, Networks } from 'boltz-core';
+import { Network, Transaction } from 'bitcoinjs-lib';
+import {
+  Musig,
+  Networks,
+  SwapTreeSerializer,
+  Types,
+  detectSwap,
+} from 'boltz-core';
 import { Networks as LiquidNetworks } from 'boltz-core/dist/lib/liquid';
+import { randomBytes } from 'crypto';
+import { ECPairInterface } from 'ecpair';
+import { Transaction as LiquidTransaction } from 'liquidjs-lib';
+import { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
+import { Arguments } from 'yargs';
+import {
+  parseTransaction,
+  setup,
+  toOutputScript,
+  tweakMusig,
+  zkp,
+} from '../Core';
 import { ECPair } from '../ECPairHelper';
-import { CurrencyType } from '../consts/Enums';
 import { getHexBuffer, stringify } from '../Utils';
+import { CurrencyType } from '../consts/Enums';
 import { BoltzClient } from '../proto/boltzrpc_grpc_pb';
-import { parseTransaction, setup, toOutputScript } from '../Core';
 
 export interface GrpcResponse {
   toObject: () => any;
@@ -42,43 +59,82 @@ export const callback = <T extends GrpcResponse>(
   };
 };
 
-export const prepareTx = async (argv: Arguments<any>) => {
+export const prepareTx = async (
+  argv: Arguments<any>,
+  keyExtractionFunc: (tree: Types.SwapTree) => Buffer,
+) => {
   await setup();
 
-  const redeemScript = getHexBuffer(argv.redeemScript);
-
-  const type = argv.network.includes('liquid')
-    ? CurrencyType.Liquid
-    : CurrencyType.BitcoinLike;
-  const network =
-    type === CurrencyType.BitcoinLike
-      ? Networks[argv.network]
-      : LiquidNetworks[argv.network];
+  const type = currencyTypeFromNetwork(argv.network);
+  const network = parseNetwork(argv.network);
 
   const transaction = parseTransaction(type, argv.rawTransaction);
+  const blindingKey = parseBlindingKey(type, argv.blindingKey);
 
-  const blindingKey =
-    type === CurrencyType.Liquid ? getHexBuffer(argv.blindingKey) : undefined;
-
-  return {
+  const res: any = {
     type,
-    network,
-    transaction,
-    redeemScript,
     blindingKey,
-    walletStub: {
+    transaction,
+    walletStub: getWalletStub(
       type,
-      deriveBlindingKeyFromScript: () => ({
-        privateKey: blindingKey,
-      }),
-      decodeAddress: () =>
-        toOutputScript(type, argv.destinationAddress, network),
-    } as any,
+      network,
+      argv.destinationAddress,
+      argv.blindingKey,
+    ),
     destinationAddress: argv.destinationAddress,
-    swapOutput: detectSwap(redeemScript, transaction),
     keys: ECPair.fromPrivateKey(getHexBuffer(argv.privateKey)),
   };
+
+  // If the redeem script can be parsed as JSON, it is a swap tree
+  try {
+    const tree = SwapTreeSerializer.deserializeSwapTree(argv.redeemScript);
+
+    const { musig, swapOutput } = musigFromExtractedKey(
+      type,
+      res.keys,
+      keyExtractionFunc(tree),
+      tree,
+      transaction,
+    );
+
+    res.swapOutput = {
+      ...swapOutput,
+      swapTree: tree,
+      internalKey: musig.getAggregatedPublicKey(),
+    };
+  } catch (e) {
+    res.redeemScript = getHexBuffer(argv.redeemScript);
+    res.swapOutput = detectSwap(res.redeemScript, transaction);
+  }
+
+  return res;
 };
+
+export const getWalletStub = (
+  type: CurrencyType,
+  network: Network | LiquidNetwork,
+  destinationAddress: string,
+  blindingKey: string,
+) =>
+  ({
+    type,
+    network,
+    deriveBlindingKeyFromScript: () => ({
+      privateKey: parseBlindingKey(type, blindingKey),
+    }),
+    decodeAddress: () => toOutputScript(type, destinationAddress, network),
+  }) as any;
+
+export const parseBlindingKey = (type: CurrencyType, blindingKey: string) =>
+  type === CurrencyType.Liquid ? getHexBuffer(blindingKey) : undefined;
+
+export const parseNetwork = (network: string) =>
+  currencyTypeFromNetwork(network) === CurrencyType.BitcoinLike
+    ? Networks[network]
+    : LiquidNetworks[network];
+
+export const currencyTypeFromNetwork = (network: string) =>
+  network.includes('liquid') ? CurrencyType.Liquid : CurrencyType.BitcoinLike;
 
 export const printResponse = (response: unknown): void => {
   console.log(stringify(response));
@@ -86,4 +142,37 @@ export const printResponse = (response: unknown): void => {
 
 export const printError = (error: Error): void => {
   console.error(`${error.name}: ${error.message}`);
+};
+
+export const musigFromExtractedKey = (
+  type: CurrencyType,
+  ourKeys: ECPairInterface,
+  theirPublicKey: Buffer,
+  tree: Types.SwapTree,
+  lockupTx: Transaction | LiquidTransaction,
+) => {
+  for (const tieBreaker of ['02', '03']) {
+    const compressedKey = Buffer.concat([
+      getHexBuffer(tieBreaker),
+      theirPublicKey,
+    ]);
+
+    const musig = new Musig(zkp, ourKeys, randomBytes(32), [
+      compressedKey,
+      ourKeys.publicKey,
+    ]);
+    const tweakedKey = tweakMusig(type, musig, tree);
+
+    const swapOutput = detectSwap(tweakedKey, lockupTx);
+    if (swapOutput !== undefined) {
+      return {
+        musig,
+        tweakedKey,
+        swapOutput,
+        theirPublicKey: compressedKey,
+      };
+    }
+  }
+
+  throw 'could not find swap output';
 };

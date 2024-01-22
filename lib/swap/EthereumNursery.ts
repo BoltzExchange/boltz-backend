@@ -1,25 +1,25 @@
-import { Op } from 'sequelize';
-import { EventEmitter } from 'events';
 import { TransactionResponse } from 'ethers';
-import Errors from './Errors';
+import { EventEmitter } from 'events';
+import { Op } from 'sequelize';
 import Logger from '../Logger';
-import Swap from '../db/models/Swap';
-import Wallet from '../wallet/Wallet';
-import { etherDecimals } from '../consts/Consts';
-import ReverseSwap from '../db/models/ReverseSwap';
-import WalletManager from '../wallet/WalletManager';
-import SwapRepository from '../db/repositories/SwapRepository';
-import { CurrencyType, SwapUpdateEvent } from '../consts/Enums';
-import EthereumManager from '../wallet/ethereum/EthereumManager';
-import { ERC20SwapValues, EtherSwapValues } from '../consts/Types';
-import ERC20WalletProvider from '../wallet/providers/ERC20WalletProvider';
-import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import {
   formatError,
   getChainCurrency,
   getHexString,
   splitPairId,
 } from '../Utils';
+import { etherDecimals } from '../consts/Consts';
+import { CurrencyType, SwapUpdateEvent } from '../consts/Enums';
+import { ERC20SwapValues, EtherSwapValues } from '../consts/Types';
+import ReverseSwap from '../db/models/ReverseSwap';
+import Swap from '../db/models/Swap';
+import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
+import SwapRepository from '../db/repositories/SwapRepository';
+import Wallet from '../wallet/Wallet';
+import WalletManager from '../wallet/WalletManager';
+import EthereumManager from '../wallet/ethereum/EthereumManager';
+import ERC20WalletProvider from '../wallet/providers/ERC20WalletProvider';
+import Errors from './Errors';
 
 interface IEthereumNursery {
   // EtherSwap

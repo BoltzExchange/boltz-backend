@@ -1,8 +1,8 @@
 import Logger from '../../../../lib/Logger';
 import { etherDecimals } from '../../../../lib/consts/Consts';
 import { Ethereum } from '../../../../lib/wallet/ethereum/EvmNetworks';
-import { EthereumSetup, fundSignerWallet, getSigner } from '../EthereumTools';
 import EtherWalletProvider from '../../../../lib/wallet/providers/EtherWalletProvider';
+import { EthereumSetup, fundSignerWallet, getSigner } from '../EthereumTools';
 
 describe('EtherWalletProvider', () => {
   let setup: EthereumSetup;

@@ -1,26 +1,27 @@
-import { detectSwap } from 'boltz-core';
 import { Transaction } from 'bitcoinjs-lib';
+import { detectSwap } from 'boltz-core';
 import { DataTypes, Op, Sequelize } from 'sequelize';
 import Logger from '../Logger';
-import Swap from './models/Swap';
-import Referral from './models/Referral';
+import {
+  createApiCredential,
+  decodeInvoice,
+  formatError,
+  getChainCurrency,
+  getHexBuffer,
+  splitPairId,
+} from '../Utils';
+import { SwapVersion } from '../consts/Enums';
 import { Currency } from '../wallet/WalletManager';
 import ChannelCreation from './models/ChannelCreation';
 import DatabaseVersion from './models/DatabaseVersion';
+import Referral from './models/Referral';
 import ReverseSwap, { NodeType } from './models/ReverseSwap';
+import Swap from './models/Swap';
 import DatabaseVersionRepository from './repositories/DatabaseVersionRepository';
-import {
-  formatError,
-  splitPairId,
-  getHexBuffer,
-  decodeInvoice,
-  getChainCurrency,
-  createApiCredential,
-} from '../Utils';
 
 // TODO: integration tests for actual migrations
 class Migration {
-  private static latestSchemaVersion = 7;
+  private static latestSchemaVersion = 8;
 
   constructor(
     private logger: Logger,
@@ -362,6 +363,67 @@ class Migration {
 
         await this.finishMigration(versionRow.version, currencies);
 
+        break;
+      }
+
+      case 7: {
+        this.logUpdatingTable('swaps');
+
+        const attrs = {
+          type: new DataTypes.INTEGER(),
+          allowNull: true,
+          validate: {
+            isIn: [
+              Object.values(SwapVersion).filter(
+                (val) => typeof val === 'number',
+              ),
+            ],
+          },
+        };
+        await this.sequelize
+          .getQueryInterface()
+          .addColumn('swaps', 'version', attrs);
+
+        await this.sequelize
+          .getQueryInterface()
+          .bulkUpdate('swaps', { version: SwapVersion.Legacy }, {});
+
+        attrs.allowNull = false;
+        await this.sequelize
+          .getQueryInterface()
+          .changeColumn('swaps', 'version', attrs);
+
+        await this.sequelize
+          .getQueryInterface()
+          .addColumn('swaps', 'refundPublicKey', {
+            type: new DataTypes.STRING(),
+            allowNull: true,
+          });
+
+        this.logUpdatingTable('reverseSwaps');
+
+        attrs.allowNull = true;
+        await this.sequelize
+          .getQueryInterface()
+          .addColumn('reverseSwaps', 'version', attrs);
+
+        await this.sequelize
+          .getQueryInterface()
+          .bulkUpdate('reverseSwaps', { version: SwapVersion.Legacy }, {});
+
+        attrs.allowNull = false;
+        await this.sequelize
+          .getQueryInterface()
+          .changeColumn('reverseSwaps', 'version', attrs);
+
+        await this.sequelize
+          .getQueryInterface()
+          .addColumn('reverseSwaps', 'claimPublicKey', {
+            type: new DataTypes.STRING(),
+            allowNull: true,
+          });
+
+        await this.finishMigration(versionRow.version, currencies);
         break;
       }
 

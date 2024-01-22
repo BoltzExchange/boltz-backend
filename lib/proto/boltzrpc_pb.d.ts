@@ -2,8 +2,8 @@
 // file: boltzrpc.proto
 
 /* tslint:disable */
-/* eslint-disable */
 
+/* eslint-disable */
 import * as jspb from 'google-protobuf';
 
 export class GetInfoRequest extends jspb.Message {
@@ -812,6 +812,8 @@ export class UpdateTimeoutBlockDeltaRequest extends jspb.Message {
   setSwapMinimalTimeout(value: number): UpdateTimeoutBlockDeltaRequest;
   getSwapMaximalTimeout(): number;
   setSwapMaximalTimeout(value: number): UpdateTimeoutBlockDeltaRequest;
+  getSwapTaproot(): number;
+  setSwapTaproot(value: number): UpdateTimeoutBlockDeltaRequest;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): UpdateTimeoutBlockDeltaRequest.AsObject;
@@ -840,6 +842,7 @@ export namespace UpdateTimeoutBlockDeltaRequest {
     reverseTimeout: number;
     swapMinimalTimeout: number;
     swapMaximalTimeout: number;
+    swapTaproot: number;
   };
 }
 

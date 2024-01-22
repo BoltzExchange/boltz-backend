@@ -1,10 +1,10 @@
-import { randomBytes } from 'crypto';
 import { crypto } from 'bitcoinjs-lib';
-import Errors from '../../../lib/lightning/Errors';
+import { randomBytes } from 'crypto';
 import { decodeInvoice, getUnixTime } from '../../../lib/Utils';
-import { bitcoinClient, bitcoinLndClient, clnClient } from '../Nodes';
+import Errors from '../../../lib/lightning/Errors';
 import { InvoiceFeature } from '../../../lib/lightning/LightningClient';
 import InvoiceExpiryHelper from '../../../lib/service/InvoiceExpiryHelper';
+import { bitcoinClient, bitcoinLndClient, clnClient } from '../Nodes';
 
 describe('ClnClient', () => {
   beforeAll(async () => {

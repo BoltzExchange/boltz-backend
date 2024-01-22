@@ -1,8 +1,8 @@
-import { wait } from '../../Utils';
 import Logger from '../../../lib/Logger';
 import MempoolSpace, {
   MempoolSpaceClient,
 } from '../../../lib/chain/MempoolSpace';
+import { wait } from '../../Utils';
 
 describe('MempoolSpace', () => {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment

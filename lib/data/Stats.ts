@@ -1,6 +1,6 @@
-import { getNestedObject } from './Utils';
 import { satoshisToPaddedCoins } from '../DenominationConverter';
 import StatsRepository, { StatsDate } from '../db/repositories/StatsRepository';
+import { getNestedObject } from './Utils';
 
 type MonthStats = {
   volume: Record<string, number>;

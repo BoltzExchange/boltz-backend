@@ -1,14 +1,14 @@
-import Logger from '../../../lib/Logger';
-import Service from '../../../lib/service/Service';
-import { liquidSymbol } from '../../../lib/consts/LiquidTypes';
-import DiscordClient from '../../../lib/notifications/DiscordClient';
 import { BaseCurrencyConfig, CurrencyConfig } from '../../../lib/Config';
-import { Balances, GetBalanceResponse } from '../../../lib/proto/boltzrpc_pb';
+import { satoshisToSatcomma } from '../../../lib/DenominationConverter';
+import Logger from '../../../lib/Logger';
+import { liquidSymbol } from '../../../lib/consts/LiquidTypes';
 import BalanceChecker, {
   BalanceType,
 } from '../../../lib/notifications/BalanceChecker';
+import DiscordClient from '../../../lib/notifications/DiscordClient';
 import { Emojis } from '../../../lib/notifications/Markup';
-import { satoshisToSatcomma } from '../../../lib/DenominationConverter';
+import { Balances, GetBalanceResponse } from '../../../lib/proto/boltzrpc_pb';
+import Service from '../../../lib/service/Service';
 
 let mockGetBalanceResponse: any = null;
 const mockGetBalance = jest.fn().mockImplementation(async () => {

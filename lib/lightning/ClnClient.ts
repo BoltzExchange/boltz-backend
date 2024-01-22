@@ -1,23 +1,21 @@
-import fs from 'fs';
-import bolt11 from 'bolt11';
 import {
-  Metadata,
-  credentials,
   ChannelCredentials,
   ClientReadableStream,
+  Metadata,
+  credentials,
 } from '@grpc/grpc-js';
-import Errors from './Errors';
-import Logger from '../Logger';
+import bolt11 from 'bolt11';
+import fs from 'fs';
 import BaseClient from '../BaseClient';
+import Logger from '../Logger';
+import { decodeInvoice, formatError, getHexString } from '../Utils';
 import { ClientStatus } from '../consts/Enums';
-import * as noderpc from '../proto/cln/node_pb';
-import * as holdrpc from '../proto/hold/hold_pb';
-import { grpcOptions, unaryCall } from './GrpcUtils';
 import { NodeClient } from '../proto/cln/node_grpc_pb';
-import { HoldClient } from '../proto/hold/hold_grpc_pb';
+import * as noderpc from '../proto/cln/node_pb';
 import { ListfundsOutputs } from '../proto/cln/node_pb';
 import * as primitivesrpc from '../proto/cln/primitives_pb';
-import { decodeInvoice, formatError, getHexString } from '../Utils';
+import { HoldClient } from '../proto/hold/hold_grpc_pb';
+import * as holdrpc from '../proto/hold/hold_pb';
 import { WalletBalance } from '../wallet/providers/WalletProviderInterface';
 import {
   msatToSat,
@@ -25,19 +23,21 @@ import {
   scidClnToLnd,
   scidLndToCln,
 } from './ChannelUtils';
+import Errors from './Errors';
+import { grpcOptions, unaryCall } from './GrpcUtils';
 import {
-  Htlc,
-  Route,
-  HopHint,
-  Invoice,
-  NodeInfo,
-  HtlcState,
   ChannelInfo,
-  InvoiceState,
   DecodedInvoice,
+  HopHint,
+  Htlc,
+  HtlcState,
+  Invoice,
   InvoiceFeature,
+  InvoiceState,
   LightningClient,
+  NodeInfo,
   PaymentResponse,
+  Route,
   RoutingHintsProvider,
   calculatePaymentFee,
 } from './LightningClient';
@@ -648,7 +648,7 @@ class ClnClient
     }
   };
 
-  private checkPayStatus = async (
+  public checkPayStatus = async (
     invoice: string,
   ): Promise<PaymentResponse | undefined> => {
     const res = await this.payStatus(invoice);

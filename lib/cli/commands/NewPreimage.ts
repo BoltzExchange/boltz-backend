@@ -1,5 +1,5 @@
-import { randomBytes } from 'crypto';
 import { crypto } from 'bitcoinjs-lib';
+import { randomBytes } from 'crypto';
 import { getHexString, stringify } from '../../Utils';
 
 export const command = 'newpreimage';

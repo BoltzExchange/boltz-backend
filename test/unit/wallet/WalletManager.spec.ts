@@ -1,15 +1,15 @@
-import fs from 'fs';
-import { Networks } from 'boltz-core';
-import Logger from '../../../lib/Logger';
-import Database from '../../../lib/db/Database';
-import { CurrencyConfig } from '../../../lib/Config';
-import WalletErrors from '../../../lib/wallet/Errors';
-import ChainClient from '../../../lib/chain/ChainClient';
-import LndClient from '../../../lib/lightning/LndClient';
-import { CurrencyType } from '../../../lib/consts/Enums';
-import KeyRepository from '../../../lib/db/repositories/KeyRepository';
-import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
 import { generateMnemonic } from 'bip39';
+import { Networks } from 'boltz-core';
+import fs from 'fs';
+import { CurrencyConfig } from '../../../lib/Config';
+import Logger from '../../../lib/Logger';
+import ChainClient from '../../../lib/chain/ChainClient';
+import { CurrencyType } from '../../../lib/consts/Enums';
+import Database from '../../../lib/db/Database';
+import KeyRepository from '../../../lib/db/repositories/KeyRepository';
+import LndClient from '../../../lib/lightning/LndClient';
+import WalletErrors from '../../../lib/wallet/Errors';
+import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
 
 const symbol = 'BTC';
 

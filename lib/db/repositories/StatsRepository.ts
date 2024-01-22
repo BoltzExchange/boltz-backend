@@ -1,11 +1,11 @@
 import { QueryTypes } from 'sequelize';
-import { Queries } from '../Utils';
-import Database, { DatabaseType } from '../Database';
 import {
   NotPendingReverseSwapEvents,
   NotPendingSwapEvents,
   SwapUpdateEvent,
 } from '../../consts/Enums';
+import Database, { DatabaseType } from '../Database';
+import { Queries } from '../Utils';
 
 type StatsDate = {
   year: number;

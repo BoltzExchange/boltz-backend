@@ -1,11 +1,11 @@
+import { BaseCurrencyConfig, PreferredWallet, TokenConfig } from '../Config';
+import { satoshisToSatcomma } from '../DenominationConverter';
 import Logger from '../Logger';
-import { Emojis } from './Markup';
+import { liquidSymbol } from '../consts/LiquidTypes';
+import { Balances } from '../proto/boltzrpc_pb';
 import Service from '../service/Service';
 import DiscordClient from './DiscordClient';
-import { Balances } from '../proto/boltzrpc_pb';
-import { liquidSymbol } from '../consts/LiquidTypes';
-import { satoshisToSatcomma } from '../DenominationConverter';
-import { BaseCurrencyConfig, PreferredWallet, TokenConfig } from '../Config';
+import { Emojis } from './Markup';
 
 enum BalanceType {
   Wallet,

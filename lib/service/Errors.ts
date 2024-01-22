@@ -1,6 +1,6 @@
-import { Error } from '../consts/Types';
 import { concatErrorCode } from '../Utils';
 import { ErrorCodePrefix } from '../consts/Enums';
+import { Error } from '../consts/Types';
 
 export default {
   CURRENCY_NOT_FOUND: (currency: string): Error => ({
@@ -128,5 +128,21 @@ export default {
   DESTINATION_BOLTZ_NODE: (): Error => ({
     message: 'swap to Boltz lightning nodes are forbidden',
     code: concatErrorCode(ErrorCodePrefix.Service, 33),
+  }),
+  UNSUPPORTED_SWAP_VERSION: (): Error => ({
+    message: 'swap version not supported for pair',
+    code: concatErrorCode(ErrorCodePrefix.Service, 34),
+  }),
+  NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND: (): Error => ({
+    message: 'swap not eligible for a cooperative refund',
+    code: concatErrorCode(ErrorCodePrefix.Service, 35),
+  }),
+  INCORRECT_PREIMAGE: (): Error => ({
+    message: 'incorrect preimage',
+    code: concatErrorCode(ErrorCodePrefix.Service, 36),
+  }),
+  INVALID_VIN: (): Error => ({
+    message: 'input index is out of range',
+    code: concatErrorCode(ErrorCodePrefix.Service, 37),
   }),
 };

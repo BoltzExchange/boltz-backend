@@ -1,12 +1,9 @@
 import * as grpc from '@grpc/grpc-js';
-import { readFileSync } from 'fs';
 import { randomBytes } from 'crypto';
-import { getPort } from '../../Utils';
+import { readFileSync } from 'fs';
 import Logger from '../../../lib/Logger';
-import LndClient from '../../../lib/lightning/LndClient';
 import { decodeInvoice, getUnixTime } from '../../../lib/Utils';
-import { bitcoinClient, bitcoinLndClient, lndDataPath } from '../Nodes';
-import InvoiceExpiryHelper from '../../../lib/service/InvoiceExpiryHelper';
+import LndClient from '../../../lib/lightning/LndClient';
 import {
   LightningClient,
   LightningService,
@@ -16,6 +13,9 @@ import {
   Transaction,
   TransactionDetails,
 } from '../../../lib/proto/lnd/rpc_pb';
+import InvoiceExpiryHelper from '../../../lib/service/InvoiceExpiryHelper';
+import { getPort } from '../../Utils';
+import { bitcoinClient, bitcoinLndClient, lndDataPath } from '../Nodes';
 
 describe('LndClient', () => {
   beforeAll(async () => {

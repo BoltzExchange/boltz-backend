@@ -1,10 +1,10 @@
-import { randomBytes } from 'crypto';
 import { ServiceError } from '@grpc/grpc-js';
-import Service from '../../../lib/service/Service';
-import GrpcService from '../../../lib/grpc/GrpcService';
-import { CurrencyType } from '../../../lib/consts/Enums';
-import * as boltzrpc from '../../../lib/proto/boltzrpc_pb';
+import { randomBytes } from 'crypto';
 import { getHexBuffer, getHexString } from '../../../lib/Utils';
+import { CurrencyType } from '../../../lib/consts/Enums';
+import GrpcService from '../../../lib/grpc/GrpcService';
+import * as boltzrpc from '../../../lib/proto/boltzrpc_pb';
+import Service from '../../../lib/service/Service';
 
 const getInfoData = {
   method: 'getInfo',
@@ -328,6 +328,7 @@ describe('GrpcService', () => {
       reverseTimeout: 1,
       swapMinimalTimeout: 2,
       swapMaximalTimeout: 3,
+      swapTaproot: 4,
     };
 
     grpcService.updateTimeoutBlockDelta(
@@ -341,6 +342,7 @@ describe('GrpcService', () => {
     expect(mockUpdateTimeoutBlockDelta).toHaveBeenCalledTimes(1);
     expect(mockUpdateTimeoutBlockDelta).toHaveBeenCalledWith(callData.pair, {
       reverse: callData.reverseTimeout,
+      swapTaproot: callData.swapTaproot,
       swapMinimal: callData.swapMinimalTimeout,
       swapMaximal: callData.swapMaximalTimeout,
     });

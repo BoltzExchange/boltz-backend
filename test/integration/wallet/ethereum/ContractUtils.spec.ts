@@ -1,16 +1,16 @@
-import { MaxUint256 } from 'ethers';
-import { randomBytes } from 'crypto';
 import { crypto } from 'bitcoinjs-lib';
-import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
-import { EthereumSetup, getContracts, getSigner } from '../EthereumTools';
+import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
+import { randomBytes } from 'crypto';
+import { MaxUint256 } from 'ethers';
 import { ERC20SwapValues, EtherSwapValues } from '../../../../lib/consts/Types';
 import {
-  queryEtherSwapValues,
   queryERC20SwapValues,
-  queryEtherSwapValuesFromLock,
   queryERC20SwapValuesFromLock,
+  queryEtherSwapValues,
+  queryEtherSwapValuesFromLock,
 } from '../../../../lib/wallet/ethereum/ContractUtils';
+import { EthereumSetup, getContracts, getSigner } from '../EthereumTools';
 
 describe('ContractUtils', () => {
   let setup: EthereumSetup;

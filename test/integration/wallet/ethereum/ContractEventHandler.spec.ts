@@ -1,13 +1,13 @@
-import { MaxUint256 } from 'ethers';
-import { randomBytes } from 'crypto';
 import { crypto } from 'bitcoinjs-lib';
 import { ERC20 } from 'boltz-core/typechain/ERC20';
-import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
+import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
+import { randomBytes } from 'crypto';
+import { MaxUint256 } from 'ethers';
 import Logger from '../../../../lib/Logger';
-import { waitForFunctionToBeTrue } from '../../../Utils';
-import { Ethereum } from '../../../../lib/wallet/ethereum/EvmNetworks';
 import ContractEventHandler from '../../../../lib/wallet/ethereum/ContractEventHandler';
+import { Ethereum } from '../../../../lib/wallet/ethereum/EvmNetworks';
+import { waitForFunctionToBeTrue } from '../../../Utils';
 import {
   EthereumSetup,
   fundSignerWallet,

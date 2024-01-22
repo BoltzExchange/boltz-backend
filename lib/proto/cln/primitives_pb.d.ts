@@ -2,8 +2,8 @@
 // file: cln/primitives.proto
 
 /* tslint:disable */
-/* eslint-disable */
 
+/* eslint-disable */
 import * as jspb from 'google-protobuf';
 
 export class Amount extends jspb.Message {

@@ -1,6 +1,6 @@
 import { getPairId } from '../../../../lib/Utils';
-import { baseAsset, quoteAsset, checkPrice } from './Consts';
 import DataAggregator from '../../../../lib/rates/data/DataAggregator';
+import { baseAsset, checkPrice, quoteAsset } from './Consts';
 
 describe('DataProvider', () => {
   const dataAggregator = new DataAggregator();

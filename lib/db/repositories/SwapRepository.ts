@@ -1,6 +1,6 @@
 import { Op, WhereOptions } from 'sequelize';
-import Swap, { SwapType } from '../models/Swap';
 import { SwapUpdateEvent } from '../../consts/Enums';
+import Swap, { SwapType } from '../models/Swap';
 
 class SwapRepository {
   public static getSwaps = (options?: WhereOptions): Promise<Swap[]> => {
@@ -41,6 +41,12 @@ class SwapRepository {
     status: string,
     failureReason?: string,
   ): Promise<Swap> => {
+    if (swap.failureReason) {
+      return swap.update({
+        status,
+      });
+    }
+
     return swap.update({
       status,
       failureReason,

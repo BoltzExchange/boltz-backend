@@ -1,11 +1,11 @@
 import { Transaction } from 'bitcoinjs-lib';
 import Logger from '../../Logger';
-import LndClient from '../../lightning/LndClient';
 import ChainClient from '../../chain/ChainClient';
+import LndClient from '../../lightning/LndClient';
 import { AddressType } from '../../proto/lnd/rpc_pb';
 import WalletProviderInterface, {
-  WalletBalance,
   SentTransaction,
+  WalletBalance,
 } from './WalletProviderInterface';
 
 class LndWalletProvider implements WalletProviderInterface {

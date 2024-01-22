@@ -1,10 +1,10 @@
 import { Transaction } from 'liquidjs-lib';
-import Errors from './Errors';
-import { getHexBuffer } from '../Utils';
-import WalletLiquid from '../wallet/WalletLiquid';
-import ElementsClient from '../chain/ElementsClient';
 import { UnblindedOutput, unblindOutput } from '../Core';
+import { getHexBuffer } from '../Utils';
+import ElementsClient from '../chain/ElementsClient';
+import WalletLiquid from '../wallet/WalletLiquid';
 import WalletManager, { Currency } from '../wallet/WalletManager';
+import Errors from './Errors';
 
 class ElementsService {
   constructor(

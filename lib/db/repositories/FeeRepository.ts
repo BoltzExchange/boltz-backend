@@ -1,7 +1,7 @@
 import { QueryTypes } from 'sequelize';
-import { Queries } from '../Utils';
-import Database, { DatabaseType } from '../Database';
 import { SuccessSwapUpdateEvents } from '../../consts/Enums';
+import Database, { DatabaseType } from '../Database';
+import { Queries } from '../Utils';
 
 type Fee = {
   asset: string;

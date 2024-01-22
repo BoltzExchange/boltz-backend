@@ -1,22 +1,23 @@
-import { wait } from '../../Utils';
-import Logger from '../../../lib/Logger';
-import Database from '../../../lib/db/Database';
-import Service from '../../../lib/service/Service';
 import { NotificationConfig } from '../../../lib/Config';
-import ReferralStats from '../../../lib/data/ReferralStats';
-import BackupScheduler from '../../../lib/backup/BackupScheduler';
-import DiscordClient from '../../../lib/notifications/DiscordClient';
-import CommandHandler from '../../../lib/notifications/CommandHandler';
-import PairRepository from '../../../lib/db/repositories/PairRepository';
-import SwapRepository from '../../../lib/db/repositories/SwapRepository';
-import { getHexBuffer, getHexString, stringify } from '../../../lib/Utils';
-import { Balances, GetBalanceResponse } from '../../../lib/proto/boltzrpc_pb';
-import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
-import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
 import {
   coinsToSatoshis,
   satoshisToSatcomma,
 } from '../../../lib/DenominationConverter';
+import Logger from '../../../lib/Logger';
+import { getHexBuffer, getHexString, stringify } from '../../../lib/Utils';
+import BackupScheduler from '../../../lib/backup/BackupScheduler';
+import ReferralStats from '../../../lib/data/ReferralStats';
+import Stats from '../../../lib/data/Stats';
+import Database from '../../../lib/db/Database';
+import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
+import PairRepository from '../../../lib/db/repositories/PairRepository';
+import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
+import SwapRepository from '../../../lib/db/repositories/SwapRepository';
+import CommandHandler from '../../../lib/notifications/CommandHandler';
+import DiscordClient from '../../../lib/notifications/DiscordClient';
+import { Balances, GetBalanceResponse } from '../../../lib/proto/boltzrpc_pb';
+import Service from '../../../lib/service/Service';
+import { wait } from '../../Utils';
 import {
   channelCreationExample,
   channelSwapExample,
@@ -25,7 +26,6 @@ import {
   reverseSwapExample,
   swapExample,
 } from './ExampleSwaps';
-import Stats from '../../../lib/data/Stats';
 
 const getRandomNumber = () => Math.floor(Math.random() * 10000);
 
@@ -191,8 +191,9 @@ describe('CommandHandler', () => {
       ReverseSwapRepository.addReverseSwap(pendingReverseSwapExample),
 
       SwapRepository.addSwap(channelSwapExample),
-      ChannelCreationRepository.addChannelCreation(channelCreationExample),
     ]);
+
+    await ChannelCreationRepository.addChannelCreation(channelCreationExample);
   });
 
   beforeEach(() => {
@@ -200,7 +201,7 @@ describe('CommandHandler', () => {
     ReferralStats.generate = mockGenerateReferralStats;
   });
 
-  test('should not respond to messages that are no commands', async () => {
+  test('should not respond to messages that are not commands', async () => {
     sendMessage('clearly not a command');
     await wait(5);
 

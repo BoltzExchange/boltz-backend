@@ -1,7 +1,7 @@
 import Logger from '../../../lib/Logger';
-import NodeInfo from '../../../lib/service/NodeInfo';
-import LndClient from '../../../lib/lightning/LndClient';
 import ChainClient from '../../../lib/chain/ChainClient';
+import LndClient from '../../../lib/lightning/LndClient';
+import NodeInfo from '../../../lib/service/NodeInfo';
 import { Currency } from '../../../lib/wallet/WalletManager';
 
 const getNodeInfo = (symbol: string) => ({

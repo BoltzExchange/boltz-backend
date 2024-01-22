@@ -1,12 +1,12 @@
 import crypto from 'crypto';
-import { raceCall } from '../../Utils';
 import Logger from '../../../lib/Logger';
-import Errors from '../../../lib/swap/Errors';
-import NodeSwitch from '../../../lib/swap/NodeSwitch';
-import NodeFallback from '../../../lib/swap/NodeFallback';
-import { Currency } from '../../../lib/wallet/WalletManager';
 import { NodeType } from '../../../lib/db/models/ReverseSwap';
+import Errors from '../../../lib/swap/Errors';
+import NodeFallback from '../../../lib/swap/NodeFallback';
+import NodeSwitch from '../../../lib/swap/NodeSwitch';
 import RoutingHints from '../../../lib/swap/routing/RoutingHints';
+import { Currency } from '../../../lib/wallet/WalletManager';
+import { raceCall } from '../../Utils';
 
 let nodeForReverseSwap: any;
 

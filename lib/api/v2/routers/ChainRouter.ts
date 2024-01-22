@@ -120,6 +120,7 @@ class ChainRouter extends RouterBase {
      *     parameters:
      *       - in: path
      *         name: currency
+     *         required: true
      *         schema:
      *           type: string
      *         description: Currency of the chain to broadcast on
@@ -134,8 +135,8 @@ class ChainRouter extends RouterBase {
      *                 type: string
      *                 description: The transaction to broadcast as raw HEX
      *     responses:
-     *       '200':
-     *         description: Id of the broadcast transaction
+     *       '201':
+     *         description: ID of the broadcast transaction
      *         content:
      *           application/json:
      *             schema:
@@ -143,7 +144,7 @@ class ChainRouter extends RouterBase {
      *               properties:
      *                 id:
      *                   type: string
-     *                   description: Id of the broadcast transaction
+     *                   description: ID of the broadcast transaction
      *       '400':
      *         description: Error that caused the broadcast of the transaction to fail
      *         content:

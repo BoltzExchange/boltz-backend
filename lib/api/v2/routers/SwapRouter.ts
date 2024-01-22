@@ -210,6 +210,59 @@ class SwapRouter extends RouterBase {
      * @openapi
      * components:
      *   schemas:
+     *     SubmarineTransaction:
+     *       type: object
+     *       properties:
+     *         id:
+     *           type: string
+     *           description: ID the lockup transaction
+     *         hex:
+     *           type: string
+     *           description: Lockup transaction as raw HEX
+     *         timeoutBlockHeight:
+     *           type: number
+     *           description: Block height at which the time-lock expires
+     *         timeoutEta:
+     *           type: number
+     *           description: UNIX timestamp at which the time-lock expires; set if it has not expired already
+     */
+
+    /**
+     * @openapi
+     * /swap/submarine/{id}/transaction:
+     *   get:
+     *     tags: [Submarine]
+     *     description: Get the lockup transaction of a Submarine Swap
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *         description: ID of the Submarine Swap
+     *     responses:
+     *       '200':
+     *         description: The lockup transaction of the Submarine Swap and accompanying information
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/SubmarineTransaction'
+     *       '400':
+     *         description: Error that caused the request to fail
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
+    router.get(
+      '/submarine/:id/transaction',
+      this.handleError(this.getSubmarineTransaction),
+    );
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
      *     SubmarineRefundRequest:
      *       type: object
      *       properties:
@@ -531,6 +584,21 @@ class SwapRouter extends RouterBase {
     this.logger.silly(`Swap ${response.id}: ${stringify(response)}`);
 
     createdResponse(res, response);
+  };
+
+  private getSubmarineTransaction = async (req: Request, res: Response) => {
+    const { id } = validateRequest(req.params, [
+      { name: 'id', type: 'string' },
+    ]);
+
+    const { transactionHex, transactionId, timeoutBlockHeight, timeoutEta } =
+      await this.service.getSwapTransaction(id);
+    successResponse(res, {
+      id: transactionId,
+      hex: transactionHex,
+      timeoutBlockHeight,
+      timeoutEta,
+    });
   };
 
   private refundSubmarine = async (req: Request, res: Response) => {

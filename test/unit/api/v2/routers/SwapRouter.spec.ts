@@ -56,6 +56,12 @@ describe('SwapRouter', () => {
       .mockReturnValue({ pairId: 'L-BTC/BTC', orderSide: OrderSide.BUY }),
     createSwapWithInvoice: jest.fn().mockResolvedValue({ id: 'randomId' }),
     createReverseSwap: jest.fn().mockResolvedValue({ id: 'reverseId' }),
+    getSwapTransaction: jest.fn().mockResolvedValue({
+      transactionId: 'txId',
+      transactionHex: 'txHex',
+      timeoutBlockHeight: 21,
+      timeoutEta: 210987,
+    }),
   } as unknown as Service;
 
   const swapRouter = new SwapRouter(Logger.disabledLogger, service);
@@ -74,9 +80,13 @@ describe('SwapRouter', () => {
 
     expect(Router).toHaveBeenCalledTimes(1);
 
-    expect(mockedRouter.get).toHaveBeenCalledTimes(2);
+    expect(mockedRouter.get).toHaveBeenCalledTimes(3);
     expect(mockedRouter.get).toHaveBeenCalledWith(
       '/submarine',
+      expect.anything(),
+    );
+    expect(mockedRouter.get).toHaveBeenCalledWith(
+      '/submarine/:id/transaction',
       expect.anything(),
     );
     expect(mockedRouter.get).toHaveBeenCalledWith(
@@ -197,8 +207,8 @@ describe('SwapRouter', () => {
       referralId: 'partner',
       refundPublicKey: '0021',
     };
-    const res = mockResponse();
 
+    const res = mockResponse();
     await swapRouter['createSubmarine'](mockRequest(reqBody), res);
 
     expect(service.createSwapWithInvoice).toHaveBeenCalledTimes(1);
@@ -212,6 +222,43 @@ describe('SwapRouter', () => {
       undefined,
       SwapVersion.Taproot,
     );
+  });
+
+  test.each`
+    error                        | params
+    ${'undefined parameter: id'} | ${{}}
+    ${'invalid parameter: id'}   | ${{ id: 1 }}
+  `(
+    'should not get lockup transaction of submarine swaps with invalid parameters ($error)',
+    async ({ error, params }) => {
+      await expect(
+        swapRouter['getSubmarineTransaction'](
+          mockRequest(undefined, undefined, params),
+          mockResponse(),
+        ),
+      ).rejects.toEqual(error);
+    },
+  );
+
+  test('should get lockup transaction of submarine swaps', async () => {
+    const id = 'asdf';
+
+    const res = mockResponse();
+    await swapRouter['getSubmarineTransaction'](
+      mockRequest(undefined, undefined, { id }),
+      res,
+    );
+
+    expect(service.getSwapTransaction).toHaveBeenCalledTimes(1);
+    expect(service.getSwapTransaction).toHaveBeenCalledWith(id);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      id: 'txId',
+      hex: 'txHex',
+      timeoutBlockHeight: 21,
+      timeoutEta: 210987,
+    });
   });
 
   test.each`

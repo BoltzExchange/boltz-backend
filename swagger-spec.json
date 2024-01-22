@@ -132,6 +132,7 @@
           {
             "in": "path",
             "name": "currency",
+            "required": true,
             "schema": {
               "type": "string"
             },
@@ -155,8 +156,8 @@
           }
         },
         "responses": {
-          "200": {
-            "description": "Id of the broadcast transaction",
+          "201": {
+            "description": "ID of the broadcast transaction",
             "content": {
               "application/json": {
                 "schema": {
@@ -164,7 +165,7 @@
                   "properties": {
                     "id": {
                       "type": "string",
-                      "description": "Id of the broadcast transaction"
+                      "description": "ID of the broadcast transaction"
                     }
                   }
                 }
@@ -362,6 +363,47 @@
           },
           "400": {
             "description": "Error that caused the Submarine Swap creation to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/swap/submarine/{id}/transaction": {
+      "get": {
+        "tags": [
+          "Submarine"
+        ],
+        "description": "Get the lockup transaction of a Submarine Swap",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID of the Submarine Swap"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The lockup transaction of the Submarine Swap and accompanying information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmarineTransaction"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error that caused the request to fail",
             "content": {
               "application/json": {
                 "schema": {
@@ -695,6 +737,27 @@
           "blindingKey": {
             "type": "string",
             "description": "Liquid blinding private key encoded as HEX"
+          }
+        }
+      },
+      "SubmarineTransaction": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "ID the lockup transaction"
+          },
+          "hex": {
+            "type": "string",
+            "description": "Lockup transaction as raw HEX"
+          },
+          "timeoutBlockHeight": {
+            "type": "number",
+            "description": "Block height at which the time-lock expires"
+          },
+          "timeoutEta": {
+            "type": "number",
+            "description": "UNIX timestamp at which the time-lock expires; set if it has not expired already"
           }
         }
       },

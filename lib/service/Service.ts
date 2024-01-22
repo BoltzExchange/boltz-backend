@@ -88,6 +88,13 @@ type Contracts = {
   rsk?: NetworkContracts;
 };
 
+type SwapTransaction = {
+  transactionId: string;
+  timeoutBlockHeight: number;
+  transactionHex?: string;
+  timeoutEta?: number;
+};
+
 class Service {
   public allowReverseSwaps = true;
 
@@ -487,12 +494,7 @@ class Service {
    * Gets the hex encoded lockup transaction of a Submarine Swap, the block height
    * at which it will time out and the expected ETA for that block
    */
-  public getSwapTransaction = async (
-    id: string,
-  ): Promise<{
-    transactionHex: string;
-    timeoutBlockHeight: number;
-  }> => {
+  public getSwapTransaction = async (id: string): Promise<SwapTransaction> => {
     const swap = await SwapRepository.getSwap({
       id,
     });
@@ -510,7 +512,7 @@ class Service {
 
     const currency = this.getCurrency(chainCurrency);
 
-    const response: any = {
+    const response: SwapTransaction = {
       transactionId: swap.lockupTransactionId,
       timeoutBlockHeight: swap.timeoutBlockHeight,
     };

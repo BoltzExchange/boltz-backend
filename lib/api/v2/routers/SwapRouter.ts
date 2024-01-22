@@ -57,67 +57,6 @@ class SwapRouter extends RouterBase {
     /**
      * @openapi
      * tags:
-     *   name: Swap
-     *   description: Generic Swap related endpoints
-     */
-
-    /**
-     * @openapi
-     * components:
-     *   schemas:
-     *     SwapStatus:
-     *       type: object
-     *       properties:
-     *         status:
-     *           type: string
-     *           description: Status of the Swap
-     *         zeroConfRejected:
-     *           type: boolean
-     *           description: Whether 0-conf was accepted for the lockup transaction of the Submarine Swap
-     *         transaction:
-     *           type: object
-     *           description: Details of the lockup transaction of a Reverse Swap
-     *           properties:
-     *             id:
-     *               type: string
-     *               description: ID of the transaction
-     *             hex:
-     *               type: string
-     *               description: Raw hex of the transaction
-     */
-
-    /**
-     * @openapi
-     * /swap/{id}:
-     *   get:
-     *     tags: [Swap]
-     *     description: Get the status of a Swap
-     *     parameters:
-     *       - in: path
-     *         name: id
-     *         required: true
-     *         schema:
-     *           type: string
-     *         description: ID of the Swap
-     *     responses:
-     *       '200':
-     *         description: The latest status of the Swap
-     *         content:
-     *           application/json:
-     *             schema:
-     *               $ref: '#/components/schemas/SwapStatus'
-     *       '404':
-     *         description: When no Swap with the ID could be found
-     *         content:
-     *           application/json:
-     *             schema:
-     *               $ref: '#/components/schemas/ErrorResponse'
-     */
-    router.get('/:id', this.handleError(this.getSwapStatus));
-
-    /**
-     * @openapi
-     * tags:
      *   name: Submarine
      *   description: Submarine Swap related endpoints
      */
@@ -608,6 +547,67 @@ class SwapRouter extends RouterBase {
      *               $ref: '#/components/schemas/ErrorResponse'
      */
     router.post('/reverse/claim', this.handleError(this.claimReverse));
+
+    /**
+     * @openapi
+     * tags:
+     *   name: Swap
+     *   description: Generic Swap related endpoints
+     */
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
+     *     SwapStatus:
+     *       type: object
+     *       properties:
+     *         status:
+     *           type: string
+     *           description: Status of the Swap
+     *         zeroConfRejected:
+     *           type: boolean
+     *           description: Whether 0-conf was accepted for the lockup transaction of the Submarine Swap
+     *         transaction:
+     *           type: object
+     *           description: Details of the lockup transaction of a Reverse Swap
+     *           properties:
+     *             id:
+     *               type: string
+     *               description: ID of the transaction
+     *             hex:
+     *               type: string
+     *               description: Raw hex of the transaction
+     */
+
+    /**
+     * @openapi
+     * /swap/{id}:
+     *   get:
+     *     tags: [Swap]
+     *     description: Get the status of a Swap
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *         description: ID of the Swap
+     *     responses:
+     *       '200':
+     *         description: The latest status of the Swap
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/SwapStatus'
+     *       '404':
+     *         description: When no Swap with the ID could be found
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
+    router.get('/:id', this.handleError(this.getSwapStatus));
 
     return router;
   };

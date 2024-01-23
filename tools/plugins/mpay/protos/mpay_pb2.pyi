@@ -110,16 +110,18 @@ class ListPaymentsResponse(_message.Message):
     def __init__(self, payments: _Optional[_Iterable[_Union[ListPaymentsResponse.Payment, _Mapping]]] = ...) -> None: ...
 
 class PayRequest(_message.Message):
-    __slots__ = ("bolt11", "max_fee_msat", "exempt_fee_msat", "timeout")
+    __slots__ = ("bolt11", "max_fee_msat", "exempt_fee_msat", "timeout", "max_delay")
     BOLT11_FIELD_NUMBER: _ClassVar[int]
     MAX_FEE_MSAT_FIELD_NUMBER: _ClassVar[int]
     EXEMPT_FEE_MSAT_FIELD_NUMBER: _ClassVar[int]
     TIMEOUT_FIELD_NUMBER: _ClassVar[int]
+    MAX_DELAY_FIELD_NUMBER: _ClassVar[int]
     bolt11: str
     max_fee_msat: int
     exempt_fee_msat: int
     timeout: int
-    def __init__(self, bolt11: _Optional[str] = ..., max_fee_msat: _Optional[int] = ..., exempt_fee_msat: _Optional[int] = ..., timeout: _Optional[int] = ...) -> None: ...
+    max_delay: int
+    def __init__(self, bolt11: _Optional[str] = ..., max_fee_msat: _Optional[int] = ..., exempt_fee_msat: _Optional[int] = ..., timeout: _Optional[int] = ..., max_delay: _Optional[int] = ...) -> None: ...
 
 class PayResponse(_message.Message):
     __slots__ = ("payment_hash", "payment_preimage", "fee_msat", "time")

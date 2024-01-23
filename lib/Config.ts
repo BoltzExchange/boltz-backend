@@ -9,8 +9,8 @@ import { WebdavConfig } from './backup/providers/Webdav';
 import { Network } from './consts/Enums';
 import Errors from './consts/Errors';
 import { PairConfig } from './consts/Types';
-import { ClnConfig } from './lightning/ClnClient';
 import { LndConfig } from './lightning/LndClient';
+import { ClnConfig } from './lightning/cln/ClnClient';
 import { NodeSwitchConfig } from './swap/NodeSwitch';
 
 type PostgresConfig = {

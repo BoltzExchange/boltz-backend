@@ -53,6 +53,10 @@ class Route:
     def fee(self) -> Millisatoshi:
         return self.route[0]["amount_msat"] - self.route[-1]["amount_msat"]
 
+    @property
+    def delay(self) -> int:
+        return self.route[0]["delay"]
+
     def most_expensive_channel(self) -> tuple[dict[str, Any], Millisatoshi]:
         if len(self) == 0:
             msg = "route needs at least one hop to calculate most expensive one"
@@ -72,8 +76,30 @@ class Route:
 
         return most_expensive
 
+    def highest_delay_channel(self) -> tuple[dict[str, Any], int]:
+        if len(self) == 0:
+            msg = "route needs at least one hop to calculate highest delay hop"
+            raise ValueError(msg)
+
+        highest_delay: tuple[dict[str, Any], int] = (
+            self.route[-1],
+            self.route[-1]["delay"],
+        )
+        if len(self) == 1:
+            return highest_delay
+
+        for first, second in pairwise(self.route):
+            delay = first["delay"] - second["delay"]
+            if delay > highest_delay[1]:
+                highest_delay = (first, delay)
+
+        return highest_delay
+
     def exceeds_fee(self, max_fee: Millisatoshi) -> bool:
-        return self.fee > max_fee
+        return self.fee >= max_fee
+
+    def exceeds_delay(self, max_delay: int) -> bool:
+        return self.delay >= max_delay
 
     def add_cltv(self, cltv: int) -> None:
         for hop in self.route:

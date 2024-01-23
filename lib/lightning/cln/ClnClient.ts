@@ -2,29 +2,32 @@ import {
   ChannelCredentials,
   ClientReadableStream,
   Metadata,
-  credentials,
 } from '@grpc/grpc-js';
 import bolt11 from 'bolt11';
-import fs from 'fs';
-import BaseClient from '../BaseClient';
-import Logger from '../Logger';
-import { decodeInvoice, formatError, getHexString } from '../Utils';
-import { ClientStatus } from '../consts/Enums';
-import { NodeClient } from '../proto/cln/node_grpc_pb';
-import * as noderpc from '../proto/cln/node_pb';
-import { ListfundsOutputs } from '../proto/cln/node_pb';
-import * as primitivesrpc from '../proto/cln/primitives_pb';
-import { HoldClient } from '../proto/hold/hold_grpc_pb';
-import * as holdrpc from '../proto/hold/hold_pb';
-import { WalletBalance } from '../wallet/providers/WalletProviderInterface';
+import BaseClient from '../../BaseClient';
+import Logger from '../../Logger';
+import {
+  decodeInvoice,
+  formatError,
+  getHexBuffer,
+  getHexString,
+} from '../../Utils';
+import { ClientStatus } from '../../consts/Enums';
+import { NodeClient } from '../../proto/cln/node_grpc_pb';
+import * as noderpc from '../../proto/cln/node_pb';
+import { ListfundsOutputs, ListpaysPays } from '../../proto/cln/node_pb';
+import * as primitivesrpc from '../../proto/cln/primitives_pb';
+import { HoldClient } from '../../proto/hold/hold_grpc_pb';
+import * as holdrpc from '../../proto/hold/hold_pb';
+import { WalletBalance } from '../../wallet/providers/WalletProviderInterface';
 import {
   msatToSat,
   satToMsat,
   scidClnToLnd,
   scidLndToCln,
-} from './ChannelUtils';
-import Errors from './Errors';
-import { grpcOptions, unaryCall } from './GrpcUtils';
+} from '../ChannelUtils';
+import Errors from '../Errors';
+import { grpcOptions, unaryCall } from '../GrpcUtils';
 import {
   ChannelInfo,
   DecodedInvoice,
@@ -40,22 +43,11 @@ import {
   Route,
   RoutingHintsProvider,
   calculatePaymentFee,
-} from './LightningClient';
+} from '../LightningClient';
+import Mpay from './MpayClient';
+import { ClnConfig, createSsl } from './Types';
 
-type BaseConfig = {
-  host: string;
-  port: number;
-
-  rootCertPath: string;
-  privateKeyPath: string;
-  certChainPath: string;
-};
-
-type ClnConfig = BaseConfig & {
-  maxPaymentFeeRatio: number;
-
-  hold: BaseConfig;
-};
+import ListpaysPaysStatus = ListpaysPays.ListpaysPaysStatus;
 
 class ClnClient
   extends BaseClient
@@ -65,8 +57,9 @@ class ClnClient
   public static readonly serviceNameHold = 'hold';
   public static readonly moddedVersionSuffix = '-modded';
 
+  public readonly mpay?: Mpay;
+
   private static readonly paymentMinFee = 121;
-  private static readonly pendingTimeout = 120;
   private static readonly paymentTimeout = 300;
 
   private readonly maxPaymentFeeRatio!: number;
@@ -94,11 +87,22 @@ class ClnClient
     this.maxPaymentFeeRatio =
       config.maxPaymentFeeRatio > 0 ? config.maxPaymentFeeRatio : 0.01;
 
-    this.nodeCreds = this.createSsl(config);
-    this.holdCreds = this.createSsl(config.hold);
+    this.nodeCreds = createSsl(ClnClient.serviceName, symbol, config);
+    this.holdCreds = createSsl(ClnClient.serviceNameHold, symbol, config.hold);
 
     this.nodeUri = `${config.host}:${config.port}`;
     this.holdUri = `${config.hold.host}:${config.hold.port}`;
+
+    if (config.mpay) {
+      this.logger.verbose(
+        `Using mpay for ${ClnClient.serviceName} ${this.symbol}`,
+      );
+      this.mpay = new Mpay(logger, this.symbol, config.mpay);
+    } else {
+      this.logger.warn(
+        `Mpay not configured for ${ClnClient.serviceName} ${this.symbol}; using pay`,
+      );
+    }
   }
 
   public static isRpcError = (error: any): boolean => {
@@ -128,6 +132,8 @@ class ClnClient
     return ClnClient.serviceName;
   };
 
+  public useMpay = () => this.mpay !== undefined && this.mpay.isConnected();
+
   public connect = async (startSubscriptions = true): Promise<boolean> => {
     if (!this.isConnected()) {
       this.nodeClient = new NodeClient(this.nodeUri, this.nodeCreds, {
@@ -139,6 +145,8 @@ class ClnClient
         ...grpcOptions,
         'grpc.ssl_target_name_override': 'hold',
       });
+
+      this.mpay?.connect();
 
       try {
         await this.getInfo();
@@ -182,6 +190,8 @@ class ClnClient
       this.holdClient.close();
       this.holdClient = undefined;
     }
+
+    this.mpay?.disconnect();
 
     this.removeAllListeners();
 
@@ -533,21 +543,35 @@ class ClnClient
       return payStatus;
     }
 
+    const maxFee = satToMsat(
+      calculatePaymentFee(
+        invoice,
+        this.maxPaymentFeeRatio,
+        ClnClient.paymentMinFee,
+      ),
+    );
+
+    const useMpay = this.useMpay();
+    this.logger.verbose(
+      `Using ${useMpay ? 'mpay' : 'pay'} for ${ClnClient.serviceName} ${this.symbol} invoice payment`,
+    );
+
+    if (useMpay) {
+      return this.mpay!.sendPayment(
+        invoice,
+        maxFee,
+        ClnClient.paymentTimeout,
+        cltvDelta,
+      );
+    }
+
     const req = new noderpc.PayRequest();
 
     req.setBolt11(invoice);
     req.setRetryFor(ClnClient.paymentTimeout);
 
     const feeAmount = new primitivesrpc.Amount();
-    feeAmount.setMsat(
-      satToMsat(
-        calculatePaymentFee(
-          invoice,
-          this.maxPaymentFeeRatio,
-          ClnClient.paymentMinFee,
-        ),
-      ),
-    );
+    feeAmount.setMsat(maxFee);
     req.setMaxfee(feeAmount);
 
     if (cltvDelta) {
@@ -651,44 +675,43 @@ class ClnClient
   public checkPayStatus = async (
     invoice: string,
   ): Promise<PaymentResponse | undefined> => {
-    const res = await this.payStatus(invoice);
+    const listPayReq = new noderpc.ListpaysRequest();
+    listPayReq.setBolt11(invoice);
+
+    const pays = (
+      await this.unaryNodeCall<
+        noderpc.ListpaysRequest,
+        noderpc.ListpaysResponse
+      >('listPays', listPayReq, false)
+    ).getPaysList();
 
     // Check if the payment succeeded...
-    for (const pay of res.statusList) {
-      for (const attempt of pay.attemptsList) {
-        if (attempt.success?.paymentPreimage === undefined) {
-          continue;
-        }
+    const completedAttempts = pays.filter(
+      (attempt) => attempt.getStatus() === ListpaysPaysStatus.COMPLETE,
+    );
+    if (completedAttempts.length > 0) {
+      const fee =
+        completedAttempts.reduce(
+          (sum, attempt) =>
+            sum + BigInt(attempt.getAmountSentMsat()?.getMsat() || 0),
+          0n,
+        ) -
+        completedAttempts.reduce(
+          (sum, attempt) =>
+            sum + BigInt(attempt.getAmountMsat()?.getMsat() || 0),
+          0n,
+        );
 
-        const listPayReq = new noderpc.ListpaysRequest();
-        listPayReq.setBolt11(invoice);
-        listPayReq.setStatus(noderpc.ListpaysRequest.ListpaysStatus.COMPLETE);
-
-        const payStatusRes = await this.unaryNodeCall<
-          noderpc.ListpaysRequest,
-          noderpc.ListpaysResponse
-        >('listPays', listPayReq, false);
-        const payStatus = payStatusRes
-          .getPaysList()
-          .find((status) => status.getAmountSentMsat() !== undefined);
-        if (payStatus === undefined) {
-          break;
-        }
-
-        const fee =
-          BigInt(payStatus.getAmountSentMsat()!.getMsat()) -
-          BigInt(payStatus.getAmountMsat()!.getMsat());
-
-        return {
-          feeMsat: Number(fee),
-          preimage: Buffer.from(payStatus.getPreimage_asU8()),
-        };
-      }
+      return {
+        feeMsat: Number(fee),
+        preimage: Buffer.from(completedAttempts[0].getPreimage_asU8()),
+      };
     }
 
     // ... has failed
-    for (const pay of res.statusList) {
-      for (const attempt of pay.attemptsList) {
+    // TODO: mpay incorrect payment details detection
+    for (const payStatus of (await this.payStatus(invoice)).statusList) {
+      for (const attempt of payStatus.attemptsList) {
         if (
           attempt.state ===
             holdrpc.PayStatusResponse.PayStatus.Attempt.AttemptState
@@ -705,44 +728,29 @@ class ClnClient
     }
 
     // ... or is still pending
-    const pending = res.statusList.filter((pay) =>
-      pay.attemptsList.some(
-        (attempt) =>
-          attempt.state ===
-          holdrpc.PayStatusResponse.PayStatus.Attempt.AttemptState
-            .ATTEMPT_PENDING,
-      ),
+    const hasPendingPayments = pays.some(
+      (pay) => pay.getStatus() === ListpaysPaysStatus.PENDING,
     );
 
-    if (pending.length > 0) {
+    if (hasPendingPayments) {
       const channels = await this.unaryNodeCall<
         noderpc.ListpeerchannelsRequest,
         noderpc.ListpeerchannelsResponse
       >('listPeerChannels', new noderpc.ListpeerchannelsRequest(), false);
 
-      const pendingHtlcs = new Set<string>(
-        channels
-          .getChannelsList()
-          .flatMap((channel) =>
-            channel
-              .getHtlcsList()
-              .map((htlc) =>
-                getHexString(Buffer.from(htlc.getPaymentHash_asU8())),
-              ),
-          ),
-      );
+      const paymentHash = getHexBuffer(decodeInvoice(invoice).paymentHash!);
 
-      if (
-        pending.filter((pay) => {
-          const { paymentHash } = decodeInvoice(invoice);
+      const hasPendingHtlc = channels
+        .getChannelsList()
+        .some((channel) =>
+          channel
+            .getHtlcsList()
+            .some((htlc) =>
+              paymentHash.equals(Buffer.from(htlc.getPaymentHash_asU8())),
+            ),
+        );
 
-          return pay.attemptsList.some(
-            (attempt) =>
-              attempt.ageInSeconds < ClnClient.pendingTimeout ||
-              pendingHtlcs.has(paymentHash!),
-          );
-        }).length > 0
-      ) {
+      if (hasPendingHtlc) {
         throw 'payment already pending';
       }
     }
@@ -862,25 +870,6 @@ class ClnClient
       this.emit('subscription.error');
       setTimeout(() => this.reconnect(), this.RECONNECT_INTERVAL);
     }
-  };
-
-  private createSsl = (config: BaseConfig): ChannelCredentials => {
-    const certFiles = [
-      config.rootCertPath,
-      config.privateKeyPath,
-      config.certChainPath,
-    ];
-
-    if (
-      !certFiles.map((file) => fs.existsSync(file)).every((exists) => exists)
-    ) {
-      throw Errors.COULD_NOT_FIND_FILES(this.symbol, ClnClient.serviceName);
-    }
-
-    const [rootCert, privateKey, certChain] = certFiles.map((file) =>
-      fs.readFileSync(file),
-    );
-    return credentials.createSsl(rootCert, privateKey, certChain);
   };
 }
 

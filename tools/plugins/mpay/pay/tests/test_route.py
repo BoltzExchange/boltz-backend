@@ -119,6 +119,13 @@ class TestRoute:
             Millisatoshi(fee),
         )
 
+    def test_most_expensive_channel_no_hops(self) -> None:
+        with pytest.raises(
+            ValueError,
+            match="route needs at least one hop to calculate most expensive one",
+        ):
+            Route([], []).most_expensive_channel()
+
     def test_exceeds_fee(self) -> None:
         route = Route(
             [
@@ -132,17 +139,96 @@ class TestRoute:
         assert not route.exceeds_fee(Millisatoshi(12))
         assert not route.exceeds_fee(Millisatoshi(13))
 
-        assert not route.exceeds_fee(Millisatoshi(11))
+        assert route.exceeds_fee(Millisatoshi(11))
 
         assert route.exceeds_fee(Millisatoshi(1))
         assert route.exceeds_fee(Millisatoshi(0))
 
-    def test_most_expensive_channel_no_hops(self) -> None:
+    @pytest.mark.parametrize(
+        ("delay", "route_dict"),
+        [
+            (2, [{"delay": 2}]),
+            (
+                123,
+                [
+                    {"delay": 123},
+                    {"delay": 50},
+                    {"delay": 10},
+                ],
+            ),
+        ],
+    )
+    def test_delay(self, delay: int, route_dict: list[dict[str, Any]]) -> None:
+        assert Route(route_dict, [Fees(0, 0) for _ in route_dict]).delay == delay
+
+    @pytest.mark.parametrize(
+        ("highest_delay", "delay", "route_dict"),
+        [
+            (0, 2, [{"delay": 2}]),
+            (
+                0,
+                15,
+                [
+                    {"delay": 30},
+                    {"delay": 15},
+                    {"delay": 10},
+                ],
+            ),
+            (
+                1,
+                7,
+                [
+                    {"delay": 15},
+                    {"delay": 10},
+                    {"delay": 3},
+                ],
+            ),
+            (
+                3,
+                8,
+                [
+                    {"delay": 10},
+                    {"delay": 11},
+                    {"delay": 12},
+                    {"delay": 9},
+                    {"delay": 1},
+                ],
+            ),
+        ],
+    )
+    def test_highest_delay_channel(
+        self, highest_delay: int, delay: int, route_dict: list[dict[str, Any]]
+    ) -> None:
+        route = Route(route_dict, [Fees(0, 0) for _ in route_dict])
+        assert route.highest_delay_channel() == (
+            route[highest_delay],
+            delay,
+        )
+
+    def test_highest_delay_channel_no_hops(self) -> None:
         with pytest.raises(
             ValueError,
-            match="route needs at least one hop to calculate most expensive one",
+            match="route needs at least one hop to calculate highest delay hop",
         ):
-            Route([], []).most_expensive_channel()
+            Route([], []).highest_delay_channel()
+
+    def test_exceeds_delay(self) -> None:
+        route = Route(
+            [
+                {"delay": 20},
+                {"delay": 10},
+                {"delay": 9},
+            ],
+            [Fees(0, 0) for _ in range(3)],
+        )
+
+        assert not route.exceeds_delay(21)
+        assert not route.exceeds_delay(22)
+
+        assert route.exceeds_delay(20)
+
+        assert route.exceeds_delay(1)
+        assert route.exceeds_delay(0)
 
     def test_add_cltv(self) -> None:
         data = [

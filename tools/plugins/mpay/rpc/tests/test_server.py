@@ -54,6 +54,7 @@ class TestGrpc:
             options=(("grpc.ssl_target_name_override", "mpay"),),
         )
         client = MpayStub(channel)
+        client.ResetPathMemory(ResetPathMemoryRequest())
 
         yield client
 

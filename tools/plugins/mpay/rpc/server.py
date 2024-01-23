@@ -52,6 +52,7 @@ class MpayService(MpayServicer):
             if request.exempt_fee_msat != 0
             else DEFAULT_EXEMPT_FEE,
             timeout=request.timeout if request.timeout != 0 else DEFAULT_PAYMENT_TIMEOUT,
+            max_delay=request.max_delay if request.max_delay != 0 else None,
         )
 
         return PayResponse(

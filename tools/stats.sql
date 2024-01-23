@@ -1,144 +1,138 @@
--- Stats
+-- Views
 
-CREATE VIEW swap_volume AS
-SELECT
-    strftime('%Y', createdAt) AS year,
-    strftime('%m', createdAt) AS month,
-    pair,
-    count(*) AS trades,
-    sum(expectedAmount) / power(10, 8) AS volume
+CREATE OR REPLACE VIEW successfulSwaps AS (
+    SELECT
+        pair,
+        status,
+        referral,
+        fee,
+        CASE WHEN "orderSide" = 1
+                THEN "invoiceAmount"
+            ELSE "onchainAmount"
+        END AS amount,
+        "createdAt"
+    FROM swaps
+    WHERE pair IN ('BTC/BTC', 'L-BTC/BTC') AND
+        status = 'transaction.claimed'
+);
+
+CREATE OR REPLACE VIEW successReverseSwaps AS (
+    SELECT
+        pair,
+        status,
+        referral,
+        fee,
+        CASE WHEN "orderSide" = 1
+            THEN "onchainAmount"
+            ELSE "invoiceAmount"
+        END AS amount,
+        "createdAt"
+    FROM "reverseSwaps"
+    WHERE pair IN ('BTC/BTC', 'L-BTC/BTC') AND
+        status = 'invoice.settled'
+);
+
+-- Taproot
+
+SELECT 'swaps' AS type, COUNT(*)
 FROM swaps
-WHERE status = 'transaction.claimed'
-GROUP BY year, month, pair;
+WHERE version = 1
+UNION
+SELECT 'reverse' AS type, COUNT(*)
+FROM "reverseSwaps"
+WHERE version = 1;
 
-CREATE VIEW reverse_volume AS
-SELECT
-    strftime('%Y', createdAt) AS year,
-    strftime('%m', createdAt) AS month,
-    pair,
-    count(*) AS trades,
-    sum(onchainAmount) / power(10, 8) AS volume
-FROM reverseSwaps
-WHERE status = 'invoice.settled'
-GROUP BY year, month, pair;
+--
+-- Stats
+--
 
-WITH dat AS (
-    SELECT * FROM swap_volume
-    UNION
-    SELECT * FROM reverse_volume
+-- Volume
+
+WITH data AS (
+    SELECT * FROM successfulSwaps
+    UNION ALL
+    SELECT * FROM successReverseSwaps
 )
 SELECT
-    year,
-    month,
+    EXTRACT(YEAR FROM "createdAt") AS year,
+    EXTRACT(MONTH FROM "createdAt") AS month,
     pair,
-    sum(trades) AS trades,
-    round(sum(volume), 8) AS volume
-FROM dat
-GROUP BY year, month, pair;
+    SUM(amount) / POW(10, 8) AS sum
+FROM data
+GROUP BY GROUPING SETS (
+    (),
+    (year),
+    (year, month),
+    (year, month, pair)
+)
+ORDER BY
+    year NULLS FIRST,
+    month NULLS FIRST,
+    pair NULLS FIRST;
 
 -- Referrals
 
-CREATE VIEW swap_referrals AS
-SELECT
-    strftime('%Y', swaps.createdAt) AS year,
-    strftime('%m', swaps.createdAt) AS month,
-    pair,
-    referrals.id,
-    count(*) AS trades,
-    sum(expectedAmount) / power(10, 8) AS volume,
-    sum((swaps.fee * referrals.feeShare) / 100) AS referralSum
-FROM referrals
-    INNER JOIN swaps ON referrals.id = swaps.referral
-WHERE status = 'transaction.claimed'
-GROUP BY year, month, pair, referrals.id;
-
-CREATE VIEW reverse_referrals AS
-SELECT
-    strftime('%Y', reverseSwaps.createdAt) AS year,
-    strftime('%m', reverseSwaps.createdAt) AS month,
-    pair,
-    referrals.id,
-    count(*) AS trades,
-    sum(onchainAmount) / power(10, 8) AS volume,
-    sum((reverseSwaps.fee * referrals.feeShare) / 100) AS referralSum
-FROM referrals
-    INNER JOIN reverseSwaps ON referrals.id = reverseSwaps.referral
-WHERE status = 'invoice.settled'
-GROUP BY year, month, pair, referrals.id;
-
-WITH dat AS (
-    SELECT * FROM swap_referrals
-    UNION
-    SELECT * FROM reverse_referrals
+WITH data AS (
+    SELECT pair, status, fee, referral, "createdAt" FROM successfulSwaps
+    UNION ALL
+    SELECT pair, status, fee, referral, "createdAt" FROM successReverseSwaps
 )
 SELECT
-    year,
-    month,
+    EXTRACT(YEAR from data."createdAt") AS year,
+    EXTRACT(MONTH from data."createdAt") AS month,
     pair,
-    id,
-    sum(trades) AS trades,
-    round(sum(volume), 8) AS volume,
-    round(sum(referralSum), 8) AS referralSum
-FROM dat
-GROUP BY year, month, pair, id;
-
--- Failures
-
-CREATE VIEW reverse_successes AS
-SELECT coalesce(referral, 'none') AS referral, count(*) successful
-FROM reverseSwaps
-WHERE status = 'invoice.settled'
-GROUP BY referral;
-
-CREATE VIEW reverse_failures AS
-SELECT coalesce(referral, 'none') AS referral, count(*) failed
-FROM reverseSwaps
-WHERE status = 'transaction.refunded'
-GROUP BY referral;
-
-SELECT
-    rc.referral AS referral,
-    rf.failed,
-    rc.successful,
-    round((rf.failed * 100) / cast((rc.successful + rf.failed) AS REAL), 4) AS failureRate
-FROM reverse_successes rc
-    INNER JOIN reverse_failures rf ON rc.referral = rf.referral
-ORDER BY failureRate desc;
-
-SELECT round((count(*) * 100) / cast((
-    SELECT count(*)
-    FROM swaps
-    WHERE status = 'transaction.claimed'
-) + count(*) AS REAL), 4) AS failureRate
-FROM swaps
-WHERE status = 'invoice.failedToPay';
+    data.referral as referral,
+    (SUM(data.fee * r."feeShare") / 100)::BIGINT AS sum
+FROM data
+    INNER JOIN referrals r ON data.referral = r.id
+GROUP BY GROUPING SETS (
+    (year, month, pair, data.referral),
+    (year, month, data.referral)
+)
+ORDER BY year, month, pair NULLS FIRST, referral;
 
 -- Volume shares
-
-CREATE VIEW IF NOT EXISTS allSwaps AS
-    SELECT id, pair, status, createdAt, onchainAmount
-	FROM reverseSwaps
-	UNION
-	SELECT id, pair, status, createdAt, onchainAmount
-	FROM swaps;
 
 WITH successful AS (
 	SELECT
 	    pair,
-	    strftime('%Y-%m', createdAt) AS date,
-	    count(*) AS count,
-	    sum(onchainAmount) / pow(10, 8) AS volume
-	FROM allSwaps
-	WHERE status IN ('invoice.settled', 'transaction.claimed')
-	GROUP BY pair, date
+	    EXTRACT(YEAR FROM "createdAt") AS year,
+        EXTRACT(MONTH FROM "createdAt") AS month,
+	    COUNT(*) AS count,
+	    SUM(amount) / POW(10, 8) AS volume
+	FROM (SELECT * FROM successfulSwaps UNION SELECT * FROM successReverseSwaps) as allSwaps
+	GROUP BY pair, year, month
+), total_counts AS (
+    SELECT
+        year,
+        month,
+        SUM(count) AS total_count
+    FROM successful
+    GROUP BY year, month
+), total_volume AS (
+    SELECT
+        year,
+        month,
+        SUM(volume) AS total_volume
+    FROM successful
+    GROUP BY year, month
 )
 SELECT
-	date,
-	pair,
-	count,
-	(0.0+count) / sum(count) OVER (PARTITION BY date) AS count_pct,
-	volume,
-	volume / sum(volume) OVER (PARTITION BY date) AS volume_pct
-FROM successful
-GROUP BY pair, date
-ORDER BY date, pair;
+	s.year AS year,
+	s.month AS month,
+	s.pair AS pair,
+	SUM(count) AS count,
+    SUM(count) * 100 / SUM(t.total_count) AS count_pct,
+	SUM(volume) AS volume,
+    SUM(volume) * 100 / SUM(v.total_volume) AS volume_pct
+FROM successful s
+    INNER JOIN total_counts t ON
+        s.year = t.year AND
+        s.month = t.month
+    INNER JOIN total_volume v ON
+        s.year = v.year AND
+        s.month = v.month
+GROUP BY GROUPING SETS (
+    (s.year, s.month, pair)
+)
+ORDER BY year, month, pair NULLS FIRST;

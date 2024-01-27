@@ -534,7 +534,7 @@ class Controller {
   ): Promise<void> => {
     try {
       const referral = await Bouncer.validateRequestAuthentication(req);
-      const stats = await ReferralStats.generate(referral.id);
+      const stats = await ReferralStats.getReferralFees(referral.id);
 
       successResponse(res, stats);
     } catch (error) {

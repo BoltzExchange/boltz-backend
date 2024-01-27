@@ -1,7 +1,6 @@
 import { Request, Response, Router } from 'express';
 import Logger from '../../../Logger';
 import { errorResponse } from '../../Utils';
-import { apiPrefix } from '../Consts';
 
 abstract class RouterBase {
   public readonly path: string;
@@ -32,14 +31,7 @@ abstract class RouterBase {
       try {
         await handler(req, res);
       } catch (e) {
-        errorResponse(
-          this.logger,
-          req,
-          res,
-          e,
-          400,
-          `${apiPrefix}/${this.path}`,
-        );
+        errorResponse(this.logger, req, res, e, 400);
       }
     };
   };

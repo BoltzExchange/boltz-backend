@@ -63,6 +63,7 @@ WITH data AS (
     SELECT
         pair,
         status,
+        referral,
         CASE WHEN "orderSide" = 1
             THEN "invoiceAmount"
             ELSE "onchainAmount"
@@ -74,6 +75,7 @@ WITH data AS (
     SELECT
         pair,
         status,
+        referral,
         CASE WHEN "orderSide" = 1
             THEN "onchainAmount"
             ELSE "invoiceAmount"
@@ -88,10 +90,12 @@ SELECT
     pair,
     SUM(amount) AS sum
 FROM data
-WHERE (
+WHERE
+    CASE WHEN ? IS NOT NULL THEN referral = ? ELSE TRUE END
+    AND ((
       EXTRACT(YEAR FROM "createdAt") >= ? AND
       EXTRACT(MONTH FROM "createdAt") >= ?
-    ) OR EXTRACT(YEAR from "createdAt") > ?
+    ) OR EXTRACT(YEAR from "createdAt") > ?)
 GROUP BY GROUPING SETS (
     (year, month),
     (year, month, pair)
@@ -105,6 +109,7 @@ WITH data AS (
     SELECT
         pair,
         status,
+        referral,
         CASE WHEN orderSide THEN invoiceAmount ELSE onchainAmount END AS amount,
         createdAt
     FROM swaps
@@ -113,6 +118,7 @@ WITH data AS (
     SELECT
         pair,
         status,
+        referral,
         CASE WHEN orderSide THEN onchainAmount ELSE invoiceAmount END AS amount,
         createdAt
     FROM reverseSwaps
@@ -124,6 +130,7 @@ WITH data AS (
         pair,
         SUM(amount) AS sum
     FROM data
+    WHERE CASE WHEN ? IS NOT NULL THEN referral = ? ELSE TRUE END
     GROUP BY year, month, pair
     ORDER BY year, month, pair
 ), groupedTotals AS (
@@ -143,11 +150,11 @@ ORDER BY year, month, pair;
     // language=PostgreSQL
     [DatabaseType.PostgreSQL]: `
 WITH data AS (
-    SELECT pair, status, "createdAt"
+    SELECT pair, status, referral, "createdAt"
     FROM swaps
     WHERE status = ?
     UNION ALL
-    SELECT pair, status, "createdAt"
+    SELECT pair, status, referral, "createdAt"
     FROM "reverseSwaps"
     WHERE status = ?
 )
@@ -157,10 +164,12 @@ SELECT
     pair,
     COUNT(*) AS count
 FROM data
-WHERE (
+WHERE
+    CASE WHEN ? IS NOT NULL THEN referral = ? ELSE TRUE END
+    AND ((
         EXTRACT(YEAR FROM "createdAt") >= ? AND
         EXTRACT(MONTH FROM "createdAt") >= ?
-    ) OR EXTRACT(YEAR FROM "createdAt") > ?
+    ) OR EXTRACT(YEAR FROM "createdAt") > ?)
 GROUP BY GROUPING SETS (
     (year, month),
     (pair, year, month)
@@ -171,11 +180,11 @@ ORDER BY year, month, pair NULLS FIRST;
     // language=SQLite
     [DatabaseType.SQLite]: `
 WITH data AS (
-    SELECT pair, status, createdAt
+    SELECT pair, status, referral, createdAt
     FROM swaps
     WHERE status = ?
     UNION ALL
-    SELECT pair, status, createdAt
+    SELECT pair, status, referral, createdAt
     FROM reverseSwaps
     WHERE status = ?
 ), groupedSwaps AS (
@@ -185,6 +194,7 @@ WITH data AS (
         pair,
         COUNT(*) AS count
     FROM data
+    WHERE CASE WHEN ? IS NOT NULL THEN referral = ? ELSE TRUE END
     GROUP BY pair, year, month
     ORDER BY year, month
 ), groupedTotals AS (
@@ -204,9 +214,9 @@ ORDER BY year, month, pair;
     // language=PostgreSQL
     [DatabaseType.PostgreSQL]: `
 WITH data AS (
-    SELECT pair, false AS "isReverse", status, "createdAt" FROM swaps
+    SELECT pair, false AS "isReverse", status, referral, "createdAt" FROM swaps
     UNION ALL
-    SELECT pair, true as "isReverse", status, "createdAt" FROM "reverseSwaps"
+    SELECT pair, true as "isReverse", status, referral, "createdAt" FROM "reverseSwaps"
 )
 SELECT
     EXTRACT(YEAR FROM "createdAt") AS year,
@@ -216,10 +226,12 @@ SELECT
         WHERE status IN (?)
     ) / CAST(COUNT(*) AS REAL) AS "failureRate"
 FROM data
-WHERE (
+WHERE
+    CASE WHEN ? IS NOT NULL THEN referral = ? ELSE TRUE END
+    AND ((
         EXTRACT(YEAR FROM "createdAt") >= ? AND
         EXTRACT(MONTH FROM "createdAt") >= ?
-    ) OR EXTRACT(YEAR FROM "createdAt") > ?
+    ) OR EXTRACT(YEAR FROM "createdAt") > ?)
 GROUP BY year, month, "isReverse"
 ORDER BY year, month, "isReverse";
 `,
@@ -227,9 +239,9 @@ ORDER BY year, month, "isReverse";
     // language=SQLite
     [DatabaseType.SQLite]: `
 WITH data AS (
-    SELECT pair, false AS isReverse, status, createdAt FROM swaps
+    SELECT pair, false AS isReverse, status, referral, createdAt FROM swaps
     UNION ALL
-    SELECT pair, true as isReverse, status, createdAt FROM reverseSwaps
+    SELECT pair, true as isReverse, status, referral, createdAt FROM reverseSwaps
 )
 SELECT
     CAST(STRFTIME('%Y', createdAt) AS INT) AS year,
@@ -240,7 +252,9 @@ SELECT
         WHERE status IN (?)
     ) / CAST(COUNT(*) AS REAL) AS failureRate
 FROM data
-WHERE (year >= ? AND month >= ?) OR year > ?
+WHERE
+    CASE WHEN ? IS NOT NULL THEN referral = ? ELSE TRUE END AND
+    ((year >= ? AND month >= ?) OR year > ?)
 GROUP BY year, month, isReverse
 ORDER BY year, month, isReverse;
 `,
@@ -445,14 +459,17 @@ GROUP BY pair;
   };
 
   public static getVolume = (
-    minYear: number,
-    minMonth: number,
+    minYear: number = 0,
+    minMonth: number = 0,
+    referral: string | null = null,
   ): Promise<Volume[]> => {
     return StatsRepository.query({
       query: StatsRepository.queryVolume[Database.type],
       values: [
         SwapUpdateEvent.TransactionClaimed,
         SwapUpdateEvent.InvoiceSettled,
+        referral,
+        referral,
         minYear,
         minMonth,
         minYear,
@@ -461,14 +478,17 @@ GROUP BY pair;
   };
 
   public static getTradeCounts = (
-    minYear: number,
-    minMonth: number,
+    minYear: number = 0,
+    minMonth: number = 0,
+    referral: string | null = null,
   ): Promise<TradeCount[]> => {
     return StatsRepository.query({
       query: StatsRepository.queryTradeCounts[Database.type],
       values: [
         SwapUpdateEvent.TransactionClaimed,
         SwapUpdateEvent.InvoiceSettled,
+        referral,
+        referral,
         minYear,
         minMonth,
         minYear,
@@ -477,8 +497,9 @@ GROUP BY pair;
   };
 
   public static getFailureRates = (
-    minYear: number,
-    minMonth: number,
+    minYear: number = 0,
+    minMonth: number = 0,
+    referral: string | null = null,
   ): Promise<FailureRate[]> => {
     return StatsRepository.query({
       query: StatsRepository.queryFailureRates[Database.type],
@@ -488,6 +509,8 @@ GROUP BY pair;
           SwapUpdateEvent.InvoiceFailedToPay,
           SwapUpdateEvent.TransactionRefunded,
         ],
+        referral,
+        referral,
         minYear,
         minMonth,
         minYear,

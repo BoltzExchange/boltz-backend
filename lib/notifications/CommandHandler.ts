@@ -463,7 +463,7 @@ class CommandHandler {
 
   private getReferrals = async () => {
     await this.discord.sendMessage(
-      `${codeBlock}${stringify(await ReferralStats.generate())}${codeBlock}`,
+      `${codeBlock}${stringify(await ReferralStats.getReferralFees())}${codeBlock}`,
     );
   };
 

@@ -58,41 +58,26 @@ export const errorResponse = (
   res: Response,
   error: unknown,
   statusCode = 400,
-  urlPrefix: string = '',
 ): void => {
   if (typeof error === 'string') {
-    writeErrorResponse(logger, req, res, statusCode, { error }, urlPrefix);
+    writeErrorResponse(logger, req, res, statusCode, { error });
   } else {
     const errorObject = error as any;
 
     // Bitcoin Core related errors
     if (errorObject.details) {
-      writeErrorResponse(
-        logger,
-        req,
-        res,
-        statusCode,
-        {
-          error: errorObject.details,
-        },
-        urlPrefix,
-      );
+      writeErrorResponse(logger, req, res, statusCode, {
+        error: errorObject.details,
+      });
       // Custom error when broadcasting a refund transaction fails because
       // the locktime requirement has not been met yet
     } else if (errorObject.timeoutBlockHeight) {
-      writeErrorResponse(logger, req, res, statusCode, error, urlPrefix);
+      writeErrorResponse(logger, req, res, statusCode, error);
       // Everything else
     } else {
-      writeErrorResponse(
-        logger,
-        req,
-        res,
-        statusCode,
-        {
-          error: errorObject.message,
-        },
-        urlPrefix,
-      );
+      writeErrorResponse(logger, req, res, statusCode, {
+        error: errorObject.message,
+      });
     }
   }
 };
@@ -120,11 +105,10 @@ export const writeErrorResponse = (
   res: Response,
   statusCode: number,
   error: any,
-  urlPrefix: string = '',
 ) => {
   if (!errorsNotToLog.includes(error?.error || error)) {
     logger.warn(
-      `Request ${req.method} ${urlPrefix + req.url} ${
+      `Request ${req.method} ${req.originalUrl} ${
         req.body && Object.keys(req.body).length > 0
           ? `${JSON.stringify(req.body)} `
           : ''

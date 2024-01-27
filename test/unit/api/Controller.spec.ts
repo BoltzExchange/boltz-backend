@@ -241,7 +241,7 @@ describe('Controller', () => {
   const controller = new Controller(Logger.disabledLogger, service);
 
   beforeEach(() => {
-    ReferralStats.generate = mockGenerateReferralStats;
+    ReferralStats.getReferralFees = mockGenerateReferralStats;
 
     SwapRepository.getSwaps = () => Promise.resolve(swaps);
     ReverseSwapRepository.getReverseSwaps = () => Promise.resolve(reverseSwaps);

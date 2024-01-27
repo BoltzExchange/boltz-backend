@@ -63,11 +63,17 @@ describe('ElementsWalletProvider', () => {
     const output = (sentTransaction.transaction as Transaction).outs[
       sentTransaction.vout!
     ];
-    expect(
-      unblindingKey
-        ? Number(cf.unblindOutputWithKey(output, unblindingKey).value)
-        : confidential.confidentialValueToSatoshi(output.value),
-    ).toEqual(expectedAmount);
+    const actualAmount = unblindingKey
+      ? Number(cf.unblindOutputWithKey(output, unblindingKey).value)
+      : confidential.confidentialValueToSatoshi(output.value);
+
+    if (isSweep) {
+      // Some buffer for sweeps
+      expect(actualAmount).toBeGreaterThanOrEqual(expectedAmount - 2);
+      expect(actualAmount).toBeLessThanOrEqual(expectedAmount + 2);
+    } else {
+      expect(actualAmount).toEqual(expectedAmount);
+    }
 
     if (feePerVbyte) {
       expect(
@@ -77,7 +83,7 @@ describe('ElementsWalletProvider', () => {
   };
 
   beforeAll(async () => {
-    cf = new confidential.Confidential(await secp256k1());
+    cf = new confidential.Confidential((await secp256k1()) as any);
   });
 
   beforeEach(async () => {

@@ -22,7 +22,7 @@ class Bouncer {
       referral,
       ts,
       req.method,
-      req.path,
+      req.originalUrl,
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       req.rawBody,

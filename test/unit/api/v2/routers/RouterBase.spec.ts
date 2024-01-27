@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import Logger from '../../../../../lib/Logger';
 import { errorResponse } from '../../../../../lib/api/Utils';
-import { apiPrefix } from '../../../../../lib/api/v2/Consts';
 import RouterBase from '../../../../../lib/api/v2/routers/RouterBase';
 import { mockRequest, mockResponse } from '../../Utils';
 
@@ -39,7 +38,6 @@ describe('RouterBase', () => {
       expect.anything(),
       msg,
       400,
-      `${apiPrefix}/${new TestRouter().path}`,
     );
   });
 
@@ -54,7 +52,6 @@ describe('RouterBase', () => {
       expect.anything(),
       msg,
       400,
-      `${apiPrefix}/${new TestRouter().path}`,
     );
   });
 });

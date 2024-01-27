@@ -47,6 +47,17 @@ jest.mock('../../../../lib/api/v2/routers/ChainRouter', () => {
   });
 });
 
+const mockGetReferralRouter = jest.fn().mockReturnValue(Router());
+
+jest.mock('../../../../lib/api/v2/routers/ReferralRouter', () => {
+  return jest.fn().mockImplementation(() => {
+    return {
+      path: 'referral',
+      getRouter: mockGetReferralRouter,
+    };
+  });
+});
+
 describe('ApiV2', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -64,7 +75,7 @@ describe('ApiV2', () => {
     expect(mockNodesGetRouter).toHaveBeenCalledTimes(1);
     expect(mockGetChainRouter).toHaveBeenCalledTimes(1);
 
-    expect(app.use).toHaveBeenCalledTimes(4);
+    expect(app.use).toHaveBeenCalledTimes(5);
     expect(app.use).toHaveBeenCalledWith(`${apiPrefix}/`, mockGetInfoRouter());
     expect(app.use).toHaveBeenCalledWith(
       `${apiPrefix}/swap`,
@@ -77,6 +88,10 @@ describe('ApiV2', () => {
     expect(app.use).toHaveBeenCalledWith(
       `${apiPrefix}/nodes`,
       mockNodesGetRouter(),
+    );
+    expect(app.use).toHaveBeenCalledWith(
+      `${apiPrefix}/referral`,
+      mockGetReferralRouter(),
     );
   });
 });

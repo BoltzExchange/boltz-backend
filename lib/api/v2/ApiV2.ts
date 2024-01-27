@@ -6,6 +6,7 @@ import { apiPrefix } from './Consts';
 import ChainRouter from './routers/ChainRouter';
 import InfoRouter from './routers/InfoRouter';
 import NodesRouter from './routers/NodesRouter';
+import ReferralRouter from './routers/ReferralRouter';
 import RouterBase from './routers/RouterBase';
 import SwapRouter from './routers/SwapRouter';
 
@@ -22,6 +23,7 @@ class ApiV2 {
       new SwapRouter(this.logger, service, controller),
       new ChainRouter(this.logger, service),
       new NodesRouter(this.logger, service),
+      new ReferralRouter(this.logger),
     ];
   }
 

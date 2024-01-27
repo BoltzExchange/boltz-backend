@@ -198,7 +198,7 @@ describe('CommandHandler', () => {
 
   beforeEach(() => {
     mockSendMessage.mockClear();
-    ReferralStats.generate = mockGenerateReferralStats;
+    ReferralStats.getReferralFees = mockGenerateReferralStats;
   });
 
   test('should not respond to messages that are not commands', async () => {

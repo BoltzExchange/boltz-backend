@@ -9,15 +9,16 @@ description: >-
 
 Prerequisites:
 
-* The latest [node.js lts and npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) installed. We recommend using [nvm](https://github.com/nvm-sh/nvm#install--update-script) to manage npm installs: `nvm install --lts`
+* The latest [Node.js LTS and npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) installed. We recommend using [nvm](https://github.com/nvm-sh/nvm#install--update-script) to manage npm installs: `nvm install --lts`
 * [rsync](https://github.com/WayneD/rsync) (needed to compile the `TypeScript` code)
 
-Boltz Backend requires a synced Bitcoin Core Instance to connect to the Bitcoin mainchain. Similarly, Elements Core to connect to the Liquid sidechain etc. Bitcoin Core must:
+Boltz Backend requires a synced Bitcoin Core Instance to connect to the Bitcoin mainchain. Similarly, Elements Core to connect to the Liquid sidechain etc. Bitcoin/Elements Core must:
 
 * Have the transaction index enabled: `txindex=1`
 * Enable ZeroMQ streams for raw blocks and raw transactions: (`zmqpubrawblock=tcp://<host>:<port>` and `zmqpubrawtx=tcp://<host>:<port>`)
 
-Boltz requires a [LND](https://github.com/LightningNetwork/lnd) or [CLN](https://github.com/ElementsProject/lightning/) node running on Bitcoin to be present. For LND, no special configuration is needed, all [official release binaries](https://github.com/lightningnetwork/lnd/releases) are compatible.
+Boltz requires a [LND](https://github.com/LightningNetwork/lnd) or [CLN](https://github.com/ElementsProject/lightning/) node running on Bitcoin to be present.
+For LND, no special configuration is needed, all [official release binaries](https://github.com/lightningnetwork/lnd/releases) are compatible.
 
 ## Config Sample
 
@@ -33,6 +34,15 @@ mnemonicpath = "/home/boltz/.boltz/seed.dat"
 
 # Possible values are: error, warning, info, verbose, debug, silly
 loglevel = "debug"
+
+# The backend can also connect to a PostgreSQL database
+# When configured, it takes precedence over SQLite
+# [postgres]
+# host = "127.0.0.1"
+# port = 5432
+# database = "boltz"
+# username = "boltz"
+# password = "boltz"
 
 # Logs can be sent to a Loki log aggregator
 # lokiHost = "http://127.0.0.1:3100"
@@ -183,4 +193,18 @@ maxZeroConfAmount = 10_000_000
   certpath = "/home/boltz/.lnd/bitcoin/tls.cert"
   macaroonpath = "/home/boltz/.lnd/bitcoin/admin.macaroon"
   maxPaymentFeeRatio = 0.03
+```
+
+## Database migrations
+
+To migrate from a SQLite database to PostgreSQL use the following script with [pgloader](https://pgloader.io/):
+
+```
+load database 
+    from sqlite://<path>
+    into pgsql://<user>:<password>>@<host>/<database>
+
+with quote identifiers, data only, reset sequences
+
+set work_mem to '16MB', maintenance_work_mem to '512 MB';
 ```

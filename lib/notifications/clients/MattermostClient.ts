@@ -90,6 +90,10 @@ class MattermostClient
 
     if (message.includes(codeBlock)) {
       message = message.replace(/```/, '```json\n');
+      if (!message.startsWith('\n')) {
+        message = `\n${message}`;
+      }
+
       message =
         message.substring(0, message.length - codeBlock.length) + '\n```';
     }

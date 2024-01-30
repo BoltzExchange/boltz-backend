@@ -572,6 +572,32 @@ class Service {
     throw Errors.CURRENCY_NOT_FOUND(symbol);
   };
 
+  public getBlockHeights = async (
+    symbol?: string,
+  ): Promise<Map<string, number>> => {
+    const currencies = symbol
+      ? [this.getCurrency(symbol)]
+      : Array.from(this.currencies.values());
+
+    return new Map<string, number>(
+      (await Promise.all(
+        currencies.map(async (currency) => {
+          if (currency.chainClient) {
+            return [
+              currency.symbol,
+              (await currency.chainClient.getBlockchainInfo()).blocks,
+            ];
+          } else {
+            return [
+              currency.symbol,
+              (await currency.provider?.getBlockNumber()) || 0,
+            ];
+          }
+        }),
+      )) as [string, number][],
+    );
+  };
+
   /**
    * Gets a fee estimation in satoshis per vbyte or GWEI for either all currencies or just a single one if specified
    */

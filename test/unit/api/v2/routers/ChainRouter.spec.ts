@@ -32,6 +32,17 @@ describe('ChainRouter', () => {
           ['RBTC', 23.121212312],
         ]);
       }),
+    getBlockHeights: jest.fn().mockImplementation(async (currency?: string) => {
+      if (currency) {
+        return new Map([['BTC', 210_00]]);
+      }
+
+      return new Map([
+        ['BTC', 210_00],
+        ['L-BTC', 2_100_000],
+        ['RBTC', 5_000_000],
+      ]);
+    }),
   } as unknown as Service;
 
   const chainRouter = new ChainRouter(Logger.disabledLogger, service);
@@ -50,10 +61,18 @@ describe('ChainRouter', () => {
 
     expect(Router).toHaveBeenCalledTimes(1);
 
-    expect(mockedRouter.get).toHaveBeenCalledTimes(3);
+    expect(mockedRouter.get).toHaveBeenCalledTimes(5);
     expect(mockedRouter.get).toHaveBeenCalledWith('/fees', expect.anything());
     expect(mockedRouter.get).toHaveBeenCalledWith(
+      '/heights',
+      expect.anything(),
+    );
+    expect(mockedRouter.get).toHaveBeenCalledWith(
       '/:currency/fee',
+      expect.anything(),
+    );
+    expect(mockedRouter.get).toHaveBeenCalledWith(
+      '/:currency/height',
       expect.anything(),
     );
     expect(mockedRouter.get).toHaveBeenCalledWith(
@@ -81,6 +100,19 @@ describe('ChainRouter', () => {
     );
   });
 
+  test('should get block heights', async () => {
+    const res = mockResponse();
+    await chainRouter['getHeights'](mockRequest(), res);
+
+    expect(service.getBlockHeights).toHaveBeenCalledTimes(1);
+    expect(service.getBlockHeights).toHaveBeenCalledWith();
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(
+      mapToObject(await service.getBlockHeights()),
+    );
+  });
+
   test('should get fee estimation for chain', async () => {
     const currency = 'BTC';
 
@@ -98,6 +130,26 @@ describe('ChainRouter', () => {
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
       fee: (await service.getFeeEstimation(currency)).get(currency),
+    });
+  });
+
+  test('should get block height for chain', async () => {
+    const currency = 'BTC';
+
+    const res = mockResponse();
+    await chainRouter['getHeightForChain'](
+      mockRequest(undefined, undefined, {
+        currency,
+      }),
+      res,
+    );
+
+    expect(service.getBlockHeights).toHaveBeenCalledTimes(1);
+    expect(service.getBlockHeights).toHaveBeenCalledWith(currency);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      height: (await service.getBlockHeights(currency)).get(currency),
     });
   });
 

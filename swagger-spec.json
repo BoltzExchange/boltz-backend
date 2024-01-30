@@ -29,6 +29,30 @@
         }
       }
     },
+    "/chain/heights": {
+      "get": {
+        "description": "Block heights for all supported chains",
+        "tags": [
+          "Chain"
+        ],
+        "responses": {
+          "200": {
+            "description": "Object of currency of chain -> block height",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "number",
+                    "description": "Block height of the chain"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/chain/{currency}/fee": {
       "get": {
         "description": "Fee estimations for a chain",
@@ -59,6 +83,63 @@
                       "description": "Fee estimation in sat/vbyte or GWEI"
                     }
                   }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error that caused the request to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/chain/{currency}/height": {
+      "get": {
+        "description": "Block height for a chain",
+        "tags": [
+          "Chain"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "currency",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Currency of the chain to get the block height for"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Object containing the block height",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "fee": {
+                      "type": "number",
+                      "description": "Block height of the chain"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error that caused the request to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }

@@ -8,8 +8,8 @@ import { CurrencyType } from '../../../lib/consts/Enums';
 import ChannelCreation from '../../../lib/db/models/ChannelCreation';
 import ReverseSwap from '../../../lib/db/models/ReverseSwap';
 import Swap from '../../../lib/db/models/Swap';
-import DiscordClient from '../../../lib/notifications/DiscordClient';
 import NotificationProvider from '../../../lib/notifications/NotificationProvider';
+import DiscordClient from '../../../lib/notifications/clients/DiscordClient';
 import Service from '../../../lib/service/Service';
 import WalletManager from '../../../lib/wallet/WalletManager';
 import { Rsk } from '../../../lib/wallet/ethereum/EvmNetworks';
@@ -84,7 +84,7 @@ const mockedBackupScheduler = <jest.Mock<BackupScheduler>>(
 
 const mockSendMessage = jest.fn().mockImplementation(async () => {});
 
-jest.mock('../../../lib/notifications/DiscordClient', () => {
+jest.mock('../../../lib/notifications/clients/DiscordClient', () => {
   return jest.fn().mockImplementation(() => {
     return {
       on: () => {},

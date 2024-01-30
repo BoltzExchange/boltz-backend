@@ -1,32 +1,22 @@
 import { GatewayIntentBits } from 'discord-api-types/v10';
 import { Client, Message, TextChannel } from 'discord.js';
-import { EventEmitter } from 'events';
-import { NotificationConfig } from '../Config';
-import Logger from '../Logger';
-import { codeBlock } from './Markup';
+import { NotificationConfig } from '../../Config';
+import Logger from '../../Logger';
+import { codeBlock } from '../Markup';
+import NotificationClient from './NotificationClient';
 
-interface DiscordClient {
-  on(event: 'message', listener: (message: string) => void): this;
-  emit(event: 'message', message: string): boolean;
+class DiscordClient extends NotificationClient {
+  public static readonly serviceName = 'Discord';
 
-  on(event: 'error', listener: (error: Error) => void): this;
-  emit(event: 'error', error: Error): boolean;
-}
-
-class DiscordClient extends EventEmitter {
   private static readonly maxMessageLen = 2000;
 
   private readonly client: Client;
-  private readonly prefix: string;
 
   private channel?: TextChannel = undefined;
   private channelAlerts?: TextChannel = undefined;
 
-  constructor(
-    private readonly logger: Logger,
-    private readonly config: NotificationConfig,
-  ) {
-    super();
+  constructor(logger: Logger, config: NotificationConfig) {
+    super(DiscordClient.serviceName, logger, config);
 
     this.client = new Client({
       intents: [
@@ -35,7 +25,6 @@ class DiscordClient extends EventEmitter {
         GatewayIntentBits.MessageContent,
       ],
     });
-    this.prefix = `[${this.config.prefix}]: `;
   }
 
   public init = async (): Promise<void> => {
@@ -91,10 +80,13 @@ class DiscordClient extends EventEmitter {
 
   public sendMessage = async (
     message: string,
-    isAlert: boolean = false,
+    isAlert?: boolean,
   ): Promise<void> => {
-    const channel: TextChannel | undefined =
-      (isAlert ? this.channelAlerts : this.channel) || this.channel;
+    const channel = this.selectChannel(
+      this.channel,
+      this.channelAlerts,
+      isAlert,
+    );
 
     if (channel === undefined) {
       return;

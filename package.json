@@ -72,6 +72,8 @@
     "@google-cloud/storage": "^7.7.0",
     "@grpc/grpc-js": "^1.9.14",
     "@iarna/toml": "^2.2.5",
+    "@mattermost/client": "^9.4.0",
+    "@mattermost/types": "^9.4.0",
     "@vulpemventures/secp256k1-zkp": "^3.2.1",
     "async-lock": "^1.4.1",
     "axios": "^1.6.7",

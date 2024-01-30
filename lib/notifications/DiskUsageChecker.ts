@@ -1,7 +1,7 @@
 import { execFile } from 'child_process';
 import Logger from '../Logger';
-import DiscordClient from './DiscordClient';
 import { Emojis } from './Markup';
+import NotificationClient from './clients/NotificationClient';
 
 type DiskUsage = {
   total: number;
@@ -17,7 +17,7 @@ class DiskUsageChecker {
 
   constructor(
     private logger: Logger,
-    private discord: DiscordClient,
+    private notificationClient: NotificationClient,
   ) {}
 
   public checkUsage = async (): Promise<void> => {
@@ -39,7 +39,7 @@ class DiskUsageChecker {
           )} GB** available ${Emojis.RotatingLight}`;
 
         this.logger.warn(message);
-        await this.discord.sendMessage(message);
+        await this.notificationClient.sendMessage(message);
 
         this.alertSent = true;
       }

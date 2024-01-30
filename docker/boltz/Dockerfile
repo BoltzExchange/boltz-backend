@@ -22,7 +22,7 @@ WORKDIR /boltz-backend
 RUN sed -i "/grpc-tools/d" package.json
 
 RUN npm install -g npm
-RUN npm install
+RUN npm install --force
 RUN npm run compile
 
 FROM node:${NODE_VERSION} AS final

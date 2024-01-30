@@ -128,6 +128,8 @@ type BackupConfig = {
 };
 
 type NotificationConfig = {
+  mattermostUrl?: string;
+
   token: string;
   channel: string;
   channelAlerts?: string;

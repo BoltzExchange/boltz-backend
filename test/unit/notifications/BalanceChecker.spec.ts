@@ -5,8 +5,8 @@ import { liquidSymbol } from '../../../lib/consts/LiquidTypes';
 import BalanceChecker, {
   BalanceType,
 } from '../../../lib/notifications/BalanceChecker';
-import DiscordClient from '../../../lib/notifications/DiscordClient';
 import { Emojis } from '../../../lib/notifications/Markup';
+import DiscordClient from '../../../lib/notifications/clients/DiscordClient';
 import { Balances, GetBalanceResponse } from '../../../lib/proto/boltzrpc_pb';
 import Service from '../../../lib/service/Service';
 
@@ -25,7 +25,7 @@ const MockedService = <jest.Mock<Service>>(<any>Service);
 
 const mockSendMessage = jest.fn().mockResolvedValue(undefined);
 
-jest.mock('../../../lib/notifications/DiscordClient', () => {
+jest.mock('../../../lib/notifications/clients/DiscordClient', () => {
   return jest.fn().mockImplementation(() => ({
     sendMessage: mockSendMessage,
   }));

@@ -14,7 +14,7 @@ import PairRepository from '../../../lib/db/repositories/PairRepository';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import CommandHandler from '../../../lib/notifications/CommandHandler';
-import DiscordClient from '../../../lib/notifications/DiscordClient';
+import DiscordClient from '../../../lib/notifications/clients/DiscordClient';
 import { Balances, GetBalanceResponse } from '../../../lib/proto/boltzrpc_pb';
 import Service from '../../../lib/service/Service';
 import { wait } from '../../Utils';
@@ -35,7 +35,7 @@ let sendMessage: callback;
 
 const mockSendMessage = jest.fn().mockImplementation(() => Promise.resolve());
 
-jest.mock('../../../lib/notifications/DiscordClient', () => {
+jest.mock('../../../lib/notifications/clients/DiscordClient', () => {
   return jest.fn().mockImplementation(() => {
     return {
       on: (event: string, callback: callback) => {

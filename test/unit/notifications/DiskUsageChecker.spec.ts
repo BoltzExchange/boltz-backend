@@ -1,12 +1,12 @@
 import Logger from '../../../lib/Logger';
-import DiscordClient from '../../../lib/notifications/DiscordClient';
 import DiskUsageChecker, {
   DiskUsage,
 } from '../../../lib/notifications/DiskUsageChecker';
+import DiscordClient from '../../../lib/notifications/clients/DiscordClient';
 
 const mockSendMessage = jest.fn().mockImplementation(() => Promise.resolve());
 
-jest.mock('../../../lib/notifications/DiscordClient', () => {
+jest.mock('../../../lib/notifications/clients/DiscordClient', () => {
   return jest.fn().mockImplementation(() => ({
     sendMessage: mockSendMessage,
   }));

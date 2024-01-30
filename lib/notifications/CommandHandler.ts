@@ -25,9 +25,9 @@ import FeeRepository from '../db/repositories/FeeRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import Service from '../service/Service';
-import DiscordClient from './DiscordClient';
 import { codeBlock } from './Markup';
 import OtpManager from './OtpManager';
+import NotificationClient from './clients/NotificationClient';
 
 enum Command {
   Help = 'help',
@@ -67,7 +67,7 @@ class CommandHandler {
   constructor(
     private logger: Logger,
     config: NotificationConfig,
-    private discord: DiscordClient,
+    private notificationClient: NotificationClient,
     private service: Service,
     private backupScheduler: BackupScheduler,
   ) {
@@ -203,7 +203,7 @@ class CommandHandler {
 
     this.optManager = new OtpManager(this.logger, config);
 
-    this.discord.on('message', async (message: string) => {
+    this.notificationClient.on('message', async (message: string) => {
       const args = message.split(' ');
 
       // Get the command and remove the first argument from the array which is the command itself
@@ -234,13 +234,15 @@ class CommandHandler {
         message += `\n**${command}**: ${info.description}`;
       });
 
-      await this.discord.sendMessage(message);
+      await this.notificationClient.sendMessage(message);
     } else {
       const command = args[0].toLowerCase();
       const info = this.commands.get(command);
 
       if (!info) {
-        await this.discord.sendMessage(`Could not find command: ${command}`);
+        await this.notificationClient.sendMessage(
+          `Could not find command: ${command}`,
+        );
         return;
       }
 
@@ -254,7 +256,7 @@ class CommandHandler {
         }
       }
 
-      await this.discord.sendMessage(message);
+      await this.notificationClient.sendMessage(message);
     }
   };
 
@@ -264,7 +266,7 @@ class CommandHandler {
       message += `\n**${asset}**: ${satoshisToSatcomma(sum)} ${asset}`;
     });
 
-    await this.discord.sendMessage(message);
+    await this.notificationClient.sendMessage(message);
   };
 
   private swapInfo = async (args: string[]) => {
@@ -325,7 +327,9 @@ class CommandHandler {
           break;
 
         default:
-          await this.discord.sendMessage(`Invalid parameter: ${args[0]}`);
+          await this.notificationClient.sendMessage(
+            `Invalid parameter: ${args[0]}`,
+          );
           return;
       }
     } else {
@@ -338,7 +342,7 @@ class CommandHandler {
       minMonth = date.getUTCMonth();
     }
 
-    await this.discord.sendMessage(
+    await this.notificationClient.sendMessage(
       `${codeBlock}${stringify(
         await Stats.generate(minYear, minMonth),
       )}${codeBlock}`,
@@ -371,7 +375,7 @@ class CommandHandler {
       });
     });
 
-    await this.discord.sendMessage(message);
+    await this.notificationClient.sendMessage(message);
   };
 
   private lockedFunds = async () => {
@@ -422,7 +426,7 @@ class CommandHandler {
       message += `\n\nTotal: ${satoshisToSatcomma(symbolTotal)}\n`;
     }
 
-    await this.discord.sendMessage(message);
+    await this.notificationClient.sendMessage(message);
   };
 
   private pendingSwaps = async () => {
@@ -458,11 +462,11 @@ class CommandHandler {
     formatSwapIds(false);
     formatSwapIds(true);
 
-    await this.discord.sendMessage(message);
+    await this.notificationClient.sendMessage(message);
   };
 
   private getReferrals = async () => {
-    await this.discord.sendMessage(
+    await this.notificationClient.sendMessage(
       `${codeBlock}${stringify(await ReferralStats.getReferralFees())}${codeBlock}`,
     );
   };
@@ -471,15 +475,19 @@ class CommandHandler {
     try {
       await this.backupScheduler.uploadDatabase(new Date());
 
-      await this.discord.sendMessage('Uploaded backup of Boltz database');
+      await this.notificationClient.sendMessage(
+        'Uploaded backup of Boltz database',
+      );
     } catch (error) {
-      await this.discord.sendMessage(`Could not upload backup: ${error}`);
+      await this.notificationClient.sendMessage(
+        `Could not upload backup: ${error}`,
+      );
     }
   };
 
   private getAddress = async (args: string[]) => {
     const sendError = (error: any) => {
-      return this.discord.sendMessage(
+      return this.notificationClient.sendMessage(
         `Could not get address: ${formatError(error)}`,
       );
     };
@@ -493,7 +501,7 @@ class CommandHandler {
       const currency = args[0].toUpperCase();
 
       const response = await this.service.getAddress(currency);
-      await this.discord.sendMessage(`\`${response}\``);
+      await this.notificationClient.sendMessage(`\`${response}\``);
     } catch (error) {
       await sendError(error);
     }
@@ -501,14 +509,14 @@ class CommandHandler {
 
   private withdraw = async (args: string[]) => {
     if (args.length !== 3 && args.length !== 4) {
-      await this.discord.sendMessage('Invalid number of arguments');
+      await this.notificationClient.sendMessage('Invalid number of arguments');
       return;
     }
 
     const validToken = this.optManager.verify(args[0]);
 
     if (!validToken) {
-      await this.discord.sendMessage('Invalid OTP token');
+      await this.notificationClient.sendMessage('Invalid OTP token');
       return;
     }
 
@@ -519,13 +527,13 @@ class CommandHandler {
       try {
         const response = await this.service.payInvoice(symbol, args[2]);
 
-        await this.discord.sendMessage(
+        await this.notificationClient.sendMessage(
           `Paid lightning invoice\nPreimage: ${getHexString(
             response.preimage,
           )}`,
         );
       } catch (error) {
-        await this.discord.sendMessage(
+        await this.notificationClient.sendMessage(
           `Could not pay lightning invoice: ${formatError(error)}`,
         );
       }
@@ -544,11 +552,11 @@ class CommandHandler {
           address: args[2],
         });
 
-        await this.discord.sendMessage(
+        await this.notificationClient.sendMessage(
           `Sent transaction: ${response.transactionId}:${response.vout}`,
         );
       } catch (error) {
-        await this.discord.sendMessage(
+        await this.notificationClient.sendMessage(
           `Could not send coins: ${formatError(error)}`,
         );
       }
@@ -563,7 +571,7 @@ class CommandHandler {
     } Reverse Swaps`;
 
     this.logger.info(message);
-    await this.discord.sendMessage(message);
+    await this.notificationClient.sendMessage(message);
   };
 
   /*
@@ -590,7 +598,7 @@ class CommandHandler {
       }
     }
 
-    await this.discord.sendMessage(
+    await this.notificationClient.sendMessage(
       `${name} \`${swap.id}\`:\n` +
         `${codeBlock}${stringify(swap)}${
           hasChannelCreation ? '\n' + stringify(channelCreation) : ''
@@ -599,7 +607,9 @@ class CommandHandler {
   };
 
   private sendCouldNotFindSwap = async (id: string) => {
-    await this.discord.sendMessage(`Could not find swap with id: ${id}`);
+    await this.notificationClient.sendMessage(
+      `Could not find swap with id: ${id}`,
+    );
   };
 }
 

@@ -1063,6 +1063,30 @@ describe('Service', () => {
     );
   });
 
+  test('should get block heights', async () => {
+    await expect(service.getBlockHeights()).resolves.toEqual(
+      new Map([
+        ['BTC', 123],
+        ['LTC', 123],
+        ['ETH', 100],
+        ['USDT', 100],
+      ]),
+    );
+  });
+
+  test('should get block height for symbol', async () => {
+    await expect(service.getBlockHeights('BTC')).resolves.toEqual(
+      new Map([['BTC', 123]]),
+    );
+  });
+
+  test('should throw when getting block height for symbol that cannot be found', async () => {
+    const symbol = 'notFound';
+    await expect(service.getBlockHeights(symbol)).rejects.toEqual(
+      Errors.CURRENCY_NOT_FOUND(symbol),
+    );
+  });
+
   test('should get fee estimation', async () => {
     // Get fee estimation of all currencies
     const feeEstimation = await service.getFeeEstimation();

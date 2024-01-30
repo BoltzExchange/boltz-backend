@@ -44,6 +44,25 @@ class ChainRouter extends RouterBase {
 
     /**
      * @openapi
+     * /chain/heights:
+     *   get:
+     *     description: Block heights for all supported chains
+     *     tags: [Chain]
+     *     responses:
+     *       '200':
+     *         description: Object of currency of chain -> block height
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               additionalProperties:
+     *                 type: number
+     *                 description: Block height of the chain
+     */
+    router.get('/heights', this.handleError(this.getHeights));
+
+    /**
+     * @openapi
      * /chain/{currency}/fee:
      *   get:
      *     description: Fee estimations for a chain
@@ -66,8 +85,47 @@ class ChainRouter extends RouterBase {
      *                 fee:
      *                   type: number
      *                   description: Fee estimation in sat/vbyte or GWEI
+     *       '400':
+     *         description: Error that caused the request to fail
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
      */
     router.get('/:currency/fee', this.handleError(this.getFeeForChain));
+
+    /**
+     * @openapi
+     * /chain/{currency}/height:
+     *   get:
+     *     description: Block height for a chain
+     *     tags: [Chain]
+     *     parameters:
+     *       - in: path
+     *         name: currency
+     *         required: true
+     *         schema:
+     *           type: string
+     *         description: Currency of the chain to get the block height for
+     *     responses:
+     *       '200':
+     *         description: Object containing the block height
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 fee:
+     *                   type: number
+     *                   description: Block height of the chain
+     *       '400':
+     *         description: Error that caused the request to fail
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
+    router.get('/:currency/height', this.handleError(this.getHeightForChain));
 
     /**
      * @openapi
@@ -163,10 +221,20 @@ class ChainRouter extends RouterBase {
   private getFees = async (_: Request, res: Response) =>
     successResponse(res, mapToObject(await this.service.getFeeEstimation()));
 
+  private getHeights = async (_: Request, res: Response) =>
+    successResponse(res, mapToObject(await this.service.getBlockHeights()));
+
   private getFeeForChain = async (req: Request, res: Response) => {
     const currency = this.getCurrencyFromPath(req);
     successResponse(res, {
       fee: (await this.service.getFeeEstimation(currency)).get(currency),
+    });
+  };
+
+  private getHeightForChain = async (req: Request, res: Response) => {
+    const currency = this.getCurrencyFromPath(req);
+    successResponse(res, {
+      height: (await this.service.getBlockHeights(currency)).get(currency),
     });
   };
 

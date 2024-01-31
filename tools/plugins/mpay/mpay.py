@@ -52,6 +52,7 @@ def init(
         mpay.default_max_fee_perc = cfg.default_max_fee
 
         db.connect(cfg.db)
+        mpay.init()
         executor.submit(routes.fetch_from_db)
 
         if cfg.grpc_port != -1:

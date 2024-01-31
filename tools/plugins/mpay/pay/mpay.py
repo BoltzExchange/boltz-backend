@@ -8,6 +8,7 @@ from plugins.mpay.db.db import Database
 from plugins.mpay.db.models import Payment
 from plugins.mpay.pay.channels import ChannelsHelper
 from plugins.mpay.pay.excludes import Excludes, ExcludesPayment
+from plugins.mpay.pay.invoice_check import InvoiceChecker
 from plugins.mpay.pay.payer import Payer
 from plugins.mpay.pay.sendpay import PaymentHelper, PaymentResult
 from plugins.mpay.utils import fee_with_percent, format_error
@@ -24,16 +25,20 @@ class MPay:
     _excludes: Excludes
     _channels: ChannelsHelper
     _network_info: NetworkInfo
+    _invoice_checker: InvoiceChecker
 
     def __init__(self, pl: Plugin, db: Database, routes: Routes) -> None:
         self._pl = pl
         self._db = db
-
-        self._pay = PaymentHelper(pl)
         self._excludes = Excludes()
+        self._pay = PaymentHelper(pl)
         self._network_info = NetworkInfo(pl)
+        self._invoice_checker = InvoiceChecker(pl)
         self._channels = ChannelsHelper(pl, self._network_info)
         self._router = Router(pl, routes, self._network_info)
+
+    def init(self) -> None:
+        self._invoice_checker.init()
 
     def pay(
         self,
@@ -43,6 +48,7 @@ class MPay:
         timeout: int,
         max_delay: int | None = None,
     ) -> PaymentResult:
+        self._invoice_checker.check(bolt11)
         dec = self._pl.rpc.decodepay(bolt11)
 
         amount = dec["amount_msat"]

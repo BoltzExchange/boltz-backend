@@ -12,8 +12,10 @@ import ChannelCreation from '../../../lib/db/models/ChannelCreation';
 import ReverseSwap from '../../../lib/db/models/ReverseSwap';
 import Swap from '../../../lib/db/models/Swap';
 import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
+import MarkedSwapRepository from '../../../lib/db/repositories/MarkedSwapRepository';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
+import CountryCodes from '../../../lib/service/CountryCodes';
 import Service from '../../../lib/service/Service';
 import SwapNursery from '../../../lib/swap/SwapNursery';
 import { emitClose, mockRequest, mockResponse } from './Utils';
@@ -235,10 +237,23 @@ const mockGenerateReferralStats = jest.fn().mockImplementation(() => {
 
 jest.mock('../../../lib/data/ReferralStats');
 
+jest.mock('../../../lib/db/repositories/MarkedSwapRepository', () => ({
+  addMarkedSwap: jest.fn().mockResolvedValue(undefined),
+}));
+
 describe('Controller', () => {
   const service = mockedService();
 
-  const controller = new Controller(Logger.disabledLogger, service);
+  const countryCodes = {
+    isRelevantCountry: jest.fn().mockReturnValue(true),
+    getCountryCode: jest.fn().mockReturnValue('TOR'),
+  } as unknown as CountryCodes;
+
+  const controller = new Controller(
+    Logger.disabledLogger,
+    service,
+    countryCodes,
+  );
 
   beforeEach(() => {
     ReferralStats.getReferralFees = mockGenerateReferralStats;
@@ -648,6 +663,8 @@ describe('Controller', () => {
       undefined,
     );
 
+    expect(MarkedSwapRepository.addMarkedSwap).toHaveBeenCalledTimes(1);
+
     expect(res.status).toHaveBeenNthCalledWith(2, 201);
     expect(res.json).toHaveBeenNthCalledWith(
       2,
@@ -797,6 +814,8 @@ describe('Controller', () => {
       refundPublicKey: getHexBuffer(requestData.refundPublicKey),
     });
 
+    expect(MarkedSwapRepository.addMarkedSwap).toHaveBeenCalledTimes(1);
+
     expect(res.status).toHaveBeenNthCalledWith(3, 201);
     expect(res.json).toHaveBeenNthCalledWith(3, await mockCreateSwap());
 
@@ -937,6 +956,8 @@ describe('Controller', () => {
       preimageHash: getHexBuffer(requestData.preimageHash),
       claimPublicKey: getHexBuffer(requestData.claimPublicKey),
     });
+
+    expect(MarkedSwapRepository.addMarkedSwap).toHaveBeenCalledTimes(1);
 
     expect(res.status).toHaveBeenNthCalledWith(2, 201);
     expect(res.json).toHaveBeenNthCalledWith(2, await mockCreateReverseSwap());

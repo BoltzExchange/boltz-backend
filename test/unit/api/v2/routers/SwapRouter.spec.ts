@@ -5,7 +5,9 @@ import { getHexBuffer, getHexString } from '../../../../../lib/Utils';
 import Controller from '../../../../../lib/api/Controller';
 import SwapRouter from '../../../../../lib/api/v2/routers/SwapRouter';
 import { OrderSide, SwapVersion } from '../../../../../lib/consts/Enums';
+import MarkedSwapRepository from '../../../../../lib/db/repositories/MarkedSwapRepository';
 import RateProviderTaproot from '../../../../../lib/rates/providers/RateProviderTaproot';
+import CountryCodes from '../../../../../lib/service/CountryCodes';
 import Service from '../../../../../lib/service/Service';
 import { mockRequest, mockResponse } from '../../Utils';
 
@@ -19,6 +21,10 @@ jest.mock('express', () => {
     Router: jest.fn().mockImplementation(() => mockedRouter),
   };
 });
+
+jest.mock('../../../../../lib/db/repositories/MarkedSwapRepository', () => ({
+  addMarkedSwap: jest.fn().mockResolvedValue(undefined),
+}));
 
 describe('SwapRouter', () => {
   const service = {
@@ -69,7 +75,17 @@ describe('SwapRouter', () => {
     pendingSwapInfos: new Map([['swapId', { some: 'statusData' }]]),
   } as unknown as Controller;
 
-  const swapRouter = new SwapRouter(Logger.disabledLogger, service, controller);
+  const countryCodes = {
+    isRelevantCountry: jest.fn().mockReturnValue(true),
+    getCountryCode: jest.fn().mockReturnValue('TOR'),
+  } as unknown as CountryCodes;
+
+  const swapRouter = new SwapRouter(
+    Logger.disabledLogger,
+    service,
+    controller,
+    countryCodes,
+  );
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -213,6 +229,8 @@ describe('SwapRouter', () => {
       undefined,
       SwapVersion.Taproot,
     );
+
+    expect(MarkedSwapRepository.addMarkedSwap).toHaveBeenCalledTimes(1);
 
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith({ id: 'randomId' });
@@ -422,6 +440,8 @@ describe('SwapRouter', () => {
       preimageHash: getHexBuffer(reqBody.preimageHash),
       claimPublicKey: getHexBuffer(reqBody.claimPublicKey),
     });
+
+    expect(MarkedSwapRepository.addMarkedSwap).toHaveBeenCalledTimes(1);
 
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith({ id: 'reverseId' });

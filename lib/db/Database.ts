@@ -8,6 +8,7 @@ import ChainTip from './models/ChainTip';
 import ChannelCreation from './models/ChannelCreation';
 import DatabaseVersion from './models/DatabaseVersion';
 import KeyProvider from './models/KeyProvider';
+import MarkedSwap from './models/MarkedSwap';
 import Pair from './models/Pair';
 import PendingEthereumTransaction from './models/PendingEthereumTransaction';
 import Referral from './models/Referral';
@@ -110,8 +111,7 @@ class Database {
     ]);
 
     await Promise.all([Swap.sync(), ReverseSwap.sync()]);
-
-    await ChannelCreation.sync();
+    await Promise.all([ChannelCreation.sync(), MarkedSwap.sync()]);
   };
 
   public migrate = async (currencies: Map<string, Currency>): Promise<void> => {
@@ -128,6 +128,7 @@ class Database {
     Swap.load(Database.sequelize);
     ChainTip.load(Database.sequelize);
     ReverseSwap.load(Database.sequelize);
+    MarkedSwap.load(Database.sequelize);
     KeyProvider.load(Database.sequelize);
     ChannelCreation.load(Database.sequelize);
     DatabaseVersion.load(Database.sequelize);

@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import Logger from '../Logger';
 import { getHexBuffer } from '../Utils';
+import MarkedSwapRepository from '../db/repositories/MarkedSwapRepository';
+import CountryCodes from '../service/CountryCodes';
 import ServiceErrors from '../service/Errors';
 import Errors from './Errors';
 
@@ -128,4 +130,16 @@ export const checkPreimageHashLength = (preimageHash: Buffer) => {
   if (preimageHash.length !== 32) {
     throw `invalid preimage hash length: ${preimageHash.length}`;
   }
+};
+
+export const markSwap = async (
+  countryCodes: CountryCodes,
+  ip: string,
+  swapId: string,
+) => {
+  if (!countryCodes.isRelevantCountry(countryCodes.getCountryCode(ip))) {
+    return;
+  }
+
+  await MarkedSwapRepository.addMarkedSwap(swapId);
 };

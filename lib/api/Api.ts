@@ -2,6 +2,7 @@ import cors from 'cors';
 import express, { Application, NextFunction, Request, Response } from 'express';
 import { ApiConfig } from '../Config';
 import Logger from '../Logger';
+import CountryCodes from '../service/CountryCodes';
 import Service from '../service/Service';
 import Controller from './Controller';
 import { errorResponse } from './Utils';
@@ -12,13 +13,13 @@ class Api {
   private readonly controller: Controller;
 
   constructor(
-    private logger: Logger,
-    private config: ApiConfig,
+    private readonly logger: Logger,
+    private readonly config: ApiConfig,
     service: Service,
+    countryCodes: CountryCodes,
   ) {
     this.app = express();
-    this.controller = new Controller(logger, service);
-
+    this.app.set('trust proxy', 'loopback');
     this.app.use(cors());
     this.app.use(
       express.json({
@@ -44,7 +45,14 @@ class Api {
       },
     );
 
-    new ApiV2(this.logger, service, this.controller).registerRoutes(this.app);
+    this.controller = new Controller(logger, service, countryCodes);
+
+    new ApiV2(
+      this.logger,
+      service,
+      this.controller,
+      countryCodes,
+    ).registerRoutes(this.app);
     this.registerRoutes(this.controller);
   }
 

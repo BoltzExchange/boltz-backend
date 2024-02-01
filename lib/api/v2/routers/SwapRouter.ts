@@ -3,12 +3,14 @@ import Logger from '../../../Logger';
 import { getHexString, stringify } from '../../../Utils';
 import { SwapVersion } from '../../../consts/Enums';
 import RateProviderTaproot from '../../../rates/providers/RateProviderTaproot';
+import CountryCodes from '../../../service/CountryCodes';
 import Service from '../../../service/Service';
 import Controller from '../../Controller';
 import {
   checkPreimageHashLength,
   createdResponse,
   errorResponse,
+  markSwap,
   successResponse,
   validateRequest,
 } from '../../Utils';
@@ -19,6 +21,7 @@ class SwapRouter extends RouterBase {
     logger: Logger,
     private readonly service: Service,
     private readonly controller: Controller,
+    private readonly countryCodes: CountryCodes,
   ) {
     super(logger, 'swap');
   }
@@ -664,6 +667,8 @@ class SwapRouter extends RouterBase {
       SwapVersion.Taproot,
     );
 
+    await markSwap(this.countryCodes, req.ip, response.id);
+
     this.logger.verbose(`Created new Swap with id: ${response.id}`);
     this.logger.silly(`Swap ${response.id}: ${stringify(response)}`);
 
@@ -753,6 +758,8 @@ class SwapRouter extends RouterBase {
       prepayMinerFee: false,
       version: SwapVersion.Taproot,
     });
+
+    await markSwap(this.countryCodes, req.ip, response.id);
 
     this.logger.verbose(`Created Reverse Swap with id: ${response.id}`);
     this.logger.silly(`Reverse swap ${response.id}: ${stringify(response)}`);

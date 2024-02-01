@@ -23,6 +23,7 @@ import LndClient from './lightning/LndClient';
 import ClnClient from './lightning/cln/ClnClient';
 import MpayClient from './lightning/cln/MpayClient';
 import NotificationProvider from './notifications/NotificationProvider';
+import CountryCodes from './service/CountryCodes';
 import Service from './service/Service';
 import NodeSwitch from './swap/NodeSwitch';
 import WalletManager, { Currency } from './wallet/WalletManager';
@@ -43,6 +44,7 @@ class Boltz {
   private readonly notifications!: NotificationProvider;
 
   private readonly api!: Api;
+  private readonly countryCodes: CountryCodes;
   private readonly grpcServer!: GrpcServer;
   private readonly prometheus: Prometheus;
 
@@ -152,7 +154,13 @@ class Boltz {
         this.config.pairs,
       );
 
-      this.api = new Api(this.logger, this.config.api, this.service);
+      this.countryCodes = new CountryCodes(this.logger, this.config.marking);
+      this.api = new Api(
+        this.logger,
+        this.config.api,
+        this.service,
+        this.countryCodes,
+      );
     } catch (error) {
       this.logger.error(`Could not start Boltz: ${formatError(error)}`);
       // eslint-disable-next-line no-process-exit
@@ -206,6 +214,7 @@ class Boltz {
 
       await this.grpcServer.listen();
 
+      await this.countryCodes.downloadRanges();
       await this.api.init();
 
       // Rescan chains after everything else was initialized to avoid race conditions

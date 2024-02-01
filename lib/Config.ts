@@ -11,6 +11,7 @@ import Errors from './consts/Errors';
 import { PairConfig } from './consts/Types';
 import { LndConfig } from './lightning/LndClient';
 import { ClnConfig } from './lightning/cln/ClnClient';
+import { MarkingsConfig } from './service/CountryCodes';
 import { NodeSwitchConfig } from './swap/NodeSwitch';
 
 type PostgresConfig = {
@@ -162,6 +163,8 @@ type ConfigType = {
   prepayminerfee: boolean;
   swapwitnessaddress: boolean;
 
+  marking: MarkingsConfig;
+
   api: ApiConfig;
   grpc: GrpcConfig;
   rates: RatesConfig;
@@ -217,6 +220,13 @@ class Config {
 
       prepayminerfee: false,
       swapwitnessaddress: false,
+
+      marking: {
+        ipV4Ranges:
+          'https://cdn.jsdelivr.net/npm/@ip-location-db/asn-country/asn-country-ipv4-num.csv',
+        ipV6Ranges:
+          'https://cdn.jsdelivr.net/npm/@ip-location-db/asn-country/asn-country-ipv6-num.csv',
+      },
 
       api: {
         host: '127.0.0.1',

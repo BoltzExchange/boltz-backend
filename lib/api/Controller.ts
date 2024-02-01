@@ -16,6 +16,7 @@ import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import LndClient from '../lightning/LndClient';
 import ClnClient from '../lightning/cln/ClnClient';
+import CountryCodes from '../service/CountryCodes';
 import ServiceErrors from '../service/Errors';
 import { SwapUpdate } from '../service/EventHandler';
 import NodeInfo from '../service/NodeInfo';
@@ -26,6 +27,7 @@ import {
   checkPreimageHashLength,
   createdResponse,
   errorResponse,
+  markSwap,
   successResponse,
   validateRequest,
 } from './Utils';
@@ -39,8 +41,9 @@ class Controller {
   private pendingSwapStreams = new Map<string, Response>();
 
   constructor(
-    private logger: Logger,
-    private service: Service,
+    private readonly logger: Logger,
+    private readonly service: Service,
+    private readonly countryCodes: CountryCodes,
   ) {
     this.service.eventHandler.on('swap.update', (id, message) => {
       this.logger.debug(`Swap ${id} update: ${saneStringify(message)}`);
@@ -448,6 +451,8 @@ class Controller {
       });
     }
 
+    await markSwap(this.countryCodes, req.ip, response.id);
+
     this.logger.verbose(`Created new Swap with id: ${response.id}`);
     this.logger.silly(`Swap ${response.id}: ${stringify(response)}`);
 
@@ -502,6 +507,8 @@ class Controller {
       userAddress: address,
       version: SwapVersion.Legacy,
     });
+
+    await markSwap(this.countryCodes, req.ip, response.id);
 
     this.logger.verbose(`Created Reverse Swap with id: ${response.id}`);
     this.logger.silly(`Reverse swap ${response.id}: ${stringify(response)}`);

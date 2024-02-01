@@ -1,5 +1,6 @@
 import { Application } from 'express';
 import Logger from '../../Logger';
+import CountryCodes from '../../service/CountryCodes';
 import Service from '../../service/Service';
 import Controller from '../Controller';
 import { apiPrefix } from './Consts';
@@ -17,10 +18,11 @@ class ApiV2 {
     private readonly logger: Logger,
     service: Service,
     controller: Controller,
+    countryCodes: CountryCodes,
   ) {
     this.routers = [
       new InfoRouter(this.logger, service),
-      new SwapRouter(this.logger, service, controller),
+      new SwapRouter(this.logger, service, controller, countryCodes),
       new ChainRouter(this.logger, service),
       new NodesRouter(this.logger, service),
       new ReferralRouter(this.logger),

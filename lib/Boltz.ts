@@ -23,6 +23,7 @@ import LndClient from './lightning/LndClient';
 import ClnClient from './lightning/cln/ClnClient';
 import MpayClient from './lightning/cln/MpayClient';
 import NotificationProvider from './notifications/NotificationProvider';
+import Blocks from './service/Blocks';
 import CountryCodes from './service/CountryCodes';
 import Service from './service/Service';
 import NodeSwitch from './swap/NodeSwitch';
@@ -44,6 +45,7 @@ class Boltz {
   private readonly notifications!: NotificationProvider;
 
   private readonly api!: Api;
+  private readonly blocks: Blocks;
   private readonly countryCodes: CountryCodes;
   private readonly grpcServer!: GrpcServer;
   private readonly prometheus: Prometheus;
@@ -115,6 +117,8 @@ class Boltz {
       this.ethereumManagers,
     );
 
+    this.blocks = new Blocks(this.logger, this.config.blocks);
+
     try {
       this.service = new Service(
         this.logger,
@@ -122,6 +126,7 @@ class Boltz {
         this.walletManager,
         new NodeSwitch(this.logger, this.config.nodeSwitch),
         this.currencies,
+        this.blocks,
       );
 
       this.backup = new BackupScheduler(
@@ -214,7 +219,10 @@ class Boltz {
 
       await this.grpcServer.listen();
 
-      await this.countryCodes.downloadRanges();
+      await Promise.all([
+        this.countryCodes.downloadRanges(),
+        this.blocks.updateBlocks(),
+      ]);
       await this.api.init();
 
       // Rescan chains after everything else was initialized to avoid race conditions

@@ -45,6 +45,7 @@ import {
 } from '../lightning/LightningClient';
 import FeeProvider from '../rates/FeeProvider';
 import RateProvider from '../rates/RateProvider';
+import Blocks from '../service/Blocks';
 import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
 import Wallet from '../wallet/Wallet';
 import WalletManager, { Currency } from '../wallet/WalletManager';
@@ -198,12 +199,13 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
     private walletManager: WalletManager,
     private swapOutputType: SwapOutputType,
     private retryInterval: number,
+    blocks: Blocks,
   ) {
     super();
 
     this.logger.info(`Setting Swap retry interval to ${retryInterval} seconds`);
 
-    this.utxoNursery = new UtxoNursery(this.logger, this.walletManager);
+    this.utxoNursery = new UtxoNursery(this.logger, this.walletManager, blocks);
     this.lightningNursery = new LightningNursery(this.logger);
     this.invoiceNursery = new InvoiceNursery(this.logger);
     this.channelNursery = new ChannelNursery(
@@ -213,7 +215,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
 
     this.ethereumNurseries = this.walletManager.ethereumManagers.map(
       (manager) =>
-        new EthereumNursery(this.logger, this.walletManager, manager),
+        new EthereumNursery(this.logger, this.walletManager, manager, blocks),
     );
 
     this.paymentHandler = new PaymentHandler(

@@ -20,6 +20,7 @@ import {
 } from '../../../lib/consts/Enums';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
+import Blocks from '../../../lib/service/Blocks';
 import Errors from '../../../lib/swap/Errors';
 import UtxoNursery from '../../../lib/swap/UtxoNursery';
 import Wallet from '../../../lib/wallet/Wallet';
@@ -172,9 +173,17 @@ describe('UtxoNursery', () => {
   const btcWallet = new MockedWallet();
   const btcChainClient = new MockedChainClient('BTC');
 
-  const nursery = new UtxoNursery(Logger.disabledLogger, {
-    wallets: new Map<string, any>([['BTC', btcWallet]]),
-  } as any);
+  const blocks = {
+    isBlocked: jest.fn().mockReturnValue(false),
+  } as unknown as Blocks;
+
+  const nursery = new UtxoNursery(
+    Logger.disabledLogger,
+    {
+      wallets: new Map<string, any>([['BTC', btcWallet]]),
+    } as any,
+    blocks,
+  );
 
   beforeAll(async () => {
     await setup();
@@ -253,7 +262,7 @@ describe('UtxoNursery', () => {
       },
     });
 
-    expect(mockEncodeAddress).toHaveBeenCalledTimes(1);
+    expect(mockEncodeAddress).toHaveBeenCalledTimes(4);
     expect(mockEncodeAddress).toHaveBeenCalledWith(transaction.outs[0].script);
 
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(1);
@@ -396,7 +405,7 @@ describe('UtxoNursery', () => {
     await checkSwapOutputs(btcChainClient, btcWallet, transaction, false);
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
-    expect(mockEncodeAddress).toHaveBeenCalledTimes(1);
+    expect(mockEncodeAddress).toHaveBeenCalledTimes(4);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(1);
     expect(mockRemoveOutputFilter).toHaveBeenCalledTimes(1);
 
@@ -425,7 +434,7 @@ describe('UtxoNursery', () => {
     expect(eventEmitted).toEqual(true);
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
-    expect(mockEncodeAddress).toHaveBeenCalledTimes(1);
+    expect(mockEncodeAddress).toHaveBeenCalledTimes(4);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(1);
     expect(mockRemoveOutputFilter).toHaveBeenCalledTimes(0);
 
@@ -456,7 +465,7 @@ describe('UtxoNursery', () => {
     expect(eventEmitted).toEqual(true);
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
-    expect(mockEncodeAddress).toHaveBeenCalledTimes(1);
+    expect(mockEncodeAddress).toHaveBeenCalledTimes(4);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(1);
     expect(mockRemoveOutputFilter).toHaveBeenCalledTimes(0);
 
@@ -483,10 +492,10 @@ describe('UtxoNursery', () => {
     expect(eventEmitted).toEqual(true);
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
-    expect(mockEncodeAddress).toHaveBeenCalledTimes(1);
+    expect(mockEncodeAddress).toHaveBeenCalledTimes(4);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(1);
     expect(mockEstimateFee).toHaveBeenCalledTimes(1);
-    expect(mockGetRawTransaction).toHaveBeenCalledTimes(2);
+    expect(mockGetRawTransaction).toHaveBeenCalledTimes(4);
     expect(mockGetRawTransaction).toHaveBeenNthCalledWith(
       1,
       'a21b0b3763a64ce2e5da23c52e3496c70c2b3268a37633653e21325ba64d4056',
@@ -552,6 +561,41 @@ describe('UtxoNursery', () => {
     );
     expect(mockGetKeysByIndex).toHaveBeenCalledTimes(1);
     expect(mockGetKeysByIndex).toHaveBeenCalledWith(mockGetSwapResult.keyIndex);
+  });
+
+  test('should reject transactions from blocked addresses', async () => {
+    const checkSwapOutputs = nursery['checkSwapOutputs'];
+
+    const transaction = Transaction.fromHex(sampleTransactions.lockup);
+    transaction.ins[0].sequence = 0xffffffff;
+    transaction.ins[1].sequence = 0xffffffff;
+
+    mockGetSwapResult = {
+      id: '0conf',
+      acceptZeroConf: true,
+      redeemScript: sampleRedeemScript,
+    };
+
+    mockGetRawTransactionVerboseResult = () => ({
+      confirmations: 1,
+    });
+
+    const failPromise = new Promise<void>((resolve) => {
+      nursery.once('swap.lockup.failed', (swap, error) => {
+        expect(swap).toEqual(mockGetSwapResult);
+        expect(error).toEqual(Errors.BLOCKED_ADDRESS().message);
+        resolve();
+      });
+    });
+
+    blocks.isBlocked = jest.fn().mockReturnValue(true);
+    await checkSwapOutputs(btcChainClient, btcWallet, transaction, false);
+
+    expect(blocks.isBlocked).toHaveBeenCalledTimes(1);
+
+    blocks.isBlocked = jest.fn().mockReturnValue(false);
+
+    await failPromise;
   });
 
   test('should handle claimed Reverse Swaps', async () => {

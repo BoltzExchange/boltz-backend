@@ -15,18 +15,21 @@ import Logger from '../Logger';
 import {
   getChainCurrency,
   getHexBuffer,
+  getHexString,
   reverseBuffer,
   splitPairId,
   transactionHashToId,
   transactionSignalsRbfExplicitly,
 } from '../Utils';
 import ChainClient from '../chain/ChainClient';
-import { SwapUpdateEvent, SwapVersion } from '../consts/Enums';
+import { CurrencyType, SwapUpdateEvent, SwapVersion } from '../consts/Enums';
 import ReverseSwap from '../db/models/ReverseSwap';
 import Swap from '../db/models/Swap';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
+import Blocks from '../service/Blocks';
 import Wallet from '../wallet/Wallet';
+import WalletLiquid from '../wallet/WalletLiquid';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import Errors from './Errors';
 
@@ -111,8 +114,9 @@ class UtxoNursery extends EventEmitter {
     'reverseSwapLockupConfirmation';
 
   constructor(
-    private logger: Logger,
-    private walletManager: WalletManager,
+    private readonly logger: Logger,
+    private readonly walletManager: WalletManager,
+    private readonly blocks: Blocks,
   ) {
     super();
   }
@@ -471,7 +475,7 @@ class UtxoNursery extends EventEmitter {
     const swapOutput = detectSwap(redeemScriptOrTweakedKey, transaction)!;
 
     this.logger.verbose(
-      `Found ${confirmed ? '' : 'un'}confirmed lockup transaction for Swap ${
+      `Found ${confirmed ? '' : 'un'}confirmed ${wallet.symbol} lockup transaction for Swap ${
         swap.id
       }: ${transaction.getId()}:${swapOutput.vout}`,
     );
@@ -497,6 +501,36 @@ class UtxoNursery extends EventEmitter {
 
         return;
       }
+    }
+
+    const inputTxs = (
+      await Promise.all(
+        Array.from(
+          new Set<string>(
+            transaction.ins.map((input) =>
+              getHexString(reverseBuffer(input.hash)),
+            ),
+          ).values(),
+        ).map((id) => chainClient.getRawTransaction(id)),
+      )
+    ).map((txHex) => parseTransaction(wallet.type, txHex));
+
+    const prevAddreses = inputTxs
+      .map((tx) => tx.outs)
+      .flat()
+      .map((output) =>
+        wallet.type === CurrencyType.Liquid
+          ? (wallet as WalletLiquid).encodeAddress(output.script, false)
+          : wallet.encodeAddress(output.script),
+      );
+
+    if (prevAddreses.some(this.blocks.isBlocked)) {
+      this.emit(
+        'swap.lockup.failed',
+        updatedSwap,
+        Errors.BLOCKED_ADDRESS().message,
+      );
+      return;
     }
 
     // Confirmed transactions do not have to be checked for 0-conf criteria

@@ -29,6 +29,7 @@ import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepos
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import LndClient from '../../../lib/lightning/LndClient';
 import RateProvider from '../../../lib/rates/RateProvider';
+import Blocks from '../../../lib/service/Blocks';
 import PaymentRequestUtils from '../../../lib/service/PaymentRequestUtils';
 import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
 import Errors from '../../../lib/swap/Errors';
@@ -310,6 +311,10 @@ jest.mock('../../../lib/swap/SwapNursery', () => {
   }));
 });
 
+const blocks = {
+  isBlocked: jest.fn().mockReturnValue(false),
+} as unknown as Blocks;
+
 describe('SwapManager', () => {
   let manager: SwapManager;
 
@@ -327,6 +332,11 @@ describe('SwapManager', () => {
     network: Networks.litecoinRegtest,
     chainClient: new MockedChainClient(),
     lndClient: new MockedLndClient(),
+  } as any as Currency;
+
+  const rbtcCurrency = {
+    symbol: 'RBTC',
+    type: CurrencyType.Ether,
   } as any as Currency;
 
   beforeEach(() => {
@@ -363,10 +373,12 @@ describe('SwapManager', () => {
       {} as PaymentRequestUtils,
       new SwapOutputType(OutputType.Compatibility),
       0,
+      blocks,
     );
 
     manager['currencies'].set(btcCurrency.symbol, btcCurrency);
     manager['currencies'].set(ltcCurrency.symbol, ltcCurrency);
+    manager['currencies'].set(rbtcCurrency.symbol, rbtcCurrency);
   });
 
   afterAll(() => {
@@ -401,7 +413,7 @@ describe('SwapManager', () => {
 
     await manager.init([btcCurrency, ltcCurrency], []);
 
-    expect(manager.currencies.size).toEqual(2);
+    expect(manager.currencies.size).toEqual(3);
 
     expect(manager.currencies.get('BTC')).toEqual(btcCurrency);
     expect(manager.currencies.get('LTC')).toEqual(ltcCurrency);
@@ -1167,6 +1179,24 @@ describe('SwapManager', () => {
         quoteCurrency: notFoundSymbol,
       }),
     ).rejects.toEqual(Errors.NO_LIGHTNING_SUPPORT(notFoundSymbol));
+  });
+
+  test('should throw when creating reverse swaps to blocked addresses', async () => {
+    const claimAddress = '0x123';
+    blocks.isBlocked = jest.fn().mockReturnValue(true);
+
+    await expect(
+      manager.createReverseSwap({
+        claimAddress,
+        orderSide: OrderSide.SELL,
+        baseCurrency: btcCurrency.symbol,
+        quoteCurrency: rbtcCurrency.symbol,
+      } as any),
+    ).rejects.toEqual(Errors.BLOCKED_ADDRESS());
+    expect(blocks.isBlocked).toHaveBeenCalledTimes(1);
+    expect(blocks.isBlocked).toHaveBeenCalledWith(claimAddress);
+
+    blocks.isBlocked = jest.fn().mockReturnValue(false);
   });
 
   test('should recreate filters', () => {

@@ -1,4 +1,4 @@
-import { TransactionResponse } from 'ethers';
+import { Transaction, TransactionResponse } from 'ethers';
 import { EventEmitter } from 'events';
 import { Op } from 'sequelize';
 import Logger from '../Logger';
@@ -15,6 +15,7 @@ import ReverseSwap from '../db/models/ReverseSwap';
 import Swap from '../db/models/Swap';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
+import Blocks from '../service/Blocks';
 import Wallet from '../wallet/Wallet';
 import WalletManager from '../wallet/WalletManager';
 import EthereumManager from '../wallet/ethereum/EthereumManager';
@@ -109,6 +110,7 @@ class EthereumNursery extends EventEmitter implements IEthereumNursery {
     private readonly logger: Logger,
     private readonly walletManager: WalletManager,
     public readonly ethereumManager: EthereumManager,
+    private readonly blocks: Blocks,
   ) {
     super();
 
@@ -184,7 +186,7 @@ class EthereumNursery extends EventEmitter implements IEthereumNursery {
   private listenEtherSwap = () => {
     this.ethereumManager.contractEventHandler.on(
       'eth.lockup',
-      async (transactionHash, etherSwapValues) => {
+      async (transaction: Transaction, etherSwapValues) => {
         let swap = await SwapRepository.getSwap({
           preimageHash: getHexString(etherSwapValues.preimageHash),
           status: {
@@ -209,12 +211,12 @@ class EthereumNursery extends EventEmitter implements IEthereumNursery {
         }
 
         this.logger.debug(
-          `Found lockup in ${this.ethereumManager.networkDetails.name} EtherSwap contract for Swap ${swap.id}: ${transactionHash}`,
+          `Found lockup in ${this.ethereumManager.networkDetails.name} EtherSwap contract for Swap ${swap.id}: ${transaction.hash}`,
         );
 
         swap = await SwapRepository.setLockupTransaction(
           swap,
-          transactionHash,
+          transaction.hash!,
           Number(etherSwapValues.amount / etherDecimals),
           true,
         );
@@ -261,7 +263,12 @@ class EthereumNursery extends EventEmitter implements IEthereumNursery {
           }
         }
 
-        this.emit('eth.lockup', swap, transactionHash, etherSwapValues);
+        if (this.blocks.isBlocked(transaction.from!)) {
+          this.emit('lockup.failed', swap, Errors.BLOCKED_ADDRESS().message);
+          return;
+        }
+
+        this.emit('eth.lockup', swap, transaction.hash, etherSwapValues);
       },
     );
 
@@ -291,7 +298,7 @@ class EthereumNursery extends EventEmitter implements IEthereumNursery {
   private listenERC20Swap = () => {
     this.ethereumManager.contractEventHandler.on(
       'erc20.lockup',
-      async (transactionHash, erc20SwapValues) => {
+      async (transaction: Transaction, erc20SwapValues) => {
         let swap = await SwapRepository.getSwap({
           preimageHash: getHexString(erc20SwapValues.preimageHash),
           status: {
@@ -320,12 +327,12 @@ class EthereumNursery extends EventEmitter implements IEthereumNursery {
         const erc20Wallet = wallet.walletProvider as ERC20WalletProvider;
 
         this.logger.debug(
-          `Found lockup in ${this.ethereumManager.networkDetails.name} ERC20Swap contract for Swap ${swap.id}: ${transactionHash}`,
+          `Found lockup in ${this.ethereumManager.networkDetails.name} ERC20Swap contract for Swap ${swap.id}: ${transaction.hash}`,
         );
 
         swap = await SwapRepository.setLockupTransaction(
           swap,
-          transactionHash,
+          transaction.hash!,
           erc20Wallet.normalizeTokenAmount(erc20SwapValues.amount),
           true,
         );
@@ -383,7 +390,12 @@ class EthereumNursery extends EventEmitter implements IEthereumNursery {
           }
         }
 
-        this.emit('erc20.lockup', swap, transactionHash, erc20SwapValues);
+        if (this.blocks.isBlocked(transaction.from!)) {
+          this.emit('lockup.failed', swap, Errors.BLOCKED_ADDRESS().message);
+          return;
+        }
+
+        this.emit('erc20.lockup', swap, transaction.hash, erc20SwapValues);
       },
     );
 

@@ -45,6 +45,7 @@ import ChannelCreationRepository from '../db/repositories/ChannelCreationReposit
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import RateProvider from '../rates/RateProvider';
+import Blocks from '../service/Blocks';
 import InvoiceExpiryHelper from '../service/InvoiceExpiryHelper';
 import PaymentRequestUtils from '../service/PaymentRequestUtils';
 import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
@@ -133,6 +134,7 @@ class SwapManager {
     private readonly paymentRequestUtils: PaymentRequestUtils,
     private readonly swapOutputType: SwapOutputType,
     retryInterval: number,
+    private readonly blocks: Blocks,
   ) {
     this.nursery = new SwapNursery(
       this.logger,
@@ -142,6 +144,7 @@ class SwapManager {
       this.walletManager,
       this.swapOutputType,
       retryInterval,
+      this.blocks,
     );
   }
 
@@ -593,6 +596,14 @@ class SwapManager {
       );
     }
 
+    const isBitcoinLike =
+      sendingCurrency.type === CurrencyType.BitcoinLike ||
+      sendingCurrency.type === CurrencyType.Liquid;
+
+    if (!isBitcoinLike && this.blocks.isBlocked(args.claimAddress!)) {
+      throw Errors.BLOCKED_ADDRESS();
+    }
+
     const pair = getPairId({
       base: args.baseCurrency,
       quote: args.quoteCurrency,
@@ -672,10 +683,7 @@ class SwapManager {
       invoice: paymentRequest,
     };
 
-    if (
-      sendingCurrency.type === CurrencyType.BitcoinLike ||
-      sendingCurrency.type === CurrencyType.Liquid
-    ) {
+    if (isBitcoinLike) {
       const { keys, index } = sendingCurrency.wallet.getNewKeys();
       const { blocks } = await sendingCurrency.chainClient!.getBlockchainInfo();
       result.timeoutBlockHeight = blocks + args.onchainTimeoutBlockDelta;

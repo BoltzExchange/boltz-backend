@@ -10,7 +10,8 @@ import { Network } from './consts/Enums';
 import Errors from './consts/Errors';
 import { PairConfig } from './consts/Types';
 import { LndConfig } from './lightning/LndClient';
-import { ClnConfig } from './lightning/cln/ClnClient';
+import { ClnConfig } from './lightning/cln/Types';
+import { BlocksConfig } from './service/Blocks';
 import { MarkingsConfig } from './service/CountryCodes';
 import { NodeSwitchConfig } from './swap/NodeSwitch';
 
@@ -164,6 +165,7 @@ type ConfigType = {
   swapwitnessaddress: boolean;
 
   marking: MarkingsConfig;
+  blocks: BlocksConfig;
 
   api: ApiConfig;
   grpc: GrpcConfig;
@@ -227,6 +229,8 @@ class Config {
         ipV6Ranges:
           'https://cdn.jsdelivr.net/npm/@ip-location-db/asn-country/asn-country-ipv6-num.csv',
       },
+
+      blocks: {},
 
       api: {
         host: '127.0.0.1',

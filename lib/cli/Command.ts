@@ -8,6 +8,7 @@ import {
   detectSwap,
 } from 'boltz-core';
 import { Networks as LiquidNetworks } from 'boltz-core/dist/lib/liquid';
+import * as console from 'console';
 import { randomBytes } from 'crypto';
 import { ECPairInterface } from 'ecpair';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib';
@@ -87,7 +88,9 @@ export const prepareTx = async (
 
   // If the redeem script can be parsed as JSON, it is a swap tree
   try {
-    const tree = SwapTreeSerializer.deserializeSwapTree(argv.redeemScript);
+    const tree = SwapTreeSerializer.deserializeSwapTree(
+      argv.redeemScript.replaceAll('\\"', '"'),
+    );
 
     const { musig, swapOutput } = musigFromExtractedKey(
       type,

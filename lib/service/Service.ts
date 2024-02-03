@@ -64,6 +64,7 @@ import SwapManager, { ChannelCreationInfo } from '../swap/SwapManager';
 import SwapOutputType from '../swap/SwapOutputType';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import EthereumManager from '../wallet/ethereum/EthereumManager';
+import Blocks from './Blocks';
 import ElementsService from './ElementsService';
 import Errors from './Errors';
 import EventHandler from './EventHandler';
@@ -119,6 +120,7 @@ class Service {
     private walletManager: WalletManager,
     private nodeSwitch: NodeSwitch,
     public currencies: Map<string, Currency>,
+    blocks: Blocks,
   ) {
     this.prepayMinerFee = config.prepayminerfee;
     this.logger.debug(
@@ -163,6 +165,7 @@ class Service {
           : OutputType.Compatibility,
       ),
       config.retryInterval,
+      blocks,
     );
 
     this.eventHandler = new EventHandler(

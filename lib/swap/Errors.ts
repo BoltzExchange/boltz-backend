@@ -98,4 +98,8 @@ export default {
     message: 'invalid address',
     code: concatErrorCode(ErrorCodePrefix.Swap, 19),
   }),
+  BLOCKED_ADDRESS: (): Error => ({
+    message: 'blocked address',
+    code: concatErrorCode(ErrorCodePrefix.Swap, 20),
+  }),
 };

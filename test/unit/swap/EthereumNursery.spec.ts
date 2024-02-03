@@ -11,6 +11,7 @@ import { ERC20SwapValues, EtherSwapValues } from '../../../lib/consts/Types';
 import Swap from '../../../lib/db/models/Swap';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
+import Blocks from '../../../lib/service/Blocks';
 import Errors from '../../../lib/swap/Errors';
 import EthereumNursery from '../../../lib/swap/EthereumNursery';
 import Wallet from '../../../lib/wallet/Wallet';
@@ -29,11 +30,11 @@ type claimCallback = (
 ) => void;
 
 type ethLockupCallback = (
-  transactionHash: string,
+  transaction: any,
   etherSwapValues: EtherSwapValues,
 ) => void;
 type erc20LockupCallback = (
-  transactionHash: string,
+  transaction: any,
   erc20SwapValues: ERC20SwapValues,
 ) => void;
 
@@ -193,8 +194,13 @@ const examplePreimage = getHexBuffer(
 );
 const examplePreimageHash = crypto.sha256(examplePreimage);
 
-const exampleTransactionHash =
-  '0x193be8365ec997f97156dbd894d446135eca8cfbfe3417404c50f32015ee5bb2';
+const exampleTransaction = {
+  hash: '0x193be8365ec997f97156dbd894d446135eca8cfbfe3417404c50f32015ee5bb2',
+};
+
+const blocks = {
+  isBlocked: jest.fn().mockImplementation((addr) => addr === 'blocked'),
+} as unknown as Blocks;
 
 describe('EthereumNursery', () => {
   const nursery = new EthereumNursery(
@@ -207,6 +213,7 @@ describe('EthereumNursery', () => {
       ]),
     } as any,
     new MockedEthereumManager(),
+    blocks,
   );
 
   beforeEach(() => {
@@ -266,7 +273,7 @@ describe('EthereumNursery', () => {
 
     const newWaitPromise = () => {
       return {
-        hash: exampleTransactionHash,
+        hash: exampleTransaction,
         wait: jest.fn().mockReturnValue(
           new Promise<void>((promiseResolve, promiseReject) => {
             resolve = promiseResolve;
@@ -283,7 +290,7 @@ describe('EthereumNursery', () => {
       expect(reverseSwap).toEqual({
         status: SwapUpdateEvent.TransactionConfirmed,
       });
-      expect(transactionHash).toEqual(exampleTransactionHash);
+      expect(transactionHash).toEqual(exampleTransaction);
 
       eventsEmitted += 1;
     });
@@ -335,13 +342,13 @@ describe('EthereumNursery', () => {
     } as any;
 
     nursery.once('eth.lockup', (_, transactionHash, etherSwapValues) => {
-      expect(transactionHash).toEqual(exampleTransactionHash);
+      expect(transactionHash).toEqual(exampleTransaction.hash);
       expect(etherSwapValues).toEqual(suppliedEtherSwapValues);
 
       lockupEmitted = true;
     });
 
-    await emitEthLockup(exampleTransactionHash, suppliedEtherSwapValues);
+    await emitEthLockup(exampleTransaction, suppliedEtherSwapValues);
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockGetSwap).toHaveBeenCalledWith({
@@ -354,7 +361,7 @@ describe('EthereumNursery', () => {
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(1);
     expect(mockSetLockupTransaction).toHaveBeenCalledWith(
       mockGetSwapResult,
-      exampleTransactionHash,
+      exampleTransaction.hash,
       10,
       true,
     );
@@ -383,7 +390,7 @@ describe('EthereumNursery', () => {
       lockupFailed += 1;
     });
 
-    await emitEthLockup(exampleTransactionHash, suppliedEtherSwapValues);
+    await emitEthLockup(exampleTransaction, suppliedEtherSwapValues);
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(1);
@@ -405,7 +412,7 @@ describe('EthereumNursery', () => {
       lockupFailed += 1;
     });
 
-    await emitEthLockup(exampleTransactionHash, suppliedEtherSwapValues);
+    await emitEthLockup(exampleTransaction, suppliedEtherSwapValues);
 
     expect(mockGetSwap).toHaveBeenCalledTimes(2);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(2);
@@ -424,7 +431,7 @@ describe('EthereumNursery', () => {
       lockupFailed += 1;
     });
 
-    await emitEthLockup(exampleTransactionHash, suppliedEtherSwapValues);
+    await emitEthLockup(exampleTransaction, suppliedEtherSwapValues);
 
     expect(mockGetSwap).toHaveBeenCalledTimes(3);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(3);
@@ -450,7 +457,7 @@ describe('EthereumNursery', () => {
     // Chain currency is not Ether
     mockGetSwapResult.orderSide = OrderSide.BUY;
 
-    await emitEthLockup(exampleTransactionHash, suppliedEtherSwapValues);
+    await emitEthLockup(exampleTransaction, suppliedEtherSwapValues);
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(0);
@@ -461,13 +468,38 @@ describe('EthereumNursery', () => {
     // No suitable Swap in database
     mockGetSwapResult = null;
 
-    await emitEthLockup(exampleTransactionHash, suppliedEtherSwapValues);
+    await emitEthLockup(exampleTransaction, suppliedEtherSwapValues);
 
     expect(mockGetSwap).toHaveBeenCalledTimes(2);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(0);
 
     expect(lockupEmitted).toEqual(false);
     expect(lockupFailed).toEqual(0);
+  });
+
+  test('should reject EtherSwap lockup transaction from blocked addresses', async () => {
+    const lockupPromise = new Promise<void>((resolve) => {
+      nursery.once('lockup.failed', (_, error) => {
+        expect(error).toEqual(Errors.BLOCKED_ADDRESS().message);
+        resolve();
+      });
+    });
+
+    mockGetSwapResult = {
+      pair: 'ETH/BTC',
+      expectedAmount: 10,
+      orderSide: OrderSide.SELL,
+      timeoutBlockHeight: 11102219,
+    };
+
+    emitEthLockup({ ...exampleTransaction, from: 'blocked' }, {
+      claimAddress: mockAddress,
+      amount: BigInt('100000000000'),
+      preimageHash: getHexString(examplePreimageHash),
+      timelock: mockGetSwapResult.timeoutBlockHeight,
+    } as any);
+
+    await lockupPromise;
   });
 
   test('should listen to EtherSwap claim events', async () => {
@@ -485,7 +517,7 @@ describe('EthereumNursery', () => {
     });
 
     await emitEthClaim(
-      exampleTransactionHash,
+      exampleTransaction.hash,
       examplePreimageHash,
       examplePreimage,
     );
@@ -504,7 +536,7 @@ describe('EthereumNursery', () => {
     mockGetReverseSwapResult = null;
 
     await emitEthClaim(
-      exampleTransactionHash,
+      exampleTransaction.hash,
       examplePreimageHash,
       examplePreimage,
     );
@@ -534,13 +566,13 @@ describe('EthereumNursery', () => {
     } as any;
 
     nursery.once('erc20.lockup', (_, transactionHash, erc20SwapValues) => {
-      expect(transactionHash).toEqual(exampleTransactionHash);
+      expect(transactionHash).toEqual(exampleTransaction.hash);
       expect(erc20SwapValues).toEqual(suppliedERC20SwapValues);
 
       lockupEmitted = true;
     });
 
-    await emitErc20Lockup(exampleTransactionHash, suppliedERC20SwapValues);
+    await emitErc20Lockup(exampleTransaction, suppliedERC20SwapValues);
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockGetSwap).toHaveBeenCalledWith({
@@ -558,7 +590,7 @@ describe('EthereumNursery', () => {
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(1);
     expect(mockSetLockupTransaction).toHaveBeenCalledWith(
       mockGetSwapResult,
-      exampleTransactionHash,
+      exampleTransaction.hash,
       10,
       true,
     );
@@ -594,7 +626,7 @@ describe('EthereumNursery', () => {
       lockupFailed += 1;
     });
 
-    await emitErc20Lockup(exampleTransactionHash, suppliedERC20SwapValues);
+    await emitErc20Lockup(exampleTransaction, suppliedERC20SwapValues);
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(1);
@@ -616,7 +648,7 @@ describe('EthereumNursery', () => {
       lockupFailed += 1;
     });
 
-    await emitErc20Lockup(exampleTransactionHash, suppliedERC20SwapValues);
+    await emitErc20Lockup(exampleTransaction, suppliedERC20SwapValues);
 
     expect(mockGetSwap).toHaveBeenCalledTimes(2);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(2);
@@ -638,7 +670,7 @@ describe('EthereumNursery', () => {
       lockupFailed += 1;
     });
 
-    await emitErc20Lockup(exampleTransactionHash, suppliedERC20SwapValues);
+    await emitErc20Lockup(exampleTransaction, suppliedERC20SwapValues);
 
     expect(mockGetSwap).toHaveBeenCalledTimes(3);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(3);
@@ -657,7 +689,7 @@ describe('EthereumNursery', () => {
       lockupFailed += 1;
     });
 
-    await emitErc20Lockup(exampleTransactionHash, suppliedERC20SwapValues);
+    await emitErc20Lockup(exampleTransaction, suppliedERC20SwapValues);
 
     expect(mockGetSwap).toHaveBeenCalledTimes(4);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(4);
@@ -685,7 +717,7 @@ describe('EthereumNursery', () => {
     // Chain currency is not a token
     mockGetSwapResult.orderSide = OrderSide.SELL;
 
-    await emitErc20Lockup(exampleTransactionHash, suppliedERC20SwapValues);
+    await emitErc20Lockup(exampleTransaction, suppliedERC20SwapValues);
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(0);
@@ -696,13 +728,39 @@ describe('EthereumNursery', () => {
     // No suitable Swap in database
     mockGetSwapResult = null;
 
-    await emitErc20Lockup(exampleTransactionHash, suppliedERC20SwapValues);
+    await emitErc20Lockup(exampleTransaction, suppliedERC20SwapValues);
 
     expect(mockGetSwap).toHaveBeenCalledTimes(2);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(0);
 
     expect(lockupEmitted).toEqual(false);
     expect(lockupFailed).toEqual(0);
+  });
+
+  test('should reject ERC20Swap lockup transaction from blocked addresses', async () => {
+    const lockupPromise = new Promise<void>((resolve) => {
+      nursery.once('lockup.failed', (_, error) => {
+        expect(error).toEqual(Errors.BLOCKED_ADDRESS().message);
+        resolve();
+      });
+    });
+
+    mockGetSwapResult = {
+      pair: 'BTC/USDT',
+      expectedAmount: 10,
+      orderSide: OrderSide.BUY,
+      timeoutBlockHeight: 11102222,
+    };
+
+    emitErc20Lockup({ ...exampleTransaction, from: 'blocked' }, {
+      claimAddress: mockAddress,
+      amount: BigInt('1000'),
+      tokenAddress: mockTokenAddress,
+      timelock: mockGetSwapResult.timeoutBlockHeight,
+      preimageHash: getHexString(examplePreimageHash),
+    } as any);
+
+    await lockupPromise;
   });
 
   test('should listen to ERC20Swap claim events', async () => {
@@ -720,7 +778,7 @@ describe('EthereumNursery', () => {
     });
 
     await emitErc20Claim(
-      exampleTransactionHash,
+      exampleTransaction.hash,
       examplePreimageHash,
       examplePreimage,
     );
@@ -739,7 +797,7 @@ describe('EthereumNursery', () => {
     mockGetReverseSwapResult = null;
 
     await emitErc20Claim(
-      exampleTransactionHash,
+      exampleTransaction.hash,
       examplePreimageHash,
       examplePreimage,
     );

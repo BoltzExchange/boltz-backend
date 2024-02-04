@@ -1,26 +1,21 @@
 import { crypto } from 'bitcoinjs-lib';
-import { SwapTreeSerializer, Types } from 'boltz-core';
-import {
-  createMusig,
-  hashForWitnessV1,
-  parseTransaction,
-  tweakMusig,
-} from '../Core';
-import Logger from '../Logger';
+import { SwapTreeSerializer } from 'boltz-core';
+import Logger from '../../Logger';
 import {
   getChainCurrency,
   getHexBuffer,
   getHexString,
   splitPairId,
-} from '../Utils';
-import { FailedSwapUpdateEvents, SwapUpdateEvent } from '../consts/Enums';
-import Swap from '../db/models/Swap';
-import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
-import SwapRepository from '../db/repositories/SwapRepository';
-import { Payment } from '../proto/lnd/rpc_pb';
-import SwapNursery from '../swap/SwapNursery';
-import WalletManager, { Currency } from '../wallet/WalletManager';
-import Errors from './Errors';
+} from '../../Utils';
+import { FailedSwapUpdateEvents, SwapUpdateEvent } from '../../consts/Enums';
+import Swap from '../../db/models/Swap';
+import ReverseSwapRepository from '../../db/repositories/ReverseSwapRepository';
+import SwapRepository from '../../db/repositories/SwapRepository';
+import { Payment } from '../../proto/lnd/rpc_pb';
+import SwapNursery from '../../swap/SwapNursery';
+import WalletManager, { Currency } from '../../wallet/WalletManager';
+import Errors from '../Errors';
+import MusigBase from './MusigBase';
 
 type PartialSignature = {
   pubNonce: Buffer;
@@ -29,13 +24,15 @@ type PartialSignature = {
 
 // TODO: Should we verify what we are signing? And if so, how strict should we be?
 
-class MusigSigner {
+class MusigSigner extends MusigBase {
   constructor(
     private readonly logger: Logger,
     private readonly currencies: Map<string, Currency>,
-    private readonly walletManager: WalletManager,
+    walletManager: WalletManager,
     private readonly nursery: SwapNursery,
-  ) {}
+  ) {
+    super(walletManager);
+  }
 
   public signSwapRefund = async (
     swapId: string,
@@ -133,38 +130,6 @@ class MusigSigner {
       rawTransaction,
       index,
     );
-  };
-
-  private createPartialSignature = async (
-    currency: Currency,
-    swapTree: Types.SwapTree,
-    keyIndex: number,
-    theirPublicKey: Buffer,
-    theirNonce: Buffer,
-    rawTransaction: Buffer | string,
-    vin: number,
-  ): Promise<PartialSignature> => {
-    const tx = parseTransaction(currency.type, rawTransaction);
-    if (vin < 0 || tx.ins.length <= vin) {
-      throw Errors.INVALID_VIN();
-    }
-
-    const wallet = this.walletManager.wallets.get(currency.symbol)!;
-
-    const ourKeys = wallet.getKeysByIndex(keyIndex);
-
-    const musig = createMusig(ourKeys, theirPublicKey);
-    tweakMusig(currency.type, musig, swapTree);
-
-    musig.aggregateNonces([[theirPublicKey, theirNonce]]);
-
-    const hash = await hashForWitnessV1(currency, tx, vin);
-    musig.initializeSession(hash);
-
-    return {
-      signature: Buffer.from(musig.signPartial()),
-      pubNonce: Buffer.from(musig.getPublicNonce()),
-    };
   };
 
   private hasNonFailedLightningPayment = async (

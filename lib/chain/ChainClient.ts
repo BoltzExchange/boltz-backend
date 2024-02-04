@@ -233,6 +233,10 @@ class ChainClient extends BaseClient {
     }
   };
 
+  public getRawMempool = async () => {
+    return this.client.request<string[]>('getrawmempool');
+  };
+
   public estimateFee = async (confTarget = 2): Promise<number> => {
     return this.estimateFeeWithFloor(confTarget);
   };

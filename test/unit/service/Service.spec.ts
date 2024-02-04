@@ -618,6 +618,7 @@ describe('Service', () => {
     mockedWalletManager(),
     new NodeSwitch(Logger.disabledLogger),
     currencies,
+    {} as any,
   );
 
   // Inject a mocked SwapManager

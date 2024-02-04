@@ -10,11 +10,14 @@ import {
 import {
   ClaimDetails,
   Musig,
+  OutputType,
   RefundDetails,
+  SwapTreeSerializer,
   TaprootUtils,
   Types,
   constructClaimTransaction as constructClaimTransactionBitcoin,
   constructRefundTransaction as constructRefundTransactionBitcoin,
+  detectSwap,
   init,
   targetFee,
 } from 'boltz-core';
@@ -45,8 +48,10 @@ import {
   reverseBuffer,
 } from './Utils';
 import ChainClient from './chain/ChainClient';
-import { CurrencyType } from './consts/Enums';
+import { CurrencyType, SwapVersion } from './consts/Enums';
 import { liquidSymbol } from './consts/LiquidTypes';
+import Swap from './db/models/Swap';
+import SwapOutputType from './swap/SwapOutputType';
 import Wallet from './wallet/Wallet';
 import WalletLiquid from './wallet/WalletLiquid';
 import { Currency } from './wallet/WalletManager';
@@ -154,6 +159,54 @@ export const getOutputValue = (
   );
 
   return unblinded.isLbtc ? unblinded.value : 0;
+};
+
+export const constructClaimDetails = (
+  swapOutputType: SwapOutputType,
+  wallet: Wallet,
+  swap: Swap,
+  transaction: Transaction | LiquidTransaction,
+  preimage: Buffer,
+): ClaimDetails | LiquidClaimDetails => {
+  // Compatibility mode with database schema version 0 in which this column didn't exist
+  if (swap.lockupTransactionVout === undefined) {
+    swap.lockupTransactionVout = detectSwap(
+      getHexBuffer(swap.redeemScript!),
+      transaction,
+    )!.vout;
+  }
+
+  const output = transaction.outs[swap.lockupTransactionVout!];
+  const claimDetails = {
+    ...output,
+    preimage,
+    txHash: transaction.getHash(),
+    vout: swap.lockupTransactionVout!,
+    keys: wallet.getKeysByIndex(swap.keyIndex!),
+  } as ClaimDetails | LiquidClaimDetails;
+
+  switch (swap.version) {
+    case SwapVersion.Taproot: {
+      claimDetails.type = OutputType.Taproot;
+      claimDetails.cooperative = false;
+      claimDetails.swapTree = SwapTreeSerializer.deserializeSwapTree(
+        swap.redeemScript!,
+      );
+      claimDetails.internalKey = createMusig(
+        claimDetails.keys,
+        getHexBuffer(swap.refundPublicKey!),
+      ).getAggregatedPublicKey();
+      break;
+    }
+
+    default: {
+      claimDetails.type = swapOutputType.get(wallet.type);
+      claimDetails.redeemScript = getHexBuffer(swap.redeemScript!);
+      break;
+    }
+  }
+
+  return claimDetails;
 };
 
 export const constructClaimTransaction = (

@@ -1,9 +1,20 @@
 import { BIP32Factory } from 'bip32';
 import { generateMnemonic, mnemonicToSeedSync } from 'bip39';
-import { Transaction, address } from 'bitcoinjs-lib';
+import { Transaction, address, crypto } from 'bitcoinjs-lib';
 import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371';
-import { Networks, Scripts, SwapTreeSerializer } from 'boltz-core';
+import {
+  ClaimDetails,
+  Networks,
+  OutputType,
+  Scripts,
+  SwapTreeSerializer,
+  detectSwap,
+  swapScript,
+  swapTree,
+} from 'boltz-core';
 import { Networks as LiquidNetworks } from 'boltz-core/dist/lib/liquid';
+import { p2trOutput, p2wshOutput } from 'boltz-core/dist/lib/swap/Scripts';
+import { randomBytes } from 'crypto';
 import {
   Creator,
   CreatorInput,
@@ -17,6 +28,7 @@ import {
 import { SLIP77Factory } from 'slip77';
 import * as ecc from 'tiny-secp256k1';
 import {
+  constructClaimDetails,
   createMusig,
   fromOutputScript,
   getOutputValue,
@@ -28,9 +40,11 @@ import {
 } from '../../lib/Core';
 import { ECPair } from '../../lib/ECPairHelper';
 import Logger from '../../lib/Logger';
-import { getHexBuffer } from '../../lib/Utils';
-import { CurrencyType } from '../../lib/consts/Enums';
+import { getHexBuffer, getHexString } from '../../lib/Utils';
+import { CurrencyType, SwapVersion } from '../../lib/consts/Enums';
 import Database from '../../lib/db/Database';
+import Swap from '../../lib/db/models/Swap';
+import SwapOutputType from '../../lib/swap/SwapOutputType';
 import Wallet from '../../lib/wallet/Wallet';
 import WalletLiquid from '../../lib/wallet/WalletLiquid';
 import { Currency } from '../../lib/wallet/WalletManager';
@@ -166,6 +180,107 @@ describe('Core', () => {
       ),
     ).toEqual(0);
     walletLiquid['network'] = networks.regtest;
+  });
+
+  test('should construct legacy claim details', async () => {
+    const preimage = randomBytes(32);
+    const claimKeys = wallet.getNewKeys();
+    const refundKeys = ECPair.makeRandom();
+
+    const redeemScript = swapScript(
+      crypto.sha256(preimage),
+      claimKeys.keys.publicKey,
+      refundKeys.publicKey,
+      2,
+    );
+    const outputScript = p2wshOutput(redeemScript);
+
+    const tx = Transaction.fromHex(
+      await bitcoinClient.getRawTransaction(
+        await bitcoinClient.sendToAddress(
+          wallet.encodeAddress(outputScript),
+          100_00,
+        ),
+      ),
+    );
+    const output = detectSwap(redeemScript, tx);
+
+    const claimDetails = constructClaimDetails(
+      {
+        get: jest.fn().mockReturnValue(OutputType.Bech32),
+      } as unknown as SwapOutputType,
+      wallet,
+      {
+        keyIndex: claimKeys.index,
+        version: SwapVersion.Legacy,
+        redeemScript: getHexString(redeemScript),
+      } as unknown as Swap,
+      tx,
+      preimage,
+    ) as ClaimDetails;
+
+    expect(claimDetails).toEqual({
+      ...output,
+      preimage,
+      redeemScript,
+      txHash: tx.getHash(),
+      type: OutputType.Bech32,
+      keys: wallet.getKeysByIndex(claimKeys.index),
+    });
+  });
+
+  test('should construct Taproot claim details', async () => {
+    const preimage = randomBytes(32);
+    const claimKeys = wallet.getNewKeys();
+    const refundKeys = ECPair.makeRandom();
+
+    const tree = swapTree(
+      false,
+      crypto.sha256(preimage),
+      claimKeys.keys.publicKey,
+      refundKeys.publicKey,
+      2,
+    );
+    const musig = createMusig(claimKeys.keys, refundKeys.publicKey);
+    const tweakedKey = tweakMusig(CurrencyType.BitcoinLike, musig, tree);
+    const outputScript = p2trOutput(tweakedKey);
+
+    const tx = Transaction.fromHex(
+      await bitcoinClient.getRawTransaction(
+        await bitcoinClient.sendToAddress(
+          wallet.encodeAddress(outputScript),
+          100_00,
+        ),
+      ),
+    );
+    const output = detectSwap(tweakedKey, tx)!;
+
+    const claimDetails = constructClaimDetails(
+      {} as unknown as SwapOutputType,
+      wallet,
+      {
+        keyIndex: claimKeys.index,
+        version: SwapVersion.Taproot,
+        lockupTransactionVout: output.vout,
+        refundPublicKey: refundKeys.publicKey,
+        redeemScript: SwapTreeSerializer.serializeSwapTree(tree),
+      } as unknown as Swap,
+      tx,
+      preimage,
+    ) as ClaimDetails;
+
+    expect(claimDetails.vout).toEqual(output.vout);
+    expect(claimDetails.preimage).toEqual(preimage);
+    expect(claimDetails.value).toEqual(output.value);
+    expect(claimDetails.keys).toEqual(claimKeys.keys);
+    expect(claimDetails.txHash).toEqual(tx.getHash());
+    expect(claimDetails.script).toEqual(output.script);
+    expect(claimDetails.type).toEqual(OutputType.Taproot);
+    expect(claimDetails.cooperative).toEqual(false);
+    expect(claimDetails.internalKey).toEqual(musig.getAggregatedPublicKey());
+    expect(
+      SwapTreeSerializer.serializeSwapTree(claimDetails.swapTree!),
+    ).toEqual(SwapTreeSerializer.serializeSwapTree(tree));
   });
 
   test('should create Musig', () => {

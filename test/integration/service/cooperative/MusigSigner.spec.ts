@@ -14,32 +14,32 @@ import {
 } from 'boltz-core';
 import { SwapTree } from 'boltz-core/dist/lib/consts/Types';
 import { randomBytes } from 'crypto';
-import { hashForWitnessV1, setup, tweakMusig, zkp } from '../../../lib/Core';
-import { ECPair } from '../../../lib/ECPairHelper';
-import Logger from '../../../lib/Logger';
-import { getHexString } from '../../../lib/Utils';
-import { CurrencyType, SwapUpdateEvent } from '../../../lib/consts/Enums';
-import { NodeType } from '../../../lib/db/models/ReverseSwap';
-import Swap from '../../../lib/db/models/Swap';
-import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
-import SwapRepository from '../../../lib/db/repositories/SwapRepository';
-import Errors from '../../../lib/service/Errors';
-import MusigSigner from '../../../lib/service/MusigSigner';
-import SwapNursery from '../../../lib/swap/SwapNursery';
-import Wallet from '../../../lib/wallet/Wallet';
-import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
-import { waitForFunctionToBeTrue } from '../../Utils';
+import { hashForWitnessV1, setup, tweakMusig, zkp } from '../../../../lib/Core';
+import { ECPair } from '../../../../lib/ECPairHelper';
+import Logger from '../../../../lib/Logger';
+import { getHexString } from '../../../../lib/Utils';
+import { CurrencyType, SwapUpdateEvent } from '../../../../lib/consts/Enums';
+import { NodeType } from '../../../../lib/db/models/ReverseSwap';
+import Swap from '../../../../lib/db/models/Swap';
+import ReverseSwapRepository from '../../../../lib/db/repositories/ReverseSwapRepository';
+import SwapRepository from '../../../../lib/db/repositories/SwapRepository';
+import Errors from '../../../../lib/service/Errors';
+import MusigSigner from '../../../../lib/service/cooperative/MusigSigner';
+import SwapNursery from '../../../../lib/swap/SwapNursery';
+import Wallet from '../../../../lib/wallet/Wallet';
+import WalletManager, { Currency } from '../../../../lib/wallet/WalletManager';
+import { waitForFunctionToBeTrue } from '../../../Utils';
 import {
   bitcoinClient,
   bitcoinLndClient,
   bitcoinLndClient2,
   clnClient,
-} from '../Nodes';
+} from '../../Nodes';
 
-jest.mock('../../../lib/db/repositories/ChainTipRepository');
-jest.mock('../../../lib/db/repositories/ReverseSwapRepository');
+jest.mock('../../../../lib/db/repositories/ChainTipRepository');
+jest.mock('../../../../lib/db/repositories/ReverseSwapRepository');
 
-jest.mock('../../../lib/db/repositories/SwapRepository', () => ({
+jest.mock('../../../../lib/db/repositories/SwapRepository', () => ({
   getSwap: jest.fn().mockResolvedValue(undefined),
 }));
 

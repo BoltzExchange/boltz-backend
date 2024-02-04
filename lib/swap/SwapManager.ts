@@ -49,6 +49,9 @@ import Blocks from '../service/Blocks';
 import InvoiceExpiryHelper from '../service/InvoiceExpiryHelper';
 import PaymentRequestUtils from '../service/PaymentRequestUtils';
 import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
+import DeferredClaimer, {
+  SwapConfig,
+} from '../service/cooperative/DeferredClaimer';
 import WalletLiquid from '../wallet/WalletLiquid';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import Errors from './Errors';
@@ -121,6 +124,7 @@ class SwapManager {
 
   public nursery: SwapNursery;
   public routingHints!: RoutingHints;
+  public readonly deferredClaimer: DeferredClaimer;
 
   private nodeFallback!: NodeFallback;
   private invoiceExpiryHelper!: InvoiceExpiryHelper;
@@ -135,7 +139,16 @@ class SwapManager {
     private readonly swapOutputType: SwapOutputType,
     retryInterval: number,
     private readonly blocks: Blocks,
+    swapConfig: SwapConfig,
   ) {
+    this.deferredClaimer = new DeferredClaimer(
+      this.logger,
+      this.currencies,
+      this.walletManager,
+      this.swapOutputType,
+      swapConfig,
+    );
+
     this.nursery = new SwapNursery(
       this.logger,
       this.nodeSwitch,
@@ -145,6 +158,7 @@ class SwapManager {
       this.swapOutputType,
       retryInterval,
       this.blocks,
+      this.deferredClaimer,
     );
   }
 
@@ -201,6 +215,8 @@ class SwapManager {
       pairs,
       this.timeoutDeltaProvider,
     );
+
+    await this.deferredClaimer.init();
   };
 
   /**

@@ -199,6 +199,12 @@ class EventHandler extends EventEmitter {
       this.emit('swap.success', swap, false, channelCreation);
     });
 
+    this.nursery.on('claim.pending', (swap) => {
+      this.emit('swap.update', swap.id, {
+        status: SwapUpdateEvent.TransactionClaimPending,
+      });
+    });
+
     this.nursery.on('expiration', (swap, isReverse) => {
       const newStatus = SwapUpdateEvent.SwapExpired;
 

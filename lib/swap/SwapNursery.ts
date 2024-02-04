@@ -1,6 +1,6 @@
 import AsyncLock from 'async-lock';
 import { Transaction } from 'bitcoinjs-lib';
-import { OutputType, SwapTreeSerializer, detectSwap } from 'boltz-core';
+import { OutputType, SwapTreeSerializer } from 'boltz-core';
 import { ContractTransactionResponse } from 'ethers';
 import { EventEmitter } from 'events';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib';
@@ -11,6 +11,7 @@ import {
   LiquidRefundDetails,
   RefundDetails,
   calculateTransactionFee,
+  constructClaimDetails,
   constructClaimTransaction,
   constructRefundTransaction,
   createMusig,
@@ -47,6 +48,7 @@ import FeeProvider from '../rates/FeeProvider';
 import RateProvider from '../rates/RateProvider';
 import Blocks from '../service/Blocks';
 import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
+import DeferredClaimer from '../service/cooperative/DeferredClaimer';
 import Wallet from '../wallet/Wallet';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import ContractHandler from '../wallet/ethereum/ContractHandler';
@@ -110,6 +112,9 @@ interface ISwapNursery {
 
   on(event: 'invoice.paid', listener: (swap: Swap) => void): this;
   emit(event: 'invoice.paid', swap: Swap): boolean;
+
+  on(event: 'claim.pending', listener: (swap: Swap) => void): this;
+  emit(event: 'claim.pending', swap: Swap): boolean;
 
   on(
     event: 'claim',
@@ -200,6 +205,7 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
     private swapOutputType: SwapOutputType,
     private retryInterval: number,
     blocks: Blocks,
+    private readonly claimer: DeferredClaimer,
   ) {
     super();
 
@@ -228,6 +234,10 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
         this.emit(eventName, ...args);
       },
     );
+
+    this.claimer.on('claim', (swap, channelCreation) => {
+      this.emit('claim', swap, channelCreation);
+    });
   }
 
   public init = async (currencies: Currency[]): Promise<void> => {
@@ -931,49 +941,22 @@ class SwapNursery extends EventEmitter implements ISwapNursery {
       return;
     }
 
-    // Compatibility mode with database schema version 0 in which this column didn't exist
-    if (swap.lockupTransactionVout === undefined) {
-      swap.lockupTransactionVout = detectSwap(
-        getHexBuffer(swap.redeemScript!),
-        transaction,
-      )!.vout;
-    }
-
-    const output = transaction.outs[swap.lockupTransactionVout!];
-    const claimDetails = {
-      ...output,
-      preimage,
-      vout: swap.lockupTransactionVout!,
-      txHash: transaction.getHash(),
-      keys: wallet.getKeysByIndex(swap.keyIndex!),
-    } as ClaimDetails | LiquidClaimDetails;
-
-    switch (swap.version) {
-      case SwapVersion.Taproot: {
-        claimDetails.type = OutputType.Taproot;
-        claimDetails.cooperative = false;
-        claimDetails.swapTree = SwapTreeSerializer.deserializeSwapTree(
-          swap.redeemScript!,
-        );
-        claimDetails.internalKey = createMusig(
-          claimDetails.keys,
-          getHexBuffer(swap.refundPublicKey!),
-        ).getAggregatedPublicKey();
-
-        break;
-      }
-
-      default: {
-        claimDetails.type = this.swapOutputType.get(wallet.type);
-        claimDetails.redeemScript = getHexBuffer(swap.redeemScript!);
-
-        break;
-      }
+    if (await this.claimer.deferClaim(swap, preimage)) {
+      this.emit('claim.pending', swap);
+      return;
     }
 
     const claimTransaction = constructClaimTransaction(
       wallet,
-      [claimDetails] as ClaimDetails[] | LiquidClaimDetails[],
+      [
+        constructClaimDetails(
+          this.swapOutputType,
+          wallet,
+          swap,
+          transaction,
+          preimage,
+        ),
+      ] as ClaimDetails[] | LiquidClaimDetails[],
       await wallet.getAddress(),
       await chainClient.estimateFee(),
     );

@@ -16,6 +16,7 @@ type channelBackupCallback = (channelBackup: string) => void;
 
 type lockupFailedCallback = (swap: Swap) => void;
 type invoicePaidCallback = (swap: Swap) => void;
+type claimPendingCallback = (swap: Swap) => void;
 type invoiceFailedCallback = (swap: Swap) => void;
 type invoicePendingCallback = (swap: Swap) => void;
 type refundCallback = (reverseSwap: ReverseSwap) => void;
@@ -70,6 +71,7 @@ let emitTransaction: transactionCallback;
 let emitInvoicePaid: invoicePaidCallback;
 let emitLockupFailed: lockupFailedCallback;
 let emitMinerfeePaid: minerfeePaidCallback;
+let emitClaimPending: claimPendingCallback;
 let emitInvoiceExpired: invoiceExpiredCallback;
 let emitInvoicePending: invoicePendingCallback;
 let emitInvoiceSettled: invoiceSettledCallback;
@@ -132,6 +134,10 @@ jest.mock('../../../lib/swap/SwapNursery', () => {
 
         case 'invoice.expired':
           emitInvoiceExpired = callback;
+          break;
+
+        case 'claim.pending':
+          emitClaimPending = callback;
           break;
       }
     },
@@ -599,6 +605,23 @@ describe('EventHandler', () => {
 
     expect(eventsEmitted).toEqual(1);
     eventsEmitted = 0;
+  });
+
+  test('should subscribe to claim.pending', async () => {
+    const swap = { id: 'swapId' } as unknown as Swap;
+
+    const emitPromise = new Promise<void>((resolve) => {
+      eventHandler.once('swap.update', (id, msg) => {
+        expect(id).toEqual(swap.id);
+        expect(msg).toEqual({
+          status: SwapUpdateEvent.TransactionClaimPending,
+        });
+        resolve();
+      });
+    });
+
+    emitClaimPending(swap);
+    await emitPromise;
   });
 
   test('should subscribe to channel backups', () => {

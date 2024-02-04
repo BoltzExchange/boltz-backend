@@ -26,6 +26,7 @@ class GrpcServer {
       sendCoins: grpcService.sendCoins,
       updateTimeoutBlockDelta: grpcService.updateTimeoutBlockDelta,
       addReferral: grpcService.addReferral,
+      sweepSwaps: grpcService.sweepSwaps,
     });
   }
 

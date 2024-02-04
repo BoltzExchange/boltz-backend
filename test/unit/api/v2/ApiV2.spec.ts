@@ -68,7 +68,12 @@ describe('ApiV2', () => {
       use: jest.fn(),
     } as any;
 
-    new ApiV2(Logger.disabledLogger, {} as any, {} as any).registerRoutes(app);
+    new ApiV2(
+      Logger.disabledLogger,
+      {} as any,
+      {} as any,
+      {} as any,
+    ).registerRoutes(app);
 
     expect(mockGetInfoRouter).toHaveBeenCalledTimes(1);
     expect(mockSwapGetRouter).toHaveBeenCalledTimes(1);

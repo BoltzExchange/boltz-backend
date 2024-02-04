@@ -345,6 +345,7 @@ describe('SwapManager', () => {
     SwapRepository.addSwap = mockAddSwap;
     SwapRepository.getSwaps = mockGetSwaps;
     SwapRepository.setInvoice = mockSetInvoice;
+    SwapRepository.getSwapsClaimable = jest.fn().mockResolvedValue([]);
 
     ReverseSwapRepository.addReverseSwap = mockAddReverseSwap;
     ReverseSwapRepository.getReverseSwaps = mockGetReverseSwaps;
@@ -374,6 +375,9 @@ describe('SwapManager', () => {
       new SwapOutputType(OutputType.Compatibility),
       0,
       blocks,
+      {
+        deferredClaimSymbols: [],
+      } as any,
     );
 
     manager['currencies'].set(btcCurrency.symbol, btcCurrency);

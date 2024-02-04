@@ -1,4 +1,8 @@
 import AsyncLock from 'async-lock';
+import { Transaction } from 'bitcoinjs-lib';
+import { Musig, SwapTreeSerializer } from 'boltz-core';
+import { EventEmitter } from 'events';
+import { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import { Job, scheduleJob } from 'node-schedule';
 import {
   ClaimDetails,
@@ -6,7 +10,10 @@ import {
   calculateTransactionFee,
   constructClaimDetails,
   constructClaimTransaction,
+  createMusig,
+  hashForWitnessV1,
   parseTransaction,
+  tweakMusig,
 } from '../../Core';
 import Logger from '../../Logger';
 import {
@@ -25,8 +32,8 @@ import SwapRepository from '../../db/repositories/SwapRepository';
 import SwapOutputType from '../../swap/SwapOutputType';
 import Wallet from '../../wallet/Wallet';
 import WalletManager, { Currency } from '../../wallet/WalletManager';
+import Errors from '../Errors';
 import TimeoutDeltaProvider from '../TimeoutDeltaProvider';
-import MusigBase from './MusigBase';
 
 type SwapConfig = {
   deferredClaimSymbols: string[];
@@ -34,10 +41,16 @@ type SwapConfig = {
   expiryTolerance: number;
 };
 
+type CooperativeDetails = {
+  musig: Musig;
+  sweepAddress: string;
+  transaction: Transaction | LiquidTransaction;
+};
+
 type SwapToClaim = {
   swap: Swap;
   preimage: Buffer;
-  sweepAddress?: string;
+  cooperative?: CooperativeDetails;
 };
 
 interface IDeferredClaimer {
@@ -48,7 +61,7 @@ interface IDeferredClaimer {
   emit(event: 'claim', swap: Swap, channelCreation?: ChannelCreation): boolean;
 }
 
-class DeferredClaimer extends MusigBase implements IDeferredClaimer {
+class DeferredClaimer extends EventEmitter implements IDeferredClaimer {
   private static readonly batchClaimLock = 'batchClaim';
   private static readonly swapsToClaimLock = 'swapsToClaim';
 
@@ -60,11 +73,11 @@ class DeferredClaimer extends MusigBase implements IDeferredClaimer {
   constructor(
     private readonly logger: Logger,
     private readonly currencies: Map<string, Currency>,
-    walletManager: WalletManager,
+    private readonly walletManager: WalletManager,
     private swapOutputType: SwapOutputType,
     private readonly config: SwapConfig,
   ) {
-    super(walletManager);
+    super();
 
     for (const symbol of config.deferredClaimSymbols) {
       this.swapsToClaim.set(symbol, new Map<string, SwapToClaim>());
@@ -73,7 +86,7 @@ class DeferredClaimer extends MusigBase implements IDeferredClaimer {
 
   public init = async () => {
     this.logger.verbose(
-      `Using deferred claims for: ${this.config.deferredClaimSymbols}`,
+      `Using deferred claims for: ${this.config.deferredClaimSymbols.join(', ')}`,
     );
     this.logger.verbose(
       `Batch claim interval: ${this.config.batchClaimInterval} with expiry tolerance of ${this.config.expiryTolerance} minutes`,
@@ -159,6 +172,102 @@ class DeferredClaimer extends MusigBase implements IDeferredClaimer {
     return true;
   };
 
+  public getCooperativeDetails = async (
+    swap: Swap,
+  ): Promise<{
+    preimage: Buffer;
+    pubNonce: Buffer;
+    publicKey: Buffer;
+    transactionHash: Buffer;
+  }> => {
+    const { toClaim, chainCurrency } = await this.getToClaimDetails(swap);
+    if (toClaim === undefined) {
+      throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM();
+    }
+
+    const wallet = this.walletManager.wallets.get(chainCurrency.symbol)!;
+    const address =
+      toClaim.cooperative?.sweepAddress || (await wallet.getAddress());
+
+    toClaim.cooperative = {
+      sweepAddress: address,
+      musig: createMusig(
+        wallet.getKeysByIndex(swap.keyIndex!),
+        getHexBuffer(swap.refundPublicKey!),
+      ),
+      transaction: constructClaimTransaction(
+        wallet,
+        [
+          await this.constructClaimDetails(
+            chainCurrency.chainClient!,
+            wallet,
+            toClaim,
+            true,
+          ),
+        ] as ClaimDetails[] | LiquidClaimDetails[],
+        address,
+        await chainCurrency.chainClient!.estimateFee(),
+      ),
+    };
+
+    return {
+      preimage: toClaim.preimage,
+      publicKey: wallet.getKeysByIndex(swap.keyIndex!).publicKey,
+      pubNonce: Buffer.from(toClaim.cooperative.musig.getPublicNonce()),
+      transactionHash: await hashForWitnessV1(
+        chainCurrency,
+        toClaim.cooperative.transaction,
+        0,
+      ),
+    };
+  };
+
+  public broadcastCooperative = async (
+    swap: Swap,
+    theirPubNonce: Buffer,
+    theirPartialSignature: Buffer,
+  ) => {
+    const { toClaim, chainCurrency } = await this.getToClaimDetails(swap);
+    if (toClaim === undefined || toClaim.cooperative === undefined) {
+      throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM_BROADCAST();
+    }
+
+    const { musig, transaction } = toClaim.cooperative;
+    tweakMusig(
+      chainCurrency.type,
+      musig,
+      SwapTreeSerializer.deserializeSwapTree(swap.redeemScript!),
+    );
+    const theirPublicKey = getHexBuffer(swap.refundPublicKey!);
+    musig.aggregateNonces([[theirPublicKey, theirPubNonce]]);
+    musig.initializeSession(
+      await hashForWitnessV1(chainCurrency, toClaim.cooperative.transaction, 0),
+    );
+    musig.addPartial(theirPublicKey, theirPartialSignature);
+    musig.signPartial();
+
+    transaction.ins[0].witness = [musig.aggregatePartials()];
+
+    this.logger.info(
+      `Broadcasting cooperative ${chainCurrency.symbol} claim of Swap ${swap.id} in: ${transaction.getId()}`,
+    );
+    await chainCurrency.chainClient!.sendRawTransaction(transaction.toHex());
+    await this.lock.acquire(DeferredClaimer.swapsToClaimLock, async () => {
+      this.swapsToClaim.get(chainCurrency.symbol)?.delete(swap.id);
+    });
+
+    this.emit(
+      'claim',
+      await SwapRepository.setMinerFee(
+        toClaim.swap,
+        await calculateTransactionFee(chainCurrency.chainClient!, transaction),
+      ),
+      (await ChannelCreationRepository.getChannelCreation({
+        swapId: toClaim.swap.id,
+      })) || undefined,
+    );
+  };
+
   private batchClaim = async (symbol: string) => {
     let swapsToClaim: SwapToClaim[] = [];
 
@@ -174,7 +283,7 @@ class DeferredClaimer extends MusigBase implements IDeferredClaimer {
 
     try {
       if (swapsToClaim.length === 0) {
-        this.logger.debug(
+        this.logger.silly(
           `Not batch claiming swaps for currency ${symbol}: no swaps to claim`,
         );
         return [];
@@ -245,6 +354,7 @@ class DeferredClaimer extends MusigBase implements IDeferredClaimer {
     chainClient: ChainClient,
     wallet: Wallet,
     toClaim: SwapToClaim,
+    cooperative: boolean = false,
   ): Promise<ClaimDetails | LiquidClaimDetails> => {
     const { swap, preimage } = toClaim;
     const tx = parseTransaction(
@@ -258,6 +368,7 @@ class DeferredClaimer extends MusigBase implements IDeferredClaimer {
       swap,
       tx,
       preimage,
+      cooperative,
     );
   };
 
@@ -336,6 +447,23 @@ class DeferredClaimer extends MusigBase implements IDeferredClaimer {
     }
 
     await this.sweep();
+  };
+
+  private getToClaimDetails = async (swap: Swap) => {
+    const { base, quote } = splitPairId(swap.pair);
+    const chainCurrency = this.currencies.get(
+      getChainCurrency(base, quote, swap.orderSide, false),
+    )!;
+
+    let toClaim: SwapToClaim | undefined;
+    await this.lock.acquire(DeferredClaimer.swapsToClaimLock, async () => {
+      toClaim = this.swapsToClaim.get(chainCurrency.symbol)?.get(swap.id);
+    });
+
+    return {
+      toClaim,
+      chainCurrency,
+    };
   };
 }
 

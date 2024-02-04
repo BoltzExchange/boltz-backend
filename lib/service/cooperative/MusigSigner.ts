@@ -1,5 +1,11 @@
 import { crypto } from 'bitcoinjs-lib';
-import { SwapTreeSerializer } from 'boltz-core';
+import { SwapTreeSerializer, Types } from 'boltz-core';
+import {
+  createMusig,
+  hashForWitnessV1,
+  parseTransaction,
+  tweakMusig,
+} from '../../Core';
 import Logger from '../../Logger';
 import {
   getChainCurrency,
@@ -15,7 +21,6 @@ import { Payment } from '../../proto/lnd/rpc_pb';
 import SwapNursery from '../../swap/SwapNursery';
 import WalletManager, { Currency } from '../../wallet/WalletManager';
 import Errors from '../Errors';
-import MusigBase from './MusigBase';
 
 type PartialSignature = {
   pubNonce: Buffer;
@@ -24,15 +29,13 @@ type PartialSignature = {
 
 // TODO: Should we verify what we are signing? And if so, how strict should we be?
 
-class MusigSigner extends MusigBase {
+class MusigSigner {
   constructor(
     private readonly logger: Logger,
     private readonly currencies: Map<string, Currency>,
-    walletManager: WalletManager,
+    private readonly walletManager: WalletManager,
     private readonly nursery: SwapNursery,
-  ) {
-    super(walletManager);
-  }
+  ) {}
 
   public signSwapRefund = async (
     swapId: string,
@@ -130,6 +133,38 @@ class MusigSigner extends MusigBase {
       rawTransaction,
       index,
     );
+  };
+
+  private createPartialSignature = async (
+    currency: Currency,
+    swapTree: Types.SwapTree,
+    keyIndex: number,
+    theirPublicKey: Buffer,
+    theirNonce: Buffer,
+    rawTransaction: Buffer | string,
+    vin: number,
+  ): Promise<PartialSignature> => {
+    const tx = parseTransaction(currency.type, rawTransaction);
+    if (vin < 0 || tx.ins.length <= vin) {
+      throw Errors.INVALID_VIN();
+    }
+
+    const wallet = this.walletManager.wallets.get(currency.symbol)!;
+
+    const ourKeys = wallet.getKeysByIndex(keyIndex);
+
+    const musig = createMusig(ourKeys, theirPublicKey);
+    tweakMusig(currency.type, musig, swapTree);
+
+    musig.aggregateNonces([[theirPublicKey, theirNonce]]);
+
+    const hash = await hashForWitnessV1(currency, tx, vin);
+    musig.initializeSession(hash);
+
+    return {
+      signature: Buffer.from(musig.signPartial()),
+      pubNonce: Buffer.from(musig.getPublicNonce()),
+    };
   };
 
   private hasNonFailedLightningPayment = async (

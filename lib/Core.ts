@@ -167,6 +167,7 @@ export const constructClaimDetails = (
   swap: Swap,
   transaction: Transaction | LiquidTransaction,
   preimage: Buffer,
+  cooperative: boolean = false,
 ): ClaimDetails | LiquidClaimDetails => {
   // Compatibility mode with database schema version 0 in which this column didn't exist
   if (swap.lockupTransactionVout === undefined) {
@@ -188,7 +189,7 @@ export const constructClaimDetails = (
   switch (swap.version) {
     case SwapVersion.Taproot: {
       claimDetails.type = OutputType.Taproot;
-      claimDetails.cooperative = false;
+      claimDetails.cooperative = cooperative;
       claimDetails.swapTree = SwapTreeSerializer.deserializeSwapTree(
         swap.redeemScript!,
       );

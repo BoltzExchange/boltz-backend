@@ -6,8 +6,10 @@ import Controller from '../../../../../lib/api/Controller';
 import SwapRouter from '../../../../../lib/api/v2/routers/SwapRouter';
 import { OrderSide, SwapVersion } from '../../../../../lib/consts/Enums';
 import MarkedSwapRepository from '../../../../../lib/db/repositories/MarkedSwapRepository';
+import SwapRepository from '../../../../../lib/db/repositories/SwapRepository';
 import RateProviderTaproot from '../../../../../lib/rates/providers/RateProviderTaproot';
 import CountryCodes from '../../../../../lib/service/CountryCodes';
+import Errors from '../../../../../lib/service/Errors';
 import Service from '../../../../../lib/service/Service';
 import { mockRequest, mockResponse } from '../../Utils';
 
@@ -21,6 +23,18 @@ jest.mock('express', () => {
     Router: jest.fn().mockImplementation(() => mockedRouter),
   };
 });
+
+jest.mock('../../../../../lib/db/repositories/SwapRepository', () => ({
+  getSwap: jest.fn().mockImplementation(async ({ id }) => {
+    if (id === 'notFound') {
+      return undefined;
+    }
+
+    return {
+      swap: 'details',
+    };
+  }),
+}));
 
 jest.mock('../../../../../lib/db/repositories/MarkedSwapRepository', () => ({
   addMarkedSwap: jest.fn().mockResolvedValue(undefined),
@@ -56,6 +70,18 @@ describe('SwapRouter', () => {
         pubNonce: getHexBuffer('2111'),
         signature: getHexBuffer('2112'),
       }),
+    },
+
+    swapManager: {
+      deferredClaimer: {
+        getCooperativeDetails: jest.fn().mockResolvedValue({
+          preimage: randomBytes(32),
+          pubNonce: randomBytes(31),
+          publicKey: randomBytes(30),
+          transactionHash: randomBytes(33),
+        }),
+        broadcastCooperative: jest.fn().mockResolvedValue(undefined),
+      },
     },
 
     convertToPairAndSide: jest
@@ -101,7 +127,7 @@ describe('SwapRouter', () => {
 
     expect(Router).toHaveBeenCalledTimes(1);
 
-    expect(mockedRouter.get).toHaveBeenCalledTimes(4);
+    expect(mockedRouter.get).toHaveBeenCalledTimes(5);
     expect(mockedRouter.get).toHaveBeenCalledWith('/:id', expect.anything());
     expect(mockedRouter.get).toHaveBeenCalledWith(
       '/submarine',
@@ -112,17 +138,25 @@ describe('SwapRouter', () => {
       expect.anything(),
     );
     expect(mockedRouter.get).toHaveBeenCalledWith(
+      '/submarine/:id/claim',
+      expect.anything(),
+    );
+    expect(mockedRouter.get).toHaveBeenCalledWith(
       '/reverse',
       expect.anything(),
     );
 
-    expect(mockedRouter.post).toHaveBeenCalledTimes(4);
+    expect(mockedRouter.post).toHaveBeenCalledTimes(5);
     expect(mockedRouter.post).toHaveBeenCalledWith(
       '/submarine',
       expect.anything(),
     );
     expect(mockedRouter.post).toHaveBeenCalledWith(
       '/submarine/refund',
+      expect.anything(),
+    );
+    expect(mockedRouter.post).toHaveBeenCalledWith(
+      '/submarine/:id/claim',
       expect.anything(),
     );
     expect(mockedRouter.post).toHaveBeenCalledWith(
@@ -365,6 +399,163 @@ describe('SwapRouter', () => {
       getHexBuffer(reqBody.transaction),
       reqBody.index,
     );
+  });
+
+  test.each`
+    error                        | params
+    ${'undefined parameter: id'} | ${{}}
+    ${'invalid parameter: id'}   | ${{ id: 123 }}
+  `(
+    'should not get submarine claim details with invalid parameters ($error)',
+    async ({ error, params }) => {
+      await expect(
+        swapRouter['getSubmarineClaimDetails'](
+          mockRequest(null, {}, params),
+          mockResponse(),
+        ),
+      ).rejects.toEqual(error);
+    },
+  );
+
+  test('should throw when getting submarine claim details for swap that does not exist', async () => {
+    const id = 'notFound';
+
+    const res = mockResponse();
+    await swapRouter['getSubmarineClaimDetails'](
+      mockRequest(
+        null,
+        {},
+        {
+          id,
+        },
+      ),
+      res,
+    );
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({
+      error: Errors.SWAP_NOT_FOUND(id).message,
+    });
+  });
+
+  test('should get submarine claim details', async () => {
+    const id = 'swapId';
+
+    const res = mockResponse();
+    await swapRouter['getSubmarineClaimDetails'](
+      mockRequest(
+        null,
+        {},
+        {
+          id,
+        },
+      ),
+      res,
+    );
+
+    expect(SwapRepository.getSwap).toHaveBeenCalledTimes(1);
+    expect(SwapRepository.getSwap).toHaveBeenCalledWith({
+      id,
+    });
+    expect(
+      service.swapManager.deferredClaimer.getCooperativeDetails,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      service.swapManager.deferredClaimer.getCooperativeDetails,
+    ).toHaveBeenCalledWith(await SwapRepository.getSwap({}));
+
+    const details =
+      await service.swapManager.deferredClaimer.getCooperativeDetails(
+        {} as any,
+      );
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      preimage: getHexString(details.preimage),
+      pubNonce: getHexString(details.pubNonce),
+      publicKey: getHexString(details.publicKey),
+      transactionHash: getHexString(details.transactionHash),
+    });
+  });
+
+  test.each`
+    error                                             | params           | body
+    ${'undefined parameter: id'}                      | ${{}}            | ${{}}
+    ${'undefined parameter: partialSignature'}        | ${{ id: '123' }} | ${{ pubNonce: 'aabbcc' }}
+    ${'could not parse hex string: pubNonce'}         | ${{ id: '123' }} | ${{ pubNonce: 'notHex' }}
+    ${'could not parse hex string: partialSignature'} | ${{ id: '123' }} | ${{ pubNonce: 'aabbcc', partialSignature: 'notHex' }}
+  `(
+    'should not refund submarine swaps with invalid parameters ($error)',
+    async ({ error, params, body }) => {
+      await expect(
+        swapRouter['claimSubmarine'](
+          mockRequest(body, {}, params),
+          mockResponse(),
+        ),
+      ).rejects.toEqual(error);
+    },
+  );
+
+  test('should throw when broadcasting cooperative submarine claim', async () => {
+    const id = 'notFound';
+
+    const res = mockResponse();
+    await swapRouter['claimSubmarine'](
+      mockRequest(
+        {
+          pubNonce: 'aa',
+          partialSignature: 'bb',
+        },
+        {},
+        {
+          id,
+        },
+      ),
+      res,
+    );
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({
+      error: Errors.SWAP_NOT_FOUND(id).message,
+    });
+  });
+
+  test('should broadcast cooperative submarine swap claims', async () => {
+    const id = 'swapId';
+    const body = {
+      pubNonce: getHexString(randomBytes(32)),
+      partialSignature: getHexString(randomBytes(32)),
+    };
+
+    const res = mockResponse();
+    await swapRouter['claimSubmarine'](
+      mockRequest(
+        body,
+        {},
+        {
+          id,
+        },
+      ),
+      res,
+    );
+
+    expect(SwapRepository.getSwap).toHaveBeenCalledTimes(1);
+    expect(SwapRepository.getSwap).toHaveBeenCalledWith({
+      id,
+    });
+    expect(
+      service.swapManager.deferredClaimer.broadcastCooperative,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      service.swapManager.deferredClaimer.broadcastCooperative,
+    ).toHaveBeenCalledWith(
+      await SwapRepository.getSwap({}),
+      getHexBuffer(body.pubNonce),
+      getHexBuffer(body.partialSignature),
+    );
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({});
   });
 
   test('should get reverse pairs', () => {

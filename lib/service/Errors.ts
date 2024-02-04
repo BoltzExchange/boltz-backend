@@ -145,4 +145,12 @@ export default {
     message: 'input index is out of range',
     code: concatErrorCode(ErrorCodePrefix.Service, 37),
   }),
+  NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM: (): Error => ({
+    message: 'swap not eligible for a cooperative claim',
+    code: concatErrorCode(ErrorCodePrefix.Service, 38),
+  }),
+  NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM_BROADCAST: (): Error => ({
+    message: 'swap not eligible for a cooperative claim broadcast',
+    code: concatErrorCode(ErrorCodePrefix.Service, 39),
+  }),
 };

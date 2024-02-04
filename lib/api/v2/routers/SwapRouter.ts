@@ -2,8 +2,10 @@ import { Request, Response, Router } from 'express';
 import Logger from '../../../Logger';
 import { getHexString, stringify } from '../../../Utils';
 import { SwapVersion } from '../../../consts/Enums';
+import SwapRepository from '../../../db/repositories/SwapRepository';
 import RateProviderTaproot from '../../../rates/providers/RateProviderTaproot';
 import CountryCodes from '../../../service/CountryCodes';
+import Errors from '../../../service/Errors';
 import Service from '../../../service/Service';
 import Controller from '../../Controller';
 import {
@@ -299,7 +301,7 @@ class SwapRouter extends RouterBase {
      *       properties:
      *         pubNonce:
      *           type: string
-     *           description: Public nonce of Boltz encoded as HEX
+     *           description: Public nonce  encoded as HEX
      *         partialSignature:
      *           type: string
      *           description: Partial signature encoded as HEX
@@ -332,6 +334,106 @@ class SwapRouter extends RouterBase {
      *               $ref: '#/components/schemas/ErrorResponse'
      */
     router.post('/submarine/refund', this.handleError(this.refundSubmarine));
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
+     *     SubmarineClaimDetails:
+     *       type: object
+     *       properties:
+     *         preimage:
+     *           type: string
+     *           description: Preimage of the invoice for the Submarine Swap encoded as HEX
+     *         pubNonce:
+     *           type: string
+     *           description: Public nonce of Boltz encoded as HEX
+     *         publicKey:
+     *           type: string
+     *           description: Public key of Boltz encoded as HEX
+     *         transactionHash:
+     *           type: string
+     *           description: Hash of the transaction that should be signed
+     */
+
+    /**
+     * @openapi
+     * /swap/submarine/{id}/claim:
+     *   get:
+     *     tags: [Submarine]
+     *     description: Get the needed information to post a partial signature for a cooperative Submarine Swap claim transaction
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *         description: ID of the Swap
+     *     responses:
+     *       '200':
+     *         description: The latest status of the Swap
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/SubmarineClaimDetails'
+     *       '400':
+     *         description: Error that caused signature request to fail
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *       '404':
+     *         description: When no Swap with the ID could be found
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
+    router.get(
+      '/submarine/:id/claim',
+      this.handleError(this.getSubmarineClaimDetails),
+    );
+
+    /**
+     * @openapi
+     * /swap/submarine/{id}/claim:
+     *   post:
+     *     tags: [Submarine]
+     *     description: Send Boltz the clients partial signature for a cooperative Submarine Swap claim transaction
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *         description: ID of the Swap
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             $ref: '#/components/schemas/PartialSignature'
+     *     responses:
+     *       '200':
+     *         description: The latest status of the Swap
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *       '400':
+     *         description: Error that caused signature request to fail
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *       '404':
+     *         description: When no Swap with the ID could be found
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
+    router.post('/submarine/:id/claim', this.handleError(this.claimSubmarine));
 
     /**
      * @openapi
@@ -709,6 +811,55 @@ class SwapRouter extends RouterBase {
       pubNonce: getHexString(sig.pubNonce),
       partialSignature: getHexString(sig.signature),
     });
+  };
+
+  private getSubmarineClaimDetails = async (req: Request, res: Response) => {
+    const { id } = validateRequest(req.params, [
+      { name: 'id', type: 'string' },
+    ]);
+    const swap = await SwapRepository.getSwap({
+      id,
+    });
+    if (swap === null || swap === undefined) {
+      errorResponse(this.logger, req, res, Errors.SWAP_NOT_FOUND(id), 404);
+      return;
+    }
+
+    const details =
+      await this.service.swapManager.deferredClaimer.getCooperativeDetails(
+        swap,
+      );
+    successResponse(res, {
+      preimage: getHexString(details.preimage),
+      pubNonce: getHexString(details.pubNonce),
+      publicKey: getHexString(details.publicKey),
+      transactionHash: getHexString(details.transactionHash),
+    });
+  };
+
+  private claimSubmarine = async (req: Request, res: Response) => {
+    const { id } = validateRequest(req.params, [
+      { name: 'id', type: 'string' },
+    ]);
+    const { pubNonce, partialSignature } = validateRequest(req.body, [
+      { name: 'pubNonce', type: 'string', hex: true },
+      { name: 'partialSignature', type: 'string', hex: true },
+    ]);
+
+    const swap = await SwapRepository.getSwap({
+      id,
+    });
+    if (swap === null || swap === undefined) {
+      errorResponse(this.logger, req, res, Errors.SWAP_NOT_FOUND(id), 404);
+      return;
+    }
+
+    await this.service.swapManager.deferredClaimer.broadcastCooperative(
+      swap,
+      pubNonce,
+      partialSignature,
+    );
+    successResponse(res, {});
   };
 
   private getReverse = (_req: Request, res: Response) =>

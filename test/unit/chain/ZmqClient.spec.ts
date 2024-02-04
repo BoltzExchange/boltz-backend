@@ -146,7 +146,7 @@ describe('ZmqClient', () => {
 
     let transactionsFound = 0;
 
-    zmqClient.on('transaction', (_, confirmed) => {
+    zmqClient.on('transaction', ({ confirmed }) => {
       if (confirmed) {
         transactionsFound += 1;
       }
@@ -166,7 +166,7 @@ describe('ZmqClient', () => {
 
     let transactionsFound = 0;
 
-    zmqClient.on('transaction', (_, confirmed) => {
+    zmqClient.on('transaction', ({ confirmed }) => {
       if (confirmed) {
         transactionsFound += 1;
       }
@@ -187,7 +187,7 @@ describe('ZmqClient', () => {
     let blockAcceptance = false;
     let mempoolAcceptance = false;
 
-    zmqClient.on('transaction', (_, confirmed) => {
+    zmqClient.on('transaction', ({ confirmed }) => {
       if (confirmed) {
         blockAcceptance = true;
       } else {

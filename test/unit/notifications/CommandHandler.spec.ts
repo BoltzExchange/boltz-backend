@@ -4,7 +4,12 @@ import {
   satoshisToSatcomma,
 } from '../../../lib/DenominationConverter';
 import Logger from '../../../lib/Logger';
-import { getHexBuffer, getHexString, stringify } from '../../../lib/Utils';
+import {
+  getHexBuffer,
+  getHexString,
+  mapToObject,
+  stringify,
+} from '../../../lib/Utils';
 import BackupScheduler from '../../../lib/backup/BackupScheduler';
 import ReferralStats from '../../../lib/data/ReferralStats';
 import Stats from '../../../lib/data/Stats';
@@ -14,6 +19,7 @@ import PairRepository from '../../../lib/db/repositories/PairRepository';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import CommandHandler from '../../../lib/notifications/CommandHandler';
+import { codeBlock } from '../../../lib/notifications/Markup';
 import DiscordClient from '../../../lib/notifications/clients/DiscordClient';
 import { Balances, GetBalanceResponse } from '../../../lib/proto/boltzrpc_pb';
 import Service from '../../../lib/service/Service';
@@ -118,6 +124,16 @@ const mockSendCoins = jest
 jest.mock('../../../lib/service/Service', () => {
   return jest.fn().mockImplementation(() => {
     return {
+      swapManager: {
+        deferredClaimer: {
+          pendingSweeps: jest.fn().mockReturnValue(
+            new Map<string, string[]>([
+              ['BTC', ['everything1', 'everything2']],
+              ['L-BTC', ['everything3']],
+            ]),
+          ),
+        },
+      },
       getBalance: async () => {
         const res = new GetBalanceResponse();
 
@@ -229,6 +245,7 @@ describe('CommandHandler', () => {
         '**getbalance**: gets the balance of the wallets and channels\n' +
         '**lockedfunds**: gets funds locked up by Boltz\n' +
         '**pendingswaps**: gets a list of pending (reverse) swaps\n' +
+        '**pendingsweeps**: gets all pending sweeps\n' +
         '**getreferrals**: gets stats for all referral IDs\n' +
         '**backup**: uploads a backup of the databases\n' +
         '**withdraw**: withdraws coins from Boltz\n' +
@@ -427,6 +444,19 @@ describe('CommandHandler', () => {
         `- \`${pendingSwapExample.id}\`\n\n` +
         '**Pending reverse Swaps:**\n\n' +
         `- \`${pendingReverseSwapExample.id}\`\n`,
+    );
+  });
+
+  test('should get pending sweeps', async () => {
+    sendMessage('pendingsweeps');
+    await wait(50);
+
+    expect(
+      service.swapManager.deferredClaimer.pendingSweeps,
+    ).toHaveBeenCalledTimes(1);
+    expect(mockSendMessage).toHaveBeenCalledTimes(1);
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      `${codeBlock}${stringify(mapToObject(service.swapManager.deferredClaimer.pendingSweeps()))}${codeBlock}`,
     );
   });
 

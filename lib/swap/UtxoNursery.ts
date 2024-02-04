@@ -1,7 +1,6 @@
 import AsyncLock from 'async-lock';
 import { Transaction } from 'bitcoinjs-lib';
 import { SwapTreeSerializer, detectPreimage, detectSwap } from 'boltz-core';
-import { EventEmitter } from 'events';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import { Op } from 'sequelize';
 import {
@@ -23,6 +22,7 @@ import {
 } from '../Utils';
 import ChainClient from '../chain/ChainClient';
 import { CurrencyType, SwapUpdateEvent, SwapVersion } from '../consts/Enums';
+import TypedEventEmitter from '../consts/TypedEventEmitter';
 import ReverseSwap from '../db/models/ReverseSwap';
 import Swap from '../db/models/Swap';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
@@ -33,79 +33,32 @@ import WalletLiquid from '../wallet/WalletLiquid';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import Errors from './Errors';
 
-interface UtxoNursery {
+class UtxoNursery extends TypedEventEmitter<{
   // Swap
-  on(event: 'swap.expired', listener: (swap: Swap) => void): this;
-  emit(event: 'swap.expired', swap: Swap);
-
-  on(
-    event: 'swap.lockup.failed',
-    listener: (swap: Swap, reason: string) => void,
-  ): this;
-  emit(event: 'swap.lockup.failed', swap: Swap, reason: string): boolean;
-
-  on(
-    event: 'swap.lockup.zeroconf.rejected',
-    listener: (
-      swap: Swap,
-      transaction: Transaction | LiquidTransaction,
-      reason: string,
-    ) => void,
-  ): this;
-  emit(
-    event: 'swap.lockup.zeroconf.rejected',
-    swap: Swap,
-    transaction: Transaction | LiquidTransaction,
-    reason: string,
-  ): boolean;
-
-  on(
-    event: 'swap.lockup',
-    listener: (
-      swap: Swap,
-      transaction: Transaction | LiquidTransaction,
-      confirmed: boolean,
-    ) => void,
-  ): this;
-  emit(
-    event: 'swap.lockup',
-    swap: Swap,
-    transaction: Transaction | LiquidTransaction,
-    confirmed: boolean,
-  ): boolean;
+  'swap.expired': Swap;
+  'swap.lockup.failed': { swap: Swap; reason: string };
+  'swap.lockup.zeroconf.rejected': {
+    swap: Swap;
+    transaction: Transaction | LiquidTransaction;
+    reason: string;
+  };
+  'swap.lockup': {
+    swap: Swap;
+    transaction: Transaction | LiquidTransaction;
+    confirmed: boolean;
+  };
 
   // Reverse Swap
-  on(
-    event: 'reverseSwap.expired',
-    listener: (reverseSwap: ReverseSwap) => void,
-  ): this;
-  emit(event: 'reverseSwap.expired', reverseSwap: ReverseSwap): boolean;
-
-  on(
-    event: 'reverseSwap.lockup.confirmed',
-    listener: (
-      reverseSwap: ReverseSwap,
-      transaction: Transaction | LiquidTransaction,
-    ) => void,
-  ): this;
-  emit(
-    event: 'reverseSwap.lockup.confirmed',
-    reverseSwap: ReverseSwap,
-    transaction: Transaction | LiquidTransaction,
-  ): boolean;
-
-  on(
-    event: 'reverseSwap.claimed',
-    listener: (reverseSwap: ReverseSwap, preimage: Buffer) => void,
-  ): this;
-  emit(
-    event: 'reverseSwap.claimed',
-    reverseSwap: ReverseSwap,
-    preimage: Buffer,
-  ): boolean;
-}
-
-class UtxoNursery extends EventEmitter {
+  'reverseSwap.expired': ReverseSwap;
+  'reverseSwap.lockup.confirmed': {
+    reverseSwap: ReverseSwap;
+    transaction: Transaction | LiquidTransaction;
+  };
+  'reverseSwap.claimed': {
+    reverseSwap: ReverseSwap;
+    preimage: Buffer;
+  };
+}> {
   // Locks
   private lock = new AsyncLock();
 
@@ -133,7 +86,7 @@ class UtxoNursery extends EventEmitter {
   };
 
   private listenTransactions = (chainClient: ChainClient, wallet: Wallet) => {
-    chainClient.on('transaction', async (transaction, confirmed) => {
+    chainClient.on('transaction', async ({ transaction, confirmed }) => {
       await Promise.all([
         this.checkSwapOutputs(chainClient, wallet, transaction, confirmed),
 
@@ -214,11 +167,10 @@ class UtxoNursery extends EventEmitter {
       );
 
       chainClient.removeInputFilter(input.hash);
-      this.emit(
-        'reverseSwap.claimed',
+      this.emit('reverseSwap.claimed', {
         reverseSwap,
-        detectPreimage(vin, transaction),
-      );
+        preimage: detectPreimage(vin, transaction),
+      });
     }
   };
 
@@ -435,14 +387,13 @@ class UtxoNursery extends EventEmitter {
     chainClient.removeOutputFilter(
       wallet.decodeAddress(reverseSwap.lockupAddress),
     );
-    this.emit(
-      'reverseSwap.lockup.confirmed',
-      await ReverseSwapRepository.setReverseSwapStatus(
+    this.emit('reverseSwap.lockup.confirmed', {
+      transaction,
+      reverseSwap: await ReverseSwapRepository.setReverseSwapStatus(
         reverseSwap,
         SwapUpdateEvent.TransactionConfirmed,
       ),
-      transaction,
-    );
+    });
   };
 
   private checkSwapTransaction = async (
@@ -492,12 +443,13 @@ class UtxoNursery extends EventEmitter {
     if (updatedSwap.expectedAmount) {
       if (updatedSwap.expectedAmount > outputValue) {
         chainClient.removeOutputFilter(swapOutput.script);
-        this.emit(
-          'swap.lockup.failed',
-          updatedSwap,
-          Errors.INSUFFICIENT_AMOUNT(outputValue, updatedSwap.expectedAmount)
-            .message,
-        );
+        this.emit('swap.lockup.failed', {
+          swap: updatedSwap,
+          reason: Errors.INSUFFICIENT_AMOUNT(
+            outputValue,
+            updatedSwap.expectedAmount,
+          ).message,
+        });
 
         return;
       }
@@ -525,23 +477,21 @@ class UtxoNursery extends EventEmitter {
       );
 
     if (prevAddreses.some(this.blocks.isBlocked)) {
-      this.emit(
-        'swap.lockup.failed',
-        updatedSwap,
-        Errors.BLOCKED_ADDRESS().message,
-      );
+      this.emit('swap.lockup.failed', {
+        swap: updatedSwap,
+        reason: Errors.BLOCKED_ADDRESS().message,
+      });
       return;
     }
 
     // Confirmed transactions do not have to be checked for 0-conf criteria
     if (!confirmed) {
       if (updatedSwap.acceptZeroConf !== true) {
-        this.emit(
-          'swap.lockup.zeroconf.rejected',
-          updatedSwap,
+        this.emit('swap.lockup.zeroconf.rejected', {
           transaction,
-          Errors.SWAP_DOES_NOT_ACCEPT_ZERO_CONF().message,
-        );
+          swap: updatedSwap,
+          reason: Errors.SWAP_DOES_NOT_ACCEPT_ZERO_CONF().message,
+        });
         return;
       }
 
@@ -551,12 +501,11 @@ class UtxoNursery extends EventEmitter {
       );
 
       if (signalsRBF) {
-        this.emit(
-          'swap.lockup.zeroconf.rejected',
-          updatedSwap,
+        this.emit('swap.lockup.zeroconf.rejected', {
           transaction,
-          Errors.LOCKUP_TRANSACTION_SIGNALS_RBF().message,
-        );
+          swap: updatedSwap,
+          reason: Errors.LOCKUP_TRANSACTION_SIGNALS_RBF().message,
+        });
         return;
       }
 
@@ -574,12 +523,11 @@ class UtxoNursery extends EventEmitter {
       // Special case: if the fee estimation is the lowest possible of 2 sat/vbyte,
       // every fee paid by the transaction will be accepted
       if (transactionFeePerVbyte / feeEstimation < 0.8 && feeEstimation !== 2) {
-        this.emit(
-          'swap.lockup.zeroconf.rejected',
-          updatedSwap,
+        this.emit('swap.lockup.zeroconf.rejected', {
           transaction,
-          Errors.LOCKUP_TRANSACTION_FEE_TOO_LOW().message,
-        );
+          swap: updatedSwap,
+          reason: Errors.LOCKUP_TRANSACTION_FEE_TOO_LOW().message,
+        });
         return;
       }
 
@@ -592,7 +540,7 @@ class UtxoNursery extends EventEmitter {
 
     chainClient.removeOutputFilter(swapOutput.script);
 
-    this.emit('swap.lockup', updatedSwap, transaction, confirmed);
+    this.emit('swap.lockup', { transaction, confirmed, swap: updatedSwap });
   };
 
   /**

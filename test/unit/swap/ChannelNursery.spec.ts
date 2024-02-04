@@ -327,15 +327,12 @@ describe('ChannelNursery', () => {
 
     let eventEmitted = false;
 
-    channelNursery.once(
-      'channel.created',
-      (eventSwap: Swap, eventChannelCreation: ChannelCreation) => {
-        expect(eventSwap).toEqual(swap);
-        expect(eventChannelCreation).toEqual(channelCreation);
+    channelNursery.once('channel.created', (args) => {
+      expect(args.swap).toEqual(swap);
+      expect(args.channelCreation).toEqual(channelCreation);
 
-        eventEmitted = true;
-      },
-    );
+      eventEmitted = true;
+    });
 
     await channelNursery.openChannel(btcCurrency, swap, channelCreation);
 

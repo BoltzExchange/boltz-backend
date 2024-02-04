@@ -172,6 +172,37 @@ class GrpcService {
     });
   };
 
+  public sweepSwaps: handleUnaryCall<
+    boltzrpc.SweepSwapsRequest,
+    boltzrpc.SweepSwapsResponse
+  > = async (call, callback) => {
+    await this.handleCallback(call, callback, async () => {
+      const { symbol } = call.request.toObject();
+
+      const claimed = symbol
+        ? new Map<string, string[]>([
+            [
+              symbol,
+              await this.service.swapManager.deferredClaimer.sweepSymbol(
+                symbol,
+              ),
+            ],
+          ])
+        : await this.service.swapManager.deferredClaimer.sweep();
+
+      const response = new boltzrpc.SweepSwapsResponse();
+      const grpcMap = response.getClaimedSymbolsMap();
+
+      for (const [symbol, swapIds] of claimed) {
+        const ids = new boltzrpc.SweepSwapsResponse.ClaimedSwaps();
+        ids.setClaimedIdsList(swapIds);
+        grpcMap.set(symbol, ids);
+      }
+
+      return response;
+    });
+  };
+
   private handleCallback = async <R, T>(
     call: R,
     callback: (error: any, res: T | null) => void,

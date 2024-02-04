@@ -68,12 +68,12 @@ import Blocks from './Blocks';
 import ElementsService from './ElementsService';
 import Errors from './Errors';
 import EventHandler from './EventHandler';
-import MusigSigner from './MusigSigner';
 import NodeInfo from './NodeInfo';
 import PaymentRequestUtils from './PaymentRequestUtils';
 import TimeoutDeltaProvider, {
   PairTimeoutBlocksDelta,
 } from './TimeoutDeltaProvider';
+import MusigSigner from './cooperative/MusigSigner';
 
 type NetworkContracts = {
   network: {
@@ -166,6 +166,7 @@ class Service {
       ),
       config.retryInterval,
       blocks,
+      config.swap,
     );
 
     this.eventHandler = new EventHandler(

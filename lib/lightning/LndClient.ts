@@ -27,6 +27,7 @@ import { grpcOptions, unaryCall } from './GrpcUtils';
 import {
   ChannelInfo,
   DecodedInvoice,
+  EventTypes,
   HopHint,
   Htlc,
   HtlcState,
@@ -54,7 +55,7 @@ type LndConfig = {
 /**
  * A class representing a client to interact with LND
  */
-class LndClient extends BaseClient implements LightningClient {
+class LndClient extends BaseClient<EventTypes> implements LightningClient {
   public static readonly serviceName = 'LND';
 
   public static readonly paymentMinFee = 121;
@@ -188,7 +189,7 @@ class LndClient extends BaseClient implements LightningClient {
       this.subscribeChannelBackups();
 
       this.setClientStatus(ClientStatus.Connected);
-      this.emit('subscription.reconnected');
+      this.emit('subscription.reconnected', null);
     } catch (err) {
       this.setClientStatus(ClientStatus.Disconnected);
 
@@ -968,7 +969,7 @@ class LndClient extends BaseClient implements LightningClient {
     );
 
     if (this.isConnected()) {
-      this.emit('subscription.error');
+      this.emit('subscription.error', subscriptionName);
       await this.reconnect();
     }
   };

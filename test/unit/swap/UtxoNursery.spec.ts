@@ -237,10 +237,10 @@ describe('UtxoNursery', () => {
       redeemScript: sampleRedeemScript,
     };
 
-    nursery.once('swap.lockup', (swap, emittedTransaction, confirmed) => {
-      expect(swap).toEqual(mockGetSwapResult);
-      expect(emittedTransaction).toEqual(transaction);
-      expect(confirmed).toEqual(true);
+    nursery.once('swap.lockup', (args) => {
+      expect(args.swap).toEqual(mockGetSwapResult);
+      expect(args.transaction).toEqual(transaction);
+      expect(args.confirmed).toEqual(true);
 
       eventEmitted = true;
     });
@@ -286,9 +286,9 @@ describe('UtxoNursery', () => {
 
     mockGetSwapResult.expectedAmount += 1;
 
-    nursery.once('swap.lockup.failed', (swap, error) => {
+    nursery.once('swap.lockup.failed', ({ swap, reason }) => {
       expect(swap).toEqual(mockGetSwapResult);
-      expect(error).toEqual(
+      expect(reason).toEqual(
         Errors.INSUFFICIENT_AMOUNT(
           transaction.outs[0].value,
           mockGetSwapResult.expectedAmount,
@@ -418,16 +418,15 @@ describe('UtxoNursery', () => {
 
     mockGetSwapResult.acceptZeroConf = null;
 
-    nursery.once(
-      'swap.lockup.zeroconf.rejected',
-      (swap, emittedTransaction, reason) => {
-        expect(swap).toEqual(mockGetSwapResult);
-        expect(emittedTransaction).toEqual(transaction);
-        expect(reason).toEqual(Errors.SWAP_DOES_NOT_ACCEPT_ZERO_CONF().message);
+    nursery.once('swap.lockup.zeroconf.rejected', (args) => {
+      expect(args.swap).toEqual(mockGetSwapResult);
+      expect(args.transaction).toEqual(transaction);
+      expect(args.reason).toEqual(
+        Errors.SWAP_DOES_NOT_ACCEPT_ZERO_CONF().message,
+      );
 
-        eventEmitted = true;
-      },
-    );
+      eventEmitted = true;
+    });
 
     await checkSwapOutputs(btcChainClient, btcWallet, transaction, false);
 
@@ -449,16 +448,15 @@ describe('UtxoNursery', () => {
     // Since the backend code doesn't verify signatures, we can modify the transaction object as we please
     rbfTransaction.ins[0].sequence = 0xffffffff - 2;
 
-    nursery.once(
-      'swap.lockup.zeroconf.rejected',
-      (swap, emittedTransaction, reason) => {
-        expect(swap).toEqual(mockGetSwapResult);
-        expect(emittedTransaction).toEqual(rbfTransaction);
-        expect(reason).toEqual(Errors.LOCKUP_TRANSACTION_SIGNALS_RBF().message);
+    nursery.once('swap.lockup.zeroconf.rejected', (args) => {
+      expect(args.swap).toEqual(mockGetSwapResult);
+      expect(args.transaction).toEqual(rbfTransaction);
+      expect(args.reason).toEqual(
+        Errors.LOCKUP_TRANSACTION_SIGNALS_RBF().message,
+      );
 
-        eventEmitted = true;
-      },
-    );
+      eventEmitted = true;
+    });
 
     await checkSwapOutputs(btcChainClient, btcWallet, rbfTransaction, false);
 
@@ -476,16 +474,15 @@ describe('UtxoNursery', () => {
 
     mockEstimateFeeResult = 123;
 
-    nursery.once(
-      'swap.lockup.zeroconf.rejected',
-      (swap, emittedTransaction, reason) => {
-        expect(swap).toEqual(mockGetSwapResult);
-        expect(emittedTransaction).toEqual(transaction);
-        expect(reason).toEqual(Errors.LOCKUP_TRANSACTION_FEE_TOO_LOW().message);
+    nursery.once('swap.lockup.zeroconf.rejected', (args) => {
+      expect(args.swap).toEqual(mockGetSwapResult);
+      expect(args.transaction).toEqual(transaction);
+      expect(args.reason).toEqual(
+        Errors.LOCKUP_TRANSACTION_FEE_TOO_LOW().message,
+      );
 
-        eventEmitted = true;
-      },
-    );
+      eventEmitted = true;
+    });
 
     await checkSwapOutputs(btcChainClient, btcWallet, transaction, false);
 
@@ -581,9 +578,9 @@ describe('UtxoNursery', () => {
     });
 
     const failPromise = new Promise<void>((resolve) => {
-      nursery.once('swap.lockup.failed', (swap, error) => {
+      nursery.once('swap.lockup.failed', ({ swap, reason }) => {
         expect(swap).toEqual(mockGetSwapResult);
-        expect(error).toEqual(Errors.BLOCKED_ADDRESS().message);
+        expect(reason).toEqual(Errors.BLOCKED_ADDRESS().message);
         resolve();
       });
     });
@@ -609,7 +606,7 @@ describe('UtxoNursery', () => {
 
     let eventEmitted = false;
 
-    nursery.once('reverseSwap.claimed', (reverseSwap, preimage) => {
+    nursery.once('reverseSwap.claimed', ({ reverseSwap, preimage }) => {
       expect(reverseSwap).toEqual(mockGetReverseSwapResult);
       expect(preimage).toEqual(
         getHexBuffer(
@@ -663,15 +660,12 @@ describe('UtxoNursery', () => {
 
     let eventEmitted = false;
 
-    nursery.on(
-      'reverseSwap.lockup.confirmed',
-      (reverseSwap, emittedTransaction) => {
-        expect(reverseSwap).toEqual(mockGetReverseSwapResult);
-        expect(emittedTransaction).toEqual(transaction);
+    nursery.on('reverseSwap.lockup.confirmed', (args) => {
+      expect(args.reverseSwap).toEqual(mockGetReverseSwapResult);
+      expect(args.transaction).toEqual(transaction);
 
-        eventEmitted = true;
-      },
-    );
+      eventEmitted = true;
+    });
 
     await checkReverseSwapLockupsConfirmed(
       btcChainClient,
@@ -760,17 +754,14 @@ describe('UtxoNursery', () => {
 
     let eventsEmitted = 0;
 
-    nursery.on(
-      'reverseSwap.lockup.confirmed',
-      (reverseSwap, emittedTransaction) => {
-        expect(reverseSwap).toEqual(mockGetReverseSwapsResult[1]);
-        expect(emittedTransaction).toEqual(
-          Transaction.fromHex(sampleTransactions.nonRbf),
-        );
+    nursery.on('reverseSwap.lockup.confirmed', (args) => {
+      expect(args.reverseSwap).toEqual(mockGetReverseSwapsResult[1]);
+      expect(args.transaction).toEqual(
+        Transaction.fromHex(sampleTransactions.nonRbf),
+      );
 
-        eventsEmitted += 1;
-      },
-    );
+      eventsEmitted += 1;
+    });
 
     await emitBlock(1);
 

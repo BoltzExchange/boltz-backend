@@ -3,6 +3,7 @@ import { satoshisToSatcomma } from '../DenominationConverter';
 import Logger from '../Logger';
 import {
   decodeInvoice,
+  formatError,
   getChainCurrency,
   getLightningCurrency,
   getSendingReceivingCurrency,
@@ -179,7 +180,7 @@ class NotificationProvider {
 
   private listenToDiscord = () => {
     this.client.on('error', (error) => {
-      this.logger.warn(`Discord client threw: ${error.message}`);
+      this.logger.warn(`Discord client threw: ${formatError(error)}`);
     });
   };
 
@@ -250,7 +251,7 @@ class NotificationProvider {
 
     this.service.eventHandler.on(
       'swap.success',
-      async (swap, isReverse, channelCreation) => {
+      async ({ swap, isReverse, channelCreation }) => {
         const { onchainSymbol, lightningSymbol } = getSymbols(
           swap.pair,
           swap.orderSide,
@@ -298,7 +299,7 @@ class NotificationProvider {
 
     this.service.eventHandler.on(
       'swap.failure',
-      async (swap, isReverse, reason) => {
+      async ({ swap, isReverse, reason }) => {
         const { onchainSymbol, lightningSymbol } = getSymbols(
           swap.pair,
           swap.orderSide,

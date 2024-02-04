@@ -5,22 +5,22 @@ import {
   hashForWitnessV1,
   parseTransaction,
   tweakMusig,
-} from '../Core';
-import Logger from '../Logger';
+} from '../../Core';
+import Logger from '../../Logger';
 import {
   getChainCurrency,
   getHexBuffer,
   getHexString,
   splitPairId,
-} from '../Utils';
-import { FailedSwapUpdateEvents, SwapUpdateEvent } from '../consts/Enums';
-import Swap from '../db/models/Swap';
-import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
-import SwapRepository from '../db/repositories/SwapRepository';
-import { Payment } from '../proto/lnd/rpc_pb';
-import SwapNursery from '../swap/SwapNursery';
-import WalletManager, { Currency } from '../wallet/WalletManager';
-import Errors from './Errors';
+} from '../../Utils';
+import { FailedSwapUpdateEvents, SwapUpdateEvent } from '../../consts/Enums';
+import Swap from '../../db/models/Swap';
+import ReverseSwapRepository from '../../db/repositories/ReverseSwapRepository';
+import SwapRepository from '../../db/repositories/SwapRepository';
+import { Payment } from '../../proto/lnd/rpc_pb';
+import SwapNursery from '../../swap/SwapNursery';
+import WalletManager, { Currency } from '../../wallet/WalletManager';
+import Errors from '../Errors';
 
 type PartialSignature = {
   pubNonce: Buffer;

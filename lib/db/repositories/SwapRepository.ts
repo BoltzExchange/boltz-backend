@@ -26,6 +26,14 @@ class SwapRepository {
     });
   };
 
+  public static getSwapsClaimable = () => {
+    return Swap.findAll({
+      where: {
+        status: SwapUpdateEvent.TransactionClaimPending,
+      },
+    });
+  };
+
   public static getSwap = (options: WhereOptions): Promise<Swap | null> => {
     return Swap.findOne({
       where: options,

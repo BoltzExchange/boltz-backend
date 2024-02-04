@@ -53,7 +53,7 @@ describe('ChainClient', () => {
   test('should emit an event on mempool acceptance of relevant output', async () => {
     let mempoolTransactions = 0;
 
-    bitcoinClient.on('transaction', (_, confirmed) => {
+    bitcoinClient.on('transaction', ({ confirmed }) => {
       if (!confirmed) {
         mempoolTransactions += 1;
       }
@@ -71,7 +71,7 @@ describe('ChainClient', () => {
   test('should emit an event on block acceptance of relevant output', async () => {
     let blockTransactions = 0;
 
-    bitcoinClient.on('transaction', async (_, confirmed) => {
+    bitcoinClient.on('transaction', async ({ confirmed }) => {
       if (confirmed) {
         blockTransactions += 1;
       }
@@ -103,7 +103,7 @@ describe('ChainClient', () => {
   test('should emit an event on mempool acceptance of relevant inputs', async () => {
     let event = false;
 
-    bitcoinClient.on('transaction', (transaction, confirmed) => {
+    bitcoinClient.on('transaction', ({ transaction, confirmed }) => {
       if (!confirmed && !event) {
         transaction.ins.forEach((input) => {
           let hasRelevantInput = false;
@@ -135,7 +135,7 @@ describe('ChainClient', () => {
   test('should emit an event on block acceptance of relevant inputs', async () => {
     let event = false;
 
-    bitcoinClient.on('transaction', (transaction, confirmed) => {
+    bitcoinClient.on('transaction', ({ transaction, confirmed }) => {
       if (confirmed) {
         if (transaction.getId() === transactionWithRelevantInput) {
           event = true;

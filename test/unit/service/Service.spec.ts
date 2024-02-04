@@ -618,6 +618,7 @@ describe('Service', () => {
     mockedWalletManager(),
     new NodeSwitch(Logger.disabledLogger),
     currencies,
+    {} as any,
   );
 
   // Inject a mocked SwapManager
@@ -1248,8 +1249,8 @@ describe('Service', () => {
     // Create a new swap
     let emittedId = '';
 
-    service.eventHandler.once('swap.update', (id, message) => {
-      expect(message).toEqual({ status: SwapUpdateEvent.SwapCreated });
+    service.eventHandler.once('swap.update', ({ id, status }) => {
+      expect(status).toEqual({ status: SwapUpdateEvent.SwapCreated });
       emittedId = id;
     });
 
@@ -1350,8 +1351,8 @@ describe('Service', () => {
 
     let emittedId = '';
 
-    service.eventHandler.once('swap.update', (id, message) => {
-      expect(message).toEqual({ status: SwapUpdateEvent.InvoiceSet });
+    service.eventHandler.once('swap.update', ({ id, status }) => {
+      expect(status).toEqual({ status: SwapUpdateEvent.InvoiceSet });
       emittedId = id;
     });
 
@@ -1597,8 +1598,8 @@ describe('Service', () => {
 
     let emittedId = '';
 
-    service.eventHandler.once('swap.update', (id, message) => {
-      expect(message).toEqual({ status: SwapUpdateEvent.SwapCreated });
+    service.eventHandler.once('swap.update', ({ id, status }) => {
+      expect(status).toEqual({ status: SwapUpdateEvent.SwapCreated });
       emittedId = id;
     });
 

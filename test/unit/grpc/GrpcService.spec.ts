@@ -110,6 +110,17 @@ jest.mock('../../../lib/service/Service', () => {
         deriveBlindingKeys: mockDeriveBlindingKeys,
         unblindOutputsFromId: mockUnblindOutputsFromId,
       },
+      swapManager: {
+        deferredClaimer: {
+          sweep: jest.fn().mockResolvedValue(
+            new Map<string, string[]>([
+              ['BTC', ['everything1', 'everything2']],
+              ['L-BTC', ['everything3']],
+            ]),
+          ),
+          sweepSymbol: jest.fn().mockResolvedValue(['currency1', 'currency2']),
+        },
+      },
       getInfo: mockGetInfo,
       getBalance: mockGetBalance,
       deriveKeys: mockDeriveKeys,
@@ -387,6 +398,48 @@ describe('GrpcService', () => {
       ...callData,
       routingNode: undefined,
     });
+  });
+
+  test('should sweep swaps of one currency', async () => {
+    const symbol = 'BTC';
+
+    await new Promise<void>((resolve) => {
+      grpcService.sweepSwaps(
+        createCall({ symbol }),
+        createCallback((error, response: boltzrpc.SweepSwapsResponse) => {
+          expect(error).toEqual(null);
+          expect(response.toObject().claimedSymbolsMap).toEqual([
+            ['BTC', { claimedIdsList: ['currency1', 'currency2'] }],
+          ]);
+          resolve();
+        }),
+      );
+    });
+
+    expect(
+      service.swapManager.deferredClaimer.sweepSymbol,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      service.swapManager.deferredClaimer.sweepSymbol,
+    ).toHaveBeenCalledWith(symbol);
+  });
+
+  test('should sweep swaps of all currencies', async () => {
+    await new Promise<void>((resolve) => {
+      grpcService.sweepSwaps(
+        createCall({}),
+        createCallback((error, response: boltzrpc.SweepSwapsResponse) => {
+          expect(error).toEqual(null);
+          expect(response.toObject().claimedSymbolsMap).toEqual([
+            ['BTC', { claimedIdsList: ['everything1', 'everything2'] }],
+            ['L-BTC', { claimedIdsList: ['everything3'] }],
+          ]);
+          resolve();
+        }),
+      );
+    });
+
+    expect(service.swapManager.deferredClaimer.sweep).toHaveBeenCalledTimes(1);
   });
 
   test('should handle resolved callbacks', async () => {

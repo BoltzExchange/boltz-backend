@@ -680,6 +680,75 @@ export namespace AddReferralResponse {
     }
 }
 
+export class SweepSwapsRequest extends jspb.Message { 
+
+    hasSymbol(): boolean;
+    clearSymbol(): void;
+    getSymbol(): string | undefined;
+    setSymbol(value: string): SweepSwapsRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SweepSwapsRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: SweepSwapsRequest): SweepSwapsRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SweepSwapsRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SweepSwapsRequest;
+    static deserializeBinaryFromReader(message: SweepSwapsRequest, reader: jspb.BinaryReader): SweepSwapsRequest;
+}
+
+export namespace SweepSwapsRequest {
+    export type AsObject = {
+        symbol?: string,
+    }
+}
+
+export class SweepSwapsResponse extends jspb.Message { 
+
+    getClaimedSymbolsMap(): jspb.Map<string, SweepSwapsResponse.ClaimedSwaps>;
+    clearClaimedSymbolsMap(): void;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SweepSwapsResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: SweepSwapsResponse): SweepSwapsResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SweepSwapsResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SweepSwapsResponse;
+    static deserializeBinaryFromReader(message: SweepSwapsResponse, reader: jspb.BinaryReader): SweepSwapsResponse;
+}
+
+export namespace SweepSwapsResponse {
+    export type AsObject = {
+
+        claimedSymbolsMap: Array<[string, SweepSwapsResponse.ClaimedSwaps.AsObject]>,
+    }
+
+
+    export class ClaimedSwaps extends jspb.Message { 
+        clearClaimedIdsList(): void;
+        getClaimedIdsList(): Array<string>;
+        setClaimedIdsList(value: Array<string>): ClaimedSwaps;
+        addClaimedIds(value: string, index?: number): string;
+
+        serializeBinary(): Uint8Array;
+        toObject(includeInstance?: boolean): ClaimedSwaps.AsObject;
+        static toObject(includeInstance: boolean, msg: ClaimedSwaps): ClaimedSwaps.AsObject;
+        static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+        static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+        static serializeBinaryToWriter(message: ClaimedSwaps, writer: jspb.BinaryWriter): void;
+        static deserializeBinary(bytes: Uint8Array): ClaimedSwaps;
+        static deserializeBinaryFromReader(message: ClaimedSwaps, reader: jspb.BinaryReader): ClaimedSwaps;
+    }
+
+    export namespace ClaimedSwaps {
+        export type AsObject = {
+            claimedIdsList: Array<string>,
+        }
+    }
+
+}
+
 export enum OutputType {
     BECH32 = 0,
     COMPATIBILITY = 1,

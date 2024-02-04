@@ -20,16 +20,16 @@ import {
   swapExample,
 } from './ExampleSwaps';
 
-type successCallback = (
-  swap: Swap | ReverseSwap,
-  isReverse: boolean,
-  channelCreation?: ChannelCreation,
-) => void;
-type failureCallback = (
-  swap: Swap | ReverseSwap,
-  isReverse: boolean,
-  reason: string,
-) => void;
+type successCallback = (args: {
+  swap: Swap | ReverseSwap;
+  isReverse: boolean;
+  channelCreation?: ChannelCreation;
+}) => void;
+type failureCallback = (args: {
+  swap: Swap | ReverseSwap;
+  isReverse: boolean;
+  reason: string;
+}) => void;
 
 let emitSwapSuccess: successCallback;
 let emitSwapFailure: failureCallback;
@@ -176,7 +176,7 @@ describe('NotificationProvider', () => {
   });
 
   test('should send a notification after successful Swaps', async () => {
-    emitSwapSuccess(swap, false);
+    emitSwapSuccess({ swap, isReverse: false });
     await wait(5);
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
@@ -199,7 +199,7 @@ describe('NotificationProvider', () => {
   test('should send a notification after failed Swaps', async () => {
     const failureReason = 'because';
 
-    emitSwapFailure(swap, false, failureReason);
+    emitSwapFailure({ swap, isReverse: false, reason: failureReason });
     await wait(5);
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
@@ -218,7 +218,7 @@ describe('NotificationProvider', () => {
   });
 
   test('should send a notification after successful Reverse Swaps', async () => {
-    emitSwapSuccess(reverseSwap, true);
+    emitSwapSuccess({ swap: reverseSwap, isReverse: true });
     await wait(5);
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
@@ -242,7 +242,11 @@ describe('NotificationProvider', () => {
   test('should send a notification after failed Reverse Swaps', async () => {
     const failureReason = 'becauseReverse';
 
-    emitSwapFailure(reverseSwap, true, failureReason);
+    emitSwapFailure({
+      swap: reverseSwap,
+      isReverse: true,
+      reason: failureReason,
+    });
     await wait(5);
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
@@ -262,14 +266,14 @@ describe('NotificationProvider', () => {
         NotificationProvider['trailingWhitespace'],
     );
 
-    emitSwapFailure(
-      {
+    emitSwapFailure({
+      swap: {
         ...reverseSwap,
         minerFee: undefined,
       } as any as ReverseSwap,
-      true,
-      failureReason,
-    );
+      isReverse: true,
+      reason: failureReason,
+    });
     await wait(5);
 
     expect(mockSendMessage).toHaveBeenCalledTimes(2);
@@ -290,7 +294,7 @@ describe('NotificationProvider', () => {
   });
 
   test('should send notification after successful Channel Creation Swap', async () => {
-    emitSwapSuccess(swap, false, channelCreation);
+    emitSwapSuccess({ swap, channelCreation, isReverse: false });
     await wait(5);
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
@@ -315,11 +319,15 @@ describe('NotificationProvider', () => {
     );
 
     // Should skip the Channel Creation part in case no channel was opened
-    emitSwapSuccess(swap, false, {
-      ...channelCreation,
-      // tslint:disable-next-line:no-null-keyword
-      fundingTransactionId: null,
-    } as any as ChannelCreation);
+    emitSwapSuccess({
+      swap,
+      isReverse: false,
+      channelCreation: {
+        ...channelCreation,
+        // tslint:disable-next-line:no-null-keyword
+        fundingTransactionId: null,
+      } as any as ChannelCreation,
+    });
     await wait(5);
 
     expect(mockSendMessage).toHaveBeenCalledTimes(2);
@@ -342,14 +350,14 @@ describe('NotificationProvider', () => {
 
   test('should format failed swaps with no invoice', () => {
     const failureReason = 'because';
-    emitSwapFailure(
-      {
+    emitSwapFailure({
+      swap: {
         ...swap,
         invoice: undefined,
       } as Swap,
-      false,
-      failureReason,
-    );
+      isReverse: false,
+      reason: failureReason,
+    });
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(

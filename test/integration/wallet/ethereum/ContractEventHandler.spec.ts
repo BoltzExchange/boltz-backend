@@ -81,19 +81,22 @@ describe('ContractEventHandler', () => {
     transactions.etherSwap.lockup = tx.hash;
 
     const lockupPromise = new Promise<void>((resolve) => {
-      contractEventHandler.once('eth.lockup', async (transaction, values) => {
-        expect(transaction).toEqual(
-          await setup.provider.getTransaction(tx.hash),
-        );
-        expect(values).toEqual({
-          amount,
-          timelock,
-          preimageHash: crypto.sha256(preimage),
-          refundAddress: await setup.signer.getAddress(),
-          claimAddress: await setup.etherBase.getAddress(),
-        });
-        resolve();
-      });
+      contractEventHandler.once(
+        'eth.lockup',
+        async ({ transaction, etherSwapValues }) => {
+          expect(transaction).toEqual(
+            await setup.provider.getTransaction(tx.hash),
+          );
+          expect(etherSwapValues).toEqual({
+            amount,
+            timelock,
+            preimageHash: crypto.sha256(preimage),
+            refundAddress: await setup.signer.getAddress(),
+            claimAddress: await setup.etherBase.getAddress(),
+          });
+          resolve();
+        },
+      );
     });
 
     await tx.wait(1);
@@ -110,7 +113,7 @@ describe('ContractEventHandler', () => {
     const claimPromise = new Promise<void>((resolve) => {
       contractEventHandler.once(
         'eth.claim',
-        async (transactionHash, preimageHash, preimage) => {
+        async ({ transactionHash, preimageHash, preimage }) => {
           expect(transactionHash).toEqual(tx.hash);
           expect(preimageHash).toEqual(preimageHash);
           expect(preimage).toEqual(preimage);
@@ -146,7 +149,7 @@ describe('ContractEventHandler', () => {
     const refundPromise = new Promise<void>((resolve) => {
       contractEventHandler.once(
         'eth.refund',
-        async (transactionHash, preimageHash) => {
+        async ({ transactionHash, preimageHash }) => {
           expect(transactionHash).toEqual(tx.hash);
           expect(preimageHash).toEqual(preimageHash);
           resolve();
@@ -170,20 +173,23 @@ describe('ContractEventHandler', () => {
     transactions.erc20Swap.lockup = tx.hash;
 
     const lockupPromise = new Promise<void>((resolve) => {
-      contractEventHandler.once('erc20.lockup', async (transaction, values) => {
-        expect(transaction).toEqual(
-          await setup.provider.getTransaction(tx.hash),
-        );
-        expect(values).toEqual({
-          amount,
-          timelock,
-          preimageHash: crypto.sha256(preimage),
-          refundAddress: await setup.signer.getAddress(),
-          claimAddress: await setup.etherBase.getAddress(),
-          tokenAddress: await contracts.token.getAddress(),
-        });
-        resolve();
-      });
+      contractEventHandler.once(
+        'erc20.lockup',
+        async ({ transaction, erc20SwapValues }) => {
+          expect(transaction).toEqual(
+            await setup.provider.getTransaction(tx.hash),
+          );
+          expect(erc20SwapValues).toEqual({
+            amount,
+            timelock,
+            preimageHash: crypto.sha256(preimage),
+            refundAddress: await setup.signer.getAddress(),
+            claimAddress: await setup.etherBase.getAddress(),
+            tokenAddress: await contracts.token.getAddress(),
+          });
+          resolve();
+        },
+      );
     });
 
     await tx.wait(1);
@@ -206,7 +212,7 @@ describe('ContractEventHandler', () => {
     const claimPromise = new Promise<void>((resolve) => {
       contractEventHandler.once(
         'erc20.claim',
-        async (transactionHash, preimageHash, preimage) => {
+        async ({ transactionHash, preimageHash, preimage }) => {
           expect(transactionHash).toEqual(tx.hash);
           expect(preimageHash).toEqual(preimageHash);
           expect(preimage).toEqual(preimage);
@@ -242,7 +248,7 @@ describe('ContractEventHandler', () => {
     const refundPromise = new Promise<void>((resolve) => {
       contractEventHandler.once(
         'erc20.refund',
-        async (transactionHash, preimageHash) => {
+        async ({ transactionHash, preimageHash }) => {
           expect(transactionHash).toEqual(tx.hash);
           expect(preimageHash).toEqual(preimageHash);
           resolve();
@@ -257,25 +263,28 @@ describe('ContractEventHandler', () => {
 
   test('should rescan EtherSwap', async () => {
     const lockupPromise = new Promise<void>((resolve) => {
-      contractEventHandler.once('eth.lockup', async (transaction, values) => {
-        expect(transaction).toEqual(
-          await setup.provider.getTransaction(transactions.etherSwap.lockup!),
-        );
-        expect(values).toEqual({
-          amount,
-          timelock,
-          preimageHash: crypto.sha256(preimage),
-          refundAddress: await setup.signer.getAddress(),
-          claimAddress: await setup.etherBase.getAddress(),
-        });
-        resolve();
-      });
+      contractEventHandler.once(
+        'eth.lockup',
+        async ({ transaction, etherSwapValues }) => {
+          expect(transaction).toEqual(
+            await setup.provider.getTransaction(transactions.etherSwap.lockup!),
+          );
+          expect(etherSwapValues).toEqual({
+            amount,
+            timelock,
+            preimageHash: crypto.sha256(preimage),
+            refundAddress: await setup.signer.getAddress(),
+            claimAddress: await setup.etherBase.getAddress(),
+          });
+          resolve();
+        },
+      );
     });
 
     const claimPromise = new Promise<void>((resolve) => {
       contractEventHandler.once(
         'eth.claim',
-        async (transactionHash, preimageHash, preimage) => {
+        async ({ transactionHash, preimageHash, preimage }) => {
           expect(transactionHash).toEqual(transactions.etherSwap.claim);
           expect(preimageHash).toEqual(preimageHash);
           expect(preimage).toEqual(preimage);
@@ -287,7 +296,7 @@ describe('ContractEventHandler', () => {
     const refundPromise = new Promise<void>((resolve) => {
       contractEventHandler.once(
         'eth.refund',
-        async (transactionHash, preimageHash) => {
+        async ({ transactionHash, preimageHash }) => {
           expect(transactionHash).toEqual(transactions.etherSwap.refund);
           expect(preimageHash).toEqual(preimageHash);
           resolve();
@@ -301,26 +310,29 @@ describe('ContractEventHandler', () => {
 
   test('should rescan ERC20Swap', async () => {
     const lockupPromise = new Promise<void>((resolve) => {
-      contractEventHandler.once('erc20.lockup', async (transaction, values) => {
-        expect(transaction).toEqual(
-          await setup.provider.getTransaction(transactions.erc20Swap.lockup!),
-        );
-        expect(values).toEqual({
-          amount,
-          timelock,
-          preimageHash: crypto.sha256(preimage),
-          refundAddress: await setup.signer.getAddress(),
-          claimAddress: await setup.etherBase.getAddress(),
-          tokenAddress: await contracts.token.getAddress(),
-        });
-        resolve();
-      });
+      contractEventHandler.once(
+        'erc20.lockup',
+        async ({ transaction, erc20SwapValues }) => {
+          expect(transaction).toEqual(
+            await setup.provider.getTransaction(transactions.erc20Swap.lockup!),
+          );
+          expect(erc20SwapValues).toEqual({
+            amount,
+            timelock,
+            preimageHash: crypto.sha256(preimage),
+            refundAddress: await setup.signer.getAddress(),
+            claimAddress: await setup.etherBase.getAddress(),
+            tokenAddress: await contracts.token.getAddress(),
+          });
+          resolve();
+        },
+      );
     });
 
     const claimPromise = new Promise<void>((resolve) => {
       contractEventHandler.once(
         'erc20.claim',
-        async (transactionHash, preimageHash, preimage) => {
+        async ({ transactionHash, preimageHash, preimage }) => {
           expect(transactionHash).toEqual(transactions.erc20Swap.claim);
           expect(preimageHash).toEqual(preimageHash);
           expect(preimage).toEqual(preimage);
@@ -332,7 +344,7 @@ describe('ContractEventHandler', () => {
     const refundPromise = new Promise<void>((resolve) => {
       contractEventHandler.once(
         'erc20.refund',
-        async (transactionHash, preimageHash) => {
+        async ({ transactionHash, preimageHash }) => {
           expect(transactionHash).toEqual(transactions.erc20Swap.refund);
           expect(preimageHash).toEqual(preimageHash);
           resolve();

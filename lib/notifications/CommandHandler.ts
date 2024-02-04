@@ -6,6 +6,7 @@ import {
   formatError,
   getChainCurrency,
   getHexString,
+  mapToObject,
   splitPairId,
   stringify,
 } from '../Utils';
@@ -40,6 +41,7 @@ enum Command {
   LockedFunds = 'lockedfunds',
   PendingSwaps = 'pendingswaps',
   GetReferrals = 'getreferrals',
+  PendingSweeps = 'pendingsweeps',
 
   // Commands that generate a value or trigger a function
   Backup = 'backup',
@@ -140,6 +142,13 @@ class CommandHandler {
         {
           executor: this.pendingSwaps,
           description: 'gets a list of pending (reverse) swaps',
+        },
+      ],
+      [
+        Command.PendingSweeps,
+        {
+          executor: this.pendingSweeps,
+          description: 'gets all pending sweeps',
         },
       ],
       [
@@ -463,6 +472,12 @@ class CommandHandler {
     formatSwapIds(true);
 
     await this.notificationClient.sendMessage(message);
+  };
+
+  private pendingSweeps = async () => {
+    await this.notificationClient.sendMessage(
+      `${codeBlock}${stringify(mapToObject(this.service.swapManager.deferredClaimer.pendingSweeps()))}${codeBlock}`,
+    );
   };
 
   private getReferrals = async () => {

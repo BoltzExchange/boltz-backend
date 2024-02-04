@@ -23,20 +23,20 @@ import { wait } from '../../Utils';
 
 type blockCallback = (height: number) => void;
 
-type claimCallback = (
-  transactionHash: string,
-  preimageHash: Buffer,
-  preimage: Buffer,
-) => void;
+type claimCallback = (args: {
+  transactionHash: string;
+  preimageHash: Buffer;
+  preimage: Buffer;
+}) => void;
 
-type ethLockupCallback = (
-  transaction: any,
-  etherSwapValues: EtherSwapValues,
-) => void;
-type erc20LockupCallback = (
-  transaction: any,
-  erc20SwapValues: ERC20SwapValues,
-) => void;
+type ethLockupCallback = (args: {
+  transaction: any;
+  etherSwapValues: EtherSwapValues;
+}) => void;
+type erc20LockupCallback = (args: {
+  transaction: any;
+  erc20SwapValues: ERC20SwapValues;
+}) => void;
 
 jest.mock('../../../lib/wallet/providers/EtherWalletProvider', () => {
   return jest.fn().mockImplementation((symbol: string) => ({
@@ -286,7 +286,7 @@ describe('EthereumNursery', () => {
     // A lockup transaction that confirms
     const resolvedPromise = newWaitPromise();
 
-    nursery.once('lockup.confirmed', (reverseSwap, transactionHash) => {
+    nursery.once('lockup.confirmed', ({ reverseSwap, transactionHash }) => {
       expect(reverseSwap).toEqual({
         status: SwapUpdateEvent.TransactionConfirmed,
       });
@@ -306,7 +306,7 @@ describe('EthereumNursery', () => {
     const rejectedReason = 'did not feel like it';
     const rejectedPromise = newWaitPromise();
 
-    nursery.once('lockup.failedToSend', (reverseSwap, reason) => {
+    nursery.once('lockup.failedToSend', ({ reverseSwap, reason }) => {
       expect(reverseSwap).toEqual({
         status: SwapUpdateEvent.TransactionFailed,
       });
@@ -341,14 +341,17 @@ describe('EthereumNursery', () => {
       timelock: mockGetSwapResult.timeoutBlockHeight,
     } as any;
 
-    nursery.once('eth.lockup', (_, transactionHash, etherSwapValues) => {
+    nursery.once('eth.lockup', ({ transactionHash, etherSwapValues }) => {
       expect(transactionHash).toEqual(exampleTransaction.hash);
       expect(etherSwapValues).toEqual(suppliedEtherSwapValues);
 
       lockupEmitted = true;
     });
 
-    await emitEthLockup(exampleTransaction, suppliedEtherSwapValues);
+    await emitEthLockup({
+      transaction: exampleTransaction,
+      etherSwapValues: suppliedEtherSwapValues,
+    });
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockGetSwap).toHaveBeenCalledWith({
@@ -379,8 +382,8 @@ describe('EthereumNursery', () => {
     suppliedEtherSwapValues.claimAddress =
       '0x6981698B1275eD7727B7F5C3C54d9FE4d8ffEd5E';
 
-    nursery.once('lockup.failed', (_, error) => {
-      expect(error).toEqual(
+    nursery.once('lockup.failed', ({ reason }) => {
+      expect(reason).toEqual(
         Errors.INVALID_CLAIM_ADDRESS(
           suppliedEtherSwapValues.claimAddress,
           mockAddress,
@@ -390,7 +393,10 @@ describe('EthereumNursery', () => {
       lockupFailed += 1;
     });
 
-    await emitEthLockup(exampleTransaction, suppliedEtherSwapValues);
+    await emitEthLockup({
+      transaction: exampleTransaction,
+      etherSwapValues: suppliedEtherSwapValues,
+    });
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(1);
@@ -401,8 +407,8 @@ describe('EthereumNursery', () => {
     suppliedEtherSwapValues.claimAddress = mockAddress;
     suppliedEtherSwapValues.timelock -= 1;
 
-    nursery.once('lockup.failed', (_, error) => {
-      expect(error).toEqual(
+    nursery.once('lockup.failed', ({ reason }) => {
+      expect(reason).toEqual(
         Errors.INVALID_TIMELOCK(
           suppliedEtherSwapValues.timelock,
           mockGetSwapResult.timeoutBlockHeight,
@@ -412,7 +418,10 @@ describe('EthereumNursery', () => {
       lockupFailed += 1;
     });
 
-    await emitEthLockup(exampleTransaction, suppliedEtherSwapValues);
+    await emitEthLockup({
+      transaction: exampleTransaction,
+      etherSwapValues: suppliedEtherSwapValues,
+    });
 
     expect(mockGetSwap).toHaveBeenCalledTimes(2);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(2);
@@ -423,15 +432,18 @@ describe('EthereumNursery', () => {
     suppliedEtherSwapValues.timelock = mockGetSwapResult.timeoutBlockHeight;
     suppliedEtherSwapValues.amount = BigInt('99999999999');
 
-    nursery.once('lockup.failed', (_, error) => {
-      expect(error).toEqual(
+    nursery.once('lockup.failed', ({ reason }) => {
+      expect(reason).toEqual(
         Errors.INSUFFICIENT_AMOUNT(9, mockGetSwapResult.expectedAmount).message,
       );
 
       lockupFailed += 1;
     });
 
-    await emitEthLockup(exampleTransaction, suppliedEtherSwapValues);
+    await emitEthLockup({
+      transaction: exampleTransaction,
+      etherSwapValues: suppliedEtherSwapValues,
+    });
 
     expect(mockGetSwap).toHaveBeenCalledTimes(3);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(3);
@@ -457,7 +469,10 @@ describe('EthereumNursery', () => {
     // Chain currency is not Ether
     mockGetSwapResult.orderSide = OrderSide.BUY;
 
-    await emitEthLockup(exampleTransaction, suppliedEtherSwapValues);
+    await emitEthLockup({
+      transaction: exampleTransaction,
+      etherSwapValues: suppliedEtherSwapValues,
+    });
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(0);
@@ -468,7 +483,10 @@ describe('EthereumNursery', () => {
     // No suitable Swap in database
     mockGetSwapResult = null;
 
-    await emitEthLockup(exampleTransaction, suppliedEtherSwapValues);
+    await emitEthLockup({
+      transaction: exampleTransaction,
+      etherSwapValues: suppliedEtherSwapValues,
+    });
 
     expect(mockGetSwap).toHaveBeenCalledTimes(2);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(0);
@@ -479,8 +497,8 @@ describe('EthereumNursery', () => {
 
   test('should reject EtherSwap lockup transaction from blocked addresses', async () => {
     const lockupPromise = new Promise<void>((resolve) => {
-      nursery.once('lockup.failed', (_, error) => {
-        expect(error).toEqual(Errors.BLOCKED_ADDRESS().message);
+      nursery.once('lockup.failed', ({ reason }) => {
+        expect(reason).toEqual(Errors.BLOCKED_ADDRESS().message);
         resolve();
       });
     });
@@ -492,12 +510,15 @@ describe('EthereumNursery', () => {
       timeoutBlockHeight: 11102219,
     };
 
-    emitEthLockup({ ...exampleTransaction, from: 'blocked' }, {
-      claimAddress: mockAddress,
-      amount: BigInt('100000000000'),
-      preimageHash: getHexString(examplePreimageHash),
-      timelock: mockGetSwapResult.timeoutBlockHeight,
-    } as any);
+    emitEthLockup({
+      transaction: { ...exampleTransaction, from: 'blocked' },
+      etherSwapValues: {
+        claimAddress: mockAddress,
+        amount: BigInt('100000000000'),
+        preimageHash: getHexString(examplePreimageHash),
+        timelock: mockGetSwapResult.timeoutBlockHeight,
+      } as any,
+    });
 
     await lockupPromise;
   });
@@ -509,18 +530,18 @@ describe('EthereumNursery', () => {
       some: 'data',
     };
 
-    nursery.on('claim', (reverseSwap, preimage) => {
+    nursery.on('claim', ({ reverseSwap, preimage }) => {
       expect(reverseSwap).toEqual(mockGetReverseSwapResult);
       expect(preimage).toEqual(examplePreimage);
 
       emittedEvents += 1;
     });
 
-    await emitEthClaim(
-      exampleTransaction.hash,
-      examplePreimageHash,
-      examplePreimage,
-    );
+    await emitEthClaim({
+      preimage: examplePreimage,
+      preimageHash: examplePreimageHash,
+      transactionHash: exampleTransaction.hash,
+    });
 
     expect(mockGetReverseSwap).toHaveBeenCalledTimes(1);
     expect(mockGetReverseSwap).toHaveBeenCalledWith({
@@ -535,11 +556,11 @@ describe('EthereumNursery', () => {
     // No suitable Swap in database
     mockGetReverseSwapResult = null;
 
-    await emitEthClaim(
-      exampleTransaction.hash,
-      examplePreimageHash,
-      examplePreimage,
-    );
+    await emitEthClaim({
+      preimage: examplePreimage,
+      preimageHash: examplePreimageHash,
+      transactionHash: exampleTransaction.hash,
+    });
 
     expect(mockGetReverseSwap).toHaveBeenCalledTimes(2);
 
@@ -565,14 +586,17 @@ describe('EthereumNursery', () => {
       preimageHash: getHexString(examplePreimageHash),
     } as any;
 
-    nursery.once('erc20.lockup', (_, transactionHash, erc20SwapValues) => {
+    nursery.once('erc20.lockup', ({ transactionHash, erc20SwapValues }) => {
       expect(transactionHash).toEqual(exampleTransaction.hash);
       expect(erc20SwapValues).toEqual(suppliedERC20SwapValues);
 
       lockupEmitted = true;
     });
 
-    await emitErc20Lockup(exampleTransaction, suppliedERC20SwapValues);
+    await emitErc20Lockup({
+      transaction: exampleTransaction,
+      erc20SwapValues: suppliedERC20SwapValues,
+    });
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockGetSwap).toHaveBeenCalledWith({
@@ -615,8 +639,8 @@ describe('EthereumNursery', () => {
     suppliedERC20SwapValues.claimAddress =
       '0x6981698B1275eD7727B7F5C3C54d9FE4d8ffEd5E';
 
-    nursery.once('lockup.failed', (_, error) => {
-      expect(error).toEqual(
+    nursery.once('lockup.failed', ({ reason }) => {
+      expect(reason).toEqual(
         Errors.INVALID_CLAIM_ADDRESS(
           suppliedERC20SwapValues.claimAddress,
           mockAddress,
@@ -626,7 +650,10 @@ describe('EthereumNursery', () => {
       lockupFailed += 1;
     });
 
-    await emitErc20Lockup(exampleTransaction, suppliedERC20SwapValues);
+    await emitErc20Lockup({
+      transaction: exampleTransaction,
+      erc20SwapValues: suppliedERC20SwapValues,
+    });
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(1);
@@ -637,8 +664,8 @@ describe('EthereumNursery', () => {
     suppliedERC20SwapValues.claimAddress = mockAddress;
     suppliedERC20SwapValues.tokenAddress = mockAddress;
 
-    nursery.once('lockup.failed', (_, error) => {
-      expect(error).toEqual(
+    nursery.once('lockup.failed', ({ reason }) => {
+      expect(reason).toEqual(
         Errors.INVALID_TOKEN_LOCKED(
           suppliedERC20SwapValues.tokenAddress,
           suppliedERC20SwapValues.claimAddress,
@@ -648,7 +675,10 @@ describe('EthereumNursery', () => {
       lockupFailed += 1;
     });
 
-    await emitErc20Lockup(exampleTransaction, suppliedERC20SwapValues);
+    await emitErc20Lockup({
+      transaction: exampleTransaction,
+      erc20SwapValues: suppliedERC20SwapValues,
+    });
 
     expect(mockGetSwap).toHaveBeenCalledTimes(2);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(2);
@@ -659,8 +689,8 @@ describe('EthereumNursery', () => {
     suppliedERC20SwapValues.tokenAddress = mockTokenAddress;
     suppliedERC20SwapValues.timelock -= 1;
 
-    nursery.once('lockup.failed', (_, error) => {
-      expect(error).toEqual(
+    nursery.once('lockup.failed', ({ reason }) => {
+      expect(reason).toEqual(
         Errors.INVALID_TIMELOCK(
           suppliedERC20SwapValues.timelock,
           mockGetSwapResult.timeoutBlockHeight,
@@ -670,7 +700,10 @@ describe('EthereumNursery', () => {
       lockupFailed += 1;
     });
 
-    await emitErc20Lockup(exampleTransaction, suppliedERC20SwapValues);
+    await emitErc20Lockup({
+      transaction: exampleTransaction,
+      erc20SwapValues: suppliedERC20SwapValues,
+    });
 
     expect(mockGetSwap).toHaveBeenCalledTimes(3);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(3);
@@ -681,15 +714,18 @@ describe('EthereumNursery', () => {
     suppliedERC20SwapValues.timelock = mockGetSwapResult.timeoutBlockHeight;
     suppliedERC20SwapValues.amount = BigInt('999');
 
-    nursery.once('lockup.failed', (_, error) => {
-      expect(error).toEqual(
+    nursery.once('lockup.failed', ({ reason }) => {
+      expect(reason).toEqual(
         Errors.INSUFFICIENT_AMOUNT(9, mockGetSwapResult.expectedAmount).message,
       );
 
       lockupFailed += 1;
     });
 
-    await emitErc20Lockup(exampleTransaction, suppliedERC20SwapValues);
+    await emitErc20Lockup({
+      transaction: exampleTransaction,
+      erc20SwapValues: suppliedERC20SwapValues,
+    });
 
     expect(mockGetSwap).toHaveBeenCalledTimes(4);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(4);
@@ -717,7 +753,10 @@ describe('EthereumNursery', () => {
     // Chain currency is not a token
     mockGetSwapResult.orderSide = OrderSide.SELL;
 
-    await emitErc20Lockup(exampleTransaction, suppliedERC20SwapValues);
+    await emitErc20Lockup({
+      transaction: exampleTransaction,
+      erc20SwapValues: suppliedERC20SwapValues,
+    });
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(0);
@@ -728,7 +767,10 @@ describe('EthereumNursery', () => {
     // No suitable Swap in database
     mockGetSwapResult = null;
 
-    await emitErc20Lockup(exampleTransaction, suppliedERC20SwapValues);
+    await emitErc20Lockup({
+      transaction: exampleTransaction,
+      erc20SwapValues: suppliedERC20SwapValues,
+    });
 
     expect(mockGetSwap).toHaveBeenCalledTimes(2);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(0);
@@ -739,8 +781,8 @@ describe('EthereumNursery', () => {
 
   test('should reject ERC20Swap lockup transaction from blocked addresses', async () => {
     const lockupPromise = new Promise<void>((resolve) => {
-      nursery.once('lockup.failed', (_, error) => {
-        expect(error).toEqual(Errors.BLOCKED_ADDRESS().message);
+      nursery.once('lockup.failed', ({ reason }) => {
+        expect(reason).toEqual(Errors.BLOCKED_ADDRESS().message);
         resolve();
       });
     });
@@ -752,13 +794,16 @@ describe('EthereumNursery', () => {
       timeoutBlockHeight: 11102222,
     };
 
-    emitErc20Lockup({ ...exampleTransaction, from: 'blocked' }, {
-      claimAddress: mockAddress,
-      amount: BigInt('1000'),
-      tokenAddress: mockTokenAddress,
-      timelock: mockGetSwapResult.timeoutBlockHeight,
-      preimageHash: getHexString(examplePreimageHash),
-    } as any);
+    emitErc20Lockup({
+      transaction: { ...exampleTransaction, from: 'blocked' },
+      erc20SwapValues: {
+        claimAddress: mockAddress,
+        amount: BigInt('1000'),
+        tokenAddress: mockTokenAddress,
+        timelock: mockGetSwapResult.timeoutBlockHeight,
+        preimageHash: getHexString(examplePreimageHash),
+      } as any,
+    });
 
     await lockupPromise;
   });
@@ -770,18 +815,18 @@ describe('EthereumNursery', () => {
       some: 'data',
     };
 
-    nursery.on('claim', (reverseSwap, preimage) => {
+    nursery.on('claim', ({ reverseSwap, preimage }) => {
       expect(reverseSwap).toEqual(mockGetReverseSwapResult);
       expect(preimage).toEqual(examplePreimage);
 
       emittedEvents += 1;
     });
 
-    await emitErc20Claim(
-      exampleTransaction.hash,
-      examplePreimageHash,
-      examplePreimage,
-    );
+    await emitErc20Claim({
+      preimage: examplePreimage,
+      preimageHash: examplePreimageHash,
+      transactionHash: exampleTransaction.hash,
+    });
 
     expect(mockGetReverseSwap).toHaveBeenCalledTimes(1);
     expect(mockGetReverseSwap).toHaveBeenCalledWith({
@@ -796,11 +841,11 @@ describe('EthereumNursery', () => {
     // No suitable Swap in database
     mockGetReverseSwapResult = null;
 
-    await emitErc20Claim(
-      exampleTransaction.hash,
-      examplePreimageHash,
-      examplePreimage,
-    );
+    await emitErc20Claim({
+      preimage: examplePreimage,
+      preimageHash: examplePreimageHash,
+      transactionHash: exampleTransaction.hash,
+    });
 
     expect(mockGetReverseSwap).toHaveBeenCalledTimes(2);
 
@@ -828,7 +873,7 @@ describe('EthereumNursery', () => {
 
     let eventsEmitted = 0;
 
-    nursery.on('swap.expired', (swap, isEtherSwap) => {
+    nursery.on('swap.expired', ({ swap, isEtherSwap }) => {
       if (eventsEmitted === 0) {
         expect(swap).toEqual(mockGetSwapsExpirableResult[0]);
         expect(isEtherSwap).toEqual(true);
@@ -870,7 +915,7 @@ describe('EthereumNursery', () => {
 
     let eventsEmitted = 0;
 
-    nursery.on('reverseSwap.expired', (reverseSwap, isEtherSwap) => {
+    nursery.on('reverseSwap.expired', ({ reverseSwap, isEtherSwap }) => {
       if (eventsEmitted === 0) {
         expect(reverseSwap).toEqual(mockGetReverseSwapsExpirableResult[0]);
         expect(isEtherSwap).toEqual(true);

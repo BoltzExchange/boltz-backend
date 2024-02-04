@@ -13,6 +13,7 @@ import { LndConfig } from './lightning/LndClient';
 import { ClnConfig } from './lightning/cln/Types';
 import { BlocksConfig } from './service/Blocks';
 import { MarkingsConfig } from './service/CountryCodes';
+import { SwapConfig } from './service/cooperative/DeferredClaimer';
 import { NodeSwitchConfig } from './swap/NodeSwitch';
 
 type PostgresConfig = {
@@ -164,6 +165,8 @@ type ConfigType = {
   prepayminerfee: boolean;
   swapwitnessaddress: boolean;
 
+  swap: SwapConfig;
+
   marking: MarkingsConfig;
   blocks: BlocksConfig;
 
@@ -222,6 +225,12 @@ class Config {
 
       prepayminerfee: false,
       swapwitnessaddress: false,
+
+      swap: {
+        deferredClaimSymbols: ['L-BTC'],
+        batchClaimInterval: '*/15 * * * *',
+        expiryTolerance: 120,
+      },
 
       marking: {
         ipV4Ranges:

@@ -1,6 +1,5 @@
 import bolt11 from '@boltz/bolt11';
 import AsyncLock from 'async-lock';
-import { EventEmitter } from 'events';
 import { Op } from 'sequelize';
 import Logger from '../Logger';
 import {
@@ -12,6 +11,7 @@ import {
   splitPairId,
 } from '../Utils';
 import { ChannelCreationStatus, SwapUpdateEvent } from '../consts/Enums';
+import TypedEventEmitter from '../consts/TypedEventEmitter';
 import ChannelCreation from '../db/models/ChannelCreation';
 import Swap from '../db/models/Swap';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
@@ -21,21 +21,14 @@ import LndClient from '../lightning/LndClient';
 import { ChannelPoint } from '../proto/lnd/rpc_pb';
 import { Currency } from '../wallet/WalletManager';
 
-interface ChannelNursery {
-  on(
-    event: 'channel.created',
-    listener: (swap: Swap, channelCreation: ChannelCreation) => void,
-  ): this;
-  emit(
-    event: 'channel.created',
-    swap: Swap,
-    channelCreation: ChannelCreation,
-  ): boolean;
-}
-
 // TODO: cln compatibility
 
-class ChannelNursery extends EventEmitter {
+class ChannelNursery extends TypedEventEmitter<{
+  'channel.created': {
+    swap: Swap;
+    channelCreation: ChannelCreation;
+  };
+}> {
   private connectionHelper: ConnectionHelper;
 
   private lock = new AsyncLock();
@@ -206,15 +199,14 @@ class ChannelNursery extends EventEmitter {
 
       await SwapRepository.setSwapStatus(swap, SwapUpdateEvent.ChannelCreated);
 
-      this.emit(
-        'channel.created',
+      this.emit('channel.created', {
         swap,
-        await ChannelCreationRepository.setFundingTransaction(
+        channelCreation: await ChannelCreationRepository.setFundingTransaction(
           channelCreation,
           fundingTransactionId,
           outputIndex,
         ),
-      );
+      });
     } catch (error) {
       // TODO: emit event?
       const formattedError = formatError(error);

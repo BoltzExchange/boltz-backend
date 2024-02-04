@@ -231,13 +231,13 @@ describe('DeferredClaimer', () => {
     );
 
     const emitPromise = new Promise<void>((resolve) => {
-      claimer.once('claim', (emittedSwap, channelCreation) => {
-        expect(emittedSwap).toEqual({
+      claimer.once('claim', (args) => {
+        expect(args.swap).toEqual({
           ...swap,
           status: SwapUpdateEvent.TransactionClaimPending,
           minerFee: expect.anything(),
         });
-        expect(channelCreation).toBeUndefined();
+        expect(args.channelCreation).toBeUndefined();
         resolve();
       });
     });

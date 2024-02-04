@@ -20,7 +20,10 @@ import Service from '../../../lib/service/Service';
 import SwapNursery from '../../../lib/swap/SwapNursery';
 import { emitClose, mockRequest, mockResponse } from './Utils';
 
-type swapUpdateCallback = (id: string, message: string) => void;
+type swapUpdateCallback = (args: {
+  id: string;
+  status: SwapUpdateEvent;
+}) => void;
 
 const swaps: Swap[] = [
   {
@@ -1102,10 +1105,13 @@ describe('Controller', () => {
       'Content-Type': 'text/event-stream',
     });
 
-    const message = SwapUpdateEvent.InvoiceSettled;
+    const status = SwapUpdateEvent.InvoiceSettled;
 
-    swapUpdate(id, message);
-    expect(res.write).toHaveBeenCalledWith(`data: "${message}"\n\n`);
+    swapUpdate({
+      id,
+      status,
+    });
+    expect(res.write).toHaveBeenCalledWith(`data: "${status}"\n\n`);
 
     emitClose();
     expect(controller['pendingSwapStreams'].get(id)).toBeUndefined();

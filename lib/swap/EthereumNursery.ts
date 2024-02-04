@@ -1,5 +1,4 @@
-import { Transaction, TransactionResponse } from 'ethers';
-import { EventEmitter } from 'events';
+import { TransactionResponse } from 'ethers';
 import { Op } from 'sequelize';
 import Logger from '../Logger';
 import {
@@ -10,6 +9,7 @@ import {
 } from '../Utils';
 import { etherDecimals } from '../consts/Consts';
 import { CurrencyType, SwapUpdateEvent } from '../consts/Enums';
+import TypedEventEmitter from '../consts/TypedEventEmitter';
 import { ERC20SwapValues, EtherSwapValues } from '../consts/Types';
 import ReverseSwap from '../db/models/ReverseSwap';
 import Swap from '../db/models/Swap';
@@ -22,90 +22,29 @@ import EthereumManager from '../wallet/ethereum/EthereumManager';
 import ERC20WalletProvider from '../wallet/providers/ERC20WalletProvider';
 import Errors from './Errors';
 
-interface IEthereumNursery {
+class EthereumNursery extends TypedEventEmitter<{
   // EtherSwap
-  on(
-    event: 'eth.lockup',
-    listener: (
-      swap: Swap,
-      transactionHash: string,
-      etherSwapValues: EtherSwapValues,
-    ) => void,
-  ): this;
-  emit(
-    event: 'eth.lockup',
-    swap: Swap,
-    transactionHash: string,
-    etherSwapValues: EtherSwapValues,
-  ): boolean;
+  'eth.lockup': {
+    swap: Swap;
+    transactionHash: string;
+    etherSwapValues: EtherSwapValues;
+  };
 
   // ERC20Swap
-  on(
-    event: 'erc20.lockup',
-    listener: (
-      swap: Swap,
-      transactionHash: string,
-      erc20SwapValues: ERC20SwapValues,
-    ) => void,
-  ): this;
-  emit(
-    event: 'erc20.lockup',
-    swap: Swap,
-    transactionHash: string,
-    erc20SwapValues: ERC20SwapValues,
-  ): boolean;
+  'erc20.lockup': {
+    swap: Swap;
+    transactionHash: string;
+    erc20SwapValues: ERC20SwapValues;
+  };
 
   // Events used for both contracts
-  on(
-    event: 'swap.expired',
-    listener: (swap: Swap, isEtherSwap: boolean) => void,
-  ): this;
-  emit(event: 'swap.expired', swap: Swap, isEtherSwap: boolean): boolean;
-
-  on(
-    event: 'lockup.failed',
-    listener: (swap: Swap, reason: string) => void,
-  ): this;
-  emit(event: 'lockup.failed', swap: Swap, reason: string): boolean;
-
-  on(
-    event: 'reverseSwap.expired',
-    listener: (reverseSwap: ReverseSwap, isEtherSwap: boolean) => void,
-  ): this;
-  emit(
-    event: 'reverseSwap.expired',
-    reverseSwap: ReverseSwap,
-    isEtherSwap: boolean,
-  ): boolean;
-
-  on(
-    event: 'lockup.failedToSend',
-    listener: (reverseSwap: ReverseSwap, reason: string) => void,
-  ): this;
-  emit(
-    event: 'lockup.failedToSend',
-    reverseSwap: ReverseSwap,
-    reason: string,
-  ): boolean;
-
-  on(
-    event: 'lockup.confirmed',
-    listener: (reverseSwap: ReverseSwap, transactionHash: string) => void,
-  ): this;
-  emit(
-    event: 'lockup.confirmed',
-    reverseSwap: ReverseSwap,
-    transactionHash: string,
-  ): boolean;
-
-  on(
-    event: 'claim',
-    listener: (reverseSwap: ReverseSwap, preimage: Buffer) => void,
-  ): this;
-  emit(event: 'claim', reverseSwap: ReverseSwap, preimage: Buffer): boolean;
-}
-
-class EthereumNursery extends EventEmitter implements IEthereumNursery {
+  'swap.expired': { swap: Swap; isEtherSwap: boolean };
+  'lockup.failed': { swap: Swap; reason: string };
+  'reverseSwap.expired': { reverseSwap: ReverseSwap; isEtherSwap: boolean };
+  'lockup.failedToSend': { reverseSwap: ReverseSwap; reason: string };
+  'lockup.confirmed': { reverseSwap: ReverseSwap; transactionHash: string };
+  claim: { reverseSwap: ReverseSwap; preimage: Buffer };
+}> {
   constructor(
     private readonly logger: Logger,
     private readonly walletManager: WalletManager,
@@ -162,31 +101,29 @@ class EthereumNursery extends EventEmitter implements IEthereumNursery {
     transaction
       .wait(1)
       .then(async () => {
-        this.emit(
-          'lockup.confirmed',
-          await ReverseSwapRepository.setReverseSwapStatus(
+        this.emit('lockup.confirmed', {
+          reverseSwap: await ReverseSwapRepository.setReverseSwapStatus(
             reverseSwap,
             SwapUpdateEvent.TransactionConfirmed,
           ),
-          transaction.hash,
-        );
+          transactionHash: transaction.hash,
+        });
       })
       .catch(async (reason) => {
-        this.emit(
-          'lockup.failedToSend',
-          await ReverseSwapRepository.setReverseSwapStatus(
+        this.emit('lockup.failedToSend', {
+          reason,
+          reverseSwap: await ReverseSwapRepository.setReverseSwapStatus(
             reverseSwap,
             SwapUpdateEvent.TransactionFailed,
           ),
-          reason,
-        );
+        });
       });
   };
 
   private listenEtherSwap = () => {
     this.ethereumManager.contractEventHandler.on(
       'eth.lockup',
-      async (transaction: Transaction, etherSwapValues) => {
+      async ({ transaction, etherSwapValues }) => {
         let swap = await SwapRepository.getSwap({
           preimageHash: getHexString(etherSwapValues.preimageHash),
           status: {
@@ -222,26 +159,24 @@ class EthereumNursery extends EventEmitter implements IEthereumNursery {
         );
 
         if (etherSwapValues.claimAddress !== this.ethereumManager.address) {
-          this.emit(
-            'lockup.failed',
+          this.emit('lockup.failed', {
             swap,
-            Errors.INVALID_CLAIM_ADDRESS(
+            reason: Errors.INVALID_CLAIM_ADDRESS(
               etherSwapValues.claimAddress,
               this.ethereumManager.address,
             ).message,
-          );
+          });
           return;
         }
 
         if (etherSwapValues.timelock !== swap.timeoutBlockHeight) {
-          this.emit(
-            'lockup.failed',
+          this.emit('lockup.failed', {
             swap,
-            Errors.INVALID_TIMELOCK(
+            reason: Errors.INVALID_TIMELOCK(
               etherSwapValues.timelock,
               swap.timeoutBlockHeight,
             ).message,
-          );
+          });
           return;
         }
 
@@ -251,30 +186,36 @@ class EthereumNursery extends EventEmitter implements IEthereumNursery {
             this.ethereumManager.networkDetails.decimals;
 
           if (expectedAmount > etherSwapValues.amount) {
-            this.emit(
-              'lockup.failed',
+            this.emit('lockup.failed', {
               swap,
-              Errors.INSUFFICIENT_AMOUNT(
+              reason: Errors.INSUFFICIENT_AMOUNT(
                 Number(etherSwapValues.amount / etherDecimals),
                 swap.expectedAmount,
               ).message,
-            );
+            });
             return;
           }
         }
 
         if (this.blocks.isBlocked(transaction.from!)) {
-          this.emit('lockup.failed', swap, Errors.BLOCKED_ADDRESS().message);
+          this.emit('lockup.failed', {
+            swap,
+            reason: Errors.BLOCKED_ADDRESS().message,
+          });
           return;
         }
 
-        this.emit('eth.lockup', swap, transaction.hash, etherSwapValues);
+        this.emit('eth.lockup', {
+          swap,
+          etherSwapValues,
+          transactionHash: transaction.hash!,
+        });
       },
     );
 
     this.ethereumManager.contractEventHandler.on(
       'eth.claim',
-      async (transactionHash, preimageHash, preimage) => {
+      async ({ transactionHash, preimageHash, preimage }) => {
         const reverseSwap = await ReverseSwapRepository.getReverseSwap({
           preimageHash: getHexString(preimageHash),
           status: {
@@ -290,7 +231,7 @@ class EthereumNursery extends EventEmitter implements IEthereumNursery {
           `Found claim in ${this.ethereumManager.networkDetails.name} EtherSwap contract for Reverse Swap ${reverseSwap.id}: ${transactionHash}`,
         );
 
-        this.emit('claim', reverseSwap, preimage);
+        this.emit('claim', { reverseSwap, preimage });
       },
     );
   };
@@ -298,7 +239,7 @@ class EthereumNursery extends EventEmitter implements IEthereumNursery {
   private listenERC20Swap = () => {
     this.ethereumManager.contractEventHandler.on(
       'erc20.lockup',
-      async (transaction: Transaction, erc20SwapValues) => {
+      async ({ transaction, erc20SwapValues }) => {
         let swap = await SwapRepository.getSwap({
           preimageHash: getHexString(erc20SwapValues.preimageHash),
           status: {
@@ -338,38 +279,35 @@ class EthereumNursery extends EventEmitter implements IEthereumNursery {
         );
 
         if (erc20SwapValues.claimAddress !== this.ethereumManager.address) {
-          this.emit(
-            'lockup.failed',
+          this.emit('lockup.failed', {
             swap,
-            Errors.INVALID_CLAIM_ADDRESS(
+            reason: Errors.INVALID_CLAIM_ADDRESS(
               erc20SwapValues.claimAddress,
               this.ethereumManager.address,
             ).message,
-          );
+          });
           return;
         }
 
         if (erc20SwapValues.tokenAddress !== erc20Wallet.getTokenAddress()) {
-          this.emit(
-            'lockup.failed',
+          this.emit('lockup.failed', {
             swap,
-            Errors.INVALID_TOKEN_LOCKED(
+            reason: Errors.INVALID_TOKEN_LOCKED(
               erc20SwapValues.tokenAddress,
               this.ethereumManager.address,
             ).message,
-          );
+          });
           return;
         }
 
         if (erc20SwapValues.timelock !== swap.timeoutBlockHeight) {
-          this.emit(
-            'lockup.failed',
+          this.emit('lockup.failed', {
             swap,
-            Errors.INVALID_TIMELOCK(
+            reason: Errors.INVALID_TIMELOCK(
               erc20SwapValues.timelock,
               swap.timeoutBlockHeight,
             ).message,
-          );
+          });
           return;
         }
 
@@ -378,30 +316,36 @@ class EthereumNursery extends EventEmitter implements IEthereumNursery {
             erc20Wallet.formatTokenAmount(swap.expectedAmount) >
             erc20SwapValues.amount
           ) {
-            this.emit(
-              'lockup.failed',
+            this.emit('lockup.failed', {
               swap,
-              Errors.INSUFFICIENT_AMOUNT(
+              reason: Errors.INSUFFICIENT_AMOUNT(
                 erc20Wallet.normalizeTokenAmount(erc20SwapValues.amount),
                 swap.expectedAmount,
               ).message,
-            );
+            });
             return;
           }
         }
 
         if (this.blocks.isBlocked(transaction.from!)) {
-          this.emit('lockup.failed', swap, Errors.BLOCKED_ADDRESS().message);
+          this.emit('lockup.failed', {
+            swap,
+            reason: Errors.BLOCKED_ADDRESS().message,
+          });
           return;
         }
 
-        this.emit('erc20.lockup', swap, transaction.hash, erc20SwapValues);
+        this.emit('erc20.lockup', {
+          swap,
+          erc20SwapValues,
+          transactionHash: transaction.hash!,
+        });
       },
     );
 
     this.ethereumManager.contractEventHandler.on(
       'erc20.claim',
-      async (transactionHash, preimageHash, preimage) => {
+      async ({ transactionHash, preimageHash, preimage }) => {
         const reverseSwap = await ReverseSwapRepository.getReverseSwap({
           preimageHash: getHexString(preimageHash),
           status: {
@@ -417,7 +361,7 @@ class EthereumNursery extends EventEmitter implements IEthereumNursery {
           `Found claim in ${this.ethereumManager.networkDetails.name} ERC20Swap contract for Reverse Swap ${reverseSwap.id}: ${transactionHash}`,
         );
 
-        this.emit('claim', reverseSwap, preimage);
+        this.emit('claim', { reverseSwap, preimage });
       },
     );
   };
@@ -454,11 +398,11 @@ class EthereumNursery extends EventEmitter implements IEthereumNursery {
       const wallet = this.getEthereumWallet(chainCurrency);
 
       if (wallet) {
-        this.emit(
-          'swap.expired',
-          expirableSwap,
-          wallet.symbol === this.ethereumManager.networkDetails.symbol,
-        );
+        this.emit('swap.expired', {
+          swap: expirableSwap,
+          isEtherSwap:
+            wallet.symbol === this.ethereumManager.networkDetails.symbol,
+        });
       }
     }
   };
@@ -479,11 +423,11 @@ class EthereumNursery extends EventEmitter implements IEthereumNursery {
       const wallet = this.getEthereumWallet(chainCurrency);
 
       if (wallet) {
-        this.emit(
-          'reverseSwap.expired',
-          expirableReverseSwap,
-          wallet.symbol === this.ethereumManager.networkDetails.symbol,
-        );
+        this.emit('reverseSwap.expired', {
+          reverseSwap: expirableReverseSwap,
+          isEtherSwap:
+            wallet.symbol === this.ethereumManager.networkDetails.symbol,
+        });
       }
     }
   };

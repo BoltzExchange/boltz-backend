@@ -153,7 +153,7 @@ class BackupScheduler {
   private subscribeChannelBackups = () => {
     this.eventHandler.on(
       'channel.backup',
-      async (currency: string, channelBackup: string) => {
+      async ({ currency, channelBackup }) => {
         const dateString = BackupScheduler.getDate(new Date());
 
         await this.uploadString(

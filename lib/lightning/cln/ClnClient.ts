@@ -31,6 +31,7 @@ import { grpcOptions, unaryCall } from '../GrpcUtils';
 import {
   ChannelInfo,
   DecodedInvoice,
+  EventTypes,
   HopHint,
   Htlc,
   HtlcState,
@@ -50,7 +51,7 @@ import { ClnConfig, createSsl } from './Types';
 import ListpaysPaysStatus = ListpaysPays.ListpaysPaysStatus;
 
 class ClnClient
-  extends BaseClient
+  extends BaseClient<EventTypes>
   implements LightningClient, RoutingHintsProvider
 {
   public static readonly serviceName = 'CLN';
@@ -213,7 +214,7 @@ class ClnClient
       this.subscribeTrackHoldInvoices();
 
       this.setClientStatus(ClientStatus.Connected);
-      this.emit('subscription.reconnected');
+      this.emit('subscription.reconnected', null);
     } catch (err) {
       this.setClientStatus(ClientStatus.Disconnected);
 
@@ -867,7 +868,7 @@ class ClnClient
     );
 
     if (this.isConnected()) {
-      this.emit('subscription.error');
+      this.emit('subscription.error', subscriptionName);
       setTimeout(() => this.reconnect(), this.RECONNECT_INTERVAL);
     }
   };

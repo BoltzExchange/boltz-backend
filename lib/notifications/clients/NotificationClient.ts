@@ -1,19 +1,11 @@
-import { EventEmitter } from 'events';
 import { NotificationConfig } from '../../Config';
 import Logger from '../../Logger';
+import TypedEventEmitter from '../../consts/TypedEventEmitter';
 
-interface INotificationClient {
-  on(event: 'message', listener: (message: string) => void): this;
-  emit(event: 'message', message: string): boolean;
-
-  on(event: 'error', listener: (error: Error) => void): this;
-  emit(event: 'error', error: Error): boolean;
-}
-
-abstract class NotificationClient
-  extends EventEmitter
-  implements INotificationClient
-{
+abstract class NotificationClient extends TypedEventEmitter<{
+  message: string;
+  error: Error | string;
+}> {
   protected readonly prefix: string;
 
   protected constructor(
@@ -43,4 +35,3 @@ abstract class NotificationClient
 }
 
 export default NotificationClient;
-export { INotificationClient };

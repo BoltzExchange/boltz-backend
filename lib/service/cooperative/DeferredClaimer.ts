@@ -1,7 +1,6 @@
 import AsyncLock from 'async-lock';
 import { Transaction } from 'bitcoinjs-lib';
 import { Musig, SwapTreeSerializer } from 'boltz-core';
-import { EventEmitter } from 'events';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import { Job, scheduleJob } from 'node-schedule';
 import {
@@ -25,6 +24,7 @@ import {
 } from '../../Utils';
 import ChainClient from '../../chain/ChainClient';
 import { SwapUpdateEvent, SwapVersion } from '../../consts/Enums';
+import TypedEventEmitter from '../../consts/TypedEventEmitter';
 import ChannelCreation from '../../db/models/ChannelCreation';
 import Swap from '../../db/models/Swap';
 import ChannelCreationRepository from '../../db/repositories/ChannelCreationRepository';
@@ -53,15 +53,12 @@ type SwapToClaim = {
   cooperative?: CooperativeDetails;
 };
 
-interface IDeferredClaimer {
-  on(
-    event: 'claim',
-    listener: (swap: Swap, channelCreation?: ChannelCreation) => void,
-  ): this;
-  emit(event: 'claim', swap: Swap, channelCreation?: ChannelCreation): boolean;
-}
-
-class DeferredClaimer extends EventEmitter implements IDeferredClaimer {
+class DeferredClaimer extends TypedEventEmitter<{
+  claim: {
+    swap: Swap;
+    channelCreation?: ChannelCreation;
+  };
+}> {
   private static readonly batchClaimLock = 'batchClaim';
   private static readonly swapsToClaimLock = 'swapsToClaim';
 
@@ -256,16 +253,16 @@ class DeferredClaimer extends EventEmitter implements IDeferredClaimer {
       this.swapsToClaim.get(chainCurrency.symbol)?.delete(swap.id);
     });
 
-    this.emit(
-      'claim',
-      await SwapRepository.setMinerFee(
+    this.emit('claim', {
+      swap: await SwapRepository.setMinerFee(
         toClaim.swap,
         await calculateTransactionFee(chainCurrency.chainClient!, transaction),
       ),
-      (await ChannelCreationRepository.getChannelCreation({
-        swapId: toClaim.swap.id,
-      })) || undefined,
-    );
+      channelCreation:
+        (await ChannelCreationRepository.getChannelCreation({
+          swapId: toClaim.swap.id,
+        })) || undefined,
+    });
   };
 
   private batchClaim = async (symbol: string) => {
@@ -338,13 +335,16 @@ class DeferredClaimer extends EventEmitter implements IDeferredClaimer {
     );
 
     for (const toClaim of swaps) {
-      this.emit(
-        'claim',
-        await SwapRepository.setMinerFee(toClaim.swap, transactionFeePerSwap),
-        (await ChannelCreationRepository.getChannelCreation({
-          swapId: toClaim.swap.id,
-        })) || undefined,
-      );
+      this.emit('claim', {
+        swap: await SwapRepository.setMinerFee(
+          toClaim.swap,
+          transactionFeePerSwap,
+        ),
+        channelCreation:
+          (await ChannelCreationRepository.getChannelCreation({
+            swapId: toClaim.swap.id,
+          })) || undefined,
+      });
     }
 
     return swaps.map((toClaim) => toClaim.swap.id);

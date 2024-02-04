@@ -1,14 +1,13 @@
-import { EventEmitter } from 'events';
 import Logger from './Logger';
 import { racePromise } from './PromiseUtils';
 import { ClientStatus } from './consts/Enums';
+import TypedEventEmitter from './consts/TypedEventEmitter';
 
-interface IBaseClient {
-  on(event: 'status.changed', listener: (status: ClientStatus) => void): void;
-  emit(event: 'status.changed', status: ClientStatus): void;
-}
+type BaseClientEvents = { 'status.changed': ClientStatus };
 
-abstract class BaseClient extends EventEmitter implements IBaseClient {
+abstract class BaseClient<
+  T extends BaseClientEvents = BaseClientEvents,
+> extends TypedEventEmitter<T> {
   protected readonly RECONNECT_INTERVAL = 5000;
   protected reconnectionTimer?: any;
 
@@ -75,4 +74,3 @@ abstract class BaseClient extends EventEmitter implements IBaseClient {
 }
 
 export default BaseClient;
-export { IBaseClient };

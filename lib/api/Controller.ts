@@ -45,14 +45,14 @@ class Controller {
     private readonly service: Service,
     private readonly countryCodes: CountryCodes,
   ) {
-    this.service.eventHandler.on('swap.update', (id, message) => {
-      this.logger.debug(`Swap ${id} update: ${saneStringify(message)}`);
-      this.pendingSwapInfos.set(id, message);
+    this.service.eventHandler.on('swap.update', ({ id, status }) => {
+      this.logger.debug(`Swap ${id} update: ${saneStringify(status)}`);
+      this.pendingSwapInfos.set(id, status);
 
       const response = this.pendingSwapStreams.get(id);
 
       if (response) {
-        this.writeToSse(response, message);
+        this.writeToSse(response, status);
       }
     });
   }

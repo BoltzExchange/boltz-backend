@@ -3,12 +3,9 @@ import ws from 'ws';
 import { NotificationConfig } from '../../Config';
 import Logger from '../../Logger';
 import { codeBlock } from '../Markup';
-import NotificationClient, { INotificationClient } from './NotificationClient';
+import NotificationClient from './NotificationClient';
 
-class MattermostClient
-  extends NotificationClient
-  implements INotificationClient
-{
+class MattermostClient extends NotificationClient {
   public static readonly serviceName = 'Mattermost';
 
   private readonly client: Client4;

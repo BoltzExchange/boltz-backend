@@ -1,98 +1,46 @@
 import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
-import { ContractEventPayload, Transaction } from 'ethers';
-import { EventEmitter } from 'events';
+import { ContractEventPayload, Transaction, TransactionResponse } from 'ethers';
 import Logger from '../../Logger';
+import TypedEventEmitter from '../../consts/TypedEventEmitter';
 import { ERC20SwapValues, EtherSwapValues } from '../../consts/Types';
 import { formatERC20SwapValues, formatEtherSwapValues } from './ContractUtils';
 import { parseBuffer } from './EthereumUtils';
 import { NetworkDetails } from './EvmNetworks';
 
-interface IContractEventHandler {
+type Events = {
   // EtherSwap contract events
-  on(
-    event: 'eth.lockup',
-    listener: (
-      transaction: Transaction,
-      etherSwapValues: EtherSwapValues,
-    ) => void,
-  ): this;
-  emit(
-    event: 'eth.lockup',
-    transaction: Transaction,
-    etherSwapValues: EtherSwapValues,
-  ): boolean;
-
-  on(
-    event: 'eth.claim',
-    listener: (
-      transactionHash: string,
-      preimageHash: Buffer,
-      preimage: Buffer,
-    ) => void,
-  ): this;
-  emit(
-    event: 'eth.claim',
-    transactionHash: string,
-    preimageHash: Buffer,
-    preimage: Buffer,
-  ): boolean;
-
-  on(
-    event: 'eth.refund',
-    listener: (transactionHash: string, preimageHash: Buffer) => void,
-  ): this;
-  emit(
-    event: 'eth.refund',
-    transactionHash: string,
-    preimageHash: Buffer,
-  ): boolean;
+  'eth.lockup': {
+    transaction: Transaction | TransactionResponse;
+    etherSwapValues: EtherSwapValues;
+  };
+  'eth.claim': {
+    transactionHash: string;
+    preimageHash: Buffer;
+    preimage: Buffer;
+  };
+  'eth.refund': {
+    transactionHash: string;
+    preimageHash: Buffer;
+  };
 
   // ERC20Swap contract events
-  on(
-    event: 'erc20.lockup',
-    listener: (
-      transaction: Transaction,
+  'erc20.lockup': {
+    transaction: Transaction | TransactionResponse;
+    erc20SwapValues: ERC20SwapValues;
+  };
+  'erc20.claim': {
+    transactionHash: string;
+    preimageHash: Buffer;
+    preimage: Buffer;
+  };
+  'erc20.refund': {
+    transactionHash: string;
+    preimageHash: Buffer;
+  };
+};
 
-      erc20SwapValues: ERC20SwapValues,
-    ) => void,
-  ): this;
-  emit(
-    event: 'erc20.lockup',
-    transaction: Transaction,
-    erc20SwapValues: ERC20SwapValues,
-  ): boolean;
-
-  on(
-    event: 'erc20.claim',
-    listener: (
-      transactionHash: string,
-      preimageHash: Buffer,
-      preimage: Buffer,
-    ) => void,
-  ): this;
-  emit(
-    event: 'erc20.claim',
-    transactionHash: string,
-    preimageHash: Buffer,
-    preimage: Buffer,
-  ): boolean;
-
-  on(
-    event: 'erc20.refund',
-    listener: (transactionHash: string, preimageHash: Buffer) => void,
-  ): this;
-  emit(
-    event: 'erc20.refund',
-    transactionHash: string,
-    preimageHash: Buffer,
-  ): boolean;
-}
-
-class ContractEventHandler
-  extends EventEmitter
-  implements IContractEventHandler
-{
+class ContractEventHandler extends TypedEventEmitter<Events> {
   private etherSwap!: EtherSwap;
   private erc20Swap!: ERC20Swap;
 
@@ -123,28 +71,25 @@ class ContractEventHandler
     ]);
 
     for (const event of etherLockups) {
-      this.emit(
-        'eth.lockup',
-        await event.getTransaction(),
-        formatEtherSwapValues(event.args!),
-      );
+      this.emit('eth.lockup', {
+        transaction: await event.getTransaction(),
+        etherSwapValues: formatEtherSwapValues(event.args!),
+      });
     }
 
     for (const event of etherClaims) {
-      this.emit(
-        'eth.claim',
-        event.transactionHash,
-        parseBuffer(event.topics[1]),
-        parseBuffer(event.args!.preimage),
-      );
+      this.emit('eth.claim', {
+        transactionHash: event.transactionHash,
+        preimageHash: parseBuffer(event.topics[1]),
+        preimage: parseBuffer(event.args!.preimage),
+      });
     }
 
     for (const event of etherRefunds) {
-      this.emit(
-        'eth.refund',
-        event.transactionHash,
-        parseBuffer(event.topics[1]),
-      );
+      this.emit('eth.refund', {
+        transactionHash: event.transactionHash,
+        preimageHash: parseBuffer(event.topics[1]),
+      });
     }
 
     const [erc20Lockups, erc20Claims, erc20Refunds] = await Promise.all([
@@ -154,28 +99,25 @@ class ContractEventHandler
     ]);
 
     for (const event of erc20Lockups) {
-      this.emit(
-        'erc20.lockup',
-        await event.getTransaction(),
-        formatERC20SwapValues(event.args!),
-      );
+      this.emit('erc20.lockup', {
+        transaction: await event.getTransaction(),
+        erc20SwapValues: formatERC20SwapValues(event.args!),
+      });
     }
 
     for (const event of erc20Claims) {
-      this.emit(
-        'erc20.claim',
-        event.transactionHash,
-        parseBuffer(event.topics[1]),
-        parseBuffer(event.args!.preimage),
-      );
+      this.emit('erc20.claim', {
+        transactionHash: event.transactionHash,
+        preimageHash: parseBuffer(event.topics[1]),
+        preimage: parseBuffer(event.args!.preimage),
+      });
     }
 
     for (const event of erc20Refunds) {
-      this.emit(
-        'erc20.refund',
-        event.transactionHash,
-        parseBuffer(event.topics[1]),
-      );
+      this.emit('erc20.refund', {
+        transactionHash: event.transactionHash,
+        preimageHash: parseBuffer(event.topics[1]),
+      });
     }
   };
 
@@ -190,12 +132,15 @@ class ContractEventHandler
         timelock: bigint,
         event: ContractEventPayload,
       ) => {
-        this.emit('eth.lockup', await event.log.getTransaction(), {
-          amount,
-          claimAddress,
-          refundAddress,
-          timelock: Number(timelock),
-          preimageHash: parseBuffer(preimageHash),
+        this.emit('eth.lockup', {
+          transaction: await event.log.getTransaction(),
+          etherSwapValues: {
+            amount,
+            claimAddress,
+            refundAddress,
+            timelock: Number(timelock),
+            preimageHash: parseBuffer(preimageHash),
+          },
         });
       },
     );
@@ -203,23 +148,21 @@ class ContractEventHandler
     await this.etherSwap.on(
       'Claim' as any,
       (preimageHash: string, preimage: string, event: ContractEventPayload) => {
-        this.emit(
-          'eth.claim',
-          event.log.transactionHash,
-          parseBuffer(preimageHash),
-          parseBuffer(preimage),
-        );
+        this.emit('eth.claim', {
+          transactionHash: event.log.transactionHash,
+          preimageHash: parseBuffer(preimageHash),
+          preimage: parseBuffer(preimage),
+        });
       },
     );
 
     await this.etherSwap.on(
       'Refund' as any,
       (preimageHash: string, event: ContractEventPayload) => {
-        this.emit(
-          'eth.refund',
-          event.log.transactionHash,
-          parseBuffer(preimageHash),
-        );
+        this.emit('eth.refund', {
+          transactionHash: event.log.transactionHash,
+          preimageHash: parseBuffer(preimageHash),
+        });
       },
     );
 
@@ -234,13 +177,16 @@ class ContractEventHandler
         timelock: bigint,
         event: ContractEventPayload,
       ) => {
-        this.emit('erc20.lockup', await event.log.getTransaction(), {
-          amount,
-          tokenAddress,
-          claimAddress,
-          refundAddress,
-          timelock: Number(timelock),
-          preimageHash: parseBuffer(preimageHash),
+        this.emit('erc20.lockup', {
+          transaction: await event.log.getTransaction(),
+          erc20SwapValues: {
+            amount,
+            tokenAddress,
+            claimAddress,
+            refundAddress,
+            timelock: Number(timelock),
+            preimageHash: parseBuffer(preimageHash),
+          },
         });
       },
     );
@@ -248,23 +194,21 @@ class ContractEventHandler
     await this.erc20Swap.on(
       'Claim' as any,
       (preimageHash: string, preimage: string, event: ContractEventPayload) => {
-        this.emit(
-          'erc20.claim',
-          event.log.transactionHash,
-          parseBuffer(preimageHash),
-          parseBuffer(preimage),
-        );
+        this.emit('erc20.claim', {
+          transactionHash: event.log.transactionHash,
+          preimageHash: parseBuffer(preimageHash),
+          preimage: parseBuffer(preimage),
+        });
       },
     );
 
     await this.erc20Swap.on(
       'Refund' as any,
       (preimageHash: string, event: ContractEventPayload) => {
-        this.emit(
-          'erc20.refund',
-          event.log.transactionHash,
-          parseBuffer(preimageHash),
-        );
+        this.emit('erc20.refund', {
+          transactionHash: event.log.transactionHash,
+          preimageHash: parseBuffer(preimageHash),
+        });
       },
     );
   };

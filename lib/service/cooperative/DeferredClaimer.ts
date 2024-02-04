@@ -142,7 +142,7 @@ class DeferredClaimer extends TypedEventEmitter<{
   ): Promise<boolean> => {
     const { base, quote } = splitPairId(swap.pair);
     const chainCurrency = getChainCurrency(base, quote, swap.orderSide, false);
-    if (!this.shouldBeClaimedDeferred(chainCurrency, swap)) {
+    if (!this.shouldBeDeferred(chainCurrency, swap)) {
       return false;
     }
 
@@ -373,7 +373,7 @@ class DeferredClaimer extends TypedEventEmitter<{
   };
 
   // TODO: how to handle non Taproot swaps?
-  private shouldBeClaimedDeferred = (chainCurrency: string, swap: Swap) => {
+  private shouldBeDeferred = (chainCurrency: string, swap: Swap) => {
     if (!this.config.deferredClaimSymbols.includes(chainCurrency)) {
       this.logNotDeferringReason(
         swap,

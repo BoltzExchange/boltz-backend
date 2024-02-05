@@ -249,9 +249,8 @@ class PaymentHandler {
           });
         } else if (payment.status === Payment.PaymentStatus.IN_FLIGHT) {
           this.logger.info(`Invoice of Swap ${swap.id} is still pending`);
+          return undefined;
         }
-
-        return undefined;
       } catch (e) {
         /* empty */
       }
@@ -269,6 +268,8 @@ class PaymentHandler {
     }
 
     if (
+      errorMessage === PaymentHandler.errCltvTooSmall ||
+      LightningNursery.errIsInvoicePaid(error) ||
       LightningNursery.errIsPaymentInTransition(error) ||
       LightningNursery.errIsCltvLimitExceeded(error)
     ) {

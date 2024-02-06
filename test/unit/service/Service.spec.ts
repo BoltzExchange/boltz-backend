@@ -1016,6 +1016,34 @@ describe('Service', () => {
     );
   });
 
+  test('should get lockup transactions of reverse swaps', async () => {
+    const blockDelta = 10;
+
+    mockGetReverseSwapResult = {
+      id: '123asd',
+      pair: 'LTC/BTC',
+      orderSide: OrderSide.SELL,
+      timeoutBlockHeight: blockchainInfo.blocks + blockDelta,
+      transactionId:
+        'eb63a8b1511f83c8d649fdaca26c4bc0dee4313689f62fd0f4ff8f71b963900d',
+    };
+
+    await expect(
+      service.getReverseSwapTransaction(mockGetReverseSwapResult.id),
+    ).resolves.toEqual({
+      transactionHex: rawTransaction,
+      transactionId: mockGetReverseSwapResult.transactionId,
+      timeoutBlockHeight: mockGetReverseSwapResult.timeoutBlockHeight,
+    });
+
+    expect(ReverseSwapRepository.getReverseSwap).toHaveBeenCalledTimes(1);
+    expect(ReverseSwapRepository.getReverseSwap).toHaveBeenCalledWith({
+      id: mockGetReverseSwapResult.id,
+    });
+
+    mockGetReverseSwapResult = null;
+  });
+
   test('should get lockup transactions of Ethereum swaps', async () => {
     const blockDelta = 10;
 

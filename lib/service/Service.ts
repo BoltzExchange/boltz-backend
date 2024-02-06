@@ -93,10 +93,13 @@ type Contracts = {
   rsk?: NetworkContracts;
 };
 
-type SwapTransaction = {
+type ReverseTransaction = {
   transactionId: string;
   timeoutBlockHeight: number;
   transactionHex?: string;
+};
+
+type SwapTransaction = ReverseTransaction & {
   timeoutEta?: number;
 };
 
@@ -535,6 +538,40 @@ class Service {
       response.timeoutEta = this.calculateTimeoutDate(
         chainCurrency,
         swap.timeoutBlockHeight - blocks,
+      );
+    }
+
+    return response;
+  };
+
+  public getReverseSwapTransaction = async (
+    id: string,
+  ): Promise<ReverseTransaction> => {
+    const reverseSwap = await ReverseSwapRepository.getReverseSwap({
+      id,
+    });
+
+    if (!reverseSwap) {
+      throw Errors.SWAP_NOT_FOUND(id);
+    }
+
+    if (!reverseSwap.transactionId) {
+      throw Errors.SWAP_NO_LOCKUP();
+    }
+
+    const { base, quote } = splitPairId(reverseSwap.pair);
+    const currency = this.getCurrency(
+      getChainCurrency(base, quote, reverseSwap.orderSide, true),
+    );
+
+    const response: ReverseTransaction = {
+      transactionId: reverseSwap.transactionId,
+      timeoutBlockHeight: reverseSwap.timeoutBlockHeight,
+    };
+
+    if (currency.chainClient) {
+      response.transactionHex = await currency.chainClient.getRawTransaction(
+        reverseSwap.transactionId,
       );
     }
 

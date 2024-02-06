@@ -248,7 +248,6 @@ describe('SwapRouter', () => {
     error                                            | body
     ${'undefined parameter: to'}                     | ${{}}
     ${'undefined parameter: from'}                   | ${{ to: 'BTC' }}
-    ${'undefined parameter: refundPublicKey'}        | ${{ to: 'BTC', from: 'L-BTC', invoice: 'lnbc1' }}
     ${'could not parse hex string: refundPublicKey'} | ${{ to: 'BTC', from: 'L-BTC', invoice: 'lnbc1', refundPublicKey: 'notHex' }}
   `(
     'should not create submarine swaps with invalid parameters ($error)',
@@ -673,7 +672,6 @@ describe('SwapRouter', () => {
     ${'undefined parameter: from'}                  | ${{ to: 'L-BTC' }}
     ${'undefined parameter: preimageHash'}          | ${{ to: 'L-BTC', from: 'BTC' }}
     ${'could not parse hex string: preimageHash'}   | ${{ to: 'L-BTC', from: 'BTC', preimageHash: 'notHex' }}
-    ${'undefined parameter: claimPublicKey'}        | ${{ to: 'L-BTC', from: 'BTC', preimageHash: '00' }}
     ${'could not parse hex string: claimPublicKey'} | ${{ to: 'L-BTC', from: 'BTC', preimageHash: '00', claimPublicKey: 'notHex' }}
     ${'could not parse hex string: claimPublicKey'} | ${{ to: 'L-BTC', from: 'BTC', preimageHash: '00', claimPublicKey: 'notHex' }}
   `(

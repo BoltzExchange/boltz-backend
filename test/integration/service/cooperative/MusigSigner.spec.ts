@@ -69,7 +69,10 @@ describe('MusigSigner', () => {
 
   const signer = new MusigSigner(
     Logger.disabledLogger,
-    new Map<string, Currency>([['BTC', btcCurrency]]),
+    new Map<string, any>([
+      ['BTC', btcCurrency],
+      ['noChainClient', {}],
+    ]),
     walletManager,
     nursery,
   );
@@ -177,6 +180,18 @@ describe('MusigSigner', () => {
     refundTx.setWitness(0, [musig.aggregatePartials()]);
 
     await bitcoinClient.sendRawTransaction(refundTx.toHex());
+  });
+
+  test('should throw when creating refund signature for onchain currency that is not UTXO based', async () => {
+    SwapRepository.getSwap = jest.fn().mockResolvedValue({
+      pair: 'noChainClient/BTC',
+      side: OrderSide.BUY,
+    });
+
+    const id = 'noChain';
+    await expect(
+      signer.signSwapRefund(id, Buffer.alloc(0), Buffer.alloc(0), 0),
+    ).rejects.toEqual('chain currency is not UTXO based');
   });
 
   test('should throw when creating refund signature for swap that does not exist', async () => {

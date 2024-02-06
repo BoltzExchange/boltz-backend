@@ -985,32 +985,13 @@ describe('Controller', () => {
 
     requestData.pairHash = undefined;
 
-    // Should parse and pass the prepay miner fee boolean
-    requestData.prepayMinerFee = true;
-
-    await controller.createSwap(mockRequest(requestData), res);
-
-    expect(service.createReverseSwap).toHaveBeenNthCalledWith(5, {
-      prepayMinerFee: true,
-      pairId: requestData.pairId,
-      version: SwapVersion.Legacy,
-      orderSide: requestData.orderSide,
-      invoiceAmount: requestData.invoiceAmount,
-      preimageHash: getHexBuffer(requestData.preimageHash),
-      claimPublicKey: getHexBuffer(requestData.claimPublicKey),
-    });
-
-    expect(res.status).toHaveBeenNthCalledWith(4, 201);
-    expect(res.json).toHaveBeenNthCalledWith(4, await mockCreateReverseSwap());
-
     // Should parse and pass onchain amount
     requestData.onchainAmount = 123;
     requestData.invoiceAmount = undefined;
 
     await controller.createSwap(mockRequest(requestData), res);
 
-    expect(service.createReverseSwap).toHaveBeenNthCalledWith(7, {
-      prepayMinerFee: true,
+    expect(service.createReverseSwap).toHaveBeenNthCalledWith(5, {
       pairId: requestData.pairId,
       version: SwapVersion.Legacy,
       orderSide: requestData.orderSide,
@@ -1019,16 +1000,15 @@ describe('Controller', () => {
       claimPublicKey: getHexBuffer(requestData.claimPublicKey),
     });
 
-    expect(res.status).toHaveBeenNthCalledWith(5, 201);
-    expect(res.json).toHaveBeenNthCalledWith(5, await mockCreateReverseSwap());
+    expect(res.status).toHaveBeenNthCalledWith(4, 201);
+    expect(res.json).toHaveBeenNthCalledWith(4, await mockCreateReverseSwap());
 
     // Should parse and pass referral IDs
     requestData.referralId = 'someId';
 
     await controller.createSwap(mockRequest(requestData), res);
 
-    expect(service.createReverseSwap).toHaveBeenNthCalledWith(9, {
-      prepayMinerFee: true,
+    expect(service.createReverseSwap).toHaveBeenNthCalledWith(7, {
       pairId: requestData.pairId,
       version: SwapVersion.Legacy,
       orderSide: requestData.orderSide,
@@ -1038,8 +1018,8 @@ describe('Controller', () => {
       claimPublicKey: getHexBuffer(requestData.claimPublicKey),
     });
 
-    expect(res.status).toHaveBeenNthCalledWith(6, 201);
-    expect(res.json).toHaveBeenNthCalledWith(6, await mockCreateReverseSwap());
+    expect(res.status).toHaveBeenNthCalledWith(5, 201);
+    expect(res.json).toHaveBeenNthCalledWith(5, await mockCreateReverseSwap());
   });
 
   test('should query referrals', async () => {

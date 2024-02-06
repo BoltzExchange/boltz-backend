@@ -872,6 +872,10 @@ class Service {
         }
         break;
 
+      case CurrencyType.Ether:
+      case CurrencyType.ERC20:
+        break;
+
       default:
         if (args.version !== SwapVersion.Legacy) {
           throw Errors.UNSUPPORTED_SWAP_VERSION();

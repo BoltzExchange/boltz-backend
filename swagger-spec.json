@@ -1719,8 +1719,11 @@
           },
           "claimPublicKey": {
             "type": "string",
-            "required": true,
             "description": "Public key with which the Reverse Swap can be claimed encoded as HEX"
+          },
+          "claimAddress": {
+            "type": "string",
+            "description": "EVM address with which the Reverse Swap can be claimed"
           },
           "invoiceAmount": {
             "type": "string",

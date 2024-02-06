@@ -54,6 +54,13 @@ class MusigSigner {
     }
 
     const { base, quote } = splitPairId(swap.pair);
+    const currency = this.currencies.get(
+      getChainCurrency(base, quote, swap.orderSide, false),
+    )!;
+
+    if (currency.chainClient === undefined) {
+      throw 'chain currency is not UTXO based';
+    }
 
     if (
       swap.version !== SwapVersion.Taproot ||
@@ -74,9 +81,6 @@ class MusigSigner {
       `Creating partial signature for refund of Swap ${swap.id}`,
     );
 
-    const currency = this.currencies.get(
-      getChainCurrency(base, quote, swap.orderSide, false),
-    )!;
     const swapTree = SwapTreeSerializer.deserializeSwapTree(swap.redeemScript!);
 
     return this.createPartialSignature(

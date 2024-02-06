@@ -3,7 +3,6 @@ import ws from 'ws';
 import { formatError } from '../../Utils';
 import Service from '../../service/Service';
 import Controller from '../Controller';
-import { apiPrefix } from './Consts';
 
 enum Operation {
   // TODO: unsubscribe
@@ -54,12 +53,6 @@ class WebSocketHandler {
 
   public register = (server: http.Server) => {
     server.on('upgrade', (request, socket, head) => {
-      if (request.url !== `${apiPrefix}/ws`) {
-        request.destroy();
-        socket.destroy();
-        return;
-      }
-
       this.ws.handleUpgrade(request, socket, head, (ws) => {
         this.ws.emit('connection', ws, request);
       });

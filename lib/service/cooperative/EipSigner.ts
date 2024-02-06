@@ -28,6 +28,14 @@ class EipSigner {
     }
 
     const { base, quote } = splitPairId(swap.pair);
+    const chainSymbol = getChainCurrency(base, quote, swap.orderSide, false);
+    const manager = this.walletManager.ethereumManagers.find((man) =>
+      man.hasSymbol(chainSymbol),
+    );
+
+    if (manager === undefined) {
+      throw 'chain currency is not EVM based';
+    }
 
     if (
       !(await MusigSigner.isEligibleForRefund(
@@ -46,15 +54,6 @@ class EipSigner {
     this.logger.debug(
       `Creating EIP-712 signature for refund of Swap ${swap.id}`,
     );
-
-    const chainSymbol = getChainCurrency(base, quote, swap.orderSide, false);
-    const manager = this.walletManager.ethereumManagers.find((man) =>
-      man.hasSymbol(chainSymbol),
-    );
-
-    if (manager === undefined) {
-      throw 'no signer for currency';
-    }
 
     const { domain, types, value } = await this.getSigningData(
       manager,

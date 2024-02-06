@@ -114,7 +114,7 @@ describe('EipSigner', () => {
       status: SwapUpdateEvent.InvoiceFailedToPay,
     });
     await expect(signer.signSwapRefund('no signer')).rejects.toEqual(
-      'no signer for currency',
+      'chain currency is not EVM based',
     );
   });
 

@@ -649,8 +649,10 @@ class SwapRouter extends RouterBase {
      *           description: SHA-256 hash of the preimage of the Reverse Swap encoded as HEX
      *         claimPublicKey:
      *           type: string
-     *           required: true
      *           description: Public key with which the Reverse Swap can be claimed encoded as HEX
+     *         claimAddress:
+     *           type: string
+     *           description: EVM address with which the Reverse Swap can be claimed
      *         invoiceAmount:
      *           type: string
      *           description: Amount for which the invoice should be; conflicts with "onchainAmount"
@@ -909,8 +911,8 @@ class SwapRouter extends RouterBase {
         { name: 'from', type: 'string' },
         { name: 'invoice', type: 'string', optional: true },
         { name: 'pairHash', type: 'string', optional: true },
-        { name: 'refundPublicKey', type: 'string', hex: true },
         { name: 'referralId', type: 'string', optional: true },
+        { name: 'refundPublicKey', type: 'string', hex: true, optional: true },
       ]);
 
     const { pairId, orderSide } = this.service.convertToPairAndSide(from, to);
@@ -1089,6 +1091,7 @@ class SwapRouter extends RouterBase {
       referralId,
       routingNode,
       preimageHash,
+      claimAddress,
       invoiceAmount,
       onchainAmount,
       claimPublicKey,
@@ -1096,12 +1099,13 @@ class SwapRouter extends RouterBase {
       { name: 'to', type: 'string' },
       { name: 'from', type: 'string' },
       { name: 'preimageHash', type: 'string', hex: true },
-      { name: 'claimPublicKey', type: 'string', hex: true },
       { name: 'pairHash', type: 'string', optional: true },
       { name: 'referralId', type: 'string', optional: true },
       { name: 'routingNode', type: 'string', optional: true },
+      { name: 'claimAddress', type: 'string', optional: true },
       { name: 'invoiceAmount', type: 'number', optional: true },
       { name: 'onchainAmount', type: 'number', optional: true },
+      { name: 'claimPublicKey', type: 'string', hex: true, optional: true },
     ]);
 
     checkPreimageHashLength(preimageHash);
@@ -1114,6 +1118,7 @@ class SwapRouter extends RouterBase {
       referralId,
       routingNode,
       preimageHash,
+      claimAddress,
       invoiceAmount,
       onchainAmount,
       claimPublicKey,

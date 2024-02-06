@@ -69,6 +69,11 @@ describe('SwapRouter', () => {
       timeoutBlockHeight: 21,
       timeoutEta: 210987,
     }),
+    getReverseSwapTransaction: jest.fn().mockResolvedValue({
+      transactionId: 'txIdReverse',
+      transactionHex: 'txHexReverse',
+      timeoutBlockHeight: 42,
+    }),
   } as unknown as Service;
 
   const controller = {
@@ -101,7 +106,7 @@ describe('SwapRouter', () => {
 
     expect(Router).toHaveBeenCalledTimes(1);
 
-    expect(mockedRouter.get).toHaveBeenCalledTimes(4);
+    expect(mockedRouter.get).toHaveBeenCalledTimes(5);
     expect(mockedRouter.get).toHaveBeenCalledWith('/:id', expect.anything());
     expect(mockedRouter.get).toHaveBeenCalledWith(
       '/submarine',
@@ -113,6 +118,10 @@ describe('SwapRouter', () => {
     );
     expect(mockedRouter.get).toHaveBeenCalledWith(
       '/reverse',
+      expect.anything(),
+    );
+    expect(mockedRouter.get).toHaveBeenCalledWith(
+      '/reverse/:id/transaction',
       expect.anything(),
     );
 
@@ -564,6 +573,26 @@ describe('SwapRouter', () => {
       onchainAmount: reqBody.onchainAmount,
       preimageHash: getHexBuffer(reqBody.preimageHash),
       claimPublicKey: getHexBuffer(reqBody.claimPublicKey),
+    });
+  });
+
+  test('should get lockup transactions of reverse swaps', async () => {
+    const id = 'asdf';
+
+    const res = mockResponse();
+    await swapRouter['getReverseTransaction'](
+      mockRequest(undefined, undefined, { id }),
+      res,
+    );
+
+    expect(service.getReverseSwapTransaction).toHaveBeenCalledTimes(1);
+    expect(service.getReverseSwapTransaction).toHaveBeenCalledWith(id);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      id: 'txIdReverse',
+      hex: 'txHexReverse',
+      timeoutBlockHeight: 42,
     });
   });
 

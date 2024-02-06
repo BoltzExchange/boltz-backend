@@ -429,6 +429,41 @@ class SwapRouter extends RouterBase {
 
     /**
      * @openapi
+     * /swap/submarine/{id}/refund:
+     *   get:
+     *     tags: [Submarine]
+     *     description: Get an EIP-712 signature for a cooperative EVM refund
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *         description: ID of the Swap
+     *     responses:
+     *       '200':
+     *         description: EIP-712 signature
+     *         content:
+     *           application/json:
+     *             schema:
+     *               properties:
+     *                 signature:
+     *                   type: string
+     *                   description: EIP-712 signature with which a cooperative refund can be executed onchain
+     *       '400':
+     *         description: Error that caused signature request to fail
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
+    router.get(
+      '/submarine/:id/refund',
+      this.handleError(this.refundSubmarineEvm),
+    );
+
+    /**
+     * @openapi
      * components:
      *   schemas:
      *     SubmarineClaimDetails:
@@ -976,6 +1011,16 @@ class SwapRouter extends RouterBase {
     successResponse(res, {
       pubNonce: getHexString(sig.pubNonce),
       partialSignature: getHexString(sig.signature),
+    });
+  };
+
+  private refundSubmarineEvm = async (req: Request, res: Response) => {
+    const { id } = validateRequest(req.params, [
+      { name: 'id', type: 'string' },
+    ]);
+
+    successResponse(res, {
+      signature: await this.service.eipSigner.signSwapRefund(id),
     });
   };
 

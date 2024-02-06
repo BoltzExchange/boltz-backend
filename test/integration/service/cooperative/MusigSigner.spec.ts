@@ -20,6 +20,7 @@ import Logger from '../../../../lib/Logger';
 import { getHexString } from '../../../../lib/Utils';
 import {
   CurrencyType,
+  OrderSide,
   SwapUpdateEvent,
   SwapVersion,
 } from '../../../../lib/consts/Enums';
@@ -219,12 +220,14 @@ describe('MusigSigner', () => {
     const id = 'id';
     SwapRepository.getSwap = jest.fn().mockResolvedValue({
       id,
+      pair: 'BTC/BTC',
+      orderSide: OrderSide.SELL,
       version: SwapVersion.Legacy,
     });
 
     await expect(
       signer.signSwapRefund(id, randomBytes(32), Buffer.alloc(0), 0),
-    ).rejects.toEqual(Errors.SWAP_NOT_FOUND(id));
+    ).rejects.toEqual(Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND());
   });
 
   test.each`
@@ -251,7 +254,7 @@ describe('MusigSigner', () => {
       } as Swap;
 
       await waitForFunctionToBeTrue(
-        () => signer['hasNonFailedLightningPayment'](btcCurrency, swap),
+        () => MusigSigner['hasNonFailedLightningPayment'](btcCurrency, swap),
         100,
       );
 
@@ -397,7 +400,7 @@ describe('MusigSigner', () => {
           Buffer.alloc(0),
           0,
         ),
-      ).rejects.toEqual(Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND());
+      ).rejects.toEqual(Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM());
     },
   );
 
@@ -434,7 +437,7 @@ describe('MusigSigner', () => {
         Buffer.alloc(0),
         0,
       ),
-    ).rejects.toEqual(Errors.SWAP_NOT_FOUND(id));
+    ).rejects.toEqual(Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM());
   });
 
   test.each`

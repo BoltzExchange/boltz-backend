@@ -6,6 +6,7 @@ import {
   Contract,
   Wallet as EthersWallet,
   MaxUint256,
+  Signer,
   getAddress,
 } from 'ethers';
 import { EthereumConfig, RskConfig } from '../../Config';
@@ -32,8 +33,8 @@ type Network = {
 
 class EthereumManager {
   private static supportedContractVersions = {
-    EtherSwap: 2,
-    ERC20Swap: 2,
+    EtherSwap: 3,
+    ERC20Swap: 3,
   };
 
   public readonly provider: InjectedProvider;
@@ -44,6 +45,7 @@ class EthereumManager {
   public etherSwap: EtherSwap;
   public erc20Swap: ERC20Swap;
 
+  public signer!: Signer;
   public address!: string;
   public network!: Network;
   public readonly networkDetails: NetworkDetails;
@@ -110,11 +112,11 @@ class EthereumManager {
       name: network.name !== 'unknown' ? network.name : undefined,
     };
 
-    const signer = EthersWallet.fromPhrase(mnemonic).connect(this.provider);
-    this.address = await signer.getAddress();
+    this.signer = EthersWallet.fromPhrase(mnemonic).connect(this.provider);
+    this.address = await this.signer.getAddress();
 
-    this.etherSwap = this.etherSwap.connect(signer) as EtherSwap;
-    this.erc20Swap = this.erc20Swap.connect(signer) as ERC20Swap;
+    this.etherSwap = this.etherSwap.connect(this.signer) as EtherSwap;
+    this.erc20Swap = this.erc20Swap.connect(this.signer) as ERC20Swap;
 
     await Promise.all([
       this.checkContractVersion(
@@ -133,7 +135,7 @@ class EthereumManager {
       `Using ${this.networkDetails.name} signer: ${this.address}`,
     );
 
-    const currentBlock = await signer.provider!.getBlockNumber();
+    const currentBlock = await this.signer.provider!.getBlockNumber();
     const chainTip = await ChainTipRepository.findOrCreateTip(
       this.networkDetails.symbol,
       currentBlock,
@@ -157,7 +159,7 @@ class EthereumManager {
       this.logger,
       this.networkDetails,
       this.provider,
-      signer,
+      this.signer,
     );
 
     await transactionTracker.init();
@@ -182,14 +184,14 @@ class EthereumManager {
             // Wrap the address in "getAddress" to make sure it is a checksum one
             const checksumAddress = getAddress(token.contractAddress);
             this.tokenAddresses.set(token.symbol, checksumAddress);
-            const provider = new ERC20WalletProvider(this.logger, signer, {
+            const provider = new ERC20WalletProvider(this.logger, this.signer, {
               symbol: token.symbol,
               decimals: token.decimals,
               address: checksumAddress,
               contract: new Contract(
                 token.contractAddress,
                 ContractABIs.ERC20,
-                signer,
+                this.signer,
               ) as any as ERC20,
             });
 
@@ -219,7 +221,7 @@ class EthereumManager {
                 CurrencyType.Ether,
                 new EtherWalletProvider(
                   this.logger,
-                  signer,
+                  this.signer,
                   this.networkDetails,
                 ),
               ),

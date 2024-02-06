@@ -71,6 +71,9 @@ describe('SwapRouter', () => {
         signature: getHexBuffer('2112'),
       }),
     },
+    eipSigner: {
+      signSwapRefund: jest.fn().mockResolvedValue('12344321'),
+    },
 
     swapManager: {
       deferredClaimer: {
@@ -133,7 +136,7 @@ describe('SwapRouter', () => {
 
     expect(Router).toHaveBeenCalledTimes(1);
 
-    expect(mockedRouter.get).toHaveBeenCalledTimes(7);
+    expect(mockedRouter.get).toHaveBeenCalledTimes(8);
     expect(mockedRouter.get).toHaveBeenCalledWith('/:id', expect.anything());
     expect(mockedRouter.get).toHaveBeenCalledWith(
       '/submarine',
@@ -149,6 +152,10 @@ describe('SwapRouter', () => {
     );
     expect(mockedRouter.get).toHaveBeenCalledWith(
       '/submarine/:id/claim',
+      expect.anything(),
+    );
+    expect(mockedRouter.get).toHaveBeenCalledWith(
+      '/submarine/:id/refund',
       expect.anything(),
     );
     expect(mockedRouter.get).toHaveBeenCalledWith(
@@ -469,6 +476,26 @@ describe('SwapRouter', () => {
       getHexBuffer(reqBody.transaction),
       reqBody.index,
     );
+  });
+
+  test('should refund evm submarine swaps', async () => {
+    const reqParams = {
+      id: 'someId',
+    };
+    const res = mockResponse();
+
+    await swapRouter['refundSubmarineEvm'](
+      mockRequest(null, {}, reqParams),
+      res,
+    );
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      signature: '12344321',
+    });
+
+    expect(service.eipSigner.signSwapRefund).toHaveBeenCalledTimes(1);
+    expect(service.eipSigner.signSwapRefund).toHaveBeenCalledWith(reqParams.id);
   });
 
   test.each`

@@ -77,6 +77,7 @@ import PaymentRequestUtils from './PaymentRequestUtils';
 import TimeoutDeltaProvider, {
   PairTimeoutBlocksDelta,
 } from './TimeoutDeltaProvider';
+import EipSigner from './cooperative/EipSigner';
 import MusigSigner from './cooperative/MusigSigner';
 
 type NetworkContracts = {
@@ -110,6 +111,8 @@ class Service {
   public swapManager: SwapManager;
   public eventHandler: EventHandler;
   public elementsService: ElementsService;
+
+  public readonly eipSigner: EipSigner;
   public readonly musigSigner: MusigSigner;
   public readonly rateProvider: RateProvider;
 
@@ -184,6 +187,11 @@ class Service {
 
     this.nodeInfo = new NodeInfo(this.logger, this.currencies);
     this.elementsService = new ElementsService(
+      this.currencies,
+      this.walletManager,
+    );
+    this.eipSigner = new EipSigner(
+      this.logger,
       this.currencies,
       this.walletManager,
     );

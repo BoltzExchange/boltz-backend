@@ -1004,6 +1004,52 @@
         }
       }
     },
+    "/swap/submarine/{id}/refund": {
+      "get": {
+        "tags": [
+          "Submarine"
+        ],
+        "description": "Get an EIP-712 signature for a cooperative EVM refund",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID of the Swap"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "EIP-712 signature",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "signature": {
+                      "type": "string",
+                      "description": "EIP-712 signature with which a cooperative refund can be executed onchain"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error that caused signature request to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/swap/submarine/{id}/claim": {
       "get": {
         "tags": [

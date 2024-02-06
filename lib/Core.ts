@@ -194,7 +194,7 @@ export const constructClaimDetails = (
         swap.redeemScript!,
       );
       claimDetails.internalKey = createMusig(
-        claimDetails.keys,
+        claimDetails.keys!,
         getHexBuffer(swap.refundPublicKey!),
       ).getAggregatedPublicKey();
       break;

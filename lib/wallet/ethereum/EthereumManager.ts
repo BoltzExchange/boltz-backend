@@ -244,6 +244,20 @@ class EthereumManager {
     await this.provider.removeAllListeners();
   };
 
+  public getContractDetails = async () => {
+    return {
+      network: {
+        chainId: Number(this.network.chainId),
+        name: this.network.name,
+      },
+      tokens: this.tokenAddresses,
+      swapContracts: new Map<string, string>([
+        ['EtherSwap', await this.etherSwap.getAddress()],
+        ['ERC20Swap', await this.erc20Swap.getAddress()],
+      ]),
+    };
+  };
+
   public hasSymbol = (symbol: string): boolean =>
     this.networkDetails.symbol === symbol || this.tokenAddresses.has(symbol);
 

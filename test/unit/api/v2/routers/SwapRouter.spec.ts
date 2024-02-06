@@ -87,6 +87,7 @@ describe('SwapRouter', () => {
     convertToPairAndSide: jest
       .fn()
       .mockReturnValue({ pairId: 'L-BTC/BTC', orderSide: OrderSide.BUY }),
+    createSwap: jest.fn().mockResolvedValue({ id: 'randomIdPreimageHash' }),
     createSwapWithInvoice: jest.fn().mockResolvedValue({ id: 'randomId' }),
     createReverseSwap: jest.fn().mockResolvedValue({ id: 'reverseId' }),
     getSwapTransaction: jest.fn().mockResolvedValue({
@@ -127,10 +128,14 @@ describe('SwapRouter', () => {
 
     expect(Router).toHaveBeenCalledTimes(1);
 
-    expect(mockedRouter.get).toHaveBeenCalledTimes(5);
+    expect(mockedRouter.get).toHaveBeenCalledTimes(6);
     expect(mockedRouter.get).toHaveBeenCalledWith('/:id', expect.anything());
     expect(mockedRouter.get).toHaveBeenCalledWith(
       '/submarine',
+      expect.anything(),
+    );
+    expect(mockedRouter.get).toHaveBeenCalledWith(
+      '/submarine/:id/invoice/amount',
       expect.anything(),
     );
     expect(mockedRouter.get).toHaveBeenCalledWith(
@@ -146,7 +151,7 @@ describe('SwapRouter', () => {
       expect.anything(),
     );
 
-    expect(mockedRouter.post).toHaveBeenCalledTimes(5);
+    expect(mockedRouter.post).toHaveBeenCalledTimes(6);
     expect(mockedRouter.post).toHaveBeenCalledWith(
       '/submarine',
       expect.anything(),
@@ -157,6 +162,10 @@ describe('SwapRouter', () => {
     );
     expect(mockedRouter.post).toHaveBeenCalledWith(
       '/submarine/:id/claim',
+      expect.anything(),
+    );
+    expect(mockedRouter.post).toHaveBeenCalledWith(
+      '/submarine/:id/invoice',
       expect.anything(),
     );
     expect(mockedRouter.post).toHaveBeenCalledWith(
@@ -223,7 +232,6 @@ describe('SwapRouter', () => {
     error                                            | body
     ${'undefined parameter: to'}                     | ${{}}
     ${'undefined parameter: from'}                   | ${{ to: 'BTC' }}
-    ${'undefined parameter: invoice'}                | ${{ to: 'BTC', from: 'L-BTC' }}
     ${'undefined parameter: refundPublicKey'}        | ${{ to: 'BTC', from: 'L-BTC', invoice: 'lnbc1' }}
     ${'could not parse hex string: refundPublicKey'} | ${{ to: 'BTC', from: 'L-BTC', invoice: 'lnbc1', refundPublicKey: 'notHex' }}
   `(
@@ -234,6 +242,26 @@ describe('SwapRouter', () => {
       ).rejects.toEqual(error);
     },
   );
+
+  test.each`
+    length
+    ${1}
+    ${31}
+    ${33}
+    ${34}
+  `('should reject preimage hashes with length $length', async ({ length }) => {
+    await expect(
+      swapRouter['createSubmarine'](
+        mockRequest({
+          to: 'BTC',
+          from: 'BTC',
+          refundPublicKey: '0021',
+          preimageHash: getHexString(randomBytes(length)),
+        }),
+        mockResponse(),
+      ),
+    ).rejects.toEqual(`invalid preimage hash length: ${length}`);
+  });
 
   test('should create submarine swaps', async () => {
     const reqBody = {
@@ -268,6 +296,39 @@ describe('SwapRouter', () => {
 
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith({ id: 'randomId' });
+  });
+
+  test('should create submarine swaps with preimage hash', async () => {
+    const reqBody = {
+      to: 'BTC',
+      from: 'L-BTC',
+      refundPublicKey: '0021',
+      preimageHash:
+        'd1e9cce3bec183a27f4a5a8f86b5029016aa4f5f87f86695c1d1c79b5f0c4e05',
+    };
+    const res = mockResponse();
+
+    await swapRouter['createSubmarine'](mockRequest(reqBody), res);
+
+    expect(service.convertToPairAndSide).toHaveBeenCalledTimes(1);
+    expect(service.convertToPairAndSide).toHaveBeenCalledWith(
+      reqBody.from,
+      reqBody.to,
+    );
+
+    expect(service.createSwap).toHaveBeenCalledTimes(1);
+    expect(service.createSwap).toHaveBeenCalledWith({
+      pairId: 'L-BTC/BTC',
+      orderSide: OrderSide.BUY,
+      version: SwapVersion.Taproot,
+      preimageHash: getHexBuffer(reqBody.preimageHash),
+      refundPublicKey: getHexBuffer(reqBody.refundPublicKey),
+    });
+
+    expect(MarkedSwapRepository.addMarkedSwap).toHaveBeenCalledTimes(1);
+
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(res.json).toHaveBeenCalledWith({ id: 'randomIdPreimageHash' });
   });
 
   test('should create submarine swaps with pairHash', async () => {

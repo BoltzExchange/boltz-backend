@@ -13,7 +13,11 @@ import {
   getHexString,
   splitPairId,
 } from '../../Utils';
-import { FailedSwapUpdateEvents, SwapUpdateEvent } from '../../consts/Enums';
+import {
+  FailedSwapUpdateEvents,
+  SwapUpdateEvent,
+  SwapVersion,
+} from '../../consts/Enums';
 import Swap from '../../db/models/Swap';
 import ReverseSwapRepository from '../../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../db/repositories/SwapRepository';
@@ -44,7 +48,7 @@ class MusigSigner {
     index: number,
   ): Promise<PartialSignature> => {
     const swap = await SwapRepository.getSwap({ id: swapId });
-    if (!swap) {
+    if (!swap || swap.version !== SwapVersion.Taproot) {
       throw Errors.SWAP_NOT_FOUND(swapId);
     }
 
@@ -87,7 +91,7 @@ class MusigSigner {
     index: number,
   ): Promise<PartialSignature> => {
     const swap = await ReverseSwapRepository.getReverseSwap({ id: swapId });
-    if (!swap) {
+    if (!swap || swap.version !== SwapVersion.Taproot) {
       throw Errors.SWAP_NOT_FOUND(swapId);
     }
 

@@ -1,7 +1,7 @@
 import { Request, Response, Router } from 'express';
 import Logger from '../../../Logger';
 import Service from '../../../service/Service';
-import { successResponse } from '../../Utils';
+import { successResponse, validateRequest } from '../../Utils';
 import RouterBase from './RouterBase';
 
 class NodesRouter extends RouterBase {
@@ -98,6 +98,11 @@ class NodesRouter extends RouterBase {
      */
     router.get('/stats', this.handleError(this.getNodeStats));
 
+    router.get(
+      '/:currency/:node/hints',
+      this.handleError(this.getRoutingHints),
+    );
+
     return router;
   };
 
@@ -134,6 +139,21 @@ class NodesRouter extends RouterBase {
     );
 
     successResponse(res, stats);
+  };
+
+  private getRoutingHints = async (req: Request, res: Response) => {
+    const { currency, node } = validateRequest(req.params, [
+      { name: 'currency', type: 'string' },
+      { name: 'node', type: 'string' },
+    ]);
+
+    successResponse(
+      res,
+      await this.service.swapManager.routingHints.getRoutingHints(
+        currency,
+        node,
+      ),
+    );
   };
 }
 

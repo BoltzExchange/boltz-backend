@@ -139,8 +139,10 @@ class SwapRouter extends RouterBase {
      *           description: The asset that is received on lightning
      *         invoice:
      *           type: string
-     *           required: true
-     *           description: BOLT11 invoice that should be paid on lightning
+     *           description: BOLT11 invoice that should be paid
+     *         preimageHash:
+     *           type: string
+     *           description: Preimage hash of an invoice that will be set later
      *         refundPublicKey:
      *           type: string
      *           required: true
@@ -213,6 +215,96 @@ class SwapRouter extends RouterBase {
      *               $ref: '#/components/schemas/ErrorResponse'
      */
     router.post('/submarine', this.handleError(this.createSubmarine));
+
+    /**
+     * @openapi
+     * /swap/submarine/{id}/invoice:
+     *   post:
+     *     tags: [Submarine]
+     *     description: Set the invoice for a Submarine Swap
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *         description: ID of the Submarine Swap
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             properties:
+     *               invoice:
+     *                 type: string
+     *                 description: BOLT11 invoice that should be paid. The preimage hash has to match the one specified when creating the swap
+     *               pairHash:
+     *                 type: string
+     *     responses:
+     *       '200':
+     *         description: Information about the onchain part of the Submarine Swap
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 bip21:
+     *                   type: string
+     *                   description: BIP21 for the onchain payment request
+     *                 expectedAmount:
+     *                   type: number
+     *                   description: Amount that is expected to be sent to the onchain HTLC address in satoshis
+     *                 acceptZeroConf:
+     *                   type: boolean
+     *                   description: Whether 0-conf will be accepted assuming the transaction does not signal RBF and has a reasonably high fee
+     *       '400':
+     *         description: Error that caused the request to fail
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
+    router.post(
+      '/submarine/:id/invoice',
+      this.handleError(this.setSubmarineInvoice),
+    );
+
+    /**
+     * @openapi
+     * /swap/submarine/{id}/invoice/amount:
+     *   get:
+     *     tags: [Submarine]
+     *     description: Get the expected amount of the invoice that should be set after the Swap was created with a preimage hash and an onchain transaction was sent
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *         description: ID of the Submarine Swap
+     *     responses:
+     *       '200':
+     *         description: Expected amount of the invoice
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 invoiceAmount:
+     *                   type: number
+     *                   description: Expected amount of the invoice
+     *       '400':
+     *         description: Error that caused the request to fail
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
+    router.get(
+      '/submarine/:id/invoice/amount',
+      this.handleError(this.getSubmarineInvoiceAmount),
+    );
 
     /**
      * @openapi
@@ -717,26 +809,6 @@ class SwapRouter extends RouterBase {
     return router;
   };
 
-  private getSwapStatus = (req: Request, res: Response) => {
-    const { id } = validateRequest(req.params, [
-      { name: 'id', type: 'string' },
-    ]);
-
-    const response = this.controller.pendingSwapInfos.get(id);
-
-    if (response) {
-      successResponse(res, response);
-    } else {
-      errorResponse(
-        this.logger,
-        req,
-        res,
-        `could not find swap with id: ${id}`,
-        404,
-      );
-    }
-  };
-
   private getSubmarine = (_req: Request, res: Response) =>
     successResponse(
       res,
@@ -750,24 +822,42 @@ class SwapRouter extends RouterBase {
       validateRequest(req.body, [
         { name: 'to', type: 'string' },
         { name: 'from', type: 'string' },
-        { name: 'invoice', type: 'string' },
-        { name: 'refundPublicKey', type: 'string', hex: true },
+        { name: 'invoice', type: 'string', optional: true },
         { name: 'pairHash', type: 'string', optional: true },
+        { name: 'refundPublicKey', type: 'string', hex: true },
         { name: 'referralId', type: 'string', optional: true },
       ]);
 
     const { pairId, orderSide } = this.service.convertToPairAndSide(from, to);
 
-    const response = await this.service.createSwapWithInvoice(
-      pairId,
-      orderSide,
-      refundPublicKey,
-      invoice.toLowerCase(),
-      pairHash,
-      referralId,
-      undefined,
-      SwapVersion.Taproot,
-    );
+    let response: { id: string };
+
+    if (invoice) {
+      response = await this.service.createSwapWithInvoice(
+        pairId,
+        orderSide,
+        refundPublicKey,
+        invoice.toLowerCase(),
+        pairHash,
+        referralId,
+        undefined,
+        SwapVersion.Taproot,
+      );
+    } else {
+      const { preimageHash } = validateRequest(req.body, [
+        { name: 'preimageHash', type: 'string', hex: true },
+      ]);
+      checkPreimageHashLength(preimageHash);
+
+      response = await this.service.createSwap({
+        pairId,
+        orderSide,
+        referralId,
+        preimageHash,
+        refundPublicKey,
+        version: SwapVersion.Taproot,
+      });
+    }
 
     await markSwap(this.countryCodes, req.ip, response.id);
 
@@ -775,6 +865,32 @@ class SwapRouter extends RouterBase {
     this.logger.silly(`Swap ${response.id}: ${stringify(response)}`);
 
     createdResponse(res, response);
+  };
+
+  private setSubmarineInvoice = async (req: Request, res: Response) => {
+    const { id } = validateRequest(req.params, [
+      { name: 'id', type: 'string' },
+    ]);
+    const { invoice, pairHash } = validateRequest(req.body, [
+      { name: 'invoice', type: 'string' },
+      { name: 'pairHash', type: 'string', optional: true },
+    ]);
+
+    const response = await this.service.setInvoice(
+      id,
+      invoice.toLowerCase(),
+      pairHash,
+    );
+    successResponse(res, response);
+  };
+
+  public getSubmarineInvoiceAmount = async (req: Request, res: Response) => {
+    const { id } = validateRequest(req.params, [
+      { name: 'id', type: 'string' },
+    ]);
+
+    const { submarineSwap } = await this.service.getSwapRates(id);
+    successResponse(res, { invoiceAmount: submarineSwap.invoiceAmount });
   };
 
   private getSubmarineTransaction = async (req: Request, res: Response) => {
@@ -942,6 +1058,26 @@ class SwapRouter extends RouterBase {
       pubNonce: getHexString(sig.pubNonce),
       partialSignature: getHexString(sig.signature),
     });
+  };
+
+  private getSwapStatus = (req: Request, res: Response) => {
+    const { id } = validateRequest(req.params, [
+      { name: 'id', type: 'string' },
+    ]);
+
+    const response = this.controller.pendingSwapInfos.get(id);
+
+    if (response) {
+      successResponse(res, response);
+    } else {
+      errorResponse(
+        this.logger,
+        req,
+        res,
+        `could not find swap with id: ${id}`,
+        404,
+      );
+    }
   };
 }
 

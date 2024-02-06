@@ -2,6 +2,7 @@
 
 CREATE OR REPLACE VIEW successfulSwaps AS (
     SELECT
+        id,
         pair,
         status,
         referral,
@@ -18,6 +19,7 @@ CREATE OR REPLACE VIEW successfulSwaps AS (
 
 CREATE OR REPLACE VIEW successReverseSwaps AS (
     SELECT
+        id,
         pair,
         status,
         referral,
@@ -155,3 +157,24 @@ SELECT
 FROM successful
 GROUP BY year, month, pair
 ORDER BY year, month, pair NULLS FIRST;
+
+-- Marked swaps
+
+WITH swaps AS (
+    SELECT s.id AS id, fee, s."createdAt" AS "createdAt"
+    FROM successfulSwaps s INNER JOIN "markedSwaps" m ON s.id = m.id
+), reverseSwaps as (
+    SELECT s.id AS id, fee, s."createdAt" AS "createdAt"
+    FROM successReverseSwaps s INNER JOIN "markedSwaps" m ON s.id = m.id
+), marked AS (
+    SELECT *
+    FROM swaps UNION ALL SELECT * FROM reverseSwaps
+)
+SELECT
+    EXTRACT(YEAR FROM "createdAt") AS year,
+    EXTRACT(MONTH FROM "createdAt") AS month,
+    EXTRACT(DAY FROM "createdAt") AS day,
+    SUM(fee) AS revenue
+FROM marked
+GROUP BY year, month, day
+ORDER BY year, month, day;

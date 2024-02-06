@@ -897,6 +897,19 @@ describe('Service', () => {
         tokenAddresses: new Map<string, string>([
           ['USDT', '0xDf567Cd5d0cf3d90cE6E3E9F897e092f9ECE359a'],
         ]),
+        getContractDetails: jest.fn().mockResolvedValue({
+          network: {
+            chainId: Number(123),
+            name: 'hello',
+          },
+          tokens: new Map<string, string>([
+            ['USDT', '0xDf567Cd5d0cf3d90cE6E3E9F897e092f9ECE359a'],
+          ]),
+          swapContracts: new Map<string, string>([
+            ['EtherSwap', '0x18A4374d714762FA7DE346E997f7e28Fb3744EC1'],
+            ['ERC20Swap', '0xC685b2c4369D7bf9242DA54E9c391948079d83Cd'],
+          ]),
+        }),
       },
     ];
 

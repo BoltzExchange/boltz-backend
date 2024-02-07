@@ -176,5 +176,9 @@ SELECT
     EXTRACT(DAY FROM "createdAt") AS day,
     SUM(fee) AS revenue
 FROM marked
-GROUP BY year, month, day
-ORDER BY year, month, day;
+GROUP BY GROUPING SETS (
+    (year, month, day),
+    (year, month),
+    (year)
+)
+ORDER BY year, month NULLS LAST , day NULLS LAST;

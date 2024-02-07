@@ -7,9 +7,11 @@ import Service from '../service/Service';
 import Controller from './Controller';
 import { errorResponse } from './Utils';
 import ApiV2 from './v2/ApiV2';
+import WebSocketHandler from './v2/WebSocketHandler';
 
 class Api {
   private app: Application;
+  private readonly websocket: WebSocketHandler;
   private readonly controller: Controller;
 
   constructor(
@@ -46,6 +48,7 @@ class Api {
     );
 
     this.controller = new Controller(logger, service, countryCodes);
+    this.websocket = new WebSocketHandler(service, this.controller);
 
     new ApiV2(
       this.logger,
@@ -60,10 +63,11 @@ class Api {
     await this.controller.init();
 
     await new Promise<void>((resolve) => {
-      this.app.listen(this.config.port, this.config.host, () => {
+      const server = this.app.listen(this.config.port, this.config.host, () => {
         this.logger.info(
           `API server listening on: ${this.config.host}:${this.config.port}`,
         );
+        this.websocket.register(server);
         resolve();
       });
     });

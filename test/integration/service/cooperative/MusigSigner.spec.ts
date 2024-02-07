@@ -18,7 +18,12 @@ import { hashForWitnessV1, setup, tweakMusig, zkp } from '../../../../lib/Core';
 import { ECPair } from '../../../../lib/ECPairHelper';
 import Logger from '../../../../lib/Logger';
 import { getHexString } from '../../../../lib/Utils';
-import { CurrencyType, SwapUpdateEvent } from '../../../../lib/consts/Enums';
+import {
+  CurrencyType,
+  OrderSide,
+  SwapUpdateEvent,
+  SwapVersion,
+} from '../../../../lib/consts/Enums';
 import { NodeType } from '../../../../lib/db/models/ReverseSwap';
 import Swap from '../../../../lib/db/models/Swap';
 import ReverseSwapRepository from '../../../../lib/db/repositories/ReverseSwapRepository';
@@ -64,7 +69,10 @@ describe('MusigSigner', () => {
 
   const signer = new MusigSigner(
     Logger.disabledLogger,
-    new Map<string, Currency>([['BTC', btcCurrency]]),
+    new Map<string, any>([
+      ['BTC', btcCurrency],
+      ['noChainClient', {}],
+    ]),
     walletManager,
     nursery,
   );
@@ -147,6 +155,7 @@ describe('MusigSigner', () => {
     SwapRepository.getSwap = jest.fn().mockResolvedValue({
       keyIndex: 42,
       pair: 'BTC/BTC',
+      version: SwapVersion.Taproot,
       status: SwapUpdateEvent.InvoiceFailedToPay,
       refundPublicKey: getHexString(refundKeys.publicKey),
       preimageHash: getHexString(crypto.sha256(preimage)),
@@ -173,6 +182,18 @@ describe('MusigSigner', () => {
     await bitcoinClient.sendRawTransaction(refundTx.toHex());
   });
 
+  test('should throw when creating refund signature for onchain currency that is not UTXO based', async () => {
+    SwapRepository.getSwap = jest.fn().mockResolvedValue({
+      pair: 'noChainClient/BTC',
+      side: OrderSide.BUY,
+    });
+
+    const id = 'noChain';
+    await expect(
+      signer.signSwapRefund(id, Buffer.alloc(0), Buffer.alloc(0), 0),
+    ).rejects.toEqual('chain currency is not UTXO based');
+  });
+
   test('should throw when creating refund signature for swap that does not exist', async () => {
     SwapRepository.getSwap = jest.fn().mockResolvedValue(undefined);
 
@@ -196,9 +217,11 @@ describe('MusigSigner', () => {
   `(
     'should throw when creating refund signature for swap that has non failed status: $status',
     async ({ status }) => {
-      SwapRepository.getSwap = jest
-        .fn()
-        .mockResolvedValue({ status, pair: 'BTC/BTC' });
+      SwapRepository.getSwap = jest.fn().mockResolvedValue({
+        status,
+        pair: 'BTC/BTC',
+        version: SwapVersion.Taproot,
+      });
 
       const id = 'nonFailed';
 
@@ -207,6 +230,20 @@ describe('MusigSigner', () => {
       ).rejects.toEqual(Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND());
     },
   );
+
+  test('should throw when creating refund signature for legacy reverse swap', async () => {
+    const id = 'id';
+    SwapRepository.getSwap = jest.fn().mockResolvedValue({
+      id,
+      pair: 'BTC/BTC',
+      orderSide: OrderSide.SELL,
+      version: SwapVersion.Legacy,
+    });
+
+    await expect(
+      signer.signSwapRefund(id, randomBytes(32), Buffer.alloc(0), 0),
+    ).rejects.toEqual(Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND());
+  });
 
   test.each`
     node
@@ -226,12 +263,13 @@ describe('MusigSigner', () => {
       const swap = {
         pair: 'BTC/BTC',
         invoice: holdInvoice,
+        version: SwapVersion.Taproot,
         preimageHash: getHexString(preimageHash),
         status: SwapUpdateEvent.InvoiceFailedToPay,
       } as Swap;
 
       await waitForFunctionToBeTrue(
-        () => signer['hasNonFailedLightningPayment'](btcCurrency, swap),
+        () => MusigSigner['hasNonFailedLightningPayment'](btcCurrency, swap),
         100,
       );
 
@@ -306,6 +344,7 @@ describe('MusigSigner', () => {
     ReverseSwapRepository.getReverseSwap = jest.fn().mockResolvedValue({
       keyIndex: 42,
       pair: 'BTC/BTC',
+      version: SwapVersion.Taproot,
       status: SwapUpdateEvent.TransactionConfirmed,
       claimPublicKey: getHexString(claimKeys.publicKey),
       preimageHash: getHexString(crypto.sha256(preimage)),
@@ -366,7 +405,7 @@ describe('MusigSigner', () => {
     async ({ status }) => {
       ReverseSwapRepository.getReverseSwap = jest
         .fn()
-        .mockResolvedValue({ status });
+        .mockResolvedValue({ status, version: SwapVersion.Taproot });
 
       await expect(
         signer.signReverseSwapClaim(
@@ -376,14 +415,15 @@ describe('MusigSigner', () => {
           Buffer.alloc(0),
           0,
         ),
-      ).rejects.toEqual(Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND());
+      ).rejects.toEqual(Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM());
     },
   );
 
   test('should throw creating claim signature for reverse swap with incorrect preimage', async () => {
     ReverseSwapRepository.getReverseSwap = jest.fn().mockResolvedValue({
-      status: SwapUpdateEvent.TransactionConfirmed,
+      version: SwapVersion.Taproot,
       preimageHash: randomBytes(32),
+      status: SwapUpdateEvent.TransactionConfirmed,
     });
 
     await expect(
@@ -395,6 +435,24 @@ describe('MusigSigner', () => {
         0,
       ),
     ).rejects.toEqual(Errors.INCORRECT_PREIMAGE());
+  });
+
+  test('should throw when creating claim signature for legacy reverse swap', async () => {
+    const id = 'id';
+    ReverseSwapRepository.getReverseSwap = jest.fn().mockResolvedValue({
+      id,
+      version: SwapVersion.Legacy,
+    });
+
+    await expect(
+      signer.signReverseSwapClaim(
+        id,
+        randomBytes(32),
+        Buffer.alloc(0),
+        Buffer.alloc(0),
+        0,
+      ),
+    ).rejects.toEqual(Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM());
   });
 
   test.each`

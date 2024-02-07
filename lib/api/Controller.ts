@@ -474,7 +474,6 @@ class Controller {
       invoiceAmount,
       onchainAmount,
       claimPublicKey,
-      prepayMinerFee,
     } = validateRequest(req.body, [
       { name: 'pairId', type: 'string' },
       { name: 'orderSide', type: 'string' },
@@ -486,7 +485,6 @@ class Controller {
       { name: 'claimAddress', type: 'string', optional: true },
       { name: 'invoiceAmount', type: 'number', optional: true },
       { name: 'onchainAmount', type: 'number', optional: true },
-      { name: 'prepayMinerFee', type: 'boolean', optional: true },
       { name: 'claimPublicKey', type: 'string', hex: true, optional: true },
     ]);
 
@@ -503,7 +501,6 @@ class Controller {
       invoiceAmount,
       onchainAmount,
       claimPublicKey,
-      prepayMinerFee,
       userAddress: address,
       version: SwapVersion.Legacy,
     });

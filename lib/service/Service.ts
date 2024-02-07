@@ -44,7 +44,11 @@ import PairRepository from '../db/repositories/PairRepository';
 import ReferralRepository from '../db/repositories/ReferralRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
-import { InvoiceFeature, PaymentResponse } from '../lightning/LightningClient';
+import {
+  HopHint,
+  InvoiceFeature,
+  PaymentResponse,
+} from '../lightning/LightningClient';
 import LndClient from '../lightning/LndClient';
 import ClnClient from '../lightning/cln/ClnClient';
 import {
@@ -73,6 +77,7 @@ import PaymentRequestUtils from './PaymentRequestUtils';
 import TimeoutDeltaProvider, {
   PairTimeoutBlocksDelta,
 } from './TimeoutDeltaProvider';
+import EipSigner from './cooperative/EipSigner';
 import MusigSigner from './cooperative/MusigSigner';
 
 type NetworkContracts = {
@@ -89,10 +94,13 @@ type Contracts = {
   rsk?: NetworkContracts;
 };
 
-type SwapTransaction = {
+type ReverseTransaction = {
   transactionId: string;
   timeoutBlockHeight: number;
   transactionHex?: string;
+};
+
+type SwapTransaction = ReverseTransaction & {
   timeoutEta?: number;
 };
 
@@ -103,6 +111,8 @@ class Service {
   public swapManager: SwapManager;
   public eventHandler: EventHandler;
   public elementsService: ElementsService;
+
+  public readonly eipSigner: EipSigner;
   public readonly musigSigner: MusigSigner;
   public readonly rateProvider: RateProvider;
 
@@ -117,7 +127,7 @@ class Service {
   constructor(
     private logger: Logger,
     config: ConfigType,
-    private walletManager: WalletManager,
+    public walletManager: WalletManager,
     private nodeSwitch: NodeSwitch,
     public currencies: Map<string, Currency>,
     blocks: Blocks,
@@ -177,6 +187,11 @@ class Service {
 
     this.nodeInfo = new NodeInfo(this.logger, this.currencies);
     this.elementsService = new ElementsService(
+      this.currencies,
+      this.walletManager,
+    );
+    this.eipSigner = new EipSigner(
+      this.logger,
       this.currencies,
       this.walletManager,
     );
@@ -431,7 +446,7 @@ class Service {
   public getRoutingHints = async (
     symbol: string,
     routingNode: string,
-  ): Promise<any> => {
+  ): Promise<{ hopHintsList: HopHint[] }[]> => {
     const hints = await this.swapManager.routingHints.getRoutingHints(
       symbol,
       routingNode,
@@ -456,17 +471,8 @@ class Service {
     const result: Contracts = {};
 
     const transformManager = async (manager: EthereumManager) => {
-      result[manager.networkDetails.name.toLowerCase()] = {
-        network: {
-          chainId: Number(manager.network.chainId),
-          name: manager.network.name,
-        },
-        tokens: manager.tokenAddresses,
-        swapContracts: new Map<string, string>([
-          ['EtherSwap', await manager.etherSwap.getAddress()],
-          ['ERC20Swap', await manager.erc20Swap.getAddress()],
-        ]),
-      };
+      result[manager.networkDetails.name.toLowerCase()] =
+        await manager.getContractDetails();
     };
 
     await Promise.all(
@@ -540,6 +546,40 @@ class Service {
       response.timeoutEta = this.calculateTimeoutDate(
         chainCurrency,
         swap.timeoutBlockHeight - blocks,
+      );
+    }
+
+    return response;
+  };
+
+  public getReverseSwapTransaction = async (
+    id: string,
+  ): Promise<ReverseTransaction> => {
+    const reverseSwap = await ReverseSwapRepository.getReverseSwap({
+      id,
+    });
+
+    if (!reverseSwap) {
+      throw Errors.SWAP_NOT_FOUND(id);
+    }
+
+    if (!reverseSwap.transactionId) {
+      throw Errors.SWAP_NO_LOCKUP();
+    }
+
+    const { base, quote } = splitPairId(reverseSwap.pair);
+    const currency = this.getCurrency(
+      getChainCurrency(base, quote, reverseSwap.orderSide, true),
+    );
+
+    const response: ReverseTransaction = {
+      transactionId: reverseSwap.transactionId,
+      timeoutBlockHeight: reverseSwap.timeoutBlockHeight,
+    };
+
+    if (currency.chainClient) {
+      response.transactionHex = await currency.chainClient.getRawTransaction(
+        reverseSwap.transactionId,
       );
     }
 
@@ -832,6 +872,10 @@ class Service {
         }
         break;
 
+      case CurrencyType.Ether:
+      case CurrencyType.ERC20:
+        break;
+
       default:
         if (args.version !== SwapVersion.Legacy) {
           throw Errors.UNSUPPORTED_SWAP_VERSION();
@@ -1038,14 +1082,11 @@ class Service {
     invoice: string,
     canBeRouted: boolean,
     pairHash?: string,
-  ): Promise<
-    | {
-        bip21: string;
-        expectedAmount: number;
-        acceptZeroConf: boolean;
-      }
-    | Record<string, any>
-  > => {
+  ): Promise<{
+    bip21: string;
+    expectedAmount: number;
+    acceptZeroConf: boolean;
+  }> => {
     const { base, quote, rate: pairRate } = this.getPair(swap.pair);
 
     if (pairHash !== undefined) {
@@ -1128,11 +1169,6 @@ class Service {
       this.eventHandler.emitSwapInvoiceSet,
     );
 
-    // The expected amount doesn't have to be returned if the onchain coins were sent already
-    if (swap.lockupTransactionId) {
-      return {};
-    }
-
     return {
       expectedAmount,
       acceptZeroConf,
@@ -1141,7 +1177,7 @@ class Service {
         swap.lockupAddress,
         expectedAmount,
         getSwapMemo(lightningCurrency, false),
-      ),
+      )!,
     };
   };
 
@@ -1727,3 +1763,4 @@ class Service {
 }
 
 export default Service;
+export { Contracts, NetworkContracts };

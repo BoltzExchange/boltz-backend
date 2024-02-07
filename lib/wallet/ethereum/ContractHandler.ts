@@ -96,9 +96,15 @@ class ContractHandler {
         preimage,
       )}`,
     );
-    return this.etherSwap.claim(preimage, amount, refundAddress, timelock, {
-      ...(await getGasPrices(this.provider)),
-    });
+    return this.etherSwap['claim(bytes32,uint256,address,uint256)'](
+      preimage,
+      amount,
+      refundAddress,
+      timelock,
+      {
+        ...(await getGasPrices(this.provider)),
+      },
+    );
   };
 
   public refundEther = async (
@@ -190,7 +196,7 @@ class ContractHandler {
     this.logger.debug(
       `Claiming ${token.symbol} with preimage: ${getHexString(preimage)}`,
     );
-    return this.erc20Swap.claim(
+    return this.erc20Swap['claim(bytes32,uint256,address,address,uint256)'](
       preimage,
       amount,
       token.getTokenAddress(),

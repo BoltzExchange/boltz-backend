@@ -18,6 +18,23 @@ jest.mock('express', () => {
 
 describe('ChainRouter', () => {
   const service = {
+    walletManager: {
+      ethereumManagers: [
+        {
+          hasSymbol: jest
+            .fn()
+            .mockImplementation((currency) => currency === 'RBTC'),
+          getContractDetails: jest.fn().mockResolvedValue({
+            network: {
+              chainId: 21,
+            },
+            tokens: new Map<string, string>([['USDT', '0x123']]),
+            swapContracts: new Map<string, string>([['EtherSwap', '0xswap']]),
+          }),
+        },
+      ],
+    },
+
     getTransaction: jest.fn().mockResolvedValue('txHex'),
     broadcastTransaction: jest.fn().mockResolvedValue('txId'),
     getFeeEstimation: jest
@@ -43,6 +60,15 @@ describe('ChainRouter', () => {
         ['RBTC', 5_000_000],
       ]);
     }),
+    getContracts: jest.fn().mockResolvedValue({
+      rsk: {
+        network: {
+          chainId: 21,
+        },
+        tokens: new Map<string, string>([['USDT', '0x123']]),
+        swapContracts: new Map<string, string>([['EtherSwap', '0xswap']]),
+      },
+    }),
   } as unknown as Service;
 
   const chainRouter = new ChainRouter(Logger.disabledLogger, service);
@@ -61,10 +87,14 @@ describe('ChainRouter', () => {
 
     expect(Router).toHaveBeenCalledTimes(1);
 
-    expect(mockedRouter.get).toHaveBeenCalledTimes(5);
+    expect(mockedRouter.get).toHaveBeenCalledTimes(7);
     expect(mockedRouter.get).toHaveBeenCalledWith('/fees', expect.anything());
     expect(mockedRouter.get).toHaveBeenCalledWith(
       '/heights',
+      expect.anything(),
+    );
+    expect(mockedRouter.get).toHaveBeenCalledWith(
+      '/contracts',
       expect.anything(),
     );
     expect(mockedRouter.get).toHaveBeenCalledWith(
@@ -77,6 +107,10 @@ describe('ChainRouter', () => {
     );
     expect(mockedRouter.get).toHaveBeenCalledWith(
       '/:currency/transaction/:id',
+      expect.anything(),
+    );
+    expect(mockedRouter.get).toHaveBeenCalledWith(
+      '/:currency/contracts',
       expect.anything(),
     );
 
@@ -111,6 +145,29 @@ describe('ChainRouter', () => {
     expect(res.json).toHaveBeenCalledWith(
       mapToObject(await service.getBlockHeights()),
     );
+  });
+
+  test('should get contracts', async () => {
+    const res = mockResponse();
+    await chainRouter['getContracts'](mockRequest(), res);
+
+    expect(service.getContracts).toHaveBeenCalledTimes(1);
+    expect(service.getContracts).toHaveBeenCalledWith();
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      rsk: {
+        network: {
+          chainId: 21,
+        },
+        swapContracts: {
+          EtherSwap: '0xswap',
+        },
+        tokens: {
+          USDT: '0x123',
+        },
+      },
+    });
   });
 
   test('should get fee estimation for chain', async () => {
@@ -193,6 +250,58 @@ describe('ChainRouter', () => {
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith({
       id: await service.broadcastTransaction(currency, hex),
+    });
+  });
+
+  test('should get contracts for currency', async () => {
+    const res = mockResponse();
+    await chainRouter['getContractsForCurrency'](
+      mockRequest(null, undefined, {
+        currency: 'RBTC',
+      }),
+      res,
+    );
+
+    expect(
+      service.walletManager.ethereumManagers[0].hasSymbol,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      service.walletManager.ethereumManagers[0].hasSymbol,
+    ).toHaveBeenCalledWith('RBTC');
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      network: {
+        chainId: 21,
+      },
+      swapContracts: {
+        EtherSwap: '0xswap',
+      },
+      tokens: {
+        USDT: '0x123',
+      },
+    });
+  });
+
+  test('should 404 when getting contracts for non EVM chain', async () => {
+    const res = mockResponse();
+    await chainRouter['getContractsForCurrency'](
+      mockRequest(null, undefined, {
+        currency: 'BTC',
+      }),
+      res,
+    );
+
+    expect(
+      service.walletManager.ethereumManagers[0].hasSymbol,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      service.walletManager.ethereumManagers[0].hasSymbol,
+    ).toHaveBeenCalledWith('BTC');
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({
+      error: 'chain does not have contracts',
     });
   });
 

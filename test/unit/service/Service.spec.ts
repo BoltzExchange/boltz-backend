@@ -897,6 +897,19 @@ describe('Service', () => {
         tokenAddresses: new Map<string, string>([
           ['USDT', '0xDf567Cd5d0cf3d90cE6E3E9F897e092f9ECE359a'],
         ]),
+        getContractDetails: jest.fn().mockResolvedValue({
+          network: {
+            chainId: Number(123),
+            name: 'hello',
+          },
+          tokens: new Map<string, string>([
+            ['USDT', '0xDf567Cd5d0cf3d90cE6E3E9F897e092f9ECE359a'],
+          ]),
+          swapContracts: new Map<string, string>([
+            ['EtherSwap', '0x18A4374d714762FA7DE346E997f7e28Fb3744EC1'],
+            ['ERC20Swap', '0xC685b2c4369D7bf9242DA54E9c391948079d83Cd'],
+          ]),
+        }),
       },
     ];
 
@@ -1001,6 +1014,34 @@ describe('Service', () => {
     await expect(service.getSwapTransaction(id)).rejects.toEqual(
       Errors.SWAP_NOT_FOUND(id),
     );
+  });
+
+  test('should get lockup transactions of reverse swaps', async () => {
+    const blockDelta = 10;
+
+    mockGetReverseSwapResult = {
+      id: '123asd',
+      pair: 'LTC/BTC',
+      orderSide: OrderSide.SELL,
+      timeoutBlockHeight: blockchainInfo.blocks + blockDelta,
+      transactionId:
+        'eb63a8b1511f83c8d649fdaca26c4bc0dee4313689f62fd0f4ff8f71b963900d',
+    };
+
+    await expect(
+      service.getReverseSwapTransaction(mockGetReverseSwapResult.id),
+    ).resolves.toEqual({
+      transactionHex: rawTransaction,
+      transactionId: mockGetReverseSwapResult.transactionId,
+      timeoutBlockHeight: mockGetReverseSwapResult.timeoutBlockHeight,
+    });
+
+    expect(ReverseSwapRepository.getReverseSwap).toHaveBeenCalledTimes(1);
+    expect(ReverseSwapRepository.getReverseSwap).toHaveBeenCalledWith({
+      id: mockGetReverseSwapResult.id,
+    });
+
+    mockGetReverseSwapResult = null;
   });
 
   test('should get lockup transactions of Ethereum swaps', async () => {

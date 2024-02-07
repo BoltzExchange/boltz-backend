@@ -71,6 +71,9 @@ describe('SwapRouter', () => {
         signature: getHexBuffer('2112'),
       }),
     },
+    eipSigner: {
+      signSwapRefund: jest.fn().mockResolvedValue('12344321'),
+    },
 
     swapManager: {
       deferredClaimer: {
@@ -87,6 +90,7 @@ describe('SwapRouter', () => {
     convertToPairAndSide: jest
       .fn()
       .mockReturnValue({ pairId: 'L-BTC/BTC', orderSide: OrderSide.BUY }),
+    createSwap: jest.fn().mockResolvedValue({ id: 'randomIdPreimageHash' }),
     createSwapWithInvoice: jest.fn().mockResolvedValue({ id: 'randomId' }),
     createReverseSwap: jest.fn().mockResolvedValue({ id: 'reverseId' }),
     getSwapTransaction: jest.fn().mockResolvedValue({
@@ -94,6 +98,11 @@ describe('SwapRouter', () => {
       transactionHex: 'txHex',
       timeoutBlockHeight: 21,
       timeoutEta: 210987,
+    }),
+    getReverseSwapTransaction: jest.fn().mockResolvedValue({
+      transactionId: 'txIdReverse',
+      transactionHex: 'txHexReverse',
+      timeoutBlockHeight: 42,
     }),
   } as unknown as Service;
 
@@ -127,10 +136,14 @@ describe('SwapRouter', () => {
 
     expect(Router).toHaveBeenCalledTimes(1);
 
-    expect(mockedRouter.get).toHaveBeenCalledTimes(5);
+    expect(mockedRouter.get).toHaveBeenCalledTimes(8);
     expect(mockedRouter.get).toHaveBeenCalledWith('/:id', expect.anything());
     expect(mockedRouter.get).toHaveBeenCalledWith(
       '/submarine',
+      expect.anything(),
+    );
+    expect(mockedRouter.get).toHaveBeenCalledWith(
+      '/submarine/:id/invoice/amount',
       expect.anything(),
     );
     expect(mockedRouter.get).toHaveBeenCalledWith(
@@ -142,11 +155,19 @@ describe('SwapRouter', () => {
       expect.anything(),
     );
     expect(mockedRouter.get).toHaveBeenCalledWith(
+      '/submarine/:id/refund',
+      expect.anything(),
+    );
+    expect(mockedRouter.get).toHaveBeenCalledWith(
       '/reverse',
       expect.anything(),
     );
+    expect(mockedRouter.get).toHaveBeenCalledWith(
+      '/reverse/:id/transaction',
+      expect.anything(),
+    );
 
-    expect(mockedRouter.post).toHaveBeenCalledTimes(5);
+    expect(mockedRouter.post).toHaveBeenCalledTimes(6);
     expect(mockedRouter.post).toHaveBeenCalledWith(
       '/submarine',
       expect.anything(),
@@ -157,6 +178,10 @@ describe('SwapRouter', () => {
     );
     expect(mockedRouter.post).toHaveBeenCalledWith(
       '/submarine/:id/claim',
+      expect.anything(),
+    );
+    expect(mockedRouter.post).toHaveBeenCalledWith(
+      '/submarine/:id/invoice',
       expect.anything(),
     );
     expect(mockedRouter.post).toHaveBeenCalledWith(
@@ -223,8 +248,6 @@ describe('SwapRouter', () => {
     error                                            | body
     ${'undefined parameter: to'}                     | ${{}}
     ${'undefined parameter: from'}                   | ${{ to: 'BTC' }}
-    ${'undefined parameter: invoice'}                | ${{ to: 'BTC', from: 'L-BTC' }}
-    ${'undefined parameter: refundPublicKey'}        | ${{ to: 'BTC', from: 'L-BTC', invoice: 'lnbc1' }}
     ${'could not parse hex string: refundPublicKey'} | ${{ to: 'BTC', from: 'L-BTC', invoice: 'lnbc1', refundPublicKey: 'notHex' }}
   `(
     'should not create submarine swaps with invalid parameters ($error)',
@@ -234,6 +257,26 @@ describe('SwapRouter', () => {
       ).rejects.toEqual(error);
     },
   );
+
+  test.each`
+    length
+    ${1}
+    ${31}
+    ${33}
+    ${34}
+  `('should reject preimage hashes with length $length', async ({ length }) => {
+    await expect(
+      swapRouter['createSubmarine'](
+        mockRequest({
+          to: 'BTC',
+          from: 'BTC',
+          refundPublicKey: '0021',
+          preimageHash: getHexString(randomBytes(length)),
+        }),
+        mockResponse(),
+      ),
+    ).rejects.toEqual(`invalid preimage hash length: ${length}`);
+  });
 
   test('should create submarine swaps', async () => {
     const reqBody = {
@@ -268,6 +311,39 @@ describe('SwapRouter', () => {
 
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith({ id: 'randomId' });
+  });
+
+  test('should create submarine swaps with preimage hash', async () => {
+    const reqBody = {
+      to: 'BTC',
+      from: 'L-BTC',
+      refundPublicKey: '0021',
+      preimageHash:
+        'd1e9cce3bec183a27f4a5a8f86b5029016aa4f5f87f86695c1d1c79b5f0c4e05',
+    };
+    const res = mockResponse();
+
+    await swapRouter['createSubmarine'](mockRequest(reqBody), res);
+
+    expect(service.convertToPairAndSide).toHaveBeenCalledTimes(1);
+    expect(service.convertToPairAndSide).toHaveBeenCalledWith(
+      reqBody.from,
+      reqBody.to,
+    );
+
+    expect(service.createSwap).toHaveBeenCalledTimes(1);
+    expect(service.createSwap).toHaveBeenCalledWith({
+      pairId: 'L-BTC/BTC',
+      orderSide: OrderSide.BUY,
+      version: SwapVersion.Taproot,
+      preimageHash: getHexBuffer(reqBody.preimageHash),
+      refundPublicKey: getHexBuffer(reqBody.refundPublicKey),
+    });
+
+    expect(MarkedSwapRepository.addMarkedSwap).toHaveBeenCalledTimes(1);
+
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(res.json).toHaveBeenCalledWith({ id: 'randomIdPreimageHash' });
   });
 
   test('should create submarine swaps with pairHash', async () => {
@@ -399,6 +475,26 @@ describe('SwapRouter', () => {
       getHexBuffer(reqBody.transaction),
       reqBody.index,
     );
+  });
+
+  test('should refund evm submarine swaps', async () => {
+    const reqParams = {
+      id: 'someId',
+    };
+    const res = mockResponse();
+
+    await swapRouter['refundSubmarineEvm'](
+      mockRequest(null, {}, reqParams),
+      res,
+    );
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      signature: '12344321',
+    });
+
+    expect(service.eipSigner.signSwapRefund).toHaveBeenCalledTimes(1);
+    expect(service.eipSigner.signSwapRefund).toHaveBeenCalledWith(reqParams.id);
   });
 
   test.each`
@@ -576,7 +672,6 @@ describe('SwapRouter', () => {
     ${'undefined parameter: from'}                  | ${{ to: 'L-BTC' }}
     ${'undefined parameter: preimageHash'}          | ${{ to: 'L-BTC', from: 'BTC' }}
     ${'could not parse hex string: preimageHash'}   | ${{ to: 'L-BTC', from: 'BTC', preimageHash: 'notHex' }}
-    ${'undefined parameter: claimPublicKey'}        | ${{ to: 'L-BTC', from: 'BTC', preimageHash: '00' }}
     ${'could not parse hex string: claimPublicKey'} | ${{ to: 'L-BTC', from: 'BTC', preimageHash: '00', claimPublicKey: 'notHex' }}
     ${'could not parse hex string: claimPublicKey'} | ${{ to: 'L-BTC', from: 'BTC', preimageHash: '00', claimPublicKey: 'notHex' }}
   `(
@@ -755,6 +850,26 @@ describe('SwapRouter', () => {
       onchainAmount: reqBody.onchainAmount,
       preimageHash: getHexBuffer(reqBody.preimageHash),
       claimPublicKey: getHexBuffer(reqBody.claimPublicKey),
+    });
+  });
+
+  test('should get lockup transactions of reverse swaps', async () => {
+    const id = 'asdf';
+
+    const res = mockResponse();
+    await swapRouter['getReverseTransaction'](
+      mockRequest(undefined, undefined, { id }),
+      res,
+    );
+
+    expect(service.getReverseSwapTransaction).toHaveBeenCalledTimes(1);
+    expect(service.getReverseSwapTransaction).toHaveBeenCalledWith(id);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      id: 'txIdReverse',
+      hex: 'txHexReverse',
+      timeoutBlockHeight: 42,
     });
   });
 

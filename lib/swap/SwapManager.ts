@@ -365,10 +365,10 @@ class SwapManager {
         id,
         pair,
 
-        lockupAddress: result.address,
+        version: args.version,
         referral: args.referralId,
         orderSide: args.orderSide,
-        version: SwapVersion.Legacy,
+        lockupAddress: result.address,
         status: SwapUpdateEvent.SwapCreated,
         preimageHash: getHexString(args.preimageHash),
         timeoutBlockHeight: result.timeoutBlockHeight,

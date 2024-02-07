@@ -56,7 +56,7 @@ export default {
   ): Error => ({
     message: `unsupported ${name} (${address}) contract version ${Number(
       actualVersion,
-    )}; support version: ${Number(supportedVersion)}`,
+    )}; supported version: ${Number(supportedVersion)}`,
     code: concatErrorCode(ErrorCodePrefix.Wallet, 10),
   }),
   TAPROOT_BLINDING_NOT_SUPPORTED: (): Error => ({

@@ -861,16 +861,23 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
 
     const deleteSubscription = () => {
       invoiceSubscription.removeAllListeners();
+      invoiceSubscription.destroy();
     };
 
     invoiceSubscription
       .on('data', (invoice: lndrpc.Invoice) => {
         if (invoice.getState() === lndrpc.Invoice.InvoiceState.ACCEPTED) {
+          const acceptedHtlcs = invoice
+            .getHtlcsList()
+            .filter(
+              (htlc) => htlc.getState() === lndrpc.InvoiceHTLCState.ACCEPTED,
+            );
+
           this.logger.debug(
             `${LndClient.serviceName} ${this.symbol} accepted ${
-              invoice.getHtlcsList().length
+              acceptedHtlcs.length
             } HTLC${
-              invoice.getHtlcsList().length > 1 ? 's' : ''
+              acceptedHtlcs.length > 1 ? 's' : ''
             } for invoice: ${invoice.getPaymentRequest()}`,
           );
 

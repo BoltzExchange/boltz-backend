@@ -11,9 +11,14 @@ import {
   getChainCurrency,
   getHexBuffer,
   getHexString,
+  getLightningCurrency,
   splitPairId,
 } from '../../Utils';
-import { FailedSwapUpdateEvents, SwapUpdateEvent } from '../../consts/Enums';
+import {
+  FailedSwapUpdateEvents,
+  SwapUpdateEvent,
+  SwapVersion,
+} from '../../consts/Enums';
 import Swap from '../../db/models/Swap';
 import ReverseSwapRepository from '../../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../db/repositories/SwapRepository';
@@ -53,9 +58,18 @@ class MusigSigner {
       getChainCurrency(base, quote, swap.orderSide, false),
     )!;
 
+    if (currency.chainClient === undefined) {
+      throw 'chain currency is not UTXO based';
+    }
+
     if (
-      !FailedSwapUpdateEvents.includes(swap.status as SwapUpdateEvent) ||
-      (await this.hasNonFailedLightningPayment(currency, swap))
+      swap.version !== SwapVersion.Taproot ||
+      !(await MusigSigner.isEligibleForRefund(
+        swap,
+        this.currencies.get(
+          getLightningCurrency(base, quote, swap.orderSide, false),
+        )!,
+      ))
     ) {
       this.logger.verbose(
         `Not creating partial signature for refund of Swap ${swap.id}: it is not eligible`,
@@ -68,6 +82,7 @@ class MusigSigner {
     );
 
     const swapTree = SwapTreeSerializer.deserializeSwapTree(swap.redeemScript!);
+
     return this.createPartialSignature(
       currency,
       swapTree,
@@ -92,6 +107,7 @@ class MusigSigner {
     }
 
     if (
+      swap.version !== SwapVersion.Taproot ||
       ![
         SwapUpdateEvent.TransactionMempool,
         SwapUpdateEvent.TransactionConfirmed,
@@ -101,7 +117,7 @@ class MusigSigner {
       this.logger.verbose(
         `Not creating partial signature for claim of Reverse Swap ${swap.id}: it is not eligible`,
       );
-      throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND();
+      throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM();
     }
 
     if (getHexString(crypto.sha256(preimage)) !== swap.preimageHash) {
@@ -135,39 +151,14 @@ class MusigSigner {
     );
   };
 
-  private createPartialSignature = async (
-    currency: Currency,
-    swapTree: Types.SwapTree,
-    keyIndex: number,
-    theirPublicKey: Buffer,
-    theirNonce: Buffer,
-    rawTransaction: Buffer | string,
-    vin: number,
-  ): Promise<PartialSignature> => {
-    const tx = parseTransaction(currency.type, rawTransaction);
-    if (vin < 0 || tx.ins.length <= vin) {
-      throw Errors.INVALID_VIN();
-    }
+  public static isEligibleForRefund = async (
+    swap: Swap,
+    lightningCurrency: Currency,
+  ) =>
+    FailedSwapUpdateEvents.includes(swap.status as SwapUpdateEvent) &&
+    !(await MusigSigner.hasNonFailedLightningPayment(lightningCurrency, swap));
 
-    const wallet = this.walletManager.wallets.get(currency.symbol)!;
-
-    const ourKeys = wallet.getKeysByIndex(keyIndex);
-
-    const musig = createMusig(ourKeys, theirPublicKey);
-    tweakMusig(currency.type, musig, swapTree);
-
-    musig.aggregateNonces([[theirPublicKey, theirNonce]]);
-
-    const hash = await hashForWitnessV1(currency, tx, vin);
-    musig.initializeSession(hash);
-
-    return {
-      signature: Buffer.from(musig.signPartial()),
-      pubNonce: Buffer.from(musig.getPublicNonce()),
-    };
-  };
-
-  private hasNonFailedLightningPayment = async (
+  private static hasNonFailedLightningPayment = async (
     currency: Currency,
     swap: Swap,
   ): Promise<boolean> => {
@@ -198,6 +189,38 @@ class MusigSigner {
     }
 
     return false;
+  };
+
+  private createPartialSignature = async (
+    currency: Currency,
+    swapTree: Types.SwapTree,
+    keyIndex: number,
+    theirPublicKey: Buffer,
+    theirNonce: Buffer,
+    rawTransaction: Buffer | string,
+    vin: number,
+  ): Promise<PartialSignature> => {
+    const tx = parseTransaction(currency.type, rawTransaction);
+    if (vin < 0 || tx.ins.length <= vin) {
+      throw Errors.INVALID_VIN();
+    }
+
+    const wallet = this.walletManager.wallets.get(currency.symbol)!;
+
+    const ourKeys = wallet.getKeysByIndex(keyIndex);
+
+    const musig = createMusig(ourKeys, theirPublicKey);
+    tweakMusig(currency.type, musig, swapTree);
+
+    musig.aggregateNonces([[theirPublicKey, theirNonce]]);
+
+    const hash = await hashForWitnessV1(currency, tx, vin);
+    musig.initializeSession(hash);
+
+    return {
+      signature: Buffer.from(musig.signPartial()),
+      pubNonce: Buffer.from(musig.getPublicNonce()),
+    };
   };
 }
 

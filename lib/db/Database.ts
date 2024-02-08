@@ -12,6 +12,7 @@ import MarkedSwap from './models/MarkedSwap';
 import Pair from './models/Pair';
 import PendingEthereumTransaction from './models/PendingEthereumTransaction';
 import Referral from './models/Referral';
+import ReverseRoutingHint from './models/ReverseRoutingHint';
 import ReverseSwap from './models/ReverseSwap';
 import Swap from './models/Swap';
 
@@ -111,7 +112,11 @@ class Database {
     ]);
 
     await Promise.all([Swap.sync(), ReverseSwap.sync()]);
-    await Promise.all([ChannelCreation.sync(), MarkedSwap.sync()]);
+    await Promise.all([
+      ChannelCreation.sync(),
+      ReverseRoutingHint.sync(),
+      MarkedSwap.sync(),
+    ]);
   };
 
   public migrate = async (currencies: Map<string, Currency>): Promise<void> => {
@@ -132,6 +137,7 @@ class Database {
     KeyProvider.load(Database.sequelize);
     ChannelCreation.load(Database.sequelize);
     DatabaseVersion.load(Database.sequelize);
+    ReverseRoutingHint.load(Database.sequelize);
     PendingEthereumTransaction.load(Database.sequelize);
   };
 }

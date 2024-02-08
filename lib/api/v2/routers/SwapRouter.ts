@@ -663,6 +663,12 @@ class SwapRouter extends RouterBase {
      *           type: string
      *         referralId:
      *           type: string
+     *         address:
+     *           type: string
+     *           description: Address to be used for a BIP-21 direct payment
+     *         addressSignature:
+     *           type: string
+     *           description: Signature of the claim public key of the SHA256 hash of the address for the direct payment
      */
 
     /**
@@ -724,6 +730,56 @@ class SwapRouter extends RouterBase {
      *               $ref: '#/components/schemas/ErrorResponse'
      */
     router.post('/reverse', this.handleError(this.createReverse));
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
+     *     ReverseBip21:
+     *       type: object
+     *       properties:
+     *         bip21:
+     *           type: string
+     *           description: BIP-21 for the Reverse Swap
+     *         signature:
+     *           type: string
+     *           description: Signature of the address in the BIP-21 of the public key in the routing hint
+     */
+
+    /**
+     * @openapi
+     * /swap/reverse/{id}/bip21:
+     *   get:
+     *     tags: [Reverse]
+     *     description: Get the BIP-21 of a Reverse Swap for a direct payment
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *         description: ID of the Reverse Swap
+     *     responses:
+     *       '200':
+     *         description: BIP-21 and signature to prove the authenticity of the BIP-21
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ReverseBip21'
+     *       '404':
+     *         description: When no BIP-21 was set for the Reverse Swap
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *       '400':
+     *         description: Error that caused the request to fail
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
+    router.get('/reverse/:id/bip21', this.handleError(this.getReverseBip21));
 
     /**
      * @openapi
@@ -1087,6 +1143,7 @@ class SwapRouter extends RouterBase {
     const {
       to,
       from,
+      address,
       pairHash,
       referralId,
       routingNode,
@@ -1095,10 +1152,12 @@ class SwapRouter extends RouterBase {
       invoiceAmount,
       onchainAmount,
       claimPublicKey,
+      addressSignature,
     } = validateRequest(req.body, [
       { name: 'to', type: 'string' },
       { name: 'from', type: 'string' },
       { name: 'preimageHash', type: 'string', hex: true },
+      { name: 'address', type: 'string', optional: true },
       { name: 'pairHash', type: 'string', optional: true },
       { name: 'referralId', type: 'string', optional: true },
       { name: 'routingNode', type: 'string', optional: true },
@@ -1106,6 +1165,7 @@ class SwapRouter extends RouterBase {
       { name: 'invoiceAmount', type: 'number', optional: true },
       { name: 'onchainAmount', type: 'number', optional: true },
       { name: 'claimPublicKey', type: 'string', hex: true, optional: true },
+      { name: 'addressSignature', type: 'string', hex: true, optional: true },
     ]);
 
     checkPreimageHashLength(preimageHash);
@@ -1122,8 +1182,11 @@ class SwapRouter extends RouterBase {
       invoiceAmount,
       onchainAmount,
       claimPublicKey,
+
+      userAddress: address,
       prepayMinerFee: false,
       version: SwapVersion.Taproot,
+      userAddressSignature: addressSignature,
     });
 
     await markSwap(this.countryCodes, req.ip, response.id);
@@ -1132,6 +1195,23 @@ class SwapRouter extends RouterBase {
     this.logger.silly(`Reverse swap ${response.id}: ${stringify(response)}`);
 
     createdResponse(res, response);
+  };
+
+  private getReverseBip21 = async (req: Request, res: Response) => {
+    const { id } = validateRequest(req.params, [
+      { name: 'id', type: 'string' },
+    ]);
+
+    const hint = await this.service.getReverseBip21(id);
+    if (hint === undefined) {
+      errorResponse(this.logger, req, res, 'no BIP-21 for swap', 404);
+      return;
+    }
+
+    successResponse(res, {
+      bip21: hint.bip21,
+      signature: hint.signature,
+    });
   };
 
   private getReverseTransaction = async (req: Request, res: Response) => {

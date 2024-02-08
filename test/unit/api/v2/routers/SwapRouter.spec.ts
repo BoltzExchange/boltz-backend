@@ -104,6 +104,10 @@ describe('SwapRouter', () => {
       transactionHex: 'txHexReverse',
       timeoutBlockHeight: 42,
     }),
+    getReverseBip21: jest.fn().mockResolvedValue({
+      bip21: 'bip21',
+      signature: 'bip21Sig',
+    }),
   } as unknown as Service;
 
   const controller = {
@@ -136,7 +140,7 @@ describe('SwapRouter', () => {
 
     expect(Router).toHaveBeenCalledTimes(1);
 
-    expect(mockedRouter.get).toHaveBeenCalledTimes(8);
+    expect(mockedRouter.get).toHaveBeenCalledTimes(9);
     expect(mockedRouter.get).toHaveBeenCalledWith('/:id', expect.anything());
     expect(mockedRouter.get).toHaveBeenCalledWith(
       '/submarine',
@@ -160,6 +164,10 @@ describe('SwapRouter', () => {
     );
     expect(mockedRouter.get).toHaveBeenCalledWith(
       '/reverse',
+      expect.anything(),
+    );
+    expect(mockedRouter.get).toHaveBeenCalledWith(
+      '/reverse/:id/bip21',
       expect.anything(),
     );
     expect(mockedRouter.get).toHaveBeenCalledWith(
@@ -667,13 +675,13 @@ describe('SwapRouter', () => {
   });
 
   test.each`
-    error                                           | body
-    ${'undefined parameter: to'}                    | ${{}}
-    ${'undefined parameter: from'}                  | ${{ to: 'L-BTC' }}
-    ${'undefined parameter: preimageHash'}          | ${{ to: 'L-BTC', from: 'BTC' }}
-    ${'could not parse hex string: preimageHash'}   | ${{ to: 'L-BTC', from: 'BTC', preimageHash: 'notHex' }}
-    ${'could not parse hex string: claimPublicKey'} | ${{ to: 'L-BTC', from: 'BTC', preimageHash: '00', claimPublicKey: 'notHex' }}
-    ${'could not parse hex string: claimPublicKey'} | ${{ to: 'L-BTC', from: 'BTC', preimageHash: '00', claimPublicKey: 'notHex' }}
+    error                                             | body
+    ${'undefined parameter: to'}                      | ${{}}
+    ${'undefined parameter: from'}                    | ${{ to: 'L-BTC' }}
+    ${'undefined parameter: preimageHash'}            | ${{ to: 'L-BTC', from: 'BTC' }}
+    ${'could not parse hex string: preimageHash'}     | ${{ to: 'L-BTC', from: 'BTC', preimageHash: 'notHex' }}
+    ${'could not parse hex string: claimPublicKey'}   | ${{ to: 'L-BTC', from: 'BTC', preimageHash: '00', claimPublicKey: 'notHex' }}
+    ${'could not parse hex string: addressSignature'} | ${{ to: 'L-BTC', from: 'BTC', preimageHash: '00', claimPublicKey: '0011', addressSignature: 'notHex' }}
   `(
     'should not create reverse swaps with invalid parameters ($error)',
     async ({ body, error }) => {
@@ -850,6 +858,73 @@ describe('SwapRouter', () => {
       onchainAmount: reqBody.onchainAmount,
       preimageHash: getHexBuffer(reqBody.preimageHash),
       claimPublicKey: getHexBuffer(reqBody.claimPublicKey),
+    });
+  });
+
+  test('should create reverse swaps with address and addressSignature', async () => {
+    const reqBody = {
+      to: 'L-BTC',
+      from: 'BTC',
+      address: 'bc1',
+      onchainAmount: 123,
+      claimPublicKey: '21',
+      addressSignature: '0011',
+      preimageHash: getHexString(randomBytes(32)),
+    };
+    const res = mockResponse();
+
+    await swapRouter['createReverse'](mockRequest(reqBody), res);
+
+    expect(service.createReverseSwap).toHaveBeenCalledTimes(1);
+    expect(service.createReverseSwap).toHaveBeenCalledWith({
+      pairId: 'L-BTC/BTC',
+      prepayMinerFee: false,
+      orderSide: OrderSide.BUY,
+      version: SwapVersion.Taproot,
+      userAddress: reqBody.address,
+      onchainAmount: reqBody.onchainAmount,
+      preimageHash: getHexBuffer(reqBody.preimageHash),
+      claimPublicKey: getHexBuffer(reqBody.claimPublicKey),
+      userAddressSignature: getHexBuffer(reqBody.addressSignature),
+    });
+  });
+
+  test('should get BIP-21 of reverse swaps', async () => {
+    const id = 'bip21Swap';
+
+    const res = mockResponse();
+    await swapRouter['getReverseBip21'](
+      mockRequest(undefined, undefined, { id }),
+      res,
+    );
+
+    expect(service.getReverseBip21).toHaveBeenCalledTimes(1);
+    expect(service.getReverseBip21).toHaveBeenCalledWith(id);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      bip21: 'bip21',
+      signature: 'bip21Sig',
+    });
+  });
+
+  test('should write 404 when no BIP-21 of reverse swap was set', async () => {
+    const id = 'noBip21Swap';
+
+    service.getReverseBip21 = jest.fn().mockResolvedValue(undefined);
+
+    const res = mockResponse();
+    await swapRouter['getReverseBip21'](
+      mockRequest(undefined, undefined, { id }),
+      res,
+    );
+
+    expect(service.getReverseBip21).toHaveBeenCalledTimes(1);
+    expect(service.getReverseBip21).toHaveBeenCalledWith(id);
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({
+      error: 'no BIP-21 for swap',
     });
   });
 

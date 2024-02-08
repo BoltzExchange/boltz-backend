@@ -31,6 +31,7 @@ import Swap from '../../../lib/db/models/Swap';
 import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
 import PairRepository from '../../../lib/db/repositories/PairRepository';
 import ReferralRepository from '../../../lib/db/repositories/ReferralRepository';
+import ReverseRoutingHintRepository from '../../../lib/db/repositories/ReverseRoutingHintRepository';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import { InvoiceFeature } from '../../../lib/lightning/LightningClient';
@@ -534,6 +535,8 @@ jest.mock('../../../lib/lightning/LndClient', () => {
 });
 
 const mockedLndClient = <jest.Mock<LndClient>>(<any>LndClient);
+
+jest.mock('../../../lib/db/repositories/ReverseRoutingHintRepository');
 
 describe('Service', () => {
   const configPairs = [
@@ -1071,6 +1074,32 @@ describe('Service', () => {
     });
 
     expect(mockGetBlockNumber).toHaveBeenCalledTimes(1);
+  });
+
+  test('should get BIP-21 for reverse swaps', async () => {
+    ReverseRoutingHintRepository.getHint = jest.fn().mockResolvedValue({
+      bip21: 'bitcoin:bip21',
+      signature: 'some valid sig',
+    });
+
+    const id = 'reverseId';
+    const res = await service.getReverseBip21(id);
+
+    expect(ReverseRoutingHintRepository.getHint).toHaveBeenCalledTimes(1);
+    expect(ReverseRoutingHintRepository.getHint).toHaveBeenCalledWith(id);
+
+    expect(res).toEqual(await ReverseRoutingHintRepository.getHint(id));
+  });
+
+  test('should return undefined when no BIP-21 was set for reverse swap', async () => {
+    ReverseRoutingHintRepository.getHint = jest
+      .fn()
+      .mockResolvedValue(undefined);
+
+    const id = 'reverseId';
+    const res = await service.getReverseBip21(id);
+
+    expect(res).toEqual(undefined);
   });
 
   test('should derive keys', async () => {

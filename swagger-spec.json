@@ -1224,6 +1224,57 @@
         }
       }
     },
+    "/swap/reverse/{id}/bip21": {
+      "get": {
+        "tags": [
+          "Reverse"
+        ],
+        "description": "Get the BIP-21 of a Reverse Swap for a direct payment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID of the Reverse Swap"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "BIP-21 and signature to prove the authenticity of the BIP-21",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReverseBip21"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error that caused the request to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "When no BIP-21 was set for the Reverse Swap",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/swap/reverse/{id}/transaction": {
       "get": {
         "tags": [
@@ -1738,6 +1789,14 @@
           },
           "referralId": {
             "type": "string"
+          },
+          "address": {
+            "type": "string",
+            "description": "Address to be used for a BIP-21 direct payment"
+          },
+          "addressSignature": {
+            "type": "string",
+            "description": "Signature of the claim public key of the SHA256 hash of the address for the direct payment"
           }
         }
       },
@@ -1774,6 +1833,19 @@
           "blindingKey": {
             "type": "string",
             "description": "Liquid blinding private key encoded as HEX"
+          }
+        }
+      },
+      "ReverseBip21": {
+        "type": "object",
+        "properties": {
+          "bip21": {
+            "type": "string",
+            "description": "BIP-21 for the Reverse Swap"
+          },
+          "signature": {
+            "type": "string",
+            "description": "Signature of the address in the BIP-21 of the public key in the routing hint"
           }
         }
       },

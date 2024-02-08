@@ -3,6 +3,7 @@ import {
   satToMsat,
   scidClnToLnd,
   scidLndToCln,
+  transactionToLndScid,
 } from '../../../lib/lightning/ChannelUtils';
 
 describe('ChannelUtils', () => {
@@ -27,6 +28,19 @@ describe('ChannelUtils', () => {
     'should convert CLN ($cln) to LND ($lnd) short channel id',
     ({ cln, lnd }) => {
       expect(scidClnToLnd(cln)).toEqual(lnd);
+    },
+  );
+
+  test.each`
+    blockHeight | transactionIndex | outputIndex | scid
+    ${103}      | ${1}             | ${0}        | ${'113249697726464'}
+    ${809798}   | ${1809}          | ${1}        | ${'890382317268303873'}
+  `(
+    'should convert transaction to LND short channel id',
+    ({ blockHeight, transactionIndex, outputIndex, scid }) => {
+      expect(
+        transactionToLndScid(blockHeight, transactionIndex, outputIndex),
+      ).toEqual(scid);
     },
   );
 

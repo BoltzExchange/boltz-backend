@@ -46,7 +46,6 @@ class GrpcServer {
           if (error) {
             reject(Errors.COULD_NOT_BIND(host, port, error.message));
           } else {
-            this.server.start();
             this.logger.info(`gRPC server listening on: ${host}:${bindPort}`);
             resolve();
           }

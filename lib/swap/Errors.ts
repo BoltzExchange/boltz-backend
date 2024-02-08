@@ -102,4 +102,8 @@ export default {
     message: 'blocked address',
     code: concatErrorCode(ErrorCodePrefix.Swap, 20),
   }),
+  INVALID_ADDRESS_SIGNATURE: (): Error => ({
+    message: 'invalid address signature',
+    code: concatErrorCode(ErrorCodePrefix.Swap, 21),
+  }),
 };

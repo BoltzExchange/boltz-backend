@@ -42,6 +42,7 @@ import Swap from '../db/models/Swap';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import PairRepository from '../db/repositories/PairRepository';
 import ReferralRepository from '../db/repositories/ReferralRepository';
+import ReverseRoutingHintRepository from '../db/repositories/ReverseRoutingHintRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import {
@@ -584,6 +585,18 @@ class Service {
     }
 
     return response;
+  };
+
+  public getReverseBip21 = async (id: string) => {
+    const hint = await ReverseRoutingHintRepository.getHint(id);
+    if (!hint) {
+      return undefined;
+    }
+
+    return {
+      bip21: hint.bip21,
+      signature: hint.signature,
+    };
   };
 
   public deriveKeys = (symbol: string, index: number): DeriveKeysResponse => {
@@ -1316,6 +1329,7 @@ class Service {
 
     // Address of the user to encode in the invoice memo
     userAddress?: string;
+    userAddressSignature?: Buffer;
   }): Promise<{
     id: string;
     invoice: string;
@@ -1551,8 +1565,8 @@ class Service {
       lightningTimeoutBlockDelta,
       prepayMinerFeeInvoiceAmount,
       prepayMinerFeeOnchainAmount,
-      orderSide: side,
 
+      orderSide: side,
       baseCurrency: base,
       quoteCurrency: quote,
       version: args.version,
@@ -1561,6 +1575,7 @@ class Service {
       claimAddress: args.claimAddress,
       preimageHash: args.preimageHash,
       claimPublicKey: args.claimPublicKey,
+      userAddressSignature: args.userAddressSignature,
     });
 
     this.eventHandler.emitSwapCreation(id);

@@ -24,7 +24,6 @@ import {
   getPrepayMinerFeeInvoiceMemo,
   getScriptHashFunction,
   getSendingReceivingCurrency,
-  getSwapMemo,
   getUnixTime,
   reverseBuffer,
   splitPairId,
@@ -42,6 +41,7 @@ import { PairConfig } from '../consts/Types';
 import ReverseSwap, { NodeType } from '../db/models/ReverseSwap';
 import Swap from '../db/models/Swap';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
+import ReverseRoutingHintRepository from '../db/repositories/ReverseRoutingHintRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import RateProvider from '../rates/RateProvider';
@@ -57,6 +57,7 @@ import WalletManager, { Currency } from '../wallet/WalletManager';
 import Errors from './Errors';
 import NodeFallback from './NodeFallback';
 import NodeSwitch from './NodeSwitch';
+import ReverseRoutingHints from './ReverseRoutingHints';
 import SwapNursery from './SwapNursery';
 import SwapOutputType from './SwapOutputType';
 import RoutingHints from './routing/RoutingHints';
@@ -128,6 +129,7 @@ class SwapManager {
 
   private nodeFallback!: NodeFallback;
   private invoiceExpiryHelper!: InvoiceExpiryHelper;
+  private readonly reverseRoutingHints: ReverseRoutingHints;
 
   constructor(
     private readonly logger: Logger,
@@ -135,7 +137,7 @@ class SwapManager {
     private readonly nodeSwitch: NodeSwitch,
     private readonly rateProvider: RateProvider,
     private readonly timeoutDeltaProvider: TimeoutDeltaProvider,
-    private readonly paymentRequestUtils: PaymentRequestUtils,
+    paymentRequestUtils: PaymentRequestUtils,
     private readonly swapOutputType: SwapOutputType,
     retryInterval: number,
     private readonly blocks: Blocks,
@@ -159,6 +161,12 @@ class SwapManager {
       retryInterval,
       this.blocks,
       this.deferredClaimer,
+    );
+
+    this.reverseRoutingHints = new ReverseRoutingHints(
+      this.walletManager,
+      this.rateProvider,
+      paymentRequestUtils,
     );
   }
 
@@ -588,6 +596,7 @@ class SwapManager {
     claimAddress?: string;
 
     userAddress?: string;
+    userAddressSignature?: Buffer;
   }): Promise<CreatedReverseSwap> => {
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(
       args.baseCurrency,
@@ -625,27 +634,7 @@ class SwapManager {
       quote: args.quoteCurrency,
     });
 
-    let invoiceMemo = getSwapMemo(sendingCurrency.symbol, true);
-
-    if (args.userAddress) {
-      try {
-        this.walletManager.wallets
-          .get(sendingCurrency.symbol)!
-          .decodeAddress(args.userAddress);
-      } catch (e) {
-        throw Errors.INVALID_ADDRESS();
-      }
-
-      invoiceMemo =
-        this.paymentRequestUtils.encodeBip21(
-          sendingCurrency.symbol,
-          args.userAddress,
-          args.onchainAmount -
-            this.rateProvider.feeProvider.minerFees.get(
-              sendingCurrency.symbol,
-            )![args.version].reverse.claim,
-        ) || invoiceMemo;
-    }
+    const hints = this.reverseRoutingHints.getHints(sendingCurrency, args);
 
     const { nodeType, lightningClient, paymentRequest, routingHints } =
       await this.nodeFallback.getReverseSwapInvoice(
@@ -657,7 +646,8 @@ class SwapManager {
         args.preimageHash,
         args.lightningTimeoutBlockDelta,
         this.invoiceExpiryHelper.getExpiry(pair),
-        invoiceMemo,
+        hints.invoiceMemo,
+        hints.routingHint,
       );
 
     lightningClient.subscribeSingleInvoice(args.preimageHash);
@@ -780,6 +770,14 @@ class SwapManager {
             ? result.redeemScript
             : JSON.stringify(SwapTreeSerializer.serializeSwapTree(tree!)),
       });
+
+      if (hints.routingHint && hints.bip21 && args.userAddressSignature) {
+        await ReverseRoutingHintRepository.addHint({
+          swapId: id,
+          bip21: hints.bip21,
+          signature: getHexString(args.userAddressSignature),
+        });
+      }
     } else {
       const blockNumber = await sendingCurrency.provider!.getBlockNumber();
       result.timeoutBlockHeight = blockNumber + args.onchainTimeoutBlockDelta;

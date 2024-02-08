@@ -474,6 +474,7 @@ class Controller {
       invoiceAmount,
       onchainAmount,
       claimPublicKey,
+      addressSignature,
     } = validateRequest(req.body, [
       { name: 'pairId', type: 'string' },
       { name: 'orderSide', type: 'string' },
@@ -486,6 +487,7 @@ class Controller {
       { name: 'invoiceAmount', type: 'number', optional: true },
       { name: 'onchainAmount', type: 'number', optional: true },
       { name: 'claimPublicKey', type: 'string', hex: true, optional: true },
+      { name: 'addressSignature', type: 'string', hex: true, optional: true },
     ]);
 
     checkPreimageHashLength(preimageHash);
@@ -503,6 +505,7 @@ class Controller {
       claimPublicKey,
       userAddress: address,
       version: SwapVersion.Legacy,
+      userAddressSignature: addressSignature,
     });
 
     await markSwap(this.countryCodes, req.ip, response.id);

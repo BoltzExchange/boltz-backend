@@ -59,6 +59,8 @@ class UtxoNursery extends TypedEventEmitter<{
     preimage: Buffer;
   };
 }> {
+  private static readonly maxParallelRequests = 6;
+
   // Locks
   private lock = new AsyncLock();
 
@@ -455,27 +457,11 @@ class UtxoNursery extends TypedEventEmitter<{
       }
     }
 
-    const inputTxs = (
-      await Promise.all(
-        Array.from(
-          new Set<string>(
-            transaction.ins.map((input) =>
-              getHexString(reverseBuffer(input.hash)),
-            ),
-          ).values(),
-        ).map((id) => chainClient.getRawTransaction(id)),
-      )
-    ).map((txHex) => parseTransaction(wallet.type, txHex));
-
-    const prevAddreses = inputTxs
-      .map((tx) => tx.outs)
-      .flat()
-      .map((output) =>
-        wallet.type === CurrencyType.Liquid
-          ? (wallet as WalletLiquid).encodeAddress(output.script, false)
-          : wallet.encodeAddress(output.script),
-      );
-
+    const prevAddreses = await this.getPreviousAddresses(
+      transaction,
+      chainClient,
+      wallet,
+    );
     if (prevAddreses.some(this.blocks.isBlocked)) {
       this.emit('swap.lockup.failed', {
         swap: updatedSwap,
@@ -574,6 +560,60 @@ class UtxoNursery extends TypedEventEmitter<{
     }
 
     return false;
+  };
+
+  private getPreviousAddresses = async (
+    transaction: Transaction | LiquidTransaction,
+    chainClient: ChainClient,
+    wallet: Wallet,
+  ) => {
+    const inputTxsIds = this.chunkArray(
+      Array.from(
+        new Set<string>(
+          transaction.ins.map((input) =>
+            getHexString(reverseBuffer(input.hash)),
+          ),
+        ).values(),
+      ),
+      UtxoNursery.maxParallelRequests,
+    );
+
+    const inputTxs = (
+      await Promise.all(
+        inputTxsIds.map((ids) => this.getTransactions(chainClient, ids)),
+      )
+    )
+      .flat()
+      .map((txHex) => parseTransaction(wallet.type, txHex));
+
+    return inputTxs
+      .map((tx) => tx.outs)
+      .flat()
+      .map((output) =>
+        wallet.type === CurrencyType.Liquid
+          ? (wallet as WalletLiquid).encodeAddress(output.script, false)
+          : wallet.encodeAddress(output.script),
+      );
+  };
+
+  private getTransactions = async (chainClient: ChainClient, ids: string[]) => {
+    const txs: string[] = [];
+
+    for (const id of ids) {
+      txs.push(await chainClient.getRawTransaction(id));
+    }
+
+    return txs;
+  };
+
+  private chunkArray = <T>(array: T[], size: number) => {
+    const chunks: T[][] = Array.from({ length: size }, () => []);
+
+    for (let i = 0; i < array.length; i++) {
+      chunks[i % size].push(array[i]);
+    }
+
+    return chunks.filter((chunk) => chunk.length !== 0);
   };
 }
 

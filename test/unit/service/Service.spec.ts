@@ -1082,8 +1082,18 @@ describe('Service', () => {
       signature: 'some valid sig',
     });
 
-    const id = 'reverseId';
-    const res = await service.getReverseBip21(id);
+    const id = 'bip21Reverse';
+    mockGetReverseSwapResult = {
+      id,
+    };
+
+    const invoice = 'someInvoice';
+    const res = await service.getReverseBip21(invoice);
+
+    expect(ReverseSwapRepository.getReverseSwap).toHaveBeenCalledTimes(1);
+    expect(ReverseSwapRepository.getReverseSwap).toHaveBeenCalledWith({
+      invoice,
+    });
 
     expect(ReverseRoutingHintRepository.getHint).toHaveBeenCalledTimes(1);
     expect(ReverseRoutingHintRepository.getHint).toHaveBeenCalledWith(id);
@@ -1655,6 +1665,8 @@ describe('Service', () => {
   });
 
   test('should create reverse swaps', async () => {
+    mockGetReverseSwapResult = null;
+
     service.allowReverseSwaps = true;
 
     let pair = 'BTC/BTC';

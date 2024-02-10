@@ -167,7 +167,7 @@ describe('SwapRouter', () => {
       expect.anything(),
     );
     expect(mockedRouter.get).toHaveBeenCalledWith(
-      '/reverse/:id/bip21',
+      '/reverse/:invoice/bip21',
       expect.anything(),
     );
     expect(mockedRouter.get).toHaveBeenCalledWith(
@@ -890,16 +890,16 @@ describe('SwapRouter', () => {
   });
 
   test('should get BIP-21 of reverse swaps', async () => {
-    const id = 'bip21Swap';
+    const invoice = 'bip21Swap';
 
     const res = mockResponse();
     await swapRouter['getReverseBip21'](
-      mockRequest(undefined, undefined, { id }),
+      mockRequest(undefined, undefined, { invoice }),
       res,
     );
 
     expect(service.getReverseBip21).toHaveBeenCalledTimes(1);
-    expect(service.getReverseBip21).toHaveBeenCalledWith(id);
+    expect(service.getReverseBip21).toHaveBeenCalledWith(invoice.toLowerCase());
 
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
@@ -909,18 +909,18 @@ describe('SwapRouter', () => {
   });
 
   test('should write 404 when no BIP-21 of reverse swap was set', async () => {
-    const id = 'noBip21Swap';
+    const invoice = 'noBip21Swap';
 
     service.getReverseBip21 = jest.fn().mockResolvedValue(undefined);
 
     const res = mockResponse();
     await swapRouter['getReverseBip21'](
-      mockRequest(undefined, undefined, { id }),
+      mockRequest(undefined, undefined, { invoice }),
       res,
     );
 
     expect(service.getReverseBip21).toHaveBeenCalledTimes(1);
-    expect(service.getReverseBip21).toHaveBeenCalledWith(id);
+    expect(service.getReverseBip21).toHaveBeenCalledWith(invoice.toLowerCase());
 
     expect(res.status).toHaveBeenCalledWith(404);
     expect(res.json).toHaveBeenCalledWith({

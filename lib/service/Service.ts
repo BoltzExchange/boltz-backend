@@ -587,8 +587,15 @@ class Service {
     return response;
   };
 
-  public getReverseBip21 = async (id: string) => {
-    const hint = await ReverseRoutingHintRepository.getHint(id);
+  public getReverseBip21 = async (invoice: string) => {
+    const reverseSwap = await ReverseSwapRepository.getReverseSwap({
+      invoice,
+    });
+    if (!reverseSwap) {
+      return undefined;
+    }
+
+    const hint = await ReverseRoutingHintRepository.getHint(reverseSwap.id);
     if (!hint) {
       return undefined;
     }

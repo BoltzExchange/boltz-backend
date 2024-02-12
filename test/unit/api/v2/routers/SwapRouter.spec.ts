@@ -175,13 +175,17 @@ describe('SwapRouter', () => {
       expect.anything(),
     );
 
-    expect(mockedRouter.post).toHaveBeenCalledTimes(6);
+    expect(mockedRouter.post).toHaveBeenCalledTimes(8);
     expect(mockedRouter.post).toHaveBeenCalledWith(
       '/submarine',
       expect.anything(),
     );
     expect(mockedRouter.post).toHaveBeenCalledWith(
       '/submarine/refund',
+      expect.anything(),
+    );
+    expect(mockedRouter.post).toHaveBeenCalledWith(
+      '/submarine/:id/refund',
       expect.anything(),
     );
     expect(mockedRouter.post).toHaveBeenCalledWith(
@@ -198,6 +202,10 @@ describe('SwapRouter', () => {
     );
     expect(mockedRouter.post).toHaveBeenCalledWith(
       '/reverse/claim',
+      expect.anything(),
+    );
+    expect(mockedRouter.post).toHaveBeenCalledWith(
+      '/reverse/:id/claim',
       expect.anything(),
     );
   });
@@ -459,7 +467,38 @@ describe('SwapRouter', () => {
     },
   );
 
-  test('should refund submarine swaps', async () => {
+  test('should refund submarine swaps with id in params', async () => {
+    const reqParams = {
+      id: 'someId',
+    };
+    const reqBody = {
+      index: 1,
+      pubNonce: '0011',
+      transaction: '0021',
+    };
+    const res = mockResponse();
+
+    await swapRouter['refundSubmarine'](
+      mockRequest(reqBody, undefined, reqParams),
+      res,
+    );
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      pubNonce: '1111',
+      partialSignature: '1112',
+    });
+
+    expect(service.musigSigner.signSwapRefund).toHaveBeenCalledTimes(1);
+    expect(service.musigSigner.signSwapRefund).toHaveBeenCalledWith(
+      reqParams.id,
+      getHexBuffer(reqBody.pubNonce),
+      getHexBuffer(reqBody.transaction),
+      reqBody.index,
+    );
+  });
+
+  test('should refund submarine swaps with id in body', async () => {
     const reqBody = {
       id: 'someId',
       index: 1,
@@ -968,7 +1007,40 @@ describe('SwapRouter', () => {
     },
   );
 
-  test('should claim reverse swaps', async () => {
+  test('should claim reverse swaps with in params', async () => {
+    const reqParams = {
+      id: 'someId',
+    };
+    const reqBody = {
+      index: 1,
+      pubNonce: '0011',
+      preimage: 'aabbcc',
+      transaction: '0021',
+    };
+    const res = mockResponse();
+
+    await swapRouter['claimReverse'](
+      mockRequest(reqBody, undefined, reqParams),
+      res,
+    );
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      pubNonce: '2111',
+      partialSignature: '2112',
+    });
+
+    expect(service.musigSigner.signReverseSwapClaim).toHaveBeenCalledTimes(1);
+    expect(service.musigSigner.signReverseSwapClaim).toHaveBeenCalledWith(
+      reqParams.id,
+      getHexBuffer(reqBody.preimage),
+      getHexBuffer(reqBody.pubNonce),
+      getHexBuffer(reqBody.transaction),
+      reqBody.index,
+    );
+  });
+
+  test('should claim reverse swaps with in body', async () => {
     const reqBody = {
       id: 'someId',
       index: 1,

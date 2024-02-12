@@ -361,74 +361,6 @@ class SwapRouter extends RouterBase {
 
     /**
      * @openapi
-     * components:
-     *   schemas:
-     *     SubmarineRefundRequest:
-     *       type: object
-     *       properties:
-     *         id:
-     *           type: string
-     *           required: true
-     *           description: ID of the Submarine Swap that should be refunded
-     *         pubNonce:
-     *           type: string
-     *           required: true
-     *           description: Public nonce of the client for the session encoded as HEX
-     *         transaction:
-     *           type: string
-     *           required: true
-     *           description: Transaction which should be signed encoded as HEX
-     *         index:
-     *           type: number
-     *           required: true
-     *           description: Index of the input of the transaction that should be signed
-     */
-
-    /**
-     * @openapi
-     * components:
-     *   schemas:
-     *     PartialSignature:
-     *       type: object
-     *       properties:
-     *         pubNonce:
-     *           type: string
-     *           description: Public nonce  encoded as HEX
-     *         partialSignature:
-     *           type: string
-     *           description: Partial signature encoded as HEX
-     */
-
-    /**
-     * @openapi
-     * /swap/submarine/refund:
-     *   post:
-     *     description: Requests a partial signature for a cooperative Submarine Swap refund transaction
-     *     tags: [Submarine]
-     *     requestBody:
-     *       required: true
-     *       content:
-     *         application/json:
-     *           schema:
-     *             $ref: '#/components/schemas/SubmarineRefundRequest'
-     *     responses:
-     *       '200':
-     *         description: A partial signature
-     *         content:
-     *           application/json:
-     *             schema:
-     *               $ref: '#/components/schemas/PartialSignature'
-     *       '400':
-     *         description: Error that caused signature request to fail
-     *         content:
-     *           application/json:
-     *             schema:
-     *               $ref: '#/components/schemas/ErrorResponse'
-     */
-    router.post('/submarine/refund', this.handleError(this.refundSubmarine));
-
-    /**
-     * @openapi
      * /swap/submarine/{id}/refund:
      *   get:
      *     tags: [Submarine]
@@ -461,6 +393,83 @@ class SwapRouter extends RouterBase {
       '/submarine/:id/refund',
       this.handleError(this.refundSubmarineEvm),
     );
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
+     *     SubmarineRefundRequest:
+     *       type: object
+     *       properties:
+     *         pubNonce:
+     *           type: string
+     *           required: true
+     *           description: Public nonce of the client for the session encoded as HEX
+     *         transaction:
+     *           type: string
+     *           required: true
+     *           description: Transaction which should be signed encoded as HEX
+     *         index:
+     *           type: number
+     *           required: true
+     *           description: Index of the input of the transaction that should be signed
+     */
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
+     *     PartialSignature:
+     *       type: object
+     *       properties:
+     *         pubNonce:
+     *           type: string
+     *           description: Public nonce  encoded as HEX
+     *         partialSignature:
+     *           type: string
+     *           description: Partial signature encoded as HEX
+     */
+
+    /**
+     * @openapi
+     * /swap/submarine/{id}/refund:
+     *   post:
+     *     description: Requests a partial signature for a cooperative Submarine Swap refund transaction
+     *     tags: [Submarine]
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *         description: ID of the Swap
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             $ref: '#/components/schemas/SubmarineRefundRequest'
+     *     responses:
+     *       '200':
+     *         description: A partial signature
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/PartialSignature'
+     *       '400':
+     *         description: Error that caused signature request to fail
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
+    router.post(
+      '/submarine/:id/refund',
+      this.handleError(this.refundSubmarine),
+    );
+
+    // Deprecated endpoint from first Taproot deployment
+    router.post('/submarine/refund', this.handleError(this.refundSubmarine));
 
     /**
      * @openapi
@@ -788,10 +797,6 @@ class SwapRouter extends RouterBase {
      *     ReverseClaimRequest:
      *       type: object
      *       properties:
-     *         id:
-     *           type: string
-     *           required: true
-     *           description: ID of the Reverse Swap that should be refunded
      *         preimage:
      *           type: string
      *           required: true
@@ -812,10 +817,17 @@ class SwapRouter extends RouterBase {
 
     /**
      * @openapi
-     * /swap/reverse/claim:
+     * /swap/reverse/{id}/claim:
      *   post:
      *     description: Requests a partial signature for a cooperative Reverse Swap claim transaction
      *     tags: [Reverse]
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *         description: ID of the Swap
      *     requestBody:
      *       required: true
      *       content:
@@ -836,6 +848,9 @@ class SwapRouter extends RouterBase {
      *             schema:
      *               $ref: '#/components/schemas/ErrorResponse'
      */
+    router.post('/reverse/:id/claim', this.handleError(this.claimReverse));
+
+    // Deprecated endpoint from first Taproot deployment
     router.post('/reverse/claim', this.handleError(this.claimReverse));
 
     /**
@@ -1055,15 +1070,21 @@ class SwapRouter extends RouterBase {
   };
 
   private refundSubmarine = async (req: Request, res: Response) => {
+    const params = req.params
+      ? validateRequest(req.params, [
+          { name: 'id', type: 'string', optional: true },
+        ])
+      : {};
+
     const { id, pubNonce, index, transaction } = validateRequest(req.body, [
-      { name: 'id', type: 'string' },
+      { name: 'id', type: 'string', optional: params.id !== undefined },
       { name: 'index', type: 'number' },
       { name: 'pubNonce', type: 'string', hex: true },
       { name: 'transaction', type: 'string', hex: true },
     ]);
 
     const sig = await this.service.musigSigner.signSwapRefund(
-      id,
+      params.id || id,
       pubNonce,
       transaction,
       index,
@@ -1232,10 +1253,16 @@ class SwapRouter extends RouterBase {
   };
 
   private claimReverse = async (req: Request, res: Response) => {
+    const params = req.params
+      ? validateRequest(req.params, [
+          { name: 'id', type: 'string', optional: true },
+        ])
+      : {};
+
     const { id, preimage, pubNonce, index, transaction } = validateRequest(
       req.body,
       [
-        { name: 'id', type: 'string' },
+        { name: 'id', type: 'string', optional: params.id !== undefined },
         { name: 'index', type: 'number' },
         { name: 'preimage', type: 'string', hex: true },
         { name: 'pubNonce', type: 'string', hex: true },
@@ -1244,7 +1271,7 @@ class SwapRouter extends RouterBase {
     );
 
     const sig = await this.service.musigSigner.signReverseSwapClaim(
-      id,
+      params.id || id,
       preimage,
       pubNonce,
       transaction,

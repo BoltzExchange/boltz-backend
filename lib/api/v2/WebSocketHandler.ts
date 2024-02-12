@@ -1,6 +1,7 @@
 import http from 'http';
 import ws from 'ws';
 import { formatError } from '../../Utils';
+import Errors from '../../service/Errors';
 import Service from '../../service/Service';
 import Controller from '../Controller';
 
@@ -118,15 +119,19 @@ class WebSocketHandler {
     const subscribeData = data as WsSubscribeRequest;
     switch (subscribeData.channel) {
       case SubscriptionChannel.SwapUpdate: {
+        const idsWithSwaps = subscribeData.args.filter((id) =>
+          this.controller.pendingSwapInfos.has(id),
+        );
+
         const existingIds = this.socketToSwaps.get(socket) || [];
         this.socketToSwaps.set(
           socket,
           existingIds.concat(
-            subscribeData.args.filter((id) => !existingIds.includes(id)),
+            idsWithSwaps.filter((id) => !existingIds.includes(id)),
           ),
         );
 
-        for (const id of subscribeData.args) {
+        for (const id of idsWithSwaps) {
           const existingSockets = this.swapToSockets.get(id) || [];
           if (existingSockets.includes(socket)) {
             continue;
@@ -135,30 +140,39 @@ class WebSocketHandler {
           this.swapToSockets.set(id, existingSockets.concat(socket));
         }
 
+        this.sendToSocket(socket, {
+          event: Operation.Subscribe,
+          channel: subscribeData.channel,
+          args: subscribeData.args,
+        });
+
+        const args = subscribeData.args.map((id) => {
+          const status = this.controller.pendingSwapInfos.get(id);
+          if (status === undefined) {
+            return {
+              id,
+              error: Errors.SWAP_NOT_FOUND(id).message,
+            };
+          }
+
+          return {
+            id,
+            ...status,
+          };
+        });
+
+        this.sendToSocket(socket, {
+          event: Operation.Update,
+          channel: SubscriptionChannel.SwapUpdate,
+          args: args,
+        });
+
         break;
       }
 
       default:
         this.sendToSocket(socket, { error: 'unknown channel' });
         return;
-    }
-
-    this.sendToSocket(socket, {
-      event: Operation.Subscribe,
-      channel: subscribeData.channel,
-      args: subscribeData.args,
-    });
-
-    if (subscribeData.channel === SubscriptionChannel.SwapUpdate) {
-      const args = subscribeData.args
-        .map((id) => [id, this.controller.pendingSwapInfos.get(id)])
-        .filter(([, data]) => data !== undefined);
-
-      this.sendToSocket(socket, {
-        event: Operation.Update,
-        channel: SubscriptionChannel.SwapUpdate,
-        args: args,
-      });
     }
   };
 
@@ -173,7 +187,7 @@ class WebSocketHandler {
         this.sendToSocket(socket, {
           event: Operation.Update,
           channel: SubscriptionChannel.SwapUpdate,
-          args: [[id, status]],
+          args: [{ id, ...status }],
         });
       }
     });

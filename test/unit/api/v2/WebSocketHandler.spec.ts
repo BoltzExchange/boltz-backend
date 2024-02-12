@@ -5,6 +5,7 @@ import WebSocketHandler, {
   SubscriptionChannel,
 } from '../../../../lib/api/v2/WebSocketHandler';
 import { SwapUpdateEvent } from '../../../../lib/consts/Enums';
+import Errors from '../../../../lib/service/Errors';
 import { SwapUpdate } from '../../../../lib/service/EventHandler';
 
 type SwapUpdateCallback = (args: { id: string; status: SwapUpdate }) => void;
@@ -24,6 +25,7 @@ describe('WebSocket', () => {
     pendingSwapInfos: new Map<string, SwapUpdate>([
       ['swap', { status: SwapUpdateEvent.InvoiceSet }],
       ['reverse', { status: SwapUpdateEvent.SwapCreated }],
+      ['updateId', { status: SwapUpdateEvent.InvoiceSet }],
     ]),
   } as any;
 
@@ -169,18 +171,18 @@ describe('WebSocket', () => {
                 event: Operation.Update,
                 channel: SubscriptionChannel.SwapUpdate,
                 args: [
-                  [
-                    'swap',
-                    {
-                      status: SwapUpdateEvent.InvoiceSet,
-                    },
-                  ],
-                  [
-                    'reverse',
-                    {
-                      status: SwapUpdateEvent.SwapCreated,
-                    },
-                  ],
+                  {
+                    id: 'swap',
+                    status: SwapUpdateEvent.InvoiceSet,
+                  },
+                  {
+                    id: 'reverse',
+                    status: SwapUpdateEvent.SwapCreated,
+                  },
+                  {
+                    id: 'notFound',
+                    error: Errors.SWAP_NOT_FOUND('notFound').message,
+                  },
                 ],
               },
         );
@@ -211,14 +213,18 @@ describe('WebSocket', () => {
       }),
     );
 
-    expect(wsHandler['swapToSockets'].size).toEqual(3);
-    for (const id of swapIds) {
+    const existingSwaps = swapIds.filter((id) => id !== 'notFound');
+
+    expect(wsHandler['swapToSockets'].size).toEqual(2);
+    for (const id of existingSwaps) {
       expect(wsHandler['swapToSockets'].get(id)).not.toBeUndefined();
       expect(wsHandler['swapToSockets'].get(id)!.length).toEqual(1);
     }
 
     expect(wsHandler['socketToSwaps'].size).toEqual(1);
-    expect(Array.from(wsHandler['socketToSwaps'].values())).toEqual([swapIds]);
+    expect(Array.from(wsHandler['socketToSwaps'].values())).toEqual([
+      existingSwaps,
+    ]);
 
     socket.close();
   });
@@ -270,7 +276,7 @@ describe('WebSocket', () => {
             expect(parsedMsg).toStrictEqual({
               event: Operation.Update,
               channel: SubscriptionChannel.SwapUpdate,
-              args: [[swapId, status]],
+              args: [{ ...status, id: swapId }],
             });
             resolve();
           });

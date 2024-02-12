@@ -126,15 +126,6 @@ class WebSocketHandler {
           existingSet.add(id);
         }
 
-        for (const id of idsWithSwaps) {
-          const existingSockets = this.swapToSockets.get(id);
-          if (existingSockets.has(socket)) {
-            continue;
-          }
-
-          existingSockets.add(socket);
-        }
-
         this.sendToSocket(socket, {
           event: Operation.Subscribe,
           channel: subscribeData.channel,
@@ -149,6 +140,8 @@ class WebSocketHandler {
               error: Errors.SWAP_NOT_FOUND(id).message,
             };
           }
+
+          this.swapToSockets.get(id).add(socket);
 
           return {
             id,

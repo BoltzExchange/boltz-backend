@@ -91,12 +91,15 @@ bucketname = ""
 # Cron interval at which a new backup should be uploaded. The default value is daily
 interval = "0 0 * * *"
 
-# Boltz backend supports sending messages to Discord after successful and failed
-# Swaps and if the wallet or channel balance is below a configurable threshold 
+# Boltz backend supports sending messages to Discord after successful and
+# failed Swaps and if the wallet or channel balance is below a configurable threshold
 [notification]
 token = ""
 channel = ""
-
+# A string to prefix all messages with
+prefix = "mainnet"
+# When Mattermost should be used instead of Discord for notifications
+# mattermostUrl = ""
 # Optionally, important alerts can be sent to a different channel
 # channelAlerts = ""
 
@@ -120,7 +123,7 @@ otpsecretpath = "/home/boltz/.boltz/otpSecret.dat"
 #             - Kraken
 #             - Poloniex
 # - "fee": percentage of the swapped amount that should be charged as fee
-# - "swapInFee" (optional): same as "fee" but for swaps from onchain to lightning; defaults to "fee" if not set 
+# - "swapInFee" (optional): same as "fee" but for swaps from onchain to lightning; defaults to "fee" if not set
 [[pairs]]
 base = "BTC"
 quote = "BTC"
@@ -133,12 +136,12 @@ minSwapAmount = 10_000
 # If not set, half of the expiry time of the reverse swap will be used
 invoiceExpiry = 7200
 
-timeoutDelta = 400
-# Alternatively, the timeouts of swaps of a pair can be set like this
-#  [pairs.timeoutDelta]
-#  reverse = 1440
-#  swapMinimal = 1440
-#  swapMaximal = 2880
+    # Timeouts in minutes
+    [pairs.timeoutDelta]
+    reverse = 1440
+    swapMinimal = 1440
+    swapMaximal = 2880
+    swapTaproot = 10080
 
 [[pairs]]
 base = "L-BTC"
@@ -146,10 +149,31 @@ quote = "BTC"
 rate = 1
 fee = 0.5
 swapInFee = 0.2
-timeoutDelta = 300
 
-maxSwapAmount = 1_000_000_000
+maxSwapAmount = 10_000_00
 minSwapAmount = 100_000
+
+    [pairs.timeoutDelta]
+    reverse = 1440
+    swapMinimal = 1440
+    swapMaximal = 2880
+    swapTaproot = 10080
+
+[[pairs]]
+base = "L-BTC"
+quote = "BTC"
+fee = 0.25
+swapInFee = 0.1
+rate = 1
+
+maxSwapAmount = 4_294_967
+minSwapAmount = 10_000
+
+    [pairs.timeoutDelta]
+    reverse = 1440
+    swapMinimal = 1400
+    swapMaximal = 2880
+    swapTaproot = 10080
 
 # The array "currencies" configures the chain and LND clients for the "pairs"
 # Not configuring the LND client is possible but will cause that chain not to support Lightning
@@ -162,37 +186,80 @@ minWalletBalance = 10_000_000
 minChannelBalance = 10_000_000
 maxZeroConfAmount = 10_000_000
 
+# Onchain wallet provider
+# Options: "core" or "lnd"
+# Defaults to "lnd"
+# preferredWallet = "core"
+
 # Can be set to alert about the balance of an unused wallet being more than a certain threshold
 # maxUnusedWalletBalance = 100_000
 
-  [currencies.chain]
-  host = "127.0.0.1"
-  port = 18_332
+    [currencies.chain]
+    host = "127.0.0.1"
+    port = 18_332
 
-  # The requests to Bitcoin Core like clients can be authenticated with cookie files or user/password
-  # If both are configured, cookie files are preferred
-  cookie = ""
+    # The requests to Bitcoin Core like clients can be authenticated with cookie files or user/password
+    # If both are configured, cookie files are preferred
+    cookie = ""
 
-  user = "bitcoin"
-  password = "bitcoin"
+    user = "bitcoin"
+    password = "bitcoin"
 
-  # Optional API endpoint of a MempoolSpace instance running on the chain of the configured client
-  mempoolSpace = "https://mempool.space/api"
+    # Optional API endpoint of a MempoolSpace instance running on the chain of the configured client
+    mempoolSpace = "https://mempool.space/api"
 
-  # The ZMQ endpoints for a chain can be configured here
-  # If they are not set, those endpoints are fetched via the "getzmqnotifications" RPC method of the node
-  zmqpubrawtx = "tcp://0.0.0.0:29000"
-  zmqpubrawblock = "tcp://0.0.0.0:29001"
-  
-  # hashblock is not required and should only be used as fallback in case rawblock is not available 
-  # zmqpubhashblock = ""
+    # The ZMQ endpoints for a chain can be configured here
+    # If they are not set, those endpoints are fetched via the "getzmqnotifications" RPC method of the node
+    zmqpubrawtx = "tcp://0.0.0.0:29000"
+    zmqpubrawblock = "tcp://0.0.0.0:29001"
 
-  [currencies.lnd]
-  host = "127.0.0.1"
-  port = 10_009
-  certpath = "/home/boltz/.lnd/bitcoin/tls.cert"
-  macaroonpath = "/home/boltz/.lnd/bitcoin/admin.macaroon"
-  maxPaymentFeeRatio = 0.03
+    # hashblock is not required and should only be used as fallback in case rawblock is not available
+    # zmqpubhashblock = ""
+
+    [currencies.lnd]
+    host = "127.0.0.1"
+    port = 10_009
+    certpath = "/home/boltz/.lnd/bitcoin/tls.cert"
+    macaroonpath = "/home/boltz/.lnd/bitcoin/admin.macaroon"
+    maxPaymentFeeRatio = 0.03
+
+    # A CLN node can be connected via its gRPC interface
+    [currencies.cln]
+    host = "127.0.0.1"
+    port = 9291
+    rootCertPath = "/home/boltz/.lightning/testnet/ca.pem"
+    privateKeyPath = "/home/boltz/.lightning/testnet/client-key.pem"
+    certChainPath = "/home/boltz/.lightning/testnet/client.pem"
+
+        # The Boltz hold invoice plugin is required: https://github.com/BoltzExchange/boltz-backend/tree/master/tools/plugins/hold
+        [currencies.cln.hold]
+        host = "127.0.0.1"
+        port = 9292
+        rootCertPath = "/home/boltz/.lightning/testnet/hold/ca.pem"
+        privateKeyPath = "/home/boltz/.lightning/testnet/hold/client-key.pem"
+        certChainPath = "/home/boltz/.lightning/testnet/hold/client.pem"
+
+        # Optionally, mpay (https://github.com/BoltzExchange/boltz-backend/tree/master/tools/plugins/mpay) can be used to pay invoices
+        [currencies.cln.mpay]
+        host = "127.0.0.1"
+        port = 9293
+        rootCertPath = "/home/boltz/.lightning/testnet/mpay/ca.pem"
+        privateKeyPath = "/home/boltz/.lightning/testnet/mpay/client-key.pem"
+        certChainPath = "/home/boltz/.lightning/testnet/mpay/client.pem"
+
+[liquid]
+symbol = "L-BTC"
+network = "liquidTestnet"
+
+maxSwapAmount = 4_294_967
+minSwapAmount = 10_000
+
+minWalletBalance = 100_000_000
+
+    [liquid.chain]
+    host = "127.0.0.1"
+    port = 18884
+    cookie = "/home/boltz/.elements/liquidv1/.cookie"
 ```
 
 ## Database migrations

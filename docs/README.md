@@ -6,6 +6,9 @@ cover: .gitbook/assets/boltz-backend_header.png
 coverY: 0
 ---
 
+// TODO: websocket
+// TODO: e2e example
+
 # 👋 Introduction
 
 ## Instances

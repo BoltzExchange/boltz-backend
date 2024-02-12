@@ -1,10 +1,11 @@
 # Table of contents
 
 * [👋 Introduction](README.md)
-* [🤖 REST API](api.md)
+* [🤖 REST API v2](https://api.boltz.exchange/swagger)
+* [🤖 REST API v1 (deprecated)](api.md)
 * [🔁 Swap Types & States](lifecycle.md)
 * [🙋♂ Claim & Refund Transactions](claiming-swaps.md)
-* [🚫 Don't trust. Verify!](dont-trust.-verify.md)
+* [🚫 Don't trust. Verify!](dont-trust-verify.md)
 * [⏩ 0-conf](0-conf.md)
 * [🚢 Backend Deployment](deployment.md)
 * [🐳 Regtest Environment](regtest.md)

@@ -1,6 +1,7 @@
 import http from 'http';
 import ws from 'ws';
 import { formatError } from '../../Utils';
+import DefaultMap from '../../consts/DefaultMap';
 import Errors from '../../service/Errors';
 import Service from '../../service/Service';
 import Controller from '../Controller';
@@ -38,8 +39,12 @@ class WebSocketHandler {
   private readonly ws: ws.Server;
   private pingInterval?: NodeJS.Timer;
 
-  private readonly swapToSockets = new Map<string, ws[]>();
-  private readonly socketToSwaps = new Map<ws, string[]>();
+  private readonly swapToSockets = new DefaultMap<string, Set<ws>>(
+    () => new Set<ws>(),
+  );
+  private readonly socketToSwaps = new DefaultMap<ws, Set<string>>(
+    () => new Set<string>(),
+  );
 
   constructor(
     private readonly service: Service,
@@ -74,22 +79,15 @@ class WebSocketHandler {
       socket.on('message', (msg) => this.handleMessage(socket, msg));
       socket.on('close', () => {
         const ids = this.socketToSwaps.get(socket);
-        if (ids === undefined) {
-          return;
-        }
-
         this.socketToSwaps.delete(socket);
 
         for (const id of ids) {
-          const sockets = this.swapToSockets
-            .get(id)
-            ?.filter((s) => s !== socket);
-          if (sockets === undefined || sockets.length === 0) {
-            this.swapToSockets.delete(id);
-            continue;
-          }
+          const set = this.swapToSockets.get(id);
+          set.delete(socket);
 
-          this.swapToSockets.set(id, sockets);
+          if (set.size === 0) {
+            this.swapToSockets.delete(id);
+          }
         }
       });
     });
@@ -123,21 +121,18 @@ class WebSocketHandler {
           this.controller.pendingSwapInfos.has(id),
         );
 
-        const existingIds = this.socketToSwaps.get(socket) || [];
-        this.socketToSwaps.set(
-          socket,
-          existingIds.concat(
-            idsWithSwaps.filter((id) => !existingIds.includes(id)),
-          ),
-        );
+        const existingSet = this.socketToSwaps.get(socket);
+        for (const id of idsWithSwaps) {
+          existingSet.add(id);
+        }
 
         for (const id of idsWithSwaps) {
-          const existingSockets = this.swapToSockets.get(id) || [];
-          if (existingSockets.includes(socket)) {
+          const existingSockets = this.swapToSockets.get(id);
+          if (existingSockets.has(socket)) {
             continue;
           }
 
-          this.swapToSockets.set(id, existingSockets.concat(socket));
+          existingSockets.add(socket);
         }
 
         this.sendToSocket(socket, {
@@ -178,7 +173,7 @@ class WebSocketHandler {
 
   private listenSwapUpdates = () => {
     this.service.eventHandler.on('swap.update', ({ id, status }) => {
-      const sockets = this.swapToSockets.get(id);
+      const sockets = this.swapToSockets.getNoDefault(id);
       if (sockets === undefined) {
         return;
       }

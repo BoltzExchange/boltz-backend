@@ -218,12 +218,12 @@ describe('WebSocket', () => {
     expect(wsHandler['swapToSockets'].size).toEqual(2);
     for (const id of existingSwaps) {
       expect(wsHandler['swapToSockets'].get(id)).not.toBeUndefined();
-      expect(wsHandler['swapToSockets'].get(id)!.length).toEqual(1);
+      expect(wsHandler['swapToSockets'].get(id)!.size).toEqual(1);
     }
 
     expect(wsHandler['socketToSwaps'].size).toEqual(1);
     expect(Array.from(wsHandler['socketToSwaps'].values())).toEqual([
-      existingSwaps,
+      new Set(existingSwaps),
     ]);
 
     socket.close();

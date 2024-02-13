@@ -44,6 +44,9 @@ class ChainRouter extends RouterBase {
      *               additionalProperties:
      *                 type: number
      *                 description: Fee estimation in sat/vbyte or GWEI
+     *             examples:
+     *               json:
+     *                 value: '{"BTC":19,"L-BTC":0.11}'
      */
     router.get('/fees', this.handleError(this.getFees));
 
@@ -63,6 +66,9 @@ class ChainRouter extends RouterBase {
      *               additionalProperties:
      *                 type: number
      *                 description: Block height of the chain
+     *             examples:
+     *               json:
+     *                 value: '{"BTC":830311,"L-BTC":2725579}'
      */
     router.get('/heights', this.handleError(this.getHeights));
 
@@ -79,12 +85,14 @@ class ChainRouter extends RouterBase {
      *           properties:
      *             chainId:
      *               type: number
+     *               required: true
      *               description: ID of the chain
      *             name:
      *               type: string
      *               description: Name of the chain if applicable
      *         swapContracts:
      *           type: object
+     *           required: true
      *           description: Mapping of the names of swap contracts to their address
      *           properties:
      *             EtherSwap:
@@ -95,6 +103,7 @@ class ChainRouter extends RouterBase {
      *               description: Address of the ERC20 contract
      *         tokens:
      *           type: object
+     *           required: true
      *           description: Mapping of the symbol of tokens to their address
      *           additionalProperties:
      *             type: string
@@ -151,6 +160,7 @@ class ChainRouter extends RouterBase {
      *               properties:
      *                 fee:
      *                   type: number
+     *                   required: true
      *                   description: Fee estimation in sat/vbyte or GWEI
      *       '400':
      *         description: Error that caused the request to fail
@@ -182,8 +192,9 @@ class ChainRouter extends RouterBase {
      *             schema:
      *               type: object
      *               properties:
-     *                 fee:
+     *                 height:
      *                   type: number
+     *                   required: true
      *                   description: Block height of the chain
      *       '400':
      *         description: Error that caused the request to fail
@@ -223,6 +234,7 @@ class ChainRouter extends RouterBase {
      *               properties:
      *                 hex:
      *                   type: string
+     *                   required: true
      *                   description: The transaction encoded as HEX
      *       '400':
      *         description: Error that caused the query for the transaction to fail
@@ -258,6 +270,7 @@ class ChainRouter extends RouterBase {
      *             properties:
      *               hex:
      *                 type: string
+     *                 required: true
      *                 description: The transaction to broadcast as raw HEX
      *     responses:
      *       '201':
@@ -269,6 +282,7 @@ class ChainRouter extends RouterBase {
      *               properties:
      *                 id:
      *                   type: string
+     *                   required: true
      *                   description: ID of the broadcast transaction
      *       '400':
      *         description: Error that caused the broadcast of the transaction to fail
@@ -302,6 +316,9 @@ class ChainRouter extends RouterBase {
      *           application/json:
      *             schema:
      *               $ref: '#/components/schemas/Contracts'
+     *             examples:
+     *               json:
+     *                 value: '{"network":{"chainId":31337},"tokens":{"USDT":"0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0"},"swapContracts":{"EtherSwap":"0x5FbDB2315678afecb367f032d93F642f64180aa3","ERC20Swap":"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"}}'
      *       '400':
      *         description: Error that caused the query for the transaction to fail
      *         content:

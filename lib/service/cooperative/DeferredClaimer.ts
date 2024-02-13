@@ -372,7 +372,6 @@ class DeferredClaimer extends TypedEventEmitter<{
     );
   };
 
-  // TODO: how to handle non Taproot swaps?
   private shouldBeDeferred = (chainCurrency: string, swap: Swap) => {
     if (!this.config.deferredClaimSymbols.includes(chainCurrency)) {
       this.logNotDeferringReason(

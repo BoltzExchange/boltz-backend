@@ -38,9 +38,11 @@ class SwapRouter extends RouterBase {
      *       properties:
      *         version:
      *           type: number
+     *           required: true
      *           description: Tapscript version
      *         output:
      *           type: string
+     *           required: true
      *           description: Script encoded as HEX
      */
 
@@ -75,30 +77,38 @@ class SwapRouter extends RouterBase {
      *       properties:
      *         hash:
      *           type: string
+     *           required: true
      *           description: Hash of the pair that can be used when creating the Submarine Swap to ensure the information of the client is up-to-date
      *         rate:
      *           type: number
+     *           required: true
      *           description: Exchange rate of the pair
      *         limits:
      *           type: object
      *           properties:
      *             minimal:
      *               type: number
+     *               required: true
      *               description: Minimal amount that can be swapped in satoshis
      *             maximal:
      *               type: number
+     *               required: true
      *               description: Maximal amount that can be swapped in satoshis
      *             maximalZeroConfAmount:
      *               type: number
+     *               required: true
      *               description: Maximal amount that will be accepted 0-conf in satoshis
      *         fees:
      *           type: object
+     *           required: true
      *           properties:
      *             percentage:
      *               type: number
+     *               required: true
      *               description: Relative fee that will be charged in percent
      *             minerFees:
      *               type: number
+     *               required: true
      *               description: Absolute miner fee that will be charged in satoshis
      */
 
@@ -119,6 +129,9 @@ class SwapRouter extends RouterBase {
      *                 type: object
      *                 additionalProperties:
      *                   $ref: '#/components/schemas/SubmarinePair'
+     *             examples:
+     *               json:
+     *                 value: '{"BTC":{"BTC":{"hash":"90ab5c8e6ece5db52173e9423a0dd3071f5894dc8d35ed592a439ccabcdebbd5","rate":1,"limits":{"maximal":25000000,"minimal":50000,"maximalZeroConf":0},"fees":{"percentage":0.1,"minerFees":4379}}},"L-BTC":{"BTC":{"hash":"b53c0ac3da051a78f67f6dd25f2ab0858492dc6881015b236d554227c85fda7d","rate":1,"limits":{"maximal":25000000,"minimal":1000,"maximalZeroConf":100000},"fees":{"percentage":0.1,"minerFees":148}}}}'
      */
     router.get('/submarine', this.handleError(this.getSubmarine));
 
@@ -149,8 +162,10 @@ class SwapRouter extends RouterBase {
      *           description: Public key with which the Submarine Swap can be refunded encoded as HEX
      *         pairHash:
      *           type: string
+     *           description: Pair hash from the pair information for the client to check if their fee data is up-to-date
      *         referralId:
      *           type: string
+     *           description: Referral ID to be used for the Submarine swap
      */
 
     /**
@@ -162,6 +177,7 @@ class SwapRouter extends RouterBase {
      *       properties:
      *         id:
      *           type: string
+     *           required: true
      *           description: ID of the created Submarine Swap
      *         bip21:
      *           type: string
@@ -176,12 +192,14 @@ class SwapRouter extends RouterBase {
      *           description: Public key of Boltz that will be used to sweep the onchain HTLC
      *         timeoutBlockHeight:
      *           type: number
+     *           required: true
      *           description: Timeout block height of the onchain HTLC
      *         acceptZeroConf:
      *           type: boolean
      *           description: Whether 0-conf will be accepted assuming the transaction does not signal RBF and has a reasonably high fee
      *         expectedAmount:
      *           type: number
+     *           required: true
      *           description: Amount that is expected to be sent to the onchain HTLC address in satoshis
      *         blindingKey:
      *           type: string
@@ -238,6 +256,7 @@ class SwapRouter extends RouterBase {
      *             properties:
      *               invoice:
      *                 type: string
+     *                 required: true
      *                 description: BOLT11 invoice that should be paid. The preimage hash has to match the one specified when creating the swap
      *               pairHash:
      *                 type: string
@@ -251,12 +270,15 @@ class SwapRouter extends RouterBase {
      *               properties:
      *                 bip21:
      *                   type: string
+     *                   required: true
      *                   description: BIP21 for the onchain payment request
      *                 expectedAmount:
      *                   type: number
+     *                   required: true
      *                   description: Amount that is expected to be sent to the onchain HTLC address in satoshis
      *                 acceptZeroConf:
      *                   type: boolean
+     *                   required: true
      *                   description: Whether 0-conf will be accepted assuming the transaction does not signal RBF and has a reasonably high fee
      *       '400':
      *         description: Error that caused the request to fail
@@ -293,6 +315,7 @@ class SwapRouter extends RouterBase {
      *               properties:
      *                 invoiceAmount:
      *                   type: number
+     *                   required: true
      *                   description: Expected amount of the invoice
      *       '400':
      *         description: Error that caused the request to fail
@@ -315,12 +338,14 @@ class SwapRouter extends RouterBase {
      *       properties:
      *         id:
      *           type: string
+     *           required: true
      *           description: ID the lockup transaction
      *         hex:
      *           type: string
      *           description: Lockup transaction as raw HEX
      *         timeoutBlockHeight:
      *           type: number
+     *           required: true
      *           description: Block height at which the time-lock expires
      *         timeoutEta:
      *           type: number
@@ -381,6 +406,7 @@ class SwapRouter extends RouterBase {
      *               properties:
      *                 signature:
      *                   type: string
+     *                   required: true
      *                   description: EIP-712 signature with which a cooperative refund can be executed onchain
      *       '400':
      *         description: Error that caused signature request to fail
@@ -424,9 +450,11 @@ class SwapRouter extends RouterBase {
      *       properties:
      *         pubNonce:
      *           type: string
+     *           required: true
      *           description: Public nonce  encoded as HEX
      *         partialSignature:
      *           type: string
+     *           required: true
      *           description: Partial signature encoded as HEX
      */
 
@@ -480,15 +508,19 @@ class SwapRouter extends RouterBase {
      *       properties:
      *         preimage:
      *           type: string
+     *           required: true
      *           description: Preimage of the invoice for the Submarine Swap encoded as HEX
      *         pubNonce:
      *           type: string
+     *           required: true
      *           description: Public nonce of Boltz encoded as HEX
      *         publicKey:
      *           type: string
+     *           required: true
      *           description: Public key of Boltz encoded as HEX
      *         transactionHash:
      *           type: string
+     *           required: true
      *           description: Hash of the transaction that should be signed
      */
 
@@ -587,33 +619,40 @@ class SwapRouter extends RouterBase {
      *       properties:
      *         hash:
      *           type: string
+     *           required: true
      *           description: Hash of the pair that can be used when creating the Reverse Swap to ensure the information of the client is up-to-date
      *         rate:
      *           type: number
+     *           required: true
      *           description: Exchange rate of the pair
      *         limits:
      *           type: object
      *           properties:
      *             minimal:
      *               type: number
+     *               required: true
      *               description: Minimal amount that can be swapped in satoshis
      *             maximal:
      *               type: number
+     *               required: true
      *               description: Maximal amount that can be swapped in satoshis
      *         fees:
      *           type: object
      *           properties:
      *             percentage:
      *               type: number
+     *               required: true
      *               description: Relative fee that will be charged in percent
      *             minerFees:
      *               type: object
      *               properties:
      *                 lockup:
      *                   type: number
+     *                   required: true
      *                   description: Absolute miner fee that will be charged in satoshis
      *                 claim:
      *                   type: number
+     *                   required: true
      *                   description: Absolute miner fee that we estimate for the claim transaction in satoshis
      */
 
@@ -634,6 +673,9 @@ class SwapRouter extends RouterBase {
      *                 type: object
      *                 additionalProperties:
      *                   $ref: '#/components/schemas/ReversePair'
+     *             examples:
+     *               json:
+     *                 value: '{"BTC":{"BTC":{"hash":"784db95522d197f4e90d661e8451d0d78f63906f74cc566cd395d32f359fdc90","rate":1,"limits":{"maximal":25000000,"minimal":50000},"fees":{"percentage":0.5,"minerFees":{"claim":1998,"lockup":2772}}},"L-BTC":{"hash":"976e6dad9097f657213244b046e5f29524b743568a2c3d569b421df1e07e1b44","rate":1,"limits":{"maximal":25000000,"minimal":1000},"fees":{"percentage":0.25,"minerFees":{"claim":143,"lockup":276}}}}}'
      */
     router.get('/reverse', this.handleError(this.getReverse));
 
@@ -670,8 +712,10 @@ class SwapRouter extends RouterBase {
      *           description: Amount that should be locked in the onchain HTLC; conflicts with "invoiceAmount"
      *         pairHash:
      *           type: string
+     *           description: Pair hash from the pair information for the client to check if their fee data is up-to-date
      *         referralId:
      *           type: string
+     *           description: Referral ID to be used for the Submarine swap
      *         address:
      *           type: string
      *           description: Address to be used for a BIP-21 direct payment
@@ -689,9 +733,11 @@ class SwapRouter extends RouterBase {
      *       properties:
      *         id:
      *           type: string
+     *           required: true
      *           description: ID of the created Reverse Swap
      *         invoice:
      *           type: string
+     *           required: true
      *           description: Hold invoice of the Reverse Swap
      *         swapTree:
      *           $ref: '#/components/schemas/SwapTree'
@@ -703,6 +749,7 @@ class SwapRouter extends RouterBase {
      *           description: Public key of Boltz that will be used to refund the onchain HTLC
      *         timeoutBlockHeight:
      *           type: number
+     *           required: true
      *           description: Timeout block height of the onchain HTLC
      *         onchainAmount:
      *           type: number
@@ -749,12 +796,14 @@ class SwapRouter extends RouterBase {
      *       properties:
      *         id:
      *           type: string
+     *           required: true
      *           description: ID the lockup transaction
      *         hex:
      *           type: string
      *           description: Lockup transaction as raw HEX
      *         timeoutBlockHeight:
      *           type: number
+     *           required: true
      *           description: Block height at which the time-lock expires
      */
 
@@ -862,9 +911,11 @@ class SwapRouter extends RouterBase {
      *       properties:
      *         bip21:
      *           type: string
+     *           required: true
      *           description: BIP-21 for the Reverse Swap
      *         signature:
      *           type: string
+     *           required: true
      *           description: Signature of the address in the BIP-21 of the public key in the routing hint
      */
 
@@ -922,6 +973,7 @@ class SwapRouter extends RouterBase {
      *       properties:
      *         status:
      *           type: string
+     *           required: true
      *           description: Status of the Swap
      *         zeroConfRejected:
      *           type: boolean

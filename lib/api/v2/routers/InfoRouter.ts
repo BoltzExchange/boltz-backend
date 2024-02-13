@@ -38,6 +38,7 @@ class InfoRouter extends RouterBase {
      *               properties:
      *                 version:
      *                   type: string
+     *                   required: true
      */
     router.get('/version', this.handleError(this.getVersion));
 

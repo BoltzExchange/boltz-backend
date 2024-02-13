@@ -419,7 +419,7 @@ describe('MusigSigner', () => {
     },
   );
 
-  test('should throw creating claim signature for reverse swap with incorrect preimage', async () => {
+  test('should throw when creating claim signature for reverse swap with incorrect preimage', async () => {
     ReverseSwapRepository.getReverseSwap = jest.fn().mockResolvedValue({
       version: SwapVersion.Taproot,
       preimageHash: randomBytes(32),
@@ -436,6 +436,35 @@ describe('MusigSigner', () => {
       ),
     ).rejects.toEqual(Errors.INCORRECT_PREIMAGE());
   });
+
+  test.each`
+    length
+    ${16}
+    ${31}
+    ${33}
+    ${64}
+  `(
+    'should throw when creating claim signature for reverse swap with preimage length $length',
+    async ({ length }) => {
+      const preimage = randomBytes(length);
+
+      ReverseSwapRepository.getReverseSwap = jest.fn().mockResolvedValue({
+        version: SwapVersion.Taproot,
+        status: SwapUpdateEvent.TransactionConfirmed,
+        preimageHash: getHexString(crypto.sha256(preimage)),
+      });
+
+      await expect(
+        signer.signReverseSwapClaim(
+          'invalidPreimage',
+          preimage,
+          Buffer.alloc(0),
+          Buffer.alloc(0),
+          0,
+        ),
+      ).rejects.toEqual(Errors.INCORRECT_PREIMAGE());
+    },
+  );
 
   test('should throw when creating claim signature for legacy reverse swap', async () => {
     const id = 'id';

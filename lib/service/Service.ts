@@ -23,6 +23,7 @@ import {
   stringify,
 } from '../Utils';
 import ApiErrors from '../api/Errors';
+import { checkPreimageHashLength } from '../api/Utils';
 import ElementsClient from '../chain/ElementsClient';
 import {
   etherDecimals,
@@ -1244,6 +1245,7 @@ class Service {
     }
 
     const preimageHash = getHexBuffer(decodeInvoice(invoice).paymentHash!);
+    checkPreimageHashLength(preimageHash);
 
     const {
       id,

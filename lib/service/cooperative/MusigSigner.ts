@@ -120,7 +120,10 @@ class MusigSigner {
       throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM();
     }
 
-    if (getHexString(crypto.sha256(preimage)) !== swap.preimageHash) {
+    if (
+      preimage.length !== 32 ||
+      getHexString(crypto.sha256(preimage)) !== swap.preimageHash
+    ) {
       this.logger.verbose(
         `Not creating partial signature for claim of Reverse Swap ${swap.id}: preimage is incorrect`,
       );

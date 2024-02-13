@@ -6,9 +6,6 @@ cover: .gitbook/assets/boltz-backend_header.png
 coverY: 0
 ---
 
-// TODO: websocket
-// TODO: e2e example
-
 # 👋 Introduction
 
 ## Instances
@@ -20,10 +17,6 @@ The corresponding REST APIs can be accessed at:
 * Testnet: `https://api.testnet.boltz.exchange/`
 * Mainnet: `https://api.boltz.exchange/`
 * Mainnet via [Tor](https://www.torproject.org/): `http://boltzzzbnus4m7mta3cxmflnps4fp7dueu2tgurstbvrbt6xswzcocyd.onion/api/`
-
-> Note: To test API accessibility via browser, simply append an [endpoint](api.md) to the address, e.g.:
->
-> [`https://api.boltz.exchange/version`](https://api.boltz.exchange/version)
 
 We operate several lightning nodes on testnet and mainnet, for reliable swapping on testnet it's advisable to open a direct channel with us:
 

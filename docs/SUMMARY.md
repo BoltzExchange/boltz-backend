@@ -1,8 +1,8 @@
 # Table of contents
 
 * [👋 Introduction](README.md)
-* [🤖 REST API v2](https://api.boltz.exchange/swagger)
-* [🤖 REST API v1 (deprecated)](api.md)
+* [🤖 REST API v2](api-v2.md)
+* [🤖 REST API v1 (deprecated)](api-v1.md)
 * [🔁 Swap Types & States](lifecycle.md)
 * [🙋♂ Claim & Refund Transactions](claiming-swaps.md)
 * [🚫 Don't trust. Verify!](dont-trust-verify.md)

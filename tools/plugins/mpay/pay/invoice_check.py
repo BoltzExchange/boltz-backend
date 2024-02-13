@@ -6,6 +6,10 @@ from pyln.client import Plugin
 from plugins.hold.encoder import get_network_prefix
 
 
+class InvoiceNoSelfPaymentError(Exception):
+    pass
+
+
 class InvoiceNetworkInvalidError(Exception):
     pass
 
@@ -16,6 +20,7 @@ class InvoiceExpiredError(Exception):
 
 class InvoiceChecker:
     _pl: Plugin
+    _node_id: str
     _prefix: str
 
     def __init__(self, pl: Plugin) -> None:
@@ -23,17 +28,23 @@ class InvoiceChecker:
 
     def init(self) -> None:
         info = self._pl.rpc.getinfo()
+        self._node_id = info["id"]
         self._prefix = get_network_prefix(info["network"])
 
     def check(self, invoice: str) -> None:
         dec = decode(invoice)
 
         self._check_network(dec)
+        self._check_self_payment(dec)
         self._check_expiry(dec)
 
     def _check_network(self, dec: Bolt11) -> None:
         if dec.currency != self._prefix:
             raise InvoiceNetworkInvalidError
+
+    def _check_self_payment(self, dec: Bolt11) -> None:
+        if dec.payee == self._node_id:
+            raise InvoiceNoSelfPaymentError
 
     @staticmethod
     def _check_expiry(dec: Bolt11) -> None:

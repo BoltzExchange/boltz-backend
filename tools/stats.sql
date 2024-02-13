@@ -181,4 +181,4 @@ GROUP BY GROUPING SETS (
     (year, month),
     (year)
 )
-ORDER BY year, month NULLS LAST , day NULLS LAST;
+ORDER BY year, month NULLS LAST, day NULLS LAST;

@@ -14,7 +14,10 @@ type ApiArgument = {
 };
 
 // Some endpoints are getting spammed on mainnet, so we don't log the warnings for them
-const errorsNotToLog: any[] = [ServiceErrors.SWAP_NO_LOCKUP().message];
+const errorsNotToLog: any[] = [
+  ServiceErrors.SWAP_NO_LOCKUP().message,
+  ServiceErrors.ETHEREUM_NOT_ENABLED().message,
+];
 
 /**
  * Validates that all required arguments were provided in the body correctly

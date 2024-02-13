@@ -964,46 +964,6 @@
         }
       }
     },
-    "/swap/submarine/refund": {
-      "post": {
-        "description": "Requests a partial signature for a cooperative Submarine Swap refund transaction",
-        "tags": [
-          "Submarine"
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SubmarineRefundRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "A partial signature",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PartialSignature"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Error that caused signature request to fail",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/swap/submarine/{id}/refund": {
       "get": {
         "tags": [
@@ -1033,6 +993,55 @@
                       "description": "EIP-712 signature with which a cooperative refund can be executed onchain"
                     }
                   }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error that caused signature request to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Requests a partial signature for a cooperative Submarine Swap refund transaction",
+        "tags": [
+          "Submarine"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID of the Swap"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmarineRefundRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "A partial signature",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartialSignature"
                 }
               }
             }
@@ -1265,11 +1274,22 @@
         }
       }
     },
-    "/swap/reverse/claim": {
+    "/swap/reverse/{id}/claim": {
       "post": {
         "description": "Requests a partial signature for a cooperative Reverse Swap claim transaction",
         "tags": [
           "Reverse"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID of the Swap"
+          }
         ],
         "requestBody": {
           "required": true,
@@ -1646,11 +1666,6 @@
       "SubmarineRefundRequest": {
         "type": "object",
         "properties": {
-          "id": {
-            "type": "string",
-            "required": true,
-            "description": "ID of the Submarine Swap that should be refunded"
-          },
           "pubNonce": {
             "type": "string",
             "required": true,
@@ -1856,11 +1871,6 @@
       "ReverseClaimRequest": {
         "type": "object",
         "properties": {
-          "id": {
-            "type": "string",
-            "required": true,
-            "description": "ID of the Reverse Swap that should be refunded"
-          },
           "preimage": {
             "type": "string",
             "required": true,

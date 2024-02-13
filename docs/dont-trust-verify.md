@@ -13,7 +13,13 @@ As a general concept, Boltz API clients should not trust any critical informatio
 
 ## UTXO Chain Address Verification
 
-Boltz currently supports two types of addresses:
+### Taproot
+
+The [scripting section](claiming-swaps.md) explains how P2TR addresses are created for Taproot swaps.
+
+### Legacy
+
+Boltz currently supports two types of addresses for legacy swaps:
 
 * [P2SH nested P2WSH](https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#user-content-P2WSH\_nested\_in\_BIP16\_P2SH) for Normal Submarine Swaps
 * [P2WSH](https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#user-content-P2WSH) for Reverse Submarine Swaps

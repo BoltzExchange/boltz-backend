@@ -24,9 +24,9 @@ module.exports = {
   ignorePatterns: ['dist/', 'lib/proto/', 'contracts/', 'node_modules/'],
   plugins: [
     'jest',
-    'eslint-plugin-import',
     'eslint-plugin-node',
     '@typescript-eslint',
+    'eslint-plugin-import',
   ],
   extends: [
     'eslint:recommended',

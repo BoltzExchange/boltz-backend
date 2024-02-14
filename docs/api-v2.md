@@ -1,6 +1,5 @@
 ---
-description: >-
-  This page goes over the Boltz API v2
+description: This page introduces Boltz API v2
 ---
 
 # 🤖 REST API v2
@@ -11,14 +10,12 @@ The Swagger specifications of the Boltz REST API can be found [here](https://api
 
 ## WebSocket
 
-Instead of polling for Swap status updates, clients can subscribe to them with a Websocket.
-The endpoints are available at:
+Instead of polling for swap status updates, clients can subscribe to updates with a WebSocket. The endpoints are available at:
 
-- Testnet: `wss://api.testnet.boltz.exchange/v2/ws`
-- Mainnet: `wss://api.boltz.exchange/v2/ws`
+* Testnet: `wss://api.testnet.boltz.exchange/v2/ws`
+* Mainnet: `wss://api.boltz.exchange/v2/ws`
 
-To subscribe to Swap status updates send a message below.
-`args` is a list of the Swap ids to subscribe to.
+To subscribe to swap status updates, send the message below. `args` is a list of swap ids to subscribe to.
 
 ```json
 {
@@ -44,7 +41,7 @@ The backend will respond with a message like this to confirm that the subscripti
 }
 ```
 
-After that initial subscription confirmation message and whenever a Swap status is updated, Boltz will send a message like this:
+After that initial subscription confirmation message and whenever a swap status is updated, Boltz will send a message like this:
 
 ```json
 {
@@ -59,16 +56,15 @@ After that initial subscription confirmation message and whenever a Swap status 
 }
 ```
 
-The `args` are a list of objects. Those objects are like the responses of `GET /swap/{id}` but also include the id of the Swap.
+The `args` are a list of objects. Those objects are like the responses of `GET /swap/{id}` but also include the id of the swap.
 
 ## Examples
 
-Underneath are some examples for how to swap with API V2 and its WebSocket.
-Those examples are in TypeScript and can be run with Node.js.
+Underneath are some examples for how to swap with API V2 and its WebSocket. Those examples are in TypeScript and can be run with Node.js.
 
 ## Submarine Swap
 
-Do a Submarine swap from mainchain Bitcoin to lightning.
+Swap from the Bitcoin mainchain to Lightning.
 
 ```typescript
 import zkpInit from '@vulpemventures/secp256k1-zkp';
@@ -213,7 +209,7 @@ const submarineSwap = async () => {
 
 ## Reverse Swap
 
-Perform a Reverse Swap from lightning to mainchain Bitcoin.
+Swap from Lightning to the Bitcoin mainchain.
 
 ```typescript
 import zkpInit from '@vulpemventures/secp256k1-zkp';

@@ -1,4 +1,5 @@
-import { Model, Sequelize, DataTypes } from 'sequelize';
+import { DataTypes, Model, Sequelize } from 'sequelize';
+import { SwapVersion } from '../../consts/Enums';
 import Pair from './Pair';
 
 enum NodeType {
@@ -8,10 +9,12 @@ enum NodeType {
 
 type ReverseSwapType = {
   id: string;
+  version: SwapVersion;
 
   lockupAddress: string;
 
   keyIndex?: number;
+  claimPublicKey?: string;
   redeemScript?: string;
 
   claimAddress?: string;
@@ -48,10 +51,12 @@ type ReverseSwapType = {
 
 class ReverseSwap extends Model implements ReverseSwapType {
   public id!: string;
+  public version!: SwapVersion;
 
   public lockupAddress!: string;
 
   public keyIndex?: number;
+  public claimPublicKey?: string;
   public redeemScript?: string;
 
   public claimAddress?: string;
@@ -97,8 +102,20 @@ class ReverseSwap extends Model implements ReverseSwapType {
           primaryKey: true,
           allowNull: false,
         },
+        version: {
+          type: new DataTypes.INTEGER(),
+          allowNull: false,
+          validate: {
+            isIn: [
+              Object.values(SwapVersion).filter(
+                (val) => typeof val === 'number',
+              ),
+            ],
+          },
+        },
         lockupAddress: { type: new DataTypes.STRING(255), allowNull: false },
         keyIndex: { type: new DataTypes.INTEGER(), allowNull: true },
+        claimPublicKey: { type: new DataTypes.STRING(), allowNull: true },
         redeemScript: { type: new DataTypes.TEXT(), allowNull: true },
         claimAddress: { type: new DataTypes.STRING(255), allowNull: true },
         fee: { type: new DataTypes.BIGINT(), allowNull: false },

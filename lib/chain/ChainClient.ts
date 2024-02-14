@@ -1,23 +1,23 @@
 import { Transaction } from 'bitcoinjs-lib';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib';
-import Logger from '../Logger';
-import RpcClient from './RpcClient';
 import BaseClient from '../BaseClient';
 import { ChainConfig } from '../Config';
-import MempoolSpace from './MempoolSpace';
+import Logger from '../Logger';
 import { formatError, getHexString } from '../Utils';
 import { ClientStatus, CurrencyType } from '../consts/Enums';
-import ZmqClient, { filters, ZmqNotification } from './ZmqClient';
-import ChainTipRepository from '../db/repositories/ChainTipRepository';
 import {
   Block,
-  WalletInfo,
-  NetworkInfo,
-  UnspentUtxo,
   BlockVerbose,
   BlockchainInfo,
+  NetworkInfo,
   RawTransaction,
+  UnspentUtxo,
+  WalletInfo,
 } from '../consts/Types';
+import ChainTipRepository from '../db/repositories/ChainTipRepository';
+import MempoolSpace from './MempoolSpace';
+import RpcClient from './RpcClient';
+import ZmqClient, { ZmqNotification, filters } from './ZmqClient';
 
 enum AddressType {
   Legacy = 'legacy',
@@ -26,25 +26,14 @@ enum AddressType {
   Taproot = 'bech32m',
 }
 
-interface ChainClient {
-  on(event: 'block', listener: (height: number) => void): this;
-  emit(event: 'block', height: number): boolean;
-
-  on(
-    event: 'transaction',
-    listener: (
-      transaction: Transaction | LiquidTransaction,
-      confirmed: boolean,
-    ) => void,
-  ): this;
-  emit(
-    event: 'transaction',
-    transaction: Transaction | LiquidTransaction,
-    confirmed: boolean,
-  ): boolean;
-}
-
-class ChainClient extends BaseClient {
+class ChainClient extends BaseClient<{
+  'status.changed': ClientStatus;
+  block: number;
+  transaction: {
+    transaction: Transaction | LiquidTransaction;
+    confirmed: boolean;
+  };
+}> {
   public static readonly serviceName = 'Core';
   public static readonly decimals = 100000000;
 
@@ -233,6 +222,10 @@ class ChainClient extends BaseClient {
     }
   };
 
+  public getRawMempool = async () => {
+    return this.client.request<string[]>('getrawmempool');
+  };
+
   public estimateFee = async (confTarget = 2): Promise<number> => {
     return this.estimateFeeWithFloor(confTarget);
   };
@@ -332,8 +325,8 @@ class ChainClient extends BaseClient {
       this.emit('block', height);
     });
 
-    this.zmqClient.on('transaction', (transaction, confirmed) => {
-      this.emit('transaction', transaction, confirmed);
+    this.zmqClient.on('transaction', ({ transaction, confirmed }) => {
+      this.emit('transaction', { transaction, confirmed });
     });
   };
 

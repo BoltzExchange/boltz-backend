@@ -1,29 +1,21 @@
-import { Op } from 'sequelize';
 import AsyncLock from 'async-lock';
-import { EventEmitter } from 'events';
 import { crypto } from 'bitcoinjs-lib';
+import { Op } from 'sequelize';
 import Logger from '../Logger';
-import ClnClient from '../lightning/ClnClient';
-import LndClient from '../lightning/LndClient';
-import { SwapUpdateEvent } from '../consts/Enums';
-import ReverseSwap from '../db/models/ReverseSwap';
-import { Currency } from '../wallet/WalletManager';
 import { decodeInvoice, formatError, getHexBuffer } from '../Utils';
+import { SwapUpdateEvent } from '../consts/Enums';
+import TypedEventEmitter from '../consts/TypedEventEmitter';
+import ReverseSwap from '../db/models/ReverseSwap';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import { InvoiceState, LightningClient } from '../lightning/LightningClient';
+import LndClient from '../lightning/LndClient';
+import ClnClient from '../lightning/cln/ClnClient';
+import { Currency } from '../wallet/WalletManager';
 
-interface LightningNursery {
-  on(
-    event: 'minerfee.invoice.paid',
-    listener: (reverseSwap: ReverseSwap) => void,
-  ): this;
-  emit(event: 'minerfee.invoice.paid', reverseSwap: ReverseSwap): boolean;
-
-  on(event: 'invoice.paid', listener: (reverseSwap: ReverseSwap) => void): this;
-  emit(event: 'invoice.paid', reverseSwap: ReverseSwap): boolean;
-}
-
-class LightningNursery extends EventEmitter {
+class LightningNursery extends TypedEventEmitter<{
+  'invoice.paid': ReverseSwap;
+  'minerfee.invoice.paid': ReverseSwap;
+}> {
   public static readonly lightningClientCallTimeout = 15_000;
 
   private lock = new AsyncLock();

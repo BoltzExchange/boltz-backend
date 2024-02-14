@@ -18,7 +18,7 @@ _0-conf Swaps are subject to network conditions and generally only available on 
 
 ## Limits
 
-When it comes to accepting 0-conf transactions, Boltz has configurable limits in place. These limits can be found via the [`getpairs`](api.md#supported-pairs) endpoint and are enforced only for Normal Submarine Swaps. When the user receives a chain transaction from Boltz, 0-conf acceptance is entirely up to the API client.
+When it comes to accepting 0-conf transactions, Boltz has configurable limits in place. These limits can be found via the [`getpairs`](api-v1.md#supported-pairs) endpoint and are enforced only for Normal Submarine Swaps. When the user receives a chain transaction from Boltz, 0-conf acceptance is entirely up to the API client.
 
 ## BIP 125 - Replace-By-Fee
 
@@ -28,4 +28,4 @@ If a transaction locking up bitcoin is signalling Replace-By-Fee either explicit
 
 Swaps on Boltz are based on HTLCs (_Hash Time Locked Contracts_). In order to account for the _time locked_ component of these contracts, transactions locking and claiming coins from such contracts have to pay a _reasonably high miner fee_ in order to be included in a block timely.
 
-Boltz considers fees that are equal or higher than 80% of the `sat/vbyte` estimations of its [`getfeeestimation`](api.md#fee-estimations) endpoint as _reasonably high_. If the miner fee paid by the transaction is less than that, Boltz will not accept 0-conf and wait for the transaction to be included in a block.
+Boltz considers fees that are equal or higher than 80% of the `sat/vbyte` estimations of its [`getfeeestimation`](api-v1.md#fee-estimations) endpoint as _reasonably high_. If the miner fee paid by the transaction is less than that, Boltz will not accept 0-conf and wait for the transaction to be included in a block.

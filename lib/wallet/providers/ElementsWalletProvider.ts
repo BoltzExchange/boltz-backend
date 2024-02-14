@@ -1,9 +1,9 @@
+import { parseTransaction } from '../../Core';
 import Logger from '../../Logger';
 import { getHexBuffer } from '../../Utils';
-import { parseTransaction } from '../../Core';
-import { CurrencyType } from '../../consts/Enums';
 import ChainClient from '../../chain/ChainClient';
 import ElementsClient from '../../chain/ElementsClient';
+import { CurrencyType } from '../../consts/Enums';
 import WalletProviderInterface, {
   SentTransaction,
   WalletBalance,

@@ -1,12 +1,12 @@
-import { Arguments } from 'yargs';
 import { ContractTransactionResponse } from 'ethers';
+import { Arguments } from 'yargs';
 import { getHexBuffer } from '../../../Utils';
 import { etherDecimals } from '../../../consts/Consts';
 import BuilderComponents from '../../BuilderComponents';
 import {
   connectEthereum,
-  getContracts,
   getBoltzAddress,
+  getContracts,
 } from '../EthereumUtils';
 
 export const command = 'lock <preimageHash> <amount> <timelock> [token]';

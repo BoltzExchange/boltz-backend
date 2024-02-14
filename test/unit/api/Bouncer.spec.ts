@@ -1,6 +1,6 @@
 import { createHmac } from 'crypto';
-import Bouncer from '../../../lib/api/Bouncer';
 import { getUnixTime } from '../../../lib/Utils';
+import Bouncer from '../../../lib/api/Bouncer';
 import ReferralRepository from '../../../lib/db/repositories/ReferralRepository';
 
 let mockGetReferralByApiKeyResult: any = null;
@@ -33,8 +33,8 @@ describe('Bouncer', () => {
 
     const req = {
       method: 'POST',
-      path: '/some/path',
       rawBody: 'raw body',
+      originalUrl: '/some/path',
 
       get: mockReqGet,
     } as any;
@@ -48,7 +48,7 @@ describe('Bouncer', () => {
     );
 
     providedHmac = createHmac('sha256', mockGetReferralByApiKeyResult.apiSecret)
-      .update(`${time}${req.method}${req.path}${req.rawBody}`)
+      .update(`${time}${req.method}${req.originalUrl}${req.rawBody}`)
       .digest('hex');
 
     expect(await Bouncer.validateRequestAuthentication(req)).toEqual(

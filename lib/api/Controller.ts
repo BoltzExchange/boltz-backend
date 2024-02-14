@@ -1,19 +1,6 @@
-import path from 'path';
 import { Request, Response } from 'express';
+import path from 'path';
 import Logger from '../Logger';
-import Bouncer from './Bouncer';
-import Service from '../service/Service';
-import NodeInfo from '../service/NodeInfo';
-import SwapNursery from '../swap/SwapNursery';
-import ServiceErrors from '../service/Errors';
-import LndClient from '../lightning/LndClient';
-import ClnClient from '../lightning/ClnClient';
-import ReferralStats from '../data/ReferralStats';
-import { SwapUpdate } from '../service/EventHandler';
-import { SwapType, SwapUpdateEvent } from '../consts/Enums';
-import SwapRepository from '../db/repositories/SwapRepository';
-import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
-import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import {
   getChainCurrency,
   getVersion,
@@ -22,33 +9,50 @@ import {
   splitPairId,
   stringify,
 } from '../Utils';
+import { SwapType, SwapUpdateEvent, SwapVersion } from '../consts/Enums';
+import ReferralStats from '../data/ReferralStats';
+import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
+import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
+import SwapRepository from '../db/repositories/SwapRepository';
+import LndClient from '../lightning/LndClient';
+import ClnClient from '../lightning/cln/ClnClient';
+import CountryCodes from '../service/CountryCodes';
+import ServiceErrors from '../service/Errors';
+import { SwapUpdate } from '../service/EventHandler';
+import NodeInfo from '../service/NodeInfo';
+import Service from '../service/Service';
+import SwapNursery from '../swap/SwapNursery';
+import Bouncer from './Bouncer';
 import {
+  checkPreimageHashLength,
   createdResponse,
   errorResponse,
+  markSwap,
   successResponse,
   validateRequest,
 } from './Utils';
 
 class Controller {
+  // TODO: refactor
+  // A map between the ids and statuses of the swaps
+  public pendingSwapInfos = new Map<string, SwapUpdate>();
+
   // A map between the ids and HTTP streams of all pending swaps
   private pendingSwapStreams = new Map<string, Response>();
 
-  // TODO: refactor
-  // A map between the ids and statuses of the swaps
-  private pendingSwapInfos = new Map<string, SwapUpdate>();
-
   constructor(
-    private logger: Logger,
-    private service: Service,
+    private readonly logger: Logger,
+    private readonly service: Service,
+    private readonly countryCodes: CountryCodes,
   ) {
-    this.service.eventHandler.on('swap.update', (id, message) => {
-      this.logger.debug(`Swap ${id} update: ${saneStringify(message)}`);
-      this.pendingSwapInfos.set(id, message);
+    this.service.eventHandler.on('swap.update', ({ id, status }) => {
+      this.logger.debug(`Swap ${id} update: ${saneStringify(status)}`);
+      this.pendingSwapInfos.set(id, status);
 
       const response = this.pendingSwapStreams.get(id);
 
       if (response) {
-        this.writeToSse(response, message);
+        this.writeToSse(response, status);
       }
     });
   }
@@ -434,7 +438,7 @@ class Controller {
         { name: 'preimageHash', type: 'string', hex: true },
       ]);
 
-      this.checkPreimageHashLength(preimageHash);
+      checkPreimageHashLength(preimageHash);
 
       response = await this.service.createSwap({
         pairId,
@@ -443,8 +447,11 @@ class Controller {
         referralId,
         preimageHash,
         refundPublicKey,
+        version: SwapVersion.Legacy,
       });
     }
+
+    await markSwap(this.countryCodes, req.ip, response.id);
 
     this.logger.verbose(`Created new Swap with id: ${response.id}`);
     this.logger.silly(`Swap ${response.id}: ${stringify(response)}`);
@@ -467,7 +474,7 @@ class Controller {
       invoiceAmount,
       onchainAmount,
       claimPublicKey,
-      prepayMinerFee,
+      addressSignature,
     } = validateRequest(req.body, [
       { name: 'pairId', type: 'string' },
       { name: 'orderSide', type: 'string' },
@@ -479,11 +486,11 @@ class Controller {
       { name: 'claimAddress', type: 'string', optional: true },
       { name: 'invoiceAmount', type: 'number', optional: true },
       { name: 'onchainAmount', type: 'number', optional: true },
-      { name: 'prepayMinerFee', type: 'boolean', optional: true },
       { name: 'claimPublicKey', type: 'string', hex: true, optional: true },
+      { name: 'addressSignature', type: 'string', hex: true, optional: true },
     ]);
 
-    this.checkPreimageHashLength(preimageHash);
+    checkPreimageHashLength(preimageHash);
 
     const response = await this.service.createReverseSwap({
       pairId,
@@ -496,9 +503,12 @@ class Controller {
       invoiceAmount,
       onchainAmount,
       claimPublicKey,
-      prepayMinerFee,
       userAddress: address,
+      version: SwapVersion.Legacy,
+      userAddressSignature: addressSignature,
     });
+
+    await markSwap(this.countryCodes, req.ip, response.id);
 
     this.logger.verbose(`Created Reverse Swap with id: ${response.id}`);
     this.logger.silly(`Reverse swap ${response.id}: ${stringify(response)}`);
@@ -531,7 +541,7 @@ class Controller {
   ): Promise<void> => {
     try {
       const referral = await Bouncer.validateRequestAuthentication(req);
-      const stats = await ReferralStats.generate(referral.id);
+      const stats = await ReferralStats.getReferralFees(referral.id);
 
       successResponse(res, stats);
     } catch (error) {
@@ -580,12 +590,6 @@ class Controller {
     }
 
     throw `could not find swap type: ${type}`;
-  };
-
-  private checkPreimageHashLength = (preimageHash: Buffer) => {
-    if (preimageHash.length !== 32) {
-      throw `invalid preimage hash length: ${preimageHash.length}`;
-    }
   };
 
   private writeToSse = (res: Response, message: SwapUpdate) => {

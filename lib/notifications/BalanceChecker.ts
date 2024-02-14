@@ -1,11 +1,11 @@
-import Logger from '../Logger';
-import { Emojis } from './Markup';
-import Service from '../service/Service';
-import DiscordClient from './DiscordClient';
-import { Balances } from '../proto/boltzrpc_pb';
-import { liquidSymbol } from '../consts/LiquidTypes';
-import { satoshisToSatcomma } from '../DenominationConverter';
 import { BaseCurrencyConfig, PreferredWallet, TokenConfig } from '../Config';
+import { satoshisToSatcomma } from '../DenominationConverter';
+import Logger from '../Logger';
+import { liquidSymbol } from '../consts/LiquidTypes';
+import { Balances } from '../proto/boltzrpc_pb';
+import Service from '../service/Service';
+import { Emojis } from './Markup';
+import NotificationClient from './clients/NotificationClient';
 
 enum BalanceType {
   Wallet,
@@ -39,7 +39,7 @@ class BalanceChecker {
   constructor(
     private logger: Logger,
     private service: Service,
-    private discord: DiscordClient,
+    private notificationClient: NotificationClient,
     currencyConfigs: (BaseCurrencyConfig | undefined)[],
     tokenConfigs: TokenConfig[],
   ) {
@@ -234,7 +234,7 @@ class BalanceChecker {
     }
 
     this.logger.warn(`Balance warning: ${message}`);
-    await this.discord.sendMessage(message, true);
+    await this.notificationClient.sendMessage(message, true);
   };
 }
 

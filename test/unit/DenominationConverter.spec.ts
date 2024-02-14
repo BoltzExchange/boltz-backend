@@ -1,10 +1,10 @@
-import { randomRange } from '../Utils';
 import {
   coinsToSatoshis,
   satoshisToCoins,
   satoshisToPaddedCoins,
   satoshisToSatcomma,
 } from '../../lib/DenominationConverter';
+import { randomRange } from '../Utils';
 
 describe('DenominationConverter', () => {
   test('should convert satoshis to whole coins', () => {

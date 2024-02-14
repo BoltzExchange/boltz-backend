@@ -1,15 +1,15 @@
 import AsyncLock from 'async-lock';
-import zmq, { Socket } from 'zeromq';
-import { EventEmitter } from 'events';
-import { crypto, Transaction } from 'bitcoinjs-lib';
+import { Transaction, crypto } from 'bitcoinjs-lib';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib';
-import Errors from './Errors';
-import Logger from '../Logger';
-import ChainClient from './ChainClient';
+import zmq, { Socket } from 'zeromq';
 import { parseTransaction } from '../Core';
-import { CurrencyType } from '../consts/Enums';
-import { RawTransaction } from '../consts/Types';
+import Logger from '../Logger';
 import { formatError, getHexString, reverseBuffer } from '../Utils';
+import { CurrencyType } from '../consts/Enums';
+import TypedEventEmitter from '../consts/TypedEventEmitter';
+import { RawTransaction } from '../consts/Types';
+import ChainClient from './ChainClient';
+import Errors from './Errors';
 
 type ZmqNotification = {
   type: string;
@@ -22,25 +22,13 @@ const filters = {
   hashBlock: 'pubhashblock',
 };
 
-interface ZmqClient {
-  on(event: 'block', listener: (height: number) => void): this;
-  emit(event: 'block', height: number): boolean;
-
-  on(
-    event: 'transaction',
-    listener: (
-      transaction: Transaction | LiquidTransaction,
-      confirmed: boolean,
-    ) => void,
-  ): this;
-  emit(
-    event: 'transaction',
-    transaction: Transaction | LiquidTransaction,
-    confirmed: boolean,
-  ): boolean;
-}
-
-class ZmqClient extends EventEmitter {
+class ZmqClient extends TypedEventEmitter<{
+  block: number;
+  transaction: {
+    transaction: Transaction | LiquidTransaction;
+    confirmed: boolean;
+  };
+}> {
   // IDs of transactions that contain a UTXOs of Boltz
   public utxos = new Set<string>();
 
@@ -150,7 +138,7 @@ class ZmqClient extends EventEmitter {
   public rescanChain = async (startHeight: number): Promise<void> => {
     const checkTransaction = (transaction: Transaction | LiquidTransaction) => {
       if (this.isRelevantTransaction(transaction)) {
-        this.emit('transaction', transaction, true);
+        this.emit('transaction', { transaction, confirmed: true });
       }
     };
 
@@ -201,7 +189,7 @@ class ZmqClient extends EventEmitter {
       // the second time the client receives the transaction
       if (this.utxos.has(id)) {
         this.utxos.delete(id);
-        this.emit('transaction', transaction, true);
+        this.emit('transaction', { transaction, confirmed: true });
 
         return;
       }
@@ -214,10 +202,10 @@ class ZmqClient extends EventEmitter {
 
         // Check whether the transaction got confirmed or added to the mempool
         if (transactionData.confirmations) {
-          this.emit('transaction', transaction, true);
+          this.emit('transaction', { transaction, confirmed: true });
         } else {
           this.utxos.add(id);
-          this.emit('transaction', transaction, false);
+          this.emit('transaction', { transaction, confirmed: false });
         }
       }
     });

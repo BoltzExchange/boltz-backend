@@ -18,10 +18,6 @@ The corresponding REST APIs can be accessed at:
 * Mainnet: `https://api.boltz.exchange/`
 * Mainnet via [Tor](https://www.torproject.org/): `http://boltzzzbnus4m7mta3cxmflnps4fp7dueu2tgurstbvrbt6xswzcocyd.onion/api/`
 
-> Note: To test API accessibility via browser, simply append an [endpoint](api.md) to the address, e.g.:
->
-> [`https://api.boltz.exchange/version`](https://api.boltz.exchange/version)
-
 We operate several lightning nodes on testnet and mainnet, for reliable swapping on testnet it's advisable to open a direct channel with us:
 
 * Testnet: [CLN](https://mempool.space/testnet/lightning/node/029040945df331e634fba152ce6a21e3dfca87b68d275e078caeee4753f43e9acb) | [LND](https://mempool.space/testnet/lightning/node/03f060953bef5b777dc77e44afa3859d022fc1a77c55138deb232ad7255e869c00)

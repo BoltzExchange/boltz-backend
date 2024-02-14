@@ -1,8 +1,10 @@
 import { Request, Response } from 'express';
-import Errors from './Errors';
 import Logger from '../Logger';
 import { getHexBuffer } from '../Utils';
+import MarkedSwapRepository from '../db/repositories/MarkedSwapRepository';
+import CountryCodes from '../service/CountryCodes';
 import ServiceErrors from '../service/Errors';
+import Errors from './Errors';
 
 type ApiArgument = {
   name: string;
@@ -12,7 +14,10 @@ type ApiArgument = {
 };
 
 // Some endpoints are getting spammed on mainnet, so we don't log the warnings for them
-const errorsNotToLog: any[] = [ServiceErrors.SWAP_NO_LOCKUP().message];
+const errorsNotToLog: any[] = [
+  ServiceErrors.SWAP_NO_LOCKUP().message,
+  ServiceErrors.ETHEREUM_NOT_ENABLED().message,
+];
 
 /**
  * Validates that all required arguments were provided in the body correctly
@@ -58,41 +63,26 @@ export const errorResponse = (
   res: Response,
   error: unknown,
   statusCode = 400,
-  urlPrefix: string = '',
 ): void => {
   if (typeof error === 'string') {
-    writeErrorResponse(logger, req, res, statusCode, { error }, urlPrefix);
+    writeErrorResponse(logger, req, res, statusCode, { error });
   } else {
     const errorObject = error as any;
 
     // Bitcoin Core related errors
     if (errorObject.details) {
-      writeErrorResponse(
-        logger,
-        req,
-        res,
-        statusCode,
-        {
-          error: errorObject.details,
-        },
-        urlPrefix,
-      );
+      writeErrorResponse(logger, req, res, statusCode, {
+        error: errorObject.details,
+      });
       // Custom error when broadcasting a refund transaction fails because
       // the locktime requirement has not been met yet
     } else if (errorObject.timeoutBlockHeight) {
-      writeErrorResponse(logger, req, res, statusCode, error, urlPrefix);
+      writeErrorResponse(logger, req, res, statusCode, error);
       // Everything else
     } else {
-      writeErrorResponse(
-        logger,
-        req,
-        res,
-        statusCode,
-        {
-          error: errorObject.message,
-        },
-        urlPrefix,
-      );
+      writeErrorResponse(logger, req, res, statusCode, {
+        error: errorObject.message,
+      });
     }
   }
 };
@@ -120,13 +110,14 @@ export const writeErrorResponse = (
   res: Response,
   statusCode: number,
   error: any,
-  urlPrefix: string = '',
 ) => {
   if (!errorsNotToLog.includes(error?.error || error)) {
     logger.warn(
-      `Request ${urlPrefix + req.url} ${JSON.stringify(
-        req.body,
-      )} failed: ${JSON.stringify(error)}`,
+      `Request ${req.method} ${req.originalUrl} ${
+        req.body && Object.keys(req.body).length > 0
+          ? `${JSON.stringify(req.body)} `
+          : ''
+      }failed: ${JSON.stringify(error)}`,
     );
   }
 
@@ -136,4 +127,22 @@ export const writeErrorResponse = (
 
 export const setContentTypeJson = (res: Response) => {
   res.set('Content-Type', 'application/json');
+};
+
+export const checkPreimageHashLength = (preimageHash: Buffer) => {
+  if (preimageHash.length !== 32) {
+    throw `invalid preimage hash length: ${preimageHash.length}`;
+  }
+};
+
+export const markSwap = async (
+  countryCodes: CountryCodes,
+  ip: string,
+  swapId: string,
+) => {
+  if (!countryCodes.isRelevantCountry(countryCodes.getCountryCode(ip))) {
+    return;
+  }
+
+  await MarkedSwapRepository.addMarkedSwap(swapId);
 };

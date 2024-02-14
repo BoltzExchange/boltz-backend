@@ -1,7 +1,7 @@
-import { baseAsset, checkPrice, quoteAsset } from './Consts';
-import Kraken from '../../../../lib/rates/data/exchanges/Kraken';
 import Bitfinex from '../../../../lib/rates/data/exchanges/Bitfinex';
 import CoinbasePro from '../../../../lib/rates/data/exchanges/CoinbasePro';
+import Kraken from '../../../../lib/rates/data/exchanges/Kraken';
+import { baseAsset, checkPrice, quoteAsset } from './Consts';
 
 describe('Exchanges', () => {
   // TODO: Binance banned all US IP addresses. What is a long term fix that? Remove Binance? Binance US?

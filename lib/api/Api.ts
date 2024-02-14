@@ -1,24 +1,27 @@
 import cors from 'cors';
 import express, { Application, NextFunction, Request, Response } from 'express';
-import Logger from '../Logger';
-import ApiV2 from './v2/ApiV2';
-import Controller from './Controller';
 import { ApiConfig } from '../Config';
-import { errorResponse } from './Utils';
+import Logger from '../Logger';
+import CountryCodes from '../service/CountryCodes';
 import Service from '../service/Service';
+import Controller from './Controller';
+import { errorResponse } from './Utils';
+import ApiV2 from './v2/ApiV2';
+import WebSocketHandler from './v2/WebSocketHandler';
 
 class Api {
   private app: Application;
+  private readonly websocket: WebSocketHandler;
   private readonly controller: Controller;
 
   constructor(
-    private logger: Logger,
-    private config: ApiConfig,
+    private readonly logger: Logger,
+    private readonly config: ApiConfig,
     service: Service,
+    countryCodes: CountryCodes,
   ) {
     this.app = express();
-    this.controller = new Controller(logger, service);
-
+    this.app.set('trust proxy', 'loopback');
     this.app.use(cors());
     this.app.use(
       express.json({
@@ -44,7 +47,15 @@ class Api {
       },
     );
 
-    new ApiV2(this.logger, service).registerRoutes(this.app);
+    this.controller = new Controller(logger, service, countryCodes);
+    this.websocket = new WebSocketHandler(service, this.controller);
+
+    new ApiV2(
+      this.logger,
+      service,
+      this.controller,
+      countryCodes,
+    ).registerRoutes(this.app);
     this.registerRoutes(this.controller);
   }
 
@@ -52,10 +63,11 @@ class Api {
     await this.controller.init();
 
     await new Promise<void>((resolve) => {
-      this.app.listen(this.config.port, this.config.host, () => {
+      const server = this.app.listen(this.config.port, this.config.host, () => {
         this.logger.info(
           `API server listening on: ${this.config.host}:${this.config.port}`,
         );
+        this.websocket.register(server);
         resolve();
       });
     });
@@ -67,6 +79,14 @@ class Api {
       this.app.route(path).get(controller.serveFile('index.html'));
     });
     this.app.route('/favicon.ico').get(controller.serveFile('favicon.ico'));
+
+    ['/swagger', '/swagger.html'].forEach((path) => {
+      this.app.route(path).get(controller.serveFile('swagger.html'));
+    });
+
+    this.app
+      .route('/swagger-spec.json')
+      .get(controller.serveFile('swagger-spec.json'));
 
     // GET requests
     this.app.route('/version').get(controller.version);

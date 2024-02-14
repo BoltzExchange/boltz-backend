@@ -1,37 +1,21 @@
-import { Op } from 'sequelize';
-import { randomBytes } from 'crypto';
 import { crypto } from 'bitcoinjs-lib';
-import { reverseSwapScript, swapScript } from 'boltz-core';
-import Errors from './Errors';
-import Logger from '../Logger';
-import Swap from '../db/models/Swap';
-import NodeSwitch from './NodeSwitch';
-import SwapNursery from './SwapNursery';
-import NodeFallback from './NodeFallback';
-import { PairConfig } from '../consts/Types';
-import SwapOutputType from './SwapOutputType';
-import RateProvider from '../rates/RateProvider';
-import RoutingHints from './routing/RoutingHints';
-import WalletLiquid from '../wallet/WalletLiquid';
-import { ReverseSwapOutputType } from '../consts/Consts';
-import SwapRepository from '../db/repositories/SwapRepository';
-import PaymentRequestUtils from '../service/PaymentRequestUtils';
-import InvoiceExpiryHelper from '../service/InvoiceExpiryHelper';
-import ReverseSwap, { NodeType } from '../db/models/ReverseSwap';
-import WalletManager, { Currency } from '../wallet/WalletManager';
-import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
-import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
-import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import {
-  ChannelCreationType,
-  CurrencyType,
-  OrderSide,
-  SwapUpdateEvent,
-} from '../consts/Enums';
+  Scripts,
+  SwapTreeSerializer,
+  Types,
+  reverseSwapScript,
+  reverseSwapTree,
+  swapScript,
+  swapTree,
+} from 'boltz-core';
+import { randomBytes } from 'crypto';
+import { Op } from 'sequelize';
+import { createMusig, tweakMusig } from '../Core';
+import Logger from '../Logger';
 import {
   decodeInvoice,
   formatError,
-  generateId,
+  generateSwapId,
   getChainCurrency,
   getHexBuffer,
   getHexString,
@@ -40,11 +24,43 @@ import {
   getPrepayMinerFeeInvoiceMemo,
   getScriptHashFunction,
   getSendingReceivingCurrency,
-  getSwapMemo,
   getUnixTime,
   reverseBuffer,
   splitPairId,
 } from '../Utils';
+import { LegacyReverseSwapOutputType } from '../consts/Consts';
+import {
+  ChannelCreationType,
+  CurrencyType,
+  OrderSide,
+  SwapUpdateEvent,
+  SwapVersion,
+  swapVersionToString,
+} from '../consts/Enums';
+import { PairConfig } from '../consts/Types';
+import ReverseSwap, { NodeType } from '../db/models/ReverseSwap';
+import Swap from '../db/models/Swap';
+import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
+import ReverseRoutingHintRepository from '../db/repositories/ReverseRoutingHintRepository';
+import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
+import SwapRepository from '../db/repositories/SwapRepository';
+import RateProvider from '../rates/RateProvider';
+import Blocks from '../service/Blocks';
+import InvoiceExpiryHelper from '../service/InvoiceExpiryHelper';
+import PaymentRequestUtils from '../service/PaymentRequestUtils';
+import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
+import DeferredClaimer, {
+  SwapConfig,
+} from '../service/cooperative/DeferredClaimer';
+import WalletLiquid from '../wallet/WalletLiquid';
+import WalletManager, { Currency } from '../wallet/WalletManager';
+import Errors from './Errors';
+import NodeFallback from './NodeFallback';
+import NodeSwitch from './NodeSwitch';
+import ReverseRoutingHints from './ReverseRoutingHints';
+import SwapNursery from './SwapNursery';
+import SwapOutputType from './SwapOutputType';
+import RoutingHints from './routing/RoutingHints';
 
 type ChannelCreationInfo = {
   auto: boolean;
@@ -56,14 +72,64 @@ type SetSwapInvoiceResponse = {
   channelCreationError?: string;
 };
 
+type CreatedSwap = {
+  id: string;
+  timeoutBlockHeight: number;
+
+  // This is either the generated address for Bitcoin like chains, or the address of the contract
+  // to which the user should send the lockup transaction for Ether and ERC20 tokens
+  address: string;
+
+  // Only set for Bitcoin like, UTXO based, chains
+  redeemScript?: string;
+
+  // Only set for Taproot swaps
+  claimPublicKey?: string;
+  swapTree?: SwapTreeSerializer.SerializedTree;
+
+  // Specified when either Ether or ERC20 tokens or swapped to Lightning
+  // So that the user can specify the claim address (Boltz) in the lockup transaction to the contract
+  claimAddress?: string;
+
+  // For blinded Liquid swaps
+  blindingKey?: string;
+};
+
+type CreatedReverseSwap = {
+  id: string;
+  timeoutBlockHeight: number;
+
+  invoice: string;
+  minerFeeInvoice: string | undefined;
+
+  // Only set for Bitcoin like, UTXO based, chains
+  redeemScript: string | undefined;
+
+  // Only set for Taproot swaps
+  refundPublicKey?: string;
+  swapTree?: SwapTreeSerializer.SerializedTree;
+
+  // Only set for Ethereum like chains
+  refundAddress: string | undefined;
+
+  // This is either the generated address for Bitcoin like chains, or the address of the contract
+  // to which Boltz will send the lockup transaction for Ether and ERC20 tokens
+  lockupAddress: string;
+
+  // For blinded Liquid reverse swaps
+  blindingKey?: string;
+};
+
 class SwapManager {
   public currencies = new Map<string, Currency>();
 
   public nursery: SwapNursery;
   public routingHints!: RoutingHints;
+  public readonly deferredClaimer: DeferredClaimer;
 
   private nodeFallback!: NodeFallback;
   private invoiceExpiryHelper!: InvoiceExpiryHelper;
+  private readonly reverseRoutingHints: ReverseRoutingHints;
 
   constructor(
     private readonly logger: Logger,
@@ -71,10 +137,20 @@ class SwapManager {
     private readonly nodeSwitch: NodeSwitch,
     private readonly rateProvider: RateProvider,
     private readonly timeoutDeltaProvider: TimeoutDeltaProvider,
-    private readonly paymentRequestUtils: PaymentRequestUtils,
+    paymentRequestUtils: PaymentRequestUtils,
     private readonly swapOutputType: SwapOutputType,
     retryInterval: number,
+    private readonly blocks: Blocks,
+    swapConfig: SwapConfig,
   ) {
+    this.deferredClaimer = new DeferredClaimer(
+      this.logger,
+      this.currencies,
+      this.walletManager,
+      this.swapOutputType,
+      swapConfig,
+    );
+
     this.nursery = new SwapNursery(
       this.logger,
       this.nodeSwitch,
@@ -83,6 +159,14 @@ class SwapManager {
       this.walletManager,
       this.swapOutputType,
       retryInterval,
+      this.blocks,
+      this.deferredClaimer,
+    );
+
+    this.reverseRoutingHints = new ReverseRoutingHints(
+      this.walletManager,
+      this.rateProvider,
+      paymentRequestUtils,
     );
   }
 
@@ -139,12 +223,16 @@ class SwapManager {
       pairs,
       this.timeoutDeltaProvider,
     );
+
+    await this.deferredClaimer.init();
   };
 
   /**
    * Creates a new Submarine Swap from the chain to Lightning with a preimage hash
    */
   public createSwap = async (args: {
+    version: SwapVersion;
+
     baseCurrency: string;
     quoteCurrency: string;
     orderSide: OrderSide;
@@ -158,24 +246,7 @@ class SwapManager {
 
     // Only required for UTXO based chains
     refundPublicKey?: Buffer;
-  }): Promise<{
-    id: string;
-    timeoutBlockHeight: number;
-
-    // This is either the generated address for Bitcoin like chains, or the address of the contract
-    // to which the user should send the lockup transaction for Ether and ERC20 tokens
-    address: string;
-
-    // Only set for Bitcoin like, UTXO based, chains
-    redeemScript?: string;
-
-    // Specified when either Ether or ERC20 tokens or swapped to Lightning
-    // So that the user can specify the claim address (Boltz) in the lockup transaction to the contract
-    claimAddress?: string;
-
-    // For blinded Liquid swaps
-    blindingKey?: string;
-  }> => {
+  }): Promise<CreatedSwap> => {
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(
       args.baseCurrency,
       args.quoteCurrency,
@@ -186,10 +257,12 @@ class SwapManager {
       throw Errors.NO_LIGHTNING_SUPPORT(sendingCurrency.symbol);
     }
 
-    const id = generateId();
+    const id = generateSwapId(args.version);
 
     this.logger.verbose(
-      `Creating new Swap from ${receivingCurrency.symbol} to ${sendingCurrency.symbol}: ${id}`,
+      `Creating new ${swapVersionToString(args.version)} Swap from ${
+        receivingCurrency.symbol
+      } to ${sendingCurrency.symbol}: ${id}`,
     );
 
     if (args.referralId) {
@@ -201,13 +274,9 @@ class SwapManager {
       quote: args.quoteCurrency,
     });
 
-    let address: string;
-    let timeoutBlockHeight: number;
-
-    let blindingKey: Buffer | undefined;
-    let redeemScript: Buffer | undefined;
-
-    let claimAddress: string | undefined;
+    const result: Partial<CreatedSwap> = {
+      id,
+    };
 
     if (
       receivingCurrency.type === CurrencyType.BitcoinLike ||
@@ -215,65 +284,102 @@ class SwapManager {
     ) {
       const { blocks } =
         await receivingCurrency.chainClient!.getBlockchainInfo();
-      timeoutBlockHeight = blocks + args.timeoutBlockDelta;
+      result.timeoutBlockHeight = blocks + args.timeoutBlockDelta;
 
       const { keys, index } = receivingCurrency.wallet.getNewKeys();
 
-      redeemScript = swapScript(
-        args.preimageHash,
-        keys.publicKey,
-        args.refundPublicKey!,
-        timeoutBlockHeight,
-      );
+      let outputScript: Buffer;
+      let tree: Types.SwapTree | undefined;
 
-      const encodeFunction = getScriptHashFunction(
-        this.swapOutputType.get(receivingCurrency.type),
-      );
-      const outputScript = encodeFunction(redeemScript);
+      switch (args.version) {
+        case SwapVersion.Taproot: {
+          result.claimPublicKey = getHexString(keys.publicKey);
 
-      address = receivingCurrency.wallet.encodeAddress(outputScript);
+          tree = swapTree(
+            receivingCurrency.type === CurrencyType.Liquid,
+            args.preimageHash,
+            keys.publicKey,
+            args.refundPublicKey!,
+            result.timeoutBlockHeight,
+          );
+          result.swapTree = SwapTreeSerializer.serializeSwapTree(tree);
+
+          const musig = createMusig(keys, args.refundPublicKey!);
+          const tweakedKey = tweakMusig(receivingCurrency.type, musig, tree);
+          outputScript = Scripts.p2trOutput(tweakedKey);
+
+          break;
+        }
+
+        default: {
+          const redeemScript = swapScript(
+            args.preimageHash,
+            keys.publicKey,
+            args.refundPublicKey!,
+            result.timeoutBlockHeight,
+          );
+          result.redeemScript = getHexString(redeemScript);
+
+          const encodeFunction = getScriptHashFunction(
+            this.swapOutputType.get(receivingCurrency.type),
+          );
+          outputScript = encodeFunction(redeemScript);
+
+          break;
+        }
+      }
+
+      result.address = receivingCurrency.wallet.encodeAddress(outputScript);
       receivingCurrency.chainClient!.addOutputFilter(outputScript);
 
       if (receivingCurrency.type === CurrencyType.Liquid) {
-        blindingKey = (
-          receivingCurrency.wallet as WalletLiquid
-        ).deriveBlindingKeyFromScript(outputScript).privateKey;
+        result.blindingKey = getHexString(
+          (
+            receivingCurrency.wallet as WalletLiquid
+          ).deriveBlindingKeyFromScript(outputScript).privateKey!,
+        );
       }
 
       await SwapRepository.addSwap({
         id,
         pair,
-        timeoutBlockHeight,
 
         keyIndex: index,
-        lockupAddress: address,
-        referral: args.referralId,
+        version: args.version,
         orderSide: args.orderSide,
+        referral: args.referralId,
+        lockupAddress: result.address,
         status: SwapUpdateEvent.SwapCreated,
+        timeoutBlockHeight: result.timeoutBlockHeight,
         preimageHash: getHexString(args.preimageHash),
-        redeemScript: getHexString(redeemScript),
+        refundPublicKey: getHexString(args.refundPublicKey!),
+        redeemScript:
+          args.version === SwapVersion.Legacy
+            ? result.redeemScript
+            : JSON.stringify(SwapTreeSerializer.serializeSwapTree(tree!)),
       });
     } else {
-      address = await this.getLockupContractAddress(
+      result.address = await this.getLockupContractAddress(
         receivingCurrency.symbol,
         receivingCurrency.type,
       );
 
       const blockNumber = await receivingCurrency.provider!.getBlockNumber();
-      timeoutBlockHeight = blockNumber + args.timeoutBlockDelta;
+      result.timeoutBlockHeight = blockNumber + args.timeoutBlockDelta;
 
-      claimAddress = await receivingCurrency.wallet.getAddress();
+      result.claimAddress = await receivingCurrency.wallet.getAddress();
 
       await SwapRepository.addSwap({
         id,
         pair,
-        timeoutBlockHeight,
 
-        lockupAddress: address,
+        version: args.version,
         referral: args.referralId,
         orderSide: args.orderSide,
+        lockupAddress: result.address,
         status: SwapUpdateEvent.SwapCreated,
         preimageHash: getHexString(args.preimageHash),
+        timeoutBlockHeight: result.timeoutBlockHeight,
       });
     }
 
@@ -290,15 +396,7 @@ class SwapManager {
       });
     }
 
-    return {
-      id,
-      address,
-      claimAddress,
-      timeoutBlockHeight,
-
-      redeemScript: redeemScript ? getHexString(redeemScript) : undefined,
-      blindingKey: blindingKey ? getHexString(blindingKey) : undefined,
-    };
+    return result as CreatedSwap;
   };
 
   /**
@@ -469,6 +567,8 @@ class SwapManager {
    * Creates a new reverse Swap from Lightning to the chain
    */
   public createReverseSwap = async (args: {
+    version: number;
+
     baseCurrency: string;
     quoteCurrency: string;
     orderSide: OrderSide;
@@ -496,26 +596,8 @@ class SwapManager {
     claimAddress?: string;
 
     userAddress?: string;
-  }): Promise<{
-    id: string;
-    timeoutBlockHeight: number;
-
-    invoice: string;
-    minerFeeInvoice: string | undefined;
-
-    // Only set for Bitcoin like, UTXO based, chains
-    redeemScript: string | undefined;
-
-    // Only set for Ethereum like chains
-    refundAddress: string | undefined;
-
-    // This is either the generated address for Bitcoin like chains, or the address of the contract
-    // to which Boltz will send the lockup transaction for Ether and ERC20 tokens
-    lockupAddress: string;
-
-    // For blinded Liquid reverse swaps
-    blindingKey?: string;
-  }> => {
+    userAddressSignature?: Buffer;
+  }): Promise<CreatedReverseSwap> => {
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(
       args.baseCurrency,
       args.quoteCurrency,
@@ -526,10 +608,12 @@ class SwapManager {
       throw Errors.NO_LIGHTNING_SUPPORT(receivingCurrency.symbol);
     }
 
-    const id = generateId();
+    const id = generateSwapId(args.version);
 
     this.logger.verbose(
-      `Creating new Reverse Swap from ${receivingCurrency.symbol} to ${sendingCurrency.symbol}: ${id}`,
+      `Creating new ${swapVersionToString(args.version)} Reverse Swap from ${
+        receivingCurrency.symbol
+      } to ${sendingCurrency.symbol}: ${id}`,
     );
     if (args.referralId) {
       this.logger.silly(
@@ -537,31 +621,20 @@ class SwapManager {
       );
     }
 
+    const isBitcoinLike =
+      sendingCurrency.type === CurrencyType.BitcoinLike ||
+      sendingCurrency.type === CurrencyType.Liquid;
+
+    if (!isBitcoinLike && this.blocks.isBlocked(args.claimAddress!)) {
+      throw Errors.BLOCKED_ADDRESS();
+    }
+
     const pair = getPairId({
       base: args.baseCurrency,
       quote: args.quoteCurrency,
     });
 
-    let invoiceMemo = getSwapMemo(sendingCurrency.symbol, true);
-
-    if (args.userAddress) {
-      try {
-        this.walletManager.wallets
-          .get(sendingCurrency.symbol)!
-          .decodeAddress(args.userAddress);
-      } catch (e) {
-        throw Errors.INVALID_ADDRESS();
-      }
-
-      invoiceMemo =
-        this.paymentRequestUtils.encodeBip21(
-          sendingCurrency.symbol,
-          args.userAddress,
-          args.onchainAmount -
-            this.rateProvider.feeProvider.minerFees.get(sendingCurrency.symbol)!
-              .reverse.claim,
-        ) || invoiceMemo;
-    }
+    const hints = this.reverseRoutingHints.getHints(sendingCurrency, args);
 
     const { nodeType, lightningClient, paymentRequest, routingHints } =
       await this.nodeFallback.getReverseSwapInvoice(
@@ -573,7 +646,8 @@ class SwapManager {
         args.preimageHash,
         args.lightningTimeoutBlockDelta,
         this.invoiceExpiryHelper.getExpiry(pair),
-        invoiceMemo,
+        hints.invoiceMemo,
+        hints.routingHint,
       );
 
     lightningClient.subscribeSingleInvoice(args.preimageHash);
@@ -609,105 +683,137 @@ class SwapManager {
       }
     }
 
-    let lockupAddress: string;
-    let timeoutBlockHeight: number;
+    const result: Partial<CreatedReverseSwap> = {
+      id,
+      minerFeeInvoice,
+      invoice: paymentRequest,
+    };
 
-    let blindingKey: Buffer | undefined;
-    let redeemScript: Buffer | undefined;
-
-    let refundAddress: string | undefined;
-
-    if (
-      sendingCurrency.type === CurrencyType.BitcoinLike ||
-      sendingCurrency.type === CurrencyType.Liquid
-    ) {
+    if (isBitcoinLike) {
       const { keys, index } = sendingCurrency.wallet.getNewKeys();
       const { blocks } = await sendingCurrency.chainClient!.getBlockchainInfo();
-      timeoutBlockHeight = blocks + args.onchainTimeoutBlockDelta;
+      result.timeoutBlockHeight = blocks + args.onchainTimeoutBlockDelta;
 
-      redeemScript = reverseSwapScript(
-        args.preimageHash,
-        args.claimPublicKey!,
-        keys.publicKey,
-        timeoutBlockHeight,
-      );
+      let outputScript: Buffer;
+      let tree: Types.SwapTree | undefined;
 
-      const outputScript = getScriptHashFunction(ReverseSwapOutputType)(
-        redeemScript,
-      );
-      lockupAddress = sendingCurrency.wallet.encodeAddress(outputScript);
+      switch (args.version) {
+        case SwapVersion.Taproot: {
+          result.refundPublicKey = getHexString(keys.publicKey);
+
+          tree = reverseSwapTree(
+            sendingCurrency.type === CurrencyType.Liquid,
+            args.preimageHash,
+            args.claimPublicKey!,
+            keys.publicKey,
+            result.timeoutBlockHeight,
+          );
+          result.swapTree = SwapTreeSerializer.serializeSwapTree(tree);
+
+          const musig = createMusig(keys, args.claimPublicKey!);
+          const tweakedKey = tweakMusig(sendingCurrency.type, musig, tree);
+          outputScript = Scripts.p2trOutput(tweakedKey);
+
+          break;
+        }
+
+        default: {
+          const redeemScript = reverseSwapScript(
+            args.preimageHash,
+            args.claimPublicKey!,
+            keys.publicKey,
+            result.timeoutBlockHeight,
+          );
+          result.redeemScript = getHexString(redeemScript);
+
+          outputScript = getScriptHashFunction(LegacyReverseSwapOutputType)(
+            redeemScript,
+          );
+
+          break;
+        }
+      }
+
+      result.lockupAddress = sendingCurrency.wallet.encodeAddress(outputScript);
 
       if (sendingCurrency.type === CurrencyType.Liquid) {
-        blindingKey = (
-          sendingCurrency.wallet as WalletLiquid
-        ).deriveBlindingKeyFromScript(outputScript).privateKey;
+        result.blindingKey = getHexString(
+          (sendingCurrency.wallet as WalletLiquid).deriveBlindingKeyFromScript(
+            outputScript,
+          ).privateKey!,
+        );
       }
 
       await ReverseSwapRepository.addReverseSwap({
         id,
         pair,
-        lockupAddress,
         minerFeeInvoice,
-        timeoutBlockHeight,
-
         node: nodeType,
         keyIndex: index,
+
+        version: args.version,
         fee: args.percentageFee,
         invoice: paymentRequest,
         referral: args.referralId,
         orderSide: args.orderSide,
         onchainAmount: args.onchainAmount,
+        lockupAddress: result.lockupAddress,
         status: SwapUpdateEvent.SwapCreated,
         invoiceAmount: args.holdInvoiceAmount,
-        redeemScript: getHexString(redeemScript),
+        timeoutBlockHeight: result.timeoutBlockHeight,
         preimageHash: getHexString(args.preimageHash),
         minerFeeInvoicePreimage: minerFeeInvoicePreimage,
+        claimPublicKey: getHexString(args.claimPublicKey!),
         minerFeeOnchainAmount: args.prepayMinerFeeOnchainAmount,
+        redeemScript:
+          args.version === SwapVersion.Legacy
+            ? result.redeemScript
+            : JSON.stringify(SwapTreeSerializer.serializeSwapTree(tree!)),
       });
+
+      if (hints.routingHint && hints.bip21 && args.userAddressSignature) {
+        await ReverseRoutingHintRepository.addHint({
+          swapId: id,
+          bip21: hints.bip21,
+          signature: getHexString(args.userAddressSignature),
+        });
+      }
     } else {
       const blockNumber = await sendingCurrency.provider!.getBlockNumber();
-      timeoutBlockHeight = blockNumber + args.onchainTimeoutBlockDelta;
+      result.timeoutBlockHeight = blockNumber + args.onchainTimeoutBlockDelta;
 
-      lockupAddress = await this.getLockupContractAddress(
+      result.lockupAddress = await this.getLockupContractAddress(
         sendingCurrency.symbol,
         sendingCurrency.type,
       );
-      refundAddress = await this.walletManager.wallets
+      result.refundAddress = await this.walletManager.wallets
         .get(sendingCurrency.symbol)!
         .getAddress();
 
       await ReverseSwapRepository.addReverseSwap({
         id,
         pair,
-        lockupAddress,
         minerFeeInvoice,
-        timeoutBlockHeight,
-
         node: nodeType,
         fee: args.percentageFee,
+
         invoice: paymentRequest,
         orderSide: args.orderSide,
         referral: args.referralId,
+        version: SwapVersion.Legacy,
         claimAddress: args.claimAddress!,
+        lockupAddress: result.lockupAddress,
         onchainAmount: args.onchainAmount,
         status: SwapUpdateEvent.SwapCreated,
         invoiceAmount: args.holdInvoiceAmount,
+        timeoutBlockHeight: result.timeoutBlockHeight,
         preimageHash: getHexString(args.preimageHash),
         minerFeeInvoicePreimage: minerFeeInvoicePreimage,
         minerFeeOnchainAmount: args.prepayMinerFeeOnchainAmount,
       });
     }
 
-    return {
-      id,
-      lockupAddress,
-      refundAddress,
-      minerFeeInvoice,
-      timeoutBlockHeight,
-      invoice: paymentRequest,
-      blindingKey: blindingKey ? getHexString(blindingKey) : undefined,
-      redeemScript: redeemScript ? getHexString(redeemScript) : undefined,
-    };
+    return result as CreatedReverseSwap;
   };
 
   // TODO: check current status of invoices or do the streams handle that already?

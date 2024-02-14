@@ -1,11 +1,11 @@
-import Logger from '../../../lib/Logger';
 import { BackupConfig } from '../../../lib/Config';
-import Webdav from '../../../lib/backup/providers/Webdav';
-import EventHandler from '../../../lib/service/EventHandler';
-import Database, { DatabaseType } from '../../../lib/db/Database';
+import Logger from '../../../lib/Logger';
 import BackupScheduler from '../../../lib/backup/BackupScheduler';
+import Webdav from '../../../lib/backup/providers/Webdav';
+import Database, { DatabaseType } from '../../../lib/db/Database';
+import EventHandler from '../../../lib/service/EventHandler';
 
-type callback = (currency: string, channelBackup: string) => void;
+type callback = (args: { currency: string; channelBackup: string }) => void;
 
 const mockInfo = jest.fn().mockImplementation();
 const mockWarn = jest.fn().mockImplementation();
@@ -122,7 +122,7 @@ describe('BackupScheduler', () => {
       'b3be5ae30c223333b693a1f310e92edbae2c354abfd8a87ec2c36862c576cde4';
 
     backupScheduler['subscribeChannelBackups']();
-    emitChannelBackup(channelBackupCurrency, channelBackup);
+    emitChannelBackup({ channelBackup, currency: channelBackupCurrency });
 
     expect(mockUploadString).toHaveBeenCalledTimes(1);
     expect(mockUploadString).toHaveBeenCalledWith(
@@ -135,7 +135,10 @@ describe('BackupScheduler', () => {
     mockUploadStringImplementation = () => Promise.reject('service offline');
 
     backupScheduler['subscribeChannelBackups']();
-    emitChannelBackup(channelBackupCurrency, 'some-data');
+    emitChannelBackup({
+      currency: channelBackupCurrency,
+      channelBackup: 'some-data',
+    });
     expect(mockUploadString).toHaveBeenCalledTimes(1);
 
     mockUploadFileImplementation = () => Promise.reject('not working');

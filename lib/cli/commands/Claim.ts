@@ -1,8 +1,9 @@
+import { extractRefundPublicKeyFromReverseSwapTree } from 'boltz-core';
 import { Arguments } from 'yargs';
-import { prepareTx } from '../Command';
-import BuilderComponents from '../BuilderComponents';
-import { getHexBuffer, stringify } from '../../Utils';
 import { constructClaimTransaction } from '../../Core';
+import { getHexBuffer, stringify } from '../../Utils';
+import BuilderComponents from '../BuilderComponents';
+import { prepareTx } from '../Command';
 
 export const command =
   'claim <network> <preimage> <privateKey> <redeemScript> <rawTransaction> <destinationAddress> [feePerVbyte] [blindingKey]';
@@ -11,14 +12,11 @@ export const describe = 'claims reverse submarine or chain to chain swaps';
 
 export const builder = {
   network: BuilderComponents.network,
+  preimage: BuilderComponents.preimage,
   privateKey: BuilderComponents.privateKey,
   redeemScript: BuilderComponents.redeemScript,
   rawTransaction: BuilderComponents.rawTransaction,
   destinationAddress: BuilderComponents.destinationAddress,
-  preimage: {
-    describe: 'preimage of the swap',
-    type: 'string',
-  },
   feePerVbyte: BuilderComponents.feePerVbyte,
   blindingKey: BuilderComponents.blindingKey,
 };
@@ -26,13 +24,12 @@ export const builder = {
 export const handler = async (argv: Arguments<any>): Promise<void> => {
   const {
     keys,
-    network,
     walletStub,
     swapOutput,
     transaction,
     redeemScript,
     destinationAddress,
-  } = await prepareTx(argv);
+  } = await prepareTx(argv, extractRefundPublicKeyFromReverseSwapTree);
 
   const claimTransaction = constructClaimTransaction(
     walletStub,
@@ -47,8 +44,6 @@ export const handler = async (argv: Arguments<any>): Promise<void> => {
     ],
     destinationAddress,
     argv.feePerVbyte,
-    // Needed for Liquid
-    network.assetHash,
   ).toHex();
 
   console.log(stringify({ claimTransaction }));

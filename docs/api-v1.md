@@ -1,10 +1,11 @@
 ---
 description: >-
-  This page lists all available endpoints of Boltz's RESTful HTTP API and shows
-  how to use them.
+  This page lists all available endpoints of the legacy Boltz v1 API
 ---
 
-# 🤖 REST API
+# 🤖 REST API v1
+
+> The API v1 is deprecated
 
 ## Basics
 
@@ -160,22 +161,22 @@ Response:
 This section walks you through creating Normal Submarine Swaps (Chain -> Lightning). They differ slightly depending on the kind of bitcoin that are swapped, more information can be found below. **Please note that Boltz works with 10 \*\* -8 decimals internally** and all amounts in the API endpoints follow this denomination. All requests to create Normal Submarine Swaps have the following common values in the API request:
 
 * `type`: The type of swap to create. For Normal Submarine Swaps this is `submarine` .
-* `pairId`: The pair of which the swap should be created, query available pairs via [`/getpairs`](api.md#supported-pairs).
+* `pairId`: The pair of which the swap should be created, query available pairs via [`/getpairs`](api-v1.md#supported-pairs).
 * `orderSide`: Possible values are `buy` & `sell`. Currently, we recommend using `sell` across all pairs of swap type `submarine`. The value `buy` for Normal Submarine Swaps of e.g. the `L-BTC/BTC` pair signifies a swap from Bitcoin mainchain to _Liquid_ Lightning. Currently, this is not supported and the backend will return `"error": "L-BTC has no lightning support"`.
 
 If you already know the amount to be swapped, you should also set `invoice`.
 
 * `invoice`: The Lightning invoice of the user that should be paid.
 
-If the amount is **not** known yet, a **preimage hash has be specified**. The invoice that is provided later [during the lifecycle of the Submarine Swap](api.md#set-invoice) has to have the _same preimage hash_ as the one specified here.
+If the amount is **not** known yet, a **preimage hash has be specified**. The invoice that is provided later [during the lifecycle of the Submarine Swap](api-v1.md#set-invoice) has to have the _same preimage hash_ as the one specified here.
 
 * `preimageHash`: Hash of a preimage that will be used for the invoice that is set later on.
 
 We recommend verifying that pair data fetched previously (like `minerFees`) is still valid by additionally passing the `pairHash` argument in this call.
 
-* `pairHash`: `hash` string of the pair object of [`/getpairs`](api.md#supported-pairs).
+* `pairHash`: `hash` string of the pair object of [`/getpairs`](api-v1.md#supported-pairs).
 
-Members of our [partner program](api.md#querying-referral-fees) may set this optional referral parameter to get a percentage of the fees earned from referred swaps as kickback.
+Members of our [partner program](api-v1.md#querying-referral-fees) may set this optional referral parameter to get a percentage of the fees earned from referred swaps as kickback.
 
 * `referralId`: Partner referral ID.
 
@@ -207,7 +208,11 @@ For UTXO chains, `/createswap` requests have to contain one additional parameter
 
 Responses also contain one additional value:
 
+<<<<<<< HEAD:docs/api.md
 * `redeemScript`: redeem script from which the `address` is derived. The redeem script should be used, [to verify](dont-trust.-verify.md#utxo-chain-address-verification) that Boltz did provide the correct address.
+=======
+* `redeemScript`: redeem script from which the `address` is derived. The redeem script should be used, [to verify](dont-trust-verify#utxo-chain-address-verification) that Boltz did provide the correct address.
+>>>>>>> master:docs/api-v1.md
 
 In case the address is for the Liquid Network, it will be blinded by a key that is also in the response:
 
@@ -251,7 +256,7 @@ Response:
 
 > Currently, Boltz only supports RSK Testnet!
 
-Swaps from account-based EVM chains like RSK do not require a new address for every swap. `/createswap` takes the details of the swap (like lightning invoice and pair) and Boltz waits until the user locked e.g. RBTC in the contract. The addresses of those contracts can be queried with [`/getcontracts`](api.md#swap-contracts) and the address of the contract that needs to be used for the swap is also returned in the response of this request.
+Swaps from account-based EVM chains like RSK do not require a new address for every swap. `/createswap` takes the details of the swap (like lightning invoice and pair) and Boltz waits until the user locked e.g. RBTC in the contract. The addresses of those contracts can be queried with [`/getcontracts`](api-v1.md#swap-contracts) and the address of the contract that needs to be used for the swap is also returned in the response of this request.
 
 For EVM chains, the request does not require any additional values, but the response returns one additional value:
 
@@ -302,7 +307,7 @@ Status Codes:
 
 Response object:
 
-* `invoiceAmount`: Amount of the invoice that should be set with [`/setinvoice`](api.md#set-invoice).
+* `invoiceAmount`: Amount of the invoice that should be set with [`/setinvoice`](api-v1.md#set-invoice).
 
 **Examples:**
 
@@ -426,7 +431,7 @@ This section walks you creating Reverse Submarine Swaps (Lightning -> Chain). Si
 All requests to create Reverse Submarine Swaps have the following common values in the API request:
 
 * `type`: Type of the swap to create. For Reverse Submarine Swaps this is `reversesubmarine`.
-* `pairId`: The pair of which the swap should be created, query available pairs via [`/getpairs`](api.md#supported-pairs).
+* `pairId`: The pair of which the swap should be created, query available pairs via [`/getpairs`](api-v1.md#supported-pairs).
 * `orderSide`: Possible values are `buy` & `sell`. Currently, we recommend using `buy` across all pairs of swap type `reversesubmarine`. The value `sell` for reverse swaps of e.g. the `L-BTC/BTC` pair signifies a swap from Bitcoin mainchain to _Liquid_ Lightning. Currently, this is not supported and the backend will return `"error": "L-BTC has no lightning support"`
 * `preimageHash`: The SHA256 hash of a preimage that was generated by the client. The size of that preimage _has_ to be 32 bytes, otherwise claiming will fail.
 
@@ -440,9 +445,9 @@ The second option is to specify the amount that will be locked in the chain HTLC
 
 We recommend verifying that pair data fetched previously (like `minerFees`) is still valid by additionally passing the `pairHash` argument in this call.
 
-* `pairHash`: `hash` string in the pair object of [`/getpairs`](api.md#supported-pairs).
+* `pairHash`: `hash` string in the pair object of [`/getpairs`](api-v1.md#supported-pairs).
 
-Members of our [partner program](api.md#querying-referral-fees) may set this optional referral parameter to get a percentage of the fees earned from referred swaps as kickback.
+Members of our [partner program](api-v1.md#querying-referral-fees) may set this optional referral parameter to get a percentage of the fees earned from referred swaps as kickback.
 
 * `referralId`: Partner referral ID.
 
@@ -478,7 +483,11 @@ For UTXO chains, `/createswap` requests have to contain one additional parameter
 
 Responses also contain one additional value:
 
+<<<<<<< HEAD:docs/api.md
 * `redeemScript`: Redeem script from which the lockup address is derived. The redeem script should be used, [to verify](dont-trust.-verify.md#utxo-chain-address-verification) that Boltz didn't try to cheat by creating an address without a HTLC.
+=======
+* `redeemScript`: Redeem script from which the lockup address is derived. The redeem script should be used, [to verify](dont-trust-verify#utxo-chain-address-verification) that Boltz didn't try to cheat by creating an address without a HTLC.
+>>>>>>> master:docs/api-v1.md
 
 In case the lockup address is on the Liquid Network, it will be blinded by a key that is returned in the response too:
 
@@ -691,7 +700,7 @@ Response:
 
 ## Swap Status Stream
 
-To avoid querying the [`/swapstatus`](api.md#swap-status) endpoint regularly to get the latest swap status, this endpoint streams swap status updates via [Server-Side Events](https://www.w3schools.com/html/html5\_serversentevents.asp).
+To avoid querying the [`/swapstatus`](api-v1.md#swap-status) endpoint regularly to get the latest swap status, this endpoint streams swap status updates via [Server-Side Events](https://www.w3schools.com/html/html5\_serversentevents.asp).
 
 Requests to this endpoint have to provide the required swap `id` parameter via an URL parameter because all requests have to be of the method `GET`.
 
@@ -855,7 +864,7 @@ Response:
 
 ## Raw Transactions
 
-Boltz API also allows for querying raw transactions of all supported UTXO chains, irrespective of whether the transactions are still in the mempool or already included in a block. Note, that Boltz does _not_ provide any kind of cryptographic proof that the transaction was included in a block. Also this call is primarily kept for backward compatibility with older integrations, it is _not_ needed to construct transactions as the response of [`/swapstatus`](api.md#swap-status) provides all necessary info.
+Boltz API also allows for querying raw transactions of all supported UTXO chains, irrespective of whether the transactions are still in the mempool or already included in a block. Note, that Boltz does _not_ provide any kind of cryptographic proof that the transaction was included in a block. Also this call is primarily kept for backward compatibility with older integrations, it is _not_ needed to construct transactions as the response of [`/swapstatus`](api-v1.md#swap-status) provides all necessary info.
 
 Requests querying for transactions have to be `POST` and contain two arguments in its `JSON` encoded body:
 
@@ -952,7 +961,7 @@ This call works for Normal Submarine Swaps only. If used for Reverse Submarine S
 
 ## Broadcasting Transactions
 
-This endpoint is used to broadcast transactions on UTXO chains. It is similar to [`/gettransaction`](api.md#raw-transactions) but instead of getting the hex representation of existing transactions, this call broadcasts _new_ transactions to the network. It is mainly intended to be used as an easy way to broadcast [claim & refund transactions](claiming-swaps.md) by Boltz API clients that don't have access to a full node. We encourage checking out alternatives like mempool.space's public API for [Bitcoin](https://mempool.space/docs/api/rest#post-transaction) or [Liquid](https://liquid.network/docs/api/rest#post-transaction) to reduce reliance on Boltz. The call returns the id of the broadcast transaction,which can be used to verify that the refund transaction was broadcast successfully using a third party service.
+This endpoint is used to broadcast transactions on UTXO chains. It is similar to [`/gettransaction`](api-v1.md#raw-transactions) but instead of getting the hex representation of existing transactions, this call broadcasts _new_ transactions to the network. It is mainly intended to be used as an easy way to broadcast [claim & refund transactions](claiming-swaps.md) by Boltz API clients that don't have access to a full node. We encourage checking out alternatives like mempool.space's public API for [Bitcoin](https://mempool.space/docs/api/rest#post-transaction) or [Liquid](https://liquid.network/docs/api/rest#post-transaction) to reduce reliance on Boltz. The call returns the id of the broadcast transaction,which can be used to verify that the refund transaction was broadcast successfully using a third party service.
 
 Requests broadcasting transactions have to be `POST` and contain two arguments in the `JSON` encoded body:
 
@@ -1024,7 +1033,7 @@ Response:
 
 ## Authentication
 
-Boltz API does not require any sort of authentication to perform swaps. However, some API endpoints like [querying referral fees](api.md#querying-referral-fees) for members of our partner program, do.
+Boltz API does not require any sort of authentication to perform swaps. However, some API endpoints like [querying referral fees](api-v1.md#querying-referral-fees) for members of our partner program, do.
 
 To authenticate your API request, three request headers have to be set:
 
@@ -1067,7 +1076,7 @@ try {
 
 ## Querying Referral Fees
 
-Members of the Boltz partner program can request a referral key ([hi@bol.tz](mailto:hi@bol.tz)) to get a percentage of the fees earned from referred swaps as kickback. To query for their referrals, they can send an [authenticated](api.md#authentication) request to this endpoint.
+Members of the Boltz partner program can request a referral key ([hi@bol.tz](mailto:hi@bol.tz)) to get a percentage of the fees earned from referred swaps as kickback. To query for their referrals, they can send an [authenticated](api-v1.md#authentication) request to this endpoint.
 
 | URL                    | Response      |
 | ---------------------- | ------------- |

@@ -34,7 +34,7 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
 
       - name: Install Node.js dependencies
-        run: npm ci
+        run: npm ci --force
 
       - name: Install Python dependencies
         run: npm run python:install

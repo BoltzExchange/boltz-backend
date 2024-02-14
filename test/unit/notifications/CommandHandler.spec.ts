@@ -1,22 +1,29 @@
-import { wait } from '../../Utils';
-import Logger from '../../../lib/Logger';
-import Database from '../../../lib/db/Database';
-import Service from '../../../lib/service/Service';
 import { NotificationConfig } from '../../../lib/Config';
-import ReferralStats from '../../../lib/data/ReferralStats';
-import BackupScheduler from '../../../lib/backup/BackupScheduler';
-import DiscordClient from '../../../lib/notifications/DiscordClient';
-import CommandHandler from '../../../lib/notifications/CommandHandler';
-import PairRepository from '../../../lib/db/repositories/PairRepository';
-import SwapRepository from '../../../lib/db/repositories/SwapRepository';
-import { getHexBuffer, getHexString, stringify } from '../../../lib/Utils';
-import { Balances, GetBalanceResponse } from '../../../lib/proto/boltzrpc_pb';
-import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
-import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
 import {
   coinsToSatoshis,
   satoshisToSatcomma,
 } from '../../../lib/DenominationConverter';
+import Logger from '../../../lib/Logger';
+import {
+  getHexBuffer,
+  getHexString,
+  mapToObject,
+  stringify,
+} from '../../../lib/Utils';
+import BackupScheduler from '../../../lib/backup/BackupScheduler';
+import ReferralStats from '../../../lib/data/ReferralStats';
+import Stats from '../../../lib/data/Stats';
+import Database from '../../../lib/db/Database';
+import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
+import PairRepository from '../../../lib/db/repositories/PairRepository';
+import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
+import SwapRepository from '../../../lib/db/repositories/SwapRepository';
+import CommandHandler from '../../../lib/notifications/CommandHandler';
+import { codeBlock } from '../../../lib/notifications/Markup';
+import DiscordClient from '../../../lib/notifications/clients/DiscordClient';
+import { Balances, GetBalanceResponse } from '../../../lib/proto/boltzrpc_pb';
+import Service from '../../../lib/service/Service';
+import { wait } from '../../Utils';
 import {
   channelCreationExample,
   channelSwapExample,
@@ -25,7 +32,6 @@ import {
   reverseSwapExample,
   swapExample,
 } from './ExampleSwaps';
-import Stats from '../../../lib/data/Stats';
 
 const getRandomNumber = () => Math.floor(Math.random() * 10000);
 
@@ -35,7 +41,7 @@ let sendMessage: callback;
 
 const mockSendMessage = jest.fn().mockImplementation(() => Promise.resolve());
 
-jest.mock('../../../lib/notifications/DiscordClient', () => {
+jest.mock('../../../lib/notifications/clients/DiscordClient', () => {
   return jest.fn().mockImplementation(() => {
     return {
       on: (event: string, callback: callback) => {
@@ -118,6 +124,16 @@ const mockSendCoins = jest
 jest.mock('../../../lib/service/Service', () => {
   return jest.fn().mockImplementation(() => {
     return {
+      swapManager: {
+        deferredClaimer: {
+          pendingSweeps: jest.fn().mockReturnValue(
+            new Map<string, string[]>([
+              ['BTC', ['everything1', 'everything2']],
+              ['L-BTC', ['everything3']],
+            ]),
+          ),
+        },
+      },
       getBalance: async () => {
         const res = new GetBalanceResponse();
 
@@ -191,16 +207,17 @@ describe('CommandHandler', () => {
       ReverseSwapRepository.addReverseSwap(pendingReverseSwapExample),
 
       SwapRepository.addSwap(channelSwapExample),
-      ChannelCreationRepository.addChannelCreation(channelCreationExample),
     ]);
+
+    await ChannelCreationRepository.addChannelCreation(channelCreationExample);
   });
 
   beforeEach(() => {
     mockSendMessage.mockClear();
-    ReferralStats.generate = mockGenerateReferralStats;
+    ReferralStats.getReferralFees = mockGenerateReferralStats;
   });
 
-  test('should not respond to messages that are no commands', async () => {
+  test('should not respond to messages that are not commands', async () => {
     sendMessage('clearly not a command');
     await wait(5);
 
@@ -228,6 +245,7 @@ describe('CommandHandler', () => {
         '**getbalance**: gets the balance of the wallets and channels\n' +
         '**lockedfunds**: gets funds locked up by Boltz\n' +
         '**pendingswaps**: gets a list of pending (reverse) swaps\n' +
+        '**pendingsweeps**: gets all pending sweeps\n' +
         '**getreferrals**: gets stats for all referral IDs\n' +
         '**backup**: uploads a backup of the databases\n' +
         '**withdraw**: withdraws coins from Boltz\n' +
@@ -426,6 +444,19 @@ describe('CommandHandler', () => {
         `- \`${pendingSwapExample.id}\`\n\n` +
         '**Pending reverse Swaps:**\n\n' +
         `- \`${pendingReverseSwapExample.id}\`\n`,
+    );
+  });
+
+  test('should get pending sweeps', async () => {
+    sendMessage('pendingsweeps');
+    await wait(50);
+
+    expect(
+      service.swapManager.deferredClaimer.pendingSweeps,
+    ).toHaveBeenCalledTimes(1);
+    expect(mockSendMessage).toHaveBeenCalledTimes(1);
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      `${codeBlock}${stringify(mapToObject(service.swapManager.deferredClaimer.pendingSweeps()))}${codeBlock}`,
     );
   });
 

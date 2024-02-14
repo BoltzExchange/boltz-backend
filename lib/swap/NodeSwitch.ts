@@ -1,9 +1,9 @@
-import Errors from './Errors';
 import Logger from '../Logger';
-import { SwapType } from '../db/models/Swap';
-import { Currency } from '../wallet/WalletManager';
-import { LightningClient } from '../lightning/LightningClient';
 import ReverseSwap, { NodeType } from '../db/models/ReverseSwap';
+import { SwapType } from '../db/models/Swap';
+import { LightningClient } from '../lightning/LightningClient';
+import { Currency } from '../wallet/WalletManager';
+import Errors from './Errors';
 
 type NodeSwitchConfig = {
   clnAmountThreshold?: number;

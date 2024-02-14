@@ -1,10 +1,9 @@
-import { encode } from 'querystring';
 import { networks as networksLiquid } from 'liquidjs-lib';
-import { getAssetHash } from '../Core';
-import { CurrencyType } from '../consts/Enums';
-import { Currency } from '../wallet/WalletManager';
-import ElementsClient from '../chain/ElementsClient';
+import { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
+import { encode } from 'querystring';
 import { satoshisToCoins } from '../DenominationConverter';
+import ElementsClient from '../chain/ElementsClient';
+import { Currency } from '../wallet/WalletManager';
 
 class PaymentRequestUtils {
   private prefixes = new Map<string, string>([
@@ -17,7 +16,7 @@ class PaymentRequestUtils {
 
   constructor(liquid?: Currency) {
     if (liquid) {
-      this.lbtcAssetHash = getAssetHash(CurrencyType.Liquid, liquid.network!);
+      this.lbtcAssetHash = (liquid.network as LiquidNetwork)!.assetHash;
 
       if (liquid.network! === networksLiquid.testnet) {
         this.prefixes.set(ElementsClient.symbol, 'liquidtestnet');

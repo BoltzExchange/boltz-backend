@@ -1,24 +1,25 @@
 import { types } from 'pg';
+import Sequelize from 'sequelize';
+import { PostgresConfig } from '../Config';
+import Logger from '../Logger';
+import { Currency } from '../wallet/WalletManager';
+import Migration from './Migration';
+import ChainTip from './models/ChainTip';
+import ChannelCreation from './models/ChannelCreation';
+import DatabaseVersion from './models/DatabaseVersion';
+import KeyProvider from './models/KeyProvider';
+import MarkedSwap from './models/MarkedSwap';
+import Pair from './models/Pair';
+import PendingEthereumTransaction from './models/PendingEthereumTransaction';
+import Referral from './models/Referral';
+import ReverseRoutingHint from './models/ReverseRoutingHint';
+import ReverseSwap from './models/ReverseSwap';
+import Swap from './models/Swap';
 
 // To make sure that PostgreSQL types are parsed correctly
 types.setTypeParser(types.builtins.INT8, parseInt);
 types.setTypeParser(types.builtins.NUMERIC, parseFloat);
 types.setTypeParser(types.builtins.FLOAT8, parseFloat);
-
-import Sequelize from 'sequelize';
-import Logger from '../Logger';
-import Pair from './models/Pair';
-import Swap from './models/Swap';
-import Migration from './Migration';
-import ChainTip from './models/ChainTip';
-import Referral from './models/Referral';
-import { PostgresConfig } from '../Config';
-import ReverseSwap from './models/ReverseSwap';
-import KeyProvider from './models/KeyProvider';
-import { Currency } from '../wallet/WalletManager';
-import DatabaseVersion from './models/DatabaseVersion';
-import ChannelCreation from './models/ChannelCreation';
-import PendingEthereumTransaction from './models/PendingEthereumTransaction';
 
 enum DatabaseType {
   'SQLite',
@@ -111,8 +112,11 @@ class Database {
     ]);
 
     await Promise.all([Swap.sync(), ReverseSwap.sync()]);
-
-    await ChannelCreation.sync();
+    await Promise.all([
+      ChannelCreation.sync(),
+      ReverseRoutingHint.sync(),
+      MarkedSwap.sync(),
+    ]);
   };
 
   public migrate = async (currencies: Map<string, Currency>): Promise<void> => {
@@ -129,9 +133,11 @@ class Database {
     Swap.load(Database.sequelize);
     ChainTip.load(Database.sequelize);
     ReverseSwap.load(Database.sequelize);
+    MarkedSwap.load(Database.sequelize);
     KeyProvider.load(Database.sequelize);
     ChannelCreation.load(Database.sequelize);
     DatabaseVersion.load(Database.sequelize);
+    ReverseRoutingHint.load(Database.sequelize);
     PendingEthereumTransaction.load(Database.sequelize);
   };
 }

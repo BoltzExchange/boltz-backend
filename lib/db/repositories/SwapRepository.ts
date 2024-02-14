@@ -1,6 +1,6 @@
 import { Op, WhereOptions } from 'sequelize';
-import Swap, { SwapType } from '../models/Swap';
 import { SwapUpdateEvent } from '../../consts/Enums';
+import Swap, { SwapType } from '../models/Swap';
 
 class SwapRepository {
   public static getSwaps = (options?: WhereOptions): Promise<Swap[]> => {
@@ -26,6 +26,14 @@ class SwapRepository {
     });
   };
 
+  public static getSwapsClaimable = () => {
+    return Swap.findAll({
+      where: {
+        status: SwapUpdateEvent.TransactionClaimPending,
+      },
+    });
+  };
+
   public static getSwap = (options: WhereOptions): Promise<Swap | null> => {
     return Swap.findOne({
       where: options,
@@ -41,6 +49,12 @@ class SwapRepository {
     status: string,
     failureReason?: string,
   ): Promise<Swap> => {
+    if (swap.failureReason) {
+      return swap.update({
+        status,
+      });
+    }
+
     return swap.update({
       status,
       failureReason,

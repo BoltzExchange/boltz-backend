@@ -1,22 +1,12 @@
-import fs from 'fs';
 import {
-  Metadata,
-  credentials,
   ChannelCredentials,
   ClientReadableStream,
+  Metadata,
+  credentials,
 } from '@grpc/grpc-js';
-import Errors from './Errors';
-import Logger from '../Logger';
+import fs from 'fs';
 import BaseClient from '../BaseClient';
-import * as lndrpc from '../proto/lnd/rpc_pb';
-import { ClientStatus } from '../consts/Enums';
-import * as routerrpc from '../proto/lnd/router_pb';
-import { grpcOptions, unaryCall } from './GrpcUtils';
-import * as invoicesrpc from '../proto/lnd/invoices_pb';
-import { RouterClient } from '../proto/lnd/router_grpc_pb';
-import { InvoicesClient } from '../proto/lnd/invoices_grpc_pb';
-import { WalletBalance } from '../wallet/providers/WalletProviderInterface';
-import { LightningClient as LndLightningClient } from '../proto/lnd/rpc_grpc_pb';
+import Logger from '../Logger';
 import {
   decodeInvoiceAmount,
   formatError,
@@ -24,19 +14,30 @@ import {
   getHexString,
   splitChannelPoint,
 } from '../Utils';
+import { ClientStatus } from '../consts/Enums';
+import { InvoicesClient } from '../proto/lnd/invoices_grpc_pb';
+import * as invoicesrpc from '../proto/lnd/invoices_pb';
+import { RouterClient } from '../proto/lnd/router_grpc_pb';
+import * as routerrpc from '../proto/lnd/router_pb';
+import { LightningClient as LndLightningClient } from '../proto/lnd/rpc_grpc_pb';
+import * as lndrpc from '../proto/lnd/rpc_pb';
+import { WalletBalance } from '../wallet/providers/WalletProviderInterface';
+import Errors from './Errors';
+import { grpcOptions, unaryCall } from './GrpcUtils';
 import {
-  Htlc,
-  Route,
-  HopHint,
-  Invoice,
-  NodeInfo,
-  HtlcState,
   ChannelInfo,
-  InvoiceState,
   DecodedInvoice,
+  EventTypes,
+  HopHint,
+  Htlc,
+  HtlcState,
+  Invoice,
   InvoiceFeature,
+  InvoiceState,
   LightningClient,
+  NodeInfo,
   PaymentResponse,
+  Route,
   calculatePaymentFee,
 } from './LightningClient';
 
@@ -54,7 +55,7 @@ type LndConfig = {
 /**
  * A class representing a client to interact with LND
  */
-class LndClient extends BaseClient implements LightningClient {
+class LndClient extends BaseClient<EventTypes> implements LightningClient {
   public static readonly serviceName = 'LND';
 
   public static readonly paymentMinFee = 121;
@@ -188,7 +189,7 @@ class LndClient extends BaseClient implements LightningClient {
       this.subscribeChannelBackups();
 
       this.setClientStatus(ClientStatus.Connected);
-      this.emit('subscription.reconnected');
+      this.emit('subscription.reconnected', null);
     } catch (err) {
       this.setClientStatus(ClientStatus.Disconnected);
 
@@ -860,16 +861,23 @@ class LndClient extends BaseClient implements LightningClient {
 
     const deleteSubscription = () => {
       invoiceSubscription.removeAllListeners();
+      invoiceSubscription.destroy();
     };
 
     invoiceSubscription
       .on('data', (invoice: lndrpc.Invoice) => {
         if (invoice.getState() === lndrpc.Invoice.InvoiceState.ACCEPTED) {
+          const acceptedHtlcs = invoice
+            .getHtlcsList()
+            .filter(
+              (htlc) => htlc.getState() === lndrpc.InvoiceHTLCState.ACCEPTED,
+            );
+
           this.logger.debug(
             `${LndClient.serviceName} ${this.symbol} accepted ${
-              invoice.getHtlcsList().length
+              acceptedHtlcs.length
             } HTLC${
-              invoice.getHtlcsList().length > 1 ? 's' : ''
+              acceptedHtlcs.length > 1 ? 's' : ''
             } for invoice: ${invoice.getPaymentRequest()}`,
           );
 
@@ -968,7 +976,7 @@ class LndClient extends BaseClient implements LightningClient {
     );
 
     if (this.isConnected()) {
-      this.emit('subscription.error');
+      this.emit('subscription.error', subscriptionName);
       await this.reconnect();
     }
   };

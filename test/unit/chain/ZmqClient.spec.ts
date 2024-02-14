@@ -1,23 +1,23 @@
-import { randomBytes } from 'crypto';
+import { Transaction, crypto } from 'bitcoinjs-lib';
 import { OutputType } from 'boltz-core';
-import { socket, Socket } from 'zeromq';
-import { crypto, Transaction } from 'bitcoinjs-lib';
+import { randomBytes } from 'crypto';
+import { Socket, socket } from 'zeromq';
 import Logger from '../../../lib/Logger';
-import Errors from '../../../lib/chain/Errors';
-import FakedChainClient from './FakeChainClient';
-import { CurrencyType } from '../../../lib/consts/Enums';
 import { getHexString, reverseBuffer } from '../../../lib/Utils';
+import ChainClient from '../../../lib/chain/ChainClient';
+import Errors from '../../../lib/chain/Errors';
 import ZmqClient, {
-  filters,
   ZmqNotification,
+  filters,
 } from '../../../lib/chain/ZmqClient';
+import { CurrencyType } from '../../../lib/consts/Enums';
 import {
   generateAddress,
   getPort,
   wait,
   waitForFunctionToBeTrue,
 } from '../../Utils';
-import ChainClient from '../../../lib/chain/ChainClient';
+import FakedChainClient from './FakeChainClient';
 
 class ZmqPublisher {
   public address: string;
@@ -146,7 +146,7 @@ describe('ZmqClient', () => {
 
     let transactionsFound = 0;
 
-    zmqClient.on('transaction', (_, confirmed) => {
+    zmqClient.on('transaction', ({ confirmed }) => {
       if (confirmed) {
         transactionsFound += 1;
       }
@@ -166,7 +166,7 @@ describe('ZmqClient', () => {
 
     let transactionsFound = 0;
 
-    zmqClient.on('transaction', (_, confirmed) => {
+    zmqClient.on('transaction', ({ confirmed }) => {
       if (confirmed) {
         transactionsFound += 1;
       }
@@ -187,7 +187,7 @@ describe('ZmqClient', () => {
     let blockAcceptance = false;
     let mempoolAcceptance = false;
 
-    zmqClient.on('transaction', (_, confirmed) => {
+    zmqClient.on('transaction', ({ confirmed }) => {
       if (confirmed) {
         blockAcceptance = true;
       } else {

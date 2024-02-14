@@ -1,13 +1,13 @@
-import { randomBytes } from 'crypto';
 import { Transaction } from 'bitcoinjs-lib';
+import { randomBytes } from 'crypto';
 import { Transaction as TransactionLiquid } from 'liquidjs-lib';
-import { elementsClient, bitcoinClient, bitcoinLndClient } from './Nodes';
 import {
   calculateLiquidTransactionFee,
   calculateUtxoTransactionFee,
   decodeInvoice,
   getHexBuffer,
 } from '../../lib/Utils';
+import { bitcoinClient, bitcoinLndClient, elementsClient } from './Nodes';
 
 jest.mock('../../lib/db/repositories/ChainTipRepository');
 

@@ -1,7 +1,7 @@
 import { Arguments } from 'yargs';
+import { DeriveKeysRequest } from '../../proto/boltzrpc_pb';
 import BuilderComponents from '../BuilderComponents';
 import { callback, loadBoltzClient } from '../Command';
-import { DeriveKeysRequest } from '../../proto/boltzrpc_pb';
 
 export const command = 'derivekeys <symbol> <index>';
 

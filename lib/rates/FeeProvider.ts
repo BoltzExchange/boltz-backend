@@ -1,12 +1,29 @@
 import Logger from '../Logger';
-import { PairConfig } from '../consts/Types';
-import DataAggregator from './data/DataAggregator';
-import WalletManager from '../wallet/WalletManager';
-import ElementsClient from '../chain/ElementsClient';
-import { BaseFeeType, OrderSide } from '../consts/Enums';
-import { etherDecimals, gweiDecimals } from '../consts/Consts';
-import { Ethereum, Rsk } from '../wallet/ethereum/EvmNetworks';
 import { getChainCurrency, getPairId, splitPairId, stringify } from '../Utils';
+import ElementsClient from '../chain/ElementsClient';
+import { etherDecimals, gweiDecimals } from '../consts/Consts';
+import {
+  BaseFeeType,
+  CurrencyType,
+  OrderSide,
+  SwapVersion,
+} from '../consts/Enums';
+import { PairConfig } from '../consts/Types';
+import WalletManager from '../wallet/WalletManager';
+import { Ethereum, Rsk } from '../wallet/ethereum/EvmNetworks';
+import DataAggregator from './data/DataAggregator';
+
+type TransactionSizesForVersion = {
+  normalClaim: number;
+
+  reverseLockup: number;
+  reverseClaim: number;
+};
+
+type TransactionSizes = {
+  [SwapVersion.Legacy]: TransactionSizesForVersion;
+  [SwapVersion.Taproot]: TransactionSizesForVersion;
+};
 
 type PercentageFees = {
   percentage: number;
@@ -18,9 +35,14 @@ type ReverseMinerFees = {
   claim: number;
 };
 
-type MinerFees = {
+type MinerFeesForVersion = {
   normal: number;
   reverse: ReverseMinerFees;
+};
+
+type MinerFees = {
+  [SwapVersion.Legacy]: MinerFeesForVersion;
+  [SwapVersion.Taproot]: MinerFeesForVersion;
 };
 
 class FeeProvider {
@@ -30,23 +52,42 @@ class FeeProvider {
 
   public minerFees = new Map<string, MinerFees>();
 
-  public static transactionSizes = {
-    // The claim transaction which spends a nested SegWit swap output and sends it to a P2WPKH address has about 170 vbytes
-    normalClaim: 170,
+  public static transactionSizes: {
+    [CurrencyType.BitcoinLike]: TransactionSizes;
+    [CurrencyType.Liquid]: TransactionSizes;
+  } = {
+    [CurrencyType.BitcoinLike]: {
+      [SwapVersion.Taproot]: {
+        normalClaim: 151,
 
-    // We cannot know what kind of address the user will claim to so we just assume the worst case: P2PKH
-    // Claiming a P2WSH to a P2PKH address is about 138 bytes
-    reverseClaim: 138,
+        reverseLockup: 154,
+        reverseClaim: 111,
+      },
+      [SwapVersion.Legacy]: {
+        // The claim transaction which spends a nested SegWit swap output and sends it to a P2WPKH address has about 170 vbytes
+        normalClaim: 170,
 
-    // The lockup transaction which spends a P2WPKH output (possibly more but we assume a best case scenario here),
-    // locks up funds in a P2WSH swap and sends the change back to a P2WKH output has about 153 vbytes
-    reverseLockup: 153,
-  };
+        // We cannot know what kind of address the user will claim to, so we just assume the worst case: P2PKH
+        // Claiming a P2WSH to a P2PKH address is about 138 bytes
+        reverseClaim: 138,
 
-  public static transactionSizesLiquid = {
-    normalClaim: 1333,
-    reverseLockup: 2503,
-    reverseClaim: 1378,
+        // The lockup transaction which spends a P2WPKH output (possibly more, but we assume a best case scenario here),
+        // locks up funds in a P2WSH swap and sends the change back to a P2WKH output has about 153 vbytes
+        reverseLockup: 153,
+      },
+    },
+    [CurrencyType.Liquid]: {
+      [SwapVersion.Taproot]: {
+        normalClaim: 1337,
+        reverseLockup: 2503,
+        reverseClaim: 1297,
+      },
+      [SwapVersion.Legacy]: {
+        normalClaim: 1333,
+        reverseLockup: 2503,
+        reverseClaim: 1378,
+      },
+    },
   };
 
   // TODO: query those estimations from the provider
@@ -123,6 +164,7 @@ class FeeProvider {
 
   public getFees = (
     pair: string,
+    swapVersion: SwapVersion,
     rate: number,
     orderSide: OrderSide,
     amount: number,
@@ -144,30 +186,27 @@ class FeeProvider {
 
     return {
       percentageFee: Math.ceil(percentageFee),
-      baseFee: this.getBaseFee(chainCurrency, type),
+      baseFee: this.getBaseFee(chainCurrency, swapVersion, type),
     };
   };
 
-  public getBaseFee = (chainCurrency: string, type: BaseFeeType): number => {
-    const minerFeeMap = this.minerFees.get(chainCurrency)!;
-
-    let baseFee: number;
+  public getBaseFee = (
+    chainCurrency: string,
+    swapVersion: SwapVersion,
+    type: BaseFeeType,
+  ): number => {
+    const minerFees = this.minerFees.get(chainCurrency)![swapVersion];
 
     switch (type) {
       case BaseFeeType.NormalClaim:
-        baseFee = minerFeeMap.normal;
-        break;
+        return minerFees.normal;
 
       case BaseFeeType.ReverseClaim:
-        baseFee = minerFeeMap.reverse.claim;
-        break;
+        return minerFees.reverse.claim;
 
       case BaseFeeType.ReverseLockup:
-        baseFee = minerFeeMap.reverse.lockup;
-        break;
+        return minerFees.reverse.lockup;
     }
-
-    return baseFee;
   };
 
   public updateMinerFees = async (chainCurrency: string): Promise<void> => {
@@ -180,17 +219,28 @@ class FeeProvider {
       case ElementsClient.symbol: {
         const relativeFee = feeMap.get(chainCurrency)!;
 
-        const sizes =
-          chainCurrency === ElementsClient.symbol
-            ? FeeProvider.transactionSizesLiquid
-            : FeeProvider.transactionSizes;
-
-        this.minerFees.set(chainCurrency, {
+        const calculateMinerFeesForVersion = (
+          sizes: TransactionSizesForVersion,
+        ): MinerFeesForVersion => ({
           normal: Math.ceil(relativeFee * sizes.normalClaim),
           reverse: {
             claim: Math.ceil(relativeFee * sizes.reverseClaim),
             lockup: Math.ceil(relativeFee * sizes.reverseLockup),
           },
+        });
+
+        const sizes =
+          chainCurrency === ElementsClient.symbol
+            ? FeeProvider.transactionSizes[CurrencyType.Liquid]
+            : FeeProvider.transactionSizes[CurrencyType.BitcoinLike];
+
+        this.minerFees.set(chainCurrency, {
+          [SwapVersion.Taproot]: calculateMinerFeesForVersion(
+            sizes[SwapVersion.Taproot],
+          ),
+          [SwapVersion.Legacy]: calculateMinerFeesForVersion(
+            sizes[SwapVersion.Legacy],
+          ),
         });
 
         break;
@@ -204,7 +254,7 @@ class FeeProvider {
           FeeProvider.gasUsage.EtherSwap.claim,
         );
 
-        this.minerFees.set(chainCurrency, {
+        const fees = {
           normal: claimCost,
           reverse: {
             claim: claimCost,
@@ -213,6 +263,11 @@ class FeeProvider {
               FeeProvider.gasUsage.EtherSwap.lockup,
             ),
           },
+        };
+
+        this.minerFees.set(chainCurrency, {
+          [SwapVersion.Legacy]: fees,
+          [SwapVersion.Taproot]: fees,
         });
 
         break;
@@ -234,7 +289,7 @@ class FeeProvider {
           FeeProvider.gasUsage.ERC20Swap.claim,
         );
 
-        this.minerFees.set(chainCurrency, {
+        const fees = {
           normal: claimCost,
           reverse: {
             claim: claimCost,
@@ -244,6 +299,11 @@ class FeeProvider {
               FeeProvider.gasUsage.ERC20Swap.lockup,
             ),
           },
+        };
+
+        this.minerFees.set(chainCurrency, {
+          [SwapVersion.Legacy]: fees,
+          [SwapVersion.Taproot]: fees,
         });
         break;
       }
@@ -272,4 +332,4 @@ class FeeProvider {
 }
 
 export default FeeProvider;
-export { ReverseMinerFees, MinerFees, PercentageFees };
+export { ReverseMinerFees, MinerFees, PercentageFees, MinerFeesForVersion };

@@ -1,22 +1,7 @@
-import fs from 'fs';
 import toml from '@iarna/toml';
-import Errors from './Errors';
-import Logger from '../Logger';
-import Swap from '../db/models/Swap';
+import fs from 'fs';
 import { ConfigType } from '../Config';
-import NodeSwitch from '../swap/NodeSwitch';
-import { OrderSide } from '../consts/Enums';
-import { PairConfig } from '../consts/Types';
-import RoutingOffsets from './RoutingOffsets';
-import LndClient from '../lightning/LndClient';
-import { Currency } from '../wallet/WalletManager';
-import ElementsClient from '../chain/ElementsClient';
-import { Ethereum, Rsk } from '../wallet/ethereum/EvmNetworks';
-import {
-  DecodedInvoice,
-  InvoiceFeature,
-  LightningClient,
-} from '../lightning/LightningClient';
+import Logger from '../Logger';
 import {
   formatError,
   getChainCurrency,
@@ -25,13 +10,30 @@ import {
   splitPairId,
   stringify,
 } from '../Utils';
+import ElementsClient from '../chain/ElementsClient';
+import { OrderSide, SwapVersion } from '../consts/Enums';
+import { PairConfig } from '../consts/Types';
+import Swap from '../db/models/Swap';
+import {
+  DecodedInvoice,
+  InvoiceFeature,
+  LightningClient,
+} from '../lightning/LightningClient';
+import LndClient from '../lightning/LndClient';
+import NodeSwitch from '../swap/NodeSwitch';
+import { Currency } from '../wallet/WalletManager';
 import EthereumManager from '../wallet/ethereum/EthereumManager';
+import { Ethereum, Rsk } from '../wallet/ethereum/EvmNetworks';
+import Errors from './Errors';
+import RoutingOffsets from './RoutingOffsets';
 
 type PairTimeoutBlocksDelta = {
   reverse: number;
 
   swapMinimal: number;
   swapMaximal: number;
+
+  swapTaproot: number;
 };
 
 type PairTimeoutBlockDeltas = {
@@ -101,6 +103,7 @@ class TimeoutDeltaProvider {
             reverse: pair.timeoutDelta,
             swapMaximal: pair.timeoutDelta,
             swapMinimal: pair.timeoutDelta,
+            swapTaproot: pair.timeoutDelta,
           };
         }
 
@@ -167,6 +170,7 @@ class TimeoutDeltaProvider {
     pairId: string,
     orderSide: OrderSide,
     isReverse: boolean,
+    version: SwapVersion,
     invoice?: string,
     referralId?: string,
   ): Promise<[number, boolean]> => {
@@ -200,6 +204,7 @@ class TimeoutDeltaProvider {
             lightning,
             chainDeltas,
             lightningDeltas,
+            version,
             invoice,
             referralId,
           )
@@ -250,6 +255,7 @@ class TimeoutDeltaProvider {
     lightningCurrency: string,
     chainTimeout: PairTimeoutBlocksDelta,
     lightningTimeout: PairTimeoutBlocksDelta,
+    version: SwapVersion,
     invoice: string,
     referralId?: string,
   ): Promise<[number, boolean]> => {
@@ -262,12 +268,14 @@ class TimeoutDeltaProvider {
       decodedInvoice.value,
       referralId,
     );
+
+    const lightningCltv =
+      version === SwapVersion.Taproot
+        ? lightningTimeout.swapTaproot
+        : lightningTimeout.swapMaximal;
+
     const [routeTimeLock, chainInfo] = await Promise.all([
-      this.checkRoutability(
-        lightningClient,
-        decodedInvoice,
-        lightningTimeout.swapMaximal,
-      ),
+      this.checkRoutability(lightningClient, decodedInvoice, lightningCltv),
       currency.chainClient!.getBlockchainInfo(),
     ]);
 
@@ -282,6 +290,17 @@ class TimeoutDeltaProvider {
     this.logger.debug(
       `CLTV needed to route: ${routeDeltaRelative} ${lightningCurrency} blocks`,
     );
+
+    if (version === SwapVersion.Taproot) {
+      return [
+        Math.ceil(
+          (lightningCltv *
+            TimeoutDeltaProvider.blockTimes.get(lightningCurrency)!) /
+            TimeoutDeltaProvider.blockTimes.get(chainCurrency)!,
+        ),
+        true,
+      ];
+    }
 
     // Add some buffer to make sure we have enough limit when the transaction confirms
     const routeDeltaMinutes = Math.ceil(
@@ -340,6 +359,7 @@ class TimeoutDeltaProvider {
         reverse: calculateBlocks(symbol, newDeltas.reverse),
         swapMinimal: calculateBlocks(symbol, newDeltas.swapMinimal),
         swapMaximal: calculateBlocks(symbol, newDeltas.swapMaximal),
+        swapTaproot: calculateBlocks(symbol, newDeltas.swapTaproot),
       };
     };
 

@@ -1,6 +1,6 @@
-import axios from 'axios';
-import { Arguments } from 'yargs';
+import axios, { AxiosResponse } from 'axios';
 import { createHmac } from 'crypto';
+import { Arguments } from 'yargs';
 import { getUnixTime, stringify } from '../../Utils';
 
 export const command = 'queryreferrals <key> <secret>';
@@ -32,28 +32,39 @@ export const builder = {
 };
 
 export const handler = async (argv: Arguments<any>): Promise<void> => {
-  const path = '/referrals/query';
+  try {
+    const [idRes, fees, stats] = await Promise.all([
+      sendAuthenticatedRequest<{ id: string }>(argv, '/v2/referral'),
+      sendAuthenticatedRequest(argv, '/v2/referral/fees'),
+      sendAuthenticatedRequest(argv, '/v2/referral/stats'),
+    ]);
 
+    console.log(
+      stringify({ id: idRes.data.id, fees: fees.data, stats: stats.data }),
+    );
+  } catch (error: any) {
+    if (error.message && error.response) {
+      console.error(`${error.message}: ${stringify(error.response.data)}`);
+    } else {
+      console.error(error);
+    }
+  }
+};
+
+const sendAuthenticatedRequest = <T = any>(
+  argv: Arguments<any>,
+  path: string,
+): Promise<AxiosResponse<T>> => {
   const ts = getUnixTime();
   const hmac = createHmac('sha256', argv.secret)
     .update(`${ts}GET${path}`)
     .digest('hex');
 
-  try {
-    const res = await axios.get(
-      `http://${argv.rest.host}:${argv.rest.port}${path}`,
-      {
-        headers: {
-          TS: ts.toString(),
-          'API-KEY': argv.key,
-          'API-HMAC': hmac,
-        },
-      },
-    );
-
-    console.log(stringify(res.data));
-  } catch (e) {
-    const error = e as any;
-    console.log(`${error.message}: ${stringify(error.response.data)}`);
-  }
+  return axios.get<T>(`http://${argv.rest.host}:${argv.rest.port}${path}`, {
+    headers: {
+      TS: ts.toString(),
+      'API-KEY': argv.key,
+      'API-HMAC': hmac,
+    },
+  });
 };

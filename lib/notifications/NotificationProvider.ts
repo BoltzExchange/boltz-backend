@@ -1,28 +1,31 @@
-import Logger from '../Logger';
-import { Emojis } from './Markup';
-import Swap from '../db/models/Swap';
-import Service from '../service/Service';
-import DiscordClient from './DiscordClient';
-import BalanceChecker from './BalanceChecker';
-import CommandHandler from './CommandHandler';
-import ClnClient from '../lightning/ClnClient';
-import LndClient from '../lightning/LndClient';
-import DiskUsageChecker from './DiskUsageChecker';
-import ReverseSwap from '../db/models/ReverseSwap';
-import WalletManager from '../wallet/WalletManager';
-import BackupScheduler from '../backup/BackupScheduler';
-import { satoshisToSatcomma } from '../DenominationConverter';
-import { ChainInfo, LightningInfo } from '../proto/boltzrpc_pb';
-import { ClientStatus, CurrencyType, OrderSide } from '../consts/Enums';
 import { BaseCurrencyConfig, NotificationConfig, TokenConfig } from '../Config';
+import { satoshisToSatcomma } from '../DenominationConverter';
+import Logger from '../Logger';
 import {
   decodeInvoice,
+  formatError,
   getChainCurrency,
   getLightningCurrency,
   getSendingReceivingCurrency,
   minutesToMilliseconds,
   splitPairId,
 } from '../Utils';
+import BackupScheduler from '../backup/BackupScheduler';
+import { ClientStatus, CurrencyType, OrderSide } from '../consts/Enums';
+import ReverseSwap from '../db/models/ReverseSwap';
+import Swap from '../db/models/Swap';
+import LndClient from '../lightning/LndClient';
+import ClnClient from '../lightning/cln/ClnClient';
+import { ChainInfo, LightningInfo } from '../proto/boltzrpc_pb';
+import Service from '../service/Service';
+import WalletManager from '../wallet/WalletManager';
+import BalanceChecker from './BalanceChecker';
+import CommandHandler from './CommandHandler';
+import DiskUsageChecker from './DiskUsageChecker';
+import { Emojis } from './Markup';
+import DiscordClient from './clients/DiscordClient';
+import MattermostClient from './clients/MattermostClient';
+import NotificationClient from './clients/NotificationClient';
 
 // TODO: test balance and service alerts
 // TODO: use events instead of intervals to check connections and balances
@@ -32,7 +35,7 @@ class NotificationProvider {
   private balanceChecker: BalanceChecker;
   private diskUsageChecker: DiskUsageChecker;
 
-  private discord: DiscordClient;
+  private client: NotificationClient;
 
   private disconnected = new Set<string>();
 
@@ -48,7 +51,11 @@ class NotificationProvider {
     currencies: (BaseCurrencyConfig | undefined)[],
     tokenConfigs: TokenConfig[],
   ) {
-    this.discord = new DiscordClient(this.logger, config);
+    if (this.config.mattermostUrl === undefined) {
+      this.client = new DiscordClient(this.logger, config);
+    } else {
+      this.client = new MattermostClient(this.logger, config);
+    }
 
     this.listenToDiscord();
     this.listenToService();
@@ -56,7 +63,7 @@ class NotificationProvider {
     new CommandHandler(
       this.logger,
       this.config,
-      this.discord,
+      this.client,
       this.service,
       this.backup,
     );
@@ -64,19 +71,19 @@ class NotificationProvider {
     this.balanceChecker = new BalanceChecker(
       this.logger,
       this.service,
-      this.discord,
+      this.client,
       currencies,
       tokenConfigs,
     );
-    this.diskUsageChecker = new DiskUsageChecker(this.logger, this.discord);
+    this.diskUsageChecker = new DiskUsageChecker(this.logger, this.client);
   }
 
   public init = async (): Promise<void> => {
     try {
-      await this.discord.init();
+      await this.client.init();
 
-      await this.discord.sendMessage('Started Boltz instance');
-      this.logger.verbose('Connected to Discord');
+      await this.client.sendMessage('Started Boltz instance');
+      this.logger.verbose(`Connected to ${this.client.serviceName}`);
 
       for (const [symbol, currency] of this.service.currencies) {
         [currency.lndClient, currency.clnClient]
@@ -172,8 +179,8 @@ class NotificationProvider {
   };
 
   private listenToDiscord = () => {
-    this.discord.on('error', (error) => {
-      this.logger.warn(`Discord client threw: ${error.message}`);
+    this.client.on('error', (error) => {
+      this.logger.warn(`Discord client threw: ${formatError(error)}`);
     });
   };
 
@@ -244,7 +251,7 @@ class NotificationProvider {
 
     this.service.eventHandler.on(
       'swap.success',
-      async (swap, isReverse, channelCreation) => {
+      async ({ swap, isReverse, channelCreation }) => {
         const { onchainSymbol, lightningSymbol } = getSymbols(
           swap.pair,
           swap.orderSide,
@@ -284,7 +291,7 @@ class NotificationProvider {
             }`;
         }
 
-        await this.discord.sendMessage(
+        await this.client.sendMessage(
           `${message}${NotificationProvider.trailingWhitespace}`,
         );
       },
@@ -292,7 +299,7 @@ class NotificationProvider {
 
     this.service.eventHandler.on(
       'swap.failure',
-      async (swap, isReverse, reason) => {
+      async ({ swap, isReverse, reason }) => {
         const { onchainSymbol, lightningSymbol } = getSymbols(
           swap.pair,
           swap.orderSide,
@@ -317,7 +324,7 @@ class NotificationProvider {
           message += `\nInvoice: ${swap.invoice}`;
         }
 
-        await this.discord.sendMessage(
+        await this.client.sendMessage(
           `${message}${NotificationProvider.trailingWhitespace}`,
         );
       },
@@ -336,7 +343,7 @@ class NotificationProvider {
       this.disconnected.add(service);
     }
 
-    await this.discord.sendMessage(
+    await this.client.sendMessage(
       `**Lost connection to ${service}${
         subscription ? ` ${subscription} subscription` : ''
       }**`,
@@ -347,7 +354,7 @@ class NotificationProvider {
   private sendReconnected = async (service: string) => {
     if (this.disconnected.has(service)) {
       this.disconnected.delete(service);
-      await this.discord.sendMessage(`Reconnected to ${service}`, true);
+      await this.client.sendMessage(`Reconnected to ${service}`, true);
     }
   };
 

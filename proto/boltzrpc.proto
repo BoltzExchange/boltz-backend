@@ -26,6 +26,8 @@ service Boltz {
 
   /* Adds a new referral ID to the database */
   rpc AddReferral (AddReferralRequest) returns (AddReferralResponse);
+
+  rpc SweepSwaps (SweepSwapsRequest) returns (SweepSwapsResponse);
 }
 
 enum OutputType {
@@ -156,6 +158,8 @@ message UpdateTimeoutBlockDeltaRequest {
 
   uint32 swap_minimal_timeout = 3;
   uint32 swap_maximal_timeout = 4;
+
+  uint32 swap_taproot = 5;
 }
 message UpdateTimeoutBlockDeltaResponse {}
 
@@ -167,4 +171,15 @@ message AddReferralRequest {
 message AddReferralResponse {
   string api_key = 1;
   string api_secret = 2;
+}
+
+message SweepSwapsRequest {
+  optional string symbol = 1;
+}
+message SweepSwapsResponse {
+  message ClaimedSwaps {
+    repeated string claimed_ids = 1;
+  }
+
+  map<string, ClaimedSwaps> claimed_symbols = 1;
 }

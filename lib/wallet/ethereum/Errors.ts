@@ -1,7 +1,7 @@
 import { Network } from 'ethers';
-import { Error } from '../../consts/Types';
 import { concatErrorCode } from '../../Utils';
 import { ErrorCodePrefix } from '../../consts/Enums';
+import { Error } from '../../consts/Types';
 
 export default {
   NO_PROVIDER_SPECIFIED: (): Error => ({

@@ -1,12 +1,12 @@
-import { Wallet } from 'ethers';
-import { randomBytes } from 'crypto';
 import { crypto } from 'bitcoinjs-lib';
 import { ERC20 } from 'boltz-core/typechain/ERC20';
-import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
+import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
+import { randomBytes } from 'crypto';
+import { Wallet } from 'ethers';
 import Logger from '../../../../lib/Logger';
-import { Ethereum } from '../../../../lib/wallet/ethereum/EvmNetworks';
 import ContractHandler from '../../../../lib/wallet/ethereum/ContractHandler';
+import { Ethereum } from '../../../../lib/wallet/ethereum/EvmNetworks';
 import ERC20WalletProvider from '../../../../lib/wallet/providers/ERC20WalletProvider';
 import {
   EthereumSetup,

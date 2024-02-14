@@ -1,339 +1,174 @@
 import Logger from '../../../lib/Logger';
-import { getPairId, hashString } from '../../../lib/Utils';
-import { Network } from '../../../lib/consts/Enums';
+import { SwapVersion } from '../../../lib/consts/Enums';
 import { PairConfig } from '../../../lib/consts/Types';
+import Errors from '../../../lib/rates/Errors';
 import RateProvider from '../../../lib/rates/RateProvider';
-import { Currency } from '../../../lib/wallet/WalletManager';
-import DataAggregator from '../../../lib/rates/data/DataAggregator';
-import FeeProvider, { MinerFees } from '../../../lib/rates/FeeProvider';
-
-FeeProvider.transactionSizes = {
-  normalClaim: 170,
-
-  reverseLockup: 153,
-  reverseClaim: 138,
-};
-
-const rates = {
-  LTC: 0.015,
-  BTC: 1,
-};
-
-const percentageFees = new Map<string, number>([
-  ['LTC/BTC', 0.01],
-  ['BTC/BTC', 0.005],
-  ['LTC/LTC', 0.015],
-]);
-
-const percentageSwapInFees = new Map<string, number>([
-  ['LTC/BTC', 0.01],
-  ['BTC/BTC', -0.01],
-]);
-
-const minerFees = new Map<string, MinerFees>([
-  [
-    'BTC',
-    {
-      normal: FeeProvider.transactionSizes.normalClaim * 2,
-      reverse: {
-        lockup: FeeProvider.transactionSizes.reverseLockup * 2,
-        claim: FeeProvider.transactionSizes.reverseClaim * 2,
-      },
-    },
-  ],
-  [
-    'LTC',
-    {
-      normal: FeeProvider.transactionSizes.normalClaim,
-      reverse: {
-        lockup: FeeProvider.transactionSizes.reverseLockup,
-        claim: FeeProvider.transactionSizes.reverseClaim,
-      },
-    },
-  ],
-]);
-
-let mockGetBaseFeeResult = 0;
-const mockGetBaseFee = jest.fn().mockImplementation((symbol) => {
-  if (symbol === 'L-BTC') {
-    return 0;
-  }
-
-  return mockGetBaseFeeResult;
-});
-
-const mockUpdateMinerFees = jest.fn().mockImplementation(async () => {});
-
-const mockGetPercentageFees = jest.fn().mockImplementation((pair) => {
-  return {
-    percentage: percentageFees.get(pair)! * 100,
-    percentageSwapIn:
-      (percentageSwapInFees.get(pair) || percentageFees.get(pair))! * 100,
-  };
-});
-
-const btcFee = 36;
-const ltcFee = 3;
-
-const getFeeEstimation = () =>
-  Promise.resolve(
-    new Map([
-      ['BTC', btcFee],
-      ['LTC', ltcFee],
-    ]),
-  );
+import WalletManager from '../../../lib/wallet/WalletManager';
 
 jest.mock('../../../lib/rates/FeeProvider', () => {
   return jest.fn().mockImplementation(() => {
     return {
-      minerFees,
-      percentageFees,
-      percentageSwapInFees,
-      getBaseFee: mockGetBaseFee,
-      updateMinerFees: mockUpdateMinerFees,
-      getPercentageFees: mockGetPercentageFees,
+      updateMinerFees: jest.fn().mockImplementation(),
+      getPercentageFees: jest.fn().mockImplementation((pairId) => {
+        switch (pairId) {
+          case 'BTC/BTC':
+            return {
+              percentage: 0.5,
+              percentageSwapIn: 0.1,
+            };
+
+          default:
+            return {
+              percentage: 0.25,
+              percentageSwapIn: 0.1,
+            };
+        }
+      }),
     };
   });
 });
 
-jest.mock('../../../lib/rates/data/DataAggregator', () => {
-  const pairs = new Set<[string, string]>();
-  const latestRates = new Map<string, number>();
-
+jest.mock('../../../lib/rates/providers/RateProviderLegacy', () => {
   return jest.fn().mockImplementation(() => {
     return {
-      pairs,
-      latestRates,
-      registerPair: (baseAsset: string, quoteAsset: string) => {
-        pairs.add([baseAsset, quoteAsset]);
-      },
-      fetchPairs: async () => {
-        latestRates.set('BTC/BTC', rates.BTC);
-        latestRates.set('LTC/BTC', rates.LTC);
-        latestRates.set('LTC/LTC', rates.BTC);
-        latestRates.set('L-BTC/LTC', rates.BTC);
-        return latestRates;
-      },
+      setHardcodedPair: jest.fn(),
+      updateHardcodedPair: jest.fn(),
     };
   });
 });
 
-const mockedDataProvider = <jest.Mock<DataAggregator>>(<any>DataAggregator);
+jest.mock('../../../lib/rates/providers/RateProviderTaproot', () => {
+  return jest.fn().mockImplementation(() => {
+    return {
+      setHardcodedPair: jest.fn(),
+      updateHardcodedPair: jest.fn(),
+    };
+  });
+});
 
 describe('RateProvider', () => {
-  const btcCurrency = {
-    symbol: 'BTC',
-    network: Network.Regtest,
-    lndClient: {},
-    chainClient: {},
-    limits: {
-      maxZeroConfAmount: 10000000,
-    },
-  } as any as Currency;
-
-  const lbtcCurrency = {
-    symbol: 'L-BTC',
-    network: Network.Regtest,
-    chainClient: {},
-    limits: {},
-  } as any as Currency;
-
-  const ltcCurrency = {
-    symbol: 'LTC',
-    network: Network.Regtest,
-    lndClient: {},
-    chainClient: {},
-    limits: {
-      maxZeroConfAmount: 1000000,
-    },
-  } as any as Currency;
-
-  const pairs: PairConfig[] = [
-    {
-      base: 'BTC',
-      quote: 'BTC',
-      minSwapAmount: 1,
-      maxSwapAmount: 100000000000,
-    },
-    {
-      base: 'L-BTC',
-      quote: 'BTC',
-      rate: 1,
-      minSwapAmount: 10_000,
-      maxSwapAmount: 10_000_000,
-    },
-    {
-      base: 'LTC',
-      quote: 'BTC',
-      minSwapAmount: 10000,
-      maxSwapAmount: 1000000000,
-    },
-    {
-      base: 'LTC',
-      quote: 'LTC',
-      minSwapAmount: 100000000,
-      maxSwapAmount: 100000000000,
-    },
-  ];
-
   const rateProvider = new RateProvider(
     Logger.disabledLogger,
-    0.1,
-    new Map<string, Currency>([
-      ['BTC', btcCurrency],
-      ['LTC', ltcCurrency],
-      ['L-BTC', lbtcCurrency],
+    60,
+    new Map<string, any>([
+      [
+        'BTC',
+        {
+          symbol: 'BTC',
+          limits: {},
+        },
+      ],
+      [
+        'L-BTC',
+        {
+          symbol: 'L-BTC',
+          limits: {
+            maxZeroConfAmount: 100_000,
+          },
+        },
+      ],
     ]),
-    {} as any,
-    getFeeEstimation,
+    {} as WalletManager,
+    jest.fn(),
   );
 
-  rateProvider['dataProvider'] = mockedDataProvider();
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  afterAll(() => {
+    rateProvider.disconnect();
+  });
+
+  test('should parse 0-conf limits', () => {
+    expect(rateProvider['zeroConfAmounts'].get('BTC')).toEqual(0);
+    expect(rateProvider['zeroConfAmounts'].get('L-BTC')).toEqual(100_000);
+  });
+
+  test.each`
+    currency   | amount     | expected
+    ${'BTC'}   | ${1}       | ${false}
+    ${'L-BTC'} | ${99_999}  | ${true}
+    ${'L-BTC'} | ${100_000} | ${true}
+    ${'L-BTC'} | ${100_001} | ${false}
+  `('should check if 0-conf is accepted', ({ currency, amount, expected }) => {
+    expect(rateProvider.acceptZeroConf(currency, amount)).toEqual(expected);
+  });
 
   test('should init', async () => {
+    const pairs = [
+      {
+        base: 'BTC',
+        quote: 'BTC',
+        rate: 1,
+        minSwapAmount: 10_000,
+        maxSwapAmount: 250_000,
+      },
+      {
+        base: 'L-BTC',
+        quote: 'BTC',
+        rate: 1,
+        minSwapAmount: 1_000,
+        maxSwapAmount: 100_000,
+      },
+    ];
     await rateProvider.init(pairs);
+
+    for (const version of [SwapVersion.Taproot, SwapVersion.Legacy]) {
+      expect(
+        rateProvider.providers[version].setHardcodedPair,
+      ).toHaveBeenCalledTimes(2);
+      expect(
+        rateProvider.providers[version].setHardcodedPair,
+      ).toHaveBeenCalledWith(pairs[0]);
+      expect(
+        rateProvider.providers[version].setHardcodedPair,
+      ).toHaveBeenCalledWith(pairs[1]);
+
+      expect(
+        rateProvider.providers[version].updateHardcodedPair,
+      ).toHaveBeenCalledTimes(2);
+      expect(
+        rateProvider.providers[version].updateHardcodedPair,
+      ).toHaveBeenCalledWith('BTC/BTC');
+      expect(
+        rateProvider.providers[version].updateHardcodedPair,
+      ).toHaveBeenCalledWith('L-BTC/BTC');
+    }
+
+    expect(rateProvider['pairConfigs'].size).toEqual(2);
+    expect(rateProvider['pairConfigs'].get('BTC/BTC')).toEqual(pairs[0]);
+    expect(rateProvider['pairConfigs'].get('L-BTC/BTC')).toEqual(pairs[1]);
+
+    expect(rateProvider['configPairs'].size).toEqual(2);
+    expect(rateProvider['configPairs'].has('BTC/BTC')).toEqual(true);
+    expect(rateProvider['configPairs'].has('L-BTC/BTC')).toEqual(true);
   });
 
-  test('should get rates', () => {
-    const { pairs } = rateProvider;
-
-    expect(pairs.get('BTC/BTC')!.rate).toEqual(rates.BTC);
-    expect(pairs.get('LTC/BTC')!.rate).toEqual(rates.LTC);
-  });
-
-  test('should get limits', () => {
-    const btcLimits = pairs.find((pair) => getPairId(pair) === 'BTC/BTC')!;
-    expect(rateProvider.pairs.get('BTC/BTC')!.limits).toEqual({
-      maximal: btcLimits.maxSwapAmount,
-      minimal: btcLimits.minSwapAmount,
-
-      maximalZeroConf: {
-        baseAsset: btcCurrency.limits.maxZeroConfAmount,
-        quoteAsset: btcCurrency.limits.maxZeroConfAmount,
-      },
-    });
-
-    const ltcLimits = pairs.find((pair) => getPairId(pair) === 'LTC/BTC')!;
-    expect(rateProvider.pairs.get('LTC/BTC')!.limits).toEqual({
-      maximal: ltcLimits.maxSwapAmount,
-      minimal: ltcLimits.minSwapAmount,
-
-      maximalZeroConf: {
-        baseAsset: ltcCurrency.limits.maxZeroConfAmount,
-        quoteAsset: btcCurrency.limits.maxZeroConfAmount,
-      },
-    });
-  });
-
-  test('should throw when getting limits for non existent pair', () => {
-    const pair = 'non/existent';
-    expect(() => rateProvider['getLimits'](pair, 1)).toThrow(
-      `Could not get limits for pair ${pair}`,
+  test('should not init when a pair does not have "maxSwapAmount"', async () => {
+    await expect(
+      rateProvider.init([
+        {
+          base: 'BTC',
+          quote: 'BTC',
+        },
+      ] as PairConfig[]),
+    ).rejects.toEqual(
+      Errors.CONFIGURATION_INCOMPLETE('BTC/BTC', 'maxSwapAmount'),
     );
   });
 
-  test('should get percentage fees', () => {
-    const { pairs } = rateProvider;
-
-    percentageFees.forEach((_, pairId) => {
-      expect(pairs.get(pairId)!.fees.percentage).toEqual(
-        percentageFees.get(pairId)! * 100,
-      );
-    });
-  });
-
-  test('should get percentage fees for normal swaps', () => {
-    const { pairs } = rateProvider;
-
-    percentageSwapInFees.forEach((_, pairId) => {
-      expect(pairs.get(pairId)!.fees.percentageSwapIn).toEqual(
-        percentageSwapInFees.get(pairId)! * 100,
-      );
-    });
-
-    const ltcPair = 'LTC/LTC';
-    expect(percentageSwapInFees.has(ltcPair)).toBeFalsy();
-    expect(pairs.get(ltcPair)!.fees.percentageSwapIn).toEqual(
-      percentageFees.get(ltcPair)! * 100,
+  test('should not init when a pair does not have "minSwapAmount"', async () => {
+    await expect(
+      rateProvider.init([
+        {
+          base: 'BTC',
+          quote: 'BTC',
+          maxSwapAmount: 21,
+        },
+      ] as PairConfig[]),
+    ).rejects.toEqual(
+      Errors.CONFIGURATION_INCOMPLETE('BTC/BTC', 'minSwapAmount'),
     );
-  });
-
-  test('should get miner fees', () => {
-    const { pairs } = rateProvider;
-
-    expect(pairs.get('BTC/BTC')!.fees.minerFees).toEqual({
-      baseAsset: minerFees.get('BTC'),
-      quoteAsset: minerFees.get('BTC'),
-    });
-    expect(pairs.get('LTC/BTC')!.fees.minerFees).toEqual({
-      baseAsset: minerFees.get('LTC'),
-      quoteAsset: minerFees.get('BTC'),
-    });
-  });
-
-  test('should calculate hashes', () => {
-    const { pairs } = rateProvider;
-
-    expect(pairs.get('BTC/BTC')!.hash).toEqual(
-      hashString(
-        JSON.stringify({
-          rate: pairs.get('BTC/BTC')!.rate,
-          fees: pairs.get('BTC/BTC')!.fees,
-          limits: pairs.get('BTC/BTC')!.limits,
-        }),
-      ),
-    );
-
-    expect(pairs.get('LTC/BTC')!.hash).toEqual(
-      hashString(
-        JSON.stringify({
-          rate: pairs.get('LTC/BTC')!.rate,
-          fees: pairs.get('LTC/BTC')!.fees,
-          limits: pairs.get('LTC/BTC')!.limits,
-        }),
-      ),
-    );
-  });
-
-  test('should accept 0-conf for amounts lower than threshold', () => {
-    // Should return false for undefined maximal allowed amounts
-    expect(rateProvider.acceptZeroConf('ETH', 0)).toEqual(false);
-
-    expect(
-      rateProvider.acceptZeroConf(
-        'BTC',
-        btcCurrency.limits.maxZeroConfAmount! + 1,
-      ),
-    ).toEqual(false);
-
-    expect(
-      rateProvider.acceptZeroConf('BTC', btcCurrency.limits.maxZeroConfAmount!),
-    ).toEqual(true);
-    expect(
-      rateProvider.acceptZeroConf(
-        'BTC',
-        btcCurrency.limits.maxZeroConfAmount! - 1,
-      ),
-    ).toEqual(true);
-  });
-
-  test('should adjust minimal limits based on current miner fees', async () => {
-    mockGetBaseFeeResult = 13430;
-
-    await rateProvider['updateRates']();
-
-    expect(rateProvider.pairs.get('BTC/BTC')!.limits.minimal).toEqual(
-      mockGetBaseFeeResult * RateProvider['minLimitFactor'],
-    );
-    expect(rateProvider.pairs.get('LTC/BTC')!.limits.minimal).toEqual(
-      mockGetBaseFeeResult * RateProvider['minLimitFactor'],
-    );
-    expect(rateProvider.pairs.get('L-BTC/BTC')!.limits.minimal).toEqual(
-      pairs.find((pair) => getPairId(pair) === 'L-BTC/BTC')?.minSwapAmount,
-    );
-  });
-
-  afterAll(async () => {
-    rateProvider.disconnect();
   });
 });

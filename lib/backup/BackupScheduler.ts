@@ -1,14 +1,14 @@
-import { unlinkSync } from 'fs';
 import { exec } from 'child_process';
+import { unlinkSync } from 'fs';
 import { scheduleJob } from 'node-schedule';
-import Errors from './Errors';
+import { BackupConfig, PostgresConfig } from '../Config';
 import Logger from '../Logger';
 import { formatError } from '../Utils';
-import Webdav from './providers/Webdav';
-import GoogleCloud from './providers/GoogleCloud';
-import EventHandler from '../service/EventHandler';
 import Database, { DatabaseType } from '../db/Database';
-import { BackupConfig, PostgresConfig } from '../Config';
+import EventHandler from '../service/EventHandler';
+import Errors from './Errors';
+import GoogleCloud from './providers/GoogleCloud';
+import Webdav from './providers/Webdav';
 
 interface BackupProvider {
   uploadString(path: string, data: string): Promise<void>;
@@ -153,7 +153,7 @@ class BackupScheduler {
   private subscribeChannelBackups = () => {
     this.eventHandler.on(
       'channel.backup',
-      async (currency: string, channelBackup: string) => {
+      async ({ currency, channelBackup }) => {
         const dateString = BackupScheduler.getDate(new Date());
 
         await this.uploadString(

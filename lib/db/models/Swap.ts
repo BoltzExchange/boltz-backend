@@ -1,10 +1,13 @@
-import { Model, Sequelize, DataTypes } from 'sequelize';
+import { DataTypes, Model, Sequelize } from 'sequelize';
+import { SwapVersion } from '../../consts/Enums';
 import Pair from './Pair';
 
 type SwapType = {
   id: string;
+  version: SwapVersion;
 
   keyIndex?: number;
+  refundPublicKey?: string;
   redeemScript?: string;
 
   fee?: number;
@@ -35,8 +38,10 @@ type SwapType = {
 
 class Swap extends Model implements SwapType {
   public id!: string;
+  public version!: SwapVersion;
 
   public keyIndex?: number;
+  public refundPublicKey?: string;
   public redeemScript?: string;
 
   public fee?: number;
@@ -75,7 +80,19 @@ class Swap extends Model implements SwapType {
           primaryKey: true,
           allowNull: false,
         },
+        version: {
+          type: new DataTypes.INTEGER(),
+          allowNull: false,
+          validate: {
+            isIn: [
+              Object.values(SwapVersion).filter(
+                (val) => typeof val === 'number',
+              ),
+            ],
+          },
+        },
         keyIndex: { type: new DataTypes.INTEGER(), allowNull: true },
+        refundPublicKey: { type: new DataTypes.STRING(), allowNull: true },
         redeemScript: { type: new DataTypes.TEXT(), allowNull: true },
         fee: { type: new DataTypes.BIGINT(), allowNull: true },
         referral: { type: new DataTypes.STRING(255), allowNull: true },

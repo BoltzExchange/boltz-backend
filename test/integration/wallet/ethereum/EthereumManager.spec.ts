@@ -1,10 +1,10 @@
-import { MaxUint256 } from 'ethers';
 import { generateMnemonic } from 'bip39';
+import { MaxUint256 } from 'ethers';
 import Logger from '../../../../lib/Logger';
 import Errors from '../../../../lib/wallet/Errors';
 import Wallet from '../../../../lib/wallet/Wallet';
-import { Ethereum, Rsk } from '../../../../lib/wallet/ethereum/EvmNetworks';
 import EthereumManager from '../../../../lib/wallet/ethereum/EthereumManager';
+import { Ethereum, Rsk } from '../../../../lib/wallet/ethereum/EvmNetworks';
 import ERC20WalletProvider from '../../../../lib/wallet/providers/ERC20WalletProvider';
 import {
   EthereumSetup,
@@ -74,20 +74,20 @@ describe('EthereumManager', () => {
   test.each`
     versions | isEtherSwap
     ${{
-  EtherSwap: 1,
-  ERC20Swap: 2,
+  EtherSwap: 2,
+  ERC20Swap: 3,
+}} | ${true}
+    ${{
+  EtherSwap: 4,
+  ERC20Swap: 3,
 }} | ${true}
     ${{
   EtherSwap: 3,
   ERC20Swap: 2,
-}} | ${true}
-    ${{
-  EtherSwap: 2,
-  ERC20Swap: 1,
 }} | ${false}
     ${{
-  EtherSwap: 2,
-  ERC20Swap: 3,
+  EtherSwap: 3,
+  ERC20Swap: 4,
 }} | ${false}
   `(
     'should throw for invalid contract versions $versions',
@@ -106,7 +106,7 @@ describe('EthereumManager', () => {
           await (
             isEtherSwap ? manager.etherSwap : manager.erc20Swap
           ).getAddress(),
-          BigInt(2),
+          BigInt(3),
           isEtherSwap ? versions.EtherSwap : versions.ERC20Swap,
         ),
       );

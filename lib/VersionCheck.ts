@@ -1,6 +1,7 @@
 import ChainClient from './chain/ChainClient';
-import ClnClient from './lightning/ClnClient';
 import LndClient from './lightning/LndClient';
+import ClnClient from './lightning/cln/ClnClient';
+import MpayClient from './lightning/cln/MpayClient';
 
 type Version = string | number;
 
@@ -69,7 +70,13 @@ class Comperator {
 }
 
 class VersionCheck {
-  private static versionLimits = {
+  private static versionLimits: Record<
+    string,
+    {
+      minimal: string | number;
+      maximal: string | number;
+    }
+  > = {
     [ChainClient.serviceName]: {
       minimal: 220000,
       maximal: 260000,
@@ -82,9 +89,13 @@ class VersionCheck {
       minimal: '0.0.3',
       maximal: '0.0.4',
     },
+    [MpayClient.serviceName]: {
+      minimal: '0.1.0',
+      maximal: '0.1.0',
+    },
     [LndClient.serviceName]: {
       minimal: '0.16.0',
-      maximal: '0.17.3',
+      maximal: '0.17.4',
     },
   };
 
@@ -136,6 +147,10 @@ class VersionCheck {
 
       case ClnClient.serviceNameHold:
         limits = VersionCheck.versionLimits[ClnClient.serviceNameHold];
+        break;
+
+      case MpayClient.serviceName:
+        limits = VersionCheck.versionLimits[MpayClient.serviceName];
         break;
 
       default:

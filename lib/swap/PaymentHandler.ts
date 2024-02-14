@@ -1,18 +1,6 @@
-import Errors from './Errors';
+import { Transaction } from 'bitcoinjs-lib';
+import { Transaction as LiquidTransaction } from 'liquidjs-lib/src/transaction';
 import Logger from '../Logger';
-import Swap from '../db/models/Swap';
-import NodeSwitch from './NodeSwitch';
-import ChannelNursery from './ChannelNursery';
-import LndClient from '../lightning/LndClient';
-import ClnClient from '../lightning/ClnClient';
-import LightningNursery from './LightningNursery';
-import { Currency } from '../wallet/WalletManager';
-import ChannelCreation from '../db/models/ChannelCreation';
-import SwapRepository from '../db/repositories/SwapRepository';
-import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
-import { Payment, PaymentFailureReason } from '../proto/lnd/rpc_pb';
-import { ChannelCreationStatus, SwapUpdateEvent } from '../consts/Enums';
-import { LightningClient, PaymentResponse } from '../lightning/LightningClient';
 import {
   formatError,
   getHexBuffer,
@@ -21,6 +9,60 @@ import {
   getTsString,
   splitPairId,
 } from '../Utils';
+import { ChannelCreationStatus, SwapUpdateEvent } from '../consts/Enums';
+import ChannelCreation from '../db/models/ChannelCreation';
+import ReverseSwap from '../db/models/ReverseSwap';
+import Swap from '../db/models/Swap';
+import SwapRepository from '../db/repositories/SwapRepository';
+import { LightningClient, PaymentResponse } from '../lightning/LightningClient';
+import LndClient from '../lightning/LndClient';
+import ClnClient from '../lightning/cln/ClnClient';
+import { Payment, PaymentFailureReason } from '../proto/lnd/rpc_pb';
+import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
+import { Currency } from '../wallet/WalletManager';
+import ChannelNursery from './ChannelNursery';
+import Errors from './Errors';
+import LightningNursery from './LightningNursery';
+import NodeSwitch from './NodeSwitch';
+
+type SwapNurseryEvents = {
+  // UTXO based chains emit the "Transaction" object and Ethereum based ones just the transaction hash
+  transaction: {
+    swap: Swap | ReverseSwap;
+    transaction: Transaction | LiquidTransaction | string;
+    confirmed: boolean;
+    isReverse: boolean;
+  };
+  expiration: {
+    swap: Swap | ReverseSwap;
+    isReverse: boolean;
+  };
+
+  // Swap related events
+  'lockup.failed': Swap;
+  'zeroconf.rejected': Swap;
+  'invoice.pending': Swap;
+  'invoice.failedToPay': Swap;
+  'invoice.paid': Swap;
+  'claim.pending': Swap;
+  claim: { swap: Swap; channelCreation?: ChannelCreation };
+
+  // Reverse swap related events
+  'minerfee.paid': ReverseSwap;
+  'invoice.expired': ReverseSwap;
+
+  // UTXO based chains emit the "Transaction" object and Ethereum based ones just the transaction hash
+  'coins.sent': {
+    reverseSwap: ReverseSwap;
+    transaction: Transaction | LiquidTransaction | string;
+  };
+  'coins.failedToSend': ReverseSwap;
+  refund: {
+    reverseSwap: ReverseSwap;
+    refundTransaction: string;
+  };
+  'invoice.settled': ReverseSwap;
+};
 
 class PaymentHandler {
   private static readonly raceTimeout = 15;
@@ -35,7 +77,10 @@ class PaymentHandler {
     private readonly currencies: Map<string, Currency>,
     public readonly channelNursery: ChannelNursery,
     private readonly timeoutDeltaProvider: TimeoutDeltaProvider,
-    private emit: (eventName: string, ...args: any[]) => void,
+    private emit: <K extends keyof SwapNurseryEvents>(
+      eventName: K,
+      arg: SwapNurseryEvents[K],
+    ) => void,
   ) {}
 
   public payInvoice = async (
@@ -204,9 +249,8 @@ class PaymentHandler {
           });
         } else if (payment.status === Payment.PaymentStatus.IN_FLIGHT) {
           this.logger.info(`Invoice of Swap ${swap.id} is still pending`);
+          return undefined;
         }
-
-        return undefined;
       } catch (e) {
         /* empty */
       }
@@ -224,6 +268,8 @@ class PaymentHandler {
     }
 
     if (
+      errorMessage === PaymentHandler.errCltvTooSmall ||
+      LightningNursery.errIsInvoicePaid(error) ||
       LightningNursery.errIsPaymentInTransition(error) ||
       LightningNursery.errIsCltvLimitExceeded(error)
     ) {
@@ -324,3 +370,4 @@ class PaymentHandler {
 }
 
 export default PaymentHandler;
+export { SwapNurseryEvents };

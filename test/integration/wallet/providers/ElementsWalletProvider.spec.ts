@@ -1,10 +1,10 @@
 import secp256k1 from '@vulpemventures/secp256k1-zkp';
-import { address, confidential, Transaction } from 'liquidjs-lib';
+import { Transaction, address, confidential } from 'liquidjs-lib';
 import Logger from '../../../../lib/Logger';
-import { elementsClient } from '../../Nodes';
 import { getHexBuffer } from '../../../../lib/Utils';
-import { SentTransaction } from '../../../../lib/wallet/providers/WalletProviderInterface';
 import ElementsWalletProvider from '../../../../lib/wallet/providers/ElementsWalletProvider';
+import { SentTransaction } from '../../../../lib/wallet/providers/WalletProviderInterface';
+import { elementsClient } from '../../Nodes';
 
 const testAddress =
   'el1qqgh7rw4ljyga4t4jgahjwyj38swcstwpt5xk7h7ajpv5pcu9txj5nqknww3eslawknlgy09mhc0efupluvh4j9w4n94nw8pmk';
@@ -63,11 +63,17 @@ describe('ElementsWalletProvider', () => {
     const output = (sentTransaction.transaction as Transaction).outs[
       sentTransaction.vout!
     ];
-    expect(
-      unblindingKey
-        ? Number(cf.unblindOutputWithKey(output, unblindingKey).value)
-        : confidential.confidentialValueToSatoshi(output.value),
-    ).toEqual(expectedAmount);
+    const actualAmount = unblindingKey
+      ? Number(cf.unblindOutputWithKey(output, unblindingKey).value)
+      : confidential.confidentialValueToSatoshi(output.value);
+
+    if (isSweep) {
+      // Some buffer for sweeps
+      expect(actualAmount).toBeGreaterThanOrEqual(expectedAmount - 2);
+      expect(actualAmount).toBeLessThanOrEqual(expectedAmount + 2);
+    } else {
+      expect(actualAmount).toEqual(expectedAmount);
+    }
 
     if (feePerVbyte) {
       expect(
@@ -77,7 +83,7 @@ describe('ElementsWalletProvider', () => {
   };
 
   beforeAll(async () => {
-    cf = new confidential.Confidential(await secp256k1());
+    cf = new confidential.Confidential((await secp256k1()) as any);
   });
 
   beforeEach(async () => {

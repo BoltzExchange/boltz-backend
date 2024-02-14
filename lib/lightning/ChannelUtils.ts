@@ -17,6 +17,18 @@ export const scidClnToLnd = (s: string): string => {
   ).toString();
 };
 
+export const transactionToLndScid = (
+  blockHeight: number,
+  transactionIndex: number,
+  outputIndex: number,
+): string => {
+  const scid =
+    (BigInt(blockHeight) << 40n) |
+    (BigInt(transactionIndex) << 16n) |
+    BigInt(outputIndex);
+  return scid.toString();
+};
+
 export const msatToSat = (msat: number): number => {
   return Math.round(msat / msatFactor);
 };

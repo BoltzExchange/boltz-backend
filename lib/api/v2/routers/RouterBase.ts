@@ -1,18 +1,29 @@
 import { Request, Response, Router } from 'express';
 import Logger from '../../../Logger';
-import { apiPrefix } from '../Consts';
 import { errorResponse } from '../../Utils';
 
 abstract class RouterBase {
   public readonly path: string;
 
   protected constructor(
-    private logger: Logger,
+    protected readonly logger: Logger,
     path: string,
   ) {
     this.path = path;
   }
 
+  /**
+   * @openapi
+   * components:
+   *   schemas:
+   *     ErrorResponse:
+   *       type: object
+   *       properties:
+   *         error:
+   *           type: string
+   *           required: true
+   *           description: Description of the error that caused the request to fail
+   */
   public abstract getRouter: () => Router;
 
   protected handleError = (
@@ -22,14 +33,7 @@ abstract class RouterBase {
       try {
         await handler(req, res);
       } catch (e) {
-        errorResponse(
-          this.logger,
-          req,
-          res,
-          e,
-          400,
-          `${apiPrefix}/${this.path}`,
-        );
+        errorResponse(this.logger, req, res, e, 400);
       }
     };
   };

@@ -1,15 +1,15 @@
-import { raceCall } from '../../Utils';
 import Logger from '../../../lib/Logger';
-import Swap from '../../../lib/db/models/Swap';
 import { getHexBuffer } from '../../../lib/Utils';
-import NodeSwitch from '../../../lib/swap/NodeSwitch';
-import { Payment } from '../../../lib/proto/lnd/rpc_pb';
-import LndClient from '../../../lib/lightning/LndClient';
 import { SwapUpdateEvent } from '../../../lib/consts/Enums';
-import { Currency } from '../../../lib/wallet/WalletManager';
-import ChannelNursery from '../../../lib/swap/ChannelNursery';
-import PaymentHandler from '../../../lib/swap/PaymentHandler';
+import Swap from '../../../lib/db/models/Swap';
+import LndClient from '../../../lib/lightning/LndClient';
+import { Payment } from '../../../lib/proto/lnd/rpc_pb';
 import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
+import ChannelNursery from '../../../lib/swap/ChannelNursery';
+import NodeSwitch from '../../../lib/swap/NodeSwitch';
+import PaymentHandler from '../../../lib/swap/PaymentHandler';
+import { Currency } from '../../../lib/wallet/WalletManager';
+import { raceCall } from '../../Utils';
 
 jest.mock('../../../lib/swap/NodeSwitch', () => {
   return jest.fn().mockImplementation(() => {
@@ -80,7 +80,8 @@ describe('PaymentHandler', () => {
     preimageHash:
       '8bc944ac6563a0dc50c2666ffc1f6cc6295d5f093859f869c8d065fcb965443a',
     status: SwapUpdateEvent.InvoicePending,
-  } as Swap;
+    update: jest.fn().mockImplementation(async () => swap),
+  } as any as Swap;
 
   const handler = new PaymentHandler(
     Logger.disabledLogger,
@@ -118,7 +119,6 @@ describe('PaymentHandler', () => {
     ${PaymentHandler['errCltvTooSmall']}
     ${{ details: 'invoice is already paid' }}
     ${{ details: 'cltv limit 123 should be greater than 232' }}
-    ${{ details: 'invoice expired' }}
   `('should check payment for pay error "$error"', async ({ error }) => {
     cltvLimit = 100;
     sendPaymentError = error;
@@ -136,6 +136,27 @@ describe('PaymentHandler', () => {
     expect(btcCurrency.lndClient!.trackPayment).toHaveBeenCalledWith(
       getHexBuffer(swap.preimageHash),
     );
+  });
+
+  test('should abandon swap when invoice expired', async () => {
+    cltvLimit = 100;
+    sendPaymentError = { details: 'invoice expired' };
+    trackPaymentResponse = {
+      status: Payment.PaymentStatus.FAILED,
+    };
+
+    expect(mockedEmit).toHaveBeenCalledTimes(0);
+    expect(btcCurrency.lndClient!.resetMissionControl).toHaveBeenCalledTimes(0);
+    expect(btcCurrency.lndClient!.trackPayment).toHaveBeenCalledTimes(0);
+
+    await expect(handler.payInvoice(swap, null, undefined)).resolves.toEqual(
+      undefined,
+    );
+    expect(swap.update).toHaveBeenCalledTimes(1);
+    expect(swap.update).toHaveBeenCalledWith({
+      failureReason: 'invoice could not be paid',
+      status: SwapUpdateEvent.InvoiceFailedToPay,
+    });
   });
 
   test('should reset LND mission control only on interval', async () => {

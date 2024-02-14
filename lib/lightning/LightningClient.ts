@@ -1,8 +1,8 @@
-import * as lndrpc from '../proto/lnd/rpc_pb';
-import { IBaseClient } from '../BaseClient';
-import { ClientStatus } from '../consts/Enums';
-import { BalancerFetcher } from '../wallet/providers/WalletProviderInterface';
+import BaseClient from '../BaseClient';
 import { decodeInvoiceAmount } from '../Utils';
+import { ClientStatus } from '../consts/Enums';
+import * as lndrpc from '../proto/lnd/rpc_pb';
+import { BalancerFetcher } from '../wallet/providers/WalletProviderInterface';
 
 enum InvoiceState {
   Open,
@@ -82,38 +82,19 @@ type Route = {
   feesMsat: number;
 };
 
-interface LightningClient extends BalancerFetcher, IBaseClient {
-  on(event: 'peer.online', listener: (publicKey: string) => void): void;
-  emit(event: 'peer.online', publicKey: string): boolean;
-
+type EventTypes = {
+  'status.changed': ClientStatus;
+  'peer.online': string;
   // TODO: get rid of LND types
-  on(
-    even: 'channel.active',
-    listener: (channel: lndrpc.ChannelPoint.AsObject) => void,
-  ): void;
-  emit(even: 'channel.active', channel: lndrpc.ChannelPoint.AsObject): boolean;
+  'channel.active': lndrpc.ChannelPoint.AsObject;
+  'htlc.accepted': string;
+  'invoice.settled': string;
+  'channel.backup': string;
+  'subscription.error': string | undefined;
+  'subscription.reconnected': null;
+};
 
-  on(event: 'htlc.accepted', listener: (invoice: string) => void): void;
-  emit(event: 'htlc.accepted', invoice: string): boolean;
-
-  on(event: 'invoice.settled', listener: (invoice: string) => void): void;
-  emit(event: 'invoice.settled', string: string): boolean;
-
-  on(event: 'channel.backup', listener: (channelBackup: string) => void): void;
-  emit(event: 'channel.backup', channelBackup: string): boolean;
-
-  on(
-    event: 'subscription.error',
-    listener: (subscription?: string) => void,
-  ): void;
-  emit(event: 'subscription.error', subscription?: string): void;
-
-  on(event: 'subscription.reconnected', listener: () => void): void;
-  emit(event: 'subscription.reconnected'): void;
-
-  on(event: 'status.changed', listener: (status: ClientStatus) => void): void;
-  emit(event: 'status.changed', status: ClientStatus): void;
-
+interface LightningClient extends BalancerFetcher, BaseClient<EventTypes> {
   symbol: string;
 
   isConnected(): boolean;
@@ -185,6 +166,7 @@ export {
   Invoice,
   NodeInfo,
   HtlcState,
+  EventTypes,
   ChannelInfo,
   InvoiceState,
   InvoiceFeature,

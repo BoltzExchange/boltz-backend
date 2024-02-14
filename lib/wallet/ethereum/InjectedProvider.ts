@@ -18,16 +18,16 @@ import {
   TransactionRequest,
   TransactionResponse,
 } from 'ethers';
-import Errors from './Errors';
-import Logger from '../../Logger';
-import { NetworkDetails } from './EvmNetworks';
-import { formatError, stringify } from '../../Utils';
-import PendingEthereumTransactionRepository from '../../db/repositories/PendingEthereumTransactionRepository';
 import {
-  EthereumConfig,
   EthProviderServiceConfig,
+  EthereumConfig,
   RskConfig,
 } from '../../Config';
+import Logger from '../../Logger';
+import { formatError, stringify } from '../../Utils';
+import PendingEthereumTransactionRepository from '../../db/repositories/PendingEthereumTransactionRepository';
+import Errors from './Errors';
+import { NetworkDetails } from './EvmNetworks';
 
 enum EthProviderService {
   Node = 'Node',

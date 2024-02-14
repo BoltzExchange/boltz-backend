@@ -2,9 +2,448 @@
   "openapi": "3.0.0",
   "info": {
     "title": "Boltz API",
-    "version": "3.4.0"
+    "version": "3.5.0"
   },
   "paths": {
+    "/chain/fees": {
+      "get": {
+        "description": "Fee estimations for all supported chains",
+        "tags": [
+          "Chain"
+        ],
+        "responses": {
+          "200": {
+            "description": "Object of currency of chain -> fee estimation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "number",
+                    "description": "Fee estimation in sat/vbyte or GWEI"
+                  }
+                },
+                "examples": {
+                  "json": {
+                    "value": "{\"BTC\":19,\"L-BTC\":0.11}"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/chain/heights": {
+      "get": {
+        "description": "Block heights for all supported chains",
+        "tags": [
+          "Chain"
+        ],
+        "responses": {
+          "200": {
+            "description": "Object of currency of chain -> block height",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "number",
+                    "description": "Block height of the chain"
+                  }
+                },
+                "examples": {
+                  "json": {
+                    "value": "{\"BTC\":830311,\"L-BTC\":2725579}"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/chain/contracts": {
+      "get": {
+        "tags": [
+          "Chain"
+        ],
+        "description": "Get the network information and contract addresses for all supported EVM chains",
+        "responses": {
+          "200": {
+            "description": "Network details and contract addresses on the chain",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/Contracts"
+                  }
+                },
+                "examples": {
+                  "json": {
+                    "value": "{\"rsk\":{\"network\":{\"chainId\":31337},\"tokens\":{\"USDT\":\"0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0\"},\"swapContracts\":{\"EtherSwap\":\"0x5FbDB2315678afecb367f032d93F642f64180aa3\",\"ERC20Swap\":\"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512\"}}}"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error that caused the request to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/chain/{currency}/fee": {
+      "get": {
+        "description": "Fee estimations for a chain",
+        "tags": [
+          "Chain"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "currency",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Currency of the chain to get a fee estimation for"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Object containing the fee estimation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "fee": {
+                      "type": "number",
+                      "required": true,
+                      "description": "Fee estimation in sat/vbyte or GWEI"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error that caused the request to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/chain/{currency}/height": {
+      "get": {
+        "description": "Block height for a chain",
+        "tags": [
+          "Chain"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "currency",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Currency of the chain to get the block height for"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Object containing the block height",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "height": {
+                      "type": "number",
+                      "required": true,
+                      "description": "Block height of the chain"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error that caused the request to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/chain/{currency}/transaction/{id}": {
+      "get": {
+        "tags": [
+          "Chain"
+        ],
+        "description": "Fetch a raw transaction by its id",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "currency",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Currency of the chain to query for"
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Id of the transaction to query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Raw transaction",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "hex": {
+                      "type": "string",
+                      "required": true,
+                      "description": "The transaction encoded as HEX"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error that caused the query for the transaction to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/chain/{currency}/transaction": {
+      "post": {
+        "tags": [
+          "Chain"
+        ],
+        "description": "Broadcast a transaction",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "currency",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Currency of the chain to broadcast on"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "hex": {
+                    "type": "string",
+                    "required": true,
+                    "description": "The transaction to broadcast as raw HEX"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "ID of the broadcast transaction",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "required": true,
+                      "description": "ID of the broadcast transaction"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error that caused the broadcast of the transaction to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/chain/{currency}/contracts": {
+      "get": {
+        "tags": [
+          "Chain"
+        ],
+        "description": "Get the network information and contract addresses for a supported EVM chains",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "currency",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Currency of the chain to query for"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Raw transaction",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Contracts"
+                },
+                "examples": {
+                  "json": {
+                    "value": "{\"network\":{\"chainId\":31337},\"tokens\":{\"USDT\":\"0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0\"},\"swapContracts\":{\"EtherSwap\":\"0x5FbDB2315678afecb367f032d93F642f64180aa3\",\"ERC20Swap\":\"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512\"}}"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error that caused the query for the transaction to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error when the currency is not on an EVM chain",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/version": {
+      "get": {
+        "description": "Version of the backend",
+        "tags": [
+          "Info"
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "version": {
+                      "type": "string",
+                      "required": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/infos": {
+      "get": {
+        "description": "Information about the configuration of the backend",
+        "tags": [
+          "Info"
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/warnings": {
+      "get": {
+        "description": "Warnings about the configuration of the backend",
+        "tags": [
+          "Info"
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/nodes": {
       "get": {
         "description": "Information about the Lightning nodes the backend is connected to",
@@ -23,6 +462,11 @@
                     "additionalProperties": {
                       "$ref": "#/components/schemas/NodeInfo"
                     }
+                  }
+                },
+                "examples": {
+                  "json": {
+                    "value": "{\"BTC\":{\"LND\":{\"publicKey\":\"026165850492521f4ac8abd9bd8088123446d126f648ca35e60f88177dc149ceb2\",\"uris\":[\"026165850492521f4ac8abd9bd8088123446d126f648ca35e60f88177dc149ceb2@45.86.229.190:9735\",\"026165850492521f4ac8abd9bd8088123446d126f648ca35e60f88177dc149ceb2@d7kak4gpnbamm3b4ufq54aatgm3alhx3jwmu6kyy2bgjaauinkipz3id.onion:9735\"]},\"CLN\":{\"publicKey\":\"02d96eadea3d780104449aca5c93461ce67c1564e2e1d73225fa67dd3b997a6018\",\"uris\":[\"02d96eadea3d780104449aca5c93461ce67c1564e2e1d73225fa67dd3b997a6018@45.86.229.190:9736\",\"02d96eadea3d780104449aca5c93461ce67c1564e2e1d73225fa67dd3b997a6018@2a10:1fc0:3::270:a9dc:9736\",\"02d96eadea3d780104449aca5c93461ce67c1564e2e1d73225fa67dd3b997a6018@oo5tkbbpgnqjopdjxepyfavx3yemtylgzul67s7zzzxfeeqpde6yr7yd.onion:9736\"]}}}"
                   }
                 }
               }
@@ -55,6 +499,965 @@
                       "$ref": "#/components/schemas/NodeStats"
                     }
                   }
+                },
+                "examples": {
+                  "json": {
+                    "value": "{\"BTC\":{\"LND\":{\"capacity\":5806395450,\"channels\":1052,\"peers\":2199,\"oldestChannel\":1553900632},\"CLN\":{\"capacity\":1062157049,\"channels\":79,\"peers\":124,\"oldestChannel\":1692910360},\"total\":{\"capacity\":6868552499,\"channels\":1131,\"peers\":2323,\"oldestChannel\":1553900632}}}"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/referral": {
+      "get": {
+        "description": "Referral ID for the used API keys",
+        "tags": [
+          "Referral"
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "TS",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Current UNIX timestamp when the request is sent"
+          },
+          {
+            "in": "header",
+            "name": "API-KEY",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Your API key"
+          },
+          {
+            "in": "header",
+            "name": "API-HMAC",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "HMAC-SHA256 with your API-Secret as key of the TS + HTTP method (all uppercase) + the HTTP path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The referral ID for your API-KEY to be used when creating Swaps",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "required": true,
+                      "description": "The referral ID for your API-KEY"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized in case of an unknown API-KEY or bad HMAC",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/referral/fees": {
+      "get": {
+        "description": "Referral fees collected for an ID",
+        "tags": [
+          "Referral"
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "TS",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Current UNIX timestamp when the request is sent"
+          },
+          {
+            "in": "header",
+            "name": "API-KEY",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Your API key"
+          },
+          {
+            "in": "header",
+            "name": "API-HMAC",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "HMAC-SHA256 with your API-Secret as key of the TS + HTTP method (all uppercase) + the HTTP path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The referral ID for your API-KEY to be used when creating Swaps",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "Year",
+                  "additionalProperties": {
+                    "type": "object",
+                    "description": "Month",
+                    "additionalProperties": {
+                      "type": "object",
+                      "description": "Fees collected in that month",
+                      "additionalProperties": {
+                        "type": "string",
+                        "description": "Fees collected in that currency in satoshis"
+                      }
+                    }
+                  }
+                },
+                "examples": {
+                  "json": {
+                    "value": "{\"2024\":{\"1\":{\"BTC\":307}}}"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized in case of an unknown API-KEY or bad HMAC",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/referral/stats": {
+      "get": {
+        "description": "Statistics for Swaps created with an referral ID",
+        "tags": [
+          "Referral"
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "TS",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Current UNIX timestamp when the request is sent"
+          },
+          {
+            "in": "header",
+            "name": "API-KEY",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Your API key"
+          },
+          {
+            "in": "header",
+            "name": "API-HMAC",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "HMAC-SHA256 with your API-Secret as key of the TS + HTTP method (all uppercase) + the HTTP path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Swap statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "Year",
+                  "additionalProperties": {
+                    "type": "object",
+                    "description": "Month",
+                    "additionalProperties": {
+                      "type": "object",
+                      "description": "Swap statistics for that month",
+                      "properties": {
+                        "volume": {
+                          "description": "Swap volume",
+                          "properties": {
+                            "total": {
+                              "type": "string",
+                              "description": "Volume across all pairs in BTC"
+                            }
+                          },
+                          "additionalProperties": {
+                            "type": "string",
+                            "description": "Volume in that pair in BTC"
+                          }
+                        },
+                        "trades": {
+                          "type": "object",
+                          "description": "Swap counts",
+                          "properties": {
+                            "total": {
+                              "type": "integer",
+                              "description": "Swap count across all pairs"
+                            }
+                          },
+                          "additionalProperties": {
+                            "type": "integer",
+                            "description": "Swap count for that pair"
+                          }
+                        },
+                        "failureRates": {
+                          "type": "object",
+                          "description": "Swap failure rates for each type",
+                          "properties": {
+                            "swaps": {
+                              "type": "number",
+                              "description": "Submarine Swap failure rate"
+                            },
+                            "reverseSwaps": {
+                              "type": "number",
+                              "description": "Reverse Swap failure rate"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "examples": {
+                  "json": {
+                    "value": "{\"2024\":{\"1\":{\"volume\":{\"total\":\"0.00321844\",\"L-BTC/BTC\":\"0.00321844\"},\"trades\":{\"total\":3,\"L-BTC/BTC\":3},\"failureRates\":{\"swaps\": 0.12, \"reverseSwaps\":0}}}}"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized in case of an unknown API-KEY or bad HMAC",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/swap/submarine": {
+      "get": {
+        "description": "Possible pairs for Submarine Swaps",
+        "tags": [
+          "Submarine"
+        ],
+        "responses": {
+          "200": {
+            "description": "Dictionary of the from -> to currencies that can be used in a Submarine Swap",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "$ref": "#/components/schemas/SubmarinePair"
+                    }
+                  }
+                },
+                "examples": {
+                  "json": {
+                    "value": "{\"BTC\":{\"BTC\":{\"hash\":\"90ab5c8e6ece5db52173e9423a0dd3071f5894dc8d35ed592a439ccabcdebbd5\",\"rate\":1,\"limits\":{\"maximal\":25000000,\"minimal\":50000,\"maximalZeroConf\":0},\"fees\":{\"percentage\":0.1,\"minerFees\":4379}}},\"L-BTC\":{\"BTC\":{\"hash\":\"b53c0ac3da051a78f67f6dd25f2ab0858492dc6881015b236d554227c85fda7d\",\"rate\":1,\"limits\":{\"maximal\":25000000,\"minimal\":1000,\"maximalZeroConf\":100000},\"fees\":{\"percentage\":0.1,\"minerFees\":148}}}}"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Create a new Submarine Swap from onchain to lightning",
+        "tags": [
+          "Submarine"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmarineRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The created Submarine Swap",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmarineResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error that caused the Submarine Swap creation to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/swap/submarine/{id}/invoice": {
+      "post": {
+        "tags": [
+          "Submarine"
+        ],
+        "description": "Set the invoice for a Submarine Swap",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID of the Submarine Swap"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "invoice": {
+                    "type": "string",
+                    "required": true,
+                    "description": "BOLT11 invoice that should be paid. The preimage hash has to match the one specified when creating the swap"
+                  },
+                  "pairHash": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Information about the onchain part of the Submarine Swap",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "bip21": {
+                      "type": "string",
+                      "required": true,
+                      "description": "BIP21 for the onchain payment request"
+                    },
+                    "expectedAmount": {
+                      "type": "number",
+                      "required": true,
+                      "description": "Amount that is expected to be sent to the onchain HTLC address in satoshis"
+                    },
+                    "acceptZeroConf": {
+                      "type": "boolean",
+                      "required": true,
+                      "description": "Whether 0-conf will be accepted assuming the transaction does not signal RBF and has a reasonably high fee"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error that caused the request to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/swap/submarine/{id}/invoice/amount": {
+      "get": {
+        "tags": [
+          "Submarine"
+        ],
+        "description": "Get the expected amount of the invoice that should be set after the Swap was created with a preimage hash and an onchain transaction was sent",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID of the Submarine Swap"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Expected amount of the invoice",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "invoiceAmount": {
+                      "type": "number",
+                      "required": true,
+                      "description": "Expected amount of the invoice"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error that caused the request to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/swap/submarine/{id}/transaction": {
+      "get": {
+        "tags": [
+          "Submarine"
+        ],
+        "description": "Get the lockup transaction of a Submarine Swap",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID of the Submarine Swap"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The lockup transaction of the Submarine Swap and accompanying information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmarineTransaction"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error that caused the request to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/swap/submarine/{id}/refund": {
+      "get": {
+        "tags": [
+          "Submarine"
+        ],
+        "description": "Get an EIP-712 signature for a cooperative EVM refund",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID of the Swap"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "EIP-712 signature",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "signature": {
+                      "type": "string",
+                      "required": true,
+                      "description": "EIP-712 signature with which a cooperative refund can be executed onchain"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error that caused signature request to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Requests a partial signature for a cooperative Submarine Swap refund transaction",
+        "tags": [
+          "Submarine"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID of the Swap"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmarineRefundRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "A partial signature",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartialSignature"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error that caused signature request to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/swap/submarine/{id}/claim": {
+      "get": {
+        "tags": [
+          "Submarine"
+        ],
+        "description": "Get the needed information to post a partial signature for a cooperative Submarine Swap claim transaction",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID of the Swap"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The latest status of the Swap",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmarineClaimDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error that caused signature request to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "When no Swap with the ID could be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Submarine"
+        ],
+        "description": "Send Boltz the clients partial signature for a cooperative Submarine Swap claim transaction",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID of the Swap"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PartialSignature"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The latest status of the Swap",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error that caused signature request to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "When no Swap with the ID could be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/swap/reverse": {
+      "get": {
+        "description": "Possible pairs for Reverse Swaps",
+        "tags": [
+          "Reverse"
+        ],
+        "responses": {
+          "200": {
+            "description": "Dictionary of the from -> to currencies that can be used in a Reverse Swap",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "$ref": "#/components/schemas/ReversePair"
+                    }
+                  }
+                },
+                "examples": {
+                  "json": {
+                    "value": "{\"BTC\":{\"BTC\":{\"hash\":\"784db95522d197f4e90d661e8451d0d78f63906f74cc566cd395d32f359fdc90\",\"rate\":1,\"limits\":{\"maximal\":25000000,\"minimal\":50000},\"fees\":{\"percentage\":0.5,\"minerFees\":{\"claim\":1998,\"lockup\":2772}}},\"L-BTC\":{\"hash\":\"976e6dad9097f657213244b046e5f29524b743568a2c3d569b421df1e07e1b44\",\"rate\":1,\"limits\":{\"maximal\":25000000,\"minimal\":1000},\"fees\":{\"percentage\":0.25,\"minerFees\":{\"claim\":143,\"lockup\":276}}}}}"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Create a new Reverse Swap from lightning to onchain",
+        "tags": [
+          "Reverse"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReverseRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The created Reverse Swap",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReverseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error that caused the Reverse Swap creation to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/swap/reverse/{id}/transaction": {
+      "get": {
+        "tags": [
+          "Reverse"
+        ],
+        "description": "Get the lockup transaction of a Reverse Swap",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID of the Reverse Swap"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The lockup transaction of the Reverse Swap and accompanying information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReverseTransaction"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error that caused the request to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/swap/reverse/{id}/claim": {
+      "post": {
+        "description": "Requests a partial signature for a cooperative Reverse Swap claim transaction",
+        "tags": [
+          "Reverse"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID of the Swap"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReverseClaimRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "A partial signature",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartialSignature"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error that caused signature request to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/swap/reverse/{invoice}/bip21": {
+      "get": {
+        "tags": [
+          "Reverse"
+        ],
+        "description": "Get the BIP-21 of a Reverse Swap for a direct payment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "invoice",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Invoice of the Reverse Swap"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "BIP-21 and signature to prove the authenticity of the BIP-21",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReverseBip21"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error that caused the request to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "When no BIP-21 was set for the Reverse Swap",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/swap/{id}": {
+      "get": {
+        "tags": [
+          "Swap"
+        ],
+        "description": "Get the status of a Swap",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID of the Swap"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The latest status of the Swap",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SwapStatus"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "When no Swap with the ID could be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -65,14 +1468,60 @@
   },
   "components": {
     "schemas": {
+      "Contracts": {
+        "type": "object",
+        "properties": {
+          "network": {
+            "type": "object",
+            "description": "Information about the network",
+            "properties": {
+              "chainId": {
+                "type": "number",
+                "required": true,
+                "description": "ID of the chain"
+              },
+              "name": {
+                "type": "string",
+                "description": "Name of the chain if applicable"
+              }
+            }
+          },
+          "swapContracts": {
+            "type": "object",
+            "required": true,
+            "description": "Mapping of the names of swap contracts to their address",
+            "properties": {
+              "EtherSwap": {
+                "type": "string",
+                "description": "Address of the EtherSwap contract"
+              },
+              "ERC20Swap": {
+                "type": "string",
+                "description": "Address of the ERC20 contract"
+              }
+            }
+          },
+          "tokens": {
+            "type": "object",
+            "required": true,
+            "description": "Mapping of the symbol of tokens to their address",
+            "additionalProperties": {
+              "type": "string",
+              "description": "Address of the token"
+            }
+          }
+        }
+      },
       "NodeInfo": {
         "type": "object",
         "properties": {
           "publicKey": {
-            "type": "string"
+            "type": "string",
+            "required": true
           },
           "uris": {
             "type": "array",
+            "required": true,
             "items": {
               "type": "string"
             }
@@ -83,17 +1532,503 @@
         "type": "object",
         "properties": {
           "capacity": {
-            "type": "integer"
+            "type": "integer",
+            "required": true
           },
           "channels": {
-            "type": "integer"
+            "type": "integer",
+            "required": true
           },
           "peers": {
-            "type": "integer"
+            "type": "integer",
+            "required": true
           },
           "oldestChannel": {
             "type": "integer",
+            "required": true,
             "description": "UNIX timestamp of the block in which the funding transaction of the oldest channel was included"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "required": true,
+            "description": "Description of the error that caused the request to fail"
+          }
+        }
+      },
+      "SwapTreeLeaf": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "number",
+            "required": true,
+            "description": "Tapscript version"
+          },
+          "output": {
+            "type": "string",
+            "required": true,
+            "description": "Script encoded as HEX"
+          }
+        }
+      },
+      "SwapTree": {
+        "type": "object",
+        "properties": {
+          "claimLeaf": {
+            "$ref": "#/components/schemas/SwapTreeLeaf"
+          },
+          "refundLeaf": {
+            "$ref": "#/components/schemas/SwapTreeLeaf"
+          }
+        }
+      },
+      "SubmarinePair": {
+        "type": "object",
+        "properties": {
+          "hash": {
+            "type": "string",
+            "required": true,
+            "description": "Hash of the pair that can be used when creating the Submarine Swap to ensure the information of the client is up-to-date"
+          },
+          "rate": {
+            "type": "number",
+            "required": true,
+            "description": "Exchange rate of the pair"
+          },
+          "limits": {
+            "type": "object",
+            "properties": {
+              "minimal": {
+                "type": "number",
+                "required": true,
+                "description": "Minimal amount that can be swapped in satoshis"
+              },
+              "maximal": {
+                "type": "number",
+                "required": true,
+                "description": "Maximal amount that can be swapped in satoshis"
+              },
+              "maximalZeroConfAmount": {
+                "type": "number",
+                "required": true,
+                "description": "Maximal amount that will be accepted 0-conf in satoshis"
+              }
+            }
+          },
+          "fees": {
+            "type": "object",
+            "required": true,
+            "properties": {
+              "percentage": {
+                "type": "number",
+                "required": true,
+                "description": "Relative fee that will be charged in percent"
+              },
+              "minerFees": {
+                "type": "number",
+                "required": true,
+                "description": "Absolute miner fee that will be charged in satoshis"
+              }
+            }
+          }
+        }
+      },
+      "SubmarineRequest": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "required": true,
+            "description": "The asset that is sent onchain"
+          },
+          "to": {
+            "type": "string",
+            "required": true,
+            "description": "The asset that is received on lightning"
+          },
+          "invoice": {
+            "type": "string",
+            "description": "BOLT11 invoice that should be paid"
+          },
+          "preimageHash": {
+            "type": "string",
+            "description": "Preimage hash of an invoice that will be set later"
+          },
+          "refundPublicKey": {
+            "type": "string",
+            "required": true,
+            "description": "Public key with which the Submarine Swap can be refunded encoded as HEX"
+          },
+          "pairHash": {
+            "type": "string",
+            "description": "Pair hash from the pair information for the client to check if their fee data is up-to-date"
+          },
+          "referralId": {
+            "type": "string",
+            "description": "Referral ID to be used for the Submarine swap"
+          }
+        }
+      },
+      "SubmarineResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "required": true,
+            "description": "ID of the created Submarine Swap"
+          },
+          "bip21": {
+            "type": "string",
+            "description": "BIP21 for the onchain payment request"
+          },
+          "address": {
+            "type": "string",
+            "description": "Onchain HTLC address"
+          },
+          "swapTree": {
+            "$ref": "#/components/schemas/SwapTree"
+          },
+          "claimPublicKey": {
+            "type": "string",
+            "description": "Public key of Boltz that will be used to sweep the onchain HTLC"
+          },
+          "timeoutBlockHeight": {
+            "type": "number",
+            "required": true,
+            "description": "Timeout block height of the onchain HTLC"
+          },
+          "acceptZeroConf": {
+            "type": "boolean",
+            "description": "Whether 0-conf will be accepted assuming the transaction does not signal RBF and has a reasonably high fee"
+          },
+          "expectedAmount": {
+            "type": "number",
+            "required": true,
+            "description": "Amount that is expected to be sent to the onchain HTLC address in satoshis"
+          },
+          "blindingKey": {
+            "type": "string",
+            "description": "Liquid blinding private key encoded as HEX"
+          }
+        }
+      },
+      "SubmarineTransaction": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "required": true,
+            "description": "ID the lockup transaction"
+          },
+          "hex": {
+            "type": "string",
+            "description": "Lockup transaction as raw HEX"
+          },
+          "timeoutBlockHeight": {
+            "type": "number",
+            "required": true,
+            "description": "Block height at which the time-lock expires"
+          },
+          "timeoutEta": {
+            "type": "number",
+            "description": "UNIX timestamp at which the time-lock expires; set if it has not expired already"
+          }
+        }
+      },
+      "SubmarineRefundRequest": {
+        "type": "object",
+        "properties": {
+          "pubNonce": {
+            "type": "string",
+            "required": true,
+            "description": "Public nonce of the client for the session encoded as HEX"
+          },
+          "transaction": {
+            "type": "string",
+            "required": true,
+            "description": "Transaction which should be signed encoded as HEX"
+          },
+          "index": {
+            "type": "number",
+            "required": true,
+            "description": "Index of the input of the transaction that should be signed"
+          }
+        }
+      },
+      "PartialSignature": {
+        "type": "object",
+        "properties": {
+          "pubNonce": {
+            "type": "string",
+            "required": true,
+            "description": "Public nonce  encoded as HEX"
+          },
+          "partialSignature": {
+            "type": "string",
+            "required": true,
+            "description": "Partial signature encoded as HEX"
+          }
+        }
+      },
+      "SubmarineClaimDetails": {
+        "type": "object",
+        "properties": {
+          "preimage": {
+            "type": "string",
+            "required": true,
+            "description": "Preimage of the invoice for the Submarine Swap encoded as HEX"
+          },
+          "pubNonce": {
+            "type": "string",
+            "required": true,
+            "description": "Public nonce of Boltz encoded as HEX"
+          },
+          "publicKey": {
+            "type": "string",
+            "required": true,
+            "description": "Public key of Boltz encoded as HEX"
+          },
+          "transactionHash": {
+            "type": "string",
+            "required": true,
+            "description": "Hash of the transaction that should be signed"
+          }
+        }
+      },
+      "ReversePair": {
+        "type": "object",
+        "properties": {
+          "hash": {
+            "type": "string",
+            "required": true,
+            "description": "Hash of the pair that can be used when creating the Reverse Swap to ensure the information of the client is up-to-date"
+          },
+          "rate": {
+            "type": "number",
+            "required": true,
+            "description": "Exchange rate of the pair"
+          },
+          "limits": {
+            "type": "object",
+            "properties": {
+              "minimal": {
+                "type": "number",
+                "required": true,
+                "description": "Minimal amount that can be swapped in satoshis"
+              },
+              "maximal": {
+                "type": "number",
+                "required": true,
+                "description": "Maximal amount that can be swapped in satoshis"
+              }
+            }
+          },
+          "fees": {
+            "type": "object",
+            "properties": {
+              "percentage": {
+                "type": "number",
+                "required": true,
+                "description": "Relative fee that will be charged in percent"
+              },
+              "minerFees": {
+                "type": "object",
+                "properties": {
+                  "lockup": {
+                    "type": "number",
+                    "required": true,
+                    "description": "Absolute miner fee that will be charged in satoshis"
+                  },
+                  "claim": {
+                    "type": "number",
+                    "required": true,
+                    "description": "Absolute miner fee that we estimate for the claim transaction in satoshis"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "ReverseRequest": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "required": true,
+            "description": "The asset that is sent on lightning"
+          },
+          "to": {
+            "type": "string",
+            "required": true,
+            "description": "The asset that is received onchain"
+          },
+          "preimageHash": {
+            "type": "string",
+            "required": true,
+            "description": "SHA-256 hash of the preimage of the Reverse Swap encoded as HEX"
+          },
+          "claimPublicKey": {
+            "type": "string",
+            "description": "Public key with which the Reverse Swap can be claimed encoded as HEX"
+          },
+          "claimAddress": {
+            "type": "string",
+            "description": "EVM address with which the Reverse Swap can be claimed"
+          },
+          "invoiceAmount": {
+            "type": "string",
+            "description": "Amount for which the invoice should be; conflicts with \"onchainAmount\""
+          },
+          "onchainAmount": {
+            "type": "string",
+            "description": "Amount that should be locked in the onchain HTLC; conflicts with \"invoiceAmount\""
+          },
+          "pairHash": {
+            "type": "string",
+            "description": "Pair hash from the pair information for the client to check if their fee data is up-to-date"
+          },
+          "referralId": {
+            "type": "string",
+            "description": "Referral ID to be used for the Submarine swap"
+          },
+          "address": {
+            "type": "string",
+            "description": "Address to be used for a BIP-21 direct payment"
+          },
+          "addressSignature": {
+            "type": "string",
+            "description": "Signature of the claim public key of the SHA256 hash of the address for the direct payment"
+          }
+        }
+      },
+      "ReverseResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "required": true,
+            "description": "ID of the created Reverse Swap"
+          },
+          "invoice": {
+            "type": "string",
+            "required": true,
+            "description": "Hold invoice of the Reverse Swap"
+          },
+          "swapTree": {
+            "$ref": "#/components/schemas/SwapTree"
+          },
+          "lockupAddress": {
+            "type": "string",
+            "description": "HTLC address in which coins will be locked"
+          },
+          "refundPublicKey": {
+            "type": "string",
+            "description": "Public key of Boltz that will be used to refund the onchain HTLC"
+          },
+          "timeoutBlockHeight": {
+            "type": "number",
+            "required": true,
+            "description": "Timeout block height of the onchain HTLC"
+          },
+          "onchainAmount": {
+            "type": "number",
+            "description": "Amount that will be locked in the onchain HTLC"
+          },
+          "blindingKey": {
+            "type": "string",
+            "description": "Liquid blinding private key encoded as HEX"
+          }
+        }
+      },
+      "ReverseTransaction": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "required": true,
+            "description": "ID the lockup transaction"
+          },
+          "hex": {
+            "type": "string",
+            "description": "Lockup transaction as raw HEX"
+          },
+          "timeoutBlockHeight": {
+            "type": "number",
+            "required": true,
+            "description": "Block height at which the time-lock expires"
+          }
+        }
+      },
+      "ReverseClaimRequest": {
+        "type": "object",
+        "properties": {
+          "preimage": {
+            "type": "string",
+            "required": true,
+            "description": "Preimage of the Reverse Swap encoded as HEX"
+          },
+          "pubNonce": {
+            "type": "string",
+            "required": true,
+            "description": "Public nonce of the client for the session encoded as HEX"
+          },
+          "transaction": {
+            "type": "string",
+            "required": true,
+            "description": "Transaction which should be signed encoded as HEX"
+          },
+          "index": {
+            "type": "number",
+            "required": true,
+            "description": "Index of the input of the transaction that should be signed"
+          }
+        }
+      },
+      "ReverseBip21": {
+        "type": "object",
+        "properties": {
+          "bip21": {
+            "type": "string",
+            "required": true,
+            "description": "BIP-21 for the Reverse Swap"
+          },
+          "signature": {
+            "type": "string",
+            "required": true,
+            "description": "Signature of the address in the BIP-21 of the public key in the routing hint"
+          }
+        }
+      },
+      "SwapStatus": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "required": true,
+            "description": "Status of the Swap"
+          },
+          "zeroConfRejected": {
+            "type": "boolean",
+            "description": "Whether 0-conf was accepted for the lockup transaction of the Submarine Swap"
+          },
+          "transaction": {
+            "type": "object",
+            "description": "Details of the lockup transaction of a Reverse Swap",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "ID of the transaction"
+              },
+              "hex": {
+                "type": "string",
+                "description": "Raw hex of the transaction"
+              }
+            }
           }
         }
       }
@@ -101,8 +2036,32 @@
   },
   "tags": [
     {
+      "name": "Chain",
+      "description": "Onchain data related endpoints"
+    },
+    {
+      "name": "Info",
+      "description": "General information"
+    },
+    {
       "name": "Nodes",
       "description": "Lightning nodes"
+    },
+    {
+      "name": "Referral",
+      "description": "Referral related endpoints"
+    },
+    {
+      "name": "Submarine",
+      "description": "Submarine Swap related endpoints"
+    },
+    {
+      "name": "Reverse",
+      "description": "Reverse Swap related endpoints"
+    },
+    {
+      "name": "Swap",
+      "description": "Generic Swap related endpoints"
     }
   ],
   "servers": [

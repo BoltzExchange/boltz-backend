@@ -1,17 +1,17 @@
-import { Arguments } from 'yargs';
 import { crypto } from 'bitcoinjs-lib';
 import { ContractTransactionResponse } from 'ethers';
+import { Arguments } from 'yargs';
 import { getHexBuffer } from '../../../Utils';
+import {
+  queryERC20SwapValues,
+  queryEtherSwapValues,
+} from '../../../wallet/ethereum/ContractUtils';
 import BuilderComponents from '../../BuilderComponents';
 import {
   connectEthereum,
   getContracts,
   getLogsQueryStartHeight,
 } from '../EthereumUtils';
-import {
-  queryERC20SwapValues,
-  queryEtherSwapValues,
-} from '../../../wallet/ethereum/ContractUtils';
 
 export const command = 'claim <preimage> [token]';
 
@@ -44,7 +44,9 @@ export const handler = async (argv: Arguments<any>): Promise<void> => {
         argv.queryStartHeightDelta,
       ),
     );
-    transaction = await erc20Swap.claim(
+    transaction = await erc20Swap[
+      'claim(bytes32,uint256,address,address,uint256)'
+    ](
       preimage,
       erc20SwapValues.amount,
       erc20SwapValues.tokenAddress,
@@ -60,7 +62,7 @@ export const handler = async (argv: Arguments<any>): Promise<void> => {
         argv.queryStartHeightDelta,
       ),
     );
-    transaction = await etherSwap.claim(
+    transaction = await etherSwap['claim(bytes32,uint256,address,uint256)'](
       preimage,
       etherSwapValues.amount,
       etherSwapValues.refundAddress,

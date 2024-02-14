@@ -1,7 +1,4 @@
-import path from 'path';
-import * as process from 'process';
 import { ContractABIs } from 'boltz-core';
-import { existsSync, readFileSync } from 'fs';
 import { ERC20 } from 'boltz-core/typechain/ERC20';
 import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
@@ -13,6 +10,9 @@ import {
   Signer,
   Wallet,
 } from 'ethers';
+import { existsSync, readFileSync } from 'fs';
+import path from 'path';
+import * as process from 'process';
 import Config, { ConfigType } from '../../Config';
 
 const getBoltzFilePath = (file: string): string =>

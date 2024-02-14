@@ -1,8 +1,8 @@
 import Logger from '../../../lib/Logger';
 import Database from '../../../lib/db/Database';
+import { calculatePaymentFee } from '../../../lib/lightning/LightningClient';
 import LndClient from '../../../lib/lightning/LndClient';
 import { bitcoinClient, bitcoinLndClient } from '../Nodes';
-import { calculatePaymentFee } from '../../../lib/lightning/LightningClient';
 
 describe('LightningClient', () => {
   const db = new Database(Logger.disabledLogger, Database.memoryDatabase);

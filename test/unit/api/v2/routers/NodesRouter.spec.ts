@@ -16,6 +16,12 @@ jest.mock('express', () => {
 
 describe('NodesRouter', () => {
   const service = {
+    swapManager: {
+      routingHints: {
+        getRoutingHints: jest.fn().mockResolvedValue(['hint1']),
+      },
+    },
+
     getNodes: jest.fn().mockReturnValue(
       new Map([
         [
@@ -70,9 +76,13 @@ describe('NodesRouter', () => {
     expect(router).not.toBeUndefined();
 
     expect(Router).toHaveBeenCalledTimes(1);
-    expect(mockedRouter.get).toHaveBeenCalledTimes(2);
+    expect(mockedRouter.get).toHaveBeenCalledTimes(3);
     expect(mockedRouter.get).toHaveBeenCalledWith('/', expect.anything());
     expect(mockedRouter.get).toHaveBeenCalledWith('/stats', expect.anything());
+    expect(mockedRouter.get).toHaveBeenCalledWith(
+      '/:currency/:node/hints',
+      expect.anything(),
+    );
   });
 
   test('should get nodes', () => {
@@ -113,5 +123,26 @@ describe('NodesRouter', () => {
         },
       },
     });
+  });
+
+  test('should get routing hints', async () => {
+    const res = mockResponse();
+    await nodesRouter['getRoutingHints'](
+      mockRequest(null, undefined, {
+        currency: 'BTC',
+        node: 'Boltz',
+      }),
+      res,
+    );
+
+    expect(
+      service.swapManager.routingHints.getRoutingHints,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      service.swapManager.routingHints.getRoutingHints,
+    ).toHaveBeenCalledWith('BTC', 'Boltz');
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(['hint1']);
   });
 });

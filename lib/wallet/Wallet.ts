@@ -1,10 +1,10 @@
 import { BIP32Interface } from 'bip32';
 import { Network } from 'bitcoinjs-lib';
-import Errors from './Errors';
+import { fromOutputScript, toOutputScript } from '../Core';
 import Logger from '../Logger';
 import { CurrencyType } from '../consts/Enums';
-import { fromOutputScript, toOutputScript } from '../Core';
 import KeyRepository from '../db/repositories/KeyRepository';
+import Errors from './Errors';
 import WalletProviderInterface, {
   BalancerFetcher,
   SentTransaction,

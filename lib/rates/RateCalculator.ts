@@ -1,5 +1,5 @@
-import Errors from './Errors';
 import { getPairId } from '../Utils';
+import Errors from './Errors';
 import DataAggregator from './data/DataAggregator';
 
 class RateCalculator {

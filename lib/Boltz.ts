@@ -1,31 +1,34 @@
-import { Arguments } from 'yargs';
 import { Networks } from 'boltz-core';
 import { Networks as LiquidNetworks } from 'boltz-core/dist/lib/liquid';
-import Api from './api/Api';
-import Logger from './Logger';
-import { setup } from './Core';
-import Database from './db/Database';
-import Prometheus from './Prometheus';
-import Service from './service/Service';
-import VersionCheck from './VersionCheck';
-import GrpcServer from './grpc/GrpcServer';
-import NodeSwitch from './swap/NodeSwitch';
-import ChainTip from './db/models/ChainTip';
-import GrpcService from './grpc/GrpcService';
-import ClnClient from './lightning/ClnClient';
-import LndClient from './lightning/LndClient';
-import ChainClient from './chain/ChainClient';
-import { CurrencyType } from './consts/Enums';
-import { formatError, getVersion } from './Utils';
-import ElementsClient from './chain/ElementsClient';
-import { registerExitHandler } from './ExitHandler';
-import BackupScheduler from './backup/BackupScheduler';
+import { Arguments } from 'yargs';
 import Config, { ConfigType, TokenConfig } from './Config';
-import { LightningClient } from './lightning/LightningClient';
-import EthereumManager from './wallet/ethereum/EthereumManager';
-import WalletManager, { Currency } from './wallet/WalletManager';
+import { setup } from './Core';
+import { registerExitHandler } from './ExitHandler';
+import Logger from './Logger';
+import Prometheus from './Prometheus';
+import { formatError, getVersion } from './Utils';
+import VersionCheck from './VersionCheck';
+import Api from './api/Api';
+import BackupScheduler from './backup/BackupScheduler';
+import ChainClient from './chain/ChainClient';
+import ElementsClient from './chain/ElementsClient';
+import { CurrencyType } from './consts/Enums';
+import Database from './db/Database';
+import ChainTip from './db/models/ChainTip';
 import ChainTipRepository from './db/repositories/ChainTipRepository';
+import GrpcServer from './grpc/GrpcServer';
+import GrpcService from './grpc/GrpcService';
+import { LightningClient } from './lightning/LightningClient';
+import LndClient from './lightning/LndClient';
+import ClnClient from './lightning/cln/ClnClient';
+import MpayClient from './lightning/cln/MpayClient';
 import NotificationProvider from './notifications/NotificationProvider';
+import Blocks from './service/Blocks';
+import CountryCodes from './service/CountryCodes';
+import Service from './service/Service';
+import NodeSwitch from './swap/NodeSwitch';
+import WalletManager, { Currency } from './wallet/WalletManager';
+import EthereumManager from './wallet/ethereum/EthereumManager';
 import { Ethereum, NetworkDetails, Rsk } from './wallet/ethereum/EvmNetworks';
 
 class Boltz {
@@ -42,6 +45,8 @@ class Boltz {
   private readonly notifications!: NotificationProvider;
 
   private readonly api!: Api;
+  private readonly blocks: Blocks;
+  private readonly countryCodes: CountryCodes;
   private readonly grpcServer!: GrpcServer;
   private readonly prometheus: Prometheus;
 
@@ -112,6 +117,8 @@ class Boltz {
       this.ethereumManagers,
     );
 
+    this.blocks = new Blocks(this.logger, this.config.blocks);
+
     try {
       this.service = new Service(
         this.logger,
@@ -119,6 +126,7 @@ class Boltz {
         this.walletManager,
         new NodeSwitch(this.logger, this.config.nodeSwitch),
         this.currencies,
+        this.blocks,
       );
 
       this.backup = new BackupScheduler(
@@ -151,7 +159,13 @@ class Boltz {
         this.config.pairs,
       );
 
-      this.api = new Api(this.logger, this.config.api, this.service);
+      this.countryCodes = new CountryCodes(this.logger, this.config.marking);
+      this.api = new Api(
+        this.logger,
+        this.config.api,
+        this.service,
+        this.countryCodes,
+      );
     } catch (error) {
       this.logger.error(`Could not start Boltz: ${formatError(error)}`);
       // eslint-disable-next-line no-process-exit
@@ -205,6 +219,10 @@ class Boltz {
 
       await this.grpcServer.listen();
 
+      await Promise.all([
+        this.countryCodes.downloadRanges(),
+        this.blocks.updateBlocks(),
+      ]);
       await this.api.init();
 
       // Rescan chains after everything else was initialized to avoid race conditions
@@ -310,6 +328,19 @@ class Boltz {
           client.symbol,
           holdInfo.version,
         );
+
+        if (client.useMpay()) {
+          const mpayInfo = await client.mpay!.getInfo();
+          this.logger.verbose(
+            `${client.symbol} ${MpayClient.serviceName} version: ${mpayInfo.version}`,
+          );
+
+          VersionCheck.checkLightningVersion(
+            MpayClient.serviceName,
+            client.symbol,
+            mpayInfo.version,
+          );
+        }
       }
 
       this.logStatus(service, info);

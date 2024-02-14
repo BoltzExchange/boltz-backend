@@ -1,10 +1,10 @@
-import assert from 'assert';
 import { Server, ServerCredentials } from '@grpc/grpc-js';
-import Errors from './Errors';
-import Logger from '../Logger';
+import assert from 'assert';
 import { GrpcConfig } from '../Config';
-import GrpcService from './GrpcService';
+import Logger from '../Logger';
 import { BoltzService } from '../proto/boltzrpc_grpc_pb';
+import Errors from './Errors';
+import GrpcService from './GrpcService';
 
 class GrpcServer {
   private server: Server;
@@ -26,6 +26,7 @@ class GrpcServer {
       sendCoins: grpcService.sendCoins,
       updateTimeoutBlockDelta: grpcService.updateTimeoutBlockDelta,
       addReferral: grpcService.addReferral,
+      sweepSwaps: grpcService.sweepSwaps,
     });
   }
 
@@ -45,7 +46,6 @@ class GrpcServer {
           if (error) {
             reject(Errors.COULD_NOT_BIND(host, port, error.message));
           } else {
-            this.server.start();
             this.logger.info(`gRPC server listening on: ${host}:${bindPort}`);
             resolve();
           }

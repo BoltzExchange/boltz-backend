@@ -1,12 +1,12 @@
-import Logger from '../Logger';
 import { ChainConfig } from '../Config';
+import Logger from '../Logger';
 import { CurrencyType } from '../consts/Enums';
-import ChainClient, { AddressType } from './ChainClient';
 import {
   AddressInfo,
-  liquidSymbol,
   LiquidBalances,
+  liquidSymbol,
 } from '../consts/LiquidTypes';
+import ChainClient, { AddressType } from './ChainClient';
 
 enum LiquidAddressType {
   Blech32 = 'blech32',

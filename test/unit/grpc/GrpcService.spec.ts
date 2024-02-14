@@ -1,10 +1,10 @@
-import { randomBytes } from 'crypto';
 import { ServiceError } from '@grpc/grpc-js';
-import Service from '../../../lib/service/Service';
-import GrpcService from '../../../lib/grpc/GrpcService';
-import { CurrencyType } from '../../../lib/consts/Enums';
-import * as boltzrpc from '../../../lib/proto/boltzrpc_pb';
+import { randomBytes } from 'crypto';
 import { getHexBuffer, getHexString } from '../../../lib/Utils';
+import { CurrencyType } from '../../../lib/consts/Enums';
+import GrpcService from '../../../lib/grpc/GrpcService';
+import * as boltzrpc from '../../../lib/proto/boltzrpc_pb';
+import Service from '../../../lib/service/Service';
 
 const getInfoData = {
   method: 'getInfo',
@@ -109,6 +109,17 @@ jest.mock('../../../lib/service/Service', () => {
         unblindOutputs: mockUnblindOutputs,
         deriveBlindingKeys: mockDeriveBlindingKeys,
         unblindOutputsFromId: mockUnblindOutputsFromId,
+      },
+      swapManager: {
+        deferredClaimer: {
+          sweep: jest.fn().mockResolvedValue(
+            new Map<string, string[]>([
+              ['BTC', ['everything1', 'everything2']],
+              ['L-BTC', ['everything3']],
+            ]),
+          ),
+          sweepSymbol: jest.fn().mockResolvedValue(['currency1', 'currency2']),
+        },
       },
       getInfo: mockGetInfo,
       getBalance: mockGetBalance,
@@ -328,6 +339,7 @@ describe('GrpcService', () => {
       reverseTimeout: 1,
       swapMinimalTimeout: 2,
       swapMaximalTimeout: 3,
+      swapTaproot: 4,
     };
 
     grpcService.updateTimeoutBlockDelta(
@@ -341,6 +353,7 @@ describe('GrpcService', () => {
     expect(mockUpdateTimeoutBlockDelta).toHaveBeenCalledTimes(1);
     expect(mockUpdateTimeoutBlockDelta).toHaveBeenCalledWith(callData.pair, {
       reverse: callData.reverseTimeout,
+      swapTaproot: callData.swapTaproot,
       swapMinimal: callData.swapMinimalTimeout,
       swapMaximal: callData.swapMaximalTimeout,
     });
@@ -385,6 +398,48 @@ describe('GrpcService', () => {
       ...callData,
       routingNode: undefined,
     });
+  });
+
+  test('should sweep swaps of one currency', async () => {
+    const symbol = 'BTC';
+
+    await new Promise<void>((resolve) => {
+      grpcService.sweepSwaps(
+        createCall({ symbol }),
+        createCallback((error, response: boltzrpc.SweepSwapsResponse) => {
+          expect(error).toEqual(null);
+          expect(response.toObject().claimedSymbolsMap).toEqual([
+            ['BTC', { claimedIdsList: ['currency1', 'currency2'] }],
+          ]);
+          resolve();
+        }),
+      );
+    });
+
+    expect(
+      service.swapManager.deferredClaimer.sweepSymbol,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      service.swapManager.deferredClaimer.sweepSymbol,
+    ).toHaveBeenCalledWith(symbol);
+  });
+
+  test('should sweep swaps of all currencies', async () => {
+    await new Promise<void>((resolve) => {
+      grpcService.sweepSwaps(
+        createCall({}),
+        createCallback((error, response: boltzrpc.SweepSwapsResponse) => {
+          expect(error).toEqual(null);
+          expect(response.toObject().claimedSymbolsMap).toEqual([
+            ['BTC', { claimedIdsList: ['everything1', 'everything2'] }],
+            ['L-BTC', { claimedIdsList: ['everything3'] }],
+          ]);
+          resolve();
+        }),
+      );
+    });
+
+    expect(service.swapManager.deferredClaimer.sweep).toHaveBeenCalledTimes(1);
   });
 
   test('should handle resolved callbacks', async () => {

@@ -1,45 +1,52 @@
-import { Provider } from 'ethers';
-import { randomBytes } from 'crypto';
 import { Networks } from 'boltz-core';
-import Logger from '../../../lib/Logger';
-import Swap from '../../../lib/db/models/Swap';
-import Wallet from '../../../lib/wallet/Wallet';
-import ApiErrors from '../../../lib/api/Errors';
-import packageJson from '../../../package.json';
-import Errors from '../../../lib/service/Errors';
+import { randomBytes } from 'crypto';
+import { Provider } from 'ethers';
 import { ConfigType } from '../../../lib/Config';
 import { ECPair } from '../../../lib/ECPairHelper';
-import Service from '../../../lib/service/Service';
-import NodeSwitch from '../../../lib/swap/NodeSwitch';
-import { PairConfig } from '../../../lib/consts/Types';
-import SwapManager from '../../../lib/swap/SwapManager';
-import LndClient from '../../../lib/lightning/LndClient';
+import Logger from '../../../lib/Logger';
+import {
+  decodeInvoice,
+  getHexBuffer,
+  getHexString,
+  getPairId,
+} from '../../../lib/Utils';
+import ApiErrors from '../../../lib/api/Errors';
 import ChainClient from '../../../lib/chain/ChainClient';
-import FeeProvider from '../../../lib/rates/FeeProvider';
-import { CurrencyInfo } from '../../../lib/proto/boltzrpc_pb';
-import RateCalculator from '../../../lib/rates/RateCalculator';
-import { InvoiceFeature } from '../../../lib/lightning/LightningClient';
-import PairRepository from '../../../lib/db/repositories/PairRepository';
-import SwapRepository from '../../../lib/db/repositories/SwapRepository';
-import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
-import { decodeInvoice, getHexBuffer, getHexString } from '../../../lib/Utils';
-import ReferralRepository from '../../../lib/db/repositories/ReferralRepository';
-import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
-import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
 import {
   etherDecimals,
   ethereumPrepayMinerFeeGasLimit,
   gweiDecimals,
 } from '../../../lib/consts/Consts';
 import {
-  OrderSide,
   BaseFeeType,
-  ServiceInfo,
   CurrencyType,
+  OrderSide,
+  ServiceInfo,
   ServiceWarning,
   SwapUpdateEvent,
+  SwapVersion,
 } from '../../../lib/consts/Enums';
+import { PairConfig } from '../../../lib/consts/Types';
+import Swap from '../../../lib/db/models/Swap';
+import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
+import PairRepository from '../../../lib/db/repositories/PairRepository';
+import ReferralRepository from '../../../lib/db/repositories/ReferralRepository';
+import ReverseRoutingHintRepository from '../../../lib/db/repositories/ReverseRoutingHintRepository';
+import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
+import SwapRepository from '../../../lib/db/repositories/SwapRepository';
+import { InvoiceFeature } from '../../../lib/lightning/LightningClient';
+import LndClient from '../../../lib/lightning/LndClient';
+import { CurrencyInfo } from '../../../lib/proto/boltzrpc_pb';
+import FeeProvider from '../../../lib/rates/FeeProvider';
+import RateCalculator from '../../../lib/rates/RateCalculator';
+import Errors from '../../../lib/service/Errors';
+import Service from '../../../lib/service/Service';
+import NodeSwitch from '../../../lib/swap/NodeSwitch';
+import SwapManager from '../../../lib/swap/SwapManager';
+import Wallet from '../../../lib/wallet/Wallet';
+import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
 import { Ethereum } from '../../../lib/wallet/ethereum/EvmNetworks';
+import packageJson from '../../../package.json';
 
 const mockGetPairs = jest.fn().mockResolvedValue([]);
 const mockAddPair = jest.fn().mockReturnValue(Promise.resolve());
@@ -389,11 +396,30 @@ const mockAcceptZeroConf = jest.fn().mockReturnValue(true);
 
 jest.mock('../../../lib/rates/RateProvider', () => {
   return jest.fn().mockImplementation(() => ({
-    pairs,
+    providers: {
+      [SwapVersion.Legacy]: {
+        pairs,
+        validatePairHash: jest.fn().mockImplementation((hash) => {
+          if (['', 'wrongHash'].includes(hash)) {
+            throw Errors.INVALID_PAIR_HASH();
+          }
+        }),
+      },
+      [SwapVersion.Taproot]: {
+        validatePairHash: jest.fn().mockImplementation((hash) => {
+          if (['', 'wrongHash'].includes(hash)) {
+            throw Errors.INVALID_PAIR_HASH();
+          }
+        }),
+      },
+    },
     init: mockInitRateProvider,
     feeProvider: MockedFeeProvider(),
     acceptZeroConf: mockAcceptZeroConf,
     rateCalculator: MockedRateCalculator(),
+    has: jest
+      .fn()
+      .mockImplementation((pair) => ['BTC/BTC', 'LTC/BTC'].includes(pair)),
   }));
 });
 
@@ -510,6 +536,8 @@ jest.mock('../../../lib/lightning/LndClient', () => {
 
 const mockedLndClient = <jest.Mock<LndClient>>(<any>LndClient);
 
+jest.mock('../../../lib/db/repositories/ReverseRoutingHintRepository');
+
 describe('Service', () => {
   const configPairs = [
     {
@@ -593,6 +621,7 @@ describe('Service', () => {
     mockedWalletManager(),
     new NodeSwitch(Logger.disabledLogger),
     currencies,
+    {} as any,
   );
 
   // Inject a mocked SwapManager
@@ -668,6 +697,26 @@ describe('Service', () => {
 
     expect(mockInitRateProvider).toHaveBeenCalledTimes(1);
     expect(mockInitRateProvider).toHaveBeenCalledWith(configPairs);
+  });
+
+  test.each`
+    from     | to       | expected
+    ${'LTC'} | ${'BTC'} | ${{ pairId: 'LTC/BTC', orderSide: 'sell' }}
+    ${'BTC'} | ${'LTC'} | ${{ pairId: 'LTC/BTC', orderSide: 'buy' }}
+  `(
+    'should convert from/to to pairId and order side',
+    ({ from, to, expected }) => {
+      expect(service.convertToPairAndSide(from, to)).toEqual(expected);
+    },
+  );
+
+  test('should throw when converting non existent from/to to pairId and order side', () => {
+    const from = 'DOGE';
+    const to = 'BTC';
+
+    expect(() => service.convertToPairAndSide(from, to)).toThrow(
+      Errors.PAIR_NOT_FOUND(getPairId({ base: from, quote: to })).message,
+    );
   });
 
   test('should get info', async () => {
@@ -851,6 +900,19 @@ describe('Service', () => {
         tokenAddresses: new Map<string, string>([
           ['USDT', '0xDf567Cd5d0cf3d90cE6E3E9F897e092f9ECE359a'],
         ]),
+        getContractDetails: jest.fn().mockResolvedValue({
+          network: {
+            chainId: Number(123),
+            name: 'hello',
+          },
+          tokens: new Map<string, string>([
+            ['USDT', '0xDf567Cd5d0cf3d90cE6E3E9F897e092f9ECE359a'],
+          ]),
+          swapContracts: new Map<string, string>([
+            ['EtherSwap', '0x18A4374d714762FA7DE346E997f7e28Fb3744EC1'],
+            ['ERC20Swap', '0xC685b2c4369D7bf9242DA54E9c391948079d83Cd'],
+          ]),
+        }),
       },
     ];
 
@@ -957,6 +1019,34 @@ describe('Service', () => {
     );
   });
 
+  test('should get lockup transactions of reverse swaps', async () => {
+    const blockDelta = 10;
+
+    mockGetReverseSwapResult = {
+      id: '123asd',
+      pair: 'LTC/BTC',
+      orderSide: OrderSide.SELL,
+      timeoutBlockHeight: blockchainInfo.blocks + blockDelta,
+      transactionId:
+        'eb63a8b1511f83c8d649fdaca26c4bc0dee4313689f62fd0f4ff8f71b963900d',
+    };
+
+    await expect(
+      service.getReverseSwapTransaction(mockGetReverseSwapResult.id),
+    ).resolves.toEqual({
+      transactionHex: rawTransaction,
+      transactionId: mockGetReverseSwapResult.transactionId,
+      timeoutBlockHeight: mockGetReverseSwapResult.timeoutBlockHeight,
+    });
+
+    expect(ReverseSwapRepository.getReverseSwap).toHaveBeenCalledTimes(1);
+    expect(ReverseSwapRepository.getReverseSwap).toHaveBeenCalledWith({
+      id: mockGetReverseSwapResult.id,
+    });
+
+    mockGetReverseSwapResult = null;
+  });
+
   test('should get lockup transactions of Ethereum swaps', async () => {
     const blockDelta = 10;
 
@@ -984,6 +1074,42 @@ describe('Service', () => {
     });
 
     expect(mockGetBlockNumber).toHaveBeenCalledTimes(1);
+  });
+
+  test('should get BIP-21 for reverse swaps', async () => {
+    ReverseRoutingHintRepository.getHint = jest.fn().mockResolvedValue({
+      bip21: 'bitcoin:bip21',
+      signature: 'some valid sig',
+    });
+
+    const id = 'bip21Reverse';
+    mockGetReverseSwapResult = {
+      id,
+    };
+
+    const invoice = 'someInvoice';
+    const res = await service.getReverseBip21(invoice);
+
+    expect(ReverseSwapRepository.getReverseSwap).toHaveBeenCalledTimes(1);
+    expect(ReverseSwapRepository.getReverseSwap).toHaveBeenCalledWith({
+      invoice,
+    });
+
+    expect(ReverseRoutingHintRepository.getHint).toHaveBeenCalledTimes(1);
+    expect(ReverseRoutingHintRepository.getHint).toHaveBeenCalledWith(id);
+
+    expect(res).toEqual(await ReverseRoutingHintRepository.getHint(id));
+  });
+
+  test('should return undefined when no BIP-21 was set for reverse swap', async () => {
+    ReverseRoutingHintRepository.getHint = jest
+      .fn()
+      .mockResolvedValue(undefined);
+
+    const id = 'reverseId';
+    const res = await service.getReverseBip21(id);
+
+    expect(res).toEqual(undefined);
   });
 
   test('should derive keys', async () => {
@@ -1015,6 +1141,30 @@ describe('Service', () => {
 
     await expect(service.getAddress(notFound)).rejects.toEqual(
       Errors.CURRENCY_NOT_FOUND(notFound),
+    );
+  });
+
+  test('should get block heights', async () => {
+    await expect(service.getBlockHeights()).resolves.toEqual(
+      new Map([
+        ['BTC', 123],
+        ['LTC', 123],
+        ['ETH', 100],
+        ['USDT', 100],
+      ]),
+    );
+  });
+
+  test('should get block height for symbol', async () => {
+    await expect(service.getBlockHeights('BTC')).resolves.toEqual(
+      new Map([['BTC', 123]]),
+    );
+  });
+
+  test('should throw when getting block height for symbol that cannot be found', async () => {
+    const symbol = 'notFound';
+    await expect(service.getBlockHeights(symbol)).rejects.toEqual(
+      Errors.CURRENCY_NOT_FOUND(symbol),
     );
   });
 
@@ -1179,8 +1329,8 @@ describe('Service', () => {
     // Create a new swap
     let emittedId = '';
 
-    service.eventHandler.once('swap.update', (id, message) => {
-      expect(message).toEqual({ status: SwapUpdateEvent.SwapCreated });
+    service.eventHandler.once('swap.update', ({ id, status }) => {
+      expect(status).toEqual({ status: SwapUpdateEvent.SwapCreated });
       emittedId = id;
     });
 
@@ -1190,6 +1340,7 @@ describe('Service', () => {
       preimageHash,
       refundPublicKey,
       pairId: pair,
+      version: SwapVersion.Legacy,
     });
 
     expect(emittedId).toEqual(response.id);
@@ -1215,6 +1366,7 @@ describe('Service', () => {
       quoteCurrency: 'BTC',
       timeoutBlockDelta: 1,
       orderSide: OrderSide.BUY,
+      version: SwapVersion.Legacy,
     });
 
     // Throw if swap with preimage exists already
@@ -1223,6 +1375,7 @@ describe('Service', () => {
       service.createSwap({
         pairId: '',
         orderSide: '',
+        version: SwapVersion.Legacy,
         preimageHash: Buffer.alloc(0),
       }),
     ).rejects.toEqual(Errors.SWAP_WITH_PREIMAGE_EXISTS());
@@ -1268,6 +1421,7 @@ describe('Service', () => {
       id: 'invoiceId',
       pair: 'BTC/BTC',
       orderSide: 0,
+      version: SwapVersion.Taproot,
       lockupAddress: 'bcrt1qae5nuz2cv7gu2dpps8rwrhsfv6tjkyvpd8hqsu',
     };
 
@@ -1277,8 +1431,8 @@ describe('Service', () => {
 
     let emittedId = '';
 
-    service.eventHandler.once('swap.update', (id, message) => {
-      expect(message).toEqual({ status: SwapUpdateEvent.InvoiceSet });
+    service.eventHandler.once('swap.update', ({ id, status }) => {
+      expect(status).toEqual({ status: SwapUpdateEvent.InvoiceSet });
       emittedId = id;
     });
 
@@ -1300,6 +1454,7 @@ describe('Service', () => {
     expect(mockGetFees).toHaveBeenCalledTimes(1);
     expect(mockGetFees).toHaveBeenCalledWith(
       mockGetSwapResult.pair,
+      mockGetSwapResult.version,
       1,
       mockGetSwapResult.orderSide,
       invoiceAmount,
@@ -1464,6 +1619,7 @@ describe('Service', () => {
       referralId,
       refundPublicKey,
       pairId: pair,
+      version: SwapVersion.Legacy,
       preimageHash: getHexBuffer(decodeInvoice(invoice).paymentHash!),
     });
 
@@ -1509,6 +1665,8 @@ describe('Service', () => {
   });
 
   test('should create reverse swaps', async () => {
+    mockGetReverseSwapResult = null;
+
     service.allowReverseSwaps = true;
 
     let pair = 'BTC/BTC';
@@ -1522,8 +1680,8 @@ describe('Service', () => {
 
     let emittedId = '';
 
-    service.eventHandler.once('swap.update', (id, message) => {
-      expect(message).toEqual({ status: SwapUpdateEvent.SwapCreated });
+    service.eventHandler.once('swap.update', ({ id, status }) => {
+      expect(status).toEqual({ status: SwapUpdateEvent.SwapCreated });
       emittedId = id;
     });
 
@@ -1533,6 +1691,7 @@ describe('Service', () => {
       invoiceAmount,
       claimPublicKey,
       pairId: pair,
+      version: SwapVersion.Legacy,
     });
 
     expect(emittedId).toEqual(response.id);
@@ -1551,6 +1710,7 @@ describe('Service', () => {
     expect(mockGetBaseFee).toHaveBeenCalledTimes(1);
     expect(mockGetBaseFee).toHaveBeenCalledWith(
       'BTC',
+      SwapVersion.Legacy,
       BaseFeeType.ReverseLockup,
     );
 
@@ -1563,6 +1723,7 @@ describe('Service', () => {
       quoteCurrency: 'BTC',
       orderSide: OrderSide.BUY,
       onchainTimeoutBlockDelta: 1,
+      version: SwapVersion.Legacy,
       lightningTimeoutBlockDelta: 16,
       holdInvoiceAmount: invoiceAmount,
       percentageFee: invoiceAmount * mockGetPercentageFeeResult,
@@ -1579,6 +1740,7 @@ describe('Service', () => {
       invoiceAmount,
       claimPublicKey,
       pairId: pair,
+      version: SwapVersion.Legacy,
     });
 
     expect(mockCreateReverseSwap).toHaveBeenCalledTimes(2);
@@ -1589,6 +1751,7 @@ describe('Service', () => {
       baseCurrency: 'LTC',
       quoteCurrency: 'BTC',
       orderSide: OrderSide.BUY,
+      version: SwapVersion.Legacy,
       onchainTimeoutBlockDelta: 160,
       lightningTimeoutBlockDelta: 50,
       holdInvoiceAmount: invoiceAmount,
@@ -1605,6 +1768,7 @@ describe('Service', () => {
       invoiceAmount,
       claimPublicKey,
       pairId: pair,
+      version: SwapVersion.Legacy,
       pairHash: pairs.get(pair)!.hash,
     });
 
@@ -1617,6 +1781,7 @@ describe('Service', () => {
         claimPublicKey,
         pairId: pair,
         pairHash: 'wrongHash',
+        version: SwapVersion.Legacy,
       }),
     ).rejects.toEqual(Errors.INVALID_PAIR_HASH());
     await expect(
@@ -1627,6 +1792,7 @@ describe('Service', () => {
         claimPublicKey,
         pairId: pair,
         pairHash: '',
+        version: SwapVersion.Legacy,
       }),
     ).rejects.toEqual(Errors.INVALID_PAIR_HASH());
 
@@ -1638,6 +1804,7 @@ describe('Service', () => {
         claimPublicKey,
         pairId: pair,
         invoiceAmount: 1,
+        version: SwapVersion.Legacy,
       }),
     ).rejects.toEqual(Errors.ONCHAIN_AMOUNT_TOO_LOW());
 
@@ -1650,6 +1817,7 @@ describe('Service', () => {
         preimageHash,
         claimPublicKey,
         pairId: pair,
+        version: SwapVersion.Legacy,
         invoiceAmount: invoiceAmountLimit,
       }),
     ).rejects.toEqual(Errors.BENEATH_MINIMAL_AMOUNT(invoiceAmountLimit, 1));
@@ -1664,6 +1832,7 @@ describe('Service', () => {
         invoiceAmount,
         claimPublicKey,
         pairId: pair,
+        version: SwapVersion.Legacy,
       }),
     ).rejects.toEqual(Errors.REVERSE_SWAPS_DISABLED());
 
@@ -1678,6 +1847,7 @@ describe('Service', () => {
         preimageHash,
         claimPublicKey,
         pairId: pair,
+        version: SwapVersion.Legacy,
         invoiceAmount: invalidNumber,
       }),
     ).rejects.toEqual(Errors.NOT_WHOLE_NUMBER(invalidNumber));
@@ -1690,6 +1860,7 @@ describe('Service', () => {
         claimPublicKey,
         pairId: pair,
         onchainAmount: invalidNumber,
+        version: SwapVersion.Legacy,
       }),
     ).rejects.toEqual(Errors.NOT_WHOLE_NUMBER(invalidNumber));
   });
@@ -1730,6 +1901,7 @@ describe('Service', () => {
       invoiceAmount,
       claimPublicKey,
       pairId: pair,
+      version: SwapVersion.Legacy,
     });
 
     expect(mockCreateReverseSwap).toHaveBeenCalledWith({
@@ -1741,6 +1913,7 @@ describe('Service', () => {
       quoteCurrency: 'BTC',
       orderSide: OrderSide.BUY,
       onchainTimeoutBlockDelta: 1,
+      version: SwapVersion.Legacy,
       lightningTimeoutBlockDelta: 16,
       holdInvoiceAmount: invoiceAmount,
       percentageFee: invoiceAmount * mockGetPercentageFeeResult,
@@ -1766,6 +1939,7 @@ describe('Service', () => {
       onchainAmount,
       claimPublicKey,
       pairId: pair,
+      version: SwapVersion.Legacy,
     });
 
     expect(mockCreateReverseSwap).toHaveBeenCalledWith({
@@ -1776,6 +1950,7 @@ describe('Service', () => {
       baseCurrency: 'BTC',
       quoteCurrency: 'BTC',
       orderSide: OrderSide.BUY,
+      version: SwapVersion.Legacy,
       holdInvoiceAmount: invoiceAmount,
       onchainTimeoutBlockDelta: expect.anything(),
       lightningTimeoutBlockDelta: expect.anything(),
@@ -1799,6 +1974,7 @@ describe('Service', () => {
       invoiceAmount,
       claimPublicKey,
       pairId: pair,
+      version: SwapVersion.Legacy,
     });
 
     expect(response).toEqual({
@@ -1820,6 +1996,7 @@ describe('Service', () => {
       quoteCurrency: 'BTC',
       orderSide: OrderSide.BUY,
       onchainTimeoutBlockDelta: 1,
+      version: SwapVersion.Legacy,
       lightningTimeoutBlockDelta: 16,
       prepayMinerFeeInvoiceAmount: mockGetBaseFeeResult,
       holdInvoiceAmount: invoiceAmount - mockGetBaseFeeResult,

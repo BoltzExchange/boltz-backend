@@ -1,10 +1,11 @@
-import { randomBytes } from 'crypto';
 import { crypto } from 'bitcoinjs-lib';
-import Errors from '../../../lib/lightning/Errors';
-import { decodeInvoice, getUnixTime } from '../../../lib/Utils';
-import { bitcoinClient, bitcoinLndClient, clnClient } from '../Nodes';
-import { InvoiceFeature } from '../../../lib/lightning/LightningClient';
-import InvoiceExpiryHelper from '../../../lib/service/InvoiceExpiryHelper';
+import { randomBytes } from 'crypto';
+import { decodeInvoice, getUnixTime } from '../../../../lib/Utils';
+import { ClientStatus } from '../../../../lib/consts/Enums';
+import Errors from '../../../../lib/lightning/Errors';
+import { InvoiceFeature } from '../../../../lib/lightning/LightningClient';
+import InvoiceExpiryHelper from '../../../../lib/service/InvoiceExpiryHelper';
+import { bitcoinClient, bitcoinLndClient, clnClient } from '../../Nodes';
 
 describe('ClnClient', () => {
   beforeAll(async () => {
@@ -87,7 +88,15 @@ describe('ClnClient', () => {
     );
   });
 
-  test('should detect pending payments', async () => {
+  test.each`
+    name      | useMpay
+    ${'mpay'} | ${true}
+    ${'pay'}  | ${false}
+  `('should detect pending payments with $name', async ({ useMpay }) => {
+    if (!useMpay) {
+      clnClient['mpay']!.setClientStatus(ClientStatus.Disconnected);
+    }
+
     const preimage = randomBytes(32);
     const invoice = await bitcoinLndClient.addHoldInvoice(
       10_000,
@@ -121,6 +130,25 @@ describe('ClnClient', () => {
 
     await bitcoinLndClient.settleHoldInvoice(preimage);
     expect((await payPromise).preimage).toEqual(preimage);
+
+    clnClient['mpay']!.setClientStatus(ClientStatus.Connected);
+  });
+
+  test.each`
+    name      | useMpay
+    ${'mpay'} | ${true}
+    ${'pay'}  | ${false}
+  `('should detect successful payments with $name', async ({ useMpay }) => {
+    if (!useMpay) {
+      clnClient['mpay']!.setClientStatus(ClientStatus.Disconnected);
+    }
+
+    const invoice = (await bitcoinLndClient.addInvoice(10_000)).paymentRequest;
+
+    const payRes = await clnClient.sendPayment(invoice);
+    expect(await clnClient.checkPayStatus(invoice)).toEqual(payRes);
+
+    clnClient['mpay']!.setClientStatus(ClientStatus.Connected);
   });
 
   test('should emit events for invoice acceptance and settlement', async () => {

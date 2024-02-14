@@ -1,7 +1,19 @@
+import { randomBytes } from 'crypto';
 import Logger from '../../../lib/Logger';
 import { getHexBuffer } from '../../../lib/Utils';
+import {
+  checkPreimageHashLength,
+  errorResponse,
+  markSwap,
+  validateRequest,
+} from '../../../lib/api/Utils';
+import MarkedSwapRepository from '../../../lib/db/repositories/MarkedSwapRepository';
+import CountryCodes from '../../../lib/service/CountryCodes';
 import { mockRequest, mockResponse } from './Utils';
-import { errorResponse, validateRequest } from '../../../lib/api/Utils';
+
+jest.mock('../../../lib/db/repositories/MarkedSwapRepository', () => ({
+  addMarkedSwap: jest.fn().mockResolvedValue(undefined),
+}));
 
 describe('Utils', () => {
   beforeEach(() => {
@@ -134,5 +146,66 @@ describe('Utils', () => {
 
     expect(res.status).toHaveBeenNthCalledWith(5, 401);
     expect(res.json).toHaveBeenNthCalledWith(5, { error: error.message });
+  });
+
+  test('should check preimage hash length', () => {
+    checkPreimageHashLength(
+      getHexBuffer(
+        '34786bcde69ec5873bcf2e8a42c47fbcc762bdb1096c1077709cb9854fef308d',
+      ),
+    );
+  });
+
+  test.each`
+    length
+    ${16}
+    ${31}
+    ${33}
+    ${64}
+  `('should throw on invalid preimage hash length $length', ({ length }) => {
+    expect(() => checkPreimageHashLength(randomBytes(length))).toThrow(
+      `invalid preimage hash length: ${length}`,
+    );
+  });
+
+  test('should mark swaps from relevant countries', async () => {
+    const id = '123';
+    const ip = '123.123.123.123';
+
+    const countryCodes = {
+      isRelevantCountry: jest.fn().mockReturnValue(true),
+      getCountryCode: jest.fn().mockReturnValue('TOR'),
+    } as any as CountryCodes;
+
+    await markSwap(countryCodes, ip, id);
+
+    expect(countryCodes.getCountryCode).toHaveBeenCalledTimes(1);
+    expect(countryCodes.getCountryCode).toHaveBeenCalledWith(ip);
+
+    expect(countryCodes.isRelevantCountry).toHaveBeenCalledTimes(1);
+    expect(countryCodes.isRelevantCountry).toHaveBeenCalledWith('TOR');
+
+    expect(MarkedSwapRepository.addMarkedSwap).toHaveBeenCalledTimes(1);
+    expect(MarkedSwapRepository.addMarkedSwap).toHaveBeenCalledWith(id);
+  });
+
+  test('should not mark swaps from non relevant countries', async () => {
+    const id = '123';
+    const ip = '123.123.123.123';
+
+    const countryCodes = {
+      isRelevantCountry: jest.fn().mockReturnValue(false),
+      getCountryCode: jest.fn().mockReturnValue('TOR'),
+    } as any as CountryCodes;
+
+    await markSwap(countryCodes, ip, id);
+
+    expect(countryCodes.getCountryCode).toHaveBeenCalledTimes(1);
+    expect(countryCodes.getCountryCode).toHaveBeenCalledWith(ip);
+
+    expect(countryCodes.isRelevantCountry).toHaveBeenCalledTimes(1);
+    expect(countryCodes.isRelevantCountry).toHaveBeenCalledWith('TOR');
+
+    expect(MarkedSwapRepository.addMarkedSwap).toHaveBeenCalledTimes(0);
   });
 });

@@ -1,6 +1,6 @@
-import { Error } from '../consts/Types';
 import { concatErrorCode } from '../Utils';
 import { ErrorCodePrefix } from '../consts/Enums';
+import { Error } from '../consts/Types';
 
 export default {
   CURRENCY_NOT_FOUND: (currency: string): Error => ({
@@ -97,5 +97,13 @@ export default {
   INVALID_ADDRESS: (): Error => ({
     message: 'invalid address',
     code: concatErrorCode(ErrorCodePrefix.Swap, 19),
+  }),
+  BLOCKED_ADDRESS: (): Error => ({
+    message: 'blocked address',
+    code: concatErrorCode(ErrorCodePrefix.Swap, 20),
+  }),
+  INVALID_ADDRESS_SIGNATURE: (): Error => ({
+    message: 'invalid address signature',
+    code: concatErrorCode(ErrorCodePrefix.Swap, 21),
   }),
 };

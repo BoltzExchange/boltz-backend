@@ -3,10 +3,15 @@ import { Request, Response } from 'express';
 export type closeResponseCallback = () => void;
 export let emitClose: closeResponseCallback;
 
-export const mockRequest = (body: any, query?: any) =>
+export const mockRequest = (
+  body: any = null,
+  query?: Record<string, any>,
+  params?: Record<string, any>,
+) =>
   ({
     body,
     query,
+    params,
   }) as Request;
 
 export const mockResponse = () => {

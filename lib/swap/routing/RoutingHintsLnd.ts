@@ -1,7 +1,7 @@
 import Logger from '../../Logger';
-import LndClient from '../../lightning/LndClient';
 import { minutesToMilliseconds } from '../../Utils';
 import { HopHint, RoutingHintsProvider } from '../../lightning/LightningClient';
+import LndClient from '../../lightning/LndClient';
 
 class RoutingHintsLnd implements RoutingHintsProvider {
   // How often the channel lists should be updated in minutes

@@ -1,21 +1,21 @@
-import { Op } from 'sequelize';
 import { Networks } from 'boltz-core';
-import { wait } from '../../Utils';
+import { Op } from 'sequelize';
 import Logger from '../../../lib/Logger';
-import Swap from '../../../lib/db/models/Swap';
 import ChainClient from '../../../lib/chain/ChainClient';
-import LndClient from '../../../lib/lightning/LndClient';
-import { Currency } from '../../../lib/wallet/WalletManager';
-import { ChannelPoint } from '../../../lib/proto/lnd/rpc_pb';
-import ChannelNursery from '../../../lib/swap/ChannelNursery';
-import ChannelCreation from '../../../lib/db/models/ChannelCreation';
-import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import {
   ChannelCreationStatus,
   OrderSide,
   SwapUpdateEvent,
 } from '../../../lib/consts/Enums';
+import ChannelCreation from '../../../lib/db/models/ChannelCreation';
+import Swap from '../../../lib/db/models/Swap';
 import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
+import SwapRepository from '../../../lib/db/repositories/SwapRepository';
+import LndClient from '../../../lib/lightning/LndClient';
+import { ChannelPoint } from '../../../lib/proto/lnd/rpc_pb';
+import ChannelNursery from '../../../lib/swap/ChannelNursery';
+import { Currency } from '../../../lib/wallet/WalletManager';
+import { wait } from '../../Utils';
 
 let mockGetSwapResult: any = {
   some: 'swapData',
@@ -327,15 +327,12 @@ describe('ChannelNursery', () => {
 
     let eventEmitted = false;
 
-    channelNursery.once(
-      'channel.created',
-      (eventSwap: Swap, eventChannelCreation: ChannelCreation) => {
-        expect(eventSwap).toEqual(swap);
-        expect(eventChannelCreation).toEqual(channelCreation);
+    channelNursery.once('channel.created', (args) => {
+      expect(args.swap).toEqual(swap);
+      expect(args.channelCreation).toEqual(channelCreation);
 
-        eventEmitted = true;
-      },
-    );
+      eventEmitted = true;
+    });
 
     await channelNursery.openChannel(btcCurrency, swap, channelCreation);
 

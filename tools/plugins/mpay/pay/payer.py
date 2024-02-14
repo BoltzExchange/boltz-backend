@@ -40,6 +40,7 @@ class Payer:
 
     _max_fee: Millisatoshi
     _timeout: int
+    _max_delay: int | None
 
     _start_time: float
 
@@ -57,6 +58,7 @@ class Payer:
         dec: dict[str, Any],
         max_fee: Millisatoshi,
         timeout: int,
+        max_delay: int | None,
     ) -> None:
         self._pl = pl
 
@@ -76,6 +78,7 @@ class Payer:
 
         self._max_fee = max_fee
         self._timeout = timeout
+        self._max_delay = max_delay
 
     def start(self) -> PaymentResult:
         self._start_time = perf_counter()
@@ -147,6 +150,20 @@ class Payer:
 
             self._pl.log(f"Excluding most expensive channel {most_expensive_id} ({fee})")
 
+            return None
+
+        if self._max_delay is not None and route.exceeds_delay(self._max_delay):
+            self._pl.log(
+                f"Not attempting route {route.pretty_print(self._network_info)}: "
+                f"delay {route.delay} exceeds max delay {self._max_delay}"
+            )
+
+            # TODO: more sophisticated approach
+            highest_delay, delay = route.highest_delay_channel()
+            highest_delay_id = Route.channel_to_short_id(highest_delay)
+            self._excludes.add_local(highest_delay_id)
+
+            self._pl.log(f"Excluding most channel with highest delay {highest_delay_id} ({delay})")
             return None
 
         route.add_cltv(self._dec["min_final_cltv_expiry"])

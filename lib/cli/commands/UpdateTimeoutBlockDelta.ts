@@ -1,8 +1,8 @@
 import { Arguments } from 'yargs';
-import { loadBoltzClient, callback } from '../Command';
 import { UpdateTimeoutBlockDeltaRequest } from '../../proto/boltzrpc_pb';
+import { callback, loadBoltzClient } from '../Command';
 
-const command = 'updatetimeout <reverse> <swap_min> <swap_max>';
+const command = 'updatetimeout <reverse> <swap_min> <swap_max> <swap_taproot>';
 
 const describe = 'updates the timeout block delta of a pair';
 
@@ -23,6 +23,10 @@ const builder = {
     describe: 'new maximal swap timeout block delta in minutes',
     type: 'number',
   },
+  swap_taproot: {
+    describe: 'new Taproot swap timeout block delta in minutes',
+    type: 'number',
+  },
 };
 
 const handler = (argv: Arguments<any>): void => {
@@ -32,6 +36,7 @@ const handler = (argv: Arguments<any>): void => {
   request.setReverseTimeout(argv.reverse);
   request.setSwapMinimalTimeout(argv.swap_min);
   request.setSwapMaximalTimeout(argv.swap_max);
+  request.setSwapTaproot(argv.swap_taproot);
 
   loadBoltzClient(argv).updateTimeoutBlockDelta(request, callback());
 };

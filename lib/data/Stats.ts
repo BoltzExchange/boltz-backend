@@ -1,6 +1,6 @@
-import { getNestedObject } from './Utils';
 import { satoshisToPaddedCoins } from '../DenominationConverter';
 import StatsRepository, { StatsDate } from '../db/repositories/StatsRepository';
+import { getNestedObject } from './Utils';
 
 type MonthStats = {
   volume: Record<string, number>;
@@ -17,11 +17,12 @@ class Stats {
   public static generate = async (
     minYear: number,
     minMonth: number,
+    referral?: string,
   ): Promise<Record<string, Record<string, MonthStats>>> => {
     const [volumes, tradeCounts, failureRates] = await Promise.all([
-      StatsRepository.getVolume(minYear, minMonth),
-      StatsRepository.getTradeCounts(minYear, minMonth),
-      StatsRepository.getFailureRates(minYear, minMonth),
+      StatsRepository.getVolume(minYear, minMonth, referral),
+      StatsRepository.getTradeCounts(minYear, minMonth, referral),
+      StatsRepository.getFailureRates(minYear, minMonth, referral),
     ]);
 
     const stats = {};

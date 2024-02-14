@@ -1,7 +1,7 @@
 import { OutputType } from 'boltz-core';
-import { Error } from '../consts/Types';
 import { concatErrorCode } from '../Utils';
 import { ErrorCodePrefix } from '../consts/Enums';
+import { Error } from '../consts/Types';
 
 export default {
   NOT_INITIALIZED: (): Error => ({
@@ -56,7 +56,7 @@ export default {
   ): Error => ({
     message: `unsupported ${name} (${address}) contract version ${Number(
       actualVersion,
-    )}; support version: ${Number(supportedVersion)}`,
+    )}; supported version: ${Number(supportedVersion)}`,
     code: concatErrorCode(ErrorCodePrefix.Wallet, 10),
   }),
   TAPROOT_BLINDING_NOT_SUPPORTED: (): Error => ({

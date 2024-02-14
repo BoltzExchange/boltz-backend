@@ -1,37 +1,11 @@
-import { Op } from 'sequelize';
-import AsyncLock from 'async-lock';
 import bolt11 from '@boltz/bolt11';
-import { randomBytes } from 'crypto';
+import AsyncLock from 'async-lock';
 import { address } from 'bitcoinjs-lib';
 import { Networks, OutputType } from 'boltz-core';
-import { raceCall } from '../../Utils';
-import Logger from '../../../lib/Logger';
-import Errors from '../../../lib/swap/Errors';
-import Swap from '../../../lib/db/models/Swap';
-import Wallet from '../../../lib/wallet/Wallet';
+import { randomBytes } from 'crypto';
+import { Op } from 'sequelize';
 import { ECPair } from '../../../lib/ECPairHelper';
-import NodeSwitch from '../../../lib/swap/NodeSwitch';
-import ChainClient from '../../../lib/chain/ChainClient';
-import LndClient from '../../../lib/lightning/LndClient';
-import RateProvider from '../../../lib/rates/RateProvider';
-import SwapOutputType from '../../../lib/swap/SwapOutputType';
-import { Ethereum } from '../../../lib/wallet/ethereum/EvmNetworks';
-import SwapRepository from '../../../lib/db/repositories/SwapRepository';
-import PaymentRequestUtils from '../../../lib/service/PaymentRequestUtils';
-import ReverseSwap, { NodeType } from '../../../lib/db/models/ReverseSwap';
-import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
-import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
-import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
-import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
-import SwapManager, {
-  ChannelCreationInfo,
-} from '../../../lib/swap/SwapManager';
-import {
-  ChannelCreationType,
-  CurrencyType,
-  OrderSide,
-  SwapUpdateEvent,
-} from '../../../lib/consts/Enums';
+import Logger from '../../../lib/Logger';
 import {
   decodeInvoice,
   getHexBuffer,
@@ -40,6 +14,34 @@ import {
   getUnixTime,
   reverseBuffer,
 } from '../../../lib/Utils';
+import ChainClient from '../../../lib/chain/ChainClient';
+import {
+  ChannelCreationType,
+  CurrencyType,
+  OrderSide,
+  SwapUpdateEvent,
+  SwapVersion,
+} from '../../../lib/consts/Enums';
+import ReverseSwap, { NodeType } from '../../../lib/db/models/ReverseSwap';
+import Swap from '../../../lib/db/models/Swap';
+import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
+import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
+import SwapRepository from '../../../lib/db/repositories/SwapRepository';
+import LndClient from '../../../lib/lightning/LndClient';
+import RateProvider from '../../../lib/rates/RateProvider';
+import Blocks from '../../../lib/service/Blocks';
+import PaymentRequestUtils from '../../../lib/service/PaymentRequestUtils';
+import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
+import Errors from '../../../lib/swap/Errors';
+import NodeSwitch from '../../../lib/swap/NodeSwitch';
+import SwapManager, {
+  ChannelCreationInfo,
+} from '../../../lib/swap/SwapManager';
+import SwapOutputType from '../../../lib/swap/SwapOutputType';
+import Wallet from '../../../lib/wallet/Wallet';
+import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
+import { Ethereum } from '../../../lib/wallet/ethereum/EvmNetworks';
+import { raceCall } from '../../Utils';
 
 const mockAddSwap = jest.fn().mockResolvedValue(undefined);
 
@@ -309,6 +311,10 @@ jest.mock('../../../lib/swap/SwapNursery', () => {
   }));
 });
 
+const blocks = {
+  isBlocked: jest.fn().mockReturnValue(false),
+} as unknown as Blocks;
+
 describe('SwapManager', () => {
   let manager: SwapManager;
 
@@ -328,12 +334,18 @@ describe('SwapManager', () => {
     lndClient: new MockedLndClient(),
   } as any as Currency;
 
+  const rbtcCurrency = {
+    symbol: 'RBTC',
+    type: CurrencyType.Ether,
+  } as any as Currency;
+
   beforeEach(() => {
     jest.clearAllMocks();
 
     SwapRepository.addSwap = mockAddSwap;
     SwapRepository.getSwaps = mockGetSwaps;
     SwapRepository.setInvoice = mockSetInvoice;
+    SwapRepository.getSwapsClaimable = jest.fn().mockResolvedValue([]);
 
     ReverseSwapRepository.addReverseSwap = mockAddReverseSwap;
     ReverseSwapRepository.getReverseSwaps = mockGetReverseSwaps;
@@ -362,10 +374,15 @@ describe('SwapManager', () => {
       {} as PaymentRequestUtils,
       new SwapOutputType(OutputType.Compatibility),
       0,
+      blocks,
+      {
+        deferredClaimSymbols: [],
+      } as any,
     );
 
     manager['currencies'].set(btcCurrency.symbol, btcCurrency);
     manager['currencies'].set(ltcCurrency.symbol, ltcCurrency);
+    manager['currencies'].set(rbtcCurrency.symbol, rbtcCurrency);
   });
 
   afterAll(() => {
@@ -400,7 +417,7 @@ describe('SwapManager', () => {
 
     await manager.init([btcCurrency, ltcCurrency], []);
 
-    expect(manager.currencies.size).toEqual(2);
+    expect(manager.currencies.size).toEqual(3);
 
     expect(manager.currencies.get('BTC')).toEqual(btcCurrency);
     expect(manager.currencies.get('LTC')).toEqual(ltcCurrency);
@@ -462,6 +479,7 @@ describe('SwapManager', () => {
       quoteCurrency,
       timeoutBlockDelta,
       refundPublicKey: refundKey,
+      version: SwapVersion.Legacy,
     });
 
     expect(swap).toEqual({
@@ -486,9 +504,11 @@ describe('SwapManager', () => {
     expect(mockAddSwap).toHaveBeenCalledWith({
       orderSide,
       id: swap.id,
+      version: SwapVersion.Legacy,
       status: SwapUpdateEvent.SwapCreated,
       keyIndex: mockGetNewKeysResult.index,
       pair: `${baseCurrency}/${quoteCurrency}`,
+      refundPublicKey: getHexString(refundKey),
       preimageHash: getHexString(preimageHash),
       lockupAddress: '2Mu28zPUNMkM5w9q3UhVhpw8p2p5zwtv9Ce',
       timeoutBlockHeight:
@@ -512,6 +532,7 @@ describe('SwapManager', () => {
       quoteCurrency,
       timeoutBlockDelta,
       refundPublicKey: refundKey,
+      version: SwapVersion.Legacy,
     });
 
     expect(swapChannelCreation).toEqual({
@@ -537,9 +558,11 @@ describe('SwapManager', () => {
     expect(mockAddSwap).toHaveBeenNthCalledWith(2, {
       orderSide,
       id: swapChannelCreation.id,
+      version: SwapVersion.Legacy,
       status: SwapUpdateEvent.SwapCreated,
       keyIndex: mockGetNewKeysResult.index,
       pair: `${baseCurrency}/${quoteCurrency}`,
+      refundPublicKey: getHexString(refundKey),
       preimageHash: getHexString(preimageHash),
       lockupAddress: '2Mu28zPUNMkM5w9q3UhVhpw8p2p5zwtv9Ce',
       timeoutBlockHeight:
@@ -568,6 +591,7 @@ describe('SwapManager', () => {
       quoteCurrency,
       timeoutBlockDelta,
       refundPublicKey: refundKey,
+      version: SwapVersion.Legacy,
     });
 
     expect(mockAddChannelCreation).toHaveBeenCalledTimes(2);
@@ -591,6 +615,7 @@ describe('SwapManager', () => {
         quoteCurrency,
         timeoutBlockDelta,
         refundPublicKey: refundKey,
+        version: SwapVersion.Legacy,
         baseCurrency: notFoundSymbol,
       }),
     ).rejects.toEqual(Errors.NO_LIGHTNING_SUPPORT(notFoundSymbol));
@@ -931,6 +956,7 @@ describe('SwapManager', () => {
       onchainTimeoutBlockDelta,
       lightningTimeoutBlockDelta,
       claimPublicKey: claimKey,
+      version: SwapVersion.Legacy,
     });
 
     expect(reverseSwap).toEqual({
@@ -957,7 +983,7 @@ describe('SwapManager', () => {
       lightningTimeoutBlockDelta,
       mockGetExpiryResult,
       'Send to BTC address',
-      undefined,
+      [],
     );
 
     expect(mockSubscribeSingleInvoice).toHaveBeenCalledTimes(1);
@@ -975,10 +1001,12 @@ describe('SwapManager', () => {
       node: NodeType.LND,
       id: reverseSwap.id,
       minerFeeInvoice: undefined,
+      version: SwapVersion.Legacy,
       invoice: mockAddHoldInvoiceResult,
       invoiceAmount: holdInvoiceAmount,
       status: SwapUpdateEvent.SwapCreated,
       keyIndex: mockGetNewKeysResult.index,
+      claimPublicKey: getHexString(claimKey),
       pair: `${baseCurrency}/${quoteCurrency}`,
       preimageHash: getHexString(preimageHash),
       lockupAddress:
@@ -1005,8 +1033,8 @@ describe('SwapManager', () => {
       lightningTimeoutBlockDelta,
       prepayMinerFeeInvoiceAmount,
       prepayMinerFeeOnchainAmount,
-
       claimPublicKey: claimKey,
+      version: SwapVersion.Legacy,
     });
 
     expect(prepayReverseSwap).toEqual({
@@ -1031,7 +1059,7 @@ describe('SwapManager', () => {
       lightningTimeoutBlockDelta,
       mockGetExpiryResult,
       'Send to BTC address',
-      undefined,
+      [],
     );
     expect(mockAddHoldInvoice).toHaveBeenNthCalledWith(
       3,
@@ -1040,7 +1068,7 @@ describe('SwapManager', () => {
       undefined,
       mockGetExpiryResult,
       'Miner fee for sending to BTC address',
-      undefined,
+      [],
     );
 
     expect(mockSubscribeSingleInvoice).toHaveBeenCalledTimes(3);
@@ -1057,10 +1085,12 @@ describe('SwapManager', () => {
       fee: percentageFee,
       node: NodeType.LND,
       id: prepayReverseSwap.id,
+      version: SwapVersion.Legacy,
       invoice: mockAddHoldInvoiceResult,
       invoiceAmount: holdInvoiceAmount,
       status: SwapUpdateEvent.SwapCreated,
       keyIndex: mockGetNewKeysResult.index,
+      claimPublicKey: getHexString(claimKey),
       pair: `${baseCurrency}/${quoteCurrency}`,
       preimageHash: getHexString(preimageHash),
       minerFeeInvoice: mockAddHoldInvoiceResult,
@@ -1097,10 +1127,10 @@ describe('SwapManager', () => {
       holdInvoiceAmount,
       onchainTimeoutBlockDelta,
       lightningTimeoutBlockDelta,
-
+      prepayMinerFeeInvoiceAmount,
       claimPublicKey: claimKey,
       routingNode: nodePublicKey,
-      prepayMinerFeeInvoiceAmount,
+      version: SwapVersion.Legacy,
     });
 
     expect(mockGetRoutingHints).toHaveBeenCalledTimes(1);
@@ -1149,9 +1179,28 @@ describe('SwapManager', () => {
         onchainTimeoutBlockDelta,
         lightningTimeoutBlockDelta,
         claimPublicKey: claimKey,
+        version: SwapVersion.Legacy,
         quoteCurrency: notFoundSymbol,
       }),
     ).rejects.toEqual(Errors.NO_LIGHTNING_SUPPORT(notFoundSymbol));
+  });
+
+  test('should throw when creating reverse swaps to blocked addresses', async () => {
+    const claimAddress = '0x123';
+    blocks.isBlocked = jest.fn().mockReturnValue(true);
+
+    await expect(
+      manager.createReverseSwap({
+        claimAddress,
+        orderSide: OrderSide.SELL,
+        baseCurrency: btcCurrency.symbol,
+        quoteCurrency: rbtcCurrency.symbol,
+      } as any),
+    ).rejects.toEqual(Errors.BLOCKED_ADDRESS());
+    expect(blocks.isBlocked).toHaveBeenCalledTimes(1);
+    expect(blocks.isBlocked).toHaveBeenCalledWith(claimAddress);
+
+    blocks.isBlocked = jest.fn().mockReturnValue(false);
   });
 
   test('should recreate filters', () => {

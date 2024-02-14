@@ -1,10 +1,10 @@
-import Errors from './Errors';
 import Logger from '../Logger';
-import NodeSwitch from './NodeSwitch';
-import RoutingHints from './routing/RoutingHints';
-import { Currency } from '../wallet/WalletManager';
 import { NodeType } from '../db/models/ReverseSwap';
 import { HopHint, LightningClient } from '../lightning/LightningClient';
+import { Currency } from '../wallet/WalletManager';
+import Errors from './Errors';
+import NodeSwitch from './NodeSwitch';
+import RoutingHints from './routing/RoutingHints';
 
 type InvoiceWithRoutingHints = {
   paymentRequest: string;
@@ -35,6 +35,7 @@ class NodeFallback {
     cltvExpiry?: number,
     expiry?: number,
     memo?: string,
+    routingHints?: HopHint[][],
   ): Promise<HolisticInvoice> => {
     let nodeForSwap = this.nodeSwitch.getNodeForReverseSwap(
       id,
@@ -57,6 +58,7 @@ class NodeFallback {
             cltvExpiry,
             expiry,
             memo,
+            routingHints,
           )),
         };
       } catch (e) {
@@ -96,8 +98,9 @@ class NodeFallback {
     cltvExpiry?: number,
     expiry?: number,
     memo?: string,
+    externalHints?: HopHint[][],
   ): Promise<InvoiceWithRoutingHints> => {
-    const routingHints =
+    const nodeHints =
       routingNode !== undefined
         ? await this.routingHints.getRoutingHints(
             currency.symbol,
@@ -105,6 +108,10 @@ class NodeFallback {
             nodeType,
           )
         : undefined;
+
+    const routingHints: HopHint[][] = [nodeHints, externalHints]
+      .filter((hints): hints is HopHint[][] => hints !== undefined)
+      .flat();
 
     return lightningClient.raceCall<InvoiceWithRoutingHints>(
       async (): Promise<InvoiceWithRoutingHints> => ({

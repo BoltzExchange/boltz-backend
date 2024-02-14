@@ -1,17 +1,20 @@
+import toml from '@iarna/toml';
 import fs from 'fs';
 import path from 'path';
-import toml from '@iarna/toml';
 import { Arguments } from 'yargs';
-import Errors from './consts/Errors';
-import { Network } from './consts/Enums';
-import { PairConfig } from './consts/Types';
 import { PrometheusConfig } from './Prometheus';
-import { ClnConfig } from './lightning/ClnClient';
-import { LndConfig } from './lightning/LndClient';
-import { NodeSwitchConfig } from './swap/NodeSwitch';
-import { WebdavConfig } from './backup/providers/Webdav';
-import { GoogleCloudConfig } from './backup/providers/GoogleCloud';
 import { deepMerge, getServiceDataDir, resolveHome } from './Utils';
+import { GoogleCloudConfig } from './backup/providers/GoogleCloud';
+import { WebdavConfig } from './backup/providers/Webdav';
+import { Network } from './consts/Enums';
+import Errors from './consts/Errors';
+import { PairConfig } from './consts/Types';
+import { LndConfig } from './lightning/LndClient';
+import { ClnConfig } from './lightning/cln/Types';
+import { BlocksConfig } from './service/Blocks';
+import { MarkingsConfig } from './service/CountryCodes';
+import { SwapConfig } from './service/cooperative/DeferredClaimer';
+import { NodeSwitchConfig } from './swap/NodeSwitch';
 
 type PostgresConfig = {
   host: string;
@@ -128,6 +131,8 @@ type BackupConfig = {
 };
 
 type NotificationConfig = {
+  mattermostUrl?: string;
+
   token: string;
   channel: string;
   channelAlerts?: string;
@@ -159,6 +164,11 @@ type ConfigType = {
 
   prepayminerfee: boolean;
   swapwitnessaddress: boolean;
+
+  swap: SwapConfig;
+
+  marking: MarkingsConfig;
+  blocks: BlocksConfig;
 
   api: ApiConfig;
   grpc: GrpcConfig;
@@ -215,6 +225,21 @@ class Config {
 
       prepayminerfee: false,
       swapwitnessaddress: false,
+
+      swap: {
+        deferredClaimSymbols: ['L-BTC'],
+        batchClaimInterval: '*/15 * * * *',
+        expiryTolerance: 120,
+      },
+
+      marking: {
+        ipV4Ranges:
+          'https://cdn.jsdelivr.net/npm/@ip-location-db/asn-country/asn-country-ipv4-num.csv',
+        ipV6Ranges:
+          'https://cdn.jsdelivr.net/npm/@ip-location-db/asn-country/asn-country-ipv6-num.csv',
+      },
+
+      blocks: {},
 
       api: {
         host: '127.0.0.1',

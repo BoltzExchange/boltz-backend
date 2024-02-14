@@ -1,7 +1,7 @@
 import { Arguments } from 'yargs';
+import { GetAddressRequest } from '../../proto/boltzrpc_pb';
 import BuilderComponents from '../BuilderComponents';
 import { callback, loadBoltzClient } from '../Command';
-import { GetAddressRequest } from '../../proto/boltzrpc_pb';
 
 export const command = 'getaddress <symbol>';
 

@@ -1,25 +1,19 @@
 import { Op } from 'sequelize';
-import { EventEmitter } from 'events';
 import Logger from '../Logger';
-import { SwapUpdateEvent } from '../consts/Enums';
-import ReverseSwap from '../db/models/ReverseSwap';
 import { decodeInvoice, getUnixTime } from '../Utils';
-import InvoiceExpiryHelper from '../service/InvoiceExpiryHelper';
+import { SwapUpdateEvent } from '../consts/Enums';
+import TypedEventEmitter from '../consts/TypedEventEmitter';
+import ReverseSwap from '../db/models/ReverseSwap';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
-
-interface InvoiceNursery {
-  on(
-    event: 'invoice.expired',
-    listener: (reverseSwap: ReverseSwap) => void,
-  ): this;
-  emit(event: 'invoice.expired', reverseSwap: ReverseSwap): boolean;
-}
+import InvoiceExpiryHelper from '../service/InvoiceExpiryHelper';
 
 /**
  * InvoiceNursery takes care of cancelling pending HTLCs of Reverse Swaps with prepay miner fee
  * in case only one of the two invoices is paid and the other expired and cannot be paid anymore
  */
-class InvoiceNursery extends EventEmitter {
+class InvoiceNursery extends TypedEventEmitter<{
+  'invoice.expired': ReverseSwap;
+}> {
   // Interval for checking for expired invoices in seconds
   private static readonly checkInterval = 60;
 

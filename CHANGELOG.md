@@ -2,6 +2,109 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.4.0] - 2024-01-23
+
+### Bug Fixes
+
+- Forbid reverse swaps with same preimage hash
+- Race condition when setting invoices of swaps (#432)
+- Exclude most expensive route in mpay
+- Deduplicate already paid mpay invoices
+- Mpay tests in CI
+- Route hint delay on retries
+- Order of mpay route stats
+- Gas price BigInt conversion error in FeeProvider
+- Locked funds prometheus metric with PostgreSQL
+- Make Anvil miner faster
+- Stats of first month of year
+- Python plugin certificate creation test
+- Tests broken by Taproot swaps
+- Allow modded versions of CLN
+- CLN node URIs
+- Handling of invoices with msat precision (#454)
+- Wrong status event for eligible swap refund
+- Remove "l" from swap id generator (#457)
+- Reset LND mission control on interval (#461)
+- Include RSK in API v2 pairs
+- Do not overwrite failure reason when expiring swap
+- API v2 swap routes
+
+### Documentation
+
+- Misc updates (#429)
+- Fix P2SH nested P2WSH hashing
+- Swagger specs for API V2 endpoints
+- Redeem script clarification (#463)
+
+### Features
+
+- PostgreSQL as database (#425)
+- Mpay plugin prototype
+- Try direct channels first in mpay
+- Mpay list command
+- Reset path memory in mpay
+- Refactor route fee calculations
+- GRPC for mpay
+- SQLite mpay database
+- Getswaptransaction for Ethereum chains
+- Swap node config (#442)
+- Mpay route cache (#447)
+- Add nodes API v2 (#451)
+- Taproot submarine swaps
+- Cooperative Taproot submarine swap refunds
+- Taproot reverse swaps
+- Uncooperative Taproot swap spend cli
+- BIP-21 in invoice memo of reverse swaps (#458)
+- PostgreSQL database backups (#462)
+- API v2 pairs
+- Chain endpoints in API v2
+- API v2 get submarine swap transaction
+- API v2 swap status
+- Mpay to pay invoices
+
+### GITBOOK-74
+
+- Change request with no subject merged in GitBook
+
+### Miscellaneous Tasks
+
+- Update changelog for v3.3.0
+- Update license for v3.3.0 release (#426)
+- Minor readme update (#428)
+- API landing page favicon (#430)
+- Update Python dependencies
+- Put MIT license on CLN plugins
+- Update to LND v0.17.1-beta
+- Update dependencies
+- Bump LND version to v0.17.2-beta
+- Bump cryptography from 41.0.5 to 41.0.6 in /tools (#438)
+- Update dependencies
+- Bump max supported CLN version
+- Update Docker images (#444)
+- Bump CLN version to v23.11.1
+- Bump CLN version to v23.11.2
+- Prettier import sorting
+- Bump follow-redirects from 1.15.2 to 1.15.4 (#456)
+- Bump GETH Docker image version
+- Generate mpay TypeScript protos
+
+### Refactor
+
+- Cleanup Python project structure
+- Use external SQLAlchemy sessions
+- Include exclude check in get_routes
+- Stats queries for PostgreSQL
+
+### Revert
+
+- RSK in API v2
+
+### Testing
+
+- Add rudimentary tests for mpay
+- Add Taproot related tests
+- MusigSigner integration test
+
 ## [3.3.0] - 2023-10-30
 
 ### Bug Fixes

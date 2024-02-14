@@ -1,15 +1,15 @@
-import { Op } from 'sequelize';
-import { randomBytes } from 'crypto';
 import { Networks } from 'boltz-core';
-import { raceCall } from '../../Utils';
+import { randomBytes } from 'crypto';
+import { Op } from 'sequelize';
 import Logger from '../../../lib/Logger';
-import { Invoice } from '../../../lib/proto/lnd/rpc_pb';
-import LndClient from '../../../lib/lightning/LndClient';
-import { Currency } from '../../../lib/wallet/WalletManager';
-import LightningNursery from '../../../lib/swap/LightningNursery';
-import { CurrencyType, SwapUpdateEvent } from '../../../lib/consts/Enums';
 import { decodeInvoice, getHexBuffer, getHexString } from '../../../lib/Utils';
+import { CurrencyType, SwapUpdateEvent } from '../../../lib/consts/Enums';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
+import LndClient from '../../../lib/lightning/LndClient';
+import { Invoice } from '../../../lib/proto/lnd/rpc_pb';
+import LightningNursery from '../../../lib/swap/LightningNursery';
+import { Currency } from '../../../lib/wallet/WalletManager';
+import { raceCall } from '../../Utils';
 
 type htlcAcceptedCallback = (invoice: string) => Promise<void>;
 

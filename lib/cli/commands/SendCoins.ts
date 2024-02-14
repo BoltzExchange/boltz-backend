@@ -1,7 +1,7 @@
 import { Arguments } from 'yargs';
+import { SendCoinsRequest } from '../../proto/boltzrpc_pb';
 import BuilderComponents from '../BuilderComponents';
 import { callback, loadBoltzClient } from '../Command';
-import { SendCoinsRequest } from '../../proto/boltzrpc_pb';
 
 export const command = 'sendcoins <symbol> <address> <amount> [fee] [send_all]';
 

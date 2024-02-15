@@ -1,5 +1,5 @@
 ---
-description: This page lists all available endpoints of the deprecated Boltz v1 API
+description: This page lists all available endpoints of Boltz API v1
 ---
 
 # 🤖 REST API v1 (deprecated)
@@ -207,12 +207,7 @@ For UTXO chains, `/createswap` requests have to contain one additional parameter
 
 Responses also contain one additional value:
 
-<<<<<<< HEAD:docs/api.md
-
-* `redeemScript`: redeem script from which the `address` is derived. The redeem script should be used, [to verify](dont-trust.-verify.md#utxo-chain-address-verification) that Boltz did provide the correct address. =======
-* `redeemScript`: redeem script from which the `address` is derived. The redeem script should be used, [to verify](dont-trust-verify/#utxo-chain-address-verification) that Boltz did provide the correct address.
-
-> > > > > > > master:docs/api-v1.md
+* `redeemScript`: redeem script from which the `address` is derived. The redeem script should be used, [to verify](dont-trust-verify.md#utxo-chain-address-verification) that Boltz did provide the correct address.
 
 In case the address is for the Liquid Network, it will be blinded by a key that is also in the response:
 
@@ -483,12 +478,7 @@ For UTXO chains, `/createswap` requests have to contain one additional parameter
 
 Responses also contain one additional value:
 
-<<<<<<< HEAD:docs/api.md
-
-* `redeemScript`: Redeem script from which the lockup address is derived. The redeem script should be used, [to verify](dont-trust.-verify.md#utxo-chain-address-verification) that Boltz didn't try to cheat by creating an address without a HTLC. =======
-* `redeemScript`: Redeem script from which the lockup address is derived. The redeem script should be used, [to verify](dont-trust-verify/#utxo-chain-address-verification) that Boltz didn't try to cheat by creating an address without a HTLC.
-
-> > > > > > > master:docs/api-v1.md
+* `redeemScript`: Redeem script from which the lockup address is derived. The redeem script should be used, [to verify](dont-trust-verify.md#utxo-chain-address-verification) that Boltz didn't try to cheat by creating an address without a HTLC.
 
 In case the lockup address is on the Liquid Network, it will be blinded by a key that is returned in the response too:
 

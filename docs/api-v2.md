@@ -62,11 +62,15 @@ After the initial subscription confirmation message and whenever a swap status i
 
 ## Examples
 
-Below are some examples covering the flow of a given swap type from beginning to end, using API v2 and its WebSocket. The provided examples are written in [TypeScript](https://www.typescriptlang.org/) and can be run with [Node.js](https://nodejs.org/).
+Below are some examples covering the flow of a given swap type from beginning to end, using API v2 and its WebSocket.
 
 ## Submarine Swap
 
 Swap from the Bitcoin mainchain to Lightning.
+
+{% tabs %}
+
+{% tab title="Typescript" %}
 
 ```typescript
 import zkpInit from '@vulpemventures/secp256k1-zkp';
@@ -209,9 +213,146 @@ const submarineSwap = async () => {
 })();
 ```
 
+{% endtab %}
+
+{% tab title="Go" %}
+
+```go
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/json"
+	"fmt"
+	"log"
+	"os"
+
+	"github.com/BoltzExchange/boltz-client/boltz"
+	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/lightningnetwork/lnd/zpay32"
+)
+
+const endpoint = "http://127.0.0.1:9001"
+const invoice = "<invoice you want to pay>"
+
+var network = boltz.Regtest
+
+func printJson(v interface{}) {
+	b, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(string(b))
+}
+
+func submarineSwap() error {
+	keys, err := btcec.NewPrivateKey()
+	if err != nil {
+		return err
+	}
+
+	boltzApi := &boltz.Boltz{URL: endpoint}
+
+	swap, err := boltzApi.CreateSwap(boltz.CreateSwapRequest{
+		From:            boltz.CurrencyBtc,
+		To:              boltz.CurrencyBtc,
+		RefundPublicKey: keys.PubKey().SerializeCompressed(),
+		Invoice:         invoice,
+	})
+	if err != nil {
+		return fmt.Errorf("Could not create swap: %s", err)
+	}
+
+	boltzPubKey, err := btcec.ParsePubKey(swap.ClaimPublicKey)
+	if err != nil {
+		return err
+	}
+
+	tree := swap.SwapTree.Deserialize()
+	if err := tree.Init(false, keys, boltzPubKey); err != nil {
+		return err
+	}
+	// verify that boltz isnt trying to give us a wrong address
+	if err := tree.CheckAddress(swap.Address, network, nil); err != nil {
+		return err
+	}
+
+	fmt.Println("Swap created")
+	printJson(swap)
+
+	boltzWs := boltz.NewBoltzWebsocket(endpoint)
+	if err := boltzWs.Connect(); err != nil {
+		return fmt.Errorf("Could not connect to boltz websocket: %s", err)
+	}
+
+	if err := boltzWs.Subscribe([]string{swap.Id}); err != nil {
+		return err
+	}
+
+	for update := range boltzWs.Updates {
+		parsedStatus := boltz.ParseEvent(update.Status)
+
+		switch parsedStatus {
+		case boltz.InvoiceSet:
+			fmt.Println("Waiting for onchain transaction")
+
+		case boltz.TransactionClaimPending:
+			// Create a partial signature to allow Boltz to do a key path spend to claim the onchain coins
+			claimDetails, err := boltzApi.GetSwapClaimDetails(swap.Id)
+			if err != nil {
+				return fmt.Errorf("Could not get claim details from boltz: %s", err)
+			}
+
+			// Verify that the invoice was actually paid
+			decodedInvoice, err := zpay32.Decode(invoice, network.Btc)
+			if err != nil {
+				return fmt.Errorf("could not decode swap invoice: %s", err)
+			}
+			preimageHash := sha256.Sum256(claimDetails.Preimage)
+			if !bytes.Equal(decodedInvoice.PaymentHash[:], preimageHash[:]) {
+				return fmt.Errorf("boltz returned wrong preimage: %x", claimDetails.Preimage)
+			}
+
+			session, err := boltz.NewSigningSession(tree)
+			partial, err := session.Sign(claimDetails.TransactionHash, claimDetails.PubNonce)
+			if err != nil {
+				return fmt.Errorf("could not create partial signature: %s", err)
+			}
+
+			if err := boltzApi.SendSwapClaimSignature(swap.Id, partial); err != nil {
+				return fmt.Errorf("could not send partial signature to boltz: %s", err)
+			}
+		case boltz.TransactionClaimed:
+			fmt.Println("Swap succeeded", swap.Id)
+			if err := boltzWs.Close(); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func main() {
+	if err := submarineSwap(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+}
+```
+
+{% endtab %}
+
+{% endtabs %}
+
+
 ## Reverse Swap
 
 Swap from Lightning to the Bitcoin mainchain.
+
+{% tabs %}
+
+{% tab title="Typescript" %}
 
 ```typescript
 import zkpInit from '@vulpemventures/secp256k1-zkp';
@@ -404,3 +545,155 @@ const reverseSwap = async () => {
   await reverseSwap();
 })();
 ```
+
+{% endtab %}
+
+{% tab title="Go"}
+
+```go
+package main
+
+import (
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/json"
+	"fmt"
+	"log"
+	"os"
+
+	"github.com/BoltzExchange/boltz-client/boltz"
+	"github.com/btcsuite/btcd/btcec/v2"
+)
+
+const endpoint = "http://127.0.0.1:9001"
+const invoiceAmount = 100000
+const destinationAddress = "<Bitcoin address>"
+
+var network = boltz.Regtest
+
+func printJson(v interface{}) {
+	b, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(string(b))
+}
+
+func reverseSwap() error {
+	ourKeys, err := btcec.NewPrivateKey()
+	if err != nil {
+		return err
+	}
+
+	preimage := make([]byte, 32)
+	_, err = rand.Read(preimage)
+	if err != nil {
+		return err
+	}
+	preimageHash := sha256.Sum256(preimage)
+
+	boltzApi := &boltz.Boltz{URL: endpoint}
+
+	swap, err := boltzApi.CreateReverseSwap(boltz.CreateReverseSwapRequest{
+		From:           boltz.CurrencyBtc,
+		To:             boltz.CurrencyBtc,
+		ClaimPublicKey: ourKeys.PubKey().SerializeCompressed(),
+		PreimageHash:   preimageHash[:],
+		InvoiceAmount:  invoiceAmount,
+	})
+	if err != nil {
+		return fmt.Errorf("Could not create swap: %s", err)
+	}
+
+	boltzPubKey, err := btcec.ParsePubKey(swap.RefundPublicKey)
+	if err != nil {
+		return err
+	}
+
+	tree := swap.SwapTree.Deserialize()
+	if err := tree.Init(false, ourKeys, boltzPubKey); err != nil {
+		return err
+	}
+
+	fmt.Println("Swap created")
+	printJson(swap)
+
+	boltzWs := boltz.NewBoltzWebsocket(endpoint)
+	if err := boltzWs.Connect(); err != nil {
+		return fmt.Errorf("Could not connect to boltz websocket: %w", err)
+	}
+
+	if err := boltzWs.Subscribe([]string{swap.Id}); err != nil {
+		return err
+	}
+
+	for update := range boltzWs.Updates {
+		parsedStatus := boltz.ParseEvent(update.Status)
+
+		printJson(update)
+
+		switch parsedStatus {
+		case boltz.SwapCreated:
+			fmt.Println("Waiting for invoice to be paid")
+
+		case boltz.TransactionMempool:
+			lockupTransaction, err := boltz.NewTxFromHex(boltz.CurrencyBtc, update.Transaction.Hex, nil)
+			if err != nil {
+				return err
+			}
+
+			vout, _, err := lockupTransaction.FindVout(network, swap.LockupAddress)
+			if err != nil {
+				return err
+			}
+
+			satPerVbyte := float64(2)
+			claimTransaction, _, err := boltz.ConstructTransaction(
+				network,
+				boltz.CurrencyBtc,
+				[]boltz.OutputDetails{
+					{
+						SwapId:            swap.Id,
+						SwapType:          boltz.ReverseSwap,
+						LockupTransaction: lockupTransaction,
+						Vout:              vout,
+						Preimage:          preimage,
+						PrivateKey:        ourKeys,
+						SwapTree:          tree,
+						Cooperative:       true,
+					},
+				},
+				destinationAddress,
+				satPerVbyte,
+				boltzApi,
+			)
+
+			if err != nil {
+				return fmt.Errorf("could not create claim transaction: %w", err)
+			}
+			response, err := boltzApi.BroadcastTransaction(claimTransaction)
+			if err != nil {
+				return fmt.Errorf("could not broadcast transaction: %w", err)
+			}
+			fmt.Printf("Broadcast claim transaction: %s", response.TransactionId)
+		case boltz.InvoiceSettled:
+			fmt.Println("Swap succeeded", swap.Id)
+			if err := boltzWs.Close(); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func main() {
+	if err := reverseSwap(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+}
+```
+
+{% endtab %}
+
+{% endtabs %}

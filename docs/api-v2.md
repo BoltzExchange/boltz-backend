@@ -1,10 +1,12 @@
 ---
-description: This page introduces Boltz API v2
+description: >-
+  This page introduces Boltz API v2, the latest and recommended API for all
+  integrations.
 ---
 
 # 🤖 REST API v2
 
-## REST endpoints
+## REST Endpoints
 
 The Swagger specifications of the latest Boltz REST API can be found [here](https://api.boltz.exchange/swagger).
 

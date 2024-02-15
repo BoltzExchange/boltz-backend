@@ -94,7 +94,7 @@ class SwapRouter extends RouterBase {
      *               type: number
      *               required: true
      *               description: Maximal amount that can be swapped in satoshis
-     *             maximalZeroConfAmount:
+     *             maximalZeroConf:
      *               type: number
      *               required: true
      *               description: Maximal amount that will be accepted 0-conf in satoshis
@@ -705,7 +705,7 @@ class SwapRouter extends RouterBase {
      *           type: string
      *           description: EVM address with which the Reverse Swap can be claimed
      *         invoiceAmount:
-     *           type: string
+     *           type: number
      *           description: Amount for which the invoice should be; conflicts with "onchainAmount"
      *         onchainAmount:
      *           type: string

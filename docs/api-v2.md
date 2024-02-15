@@ -6,7 +6,7 @@ description: This page introduces Boltz API v2
 
 ## REST endpoints
 
-The Swagger specifications of the Boltz REST API can be found [here](https://api.boltz.exchange/swagger).
+The Swagger specifications of the latest Boltz REST API can be found [here](https://api.boltz.exchange/swagger).
 
 ## WebSocket
 
@@ -15,7 +15,7 @@ Instead of polling for swap status updates, clients can subscribe to updates wit
 * Testnet: `wss://api.testnet.boltz.exchange/v2/ws`
 * Mainnet: `wss://api.boltz.exchange/v2/ws`
 
-To subscribe to swap status updates, send the message below. `args` is a list of swap ids to subscribe to.
+To subscribe to swap status updates, send a message like below. `args` is a list of swap ids to subscribe to.
 
 ```json
 {
@@ -28,7 +28,7 @@ To subscribe to swap status updates, send the message below. `args` is a list of
 }
 ```
 
-The backend will respond with a message like this to confirm that the subscription was created successfully:
+Boltz API will respond with a message like below, to confirm that the subscription was created successfully.
 
 ```json
 {
@@ -41,7 +41,7 @@ The backend will respond with a message like this to confirm that the subscripti
 }
 ```
 
-After that initial subscription confirmation message and whenever a swap status is updated, Boltz will send a message like this:
+After the initial subscription confirmation message and whenever a swap status is updated, Boltz API will send a message containing details about the status update.
 
 ```json
 {
@@ -56,11 +56,11 @@ After that initial subscription confirmation message and whenever a swap status 
 }
 ```
 
-The `args` are a list of objects. Those objects are like the responses of `GET /swap/{id}` but also include the id of the swap.
+`args` is a list of objects. These objects correspond to responses of `GET /swap/{id}`, but additionally contain the id of the swap.
 
 ## Examples
 
-Underneath are some examples for how to swap with API V2 and its WebSocket. Those examples are in TypeScript and can be run with Node.js.
+Below are some examples covering the entire flow of a given swap type end-to-end using API v2 and its WebSocket. The provided examples are written in [TypeScript](https://www.typescriptlang.org/) and can be run with [Node.js](https://nodejs.org/).
 
 ## Submarine Swap
 
@@ -129,7 +129,7 @@ const submarineSwap = async () => {
         break;
       }
 
-      // Create a partial signature to allow Boltz to do a key path spend to claim the onchain coins
+      // Create a partial signature to allow Boltz to do a key path spend to claim the mainchain coins
       case 'transaction.claim.pending': {
         console.log('Creating cooperative claim transaction');
 
@@ -249,7 +249,7 @@ const network = networks.regtest;
 const reverseSwap = async () => {
   initEccLib(ecc);
 
-  // Create a random preimage for the swap; has to have the length 32
+  // Create a random preimage for the swap; has to have a length of 32 bytes
   const preimage = randomBytes(32);
   const keys = ECPairFactory(ecc).makeRandom();
 

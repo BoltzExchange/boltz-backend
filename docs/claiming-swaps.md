@@ -38,7 +38,7 @@ In order for Boltz to claim Submarine Swaps cooperatively, use `GET /swap/submar
 In case the client does not cooperate, Boltz will eventually broadcast a script path claim transaction to sweep the UTXO.
 
 {% hint style="info" %}
-Partial signatures from Boltz use `SIGHASH_DEFAULT`
+Partial signatures from Boltz use `SIGHASH_DEFAULT`.
 {% endhint %}
 
 #### Refund

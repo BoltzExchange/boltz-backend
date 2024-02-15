@@ -1,5 +1,5 @@
 ---
-description: This page lists all available endpoints of the deprecated Boltz API v1
+description: This page lists all available endpoints of the deprecated Boltz API v1.
 ---
 
 # 🤖 REST API v1 (deprecated)

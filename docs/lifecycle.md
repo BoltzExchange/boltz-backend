@@ -52,4 +52,6 @@ In the unlikely event that Boltz is unable to send the agreed amount of chain bi
 
 If the user successfully set up the Lightning payment and Boltz successfully locked up bitcoin on the chain, but the Boltz API Client did not claim the locked chain bitcoin until swap expiry, Boltz will automatically refund its own locked chain Bitcoin. The final status of such a swap will be `transaction.refunded`.
 
-> It is important to design Boltz API clients, especially on mobile, in a way that they can come online and are able to broadcast reverse swap claim transactions before a swap expires.
+{% hint style="info" %}
+It is important to design Boltz API clients, especially on mobile, in a way that they can come online and are able to broadcast reverse swap claim transactions before a swap expires.
+{% endhint %}

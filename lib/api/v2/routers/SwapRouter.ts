@@ -705,7 +705,7 @@ class SwapRouter extends RouterBase {
      *           type: string
      *           description: EVM address with which the Reverse Swap can be claimed
      *         invoiceAmount:
-     *           type: string
+     *           type: number
      *           description: Amount for which the invoice should be; conflicts with "onchainAmount"
      *         onchainAmount:
      *           type: string

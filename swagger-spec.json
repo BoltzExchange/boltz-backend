@@ -107,15 +107,17 @@
         "tags": [
           "Chain"
         ],
-        "parameters": [{
-          "in": "path",
-          "name": "currency",
-          "required": true,
-          "schema": {
-            "type": "string"
-          },
-          "description": "Currency of the chain to get a fee estimation for"
-        }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "currency",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Currency of the chain to get a fee estimation for"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Object containing the fee estimation",
@@ -153,15 +155,17 @@
         "tags": [
           "Chain"
         ],
-        "parameters": [{
-          "in": "path",
-          "name": "currency",
-          "required": true,
-          "schema": {
-            "type": "string"
-          },
-          "description": "Currency of the chain to get the block height for"
-        }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "currency",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Currency of the chain to get the block height for"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Object containing the block height",
@@ -199,7 +203,8 @@
           "Chain"
         ],
         "description": "Fetch a raw transaction by its id",
-        "parameters": [{
+        "parameters": [
+          {
             "in": "path",
             "name": "currency",
             "required": true,
@@ -255,15 +260,17 @@
           "Chain"
         ],
         "description": "Broadcast a transaction",
-        "parameters": [{
-          "in": "path",
-          "name": "currency",
-          "required": true,
-          "schema": {
-            "type": "string"
-          },
-          "description": "Currency of the chain to broadcast on"
-        }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "currency",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Currency of the chain to broadcast on"
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -318,15 +325,17 @@
           "Chain"
         ],
         "description": "Get the network information and contract addresses for a supported EVM chains",
-        "parameters": [{
-          "in": "path",
-          "name": "currency",
-          "required": true,
-          "schema": {
-            "type": "string"
-          },
-          "description": "Currency of the chain to query for"
-        }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "currency",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Currency of the chain to query for"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Raw transaction",
@@ -508,7 +517,8 @@
         "tags": [
           "Referral"
         ],
-        "parameters": [{
+        "parameters": [
+          {
             "in": "header",
             "name": "TS",
             "required": true,
@@ -573,7 +583,8 @@
         "tags": [
           "Referral"
         ],
-        "parameters": [{
+        "parameters": [
+          {
             "in": "header",
             "name": "TS",
             "required": true,
@@ -649,7 +660,8 @@
         "tags": [
           "Referral"
         ],
-        "parameters": [{
+        "parameters": [
+          {
             "in": "header",
             "name": "TS",
             "required": true,
@@ -833,15 +845,17 @@
           "Submarine"
         ],
         "description": "Set the invoice for a Submarine Swap",
-        "parameters": [{
-          "in": "path",
-          "name": "id",
-          "required": true,
-          "schema": {
-            "type": "string"
-          },
-          "description": "ID of the Submarine Swap"
-        }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID of the Submarine Swap"
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -909,15 +923,17 @@
           "Submarine"
         ],
         "description": "Get the expected amount of the invoice that should be set after the Swap was created with a preimage hash and an onchain transaction was sent",
-        "parameters": [{
-          "in": "path",
-          "name": "id",
-          "required": true,
-          "schema": {
-            "type": "string"
-          },
-          "description": "ID of the Submarine Swap"
-        }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID of the Submarine Swap"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Expected amount of the invoice",
@@ -955,15 +971,17 @@
           "Submarine"
         ],
         "description": "Get the lockup transaction of a Submarine Swap",
-        "parameters": [{
-          "in": "path",
-          "name": "id",
-          "required": true,
-          "schema": {
-            "type": "string"
-          },
-          "description": "ID of the Submarine Swap"
-        }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID of the Submarine Swap"
+          }
+        ],
         "responses": {
           "200": {
             "description": "The lockup transaction of the Submarine Swap and accompanying information",
@@ -994,15 +1012,17 @@
           "Submarine"
         ],
         "description": "Get an EIP-712 signature for a cooperative EVM refund",
-        "parameters": [{
-          "in": "path",
-          "name": "id",
-          "required": true,
-          "schema": {
-            "type": "string"
-          },
-          "description": "ID of the Swap"
-        }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID of the Swap"
+          }
+        ],
         "responses": {
           "200": {
             "description": "EIP-712 signature",
@@ -1037,15 +1057,17 @@
         "tags": [
           "Submarine"
         ],
-        "parameters": [{
-          "in": "path",
-          "name": "id",
-          "required": true,
-          "schema": {
-            "type": "string"
-          },
-          "description": "ID of the Swap"
-        }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID of the Swap"
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -1086,15 +1108,17 @@
           "Submarine"
         ],
         "description": "Get the needed information to post a partial signature for a cooperative Submarine Swap claim transaction",
-        "parameters": [{
-          "in": "path",
-          "name": "id",
-          "required": true,
-          "schema": {
-            "type": "string"
-          },
-          "description": "ID of the Swap"
-        }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID of the Swap"
+          }
+        ],
         "responses": {
           "200": {
             "description": "The latest status of the Swap",
@@ -1133,15 +1157,17 @@
           "Submarine"
         ],
         "description": "Send Boltz the clients partial signature for a cooperative Submarine Swap claim transaction",
-        "parameters": [{
-          "in": "path",
-          "name": "id",
-          "required": true,
-          "schema": {
-            "type": "string"
-          },
-          "description": "ID of the Swap"
-        }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID of the Swap"
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -1261,15 +1287,17 @@
           "Reverse"
         ],
         "description": "Get the lockup transaction of a Reverse Swap",
-        "parameters": [{
-          "in": "path",
-          "name": "id",
-          "required": true,
-          "schema": {
-            "type": "string"
-          },
-          "description": "ID of the Reverse Swap"
-        }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID of the Reverse Swap"
+          }
+        ],
         "responses": {
           "200": {
             "description": "The lockup transaction of the Reverse Swap and accompanying information",
@@ -1300,15 +1328,17 @@
         "tags": [
           "Reverse"
         ],
-        "parameters": [{
-          "in": "path",
-          "name": "id",
-          "required": true,
-          "schema": {
-            "type": "string"
-          },
-          "description": "ID of the Swap"
-        }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID of the Swap"
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -1349,15 +1379,17 @@
           "Reverse"
         ],
         "description": "Get the BIP-21 of a Reverse Swap for a direct payment",
-        "parameters": [{
-          "in": "path",
-          "name": "invoice",
-          "required": true,
-          "schema": {
-            "type": "string"
-          },
-          "description": "Invoice of the Reverse Swap"
-        }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "invoice",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Invoice of the Reverse Swap"
+          }
+        ],
         "responses": {
           "200": {
             "description": "BIP-21 and signature to prove the authenticity of the BIP-21",
@@ -1398,15 +1430,17 @@
           "Swap"
         ],
         "description": "Get the status of a Swap",
-        "parameters": [{
-          "in": "path",
-          "name": "id",
-          "required": true,
-          "schema": {
-            "type": "string"
-          },
-          "description": "ID of the Swap"
-        }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID of the Swap"
+          }
+        ],
         "responses": {
           "200": {
             "description": "The latest status of the Swap",
@@ -1851,7 +1885,7 @@
             "description": "Amount for which the invoice should be; conflicts with \"onchainAmount\""
           },
           "onchainAmount": {
-            "type": "string",
+            "type": "number",
             "description": "Amount that should be locked in the onchain HTLC; conflicts with \"invoiceAmount\""
           },
           "pairHash": {
@@ -2000,7 +2034,8 @@
       }
     }
   },
-  "tags": [{
+  "tags": [
+    {
       "name": "Chain",
       "description": "Onchain data related endpoints"
     },
@@ -2029,7 +2064,8 @@
       "description": "Generic Swap related endpoints"
     }
   ],
-  "servers": [{
+  "servers": [
+    {
       "url": "https://api.boltz.exchange/v2",
       "description": "Mainnet"
     },

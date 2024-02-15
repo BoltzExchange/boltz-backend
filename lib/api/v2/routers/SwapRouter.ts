@@ -708,7 +708,7 @@ class SwapRouter extends RouterBase {
      *           type: number
      *           description: Amount for which the invoice should be; conflicts with "onchainAmount"
      *         onchainAmount:
-     *           type: string
+     *           type: number
      *           description: Amount that should be locked in the onchain HTLC; conflicts with "invoiceAmount"
      *         pairHash:
      *           type: string

@@ -60,7 +60,7 @@ After the initial subscription confirmation message and whenever a swap status i
 
 ## Examples
 
-Below are some examples covering the entire flow of a given swap type end-to-end using API v2 and its WebSocket. The provided examples are written in [TypeScript](https://www.typescriptlang.org/) and can be run with [Node.js](https://nodejs.org/).
+Below are some examples covering the flow of a given swap type from beginning to end, using API v2 and its WebSocket. The provided examples are written in [TypeScript](https://www.typescriptlang.org/) and can be run with [Node.js](https://nodejs.org/).
 
 ## Submarine Swap
 

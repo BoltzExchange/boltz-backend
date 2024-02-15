@@ -15,7 +15,7 @@ As a general concept, Boltz API clients should not trust any critical informatio
 
 ### Taproot
 
-The [scripting section](claiming-swaps.md) explains how P2TR addresses are created for Taproot swaps.
+The [scripting section](claiming-swaps.md) explains how to verify P2TR addresses in Taproot Swaps.
 
 ### Legacy
 
@@ -49,7 +49,9 @@ OP_0
 
 Examples for generating all of these addresses with `Node.js` can be found in the [`boltz-core`](https://github.com/BoltzExchange/boltz-core/blob/v2.0.1/lib/swap/Scripts.ts) reference library.
 
-> Note: Address verification applies to all swap types involving a UTXO chain. A list of Bitcoin mainchain Opcodes with description can be found on the [Bitcoin Wiki](https://en.bitcoin.it/wiki/Script).
+{% hint style="info" %}
+Address verification applies to all swap types involving a UTXO chain. A list of Bitcoin mainchain Opcodes with description can be found on the [Bitcoin Wiki](https://en.bitcoin.it/wiki/Script).
+{% endhint %}
 
 ## Lightning Invoice Verification
 

@@ -548,7 +548,7 @@ const reverseSwap = async () => {
 
 {% endtab %}
 
-{% tab title="Go"}
+{% tab title="Go" %}
 
 ```go
 package main

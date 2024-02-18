@@ -29,17 +29,17 @@ Key path spends should be preferred over script path spends. One reason is the s
 
 Examples for constructing Taproot Swap transactions can be found in [boltz-core](https://github.com/BoltzExchange/boltz-core/blob/v2.1.0/lib/swap/Claim.ts#L124).
 
+{% hint style="info" %}
+Partial signatures from Boltz use `SIGHASH_DEFAULT`.
+{% endhint %}
+
 ### Submarine Swaps
 
 #### Claim
 
-In order for Boltz to claim Submarine Swaps cooperatively, use `GET /swap/submarine/{id}/claim`  to obtain the necessary information to create a partial signature. Provide your partial signature to Boltz with `POST /swap/submarine/{id}/claim` and Boltz will broadcast the key path spend claim transaction.
+In order for Boltz to claim Submarine Swaps cooperatively, use `GET /swap/submarine/{id}/claim` to obtain the necessary information to create a partial signature. Provide your partial signature to Boltz with `POST /swap/submarine/{id}/claim` and Boltz will broadcast the key path spend claim transaction.
 
 In case the client does not cooperate, Boltz will eventually broadcast a script path claim transaction to sweep the UTXO.
-
-{% hint style="info" %}
-Partial signatures from Boltz use `SIGHASH_DEFAULT`.
-{% endhint %}
 
 #### Refund
 
@@ -72,7 +72,7 @@ In case Boltz is not cooperating, a script path spend can be done via a witness 
 
 ## EVM
 
-On EVM chains, a contract is used for enforcing swaps onchain. The source code of Boltz's contracts can be found [here](https://github.com/BoltzExchange/boltz-core/tree/v2.1.0/contracts). To fetch the current addresses of Boltz's swap contracts, use  `GET /chain/contracts`.
+On EVM chains, a contract is used for enforcing swaps onchain. The source code of Boltz's contracts can be found [here](https://github.com/BoltzExchange/boltz-core/tree/v2.1.0/contracts). To fetch the current addresses of Boltz's swap contracts, use `GET /chain/contracts`.
 
 ### Submarine Swaps
 

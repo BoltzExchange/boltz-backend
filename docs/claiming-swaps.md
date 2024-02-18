@@ -5,52 +5,51 @@ description: >-
   swaps.
 ---
 
-# 🙋 Claim & Refund Transactions
+# 🙋♂ Claim & Refund Transactions
 
-Boltz API clients need to craft and broadcast in order to:
+Boltz API clients need to craft and broadcast
 
-- **claim transactions** to claim chain bitcoin and successfully complete **Reverse Submarine Swaps**
-- **refund transactions** to refund chain bitcoin to get back coins locked for failed **Submarine Swaps**
+* **claim transactions** to claim chain bitcoin and successfully complete **Reverse Submarine Swaps**
+* **refund transactions** to claim refunds for chain bitcoin locked in failed **Submarine Swaps**
 
 ## Taproot
 
-> In case you are not familiar with Taproot yet, or want to refresh your memory, we recommend watching the [Taproot workshop of Bitcoin Optech](https://bitcoinops.org/en/schorr-taproot-workshop/)
+{% hint style="info" %}
+If you are not familiar with Taproot yet, or want to refresh your memory, we recommend watching the [Taproot workshop of Bitcoin Optech](https://bitcoinops.org/en/schorr-taproot-workshop/).
+{% endhint %}
 
-All Taproot swaps are using tweaked public keys aggregated with [Musig2](https://github.com/bitcoin/bips/blob/master/bip-0327.mediawiki).
-When a swap is created, the client provides its public key in the request and Boltz returns one in the response.
-Those two public keys are aggregated and the ***Boltz public key always comes first***.
-That aggregated public key is tweaked by the tagged hash of the Taptree of the scripts of the swap.
-The result is the public key used in the [P2TR address](https://github.com/bitcoin/bips/blob/master/bip-0341.mediawiki) of the swap.
+Boltz Taproot Swaps are using tweaked public keys aggregated with [Musig2](https://github.com/bitcoin/bips/blob/master/bip-0327.mediawiki). When a swap is created, the client provides its public key in the request and Boltz returns its public key in the response. These two public keys are aggregated with **Boltz's public key always coming first**. The aggregated public key is then tweaked with the tagged hash of the Taptree of the scripts of the swap. The result is the public key used in the [P2TR address](https://github.com/bitcoin/bips/blob/master/bip-0341.mediawiki) of the swap.
 
 ```
 OP_1
 <tweaked aggregated public key>
 ```
 
-Key path spends should always be preferred over using a script path spends.
-Not only, to save on miner fees but also, because key path spends are better for privacy.
-Partial signatures from Boltz are always using `SIGHASH_DEFAULT`.
+Key path spends should be preferred over script path spends. One reason is the smaller chain footprint and thus cheaper miner fees and another reason is because key path spends are better for privacy as they don't reveal anything about the atomic swap on the chain.
 
-Examples for constructing Taproot swap transactions can be found in [boltz-core](https://github.com/BoltzExchange/boltz-core/blob/v2.1.0/lib/swap/Claim.ts#L124).
+Examples for constructing Taproot Swap transactions can be found in [boltz-core](https://github.com/BoltzExchange/boltz-core/blob/v2.1.0/lib/swap/Claim.ts#L124).
+
+{% hint style="info" %}
+Partial signatures from Boltz use `SIGHASH_DEFAULT`.
+{% endhint %}
 
 ### Submarine Swaps
 
 #### Claim
 
-To allow Boltz to claim Submarine Swaps cooperative, `GET /swap/submarine/{id}/claim` to obtain the necessary information to create a partial signature.
-Give Boltz your partial signature with `POST /swap/submarine/{id}/claim` and it will broadcast the key path spend claim transaction.
+In order for Boltz to claim Submarine Swaps cooperatively, use `GET /swap/submarine/{id}/claim` to obtain the necessary information to create a partial signature. Provide your partial signature to Boltz with `POST /swap/submarine/{id}/claim` and Boltz will broadcast the key path spend claim transaction.
 
 In case the client does not cooperate, Boltz will eventually broadcast a script path claim transaction to sweep the UTXO.
 
 #### Refund
 
-In case the swap failed (e.g. status `invoice.failedToPay` or `transaction.lockupFailed`) a key path refund can be done.
-Get a partial signature from Boltz with `POST /swap/submarine/{id}/refund`, aggregate the partials and broadcast the transaction.
-This can be done *before* time lock of the swap has expired.
+If a Submarine Swap failed (e.g. status `invoice.failedToPay` or `transaction.lockupFailed`), a key path refund can be done. Get a partial signature from Boltz with `POST /swap/submarine/{id}/refund`, aggregate the partials and broadcast the transaction.
 
-Script path refunds are also possible after the time lock did expire.
-Set the locktime of the transaction to >= the time lock of the swap and make sure to not use the max sequence in the inputs.
-Structure the input witness like this:
+{% hint style="info" %}
+Key path refunds can be done immediately after a swap failed, there is no need to wait until the time lock expires.
+{% endhint %}
+
+Script path refunds are also possible after the time lock expired. Set the locktime of the transaction to >= the time lock of the swap and make sure to not use the max sequence in the inputs. Structure the input witness like this:
 
 ```
 <signature>
@@ -60,9 +59,9 @@ Structure the input witness like this:
 
 ### Reverse Swaps
 
-Using the endpoint `POST /swap/reverse/{id}/claim`, Boltz gives you the values required to create an aggregated signature and broadcast a key path spend.
+Calling `POST /swap/reverse/{id}/claim` returns the values required to create an aggregated signature and broadcast a key path spend.
 
-In case Boltz is not cooperating, a script path spend can be done via witness structured like this:
+In case Boltz is not cooperating, a script path spend can be done via a witness structured like this:
 
 ```
 <signature>
@@ -73,29 +72,19 @@ In case Boltz is not cooperating, a script path spend can be done via witness st
 
 ## EVM
 
-On EVM chains, a deployed contract is used for enforcing swaps onchain.
-The code of our contracts can be found in [boltz-core](https://github.com/BoltzExchange/boltz-core/tree/v2.1.0/contracts).
-To fetch the addresses of the swap contracts Boltz is using `GET /chain/contracts`.
+On EVM chains, a contract is used for enforcing swaps onchain. The source code of Boltz's contracts can be found [here](https://github.com/BoltzExchange/boltz-core/tree/v2.1.0/contracts). To fetch the current addresses of Boltz's swap contracts, use `GET /chain/contracts`.
 
 ### Submarine Swaps
 
-The `lock` function of the swap contract is used to lockup coins for a Submarine Swap.
-All the parameter values are returned in the response when creating the swap.
+The `lock` function of the swap contract is used to lock up coins for a Submarine Swap. All parameter values are returned in the response when creating the swap.
 
-With the `refund` function of the contract, locked coins can be refunded in case the swap failed.
-This function takes almost the same parameters as `lock`, so the data from the response of the swap creation should be stored after locking coins in case they are needed again for a refund.
-In case that information is not available, all parameters required for a refund can be queried from the `Lockup` event logs of the contract.
-Those event logs are indexed by `refundAddress` which is the address with which the client locked the coins.
+With the `refund` function of the contract, locked coins can be refunded in case the swap fails. This function takes similar parameters as `lock`, so the values from the response of the swap creation should be stored. If this information is not available, all parameters required for a refund can also be queried from the `Lockup` event logs of the contract. The event logs are indexed by `refundAddress`,which is the address with which the client locked the coins.
 
-To refund before the time lock of the swap expired, an EIP-712 signature can be requested from Boltz.
-`GET /swap/submarine/{id}/refund` to obtain that signature and use it in the `refundCooperative` function of the contract.
-Similarly to cooperative Taproot refunds, Boltz will only return such a signature in case the swap has failed already.
+To refund before the time lock of the swap expired, an EIP-712 signature can be requested from Boltz. Use `GET /swap/submarine/{id}/refund` to obtain this signature and use it in the `refundCooperative` function of the contract. Similarly to cooperative Taproot refunds, Boltz will only return such a signature if the swap has failed already.
 
 ### Reverse Swaps
 
-To claim coins locked in the contract, use the function `claim`.
-All parameters apart from the `preimage` are returned in the response when creating the swap.
-The client needs to make sure to securely store the preimage after creating the swap to make sure that claiming the coins locked for it is possible.
+To claim coins locked in the contract, use the function `claim`. All parameters apart from the `preimage` are returned in the response when creating the swap. The API client is responsible for securely storing the preimage after the swap.
 
 ## Legacy
 
@@ -128,7 +117,9 @@ Examples for all output types can be found in the [`boltz-core`](https://github.
 
 Similar to claim transactions, Boltz API clients need to be able to craft and broadcast **refund transactions** for failed **Normal Submarine Swaps**. This section provides an overview of what refunds are, how they work and touches on the low-level scripting for your Boltz API client to successfully submit a refund.
 
-> The concept of refunds currently only exists for failed Normal Submarine Swaps. In case of a failed Reverse Submarine Swaps, Lightning funds automatically bounce back to the user, no active refunding is needed.
+{% hint style="info" %}
+The concept of refunds currently only exists for failed Normal Submarine Swaps. In case of a failed Reverse Submarine Swaps, Lightning funds automatically bounce back to the user once the payment expired, no active refunding is needed.
+{% endhint %}
 
 Refunding an output works just like claiming. Since the refund process doesn't need the preimage (or knows it but can't use it since that would require the claim keys) any value apart from the actual preimage can be used but there has to be a value to prevent the signature from being hashed and compared to the preimage hash. To save on transaction fees, we recommend using a 0 value.
 

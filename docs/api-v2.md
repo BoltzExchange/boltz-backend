@@ -1,24 +1,23 @@
 ---
 description: >-
-  This page goes over the Boltz API v2
+  This page introduces Boltz API v2, the latest and recommended API for all
+  integrations.
 ---
 
 # 🤖 REST API v2
 
-## REST endpoints
+## REST Endpoints
 
-The Swagger specifications of the Boltz REST API can be found [here](https://api.boltz.exchange/swagger).
+The Swagger specifications of the latest Boltz REST API can be found [here](https://api.boltz.exchange/swagger).
 
 ## WebSocket
 
-Instead of polling for Swap status updates, clients can subscribe to them with a Websocket.
-The endpoints are available at:
+Instead of polling for swap status updates, clients can subscribe to updates with a WebSocket. The endpoints are available at:
 
-- Testnet: `wss://api.testnet.boltz.exchange/v2/ws`
-- Mainnet: `wss://api.boltz.exchange/v2/ws`
+* Testnet: `wss://api.testnet.boltz.exchange/v2/ws`
+* Mainnet: `wss://api.boltz.exchange/v2/ws`
 
-To subscribe to Swap status updates send a message below.
-`args` is a list of the Swap ids to subscribe to.
+To subscribe to swap status updates, send a message like below. `args` is a list of swap ids to subscribe to.
 
 ```json
 {
@@ -31,7 +30,7 @@ To subscribe to Swap status updates send a message below.
 }
 ```
 
-The backend will respond with a message like this to confirm that the subscription was created successfully:
+Boltz API will respond with a message like below, to confirm that the subscription was created successfully.
 
 ```json
 {
@@ -44,7 +43,7 @@ The backend will respond with a message like this to confirm that the subscripti
 }
 ```
 
-After that initial subscription confirmation message and whenever a Swap status is updated, Boltz will send a message like this:
+After the initial subscription confirmation message and whenever a swap status is updated, Boltz API will send a message containing details about the status update.
 
 ```json
 {
@@ -59,17 +58,18 @@ After that initial subscription confirmation message and whenever a Swap status 
 }
 ```
 
-The `args` are a list of objects. Those objects are like the responses of `GET /swap/{id}` but also include the id of the Swap.
+`args` is a list of objects. These objects correspond to responses of `GET /swap/{id}`, but additionally contain the id of the swap.
 
 ## Examples
 
-Underneath are some examples for how to swap with API V2 and its WebSocket.
-Those examples are in TypeScript and can be run with Node.js.
+Below are some examples covering the flow of a given swap type from beginning to end, using API v2 and its WebSocket.
 
 ## Submarine Swap
 
-Do a Submarine swap from mainchain Bitcoin to lightning.
+Swap from the Bitcoin mainchain to Lightning.
 
+{% tabs %}
+{% tab title="Typescript" %}
 ```typescript
 import zkpInit from '@vulpemventures/secp256k1-zkp';
 import axios from 'axios';
@@ -133,7 +133,7 @@ const submarineSwap = async () => {
         break;
       }
 
-      // Create a partial signature to allow Boltz to do a key path spend to claim the onchain coins
+      // Create a partial signature to allow Boltz to do a key path spend to claim the mainchain coins
       case 'transaction.claim.pending': {
         console.log('Creating cooperative claim transaction');
 
@@ -210,11 +210,162 @@ const submarineSwap = async () => {
   await submarineSwap();
 })();
 ```
+{% endtab %}
+
+{% tab title="Go" %}
+```go
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/json"
+	"fmt"
+	"github.com/btcsuite/btcd/btcec/v2"
+	"os"
+
+	"github.com/BoltzExchange/boltz-client/boltz"
+	"github.com/lightningnetwork/lnd/zpay32"
+)
+
+const endpoint = "<Boltz API endpoint to use>"
+const invoice = "<invoice that should be paid>"
+
+var network = boltz.Regtest
+
+func printJson(v any) {
+	b, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	fmt.Println(string(b))
+}
+
+func submarineSwap() error {
+	keys, err := btcec.NewPrivateKey()
+	if err != nil {
+		return err
+	}
+
+	boltzApi := &boltz.Boltz{URL: endpoint}
+
+	swap, err := boltzApi.CreateSwap(boltz.CreateSwapRequest{
+		From:            boltz.CurrencyBtc,
+		To:              boltz.CurrencyBtc,
+		RefundPublicKey: keys.PubKey().SerializeCompressed(),
+		Invoice:         invoice,
+	})
+	if err != nil {
+		return fmt.Errorf("Could not create swap: %s", err)
+	}
+
+	boltzPubKey, err := btcec.ParsePubKey(swap.ClaimPublicKey)
+	if err != nil {
+		return err
+	}
+
+	tree := swap.SwapTree.Deserialize()
+	if err := tree.Init(false, keys, boltzPubKey); err != nil {
+		return err
+	}
+
+	decodedInvoice, err := zpay32.Decode(invoice, network.Btc)
+	if err != nil {
+		return fmt.Errorf("could not decode swap invoice: %s", err)
+	}
+
+	// Check the scripts of the Taptree to make sure Boltz is not cheating 
+	if err := tree.Check(false, swap.TimeoutBlockHeight, decodedInvoice.PaymentHash[:]); err != nil {
+		return err
+	}
+
+	// Verify that Boltz is giving us the correct address
+	if err := tree.CheckAddress(swap.Address, network, nil); err != nil {
+		return err
+	}
+
+	fmt.Println("Swap created")
+	printJson(swap)
+
+	boltzWs := boltz.NewBoltzWebsocket(endpoint)
+	if err := boltzWs.Connect(); err != nil {
+		return fmt.Errorf("Could not connect to Boltz websocket: %s", err)
+	}
+
+	if err := boltzWs.Subscribe([]string{swap.Id}); err != nil {
+		return err
+	}
+
+	for update := range boltzWs.Updates {
+		parsedStatus := boltz.ParseEvent(update.Status)
+
+		switch parsedStatus {
+		case boltz.InvoiceSet:
+			fmt.Println("Waiting for onchain transaction")
+			break
+
+		case boltz.TransactionMempool:
+			fmt.Println("Boltz found transaction in mempool")
+			break
+
+		case boltz.TransactionConfirmed:
+			fmt.Println("Boltz found transaction in blockchain")
+			break
+
+		case boltz.TransactionClaimPending:
+			// Create a partial signature to allow Boltz to do a key path spend to claim the onchain coins
+			claimDetails, err := boltzApi.GetSwapClaimDetails(swap.Id)
+			if err != nil {
+				return fmt.Errorf("Could not get claim details from Boltz: %s", err)
+			}
+
+			// Verify that the invoice was actually paid
+			preimageHash := sha256.Sum256(claimDetails.Preimage)
+			if !bytes.Equal(decodedInvoice.PaymentHash[:], preimageHash[:]) {
+				return fmt.Errorf("Boltz returned wrong preimage: %x", claimDetails.Preimage)
+			}
+
+			session, err := boltz.NewSigningSession(tree)
+			partial, err := session.Sign(claimDetails.TransactionHash, claimDetails.PubNonce)
+			if err != nil {
+				return fmt.Errorf("could not create partial signature: %s", err)
+			}
+
+			if err := boltzApi.SendSwapClaimSignature(swap.Id, partial); err != nil {
+				return fmt.Errorf("could not send partial signature to Boltz: %s", err)
+			}
+			break
+
+		case boltz.TransactionClaimed:
+			fmt.Println("Swap succeeded", swap.Id)
+			if err := boltzWs.Close(); err != nil {
+				return err
+			}
+			break
+		}
+	}
+
+	return nil
+}
+
+func main() {
+	if err := submarineSwap(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+}
+```
+{% endtab %}
+{% endtabs %}
 
 ## Reverse Swap
 
-Perform a Reverse Swap from lightning to mainchain Bitcoin.
+Swap from Lightning to the Bitcoin mainchain.
 
+{% tabs %}
+{% tab title="Typescript" %}
 ```typescript
 import zkpInit from '@vulpemventures/secp256k1-zkp';
 import axios from 'axios';
@@ -253,7 +404,7 @@ const network = networks.regtest;
 const reverseSwap = async () => {
   initEccLib(ecc);
 
-  // Create a random preimage for the swap; has to have the length 32
+  // Create a random preimage for the swap; has to have a length of 32 bytes
   const preimage = randomBytes(32);
   const keys = ECPairFactory(ecc).makeRandom();
 
@@ -406,3 +557,161 @@ const reverseSwap = async () => {
   await reverseSwap();
 })();
 ```
+{% endtab %}
+
+{% tab title="Go" %}
+```go
+package main
+
+import (
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/json"
+	"fmt"
+	"os"
+
+	"github.com/BoltzExchange/boltz-client/boltz"
+	"github.com/btcsuite/btcd/btcec/v2"
+)
+
+const endpoint = "<Boltz API endpoint to use>"
+const invoiceAmount = 100000
+const destinationAddress = "<address to which the swap should be claimed>"
+
+var network = boltz.Regtest
+
+func printJson(v interface{}) {
+	b, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	fmt.Println(string(b))
+}
+
+func reverseSwap() error {
+	ourKeys, err := btcec.NewPrivateKey()
+	if err != nil {
+		return err
+	}
+
+	preimage := make([]byte, 32)
+	_, err = rand.Read(preimage)
+	if err != nil {
+		return err
+	}
+	preimageHash := sha256.Sum256(preimage)
+
+	boltzApi := &boltz.Boltz{URL: endpoint}
+
+	swap, err := boltzApi.CreateReverseSwap(boltz.CreateReverseSwapRequest{
+		From:           boltz.CurrencyBtc,
+		To:             boltz.CurrencyBtc,
+		ClaimPublicKey: ourKeys.PubKey().SerializeCompressed(),
+		PreimageHash:   preimageHash[:],
+		InvoiceAmount:  invoiceAmount,
+	})
+	if err != nil {
+		return fmt.Errorf("Could not create swap: %s", err)
+	}
+
+	boltzPubKey, err := btcec.ParsePubKey(swap.RefundPublicKey)
+	if err != nil {
+		return err
+	}
+
+	tree := swap.SwapTree.Deserialize()
+	if err := tree.Init(false, ourKeys, boltzPubKey); err != nil {
+		return err
+	}
+
+	if err := tree.Check(true, swap.TimeoutBlockHeight, preimageHash[:]); err != nil {
+		return err
+	}
+
+	fmt.Println("Swap created")
+	printJson(swap)
+
+	boltzWs := boltz.NewBoltzWebsocket(endpoint)
+	if err := boltzWs.Connect(); err != nil {
+		return fmt.Errorf("Could not connect to Boltz websocket: %w", err)
+	}
+
+	if err := boltzWs.Subscribe([]string{swap.Id}); err != nil {
+		return err
+	}
+
+	for update := range boltzWs.Updates {
+		parsedStatus := boltz.ParseEvent(update.Status)
+
+		printJson(update)
+
+		switch parsedStatus {
+		case boltz.SwapCreated:
+			fmt.Println("Waiting for invoice to be paid")
+			break
+
+		case boltz.TransactionMempool:
+			lockupTransaction, err := boltz.NewTxFromHex(boltz.CurrencyBtc, update.Transaction.Hex, nil)
+			if err != nil {
+				return err
+			}
+
+			vout, _, err := lockupTransaction.FindVout(network, swap.LockupAddress)
+			if err != nil {
+				return err
+			}
+
+			satPerVbyte := float64(2)
+			claimTransaction, _, err := boltz.ConstructTransaction(
+				network,
+				boltz.CurrencyBtc,
+				[]boltz.OutputDetails{
+					{
+						SwapId:            swap.Id,
+						SwapType:          boltz.ReverseSwap,
+						LockupTransaction: lockupTransaction,
+						Vout:              vout,
+						Preimage:          preimage,
+						PrivateKey:        ourKeys,
+						SwapTree:          tree,
+						Cooperative:       true,
+					},
+				},
+				destinationAddress,
+				satPerVbyte,
+				boltzApi,
+			)
+			if err != nil {
+				return fmt.Errorf("could not create claim transaction: %w", err)
+			}
+
+			response, err := boltzApi.BroadcastTransaction(claimTransaction)
+			if err != nil {
+				return fmt.Errorf("could not broadcast transaction: %w", err)
+			}
+
+			fmt.Printf("Broadcast claim transaction: %s\n", response.TransactionId)
+			break
+
+		case boltz.InvoiceSettled:
+			fmt.Println("Swap succeeded", swap.Id)
+			if err := boltzWs.Close(); err != nil {
+				return err
+			}
+			break
+		}
+	}
+	return nil
+}
+
+func main() {
+	if err := reverseSwap(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+}
+```
+{% endtab %}
+{% endtabs %}

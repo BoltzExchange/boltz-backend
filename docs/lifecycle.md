@@ -29,8 +29,8 @@ When a Normal Submarine Swap is created, it passes through the following states:
    * `invoice.pending`: if paying the invoice is in progress
    * `invoice.paid`: if paying the invoice was successful or
    * `invoice.failedToPay`: if paying the invoice failed. In this case the user needs to broadcast a refund transaction to reclaim the locked up chain bitcoin.
-6. `transaction.claim.pending`: Taproot swaps are not claimed immediately after the invoice has been paid. Boltz either waits for the client to post a cooperative signature for a key path spend or batches script path spends. This status indicates that Boltz is ready for the creation of a cooperative signature
-7. `transaction.claimed`: indicates that after the invoice was successfully paid, the chain Bitcoin were successfully claimed _by Boltz_. This is the final status of a successful Normal Submarine swap.
+6. `transaction.claim.pending`: This status indicates that Boltz is ready for the creation of a cooperative signature for a keypath spend. Taproot Swaps are not claimed immediately by Boltz after the invoice has been paid, but instead Boltz waits for the API client to post a signature for a key path spend. If the API client does not cooperate in a key path spend, Boltz will eventually claim via the script path.
+7. `transaction.claimed`: indicates that after the invoice was successfully paid, the chain Bitcoin were successfully claimed _by Boltz_. This is the final status of a successful Normal Submarine Swap.
 
 If the user doesn't send chain bitcoin and the swap expires (approximately 24h), Boltz will set the state of the swap to `swap.expired` , which means that it was cancelled and chain bitcoin shouldn't be sent anymore. In case of `invoice.failedToPay` or `swap.expired` but bitcoin were sent, the user needs to submit a refund transaction to reclaim their locked chain bitcoin. For more information about how Boltz API clients can construct & submit refund transactions for users, check the [Claiming Swaps & Refunds](claiming-swaps.md) section. The states `invoice.failedToPay` and `swap.expired` are final since Boltz is _not_ monitoring refund transactions on the chain.
 
@@ -52,4 +52,6 @@ In the unlikely event that Boltz is unable to send the agreed amount of chain bi
 
 If the user successfully set up the Lightning payment and Boltz successfully locked up bitcoin on the chain, but the Boltz API Client did not claim the locked chain bitcoin until swap expiry, Boltz will automatically refund its own locked chain Bitcoin. The final status of such a swap will be `transaction.refunded`.
 
-> It is important to design Boltz API clients, especially on mobile, in a way that they can come online and are able to broadcast reverse swap claim transactions before a swap expires.
+{% hint style="info" %}
+It is important to design Boltz API clients, especially on mobile, in a way that they can come online and are able to broadcast reverse swap claim transactions before a swap expires.
+{% endhint %}

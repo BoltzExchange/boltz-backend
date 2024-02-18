@@ -1,11 +1,12 @@
 ---
-description: >-
-  This page lists all available endpoints of the legacy Boltz v1 API
+description: This page lists all available endpoints of the deprecated Boltz API v1.
 ---
 
-# 🤖 REST API v1
+# 🤖 REST API v1 (deprecated)
 
-> The API v1 is deprecated
+{% hint style="info" %}
+API v1 is maintained for existing integrations, we highly recommend using API v2 for all new integrations.
+{% endhint %}
 
 ## Basics
 
@@ -208,7 +209,7 @@ For UTXO chains, `/createswap` requests have to contain one additional parameter
 
 Responses also contain one additional value:
 
-* `redeemScript`: redeem script from which the `address` is derived. The redeem script should be used, [to verify](dont-trust-verify#utxo-chain-address-verification) that Boltz did provide the correct address.
+* `redeemScript`: redeem script from which the `address` is derived. The redeem script should be used, [to verify](dont-trust-verify.md#utxo-chain-address-verification) that Boltz did provide the correct address.
 
 In case the address is for the Liquid Network, it will be blinded by a key that is also in the response:
 
@@ -250,7 +251,9 @@ Response:
 
 ### Normal Swaps: EVM Chains
 
-> Currently, Boltz only supports RSK Testnet!
+{% hint style="info" %}
+Currently, Boltz only supports RSK Testnet.
+{% endhint %}
 
 Swaps from account-based EVM chains like RSK do not require a new address for every swap. `/createswap` takes the details of the swap (like lightning invoice and pair) and Boltz waits until the user locked e.g. RBTC in the contract. The addresses of those contracts can be queried with [`/getcontracts`](api-v1.md#swap-contracts) and the address of the contract that needs to be used for the swap is also returned in the response of this request.
 
@@ -469,7 +472,9 @@ In case the invoice amount was specified, the amount that will be locked in the 
 
 Boltz Backend finally features the so-called Prepay Miner Fee protocol that requires an invoice for network fees to be paid before the actual hold `invoice` of a Reverse Submarine Swap. If this protocol is enabled, the response object will also contain a `minerFeeInvoice`. Once the `minerFeeInvoice` is paid, Boltz will send the event `minerfee.paid` and when the actual hold `invoice` is paid, the chain bitcoin will be sent.
 
-> Note: This protocol is a countermeasure against a specific attack vector and is currently _not_ enabled on Boltz Mainnet.
+{% hint style="info" %}
+This protocol is a countermeasure against a specific attack vector and is currently _not_ enabled on Boltz Mainnet.
+{% endhint %}
 
 ### Reverse Swaps: UTXO Chains
 
@@ -479,7 +484,7 @@ For UTXO chains, `/createswap` requests have to contain one additional parameter
 
 Responses also contain one additional value:
 
-* `redeemScript`: Redeem script from which the lockup address is derived. The redeem script should be used, [to verify](dont-trust-verify#utxo-chain-address-verification) that Boltz didn't try to cheat by creating an address without a HTLC.
+* `redeemScript`: Redeem script from which the lockup address is derived. The redeem script should be used, [to verify](dont-trust-verify.md#utxo-chain-address-verification) that Boltz didn't try to cheat by creating an address without a HTLC.
 
 In case the lockup address is on the Liquid Network, it will be blinded by a key that is returned in the response too:
 
@@ -547,7 +552,9 @@ Response body:
 
 ### Reverse Swaps: EVM Chains
 
-> Currently, Boltz only supports RSK Testnet!
+{% hint style="info" %}
+Currently, Boltz only supports RSK Testnet.
+{% endhint %}
 
 For EVM chains, `/createswap` requests have to contain one additional parameter:
 
@@ -600,7 +607,9 @@ Response body:
 
 ## Swap Status
 
-_Before handling status events of this method it is recommended to read:_ [_Swap Types & States_](lifecycle.md)
+{% hint style="info" %}
+Before handling status events of this method, we recommended to read: [Swap Types & States](lifecycle.md)
+{% endhint %}
 
 To query the status of a swap one can use this endpoint which returns a `JSON` object containing the status of the swap. Possible states and status events are documented in the section [Swap Types & States](lifecycle.md)_._
 
@@ -781,7 +790,9 @@ Response:
 
 ## Swap Contracts
 
-> Currently, Boltz only supports RSK Testnet!
+{% hint style="info" %}
+Currently, Boltz only supports RSK Testnet.
+{% endhint %}
 
 To query the addresses of contracts used by Boltz for swaps on EVM chains like RSK, the following endpoint can be queried:
 

@@ -8,7 +8,7 @@ import Errors from './Errors';
 
 type ApiArgument = {
   name: string;
-  type: string;
+  type: 'string' | 'number' | 'boolean' | 'object';
   hex?: boolean;
   optional?: boolean;
 };

@@ -521,6 +521,26 @@ describe('DeferredClaimer', () => {
     expect(claimTx.outs).toHaveLength(1);
   });
 
+  test('should throw when cooperatively broadcasting a submarine swap with invalid partial signature', async () => {
+    await bitcoinClient.generate(1);
+    const { swap, preimage, refundKeys } = await createClaimableOutput();
+
+    await expect(claimer.deferClaim(swap, preimage)).resolves.toEqual(true);
+    await claimer.getCooperativeDetails(swap);
+
+    const musig = new Musig(secp, refundKeys, randomBytes(32), [
+      btcWallet.getKeysByIndex(swap.keyIndex!).publicKey,
+      refundKeys.publicKey,
+    ]);
+    await expect(
+      claimer.broadcastCooperative(
+        swap,
+        Buffer.from(musig.getPublicNonce()),
+        randomBytes(32),
+      ),
+    ).rejects.toEqual(Errors.INVALID_PARTIAL_SIGNATURE());
+  });
+
   test('should throw when cooperatively broadcasting a submarine swap that does not exist', async () => {
     await expect(
       claimer.broadcastCooperative(

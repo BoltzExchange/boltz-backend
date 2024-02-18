@@ -157,4 +157,8 @@ export default {
     message: 'no chain for symbol',
     code: concatErrorCode(ErrorCodePrefix.Service, 40),
   }),
+  INVALID_PARTIAL_SIGNATURE: (): Error => ({
+    message: 'invalid partial signature',
+    code: concatErrorCode(ErrorCodePrefix.Service, 41),
+  }),
 };

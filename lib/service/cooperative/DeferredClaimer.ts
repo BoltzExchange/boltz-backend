@@ -240,6 +240,10 @@ class DeferredClaimer extends TypedEventEmitter<{
     musig.initializeSession(
       await hashForWitnessV1(chainCurrency, toClaim.cooperative.transaction, 0),
     );
+    if (!musig.verifyPartial(theirPublicKey, theirPartialSignature)) {
+      throw Errors.INVALID_PARTIAL_SIGNATURE();
+    }
+
     musig.addPartial(theirPublicKey, theirPartialSignature);
     musig.signPartial();
 

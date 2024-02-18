@@ -722,8 +722,11 @@ class SwapRouter extends RouterBase {
      *         addressSignature:
      *           type: string
      *           description: Signature of the claim public key of the SHA256 hash of the address for the direct payment
+     *         claimCovenant:
+     *           type: boolean
+     *           default: false
+     *           description: If the claim covenant should be added to the Taproot tree. Only possible when "address" is set
      */
-
     /**
      * @openapi
      * components:
@@ -1227,6 +1230,7 @@ class SwapRouter extends RouterBase {
       claimAddress,
       invoiceAmount,
       onchainAmount,
+      claimCovenant,
       claimPublicKey,
       addressSignature,
     } = validateRequest(req.body, [
@@ -1240,6 +1244,7 @@ class SwapRouter extends RouterBase {
       { name: 'claimAddress', type: 'string', optional: true },
       { name: 'invoiceAmount', type: 'number', optional: true },
       { name: 'onchainAmount', type: 'number', optional: true },
+      { name: 'claimCovenant', type: 'boolean', optional: true },
       { name: 'claimPublicKey', type: 'string', hex: true, optional: true },
       { name: 'addressSignature', type: 'string', hex: true, optional: true },
     ]);
@@ -1257,6 +1262,7 @@ class SwapRouter extends RouterBase {
       claimAddress,
       invoiceAmount,
       onchainAmount,
+      claimCovenant,
       claimPublicKey,
 
       userAddress: address,

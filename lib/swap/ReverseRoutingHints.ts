@@ -11,6 +11,7 @@ import Errors from './Errors';
 
 type SwapHints = {
   invoiceMemo: string;
+  receivedAmount: number;
   bip21?: string;
   routingHint?: HopHint[][];
 };
@@ -39,12 +40,17 @@ class ReverseRoutingHints {
     },
   ): SwapHints => {
     const invoiceMemo = getSwapMemo(sendingCurrency.symbol, true);
+    const receivedAmount =
+      args.onchainAmount -
+      this.rateProvider.feeProvider.minerFees.get(sendingCurrency.symbol)![
+        args.version
+      ].reverse.claim;
 
     if (
       args.userAddress === undefined ||
       args.userAddressSignature === undefined
     ) {
-      return { invoiceMemo };
+      return { invoiceMemo, receivedAmount };
     }
 
     try {
@@ -58,10 +64,7 @@ class ReverseRoutingHints {
     const bip21 = this.paymentRequestUtils.encodeBip21(
       sendingCurrency.symbol,
       args.userAddress,
-      args.onchainAmount -
-        this.rateProvider.feeProvider.minerFees.get(sendingCurrency.symbol)![
-          args.version
-        ].reverse.claim,
+      receivedAmount,
     );
 
     const routingHint = this.encodeRoutingHint(
@@ -74,6 +77,7 @@ class ReverseRoutingHints {
       bip21,
       routingHint,
       invoiceMemo,
+      receivedAmount,
     };
   };
 

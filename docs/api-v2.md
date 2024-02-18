@@ -568,24 +568,25 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/BoltzExchange/boltz-client/boltz"
 	"github.com/btcsuite/btcd/btcec/v2"
 )
 
-const endpoint = "http://127.0.0.1:9001"
+const endpoint = "<Boltz API endpoint to use>"
 const invoiceAmount = 100000
-const destinationAddress = "<Bitcoin address>"
+const destinationAddress = "<address to which the swap should be claimed>"
 
 var network = boltz.Regtest
 
 func printJson(v interface{}) {
 	b, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println(err)
+		os.Exit(1)
 	}
+
 	fmt.Println(string(b))
 }
 
@@ -625,12 +626,16 @@ func reverseSwap() error {
 		return err
 	}
 
+	if err := tree.Check(true, swap.TimeoutBlockHeight, preimageHash[:]); err != nil {
+		return err
+	}
+
 	fmt.Println("Swap created")
 	printJson(swap)
 
 	boltzWs := boltz.NewBoltzWebsocket(endpoint)
 	if err := boltzWs.Connect(); err != nil {
-		return fmt.Errorf("Could not connect to boltz websocket: %w", err)
+		return fmt.Errorf("Could not connect to Boltz websocket: %w", err)
 	}
 
 	if err := boltzWs.Subscribe([]string{swap.Id}); err != nil {
@@ -645,6 +650,7 @@ func reverseSwap() error {
 		switch parsedStatus {
 		case boltz.SwapCreated:
 			fmt.Println("Waiting for invoice to be paid")
+			break
 
 		case boltz.TransactionMempool:
 			lockupTransaction, err := boltz.NewTxFromHex(boltz.CurrencyBtc, update.Transaction.Hex, nil)
@@ -677,20 +683,24 @@ func reverseSwap() error {
 				satPerVbyte,
 				boltzApi,
 			)
-
 			if err != nil {
 				return fmt.Errorf("could not create claim transaction: %w", err)
 			}
+
 			response, err := boltzApi.BroadcastTransaction(claimTransaction)
 			if err != nil {
 				return fmt.Errorf("could not broadcast transaction: %w", err)
 			}
-			fmt.Printf("Broadcast claim transaction: %s", response.TransactionId)
+
+			fmt.Printf("Broadcast claim transaction: %s\n", response.TransactionId)
+			break
+
 		case boltz.InvoiceSettled:
 			fmt.Println("Swap succeeded", swap.Id)
 			if err := boltzWs.Close(); err != nil {
 				return err
 			}
+			break
 		}
 	}
 	return nil

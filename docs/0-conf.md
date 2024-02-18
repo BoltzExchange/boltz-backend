@@ -12,7 +12,7 @@ As a precautionary measure, Boltz enforces a few rules when it comes to 0-conf. 
 * In **Normal Submarine Swaps** in which the user sends the chain transaction, _Boltz_ is taking the risk by accepting unconfirmed transactions.
 * In **Reverse Submarine Swaps** where the user receives the chain transaction from Boltz, _the user_ is at risk for accepting the unconfirmed transaction.
 
-_0-conf Swaps are subject to network conditions and generally only available on UTXO chains like Bitcoin or Liquid._
+_0-conf Swaps are subject to network conditions and only available on UTXO chains like Bitcoin or Liquid._
 
 {% hint style="info" %}
 Because of [growing adoption of`mempoolfullrbf`](https://github.com/bitcoin/bitcoin/pull/28132) by a significant set of miners, Boltz is currently **not** accepting 0-conf transactions for Normal Submarine Swaps on the Bitcoin mainchain.

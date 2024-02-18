@@ -25,7 +25,7 @@ OP_1
 <tweaked aggregated public key>
 ```
 
-Key path spends should be preferred over script path spends. One reason is the smaller chain footprint and thus cheaper miner fees and another reason is because key path spends are better for privacy as they don't reveal anything about the atomic swap on the chain.&#x20;
+Key path spends should be preferred over script path spends. One reason is the smaller chain footprint and thus cheaper miner fees and another reason is because key path spends are better for privacy as they don't reveal anything about the atomic swap on the chain.
 
 Examples for constructing Taproot Swap transactions can be found in [boltz-core](https://github.com/BoltzExchange/boltz-core/blob/v2.1.0/lib/swap/Claim.ts#L124).
 

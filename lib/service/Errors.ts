@@ -153,4 +153,8 @@ export default {
     message: 'swap not eligible for a cooperative claim broadcast',
     code: concatErrorCode(ErrorCodePrefix.Service, 39),
   }),
+  NO_CHAIN_FOR_SYMBOL: (): Error => ({
+    message: 'no chain for symbol',
+    code: concatErrorCode(ErrorCodePrefix.Service, 40),
+  }),
 };

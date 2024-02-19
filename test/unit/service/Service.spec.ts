@@ -237,6 +237,8 @@ const tokenTransaction = {
 const mockSendToken = jest.fn().mockResolvedValue(tokenTransaction);
 const mockSweepToken = jest.fn().mockResolvedValue(tokenTransaction);
 
+const mockRescan = jest.fn().mockResolvedValue(undefined);
+
 jest.mock('../../../lib/wallet/WalletManager', () => {
   return jest.fn().mockImplementation(() => ({
     ethereumManagers: [
@@ -245,6 +247,9 @@ jest.mock('../../../lib/wallet/WalletManager', () => {
         provider: mockedProvider(),
         tokenAddresses: new Map<string, string>(),
         hasSymbol: jest.fn().mockReturnValue(true),
+        contractEventHandler: {
+          rescan: mockRescan,
+        },
       },
     ],
     wallets: new Map<string, Wallet>([
@@ -454,9 +459,12 @@ const mockGetRawTransactionVerbose = jest.fn().mockImplementation(async () => {
   };
 });
 
+const mockRescanChain = jest.fn().mockResolvedValue(undefined);
+
 jest.mock('../../../lib/chain/ChainClient', () => {
   return jest.fn().mockImplementation(() => ({
     on: () => {},
+    rescanChain: mockRescanChain,
     estimateFee: mockEstimateFee,
     getNetworkInfo: mockGetNetworkInfo,
     getBlockchainInfo: mockGetBlockchainInfo,
@@ -758,6 +766,29 @@ describe('Service', () => {
         },
       },
     ]);
+  });
+
+  test('should rescan currencies with chain client', async () => {
+    const startHeight = 21;
+
+    await expect(service.rescan('BTC', startHeight)).resolves.toEqual(123);
+    expect(mockRescanChain).toHaveBeenCalledTimes(1);
+    expect(mockRescanChain).toHaveBeenCalledWith(startHeight);
+  });
+
+  test('should rescan currencies with provider', async () => {
+    const startHeight = 21;
+
+    await expect(service.rescan('ETH', startHeight)).resolves.toEqual(100);
+    expect(mockRescan).toHaveBeenCalledTimes(1);
+    expect(mockRescan).toHaveBeenCalledWith(startHeight);
+  });
+
+  test('should throw when rescanning currency that does not exist', async () => {
+    const symbol = 'no';
+    await expect(service.rescan(symbol, 123)).rejects.toEqual(
+      Errors.CURRENCY_NOT_FOUND(symbol),
+    );
   });
 
   test('should get balance', async () => {

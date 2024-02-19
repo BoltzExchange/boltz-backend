@@ -346,6 +346,34 @@ class Service {
     return response;
   };
 
+  public rescan = async (
+    symbol: string,
+    startHeight: number,
+  ): Promise<number> => {
+    const currency = this.getCurrency(symbol);
+
+    let endHeight: number;
+
+    if (currency.chainClient) {
+      endHeight = (await currency.chainClient.getBlockchainInfo()).blocks;
+      await currency.chainClient.rescanChain(startHeight);
+    } else if (currency.provider) {
+      const manager = this.walletManager.ethereumManagers.find((manager) =>
+        manager.hasSymbol(symbol),
+      );
+      if (manager === undefined) {
+        throw Errors.NO_CHAIN_FOR_SYMBOL();
+      }
+
+      endHeight = await manager.provider.getBlockNumber();
+      await manager.contractEventHandler.rescan(startHeight);
+    } else {
+      throw Errors.NO_CHAIN_FOR_SYMBOL();
+    }
+
+    return endHeight;
+  };
+
   /**
    * Gets the balance for either all wallets or just a single one if specified
    */

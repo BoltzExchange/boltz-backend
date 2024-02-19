@@ -203,6 +203,23 @@ class GrpcService {
     });
   };
 
+  public rescan: handleUnaryCall<
+    boltzrpc.RescanRequest,
+    boltzrpc.RescanResponse
+  > = async (call, callback) => {
+    await this.handleCallback(call, callback, async () => {
+      const { symbol, startHeight } = call.request.toObject();
+
+      const endHeight = await this.service.rescan(symbol, startHeight);
+
+      const response = new boltzrpc.RescanResponse();
+      response.setStartHeight(startHeight);
+      response.setEndHeight(endHeight);
+
+      return response;
+    });
+  };
+
   private handleCallback = async <R, T>(
     call: R,
     callback: (error: any, res: T | null) => void,

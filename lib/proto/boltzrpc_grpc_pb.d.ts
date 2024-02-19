@@ -18,6 +18,7 @@ interface IBoltzService extends grpc.ServiceDefinition<grpc.UntypedServiceImplem
     updateTimeoutBlockDelta: IBoltzService_IUpdateTimeoutBlockDelta;
     addReferral: IBoltzService_IAddReferral;
     sweepSwaps: IBoltzService_ISweepSwaps;
+    rescan: IBoltzService_IRescan;
 }
 
 interface IBoltzService_IGetInfo extends grpc.MethodDefinition<boltzrpc_pb.GetInfoRequest, boltzrpc_pb.GetInfoResponse> {
@@ -110,6 +111,15 @@ interface IBoltzService_ISweepSwaps extends grpc.MethodDefinition<boltzrpc_pb.Sw
     responseSerialize: grpc.serialize<boltzrpc_pb.SweepSwapsResponse>;
     responseDeserialize: grpc.deserialize<boltzrpc_pb.SweepSwapsResponse>;
 }
+interface IBoltzService_IRescan extends grpc.MethodDefinition<boltzrpc_pb.RescanRequest, boltzrpc_pb.RescanResponse> {
+    path: "/boltzrpc.Boltz/Rescan";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<boltzrpc_pb.RescanRequest>;
+    requestDeserialize: grpc.deserialize<boltzrpc_pb.RescanRequest>;
+    responseSerialize: grpc.serialize<boltzrpc_pb.RescanResponse>;
+    responseDeserialize: grpc.deserialize<boltzrpc_pb.RescanResponse>;
+}
 
 export const BoltzService: IBoltzService;
 
@@ -124,6 +134,7 @@ export interface IBoltzServer extends grpc.UntypedServiceImplementation {
     updateTimeoutBlockDelta: grpc.handleUnaryCall<boltzrpc_pb.UpdateTimeoutBlockDeltaRequest, boltzrpc_pb.UpdateTimeoutBlockDeltaResponse>;
     addReferral: grpc.handleUnaryCall<boltzrpc_pb.AddReferralRequest, boltzrpc_pb.AddReferralResponse>;
     sweepSwaps: grpc.handleUnaryCall<boltzrpc_pb.SweepSwapsRequest, boltzrpc_pb.SweepSwapsResponse>;
+    rescan: grpc.handleUnaryCall<boltzrpc_pb.RescanRequest, boltzrpc_pb.RescanResponse>;
 }
 
 export interface IBoltzClient {
@@ -157,6 +168,9 @@ export interface IBoltzClient {
     sweepSwaps(request: boltzrpc_pb.SweepSwapsRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SweepSwapsResponse) => void): grpc.ClientUnaryCall;
     sweepSwaps(request: boltzrpc_pb.SweepSwapsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SweepSwapsResponse) => void): grpc.ClientUnaryCall;
     sweepSwaps(request: boltzrpc_pb.SweepSwapsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SweepSwapsResponse) => void): grpc.ClientUnaryCall;
+    rescan(request: boltzrpc_pb.RescanRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.RescanResponse) => void): grpc.ClientUnaryCall;
+    rescan(request: boltzrpc_pb.RescanRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.RescanResponse) => void): grpc.ClientUnaryCall;
+    rescan(request: boltzrpc_pb.RescanRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.RescanResponse) => void): grpc.ClientUnaryCall;
 }
 
 export class BoltzClient extends grpc.Client implements IBoltzClient {
@@ -191,4 +205,7 @@ export class BoltzClient extends grpc.Client implements IBoltzClient {
     public sweepSwaps(request: boltzrpc_pb.SweepSwapsRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SweepSwapsResponse) => void): grpc.ClientUnaryCall;
     public sweepSwaps(request: boltzrpc_pb.SweepSwapsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SweepSwapsResponse) => void): grpc.ClientUnaryCall;
     public sweepSwaps(request: boltzrpc_pb.SweepSwapsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SweepSwapsResponse) => void): grpc.ClientUnaryCall;
+    public rescan(request: boltzrpc_pb.RescanRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.RescanResponse) => void): grpc.ClientUnaryCall;
+    public rescan(request: boltzrpc_pb.RescanRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.RescanResponse) => void): grpc.ClientUnaryCall;
+    public rescan(request: boltzrpc_pb.RescanRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.RescanResponse) => void): grpc.ClientUnaryCall;
 }

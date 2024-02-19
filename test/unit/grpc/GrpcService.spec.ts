@@ -126,8 +126,9 @@ jest.mock('../../../lib/service/Service', () => {
       deriveKeys: mockDeriveKeys,
       getAddress: mockGetAddress,
       sendCoins: mockSendCoins,
-      updateTimeoutBlockDelta: mockUpdateTimeoutBlockDelta,
       addReferral: mockAddReferral,
+      rescan: jest.fn().mockResolvedValue(831106),
+      updateTimeoutBlockDelta: mockUpdateTimeoutBlockDelta,
     };
   });
 });
@@ -440,6 +441,28 @@ describe('GrpcService', () => {
     });
 
     expect(service.swapManager.deferredClaimer.sweep).toHaveBeenCalledTimes(1);
+  });
+
+  test('should rescan', async () => {
+    const symbol = 'BTC';
+    const startHeight = 420;
+
+    await new Promise<void>((resolve) => {
+      grpcService.rescan(
+        createCall({ symbol, startHeight }),
+        createCallback((error, response: boltzrpc.RescanResponse) => {
+          expect(error).toEqual(null);
+          expect(response.toObject()).toEqual({
+            startHeight,
+            endHeight: 831106,
+          });
+          resolve();
+        }),
+      );
+    });
+
+    expect(service.rescan).toHaveBeenCalledTimes(1);
+    expect(service.rescan).toHaveBeenCalledWith(symbol, startHeight);
   });
 
   test('should handle resolved callbacks', async () => {

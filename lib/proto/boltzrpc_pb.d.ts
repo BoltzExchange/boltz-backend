@@ -749,6 +749,52 @@ export namespace SweepSwapsResponse {
 
 }
 
+export class RescanRequest extends jspb.Message { 
+    getSymbol(): string;
+    setSymbol(value: string): RescanRequest;
+    getStartHeight(): number;
+    setStartHeight(value: number): RescanRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): RescanRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: RescanRequest): RescanRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: RescanRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): RescanRequest;
+    static deserializeBinaryFromReader(message: RescanRequest, reader: jspb.BinaryReader): RescanRequest;
+}
+
+export namespace RescanRequest {
+    export type AsObject = {
+        symbol: string,
+        startHeight: number,
+    }
+}
+
+export class RescanResponse extends jspb.Message { 
+    getStartHeight(): number;
+    setStartHeight(value: number): RescanResponse;
+    getEndHeight(): number;
+    setEndHeight(value: number): RescanResponse;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): RescanResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: RescanResponse): RescanResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: RescanResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): RescanResponse;
+    static deserializeBinaryFromReader(message: RescanResponse, reader: jspb.BinaryReader): RescanResponse;
+}
+
+export namespace RescanResponse {
+    export type AsObject = {
+        startHeight: number,
+        endHeight: number,
+    }
+}
+
 export enum OutputType {
     BECH32 = 0,
     COMPATIBILITY = 1,

@@ -27,6 +27,7 @@ class GrpcServer {
       updateTimeoutBlockDelta: grpcService.updateTimeoutBlockDelta,
       addReferral: grpcService.addReferral,
       sweepSwaps: grpcService.sweepSwaps,
+      rescan: grpcService.rescan,
     });
   }
 

@@ -28,6 +28,7 @@ service Boltz {
   rpc AddReferral (AddReferralRequest) returns (AddReferralResponse);
 
   rpc SweepSwaps (SweepSwapsRequest) returns (SweepSwapsResponse);
+  rpc Rescan (RescanRequest) returns (RescanResponse);
 }
 
 enum OutputType {
@@ -182,4 +183,13 @@ message SweepSwapsResponse {
   }
 
   map<string, ClaimedSwaps> claimed_symbols = 1;
+}
+
+message RescanRequest {
+  string symbol = 1;
+  uint64 start_height = 2;
+}
+message RescanResponse {
+  uint64 start_height = 1;
+  uint64 end_height = 2;
 }

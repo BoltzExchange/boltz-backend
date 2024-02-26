@@ -1,0 +1,18 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`SwapManager should create reverse swap with covenant 1`] = `
+{
+  "claimLeaf": {
+    "output": "82012088a9148265576ce381e50302d7b2afb7e571fda90e6dc4882002804e7f86e9ca29f582f1fd2b91e6eee6be10b5e2b086dfa52a14aa8ca63fcbac",
+    "version": 196,
+  },
+  "covenantClaimLeaf": {
+    "output": "82012088a9148265576ce381e50302d7b2afb7e571fda90e6dc48800d10088142606412ac0eebf1b779cf5b0e52578315b6a19d28800ce51882025b251070e29ca19043cf33ccd7324e2ddab03ecc4ae0b5e77c4fc0e5cf6c95a8800cf7508a40100000000000087",
+    "version": 196,
+  },
+  "refundLeaf": {
+    "output": "20c9c71ee3fee0c400ff64e51e955313e77ea499fc609973c71c5a4104a8d903bbad02f600b1",
+    "version": 196,
+  },
+}
+`;

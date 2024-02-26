@@ -86,7 +86,7 @@
     "cors": "^2.8.5",
     "cross-os": "^1.5.0",
     "csv-parse": "^5.5.3",
-    "discord.js": "^14.14.1",
+    "discord.js": "^14.12.1",
     "ecpair": "^2.1.0",
     "ethers": "^6.11.1",
     "express": "^4.18.2",

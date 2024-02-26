@@ -1903,6 +1903,11 @@
           "addressSignature": {
             "type": "string",
             "description": "Signature of the claim public key of the SHA256 hash of the address for the direct payment"
+          },
+          "claimCovenant": {
+            "type": "boolean",
+            "default": false,
+            "description": "If the claim covenant should be added to the Taproot tree. Only possible when \"address\" is set"
           }
         }
       },

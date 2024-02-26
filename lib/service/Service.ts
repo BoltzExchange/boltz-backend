@@ -1367,6 +1367,8 @@ class Service {
     // Address of the user to encode in the invoice memo
     userAddress?: string;
     userAddressSignature?: Buffer;
+
+    claimCovenant?: boolean;
   }): Promise<{
     id: string;
     invoice: string;
@@ -1612,6 +1614,7 @@ class Service {
       claimAddress: args.claimAddress,
       preimageHash: args.preimageHash,
       claimPublicKey: args.claimPublicKey,
+      claimCovenant: args.claimCovenant || false,
       userAddressSignature: args.userAddressSignature,
     });
 

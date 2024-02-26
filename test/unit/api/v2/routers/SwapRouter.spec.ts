@@ -721,6 +721,8 @@ describe('SwapRouter', () => {
     ${'could not parse hex string: preimageHash'}     | ${{ to: 'L-BTC', from: 'BTC', preimageHash: 'notHex' }}
     ${'could not parse hex string: claimPublicKey'}   | ${{ to: 'L-BTC', from: 'BTC', preimageHash: '00', claimPublicKey: 'notHex' }}
     ${'could not parse hex string: addressSignature'} | ${{ to: 'L-BTC', from: 'BTC', preimageHash: '00', claimPublicKey: '0011', addressSignature: 'notHex' }}
+    ${'invalid parameter: claimCovenant'}             | ${{ to: 'L-BTC', from: 'BTC', preimageHash: '00', claimPublicKey: '0011', addressSignature: '0011', claimCovenant: 123 }}
+    ${'invalid parameter: claimCovenant'}             | ${{ to: 'L-BTC', from: 'BTC', preimageHash: '00', claimPublicKey: '0011', addressSignature: '0011', claimCovenant: 'notBool' }}
   `(
     'should not create reverse swaps with invalid parameters ($error)',
     async ({ body, error }) => {
@@ -921,6 +923,36 @@ describe('SwapRouter', () => {
       orderSide: OrderSide.BUY,
       version: SwapVersion.Taproot,
       userAddress: reqBody.address,
+      onchainAmount: reqBody.onchainAmount,
+      preimageHash: getHexBuffer(reqBody.preimageHash),
+      claimPublicKey: getHexBuffer(reqBody.claimPublicKey),
+      userAddressSignature: getHexBuffer(reqBody.addressSignature),
+    });
+  });
+
+  test('should create reverse swaps with claimCovenant', async () => {
+    const reqBody = {
+      to: 'L-BTC',
+      from: 'BTC',
+      address: 'bc1',
+      onchainAmount: 123,
+      claimCovenant: true,
+      claimPublicKey: '21',
+      addressSignature: '0011',
+      preimageHash: getHexString(randomBytes(32)),
+    };
+    const res = mockResponse();
+
+    await swapRouter['createReverse'](mockRequest(reqBody), res);
+
+    expect(service.createReverseSwap).toHaveBeenCalledTimes(1);
+    expect(service.createReverseSwap).toHaveBeenCalledWith({
+      pairId: 'L-BTC/BTC',
+      prepayMinerFee: false,
+      orderSide: OrderSide.BUY,
+      version: SwapVersion.Taproot,
+      userAddress: reqBody.address,
+      claimCovenant: reqBody.claimCovenant,
       onchainAmount: reqBody.onchainAmount,
       preimageHash: getHexBuffer(reqBody.preimageHash),
       claimPublicKey: getHexBuffer(reqBody.claimPublicKey),

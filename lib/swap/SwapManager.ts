@@ -8,7 +8,12 @@ import {
   swapScript,
   swapTree,
 } from 'boltz-core';
+import {
+  Feature,
+  reverseSwapTree as reverseSwapTreeLiquid,
+} from 'boltz-core/dist/lib/liquid';
 import { randomBytes } from 'crypto';
+import { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
 import { Op } from 'sequelize';
 import { createMusig, tweakMusig } from '../Core';
 import Logger from '../Logger';
@@ -597,6 +602,8 @@ class SwapManager {
 
     userAddress?: string;
     userAddressSignature?: Buffer;
+
+    claimCovenant: boolean;
   }): Promise<CreatedReverseSwap> => {
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(
       args.baseCurrency,
@@ -692,6 +699,7 @@ class SwapManager {
     if (isBitcoinLike) {
       const { keys, index } = sendingCurrency.wallet.getNewKeys();
       const { blocks } = await sendingCurrency.chainClient!.getBlockchainInfo();
+
       result.timeoutBlockHeight = blocks + args.onchainTimeoutBlockDelta;
 
       let outputScript: Buffer;
@@ -701,13 +709,50 @@ class SwapManager {
         case SwapVersion.Taproot: {
           result.refundPublicKey = getHexString(keys.publicKey);
 
-          tree = reverseSwapTree(
-            sendingCurrency.type === CurrencyType.Liquid,
-            args.preimageHash,
-            args.claimPublicKey!,
-            keys.publicKey,
-            result.timeoutBlockHeight,
-          );
+          if (args.claimCovenant) {
+            if (sendingCurrency.type !== CurrencyType.Liquid) {
+              throw 'claim covenant only supported on Liquid';
+            }
+
+            if (args.userAddress === undefined) {
+              throw 'userAddress for covenant not specified';
+            }
+
+            try {
+              sendingCurrency.wallet.decodeAddress(args.userAddress);
+            } catch (e) {
+              throw Errors.INVALID_ADDRESS();
+            }
+
+            tree = reverseSwapTreeLiquid(
+              args.preimageHash,
+              args.claimPublicKey!,
+              keys.publicKey,
+              result.timeoutBlockHeight,
+              [
+                {
+                  expectedAmount: hints.receivedAmount,
+                  type: Feature.ClaimCovenant,
+                  assetHash: (
+                    this.walletManager.wallets.get(sendingCurrency.symbol)!
+                      .network as LiquidNetwork
+                  ).assetHash,
+                  outputScript: this.walletManager.wallets
+                    .get(sendingCurrency.symbol)!
+                    .decodeAddress(args.userAddress!),
+                },
+              ],
+            );
+          } else {
+            tree = reverseSwapTree(
+              sendingCurrency.type === CurrencyType.Liquid,
+              args.preimageHash,
+              args.claimPublicKey!,
+              keys.publicKey,
+              result.timeoutBlockHeight,
+            );
+          }
+
           result.swapTree = SwapTreeSerializer.serializeSwapTree(tree);
 
           const musig = createMusig(keys, args.claimPublicKey!);
@@ -750,7 +795,6 @@ class SwapManager {
         minerFeeInvoice,
         node: nodeType,
         keyIndex: index,
-
         version: args.version,
         fee: args.percentageFee,
         invoice: paymentRequest,

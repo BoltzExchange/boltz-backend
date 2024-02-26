@@ -2,8 +2,11 @@ import bolt11 from '@boltz/bolt11';
 import AsyncLock from 'async-lock';
 import { address } from 'bitcoinjs-lib';
 import { Networks, OutputType } from 'boltz-core';
+import { Networks as LiquidNetworks } from 'boltz-core/dist/lib/liquid';
 import { randomBytes } from 'crypto';
+import { address as addressLiquid } from 'liquidjs-lib';
 import { Op } from 'sequelize';
+import { setup } from '../../../lib/Core';
 import { ECPair } from '../../../lib/ECPairHelper';
 import Logger from '../../../lib/Logger';
 import {
@@ -83,7 +86,27 @@ jest.mock('../../../lib/db/repositories/ChannelCreationRepository');
 
 jest.mock('../../../lib/rates/RateProvider', () => {
   return jest.fn().mockImplementation(() => {
-    return {};
+    return {
+      feeProvider: {
+        minerFees: new Map<string, any>([
+          [
+            'BTC',
+            {
+              [SwapVersion.Legacy]: {
+                reverse: {
+                  claim: 2,
+                },
+              },
+              [SwapVersion.Taproot]: {
+                reverse: {
+                  claim: 1,
+                },
+              },
+            },
+          ],
+        ]),
+      },
+    };
   });
 });
 
@@ -124,6 +147,23 @@ const MockedWallet = <jest.Mock<Wallet>>(<any>Wallet);
 const mockWallets = new Map<string, Wallet>([
   ['BTC', new MockedWallet()],
   ['LTC', new MockedWallet()],
+  [
+    'L-BTC',
+    {
+      ...new MockedWallet(),
+      network: LiquidNetworks.liquidRegtest,
+      decodeAddress: jest
+        .fn()
+        .mockImplementation((address: string) =>
+          addressLiquid.toOutputScript(address, LiquidNetworks.liquidRegtest),
+        ),
+      deriveBlindingKeyFromScript: jest.fn().mockReturnValue({
+        privateKey: getHexBuffer(
+          '4e09bc9895ccef1eab4e2e67adcff67be2af26110ffb35f26592688c0e88dc76',
+        ),
+      }),
+    } as any,
+  ],
 ]);
 
 jest.mock('../../../lib/wallet/WalletManager', () => {
@@ -334,10 +374,21 @@ describe('SwapManager', () => {
     lndClient: new MockedLndClient(),
   } as any as Currency;
 
+  const lbtcCurrency = {
+    symbol: 'L-BTC',
+    type: CurrencyType.Liquid,
+    network: LiquidNetworks.liquidRegtest,
+    chainClient: new MockedChainClient(),
+  } as any as Currency;
+
   const rbtcCurrency = {
     symbol: 'RBTC',
     type: CurrencyType.Ether,
   } as any as Currency;
+
+  beforeAll(async () => {
+    await setup();
+  });
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -383,6 +434,25 @@ describe('SwapManager', () => {
     manager['currencies'].set(btcCurrency.symbol, btcCurrency);
     manager['currencies'].set(ltcCurrency.symbol, ltcCurrency);
     manager['currencies'].set(rbtcCurrency.symbol, rbtcCurrency);
+    manager['currencies'].set(lbtcCurrency.symbol, lbtcCurrency);
+
+    manager['nodeFallback'] = {
+      getReverseSwapInvoice: jest.fn().mockResolvedValue({
+        lightningClient: btcCurrency.lndClient,
+      }),
+    } as any;
+    manager['invoiceExpiryHelper'] = {
+      getExpiry: jest.fn().mockReturnValue(3600),
+    } as any;
+
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-expect-error
+    manager['reverseRoutingHints'] = {
+      getHints: jest.fn().mockReturnValue({
+        invoiceMemo: 'mock',
+        receivedAmount: 420,
+      }),
+    } as any;
   });
 
   afterAll(() => {
@@ -417,7 +487,7 @@ describe('SwapManager', () => {
 
     await manager.init([btcCurrency, ltcCurrency], []);
 
-    expect(manager.currencies.size).toEqual(3);
+    expect(manager.currencies.size).toEqual(4);
 
     expect(manager.currencies.get('BTC')).toEqual(btcCurrency);
     expect(manager.currencies.get('LTC')).toEqual(ltcCurrency);
@@ -955,6 +1025,7 @@ describe('SwapManager', () => {
       holdInvoiceAmount,
       onchainTimeoutBlockDelta,
       lightningTimeoutBlockDelta,
+      claimCovenant: false,
       claimPublicKey: claimKey,
       version: SwapVersion.Legacy,
     });
@@ -982,7 +1053,7 @@ describe('SwapManager', () => {
       preimageHash,
       lightningTimeoutBlockDelta,
       mockGetExpiryResult,
-      'Send to BTC address',
+      'mock',
       [],
     );
 
@@ -1033,6 +1104,7 @@ describe('SwapManager', () => {
       lightningTimeoutBlockDelta,
       prepayMinerFeeInvoiceAmount,
       prepayMinerFeeOnchainAmount,
+      claimCovenant: false,
       claimPublicKey: claimKey,
       version: SwapVersion.Legacy,
     });
@@ -1058,7 +1130,7 @@ describe('SwapManager', () => {
       preimageHash,
       lightningTimeoutBlockDelta,
       mockGetExpiryResult,
-      'Send to BTC address',
+      'mock',
       [],
     );
     expect(mockAddHoldInvoice).toHaveBeenNthCalledWith(
@@ -1128,6 +1200,7 @@ describe('SwapManager', () => {
       onchainTimeoutBlockDelta,
       lightningTimeoutBlockDelta,
       prepayMinerFeeInvoiceAmount,
+      claimCovenant: false,
       claimPublicKey: claimKey,
       routingNode: nodePublicKey,
       version: SwapVersion.Legacy,
@@ -1149,7 +1222,7 @@ describe('SwapManager', () => {
       preimageHash,
       lightningTimeoutBlockDelta,
       mockGetExpiryResult,
-      'Send to BTC address',
+      'mock',
       mockGetRoutingHintsResult,
     );
     expect(mockAddHoldInvoice).toHaveBeenNthCalledWith(
@@ -1178,6 +1251,7 @@ describe('SwapManager', () => {
         holdInvoiceAmount,
         onchainTimeoutBlockDelta,
         lightningTimeoutBlockDelta,
+        claimCovenant: false,
         claimPublicKey: claimKey,
         version: SwapVersion.Legacy,
         quoteCurrency: notFoundSymbol,
@@ -1201,6 +1275,98 @@ describe('SwapManager', () => {
     expect(blocks.isBlocked).toHaveBeenCalledWith(claimAddress);
 
     blocks.isBlocked = jest.fn().mockReturnValue(false);
+  });
+
+  test('should create reverse swap with covenant', async () => {
+    const params = {
+      version: SwapVersion.Taproot,
+      orderSide: OrderSide.SELL,
+      baseCurrency: btcCurrency.symbol,
+      quoteCurrency: lbtcCurrency.symbol,
+      percentageFee: 500,
+      onchainAmount: 9_500,
+      holdInvoiceAmount: 10_000,
+      onchainTimeoutBlockDelta: 123,
+      lightningTimeoutBlockDelta: 125,
+
+      claimCovenant: true,
+      preimageHash: getHexBuffer(
+        'e5b18d8d20cbdf72f595dccd22508a6f3acc570e7659ed1ec362b4ee1136eb70',
+      ),
+      claimPublicKey: getHexBuffer(
+        '0302804e7f86e9ca29f582f1fd2b91e6eee6be10b5e2b086dfa52a14aa8ca63fcb',
+      ),
+      userAddress:
+        'el1qq0lcekdcnur4hcgk2ctyt7kj0yr5yjqjlvnsrq5hsxhyk5duc9d2jfsxgy4vpm4lrdmeeadsu5jhsv2mdgvay2re3lt8wwq25',
+    };
+
+    expect(
+      (await manager.createReverseSwap(params)).swapTree,
+    ).toMatchSnapshot();
+  });
+
+  test('should throw when creating reverse swaps with covenant on chain that is not Liquid', async () => {
+    const params = {
+      version: SwapVersion.Taproot,
+      orderSide: OrderSide.SELL,
+      baseCurrency: btcCurrency.symbol,
+      quoteCurrency: btcCurrency.symbol,
+      percentageFee: 500,
+      onchainAmount: 9_500,
+      holdInvoiceAmount: 10_000,
+      onchainTimeoutBlockDelta: 123,
+      lightningTimeoutBlockDelta: 125,
+
+      claimCovenant: true,
+      preimageHash: randomBytes(32),
+    };
+
+    await expect(manager.createReverseSwap(params)).rejects.toEqual(
+      'claim covenant only supported on Liquid',
+    );
+  });
+
+  test('should throw when creating reverse swaps with covenant without address', async () => {
+    const params = {
+      version: SwapVersion.Taproot,
+      orderSide: OrderSide.SELL,
+      baseCurrency: btcCurrency.symbol,
+      quoteCurrency: lbtcCurrency.symbol,
+      percentageFee: 500,
+      onchainAmount: 9_500,
+      holdInvoiceAmount: 10_000,
+      onchainTimeoutBlockDelta: 123,
+      lightningTimeoutBlockDelta: 125,
+
+      claimCovenant: true,
+      preimageHash: randomBytes(32),
+    };
+
+    await expect(manager.createReverseSwap(params)).rejects.toEqual(
+      'userAddress for covenant not specified',
+    );
+  });
+
+  test('should throw when creating reverse swaps with covenant with invalid address', async () => {
+    const params = {
+      version: SwapVersion.Taproot,
+      orderSide: OrderSide.SELL,
+      baseCurrency: btcCurrency.symbol,
+      quoteCurrency: lbtcCurrency.symbol,
+      percentageFee: 500,
+      onchainAmount: 9_500,
+      holdInvoiceAmount: 10_000,
+      onchainTimeoutBlockDelta: 123,
+      lightningTimeoutBlockDelta: 125,
+
+      claimCovenant: true,
+      preimageHash: randomBytes(32),
+      userAddress: 'not a liquid address',
+    };
+
+    await expect(manager.createReverseSwap(params)).rejects.toEqual(
+      Errors.INVALID_ADDRESS(),
+    );
   });
 
   test('should recreate filters', () => {

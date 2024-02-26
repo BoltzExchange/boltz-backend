@@ -62,6 +62,7 @@ describe('ReverseRoutingHints', () => {
         version: SwapVersion.Taproot,
       }),
     ).toEqual({
+      receivedAmount: 99877,
       invoiceMemo: getSwapMemo(sendingCurrency.symbol, true),
     });
   });
@@ -84,6 +85,7 @@ describe('ReverseRoutingHints', () => {
         userAddressSignature: signature,
       }),
     ).toEqual({
+      receivedAmount: 99877,
       invoiceMemo: getSwapMemo(sendingCurrency.symbol, true),
       bip21: paymentRequestUtils.encodeBip21(
         sendingCurrency.symbol,

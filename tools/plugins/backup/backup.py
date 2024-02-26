@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 import json
 from datetime import datetime, timezone
-from enum import Enum
 from typing import Any
 
 from pyln.client import Plugin
+from strenum import StrEnum
 from webdav3.client import Client, unquote
 
 PLUGIN_NAME = "backup"
@@ -12,7 +12,7 @@ PLUGIN_NAME = "backup"
 BACKUP_UPLOAD_DESC = "Upload a backup of the current SCB to the configured WebDAV"
 
 
-class OptionKeys(str, Enum):
+class OptionKeys(StrEnum):
     WebDavHost = f"{PLUGIN_NAME}-webdav-host"
     WebDavUser = f"{PLUGIN_NAME}-webdav-user"
     WebDavPassword = f"{PLUGIN_NAME}-webdav-password"

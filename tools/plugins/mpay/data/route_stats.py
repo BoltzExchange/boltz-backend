@@ -49,7 +49,7 @@ class RouteStats:
 
         sliced = RouteStats(self.route[:destination_index], self.nodes[:destination_index])
         sliced._attempts = (  # noqa: SLF001
-            self._attempts.groupby(["attempt_id"])
+            self._attempts.groupby(["attempt_id"])[["attempt_id", "ok"]]
             .apply(lambda x: x[:destination_index])
             .reset_index(drop=True)
         )
@@ -76,7 +76,7 @@ class RouteStats:
                 }
             )
 
-        groups = self._attempts.groupby(["attempt_id"]).apply(to_group)
+        groups = self._attempts.groupby(["attempt_id"]).apply(to_group, include_groups=False)
 
         self.success_rate = (groups["ok"] == True).mean()  # noqa: E712
         self.success_rate_ema = groups["ok"].ewm(alpha=EMA_ALPHA).mean().iloc[-1]

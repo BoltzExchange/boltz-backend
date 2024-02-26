@@ -141,7 +141,9 @@ class Transformers:
         )
 
     @staticmethod
-    def pay_status_attempt_to_grpc(res: dict[str, Any]) -> PayStatusResponse.PayStatus.Attempt:
+    def pay_status_attempt_to_grpc(
+        res: dict[str, Any],
+    ) -> PayStatusResponse.PayStatus.Attempt:
         def transform_failure_data(
             failure_data: dict[str, Any],
         ) -> PayStatusResponse.PayStatus.Attempt.Failure.Data:
@@ -164,7 +166,7 @@ class Transformers:
             )
 
         attempt = PayStatusResponse.PayStatus.Attempt(
-            strategy=res["strategy"] if "strategy" in res else "",
+            strategy=res.get("strategy", ""),
             start_time=parse_time(res["start_time"]),
             age_in_seconds=res["age_in_seconds"],
             state=PAY_STATUS_STATE_TO_GRPC[res["state"]],

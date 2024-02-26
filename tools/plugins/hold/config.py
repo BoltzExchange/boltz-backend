@@ -1,17 +1,17 @@
-from enum import Enum
 from typing import Any
 
 from pyln.client import Plugin
+from strenum import StrEnum
 
 from plugins.hold.consts import GRPC_HOST_REGTEST, PLUGIN_NAME, Network
 
 
-class OptionKeys(str, Enum):
+class OptionKeys(StrEnum):
     GrpcHost = f"{PLUGIN_NAME}-grpc-host"
     GrpcPort = f"{PLUGIN_NAME}-grpc-port"
 
 
-class OptionDefaults(str, Enum):
+class OptionDefaults(StrEnum):
     GrpcHost = "127.0.0.1"
     GrpcPort = "9292"
 

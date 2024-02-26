@@ -1,7 +1,7 @@
-from enum import Enum
+from strenum import StrEnum
 
 
-class Network(str, Enum):
+class Network(StrEnum):
     Mainnet = "bitcoin"
     Testnet = "testnet"
     Signet = "signet"

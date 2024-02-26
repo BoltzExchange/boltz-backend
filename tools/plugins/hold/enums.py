@@ -1,18 +1,18 @@
-from enum import Enum
+from strenum import StrEnum
 
 
-class HtlcFailureMessage(str, Enum):
+class HtlcFailureMessage(StrEnum):
     MppTimeout = "0017"
     IncorrectPaymentDetails = "400F"
 
 
-class HtlcState(str, Enum):
+class HtlcState(StrEnum):
     Paid = "paid"
     Accepted = "accepted"
     Cancelled = "cancelled"
 
 
-class InvoiceState(str, Enum):
+class InvoiceState(StrEnum):
     Paid = "paid"
     Unpaid = "unpaid"
     Accepted = "accepted"

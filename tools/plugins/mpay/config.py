@@ -1,13 +1,13 @@
-from enum import Enum
 from typing import Any
 
 from pyln.client import Plugin
+from strenum import StrEnum
 
 from plugins.hold.consts import GRPC_HOST_REGTEST, Network
 from plugins.mpay.consts import PLUGIN_NAME
 
 
-class OptionKeys(str, Enum):
+class OptionKeys(StrEnum):
     Db = f"{PLUGIN_NAME}-db"
 
     GrpcHost = f"{PLUGIN_NAME}-grpc-host"
@@ -16,11 +16,11 @@ class OptionKeys(str, Enum):
     DefaultMaxFee = f"{PLUGIN_NAME}-default-max-fee"
 
 
-class OptionDefaults(str, Enum):
+class OptionDefaults(StrEnum):
     GrpcHost = "127.0.0.1"
     GrpcPort = "9293"
 
-    DefaultMaxFee = 0.25
+    DefaultMaxFee = "0.25"
 
 
 def register_options(pl: Plugin) -> None:

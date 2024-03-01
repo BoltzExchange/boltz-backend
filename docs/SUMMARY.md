@@ -4,7 +4,7 @@
 * [🤖 REST API v2](api-v2.md)
 * [🤖 REST API v1 (deprecated)](api-v1.md)
 * [🔁 Swap Types & States](lifecycle.md)
-* [🙋♂ Claim & Refund Transactions](claiming-swaps.md)
+* [🙋‍♂️ Claim & Refund Transactions](claiming-swaps.md)
 * [🚫 Don't trust. Verify!](dont-trust-verify.md)
 * [⏩ 0-conf](0-conf.md)
 * [🚢 Backend Deployment](deployment.md)

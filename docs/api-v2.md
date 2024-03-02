@@ -8,7 +8,7 @@ description: >-
 
 ## REST Endpoints
 
-The Swagger specifications of the latest Boltz REST API can be found [here](https://api.boltz.exchange/swagger).
+The Swagger specifications of the latest Boltz REST API can be found :point\_right: [here](https://api.boltz.exchange/swagger) :point\_left: !
 
 ## WebSocket
 

@@ -85,7 +85,7 @@ import ws from 'ws';
 const endpoint = 'http://127.0.0.1:9001';
 
 // The invoice you want to have paid
-const invoice = '<invoice that should be pair>';
+const invoice = '<invoice that should be paid>';
 
 const submarineSwap = async () => {
   const keys = ECPairFactory(ecc).makeRandom();

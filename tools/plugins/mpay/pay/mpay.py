@@ -10,7 +10,7 @@ from plugins.mpay.pay.channels import ChannelsHelper
 from plugins.mpay.pay.excludes import Excludes, ExcludesPayment
 from plugins.mpay.pay.invoice_check import InvoiceChecker
 from plugins.mpay.pay.payer import Payer
-from plugins.mpay.pay.sendpay import PaymentHelper, PaymentResult
+from plugins.mpay.pay.sendpay import STATUS_COMPLETE, PaymentHelper, PaymentResult
 from plugins.mpay.utils import fee_with_percent, format_error
 
 
@@ -110,12 +110,19 @@ class MPay:
         if len(res) == 0:
             return None
 
+        amount = Millisatoshi(sum(int(pay["amount_msat"]) for pay in res))
+        amount_sent = Millisatoshi(sum(int(pay["amount_sent_msat"]) for pay in res))
+
         return PaymentResult(
+            destination=res[0]["destination"],
             payment_hash=payment_hash,
             payment_preimage=res[0]["preimage"],
-            fee_msat=Millisatoshi(
-                sum(int(pay["amount_sent_msat"]) - int(pay["amount_msat"]) for pay in res)
-            ),
+            parts=len(res),
+            amount_msat=amount,
+            amount_sent_msat=amount_sent,
+            fee_msat=amount_sent - amount,
+            status=STATUS_COMPLETE,
+            created_at=res[0]["created_at"],
             time=0,
         )
 

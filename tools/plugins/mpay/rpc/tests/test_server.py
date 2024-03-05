@@ -19,6 +19,7 @@ from plugins.hold.tests.utils import (
 )
 from plugins.mpay.config import OptionDefaults
 from plugins.mpay.consts import VERSION
+from plugins.mpay.pay.sendpay import STATUS_COMPLETE
 from plugins.mpay.protos.mpay_pb2 import (
     GetInfoRequest,
     GetInfoResponse,
@@ -69,14 +70,29 @@ class TestGrpc:
     @pytest.mark.parametrize("node", [LndNode.One, LndNode.Two])
     def test_pay(self, cl: MpayStub, node: LndNode) -> None:
         invoice = lnd(node, "addinvoice 1")["payment_request"]
-        dec = bolt11.decode(invoice)
+        self.invoice = invoice
 
         res: PayResponse = cl.Pay(PayRequest(bolt11=invoice))
 
+        dec = bolt11.decode(invoice)
+
+        assert res.destination == dec.payee
         assert res.payment_hash == dec.payment_hash
         assert hashlib.sha256(bytes.fromhex(res.payment_preimage)).hexdigest() == dec.payment_hash
+        assert res.amount_msat == 1_000
+        assert res.amount_sent_msat == 1_000
+        assert res.parts == 1
+        assert res.status == STATUS_COMPLETE
         assert res.time < 10
         assert res.fee_msat == 0
+
+    def test_pay_twice(self, cl: MpayStub) -> None:
+        invoice = lnd(LndNode.One, "listinvoices")["invoices"][-1]
+        res: PayResponse = cl.Pay(PayRequest(bolt11=invoice["payment_request"]))
+
+        assert res.time == 0
+        assert res.payment_hash == invoice["r_hash"]
+        assert res.payment_preimage == invoice["r_preimage"]
 
     @pytest.mark.parametrize(("min_success", "min_success_ema"), [(2, 0), (0, 2)])
     def test_get_routes_min_success(

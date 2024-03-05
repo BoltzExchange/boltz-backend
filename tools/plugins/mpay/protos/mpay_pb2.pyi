@@ -124,16 +124,28 @@ class PayRequest(_message.Message):
     def __init__(self, bolt11: _Optional[str] = ..., max_fee_msat: _Optional[int] = ..., exempt_fee_msat: _Optional[int] = ..., timeout: _Optional[int] = ..., max_delay: _Optional[int] = ...) -> None: ...
 
 class PayResponse(_message.Message):
-    __slots__ = ("payment_hash", "payment_preimage", "fee_msat", "time")
+    __slots__ = ("payment_hash", "payment_preimage", "fee_msat", "time", "destination", "amount_msat", "amount_sent_msat", "parts", "status", "created_at")
     PAYMENT_HASH_FIELD_NUMBER: _ClassVar[int]
     PAYMENT_PREIMAGE_FIELD_NUMBER: _ClassVar[int]
     FEE_MSAT_FIELD_NUMBER: _ClassVar[int]
     TIME_FIELD_NUMBER: _ClassVar[int]
+    DESTINATION_FIELD_NUMBER: _ClassVar[int]
+    AMOUNT_MSAT_FIELD_NUMBER: _ClassVar[int]
+    AMOUNT_SENT_MSAT_FIELD_NUMBER: _ClassVar[int]
+    PARTS_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     payment_hash: str
     payment_preimage: str
     fee_msat: int
     time: int
-    def __init__(self, payment_hash: _Optional[str] = ..., payment_preimage: _Optional[str] = ..., fee_msat: _Optional[int] = ..., time: _Optional[int] = ...) -> None: ...
+    destination: str
+    amount_msat: int
+    amount_sent_msat: int
+    parts: int
+    status: str
+    created_at: int
+    def __init__(self, payment_hash: _Optional[str] = ..., payment_preimage: _Optional[str] = ..., fee_msat: _Optional[int] = ..., time: _Optional[int] = ..., destination: _Optional[str] = ..., amount_msat: _Optional[int] = ..., amount_sent_msat: _Optional[int] = ..., parts: _Optional[int] = ..., status: _Optional[str] = ..., created_at: _Optional[int] = ...) -> None: ...
 
 class ResetPathMemoryRequest(_message.Message):
     __slots__ = ()

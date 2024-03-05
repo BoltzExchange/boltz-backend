@@ -8,13 +8,25 @@ from plugins.mpay.pay.route import Route
 
 PERMANENT_ERRORS = ["WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS"]
 
+STATUS_COMPLETE = "complete"
+
 
 @dataclass
 class PaymentResult:
+    destination: str
+
     payment_hash: str
     payment_preimage: str
+
+    amount_msat: Millisatoshi
+    amount_sent_msat: Millisatoshi
+
+    parts: int
+    status: str
     fee_msat: Millisatoshi
+
     time: int
+    created_at: int
 
     def to_dict(self) -> dict[str, Any]:
         return {k: int(v) if isinstance(v, Millisatoshi) else v for k, v in self.__dict__.items()}
@@ -67,11 +79,22 @@ class PaymentHelper:
 
         try:
             wait = self._pl.rpc.waitsendpay(pay["payment_hash"])
+
+            created_at = wait["created_at"]
+            amount_sent = wait["amount_sent_msat"]
+            amount = wait["amount_msat"]
+
             return PaymentResult(
+                destination=route.route[-1]["id"],
                 payment_hash=pay["payment_hash"],
                 payment_preimage=wait["payment_preimage"],
-                fee_msat=wait["amount_sent_msat"] - wait["amount_msat"],
-                time=wait["completed_at"] - wait["created_at"],
+                status=STATUS_COMPLETE,
+                amount_msat=Millisatoshi(amount),
+                amount_sent_msat=Millisatoshi(amount_sent),
+                fee_msat=Millisatoshi(amount_sent - amount),
+                parts=1,
+                created_at=created_at,
+                time=wait["completed_at"] - created_at,
             )
         except RpcError as e:
             raise PaymentError(e.error) from None

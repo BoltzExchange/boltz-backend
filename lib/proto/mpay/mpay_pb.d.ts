@@ -379,6 +379,18 @@ export class PayResponse extends jspb.Message {
     setFeeMsat(value: number): PayResponse;
     getTime(): number;
     setTime(value: number): PayResponse;
+    getDestination(): string;
+    setDestination(value: string): PayResponse;
+    getAmountMsat(): number;
+    setAmountMsat(value: number): PayResponse;
+    getAmountSentMsat(): number;
+    setAmountSentMsat(value: number): PayResponse;
+    getParts(): number;
+    setParts(value: number): PayResponse;
+    getStatus(): string;
+    setStatus(value: string): PayResponse;
+    getCreatedAt(): number;
+    setCreatedAt(value: number): PayResponse;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): PayResponse.AsObject;
@@ -396,6 +408,12 @@ export namespace PayResponse {
         paymentPreimage: string,
         feeMsat: number,
         time: number,
+        destination: string,
+        amountMsat: number,
+        amountSentMsat: number,
+        parts: number,
+        status: string,
+        createdAt: number,
     }
 }
 

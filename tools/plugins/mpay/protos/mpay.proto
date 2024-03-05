@@ -88,6 +88,12 @@ message PayResponse {
   string payment_preimage = 2;
   uint64 fee_msat = 3;
   uint64 time = 4;
+  string destination = 5;
+  uint64 amount_msat = 6;
+  uint64 amount_sent_msat = 7;
+  uint32 parts = 8;
+  string status = 9;
+  uint64 created_at = 10;
 }
 
 message ResetPathMemoryRequest {}

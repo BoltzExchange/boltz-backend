@@ -56,10 +56,16 @@ class MpayService(MpayServicer):
         )
 
         return PayResponse(
+            destination=res.destination,
             payment_hash=res.payment_hash,
             payment_preimage=res.payment_preimage,
+            amount_msat=int(res.amount_msat),
+            amount_sent_msat=int(res.amount_sent_msat),
             fee_msat=int(res.fee_msat),
+            parts=res.parts,
+            status=res.status,
             time=res.time,
+            created_at=res.created_at,
         )
 
     def GetRoutes(  # noqa: N802

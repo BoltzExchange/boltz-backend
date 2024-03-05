@@ -1,16 +1,10 @@
 from plugins.hold.route_hints import RouteHints
-from plugins.hold.tests.utils import LndNode, RpcPlugin, cln_con, get_channel_info, lnd
+from plugins.hold.tests.utils import LndNode, RpcPlugin, cln_con, lnd
 
 
 class TestRouteHints:
     # noinspection PyTypeChecker
     rh = RouteHints(RpcPlugin())
-
-    def test_init(self) -> None:
-        self.rh.init()
-
-        assert self.rh._plugin is not None  # noqa: SLF001
-        assert self.rh._id == cln_con("getinfo")["id"]  # noqa: SLF001
 
     def test_get_private_channels(self) -> None:
         other_pubkey = lnd(LndNode.One, "getinfo")["identity_pubkey"]
@@ -24,12 +18,22 @@ class TestRouteHints:
         route = hint.routes[0]
         assert route.public_key == other_pubkey
 
-        channel_info = get_channel_info(other_pubkey, route.short_channel_id)
+        channel_info = next(
+            chan
+            for chan in cln_con(f"listpeerchannels {other_pubkey}")["channels"]
+            if chan["private"]
+        )
+        updates = channel_info["updates"]["remote"]
 
-        assert route.cltv_expiry_delta == channel_info["delay"]
-        assert route.ppm_fee == channel_info["fee_per_millionth"]
-        assert route.base_fee == channel_info["base_fee_millisatoshi"]
+        assert route.base_fee == updates["fee_base_msat"]
+        assert route.cltv_expiry_delta == updates["cltv_expiry_delta"]
+        assert route.ppm_fee == updates["fee_proportional_millionths"]
         assert route.short_channel_id == channel_info["short_channel_id"]
 
     def test_get_private_channels_none_found(self) -> None:
-        assert self.rh.get_private_channels("not found") == []
+        assert (
+            self.rh.get_private_channels(
+                "0394c0450766d4029e980dd2934fbc4ca665222e3149c2a4a7b8a6251544a12033"
+            )
+            == []
+        )

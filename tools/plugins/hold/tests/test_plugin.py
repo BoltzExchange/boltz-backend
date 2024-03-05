@@ -18,7 +18,6 @@ from plugins.hold.tests.utils import (
     cln_con,
     connect_peers,
     format_json,
-    get_channel_info,
     lnd,
     start_plugin,
     stop_plugin,
@@ -656,11 +655,17 @@ class TestHold:
 
         route = routes["routes"][0]
 
-        channel_info = get_channel_info(lnd_pubkey, route["short_channel_id"])
+        channel_info = next(
+            chan
+            for chan in cln_con(f"listpeerchannels {lnd_pubkey}")["channels"]
+            if chan["short_channel_id"] == route["short_channel_id"]
+        )
 
-        assert route["cltv_expiry_delta"] == channel_info["delay"]
-        assert route["ppm_fee"] == channel_info["fee_per_millionth"]
-        assert route["base_fee"] == channel_info["base_fee_millisatoshi"]
+        updates = channel_info["updates"]["remote"]
+
+        assert route["base_fee"] == updates["fee_base_msat"]
+        assert route["cltv_expiry_delta"] == updates["cltv_expiry_delta"]
+        assert route["ppm_fee"] == updates["fee_proportional_millionths"]
         assert route["short_channel_id"] == channel_info["short_channel_id"]
 
     def test_routinghints_none_found(self, cln: CliCaller) -> None:

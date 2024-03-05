@@ -40,7 +40,6 @@ from plugins.hold.tests.utils import (
     LndPay,
     cln_con,
     connect_peers,
-    get_channel_info,
     lnd,
     start_plugin,
     stop_plugin,
@@ -223,11 +222,17 @@ class TestGrpc:
 
         hop = hops[0]
 
-        channel_info = get_channel_info(lnd_pubkey, hop.short_channel_id)
+        channel_info = next(
+            chan
+            for chan in cln_con(f"listpeerchannels {lnd_pubkey}")["channels"]
+            if chan["short_channel_id"] == hop.short_channel_id
+        )
 
-        assert hop.cltv_expiry_delta == channel_info["delay"]
-        assert hop.ppm_fee == channel_info["fee_per_millionth"]
-        assert hop.base_fee == channel_info["base_fee_millisatoshi"]
+        updates = channel_info["updates"]["remote"]
+
+        assert hop.base_fee == updates["fee_base_msat"]
+        assert hop.cltv_expiry_delta == updates["cltv_expiry_delta"]
+        assert hop.ppm_fee == updates["fee_proportional_millionths"]
         assert hop.short_channel_id == channel_info["short_channel_id"]
 
     def test_routing_hints_none_found(self, cl: HoldStub) -> None:

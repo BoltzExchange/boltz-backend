@@ -1,7 +1,7 @@
 import pytest
 
 from plugins.hold.tests.utils import LndNode, RpcPlugin, cln_con, lnd
-from plugins.mpay.data.network_info import NetworkInfo
+from plugins.mpay.data.network_info import ChannelInfo, NetworkInfo
 
 
 class TestNetworkInfo:
@@ -25,21 +25,30 @@ class TestNetworkInfo:
 
     def test_get_channel_info(self) -> None:
         channel_id = cln_con("listchannels")["channels"][0]["short_channel_id"]
-        assert (
-            self.ni.get_channel_info(channel_id)
-            == cln_con(f"listchannels {channel_id}")["channels"]
+        assert self.ni._get_channel_info(channel_id, 0) == ChannelInfo.from_listchannels(  # noqa: SLF001
+            cln_con(f"listchannels {channel_id}")["channels"][0]
+        )
+
+    @pytest.mark.parametrize("side", [0, 1])
+    def test_get_channel_info_side(self, side: int) -> None:
+        channel_id = cln_con("listchannels")["channels"][0]["short_channel_id"]
+        assert self.ni.get_channel_info_side(channel_id, side) == ChannelInfo.from_listchannels(
+            cln_con(f"listchannels {channel_id}")["channels"][side]
+        )
+
+    @pytest.mark.parametrize("side", [0, 1])
+    def test_get_channel_info_side_peer_channel(self, side: int) -> None:
+        peer_channels = cln_con("listpeerchannels")["channels"]
+        channel = next(chan for chan in peer_channels if chan["private"])
+
+        assert self.ni.get_channel_info_side(
+            channel["short_channel_id"], side
+        ) == ChannelInfo.from_peerchannels(
+            channel["updates"]["local" if side == channel["direction"] else "remote"]
         )
 
     def test_get_channel_info_not_found(self) -> None:
         channel_id = "811759x3111x1"
 
         with pytest.raises(ValueError, match=f"no channel with id {channel_id}"):
-            self.ni.get_channel_info(channel_id)
-
-    @pytest.mark.parametrize("side", [0, 1])
-    def test_get_channel_info_side(self, side: int) -> None:
-        channel_id = cln_con("listchannels")["channels"][0]["short_channel_id"]
-        assert (
-            self.ni.get_channel_info_side(channel_id, side)
-            == cln_con(f"listchannels {channel_id}")["channels"][side]
-        )
+            self.ni.get_channel_info_side(channel_id, 1)

@@ -4,7 +4,7 @@ from typing import Any
 
 from pyln.client import Millisatoshi
 
-from plugins.mpay.data.network_info import NetworkInfo
+from plugins.mpay.data.network_info import ChannelInfo, NetworkInfo
 
 
 @dataclass
@@ -13,10 +13,10 @@ class Fees:
     proportional_millionths: int
 
     @staticmethod
-    def from_channel_info(info: dict[str, Any]) -> "Fees":
+    def from_channel_info(info: ChannelInfo) -> "Fees":
         return Fees(
-            base_msat=info["base_fee_millisatoshi"],
-            proportional_millionths=info["fee_per_millionth"],
+            base_msat=info.base_fee_millisatoshi,
+            proportional_millionths=info.fee_per_millionth,
         )
 
 

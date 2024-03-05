@@ -41,7 +41,6 @@ class Hold:
     def init(self) -> None:
         self.handler.init()
         self._encoder.init()
-        self._route_hints.init()
 
     def invoice(
         self,

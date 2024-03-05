@@ -13,20 +13,6 @@ from plugins.mpay.pay.route import Fees, Route, RoutingHint
 
 
 class TestRoute:
-    @pytest.mark.parametrize(
-        "info",
-        [
-            {"base_fee_millisatoshi": 0, "fee_per_millionth": 1},
-            {"base_fee_millisatoshi": 123, "fee_per_millionth": 0},
-            {"base_fee_millisatoshi": 421, "fee_per_millionth": 60},
-        ],
-    )
-    def test_fees_from_channel_info(self, info: dict[str, Any]) -> None:
-        fees = Fees.from_channel_info(info)
-
-        assert fees.base_msat == info["base_fee_millisatoshi"]
-        assert fees.proportional_millionths == info["fee_per_millionth"]
-
     def test_route_fees_mismatch(self) -> None:
         with pytest.raises(
             ValueError,

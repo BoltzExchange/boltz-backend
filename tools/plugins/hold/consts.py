@@ -9,7 +9,7 @@ class Network(StrEnum):
 
 
 PLUGIN_NAME = "hold"
-VERSION = "0.0.4"
+VERSION = "0.0.5"
 
 TIMEOUT_CANCEL = 60
 TIMEOUT_CANCEL_REGTEST = 5

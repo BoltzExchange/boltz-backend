@@ -161,4 +161,8 @@ export default {
     message: 'invalid partial signature',
     code: concatErrorCode(ErrorCodePrefix.Service, 41),
   }),
+  INVOICE_EXPIRY_TOO_SHORT: (): Error => ({
+    message: 'invoice expiry too short',
+    code: concatErrorCode(ErrorCodePrefix.Service, 42),
+  }),
 };

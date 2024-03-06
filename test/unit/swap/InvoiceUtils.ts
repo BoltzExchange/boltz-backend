@@ -8,6 +8,7 @@ const invoiceSigningKeys = ECPair.makeRandom();
 export const createInvoice = (
   preimageHash?: string,
   timestamp?: number,
+  expiry?: number,
 ): string => {
   const invoiceEncode = bolt11.encode({
     satoshis: 100,
@@ -17,6 +18,10 @@ export const createInvoice = (
       {
         data: preimageHash || getHexString(randomBytes(32)),
         tagName: 'payment_hash',
+      },
+      {
+        data: expiry || 3600,
+        tagName: 'expire_time',
       },
     ],
   });

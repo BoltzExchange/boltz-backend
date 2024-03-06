@@ -227,6 +227,14 @@ describe('Utils', () => {
     },
   );
 
+  test.each`
+    expected               | invoice
+    ${1708990426 + 3600}   | ${'lnbcrt500u1pja6876pp5n4zvktq9my0ecjcv0stgph3u0uxkqck5rww3t49zrtc8adyjdx8qdqqcqzzsxqrrsssp5r38u5kz4f4mgmq3gdq2u4z9t8909vcvapw5j2m4js5xxem42efnq9qyyssqlcn5xlxxpnndaafrrn7eqkpt4en54pq0vumedu085xa6m7u4g7g3rzjn6fxdp5ldhfj9nupa6l895qcxhhkjm2jevsn7hf3spwwqancqekamsj'}
+    ${1708990605 + 604800} | ${'lnbcrt1230p1pja6gydsp5yup8wedvypfdhps3m8ted33ngdex6kye37uwshnw4myr30tprftspp5scha4k5uclumd78me5k8y8m6hn5k27dnzvwlel32eeqnhar0mpzsdq8v9j8xesxqyjw5qcqp2rzjq0kuk5cssreq495qpyf8q8v9dssd05ujxa3e7f5chk7pf0al6npevqqq0sqqqqgqqqqqqqlgqqqqqqgq2q9qxpqysgqekwcwjwpqk38rpuj2pwaqgrfm5p6q85cllwg3ecwd469urrt273zsrhcg02c4lcmrnf3scltgl25dp4urrezr4lghfu0depftd2h96spul6ljs'}
+  `('should decode invoice expiry', ({ invoice, expected }) => {
+    expect(utils.decodeInvoice(invoice).timeExpireDate).toEqual(expected);
+  });
+
   test('should get rate', () => {
     const rate = 2;
     const reverseRate = 1 / rate;

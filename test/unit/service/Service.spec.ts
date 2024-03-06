@@ -47,6 +47,7 @@ import Wallet from '../../../lib/wallet/Wallet';
 import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
 import { Ethereum } from '../../../lib/wallet/ethereum/EvmNetworks';
 import packageJson from '../../../package.json';
+import { createInvoice } from '../swap/InvoiceUtils';
 
 const mockGetPairs = jest.fn().mockResolvedValue([]);
 const mockAddPair = jest.fn().mockReturnValue(Promise.resolve());
@@ -397,7 +398,10 @@ const pairs = new Map<string, any>([
 
 const mockInitRateProvider = jest.fn().mockReturnValue(Promise.resolve());
 
-const mockAcceptZeroConf = jest.fn().mockReturnValue(true);
+let mockAcceptZeroConfResult = true;
+const mockAcceptZeroConf = jest
+  .fn()
+  .mockImplementation(() => mockAcceptZeroConfResult);
 
 jest.mock('../../../lib/rates/RateProvider', () => {
   return jest.fn().mockImplementation(() => ({
@@ -1589,6 +1593,42 @@ describe('Service', () => {
     expect(mockDecodeInvoice).toHaveBeenCalledWith(invoice);
 
     decodedInvoice.features = new Set<InvoiceFeature>();
+  });
+
+  test('should reject setting invoices that expire too soon', async () => {
+    mockGetSwapResult = {
+      id: 'invoiceId',
+      pair: 'BTC/BTC',
+      orderSide: 0,
+      acceptZeroConfig: false,
+      lockupAddress: 'bcrt1qae5nuz2cv7gu2dpps8rwrhsfv6tjkyvpd8hqsu',
+    };
+
+    mockAcceptZeroConfResult = false;
+    const invoice = createInvoice(undefined, undefined, 1200 - 1);
+
+    await expect(
+      service.setInvoice(mockGetSwapResult.id, invoice),
+    ).rejects.toEqual(Errors.INVOICE_EXPIRY_TOO_SHORT());
+
+    mockAcceptZeroConfResult = true;
+  });
+
+  test('should set invoices with sufficient time left until expiry', async () => {
+    mockGetSwapResult = {
+      id: 'invoiceId',
+      pair: 'BTC/BTC',
+      orderSide: 0,
+      acceptZeroConfig: false,
+      lockupAddress: 'bcrt1qae5nuz2cv7gu2dpps8rwrhsfv6tjkyvpd8hqsu',
+    };
+
+    mockAcceptZeroConfResult = false;
+    const invoice = createInvoice(undefined, undefined, 1200 + 10);
+
+    await service.setInvoice(mockGetSwapResult.id, invoice);
+
+    mockAcceptZeroConfResult = true;
   });
 
   // TODO: channel creation logic

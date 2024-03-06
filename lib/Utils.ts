@@ -163,6 +163,7 @@ export const decodeInvoice = (
   invoice: string,
 ): bolt11.PaymentRequestObject & {
   satoshis: number;
+  timeExpireDate: number;
   paymentHash: string | undefined;
   routingInfo: bolt11.RoutingInfo | undefined;
   minFinalCltvExpiry: number | undefined;
@@ -194,6 +195,7 @@ export const decodeInvoice = (
     paymentHash,
     minFinalCltvExpiry,
     satoshis: coalesceInvoiceAmount(decoded),
+    timeExpireDate: decoded.timeExpireDate || (decoded.timestamp || 0) + 3600,
   };
 };
 

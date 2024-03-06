@@ -1155,17 +1155,18 @@ class Service {
       false,
     );
 
-    swap.invoiceAmount = decodeInvoice(invoice).satoshis;
+    const decodedInvoice = decodeInvoice(invoice);
+    swap.invoiceAmount = decodedInvoice.satoshis;
 
-    const decodedInvoice = await this.nodeSwitch
+    const { destination, features } = await this.nodeSwitch
       .getSwapNode(this.getCurrency(lightningCurrency)!, swap)
       .decodeInvoice(invoice);
 
-    if (this.nodeInfo.isOurNode(decodedInvoice.destination)) {
+    if (this.nodeInfo.isOurNode(destination)) {
       throw Errors.DESTINATION_BOLTZ_NODE();
     }
 
-    if (decodedInvoice.features.has(InvoiceFeature.AMP)) {
+    if (features.has(InvoiceFeature.AMP)) {
       throw Errors.AMP_INVOICES_NOT_SUPPORTED();
     }
 
@@ -1206,6 +1207,19 @@ class Service {
       chainCurrency,
       expectedAmount,
     );
+
+    // When we do not accept 0-conf, we make sure there is enough time for a lockup transaction to confirm
+    if (!acceptZeroConf) {
+      const minutesUntilExpiry =
+        (decodedInvoice.timeExpireDate - getUnixTime()) / 60;
+
+      if (
+        (TimeoutDeltaProvider.blockTimes.get(chainCurrency) || 0) * 2 >
+        minutesUntilExpiry
+      ) {
+        throw Errors.INVOICE_EXPIRY_TOO_SHORT();
+      }
+    }
 
     await this.swapManager.setSwapInvoice(
       swap,

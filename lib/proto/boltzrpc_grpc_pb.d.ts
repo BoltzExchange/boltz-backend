@@ -17,6 +17,7 @@ interface IBoltzService extends grpc.ServiceDefinition<grpc.UntypedServiceImplem
     sendCoins: IBoltzService_ISendCoins;
     updateTimeoutBlockDelta: IBoltzService_IUpdateTimeoutBlockDelta;
     addReferral: IBoltzService_IAddReferral;
+    setSwapStatus: IBoltzService_ISetSwapStatus;
     sweepSwaps: IBoltzService_ISweepSwaps;
     rescan: IBoltzService_IRescan;
 }
@@ -102,6 +103,15 @@ interface IBoltzService_IAddReferral extends grpc.MethodDefinition<boltzrpc_pb.A
     responseSerialize: grpc.serialize<boltzrpc_pb.AddReferralResponse>;
     responseDeserialize: grpc.deserialize<boltzrpc_pb.AddReferralResponse>;
 }
+interface IBoltzService_ISetSwapStatus extends grpc.MethodDefinition<boltzrpc_pb.SetSwapStatusRequest, boltzrpc_pb.SetSwapStatusResponse> {
+    path: "/boltzrpc.Boltz/SetSwapStatus";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<boltzrpc_pb.SetSwapStatusRequest>;
+    requestDeserialize: grpc.deserialize<boltzrpc_pb.SetSwapStatusRequest>;
+    responseSerialize: grpc.serialize<boltzrpc_pb.SetSwapStatusResponse>;
+    responseDeserialize: grpc.deserialize<boltzrpc_pb.SetSwapStatusResponse>;
+}
 interface IBoltzService_ISweepSwaps extends grpc.MethodDefinition<boltzrpc_pb.SweepSwapsRequest, boltzrpc_pb.SweepSwapsResponse> {
     path: "/boltzrpc.Boltz/SweepSwaps";
     requestStream: false;
@@ -133,6 +143,7 @@ export interface IBoltzServer extends grpc.UntypedServiceImplementation {
     sendCoins: grpc.handleUnaryCall<boltzrpc_pb.SendCoinsRequest, boltzrpc_pb.SendCoinsResponse>;
     updateTimeoutBlockDelta: grpc.handleUnaryCall<boltzrpc_pb.UpdateTimeoutBlockDeltaRequest, boltzrpc_pb.UpdateTimeoutBlockDeltaResponse>;
     addReferral: grpc.handleUnaryCall<boltzrpc_pb.AddReferralRequest, boltzrpc_pb.AddReferralResponse>;
+    setSwapStatus: grpc.handleUnaryCall<boltzrpc_pb.SetSwapStatusRequest, boltzrpc_pb.SetSwapStatusResponse>;
     sweepSwaps: grpc.handleUnaryCall<boltzrpc_pb.SweepSwapsRequest, boltzrpc_pb.SweepSwapsResponse>;
     rescan: grpc.handleUnaryCall<boltzrpc_pb.RescanRequest, boltzrpc_pb.RescanResponse>;
 }
@@ -165,6 +176,9 @@ export interface IBoltzClient {
     addReferral(request: boltzrpc_pb.AddReferralRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.AddReferralResponse) => void): grpc.ClientUnaryCall;
     addReferral(request: boltzrpc_pb.AddReferralRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.AddReferralResponse) => void): grpc.ClientUnaryCall;
     addReferral(request: boltzrpc_pb.AddReferralRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.AddReferralResponse) => void): grpc.ClientUnaryCall;
+    setSwapStatus(request: boltzrpc_pb.SetSwapStatusRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SetSwapStatusResponse) => void): grpc.ClientUnaryCall;
+    setSwapStatus(request: boltzrpc_pb.SetSwapStatusRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SetSwapStatusResponse) => void): grpc.ClientUnaryCall;
+    setSwapStatus(request: boltzrpc_pb.SetSwapStatusRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SetSwapStatusResponse) => void): grpc.ClientUnaryCall;
     sweepSwaps(request: boltzrpc_pb.SweepSwapsRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SweepSwapsResponse) => void): grpc.ClientUnaryCall;
     sweepSwaps(request: boltzrpc_pb.SweepSwapsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SweepSwapsResponse) => void): grpc.ClientUnaryCall;
     sweepSwaps(request: boltzrpc_pb.SweepSwapsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SweepSwapsResponse) => void): grpc.ClientUnaryCall;
@@ -202,6 +216,9 @@ export class BoltzClient extends grpc.Client implements IBoltzClient {
     public addReferral(request: boltzrpc_pb.AddReferralRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.AddReferralResponse) => void): grpc.ClientUnaryCall;
     public addReferral(request: boltzrpc_pb.AddReferralRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.AddReferralResponse) => void): grpc.ClientUnaryCall;
     public addReferral(request: boltzrpc_pb.AddReferralRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.AddReferralResponse) => void): grpc.ClientUnaryCall;
+    public setSwapStatus(request: boltzrpc_pb.SetSwapStatusRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SetSwapStatusResponse) => void): grpc.ClientUnaryCall;
+    public setSwapStatus(request: boltzrpc_pb.SetSwapStatusRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SetSwapStatusResponse) => void): grpc.ClientUnaryCall;
+    public setSwapStatus(request: boltzrpc_pb.SetSwapStatusRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SetSwapStatusResponse) => void): grpc.ClientUnaryCall;
     public sweepSwaps(request: boltzrpc_pb.SweepSwapsRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SweepSwapsResponse) => void): grpc.ClientUnaryCall;
     public sweepSwaps(request: boltzrpc_pb.SweepSwapsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SweepSwapsResponse) => void): grpc.ClientUnaryCall;
     public sweepSwaps(request: boltzrpc_pb.SweepSwapsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SweepSwapsResponse) => void): grpc.ClientUnaryCall;

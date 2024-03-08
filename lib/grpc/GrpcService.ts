@@ -172,6 +172,19 @@ class GrpcService {
     });
   };
 
+  public setSwapStatus: handleUnaryCall<
+    boltzrpc.SetSwapStatusRequest,
+    boltzrpc.SetSwapStatusResponse
+  > = async (call, callback) => {
+    await this.handleCallback(call, callback, async () => {
+      const { id, status } = call.request.toObject();
+
+      await this.service.setSwapStatus({ id, status });
+
+      return new boltzrpc.SetSwapStatusResponse();
+    });
+  };
+
   public sweepSwaps: handleUnaryCall<
     boltzrpc.SweepSwapsRequest,
     boltzrpc.SweepSwapsResponse

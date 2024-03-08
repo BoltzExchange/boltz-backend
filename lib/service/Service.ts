@@ -37,6 +37,7 @@ import {
   ServiceInfo,
   ServiceWarning,
   SwapVersion,
+  isSwapUpdateEvent,
 } from '../consts/Enums';
 import { PairConfig } from '../consts/Types';
 import Swap from '../db/models/Swap';
@@ -862,6 +863,25 @@ class Service {
       apiKey,
       apiSecret,
     };
+  };
+
+  public setSwapStatus = async ({
+    id,
+    status,
+  }: {
+    id: string;
+    status: string;
+  }) => {
+    if (!isSwapUpdateEvent(status)) {
+      throw Errors.INVALID_SWAP_UPDATE_EVENT(status);
+    }
+    const swap = await SwapRepository.getSwap({
+      id: id,
+    });
+    if (!swap) {
+      throw Errors.SWAP_NOT_FOUND(id);
+    }
+    await SwapRepository.setSwapStatus(swap, status);
   };
 
   /**

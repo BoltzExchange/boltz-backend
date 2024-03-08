@@ -27,6 +27,9 @@ service Boltz {
   /* Adds a new referral ID to the database */
   rpc AddReferral (AddReferralRequest) returns (AddReferralResponse);
 
+  /* Modifies swap status in the database */
+  rpc SetSwapStatus (SetSwapStatusRequest) returns (SetSwapStatusResponse);
+
   rpc SweepSwaps (SweepSwapsRequest) returns (SweepSwapsResponse);
   rpc Rescan (RescanRequest) returns (RescanResponse);
 }
@@ -193,3 +196,10 @@ message RescanResponse {
   uint64 start_height = 1;
   uint64 end_height = 2;
 }
+
+message SetSwapStatusRequest {
+  string id = 1;
+  string status = 2;
+}
+
+message SetSwapStatusResponse {}

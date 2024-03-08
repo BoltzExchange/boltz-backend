@@ -2489,4 +2489,46 @@ describe('Service', () => {
       Math.round(new Date().getTime() / 1000) + 7 * 2.5 * 60,
     );
   });
+
+  describe('setSwapStatus', () => {
+    const setSwapStatus = service['setSwapStatus'];
+    const swapId = '1';
+
+    test('should throw INVALID_SWAP_UPDATE_EVENT for invalid eventName', async () => {
+      expect.assertions(1);
+      const eventName = 'inVoice.faIledToPAY';
+
+      try {
+        await setSwapStatus({ id: '1', status: eventName });
+      } catch (error) {
+        const err = error as Error;
+        expect(err.message).toBe(
+          Errors.INVALID_SWAP_UPDATE_EVENT(eventName).message,
+        );
+      }
+    });
+
+    test('should throw SWAP_NOT_FOUND for a non-existent swapId', async () => {
+      expect.assertions(1);
+      const eventName = 'invoice.failedToPay';
+      mockGetSwapResult = undefined;
+
+      try {
+        await setSwapStatus({ id: 'nonExistentSwapId', status: eventName });
+      } catch (error) {
+        const err = error as Error;
+        expect(err.message).toBe(
+          Errors.SWAP_NOT_FOUND('nonExistentSwapId').message,
+        );
+      }
+    });
+
+    test('should successfully update swap status', async () => {
+      const eventName = 'invoice.failedToPay';
+      mockGetSwapResult = { id: swapId };
+      await expect(
+        setSwapStatus({ id: swapId, status: eventName }),
+      ).resolves.toBeUndefined();
+    });
+  });
 });

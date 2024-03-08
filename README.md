@@ -16,7 +16,6 @@ Boltz Backend after [commit 3bcd9ae](https://github.com/BoltzExchange/boltz-back
 
 Current Partnerships:
 * [Diamond Hands](https://swap.diamondhands.technology/)
-* [Bull Bitcoin](https://www.bullbitcoin.com/)
 * [Breez](https://breez.technology/)
 
 ## Resources

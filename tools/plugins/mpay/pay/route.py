@@ -138,35 +138,35 @@ class Route:
         return f"{channel['channel']}/{channel['direction']}"
 
     @staticmethod
-    def from_channel_infos(amount: Millisatoshi, infos: list[dict[str, Any]]) -> "Route":
+    def from_channel_infos(amount: Millisatoshi, infos: list[ChannelInfo]) -> "Route":
         if len(infos) == 0:
             msg = "needs at last one channel info to create route"
             raise ValueError(msg)
 
         route = Route([], [])
 
-        for i, hop_dict in enumerate(infos):
-            fees = Fees(hop_dict["base_fee_millisatoshi"], hop_dict["fee_per_millionth"])
+        for i, hop in enumerate(infos):
+            fees = Fees(hop.base_fee_millisatoshi, hop.fee_per_millionth)
             route.fees.append(fees)
 
             if i != 0:
-                route.add_cltv(hop_dict["delay"])
+                route.add_cltv(hop.delay)
                 route.add_fees(
                     i - 1,
                     fees.base_msat,
                     fees.proportional_millionths,
                 )
 
-            route.route.append(Route._hop_from_channel_info(amount, hop_dict))
+            route.route.append(Route._hop_from_channel_info(amount, hop))
 
         return route
 
     @staticmethod
-    def _hop_from_channel_info(amount: Millisatoshi, info: dict[str, Any]) -> dict[str, Any]:
+    def _hop_from_channel_info(amount: Millisatoshi, info: ChannelInfo) -> dict[str, Any]:
         return {
-            "id": info["destination"],
-            "channel": info["short_channel_id"],
-            "direction": info["direction"],
+            "id": info.destination,
+            "channel": info.short_channel_id,
+            "direction": info.direction,
             "amount_msat": Millisatoshi(int(amount)),
             "delay": 0,
             "style": "tlv",

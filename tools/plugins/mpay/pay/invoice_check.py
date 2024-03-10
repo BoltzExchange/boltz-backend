@@ -18,6 +18,10 @@ class InvoiceExpiredError(Exception):
     pass
 
 
+class InvoiceNoAmountError(Exception):
+    pass
+
+
 class InvoiceChecker:
     _pl: Plugin
     _node_id: str
@@ -34,9 +38,13 @@ class InvoiceChecker:
     def check(self, invoice: str) -> None:
         dec = decode(invoice)
 
-        self._check_network(dec)
-        self._check_self_payment(dec)
-        self._check_expiry(dec)
+        for check in [
+            self._check_amount,
+            self._check_network,
+            self._check_self_payment,
+            self._check_expiry,
+        ]:
+            check(dec)
 
     def _check_network(self, dec: Bolt11) -> None:
         if dec.currency != self._prefix:
@@ -50,3 +58,8 @@ class InvoiceChecker:
     def _check_expiry(dec: Bolt11) -> None:
         if dec.date + dec.expiry <= int(time.time()):
             raise InvoiceExpiredError
+
+    @staticmethod
+    def _check_amount(dec: Bolt11) -> None:
+        if dec.amount_msat is None:
+            raise InvoiceNoAmountError

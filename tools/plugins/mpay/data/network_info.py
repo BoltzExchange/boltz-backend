@@ -8,25 +8,58 @@ from pyln.client import Plugin
 
 @dataclass
 class ChannelInfo:
+    destination: str
+    short_channel_id: str
+    direction: int
+
+    delay: int
     fee_per_millionth: int
     base_fee_millisatoshi: int
 
-    @staticmethod
-    def from_listchannels(channel: dict[str, Any]) -> "ChannelInfo":
-        return ChannelInfo(channel["fee_per_millionth"], channel["base_fee_millisatoshi"])
+    htlc_minimum_msat: int
+    htlc_maximum_msat: int
 
     @staticmethod
-    def from_peerchannels(channel: dict[str, Any]) -> "ChannelInfo":
-        return ChannelInfo(channel["fee_proportional_millionths"], channel["fee_base_msat"])
+    def from_listchannels(channel: dict[str, Any]) -> "ChannelInfo":
+        return ChannelInfo(
+            channel["destination"],
+            channel["short_channel_id"],
+            channel["direction"],
+            channel["delay"],
+            channel["fee_per_millionth"],
+            channel["base_fee_millisatoshi"],
+            channel["htlc_minimum_msat"],
+            channel["htlc_maximum_msat"],
+        )
+
+    @staticmethod
+    def from_peerchannels(
+        destination: str, short_channel_id: str, channel_side: int, updates: dict[str, Any]
+    ) -> "ChannelInfo":
+        return ChannelInfo(
+            destination,
+            short_channel_id,
+            channel_side,
+            updates["cltv_expiry_delta"],
+            updates["fee_proportional_millionths"],
+            updates["fee_base_msat"],
+            updates["htlc_minimum_msat"],
+            updates["htlc_maximum_msat"],
+        )
 
 
 class NetworkInfo:
+    _own_id: str
+
     _pl: Plugin
     _alias_cache: TTLCache
 
     def __init__(self, pl: Plugin) -> None:
         self._pl = pl
         self._alias_cache = TTLCache(maxsize=10_000, ttl=timedelta(hours=6), timer=datetime.now)
+
+    def init(self) -> None:
+        self._own_id = self._pl.rpc.getinfo()["id"]
 
     def get_node_alias(self, pubkey: str) -> str:
         if pubkey in self._alias_cache:
@@ -73,6 +106,11 @@ class NetworkInfo:
         if channel is None:
             return None
 
+        is_local = side == channel["direction"]
+
         return ChannelInfo.from_peerchannels(
-            channel["updates"]["local" if side == channel["direction"] else "remote"]
+            self._own_id if is_local else channel["peer_id"],
+            channel["short_channel_id"],
+            side,
+            channel["updates"]["local" if is_local else "remote"],
         )

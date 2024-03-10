@@ -8,6 +8,10 @@ class TestNetworkInfo:
     # noinspection PyTypeChecker
     ni = NetworkInfo(RpcPlugin())
 
+    def test_init(self) -> None:
+        self.ni.init()
+        assert self.ni._own_id == cln_con("getinfo")["id"]  # noqa: SLF001
+
     @pytest.mark.parametrize("node", [LndNode.One, LndNode.Two])
     def test_get_node_alias(self, node: LndNode) -> None:
         info = lnd(node, "getinfo")
@@ -44,7 +48,10 @@ class TestNetworkInfo:
         assert self.ni.get_channel_info_side(
             channel["short_channel_id"], side
         ) == ChannelInfo.from_peerchannels(
-            channel["updates"]["local" if side == channel["direction"] else "remote"]
+            cln_con("getinfo")["id"] if side == channel["direction"] else channel["peer_id"],
+            channel["short_channel_id"],
+            side,
+            channel["updates"]["local" if side == channel["direction"] else "remote"],
         )
 
     def test_get_channel_info_not_found(self) -> None:

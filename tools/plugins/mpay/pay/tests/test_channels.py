@@ -291,6 +291,9 @@ class TestChannelsHelper:
     # noinspection PyTypeChecker
     ch = ChannelsHelper(RpcPlugin(), ni)
 
+    def test_init(self) -> None:
+        self.ni.init()
+
     def test_get_peer_channels(self) -> None:
         assert self.ch.get_peer_channels() == PeerChannels(
             RpcPlugin().rpc.listpeerchannels()["channels"]

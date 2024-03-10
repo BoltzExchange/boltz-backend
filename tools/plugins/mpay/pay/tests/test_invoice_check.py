@@ -12,6 +12,7 @@ from plugins.mpay.pay.invoice_check import (
     InvoiceChecker,
     InvoiceExpiredError,
     InvoiceNetworkInvalidError,
+    InvoiceNoAmountError,
     InvoiceNoSelfPaymentError,
 )
 
@@ -114,4 +115,20 @@ class TestInvoiceCheck:
             self.checker.check(invoice)
         else:
             with pytest.raises(InvoiceExpiredError):
+                self.checker.check(invoice)
+
+    @pytest.mark.parametrize(
+        ("invoice", "ok"),
+        [
+            (
+                "lnbcrt1pj7mx0ppp5pqwp604eq0dtv67r76vcpq24543lh3e790sx9rjekayrz67y8teqdqqcqzzsxqyz5vqsp5e9jtsnvdwq30g0kh2ju7xtushpjueqenfrkqreftxszx28hv8v3q9qyyssqmsjsycqrjqyrr332f278emaly7mt6ghzmhhnexpkv4v3gpxec7jzeny9ffv6uka8xpa7j6xtsrf8xtly87js7u8v48sd0lhk75dcyegpuqvuwz",
+                False,
+            )
+        ],
+    )
+    def test_check_amount(self, invoice: str, ok: bool) -> None:
+        if ok:
+            self.checker.check(invoice)
+        else:
+            with pytest.raises(InvoiceNoAmountError):
                 self.checker.check(invoice)

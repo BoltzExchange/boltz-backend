@@ -8,7 +8,7 @@ import pytest
 from pyln.client import Millisatoshi
 
 from plugins.hold.tests.utils import RpcPlugin
-from plugins.mpay.data.network_info import NetworkInfo
+from plugins.mpay.data.network_info import ChannelInfo, NetworkInfo
 from plugins.mpay.pay.route import Fees, Route, RoutingHint
 
 
@@ -376,14 +376,18 @@ class TestRoute:
                 [1_000_000],
                 [0],
                 [
-                    {
-                        "destination": "0224da9fd6e22d31ccbbbd51125d3e99a91f17f7aeec597c4f3c87cc0e1761fa1b",
-                        "short_channel_id": "103x1x0",
-                        "direction": 1,
-                        "base_fee_millisatoshi": 1_000,
-                        "fee_per_millionth": 1,
-                        "delay": 80,
-                    },
+                    ChannelInfo.from_listchannels(
+                        {
+                            "destination": "0224da9fd6e22d31ccbbbd51125d3e99a91f17f7aeec597c4f3c87cc0e1761fa1b",
+                            "short_channel_id": "103x1x0",
+                            "direction": 1,
+                            "base_fee_millisatoshi": 1_000,
+                            "fee_per_millionth": 1,
+                            "delay": 80,
+                            "htlc_minimum_msat": 1,
+                            "htlc_maximum_msat": 1_000,
+                        }
+                    ),
                 ],
             ),
             (
@@ -391,22 +395,30 @@ class TestRoute:
                 [1_001_001, 1_000_000],
                 [80, 0],
                 [
-                    {
-                        "destination": "031fcfcd51ace905450e663d10886735b713324561e8f19d0de5d6c8c51de183e9",
-                        "short_channel_id": "110x1x0",
-                        "direction": 1,
-                        "base_fee_millisatoshi": 1,
-                        "fee_per_millionth": 1,
-                        "delay": 6,
-                    },
-                    {
-                        "destination": "0224da9fd6e22d31ccbbbd51125d3e99a91f17f7aeec597c4f3c87cc0e1761fa1b",
-                        "short_channel_id": "103x1x0",
-                        "direction": 1,
-                        "base_fee_millisatoshi": 1_000,
-                        "fee_per_millionth": 1,
-                        "delay": 80,
-                    },
+                    ChannelInfo.from_listchannels(
+                        {
+                            "destination": "031fcfcd51ace905450e663d10886735b713324561e8f19d0de5d6c8c51de183e9",
+                            "short_channel_id": "110x1x0",
+                            "direction": 1,
+                            "base_fee_millisatoshi": 1,
+                            "fee_per_millionth": 1,
+                            "delay": 6,
+                            "htlc_minimum_msat": 1,
+                            "htlc_maximum_msat": 1_000,
+                        }
+                    ),
+                    ChannelInfo.from_listchannels(
+                        {
+                            "destination": "0224da9fd6e22d31ccbbbd51125d3e99a91f17f7aeec597c4f3c87cc0e1761fa1b",
+                            "short_channel_id": "103x1x0",
+                            "direction": 1,
+                            "base_fee_millisatoshi": 1_000,
+                            "fee_per_millionth": 1,
+                            "delay": 80,
+                            "htlc_minimum_msat": 1,
+                            "htlc_maximum_msat": 1_000,
+                        }
+                    ),
                 ],
             ),
             (
@@ -414,30 +426,42 @@ class TestRoute:
                 [1_003_022, 1_002_021, 1_000_000],
                 [160, 80, 0],
                 [
-                    {
-                        "destination": "031fcfcd51ace905450e663d10886735b713324561e8f19d0de5d6c8c51de183e9",
-                        "short_channel_id": "110x1x0",
-                        "direction": 1,
-                        "base_fee_millisatoshi": 1,
-                        "fee_per_millionth": 1,
-                        "delay": 6,
-                    },
-                    {
-                        "destination": "0224da9fd6e22d31ccbbbd51125d3e99a91f17f7aeec597c4f3c87cc0e1761fa1b",
-                        "short_channel_id": "103x1x0",
-                        "direction": 1,
-                        "base_fee_millisatoshi": 1_000,
-                        "fee_per_millionth": 1,
-                        "delay": 80,
-                    },
-                    {
-                        "destination": "035718afb1d31390e7883285e72690129af0de738e5a445363c812208f9c3cca35",
-                        "short_channel_id": "104x1x0",
-                        "direction": 0,
-                        "base_fee_millisatoshi": 2_000,
-                        "fee_per_millionth": 21,
-                        "delay": 80,
-                    },
+                    ChannelInfo.from_listchannels(
+                        {
+                            "destination": "031fcfcd51ace905450e663d10886735b713324561e8f19d0de5d6c8c51de183e9",
+                            "short_channel_id": "110x1x0",
+                            "direction": 1,
+                            "base_fee_millisatoshi": 1,
+                            "fee_per_millionth": 1,
+                            "delay": 6,
+                            "htlc_minimum_msat": 1,
+                            "htlc_maximum_msat": 1_000,
+                        }
+                    ),
+                    ChannelInfo.from_listchannels(
+                        {
+                            "destination": "0224da9fd6e22d31ccbbbd51125d3e99a91f17f7aeec597c4f3c87cc0e1761fa1b",
+                            "short_channel_id": "103x1x0",
+                            "direction": 1,
+                            "base_fee_millisatoshi": 1_000,
+                            "fee_per_millionth": 1,
+                            "delay": 80,
+                            "htlc_minimum_msat": 1,
+                            "htlc_maximum_msat": 1_000,
+                        }
+                    ),
+                    ChannelInfo.from_listchannels(
+                        {
+                            "destination": "035718afb1d31390e7883285e72690129af0de738e5a445363c812208f9c3cca35",
+                            "short_channel_id": "104x1x0",
+                            "direction": 0,
+                            "base_fee_millisatoshi": 2_000,
+                            "fee_per_millionth": 21,
+                            "delay": 80,
+                            "htlc_minimum_msat": 1,
+                            "htlc_maximum_msat": 1_000,
+                        }
+                    ),
                 ],
             ),
             (
@@ -445,38 +469,54 @@ class TestRoute:
                 [1_103_334, 1_102_222, 1_100_001, 1_000_000],
                 [260, 180, 100, 0],
                 [
-                    {
-                        "destination": "031fcfcd51ace905450e663d10886735b713324561e8f19d0de5d6c8c51de183e9",
-                        "short_channel_id": "110x1x0",
-                        "direction": 1,
-                        "base_fee_millisatoshi": 1_000_000,
-                        "fee_per_millionth": 1,
-                        "delay": 6,
-                    },
-                    {
-                        "destination": "0224da9fd6e22d31ccbbbd51125d3e99a91f17f7aeec597c4f3c87cc0e1761fa1b",
-                        "short_channel_id": "103x1x0",
-                        "direction": 1,
-                        "base_fee_millisatoshi": 10,
-                        "fee_per_millionth": 1_000,
-                        "delay": 80,
-                    },
-                    {
-                        "destination": "035718afb1d31390e7883285e72690129af0de738e5a445363c812208f9c3cca35",
-                        "short_channel_id": "104x1x0",
-                        "direction": 0,
-                        "base_fee_millisatoshi": 21,
-                        "fee_per_millionth": 2_000,
-                        "delay": 80,
-                    },
-                    {
-                        "destination": "031fcfcd51ace905450e663d10886735b713324561e8f19d0de5d6c8c51de183e9",
-                        "short_channel_id": "105x1x0",
-                        "direction": 0,
-                        "base_fee_millisatoshi": 1,
-                        "fee_per_millionth": 100_000,
-                        "delay": 100,
-                    },
+                    ChannelInfo.from_listchannels(
+                        {
+                            "destination": "031fcfcd51ace905450e663d10886735b713324561e8f19d0de5d6c8c51de183e9",
+                            "short_channel_id": "110x1x0",
+                            "direction": 1,
+                            "base_fee_millisatoshi": 1_000_000,
+                            "fee_per_millionth": 1,
+                            "delay": 6,
+                            "htlc_minimum_msat": 1,
+                            "htlc_maximum_msat": 1_000,
+                        }
+                    ),
+                    ChannelInfo.from_listchannels(
+                        {
+                            "destination": "0224da9fd6e22d31ccbbbd51125d3e99a91f17f7aeec597c4f3c87cc0e1761fa1b",
+                            "short_channel_id": "103x1x0",
+                            "direction": 1,
+                            "base_fee_millisatoshi": 10,
+                            "fee_per_millionth": 1_000,
+                            "delay": 80,
+                            "htlc_minimum_msat": 1,
+                            "htlc_maximum_msat": 1_000,
+                        }
+                    ),
+                    ChannelInfo.from_listchannels(
+                        {
+                            "destination": "035718afb1d31390e7883285e72690129af0de738e5a445363c812208f9c3cca35",
+                            "short_channel_id": "104x1x0",
+                            "direction": 0,
+                            "base_fee_millisatoshi": 21,
+                            "fee_per_millionth": 2_000,
+                            "delay": 80,
+                            "htlc_minimum_msat": 1,
+                            "htlc_maximum_msat": 1_000,
+                        }
+                    ),
+                    ChannelInfo.from_listchannels(
+                        {
+                            "destination": "031fcfcd51ace905450e663d10886735b713324561e8f19d0de5d6c8c51de183e9",
+                            "short_channel_id": "105x1x0",
+                            "direction": 0,
+                            "base_fee_millisatoshi": 1,
+                            "fee_per_millionth": 100_000,
+                            "delay": 100,
+                            "htlc_minimum_msat": 1,
+                            "htlc_maximum_msat": 1_000,
+                        }
+                    ),
                 ],
             ),
         ],
@@ -486,7 +526,7 @@ class TestRoute:
         fee: int,
         amounts: list[int],
         delays: list[int],
-        route_data: list[dict[str, Any]],
+        route_data: list[ChannelInfo],
     ) -> None:
         amount = 1_000_000
         route = Route.from_channel_infos(Millisatoshi(amount), route_data)
@@ -498,9 +538,9 @@ class TestRoute:
             assert hop["delay"] == delays[i]
             assert hop["amount_msat"] == amounts[i]
 
-            assert hop["id"] == route_data[i]["destination"]
-            assert hop["channel"] == route_data[i]["short_channel_id"]
-            assert hop["direction"] == route_data[i]["direction"]
+            assert hop["id"] == route_data[i].destination
+            assert hop["channel"] == route_data[i].short_channel_id
+            assert hop["direction"] == route_data[i].direction
             assert hop["style"] == "tlv"
 
     def test_from_channel_infos_empty(self) -> None:

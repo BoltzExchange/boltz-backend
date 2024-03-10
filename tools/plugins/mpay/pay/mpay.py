@@ -38,6 +38,7 @@ class MPay:
         self._router = Router(pl, routes, self._network_info)
 
     def init(self) -> None:
+        self._network_info.init()
         self._invoice_checker.init()
 
     def pay(

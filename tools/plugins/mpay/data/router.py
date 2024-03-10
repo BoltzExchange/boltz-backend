@@ -1,9 +1,10 @@
 import copy
+import traceback
 from typing import Any, Iterator
 
 from pyln.client import Millisatoshi, Plugin
 
-from plugins.mpay.data.network_info import NetworkInfo
+from plugins.mpay.data.network_info import ChannelInfo, NetworkInfo
 from plugins.mpay.data.route_stats import HOP_SEPERATOR, RouteStats
 from plugins.mpay.data.routes import Routes
 from plugins.mpay.pay.excludes import ExcludesPayment
@@ -54,6 +55,7 @@ class Router:
             except GeneratorExit:  # noqa: PERF203
                 break
             except BaseException as e:
+                traceback.print_exception(e)
                 # TODO: penalize in db?
                 self._pl.log(f"Disregarding route {stat_route} because: {format_error(e)}")
 
@@ -69,11 +71,11 @@ class Router:
         # TODO: make sure all channels are active
 
         # Make sure the minimal htlc_maximum_msat size on the route is bigger than our amount
-        if min(chan_infos, key=lambda e: e["htlc_maximum_msat"])["htlc_maximum_msat"] < amount:
+        if min(chan_infos, key=lambda e: e.htlc_maximum_msat).htlc_maximum_msat < int(amount):
             raise MaxHtlcTooSmallError
 
         return Route.from_channel_infos(amount, chan_infos)
 
-    def _get_channel_info(self, hop: str) -> dict[str, Any]:
+    def _get_channel_info(self, hop: str) -> ChannelInfo:
         split = hop.split(HOP_SEPERATOR)
         return self._network_info.get_channel_info_side(split[0], int(split[1]))

@@ -1,5 +1,4 @@
 import copy
-import traceback
 from typing import Any, Iterator
 
 from pyln.client import Millisatoshi, Plugin
@@ -55,7 +54,6 @@ class Router:
             except GeneratorExit:  # noqa: PERF203
                 break
             except BaseException as e:
-                traceback.print_exception(e)
                 # TODO: penalize in db?
                 self._pl.log(f"Disregarding route {stat_route} because: {format_error(e)}")
 

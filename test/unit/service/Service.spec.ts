@@ -40,7 +40,9 @@ import { CurrencyInfo } from '../../../lib/proto/boltzrpc_pb';
 import FeeProvider from '../../../lib/rates/FeeProvider';
 import RateCalculator from '../../../lib/rates/RateCalculator';
 import Errors from '../../../lib/service/Errors';
-import Service from '../../../lib/service/Service';
+import Service, {
+  cancelledViaCliFailureReason,
+} from '../../../lib/service/Service';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
 import SwapManager from '../../../lib/swap/SwapManager';
 import Wallet from '../../../lib/wallet/Wallet';
@@ -154,6 +156,7 @@ jest.mock('../../../lib/swap/SwapManager', () => {
       channelNursery: {
         on: () => {},
       },
+      emit: jest.fn(),
     },
     routingHints: {
       getRoutingHints: mockGetRoutingHints,
@@ -2494,25 +2497,24 @@ describe('Service', () => {
     const setSwapStatus = service['setSwapStatus'];
     const swapId = '1';
 
-    test('should throw INVALID_SWAP_UPDATE_EVENT for invalid eventName', async () => {
+    test('should throw for non-whitelisted eventName', async () => {
       expect.assertions(1);
-      const eventName = 'inVoice.faIledToPAY';
+      const eventName = SwapUpdateEvent.TransactionFailed;
 
       try {
         await setSwapStatus({ id: '1', status: eventName });
       } catch (error) {
         const err = error as Error;
         expect(err.message).toBe(
-          Errors.INVALID_SWAP_UPDATE_EVENT(eventName).message,
+          Errors.SWAP_UPDATE_EVENT_NOT_ALLOWED(eventName).message,
         );
       }
     });
 
-    test('should throw SWAP_NOT_FOUND for a non-existent swapId', async () => {
+    test('should throw for a non-existent swapId', async () => {
       expect.assertions(1);
-      const eventName = 'invoice.failedToPay';
+      const eventName = SwapUpdateEvent.InvoicePending;
       mockGetSwapResult = undefined;
-
       try {
         await setSwapStatus({ id: 'nonExistentSwapId', status: eventName });
       } catch (error) {
@@ -2524,11 +2526,21 @@ describe('Service', () => {
     });
 
     test('should successfully update swap status', async () => {
-      const eventName = 'invoice.failedToPay';
+      expect.assertions(3);
+      const eventName = SwapUpdateEvent.InvoiceFailedToPay;
       mockGetSwapResult = { id: swapId };
       await expect(
         setSwapStatus({ id: swapId, status: eventName }),
       ).resolves.toBeUndefined();
+      expect(SwapRepository.setSwapStatus).toHaveBeenCalledWith(
+        mockGetSwapResult,
+        eventName,
+        cancelledViaCliFailureReason,
+      );
+      expect(service.swapManager.nursery.emit).toHaveBeenCalledWith(
+        eventName,
+        mockGetSwapResult,
+      );
     });
   });
 });

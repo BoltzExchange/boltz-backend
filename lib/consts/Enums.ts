@@ -52,12 +52,6 @@ export enum SwapUpdateEvent {
   InvoiceExpired = 'invoice.expired',
 }
 
-export const isSwapUpdateEvent = (eventName: string): boolean => {
-  return Object.values(SwapUpdateEvent).includes(
-    eventName as unknown as SwapUpdateEvent,
-  );
-};
-
 export const SuccessSwapUpdateEvents = [
   SwapUpdateEvent.InvoiceSettled,
   SwapUpdateEvent.TransactionClaimed,

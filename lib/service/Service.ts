@@ -36,8 +36,8 @@ import {
   OrderSide,
   ServiceInfo,
   ServiceWarning,
+  SwapUpdateEvent,
   SwapVersion,
-  isSwapUpdateEvent,
 } from '../consts/Enums';
 import { PairConfig } from '../consts/Types';
 import Swap from '../db/models/Swap';
@@ -67,6 +67,7 @@ import RateProvider from '../rates/RateProvider';
 import { PairTypeLegacy } from '../rates/providers/RateProviderLegacy';
 import ErrorsSwap from '../swap/Errors';
 import NodeSwitch from '../swap/NodeSwitch';
+import { SwapNurseryEvents } from '../swap/PaymentHandler';
 import SwapManager, { ChannelCreationInfo } from '../swap/SwapManager';
 import SwapOutputType from '../swap/SwapOutputType';
 import WalletManager, { Currency } from '../wallet/WalletManager';
@@ -872,16 +873,32 @@ class Service {
     id: string;
     status: string;
   }) => {
-    if (!isSwapUpdateEvent(status)) {
-      throw Errors.INVALID_SWAP_UPDATE_EVENT(status);
+    const isAllowedSwapUpdateEvent = (eventName: string): boolean => {
+      return [
+        SwapUpdateEvent.InvoiceFailedToPay,
+        SwapUpdateEvent.InvoicePending,
+      ].includes(eventName as unknown as SwapUpdateEvent);
+    };
+    if (!isAllowedSwapUpdateEvent(status)) {
+      throw Errors.SWAP_UPDATE_EVENT_NOT_ALLOWED(status);
     }
-    const swap = await SwapRepository.getSwap({
-      id: id,
-    });
+
+    const swap = await SwapRepository.getSwap({ id });
     if (!swap) {
       throw Errors.SWAP_NOT_FOUND(id);
     }
-    await SwapRepository.setSwapStatus(swap, status);
+    await SwapRepository.setSwapStatus(
+      swap,
+      status,
+      status === SwapUpdateEvent.InvoiceFailedToPay
+        ? cancelledViaCliFailureReason
+        : undefined,
+    );
+    // Not the nicest way to do it, but works for the 2 whitelisted events
+    this.swapManager.nursery.emit(
+      status as unknown as keyof SwapNurseryEvents,
+      swap,
+    );
   };
 
   /**
@@ -1850,6 +1867,8 @@ class Service {
     }
   };
 }
+
+export const cancelledViaCliFailureReason = 'canceled via CLI';
 
 export default Service;
 export { Contracts, NetworkContracts };

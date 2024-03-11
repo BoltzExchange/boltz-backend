@@ -179,7 +179,7 @@ class GrpcService {
     await this.handleCallback(call, callback, async () => {
       const { id, status } = call.request.toObject();
 
-      await this.service.setSwapStatus({ id, status });
+      await this.service.setSwapStatus(id, status);
 
       return new boltzrpc.SetSwapStatusResponse();
     });

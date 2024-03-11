@@ -27,7 +27,7 @@ service Boltz {
   /* Adds a new referral ID to the database */
   rpc AddReferral (AddReferralRequest) returns (AddReferralResponse);
 
-  /* Modifies swap status in the database */
+  /* Modifies the status of a swap */
   rpc SetSwapStatus (SetSwapStatusRequest) returns (SetSwapStatusResponse);
 
   rpc SweepSwaps (SweepSwapsRequest) returns (SweepSwapsResponse);

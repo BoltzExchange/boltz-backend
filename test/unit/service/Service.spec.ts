@@ -2500,38 +2500,26 @@ describe('Service', () => {
     test('should throw for non-whitelisted eventName', async () => {
       expect.assertions(1);
       const eventName = SwapUpdateEvent.TransactionFailed;
-
-      try {
-        await setSwapStatus({ id: '1', status: eventName });
-      } catch (error) {
-        const err = error as Error;
-        expect(err.message).toBe(
-          Errors.SWAP_UPDATE_EVENT_NOT_ALLOWED(eventName).message,
-        );
-      }
+      await expect(setSwapStatus('1', eventName)).rejects.toEqual(
+        Errors.SET_SWAP_UPDATE_EVENT_NOT_ALLOWED(eventName),
+      );
     });
 
     test('should throw for a non-existent swapId', async () => {
       expect.assertions(1);
       const eventName = SwapUpdateEvent.InvoicePending;
       mockGetSwapResult = undefined;
-      try {
-        await setSwapStatus({ id: 'nonExistentSwapId', status: eventName });
-      } catch (error) {
-        const err = error as Error;
-        expect(err.message).toBe(
-          Errors.SWAP_NOT_FOUND('nonExistentSwapId').message,
-        );
-      }
+      const nonExistentSwapId = 'nonExistentSwapId';
+      await expect(setSwapStatus(nonExistentSwapId, eventName)).rejects.toEqual(
+        Errors.SWAP_NOT_FOUND(nonExistentSwapId),
+      );
     });
 
     test('should successfully update swap status', async () => {
       expect.assertions(3);
       const eventName = SwapUpdateEvent.InvoiceFailedToPay;
       mockGetSwapResult = { id: swapId };
-      await expect(
-        setSwapStatus({ id: swapId, status: eventName }),
-      ).resolves.toBeUndefined();
+      await expect(setSwapStatus(swapId, eventName)).resolves.toBeUndefined();
       expect(SwapRepository.setSwapStatus).toHaveBeenCalledWith(
         mockGetSwapResult,
         eventName,

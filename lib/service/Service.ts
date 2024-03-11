@@ -866,21 +866,14 @@ class Service {
     };
   };
 
-  public setSwapStatus = async ({
-    id,
-    status,
-  }: {
-    id: string;
-    status: string;
-  }) => {
-    const isAllowedSwapUpdateEvent = (eventName: string): boolean => {
-      return [
+  public setSwapStatus = async (id: string, status: string) => {
+    if (
+      ![
         SwapUpdateEvent.InvoiceFailedToPay,
         SwapUpdateEvent.InvoicePending,
-      ].includes(eventName as unknown as SwapUpdateEvent);
-    };
-    if (!isAllowedSwapUpdateEvent(status)) {
-      throw Errors.SWAP_UPDATE_EVENT_NOT_ALLOWED(status);
+      ].includes(status as unknown as SwapUpdateEvent)
+    ) {
+      throw Errors.SET_SWAP_UPDATE_EVENT_NOT_ALLOWED(status);
     }
 
     const swap = await SwapRepository.getSwap({ id });
@@ -1868,7 +1861,7 @@ class Service {
   };
 }
 
-export const cancelledViaCliFailureReason = 'canceled via CLI';
+export const cancelledViaCliFailureReason = 'payment has been cancelled';
 
 export default Service;
 export { Contracts, NetworkContracts };

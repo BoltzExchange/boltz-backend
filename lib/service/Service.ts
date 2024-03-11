@@ -36,6 +36,7 @@ import {
   OrderSide,
   ServiceInfo,
   ServiceWarning,
+  SwapUpdateEvent,
   SwapVersion,
 } from '../consts/Enums';
 import { PairConfig } from '../consts/Types';
@@ -66,6 +67,7 @@ import RateProvider from '../rates/RateProvider';
 import { PairTypeLegacy } from '../rates/providers/RateProviderLegacy';
 import ErrorsSwap from '../swap/Errors';
 import NodeSwitch from '../swap/NodeSwitch';
+import { SwapNurseryEvents } from '../swap/PaymentHandler';
 import SwapManager, { ChannelCreationInfo } from '../swap/SwapManager';
 import SwapOutputType from '../swap/SwapOutputType';
 import WalletManager, { Currency } from '../wallet/WalletManager';
@@ -862,6 +864,34 @@ class Service {
       apiKey,
       apiSecret,
     };
+  };
+
+  public setSwapStatus = async (id: string, status: string) => {
+    if (
+      ![
+        SwapUpdateEvent.InvoiceFailedToPay,
+        SwapUpdateEvent.InvoicePending,
+      ].includes(status as unknown as SwapUpdateEvent)
+    ) {
+      throw Errors.SET_SWAP_UPDATE_EVENT_NOT_ALLOWED(status);
+    }
+
+    const swap = await SwapRepository.getSwap({ id });
+    if (!swap) {
+      throw Errors.SWAP_NOT_FOUND(id);
+    }
+    await SwapRepository.setSwapStatus(
+      swap,
+      status,
+      status === SwapUpdateEvent.InvoiceFailedToPay
+        ? cancelledViaCliFailureReason
+        : undefined,
+    );
+    // Not the nicest way to do it, but works for the 2 whitelisted events
+    this.swapManager.nursery.emit(
+      status as unknown as keyof SwapNurseryEvents,
+      swap,
+    );
   };
 
   /**
@@ -1830,6 +1860,8 @@ class Service {
     }
   };
 }
+
+export const cancelledViaCliFailureReason = 'payment has been cancelled';
 
 export default Service;
 export { Contracts, NetworkContracts };

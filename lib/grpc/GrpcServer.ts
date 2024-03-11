@@ -28,6 +28,7 @@ class GrpcServer {
       addReferral: grpcService.addReferral,
       sweepSwaps: grpcService.sweepSwaps,
       rescan: grpcService.rescan,
+      setSwapStatus: grpcService.setSwapStatus,
     });
   }
 

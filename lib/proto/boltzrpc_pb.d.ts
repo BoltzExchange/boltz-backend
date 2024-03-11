@@ -795,6 +795,46 @@ export namespace RescanResponse {
     }
 }
 
+export class SetSwapStatusRequest extends jspb.Message { 
+    getId(): string;
+    setId(value: string): SetSwapStatusRequest;
+    getStatus(): string;
+    setStatus(value: string): SetSwapStatusRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SetSwapStatusRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: SetSwapStatusRequest): SetSwapStatusRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SetSwapStatusRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SetSwapStatusRequest;
+    static deserializeBinaryFromReader(message: SetSwapStatusRequest, reader: jspb.BinaryReader): SetSwapStatusRequest;
+}
+
+export namespace SetSwapStatusRequest {
+    export type AsObject = {
+        id: string,
+        status: string,
+    }
+}
+
+export class SetSwapStatusResponse extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SetSwapStatusResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: SetSwapStatusResponse): SetSwapStatusResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SetSwapStatusResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SetSwapStatusResponse;
+    static deserializeBinaryFromReader(message: SetSwapStatusResponse, reader: jspb.BinaryReader): SetSwapStatusResponse;
+}
+
+export namespace SetSwapStatusResponse {
+    export type AsObject = {
+    }
+}
+
 export enum OutputType {
     BECH32 = 0,
     COMPATIBILITY = 1,

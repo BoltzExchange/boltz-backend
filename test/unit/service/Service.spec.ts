@@ -40,7 +40,9 @@ import { CurrencyInfo } from '../../../lib/proto/boltzrpc_pb';
 import FeeProvider from '../../../lib/rates/FeeProvider';
 import RateCalculator from '../../../lib/rates/RateCalculator';
 import Errors from '../../../lib/service/Errors';
-import Service from '../../../lib/service/Service';
+import Service, {
+  cancelledViaCliFailureReason,
+} from '../../../lib/service/Service';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
 import SwapManager from '../../../lib/swap/SwapManager';
 import Wallet from '../../../lib/wallet/Wallet';
@@ -154,6 +156,7 @@ jest.mock('../../../lib/swap/SwapManager', () => {
       channelNursery: {
         on: () => {},
       },
+      emit: jest.fn(),
     },
     routingHints: {
       getRoutingHints: mockGetRoutingHints,
@@ -2488,5 +2491,44 @@ describe('Service', () => {
     expect(calculateTimeoutDate('LTC', 7)).toEqual(
       Math.round(new Date().getTime() / 1000) + 7 * 2.5 * 60,
     );
+  });
+
+  describe('setSwapStatus', () => {
+    const setSwapStatus = service['setSwapStatus'];
+    const swapId = '1';
+
+    test('should throw for non-whitelisted eventName', async () => {
+      expect.assertions(1);
+      const eventName = SwapUpdateEvent.TransactionFailed;
+      await expect(setSwapStatus('1', eventName)).rejects.toEqual(
+        Errors.SET_SWAP_UPDATE_EVENT_NOT_ALLOWED(eventName),
+      );
+    });
+
+    test('should throw for a non-existent swapId', async () => {
+      expect.assertions(1);
+      const eventName = SwapUpdateEvent.InvoicePending;
+      mockGetSwapResult = undefined;
+      const nonExistentSwapId = 'nonExistentSwapId';
+      await expect(setSwapStatus(nonExistentSwapId, eventName)).rejects.toEqual(
+        Errors.SWAP_NOT_FOUND(nonExistentSwapId),
+      );
+    });
+
+    test('should successfully update swap status', async () => {
+      expect.assertions(3);
+      const eventName = SwapUpdateEvent.InvoiceFailedToPay;
+      mockGetSwapResult = { id: swapId };
+      await expect(setSwapStatus(swapId, eventName)).resolves.toBeUndefined();
+      expect(SwapRepository.setSwapStatus).toHaveBeenCalledWith(
+        mockGetSwapResult,
+        eventName,
+        cancelledViaCliFailureReason,
+      );
+      expect(service.swapManager.nursery.emit).toHaveBeenCalledWith(
+        eventName,
+        mockGetSwapResult,
+      );
+    });
   });
 });

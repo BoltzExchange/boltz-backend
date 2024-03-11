@@ -165,4 +165,8 @@ export default {
     message: 'invoice expiry too short',
     code: concatErrorCode(ErrorCodePrefix.Service, 42),
   }),
+  SET_SWAP_UPDATE_EVENT_NOT_ALLOWED: (event: string): Error => ({
+    message: `setting swap update event ${event} is not allowed`,
+    code: concatErrorCode(ErrorCodePrefix.Service, 43),
+  }),
 };

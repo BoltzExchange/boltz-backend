@@ -43,8 +43,10 @@ import {
   swapVersionToString,
 } from '../consts/Enums';
 import { PairConfig } from '../consts/Types';
+import { ChainSwapDataType } from '../db/models/ChainSwapData';
 import ReverseSwap, { NodeType } from '../db/models/ReverseSwap';
 import Swap from '../db/models/Swap';
+import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import ReverseRoutingHintRepository from '../db/repositories/ReverseRoutingHintRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
@@ -100,15 +102,8 @@ type CreatedSwap = {
   blindingKey?: string;
 };
 
-type CreatedReverseSwap = {
-  id: string;
+type CreatedOnchainSwap = {
   timeoutBlockHeight: number;
-
-  invoice: string;
-  minerFeeInvoice: string | undefined;
-
-  // Only set for Bitcoin like, UTXO based, chains
-  redeemScript: string | undefined;
 
   // Only set for Taproot swaps
   refundPublicKey?: string;
@@ -123,6 +118,28 @@ type CreatedReverseSwap = {
 
   // For blinded Liquid reverse swaps
   blindingKey?: string;
+};
+
+type CreatedReverseSwap = {
+  id: string;
+
+  invoice: string;
+  minerFeeInvoice: string | undefined;
+
+  // Only set for Bitcoin like, UTXO based, chains
+  redeemScript: string | undefined;
+} & CreatedOnchainSwap;
+
+type CreatedChainSwapDetails = Omit<CreatedOnchainSwap, 'refundPublicKey'> & {
+  amount: number;
+  serverPublicKey: string | undefined;
+};
+
+type CreatedChainSwap = {
+  id: string;
+
+  userDetails: CreatedChainSwapDetails;
+  serverDetails: CreatedChainSwapDetails;
 };
 
 class SwapManager {
@@ -858,6 +875,196 @@ class SwapManager {
     }
 
     return result as CreatedReverseSwap;
+  };
+
+  public createChainSwap = async (args: {
+    baseCurrency: string;
+    quoteCurrency: string;
+    orderSide: OrderSide;
+
+    percentageFee: number;
+
+    preimageHash: Buffer;
+    claimAddress?: string;
+
+    claimPublicKey?: Buffer;
+    refundPublicKey?: Buffer;
+
+    userLockAmount: number;
+    serverLockAmount: number;
+    acceptZeroConf: boolean;
+
+    sendingTimeoutBlockDelta: number;
+    receivingTimeoutBlockDelta: number;
+
+    referralId?: string;
+  }): Promise<CreatedChainSwap> => {
+    const { sendingCurrency, receivingCurrency } = this.getCurrencies(
+      args.baseCurrency,
+      args.quoteCurrency,
+      args.orderSide,
+    );
+
+    const id = generateSwapId(SwapVersion.Taproot);
+
+    this.logger.verbose(
+      `Creating new ${swapVersionToString(SwapVersion.Taproot)} Chain Swap from ${
+        receivingCurrency.symbol
+      } to ${sendingCurrency.symbol}: ${id}`,
+    );
+    if (args.referralId) {
+      this.logger.silly(
+        `Using referral ID ${args.referralId} for Chain Swap ${id}`,
+      );
+    }
+
+    if (
+      !(
+        sendingCurrency.type === CurrencyType.BitcoinLike ||
+        sendingCurrency.type === CurrencyType.Liquid
+      ) &&
+      this.blocks.isBlocked(args.claimAddress!)
+    ) {
+      throw Errors.BLOCKED_ADDRESS();
+    }
+
+    const createChainData = async (
+      isSending: boolean,
+      currency: typeof sendingCurrency,
+      amount: number,
+      timeoutBlockDelta: number,
+      theirPublicKey?: Buffer,
+    ): Promise<{
+      dbData: ChainSwapDataType;
+      serverKeys: string | undefined;
+      blindingKey: string | undefined;
+      refundAddress: string | undefined;
+      tree: Types.SwapTree | Types.LiquidSwapTree | undefined;
+    }> => {
+      const res: Partial<ChainSwapDataType> = {
+        swapId: id,
+        expectedAmount: amount,
+        symbol: currency.symbol,
+      };
+      let serverKeys: string | undefined;
+      let blindingKey: string | undefined;
+      let refundAddress: string | undefined;
+      let tree: Types.SwapTree | Types.LiquidSwapTree | undefined;
+
+      if (
+        currency.type === CurrencyType.BitcoinLike ||
+        currency.type === CurrencyType.Liquid
+      ) {
+        const { keys, index } = currency.wallet.getNewKeys();
+        res.keyIndex = index;
+        serverKeys = getHexString(keys.publicKey);
+        res.theirPublicKey = getHexString(theirPublicKey!);
+
+        const { blocks } = await currency.chainClient!.getBlockchainInfo();
+        res.timeoutBlockHeight = blocks + timeoutBlockDelta;
+
+        tree = reverseSwapTree(
+          currency.type === CurrencyType.Liquid,
+          args.preimageHash,
+          isSending ? theirPublicKey! : keys.publicKey,
+          isSending ? keys.publicKey : theirPublicKey!,
+          res.timeoutBlockHeight,
+        );
+        res.swapTree = JSON.stringify(
+          SwapTreeSerializer.serializeSwapTree(tree),
+        );
+
+        const musig = createMusig(keys, args.claimPublicKey!);
+        const tweakedKey = tweakMusig(currency.type, musig, tree);
+        const outputScript = Scripts.p2trOutput(tweakedKey);
+
+        if (!isSending) {
+          currency.chainClient!.addOutputFilter(outputScript);
+        }
+
+        res.lockupAddress = currency.wallet.encodeAddress(outputScript);
+
+        if (currency.type === CurrencyType.Liquid) {
+          blindingKey = getHexString(
+            (currency.wallet as WalletLiquid).deriveBlindingKeyFromScript(
+              outputScript,
+            ).privateKey!,
+          );
+        }
+      } else {
+        const blockNumber = await currency.provider!.getBlockNumber();
+        res.timeoutBlockHeight = blockNumber + timeoutBlockDelta;
+
+        res.lockupAddress = await this.getLockupContractAddress(
+          currency.symbol,
+          currency.type,
+        );
+        res.claimAddress = isSending ? args.claimAddress : undefined;
+
+        refundAddress = await currency.wallet.getAddress();
+      }
+
+      return {
+        tree,
+        serverKeys,
+        blindingKey,
+        refundAddress,
+        dbData: res as ChainSwapDataType,
+      };
+    };
+
+    const sendingData = await createChainData(
+      true,
+      sendingCurrency,
+      args.serverLockAmount,
+      args.sendingTimeoutBlockDelta,
+      args.claimPublicKey,
+    );
+    const receivingData = await createChainData(
+      false,
+      receivingCurrency,
+      args.userLockAmount,
+      args.receivingTimeoutBlockDelta,
+      args.refundPublicKey,
+    );
+
+    await ChainSwapRepository.addChainSwap({
+      sendingData: sendingData.dbData,
+      receivingData: receivingData.dbData,
+      chainSwap: {
+        id,
+        fee: args.percentageFee,
+        orderSide: args.orderSide,
+        referral: args.referralId,
+        acceptZeroConf: args.acceptZeroConf,
+        status: SwapUpdateEvent.SwapCreated,
+        pair: getPairId({
+          base: args.baseCurrency,
+          quote: args.quoteCurrency,
+        }),
+        preimageHash: getHexString(args.preimageHash),
+      },
+    });
+
+    const serializeDetails = (
+      receivingData: Awaited<ReturnType<typeof createChainData>>,
+    ) => ({
+      blindingKey: receivingData.blindingKey,
+      serverPublicKey: receivingData.serverKeys,
+      refundAddress: receivingData.refundAddress,
+      amount: receivingData.dbData.expectedAmount,
+      lockupAddress: receivingData.dbData.lockupAddress,
+      timeoutBlockHeight: receivingData.dbData.timeoutBlockHeight,
+      swapTree: receivingData.tree
+        ? SwapTreeSerializer.serializeSwapTree(receivingData.tree)
+        : undefined,
+    });
+
+    return {
+      id,
+      userDetails: serializeDetails(receivingData),
+      serverDetails: serializeDetails(sendingData),
+    };
   };
 
   // TODO: check current status of invoices or do the streams handle that already?

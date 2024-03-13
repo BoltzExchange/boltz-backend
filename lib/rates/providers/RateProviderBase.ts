@@ -1,5 +1,10 @@
 import { getChainCurrency, getLightningCurrency } from '../../Utils';
-import { BaseFeeType, OrderSide, SwapVersion } from '../../consts/Enums';
+import {
+  BaseFeeType,
+  OrderSide,
+  SwapType,
+  SwapVersion,
+} from '../../consts/Enums';
 import { PairConfig } from '../../consts/Types';
 import NodeSwitch from '../../swap/NodeSwitch';
 import { Currency } from '../../wallet/WalletManager';
@@ -23,7 +28,7 @@ abstract class RateProviderBase<T> {
     hash: string,
     pairId: string,
     orderSide: OrderSide,
-    isReverse: boolean,
+    type: SwapType,
   ): void;
 
   protected abstract hashPair(pair: T): string;
@@ -34,26 +39,38 @@ abstract class RateProviderBase<T> {
     rate: number,
     configuredMinima: number,
     orderSide?: OrderSide,
-    isReverse?: boolean,
+    type?: SwapType,
   ) => {
     const minima = [configuredMinima];
 
     const pairsToCheck =
-      orderSide === undefined
+      orderSide === undefined || type === SwapType.Chain
         ? [
             [base, quote],
             [quote, base],
           ]
         : [
             [
-              getChainCurrency(base, quote, orderSide!, isReverse!),
-              getLightningCurrency(base, quote, orderSide!, isReverse!),
+              getChainCurrency(
+                base,
+                quote,
+                orderSide!,
+                type === SwapType.ReverseSubmarine,
+              ),
+              getLightningCurrency(
+                base,
+                quote,
+                orderSide!,
+                type === SwapType.ReverseSubmarine,
+              ),
             ],
           ];
 
     pairsToCheck
-      .filter(([chain, lightning]) =>
-        this.isPossibleChainCurrency(chain, lightning),
+      .filter(
+        ([chain, lightning]) =>
+          type === SwapType.Chain ||
+          this.isPossibleChainCurrency(chain, lightning),
       )
       .map(([currency]) => currency)
       .forEach((currency) => {

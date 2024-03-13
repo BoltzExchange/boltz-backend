@@ -960,6 +960,9 @@ class SwapRouter extends RouterBase {
       this.handleError(this.getReverseBip21),
     );
 
+    router.get('/chain', this.handleError(this.getChain));
+    router.post('/chain', this.handleError(this.createChain));
+
     /**
      * @openapi
      * tags:
@@ -1340,6 +1343,64 @@ class SwapRouter extends RouterBase {
       pubNonce: getHexString(sig.pubNonce),
       partialSignature: getHexString(sig.signature),
     });
+  };
+
+  private getChain = (_req: Request, res: Response) =>
+    successResponse(
+      res,
+      RateProviderTaproot.serializePairs(
+        this.service.rateProvider.providers[SwapVersion.Taproot].chainPairs,
+      ),
+    );
+
+  // TODO: claim covenant
+  private createChain = async (req: Request, res: Response) => {
+    const {
+      to,
+      from,
+      pairHash,
+      referralId,
+      preimageHash,
+      claimAddress,
+      userLockAmount,
+      serverLockAmount,
+      claimPublicKey,
+      refundPublicKey,
+    } = validateRequest(req.body, [
+      { name: 'to', type: 'string' },
+      { name: 'from', type: 'string' },
+      { name: 'preimageHash', type: 'string', hex: true },
+      { name: 'pairHash', type: 'string', optional: true },
+      { name: 'referralId', type: 'string', optional: true },
+      { name: 'claimAddress', type: 'string', optional: true },
+      { name: 'userLockAmount', type: 'number', optional: true },
+      { name: 'serverLockAmount', type: 'number', optional: true },
+      { name: 'claimPublicKey', type: 'string', hex: true, optional: true },
+      { name: 'refundPublicKey', type: 'string', hex: true, optional: true },
+    ]);
+
+    checkPreimageHashLength(preimageHash);
+
+    const { pairId, orderSide } = this.service.convertToPairAndSide(from, to);
+    const response = await this.service.createChainSwap({
+      pairId,
+      pairHash,
+      orderSide,
+      referralId,
+      preimageHash,
+      claimAddress,
+      claimPublicKey,
+      userLockAmount,
+      refundPublicKey,
+      serverLockAmount,
+    });
+
+    await markSwap(this.countryCodes, req.ip, response.id);
+
+    this.logger.verbose(`Created Chain Swap with id: ${response.id}`);
+    this.logger.silly(`Chain swap ${response.id}: ${stringify(response)}`);
+
+    createdResponse(res, response);
   };
 
   private getSwapStatus = (req: Request, res: Response) => {

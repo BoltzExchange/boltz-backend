@@ -2,6 +2,7 @@ import { concatErrorCode } from '../Utils';
 import { ErrorCodePrefix } from '../consts/Enums';
 import { Error } from '../consts/Types';
 
+
 export default {
   CURRENCY_NOT_FOUND: (currency: string): Error => ({
     message: `could not find currency: ${currency}`,
@@ -168,5 +169,9 @@ export default {
   SET_SWAP_UPDATE_EVENT_NOT_ALLOWED: (event: string): Error => ({
     message: `setting swap update event ${event} is not allowed`,
     code: concatErrorCode(ErrorCodePrefix.Service, 43),
+  }),
+  USER_AND_SERVER_AMOUNT_SPECIFIED: (): Error => ({
+    message: 'user and server lock amount were specified',
+    code: concatErrorCode(ErrorCodePrefix.Service, 44),
   }),
 };

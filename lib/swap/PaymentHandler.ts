@@ -9,7 +9,12 @@ import {
   getTsString,
   splitPairId,
 } from '../Utils';
-import { ChannelCreationStatus, SwapUpdateEvent } from '../consts/Enums';
+import {
+  ChannelCreationStatus,
+  SwapType,
+  SwapUpdateEvent,
+} from '../consts/Enums';
+import ChainSwap from '../db/models/ChainSwap';
 import ChannelCreation from '../db/models/ChannelCreation';
 import ReverseSwap from '../db/models/ReverseSwap';
 import Swap from '../db/models/Swap';
@@ -28,7 +33,7 @@ import NodeSwitch from './NodeSwitch';
 type SwapNurseryEvents = {
   // UTXO based chains emit the "Transaction" object and Ethereum based ones just the transaction hash
   transaction: {
-    swap: Swap | ReverseSwap;
+    swap: Swap | ReverseSwap | ChainSwap;
     transaction: Transaction | LiquidTransaction | string;
     confirmed: boolean;
     isReverse: boolean;
@@ -39,13 +44,17 @@ type SwapNurseryEvents = {
   };
 
   // Swap related events
-  'lockup.failed': Swap;
-  'zeroconf.rejected': Swap;
+  'lockup.failed': Swap | ChainSwap;
+  'zeroconf.rejected': Swap | ChainSwap;
   'invoice.pending': Swap;
   'invoice.failedToPay': Swap;
   'invoice.paid': Swap;
   'claim.pending': Swap;
-  claim: { swap: Swap; channelCreation?: ChannelCreation };
+  claim: {
+    type: SwapType;
+    swap: Swap | ChainSwap;
+    channelCreation?: ChannelCreation;
+  };
 
   // Reverse swap related events
   'minerfee.paid': ReverseSwap;
@@ -53,10 +62,10 @@ type SwapNurseryEvents = {
 
   // UTXO based chains emit the "Transaction" object and Ethereum based ones just the transaction hash
   'coins.sent': {
-    reverseSwap: ReverseSwap;
+    swap: ReverseSwap | ChainSwap;
     transaction: Transaction | LiquidTransaction | string;
   };
-  'coins.failedToSend': ReverseSwap;
+  'coins.failedToSend': { swap: ReverseSwap | ChainSwap; type: SwapType };
   refund: {
     reverseSwap: ReverseSwap;
     refundTransaction: string;

@@ -2,11 +2,13 @@ import {
   getChainCurrency,
   getLightningCurrency,
   getPairId,
+  getReceivingChain,
+  getSendingChain,
   hashString,
   mapToObject,
   splitPairId,
 } from '../../Utils';
-import { OrderSide, SwapVersion } from '../../consts/Enums';
+import { OrderSide, SwapType, SwapVersion } from '../../consts/Enums';
 import { PairConfig } from '../../consts/Types';
 import Errors from '../../service/Errors';
 import NodeSwitch from '../../swap/NodeSwitch';
@@ -24,10 +26,12 @@ type PairTypeTaproot = {
   rate: number;
 };
 
+type PairLimitWithZeroConf = PairLimits & {
+  maximalZeroConf: number;
+};
+
 type SubmarinePairTypeTaproot = PairTypeTaproot & {
-  limits: PairLimits & {
-    maximalZeroConf: number;
-  };
+  limits: PairLimitWithZeroConf;
   fees: {
     percentage: number;
     minerFees: number;
@@ -42,7 +46,21 @@ type ReversePairTypeTaproot = PairTypeTaproot & {
   };
 };
 
-type SwapTypes = SubmarinePairTypeTaproot | ReversePairTypeTaproot;
+type ChainPairTypeTaproot = PairTypeTaproot & {
+  limits: PairLimitWithZeroConf;
+  fees: {
+    percentage: number;
+    minerFees: {
+      server: number;
+      user: ReverseMinerFees;
+    };
+  };
+};
+
+type SwapTypes =
+  | SubmarinePairTypeTaproot
+  | ReversePairTypeTaproot
+  | ChainPairTypeTaproot;
 
 class RateProviderTaproot extends RateProviderBase<SwapTypes> {
   public readonly submarinePairs = new Map<
@@ -53,6 +71,11 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
   public readonly reversePairs = new Map<
     string,
     Map<string, ReversePairTypeTaproot>
+  >();
+
+  public readonly chainPairs = new Map<
+    string,
+    Map<string, ChainPairTypeTaproot>
   >();
 
   constructor(
@@ -85,12 +108,36 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
     for (const orderSide of [OrderSide.BUY, OrderSide.SELL]) {
       const rate = orderSide === OrderSide.BUY ? pair.rate! : 1 / pair.rate!;
 
-      this.setPair<SubmarinePairTypeTaproot>(id, orderSide, false, rate, 0);
-
-      this.setPair<ReversePairTypeTaproot>(id, orderSide, true, pair.rate!, {
-        claim: 0,
-        lockup: 0,
-      });
+      this.setPair<SubmarinePairTypeTaproot>(
+        id,
+        orderSide,
+        SwapType.Submarine,
+        rate,
+        0,
+      );
+      this.setPair<ReversePairTypeTaproot>(
+        id,
+        orderSide,
+        SwapType.ReverseSubmarine,
+        pair.rate!,
+        {
+          claim: 0,
+          lockup: 0,
+        },
+      );
+      this.setPair<ChainPairTypeTaproot>(
+        id,
+        orderSide,
+        SwapType.Chain,
+        pair.rate!,
+        {
+          server: 0,
+          user: {
+            claim: 0,
+            lockup: 0,
+          },
+        },
+      );
     }
   };
 
@@ -98,15 +145,40 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
     for (const orderSide of [OrderSide.BUY, OrderSide.SELL]) {
       const rate = orderSide === OrderSide.BUY ? rawRate : 1 / rawRate;
 
-      this.setPair<SubmarinePairTypeTaproot>(pairId, orderSide, false, rate);
-      this.setPair<ReversePairTypeTaproot>(pairId, orderSide, true, rate);
+      this.setPair<SubmarinePairTypeTaproot>(
+        pairId,
+        orderSide,
+        SwapType.Submarine,
+        rate,
+      );
+      this.setPair<ReversePairTypeTaproot>(
+        pairId,
+        orderSide,
+        SwapType.ReverseSubmarine,
+        rate,
+      );
+      this.setPair<ChainPairTypeTaproot>(
+        pairId,
+        orderSide,
+        SwapType.Chain,
+        rate,
+      );
     }
   };
 
   public updateHardcodedPair = (pairId: string) => {
     for (const orderSide of [OrderSide.BUY, OrderSide.SELL]) {
-      this.setPair<SubmarinePairTypeTaproot>(pairId, orderSide, false);
-      this.setPair<ReversePairTypeTaproot>(pairId, orderSide, true);
+      this.setPair<SubmarinePairTypeTaproot>(
+        pairId,
+        orderSide,
+        SwapType.Submarine,
+      );
+      this.setPair<ReversePairTypeTaproot>(
+        pairId,
+        orderSide,
+        SwapType.ReverseSubmarine,
+      );
+      this.setPair<ChainPairTypeTaproot>(pairId, orderSide, SwapType.Chain);
     }
   };
 
@@ -114,9 +186,9 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
     hash: string,
     pairId: string,
     orderSide: OrderSide,
-    isReverse: boolean,
+    type: SwapType,
   ) => {
-    const nested = this.getToMap(pairId, orderSide, isReverse);
+    const nested = this.getToMap(pairId, orderSide, type);
     if (nested === undefined) {
       throw Errors.PAIR_NOT_FOUND(pairId);
     }
@@ -134,33 +206,45 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
   private getToMap = <T = SwapTypes>(
     pairId: string,
     orderSide: OrderSide,
-    isReverse: boolean,
+    type: SwapType,
     create: boolean = false,
   ):
     | { toMap: Map<string, T>; fromAsset: string; toAsset: string }
     | undefined => {
     const { base, quote } = splitPairId(pairId);
-    const fromAsset = isReverse
-      ? getLightningCurrency(base, quote, orderSide, true)
-      : getChainCurrency(base, quote, orderSide, false);
 
-    const toAsset = isReverse
-      ? getChainCurrency(base, quote, orderSide, true)
-      : getLightningCurrency(base, quote, orderSide, false);
+    let baseMap: Map<string, Map<string, T>>;
+    let fromAsset: string;
+    let toAsset: string;
 
-    const toMap = (isReverse ? this.reversePairs : this.submarinePairs).get(
-      fromAsset,
-    );
+    switch (type) {
+      case SwapType.Submarine:
+        baseMap = this.submarinePairs as Map<string, Map<string, T>>;
+        fromAsset = getChainCurrency(base, quote, orderSide, false);
+        toAsset = getLightningCurrency(base, quote, orderSide, false);
+        break;
+
+      case SwapType.ReverseSubmarine:
+        baseMap = this.reversePairs as Map<string, Map<string, T>>;
+        fromAsset = getLightningCurrency(base, quote, orderSide, true);
+        toAsset = getChainCurrency(base, quote, orderSide, true);
+        break;
+
+      case SwapType.Chain:
+        baseMap = this.chainPairs as Map<string, Map<string, T>>;
+        fromAsset = getSendingChain(base, quote, orderSide);
+        toAsset = getReceivingChain(base, quote, orderSide);
+        break;
+    }
+
+    const toMap = baseMap.get(fromAsset);
     if (toMap === undefined) {
       if (!create) {
         return undefined;
       }
 
-      const newMap = new Map<string, any>();
-      (isReverse ? this.reversePairs : this.submarinePairs).set(
-        fromAsset,
-        newMap,
-      );
+      const newMap = new Map<string, T>();
+      baseMap.set(fromAsset, newMap);
 
       return {
         toAsset,
@@ -185,20 +269,16 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
       }),
     );
 
-  private setPair = <
-    T extends SubmarinePairTypeTaproot | ReversePairTypeTaproot,
-  >(
+  private setPair = <T extends SwapTypes>(
     pairId: string,
     orderSide: OrderSide,
-    isReverse: boolean,
+    type: SwapType,
     rate?: number,
     minerFees?: T['fees']['minerFees'],
   ) => {
-    const nested = this.getToMap<T>(pairId, orderSide, isReverse, true)!;
+    const nested = this.getToMap<T>(pairId, orderSide, type, true)!;
 
-    if (
-      !this.isPossibleCombination(isReverse, nested.fromAsset, nested.toAsset)
-    ) {
+    if (!this.isPossibleCombination(type, nested.fromAsset, nested.toAsset)) {
       return;
     }
 
@@ -211,10 +291,30 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
 
     if (minerFees === undefined) {
       const { base, quote } = splitPairId(pairId);
-      const minerFeesObj = this.feeProvider.minerFees.get(
-        getChainCurrency(base, quote, orderSide, isReverse),
-      )![SwapVersion.Taproot];
-      minerFees = isReverse ? minerFeesObj.reverse : minerFeesObj.normal;
+
+      if (type === SwapType.Chain) {
+        const sendingMinerfees = this.feeProvider.minerFees.get(
+          getSendingChain(base, quote, orderSide),
+        )![SwapVersion.Taproot].reverse;
+        const receivingMinerFees = this.feeProvider.minerFees.get(
+          getReceivingChain(base, quote, orderSide),
+        )![SwapVersion.Taproot].reverse;
+
+        minerFees = {
+          server: sendingMinerfees.lockup + receivingMinerFees.claim,
+          user: {
+            claim: sendingMinerfees.claim,
+            lockup: receivingMinerFees.lockup,
+          },
+        } as ChainPairTypeTaproot['fees']['minerFees'];
+      } else {
+        const isReverse = type === SwapType.ReverseSubmarine;
+
+        const minerFeesObj = this.feeProvider.minerFees.get(
+          getChainCurrency(base, quote, orderSide, isReverse),
+        )![SwapVersion.Taproot];
+        minerFees = isReverse ? minerFeesObj.reverse : minerFeesObj.normal;
+      }
     }
 
     const percentageFees = this.feeProvider.getPercentageFees(pairId);
@@ -222,11 +322,13 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
     const pair: T = {
       hash: '',
       rate: rate,
-      limits: this.getLimits(pairId, orderSide, isReverse, rate) as T['limits'],
+      limits: this.getLimits(pairId, orderSide, type, rate) as T['limits'],
       fees: {
-        percentage: isReverse
-          ? percentageFees.percentage
-          : percentageFees.percentageSwapIn,
+        // TODO: separate onchain fee for chain swaps
+        percentage:
+          type === SwapType.Submarine
+            ? percentageFees.percentageSwapIn
+            : percentageFees.percentage,
         minerFees,
       },
     } as T;
@@ -238,7 +340,7 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
   private getLimits = (
     pair: string,
     orderSide: OrderSide,
-    isReverse: boolean,
+    type: SwapType,
     rate: number,
   ): SwapTypes['limits'] => {
     const config = this.pairConfigs.get(pair);
@@ -256,11 +358,11 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
         rate,
         config.minSwapAmount,
         orderSide,
-        isReverse,
+        type,
       ),
     };
 
-    if (isReverse) {
+    if (type === SwapType.ReverseSubmarine) {
       return result;
     }
 
@@ -273,15 +375,20 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
   };
 
   private isPossibleCombination = (
-    isReverse: boolean,
+    type: SwapType,
     fromAsset: string,
     toAsset: string,
   ) => {
-    if (isReverse) {
-      return this.canLightning(fromAsset) && this.canOnchain(toAsset);
-    }
+    switch (type) {
+      case SwapType.Submarine:
+        return this.canOnchain(fromAsset) && this.canLightning(toAsset);
 
-    return this.canOnchain(fromAsset) && this.canLightning(toAsset);
+      case SwapType.ReverseSubmarine:
+        return this.canLightning(fromAsset) && this.canOnchain(toAsset);
+
+      case SwapType.Chain:
+        return this.canOnchain(fromAsset) && this.canOnchain(toAsset);
+    }
   };
 
   private canLightning = (currency: string) => {

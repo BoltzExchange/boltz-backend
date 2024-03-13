@@ -1,9 +1,10 @@
 import { OutputType, SwapTreeSerializer } from 'boltz-core';
-import { Provider, getAddress } from 'ethers';
+import { Provider } from 'ethers';
 import { ConfigType } from '../Config';
 import { parseTransaction } from '../Core';
 import Logger from '../Logger';
 import {
+  checkEvmAddress,
   createApiCredential,
   decodeInvoice,
   decodeInvoiceAmount,
@@ -37,10 +38,12 @@ import {
   ServiceInfo,
   ServiceWarning,
   SwapUpdateEvent,
+  SwapType,
   SwapVersion,
 } from '../consts/Enums';
 import { PairConfig } from '../consts/Types';
 import Swap from '../db/models/Swap';
+import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import PairRepository from '../db/repositories/PairRepository';
 import ReferralRepository from '../db/repositories/ReferralRepository';
@@ -930,13 +933,7 @@ class Service {
 
     blindingKey?: string;
   }> => {
-    const swap = await SwapRepository.getSwap({
-      preimageHash: getHexString(args.preimageHash),
-    });
-
-    if (swap) {
-      throw Errors.SWAP_WITH_PREIMAGE_EXISTS();
-    }
+    await this.checkSwapWithPreimageExists(args.preimageHash);
 
     const { base, quote } = this.getPair(args.pairId);
     const orderSide = this.getOrderSide(args.orderSide);
@@ -1173,7 +1170,7 @@ class Service {
         pairHash,
         swap.pair,
         swap.orderSide,
-        false,
+        SwapType.Submarine,
       );
     }
 
@@ -1269,7 +1266,7 @@ class Service {
         chainCurrency,
         swap.lockupAddress,
         expectedAmount,
-        getSwapMemo(lightningCurrency, false),
+        getSwapMemo(lightningCurrency, SwapType.Submarine),
       )!,
     };
   };
@@ -1439,13 +1436,7 @@ class Service {
       throw Errors.REVERSE_SWAPS_DISABLED();
     }
 
-    if (
-      (await ReverseSwapRepository.getReverseSwap({
-        preimageHash: getHexString(args.preimageHash),
-      })) !== null
-    ) {
-      throw Errors.SWAP_WITH_PREIMAGE_EXISTS();
-    }
+    await this.checkSwapWithPreimageExists(args.preimageHash);
 
     const side = this.getOrderSide(args.orderSide);
     const { base, quote, rate: pairRate } = this.getPair(args.pairId);
@@ -1455,7 +1446,7 @@ class Service {
         args.pairHash,
         args.pairId,
         side,
-        true,
+        SwapType.ReverseSubmarine,
       );
     }
 
@@ -1469,6 +1460,7 @@ class Service {
     // Not the pretties way and also not the right spot to do input validation but
     // only at this point in time the type of the sending currency is known
     switch (sendingCurrency.type) {
+      case CurrencyType.Liquid:
       case CurrencyType.BitcoinLike:
         if (args.claimPublicKey === undefined) {
           throw ApiErrors.UNDEFINED_PARAMETER('claimPublicKey');
@@ -1485,12 +1477,7 @@ class Service {
           throw ApiErrors.UNDEFINED_PARAMETER('claimAddress');
         }
 
-        try {
-          // Get a checksum address and verify that the address is valid
-          args.claimAddress = getAddress(args.claimAddress);
-        } catch (error) {
-          throw Errors.INVALID_ETHEREUM_ADDRESS();
-        }
+        args.claimAddress = checkEvmAddress(args.claimAddress);
 
         break;
     }
@@ -1623,11 +1610,6 @@ class Service {
       throw Errors.ONCHAIN_AMOUNT_TOO_LOW();
     }
 
-    const referralId = await this.getReferralId(
-      args.referralId,
-      args.routingNode,
-    );
-
     const {
       id,
       invoice,
@@ -1640,7 +1622,6 @@ class Service {
       minerFeeInvoice,
       timeoutBlockHeight,
     } = await this.swapManager.createReverseSwap({
-      referralId,
       percentageFee,
       onchainAmount,
       holdInvoiceAmount,
@@ -1660,6 +1641,7 @@ class Service {
       claimPublicKey: args.claimPublicKey,
       claimCovenant: args.claimCovenant || false,
       userAddressSignature: args.userAddressSignature,
+      referralId: await this.getReferralId(args.referralId, args.routingNode),
     });
 
     this.eventHandler.emitSwapCreation(id);
@@ -1686,6 +1668,172 @@ class Service {
     }
 
     return response;
+  };
+
+  public createChainSwap = async (args: {
+    pairId: string;
+    orderSide: string;
+
+    pairHash?: string;
+    referralId?: string;
+
+    preimageHash: Buffer;
+
+    claimPublicKey?: Buffer;
+    refundPublicKey?: Buffer;
+
+    claimAddress?: string;
+
+    userLockAmount?: number;
+    serverLockAmount?: number;
+  }) => {
+    await this.checkSwapWithPreimageExists(args.preimageHash);
+
+    const side = this.getOrderSide(args.orderSide);
+    const { base, quote, rate: pairRate } = this.getPair(args.pairId);
+
+    if (args.pairHash !== undefined) {
+      this.rateProvider.providers[SwapVersion.Taproot].validatePairHash(
+        args.pairHash,
+        args.pairId,
+        side,
+        SwapType.Chain,
+      );
+    }
+
+    const { sending, receiving } = getSendingReceivingCurrency(
+      base,
+      quote,
+      side,
+    );
+    const [sendingCurrency, receivingCurrency] = [
+      this.getCurrency(sending),
+      this.getCurrency(receiving),
+    ];
+
+    switch (sendingCurrency.type) {
+      case CurrencyType.Liquid:
+      case CurrencyType.BitcoinLike:
+        if (args.claimPublicKey === undefined) {
+          throw ApiErrors.UNDEFINED_PARAMETER('claimPublicKey');
+        }
+
+        break;
+
+      case CurrencyType.Ether:
+      case CurrencyType.ERC20:
+        if (args.claimAddress === undefined) {
+          throw ApiErrors.UNDEFINED_PARAMETER('claimAddress');
+        }
+
+        args.claimAddress = checkEvmAddress(args.claimAddress);
+
+        break;
+    }
+
+    if (
+      receivingCurrency.type === CurrencyType.Liquid ||
+      receivingCurrency.type === CurrencyType.BitcoinLike
+    ) {
+      if (args.refundPublicKey === undefined) {
+        throw ApiErrors.UNDEFINED_PARAMETER('refundPublicKey');
+      }
+    }
+
+    const sendingTimeoutBlockDelta = (
+      await this.timeoutDeltaProvider.getTimeout(
+        args.pairId,
+        side,
+        true,
+        SwapVersion.Taproot,
+      )
+    )[0];
+    const receivingTimeoutBlockDelta = TimeoutDeltaProvider.convertBlocks(
+      sending,
+      receiving,
+      sendingTimeoutBlockDelta * 1.25,
+    );
+
+    const rate = getRate(pairRate, side, true);
+    // TODO: separate configurable percentage fee for chain swaps
+    const feePercent = this.rateProvider.feeProvider.getPercentageFee(
+      args.pairId,
+      true,
+    );
+    // TODO: base fee calculator in fee provider
+    const baseFee = this.rateProvider.feeProvider.getBaseFee(
+      sendingCurrency.symbol,
+      SwapVersion.Taproot,
+      BaseFeeType.ReverseLockup,
+    );
+
+    let percentageFee: number;
+
+    if (
+      args.userLockAmount !== undefined &&
+      args.serverLockAmount !== undefined
+    ) {
+      throw Errors.USER_AND_SERVER_AMOUNT_SPECIFIED();
+    } else if (args.userLockAmount !== undefined) {
+      this.checkWholeNumber(args.userLockAmount);
+
+      args.serverLockAmount = args.userLockAmount * rate;
+
+      percentageFee = Math.ceil(feePercent * args.serverLockAmount);
+
+      args.serverLockAmount -= percentageFee + baseFee;
+      args.serverLockAmount = Math.floor(args.serverLockAmount);
+    } else if (args.serverLockAmount !== undefined) {
+      this.checkWholeNumber(args.serverLockAmount);
+
+      args.userLockAmount = (args.serverLockAmount + baseFee) / rate;
+      args.userLockAmount = args.userLockAmount / (1 - feePercent);
+      args.userLockAmount = Math.ceil(args.userLockAmount);
+
+      percentageFee = Math.ceil(args.userLockAmount * rate * feePercent);
+    } else {
+      throw Errors.NO_AMOUNT_SPECIFIED();
+    }
+
+    this.verifyAmount(args.pairId, rate, args.userLockAmount, side, true);
+    if (args.serverLockAmount < 1) {
+      throw Errors.ONCHAIN_AMOUNT_TOO_LOW();
+    }
+
+    const res = await this.swapManager.createChainSwap({
+      percentageFee,
+      sendingTimeoutBlockDelta,
+      receivingTimeoutBlockDelta,
+      orderSide: side,
+      baseCurrency: base,
+      quoteCurrency: quote,
+      claimAddress: args.claimAddress,
+      preimageHash: args.preimageHash,
+      userLockAmount: args.userLockAmount,
+      claimPublicKey: args.claimPublicKey,
+      refundPublicKey: args.refundPublicKey,
+      serverLockAmount: args.serverLockAmount,
+      referralId: await this.getReferralId(args.referralId),
+      acceptZeroConf: this.rateProvider.acceptZeroConf(
+        receivingCurrency.symbol,
+        args.userLockAmount,
+      ),
+    });
+
+    this.eventHandler.emitSwapCreation(res.id);
+    return {
+      id: res.id,
+      serverDetails: res.serverDetails,
+      userDetails: {
+        ...res.userDetails,
+        bip21: this.paymentRequestUtils.encodeBip21(
+          receivingCurrency.symbol,
+          res.userDetails.lockupAddress,
+          res.userDetails.amount,
+          getSwapMemo(sendingCurrency.symbol, SwapType.Chain),
+        ),
+      },
+    };
   };
 
   /**
@@ -1788,6 +1936,26 @@ class Service {
         throw Errors.BENEATH_MINIMAL_AMOUNT(amount, limits.minimal);
     } else {
       throw Errors.PAIR_NOT_FOUND(pairId);
+    }
+  };
+
+  private checkSwapWithPreimageExists = async (preimageHash: Buffer) => {
+    const hashHex = getHexString(preimageHash);
+
+    const swaps = await Promise.all([
+      SwapRepository.getSwap({
+        preimageHash: hashHex,
+      }),
+      ReverseSwapRepository.getReverseSwap({
+        preimageHash: hashHex,
+      }),
+      ChainSwapRepository.getChainSwap({
+        preimageHash: hashHex,
+      }),
+    ]);
+
+    if (swaps.some((s) => s !== null)) {
+      throw Errors.SWAP_WITH_PREIMAGE_EXISTS();
     }
   };
 

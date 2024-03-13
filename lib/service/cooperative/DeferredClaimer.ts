@@ -23,7 +23,7 @@ import {
   splitPairId,
 } from '../../Utils';
 import ChainClient from '../../chain/ChainClient';
-import { SwapUpdateEvent, SwapVersion } from '../../consts/Enums';
+import { SwapType, SwapUpdateEvent, SwapVersion } from '../../consts/Enums';
 import TypedEventEmitter from '../../consts/TypedEventEmitter';
 import ChannelCreation from '../../db/models/ChannelCreation';
 import Swap from '../../db/models/Swap';
@@ -369,6 +369,7 @@ class DeferredClaimer extends TypedEventEmitter<{
     return constructClaimDetails(
       this.swapOutputType,
       wallet,
+      SwapType.Submarine,
       swap,
       tx,
       preimage,

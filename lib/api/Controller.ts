@@ -9,7 +9,12 @@ import {
   splitPairId,
   stringify,
 } from '../Utils';
-import { SwapType, SwapUpdateEvent, SwapVersion } from '../consts/Enums';
+import {
+  SwapType,
+  SwapUpdateEvent,
+  SwapVersion,
+  swapTypeToString,
+} from '../consts/Enums';
 import ReferralStats from '../data/ReferralStats';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
@@ -385,6 +390,9 @@ class Controller {
         case SwapType.ReverseSubmarine:
           await this.createReverseSubmarineSwap(req, res);
           break;
+
+        default:
+          errorResponse(this.logger, req, res, 'invalid swap type');
       }
     } catch (error) {
       errorResponse(this.logger, req, res, error);
@@ -583,9 +591,9 @@ class Controller {
   private parseSwapType = (type: string) => {
     const lowerCaseType = type.toLowerCase();
 
-    for (const swapType in SwapType) {
-      if (lowerCaseType === SwapType[swapType]) {
-        return lowerCaseType as SwapType;
+    for (const swapType of Object.keys(SwapType).filter((v: any) => isNaN(v))) {
+      if (lowerCaseType === swapTypeToString(SwapType[swapType])) {
+        return SwapType[swapType];
       }
     }
 

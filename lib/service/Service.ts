@@ -66,6 +66,7 @@ import {
   GetInfoResponse,
   LightningInfo,
 } from '../proto/boltzrpc_pb';
+import { ChainSwapMinerFees } from '../rates/FeeProvider';
 import RateProvider from '../rates/RateProvider';
 import { PairTypeLegacy } from '../rates/providers/RateProviderLegacy';
 import ErrorsSwap from '../swap/Errors';
@@ -1075,7 +1076,7 @@ class Service {
 
     const percentageFee = this.rateProvider.feeProvider.getPercentageFee(
       swap.pair,
-      false,
+      SwapType.Submarine,
     );
     const baseFee = this.rateProvider.feeProvider.getBaseFee(
       onchainCurrency,
@@ -1212,6 +1213,7 @@ class Service {
       rate,
       swap.orderSide,
       swap.invoiceAmount,
+      SwapType.Submarine,
       BaseFeeType.NormalClaim,
     );
 
@@ -1224,7 +1226,10 @@ class Service {
         rate,
         swap.onchainAmount,
         baseFee,
-        this.rateProvider.feeProvider.getPercentageFee(swap.pair, false),
+        this.rateProvider.feeProvider.getPercentageFee(
+          swap.pair,
+          SwapType.Submarine,
+        ),
       );
 
       throw Errors.INVALID_INVOICE_AMOUNT(maxInvoiceAmount);
@@ -1503,7 +1508,7 @@ class Service {
     const rate = getRate(pairRate, side, true);
     const feePercent = this.rateProvider.feeProvider.getPercentageFee(
       args.pairId,
-      true,
+      SwapType.ReverseSubmarine,
     );
     const baseFee = this.rateProvider.feeProvider.getBaseFee(
       sendingCurrency.symbol,
@@ -1755,17 +1760,17 @@ class Service {
     );
 
     const rate = getRate(pairRate, side, true);
-    // TODO: separate configurable percentage fee for chain swaps
     const feePercent = this.rateProvider.feeProvider.getPercentageFee(
       args.pairId,
-      true,
+      SwapType.Chain,
     );
-    // TODO: base fee calculator in fee provider
-    const baseFee = this.rateProvider.feeProvider.getBaseFee(
-      sendingCurrency.symbol,
-      SwapVersion.Taproot,
-      BaseFeeType.ReverseLockup,
-    );
+    const baseFee =
+      this.rateProvider.feeProvider.getSwapBaseFees<ChainSwapMinerFees>(
+        args.pairId,
+        side,
+        SwapType.Chain,
+        SwapVersion.Taproot,
+      ).server;
 
     let percentageFee: number;
 

@@ -1,12 +1,22 @@
 import Logger from '../Logger';
-import { getChainCurrency, getPairId, splitPairId, stringify } from '../Utils';
+import {
+  getChainCurrency,
+  getPairId,
+  getReceivingChain,
+  getSendingChain,
+  mapToObject,
+  splitPairId,
+  stringify,
+} from '../Utils';
 import ElementsClient from '../chain/ElementsClient';
 import { etherDecimals, gweiDecimals } from '../consts/Consts';
 import {
   BaseFeeType,
   CurrencyType,
   OrderSide,
+  SwapType,
   SwapVersion,
+  swapTypeToString,
 } from '../consts/Enums';
 import { PairConfig } from '../consts/Types';
 import WalletManager from '../wallet/WalletManager';
@@ -26,8 +36,9 @@ type TransactionSizes = {
 };
 
 type PercentageFees = {
-  percentage: number;
-  percentageSwapIn: number;
+  [SwapType.Chain]: number;
+  [SwapType.Submarine]: number;
+  [SwapType.ReverseSubmarine]: number;
 };
 
 type ReverseMinerFees = {
@@ -40,18 +51,17 @@ type MinerFeesForVersion = {
   reverse: ReverseMinerFees;
 };
 
+type ChainSwapMinerFees = {
+  server: number;
+  user: ReverseMinerFees;
+};
+
 type MinerFees = {
   [SwapVersion.Legacy]: MinerFeesForVersion;
   [SwapVersion.Taproot]: MinerFeesForVersion;
 };
 
 class FeeProvider {
-  // A map between the symbols of the pairs and their percentage fees
-  public percentageFees = new Map<string, number>();
-  public percentageSwapInFees = new Map<string, number>();
-
-  public minerFees = new Map<string, MinerFees>();
-
   public static transactionSizes: {
     [CurrencyType.BitcoinLike]: TransactionSizes;
     [CurrencyType.Liquid]: TransactionSizes;
@@ -106,6 +116,11 @@ class FeeProvider {
 
   private static readonly defaultFee = 1;
 
+  // A map between the symbols of the pairs and their percentage fees
+  public percentageFees = new Map<string, PercentageFees>();
+
+  public minerFees = new Map<string, MinerFees>();
+
   constructor(
     private logger: Logger,
     private walletManager: WalletManager,
@@ -114,8 +129,6 @@ class FeeProvider {
   ) {}
 
   public init = (pairs: PairConfig[]): void => {
-    const feesToPrint = {};
-
     pairs.forEach((pair) => {
       const pairId = getPairId(pair);
 
@@ -129,37 +142,46 @@ class FeeProvider {
         );
       }
 
-      this.percentageFees.set(pairId, percentage / 100);
-
-      if (pair.swapInFee) {
-        this.percentageSwapInFees.set(pairId, pair.swapInFee / 100);
-      }
-
-      feesToPrint[pairId] = this.getPercentageFees(pairId);
+      this.percentageFees.set(pairId, {
+        [SwapType.ReverseSubmarine]: percentage,
+        [SwapType.Chain]: pair.chainSwapFee || percentage,
+        [SwapType.Submarine]: pair.swapInFee || percentage,
+      });
     });
 
     this.logger.debug(
-      `Prepared data for fee estimations: ${stringify(feesToPrint)}`,
+      `Using fees: ${stringify(
+        mapToObject(
+          new Map<string, any>(
+            Array.from(this.percentageFees.entries()).map(([pair, fees]) => [
+              pair,
+              {
+                [swapTypeToString(SwapType.Chain)]: fees[SwapType.Chain],
+                [swapTypeToString(SwapType.Submarine)]:
+                  fees[SwapType.Submarine],
+                [swapTypeToString(SwapType.ReverseSubmarine)]:
+                  fees[SwapType.ReverseSubmarine],
+              },
+            ]),
+          ),
+        ),
+      )}`,
     );
   };
 
   public getPercentageFees = (pairId: string): PercentageFees => {
-    const percentage = this.percentageFees.get(pairId)!;
-    const percentageSwapIn =
-      this.percentageSwapInFees.get(pairId) || percentage;
+    const percentages = this.percentageFees.get(pairId)!;
 
     return {
-      percentage: percentage * 100,
-      percentageSwapIn: percentageSwapIn * 100,
+      [SwapType.Chain]: percentages[SwapType.Chain] * 100,
+      [SwapType.Submarine]: percentages[SwapType.Submarine] * 100,
+      [SwapType.ReverseSubmarine]: percentages[SwapType.ReverseSubmarine] * 100,
     };
   };
 
-  public getPercentageFee = (pair: string, isReverse: boolean): number => {
-    if (!isReverse && this.percentageSwapInFees.has(pair)) {
-      return this.percentageSwapInFees.get(pair)!;
-    }
-
-    return this.percentageFees.get(pair) || 0;
+  public getPercentageFee = (pair: string, type: SwapType): number => {
+    const percentages = this.percentageFees.get(pair);
+    return percentages ? percentages[type] : 0;
   };
 
   public getFees = (
@@ -168,25 +190,29 @@ class FeeProvider {
     rate: number,
     orderSide: OrderSide,
     amount: number,
-    type: BaseFeeType,
+    type: SwapType,
+    feeType: BaseFeeType,
   ): {
     baseFee: number;
     percentageFee: number;
   } => {
-    const isReverse = type !== BaseFeeType.NormalClaim;
-
-    let percentageFee = this.getPercentageFee(pair, isReverse);
+    let percentageFee = this.getPercentageFee(pair, type);
 
     if (percentageFee !== 0) {
       percentageFee = percentageFee * amount * rate;
     }
 
     const { base, quote } = splitPairId(pair);
-    const chainCurrency = getChainCurrency(base, quote, orderSide, isReverse);
+    const chainCurrency = getChainCurrency(
+      base,
+      quote,
+      orderSide,
+      type === SwapType.ReverseSubmarine,
+    );
 
     return {
       percentageFee: Math.ceil(percentageFee),
-      baseFee: this.getBaseFee(chainCurrency, swapVersion, type),
+      baseFee: this.getBaseFee(chainCurrency, swapVersion, feeType),
     };
   };
 
@@ -206,6 +232,41 @@ class FeeProvider {
 
       case BaseFeeType.ReverseLockup:
         return minerFees.reverse.lockup;
+    }
+  };
+
+  public getSwapBaseFees = <
+    T extends number | ReverseMinerFees | ChainSwapMinerFees,
+  >(
+    pairId: string,
+    orderSide: OrderSide,
+    type: SwapType,
+    version: SwapVersion,
+  ): T => {
+    const { base, quote } = splitPairId(pairId);
+
+    if (type === SwapType.Chain) {
+      const sendingMinerfees = this.minerFees.get(
+        getSendingChain(base, quote, orderSide),
+      )![SwapVersion.Taproot].reverse;
+      const receivingMinerFees = this.minerFees.get(
+        getReceivingChain(base, quote, orderSide),
+      )![SwapVersion.Taproot].reverse;
+
+      return {
+        server: sendingMinerfees.lockup + receivingMinerFees.claim,
+        user: {
+          claim: sendingMinerfees.claim,
+          lockup: receivingMinerFees.lockup,
+        },
+      } as ChainSwapMinerFees as T;
+    } else {
+      const isReverse = type === SwapType.ReverseSubmarine;
+
+      const minerFeesObj = this.minerFees.get(
+        getChainCurrency(base, quote, orderSide, isReverse),
+      )![version];
+      return (isReverse ? minerFeesObj.reverse : minerFeesObj.normal) as T;
     }
   };
 
@@ -332,4 +393,10 @@ class FeeProvider {
 }
 
 export default FeeProvider;
-export { ReverseMinerFees, MinerFees, PercentageFees, MinerFeesForVersion };
+export {
+  MinerFees,
+  PercentageFees,
+  ReverseMinerFees,
+  ChainSwapMinerFees,
+  MinerFeesForVersion,
+};

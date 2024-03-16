@@ -13,7 +13,10 @@ import { PairConfig } from '../../consts/Types';
 import Errors from '../../service/Errors';
 import NodeSwitch from '../../swap/NodeSwitch';
 import { Currency } from '../../wallet/WalletManager';
-import FeeProvider, { ReverseMinerFees } from '../FeeProvider';
+import FeeProvider, {
+  ChainSwapMinerFees,
+  ReverseMinerFees,
+} from '../FeeProvider';
 import RateProviderBase from './RateProviderBase';
 
 type PairLimits = {
@@ -50,10 +53,7 @@ type ChainPairTypeTaproot = PairTypeTaproot & {
   limits: PairLimitWithZeroConf;
   fees: {
     percentage: number;
-    minerFees: {
-      server: number;
-      user: ReverseMinerFees;
-    };
+    minerFees: ChainSwapMinerFees;
   };
 };
 
@@ -290,45 +290,20 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
     }
 
     if (minerFees === undefined) {
-      const { base, quote } = splitPairId(pairId);
-
-      if (type === SwapType.Chain) {
-        const sendingMinerfees = this.feeProvider.minerFees.get(
-          getSendingChain(base, quote, orderSide),
-        )![SwapVersion.Taproot].reverse;
-        const receivingMinerFees = this.feeProvider.minerFees.get(
-          getReceivingChain(base, quote, orderSide),
-        )![SwapVersion.Taproot].reverse;
-
-        minerFees = {
-          server: sendingMinerfees.lockup + receivingMinerFees.claim,
-          user: {
-            claim: sendingMinerfees.claim,
-            lockup: receivingMinerFees.lockup,
-          },
-        } as ChainPairTypeTaproot['fees']['minerFees'];
-      } else {
-        const isReverse = type === SwapType.ReverseSubmarine;
-
-        const minerFeesObj = this.feeProvider.minerFees.get(
-          getChainCurrency(base, quote, orderSide, isReverse),
-        )![SwapVersion.Taproot];
-        minerFees = isReverse ? minerFeesObj.reverse : minerFeesObj.normal;
-      }
+      minerFees = this.feeProvider.getSwapBaseFees<T['fees']['minerFees']>(
+        pairId,
+        orderSide,
+        type,
+        SwapVersion.Taproot,
+      );
     }
-
-    const percentageFees = this.feeProvider.getPercentageFees(pairId);
 
     const pair: T = {
       hash: '',
       rate: rate,
       limits: this.getLimits(pairId, orderSide, type, rate) as T['limits'],
       fees: {
-        // TODO: separate onchain fee for chain swaps
-        percentage:
-          type === SwapType.Submarine
-            ? percentageFees.percentageSwapIn
-            : percentageFees.percentage,
+        percentage: this.feeProvider.getPercentageFees(pairId)[type],
         minerFees,
       },
     } as T;

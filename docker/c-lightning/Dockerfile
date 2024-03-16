@@ -46,13 +46,15 @@ RUN strip --strip-all /usr/local/bin/lightning-cli
 # Start again with a new image to reduce the size
 FROM ubuntu:${UBUNTU_VERSION}
 
-RUN apt-get update && apt-get -y upgrade
-RUN apt-get -y install \
+RUN apt-get update && \
+  apt-get -y upgrade && \
+  apt-get -y install \
   python3 \
   sqlite3 \
   libsodium23 \
   libevent-dev \
-  python-is-python3
+  python-is-python3 && \
+  rm -rf /var/lib/apt/lists/*
 
 # Copy binaries
 COPY --from=builder /usr/local/bin/lightningd /bin/

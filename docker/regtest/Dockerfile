@@ -15,8 +15,9 @@ FROM boltz/c-lightning:${C_LIGHTNING_VERSION} as cln
 FROM ubuntu:${UBUNTU_VERSION}
 
 # Install dependencies
-RUN apt-get update && apt-get -y upgrade
-RUN apt-get -y install \
+RUN apt-get update && \
+  apt-get -y upgrade && \
+  apt-get -y install \
   jq \
   curl \
   psmisc \
@@ -33,7 +34,8 @@ RUN apt-get -y install \
   libboost-system-dev \
   libboost-thread-dev \
   libboost-filesystem-dev \
-  libboost-program-options-dev
+  libboost-program-options-dev && \
+  rm -rf /var/lib/apt/lists/*
 
 RUN curl -sSL https://install.python-poetry.org | python3 -
 

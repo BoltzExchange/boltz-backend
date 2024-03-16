@@ -33,6 +33,7 @@ export type PairConfig = {
   // Percentage of the amount that will be charged as fee
   fee?: number;
   swapInFee?: number;
+  chainSwapFee?: number;
 
   // If there is a hardcoded rate the APIs of the exchanges will not be queried
   rate?: number;

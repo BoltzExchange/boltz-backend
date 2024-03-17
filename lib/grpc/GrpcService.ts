@@ -1,13 +1,18 @@
 import { handleUnaryCall } from '@grpc/grpc-js';
 import { Transaction as TransactionLiquid } from 'liquidjs-lib';
 import { parseTransaction } from '../Core';
-import { getHexString } from '../Utils';
+import { dumpHeap } from '../HeapDump';
+import Logger from '../Logger';
+import { getHexString, getUnixTime } from '../Utils';
 import { CurrencyType } from '../consts/Enums';
 import * as boltzrpc from '../proto/boltzrpc_pb';
 import Service from '../service/Service';
 
 class GrpcService {
-  constructor(private service: Service) {}
+  constructor(
+    private readonly logger: Logger,
+    private readonly service: Service,
+  ) {}
 
   public getInfo: handleUnaryCall<
     boltzrpc.GetInfoRequest,
@@ -230,6 +235,21 @@ class GrpcService {
       response.setEndHeight(endHeight);
 
       return response;
+    });
+  };
+
+  public devHeapDump: handleUnaryCall<
+    boltzrpc.DevHeapDumpRequest,
+    boltzrpc.DevHeapDumpResponse
+  > = async (call, callback) => {
+    await this.handleCallback(call, callback, async () => {
+      const filePath =
+        call.request.getPath() || `${getUnixTime()}.heapsnapshot`;
+
+      this.logger.verbose(`Dumping heap at: ${filePath}`);
+      await dumpHeap(filePath);
+
+      return new boltzrpc.DevHeapDumpResponse();
     });
   };
 

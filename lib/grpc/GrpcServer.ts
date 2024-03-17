@@ -29,6 +29,7 @@ class GrpcServer {
       sweepSwaps: grpcService.sweepSwaps,
       rescan: grpcService.rescan,
       setSwapStatus: grpcService.setSwapStatus,
+      devHeapDump: grpcService.devHeapDump,
     });
   }
 

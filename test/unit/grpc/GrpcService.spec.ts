@@ -1,5 +1,6 @@
 import { ServiceError } from '@grpc/grpc-js';
 import { randomBytes } from 'crypto';
+import Logger from '../../../lib/Logger';
 import { getHexBuffer, getHexString } from '../../../lib/Utils';
 import { CurrencyType } from '../../../lib/consts/Enums';
 import GrpcService from '../../../lib/grpc/GrpcService';
@@ -168,7 +169,7 @@ const createCallback = (
 describe('GrpcService', () => {
   const service = mockedService();
 
-  const grpcService = new GrpcService(service);
+  const grpcService = new GrpcService(Logger.disabledLogger, service);
 
   test('should handle GetInfo', () => {
     grpcService.getInfo(

@@ -150,7 +150,7 @@ class Boltz {
       this.grpcServer = new GrpcServer(
         this.logger,
         this.config.grpc,
-        new GrpcService(this.service),
+        new GrpcService(this.logger, this.service),
       );
 
       this.prometheus = new Prometheus(

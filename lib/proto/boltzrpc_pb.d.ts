@@ -835,6 +835,46 @@ export namespace SetSwapStatusResponse {
     }
 }
 
+export class DevHeapDumpRequest extends jspb.Message { 
+
+    hasPath(): boolean;
+    clearPath(): void;
+    getPath(): string | undefined;
+    setPath(value: string): DevHeapDumpRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): DevHeapDumpRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: DevHeapDumpRequest): DevHeapDumpRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: DevHeapDumpRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): DevHeapDumpRequest;
+    static deserializeBinaryFromReader(message: DevHeapDumpRequest, reader: jspb.BinaryReader): DevHeapDumpRequest;
+}
+
+export namespace DevHeapDumpRequest {
+    export type AsObject = {
+        path?: string,
+    }
+}
+
+export class DevHeapDumpResponse extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): DevHeapDumpResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: DevHeapDumpResponse): DevHeapDumpResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: DevHeapDumpResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): DevHeapDumpResponse;
+    static deserializeBinaryFromReader(message: DevHeapDumpResponse, reader: jspb.BinaryReader): DevHeapDumpResponse;
+}
+
+export namespace DevHeapDumpResponse {
+    export type AsObject = {
+    }
+}
+
 export enum OutputType {
     BECH32 = 0,
     COMPATIBILITY = 1,

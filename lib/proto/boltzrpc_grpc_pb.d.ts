@@ -20,6 +20,7 @@ interface IBoltzService extends grpc.ServiceDefinition<grpc.UntypedServiceImplem
     setSwapStatus: IBoltzService_ISetSwapStatus;
     sweepSwaps: IBoltzService_ISweepSwaps;
     rescan: IBoltzService_IRescan;
+    devHeapDump: IBoltzService_IDevHeapDump;
 }
 
 interface IBoltzService_IGetInfo extends grpc.MethodDefinition<boltzrpc_pb.GetInfoRequest, boltzrpc_pb.GetInfoResponse> {
@@ -130,6 +131,15 @@ interface IBoltzService_IRescan extends grpc.MethodDefinition<boltzrpc_pb.Rescan
     responseSerialize: grpc.serialize<boltzrpc_pb.RescanResponse>;
     responseDeserialize: grpc.deserialize<boltzrpc_pb.RescanResponse>;
 }
+interface IBoltzService_IDevHeapDump extends grpc.MethodDefinition<boltzrpc_pb.DevHeapDumpRequest, boltzrpc_pb.DevHeapDumpResponse> {
+    path: "/boltzrpc.Boltz/DevHeapDump";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<boltzrpc_pb.DevHeapDumpRequest>;
+    requestDeserialize: grpc.deserialize<boltzrpc_pb.DevHeapDumpRequest>;
+    responseSerialize: grpc.serialize<boltzrpc_pb.DevHeapDumpResponse>;
+    responseDeserialize: grpc.deserialize<boltzrpc_pb.DevHeapDumpResponse>;
+}
 
 export const BoltzService: IBoltzService;
 
@@ -146,6 +156,7 @@ export interface IBoltzServer extends grpc.UntypedServiceImplementation {
     setSwapStatus: grpc.handleUnaryCall<boltzrpc_pb.SetSwapStatusRequest, boltzrpc_pb.SetSwapStatusResponse>;
     sweepSwaps: grpc.handleUnaryCall<boltzrpc_pb.SweepSwapsRequest, boltzrpc_pb.SweepSwapsResponse>;
     rescan: grpc.handleUnaryCall<boltzrpc_pb.RescanRequest, boltzrpc_pb.RescanResponse>;
+    devHeapDump: grpc.handleUnaryCall<boltzrpc_pb.DevHeapDumpRequest, boltzrpc_pb.DevHeapDumpResponse>;
 }
 
 export interface IBoltzClient {
@@ -185,6 +196,9 @@ export interface IBoltzClient {
     rescan(request: boltzrpc_pb.RescanRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.RescanResponse) => void): grpc.ClientUnaryCall;
     rescan(request: boltzrpc_pb.RescanRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.RescanResponse) => void): grpc.ClientUnaryCall;
     rescan(request: boltzrpc_pb.RescanRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.RescanResponse) => void): grpc.ClientUnaryCall;
+    devHeapDump(request: boltzrpc_pb.DevHeapDumpRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DevHeapDumpResponse) => void): grpc.ClientUnaryCall;
+    devHeapDump(request: boltzrpc_pb.DevHeapDumpRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DevHeapDumpResponse) => void): grpc.ClientUnaryCall;
+    devHeapDump(request: boltzrpc_pb.DevHeapDumpRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DevHeapDumpResponse) => void): grpc.ClientUnaryCall;
 }
 
 export class BoltzClient extends grpc.Client implements IBoltzClient {
@@ -225,4 +239,7 @@ export class BoltzClient extends grpc.Client implements IBoltzClient {
     public rescan(request: boltzrpc_pb.RescanRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.RescanResponse) => void): grpc.ClientUnaryCall;
     public rescan(request: boltzrpc_pb.RescanRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.RescanResponse) => void): grpc.ClientUnaryCall;
     public rescan(request: boltzrpc_pb.RescanRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.RescanResponse) => void): grpc.ClientUnaryCall;
+    public devHeapDump(request: boltzrpc_pb.DevHeapDumpRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DevHeapDumpResponse) => void): grpc.ClientUnaryCall;
+    public devHeapDump(request: boltzrpc_pb.DevHeapDumpRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DevHeapDumpResponse) => void): grpc.ClientUnaryCall;
+    public devHeapDump(request: boltzrpc_pb.DevHeapDumpRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DevHeapDumpResponse) => void): grpc.ClientUnaryCall;
 }

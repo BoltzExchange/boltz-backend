@@ -31,7 +31,10 @@ service Boltz {
   rpc SetSwapStatus (SetSwapStatusRequest) returns (SetSwapStatusResponse);
 
   rpc SweepSwaps (SweepSwapsRequest) returns (SweepSwapsResponse);
+
   rpc Rescan (RescanRequest) returns (RescanResponse);
+
+  rpc DevHeapDump (DevHeapDumpRequest) returns (DevHeapDumpResponse);
 }
 
 enum OutputType {
@@ -203,3 +206,9 @@ message SetSwapStatusRequest {
 }
 
 message SetSwapStatusResponse {}
+
+message DevHeapDumpRequest {
+  optional string path = 1;
+}
+
+message DevHeapDumpResponse {}

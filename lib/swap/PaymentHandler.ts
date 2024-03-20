@@ -18,6 +18,7 @@ import ChainSwap from '../db/models/ChainSwap';
 import ChannelCreation from '../db/models/ChannelCreation';
 import ReverseSwap from '../db/models/ReverseSwap';
 import Swap from '../db/models/Swap';
+import { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import { LightningClient, PaymentResponse } from '../lightning/LightningClient';
 import LndClient from '../lightning/LndClient';
@@ -52,7 +53,7 @@ type SwapNurseryEvents = {
   'claim.pending': Swap;
   claim: {
     type: SwapType;
-    swap: Swap | ChainSwap;
+    swap: Swap | ChainSwapInfo;
     channelCreation?: ChannelCreation;
   };
 
@@ -65,7 +66,7 @@ type SwapNurseryEvents = {
     swap: ReverseSwap | ChainSwap;
     transaction: Transaction | LiquidTransaction | string;
   };
-  'coins.failedToSend': { swap: ReverseSwap | ChainSwap; type: SwapType };
+  'coins.failedToSend': { swap: ReverseSwap | ChainSwapInfo; type: SwapType };
   refund: {
     reverseSwap: ReverseSwap;
     refundTransaction: string;

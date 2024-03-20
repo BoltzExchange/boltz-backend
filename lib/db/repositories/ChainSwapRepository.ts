@@ -1,15 +1,39 @@
-import { WhereOptions } from 'sequelize';
+import { Op, WhereOptions } from 'sequelize';
 import { getSendingReceivingCurrency, splitPairId } from '../../Utils';
 import { SwapUpdateEvent } from '../../consts/Enums';
 import Database from '../Database';
 import ChainSwap, { ChainSwapType } from '../models/ChainSwap';
 import ChainSwapData, { ChainSwapDataType } from '../models/ChainSwapData';
 
-type ChainSwapInfo = {
-  chainSwap: ChainSwap;
-  sendingData: ChainSwapData;
-  receivingData: ChainSwapData;
-};
+class ChainSwapInfo {
+  constructor(
+    public chainSwap: ChainSwap,
+    public sendingData: ChainSwapData,
+    public receivingData: ChainSwapData,
+  ) {}
+
+  get id() {
+    return this.chainSwap.id;
+  }
+
+  get pair() {
+    return this.chainSwap.pair;
+  }
+
+  get orderSide() {
+    return this.chainSwap.orderSide;
+  }
+
+  get fee() {
+    return this.chainSwap.fee;
+  }
+
+  get paidMinerFees(): boolean {
+    return (
+      this.sendingData.fee !== undefined || this.receivingData.fee !== undefined
+    );
+  }
+}
 
 class ChainSwapRepository {
   public static getChainSwap = async (
@@ -32,6 +56,7 @@ class ChainSwapRepository {
     return Promise.all(chainSwaps.map(this.fetchChainSwapData));
   };
 
+  // Get a chain swap to with **both** options applies
   public static getChainSwapByData = async (
     dataOptions: WhereOptions,
     swapOptions: WhereOptions = {},
@@ -47,6 +72,33 @@ class ChainSwapRepository {
       ...swapOptions,
       id: matchingData.swapId,
     });
+  };
+
+  // Gets all chain swaps to which **either** of the options apply
+  public static getChainSwapsByData = async (
+    dataOptions: WhereOptions,
+    swapOptions: WhereOptions = {},
+  ): Promise<ChainSwapInfo[]> => {
+    const matchingData = await ChainSwapData.findAll({
+      where: dataOptions,
+    });
+
+    const swaps = await Promise.all(
+      matchingData.map(
+        async (data) => (await this.getChainSwap({ id: data.swapId }))!,
+      )!,
+    );
+
+    const deduplicateOptions = { [Op.notIn]: swaps.map((swap) => swap.id) };
+    if ('id' in swapOptions) {
+      swapOptions.id = {
+        [Op.and]: [deduplicateOptions, swapOptions.id],
+      };
+    } else {
+      swapOptions['id'] = deduplicateOptions;
+    }
+
+    return swaps.concat(await this.getChainSwaps(swapOptions));
   };
 
   public static addChainSwap = (args: {
@@ -164,11 +216,11 @@ class ChainSwapRepository {
       chainSwap.orderSide,
     );
 
-    return {
+    return new ChainSwapInfo(
       chainSwap,
-      sendingData: data.find((d) => d.symbol === sending)!,
-      receivingData: data.find((d) => d.symbol === receiving)!,
-    };
+      data.find((d) => d.symbol === sending)!,
+      data.find((d) => d.symbol === receiving)!,
+    );
   };
 }
 

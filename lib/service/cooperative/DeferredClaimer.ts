@@ -27,6 +27,7 @@ import { SwapType, SwapUpdateEvent, SwapVersion } from '../../consts/Enums';
 import TypedEventEmitter from '../../consts/TypedEventEmitter';
 import ChannelCreation from '../../db/models/ChannelCreation';
 import Swap from '../../db/models/Swap';
+import { ChainSwapInfo } from '../../db/repositories/ChainSwapRepository';
 import ChannelCreationRepository from '../../db/repositories/ChannelCreationRepository';
 import SwapRepository from '../../db/repositories/SwapRepository';
 import SwapOutputType from '../../swap/SwapOutputType';
@@ -47,8 +48,8 @@ type CooperativeDetails = {
   transaction: Transaction | LiquidTransaction;
 };
 
-type SwapToClaim = {
-  swap: Swap;
+type SwapToClaim<T> = {
+  swap: T;
   preimage: Buffer;
   cooperative?: CooperativeDetails;
 };
@@ -63,7 +64,15 @@ class DeferredClaimer extends TypedEventEmitter<{
   private static readonly swapsToClaimLock = 'swapsToClaim';
 
   private readonly lock = new AsyncLock();
-  private readonly swapsToClaim = new Map<string, Map<string, SwapToClaim>>();
+
+  private readonly swapsToClaim = new Map<
+    string,
+    Map<string, SwapToClaim<Swap>>
+  >();
+  private readonly chainSwapsToClaim = new Map<
+    string,
+    Map<string, SwapToClaim<ChainSwapInfo>>
+  >();
 
   private batchClaimSchedule?: Job;
 
@@ -77,7 +86,11 @@ class DeferredClaimer extends TypedEventEmitter<{
     super();
 
     for (const symbol of config.deferredClaimSymbols) {
-      this.swapsToClaim.set(symbol, new Map<string, SwapToClaim>());
+      this.swapsToClaim.set(symbol, new Map<string, SwapToClaim<Swap>>());
+      this.chainSwapsToClaim.set(
+        symbol,
+        new Map<string, SwapToClaim<ChainSwapInfo>>(),
+      );
     }
   }
 
@@ -104,13 +117,20 @@ class DeferredClaimer extends TypedEventEmitter<{
     this.batchClaimSchedule = undefined;
   };
 
-  public pendingSweeps = () =>
-    new Map<string, string[]>(
-      Array.from(this.swapsToClaim.entries()).map(([currency, swaps]) => [
-        currency,
-        Array.from(swaps.keys()),
-      ]),
-    );
+  public pendingSweeps = () => {
+    const transFormMap = (map: Map<string, Map<string, any>>) =>
+      new Map<string, string[]>(
+        Array.from(map.entries()).map(([currency, swaps]) => [
+          currency,
+          Array.from(swaps.keys()),
+        ]),
+      );
+
+    return {
+      [SwapType.Submarine]: transFormMap(this.swapsToClaim),
+      [SwapType.Chain]: transFormMap(this.chainSwapsToClaim),
+    };
+  };
 
   public sweep = async () => {
     const claimed = new Map<string, string[]>();
@@ -270,7 +290,7 @@ class DeferredClaimer extends TypedEventEmitter<{
   };
 
   private batchClaim = async (symbol: string) => {
-    let swapsToClaim: SwapToClaim[] = [];
+    let swapsToClaim: SwapToClaim<Swap>[] = [];
 
     await this.lock.acquire(DeferredClaimer.swapsToClaimLock, async () => {
       const swaps = this.swapsToClaim.get(symbol);
@@ -308,7 +328,10 @@ class DeferredClaimer extends TypedEventEmitter<{
     }
   };
 
-  private broadcastClaim = async (currency: string, swaps: SwapToClaim[]) => {
+  private broadcastClaim = async (
+    currency: string,
+    swaps: SwapToClaim<Swap>[],
+  ) => {
     const chainClient = this.currencies.get(currency)!.chainClient!;
     const wallet = this.walletManager.wallets.get(currency)!;
 
@@ -357,7 +380,7 @@ class DeferredClaimer extends TypedEventEmitter<{
   private constructClaimDetails = async (
     chainClient: ChainClient,
     wallet: Wallet,
-    toClaim: SwapToClaim,
+    toClaim: SwapToClaim<Swap>,
     cooperative: boolean = false,
   ): Promise<ClaimDetails | LiquidClaimDetails> => {
     const { swap, preimage } = toClaim;
@@ -459,7 +482,7 @@ class DeferredClaimer extends TypedEventEmitter<{
       getChainCurrency(base, quote, swap.orderSide, false),
     )!;
 
-    let toClaim: SwapToClaim | undefined;
+    let toClaim: SwapToClaim<Swap> | undefined;
     await this.lock.acquire(DeferredClaimer.swapsToClaimLock, async () => {
       toClaim = this.swapsToClaim.get(chainCurrency.symbol)?.get(swap.id);
     });

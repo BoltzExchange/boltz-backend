@@ -143,9 +143,9 @@ class FeeProvider {
       }
 
       this.percentageFees.set(pairId, {
-        [SwapType.ReverseSubmarine]: percentage,
-        [SwapType.Chain]: pair.chainSwapFee || percentage,
-        [SwapType.Submarine]: pair.swapInFee || percentage,
+        [SwapType.ReverseSubmarine]: percentage / 100,
+        [SwapType.Chain]: (pair.chainSwapFee || percentage) / 100,
+        [SwapType.Submarine]: (pair.swapInFee || percentage) / 100,
       });
     });
 
@@ -153,16 +153,19 @@ class FeeProvider {
       `Using fees: ${stringify(
         mapToObject(
           new Map<string, any>(
-            Array.from(this.percentageFees.entries()).map(([pair, fees]) => [
-              pair,
-              {
-                [swapTypeToString(SwapType.Chain)]: fees[SwapType.Chain],
-                [swapTypeToString(SwapType.Submarine)]:
-                  fees[SwapType.Submarine],
-                [swapTypeToString(SwapType.ReverseSubmarine)]:
-                  fees[SwapType.ReverseSubmarine],
-              },
-            ]),
+            Array.from(this.percentageFees.keys()).map((pair) => {
+              const fees = this.getPercentageFees(pair);
+              return [
+                pair,
+                {
+                  [swapTypeToString(SwapType.Chain)]: fees[SwapType.Chain],
+                  [swapTypeToString(SwapType.Submarine)]:
+                    fees[SwapType.Submarine],
+                  [swapTypeToString(SwapType.ReverseSubmarine)]:
+                    fees[SwapType.ReverseSubmarine],
+                },
+              ];
+            }),
           ),
         ),
       )}`,

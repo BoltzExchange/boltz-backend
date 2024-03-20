@@ -1078,12 +1078,10 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       swap:
         type === SwapType.Submarine
           ? await SwapRepository.setMinerFee(swap as Swap, claimTransactionFee)
-          : (
-              await ChainSwapRepository.setClaimMinerFee(
-                swap as ChainSwapInfo,
-                claimTransactionFee,
-              )
-            ).chainSwap,
+          : await ChainSwapRepository.setClaimMinerFee(
+              swap as ChainSwapInfo,
+              claimTransactionFee,
+            ),
     });
   };
 
@@ -1209,13 +1207,11 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
               SwapUpdateEvent.TransactionFailed,
               Errors.COINS_COULD_NOT_BE_SENT().message,
             )
-          : (
-              await ChainSwapRepository.setSwapStatus(
-                swapInfo as ChainSwapInfo,
-                SwapUpdateEvent.TransactionFailed,
-                Errors.COINS_COULD_NOT_BE_SENT().message,
-              )
-            ).chainSwap,
+          : await ChainSwapRepository.setSwapStatus(
+              swapInfo as ChainSwapInfo,
+              SwapUpdateEvent.TransactionFailed,
+              Errors.COINS_COULD_NOT_BE_SENT().message,
+            ),
     });
   };
 

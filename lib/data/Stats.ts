@@ -43,7 +43,7 @@ class Stats {
 
     failureRates.forEach((fails) => {
       const obj = getNestedObject(getMonthObj(fails), 'failureRates');
-      obj[fails.isReverse ? 'reverseSwaps' : 'swaps'] = fails.failureRate;
+      obj[fails.type] = fails.failureRate;
     });
 
     return stats;

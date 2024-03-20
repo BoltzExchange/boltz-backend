@@ -209,7 +209,6 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
             swap,
             confirmed,
             transaction,
-            isReverse: false,
           });
 
           if (swap.invoice) {
@@ -253,16 +252,20 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     });
 
     this.utxoNursery.on(
-      'reverseSwap.lockup.confirmed',
-      async ({ reverseSwap, transaction }) => {
-        await this.lock.acquire(SwapNursery.reverseSwapLock, async () => {
-          this.emit('transaction', {
-            transaction,
-            confirmed: true,
-            isReverse: true,
-            swap: reverseSwap,
-          });
-        });
+      'server.lockup.confirmed',
+      async ({ swap, transaction }) => {
+        await this.lock.acquire(
+          swap.type === SwapType.ReverseSubmarine
+            ? SwapNursery.reverseSwapLock
+            : SwapNursery.chainSwapLock,
+          async () => {
+            this.emit('transaction', {
+              swap,
+              transaction,
+              confirmed: true,
+            });
+          },
+        );
       },
     );
 
@@ -448,10 +451,9 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       async ({ swap, transaction, confirmed }) => {
         await this.lock.acquire(SwapNursery.chainSwapLock, async () => {
           this.emit('transaction', {
+            swap,
             confirmed,
             transaction,
-            isReverse: false,
-            swap: swap.chainSwap,
           });
 
           const sendingCurrency = this.currencies.get(swap.sendingData.symbol)!;
@@ -690,7 +692,6 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           this.emit('transaction', {
             swap,
             confirmed: true,
-            isReverse: false,
             transaction: transactionHash,
           });
 
@@ -714,7 +715,6 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           this.emit('transaction', {
             swap,
             confirmed: true,
-            isReverse: false,
             transaction: transactionHash,
           });
 
@@ -772,7 +772,6 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
         await this.lock.acquire(SwapNursery.reverseSwapLock, async () => {
           this.emit('transaction', {
             confirmed: true,
-            isReverse: true,
             swap: reverseSwap,
             transaction: transactionHash,
           });
@@ -1031,13 +1030,13 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     preimage: Buffer,
     channelCreation: ChannelCreation | null,
   ) => {
-    // TODO
-    /*
-    if (await this.claimer.deferClaim(swap, preimage)) {
-      this.emit('claim.pending', swap);
+    if (
+      swap.type === SwapType.Submarine &&
+      (await this.claimer.deferClaim(swap as Swap, preimage))
+    ) {
+      this.emit('claim.pending', swap as Swap);
       return;
     }
-     */
 
     const claimTransaction = constructClaimTransaction(
       wallet,
@@ -1065,11 +1064,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     await chainClient.sendRawTransaction(claimTransaction.toHex());
 
     this.logger.info(
-      `Claimed ${wallet.symbol} of ${type === SwapType.Submarine ? '' : 'Chain '}Swap ${
-        type === SwapType.Submarine
-          ? (swap as Swap).id
-          : (swap as ChainSwapInfo).chainSwap.id
-      } in: ${claimTransaction.getId()}`,
+      `Claimed ${wallet.symbol} of ${type === SwapType.Submarine ? '' : 'Chain '}Swap ${swap.id} in: ${claimTransaction.getId()}`,
     );
 
     this.emit('claim', {

@@ -21,7 +21,13 @@ import {
   transactionSignalsRbfExplicitly,
 } from '../Utils';
 import ChainClient from '../chain/ChainClient';
-import { CurrencyType, SwapUpdateEvent, SwapVersion } from '../consts/Enums';
+import {
+  CurrencyType,
+  SwapType,
+  SwapUpdateEvent,
+  SwapVersion,
+  swapTypeToPrettyString,
+} from '../consts/Enums';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
 import ChainSwap from '../db/models/ChainSwap';
 import ReverseSwap from '../db/models/ReverseSwap';
@@ -56,8 +62,8 @@ class UtxoNursery extends TypedEventEmitter<{
 
   // Reverse Swap
   'reverseSwap.expired': ReverseSwap;
-  'reverseSwap.lockup.confirmed': {
-    reverseSwap: ReverseSwap;
+  'server.lockup.confirmed': {
+    swap: ReverseSwap | ChainSwapInfo;
     transaction: Transaction | LiquidTransaction;
   };
   'reverseSwap.claimed': {
@@ -91,8 +97,7 @@ class UtxoNursery extends TypedEventEmitter<{
   private lock = new AsyncLock();
 
   private static lockupLock = 'lockupLock';
-  private static reverseSwapLockupConfirmationLock =
-    'reverseSwapLockupConfirmation';
+  private static swapLockupConfirmationLock = 'swapLockupConfirmation';
 
   constructor(
     private readonly logger: Logger,
@@ -116,17 +121,8 @@ class UtxoNursery extends TypedEventEmitter<{
   private listenTransactions = (chainClient: ChainClient, wallet: Wallet) => {
     chainClient.on('transaction', async ({ transaction, confirmed }) => {
       await Promise.all([
-        this.checkOutputs(chainClient, wallet, transaction, confirmed),
-
         this.checkSwapClaims(chainClient, transaction),
-
-        // TODO: chain swaps
-        this.checkReverseSwapLockupsConfirmed(
-          chainClient,
-          wallet,
-          transaction,
-          confirmed,
-        ),
+        this.checkOutputs(chainClient, wallet, transaction, confirmed),
       ]);
     });
   };
@@ -153,6 +149,14 @@ class UtxoNursery extends TypedEventEmitter<{
       if (!swap) {
         return;
       }
+
+      await this.checkSwapTransaction(
+        swap,
+        chainClient,
+        wallet,
+        transaction,
+        confirmed,
+      );
     };
 
     const checkChainSwap = async (script: Buffer, address: string) => {
@@ -301,44 +305,14 @@ class UtxoNursery extends TypedEventEmitter<{
     });
   };
 
-  private checkReverseSwapLockupsConfirmed = async (
-    chainClient: ChainClient,
-    wallet: Wallet,
-    transaction: Transaction | LiquidTransaction,
-    confirmed: boolean,
-  ) => {
-    await this.lock.acquire(
-      UtxoNursery.reverseSwapLockupConfirmationLock,
-      async () => {
-        if (!confirmed) {
-          return;
-        }
-
-        const reverseSwap = await ReverseSwapRepository.getReverseSwap({
-          status: SwapUpdateEvent.TransactionMempool,
-          transactionId: transaction.getId(),
-        });
-
-        if (reverseSwap) {
-          await this.reverseSwapLockupConfirmed(
-            chainClient,
-            wallet,
-            reverseSwap,
-            transaction,
-          );
-        }
-      },
-    );
-  };
-
   private listenBlocks = (chainClient: ChainClient, wallet: Wallet) => {
     chainClient.on('block', async (height) => {
       await Promise.all([
         this.checkUserLockupsInMempool(chainClient, wallet),
 
-        // TODO: chain swaps
-        this.checkReverseSwapMempoolTransactions(chainClient, wallet),
+        this.checkServerLockupMempoolTransactions(chainClient, wallet),
 
+        // TODO: chain swaps
         this.checkExpiredSwaps(chainClient, height),
         this.checkExpiredReverseSwaps(chainClient, height),
       ]);
@@ -400,6 +374,7 @@ class UtxoNursery extends TypedEventEmitter<{
     const checkChainSwapLockups = async () => {
       const mempoolSwaps = await ChainSwapRepository.getChainSwaps({
         status: {
+          symbol: chainClient.symbol,
           [Op.or]: [
             SwapUpdateEvent.TransactionMempool,
             SwapUpdateEvent.TransactionZeroConfRejected,
@@ -408,10 +383,6 @@ class UtxoNursery extends TypedEventEmitter<{
       });
 
       for (const swap of mempoolSwaps) {
-        if (swap.receivingData.symbol !== chainClient.symbol) {
-          continue;
-        }
-
         try {
           const lockupTransaction = await chainClient.getRawTransactionVerbose(
             swap.receivingData.transactionId!,
@@ -442,47 +413,70 @@ class UtxoNursery extends TypedEventEmitter<{
     });
   };
 
-  // This method is a fallback for "checkReverseSwapLockupsConfirmed" because that method sometimes misses transactions on mainnet for an unknown reason
-  private checkReverseSwapMempoolTransactions = async (
+  private checkServerLockupMempoolTransactions = async (
     chainClient: ChainClient,
     wallet: Wallet,
   ) => {
-    await this.lock.acquire(
-      UtxoNursery.reverseSwapLockupConfirmationLock,
-      async () => {
-        const mempoolReverseSwaps = await ReverseSwapRepository.getReverseSwaps(
-          {
-            status: SwapUpdateEvent.TransactionMempool,
-          },
+    const checkReverse = async () => {
+      const mempoolReverseSwaps = await ReverseSwapRepository.getReverseSwaps({
+        status: SwapUpdateEvent.TransactionMempool,
+      });
+
+      for (const reverseSwap of mempoolReverseSwaps) {
+        const { base, quote } = splitPairId(reverseSwap.pair);
+        const chainCurrency = getChainCurrency(
+          base,
+          quote,
+          reverseSwap.orderSide,
+          true,
         );
 
-        for (const reverseSwap of mempoolReverseSwaps) {
-          const { base, quote } = splitPairId(reverseSwap.pair);
-          const chainCurrency = getChainCurrency(
-            base,
-            quote,
-            reverseSwap.orderSide,
-            true,
-          );
-
-          if (chainCurrency !== chainClient.symbol) {
-            continue;
-          }
-
-          const transaction = await chainClient.getRawTransactionVerbose(
-            reverseSwap.transactionId!,
-          );
-
-          if (transaction.confirmations && transaction.confirmations !== 0) {
-            await this.reverseSwapLockupConfirmed(
-              chainClient,
-              wallet,
-              reverseSwap,
-              parseTransaction(wallet.type, transaction.hex),
-            );
-          }
+        if (chainCurrency !== chainClient.symbol) {
+          continue;
         }
-      },
+
+        const transaction = await chainClient.getRawTransactionVerbose(
+          reverseSwap.transactionId!,
+        );
+
+        if (transaction.confirmations && transaction.confirmations !== 0) {
+          await this.serverLockupConfirmed(
+            chainClient,
+            wallet,
+            reverseSwap,
+            parseTransaction(wallet.type, transaction.hex),
+          );
+        }
+      }
+    };
+
+    const checkChain = async () => {
+      const mempoolSwaps = await ChainSwapRepository.getChainSwaps({
+        status: SwapUpdateEvent.TransactionServerMempool,
+      });
+
+      for (const swap of mempoolSwaps) {
+        if (swap.sendingData.symbol !== chainClient.symbol) {
+          continue;
+        }
+
+        const transaction = await chainClient.getRawTransactionVerbose(
+          swap.sendingData.transactionId!,
+        );
+
+        if (transaction.confirmations && transaction.confirmations !== 0) {
+          await this.serverLockupConfirmed(
+            chainClient,
+            wallet,
+            swap,
+            parseTransaction(wallet.type, transaction.hex),
+          );
+        }
+      }
+    };
+
+    await this.lock.acquire(UtxoNursery.swapLockupConfirmationLock, () =>
+      Promise.all([checkReverse(), checkChain()]),
     );
   };
 
@@ -545,27 +539,37 @@ class UtxoNursery extends TypedEventEmitter<{
     }
   };
 
-  private reverseSwapLockupConfirmed = async (
+  private serverLockupConfirmed = async (
     chainClient: ChainClient,
     wallet: Wallet,
-    reverseSwap: ReverseSwap,
+    swap: ReverseSwap | ChainSwapInfo,
     transaction: Transaction | LiquidTransaction,
   ) => {
     this.logger.debug(
-      `Lockup transaction of Reverse Swap ${
-        reverseSwap.id
+      `Server lockup transaction of ${swapTypeToPrettyString(swap.type)} Swap ${
+        swap.id
       } confirmed: ${transaction.getId()}`,
     );
 
     chainClient.removeOutputFilter(
-      wallet.decodeAddress(reverseSwap.lockupAddress),
-    );
-    this.emit('reverseSwap.lockup.confirmed', {
-      transaction,
-      reverseSwap: await ReverseSwapRepository.setReverseSwapStatus(
-        reverseSwap,
-        SwapUpdateEvent.TransactionConfirmed,
+      wallet.decodeAddress(
+        swap.type === SwapType.ReverseSubmarine
+          ? (swap as ReverseSwap).lockupAddress
+          : (swap as ChainSwapInfo).sendingData.lockupAddress,
       ),
+    );
+    this.emit('server.lockup.confirmed', {
+      transaction,
+      swap:
+        swap.type === SwapType.ReverseSubmarine
+          ? await ReverseSwapRepository.setReverseSwapStatus(
+              swap as ReverseSwap,
+              SwapUpdateEvent.TransactionConfirmed,
+            )
+          : await ChainSwapRepository.setSwapStatus(
+              swap as ChainSwapInfo,
+              SwapUpdateEvent.TransactionServerConfirmed,
+            ),
     });
   };
 

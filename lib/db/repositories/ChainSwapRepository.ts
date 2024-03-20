@@ -1,6 +1,6 @@
 import { Op, WhereOptions } from 'sequelize';
 import { getSendingReceivingCurrency, splitPairId } from '../../Utils';
-import { SwapUpdateEvent } from '../../consts/Enums';
+import { SwapType, SwapUpdateEvent } from '../../consts/Enums';
 import Database from '../Database';
 import ChainSwap, { ChainSwapType } from '../models/ChainSwap';
 import ChainSwapData, { ChainSwapDataType } from '../models/ChainSwapData';
@@ -12,8 +12,16 @@ class ChainSwapInfo {
     public receivingData: ChainSwapData,
   ) {}
 
+  get type() {
+    return SwapType.Chain;
+  }
+
   get id() {
     return this.chainSwap.id;
+  }
+
+  get status() {
+    return this.chainSwap.status as SwapUpdateEvent;
   }
 
   get pair() {
@@ -26,6 +34,10 @@ class ChainSwapInfo {
 
   get fee() {
     return this.chainSwap.fee;
+  }
+
+  get timeoutBlockHeight() {
+    return this.sendingData.timeoutBlockHeight;
   }
 
   get paidMinerFees(): boolean {

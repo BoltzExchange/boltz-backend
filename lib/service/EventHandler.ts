@@ -84,49 +84,46 @@ class EventHandler extends TypedEventEmitter<{
    * Subscribes transaction related swap events
    */
   private subscribeTransactions = () => {
-    this.nursery.on(
-      'transaction',
-      ({ swap, transaction, confirmed, isReverse }) => {
-        if (!isReverse) {
+    this.nursery.on('transaction', ({ swap, transaction, confirmed }) => {
+      if (swap.type === SwapType.Submarine) {
+        this.emit('swap.update', {
+          id: swap.id,
+          status: {
+            status: confirmed
+              ? SwapUpdateEvent.TransactionConfirmed
+              : SwapUpdateEvent.TransactionMempool,
+          },
+        });
+      } else {
+        // Reverse Swaps only emit the "transaction.confirmed" event
+        // "transaction.mempool" is handled by the event "coins.sent"
+        if (
+          transaction instanceof Transaction ||
+          transaction instanceof LiquidTransaction
+        ) {
           this.emit('swap.update', {
             id: swap.id,
             status: {
-              status: confirmed
-                ? SwapUpdateEvent.TransactionConfirmed
-                : SwapUpdateEvent.TransactionMempool,
+              status: swap.status as SwapUpdateEvent,
+              transaction: {
+                id: transaction.getId(),
+                hex: transaction.toHex(),
+              },
             },
           });
         } else {
-          // Reverse Swaps only emit the "transaction.confirmed" event
-          // "transaction.mempool" is handled by the event "coins.sent"
-          if (
-            transaction instanceof Transaction ||
-            transaction instanceof LiquidTransaction
-          ) {
-            this.emit('swap.update', {
-              id: swap.id,
-              status: {
-                status: SwapUpdateEvent.TransactionConfirmed,
-                transaction: {
-                  id: transaction.getId(),
-                  hex: transaction.toHex(),
-                },
+          this.emit('swap.update', {
+            id: swap.id,
+            status: {
+              status: swap.status as SwapUpdateEvent,
+              transaction: {
+                id: transaction,
               },
-            });
-          } else {
-            this.emit('swap.update', {
-              id: swap.id,
-              status: {
-                status: SwapUpdateEvent.TransactionConfirmed,
-                transaction: {
-                  id: transaction,
-                },
-              },
-            });
-          }
+            },
+          });
         }
-      },
-    );
+      }
+    });
   };
 
   /**

@@ -37,8 +37,8 @@ import {
   OrderSide,
   ServiceInfo,
   ServiceWarning,
-  SwapUpdateEvent,
   SwapType,
+  SwapUpdateEvent,
   SwapVersion,
 } from '../consts/Enums';
 import { PairConfig } from '../consts/Types';

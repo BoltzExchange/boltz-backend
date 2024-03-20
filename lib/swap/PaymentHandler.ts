@@ -34,10 +34,9 @@ import NodeSwitch from './NodeSwitch';
 type SwapNurseryEvents = {
   // UTXO based chains emit the "Transaction" object and Ethereum based ones just the transaction hash
   transaction: {
-    swap: Swap | ReverseSwap | ChainSwap;
+    swap: Swap | ReverseSwap | ChainSwapInfo;
     transaction: Transaction | LiquidTransaction | string;
     confirmed: boolean;
-    isReverse: boolean;
   };
   expiration: {
     swap: Swap | ReverseSwap;

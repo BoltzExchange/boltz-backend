@@ -1,5 +1,5 @@
 import { DataTypes, Model, Sequelize } from 'sequelize';
-import { SwapVersion } from '../../consts/Enums';
+import { SwapType, SwapVersion } from '../../consts/Enums';
 import Pair from './Pair';
 
 enum NodeType {
@@ -209,6 +209,10 @@ class ReverseSwap extends Model implements ReverseSwapType {
       foreignKey: 'pair',
     });
   };
+
+  get type() {
+    return SwapType.ReverseSubmarine;
+  }
 }
 
 export default ReverseSwap;

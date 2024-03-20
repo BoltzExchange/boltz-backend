@@ -37,6 +37,7 @@ import { LegacyReverseSwapOutputType } from '../consts/Consts';
 import {
   ChannelCreationType,
   CurrencyType,
+  NotPendingChainSwapEvents,
   OrderSide,
   SwapUpdateEvent,
   SwapVersion,
@@ -46,7 +47,9 @@ import { PairConfig } from '../consts/Types';
 import { ChainSwapDataType } from '../db/models/ChainSwapData';
 import ReverseSwap, { NodeType } from '../db/models/ReverseSwap';
 import Swap from '../db/models/Swap';
-import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
+import ChainSwapRepository, {
+  ChainSwapInfo,
+} from '../db/repositories/ChainSwapRepository';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import ReverseRoutingHintRepository from '../db/repositories/ReverseRoutingHintRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
@@ -202,31 +205,38 @@ class SwapManager {
 
     await this.nursery.init(currencies);
 
-    const [pendingSwaps, pendingReverseSwaps] = await Promise.all([
-      SwapRepository.getSwaps({
-        status: {
-          [Op.notIn]: [
-            SwapUpdateEvent.SwapExpired,
-            SwapUpdateEvent.InvoicePending,
-            SwapUpdateEvent.InvoiceFailedToPay,
-            SwapUpdateEvent.TransactionClaimed,
-          ],
-        },
-      }),
-      ReverseSwapRepository.getReverseSwaps({
-        status: {
-          [Op.notIn]: [
-            SwapUpdateEvent.SwapExpired,
-            SwapUpdateEvent.InvoiceSettled,
-            SwapUpdateEvent.TransactionFailed,
-            SwapUpdateEvent.TransactionRefunded,
-          ],
-        },
-      }),
-    ]);
+    const [pendingSwaps, pendingReverseSwaps, pendingChainSwaps] =
+      await Promise.all([
+        SwapRepository.getSwaps({
+          status: {
+            [Op.notIn]: [
+              SwapUpdateEvent.SwapExpired,
+              SwapUpdateEvent.InvoicePending,
+              SwapUpdateEvent.InvoiceFailedToPay,
+              SwapUpdateEvent.TransactionClaimed,
+            ],
+          },
+        }),
+        ReverseSwapRepository.getReverseSwaps({
+          status: {
+            [Op.notIn]: [
+              SwapUpdateEvent.SwapExpired,
+              SwapUpdateEvent.InvoiceSettled,
+              SwapUpdateEvent.TransactionFailed,
+              SwapUpdateEvent.TransactionRefunded,
+            ],
+          },
+        }),
+        ChainSwapRepository.getChainSwaps({
+          status: {
+            [Op.notIn]: NotPendingChainSwapEvents,
+          },
+        }),
+      ]);
 
     this.recreateFilters(pendingSwaps, false);
     this.recreateFilters(pendingReverseSwaps, true);
+    this.recreateChainSwapFilters(pendingChainSwaps);
 
     this.logger.info(
       'Recreated input and output filters and invoice subscriptions',
@@ -1143,6 +1153,58 @@ class SwapManager {
         }
       }
     });
+  };
+
+  private recreateChainSwapFilters = (swaps: ChainSwapInfo[]) => {
+    for (const swap of swaps) {
+      switch (swap.chainSwap.status) {
+        case SwapUpdateEvent.SwapCreated:
+        case SwapUpdateEvent.TransactionMempool: {
+          const { chainClient } = this.currencies.get(
+            swap.receivingData.symbol,
+          )!;
+          if (chainClient === undefined) {
+            continue;
+          }
+
+          const wallet = this.walletManager.wallets.get(
+            swap.receivingData.symbol,
+          )!;
+
+          chainClient.addOutputFilter(
+            wallet.decodeAddress(swap.receivingData.lockupAddress),
+          );
+          break;
+        }
+
+        case SwapUpdateEvent.TransactionServerMempool:
+        case SwapUpdateEvent.TransactionServerConfirmed: {
+          const { chainClient } = this.currencies.get(swap.sendingData.symbol)!;
+          if (chainClient === undefined) {
+            continue;
+          }
+
+          const wallet = this.walletManager.wallets.get(
+            swap.sendingData.symbol,
+          )!;
+
+          // To detect the confirmation
+          if (
+            swap.chainSwap.status === SwapUpdateEvent.TransactionServerMempool
+          ) {
+            chainClient.addOutputFilter(
+              wallet.decodeAddress(swap.sendingData.lockupAddress),
+            );
+          }
+
+          chainClient.addInputFilter(
+            reverseBuffer(getHexBuffer(swap.sendingData.transactionId!)),
+          );
+
+          break;
+        }
+      }
+    }
   };
 
   private getCurrencies = (

@@ -7,17 +7,17 @@
     <title>Boltz API</title>
     <link
       rel="stylesheet"
-      href="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui.css"
+      href="https://unpkg.com/swagger-ui-dist@5.12.0/swagger-ui.css"
     />
   </head>
   <body style="margin: 0">
     <div id="swagger-ui"></div>
     <script
-      src="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui-bundle.js"
+      src="https://unpkg.com/swagger-ui-dist@5.12.0/swagger-ui-bundle.js"
       crossorigin
     ></script>
     <script
-      src="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui-standalone-preset.js"
+      src="https://unpkg.com/swagger-ui-dist@5.12.0/swagger-ui-standalone-preset.js"
       crossorigin
     ></script>
     <script>
@@ -25,6 +25,7 @@
         window.ui = SwaggerUIBundle({
           url: '/swagger-spec.json',
           dom_id: '#swagger-ui',
+          deepLinking: true,
           presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
           layout: 'StandaloneLayout',
         });

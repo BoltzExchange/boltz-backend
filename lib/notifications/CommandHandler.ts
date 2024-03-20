@@ -11,16 +11,23 @@ import {
   stringify,
 } from '../Utils';
 import BackupScheduler from '../backup/BackupScheduler';
+import DefaultMap from '../consts/DefaultMap';
 import {
+  NotPendingChainSwapEvents,
   NotPendingReverseSwapEvents,
   NotPendingSwapEvents,
+  SwapType,
   SwapUpdateEvent,
+  swapTypeToPrettyString,
 } from '../consts/Enums';
 import ReferralStats from '../data/ReferralStats';
 import Stats from '../data/Stats';
 import ChannelCreation from '../db/models/ChannelCreation';
 import ReverseSwap from '../db/models/ReverseSwap';
 import Swap from '../db/models/Swap';
+import ChainSwapRepository, {
+  ChainSwapInfo,
+} from '../db/repositories/ChainSwapRepository';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import FeeRepository from '../db/repositories/FeeRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
@@ -106,7 +113,7 @@ class CommandHandler {
             },
           ],
           executor: this.swapInfo,
-          description: 'gets all available information about a (reverse) swap',
+          description: 'gets all available information about a swap',
         },
       ],
       [
@@ -141,7 +148,7 @@ class CommandHandler {
         Command.PendingSwaps,
         {
           executor: this.pendingSwaps,
-          description: 'gets a list of pending (reverse) swaps',
+          description: 'gets a list of pending swaps',
         },
       ],
       [
@@ -154,6 +161,7 @@ class CommandHandler {
       [
         Command.GetReferrals,
         {
+          // TODO: chainswaps
           executor: this.getReferrals,
           description: 'gets stats for all referral IDs',
         },
@@ -271,9 +279,9 @@ class CommandHandler {
 
   private getFees = async () => {
     let message = 'Fees:\n';
-    (await FeeRepository.getFees()).forEach(({ asset, sum }) => {
+    for (const { asset, sum } of await FeeRepository.getFees()) {
       message += `\n**${asset}**: ${satoshisToSatcomma(sum)} ${asset}`;
-    });
+    }
 
     await this.notificationClient.sendMessage(message);
   };
@@ -286,15 +294,40 @@ class CommandHandler {
 
     const identifier = args[0];
 
-    const swaps = await SwapRepository.getSwaps({
-      [Op.or]: {
-        id: identifier,
-        invoice: identifier,
-        preimageHash: identifier,
-        lockupAddress: identifier,
-        lockupTransactionId: identifier,
-      },
-    });
+    const [swaps, reverseSwaps, chainSwaps] = await Promise.all([
+      SwapRepository.getSwaps({
+        [Op.or]: {
+          id: identifier,
+          invoice: identifier,
+          preimageHash: identifier,
+          lockupAddress: identifier,
+          lockupTransactionId: identifier,
+        },
+      }),
+      await ReverseSwapRepository.getReverseSwaps({
+        [Op.or]: {
+          id: identifier,
+          invoice: identifier,
+          preimageHash: identifier,
+          lockupAddress: identifier,
+          transactionId: identifier,
+        },
+      }),
+      await ChainSwapRepository.getChainSwapsByData(
+        {
+          [Op.or]: {
+            lockupAddress: identifier,
+            transactionId: identifier,
+          },
+        },
+        {
+          [Op.or]: {
+            id: identifier,
+            preimageHash: identifier,
+          },
+        },
+      ),
+    ]);
 
     for (const swap of swaps) {
       const channelCreation =
@@ -302,24 +335,18 @@ class CommandHandler {
           swapId: swap.id,
         });
 
-      await this.sendSwapInfo(swap, false, channelCreation);
+      await this.sendSwapInfo(SwapType.Submarine, swap, channelCreation);
     }
-
-    const reverseSwaps = await ReverseSwapRepository.getReverseSwaps({
-      [Op.or]: {
-        id: identifier,
-        invoice: identifier,
-        preimageHash: identifier,
-        lockupAddress: identifier,
-        transactionId: identifier,
-      },
-    });
 
     for (const reverseSwap of reverseSwaps) {
-      await this.sendSwapInfo(reverseSwap, true);
+      await this.sendSwapInfo(SwapType.ReverseSubmarine, reverseSwap);
     }
 
-    if (swaps.length === 0 && reverseSwaps.length === 0) {
+    for (const chainSwap of chainSwaps) {
+      await this.sendSwapInfo(SwapType.Chain, chainSwap);
+    }
+
+    if ([swaps, reverseSwaps, chainSwaps].every((arr) => arr.length === 0)) {
       await this.sendCouldNotFindSwap(identifier);
     }
   };
@@ -388,16 +415,29 @@ class CommandHandler {
   };
 
   private lockedFunds = async () => {
-    const pendingReverseSwaps = await ReverseSwapRepository.getReverseSwaps({
-      status: {
-        [Op.or]: [
-          SwapUpdateEvent.TransactionMempool,
-          SwapUpdateEvent.TransactionConfirmed,
-        ],
-      },
-    });
+    const [pendingReverseSwaps, pendingChainSwaps] = await Promise.all([
+      ReverseSwapRepository.getReverseSwaps({
+        status: {
+          [Op.in]: [
+            SwapUpdateEvent.TransactionMempool,
+            SwapUpdateEvent.TransactionConfirmed,
+          ],
+        },
+      }),
+      ChainSwapRepository.getChainSwaps({
+        status: {
+          [Op.in]: [
+            SwapUpdateEvent.TransactionServerMempool,
+            SwapUpdateEvent.TransactionServerConfirmed,
+          ],
+        },
+      }),
+    ]);
 
-    const pendingReverseSwapsByChain = new Map<string, ReverseSwap[]>();
+    const pendingSwapsByChain = new DefaultMap<
+      string,
+      { type: SwapType; id: string; amount: number }[]
+    >(() => []);
 
     for (const pending of pendingReverseSwaps) {
       const pair = splitPairId(pending.pair);
@@ -408,27 +448,32 @@ class CommandHandler {
         true,
       );
 
-      let chainArray = pendingReverseSwapsByChain.get(chainCurrency);
+      pendingSwapsByChain.get(chainCurrency).push({
+        id: pending.id,
+        amount: pending.onchainAmount,
+        type: SwapType.ReverseSubmarine,
+      });
+    }
 
-      if (chainArray === undefined) {
-        chainArray = [];
-      }
-
-      chainArray.push(pending);
-      pendingReverseSwapsByChain.set(chainCurrency, chainArray);
+    for (const pending of pendingChainSwaps) {
+      pendingSwapsByChain.get(pending.sendingData.symbol).push({
+        id: pending.id,
+        type: SwapType.Chain,
+        amount: pending.sendingData.amount!,
+      });
     }
 
     let message = '**Locked up funds:**\n';
 
-    for (const [symbol, chainArray] of pendingReverseSwapsByChain) {
+    for (const [symbol, chainArray] of pendingSwapsByChain) {
       message += `\n**${symbol}**`;
 
       let symbolTotal = 0;
 
-      for (const pendingReverseSwap of chainArray) {
-        symbolTotal += pendingReverseSwap.onchainAmount;
-        message += `\n  - \`${pendingReverseSwap.id}\`: ${satoshisToSatcomma(
-          pendingReverseSwap.onchainAmount,
+      for (const pendingSwap of chainArray) {
+        symbolTotal += pendingSwap.amount;
+        message += `\n  - ${swapTypeToPrettyString(pendingSwap.type)} \`${pendingSwap.id}\`: ${satoshisToSatcomma(
+          pendingSwap.amount,
         )}`;
       }
 
@@ -439,44 +484,65 @@ class CommandHandler {
   };
 
   private pendingSwaps = async () => {
-    const [pendingSwaps, pendingReverseSwaps] = await Promise.all([
-      SwapRepository.getSwaps({
-        status: {
-          [Op.notIn]: NotPendingSwapEvents,
-        },
-      }),
-      ReverseSwapRepository.getReverseSwaps({
-        status: {
-          [Op.notIn]: NotPendingReverseSwapEvents,
-        },
-      }),
-    ]);
+    const [pendingSwaps, pendingReverseSwaps, pendingChainSwaps] =
+      await Promise.all([
+        SwapRepository.getSwaps({
+          status: {
+            [Op.notIn]: NotPendingSwapEvents,
+          },
+        }),
+        ReverseSwapRepository.getReverseSwaps({
+          status: {
+            [Op.notIn]: NotPendingReverseSwapEvents,
+          },
+        }),
+        ChainSwapRepository.getChainSwaps({
+          status: {
+            [Op.notIn]: NotPendingChainSwapEvents,
+          },
+        }),
+      ]);
 
     let message = '';
 
-    const formatSwapIds = (isReverse: boolean) => {
-      const swaps = isReverse ? pendingReverseSwaps : pendingSwaps;
+    const addSwapIds = (
+      type: SwapType,
+      swaps: (Swap | ReverseSwap | ChainSwapInfo)[],
+    ) => {
+      if (swaps.length === 0) {
+        return;
+      }
+      message += `\n${message.endsWith('\n') ? '' : '\n'}**Pending ${swapTypeToPrettyString(
+        type,
+      )} Swaps:**\n\n`;
 
-      if (swaps.length > 0) {
-        message += `\n${message.endsWith('\n') ? '' : '\n'}**Pending${
-          isReverse ? ' reverse' : ''
-        } Swaps:**\n\n`;
-
-        for (const swap of swaps) {
-          message += `- \`${swap.id}\`\n`;
-        }
+      for (const swap of swaps) {
+        message += `- \`${swap.id}\`\n`;
       }
     };
 
-    formatSwapIds(false);
-    formatSwapIds(true);
+    addSwapIds(SwapType.Submarine, pendingSwaps);
+    addSwapIds(SwapType.ReverseSubmarine, pendingReverseSwaps);
+    addSwapIds(SwapType.Chain, pendingChainSwaps);
 
     await this.notificationClient.sendMessage(message);
   };
 
   private pendingSweeps = async () => {
+    const pendingSweeps =
+      this.service.swapManager.deferredClaimer.pendingSweeps();
+
     await this.notificationClient.sendMessage(
-      `${codeBlock}${stringify(mapToObject(this.service.swapManager.deferredClaimer.pendingSweeps()))}${codeBlock}`,
+      `${codeBlock}${stringify(
+        mapToObject(
+          new Map(
+            Object.entries(pendingSweeps).map(([type, swaps]) => [
+              swapTypeToPrettyString(type as unknown as SwapType),
+              mapToObject(swaps),
+            ]),
+          ),
+        ),
+      )}${codeBlock}`,
     );
   };
 
@@ -594,8 +660,8 @@ class CommandHandler {
    */
 
   private sendSwapInfo = async (
-    swap: Swap | ReverseSwap,
-    isReverse: boolean,
+    type: SwapType,
+    swap: ChainSwapInfo | Swap | ReverseSwap,
     channelCreation?: ChannelCreation | null,
   ) => {
     const hasChannelCreation =
@@ -606,10 +672,16 @@ class CommandHandler {
     if (hasChannelCreation) {
       name = 'Channel Creation';
     } else {
-      if (isReverse) {
-        name = 'Reverse Swap';
-      } else {
-        name = 'Swap';
+      switch (type) {
+        case SwapType.Submarine:
+          name = 'Submarine Swap';
+          break;
+        case SwapType.ReverseSubmarine:
+          name = 'Reverse Swap';
+          break;
+        case SwapType.Chain:
+          name = 'Chain Swap';
+          break;
       }
     }
 

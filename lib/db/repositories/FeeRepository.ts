@@ -32,6 +32,16 @@ WITH data AS (
         status,
         fee
     FROM "reverseSwaps"
+    UNION ALL
+    SELECT
+        CASE WHEN "orderSide" = 1
+            THEN SPLIT_PART(pair, '/', 2)
+            ELSE SPLIT_PART(pair, '/', 1)
+        END AS asset,
+        pair,
+        status,
+        fee
+    FROM "chainSwaps"
 )
 SELECT
     asset,
@@ -64,6 +74,16 @@ WITH data AS (
         status,
         fee
     FROM reverseSwaps
+    UNION ALL
+    SELECT
+        CASE WHEN orderSide
+            THEN SUBSTRING(pair, INSTR(pair, '/') + 1)
+            ELSE SUBSTRING(pair, 0, INSTR(pair, '/'))
+        END AS asset,
+        pair,
+        status,
+        fee
+    FROM chainSwaps
 )
 SELECT
     asset,

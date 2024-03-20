@@ -7,6 +7,7 @@ import ChainSwap from '../db/models/ChainSwap';
 import ChannelCreation from '../db/models/ChannelCreation';
 import ReverseSwap from '../db/models/ReverseSwap';
 import Swap from '../db/models/Swap';
+import { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import SwapNursery from '../swap/SwapNursery';
 import { Currency } from '../wallet/WalletManager';
 
@@ -36,13 +37,13 @@ class EventHandler extends TypedEventEmitter<{
     status: SwapUpdate;
   };
   'swap.success': {
-    swap: Swap | ReverseSwap;
-    isReverse: boolean;
+    swap: Swap | ReverseSwap | ChainSwapInfo;
+    type: SwapType;
     channelCreation?: ChannelCreation;
   };
   'swap.failure': {
-    swap: Swap | ReverseSwap;
-    isReverse: boolean;
+    swap: Swap | ReverseSwap | ChainSwapInfo;
+    type: SwapType;
     reason: string;
   };
   'channel.backup': {
@@ -141,7 +142,7 @@ class EventHandler extends TypedEventEmitter<{
           status: SwapUpdateEvent.InvoiceSettled,
         },
       });
-      this.emit('swap.success', { swap, isReverse: true });
+      this.emit('swap.success', { swap, type: SwapType.ReverseSubmarine });
     });
 
     this.nursery.on('invoice.pending', (swap) => {
@@ -196,29 +197,34 @@ class EventHandler extends TypedEventEmitter<{
 
     this.nursery.on('claim', ({ type, swap, channelCreation }) => {
       if (type === SwapType.Submarine) {
-        this.logger.verbose(`Swap ${swap.id} succeeded`);
+        const submarine = swap as Swap;
+        this.logger.verbose(`Swap ${submarine.id} succeeded`);
 
         this.emit('swap.update', {
-          id: swap.id,
+          id: submarine.id,
           status: {
             status: SwapUpdateEvent.TransactionClaimed,
           },
         });
         this.emit('swap.success', {
+          swap: submarine,
           channelCreation,
-          isReverse: false,
-          swap: swap as Swap,
+          type: SwapType.Submarine,
         });
       } else {
-        this.logger.verbose(`Chain Swap ${swap.id} succeeded`);
+        const chainSwap = swap as ChainSwapInfo;
+        this.logger.verbose(`Chain Swap ${chainSwap.chainSwap.id} succeeded`);
 
         this.emit('swap.update', {
-          id: swap.id,
+          id: chainSwap.chainSwap.id,
           status: {
             status: SwapUpdateEvent.TransactionClaimed,
           },
         });
-        // TODO: handle success
+        this.emit('swap.success', {
+          swap: chainSwap,
+          type: SwapType.Chain,
+        });
       }
     });
 
@@ -288,13 +294,13 @@ class EventHandler extends TypedEventEmitter<{
         this.handleFailedReverseSwap(
           swap as ReverseSwap,
           SwapUpdateEvent.TransactionFailed,
-          swap.failureReason!,
+          (swap as ReverseSwap).failureReason!,
         );
       } else {
         this.handleFailedChainSwap(
-          swap as ChainSwap,
+          swap as ChainSwapInfo,
           SwapUpdateEvent.TransactionFailed,
-          swap.failureReason!,
+          (swap as ChainSwapInfo).chainSwap.failureReason!,
         );
       }
     });
@@ -366,8 +372,8 @@ class EventHandler extends TypedEventEmitter<{
     });
     this.emit('swap.failure', {
       swap,
-      isReverse: false,
       reason: failureReason,
+      type: SwapType.Submarine,
     });
   };
 
@@ -384,30 +390,29 @@ class EventHandler extends TypedEventEmitter<{
     });
     this.emit('swap.failure', {
       swap: reverseSwap,
-      isReverse: true,
       reason: failureReason,
+      type: SwapType.ReverseSubmarine,
     });
   };
 
   private handleFailedChainSwap = (
-    chainSwap: ChainSwap,
+    chainSwap: ChainSwapInfo,
     status: SwapUpdateEvent,
     failureReason: string,
   ) => {
-    this.logger.warn(`Reverse swap ${chainSwap.id} failed: ${failureReason}`);
+    this.logger.warn(
+      `Chain swap ${chainSwap.chainSwap.id} failed: ${failureReason}`,
+    );
 
     this.emit('swap.update', {
-      id: chainSwap.id,
+      id: chainSwap.chainSwap.id,
       status: { status, failureReason },
     });
-    // TODO
-    /*
     this.emit('swap.failure', {
       swap: chainSwap,
-      isReverse: true,
+      type: SwapType.Chain,
       reason: failureReason,
     });
-*/
   };
 }
 

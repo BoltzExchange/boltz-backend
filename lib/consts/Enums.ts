@@ -78,6 +78,12 @@ export const NotPendingReverseSwapEvents = [
   SwapUpdateEvent.TransactionFailed,
   SwapUpdateEvent.TransactionRefunded,
 ];
+export const NotPendingChainSwapEvents = [
+  SwapUpdateEvent.SwapExpired,
+  SwapUpdateEvent.TransactionFailed,
+  SwapUpdateEvent.TransactionClaimed,
+  SwapUpdateEvent.TransactionRefunded,
+];
 
 export enum ChannelCreationType {
   Auto = 'auto',
@@ -111,6 +117,19 @@ export enum SwapType {
   ReverseSubmarine,
   Chain,
 }
+
+export const swapTypeToPrettyString = (type: SwapType): string => {
+  switch (type) {
+    case SwapType.Submarine:
+      return 'Submarine';
+
+    case SwapType.ReverseSubmarine:
+      return 'Reverse';
+
+    case SwapType.Chain:
+      return 'Chain';
+  }
+};
 
 export const swapTypeToString = (type: SwapType): string => {
   switch (type) {

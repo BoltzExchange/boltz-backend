@@ -168,12 +168,12 @@ export const constructClaimDetails = (
   swapType: SwapType,
   swap: Swap | ChainSwapData,
   transaction: Transaction | LiquidTransaction,
-  preimage: Buffer,
+  preimage?: Buffer,
   cooperative: boolean = false,
 ): ClaimDetails | LiquidClaimDetails => {
-  const isSwap = swapType === SwapType.Submarine;
+  const isSubmarine = swapType === SwapType.Submarine;
 
-  let lockupVout = isSwap
+  let lockupVout = isSubmarine
     ? (swap as Swap).lockupTransactionVout
     : (swap as ChainSwapData).transactionVout;
 
@@ -194,19 +194,19 @@ export const constructClaimDetails = (
     keys: wallet.getKeysByIndex(swap.keyIndex!),
   } as ClaimDetails | LiquidClaimDetails;
 
-  switch (isSwap ? (swap as Swap).version : SwapVersion.Taproot) {
+  switch (isSubmarine ? (swap as Swap).version : SwapVersion.Taproot) {
     case SwapVersion.Taproot: {
       claimDetails.type = OutputType.Taproot;
       claimDetails.cooperative = cooperative;
       claimDetails.swapTree = SwapTreeSerializer.deserializeSwapTree(
-        isSwap
+        isSubmarine
           ? (swap as Swap).redeemScript!
           : (swap as ChainSwapData).swapTree!,
       );
       claimDetails.internalKey = createMusig(
         claimDetails.keys!,
         getHexBuffer(
-          isSwap
+          isSubmarine
             ? (swap as Swap).refundPublicKey!
             : (swap as ChainSwapData).theirPublicKey!,
         ),

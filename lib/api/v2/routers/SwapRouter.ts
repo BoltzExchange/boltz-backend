@@ -2,12 +2,14 @@ import { Request, Response, Router } from 'express';
 import Logger from '../../../Logger';
 import { getHexString, stringify } from '../../../Utils';
 import { SwapVersion } from '../../../consts/Enums';
+import ChainSwapRepository from '../../../db/repositories/ChainSwapRepository';
 import SwapRepository from '../../../db/repositories/SwapRepository';
 import RateProviderTaproot from '../../../rates/providers/RateProviderTaproot';
 import CountryCodes from '../../../service/CountryCodes';
 import Errors from '../../../service/Errors';
 import Service from '../../../service/Service';
-import Controller from '../../Controller';
+import { PartialSignature } from '../../../service/cooperative/MusigSigner';
+import SwapInfos from '../../SwapInfos';
 import {
   checkPreimageHashLength,
   createdResponse,
@@ -22,7 +24,7 @@ class SwapRouter extends RouterBase {
   constructor(
     logger: Logger,
     private readonly service: Service,
-    private readonly controller: Controller,
+    private readonly swapInfos: SwapInfos,
     private readonly countryCodes: CountryCodes,
   ) {
     super(logger, 'swap');
@@ -962,6 +964,11 @@ class SwapRouter extends RouterBase {
 
     router.get('/chain', this.handleError(this.getChain));
     router.post('/chain', this.handleError(this.createChain));
+    router.get(
+      '/chain/:id/claim',
+      this.handleError(this.getChainSwapClaimDetails),
+    );
+    router.post('/chain/:id/claim', this.handleError(this.claimChainSwap));
 
     /**
      * @openapi
@@ -1403,12 +1410,82 @@ class SwapRouter extends RouterBase {
     createdResponse(res, response);
   };
 
+  private getChainSwapClaimDetails = async (req: Request, res: Response) => {
+    const { id } = validateRequest(req.params, [
+      { name: 'id', type: 'string' },
+    ]);
+    const swap = await ChainSwapRepository.getChainSwap({
+      id,
+    });
+    if (swap === null || swap === undefined) {
+      errorResponse(this.logger, req, res, Errors.SWAP_NOT_FOUND(id), 404);
+      return;
+    }
+
+    const details =
+      await this.service.swapManager.chainSwapSigner.getCooperativeDetails(
+        swap,
+      );
+    successResponse(res, {
+      pubNonce: getHexString(details.pubNonce),
+      publicKey: getHexString(details.publicKey),
+      transactionHash: getHexString(details.transactionHash),
+      lockupTransaction: {
+        id: details.lockupTransaction.getId(),
+        hex: details.lockupTransaction.toHex(),
+      },
+    });
+  };
+
+  private claimChainSwap = async (req: Request, res: Response) => {
+    const { id } = validateRequest(req.params, [
+      { name: 'id', type: 'string' },
+    ]);
+    const { preimage, toSign, partialSignature } = validateRequest(req.body, [
+      { name: 'toSign', type: 'object' },
+      { name: 'partialSignature', type: 'object', optional: true },
+      { name: 'preimage', type: 'string', hex: true, optional: true },
+    ]);
+    const toSignParsed = validateRequest(toSign, [
+      { name: 'index', type: 'number' },
+      { name: 'pubNonce', type: 'string', hex: true },
+      { name: 'transaction', type: 'string', hex: true },
+    ]);
+
+    let partialSignatureParsed: PartialSignature | undefined;
+    if (partialSignature !== undefined) {
+      partialSignatureParsed = validateRequest(partialSignature, [
+        { name: 'pubNonce', type: 'string', hex: true },
+        { name: 'signature', type: 'string', hex: true },
+      ]);
+    }
+
+    const swap = await ChainSwapRepository.getChainSwap({
+      id,
+    });
+    if (swap === null || swap === undefined) {
+      errorResponse(this.logger, req, res, Errors.SWAP_NOT_FOUND(id), 404);
+      return;
+    }
+
+    const sig = await this.service.swapManager.chainSwapSigner.signClaim(
+      swap,
+      toSignParsed,
+      preimage,
+      partialSignatureParsed,
+    );
+    successResponse(res, {
+      pubNonce: getHexString(sig.pubNonce),
+      partialSignature: getHexString(sig.signature),
+    });
+  };
+
   private getSwapStatus = (req: Request, res: Response) => {
     const { id } = validateRequest(req.params, [
       { name: 'id', type: 'string' },
     ]);
 
-    const response = this.controller.pendingSwapInfos.get(id);
+    const response = this.swapInfos.get(id);
 
     if (response) {
       successResponse(res, response);

@@ -51,7 +51,6 @@ type SwapNurseryEvents = {
   'invoice.paid': Swap;
   'claim.pending': Swap;
   claim: {
-    type: SwapType;
     swap: Swap | ChainSwapInfo;
     channelCreation?: ChannelCreation;
   };

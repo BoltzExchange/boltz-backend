@@ -192,8 +192,8 @@ class EventHandler extends TypedEventEmitter<{
       });
     });
 
-    this.nursery.on('claim', ({ type, swap, channelCreation }) => {
-      if (type === SwapType.Submarine) {
+    this.nursery.on('claim', ({ swap, channelCreation }) => {
+      if (swap.type === SwapType.Submarine) {
         const submarine = swap as Swap;
         this.logger.verbose(`Swap ${submarine.id} succeeded`);
 

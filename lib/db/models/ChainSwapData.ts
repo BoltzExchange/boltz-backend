@@ -96,6 +96,10 @@ class ChainSwapData extends Model implements ChainSwapDataType {
       foreignKey: 'swapId',
     });
   };
+
+  get lockupTransactionId() {
+    return this.transactionId;
+  }
 }
 
 export default ChainSwapData;

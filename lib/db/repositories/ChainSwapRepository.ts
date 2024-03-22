@@ -1,5 +1,9 @@
 import { Op, WhereOptions } from 'sequelize';
-import { getSendingReceivingCurrency, splitPairId } from '../../Utils';
+import {
+  getHexString,
+  getSendingReceivingCurrency,
+  splitPairId,
+} from '../../Utils';
 import { SwapType, SwapUpdateEvent } from '../../consts/Enums';
 import Database from '../Database';
 import ChainSwap, { ChainSwapType } from '../models/ChainSwap';
@@ -24,12 +28,20 @@ class ChainSwapInfo {
     return this.chainSwap.status as SwapUpdateEvent;
   }
 
+  get isSettled() {
+    return this.chainSwap.status === SwapUpdateEvent.TransactionClaimed;
+  }
+
   get pair() {
     return this.chainSwap.pair;
   }
 
   get orderSide() {
     return this.chainSwap.orderSide;
+  }
+
+  get preimageHash() {
+    return this.chainSwap.preimageHash;
   }
 
   get fee() {
@@ -62,7 +74,7 @@ class ChainSwapRepository {
   };
 
   public static getChainSwaps = async (
-    options: WhereOptions,
+    options?: WhereOptions,
   ): Promise<ChainSwapInfo[]> => {
     const chainSwaps = await ChainSwap.findAll({ where: options });
     return Promise.all(chainSwaps.map(this.fetchChainSwapData));
@@ -182,14 +194,23 @@ class ChainSwapRepository {
       return swap;
     });
 
+  public static setPreimage = async (swap: ChainSwapInfo, preimage: Buffer) => {
+    swap.chainSwap = await swap.chainSwap.update({
+      preimage: getHexString(preimage),
+    });
+    return swap;
+  };
+
   public static setClaimMinerFee = async (
     swap: ChainSwapInfo,
+    preimage: Buffer,
     minerFee: number,
   ) =>
     Database.sequelize.transaction(async (transaction) => {
       swap.chainSwap = await swap.chainSwap.update(
         {
           status: SwapUpdateEvent.TransactionClaimed,
+          preimage: getHexString(preimage),
         },
         { transaction },
       );

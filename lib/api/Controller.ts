@@ -1,33 +1,17 @@
 import { Request, Response } from 'express';
 import path from 'path';
 import Logger from '../Logger';
-import {
-  getChainCurrency,
-  getVersion,
-  mapToObject,
-  saneStringify,
-  splitPairId,
-  stringify,
-} from '../Utils';
-import {
-  SwapType,
-  SwapUpdateEvent,
-  SwapVersion,
-  swapTypeToString,
-} from '../consts/Enums';
+import { getVersion, mapToObject, saneStringify, stringify } from '../Utils';
+import { SwapType, SwapVersion, swapTypeToString } from '../consts/Enums';
 import ReferralStats from '../data/ReferralStats';
-import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
-import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
-import SwapRepository from '../db/repositories/SwapRepository';
 import LndClient from '../lightning/LndClient';
 import ClnClient from '../lightning/cln/ClnClient';
 import CountryCodes from '../service/CountryCodes';
-import ServiceErrors from '../service/Errors';
 import { SwapUpdate } from '../service/EventHandler';
 import NodeInfo from '../service/NodeInfo';
 import Service from '../service/Service';
-import SwapNursery from '../swap/SwapNursery';
 import Bouncer from './Bouncer';
+import SwapInfos from './SwapInfos';
 import {
   checkPreimageHashLength,
   createdResponse,
@@ -38,10 +22,6 @@ import {
 } from './Utils';
 
 class Controller {
-  // TODO: refactor
-  // A map between the ids and statuses of the swaps
-  public pendingSwapInfos = new Map<string, SwapUpdate>();
-
   // A map between the ids and HTTP streams of all pending swaps
   private pendingSwapStreams = new Map<string, Response>();
 
@@ -49,10 +29,11 @@ class Controller {
     private readonly logger: Logger,
     private readonly service: Service,
     private readonly countryCodes: CountryCodes,
+    private readonly swapInfos: SwapInfos,
   ) {
     this.service.eventHandler.on('swap.update', ({ id, status }) => {
       this.logger.debug(`Swap ${id} update: ${saneStringify(status)}`);
-      this.pendingSwapInfos.set(id, status);
+      this.swapInfos.set(id, status);
 
       const response = this.pendingSwapStreams.get(id);
 
@@ -61,114 +42,6 @@ class Controller {
       }
     });
   }
-
-  public init = async (): Promise<void> => {
-    this.logger.verbose('Fetching swaps status from database');
-
-    // Get the latest status of all swaps in the database
-    const [swaps, reverseSwaps] = await Promise.all([
-      SwapRepository.getSwaps(),
-      ReverseSwapRepository.getReverseSwaps(),
-    ]);
-
-    for (const swap of swaps) {
-      const status = swap.status;
-
-      switch (status) {
-        case SwapUpdateEvent.ChannelCreated: {
-          const channelCreation =
-            await ChannelCreationRepository.getChannelCreation({
-              swapId: swap.id,
-            });
-
-          this.pendingSwapInfos.set(swap.id, {
-            status,
-            channel: {
-              fundingTransactionId: channelCreation!.fundingTransactionId!,
-              fundingTransactionVout: channelCreation!.fundingTransactionVout!,
-            },
-          });
-
-          break;
-        }
-
-        case SwapUpdateEvent.TransactionZeroConfRejected:
-          this.pendingSwapInfos.set(swap.id, {
-            status: SwapUpdateEvent.TransactionMempool,
-            zeroConfRejected: true,
-          });
-          break;
-
-        default:
-          this.pendingSwapInfos.set(swap.id, {
-            status: swap.status as SwapUpdateEvent,
-            failureReason:
-              swap.failureReason !== null ? swap.failureReason : undefined,
-          });
-          break;
-      }
-    }
-
-    for (const reverseSwap of reverseSwaps) {
-      const status = reverseSwap.status;
-
-      switch (status) {
-        case SwapUpdateEvent.TransactionMempool:
-        case SwapUpdateEvent.TransactionConfirmed: {
-          const { base, quote } = splitPairId(reverseSwap.pair);
-          const chainCurrency = getChainCurrency(
-            base,
-            quote,
-            reverseSwap.orderSide,
-            true,
-          );
-
-          try {
-            const transactionHex = await this.service.getTransaction(
-              chainCurrency,
-              reverseSwap.transactionId!,
-            );
-
-            this.pendingSwapInfos.set(reverseSwap.id, {
-              status,
-              transaction: {
-                hex: transactionHex,
-                id: reverseSwap.transactionId!,
-                eta:
-                  status === SwapUpdateEvent.TransactionMempool
-                    ? SwapNursery.reverseSwapMempoolEta
-                    : undefined,
-              },
-            });
-          } catch (error) {
-            // If the transaction can't be queried with the service it's either a transaction on the Ethereum network,
-            // or something is terribly wrong
-            if (
-              (error as any).message !==
-              ServiceErrors.NOT_SUPPORTED_BY_SYMBOL(chainCurrency).message
-            ) {
-              throw error;
-            }
-
-            this.pendingSwapInfos.set(reverseSwap.id, {
-              status,
-              transaction: {
-                id: reverseSwap.transactionId!,
-              },
-            });
-          }
-
-          break;
-        }
-
-        default:
-          this.pendingSwapInfos.set(reverseSwap.id, {
-            status: status as SwapUpdateEvent,
-          });
-          break;
-      }
-    }
-  };
 
   // Static files
   public serveFile = (fileName: string) => {
@@ -287,7 +160,7 @@ class Controller {
         { name: 'id', type: 'string' },
       ]);
 
-      const response = this.pendingSwapInfos.get(id);
+      const response = this.swapInfos.get(id);
 
       if (response) {
         successResponse(res, response);
@@ -573,7 +446,7 @@ class Controller {
 
       res.setTimeout(0);
 
-      const lastUpdate = this.pendingSwapInfos.get(id);
+      const lastUpdate = this.swapInfos.get(id);
       if (lastUpdate) {
         this.writeToSse(res, lastUpdate);
       }

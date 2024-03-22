@@ -56,6 +56,7 @@ import FeeProvider from '../rates/FeeProvider';
 import RateProvider from '../rates/RateProvider';
 import Blocks from '../service/Blocks';
 import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
+import ChainSwapSigner from '../service/cooperative/ChainSwapSigner';
 import DeferredClaimer from '../service/cooperative/DeferredClaimer';
 import Wallet from '../wallet/Wallet';
 import WalletManager, { Currency } from '../wallet/WalletManager';
@@ -111,6 +112,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     private retryInterval: number,
     blocks: Blocks,
     private readonly claimer: DeferredClaimer,
+    private readonly chainSwapSigner: ChainSwapSigner,
   ) {
     super();
 
@@ -147,7 +149,12 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       this.emit('claim', {
         swap,
         channelCreation,
-        type: SwapType.Submarine,
+      });
+    });
+
+    this.chainSwapSigner.on('claim', (swap) => {
+      this.emit('claim', {
+        swap,
       });
     });
   }
@@ -480,6 +487,8 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
               // await this.lockupERC20(wallet, lightningClient, reverseSwap);
               break;
           }
+
+          await this.chainSwapSigner.register(swap);
         });
       },
     );
@@ -514,6 +523,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           preimage,
           null,
         );
+        await this.chainSwapSigner.remove(swap.id);
       });
     });
 
@@ -1068,13 +1078,13 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     );
 
     this.emit('claim', {
-      type,
       channelCreation: channelCreation || undefined,
       swap:
         type === SwapType.Submarine
           ? await SwapRepository.setMinerFee(swap as Swap, claimTransactionFee)
           : await ChainSwapRepository.setClaimMinerFee(
               swap as ChainSwapInfo,
+              preimage,
               claimTransactionFee,
             ),
     });
@@ -1110,7 +1120,6 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       `Claimed ${manager.networkDetails.name} of Swap ${swap.id} in: ${contractTransaction.hash}`,
     );
     this.emit('claim', {
-      type: SwapType.Submarine,
       channelCreation: channelCreation || undefined,
       swap: await SwapRepository.setMinerFee(
         swap,
@@ -1155,7 +1164,6 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       `Claimed ${chainCurrency} of Swap ${swap.id} in: ${contractTransaction.hash}`,
     );
     this.emit('claim', {
-      type: SwapType.Submarine,
       channelCreation: channelCreation || undefined,
       swap: await SwapRepository.setMinerFee(
         swap,

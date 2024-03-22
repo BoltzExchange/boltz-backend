@@ -67,6 +67,37 @@ class BoltzApiClient {
         index: vin,
       })
     ).data;
+
+  public getChainSwapClaimDetails = async (
+    swapId: string,
+  ): Promise<{
+    pubNonce: string;
+    publicKey: string;
+    transactionHash: string;
+    lockupTransaction: {
+      id: string;
+      hex: string;
+    };
+  }> =>
+    (await axios.get(`${this.endpoint}/v2/swap/chain/${swapId}/claim`)).data;
+
+  public getChainSwapClaimPartialSignature = async (
+    swapId: string,
+    preimage: string,
+    toSign: {
+      index: number;
+      pubNonce: string;
+      transaction: string;
+    },
+    partialSignature: { signature: string; pubNonce: string },
+  ): Promise<PartialSignature> =>
+    (
+      await axios.post(`${this.endpoint}/v2/swap/chain/${swapId}/claim`, {
+        toSign,
+        preimage,
+        partialSignature,
+      })
+    ).data;
 }
 
 export default BoltzApiClient;

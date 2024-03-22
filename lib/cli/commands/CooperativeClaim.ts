@@ -1,7 +1,11 @@
-import { extractRefundPublicKeyFromReverseSwapTree } from 'boltz-core';
+import {
+  SwapTreeSerializer,
+  extractRefundPublicKeyFromReverseSwapTree,
+} from 'boltz-core';
 import { Arguments } from 'yargs';
 import { parseTransaction } from '../../Core';
-import { getHexString, stringify } from '../../Utils';
+import { ECPair } from '../../ECPairHelper';
+import { getHexBuffer, getHexString, stringify } from '../../Utils';
 import BoltzApiClient from '../BoltzApiClient';
 import BuilderComponents from '../BuilderComponents';
 import { currencyTypeFromNetwork, parseNetwork } from '../Command';
@@ -42,18 +46,23 @@ export const handler = async (argv: Arguments<any>): Promise<void> => {
 
   const { keys, tweakedKey, theirPublicKey, musig } =
     await setupCooperativeTransaction(
-      argv,
+      network,
+      currencyType,
+      SwapTreeSerializer.deserializeSwapTree(argv.swapTree),
+      ECPair.fromPrivateKey(getHexBuffer(argv.privateKey)),
       extractRefundPublicKeyFromReverseSwapTree,
       lockupTx,
     );
 
   const { details, tx } = prepareCooperativeTransaction(
-    argv,
     network,
     currencyType,
     keys,
     tweakedKey,
     lockupTx,
+    argv.destinationAddress,
+    argv.feePerVbyte,
+    argv.blindingKey,
   );
 
   const partialSig = await boltzClient.getReverseClaimPartialSignature(

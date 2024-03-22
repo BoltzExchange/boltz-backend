@@ -2,7 +2,7 @@ import { Application } from 'express';
 import Logger from '../../Logger';
 import CountryCodes from '../../service/CountryCodes';
 import Service from '../../service/Service';
-import Controller from '../Controller';
+import SwapInfos from '../SwapInfos';
 import { apiPrefix } from './Consts';
 import ChainRouter from './routers/ChainRouter';
 import InfoRouter from './routers/InfoRouter';
@@ -17,12 +17,12 @@ class ApiV2 {
   constructor(
     private readonly logger: Logger,
     service: Service,
-    controller: Controller,
+    swapInfos: SwapInfos,
     countryCodes: CountryCodes,
   ) {
     this.routers = [
       new InfoRouter(this.logger, service),
-      new SwapRouter(this.logger, service, controller, countryCodes),
+      new SwapRouter(this.logger, service, swapInfos, countryCodes),
       new ChainRouter(this.logger, service),
       new NodesRouter(this.logger, service),
       new ReferralRouter(this.logger),

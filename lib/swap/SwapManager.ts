@@ -59,6 +59,7 @@ import Blocks from '../service/Blocks';
 import InvoiceExpiryHelper from '../service/InvoiceExpiryHelper';
 import PaymentRequestUtils from '../service/PaymentRequestUtils';
 import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
+import ChainSwapSigner from '../service/cooperative/ChainSwapSigner';
 import DeferredClaimer, {
   SwapConfig,
 } from '../service/cooperative/DeferredClaimer';
@@ -151,6 +152,7 @@ class SwapManager {
   public nursery: SwapNursery;
   public routingHints!: RoutingHints;
   public readonly deferredClaimer: DeferredClaimer;
+  public readonly chainSwapSigner: ChainSwapSigner;
 
   private nodeFallback!: NodeFallback;
   private invoiceExpiryHelper!: InvoiceExpiryHelper;
@@ -176,6 +178,13 @@ class SwapManager {
       swapConfig,
     );
 
+    this.chainSwapSigner = new ChainSwapSigner(
+      this.logger,
+      this.currencies,
+      this.walletManager,
+      this.swapOutputType,
+    );
+
     this.nursery = new SwapNursery(
       this.logger,
       this.nodeSwitch,
@@ -186,6 +195,7 @@ class SwapManager {
       retryInterval,
       this.blocks,
       this.deferredClaimer,
+      this.chainSwapSigner,
     );
 
     this.reverseRoutingHints = new ReverseRoutingHints(
@@ -237,6 +247,8 @@ class SwapManager {
     this.recreateFilters(pendingSwaps, false);
     this.recreateFilters(pendingReverseSwaps, true);
     this.recreateChainSwapFilters(pendingChainSwaps);
+
+    await this.chainSwapSigner.init();
 
     this.logger.info(
       'Recreated input and output filters and invoice subscriptions',
@@ -984,7 +996,7 @@ class SwapManager {
           SwapTreeSerializer.serializeSwapTree(tree),
         );
 
-        const musig = createMusig(keys, args.claimPublicKey!);
+        const musig = createMusig(keys, theirPublicKey!);
         const tweakedKey = tweakMusig(currency.type, musig, tree);
         const outputScript = Scripts.p2trOutput(tweakedKey);
 

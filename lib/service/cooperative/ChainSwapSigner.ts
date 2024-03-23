@@ -6,7 +6,11 @@ import { Op } from 'sequelize';
 import { parseTransaction } from '../../Core';
 import Logger from '../../Logger';
 import { formatError, getHexBuffer } from '../../Utils';
-import { SwapUpdateEvent, swapTypeToPrettyString } from '../../consts/Enums';
+import {
+  FailedSwapUpdateEvents,
+  SwapUpdateEvent,
+  swapTypeToPrettyString,
+} from '../../consts/Enums';
 import ChainSwapRepository, {
   ChainSwapInfo,
 } from '../../db/repositories/ChainSwapRepository';
@@ -58,11 +62,45 @@ class ChainSwapSigner extends CoopSignerBase<
     });
 
     for (const swap of claimableChainSwaps) {
-      await this.register(swap);
+      await this.registerForClaim(swap);
     }
   };
 
-  public register = async (swap: ChainSwapInfo) => {
+  public signRefund = (
+    swap: ChainSwapInfo,
+    theirNonce: Buffer,
+    transaction: Buffer,
+    index: number,
+  ): Promise<PartialSignature> => {
+    const currency = this.currencies.get(swap.receivingData.symbol)!;
+    if (currency.chainClient === undefined) {
+      throw Errors.CURRENCY_NOT_UTXO_BASED();
+    }
+
+    if (!FailedSwapUpdateEvents.includes(swap.status)) {
+      this.logger.verbose(
+        `Not creating partial signature for refund of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: it is not eligible`,
+      );
+      throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND();
+    }
+
+    this.logger.debug(
+      `Creating partial signature for refund of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}`,
+    );
+
+    return createPartialSignature(
+      currency,
+      this.walletManager.wallets.get(swap.receivingData.symbol)!,
+      SwapTreeSerializer.deserializeSwapTree(swap.receivingData.swapTree!),
+      swap.receivingData.keyIndex!,
+      getHexBuffer(swap.receivingData.theirPublicKey!),
+      theirNonce,
+      transaction,
+      index,
+    );
+  };
+
+  public registerForClaim = async (swap: ChainSwapInfo) => {
     await this.lock.acquire(ChainSwapSigner.swapsToClaimLock, async () => {
       if (this.swapsToClaim.has(swap.id)) {
         return;
@@ -75,7 +113,7 @@ class ChainSwapSigner extends CoopSignerBase<
   };
 
   // TODO: remove after refund
-  public remove = async (id: string) => {
+  public removeFromClaimable = async (id: string) => {
     await this.lock.acquire(ChainSwapSigner.swapsToClaimLock, async () => {
       this.swapsToClaim.delete(id);
     });
@@ -179,7 +217,7 @@ class ChainSwapSigner extends CoopSignerBase<
       theirSignature.signature,
     );
 
-    await this.remove(swap.id);
+    await this.removeFromClaimable(swap.id);
     return ChainSwapRepository.setClaimMinerFee(swap, preimage, fee);
   };
 

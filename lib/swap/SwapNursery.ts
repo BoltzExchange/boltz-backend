@@ -488,7 +488,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
               break;
           }
 
-          await this.chainSwapSigner.register(swap);
+          await this.chainSwapSigner.registerForClaim(swap);
         });
       },
     );
@@ -523,7 +523,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           preimage,
           null,
         );
-        await this.chainSwapSigner.remove(swap.id);
+        await this.chainSwapSigner.removeFromClaimable(swap.id);
       });
     });
 

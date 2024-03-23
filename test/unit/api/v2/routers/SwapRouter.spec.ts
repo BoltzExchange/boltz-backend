@@ -489,8 +489,8 @@ describe('SwapRouter', () => {
       partialSignature: '1112',
     });
 
-    expect(service.musigSigner.signSwapRefund).toHaveBeenCalledTimes(1);
-    expect(service.musigSigner.signSwapRefund).toHaveBeenCalledWith(
+    expect(service.musigSigner.signRefund).toHaveBeenCalledTimes(1);
+    expect(service.musigSigner.signRefund).toHaveBeenCalledWith(
       reqParams.id,
       getHexBuffer(reqBody.pubNonce),
       getHexBuffer(reqBody.transaction),
@@ -515,8 +515,8 @@ describe('SwapRouter', () => {
       partialSignature: '1112',
     });
 
-    expect(service.musigSigner.signSwapRefund).toHaveBeenCalledTimes(1);
-    expect(service.musigSigner.signSwapRefund).toHaveBeenCalledWith(
+    expect(service.musigSigner.signRefund).toHaveBeenCalledTimes(1);
+    expect(service.musigSigner.signRefund).toHaveBeenCalledWith(
       reqBody.id,
       getHexBuffer(reqBody.pubNonce),
       getHexBuffer(reqBody.transaction),

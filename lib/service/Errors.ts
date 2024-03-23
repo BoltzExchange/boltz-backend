@@ -173,4 +173,8 @@ export default {
     message: 'user and server lock amount were specified',
     code: concatErrorCode(ErrorCodePrefix.Service, 44),
   }),
+  CURRENCY_NOT_UTXO_BASED: (): Error => ({
+    message: 'chain currency is not UTXO based',
+    code: concatErrorCode(ErrorCodePrefix.Service, 45),
+  }),
 };

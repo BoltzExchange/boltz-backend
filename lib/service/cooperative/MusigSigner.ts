@@ -8,10 +8,12 @@ import {
 } from '../../Utils';
 import {
   FailedSwapUpdateEvents,
+  SwapType,
   SwapUpdateEvent,
   SwapVersion,
 } from '../../consts/Enums';
 import Swap from '../../db/models/Swap';
+import { ChainSwapInfo } from '../../db/repositories/ChainSwapRepository';
 import ReverseSwapRepository from '../../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../db/repositories/SwapRepository';
 import { Payment } from '../../proto/lnd/rpc_pb';
@@ -35,7 +37,7 @@ class MusigSigner {
     private readonly nursery: SwapNursery,
   ) {}
 
-  public signSwapRefund = async (
+  public signRefund = async (
     swapId: string,
     theirNonce: Buffer,
     rawTransaction: Buffer,
@@ -52,7 +54,7 @@ class MusigSigner {
     )!;
 
     if (currency.chainClient === undefined) {
-      throw 'chain currency is not UTXO based';
+      throw Errors.CURRENCY_NOT_UTXO_BASED();
     }
 
     if (
@@ -148,16 +150,24 @@ class MusigSigner {
   };
 
   public static isEligibleForRefund = async (
-    swap: Swap,
-    lightningCurrency: Currency,
+    swap: Swap | ChainSwapInfo,
+    lightningCurrency?: Currency,
   ) =>
     FailedSwapUpdateEvents.includes(swap.status as SwapUpdateEvent) &&
-    !(await MusigSigner.hasNonFailedLightningPayment(lightningCurrency, swap));
+    (lightningCurrency === undefined ||
+      !(await MusigSigner.hasNonFailedLightningPayment(
+        lightningCurrency,
+        swap,
+      )));
 
   private static hasNonFailedLightningPayment = async (
     currency: Currency,
-    swap: Swap,
+    swap: Swap | ChainSwapInfo,
   ): Promise<boolean> => {
+    if (swap.type === SwapType.Chain) {
+      return false;
+    }
+
     try {
       if (currency.lndClient) {
         const pendingPayment = await currency.lndClient!.trackPayment(
@@ -173,9 +183,9 @@ class MusigSigner {
     }
 
     try {
-      if (currency.clnClient && swap.invoice) {
-        const payment = await currency.clnClient!.checkPayStatus(swap.invoice);
-
+      const invoice = (swap as Swap).invoice;
+      if (currency.clnClient && invoice) {
+        const payment = await currency.clnClient!.checkPayStatus(invoice);
         if (payment !== undefined) {
           return true;
         }

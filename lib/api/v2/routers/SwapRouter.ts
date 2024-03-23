@@ -8,7 +8,10 @@ import RateProviderTaproot from '../../../rates/providers/RateProviderTaproot';
 import CountryCodes from '../../../service/CountryCodes';
 import Errors from '../../../service/Errors';
 import Service from '../../../service/Service';
-import { PartialSignature } from '../../../service/cooperative/MusigSigner';
+import ChainSwapSigner from '../../../service/cooperative/ChainSwapSigner';
+import MusigSigner, {
+  PartialSignature,
+} from '../../../service/cooperative/MusigSigner';
 import SwapInfos from '../../SwapInfos';
 import {
   checkPreimageHashLength,
@@ -417,10 +420,7 @@ class SwapRouter extends RouterBase {
      *             schema:
      *               $ref: '#/components/schemas/ErrorResponse'
      */
-    router.get(
-      '/submarine/:id/refund',
-      this.handleError(this.refundSubmarineEvm),
-    );
+    router.get('/submarine/:id/refund', this.handleError(this.refundEvm));
 
     /**
      * @openapi
@@ -495,11 +495,14 @@ class SwapRouter extends RouterBase {
      */
     router.post(
       '/submarine/:id/refund',
-      this.handleError(this.refundSubmarine),
+      this.handleError(this.signUtxoRefund(this.service.musigSigner)),
     );
 
     // Deprecated endpoint from first Taproot deployment
-    router.post('/submarine/refund', this.handleError(this.refundSubmarine));
+    router.post(
+      '/submarine/refund',
+      this.handleError(this.signUtxoRefund(this.service.musigSigner)),
+    );
 
     /**
      * @openapi
@@ -970,6 +973,18 @@ class SwapRouter extends RouterBase {
     );
     router.post('/chain/:id/claim', this.handleError(this.claimChainSwap));
 
+    router.get(
+      '/chain/:id/refund',
+      // We can use the exact same handler sas for Submarine swaps
+      this.handleError(this.refundEvm),
+    );
+    router.post(
+      '/chain/:id/refund',
+      this.handleError(
+        this.signUtxoRefund(this.service.swapManager.chainSwapSigner),
+      ),
+    );
+
     /**
      * @openapi
      * tags:
@@ -1131,43 +1146,6 @@ class SwapRouter extends RouterBase {
       hex: transactionHex,
       timeoutBlockHeight,
       timeoutEta,
-    });
-  };
-
-  private refundSubmarine = async (req: Request, res: Response) => {
-    const params = req.params
-      ? validateRequest(req.params, [
-          { name: 'id', type: 'string', optional: true },
-        ])
-      : {};
-
-    const { id, pubNonce, index, transaction } = validateRequest(req.body, [
-      { name: 'id', type: 'string', optional: params.id !== undefined },
-      { name: 'index', type: 'number' },
-      { name: 'pubNonce', type: 'string', hex: true },
-      { name: 'transaction', type: 'string', hex: true },
-    ]);
-
-    const sig = await this.service.musigSigner.signSwapRefund(
-      params.id || id,
-      pubNonce,
-      transaction,
-      index,
-    );
-
-    successResponse(res, {
-      pubNonce: getHexString(sig.pubNonce),
-      partialSignature: getHexString(sig.signature),
-    });
-  };
-
-  private refundSubmarineEvm = async (req: Request, res: Response) => {
-    const { id } = validateRequest(req.params, [
-      { name: 'id', type: 'string' },
-    ]);
-
-    successResponse(res, {
-      signature: await this.service.eipSigner.signSwapRefund(id),
     });
   };
 
@@ -1477,6 +1455,45 @@ class SwapRouter extends RouterBase {
     successResponse(res, {
       pubNonce: getHexString(sig.pubNonce),
       partialSignature: getHexString(sig.signature),
+    });
+  };
+
+  private signUtxoRefund =
+    (signer: MusigSigner | ChainSwapSigner) =>
+    async (req: Request, res: Response) => {
+      const params = req.params
+        ? validateRequest(req.params, [
+            { name: 'id', type: 'string', optional: true },
+          ])
+        : {};
+
+      const { id, pubNonce, index, transaction } = validateRequest(req.body, [
+        { name: 'id', type: 'string', optional: params.id !== undefined },
+        { name: 'index', type: 'number' },
+        { name: 'pubNonce', type: 'string', hex: true },
+        { name: 'transaction', type: 'string', hex: true },
+      ]);
+
+      const sig = await signer.signRefund(
+        params.id || id,
+        pubNonce,
+        transaction,
+        index,
+      );
+
+      successResponse(res, {
+        pubNonce: getHexString(sig.pubNonce),
+        partialSignature: getHexString(sig.signature),
+      });
+    };
+
+  private refundEvm = async (req: Request, res: Response) => {
+    const { id } = validateRequest(req.params, [
+      { name: 'id', type: 'string' },
+    ]);
+
+    successResponse(res, {
+      signature: await this.service.eipSigner.signSwapRefund(id),
     });
   };
 

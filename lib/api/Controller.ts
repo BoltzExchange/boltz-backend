@@ -220,7 +220,8 @@ class Controller {
         { name: 'id', type: 'string' },
       ]);
 
-      const response = await this.service.getSwapTransaction(id);
+      const response =
+        await this.service.transactionFetcher.getSubmarineTransaction(id);
       successResponse(res, response);
     } catch (error) {
       errorResponse(this.logger, req, res, error);

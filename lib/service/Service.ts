@@ -85,6 +85,8 @@ import PaymentRequestUtils from './PaymentRequestUtils';
 import TimeoutDeltaProvider, {
   PairTimeoutBlocksDelta,
 } from './TimeoutDeltaProvider';
+import TransactionFetcher from './TransactionFetcher';
+import { calculateTimeoutDate, getCurrency } from './Utils';
 import EipSigner from './cooperative/EipSigner';
 import MusigSigner from './cooperative/MusigSigner';
 
@@ -102,16 +104,6 @@ type Contracts = {
   rsk?: NetworkContracts;
 };
 
-type ReverseTransaction = {
-  transactionId: string;
-  timeoutBlockHeight: number;
-  transactionHex?: string;
-};
-
-type SwapTransaction = ReverseTransaction & {
-  timeoutEta?: number;
-};
-
 class Service {
   public allowReverseSwaps = true;
 
@@ -119,6 +111,8 @@ class Service {
   public swapManager: SwapManager;
   public eventHandler: EventHandler;
   public elementsService: ElementsService;
+
+  public readonly transactionFetcher: TransactionFetcher;
 
   public readonly eipSigner: EipSigner;
   public readonly musigSigner: MusigSigner;
@@ -198,6 +192,7 @@ class Service {
       this.currencies,
       this.walletManager,
     );
+    this.transactionFetcher = new TransactionFetcher(this.currencies);
     this.eipSigner = new EipSigner(
       this.logger,
       this.currencies,
@@ -356,7 +351,7 @@ class Service {
     symbol: string,
     startHeight: number,
   ): Promise<number> => {
-    const currency = this.getCurrency(symbol);
+    const currency = getCurrency(this.currencies, symbol);
 
     let endHeight: number;
 
@@ -527,99 +522,13 @@ class Service {
     symbol: string,
     transactionHash: string,
   ): Promise<string> => {
-    const currency = this.getCurrency(symbol);
+    const currency = getCurrency(this.currencies, symbol);
 
     if (currency.chainClient === undefined) {
       throw Errors.NOT_SUPPORTED_BY_SYMBOL(symbol);
     }
 
     return await currency.chainClient.getRawTransaction(transactionHash);
-  };
-
-  /**
-   * Gets the hex encoded lockup transaction of a Submarine Swap, the block height
-   * at which it will time out and the expected ETA for that block
-   */
-  public getSwapTransaction = async (id: string): Promise<SwapTransaction> => {
-    const swap = await SwapRepository.getSwap({
-      id,
-    });
-
-    if (!swap) {
-      throw Errors.SWAP_NOT_FOUND(id);
-    }
-
-    if (!swap.lockupTransactionId) {
-      throw Errors.SWAP_NO_LOCKUP();
-    }
-
-    const { base, quote } = splitPairId(swap.pair);
-    const chainCurrency = getChainCurrency(base, quote, swap.orderSide, false);
-
-    const currency = this.getCurrency(chainCurrency);
-
-    const response: SwapTransaction = {
-      transactionId: swap.lockupTransactionId,
-      timeoutBlockHeight: swap.timeoutBlockHeight,
-    };
-
-    let blocks = 0;
-
-    if (currency.chainClient) {
-      const chainInfo = await currency.chainClient.getBlockchainInfo();
-      blocks = chainInfo.blocks;
-
-      response.transactionHex = await currency.chainClient.getRawTransaction(
-        swap.lockupTransactionId,
-      );
-    } else if (currency.provider) {
-      blocks = await currency.provider.getBlockNumber();
-    } else {
-      throw Errors.NOT_SUPPORTED_BY_SYMBOL(currency.symbol);
-    }
-
-    if (blocks < swap.timeoutBlockHeight) {
-      response.timeoutEta = this.calculateTimeoutDate(
-        chainCurrency,
-        swap.timeoutBlockHeight - blocks,
-      );
-    }
-
-    return response;
-  };
-
-  public getReverseSwapTransaction = async (
-    id: string,
-  ): Promise<ReverseTransaction> => {
-    const reverseSwap = await ReverseSwapRepository.getReverseSwap({
-      id,
-    });
-
-    if (!reverseSwap) {
-      throw Errors.SWAP_NOT_FOUND(id);
-    }
-
-    if (!reverseSwap.transactionId) {
-      throw Errors.SWAP_NO_LOCKUP();
-    }
-
-    const { base, quote } = splitPairId(reverseSwap.pair);
-    const currency = this.getCurrency(
-      getChainCurrency(base, quote, reverseSwap.orderSide, true),
-    );
-
-    const response: ReverseTransaction = {
-      transactionId: reverseSwap.transactionId,
-      timeoutBlockHeight: reverseSwap.timeoutBlockHeight,
-    };
-
-    if (currency.chainClient) {
-      response.transactionHex = await currency.chainClient.getRawTransaction(
-        reverseSwap.transactionId,
-      );
-    }
-
-    return response;
   };
 
   public getReverseBip21 = async (invoice: string) => {
@@ -675,7 +584,7 @@ class Service {
     symbol?: string,
   ): Promise<Map<string, number>> => {
     const currencies = symbol
-      ? [this.getCurrency(symbol)]
+      ? [getCurrency(this.currencies, symbol)]
       : Array.from(this.currencies.values());
 
     return new Map<string, number>(
@@ -722,7 +631,7 @@ class Service {
     };
 
     if (symbol !== undefined) {
-      const currency = this.getCurrency(symbol);
+      const currency = getCurrency(this.currencies, symbol);
       if (currency.type !== CurrencyType.ERC20) {
         map.set(symbol, await estimateFee(currency));
       } else {
@@ -760,7 +669,7 @@ class Service {
     symbol: string,
     transactionHex: string,
   ): Promise<string> => {
-    const currency = this.getCurrency(symbol);
+    const currency = getCurrency(this.currencies, symbol);
 
     if (currency.chainClient === undefined) {
       throw Errors.NOT_SUPPORTED_BY_SYMBOL(symbol);
@@ -806,7 +715,7 @@ class Service {
           timeoutBlockHeight: swap.timeoutBlockHeight,
           // Here we don't need to check whether the Swap has timed out yet because
           // if the error above has been thrown, we can be sure that this is not the case
-          timeoutEta: this.calculateTimeoutDate(
+          timeoutEta: calculateTimeoutDate(
             symbol,
             swap.timeoutBlockHeight - blocks,
           ),
@@ -940,7 +849,10 @@ class Service {
     const orderSide = this.getOrderSide(args.orderSide);
 
     switch (
-      this.getCurrency(getChainCurrency(base, quote, orderSide, false)).type
+      getCurrency(
+        this.currencies,
+        getChainCurrency(base, quote, orderSide, false),
+      ).type
     ) {
       case CurrencyType.BitcoinLike:
       case CurrencyType.Liquid:
@@ -966,7 +878,9 @@ class Service {
       false,
     );
 
-    if (!NodeSwitch.hasClient(this.getCurrency(lightningCurrency))) {
+    if (
+      !NodeSwitch.hasClient(getCurrency(this.currencies, lightningCurrency))
+    ) {
       throw ErrorsSwap.NO_LIGHTNING_SUPPORT(lightningCurrency);
     }
 
@@ -1187,7 +1101,7 @@ class Service {
     swap.invoiceAmount = decodedInvoice.satoshis;
 
     const { destination, features } = await this.nodeSwitch
-      .getSwapNode(this.getCurrency(lightningCurrency)!, swap)
+      .getSwapNode(getCurrency(this.currencies, lightningCurrency)!, swap)
       .decodeInvoice(invoice);
 
     if (this.nodeInfo.isOurNode(destination)) {
@@ -1460,7 +1374,7 @@ class Service {
       quote,
       side,
     );
-    const sendingCurrency = this.getCurrency(sending);
+    const sendingCurrency = getCurrency(this.currencies, sending);
 
     // Not the pretties way and also not the right spot to do input validation but
     // only at this point in time the type of the sending currency is known
@@ -1712,8 +1626,8 @@ class Service {
       side,
     );
     const [sendingCurrency, receivingCurrency] = [
-      this.getCurrency(sending),
-      this.getCurrency(receiving),
+      getCurrency(this.currencies, sending),
+      getCurrency(this.currencies, receiving),
     ];
 
     switch (sendingCurrency.type) {
@@ -1848,7 +1762,7 @@ class Service {
     symbol: string,
     invoice: string,
   ): Promise<PaymentResponse> => {
-    const currency = this.getCurrency(symbol);
+    const currency = getCurrency(this.currencies, symbol);
     const lightningClient = currency.lndClient || currency.clnClient;
 
     if (lightningClient === undefined) {
@@ -1998,16 +1912,6 @@ class Service {
     };
   };
 
-  private getCurrency = (symbol: string) => {
-    const currency = this.currencies.get(symbol);
-
-    if (!currency) {
-      throw Errors.CURRENCY_NOT_FOUND(symbol);
-    }
-
-    return currency;
-  };
-
   private getOrderSide = (side: string) => {
     switch (side.toLowerCase()) {
       case 'buy':
@@ -2018,13 +1922,6 @@ class Service {
       default:
         throw Errors.ORDER_SIDE_NOT_FOUND(side);
     }
-  };
-
-  private calculateTimeoutDate = (chain: string, blocksMissing: number) => {
-    return (
-      getUnixTime() +
-      blocksMissing * TimeoutDeltaProvider.blockTimes.get(chain)! * 60
-    );
   };
 
   private checkWholeNumber = (input: number) => {

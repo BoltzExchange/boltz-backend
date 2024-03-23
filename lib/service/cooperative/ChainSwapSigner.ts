@@ -1,9 +1,6 @@
 import AsyncLock from 'async-lock';
-import { Transaction } from 'bitcoinjs-lib';
 import { SwapTreeSerializer } from 'boltz-core';
-import { Transaction as TransactionLiquid } from 'liquidjs-lib';
 import { Op } from 'sequelize';
-import { parseTransaction } from '../../Core';
 import Logger from '../../Logger';
 import { formatError, getHexBuffer } from '../../Utils';
 import {
@@ -23,8 +20,6 @@ import CoopSignerBase, {
 } from './CoopSignerBase';
 import { PartialSignature } from './MusigSigner';
 import { createPartialSignature, isPreimageValid } from './Utils';
-
-// TODO: cooperative refunds
 
 type TheirSigningData = {
   pubNonce: Buffer;
@@ -125,30 +120,16 @@ class ChainSwapSigner extends CoopSignerBase<
     pubNonce: Buffer;
     publicKey: Buffer;
     transactionHash: Buffer;
-    lockupTransaction: Transaction | TransactionLiquid;
   }> => {
     const claimDetails = await this.getToClaimDetails(swap.id);
     if (claimDetails === undefined) {
       throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM();
     }
 
-    const details = await this.createCoopDetails(
+    return this.createCoopDetails(
       this.currencies.get(swap.receivingData.symbol)!,
       claimDetails,
     );
-
-    // TODO: separate endpoint for that
-    const lockupTx = parseTransaction(
-      this.walletManager.wallets.get(swap.receivingData.symbol)!.type,
-      await this.currencies
-        .get(swap.receivingData.symbol)!
-        .chainClient!.getRawTransaction(swap.receivingData.transactionId!),
-    );
-
-    return {
-      ...details,
-      lockupTransaction: lockupTx,
-    };
   };
 
   public signClaim = async (

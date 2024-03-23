@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { SwapUpdateEvent } from '../consts/Enums';
+import { ChainSwapTransactions } from '../service/TransactionFetcher';
 
 type PartialSignature = {
   pubNonce: string;
@@ -68,16 +69,18 @@ class BoltzApiClient {
       })
     ).data;
 
+  public getChainTransactions = async (
+    swapId: string,
+  ): Promise<ChainSwapTransactions> =>
+    (await axios.get(`${this.endpoint}/v2/swap/chain/${swapId}/transactions`))
+      .data;
+
   public getChainSwapClaimDetails = async (
     swapId: string,
   ): Promise<{
     pubNonce: string;
     publicKey: string;
     transactionHash: string;
-    lockupTransaction: {
-      id: string;
-      hex: string;
-    };
   }> =>
     (await axios.get(`${this.endpoint}/v2/swap/chain/${swapId}/claim`)).data;
 

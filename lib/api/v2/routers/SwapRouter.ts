@@ -968,6 +968,10 @@ class SwapRouter extends RouterBase {
     router.get('/chain', this.handleError(this.getChain));
     router.post('/chain', this.handleError(this.createChain));
     router.get(
+      '/chain/:id/transactions',
+      this.handleError(this.getChainSwapTransactions),
+    );
+    router.get(
       '/chain/:id/claim',
       this.handleError(this.getChainSwapClaimDetails),
     );
@@ -975,7 +979,7 @@ class SwapRouter extends RouterBase {
 
     router.get(
       '/chain/:id/refund',
-      // We can use the exact same handler sas for Submarine swaps
+      // We can use the exact same handler as for Submarine Swaps
       this.handleError(this.refundEvm),
     );
     router.post(
@@ -1140,7 +1144,7 @@ class SwapRouter extends RouterBase {
     ]);
 
     const { transactionHex, transactionId, timeoutBlockHeight, timeoutEta } =
-      await this.service.getSwapTransaction(id);
+      await this.service.transactionFetcher.getSubmarineTransaction(id);
     successResponse(res, {
       id: transactionId,
       hex: transactionHex,
@@ -1290,7 +1294,7 @@ class SwapRouter extends RouterBase {
     ]);
 
     const { transactionHex, transactionId, timeoutBlockHeight } =
-      await this.service.getReverseSwapTransaction(id);
+      await this.service.transactionFetcher.getReverseSwapTransaction(id);
     successResponse(res, {
       id: transactionId,
       hex: transactionHex,
@@ -1408,10 +1412,6 @@ class SwapRouter extends RouterBase {
       pubNonce: getHexString(details.pubNonce),
       publicKey: getHexString(details.publicKey),
       transactionHash: getHexString(details.transactionHash),
-      lockupTransaction: {
-        id: details.lockupTransaction.getId(),
-        hex: details.lockupTransaction.toHex(),
-      },
     });
   };
 
@@ -1458,6 +1458,23 @@ class SwapRouter extends RouterBase {
     });
   };
 
+  private getChainSwapTransactions = async (req: Request, res: Response) => {
+    const { id } = validateRequest(req.params, [
+      { name: 'id', type: 'string' },
+    ]);
+
+    const chainSwap = await ChainSwapRepository.getChainSwap({ id });
+    if (chainSwap === null) {
+      errorResponse(this.logger, req, res, Errors.SWAP_NOT_FOUND(id), 404);
+      return;
+    }
+
+    successResponse(
+      res,
+      await this.service.transactionFetcher.getChainSwapTransactions(chainSwap),
+    );
+  };
+
   private signUtxoRefund =
     (signer: MusigSigner | ChainSwapSigner) =>
     async (req: Request, res: Response) => {
@@ -1468,10 +1485,10 @@ class SwapRouter extends RouterBase {
         : {};
 
       const { id, pubNonce, index, transaction } = validateRequest(req.body, [
-        { name: 'id', type: 'string', optional: params.id !== undefined },
         { name: 'index', type: 'number' },
         { name: 'pubNonce', type: 'string', hex: true },
         { name: 'transaction', type: 'string', hex: true },
+        { name: 'id', type: 'string', optional: params.id !== undefined },
       ]);
 
       const sig = await signer.signRefund(
@@ -1507,13 +1524,7 @@ class SwapRouter extends RouterBase {
     if (response) {
       successResponse(res, response);
     } else {
-      errorResponse(
-        this.logger,
-        req,
-        res,
-        `could not find swap with id: ${id}`,
-        404,
-      );
+      errorResponse(this.logger, req, res, Errors.SWAP_NOT_FOUND(id), 404);
     }
   };
 }

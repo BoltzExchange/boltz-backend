@@ -105,9 +105,11 @@ export const handler = async (
     argv.blindingKey,
   );
 
-  const apiClaimDetails = await boltzClient.getChainSwapClaimDetails(
-    argv.swapId,
-  );
+  const [apiClaimDetails, swapTransactions] = await Promise.all([
+    boltzClient.getChainSwapClaimDetails(argv.swapId),
+    boltzClient.getChainTransactions(argv.swapId),
+  ]);
+
   const theirClaimType = treeIsBitcoin(refundTree)
     ? CurrencyType.BitcoinLike
     : CurrencyType.Liquid;
@@ -117,7 +119,10 @@ export const handler = async (
     refundTree,
     ECPair.fromPrivateKey(getHexBuffer(argv.refundKeys)),
     extractClaimPublicKeyFromReverseSwapTree,
-    parseTransaction(theirClaimType, apiClaimDetails.lockupTransaction.hex),
+    parseTransaction(
+      theirClaimType,
+      swapTransactions.userLock!.transaction.hex!,
+    ),
   );
   theirClaimDetails.musig.aggregateNonces([
     [theirClaimDetails.theirPublicKey, getHexBuffer(apiClaimDetails.pubNonce)],

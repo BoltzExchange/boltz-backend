@@ -231,7 +231,7 @@ class CommandHandler {
 
         if (commandInfo) {
           this.logger.debug(
-            `Executing Discord command: ${command} ${args.join(', ')}`,
+            `Executing ${this.notificationClient.serviceName} command: ${command} ${args.join(', ')}`,
           );
           await commandInfo.executor(args);
         }

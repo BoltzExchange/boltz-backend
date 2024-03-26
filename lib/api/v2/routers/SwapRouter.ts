@@ -426,7 +426,7 @@ class SwapRouter extends RouterBase {
      * @openapi
      * components:
      *   schemas:
-     *     SubmarineRefundRequest:
+     *     RefundRequest:
      *       type: object
      *       properties:
      *         pubNonce:
@@ -478,7 +478,7 @@ class SwapRouter extends RouterBase {
      *       content:
      *         application/json:
      *           schema:
-     *             $ref: '#/components/schemas/SubmarineRefundRequest'
+     *             $ref: '#/components/schemas/RefundRequest'
      *     responses:
      *       '200':
      *         description: A partial signature
@@ -720,7 +720,7 @@ class SwapRouter extends RouterBase {
      *           description: Pair hash from the pair information for the client to check if their fee data is up-to-date
      *         referralId:
      *           type: string
-     *           description: Referral ID to be used for the Submarine swap
+     *           description: Referral ID to be used for the Reverse Swap
      *         address:
      *           type: string
      *           description: Address to be used for a BIP-21 direct payment
@@ -965,23 +965,473 @@ class SwapRouter extends RouterBase {
       this.handleError(this.getReverseBip21),
     );
 
+    /**
+     * @openapi
+     * tags:
+     *   name: Chain Swap
+     *   description: Chain Swap related endpoints
+     */
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
+     *     ChainPair:
+     *       type: object
+     *       properties:
+     *         hash:
+     *           type: string
+     *           required: true
+     *           description: Hash of the pair that can be used when creating the Chain Swap to ensure the information of the client is up-to-date
+     *         rate:
+     *           type: number
+     *           required: true
+     *           description: Exchange rate of the pair
+     *         limits:
+     *           type: object
+     *           properties:
+     *             minimal:
+     *               type: number
+     *               required: true
+     *               description: Minimal amount that can be swapped in satoshis
+     *             maximal:
+     *               type: number
+     *               required: true
+     *               description: Maximal amount that can be swapped in satoshis
+     *         fees:
+     *           type: object
+     *           properties:
+     *             percentage:
+     *               type: number
+     *               required: true
+     *               description: Relative fee that will be charged in percent
+     *             minerFees:
+     *               type: object
+     *               properties:
+     *                 lockup:
+     *                   type: number
+     *                   required: true
+     *                   description: Absolute miner fee that will be charged in satoshis
+     *                 claim:
+     *                   type: number
+     *                   required: true
+     *                   description: Absolute miner fee that we estimate for the claim transaction in satoshis
+     */
+
+    /**
+     * @openapi
+     * /swap/chain:
+     *   get:
+     *     description: Possible pairs for Chain Swaps
+     *     tags: [Chain Swap]
+     *     responses:
+     *       '200':
+     *         description: Dictionary of the from -> to currencies that can be used in a Chain Swap
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               additionalProperties:
+     *                 type: object
+     *                 additionalProperties:
+     *                   $ref: '#/components/schemas/ChainPair'
+     *             examples:
+     *               json:
+     *                 value: '{"BTC":{"RBTC":{"hash":"819c288da87e4212ed9420b60e2699d49ff3f989215f1beb3dc986a3dfbe8160","rate":1,"limits":{"maximal":4294967,"minimal":50000,"maximalZeroConf":0},"fees":{"percentage":0.5,"minerFees":{"server":7035,"user":{"claim":3108,"lockup":5077}}}},"L-BTC":{"hash":"43087e267db95668b9b7c48efcf44d922484870f1bdb8b926e5d6b76bf4d0709","rate":1,"limits":{"maximal":4294967,"minimal":10000,"maximalZeroConf":0},"fees":{"percentage":0.25,"minerFees":{"server":4455,"user":{"claim":3108,"lockup":276}}}}},"RBTC":{"BTC":{"hash":"a5de5e1fb35ea29d67131283bf5c682e5b16a19ecaadc0e80345d95f4831e201","rate":1,"limits":{"maximal":4294967,"minimal":50000,"maximalZeroConf":0},"fees":{"percentage":0.5,"minerFees":{"server":8185,"user":{"claim":2723,"lockup":4312}}}}},"L-BTC":{"BTC":{"hash":"3ec520412cee74863f2c75a9cd7b8d2077f68267632344ec3c4646e100883091","rate":1,"limits":{"maximal":4294967,"minimal":10000,"maximalZeroConf":0},"fees":{"percentage":0.25,"minerFees":{"server":3384,"user":{"claim":143,"lockup":4312}}}}}}'
+     */
     router.get('/chain', this.handleError(this.getChain));
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
+     *     ChainRequest:
+     *       type: object
+     *       properties:
+     *         from:
+     *           type: string
+     *           required: true
+     *           description: The asset that is sent on lightning
+     *         to:
+     *           type: string
+     *           required: true
+     *           description: The asset that is received onchain
+     *         preimageHash:
+     *           type: string
+     *           required: true
+     *           description: SHA-256 hash of the preimage of the Chain Swap encoded as HEX
+     *         claimPublicKey:
+     *           type: string
+     *           description: Public key with which the Chain Swap can be claimed encoded as HEX
+     *         refundPublicKey:
+     *           type: string
+     *           description: Public key with which the Chain Swap can be refunded encdoed as HEX
+     *         claimAddress:
+     *           type: string
+     *           description: EVM address with which the Chain Swap can be claimed
+     *         userLockAmount:
+     *           type: number
+     *           description: Amount the client is expected to lock; conflicts with "serverLockAmount"
+     *         serverLockAmount:
+     *           type: number
+     *           description: Amount the server should lock; conflicts with "userLockAmount"
+     *         pairHash:
+     *           type: string
+     *           description: Pair hash from the pair information for the client to check if their fee data is up-to-date
+     *         referralId:
+     *           type: string
+     *           description: Referral ID to be used for the Chain Swap
+     */
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
+     *     ChainSwapData:
+     *       type: object
+     *       properties:
+     *         swapTree:
+     *           $ref: '#/components/schemas/SwapTree'
+     *         lockupAddress:
+     *           type: string
+     *           required: true
+     *           description: HTLC address in which coins will be locked
+     *         serverPublicKey:
+     *           type: string
+     *           description: Public key of Boltz that is used in the aggregated public key
+     *         timeoutBlockHeight:
+     *           type: number
+     *           required: true
+     *           description: Timeout block height of the onchain HTLC
+     *         amount:
+     *           type: number
+     *           required: true
+     *           description: Amount that is supposed to be locked in the onchain HTLC
+     *         blindingKey:
+     *           type: string
+     *           description: Liquid blinding private key encoded as HEX
+     *         refundAddress:
+     *           type: string
+     *           description: Address that should be specified as refund address for EVM lockup transactions
+     *         bip21:
+     *           type: string
+     *           description: BIP-21 for the UTXO onchain lockup of the user
+     */
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
+     *     ChainResponse:
+     *       type: object
+     *       properties:
+     *         id:
+     *           type: string
+     *           required: true
+     *           description: ID of the created Reverse Swap
+     *         claimDetails:
+     *           $ref: '#/components/schemas/ChainSwapData'
+     *         refundDetails:
+     *           $ref: '#/components/schemas/ChainSwapData'
+     */
+
+    /**
+     * @openapi
+     * /swap/chain:
+     *   post:
+     *     description: Create a new Chain Swap from chain to chain
+     *     tags: [Chain Swap]
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             $ref: '#/components/schemas/ChainRequest'
+     *     responses:
+     *       '201':
+     *         description: The created Chain Swap
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ChainResponse'
+     *       '400':
+     *         description: Error that caused the Chain Swap creation to fail
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
     router.post('/chain', this.handleError(this.createChain));
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
+     *     ChainSwapTransaction:
+     *       type: object
+     *       properties:
+     *        timeoutBlockHeight:
+     *          type: number
+     *          required: true
+     *          description: Timeout block height of the onchain HTLC
+     *        transaction:
+     *          type: object
+     *          properties:
+     *            id:
+     *              type: string
+     *              required: true
+     *              description: ID of the transaction
+     *            hex:
+     *              type: string
+     *              description: The transaction encoded as HEX; set for UTXO based chains
+     *
+     *     ChainSwapTransactions:
+     *       type: object
+     *       properties:
+     *         userLock:
+     *           $ref: '#/components/schemas/ChainSwapTransaction'
+     *         serverLock:
+     *           $ref: '#/components/schemas/ChainSwapTransaction'
+     */
+
+    /**
+     * @openapi
+     * /swap/chain/{id}/transactions:
+     *   get:
+     *     description: Gets the transactions of a Chain Swap
+     *     tags: [Chain Swap]
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *         description: ID of the Swap
+     *     responses:
+     *       '200':
+     *         description: Transactions of the Chain Swap
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ChainSwapTransactions'
+     *       '404':
+     *         description: When no Chain Swap with the ID could be found
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *       '400':
+     *         description: Error that caused the request to fail
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
     router.get(
       '/chain/:id/transactions',
       this.handleError(this.getChainSwapTransactions),
     );
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
+     *     ChainSwapSigningDetails:
+     *       type: object
+     *       properties:
+     *         pubNonce:
+     *           type: string
+     *           required: true
+     *           description: Public nonce of the client for the session, encoded as HEX
+     *         publicKey:
+     *           type: string
+     *           required: true
+     *           description: Public key of the server that was used in the aggregated public key
+     *         transactionHash:
+     *           type: string
+     *           required: true
+     *           description: Transaction hash which should be signed, encoded as HEX
+     */
+
+    /**
+     * @openapi
+     * /swap/chain/{id}/claim:
+     *   get:
+     *     description: Gets the server claim transaction signing details
+     *     tags: [Chain Swap]
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *         description: ID of the Swap
+     *     responses:
+     *       '200':
+     *         description: Server claim signing details
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ChainSwapSigningDetails'
+     *       '404':
+     *         description: When no Chain Swap with the ID could be found
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *       '400':
+     *         description: Error that caused the request to fail
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
     router.get(
       '/chain/:id/claim',
       this.handleError(this.getChainSwapClaimDetails),
     );
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
+     *     ChainSwapSigningRequest:
+     *       type: object
+     *       properties:
+     *         preimage:
+     *           type: string
+     *           required: true
+     *           description: Preimage of the Chain Swap, encoded as HEX
+     *         partialSignature:
+     *           $ref: '#/components/schemas/PartialSignature'
+     *         toSign:
+     *           type: object
+     *           properties:
+     *             pubNonce:
+     *               type: string
+     *               required: true
+     *               description: Public nonce of the client for the session encoded as HEX
+     *             rawTransaction:
+     *               type: string
+     *               required: true
+     *               description: Transaction which should be signed encoded as HEX
+     *             index:
+     *               type: number
+     *               required: true
+     *               description: Index of the input of the transaction that should be signed
+     */
+
+    /**
+     * @openapi
+     * /swap/chain/{id}/claim:
+     *   post:
+     *     description: Gets the server claim transaction signing details
+     *     tags: [Chain Swap]
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *         description: ID of the Swap
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             $ref: '#/components/schemas/ChainSwapSigningRequest'
+     *     responses:
+     *       '200':
+     *         description: Partial signature for the claim transaction of the user
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/PartialSignature'
+     *       '404':
+     *         description: When no Chain Swap with the ID could be found
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *       '400':
+     *         description: Error that caused the request to fail
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
     router.post('/chain/:id/claim', this.handleError(this.claimChainSwap));
 
+    /**
+     * @openapi
+     * /swap/chain/{id}/refund:
+     *   get:
+     *     tags: [Chain Swap]
+     *     description: Get an EIP-712 signature for a cooperative EVM refund
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *         description: ID of the Swap
+     *     responses:
+     *       '200':
+     *         description: EIP-712 signature
+     *         content:
+     *           application/json:
+     *             schema:
+     *               properties:
+     *                 signature:
+     *                   type: string
+     *                   required: true
+     *                   description: EIP-712 signature with which a cooperative refund can be executed onchain
+     *       '400':
+     *         description: Error that caused signature request to fail
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
     router.get(
       '/chain/:id/refund',
       // We can use the exact same handler as for Submarine Swaps
       this.handleError(this.refundEvm),
     );
+
+    /**
+     * @openapi
+     * /swap/chain/{id}/refund:
+     *   post:
+     *     description: Requests a partial signature for a cooperative Chain Swap refund transaction
+     *     tags: [Chain Swap]
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *         description: ID of the Swap
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             $ref: '#/components/schemas/RefundRequest'
+     *     responses:
+     *       '200':
+     *         description: A partial signature
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/PartialSignature'
+     *       '400':
+     *         description: Error that caused signature request to fail
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
     router.post(
       '/chain/:id/refund',
       this.handleError(

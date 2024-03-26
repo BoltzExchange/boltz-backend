@@ -133,7 +133,7 @@ class TransactionFetcher {
   private getChainSwapTransaction = async (
     data: ChainSwapData,
   ): Promise<ChainSwapTransaction | undefined> => {
-    if (data.transactionId === undefined) {
+    if (data.transactionId === undefined || data.transactionId === null) {
       return undefined;
     }
 

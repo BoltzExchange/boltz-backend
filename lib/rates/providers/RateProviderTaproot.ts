@@ -362,7 +362,11 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
         return this.canLightning(fromAsset) && this.canOnchain(toAsset);
 
       case SwapType.Chain:
-        return this.canOnchain(fromAsset) && this.canOnchain(toAsset);
+        return (
+          fromAsset !== toAsset &&
+          this.canOnchain(fromAsset) &&
+          this.canOnchain(toAsset)
+        );
     }
   };
 

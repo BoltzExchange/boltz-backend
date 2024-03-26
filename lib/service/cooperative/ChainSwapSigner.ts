@@ -114,6 +114,8 @@ class ChainSwapSigner extends CoopSignerBase<
     });
   };
 
+  // TODO: coop claims when one side is EVM
+
   public getCooperativeDetails = async (
     swap: ChainSwapInfo,
   ): Promise<{

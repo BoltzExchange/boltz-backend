@@ -142,8 +142,8 @@ type CreatedChainSwapDetails = Omit<CreatedOnchainSwap, 'refundPublicKey'> & {
 type CreatedChainSwap = {
   id: string;
 
-  userDetails: CreatedChainSwapDetails;
-  serverDetails: CreatedChainSwapDetails;
+  claimDetails: CreatedChainSwapDetails;
+  lockupDetails: CreatedChainSwapDetails;
 };
 
 class SwapManager {
@@ -1084,8 +1084,8 @@ class SwapManager {
 
     return {
       id,
-      userDetails: serializeDetails(receivingData),
-      serverDetails: serializeDetails(sendingData),
+      claimDetails: serializeDetails(sendingData),
+      lockupDetails: serializeDetails(receivingData),
     };
   };
 

@@ -1742,13 +1742,13 @@ class Service {
     this.eventHandler.emitSwapCreation(res.id);
     return {
       id: res.id,
-      serverDetails: res.serverDetails,
-      userDetails: {
-        ...res.userDetails,
+      claimDetails: res.claimDetails,
+      lockupDetails: {
+        ...res.lockupDetails,
         bip21: this.paymentRequestUtils.encodeBip21(
           receivingCurrency.symbol,
-          res.userDetails.lockupAddress,
-          res.userDetails.amount,
+          res.lockupDetails.lockupAddress,
+          res.lockupDetails.amount,
           getSwapMemo(sendingCurrency.symbol, SwapType.Chain),
         ),
       },

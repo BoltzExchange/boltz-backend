@@ -165,13 +165,12 @@ export const getOutputValue = (
 export const constructClaimDetails = (
   swapOutputType: SwapOutputType,
   wallet: Wallet,
-  swapType: SwapType,
   swap: Swap | ChainSwapData,
   transaction: Transaction | LiquidTransaction,
   preimage?: Buffer,
   cooperative: boolean = false,
 ): ClaimDetails | LiquidClaimDetails => {
-  const isSubmarine = swapType === SwapType.Submarine;
+  const isSubmarine = swap.type === SwapType.Submarine;
 
   let lockupVout = isSubmarine
     ? (swap as Swap).lockupTransactionVout

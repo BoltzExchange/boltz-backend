@@ -213,6 +213,14 @@ class ReverseSwap extends Model implements ReverseSwapType {
   get type() {
     return SwapType.ReverseSubmarine;
   }
+
+  get theirPublicKey() {
+    return this.claimPublicKey;
+  }
+
+  get expectedAmount() {
+    return this.onchainAmount;
+  }
 }
 
 export default ReverseSwap;

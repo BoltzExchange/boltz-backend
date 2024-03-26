@@ -125,7 +125,6 @@ abstract class CoopSignerBase<
     return constructClaimDetails(
       this.swapOutputType,
       wallet,
-      swap.type,
       details,
       tx,
       preimage,

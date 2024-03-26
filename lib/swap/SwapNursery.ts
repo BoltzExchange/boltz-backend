@@ -32,9 +32,11 @@ import ChainClient from '../chain/ChainClient';
 import { LegacyReverseSwapOutputType, etherDecimals } from '../consts/Consts';
 import {
   CurrencyType,
+  NotPendingChainSwapEvents,
   SwapType,
   SwapUpdateEvent,
   SwapVersion,
+  swapTypeToPrettyString,
 } from '../consts/Enums';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
 import { ERC20SwapValues, EtherSwapValues } from '../consts/Types';
@@ -76,6 +78,11 @@ import NodeSwitch from './NodeSwitch';
 import PaymentHandler, { SwapNurseryEvents } from './PaymentHandler';
 import SwapOutputType from './SwapOutputType';
 import UtxoNursery from './UtxoNursery';
+
+type PaidSwapInvoice = {
+  preimage: Buffer;
+  channelCreation: ChannelCreation | null;
+};
 
 class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
   // Constants
@@ -236,7 +243,6 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
             }
 
             await this.claimUtxo(
-              SwapType.Submarine,
               swap,
               chainClient!,
               wallet,
@@ -310,7 +316,6 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           case CurrencyType.BitcoinLike:
           case CurrencyType.Liquid:
             await this.lockupUtxo(
-              SwapType.ReverseSubmarine,
               reverseSwap,
               chainCurrency.chainClient!,
               wallet,
@@ -319,11 +324,11 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
             break;
 
           case CurrencyType.Ether:
-            await this.lockupEther(wallet, lightningClient, reverseSwap);
+            await this.lockupEther(reverseSwap, wallet, lightningClient);
             break;
 
           case CurrencyType.ERC20:
-            await this.lockupERC20(wallet, lightningClient, reverseSwap);
+            await this.lockupERC20(reverseSwap, wallet, lightningClient);
             break;
         }
       });
@@ -431,7 +436,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
 
     // Chain swap events
     this.utxoNursery.on(
-      'chain.lockup.zeroconf.rejected',
+      'chainSwap.lockup.zeroconf.rejected',
       async ({ swap, transaction, reason }) => {
         await this.lock.acquire(SwapNursery.swapLock, async () => {
           this.logger.warn(
@@ -454,7 +459,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     );
 
     this.utxoNursery.on(
-      'chain.lockup',
+      'chainSwap.lockup',
       async ({ swap, transaction, confirmed }) => {
         await this.lock.acquire(SwapNursery.chainSwapLock, async () => {
           this.emit('transaction', {
@@ -463,67 +468,32 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
             transaction,
           });
 
-          const sendingCurrency = this.currencies.get(swap.sendingData.symbol)!;
-          const wallet = this.walletManager.wallets.get(
-            swap.sendingData.symbol,
-          )!;
-
-          switch (sendingCurrency.type) {
-            case CurrencyType.BitcoinLike:
-            case CurrencyType.Liquid:
-              await this.lockupUtxo(
-                SwapType.Chain,
-                swap,
-                sendingCurrency.chainClient!,
-                wallet,
-              );
-              break;
-
-            case CurrencyType.Ether:
-              // await this.lockupEther(wallet, lightningClient, reverseSwap);
-              break;
-
-            case CurrencyType.ERC20:
-              // await this.lockupERC20(wallet, lightningClient, reverseSwap);
-              break;
-          }
-
-          await this.chainSwapSigner.registerForClaim(swap);
+          await this.handleChainSwapLockup(swap);
         });
       },
     );
 
-    this.utxoNursery.on('chain.lockup.failed', async ({ swap, reason }) => {
+    this.utxoNursery.on('chainSwap.lockup.failed', async ({ swap, reason }) => {
       await this.lock.acquire(SwapNursery.chainSwapLock, async () => {
-        await this.lockupFailedChain(swap, reason);
+        await this.lockupFailed(swap, reason);
       });
     });
 
-    this.utxoNursery.on('chain.claimed', async ({ swap, preimage }) => {
+    this.utxoNursery.on('chainSwap.claimed', async ({ swap, preimage }) => {
       await this.lock.acquire(SwapNursery.chainSwapLock, async () => {
-        const chainClient = this.currencies.get(
-          swap.receivingData.symbol,
-        )!.chainClient!;
-        const wallet = this.walletManager.wallets.get(
-          swap.receivingData.symbol,
-        )!;
-        const transaction = parseTransaction(
-          wallet.type,
-          await chainClient.getRawTransaction(
-            swap.receivingData.transactionId!,
-          ),
-        );
-
-        await this.claimUtxo(
-          SwapType.Chain,
+        await this.attemptSettleSwap(
+          this.currencies.get(swap.receivingData.symbol)!,
           swap,
-          chainClient,
-          wallet,
-          transaction,
+          undefined,
           preimage,
-          null,
         );
         await this.chainSwapSigner.removeFromClaimable(swap.id);
+      });
+    });
+
+    this.utxoNursery.on('chainSwap.expired', async (chainSwap) => {
+      await this.lock.acquire(SwapNursery.chainSwapLock, async () => {
+        await this.expireChainSwap(chainSwap);
       });
     });
 
@@ -574,24 +544,34 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
 
   public attemptSettleSwap = async (
     currency: Currency,
-    swap: Swap,
+    swap: Swap | ChainSwapInfo,
     outgoingChannelId?: string,
+    preimage?: Buffer,
   ): Promise<void> => {
+    let payRes: PaidSwapInvoice | undefined;
+
+    if (swap.type === SwapType.Submarine) {
+      payRes = await this.payInvoice(swap as Swap, outgoingChannelId);
+    } else {
+      payRes = { preimage: preimage!, channelCreation: null };
+    }
+
+    if (payRes === undefined) {
+      return;
+    }
+
+    const txToClaim =
+      swap.type === SwapType.Submarine
+        ? (swap as Swap).lockupTransactionId
+        : (swap as ChainSwapInfo).receivingData.transactionId;
+
     switch (currency.type) {
       case CurrencyType.BitcoinLike:
       case CurrencyType.Liquid: {
-        const payRes = await this.payInvoice(swap, outgoingChannelId);
-        if (payRes === undefined) {
-          return;
-        }
-
         const lockupTransactionHex =
-          await currency.chainClient!.getRawTransaction(
-            swap.lockupTransactionId!,
-          );
+          await currency.chainClient!.getRawTransaction(txToClaim!);
 
         await this.claimUtxo(
-          SwapType.Submarine,
           swap,
           currency.chainClient!,
           this.walletManager.wallets.get(currency.symbol)!,
@@ -613,9 +593,10 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           await queryEtherSwapValuesFromLock(
             manager.provider,
             manager.etherSwap,
-            swap.lockupTransactionId!,
+            txToClaim!,
           ),
-          outgoingChannelId,
+          payRes.preimage,
+          payRes.channelCreation,
         );
         break;
       }
@@ -631,9 +612,10 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           await queryERC20SwapValuesFromLock(
             manager.provider,
             manager.erc20Swap,
-            swap.lockupTransactionId!,
+            txToClaim!,
           ),
-          outgoingChannelId,
+          payRes.preimage,
+          payRes.channelCreation,
         );
         break;
       }
@@ -679,9 +661,28 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     }
   };
 
-  private listenEthereumNursery = async (ethereumNursery: EthereumNursery) => {
-    const contractHandler = ethereumNursery.ethereumManager.contractHandler;
+  private handleChainSwapLockup = async (swap: ChainSwapInfo) => {
+    const sendingCurrency = this.currencies.get(swap.sendingData.symbol)!;
+    const wallet = this.walletManager.wallets.get(swap.sendingData.symbol)!;
 
+    switch (sendingCurrency.type) {
+      case CurrencyType.BitcoinLike:
+      case CurrencyType.Liquid:
+        await this.lockupUtxo(swap, sendingCurrency.chainClient!, wallet);
+        await this.chainSwapSigner.registerForClaim(swap);
+        break;
+
+      case CurrencyType.Ether:
+        await this.lockupEther(swap, wallet);
+        break;
+
+      case CurrencyType.ERC20:
+        await this.lockupERC20(swap, wallet);
+        break;
+    }
+  };
+
+  private listenEthereumNursery = async (ethereumNursery: EthereumNursery) => {
     // Swap events
     ethereumNursery.on('swap.expired', async ({ swap }) => {
       await this.lock.acquire(SwapNursery.swapLock, async () => {
@@ -695,47 +696,47 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       });
     });
 
-    ethereumNursery.on(
-      'eth.lockup',
-      async ({ swap, transactionHash, etherSwapValues }) => {
-        await this.lock.acquire(SwapNursery.swapLock, async () => {
+    const handleLockup = async (
+      swap: Swap | ChainSwapInfo,
+      transactionHash: string,
+    ) => {
+      await this.lock.acquire(
+        swap.type === SwapType.Submarine
+          ? SwapNursery.swapLock
+          : SwapNursery.chainSwapLock,
+        async () => {
           this.emit('transaction', {
             swap,
             confirmed: true,
             transaction: transactionHash,
           });
 
-          if (swap.invoice) {
-            await this.claimEther(
-              ethereumNursery.ethereumManager,
-              swap,
-              etherSwapValues,
-            );
+          if (swap.type === SwapType.Chain) {
+            await this.handleChainSwapLockup(swap as ChainSwapInfo);
           } else {
-            await this.setSwapRate(swap);
+            if ((swap as Swap).invoice) {
+              const { base, quote } = splitPairId(swap.pair);
+              await this.attemptSettleSwap(
+                this.currencies.get(
+                  getChainCurrency(base, quote, swap.orderSide, false),
+                )!,
+                swap as Swap,
+              );
+            } else {
+              await this.setSwapRate(swap as Swap);
+            }
           }
-        });
-      },
-    );
+        },
+      );
+    };
 
-    ethereumNursery.on(
-      'erc20.lockup',
-      async ({ swap, transactionHash, erc20SwapValues }) => {
-        await this.lock.acquire(SwapNursery.swapLock, async () => {
-          this.emit('transaction', {
-            swap,
-            confirmed: true,
-            transaction: transactionHash,
-          });
+    ethereumNursery.on('eth.lockup', async ({ swap, transactionHash }) => {
+      await handleLockup(swap, transactionHash);
+    });
 
-          if (swap.invoice) {
-            await this.claimERC20(contractHandler, swap, erc20SwapValues);
-          } else {
-            await this.setSwapRate(swap);
-          }
-        });
-      },
-    );
+    ethereumNursery.on('erc20.lockup', async ({ swap, transactionHash }) => {
+      await handleLockup(swap, transactionHash);
+    });
 
     // Reverse Swap events
     ethereumNursery.on('reverseSwap.expired', async ({ reverseSwap }) => {
@@ -744,54 +745,86 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       });
     });
 
-    ethereumNursery.on(
-      'lockup.failedToSend',
-      async ({ reverseSwap, reason }) => {
+    ethereumNursery.on('lockup.failedToSend', async ({ swap, reason }) => {
+      if (swap.type === SwapType.ReverseSubmarine) {
         await this.lock.acquire(SwapNursery.reverseSwapLock, async () => {
-          const { base, quote } = splitPairId(reverseSwap.pair);
+          const { base, quote } = splitPairId(swap.pair);
           const chainSymbol = getChainCurrency(
             base,
             quote,
-            reverseSwap.orderSide,
+            swap.orderSide,
             true,
           );
           const lightningSymbol = getLightningCurrency(
             base,
             quote,
-            reverseSwap.orderSide,
+            swap.orderSide,
             true,
           );
 
           await this.handleSwapSendFailed(
-            SwapType.ReverseSubmarine,
-            reverseSwap,
+            swap,
             chainSymbol,
             reason,
             NodeSwitch.getReverseSwapNode(
               this.currencies.get(lightningSymbol)!,
-              reverseSwap,
+              swap as ReverseSwap,
             ),
           );
         });
-      },
-    );
+      } else {
+        await this.lock.acquire(SwapNursery.chainSwapLock, async () => {
+          await this.handleSwapSendFailed(
+            swap,
+            (swap as ChainSwapInfo).sendingData.symbol,
+            reason,
+          );
+        });
+      }
+    });
 
     ethereumNursery.on(
       'lockup.confirmed',
-      async ({ reverseSwap, transactionHash }) => {
-        await this.lock.acquire(SwapNursery.reverseSwapLock, async () => {
-          this.emit('transaction', {
-            confirmed: true,
-            swap: reverseSwap,
-            transaction: transactionHash,
-          });
-        });
+      async ({ swap, transactionHash }) => {
+        await this.lock.acquire(
+          swap.type === SwapType.ReverseSubmarine
+            ? SwapNursery.reverseSwapLock
+            : SwapNursery.chainSwapLock,
+          async () => {
+            this.emit('transaction', {
+              swap,
+              confirmed: true,
+              transaction: transactionHash,
+            });
+          },
+        );
       },
     );
 
-    ethereumNursery.on('claim', async ({ reverseSwap, preimage }) => {
-      await this.lock.acquire(SwapNursery.reverseSwapLock, async () => {
-        await this.settleReverseSwapInvoice(reverseSwap, preimage);
+    ethereumNursery.on('claim', async ({ swap, preimage }) => {
+      await this.lock.acquire(
+        swap.type === SwapType.ReverseSubmarine
+          ? SwapNursery.reverseSwapLock
+          : SwapNursery.chainSwapLock,
+        async () => {
+          if (swap.type === SwapType.ReverseSubmarine) {
+            await this.settleReverseSwapInvoice(swap as ReverseSwap, preimage);
+          } else {
+            const chainSwap = swap as ChainSwapInfo;
+            await this.attemptSettleSwap(
+              this.currencies.get(chainSwap.receivingData.symbol)!,
+              chainSwap,
+              undefined,
+              preimage,
+            );
+          }
+        },
+      );
+    });
+
+    ethereumNursery.on('chainSwap.expired', async ({ chainSwap }) => {
+      await this.lock.acquire(SwapNursery.chainSwapLock, async () => {
+        await this.expireChainSwap(chainSwap);
       });
     });
 
@@ -815,22 +848,16 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
   };
 
   private lockupUtxo = async (
-    type: SwapType,
     swap: ReverseSwap | ChainSwapInfo,
     chainClient: ChainClient,
     wallet: Wallet,
     lightningClient?: LightningClient,
   ) => {
-    const id =
-      type === SwapType.ReverseSubmarine
-        ? (swap as ReverseSwap).id
-        : (swap as ChainSwapInfo).chainSwap.id;
-
     try {
       let feePerVbyte: number;
 
       if (
-        type === SwapType.ReverseSubmarine &&
+        swap.type === SwapType.ReverseSubmarine &&
         (swap as ReverseSwap).minerFeeInvoice
       ) {
         // TODO: how does this behave cross chain
@@ -841,7 +868,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
             ].reverseLockup,
         );
         this.logger.debug(
-          `Using prepay minerfee for lockup of Reverse Swap ${id}: ${feePerVbyte} sat/vbyte`,
+          `Using prepay minerfee for lockup of Reverse Swap ${swap.id}: ${feePerVbyte} sat/vbyte`,
         );
       } else {
         feePerVbyte = await chainClient.estimateFee(
@@ -850,11 +877,11 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       }
 
       const onchainAmount =
-        type === SwapType.ReverseSubmarine
+        swap.type === SwapType.ReverseSubmarine
           ? (swap as ReverseSwap).onchainAmount
           : (swap as ChainSwapInfo).sendingData.expectedAmount;
       const lockupAddress =
-        type === SwapType.ReverseSubmarine
+        swap.type === SwapType.ReverseSubmarine
           ? (swap as ReverseSwap).lockupAddress
           : (swap as ChainSwapInfo).sendingData.lockupAddress;
 
@@ -863,7 +890,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       this.logger.verbose(
         `Locked up ${onchainAmount} ${
           wallet.symbol
-        } for ${type === SwapType.ReverseSubmarine ? 'Reverse' : 'Chain'} Swap ${id}: ${transactionId}:${vout!}`,
+        } for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${transactionId}:${vout!}`,
       );
 
       chainClient.addInputFilter(transaction!.getHash());
@@ -874,26 +901,23 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       this.emit('coins.sent', {
         transaction: transaction!,
         swap:
-          type === SwapType.ReverseSubmarine
+          swap.type === SwapType.ReverseSubmarine
             ? await ReverseSwapRepository.setLockupTransaction(
                 swap as ReverseSwap,
                 transactionId,
                 fee!,
                 vout!,
               )
-            : (
-                await ChainSwapRepository.setServerLockupTransaction(
-                  swap as ChainSwapInfo,
-                  transactionId,
-                  onchainAmount,
-                  fee!,
-                  vout!,
-                )
-              ).chainSwap,
+            : await ChainSwapRepository.setServerLockupTransaction(
+                swap as ChainSwapInfo,
+                transactionId,
+                onchainAmount,
+                fee!,
+                vout!,
+              ),
       });
     } catch (error) {
       await this.handleSwapSendFailed(
-        type,
         swap,
         wallet.symbol,
         error,
@@ -903,51 +927,70 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
   };
 
   private lockupEther = async (
+    swap: ReverseSwap | ChainSwapInfo,
     wallet: Wallet,
-    lightningClient: LightningClient,
-    reverseSwap: ReverseSwap,
+    lightningClient?: LightningClient,
   ) => {
     try {
       const nursery = this.findEthereumNursery(wallet.symbol)!;
 
+      const lockupDetails =
+        swap.type === SwapType.ReverseSubmarine
+          ? (swap as ReverseSwap)
+          : (swap as ChainSwapInfo).sendingData;
+
       let contractTransaction: ContractTransactionResponse;
 
-      if (reverseSwap.minerFeeOnchainAmount) {
+      if (
+        swap.type === SwapType.ReverseSubmarine &&
+        (swap as ReverseSwap).minerFeeOnchainAmount
+      ) {
         contractTransaction =
           await nursery.ethereumManager.contractHandler.lockupEtherPrepayMinerfee(
-            getHexBuffer(reverseSwap.preimageHash),
-            BigInt(reverseSwap.onchainAmount) * etherDecimals,
-            BigInt(reverseSwap.minerFeeOnchainAmount) * etherDecimals,
-            reverseSwap.claimAddress!,
-            reverseSwap.timeoutBlockHeight,
+            getHexBuffer(swap.preimageHash),
+            BigInt(lockupDetails.expectedAmount) * etherDecimals,
+            BigInt((swap as ReverseSwap).minerFeeOnchainAmount!) *
+              etherDecimals,
+            lockupDetails.claimAddress!,
+            swap.timeoutBlockHeight,
           );
       } else {
         contractTransaction =
           await nursery.ethereumManager.contractHandler.lockupEther(
-            getHexBuffer(reverseSwap.preimageHash),
-            BigInt(reverseSwap.onchainAmount) * etherDecimals,
-            reverseSwap.claimAddress!,
-            reverseSwap.timeoutBlockHeight,
+            getHexBuffer(swap.preimageHash),
+            BigInt(lockupDetails.expectedAmount) * etherDecimals,
+            lockupDetails.claimAddress!,
+            swap.timeoutBlockHeight,
           );
       }
 
-      nursery.listenContractTransaction(reverseSwap, contractTransaction);
+      nursery.listenContractTransaction(swap, contractTransaction);
       this.logger.verbose(
-        `Locked up ${reverseSwap.onchainAmount} ${wallet.symbol} for Reverse Swap ${reverseSwap.id}: ${contractTransaction.hash}`,
+        `Locked up ${lockupDetails.expectedAmount} ${wallet.symbol} for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${contractTransaction.hash}`,
       );
+
+      const transactionFee =
+        calculateEthereumTransactionFee(contractTransaction);
 
       this.emit('coins.sent', {
         transaction: contractTransaction.hash,
-        swap: await ReverseSwapRepository.setLockupTransaction(
-          reverseSwap,
-          contractTransaction.hash,
-          calculateEthereumTransactionFee(contractTransaction),
-        ),
+        swap:
+          swap.type === SwapType.ReverseSubmarine
+            ? await ReverseSwapRepository.setLockupTransaction(
+                swap as ReverseSwap,
+                contractTransaction.hash,
+                transactionFee,
+              )
+            : await ChainSwapRepository.setServerLockupTransaction(
+                swap as ChainSwapInfo,
+                contractTransaction.hash,
+                lockupDetails.expectedAmount,
+                transactionFee,
+              ),
       });
     } catch (error) {
       await this.handleSwapSendFailed(
-        SwapType.ReverseSubmarine,
-        reverseSwap,
+        swap,
         wallet.symbol,
         error,
         lightningClient,
@@ -956,54 +999,73 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
   };
 
   private lockupERC20 = async (
+    swap: ReverseSwap | ChainSwapInfo,
     wallet: Wallet,
-    lightningClient: LightningClient,
-    reverseSwap: ReverseSwap,
+    lightningClient?: LightningClient,
   ) => {
     try {
       const nursery = this.findEthereumNursery(wallet.symbol)!;
       const walletProvider = wallet.walletProvider as ERC20WalletProvider;
 
+      const lockupDetails =
+        swap.type === SwapType.ReverseSubmarine
+          ? (swap as ReverseSwap)
+          : (swap as ChainSwapInfo).sendingData;
+
       let contractTransaction: ContractTransactionResponse;
 
-      if (reverseSwap.minerFeeOnchainAmount) {
+      if (
+        swap.type === SwapType.ReverseSubmarine &&
+        (swap as ReverseSwap).minerFeeOnchainAmount
+      ) {
         contractTransaction =
           await nursery.ethereumManager.contractHandler.lockupTokenPrepayMinerfee(
             walletProvider,
-            getHexBuffer(reverseSwap.preimageHash),
-            walletProvider.formatTokenAmount(reverseSwap.onchainAmount),
-            BigInt(reverseSwap.minerFeeOnchainAmount) * etherDecimals,
-            reverseSwap.claimAddress!,
-            reverseSwap.timeoutBlockHeight,
+            getHexBuffer(swap.preimageHash),
+            walletProvider.formatTokenAmount(lockupDetails.expectedAmount),
+            BigInt((swap as ReverseSwap).minerFeeOnchainAmount!) *
+              etherDecimals,
+            lockupDetails.claimAddress!,
+            lockupDetails.timeoutBlockHeight,
           );
       } else {
         contractTransaction =
           await nursery.ethereumManager.contractHandler.lockupToken(
             walletProvider,
-            getHexBuffer(reverseSwap.preimageHash),
-            walletProvider.formatTokenAmount(reverseSwap.onchainAmount),
-            reverseSwap.claimAddress!,
-            reverseSwap.timeoutBlockHeight,
+            getHexBuffer(swap.preimageHash),
+            walletProvider.formatTokenAmount(lockupDetails.expectedAmount),
+            lockupDetails.claimAddress!,
+            lockupDetails.timeoutBlockHeight,
           );
       }
 
-      nursery.listenContractTransaction(reverseSwap, contractTransaction);
+      nursery.listenContractTransaction(swap, contractTransaction);
       this.logger.verbose(
-        `Locked up ${reverseSwap.onchainAmount} ${wallet.symbol} for Reverse Swap ${reverseSwap.id}: ${contractTransaction.hash}`,
+        `Locked up ${lockupDetails.expectedAmount} ${wallet.symbol} for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${contractTransaction.hash}`,
       );
+
+      const transactionFee =
+        calculateEthereumTransactionFee(contractTransaction);
 
       this.emit('coins.sent', {
         transaction: contractTransaction.hash,
-        swap: await ReverseSwapRepository.setLockupTransaction(
-          reverseSwap,
-          contractTransaction.hash,
-          calculateEthereumTransactionFee(contractTransaction),
-        ),
+        swap:
+          swap.type === SwapType.ReverseSubmarine
+            ? await ReverseSwapRepository.setLockupTransaction(
+                swap as ReverseSwap,
+                contractTransaction.hash,
+                transactionFee,
+              )
+            : await ChainSwapRepository.setServerLockupTransaction(
+                swap as ChainSwapInfo,
+                contractTransaction.hash,
+                lockupDetails.expectedAmount,
+                transactionFee,
+              ),
       });
     } catch (error) {
       await this.handleSwapSendFailed(
-        SwapType.ReverseSubmarine,
-        reverseSwap,
+        swap,
         wallet.symbol,
         error,
         lightningClient,
@@ -1011,7 +1073,10 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     }
   };
 
-  private payInvoice = async (swap: Swap, outgoingChannelId?: string) => {
+  private payInvoice = async (
+    swap: Swap,
+    outgoingChannelId?: string,
+  ): Promise<PaidSwapInvoice | undefined> => {
     const channelCreation = await ChannelCreationRepository.getChannelCreation({
       swapId: swap.id,
     });
@@ -1032,7 +1097,6 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
   };
 
   private claimUtxo = async (
-    type: SwapType,
     swap: Swap | ChainSwapInfo,
     chainClient: ChainClient,
     wallet: Wallet,
@@ -1054,8 +1118,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
         constructClaimDetails(
           this.swapOutputType,
           wallet,
-          type,
-          type === SwapType.Submarine
+          swap.type === SwapType.Submarine
             ? (swap as Swap)
             : (swap as ChainSwapInfo).receivingData,
           transaction,
@@ -1074,13 +1137,13 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     await chainClient.sendRawTransaction(claimTransaction.toHex());
 
     this.logger.info(
-      `Claimed ${wallet.symbol} of ${type === SwapType.Submarine ? '' : 'Chain '}Swap ${swap.id} in: ${claimTransaction.getId()}`,
+      `Claimed ${wallet.symbol} of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} in: ${claimTransaction.getId()}`,
     );
 
     this.emit('claim', {
       channelCreation: channelCreation || undefined,
       swap:
-        type === SwapType.Submarine
+        swap.type === SwapType.Submarine
           ? await SwapRepository.setMinerFee(swap as Swap, claimTransactionFee)
           : await ChainSwapRepository.setClaimMinerFee(
               swap as ChainSwapInfo,
@@ -1092,23 +1155,11 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
 
   private claimEther = async (
     manager: EthereumManager,
-    swap: Swap,
+    swap: Swap | ChainSwapInfo,
     etherSwapValues: EtherSwapValues,
-    outgoingChannelId?: string,
+    preimage: Buffer,
+    channelCreation?: ChannelCreation | null,
   ) => {
-    const channelCreation = await ChannelCreationRepository.getChannelCreation({
-      swapId: swap.id,
-    });
-    const preimage = await this.paymentHandler.payInvoice(
-      swap,
-      channelCreation,
-      outgoingChannelId,
-    );
-
-    if (!preimage) {
-      return;
-    }
-
     const contractTransaction = await manager.contractHandler.claimEther(
       preimage,
       etherSwapValues.amount,
@@ -1117,36 +1168,29 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     );
 
     this.logger.info(
-      `Claimed ${manager.networkDetails.name} of Swap ${swap.id} in: ${contractTransaction.hash}`,
+      `Claimed ${manager.networkDetails.name} of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} in: ${contractTransaction.hash}`,
     );
+    const transactionFee = calculateEthereumTransactionFee(contractTransaction);
     this.emit('claim', {
       channelCreation: channelCreation || undefined,
-      swap: await SwapRepository.setMinerFee(
-        swap,
-        calculateEthereumTransactionFee(contractTransaction),
-      ),
+      swap:
+        swap.type === SwapType.Submarine
+          ? await SwapRepository.setMinerFee(swap as Swap, transactionFee)
+          : await ChainSwapRepository.setClaimMinerFee(
+              swap as ChainSwapInfo,
+              preimage,
+              transactionFee,
+            ),
     });
   };
 
   private claimERC20 = async (
     contractHandler: ContractHandler,
-    swap: Swap,
+    swap: Swap | ChainSwapInfo,
     erc20SwapValues: ERC20SwapValues,
-    outgoingChannelId?: string,
+    preimage: Buffer,
+    channelCreation?: ChannelCreation | null,
   ) => {
-    const channelCreation = await ChannelCreationRepository.getChannelCreation({
-      swapId: swap.id,
-    });
-    const preimage = await this.paymentHandler.payInvoice(
-      swap,
-      channelCreation,
-      outgoingChannelId,
-    );
-
-    if (!preimage) {
-      return;
-    }
-
     const { base, quote } = splitPairId(swap.pair);
     const chainCurrency = getChainCurrency(base, quote, swap.orderSide, false);
 
@@ -1161,20 +1205,24 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     );
 
     this.logger.info(
-      `Claimed ${chainCurrency} of Swap ${swap.id} in: ${contractTransaction.hash}`,
+      `Claimed ${chainCurrency} of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} in: ${contractTransaction.hash}`,
     );
+    const transactionFee = calculateEthereumTransactionFee(contractTransaction);
     this.emit('claim', {
       channelCreation: channelCreation || undefined,
-      swap: await SwapRepository.setMinerFee(
-        swap,
-        calculateEthereumTransactionFee(contractTransaction),
-      ),
+      swap:
+        swap.type === SwapType.Submarine
+          ? await SwapRepository.setMinerFee(swap as Swap, transactionFee)
+          : await ChainSwapRepository.setClaimMinerFee(
+              swap as ChainSwapInfo,
+              preimage,
+              transactionFee,
+            ),
     });
   };
 
   private handleSwapSendFailed = async (
-    type: SwapType,
-    swapInfo: ReverseSwap | ChainSwapInfo,
+    swap: ReverseSwap | ChainSwapInfo,
     chainSymbol: string,
     error: unknown,
     lightningClient?: LightningClient,
@@ -1182,67 +1230,56 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     if (lightningClient !== undefined) {
       await LightningNursery.cancelReverseInvoices(
         lightningClient,
-        swapInfo as ReverseSwap,
+        swap as ReverseSwap,
         false,
       );
     }
 
-    const swap =
-      type === SwapType.ReverseSubmarine
-        ? (swapInfo as ReverseSwap)
-        : (swapInfo as ChainSwapInfo).chainSwap;
     const onchainAmount =
-      type === SwapType.ReverseSubmarine
-        ? (swapInfo as ReverseSwap).onchainAmount
-        : (swapInfo as ChainSwapInfo).sendingData.expectedAmount;
+      swap.type === SwapType.ReverseSubmarine
+        ? (swap as ReverseSwap).onchainAmount
+        : (swap as ChainSwapInfo).sendingData.expectedAmount;
 
     this.logger.warn(
-      `Failed to lockup ${onchainAmount} ${chainSymbol} for Reverse Swap ${swap.id}: ${formatError(
+      `Failed to lockup ${onchainAmount} ${chainSymbol} for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${formatError(
         error,
       )}`,
     );
-    this.emit('coins.failedToSend', {
-      type,
-      swap:
-        type === SwapType.ReverseSubmarine
-          ? await ReverseSwapRepository.setReverseSwapStatus(
-              swapInfo as ReverseSwap,
-              SwapUpdateEvent.TransactionFailed,
-              Errors.COINS_COULD_NOT_BE_SENT().message,
-            )
-          : await ChainSwapRepository.setSwapStatus(
-              swapInfo as ChainSwapInfo,
-              SwapUpdateEvent.TransactionFailed,
-              Errors.COINS_COULD_NOT_BE_SENT().message,
-            ),
-    });
-  };
-
-  private lockupFailed = async (swap: Swap, reason: string) => {
-    this.logger.warn(`Lockup of Swap ${swap.id} failed: ${reason}`);
     this.emit(
-      'lockup.failed',
-      await SwapRepository.setSwapStatus(
-        swap,
-        SwapUpdateEvent.TransactionLockupFailed,
-        reason,
-      ),
+      'coins.failedToSend',
+      swap.type === SwapType.ReverseSubmarine
+        ? await ReverseSwapRepository.setReverseSwapStatus(
+            swap as ReverseSwap,
+            SwapUpdateEvent.TransactionFailed,
+            Errors.COINS_COULD_NOT_BE_SENT().message,
+          )
+        : await ChainSwapRepository.setSwapStatus(
+            swap as ChainSwapInfo,
+            SwapUpdateEvent.TransactionFailed,
+            Errors.COINS_COULD_NOT_BE_SENT().message,
+          ),
     );
   };
 
-  private lockupFailedChain = async (swap: ChainSwapInfo, reason: string) => {
+  private lockupFailed = async (swap: Swap | ChainSwapInfo, reason: string) => {
     this.logger.warn(
-      `Lockup of Chain Swap ${swap.chainSwap.id} failed: ${reason}`,
+      `Lockup of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} failed: ${reason}`,
     );
     this.emit(
       'lockup.failed',
-      (
-        await ChainSwapRepository.setSwapStatus(
-          swap,
-          SwapUpdateEvent.TransactionLockupFailed,
-          reason,
-        )
-      ).chainSwap,
+      swap.type === SwapType.Submarine
+        ? await SwapRepository.setSwapStatus(
+            swap as Swap,
+            SwapUpdateEvent.TransactionLockupFailed,
+            reason,
+          )
+        : (
+            await ChainSwapRepository.setSwapStatus(
+              swap as ChainSwapInfo,
+              SwapUpdateEvent.TransactionLockupFailed,
+              reason,
+            )
+          ).chainSwap,
     );
   };
 
@@ -1256,14 +1293,14 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       return;
     }
 
-    this.emit('expiration', {
-      isReverse: false,
-      swap: await SwapRepository.setSwapStatus(
+    this.emit(
+      'expiration',
+      await SwapRepository.setSwapStatus(
         swap,
         SwapUpdateEvent.SwapExpired,
         Errors.ONCHAIN_HTLC_TIMED_OUT().message,
       ),
-    });
+    );
   };
 
   private expireReverseSwap = async (reverseSwap: ReverseSwap) => {
@@ -1302,7 +1339,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       switch (chainCurrency.type) {
         case CurrencyType.BitcoinLike:
         case CurrencyType.Liquid:
-          await this.refundUtxo(reverseSwap, chainSymbol);
+          await this.refundUtxo(chainCurrency, reverseSwap);
           break;
 
         case CurrencyType.Ether:
@@ -1314,14 +1351,14 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           break;
       }
     } else {
-      this.emit('expiration', {
-        isReverse: true,
-        swap: await ReverseSwapRepository.setReverseSwapStatus(
+      this.emit(
+        'expiration',
+        await ReverseSwapRepository.setReverseSwapStatus(
           reverseSwap,
           SwapUpdateEvent.SwapExpired,
           Errors.ONCHAIN_HTLC_TIMED_OUT().message,
         ),
-      });
+      );
     }
 
     const lightningClient = NodeSwitch.getReverseSwapNode(
@@ -1344,48 +1381,93 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     }
   };
 
+  private expireChainSwap = async (chainSwap: ChainSwapInfo) => {
+    // Sometimes, when blocks are mined quickly (realistically just regtest), it can happen that the
+    // nurseries, which are not in the async lock, send the expiration event of a Swap multiple times.
+    // To handle this scenario, the Swap is queried again to ensure that it should actually be expired or refunded
+    chainSwap = (await ChainSwapRepository.getChainSwap({ id: chainSwap.id }))!;
+
+    if (!NotPendingChainSwapEvents.includes(chainSwap.status)) {
+      return;
+    }
+
+    const chainCurrency = this.currencies.get(chainSwap.sendingData.symbol)!;
+
+    if (chainSwap.sendingData.transactionId) {
+      switch (chainCurrency.type) {
+        case CurrencyType.BitcoinLike:
+        case CurrencyType.Liquid:
+          await this.refundUtxo(chainCurrency, chainSwap);
+          break;
+
+        case CurrencyType.Ether:
+          await this.refundEther(chainSwap, chainCurrency.symbol);
+          break;
+
+        case CurrencyType.ERC20:
+          await this.refundERC20(chainSwap, chainCurrency.symbol);
+          break;
+      }
+    } else {
+      this.emit(
+        'expiration',
+        await ChainSwapRepository.setSwapStatus(
+          chainSwap,
+          SwapUpdateEvent.SwapExpired,
+          Errors.ONCHAIN_HTLC_TIMED_OUT().message,
+        ),
+      );
+    }
+  };
+
   private refundUtxo = async (
-    reverseSwap: ReverseSwap,
-    chainSymbol: string,
+    chainCurrency: Currency,
+    swap: ReverseSwap | ChainSwapInfo,
   ) => {
-    const chainCurrency = this.currencies.get(chainSymbol)!;
     const chainClient = chainCurrency.chainClient!;
-    const wallet = this.walletManager.wallets.get(chainSymbol)!;
+    const wallet = this.walletManager.wallets.get(chainCurrency.symbol)!;
+
+    const sendingData =
+      swap.type === SwapType.ReverseSubmarine
+        ? (swap as ReverseSwap)
+        : (swap as ChainSwapInfo).sendingData;
 
     const rawLockupTransaction =
       await chainCurrency.chainClient!.getRawTransaction(
-        reverseSwap.transactionId!,
+        sendingData.transactionId!,
       );
     const lockupTransaction = parseTransaction(
       chainClient.currencyType,
       rawLockupTransaction,
     );
 
-    const lockupOutput = lockupTransaction.outs[reverseSwap.transactionVout!];
+    const lockupOutput = lockupTransaction.outs[sendingData.transactionVout!];
     const refundDetails = {
       ...lockupOutput,
-      vout: reverseSwap.transactionVout,
+      vout: sendingData.transactionVout,
       txHash: lockupTransaction.getHash(),
-      keys: wallet.getKeysByIndex(reverseSwap.keyIndex!),
+      keys: wallet.getKeysByIndex(sendingData.keyIndex!),
     } as RefundDetails | LiquidRefundDetails;
 
-    switch (reverseSwap.version) {
+    switch (swap.version) {
       case SwapVersion.Taproot: {
         refundDetails.type = OutputType.Taproot;
         refundDetails.cooperative = false;
         refundDetails.swapTree = SwapTreeSerializer.deserializeSwapTree(
-          reverseSwap.redeemScript!,
+          sendingData.redeemScript!,
         );
         refundDetails.internalKey = createMusig(
           refundDetails.keys,
-          getHexBuffer(reverseSwap.claimPublicKey!),
+          getHexBuffer(sendingData.theirPublicKey!),
         ).getAggregatedPublicKey();
         break;
       }
 
       default: {
         refundDetails.type = LegacyReverseSwapOutputType;
-        refundDetails.redeemScript = getHexBuffer(reverseSwap.redeemScript!);
+        refundDetails.redeemScript = getHexBuffer(
+          (swap as ReverseSwap).redeemScript!,
+        );
         break;
       }
     }
@@ -1394,7 +1476,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       wallet,
       [refundDetails] as RefundDetails[] | LiquidRefundDetails[],
       await wallet.getAddress(),
-      reverseSwap.timeoutBlockHeight,
+      swap.timeoutBlockHeight,
       await chainCurrency.chainClient!.estimateFee(),
     );
     const minerFee = await calculateTransactionFee(
@@ -1405,84 +1487,125 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     await chainClient.sendRawTransaction(refundTransaction.toHex());
 
     this.logger.info(
-      `Refunded ${chainSymbol} of Reverse Swap ${
-        reverseSwap.id
+      `Refunded ${chainClient.symbol} of ${swapTypeToPrettyString(swap.type)} Swap ${
+        swap.id
       } in: ${refundTransaction.getId()}`,
     );
+
+    const errorMessage = Errors.REFUNDED_COINS(
+      sendingData.transactionId!,
+    ).message;
     this.emit('refund', {
       refundTransaction: refundTransaction.getId(),
-      reverseSwap: await ReverseSwapRepository.setTransactionRefunded(
-        reverseSwap,
-        minerFee,
-        Errors.REFUNDED_COINS(reverseSwap.transactionId!).message,
-      ),
+      swap:
+        swap.type === SwapType.ReverseSubmarine
+          ? await ReverseSwapRepository.setTransactionRefunded(
+              swap as ReverseSwap,
+              minerFee,
+              errorMessage,
+            )
+          : await ChainSwapRepository.setTransactionRefunded(
+              swap as ChainSwapInfo,
+              minerFee,
+              errorMessage,
+            ),
     });
   };
 
   private refundEther = async (
-    reverseSwap: ReverseSwap,
+    swap: ReverseSwap | ChainSwapInfo,
     chainSymbol: string,
   ) => {
     const nursery = this.findEthereumNursery(chainSymbol)!;
 
+    const lockupTransactionId =
+      swap.type === SwapType.ReverseSubmarine
+        ? (swap as ReverseSwap).transactionId
+        : (swap as ChainSwapInfo).sendingData.transactionId;
+
     const etherSwapValues = await queryEtherSwapValuesFromLock(
       nursery.ethereumManager!.provider,
       nursery.ethereumManager.etherSwap,
-      reverseSwap.transactionId!,
+      lockupTransactionId!,
     );
     const contractTransaction =
       await nursery.ethereumManager.contractHandler.refundEther(
-        getHexBuffer(reverseSwap.preimageHash),
+        getHexBuffer(swap.preimageHash),
         etherSwapValues.amount,
         etherSwapValues.claimAddress,
         etherSwapValues.timelock,
       );
 
     this.logger.info(
-      `Refunded ${nursery.ethereumManager.networkDetails.name} of Reverse Swap ${reverseSwap.id} in: ${contractTransaction.hash}`,
+      `Refunded ${nursery.ethereumManager.networkDetails.name} of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} in: ${contractTransaction.hash}`,
     );
+
+    const transactionFee = calculateEthereumTransactionFee(contractTransaction);
+    const errorMessage = Errors.REFUNDED_COINS(lockupTransactionId!).message;
     this.emit('refund', {
       refundTransaction: contractTransaction.hash,
-      reverseSwap: await ReverseSwapRepository.setTransactionRefunded(
-        reverseSwap,
-        calculateEthereumTransactionFee(contractTransaction),
-        Errors.REFUNDED_COINS(reverseSwap.transactionId!).message,
-      ),
+      swap:
+        swap.type === SwapType.ReverseSubmarine
+          ? await ReverseSwapRepository.setTransactionRefunded(
+              swap as ReverseSwap,
+              transactionFee,
+              errorMessage,
+            )
+          : await ChainSwapRepository.setTransactionRefunded(
+              swap as ChainSwapInfo,
+              transactionFee,
+              errorMessage,
+            ),
     });
   };
 
   private refundERC20 = async (
-    reverseSwap: ReverseSwap,
+    swap: ReverseSwap | ChainSwapInfo,
     chainSymbol: string,
   ) => {
     const nursery = this.findEthereumNursery(chainSymbol)!;
     const walletProvider = this.walletManager.wallets.get(chainSymbol)!
       .walletProvider as ERC20WalletProvider;
 
+    const lockupTransactionId =
+      swap.type === SwapType.ReverseSubmarine
+        ? (swap as ReverseSwap).transactionId
+        : (swap as ChainSwapInfo).sendingData.transactionId;
+
     const erc20SwapValues = await queryERC20SwapValuesFromLock(
       nursery.ethereumManager.provider,
       nursery.ethereumManager.erc20Swap,
-      reverseSwap.transactionId!,
+      lockupTransactionId!,
     );
     const contractTransaction =
       await nursery.ethereumManager.contractHandler.refundToken(
         walletProvider,
-        getHexBuffer(reverseSwap.preimageHash),
+        getHexBuffer(swap.preimageHash),
         erc20SwapValues.amount,
         erc20SwapValues.claimAddress,
         erc20SwapValues.timelock,
       );
 
     this.logger.info(
-      `Refunded ${chainSymbol} of Reverse Swap ${reverseSwap.id} in: ${contractTransaction.hash}`,
+      `Refunded ${chainSymbol} of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} in: ${contractTransaction.hash}`,
     );
+
+    const transactionFee = calculateEthereumTransactionFee(contractTransaction);
+    const errorMessage = Errors.REFUNDED_COINS(lockupTransactionId!).message;
     this.emit('refund', {
       refundTransaction: contractTransaction.hash,
-      reverseSwap: await ReverseSwapRepository.setTransactionRefunded(
-        reverseSwap,
-        calculateEthereumTransactionFee(contractTransaction),
-        Errors.REFUNDED_COINS(reverseSwap.transactionId!).message,
-      ),
+      swap:
+        swap.type === SwapType.ReverseSubmarine
+          ? await ReverseSwapRepository.setTransactionRefunded(
+              swap as ReverseSwap,
+              transactionFee,
+              errorMessage,
+            )
+          : await ChainSwapRepository.setTransactionRefunded(
+              swap as ChainSwapInfo,
+              transactionFee,
+              errorMessage,
+            ),
     });
   };
 

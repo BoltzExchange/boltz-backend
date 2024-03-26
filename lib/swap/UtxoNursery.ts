@@ -43,8 +43,6 @@ import WalletLiquid from '../wallet/WalletLiquid';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import Errors from './Errors';
 
-// TODO: chain swap expiries
-
 class UtxoNursery extends TypedEventEmitter<{
   // Swap
   'swap.expired': Swap;
@@ -72,24 +70,25 @@ class UtxoNursery extends TypedEventEmitter<{
   };
 
   // Chain swap
-  'chain.lockup': {
+  'chainSwap.lockup': {
     swap: ChainSwapInfo;
     transaction: Transaction | LiquidTransaction;
     confirmed: boolean;
   };
-  'chain.lockup.failed': {
+  'chainSwap.lockup.failed': {
     swap: ChainSwapInfo;
     reason: string;
   };
-  'chain.lockup.zeroconf.rejected': {
+  'chainSwap.lockup.zeroconf.rejected': {
     swap: ChainSwapInfo;
     transaction: Transaction | LiquidTransaction;
     reason: string;
   };
-  'chain.claimed': {
+  'chainSwap.claimed': {
     swap: ChainSwapInfo;
     preimage: Buffer;
   };
+  'chainSwap.expired': ChainSwapInfo;
 }> {
   private static readonly maxParallelRequests = 6;
 
@@ -219,14 +218,14 @@ class UtxoNursery extends TypedEventEmitter<{
           transaction,
           vin,
           transactionId,
-          input.hash,
+          input,
         ),
         this.checkChainSwapClaim(
           chainClient,
           transaction,
           vin,
           transactionId,
-          input.hash,
+          input,
         ),
       ]);
     }
@@ -237,7 +236,7 @@ class UtxoNursery extends TypedEventEmitter<{
     transaction: Transaction | LiquidTransaction,
     inputIndex: number,
     inputTransactionId: string,
-    inputTransactionHash: Buffer,
+    input: { hash: Buffer; index: number },
   ) => {
     const reverseSwap = await ReverseSwapRepository.getReverseSwap({
       status: {
@@ -246,7 +245,7 @@ class UtxoNursery extends TypedEventEmitter<{
           SwapUpdateEvent.TransactionConfirmed,
         ],
       },
-      transactionVout: inputIndex,
+      transactionVout: input.index,
       transactionId: inputTransactionId,
     });
 
@@ -260,7 +259,7 @@ class UtxoNursery extends TypedEventEmitter<{
       }: ${transaction.getId()}`,
     );
 
-    chainClient.removeInputFilter(inputTransactionHash);
+    chainClient.removeInputFilter(input.hash);
     this.emit('reverseSwap.claimed', {
       reverseSwap,
       preimage: detectPreimage(inputIndex, transaction),
@@ -272,11 +271,11 @@ class UtxoNursery extends TypedEventEmitter<{
     transaction: Transaction | LiquidTransaction,
     inputIndex: number,
     inputTransactionId: string,
-    inputTransactionHash: Buffer,
+    input: { hash: Buffer; index: number },
   ) => {
     const swap = await ChainSwapRepository.getChainSwapByData(
       {
-        transactionVout: inputIndex,
+        transactionVout: input.index,
         transactionId: inputTransactionId,
       },
       {
@@ -298,8 +297,8 @@ class UtxoNursery extends TypedEventEmitter<{
       }: ${transaction.getId()}`,
     );
 
-    chainClient.removeInputFilter(inputTransactionHash);
-    this.emit('chain.claimed', {
+    chainClient.removeInputFilter(input.hash);
+    this.emit('chainSwap.claimed', {
       swap,
       preimage: detectPreimage(inputIndex, transaction),
     });
@@ -312,9 +311,9 @@ class UtxoNursery extends TypedEventEmitter<{
 
         this.checkServerLockupMempoolTransactions(chainClient, wallet),
 
-        // TODO: chain swaps
         this.checkExpiredSwaps(chainClient, height),
         this.checkExpiredReverseSwaps(chainClient, height),
+        this.checkExpiredChainSwaps(chainClient, height),
       ]);
     });
   };
@@ -539,6 +538,25 @@ class UtxoNursery extends TypedEventEmitter<{
     }
   };
 
+  private checkExpiredChainSwaps = async (
+    chainClient: ChainClient,
+    height: number,
+  ) => {
+    const expirable = await ChainSwapRepository.getChainSwapsExpirable(
+      [chainClient.symbol],
+      height,
+    );
+
+    for (const swap of expirable) {
+      if (swap.sendingData.transactionId) {
+        chainClient.removeInputFilter(
+          reverseBuffer(getHexBuffer(swap.sendingData.transactionId)),
+        );
+      }
+      this.emit('chainSwap.expired', swap);
+    }
+  };
+
   private serverLockupConfirmed = async (
     chainClient: ChainClient,
     wallet: Wallet,
@@ -610,7 +628,7 @@ class UtxoNursery extends TypedEventEmitter<{
 
     if (swap.receivingData.expectedAmount > outputValue) {
       chainClient.removeOutputFilter(swapOutput.script);
-      this.emit('chain.lockup.failed', {
+      this.emit('chainSwap.lockup.failed', {
         swap,
         reason: Errors.INSUFFICIENT_AMOUNT(
           outputValue,
@@ -627,7 +645,7 @@ class UtxoNursery extends TypedEventEmitter<{
       wallet,
     );
     if (prevAddresses.some(this.blocks.isBlocked)) {
-      this.emit('chain.lockup.failed', {
+      this.emit('chainSwap.lockup.failed', {
         swap,
         reason: Errors.BLOCKED_ADDRESS().message,
       });
@@ -641,7 +659,7 @@ class UtxoNursery extends TypedEventEmitter<{
         transaction,
       );
       if (zeroConfRejectedReason !== undefined) {
-        this.emit('chain.lockup.zeroconf.rejected', {
+        this.emit('chainSwap.lockup.zeroconf.rejected', {
           swap,
           transaction,
           reason: zeroConfRejectedReason,
@@ -653,7 +671,7 @@ class UtxoNursery extends TypedEventEmitter<{
     }
 
     chainClient.removeOutputFilter(swapOutput.script);
-    this.emit('chain.lockup', { swap, transaction, confirmed });
+    this.emit('chainSwap.lockup', { swap, transaction, confirmed });
   };
 
   private checkSwapTransaction = async (

@@ -4,7 +4,12 @@ import {
   getSendingReceivingCurrency,
   splitPairId,
 } from '../../Utils';
-import { SwapType, SwapUpdateEvent } from '../../consts/Enums';
+import {
+  NotPendingChainSwapEvents,
+  SwapType,
+  SwapUpdateEvent,
+  SwapVersion,
+} from '../../consts/Enums';
 import Database from '../Database';
 import ChainSwap, { ChainSwapType } from '../models/ChainSwap';
 import ChainSwapData, { ChainSwapDataType } from '../models/ChainSwapData';
@@ -20,12 +25,20 @@ class ChainSwapInfo {
     return SwapType.Chain;
   }
 
+  get version() {
+    return SwapVersion.Taproot;
+  }
+
   get id() {
     return this.chainSwap.id;
   }
 
   get status() {
     return this.chainSwap.status as SwapUpdateEvent;
+  }
+
+  get failureReason() {
+    return this.chainSwap.failureReason;
   }
 
   get isSettled() {
@@ -125,6 +138,29 @@ class ChainSwapRepository {
     return swaps.concat(await this.getChainSwaps(swapOptions));
   };
 
+  public static getChainSwapsExpirable = async (
+    symbols: string[],
+    blockHeight: number,
+  ) => {
+    const data = await ChainSwapData.findAll({
+      where: {
+        symbol: symbols,
+        timeoutBlockHeight: {
+          [Op.lte]: blockHeight,
+        },
+      },
+    });
+
+    const swaps = await this.getChainSwaps({
+      id: data.map((d) => d.swapId),
+      status: {
+        [Op.notIn]: NotPendingChainSwapEvents,
+      },
+    });
+
+    return swaps.filter((s) => symbols.includes(s.sendingData.symbol));
+  };
+
   public static addChainSwap = (args: {
     chainSwap: ChainSwapType;
     sendingData: ChainSwapDataType;
@@ -172,7 +208,7 @@ class ChainSwapRepository {
     transactionId: string,
     onchainAmount: number,
     fee: number,
-    vout: number,
+    vout?: number,
   ): Promise<ChainSwapInfo> =>
     Database.sequelize.transaction(async (transaction) => {
       swap.chainSwap = await swap.chainSwap.update(
@@ -224,6 +260,29 @@ class ChainSwapRepository {
       return swap;
     });
 
+  public static setTransactionRefunded = (
+    swap: ChainSwapInfo,
+    minerFee: number,
+    failureReason: string,
+  ): Promise<ChainSwapInfo> =>
+    Database.sequelize.transaction(async (transaction) => {
+      swap.chainSwap = await swap.chainSwap.update(
+        {
+          failureReason,
+          status: SwapUpdateEvent.TransactionRefunded,
+        },
+        { transaction },
+      );
+      swap.sendingData = await swap.receivingData.update(
+        {
+          fee: swap.sendingData.fee! + minerFee,
+        },
+        { transaction },
+      );
+
+      return swap;
+    });
+
   public static setSwapStatus = async (
     swap: ChainSwapInfo,
     status: SwapUpdateEvent,
@@ -231,7 +290,7 @@ class ChainSwapRepository {
   ) => {
     swap.chainSwap = await swap.chainSwap.update({
       status,
-      reason,
+      failureReason: reason,
     });
     return swap;
   };

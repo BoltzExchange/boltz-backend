@@ -1,4 +1,5 @@
 import { DataTypes, Model, Sequelize } from 'sequelize';
+import { SwapType } from '../../consts/Enums';
 import ChainSwap from './ChainSwap';
 
 type ChainSwapDataType = {
@@ -97,8 +98,16 @@ class ChainSwapData extends Model implements ChainSwapDataType {
     });
   };
 
+  get type() {
+    return SwapType.Chain;
+  }
+
   get lockupTransactionId() {
     return this.transactionId;
+  }
+
+  get redeemScript() {
+    return this.swapTree;
   }
 }
 

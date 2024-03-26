@@ -234,17 +234,29 @@ class EventHandler extends TypedEventEmitter<{
       });
     });
 
-    this.nursery.on('expiration', ({ swap, isReverse }) => {
+    this.nursery.on('expiration', (swap) => {
       const newStatus = SwapUpdateEvent.SwapExpired;
 
-      if (isReverse) {
-        this.handleFailedReverseSwap(
-          swap as ReverseSwap,
-          newStatus,
-          swap.failureReason!,
-        );
-      } else {
-        this.handleFailedSwap(swap as Swap, newStatus, swap.failureReason!);
+      switch (swap.type) {
+        case SwapType.Submarine:
+          this.handleFailedSwap(swap as Swap, newStatus, swap.failureReason!);
+          break;
+
+        case SwapType.ReverseSubmarine:
+          this.handleFailedReverseSwap(
+            swap as ReverseSwap,
+            newStatus,
+            swap.failureReason!,
+          );
+          break;
+
+        case SwapType.Chain:
+          this.handleFailedChainSwap(
+            swap as ChainSwapInfo,
+            newStatus,
+            swap.failureReason!,
+          );
+          break;
       }
     });
 
@@ -286,8 +298,8 @@ class EventHandler extends TypedEventEmitter<{
       }
     });
 
-    this.nursery.on('coins.failedToSend', ({ type, swap }) => {
-      if (type === SwapType.ReverseSubmarine) {
+    this.nursery.on('coins.failedToSend', (swap) => {
+      if (swap.type === SwapType.ReverseSubmarine) {
         this.handleFailedReverseSwap(
           swap as ReverseSwap,
           SwapUpdateEvent.TransactionFailed,
@@ -302,12 +314,20 @@ class EventHandler extends TypedEventEmitter<{
       }
     });
 
-    this.nursery.on('refund', ({ reverseSwap }) => {
-      this.handleFailedReverseSwap(
-        reverseSwap,
-        SwapUpdateEvent.TransactionRefunded,
-        reverseSwap.failureReason!,
-      );
+    this.nursery.on('refund', ({ swap }) => {
+      if (swap.type === SwapType.ReverseSubmarine) {
+        this.handleFailedReverseSwap(
+          swap as ReverseSwap,
+          SwapUpdateEvent.TransactionRefunded,
+          swap.failureReason!,
+        );
+      } else {
+        this.handleFailedChainSwap(
+          swap as ChainSwapInfo,
+          SwapUpdateEvent.TransactionRefunded,
+          swap.failureReason!,
+        );
+      }
     });
 
     this.nursery.channelNursery.on(

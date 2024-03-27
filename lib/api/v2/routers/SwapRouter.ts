@@ -1131,7 +1131,7 @@ class SwapRouter extends RouterBase {
      *           description: ID of the created Reverse Swap
      *         claimDetails:
      *           $ref: '#/components/schemas/ChainSwapData'
-     *         refundDetails:
+     *         lockupDetails:
      *           $ref: '#/components/schemas/ChainSwapData'
      */
 
@@ -1302,7 +1302,7 @@ class SwapRouter extends RouterBase {
      *           type: string
      *           required: true
      *           description: Preimage of the Chain Swap, encoded as HEX
-     *         partialSignature:
+     *         signature:
      *           $ref: '#/components/schemas/PartialSignature'
      *         toSign:
      *           type: object
@@ -1311,7 +1311,7 @@ class SwapRouter extends RouterBase {
      *               type: string
      *               required: true
      *               description: Public nonce of the client for the session encoded as HEX
-     *             rawTransaction:
+     *             transaction:
      *               type: string
      *               required: true
      *               description: Transaction which should be signed encoded as HEX
@@ -1869,9 +1869,9 @@ class SwapRouter extends RouterBase {
     const { id } = validateRequest(req.params, [
       { name: 'id', type: 'string' },
     ]);
-    const { preimage, toSign, partialSignature } = validateRequest(req.body, [
+    const { preimage, toSign, signature } = validateRequest(req.body, [
       { name: 'toSign', type: 'object' },
-      { name: 'partialSignature', type: 'object', optional: true },
+      { name: 'signature', type: 'object', optional: true },
       { name: 'preimage', type: 'string', hex: true, optional: true },
     ]);
     const toSignParsed = validateRequest(toSign, [
@@ -1881,11 +1881,15 @@ class SwapRouter extends RouterBase {
     ]);
 
     let partialSignatureParsed: PartialSignature | undefined;
-    if (partialSignature !== undefined) {
-      partialSignatureParsed = validateRequest(partialSignature, [
+    if (signature !== undefined) {
+      const parsed = validateRequest(signature, [
         { name: 'pubNonce', type: 'string', hex: true },
-        { name: 'signature', type: 'string', hex: true },
+        { name: 'partialSignature', type: 'string', hex: true },
       ]);
+      partialSignatureParsed = {
+        pubNonce: parsed.pubNonce,
+        signature: parsed.partialSignature,
+      };
     }
 
     const swap = await ChainSwapRepository.getChainSwap({

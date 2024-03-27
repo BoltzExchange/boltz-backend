@@ -2488,7 +2488,7 @@
           "claimDetails": {
             "$ref": "#/components/schemas/ChainSwapData"
           },
-          "refundDetails": {
+          "lockupDetails": {
             "$ref": "#/components/schemas/ChainSwapData"
           }
         }
@@ -2556,7 +2556,7 @@
             "required": true,
             "description": "Preimage of the Chain Swap, encoded as HEX"
           },
-          "partialSignature": {
+          "signature": {
             "$ref": "#/components/schemas/PartialSignature"
           },
           "toSign": {
@@ -2567,7 +2567,7 @@
                 "required": true,
                 "description": "Public nonce of the client for the session encoded as HEX"
               },
-              "rawTransaction": {
+              "transaction": {
                 "type": "string",
                 "required": true,
                 "description": "Transaction which should be signed encoded as HEX"

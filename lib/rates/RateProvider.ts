@@ -11,6 +11,7 @@ import RateProviderBase from './providers/RateProviderBase';
 import RateProviderLegacy from './providers/RateProviderLegacy';
 import RateProviderTaproot from './providers/RateProviderTaproot';
 
+// TODO: configure which pairs do which kinda swaps
 class RateProvider {
   public readonly feeProvider: FeeProvider;
 

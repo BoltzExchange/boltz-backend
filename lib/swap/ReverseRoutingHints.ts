@@ -1,7 +1,7 @@
 import { crypto } from 'bitcoinjs-lib';
 import { ECPair } from '../ECPairHelper';
 import { getHexString, getSwapMemo } from '../Utils';
-import { SwapVersion } from '../consts/Enums';
+import { SwapType, SwapVersion } from '../consts/Enums';
 import { transactionToLndScid } from '../lightning/ChannelUtils';
 import { HopHint } from '../lightning/LightningClient';
 import RateProvider from '../rates/RateProvider';
@@ -39,7 +39,10 @@ class ReverseRoutingHints {
       userAddressSignature?: Buffer;
     },
   ): SwapHints => {
-    const invoiceMemo = getSwapMemo(sendingCurrency.symbol, true);
+    const invoiceMemo = getSwapMemo(
+      sendingCurrency.symbol,
+      SwapType.ReverseSubmarine,
+    );
     const receivedAmount =
       args.onchainAmount -
       this.rateProvider.feeProvider.minerFees.get(sendingCurrency.symbol)![

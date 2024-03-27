@@ -80,8 +80,8 @@ class Prometheus {
 
     const defaults = Array.from(this.pairs.values()).flatMap((pair) =>
       Object.values(SwapType).map((type) => ({
-        type,
         pair,
+        type,
       })),
     );
 
@@ -150,7 +150,7 @@ class Prometheus {
 
           setDefaults(this, 0);
           lockedFunds.forEach((locked) =>
-            this.set({ pair: locked.pair, type: 'reverse' }, locked.locked),
+            this.set({ pair: locked.pair, type: locked.type }, locked.locked),
           );
         },
       }),

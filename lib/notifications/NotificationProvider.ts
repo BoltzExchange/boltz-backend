@@ -11,9 +11,16 @@ import {
   splitPairId,
 } from '../Utils';
 import BackupScheduler from '../backup/BackupScheduler';
-import { ClientStatus, CurrencyType, OrderSide } from '../consts/Enums';
+import {
+  ClientStatus,
+  CurrencyType,
+  OrderSide,
+  SwapType,
+} from '../consts/Enums';
+import ChainSwapData from '../db/models/ChainSwapData';
 import ReverseSwap from '../db/models/ReverseSwap';
 import Swap from '../db/models/Swap';
+import { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import LndClient from '../lightning/LndClient';
 import ClnClient from '../lightning/cln/ClnClient';
 import { ChainInfo, LightningInfo } from '../proto/boltzrpc_pb';
@@ -185,77 +192,68 @@ class NotificationProvider {
   };
 
   private listenToService = () => {
-    const getSwapTitle = (
-      pair: string,
-      orderSide: OrderSide,
-      isReverse: boolean,
-    ) => {
-      const { base, quote } = splitPairId(pair);
-      const { sending, receiving } = getSendingReceivingCurrency(
-        base,
-        quote,
-        orderSide,
-      );
+    const prefixLightning = (condition: boolean, asset: string) =>
+      `${asset}${condition ? ` ${Emojis.Zap}` : ''}`;
 
-      return `${receiving}${isReverse ? ` ${Emojis.Zap}` : ''} -> ${sending}${
-        !isReverse ? ` ${Emojis.Zap}` : ''
-      }`;
+    const getSwapTitle = (
+      type: SwapType,
+      sending: string,
+      receiving: string,
+    ) => {
+      return `${prefixLightning(type === SwapType.ReverseSubmarine, receiving)} -> ${prefixLightning(type === SwapType.Submarine, sending)}`;
     };
 
     const getBasicSwapInfo = (
-      swap: Swap | ReverseSwap,
-      onchainSymbol: string,
-      lightningSymbol: string,
+      type: SwapType,
+      swap: ChainSwapInfo | Swap | ReverseSwap,
+      base: string,
+      quote: string,
     ) => {
-      let message =
+      const message =
         `ID: ${swap.id}\n` +
         `Pair: ${swap.pair}\n` +
         `Order side: ${swap.orderSide === OrderSide.BUY ? 'buy' : 'sell'}`;
 
-      if (swap.invoice) {
-        const lightningAmount = decodeInvoice(swap.invoice).satoshis;
+      if (type === SwapType.Chain) {
+        const chainSwap = swap as ChainSwapInfo;
 
-        message +=
+        return (
+          message +
+          `\nSending: ${satoshisToSatcomma(chainSwap.sendingData.amount || chainSwap.sendingData.expectedAmount)} ${chainSwap.sendingData.symbol}\n` +
+          `Receiving: ${satoshisToSatcomma(chainSwap.receivingData.amount || chainSwap.receivingData.expectedAmount)} ${chainSwap.receivingData.symbol}`
+        );
+      } else {
+        const submarineSwap = swap as Swap | ReverseSwap;
+        if (submarineSwap.invoice === undefined) {
+          return message;
+        }
+
+        const lightningAmount = decodeInvoice(submarineSwap.invoice).satoshis;
+
+        return (
+          message +
           `${
-            swap.onchainAmount
+            submarineSwap.onchainAmount
               ? `\nOnchain amount: ${satoshisToSatcomma(
-                  swap.onchainAmount,
-                )} ${onchainSymbol}`
+                  submarineSwap.onchainAmount,
+                )} ${getChainCurrency(base, quote, swap.orderSide, type === SwapType.ReverseSubmarine)}`
               : ''
           }` +
           `\nLightning amount: ${satoshisToSatcomma(
             lightningAmount,
-          )} ${lightningSymbol}`;
+          )} ${getLightningCurrency(base, quote, swap.orderSide, type === SwapType.ReverseSubmarine)}`
+        );
       }
-
-      return message;
-    };
-
-    const getSymbols = (
-      pairId: string,
-      orderSide: number,
-      isReverse: boolean,
-    ) => {
-      const { base, quote } = splitPairId(pairId);
-
-      return {
-        onchainSymbol: getChainCurrency(base, quote, orderSide, isReverse),
-        lightningSymbol: getLightningCurrency(
-          base,
-          quote,
-          orderSide,
-          isReverse,
-        ),
-      };
     };
 
     this.service.eventHandler.on(
       'swap.success',
-      async ({ swap, isReverse, channelCreation }) => {
-        const { onchainSymbol, lightningSymbol } = getSymbols(
-          swap.pair,
+      async ({ type, swap, channelCreation }) => {
+        const { base, quote } = splitPairId(swap.pair);
+        const { sending, receiving } = getSendingReceivingCurrency(
+          base,
+          quote,
           swap.orderSide,
-          isReverse,
         );
 
         const hasChannelCreation =
@@ -264,20 +262,18 @@ class NotificationProvider {
           channelCreation.fundingTransactionId !== null;
 
         let message =
-          `**Swap ${getSwapTitle(swap.pair, swap.orderSide, isReverse)}${
-            hasChannelCreation ? ' :construction_site:' : ''
+          `**Swap ${getSwapTitle(type, sending, receiving)}${
+            hasChannelCreation ? ` ${Emojis.ConstructionSite}` : ''
           }**\n` +
-          `${getBasicSwapInfo(swap, onchainSymbol, lightningSymbol)}\n` +
-          `Fees earned: ${satoshisToSatcomma(swap.fee!)} ${onchainSymbol}\n` +
-          `Miner fees: ${satoshisToSatcomma(
-            swap.minerFee!,
-          )} ${this.getMinerFeeSymbol(onchainSymbol)}`;
+          `${getBasicSwapInfo(type, swap, base, quote)}\n` +
+          `Fees earned: ${satoshisToSatcomma(swap.fee!)} ${sending}\n` +
+          `Miner fees: ${this.getMinerFees(type, swap)}`;
 
-        if (!isReverse) {
+        if (type === SwapType.Submarine) {
           // The routing fees are denominated in millisatoshi
           message += `\nRouting fees: ${
             (swap as Swap).routingFee! / 1000
-          } ${this.getSmallestDenomination(lightningSymbol)}`;
+          } sats`;
         }
 
         if (hasChannelCreation) {
@@ -299,29 +295,36 @@ class NotificationProvider {
 
     this.service.eventHandler.on(
       'swap.failure',
-      async ({ swap, isReverse, reason }) => {
-        const { onchainSymbol, lightningSymbol } = getSymbols(
-          swap.pair,
+      async ({ type, swap, reason }) => {
+        const { base, quote } = splitPairId(swap.pair);
+        const { sending, receiving } = getSendingReceivingCurrency(
+          base,
+          quote,
           swap.orderSide,
-          isReverse,
         );
 
         let message =
           `**Swap ${getSwapTitle(
-            swap.pair,
-            swap.orderSide,
-            isReverse,
+            type,
+            sending,
+            receiving,
           )} failed: ${reason}**\n` +
-          `${getBasicSwapInfo(swap, onchainSymbol, lightningSymbol)}`;
+          `${getBasicSwapInfo(type, swap, base, quote)}`;
 
-        if (isReverse) {
-          if (swap.minerFee) {
-            message += `\nMiner fees: ${satoshisToSatcomma(
-              swap.minerFee,
-            )} ${onchainSymbol}`;
+        if (type === SwapType.Submarine) {
+          const submarineSwap = swap as Swap;
+
+          if (submarineSwap.invoice) {
+            message += `\nInvoice: ${submarineSwap.invoice}`;
           }
-        } else if (swap.invoice) {
-          message += `\nInvoice: ${swap.invoice}`;
+        } else {
+          if (
+            (type === SwapType.ReverseSubmarine &&
+              (swap as ReverseSwap).minerFee) ||
+            (type === SwapType.Chain && (swap as ChainSwapInfo).paidMinerFees)
+          ) {
+            message += `\nMiner fees: ${this.getMinerFees(type, swap)}`;
+          }
         }
 
         await this.client.sendMessage(
@@ -358,12 +361,32 @@ class NotificationProvider {
     }
   };
 
-  private getSmallestDenomination = (symbol: string): string => {
-    switch (symbol) {
-      case 'LTC':
-        return 'litoshi';
-      default:
-        return 'satoshi';
+  private getMinerFees = (
+    type: SwapType,
+    swap: Swap | ReverseSwap | ChainSwapInfo,
+  ) => {
+    if (type === SwapType.Chain) {
+      const chainSwap = swap as ChainSwapInfo;
+
+      let msg = '';
+
+      const appendFees = (prefix: string, data: ChainSwapData) => {
+        if (data.fee === undefined) {
+          return;
+        }
+
+        msg += `\n  - ${prefix}: ${satoshisToSatcomma(data.fee!)} ${data.symbol}`;
+      };
+      appendFees('Sending', chainSwap.sendingData);
+      appendFees('Receiving', chainSwap.receivingData);
+
+      return msg;
+    } else {
+      const { base, quote } = splitPairId(swap.pair);
+
+      return `${satoshisToSatcomma(
+        (swap as Swap | ReverseSwap).minerFee!,
+      )} ${this.getMinerFeeSymbol(getChainCurrency(base, quote, swap.orderSide, type === SwapType.ReverseSubmarine))}`;
     }
   };
 

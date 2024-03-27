@@ -2,7 +2,7 @@ import bolt11, { RoutingInfo } from '@boltz/bolt11';
 import { Transaction, crypto } from 'bitcoinjs-lib';
 import { OutputType, Scripts } from 'boltz-core';
 import { randomBytes } from 'crypto';
-import { ContractTransactionResponse } from 'ethers';
+import { ContractTransactionResponse, getAddress } from 'ethers';
 import { Transaction as LiquidTransaction, confidential } from 'liquidjs-lib';
 import os from 'os';
 import path from 'path';
@@ -10,7 +10,8 @@ import packageJson from '../package.json';
 import commitHash from './Version';
 import ChainClient from './chain/ChainClient';
 import { etherDecimals } from './consts/Consts';
-import { OrderSide, SwapVersion } from './consts/Enums';
+import { OrderSide, SwapType, SwapVersion } from './consts/Enums';
+import Errors from './service/Errors';
 
 export const TAPROOT_NOT_SUPPORTED = 'taproot not supported';
 
@@ -434,7 +435,7 @@ export const reverseBuffer = (input: Buffer): Buffer => {
 
 /**
  * The reversed version of the hex representation of a Buffer is not equal to the reversed Buffer.
- * Therefore we have to go full circle from a string to back to the Buffer, reverse that Buffer
+ * Therefore, we have to go full circle from a string to back to the Buffer, reverse that Buffer
  * and convert it back to a string to get the id of the transaction that is used by BTCD
  */
 export const transactionHashToId = (transactionHash: Buffer): string => {
@@ -486,6 +487,18 @@ export const getRate = (
   }
 };
 
+export const getSendingChain = (
+  base: string,
+  quote: string,
+  orderSide: OrderSide,
+) => getSendingReceivingCurrency(base, quote, orderSide).sending;
+
+export const getReceivingChain = (
+  base: string,
+  quote: string,
+  orderSide: OrderSide,
+) => getSendingReceivingCurrency(base, quote, orderSide).receiving;
+
 export const getChainCurrency = (
   base: string,
   quote: string,
@@ -514,15 +527,12 @@ export const getLightningCurrency = (
 
 /**
  * Gets the memo for the BIP21 payment request or the invoice of a swap
- *
- * @param sendingCurrency currency Boltz sends and the user is receiving
- * @param isReverse whether the swap is a reverse one
  */
 export const getSwapMemo = (
   sendingCurrency: string,
-  isReverse: boolean,
+  type: SwapType,
 ): string => {
-  return `Send to ${sendingCurrency} ${isReverse ? 'address' : 'lightning'}`;
+  return `Send to ${sendingCurrency} ${type !== SwapType.Submarine ? 'address' : 'lightning'}`;
 };
 
 export const getPrepayMinerFeeInvoiceMemo = (
@@ -620,4 +630,13 @@ export const splitChannelPoint = (channelPoint: string) => {
     id: split[0],
     vout: Number(split[1]),
   };
+};
+
+export const checkEvmAddress = (address: string): string => {
+  try {
+    // Get a checksum address and verify that the address is valid
+    return getAddress(address);
+  } catch (error) {
+    throw Errors.INVALID_ETHEREUM_ADDRESS();
+  }
 };

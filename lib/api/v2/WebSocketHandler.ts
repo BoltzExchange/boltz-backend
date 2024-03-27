@@ -4,7 +4,7 @@ import { formatError } from '../../Utils';
 import DefaultMap from '../../consts/DefaultMap';
 import Errors from '../../service/Errors';
 import Service from '../../service/Service';
-import Controller from '../Controller';
+import SwapInfos from '../SwapInfos';
 
 enum Operation {
   // TODO: unsubscribe
@@ -48,7 +48,7 @@ class WebSocketHandler {
 
   constructor(
     private readonly service: Service,
-    private readonly controller: Controller,
+    private readonly swapInfos: SwapInfos,
   ) {
     this.ws = new ws.Server({
       noServer: true,
@@ -118,7 +118,7 @@ class WebSocketHandler {
     switch (subscribeData.channel) {
       case SubscriptionChannel.SwapUpdate: {
         const idsWithSwaps = subscribeData.args.filter((id) =>
-          this.controller.pendingSwapInfos.has(id),
+          this.swapInfos.has(id),
         );
 
         const existingSet = this.socketToSwaps.get(socket);
@@ -133,7 +133,7 @@ class WebSocketHandler {
         });
 
         const args = subscribeData.args.map((id) => {
-          const status = this.controller.pendingSwapInfos.get(id);
+          const status = this.swapInfos.get(id);
           if (status === undefined) {
             return {
               id,

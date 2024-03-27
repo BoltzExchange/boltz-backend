@@ -117,13 +117,13 @@ export const getWalletStub = (
   type: CurrencyType,
   network: Network | LiquidNetwork,
   destinationAddress: string,
-  blindingKey: string,
+  blindingKey?: string,
 ) =>
   ({
     type,
     network,
     deriveBlindingKeyFromScript: () => ({
-      privateKey: parseBlindingKey(type, blindingKey),
+      privateKey: parseBlindingKey(type, blindingKey!),
     }),
     decodeAddress: () => toOutputScript(type, destinationAddress, network),
   }) as any;

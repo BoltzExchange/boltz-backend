@@ -169,4 +169,12 @@ export default {
     message: `setting swap update event ${event} is not allowed`,
     code: concatErrorCode(ErrorCodePrefix.Service, 43),
   }),
+  USER_AND_SERVER_AMOUNT_SPECIFIED: (): Error => ({
+    message: 'user and server lock amount were specified',
+    code: concatErrorCode(ErrorCodePrefix.Service, 44),
+  }),
+  CURRENCY_NOT_UTXO_BASED: (): Error => ({
+    message: 'chain currency is not UTXO based',
+    code: concatErrorCode(ErrorCodePrefix.Service, 45),
+  }),
 };

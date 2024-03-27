@@ -165,7 +165,7 @@ describe('MusigSigner', () => {
 
     btcWallet.getKeysByIndex = jest.fn().mockReturnValue(claimKeys);
 
-    const boltzPartialSig = await signer.signSwapRefund(
+    const boltzPartialSig = await signer.signRefund(
       'refundable',
       Buffer.from(musig.getPublicNonce()),
       refundTx.toBuffer(),
@@ -190,7 +190,7 @@ describe('MusigSigner', () => {
 
     const id = 'noChain';
     await expect(
-      signer.signSwapRefund(id, Buffer.alloc(0), Buffer.alloc(0), 0),
+      signer.signRefund(id, Buffer.alloc(0), Buffer.alloc(0), 0),
     ).rejects.toEqual('chain currency is not UTXO based');
   });
 
@@ -199,7 +199,7 @@ describe('MusigSigner', () => {
 
     const id = 'notFound';
     await expect(
-      signer.signSwapRefund(id, Buffer.alloc(0), Buffer.alloc(0), 0),
+      signer.signRefund(id, Buffer.alloc(0), Buffer.alloc(0), 0),
     ).rejects.toEqual(Errors.SWAP_NOT_FOUND(id));
 
     expect(SwapRepository.getSwap).toHaveBeenCalledTimes(1);
@@ -226,7 +226,7 @@ describe('MusigSigner', () => {
       const id = 'nonFailed';
 
       await expect(
-        signer.signSwapRefund(id, Buffer.alloc(0), Buffer.alloc(0), 0),
+        signer.signRefund(id, Buffer.alloc(0), Buffer.alloc(0), 0),
       ).rejects.toEqual(Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND());
     },
   );
@@ -241,7 +241,7 @@ describe('MusigSigner', () => {
     });
 
     await expect(
-      signer.signSwapRefund(id, randomBytes(32), Buffer.alloc(0), 0),
+      signer.signRefund(id, randomBytes(32), Buffer.alloc(0), 0),
     ).rejects.toEqual(Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND());
   });
 
@@ -276,7 +276,7 @@ describe('MusigSigner', () => {
       SwapRepository.getSwap = jest.fn().mockResolvedValue(swap);
 
       await expect(
-        signer.signSwapRefund(
+        signer.signRefund(
           'pendingPayment',
           Buffer.alloc(0),
           Buffer.alloc(0),

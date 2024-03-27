@@ -1,5 +1,6 @@
 import { QueryTypes } from 'sequelize';
 import {
+  NotPendingChainSwapEvents,
   NotPendingReverseSwapEvents,
   NotPendingSwapEvents,
   SwapUpdateEvent,
@@ -23,13 +24,14 @@ type TradeCount = StatsDate & {
 };
 
 type FailureRate = StatsDate & {
-  isReverse: boolean;
+  type: string;
   failureRate: number;
 };
 
 enum SwapType {
   Swap = 'swap',
   Reverse = 'reverse',
+  Chain = 'chain',
 }
 
 type BaseMetric = {
@@ -52,6 +54,7 @@ type PendingSwaps = BaseMetric & {
 
 type LockedFunds = {
   pair: string;
+  type: string;
   locked: number;
 };
 
@@ -82,6 +85,21 @@ WITH data AS (
         END AS amount,
         "createdAt"
     FROM "reverseSwaps"
+    WHERE status = ?
+    UNION ALL
+    SELECT
+        pair,
+        status,
+        referral,
+        d.amount AS amount,
+        c."createdAt" AS "createdAt"
+    FROM "chainSwaps" c
+        INNER JOIN "chainSwapData" d
+            ON d."swapId" = c.id AND 
+                d.symbol = CASE WHEN "orderSide" = 0
+                    THEN SPLIT_PART(pair, '/', 1)
+                    ELSE SPLIT_PART(pair, '/', 2)
+                END
     WHERE status = ?
 )
 SELECT
@@ -123,6 +141,21 @@ WITH data AS (
         createdAt
     FROM reverseSwaps
     WHERE status = ?
+    UNION ALL
+    SELECT
+        pair,
+        status,
+        referral,
+        d.amount AS amount,
+        c."createdAt" AS "createdAt"
+    FROM chainSwaps c
+        INNER JOIN chainSwapData d
+            ON d.swapId = c.id AND
+                d.symbol = CASE WHEN orderSide = 0
+                    THEN SUBSTRING(pair, 0, INSTR(pair, '/'))
+                    ELSE SUBSTRING(pair, INSTR(pair, '/') + 1)
+                END
+    WHERE status = ?
 ), groupedSwaps AS (
     SELECT
         CAST(STRFTIME('%Y', createdAt) AS INT) AS year,
@@ -157,6 +190,10 @@ WITH data AS (
     SELECT pair, status, referral, "createdAt"
     FROM "reverseSwaps"
     WHERE status = ?
+    UNION ALL
+    SELECT pair, status, referral, "createdAt"
+    FROM "chainSwaps"
+    WHERE status = ?
 )
 SELECT
     EXTRACT(YEAR FROM "createdAt") AS year,
@@ -187,6 +224,10 @@ WITH data AS (
     SELECT pair, status, referral, createdAt
     FROM reverseSwaps
     WHERE status = ?
+    UNION ALL
+    SELECT pair, status, referral, createdAt
+    FROM chainSwaps
+    WHERE status = ?
 ), groupedSwaps AS (
     SELECT
         CAST(STRFTIME('%Y', createdAt) AS INT) AS year,
@@ -214,14 +255,19 @@ ORDER BY year, month, pair;
     // language=PostgreSQL
     [DatabaseType.PostgreSQL]: `
 WITH data AS (
-    SELECT pair, false AS "isReverse", status, referral, "createdAt" FROM swaps
+    SELECT pair, 'submarine' AS type, status, referral, "createdAt"
+    FROM swaps
     UNION ALL
-    SELECT pair, true as "isReverse", status, referral, "createdAt" FROM "reverseSwaps"
+    SELECT pair, 'reverse' AS type, status, referral, "createdAt"
+    FROM "reverseSwaps"
+    UNION ALL
+    SELECT pair, 'chain' AS type, status, referral, "createdAt"
+    FROM "chainSwaps"
 )
 SELECT
     EXTRACT(YEAR FROM "createdAt") AS year,
     EXTRACT(MONTH FROM "createdAt") AS month,
-    "isReverse",
+    type,
     COUNT(*) FILTER (
         WHERE status IN (?)
     ) / CAST(COUNT(*) AS REAL) AS "failureRate"
@@ -232,22 +278,27 @@ WHERE
         EXTRACT(YEAR FROM "createdAt") >= ? AND
         EXTRACT(MONTH FROM "createdAt") >= ?
     ) OR EXTRACT(YEAR FROM "createdAt") > ?)
-GROUP BY year, month, "isReverse"
-ORDER BY year, month, "isReverse";
+GROUP BY year, month, type
+ORDER BY year, month, type;
 `,
 
     // language=SQLite
     [DatabaseType.SQLite]: `
 WITH data AS (
-    SELECT pair, false AS isReverse, status, referral, createdAt FROM swaps
+    SELECT pair, 'submarine' AS type, status, referral, createdAt
+    FROM swaps
     UNION ALL
-    SELECT pair, true as isReverse, status, referral, createdAt FROM reverseSwaps
+    SELECT pair, 'reverse' as type, status, referral, createdAt
+    FROM reverseSwaps
+    UNION ALL
+    SELECT pair, 'chain' AS type, status, referral, createdAt
+    FROM chainSwaps
 )
 SELECT
     CAST(STRFTIME('%Y', createdAt) AS INT) AS year,
     CAST(STRFTIME('%m', createdAt) AS INT) AS month,
     pair,
-    isReverse,
+    type,
     COUNT(*) FILTER (
         WHERE status IN (?)
     ) / CAST(COUNT(*) AS REAL) AS failureRate
@@ -255,8 +306,8 @@ FROM data
 WHERE
     CASE WHEN ? IS NOT NULL THEN referral = ? ELSE TRUE END AND
     ((year >= ? AND month >= ?) OR year > ?)
-GROUP BY year, month, isReverse
-ORDER BY year, month, isReverse;
+GROUP BY year, month, type
+ORDER BY year, month, type;
 `,
   };
 
@@ -283,6 +334,16 @@ WITH data AS (
             ELSE 'timeout'
         END AS status
     FROM "reverseSwaps"
+    UNION ALL
+    SELECT
+        pair,
+        'chain' AS type,
+        CASE
+            WHEN status = ? THEN 'success'
+            WHEN status IN (?) THEN 'failure'
+            ELSE 'timeout'
+        END AS status
+    FROM "chainSwaps"
 )
 SELECT
     pair,
@@ -315,6 +376,16 @@ WITH data AS (
             ELSE 'timeout'
         END AS status
     FROM reverseSwaps
+    UNION ALL
+    SELECT
+        pair,
+        'chain' AS type,
+        CASE
+            WHEN status == ? THEN 'success'
+            WHEN status IN (?) THEN 'failure'
+            ELSE 'timeout'
+        END AS status
+    FROM chainSwaps
 )
 SELECT
     pair,
@@ -349,6 +420,19 @@ WITH data AS (
         END AS amount
     FROM "reverseSwaps"
     WHERE status = ?
+    UNION ALL
+    SELECT
+        pair,
+        'chain' AS type,
+        d.amount AS amount
+    FROM "chainSwaps" c
+        INNER JOIN "chainSwapData" d
+            ON d."swapId" = c.id AND
+                d.symbol = CASE WHEN "orderSide" = 0
+                    THEN SPLIT_PART(pair, '/', 1)
+                    ELSE SPLIT_PART(pair, '/', 2)
+                END
+    WHERE status = ?
 )
 SELECT pair, type, SUM(amount)::BIGINT AS volume
 FROM data
@@ -370,6 +454,19 @@ WITH data AS (
         'reverse' AS type,
         CASE WHEN orderSide THEN onchainAmount ELSE invoiceAmount END AS amount
     FROM reverseSwaps
+    WHERE status = ?
+    UNION ALL
+    SELECT
+        pair,
+        'chain' AS type,
+        d.amount AS amount
+    FROM chainSwaps c
+        INNER JOIN chainSwapData d
+            ON d.swapId = c.id AND
+                d.symbol = CASE WHEN orderSide = 0
+                    THEN SUBSTRING(pair, 0, INSTR(pair, '/'))
+                    ELSE SUBSTRING(pair, INSTR(pair, '/') + 1)
+                END
     WHERE status = ?
 )
 SELECT pair, type, SUM(amount) AS volume
@@ -393,6 +490,12 @@ WITH data AS (
         'reverse' AS type
     FROM "reverseSwaps"
     WHERE status NOT IN (?)
+    UNION ALL
+    SELECT
+        pair,
+        'chain' AS type
+    FROM "chainSwaps"
+    WHERE status NOT IN (?)
 )
 SELECT
     pair,
@@ -416,6 +519,12 @@ WITH data AS (
         'reverse' AS type
     FROM reverseSwaps
     WHERE status NOT IN (?)
+    UNION ALL
+    SELECT
+        pair,
+        'chain' AS type
+    FROM chainSwaps
+    WHERE status NOT IN (?)
 )
 SELECT
     pair,
@@ -429,32 +538,67 @@ GROUP BY pair, type;
   private static readonly queryLockedFunds: Queries = {
     // language=PostgreSQL
     [DatabaseType.PostgreSQL]: `
-SELECT
-    pair,
-    SUM(
+WITH data AS (
+    SELECT
+        pair,
+        'reverse' AS type,
         CASE WHEN "orderSide" = 1
             THEN "onchainAmount"
             ELSE "invoiceAmount"
-        END
-    )::BIGINT AS locked
-FROM "reverseSwaps"
-WHERE status IN (?)
-GROUP BY pair;
+        END AS locked
+    FROM "reverseSwaps"
+    WHERE status IN (?)
+    UNION ALL
+    SELECT
+        pair,
+        'chain' AS type,
+        d.amount AS locked
+    FROM "chainSwaps" c
+        INNER JOIN "chainSwapData" d
+            ON d."swapId" = c.id AND
+                d.symbol = CASE WHEN "orderSide" = 0
+                    THEN SPLIT_PART(pair, '/', 1)
+                    ELSE SPLIT_PART(pair, '/', 2)
+                END
+    WHERE status IN (?)
+)
+SELECT
+    pair,
+    type,
+    SUM(locked)::BIGINT as locked
+FROM data
+GROUP BY pair, type;
 `,
 
     // language=SQLite
     [DatabaseType.SQLite]: `
-SELECT
-    pair,
-    SUM(amount) AS locked
-FROM (
+WITH data AS (
     SELECT
         pair,
+        'reverse' AS type,
         CASE WHEN orderSide THEN onchainAmount ELSE invoiceAmount END AS amount
     FROM reverseSwaps
     WHERE status IN (?)
+    UNION ALL
+    SELECT
+        pair,
+        'chain' AS type,
+        d.amount AS locked
+    FROM chainSwaps c
+        INNER JOIN chainSwapData d
+            ON d.swapId = c.id AND
+                d.symbol = CASE WHEN orderSide = 0
+                    THEN SUBSTRING(pair, 0, INSTR(pair, '/'))
+                    ELSE SUBSTRING(pair, INSTR(pair, '/') + 1)
+                END
+    WHERE status IN (?)
 )
-GROUP BY pair;
+SELECT
+    pair,
+    type,
+    SUM(amount) AS locked
+FROM data
+GROUP BY pair, type;
 `,
   };
 
@@ -468,6 +612,7 @@ GROUP BY pair;
       values: [
         SwapUpdateEvent.TransactionClaimed,
         SwapUpdateEvent.InvoiceSettled,
+        SwapUpdateEvent.TransactionClaimed,
         referral,
         referral,
         minYear,
@@ -487,6 +632,7 @@ GROUP BY pair;
       values: [
         SwapUpdateEvent.TransactionClaimed,
         SwapUpdateEvent.InvoiceSettled,
+        SwapUpdateEvent.TransactionClaimed,
         referral,
         referral,
         minYear,
@@ -529,6 +675,11 @@ GROUP BY pair;
           SwapUpdateEvent.TransactionFailed,
           SwapUpdateEvent.TransactionRefunded,
         ],
+        SwapUpdateEvent.TransactionClaimed,
+        [
+          SwapUpdateEvent.TransactionFailed,
+          SwapUpdateEvent.TransactionRefunded,
+        ],
       ],
     });
   };
@@ -539,6 +690,7 @@ GROUP BY pair;
       values: [
         SwapUpdateEvent.TransactionClaimed,
         SwapUpdateEvent.InvoiceSettled,
+        SwapUpdateEvent.TransactionClaimed,
       ],
     });
   };
@@ -546,7 +698,11 @@ GROUP BY pair;
   public static getPendingSwapsCounts = (): Promise<PendingSwaps[]> => {
     return StatsRepository.query({
       query: StatsRepository.queryPendingSwapsCounts[Database.type],
-      values: [NotPendingSwapEvents, NotPendingReverseSwapEvents],
+      values: [
+        NotPendingSwapEvents,
+        NotPendingReverseSwapEvents,
+        NotPendingChainSwapEvents,
+      ],
     });
   };
 
@@ -557,6 +713,10 @@ GROUP BY pair;
         [
           SwapUpdateEvent.TransactionMempool,
           SwapUpdateEvent.TransactionConfirmed,
+        ],
+        [
+          SwapUpdateEvent.TransactionServerMempool,
+          SwapUpdateEvent.TransactionServerConfirmed,
         ],
       ],
     });

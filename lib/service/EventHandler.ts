@@ -1,11 +1,13 @@
 import { Transaction } from 'bitcoinjs-lib';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import Logger from '../Logger';
-import { SwapUpdateEvent } from '../consts/Enums';
+import { SwapType, SwapUpdateEvent } from '../consts/Enums';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
+import ChainSwap from '../db/models/ChainSwap';
 import ChannelCreation from '../db/models/ChannelCreation';
 import ReverseSwap from '../db/models/ReverseSwap';
 import Swap from '../db/models/Swap';
+import { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import SwapNursery from '../swap/SwapNursery';
 import { Currency } from '../wallet/WalletManager';
 
@@ -35,13 +37,13 @@ class EventHandler extends TypedEventEmitter<{
     status: SwapUpdate;
   };
   'swap.success': {
-    swap: Swap | ReverseSwap;
-    isReverse: boolean;
+    swap: Swap | ReverseSwap | ChainSwapInfo;
+    type: SwapType;
     channelCreation?: ChannelCreation;
   };
   'swap.failure': {
-    swap: Swap | ReverseSwap;
-    isReverse: boolean;
+    swap: Swap | ReverseSwap | ChainSwapInfo;
+    type: SwapType;
     reason: string;
   };
   'channel.backup': {
@@ -82,49 +84,46 @@ class EventHandler extends TypedEventEmitter<{
    * Subscribes transaction related swap events
    */
   private subscribeTransactions = () => {
-    this.nursery.on(
-      'transaction',
-      ({ swap, transaction, confirmed, isReverse }) => {
-        if (!isReverse) {
+    this.nursery.on('transaction', ({ swap, transaction, confirmed }) => {
+      if (swap.type === SwapType.Submarine) {
+        this.emit('swap.update', {
+          id: swap.id,
+          status: {
+            status: confirmed
+              ? SwapUpdateEvent.TransactionConfirmed
+              : SwapUpdateEvent.TransactionMempool,
+          },
+        });
+      } else {
+        // Reverse Swaps only emit the "transaction.confirmed" event
+        // "transaction.mempool" is handled by the event "coins.sent"
+        if (
+          transaction instanceof Transaction ||
+          transaction instanceof LiquidTransaction
+        ) {
           this.emit('swap.update', {
             id: swap.id,
             status: {
-              status: confirmed
-                ? SwapUpdateEvent.TransactionConfirmed
-                : SwapUpdateEvent.TransactionMempool,
+              status: swap.status as SwapUpdateEvent,
+              transaction: {
+                id: transaction.getId(),
+                hex: transaction.toHex(),
+              },
             },
           });
         } else {
-          // Reverse Swaps only emit the "transaction.confirmed" event
-          // "transaction.mempool" is handled by the event "coins.sent"
-          if (
-            transaction instanceof Transaction ||
-            transaction instanceof LiquidTransaction
-          ) {
-            this.emit('swap.update', {
-              id: swap.id,
-              status: {
-                status: SwapUpdateEvent.TransactionConfirmed,
-                transaction: {
-                  id: transaction.getId(),
-                  hex: transaction.toHex(),
-                },
+          this.emit('swap.update', {
+            id: swap.id,
+            status: {
+              status: swap.status as SwapUpdateEvent,
+              transaction: {
+                id: transaction,
               },
-            });
-          } else {
-            this.emit('swap.update', {
-              id: swap.id,
-              status: {
-                status: SwapUpdateEvent.TransactionConfirmed,
-                transaction: {
-                  id: transaction,
-                },
-              },
-            });
-          }
+            },
+          });
         }
-      },
-    );
+      }
+    });
   };
 
   /**
@@ -140,7 +139,7 @@ class EventHandler extends TypedEventEmitter<{
           status: SwapUpdateEvent.InvoiceSettled,
         },
       });
-      this.emit('swap.success', { swap, isReverse: true });
+      this.emit('swap.success', { swap, type: SwapType.ReverseSubmarine });
     });
 
     this.nursery.on('invoice.pending', (swap) => {
@@ -194,19 +193,36 @@ class EventHandler extends TypedEventEmitter<{
     });
 
     this.nursery.on('claim', ({ swap, channelCreation }) => {
-      this.logger.verbose(`Swap ${swap.id} succeeded`);
+      if (swap.type === SwapType.Submarine) {
+        const submarine = swap as Swap;
+        this.logger.verbose(`Swap ${submarine.id} succeeded`);
 
-      this.emit('swap.update', {
-        id: swap.id,
-        status: {
-          status: SwapUpdateEvent.TransactionClaimed,
-        },
-      });
-      this.emit('swap.success', {
-        swap,
-        channelCreation,
-        isReverse: false,
-      });
+        this.emit('swap.update', {
+          id: submarine.id,
+          status: {
+            status: SwapUpdateEvent.TransactionClaimed,
+          },
+        });
+        this.emit('swap.success', {
+          swap: submarine,
+          channelCreation,
+          type: SwapType.Submarine,
+        });
+      } else {
+        const chainSwap = swap as ChainSwapInfo;
+        this.logger.verbose(`Chain Swap ${chainSwap.chainSwap.id} succeeded`);
+
+        this.emit('swap.update', {
+          id: chainSwap.chainSwap.id,
+          status: {
+            status: SwapUpdateEvent.TransactionClaimed,
+          },
+        });
+        this.emit('swap.success', {
+          swap: chainSwap,
+          type: SwapType.Chain,
+        });
+      }
     });
 
     this.nursery.on('claim.pending', (swap) => {
@@ -218,17 +234,29 @@ class EventHandler extends TypedEventEmitter<{
       });
     });
 
-    this.nursery.on('expiration', ({ swap, isReverse }) => {
+    this.nursery.on('expiration', (swap) => {
       const newStatus = SwapUpdateEvent.SwapExpired;
 
-      if (isReverse) {
-        this.handleFailedReverseSwap(
-          swap as ReverseSwap,
-          newStatus,
-          swap.failureReason!,
-        );
-      } else {
-        this.handleFailedSwap(swap as Swap, newStatus, swap.failureReason!);
+      switch (swap.type) {
+        case SwapType.Submarine:
+          this.handleFailedSwap(swap as Swap, newStatus, swap.failureReason!);
+          break;
+
+        case SwapType.ReverseSubmarine:
+          this.handleFailedReverseSwap(
+            swap as ReverseSwap,
+            newStatus,
+            swap.failureReason!,
+          );
+          break;
+
+        case SwapType.Chain:
+          this.handleFailedChainSwap(
+            swap as ChainSwapInfo,
+            newStatus,
+            swap.failureReason!,
+          );
+          break;
       }
     });
 
@@ -241,15 +269,15 @@ class EventHandler extends TypedEventEmitter<{
       });
     });
 
-    this.nursery.on('coins.sent', ({ reverseSwap, transaction }) => {
+    this.nursery.on('coins.sent', ({ swap, transaction }) => {
       if (
         transaction instanceof Transaction ||
         transaction instanceof LiquidTransaction
       ) {
         this.emit('swap.update', {
-          id: reverseSwap.id,
+          id: swap.id,
           status: {
-            status: SwapUpdateEvent.TransactionMempool,
+            status: swap.status as SwapUpdateEvent,
             transaction: {
               id: transaction.getId(),
               hex: transaction.toHex(),
@@ -259,9 +287,9 @@ class EventHandler extends TypedEventEmitter<{
         });
       } else {
         this.emit('swap.update', {
-          id: reverseSwap.id,
+          id: swap.id,
           status: {
-            status: SwapUpdateEvent.TransactionMempool,
+            status: swap.status as SwapUpdateEvent,
             transaction: {
               id: transaction,
             },
@@ -270,20 +298,36 @@ class EventHandler extends TypedEventEmitter<{
       }
     });
 
-    this.nursery.on('coins.failedToSend', (reverseSwap) => {
-      this.handleFailedReverseSwap(
-        reverseSwap,
-        SwapUpdateEvent.TransactionFailed,
-        reverseSwap.failureReason!,
-      );
+    this.nursery.on('coins.failedToSend', (swap) => {
+      if (swap.type === SwapType.ReverseSubmarine) {
+        this.handleFailedReverseSwap(
+          swap as ReverseSwap,
+          SwapUpdateEvent.TransactionFailed,
+          (swap as ReverseSwap).failureReason!,
+        );
+      } else {
+        this.handleFailedChainSwap(
+          swap as ChainSwapInfo,
+          SwapUpdateEvent.TransactionFailed,
+          (swap as ChainSwapInfo).chainSwap.failureReason!,
+        );
+      }
     });
 
-    this.nursery.on('refund', ({ reverseSwap }) => {
-      this.handleFailedReverseSwap(
-        reverseSwap,
-        SwapUpdateEvent.TransactionRefunded,
-        reverseSwap.failureReason!,
-      );
+    this.nursery.on('refund', ({ swap }) => {
+      if (swap.type === SwapType.ReverseSubmarine) {
+        this.handleFailedReverseSwap(
+          swap as ReverseSwap,
+          SwapUpdateEvent.TransactionRefunded,
+          swap.failureReason!,
+        );
+      } else {
+        this.handleFailedChainSwap(
+          swap as ChainSwapInfo,
+          SwapUpdateEvent.TransactionRefunded,
+          swap.failureReason!,
+        );
+      }
     });
 
     this.nursery.channelNursery.on(
@@ -302,7 +346,7 @@ class EventHandler extends TypedEventEmitter<{
       },
     );
 
-    this.nursery.on('lockup.failed', (swap: Swap) => {
+    this.nursery.on('lockup.failed', (swap: Swap | ChainSwap) => {
       this.emit('swap.update', {
         id: swap.id,
         status: {
@@ -345,8 +389,8 @@ class EventHandler extends TypedEventEmitter<{
     });
     this.emit('swap.failure', {
       swap,
-      isReverse: false,
       reason: failureReason,
+      type: SwapType.Submarine,
     });
   };
 
@@ -363,7 +407,27 @@ class EventHandler extends TypedEventEmitter<{
     });
     this.emit('swap.failure', {
       swap: reverseSwap,
-      isReverse: true,
+      reason: failureReason,
+      type: SwapType.ReverseSubmarine,
+    });
+  };
+
+  private handleFailedChainSwap = (
+    chainSwap: ChainSwapInfo,
+    status: SwapUpdateEvent,
+    failureReason: string,
+  ) => {
+    this.logger.warn(
+      `Chain swap ${chainSwap.chainSwap.id} failed: ${failureReason}`,
+    );
+
+    this.emit('swap.update', {
+      id: chainSwap.chainSwap.id,
+      status: { status, failureReason },
+    });
+    this.emit('swap.failure', {
+      swap: chainSwap,
+      type: SwapType.Chain,
       reason: failureReason,
     });
   };

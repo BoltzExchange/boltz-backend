@@ -84,5 +84,5 @@ export const getLogsQueryStartHeight = async (
   delta: number,
 ): Promise<number> => {
   const blockHeight = await provider.getBlockNumber();
-  return blockHeight - delta;
+  return Math.max(blockHeight - delta, 0);
 };

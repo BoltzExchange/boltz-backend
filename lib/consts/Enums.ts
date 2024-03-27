@@ -47,6 +47,9 @@ export enum SwapUpdateEvent {
   TransactionLockupFailed = 'transaction.lockupFailed',
   TransactionZeroConfRejected = 'transaction.zeroconf.rejected',
 
+  TransactionServerMempool = 'transaction.server.mempool',
+  TransactionServerConfirmed = 'transaction.server.confirmed',
+
   // Events for the prepay miner fee Reverse Swap protocol
   MinerFeePaid = 'minerfee.paid',
   InvoiceExpired = 'invoice.expired',
@@ -73,6 +76,12 @@ export const NotPendingReverseSwapEvents = [
   SwapUpdateEvent.SwapExpired,
   SwapUpdateEvent.InvoiceSettled,
   SwapUpdateEvent.TransactionFailed,
+  SwapUpdateEvent.TransactionRefunded,
+];
+export const NotPendingChainSwapEvents = [
+  SwapUpdateEvent.SwapExpired,
+  SwapUpdateEvent.TransactionFailed,
+  SwapUpdateEvent.TransactionClaimed,
   SwapUpdateEvent.TransactionRefunded,
 ];
 
@@ -104,9 +113,36 @@ export enum Network {
 }
 
 export enum SwapType {
-  Submarine = 'submarine',
-  ReverseSubmarine = 'reversesubmarine',
+  Submarine,
+  ReverseSubmarine,
+  Chain,
 }
+
+export const swapTypeToPrettyString = (type: SwapType): string => {
+  switch (type) {
+    case SwapType.Submarine:
+      return 'Submarine';
+
+    case SwapType.ReverseSubmarine:
+      return 'Reverse';
+
+    case SwapType.Chain:
+      return 'Chain';
+  }
+};
+
+export const swapTypeToString = (type: SwapType): string => {
+  switch (type) {
+    case SwapType.Submarine:
+      return 'submarine';
+
+    case SwapType.ReverseSubmarine:
+      return 'reversesubmarine';
+
+    case SwapType.Chain:
+      return 'chain';
+  }
+};
 
 export enum BaseFeeType {
   NormalClaim,

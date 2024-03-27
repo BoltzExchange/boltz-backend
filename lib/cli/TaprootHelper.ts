@@ -3,7 +3,6 @@ import {
   Musig,
   OutputType,
   RefundDetails,
-  SwapTreeSerializer,
   TaprootUtils,
   Types,
   detectSwap,
@@ -15,31 +14,21 @@ import {
 import { ECPairInterface } from 'ecpair';
 import { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib/src/transaction';
-import { Arguments } from 'yargs';
 import { constructClaimTransaction, setup } from '../Core';
-import { ECPair } from '../ECPairHelper';
 import { getHexBuffer } from '../Utils';
 import { CurrencyType } from '../consts/Enums';
 import { PartialSignature } from './BoltzApiClient';
-import {
-  currencyTypeFromNetwork,
-  getWalletStub,
-  musigFromExtractedKey,
-  parseNetwork,
-} from './Command';
+import { getWalletStub, musigFromExtractedKey } from './Command';
 
 export const setupCooperativeTransaction = async (
-  argv: Arguments<any>,
+  network: Network,
+  currencyType: CurrencyType,
+  swapTree: Types.SwapTree,
+  keys: ECPairInterface,
   keyExtractionFunc: (tree: Types.SwapTree) => Buffer,
   lockupTx: Transaction | LiquidTransaction,
 ) => {
   await setup();
-
-  const network = parseNetwork(argv.network);
-  const currencyType = currencyTypeFromNetwork(argv.network);
-
-  const swapTree = SwapTreeSerializer.deserializeSwapTree(argv.swapTree);
-  const keys = ECPair.fromPrivateKey(getHexBuffer(argv.privateKey));
 
   const { musig, tweakedKey, theirPublicKey } = musigFromExtractedKey(
     currencyType,
@@ -62,12 +51,14 @@ export const setupCooperativeTransaction = async (
 export const prepareCooperativeTransaction = <
   T extends Transaction | LiquidTransaction,
 >(
-  argv: Arguments<any>,
   network: Network | LiquidNetwork,
   currencyType: CurrencyType,
   keys: ECPairInterface,
   tweakedKey: Buffer,
   lockupTx: T,
+  destinationAddress: string,
+  feePerVbyte: number,
+  blindingKey?: string,
 ): { tx: T; details: RefundDetails | LiquidRefundDetails } => {
   const swapOutput = detectSwap(tweakedKey, lockupTx);
   if (swapOutput === undefined) {
@@ -82,15 +73,10 @@ export const prepareCooperativeTransaction = <
     cooperative: true,
   } as any;
   const tx = constructClaimTransaction(
-    getWalletStub(
-      currencyType,
-      network,
-      argv.destinationAddress,
-      argv.blindingKey,
-    ),
+    getWalletStub(currencyType, network, destinationAddress, blindingKey),
     [details],
-    argv.destinationAddress,
-    argv.feePerVbyte,
+    destinationAddress,
+    feePerVbyte,
   );
 
   return {

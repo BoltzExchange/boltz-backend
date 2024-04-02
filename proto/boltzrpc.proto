@@ -30,6 +30,9 @@ service Boltz {
   /* Modifies the status of a swap */
   rpc SetSwapStatus (SetSwapStatusRequest) returns (SetSwapStatusResponse);
 
+  /* Gets funds locked by the server for swaps */
+  rpc GetLockedFunds (GetLockedFundsRequest) returns (GetLockedFundsResponse);
+
   rpc SweepSwaps (SweepSwapsRequest) returns (SweepSwapsResponse);
 
   rpc Rescan (RescanRequest) returns (RescanResponse);
@@ -212,3 +215,18 @@ message DevHeapDumpRequest {
 }
 
 message DevHeapDumpResponse {}
+
+message LockedFund {
+  string swap_id = 1;
+  uint64 onchain_amount = 2;
+}
+
+message LockedFunds {
+  repeated LockedFund reverse_swaps = 1;
+  repeated LockedFund chain_swaps = 2;
+}
+
+message GetLockedFundsRequest {}
+message GetLockedFundsResponse {
+  map<string, LockedFunds> locked_funds = 1;
+}

@@ -72,12 +72,15 @@ jest.mock('../../../lib/db/repositories/SwapRepository');
 const mockedSwapRepository = <jest.Mock<SwapRepository>>(<any>SwapRepository);
 
 let mockGetReverseSwapResult: any = null;
-
+let mockGetReverseSwapsResult: any = null;
 jest.mock('../../../lib/db/repositories/ReverseSwapRepository', () => {
   return {
     getReverseSwap: jest
       .fn()
       .mockImplementation(async () => mockGetReverseSwapResult),
+    getReverseSwaps: jest
+      .fn()
+      .mockImplementation(async () => mockGetReverseSwapsResult),
   };
 });
 
@@ -2530,5 +2533,44 @@ describe('Service', () => {
         mockGetSwapResult,
       );
     });
+  });
+
+  describe('getLockedFunds', () => {
+    test('should return an empty map', async () => {
+      expect.assertions(2);
+      mockGetReverseSwapsResult = [];
+      const lockedFunds = await service.getLockedFunds();
+      expect(lockedFunds.size).toEqual(0);
+      expect(ReverseSwapRepository.getReverseSwaps).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  test('should return BTC and L-BTC locked funds', async () => {
+    expect.assertions(4);
+    mockGetReverseSwapsResult = [
+      {
+        id: 'r654321',
+        onchainAmount: 1000000,
+        pair: 'L-BTC/BTC',
+        orderSide: 0,
+      },
+      {
+        id: 'r654322',
+        onchainAmount: 2000000,
+        pair: 'L-BTC/BTC',
+        orderSide: 0,
+      },
+      {
+        id: 'r654323',
+        onchainAmount: 3000000,
+        pair: 'L-BTC/BTC',
+        orderSide: 1,
+      },
+    ];
+    const lockedFunds = await service.getLockedFunds();
+    expect(lockedFunds.size).toEqual(2);
+    expect(lockedFunds.get('L-BTC')!.length).toEqual(2);
+    expect(lockedFunds.get('BTC')!.length).toEqual(1);
+    expect(ReverseSwapRepository.getReverseSwaps).toHaveBeenCalledTimes(1);
   });
 });

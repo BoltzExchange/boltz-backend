@@ -875,6 +875,90 @@ export namespace DevHeapDumpResponse {
     }
 }
 
+export class LockedFund extends jspb.Message { 
+    getSwapId(): string;
+    setSwapId(value: string): LockedFund;
+    getOnchainAmount(): number;
+    setOnchainAmount(value: number): LockedFund;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): LockedFund.AsObject;
+    static toObject(includeInstance: boolean, msg: LockedFund): LockedFund.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: LockedFund, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): LockedFund;
+    static deserializeBinaryFromReader(message: LockedFund, reader: jspb.BinaryReader): LockedFund;
+}
+
+export namespace LockedFund {
+    export type AsObject = {
+        swapId: string,
+        onchainAmount: number,
+    }
+}
+
+export class LockedFunds extends jspb.Message { 
+    clearLockedFundsList(): void;
+    getLockedFundsList(): Array<LockedFund>;
+    setLockedFundsList(value: Array<LockedFund>): LockedFunds;
+    addLockedFunds(value?: LockedFund, index?: number): LockedFund;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): LockedFunds.AsObject;
+    static toObject(includeInstance: boolean, msg: LockedFunds): LockedFunds.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: LockedFunds, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): LockedFunds;
+    static deserializeBinaryFromReader(message: LockedFunds, reader: jspb.BinaryReader): LockedFunds;
+}
+
+export namespace LockedFunds {
+    export type AsObject = {
+        lockedFundsList: Array<LockedFund.AsObject>,
+    }
+}
+
+export class GetLockedFundsRequest extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetLockedFundsRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: GetLockedFundsRequest): GetLockedFundsRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetLockedFundsRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetLockedFundsRequest;
+    static deserializeBinaryFromReader(message: GetLockedFundsRequest, reader: jspb.BinaryReader): GetLockedFundsRequest;
+}
+
+export namespace GetLockedFundsRequest {
+    export type AsObject = {
+    }
+}
+
+export class GetLockedFundsResponse extends jspb.Message { 
+
+    getLockedFundsMap(): jspb.Map<string, LockedFunds>;
+    clearLockedFundsMap(): void;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetLockedFundsResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: GetLockedFundsResponse): GetLockedFundsResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetLockedFundsResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetLockedFundsResponse;
+    static deserializeBinaryFromReader(message: GetLockedFundsResponse, reader: jspb.BinaryReader): GetLockedFundsResponse;
+}
+
+export namespace GetLockedFundsResponse {
+    export type AsObject = {
+
+        lockedFundsMap: Array<[string, LockedFunds.AsObject]>,
+    }
+}
+
 export enum OutputType {
     BECH32 = 0,
     COMPATIBILITY = 1,

@@ -1,5 +1,6 @@
 import { OutputType, SwapTreeSerializer } from 'boltz-core';
 import { Provider, getAddress } from 'ethers';
+import { Op } from 'sequelize';
 import { ConfigType } from '../Config';
 import { parseTransaction } from '../Core';
 import Logger from '../Logger';
@@ -30,6 +31,7 @@ import {
   ethereumPrepayMinerFeeGasLimit,
   gweiDecimals,
 } from '../consts/Consts';
+import DefaultMap from '../consts/DefaultMap';
 import {
   BaseFeeType,
   CurrencyType,
@@ -40,6 +42,7 @@ import {
   SwapVersion,
 } from '../consts/Enums';
 import { PairConfig } from '../consts/Types';
+import ReverseSwap from '../db/models/ReverseSwap';
 import Swap from '../db/models/Swap';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import PairRepository from '../db/repositories/PairRepository';
@@ -891,6 +894,28 @@ class Service {
     this.swapManager.nursery.emit(
       status as unknown as keyof SwapNurseryEvents,
       swap,
+    );
+  };
+
+  public getLockedFunds = async (): Promise<Map<string, ReverseSwap[]>> => {
+    const pendingReverseSwaps = await ReverseSwapRepository.getReverseSwaps({
+      status: {
+        [Op.or]: [
+          SwapUpdateEvent.TransactionMempool,
+          SwapUpdateEvent.TransactionConfirmed,
+        ],
+      },
+    });
+
+    return pendingReverseSwaps.reduce(
+      (acc, pending) => {
+        const pair = splitPairId(pending.pair);
+        acc
+          .get(getChainCurrency(pair.base, pair.quote, pending.orderSide, true))
+          .push(pending);
+        return acc;
+      },
+      new DefaultMap<string, ReverseSwap[]>(() => []),
     );
   };
 

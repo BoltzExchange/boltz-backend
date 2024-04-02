@@ -190,6 +190,33 @@ class GrpcService {
     });
   };
 
+  public getLockedFunds: handleUnaryCall<
+    boltzrpc.GetLockedFundsRequest,
+    boltzrpc.GetLockedFundsResponse
+  > = async (call, callback) => {
+    await this.handleCallback(call, callback, async () => {
+      const response = new boltzrpc.GetLockedFundsResponse();
+      const lockedFunds = await this.service.getLockedFunds();
+      const lockedFundsGrpcMap = response.getLockedFundsMap();
+
+      lockedFunds.forEach((swaps, currency) => {
+        const lockedFundsList = new boltzrpc.LockedFunds();
+        swaps
+          .map((swap) => {
+            const lockedFund = new boltzrpc.LockedFund();
+            lockedFund.setSwapId(swap.id);
+            lockedFund.setOnchainAmount(swap.onchainAmount);
+            return lockedFund;
+          })
+          .forEach((lockedFund) => lockedFundsList.addLockedFunds(lockedFund));
+
+        lockedFundsGrpcMap.set(currency, lockedFundsList);
+      });
+
+      return response;
+    });
+  };
+
   public sweepSwaps: handleUnaryCall<
     boltzrpc.SweepSwapsRequest,
     boltzrpc.SweepSwapsResponse

@@ -14,6 +14,7 @@ import BackupScheduler from '../../../lib/backup/BackupScheduler';
 import ReferralStats from '../../../lib/data/ReferralStats';
 import Stats from '../../../lib/data/Stats';
 import Database from '../../../lib/db/Database';
+import ReverseSwap from '../../../lib/db/models/ReverseSwap';
 import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
 import PairRepository from '../../../lib/db/repositories/PairRepository';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
@@ -90,6 +91,11 @@ const database = new Database(Logger.disabledLogger, ':memory:');
 
 const mockGetAddress = jest.fn().mockResolvedValue(newAddress);
 
+const mockedLockedFunds = new Map<string, ReverseSwap[]>();
+mockedLockedFunds.set('BTC', [
+  { id: 'r654321', onchainAmount: 1000000 } as unknown as ReverseSwap,
+]);
+
 const invoicePreimage = getHexBuffer(
   '765895dd514ce9358f1412c6b416d6a8f8ecea1a4e442d1e15ea8b76152fd241',
 );
@@ -141,6 +147,7 @@ jest.mock('../../../lib/service/Service', () => {
 
         return res;
       },
+      getLockedFunds: async () => mockedLockedFunds,
       getAddress: mockGetAddress,
       payInvoice: mockPayInvoice,
       sendCoins: mockSendCoins,

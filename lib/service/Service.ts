@@ -1,5 +1,6 @@
 import { OutputType, SwapTreeSerializer } from 'boltz-core';
 import { Provider, getAddress } from 'ethers';
+import { Op } from 'sequelize';
 import { ConfigType } from '../Config';
 import { parseTransaction } from '../Core';
 import Logger from '../Logger';
@@ -40,6 +41,7 @@ import {
   SwapVersion,
 } from '../consts/Enums';
 import { PairConfig } from '../consts/Types';
+import ReverseSwap from '../db/models/ReverseSwap';
 import Swap from '../db/models/Swap';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import PairRepository from '../db/repositories/PairRepository';
@@ -892,6 +894,33 @@ class Service {
       status as unknown as keyof SwapNurseryEvents,
       swap,
     );
+  };
+
+  public getLockedFunds = async (): Promise<Map<string, ReverseSwap[]>> => {
+    const pendingReverseSwaps = await ReverseSwapRepository.getReverseSwaps({
+      status: {
+        [Op.or]: [
+          SwapUpdateEvent.TransactionMempool,
+          SwapUpdateEvent.TransactionConfirmed,
+        ],
+      },
+    });
+
+    return pendingReverseSwaps.reduce((acc, pending) => {
+      const pair = splitPairId(pending.pair);
+      const chainCurrency = getChainCurrency(
+        pair.base,
+        pair.quote,
+        pending.orderSide,
+        true,
+      );
+
+      const chainArray = acc.get(chainCurrency) || [];
+      chainArray.push(pending);
+      acc.set(chainCurrency, chainArray);
+
+      return acc;
+    }, new Map<string, ReverseSwap[]>());
   };
 
   /**

@@ -2,19 +2,11 @@ import { Op } from 'sequelize';
 import { NotificationConfig } from '../Config';
 import { coinsToSatoshis, satoshisToSatcomma } from '../DenominationConverter';
 import Logger from '../Logger';
-import {
-  formatError,
-  getChainCurrency,
-  getHexString,
-  mapToObject,
-  splitPairId,
-  stringify,
-} from '../Utils';
+import { formatError, getHexString, mapToObject, stringify } from '../Utils';
 import BackupScheduler from '../backup/BackupScheduler';
 import {
   NotPendingReverseSwapEvents,
   NotPendingSwapEvents,
-  SwapUpdateEvent,
 } from '../consts/Enums';
 import ReferralStats from '../data/ReferralStats';
 import Stats from '../data/Stats';
@@ -388,36 +380,7 @@ class CommandHandler {
   };
 
   private lockedFunds = async () => {
-    const pendingReverseSwaps = await ReverseSwapRepository.getReverseSwaps({
-      status: {
-        [Op.or]: [
-          SwapUpdateEvent.TransactionMempool,
-          SwapUpdateEvent.TransactionConfirmed,
-        ],
-      },
-    });
-
-    const pendingReverseSwapsByChain = new Map<string, ReverseSwap[]>();
-
-    for (const pending of pendingReverseSwaps) {
-      const pair = splitPairId(pending.pair);
-      const chainCurrency = getChainCurrency(
-        pair.base,
-        pair.quote,
-        pending.orderSide,
-        true,
-      );
-
-      let chainArray = pendingReverseSwapsByChain.get(chainCurrency);
-
-      if (chainArray === undefined) {
-        chainArray = [];
-      }
-
-      chainArray.push(pending);
-      pendingReverseSwapsByChain.set(chainCurrency, chainArray);
-    }
-
+    const pendingReverseSwapsByChain = await this.service.getLockedFunds();
     let message = '**Locked up funds:**\n';
 
     for (const [symbol, chainArray] of pendingReverseSwapsByChain) {

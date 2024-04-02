@@ -875,6 +875,90 @@ export namespace DevHeapDumpResponse {
     }
 }
 
+export class ReverseSwap extends jspb.Message { 
+    getId(): string;
+    setId(value: string): ReverseSwap;
+    getOnchainAmount(): number;
+    setOnchainAmount(value: number): ReverseSwap;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ReverseSwap.AsObject;
+    static toObject(includeInstance: boolean, msg: ReverseSwap): ReverseSwap.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ReverseSwap, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ReverseSwap;
+    static deserializeBinaryFromReader(message: ReverseSwap, reader: jspb.BinaryReader): ReverseSwap;
+}
+
+export namespace ReverseSwap {
+    export type AsObject = {
+        id: string,
+        onchainAmount: number,
+    }
+}
+
+export class ReverseSwaps extends jspb.Message { 
+    clearReverseSwapsList(): void;
+    getReverseSwapsList(): Array<ReverseSwap>;
+    setReverseSwapsList(value: Array<ReverseSwap>): ReverseSwaps;
+    addReverseSwaps(value?: ReverseSwap, index?: number): ReverseSwap;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ReverseSwaps.AsObject;
+    static toObject(includeInstance: boolean, msg: ReverseSwaps): ReverseSwaps.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ReverseSwaps, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ReverseSwaps;
+    static deserializeBinaryFromReader(message: ReverseSwaps, reader: jspb.BinaryReader): ReverseSwaps;
+}
+
+export namespace ReverseSwaps {
+    export type AsObject = {
+        reverseSwapsList: Array<ReverseSwap.AsObject>,
+    }
+}
+
+export class GetLockedFundsRequest extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetLockedFundsRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: GetLockedFundsRequest): GetLockedFundsRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetLockedFundsRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetLockedFundsRequest;
+    static deserializeBinaryFromReader(message: GetLockedFundsRequest, reader: jspb.BinaryReader): GetLockedFundsRequest;
+}
+
+export namespace GetLockedFundsRequest {
+    export type AsObject = {
+    }
+}
+
+export class GetLockedFundsResponse extends jspb.Message { 
+
+    getLockedFundsMap(): jspb.Map<string, ReverseSwaps>;
+    clearLockedFundsMap(): void;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetLockedFundsResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: GetLockedFundsResponse): GetLockedFundsResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetLockedFundsResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetLockedFundsResponse;
+    static deserializeBinaryFromReader(message: GetLockedFundsResponse, reader: jspb.BinaryReader): GetLockedFundsResponse;
+}
+
+export namespace GetLockedFundsResponse {
+    export type AsObject = {
+
+        lockedFundsMap: Array<[string, ReverseSwaps.AsObject]>,
+    }
+}
+
 export enum OutputType {
     BECH32 = 0,
     COMPATIBILITY = 1,

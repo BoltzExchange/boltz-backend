@@ -200,17 +200,17 @@ class GrpcService {
       const lockedFundsGrpcMap = response.getLockedFundsMap();
 
       lockedFunds.forEach((swaps, currency) => {
-        const reverseSwaps = new boltzrpc.ReverseSwaps();
+        const lockedFundsList = new boltzrpc.LockedFunds();
         swaps
           .map((swap) => {
-            const reverseSwap = new boltzrpc.ReverseSwap();
-            reverseSwap.setId(swap.id);
-            reverseSwap.setOnchainAmount(swap.onchainAmount);
-            return reverseSwap;
+            const lockedFund = new boltzrpc.LockedFund();
+            lockedFund.setSwapId(swap.id);
+            lockedFund.setOnchainAmount(swap.onchainAmount);
+            return lockedFund;
           })
-          .forEach((reverseSwap) => reverseSwaps.addReverseSwaps(reverseSwap));
+          .forEach((lockedFund) => lockedFundsList.addLockedFunds(lockedFund));
 
-        lockedFundsGrpcMap.set(currency, reverseSwaps);
+        lockedFundsGrpcMap.set(currency, lockedFundsList);
       });
 
       return response;

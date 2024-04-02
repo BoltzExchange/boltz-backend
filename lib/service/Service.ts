@@ -31,6 +31,7 @@ import {
   ethereumPrepayMinerFeeGasLimit,
   gweiDecimals,
 } from '../consts/Consts';
+import DefaultMap from '../consts/DefaultMap';
 import {
   BaseFeeType,
   CurrencyType,
@@ -906,21 +907,16 @@ class Service {
       },
     });
 
-    return pendingReverseSwaps.reduce((acc, pending) => {
-      const pair = splitPairId(pending.pair);
-      const chainCurrency = getChainCurrency(
-        pair.base,
-        pair.quote,
-        pending.orderSide,
-        true,
-      );
-
-      const chainArray = acc.get(chainCurrency) || [];
-      chainArray.push(pending);
-      acc.set(chainCurrency, chainArray);
-
-      return acc;
-    }, new Map<string, ReverseSwap[]>());
+    return pendingReverseSwaps.reduce(
+      (acc, pending) => {
+        const pair = splitPairId(pending.pair);
+        acc
+          .get(getChainCurrency(pair.base, pair.quote, pending.orderSide, true))
+          .push(pending);
+        return acc;
+      },
+      new DefaultMap<string, ReverseSwap[]>(() => []),
+    );
   };
 
   /**

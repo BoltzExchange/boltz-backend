@@ -875,48 +875,48 @@ export namespace DevHeapDumpResponse {
     }
 }
 
-export class ReverseSwap extends jspb.Message { 
-    getId(): string;
-    setId(value: string): ReverseSwap;
+export class LockedFund extends jspb.Message { 
+    getSwapId(): string;
+    setSwapId(value: string): LockedFund;
     getOnchainAmount(): number;
-    setOnchainAmount(value: number): ReverseSwap;
+    setOnchainAmount(value: number): LockedFund;
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): ReverseSwap.AsObject;
-    static toObject(includeInstance: boolean, msg: ReverseSwap): ReverseSwap.AsObject;
+    toObject(includeInstance?: boolean): LockedFund.AsObject;
+    static toObject(includeInstance: boolean, msg: LockedFund): LockedFund.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: ReverseSwap, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): ReverseSwap;
-    static deserializeBinaryFromReader(message: ReverseSwap, reader: jspb.BinaryReader): ReverseSwap;
+    static serializeBinaryToWriter(message: LockedFund, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): LockedFund;
+    static deserializeBinaryFromReader(message: LockedFund, reader: jspb.BinaryReader): LockedFund;
 }
 
-export namespace ReverseSwap {
+export namespace LockedFund {
     export type AsObject = {
-        id: string,
+        swapId: string,
         onchainAmount: number,
     }
 }
 
-export class ReverseSwaps extends jspb.Message { 
-    clearReverseSwapsList(): void;
-    getReverseSwapsList(): Array<ReverseSwap>;
-    setReverseSwapsList(value: Array<ReverseSwap>): ReverseSwaps;
-    addReverseSwaps(value?: ReverseSwap, index?: number): ReverseSwap;
+export class LockedFunds extends jspb.Message { 
+    clearLockedFundsList(): void;
+    getLockedFundsList(): Array<LockedFund>;
+    setLockedFundsList(value: Array<LockedFund>): LockedFunds;
+    addLockedFunds(value?: LockedFund, index?: number): LockedFund;
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): ReverseSwaps.AsObject;
-    static toObject(includeInstance: boolean, msg: ReverseSwaps): ReverseSwaps.AsObject;
+    toObject(includeInstance?: boolean): LockedFunds.AsObject;
+    static toObject(includeInstance: boolean, msg: LockedFunds): LockedFunds.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: ReverseSwaps, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): ReverseSwaps;
-    static deserializeBinaryFromReader(message: ReverseSwaps, reader: jspb.BinaryReader): ReverseSwaps;
+    static serializeBinaryToWriter(message: LockedFunds, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): LockedFunds;
+    static deserializeBinaryFromReader(message: LockedFunds, reader: jspb.BinaryReader): LockedFunds;
 }
 
-export namespace ReverseSwaps {
+export namespace LockedFunds {
     export type AsObject = {
-        reverseSwapsList: Array<ReverseSwap.AsObject>,
+        lockedFundsList: Array<LockedFund.AsObject>,
     }
 }
 
@@ -939,7 +939,7 @@ export namespace GetLockedFundsRequest {
 
 export class GetLockedFundsResponse extends jspb.Message { 
 
-    getLockedFundsMap(): jspb.Map<string, ReverseSwaps>;
+    getLockedFundsMap(): jspb.Map<string, LockedFunds>;
     clearLockedFundsMap(): void;
 
     serializeBinary(): Uint8Array;
@@ -955,7 +955,7 @@ export class GetLockedFundsResponse extends jspb.Message {
 export namespace GetLockedFundsResponse {
     export type AsObject = {
 
-        lockedFundsMap: Array<[string, ReverseSwaps.AsObject]>,
+        lockedFundsMap: Array<[string, LockedFunds.AsObject]>,
     }
 }
 

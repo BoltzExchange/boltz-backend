@@ -147,7 +147,7 @@ jest.mock('../../../lib/service/Service', () => {
 
         return res;
       },
-      getLockedFunds: async () => mockedLockedFunds,
+      getLockedFunds: jest.fn().mockResolvedValue(mockedLockedFunds),
       getAddress: mockGetAddress,
       payInvoice: mockPayInvoice,
       sendCoins: mockSendCoins,

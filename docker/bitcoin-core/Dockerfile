@@ -65,8 +65,9 @@ FROM ubuntu:${UBUNTU_VERSION}
 
 ARG VERSION
 
-RUN apt-get update && apt-get -y upgrade
-RUN apt-get -y install \
+RUN apt-get update && \
+  apt-get -y upgrade && \
+  apt-get -y install \
   libzmq3-dev \
   libdb-dev \
   libdb++-dev \
@@ -75,7 +76,8 @@ RUN apt-get -y install \
   libboost-chrono-dev \
   libboost-system-dev \
   libboost-thread-dev \
-  libboost-filesystem-dev
+  libboost-filesystem-dev && \
+  rm -rf /var/lib/apt/lists/*
 
 COPY --from=bitcoin-core /opt/bitcoin-${VERSION}/bin /bin
 

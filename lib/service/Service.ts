@@ -84,6 +84,7 @@ import PaymentRequestUtils from './PaymentRequestUtils';
 import TimeoutDeltaProvider, {
   PairTimeoutBlocksDelta,
 } from './TimeoutDeltaProvider';
+import { SwapToClaim } from './cooperative/DeferredClaimer';
 import EipSigner from './cooperative/EipSigner';
 import MusigSigner from './cooperative/MusigSigner';
 
@@ -917,6 +918,10 @@ class Service {
       },
       new DefaultMap<string, ReverseSwap[]>(() => []),
     );
+  };
+
+  public getPendingSweeps = (): Map<string, SwapToClaim[]> => {
+    return this.swapManager.deferredClaimer.pendingSweepsValues();
   };
 
   /**

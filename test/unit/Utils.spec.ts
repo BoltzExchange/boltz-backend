@@ -11,7 +11,8 @@ import {
   splitChannelPoint,
 } from '../../lib/Utils';
 import commitHash from '../../lib/Version';
-import { OrderSide, SwapVersion } from '../../lib/consts/Enums';
+import { OrderSide, SwapType, SwapVersion } from '../../lib/consts/Enums';
+import Errors from '../../lib/service/Errors';
 import packageJson from '../../package.json';
 import { constructTransaction, randomRange } from '../Utils';
 
@@ -295,8 +296,15 @@ describe('Utils', () => {
   });
 
   test('should get memo for swaps', () => {
-    expect(utils.getSwapMemo('LTC', false)).toBe('Send to LTC lightning');
-    expect(utils.getSwapMemo('BTC', true)).toBe('Send to BTC address');
+    expect(utils.getSwapMemo('LTC', SwapType.Submarine)).toBe(
+      'Send to LTC lightning',
+    );
+    expect(utils.getSwapMemo('BTC', SwapType.ReverseSubmarine)).toBe(
+      'Send to BTC address',
+    );
+    expect(utils.getSwapMemo('BTC', SwapType.Chain)).toBe(
+      'Send to BTC address',
+    );
   });
 
   test('should get memo for miner fee invoices', () => {
@@ -319,6 +327,12 @@ describe('Utils', () => {
       sending: baseCurrency,
       receiving: quoteCurrency,
     });
+    expect(
+      utils.getSendingChain(baseCurrency, quoteCurrency, OrderSide.BUY),
+    ).toEqual(baseCurrency);
+    expect(
+      utils.getReceivingChain(baseCurrency, quoteCurrency, OrderSide.BUY),
+    ).toEqual(quoteCurrency);
 
     expect(
       utils.getSendingReceivingCurrency(
@@ -330,6 +344,12 @@ describe('Utils', () => {
       sending: quoteCurrency,
       receiving: baseCurrency,
     });
+    expect(
+      utils.getSendingChain(baseCurrency, quoteCurrency, OrderSide.SELL),
+    ).toEqual(quoteCurrency);
+    expect(
+      utils.getReceivingChain(baseCurrency, quoteCurrency, OrderSide.SELL),
+    ).toEqual(baseCurrency);
   });
 
   test('should format errors', () => {
@@ -431,5 +451,17 @@ describe('Utils', () => {
     b.set('a', a);
 
     expect(() => mapToObject(a)).toThrow('nested map recursion level too deep');
+  });
+
+  test('should check EVM address', () => {
+    expect(
+      utils.checkEvmAddress('0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266'),
+    ).toEqual('0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266');
+  });
+
+  test('should throw when checking invalid EVM addresses', () => {
+    expect(() => utils.checkEvmAddress('')).toThrow(
+      Errors.INVALID_ETHEREUM_ADDRESS().message,
+    );
   });
 });

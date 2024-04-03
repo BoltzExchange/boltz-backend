@@ -1918,7 +1918,7 @@ class SwapRouter extends RouterBase {
     ]);
 
     const chainSwap = await ChainSwapRepository.getChainSwap({ id });
-    if (chainSwap === null) {
+    if (chainSwap === null || chainSwap === undefined) {
       errorResponse(this.logger, req, res, Errors.SWAP_NOT_FOUND(id), 404);
       return;
     }
@@ -1939,10 +1939,10 @@ class SwapRouter extends RouterBase {
         : {};
 
       const { id, pubNonce, index, transaction } = validateRequest(req.body, [
+        { name: 'id', type: 'string', optional: params.id !== undefined },
         { name: 'index', type: 'number' },
         { name: 'pubNonce', type: 'string', hex: true },
         { name: 'transaction', type: 'string', hex: true },
-        { name: 'id', type: 'string', optional: params.id !== undefined },
       ]);
 
       const sig = await signer.signRefund(

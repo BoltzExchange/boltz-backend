@@ -61,12 +61,17 @@ class ChainSwapSigner extends CoopSignerBase<
     }
   };
 
-  public signRefund = (
-    swap: ChainSwapInfo,
+  public signRefund = async (
+    swapId: string,
     theirNonce: Buffer,
     transaction: Buffer,
     index: number,
   ): Promise<PartialSignature> => {
+    const swap = await ChainSwapRepository.getChainSwap({ id: swapId });
+    if (!swap) {
+      throw Errors.SWAP_NOT_FOUND(swapId);
+    }
+
     const currency = this.currencies.get(swap.receivingData.symbol)!;
     if (currency.chainClient === undefined) {
       throw Errors.CURRENCY_NOT_UTXO_BASED();

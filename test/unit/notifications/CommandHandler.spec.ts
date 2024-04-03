@@ -11,10 +11,10 @@ import {
   stringify,
 } from '../../../lib/Utils';
 import BackupScheduler from '../../../lib/backup/BackupScheduler';
+import { SwapType, swapTypeToString } from '../../../lib/consts/Enums';
 import ReferralStats from '../../../lib/data/ReferralStats';
 import Stats from '../../../lib/data/Stats';
 import Database from '../../../lib/db/Database';
-import ReverseSwap from '../../../lib/db/models/ReverseSwap';
 import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
 import PairRepository from '../../../lib/db/repositories/PairRepository';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
@@ -91,10 +91,21 @@ const database = new Database(Logger.disabledLogger, ':memory:');
 
 const mockGetAddress = jest.fn().mockResolvedValue(newAddress);
 
-const mockedLockedFunds = new Map<string, ReverseSwap[]>();
-mockedLockedFunds.set('BTC', [
-  { id: 'r654321', onchainAmount: 1000000 } as unknown as ReverseSwap,
-]);
+const mockedLockedFunds = new Map<string, any>();
+mockedLockedFunds.set('BTC', {
+  chainSwaps: [
+    {
+      type: SwapType.Chain,
+      id: 'chain123',
+      sendingData: {
+        amount: 123,
+      },
+    },
+  ],
+  reverseSwaps: [
+    { type: SwapType.ReverseSubmarine, id: 'r654321', onchainAmount: 1000000 },
+  ],
+});
 
 const invoicePreimage = getHexBuffer(
   '765895dd514ce9358f1412c6b416d6a8f8ecea1a4e442d1e15ea8b76152fd241',
@@ -132,12 +143,12 @@ jest.mock('../../../lib/service/Service', () => {
     return {
       swapManager: {
         deferredClaimer: {
-          pendingSweeps: jest.fn().mockReturnValue(
-            new Map<string, string[]>([
+          pendingSweeps: jest.fn().mockReturnValue({
+            [SwapType.Submarine]: new Map<string, string[]>([
               ['BTC', ['everything1', 'everything2']],
               ['L-BTC', ['everything3']],
             ]),
-          ),
+          }),
         },
       },
       getBalance: async () => {
@@ -247,11 +258,11 @@ describe('CommandHandler', () => {
       'Commands:\n\n' +
         '**help**: gets a list of all available commands\n' +
         '**getfees**: gets accumulated fees\n' +
-        '**swapinfo**: gets all available information about a (reverse) swap\n' +
+        '**swapinfo**: gets all available information about a swap\n' +
         '**getstats**: gets statistics grouped by year and month for the current and last 6 months\n' +
         '**getbalance**: gets the balance of the wallets and channels\n' +
         '**lockedfunds**: gets funds locked up by Boltz\n' +
-        '**pendingswaps**: gets a list of pending (reverse) swaps\n' +
+        '**pendingswaps**: gets a list of pending swaps\n' +
         '**pendingsweeps**: gets all pending sweeps\n' +
         '**getreferrals**: gets stats for all referral IDs\n' +
         '**backup**: uploads a backup of the databases\n' +
@@ -302,7 +313,7 @@ describe('CommandHandler', () => {
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(
-      `Swap \`${swapExample.id}\`:\n\`\`\`${stringify(
+      `Submarine Swap \`${swapExample.id}\`:\n\`\`\`${stringify(
         await SwapRepository.getSwap({ id: swapExample.id }),
       )}\`\`\``,
     );
@@ -375,8 +386,8 @@ describe('CommandHandler', () => {
               'LTC/BTC': 3,
             },
             failureRates: {
-              swaps: 0,
-              reverseSwaps: 0,
+              reverse: 0,
+              submarine: 0,
             },
           },
         },
@@ -436,8 +447,9 @@ describe('CommandHandler', () => {
     expect(mockSendMessage).toHaveBeenCalledWith(
       '**Locked up funds:**\n\n' +
         '**BTC**\n' +
-        '  - `r654321`: 0.01,000,000\n' +
-        '\nTotal: 0.01,000,000\n',
+        '  - Reverse `r654321`: 0.01,000,000\n' +
+        '  - Chain `chain123`: 0.00,000,123\n' +
+        '\nTotal: 0.01,000,123\n',
     );
   });
 
@@ -447,9 +459,9 @@ describe('CommandHandler', () => {
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(
-      '\n\n**Pending Swaps:**\n\n' +
+      '\n\n**Pending Submarine Swaps:**\n\n' +
         `- \`${pendingSwapExample.id}\`\n\n` +
-        '**Pending reverse Swaps:**\n\n' +
+        '**Pending Reverse Swaps:**\n\n' +
         `- \`${pendingReverseSwapExample.id}\`\n`,
     );
   });
@@ -463,7 +475,13 @@ describe('CommandHandler', () => {
     ).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(
-      `${codeBlock}${stringify(mapToObject(service.swapManager.deferredClaimer.pendingSweeps()))}${codeBlock}`,
+      `${codeBlock}${stringify({
+        [swapTypeToString(SwapType.Submarine)]: mapToObject(
+          service.swapManager.deferredClaimer.pendingSweeps()[
+            SwapType.Submarine
+          ],
+        ),
+      })}${codeBlock}`,
     );
   });
 

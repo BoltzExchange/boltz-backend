@@ -109,6 +109,7 @@ export const channelSwapExample: SwapType = {
   redeemScript:
     'a91417543b331ad6f253f1632d9c3ded7e03ec2bcd4a87632102ab507fc9eb1a649b8b08124a6eba7dcfe4b274182c8e5f1bdf1aaf26bbccc43a67022001b175210357e57fee8a1adfde4512b01920676b0cbe254ab1f0be8d3aee7c0b7058fd419268ac',
 };
+
 export const channelCreationExample: ChannelCreationType = {
   swapId: 'channel',
 

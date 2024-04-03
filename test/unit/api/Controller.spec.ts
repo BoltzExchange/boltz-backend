@@ -2,22 +2,17 @@ import Logger from '../../../lib/Logger';
 import { getHexBuffer, getVersion, mapToObject } from '../../../lib/Utils';
 import Bouncer from '../../../lib/api/Bouncer';
 import Controller from '../../../lib/api/Controller';
+import SwapInfos from '../../../lib/api/SwapInfos';
 import {
   SwapType,
   SwapUpdateEvent,
   SwapVersion,
 } from '../../../lib/consts/Enums';
 import ReferralStats from '../../../lib/data/ReferralStats';
-import ChannelCreation from '../../../lib/db/models/ChannelCreation';
-import ReverseSwap from '../../../lib/db/models/ReverseSwap';
 import Swap from '../../../lib/db/models/Swap';
-import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
 import MarkedSwapRepository from '../../../lib/db/repositories/MarkedSwapRepository';
-import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
-import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import CountryCodes from '../../../lib/service/CountryCodes';
 import Service from '../../../lib/service/Service';
-import SwapNursery from '../../../lib/swap/SwapNursery';
 import { emitClose, mockRequest, mockResponse } from './Utils';
 
 type swapUpdateCallback = (args: {
@@ -25,52 +20,10 @@ type swapUpdateCallback = (args: {
   status: SwapUpdateEvent;
 }) => void;
 
-const swaps: Swap[] = [
-  {
-    id: 'status',
-    status: SwapUpdateEvent.InvoicePaid,
-  } as any as Swap,
-  {
-    id: 'channel',
-    status: SwapUpdateEvent.ChannelCreated,
-  } as any as Swap,
-  {
-    id: 'failureReason',
-    status: SwapUpdateEvent.TransactionLockupFailed,
-    failureReason: 'lockupFailed',
-  } as any as Swap,
-];
-
-const channelCreation = {
-  fundingTransactionId: 'fundingTransactionId',
-  fundingTransactionVout: 42,
-} as any as ChannelCreation;
-
-const reverseSwaps: ReverseSwap[] = [
-  {
-    id: 'rStatus',
-    status: SwapUpdateEvent.InvoiceSettled,
-  } as any as ReverseSwap,
-  {
-    id: 'rStatusSettled',
-    orderSide: 0,
-    pair: 'BTC/BTC',
-    transactionId: 'transaction',
-    status: SwapUpdateEvent.TransactionConfirmed,
-  } as any as ReverseSwap,
-  {
-    id: 'rStatusMempool',
-    orderSide: 0,
-    pair: 'BTC/BTC',
-    transactionId: 'transactionMempool',
-    status: SwapUpdateEvent.TransactionMempool,
-  } as any as ReverseSwap,
-  {
-    id: 'r',
-    invoice: 'invoice',
-    status: SwapUpdateEvent.MinerFeePaid,
-  } as any as ReverseSwap,
-];
+const swap: Swap = {
+  id: 'status',
+  status: SwapUpdateEvent.InvoicePaid,
+} as any as Swap;
 
 let swapUpdate: swapUpdateCallback;
 
@@ -173,7 +126,9 @@ const swapTransaction = {
   timeoutBlockHeight: 321,
   transactionHex: rawTransaction,
 };
-const mockGetSwapTransaction = jest.fn().mockResolvedValue(swapTransaction);
+const mockGetSubmarineTransaction = jest
+  .fn()
+  .mockResolvedValue(swapTransaction);
 
 const mockBroadcastTransaction = jest.fn().mockResolvedValue('transactionId');
 
@@ -199,6 +154,10 @@ jest.mock('../../../lib/service/Service', () => {
         },
       },
 
+      transactionFetcher: {
+        getSubmarineTransaction: mockGetSubmarineTransaction,
+      },
+
       getPairs: mockGetPairs,
       getNodes: mockGetNodes,
       getTimeouts: mockGetTimeouts,
@@ -209,7 +168,6 @@ jest.mock('../../../lib/service/Service', () => {
       setInvoice: mockSetInvoice,
       getSwapRates: mockGetSwapRates,
       getTransaction: mockGetTransaction,
-      getSwapTransaction: mockGetSwapTransaction,
       broadcastTransaction: mockBroadcastTransaction,
 
       createSwap: mockCreateSwap,
@@ -221,6 +179,25 @@ jest.mock('../../../lib/service/Service', () => {
 });
 
 const mockedService = <jest.Mock<Service>>(<any>Service);
+
+jest.mock('../../../lib/api/SwapInfos', () => {
+  return jest.fn().mockImplementation(() => {
+    return {
+      get: jest.fn().mockImplementation((id: string) => {
+        if (swap.id === id) {
+          return {
+            status: swap.status,
+          };
+        }
+
+        return undefined;
+      }),
+      set: jest.fn(),
+    };
+  });
+});
+
+const mockedSwapInfos = <jest.Mock<SwapInfos>>(<any>SwapInfos);
 
 let mockValidateRequestAuthenticationResult: any = null;
 const mockValidateRequestAuthentication = jest.fn().mockImplementation(() => {
@@ -246,6 +223,7 @@ jest.mock('../../../lib/db/repositories/MarkedSwapRepository', () => ({
 
 describe('Controller', () => {
   const service = mockedService();
+  const swapInfos = mockedSwapInfos();
 
   const countryCodes = {
     isRelevantCountry: jest.fn().mockReturnValue(true),
@@ -256,73 +234,15 @@ describe('Controller', () => {
     Logger.disabledLogger,
     service,
     countryCodes,
+    swapInfos,
   );
 
   beforeEach(() => {
     ReferralStats.getReferralFees = mockGenerateReferralStats;
-
-    SwapRepository.getSwaps = () => Promise.resolve(swaps);
-    ReverseSwapRepository.getReverseSwaps = () => Promise.resolve(reverseSwaps);
-    ChannelCreationRepository.getChannelCreation = () =>
-      Promise.resolve(channelCreation);
   });
 
   afterEach(() => {
     jest.clearAllMocks();
-  });
-
-  test('should load status of all swaps on init', async () => {
-    await controller.init();
-
-    const pendingSwaps = controller['pendingSwapInfos'];
-
-    expect(mockGetTransaction).toHaveBeenCalledTimes(2);
-    expect(mockGetTransaction).toHaveBeenCalledWith(
-      'BTC',
-      reverseSwaps[1].transactionId,
-    );
-    expect(mockGetTransaction).toHaveBeenCalledWith(
-      'BTC',
-      reverseSwaps[2].transactionId,
-    );
-
-    expect(pendingSwaps.get(swaps[0].id)).toEqual({
-      status: swaps[0].status,
-    });
-    expect(pendingSwaps.get(swaps[1].id)).toEqual({
-      status: swaps[1].status,
-      channel: {
-        fundingTransactionId: channelCreation.fundingTransactionId,
-        fundingTransactionVout: channelCreation.fundingTransactionVout,
-      },
-    });
-    expect(pendingSwaps.get(swaps[2].id)).toEqual({
-      status: swaps[2].status,
-      failureReason: swaps[2].failureReason,
-    });
-
-    expect(pendingSwaps.get(reverseSwaps[0].id)).toEqual({
-      status: reverseSwaps[0].status,
-    });
-    expect(pendingSwaps.get(reverseSwaps[1].id)).toEqual({
-      status: reverseSwaps[1].status,
-      transaction: {
-        eta: undefined,
-        hex: rawTransaction,
-        id: reverseSwaps[1].transactionId,
-      },
-    });
-    expect(pendingSwaps.get(reverseSwaps[2].id)).toEqual({
-      status: reverseSwaps[2].status,
-      transaction: {
-        hex: rawTransaction,
-        id: reverseSwaps[2].transactionId,
-        eta: SwapNursery.reverseSwapMempoolEta,
-      },
-    });
-    expect(pendingSwaps.get(reverseSwaps[3].id)).toEqual({
-      status: reverseSwaps[3].status,
-    });
   });
 
   test('should get version', () => {
@@ -507,14 +427,14 @@ describe('Controller', () => {
     // Successful request
     await controller.swapStatus(
       mockRequest({
-        id: swaps[0].id,
+        id: swap.id,
       }),
       res,
     );
 
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
-      status: swaps[0].status,
+      status: swap.status,
     });
   });
 
@@ -590,7 +510,9 @@ describe('Controller', () => {
 
     await controller.getSwapTransaction(mockRequest(requestData), res);
 
-    expect(service.getSwapTransaction).toHaveBeenCalledWith(requestData.id);
+    expect(
+      service.transactionFetcher.getSubmarineTransaction,
+    ).toHaveBeenCalledWith(requestData.id);
 
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({

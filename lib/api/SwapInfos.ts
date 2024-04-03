@@ -102,6 +102,8 @@ class SwapInfos {
         default:
           this.pendingSwapInfos.set(swap.id, {
             status: swap.status as SwapUpdateEvent,
+            failureReason:
+              swap.failureReason !== null ? swap.failureReason : undefined,
           });
           break;
       }
@@ -111,6 +113,13 @@ class SwapInfos {
   private fetchChainSwaps = async () => {
     for (const swap of await ChainSwapRepository.getChainSwaps()) {
       switch (swap.status) {
+        case SwapUpdateEvent.TransactionZeroConfRejected:
+          this.pendingSwapInfos.set(swap.id, {
+            status: SwapUpdateEvent.TransactionMempool,
+            zeroConfRejected: true,
+          });
+          break;
+
         case SwapUpdateEvent.TransactionServerMempool:
         case SwapUpdateEvent.TransactionServerConfirmed:
           this.pendingSwapInfos.set(
@@ -126,6 +135,8 @@ class SwapInfos {
         default:
           this.pendingSwapInfos.set(swap.id, {
             status: swap.status as SwapUpdateEvent,
+            failureReason:
+              swap.failureReason !== null ? swap.failureReason : undefined,
           });
           break;
       }
@@ -143,7 +154,7 @@ class SwapInfos {
         transactionId!,
       );
       return {
-        status: status,
+        status,
         transaction: {
           id: transactionId,
           hex: transactionHex,

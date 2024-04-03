@@ -10,6 +10,7 @@ import {
   NotPendingSwapEvents,
   SwapType,
   swapTypeToPrettyString,
+  swapTypeToString,
 } from '../consts/Enums';
 import ReferralStats from '../data/ReferralStats';
 import Stats from '../data/Stats';
@@ -152,7 +153,6 @@ class CommandHandler {
       [
         Command.GetReferrals,
         {
-          // TODO: chainswaps
           executor: this.getReferrals,
           description: 'gets stats for all referral IDs',
         },
@@ -488,7 +488,7 @@ class CommandHandler {
         mapToObject(
           new Map(
             Object.entries(pendingSweeps).map(([type, swaps]) => [
-              swapTypeToPrettyString(type as unknown as SwapType),
+              swapTypeToString(Number(type)),
               mapToObject(swaps),
             ]),
           ),

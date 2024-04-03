@@ -249,6 +249,10 @@ class FeeProvider {
     const { base, quote } = splitPairId(pairId);
 
     if (type === SwapType.Chain) {
+      if (version !== SwapVersion.Taproot) {
+        throw 'Chain Swaps only support version Taproot';
+      }
+
       const sendingMinerfees = this.minerFees.get(
         getSendingChain(base, quote, orderSide),
       )![SwapVersion.Taproot].reverse;

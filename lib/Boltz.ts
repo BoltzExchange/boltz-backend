@@ -61,7 +61,9 @@ class Boltz {
       this.config.lokiNetwork,
     );
 
-    this.logger.info(`Starting Boltz ${getVersion()}`);
+    this.logger.info(
+      `Starting Boltz ${getVersion()} (Node.js ${process.version})`,
+    );
 
     registerExitHandler(async () => {
       await this.db.close();

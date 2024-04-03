@@ -1,5 +1,6 @@
 import http from 'http';
 import ws from 'ws';
+import SwapInfos from '../../../../lib/api/SwapInfos';
 import WebSocketHandler, {
   Operation,
   SubscriptionChannel,
@@ -7,6 +8,7 @@ import WebSocketHandler, {
 import { SwapUpdateEvent } from '../../../../lib/consts/Enums';
 import Errors from '../../../../lib/service/Errors';
 import { SwapUpdate } from '../../../../lib/service/EventHandler';
+import Service from '../../../../lib/service/Service';
 
 type SwapUpdateCallback = (args: { id: string; status: SwapUpdate }) => void;
 let emitSwapUpdate: SwapUpdateCallback;
@@ -20,17 +22,15 @@ describe('WebSocket', () => {
         }
       }),
     },
-  } as any;
-  const controller = {
-    pendingSwapInfos: new Map<string, SwapUpdate>([
-      ['swap', { status: SwapUpdateEvent.InvoiceSet }],
-      ['reverse', { status: SwapUpdateEvent.SwapCreated }],
-      ['updateId', { status: SwapUpdateEvent.InvoiceSet }],
-    ]),
-  } as any;
+  } as any as Service;
+  const swapInfos = new Map<string, SwapUpdate>([
+    ['swap', { status: SwapUpdateEvent.InvoiceSet }],
+    ['reverse', { status: SwapUpdateEvent.SwapCreated }],
+    ['updateId', { status: SwapUpdateEvent.InvoiceSet }],
+  ]) as any as SwapInfos;
 
   const server = http.createServer();
-  const wsHandler = new WebSocketHandler(service, controller);
+  const wsHandler = new WebSocketHandler(service, swapInfos);
 
   const createWs = async (waitForInit: boolean = true) => {
     const socket = new ws(

@@ -38,12 +38,10 @@ class EventHandler extends TypedEventEmitter<{
   };
   'swap.success': {
     swap: Swap | ReverseSwap | ChainSwapInfo;
-    type: SwapType;
     channelCreation?: ChannelCreation;
   };
   'swap.failure': {
     swap: Swap | ReverseSwap | ChainSwapInfo;
-    type: SwapType;
     reason: string;
   };
   'channel.backup': {
@@ -139,7 +137,7 @@ class EventHandler extends TypedEventEmitter<{
           status: SwapUpdateEvent.InvoiceSettled,
         },
       });
-      this.emit('swap.success', { swap, type: SwapType.ReverseSubmarine });
+      this.emit('swap.success', { swap });
     });
 
     this.nursery.on('invoice.pending', (swap) => {
@@ -204,9 +202,8 @@ class EventHandler extends TypedEventEmitter<{
           },
         });
         this.emit('swap.success', {
-          swap: submarine,
           channelCreation,
-          type: SwapType.Submarine,
+          swap: submarine,
         });
       } else {
         const chainSwap = swap as ChainSwapInfo;
@@ -220,7 +217,6 @@ class EventHandler extends TypedEventEmitter<{
         });
         this.emit('swap.success', {
           swap: chainSwap,
-          type: SwapType.Chain,
         });
       }
     });
@@ -390,7 +386,6 @@ class EventHandler extends TypedEventEmitter<{
     this.emit('swap.failure', {
       swap,
       reason: failureReason,
-      type: SwapType.Submarine,
     });
   };
 
@@ -408,7 +403,6 @@ class EventHandler extends TypedEventEmitter<{
     this.emit('swap.failure', {
       swap: reverseSwap,
       reason: failureReason,
-      type: SwapType.ReverseSubmarine,
     });
   };
 
@@ -427,7 +421,6 @@ class EventHandler extends TypedEventEmitter<{
     });
     this.emit('swap.failure', {
       swap: chainSwap,
-      type: SwapType.Chain,
       reason: failureReason,
     });
   };

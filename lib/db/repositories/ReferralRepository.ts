@@ -19,6 +19,8 @@ WITH data AS (
     SELECT pair, status, fee, referral, "createdAt" FROM swaps
     UNION ALL
     SELECT pair, status, fee, referral, "createdAt" FROM "reverseSwaps"
+    UNION ALL
+    SELECT pair, status, fee, referral, "createdAt" FROM "chainSwaps"
 )
 SELECT
     EXTRACT(YEAR from data."createdAt") AS year,
@@ -39,6 +41,8 @@ WITH data AS (
     SELECT pair, status, fee, referral, createdAt FROM swaps
     UNION ALL
     SELECT pair, status, fee, referral, createdAt FROM reverseSwaps
+    UNION ALL
+    SELECT pair, status, fee, referral, createdAt FROM chainSwaps
 )
 SELECT
     CAST(STRFTIME('%Y', data.createdAt) AS INT) AS year,

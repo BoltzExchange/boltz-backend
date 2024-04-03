@@ -248,7 +248,7 @@ class NotificationProvider {
 
     this.service.eventHandler.on(
       'swap.success',
-      async ({ type, swap, channelCreation }) => {
+      async ({ swap, channelCreation }) => {
         const { base, quote } = splitPairId(swap.pair);
         const { sending, receiving } = getSendingReceivingCurrency(
           base,
@@ -262,14 +262,14 @@ class NotificationProvider {
           channelCreation.fundingTransactionId !== null;
 
         let message =
-          `**Swap ${getSwapTitle(type, sending, receiving)}${
+          `**Swap ${getSwapTitle(swap.type, sending, receiving)}${
             hasChannelCreation ? ` ${Emojis.ConstructionSite}` : ''
           }**\n` +
-          `${getBasicSwapInfo(type, swap, base, quote)}\n` +
+          `${getBasicSwapInfo(swap.type, swap, base, quote)}\n` +
           `Fees earned: ${satoshisToSatcomma(swap.fee!)} ${sending}\n` +
-          `Miner fees: ${this.getMinerFees(type, swap)}`;
+          `Miner fees: ${this.getMinerFees(swap.type, swap)}`;
 
-        if (type === SwapType.Submarine) {
+        if (swap.type === SwapType.Submarine) {
           // The routing fees are denominated in millisatoshi
           message += `\nRouting fees: ${
             (swap as Swap).routingFee! / 1000
@@ -293,45 +293,43 @@ class NotificationProvider {
       },
     );
 
-    this.service.eventHandler.on(
-      'swap.failure',
-      async ({ type, swap, reason }) => {
-        const { base, quote } = splitPairId(swap.pair);
-        const { sending, receiving } = getSendingReceivingCurrency(
-          base,
-          quote,
-          swap.orderSide,
-        );
+    this.service.eventHandler.on('swap.failure', async ({ swap, reason }) => {
+      const { base, quote } = splitPairId(swap.pair);
+      const { sending, receiving } = getSendingReceivingCurrency(
+        base,
+        quote,
+        swap.orderSide,
+      );
 
-        let message =
-          `**Swap ${getSwapTitle(
-            type,
-            sending,
-            receiving,
-          )} failed: ${reason}**\n` +
-          `${getBasicSwapInfo(type, swap, base, quote)}`;
+      let message =
+        `**Swap ${getSwapTitle(
+          swap.type,
+          sending,
+          receiving,
+        )} failed: ${reason}**\n` +
+        `${getBasicSwapInfo(swap.type, swap, base, quote)}`;
 
-        if (type === SwapType.Submarine) {
-          const submarineSwap = swap as Swap;
+      if (swap.type === SwapType.Submarine) {
+        const submarineSwap = swap as Swap;
 
-          if (submarineSwap.invoice) {
-            message += `\nInvoice: ${submarineSwap.invoice}`;
-          }
-        } else {
-          if (
-            (type === SwapType.ReverseSubmarine &&
-              (swap as ReverseSwap).minerFee) ||
-            (type === SwapType.Chain && (swap as ChainSwapInfo).paidMinerFees)
-          ) {
-            message += `\nMiner fees: ${this.getMinerFees(type, swap)}`;
-          }
+        if (submarineSwap.invoice) {
+          message += `\nInvoice: ${submarineSwap.invoice}`;
         }
+      } else {
+        if (
+          (swap.type === SwapType.ReverseSubmarine &&
+            (swap as ReverseSwap).minerFee) ||
+          (swap.type === SwapType.Chain &&
+            (swap as ChainSwapInfo).paidMinerFees)
+        ) {
+          message += `\nMiner fees: ${this.getMinerFees(swap.type, swap)}`;
+        }
+      }
 
-        await this.client.sendMessage(
-          `${message}${NotificationProvider.trailingWhitespace}`,
-        );
-      },
-    );
+      await this.client.sendMessage(
+        `${message}${NotificationProvider.trailingWhitespace}`,
+      );
+    });
   };
 
   private sendLostConnection = async (

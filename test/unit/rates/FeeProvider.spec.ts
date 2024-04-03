@@ -1,5 +1,10 @@
 import Logger from '../../../lib/Logger';
-import { BaseFeeType, OrderSide, SwapVersion } from '../../../lib/consts/Enums';
+import {
+  BaseFeeType,
+  OrderSide,
+  SwapType,
+  SwapVersion,
+} from '../../../lib/consts/Enums';
 import FeeProvider from '../../../lib/rates/FeeProvider';
 import DataAggregator from '../../../lib/rates/data/DataAggregator';
 import WalletManager from '../../../lib/wallet/WalletManager';
@@ -61,6 +66,7 @@ describe('FeeProvider', () => {
         quote: 'BTC',
         fee: 0,
         swapInFee: -1,
+        chainSwapFee: 3,
         minSwapAmount: 1,
         maxSwapAmount: 2,
       },
@@ -83,33 +89,62 @@ describe('FeeProvider', () => {
 
   test('should get percentage fees of a pair', () => {
     expect(feeProvider.getPercentageFees('LTC/BTC')).toEqual({
-      percentage: 2,
-      percentageSwapIn: -1,
+      [SwapType.Chain]: 2,
+      [SwapType.Submarine]: -1,
+      [SwapType.ReverseSubmarine]: 2,
     });
     expect(feeProvider.getPercentageFees('BTC/BTC')).toEqual({
-      percentage: 0,
-      percentageSwapIn: -1,
+      [SwapType.Chain]: 3,
+      [SwapType.Submarine]: -1,
+      [SwapType.ReverseSubmarine]: 0,
     });
     expect(feeProvider.getPercentageFees('LTC/LTC')).toEqual({
-      percentage: 1,
-      percentageSwapIn: 1,
+      [SwapType.Chain]: 1,
+      [SwapType.Submarine]: 1,
+      [SwapType.ReverseSubmarine]: 1,
     });
   });
 
   test('should get percentage fees of normal swaps', () => {
-    expect(feeProvider.getPercentageFee('LTC/BTC', false)).toEqual(-0.01);
-    expect(feeProvider.getPercentageFee('BTC/BTC', false)).toEqual(-0.01);
+    expect(feeProvider.getPercentageFee('LTC/BTC', SwapType.Submarine)).toEqual(
+      -0.01,
+    );
+    expect(feeProvider.getPercentageFee('BTC/BTC', SwapType.Submarine)).toEqual(
+      -0.01,
+    );
 
     // Should set undefined fees to 1%
-    expect(feeProvider.getPercentageFee('LTC/LTC', false)).toEqual(0.01);
+    expect(feeProvider.getPercentageFee('LTC/LTC', SwapType.Submarine)).toEqual(
+      0.01,
+    );
   });
 
   test('should get percentage fees of reverse swaps', () => {
-    expect(feeProvider.getPercentageFee('LTC/BTC', true)).toEqual(0.02);
-    expect(feeProvider.getPercentageFee('BTC/BTC', true)).toEqual(0);
+    expect(
+      feeProvider.getPercentageFee('LTC/BTC', SwapType.ReverseSubmarine),
+    ).toEqual(0.02);
+    expect(
+      feeProvider.getPercentageFee('BTC/BTC', SwapType.ReverseSubmarine),
+    ).toEqual(0);
 
     // Should set undefined fees to 1%
-    expect(feeProvider.getPercentageFee('LTC/LTC', true)).toEqual(0.01);
+    expect(
+      feeProvider.getPercentageFee('LTC/LTC', SwapType.ReverseSubmarine),
+    ).toEqual(0.01);
+  });
+
+  test('should get percentage fees of chain swaps', () => {
+    expect(feeProvider.getPercentageFee('LTC/BTC', SwapType.Chain)).toEqual(
+      0.02,
+    );
+    expect(feeProvider.getPercentageFee('BTC/BTC', SwapType.Chain)).toEqual(
+      0.03,
+    );
+
+    // Should set undefined fees to 1%
+    expect(feeProvider.getPercentageFee('LTC/LTC', SwapType.Chain)).toEqual(
+      0.01,
+    );
   });
 
   test('should update miner fees', async () => {
@@ -203,6 +238,7 @@ describe('FeeProvider', () => {
         2,
         OrderSide.BUY,
         amount,
+        SwapType.Submarine,
         BaseFeeType.NormalClaim,
       ),
     ).toEqual({
@@ -217,6 +253,7 @@ describe('FeeProvider', () => {
         2,
         OrderSide.BUY,
         amount,
+        SwapType.Submarine,
         BaseFeeType.NormalClaim,
       ),
     ).toEqual({
@@ -231,6 +268,7 @@ describe('FeeProvider', () => {
         2,
         OrderSide.BUY,
         amount,
+        SwapType.ReverseSubmarine,
         BaseFeeType.ReverseLockup,
       ),
     ).toEqual({
@@ -245,6 +283,7 @@ describe('FeeProvider', () => {
         2,
         OrderSide.BUY,
         amount,
+        SwapType.ReverseSubmarine,
         BaseFeeType.ReverseLockup,
       ),
     ).toEqual({
@@ -266,6 +305,25 @@ describe('FeeProvider', () => {
     'should get base fees (symbol: $symbol, version: $version, type: $type)',
     ({ symbol, version, type, expected }) => {
       expect(feeProvider.getBaseFee(symbol, version, type)).toEqual(expected);
+    },
+  );
+
+  test.each`
+    pair         | orderSide         | type                         | version                | expected
+    ${'BTC/BTC'} | ${OrderSide.BUY}  | ${SwapType.Submarine}        | ${SwapVersion.Legacy}  | ${6120}
+    ${'BTC/BTC'} | ${OrderSide.BUY}  | ${SwapType.Submarine}        | ${SwapVersion.Taproot} | ${5436}
+    ${'LTC/BTC'} | ${OrderSide.BUY}  | ${SwapType.Submarine}        | ${SwapVersion.Taproot} | ${5436}
+    ${'LTC/BTC'} | ${OrderSide.SELL} | ${SwapType.Submarine}        | ${SwapVersion.Taproot} | ${453}
+    ${'BTC/BTC'} | ${OrderSide.BUY}  | ${SwapType.ReverseSubmarine} | ${SwapVersion.Legacy}  | ${{ claim: 4968, lockup: 5508 }}
+    ${'BTC/BTC'} | ${OrderSide.BUY}  | ${SwapType.ReverseSubmarine} | ${SwapVersion.Taproot} | ${{ claim: 3996, lockup: 5544 }}
+    ${'LTC/BTC'} | ${OrderSide.BUY}  | ${SwapType.Chain}            | ${SwapVersion.Taproot} | ${{ server: 4458, user: { claim: 333, lockup: 5544 } }}
+    ${'LTC/BTC'} | ${OrderSide.SELL} | ${SwapType.Chain}            | ${SwapVersion.Taproot} | ${{ server: 5877, user: { claim: 3996, lockup: 462 } }}
+  `(
+    'should get swap base fees',
+    ({ pair, orderSide, type, version, expected }) => {
+      expect(
+        feeProvider.getSwapBaseFees(pair, orderSide, type, version),
+      ).toEqual(expected);
     },
   );
 

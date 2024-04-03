@@ -9,6 +9,7 @@ import {
   Scripts,
   SwapTreeSerializer,
   detectSwap,
+  reverseSwapTree,
   swapScript,
   swapTree,
 } from 'boltz-core';
@@ -41,8 +42,9 @@ import {
 import { ECPair } from '../../lib/ECPairHelper';
 import Logger from '../../lib/Logger';
 import { getHexBuffer, getHexString } from '../../lib/Utils';
-import { CurrencyType, SwapVersion } from '../../lib/consts/Enums';
+import { CurrencyType, SwapType, SwapVersion } from '../../lib/consts/Enums';
 import Database from '../../lib/db/Database';
+import ChainSwapData from '../../lib/db/models/ChainSwapData';
 import Swap from '../../lib/db/models/Swap';
 import SwapOutputType from '../../lib/swap/SwapOutputType';
 import Wallet from '../../lib/wallet/Wallet';
@@ -69,7 +71,11 @@ describe('Core', () => {
         network,
         'm/0/0',
         0,
-        bip32.fromSeed(mnemonicToSeedSync(generateMnemonic())),
+        bip32.fromSeed(
+          mnemonicToSeedSync(
+            'miracle tower paper teach stomach black exile discover paddle country around survey',
+          ),
+        ),
       );
     };
 
@@ -211,6 +217,7 @@ describe('Core', () => {
       } as unknown as SwapOutputType,
       wallet,
       {
+        type: SwapType.Submarine,
         keyIndex: claimKeys.index,
         version: SwapVersion.Legacy,
         redeemScript: getHexString(redeemScript),
@@ -259,6 +266,7 @@ describe('Core', () => {
       {} as unknown as SwapOutputType,
       wallet,
       {
+        type: SwapType.Submarine,
         keyIndex: claimKeys.index,
         version: SwapVersion.Taproot,
         lockupTransactionVout: output.vout,
@@ -282,6 +290,58 @@ describe('Core', () => {
       SwapTreeSerializer.serializeSwapTree(claimDetails.swapTree!),
     ).toEqual(SwapTreeSerializer.serializeSwapTree(tree));
   });
+
+  test.each`
+    cooperative
+    ${true}
+    ${false}
+  `(
+    'should construct Taproot Chain Swap details (cooperative: $cooperative)',
+    async ({ cooperative }) => {
+      const preimage = getHexBuffer(
+        'f16c5f680a48102de3b85175b6ae99e874013dd590a7c5cec3d9f2aba95a354c',
+      );
+      const claimKeysIndex = 123;
+      const claimKeys = wallet.getKeysByIndex(claimKeysIndex);
+      const refundKeys = ECPair.fromPrivateKey(
+        getHexBuffer(
+          'ef77e158cdd6f47737dc71c844b6fb3d9e5dc0a109dd7974f91230c534eb7806',
+        ),
+      );
+
+      const tree = reverseSwapTree(
+        false,
+        crypto.sha256(preimage),
+        claimKeys.publicKey,
+        refundKeys.publicKey,
+        2,
+      );
+      const musig = createMusig(claimKeys, refundKeys.publicKey);
+      const tweakedKey = tweakMusig(CurrencyType.BitcoinLike, musig, tree);
+
+      const lockupTransaction = Transaction.fromHex(
+        '02000000000101b6241206db221e86c5e78e2b3ed619aac175b034c80f458d8cb82ef29819468f0000000000fdffffff0200e1f50500000000225120755952255bce503e41efc3504576fdb6dace315a5977b23ae39c572e89ba9ec75b10102401000000225120dc208d462dec8fd5c7f371d49ecfdfbac658f2fad4794891d56c7e41461151d502473044022002c30868da8ad98cc84d8178f6b2b0dac247925218aca5393cd9fa258c8535bf0220437a968d04120f34231e2f9de8c483e596e63d025e00620a53e9eeb4ba215f2e0121030c9474eb55c70415abd3633823fde9c759ecb5bbeb855cc1fb2093c09b0a46e897000000',
+      );
+      const output = detectSwap(tweakedKey, lockupTransaction)!;
+      expect(output).not.toBeUndefined();
+
+      const claimDetails = constructClaimDetails(
+        {} as unknown as SwapOutputType,
+        wallet,
+        {
+          type: SwapType.Chain,
+          keyIndex: claimKeysIndex,
+          transactionVout: output.vout,
+          theirPublicKey: getHexString(refundKeys.publicKey),
+          swapTree: JSON.stringify(SwapTreeSerializer.serializeSwapTree(tree)),
+        } as Partial<ChainSwapData> as ChainSwapData,
+        lockupTransaction,
+        cooperative ? undefined : preimage,
+      );
+      expect(claimDetails.cooperative).toEqual(cooperative);
+      expect(claimDetails).toMatchSnapshot();
+    },
+  );
 
   test('should create Musig', () => {
     const ourKeys = ECPair.fromPrivateKey(

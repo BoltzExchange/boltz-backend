@@ -168,7 +168,6 @@ export const constructClaimDetails = (
   swap: Swap | ChainSwapData,
   transaction: Transaction | LiquidTransaction,
   preimage?: Buffer,
-  cooperative: boolean = false,
 ): ClaimDetails | LiquidClaimDetails => {
   const isSubmarine = swap.type === SwapType.Submarine;
 
@@ -196,7 +195,7 @@ export const constructClaimDetails = (
   switch (isSubmarine ? (swap as Swap).version : SwapVersion.Taproot) {
     case SwapVersion.Taproot: {
       claimDetails.type = OutputType.Taproot;
-      claimDetails.cooperative = cooperative;
+      claimDetails.cooperative = preimage === undefined;
       claimDetails.swapTree = SwapTreeSerializer.deserializeSwapTree(
         isSubmarine
           ? (swap as Swap).redeemScript!

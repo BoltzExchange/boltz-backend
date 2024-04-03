@@ -2,9 +2,10 @@ import { randomBytes } from 'crypto';
 import { Router } from 'express';
 import Logger from '../../../../../lib/Logger';
 import { getHexBuffer, getHexString } from '../../../../../lib/Utils';
-import Controller from '../../../../../lib/api/Controller';
+import SwapInfos from '../../../../../lib/api/SwapInfos';
 import SwapRouter from '../../../../../lib/api/v2/routers/SwapRouter';
 import { OrderSide, SwapVersion } from '../../../../../lib/consts/Enums';
+import ChainSwapRepository from '../../../../../lib/db/repositories/ChainSwapRepository';
 import MarkedSwapRepository from '../../../../../lib/db/repositories/MarkedSwapRepository';
 import SwapRepository from '../../../../../lib/db/repositories/SwapRepository';
 import RateProviderTaproot from '../../../../../lib/rates/providers/RateProviderTaproot';
@@ -57,12 +58,15 @@ describe('SwapRouter', () => {
               new Map<string, any>([['L-BTC', { some: 'reverse data' }]]),
             ],
           ]),
+          chainPairs: new Map<string, Map<string, any>>([
+            ['BTC', new Map<string, any>([['L-BTC', { some: 'chain data' }]])],
+          ]),
         },
       },
     },
 
     musigSigner: {
-      signSwapRefund: jest.fn().mockResolvedValue({
+      signRefund: jest.fn().mockResolvedValue({
         pubNonce: getHexBuffer('1111'),
         signature: getHexBuffer('1112'),
       }),
@@ -71,6 +75,7 @@ describe('SwapRouter', () => {
         signature: getHexBuffer('2112'),
       }),
     },
+
     eipSigner: {
       signSwapRefund: jest.fn().mockResolvedValue('12344321'),
     },
@@ -85,6 +90,36 @@ describe('SwapRouter', () => {
         }),
         broadcastCooperative: jest.fn().mockResolvedValue(undefined),
       },
+
+      chainSwapSigner: {
+        getCooperativeDetails: jest.fn().mockResolvedValue({
+          pubNonce: getHexBuffer('00'),
+          publicKey: getHexBuffer('01'),
+          transactionHash: getHexBuffer('02'),
+        }),
+        signClaim: jest.fn().mockResolvedValue({
+          pubNonce: getHexBuffer('21'),
+          signature: getHexBuffer('42'),
+        }),
+      },
+    },
+
+    transactionFetcher: {
+      getSubmarineTransaction: jest.fn().mockResolvedValue({
+        transactionId: 'txId',
+        transactionHex: 'txHex',
+        timeoutBlockHeight: 21,
+        timeoutEta: 210987,
+      }),
+      getReverseSwapTransaction: jest.fn().mockResolvedValue({
+        transactionId: 'txIdReverse',
+        transactionHex: 'txHexReverse',
+        timeoutBlockHeight: 42,
+      }),
+      getChainSwapTransactions: jest.fn().mockResolvedValue({
+        some: 'data',
+        to: 'serialize',
+      }),
     },
 
     convertToPairAndSide: jest
@@ -93,26 +128,16 @@ describe('SwapRouter', () => {
     createSwap: jest.fn().mockResolvedValue({ id: 'randomIdPreimageHash' }),
     createSwapWithInvoice: jest.fn().mockResolvedValue({ id: 'randomId' }),
     createReverseSwap: jest.fn().mockResolvedValue({ id: 'reverseId' }),
-    getSwapTransaction: jest.fn().mockResolvedValue({
-      transactionId: 'txId',
-      transactionHex: 'txHex',
-      timeoutBlockHeight: 21,
-      timeoutEta: 210987,
-    }),
-    getReverseSwapTransaction: jest.fn().mockResolvedValue({
-      transactionId: 'txIdReverse',
-      transactionHex: 'txHexReverse',
-      timeoutBlockHeight: 42,
-    }),
+    createChainSwap: jest.fn().mockResolvedValue({ id: 'chainId' }),
     getReverseBip21: jest.fn().mockResolvedValue({
       bip21: 'bip21',
       signature: 'bip21Sig',
     }),
   } as unknown as Service;
 
-  const controller = {
-    pendingSwapInfos: new Map([['swapId', { some: 'statusData' }]]),
-  } as unknown as Controller;
+  const swapInfos = new Map([
+    ['swapId', { some: 'statusData' }],
+  ]) as unknown as SwapInfos;
 
   const countryCodes = {
     isRelevantCountry: jest.fn().mockReturnValue(true),
@@ -122,7 +147,7 @@ describe('SwapRouter', () => {
   const swapRouter = new SwapRouter(
     Logger.disabledLogger,
     service,
-    controller,
+    swapInfos,
     countryCodes,
   );
 
@@ -140,7 +165,7 @@ describe('SwapRouter', () => {
 
     expect(Router).toHaveBeenCalledTimes(1);
 
-    expect(mockedRouter.get).toHaveBeenCalledTimes(9);
+    expect(mockedRouter.get).toHaveBeenCalledTimes(13);
     expect(mockedRouter.get).toHaveBeenCalledWith('/:id', expect.anything());
     expect(mockedRouter.get).toHaveBeenCalledWith(
       '/submarine',
@@ -162,6 +187,7 @@ describe('SwapRouter', () => {
       '/submarine/:id/refund',
       expect.anything(),
     );
+
     expect(mockedRouter.get).toHaveBeenCalledWith(
       '/reverse',
       expect.anything(),
@@ -174,8 +200,21 @@ describe('SwapRouter', () => {
       '/reverse/:id/transaction',
       expect.anything(),
     );
+    expect(mockedRouter.get).toHaveBeenCalledWith('/chain', expect.anything());
+    expect(mockedRouter.get).toHaveBeenCalledWith(
+      '/chain/:id/transactions',
+      expect.anything(),
+    );
+    expect(mockedRouter.get).toHaveBeenCalledWith(
+      '/chain/:id/claim',
+      expect.anything(),
+    );
+    expect(mockedRouter.get).toHaveBeenCalledWith(
+      '/chain/:id/refund',
+      expect.anything(),
+    );
 
-    expect(mockedRouter.post).toHaveBeenCalledTimes(8);
+    expect(mockedRouter.post).toHaveBeenCalledTimes(11);
     expect(mockedRouter.post).toHaveBeenCalledWith(
       '/submarine',
       expect.anything(),
@@ -208,6 +247,15 @@ describe('SwapRouter', () => {
       '/reverse/:id/claim',
       expect.anything(),
     );
+    expect(mockedRouter.post).toHaveBeenCalledWith('/chain', expect.anything());
+    expect(mockedRouter.post).toHaveBeenCalledWith(
+      '/chain/:id/claim',
+      expect.anything(),
+    );
+    expect(mockedRouter.post).toHaveBeenCalledWith(
+      '/chain/:id/refund',
+      expect.anything(),
+    );
   });
 
   test.each`
@@ -233,7 +281,7 @@ describe('SwapRouter', () => {
     swapRouter['getSwapStatus'](mockRequest(undefined, undefined, { id }), res);
 
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith(controller.pendingSwapInfos.get(id));
+    expect(res.json).toHaveBeenCalledWith(swapInfos.get(id));
   });
 
   test('should return 404 as status when swap id cannot be found', () => {
@@ -437,8 +485,12 @@ describe('SwapRouter', () => {
       res,
     );
 
-    expect(service.getSwapTransaction).toHaveBeenCalledTimes(1);
-    expect(service.getSwapTransaction).toHaveBeenCalledWith(id);
+    expect(
+      service.transactionFetcher.getSubmarineTransaction,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      service.transactionFetcher.getSubmarineTransaction,
+    ).toHaveBeenCalledWith(id);
 
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
@@ -462,7 +514,10 @@ describe('SwapRouter', () => {
     'should not refund submarine swaps with invalid parameters ($error)',
     async ({ error, body }) => {
       await expect(
-        swapRouter['refundSubmarine'](mockRequest(body), mockResponse()),
+        swapRouter['signUtxoRefund'](service.musigSigner)(
+          mockRequest(body),
+          mockResponse(),
+        ),
       ).rejects.toEqual(error);
     },
   );
@@ -478,7 +533,7 @@ describe('SwapRouter', () => {
     };
     const res = mockResponse();
 
-    await swapRouter['refundSubmarine'](
+    await swapRouter['signUtxoRefund'](service.musigSigner)(
       mockRequest(reqBody, undefined, reqParams),
       res,
     );
@@ -507,7 +562,10 @@ describe('SwapRouter', () => {
     };
     const res = mockResponse();
 
-    await swapRouter['refundSubmarine'](mockRequest(reqBody), res);
+    await swapRouter['signUtxoRefund'](service.musigSigner)(
+      mockRequest(reqBody),
+      res,
+    );
 
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
@@ -530,10 +588,7 @@ describe('SwapRouter', () => {
     };
     const res = mockResponse();
 
-    await swapRouter['refundSubmarineEvm'](
-      mockRequest(null, {}, reqParams),
-      res,
-    );
+    await swapRouter['refundEvm'](mockRequest(null, {}, reqParams), res);
 
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
@@ -1008,8 +1063,12 @@ describe('SwapRouter', () => {
       res,
     );
 
-    expect(service.getReverseSwapTransaction).toHaveBeenCalledTimes(1);
-    expect(service.getReverseSwapTransaction).toHaveBeenCalledWith(id);
+    expect(
+      service.transactionFetcher.getReverseSwapTransaction,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      service.transactionFetcher.getReverseSwapTransaction,
+    ).toHaveBeenCalledWith(id);
 
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
@@ -1097,6 +1156,252 @@ describe('SwapRouter', () => {
       getHexBuffer(reqBody.pubNonce),
       getHexBuffer(reqBody.transaction),
       reqBody.index,
+    );
+  });
+
+  test('should get chain swap pairs', () => {
+    const res = mockResponse();
+    swapRouter['getChain'](mockRequest(), res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(
+      RateProviderTaproot.serializePairs(
+        service.rateProvider.providers[SwapVersion.Taproot].chainPairs,
+      ),
+    );
+  });
+
+  test.each`
+    error                                            | body
+    ${'undefined parameter: to'}                     | ${{}}
+    ${'undefined parameter: from'}                   | ${{ to: 'L-BTC' }}
+    ${'undefined parameter: preimageHash'}           | ${{ to: 'L-BTC', from: 'BTC' }}
+    ${'could not parse hex string: preimageHash'}    | ${{ to: 'L-BTC', from: 'BTC', preimageHash: 'asdf' }}
+    ${'invalid preimage hash length: 2'}             | ${{ to: 'L-BTC', from: 'BTC', preimageHash: '0011' }}
+    ${'could not parse hex string: claimPublicKey'}  | ${{ claimPublicKey: 'asdf', to: 'L-BTC', from: 'BTC', preimageHash: '32392e7849d736455b18707052e48d9f204d1575ecf979f19ae12919a32c0e4c' }}
+    ${'could not parse hex string: refundPublicKey'} | ${{ refundPublicKey: 'asdf', to: 'L-BTC', from: 'BTC', preimageHash: '32392e7849d736455b18707052e48d9f204d1575ecf979f19ae12919a32c0e4c' }}
+  `(
+    'should not create chain swaps with invalid parameters ($error)',
+    async ({ body, error }) => {
+      await expect(
+        swapRouter['createChain'](mockRequest(body), mockResponse()),
+      ).rejects.toEqual(error);
+    },
+  );
+
+  test('should create chain swaps', async () => {
+    const reqBody = {
+      to: 'L-BTC',
+      from: 'BTC',
+      pairHash: 'pHash',
+      userLockAmount: 123,
+      claimPublicKey: '21',
+      referralId: 'partner',
+      claimAddress: '0x123',
+      serverLockAmount: 321,
+      refundPublicKey: '12',
+      preimageHash: getHexString(randomBytes(32)),
+    };
+    const res = mockResponse();
+
+    await swapRouter['createChain'](mockRequest(reqBody), res);
+
+    expect(service.convertToPairAndSide).toHaveBeenCalledTimes(1);
+    expect(service.convertToPairAndSide).toHaveBeenCalledWith(
+      reqBody.from,
+      reqBody.to,
+    );
+
+    expect(service.createChainSwap).toHaveBeenCalledTimes(1);
+    expect(service.createChainSwap).toHaveBeenCalledWith({
+      pairId: 'L-BTC/BTC',
+      orderSide: OrderSide.BUY,
+      pairHash: reqBody.pairHash,
+      referralId: reqBody.referralId,
+      claimAddress: reqBody.claimAddress,
+      userLockAmount: reqBody.userLockAmount,
+      serverLockAmount: reqBody.serverLockAmount,
+      preimageHash: getHexBuffer(reqBody.preimageHash),
+      claimPublicKey: getHexBuffer(reqBody.claimPublicKey),
+      refundPublicKey: getHexBuffer(reqBody.refundPublicKey),
+    });
+
+    expect(MarkedSwapRepository.addMarkedSwap).toHaveBeenCalledTimes(1);
+
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(res.json).toHaveBeenCalledWith({ id: 'chainId' });
+  });
+
+  test('should 404 when getting transactions of chain swap that does not exist', async () => {
+    ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
+
+    const id = 'notFound';
+
+    const res = mockResponse();
+    await swapRouter['getChainSwapTransactions'](
+      mockRequest(null, {}, { id }),
+      res,
+    );
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({
+      error: Errors.SWAP_NOT_FOUND(id).message,
+    });
+
+    expect(ChainSwapRepository.getChainSwap).toHaveBeenCalledWith({ id });
+  });
+
+  test('should get transactions of chain swaps', async () => {
+    const chainSwap = { id: 'yo' };
+    ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(chainSwap);
+
+    const res = mockResponse();
+    await swapRouter['getChainSwapTransactions'](
+      mockRequest(null, {}, { id: chainSwap.id }),
+      res,
+    );
+
+    expect(ChainSwapRepository.getChainSwap).toHaveBeenCalledWith({
+      id: chainSwap.id,
+    });
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(
+      await service.transactionFetcher.getChainSwapTransactions(
+        chainSwap as any,
+      ),
+    );
+  });
+
+  test('should 404 when getting claim details of chain swap that does not exist', async () => {
+    ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
+
+    const id = 'notFound';
+
+    const res = mockResponse();
+    await swapRouter['getChainSwapClaimDetails'](
+      mockRequest(null, {}, { id }),
+      res,
+    );
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({
+      error: Errors.SWAP_NOT_FOUND(id).message,
+    });
+
+    expect(ChainSwapRepository.getChainSwap).toHaveBeenCalledWith({ id });
+  });
+
+  test('should get claim details of chain swaps', async () => {
+    const chainSwap = { id: 'yo' };
+    ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(chainSwap);
+
+    const res = mockResponse();
+    await swapRouter['getChainSwapClaimDetails'](
+      mockRequest(null, {}, { id: chainSwap.id }),
+      res,
+    );
+
+    expect(ChainSwapRepository.getChainSwap).toHaveBeenCalledWith({
+      id: chainSwap.id,
+    });
+    expect(
+      service.swapManager.chainSwapSigner.getCooperativeDetails,
+    ).toHaveBeenCalledWith(chainSwap);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      pubNonce: '00',
+      publicKey: '01',
+      transactionHash: '02',
+    });
+  });
+
+  test.each`
+    error                                      | params            | body
+    ${'undefined parameter: id'}               | ${{}}             | ${{}}
+    ${'undefined parameter: index'}            | ${{ id: 'some' }} | ${{ toSign: {} }}
+    ${'undefined parameter: pubNonce'}         | ${{ id: 'some' }} | ${{ toSign: { index: 0 } }}
+    ${'undefined parameter: transaction'}      | ${{ id: 'some' }} | ${{ toSign: { index: 0, pubNonce: '00' } }}
+    ${'could not parse hex string: preimage'}  | ${{ id: 'some' }} | ${{ preimage: 'notHex', toSign: { index: 0, pubNonce: '00', transaction: '01' } }}
+    ${'undefined parameter: pubNonce'}         | ${{ id: 'some' }} | ${{ signature: {}, toSign: { index: 0, pubNonce: '00', transaction: '01' } }}
+    ${'undefined parameter: partialSignature'} | ${{ id: 'some' }} | ${{ signature: { pubNonce: '02' }, toSign: { index: 0, pubNonce: '00', transaction: '01' } }}
+  `(
+    'should not claim chain swaps with invalid parameters ($error)',
+    async ({ params, body, error }) => {
+      await expect(
+        swapRouter['claimChainSwap'](
+          mockRequest(body, {}, params),
+          mockResponse(),
+        ),
+      ).rejects.toEqual(error);
+    },
+  );
+
+  test('should 404 when claiming chain swap that does not exist', async () => {
+    ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
+
+    const id = 'notFound';
+
+    const res = mockResponse();
+    await swapRouter['claimChainSwap'](
+      mockRequest(
+        {
+          toSign: {
+            index: 1,
+            pubNonce: '02',
+            transaction: '01',
+          },
+        },
+        {},
+        { id },
+      ),
+      res,
+    );
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({
+      error: Errors.SWAP_NOT_FOUND(id).message,
+    });
+
+    expect(ChainSwapRepository.getChainSwap).toHaveBeenCalledWith({ id });
+  });
+
+  test('should claim chain swaps', async () => {
+    const chainSwap = { id: '123', some: 'data' };
+    ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(chainSwap);
+
+    const reqBody = {
+      preimage: '123321',
+      toSign: {
+        index: 21,
+        pubNonce: '21',
+        transaction: '42',
+      },
+      signature: {
+        pubNonce: '98',
+        partialSignature: '9800',
+      },
+    };
+
+    const res = mockResponse();
+    await swapRouter['claimChainSwap'](
+      mockRequest(reqBody, {}, { id: chainSwap.id }),
+      res,
+    );
+
+    expect(service.swapManager.chainSwapSigner.signClaim).toHaveBeenCalledWith(
+      chainSwap,
+      {
+        index: reqBody.toSign.index,
+        pubNonce: getHexBuffer(reqBody.toSign.pubNonce),
+        transaction: getHexBuffer(reqBody.toSign.transaction),
+      },
+      getHexBuffer(reqBody.preimage),
+      {
+        pubNonce: getHexBuffer(reqBody.signature.pubNonce),
+        signature: getHexBuffer(reqBody.signature.partialSignature),
+      },
     );
   });
 });

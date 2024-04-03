@@ -128,7 +128,6 @@ abstract class CoopSignerBase<
       details,
       tx,
       preimage,
-      preimage === undefined,
     );
   };
 

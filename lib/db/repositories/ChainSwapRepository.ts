@@ -93,7 +93,9 @@ class ChainSwapRepository {
     return Promise.all(chainSwaps.map(this.fetchChainSwapData));
   };
 
-  // Get a chain swap to with **both** options applies
+  /**
+   * Get a chain swap to with **both** options applies
+   */
   public static getChainSwapByData = async (
     dataOptions: WhereOptions,
     swapOptions: WhereOptions = {},
@@ -111,19 +113,21 @@ class ChainSwapRepository {
     });
   };
 
-  // Gets all chain swaps to which **either** of the options apply
+  /**
+   * Gets all chain swaps to which **either** of the options apply
+   */
   public static getChainSwapsByData = async (
     dataOptions: WhereOptions,
-    swapOptions: WhereOptions = {},
+    swapOptions: WhereOptions,
   ): Promise<ChainSwapInfo[]> => {
     const matchingData = await ChainSwapData.findAll({
       where: dataOptions,
     });
 
     const swaps = await Promise.all(
-      matchingData.map(
-        async (data) => (await this.getChainSwap({ id: data.swapId }))!,
-      )!,
+      Array.from(
+        new Set<string>(matchingData.map((d) => d.swapId)).values(),
+      ).map(async (id) => (await this.getChainSwap({ id: id }))!)!,
     );
 
     const deduplicateOptions = { [Op.notIn]: swaps.map((swap) => swap.id) };

@@ -47,7 +47,7 @@ type CooperativeDetails = {
   transaction: Transaction | LiquidTransaction;
 };
 
-type SwapToClaim = {
+export type SwapToClaim = {
   swap: Swap;
   preimage: Buffer;
   cooperative?: CooperativeDetails;
@@ -111,6 +111,15 @@ class DeferredClaimer extends TypedEventEmitter<{
         Array.from(swaps.keys()),
       ]),
     );
+
+  public pendingSweepsValues() {
+    return new Map<string, SwapToClaim[]>(
+      Array.from(this.swapsToClaim.entries()).map(([currency, swaps]) => [
+        currency,
+        Array.from(swaps.values()),
+      ]),
+    );
+  }
 
   public sweep = async () => {
     const claimed = new Map<string, string[]>();

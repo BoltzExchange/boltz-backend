@@ -959,6 +959,90 @@ export namespace GetLockedFundsResponse {
     }
 }
 
+export class PendingSweep extends jspb.Message { 
+    getSwapId(): string;
+    setSwapId(value: string): PendingSweep;
+    getOnchainAmount(): number;
+    setOnchainAmount(value: number): PendingSweep;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): PendingSweep.AsObject;
+    static toObject(includeInstance: boolean, msg: PendingSweep): PendingSweep.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: PendingSweep, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): PendingSweep;
+    static deserializeBinaryFromReader(message: PendingSweep, reader: jspb.BinaryReader): PendingSweep;
+}
+
+export namespace PendingSweep {
+    export type AsObject = {
+        swapId: string,
+        onchainAmount: number,
+    }
+}
+
+export class PendingSweeps extends jspb.Message { 
+    clearPendingSweepsList(): void;
+    getPendingSweepsList(): Array<PendingSweep>;
+    setPendingSweepsList(value: Array<PendingSweep>): PendingSweeps;
+    addPendingSweeps(value?: PendingSweep, index?: number): PendingSweep;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): PendingSweeps.AsObject;
+    static toObject(includeInstance: boolean, msg: PendingSweeps): PendingSweeps.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: PendingSweeps, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): PendingSweeps;
+    static deserializeBinaryFromReader(message: PendingSweeps, reader: jspb.BinaryReader): PendingSweeps;
+}
+
+export namespace PendingSweeps {
+    export type AsObject = {
+        pendingSweepsList: Array<PendingSweep.AsObject>,
+    }
+}
+
+export class GetPendingSweepsRequest extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetPendingSweepsRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: GetPendingSweepsRequest): GetPendingSweepsRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetPendingSweepsRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetPendingSweepsRequest;
+    static deserializeBinaryFromReader(message: GetPendingSweepsRequest, reader: jspb.BinaryReader): GetPendingSweepsRequest;
+}
+
+export namespace GetPendingSweepsRequest {
+    export type AsObject = {
+    }
+}
+
+export class GetPendingSweepsResponse extends jspb.Message { 
+
+    getPendingSweepsMap(): jspb.Map<string, PendingSweeps>;
+    clearPendingSweepsMap(): void;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetPendingSweepsResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: GetPendingSweepsResponse): GetPendingSweepsResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetPendingSweepsResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetPendingSweepsResponse;
+    static deserializeBinaryFromReader(message: GetPendingSweepsResponse, reader: jspb.BinaryReader): GetPendingSweepsResponse;
+}
+
+export namespace GetPendingSweepsResponse {
+    export type AsObject = {
+
+        pendingSweepsMap: Array<[string, PendingSweeps.AsObject]>,
+    }
+}
+
 export enum OutputType {
     BECH32 = 0,
     COMPATIBILITY = 1,

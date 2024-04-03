@@ -92,6 +92,7 @@ import TimeoutDeltaProvider, {
 } from './TimeoutDeltaProvider';
 import TransactionFetcher from './TransactionFetcher';
 import { calculateTimeoutDate, getCurrency } from './Utils';
+import { SwapToClaimPreimage } from './cooperative/DeferredClaimer';
 import EipSigner from './cooperative/EipSigner';
 import MusigSigner from './cooperative/MusigSigner';
 
@@ -853,6 +854,10 @@ class Service {
     });
 
     return res;
+  };
+
+  public getPendingSweeps = (): Map<string, SwapToClaimPreimage[]> => {
+    return this.swapManager.deferredClaimer.pendingSweepsValues();
   };
 
   /**

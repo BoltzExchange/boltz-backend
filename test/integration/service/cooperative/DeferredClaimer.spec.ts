@@ -286,6 +286,14 @@ describe('DeferredClaimer', () => {
         ['BTC', [swap.id]],
       ]),
     );
+
+    const pendingSweepValues = claimer.pendingSweepsValues();
+    expect(pendingSweepValues.get('DOGE')).toEqual([]);
+    const btcPendingSweeps = pendingSweepValues.get('BTC')!;
+    expect(btcPendingSweeps.length).toEqual(1);
+    expect(
+      btcPendingSweeps.some((swapToClaim) => swapToClaim.swap.id === swap.id),
+    ).toBeTruthy();
   });
 
   test('should sweep all configured currencies', async () => {

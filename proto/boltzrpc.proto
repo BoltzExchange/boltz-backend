@@ -33,6 +33,9 @@ service Boltz {
   /* Gets funds locked by the server for swaps */
   rpc GetLockedFunds (GetLockedFundsRequest) returns (GetLockedFundsResponse);
 
+  /* Gets funds pending for sweep by the server */
+  rpc GetPendingSweeps (GetPendingSweepsRequest) returns (GetPendingSweepsResponse);
+
   rpc SweepSwaps (SweepSwapsRequest) returns (SweepSwapsResponse);
 
   rpc Rescan (RescanRequest) returns (RescanResponse);
@@ -229,4 +232,18 @@ message LockedFunds {
 message GetLockedFundsRequest {}
 message GetLockedFundsResponse {
   map<string, LockedFunds> locked_funds = 1;
+}
+
+message PendingSweep {
+  string swap_id = 1;
+  uint64 onchain_amount = 2;
+}
+
+message PendingSweeps {
+  repeated PendingSweep pending_sweeps = 1;
+}
+
+message GetPendingSweepsRequest {}
+message GetPendingSweepsResponse {
+  map<string, PendingSweeps> pending_sweeps = 1;
 }

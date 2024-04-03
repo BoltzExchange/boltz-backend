@@ -105,6 +105,15 @@ class DeferredClaimer extends CoopSignerBase<
     };
   };
 
+  public pendingSweepsValues() {
+    return new Map<string, SwapToClaimPreimage[]>(
+      Array.from(this.swapsToClaim.entries()).map(([currency, swaps]) => [
+        currency,
+        Array.from(swaps.values()),
+      ]),
+    );
+  }
+
   public sweep = async () => {
     const claimed = new Map<string, string[]>();
 
@@ -397,4 +406,4 @@ class DeferredClaimer extends CoopSignerBase<
 }
 
 export default DeferredClaimer;
-export { SwapConfig };
+export { SwapConfig, SwapToClaimPreimage };

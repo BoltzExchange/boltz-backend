@@ -31,6 +31,7 @@ class GrpcServer {
       setSwapStatus: grpcService.setSwapStatus,
       devHeapDump: grpcService.devHeapDump,
       getLockedFunds: grpcService.getLockedFunds,
+      getPendingSweeps: grpcService.getPendingSweeps,
     });
   }
 

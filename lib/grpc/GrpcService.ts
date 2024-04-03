@@ -226,6 +226,35 @@ class GrpcService {
     });
   };
 
+  public getPendingSweeps: handleUnaryCall<
+    boltzrpc.GetPendingSweepsRequest,
+    boltzrpc.GetPendingSweepsResponse
+  > = async (call, callback) => {
+    await this.handleCallback(call, callback, async () => {
+      const response = new boltzrpc.GetPendingSweepsResponse();
+      const pendingSweeps = this.service.getPendingSweeps();
+      const pendingSweepsGrpcMap = response.getPendingSweepsMap();
+
+      pendingSweeps.forEach((swapToClaim, currency) => {
+        const pendingSweepsList = new boltzrpc.PendingSweeps();
+        swapToClaim
+          .map((toClaim) => {
+            const pendingSweep = new boltzrpc.PendingSweep();
+            pendingSweep.setSwapId(toClaim.swap.id);
+            pendingSweep.setOnchainAmount(toClaim.swap.onchainAmount || 0);
+            return pendingSweep;
+          })
+          .forEach((pendingSweep) =>
+            pendingSweepsList.addPendingSweeps(pendingSweep),
+          );
+
+        pendingSweepsGrpcMap.set(currency, pendingSweepsList);
+      });
+
+      return response;
+    });
+  };
+
   public sweepSwaps: handleUnaryCall<
     boltzrpc.SweepSwapsRequest,
     boltzrpc.SweepSwapsResponse

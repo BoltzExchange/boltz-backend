@@ -957,7 +957,7 @@ class Service {
       await this.timeoutDeltaProvider.getTimeout(
         args.pairId,
         orderSide,
-        false,
+        SwapType.Submarine,
         args.version,
         args.invoice,
         args.referralId,
@@ -1458,7 +1458,7 @@ class Service {
       await this.timeoutDeltaProvider.getTimeout(
         args.pairId,
         side,
-        true,
+        SwapType.ReverseSubmarine,
         args.version,
       );
 
@@ -1716,7 +1716,7 @@ class Service {
       await this.timeoutDeltaProvider.getTimeout(
         args.pairId,
         side,
-        true,
+        SwapType.Chain,
         SwapVersion.Taproot,
       )
     )[0];

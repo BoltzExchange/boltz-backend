@@ -101,7 +101,9 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
   private currencies = new Map<string, Currency>();
 
   // Locks
-  public readonly lock = new AsyncLock();
+  public readonly lock = new AsyncLock({
+    maxPending: 10_000,
+  });
 
   public static readonly swapLock = 'swap';
   public static readonly chainSwapLock = 'chainSwap';

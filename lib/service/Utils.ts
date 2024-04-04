@@ -16,8 +16,10 @@ export const getCurrency = (
 };
 
 export const calculateTimeoutDate = (chain: string, blocksMissing: number) => {
-  return (
-    getUnixTime() +
-    blocksMissing * TimeoutDeltaProvider.blockTimes.get(chain)! * 60
-  );
+  const blockTime = TimeoutDeltaProvider.blockTimes.get(chain);
+  if (blockTime === undefined) {
+    throw Errors.CURRENCY_NOT_FOUND(chain);
+  }
+
+  return getUnixTime() + blocksMissing * blockTime * 60;
 };

@@ -11,7 +11,12 @@ import {
   stringify,
 } from '../Utils';
 import ElementsClient from '../chain/ElementsClient';
-import { OrderSide, SwapVersion } from '../consts/Enums';
+import {
+  OrderSide,
+  SwapType,
+  SwapVersion,
+  swapTypeToPrettyString,
+} from '../consts/Enums';
 import { PairConfig } from '../consts/Types';
 import Swap from '../db/models/Swap';
 import {
@@ -28,6 +33,7 @@ import Errors from './Errors';
 import RoutingOffsets from './RoutingOffsets';
 
 type PairTimeoutBlocksDelta = {
+  chain: number;
   reverse: number;
 
   swapMinimal: number;
@@ -100,11 +106,19 @@ class TimeoutDeltaProvider {
         // Compatibility mode with legacy config
         if (typeof pair.timeoutDelta === 'number') {
           pair.timeoutDelta = {
+            chain: pair.timeoutDelta,
             reverse: pair.timeoutDelta,
             swapMaximal: pair.timeoutDelta,
             swapMinimal: pair.timeoutDelta,
             swapTaproot: pair.timeoutDelta,
           };
+        }
+
+        if (pair.timeoutDelta.chain === undefined) {
+          this.logger.warn(
+            `${swapTypeToPrettyString(SwapType.Chain)} Swap timeout delta not set for ${pairId}; falling back to ${swapTypeToPrettyString(SwapType.ReverseSubmarine)} Swap`,
+          );
+          pair.timeoutDelta.chain = pair.timeoutDelta.reverse;
         }
 
         this.logger.debug(
@@ -169,7 +183,7 @@ class TimeoutDeltaProvider {
   public getTimeout = async (
     pairId: string,
     orderSide: OrderSide,
-    isReverse: boolean,
+    type: SwapType,
     version: SwapVersion,
     invoice?: string,
     referralId?: string,
@@ -180,11 +194,12 @@ class TimeoutDeltaProvider {
       throw Errors.PAIR_NOT_FOUND(pairId);
     }
 
-    if (isReverse) {
+    if (type !== SwapType.Submarine) {
+      const deltas =
+        orderSide === OrderSide.BUY ? timeouts.base : timeouts.quote;
+
       return [
-        orderSide === OrderSide.BUY
-          ? timeouts.base.reverse
-          : timeouts.quote.reverse,
+        type === SwapType.ReverseSubmarine ? deltas.reverse : deltas.chain,
         false,
       ];
     } else {
@@ -356,6 +371,7 @@ class TimeoutDeltaProvider {
 
     const convertToBlocks = (symbol: string): PairTimeoutBlocksDelta => {
       return {
+        chain: calculateBlocks(symbol, newDeltas.chain),
         reverse: calculateBlocks(symbol, newDeltas.reverse),
         swapMinimal: calculateBlocks(symbol, newDeltas.swapMinimal),
         swapMaximal: calculateBlocks(symbol, newDeltas.swapMaximal),

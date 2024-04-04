@@ -138,15 +138,17 @@ class GrpcService {
     await this.handleCallback(call, callback, async () => {
       const {
         pair,
-        swapTaproot,
+        chainTimeout,
+        swapTaprootTimeout,
         reverseTimeout,
         swapMinimalTimeout,
         swapMaximalTimeout,
       } = call.request.toObject();
 
       this.service.updateTimeoutBlockDelta(pair, {
-        swapTaproot,
+        chain: chainTimeout,
         reverse: reverseTimeout,
+        swapTaproot: swapTaprootTimeout,
         swapMinimal: swapMinimalTimeout,
         swapMaximal: swapMaximalTimeout,
       });

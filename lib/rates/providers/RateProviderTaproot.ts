@@ -232,8 +232,8 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
 
       case SwapType.Chain:
         baseMap = this.chainPairs as Map<string, Map<string, T>>;
-        fromAsset = getSendingChain(base, quote, orderSide);
-        toAsset = getReceivingChain(base, quote, orderSide);
+        fromAsset = getReceivingChain(base, quote, orderSide);
+        toAsset = getSendingChain(base, quote, orderSide);
         break;
     }
 

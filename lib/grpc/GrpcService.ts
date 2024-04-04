@@ -139,8 +139,8 @@ class GrpcService {
       const {
         pair,
         chainTimeout,
-        swapTaprootTimeout,
         reverseTimeout,
+        swapTaprootTimeout,
         swapMinimalTimeout,
         swapMaximalTimeout,
       } = call.request.toObject();

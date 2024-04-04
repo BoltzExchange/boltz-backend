@@ -1,4 +1,4 @@
-import { OrderSide } from '../../../../lib/consts/Enums';
+import { OrderSide, SwapType } from '../../../../lib/consts/Enums';
 import FeeProvider from '../../../../lib/rates/FeeProvider';
 import RateProviderBase from '../../../../lib/rates/providers/RateProviderBase';
 
@@ -62,15 +62,19 @@ describe('RateProviderBase', () => {
   });
 
   test.each`
-    base       | quote    | rate | configured | orderSide         | isReverse | expected
-    ${'BTC'}   | ${'BTC'} | ${1} | ${1_000}   | ${undefined}      | ${false}  | ${2_674}
-    ${'BTC'}   | ${'BTC'} | ${2} | ${1_000}   | ${undefined}      | ${false}  | ${2_674 * 2}
-    ${'BTC'}   | ${'BTC'} | ${1} | ${50_000}  | ${undefined}      | ${false}  | ${50_000}
-    ${'L-BTC'} | ${'BTC'} | ${1} | ${1_000}   | ${OrderSide.BUY}  | ${false}  | ${1_000}
-    ${'L-BTC'} | ${'BTC'} | ${1} | ${1_000}   | ${OrderSide.SELL} | ${false}  | ${2_674}
+    base       | quote    | rate | configured | orderSide         | type                         | expected
+    ${'BTC'}   | ${'BTC'} | ${1} | ${1_000}   | ${undefined}      | ${undefined}                 | ${2_674}
+    ${'BTC'}   | ${'BTC'} | ${2} | ${1_000}   | ${undefined}      | ${SwapType.Submarine}        | ${2_674 * 2}
+    ${'BTC'}   | ${'BTC'} | ${1} | ${50_000}  | ${undefined}      | ${SwapType.Submarine}        | ${50_000}
+    ${'L-BTC'} | ${'BTC'} | ${1} | ${1_000}   | ${OrderSide.BUY}  | ${undefined}                 | ${1_000}
+    ${'L-BTC'} | ${'BTC'} | ${1} | ${1_000}   | ${OrderSide.SELL} | ${SwapType.Submarine}        | ${2_674}
+    ${'L-BTC'} | ${'BTC'} | ${1} | ${1_000}   | ${OrderSide.BUY}  | ${SwapType.ReverseSubmarine} | ${2_674}
+    ${'L-BTC'} | ${'BTC'} | ${1} | ${1_000}   | ${OrderSide.SELL} | ${SwapType.ReverseSubmarine} | ${1_000}
+    ${'L-BTC'} | ${'BTC'} | ${1} | ${1_000}   | ${OrderSide.BUY}  | ${SwapType.Chain}            | ${2_674}
+    ${'L-BTC'} | ${'BTC'} | ${1} | ${1_000}   | ${OrderSide.SELL} | ${SwapType.Chain}            | ${2_674}
   `(
     'should calculate adjusted minima',
-    ({ base, quote, rate, configured, orderSide, isReverse, expected }) => {
+    ({ base, quote, rate, configured, orderSide, type, expected }) => {
       expect(
         provider['adjustMinimaForFees'](
           base,
@@ -78,7 +82,7 @@ describe('RateProviderBase', () => {
           rate,
           configured,
           orderSide,
-          isReverse,
+          type,
         ),
       ).toEqual(expected);
     },

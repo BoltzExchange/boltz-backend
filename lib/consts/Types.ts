@@ -190,3 +190,9 @@ export type WalletInfo = {
   hdseedid?: string;
   private_keys_enabled: boolean;
 };
+
+export type AddressInfo = {
+  address: string;
+  scriptPubKey: string;
+  ismine: boolean;
+};

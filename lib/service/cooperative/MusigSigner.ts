@@ -184,7 +184,7 @@ class MusigSigner {
 
     try {
       const invoice = (swap as Swap).invoice;
-      if (currency.clnClient && invoice) {
+      if (currency.clnClient && invoice !== undefined) {
         const payment = await currency.clnClient!.checkPayStatus(invoice);
         if (payment !== undefined) {
           return true;

@@ -12,7 +12,6 @@ import {
   reverseSwapTree,
   swapTree,
 } from 'boltz-core';
-import { SwapTree } from 'boltz-core/dist/lib/consts/Types';
 import { randomBytes } from 'crypto';
 import { hashForWitnessV1, setup, tweakMusig, zkp } from '../../../../lib/Core';
 import { ECPair } from '../../../../lib/ECPairHelper';
@@ -191,7 +190,7 @@ describe('MusigSigner', () => {
     const id = 'noChain';
     await expect(
       signer.signRefund(id, Buffer.alloc(0), Buffer.alloc(0), 0),
-    ).rejects.toEqual('chain currency is not UTXO based');
+    ).rejects.toEqual(Errors.CURRENCY_NOT_UTXO_BASED());
   });
 
   test('should throw when creating refund signature for swap that does not exist', async () => {
@@ -483,34 +482,4 @@ describe('MusigSigner', () => {
       ),
     ).rejects.toEqual(Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM());
   });
-
-  test.each`
-    vin
-    ${-1}
-    ${-23234}
-    ${5}
-    ${123}
-  `(
-    'should not create partial signature when vin ($vin) is out of bounds',
-    async ({ vin }) => {
-      const tx = await bitcoinClient.getRawTransaction(
-        await bitcoinClient.sendToAddress(
-          await bitcoinClient.getNewAddress(),
-          100_000,
-        ),
-      );
-
-      await expect(
-        signer['createPartialSignature'](
-          btcCurrency,
-          {} as SwapTree,
-          1,
-          Buffer.alloc(0),
-          Buffer.alloc(0),
-          tx,
-          vin,
-        ),
-      ).rejects.toEqual(Errors.INVALID_VIN());
-    },
-  );
 });

@@ -270,7 +270,7 @@ class DeferredClaimer extends CoopSignerBase<
     const wallet = this.walletManager.wallets.get(currency)!;
 
     const claimDetails = (await Promise.all(
-      swaps.map((swap: SwapToClaimPreimage) =>
+      swaps.map((swap) =>
         this.constructClaimDetails(chainClient, wallet, swap, swap.preimage),
       ),
     )) as ClaimDetails[] | LiquidClaimDetails[];

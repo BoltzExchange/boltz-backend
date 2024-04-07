@@ -113,7 +113,7 @@ class TransactionFetcher {
   ): Promise<ChainSwapTransactions> => {
     if (
       [chainSwap.sendingData, chainSwap.receivingData].every(
-        (d) => d.transactionId === undefined,
+        (d) => d.transactionId === undefined || d.transactionId === null,
       )
     ) {
       throw Errors.SWAP_NO_LOCKUP();

@@ -61,10 +61,6 @@ class ChainSwapInfo {
     return this.chainSwap.fee;
   }
 
-  get timeoutBlockHeight() {
-    return this.sendingData.timeoutBlockHeight;
-  }
-
   get paidMinerFees(): boolean {
     return (
       this.sendingData.fee !== undefined || this.receivingData.fee !== undefined

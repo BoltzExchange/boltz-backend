@@ -100,8 +100,11 @@ class EipSigner {
 
     const value: Record<string, any> = {
       claimAddress: manager.address,
-      timeout: swap.timeoutBlockHeight,
       preimageHash: getHexBuffer(swap.preimageHash),
+      timeout:
+        swap.type === SwapType.Submarine
+          ? (swap as Swap).timeoutBlockHeight
+          : (swap as ChainSwapInfo).receivingData.timeoutBlockHeight,
       amount: isEtherSwap
         ? BigInt(onchainAmount!) * etherDecimals
         : (

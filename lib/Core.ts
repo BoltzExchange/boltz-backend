@@ -203,11 +203,7 @@ export const constructClaimDetails = (
       );
       claimDetails.internalKey = createMusig(
         claimDetails.keys!,
-        getHexBuffer(
-          isSubmarine
-            ? (swap as Swap).refundPublicKey!
-            : (swap as ChainSwapData).theirPublicKey!,
-        ),
+        getHexBuffer(swap.theirPublicKey!),
       ).getAggregatedPublicKey();
       break;
     }

@@ -172,6 +172,10 @@ class Swap extends Model implements SwapType {
   get type() {
     return SwapKindType.Submarine;
   }
+
+  get theirPublicKey() {
+    return this.refundPublicKey;
+  }
 }
 
 export default Swap;

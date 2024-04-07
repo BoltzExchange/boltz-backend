@@ -408,7 +408,7 @@ class EthereumNursery extends TypedEventEmitter<{
 
     const timeoutBlockHeight =
       swap.type === SwapType.Submarine
-        ? swap.timeoutBlockHeight
+        ? (swap as Swap).timeoutBlockHeight
         : (swap as ChainSwapInfo).receivingData.timeoutBlockHeight;
     if (etherSwapValues.timelock !== timeoutBlockHeight) {
       this.emit('lockup.failed', {
@@ -513,7 +513,7 @@ class EthereumNursery extends TypedEventEmitter<{
 
     const timeoutBlockHeight =
       swap.type === SwapType.Submarine
-        ? swap.timeoutBlockHeight
+        ? (swap as Swap).timeoutBlockHeight
         : (swap as ChainSwapInfo).receivingData.timeoutBlockHeight;
     if (erc20SwapValues.timelock !== timeoutBlockHeight) {
       this.emit('lockup.failed', {

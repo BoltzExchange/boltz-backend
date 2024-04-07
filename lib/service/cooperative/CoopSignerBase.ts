@@ -66,17 +66,10 @@ abstract class CoopSignerBase<
       ? (toClaim.swap as Swap)
       : (toClaim.swap as ChainSwapInfo).receivingData;
 
-    const keyIndex = isSubmarine
-      ? (details as Swap).keyIndex!
-      : (details as ChainSwapData).keyIndex!;
-    const theirPublicKey = isSubmarine
-      ? (details as Swap).refundPublicKey!
-      : (details as ChainSwapData).theirPublicKey!;
-
-    const ourKeys = wallet.getKeysByIndex(keyIndex);
+    const ourKeys = wallet.getKeysByIndex(details.keyIndex!);
     toClaim.cooperative = {
       sweepAddress: address,
-      musig: createMusig(ourKeys, getHexBuffer(theirPublicKey)),
+      musig: createMusig(ourKeys, getHexBuffer(details.theirPublicKey!)),
       transaction: constructClaimTransaction(
         wallet,
         [
@@ -131,14 +124,19 @@ abstract class CoopSignerBase<
     );
   };
 
-  protected broadcastCooperativeTransaction = async (
+  protected broadcastCooperativeTransaction = async <
+    J extends Transaction | LiquidTransaction,
+  >(
     swap: T,
     chainCurrency: Currency,
     musig: Musig,
-    transaction: Transaction | LiquidTransaction,
+    transaction: J,
     theirPubNonce: Buffer,
     theirPartialSignature: Buffer,
-  ) => {
+  ): Promise<{
+    fee: number;
+    transaction: J;
+  }> => {
     const isSubmarine = swap.type === SwapType.Submarine;
     const details = isSubmarine
       ? (swap as Swap)
@@ -153,11 +151,7 @@ abstract class CoopSignerBase<
       SwapTreeSerializer.deserializeSwapTree(swapTree),
     );
 
-    const theirPublicKey = getHexBuffer(
-      isSubmarine
-        ? (details as Swap).refundPublicKey!
-        : (details as ChainSwapData).theirPublicKey!,
-    );
+    const theirPublicKey = getHexBuffer(details.theirPublicKey!);
     musig.aggregateNonces([[theirPublicKey, theirPubNonce]]);
     musig.initializeSession(
       await hashForWitnessV1(chainCurrency, transaction, 0),

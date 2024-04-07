@@ -338,10 +338,11 @@ describe('GrpcService', () => {
   test('should handle UpdateTimeoutBlockDelta', () => {
     const callData = {
       pair: 'pair',
+      chainTimeout: 5,
       reverseTimeout: 1,
       swapMinimalTimeout: 2,
       swapMaximalTimeout: 3,
-      swapTaproot: 4,
+      swapTaprootTimeout: 4,
     };
 
     grpcService.updateTimeoutBlockDelta(
@@ -354,8 +355,9 @@ describe('GrpcService', () => {
 
     expect(mockUpdateTimeoutBlockDelta).toHaveBeenCalledTimes(1);
     expect(mockUpdateTimeoutBlockDelta).toHaveBeenCalledWith(callData.pair, {
+      chain: callData.chainTimeout,
       reverse: callData.reverseTimeout,
-      swapTaproot: callData.swapTaproot,
+      swapTaproot: callData.swapTaprootTimeout,
       swapMinimal: callData.swapMinimalTimeout,
       swapMaximal: callData.swapMaximalTimeout,
     });

@@ -954,7 +954,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
             BigInt((swap as ReverseSwap).minerFeeOnchainAmount!) *
               etherDecimals,
             lockupDetails.claimAddress!,
-            swap.timeoutBlockHeight,
+            lockupDetails.timeoutBlockHeight,
           );
       } else {
         contractTransaction =
@@ -962,7 +962,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
             getHexBuffer(swap.preimageHash),
             BigInt(lockupDetails.expectedAmount) * etherDecimals,
             lockupDetails.claimAddress!,
-            swap.timeoutBlockHeight,
+            lockupDetails.timeoutBlockHeight,
           );
       }
 
@@ -1478,7 +1478,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       wallet,
       [refundDetails] as RefundDetails[] | LiquidRefundDetails[],
       await wallet.getAddress(),
-      swap.timeoutBlockHeight,
+      sendingData.timeoutBlockHeight,
       await chainCurrency.chainClient!.estimateFee(),
     );
     const minerFee = await calculateTransactionFee(

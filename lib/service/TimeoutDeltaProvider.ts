@@ -278,11 +278,10 @@ class TimeoutDeltaProvider {
 
     const decodedInvoice =
       await NodeSwitch.fallback(currency)!.decodeInvoice(invoice);
-    const lightningClient = this.nodeSwitch.switch(
-      currency,
-      decodedInvoice.value,
-      referralId,
-    );
+    const lightningClient = this.nodeSwitch.getSwapNode(currency, {
+      referral: referralId,
+      invoiceAmount: decodedInvoice.value,
+    });
 
     const lightningCltv =
       version === SwapVersion.Taproot

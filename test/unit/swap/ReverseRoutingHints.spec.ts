@@ -1,7 +1,7 @@
 import { crypto } from 'bitcoinjs-lib';
 import { ECPair } from '../../../lib/ECPairHelper';
 import { getHexString, getSwapMemo } from '../../../lib/Utils';
-import { SwapVersion } from '../../../lib/consts/Enums';
+import { SwapType, SwapVersion } from '../../../lib/consts/Enums';
 import PaymentRequestUtils from '../../../lib/service/PaymentRequestUtils';
 import Errors from '../../../lib/swap/Errors';
 import ReverseRoutingHints from '../../../lib/swap/ReverseRoutingHints';
@@ -63,7 +63,10 @@ describe('ReverseRoutingHints', () => {
       }),
     ).toEqual({
       receivedAmount: 99877,
-      invoiceMemo: getSwapMemo(sendingCurrency.symbol, true),
+      invoiceMemo: getSwapMemo(
+        sendingCurrency.symbol,
+        SwapType.ReverseSubmarine,
+      ),
     });
   });
 
@@ -86,7 +89,10 @@ describe('ReverseRoutingHints', () => {
       }),
     ).toEqual({
       receivedAmount: 99877,
-      invoiceMemo: getSwapMemo(sendingCurrency.symbol, true),
+      invoiceMemo: getSwapMemo(
+        sendingCurrency.symbol,
+        SwapType.ReverseSubmarine,
+      ),
       bip21: paymentRequestUtils.encodeBip21(
         sendingCurrency.symbol,
         address,

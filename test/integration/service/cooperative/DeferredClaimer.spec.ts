@@ -113,6 +113,7 @@ describe('DeferredClaimer', () => {
       orderSide: OrderSide.BUY,
       version: SwapVersion.Taproot,
       id: generateSwapId(SwapVersion.Taproot),
+      theirPublicKey: getHexString(refundKeys.publicKey),
       refundPublicKey: getHexString(refundKeys.publicKey),
       timeoutBlockHeight:
         timeoutBlockHeight ||

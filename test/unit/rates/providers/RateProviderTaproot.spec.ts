@@ -96,22 +96,29 @@ describe('RateProviderTaproot', () => {
   test('should set hardcoded pair', () => {
     const rate = 21;
 
-    provider.setHardcodedPair({
-      rate,
-      base: 'L-BTC',
-      quote: 'BTC',
-    } as any);
+    provider.setHardcodedPair(
+      {
+        rate,
+        base: 'L-BTC',
+        quote: 'BTC',
+      } as any,
+      [SwapType.Submarine, SwapType.ReverseSubmarine],
+    );
 
     expect(provider.submarinePairs.get('L-BTC')!.get('BTC')!.rate).toEqual(
       1 / rate,
     );
     expect(provider.reversePairs.get('BTC')!.get('L-BTC')!.rate).toEqual(rate);
+    expect(provider.chainPairs.get('BTC')).toBeUndefined();
   });
 
   test('should update pair', () => {
     const rate = 21;
 
-    provider.updatePair('L-BTC/BTC', rate);
+    provider.updatePair('L-BTC/BTC', rate, [
+      SwapType.Submarine,
+      SwapType.ReverseSubmarine,
+    ]);
 
     expect(provider.submarinePairs.get('L-BTC')!.get('BTC')!.rate).toEqual(
       1 / rate,
@@ -120,18 +127,24 @@ describe('RateProviderTaproot', () => {
   });
 
   test('should update hardcoded pairs', () => {
-    provider.setHardcodedPair({
-      rate: 1,
-      base: 'L-BTC',
-      quote: 'BTC',
-    } as any);
+    provider.setHardcodedPair(
+      {
+        rate: 1,
+        base: 'L-BTC',
+        quote: 'BTC',
+      } as any,
+      [SwapType.Submarine, SwapType.ReverseSubmarine],
+    );
 
     const wrongHash = 'wrongHash';
 
     provider.submarinePairs.get('L-BTC')!.get('BTC')!.hash = wrongHash;
     provider.reversePairs.get('BTC')!.get('L-BTC')!.hash = wrongHash;
 
-    provider.updateHardcodedPair('L-BTC/BTC');
+    provider.updateHardcodedPair('L-BTC/BTC', [
+      SwapType.Submarine,
+      SwapType.ReverseSubmarine,
+    ]);
 
     expect(provider.submarinePairs.get('L-BTC')!.get('BTC')!.hash).not.toEqual(
       wrongHash,
@@ -293,6 +306,7 @@ describe('RateProviderTaproot', () => {
 
   test('should set pair with rate', () => {
     provider['setPair'](
+      [SwapType.Submarine, SwapType.ReverseSubmarine],
       'L-BTC/BTC',
       OrderSide.BUY,
       SwapType.ReverseSubmarine,
@@ -324,6 +338,7 @@ describe('RateProviderTaproot', () => {
 
   test('should set pair and get miner fees when not provided', () => {
     provider['setPair'](
+      [SwapType.Submarine, SwapType.ReverseSubmarine],
       'L-BTC/BTC',
       OrderSide.BUY,
       SwapType.ReverseSubmarine,
@@ -352,7 +367,12 @@ describe('RateProviderTaproot', () => {
   });
 
   test('should not set pair no rate is provided and none was set prior', () => {
-    provider['setPair']('L-BTC/BTC', OrderSide.BUY, SwapType.ReverseSubmarine);
+    provider['setPair'](
+      [SwapType.Submarine, SwapType.ReverseSubmarine],
+      'L-BTC/BTC',
+      OrderSide.BUY,
+      SwapType.ReverseSubmarine,
+    );
 
     expect(provider.reversePairs.size).toEqual(1);
     expect(provider.reversePairs.get('BTC')!.size).toEqual(0);
@@ -360,7 +380,12 @@ describe('RateProviderTaproot', () => {
   });
 
   test('should not set pair when combination is not possible', () => {
-    provider['setPair']('L-BTC/BTC', OrderSide.BUY, SwapType.Submarine);
+    provider['setPair'](
+      [SwapType.Submarine, SwapType.ReverseSubmarine],
+      'L-BTC/BTC',
+      OrderSide.BUY,
+      SwapType.Submarine,
+    );
     expect(provider.reversePairs.size).toEqual(0);
     expect(provider.submarinePairs.size).toEqual(1);
     expect(provider.submarinePairs.get('BTC')!.size).toEqual(0);

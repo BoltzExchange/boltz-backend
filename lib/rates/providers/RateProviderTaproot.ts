@@ -102,13 +102,14 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
     return obj;
   };
 
-  public setHardcodedPair = (pair: PairConfig) => {
+  public setHardcodedPair = (pair: PairConfig, swapTypes: SwapType[]) => {
     const id = getPairId(pair);
 
     for (const orderSide of [OrderSide.BUY, OrderSide.SELL]) {
       const rate = orderSide === OrderSide.BUY ? pair.rate! : 1 / pair.rate!;
 
       this.setPair<SubmarinePairTypeTaproot>(
+        swapTypes,
         id,
         orderSide,
         SwapType.Submarine,
@@ -116,6 +117,7 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
         0,
       );
       this.setPair<ReversePairTypeTaproot>(
+        swapTypes,
         id,
         orderSide,
         SwapType.ReverseSubmarine,
@@ -126,6 +128,7 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
         },
       );
       this.setPair<ChainPairTypeTaproot>(
+        swapTypes,
         id,
         orderSide,
         SwapType.Chain,
@@ -141,23 +144,30 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
     }
   };
 
-  public updatePair = (pairId: string, rawRate: number) => {
+  public updatePair = (
+    pairId: string,
+    rawRate: number,
+    swapTypes: SwapType[],
+  ) => {
     for (const orderSide of [OrderSide.BUY, OrderSide.SELL]) {
       const rate = orderSide === OrderSide.BUY ? rawRate : 1 / rawRate;
 
       this.setPair<SubmarinePairTypeTaproot>(
+        swapTypes,
         pairId,
         orderSide,
         SwapType.Submarine,
         rate,
       );
       this.setPair<ReversePairTypeTaproot>(
+        swapTypes,
         pairId,
         orderSide,
         SwapType.ReverseSubmarine,
         rate,
       );
       this.setPair<ChainPairTypeTaproot>(
+        swapTypes,
         pairId,
         orderSide,
         SwapType.Chain,
@@ -166,19 +176,26 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
     }
   };
 
-  public updateHardcodedPair = (pairId: string) => {
+  public updateHardcodedPair = (pairId: string, swapTypes: SwapType[]) => {
     for (const orderSide of [OrderSide.BUY, OrderSide.SELL]) {
       this.setPair<SubmarinePairTypeTaproot>(
+        swapTypes,
         pairId,
         orderSide,
         SwapType.Submarine,
       );
       this.setPair<ReversePairTypeTaproot>(
+        swapTypes,
         pairId,
         orderSide,
         SwapType.ReverseSubmarine,
       );
-      this.setPair<ChainPairTypeTaproot>(pairId, orderSide, SwapType.Chain);
+      this.setPair<ChainPairTypeTaproot>(
+        swapTypes,
+        pairId,
+        orderSide,
+        SwapType.Chain,
+      );
     }
   };
 
@@ -270,12 +287,17 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
     );
 
   private setPair = <T extends SwapTypes>(
+    swapTypes: SwapType[],
     pairId: string,
     orderSide: OrderSide,
     type: SwapType,
     rate?: number,
     minerFees?: T['fees']['minerFees'],
   ) => {
+    if (!swapTypes.includes(type)) {
+      return;
+    }
+
     const nested = this.getToMap<T>(pairId, orderSide, type, true)!;
 
     if (!this.isPossibleCombination(type, nested.fromAsset, nested.toAsset)) {

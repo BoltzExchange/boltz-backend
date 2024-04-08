@@ -2,7 +2,7 @@ import { randomBytes } from 'crypto';
 import { ConfigType } from '../../../lib/Config';
 import Logger from '../../../lib/Logger';
 import { splitPairId } from '../../../lib/Utils';
-import { OrderSide, SwapVersion } from '../../../lib/consts/Enums';
+import { OrderSide, SwapType, SwapVersion } from '../../../lib/consts/Enums';
 import Errors from '../../../lib/service/Errors';
 import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
@@ -57,6 +57,7 @@ describe('TimeoutDeltaProvider', () => {
   const pair = 'L-BTC/BTC';
   const { base, quote } = splitPairId(pair);
   const timeoutDelta = {
+    chain: 1000,
     reverse: 1400,
     swapMinimal: 1400,
     swapMaximal: 2800,
@@ -97,13 +98,23 @@ describe('TimeoutDeltaProvider', () => {
 
   test('should get timeouts of swaps without invoices', async () => {
     await expect(
-      deltaProvider.getTimeout(pair, OrderSide.BUY, false, SwapVersion.Legacy),
+      deltaProvider.getTimeout(
+        pair,
+        OrderSide.BUY,
+        SwapType.Submarine,
+        SwapVersion.Legacy,
+      ),
     ).resolves.toEqual([
       timeoutDelta.swapMinimal / TimeoutDeltaProvider.blockTimes.get(quote)!,
       true,
     ]);
     await expect(
-      deltaProvider.getTimeout(pair, OrderSide.SELL, false, SwapVersion.Legacy),
+      deltaProvider.getTimeout(
+        pair,
+        OrderSide.SELL,
+        SwapType.Submarine,
+        SwapVersion.Legacy,
+      ),
     ).resolves.toEqual([
       timeoutDelta.swapMinimal / TimeoutDeltaProvider.blockTimes.get(base)!,
       true,
@@ -120,7 +131,7 @@ describe('TimeoutDeltaProvider', () => {
       deltaProvider.getTimeout(
         pair,
         OrderSide.SELL,
-        false,
+        SwapType.Submarine,
         SwapVersion.Legacy,
         await createInvoice(18),
       ),
@@ -132,7 +143,7 @@ describe('TimeoutDeltaProvider', () => {
       deltaProvider.getTimeout(
         pair,
         OrderSide.SELL,
-        false,
+        SwapType.Submarine,
         SwapVersion.Legacy,
         await createInvoice(40),
       ),
@@ -147,7 +158,7 @@ describe('TimeoutDeltaProvider', () => {
         deltaProvider.getTimeout(
           pair,
           OrderSide.SELL,
-          false,
+          SwapType.Submarine,
           SwapVersion.Legacy,
           await createInvoice(
             Math.ceil(cltvDelta / TimeoutDeltaProvider.blockTimes.get(base)!),
@@ -175,7 +186,7 @@ describe('TimeoutDeltaProvider', () => {
       deltaProvider.getTimeout(
         pair,
         OrderSide.SELL,
-        false,
+        SwapType.Submarine,
         SwapVersion.Legacy,
         invoice,
       ),
@@ -193,7 +204,7 @@ describe('TimeoutDeltaProvider', () => {
       deltaProvider.getTimeout(
         pair,
         OrderSide.SELL,
-        false,
+        SwapType.Submarine,
         SwapVersion.Legacy,
         'lnbcrt1n1pjtwpszsp53ap24lskmwzre57a7dzyvv3fr4j0xpnj84zedp2mx4xkvyd00mmqpp57dxxsvrtw6dhxzv09ufvjl2nwta65csqqv5rw7akvscv9aqlqclsdqqxqyjw5qcqp29qxpqysgq7t354a4juq8869psw0fp59g57fdh63cad4gdd0hl6pp7t2ytsexzq8qex4nx0a05n8u4kvh5ttv5zdm7d3uwjf6cglxstu7gfy56fqqp6wscqc',
       ),
@@ -205,15 +216,50 @@ describe('TimeoutDeltaProvider', () => {
 
   test('should get timeouts of reverse swaps', async () => {
     await expect(
-      deltaProvider.getTimeout(pair, OrderSide.BUY, true, SwapVersion.Legacy),
+      deltaProvider.getTimeout(
+        pair,
+        OrderSide.BUY,
+        SwapType.ReverseSubmarine,
+        SwapVersion.Legacy,
+      ),
     ).resolves.toEqual([
       timeoutDelta.reverse / TimeoutDeltaProvider.blockTimes.get(base)!,
       false,
     ]);
     await expect(
-      deltaProvider.getTimeout(pair, OrderSide.SELL, true, SwapVersion.Legacy),
+      deltaProvider.getTimeout(
+        pair,
+        OrderSide.SELL,
+        SwapType.ReverseSubmarine,
+        SwapVersion.Legacy,
+      ),
     ).resolves.toEqual([
       timeoutDelta.reverse / TimeoutDeltaProvider.blockTimes.get(quote)!,
+      false,
+    ]);
+  });
+
+  test('should get timeouts of chain swaps', async () => {
+    await expect(
+      deltaProvider.getTimeout(
+        pair,
+        OrderSide.BUY,
+        SwapType.Chain,
+        SwapVersion.Legacy,
+      ),
+    ).resolves.toEqual([
+      timeoutDelta.chain / TimeoutDeltaProvider.blockTimes.get(base)!,
+      false,
+    ]);
+    await expect(
+      deltaProvider.getTimeout(
+        pair,
+        OrderSide.SELL,
+        SwapType.Chain,
+        SwapVersion.Legacy,
+      ),
+    ).resolves.toEqual([
+      timeoutDelta.chain / TimeoutDeltaProvider.blockTimes.get(quote)!,
       false,
     ]);
   });

@@ -74,18 +74,18 @@ export const setup = async () => {
   initLiquid(zkp);
 };
 
-export const parseTransaction = (
+export const parseTransaction = <T extends Transaction | LiquidTransaction>(
   type: CurrencyType,
   rawTx: string | Buffer,
-): Transaction | LiquidTransaction => {
+): T => {
   if (rawTx instanceof Buffer) {
     return isBitcoin(type)
-      ? Transaction.fromBuffer(rawTx)
-      : LiquidTransaction.fromBuffer(rawTx);
+      ? (Transaction.fromBuffer(rawTx) as T)
+      : (LiquidTransaction.fromBuffer(rawTx) as T);
   } else {
     return isBitcoin(type)
-      ? Transaction.fromHex(rawTx)
-      : LiquidTransaction.fromHex(rawTx);
+      ? (Transaction.fromHex(rawTx) as T)
+      : (LiquidTransaction.fromHex(rawTx) as T);
   }
 };
 

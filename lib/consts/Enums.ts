@@ -144,6 +144,22 @@ export const swapTypeToString = (type: SwapType): string => {
   }
 };
 
+export const stringToSwapType = (type: string): SwapType => {
+  switch (type.toLowerCase()) {
+    case 'submarine':
+      return SwapType.Submarine;
+
+    case 'reverse':
+    case 'reversesubmarine':
+      return SwapType.ReverseSubmarine;
+
+    case 'chain':
+      return SwapType.Chain;
+  }
+
+  throw `invalid swap type: ${type}`;
+};
+
 export enum BaseFeeType {
   NormalClaim,
 

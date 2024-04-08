@@ -134,6 +134,10 @@ class MusigSigner {
         await this.nursery.settleReverseSwapInvoice(swap, preimage);
       }
 
+      this.logger.debug(
+        `Creating partial signature for claim of Reverse Swap ${swap.id}`,
+      );
+
       const { base, quote } = splitPairId(swap.pair);
       const chainCurrency = getChainCurrency(base, quote, swap.orderSide, true);
       const swapTree = SwapTreeSerializer.deserializeSwapTree(

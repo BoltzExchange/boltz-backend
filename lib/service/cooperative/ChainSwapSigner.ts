@@ -72,8 +72,8 @@ class ChainSwapSigner extends CoopSignerBase<
       throw Errors.SWAP_NOT_FOUND(swapId);
     }
 
-    const currency = this.currencies.get(swap.receivingData.symbol)!;
-    if (currency.chainClient === undefined) {
+    const currency = this.currencies.get(swap.receivingData.symbol);
+    if (currency === undefined || currency.chainClient === undefined) {
       throw Errors.CURRENCY_NOT_UTXO_BASED();
     }
 
@@ -112,7 +112,6 @@ class ChainSwapSigner extends CoopSignerBase<
     });
   };
 
-  // TODO: remove after refund
   public removeFromClaimable = async (id: string) => {
     await this.lock.acquire(ChainSwapSigner.swapsToClaimLock, async () => {
       this.swapsToClaim.delete(id);

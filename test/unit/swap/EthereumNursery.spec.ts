@@ -5,10 +5,12 @@ import { getHexBuffer, getHexString } from '../../../lib/Utils';
 import {
   CurrencyType,
   OrderSide,
+  SwapType,
   SwapUpdateEvent,
 } from '../../../lib/consts/Enums';
 import { ERC20SwapValues, EtherSwapValues } from '../../../lib/consts/Types';
 import Swap from '../../../lib/db/models/Swap';
+import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import Blocks from '../../../lib/service/Blocks';
@@ -236,21 +238,25 @@ describe('EthereumNursery', () => {
       // Should ignore this Reverse Swap because of its pair...
       {
         pair: 'BTC/BTC',
+        type: SwapType.ReverseSubmarine,
         transactionId: 'btcSwapTransactionId',
       },
       // ...but attempt to find a transaction for this Reverse Swap
       {
         pair: 'ETH/BTC',
         orderSide: OrderSide.BUY,
+        type: SwapType.ReverseSubmarine,
         transactionId: 'ethSwapTransactionId',
       },
       // Should also ignore this pair
       {
         pair: '404/NotFound',
         orderSide: OrderSide.BUY,
+        type: SwapType.ReverseSubmarine,
         transactionId: 'notFoundTransactionId',
       },
     ];
+    ChainSwapRepository.getChainSwaps = jest.fn().mockResolvedValue([]);
 
     await nursery.init();
 
@@ -266,70 +272,58 @@ describe('EthereumNursery', () => {
   });
 
   test('should listen to contract transactions', async () => {
-    let eventsEmitted = 0;
+    expect.assertions(4);
 
-    let resolve = () => {};
-    let reject: any = () => {};
-
-    const newWaitPromise = () => {
-      return {
-        hash: exampleTransaction,
-        wait: jest.fn().mockReturnValue(
-          new Promise<void>((promiseResolve, promiseReject) => {
-            resolve = promiseResolve;
-            reject = promiseReject;
-          }),
-        ),
-      } as any;
-    };
-
-    // A lockup transaction that confirms
-    const resolvedPromise = newWaitPromise();
-
-    nursery.once('lockup.confirmed', ({ reverseSwap, transactionHash }) => {
-      expect(reverseSwap).toEqual({
+    nursery.once('lockup.confirmed', ({ swap, transactionHash }) => {
+      expect(swap).toEqual({
+        type: SwapType.ReverseSubmarine,
         status: SwapUpdateEvent.TransactionConfirmed,
       });
       expect(transactionHash).toEqual(exampleTransaction);
-
-      eventsEmitted += 1;
     });
 
-    nursery.listenContractTransaction({} as any, resolvedPromise);
-
-    await resolve();
-
-    await wait(10);
-    expect(eventsEmitted).toEqual(1);
+    nursery.listenContractTransaction(
+      {
+        type: SwapType.ReverseSubmarine,
+      } as any,
+      {
+        wait: jest.fn().mockResolvedValue(undefined),
+      } as any,
+    );
 
     // A lockup transaction that confirms but reverts
     const rejectedReason = 'did not feel like it';
-    const rejectedPromise = newWaitPromise();
 
-    nursery.once('lockup.failedToSend', ({ reverseSwap, reason }) => {
-      expect(reverseSwap).toEqual({
+    nursery.once('lockup.failedToSend', ({ swap, reason }) => {
+      expect(swap).toEqual({
+        type: SwapType.ReverseSubmarine,
         status: SwapUpdateEvent.TransactionFailed,
       });
       expect(reason).toEqual(rejectedReason);
-
-      eventsEmitted += 1;
     });
 
-    await nursery.listenContractTransaction({} as any, rejectedPromise);
+    nursery.listenContractTransaction(
+      {
+        type: SwapType.ReverseSubmarine,
+      } as any,
+      {
+        wait: jest.fn().mockRejectedValue(rejectedReason),
+      } as any,
+    );
 
-    await reject(rejectedReason);
-
-    await wait(10);
-    expect(eventsEmitted).toEqual(2);
+    await wait(50);
   });
 
   test('should listen for EtherSwap lockup events', async () => {
+    ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
+
     let lockupEmitted = false;
     let lockupFailed = 0;
 
     mockGetSwapResult = {
       pair: 'ETH/BTC',
       expectedAmount: 10,
+      type: SwapType.Submarine,
       orderSide: OrderSide.SELL,
       timeoutBlockHeight: 11102219,
     };
@@ -506,6 +500,7 @@ describe('EthereumNursery', () => {
     mockGetSwapResult = {
       pair: 'ETH/BTC',
       expectedAmount: 10,
+      type: SwapType.Submarine,
       orderSide: OrderSide.SELL,
       timeoutBlockHeight: 11102219,
     };
@@ -528,10 +523,11 @@ describe('EthereumNursery', () => {
 
     mockGetReverseSwapResult = {
       some: 'data',
+      type: SwapType.ReverseSubmarine,
     };
 
-    nursery.on('claim', ({ reverseSwap, preimage }) => {
-      expect(reverseSwap).toEqual(mockGetReverseSwapResult);
+    nursery.on('claim', ({ swap, preimage }) => {
+      expect(swap).toEqual(mockGetReverseSwapResult);
       expect(preimage).toEqual(examplePreimage);
 
       emittedEvents += 1;
@@ -574,6 +570,7 @@ describe('EthereumNursery', () => {
     mockGetSwapResult = {
       pair: 'BTC/USDT',
       expectedAmount: 10,
+      type: SwapType.Submarine,
       orderSide: OrderSide.BUY,
       timeoutBlockHeight: 11102222,
     };
@@ -791,6 +788,7 @@ describe('EthereumNursery', () => {
       pair: 'BTC/USDT',
       expectedAmount: 10,
       orderSide: OrderSide.BUY,
+      type: SwapType.Submarine,
       timeoutBlockHeight: 11102222,
     };
 
@@ -815,8 +813,8 @@ describe('EthereumNursery', () => {
       some: 'data',
     };
 
-    nursery.on('claim', ({ reverseSwap, preimage }) => {
-      expect(reverseSwap).toEqual(mockGetReverseSwapResult);
+    nursery.on('claim', ({ swap, preimage }) => {
+      expect(swap).toEqual(mockGetReverseSwapResult);
       expect(preimage).toEqual(examplePreimage);
 
       emittedEvents += 1;
@@ -853,6 +851,9 @@ describe('EthereumNursery', () => {
   });
 
   test('should handle expired Swaps', async () => {
+    ChainSwapRepository.getChainSwapsExpirable = jest
+      .fn()
+      .mockResolvedValue([]);
     mockGetSwapsExpirableResult = [
       // Expired EtherSwap
       {

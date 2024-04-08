@@ -1399,7 +1399,9 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       switch (chainCurrency.type) {
         case CurrencyType.BitcoinLike:
         case CurrencyType.Liquid:
+          await this.chainSwapSigner.removeFromClaimable(chainSwap.id);
           await this.refundUtxo(chainCurrency, chainSwap);
+
           break;
 
         case CurrencyType.Ether:

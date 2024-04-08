@@ -18,11 +18,21 @@ abstract class RateProviderBase<T> {
     protected readonly feeProvider: FeeProvider,
   ) {}
 
-  public abstract setHardcodedPair(pair: PairConfig): void;
+  public abstract setHardcodedPair(
+    pair: PairConfig,
+    swapTypes: SwapType[],
+  ): void;
 
-  public abstract updatePair(pairId: string, rate: number): void;
+  public abstract updatePair(
+    pairId: string,
+    rate: number,
+    swapTypes: SwapType[],
+  ): void;
 
-  public abstract updateHardcodedPair(pairId: string): void;
+  public abstract updateHardcodedPair(
+    pairId: string,
+    swapTypes: SwapType[],
+  ): void;
 
   public abstract validatePairHash(
     hash: string,

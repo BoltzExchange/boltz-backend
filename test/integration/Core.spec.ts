@@ -270,7 +270,7 @@ describe('Core', () => {
         keyIndex: claimKeys.index,
         version: SwapVersion.Taproot,
         lockupTransactionVout: output.vout,
-        refundPublicKey: refundKeys.publicKey,
+        theirPublicKey: refundKeys.publicKey,
         redeemScript: SwapTreeSerializer.serializeSwapTree(tree),
       } as unknown as Swap,
       tx,

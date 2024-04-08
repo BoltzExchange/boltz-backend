@@ -27,6 +27,7 @@ import {
 } from '../../../lib/consts/Enums';
 import ReverseSwap, { NodeType } from '../../../lib/db/models/ReverseSwap';
 import Swap from '../../../lib/db/models/Swap';
+import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
 import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
@@ -405,6 +406,8 @@ describe('SwapManager', () => {
     ChannelCreationRepository.addChannelCreation = mockAddChannelCreation;
     ChannelCreationRepository.getChannelCreation = mockGetChannelCreation;
     ChannelCreationRepository.getChannelCreations = mockGetChannelCreations;
+
+    ChainSwapRepository.getChainSwaps = jest.fn().mockResolvedValue([]);
 
     if (manager !== undefined && manager.routingHints !== undefined) {
       if (

@@ -42,6 +42,9 @@ export type PairConfig = {
   // Defaults to 50% of the expiry time of reverse swaps
   invoiceExpiry?: number;
 
+  // Swap types that should be enabled for the pair
+  swapTypes?: string[];
+
   // The timeout of the swaps on this pair in minutes
   timeoutDelta?: PairTimeoutBlocksDelta | number;
 

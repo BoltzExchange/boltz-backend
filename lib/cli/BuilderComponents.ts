@@ -2,6 +2,12 @@ export type BuilderTypes<T extends Record<string, { type: string }>> = {
   [K in keyof T]: any;
 };
 
+export type ApiType = {
+  api: {
+    endpoint: string;
+  };
+};
+
 export default {
   network: {
     describe: 'network to be used',

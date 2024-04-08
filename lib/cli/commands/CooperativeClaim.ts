@@ -7,7 +7,7 @@ import { parseTransaction } from '../../Core';
 import { ECPair } from '../../ECPairHelper';
 import { getHexBuffer, getHexString, stringify } from '../../Utils';
 import BoltzApiClient from '../BoltzApiClient';
-import BuilderComponents from '../BuilderComponents';
+import BuilderComponents, { ApiType, BuilderTypes } from '../BuilderComponents';
 import { currencyTypeFromNetwork, parseNetwork } from '../Command';
 import {
   finalizeCooperativeTransaction,
@@ -31,8 +31,10 @@ export const builder = {
   blindingKey: BuilderComponents.blindingKey,
 };
 
-export const handler = async (argv: Arguments<any>): Promise<void> => {
-  const boltzClient = new BoltzApiClient();
+export const handler = async (
+  argv: Arguments<BuilderTypes<typeof builder> & ApiType>,
+): Promise<void> => {
+  const boltzClient = new BoltzApiClient(argv.api.endpoint);
   const swapStatus = await boltzClient.getStatus(argv.swapId);
 
   if (swapStatus.transaction === undefined) {

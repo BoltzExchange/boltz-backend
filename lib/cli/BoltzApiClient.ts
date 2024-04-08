@@ -8,9 +8,7 @@ type PartialSignature = {
 };
 
 class BoltzApiClient {
-  public static readonly regtestEndpoint = 'http://127.0.0.1:9001';
-
-  constructor(private readonly endpoint = BoltzApiClient.regtestEndpoint) {}
+  constructor(private readonly endpoint: string) {}
 
   public getStatus = async (
     swapId: string,

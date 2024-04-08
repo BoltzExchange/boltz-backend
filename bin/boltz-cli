@@ -5,6 +5,9 @@ require('yargs')
     rpc: {
       hidden: true,
     },
+    api: {
+      hidden: true,
+    },
     'rpc.host': {
       describe: 'gRPC service host',
       alias: 'h',
@@ -17,8 +20,13 @@ require('yargs')
       default: 9000,
       type: 'number',
     },
+    'api.endpoint': {
+      describe: 'Boltz API endpoint',
+      alias: 'e',
+      default: 'http://127.0.0.1:9001',
+      type: 'string',
+    },
   })
   .commandDir('../dist/lib/cli/commands/')
   .demandCommand(1, '')
-  .strict()
-  .argv;
+  .strict().argv;

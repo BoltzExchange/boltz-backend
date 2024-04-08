@@ -14,7 +14,7 @@ import { ECPair } from '../../ECPairHelper';
 import { getHexBuffer, getHexString, stringify } from '../../Utils';
 import { CurrencyType } from '../../consts/Enums';
 import BoltzApiClient from '../BoltzApiClient';
-import BuilderComponents, { BuilderTypes } from '../BuilderComponents';
+import BuilderComponents, { ApiType, BuilderTypes } from '../BuilderComponents';
 import {
   finalizeCooperativeTransaction,
   prepareCooperativeTransaction,
@@ -63,9 +63,9 @@ const getNetworks = (
 };
 
 export const handler = async (
-  argv: Arguments<BuilderTypes<typeof builder>>,
+  argv: Arguments<BuilderTypes<typeof builder> & ApiType>,
 ) => {
-  const boltzClient = new BoltzApiClient();
+  const boltzClient = new BoltzApiClient(argv.api.endpoint);
   const swapStatus = await boltzClient.getStatus(argv.swapId);
 
   if (swapStatus.transaction === undefined) {

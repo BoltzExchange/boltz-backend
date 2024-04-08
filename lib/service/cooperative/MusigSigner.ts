@@ -3,6 +3,7 @@ import Logger from '../../Logger';
 import {
   getChainCurrency,
   getHexBuffer,
+  getHexString,
   getLightningCurrency,
   splitPairId,
 } from '../../Utils';
@@ -124,29 +125,32 @@ class MusigSigner {
     }
 
     this.logger.debug(
-      `Creating partial signature for claim of Reverse Swap ${swap.id}`,
+      `Got preimage for Reverse Swap ${swap.id}: ${getHexString(preimage)}`,
     );
+    await ReverseSwapRepository.setPreimage(swap, getHexString(preimage));
 
-    if (swap.status !== SwapUpdateEvent.InvoiceSettled) {
-      await this.nursery.lock.acquire(SwapNursery.reverseSwapLock, async () => {
+    return this.nursery.lock.acquire(SwapNursery.reverseSwapLock, async () => {
+      if (swap.status !== SwapUpdateEvent.InvoiceSettled) {
         await this.nursery.settleReverseSwapInvoice(swap, preimage);
-      });
-    }
+      }
 
-    const { base, quote } = splitPairId(swap.pair);
-    const chainCurrency = getChainCurrency(base, quote, swap.orderSide, true);
-    const swapTree = SwapTreeSerializer.deserializeSwapTree(swap.redeemScript!);
+      const { base, quote } = splitPairId(swap.pair);
+      const chainCurrency = getChainCurrency(base, quote, swap.orderSide, true);
+      const swapTree = SwapTreeSerializer.deserializeSwapTree(
+        swap.redeemScript!,
+      );
 
-    return createPartialSignature(
-      this.currencies.get(chainCurrency)!,
-      this.walletManager.wallets.get(chainCurrency)!,
-      swapTree,
-      swap.keyIndex!,
-      getHexBuffer(swap.claimPublicKey!),
-      theirNonce,
-      rawTransaction,
-      index,
-    );
+      return createPartialSignature(
+        this.currencies.get(chainCurrency)!,
+        this.walletManager.wallets.get(chainCurrency)!,
+        swapTree,
+        swap.keyIndex!,
+        getHexBuffer(swap.claimPublicKey!),
+        theirNonce,
+        rawTransaction,
+        index,
+      );
+    });
   };
 
   public static isEligibleForRefund = async (

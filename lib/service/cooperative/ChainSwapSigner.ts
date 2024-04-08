@@ -2,7 +2,7 @@ import AsyncLock from 'async-lock';
 import { SwapTreeSerializer } from 'boltz-core';
 import { Op } from 'sequelize';
 import Logger from '../../Logger';
-import { formatError, getHexBuffer } from '../../Utils';
+import { formatError, getHexBuffer, getHexString } from '../../Utils';
 import {
   FailedSwapUpdateEvents,
   SwapUpdateEvent,
@@ -160,6 +160,9 @@ class ChainSwapSigner extends CoopSignerBase<
         throw Errors.INCORRECT_PREIMAGE();
       }
 
+      this.logger.debug(
+        `Got preimage for ${swap.type} Swap ${swap.id}: ${getHexString(preimage)}`,
+      );
       // TODO: broadcast the claim eventually when the preimage is correct but the signature is not?
       swap = await ChainSwapRepository.setPreimage(swap, preimage);
 

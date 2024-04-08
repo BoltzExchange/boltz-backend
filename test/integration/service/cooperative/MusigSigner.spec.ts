@@ -349,6 +349,7 @@ describe('MusigSigner', () => {
       preimageHash: getHexString(crypto.sha256(preimage)),
       redeemScript: JSON.stringify(SwapTreeSerializer.serializeSwapTree(tree)),
     });
+    ReverseSwapRepository.setPreimage = jest.fn();
 
     btcWallet.getKeysByIndex = jest.fn().mockReturnValue(refundKeys);
 
@@ -363,6 +364,10 @@ describe('MusigSigner', () => {
     expect(nursery.settleReverseSwapInvoice).toHaveBeenCalledWith(
       await ReverseSwapRepository.getReverseSwap({}),
       preimage,
+    );
+    expect(ReverseSwapRepository.setPreimage).toHaveBeenCalledWith(
+      expect.anything(),
+      getHexString(preimage),
     );
 
     musig.aggregateNonces([[refundKeys.publicKey, boltzPartialSig.pubNonce]]);

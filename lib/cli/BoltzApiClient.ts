@@ -92,13 +92,13 @@ class BoltzApiClient {
       pubNonce: string;
       transaction: string;
     },
-    partialSignature: { signature: string; pubNonce: string },
+    signature: { partialSignature: string; pubNonce: string },
   ): Promise<PartialSignature> =>
     (
       await axios.post(`${this.endpoint}/v2/swap/chain/${swapId}/claim`, {
         toSign,
         preimage,
-        partialSignature,
+        signature,
       })
     ).data;
 }

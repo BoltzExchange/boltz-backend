@@ -143,7 +143,7 @@ export const handler = async (
       pubNonce: getHexString(
         Buffer.from(theirClaimDetails.musig.getPublicNonce()),
       ),
-      signature: getHexString(
+      partialSignature: getHexString(
         Buffer.from(theirClaimDetails.musig.signPartial()),
       ),
     },

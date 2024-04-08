@@ -160,7 +160,7 @@ class ChainSwapSigner extends CoopSignerBase<
       }
 
       this.logger.debug(
-        `Got preimage for ${swap.type} Swap ${swap.id}: ${getHexString(preimage)}`,
+        `Got preimage for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${getHexString(preimage)}`,
       );
       // TODO: broadcast the claim eventually when the preimage is correct but the signature is not?
       swap = await ChainSwapRepository.setPreimage(swap, preimage);

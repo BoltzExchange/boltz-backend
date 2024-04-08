@@ -112,8 +112,6 @@ describe('LndClient', () => {
 
     expect(bindPort).toEqual(serverPort);
 
-    server.start();
-
     // Connect to the mocked LND gRPC server
     const lndClient = new LndClient(Logger.disabledLogger, 'MOCK', {
       host: serverHost,

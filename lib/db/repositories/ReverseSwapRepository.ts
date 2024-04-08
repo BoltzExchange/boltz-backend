@@ -70,6 +70,9 @@ class ReverseSwapRepository {
     });
   };
 
+  public static setPreimage = (reverseSwap: ReverseSwap, preimage: string) =>
+    reverseSwap.update({ preimage });
+
   public static setInvoiceSettled = (
     reverseSwap: ReverseSwap,
     preimage: string,

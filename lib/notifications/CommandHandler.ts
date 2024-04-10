@@ -15,6 +15,7 @@ import {
 import ReferralStats from '../data/ReferralStats';
 import Stats from '../data/Stats';
 import ChannelCreation from '../db/models/ChannelCreation';
+import ReverseRoutingHint from '../db/models/ReverseRoutingHint';
 import ReverseSwap from '../db/models/ReverseSwap';
 import Swap from '../db/models/Swap';
 import ChainSwapRepository, {
@@ -22,6 +23,7 @@ import ChainSwapRepository, {
 } from '../db/repositories/ChainSwapRepository';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import FeeRepository from '../db/repositories/FeeRepository';
+import ReverseRoutingHintRepository from '../db/repositories/ReverseRoutingHintRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import Service from '../service/Service';
@@ -320,6 +322,14 @@ class CommandHandler {
       ),
     ]);
 
+    const reverseRoutingHints = new Map<string, ReverseRoutingHint>(
+      (
+        await ReverseRoutingHintRepository.getHints(
+          reverseSwaps.map((s) => s.id),
+        )
+      ).map((h) => [h.swapId, h]),
+    );
+
     for (const swap of swaps) {
       const channelCreation =
         await ChannelCreationRepository.getChannelCreation({
@@ -329,8 +339,18 @@ class CommandHandler {
       await this.sendSwapInfo(SwapType.Submarine, swap, channelCreation);
     }
 
-    for (const reverseSwap of reverseSwaps) {
-      await this.sendSwapInfo(SwapType.ReverseSubmarine, reverseSwap);
+    for (const reverseSwap of reverseSwaps as (ReverseSwap & {
+      routingHint?: ReverseRoutingHint;
+    })[]) {
+      if (reverseRoutingHints.has(reverseSwap.id)) {
+        reverseSwap.dataValues.routingHint = reverseRoutingHints.get(
+          reverseSwap.id,
+        )!.dataValues;
+      }
+      await this.sendSwapInfo(
+        SwapType.ReverseSubmarine,
+        reverseSwap.dataValues,
+      );
     }
 
     for (const chainSwap of chainSwaps) {

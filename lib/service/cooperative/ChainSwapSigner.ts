@@ -179,6 +179,7 @@ class ChainSwapSigner extends CoopSignerBase<
           claimDetails.cooperative,
           theirSignature,
         );
+        this.emit('claim', swap);
       } catch (e) {
         // TODO: reset the claim details for new attempt?
         this.logger.warn(
@@ -188,7 +189,6 @@ class ChainSwapSigner extends CoopSignerBase<
       }
     }
 
-    this.emit('claim', swap);
     return this.createSendingPartialSignature(swap, toSign);
   };
 

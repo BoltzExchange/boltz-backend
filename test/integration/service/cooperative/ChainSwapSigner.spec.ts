@@ -523,11 +523,7 @@ describe('ChainSwapSigner', () => {
         LiquidNetworks.liquidRegtest,
       );
 
-      expect.assertions(3);
-
-      signer.once('claim', (swap) => {
-        expect(swap).toEqual(chainSwapInfo);
-      });
+      expect.assertions(2);
 
       const res = await signer.signClaim(chainSwapInfo, {
         index: 0,

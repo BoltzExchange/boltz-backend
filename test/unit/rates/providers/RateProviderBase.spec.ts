@@ -70,8 +70,8 @@ describe('RateProviderBase', () => {
     ${'L-BTC'} | ${'BTC'} | ${1} | ${1_000}   | ${OrderSide.SELL} | ${SwapType.Submarine}        | ${2_674}
     ${'L-BTC'} | ${'BTC'} | ${1} | ${1_000}   | ${OrderSide.BUY}  | ${SwapType.ReverseSubmarine} | ${2_674}
     ${'L-BTC'} | ${'BTC'} | ${1} | ${1_000}   | ${OrderSide.SELL} | ${SwapType.ReverseSubmarine} | ${1_000}
-    ${'L-BTC'} | ${'BTC'} | ${1} | ${1_000}   | ${OrderSide.BUY}  | ${SwapType.Chain}            | ${2_674}
-    ${'L-BTC'} | ${'BTC'} | ${1} | ${1_000}   | ${OrderSide.SELL} | ${SwapType.Chain}            | ${2_674}
+    ${'L-BTC'} | ${'BTC'} | ${1} | ${1_000}   | ${OrderSide.BUY}  | ${SwapType.Chain}            | ${2_674 * 3}
+    ${'L-BTC'} | ${'BTC'} | ${1} | ${1_000}   | ${OrderSide.SELL} | ${SwapType.Chain}            | ${2_674 * 3}
   `(
     'should calculate adjusted minima',
     ({ base, quote, rate, configured, orderSide, type, expected }) => {

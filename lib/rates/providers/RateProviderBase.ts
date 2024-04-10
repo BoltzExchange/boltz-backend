@@ -11,7 +11,11 @@ import { Currency } from '../../wallet/WalletManager';
 import FeeProvider from '../FeeProvider';
 
 abstract class RateProviderBase<T> {
-  private static minLimitFactor = 2;
+  private static minLimitFactors = {
+    [SwapType.Submarine]: 2,
+    [SwapType.ReverseSubmarine]: 2,
+    [SwapType.Chain]: 6,
+  };
 
   protected constructor(
     protected readonly currencies: Map<string, Currency>,
@@ -89,7 +93,7 @@ abstract class RateProviderBase<T> {
             currency,
             SwapVersion.Legacy,
             BaseFeeType.NormalClaim,
-          ) * RateProviderBase.minLimitFactor;
+          ) * RateProviderBase.minLimitFactors[type || SwapType.Submarine];
 
         if (currency === base) {
           limit *= rate;

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Listen to Server-Send events via the CLI."""
+
 from argparse import ArgumentParser
 
 from sseclient import SSEClient

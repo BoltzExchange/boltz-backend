@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Script for building and pushing the Boltz Docker images."""
+
 import json
 import sys
 from argparse import ArgumentParser
@@ -10,7 +11,6 @@ from pathlib import Path
 
 @dataclass
 class BuildArgument:
-
     """Argument of the "docker build" command."""
 
     name: str
@@ -19,7 +19,6 @@ class BuildArgument:
 
 @dataclass
 class Image:
-
     """The tags and build arguments of a Docker image."""
 
     tag: str

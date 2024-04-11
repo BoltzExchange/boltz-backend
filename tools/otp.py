@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Generates OTP tokens."""
+
 from argparse import ArgumentParser
 
 import pyotp

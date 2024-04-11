@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Calculate the miner fee of a transaction."""
+
 from argparse import ArgumentParser
 from dataclasses import dataclass
 from pathlib import Path

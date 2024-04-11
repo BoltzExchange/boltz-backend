@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Script for building and pushing the Boltz Docker images."""
+import json
 import sys
 from argparse import ArgumentParser
 from dataclasses import dataclass
@@ -95,7 +96,8 @@ IMAGES: dict[str, Image] = {
         ],
     ),
     "boltz": Image(
-        tag="v3.3.0",
+        # Is read from the package.json file
+        tag="",
         arguments=[
             NODE_VERSION,
         ],
@@ -239,6 +241,11 @@ def parse_images(to_parse: list[str]) -> list[str]:
 
 
 if __name__ == "__main__":
+    with Path.open(
+        Path(__file__).parent.parent.absolute().joinpath("package.json")
+    ) as package_json:
+        IMAGES["boltz"].tag = json.load(package_json)["version"]
+
     PARSER = ArgumentParser(description="Build or push Docker images")
 
     # CLI commands

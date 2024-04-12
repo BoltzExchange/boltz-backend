@@ -41,7 +41,7 @@ GOLANG_VERSION = BuildArgument(
 )
 
 BITCOIN_VERSION = "26.1"
-LITECOIN_VERSION = "0.21.2.2"
+LITECOIN_VERSION = "0.21.3"
 ELEMENTS_VERSION = "23.2.1"
 GETH_VERSION = "1.13.14"
 
@@ -243,7 +243,7 @@ if __name__ == "__main__":
     with Path.open(
         Path(__file__).parent.parent.absolute().joinpath("package.json")
     ) as package_json:
-        IMAGES["boltz"].tag = json.load(package_json)["version"]
+        IMAGES["boltz"].tag = f"v{json.load(package_json)['version']}"
 
     PARSER = ArgumentParser(description="Build or push Docker images")
 

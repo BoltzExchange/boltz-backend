@@ -1389,7 +1389,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     // To handle this scenario, the Swap is queried again to ensure that it should actually be expired or refunded
     chainSwap = (await ChainSwapRepository.getChainSwap({ id: chainSwap.id }))!;
 
-    if (!NotPendingChainSwapEvents.includes(chainSwap.status)) {
+    if (NotPendingChainSwapEvents.includes(chainSwap.status)) {
       return;
     }
 

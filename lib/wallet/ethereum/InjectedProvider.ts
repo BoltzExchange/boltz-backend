@@ -58,7 +58,10 @@ class InjectedProvider implements Provider {
     if (config.providerEndpoint) {
       this.providers.set(
         EthProviderService.Node,
-        new JsonRpcProvider(config.providerEndpoint),
+        new JsonRpcProvider(config.providerEndpoint, undefined, {
+          polling: true,
+          pollingInterval: 1_000,
+        }),
       );
       this.logAddedProvider(EthProviderService.Node, {
         endpoint: config.providerEndpoint,

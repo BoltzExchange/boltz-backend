@@ -85,6 +85,7 @@ describe('ChainSwapSigner', () => {
     wallets: new Map<string, Wallet>([
       [btcWallet.symbol, btcWallet],
       [liquidWallet.symbol, liquidWallet],
+      ['RBTC', { type: CurrencyType.Ether } as unknown as Wallet],
     ]),
   } as WalletManager;
 
@@ -231,9 +232,15 @@ describe('ChainSwapSigner', () => {
     const swaps = [
       {
         id: '1',
+        receivingData: {
+          symbol: 'BTC',
+        },
       },
       {
         id: '2',
+        receivingData: {
+          symbol: 'BTC',
+        },
       },
     ];
     ChainSwapRepository.getChainSwaps = jest.fn().mockResolvedValue(swaps);
@@ -351,7 +358,13 @@ describe('ChainSwapSigner', () => {
 
   describe('registerForClaim', () => {
     test('should register swap for claiming', async () => {
-      const swap = { id: '123', some: 'data' } as unknown as ChainSwapInfo;
+      const swap = {
+        id: '123',
+        some: 'data',
+        receivingData: {
+          symbol: 'BTC',
+        },
+      } as unknown as ChainSwapInfo;
 
       await signer.registerForClaim(swap);
       expect(signer['swapsToClaim'].size).toEqual(1);
@@ -360,7 +373,13 @@ describe('ChainSwapSigner', () => {
     });
 
     test('should not overwrite swaps when registering for claim', async () => {
-      const swap = { id: '123', some: 'data' } as unknown as ChainSwapInfo;
+      const swap = {
+        id: '123',
+        some: 'data',
+        receivingData: {
+          symbol: 'BTC',
+        },
+      } as unknown as ChainSwapInfo;
 
       await signer.registerForClaim(swap);
       expect(signer['swapsToClaim'].size).toEqual(1);
@@ -373,10 +392,29 @@ describe('ChainSwapSigner', () => {
       expect(signer['swapsToClaim'].size).toEqual(1);
       expect(signer['swapsToClaim'].get(swap.id)).toEqual({ swap });
     });
+
+    test('should not register for claim when swap is not cooperatively claimable', async () => {
+      const swap = {
+        id: '123',
+        some: 'data',
+        receivingData: {
+          symbol: 'RBTC',
+        },
+      } as unknown as ChainSwapInfo;
+
+      await signer.registerForClaim(swap);
+      expect(signer['swapsToClaim'].size).toEqual(0);
+    });
   });
 
   test('should remove swap from claimable', async () => {
-    const swap = { id: '123', some: 'data' } as unknown as ChainSwapInfo;
+    const swap = {
+      id: '123',
+      some: 'data',
+      receivingData: {
+        symbol: 'BTC',
+      },
+    } as unknown as ChainSwapInfo;
 
     await signer.registerForClaim(swap);
     expect(signer['swapsToClaim'].size).toEqual(1);
@@ -502,6 +540,59 @@ describe('ChainSwapSigner', () => {
       await elementsClient.sendRawTransaction(claimTx.toHex());
     });
 
+    test('should settle swap when it cannot be claimed cooperatively', async () => {
+      ChainSwapRepository.setPreimage = jest
+        .fn()
+        .mockImplementation(async (swap) => swap);
+
+      const attemptSettle = jest.fn();
+      signer.setAttemptSettle(attemptSettle);
+
+      const { chainSwapInfo, claimDetails, preimage } = await createOutputs();
+
+      chainSwapInfo.receivingData.symbol = 'RBTC';
+      await signer.registerForClaim(chainSwapInfo);
+
+      const claimTx = liquidConstructClaimTransaction(
+        [
+          {
+            ...claimDetails.swapOutput,
+            preimage,
+            cooperative: true,
+            keys: claimDetails.theirKeys,
+            txHash: claimDetails.lockupTx.getHash(),
+            blindingPrivateKey: claimDetails.blindingPrivateKey,
+          },
+        ],
+        liquidWallet.decodeAddress(await elementsClient.getNewAddress()),
+        200,
+        false,
+        LiquidNetworks.liquidRegtest,
+      );
+      await signer.signClaim(
+        chainSwapInfo,
+        {
+          index: 0,
+          transaction: claimTx.toBuffer(),
+          pubNonce: Buffer.from(claimDetails.musig.getPublicNonce()),
+        },
+        preimage,
+      );
+
+      expect(ChainSwapRepository.setPreimage).toHaveBeenCalledTimes(1);
+      expect(ChainSwapRepository.setPreimage).toHaveBeenCalledWith(
+        chainSwapInfo,
+        preimage,
+      );
+      expect(attemptSettle).toHaveBeenCalledTimes(1);
+      expect(attemptSettle).toHaveBeenCalledWith(
+        undefined,
+        chainSwapInfo,
+        undefined,
+        preimage,
+      );
+    });
+
     test('should create partial signature for user without checks when swap is settled already', async () => {
       const { preimage, chainSwapInfo, claimDetails } = await createOutputs();
       (chainSwapInfo as any).isSettled = true;
@@ -554,14 +645,18 @@ describe('ChainSwapSigner', () => {
     });
 
     test('should not create partial signature when no claim details have been created', async () => {
-      const { chainSwapInfo, claimDetails } = await createOutputs();
+      const { chainSwapInfo, claimDetails, preimage } = await createOutputs();
 
       await expect(
-        signer.signClaim(chainSwapInfo, {
-          index: 0,
-          transaction: Buffer.alloc(0),
-          pubNonce: Buffer.from(claimDetails.musig.getPublicNonce()),
-        }),
+        signer.signClaim(
+          chainSwapInfo,
+          {
+            index: 0,
+            transaction: Buffer.alloc(0),
+            pubNonce: Buffer.from(claimDetails.musig.getPublicNonce()),
+          },
+          preimage,
+        ),
       ).rejects.toEqual(Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM_BROADCAST());
     });
 
@@ -645,4 +740,20 @@ describe('ChainSwapSigner', () => {
       ).rejects.toEqual(Errors.INVALID_PARTIAL_SIGNATURE());
     });
   });
+
+  test.each`
+    symbol     | result
+    ${'BTC'}   | ${true}
+    ${'L-BTC'} | ${true}
+    ${'RBTC'}  | ${false}
+  `(
+    'should claim cooperative for receiving symbol $symbol: $result',
+    ({ symbol, result }) => {
+      expect(
+        signer['canClaimCooperatively']({
+          receivingData: { symbol },
+        } as unknown as ChainSwapInfo),
+      ).toEqual(result);
+    },
+  );
 });

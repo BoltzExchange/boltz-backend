@@ -161,6 +161,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       });
     });
 
+    this.chainSwapSigner.setAttemptSettle(this.attemptSettleSwap);
     this.chainSwapSigner.on('claim', (swap) => {
       this.emit('claim', {
         swap,

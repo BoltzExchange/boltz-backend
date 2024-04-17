@@ -114,7 +114,8 @@ type CreatedOnchainSwap = {
   swapTree?: SwapTreeSerializer.SerializedTree;
 
   // Only set for Ethereum like chains
-  refundAddress: string | undefined;
+  claimAddress?: string;
+  refundAddress?: string;
 
   // This is either the generated address for Bitcoin like chains, or the address of the contract
   // to which Boltz will send the lockup transaction for Ether and ERC20 tokens
@@ -899,6 +900,7 @@ class SwapManager {
     return result as CreatedReverseSwap;
   };
 
+  // TODO: test
   public createChainSwap = async (args: {
     baseCurrency: string;
     quoteCurrency: string;
@@ -960,6 +962,7 @@ class SwapManager {
       dbData: ChainSwapDataType;
       serverKeys: string | undefined;
       blindingKey: string | undefined;
+      claimAddress: string | undefined;
       refundAddress: string | undefined;
       tree: Types.SwapTree | Types.LiquidSwapTree | undefined;
     }> => {
@@ -970,6 +973,7 @@ class SwapManager {
       };
       let serverKeys: string | undefined;
       let blindingKey: string | undefined;
+      let claimAddress: string | undefined;
       let refundAddress: string | undefined;
       let tree: Types.SwapTree | Types.LiquidSwapTree | undefined;
 
@@ -1023,13 +1027,18 @@ class SwapManager {
         );
         res.claimAddress = isSending ? args.claimAddress : undefined;
 
-        refundAddress = await currency.wallet.getAddress();
+        if (isSending) {
+          refundAddress = await currency.wallet.getAddress();
+        } else {
+          claimAddress = await currency.wallet.getAddress();
+        }
       }
 
       return {
         tree,
         serverKeys,
         blindingKey,
+        claimAddress,
         refundAddress,
         dbData: res as ChainSwapDataType,
       };
@@ -1072,6 +1081,7 @@ class SwapManager {
       receivingData: Awaited<ReturnType<typeof createChainData>>,
     ) => ({
       blindingKey: receivingData.blindingKey,
+      claimAddress: receivingData.claimAddress,
       serverPublicKey: receivingData.serverKeys,
       refundAddress: receivingData.refundAddress,
       amount: receivingData.dbData.expectedAmount,

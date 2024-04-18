@@ -1,3 +1,4 @@
+import { Transaction } from 'liquidjs-lib';
 import { ChainConfig } from '../Config';
 import Logger from '../Logger';
 import { CurrencyType } from '../consts/Enums';
@@ -6,16 +7,31 @@ import {
   LiquidBalances,
   liquidSymbol,
 } from '../consts/LiquidTypes';
-import ChainClient, { AddressType } from './ChainClient';
+import ChainClient, { AddressType, IChainClient } from './ChainClient';
 
 enum LiquidAddressType {
   Blech32 = 'blech32',
 }
 
-class ElementsClient extends ChainClient {
+interface IElementsClient extends IChainClient<Transaction> {
+  getAddressInfo(address: string): Promise<AddressInfo>;
+
+  getBalances(): Promise<LiquidBalances>;
+  getNewAddress(type?: AddressType | LiquidAddressType): Promise<string>;
+  dumpBlindingKey(address: string): Promise<string>;
+}
+
+class ElementsClient
+  extends ChainClient<Transaction>
+  implements IElementsClient
+{
   public static readonly symbol = liquidSymbol;
 
-  constructor(logger: Logger, config: ChainConfig) {
+  constructor(
+    logger: Logger,
+    config: ChainConfig,
+    public readonly isLowball = false,
+  ) {
     super(logger, config, ElementsClient.symbol);
     this.currencyType = CurrencyType.Liquid;
     this.feeFloor = 0.11;
@@ -79,4 +95,4 @@ class ElementsClient extends ChainClient {
 }
 
 export default ElementsClient;
-export { LiquidAddressType };
+export { LiquidAddressType, IElementsClient };

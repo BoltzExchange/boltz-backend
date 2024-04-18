@@ -43,6 +43,10 @@ type ChainConfig = {
   mempoolSpace?: string;
 };
 
+type LiquidChainConfig = ChainConfig & {
+  lowball?: ChainConfig;
+};
+
 type PreferredWallet = 'lnd' | 'core' | undefined;
 
 type BaseCurrencyConfig = {
@@ -181,7 +185,9 @@ type ConfigType = {
   pairs: PairConfig[];
   currencies: CurrencyConfig[];
 
-  liquid?: BaseCurrencyConfig;
+  liquid?: Omit<BaseCurrencyConfig, 'chain'> & {
+    chain: LiquidChainConfig;
+  };
 
   rsk?: RskConfig;
   ethereum: EthereumConfig;
@@ -515,6 +521,7 @@ export {
   PostgresConfig,
   CurrencyConfig,
   PreferredWallet,
+  LiquidChainConfig,
   BaseCurrencyConfig,
   NotificationConfig,
   EthProviderServiceConfig,

@@ -1,7 +1,10 @@
 import { Transaction } from 'bitcoinjs-lib';
 import Logger from '../../Logger';
 import { transactionHashToId } from '../../Utils';
-import ChainClient, { AddressType } from '../../chain/ChainClient';
+import ChainClient, {
+  AddressType,
+  IChainClient,
+} from '../../chain/ChainClient';
 import WalletProviderInterface, {
   SentTransaction,
   WalletBalance,
@@ -12,7 +15,7 @@ class CoreWalletProvider implements WalletProviderInterface {
 
   constructor(
     public logger: Logger,
-    public chainClient: ChainClient,
+    public chainClient: IChainClient,
   ) {
     this.symbol = chainClient.symbol;
 

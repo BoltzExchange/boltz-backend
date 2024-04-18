@@ -23,11 +23,15 @@ export const bitcoinClient = new ChainClient(
   'BTC',
 );
 
-export const elementsClient = new ElementsClient(Logger.disabledLogger, {
+export const elementsConfig = {
   host,
   port: 18884,
   cookie: `${cookieBasePath}/.elements-cookie`,
-});
+};
+export const elementsClient = new ElementsClient(
+  Logger.disabledLogger,
+  elementsConfig,
+);
 
 export const lndDataPath = `${resolve(
   __dirname,

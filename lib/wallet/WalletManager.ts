@@ -3,13 +3,13 @@ import { generateMnemonic, mnemonicToSeedSync, validateMnemonic } from 'bip39';
 import { Network } from 'bitcoinjs-lib';
 import { Provider } from 'ethers';
 import fs from 'fs';
-import ElementsClient from 'lib/chain/ElementsClient';
+import { IElementsClient } from 'lib/chain/ElementsClient';
 import { SLIP77Factory, Slip77Interface } from 'slip77';
 import * as ecc from 'tiny-secp256k1';
 import { CurrencyConfig } from '../Config';
 import Logger from '../Logger';
 import { splitDerivationPath } from '../Utils';
-import ChainClient from '../chain/ChainClient';
+import { IChainClient } from '../chain/ChainClient';
 import { CurrencyType } from '../consts/Enums';
 import { KeyProviderType } from '../db/models/KeyProvider';
 import KeyRepository from '../db/repositories/KeyRepository';
@@ -42,7 +42,7 @@ type Currency = {
   network?: Network;
   lndClient?: LndClient;
   clnClient?: ClnClient;
-  chainClient?: ChainClient;
+  chainClient?: IChainClient;
 
   // Needed for Ether and tokens on Ethereum
   provider?: Provider;
@@ -115,7 +115,7 @@ class WalletManager {
         } else {
           walletProvider = new ElementsWalletProvider(
             this.logger,
-            currency.chainClient! as ElementsClient,
+            currency.chainClient! as IElementsClient,
           );
         }
 

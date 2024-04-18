@@ -86,9 +86,7 @@ class ElementsWrapper
     this.annotateLowballInfo((c) => c.getNetworkInfo());
 
   public sendRawTransaction = (transactionHex: string) =>
-    this.allSettled(
-      this.clients.map((c) => c.sendRawTransaction(transactionHex)),
-    );
+    this.publicClient().sendRawTransaction(transactionHex);
 
   public getRawTransaction = (transactionId: string) =>
     this.allSettled(

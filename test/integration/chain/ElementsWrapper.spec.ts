@@ -146,17 +146,21 @@ describe('ElementsWrapper', () => {
     });
   });
 
-  test('should rescan only with public client', async () => {
+  test.each`
+    name
+    ${'rescanChain'}
+    ${'sendRawTransaction'}
+  `('should call $name only with public client', async ({ name }) => {
     const mockFnPublic = jest.fn();
     const mockFnLowball = jest.fn();
-    wrapper['publicClient']()['rescanChain'] = mockFnPublic;
-    wrapper['lowballClient']()!['rescanChain'] = mockFnLowball;
+    wrapper['publicClient']()[name] = mockFnPublic;
+    wrapper['lowballClient']()![name] = mockFnLowball;
 
-    const startHeight = (await wrapper.getBlockchainInfo()).blocks - 1;
-    await wrapper.rescanChain(startHeight);
+    const param = 123;
+    await wrapper[name](param);
 
     expect(mockFnPublic).toHaveBeenCalledTimes(1);
-    expect(mockFnPublic).toHaveBeenCalledWith(startHeight);
+    expect(mockFnPublic).toHaveBeenCalledWith(param);
     expect(mockFnLowball).toHaveBeenCalledTimes(0);
   });
 
@@ -222,7 +226,6 @@ describe('ElementsWrapper', () => {
   describe.each`
     name
     ${'getRawTransaction'}
-    ${'sendRawTransaction'}
     ${'getRawTransactionVerbose'}
   `('allSettled handling of $name', ({ name }) => {
     test('should call both clients', async () => {

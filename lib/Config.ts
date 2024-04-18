@@ -49,7 +49,7 @@ type LiquidChainConfig = ChainConfig & {
 
 type PreferredWallet = 'lnd' | 'core' | undefined;
 
-type BaseCurrencyConfig = {
+type BaseCurrencyConfig<T = ChainConfig> = {
   symbol: string;
   network: Network;
 
@@ -62,7 +62,7 @@ type BaseCurrencyConfig = {
 
   maxZeroConfAmount: number;
 
-  chain: ChainConfig;
+  chain: T;
 };
 
 type RoutingOffsetException = {
@@ -185,9 +185,7 @@ type ConfigType = {
   pairs: PairConfig[];
   currencies: CurrencyConfig[];
 
-  liquid?: Omit<BaseCurrencyConfig, 'chain'> & {
-    chain: LiquidChainConfig;
-  };
+  liquid?: BaseCurrencyConfig<LiquidChainConfig>;
 
   rsk?: RskConfig;
   ethereum: EthereumConfig;

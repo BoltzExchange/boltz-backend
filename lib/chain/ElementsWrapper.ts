@@ -40,8 +40,8 @@ class ElementsWrapper
       this.emit('block', blockHeight),
     );
 
-    // Only emit confirmed transactions from the public client when a lowball
-    // client is configured
+    // If we have a lowball client, bubble up only confirmed transactions
+    // of the public client
     const hasLowball = this.lowballClient() !== undefined;
 
     this.publicClient().on('transaction', ({ transaction, confirmed }) => {

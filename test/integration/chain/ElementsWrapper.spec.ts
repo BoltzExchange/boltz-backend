@@ -25,7 +25,7 @@ describe('ElementsWrapper', () => {
     wrapper.disconnect();
   });
 
-  test('should have currenType', () => {
+  test('should have currencyType', () => {
     expect(wrapper.currencyType).toEqual(CurrencyType.Liquid);
   });
 

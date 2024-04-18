@@ -1,5 +1,4 @@
 import { Transaction } from 'bitcoinjs-lib';
-import { Transaction as LiquidTransaction } from 'liquidjs-lib/src/transaction';
 import BaseClient from '../BaseClient';
 import { ChainConfig } from '../Config';
 import Logger from '../Logger';
@@ -18,7 +17,11 @@ import {
 import ChainTipRepository from '../db/repositories/ChainTipRepository';
 import MempoolSpace from './MempoolSpace';
 import RpcClient from './RpcClient';
-import ZmqClient, { ZmqNotification, filters } from './ZmqClient';
+import ZmqClient, {
+  SomeTransaction,
+  ZmqNotification,
+  filters,
+} from './ZmqClient';
 
 enum AddressType {
   Legacy = 'legacy',
@@ -31,7 +34,7 @@ type BlockChainInfoScanned = BlockchainInfo & {
   scannedBlocks: number;
 };
 
-type ChainClientEvents<T extends Transaction | LiquidTransaction> = {
+type ChainClientEvents<T extends SomeTransaction> = {
   'status.changed': ClientStatus;
   block: number;
   transaction: {
@@ -40,9 +43,8 @@ type ChainClientEvents<T extends Transaction | LiquidTransaction> = {
   };
 };
 
-interface IChainClient<
-  T extends Transaction | LiquidTransaction = Transaction | LiquidTransaction,
-> extends TypedEventEmitter<ChainClientEvents<T>> {
+interface IChainClient<T extends SomeTransaction = SomeTransaction>
+  extends TypedEventEmitter<ChainClientEvents<T>> {
   get symbol(): string;
   get currencyType(): CurrencyType;
 
@@ -74,7 +76,7 @@ interface IChainClient<
   ): Promise<string>;
 }
 
-class ChainClient<T extends Transaction | LiquidTransaction = Transaction>
+class ChainClient<T extends SomeTransaction = Transaction>
   extends BaseClient<ChainClientEvents<T>>
   implements IChainClient<T>
 {

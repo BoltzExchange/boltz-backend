@@ -22,9 +22,9 @@ const filters = {
   hashBlock: 'pubhashblock',
 };
 
-class ZmqClient<
-  T extends Transaction | LiquidTransaction,
-> extends TypedEventEmitter<{
+export type SomeTransaction = Transaction | LiquidTransaction;
+
+class ZmqClient<T extends SomeTransaction> extends TypedEventEmitter<{
   block: number;
   transaction: {
     transaction: T;
@@ -348,9 +348,7 @@ class ZmqClient<
     });
   };
 
-  private isRelevantTransaction = (
-    transaction: Transaction | LiquidTransaction,
-  ) => {
+  private isRelevantTransaction = (transaction: SomeTransaction) => {
     for (const input of transaction.ins) {
       if (this.relevantInputs.has(getHexString(input.hash))) {
         return true;

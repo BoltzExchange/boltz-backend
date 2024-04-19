@@ -2,6 +2,7 @@ import { Transaction } from 'liquidjs-lib';
 import BaseClient from '../BaseClient';
 import { LiquidChainConfig } from '../Config';
 import Logger from '../Logger';
+import { allSettledFirst } from '../PromiseUtils';
 import { CurrencyType } from '../consts/Enums';
 import { UnspentUtxo } from '../consts/Types';
 import { AddressType, ChainClientEvents } from './ChainClient';
@@ -89,12 +90,12 @@ class ElementsWrapper
     this.publicClient().sendRawTransaction(transactionHex);
 
   public getRawTransaction = (transactionId: string) =>
-    this.allSettled(
+    allSettledFirst(
       this.clients.map((c) => c.getRawTransaction(transactionId)),
     );
 
   public getRawTransactionVerbose = (transactionId: string) =>
-    this.allSettled(
+    allSettledFirst(
       this.clients.map((c) => c.getRawTransactionVerbose(transactionId)),
     );
 
@@ -134,22 +135,6 @@ class ElementsWrapper
   private publicClient = () => this.clients.find((c) => !c.isLowball)!;
 
   private lowballClient = () => this.clients.find((c) => c.isLowball);
-
-  private allSettled = async <T>(promises: Promise<T>[]): Promise<T> => {
-    const settled = await Promise.allSettled(promises);
-    const results = settled
-      .filter(
-        (res): res is PromiseFulfilledResult<Awaited<T>> =>
-          res.status === 'fulfilled',
-      )
-      .map((res) => res.value);
-
-    if (results.length === 0) {
-      throw (settled[0] as PromiseRejectedResult).reason;
-    }
-
-    return results[0];
-  };
 
   private annotateLowballInfo = async <T>(
     fn: (c: ElementsClient) => Promise<T>,

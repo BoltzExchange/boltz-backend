@@ -20,7 +20,7 @@ import {
   transactionHashToId,
   transactionSignalsRbfExplicitly,
 } from '../Utils';
-import ChainClient from '../chain/ChainClient';
+import { IChainClient } from '../chain/ChainClient';
 import { CurrencyType, SwapUpdateEvent, SwapVersion } from '../consts/Enums';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
 import ReverseSwap from '../db/models/ReverseSwap';
@@ -87,7 +87,7 @@ class UtxoNursery extends TypedEventEmitter<{
     });
   };
 
-  private listenTransactions = (chainClient: ChainClient, wallet: Wallet) => {
+  private listenTransactions = (chainClient: IChainClient, wallet: Wallet) => {
     chainClient.on('transaction', async ({ transaction, confirmed }) => {
       await Promise.all([
         this.checkSwapOutputs(chainClient, wallet, transaction, confirmed),
@@ -104,7 +104,7 @@ class UtxoNursery extends TypedEventEmitter<{
   };
 
   private checkSwapOutputs = async (
-    chainClient: ChainClient,
+    chainClient: IChainClient,
     wallet: Wallet,
     transaction: Transaction | LiquidTransaction,
     confirmed: boolean,
@@ -141,7 +141,7 @@ class UtxoNursery extends TypedEventEmitter<{
   };
 
   private checkReverseSwapClaims = async (
-    chainClient: ChainClient,
+    chainClient: IChainClient,
     transaction: Transaction | LiquidTransaction,
   ) => {
     for (let vin = 0; vin < transaction.ins.length; vin += 1) {
@@ -177,7 +177,7 @@ class UtxoNursery extends TypedEventEmitter<{
   };
 
   private checkReverseSwapLockupsConfirmed = async (
-    chainClient: ChainClient,
+    chainClient: IChainClient,
     wallet: Wallet,
     transaction: Transaction | LiquidTransaction,
     confirmed: boolean,
@@ -206,7 +206,7 @@ class UtxoNursery extends TypedEventEmitter<{
     );
   };
 
-  private listenBlocks = (chainClient: ChainClient, wallet: Wallet) => {
+  private listenBlocks = (chainClient: IChainClient, wallet: Wallet) => {
     chainClient.on('block', async (height) => {
       await Promise.all([
         this.checkSwapMempoolTransactions(chainClient, wallet),
@@ -219,7 +219,7 @@ class UtxoNursery extends TypedEventEmitter<{
   };
 
   private checkSwapMempoolTransactions = async (
-    chainClient: ChainClient,
+    chainClient: IChainClient,
     wallet: Wallet,
   ) => {
     await this.lock.acquire(UtxoNursery.swapLockupLock, async () => {
@@ -273,7 +273,7 @@ class UtxoNursery extends TypedEventEmitter<{
 
   // This method is a fallback for "checkReverseSwapLockupsConfirmed" because that method sometimes misses transactions on mainnet for an unknown reason
   private checkReverseSwapMempoolTransactions = async (
-    chainClient: ChainClient,
+    chainClient: IChainClient,
     wallet: Wallet,
   ) => {
     await this.lock.acquire(
@@ -316,7 +316,7 @@ class UtxoNursery extends TypedEventEmitter<{
   };
 
   private checkExpiredSwaps = async (
-    chainClient: ChainClient,
+    chainClient: IChainClient,
     height: number,
   ) => {
     const expirableSwaps = await SwapRepository.getSwapsExpirable(height);
@@ -342,7 +342,7 @@ class UtxoNursery extends TypedEventEmitter<{
   };
 
   private checkExpiredReverseSwaps = async (
-    chainClient: ChainClient,
+    chainClient: IChainClient,
     height: number,
   ) => {
     const expirableReverseSwaps =
@@ -375,7 +375,7 @@ class UtxoNursery extends TypedEventEmitter<{
   };
 
   private reverseSwapLockupConfirmed = async (
-    chainClient: ChainClient,
+    chainClient: IChainClient,
     wallet: Wallet,
     reverseSwap: ReverseSwap,
     transaction: Transaction | LiquidTransaction,
@@ -400,7 +400,7 @@ class UtxoNursery extends TypedEventEmitter<{
 
   private checkSwapTransaction = async (
     swap: Swap,
-    chainClient: ChainClient,
+    chainClient: IChainClient,
     wallet: Wallet,
     transaction: Transaction | LiquidTransaction,
     confirmed: boolean,
@@ -533,7 +533,7 @@ class UtxoNursery extends TypedEventEmitter<{
    * Detects whether the transaction signals RBF explicitly or inherently
    */
   private transactionSignalsRbf = async (
-    chainClient: ChainClient,
+    chainClient: IChainClient,
     transaction: Transaction | LiquidTransaction,
   ) => {
     // Check for explicit signalling
@@ -564,7 +564,7 @@ class UtxoNursery extends TypedEventEmitter<{
 
   private getPreviousAddresses = async (
     transaction: Transaction | LiquidTransaction,
-    chainClient: ChainClient,
+    chainClient: IChainClient,
     wallet: Wallet,
   ) => {
     const inputTxsIds = this.chunkArray(
@@ -596,7 +596,10 @@ class UtxoNursery extends TypedEventEmitter<{
       );
   };
 
-  private getTransactions = async (chainClient: ChainClient, ids: string[]) => {
+  private getTransactions = async (
+    chainClient: IChainClient,
+    ids: string[],
+  ) => {
     const txs: string[] = [];
 
     for (const id of ids) {

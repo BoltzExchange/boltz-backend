@@ -22,10 +22,12 @@ const filters = {
   hashBlock: 'pubhashblock',
 };
 
-class ZmqClient extends TypedEventEmitter<{
+export type SomeTransaction = Transaction | LiquidTransaction;
+
+class ZmqClient<T extends SomeTransaction> extends TypedEventEmitter<{
   block: number;
   transaction: {
-    transaction: Transaction | LiquidTransaction;
+    transaction: T;
     confirmed: boolean;
   };
 }> {
@@ -136,7 +138,7 @@ class ZmqClient extends TypedEventEmitter<{
   };
 
   public rescanChain = async (startHeight: number): Promise<void> => {
-    const checkTransaction = (transaction: Transaction | LiquidTransaction) => {
+    const checkTransaction = (transaction: T) => {
       if (this.isRelevantTransaction(transaction)) {
         this.emit('transaction', { transaction, confirmed: true });
       }
@@ -150,7 +152,7 @@ class ZmqClient extends TypedEventEmitter<{
           const block = await this.chainClient.getBlockVerbose(hash);
 
           for (const { hex } of block.tx) {
-            checkTransaction(parseTransaction(this.currencyType, hex));
+            checkTransaction(parseTransaction(this.currencyType, hex) as T);
           }
         } else {
           const block = await this.chainClient.getBlock(hash);
@@ -158,7 +160,7 @@ class ZmqClient extends TypedEventEmitter<{
           for (const tx of block.tx) {
             const rawTransaction = await this.chainClient.getRawTransaction(tx);
             checkTransaction(
-              parseTransaction(this.currencyType, rawTransaction),
+              parseTransaction(this.currencyType, rawTransaction) as T,
             );
           }
         }
@@ -181,7 +183,10 @@ class ZmqClient extends TypedEventEmitter<{
     const socket = await this.createSocket(address, 'rawtx');
 
     socket.on('message', async (_, rawTransaction: Buffer) => {
-      const transaction = parseTransaction(this.currencyType, rawTransaction);
+      const transaction = parseTransaction(
+        this.currencyType,
+        rawTransaction,
+      ) as T;
       const id = transaction.getId();
 
       // If the client has already verified that the transaction is relevant for the wallet
@@ -343,9 +348,7 @@ class ZmqClient extends TypedEventEmitter<{
     });
   };
 
-  private isRelevantTransaction = (
-    transaction: Transaction | LiquidTransaction,
-  ) => {
+  private isRelevantTransaction = (transaction: SomeTransaction) => {
     for (const input of transaction.ins) {
       if (this.relevantInputs.has(getHexString(input.hash))) {
         return true;

@@ -28,7 +28,7 @@ import {
   getRate,
   splitPairId,
 } from '../Utils';
-import ChainClient from '../chain/ChainClient';
+import { IChainClient } from '../chain/ChainClient';
 import { LegacyReverseSwapOutputType, etherDecimals } from '../consts/Consts';
 import { CurrencyType, SwapUpdateEvent, SwapVersion } from '../consts/Enums';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
@@ -674,7 +674,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
   };
 
   private lockupUtxo = async (
-    chainClient: ChainClient,
+    chainClient: IChainClient,
     wallet: Wallet,
     lightningClient: LightningClient,
     reverseSwap: ReverseSwap,
@@ -845,7 +845,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
   };
 
   private claimUtxo = async (
-    chainClient: ChainClient,
+    chainClient: IChainClient,
     wallet: Wallet,
     swap: Swap,
     transaction: Transaction | LiquidTransaction,

@@ -22,7 +22,7 @@ import {
   getLightningCurrency,
   splitPairId,
 } from '../../Utils';
-import ChainClient from '../../chain/ChainClient';
+import { IChainClient } from '../../chain/ChainClient';
 import { SwapUpdateEvent, SwapVersion } from '../../consts/Enums';
 import TypedEventEmitter from '../../consts/TypedEventEmitter';
 import ChannelCreation from '../../db/models/ChannelCreation';
@@ -364,7 +364,7 @@ class DeferredClaimer extends TypedEventEmitter<{
   };
 
   private constructClaimDetails = async (
-    chainClient: ChainClient,
+    chainClient: IChainClient,
     wallet: Wallet,
     toClaim: SwapToClaim,
     cooperative: boolean = false,

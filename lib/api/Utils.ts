@@ -6,7 +6,7 @@ import CountryCodes from '../service/CountryCodes';
 import ServiceErrors from '../service/Errors';
 import Errors from './Errors';
 
-type ApiArgument = {
+export type ApiArgument = {
   name: string;
   type: 'string' | 'number' | 'boolean' | 'object';
   hex?: boolean;

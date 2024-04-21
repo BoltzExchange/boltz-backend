@@ -75,7 +75,7 @@ describe('DeferredClaimer', () => {
     chainClient: bitcoinClient,
     lndClient: bitcoinLndClient,
     type: CurrencyType.BitcoinLike,
-  } as Currency;
+  } as unknown as Currency;
 
   const btcWallet = new Wallet(
     Logger.disabledLogger,

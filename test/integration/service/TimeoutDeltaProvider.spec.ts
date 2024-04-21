@@ -42,7 +42,7 @@ describe('TimeoutDeltaProvider', () => {
         {
           chainClient: bitcoinClient,
           lndClient: bitcoinLndClient,
-        } as Currency,
+        } as unknown as Currency,
       ],
       [
         'L-BTC',

@@ -55,7 +55,7 @@ describe('MusigSigner', () => {
     chainClient: bitcoinClient,
     lndClient: bitcoinLndClient,
     type: CurrencyType.BitcoinLike,
-  } as Currency;
+  } as unknown as Currency;
 
   const btcWallet = {} as Wallet;
   const walletManager = {

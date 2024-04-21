@@ -2,6 +2,7 @@ import { randomBytes } from 'crypto';
 import Logger from '../../../lib/Logger';
 import { getHexBuffer } from '../../../lib/Utils';
 import {
+  ApiArgument,
   checkPreimageHashLength,
   errorResponse,
   markSwap,
@@ -21,14 +22,14 @@ describe('Utils', () => {
   });
 
   test('should validate requests', () => {
-    const checks = [
+    const checks: ApiArgument[] = [
       {
         name: 'test',
         type: 'string',
       },
     ];
 
-    const hexChecks = [
+    const hexChecks: ApiArgument[] = [
       {
         name: 'test',
         type: 'string',
@@ -36,7 +37,7 @@ describe('Utils', () => {
       },
     ];
 
-    const optionalChecks = [
+    const optionalChecks: ApiArgument[] = [
       {
         name: 'test',
         type: 'string',

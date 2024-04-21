@@ -43,9 +43,13 @@ type ChainConfig = {
   mempoolSpace?: string;
 };
 
+type LiquidChainConfig = ChainConfig & {
+  lowball?: ChainConfig;
+};
+
 type PreferredWallet = 'lnd' | 'core' | undefined;
 
-type BaseCurrencyConfig = {
+type BaseCurrencyConfig<T = ChainConfig> = {
   symbol: string;
   network: Network;
 
@@ -58,7 +62,7 @@ type BaseCurrencyConfig = {
 
   maxZeroConfAmount: number;
 
-  chain: ChainConfig;
+  chain: T;
 };
 
 type RoutingOffsetException = {
@@ -182,7 +186,7 @@ type ConfigType = {
   pairs: PairConfig[];
   currencies: CurrencyConfig[];
 
-  liquid?: BaseCurrencyConfig;
+  liquid?: BaseCurrencyConfig<LiquidChainConfig>;
 
   rsk?: RskConfig;
   ethereum: EthereumConfig;
@@ -517,6 +521,7 @@ export {
   PostgresConfig,
   CurrencyConfig,
   PreferredWallet,
+  LiquidChainConfig,
   BaseCurrencyConfig,
   NotificationConfig,
   EthProviderServiceConfig,

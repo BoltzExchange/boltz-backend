@@ -20,6 +20,7 @@ import {
 } from '../../../lib/consts/Enums';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
+import LockupTransactionTracker from '../../../lib/rates/LockupTransactionTracker';
 import Blocks from '../../../lib/service/Blocks';
 import Errors from '../../../lib/swap/Errors';
 import UtxoNursery from '../../../lib/swap/UtxoNursery';
@@ -176,6 +177,10 @@ describe('UtxoNursery', () => {
   const blocks = {
     isBlocked: jest.fn().mockReturnValue(false),
   } as unknown as Blocks;
+  const lockupTracker = {
+    zeroConfAccepted: jest.fn().mockReturnValue(true),
+    addPendingTransactionToTrack: jest.fn(),
+  } as unknown as LockupTransactionTracker;
 
   const nursery = new UtxoNursery(
     Logger.disabledLogger,
@@ -183,6 +188,7 @@ describe('UtxoNursery', () => {
       wallets: new Map<string, any>([['BTC', btcWallet]]),
     } as any,
     blocks,
+    lockupTracker,
   );
 
   beforeAll(async () => {
@@ -408,6 +414,12 @@ describe('UtxoNursery', () => {
     expect(mockEncodeAddress).toHaveBeenCalledTimes(4);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(1);
     expect(mockRemoveOutputFilter).toHaveBeenCalledTimes(1);
+    expect(lockupTracker.zeroConfAccepted).toHaveBeenCalledTimes(1);
+    expect(lockupTracker.zeroConfAccepted).toHaveBeenCalledWith('BTC');
+    expect(lockupTracker.addPendingTransactionToTrack).toHaveBeenCalledTimes(1);
+    expect(lockupTracker.addPendingTransactionToTrack).toHaveBeenCalledWith(
+      mockGetSwapResult,
+    );
 
     expect(eventEmitted).toEqual(true);
 
@@ -503,6 +515,37 @@ describe('UtxoNursery', () => {
     );
 
     expect(mockRemoveOutputFilter).toHaveBeenCalledTimes(0);
+  });
+
+  test('should reject 0-conf transactions when the lockup transaction tracker does not allow for 0-conf', async () => {
+    const transaction = Transaction.fromHex(sampleTransactions.lockup);
+    transaction.ins[0].sequence = 0xffffffff;
+    transaction.ins[1].sequence = 0xffffffff;
+
+    mockGetSwapResult = {
+      id: '0conf',
+      acceptZeroConf: true,
+      redeemScript: sampleRedeemScript,
+    };
+
+    expect.assertions(3);
+
+    nursery.once('swap.lockup.zeroconf.rejected', (args) => {
+      expect(args.transaction).toEqual(transaction);
+      expect(args.swap.id).toEqual(mockGetSwapResult.id);
+      expect(args.reason).toEqual(
+        Errors.SWAP_DOES_NOT_ACCEPT_ZERO_CONF().message,
+      );
+    });
+
+    lockupTracker.zeroConfAccepted = jest.fn().mockReturnValue(false);
+
+    await nursery['checkSwapOutputs'](
+      btcChainClient,
+      btcWallet,
+      transaction,
+      false,
+    );
   });
 
   test('should detect Taproot Swap outputs', async () => {

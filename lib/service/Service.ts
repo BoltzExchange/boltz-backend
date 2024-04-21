@@ -66,6 +66,7 @@ import {
   GetInfoResponse,
   LightningInfo,
 } from '../proto/boltzrpc_pb';
+import LockupTransactionTracker from '../rates/LockupTransactionTracker';
 import RateProvider from '../rates/RateProvider';
 import { PairTypeLegacy } from '../rates/providers/RateProviderLegacy';
 import ErrorsSwap from '../swap/Errors';
@@ -185,6 +186,11 @@ class Service {
       config.retryInterval,
       blocks,
       config.swap,
+      new LockupTransactionTracker(
+        this.logger,
+        this.currencies,
+        this.rateProvider,
+      ),
     );
 
     this.eventHandler = new EventHandler(

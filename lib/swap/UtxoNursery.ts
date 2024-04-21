@@ -27,6 +27,7 @@ import ReverseSwap from '../db/models/ReverseSwap';
 import Swap from '../db/models/Swap';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
+import LockupTransactionTracker from '../rates/LockupTransactionTracker';
 import Blocks from '../service/Blocks';
 import Wallet from '../wallet/Wallet';
 import WalletLiquid from '../wallet/WalletLiquid';
@@ -72,6 +73,7 @@ class UtxoNursery extends TypedEventEmitter<{
     private readonly logger: Logger,
     private readonly walletManager: WalletManager,
     private readonly blocks: Blocks,
+    private readonly lockupTransactionTracker: LockupTransactionTracker,
   ) {
     super();
   }
@@ -472,7 +474,10 @@ class UtxoNursery extends TypedEventEmitter<{
 
     // Confirmed transactions do not have to be checked for 0-conf criteria
     if (!confirmed) {
-      if (updatedSwap.acceptZeroConf !== true) {
+      if (
+        updatedSwap.acceptZeroConf !== true ||
+        !this.lockupTransactionTracker.zeroConfAccepted(chainClient.symbol)
+      ) {
         this.emit('swap.lockup.zeroconf.rejected', {
           transaction,
           swap: updatedSwap,
@@ -481,12 +486,12 @@ class UtxoNursery extends TypedEventEmitter<{
         return;
       }
 
-      const signalsRBF = await this.transactionSignalsRbf(
+      const signalsRbf = await this.transactionSignalsRbf(
         chainClient,
         transaction,
       );
 
-      if (signalsRBF) {
+      if (signalsRbf) {
         this.emit('swap.lockup.zeroconf.rejected', {
           transaction,
           swap: updatedSwap,
@@ -522,6 +527,7 @@ class UtxoNursery extends TypedEventEmitter<{
           updatedSwap.id
         }: ${transaction.getId()}:${swapOutput.vout}`,
       );
+      await this.lockupTransactionTracker.addPendingTransactionToTrack(swap);
     }
 
     chainClient.removeOutputFilter(swapOutput.script);

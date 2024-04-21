@@ -65,6 +65,10 @@ prepayminerfee = false
 host = "127.0.0.1"
 port = 9_001
 
+# Configure CORS headers set by the backend
+# "" to disable
+cors = "*"
+
 # The backend can expose a metrics endpoint about swap count, volume, etc
 # [prometheus]
 # host = "127.0.0.1"

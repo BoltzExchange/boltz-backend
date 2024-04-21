@@ -22,6 +22,12 @@ describe('Utils', () => {
     await Promise.all([bitcoinClient.generate(1), elementsClient.generate(1)]);
   });
 
+  afterAll(() => {
+    bitcoinClient.disconnect();
+    elementsClient.disconnect();
+    bitcoinLndClient.disconnect();
+  });
+
   test('should calculate UTXO transaction fee', async () => {
     const satPerVbyte = 2;
     const txId = await bitcoinClient.sendToAddress(
@@ -31,9 +37,15 @@ describe('Utils', () => {
     );
 
     const tx = Transaction.fromHex(await bitcoinClient.getRawTransaction(txId));
-    expect(await calculateUtxoTransactionFee(bitcoinClient, tx)).toEqual(
-      tx.virtualSize() * satPerVbyte,
-    );
+
+    // Leave some buffer for core not doing *exactly* the sat/vbyte we told it to
+    const expectedFee = tx.virtualSize() * satPerVbyte;
+    await expect(
+      calculateUtxoTransactionFee(bitcoinClient, tx),
+    ).resolves.toBeGreaterThanOrEqual(expectedFee - 5);
+    await expect(
+      calculateUtxoTransactionFee(bitcoinClient, tx),
+    ).resolves.toBeLessThanOrEqual(expectedFee + 5);
   });
 
   test('should calculate Liquid transaction fee', async () => {
@@ -47,8 +59,14 @@ describe('Utils', () => {
     const tx = TransactionLiquid.fromHex(
       await elementsClient.getRawTransaction(txId),
     );
-    expect(calculateLiquidTransactionFee(tx)).toEqual(
-      tx.virtualSize() * satPerVbyte,
+
+    // Leave some buffer for Elements not doing *exactly* the sat/vbyte we told it to
+    const expectedFee = tx.virtualSize() * satPerVbyte;
+    expect(calculateLiquidTransactionFee(tx)).toBeGreaterThanOrEqual(
+      expectedFee - 5,
+    );
+    expect(calculateLiquidTransactionFee(tx)).toBeLessThanOrEqual(
+      expectedFee + 5,
     );
   });
 
@@ -67,11 +85,5 @@ describe('Utils', () => {
     expect(decoded.satoshis).toEqual(value);
     expect(decoded.minFinalCltvExpiry).toEqual(cltvExpiry);
     expect(getHexBuffer(decoded.paymentHash!)).toEqual(preimageHash);
-  });
-
-  afterAll(() => {
-    bitcoinClient.disconnect();
-    elementsClient.disconnect();
-    bitcoinLndClient.disconnect();
   });
 });

@@ -5,8 +5,10 @@ import { generateId, getHexString } from '../../../lib/Utils';
 import ChainClient from '../../../lib/chain/ChainClient';
 import { OrderSide } from '../../../lib/consts/Enums';
 import { liquidSymbol } from '../../../lib/consts/LiquidTypes';
+import Swap from '../../../lib/db/models/Swap';
 import PendingLockupTransactionRepository from '../../../lib/db/repositories/PendingLockupTransactionRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
+import Errors from '../../../lib/rates/Errors';
 import LockupTransactionTracker from '../../../lib/rates/LockupTransactionTracker';
 import RateProvider from '../../../lib/rates/RateProvider';
 import { wait } from '../../Utils';
@@ -72,32 +74,47 @@ describe('LockupTransactionTracker', () => {
     expect(tracker.zeroConfAccepted(symbol)).toEqual(result);
   });
 
-  test.each`
-    pair           | orderSide         | chainCurrency
-    ${'BTC/BTC'}   | ${OrderSide.BUY}  | ${'BTC'}
-    ${'BTC/BTC'}   | ${OrderSide.SELL} | ${'BTC'}
-    ${'L-BTC/BTC'} | ${OrderSide.BUY}  | ${'BTC'}
-    ${'L-BTC/BTC'} | ${OrderSide.SELL} | ${'L-BTC'}
-  `(
-    'should add pending transaction to track',
-    async ({ pair, orderSide, chainCurrency }) => {
-      PendingLockupTransactionRepository.create = jest.fn();
+  describe('addPendingTransactionToTrack', () => {
+    test.each`
+      pair           | orderSide         | chainCurrency
+      ${'BTC/BTC'}   | ${OrderSide.BUY}  | ${'BTC'}
+      ${'BTC/BTC'}   | ${OrderSide.SELL} | ${'BTC'}
+      ${'L-BTC/BTC'} | ${OrderSide.BUY}  | ${'BTC'}
+      ${'L-BTC/BTC'} | ${OrderSide.SELL} | ${'L-BTC'}
+    `(
+      'should add pending $chainCurrency transaction to track',
+      async ({ pair, orderSide, chainCurrency }) => {
+        PendingLockupTransactionRepository.create = jest.fn();
 
-      const id = generateId();
-      await tracker.addPendingTransactionToTrack({
-        id,
-        pair,
-        orderSide,
-      } as any);
+        const id = generateId();
+        await tracker.addPendingTransactionToTrack({
+          id,
+          pair,
+          orderSide,
+        } as any);
+        expect(PendingLockupTransactionRepository.create).toHaveBeenCalledTimes(
+          1,
+        );
+        expect(PendingLockupTransactionRepository.create).toHaveBeenCalledWith(
+          id,
+          chainCurrency,
+        );
+      },
+    );
+
+    test('should throw when transaction of chain currency that is not being tracked is added', async () => {
+      await expect(
+        tracker.addPendingTransactionToTrack({
+          pair: 'NOT/TRACKED',
+          orderSide: OrderSide.BUY,
+        } as unknown as Swap),
+      ).rejects.toEqual(Errors.SYMBOL_LOCKUPS_NOT_BEING_TRACKED('TRACKED'));
+
       expect(PendingLockupTransactionRepository.create).toHaveBeenCalledTimes(
-        1,
+        0,
       );
-      expect(PendingLockupTransactionRepository.create).toHaveBeenCalledWith(
-        id,
-        chainCurrency,
-      );
-    },
-  );
+    });
+  });
 
   describe('checkPendingLockupsForChain', () => {
     test.each`

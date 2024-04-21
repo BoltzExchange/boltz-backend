@@ -7,6 +7,7 @@ import Swap from '../db/models/Swap';
 import PendingLockupTransactionRepository from '../db/repositories/PendingLockupTransactionRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import { Currency } from '../wallet/WalletManager';
+import Errors from './Errors';
 import RateProvider from './RateProvider';
 
 class LockupTransactionTracker {
@@ -33,10 +34,13 @@ class LockupTransactionTracker {
 
   public addPendingTransactionToTrack = async (swap: Swap) => {
     const { base, quote } = splitPairId(swap.pair);
-    await PendingLockupTransactionRepository.create(
-      swap.id,
-      getChainCurrency(base, quote, swap.orderSide, false),
-    );
+    const chainCurrency = getChainCurrency(base, quote, swap.orderSide, false);
+
+    if (!this.zeroConfAcceptedMap.has(chainCurrency)) {
+      throw Errors.SYMBOL_LOCKUPS_NOT_BEING_TRACKED(chainCurrency);
+    }
+
+    await PendingLockupTransactionRepository.create(swap.id, chainCurrency);
   };
 
   private listenToBlocks = (chainClient: IChainClient) => {

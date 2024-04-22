@@ -1,5 +1,4 @@
 import { DataTypes, Model, Sequelize } from 'sequelize';
-import Swap from './Swap';
 
 export type PendingLockupTransactionType = {
   swapId: string;
@@ -37,10 +36,6 @@ class PendingLockupTransaction
         ],
       },
     );
-
-    PendingLockupTransaction.belongsTo(Swap, {
-      foreignKey: 'swapId',
-    });
   };
 }
 

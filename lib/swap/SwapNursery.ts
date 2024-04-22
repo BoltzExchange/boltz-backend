@@ -44,6 +44,7 @@ import {
   LightningClient,
 } from '../lightning/LightningClient';
 import FeeProvider from '../rates/FeeProvider';
+import LockupTransactionTracker from '../rates/LockupTransactionTracker';
 import RateProvider from '../rates/RateProvider';
 import Blocks from '../service/Blocks';
 import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
@@ -101,12 +102,18 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     private retryInterval: number,
     blocks: Blocks,
     private readonly claimer: DeferredClaimer,
+    lockupTransactionTracker: LockupTransactionTracker,
   ) {
     super();
 
     this.logger.info(`Setting Swap retry interval to ${retryInterval} seconds`);
 
-    this.utxoNursery = new UtxoNursery(this.logger, this.walletManager, blocks);
+    this.utxoNursery = new UtxoNursery(
+      this.logger,
+      this.walletManager,
+      blocks,
+      lockupTransactionTracker,
+    );
     this.lightningNursery = new LightningNursery(this.logger);
     this.invoiceNursery = new InvoiceNursery(this.logger);
     this.channelNursery = new ChannelNursery(

@@ -171,4 +171,18 @@ describe('RateProvider', () => {
       Errors.CONFIGURATION_INCOMPLETE('BTC/BTC', 'minSwapAmount'),
     );
   });
+
+  test('should update 0-conf amounts', async () => {
+    expect(rateProvider['zeroConfAmounts'].get('L-BTC')).not.toEqual(0);
+
+    await rateProvider.setZeroConfAmount('L-BTC', 0);
+    expect(rateProvider['zeroConfAmounts'].get('L-BTC')).toEqual(0);
+
+    expect(
+      rateProvider['providers'][SwapVersion.Taproot].updateHardcodedPair,
+    ).toHaveBeenCalledTimes(2);
+    expect(
+      rateProvider['providers'][SwapVersion.Legacy].updateHardcodedPair,
+    ).toHaveBeenCalledTimes(2);
+  });
 });

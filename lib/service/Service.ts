@@ -66,6 +66,7 @@ import {
   GetInfoResponse,
   LightningInfo,
 } from '../proto/boltzrpc_pb';
+import LockupTransactionTracker from '../rates/LockupTransactionTracker';
 import RateProvider from '../rates/RateProvider';
 import { PairTypeLegacy } from '../rates/providers/RateProviderLegacy';
 import ErrorsSwap from '../swap/Errors';
@@ -123,6 +124,7 @@ class Service {
   public readonly eipSigner: EipSigner;
   public readonly musigSigner: MusigSigner;
   public readonly rateProvider: RateProvider;
+  public readonly lockupTransactionTracker: LockupTransactionTracker;
 
   private prepayMinerFee: boolean;
 
@@ -170,6 +172,12 @@ class Service {
       } addresses for legacy Bitcoin Submarine Swaps`,
     );
 
+    this.lockupTransactionTracker = new LockupTransactionTracker(
+      this.logger,
+      this.currencies,
+      this.rateProvider,
+    );
+
     this.swapManager = new SwapManager(
       this.logger,
       this.walletManager,
@@ -185,6 +193,7 @@ class Service {
       config.retryInterval,
       blocks,
       config.swap,
+      this.lockupTransactionTracker,
     );
 
     this.eventHandler = new EventHandler(

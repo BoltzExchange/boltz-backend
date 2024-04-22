@@ -27,7 +27,7 @@ class PendingLockupTransaction
       },
       {
         sequelize,
-        modelName: 'pendingLockupTransaction',
+        tableName: 'pendingLockupTransactions',
         indexes: [
           {
             unique: false,

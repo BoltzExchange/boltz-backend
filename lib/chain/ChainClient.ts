@@ -1,10 +1,10 @@
 import { Transaction } from 'bitcoinjs-lib';
-import { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import BaseClient from '../BaseClient';
 import { ChainConfig } from '../Config';
 import Logger from '../Logger';
 import { formatError, getHexString } from '../Utils';
 import { ClientStatus, CurrencyType } from '../consts/Enums';
+import TypedEventEmitter from '../consts/TypedEventEmitter';
 import {
   AddressInfo,
   Block,
@@ -18,7 +18,11 @@ import {
 import ChainTipRepository from '../db/repositories/ChainTipRepository';
 import MempoolSpace from './MempoolSpace';
 import RpcClient from './RpcClient';
-import ZmqClient, { ZmqNotification, filters } from './ZmqClient';
+import ZmqClient, {
+  SomeTransaction,
+  ZmqNotification,
+  filters,
+} from './ZmqClient';
 
 enum AddressType {
   Legacy = 'legacy',
@@ -27,21 +31,63 @@ enum AddressType {
   Taproot = 'bech32m',
 }
 
-class ChainClient extends BaseClient<{
+type BlockChainInfoScanned = BlockchainInfo & {
+  scannedBlocks: number;
+};
+
+type ChainClientEvents<T extends SomeTransaction> = {
   'status.changed': ClientStatus;
   block: number;
   transaction: {
-    transaction: Transaction | LiquidTransaction;
+    transaction: T;
     confirmed: boolean;
   };
-}> {
+};
+
+interface IChainClient<T extends SomeTransaction = SomeTransaction>
+  extends TypedEventEmitter<ChainClientEvents<T>> {
+  get symbol(): string;
+  get currencyType(): CurrencyType;
+
+  connect(): Promise<void>;
+
+  rescanChain(startHeight: number): Promise<void>;
+
+  addInputFilter(inputHash: Buffer): void;
+  addOutputFilter(outputScript: Buffer): void;
+  removeOutputFilter(outputScript: Buffer): void;
+  removeInputFilter(inputHash: Buffer): void;
+
+  getBlockchainInfo(): Promise<BlockChainInfoScanned>;
+  getNetworkInfo(): Promise<NetworkInfo>;
+
+  sendRawTransaction(transactionHex: string): Promise<string>;
+  getRawTransaction(transactionId: string): Promise<string>;
+  getRawTransactionVerbose(transactionId: string): Promise<RawTransaction>;
+
+  estimateFee(confTarget?: number): Promise<number>;
+
+  listUnspent(minimalConfirmations?: number): Promise<UnspentUtxo[]>;
+  getNewAddress(type: AddressType): Promise<string>;
+  sendToAddress(
+    address: string,
+    amount: number,
+    satPerVbyte?: number,
+    subtractFeeFromAmount?: boolean,
+  ): Promise<string>;
+}
+
+class ChainClient<T extends SomeTransaction = Transaction>
+  extends BaseClient<ChainClientEvents<T>>
+  implements IChainClient<T>
+{
   public static readonly serviceName = 'Core';
   public static readonly decimals = 100000000;
 
   public currencyType: CurrencyType = CurrencyType.BitcoinLike;
 
   protected client: RpcClient;
-  protected zmqClient: ZmqClient;
+  protected zmqClient: ZmqClient<T>;
   protected feeFloor = 2;
 
   private readonly mempoolSpace?: MempoolSpace;
@@ -140,11 +186,7 @@ class ChainClient extends BaseClient<{
     return this.client.request<NetworkInfo>('getnetworkinfo');
   };
 
-  public getBlockchainInfo = async (): Promise<
-    BlockchainInfo & {
-      scannedBlocks: number;
-    }
-  > => {
+  public getBlockchainInfo = async () => {
     const blockchainInfo =
       await this.client.request<BlockchainInfo>('getblockchaininfo');
 
@@ -255,8 +297,10 @@ class ChainClient extends BaseClient<{
     ]);
   };
 
-  public listUnspent = (minconf = 0): Promise<UnspentUtxo[]> => {
-    return this.client.request<UnspentUtxo[]>('listunspent', [minconf]);
+  public listUnspent = (minimalConfirmations = 0): Promise<UnspentUtxo[]> => {
+    return this.client.request<UnspentUtxo[]>('listunspent', [
+      minimalConfirmations,
+    ]);
   };
 
   public generate = async (blocks: number): Promise<string[]> => {
@@ -346,4 +390,4 @@ class ChainClient extends BaseClient<{
 }
 
 export default ChainClient;
-export { AddressType };
+export { AddressType, BlockChainInfoScanned, ChainClientEvents, IChainClient };

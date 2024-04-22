@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """Script for building and pushing the Boltz Docker images."""
+
+import json
 import sys
 from argparse import ArgumentParser
 from dataclasses import dataclass
@@ -9,7 +11,6 @@ from pathlib import Path
 
 @dataclass
 class BuildArgument:
-
     """Argument of the "docker build" command."""
 
     name: str
@@ -18,7 +19,6 @@ class BuildArgument:
 
 @dataclass
 class Image:
-
     """The tags and build arguments of a Docker image."""
 
     tag: str
@@ -41,7 +41,7 @@ GOLANG_VERSION = BuildArgument(
 )
 
 BITCOIN_VERSION = "26.1"
-LITECOIN_VERSION = "0.21.2.2"
+LITECOIN_VERSION = "0.21.3"
 ELEMENTS_VERSION = "23.2.1"
 GETH_VERSION = "1.13.14"
 
@@ -95,7 +95,8 @@ IMAGES: dict[str, Image] = {
         ],
     ),
     "boltz": Image(
-        tag="v3.3.0",
+        # Is read from the package.json file
+        tag="",
         arguments=[
             NODE_VERSION,
         ],
@@ -239,6 +240,11 @@ def parse_images(to_parse: list[str]) -> list[str]:
 
 
 if __name__ == "__main__":
+    with Path.open(
+        Path(__file__).parent.parent.absolute().joinpath("package.json")
+    ) as package_json:
+        IMAGES["boltz"].tag = f"v{json.load(package_json)['version']}"
+
     PARSER = ArgumentParser(description="Build or push Docker images")
 
     # CLI commands

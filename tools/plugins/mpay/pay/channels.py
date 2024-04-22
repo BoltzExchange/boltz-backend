@@ -85,7 +85,10 @@ class ChannelsHelper:
                     riskfactor=0,
                 )
             except RpcError as e:
-                if "message" in e.error and e.error["message"].startswith("Shortest route was"):
+                if "message" in e.error and (
+                    e.error["message"].startswith("Shortest route was")
+                    or e.error["message"] == "Could not find a route"
+                ):
                     raise NoRouteError from None
 
                 raise

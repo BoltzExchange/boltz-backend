@@ -1,6 +1,6 @@
 import { Transaction } from 'bitcoinjs-lib';
 import Logger from '../../Logger';
-import ChainClient from '../../chain/ChainClient';
+import { IChainClient } from '../../chain/ChainClient';
 import LndClient from '../../lightning/LndClient';
 import { AddressType } from '../../proto/lnd/rpc_pb';
 import WalletProviderInterface, {
@@ -14,7 +14,7 @@ class LndWalletProvider implements WalletProviderInterface {
   constructor(
     public logger: Logger,
     public lndClient: LndClient,
-    public chainClient: ChainClient,
+    public chainClient: IChainClient,
   ) {
     this.symbol = chainClient.symbol;
 

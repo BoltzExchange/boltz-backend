@@ -164,6 +164,11 @@ class RateProvider {
 
   public has = (pairId: string) => this.configPairs.has(pairId);
 
+  public setZeroConfAmount = async (symbol: string, amount: number) => {
+    this.zeroConfAmounts.set(symbol, amount);
+    await this.updateRates();
+  };
+
   private updateRates = async () => {
     // The fees for the ERC20 tokens depend on the rates
     // Updating rates and fees at the same time would result in a race condition

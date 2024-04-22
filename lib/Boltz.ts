@@ -10,9 +10,13 @@ import { formatError, getVersion } from './Utils';
 import VersionCheck from './VersionCheck';
 import Api from './api/Api';
 import BackupScheduler from './backup/BackupScheduler';
-import ChainClient from './chain/ChainClient';
-import ElementsClient from './chain/ElementsClient';
+import ChainClient, {
+  BlockChainInfoScanned,
+  IChainClient,
+} from './chain/ChainClient';
+import ElementsWrapper from './chain/ElementsWrapper';
 import { CurrencyType } from './consts/Enums';
+import { NetworkInfo } from './consts/Types';
 import Database from './db/Database';
 import ChainTip from './db/models/ChainTip';
 import ChainTipRepository from './db/repositories/ChainTipRepository';
@@ -283,7 +287,38 @@ class Boltz {
     }
   };
 
-  private connectChainClient = async (client: ChainClient) => {
+  private connectChainClient = async (client: IChainClient) => {
+    const formatChainInfo = (
+      networkInfo: (NetworkInfo & { lowball?: NetworkInfo }) | undefined,
+      blockchainInfo:
+        | (BlockChainInfoScanned & {
+            lowball?: BlockChainInfoScanned;
+          })
+        | undefined,
+    ) => {
+      if (networkInfo === undefined || blockchainInfo === undefined) {
+        return undefined;
+      }
+
+      const res: any = {
+        version: networkInfo.version,
+        protocolversion: networkInfo.protocolversion,
+        connections: networkInfo.connections,
+        blocks: blockchainInfo.blocks,
+        bestblockhash: blockchainInfo.bestblockhash,
+        verificationprogress: blockchainInfo.verificationprogress,
+      };
+
+      if (networkInfo.lowball && blockchainInfo.lowball) {
+        res.lowball = formatChainInfo(
+          networkInfo.lowball,
+          blockchainInfo.lowball,
+        );
+      }
+
+      return res;
+    };
+
     const service = `${client.symbol} chain`;
 
     try {
@@ -294,14 +329,7 @@ class Boltz {
 
       VersionCheck.checkChainClientVersion(client.symbol, networkInfo.version);
 
-      this.logStatus(service, {
-        version: networkInfo.version,
-        protocolversion: networkInfo.protocolversion,
-        connections: networkInfo.connections,
-        blocks: blockchainInfo.blocks,
-        bestblockhash: blockchainInfo.bestblockhash,
-        verificationprogress: blockchainInfo.verificationprogress,
-      });
+      this.logStatus(service, formatChainInfo(networkInfo, blockchainInfo));
     } catch (error) {
       this.logCouldNotConnect(service, error);
     }
@@ -437,7 +465,7 @@ class Boltz {
         type: CurrencyType.Liquid,
         symbol: symbol,
         network: LiquidNetworks[network],
-        chainClient: new ElementsClient(this.logger, chain),
+        chainClient: new ElementsWrapper(this.logger, chain),
         limits: {
           ...this.config.liquid,
         },

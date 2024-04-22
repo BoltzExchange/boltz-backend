@@ -28,7 +28,7 @@ import {
   getRate,
   splitPairId,
 } from '../Utils';
-import ChainClient from '../chain/ChainClient';
+import { IChainClient } from '../chain/ChainClient';
 import { LegacyReverseSwapOutputType, etherDecimals } from '../consts/Consts';
 import {
   CurrencyType,
@@ -55,6 +55,7 @@ import {
   LightningClient,
 } from '../lightning/LightningClient';
 import FeeProvider from '../rates/FeeProvider';
+import LockupTransactionTracker from '../rates/LockupTransactionTracker';
 import RateProvider from '../rates/RateProvider';
 import Blocks from '../service/Blocks';
 import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
@@ -122,12 +123,18 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     blocks: Blocks,
     private readonly claimer: DeferredClaimer,
     private readonly chainSwapSigner: ChainSwapSigner,
+    lockupTransactionTracker: LockupTransactionTracker,
   ) {
     super();
 
     this.logger.info(`Setting Swap retry interval to ${retryInterval} seconds`);
 
-    this.utxoNursery = new UtxoNursery(this.logger, this.walletManager, blocks);
+    this.utxoNursery = new UtxoNursery(
+      this.logger,
+      this.walletManager,
+      blocks,
+      lockupTransactionTracker,
+    );
     this.lightningNursery = new LightningNursery(this.logger);
     this.invoiceNursery = new InvoiceNursery(this.logger);
     this.channelNursery = new ChannelNursery(
@@ -852,7 +859,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
 
   private lockupUtxo = async (
     swap: ReverseSwap | ChainSwapInfo,
-    chainClient: ChainClient,
+    chainClient: IChainClient,
     wallet: Wallet,
     lightningClient?: LightningClient,
   ) => {
@@ -1101,7 +1108,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
 
   private claimUtxo = async (
     swap: Swap | ChainSwapInfo,
-    chainClient: ChainClient,
+    chainClient: IChainClient,
     wallet: Wallet,
     transaction: Transaction | LiquidTransaction,
     preimage: Buffer,

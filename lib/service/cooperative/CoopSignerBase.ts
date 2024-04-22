@@ -14,7 +14,7 @@ import {
 } from '../../Core';
 import Logger from '../../Logger';
 import { getHexBuffer } from '../../Utils';
-import ChainClient from '../../chain/ChainClient';
+import { IChainClient } from '../../chain/ChainClient';
 import { SwapType, swapTypeToPrettyString } from '../../consts/Enums';
 import TypedEventEmitter from '../../consts/TypedEventEmitter';
 import ChainSwapData from '../../db/models/ChainSwapData';
@@ -99,7 +99,7 @@ abstract class CoopSignerBase<
    * Cooperative when the preimage is undefined
    */
   protected constructClaimDetails = async (
-    chainClient: ChainClient,
+    chainClient: IChainClient,
     wallet: Wallet,
     toClaim: SwapToClaim<T>,
     preimage?: Buffer,

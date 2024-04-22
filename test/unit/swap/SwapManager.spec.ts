@@ -432,6 +432,7 @@ describe('SwapManager', () => {
       {
         deferredClaimSymbols: [],
       } as any,
+      {} as any,
     );
 
     manager['currencies'].set(btcCurrency.symbol, btcCurrency);

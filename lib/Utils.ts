@@ -8,7 +8,7 @@ import os from 'os';
 import path from 'path';
 import packageJson from '../package.json';
 import commitHash from './Version';
-import ChainClient from './chain/ChainClient';
+import { IChainClient } from './chain/ChainClient';
 import { etherDecimals } from './consts/Consts';
 import { OrderSide, SwapType, SwapVersion } from './consts/Enums';
 import Errors from './service/Errors';
@@ -563,7 +563,7 @@ export const getUnixTime = (): number => {
  * Calculates the miner fee of a transaction on a UTXO based chain
  */
 export const calculateUtxoTransactionFee = async (
-  chainClient: ChainClient,
+  chainClient: IChainClient,
   transaction: Transaction,
 ): Promise<number> => {
   let fee = 0n;

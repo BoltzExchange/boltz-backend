@@ -43,9 +43,13 @@ type ChainConfig = {
   mempoolSpace?: string;
 };
 
+type LiquidChainConfig = ChainConfig & {
+  lowball?: ChainConfig;
+};
+
 type PreferredWallet = 'lnd' | 'core' | undefined;
 
-type BaseCurrencyConfig = {
+type BaseCurrencyConfig<T = ChainConfig> = {
   symbol: string;
   network: Network;
 
@@ -58,7 +62,7 @@ type BaseCurrencyConfig = {
 
   maxZeroConfAmount: number;
 
-  chain: ChainConfig;
+  chain: T;
 };
 
 type RoutingOffsetException = {
@@ -111,6 +115,7 @@ type EthereumConfig = RskConfig & {
 type ApiConfig = {
   host: string;
   port: number;
+  cors?: string | string[];
 };
 
 type GrpcConfig = {
@@ -181,7 +186,7 @@ type ConfigType = {
   pairs: PairConfig[];
   currencies: CurrencyConfig[];
 
-  liquid?: BaseCurrencyConfig;
+  liquid?: BaseCurrencyConfig<LiquidChainConfig>;
 
   rsk?: RskConfig;
   ethereum: EthereumConfig;
@@ -244,6 +249,7 @@ class Config {
       api: {
         host: '127.0.0.1',
         port: 9001,
+        cors: '*',
       },
 
       grpc: {
@@ -515,6 +521,7 @@ export {
   PostgresConfig,
   CurrencyConfig,
   PreferredWallet,
+  LiquidChainConfig,
   BaseCurrencyConfig,
   NotificationConfig,
   EthProviderServiceConfig,

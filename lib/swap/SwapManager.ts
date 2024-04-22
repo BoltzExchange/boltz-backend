@@ -54,6 +54,7 @@ import ChannelCreationRepository from '../db/repositories/ChannelCreationReposit
 import ReverseRoutingHintRepository from '../db/repositories/ReverseRoutingHintRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
+import LockupTransactionTracker from '../rates/LockupTransactionTracker';
 import RateProvider from '../rates/RateProvider';
 import Blocks from '../service/Blocks';
 import InvoiceExpiryHelper from '../service/InvoiceExpiryHelper';
@@ -170,6 +171,7 @@ class SwapManager {
     retryInterval: number,
     private readonly blocks: Blocks,
     swapConfig: SwapConfig,
+    lockupTransactionTracker: LockupTransactionTracker,
   ) {
     this.deferredClaimer = new DeferredClaimer(
       this.logger,
@@ -197,6 +199,7 @@ class SwapManager {
       this.blocks,
       this.deferredClaimer,
       this.chainSwapSigner,
+      lockupTransactionTracker,
     );
 
     this.reverseRoutingHints = new ReverseRoutingHints(

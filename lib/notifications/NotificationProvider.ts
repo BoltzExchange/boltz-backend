@@ -129,6 +129,15 @@ class NotificationProvider {
           });
       }
 
+      this.service.lockupTransactionTracker.on(
+        'zeroConf.disabled',
+        async (symbol) =>
+          await this.client.sendMessage(
+            `${Emojis.RotatingLight} **Disabled 0-conf for ${symbol}** ${Emojis.RotatingLight}`,
+            true,
+          ),
+      );
+
       const check = async () => {
         await Promise.all([
           this.checkConnections(),

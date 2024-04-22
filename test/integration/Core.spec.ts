@@ -428,7 +428,7 @@ describe('Core', () => {
         chainClient: bitcoinClient,
         type: CurrencyType.BitcoinLike,
         network: Networks.bitcoinRegtest,
-      } as Currency,
+      } as unknown as Currency,
       spendTx,
       0,
     );

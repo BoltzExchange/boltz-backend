@@ -11,4 +11,8 @@ export default {
     message: `could not init currency ${symbol} because of missing config value: ${missingValue}`,
     code: concatErrorCode(ErrorCodePrefix.Rates, 1),
   }),
+  SYMBOL_LOCKUPS_NOT_BEING_TRACKED: (symbol: string): Error => ({
+    message: `${symbol} lockup transactions are not being tracked`,
+    code: concatErrorCode(ErrorCodePrefix.Rates, 2),
+  }),
 };

@@ -47,7 +47,7 @@ import {
   getHexString,
   reverseBuffer,
 } from './Utils';
-import ChainClient from './chain/ChainClient';
+import { IChainClient } from './chain/ChainClient';
 import { CurrencyType, SwapType, SwapVersion } from './consts/Enums';
 import { liquidSymbol } from './consts/LiquidTypes';
 import ChainSwapData from './db/models/ChainSwapData';
@@ -292,7 +292,7 @@ export const constructRefundTransaction = (
 };
 
 export const calculateTransactionFee = async (
-  chainClient: ChainClient,
+  chainClient: IChainClient,
   transaction: Transaction | LiquidTransaction,
 ) => {
   return chainClient.symbol !== liquidSymbol

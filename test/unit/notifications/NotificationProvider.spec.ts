@@ -8,6 +8,7 @@ import { CurrencyType, SwapType } from '../../../lib/consts/Enums';
 import ChannelCreation from '../../../lib/db/models/ChannelCreation';
 import ReverseSwap from '../../../lib/db/models/ReverseSwap';
 import Swap from '../../../lib/db/models/Swap';
+import { Emojis } from '../../../lib/notifications/Markup';
 import NotificationProvider from '../../../lib/notifications/NotificationProvider';
 import DiscordClient from '../../../lib/notifications/clients/DiscordClient';
 import Service from '../../../lib/service/Service';
@@ -31,6 +32,7 @@ type failureCallback = (args: {
 
 let emitSwapSuccess: successCallback;
 let emitSwapFailure: failureCallback;
+let emitZeroConfDisabled: (symbol: string) => void;
 
 const mockGetInfo = jest.fn().mockImplementation(() =>
   Promise.resolve({
@@ -62,6 +64,14 @@ jest.mock('../../../lib/service/Service', () => {
         ['USDT', { type: CurrencyType.ERC20 }],
         ['somethingElse', { type: CurrencyType.ERC20 }],
       ]),
+      lockupTransactionTracker: {
+        on: (event: string, callback: any) => {
+          switch (event) {
+            case 'zeroConf.disabled':
+              emitZeroConfDisabled = callback;
+          }
+        },
+      },
       getInfo: mockGetInfo,
       getBalance: mockGetBalance,
     };
@@ -342,6 +352,19 @@ describe('NotificationProvider', () => {
         `Miner fees: ${satoshisToSatcomma(swap.minerFee!)} BTC\n` +
         `Routing fees: ${swap.routingFee! / 1000} sats` +
         NotificationProvider['trailingWhitespace'],
+    );
+  });
+
+  test('should send notification when 0-conf is disabled', async () => {
+    const symbol = 'BTC';
+
+    emitZeroConfDisabled(symbol);
+    await wait(5);
+
+    expect(mockSendMessage).toHaveBeenCalledTimes(1);
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      `${Emojis.RotatingLight} **Disabled 0-conf for ${symbol}** ${Emojis.RotatingLight}`,
+      true,
     );
   });
 

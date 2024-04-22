@@ -27,3 +27,22 @@ export const racePromise = async <T>(
     throw e;
   }
 };
+
+export const allSettled = async <T>(promises: Promise<T>[]): Promise<T[]> => {
+  const settled = await Promise.allSettled(promises);
+  const results = settled
+    .filter(
+      (res): res is PromiseFulfilledResult<Awaited<T>> =>
+        res.status === 'fulfilled',
+    )
+    .map((res) => res.value);
+
+  if (results.length === 0) {
+    throw (settled[0] as PromiseRejectedResult).reason;
+  }
+
+  return results;
+};
+
+export const allSettledFirst = async <T>(promises: Promise<T>[]): Promise<T> =>
+  (await allSettled(promises))[0];

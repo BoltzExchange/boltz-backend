@@ -1,7 +1,7 @@
 import { Transaction } from 'liquidjs-lib';
 import { UnblindedOutput, unblindOutput } from '../Core';
 import { getHexBuffer } from '../Utils';
-import ElementsClient from '../chain/ElementsClient';
+import ElementsClient, { IElementsClient } from '../chain/ElementsClient';
 import WalletLiquid from '../wallet/WalletLiquid';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import Errors from './Errors';
@@ -74,7 +74,7 @@ class ElementsService {
 
     return {
       wallet,
-      chainClient: currency.chainClient! as ElementsClient,
+      chainClient: currency.chainClient! as IElementsClient,
     };
   };
 }

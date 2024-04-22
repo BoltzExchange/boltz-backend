@@ -13,6 +13,7 @@ import KeyProvider from './models/KeyProvider';
 import MarkedSwap from './models/MarkedSwap';
 import Pair from './models/Pair';
 import PendingEthereumTransaction from './models/PendingEthereumTransaction';
+import PendingLockupTransaction from './models/PendingLockupTransaction';
 import Referral from './models/Referral';
 import ReverseRoutingHint from './models/ReverseRoutingHint';
 import ReverseSwap from './models/ReverseSwap';
@@ -115,10 +116,11 @@ class Database {
 
     await Promise.all([Swap.sync(), ReverseSwap.sync(), ChainSwap.sync()]);
     await Promise.all([
+      MarkedSwap.sync(),
       ChainSwapData.sync(),
       ChannelCreation.sync(),
       ReverseRoutingHint.sync(),
-      MarkedSwap.sync(),
+      PendingLockupTransaction.sync(),
     ]);
   };
 
@@ -143,6 +145,7 @@ class Database {
     ChannelCreation.load(Database.sequelize);
     DatabaseVersion.load(Database.sequelize);
     ReverseRoutingHint.load(Database.sequelize);
+    PendingLockupTransaction.load(Database.sequelize);
     PendingEthereumTransaction.load(Database.sequelize);
   };
 }

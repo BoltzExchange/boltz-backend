@@ -26,7 +26,7 @@ class ElementsWrapper
 
     if (config.lowball !== undefined) {
       this.logger.info(`Using lowball for ${this.clients[0].serviceName()}`);
-      this.clients.push(new ElementsClient(this.logger, config, true));
+      this.clients.push(new ElementsClient(this.logger, config.lowball, true));
     }
   }
 

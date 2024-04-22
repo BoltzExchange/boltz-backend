@@ -3,6 +3,7 @@ import { Op } from 'sequelize';
 import Logger from '../Logger';
 import { formatError, getChainCurrency, splitPairId } from '../Utils';
 import { IChainClient } from '../chain/ChainClient';
+import TypedEventEmitter from '../consts/TypedEventEmitter';
 import Swap from '../db/models/Swap';
 import PendingLockupTransactionRepository from '../db/repositories/PendingLockupTransactionRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
@@ -10,7 +11,9 @@ import { Currency } from '../wallet/WalletManager';
 import Errors from './Errors';
 import RateProvider from './RateProvider';
 
-class LockupTransactionTracker {
+class LockupTransactionTracker extends TypedEventEmitter<{
+  'zeroConf.disabled': string;
+}> {
   private readonly lock = new AsyncLock();
   private readonly zeroConfAcceptedMap = new Map<string, boolean>();
 
@@ -19,6 +22,8 @@ class LockupTransactionTracker {
     currencies: Map<string, Currency>,
     private readonly rateProvider: RateProvider,
   ) {
+    super();
+
     for (const currency of currencies.values()) {
       if (currency.chainClient === undefined) {
         continue;
@@ -74,11 +79,12 @@ class LockupTransactionTracker {
         }
       } catch (e) {
         this.logger.warn(
-          `Could find pending lockup transaction of Submarine Swap ${swap.id} (${swap.lockupTransactionId}): ${formatError(e)}`,
+          `Could not find pending lockup transaction of Submarine Swap ${swap.id} (${swap.lockupTransactionId}): ${formatError(e)}`,
         );
         this.logger.warn(`Disabling 0-conf for ${chainClient.symbol}`);
         this.zeroConfAcceptedMap.set(chainClient.symbol, false);
         await this.rateProvider.setZeroConfAmount(chainClient.symbol, 0);
+        this.emit('zeroConf.disabled', chainClient.symbol);
       }
     }
   };

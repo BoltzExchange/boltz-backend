@@ -50,6 +50,7 @@ describe('LockupTransactionTracker', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    tracker.removeAllListeners();
   });
 
   afterAll(async () => {
@@ -203,6 +204,8 @@ describe('LockupTransactionTracker', () => {
     );
 
     test('should disable 0-conf when lockup transaction cannot be found', async () => {
+      expect.assertions(5);
+
       expect(tracker.zeroConfAccepted('BTC')).toEqual(true);
 
       const id = '123';
@@ -219,6 +222,10 @@ describe('LockupTransactionTracker', () => {
           lockupTransactionId: transactionId,
         },
       ]);
+
+      tracker.once('zeroConf.disabled', (symbol) => {
+        expect(symbol).toEqual(bitcoinClient.symbol);
+      });
 
       await bitcoinClient.generate(1);
       await wait(100);

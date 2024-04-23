@@ -149,7 +149,6 @@ describe('ElementsWrapper', () => {
   test.each`
     name
     ${'rescanChain'}
-    ${'sendRawTransaction'}
   `('should call $name only with public client', async ({ name }) => {
     const mockFnPublic = jest.fn();
     const mockFnLowball = jest.fn();
@@ -162,6 +161,56 @@ describe('ElementsWrapper', () => {
     expect(mockFnPublic).toHaveBeenCalledTimes(1);
     expect(mockFnPublic).toHaveBeenCalledWith(param);
     expect(mockFnLowball).toHaveBeenCalledTimes(0);
+  });
+
+  describe('sendRawTransaction', () => {
+    test('should broadcast swap related transactions with all clients', async () => {
+      const mockFnPublic = jest.fn();
+      const mockFnLowball = jest.fn();
+      wrapper['publicClient']()['sendRawTransaction'] = mockFnPublic;
+      wrapper['lowballClient']()!['sendRawTransaction'] = mockFnLowball;
+
+      const param = 'testTx';
+      await wrapper.sendRawTransaction(param, true);
+
+      expect(mockFnPublic).toHaveBeenCalledTimes(1);
+      expect(mockFnPublic).toHaveBeenCalledWith(param);
+      expect(mockFnLowball).toHaveBeenCalledTimes(1);
+      expect(mockFnLowball).toHaveBeenCalledWith(param);
+    });
+
+    test('should not throw when public broadcast of swap related transactions fails', async () => {
+      const txId = 'testId';
+
+      const mockFnPublic = jest.fn().mockRejectedValue('not feeling like it');
+      const mockFnLowball = jest.fn().mockResolvedValue(txId);
+      wrapper['publicClient']()['sendRawTransaction'] = mockFnPublic;
+      wrapper['lowballClient']()!['sendRawTransaction'] = mockFnLowball;
+
+      const param = 'testTx';
+      await expect(wrapper.sendRawTransaction(param, true)).resolves.toEqual(
+        txId,
+      );
+
+      expect(mockFnPublic).toHaveBeenCalledTimes(1);
+      expect(mockFnPublic).toHaveBeenCalledWith(param);
+      expect(mockFnLowball).toHaveBeenCalledTimes(1);
+      expect(mockFnLowball).toHaveBeenCalledWith(param);
+    });
+
+    test('should broadcast non swap related transactions only with public client', async () => {
+      const mockFnPublic = jest.fn();
+      const mockFnLowball = jest.fn();
+      wrapper['publicClient']()['sendRawTransaction'] = mockFnPublic;
+      wrapper['lowballClient']()!['sendRawTransaction'] = mockFnLowball;
+
+      const param = 'testTx';
+      await wrapper.sendRawTransaction(param, false);
+
+      expect(mockFnPublic).toHaveBeenCalledTimes(1);
+      expect(mockFnPublic).toHaveBeenCalledWith(param);
+      expect(mockFnLowball).toHaveBeenCalledTimes(0);
+    });
   });
 
   test.each`
@@ -276,5 +325,13 @@ describe('ElementsWrapper', () => {
     wrapper['walletClient']()[name] = jest.fn().mockResolvedValue(res);
 
     await expect(wrapper[name]()).resolves.toEqual(res);
+  });
+
+  test('should prefer lowball over public client for wallet', () => {
+    expect(wrapper['walletClient']().isLowball).toEqual(true);
+  });
+
+  test('should prefer lowball over public client for fee estimations', async () => {
+    await expect(wrapper.estimateFee()).resolves.toEqual(0.01);
   });
 });

@@ -168,7 +168,10 @@ abstract class CoopSignerBase<
     this.logger.info(
       `Broadcasting cooperative ${chainCurrency.symbol} claim of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} in: ${transaction.getId()}`,
     );
-    await chainCurrency.chainClient!.sendRawTransaction(transaction.toHex());
+    await chainCurrency.chainClient!.sendRawTransaction(
+      transaction.toHex(),
+      true,
+    );
 
     return {
       transaction,

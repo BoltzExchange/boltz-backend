@@ -287,7 +287,7 @@ class DeferredClaimer extends CoopSignerBase<
         swaps.length,
     );
 
-    await chainClient.sendRawTransaction(claimTransaction.toHex());
+    await chainClient.sendRawTransaction(claimTransaction.toHex(), true);
 
     this.logger.info(
       `Claimed ${wallet.symbol} of Swaps ${swaps

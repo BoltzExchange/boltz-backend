@@ -26,7 +26,7 @@ class ElementsWrapper
 
     if (config.lowball !== undefined) {
       this.logger.info(`Using lowball for ${this.clients[0].serviceName()}`);
-      this.clients.push(new ElementsClient(this.logger, config, true));
+      this.clients.push(new ElementsClient(this.logger, config.lowball, true));
     }
   }
 
@@ -86,8 +86,18 @@ class ElementsWrapper
   public getNetworkInfo = () =>
     this.annotateLowballInfo((c) => c.getNetworkInfo());
 
-  public sendRawTransaction = (transactionHex: string) =>
-    this.publicClient().sendRawTransaction(transactionHex);
+  public sendRawTransaction = (
+    transactionHex: string,
+    isSwapRelated: boolean = true,
+  ) => {
+    if (isSwapRelated) {
+      return allSettledFirst(
+        this.clients.map((c) => c.sendRawTransaction(transactionHex)),
+      );
+    }
+
+    return this.publicClient().sendRawTransaction(transactionHex);
+  };
 
   public getRawTransaction = (transactionId: string) =>
     allSettledFirst(
@@ -99,7 +109,7 @@ class ElementsWrapper
       this.clients.map((c) => c.getRawTransactionVerbose(transactionId)),
     );
 
-  public estimateFee = () => this.publicClient().estimateFee();
+  public estimateFee = () => this.walletClient().estimateFee();
 
   public listUnspent = (
     minimalConfirmations?: number,
@@ -130,10 +140,11 @@ class ElementsWrapper
       subtractFeeFromAmount,
     );
 
-  private walletClient = () => this.publicClient();
+  private walletClient = () => this.lowballClient() || this.publicClient();
 
   private publicClient = () => this.clients.find((c) => !c.isLowball)!;
 
+  // TODO: detect when lowball falls out of sync
   private lowballClient = () => this.clients.find((c) => c.isLowball);
 
   private annotateLowballInfo = async <T>(

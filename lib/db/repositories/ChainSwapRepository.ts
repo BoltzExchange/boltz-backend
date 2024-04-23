@@ -110,7 +110,7 @@ class ChainSwapRepository {
   };
 
   /**
-   * Gets all chain swaps to which **either** of the options apply
+   * Gets all chain swaps to which **either** of the options applies
    */
   public static getChainSwapsByData = async (
     dataOptions: WhereOptions,

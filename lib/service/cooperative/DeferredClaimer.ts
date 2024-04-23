@@ -261,7 +261,10 @@ class DeferredClaimer extends TypedEventEmitter<{
     this.logger.info(
       `Broadcasting cooperative ${chainCurrency.symbol} claim of Swap ${swap.id} in: ${transaction.getId()}`,
     );
-    await chainCurrency.chainClient!.sendRawTransaction(transaction.toHex());
+    await chainCurrency.chainClient!.sendRawTransaction(
+      transaction.toHex(),
+      true,
+    );
     await this.lock.acquire(DeferredClaimer.swapsToClaimLock, async () => {
       this.swapsToClaim.get(chainCurrency.symbol)?.delete(swap.id);
     });
@@ -339,7 +342,7 @@ class DeferredClaimer extends TypedEventEmitter<{
         swaps.length,
     );
 
-    await chainClient.sendRawTransaction(claimTransaction.toHex());
+    await chainClient.sendRawTransaction(claimTransaction.toHex(), true);
 
     this.logger.info(
       `Claimed ${wallet.symbol} of Swaps ${swaps

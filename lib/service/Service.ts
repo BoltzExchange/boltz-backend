@@ -775,8 +775,44 @@ class Service {
       throw Errors.NOT_SUPPORTED_BY_SYMBOL(symbol);
     }
 
+    const wallet = this.walletManager.wallets.get(symbol);
+    const transaction = parseTransaction(currency.type, transactionHex);
+    const [swapsLockedUp, reverseSwapsClaimed] = await Promise.all([
+      wallet !== undefined
+        ? SwapRepository.getSwaps({
+            lockupAddress: {
+              [Op.in]: transaction.outs
+                // Filter Liquid fee outputs
+                .filter((out) => out.script.length > 0)
+                .map((out) => wallet.encodeAddress(out.script)),
+            },
+          })
+        : new Promise<Swap[]>((resolve) => resolve([])),
+      ReverseSwapRepository.getReverseSwaps({
+        transactionId: {
+          [Op.in]: transaction.ins.map((input) =>
+            getHexString(reverseBuffer(input.hash)),
+          ),
+        },
+      }),
+    ]);
+
+    // Only allow lowball when Reverse Swaps are being claimed and no Submarine Swap lockup happens
+    // That prevents transactions that we could accept 0-conf for from being broadcast through our API
+    const isSwapRelated =
+      swapsLockedUp.length === 0 && reverseSwapsClaimed.length > 0;
+
+    if (isSwapRelated) {
+      this.logger.debug(
+        `Broadcasting transaction related to Reverse Swaps (${reverseSwapsClaimed.map((r) => r.id).join(', ')}): ${transaction.getId()}`,
+      );
+    }
+
     try {
-      return await currency.chainClient.sendRawTransaction(transactionHex);
+      return await currency.chainClient.sendRawTransaction(
+        transactionHex,
+        isSwapRelated,
+      );
     } catch (error) {
       // This special error is thrown when a Submarine Swap that has not timed out yet is refunded
       // To improve the UX we will throw not only the error but also some additional information
@@ -787,24 +823,15 @@ class Service {
           'non-mandatory-script-verify-flag (Locktime requirement not satisfied)',
         )
       ) {
-        const refundTransaction = parseTransaction(
-          currency.type,
-          transactionHex,
-        );
+        const swap = await SwapRepository.getSwap({
+          lockupTransactionId: {
+            [Op.in]: transaction.ins.map((input) =>
+              getHexString(reverseBuffer(input.hash)),
+            ),
+          },
+        });
 
-        let swap: Swap | null | undefined;
-
-        for (const input of refundTransaction.ins) {
-          swap = await SwapRepository.getSwap({
-            lockupTransactionId: getHexString(reverseBuffer(input.hash)),
-          });
-
-          if (swap) {
-            break;
-          }
-        }
-
-        if (!swap) {
+        if (swap === null || swap === undefined) {
           throw error;
         }
 

@@ -34,7 +34,7 @@ class ElementsClient
   ) {
     super(logger, config, ElementsClient.symbol);
     this.currencyType = CurrencyType.Liquid;
-    this.feeFloor = 0.11;
+    this.feeFloor = isLowball ? 0.01 : 0.11;
   }
 
   public serviceName = (): string => {
@@ -82,7 +82,7 @@ class ElementsClient
   };
 
   public override estimateFee = async (): Promise<number> => {
-    return 0.11;
+    return this.feeFloor;
   };
 
   public getAddressInfo = (address: string): Promise<AddressInfo> => {

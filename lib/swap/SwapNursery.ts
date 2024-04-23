@@ -896,7 +896,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       claimTransaction,
     );
 
-    await chainClient.sendRawTransaction(claimTransaction.toHex());
+    await chainClient.sendRawTransaction(claimTransaction.toHex(), true);
 
     this.logger.info(
       `Claimed ${wallet.symbol} of Swap ${
@@ -1189,7 +1189,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       refundTransaction,
     );
 
-    await chainClient.sendRawTransaction(refundTransaction.toHex());
+    await chainClient.sendRawTransaction(refundTransaction.toHex(), true);
 
     this.logger.info(
       `Refunded ${chainSymbol} of Reverse Swap ${

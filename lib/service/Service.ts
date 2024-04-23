@@ -777,34 +777,46 @@ class Service {
 
     const wallet = this.walletManager.wallets.get(symbol);
     const transaction = parseTransaction(currency.type, transactionHex);
-    const [swapsLockedUp, reverseSwapsClaimed] = await Promise.all([
-      wallet !== undefined
-        ? SwapRepository.getSwaps({
-            lockupAddress: {
-              [Op.in]: transaction.outs
-                // Filter Liquid fee outputs
-                .filter((out) => out.script.length > 0)
-                .map((out) => wallet.encodeAddress(out.script)),
-            },
-          })
-        : new Promise<Swap[]>((resolve) => resolve([])),
-      ReverseSwapRepository.getReverseSwaps({
-        transactionId: {
-          [Op.in]: transaction.ins.map((input) =>
-            getHexString(reverseBuffer(input.hash)),
-          ),
-        },
-      }),
-    ]);
 
-    // Only allow lowball when Reverse Swaps are being claimed and no Submarine Swap lockup happens
+    const inputIds = transaction.ins.map((input) =>
+      getHexString(reverseBuffer(input.hash)),
+    );
+    const [swapsLocked, reverseSwapsClaimed, swapsRefunded] = await Promise.all(
+      [
+        wallet !== undefined
+          ? SwapRepository.getSwaps({
+              lockupAddress: {
+                [Op.in]: transaction.outs
+                  // Filter Liquid fee outputs
+                  .filter((out) => out.script.length > 0)
+                  .map((out) => wallet.encodeAddress(out.script)),
+              },
+            })
+          : new Promise<Swap[]>((resolve) => resolve([])),
+        ReverseSwapRepository.getReverseSwaps({
+          transactionId: {
+            [Op.in]: inputIds,
+          },
+        }),
+        SwapRepository.getSwaps({
+          lockupTransactionId: {
+            [Op.in]: inputIds,
+          },
+        }),
+      ],
+    );
+    const swapsSpent = (reverseSwapsClaimed as (Swap | ReverseSwap)[]).concat(
+      swapsRefunded,
+    );
+
+    // Only allow lowball when Reverse Swaps are being claimed or Submarine Swaps being refunded
+    // and no Submarine Swap lockup happens
     // That prevents transactions that we could accept 0-conf for from being broadcast through our API
-    const isSwapRelated =
-      swapsLockedUp.length === 0 && reverseSwapsClaimed.length > 0;
+    const isSwapRelated = swapsLocked.length === 0 && swapsSpent.length > 0;
 
     if (isSwapRelated) {
       this.logger.debug(
-        `Broadcasting transaction related to Reverse Swaps (${reverseSwapsClaimed.map((r) => r.id).join(', ')}): ${transaction.getId()}`,
+        `Broadcasting transaction related to Swaps (${swapsSpent.map((r) => r.id).join(', ')}): ${transaction.getId()}`,
       );
     }
 
@@ -823,15 +835,7 @@ class Service {
           'non-mandatory-script-verify-flag (Locktime requirement not satisfied)',
         )
       ) {
-        const swap = await SwapRepository.getSwap({
-          lockupTransactionId: {
-            [Op.in]: transaction.ins.map((input) =>
-              getHexString(reverseBuffer(input.hash)),
-            ),
-          },
-        });
-
-        if (swap === null || swap === undefined) {
+        if (swapsRefunded.length === 0) {
           throw error;
         }
 
@@ -839,12 +843,12 @@ class Service {
 
         throw {
           error: (error as any).message,
-          timeoutBlockHeight: swap.timeoutBlockHeight,
+          timeoutBlockHeight: swapsRefunded[0].timeoutBlockHeight,
           // Here we don't need to check whether the Swap has timed out yet because
           // if the error above has been thrown, we can be sure that this is not the case
           timeoutEta: this.calculateTimeoutDate(
             symbol,
-            swap.timeoutBlockHeight - blocks,
+            swapsRefunded[0].timeoutBlockHeight - blocks,
           ),
         };
       } else {

@@ -1277,12 +1277,19 @@ describe('Service', () => {
         false,
       );
 
-      expect(SwapRepository.getSwaps).toHaveBeenCalledTimes(1);
+      expect(SwapRepository.getSwaps).toHaveBeenCalledTimes(2);
       expect(SwapRepository.getSwaps).toHaveBeenCalledWith({
         lockupAddress: {
           [Op.in]: [
             '2Mwfs8HT1cwhbncpPcj5jcthHoMuCCGZLcc',
             '2N3Mb5BYy9CSQRmertCwEAHVGoky3CQbv9q',
+          ],
+        },
+      });
+      expect(SwapRepository.getSwaps).toHaveBeenCalledWith({
+        lockupTransactionId: {
+          [Op.in]: [
+            'e6845c2c94066a1075cac29f24e304aae9dbaee90fe28d7e2e5a9ba606a5b654',
           ],
         },
       });
@@ -1303,6 +1310,24 @@ describe('Service', () => {
           id: 'cheap swap',
         },
       ]);
+
+      await expect(
+        service.broadcastTransaction('BTC', transactionHex),
+      ).resolves.toEqual(sendRawTransaction);
+
+      expect(mockSendRawTransaction).toHaveBeenCalledTimes(1);
+      expect(mockSendRawTransaction).toHaveBeenCalledWith(transactionHex, true);
+    });
+
+    test('should detect swap related transactions when Submarine Swaps are being refunded', async () => {
+      SwapRepository.getSwaps = jest.fn().mockImplementation(async (param) => {
+        if ('lockupAddress' in param) {
+          return [];
+        }
+
+        return [{ id: 'i am being refunded' }];
+      });
+      ReverseSwapRepository.getReverseSwaps = jest.fn().mockResolvedValue([]);
 
       await expect(
         service.broadcastTransaction('BTC', transactionHex),
@@ -1335,6 +1360,27 @@ describe('Service', () => {
       );
     });
 
+    test('should detect but now allow swap related transaction when Submarine Swaps are being claimed but also Submarine Swaps locked up', async () => {
+      SwapRepository.getSwaps = jest.fn().mockImplementation(async (param) => {
+        if ('lockupAddress' in param) {
+          return [{ id: 'i am being locked up ' }];
+        }
+
+        return [{ id: 'i am being refunded' }];
+      });
+      ReverseSwapRepository.getReverseSwaps = jest.fn().mockResolvedValue([]);
+
+      await expect(
+        service.broadcastTransaction('BTC', transactionHex),
+      ).resolves.toEqual(sendRawTransaction);
+
+      expect(mockSendRawTransaction).toHaveBeenCalledTimes(1);
+      expect(mockSendRawTransaction).toHaveBeenCalledWith(
+        transactionHex,
+        false,
+      );
+    });
+
     test('should throw swap timeout error', async () => {
       sendRawTransaction = {
         code: -26,
@@ -1343,22 +1389,23 @@ describe('Service', () => {
       };
 
       const blockDelta = 1;
-      mockGetSwapResult = {
+      const swap = {
         timeoutBlockHeight: blockchainInfo.blocks + blockDelta,
       };
+      SwapRepository.getSwaps = jest.fn().mockResolvedValue([swap]);
 
       await expect(
         service.broadcastTransaction('BTC', transactionHex),
       ).rejects.toEqual({
         error: sendRawTransaction.message,
-        timeoutBlockHeight: mockGetSwapResult.timeoutBlockHeight,
+        timeoutBlockHeight: swap.timeoutBlockHeight,
         timeoutEta:
           Math.round(new Date().getTime() / 1000) + blockDelta * 10 * 60,
       });
     });
 
     test('should bubble up node error when not a Submarine Swap refund', async () => {
-      mockGetSwapResult = null;
+      SwapRepository.getSwaps = jest.fn().mockResolvedValue([]);
 
       await expect(
         service.broadcastTransaction('BTC', transactionHex),

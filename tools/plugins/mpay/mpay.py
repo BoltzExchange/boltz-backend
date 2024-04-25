@@ -10,6 +10,7 @@ from pyln.client import Plugin
 from requests import Request
 from sqlalchemy.orm import Session
 
+import plugins.mpay.defaults as defaults
 from plugins.mpay.async_methods import thread_method
 from plugins.mpay.config import Config, register_options
 from plugins.mpay.consts import PLUGIN_NAME, VERSION
@@ -17,7 +18,6 @@ from plugins.mpay.data.payments import Payments
 from plugins.mpay.data.route_stats import RouteStats
 from plugins.mpay.data.routes import Routes
 from plugins.mpay.db.db import Database
-from plugins.mpay.defaults import DEFAULT_EXEMPT_FEE, DEFAULT_PAYMENT_TIMEOUT
 from plugins.mpay.errors import Errors
 from plugins.mpay.pay.mpay import MPay
 from plugins.mpay.rpc.server import Server
@@ -87,21 +87,28 @@ def shutdown(**kwargs: dict[str, Any]) -> None:
 def mpay_method(
     request: Request,
     bolt11: str = "",
-    max_fee: int | None = None,
-    exempt_fee: int = DEFAULT_EXEMPT_FEE,
-    timeout: int = DEFAULT_PAYMENT_TIMEOUT,
+    maxfee: int | None = None,
+    exemptfee: int = defaults.EXEMPT_FEE,
+    retry_for: int = defaults.PAYMENT_TIMEOUT,
+    maxfeepercent: float =  defaults.MAX_FEEPERCENT,
+    description: str | None = None,
+    maxdelay : int | None = None,
+    localinvreqid : str | None = None,
+    exclude : list[str] | None = None,
 ) -> dict[str, Any]:
+
+    # TODO: implement the following arguments
+    arg = maxfeepercent or description or maxdelay or localinvreqid or exclude
+    if arg:
+        pl.log(f"`{arg}` not implemented yet", "debug")
+
     if bolt11 == "":
         return Errors.no_bolt11
 
-    if max_fee is not None and max_fee < 0:
+    if maxfee is not None and maxfee < 0:
         return Errors.no_negative_fee
 
-    try:
-        res = mpay.pay(bolt11, max_fee, exempt_fee, timeout)
-    except BaseException as e:
-        return {"error": format_error(e)}
-
+    res = mpay.pay(bolt11, maxfee, exemptfee, retry_for, maxdelay)
     return res.to_dict()
 
 

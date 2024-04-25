@@ -8,7 +8,7 @@ from plugins.mpay.consts import PLUGIN_NAME, VERSION
 from plugins.mpay.data.payments import Payments
 from plugins.mpay.data.routes import Routes
 from plugins.mpay.db.db import Database
-from plugins.mpay.defaults import DEFAULT_EXEMPT_FEE, DEFAULT_PAYMENT_TIMEOUT
+from plugins.mpay.defaults import EXEMPT_FEE, PAYMENT_TIMEOUT
 from plugins.mpay.pay.mpay import MPay
 from plugins.mpay.protos.mpay_pb2 import (
     GetInfoRequest,
@@ -50,8 +50,8 @@ class MpayService(MpayServicer):
             max_fee=request.max_fee_msat if request.max_fee_msat != 0 else None,
             exempt_fee=request.exempt_fee_msat
             if request.exempt_fee_msat != 0
-            else DEFAULT_EXEMPT_FEE,
-            timeout=request.timeout if request.timeout != 0 else DEFAULT_PAYMENT_TIMEOUT,
+            else EXEMPT_FEE,
+            timeout=request.timeout if request.timeout != 0 else PAYMENT_TIMEOUT,
             max_delay=request.max_delay if request.max_delay != 0 else None,
         )
 

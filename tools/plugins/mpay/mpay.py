@@ -98,9 +98,9 @@ def mpay_method(
 ) -> dict[str, Any]:
 
     # TODO: implement the following arguments
-    arg = maxfeepercent or description or maxdelay or localinvreqid or exclude
+    arg = maxfeepercent or description or localinvreqid or exclude
     if arg:
-        pl.log(f"`{arg}` not implemented yet", "debug")
+        pl.log(f"mpay: `{arg}` not implemented yet", "debug")
 
     if bolt11 == "":
         return Errors.no_bolt11

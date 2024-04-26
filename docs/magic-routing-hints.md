@@ -1,33 +1,29 @@
-# Magic Routing hints
+---
+description: >-
+  This page describes the mechanism that encodes a BIP21 into the routing hints
+  section of an invoice, mainly for Boltz-powered wallets like Aqua to pay each
+  other directly without a Boltz swap.
+---
 
-We do not allow paying invoices for Reverse Swaps with Submarine Swaps.
-That causes an UX problem for wallets that show users Lightning invoices from Reverse Swaps and allow
-them to pay invoices with Submarine Swaps.
-To work around that problem and minimize the number of transactions that need to be done, the Swaps can be skipped
-entirely and the sender can pay the receiver directly.
+# 🪄 Magic Routing Hints
 
-The only data that the receiver and sender share is the Lightning invoice.
-Encoding arbitrary data in an invoice is impractical, therefore we only hint at the possibility of the ability
-to fetch an onchain address of the recipient in the invoice.
-That hint is in the routing hints of the invoice with a specific channel id.
-There is no real channel with that id, that routing hint only signals to supporting wallets that the magic routing
-hint feature has been used by the recipient.
-The node public key in the routing hint is the same public key with which the receiver would need to sign
-to enforce the claim of the Reverse Swap.
+We do not allow paying invoices for Reverse Swaps with Submarine Swaps as that can constitute a "self-payment", which lightning implementations still not allow efficiently. That causes a UX problem for wallets that show users Lightning invoices from Reverse Swaps and allow them to pay invoices with Submarine Swaps. To work around that problem and minimize the number of transactions that need to be done, the Swaps can be skipped entirely and the sender can pay the receiver directly.
 
-When creating a Reverse Swap with a magic routing hint, there a couple extra steps for the receiver:
-- pass an onchain address of the wallet for the chain on which the Reverse Swap would be claimed in the API call to create swap
-- also pass a signature of the SHA-256 hash of that address signed by the private key the Reverse Swap would be claimed with
-- when the API call returns, check the invoice for the magic routing hint with the constant channel id and the claim public key in the node public key field
+The only data that the receiver and sender share is the Lightning invoice. Encoding arbitrary data in an invoice is impractical, therefore we only add a hint that for this invoice one can fetch a chain address of the recipient. This hint is encoded in the routing hints section of the swap's lightning invoice with a specific channel id. There is no actual channel with this id, just that this channel as routing hint signals to supporting wallets that the magic routing hint feature is enabled by the recipient. The node public key in the routing hint is the same public key with which the receiver would need to sign to enforce the claim of the Reverse Swap.
 
-When a wallet tries to pay a Lightning invoice via a Submarine Swap, there are two options.
-Check for the existence of a magic routing hint, if it does not exist, proceed with the Submarine Swap.
-When one is found:
-- parse the public key in the magic routing hint
-- send a [request to our API](https://api.boltz.exchange/swagger#/Reverse/get_swap_reverse__invoice__bip21) to fetch the onchain address of the recipient
-- extract the address from the BIP-21
-- hash the address and verify the signature that is also returned in the API call against the public key in the magic routing hint
-- either use that address directly or verify the amount and, in the case of Liquid, asset id of the BIP-21 and use that to pay
+When creating a Reverse Swap with a magic routing hint, there are a couple extra steps to be done for the receiver:
+
+* pass a chain address of the wallet for the chain on which the Reverse Swap would be claimed in the API call to create swap
+* pass a signature of the SHA-256 hash of that address signed by the private key the Reverse Swap would be claimed with
+* when the API call returns, check the invoice for the magic routing hint with the specific channel id and the claim public key in the node public key field
+
+When a wallet tries to pay a Lightning invoice via a Submarine Swap, there are two options. Check for the existence of a magic routing hint, if it does not exist, proceed with the Submarine Swap. When one is found:
+
+* parse the public key in the routing hint
+* send a [request to our API](https://api.boltz.exchange/swagger#/Reverse/get\_swap\_reverse\_\_invoice\_\_bip21) to fetch the chain address of the recipient
+* extract the address from the BIP-21
+* hash the address and verify the signature that is also returned in the API call against the public key in the magic routing hint
+* either use that address directly or verify the amount and, in the case of Liquid additionally the asset id, of the BIP-21 and use that to pay
 
 ## Example code
 

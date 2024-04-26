@@ -1,14 +1,18 @@
-# Claim covenants
+---
+description: >-
+  To reduce the interactivity requirements of Reverse Swaps, one can make use of
+  covenants. For instance this allows a mobile wallet provider to claim Reverse
+  Swaps for its users while they are offline.
+---
 
-To reduce the interactivity requirements of Reverse Swaps, covenants can be used.
-Liquid offers covenants already in the form [direction introspection](https://github.com/ElementsProject/elements/blob/master/doc/tapscript_opcodes.md#new-opcodes-for-additional-functionality).
-These allow the script in the witness to inspect the inputs, outputs and other properties of the transaction it is
-executed in.
+# 📜 Claim covenants
 
-The API client can ask for a covenant to be included in the Taptree of the Reverse Swap.
-With that new leaf in the tree, the coins locked for the Reverse Swap can be claimed by revealing the preimage
-and sending the expected amount and asset to an address of the client in the 0th output of the transaction.
-The script looks like this
+Covenants are available on [Liquid ](https://liquid.net/)in the form of [direction introspection](https://github.com/ElementsProject/elements/blob/master/doc/tapscript\_opcodes.md#new-opcodes-for-additional-functionality). These Opcodes allow the script in the witness to inspect the inputs, outputs and other properties of the transaction it is executed in.
+
+## Boltz API
+
+Boltz API clients can ask for a covenant to be included in the Taptree of a Reverse Swap. With that new leaf in the tree, the coins locked for the Reverse Swap can be claimed by revealing the preimage and sending the expected asset with expected amount to an address of the client in the 0th output of the transaction. This is how the script looks like:
+
 ```
 OP_SIZE
 32
@@ -38,24 +42,19 @@ OP_DROP
 OP_EQUAL
 ```
 
-The advantage this offers is that no signature is needed to sweep the locked funds to the address of the client.
-They do not need to be online to sign a claim transaction.
-Lightning HTLCs of the Reverse Swap are always resolved in a timely manner which is nice for the routing nodes
-and reduces capital requirements.
+## Use Cases & Advantages
+
+No signature is needed to sweep the locked funds to the address of the client, which removes the requirement for clients like mobile wallets to be online to sign a claim transaction. Instead, this allows a third party (e.g. the wallet service provider) to claim the reverse swap, as the swap can only be claimed to the user's address. Lightning HTLCs of the Reverse Swap are always resolved in a timely manner, which is the expected behavior for the routing nodes on the route of the lightning payment and reduces capital requirements in comparison to solutions like [Zaplocker](https://github.com/supertestnet/zaplocker).
 
 ## Trust assumptions
 
-When giving the preimage of a Reverse Swap to a third party, you have to rely on them
-to not collude with the Lightning node that accepts HTLCs for the hold invoice.
-If that happens in the claim covenant case, the covenant script path spend would not be executed,
-but Lightning HTLCs resolved and eventually, the coins locked on Liquid refunded.
+When handing over the preimage of a Reverse Swap to a third party like a mobile wallet provider, you have to rely on this party not to collude with the Lightning node that accepts HTLCs for the hold invoice. If that happens, the covenant script path spend would not be executed, but the Lightning HTLCs resolved and eventually, the coins locked on Liquid will be refunded.
 
-To avoid that from happening, the client should come online sometime between invoice payment and timeout
-of the onchain time-lock and potentially use multiple servers that enforce covenant claims for them.
+To avoid this from happening, the client should have access to multiple servers that enforce covenant claims for them.
 
 ## Example code
 
-The example underneath registers a covenant to be claimed with the reference implementation [covclaim](https://github.com/BoltzExchange/covclaim/) running locally at port 1234.
+This example registers a covenant to be claimed with the reference implementation [covclaim](https://github.com/BoltzExchange/covclaim/) running locally at port 1234:
 
 ```typescript
 import axios from 'axios';

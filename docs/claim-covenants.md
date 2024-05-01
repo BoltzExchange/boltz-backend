@@ -7,11 +7,11 @@ description: >-
 
 # 📜 Claim covenants
 
-Covenants are available on [Liquid ](https://liquid.net/)in the form of [direction introspection](https://github.com/ElementsProject/elements/blob/master/doc/tapscript\_opcodes.md#new-opcodes-for-additional-functionality). These Opcodes allow the script in the witness to inspect the inputs, outputs and other properties of the transaction it is executed in.
+Covenants are available on [Liquid](https://liquid.net/) in the form of [direction introspection](https://github.com/ElementsProject/elements/blob/master/doc/tapscript\_opcodes.md#new-opcodes-for-additional-functionality). These opcodes allow the script in the witness to inspect the inputs, outputs and other properties of the transaction it is executed in.
 
 ## Boltz API
 
-Boltz API clients can ask for a covenant to be included in the Taptree of a Reverse Swap. With that new leaf in the tree, the coins locked for the Reverse Swap can be claimed by revealing the preimage and sending the expected asset with expected amount to an address of the client in the 0th output of the transaction. This is how the script looks like:
+Boltz API clients can ask for a covenant to be included in the Taptree of a Reverse Swap. With that new leaf in the tree, the coins locked for the Reverse Swap can be claimed by revealing the preimage and sending the expected asset with expected amount to an address of the client in the 0th output of the transaction. This is what the script looks like:
 
 ```
 OP_SIZE
@@ -44,7 +44,7 @@ OP_EQUAL
 
 ## Use Cases & Advantages
 
-No signature is needed to sweep the locked funds to the address of the client, which removes the requirement for clients like mobile wallets to be online to sign a claim transaction. Instead, this allows a third party (e.g. the wallet service provider) to claim the reverse swap, as the swap can only be claimed to the user's address. Lightning HTLCs of the Reverse Swap are always resolved in a timely manner, which is the expected behavior for the routing nodes on the route of the lightning payment and reduces capital requirements in comparison to solutions like [Zaplocker](https://github.com/supertestnet/zaplocker).
+No signature is needed to sweep the locked funds to the address of the client, which removes the requirement for clients like mobile wallets to be online to sign a claim transaction. Instead, this allows a third party (e.g. the wallet service provider) to claim the Reverse Swap, as the Swap can only be claimed to the user's address. Lightning HTLCs of the Reverse Swap are always resolved in a timely manner, which is the expected behavior for the routing nodes on the route of the Lightning payment and reduces capital requirements in comparison to solutions like [Zaplocker](https://github.com/supertestnet/zaplocker).
 
 ## Trust assumptions
 

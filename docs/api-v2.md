@@ -64,9 +64,9 @@ After the initial subscription confirmation message and whenever a swap status i
 
 Below are some examples covering the flow of a given swap type from beginning to end, using API v2 and its WebSocket.
 
-## Submarine Swap
+## Submarine Swap (Chain -> Lightning)
 
-Swap from the Bitcoin mainchain to Lightning.
+Example: Swap from the Bitcoin mainchain to Lightning.
 
 {% tabs %}
 {% tab title="Typescript" %}
@@ -360,9 +360,9 @@ func main() {
 {% endtab %}
 {% endtabs %}
 
-## Reverse Swap
+## Reverse Swap (Lightning -> Chain)
 
-Swap from Lightning to the Bitcoin mainchain.
+Example: Swap from Lightning to the Bitcoin mainchain.
 
 {% tabs %}
 {% tab title="Typescript" %}

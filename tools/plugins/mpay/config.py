@@ -1,6 +1,6 @@
 from typing import Any
 
-from pyln.client import Plugin
+from pyln.client import Plugin, __version__
 from strenum import StrEnum
 
 from plugins.hold.consts import GRPC_HOST_REGTEST, Network
@@ -43,11 +43,21 @@ def register_options(pl: Plugin) -> None:
         f"{PLUGIN_NAME} default max fee",
     )
 
-    pl.add_option(OptionKeys.OverridePay,
-                  OptionDefaults.OverridePay,
-                  f"{PLUGIN_NAME} override pay command use mpay instead",
-                  'bool',
-    )
+    # pyln.client added full dynamic option support in 24.05
+    ver = pyln.client.__version__.split('.')
+    if ver[0] > '24' or (ver[0] == '24' and int(ver[1]) >= 5):
+        pl.add_option(OptionKeys.OverridePay,
+                      OptionDefaults.OverridePay,
+                      f"{PLUGIN_NAME} override pay command use mpay instead",
+                      'bool',
+                      dynamic=True
+                      )
+    else:
+        pl.add_option(OptionKeys.OverridePay,
+                      OptionDefaults.OverridePay,
+                      f"{PLUGIN_NAME} override pay command use mpay instead",
+                      'bool',
+                      )
 
 
 class Config:

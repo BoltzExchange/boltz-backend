@@ -14,6 +14,7 @@ class OptionKeys(StrEnum):
     GrpcPort = f"{PLUGIN_NAME}-grpc-port"
 
     DefaultMaxFee = f"{PLUGIN_NAME}-default-max-fee"
+    OverridePay = f"{PLUGIN_NAME}-override-pay"
 
 
 class OptionDefaults(StrEnum):
@@ -21,6 +22,7 @@ class OptionDefaults(StrEnum):
     GrpcPort = "9293"
 
     DefaultMaxFee = "0.25"
+    DefaultOverridePay = False
 
 
 def register_options(pl: Plugin) -> None:
@@ -41,6 +43,12 @@ def register_options(pl: Plugin) -> None:
         f"{PLUGIN_NAME} default max fee",
     )
 
+    pl.add_option(OptionKeys.OverridePay,
+                  OptionDefaults.OverridePay,
+                  f"{PLUGIN_NAME} override pay command use mpay instead",
+                  'bool',
+    )
+
 
 class Config:
     db: str
@@ -49,6 +57,7 @@ class Config:
     grpc_port: int
 
     default_max_fee: float
+    override_pay: bool
 
     def __init__(self, pl: Plugin, configuration: dict[str, Any]) -> None:
         self.db = configuration[OptionKeys.Db]
@@ -64,3 +73,5 @@ class Config:
         self.grpc_port = int(configuration[OptionKeys.GrpcPort])
 
         self.default_max_fee = float(configuration[OptionKeys.DefaultMaxFee])
+
+        self.override_pay = configuration[OptionKeys.OverridePay]

@@ -37,7 +37,6 @@ mpay = MPay(pl, db, routes)
 
 server = Server(pl, db, mpay, routes)
 
-
 @pl.init()
 def init(
     options: dict[str, Any],
@@ -61,6 +60,8 @@ def init(
             plugin.log("Not starting gRPC server")
 
         pl.log(f"Plugin {PLUGIN_NAME} v{VERSION} initialized")
+        if pl.get_option(f"{PLUGIN_NAME}-override-pay"):
+            pl.log(f"Overriding pay command: all your pay are belong to us!")
     except BaseException as e:
         pl.log(f"Could not start {PLUGIN_NAME} v{VERSION}: {e}", level="warn")
         sys.exit(1)
@@ -172,6 +173,19 @@ def mpay_list(request: Request, bolt11: str = "", payment_hash: str = "") -> dic
 @thread_method(executor=executor)
 def mpay_reset(request: Request) -> dict[str, Any]:
     return {"deleted": routes.reset().to_dict()}
+
+
+@plugin.hook("rpc_command")
+def on_rpc_command(plugin, rpc_command, **kwargs):
+    if not plugin.pl.get_option(f"{PLUGIN_NAME}-override-pay"):
+        return {"result": "continue"}
+
+    request = rpc_command
+    if request["method"] != "pay":
+        return {"result": "continue"}
+
+    request["method"] = "mpay"
+    return {"replace": request}
 
 
 pl.run()

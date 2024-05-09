@@ -22,7 +22,7 @@ class OptionDefaults(StrEnum):
     GrpcPort = "9293"
 
     DefaultMaxFee = "0.25"
-    DefaultOverridePay = False
+    DefaultOverridePay = "false"
 
 
 def register_options(pl: Plugin) -> None:
@@ -43,21 +43,25 @@ def register_options(pl: Plugin) -> None:
         f"{PLUGIN_NAME} default max fee",
     )
 
+    override_description = f"{PLUGIN_NAME} override pay command to use mpay instead"
+
     # pyln.client added full dynamic option support in 24.05
-    ver = pyln.client.__version__.split('.')
-    if ver[0] > '24' or (ver[0] == '24' and int(ver[1]) >= 5):
-        pl.add_option(OptionKeys.OverridePay,
-                      OptionDefaults.OverridePay,
-                      f"{PLUGIN_NAME} override pay command use mpay instead",
-                      'bool',
-                      dynamic=True
-                      )
+    ver = __version__.split(".")
+    if ver[0] > "24" or (ver[0] == "24" and int(ver[1]) >= 5):
+        pl.add_option(
+            OptionKeys.OverridePay,
+            OptionDefaults.DefaultOverridePay,
+            override_description,
+            "bool",
+            dynamic=True,
+        )
     else:
-        pl.add_option(OptionKeys.OverridePay,
-                      OptionDefaults.OverridePay,
-                      f"{PLUGIN_NAME} override pay command use mpay instead",
-                      'bool',
-                      )
+        pl.add_option(
+            OptionKeys.OverridePay,
+            OptionDefaults.DefaultOverridePay,
+            override_description,
+            "bool",
+        )
 
 
 class Config:

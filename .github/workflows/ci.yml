@@ -72,5 +72,11 @@ jobs:
       - name: Integration tests
         run: node run-int.js
 
+      - name: Stop hold invoice plugin
+        run: docker exec regtest lightning-cli plugin stop /root/hold.sh
+
+      - name: Stop mpay plugin
+        run: docker exec regtest lightning-cli plugin stop /root/mpay.sh
+
       - name: Python plugin tests
         run: npm run python:test

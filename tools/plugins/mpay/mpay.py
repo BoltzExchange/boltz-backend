@@ -37,7 +37,9 @@ mpay = MPay(pl, db, routes)
 
 server = Server(pl, db, mpay, routes)
 
+
 @pl.init()
+@thread_method(executor=executor)
 def init(
     options: dict[str, Any],
     configuration: dict[str, Any],
@@ -61,7 +63,7 @@ def init(
 
         pl.log(f"Plugin {PLUGIN_NAME} v{VERSION} initialized")
         if pl.get_option(f"{PLUGIN_NAME}-override-pay"):
-            pl.log(f"Overriding pay command: all your pay are belong to us!")
+            pl.log("Overriding pay command: all your pay are belong to us!")
     except BaseException as e:
         pl.log(f"Could not start {PLUGIN_NAME} v{VERSION}: {e}", level="warn")
         sys.exit(1)
@@ -175,9 +177,11 @@ def mpay_reset(request: Request) -> dict[str, Any]:
     return {"deleted": routes.reset().to_dict()}
 
 
-@plugin.hook("rpc_command")
-def on_rpc_command(plugin, rpc_command, **kwargs):
-    if not plugin.pl.get_option(f"{PLUGIN_NAME}-override-pay"):
+@pl.hook("rpc_command")
+def on_rpc_command(
+    plugin: Plugin, rpc_command: dict[str, Any], **kwargs: dict[str, Any]
+) -> dict[str, Any]:
+    if not plugin.get_option(f"{PLUGIN_NAME}-override-pay"):
         return {"result": "continue"}
 
     request = rpc_command

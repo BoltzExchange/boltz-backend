@@ -412,6 +412,36 @@ describe('SwapRouter', () => {
     );
   });
 
+  test('should create submarine swaps with referralId in URL query', async () => {
+    const reqBody = {
+      to: 'BTC',
+      from: 'L-BTC',
+      invoice: 'LNBC1',
+      refundPublicKey: '0021',
+    };
+    const referralId = 'partner';
+
+    const res = mockResponse();
+    await swapRouter['createSubmarine'](
+      mockRequest(reqBody, {
+        referralId,
+      }),
+      res,
+    );
+
+    expect(service.createSwapWithInvoice).toHaveBeenCalledTimes(1);
+    expect(service.createSwapWithInvoice).toHaveBeenCalledWith(
+      'L-BTC/BTC',
+      OrderSide.BUY,
+      getHexBuffer(reqBody.refundPublicKey),
+      reqBody.invoice.toLowerCase(),
+      undefined,
+      referralId,
+      undefined,
+      SwapVersion.Taproot,
+    );
+  });
+
   test.each`
     error                        | params
     ${'undefined parameter: id'} | ${{}}
@@ -825,6 +855,36 @@ describe('SwapRouter', () => {
       orderSide: OrderSide.BUY,
       version: SwapVersion.Taproot,
       referralId: reqBody.referralId,
+      preimageHash: getHexBuffer(reqBody.preimageHash),
+      claimPublicKey: getHexBuffer(reqBody.claimPublicKey),
+    });
+  });
+
+  test('should create reverse swaps with referralId in URL query', async () => {
+    const reqBody = {
+      to: 'L-BTC',
+      from: 'BTC',
+      claimPublicKey: '21',
+      preimageHash: getHexString(randomBytes(32)),
+    };
+    const referralId = 'partner';
+
+    const res = mockResponse();
+
+    await swapRouter['createReverse'](
+      mockRequest(reqBody, {
+        referralId,
+      }),
+      res,
+    );
+
+    expect(service.createReverseSwap).toHaveBeenCalledTimes(1);
+    expect(service.createReverseSwap).toHaveBeenCalledWith({
+      referralId,
+      pairId: 'L-BTC/BTC',
+      prepayMinerFee: false,
+      orderSide: OrderSide.BUY,
+      version: SwapVersion.Taproot,
       preimageHash: getHexBuffer(reqBody.preimageHash),
       claimPublicKey: getHexBuffer(reqBody.claimPublicKey),
     });

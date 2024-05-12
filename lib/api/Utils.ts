@@ -146,3 +146,20 @@ export const markSwap = async (
 
   await MarkedSwapRepository.addMarkedSwap(swapId);
 };
+
+export const parseReferralId = (req: Request): string | undefined => {
+  const apiArguments: ApiArgument[] = [
+    { name: 'referralId', type: 'string', optional: true },
+  ];
+  const parsedBody = validateRequest(req.body, apiArguments);
+
+  if (parsedBody.referralId !== undefined && parsedBody.referralId !== '') {
+    return parsedBody.referralId;
+  }
+
+  if (req.query) {
+    return validateRequest(req.query, apiArguments).referralId;
+  }
+
+  return undefined;
+};

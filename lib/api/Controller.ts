@@ -28,6 +28,7 @@ import {
   createdResponse,
   errorResponse,
   markSwap,
+  parseReferralId,
   successResponse,
   validateRequest,
 } from './Utils';
@@ -398,7 +399,6 @@ class Controller {
       invoice,
       pairHash,
       orderSide,
-      referralId,
       preimageHash,
       refundPublicKey,
     } = validateRequest(req.body, [
@@ -407,10 +407,10 @@ class Controller {
       { name: 'channel', type: 'object', optional: true },
       { name: 'invoice', type: 'string', optional: true },
       { name: 'pairHash', type: 'string', optional: true },
-      { name: 'referralId', type: 'string', optional: true },
       { name: 'refundPublicKey', type: 'string', hex: true, optional: true },
       { name: 'preimageHash', type: 'string', hex: true, optional: true },
     ]);
+    const referralId = parseReferralId(req);
 
     if (channel !== undefined) {
       validateRequest(channel, [
@@ -467,7 +467,6 @@ class Controller {
       address,
       pairHash,
       orderSide,
-      referralId,
       routingNode,
       claimAddress,
       preimageHash,
@@ -481,7 +480,6 @@ class Controller {
       { name: 'address', type: 'string', optional: true },
       { name: 'preimageHash', type: 'string', hex: true },
       { name: 'pairHash', type: 'string', optional: true },
-      { name: 'referralId', type: 'string', optional: true },
       { name: 'routingNode', type: 'string', optional: true },
       { name: 'claimAddress', type: 'string', optional: true },
       { name: 'invoiceAmount', type: 'number', optional: true },
@@ -489,6 +487,7 @@ class Controller {
       { name: 'claimPublicKey', type: 'string', hex: true, optional: true },
       { name: 'addressSignature', type: 'string', hex: true, optional: true },
     ]);
+    const referralId = parseReferralId(req);
 
     checkPreimageHashLength(preimageHash);
 

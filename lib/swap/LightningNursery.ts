@@ -129,7 +129,7 @@ class LightningNursery extends TypedEventEmitter<{
 
     if (reverseSwap.invoice === invoice) {
       this.logger.verbose(
-        `Hold invoice of Reverse Swap ${reverseSwap.id} was accepted`,
+        `Hold invoice payment of Reverse Swap ${reverseSwap.id} pending`,
       );
 
       if (

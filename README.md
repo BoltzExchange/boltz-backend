@@ -14,10 +14,6 @@ Documentation can be found at [docs.boltz.exchange](https://docs.boltz.exchange/
 
 Boltz Backend after [commit 3bcd9ae](https://github.com/BoltzExchange/boltz-backend/commit/3bcd9ae43db64add1bd72fe639bc38cfa727da04) is licensed under [BSL 1.1](https://mariadb.com/bsl11/), a "source available" license which automatically turns into an open source license after 4 years, see [LICENSE](LICENSE) and [BSL FAQs](https://mariadb.com/bsl-faq-mariadb/) for details. If you are interested in a partnership to run the latest version please contact us at [hi@bol.tz](mailto:hi@bol.tz).
 
-Current Partnerships:
-* [Diamond Hands](https://swap.diamondhands.technology/)
-* [Breez](https://breez.technology/)
-
 ## Resources
 
 * Get Help: [Discord](https://discord.gg/QBvZGcW)

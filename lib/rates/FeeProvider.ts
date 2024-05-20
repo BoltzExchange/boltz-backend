@@ -90,7 +90,7 @@ class FeeProvider {
       [SwapVersion.Taproot]: {
         normalClaim: 1337,
         reverseLockup: 2503,
-        reverseClaim: 1297,
+        reverseClaim: 1309,
       },
       [SwapVersion.Legacy]: {
         normalClaim: 1333,

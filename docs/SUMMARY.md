@@ -5,6 +5,8 @@
 * [🤖 REST API v1 (deprecated)](api-v1.md)
 * [🔁 Swap Types & States](lifecycle.md)
 * [🙋‍♂️ Claim & Refund Transactions](claiming-swaps.md)
+* [🪄 Magic Routing Hints](magic-routing-hints.md)
+* [📜 Claim covenants](claim-covenants.md)
 * [🚫 Don't trust. Verify!](dont-trust-verify.md)
 * [⏩ 0-conf](0-conf.md)
 * [🚢 Backend Deployment](deployment.md)

@@ -3,6 +3,38 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [3.6.0](https://github.com/BoltzExchange/boltz-backend/compare/v3.5.0..v3.6.0) - 2024-04-24
+
+### Bug Fixes
+
+- Docker build script backend version - ([c3f6aaa](https://github.com/BoltzExchange/boltz-backend/commit/c3f6aaa1543dc67777da8b0d0512a9d2c3b89dc2))
+- flaky fee calculating integration test - ([c375740](https://github.com/BoltzExchange/boltz-backend/commit/c3757401760ee49c88e0f8b6c3cc35280e2ef3a3))
+- remove lockup transaction table foreign contraint - ([d149cc6](https://github.com/BoltzExchange/boltz-backend/commit/d149cc6c644ff63f39c0dfd89d4e35a03377841f))
+- use lowball config for second Elements client - ([ee3d5be](https://github.com/BoltzExchange/boltz-backend/commit/ee3d5be095729ed84c891f61ef1f1796dfec4a68))
+- allow lowball for refunds (#533) - ([f0aab1c](https://github.com/BoltzExchange/boltz-backend/commit/f0aab1cd569a79527e3c73ece4a7f7f7fb6502af))
+- bump Liquid claim transaction size estimation (#534) - ([9df7beb](https://github.com/BoltzExchange/boltz-backend/commit/9df7beb0a43ce04a0e3698a4c4f0efca6fd66a45))
+
+### Features
+
+- make CORS headers configurable (#529) - ([efc463f](https://github.com/BoltzExchange/boltz-backend/commit/efc463fa7f5a984a9bee71ee4dbffa0d22723d39))
+- use lowball for emitting unconfirmed transactions - ([9621376](https://github.com/BoltzExchange/boltz-backend/commit/9621376a7018dd1dbc889e546350a6cb5db477b6))
+- 0-conf circuit breaker - ([0c33029](https://github.com/BoltzExchange/boltz-backend/commit/0c330295b2e90b42de9848de13d01a869467b40c))
+- send alert notification when 0-conf is disabled - ([b135ce6](https://github.com/BoltzExchange/boltz-backend/commit/b135ce60af554b7ef781391c3b3b335bbfb8f406))
+- use lowball fees in ElementsWrapper (#531) - ([add9ea5](https://github.com/BoltzExchange/boltz-backend/commit/add9ea5890c26709de6c2490ace70dadaa574edb))
+
+### Miscellaneous Chores
+
+- address minor review feedback - ([874abc9](https://github.com/BoltzExchange/boltz-backend/commit/874abc9405764cc7278978f8e130ca387ceb38d4))
+- bump Bitcoin Core to v27.0 (#526) - ([246cf7d](https://github.com/BoltzExchange/boltz-backend/commit/246cf7d4a541104d5e8656427826c810b27c7dfa))
+
+### Refactoring
+
+- simplify IChainClient generic - ([493c04b](https://github.com/BoltzExchange/boltz-backend/commit/493c04b1614f71e08333799e16f575140f330fb4))
+- only broadcast with public Elements client - ([1459b1e](https://github.com/BoltzExchange/boltz-backend/commit/1459b1ed9e8dfabfaa41b7e44031e3601a673a9c))
+- move allSettled into PromiseUtils - ([4937beb](https://github.com/BoltzExchange/boltz-backend/commit/4937beb4ef541c17a7be8eb7e157ee6d8b5159cb))
+- use tableName for all SQL tables - ([50b1aa4](https://github.com/BoltzExchange/boltz-backend/commit/50b1aa4a54a1a286393769135295e9bb9b854a35))
+
+---
 ## [3.5.0](https://github.com/BoltzExchange/boltz-backend/compare/v3.4.0..v3.5.0) - 2024-04-12
 
 ### Bug Fixes
@@ -80,6 +112,7 @@ All notable changes to this project will be documented in this file. See [conven
 - read backend image tag from package.json - ([f9d956b](https://github.com/BoltzExchange/boltz-backend/commit/f9d956bd58b7ca94a6d89bccb200e6260ed68049))
 - bump tar from 6.1.13 to 6.2.1 (#523) - ([38bb1f3](https://github.com/BoltzExchange/boltz-backend/commit/38bb1f3483a0f08b80fbf7f99d2609d1cad04502))
 - update Python dependencies - ([ae3fac3](https://github.com/BoltzExchange/boltz-backend/commit/ae3fac39b74f4f57fa92cb5035a584641f73e169))
+- changelog for v3.5.0 - ([432fc64](https://github.com/BoltzExchange/boltz-backend/commit/432fc642bebe834f3f9e1ec81d0827d4235625f8))
 
 ### Refactoring
 

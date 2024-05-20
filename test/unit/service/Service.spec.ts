@@ -1,8 +1,7 @@
-import { address } from 'bitcoinjs-lib';
+import { Transaction, address } from 'bitcoinjs-lib';
 import { Networks } from 'boltz-core';
 import { randomBytes } from 'crypto';
 import { Provider } from 'ethers';
-import { Op } from 'sequelize';
 import { ConfigType } from '../../../lib/Config';
 import { ECPair } from '../../../lib/ECPairHelper';
 import Logger from '../../../lib/Logger';
@@ -1145,9 +1144,19 @@ describe('Service', () => {
       '0100000000010154b6a506a69b5a2e7e8de20fe9aedbe9aa04e3249fc2ca75106a06942c5c84e60000000023220020bcf9f822194145acea0f3235f4107b5bf1a91b6b9f8489f63bf79ec29b360913ffffffff023b622d000000000017a91430897cc6c9d69f6a2c2f1c651d51f22219f1a4f6873ecb2a000000000017a9146ee55aa1c39b0c66acf287ac39721feef49114d6870400483045022100a3269ba08373ed541e91eb9698c4f570c7a8a0fde7dbff503d8c759c59639845022008abe66b6550ffb6484cda8a87140759aa5ee9c4bb2aaa09883d2afab9e6927501483045022100d29199cd9799363fd5869c4e22836c28bf48b2fe1b82bf21fcc23f28abc9921502204b1066a49c2c8d70c876ce28bd9f81aace47c4079b3bae4dfb63173c2f3be21201695221026c8f72b9e63db63907115e65d4da86eaae595b22fdc85ec75301bb4adbf203582103806535be3e3920e5eedee92de5714188fd6a784f2bf7b04f87de0b9c3ae1ecdb21024b23bfdce2afcae7e28c42f7f79aa100f22931712c52d7414a526ba494d44a2553ae00000000';
 
     test('should broadcast transactions', async () => {
-      SwapRepository.getSwaps = jest.fn().mockResolvedValue([]);
-      ReverseSwapRepository.getReverseSwaps = jest.fn().mockResolvedValue([]);
-      ChainSwapRepository.getChainSwapsByData = jest.fn().mockResolvedValue([]);
+      service.transactionFetcher.getSwapsSpentInInputs = jest
+        .fn()
+        .mockResolvedValue({
+          swapsRefunded: [],
+          chainSwapsSpent: [],
+          reverseSwapsClaimed: [],
+        });
+      service.transactionFetcher.getSwapsFundedInOutputs = jest
+        .fn()
+        .mockResolvedValue({
+          swapLockups: [],
+          chainSwapLockups: [],
+        });
 
       await expect(
         service.broadcastTransaction('BTC', transactionHex),
@@ -1159,45 +1168,53 @@ describe('Service', () => {
         false,
       );
 
-      expect(SwapRepository.getSwaps).toHaveBeenCalledTimes(1);
-      expect(SwapRepository.getSwaps).toHaveBeenCalledWith({
-        lockupAddress: {
-          [Op.in]: [
-            '2Mwfs8HT1cwhbncpPcj5jcthHoMuCCGZLcc',
-            '2N3Mb5BYy9CSQRmertCwEAHVGoky3CQbv9q',
-          ],
-        },
-      });
-      expect(ChainSwapRepository.getChainSwapsByData).toHaveBeenCalledTimes(1);
-      expect(ChainSwapRepository.getChainSwapsByData).toHaveBeenCalledWith(
-        {
-          lockupAddress: {
-            [Op.in]: [
-              '2Mwfs8HT1cwhbncpPcj5jcthHoMuCCGZLcc',
-              '2N3Mb5BYy9CSQRmertCwEAHVGoky3CQbv9q',
-            ],
-          },
-        },
-        {},
+      expect(
+        service.transactionFetcher.getSwapsSpentInInputs,
+      ).toHaveBeenCalledTimes(1);
+      expect(
+        service.transactionFetcher.getSwapsSpentInInputs,
+      ).toHaveBeenCalledWith(Transaction.fromHex(transactionHex));
+
+      expect(
+        service.transactionFetcher.getSwapsFundedInOutputs,
+      ).toHaveBeenCalledTimes(1);
+      expect(
+        service.transactionFetcher.getSwapsFundedInOutputs,
+      ).toHaveBeenCalledWith(
+        expect.anything(),
+        Transaction.fromHex(transactionHex),
       );
-      expect(ReverseSwapRepository.getReverseSwaps).toHaveBeenCalledTimes(1);
-      expect(ReverseSwapRepository.getReverseSwaps).toHaveBeenCalledWith({
-        transactionId: {
-          [Op.in]: [
-            'e6845c2c94066a1075cac29f24e304aae9dbaee90fe28d7e2e5a9ba606a5b654',
-          ],
-        },
-      });
     });
 
     test('should detect swap related transactions when Reverse Swaps are being claimed', async () => {
-      SwapRepository.getSwaps = jest.fn().mockResolvedValue([]);
-      ChainSwapRepository.getChainSwapsByData = jest.fn().mockResolvedValue([]);
-      ReverseSwapRepository.getReverseSwaps = jest.fn().mockResolvedValue([
-        {
-          id: 'cheap swap',
-        },
-      ]);
+      service.transactionFetcher.getSwapsSpentInInputs = jest
+        .fn()
+        .mockResolvedValue({
+          swapsRefunded: [],
+          chainSwapsSpent: [],
+          reverseSwapsClaimed: [
+            {
+              id: 'cheap swap',
+            },
+          ],
+        });
+
+      await expect(
+        service.broadcastTransaction('BTC', transactionHex),
+      ).resolves.toEqual(sendRawTransaction);
+
+      expect(mockSendRawTransaction).toHaveBeenCalledTimes(1);
+      expect(mockSendRawTransaction).toHaveBeenCalledWith(transactionHex, true);
+    });
+
+    test('should detect swap related transactions when Submarine Swaps are being refunded', async () => {
+      service.transactionFetcher.getSwapsSpentInInputs = jest
+        .fn()
+        .mockResolvedValue({
+          swapsRefunded: [],
+          chainSwapsSpent: [],
+          reverseSwapsClaimed: [{ id: 'i am being refunded' }],
+        });
 
       await expect(
         service.broadcastTransaction('BTC', transactionHex),
@@ -1208,17 +1225,23 @@ describe('Service', () => {
     });
 
     test('should detect but now allow swap related transaction when Reverse Swaps are being claimed but also Submarine Swaps locked up', async () => {
-      SwapRepository.getSwaps = jest.fn().mockResolvedValue([
-        {
-          id: 'something else',
-        },
-      ]);
-      ChainSwapRepository.getChainSwapsByData = jest.fn().mockResolvedValue([]);
-      ReverseSwapRepository.getReverseSwaps = jest.fn().mockResolvedValue([
-        {
-          id: 'cheap swap',
-        },
-      ]);
+      service.transactionFetcher.getSwapsFundedInOutputs = jest
+        .fn()
+        .mockResolvedValue({
+          swapLockups: [{ id: 'lockup' }],
+          chainSwapLockups: [],
+        });
+      service.transactionFetcher.getSwapsSpentInInputs = jest
+        .fn()
+        .mockResolvedValue({
+          swapsRefunded: [],
+          chainSwapsSpent: [],
+          reverseSwapsClaimed: [
+            {
+              id: 'cheap swap',
+            },
+          ],
+        });
 
       await expect(
         service.broadcastTransaction('BTC', transactionHex),
@@ -1232,17 +1255,12 @@ describe('Service', () => {
     });
 
     test('should detect but now allow swap related transaction when Reverse Swaps are being claimed but also Chain Swaps locked up', async () => {
-      SwapRepository.getSwaps = jest.fn().mockResolvedValue([]);
-      ChainSwapRepository.getChainSwapsByData = jest.fn().mockResolvedValue([
-        {
-          id: 'something else',
-        },
-      ]);
-      ReverseSwapRepository.getReverseSwaps = jest.fn().mockResolvedValue([
-        {
-          id: 'cheap swap',
-        },
-      ]);
+      service.transactionFetcher.getSwapsFundedInOutputs = jest
+        .fn()
+        .mockResolvedValue({
+          swapLockups: [],
+          chainSwapLockups: [{ id: 'lockup' }],
+        });
 
       await expect(
         service.broadcastTransaction('BTC', transactionHex),
@@ -1263,22 +1281,35 @@ describe('Service', () => {
       };
 
       const blockDelta = 1;
-      mockGetSwapResult = {
+      const swap = {
         timeoutBlockHeight: blockchainInfo.blocks + blockDelta,
       };
+      service.transactionFetcher.getSwapsSpentInInputs = jest
+        .fn()
+        .mockResolvedValue({
+          swapsRefunded: [swap],
+          chainSwapsSpent: [],
+          reverseSwapsClaimed: [],
+        });
 
       await expect(
         service.broadcastTransaction('BTC', transactionHex),
       ).rejects.toEqual({
         error: sendRawTransaction.message,
-        timeoutBlockHeight: mockGetSwapResult.timeoutBlockHeight,
+        timeoutBlockHeight: swap.timeoutBlockHeight,
         timeoutEta:
           Math.round(new Date().getTime() / 1000) + blockDelta * 10 * 60,
       });
     });
 
     test('should bubble up node error when not a Submarine Swap refund', async () => {
-      mockGetSwapResult = null;
+      service.transactionFetcher.getSwapsSpentInInputs = jest
+        .fn()
+        .mockResolvedValue({
+          swapsRefunded: [],
+          chainSwapsSpent: [],
+          reverseSwapsClaimed: [],
+        });
 
       await expect(
         service.broadcastTransaction('BTC', transactionHex),

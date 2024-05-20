@@ -1,8 +1,21 @@
-import { getChainCurrency, splitPairId } from '../Utils';
+import { Transaction } from 'bitcoinjs-lib';
+import { Transaction as LiquidTransaction } from 'liquidjs-lib';
+import { Op } from 'sequelize';
+import {
+  getChainCurrency,
+  getHexString,
+  reverseBuffer,
+  splitPairId,
+} from '../Utils';
 import ChainSwapData from '../db/models/ChainSwapData';
-import { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
+import ReverseSwap from '../db/models/ReverseSwap';
+import Swap from '../db/models/Swap';
+import ChainSwapRepository, {
+  ChainSwapInfo,
+} from '../db/repositories/ChainSwapRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
+import Wallet from '../wallet/Wallet';
 import { Currency } from '../wallet/WalletManager';
 import Errors from './Errors';
 import { calculateTimeoutDate, getCurrency } from './Utils';
@@ -127,6 +140,97 @@ class TransactionFetcher {
     return {
       userLock,
       serverLock,
+    };
+  };
+
+  public getSwapsSpentInInputs = async (
+    transaction: Transaction | LiquidTransaction,
+  ): Promise<{
+    swapsRefunded: Swap[];
+    chainSwapsSpent: ChainSwapInfo[];
+    reverseSwapsClaimed: ReverseSwap[];
+  }> => {
+    const inputIds = transaction.ins.map((input) =>
+      getHexString(reverseBuffer(input.hash)),
+    );
+    if (inputIds.length === 0) {
+      return {
+        swapsRefunded: [],
+        chainSwapsSpent: [],
+        reverseSwapsClaimed: [],
+      };
+    }
+
+    const [swapsRefunded, reverseSwapsClaimed, chainSwapsSpent] =
+      await Promise.all([
+        SwapRepository.getSwaps({
+          lockupTransactionId: {
+            [Op.in]: inputIds,
+          },
+        }),
+        ReverseSwapRepository.getReverseSwaps({
+          transactionId: {
+            [Op.in]: inputIds,
+          },
+        }),
+        ChainSwapRepository.getChainSwapsByData(
+          {
+            transactionId: {
+              [Op.in]: inputIds,
+            },
+          },
+          {},
+        ),
+      ]);
+
+    return {
+      swapsRefunded,
+      chainSwapsSpent,
+      reverseSwapsClaimed,
+    };
+  };
+
+  public getSwapsFundedInOutputs = async (
+    wallet: Wallet | undefined,
+    transaction: Transaction | LiquidTransaction,
+  ): Promise<{
+    swapLockups: Swap[];
+    chainSwapLockups: ChainSwapInfo[];
+  }> => {
+    const outputAddresses =
+      wallet !== undefined
+        ? transaction.outs
+            // Filter Liquid fee outputs
+            .filter((out) => out.script.length > 0)
+            .map((out) => wallet.encodeAddress(out.script))
+        : [];
+
+    if (outputAddresses.length === 0) {
+      return {
+        swapLockups: [],
+        chainSwapLockups: [],
+      };
+    }
+
+    const [swapLockups, chainSwapLockups] = await Promise.all([
+      SwapRepository.getSwaps({
+        lockupAddress: {
+          [Op.in]: outputAddresses,
+        },
+      }),
+      ChainSwapRepository.getChainSwapsByData(
+        {
+          lockupAddress: {
+            [Op.in]: outputAddresses,
+          },
+        },
+        {},
+      ),
+    ]);
+
+    return {
+      swapLockups,
+      chainSwapLockups,
     };
   };
 

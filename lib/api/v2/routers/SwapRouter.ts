@@ -18,6 +18,7 @@ import {
   createdResponse,
   errorResponse,
   markSwap,
+  parseReferralId,
   successResponse,
   validateRequest,
 } from '../../Utils';
@@ -1513,15 +1514,17 @@ class SwapRouter extends RouterBase {
     );
 
   private createSubmarine = async (req: Request, res: Response) => {
-    const { to, from, invoice, pairHash, referralId, refundPublicKey } =
-      validateRequest(req.body, [
+    const { to, from, invoice, pairHash, refundPublicKey } = validateRequest(
+      req.body,
+      [
         { name: 'to', type: 'string' },
         { name: 'from', type: 'string' },
         { name: 'invoice', type: 'string', optional: true },
         { name: 'pairHash', type: 'string', optional: true },
-        { name: 'referralId', type: 'string', optional: true },
         { name: 'refundPublicKey', type: 'string', hex: true, optional: true },
-      ]);
+      ],
+    );
+    const referralId = parseReferralId(req);
 
     const { pairId, orderSide } = this.service.convertToPairAndSide(from, to);
 
@@ -1666,7 +1669,6 @@ class SwapRouter extends RouterBase {
       from,
       address,
       pairHash,
-      referralId,
       routingNode,
       preimageHash,
       claimAddress,
@@ -1681,7 +1683,6 @@ class SwapRouter extends RouterBase {
       { name: 'preimageHash', type: 'string', hex: true },
       { name: 'address', type: 'string', optional: true },
       { name: 'pairHash', type: 'string', optional: true },
-      { name: 'referralId', type: 'string', optional: true },
       { name: 'routingNode', type: 'string', optional: true },
       { name: 'claimAddress', type: 'string', optional: true },
       { name: 'invoiceAmount', type: 'number', optional: true },
@@ -1690,6 +1691,7 @@ class SwapRouter extends RouterBase {
       { name: 'claimPublicKey', type: 'string', hex: true, optional: true },
       { name: 'addressSignature', type: 'string', hex: true, optional: true },
     ]);
+    const referralId = parseReferralId(req);
 
     checkPreimageHashLength(preimageHash);
 

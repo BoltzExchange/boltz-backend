@@ -1,16 +1,24 @@
-import { Transaction } from 'bitcoinjs-lib';
-import { getUnixTime } from '../../../lib/Utils';
+import { Transaction, address } from 'bitcoinjs-lib';
+import { Networks } from 'boltz-core';
+import { Op } from 'sequelize';
+import { getHexString, getUnixTime, reverseBuffer } from '../../../lib/Utils';
 import { OrderSide } from '../../../lib/consts/Enums';
-import { ChainSwapInfo } from '../../../lib/db/repositories/ChainSwapRepository';
+import ChainSwapRepository, {
+  ChainSwapInfo,
+} from '../../../lib/db/repositories/ChainSwapRepository';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import Errors from '../../../lib/service/Errors';
 import TransactionFetcher from '../../../lib/service/TransactionFetcher';
+import Wallet from '../../../lib/wallet/Wallet';
 import { Currency } from '../../../lib/wallet/WalletManager';
 import { bitcoinClient } from '../Nodes';
 import { getSigner } from '../wallet/EthereumTools';
 
+jest.mock('../../../lib/db/repositories/SwapRepository');
 jest.mock('../../../lib/db/repositories/ChainTipRepository');
+jest.mock('../../../lib/db/repositories/ChainSwapRepository');
+jest.mock('../../../lib/db/repositories/ReverseSwapRepository');
 
 describe('TransactionFetcher', () => {
   const currencies = new Map<string, any>([]);
@@ -29,6 +37,10 @@ describe('TransactionFetcher', () => {
       provider,
       symbol: 'RBTC',
     });
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
   });
 
   afterAll(() => {
@@ -191,6 +203,142 @@ describe('TransactionFetcher', () => {
           receivingData: {},
         } as unknown as ChainSwapInfo),
       ).rejects.toEqual(Errors.SWAP_NO_LOCKUP());
+    });
+  });
+
+  describe('getSwapsSpentInInputs', () => {
+    let transaction: Transaction;
+
+    beforeAll(async () => {
+      transaction = Transaction.fromHex(
+        await bitcoinClient.getRawTransaction(
+          await bitcoinClient.sendToAddress(
+            await bitcoinClient.getNewAddress(),
+            100_000,
+          ),
+        ),
+      );
+    });
+
+    test('should fetch swaps spent in inputs', async () => {
+      SwapRepository.getSwaps = jest.fn().mockResolvedValue([{ id: 'swap' }]);
+      ReverseSwapRepository.getReverseSwaps = jest
+        .fn()
+        .mockResolvedValue([{ id: 'reverse' }]);
+      ChainSwapRepository.getChainSwapsByData = jest
+        .fn()
+        .mockResolvedValue([{ id: 'chain' }]);
+
+      const swaps = await fetcher.getSwapsSpentInInputs(transaction);
+      expect(swaps.swapsRefunded).toEqual([{ id: 'swap' }]);
+      expect(swaps.chainSwapsSpent).toEqual([{ id: 'chain' }]);
+      expect(swaps.reverseSwapsClaimed).toEqual([{ id: 'reverse' }]);
+
+      const inputsIds = transaction.ins.map((input) =>
+        getHexString(reverseBuffer(input.hash)),
+      );
+
+      expect(SwapRepository.getSwaps).toHaveBeenCalledTimes(1);
+      expect(SwapRepository.getSwaps).toHaveBeenCalledWith({
+        lockupTransactionId: {
+          [Op.in]: inputsIds,
+        },
+      });
+      expect(ReverseSwapRepository.getReverseSwaps).toHaveBeenCalledTimes(1);
+      expect(ReverseSwapRepository.getReverseSwaps).toHaveBeenCalledWith({
+        transactionId: {
+          [Op.in]: inputsIds,
+        },
+      });
+      expect(ChainSwapRepository.getChainSwapsByData).toHaveBeenCalledTimes(1);
+      expect(ChainSwapRepository.getChainSwapsByData).toHaveBeenCalledWith(
+        {
+          transactionId: {
+            [Op.in]: inputsIds,
+          },
+        },
+        {},
+      );
+    });
+
+    test('should not fetch from database when the transaction has no inputs', async () => {
+      transaction.ins = [];
+
+      const swaps = await fetcher.getSwapsSpentInInputs(transaction);
+      expect(swaps.swapsRefunded).toEqual([]);
+      expect(swaps.chainSwapsSpent).toEqual([]);
+      expect(swaps.reverseSwapsClaimed).toEqual([]);
+
+      expect(SwapRepository.getSwaps).not.toHaveBeenCalled();
+      expect(ReverseSwapRepository.getReverseSwaps).not.toHaveBeenCalled();
+      expect(ChainSwapRepository.getChainSwapsByData).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getSwapsFundedInOutputs', () => {
+    let transaction: Transaction;
+
+    const wallet = {
+      encodeAddress: (outputScript) =>
+        address.fromOutputScript(outputScript, Networks.bitcoinRegtest),
+    } as Wallet;
+
+    beforeAll(async () => {
+      transaction = Transaction.fromHex(
+        await bitcoinClient.getRawTransaction(
+          await bitcoinClient.sendToAddress(
+            await bitcoinClient.getNewAddress(),
+            100_000,
+          ),
+        ),
+      );
+    });
+
+    test('should fetch swaps funded in outputs', async () => {
+      SwapRepository.getSwaps = jest.fn().mockResolvedValue([{ id: 'swap' }]);
+      ChainSwapRepository.getChainSwapsByData = jest
+        .fn()
+        .mockResolvedValue([{ id: 'chain' }]);
+
+      const swaps = await fetcher.getSwapsFundedInOutputs(wallet, transaction);
+      expect(swaps.swapLockups).toEqual([{ id: 'swap' }]);
+      expect(swaps.chainSwapLockups).toEqual([{ id: 'chain' }]);
+
+      const outputAddresses = transaction.outs.map((output) =>
+        address.fromOutputScript(output.script, Networks.bitcoinRegtest),
+      );
+
+      expect(SwapRepository.getSwaps).toHaveBeenCalledTimes(1);
+      expect(SwapRepository.getSwaps).toHaveBeenCalledWith({
+        lockupAddress: {
+          [Op.in]: outputAddresses,
+        },
+      });
+      expect(ChainSwapRepository.getChainSwapsByData).toHaveBeenCalledTimes(1);
+      expect(ChainSwapRepository.getChainSwapsByData).toHaveBeenCalledWith(
+        {
+          lockupAddress: {
+            [Op.in]: outputAddresses,
+          },
+        },
+        {},
+      );
+    });
+
+    test('should not fetch from database when transaction has no outputs', async () => {
+      transaction.outs = [
+        {
+          value: 123,
+          script: Buffer.alloc(0),
+        },
+      ];
+
+      const swaps = await fetcher.getSwapsFundedInOutputs(wallet, transaction);
+      expect(swaps.swapLockups).toEqual([]);
+      expect(swaps.chainSwapLockups).toEqual([]);
+
+      expect(SwapRepository.getSwaps).not.toHaveBeenCalled();
+      expect(ChainSwapRepository.getChainSwapsByData).not.toHaveBeenCalled();
     });
   });
 

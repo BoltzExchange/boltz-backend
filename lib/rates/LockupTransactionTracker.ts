@@ -5,6 +5,7 @@ import {
   formatError,
   getChainCurrency,
   getReceivingChain,
+  isTxConfirmed,
   splitPairId,
 } from '../Utils';
 import { IChainClient } from '../chain/ChainClient';
@@ -93,7 +94,7 @@ class LockupTransactionTracker extends TypedEventEmitter<{
 
       try {
         const info = await chainClient.getRawTransactionVerbose(transactionId);
-        if (info.confirmations !== undefined && info.confirmations > 0) {
+        if (isTxConfirmed(info)) {
           this.logger.debug(
             `Pending lockup transaction of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} (${transactionId}) confirmed`,
           );

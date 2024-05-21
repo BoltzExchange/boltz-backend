@@ -15,6 +15,7 @@ import {
   getChainCurrency,
   getHexBuffer,
   getHexString,
+  isTxConfirmed,
   reverseBuffer,
   splitPairId,
   transactionHashToId,
@@ -352,10 +353,7 @@ class UtxoNursery extends TypedEventEmitter<{
             swap.lockupTransactionId!,
           );
 
-          if (
-            lockupTransaction.confirmations &&
-            lockupTransaction.confirmations !== 0
-          ) {
+          if (isTxConfirmed(lockupTransaction)) {
             await this.checkSwapTransaction(
               swap,
               chainClient,
@@ -389,10 +387,7 @@ class UtxoNursery extends TypedEventEmitter<{
             swap.receivingData.transactionId!,
           );
 
-          if (
-            lockupTransaction.confirmations &&
-            lockupTransaction.confirmations !== 0
-          ) {
+          if (isTxConfirmed(lockupTransaction)) {
             await this.checkChainSwapTransaction(
               swap,
               chainClient,
@@ -441,7 +436,7 @@ class UtxoNursery extends TypedEventEmitter<{
           reverseSwap.transactionId!,
         );
 
-        if (transaction.confirmations && transaction.confirmations !== 0) {
+        if (isTxConfirmed(transaction)) {
           await this.serverLockupConfirmed(
             chainClient,
             wallet,
@@ -466,7 +461,7 @@ class UtxoNursery extends TypedEventEmitter<{
           swap.sendingData.transactionId!,
         );
 
-        if (transaction.confirmations && transaction.confirmations !== 0) {
+        if (isTxConfirmed(transaction)) {
           await this.serverLockupConfirmed(
             chainClient,
             wallet,
@@ -795,7 +790,7 @@ class UtxoNursery extends TypedEventEmitter<{
       const inputTransaction =
         await chainClient.getRawTransactionVerbose(inputId);
 
-      if (!inputTransaction.confirmations) {
+      if (!isTxConfirmed(inputTransaction)) {
         const inputSignalsRbf = await this.transactionSignalsRbf(
           chainClient,
           parseTransaction(chainClient.currencyType, inputTransaction.hex),

@@ -640,3 +640,6 @@ export const checkEvmAddress = (address: string): string => {
     throw Errors.INVALID_ETHEREUM_ADDRESS();
   }
 };
+
+export const isTxConfirmed = (tx: { confirmations?: number }) =>
+  tx.confirmations !== undefined && tx.confirmations > 0;

@@ -1,6 +1,6 @@
 import { Transaction } from 'bitcoinjs-lib';
 import Logger from '../../Logger';
-import { transactionHashToId } from '../../Utils';
+import { isTxConfirmed, transactionHashToId } from '../../Utils';
 import ChainClient, {
   AddressType,
   IChainClient,
@@ -41,7 +41,7 @@ class CoreWalletProvider implements WalletProviderInterface {
     utxos.forEach((utxo) => {
       const amount = BigInt(Math.round(utxo.amount * ChainClient.decimals));
 
-      if (utxo.confirmations > 0) {
+      if (isTxConfirmed(utxo)) {
         confirmed += amount;
       } else {
         unconfirmed += amount;

@@ -6,6 +6,7 @@ import {
   calculateUtxoTransactionFee,
   decodeInvoice,
   getHexBuffer,
+  isTxConfirmed,
 } from '../../lib/Utils';
 import { bitcoinClient, bitcoinLndClient, elementsClient } from './Nodes';
 
@@ -85,5 +86,29 @@ describe('Utils', () => {
     expect(decoded.satoshis).toEqual(value);
     expect(decoded.minFinalCltvExpiry).toEqual(cltvExpiry);
     expect(getHexBuffer(decoded.paymentHash!)).toEqual(preimageHash);
+  });
+
+  describe('isTxConfirmed', () => {
+    test('should detect when transaction is not confirmed', async () => {
+      const tx = await bitcoinClient.getRawTransactionVerbose(
+        await bitcoinClient.sendToAddress(
+          await bitcoinClient.getNewAddress(),
+          100_000,
+        ),
+      );
+
+      expect(isTxConfirmed(tx)).toEqual(false);
+    });
+
+    test('should detect when transaction is confirmed', async () => {
+      const txId = await bitcoinClient.sendToAddress(
+        await bitcoinClient.getNewAddress(),
+        100_000,
+      );
+      await bitcoinClient.generate(1);
+      const tx = await bitcoinClient.getRawTransactionVerbose(txId);
+
+      expect(isTxConfirmed(tx)).toEqual(true);
+    });
   });
 });

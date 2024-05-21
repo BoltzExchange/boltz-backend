@@ -36,6 +36,12 @@ type SwapToClaim<T> = {
   cooperative?: CooperativeDetails;
 };
 
+type CooperativeClientDetails = {
+  pubNonce: Buffer;
+  publicKey: Buffer;
+  transactionHash: Buffer;
+};
+
 abstract class CoopSignerBase<
   T extends Swap | ChainSwapInfo,
   K extends Record<string | symbol, any>,
@@ -51,11 +57,7 @@ abstract class CoopSignerBase<
   protected createCoopDetails = async (
     chainCurrency: Currency,
     toClaim: SwapToClaim<T>,
-  ): Promise<{
-    pubNonce: Buffer;
-    publicKey: Buffer;
-    transactionHash: Buffer;
-  }> => {
+  ): Promise<CooperativeClientDetails> => {
     const wallet = this.walletManager.wallets.get(chainCurrency.symbol)!;
     const address =
       toClaim.cooperative?.sweepAddress || (await wallet.getAddress());
@@ -184,4 +186,4 @@ abstract class CoopSignerBase<
 }
 
 export default CoopSignerBase;
-export { SwapToClaim, CooperativeDetails };
+export { SwapToClaim, CooperativeDetails, CooperativeClientDetails };

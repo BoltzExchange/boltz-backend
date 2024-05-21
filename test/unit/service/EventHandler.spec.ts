@@ -149,8 +149,8 @@ describe('EventHandler', () => {
 
     nursery.emit('transaction', {
       transaction,
+      confirmed: true,
       swap: reverseSwap,
-      confirmed: false,
     });
   });
 

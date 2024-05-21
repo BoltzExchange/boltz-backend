@@ -2,6 +2,7 @@ import {
   ChannelCreationStatus,
   ChannelCreationType as ChannelType,
   OrderSide,
+  SwapType as SwapTypeEnum,
   SwapUpdateEvent,
   SwapVersion,
 } from '../../../lib/consts/Enums';
@@ -9,9 +10,10 @@ import { ChannelCreationType } from '../../../lib/db/models/ChannelCreation';
 import { NodeType, ReverseSwapType } from '../../../lib/db/models/ReverseSwap';
 import { SwapType } from '../../../lib/db/models/Swap';
 
-export const swapExample: SwapType = {
+export const swapExample = {
   id: '123456',
   version: SwapVersion.Legacy,
+  type: SwapTypeEnum.Submarine,
 
   fee: 100,
   orderSide: OrderSide.BUY,
@@ -32,7 +34,7 @@ export const swapExample: SwapType = {
     'lnbcrt10u1pwd0ll7pp5ulhj6g7cxhsnv7daksah2tcegr7crqrkym5lxl96kxn450wj9p5sdqqcqzpghwrktsemktcs8u367pls8t5htnhvh8l5x00zpu2sjq0lmag5zzw58mf3hfw02zj3ucuw7n52t2cajk7d88wzfh9ydwgtl9yz7gu00fqqzku5uy',
   redeemScript:
     'a9140e8ff7435f5e0c9b7b82c5a8b8c0e225f55f956187632103e1afb0000fc8acf1af59792f35d45f74a9b20784321bdfdc6daa54e72784ae046702a300b1752103533d4307acfa023c7870c1f3c981e3973a18d43458857f201288c19967e9763568ac',
-};
+} as SwapType;
 
 export const pendingSwapExample: SwapType = {
   ...swapExample,
@@ -45,9 +47,10 @@ export const pendingSwapExample: SwapType = {
     'lnbcrt1pwhzymjpp5caehd2n8nzlem65a3vh35zq4z35a8q3l4j3z6v4vdncq5fpxrpcqdqqcqzpgq0tmq4yztsu25983latgnlqw5e2r20ysc98k8gljukp5tcy0k85rdgg820udupmdsnkyxxua5ptl3yaets9h5xaxn7futp4m6g90l9gqkr06ct',
 };
 
-export const reverseSwapExample: ReverseSwapType = {
+export const reverseSwapExample = {
   id: 'r123456',
   version: SwapVersion.Legacy,
+  type: SwapTypeEnum.ReverseSubmarine,
 
   fee: 200,
   node: NodeType.LND,
@@ -69,7 +72,7 @@ export const reverseSwapExample: ReverseSwapType = {
   invoiceAmount: 2,
   redeemScript:
     'a9140e8ff7435f5e0c9b7b82c5a8b8c0e225f55f956187632103e1afb0000fc8acf1af59792f35d45f74a9b20784321bdfdc6daa54e72784ae046702a300b1752103533d4307acfa023c7870c1f3c981e3973a18d43458857f201288c19967e9763568ac',
-};
+} as ReverseSwapType;
 
 export const pendingReverseSwapExample = {
   ...reverseSwapExample,
@@ -84,9 +87,10 @@ export const pendingReverseSwapExample = {
     'lnbcrt1p0xqpt2pp5l34c2393chx7eut4hvlt6h0333nfa562quksdqnx8ymd437dw5msdqqcqzpgsp5f88p6pf23hrn5l7j5sp0q26vtdzzfr838njchzc3lfp6xq2nnj0q9qy9qsq33agd2syjgxjkf6mshm5x482hsu99k2ukrv27wvgtatyzw0lgs83pc0yd3fmwgcn5kcav47h4483qqz9yh4w0vegzlq3cv7zcxssm2sp7l2rck',
 };
 
-export const channelSwapExample: SwapType = {
+export const channelSwapExample = {
   id: 'channel',
   version: SwapVersion.Legacy,
+  type: SwapTypeEnum.Submarine,
 
   fee: 0,
   orderSide: OrderSide.BUY,
@@ -108,7 +112,7 @@ export const channelSwapExample: SwapType = {
   invoiceAmount: 1,
   redeemScript:
     'a91417543b331ad6f253f1632d9c3ded7e03ec2bcd4a87632102ab507fc9eb1a649b8b08124a6eba7dcfe4b274182c8e5f1bdf1aaf26bbccc43a67022001b175210357e57fee8a1adfde4512b01920676b0cbe254ab1f0be8d3aee7c0b7058fd419268ac',
-};
+} as SwapType;
 
 export const channelCreationExample: ChannelCreationType = {
   swapId: 'channel',

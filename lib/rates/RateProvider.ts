@@ -239,7 +239,7 @@ class RateProvider {
       this.logger.warn(
         `No swap types configured for ${getPairId(config)}; enabling all: ${allTypes.map(swapTypeToPrettyString).join(', ')}`,
       );
-      return [SwapType.Submarine, SwapType.ReverseSubmarine, SwapType.Chain];
+      return allTypes;
     }
 
     const types = config.swapTypes.map(stringToSwapType);

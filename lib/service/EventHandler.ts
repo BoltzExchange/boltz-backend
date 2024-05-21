@@ -7,11 +7,11 @@ import {
   swapTypeToPrettyString,
 } from '../consts/Enums';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
+import { AnySwap } from '../consts/Types';
 import ChainSwap from '../db/models/ChainSwap';
 import ChannelCreation from '../db/models/ChannelCreation';
 import ReverseSwap from '../db/models/ReverseSwap';
 import Swap from '../db/models/Swap';
-import { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import SwapNursery from '../swap/SwapNursery';
 import { Currency } from '../wallet/WalletManager';
 
@@ -41,11 +41,11 @@ class EventHandler extends TypedEventEmitter<{
     status: SwapUpdate;
   };
   'swap.success': {
-    swap: Swap | ReverseSwap | ChainSwapInfo;
+    swap: AnySwap;
     channelCreation?: ChannelCreation;
   };
   'swap.failure': {
-    swap: Swap | ReverseSwap | ChainSwapInfo;
+    swap: AnySwap;
     reason: string;
   };
   'channel.backup': {
@@ -99,31 +99,7 @@ class EventHandler extends TypedEventEmitter<{
       } else {
         // Reverse Swaps only emit the "transaction.confirmed" event
         // "transaction.mempool" is handled by the event "coins.sent"
-        if (
-          transaction instanceof Transaction ||
-          transaction instanceof LiquidTransaction
-        ) {
-          this.emit('swap.update', {
-            id: swap.id,
-            status: {
-              status: swap.status as SwapUpdateEvent,
-              transaction: {
-                id: transaction.getId(),
-                hex: transaction.toHex(),
-              },
-            },
-          });
-        } else {
-          this.emit('swap.update', {
-            id: swap.id,
-            status: {
-              status: swap.status as SwapUpdateEvent,
-              transaction: {
-                id: transaction,
-              },
-            },
-          });
-        }
+        this.emitTransaction(swap, transaction, confirmed);
       }
     });
   };
@@ -238,32 +214,7 @@ class EventHandler extends TypedEventEmitter<{
     });
 
     this.nursery.on('coins.sent', ({ swap, transaction }) => {
-      if (
-        transaction instanceof Transaction ||
-        transaction instanceof LiquidTransaction
-      ) {
-        this.emit('swap.update', {
-          id: swap.id,
-          status: {
-            status: swap.status as SwapUpdateEvent,
-            transaction: {
-              id: transaction.getId(),
-              hex: transaction.toHex(),
-              eta: SwapNursery.reverseSwapMempoolEta,
-            },
-          },
-        });
-      } else {
-        this.emit('swap.update', {
-          id: swap.id,
-          status: {
-            status: swap.status as SwapUpdateEvent,
-            transaction: {
-              id: transaction,
-            },
-          },
-        });
-      }
+      this.emitTransaction(swap, transaction, false);
     });
 
     this.nursery.on('coins.failedToSend', (swap) => {
@@ -326,7 +277,7 @@ class EventHandler extends TypedEventEmitter<{
   };
 
   private handleFailedSwap = (
-    swap: Swap | ReverseSwap | ChainSwapInfo,
+    swap: AnySwap,
     status: SwapUpdateEvent,
     failureReason: string,
   ) => {
@@ -345,6 +296,39 @@ class EventHandler extends TypedEventEmitter<{
       swap,
       reason: failureReason,
     });
+  };
+
+  private emitTransaction = (
+    swap: AnySwap,
+    transaction: string | Transaction | LiquidTransaction,
+    confirmed: boolean,
+  ) => {
+    if (
+      transaction instanceof Transaction ||
+      transaction instanceof LiquidTransaction
+    ) {
+      this.emit('swap.update', {
+        id: swap.id,
+        status: {
+          status: swap.status as SwapUpdateEvent,
+          transaction: {
+            id: transaction.getId(),
+            hex: transaction.toHex(),
+            eta: confirmed ? undefined : SwapNursery.reverseSwapMempoolEta,
+          },
+        },
+      });
+    } else {
+      this.emit('swap.update', {
+        id: swap.id,
+        status: {
+          status: swap.status as SwapUpdateEvent,
+          transaction: {
+            id: transaction,
+          },
+        },
+      });
+    }
   };
 }
 

@@ -67,18 +67,18 @@ export const FailedSwapUpdateEvents = [
   SwapUpdateEvent.TransactionRefunded,
 ];
 
-export const NotPendingSwapEvents = [
+export const FinalSwapEvents = [
   SwapUpdateEvent.SwapExpired,
   SwapUpdateEvent.InvoiceFailedToPay,
   SwapUpdateEvent.TransactionClaimed,
 ];
-export const NotPendingReverseSwapEvents = [
+export const FinalReverseSwapEvents = [
   SwapUpdateEvent.SwapExpired,
   SwapUpdateEvent.InvoiceSettled,
   SwapUpdateEvent.TransactionFailed,
   SwapUpdateEvent.TransactionRefunded,
 ];
-export const NotPendingChainSwapEvents = [
+export const FinalChainSwapEvents = [
   SwapUpdateEvent.SwapExpired,
   SwapUpdateEvent.TransactionFailed,
   SwapUpdateEvent.TransactionClaimed,

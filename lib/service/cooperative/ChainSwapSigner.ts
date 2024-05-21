@@ -5,7 +5,6 @@ import Logger from '../../Logger';
 import { formatError, getHexBuffer, getHexString } from '../../Utils';
 import {
   CurrencyType,
-  FailedSwapUpdateEvents,
   SwapUpdateEvent,
   swapTypeToPrettyString,
 } from '../../consts/Enums';
@@ -17,10 +16,11 @@ import SwapOutputType from '../../swap/SwapOutputType';
 import WalletManager, { Currency } from '../../wallet/WalletManager';
 import Errors from '../Errors';
 import CoopSignerBase, {
+  CooperativeClientDetails,
   CooperativeDetails,
   SwapToClaim,
 } from './CoopSignerBase';
-import { PartialSignature } from './MusigSigner';
+import MusigSigner, { PartialSignature } from './MusigSigner';
 import { createPartialSignature, isPreimageValid } from './Utils';
 
 type TheirSigningData = {
@@ -89,7 +89,7 @@ class ChainSwapSigner extends CoopSignerBase<
       throw Errors.CURRENCY_NOT_UTXO_BASED();
     }
 
-    if (!FailedSwapUpdateEvents.includes(swap.status)) {
+    if (!(await MusigSigner.isEligibleForRefund(swap))) {
       this.logger.verbose(
         `Not creating partial signature for refund of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: it is not eligible`,
       );
@@ -138,11 +138,7 @@ class ChainSwapSigner extends CoopSignerBase<
 
   public getCooperativeDetails = async (
     swap: ChainSwapInfo,
-  ): Promise<{
-    pubNonce: Buffer;
-    publicKey: Buffer;
-    transactionHash: Buffer;
-  }> => {
+  ): Promise<CooperativeClientDetails> => {
     const claimDetails = await this.getToClaimDetails(swap.id);
     if (claimDetails === undefined) {
       throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM();

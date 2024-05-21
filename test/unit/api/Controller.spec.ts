@@ -3,11 +3,7 @@ import { getHexBuffer, getVersion, mapToObject } from '../../../lib/Utils';
 import Bouncer from '../../../lib/api/Bouncer';
 import Controller from '../../../lib/api/Controller';
 import SwapInfos from '../../../lib/api/SwapInfos';
-import {
-  SwapType,
-  SwapUpdateEvent,
-  SwapVersion,
-} from '../../../lib/consts/Enums';
+import { SwapUpdateEvent, SwapVersion } from '../../../lib/consts/Enums';
 import ReferralStats from '../../../lib/data/ReferralStats';
 import Swap from '../../../lib/db/models/Swap';
 import MarkedSwapRepository from '../../../lib/db/repositories/MarkedSwapRepository';
@@ -1017,24 +1013,5 @@ describe('Controller', () => {
 
     emitClose();
     expect(controller['pendingSwapStreams'].get(id)).toBeUndefined();
-  });
-
-  test('should parse swap types', () => {
-    const parseSwapType = controller['parseSwapType'];
-
-    expect(parseSwapType('submarine')).toEqual(SwapType.Submarine);
-    expect(parseSwapType('sUbMaRiNe')).toEqual(SwapType.Submarine);
-    expect(parseSwapType('SUBMARINE')).toEqual(SwapType.Submarine);
-
-    expect(parseSwapType('reversesubmarine')).toEqual(
-      SwapType.ReverseSubmarine,
-    );
-    expect(parseSwapType('reverseSubmarine')).toEqual(
-      SwapType.ReverseSubmarine,
-    );
-
-    expect(() => parseSwapType('notFound')).toThrow(
-      'could not find swap type: notFound',
-    );
   });
 });

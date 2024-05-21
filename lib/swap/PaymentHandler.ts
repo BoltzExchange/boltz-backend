@@ -10,6 +10,7 @@ import {
   splitPairId,
 } from '../Utils';
 import { ChannelCreationStatus, SwapUpdateEvent } from '../consts/Enums';
+import { AnySwap } from '../consts/Types';
 import ChainSwap from '../db/models/ChainSwap';
 import ChannelCreation from '../db/models/ChannelCreation';
 import ReverseSwap from '../db/models/ReverseSwap';
@@ -30,11 +31,11 @@ import NodeSwitch from './NodeSwitch';
 type SwapNurseryEvents = {
   // UTXO based chains emit the "Transaction" object and Ethereum based ones just the transaction hash
   transaction: {
-    swap: Swap | ReverseSwap | ChainSwapInfo;
+    swap: AnySwap;
     transaction: Transaction | LiquidTransaction | string;
     confirmed: boolean;
   };
-  expiration: Swap | ReverseSwap | ChainSwapInfo;
+  expiration: AnySwap;
 
   // Swap related events
   'lockup.failed': Swap | ChainSwap;

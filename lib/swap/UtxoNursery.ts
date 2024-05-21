@@ -161,7 +161,7 @@ class UtxoNursery extends TypedEventEmitter<{
       );
     };
 
-    const checkChainSwap = async (script: Buffer, address: string) => {
+    const checkChainSwap = async (address: string) => {
       const swap = await ChainSwapRepository.getChainSwapByData(
         {
           lockupAddress: address,
@@ -177,11 +177,7 @@ class UtxoNursery extends TypedEventEmitter<{
         },
       );
 
-      if (
-        !swap ||
-        wallet.symbol !== swap.receivingData.symbol ||
-        !wallet.decodeAddress(swap.receivingData.lockupAddress).equals(script)
-      ) {
+      if (!swap || wallet.symbol !== swap.receivingData.symbol) {
         return;
       }
 
@@ -199,10 +195,7 @@ class UtxoNursery extends TypedEventEmitter<{
         const output = transaction.outs[vout];
         const address = wallet.encodeAddress(output.script);
 
-        await Promise.all([
-          checkSwap(address),
-          checkChainSwap(output.script, address),
-        ]);
+        await Promise.all([checkSwap(address), checkChainSwap(address)]);
       }
     });
   };
@@ -213,23 +206,10 @@ class UtxoNursery extends TypedEventEmitter<{
   ) => {
     for (let vin = 0; vin < transaction.ins.length; vin += 1) {
       const input = transaction.ins[vin];
-      const transactionId = transactionHashToId(input.hash);
 
       await Promise.all([
-        this.checkReverseSwapClaim(
-          chainClient,
-          transaction,
-          vin,
-          transactionId,
-          input,
-        ),
-        this.checkChainSwapClaim(
-          chainClient,
-          transaction,
-          vin,
-          transactionId,
-          input,
-        ),
+        this.checkReverseSwapClaim(chainClient, transaction, vin, input),
+        this.checkChainSwapClaim(chainClient, transaction, vin, input),
       ]);
     }
   };
@@ -238,7 +218,6 @@ class UtxoNursery extends TypedEventEmitter<{
     chainClient: IChainClient,
     transaction: Transaction | LiquidTransaction,
     inputIndex: number,
-    inputTransactionId: string,
     input: { hash: Buffer; index: number },
   ) => {
     const reverseSwap = await ReverseSwapRepository.getReverseSwap({
@@ -249,7 +228,7 @@ class UtxoNursery extends TypedEventEmitter<{
         ],
       },
       transactionVout: input.index,
-      transactionId: inputTransactionId,
+      transactionId: transactionHashToId(input.hash),
     });
 
     if (!reverseSwap) {
@@ -273,13 +252,12 @@ class UtxoNursery extends TypedEventEmitter<{
     chainClient: IChainClient,
     transaction: Transaction | LiquidTransaction,
     inputIndex: number,
-    inputTransactionId: string,
     input: { hash: Buffer; index: number },
   ) => {
     const swap = await ChainSwapRepository.getChainSwapByData(
       {
         transactionVout: input.index,
-        transactionId: inputTransactionId,
+        transactionId: transactionHashToId(input.hash),
       },
       {
         status: {

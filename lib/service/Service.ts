@@ -42,7 +42,7 @@ import {
   SwapUpdateEvent,
   SwapVersion,
 } from '../consts/Enums';
-import { PairConfig } from '../consts/Types';
+import { AnySwap, PairConfig } from '../consts/Types';
 import ReverseSwap from '../db/models/ReverseSwap';
 import Swap from '../db/models/Swap';
 import ChainSwapRepository, {
@@ -697,9 +697,7 @@ class Service {
       this.transactionFetcher.getSwapsFundedInOutputs(wallet, transaction),
     ]);
 
-    const swapsSpent = (
-      spent.swapsRefunded as (Swap | ReverseSwap | ChainSwapInfo)[]
-    )
+    const swapsSpent = (spent.swapsRefunded as AnySwap[])
       .concat(spent.reverseSwapsClaimed)
       .concat(spent.chainSwapsSpent);
     const swapsFunded = (funded.swapLockups as (Swap | ChainSwapInfo)[]).concat(

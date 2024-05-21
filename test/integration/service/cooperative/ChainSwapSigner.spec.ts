@@ -62,7 +62,7 @@ describe('ChainSwapSigner', () => {
     chainClient: bitcoinClient,
     type: CurrencyType.BitcoinLike,
     network: Networks.bitcoinRegtest,
-  } as Currency;
+  } as unknown as Currency;
   const liquidCurrency = {
     symbol: 'L-BTC',
     type: CurrencyType.Liquid,
@@ -321,7 +321,7 @@ describe('ChainSwapSigner', () => {
       ).rejects.toEqual(Errors.SWAP_NOT_FOUND(id));
     });
 
-    test('should throw when signing refund on UTXO based chain', async () => {
+    test('should throw when signing refund on not UTXO based chain', async () => {
       ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue({
         receivingData: {
           symbol: 'RBTC',

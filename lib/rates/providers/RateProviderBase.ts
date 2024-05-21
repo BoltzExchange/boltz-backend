@@ -57,6 +57,8 @@ abstract class RateProviderBase<T> {
   ) => {
     const minima = [configuredMinima];
 
+    const isReverse = type === SwapType.ReverseSubmarine;
+
     const pairsToCheck =
       orderSide === undefined || type === SwapType.Chain
         ? [
@@ -65,18 +67,8 @@ abstract class RateProviderBase<T> {
           ]
         : [
             [
-              getChainCurrency(
-                base,
-                quote,
-                orderSide!,
-                type === SwapType.ReverseSubmarine,
-              ),
-              getLightningCurrency(
-                base,
-                quote,
-                orderSide!,
-                type === SwapType.ReverseSubmarine,
-              ),
+              getChainCurrency(base, quote, orderSide!, isReverse),
+              getLightningCurrency(base, quote, orderSide!, isReverse),
             ],
           ];
 

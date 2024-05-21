@@ -23,7 +23,9 @@ describe('Enums', () => {
     type                  | expected
     ${'submarine'}        | ${SwapType.Submarine}
     ${'Submarine'}        | ${SwapType.Submarine}
+    ${'sUbMaRiNe'}        | ${SwapType.Submarine}
     ${'SubMarine'}        | ${SwapType.Submarine}
+    ${'SUBMARINE'}        | ${SwapType.Submarine}
     ${'reverse'}          | ${SwapType.ReverseSubmarine}
     ${'reversesubmarine'} | ${SwapType.ReverseSubmarine}
     ${'reverseSubmarine'} | ${SwapType.ReverseSubmarine}

@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import path from 'path';
 import Logger from '../Logger';
 import { getVersion, mapToObject, saneStringify, stringify } from '../Utils';
-import { SwapType, SwapVersion, swapTypeToString } from '../consts/Enums';
+import { SwapType, SwapVersion, stringToSwapType } from '../consts/Enums';
 import ReferralStats from '../data/ReferralStats';
 import LndClient from '../lightning/LndClient';
 import ClnClient from '../lightning/cln/ClnClient';
@@ -255,7 +255,7 @@ class Controller {
         { name: 'type', type: 'string' },
       ]);
 
-      const swapType = this.parseSwapType(type);
+      const swapType = stringToSwapType(type);
 
       switch (swapType) {
         case SwapType.Submarine:
@@ -459,18 +459,6 @@ class Controller {
     } catch (error) {
       errorResponse(this.logger, req, res, error);
     }
-  };
-
-  private parseSwapType = (type: string) => {
-    const lowerCaseType = type.toLowerCase();
-
-    for (const swapType of Object.keys(SwapType).filter((v: any) => isNaN(v))) {
-      if (lowerCaseType === swapTypeToString(SwapType[swapType])) {
-        return SwapType[swapType];
-      }
-    }
-
-    throw `could not find swap type: ${type}`;
   };
 
   private writeToSse = (res: Response, message: SwapUpdate) => {

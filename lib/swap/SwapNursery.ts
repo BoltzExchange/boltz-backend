@@ -32,7 +32,7 @@ import { IChainClient } from '../chain/ChainClient';
 import { LegacyReverseSwapOutputType, etherDecimals } from '../consts/Consts';
 import {
   CurrencyType,
-  NotPendingChainSwapEvents,
+  FinalChainSwapEvents,
   SwapType,
   SwapUpdateEvent,
   SwapVersion,
@@ -1397,7 +1397,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     // To handle this scenario, the Swap is queried again to ensure that it should actually be expired or refunded
     chainSwap = (await ChainSwapRepository.getChainSwap({ id: chainSwap.id }))!;
 
-    if (NotPendingChainSwapEvents.includes(chainSwap.status)) {
+    if (FinalChainSwapEvents.includes(chainSwap.status)) {
       return;
     }
 

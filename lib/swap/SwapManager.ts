@@ -37,7 +37,7 @@ import { LegacyReverseSwapOutputType } from '../consts/Consts';
 import {
   ChannelCreationType,
   CurrencyType,
-  NotPendingChainSwapEvents,
+  FinalChainSwapEvents,
   OrderSide,
   SwapUpdateEvent,
   SwapVersion,
@@ -243,7 +243,7 @@ class SwapManager {
         }),
         ChainSwapRepository.getChainSwaps({
           status: {
-            [Op.notIn]: NotPendingChainSwapEvents,
+            [Op.notIn]: FinalChainSwapEvents,
           },
         }),
       ]);

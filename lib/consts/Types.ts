@@ -1,4 +1,7 @@
 import { ERC20 } from 'boltz-core/typechain/ERC20';
+import ReverseSwap from '../db/models/ReverseSwap';
+import Swap from '../db/models/Swap';
+import { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import { PairTimeoutBlocksDelta } from '../service/TimeoutDeltaProvider';
 
 export type EtherSwapValues = {
@@ -199,3 +202,5 @@ export type AddressInfo = {
   scriptPubKey: string;
   ismine: boolean;
 };
+
+export type AnySwap = Swap | ReverseSwap | ChainSwapInfo;

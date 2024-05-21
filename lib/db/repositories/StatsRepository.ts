@@ -1,8 +1,8 @@
 import { QueryTypes } from 'sequelize';
 import {
-  NotPendingChainSwapEvents,
-  NotPendingReverseSwapEvents,
-  NotPendingSwapEvents,
+  FinalChainSwapEvents,
+  FinalReverseSwapEvents,
+  FinalSwapEvents,
   SwapUpdateEvent,
 } from '../../consts/Enums';
 import Database, { DatabaseType } from '../Database';
@@ -698,11 +698,7 @@ GROUP BY pair, type;
   public static getPendingSwapsCounts = (): Promise<PendingSwaps[]> => {
     return StatsRepository.query({
       query: StatsRepository.queryPendingSwapsCounts[Database.type],
-      values: [
-        NotPendingSwapEvents,
-        NotPendingReverseSwapEvents,
-        NotPendingChainSwapEvents,
-      ],
+      values: [FinalSwapEvents, FinalReverseSwapEvents, FinalChainSwapEvents],
     });
   };
 

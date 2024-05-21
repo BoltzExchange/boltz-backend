@@ -5,7 +5,7 @@ import {
   splitPairId,
 } from '../../Utils';
 import {
-  NotPendingChainSwapEvents,
+  FinalChainSwapEvents,
   SwapType,
   SwapUpdateEvent,
   SwapVersion,
@@ -154,7 +154,7 @@ class ChainSwapRepository {
     const swaps = await this.getChainSwaps({
       id: data.map((d) => d.swapId),
       status: {
-        [Op.notIn]: NotPendingChainSwapEvents,
+        [Op.notIn]: FinalChainSwapEvents,
       },
     });
 

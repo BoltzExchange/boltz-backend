@@ -17,6 +17,7 @@ import {
   OrderSide,
   SwapType,
 } from '../consts/Enums';
+import { AnySwap } from '../consts/Types';
 import ChainSwapData from '../db/models/ChainSwapData';
 import ReverseSwap from '../db/models/ReverseSwap';
 import Swap from '../db/models/Swap';
@@ -368,10 +369,7 @@ class NotificationProvider {
     }
   };
 
-  private getMinerFees = (
-    type: SwapType,
-    swap: Swap | ReverseSwap | ChainSwapInfo,
-  ) => {
+  private getMinerFees = (type: SwapType, swap: AnySwap) => {
     if (type === SwapType.Chain) {
       const chainSwap = swap as ChainSwapInfo;
 

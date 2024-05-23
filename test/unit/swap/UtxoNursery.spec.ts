@@ -22,6 +22,7 @@ import {
 import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
+import WrappedSwapRepository from '../../../lib/db/repositories/WrappedSwapRepository';
 import LockupTransactionTracker from '../../../lib/rates/LockupTransactionTracker';
 import Blocks from '../../../lib/service/Blocks';
 import Errors from '../../../lib/swap/Errors';
@@ -166,9 +167,7 @@ const mockGetReverseSwapsExpirable = jest.fn().mockImplementation(async () => {
   return mockGetReverseSwapsExpirableResult;
 });
 
-const mockSetReverseSwapStatus = jest
-  .fn()
-  .mockImplementation(async (arg) => arg);
+const mockSetStatus = jest.fn().mockImplementation(async (arg) => arg);
 
 jest.mock('../../../lib/db/repositories/ReverseSwapRepository');
 
@@ -209,7 +208,6 @@ describe('UtxoNursery', () => {
 
     ReverseSwapRepository.getReverseSwap = mockGetReverseSwap;
     ReverseSwapRepository.getReverseSwaps = mockGetReverseSwaps;
-    ReverseSwapRepository.setReverseSwapStatus = mockSetReverseSwapStatus;
     ReverseSwapRepository.getReverseSwapsExpirable =
       mockGetReverseSwapsExpirable;
 
@@ -218,6 +216,8 @@ describe('UtxoNursery', () => {
     ChainSwapRepository.getChainSwapsExpirable = jest
       .fn()
       .mockResolvedValue([]);
+
+    WrappedSwapRepository.setStatus = mockSetStatus;
 
     nursery.removeAllListeners();
   });
@@ -771,8 +771,8 @@ describe('UtxoNursery', () => {
       decodeAddress(mockGetReverseSwapsResult[1].lockupAddress),
     );
 
-    expect(mockSetReverseSwapStatus).toHaveBeenCalledTimes(1);
-    expect(mockSetReverseSwapStatus).toHaveBeenCalledWith(
+    expect(mockSetStatus).toHaveBeenCalledTimes(1);
+    expect(mockSetStatus).toHaveBeenCalledWith(
       mockGetReverseSwapsResult[1],
       SwapUpdateEvent.TransactionConfirmed,
     );

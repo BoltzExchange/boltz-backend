@@ -12,6 +12,7 @@ import Swap from '../../db/models/Swap';
 import ChainSwapRepository, {
   ChainSwapInfo,
 } from '../../db/repositories/ChainSwapRepository';
+import WrappedSwapRepository from '../../db/repositories/WrappedSwapRepository';
 import SwapOutputType from '../../swap/SwapOutputType';
 import WalletManager, { Currency } from '../../wallet/WalletManager';
 import Errors from '../Errors';
@@ -167,7 +168,7 @@ class ChainSwapSigner extends CoopSignerBase<
         `Got preimage for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${getHexString(preimage)}`,
       );
       // TODO: broadcast the claim eventually when the preimage is correct but the signature is not?
-      swap = await ChainSwapRepository.setPreimage(swap, preimage);
+      swap = await WrappedSwapRepository.setPreimage(swap, preimage);
 
       if (this.canClaimCooperatively(swap)) {
         const claimDetails = await this.getToClaimDetails(swap.id);

@@ -23,6 +23,7 @@ import ChainSwapRepository, {
 } from '../db/repositories/ChainSwapRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
+import WrappedSwapRepository from '../db/repositories/WrappedSwapRepository';
 import Blocks from '../service/Blocks';
 import Wallet from '../wallet/Wallet';
 import WalletManager from '../wallet/WalletManager';
@@ -129,32 +130,22 @@ class EthereumNursery extends TypedEventEmitter<{
       .wait(1)
       .then(async () => {
         this.emit('lockup.confirmed', {
-          swap:
-            swap.type === SwapType.ReverseSubmarine
-              ? await ReverseSwapRepository.setReverseSwapStatus(
-                  swap as ReverseSwap,
-                  SwapUpdateEvent.TransactionConfirmed,
-                )
-              : await ChainSwapRepository.setSwapStatus(
-                  swap as ChainSwapInfo,
-                  SwapUpdateEvent.TransactionServerConfirmed,
-                ),
           transactionHash: transaction.hash,
+          swap: await WrappedSwapRepository.setStatus(
+            swap,
+            swap.type === SwapType.ReverseSubmarine
+              ? SwapUpdateEvent.TransactionConfirmed
+              : SwapUpdateEvent.TransactionServerConfirmed,
+          ),
         });
       })
       .catch(async (reason) => {
         this.emit('lockup.failedToSend', {
           reason,
-          swap:
-            swap.type === SwapType.ReverseSubmarine
-              ? await ReverseSwapRepository.setReverseSwapStatus(
-                  swap as ReverseSwap,
-                  SwapUpdateEvent.TransactionFailed,
-                )
-              : await ChainSwapRepository.setSwapStatus(
-                  swap as ChainSwapInfo,
-                  SwapUpdateEvent.TransactionFailed,
-                ),
+          swap: await WrappedSwapRepository.setStatus(
+            swap,
+            SwapUpdateEvent.TransactionFailed,
+          ),
         });
       });
   };

@@ -45,34 +45,6 @@ class ReverseSwapRepository {
     return ReverseSwap.create(reverseSwap);
   };
 
-  public static setReverseSwapStatus = (
-    reverseSwap: ReverseSwap,
-    status: string,
-    failureReason?: string,
-  ): Promise<ReverseSwap> => {
-    return reverseSwap.update({
-      status,
-      failureReason,
-    });
-  };
-
-  public static setLockupTransaction = (
-    reverseSwap: ReverseSwap,
-    transactionId: string,
-    minerFee: number,
-    vout?: number,
-  ): Promise<ReverseSwap> => {
-    return reverseSwap.update({
-      minerFee,
-      transactionId,
-      transactionVout: vout,
-      status: SwapUpdateEvent.TransactionMempool,
-    });
-  };
-
-  public static setPreimage = (reverseSwap: ReverseSwap, preimage: string) =>
-    reverseSwap.update({ preimage });
-
   public static setInvoiceSettled = (
     reverseSwap: ReverseSwap,
     preimage: string,
@@ -80,18 +52,6 @@ class ReverseSwapRepository {
     return reverseSwap.update({
       preimage,
       status: SwapUpdateEvent.InvoiceSettled,
-    });
-  };
-
-  public static setTransactionRefunded = (
-    reverseSwap: ReverseSwap,
-    minerFee: number,
-    failureReason: string,
-  ): Promise<ReverseSwap> => {
-    return reverseSwap.update({
-      failureReason,
-      minerFee: reverseSwap.minerFee + minerFee,
-      status: SwapUpdateEvent.TransactionRefunded,
     });
   };
 

@@ -21,7 +21,7 @@ describe('Utils', () => {
     symbol: 'BTC',
     chainClient: bitcoinClient,
     type: CurrencyType.BitcoinLike,
-  } as Currency;
+  } as unknown as Currency;
 
   beforeAll(async () => {
     await Promise.all([setup(), bitcoinClient.connect()]);

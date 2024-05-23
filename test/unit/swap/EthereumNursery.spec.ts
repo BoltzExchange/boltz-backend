@@ -13,6 +13,7 @@ import Swap from '../../../lib/db/models/Swap';
 import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
+import WrappedSwapRepository from '../../../lib/db/repositories/WrappedSwapRepository';
 import Blocks from '../../../lib/service/Blocks';
 import Errors from '../../../lib/swap/Errors';
 import EthereumNursery from '../../../lib/swap/EthereumNursery';
@@ -227,9 +228,11 @@ describe('EthereumNursery', () => {
 
     ReverseSwapRepository.getReverseSwap = mockGetReverseSwap;
     ReverseSwapRepository.getReverseSwaps = mockGetReverseSwaps;
-    ReverseSwapRepository.setReverseSwapStatus = mockSetReverseSwapStatus;
     ReverseSwapRepository.getReverseSwapsExpirable =
       mockGetReverseSwapsExpirable;
+
+    WrappedSwapRepository.setStatus = mockSetReverseSwapStatus;
+
     nursery.removeAllListeners();
   });
 

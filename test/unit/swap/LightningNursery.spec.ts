@@ -5,6 +5,7 @@ import Logger from '../../../lib/Logger';
 import { decodeInvoice, getHexBuffer, getHexString } from '../../../lib/Utils';
 import { CurrencyType, SwapUpdateEvent } from '../../../lib/consts/Enums';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
+import WrappedSwapRepository from '../../../lib/db/repositories/WrappedSwapRepository';
 import LndClient from '../../../lib/lightning/LndClient';
 import { Invoice } from '../../../lib/proto/lnd/rpc_pb';
 import LightningNursery from '../../../lib/swap/LightningNursery';
@@ -48,7 +49,7 @@ const mockGetReverseSwap = jest.fn().mockImplementation(async () => {
   return mockGetReverseSwapResult;
 });
 
-const mockSetReverseSwapStatus = jest
+const mockSetStatus = jest
   .fn()
   .mockImplementation(async (reverseSwap, status) => {
     return {
@@ -85,7 +86,7 @@ describe('LightningNursery', () => {
     nursery.removeAllListeners();
 
     ReverseSwapRepository.getReverseSwap = mockGetReverseSwap;
-    ReverseSwapRepository.setReverseSwapStatus = mockSetReverseSwapStatus;
+    WrappedSwapRepository.setStatus = mockSetStatus;
 
     mockGetReverseSwapResult = null;
   });
@@ -258,8 +259,8 @@ describe('LightningNursery', () => {
 
     expect(mockGetReverseSwap).toHaveBeenCalledTimes(2);
 
-    expect(mockSetReverseSwapStatus).toHaveBeenCalledTimes(1);
-    expect(mockSetReverseSwapStatus).toHaveBeenCalledWith(
+    expect(mockSetStatus).toHaveBeenCalledTimes(1);
+    expect(mockSetStatus).toHaveBeenCalledWith(
       mockGetReverseSwapResult,
       SwapUpdateEvent.MinerFeePaid,
     );
@@ -317,8 +318,8 @@ describe('LightningNursery', () => {
 
     expect(mockGetReverseSwap).toHaveBeenCalledTimes(2);
 
-    expect(mockSetReverseSwapStatus).toHaveBeenCalledTimes(1);
-    expect(mockSetReverseSwapStatus).toHaveBeenCalledWith(
+    expect(mockSetStatus).toHaveBeenCalledTimes(1);
+    expect(mockSetStatus).toHaveBeenCalledWith(
       mockGetReverseSwapResult,
       SwapUpdateEvent.MinerFeePaid,
     );

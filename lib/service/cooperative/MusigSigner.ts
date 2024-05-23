@@ -17,6 +17,7 @@ import Swap from '../../db/models/Swap';
 import { ChainSwapInfo } from '../../db/repositories/ChainSwapRepository';
 import ReverseSwapRepository from '../../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../db/repositories/SwapRepository';
+import WrappedSwapRepository from '../../db/repositories/WrappedSwapRepository';
 import { Payment } from '../../proto/lnd/rpc_pb';
 import SwapNursery from '../../swap/SwapNursery';
 import WalletManager, { Currency } from '../../wallet/WalletManager';
@@ -127,7 +128,7 @@ class MusigSigner {
     this.logger.debug(
       `Got preimage for Reverse Swap ${swap.id}: ${getHexString(preimage)}`,
     );
-    await ReverseSwapRepository.setPreimage(swap, getHexString(preimage));
+    await WrappedSwapRepository.setPreimage(swap, preimage);
 
     return this.nursery.lock.acquire(SwapNursery.reverseSwapLock, async () => {
       if (swap.status !== SwapUpdateEvent.InvoiceSettled) {

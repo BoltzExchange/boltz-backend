@@ -38,6 +38,7 @@ import ChainSwapRepository, {
 } from '../db/repositories/ChainSwapRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
+import WrappedSwapRepository from '../db/repositories/WrappedSwapRepository';
 import LockupTransactionTracker from '../rates/LockupTransactionTracker';
 import Blocks from '../service/Blocks';
 import Wallet from '../wallet/Wallet';
@@ -554,16 +555,12 @@ class UtxoNursery extends TypedEventEmitter<{
     );
     this.emit('server.lockup.confirmed', {
       transaction,
-      swap:
+      swap: await WrappedSwapRepository.setStatus(
+        swap,
         swap.type === SwapType.ReverseSubmarine
-          ? await ReverseSwapRepository.setReverseSwapStatus(
-              swap as ReverseSwap,
-              SwapUpdateEvent.TransactionConfirmed,
-            )
-          : await ChainSwapRepository.setSwapStatus(
-              swap as ChainSwapInfo,
-              SwapUpdateEvent.TransactionServerConfirmed,
-            ),
+          ? SwapUpdateEvent.TransactionConfirmed
+          : SwapUpdateEvent.TransactionServerConfirmed,
+      ),
     });
   };
 

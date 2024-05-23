@@ -203,40 +203,6 @@ class ChainSwapRepository {
       return swap;
     });
 
-  public static setServerLockupTransaction = async (
-    swap: ChainSwapInfo,
-    transactionId: string,
-    onchainAmount: number,
-    fee: number,
-    vout?: number,
-  ): Promise<ChainSwapInfo> =>
-    Database.sequelize.transaction(async (transaction) => {
-      swap.chainSwap = await swap.chainSwap.update(
-        {
-          status: SwapUpdateEvent.TransactionServerMempool,
-        },
-        { transaction },
-      );
-      swap.sendingData = await swap.sendingData.update(
-        {
-          transactionId,
-          fee,
-          transactionVout: vout,
-          amount: onchainAmount,
-        },
-        { transaction },
-      );
-
-      return swap;
-    });
-
-  public static setPreimage = async (swap: ChainSwapInfo, preimage: Buffer) => {
-    swap.chainSwap = await swap.chainSwap.update({
-      preimage: getHexString(preimage),
-    });
-    return swap;
-  };
-
   public static setClaimMinerFee = async (
     swap: ChainSwapInfo,
     preimage: Buffer,
@@ -259,41 +225,6 @@ class ChainSwapRepository {
 
       return swap;
     });
-
-  public static setTransactionRefunded = (
-    swap: ChainSwapInfo,
-    minerFee: number,
-    failureReason: string,
-  ): Promise<ChainSwapInfo> =>
-    Database.sequelize.transaction(async (transaction) => {
-      swap.chainSwap = await swap.chainSwap.update(
-        {
-          failureReason,
-          status: SwapUpdateEvent.TransactionRefunded,
-        },
-        { transaction },
-      );
-      swap.sendingData = await swap.receivingData.update(
-        {
-          fee: swap.sendingData.fee! + minerFee,
-        },
-        { transaction },
-      );
-
-      return swap;
-    });
-
-  public static setSwapStatus = async (
-    swap: ChainSwapInfo,
-    status: SwapUpdateEvent,
-    reason?: string,
-  ) => {
-    swap.chainSwap = await swap.chainSwap.update({
-      status,
-      failureReason: reason,
-    });
-    return swap;
-  };
 
   private static fetchChainSwapData = async (chainSwap: ChainSwap) => {
     const data = await ChainSwapData.findAll({

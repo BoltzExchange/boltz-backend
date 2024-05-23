@@ -49,6 +49,7 @@ import ChainSwapRepository, {
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
+import WrappedSwapRepository from '../db/repositories/WrappedSwapRepository';
 import {
   HtlcState,
   InvoiceState,
@@ -435,7 +436,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
 
           this.emit(
             'invoice.expired',
-            await ReverseSwapRepository.setReverseSwapStatus(
+            await WrappedSwapRepository.setStatus(
               reverseSwap,
               SwapUpdateEvent.InvoiceExpired,
             ),
@@ -458,7 +459,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           this.emit(
             'zeroconf.rejected',
             (
-              await ChainSwapRepository.setSwapStatus(
+              await WrappedSwapRepository.setStatus(
                 swap,
                 SwapUpdateEvent.TransactionZeroConfRejected,
               )
@@ -910,21 +911,13 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
 
       this.emit('coins.sent', {
         transaction: transaction!,
-        swap:
-          swap.type === SwapType.ReverseSubmarine
-            ? await ReverseSwapRepository.setLockupTransaction(
-                swap as ReverseSwap,
-                transactionId,
-                fee!,
-                vout!,
-              )
-            : await ChainSwapRepository.setServerLockupTransaction(
-                swap as ChainSwapInfo,
-                transactionId,
-                onchainAmount,
-                fee!,
-                vout!,
-              ),
+        swap: await WrappedSwapRepository.setServerLockupTransaction(
+          swap,
+          transactionId,
+          onchainAmount,
+          fee!,
+          vout!,
+        ),
       });
     } catch (error) {
       await this.handleSwapSendFailed(
@@ -984,19 +977,12 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
 
       this.emit('coins.sent', {
         transaction: contractTransaction.hash,
-        swap:
-          swap.type === SwapType.ReverseSubmarine
-            ? await ReverseSwapRepository.setLockupTransaction(
-                swap as ReverseSwap,
-                contractTransaction.hash,
-                transactionFee,
-              )
-            : await ChainSwapRepository.setServerLockupTransaction(
-                swap as ChainSwapInfo,
-                contractTransaction.hash,
-                lockupDetails.expectedAmount,
-                transactionFee,
-              ),
+        swap: await WrappedSwapRepository.setServerLockupTransaction(
+          swap,
+          contractTransaction.hash,
+          lockupDetails.expectedAmount,
+          transactionFee,
+        ),
       });
     } catch (error) {
       await this.handleSwapSendFailed(
@@ -1059,19 +1045,12 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
 
       this.emit('coins.sent', {
         transaction: contractTransaction.hash,
-        swap:
-          swap.type === SwapType.ReverseSubmarine
-            ? await ReverseSwapRepository.setLockupTransaction(
-                swap as ReverseSwap,
-                contractTransaction.hash,
-                transactionFee,
-              )
-            : await ChainSwapRepository.setServerLockupTransaction(
-                swap as ChainSwapInfo,
-                contractTransaction.hash,
-                lockupDetails.expectedAmount,
-                transactionFee,
-              ),
+        swap: await WrappedSwapRepository.setServerLockupTransaction(
+          swap,
+          contractTransaction.hash,
+          lockupDetails.expectedAmount,
+          transactionFee,
+        ),
       });
     } catch (error) {
       await this.handleSwapSendFailed(
@@ -1257,17 +1236,11 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     );
     this.emit(
       'coins.failedToSend',
-      swap.type === SwapType.ReverseSubmarine
-        ? await ReverseSwapRepository.setReverseSwapStatus(
-            swap as ReverseSwap,
-            SwapUpdateEvent.TransactionFailed,
-            Errors.COINS_COULD_NOT_BE_SENT().message,
-          )
-        : await ChainSwapRepository.setSwapStatus(
-            swap as ChainSwapInfo,
-            SwapUpdateEvent.TransactionFailed,
-            Errors.COINS_COULD_NOT_BE_SENT().message,
-          ),
+      await WrappedSwapRepository.setStatus(
+        swap,
+        SwapUpdateEvent.TransactionFailed,
+        Errors.COINS_COULD_NOT_BE_SENT().message,
+      ),
     );
   };
 
@@ -1284,7 +1257,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
             reason,
           )
         : (
-            await ChainSwapRepository.setSwapStatus(
+            await WrappedSwapRepository.setStatus(
               swap as ChainSwapInfo,
               SwapUpdateEvent.TransactionLockupFailed,
               reason,
@@ -1363,7 +1336,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     } else {
       this.emit(
         'expiration',
-        await ReverseSwapRepository.setReverseSwapStatus(
+        await WrappedSwapRepository.setStatus(
           reverseSwap,
           SwapUpdateEvent.SwapExpired,
           Errors.ONCHAIN_HTLC_TIMED_OUT().message,
@@ -1423,7 +1396,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     } else {
       this.emit(
         'expiration',
-        await ChainSwapRepository.setSwapStatus(
+        await WrappedSwapRepository.setStatus(
           chainSwap,
           SwapUpdateEvent.SwapExpired,
           Errors.ONCHAIN_HTLC_TIMED_OUT().message,
@@ -1504,23 +1477,13 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       } in: ${refundTransaction.getId()}`,
     );
 
-    const errorMessage = Errors.REFUNDED_COINS(
-      sendingData.transactionId!,
-    ).message;
     this.emit('refund', {
       refundTransaction: refundTransaction.getId(),
-      swap:
-        swap.type === SwapType.ReverseSubmarine
-          ? await ReverseSwapRepository.setTransactionRefunded(
-              swap as ReverseSwap,
-              minerFee,
-              errorMessage,
-            )
-          : await ChainSwapRepository.setTransactionRefunded(
-              swap as ChainSwapInfo,
-              minerFee,
-              errorMessage,
-            ),
+      swap: await WrappedSwapRepository.setTransactionRefunded(
+        swap,
+        minerFee,
+        Errors.REFUNDED_COINS(sendingData.transactionId!).message,
+      ),
     });
   };
 
@@ -1552,22 +1515,13 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       `Refunded ${nursery.ethereumManager.networkDetails.name} of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} in: ${contractTransaction.hash}`,
     );
 
-    const transactionFee = calculateEthereumTransactionFee(contractTransaction);
-    const errorMessage = Errors.REFUNDED_COINS(lockupTransactionId!).message;
     this.emit('refund', {
       refundTransaction: contractTransaction.hash,
-      swap:
-        swap.type === SwapType.ReverseSubmarine
-          ? await ReverseSwapRepository.setTransactionRefunded(
-              swap as ReverseSwap,
-              transactionFee,
-              errorMessage,
-            )
-          : await ChainSwapRepository.setTransactionRefunded(
-              swap as ChainSwapInfo,
-              transactionFee,
-              errorMessage,
-            ),
+      swap: await WrappedSwapRepository.setTransactionRefunded(
+        swap,
+        calculateEthereumTransactionFee(contractTransaction),
+        Errors.REFUNDED_COINS(lockupTransactionId!).message,
+      ),
     });
   };
 
@@ -1602,22 +1556,13 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       `Refunded ${chainSymbol} of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} in: ${contractTransaction.hash}`,
     );
 
-    const transactionFee = calculateEthereumTransactionFee(contractTransaction);
-    const errorMessage = Errors.REFUNDED_COINS(lockupTransactionId!).message;
     this.emit('refund', {
       refundTransaction: contractTransaction.hash,
-      swap:
-        swap.type === SwapType.ReverseSubmarine
-          ? await ReverseSwapRepository.setTransactionRefunded(
-              swap as ReverseSwap,
-              transactionFee,
-              errorMessage,
-            )
-          : await ChainSwapRepository.setTransactionRefunded(
-              swap as ChainSwapInfo,
-              transactionFee,
-              errorMessage,
-            ),
+      swap: await WrappedSwapRepository.setTransactionRefunded(
+        swap,
+        calculateEthereumTransactionFee(contractTransaction),
+        Errors.REFUNDED_COINS(lockupTransactionId!).message,
+      ),
     });
   };
 

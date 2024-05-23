@@ -67,7 +67,7 @@ describe('CoopSignerBase', () => {
     symbol: 'BTC',
     chainClient: bitcoinClient,
     type: CurrencyType.BitcoinLike,
-  } as Currency;
+  } as unknown as Currency;
 
   const createSwapToClaim = async () => {
     const keyIndex = 32;

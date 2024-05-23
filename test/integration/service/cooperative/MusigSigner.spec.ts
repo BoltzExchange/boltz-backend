@@ -27,6 +27,7 @@ import { NodeType } from '../../../../lib/db/models/ReverseSwap';
 import Swap from '../../../../lib/db/models/Swap';
 import ReverseSwapRepository from '../../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../../lib/db/repositories/SwapRepository';
+import WrappedSwapRepository from '../../../../lib/db/repositories/WrappedSwapRepository';
 import Errors from '../../../../lib/service/Errors';
 import MusigSigner from '../../../../lib/service/cooperative/MusigSigner';
 import SwapNursery from '../../../../lib/swap/SwapNursery';
@@ -349,7 +350,7 @@ describe('MusigSigner', () => {
       preimageHash: getHexString(crypto.sha256(preimage)),
       redeemScript: JSON.stringify(SwapTreeSerializer.serializeSwapTree(tree)),
     });
-    ReverseSwapRepository.setPreimage = jest.fn();
+    WrappedSwapRepository.setPreimage = jest.fn();
 
     btcWallet.getKeysByIndex = jest.fn().mockReturnValue(refundKeys);
 
@@ -365,9 +366,9 @@ describe('MusigSigner', () => {
       await ReverseSwapRepository.getReverseSwap({}),
       preimage,
     );
-    expect(ReverseSwapRepository.setPreimage).toHaveBeenCalledWith(
+    expect(WrappedSwapRepository.setPreimage).toHaveBeenCalledWith(
       expect.anything(),
-      getHexString(preimage),
+      preimage,
     );
 
     musig.aggregateNonces([[refundKeys.publicKey, boltzPartialSig.pubNonce]]);

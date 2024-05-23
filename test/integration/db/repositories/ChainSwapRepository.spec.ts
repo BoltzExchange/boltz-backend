@@ -1,6 +1,6 @@
 import { randomBytes } from 'crypto';
 import Logger from '../../../../lib/Logger';
-import { generateId, getHexString } from '../../../../lib/Utils';
+import { getHexString } from '../../../../lib/Utils';
 import {
   OrderSide,
   SwapType,
@@ -14,6 +14,7 @@ import Pair from '../../../../lib/db/models/Pair';
 import ChainSwapRepository, {
   ChainSwapInfo,
 } from '../../../../lib/db/repositories/ChainSwapRepository';
+import { createChainSwap } from './Fixtures';
 
 describe('ChainSwapInfo', () => {
   test('should get type', () => {
@@ -69,48 +70,6 @@ describe('ChainSwapInfo', () => {
 
 describe('ChainSwapRepository', () => {
   const database = new Database(Logger.disabledLogger, ':memory:');
-
-  const createChainSwap = async (
-    status = SwapUpdateEvent.SwapCreated,
-    sendingTimeoutBlockHeight = 813411,
-  ) => {
-    const chainSwap = {
-      status,
-      id: generateId(),
-      pair: 'L-BTC/BTC',
-      orderSide: OrderSide.BUY,
-      fee: 123,
-      acceptZeroConf: false,
-      preimageHash: getHexString(randomBytes(32)),
-    };
-
-    const sendingData = {
-      swapId: chainSwap.id,
-      symbol: 'L-BTC',
-      lockupAddress: `bc1q${generateId()}`,
-      expectedAmount: 123321,
-      timeoutBlockHeight: sendingTimeoutBlockHeight,
-    };
-    const receivingData = {
-      swapId: chainSwap.id,
-      symbol: 'BTC',
-      lockupAddress: `lq1${generateId()}`,
-      expectedAmount: 123500,
-      timeoutBlockHeight: 2132435,
-    };
-
-    await ChainSwapRepository.addChainSwap({
-      chainSwap,
-      sendingData,
-      receivingData,
-    });
-
-    return {
-      chainSwap,
-      sendingData: sendingData as Partial<ChainSwapData>,
-      receivingData: receivingData as Partial<ChainSwapData>,
-    };
-  };
 
   beforeAll(async () => {
     await database.init();
@@ -280,47 +239,6 @@ describe('ChainSwapRepository', () => {
     },
   );
 
-  test('should set server lockup transaction', async () => {
-    const swap = await createChainSwap();
-    const txId = 'tx';
-    const onchainAmount = swap.sendingData.expectedAmount! + 1;
-    const fee = 423;
-    const vout = 1;
-
-    const updated = await ChainSwapRepository.setServerLockupTransaction(
-      (await ChainSwapRepository.getChainSwap({
-        id: swap.chainSwap.id,
-      }))!,
-      txId,
-      onchainAmount,
-      fee,
-      vout,
-    );
-
-    expect(updated).not.toBeNull();
-    expect(updated!.chainSwap.status).toEqual(
-      SwapUpdateEvent.TransactionServerMempool,
-    );
-    expect(updated!.sendingData.fee).toEqual(fee);
-    expect(updated!.sendingData.transactionId).toEqual(txId);
-    expect(updated!.sendingData.amount).toEqual(onchainAmount);
-    expect(updated!.sendingData.transactionVout).toEqual(vout);
-  });
-
-  test('should set preimage', async () => {
-    const swap = await createChainSwap();
-    const preimage = randomBytes(32);
-
-    const updated = await ChainSwapRepository.setPreimage(
-      (await ChainSwapRepository.getChainSwap({
-        id: swap.chainSwap.id,
-      }))!,
-      preimage,
-    );
-
-    expect(updated.chainSwap.preimage).toEqual(getHexString(preimage));
-  });
-
   test('should set claim miner fee', async () => {
     const swap = await createChainSwap();
 
@@ -338,40 +256,5 @@ describe('ChainSwapRepository', () => {
     expect(updated.status).toEqual(SwapUpdateEvent.TransactionClaimed);
     expect(updated.chainSwap.preimage).toEqual(getHexString(preimage));
     expect(updated.receivingData.fee).toEqual(minerFee);
-  });
-
-  test('should set transaction refunded', async () => {
-    const swap = await createChainSwap();
-
-    const minerFee = 123;
-    const reason = 'no';
-
-    const existing = (await ChainSwapRepository.getChainSwap({
-      id: swap.chainSwap.id,
-    }))!;
-    existing.sendingData.fee = 321;
-    const updated = await ChainSwapRepository.setTransactionRefunded(
-      existing,
-      minerFee,
-      reason,
-    );
-
-    expect(updated.status).toEqual(SwapUpdateEvent.TransactionRefunded);
-    expect(updated.failureReason).toEqual(reason);
-    expect(updated.sendingData.fee).toEqual(321 + minerFee);
-  });
-
-  test('should set swap status', async () => {
-    const swap = await createChainSwap();
-    const newStatus = SwapUpdateEvent.SwapExpired;
-
-    const updated = await ChainSwapRepository.setSwapStatus(
-      (await ChainSwapRepository.getChainSwap({
-        id: swap.chainSwap.id,
-      }))!,
-      newStatus,
-    );
-
-    expect(updated.status).toEqual(newStatus);
   });
 });

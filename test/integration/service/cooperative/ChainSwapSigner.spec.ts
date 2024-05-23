@@ -38,6 +38,7 @@ import {
 import ChainSwapRepository, {
   ChainSwapInfo,
 } from '../../../../lib/db/repositories/ChainSwapRepository';
+import WrappedSwapRepository from '../../../../lib/db/repositories/WrappedSwapRepository';
 import Errors from '../../../../lib/service/Errors';
 import ChainSwapSigner from '../../../../lib/service/cooperative/ChainSwapSigner';
 import SwapOutputType from '../../../../lib/swap/SwapOutputType';
@@ -463,7 +464,7 @@ describe('ChainSwapSigner', () => {
 
   describe('signClaim', () => {
     test('should create partial signature when we are able to claim', async () => {
-      ChainSwapRepository.setPreimage = jest
+      WrappedSwapRepository.setPreimage = jest
         .fn()
         .mockImplementation(async (swap) => swap);
       ChainSwapRepository.setClaimMinerFee = jest
@@ -541,7 +542,7 @@ describe('ChainSwapSigner', () => {
     });
 
     test('should settle swap when it cannot be claimed cooperatively', async () => {
-      ChainSwapRepository.setPreimage = jest
+      WrappedSwapRepository.setPreimage = jest
         .fn()
         .mockImplementation(async (swap) => swap);
 
@@ -579,8 +580,8 @@ describe('ChainSwapSigner', () => {
         preimage,
       );
 
-      expect(ChainSwapRepository.setPreimage).toHaveBeenCalledTimes(1);
-      expect(ChainSwapRepository.setPreimage).toHaveBeenCalledWith(
+      expect(WrappedSwapRepository.setPreimage).toHaveBeenCalledTimes(1);
+      expect(WrappedSwapRepository.setPreimage).toHaveBeenCalledWith(
         chainSwapInfo,
         preimage,
       );
@@ -687,7 +688,7 @@ describe('ChainSwapSigner', () => {
     );
 
     test('should not create partial signature when their partial signature is undefined', async () => {
-      ChainSwapRepository.setPreimage = jest
+      WrappedSwapRepository.setPreimage = jest
         .fn()
         .mockImplementation(async (swap) => swap);
 
@@ -709,7 +710,7 @@ describe('ChainSwapSigner', () => {
     });
 
     test('should not create partial signature when their partial signature is invalid', async () => {
-      ChainSwapRepository.setPreimage = jest
+      WrappedSwapRepository.setPreimage = jest
         .fn()
         .mockImplementation(async (swap) => swap);
 

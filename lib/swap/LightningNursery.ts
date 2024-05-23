@@ -7,6 +7,7 @@ import { SwapUpdateEvent } from '../consts/Enums';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
 import ReverseSwap from '../db/models/ReverseSwap';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
+import WrappedSwapRepository from '../db/repositories/WrappedSwapRepository';
 import { InvoiceState, LightningClient } from '../lightning/LightningClient';
 import LndClient from '../lightning/LndClient';
 import ClnClient from '../lightning/cln/ClnClient';
@@ -155,7 +156,7 @@ class LightningNursery extends TypedEventEmitter<{
         `Minerfee prepayment of Reverse Swap ${reverseSwap.id} was accepted`,
       );
 
-      reverseSwap = await ReverseSwapRepository.setReverseSwapStatus(
+      reverseSwap = await WrappedSwapRepository.setStatus(
         reverseSwap,
         SwapUpdateEvent.MinerFeePaid,
       );

@@ -31,10 +31,13 @@ type SwapTransaction = ReverseTransaction & {
 };
 
 type ChainSwapTransaction = {
-  timeoutBlockHeight: number;
   transaction: {
     id: string;
     hex?: string;
+  };
+  timeout: {
+    blockHeight: number;
+    eta?: number;
   };
 };
 
@@ -67,27 +70,19 @@ class TransactionFetcher {
 
     const { base, quote } = splitPairId(swap.pair);
     const chainCurrency = getChainCurrency(base, quote, swap.orderSide, false);
-
     const currency = getCurrency(this.currencies, chainCurrency);
 
-    const response: SwapTransaction = {
+    const [timeoutEta, transactionHex] = await Promise.all([
+      this.getTimeoutEta(currency, swap.timeoutBlockHeight),
+      this.getTransactionHex(currency, swap.lockupTransactionId!),
+    ]);
+
+    return {
+      timeoutEta,
+      transactionHex,
       transactionId: swap.lockupTransactionId,
       timeoutBlockHeight: swap.timeoutBlockHeight,
-      transactionHex: await this.getTransactionHex(
-        currency,
-        swap.lockupTransactionId!,
-      ),
     };
-
-    const blockHeight = await this.getBlockHeight(currency);
-    if (blockHeight < swap.timeoutBlockHeight) {
-      response.timeoutEta = calculateTimeoutDate(
-        chainCurrency,
-        swap.timeoutBlockHeight - blockHeight,
-      );
-    }
-
-    return response;
   };
 
   public getReverseSwapTransaction = async (
@@ -241,14 +236,21 @@ class TransactionFetcher {
       return undefined;
     }
 
+    const currency = getCurrency(this.currencies, data.symbol);
+
+    const [transactionHex, timeoutEta] = await Promise.all([
+      this.getTransactionHex(currency, data.transactionId),
+      this.getTimeoutEta(currency, data.timeoutBlockHeight),
+    ]);
+
     return {
-      timeoutBlockHeight: data.timeoutBlockHeight,
       transaction: {
+        hex: transactionHex,
         id: data.transactionId,
-        hex: await this.getTransactionHex(
-          getCurrency(this.currencies, data.symbol),
-          data.transactionId,
-        ),
+      },
+      timeout: {
+        eta: timeoutEta,
+        blockHeight: data.timeoutBlockHeight,
       },
     };
   };
@@ -265,6 +267,24 @@ class TransactionFetcher {
     }
 
     return currency.chainClient.getRawTransaction(transactionId);
+  };
+
+  /**
+   * Returns undefined when the timeout block height has been reached already
+   */
+  private getTimeoutEta = async (
+    currency: Currency,
+    timeoutBlockHeight: number,
+  ): Promise<number | undefined> => {
+    const blockHeight = await this.getBlockHeight(currency);
+    if (blockHeight >= timeoutBlockHeight) {
+      return undefined;
+    }
+
+    return calculateTimeoutDate(
+      currency.symbol,
+      timeoutBlockHeight - blockHeight,
+    );
   };
 
   private getBlockHeight = async (currency: Currency): Promise<number> => {

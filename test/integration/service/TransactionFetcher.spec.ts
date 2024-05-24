@@ -147,12 +147,44 @@ describe('TransactionFetcher', () => {
         fetcher.getChainSwapTransactions(chainSwap),
       ).resolves.toEqual({
         userLock: {
-          timeoutBlockHeight: chainSwap.receivingData.timeoutBlockHeight,
           transaction: {
             id: chainSwap.receivingData.transactionId,
             hex: await bitcoinClient.getRawTransaction(
               chainSwap.receivingData.transactionId!,
             ),
+          },
+          timeout: { blockHeight: chainSwap.receivingData.timeoutBlockHeight },
+        },
+      });
+    });
+
+    test('should get user lockup transaction with timeout ETA for chain swap', async () => {
+      const blockHeight = (await bitcoinClient.getBlockchainInfo()).blocks;
+      const chainSwap = {
+        sendingData: {},
+        receivingData: {
+          symbol: 'BTC',
+          timeoutBlockHeight: blockHeight + 1,
+          transactionId: await bitcoinClient.sendToAddress(
+            await bitcoinClient.getNewAddress(),
+            100_000,
+          ),
+        },
+      } as unknown as ChainSwapInfo;
+
+      await expect(
+        fetcher.getChainSwapTransactions(chainSwap),
+      ).resolves.toEqual({
+        userLock: {
+          transaction: {
+            id: chainSwap.receivingData.transactionId,
+            hex: await bitcoinClient.getRawTransaction(
+              chainSwap.receivingData.transactionId!,
+            ),
+          },
+          timeout: {
+            eta: getUnixTime() + 600,
+            blockHeight: chainSwap.receivingData.timeoutBlockHeight,
           },
         },
       });
@@ -162,7 +194,7 @@ describe('TransactionFetcher', () => {
       const chainSwap = {
         sendingData: {
           symbol: 'RBTC',
-          timeoutBlockHeight: 4310,
+          timeoutBlockHeight: 1,
           transactionId: '0xNotFetched',
         },
         receivingData: {
@@ -179,18 +211,22 @@ describe('TransactionFetcher', () => {
         fetcher.getChainSwapTransactions(chainSwap),
       ).resolves.toEqual({
         serverLock: {
-          timeoutBlockHeight: chainSwap.sendingData.timeoutBlockHeight,
           transaction: {
             id: chainSwap.sendingData.transactionId,
           },
+          timeout: {
+            blockHeight: chainSwap.sendingData.timeoutBlockHeight,
+          },
         },
         userLock: {
-          timeoutBlockHeight: chainSwap.receivingData.timeoutBlockHeight,
           transaction: {
             id: chainSwap.receivingData.transactionId,
             hex: await bitcoinClient.getRawTransaction(
               chainSwap.receivingData.transactionId!,
             ),
+          },
+          timeout: {
+            blockHeight: chainSwap.receivingData.timeoutBlockHeight,
           },
         },
       });
@@ -362,6 +398,30 @@ describe('TransactionFetcher', () => {
       await expect(
         fetcher['getTransactionHex'](currencies.get('RBTC'), 'id'),
       ).resolves.toBeUndefined();
+    });
+  });
+
+  describe('getTimeoutEta', () => {
+    test.each`
+      delta
+      ${0}
+      ${-1}
+      ${-21}
+    `(
+      'should return undefined when timeout block height has been reached already',
+      async ({ delta }) => {
+        const blockHeight = (await bitcoinClient.getBlockchainInfo()).blocks;
+        await expect(
+          fetcher['getTimeoutEta'](currencies.get('BTC')!, blockHeight + delta),
+        ).resolves.toBeUndefined();
+      },
+    );
+
+    test('should calculate timeout ETA for timeouts that have not been reached yet', async () => {
+      const blockHeight = (await bitcoinClient.getBlockchainInfo()).blocks;
+      await expect(
+        fetcher['getTimeoutEta'](currencies.get('BTC'), blockHeight + 2),
+      ).resolves.toEqual(getUnixTime() + 1_200);
     });
   });
 

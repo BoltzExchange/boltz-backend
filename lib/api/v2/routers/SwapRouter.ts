@@ -1171,20 +1171,27 @@ class SwapRouter extends RouterBase {
      *     ChainSwapTransaction:
      *       type: object
      *       properties:
-     *        timeoutBlockHeight:
-     *          type: number
-     *          required: true
-     *          description: Timeout block height of the onchain HTLC
-     *        transaction:
-     *          type: object
-     *          properties:
-     *            id:
-     *              type: string
-     *              required: true
-     *              description: ID of the transaction
-     *            hex:
-     *              type: string
-     *              description: The transaction encoded as HEX; set for UTXO based chains
+     *         transaction:
+     *           type: object
+     *           properties:
+     *             id:
+     *               type: string
+     *               required: true
+     *               description: ID of the transaction
+     *             hex:
+     *               type: string
+     *               description: The transaction encoded as HEX; set for UTXO based chains
+     *         timeout:
+     *           type: object
+     *           properties:
+     *             blockHeight:
+     *               type: number
+     *               required: true
+     *               description: Timeout block height of the onchain HTLC
+     *             eta:
+     *               type: number
+     *               required: true
+     *               description: Expected UNIX timestamp of the expiry of the onchain HTLC if not expired already
      *
      *     ChainSwapTransactions:
      *       type: object

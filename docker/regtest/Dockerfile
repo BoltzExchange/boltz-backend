@@ -23,9 +23,14 @@ RUN apt-get update && \
   psmisc \
   openssl \
   python3 \
+  libtool \
+  autoconf \
   libdb-dev \
+  pkg-config \
+  python3-pip \
   libdb++-dev \
   libzmq3-dev \
+  python3-venv \
   libevent-dev \
   libevent-dev \
   libsqlite3-dev \

@@ -4,6 +4,8 @@ import { PostgresConfig } from '../Config';
 import Logger from '../Logger';
 import { Currency } from '../wallet/WalletManager';
 import Migration from './Migration';
+import ChainSwap from './models/ChainSwap';
+import ChainSwapData from './models/ChainSwapData';
 import ChainTip from './models/ChainTip';
 import ChannelCreation from './models/ChannelCreation';
 import DatabaseVersion from './models/DatabaseVersion';
@@ -112,9 +114,10 @@ class Database {
       PendingEthereumTransaction.sync(),
     ]);
 
-    await Promise.all([Swap.sync(), ReverseSwap.sync()]);
+    await Promise.all([Swap.sync(), ReverseSwap.sync(), ChainSwap.sync()]);
     await Promise.all([
       MarkedSwap.sync(),
+      ChainSwapData.sync(),
       ChannelCreation.sync(),
       ReverseRoutingHint.sync(),
       PendingLockupTransaction.sync(),
@@ -133,6 +136,8 @@ class Database {
     Pair.load(Database.sequelize);
     Referral.load(Database.sequelize);
     Swap.load(Database.sequelize);
+    ChainSwap.load(Database.sequelize);
+    ChainSwapData.load(Database.sequelize);
     ChainTip.load(Database.sequelize);
     ReverseSwap.load(Database.sequelize);
     MarkedSwap.load(Database.sequelize);

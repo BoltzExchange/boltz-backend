@@ -6,7 +6,8 @@ import { EtherSwap } from '../../../../../boltz-core/typechain/EtherSwap';
 import Logger from '../../../../lib/Logger';
 import { getHexString } from '../../../../lib/Utils';
 import { etherDecimals } from '../../../../lib/consts/Consts';
-import { SwapUpdateEvent } from '../../../../lib/consts/Enums';
+import { SwapType, SwapUpdateEvent } from '../../../../lib/consts/Enums';
+import ChainSwapRepository from '../../../../lib/db/repositories/ChainSwapRepository';
 import SwapRepository from '../../../../lib/db/repositories/SwapRepository';
 import Errors from '../../../../lib/service/Errors';
 import EipSigner from '../../../../lib/service/cooperative/EipSigner';
@@ -19,7 +20,11 @@ import {
 } from '../../wallet/EthereumTools';
 
 jest.mock('../../../../lib/db/repositories/SwapRepository', () => ({
-  getSwap: jest.fn().mockResolvedValue(undefined),
+  getSwap: jest.fn().mockResolvedValue(null),
+}));
+
+jest.mock('../../../../lib/db/repositories/ChainSwapRepository', () => ({
+  getChainSwap: jest.fn().mockResolvedValue(null),
 }));
 
 describe('EipSigner', () => {
@@ -85,10 +90,14 @@ describe('EipSigner', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+
+    SwapRepository.getSwap = jest.fn().mockResolvedValue(null);
+    ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
   });
 
   test('should throw when no swap can be found', async () => {
-    SwapRepository.getSwap = jest.fn().mockResolvedValue(undefined);
+    SwapRepository.getSwap = jest.fn().mockResolvedValue(null);
+    ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
 
     const id = 'notFound';
     await expect(signer.signSwapRefund(id)).rejects.toEqual(
@@ -118,7 +127,7 @@ describe('EipSigner', () => {
     );
   });
 
-  test('should refund EtherSwap cooperatively', async () => {
+  test('should refund submarine EtherSwap cooperatively', async () => {
     const preimageHash = randomBytes(32);
     const amount = BigInt(10) ** BigInt(17);
     const timelock = (await setup.provider.getBlockNumber()) + 21;
@@ -134,17 +143,17 @@ describe('EipSigner', () => {
       )
     ).wait(1);
 
-    const id = 'rswap';
     SwapRepository.getSwap = jest.fn().mockResolvedValue({
       orderSide: 1,
       pair: 'RBTC/BTC',
+      type: SwapType.Submarine,
       timeoutBlockHeight: timelock,
       preimageHash: getHexString(preimageHash),
       status: SwapUpdateEvent.InvoiceFailedToPay,
       onchainAmount: Number(amount / etherDecimals),
     });
 
-    const rawSig = await signer.signSwapRefund(id);
+    const rawSig = await signer.signSwapRefund('rswap');
 
     const sig = Signature.from(rawSig);
     const refundTx = await etherSwap.refundCooperative(
@@ -160,7 +169,50 @@ describe('EipSigner', () => {
     await refundTx.wait(1);
   });
 
-  test('should refund ERC20Swap cooperatively', async () => {
+  test('should refund chain EtherSwap cooperatively', async () => {
+    const preimageHash = randomBytes(32);
+    const amount = BigInt(10) ** BigInt(17);
+    const timelock = (await setup.provider.getBlockNumber()) + 21;
+
+    await (
+      await etherSwap.lock(
+        preimageHash,
+        await setup.etherBase.getAddress(),
+        timelock,
+        {
+          value: amount,
+        },
+      )
+    ).wait(1);
+
+    ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue({
+      type: SwapType.Chain,
+      preimageHash: getHexString(preimageHash),
+      status: SwapUpdateEvent.InvoiceFailedToPay,
+      receivingData: {
+        symbol: 'RBTC',
+        timeoutBlockHeight: timelock,
+        amount: Number(amount / etherDecimals),
+      },
+    });
+
+    const rawSig = await signer.signSwapRefund('rswap');
+
+    const sig = Signature.from(rawSig);
+    const refundTx = await etherSwap.refundCooperative(
+      preimageHash,
+      amount,
+      await setup.etherBase.getAddress(),
+      timelock,
+      sig.v,
+      sig.r,
+      sig.s,
+    );
+    // Transaction doesn't fail -> refund worked
+    await refundTx.wait(1);
+  });
+
+  test('should refund submarine ERC20Swap cooperatively', async () => {
     const preimageHash = randomBytes(32);
     const amount = BigInt(10);
     const timelock = (await setup.provider.getBlockNumber()) + 21;
@@ -176,17 +228,61 @@ describe('EipSigner', () => {
       )
     ).wait(1);
 
-    const id = 'tswap';
     SwapRepository.getSwap = jest.fn().mockResolvedValue({
       orderSide: 1,
       pair: 'TOKEN/BTC',
+      type: SwapType.Submarine,
       timeoutBlockHeight: timelock,
       onchainAmount: Number(amount),
       preimageHash: getHexString(preimageHash),
       status: SwapUpdateEvent.InvoiceFailedToPay,
     });
 
-    const rawSig = await signer.signSwapRefund(id);
+    const rawSig = await signer.signSwapRefund('tswap');
+
+    const sig = Signature.from(rawSig);
+    const refundTx = await erc20Swap.refundCooperative(
+      preimageHash,
+      amount,
+      await token.getAddress(),
+      await setup.etherBase.getAddress(),
+      timelock,
+      sig.v,
+      sig.r,
+      sig.s,
+    );
+    // Transaction doesn't fail -> refund worked
+    await refundTx.wait(1);
+  });
+
+  test('should refund chain ERC20Swap cooperatively', async () => {
+    const preimageHash = randomBytes(32);
+    const amount = BigInt(10);
+    const timelock = (await setup.provider.getBlockNumber()) + 21;
+
+    await (await token.approve(await erc20Swap.getAddress(), amount)).wait(1);
+    await (
+      await erc20Swap.lock(
+        preimageHash,
+        amount,
+        await token.getAddress(),
+        await setup.etherBase.getAddress(),
+        timelock,
+      )
+    ).wait(1);
+
+    ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue({
+      type: SwapType.Chain,
+      preimageHash: getHexString(preimageHash),
+      status: SwapUpdateEvent.InvoiceFailedToPay,
+      receivingData: {
+        symbol: 'TOKEN',
+        amount: Number(amount),
+        timeoutBlockHeight: timelock,
+      },
+    });
+
+    const rawSig = await signer.signSwapRefund('tswap');
 
     const sig = Signature.from(rawSig);
     const refundTx = await erc20Swap.refundCooperative(

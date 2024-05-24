@@ -5,12 +5,16 @@ import Logger from '../Logger';
 import CountryCodes from '../service/CountryCodes';
 import Service from '../service/Service';
 import Controller from './Controller';
+import SwapInfos from './SwapInfos';
 import { errorResponse } from './Utils';
 import ApiV2 from './v2/ApiV2';
 import WebSocketHandler from './v2/WebSocketHandler';
 
 class Api {
   private app: Application;
+
+  private readonly swapInfos: SwapInfos;
+
   private readonly websocket: WebSocketHandler;
   private readonly controller: Controller;
 
@@ -58,20 +62,26 @@ class Api {
       },
     );
 
-    this.controller = new Controller(logger, service, countryCodes);
-    this.websocket = new WebSocketHandler(service, this.controller);
+    this.swapInfos = new SwapInfos(this.logger, service);
+    this.controller = new Controller(
+      logger,
+      service,
+      countryCodes,
+      this.swapInfos,
+    );
+    this.websocket = new WebSocketHandler(service, this.swapInfos);
 
     new ApiV2(
       this.logger,
       service,
-      this.controller,
+      this.swapInfos,
       countryCodes,
     ).registerRoutes(this.app);
     this.registerRoutes(this.controller);
   }
 
   public init = async (): Promise<void> => {
-    await this.controller.init();
+    await this.swapInfos.init();
 
     await new Promise<void>((resolve) => {
       const server = this.app.listen(this.config.port, this.config.host, () => {

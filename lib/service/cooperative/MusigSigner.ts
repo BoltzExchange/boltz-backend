@@ -1,11 +1,4 @@
-import { crypto } from 'bitcoinjs-lib';
-import { SwapTreeSerializer, Types } from 'boltz-core';
-import {
-  createMusig,
-  hashForWitnessV1,
-  parseTransaction,
-  tweakMusig,
-} from '../../Core';
+import { SwapTreeSerializer } from 'boltz-core';
 import Logger from '../../Logger';
 import {
   getChainCurrency,
@@ -16,16 +9,20 @@ import {
 } from '../../Utils';
 import {
   FailedSwapUpdateEvents,
+  SwapType,
   SwapUpdateEvent,
   SwapVersion,
 } from '../../consts/Enums';
 import Swap from '../../db/models/Swap';
+import { ChainSwapInfo } from '../../db/repositories/ChainSwapRepository';
 import ReverseSwapRepository from '../../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../db/repositories/SwapRepository';
+import WrappedSwapRepository from '../../db/repositories/WrappedSwapRepository';
 import { Payment } from '../../proto/lnd/rpc_pb';
 import SwapNursery from '../../swap/SwapNursery';
 import WalletManager, { Currency } from '../../wallet/WalletManager';
 import Errors from '../Errors';
+import { createPartialSignature, isPreimageValid } from './Utils';
 
 type PartialSignature = {
   pubNonce: Buffer;
@@ -42,7 +39,7 @@ class MusigSigner {
     private readonly nursery: SwapNursery,
   ) {}
 
-  public signSwapRefund = async (
+  public signRefund = async (
     swapId: string,
     theirNonce: Buffer,
     rawTransaction: Buffer,
@@ -59,7 +56,7 @@ class MusigSigner {
     )!;
 
     if (currency.chainClient === undefined) {
-      throw 'chain currency is not UTXO based';
+      throw Errors.CURRENCY_NOT_UTXO_BASED();
     }
 
     if (
@@ -83,8 +80,9 @@ class MusigSigner {
 
     const swapTree = SwapTreeSerializer.deserializeSwapTree(swap.redeemScript!);
 
-    return this.createPartialSignature(
+    return createPartialSignature(
       currency,
+      this.walletManager.wallets.get(currency.symbol)!,
       swapTree,
       swap.keyIndex!,
       getHexBuffer(swap.refundPublicKey!),
@@ -120,10 +118,7 @@ class MusigSigner {
       throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM();
     }
 
-    if (
-      preimage.length !== 32 ||
-      getHexString(crypto.sha256(preimage)) !== swap.preimageHash
-    ) {
+    if (!isPreimageValid(swap, preimage)) {
       this.logger.verbose(
         `Not creating partial signature for claim of Reverse Swap ${swap.id}: preimage is incorrect`,
       );
@@ -133,7 +128,7 @@ class MusigSigner {
     this.logger.debug(
       `Got preimage for Reverse Swap ${swap.id}: ${getHexString(preimage)}`,
     );
-    await ReverseSwapRepository.setPreimage(swap, getHexString(preimage));
+    await WrappedSwapRepository.setPreimage(swap, preimage);
 
     return this.nursery.lock.acquire(SwapNursery.reverseSwapLock, async () => {
       if (swap.status !== SwapUpdateEvent.InvoiceSettled) {
@@ -145,14 +140,14 @@ class MusigSigner {
       );
 
       const { base, quote } = splitPairId(swap.pair);
+      const chainCurrency = getChainCurrency(base, quote, swap.orderSide, true);
       const swapTree = SwapTreeSerializer.deserializeSwapTree(
         swap.redeemScript!,
       );
 
-      return this.createPartialSignature(
-        this.currencies.get(
-          getChainCurrency(base, quote, swap.orderSide, true),
-        )!,
+      return createPartialSignature(
+        this.currencies.get(chainCurrency)!,
+        this.walletManager.wallets.get(chainCurrency)!,
         swapTree,
         swap.keyIndex!,
         getHexBuffer(swap.claimPublicKey!),
@@ -164,16 +159,24 @@ class MusigSigner {
   };
 
   public static isEligibleForRefund = async (
-    swap: Swap,
-    lightningCurrency: Currency,
+    swap: Swap | ChainSwapInfo,
+    lightningCurrency?: Currency,
   ) =>
     FailedSwapUpdateEvents.includes(swap.status as SwapUpdateEvent) &&
-    !(await MusigSigner.hasNonFailedLightningPayment(lightningCurrency, swap));
+    (lightningCurrency === undefined ||
+      !(await MusigSigner.hasNonFailedLightningPayment(
+        lightningCurrency,
+        swap,
+      )));
 
   private static hasNonFailedLightningPayment = async (
     currency: Currency,
-    swap: Swap,
+    swap: Swap | ChainSwapInfo,
   ): Promise<boolean> => {
+    if (swap.type === SwapType.Chain) {
+      return false;
+    }
+
     try {
       if (currency.lndClient) {
         const pendingPayment = await currency.lndClient!.trackPayment(
@@ -189,9 +192,9 @@ class MusigSigner {
     }
 
     try {
-      if (currency.clnClient && swap.invoice) {
-        const payment = await currency.clnClient!.checkPayStatus(swap.invoice);
-
+      const invoice = (swap as Swap).invoice;
+      if (currency.clnClient && invoice !== undefined) {
+        const payment = await currency.clnClient!.checkPayStatus(invoice);
         if (payment !== undefined) {
           return true;
         }
@@ -201,38 +204,6 @@ class MusigSigner {
     }
 
     return false;
-  };
-
-  private createPartialSignature = async (
-    currency: Currency,
-    swapTree: Types.SwapTree,
-    keyIndex: number,
-    theirPublicKey: Buffer,
-    theirNonce: Buffer,
-    rawTransaction: Buffer | string,
-    vin: number,
-  ): Promise<PartialSignature> => {
-    const tx = parseTransaction(currency.type, rawTransaction);
-    if (vin < 0 || tx.ins.length <= vin) {
-      throw Errors.INVALID_VIN();
-    }
-
-    const wallet = this.walletManager.wallets.get(currency.symbol)!;
-
-    const ourKeys = wallet.getKeysByIndex(keyIndex);
-
-    const musig = createMusig(ourKeys, theirPublicKey);
-    tweakMusig(currency.type, musig, swapTree);
-
-    musig.aggregateNonces([[theirPublicKey, theirNonce]]);
-
-    const hash = await hashForWitnessV1(currency, tx, vin);
-    musig.initializeSession(hash);
-
-    return {
-      signature: Buffer.from(musig.signPartial()),
-      pubNonce: Buffer.from(musig.getPublicNonce()),
-    };
   };
 }
 

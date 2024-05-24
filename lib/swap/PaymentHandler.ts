@@ -10,9 +10,11 @@ import {
   splitPairId,
 } from '../Utils';
 import { ChannelCreationStatus, SwapUpdateEvent } from '../consts/Enums';
+import { AnySwap } from '../consts/Types';
 import ChannelCreation from '../db/models/ChannelCreation';
 import ReverseSwap from '../db/models/ReverseSwap';
 import Swap from '../db/models/Swap';
+import { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import { LightningClient, PaymentResponse } from '../lightning/LightningClient';
 import LndClient from '../lightning/LndClient';
@@ -28,24 +30,26 @@ import NodeSwitch from './NodeSwitch';
 type SwapNurseryEvents = {
   // UTXO based chains emit the "Transaction" object and Ethereum based ones just the transaction hash
   transaction: {
-    swap: Swap | ReverseSwap;
+    swap: AnySwap;
     transaction: Transaction | LiquidTransaction | string;
     confirmed: boolean;
-    isReverse: boolean;
   };
-  expiration: {
-    swap: Swap | ReverseSwap;
-    isReverse: boolean;
-  };
+  expiration: AnySwap;
 
   // Swap related events
-  'lockup.failed': Swap;
-  'zeroconf.rejected': Swap;
+  'lockup.failed': Swap | ChainSwapInfo;
+  'zeroconf.rejected': {
+    swap: Swap | ChainSwapInfo;
+    transaction: Transaction | LiquidTransaction;
+  };
   'invoice.pending': Swap;
   'invoice.failedToPay': Swap;
   'invoice.paid': Swap;
   'claim.pending': Swap;
-  claim: { swap: Swap; channelCreation?: ChannelCreation };
+  claim: {
+    swap: Swap | ChainSwapInfo;
+    channelCreation?: ChannelCreation;
+  };
 
   // Reverse swap related events
   'minerfee.paid': ReverseSwap;
@@ -53,12 +57,12 @@ type SwapNurseryEvents = {
 
   // UTXO based chains emit the "Transaction" object and Ethereum based ones just the transaction hash
   'coins.sent': {
-    reverseSwap: ReverseSwap;
+    swap: ReverseSwap | ChainSwapInfo;
     transaction: Transaction | LiquidTransaction | string;
   };
-  'coins.failedToSend': ReverseSwap;
+  'coins.failedToSend': ReverseSwap | ChainSwapInfo;
   refund: {
-    reverseSwap: ReverseSwap;
+    swap: ReverseSwap | ChainSwapInfo;
     refundTransaction: string;
   };
   'invoice.settled': ReverseSwap;

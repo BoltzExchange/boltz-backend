@@ -2,52 +2,52 @@
 
 const Boltz = require('../dist/lib/Boltz').default;
 
-const { argv } = require('yargs')
-  .options({
-    datadir: {
-      describe: 'Data directory of Boltz',
-      alias: 'w',
-      type: 'string',
-    },
-    configpath: {
-      type: 'string',
-      describe: 'Path to the config file',
-    },
-    logpath: {
-      describe: 'Path to the logfile',
-      type: 'string',
-    },
-    loglevel: {
-      describe: 'Verbosity of the logger',
-      alias: 'l',
-      type: 'string',
-      choices: ['error', 'warn', 'info', 'verbose', 'debug', 'silly'],
-    },
-    walletpath: {
-      type: 'string',
-      describe: 'Path to the wallet file',
-    },
-    'grpc.host': {
-      describe: 'Host of the Boltz gRPC interface',
-      type: 'string',
-    },
-    'grpc.port': {
-      describe: 'Port of the Boltz gRPC interface',
-      type: 'number',
-    },
-    'grpc.certpath': {
-      describe: 'Path to the TLS certificate of the Boltz gRPC interface',
-      type: 'string',
-    },
-    'grpc.keypath': {
-      describe: 'Path to the key of the TLS certificate of the Boltz gRPC interface',
-      type: 'string',
-    },
-    currencies: {
-      describe: 'Currencies that Boltz should support',
-      type: 'array',
-    },
-  });
+const { argv } = require('yargs').options({
+  datadir: {
+    describe: 'Data directory of Boltz',
+    alias: 'w',
+    type: 'string',
+  },
+  configpath: {
+    type: 'string',
+    describe: 'Path to the config file',
+  },
+  logpath: {
+    describe: 'Path to the logfile',
+    type: 'string',
+  },
+  loglevel: {
+    describe: 'Verbosity of the logger',
+    alias: 'l',
+    type: 'string',
+    choices: ['error', 'warn', 'info', 'verbose', 'debug', 'silly'],
+  },
+  walletpath: {
+    type: 'string',
+    describe: 'Path to the wallet file',
+  },
+  'grpc.host': {
+    describe: 'Host of the Boltz gRPC interface',
+    type: 'string',
+  },
+  'grpc.port': {
+    describe: 'Port of the Boltz gRPC interface',
+    type: 'number',
+  },
+  'grpc.certpath': {
+    describe: 'Path to the TLS certificate of the Boltz gRPC interface',
+    type: 'string',
+  },
+  'grpc.keypath': {
+    describe:
+      'Path to the key of the TLS certificate of the Boltz gRPC interface',
+    type: 'string',
+  },
+  currencies: {
+    describe: 'Currencies that Boltz should support',
+    type: 'array',
+  },
+});
 
 // Delete non-config keys from argv
 delete argv._;

@@ -1,3 +1,4 @@
+import { Op } from 'sequelize';
 import ReverseRoutingHint, {
   ReverseRoutingHintsType,
 } from '../models/ReverseRoutingHint';
@@ -10,6 +11,15 @@ class ReverseRoutingHintRepository {
     ReverseRoutingHint.findOne({
       where: {
         swapId,
+      },
+    });
+
+  public static getHints = (swapIds: string[]) =>
+    ReverseRoutingHint.findAll({
+      where: {
+        swapId: {
+          [Op.in]: swapIds,
+        },
       },
     });
 }

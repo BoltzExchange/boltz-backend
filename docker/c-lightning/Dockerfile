@@ -28,8 +28,8 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get install -y \
   protobuf-compiler \
   python-is-python3
 
-RUN pip3 install --upgrade pip
-RUN pip3 install mako
+RUN pip3 install --upgrade --break-system-packages pip
+RUN pip3 install --break-system-packages mako
 
 RUN git clone https://github.com/ElementsProject/lightning.git
 WORKDIR /lightning

@@ -591,8 +591,10 @@ export class UpdateTimeoutBlockDeltaRequest extends jspb.Message {
     setSwapMinimalTimeout(value: number): UpdateTimeoutBlockDeltaRequest;
     getSwapMaximalTimeout(): number;
     setSwapMaximalTimeout(value: number): UpdateTimeoutBlockDeltaRequest;
-    getSwapTaproot(): number;
-    setSwapTaproot(value: number): UpdateTimeoutBlockDeltaRequest;
+    getSwapTaprootTimeout(): number;
+    setSwapTaprootTimeout(value: number): UpdateTimeoutBlockDeltaRequest;
+    getChainTimeout(): number;
+    setChainTimeout(value: number): UpdateTimeoutBlockDeltaRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): UpdateTimeoutBlockDeltaRequest.AsObject;
@@ -610,7 +612,8 @@ export namespace UpdateTimeoutBlockDeltaRequest {
         reverseTimeout: number,
         swapMinimalTimeout: number,
         swapMaximalTimeout: number,
-        swapTaproot: number,
+        swapTaprootTimeout: number,
+        chainTimeout: number,
     }
 }
 
@@ -899,10 +902,14 @@ export namespace LockedFund {
 }
 
 export class LockedFunds extends jspb.Message { 
-    clearLockedFundsList(): void;
-    getLockedFundsList(): Array<LockedFund>;
-    setLockedFundsList(value: Array<LockedFund>): LockedFunds;
-    addLockedFunds(value?: LockedFund, index?: number): LockedFund;
+    clearReverseSwapsList(): void;
+    getReverseSwapsList(): Array<LockedFund>;
+    setReverseSwapsList(value: Array<LockedFund>): LockedFunds;
+    addReverseSwaps(value?: LockedFund, index?: number): LockedFund;
+    clearChainSwapsList(): void;
+    getChainSwapsList(): Array<LockedFund>;
+    setChainSwapsList(value: Array<LockedFund>): LockedFunds;
+    addChainSwaps(value?: LockedFund, index?: number): LockedFund;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): LockedFunds.AsObject;
@@ -916,7 +923,8 @@ export class LockedFunds extends jspb.Message {
 
 export namespace LockedFunds {
     export type AsObject = {
-        lockedFundsList: Array<LockedFund.AsObject>,
+        reverseSwapsList: Array<LockedFund.AsObject>,
+        chainSwapsList: Array<LockedFund.AsObject>,
     }
 }
 

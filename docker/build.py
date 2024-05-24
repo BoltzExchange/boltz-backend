@@ -27,7 +27,7 @@ class Image:
 
 UBUNTU_VERSION = BuildArgument(
     name="UBUNTU_VERSION",
-    value="22.04",
+    value="24.04",
 )
 
 NODE_VERSION = BuildArgument(
@@ -37,13 +37,13 @@ NODE_VERSION = BuildArgument(
 
 GOLANG_VERSION = BuildArgument(
     name="GOLANG_VERSION",
-    value="1.22.2-bullseye",
+    value="1.22.3-bullseye",
 )
 
 BITCOIN_VERSION = "27.0"
 LITECOIN_VERSION = "0.21.3"
 ELEMENTS_VERSION = "23.2.1"
-GETH_VERSION = "1.13.15"
+GETH_VERSION = "1.14.3"
 
 C_LIGHTNING_VERSION = "24.02.2"
 ECLAIR_VERSION = "0.10.0"

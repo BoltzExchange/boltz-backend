@@ -2,7 +2,7 @@ import { parse } from '@iarna/toml';
 import { existsSync, readFileSync, unlinkSync } from 'fs';
 import { ConfigType } from '../../../lib/Config';
 import Logger from '../../../lib/Logger';
-import { OrderSide, SwapVersion } from '../../../lib/consts/Enums';
+import { OrderSide, SwapType, SwapVersion } from '../../../lib/consts/Enums';
 import { PairConfig } from '../../../lib/consts/Types';
 import {
   DecodedInvoice,
@@ -23,6 +23,7 @@ const currencies = [
     base: 'BTC',
     quote: 'BTC',
     timeoutDelta: {
+      chain: 1000,
       reverse: 1440,
       swapMinimal: 360,
       swapMaximal: 2880,
@@ -74,6 +75,7 @@ describe('TimeoutDeltaProvider', () => {
 
   const createDeltas = (val: number): PairTimeoutBlocksDelta => {
     return {
+      chain: val,
       reverse: val,
       swapMinimal: val,
       swapMaximal: val,
@@ -109,12 +111,14 @@ describe('TimeoutDeltaProvider', () => {
     expect(deltas.size).toEqual(currencies.length);
     expect(deltas.get('BTC/BTC')).toEqual({
       base: {
+        chain: 100,
         reverse: 144,
         swapMinimal: 36,
         swapMaximal: 288,
         swapTaproot: 1008,
       },
       quote: {
+        chain: 100,
         reverse: 144,
         swapMinimal: 36,
         swapMaximal: 288,
@@ -158,13 +162,18 @@ describe('TimeoutDeltaProvider', () => {
     const pairId = 'LTC/BTC';
 
     await expect(
-      deltaProvider.getTimeout(pairId, OrderSide.BUY, true, SwapVersion.Legacy),
+      deltaProvider.getTimeout(
+        pairId,
+        OrderSide.BUY,
+        SwapType.ReverseSubmarine,
+        SwapVersion.Legacy,
+      ),
     ).resolves.toEqual([8, false]);
     await expect(
       deltaProvider.getTimeout(
         pairId,
         OrderSide.BUY,
-        false,
+        SwapType.Submarine,
         SwapVersion.Legacy,
       ),
     ).resolves.toEqual([2, true]);
@@ -173,7 +182,7 @@ describe('TimeoutDeltaProvider', () => {
       deltaProvider.getTimeout(
         pairId,
         OrderSide.SELL,
-        true,
+        SwapType.ReverseSubmarine,
         SwapVersion.Legacy,
       ),
     ).resolves.toEqual([2, false]);
@@ -181,7 +190,7 @@ describe('TimeoutDeltaProvider', () => {
       deltaProvider.getTimeout(
         pairId,
         OrderSide.SELL,
-        false,
+        SwapType.Submarine,
         SwapVersion.Legacy,
       ),
     ).resolves.toEqual([8, true]);
@@ -193,7 +202,7 @@ describe('TimeoutDeltaProvider', () => {
       deltaProvider.getTimeout(
         notFound,
         OrderSide.SELL,
-        true,
+        SwapType.ReverseSubmarine,
         SwapVersion.Legacy,
       ),
     ).rejects.toEqual(Errors.PAIR_NOT_FOUND(notFound));
@@ -203,6 +212,7 @@ describe('TimeoutDeltaProvider', () => {
     const pairId = 'LTC/BTC';
 
     deltaProvider.setTimeout(pairId, {
+      chain: newDelta,
       reverse: newDelta,
       swapMinimal: newDelta,
       swapMaximal: newDelta,
@@ -224,6 +234,7 @@ describe('TimeoutDeltaProvider', () => {
     // Should throw if the new delta is invalid
     expect(() =>
       deltaProvider.setTimeout(pairId, {
+        chain: -newDelta,
         reverse: -newDelta,
         swapMinimal: -newDelta,
         swapMaximal: -newDelta,
@@ -232,6 +243,7 @@ describe('TimeoutDeltaProvider', () => {
     ).toThrow(Errors.INVALID_TIMEOUT_BLOCK_DELTA().message);
     expect(() =>
       deltaProvider.setTimeout(pairId, {
+        chain: 5,
         reverse: 5,
         swapMinimal: 5,
         swapMaximal: 5,
@@ -253,6 +265,7 @@ describe('TimeoutDeltaProvider', () => {
 
     expect(
       minutesToBlocks('USDT/USDC', {
+        chain: 1,
         reverse: 1,
         swapMinimal: 1,
         swapMaximal: 1,

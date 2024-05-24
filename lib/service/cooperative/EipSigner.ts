@@ -6,7 +6,11 @@ import {
   splitPairId,
 } from '../../Utils';
 import { etherDecimals } from '../../consts/Consts';
+import { SwapType } from '../../consts/Enums';
 import Swap from '../../db/models/Swap';
+import ChainSwapRepository, {
+  ChainSwapInfo,
+} from '../../db/repositories/ChainSwapRepository';
 import SwapRepository from '../../db/repositories/SwapRepository';
 import WalletManager, { Currency } from '../../wallet/WalletManager';
 import EthereumManager from '../../wallet/ethereum/EthereumManager';
@@ -22,13 +26,7 @@ class EipSigner {
   ) {}
 
   public signSwapRefund = async (swapId: string) => {
-    const swap = await SwapRepository.getSwap({ id: swapId });
-    if (!swap) {
-      throw Errors.SWAP_NOT_FOUND(swapId);
-    }
-
-    const { base, quote } = splitPairId(swap.pair);
-    const chainSymbol = getChainCurrency(base, quote, swap.orderSide, false);
+    const { swap, chainSymbol, lightningCurrency } = await this.getSwap(swapId);
     const manager = this.walletManager.ethereumManagers.find((man) =>
       man.hasSymbol(chainSymbol),
     );
@@ -37,14 +35,7 @@ class EipSigner {
       throw 'chain currency is not EVM based';
     }
 
-    if (
-      !(await MusigSigner.isEligibleForRefund(
-        swap,
-        this.currencies.get(
-          getLightningCurrency(base, quote, swap.orderSide, false),
-        )!,
-      ))
-    ) {
+    if (!(await MusigSigner.isEligibleForRefund(swap, lightningCurrency))) {
       this.logger.verbose(
         `Not creating EIP-712 signature for refund of Swap ${swap.id}: it is not eligible`,
       );
@@ -57,30 +48,69 @@ class EipSigner {
 
     const { domain, types, value } = await this.getSigningData(
       manager,
-      chainSymbol,
       swap,
+      chainSymbol,
     );
     return manager.signer.signTypedData(domain, types, value);
   };
 
+  private getSwap = async (
+    id: string,
+  ): Promise<{
+    swap: Swap | ChainSwapInfo;
+    chainSymbol: string;
+    lightningCurrency?: Currency;
+  }> => {
+    const [swap, chainSwap] = await Promise.all([
+      SwapRepository.getSwap({ id }),
+      ChainSwapRepository.getChainSwap({ id }),
+    ]);
+
+    if (swap !== null) {
+      const { base, quote } = splitPairId(swap.pair);
+
+      return {
+        swap,
+        chainSymbol: getChainCurrency(base, quote, swap.orderSide, false),
+        lightningCurrency: this.currencies.get(
+          getLightningCurrency(base, quote, swap.orderSide, false),
+        ),
+      };
+    } else if (chainSwap !== null) {
+      return {
+        swap: chainSwap,
+        chainSymbol: chainSwap.receivingData.symbol,
+      };
+    }
+
+    throw Errors.SWAP_NOT_FOUND(id);
+  };
+
   private getSigningData = async (
     manager: EthereumManager,
+    swap: Swap | ChainSwapInfo,
     chainSymbol: string,
-    swap: Swap,
   ) => {
     const isEtherSwap = manager.networkDetails.symbol === chainSymbol;
     const contract = isEtherSwap ? manager.etherSwap : manager.erc20Swap;
+    const onchainAmount =
+      swap.type === SwapType.Submarine
+        ? (swap as Swap).onchainAmount
+        : (swap as ChainSwapInfo).receivingData.amount;
 
     const value: Record<string, any> = {
       claimAddress: manager.address,
-      timeout: swap.timeoutBlockHeight,
       preimageHash: getHexBuffer(swap.preimageHash),
+      timeout:
+        swap.type === SwapType.Submarine
+          ? (swap as Swap).timeoutBlockHeight
+          : (swap as ChainSwapInfo).receivingData.timeoutBlockHeight,
       amount: isEtherSwap
-        ? BigInt(swap.onchainAmount!) * etherDecimals
+        ? BigInt(onchainAmount!) * etherDecimals
         : (
             this.walletManager.wallets.get(chainSymbol)!
               .walletProvider as ERC20WalletProvider
-          ).formatTokenAmount(swap.onchainAmount!),
+          ).formatTokenAmount(onchainAmount!),
     };
 
     if (!isEtherSwap) {

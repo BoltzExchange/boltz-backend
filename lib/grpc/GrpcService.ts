@@ -138,15 +138,17 @@ class GrpcService {
     await this.handleCallback(call, callback, async () => {
       const {
         pair,
-        swapTaproot,
+        chainTimeout,
         reverseTimeout,
+        swapTaprootTimeout,
         swapMinimalTimeout,
         swapMaximalTimeout,
       } = call.request.toObject();
 
       this.service.updateTimeoutBlockDelta(pair, {
-        swapTaproot,
+        chain: chainTimeout,
         reverse: reverseTimeout,
+        swapTaproot: swapTaprootTimeout,
         swapMinimal: swapMinimalTimeout,
         swapMaximal: swapMaximalTimeout,
       });
@@ -195,20 +197,29 @@ class GrpcService {
     boltzrpc.GetLockedFundsResponse
   > = async (call, callback) => {
     await this.handleCallback(call, callback, async () => {
-      const response = new boltzrpc.GetLockedFundsResponse();
       const lockedFunds = await this.service.getLockedFunds();
+
+      const response = new boltzrpc.GetLockedFundsResponse();
       const lockedFundsGrpcMap = response.getLockedFundsMap();
 
       lockedFunds.forEach((swaps, currency) => {
         const lockedFundsList = new boltzrpc.LockedFunds();
-        swaps
-          .map((swap) => {
-            const lockedFund = new boltzrpc.LockedFund();
-            lockedFund.setSwapId(swap.id);
-            lockedFund.setOnchainAmount(swap.onchainAmount);
-            return lockedFund;
-          })
-          .forEach((lockedFund) => lockedFundsList.addLockedFunds(lockedFund));
+
+        swaps.reverseSwaps.forEach((swap) => {
+          const lockedFund = new boltzrpc.LockedFund();
+          lockedFund.setSwapId(swap.id);
+          lockedFund.setOnchainAmount(swap.onchainAmount);
+
+          lockedFundsList.addReverseSwaps(lockedFund);
+        });
+
+        swaps.chainSwaps.forEach((swap) => {
+          const lockedFund = new boltzrpc.LockedFund();
+          lockedFund.setSwapId(swap.id);
+          lockedFund.setOnchainAmount(swap.sendingData.amount!);
+
+          lockedFundsList.addChainSwaps(lockedFund);
+        });
 
         lockedFundsGrpcMap.set(currency, lockedFundsList);
       });

@@ -29,6 +29,7 @@ import {
 import {
   CurrencyType,
   OrderSide,
+  SwapType,
   SwapUpdateEvent,
   SwapVersion,
 } from '../../../../lib/consts/Enums';
@@ -57,6 +58,7 @@ jest.mock('../../../../lib/db/repositories/SwapRepository', () => ({
   setMinerFee: jest.fn().mockImplementation(async (swap, fee) => ({
     ...swap,
     minerFee: fee,
+    status: SwapUpdateEvent.TransactionClaimed,
   })),
   setSwapStatus: jest
     .fn()
@@ -107,10 +109,12 @@ describe('DeferredClaimer', () => {
     const refundKeys = ECPair.makeRandom();
     const swap = {
       invoice,
+      type: SwapType.Submarine,
       pair: pair || 'L-BTC/BTC',
       orderSide: OrderSide.BUY,
       version: SwapVersion.Taproot,
       id: generateSwapId(SwapVersion.Taproot),
+      theirPublicKey: getHexString(refundKeys.publicKey),
       refundPublicKey: getHexString(refundKeys.publicKey),
       timeoutBlockHeight:
         timeoutBlockHeight ||
@@ -230,22 +234,22 @@ describe('DeferredClaimer', () => {
       (await bitcoinClient.getBlockchainInfo()).blocks,
     );
 
-    const emitPromise = new Promise<void>((resolve) => {
-      claimer.once('claim', (args) => {
-        expect(args.swap).toEqual({
-          ...swap,
-          status: SwapUpdateEvent.TransactionClaimPending,
-          minerFee: expect.anything(),
-        });
-        expect(args.channelCreation).toBeUndefined();
-        resolve();
+    expect.assertions(4);
+
+    claimer.once('claim', (args) => {
+      expect(args.swap).toEqual({
+        ...swap,
+        minerFee: expect.anything(),
+        status: SwapUpdateEvent.TransactionClaimed,
       });
+      expect(args.channelCreation).toBeUndefined();
     });
 
     await expect(claimer.deferClaim(swap, preimage)).resolves.toEqual(true);
-    await emitPromise;
 
-    expect(claimer.pendingSweeps().get('BTC')!.length).toEqual(0);
+    expect(
+      claimer.pendingSweeps()[SwapType.Submarine].get('BTC')!.length,
+    ).toEqual(0);
   });
 
   test('should not defer claim transactions on chains that were not configured', async () => {
@@ -280,12 +284,12 @@ describe('DeferredClaimer', () => {
 
     await expect(claimer.deferClaim(swap, preimage)).resolves.toEqual(true);
 
-    expect(claimer.pendingSweeps()).toEqual(
-      new Map<string, string[]>([
+    expect(claimer.pendingSweeps()).toEqual({
+      [SwapType.Submarine]: new Map<string, string[]>([
         ['DOGE', []],
         ['BTC', [swap.id]],
       ]),
-    );
+    });
 
     const pendingSweepValues = claimer.pendingSweepsValues();
     expect(pendingSweepValues.get('DOGE')).toEqual([]);
@@ -492,6 +496,8 @@ describe('DeferredClaimer', () => {
   });
 
   test('should broadcast submarine swaps cooperatively', async () => {
+    expect.assertions(7);
+
     await bitcoinClient.generate(1);
     const { swap, preimage, refundKeys } = await createClaimableOutput();
 
@@ -509,6 +515,12 @@ describe('DeferredClaimer', () => {
     );
     musig.aggregateNonces([[details.publicKey, details.pubNonce]]);
     musig.initializeSession(details.transactionHash);
+
+    claimer.once('claim', ({ swap, channelCreation }) => {
+      expect(swap.status).toEqual(SwapUpdateEvent.TransactionClaimed);
+      expect(swap.minerFee).toBeGreaterThan(0);
+      expect(channelCreation).toBeUndefined();
+    });
 
     await claimer.broadcastCooperative(
       swap,

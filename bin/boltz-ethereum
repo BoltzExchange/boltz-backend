@@ -2,7 +2,7 @@
 
 require('yargs')
   .options({
-    'provider': {
+    provider: {
       describe: 'HTTP endpoint of the web3 provider',
       default: 'http://127.0.0.1:8545',
       type: 'string',
@@ -17,5 +17,4 @@ require('yargs')
   })
   .commandDir('../dist/lib/cli/ethereum/commands/')
   .demandCommand(1, '')
-  .strict()
-  .argv;
+  .strict().argv;

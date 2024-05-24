@@ -3,9 +3,10 @@ import { Op } from 'sequelize';
 import Logger from '../../../lib/Logger';
 import { generateId, getHexString } from '../../../lib/Utils';
 import ChainClient from '../../../lib/chain/ChainClient';
-import { OrderSide } from '../../../lib/consts/Enums';
+import { OrderSide, SwapType } from '../../../lib/consts/Enums';
 import { liquidSymbol } from '../../../lib/consts/LiquidTypes';
 import Swap from '../../../lib/db/models/Swap';
+import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
 import PendingLockupTransactionRepository from '../../../lib/db/repositories/PendingLockupTransactionRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import Errors from '../../../lib/rates/Errors';
@@ -27,6 +28,7 @@ describe('LockupTransactionTracker', () => {
     await Promise.all([bitcoinClient.generate(1), elementsClient.generate(1)]);
 
     SwapRepository.getSwaps = jest.fn().mockResolvedValue([]);
+    ChainSwapRepository.getChainSwaps = jest.fn().mockResolvedValue([]);
 
     tracker = new LockupTransactionTracker(
       Logger.disabledLogger,
@@ -83,7 +85,7 @@ describe('LockupTransactionTracker', () => {
       ${'L-BTC/BTC'} | ${OrderSide.BUY}  | ${'BTC'}
       ${'L-BTC/BTC'} | ${OrderSide.SELL} | ${'L-BTC'}
     `(
-      'should add pending $chainCurrency transaction to track',
+      'should add pending $chainCurrency Submarine transaction to track',
       async ({ pair, orderSide, chainCurrency }) => {
         PendingLockupTransactionRepository.create = jest.fn();
 
@@ -92,6 +94,35 @@ describe('LockupTransactionTracker', () => {
           id,
           pair,
           orderSide,
+          type: SwapType.Submarine,
+        } as any);
+        expect(PendingLockupTransactionRepository.create).toHaveBeenCalledTimes(
+          1,
+        );
+        expect(PendingLockupTransactionRepository.create).toHaveBeenCalledWith(
+          id,
+          chainCurrency,
+        );
+      },
+    );
+
+    test.each`
+      pair           | orderSide         | chainCurrency
+      ${'BTC/BTC'}   | ${OrderSide.BUY}  | ${'BTC'}
+      ${'BTC/BTC'}   | ${OrderSide.SELL} | ${'BTC'}
+      ${'L-BTC/BTC'} | ${OrderSide.BUY}  | ${'BTC'}
+      ${'L-BTC/BTC'} | ${OrderSide.SELL} | ${'L-BTC'}
+    `(
+      'should add pending $chainCurrency Chain Swap transaction to track',
+      async ({ pair, orderSide, chainCurrency }) => {
+        PendingLockupTransactionRepository.create = jest.fn();
+
+        const id = generateId();
+        await tracker.addPendingTransactionToTrack({
+          id,
+          pair,
+          orderSide,
+          type: SwapType.Chain,
         } as any);
         expect(PendingLockupTransactionRepository.create).toHaveBeenCalledTimes(
           1,
@@ -123,7 +154,7 @@ describe('LockupTransactionTracker', () => {
       ${'BTC'}   | ${bitcoinClient}
       ${'L-BTC'} | ${elementsClient}
     `(
-      'should detect confirmed $symbol lockup transactions',
+      'should detect confirmed $symbol lockup transactions of Submarine Swaps',
       async ({ client }: { client: ChainClient }) => {
         const ids = ['1', '2', 'asdf'];
         PendingLockupTransactionRepository.getForChain = jest
@@ -143,9 +174,11 @@ describe('LockupTransactionTracker', () => {
         SwapRepository.getSwaps = jest.fn().mockResolvedValue([
           {
             id: ids[0],
+            type: SwapType.Submarine,
             lockupTransactionId: transactionId,
           },
         ]);
+        ChainSwapRepository.getChainSwaps = jest.fn().mockResolvedValue([]);
 
         await client.generate(1);
 
@@ -156,6 +189,61 @@ describe('LockupTransactionTracker', () => {
         ).toHaveBeenCalledWith(client.symbol);
         expect(SwapRepository.getSwaps).toHaveBeenCalledTimes(1);
         expect(SwapRepository.getSwaps).toHaveBeenCalledWith({
+          id: {
+            [Op.in]: ids,
+          },
+        });
+        expect(
+          PendingLockupTransactionRepository.destroy,
+        ).toHaveBeenCalledTimes(1);
+        expect(PendingLockupTransactionRepository.destroy).toHaveBeenCalledWith(
+          ids[0],
+        );
+      },
+    );
+
+    test.each`
+      symbol     | client
+      ${'BTC'}   | ${bitcoinClient}
+      ${'L-BTC'} | ${elementsClient}
+    `(
+      'should detect confirmed $symbol lockup transactions of Chain Swaps',
+      async ({ client }: { client: ChainClient }) => {
+        const ids = ['1', '2', 'asdf'];
+        PendingLockupTransactionRepository.getForChain = jest
+          .fn()
+          .mockResolvedValue(
+            ids.map((id) => ({
+              swapId: id,
+            })),
+          );
+        PendingLockupTransactionRepository.destroy = jest.fn();
+
+        const transactionId = await client.sendToAddress(
+          await client.getNewAddress(),
+          100_000,
+        );
+
+        SwapRepository.getSwaps = jest.fn().mockResolvedValue([]);
+        ChainSwapRepository.getChainSwaps = jest.fn().mockResolvedValue([
+          {
+            id: ids[0],
+            type: SwapType.Chain,
+            receivingData: {
+              transactionId,
+            },
+          },
+        ]);
+
+        await client.generate(1);
+
+        await wait(100);
+
+        expect(
+          PendingLockupTransactionRepository.getForChain,
+        ).toHaveBeenCalledWith(client.symbol);
+        expect(ChainSwapRepository.getChainSwaps).toHaveBeenCalledTimes(1);
+        expect(ChainSwapRepository.getChainSwaps).toHaveBeenCalledWith({
           id: {
             [Op.in]: ids,
           },
@@ -190,9 +278,11 @@ describe('LockupTransactionTracker', () => {
         SwapRepository.getSwaps = jest.fn().mockResolvedValue([
           {
             id,
+            type: SwapType.Submarine,
             lockupTransactionId: transactionId,
           },
         ]);
+        ChainSwapRepository.getChainSwaps = jest.fn().mockResolvedValue([]);
 
         client['emit']('block', 1);
         await wait(100);
@@ -219,6 +309,7 @@ describe('LockupTransactionTracker', () => {
       SwapRepository.getSwaps = jest.fn().mockResolvedValue([
         {
           id,
+          type: SwapType.Submarine,
           lockupTransactionId: transactionId,
         },
       ]);

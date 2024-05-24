@@ -1,12 +1,9 @@
 import { getPairId, hashString, splitPairId } from '../../Utils';
-import { SwapVersion } from '../../consts/Enums';
+import { SwapType, SwapVersion } from '../../consts/Enums';
 import { PairConfig } from '../../consts/Types';
 import Errors from '../../service/Errors';
 import { Currency } from '../../wallet/WalletManager';
-import FeeProvider, {
-  MinerFeesForVersion,
-  PercentageFees,
-} from '../FeeProvider';
+import FeeProvider, { MinerFeesForVersion } from '../FeeProvider';
 import RateProviderBase from './RateProviderBase';
 
 type PairTypeLegacy = {
@@ -21,7 +18,9 @@ type PairTypeLegacy = {
       quoteAsset: number;
     };
   };
-  fees: PercentageFees & {
+  fees: {
+    percentage: number;
+    percentageSwapIn: number;
     minerFees: {
       baseAsset: MinerFeesForVersion;
       quoteAsset: MinerFeesForVersion;
@@ -52,12 +51,14 @@ class RateProviderLegacy extends RateProviderBase<PairTypeLegacy> {
   public setHardcodedPair = (pair: PairConfig) => {
     const id = getPairId(pair);
 
+    const percentageFees = this.feeProvider.getPercentageFees(id);
     const hardcodedPair = {
       hash: '',
       rate: pair.rate!,
       limits: this.getLimits(id, pair.rate!),
       fees: {
-        ...this.feeProvider.getPercentageFees(id),
+        percentage: percentageFees[SwapType.ReverseSubmarine],
+        percentageSwapIn: percentageFees[SwapType.Submarine],
         minerFees: {
           baseAsset: emptyMinerFees,
           quoteAsset: emptyMinerFees,
@@ -72,12 +73,14 @@ class RateProviderLegacy extends RateProviderBase<PairTypeLegacy> {
   public updatePair = (pairId: string, rate: number) => {
     const { base, quote } = splitPairId(pairId);
 
+    const percentageFees = this.feeProvider.getPercentageFees(pairId);
     const pair = {
       rate,
       hash: '',
       limits: this.getLimits(pairId, rate),
       fees: {
-        ...this.feeProvider.getPercentageFees(pairId),
+        percentage: percentageFees[SwapType.ReverseSubmarine],
+        percentageSwapIn: percentageFees[SwapType.Submarine],
         minerFees: {
           baseAsset: this.feeProvider.minerFees.get(base)![SwapVersion.Legacy],
           quoteAsset:

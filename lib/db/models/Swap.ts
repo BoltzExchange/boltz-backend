@@ -1,5 +1,5 @@
 import { DataTypes, Model, Sequelize } from 'sequelize';
-import { SwapVersion } from '../../consts/Enums';
+import { SwapType as SwapKindType, SwapVersion } from '../../consts/Enums';
 import Pair from './Pair';
 
 type SwapType = {
@@ -168,6 +168,14 @@ class Swap extends Model implements SwapType {
       foreignKey: 'pair',
     });
   };
+
+  get type() {
+    return SwapKindType.Submarine;
+  }
+
+  get theirPublicKey() {
+    return this.refundPublicKey;
+  }
 }
 
 export default Swap;

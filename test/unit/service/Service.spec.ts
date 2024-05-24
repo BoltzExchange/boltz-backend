@@ -1,8 +1,7 @@
-import { address } from 'bitcoinjs-lib';
+import { Transaction, address } from 'bitcoinjs-lib';
 import { Networks } from 'boltz-core';
 import { randomBytes } from 'crypto';
 import { Provider } from 'ethers';
-import { Op } from 'sequelize';
 import { ConfigType } from '../../../lib/Config';
 import { ECPair } from '../../../lib/ECPairHelper';
 import Logger from '../../../lib/Logger';
@@ -25,11 +24,13 @@ import {
   OrderSide,
   ServiceInfo,
   ServiceWarning,
+  SwapType,
   SwapUpdateEvent,
   SwapVersion,
 } from '../../../lib/consts/Enums';
 import { PairConfig } from '../../../lib/consts/Types';
 import Swap from '../../../lib/db/models/Swap';
+import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
 import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
 import PairRepository from '../../../lib/db/repositories/PairRepository';
 import ReferralRepository from '../../../lib/db/repositories/ReferralRepository';
@@ -996,127 +997,6 @@ describe('Service', () => {
     );
   });
 
-  test('should get lockup transactions of swaps', async () => {
-    const blockDelta = 10;
-
-    mockGetSwapResult = {
-      id: '123asd',
-      pair: 'LTC/BTC',
-      orderSide: OrderSide.BUY,
-      timeoutBlockHeight: blockchainInfo.blocks + blockDelta,
-      lockupTransactionId:
-        'eb63a8b1511f83c8d649fdaca26c4bc0dee4313689f62fd0f4ff8f71b963900d',
-    };
-
-    let response = await service.getSwapTransaction(mockGetSwapResult.id);
-
-    expect(response).toEqual({
-      transactionHex: rawTransaction,
-      transactionId: mockGetSwapResult.lockupTransactionId,
-      timeoutBlockHeight: mockGetSwapResult.timeoutBlockHeight,
-      timeoutEta:
-        Math.round(new Date().getTime() / 1000) + blockDelta * 10 * 60,
-    });
-
-    expect(mockGetSwap).toHaveBeenCalledTimes(1);
-    expect(mockGetSwap).toHaveBeenCalledWith({
-      id: mockGetSwapResult.id,
-    });
-
-    expect(mockGetBlockchainInfo).toHaveBeenCalledTimes(1);
-
-    expect(mockGetRawTransaction).toHaveBeenCalledTimes(1);
-    expect(mockGetRawTransaction).toHaveBeenCalledWith(
-      mockGetSwapResult.lockupTransactionId,
-    );
-
-    // Should not return an ETA if the Submarine Swap has timed out already
-    mockGetSwapResult.timeoutBlockHeight = blockchainInfo.blocks;
-
-    response = await service.getSwapTransaction(mockGetSwapResult.id);
-
-    expect(response).toEqual({
-      transactionHex: rawTransaction,
-      transactionId: mockGetSwapResult.lockupTransactionId,
-      timeoutBlockHeight: mockGetSwapResult.timeoutBlockHeight,
-    });
-
-    expect(mockGetBlockchainInfo).toHaveBeenCalledTimes(2);
-    expect(mockGetRawTransaction).toHaveBeenCalledTimes(2);
-
-    // Throw if Swap has no lockup transaction
-    mockGetSwapResult.lockupTransactionId = undefined;
-
-    await expect(
-      service.getSwapTransaction(mockGetSwapResult.id),
-    ).rejects.toEqual(Errors.SWAP_NO_LOCKUP());
-
-    // Throw if Swap cannot be found
-    const id = mockGetSwapResult.id;
-    mockGetSwapResult = undefined;
-
-    await expect(service.getSwapTransaction(id)).rejects.toEqual(
-      Errors.SWAP_NOT_FOUND(id),
-    );
-  });
-
-  test('should get lockup transactions of reverse swaps', async () => {
-    const blockDelta = 10;
-
-    mockGetReverseSwapResult = {
-      id: '123asd',
-      pair: 'LTC/BTC',
-      orderSide: OrderSide.SELL,
-      timeoutBlockHeight: blockchainInfo.blocks + blockDelta,
-      transactionId:
-        'eb63a8b1511f83c8d649fdaca26c4bc0dee4313689f62fd0f4ff8f71b963900d',
-    };
-
-    await expect(
-      service.getReverseSwapTransaction(mockGetReverseSwapResult.id),
-    ).resolves.toEqual({
-      transactionHex: rawTransaction,
-      transactionId: mockGetReverseSwapResult.transactionId,
-      timeoutBlockHeight: mockGetReverseSwapResult.timeoutBlockHeight,
-    });
-
-    expect(ReverseSwapRepository.getReverseSwap).toHaveBeenCalledTimes(1);
-    expect(ReverseSwapRepository.getReverseSwap).toHaveBeenCalledWith({
-      id: mockGetReverseSwapResult.id,
-    });
-
-    mockGetReverseSwapResult = null;
-  });
-
-  test('should get lockup transactions of Ethereum swaps', async () => {
-    const blockDelta = 10;
-
-    mockGetSwapResult = {
-      id: '0xEthSwap',
-      pair: 'ETH/BTC',
-      orderSide: OrderSide.SELL,
-      timeoutBlockHeight: mockGetBlockNumberResult + blockDelta,
-      lockupTransactionId:
-        '0xeb63a8b1511f83c8d649fdaca26c4bc0dee4313689f62fd0f4ff8f71b963900d',
-    };
-
-    const response = await service.getSwapTransaction(mockGetSwapResult.id);
-
-    expect(response).toEqual({
-      transactionId: mockGetSwapResult.lockupTransactionId,
-      timeoutBlockHeight: mockGetSwapResult.timeoutBlockHeight,
-      timeoutEta:
-        Math.round(new Date().getTime() / 1000) + blockDelta * 0.2 * 60,
-    });
-
-    expect(mockGetSwap).toHaveBeenCalledTimes(1);
-    expect(mockGetSwap).toHaveBeenCalledWith({
-      id: mockGetSwapResult.id,
-    });
-
-    expect(mockGetBlockNumber).toHaveBeenCalledTimes(1);
-  });
-
   test('should get BIP-21 for reverse swaps', async () => {
     ReverseRoutingHintRepository.getHint = jest.fn().mockResolvedValue({
       bip21: 'bitcoin:bip21',
@@ -1264,8 +1144,19 @@ describe('Service', () => {
       '0100000000010154b6a506a69b5a2e7e8de20fe9aedbe9aa04e3249fc2ca75106a06942c5c84e60000000023220020bcf9f822194145acea0f3235f4107b5bf1a91b6b9f8489f63bf79ec29b360913ffffffff023b622d000000000017a91430897cc6c9d69f6a2c2f1c651d51f22219f1a4f6873ecb2a000000000017a9146ee55aa1c39b0c66acf287ac39721feef49114d6870400483045022100a3269ba08373ed541e91eb9698c4f570c7a8a0fde7dbff503d8c759c59639845022008abe66b6550ffb6484cda8a87140759aa5ee9c4bb2aaa09883d2afab9e6927501483045022100d29199cd9799363fd5869c4e22836c28bf48b2fe1b82bf21fcc23f28abc9921502204b1066a49c2c8d70c876ce28bd9f81aace47c4079b3bae4dfb63173c2f3be21201695221026c8f72b9e63db63907115e65d4da86eaae595b22fdc85ec75301bb4adbf203582103806535be3e3920e5eedee92de5714188fd6a784f2bf7b04f87de0b9c3ae1ecdb21024b23bfdce2afcae7e28c42f7f79aa100f22931712c52d7414a526ba494d44a2553ae00000000';
 
     test('should broadcast transactions', async () => {
-      SwapRepository.getSwaps = jest.fn().mockResolvedValue([]);
-      ReverseSwapRepository.getReverseSwaps = jest.fn().mockResolvedValue([]);
+      service.transactionFetcher.getSwapsSpentInInputs = jest
+        .fn()
+        .mockResolvedValue({
+          swapsRefunded: [],
+          chainSwapsSpent: [],
+          reverseSwapsClaimed: [],
+        });
+      service.transactionFetcher.getSwapsFundedInOutputs = jest
+        .fn()
+        .mockResolvedValue({
+          swapLockups: [],
+          chainSwapLockups: [],
+        });
 
       await expect(
         service.broadcastTransaction('BTC', transactionHex),
@@ -1277,39 +1168,36 @@ describe('Service', () => {
         false,
       );
 
-      expect(SwapRepository.getSwaps).toHaveBeenCalledTimes(2);
-      expect(SwapRepository.getSwaps).toHaveBeenCalledWith({
-        lockupAddress: {
-          [Op.in]: [
-            '2Mwfs8HT1cwhbncpPcj5jcthHoMuCCGZLcc',
-            '2N3Mb5BYy9CSQRmertCwEAHVGoky3CQbv9q',
-          ],
-        },
-      });
-      expect(SwapRepository.getSwaps).toHaveBeenCalledWith({
-        lockupTransactionId: {
-          [Op.in]: [
-            'e6845c2c94066a1075cac29f24e304aae9dbaee90fe28d7e2e5a9ba606a5b654',
-          ],
-        },
-      });
-      expect(ReverseSwapRepository.getReverseSwaps).toHaveBeenCalledTimes(1);
-      expect(ReverseSwapRepository.getReverseSwaps).toHaveBeenCalledWith({
-        transactionId: {
-          [Op.in]: [
-            'e6845c2c94066a1075cac29f24e304aae9dbaee90fe28d7e2e5a9ba606a5b654',
-          ],
-        },
-      });
+      expect(
+        service.transactionFetcher.getSwapsSpentInInputs,
+      ).toHaveBeenCalledTimes(1);
+      expect(
+        service.transactionFetcher.getSwapsSpentInInputs,
+      ).toHaveBeenCalledWith(Transaction.fromHex(transactionHex));
+
+      expect(
+        service.transactionFetcher.getSwapsFundedInOutputs,
+      ).toHaveBeenCalledTimes(1);
+      expect(
+        service.transactionFetcher.getSwapsFundedInOutputs,
+      ).toHaveBeenCalledWith(
+        expect.anything(),
+        Transaction.fromHex(transactionHex),
+      );
     });
 
     test('should detect swap related transactions when Reverse Swaps are being claimed', async () => {
-      SwapRepository.getSwaps = jest.fn().mockResolvedValue([]);
-      ReverseSwapRepository.getReverseSwaps = jest.fn().mockResolvedValue([
-        {
-          id: 'cheap swap',
-        },
-      ]);
+      service.transactionFetcher.getSwapsSpentInInputs = jest
+        .fn()
+        .mockResolvedValue({
+          swapsRefunded: [],
+          chainSwapsSpent: [],
+          reverseSwapsClaimed: [
+            {
+              id: 'cheap swap',
+            },
+          ],
+        });
 
       await expect(
         service.broadcastTransaction('BTC', transactionHex),
@@ -1320,14 +1208,13 @@ describe('Service', () => {
     });
 
     test('should detect swap related transactions when Submarine Swaps are being refunded', async () => {
-      SwapRepository.getSwaps = jest.fn().mockImplementation(async (param) => {
-        if ('lockupAddress' in param) {
-          return [];
-        }
-
-        return [{ id: 'i am being refunded' }];
-      });
-      ReverseSwapRepository.getReverseSwaps = jest.fn().mockResolvedValue([]);
+      service.transactionFetcher.getSwapsSpentInInputs = jest
+        .fn()
+        .mockResolvedValue({
+          swapsRefunded: [],
+          chainSwapsSpent: [],
+          reverseSwapsClaimed: [{ id: 'i am being refunded' }],
+        });
 
       await expect(
         service.broadcastTransaction('BTC', transactionHex),
@@ -1338,16 +1225,23 @@ describe('Service', () => {
     });
 
     test('should detect but now allow swap related transaction when Reverse Swaps are being claimed but also Submarine Swaps locked up', async () => {
-      SwapRepository.getSwaps = jest.fn().mockResolvedValue([
-        {
-          id: 'something else',
-        },
-      ]);
-      ReverseSwapRepository.getReverseSwaps = jest.fn().mockResolvedValue([
-        {
-          id: 'cheap swap',
-        },
-      ]);
+      service.transactionFetcher.getSwapsFundedInOutputs = jest
+        .fn()
+        .mockResolvedValue({
+          swapLockups: [{ id: 'lockup' }],
+          chainSwapLockups: [],
+        });
+      service.transactionFetcher.getSwapsSpentInInputs = jest
+        .fn()
+        .mockResolvedValue({
+          swapsRefunded: [],
+          chainSwapsSpent: [],
+          reverseSwapsClaimed: [
+            {
+              id: 'cheap swap',
+            },
+          ],
+        });
 
       await expect(
         service.broadcastTransaction('BTC', transactionHex),
@@ -1360,15 +1254,13 @@ describe('Service', () => {
       );
     });
 
-    test('should detect but now allow swap related transaction when Submarine Swaps are being claimed but also Submarine Swaps locked up', async () => {
-      SwapRepository.getSwaps = jest.fn().mockImplementation(async (param) => {
-        if ('lockupAddress' in param) {
-          return [{ id: 'i am being locked up ' }];
-        }
-
-        return [{ id: 'i am being refunded' }];
-      });
-      ReverseSwapRepository.getReverseSwaps = jest.fn().mockResolvedValue([]);
+    test('should detect but now allow swap related transaction when Reverse Swaps are being claimed but also Chain Swaps locked up', async () => {
+      service.transactionFetcher.getSwapsFundedInOutputs = jest
+        .fn()
+        .mockResolvedValue({
+          swapLockups: [],
+          chainSwapLockups: [{ id: 'lockup' }],
+        });
 
       await expect(
         service.broadcastTransaction('BTC', transactionHex),
@@ -1392,7 +1284,13 @@ describe('Service', () => {
       const swap = {
         timeoutBlockHeight: blockchainInfo.blocks + blockDelta,
       };
-      SwapRepository.getSwaps = jest.fn().mockResolvedValue([swap]);
+      service.transactionFetcher.getSwapsSpentInInputs = jest
+        .fn()
+        .mockResolvedValue({
+          swapsRefunded: [swap],
+          chainSwapsSpent: [],
+          reverseSwapsClaimed: [],
+        });
 
       await expect(
         service.broadcastTransaction('BTC', transactionHex),
@@ -1405,7 +1303,13 @@ describe('Service', () => {
     });
 
     test('should bubble up node error when not a Submarine Swap refund', async () => {
-      SwapRepository.getSwaps = jest.fn().mockResolvedValue([]);
+      service.transactionFetcher.getSwapsSpentInInputs = jest
+        .fn()
+        .mockResolvedValue({
+          swapsRefunded: [],
+          chainSwapsSpent: [],
+          reverseSwapsClaimed: [],
+        });
 
       await expect(
         service.broadcastTransaction('BTC', transactionHex),
@@ -1470,7 +1374,9 @@ describe('Service', () => {
 
   // TODO: add channel creations
   test('should create swaps', async () => {
-    mockGetSwapResult = undefined;
+    ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
+    mockGetSwapResult = null;
+    mockGetReverseSwapResult = null;
 
     const pair = 'BTC/BTC';
     const orderSide = 'buy';
@@ -1612,6 +1518,7 @@ describe('Service', () => {
       1,
       mockGetSwapResult.orderSide,
       invoiceAmount,
+      SwapType.Submarine,
       BaseFeeType.NormalClaim,
     );
 
@@ -1855,6 +1762,8 @@ describe('Service', () => {
   });
 
   test('should create reverse swaps', async () => {
+    ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
+    mockGetSwapResult = null;
     mockGetReverseSwapResult = null;
 
     service.allowReverseSwaps = true;
@@ -1895,7 +1804,10 @@ describe('Service', () => {
     });
 
     expect(mockGetPercentageFee).toHaveBeenCalledTimes(1);
-    expect(mockGetPercentageFee).toHaveBeenCalledWith(pair, true);
+    expect(mockGetPercentageFee).toHaveBeenCalledWith(
+      pair,
+      SwapType.ReverseSubmarine,
+    );
 
     expect(mockGetBaseFee).toHaveBeenCalledTimes(1);
     expect(mockGetBaseFee).toHaveBeenCalledWith(
@@ -2573,19 +2485,6 @@ describe('Service', () => {
     );
   });
 
-  test('should get currency', () => {
-    const getCurrency = service['getCurrency'];
-
-    expect(getCurrency('BTC')).toEqual(currencies.get('BTC'));
-
-    // Throw if currency cannot be found
-    const notFound = 'notFound';
-
-    expect(() => getCurrency(notFound)).toThrow(
-      Errors.CURRENCY_NOT_FOUND(notFound).message,
-    );
-  });
-
   test('should get order side', () => {
     const getOrderSide = service['getOrderSide'];
 
@@ -2595,17 +2494,6 @@ describe('Service', () => {
     // Throw if order side cannot be found
     expect(() => getOrderSide('')).toThrow(
       Errors.ORDER_SIDE_NOT_FOUND('').message,
-    );
-  });
-
-  test('should calculate timeout date', () => {
-    const calculateTimeoutDate = service['calculateTimeoutDate'];
-
-    expect(calculateTimeoutDate('BTC', 3)).toEqual(
-      Math.round(new Date().getTime() / 1000) + 3 * 10 * 60,
-    );
-    expect(calculateTimeoutDate('LTC', 7)).toEqual(
-      Math.round(new Date().getTime() / 1000) + 7 * 2.5 * 60,
     );
   });
 
@@ -2650,40 +2538,52 @@ describe('Service', () => {
 
   describe('getLockedFunds', () => {
     test('should return an empty map', async () => {
-      expect.assertions(2);
       ReverseSwapRepository.getReverseSwaps = jest.fn().mockResolvedValue([]);
+      ChainSwapRepository.getChainSwaps = jest.fn().mockResolvedValue([]);
+
+      expect.assertions(2);
+
       const lockedFunds = await service.getLockedFunds();
       expect(lockedFunds.size).toEqual(0);
       expect(ReverseSwapRepository.getReverseSwaps).toHaveBeenCalledTimes(1);
     });
-  });
 
-  test('should return BTC and L-BTC locked funds', async () => {
-    expect.assertions(4);
-    ReverseSwapRepository.getReverseSwaps = jest.fn().mockResolvedValue([
-      {
-        id: 'r654321',
-        onchainAmount: 1000000,
-        pair: 'L-BTC/BTC',
-        orderSide: 0,
-      },
-      {
-        id: 'r654322',
-        onchainAmount: 2000000,
-        pair: 'L-BTC/BTC',
-        orderSide: 0,
-      },
-      {
-        id: 'r654323',
-        onchainAmount: 3000000,
-        pair: 'L-BTC/BTC',
-        orderSide: 1,
-      },
-    ]);
-    const lockedFunds = await service.getLockedFunds();
-    expect(lockedFunds.size).toEqual(2);
-    expect(lockedFunds.get('L-BTC')!.length).toEqual(2);
-    expect(lockedFunds.get('BTC')!.length).toEqual(1);
-    expect(ReverseSwapRepository.getReverseSwaps).toHaveBeenCalledTimes(1);
+    test('should return BTC and L-BTC locked funds', async () => {
+      ChainSwapRepository.getChainSwaps = jest.fn().mockResolvedValue([
+        {
+          sendingData: {
+            symbol: 'BTC',
+          },
+        },
+      ]);
+      ReverseSwapRepository.getReverseSwaps = jest.fn().mockResolvedValue([
+        {
+          id: 'r654321',
+          onchainAmount: 1000000,
+          pair: 'L-BTC/BTC',
+          orderSide: 0,
+        },
+        {
+          id: 'r654322',
+          onchainAmount: 2000000,
+          pair: 'L-BTC/BTC',
+          orderSide: 0,
+        },
+        {
+          id: 'r654323',
+          onchainAmount: 3000000,
+          pair: 'L-BTC/BTC',
+          orderSide: 1,
+        },
+      ]);
+      expect.assertions(5);
+
+      const lockedFunds = await service.getLockedFunds();
+      expect(lockedFunds.size).toEqual(2);
+      expect(lockedFunds.get('L-BTC')!.reverseSwaps.length).toEqual(2);
+      expect(lockedFunds.get('L-BTC')!.chainSwaps.length).toEqual(0);
+      expect(lockedFunds.get('BTC')!.reverseSwaps.length).toEqual(1);
+      expect(lockedFunds.get('BTC')!.chainSwaps.length).toEqual(1);
+    });
   });
 });

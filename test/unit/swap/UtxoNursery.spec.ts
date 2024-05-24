@@ -15,11 +15,14 @@ import ChainClient from '../../../lib/chain/ChainClient';
 import {
   CurrencyType,
   OrderSide,
+  SwapType,
   SwapUpdateEvent,
   SwapVersion,
 } from '../../../lib/consts/Enums';
+import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
+import WrappedSwapRepository from '../../../lib/db/repositories/WrappedSwapRepository';
 import LockupTransactionTracker from '../../../lib/rates/LockupTransactionTracker';
 import Blocks from '../../../lib/service/Blocks';
 import Errors from '../../../lib/swap/Errors';
@@ -164,9 +167,7 @@ const mockGetReverseSwapsExpirable = jest.fn().mockImplementation(async () => {
   return mockGetReverseSwapsExpirableResult;
 });
 
-const mockSetReverseSwapStatus = jest
-  .fn()
-  .mockImplementation(async (arg) => arg);
+const mockSetStatus = jest.fn().mockImplementation(async (arg) => arg);
 
 jest.mock('../../../lib/db/repositories/ReverseSwapRepository');
 
@@ -207,9 +208,16 @@ describe('UtxoNursery', () => {
 
     ReverseSwapRepository.getReverseSwap = mockGetReverseSwap;
     ReverseSwapRepository.getReverseSwaps = mockGetReverseSwaps;
-    ReverseSwapRepository.setReverseSwapStatus = mockSetReverseSwapStatus;
     ReverseSwapRepository.getReverseSwapsExpirable =
       mockGetReverseSwapsExpirable;
+
+    ChainSwapRepository.getChainSwapByData = jest.fn().mockResolvedValue(null);
+    ChainSwapRepository.getChainSwaps = jest.fn().mockResolvedValue([]);
+    ChainSwapRepository.getChainSwapsExpirable = jest
+      .fn()
+      .mockResolvedValue([]);
+
+    WrappedSwapRepository.setStatus = mockSetStatus;
 
     nursery.removeAllListeners();
   });
@@ -231,7 +239,7 @@ describe('UtxoNursery', () => {
   });
 
   test('should handle confirmed Swap outputs via transaction events', async () => {
-    const checkSwapOutputs = nursery['checkSwapOutputs'];
+    const checkSwapOutputs = nursery['checkOutputs'];
 
     const transaction = Transaction.fromHex(sampleTransactions.lockup);
 
@@ -386,7 +394,7 @@ describe('UtxoNursery', () => {
   });
 
   test('should handle unconfirmed Swap outputs', async () => {
-    const checkSwapOutputs = nursery['checkSwapOutputs'];
+    const checkSwapOutputs = nursery['checkOutputs'];
 
     const transaction = Transaction.fromHex(sampleTransactions.lockup);
     transaction.ins[0].sequence = 0xffffffff;
@@ -540,7 +548,7 @@ describe('UtxoNursery', () => {
 
     lockupTracker.zeroConfAccepted = jest.fn().mockReturnValue(false);
 
-    await nursery['checkSwapOutputs'](
+    await nursery['checkOutputs'](
       btcChainClient,
       btcWallet,
       transaction,
@@ -549,7 +557,7 @@ describe('UtxoNursery', () => {
   });
 
   test('should detect Taproot Swap outputs', async () => {
-    const checkSwapOutputs = nursery['checkSwapOutputs'];
+    const checkSwapOutputs = nursery['checkOutputs'];
 
     const ourKeys = ECPair.makeRandom();
     const theirPublicKey = ECPair.makeRandom().publicKey;
@@ -604,7 +612,7 @@ describe('UtxoNursery', () => {
   });
 
   test('should reject transactions from blocked addresses', async () => {
-    const checkSwapOutputs = nursery['checkSwapOutputs'];
+    const checkSwapOutputs = nursery['checkOutputs'];
 
     const transaction = Transaction.fromHex(sampleTransactions.lockup);
     transaction.ins[0].sequence = 0xffffffff;
@@ -639,7 +647,7 @@ describe('UtxoNursery', () => {
   });
 
   test('should handle claimed Reverse Swaps', async () => {
-    const checkReverseSwapsClaims = nursery['checkReverseSwapClaims'];
+    const checkReverseSwapsClaims = nursery['checkSwapClaims'];
 
     const transaction = Transaction.fromHex(sampleTransactions.claim);
 
@@ -690,86 +698,13 @@ describe('UtxoNursery', () => {
     expect(mockRemoveInputFilter).toHaveBeenCalledTimes(0);
   });
 
-  test('should handle confirmed Reverse Swap lockups via transaction events', async () => {
-    const checkReverseSwapLockupsConfirmed =
-      nursery['checkReverseSwapLockupsConfirmed'];
-
-    const transaction = Transaction.fromHex(sampleTransactions.rbf);
-
-    mockGetReverseSwapResult = {
-      id: 'id',
-      lockupAddress: '1DuELuuVMPPw5gGcS7uq9eFsPMknj9tQNc',
-    };
-
-    let eventEmitted = false;
-
-    nursery.on('reverseSwap.lockup.confirmed', (args) => {
-      expect(args.reverseSwap).toEqual(mockGetReverseSwapResult);
-      expect(args.transaction).toEqual(transaction);
-
-      eventEmitted = true;
-    });
-
-    await checkReverseSwapLockupsConfirmed(
-      btcChainClient,
-      btcWallet,
-      transaction,
-      true,
-    );
-
-    expect(eventEmitted).toEqual(true);
-
-    expect(mockGetReverseSwap).toHaveBeenCalledTimes(1);
-    expect(mockGetReverseSwap).toHaveBeenCalledWith({
-      status: SwapUpdateEvent.TransactionMempool,
-      transactionId: transaction.getId(),
-    });
-
-    expect(mockRemoveOutputFilter).toHaveBeenCalledTimes(1);
-    expect(mockRemoveOutputFilter).toHaveBeenCalledWith(
-      decodeAddress(mockGetReverseSwapResult.lockupAddress),
-    );
-
-    expect(mockSetReverseSwapStatus).toHaveBeenCalledTimes(1);
-    expect(mockSetReverseSwapStatus).toHaveBeenCalledWith(
-      mockGetReverseSwapResult,
-      SwapUpdateEvent.TransactionConfirmed,
-    );
-
-    jest.clearAllMocks();
-
-    // Should ignore unconfirmed transactions
-    await checkReverseSwapLockupsConfirmed(
-      btcChainClient,
-      btcWallet,
-      transaction,
-      false,
-    );
-
-    expect(mockGetReverseSwap).toHaveBeenCalledTimes(0);
-
-    jest.clearAllMocks();
-
-    // Should ignore transaction that are not lockups of a Reverse Swaps
-    mockGetReverseSwapResult = null;
-
-    await checkReverseSwapLockupsConfirmed(
-      btcChainClient,
-      btcWallet,
-      transaction,
-      true,
-    );
-
-    expect(mockGetReverseSwap).toHaveBeenCalledTimes(1);
-    expect(mockRemoveInputFilter).toHaveBeenCalledTimes(0);
-  });
-
   test('should handle confirmed Reverse Swap lockups via block events', async () => {
     mockGetReverseSwapsResult = [
       // The transaction of this Reverse Swap is still in the mempool
       {
         id: 'mempool',
         pair: 'BTC/BTC',
+        type: SwapType.ReverseSubmarine,
         lockupAddress: 'bc1ql279ggjjsy40nr2acmlmtcc95sexg8ty92pth5',
         transactionId: Transaction.fromHex(sampleTransactions.rbf).getId(),
       },
@@ -777,6 +712,7 @@ describe('UtxoNursery', () => {
       {
         pair: 'BTC/BTC',
         id: 'nonMempool',
+        type: SwapType.ReverseSubmarine,
         lockupAddress: '3CxjzKKkxSa1eCRegA1KNS7KjXu1Hjhoqg',
         transactionId: Transaction.fromHex(sampleTransactions.nonRbf).getId(),
       },
@@ -797,8 +733,8 @@ describe('UtxoNursery', () => {
 
     let eventsEmitted = 0;
 
-    nursery.on('reverseSwap.lockup.confirmed', (args) => {
-      expect(args.reverseSwap).toEqual(mockGetReverseSwapsResult[1]);
+    nursery.on('server.lockup.confirmed', (args) => {
+      expect(args.swap).toEqual(mockGetReverseSwapsResult[1]);
       expect(args.transaction).toEqual(
         Transaction.fromHex(sampleTransactions.nonRbf),
       );
@@ -835,8 +771,8 @@ describe('UtxoNursery', () => {
       decodeAddress(mockGetReverseSwapsResult[1].lockupAddress),
     );
 
-    expect(mockSetReverseSwapStatus).toHaveBeenCalledTimes(1);
-    expect(mockSetReverseSwapStatus).toHaveBeenCalledWith(
+    expect(mockSetStatus).toHaveBeenCalledTimes(1);
+    expect(mockSetStatus).toHaveBeenCalledWith(
       mockGetReverseSwapsResult[1],
       SwapUpdateEvent.TransactionConfirmed,
     );

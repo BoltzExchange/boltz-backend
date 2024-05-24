@@ -1,4 +1,9 @@
-import { SwapVersion, swapVersionToString } from '../../../lib/consts/Enums';
+import {
+  SwapType,
+  SwapVersion,
+  stringToSwapType,
+  swapVersionToString,
+} from '../../../lib/consts/Enums';
 
 describe('Enums', () => {
   test.each`
@@ -13,4 +18,21 @@ describe('Enums', () => {
       expect(swapVersionToString(version)).toEqual(expected);
     },
   );
+
+  test.each`
+    type                  | expected
+    ${'submarine'}        | ${SwapType.Submarine}
+    ${'Submarine'}        | ${SwapType.Submarine}
+    ${'sUbMaRiNe'}        | ${SwapType.Submarine}
+    ${'SubMarine'}        | ${SwapType.Submarine}
+    ${'SUBMARINE'}        | ${SwapType.Submarine}
+    ${'reverse'}          | ${SwapType.ReverseSubmarine}
+    ${'reversesubmarine'} | ${SwapType.ReverseSubmarine}
+    ${'reverseSubmarine'} | ${SwapType.ReverseSubmarine}
+    ${'chain'}            | ${SwapType.Chain}
+    ${'CHAIN'}            | ${SwapType.Chain}
+    ${'Chain'}            | ${SwapType.Chain}
+  `('should convert string $type to swap type', ({ type, expected }) => {
+    expect(stringToSwapType(type)).toEqual(expected);
+  });
 });

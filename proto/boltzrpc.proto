@@ -171,8 +171,9 @@ message UpdateTimeoutBlockDeltaRequest {
 
   uint32 swap_minimal_timeout = 3;
   uint32 swap_maximal_timeout = 4;
+  uint32 swap_taproot_timeout = 5;
 
-  uint32 swap_taproot = 5;
+  uint32 chain_timeout = 6;
 }
 message UpdateTimeoutBlockDeltaResponse {}
 
@@ -225,7 +226,8 @@ message LockedFund {
 }
 
 message LockedFunds {
-  repeated LockedFund locked_funds = 1;
+  repeated LockedFund reverse_swaps = 1;
+  repeated LockedFund chain_swaps = 2;
 }
 
 message GetLockedFundsRequest {}

@@ -1,18 +1,10 @@
 import AsyncLock from 'async-lock';
-import { Transaction } from 'bitcoinjs-lib';
-import { Musig, SwapTreeSerializer } from 'boltz-core';
-import { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import { Job, scheduleJob } from 'node-schedule';
 import {
   ClaimDetails,
   LiquidClaimDetails,
   calculateTransactionFee,
-  constructClaimDetails,
   constructClaimTransaction,
-  createMusig,
-  hashForWitnessV1,
-  parseTransaction,
-  tweakMusig,
 } from '../../Core';
 import Logger from '../../Logger';
 import {
@@ -22,18 +14,16 @@ import {
   getLightningCurrency,
   splitPairId,
 } from '../../Utils';
-import { IChainClient } from '../../chain/ChainClient';
-import { SwapUpdateEvent, SwapVersion } from '../../consts/Enums';
-import TypedEventEmitter from '../../consts/TypedEventEmitter';
+import { SwapType, SwapUpdateEvent, SwapVersion } from '../../consts/Enums';
 import ChannelCreation from '../../db/models/ChannelCreation';
 import Swap from '../../db/models/Swap';
 import ChannelCreationRepository from '../../db/repositories/ChannelCreationRepository';
 import SwapRepository from '../../db/repositories/SwapRepository';
 import SwapOutputType from '../../swap/SwapOutputType';
-import Wallet from '../../wallet/Wallet';
 import WalletManager, { Currency } from '../../wallet/WalletManager';
 import Errors from '../Errors';
 import TimeoutDeltaProvider from '../TimeoutDeltaProvider';
+import CoopSignerBase, { SwapToClaim } from './CoopSignerBase';
 
 type SwapConfig = {
   deferredClaimSymbols: string[];
@@ -41,43 +31,40 @@ type SwapConfig = {
   expiryTolerance: number;
 };
 
-type CooperativeDetails = {
-  musig: Musig;
-  sweepAddress: string;
-  transaction: Transaction | LiquidTransaction;
-};
+type SwapToClaimPreimage = SwapToClaim<Swap> & { preimage: Buffer };
 
-export type SwapToClaim = {
-  swap: Swap;
-  preimage: Buffer;
-  cooperative?: CooperativeDetails;
-};
-
-class DeferredClaimer extends TypedEventEmitter<{
-  claim: {
-    swap: Swap;
-    channelCreation?: ChannelCreation;
-  };
-}> {
+class DeferredClaimer extends CoopSignerBase<
+  Swap,
+  {
+    claim: {
+      swap: Swap;
+      channelCreation?: ChannelCreation;
+    };
+  }
+> {
   private static readonly batchClaimLock = 'batchClaim';
   private static readonly swapsToClaimLock = 'swapsToClaim';
 
   private readonly lock = new AsyncLock();
-  private readonly swapsToClaim = new Map<string, Map<string, SwapToClaim>>();
+
+  private readonly swapsToClaim = new Map<
+    string,
+    Map<string, SwapToClaimPreimage>
+  >();
 
   private batchClaimSchedule?: Job;
 
   constructor(
-    private readonly logger: Logger,
+    logger: Logger,
     private readonly currencies: Map<string, Currency>,
-    private readonly walletManager: WalletManager,
-    private swapOutputType: SwapOutputType,
+    walletManager: WalletManager,
+    swapOutputType: SwapOutputType,
     private readonly config: SwapConfig,
   ) {
-    super();
+    super(logger, walletManager, swapOutputType);
 
     for (const symbol of config.deferredClaimSymbols) {
-      this.swapsToClaim.set(symbol, new Map<string, SwapToClaim>());
+      this.swapsToClaim.set(symbol, new Map<string, SwapToClaimPreimage>());
     }
   }
 
@@ -104,16 +91,22 @@ class DeferredClaimer extends TypedEventEmitter<{
     this.batchClaimSchedule = undefined;
   };
 
-  public pendingSweeps = () =>
-    new Map<string, string[]>(
-      Array.from(this.swapsToClaim.entries()).map(([currency, swaps]) => [
-        currency,
-        Array.from(swaps.keys()),
-      ]),
-    );
+  public pendingSweeps = () => {
+    const transFormMap = (map: Map<string, Map<string, any>>) =>
+      new Map<string, string[]>(
+        Array.from(map.entries()).map(([currency, swaps]) => [
+          currency,
+          Array.from(swaps.keys()),
+        ]),
+      );
+
+    return {
+      [SwapType.Submarine]: transFormMap(this.swapsToClaim),
+    };
+  };
 
   public pendingSweepsValues() {
-    return new Map<string, SwapToClaim[]>(
+    return new Map<string, SwapToClaimPreimage[]>(
       Array.from(this.swapsToClaim.entries()).map(([currency, swaps]) => [
         currency,
         Array.from(swaps.values()),
@@ -191,40 +184,10 @@ class DeferredClaimer extends TypedEventEmitter<{
       throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM();
     }
 
-    const wallet = this.walletManager.wallets.get(chainCurrency.symbol)!;
-    const address =
-      toClaim.cooperative?.sweepAddress || (await wallet.getAddress());
-
-    toClaim.cooperative = {
-      sweepAddress: address,
-      musig: createMusig(
-        wallet.getKeysByIndex(swap.keyIndex!),
-        getHexBuffer(swap.refundPublicKey!),
-      ),
-      transaction: constructClaimTransaction(
-        wallet,
-        [
-          await this.constructClaimDetails(
-            chainCurrency.chainClient!,
-            wallet,
-            toClaim,
-            true,
-          ),
-        ] as ClaimDetails[] | LiquidClaimDetails[],
-        address,
-        await chainCurrency.chainClient!.estimateFee(),
-      ),
-    };
-
+    const details = await this.createCoopDetails(chainCurrency, toClaim);
     return {
+      ...details,
       preimage: toClaim.preimage,
-      publicKey: wallet.getKeysByIndex(swap.keyIndex!).publicKey,
-      pubNonce: Buffer.from(toClaim.cooperative.musig.getPublicNonce()),
-      transactionHash: await hashForWitnessV1(
-        chainCurrency,
-        toClaim.cooperative.transaction,
-        0,
-      ),
     };
   };
 
@@ -238,51 +201,30 @@ class DeferredClaimer extends TypedEventEmitter<{
       throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM_BROADCAST();
     }
 
-    const { musig, transaction } = toClaim.cooperative;
-    tweakMusig(
-      chainCurrency.type,
-      musig,
-      SwapTreeSerializer.deserializeSwapTree(swap.redeemScript!),
-    );
-    const theirPublicKey = getHexBuffer(swap.refundPublicKey!);
-    musig.aggregateNonces([[theirPublicKey, theirPubNonce]]);
-    musig.initializeSession(
-      await hashForWitnessV1(chainCurrency, toClaim.cooperative.transaction, 0),
-    );
-    if (!musig.verifyPartial(theirPublicKey, theirPartialSignature)) {
-      throw Errors.INVALID_PARTIAL_SIGNATURE();
-    }
-
-    musig.addPartial(theirPublicKey, theirPartialSignature);
-    musig.signPartial();
-
-    transaction.ins[0].witness = [musig.aggregatePartials()];
-
-    this.logger.info(
-      `Broadcasting cooperative ${chainCurrency.symbol} claim of Swap ${swap.id} in: ${transaction.getId()}`,
-    );
-    await chainCurrency.chainClient!.sendRawTransaction(
-      transaction.toHex(),
-      true,
-    );
     await this.lock.acquire(DeferredClaimer.swapsToClaimLock, async () => {
-      this.swapsToClaim.get(chainCurrency.symbol)?.delete(swap.id);
-    });
+      const { fee } = await this.broadcastCooperativeTransaction(
+        swap,
+        chainCurrency,
+        toClaim.cooperative!.musig,
+        toClaim.cooperative!.transaction,
+        theirPubNonce,
+        theirPartialSignature,
+      );
 
-    this.emit('claim', {
-      swap: await SwapRepository.setMinerFee(
-        toClaim.swap,
-        await calculateTransactionFee(chainCurrency.chainClient!, transaction),
-      ),
-      channelCreation:
-        (await ChannelCreationRepository.getChannelCreation({
-          swapId: toClaim.swap.id,
-        })) || undefined,
+      this.swapsToClaim.get(chainCurrency.symbol)?.delete(swap.id);
+
+      this.emit('claim', {
+        swap: await SwapRepository.setMinerFee(toClaim.swap, fee),
+        channelCreation:
+          (await ChannelCreationRepository.getChannelCreation({
+            swapId: toClaim.swap.id,
+          })) || undefined,
+      });
     });
   };
 
   private batchClaim = async (symbol: string) => {
-    let swapsToClaim: SwapToClaim[] = [];
+    let swapsToClaim: SwapToClaimPreimage[] = [];
 
     await this.lock.acquire(DeferredClaimer.swapsToClaimLock, async () => {
       const swaps = this.swapsToClaim.get(symbol);
@@ -320,13 +262,16 @@ class DeferredClaimer extends TypedEventEmitter<{
     }
   };
 
-  private broadcastClaim = async (currency: string, swaps: SwapToClaim[]) => {
+  private broadcastClaim = async (
+    currency: string,
+    swaps: SwapToClaimPreimage[],
+  ) => {
     const chainClient = this.currencies.get(currency)!.chainClient!;
     const wallet = this.walletManager.wallets.get(currency)!;
 
     const claimDetails = (await Promise.all(
       swaps.map((swap) =>
-        this.constructClaimDetails(chainClient, wallet, swap),
+        this.constructClaimDetails(chainClient, wallet, swap, swap.preimage),
       ),
     )) as ClaimDetails[] | LiquidClaimDetails[];
 
@@ -364,28 +309,6 @@ class DeferredClaimer extends TypedEventEmitter<{
     }
 
     return swaps.map((toClaim) => toClaim.swap.id);
-  };
-
-  private constructClaimDetails = async (
-    chainClient: IChainClient,
-    wallet: Wallet,
-    toClaim: SwapToClaim,
-    cooperative: boolean = false,
-  ): Promise<ClaimDetails | LiquidClaimDetails> => {
-    const { swap, preimage } = toClaim;
-    const tx = parseTransaction(
-      wallet.type,
-      await chainClient.getRawTransaction(swap.lockupTransactionId!),
-    );
-
-    return constructClaimDetails(
-      this.swapOutputType,
-      wallet,
-      swap,
-      tx,
-      preimage,
-      cooperative,
-    );
   };
 
   private shouldBeDeferred = (chainCurrency: string, swap: Swap) => {
@@ -470,7 +393,7 @@ class DeferredClaimer extends TypedEventEmitter<{
       getChainCurrency(base, quote, swap.orderSide, false),
     )!;
 
-    let toClaim: SwapToClaim | undefined;
+    let toClaim: SwapToClaimPreimage | undefined;
     await this.lock.acquire(DeferredClaimer.swapsToClaimLock, async () => {
       toClaim = this.swapsToClaim.get(chainCurrency.symbol)?.get(swap.id);
     });
@@ -483,4 +406,4 @@ class DeferredClaimer extends TypedEventEmitter<{
 }
 
 export default DeferredClaimer;
-export { SwapConfig };
+export { SwapConfig, SwapToClaimPreimage };

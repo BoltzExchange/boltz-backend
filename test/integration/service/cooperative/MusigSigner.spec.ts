@@ -12,7 +12,6 @@ import {
   reverseSwapTree,
   swapTree,
 } from 'boltz-core';
-import { SwapTree } from 'boltz-core/dist/lib/consts/Types';
 import { randomBytes } from 'crypto';
 import { hashForWitnessV1, setup, tweakMusig, zkp } from '../../../../lib/Core';
 import { ECPair } from '../../../../lib/ECPairHelper';
@@ -28,6 +27,7 @@ import { NodeType } from '../../../../lib/db/models/ReverseSwap';
 import Swap from '../../../../lib/db/models/Swap';
 import ReverseSwapRepository from '../../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../../lib/db/repositories/SwapRepository';
+import WrappedSwapRepository from '../../../../lib/db/repositories/WrappedSwapRepository';
 import Errors from '../../../../lib/service/Errors';
 import MusigSigner from '../../../../lib/service/cooperative/MusigSigner';
 import SwapNursery from '../../../../lib/swap/SwapNursery';
@@ -165,7 +165,7 @@ describe('MusigSigner', () => {
 
     btcWallet.getKeysByIndex = jest.fn().mockReturnValue(claimKeys);
 
-    const boltzPartialSig = await signer.signSwapRefund(
+    const boltzPartialSig = await signer.signRefund(
       'refundable',
       Buffer.from(musig.getPublicNonce()),
       refundTx.toBuffer(),
@@ -190,8 +190,8 @@ describe('MusigSigner', () => {
 
     const id = 'noChain';
     await expect(
-      signer.signSwapRefund(id, Buffer.alloc(0), Buffer.alloc(0), 0),
-    ).rejects.toEqual('chain currency is not UTXO based');
+      signer.signRefund(id, Buffer.alloc(0), Buffer.alloc(0), 0),
+    ).rejects.toEqual(Errors.CURRENCY_NOT_UTXO_BASED());
   });
 
   test('should throw when creating refund signature for swap that does not exist', async () => {
@@ -199,7 +199,7 @@ describe('MusigSigner', () => {
 
     const id = 'notFound';
     await expect(
-      signer.signSwapRefund(id, Buffer.alloc(0), Buffer.alloc(0), 0),
+      signer.signRefund(id, Buffer.alloc(0), Buffer.alloc(0), 0),
     ).rejects.toEqual(Errors.SWAP_NOT_FOUND(id));
 
     expect(SwapRepository.getSwap).toHaveBeenCalledTimes(1);
@@ -226,7 +226,7 @@ describe('MusigSigner', () => {
       const id = 'nonFailed';
 
       await expect(
-        signer.signSwapRefund(id, Buffer.alloc(0), Buffer.alloc(0), 0),
+        signer.signRefund(id, Buffer.alloc(0), Buffer.alloc(0), 0),
       ).rejects.toEqual(Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND());
     },
   );
@@ -241,7 +241,7 @@ describe('MusigSigner', () => {
     });
 
     await expect(
-      signer.signSwapRefund(id, randomBytes(32), Buffer.alloc(0), 0),
+      signer.signRefund(id, randomBytes(32), Buffer.alloc(0), 0),
     ).rejects.toEqual(Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND());
   });
 
@@ -276,7 +276,7 @@ describe('MusigSigner', () => {
       SwapRepository.getSwap = jest.fn().mockResolvedValue(swap);
 
       await expect(
-        signer.signSwapRefund(
+        signer.signRefund(
           'pendingPayment',
           Buffer.alloc(0),
           Buffer.alloc(0),
@@ -350,7 +350,7 @@ describe('MusigSigner', () => {
       preimageHash: getHexString(crypto.sha256(preimage)),
       redeemScript: JSON.stringify(SwapTreeSerializer.serializeSwapTree(tree)),
     });
-    ReverseSwapRepository.setPreimage = jest.fn();
+    WrappedSwapRepository.setPreimage = jest.fn();
 
     btcWallet.getKeysByIndex = jest.fn().mockReturnValue(refundKeys);
 
@@ -366,9 +366,9 @@ describe('MusigSigner', () => {
       await ReverseSwapRepository.getReverseSwap({}),
       preimage,
     );
-    expect(ReverseSwapRepository.setPreimage).toHaveBeenCalledWith(
+    expect(WrappedSwapRepository.setPreimage).toHaveBeenCalledWith(
       expect.anything(),
-      getHexString(preimage),
+      preimage,
     );
 
     musig.aggregateNonces([[refundKeys.publicKey, boltzPartialSig.pubNonce]]);
@@ -488,34 +488,4 @@ describe('MusigSigner', () => {
       ),
     ).rejects.toEqual(Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM());
   });
-
-  test.each`
-    vin
-    ${-1}
-    ${-23234}
-    ${5}
-    ${123}
-  `(
-    'should not create partial signature when vin ($vin) is out of bounds',
-    async ({ vin }) => {
-      const tx = await bitcoinClient.getRawTransaction(
-        await bitcoinClient.sendToAddress(
-          await bitcoinClient.getNewAddress(),
-          100_000,
-        ),
-      );
-
-      await expect(
-        signer['createPartialSignature'](
-          btcCurrency,
-          {} as SwapTree,
-          1,
-          Buffer.alloc(0),
-          Buffer.alloc(0),
-          tx,
-          vin,
-        ),
-      ).rejects.toEqual(Errors.INVALID_VIN());
-    },
-  );
 });

@@ -1,6 +1,13 @@
 import Logger from '../Logger';
 import { getPairId, minutesToMilliseconds } from '../Utils';
-import { CurrencyType, SwapVersion } from '../consts/Enums';
+import {
+  CurrencyType,
+  SwapType,
+  SwapVersion,
+  stringToSwapType,
+  swapTypeToPrettyString,
+  swapTypeToString,
+} from '../consts/Enums';
 import { PairConfig } from '../consts/Types';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import Errors from './Errors';
@@ -29,6 +36,7 @@ class RateProvider {
   private readonly hardcodedPairs = new Set<string>();
 
   private readonly zeroConfAmounts = new Map<string, number>();
+  private readonly swapTypes = new Map<string, SwapType[]>();
   private readonly pairConfigs = new Map<string, PairConfig>();
 
   private timer!: any;
@@ -71,9 +79,10 @@ class RateProvider {
 
     await this.updateMinerFees();
 
-    pairs.forEach((pair) => {
+    for (const pair of pairs) {
       const id = getPairId(pair);
       this.configPairs.add(id);
+      this.swapTypes.set(id, this.parseSwapTypes(pair));
 
       if (pair.maxSwapAmount === undefined) {
         throw Errors.CONFIGURATION_INCOMPLETE(id, 'maxSwapAmount');
@@ -90,7 +99,9 @@ class RateProvider {
         );
 
         this.hardcodedPairs.add(id);
-        this.forProviders((provider) => provider.setHardcodedPair(pair));
+        this.forProviders((provider) =>
+          provider.setHardcodedPair(pair, this.swapTypes.get(id)!),
+        );
       } else {
         this.dataAggregator.registerPair(pair.base, pair.quote);
 
@@ -109,7 +120,7 @@ class RateProvider {
         checkAndRegisterToken(pair.base);
         checkAndRegisterToken(pair.quote);
       }
-    });
+    }
 
     if (this.dataAggregator.pairs.size > 0) {
       const pairsToQuery: string[] = [];
@@ -177,7 +188,9 @@ class RateProvider {
       // If the rate returned is "undefined" or "NaN" that means that all requests to the APIs of the exchanges
       // failed and that the pairs and limits don't have to be updated
       if (rate && !isNaN(rate)) {
-        this.forProviders((provider) => provider.updatePair(pairId, rate));
+        this.forProviders((provider) =>
+          provider.updatePair(pairId, rate, this.swapTypes.get(pairId)!),
+        );
       } else {
         this.logger.warn(`Could not fetch rates of ${pairId}`);
       }
@@ -185,7 +198,9 @@ class RateProvider {
 
     // Update the miner fees of the pairs with a hardcoded rate
     this.hardcodedPairs.forEach((pairId) =>
-      this.forProviders((provider) => provider.updateHardcodedPair(pairId)),
+      this.forProviders((provider) =>
+        provider.updateHardcodedPair(pairId, this.swapTypes.get(pairId)!),
+      ),
     );
 
     this.logger.silly('Updated rates');
@@ -213,6 +228,25 @@ class RateProvider {
         this.feeProvider.updateMinerFees(currency),
       ),
     );
+  };
+
+  private parseSwapTypes = (config: PairConfig) => {
+    if (config.swapTypes === undefined) {
+      const allTypes = Object.keys(SwapType)
+        .filter((s) => !isNaN(Number(s)))
+        .map((s) => Number(s)) as SwapType[];
+
+      this.logger.warn(
+        `No swap types configured for ${getPairId(config)}; enabling all: ${allTypes.map(swapTypeToPrettyString).join(', ')}`,
+      );
+      return allTypes;
+    }
+
+    const types = config.swapTypes.map(stringToSwapType);
+    this.logger.debug(
+      `Enabling swap types for ${getPairId(config)}: ${types.map(swapTypeToString).join(', ')}`,
+    );
+    return types;
   };
 
   private forProviders = (fn: (provider: RateProviderBase<any>) => void) =>

@@ -6,6 +6,7 @@ import { formatError, getHexString } from '../Utils';
 import { ClientStatus, CurrencyType } from '../consts/Enums';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
 import {
+  AddressInfo,
   Block,
   BlockVerbose,
   BlockchainInfo,
@@ -316,6 +317,10 @@ class ChainClient<T extends SomeTransaction = Transaction>
     type: AddressType = AddressType.Bech32,
   ): Promise<string> => {
     return this.client.request<string>('getnewaddress', [undefined, type]);
+  };
+
+  public getAddressInfo = (address: string): Promise<AddressInfo> => {
+    return this.client.request<AddressInfo>('getaddressinfo', [address]);
   };
 
   protected estimateFeeWithFloor = async (confTarget: number) => {

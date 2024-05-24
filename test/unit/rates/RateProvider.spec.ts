@@ -1,5 +1,5 @@
 import Logger from '../../../lib/Logger';
-import { SwapVersion } from '../../../lib/consts/Enums';
+import { SwapType, SwapVersion } from '../../../lib/consts/Enums';
 import { PairConfig } from '../../../lib/consts/Types';
 import Errors from '../../../lib/rates/Errors';
 import RateProvider from '../../../lib/rates/RateProvider';
@@ -103,6 +103,7 @@ describe('RateProvider', () => {
         rate: 1,
         minSwapAmount: 10_000,
         maxSwapAmount: 250_000,
+        swapTypes: ['submarine', 'Reverse'],
       },
       {
         base: 'L-BTC',
@@ -120,20 +121,34 @@ describe('RateProvider', () => {
       ).toHaveBeenCalledTimes(2);
       expect(
         rateProvider.providers[version].setHardcodedPair,
-      ).toHaveBeenCalledWith(pairs[0]);
+      ).toHaveBeenCalledWith(pairs[0], [
+        SwapType.Submarine,
+        SwapType.ReverseSubmarine,
+      ]);
       expect(
         rateProvider.providers[version].setHardcodedPair,
-      ).toHaveBeenCalledWith(pairs[1]);
+      ).toHaveBeenCalledWith(pairs[1], [
+        SwapType.Submarine,
+        SwapType.ReverseSubmarine,
+        SwapType.Chain,
+      ]);
 
       expect(
         rateProvider.providers[version].updateHardcodedPair,
       ).toHaveBeenCalledTimes(2);
       expect(
         rateProvider.providers[version].updateHardcodedPair,
-      ).toHaveBeenCalledWith('BTC/BTC');
+      ).toHaveBeenCalledWith('BTC/BTC', [
+        SwapType.Submarine,
+        SwapType.ReverseSubmarine,
+      ]);
       expect(
         rateProvider.providers[version].updateHardcodedPair,
-      ).toHaveBeenCalledWith('L-BTC/BTC');
+      ).toHaveBeenCalledWith('L-BTC/BTC', [
+        SwapType.Submarine,
+        SwapType.ReverseSubmarine,
+        SwapType.Chain,
+      ]);
     }
 
     expect(rateProvider['pairConfigs'].size).toEqual(2);

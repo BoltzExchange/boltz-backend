@@ -2,12 +2,17 @@ import { Request, Response, Router } from 'express';
 import Logger from '../../../Logger';
 import { getHexString, stringify } from '../../../Utils';
 import { SwapVersion } from '../../../consts/Enums';
+import ChainSwapRepository from '../../../db/repositories/ChainSwapRepository';
 import SwapRepository from '../../../db/repositories/SwapRepository';
 import RateProviderTaproot from '../../../rates/providers/RateProviderTaproot';
 import CountryCodes from '../../../service/CountryCodes';
 import Errors from '../../../service/Errors';
 import Service from '../../../service/Service';
-import Controller from '../../Controller';
+import ChainSwapSigner from '../../../service/cooperative/ChainSwapSigner';
+import MusigSigner, {
+  PartialSignature,
+} from '../../../service/cooperative/MusigSigner';
+import SwapInfos from '../../SwapInfos';
 import {
   checkPreimageHashLength,
   createdResponse,
@@ -23,7 +28,7 @@ class SwapRouter extends RouterBase {
   constructor(
     logger: Logger,
     private readonly service: Service,
-    private readonly controller: Controller,
+    private readonly swapInfos: SwapInfos,
     private readonly countryCodes: CountryCodes,
   ) {
     super(logger, 'swap');
@@ -416,16 +421,13 @@ class SwapRouter extends RouterBase {
      *             schema:
      *               $ref: '#/components/schemas/ErrorResponse'
      */
-    router.get(
-      '/submarine/:id/refund',
-      this.handleError(this.refundSubmarineEvm),
-    );
+    router.get('/submarine/:id/refund', this.handleError(this.refundEvm));
 
     /**
      * @openapi
      * components:
      *   schemas:
-     *     SubmarineRefundRequest:
+     *     RefundRequest:
      *       type: object
      *       properties:
      *         pubNonce:
@@ -477,7 +479,7 @@ class SwapRouter extends RouterBase {
      *       content:
      *         application/json:
      *           schema:
-     *             $ref: '#/components/schemas/SubmarineRefundRequest'
+     *             $ref: '#/components/schemas/RefundRequest'
      *     responses:
      *       '200':
      *         description: A partial signature
@@ -494,11 +496,14 @@ class SwapRouter extends RouterBase {
      */
     router.post(
       '/submarine/:id/refund',
-      this.handleError(this.refundSubmarine),
+      this.handleError(this.signUtxoRefund(this.service.musigSigner)),
     );
 
     // Deprecated endpoint from first Taproot deployment
-    router.post('/submarine/refund', this.handleError(this.refundSubmarine));
+    router.post(
+      '/submarine/refund',
+      this.handleError(this.signUtxoRefund(this.service.musigSigner)),
+    );
 
     /**
      * @openapi
@@ -716,7 +721,7 @@ class SwapRouter extends RouterBase {
      *           description: Pair hash from the pair information for the client to check if their fee data is up-to-date
      *         referralId:
      *           type: string
-     *           description: Referral ID to be used for the Submarine swap
+     *           description: Referral ID to be used for the Reverse Swap
      *         address:
      *           type: string
      *           description: Address to be used for a BIP-21 direct payment
@@ -964,6 +969,487 @@ class SwapRouter extends RouterBase {
     /**
      * @openapi
      * tags:
+     *   name: Chain Swap
+     *   description: Chain Swap related endpoints
+     */
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
+     *     ChainPair:
+     *       type: object
+     *       properties:
+     *         hash:
+     *           type: string
+     *           required: true
+     *           description: Hash of the pair that can be used when creating the Chain Swap to ensure the information of the client is up-to-date
+     *         rate:
+     *           type: number
+     *           required: true
+     *           description: Exchange rate of the pair
+     *         limits:
+     *           type: object
+     *           properties:
+     *             minimal:
+     *               type: number
+     *               required: true
+     *               description: Minimal amount that can be swapped in satoshis
+     *             maximal:
+     *               type: number
+     *               required: true
+     *               description: Maximal amount that can be swapped in satoshis
+     *         fees:
+     *           type: object
+     *           properties:
+     *             percentage:
+     *               type: number
+     *               required: true
+     *               description: Relative fee that will be charged in percent
+     *             minerFees:
+     *               type: object
+     *               properties:
+     *                 lockup:
+     *                   type: number
+     *                   required: true
+     *                   description: Absolute miner fee that will be charged in satoshis
+     *                 claim:
+     *                   type: number
+     *                   required: true
+     *                   description: Absolute miner fee that we estimate for the claim transaction in satoshis
+     */
+
+    /**
+     * @openapi
+     * /swap/chain:
+     *   get:
+     *     description: Possible pairs for Chain Swaps
+     *     tags: [Chain Swap]
+     *     responses:
+     *       '200':
+     *         description: Dictionary of the from -> to currencies that can be used in a Chain Swap
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               additionalProperties:
+     *                 type: object
+     *                 additionalProperties:
+     *                   $ref: '#/components/schemas/ChainPair'
+     *             examples:
+     *               json:
+     *                 value: '{"BTC":{"RBTC":{"hash":"819c288da87e4212ed9420b60e2699d49ff3f989215f1beb3dc986a3dfbe8160","rate":1,"limits":{"maximal":4294967,"minimal":50000,"maximalZeroConf":0},"fees":{"percentage":0.5,"minerFees":{"server":7035,"user":{"claim":3108,"lockup":5077}}}},"L-BTC":{"hash":"43087e267db95668b9b7c48efcf44d922484870f1bdb8b926e5d6b76bf4d0709","rate":1,"limits":{"maximal":4294967,"minimal":10000,"maximalZeroConf":0},"fees":{"percentage":0.25,"minerFees":{"server":4455,"user":{"claim":3108,"lockup":276}}}}},"RBTC":{"BTC":{"hash":"a5de5e1fb35ea29d67131283bf5c682e5b16a19ecaadc0e80345d95f4831e201","rate":1,"limits":{"maximal":4294967,"minimal":50000,"maximalZeroConf":0},"fees":{"percentage":0.5,"minerFees":{"server":8185,"user":{"claim":2723,"lockup":4312}}}}},"L-BTC":{"BTC":{"hash":"3ec520412cee74863f2c75a9cd7b8d2077f68267632344ec3c4646e100883091","rate":1,"limits":{"maximal":4294967,"minimal":10000,"maximalZeroConf":0},"fees":{"percentage":0.25,"minerFees":{"server":3384,"user":{"claim":143,"lockup":4312}}}}}}'
+     */
+    router.get('/chain', this.handleError(this.getChain));
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
+     *     ChainRequest:
+     *       type: object
+     *       properties:
+     *         from:
+     *           type: string
+     *           required: true
+     *           description: The asset that is sent on lightning
+     *         to:
+     *           type: string
+     *           required: true
+     *           description: The asset that is received onchain
+     *         preimageHash:
+     *           type: string
+     *           required: true
+     *           description: SHA-256 hash of the preimage of the Chain Swap encoded as HEX
+     *         claimPublicKey:
+     *           type: string
+     *           description: Public key with which the Chain Swap can be claimed encoded as HEX
+     *         refundPublicKey:
+     *           type: string
+     *           description: Public key with which the Chain Swap can be refunded encdoed as HEX
+     *         claimAddress:
+     *           type: string
+     *           description: EVM address with which the Chain Swap can be claimed
+     *         userLockAmount:
+     *           type: number
+     *           description: Amount the client is expected to lock; conflicts with "serverLockAmount"
+     *         serverLockAmount:
+     *           type: number
+     *           description: Amount the server should lock; conflicts with "userLockAmount"
+     *         pairHash:
+     *           type: string
+     *           description: Pair hash from the pair information for the client to check if their fee data is up-to-date
+     *         referralId:
+     *           type: string
+     *           description: Referral ID to be used for the Chain Swap
+     */
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
+     *     ChainSwapData:
+     *       type: object
+     *       properties:
+     *         swapTree:
+     *           $ref: '#/components/schemas/SwapTree'
+     *         lockupAddress:
+     *           type: string
+     *           required: true
+     *           description: HTLC address in which coins will be locked
+     *         serverPublicKey:
+     *           type: string
+     *           description: Public key of Boltz that is used in the aggregated public key
+     *         timeoutBlockHeight:
+     *           type: number
+     *           required: true
+     *           description: Timeout block height of the onchain HTLC
+     *         amount:
+     *           type: number
+     *           required: true
+     *           description: Amount that is supposed to be locked in the onchain HTLC
+     *         blindingKey:
+     *           type: string
+     *           description: Liquid blinding private key encoded as HEX
+     *         refundAddress:
+     *           type: string
+     *           description: Address that should be specified as refund address for EVM lockup transactions
+     *         bip21:
+     *           type: string
+     *           description: BIP-21 for the UTXO onchain lockup of the user
+     */
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
+     *     ChainResponse:
+     *       type: object
+     *       properties:
+     *         id:
+     *           type: string
+     *           required: true
+     *           description: ID of the created Reverse Swap
+     *         claimDetails:
+     *           $ref: '#/components/schemas/ChainSwapData'
+     *         lockupDetails:
+     *           $ref: '#/components/schemas/ChainSwapData'
+     */
+
+    /**
+     * @openapi
+     * /swap/chain:
+     *   post:
+     *     description: Create a new Chain Swap from chain to chain
+     *     tags: [Chain Swap]
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             $ref: '#/components/schemas/ChainRequest'
+     *     responses:
+     *       '201':
+     *         description: The created Chain Swap
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ChainResponse'
+     *       '400':
+     *         description: Error that caused the Chain Swap creation to fail
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
+    router.post('/chain', this.handleError(this.createChain));
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
+     *     ChainSwapTransaction:
+     *       type: object
+     *       properties:
+     *         transaction:
+     *           type: object
+     *           properties:
+     *             id:
+     *               type: string
+     *               required: true
+     *               description: ID of the transaction
+     *             hex:
+     *               type: string
+     *               description: The transaction encoded as HEX; set for UTXO based chains
+     *         timeout:
+     *           type: object
+     *           properties:
+     *             blockHeight:
+     *               type: number
+     *               required: true
+     *               description: Timeout block height of the onchain HTLC
+     *             eta:
+     *               type: number
+     *               required: true
+     *               description: Expected UNIX timestamp of the expiry of the onchain HTLC if not expired already
+     *
+     *     ChainSwapTransactions:
+     *       type: object
+     *       properties:
+     *         userLock:
+     *           $ref: '#/components/schemas/ChainSwapTransaction'
+     *         serverLock:
+     *           $ref: '#/components/schemas/ChainSwapTransaction'
+     */
+
+    /**
+     * @openapi
+     * /swap/chain/{id}/transactions:
+     *   get:
+     *     description: Gets the transactions of a Chain Swap
+     *     tags: [Chain Swap]
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *         description: ID of the Swap
+     *     responses:
+     *       '200':
+     *         description: Transactions of the Chain Swap
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ChainSwapTransactions'
+     *       '404':
+     *         description: When no Chain Swap with the ID could be found
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *       '400':
+     *         description: Error that caused the request to fail
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
+    router.get(
+      '/chain/:id/transactions',
+      this.handleError(this.getChainSwapTransactions),
+    );
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
+     *     ChainSwapSigningDetails:
+     *       type: object
+     *       properties:
+     *         pubNonce:
+     *           type: string
+     *           required: true
+     *           description: Public nonce of the client for the session, encoded as HEX
+     *         publicKey:
+     *           type: string
+     *           required: true
+     *           description: Public key of the server that was used in the aggregated public key
+     *         transactionHash:
+     *           type: string
+     *           required: true
+     *           description: Transaction hash which should be signed, encoded as HEX
+     */
+
+    /**
+     * @openapi
+     * /swap/chain/{id}/claim:
+     *   get:
+     *     description: Gets the server claim transaction signing details
+     *     tags: [Chain Swap]
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *         description: ID of the Swap
+     *     responses:
+     *       '200':
+     *         description: Server claim signing details
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ChainSwapSigningDetails'
+     *       '404':
+     *         description: When no Chain Swap with the ID could be found
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *       '400':
+     *         description: Error that caused the request to fail
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
+    router.get(
+      '/chain/:id/claim',
+      this.handleError(this.getChainSwapClaimDetails),
+    );
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
+     *     ChainSwapSigningRequest:
+     *       type: object
+     *       properties:
+     *         preimage:
+     *           type: string
+     *           required: true
+     *           description: Preimage of the Chain Swap, encoded as HEX
+     *         signature:
+     *           $ref: '#/components/schemas/PartialSignature'
+     *         toSign:
+     *           type: object
+     *           properties:
+     *             pubNonce:
+     *               type: string
+     *               required: true
+     *               description: Public nonce of the client for the session encoded as HEX
+     *             transaction:
+     *               type: string
+     *               required: true
+     *               description: Transaction which should be signed encoded as HEX
+     *             index:
+     *               type: number
+     *               required: true
+     *               description: Index of the input of the transaction that should be signed
+     */
+
+    /**
+     * @openapi
+     * /swap/chain/{id}/claim:
+     *   post:
+     *     description: Gets the server claim transaction signing details
+     *     tags: [Chain Swap]
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *         description: ID of the Swap
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             $ref: '#/components/schemas/ChainSwapSigningRequest'
+     *     responses:
+     *       '200':
+     *         description: Partial signature for the claim transaction of the user
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/PartialSignature'
+     *       '404':
+     *         description: When no Chain Swap with the ID could be found
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *       '400':
+     *         description: Error that caused the request to fail
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
+    router.post('/chain/:id/claim', this.handleError(this.claimChainSwap));
+
+    /**
+     * @openapi
+     * /swap/chain/{id}/refund:
+     *   get:
+     *     tags: [Chain Swap]
+     *     description: Get an EIP-712 signature for a cooperative EVM refund
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *         description: ID of the Swap
+     *     responses:
+     *       '200':
+     *         description: EIP-712 signature
+     *         content:
+     *           application/json:
+     *             schema:
+     *               properties:
+     *                 signature:
+     *                   type: string
+     *                   required: true
+     *                   description: EIP-712 signature with which a cooperative refund can be executed onchain
+     *       '400':
+     *         description: Error that caused signature request to fail
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
+    router.get(
+      '/chain/:id/refund',
+      // We can use the exact same handler as for Submarine Swaps
+      this.handleError(this.refundEvm),
+    );
+
+    /**
+     * @openapi
+     * /swap/chain/{id}/refund:
+     *   post:
+     *     description: Requests a partial signature for a cooperative Chain Swap refund transaction
+     *     tags: [Chain Swap]
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *         description: ID of the Swap
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             $ref: '#/components/schemas/RefundRequest'
+     *     responses:
+     *       '200':
+     *         description: A partial signature
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/PartialSignature'
+     *       '400':
+     *         description: Error that caused signature request to fail
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
+    router.post(
+      '/chain/:id/refund',
+      this.handleError(
+        this.signUtxoRefund(this.service.swapManager.chainSwapSigner),
+      ),
+    );
+
+    /**
+     * @openapi
+     * tags:
      *   name: Swap
      *   description: Generic Swap related endpoints
      */
@@ -1118,49 +1604,12 @@ class SwapRouter extends RouterBase {
     ]);
 
     const { transactionHex, transactionId, timeoutBlockHeight, timeoutEta } =
-      await this.service.getSwapTransaction(id);
+      await this.service.transactionFetcher.getSubmarineTransaction(id);
     successResponse(res, {
       id: transactionId,
       hex: transactionHex,
       timeoutBlockHeight,
       timeoutEta,
-    });
-  };
-
-  private refundSubmarine = async (req: Request, res: Response) => {
-    const params = req.params
-      ? validateRequest(req.params, [
-          { name: 'id', type: 'string', optional: true },
-        ])
-      : {};
-
-    const { id, pubNonce, index, transaction } = validateRequest(req.body, [
-      { name: 'id', type: 'string', optional: params.id !== undefined },
-      { name: 'index', type: 'number' },
-      { name: 'pubNonce', type: 'string', hex: true },
-      { name: 'transaction', type: 'string', hex: true },
-    ]);
-
-    const sig = await this.service.musigSigner.signSwapRefund(
-      params.id || id,
-      pubNonce,
-      transaction,
-      index,
-    );
-
-    successResponse(res, {
-      pubNonce: getHexString(sig.pubNonce),
-      partialSignature: getHexString(sig.signature),
-    });
-  };
-
-  private refundSubmarineEvm = async (req: Request, res: Response) => {
-    const { id } = validateRequest(req.params, [
-      { name: 'id', type: 'string' },
-    ]);
-
-    successResponse(res, {
-      signature: await this.service.eipSigner.signSwapRefund(id),
     });
   };
 
@@ -1304,7 +1753,7 @@ class SwapRouter extends RouterBase {
     ]);
 
     const { transactionHex, transactionId, timeoutBlockHeight } =
-      await this.service.getReverseSwapTransaction(id);
+      await this.service.transactionFetcher.getReverseSwapTransaction(id);
     successResponse(res, {
       id: transactionId,
       hex: transactionHex,
@@ -1344,23 +1793,201 @@ class SwapRouter extends RouterBase {
     });
   };
 
+  private getChain = (_req: Request, res: Response) =>
+    successResponse(
+      res,
+      RateProviderTaproot.serializePairs(
+        this.service.rateProvider.providers[SwapVersion.Taproot].chainPairs,
+      ),
+    );
+
+  // TODO: claim covenant
+  private createChain = async (req: Request, res: Response) => {
+    const {
+      to,
+      from,
+      pairHash,
+      referralId,
+      preimageHash,
+      claimAddress,
+      userLockAmount,
+      serverLockAmount,
+      claimPublicKey,
+      refundPublicKey,
+    } = validateRequest(req.body, [
+      { name: 'to', type: 'string' },
+      { name: 'from', type: 'string' },
+      { name: 'preimageHash', type: 'string', hex: true },
+      { name: 'pairHash', type: 'string', optional: true },
+      { name: 'referralId', type: 'string', optional: true },
+      { name: 'claimAddress', type: 'string', optional: true },
+      { name: 'userLockAmount', type: 'number', optional: true },
+      { name: 'serverLockAmount', type: 'number', optional: true },
+      { name: 'claimPublicKey', type: 'string', hex: true, optional: true },
+      { name: 'refundPublicKey', type: 'string', hex: true, optional: true },
+    ]);
+
+    checkPreimageHashLength(preimageHash);
+
+    const { pairId, orderSide } = this.service.convertToPairAndSide(from, to);
+    const response = await this.service.createChainSwap({
+      pairId,
+      pairHash,
+      orderSide,
+      referralId,
+      preimageHash,
+      claimAddress,
+      claimPublicKey,
+      userLockAmount,
+      refundPublicKey,
+      serverLockAmount,
+    });
+
+    await markSwap(this.countryCodes, req.ip, response.id);
+
+    this.logger.verbose(`Created Chain Swap with id: ${response.id}`);
+    this.logger.silly(`Chain swap ${response.id}: ${stringify(response)}`);
+
+    createdResponse(res, response);
+  };
+
+  private getChainSwapClaimDetails = async (req: Request, res: Response) => {
+    const { id } = validateRequest(req.params, [
+      { name: 'id', type: 'string' },
+    ]);
+    const swap = await ChainSwapRepository.getChainSwap({
+      id,
+    });
+    if (swap === null || swap === undefined) {
+      errorResponse(this.logger, req, res, Errors.SWAP_NOT_FOUND(id), 404);
+      return;
+    }
+
+    const details =
+      await this.service.swapManager.chainSwapSigner.getCooperativeDetails(
+        swap,
+      );
+    successResponse(res, {
+      pubNonce: getHexString(details.pubNonce),
+      publicKey: getHexString(details.publicKey),
+      transactionHash: getHexString(details.transactionHash),
+    });
+  };
+
+  private claimChainSwap = async (req: Request, res: Response) => {
+    const { id } = validateRequest(req.params, [
+      { name: 'id', type: 'string' },
+    ]);
+    const { preimage, toSign, signature } = validateRequest(req.body, [
+      { name: 'toSign', type: 'object' },
+      { name: 'signature', type: 'object', optional: true },
+      { name: 'preimage', type: 'string', hex: true, optional: true },
+    ]);
+    const toSignParsed = validateRequest(toSign, [
+      { name: 'index', type: 'number' },
+      { name: 'pubNonce', type: 'string', hex: true },
+      { name: 'transaction', type: 'string', hex: true },
+    ]);
+
+    let partialSignatureParsed: PartialSignature | undefined;
+    if (signature !== undefined) {
+      const parsed = validateRequest(signature, [
+        { name: 'pubNonce', type: 'string', hex: true },
+        { name: 'partialSignature', type: 'string', hex: true },
+      ]);
+      partialSignatureParsed = {
+        pubNonce: parsed.pubNonce,
+        signature: parsed.partialSignature,
+      };
+    }
+
+    const swap = await ChainSwapRepository.getChainSwap({
+      id,
+    });
+    if (swap === null || swap === undefined) {
+      errorResponse(this.logger, req, res, Errors.SWAP_NOT_FOUND(id), 404);
+      return;
+    }
+
+    const sig = await this.service.swapManager.chainSwapSigner.signClaim(
+      swap,
+      toSignParsed,
+      preimage,
+      partialSignatureParsed,
+    );
+    successResponse(res, {
+      pubNonce: getHexString(sig.pubNonce),
+      partialSignature: getHexString(sig.signature),
+    });
+  };
+
+  private getChainSwapTransactions = async (req: Request, res: Response) => {
+    const { id } = validateRequest(req.params, [
+      { name: 'id', type: 'string' },
+    ]);
+
+    const chainSwap = await ChainSwapRepository.getChainSwap({ id });
+    if (chainSwap === null || chainSwap === undefined) {
+      errorResponse(this.logger, req, res, Errors.SWAP_NOT_FOUND(id), 404);
+      return;
+    }
+
+    successResponse(
+      res,
+      await this.service.transactionFetcher.getChainSwapTransactions(chainSwap),
+    );
+  };
+
+  private signUtxoRefund =
+    (signer: MusigSigner | ChainSwapSigner) =>
+    async (req: Request, res: Response) => {
+      const params = req.params
+        ? validateRequest(req.params, [
+            { name: 'id', type: 'string', optional: true },
+          ])
+        : {};
+
+      const { id, pubNonce, index, transaction } = validateRequest(req.body, [
+        { name: 'id', type: 'string', optional: params.id !== undefined },
+        { name: 'index', type: 'number' },
+        { name: 'pubNonce', type: 'string', hex: true },
+        { name: 'transaction', type: 'string', hex: true },
+      ]);
+
+      const sig = await signer.signRefund(
+        params.id || id,
+        pubNonce,
+        transaction,
+        index,
+      );
+
+      successResponse(res, {
+        pubNonce: getHexString(sig.pubNonce),
+        partialSignature: getHexString(sig.signature),
+      });
+    };
+
+  private refundEvm = async (req: Request, res: Response) => {
+    const { id } = validateRequest(req.params, [
+      { name: 'id', type: 'string' },
+    ]);
+
+    successResponse(res, {
+      signature: await this.service.eipSigner.signSwapRefund(id),
+    });
+  };
+
   private getSwapStatus = (req: Request, res: Response) => {
     const { id } = validateRequest(req.params, [
       { name: 'id', type: 'string' },
     ]);
 
-    const response = this.controller.pendingSwapInfos.get(id);
+    const response = this.swapInfos.get(id);
 
     if (response) {
       successResponse(res, response);
     } else {
-      errorResponse(
-        this.logger,
-        req,
-        res,
-        `could not find swap with id: ${id}`,
-        404,
-      );
+      errorResponse(this.logger, req, res, Errors.SWAP_NOT_FOUND(id), 404);
     }
   };
 }

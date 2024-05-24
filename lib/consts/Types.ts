@@ -1,4 +1,7 @@
 import { ERC20 } from 'boltz-core/typechain/ERC20';
+import ReverseSwap from '../db/models/ReverseSwap';
+import Swap from '../db/models/Swap';
+import { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import { PairTimeoutBlocksDelta } from '../service/TimeoutDeltaProvider';
 
 export type EtherSwapValues = {
@@ -33,6 +36,7 @@ export type PairConfig = {
   // Percentage of the amount that will be charged as fee
   fee?: number;
   swapInFee?: number;
+  chainSwapFee?: number;
 
   // If there is a hardcoded rate the APIs of the exchanges will not be queried
   rate?: number;
@@ -40,6 +44,9 @@ export type PairConfig = {
   // Expiry for invoices of this pair in seconds
   // Defaults to 50% of the expiry time of reverse swaps
   invoiceExpiry?: number;
+
+  // Swap types that should be enabled for the pair
+  swapTypes?: string[];
 
   // The timeout of the swaps on this pair in minutes
   timeoutDelta?: PairTimeoutBlocksDelta | number;
@@ -189,3 +196,11 @@ export type WalletInfo = {
   hdseedid?: string;
   private_keys_enabled: boolean;
 };
+
+export type AddressInfo = {
+  address: string;
+  scriptPubKey: string;
+  ismine: boolean;
+};
+
+export type AnySwap = Swap | ReverseSwap | ChainSwapInfo;

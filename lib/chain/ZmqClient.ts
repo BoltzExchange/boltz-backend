@@ -4,10 +4,14 @@ import { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import zmq, { Socket } from 'zeromq';
 import { parseTransaction } from '../Core';
 import Logger from '../Logger';
-import { formatError, getHexString, reverseBuffer } from '../Utils';
+import {
+  formatError,
+  getHexString,
+  isTxConfirmed,
+  reverseBuffer,
+} from '../Utils';
 import { CurrencyType } from '../consts/Enums';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
-import { RawTransaction } from '../consts/Types';
 import ChainClient from './ChainClient';
 import Errors from './Errors';
 
@@ -201,12 +205,10 @@ class ZmqClient<T extends SomeTransaction> extends TypedEventEmitter<{
 
       if (this.isRelevantTransaction(transaction)) {
         const transactionData =
-          (await this.chainClient.getRawTransactionVerbose(
-            id,
-          )) as RawTransaction;
+          await this.chainClient.getRawTransactionVerbose(id);
 
         // Check whether the transaction got confirmed or added to the mempool
-        if (transactionData.confirmations) {
+        if (isTxConfirmed(transactionData)) {
           this.emit('transaction', { transaction, confirmed: true });
         } else {
           this.utxos.add(id);

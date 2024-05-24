@@ -4,7 +4,7 @@ import { satoshisToSatcomma } from '../../../lib/DenominationConverter';
 import Logger from '../../../lib/Logger';
 import { decodeInvoice } from '../../../lib/Utils';
 import BackupScheduler from '../../../lib/backup/BackupScheduler';
-import { CurrencyType } from '../../../lib/consts/Enums';
+import { CurrencyType, SwapType } from '../../../lib/consts/Enums';
 import ChannelCreation from '../../../lib/db/models/ChannelCreation';
 import ReverseSwap from '../../../lib/db/models/ReverseSwap';
 import Swap from '../../../lib/db/models/Swap';
@@ -23,12 +23,10 @@ import {
 
 type successCallback = (args: {
   swap: Swap | ReverseSwap;
-  isReverse: boolean;
   channelCreation?: ChannelCreation;
 }) => void;
 type failureCallback = (args: {
   swap: Swap | ReverseSwap;
-  isReverse: boolean;
   reason: string;
 }) => void;
 
@@ -125,6 +123,7 @@ const MockedWalletManager = <jest.Mock<WalletManager>>(<any>WalletManager);
 
 describe('NotificationProvider', () => {
   const swap = {
+    type: SwapType.Submarine,
     ...swapExample,
   } as any as Swap;
 
@@ -133,6 +132,7 @@ describe('NotificationProvider', () => {
   } as any as ChannelCreation;
 
   const reverseSwap = {
+    type: SwapType.ReverseSubmarine,
     ...reverseSwapExample,
   } as any as ReverseSwap;
 
@@ -186,7 +186,7 @@ describe('NotificationProvider', () => {
   });
 
   test('should send a notification after successful Swaps', async () => {
-    emitSwapSuccess({ swap, isReverse: false });
+    emitSwapSuccess({ swap });
     await wait(5);
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
@@ -199,9 +199,9 @@ describe('NotificationProvider', () => {
         `Lightning amount: ${satoshisToSatcomma(
           decodeInvoice(swap.invoice!).satoshis,
         )} LTC\n` +
-        `Fees earned: ${satoshisToSatcomma(swap.fee!)} BTC\n` +
+        `Fees earned: ${satoshisToSatcomma(swap.fee!)} LTC\n` +
         `Miner fees: ${satoshisToSatcomma(swap.minerFee!)} BTC\n` +
-        `Routing fees: ${swap.routingFee! / 1000} litoshi` +
+        `Routing fees: ${swap.routingFee! / 1000} sats` +
         NotificationProvider['trailingWhitespace'],
     );
   });
@@ -209,7 +209,7 @@ describe('NotificationProvider', () => {
   test('should send a notification after failed Swaps', async () => {
     const failureReason = 'because';
 
-    emitSwapFailure({ swap, isReverse: false, reason: failureReason });
+    emitSwapFailure({ swap, reason: failureReason });
     await wait(5);
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
@@ -228,7 +228,7 @@ describe('NotificationProvider', () => {
   });
 
   test('should send a notification after successful Reverse Swaps', async () => {
-    emitSwapSuccess({ swap: reverseSwap, isReverse: true });
+    emitSwapSuccess({ swap: reverseSwap });
     await wait(5);
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
@@ -254,7 +254,6 @@ describe('NotificationProvider', () => {
 
     emitSwapFailure({
       swap: reverseSwap,
-      isReverse: true,
       reason: failureReason,
     });
     await wait(5);
@@ -281,7 +280,6 @@ describe('NotificationProvider', () => {
         ...reverseSwap,
         minerFee: undefined,
       } as any as ReverseSwap,
-      isReverse: true,
       reason: failureReason,
     });
     await wait(5);
@@ -304,7 +302,7 @@ describe('NotificationProvider', () => {
   });
 
   test('should send notification after successful Channel Creation Swap', async () => {
-    emitSwapSuccess({ swap, channelCreation, isReverse: false });
+    emitSwapSuccess({ swap, channelCreation });
     await wait(5);
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
@@ -317,9 +315,9 @@ describe('NotificationProvider', () => {
         `Lightning amount: ${satoshisToSatcomma(
           decodeInvoice(swap.invoice!).satoshis,
         )} LTC\n` +
-        `Fees earned: ${satoshisToSatcomma(swap.fee!)} BTC\n` +
+        `Fees earned: ${satoshisToSatcomma(swap.fee!)} LTC\n` +
         `Miner fees: ${satoshisToSatcomma(swap.minerFee!)} BTC\n` +
-        `Routing fees: ${swap.routingFee! / 1000} litoshi\n\n` +
+        `Routing fees: ${swap.routingFee! / 1000} sats\n\n` +
         '**Channel Creation:**\n' +
         `Private: ${channelCreation.private}\n` +
         `Inbound: ${channelCreation.inboundLiquidity}%\n` +
@@ -331,7 +329,6 @@ describe('NotificationProvider', () => {
     // Should skip the Channel Creation part in case no channel was opened
     emitSwapSuccess({
       swap,
-      isReverse: false,
       channelCreation: {
         ...channelCreation,
         // tslint:disable-next-line:no-null-keyword
@@ -351,9 +348,9 @@ describe('NotificationProvider', () => {
         `Lightning amount: ${satoshisToSatcomma(
           decodeInvoice(swap.invoice!).satoshis,
         )} LTC\n` +
-        `Fees earned: ${satoshisToSatcomma(swap.fee!)} BTC\n` +
+        `Fees earned: ${satoshisToSatcomma(swap.fee!)} LTC\n` +
         `Miner fees: ${satoshisToSatcomma(swap.minerFee!)} BTC\n` +
-        `Routing fees: ${swap.routingFee! / 1000} litoshi` +
+        `Routing fees: ${swap.routingFee! / 1000} sats` +
         NotificationProvider['trailingWhitespace'],
     );
   });
@@ -378,7 +375,6 @@ describe('NotificationProvider', () => {
         ...swap,
         invoice: undefined,
       } as Swap,
-      isReverse: false,
       reason: failureReason,
     });
 

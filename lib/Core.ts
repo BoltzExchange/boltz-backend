@@ -48,8 +48,9 @@ import {
   reverseBuffer,
 } from './Utils';
 import { IChainClient } from './chain/ChainClient';
-import { CurrencyType, SwapVersion } from './consts/Enums';
+import { CurrencyType, SwapType, SwapVersion } from './consts/Enums';
 import { liquidSymbol } from './consts/LiquidTypes';
+import ChainSwapData from './db/models/ChainSwapData';
 import Swap from './db/models/Swap';
 import SwapOutputType from './swap/SwapOutputType';
 import Wallet from './wallet/Wallet';
@@ -73,18 +74,18 @@ export const setup = async () => {
   initLiquid(zkp);
 };
 
-export const parseTransaction = (
+export const parseTransaction = <T extends Transaction | LiquidTransaction>(
   type: CurrencyType,
   rawTx: string | Buffer,
-): Transaction | LiquidTransaction => {
+): T => {
   if (rawTx instanceof Buffer) {
     return isBitcoin(type)
-      ? Transaction.fromBuffer(rawTx)
-      : LiquidTransaction.fromBuffer(rawTx);
+      ? (Transaction.fromBuffer(rawTx) as T)
+      : (LiquidTransaction.fromBuffer(rawTx) as T);
   } else {
     return isBitcoin(type)
-      ? Transaction.fromHex(rawTx)
-      : LiquidTransaction.fromHex(rawTx);
+      ? (Transaction.fromHex(rawTx) as T)
+      : (LiquidTransaction.fromHex(rawTx) as T);
   }
 };
 
@@ -164,45 +165,52 @@ export const getOutputValue = (
 export const constructClaimDetails = (
   swapOutputType: SwapOutputType,
   wallet: Wallet,
-  swap: Swap,
+  swap: Swap | ChainSwapData,
   transaction: Transaction | LiquidTransaction,
-  preimage: Buffer,
-  cooperative: boolean = false,
+  preimage?: Buffer,
 ): ClaimDetails | LiquidClaimDetails => {
+  const isSubmarine = swap.type === SwapType.Submarine;
+
+  let lockupVout = isSubmarine
+    ? (swap as Swap).lockupTransactionVout
+    : (swap as ChainSwapData).transactionVout;
+
   // Compatibility mode with database schema version 0 in which this column didn't exist
-  if (swap.lockupTransactionVout === undefined) {
-    swap.lockupTransactionVout = detectSwap(
-      getHexBuffer(swap.redeemScript!),
+  if (lockupVout === undefined) {
+    lockupVout = detectSwap(
+      getHexBuffer((swap as Swap).redeemScript!),
       transaction,
     )!.vout;
   }
 
-  const output = transaction.outs[swap.lockupTransactionVout!];
+  const output = transaction.outs[lockupVout!];
   const claimDetails = {
     ...output,
     preimage,
     txHash: transaction.getHash(),
-    vout: swap.lockupTransactionVout!,
+    vout: lockupVout!,
     keys: wallet.getKeysByIndex(swap.keyIndex!),
   } as ClaimDetails | LiquidClaimDetails;
 
-  switch (swap.version) {
+  switch (isSubmarine ? (swap as Swap).version : SwapVersion.Taproot) {
     case SwapVersion.Taproot: {
       claimDetails.type = OutputType.Taproot;
-      claimDetails.cooperative = cooperative;
+      claimDetails.cooperative = preimage === undefined;
       claimDetails.swapTree = SwapTreeSerializer.deserializeSwapTree(
-        swap.redeemScript!,
+        isSubmarine
+          ? (swap as Swap).redeemScript!
+          : (swap as ChainSwapData).swapTree!,
       );
       claimDetails.internalKey = createMusig(
         claimDetails.keys!,
-        getHexBuffer(swap.refundPublicKey!),
+        getHexBuffer(swap.theirPublicKey!),
       ).getAggregatedPublicKey();
       break;
     }
 
     default: {
       claimDetails.type = swapOutputType.get(wallet.type);
-      claimDetails.redeemScript = getHexBuffer(swap.redeemScript!);
+      claimDetails.redeemScript = getHexBuffer((swap as Swap).redeemScript!);
       break;
     }
   }

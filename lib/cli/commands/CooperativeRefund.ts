@@ -1,9 +1,13 @@
-import { extractClaimPublicKeyFromSwapTree } from 'boltz-core';
+import {
+  SwapTreeSerializer,
+  extractClaimPublicKeyFromSwapTree,
+} from 'boltz-core';
 import { Arguments } from 'yargs';
 import { parseTransaction } from '../../Core';
-import { getHexString, stringify } from '../../Utils';
+import { ECPair } from '../../ECPairHelper';
+import { getHexBuffer, getHexString, stringify } from '../../Utils';
 import BoltzApiClient from '../BoltzApiClient';
-import BuilderComponents from '../BuilderComponents';
+import BuilderComponents, { ApiType, BuilderTypes } from '../BuilderComponents';
 import { currencyTypeFromNetwork, parseNetwork } from '../Command';
 import {
   finalizeCooperativeTransaction,
@@ -26,11 +30,13 @@ export const builder = {
   blindingKey: BuilderComponents.blindingKey,
 };
 
-export const handler = async (argv: Arguments<any>): Promise<void> => {
+export const handler = async (
+  argv: Arguments<BuilderTypes<typeof builder> & ApiType>,
+): Promise<void> => {
   const network = parseNetwork(argv.network);
   const currencyType = currencyTypeFromNetwork(argv.network);
 
-  const boltzClient = new BoltzApiClient();
+  const boltzClient = new BoltzApiClient(argv.api.endpoint);
   const lockupTx = parseTransaction(
     currencyType,
     (await boltzClient.getSwapTransaction(argv.swapId)).transactionHex,
@@ -38,18 +44,23 @@ export const handler = async (argv: Arguments<any>): Promise<void> => {
 
   const { keys, musig, tweakedKey, theirPublicKey } =
     await setupCooperativeTransaction(
-      argv,
+      network,
+      currencyType,
+      SwapTreeSerializer.deserializeSwapTree(argv.swapTree),
+      ECPair.fromPrivateKey(getHexBuffer(argv.privateKey)),
       extractClaimPublicKeyFromSwapTree,
       lockupTx,
     );
 
   const { details, tx } = prepareCooperativeTransaction(
-    argv,
     network,
     currencyType,
     keys,
     tweakedKey,
     lockupTx,
+    argv.destinationAddress,
+    argv.feePerVbyte,
+    argv.blindingKey,
   );
 
   const partialSig = await boltzClient.getSwapRefundPartialSignature(

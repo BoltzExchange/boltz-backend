@@ -1,10 +1,11 @@
 import { OutputType, SwapTreeSerializer } from 'boltz-core';
-import { Provider, getAddress } from 'ethers';
+import { Provider } from 'ethers';
 import { Op } from 'sequelize';
 import { ConfigType } from '../Config';
 import { parseTransaction } from '../Core';
 import Logger from '../Logger';
 import {
+  checkEvmAddress,
   createApiCredential,
   decodeInvoice,
   decodeInvoiceAmount,
@@ -19,7 +20,6 @@ import {
   getSwapMemo,
   getUnixTime,
   getVersion,
-  reverseBuffer,
   splitPairId,
   stringify,
 } from '../Utils';
@@ -38,12 +38,16 @@ import {
   OrderSide,
   ServiceInfo,
   ServiceWarning,
+  SwapType,
   SwapUpdateEvent,
   SwapVersion,
 } from '../consts/Enums';
-import { PairConfig } from '../consts/Types';
+import { AnySwap, PairConfig } from '../consts/Types';
 import ReverseSwap from '../db/models/ReverseSwap';
 import Swap from '../db/models/Swap';
+import ChainSwapRepository, {
+  ChainSwapInfo,
+} from '../db/repositories/ChainSwapRepository';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import PairRepository from '../db/repositories/PairRepository';
 import ReferralRepository from '../db/repositories/ReferralRepository';
@@ -66,6 +70,7 @@ import {
   GetInfoResponse,
   LightningInfo,
 } from '../proto/boltzrpc_pb';
+import { ChainSwapMinerFees } from '../rates/FeeProvider';
 import LockupTransactionTracker from '../rates/LockupTransactionTracker';
 import RateProvider from '../rates/RateProvider';
 import { PairTypeLegacy } from '../rates/providers/RateProviderLegacy';
@@ -85,7 +90,9 @@ import PaymentRequestUtils from './PaymentRequestUtils';
 import TimeoutDeltaProvider, {
   PairTimeoutBlocksDelta,
 } from './TimeoutDeltaProvider';
-import { SwapToClaim } from './cooperative/DeferredClaimer';
+import TransactionFetcher from './TransactionFetcher';
+import { calculateTimeoutDate, getCurrency } from './Utils';
+import { SwapToClaimPreimage } from './cooperative/DeferredClaimer';
 import EipSigner from './cooperative/EipSigner';
 import MusigSigner from './cooperative/MusigSigner';
 
@@ -103,16 +110,6 @@ type Contracts = {
   rsk?: NetworkContracts;
 };
 
-type ReverseTransaction = {
-  transactionId: string;
-  timeoutBlockHeight: number;
-  transactionHex?: string;
-};
-
-type SwapTransaction = ReverseTransaction & {
-  timeoutEta?: number;
-};
-
 class Service {
   public allowReverseSwaps = true;
 
@@ -120,6 +117,8 @@ class Service {
   public swapManager: SwapManager;
   public eventHandler: EventHandler;
   public elementsService: ElementsService;
+
+  public readonly transactionFetcher: TransactionFetcher;
 
   public readonly eipSigner: EipSigner;
   public readonly musigSigner: MusigSigner;
@@ -207,6 +206,7 @@ class Service {
       this.currencies,
       this.walletManager,
     );
+    this.transactionFetcher = new TransactionFetcher(this.currencies);
     this.eipSigner = new EipSigner(
       this.logger,
       this.currencies,
@@ -365,7 +365,7 @@ class Service {
     symbol: string,
     startHeight: number,
   ): Promise<number> => {
-    const currency = this.getCurrency(symbol);
+    const currency = getCurrency(this.currencies, symbol);
 
     let endHeight: number;
 
@@ -536,99 +536,13 @@ class Service {
     symbol: string,
     transactionHash: string,
   ): Promise<string> => {
-    const currency = this.getCurrency(symbol);
+    const currency = getCurrency(this.currencies, symbol);
 
     if (currency.chainClient === undefined) {
       throw Errors.NOT_SUPPORTED_BY_SYMBOL(symbol);
     }
 
     return await currency.chainClient.getRawTransaction(transactionHash);
-  };
-
-  /**
-   * Gets the hex encoded lockup transaction of a Submarine Swap, the block height
-   * at which it will time out and the expected ETA for that block
-   */
-  public getSwapTransaction = async (id: string): Promise<SwapTransaction> => {
-    const swap = await SwapRepository.getSwap({
-      id,
-    });
-
-    if (!swap) {
-      throw Errors.SWAP_NOT_FOUND(id);
-    }
-
-    if (!swap.lockupTransactionId) {
-      throw Errors.SWAP_NO_LOCKUP();
-    }
-
-    const { base, quote } = splitPairId(swap.pair);
-    const chainCurrency = getChainCurrency(base, quote, swap.orderSide, false);
-
-    const currency = this.getCurrency(chainCurrency);
-
-    const response: SwapTransaction = {
-      transactionId: swap.lockupTransactionId,
-      timeoutBlockHeight: swap.timeoutBlockHeight,
-    };
-
-    let blocks = 0;
-
-    if (currency.chainClient) {
-      const chainInfo = await currency.chainClient.getBlockchainInfo();
-      blocks = chainInfo.blocks;
-
-      response.transactionHex = await currency.chainClient.getRawTransaction(
-        swap.lockupTransactionId,
-      );
-    } else if (currency.provider) {
-      blocks = await currency.provider.getBlockNumber();
-    } else {
-      throw Errors.NOT_SUPPORTED_BY_SYMBOL(currency.symbol);
-    }
-
-    if (blocks < swap.timeoutBlockHeight) {
-      response.timeoutEta = this.calculateTimeoutDate(
-        chainCurrency,
-        swap.timeoutBlockHeight - blocks,
-      );
-    }
-
-    return response;
-  };
-
-  public getReverseSwapTransaction = async (
-    id: string,
-  ): Promise<ReverseTransaction> => {
-    const reverseSwap = await ReverseSwapRepository.getReverseSwap({
-      id,
-    });
-
-    if (!reverseSwap) {
-      throw Errors.SWAP_NOT_FOUND(id);
-    }
-
-    if (!reverseSwap.transactionId) {
-      throw Errors.SWAP_NO_LOCKUP();
-    }
-
-    const { base, quote } = splitPairId(reverseSwap.pair);
-    const currency = this.getCurrency(
-      getChainCurrency(base, quote, reverseSwap.orderSide, true),
-    );
-
-    const response: ReverseTransaction = {
-      transactionId: reverseSwap.transactionId,
-      timeoutBlockHeight: reverseSwap.timeoutBlockHeight,
-    };
-
-    if (currency.chainClient) {
-      response.transactionHex = await currency.chainClient.getRawTransaction(
-        reverseSwap.transactionId,
-      );
-    }
-
-    return response;
   };
 
   public getReverseBip21 = async (invoice: string) => {
@@ -684,7 +598,7 @@ class Service {
     symbol?: string,
   ): Promise<Map<string, number>> => {
     const currencies = symbol
-      ? [this.getCurrency(symbol)]
+      ? [getCurrency(this.currencies, symbol)]
       : Array.from(this.currencies.values());
 
     return new Map<string, number>(
@@ -731,7 +645,7 @@ class Service {
     };
 
     if (symbol !== undefined) {
-      const currency = this.getCurrency(symbol);
+      const currency = getCurrency(this.currencies, symbol);
       if (currency.type !== CurrencyType.ERC20) {
         map.set(symbol, await estimateFee(currency));
       } else {
@@ -769,7 +683,7 @@ class Service {
     symbol: string,
     transactionHex: string,
   ): Promise<string> => {
-    const currency = this.getCurrency(symbol);
+    const currency = getCurrency(this.currencies, symbol);
 
     if (currency.chainClient === undefined) {
       throw Errors.NOT_SUPPORTED_BY_SYMBOL(symbol);
@@ -778,41 +692,22 @@ class Service {
     const wallet = this.walletManager.wallets.get(symbol);
     const transaction = parseTransaction(currency.type, transactionHex);
 
-    const inputIds = transaction.ins.map((input) =>
-      getHexString(reverseBuffer(input.hash)),
-    );
-    const [swapsLocked, reverseSwapsClaimed, swapsRefunded] = await Promise.all(
-      [
-        wallet !== undefined
-          ? SwapRepository.getSwaps({
-              lockupAddress: {
-                [Op.in]: transaction.outs
-                  // Filter Liquid fee outputs
-                  .filter((out) => out.script.length > 0)
-                  .map((out) => wallet.encodeAddress(out.script)),
-              },
-            })
-          : new Promise<Swap[]>((resolve) => resolve([])),
-        ReverseSwapRepository.getReverseSwaps({
-          transactionId: {
-            [Op.in]: inputIds,
-          },
-        }),
-        SwapRepository.getSwaps({
-          lockupTransactionId: {
-            [Op.in]: inputIds,
-          },
-        }),
-      ],
-    );
-    const swapsSpent = (reverseSwapsClaimed as (Swap | ReverseSwap)[]).concat(
-      swapsRefunded,
+    const [spent, funded] = await Promise.all([
+      this.transactionFetcher.getSwapsSpentInInputs(transaction),
+      this.transactionFetcher.getSwapsFundedInOutputs(wallet, transaction),
+    ]);
+
+    const swapsSpent = (spent.swapsRefunded as AnySwap[])
+      .concat(spent.reverseSwapsClaimed)
+      .concat(spent.chainSwapsSpent);
+    const swapsFunded = (funded.swapLockups as (Swap | ChainSwapInfo)[]).concat(
+      funded.chainSwapLockups,
     );
 
     // Only allow lowball when Reverse Swaps are being claimed or Submarine Swaps being refunded
     // and no Submarine Swap lockup happens
     // That prevents transactions that we could accept 0-conf for from being broadcast through our API
-    const isSwapRelated = swapsLocked.length === 0 && swapsSpent.length > 0;
+    const isSwapRelated = swapsFunded.length === 0 && swapsSpent.length > 0;
 
     if (isSwapRelated) {
       this.logger.debug(
@@ -835,7 +730,7 @@ class Service {
           'non-mandatory-script-verify-flag (Locktime requirement not satisfied)',
         )
       ) {
-        if (swapsRefunded.length === 0) {
+        if (spent.swapsRefunded.length === 0) {
           throw error;
         }
 
@@ -843,12 +738,12 @@ class Service {
 
         throw {
           error: (error as any).message,
-          timeoutBlockHeight: swapsRefunded[0].timeoutBlockHeight,
+          timeoutBlockHeight: spent.swapsRefunded[0].timeoutBlockHeight,
           // Here we don't need to check whether the Swap has timed out yet because
           // if the error above has been thrown, we can be sure that this is not the case
-          timeoutEta: this.calculateTimeoutDate(
+          timeoutEta: calculateTimeoutDate(
             symbol,
-            swapsRefunded[0].timeoutBlockHeight - blocks,
+            spent.swapsRefunded[0].timeoutBlockHeight - blocks,
           ),
         };
       } else {
@@ -938,29 +833,50 @@ class Service {
     );
   };
 
-  public getLockedFunds = async (): Promise<Map<string, ReverseSwap[]>> => {
-    const pendingReverseSwaps = await ReverseSwapRepository.getReverseSwaps({
-      status: {
-        [Op.or]: [
-          SwapUpdateEvent.TransactionMempool,
-          SwapUpdateEvent.TransactionConfirmed,
-        ],
-      },
+  public getLockedFunds = async (): Promise<
+    Map<string, { reverseSwaps: ReverseSwap[]; chainSwaps: ChainSwapInfo[] }>
+  > => {
+    const [pendingReverseSwaps, pendingChainSwaps] = await Promise.all([
+      ReverseSwapRepository.getReverseSwaps({
+        status: {
+          [Op.in]: [
+            SwapUpdateEvent.TransactionMempool,
+            SwapUpdateEvent.TransactionConfirmed,
+          ],
+        },
+      }),
+      ChainSwapRepository.getChainSwaps({
+        status: {
+          [Op.in]: [
+            SwapUpdateEvent.TransactionServerMempool,
+            SwapUpdateEvent.TransactionServerConfirmed,
+          ],
+        },
+      }),
+    ]);
+
+    const res = new DefaultMap<
+      string,
+      { reverseSwaps: ReverseSwap[]; chainSwaps: ChainSwapInfo[] }
+    >(() => ({
+      chainSwaps: [],
+      reverseSwaps: [],
+    }));
+
+    pendingReverseSwaps.forEach((pending) => {
+      const pair = splitPairId(pending.pair);
+      res
+        .get(getChainCurrency(pair.base, pair.quote, pending.orderSide, true))
+        .reverseSwaps.push(pending);
+    });
+    pendingChainSwaps.forEach((pending) => {
+      res.get(pending.sendingData.symbol).chainSwaps.push(pending);
     });
 
-    return pendingReverseSwaps.reduce(
-      (acc, pending) => {
-        const pair = splitPairId(pending.pair);
-        acc
-          .get(getChainCurrency(pair.base, pair.quote, pending.orderSide, true))
-          .push(pending);
-        return acc;
-      },
-      new DefaultMap<string, ReverseSwap[]>(() => []),
-    );
+    return res;
   };
 
-  public getPendingSweeps = (): Map<string, SwapToClaim[]> => {
+  public getPendingSweeps = (): Map<string, SwapToClaimPreimage[]> => {
     return this.swapManager.deferredClaimer.pendingSweepsValues();
   };
 
@@ -1000,19 +916,16 @@ class Service {
 
     blindingKey?: string;
   }> => {
-    const swap = await SwapRepository.getSwap({
-      preimageHash: getHexString(args.preimageHash),
-    });
-
-    if (swap) {
-      throw Errors.SWAP_WITH_PREIMAGE_EXISTS();
-    }
+    await this.checkSwapWithPreimageExists(args.preimageHash);
 
     const { base, quote } = this.getPair(args.pairId);
     const orderSide = this.getOrderSide(args.orderSide);
 
     switch (
-      this.getCurrency(getChainCurrency(base, quote, orderSide, false)).type
+      getCurrency(
+        this.currencies,
+        getChainCurrency(base, quote, orderSide, false),
+      ).type
     ) {
       case CurrencyType.BitcoinLike:
       case CurrencyType.Liquid:
@@ -1038,7 +951,9 @@ class Service {
       false,
     );
 
-    if (!NodeSwitch.hasClient(this.getCurrency(lightningCurrency))) {
+    if (
+      !NodeSwitch.hasClient(getCurrency(this.currencies, lightningCurrency))
+    ) {
       throw ErrorsSwap.NO_LIGHTNING_SUPPORT(lightningCurrency);
     }
 
@@ -1062,7 +977,7 @@ class Service {
       await this.timeoutDeltaProvider.getTimeout(
         args.pairId,
         orderSide,
-        false,
+        SwapType.Submarine,
         args.version,
         args.invoice,
         args.referralId,
@@ -1148,7 +1063,7 @@ class Service {
 
     const percentageFee = this.rateProvider.feeProvider.getPercentageFee(
       swap.pair,
-      false,
+      SwapType.Submarine,
     );
     const baseFee = this.rateProvider.feeProvider.getBaseFee(
       onchainCurrency,
@@ -1243,7 +1158,7 @@ class Service {
         pairHash,
         swap.pair,
         swap.orderSide,
-        false,
+        SwapType.Submarine,
       );
     }
 
@@ -1259,7 +1174,7 @@ class Service {
     swap.invoiceAmount = decodedInvoice.satoshis;
 
     const { destination, features } = await this.nodeSwitch
-      .getSwapNode(this.getCurrency(lightningCurrency)!, swap)
+      .getSwapNode(getCurrency(this.currencies, lightningCurrency)!, swap)
       .decodeInvoice(invoice);
 
     if (this.nodeInfo.isOurNode(destination)) {
@@ -1285,6 +1200,7 @@ class Service {
       rate,
       swap.orderSide,
       swap.invoiceAmount,
+      SwapType.Submarine,
       BaseFeeType.NormalClaim,
     );
 
@@ -1297,7 +1213,10 @@ class Service {
         rate,
         swap.onchainAmount,
         baseFee,
-        this.rateProvider.feeProvider.getPercentageFee(swap.pair, false),
+        this.rateProvider.feeProvider.getPercentageFee(
+          swap.pair,
+          SwapType.Submarine,
+        ),
       );
 
       throw Errors.INVALID_INVOICE_AMOUNT(maxInvoiceAmount);
@@ -1339,7 +1258,7 @@ class Service {
         chainCurrency,
         swap.lockupAddress,
         expectedAmount,
-        getSwapMemo(lightningCurrency, false),
+        getSwapMemo(lightningCurrency, SwapType.Submarine),
       )!,
     };
   };
@@ -1509,13 +1428,7 @@ class Service {
       throw Errors.REVERSE_SWAPS_DISABLED();
     }
 
-    if (
-      (await ReverseSwapRepository.getReverseSwap({
-        preimageHash: getHexString(args.preimageHash),
-      })) !== null
-    ) {
-      throw Errors.SWAP_WITH_PREIMAGE_EXISTS();
-    }
+    await this.checkSwapWithPreimageExists(args.preimageHash);
 
     const side = this.getOrderSide(args.orderSide);
     const { base, quote, rate: pairRate } = this.getPair(args.pairId);
@@ -1525,7 +1438,7 @@ class Service {
         args.pairHash,
         args.pairId,
         side,
-        true,
+        SwapType.ReverseSubmarine,
       );
     }
 
@@ -1534,11 +1447,12 @@ class Service {
       quote,
       side,
     );
-    const sendingCurrency = this.getCurrency(sending);
+    const sendingCurrency = getCurrency(this.currencies, sending);
 
     // Not the pretties way and also not the right spot to do input validation but
     // only at this point in time the type of the sending currency is known
     switch (sendingCurrency.type) {
+      case CurrencyType.Liquid:
       case CurrencyType.BitcoinLike:
         if (args.claimPublicKey === undefined) {
           throw ApiErrors.UNDEFINED_PARAMETER('claimPublicKey');
@@ -1555,12 +1469,7 @@ class Service {
           throw ApiErrors.UNDEFINED_PARAMETER('claimAddress');
         }
 
-        try {
-          // Get a checksum address and verify that the address is valid
-          args.claimAddress = getAddress(args.claimAddress);
-        } catch (error) {
-          throw Errors.INVALID_ETHEREUM_ADDRESS();
-        }
+        args.claimAddress = checkEvmAddress(args.claimAddress);
 
         break;
     }
@@ -1569,7 +1478,7 @@ class Service {
       await this.timeoutDeltaProvider.getTimeout(
         args.pairId,
         side,
-        true,
+        SwapType.ReverseSubmarine,
         args.version,
       );
 
@@ -1586,7 +1495,7 @@ class Service {
     const rate = getRate(pairRate, side, true);
     const feePercent = this.rateProvider.feeProvider.getPercentageFee(
       args.pairId,
-      true,
+      SwapType.ReverseSubmarine,
     );
     const baseFee = this.rateProvider.feeProvider.getBaseFee(
       sendingCurrency.symbol,
@@ -1693,11 +1602,6 @@ class Service {
       throw Errors.ONCHAIN_AMOUNT_TOO_LOW();
     }
 
-    const referralId = await this.getReferralId(
-      args.referralId,
-      args.routingNode,
-    );
-
     const {
       id,
       invoice,
@@ -1710,7 +1614,6 @@ class Service {
       minerFeeInvoice,
       timeoutBlockHeight,
     } = await this.swapManager.createReverseSwap({
-      referralId,
       percentageFee,
       onchainAmount,
       holdInvoiceAmount,
@@ -1730,6 +1633,7 @@ class Service {
       claimPublicKey: args.claimPublicKey,
       claimCovenant: args.claimCovenant || false,
       userAddressSignature: args.userAddressSignature,
+      referralId: await this.getReferralId(args.referralId, args.routingNode),
     });
 
     this.eventHandler.emitSwapCreation(id);
@@ -1758,6 +1662,173 @@ class Service {
     return response;
   };
 
+  // TODO: test
+  public createChainSwap = async (args: {
+    pairId: string;
+    orderSide: string;
+
+    pairHash?: string;
+    referralId?: string;
+
+    preimageHash: Buffer;
+
+    claimPublicKey?: Buffer;
+    refundPublicKey?: Buffer;
+
+    claimAddress?: string;
+
+    userLockAmount?: number;
+    serverLockAmount?: number;
+  }) => {
+    await this.checkSwapWithPreimageExists(args.preimageHash);
+
+    const side = this.getOrderSide(args.orderSide);
+    const { base, quote, rate: pairRate } = this.getPair(args.pairId);
+
+    if (args.pairHash !== undefined) {
+      this.rateProvider.providers[SwapVersion.Taproot].validatePairHash(
+        args.pairHash,
+        args.pairId,
+        side,
+        SwapType.Chain,
+      );
+    }
+
+    const { sending, receiving } = getSendingReceivingCurrency(
+      base,
+      quote,
+      side,
+    );
+    const [sendingCurrency, receivingCurrency] = [
+      getCurrency(this.currencies, sending),
+      getCurrency(this.currencies, receiving),
+    ];
+
+    switch (sendingCurrency.type) {
+      case CurrencyType.Liquid:
+      case CurrencyType.BitcoinLike:
+        if (args.claimPublicKey === undefined) {
+          throw ApiErrors.UNDEFINED_PARAMETER('claimPublicKey');
+        }
+
+        break;
+
+      case CurrencyType.Ether:
+      case CurrencyType.ERC20:
+        if (args.claimAddress === undefined) {
+          throw ApiErrors.UNDEFINED_PARAMETER('claimAddress');
+        }
+
+        args.claimAddress = checkEvmAddress(args.claimAddress);
+
+        break;
+    }
+
+    if (
+      receivingCurrency.type === CurrencyType.Liquid ||
+      receivingCurrency.type === CurrencyType.BitcoinLike
+    ) {
+      if (args.refundPublicKey === undefined) {
+        throw ApiErrors.UNDEFINED_PARAMETER('refundPublicKey');
+      }
+    }
+
+    const sendingTimeoutBlockDelta = (
+      await this.timeoutDeltaProvider.getTimeout(
+        args.pairId,
+        side,
+        SwapType.Chain,
+        SwapVersion.Taproot,
+      )
+    )[0];
+    const receivingTimeoutBlockDelta = TimeoutDeltaProvider.convertBlocks(
+      sending,
+      receiving,
+      sendingTimeoutBlockDelta * 1.25,
+    );
+
+    const rate = getRate(pairRate, side, true);
+    const feePercent = this.rateProvider.feeProvider.getPercentageFee(
+      args.pairId,
+      SwapType.Chain,
+    );
+    const baseFee =
+      this.rateProvider.feeProvider.getSwapBaseFees<ChainSwapMinerFees>(
+        args.pairId,
+        side,
+        SwapType.Chain,
+        SwapVersion.Taproot,
+      ).server;
+
+    let percentageFee: number;
+
+    if (
+      args.userLockAmount !== undefined &&
+      args.serverLockAmount !== undefined
+    ) {
+      throw Errors.USER_AND_SERVER_AMOUNT_SPECIFIED();
+    } else if (args.userLockAmount !== undefined) {
+      this.checkWholeNumber(args.userLockAmount);
+
+      args.serverLockAmount = args.userLockAmount * rate;
+
+      percentageFee = Math.ceil(feePercent * args.serverLockAmount);
+
+      args.serverLockAmount -= percentageFee + baseFee;
+      args.serverLockAmount = Math.floor(args.serverLockAmount);
+    } else if (args.serverLockAmount !== undefined) {
+      this.checkWholeNumber(args.serverLockAmount);
+
+      args.userLockAmount = (args.serverLockAmount + baseFee) / rate;
+      args.userLockAmount = args.userLockAmount / (1 - feePercent);
+      args.userLockAmount = Math.ceil(args.userLockAmount);
+
+      percentageFee = Math.ceil(args.userLockAmount * rate * feePercent);
+    } else {
+      throw Errors.NO_AMOUNT_SPECIFIED();
+    }
+
+    this.verifyAmount(args.pairId, rate, args.userLockAmount, side, true);
+    if (args.serverLockAmount < 1) {
+      throw Errors.ONCHAIN_AMOUNT_TOO_LOW();
+    }
+
+    const res = await this.swapManager.createChainSwap({
+      percentageFee,
+      sendingTimeoutBlockDelta,
+      receivingTimeoutBlockDelta,
+      orderSide: side,
+      baseCurrency: base,
+      quoteCurrency: quote,
+      claimAddress: args.claimAddress,
+      preimageHash: args.preimageHash,
+      userLockAmount: args.userLockAmount,
+      claimPublicKey: args.claimPublicKey,
+      refundPublicKey: args.refundPublicKey,
+      serverLockAmount: args.serverLockAmount,
+      referralId: await this.getReferralId(args.referralId),
+      acceptZeroConf: this.rateProvider.acceptZeroConf(
+        receivingCurrency.symbol,
+        args.userLockAmount,
+      ),
+    });
+
+    this.eventHandler.emitSwapCreation(res.id);
+    return {
+      id: res.id,
+      claimDetails: res.claimDetails,
+      lockupDetails: {
+        ...res.lockupDetails,
+        bip21: this.paymentRequestUtils.encodeBip21(
+          receivingCurrency.symbol,
+          res.lockupDetails.lockupAddress,
+          res.lockupDetails.amount,
+          getSwapMemo(sendingCurrency.symbol, SwapType.Chain),
+        ),
+      },
+    };
+  };
+
   /**
    * Pays a lightning invoice
    */
@@ -1765,7 +1836,7 @@ class Service {
     symbol: string,
     invoice: string,
   ): Promise<PaymentResponse> => {
-    const currency = this.getCurrency(symbol);
+    const currency = getCurrency(this.currencies, symbol);
     const lightningClient = currency.lndClient || currency.clnClient;
 
     if (lightningClient === undefined) {
@@ -1861,6 +1932,26 @@ class Service {
     }
   };
 
+  private checkSwapWithPreimageExists = async (preimageHash: Buffer) => {
+    const hashHex = getHexString(preimageHash);
+
+    const swaps = await Promise.all([
+      SwapRepository.getSwap({
+        preimageHash: hashHex,
+      }),
+      ReverseSwapRepository.getReverseSwap({
+        preimageHash: hashHex,
+      }),
+      ChainSwapRepository.getChainSwap({
+        preimageHash: hashHex,
+      }),
+    ]);
+
+    if (swaps.some((s) => s !== null)) {
+      throw Errors.SWAP_WITH_PREIMAGE_EXISTS();
+    }
+  };
+
   /**
    * Calculates the amount of an invoice for a Submarine Swap
    */
@@ -1895,16 +1986,6 @@ class Service {
     };
   };
 
-  private getCurrency = (symbol: string) => {
-    const currency = this.currencies.get(symbol);
-
-    if (!currency) {
-      throw Errors.CURRENCY_NOT_FOUND(symbol);
-    }
-
-    return currency;
-  };
-
   private getOrderSide = (side: string) => {
     switch (side.toLowerCase()) {
       case 'buy':
@@ -1915,13 +1996,6 @@ class Service {
       default:
         throw Errors.ORDER_SIDE_NOT_FOUND(side);
     }
-  };
-
-  private calculateTimeoutDate = (chain: string, blocksMissing: number) => {
-    return (
-      getUnixTime() +
-      blocksMissing * TimeoutDeltaProvider.blockTimes.get(chain)! * 60
-    );
   };
 
   private checkWholeNumber = (input: number) => {

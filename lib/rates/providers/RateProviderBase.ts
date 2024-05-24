@@ -1,29 +1,48 @@
 import { getChainCurrency, getLightningCurrency } from '../../Utils';
-import { BaseFeeType, OrderSide, SwapVersion } from '../../consts/Enums';
+import {
+  BaseFeeType,
+  OrderSide,
+  SwapType,
+  SwapVersion,
+} from '../../consts/Enums';
 import { PairConfig } from '../../consts/Types';
 import NodeSwitch from '../../swap/NodeSwitch';
 import { Currency } from '../../wallet/WalletManager';
 import FeeProvider from '../FeeProvider';
 
 abstract class RateProviderBase<T> {
-  private static minLimitFactor = 2;
+  private static minLimitFactors = {
+    [SwapType.Submarine]: 2,
+    [SwapType.ReverseSubmarine]: 2,
+    [SwapType.Chain]: 6,
+  };
 
   protected constructor(
     protected readonly currencies: Map<string, Currency>,
     protected readonly feeProvider: FeeProvider,
   ) {}
 
-  public abstract setHardcodedPair(pair: PairConfig): void;
+  public abstract setHardcodedPair(
+    pair: PairConfig,
+    swapTypes: SwapType[],
+  ): void;
 
-  public abstract updatePair(pairId: string, rate: number): void;
+  public abstract updatePair(
+    pairId: string,
+    rate: number,
+    swapTypes: SwapType[],
+  ): void;
 
-  public abstract updateHardcodedPair(pairId: string): void;
+  public abstract updateHardcodedPair(
+    pairId: string,
+    swapTypes: SwapType[],
+  ): void;
 
   public abstract validatePairHash(
     hash: string,
     pairId: string,
     orderSide: OrderSide,
-    isReverse: boolean,
+    type: SwapType,
   ): void;
 
   protected abstract hashPair(pair: T): string;
@@ -34,26 +53,30 @@ abstract class RateProviderBase<T> {
     rate: number,
     configuredMinima: number,
     orderSide?: OrderSide,
-    isReverse?: boolean,
+    type?: SwapType,
   ) => {
     const minima = [configuredMinima];
 
+    const isReverse = type === SwapType.ReverseSubmarine;
+
     const pairsToCheck =
-      orderSide === undefined
+      orderSide === undefined || type === SwapType.Chain
         ? [
             [base, quote],
             [quote, base],
           ]
         : [
             [
-              getChainCurrency(base, quote, orderSide!, isReverse!),
-              getLightningCurrency(base, quote, orderSide!, isReverse!),
+              getChainCurrency(base, quote, orderSide!, isReverse),
+              getLightningCurrency(base, quote, orderSide!, isReverse),
             ],
           ];
 
     pairsToCheck
-      .filter(([chain, lightning]) =>
-        this.isPossibleChainCurrency(chain, lightning),
+      .filter(
+        ([chain, lightning]) =>
+          type === SwapType.Chain ||
+          this.isPossibleChainCurrency(chain, lightning),
       )
       .map(([currency]) => currency)
       .forEach((currency) => {
@@ -62,7 +85,7 @@ abstract class RateProviderBase<T> {
             currency,
             SwapVersion.Legacy,
             BaseFeeType.NormalClaim,
-          ) * RateProviderBase.minLimitFactor;
+          ) * RateProviderBase.minLimitFactors[type || SwapType.Submarine];
 
         if (currency === base) {
           limit *= rate;

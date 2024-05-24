@@ -58,6 +58,7 @@ jest.mock('../../../../lib/db/repositories/SwapRepository', () => ({
   setMinerFee: jest.fn().mockImplementation(async (swap, fee) => ({
     ...swap,
     minerFee: fee,
+    status: SwapUpdateEvent.TransactionClaimed,
   })),
   setSwapStatus: jest
     .fn()
@@ -238,8 +239,8 @@ describe('DeferredClaimer', () => {
     claimer.once('claim', (args) => {
       expect(args.swap).toEqual({
         ...swap,
-        status: SwapUpdateEvent.TransactionClaimPending,
         minerFee: expect.anything(),
+        status: SwapUpdateEvent.TransactionClaimed,
       });
       expect(args.channelCreation).toBeUndefined();
     });
@@ -495,6 +496,8 @@ describe('DeferredClaimer', () => {
   });
 
   test('should broadcast submarine swaps cooperatively', async () => {
+    expect.assertions(7);
+
     await bitcoinClient.generate(1);
     const { swap, preimage, refundKeys } = await createClaimableOutput();
 
@@ -512,6 +515,12 @@ describe('DeferredClaimer', () => {
     );
     musig.aggregateNonces([[details.publicKey, details.pubNonce]]);
     musig.initializeSession(details.transactionHash);
+
+    claimer.once('claim', ({ swap, channelCreation }) => {
+      expect(swap.status).toEqual(SwapUpdateEvent.TransactionClaimed);
+      expect(swap.minerFee).toBeGreaterThan(0);
+      expect(channelCreation).toBeUndefined();
+    });
 
     await claimer.broadcastCooperative(
       swap,

@@ -11,7 +11,6 @@ import {
 } from '../Utils';
 import { ChannelCreationStatus, SwapUpdateEvent } from '../consts/Enums';
 import { AnySwap } from '../consts/Types';
-import ChainSwap from '../db/models/ChainSwap';
 import ChannelCreation from '../db/models/ChannelCreation';
 import ReverseSwap from '../db/models/ReverseSwap';
 import Swap from '../db/models/Swap';
@@ -38,8 +37,11 @@ type SwapNurseryEvents = {
   expiration: AnySwap;
 
   // Swap related events
-  'lockup.failed': Swap | ChainSwap;
-  'zeroconf.rejected': Swap | ChainSwap;
+  'lockup.failed': Swap | ChainSwapInfo;
+  'zeroconf.rejected': {
+    swap: Swap | ChainSwapInfo;
+    transaction: Transaction | LiquidTransaction;
+  };
   'invoice.pending': Swap;
   'invoice.failedToPay': Swap;
   'invoice.paid': Swap;

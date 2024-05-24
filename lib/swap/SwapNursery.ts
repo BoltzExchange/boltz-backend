@@ -215,13 +215,13 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
             await this.setSwapRate(swap);
           }
 
-          this.emit(
-            'zeroconf.rejected',
-            await SwapRepository.setSwapStatus(
+          this.emit('zeroconf.rejected', {
+            transaction,
+            swap: await SwapRepository.setSwapStatus(
               swap,
               SwapUpdateEvent.TransactionZeroConfRejected,
             ),
-          );
+          });
         });
       },
     );
@@ -456,15 +456,13 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
             }) of ${swap.chainSwap.id}: ${reason}`,
           );
 
-          this.emit(
-            'zeroconf.rejected',
-            (
-              await WrappedSwapRepository.setStatus(
-                swap,
-                SwapUpdateEvent.TransactionZeroConfRejected,
-              )
-            ).chainSwap,
-          );
+          this.emit('zeroconf.rejected', {
+            transaction,
+            swap: await WrappedSwapRepository.setStatus(
+              swap,
+              SwapUpdateEvent.TransactionZeroConfRejected,
+            ),
+          });
         });
       },
     );
@@ -1256,13 +1254,11 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
             SwapUpdateEvent.TransactionLockupFailed,
             reason,
           )
-        : (
-            await WrappedSwapRepository.setStatus(
-              swap as ChainSwapInfo,
-              SwapUpdateEvent.TransactionLockupFailed,
-              reason,
-            )
-          ).chainSwap,
+        : await WrappedSwapRepository.setStatus(
+            swap as ChainSwapInfo,
+            SwapUpdateEvent.TransactionLockupFailed,
+            reason,
+          ),
     );
   };
 

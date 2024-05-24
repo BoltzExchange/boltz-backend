@@ -8,10 +8,8 @@ import {
 } from '../consts/Enums';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
 import { AnySwap } from '../consts/Types';
-import ChainSwap from '../db/models/ChainSwap';
 import ChannelCreation from '../db/models/ChannelCreation';
 import ReverseSwap from '../db/models/ReverseSwap';
-import Swap from '../db/models/Swap';
 import SwapNursery from '../swap/SwapNursery';
 import { Currency } from '../wallet/WalletManager';
 
@@ -160,12 +158,13 @@ class EventHandler extends TypedEventEmitter<{
    * Subscribes Swap events
    */
   private subscribeSwapEvents = () => {
-    this.nursery.on('zeroconf.rejected', (swap) => {
+    this.nursery.on('zeroconf.rejected', ({ swap, transaction }) => {
       this.emit('swap.update', {
         id: swap.id,
         status: {
           status: SwapUpdateEvent.TransactionMempool,
           zeroConfRejected: true,
+          transaction: this.formatTransaction(transaction),
         },
       });
     });
@@ -249,7 +248,7 @@ class EventHandler extends TypedEventEmitter<{
       },
     );
 
-    this.nursery.on('lockup.failed', (swap: Swap | ChainSwap) => {
+    this.nursery.on('lockup.failed', (swap) => {
       this.emit('swap.update', {
         id: swap.id,
         status: {
@@ -303,31 +302,33 @@ class EventHandler extends TypedEventEmitter<{
     transaction: string | Transaction | LiquidTransaction,
     confirmed: boolean,
   ) => {
+    this.emit('swap.update', {
+      id: swap.id,
+      status: {
+        status: swap.status as SwapUpdateEvent,
+        transaction: {
+          ...this.formatTransaction(transaction),
+          eta: confirmed ? undefined : SwapNursery.reverseSwapMempoolEta,
+        },
+      },
+    });
+  };
+
+  private formatTransaction = (
+    transaction: string | Transaction | LiquidTransaction,
+  ) => {
     if (
       transaction instanceof Transaction ||
       transaction instanceof LiquidTransaction
     ) {
-      this.emit('swap.update', {
-        id: swap.id,
-        status: {
-          status: swap.status as SwapUpdateEvent,
-          transaction: {
-            id: transaction.getId(),
-            hex: transaction.toHex(),
-            eta: confirmed ? undefined : SwapNursery.reverseSwapMempoolEta,
-          },
-        },
-      });
+      return {
+        id: transaction.getId(),
+        hex: transaction.toHex(),
+      };
     } else {
-      this.emit('swap.update', {
-        id: swap.id,
-        status: {
-          status: swap.status as SwapUpdateEvent,
-          transaction: {
-            id: transaction,
-          },
-        },
-      });
+      return {
+        id: transaction,
+      };
     }
   };
 }

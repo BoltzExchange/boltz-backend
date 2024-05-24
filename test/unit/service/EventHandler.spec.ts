@@ -165,6 +165,7 @@ describe('EventHandler', () => {
         status: SwapUpdateEvent.TransactionMempool,
         transaction: {
           id: transactionHash,
+          eta: SwapNursery.reverseSwapMempoolEta,
         },
       });
     });
@@ -249,15 +250,21 @@ describe('EventHandler', () => {
   test('should emit when 0-conf transactions are rejected', () => {
     expect.assertions(2);
 
+    const tx = mockTransaction();
+
     eventHandler.once('swap.update', ({ id, status }) => {
       expect(id).toEqual(swap.id);
       expect(status).toEqual({
         zeroConfRejected: true,
         status: SwapUpdateEvent.TransactionMempool,
+        transaction: {
+          id: tx.getId(),
+          hex: tx.toHex(),
+        },
       });
     });
 
-    nursery.emit('zeroconf.rejected', swap);
+    nursery.emit('zeroconf.rejected', { swap, transaction: tx });
   });
 
   test('should emit on submarine swap claims', () => {
@@ -371,6 +378,7 @@ describe('EventHandler', () => {
         status: SwapUpdateEvent.TransactionMempool,
         transaction: {
           id: transactionHash,
+          eta: SwapNursery.reverseSwapMempoolEta,
         },
       });
     });

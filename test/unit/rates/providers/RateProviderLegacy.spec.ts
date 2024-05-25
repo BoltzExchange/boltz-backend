@@ -1,5 +1,10 @@
 import { getPairId, hashString } from '../../../../lib/Utils';
-import { SwapType, SwapVersion } from '../../../../lib/consts/Enums';
+import {
+  OrderSide,
+  PercentageFeeType,
+  SwapType,
+  SwapVersion,
+} from '../../../../lib/consts/Enums';
 import FeeProvider from '../../../../lib/rates/FeeProvider';
 import RateProviderLegacy from '../../../../lib/rates/providers/RateProviderLegacy';
 import Errors from '../../../../lib/service/Errors';
@@ -33,10 +38,20 @@ jest.mock('../../../../lib/rates/FeeProvider', () => {
           },
         ],
       ]),
-      getPercentageFees: jest.fn().mockReturnValue({
-        percentage: 0.5,
-        percentageSwapIn: 0.1,
-      }),
+      getPercentageFee: jest
+        .fn()
+        .mockImplementation(
+          (_pair: string, _orderSide: OrderSide, type: SwapType) => {
+            switch (type) {
+              case SwapType.Submarine:
+                return 0.1;
+              case SwapType.ReverseSubmarine:
+                return 0.5;
+              case SwapType.Chain:
+                return 0.2;
+            }
+          },
+        ),
       getBaseFee: jest.fn().mockImplementation((currency: string) => {
         switch (currency) {
           case 'BTC':
@@ -95,12 +110,16 @@ describe('RateProviderLegacy', () => {
       hash: provider['hashPair'](provider.pairs.get('L-BTC/BTC')!),
       limits: provider['getLimits']('L-BTC/BTC', pairConfigs[0].rate),
       fees: {
-        percentage:
-          mockedFeeProvider.getPercentageFees('L-BTC/BTC')[
-            SwapType.ReverseSubmarine
-          ],
-        percentageSwapIn:
-          mockedFeeProvider.getPercentageFees('L-BTC/BTC')[SwapType.Submarine],
+        percentage: mockedFeeProvider.getPercentageFee(
+          'L-BTC/BTC',
+          OrderSide.BUY,
+          SwapType.ReverseSubmarine,
+        ),
+        percentageSwapIn: mockedFeeProvider.getPercentageFee(
+          'L-BTC/BTC',
+          OrderSide.BUY,
+          SwapType.Submarine,
+        ),
         minerFees: {
           baseAsset: {
             normal: 0,
@@ -119,6 +138,19 @@ describe('RateProviderLegacy', () => {
         },
       },
     });
+
+    expect(mockedFeeProvider.getPercentageFee).toHaveBeenCalledWith(
+      'L-BTC/BTC',
+      OrderSide.BUY,
+      SwapType.Submarine,
+      PercentageFeeType.Display,
+    );
+    expect(mockedFeeProvider.getPercentageFee).toHaveBeenCalledWith(
+      'L-BTC/BTC',
+      OrderSide.BUY,
+      SwapType.ReverseSubmarine,
+      PercentageFeeType.Display,
+    );
   });
 
   test('should set hardcoded pair', () => {
@@ -130,12 +162,16 @@ describe('RateProviderLegacy', () => {
       hash: provider['hashPair'](provider.pairs.get('L-BTC/BTC')!),
       limits: provider['getLimits']('L-BTC/BTC', pairConfigs[0].rate),
       fees: {
-        percentage:
-          mockedFeeProvider.getPercentageFees('L-BTC/BTC')[
-            SwapType.ReverseSubmarine
-          ],
-        percentageSwapIn:
-          mockedFeeProvider.getPercentageFees('L-BTC/BTC')[SwapType.Submarine],
+        percentage: mockedFeeProvider.getPercentageFee(
+          'L-BTC/BTC',
+          OrderSide.BUY,
+          SwapType.ReverseSubmarine,
+        ),
+        percentageSwapIn: mockedFeeProvider.getPercentageFee(
+          'L-BTC/BTC',
+          OrderSide.BUY,
+          SwapType.Submarine,
+        ),
         minerFees: {
           baseAsset: {
             normal: 1333,
@@ -165,12 +201,16 @@ describe('RateProviderLegacy', () => {
       hash: provider['hashPair'](provider.pairs.get('L-BTC/BTC')!),
       limits: provider['getLimits']('L-BTC/BTC', pairConfigs[0].rate),
       fees: {
-        percentage:
-          mockedFeeProvider.getPercentageFees('L-BTC/BTC')[
-            SwapType.ReverseSubmarine
-          ],
-        percentageSwapIn:
-          mockedFeeProvider.getPercentageFees('L-BTC/BTC')[SwapType.Submarine],
+        percentage: mockedFeeProvider.getPercentageFee(
+          'L-BTC/BTC',
+          OrderSide.BUY,
+          SwapType.ReverseSubmarine,
+        ),
+        percentageSwapIn: mockedFeeProvider.getPercentageFee(
+          'L-BTC/BTC',
+          OrderSide.BUY,
+          SwapType.Submarine,
+        ),
         minerFees: {
           baseAsset: {
             normal: 1333,

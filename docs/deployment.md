@@ -157,6 +157,10 @@ swapInFee = 0.2
 maxSwapAmount = 10_000_00
 minSwapAmount = 100_000
 
+    [pairs.chainSwapFee]
+    buy = 0.1
+    sell = 0.15
+
     [pairs.timeoutDelta]
     reverse = 1440
     swapMinimal = 1440

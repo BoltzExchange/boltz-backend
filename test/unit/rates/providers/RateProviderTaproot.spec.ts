@@ -7,11 +7,20 @@ import Errors from '../../../../lib/service/Errors';
 jest.mock('../../../../lib/rates/FeeProvider', () => {
   return jest.fn().mockImplementation(() => {
     return {
-      getPercentageFees: jest.fn().mockReturnValue({
-        [SwapType.Chain]: 0.25,
-        [SwapType.Submarine]: 0.1,
-        [SwapType.ReverseSubmarine]: 0.5,
-      }),
+      getPercentageFee: jest
+        .fn()
+        .mockImplementation(
+          (_pair: string, _orderSide: OrderSide, type: SwapType) => {
+            switch (type) {
+              case SwapType.Submarine:
+                return 0.1;
+              case SwapType.ReverseSubmarine:
+                return 0.5;
+              case SwapType.Chain:
+                return 0.25;
+            }
+          },
+        ),
       getBaseFee: jest.fn().mockImplementation((currency: string) => {
         switch (currency) {
           case 'BTC':

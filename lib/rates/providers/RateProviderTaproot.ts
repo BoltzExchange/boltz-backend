@@ -8,7 +8,12 @@ import {
   mapToObject,
   splitPairId,
 } from '../../Utils';
-import { OrderSide, SwapType, SwapVersion } from '../../consts/Enums';
+import {
+  OrderSide,
+  PercentageFeeType,
+  SwapType,
+  SwapVersion,
+} from '../../consts/Enums';
 import { PairConfig } from '../../consts/Types';
 import Errors from '../../service/Errors';
 import NodeSwitch from '../../swap/NodeSwitch';
@@ -325,7 +330,12 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
       rate: rate,
       limits: this.getLimits(pairId, orderSide, type, rate) as T['limits'],
       fees: {
-        percentage: this.feeProvider.getPercentageFees(pairId)[type],
+        percentage: this.feeProvider.getPercentageFee(
+          pairId,
+          orderSide,
+          type,
+          PercentageFeeType.Display,
+        ),
         minerFees,
       },
     } as T;

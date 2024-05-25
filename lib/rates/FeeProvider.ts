@@ -14,6 +14,7 @@ import {
   BaseFeeType,
   CurrencyType,
   OrderSide,
+  PercentageFeeType,
   SwapType,
   SwapVersion,
   swapTypeToString,
@@ -36,7 +37,10 @@ type TransactionSizes = {
 };
 
 type PercentageFees = {
-  [SwapType.Chain]: number;
+  [SwapType.Chain]: {
+    [OrderSide.BUY]: number;
+    [OrderSide.SELL]: number;
+  };
   [SwapType.Submarine]: number;
   [SwapType.ReverseSubmarine]: number;
 };
@@ -142,10 +146,15 @@ class FeeProvider {
         );
       }
 
+      const prepareFee = (fee?: number) => fee || percentage;
+
       this.percentageFees.set(pairId, {
-        [SwapType.ReverseSubmarine]: percentage / 100,
-        [SwapType.Chain]: (pair.chainSwapFee || percentage) / 100,
-        [SwapType.Submarine]: (pair.swapInFee || percentage) / 100,
+        [SwapType.Submarine]: prepareFee(pair.swapInFee),
+        [SwapType.ReverseSubmarine]: prepareFee(percentage),
+        [SwapType.Chain]: {
+          [OrderSide.BUY]: prepareFee(pair.chainSwapFee?.buy),
+          [OrderSide.SELL]: prepareFee(pair.chainSwapFee?.sell),
+        },
       });
     });
 
@@ -153,16 +162,19 @@ class FeeProvider {
       `Using fees: ${stringify(
         mapToObject(
           new Map<string, any>(
-            Array.from(this.percentageFees.keys()).map((pair) => {
-              const fees = this.getPercentageFees(pair);
+            Array.from(this.percentageFees.entries()).map(([pair, fees]) => {
+              const chainFees = fees[SwapType.Chain];
               return [
                 pair,
                 {
-                  [swapTypeToString(SwapType.Chain)]: fees[SwapType.Chain],
                   [swapTypeToString(SwapType.Submarine)]:
                     fees[SwapType.Submarine],
                   [swapTypeToString(SwapType.ReverseSubmarine)]:
                     fees[SwapType.ReverseSubmarine],
+                  [swapTypeToString(SwapType.Chain)]: {
+                    buy: chainFees[OrderSide.BUY],
+                    sell: chainFees[OrderSide.SELL],
+                  },
                 },
               ];
             }),
@@ -172,19 +184,26 @@ class FeeProvider {
     );
   };
 
-  public getPercentageFees = (pairId: string): PercentageFees => {
-    const percentages = this.percentageFees.get(pairId)!;
-
-    return {
-      [SwapType.Chain]: percentages[SwapType.Chain] * 100,
-      [SwapType.Submarine]: percentages[SwapType.Submarine] * 100,
-      [SwapType.ReverseSubmarine]: percentages[SwapType.ReverseSubmarine] * 100,
-    };
-  };
-
-  public getPercentageFee = (pair: string, type: SwapType): number => {
+  public getPercentageFee = (
+    pair: string,
+    orderSide: OrderSide,
+    type: SwapType,
+    feeType: PercentageFeeType = PercentageFeeType.Calculation,
+  ): number => {
     const percentages = this.percentageFees.get(pair);
-    return percentages ? percentages[type] : 0;
+    if (percentages === undefined) {
+      return 0;
+    }
+
+    const percentageType = percentages[type];
+    const percentage =
+      typeof percentageType === 'number'
+        ? percentageType
+        : percentageType[orderSide];
+
+    return feeType === PercentageFeeType.Calculation
+      ? percentage / 100
+      : percentage;
   };
 
   public getFees = (
@@ -199,7 +218,12 @@ class FeeProvider {
     baseFee: number;
     percentageFee: number;
   } => {
-    let percentageFee = this.getPercentageFee(pair, type);
+    let percentageFee = this.getPercentageFee(
+      pair,
+      orderSide,
+      type,
+      PercentageFeeType.Calculation,
+    );
 
     if (percentageFee !== 0) {
       percentageFee = percentageFee * amount * rate;

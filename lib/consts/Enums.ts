@@ -187,3 +187,8 @@ export const swapVersionToString = (version: SwapVersion): string => {
       return 'Legacy';
   }
 };
+
+export enum PercentageFeeType {
+  Display,
+  Calculation,
+}

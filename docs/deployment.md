@@ -154,8 +154,17 @@ rate = 1
 fee = 0.5
 swapInFee = 0.2
 
-maxSwapAmount = 10_000_00
+maxSwapAmount = 1_000_000
 minSwapAmount = 100_000
+
+    [pairs.chainSwap]
+    # If not set, the "fee" will be used
+    buyFee = 0.1
+    sellFee = 0.15
+
+    # Overrides min and max swap amounts for chain swaps of this pair
+    minSwapAmount = 100_000
+    maxSwapAmount = 10_000_000
 
     [pairs.timeoutDelta]
     reverse = 1440

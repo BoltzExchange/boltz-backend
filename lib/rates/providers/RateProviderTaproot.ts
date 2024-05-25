@@ -8,8 +8,13 @@ import {
   mapToObject,
   splitPairId,
 } from '../../Utils';
-import { OrderSide, SwapType, SwapVersion } from '../../consts/Enums';
-import { PairConfig } from '../../consts/Types';
+import {
+  OrderSide,
+  PercentageFeeType,
+  SwapType,
+  SwapVersion,
+} from '../../consts/Enums';
+import { ChainSwapPairConfig, PairConfig } from '../../consts/Types';
 import Errors from '../../service/Errors';
 import NodeSwitch from '../../swap/NodeSwitch';
 import { Currency } from '../../wallet/WalletManager';
@@ -325,7 +330,12 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
       rate: rate,
       limits: this.getLimits(pairId, orderSide, type, rate) as T['limits'],
       fees: {
-        percentage: this.feeProvider.getPercentageFees(pairId)[type],
+        percentage: this.feeProvider.getPercentageFee(
+          pairId,
+          orderSide,
+          type,
+          PercentageFeeType.Display,
+        ),
         minerFees,
       },
     } as T;
@@ -346,14 +356,13 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
     }
 
     const { base, quote } = splitPairId(pair);
-
     const result = {
-      maximal: config.maxSwapAmount,
+      maximal: this.getPairLimit('maxSwapAmount', config, type),
       minimal: this.adjustMinimaForFees(
         base,
         quote,
         rate,
-        config.minSwapAmount,
+        this.getPairLimit('minSwapAmount', config, type),
         orderSide,
         type,
       ),
@@ -369,6 +378,21 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
       ...result,
       maximalZeroConf: this.zeroConfAmounts.get(chainCurrency)!,
     };
+  };
+
+  private getPairLimit = (
+    entry: keyof (ChainSwapPairConfig | PairConfig),
+    config: PairConfig,
+    type: SwapType,
+  ): number => {
+    if (type !== SwapType.Chain) {
+      return config[entry];
+    }
+
+    const chainSwapConfigVar = config.chainSwap
+      ? config.chainSwap[entry]
+      : undefined;
+    return chainSwapConfigVar || config[entry];
   };
 
   private isPossibleCombination = (

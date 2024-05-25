@@ -29,6 +29,14 @@ export type Token = {
   decimals: number;
 };
 
+export type ChainSwapPairConfig = {
+  buyFee?: number;
+  sellFee?: number;
+
+  minSwapAmount?: number;
+  maxSwapAmount?: number;
+};
+
 export type PairConfig = {
   base: string;
   quote: string;
@@ -36,7 +44,6 @@ export type PairConfig = {
   // Percentage of the amount that will be charged as fee
   fee?: number;
   swapInFee?: number;
-  chainSwapFee?: number;
 
   // If there is a hardcoded rate the APIs of the exchanges will not be queried
   rate?: number;
@@ -53,6 +60,8 @@ export type PairConfig = {
 
   minSwapAmount: number;
   maxSwapAmount: number;
+
+  chainSwap?: ChainSwapPairConfig;
 };
 
 /**

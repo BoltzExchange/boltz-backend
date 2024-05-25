@@ -36,6 +36,7 @@ import {
   BaseFeeType,
   CurrencyType,
   OrderSide,
+  PercentageFeeType,
   ServiceInfo,
   ServiceWarning,
   SwapType,
@@ -1063,7 +1064,9 @@ class Service {
 
     const percentageFee = this.rateProvider.feeProvider.getPercentageFee(
       swap.pair,
+      swap.orderSide,
       SwapType.Submarine,
+      PercentageFeeType.Calculation,
     );
     const baseFee = this.rateProvider.feeProvider.getBaseFee(
       onchainCurrency,
@@ -1215,7 +1218,9 @@ class Service {
         baseFee,
         this.rateProvider.feeProvider.getPercentageFee(
           swap.pair,
+          swap.orderSide,
           SwapType.Submarine,
+          PercentageFeeType.Calculation,
         ),
       );
 
@@ -1495,7 +1500,9 @@ class Service {
     const rate = getRate(pairRate, side, true);
     const feePercent = this.rateProvider.feeProvider.getPercentageFee(
       args.pairId,
+      side,
       SwapType.ReverseSubmarine,
+      PercentageFeeType.Calculation,
     );
     const baseFee = this.rateProvider.feeProvider.getBaseFee(
       sendingCurrency.symbol,
@@ -1750,7 +1757,9 @@ class Service {
     const rate = getRate(pairRate, side, true);
     const feePercent = this.rateProvider.feeProvider.getPercentageFee(
       args.pairId,
+      side,
       SwapType.Chain,
+      PercentageFeeType.Calculation,
     );
     const baseFee =
       this.rateProvider.feeProvider.getSwapBaseFees<ChainSwapMinerFees>(

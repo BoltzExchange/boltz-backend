@@ -22,6 +22,7 @@ import {
   BaseFeeType,
   CurrencyType,
   OrderSide,
+  PercentageFeeType,
   ServiceInfo,
   ServiceWarning,
   SwapType,
@@ -1806,7 +1807,9 @@ describe('Service', () => {
     expect(mockGetPercentageFee).toHaveBeenCalledTimes(1);
     expect(mockGetPercentageFee).toHaveBeenCalledWith(
       pair,
+      OrderSide.BUY,
       SwapType.ReverseSubmarine,
+      PercentageFeeType.Calculation,
     );
 
     expect(mockGetBaseFee).toHaveBeenCalledTimes(1);

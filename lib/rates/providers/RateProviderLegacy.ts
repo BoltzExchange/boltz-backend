@@ -1,5 +1,10 @@
 import { getPairId, hashString, splitPairId } from '../../Utils';
-import { SwapType, SwapVersion } from '../../consts/Enums';
+import {
+  OrderSide,
+  PercentageFeeType,
+  SwapType,
+  SwapVersion,
+} from '../../consts/Enums';
 import { PairConfig } from '../../consts/Types';
 import Errors from '../../service/Errors';
 import { Currency } from '../../wallet/WalletManager';
@@ -51,14 +56,23 @@ class RateProviderLegacy extends RateProviderBase<PairTypeLegacy> {
   public setHardcodedPair = (pair: PairConfig) => {
     const id = getPairId(pair);
 
-    const percentageFees = this.feeProvider.getPercentageFees(id);
     const hardcodedPair = {
       hash: '',
       rate: pair.rate!,
       limits: this.getLimits(id, pair.rate!),
       fees: {
-        percentage: percentageFees[SwapType.ReverseSubmarine],
-        percentageSwapIn: percentageFees[SwapType.Submarine],
+        percentageSwapIn: this.feeProvider.getPercentageFee(
+          id,
+          OrderSide.BUY,
+          SwapType.Submarine,
+          PercentageFeeType.Display,
+        ),
+        percentage: this.feeProvider.getPercentageFee(
+          id,
+          OrderSide.BUY,
+          SwapType.ReverseSubmarine,
+          PercentageFeeType.Display,
+        ),
         minerFees: {
           baseAsset: emptyMinerFees,
           quoteAsset: emptyMinerFees,
@@ -73,14 +87,23 @@ class RateProviderLegacy extends RateProviderBase<PairTypeLegacy> {
   public updatePair = (pairId: string, rate: number) => {
     const { base, quote } = splitPairId(pairId);
 
-    const percentageFees = this.feeProvider.getPercentageFees(pairId);
     const pair = {
       rate,
       hash: '',
       limits: this.getLimits(pairId, rate),
       fees: {
-        percentage: percentageFees[SwapType.ReverseSubmarine],
-        percentageSwapIn: percentageFees[SwapType.Submarine],
+        percentageSwapIn: this.feeProvider.getPercentageFee(
+          pairId,
+          OrderSide.BUY,
+          SwapType.Submarine,
+          PercentageFeeType.Display,
+        ),
+        percentage: this.feeProvider.getPercentageFee(
+          pairId,
+          OrderSide.BUY,
+          SwapType.ReverseSubmarine,
+          PercentageFeeType.Display,
+        ),
         minerFees: {
           baseAsset: this.feeProvider.minerFees.get(base)![SwapVersion.Legacy],
           quoteAsset:

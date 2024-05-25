@@ -48,6 +48,11 @@ describe('RateProviderTaproot', () => {
       rate: 1,
       minSwapAmount: 1_000,
       maxSwapAmount: 1_000_000,
+
+      chainSwap: {
+        minSwapAmount: 100_000,
+        maxSwapAmount: 1_000_000,
+      },
     },
   ];
 
@@ -431,11 +436,90 @@ describe('RateProviderTaproot', () => {
     },
   );
 
+  test('should get chain swap limits', () => {
+    expect(
+      provider['getLimits']('L-BTC/BTC', OrderSide.BUY, SwapType.Chain, 1),
+    ).toEqual({
+      minimal: 100_000,
+      maximal: 1_000_000,
+      maximalZeroConf: 0,
+    });
+  });
+
   test('should throw when getting limits for pair that does not exist', () => {
     const pair = 'not/found';
     expect(() =>
       provider['getLimits'](pair, OrderSide.BUY, SwapType.Submarine, 1),
     ).toThrow(`Could not get limits for pair: ${pair}`);
+  });
+
+  describe('getPairLimit', () => {
+    test.each`
+      type
+      ${SwapType.Submarine}
+      ${SwapType.ReverseSubmarine}
+    `('should use standard config for type $type', ({ type }) => {
+      const value = 100_000;
+
+      expect(
+        provider['getPairLimit'](
+          'maxSwapAmount',
+          {
+            maxSwapAmount: value,
+            chainSwap: {
+              maxSwapAmount: value,
+            },
+          } as any,
+          type,
+        ),
+      ).toEqual(value);
+    });
+
+    test('should coalesce from standard config when chain swap config is undefined', () => {
+      const value = 100_000;
+
+      expect(
+        provider['getPairLimit'](
+          'maxSwapAmount',
+          {
+            maxSwapAmount: value,
+          } as any,
+          SwapType.Chain,
+        ),
+      ).toEqual(value);
+    });
+
+    test('should coalesce from standard config when value in chain swap config is undefined', () => {
+      const value = 100_000;
+
+      expect(
+        provider['getPairLimit'](
+          'maxSwapAmount',
+          {
+            maxSwapAmount: value,
+            chainSwap: {},
+          } as any,
+          SwapType.Chain,
+        ),
+      ).toEqual(value);
+    });
+
+    test('should use value from chain swap config when defined and type is chain swap', () => {
+      const value = 100_000;
+
+      expect(
+        provider['getPairLimit'](
+          'maxSwapAmount',
+          {
+            maxSwapAmount: 123,
+            chainSwap: {
+              maxSwapAmount: value,
+            },
+          } as any,
+          SwapType.Chain,
+        ),
+      ).toEqual(value);
+    });
   });
 
   test.each`

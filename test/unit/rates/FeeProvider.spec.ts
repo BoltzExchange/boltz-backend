@@ -67,9 +67,9 @@ describe('FeeProvider', () => {
         quote: 'BTC',
         fee: 0,
         swapInFee: -1,
-        chainSwapFee: {
-          buy: 1,
-          sell: 2,
+        chainSwap: {
+          buyFee: 1,
+          sellFee: 2,
         },
         minSwapAmount: 1,
         maxSwapAmount: 2,

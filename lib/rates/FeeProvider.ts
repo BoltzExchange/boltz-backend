@@ -152,8 +152,8 @@ class FeeProvider {
         [SwapType.Submarine]: prepareFee(pair.swapInFee),
         [SwapType.ReverseSubmarine]: prepareFee(percentage),
         [SwapType.Chain]: {
-          [OrderSide.BUY]: prepareFee(pair.chainSwapFee?.buy),
-          [OrderSide.SELL]: prepareFee(pair.chainSwapFee?.sell),
+          [OrderSide.BUY]: prepareFee(pair.chainSwap?.buyFee),
+          [OrderSide.SELL]: prepareFee(pair.chainSwap?.sellFee),
         },
       });
     });

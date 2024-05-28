@@ -268,6 +268,7 @@ class Controller {
 
         default:
           errorResponse(this.logger, req, res, 'invalid swap type');
+          break;
       }
     } catch (error) {
       errorResponse(this.logger, req, res, error);

@@ -174,6 +174,7 @@ swapTypes = ["submarine", "reverse", "chain"]
     maxSwapAmount = 10_000_000
 
     [pairs.timeoutDelta]
+    chain = 1440
     reverse = 1440
     swapMinimal = 1440
     swapMaximal = 2880

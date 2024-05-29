@@ -279,16 +279,16 @@ class FeeProvider {
 
       const sendingMinerfees = this.minerFees.get(
         getSendingChain(base, quote, orderSide),
-      )![SwapVersion.Taproot].reverse;
+      )![SwapVersion.Taproot];
       const receivingMinerFees = this.minerFees.get(
         getReceivingChain(base, quote, orderSide),
-      )![SwapVersion.Taproot].reverse;
+      )![SwapVersion.Taproot];
 
       return {
-        server: sendingMinerfees.lockup + receivingMinerFees.claim,
+        server: sendingMinerfees.reverse.lockup + receivingMinerFees.normal,
         user: {
-          claim: sendingMinerfees.claim,
-          lockup: receivingMinerFees.lockup,
+          claim: sendingMinerfees.reverse.claim,
+          lockup: receivingMinerFees.reverse.lockup,
         },
       } as ChainSwapMinerFees as T;
     } else {

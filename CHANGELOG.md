@@ -3,6 +3,81 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [3.7.0](https://github.com/BoltzExchange/boltz-backend/compare/v3.6.0..v3.7.0) - 2024-05-29
+
+### Bug Fixes
+
+- mpay override implementation (#541) - ([22d3ddf](https://github.com/BoltzExchange/boltz-backend/commit/22d3ddf59bcdd84bf3f6e308976789725ffb7f95))
+- chain swap errors in Swagger - ([65680d0](https://github.com/BoltzExchange/boltz-backend/commit/65680d08254e5a80699289c51de8b087036c3d38))
+- chain swap refund error - ([48bd28a](https://github.com/BoltzExchange/boltz-backend/commit/48bd28af471d29b468907e353825c484053c3291))
+- chain swap pair mapping - ([eb6b30c](https://github.com/BoltzExchange/boltz-backend/commit/eb6b30c92c73cc0f8b01131f5a26716a8b3999f8))
+- CLI command to coop claim chain swaps - ([1efdee9](https://github.com/BoltzExchange/boltz-backend/commit/1efdee9f100b9b4e54eca8aedd764401a3f1cfda))
+- regression in getpairs endpoint - ([4ee85b0](https://github.com/BoltzExchange/boltz-backend/commit/4ee85b065aeac17913ced66bd3a6682d04cf3ed1))
+- increase chain swap min swap size multiplier - ([1eb62d8](https://github.com/BoltzExchange/boltz-backend/commit/1eb62d86a668e9c16ef7a859af0865581c1e6764))
+- chain swap expiry - ([2a5f2af](https://github.com/BoltzExchange/boltz-backend/commit/2a5f2af28c70d896d52c0d782d5d567d84082d71))
+- chain swap pending lockup transaction tracking - ([101a12b](https://github.com/BoltzExchange/boltz-backend/commit/101a12b6543889c8617dd79bcc47ad3e11c9b941))
+- lock when broadcasting cooperative claim - ([21ae1f4](https://github.com/BoltzExchange/boltz-backend/commit/21ae1f4e6ee9a9cf10404eaa283dc31cf2b22a68))
+- include timeout ETA in chain swap transactions endpoint - ([38f3351](https://github.com/BoltzExchange/boltz-backend/commit/38f3351b6e6c1ff2bc78c22ef3a9db87a43dc615))
+- consistent 0-conf rejected status on restart - ([323c30f](https://github.com/BoltzExchange/boltz-backend/commit/323c30f6bad7fc4cc9744a0d046044df4d9f1088))
+- ignore empty swap options when fetching ChainSwaps - ([784a796](https://github.com/BoltzExchange/boltz-backend/commit/784a796d83659f9ad347dc6298ba127ba04cdbc7))
+- use script path fee estimation for chain swaps - ([ddc6878](https://github.com/BoltzExchange/boltz-backend/commit/ddc68782b954f26ff65136a842e15115704a1191))
+
+### Documentation
+
+- add claim covenant and magic routing hints (#536) - ([bc82896](https://github.com/BoltzExchange/boltz-backend/commit/bc82896467dcfa78f2245651b86d99c6cd436eed))
+- Swagger for chain swaps - ([660bf3b](https://github.com/BoltzExchange/boltz-backend/commit/660bf3bbf48169a61ad192a0a868f56fe4143d6a))
+- add missing swapTypes for pairs config - ([d80d13a](https://github.com/BoltzExchange/boltz-backend/commit/d80d13a05720d6193b510bb8636df73e78f74165))
+- add missing chain swap timeout in config - ([24ff6bc](https://github.com/BoltzExchange/boltz-backend/commit/24ff6bc65059f7a4d16c43feaa74faff8a4293ec))
+
+### Features
+
+- allow specifying referral via URL query (#543) - ([8398fee](https://github.com/BoltzExchange/boltz-backend/commit/8398fee96bc36d3b40a7880e1e31d6a501b2e817))
+- chain swap POC - ([02906af](https://github.com/BoltzExchange/boltz-backend/commit/02906af582798790d76e6c67928cbdcd67032b6e))
+- FeeProvider for chain swaps - ([f444b11](https://github.com/BoltzExchange/boltz-backend/commit/f444b116375cef1371c96f52d4c450fd0e3c7ba4))
+- SQL queries for chain swaps - ([86fc8b7](https://github.com/BoltzExchange/boltz-backend/commit/86fc8b7b51f98bd995fba8db31879d53472545bb))
+- recreate filters for chain swaps - ([2ba0a92](https://github.com/BoltzExchange/boltz-backend/commit/2ba0a9208dccad35e99966f9e431bce42defbf63))
+- cooperative chain swap claims - ([9ba1065](https://github.com/BoltzExchange/boltz-backend/commit/9ba1065b47d87185cbc435ca8d53f62efd775755))
+- cooperative chain swap refunds - ([9dbcbf6](https://github.com/BoltzExchange/boltz-backend/commit/9dbcbf6395515cc812ae5b1eb56ed1f05cda2ee0))
+- query chain swap transactions - ([c1f72d3](https://github.com/BoltzExchange/boltz-backend/commit/c1f72d309095ae428274e0adc39c2e46fb271f86))
+- EVM chain swaps - ([25ef8dd](https://github.com/BoltzExchange/boltz-backend/commit/25ef8dd4998d265a70bf3348dc5ebd13c9122241))
+- separate timeout block delta for chain swaps - ([76bcc4c](https://github.com/BoltzExchange/boltz-backend/commit/76bcc4cae2f720a89ab1bf2e15e68baad88345eb))
+- allow configuring API endpoint of CLI - ([fca6b06](https://github.com/BoltzExchange/boltz-backend/commit/fca6b0649830a3b40a447ff0a0ffc64a6063fb38))
+- include reverse routing hints in swapinfo - ([85cb218](https://github.com/BoltzExchange/boltz-backend/commit/85cb2185b2f61c6cc4cee0ac2e0c22df29e885e5))
+- partialy cooperative chain swap claims - ([520b921](https://github.com/BoltzExchange/boltz-backend/commit/520b921d6713da1e106c973bd324019c3f3cfd2c))
+- always include transaction in related events - ([612540f](https://github.com/BoltzExchange/boltz-backend/commit/612540ff20fa84cda44a73b318f2bf62e64ce855))
+- chain swap fee per direction - ([3319205](https://github.com/BoltzExchange/boltz-backend/commit/3319205e6efa2c5852c6deea72fb1510e765b5de))
+- separate swap amount limits for chain swaps - ([d90c7b4](https://github.com/BoltzExchange/boltz-backend/commit/d90c7b402d6178bc51fb96ca4a387cfec45314f1))
+
+### Miscellaneous Chores
+
+- bump undici and @discordjs/rest (#542) - ([05614cc](https://github.com/BoltzExchange/boltz-backend/commit/05614cc502f98750a0639faa0ba4b0ce1b9b8308))
+- move partners to license file (#546) - ([c4f6287](https://github.com/BoltzExchange/boltz-backend/commit/c4f62876d46fc2e77ab2306e4dbbf541b8c0c563))
+- bump requests from 2.31.0 to 2.32.0 in /tools (#548) - ([34d2c6d](https://github.com/BoltzExchange/boltz-backend/commit/34d2c6d81821e038427e38fe5046ba97d3527b09))
+- update dependencies - ([945d5ef](https://github.com/BoltzExchange/boltz-backend/commit/945d5efe29f3bef637f728bf40d296686a24e980))
+- address review feedback - ([f0ff23a](https://github.com/BoltzExchange/boltz-backend/commit/f0ff23a48f30455b5a6a3be261c8baad213415ae))
+- update Docker images - ([c69a575](https://github.com/BoltzExchange/boltz-backend/commit/c69a5758a5f4ee7f73b4bbc6f10fa41caa581246))
+- update NPM dependencies (#552) - ([adf2f14](https://github.com/BoltzExchange/boltz-backend/commit/adf2f14555b52b8a3b77d813ee692be505572c65))
+
+### Refactoring
+
+- rename chain swap response properties - ([6b8ba97](https://github.com/BoltzExchange/boltz-backend/commit/6b8ba9783219d98b1a6ddfdddfac2c87b3f2a4aa))
+- use isTxConfirmed function - ([6ed7bd4](https://github.com/BoltzExchange/boltz-backend/commit/6ed7bd40384abe6a666b4e2f4c9308c91af8ebdf))
+- wrapped swap repository for chain and reverse - ([797bd1e](https://github.com/BoltzExchange/boltz-backend/commit/797bd1e94d0ddfc1500982d0f5d79d7c243a1ba0))
+
+### Tests
+
+- add tests for chain swap related code - ([fc0abe0](https://github.com/BoltzExchange/boltz-backend/commit/fc0abe0146c3dc78a14b2c6118acd31d6dacd1e6))
+- fix broken test cases - ([d249c05](https://github.com/BoltzExchange/boltz-backend/commit/d249c05f9b23abdf39a840a7126d76c687b2f59d))
+
+### Mpay
+
+- add `mpay-override-pay` option to override `pay` command (default false, for now!) - ([14fe5a0](https://github.com/BoltzExchange/boltz-backend/commit/14fe5a07c67343b712a1e6c0ff044773e1d0df74))
+
+### Tools/plugins/mpay
+
+- make the `mpay-override-pay` option dynamic where supported. - ([5415e70](https://github.com/BoltzExchange/boltz-backend/commit/5415e70f7259417aedb155d5eb55e0d2b64d4b5c))
+
+---
 ## [3.6.0](https://github.com/BoltzExchange/boltz-backend/compare/v3.5.0..v3.6.0) - 2024-04-24
 
 ### Bug Fixes
@@ -26,6 +101,7 @@ All notable changes to this project will be documented in this file. See [conven
 
 - address minor review feedback - ([874abc9](https://github.com/BoltzExchange/boltz-backend/commit/874abc9405764cc7278978f8e130ca387ceb38d4))
 - bump Bitcoin Core to v27.0 (#526) - ([246cf7d](https://github.com/BoltzExchange/boltz-backend/commit/246cf7d4a541104d5e8656427826c810b27c7dfa))
+- prepare release v3.6.0 - ([cc21c00](https://github.com/BoltzExchange/boltz-backend/commit/cc21c00ecb602e328c602ad62af59efeaa3695bc))
 
 ### Refactoring
 

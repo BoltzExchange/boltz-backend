@@ -114,7 +114,7 @@ class ChainSwapRepository {
    */
   public static getChainSwapsByData = async (
     dataOptions: WhereOptions,
-    swapOptions: WhereOptions,
+    swapOptions?: WhereOptions,
   ): Promise<ChainSwapInfo[]> => {
     const matchingData = await ChainSwapData.findAll({
       where: dataOptions,
@@ -125,6 +125,10 @@ class ChainSwapRepository {
         new Set<string>(matchingData.map((d) => d.swapId)).values(),
       ).map(async (id) => (await this.getChainSwap({ id: id }))!)!,
     );
+
+    if (swapOptions === undefined) {
+      return swaps;
+    }
 
     const deduplicateOptions = { [Op.notIn]: swaps.map((swap) => swap.id) };
     if ('id' in swapOptions) {

@@ -168,14 +168,11 @@ class TransactionFetcher {
             [Op.in]: inputIds,
           },
         }),
-        ChainSwapRepository.getChainSwapsByData(
-          {
-            transactionId: {
-              [Op.in]: inputIds,
-            },
+        ChainSwapRepository.getChainSwapsByData({
+          transactionId: {
+            [Op.in]: inputIds,
           },
-          {},
-        ),
+        }),
       ]);
 
     return {
@@ -213,14 +210,11 @@ class TransactionFetcher {
           [Op.in]: outputAddresses,
         },
       }),
-      ChainSwapRepository.getChainSwapsByData(
-        {
-          lockupAddress: {
-            [Op.in]: outputAddresses,
-          },
+      ChainSwapRepository.getChainSwapsByData({
+        lockupAddress: {
+          [Op.in]: outputAddresses,
         },
-        {},
-      ),
+      }),
     ]);
 
     return {

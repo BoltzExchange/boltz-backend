@@ -1,12 +1,17 @@
+import { Transaction } from 'bitcoinjs-lib';
 import Logger from '../../../lib/Logger';
 import SwapInfos from '../../../lib/api/SwapInfos';
-import { OrderSide, SwapUpdateEvent } from '../../../lib/consts/Enums';
+import {
+  CurrencyType,
+  OrderSide,
+  SwapUpdateEvent,
+} from '../../../lib/consts/Enums';
 import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
 import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import Errors from '../../../lib/service/Errors';
-import { SwapUpdate } from '../../../lib/service/EventHandler';
+import EventHandler, { SwapUpdate } from '../../../lib/service/EventHandler';
 import Service from '../../../lib/service/Service';
 import SwapNursery from '../../../lib/swap/SwapNursery';
 
@@ -73,18 +78,34 @@ describe('SwapInfos', () => {
     });
 
     test('should handle rejected zero conf transactions', async () => {
+      const transaction = new Transaction();
       const swap = {
         id: 'someId',
+        pair: 'L-BTC/BTC',
+        orderSide: OrderSide.BUY,
+        lockupTransactionId: transaction.getId(),
         status: SwapUpdateEvent.TransactionZeroConfRejected,
       };
+
       SwapRepository.getSwaps = jest.fn().mockResolvedValue([swap]);
+      service.getTransaction = jest.fn().mockResolvedValue(transaction.toHex());
+      service.currencies = new Map<string, any>([
+        ['BTC', { type: CurrencyType.BitcoinLike }],
+      ]);
 
       await swapInfos['fetchSwaps']();
 
       expect(swapInfos.get(swap.id)).toEqual({
-        status: SwapUpdateEvent.TransactionMempool,
         zeroConfRejected: true,
+        status: SwapUpdateEvent.TransactionMempool,
+        transaction: EventHandler.formatTransaction(transaction),
       });
+
+      expect(service.getTransaction).toHaveBeenCalledTimes(1);
+      expect(service.getTransaction).toHaveBeenCalledWith(
+        'BTC',
+        transaction.getId(),
+      );
     });
 
     test.each`
@@ -174,18 +195,31 @@ describe('SwapInfos', () => {
 
   describe('fetchChainSwaps', () => {
     test('should handle rejected zero conf transactions', async () => {
+      const transaction = new Transaction();
       const swap = {
         id: 'someId',
         status: SwapUpdateEvent.TransactionZeroConfRejected,
+        receivingData: {
+          symbol: 'BTC',
+          transactionId: transaction.getId(),
+        },
       };
       ChainSwapRepository.getChainSwaps = jest.fn().mockResolvedValue([swap]);
+      service.getTransaction = jest.fn().mockResolvedValue(transaction.toHex());
 
       await swapInfos['fetchChainSwaps']();
 
       expect(swapInfos.get(swap.id)).toEqual({
-        status: SwapUpdateEvent.TransactionMempool,
         zeroConfRejected: true,
+        status: SwapUpdateEvent.TransactionMempool,
+        transaction: EventHandler.formatTransaction(transaction),
       });
+
+      expect(service.getTransaction).toHaveBeenCalledTimes(1);
+      expect(service.getTransaction).toHaveBeenCalledWith(
+        'BTC',
+        transaction.getId(),
+      );
     });
 
     test.each([

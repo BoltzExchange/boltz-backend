@@ -1,6 +1,7 @@
 import { Transaction } from 'bitcoinjs-lib';
 import { Networks, OutputType } from 'boltz-core';
 import { EventEmitter } from 'events';
+import { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import Logger from '../../../lib/Logger';
 import { SwapType, SwapUpdateEvent } from '../../../lib/consts/Enums';
 import ChannelCreation from '../../../lib/db/models/ChannelCreation';
@@ -81,6 +82,15 @@ describe('EventHandler', () => {
   beforeEach(() => {
     eventHandler.removeAllListeners();
     jest.clearAllMocks();
+  });
+
+  test.each`
+    name         | transaction                | expected
+    ${'EVM'}     | ${'0x123'}                 | ${{ id: '0x123' }}
+    ${'Bitcoin'} | ${new Transaction()}       | ${{ id: new Transaction().getId(), hex: new Transaction().toHex() }}
+    ${'Liquid'}  | ${new LiquidTransaction()} | ${{ id: new LiquidTransaction().getId(), hex: new LiquidTransaction().toHex() }}
+  `('should format $name transaction', ({ transaction, expected }) => {
+    expect(EventHandler.formatTransaction(transaction)).toEqual(expected);
   });
 
   test('should emit on swap creation', () => {

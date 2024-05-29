@@ -287,14 +287,11 @@ describe('TransactionFetcher', () => {
         },
       });
       expect(ChainSwapRepository.getChainSwapsByData).toHaveBeenCalledTimes(1);
-      expect(ChainSwapRepository.getChainSwapsByData).toHaveBeenCalledWith(
-        {
-          transactionId: {
-            [Op.in]: inputsIds,
-          },
+      expect(ChainSwapRepository.getChainSwapsByData).toHaveBeenCalledWith({
+        transactionId: {
+          [Op.in]: inputsIds,
         },
-        {},
-      );
+      });
     });
 
     test('should not fetch from database when the transaction has no inputs', async () => {
@@ -351,14 +348,11 @@ describe('TransactionFetcher', () => {
         },
       });
       expect(ChainSwapRepository.getChainSwapsByData).toHaveBeenCalledTimes(1);
-      expect(ChainSwapRepository.getChainSwapsByData).toHaveBeenCalledWith(
-        {
-          lockupAddress: {
-            [Op.in]: outputAddresses,
-          },
+      expect(ChainSwapRepository.getChainSwapsByData).toHaveBeenCalledWith({
+        lockupAddress: {
+          [Op.in]: outputAddresses,
         },
-        {},
-      );
+      });
     });
 
     test('should not fetch from database when transaction has no outputs', async () => {

@@ -64,6 +64,24 @@ class EventHandler extends TypedEventEmitter<{
     this.subscribeChannelBackups();
   }
 
+  public static formatTransaction = (
+    transaction: string | Transaction | LiquidTransaction,
+  ) => {
+    if (
+      transaction instanceof Transaction ||
+      transaction instanceof LiquidTransaction
+    ) {
+      return {
+        id: transaction.getId(),
+        hex: transaction.toHex(),
+      };
+    } else {
+      return {
+        id: transaction,
+      };
+    }
+  };
+
   public emitSwapCreation = (id: string): void => {
     this.emit('swap.update', {
       id,
@@ -164,7 +182,7 @@ class EventHandler extends TypedEventEmitter<{
         status: {
           status: SwapUpdateEvent.TransactionMempool,
           zeroConfRejected: true,
-          transaction: this.formatTransaction(transaction),
+          transaction: EventHandler.formatTransaction(transaction),
         },
       });
     });
@@ -307,29 +325,11 @@ class EventHandler extends TypedEventEmitter<{
       status: {
         status: swap.status as SwapUpdateEvent,
         transaction: {
-          ...this.formatTransaction(transaction),
+          ...EventHandler.formatTransaction(transaction),
           eta: confirmed ? undefined : SwapNursery.reverseSwapMempoolEta,
         },
       },
     });
-  };
-
-  private formatTransaction = (
-    transaction: string | Transaction | LiquidTransaction,
-  ) => {
-    if (
-      transaction instanceof Transaction ||
-      transaction instanceof LiquidTransaction
-    ) {
-      return {
-        id: transaction.getId(),
-        hex: transaction.toHex(),
-      };
-    } else {
-      return {
-        id: transaction,
-      };
-    }
   };
 }
 

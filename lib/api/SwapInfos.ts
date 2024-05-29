@@ -1,3 +1,4 @@
+import { parseTransaction } from '../Core';
 import Logger from '../Logger';
 import { getChainCurrency, splitPairId } from '../Utils';
 import { SwapUpdateEvent } from '../consts/Enums';
@@ -6,8 +7,9 @@ import ChannelCreationRepository from '../db/repositories/ChannelCreationReposit
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import ServiceErrors from '../service/Errors';
-import { SwapUpdate } from '../service/EventHandler';
+import EventHandler, { SwapUpdate } from '../service/EventHandler';
 import Service from '../service/Service';
+import { getCurrency } from '../service/Utils';
 import SwapNursery from '../swap/SwapNursery';
 
 // TODO: refactor
@@ -56,12 +58,30 @@ class SwapInfos {
           break;
         }
 
-        case SwapUpdateEvent.TransactionZeroConfRejected:
+        case SwapUpdateEvent.TransactionZeroConfRejected: {
+          const { base, quote } = splitPairId(swap.pair);
+          const chainCurrency = getChainCurrency(
+            base,
+            quote,
+            swap.orderSide,
+            false,
+          );
+          const transactionHex = await this.service.getTransaction(
+            chainCurrency,
+            swap.lockupTransactionId!,
+          );
           this.pendingSwapInfos.set(swap.id, {
             status: SwapUpdateEvent.TransactionMempool,
             zeroConfRejected: true,
+            transaction: EventHandler.formatTransaction(
+              parseTransaction(
+                getCurrency(this.service.currencies, chainCurrency).type,
+                transactionHex,
+              ),
+            ),
           });
           break;
+        }
 
         default:
           this.pendingSwapInfos.set(swap.id, {
@@ -113,12 +133,24 @@ class SwapInfos {
   private fetchChainSwaps = async () => {
     for (const swap of await ChainSwapRepository.getChainSwaps()) {
       switch (swap.status) {
-        case SwapUpdateEvent.TransactionZeroConfRejected:
+        case SwapUpdateEvent.TransactionZeroConfRejected: {
+          const transactionHex = await this.service.getTransaction(
+            swap.receivingData.symbol,
+            swap.receivingData.transactionId!,
+          );
           this.pendingSwapInfos.set(swap.id, {
             status: SwapUpdateEvent.TransactionMempool,
             zeroConfRejected: true,
+            transaction: EventHandler.formatTransaction(
+              parseTransaction(
+                getCurrency(this.service.currencies, swap.receivingData.symbol)
+                  .type,
+                transactionHex,
+              ),
+            ),
           });
           break;
+        }
 
         case SwapUpdateEvent.TransactionServerMempool:
         case SwapUpdateEvent.TransactionServerConfirmed:

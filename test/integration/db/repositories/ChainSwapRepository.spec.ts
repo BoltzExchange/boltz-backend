@@ -169,17 +169,12 @@ describe('ChainSwapRepository', () => {
       swaps.push(await createChainSwap());
     }
 
-    const fetched = await ChainSwapRepository.getChainSwapsByData(
-      {
-        lockupAddress: [
-          swaps[0].sendingData.lockupAddress,
-          swaps[0].receivingData.lockupAddress,
-        ],
-      },
-      {
-        id: swaps[0].chainSwap.id,
-      },
-    );
+    const fetched = await ChainSwapRepository.getChainSwapsByData({
+      lockupAddress: [
+        swaps[0].sendingData.lockupAddress,
+        swaps[0].receivingData.lockupAddress,
+      ],
+    });
     expect(fetched).toHaveLength(1);
     expect(fetched[0]).toMatchObject(swaps[0]);
 

@@ -157,6 +157,13 @@ swapInFee = 0.2
 maxSwapAmount = 1_000_000
 minSwapAmount = 100_000
 
+# Which swap types to enable for the pair, by default all are enabled
+# Possible types:
+# - submarine
+# - reverse
+# - chain
+swapTypes = ["submarine", "reverse", "chain"]
+
     [pairs.chainSwap]
     # If not set, the "fee" will be used
     buyFee = 0.1
@@ -167,6 +174,7 @@ minSwapAmount = 100_000
     maxSwapAmount = 10_000_000
 
     [pairs.timeoutDelta]
+    chain = 1440
     reverse = 1440
     swapMinimal = 1440
     swapMaximal = 2880

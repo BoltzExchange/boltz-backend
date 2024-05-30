@@ -583,8 +583,7 @@ class UtxoNursery extends TypedEventEmitter<{
 
     this.logFoundTransaction(
       wallet.symbol,
-      swap.chainSwap,
-      true,
+      swap,
       confirmed,
       transaction,
       swapOutput,
@@ -640,7 +639,7 @@ class UtxoNursery extends TypedEventEmitter<{
         return;
       }
 
-      this.logZeroConfAccepted(swap.chainSwap, transaction, swapOutput);
+      this.logZeroConfAccepted(swap, transaction, swapOutput);
       await this.lockupTransactionTracker.addPendingTransactionToTrack(swap);
     }
 
@@ -680,7 +679,6 @@ class UtxoNursery extends TypedEventEmitter<{
     this.logFoundTransaction(
       wallet.symbol,
       swap,
-      false,
       confirmed,
       transaction,
       swapOutput,
@@ -880,25 +878,24 @@ class UtxoNursery extends TypedEventEmitter<{
 
   private logFoundTransaction = (
     symbol: string,
-    swap: Swap | ChainSwap,
-    isChainSwap: boolean,
+    swap: Swap | ChainSwapInfo,
     confirmed: boolean,
     transaction: Transaction | LiquidTransaction,
     swapOutput: ReturnType<typeof detectSwap>,
   ) =>
     this.logger.verbose(
-      `Found ${confirmed ? '' : 'un'}confirmed ${symbol} lockup transaction for ${isChainSwap ? 'Chain ' : ''}Swap ${
+      `Found ${confirmed ? '' : 'un'}confirmed ${symbol} lockup transaction for ${swapTypeToPrettyString(swap.type)} Swap ${
         swap.id
       }: ${transaction.getId()}:${swapOutput.vout}`,
     );
 
   private logZeroConfAccepted = (
-    swap: Swap | ChainSwap,
+    swap: Swap | ChainSwapInfo,
     transaction: Transaction | LiquidTransaction,
     swapOutput: ReturnType<typeof detectSwap>,
   ) =>
     this.logger.debug(
-      `Accepted 0-conf lockup transaction for Swap ${
+      `Accepted 0-conf lockup transaction for ${swapTypeToPrettyString(swap.type)} Swap ${
         swap.id
       }: ${transaction.getId()}:${swapOutput.vout}`,
     );

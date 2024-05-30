@@ -196,29 +196,31 @@ class DeferredClaimer extends CoopSignerBase<
     theirPubNonce: Buffer,
     theirPartialSignature: Buffer,
   ) => {
-    const { toClaim, chainCurrency } = await this.getToClaimDetails(swap);
-    if (toClaim === undefined || toClaim.cooperative === undefined) {
-      throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM_BROADCAST();
-    }
+    await this.lock.acquire(DeferredClaimer.batchClaimLock, async () => {
+      const { toClaim, chainCurrency } = await this.getToClaimDetails(swap);
+      if (toClaim === undefined || toClaim.cooperative === undefined) {
+        throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM_BROADCAST();
+      }
 
-    await this.lock.acquire(DeferredClaimer.swapsToClaimLock, async () => {
-      const { fee } = await this.broadcastCooperativeTransaction(
-        swap,
-        chainCurrency,
-        toClaim.cooperative!.musig,
-        toClaim.cooperative!.transaction,
-        theirPubNonce,
-        theirPartialSignature,
-      );
+      await this.lock.acquire(DeferredClaimer.swapsToClaimLock, async () => {
+        const { fee } = await this.broadcastCooperativeTransaction(
+          swap,
+          chainCurrency,
+          toClaim.cooperative!.musig,
+          toClaim.cooperative!.transaction,
+          theirPubNonce,
+          theirPartialSignature,
+        );
 
-      this.swapsToClaim.get(chainCurrency.symbol)?.delete(swap.id);
+        this.swapsToClaim.get(chainCurrency.symbol)?.delete(swap.id);
 
-      this.emit('claim', {
-        swap: await SwapRepository.setMinerFee(toClaim.swap, fee),
-        channelCreation:
-          (await ChannelCreationRepository.getChannelCreation({
-            swapId: toClaim.swap.id,
-          })) || undefined,
+        this.emit('claim', {
+          swap: await SwapRepository.setMinerFee(toClaim.swap, fee),
+          channelCreation:
+            (await ChannelCreationRepository.getChannelCreation({
+              swapId: toClaim.swap.id,
+            })) || undefined,
+        });
       });
     });
   };

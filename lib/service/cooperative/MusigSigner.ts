@@ -1,3 +1,4 @@
+import AsyncLock from 'async-lock';
 import { SwapTreeSerializer } from 'boltz-core';
 import Logger from '../../Logger';
 import {
@@ -32,6 +33,10 @@ type PartialSignature = {
 // TODO: Should we verify what we are signing? And if so, how strict should we be?
 
 class MusigSigner {
+  private static readonly reverseSwapClaimSignatureLock =
+    'reverseSwapClaimSignature';
+  private readonly lock = new AsyncLock();
+
   constructor(
     private readonly logger: Logger,
     private readonly currencies: Map<string, Currency>,
@@ -92,70 +97,83 @@ class MusigSigner {
     );
   };
 
-  public signReverseSwapClaim = async (
+  public signReverseSwapClaim = (
     swapId: string,
     preimage: Buffer,
     theirNonce: Buffer,
     rawTransaction: Buffer,
     index: number,
   ): Promise<PartialSignature> => {
-    const swap = await ReverseSwapRepository.getReverseSwap({ id: swapId });
-    if (!swap) {
-      throw Errors.SWAP_NOT_FOUND(swapId);
-    }
+    return this.lock.acquire(
+      MusigSigner.reverseSwapClaimSignatureLock,
+      async () => {
+        const swap = await ReverseSwapRepository.getReverseSwap({ id: swapId });
+        if (!swap) {
+          throw Errors.SWAP_NOT_FOUND(swapId);
+        }
 
-    if (
-      swap.version !== SwapVersion.Taproot ||
-      ![
-        SwapUpdateEvent.TransactionMempool,
-        SwapUpdateEvent.TransactionConfirmed,
-        SwapUpdateEvent.InvoiceSettled,
-      ].includes(swap.status as SwapUpdateEvent)
-    ) {
-      this.logger.verbose(
-        `Not creating partial signature for claim of Reverse Swap ${swap.id}: it is not eligible`,
-      );
-      throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM();
-    }
+        if (
+          swap.version !== SwapVersion.Taproot ||
+          ![
+            SwapUpdateEvent.TransactionMempool,
+            SwapUpdateEvent.TransactionConfirmed,
+            SwapUpdateEvent.InvoiceSettled,
+          ].includes(swap.status as SwapUpdateEvent)
+        ) {
+          this.logger.verbose(
+            `Not creating partial signature for claim of Reverse Swap ${swap.id}: it is not eligible`,
+          );
+          throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM();
+        }
 
-    if (!isPreimageValid(swap, preimage)) {
-      this.logger.verbose(
-        `Not creating partial signature for claim of Reverse Swap ${swap.id}: preimage is incorrect`,
-      );
-      throw Errors.INCORRECT_PREIMAGE();
-    }
+        if (!isPreimageValid(swap, preimage)) {
+          this.logger.verbose(
+            `Not creating partial signature for claim of Reverse Swap ${swap.id}: preimage is incorrect`,
+          );
+          throw Errors.INCORRECT_PREIMAGE();
+        }
 
-    this.logger.debug(
-      `Got preimage for Reverse Swap ${swap.id}: ${getHexString(preimage)}`,
+        this.logger.debug(
+          `Got preimage for Reverse Swap ${swap.id}: ${getHexString(preimage)}`,
+        );
+        await WrappedSwapRepository.setPreimage(swap, preimage);
+
+        return this.nursery.lock.acquire(
+          SwapNursery.reverseSwapLock,
+          async () => {
+            if (swap.status !== SwapUpdateEvent.InvoiceSettled) {
+              await this.nursery.settleReverseSwapInvoice(swap, preimage);
+            }
+
+            this.logger.debug(
+              `Creating partial signature for claim of Reverse Swap ${swap.id}`,
+            );
+
+            const { base, quote } = splitPairId(swap.pair);
+            const chainCurrency = getChainCurrency(
+              base,
+              quote,
+              swap.orderSide,
+              true,
+            );
+            const swapTree = SwapTreeSerializer.deserializeSwapTree(
+              swap.redeemScript!,
+            );
+
+            return createPartialSignature(
+              this.currencies.get(chainCurrency)!,
+              this.walletManager.wallets.get(chainCurrency)!,
+              swapTree,
+              swap.keyIndex!,
+              getHexBuffer(swap.claimPublicKey!),
+              theirNonce,
+              rawTransaction,
+              index,
+            );
+          },
+        );
+      },
     );
-    await WrappedSwapRepository.setPreimage(swap, preimage);
-
-    return this.nursery.lock.acquire(SwapNursery.reverseSwapLock, async () => {
-      if (swap.status !== SwapUpdateEvent.InvoiceSettled) {
-        await this.nursery.settleReverseSwapInvoice(swap, preimage);
-      }
-
-      this.logger.debug(
-        `Creating partial signature for claim of Reverse Swap ${swap.id}`,
-      );
-
-      const { base, quote } = splitPairId(swap.pair);
-      const chainCurrency = getChainCurrency(base, quote, swap.orderSide, true);
-      const swapTree = SwapTreeSerializer.deserializeSwapTree(
-        swap.redeemScript!,
-      );
-
-      return createPartialSignature(
-        this.currencies.get(chainCurrency)!,
-        this.walletManager.wallets.get(chainCurrency)!,
-        swapTree,
-        swap.keyIndex!,
-        getHexBuffer(swap.claimPublicKey!),
-        theirNonce,
-        rawTransaction,
-        index,
-      );
-    });
   };
 
   public static isEligibleForRefund = async (

@@ -24,6 +24,7 @@ interface ILightningService extends grpc.ServiceDefinition<grpc.UntypedServiceIm
     listPeers: ILightningService_IListPeers;
     subscribePeerEvents: ILightningService_ISubscribePeerEvents;
     getInfo: ILightningService_IGetInfo;
+    getDebugInfo: ILightningService_IGetDebugInfo;
     getRecoveryInfo: ILightningService_IGetRecoveryInfo;
     pendingChannels: ILightningService_IPendingChannels;
     listChannels: ILightningService_IListChannels;
@@ -220,6 +221,15 @@ interface ILightningService_IGetInfo extends grpc.MethodDefinition<lnd_rpc_pb.Ge
     requestDeserialize: grpc.deserialize<lnd_rpc_pb.GetInfoRequest>;
     responseSerialize: grpc.serialize<lnd_rpc_pb.GetInfoResponse>;
     responseDeserialize: grpc.deserialize<lnd_rpc_pb.GetInfoResponse>;
+}
+interface ILightningService_IGetDebugInfo extends grpc.MethodDefinition<lnd_rpc_pb.GetDebugInfoRequest, lnd_rpc_pb.GetDebugInfoResponse> {
+    path: "/lnrpc.Lightning/GetDebugInfo";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<lnd_rpc_pb.GetDebugInfoRequest>;
+    requestDeserialize: grpc.deserialize<lnd_rpc_pb.GetDebugInfoRequest>;
+    responseSerialize: grpc.serialize<lnd_rpc_pb.GetDebugInfoResponse>;
+    responseDeserialize: grpc.deserialize<lnd_rpc_pb.GetDebugInfoResponse>;
 }
 interface ILightningService_IGetRecoveryInfo extends grpc.MethodDefinition<lnd_rpc_pb.GetRecoveryInfoRequest, lnd_rpc_pb.GetRecoveryInfoResponse> {
     path: "/lnrpc.Lightning/GetRecoveryInfo";
@@ -700,6 +710,7 @@ export interface ILightningServer extends grpc.UntypedServiceImplementation {
     listPeers: grpc.handleUnaryCall<lnd_rpc_pb.ListPeersRequest, lnd_rpc_pb.ListPeersResponse>;
     subscribePeerEvents: grpc.handleServerStreamingCall<lnd_rpc_pb.PeerEventSubscription, lnd_rpc_pb.PeerEvent>;
     getInfo: grpc.handleUnaryCall<lnd_rpc_pb.GetInfoRequest, lnd_rpc_pb.GetInfoResponse>;
+    getDebugInfo: grpc.handleUnaryCall<lnd_rpc_pb.GetDebugInfoRequest, lnd_rpc_pb.GetDebugInfoResponse>;
     getRecoveryInfo: grpc.handleUnaryCall<lnd_rpc_pb.GetRecoveryInfoRequest, lnd_rpc_pb.GetRecoveryInfoResponse>;
     pendingChannels: grpc.handleUnaryCall<lnd_rpc_pb.PendingChannelsRequest, lnd_rpc_pb.PendingChannelsResponse>;
     listChannels: grpc.handleUnaryCall<lnd_rpc_pb.ListChannelsRequest, lnd_rpc_pb.ListChannelsResponse>;
@@ -800,6 +811,9 @@ export interface ILightningClient {
     getInfo(request: lnd_rpc_pb.GetInfoRequest, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.GetInfoResponse) => void): grpc.ClientUnaryCall;
     getInfo(request: lnd_rpc_pb.GetInfoRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.GetInfoResponse) => void): grpc.ClientUnaryCall;
     getInfo(request: lnd_rpc_pb.GetInfoRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.GetInfoResponse) => void): grpc.ClientUnaryCall;
+    getDebugInfo(request: lnd_rpc_pb.GetDebugInfoRequest, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.GetDebugInfoResponse) => void): grpc.ClientUnaryCall;
+    getDebugInfo(request: lnd_rpc_pb.GetDebugInfoRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.GetDebugInfoResponse) => void): grpc.ClientUnaryCall;
+    getDebugInfo(request: lnd_rpc_pb.GetDebugInfoRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.GetDebugInfoResponse) => void): grpc.ClientUnaryCall;
     getRecoveryInfo(request: lnd_rpc_pb.GetRecoveryInfoRequest, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.GetRecoveryInfoResponse) => void): grpc.ClientUnaryCall;
     getRecoveryInfo(request: lnd_rpc_pb.GetRecoveryInfoRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.GetRecoveryInfoResponse) => void): grpc.ClientUnaryCall;
     getRecoveryInfo(request: lnd_rpc_pb.GetRecoveryInfoRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.GetRecoveryInfoResponse) => void): grpc.ClientUnaryCall;
@@ -996,6 +1010,9 @@ export class LightningClient extends grpc.Client implements ILightningClient {
     public getInfo(request: lnd_rpc_pb.GetInfoRequest, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.GetInfoResponse) => void): grpc.ClientUnaryCall;
     public getInfo(request: lnd_rpc_pb.GetInfoRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.GetInfoResponse) => void): grpc.ClientUnaryCall;
     public getInfo(request: lnd_rpc_pb.GetInfoRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.GetInfoResponse) => void): grpc.ClientUnaryCall;
+    public getDebugInfo(request: lnd_rpc_pb.GetDebugInfoRequest, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.GetDebugInfoResponse) => void): grpc.ClientUnaryCall;
+    public getDebugInfo(request: lnd_rpc_pb.GetDebugInfoRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.GetDebugInfoResponse) => void): grpc.ClientUnaryCall;
+    public getDebugInfo(request: lnd_rpc_pb.GetDebugInfoRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.GetDebugInfoResponse) => void): grpc.ClientUnaryCall;
     public getRecoveryInfo(request: lnd_rpc_pb.GetRecoveryInfoRequest, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.GetRecoveryInfoResponse) => void): grpc.ClientUnaryCall;
     public getRecoveryInfo(request: lnd_rpc_pb.GetRecoveryInfoRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.GetRecoveryInfoResponse) => void): grpc.ClientUnaryCall;
     public getRecoveryInfo(request: lnd_rpc_pb.GetRecoveryInfoRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.GetRecoveryInfoResponse) => void): grpc.ClientUnaryCall;

@@ -45,7 +45,7 @@ class VersionSplit {
   };
 }
 
-class Comperator {
+class Comparator {
   public static versionInBounds = (
     version: Version,
     limits: VersionLimits,
@@ -95,7 +95,7 @@ class VersionCheck {
     },
     [LndClient.serviceName]: {
       minimal: '0.16.0',
-      maximal: '0.17.5',
+      maximal: '0.18.0',
     },
   };
 
@@ -104,7 +104,7 @@ class VersionCheck {
     version: number,
   ): void => {
     if (
-      !Comperator.versionInBounds(
+      !Comparator.versionInBounds(
         version,
         VersionCheck.versionLimits[ChainClient.serviceName],
       )
@@ -157,7 +157,7 @@ class VersionCheck {
         throw `unsupported lightning client ${serviceName}`;
     }
 
-    if (!Comperator.versionInBounds(sanitizedVersion, limits)) {
+    if (!Comparator.versionInBounds(sanitizedVersion, limits)) {
       throw VersionCheck.unsupportedVersionError(
         `${symbol} ${serviceName}`,
         version,

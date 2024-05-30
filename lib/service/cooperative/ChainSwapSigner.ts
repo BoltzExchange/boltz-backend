@@ -35,6 +35,7 @@ class ChainSwapSigner extends CoopSignerBase<
   { claim: ChainSwapInfo }
 > {
   private static readonly swapsToClaimLock = 'swapsToClaim';
+  private static readonly cooperativeBroadcastLock = 'cooperativeBroadcast';
 
   private attemptSettleSwap!: (
     currency: Currency,
@@ -151,67 +152,72 @@ class ChainSwapSigner extends CoopSignerBase<
     );
   };
 
-  public signClaim = async (
+  public signClaim = (
     swap: ChainSwapInfo,
     toSign: TheirSigningData,
     preimage?: Buffer,
     theirSignature?: PartialSignature,
   ): Promise<PartialSignature> => {
-    // If the swap is settled already, we still allow the partial signing of claims
-    if (!swap.isSettled) {
-      if (preimage === undefined || !isPreimageValid(swap, preimage)) {
-        this.logNotCooperativelyClaiming(swap, 'preimage is incorrect');
-        throw Errors.INCORRECT_PREIMAGE();
-      }
+    return this.lock.acquire(
+      ChainSwapSigner.cooperativeBroadcastLock,
+      async () => {
+        // If the swap is settled already, we still allow the partial signing of claims
+        if (!swap.isSettled) {
+          if (preimage === undefined || !isPreimageValid(swap, preimage)) {
+            this.logNotCooperativelyClaiming(swap, 'preimage is incorrect');
+            throw Errors.INCORRECT_PREIMAGE();
+          }
 
-      this.logger.debug(
-        `Got preimage for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${getHexString(preimage)}`,
-      );
-      // TODO: broadcast the claim eventually when the preimage is correct but the signature is not?
-      swap = await WrappedSwapRepository.setPreimage(swap, preimage);
-
-      if (this.canClaimCooperatively(swap)) {
-        const claimDetails = await this.getToClaimDetails(swap.id);
-        if (
-          claimDetails === undefined ||
-          claimDetails.cooperative === undefined
-        ) {
-          throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM_BROADCAST();
-        }
-
-        if (theirSignature === undefined) {
-          this.logNotCooperativelyClaiming(swap, 'signature missing');
-          throw Errors.INVALID_PARTIAL_SIGNATURE();
-        }
-
-        this.logger.verbose(`Cooperatively claiming Chain Swap ${swap.id}`);
-
-        try {
-          swap = await this.broadcastReceivingClaimTransaction(
-            swap,
-            preimage,
-            claimDetails.cooperative,
-            theirSignature,
+          this.logger.debug(
+            `Got preimage for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${getHexString(preimage)}`,
           );
-          this.emit('claim', swap);
-        } catch (e) {
-          // TODO: reset the claim details for new attempt?
-          this.logger.warn(
-            `Our cooperative claim for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} failed: ${formatError(e)}`,
-          );
-          throw e;
-        }
-      } else {
-        await this.attemptSettleSwap(
-          this.currencies.get(swap.receivingData.symbol)!,
-          swap,
-          undefined,
-          preimage,
-        );
-      }
-    }
+          // TODO: broadcast the claim eventually when the preimage is correct but the signature is not?
+          swap = await WrappedSwapRepository.setPreimage(swap, preimage);
 
-    return this.createSendingPartialSignature(swap, toSign);
+          if (this.canClaimCooperatively(swap)) {
+            const claimDetails = await this.getToClaimDetails(swap.id);
+            if (
+              claimDetails === undefined ||
+              claimDetails.cooperative === undefined
+            ) {
+              throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM_BROADCAST();
+            }
+
+            if (theirSignature === undefined) {
+              this.logNotCooperativelyClaiming(swap, 'signature missing');
+              throw Errors.INVALID_PARTIAL_SIGNATURE();
+            }
+
+            this.logger.verbose(`Cooperatively claiming Chain Swap ${swap.id}`);
+
+            try {
+              swap = await this.broadcastReceivingClaimTransaction(
+                swap,
+                preimage,
+                claimDetails.cooperative,
+                theirSignature,
+              );
+              this.emit('claim', swap);
+            } catch (e) {
+              // TODO: reset the claim details for new attempt?
+              this.logger.warn(
+                `Our cooperative claim for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} failed: ${formatError(e)}`,
+              );
+              throw e;
+            }
+          } else {
+            await this.attemptSettleSwap(
+              this.currencies.get(swap.receivingData.symbol)!,
+              swap,
+              undefined,
+              preimage,
+            );
+          }
+        }
+
+        return this.createSendingPartialSignature(swap, toSign);
+      },
+    );
   };
 
   private broadcastReceivingClaimTransaction = async (

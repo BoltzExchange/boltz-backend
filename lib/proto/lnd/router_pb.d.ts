@@ -14,36 +14,20 @@ export class SendPaymentRequest extends jspb.Message {
     setDest(value: Uint8Array | string): SendPaymentRequest;
     getAmt(): number;
     setAmt(value: number): SendPaymentRequest;
-    getAmtMsat(): number;
-    setAmtMsat(value: number): SendPaymentRequest;
     getPaymentHash(): Uint8Array | string;
     getPaymentHash_asU8(): Uint8Array;
     getPaymentHash_asB64(): string;
     setPaymentHash(value: Uint8Array | string): SendPaymentRequest;
     getFinalCltvDelta(): number;
     setFinalCltvDelta(value: number): SendPaymentRequest;
-    getPaymentAddr(): Uint8Array | string;
-    getPaymentAddr_asU8(): Uint8Array;
-    getPaymentAddr_asB64(): string;
-    setPaymentAddr(value: Uint8Array | string): SendPaymentRequest;
     getPaymentRequest(): string;
     setPaymentRequest(value: string): SendPaymentRequest;
     getTimeoutSeconds(): number;
     setTimeoutSeconds(value: number): SendPaymentRequest;
     getFeeLimitSat(): number;
     setFeeLimitSat(value: number): SendPaymentRequest;
-    getFeeLimitMsat(): number;
-    setFeeLimitMsat(value: number): SendPaymentRequest;
     getOutgoingChanId(): string;
     setOutgoingChanId(value: string): SendPaymentRequest;
-    clearOutgoingChanIdsList(): void;
-    getOutgoingChanIdsList(): Array<number>;
-    setOutgoingChanIdsList(value: Array<number>): SendPaymentRequest;
-    addOutgoingChanIds(value: number, index?: number): number;
-    getLastHopPubkey(): Uint8Array | string;
-    getLastHopPubkey_asU8(): Uint8Array;
-    getLastHopPubkey_asB64(): string;
-    setLastHopPubkey(value: Uint8Array | string): SendPaymentRequest;
     getCltvLimit(): number;
     setCltvLimit(value: number): SendPaymentRequest;
     clearRouteHintsList(): void;
@@ -53,6 +37,14 @@ export class SendPaymentRequest extends jspb.Message {
 
     getDestCustomRecordsMap(): jspb.Map<number, Uint8Array | string>;
     clearDestCustomRecordsMap(): void;
+    getAmtMsat(): number;
+    setAmtMsat(value: number): SendPaymentRequest;
+    getFeeLimitMsat(): number;
+    setFeeLimitMsat(value: number): SendPaymentRequest;
+    getLastHopPubkey(): Uint8Array | string;
+    getLastHopPubkey_asU8(): Uint8Array;
+    getLastHopPubkey_asB64(): string;
+    setLastHopPubkey(value: Uint8Array | string): SendPaymentRequest;
     getAllowSelfPayment(): boolean;
     setAllowSelfPayment(value: boolean): SendPaymentRequest;
     clearDestFeaturesList(): void;
@@ -63,6 +55,14 @@ export class SendPaymentRequest extends jspb.Message {
     setMaxParts(value: number): SendPaymentRequest;
     getNoInflightUpdates(): boolean;
     setNoInflightUpdates(value: boolean): SendPaymentRequest;
+    clearOutgoingChanIdsList(): void;
+    getOutgoingChanIdsList(): Array<number>;
+    setOutgoingChanIdsList(value: Array<number>): SendPaymentRequest;
+    addOutgoingChanIds(value: number, index?: number): number;
+    getPaymentAddr(): Uint8Array | string;
+    getPaymentAddr_asU8(): Uint8Array;
+    getPaymentAddr_asB64(): string;
+    setPaymentAddr(value: Uint8Array | string): SendPaymentRequest;
     getMaxShardSizeMsat(): number;
     setMaxShardSizeMsat(value: number): SendPaymentRequest;
     getAmp(): boolean;
@@ -84,25 +84,25 @@ export namespace SendPaymentRequest {
     export type AsObject = {
         dest: Uint8Array | string,
         amt: number,
-        amtMsat: number,
         paymentHash: Uint8Array | string,
         finalCltvDelta: number,
-        paymentAddr: Uint8Array | string,
         paymentRequest: string,
         timeoutSeconds: number,
         feeLimitSat: number,
-        feeLimitMsat: number,
         outgoingChanId: string,
-        outgoingChanIdsList: Array<number>,
-        lastHopPubkey: Uint8Array | string,
         cltvLimit: number,
         routeHintsList: Array<lnd_rpc_pb.RouteHint.AsObject>,
 
         destCustomRecordsMap: Array<[number, Uint8Array | string]>,
+        amtMsat: number,
+        feeLimitMsat: number,
+        lastHopPubkey: Uint8Array | string,
         allowSelfPayment: boolean,
         destFeaturesList: Array<lnd_rpc_pb.FeatureBit>,
         maxParts: number,
         noInflightUpdates: boolean,
+        outgoingChanIdsList: Array<number>,
+        paymentAddr: Uint8Array | string,
         maxShardSizeMsat: number,
         amp: boolean,
         timePref: number,
@@ -161,6 +161,10 @@ export class RouteFeeRequest extends jspb.Message {
     setDest(value: Uint8Array | string): RouteFeeRequest;
     getAmtSat(): number;
     setAmtSat(value: number): RouteFeeRequest;
+    getPaymentRequest(): string;
+    setPaymentRequest(value: string): RouteFeeRequest;
+    getTimeout(): number;
+    setTimeout(value: number): RouteFeeRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): RouteFeeRequest.AsObject;
@@ -176,6 +180,8 @@ export namespace RouteFeeRequest {
     export type AsObject = {
         dest: Uint8Array | string,
         amtSat: number,
+        paymentRequest: string,
+        timeout: number,
     }
 }
 
@@ -184,6 +190,8 @@ export class RouteFeeResponse extends jspb.Message {
     setRoutingFeeMsat(value: number): RouteFeeResponse;
     getTimeLockDelay(): number;
     setTimeLockDelay(value: number): RouteFeeResponse;
+    getFailureReason(): lnd_rpc_pb.PaymentFailureReason;
+    setFailureReason(value: lnd_rpc_pb.PaymentFailureReason): RouteFeeResponse;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): RouteFeeResponse.AsObject;
@@ -199,6 +207,7 @@ export namespace RouteFeeResponse {
     export type AsObject = {
         routingFeeMsat: number,
         timeLockDelay: number,
+        failureReason: lnd_rpc_pb.PaymentFailureReason,
     }
 }
 

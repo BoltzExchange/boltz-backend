@@ -208,7 +208,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           this.logger.warn(
             `Rejected 0-conf lockup transaction (${transaction.getId()}:${
               swap.lockupTransactionVout
-            }) of ${swap.id}: ${reason}`,
+            }) of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${reason}`,
           );
 
           if (!swap.invoice) {
@@ -451,9 +451,9 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       async ({ swap, transaction, reason }) => {
         await this.lock.acquire(SwapNursery.swapLock, async () => {
           this.logger.warn(
-            `Rejected 0-conf Chain Swap lockup transaction (${transaction.getId()}:${
+            `Rejected 0-conf lockup transaction (${transaction.getId()}:${
               swap.receivingData.transactionVout
-            }) of ${swap.chainSwap.id}: ${reason}`,
+            }) of ${swapTypeToPrettyString(swap.type)} Swap ${swap.chainSwap.id}: ${reason}`,
           );
 
           this.emit('zeroconf.rejected', {

@@ -1,8 +1,11 @@
 import { parseTransaction } from '../Core';
 import Logger from '../Logger';
-import { getChainCurrency, splitPairId } from '../Utils';
-import { SwapUpdateEvent } from '../consts/Enums';
-import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
+import { formatError, getChainCurrency, splitPairId } from '../Utils';
+import { SwapUpdateEvent, swapTypeToPrettyString } from '../consts/Enums';
+import Swap from '../db/models/Swap';
+import ChainSwapRepository, {
+  ChainSwapInfo,
+} from '../db/repositories/ChainSwapRepository';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
@@ -66,20 +69,12 @@ class SwapInfos {
             swap.orderSide,
             false,
           );
-          const transactionHex = await this.service.getTransaction(
+          await this.fetchUnconfirmedUserTransaction(
+            swap,
             chainCurrency,
-            swap.lockupTransactionId!,
+            swap.lockupTransactionId,
           );
-          this.pendingSwapInfos.set(swap.id, {
-            status: SwapUpdateEvent.TransactionMempool,
-            zeroConfRejected: true,
-            transaction: EventHandler.formatTransaction(
-              parseTransaction(
-                getCurrency(this.service.currencies, chainCurrency).type,
-                transactionHex,
-              ),
-            ),
-          });
+
           break;
         }
 
@@ -133,24 +128,13 @@ class SwapInfos {
   private fetchChainSwaps = async () => {
     for (const swap of await ChainSwapRepository.getChainSwaps()) {
       switch (swap.status) {
-        case SwapUpdateEvent.TransactionZeroConfRejected: {
-          const transactionHex = await this.service.getTransaction(
+        case SwapUpdateEvent.TransactionZeroConfRejected:
+          await this.fetchUnconfirmedUserTransaction(
+            swap,
             swap.receivingData.symbol,
-            swap.receivingData.transactionId!,
+            swap.receivingData.transactionId,
           );
-          this.pendingSwapInfos.set(swap.id, {
-            status: SwapUpdateEvent.TransactionMempool,
-            zeroConfRejected: true,
-            transaction: EventHandler.formatTransaction(
-              parseTransaction(
-                getCurrency(this.service.currencies, swap.receivingData.symbol)
-                  .type,
-                transactionHex,
-              ),
-            ),
-          });
           break;
-        }
 
         case SwapUpdateEvent.TransactionServerMempool:
         case SwapUpdateEvent.TransactionServerConfirmed:
@@ -214,6 +198,42 @@ class SwapInfos {
         id: transactionId,
       },
     };
+  };
+
+  private fetchUnconfirmedUserTransaction = async (
+    swap: Swap | ChainSwapInfo,
+    chainCurrency: string,
+    transactionId?: string,
+  ) => {
+    if (transactionId !== undefined) {
+      try {
+        const transactionHex = await this.service.getTransaction(
+          chainCurrency,
+          transactionId,
+        );
+
+        this.pendingSwapInfos.set(swap.id, {
+          status: SwapUpdateEvent.TransactionMempool,
+          zeroConfRejected: true,
+          transaction: EventHandler.formatTransaction(
+            parseTransaction(
+              getCurrency(this.service.currencies, chainCurrency).type,
+              transactionHex,
+            ),
+          ),
+        });
+        return;
+      } catch (e) {
+        this.logger.warn(
+          `Could not find unconfirmed ${chainCurrency} user lockup transaction of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${formatError(e)}`,
+        );
+      }
+    }
+
+    this.pendingSwapInfos.set(swap.id, {
+      status: SwapUpdateEvent.TransactionMempool,
+      zeroConfRejected: true,
+    });
   };
 }
 

@@ -1,5 +1,7 @@
 import { Transaction } from 'bitcoinjs-lib';
+import { randomBytes } from 'crypto';
 import Logger from '../../../lib/Logger';
+import { getHexString } from '../../../lib/Utils';
 import SwapInfos from '../../../lib/api/SwapInfos';
 import {
   CurrencyType,
@@ -107,6 +109,35 @@ describe('SwapInfos', () => {
         transaction.getId(),
       );
     });
+
+    test.each`
+      transactionId
+      ${undefined}
+      ${getHexString(randomBytes(32))}
+    `(
+      'should not throw when rejected zero conf transaction cannot be found',
+      async ({ transactionId }) => {
+        const swap = {
+          id: 'txNotFound',
+          pair: 'L-BTC/BTC',
+          orderSide: OrderSide.BUY,
+          lockupTransactionId: transactionId,
+          status: SwapUpdateEvent.TransactionZeroConfRejected,
+        };
+
+        SwapRepository.getSwaps = jest.fn().mockResolvedValue([swap]);
+        service.getTransaction = jest
+          .fn()
+          .mockRejectedValue('transaction not found');
+
+        await swapInfos['fetchSwaps']();
+
+        expect(swapInfos.get(swap.id)).toEqual({
+          zeroConfRejected: true,
+          status: SwapUpdateEvent.TransactionMempool,
+        });
+      },
+    );
 
     test.each`
       status                                | failureReason
@@ -221,6 +252,33 @@ describe('SwapInfos', () => {
         transaction.getId(),
       );
     });
+
+    test.each`
+      transactionId
+      ${undefined}
+      ${getHexString(randomBytes(32))}
+    `(
+      'should not throw when rejected zero conf transaction cannot be found',
+      async ({ transactionId }) => {
+        const swap = {
+          id: 'someId',
+          status: SwapUpdateEvent.TransactionZeroConfRejected,
+          receivingData: {
+            transactionId,
+            symbol: 'BTC',
+          },
+        };
+        ChainSwapRepository.getChainSwaps = jest.fn().mockResolvedValue([swap]);
+        service.getTransaction = jest.fn().mockRejectedValue('not found');
+
+        await swapInfos['fetchChainSwaps']();
+
+        expect(swapInfos.get(swap.id)).toEqual({
+          zeroConfRejected: true,
+          status: SwapUpdateEvent.TransactionMempool,
+        });
+      },
+    );
 
     test.each([
       SwapUpdateEvent.TransactionServerMempool,

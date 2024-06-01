@@ -1,5 +1,6 @@
 import http from 'http';
 import ws from 'ws';
+import { filterAsync } from '../../PromiseUtils';
 import { formatError } from '../../Utils';
 import DefaultMap from '../../consts/DefaultMap';
 import Errors from '../../service/Errors';
@@ -93,13 +94,13 @@ class WebSocketHandler {
     });
   };
 
-  private handleMessage = (socket: ws, message: ws.RawData) => {
+  private handleMessage = async (socket: ws, message: ws.RawData) => {
     try {
       const data = JSON.parse(message.toString('utf-8')) as WsRequest;
 
       switch (data.op) {
         case Operation.Subscribe:
-          this.handleSubscribe(socket, data);
+          await this.handleSubscribe(socket, data);
           break;
 
         default:
@@ -113,11 +114,11 @@ class WebSocketHandler {
     }
   };
 
-  private handleSubscribe = (socket: ws, data: WsRequest) => {
+  private handleSubscribe = async (socket: ws, data: WsRequest) => {
     const subscribeData = data as WsSubscribeRequest;
     switch (subscribeData.channel) {
       case SubscriptionChannel.SwapUpdate: {
-        const idsWithSwaps = subscribeData.args.filter((id) =>
+        const idsWithSwaps = await filterAsync(subscribeData.args, (id) =>
           this.swapInfos.has(id),
         );
 
@@ -132,22 +133,24 @@ class WebSocketHandler {
           args: subscribeData.args,
         });
 
-        const args = subscribeData.args.map((id) => {
-          const status = this.swapInfos.get(id);
-          if (status === undefined) {
+        const args = await Promise.all(
+          subscribeData.args.map(async (id) => {
+            const status = await this.swapInfos.get(id);
+            if (status === undefined) {
+              return {
+                id,
+                error: Errors.SWAP_NOT_FOUND(id).message,
+              };
+            }
+
+            this.swapToSockets.get(id).add(socket);
+
             return {
               id,
-              error: Errors.SWAP_NOT_FOUND(id).message,
+              ...status,
             };
-          }
-
-          this.swapToSockets.get(id).add(socket);
-
-          return {
-            id,
-            ...status,
-          };
-        });
+          }),
+        );
 
         this.sendToSocket(socket, {
           event: Operation.Update,

@@ -46,3 +46,11 @@ export const allSettled = async <T>(promises: Promise<T>[]): Promise<T[]> => {
 
 export const allSettledFirst = async <T>(promises: Promise<T>[]): Promise<T> =>
   (await allSettled(promises))[0];
+
+export const filterAsync = async <T>(
+  arr: T[],
+  predicate: (p: T) => Promise<boolean>,
+): Promise<T[]> => {
+  const results = await Promise.all(arr.map(predicate));
+  return arr.filter((_, index) => results[index]);
+};

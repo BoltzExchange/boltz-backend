@@ -135,9 +135,12 @@ describe('SwapRouter', () => {
     }),
   } as unknown as Service;
 
-  const swapInfos = new Map([
-    ['swapId', { some: 'statusData' }],
-  ]) as unknown as SwapInfos;
+  const swapInfosData = new Map([['swapId', { some: 'statusData' }]]);
+  const swapInfos = {
+    get: async (id: string) => {
+      return swapInfosData.get(id);
+    },
+  } as unknown as SwapInfos;
 
   const countryCodes = {
     isRelevantCountry: jest.fn().mockReturnValue(true),
@@ -264,31 +267,37 @@ describe('SwapRouter', () => {
     ${'invalid parameter: id'}   | ${{ id: 1 }}
   `(
     'should not get status of swaps with invalid parameters ($error)',
-    ({ params, error }) => {
-      expect(() =>
+    async ({ params, error }) => {
+      await expect(
         swapRouter['getSwapStatus'](
           mockRequest(undefined, undefined, params),
           mockResponse(),
         ),
-      ).toThrow(error);
+      ).rejects.toEqual(error);
     },
   );
 
-  test('should get status of swaps', () => {
+  test('should get status of swaps', async () => {
     const id = 'swapId';
 
     const res = mockResponse();
-    swapRouter['getSwapStatus'](mockRequest(undefined, undefined, { id }), res);
+    await swapRouter['getSwapStatus'](
+      mockRequest(undefined, undefined, { id }),
+      res,
+    );
 
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith(swapInfos.get(id));
+    expect(res.json).toHaveBeenCalledWith(await swapInfos.get(id));
   });
 
-  test('should return 404 as status when swap id cannot be found', () => {
+  test('should return 404 as status when swap id cannot be found', async () => {
     const id = 'notFound';
 
     const res = mockResponse();
-    swapRouter['getSwapStatus'](mockRequest(undefined, undefined, { id }), res);
+    await swapRouter['getSwapStatus'](
+      mockRequest(undefined, undefined, { id }),
+      res,
+    );
 
     expect(res.status).toHaveBeenCalledWith(404);
     expect(res.json).toHaveBeenCalledWith({

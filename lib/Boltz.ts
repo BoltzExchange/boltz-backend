@@ -159,18 +159,19 @@ class Boltz {
         new GrpcService(this.logger, this.service),
       );
 
-      this.prometheus = new Prometheus(
-        this.logger,
-        this.config.prometheus,
-        this.config.pairs,
-      );
-
       this.countryCodes = new CountryCodes(this.logger, this.config.marking);
       this.api = new Api(
         this.logger,
         this.config.api,
         this.service,
         this.countryCodes,
+      );
+
+      this.prometheus = new Prometheus(
+        this.logger,
+        this.api,
+        this.config.prometheus,
+        this.config.pairs,
       );
     } catch (error) {
       this.logger.error(`Could not start Boltz: ${formatError(error)}`);

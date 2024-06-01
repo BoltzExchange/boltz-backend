@@ -1977,12 +1977,12 @@ class SwapRouter extends RouterBase {
     });
   };
 
-  private getSwapStatus = (req: Request, res: Response) => {
+  private getSwapStatus = async (req: Request, res: Response) => {
     const { id } = validateRequest(req.params, [
       { name: 'id', type: 'string' },
     ]);
 
-    const response = this.swapInfos.get(id);
+    const response = await this.swapInfos.get(id);
 
     if (response) {
       successResponse(res, response);

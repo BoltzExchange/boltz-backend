@@ -1,7 +1,13 @@
 import { parseTransaction } from '../Core';
 import Logger from '../Logger';
 import { formatError, getChainCurrency, splitPairId } from '../Utils';
-import { SwapUpdateEvent, swapTypeToPrettyString } from '../consts/Enums';
+import {
+  SwapType,
+  SwapUpdateEvent,
+  swapTypeToPrettyString,
+} from '../consts/Enums';
+import { AnySwap } from '../consts/Types';
+import ReverseSwap from '../db/models/ReverseSwap';
 import Swap from '../db/models/Swap';
 import ChainSwapRepository, {
   ChainSwapInfo,
@@ -15,147 +21,141 @@ import Service from '../service/Service';
 import { getCurrency } from '../service/Utils';
 import SwapNursery from '../swap/SwapNursery';
 
-// TODO: refactor
-
 class SwapInfos {
-  private readonly pendingSwapInfos = new Map<string, SwapUpdate>();
+  private readonly cachedSwapInfos = new Map<string, SwapUpdate>();
 
   constructor(
     private readonly logger: Logger,
     private readonly service: Service,
   ) {}
 
-  public init = async () => {
-    this.logger.verbose('Fetching swaps status from database');
-    await Promise.all([
-      this.fetchSwaps(),
-      this.fetchReverse(),
-      this.fetchChainSwaps(),
-    ]);
-  };
-
-  public has = (id: string) => this.pendingSwapInfos.has(id);
-
-  public get = (id: string) => this.pendingSwapInfos.get(id);
+  public get cacheSize() {
+    return this.cachedSwapInfos.size;
+  }
 
   public set = (id: string, status: SwapUpdate) =>
-    this.pendingSwapInfos.set(id, status);
+    this.cachedSwapInfos.set(id, status);
 
-  private fetchSwaps = async () => {
-    for (const swap of await SwapRepository.getSwaps()) {
-      switch (swap.status) {
-        case SwapUpdateEvent.ChannelCreated: {
-          const channelCreation =
-            await ChannelCreationRepository.getChannelCreation({
-              swapId: swap.id,
-            });
+  public has = async (id: string): Promise<boolean> =>
+    (await this.get(id)) !== undefined;
 
-          this.pendingSwapInfos.set(swap.id, {
-            status: swap.status,
-            channel: {
-              fundingTransactionId: channelCreation!.fundingTransactionId!,
-              fundingTransactionVout: channelCreation!.fundingTransactionVout!,
-            },
-          });
+  public get = async (id: string): Promise<SwapUpdate | undefined> => {
+    const cachedUpdate = this.cachedSwapInfos.get(id);
+    if (cachedUpdate !== undefined) {
+      return cachedUpdate;
+    }
 
-          break;
-        }
+    const fetchedSwaps = await Promise.all([
+      SwapRepository.getSwap({
+        id,
+      }),
+      ReverseSwapRepository.getReverseSwap({ id }),
+      ChainSwapRepository.getChainSwap({
+        id,
+      }),
+    ]);
+    const swap = fetchedSwaps.find((s): s is AnySwap => s !== null);
+    if (swap === undefined) {
+      return undefined;
+    }
 
-        case SwapUpdateEvent.TransactionZeroConfRejected: {
-          const { base, quote } = splitPairId(swap.pair);
-          const chainCurrency = getChainCurrency(
-            base,
-            quote,
-            swap.orderSide,
-            false,
-          );
-          await this.fetchUnconfirmedUserTransaction(
-            swap,
-            chainCurrency,
-            swap.lockupTransactionId,
-          );
+    const status = await this.handleSwapStatus(swap);
+    this.cachedSwapInfos.set(id, status);
+    return status;
+  };
 
-          break;
-        }
+  private handleSwapStatus = (swap: AnySwap): Promise<SwapUpdate> => {
+    switch (swap.type) {
+      case SwapType.Submarine:
+        return this.handleSubmarineSwapStatus(swap as Swap);
 
-        default:
-          this.pendingSwapInfos.set(swap.id, {
-            status: swap.status as SwapUpdateEvent,
-            failureReason:
-              swap.failureReason !== null ? swap.failureReason : undefined,
-          });
-          break;
-      }
+      case SwapType.ReverseSubmarine:
+        return this.handleReverseSwapStatus(swap as ReverseSwap);
+
+      case SwapType.Chain:
+        return this.handleChainSwapStatus(swap as ChainSwapInfo);
     }
   };
 
-  private fetchReverse = async () => {
-    for (const swap of await ReverseSwapRepository.getReverseSwaps()) {
-      switch (swap.status) {
-        case SwapUpdateEvent.TransactionMempool:
-        case SwapUpdateEvent.TransactionConfirmed: {
-          const { base, quote } = splitPairId(swap.pair);
-          const chainCurrency = getChainCurrency(
-            base,
-            quote,
-            swap.orderSide,
-            true,
-          );
-
-          this.pendingSwapInfos.set(
-            swap.id,
-            await this.getSwapStatusForServerSentTransaction(
-              swap.status,
-              chainCurrency,
-              swap.transactionId!,
-            ),
-          );
-
-          break;
-        }
-
-        default:
-          this.pendingSwapInfos.set(swap.id, {
-            status: swap.status as SwapUpdateEvent,
-            failureReason:
-              swap.failureReason !== null ? swap.failureReason : undefined,
+  private handleSubmarineSwapStatus = async (swap: Swap) => {
+    switch (swap.status) {
+      case SwapUpdateEvent.ChannelCreated: {
+        const channelCreation =
+          await ChannelCreationRepository.getChannelCreation({
+            swapId: swap.id,
           });
-          break;
+
+        return {
+          status: swap.status,
+          channel: {
+            fundingTransactionId: channelCreation!.fundingTransactionId!,
+            fundingTransactionVout: channelCreation!.fundingTransactionVout!,
+          },
+        };
       }
+
+      case SwapUpdateEvent.TransactionZeroConfRejected: {
+        const { base, quote } = splitPairId(swap.pair);
+        return this.fetchUnconfirmedUserTransaction(
+          swap,
+          getChainCurrency(base, quote, swap.orderSide, false),
+          swap.lockupTransactionId,
+        );
+      }
+
+      default:
+        return {
+          status: swap.status as SwapUpdateEvent,
+          failureReason:
+            swap.failureReason !== null ? swap.failureReason : undefined,
+        };
     }
   };
 
-  private fetchChainSwaps = async () => {
-    for (const swap of await ChainSwapRepository.getChainSwaps()) {
-      switch (swap.status) {
-        case SwapUpdateEvent.TransactionZeroConfRejected:
-          await this.fetchUnconfirmedUserTransaction(
-            swap,
-            swap.receivingData.symbol,
-            swap.receivingData.transactionId,
-          );
-          break;
-
-        case SwapUpdateEvent.TransactionServerMempool:
-        case SwapUpdateEvent.TransactionServerConfirmed:
-          this.pendingSwapInfos.set(
-            swap.id,
-            await this.getSwapStatusForServerSentTransaction(
-              swap.status,
-              swap.sendingData.symbol,
-              swap.sendingData.transactionId!,
-            ),
-          );
-          break;
-
-        default:
-          this.pendingSwapInfos.set(swap.id, {
-            status: swap.status as SwapUpdateEvent,
-            failureReason:
-              swap.failureReason !== null ? swap.failureReason : undefined,
-          });
-          break;
+  private handleReverseSwapStatus = async (swap: ReverseSwap) => {
+    switch (swap.status) {
+      case SwapUpdateEvent.TransactionMempool:
+      case SwapUpdateEvent.TransactionConfirmed: {
+        const { base, quote } = splitPairId(swap.pair);
+        return this.getSwapStatusForServerSentTransaction(
+          swap.status,
+          getChainCurrency(base, quote, swap.orderSide, true),
+          swap.transactionId!,
+        );
       }
+
+      default:
+        return {
+          status: swap.status as SwapUpdateEvent,
+          failureReason:
+            swap.failureReason !== null ? swap.failureReason : undefined,
+        };
+    }
+  };
+
+  private handleChainSwapStatus = async (swap: ChainSwapInfo) => {
+    switch (swap.status) {
+      case SwapUpdateEvent.TransactionZeroConfRejected:
+        return this.fetchUnconfirmedUserTransaction(
+          swap,
+          swap.receivingData.symbol,
+          swap.receivingData.transactionId,
+        );
+
+      case SwapUpdateEvent.TransactionServerMempool:
+      case SwapUpdateEvent.TransactionServerConfirmed:
+        return this.getSwapStatusForServerSentTransaction(
+          swap.status,
+          swap.sendingData.symbol,
+          swap.sendingData.transactionId!,
+        );
+
+      default:
+        return {
+          status: swap.status as SwapUpdateEvent,
+          failureReason:
+            swap.failureReason !== null ? swap.failureReason : undefined,
+        };
     }
   };
 
@@ -212,7 +212,7 @@ class SwapInfos {
           transactionId,
         );
 
-        this.pendingSwapInfos.set(swap.id, {
+        return {
           status: SwapUpdateEvent.TransactionMempool,
           zeroConfRejected: true,
           transaction: EventHandler.formatTransaction(
@@ -221,8 +221,7 @@ class SwapInfos {
               transactionHex,
             ),
           ),
-        });
-        return;
+        };
       } catch (e) {
         this.logger.warn(
           `Could not find unconfirmed ${chainCurrency} user lockup transaction of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${formatError(e)}`,
@@ -230,10 +229,10 @@ class SwapInfos {
       }
     }
 
-    this.pendingSwapInfos.set(swap.id, {
+    return {
       status: SwapUpdateEvent.TransactionMempool,
       zeroConfRejected: true,
-    });
+    };
   };
 }
 

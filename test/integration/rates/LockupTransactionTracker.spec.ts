@@ -289,7 +289,7 @@ describe('LockupTransactionTracker', () => {
 
         expect(
           PendingLockupTransactionRepository.destroy,
-        ).toHaveBeenCalledTimes(0);
+        ).not.toHaveBeenCalled();
       },
     );
 

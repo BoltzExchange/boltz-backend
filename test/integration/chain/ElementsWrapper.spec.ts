@@ -160,7 +160,7 @@ describe('ElementsWrapper', () => {
 
     expect(mockFnPublic).toHaveBeenCalledTimes(1);
     expect(mockFnPublic).toHaveBeenCalledWith(param);
-    expect(mockFnLowball).toHaveBeenCalledTimes(0);
+    expect(mockFnLowball).not.toHaveBeenCalled();
   });
 
   describe('sendRawTransaction', () => {
@@ -209,7 +209,7 @@ describe('ElementsWrapper', () => {
 
       expect(mockFnPublic).toHaveBeenCalledTimes(1);
       expect(mockFnPublic).toHaveBeenCalledWith(param);
-      expect(mockFnLowball).toHaveBeenCalledTimes(0);
+      expect(mockFnLowball).not.toHaveBeenCalled();
     });
   });
 

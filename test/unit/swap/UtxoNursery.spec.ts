@@ -334,7 +334,7 @@ describe('UtxoNursery', () => {
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockEncodeAddress).toHaveBeenCalledTimes(1);
-    expect(mockSetLockupTransaction).toHaveBeenCalledTimes(0);
+    expect(mockSetLockupTransaction).not.toHaveBeenCalled();
   });
 
   test('should handle confirmed Swap outputs via block events', async () => {
@@ -455,7 +455,7 @@ describe('UtxoNursery', () => {
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockEncodeAddress).toHaveBeenCalledTimes(4);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(1);
-    expect(mockRemoveOutputFilter).toHaveBeenCalledTimes(0);
+    expect(mockRemoveOutputFilter).not.toHaveBeenCalled();
 
     jest.clearAllMocks();
 
@@ -485,7 +485,7 @@ describe('UtxoNursery', () => {
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockEncodeAddress).toHaveBeenCalledTimes(4);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(1);
-    expect(mockRemoveOutputFilter).toHaveBeenCalledTimes(0);
+    expect(mockRemoveOutputFilter).not.toHaveBeenCalled();
 
     jest.clearAllMocks();
 
@@ -522,7 +522,7 @@ describe('UtxoNursery', () => {
       '62af53c6dcda51c4ebac3309b85ce2ca043a912f127250c51e19b1de82299730',
     );
 
-    expect(mockRemoveOutputFilter).toHaveBeenCalledTimes(0);
+    expect(mockRemoveOutputFilter).not.toHaveBeenCalled();
   });
 
   test('should reject 0-conf transactions when the lockup transaction tracker does not allow for 0-conf', async () => {
@@ -695,7 +695,7 @@ describe('UtxoNursery', () => {
     await checkReverseSwapsClaims(btcChainClient, transaction);
 
     expect(mockGetReverseSwap).toHaveBeenCalledTimes(1);
-    expect(mockRemoveInputFilter).toHaveBeenCalledTimes(0);
+    expect(mockRemoveInputFilter).not.toHaveBeenCalled();
   });
 
   test('should handle confirmed Reverse Swap lockups via block events', async () => {
@@ -901,7 +901,7 @@ describe('UtxoNursery', () => {
       await nursery['transactionSignalsRbf'](btcChainClient, transaction),
     ).toEqual(true);
 
-    expect(mockGetRawTransactionVerbose).toHaveBeenCalledTimes(0);
+    expect(mockGetRawTransactionVerbose).not.toHaveBeenCalled();
   });
 
   test('should detect when transactions signal RBF inherently', async () => {

@@ -60,9 +60,9 @@ describe('SwapInfos', () => {
 
       await expect(swapInfos.get(id)).resolves.toEqual(status);
 
-      expect(SwapRepository.getSwap).toHaveBeenCalledTimes(0);
-      expect(ReverseSwapRepository.getReverseSwap).toHaveBeenCalledTimes(0);
-      expect(ChainSwapRepository.getChainSwap).toHaveBeenCalledTimes(0);
+      expect(SwapRepository.getSwap).not.toHaveBeenCalled();
+      expect(ReverseSwapRepository.getReverseSwap).not.toHaveBeenCalled();
+      expect(ChainSwapRepository.getChainSwap).not.toHaveBeenCalled();
     });
 
     test('should return undefined when swap cannot be found', async () => {

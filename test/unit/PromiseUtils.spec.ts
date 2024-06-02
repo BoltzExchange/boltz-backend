@@ -59,7 +59,7 @@ describe('PromiseUtils', () => {
       await expect(promise).rejects.toEqual(promiseRejection);
 
       jest.runOnlyPendingTimers();
-      expect(raceHandler).toHaveBeenCalledTimes(0);
+      expect(raceHandler).not.toHaveBeenCalled();
     });
   });
 

@@ -207,6 +207,6 @@ describe('Utils', () => {
     expect(countryCodes.isRelevantCountry).toHaveBeenCalledTimes(1);
     expect(countryCodes.isRelevantCountry).toHaveBeenCalledWith('TOR');
 
-    expect(MarkedSwapRepository.addMarkedSwap).toHaveBeenCalledTimes(0);
+    expect(MarkedSwapRepository.addMarkedSwap).not.toHaveBeenCalled();
   });
 });

@@ -100,7 +100,7 @@ describe('DiskUsageChecker', () => {
     await checker.checkUsage();
 
     expect(checker['alertSent']).toBeFalsy();
-    expect(mockSendMessage).toHaveBeenCalledTimes(0);
+    expect(mockSendMessage).not.toHaveBeenCalled();
   });
 
   test('should send warnings only once', async () => {

@@ -472,7 +472,7 @@ describe('EthereumNursery', () => {
     });
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
-    expect(mockSetLockupTransaction).toHaveBeenCalledTimes(0);
+    expect(mockSetLockupTransaction).not.toHaveBeenCalled();
 
     expect(lockupEmitted).toEqual(false);
     expect(lockupFailed).toEqual(0);
@@ -486,7 +486,7 @@ describe('EthereumNursery', () => {
     });
 
     expect(mockGetSwap).toHaveBeenCalledTimes(2);
-    expect(mockSetLockupTransaction).toHaveBeenCalledTimes(0);
+    expect(mockSetLockupTransaction).not.toHaveBeenCalled();
 
     expect(lockupEmitted).toEqual(false);
     expect(lockupFailed).toEqual(0);
@@ -759,7 +759,7 @@ describe('EthereumNursery', () => {
     });
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
-    expect(mockSetLockupTransaction).toHaveBeenCalledTimes(0);
+    expect(mockSetLockupTransaction).not.toHaveBeenCalled();
 
     expect(lockupEmitted).toEqual(false);
     expect(lockupFailed).toEqual(0);
@@ -773,7 +773,7 @@ describe('EthereumNursery', () => {
     });
 
     expect(mockGetSwap).toHaveBeenCalledTimes(2);
-    expect(mockSetLockupTransaction).toHaveBeenCalledTimes(0);
+    expect(mockSetLockupTransaction).not.toHaveBeenCalled();
 
     expect(lockupEmitted).toEqual(false);
     expect(lockupFailed).toEqual(0);

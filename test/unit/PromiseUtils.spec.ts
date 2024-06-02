@@ -1,6 +1,7 @@
 import {
   allSettled,
   allSettledFirst,
+  filterAsync,
   racePromise,
 } from '../../lib/PromiseUtils';
 
@@ -58,7 +59,7 @@ describe('PromiseUtils', () => {
       await expect(promise).rejects.toEqual(promiseRejection);
 
       jest.runOnlyPendingTimers();
-      expect(raceHandler).toHaveBeenCalledTimes(0);
+      expect(raceHandler).not.toHaveBeenCalled();
     });
   });
 
@@ -113,6 +114,16 @@ describe('PromiseUtils', () => {
           new Promise((_, reject) => reject('error 3')),
         ]),
       ).rejects.toEqual('error 1');
+    });
+  });
+
+  describe('filterAsync', () => {
+    test('should filter with Promise predicates', async () => {
+      const arr = [1, 2, 3, 4];
+
+      await expect(
+        filterAsync(arr, async (param) => param % 2 === 0),
+      ).resolves.toEqual([2, 4]);
     });
   });
 });

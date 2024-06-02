@@ -201,8 +201,8 @@ describe('LightningNursery', () => {
 
     await emitHtlcAccepted(invoice);
 
-    expect(mockLookupHoldInvoice).toHaveBeenCalledTimes(0);
-    expect(mockSettleHoldInvoice).toHaveBeenCalledTimes(0);
+    expect(mockLookupHoldInvoice).not.toHaveBeenCalled();
+    expect(mockSettleHoldInvoice).not.toHaveBeenCalled();
     expect(mockGetReverseSwap).toHaveBeenCalledTimes(1);
 
     expect(eventsEmitted).toEqual(1);
@@ -237,7 +237,7 @@ describe('LightningNursery', () => {
       getHexBuffer(decodeInvoice(invoice).paymentHash!),
     );
 
-    expect(mockSettleHoldInvoice).toHaveBeenCalledTimes(0);
+    expect(mockSettleHoldInvoice).not.toHaveBeenCalled();
     expect(mockGetReverseSwap).toHaveBeenCalledTimes(1);
 
     nursery.on('invoice.paid', (reverseSwap) => {
@@ -288,7 +288,7 @@ describe('LightningNursery', () => {
 
     expect(eventsEmitted).toEqual(0);
 
-    expect(mockSettleHoldInvoice).toHaveBeenCalledTimes(0);
+    expect(mockSettleHoldInvoice).not.toHaveBeenCalled();
     expect(mockGetReverseSwap).toHaveBeenCalledTimes(1);
 
     nursery.on('minerfee.invoice.paid', (reverseSwap) => {

@@ -107,7 +107,7 @@ describe('PaymentHandler', () => {
       undefined,
     );
 
-    expect(mockedEmit).toHaveBeenCalledTimes(0);
+    expect(mockedEmit).not.toHaveBeenCalled();
     expect(btcCurrency.lndClient!.trackPayment).toHaveBeenCalledTimes(1);
     expect(btcCurrency.lndClient!.trackPayment).toHaveBeenCalledWith(
       getHexBuffer(swap.preimageHash),
@@ -130,8 +130,8 @@ describe('PaymentHandler', () => {
       undefined,
     );
 
-    expect(mockedEmit).toHaveBeenCalledTimes(0);
-    expect(btcCurrency.lndClient!.resetMissionControl).toHaveBeenCalledTimes(0);
+    expect(mockedEmit).not.toHaveBeenCalled();
+    expect(btcCurrency.lndClient!.resetMissionControl).not.toHaveBeenCalled();
     expect(btcCurrency.lndClient!.trackPayment).toHaveBeenCalledTimes(1);
     expect(btcCurrency.lndClient!.trackPayment).toHaveBeenCalledWith(
       getHexBuffer(swap.preimageHash),
@@ -145,9 +145,9 @@ describe('PaymentHandler', () => {
       status: Payment.PaymentStatus.FAILED,
     };
 
-    expect(mockedEmit).toHaveBeenCalledTimes(0);
-    expect(btcCurrency.lndClient!.resetMissionControl).toHaveBeenCalledTimes(0);
-    expect(btcCurrency.lndClient!.trackPayment).toHaveBeenCalledTimes(0);
+    expect(mockedEmit).not.toHaveBeenCalled();
+    expect(btcCurrency.lndClient!.resetMissionControl).not.toHaveBeenCalled();
+    expect(btcCurrency.lndClient!.trackPayment).not.toHaveBeenCalled();
 
     await expect(handler.payInvoice(swap, null, undefined)).resolves.toEqual(
       undefined,

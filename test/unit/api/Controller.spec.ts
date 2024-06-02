@@ -179,7 +179,7 @@ const mockedService = <jest.Mock<Service>>(<any>Service);
 jest.mock('../../../lib/api/SwapInfos', () => {
   return jest.fn().mockImplementation(() => {
     return {
-      get: jest.fn().mockImplementation((id: string) => {
+      get: jest.fn().mockImplementation(async (id: string) => {
         if (swap.id === id) {
           return {
             status: swap.status,
@@ -969,11 +969,11 @@ describe('Controller', () => {
     expect(res.end).toHaveBeenCalledTimes(1);
   });
 
-  test('should stream swap status updates', () => {
+  test('should stream swap status updates', async () => {
     // No id provided in request
     const res = mockResponse();
 
-    controller.streamSwapStatus(mockRequest({}, {}), res);
+    await controller.streamSwapStatus(mockRequest({}, {}), res);
 
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith({
@@ -983,7 +983,7 @@ describe('Controller', () => {
     // Successful request
     const id = 'id';
 
-    controller.streamSwapStatus(
+    await controller.streamSwapStatus(
       mockRequest(
         {},
         {

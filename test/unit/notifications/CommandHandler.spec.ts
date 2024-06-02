@@ -239,7 +239,7 @@ describe('CommandHandler', () => {
     sendMessage('clearly not a command');
     await wait(5);
 
-    expect(mockSendMessage).toHaveBeenCalledTimes(0);
+    expect(mockSendMessage).not.toHaveBeenCalled();
   });
 
   test('should deal with commands that are not all lower case', async () => {

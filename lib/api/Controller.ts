@@ -161,7 +161,7 @@ class Controller {
         { name: 'id', type: 'string' },
       ]);
 
-      const response = this.swapInfos.get(id);
+      const response = await this.swapInfos.get(id);
 
       if (response) {
         successResponse(res, response);
@@ -432,7 +432,10 @@ class Controller {
   };
 
   // EventSource streams
-  public streamSwapStatus = (req: Request, res: Response): void => {
+  public streamSwapStatus = async (
+    req: Request,
+    res: Response,
+  ): Promise<void> => {
     try {
       const { id } = validateRequest(req.query, [
         { name: 'id', type: 'string' },
@@ -447,7 +450,7 @@ class Controller {
 
       res.setTimeout(0);
 
-      const lastUpdate = this.swapInfos.get(id);
+      const lastUpdate = await this.swapInfos.get(id);
       if (lastUpdate) {
         this.writeToSse(res, lastUpdate);
       }

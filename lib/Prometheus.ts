@@ -2,6 +2,7 @@ import express, { Response } from 'express';
 import { Gauge, Registry, collectDefaultMetrics } from 'prom-client';
 import Logger from './Logger';
 import { getPairId } from './Utils';
+import Api from './api/Api';
 import { PairConfig } from './consts/Types';
 import StatsRepository, { SwapType } from './db/repositories/StatsRepository';
 
@@ -11,6 +12,7 @@ type PrometheusConfig = {
 };
 
 class Prometheus {
+  private static readonly gaugeUpdateInterval = 1_000;
   private static readonly metric_prefix = 'boltz_';
 
   private readonly pairs = new Set<string>();
@@ -20,6 +22,7 @@ class Prometheus {
 
   constructor(
     private readonly logger: Logger,
+    private readonly api: Api,
     private readonly config: PrometheusConfig | undefined,
     pairs: PairConfig[],
   ) {
@@ -155,6 +158,16 @@ class Prometheus {
         },
       }),
     );
+
+    const swapStatusCacheCount = new Gauge({
+      name: `${Prometheus.metric_prefix}swap_status_cache_count`,
+      help: 'swap status messages cached',
+    });
+    setInterval(
+      () => swapStatusCacheCount.set(this.api.swapInfos.cacheSize),
+      Prometheus.gaugeUpdateInterval,
+    );
+    this.swapRegistry!.registerMetric(swapStatusCacheCount);
   };
 }
 

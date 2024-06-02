@@ -91,7 +91,7 @@ describe('NodeFallback', () => {
       holdInvoiceAmount,
       undefined,
     );
-    expect(routingHints.getRoutingHints).toHaveBeenCalledTimes(0);
+    expect(routingHints.getRoutingHints).not.toHaveBeenCalled();
     expect(
       nodeForReverseSwap.lightningClient.addHoldInvoice,
     ).toHaveBeenCalledTimes(1);
@@ -265,7 +265,7 @@ describe('NodeFallback', () => {
     expect(res.lightningClient).toEqual(nodeForReverseSwap.lightningClient);
 
     expect(nodeSwitch.getNodeForReverseSwap).toHaveBeenCalledTimes(2);
-    expect(routingHints.getRoutingHints).toHaveBeenCalledTimes(0);
+    expect(routingHints.getRoutingHints).not.toHaveBeenCalled();
   });
 
   test('should throw non timeout related errors', async () => {

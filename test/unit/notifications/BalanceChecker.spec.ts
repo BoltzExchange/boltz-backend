@@ -249,7 +249,7 @@ describe('BalanceChecker', () => {
     );
 
     expect(checker['walletBalanceAlerts'].size).toEqual(0);
-    expect(mockSendMessage).toHaveBeenCalledTimes(0);
+    expect(mockSendMessage).not.toHaveBeenCalled();
 
     // Should send message when getting out of bounds
     checkBalance(
@@ -532,7 +532,7 @@ describe('BalanceChecker', () => {
       false,
     );
 
-    expect(mockSendMessage).toHaveBeenCalledTimes(0);
+    expect(mockSendMessage).not.toHaveBeenCalled();
   });
 
   test('should check for max unused wallet balance for unused wallets', async () => {

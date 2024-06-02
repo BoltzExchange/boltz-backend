@@ -11,9 +11,9 @@ import ApiV2 from './v2/ApiV2';
 import WebSocketHandler from './v2/WebSocketHandler';
 
 class Api {
-  private app: Application;
+  public readonly swapInfos: SwapInfos;
 
-  private readonly swapInfos: SwapInfos;
+  private app: Application;
 
   private readonly websocket: WebSocketHandler;
   private readonly controller: Controller;
@@ -81,8 +81,6 @@ class Api {
   }
 
   public init = async (): Promise<void> => {
-    await this.swapInfos.init();
-
     await new Promise<void>((resolve) => {
       const server = this.app.listen(this.config.port, this.config.host, () => {
         this.logger.info(

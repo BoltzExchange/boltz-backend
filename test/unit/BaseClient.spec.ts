@@ -60,6 +60,6 @@ describe('BaseClient', () => {
 
     client.setClientStatus(ClientStatus.Disconnected);
 
-    expect(spy).toHaveBeenCalledTimes(0);
+    expect(spy).not.toHaveBeenCalled();
   });
 });

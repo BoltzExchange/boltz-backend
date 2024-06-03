@@ -9,9 +9,10 @@ export const createInvoice = (
   preimageHash?: string,
   timestamp?: number,
   expiry?: number,
+  satoshis?: number,
 ): string => {
   const invoiceEncode = bolt11.encode({
-    satoshis: 100,
+    satoshis: satoshis || 100,
     timestamp: timestamp || getUnixTime(),
     payeeNodeKey: getHexString(invoiceSigningKeys.publicKey),
     tags: [

@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import path from 'path';
 import Logger from '../Logger';
-import { getVersion, mapToObject, saneStringify, stringify } from '../Utils';
+import { getVersion, mapToObject, stringify } from '../Utils';
 import { SwapType, SwapVersion, stringToSwapType } from '../consts/Enums';
 import ReferralStats from '../data/ReferralStats';
 import LndClient from '../lightning/LndClient';
@@ -33,9 +33,6 @@ class Controller {
     private readonly swapInfos: SwapInfos,
   ) {
     this.service.eventHandler.on('swap.update', ({ id, status }) => {
-      this.logger.debug(`Swap ${id} update: ${saneStringify(status)}`);
-      this.swapInfos.set(id, status);
-
       const response = this.pendingSwapStreams.get(id);
 
       if (response) {

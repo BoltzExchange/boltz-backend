@@ -9,6 +9,7 @@ import {
   SwapType,
   SwapUpdateEvent,
 } from '../../../lib/consts/Enums';
+import TypedEventEmitter from '../../../lib/consts/TypedEventEmitter';
 import ReverseSwap from '../../../lib/db/models/ReverseSwap';
 import Swap from '../../../lib/db/models/Swap';
 import ChainSwapRepository, {
@@ -23,11 +24,25 @@ import Service from '../../../lib/service/Service';
 import SwapNursery from '../../../lib/swap/SwapNursery';
 
 describe('SwapInfos', () => {
-  const service = {} as any as Service;
+  const service = {
+    eventHandler: new TypedEventEmitter(),
+  } as any as Service;
   let swapInfos: SwapInfos;
 
   beforeEach(() => {
+    service.eventHandler.removeAllListeners();
     swapInfos = new SwapInfos(Logger.disabledLogger, service);
+  });
+
+  describe('constructor', () => {
+    test('should update cache on swap.update', () => {
+      const id = 'asdf';
+      const status = { status: SwapUpdateEvent.TransactionClaimed };
+      service.eventHandler.emit('swap.update', { id, status });
+
+      expect(swapInfos['cachedSwapInfos'].get(id)).toEqual(status);
+      expect(swapInfos.cacheSize).toEqual(1);
+    });
   });
 
   describe('has', () => {

@@ -122,6 +122,8 @@ describe('EventHandler', () => {
   `(
     'should emit on submarine swap transactions (confirmed: $confirmed)',
     ({ confirmed }) => {
+      const transaction = mockTransaction();
+
       expect.assertions(2);
 
       eventHandler.once('swap.update', ({ id, status }) => {
@@ -130,13 +132,14 @@ describe('EventHandler', () => {
           status: confirmed
             ? SwapUpdateEvent.TransactionConfirmed
             : SwapUpdateEvent.TransactionMempool,
+          transaction: EventHandler.formatTransaction(transaction),
         });
       });
 
       nursery.emit('transaction', {
         swap,
         confirmed,
-        transaction: mockTransaction(),
+        transaction,
       });
     },
   );

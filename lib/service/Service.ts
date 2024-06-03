@@ -712,7 +712,7 @@ class Service {
 
     if (isSwapRelated) {
       this.logger.debug(
-        `Broadcasting transaction related to Swaps (${swapsSpent.map((r) => r.id).join(', ')}): ${transaction.getId()}`,
+        `Broadcasting ${symbol} transaction related to Swaps (${swapsSpent.map((r) => r.id).join(', ')}): ${transaction.getId()}`,
       );
     }
 

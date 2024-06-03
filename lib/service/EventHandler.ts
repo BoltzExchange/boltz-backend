@@ -1,6 +1,7 @@
 import { Transaction } from 'bitcoinjs-lib';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import Logger from '../Logger';
+import { saneStringify } from '../Utils';
 import {
   SwapType,
   SwapUpdateEvent,
@@ -58,6 +59,10 @@ class EventHandler extends TypedEventEmitter<{
   ) {
     super();
 
+    this.on('swap.update', ({ id, status }) => {
+      this.logger.debug(`Swap ${id} update: ${saneStringify(status)}`);
+    });
+
     this.subscribeInvoices();
     this.subscribeSwapEvents();
     this.subscribeTransactions();
@@ -110,6 +115,7 @@ class EventHandler extends TypedEventEmitter<{
             status: confirmed
               ? SwapUpdateEvent.TransactionConfirmed
               : SwapUpdateEvent.TransactionMempool,
+            transaction: EventHandler.formatTransaction(transaction),
           },
         });
       } else {

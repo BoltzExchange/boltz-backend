@@ -27,14 +27,15 @@ class SwapInfos {
   constructor(
     private readonly logger: Logger,
     private readonly service: Service,
-  ) {}
+  ) {
+    this.service.eventHandler.on('swap.update', ({ id, status }) => {
+      this.set(id, status);
+    });
+  }
 
   public get cacheSize() {
     return this.cachedSwapInfos.size;
   }
-
-  public set = (id: string, status: SwapUpdate) =>
-    this.cachedSwapInfos.set(id, status);
 
   public has = async (id: string): Promise<boolean> =>
     (await this.get(id)) !== undefined;
@@ -94,9 +95,11 @@ class SwapInfos {
         };
       }
 
+      case SwapUpdateEvent.TransactionMempool:
+      case SwapUpdateEvent.TransactionConfirmed:
       case SwapUpdateEvent.TransactionZeroConfRejected: {
         const { base, quote } = splitPairId(swap.pair);
-        return this.fetchUnconfirmedUserTransaction(
+        return this.fetchUserTransaction(
           swap,
           getChainCurrency(base, quote, swap.orderSide, false),
           swap.lockupTransactionId,
@@ -135,8 +138,10 @@ class SwapInfos {
 
   private handleChainSwapStatus = async (swap: ChainSwapInfo) => {
     switch (swap.status) {
+      case SwapUpdateEvent.TransactionMempool:
+      case SwapUpdateEvent.TransactionConfirmed:
       case SwapUpdateEvent.TransactionZeroConfRejected:
-        return this.fetchUnconfirmedUserTransaction(
+        return this.fetchUserTransaction(
           swap,
           swap.receivingData.symbol,
           swap.receivingData.transactionId,
@@ -200,11 +205,20 @@ class SwapInfos {
     };
   };
 
-  private fetchUnconfirmedUserTransaction = async (
+  private fetchUserTransaction = async (
     swap: Swap | ChainSwapInfo,
     chainCurrency: string,
     transactionId?: string,
-  ) => {
+  ): Promise<SwapUpdate> => {
+    const status =
+      swap.status === SwapUpdateEvent.TransactionZeroConfRejected
+        ? SwapUpdateEvent.TransactionMempool
+        : (swap.status as SwapUpdateEvent);
+    const zeroConfRejected =
+      swap.status === SwapUpdateEvent.TransactionZeroConfRejected
+        ? true
+        : undefined;
+
     if (transactionId !== undefined) {
       try {
         const transactionHex = await this.service.getTransaction(
@@ -213,8 +227,8 @@ class SwapInfos {
         );
 
         return {
-          status: SwapUpdateEvent.TransactionMempool,
-          zeroConfRejected: true,
+          status,
+          zeroConfRejected,
           transaction: EventHandler.formatTransaction(
             parseTransaction(
               getCurrency(this.service.currencies, chainCurrency).type,
@@ -224,16 +238,19 @@ class SwapInfos {
         };
       } catch (e) {
         this.logger.warn(
-          `Could not find unconfirmed ${chainCurrency} user lockup transaction of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${formatError(e)}`,
+          `Could not find ${zeroConfRejected ? 'un' : ''}confirmed ${chainCurrency} user lockup transaction of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${formatError(e)}`,
         );
       }
     }
 
     return {
-      status: SwapUpdateEvent.TransactionMempool,
-      zeroConfRejected: true,
+      status,
+      zeroConfRejected,
     };
   };
+
+  private set = (id: string, status: SwapUpdate) =>
+    this.cachedSwapInfos.set(id, status);
 }
 
 export default SwapInfos;

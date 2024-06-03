@@ -66,7 +66,7 @@ class Boltz {
     );
 
     this.logger.info(
-      `Starting Boltz ${getVersion()} (Node.js ${process.version})`,
+      `Starting Boltz ${getVersion()} (Node.js ${process.version}; NODE_ENV=${process.env.NODE_ENV})`,
     );
 
     registerExitHandler(async () => {

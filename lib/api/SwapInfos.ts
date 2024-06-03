@@ -78,7 +78,9 @@ class SwapInfos {
     }
   };
 
-  private handleSubmarineSwapStatus = async (swap: Swap) => {
+  private handleSubmarineSwapStatus = async (
+    swap: Swap,
+  ): Promise<SwapUpdate> => {
     switch (swap.status) {
       case SwapUpdateEvent.ChannelCreated: {
         const channelCreation =
@@ -106,16 +108,21 @@ class SwapInfos {
         );
       }
 
-      default:
+      case SwapUpdateEvent.TransactionLockupFailed:
         return {
           status: swap.status as SwapUpdateEvent,
-          failureReason:
-            swap.failureReason !== null ? swap.failureReason : undefined,
+          failureReason: swap.failureReason,
+          failureDetails: swap.failureDetails,
         };
+
+      default:
+        return this.handleSwapStatusDefault(swap);
     }
   };
 
-  private handleReverseSwapStatus = async (swap: ReverseSwap) => {
+  private handleReverseSwapStatus = async (
+    swap: ReverseSwap,
+  ): Promise<SwapUpdate> => {
     switch (swap.status) {
       case SwapUpdateEvent.TransactionMempool:
       case SwapUpdateEvent.TransactionConfirmed: {
@@ -128,15 +135,13 @@ class SwapInfos {
       }
 
       default:
-        return {
-          status: swap.status as SwapUpdateEvent,
-          failureReason:
-            swap.failureReason !== null ? swap.failureReason : undefined,
-        };
+        return this.handleSwapStatusDefault(swap);
     }
   };
 
-  private handleChainSwapStatus = async (swap: ChainSwapInfo) => {
+  private handleChainSwapStatus = async (
+    swap: ChainSwapInfo,
+  ): Promise<SwapUpdate> => {
     switch (swap.status) {
       case SwapUpdateEvent.TransactionMempool:
       case SwapUpdateEvent.TransactionConfirmed:
@@ -155,13 +160,26 @@ class SwapInfos {
           swap.sendingData.transactionId!,
         );
 
-      default:
+      case SwapUpdateEvent.TransactionLockupFailed:
         return {
           status: swap.status as SwapUpdateEvent,
-          failureReason:
-            swap.failureReason !== null ? swap.failureReason : undefined,
+          failureReason: swap.failureReason,
+          failureDetails: swap.failureDetails,
         };
+
+      default:
+        return this.handleSwapStatusDefault(swap);
     }
+  };
+
+  private handleSwapStatusDefault = (swap: AnySwap): SwapUpdate => {
+    const hasFailureReason = swap.failureReason !== null;
+
+    return {
+      status: swap.status as SwapUpdateEvent,
+      failureReason: hasFailureReason ? swap.failureReason : undefined,
+      failureDetails: hasFailureReason ? swap.failureDetails : undefined,
+    };
   };
 
   private getSwapStatusForServerSentTransaction = async (

@@ -1,6 +1,6 @@
 import { randomBytes } from 'crypto';
 import Logger from '../../../../lib/Logger';
-import { getHexString } from '../../../../lib/Utils';
+import { generateSwapId, getHexString } from '../../../../lib/Utils';
 import {
   OrderSide,
   SwapType,
@@ -9,7 +9,9 @@ import {
 } from '../../../../lib/consts/Enums';
 import Database from '../../../../lib/db/Database';
 import ChainSwap from '../../../../lib/db/models/ChainSwap';
-import ChainSwapData from '../../../../lib/db/models/ChainSwapData';
+import ChainSwapData, {
+  ChainSwapDataType,
+} from '../../../../lib/db/models/ChainSwapData';
 import Pair from '../../../../lib/db/models/Pair';
 import ChainSwapRepository, {
   ChainSwapInfo,
@@ -17,6 +19,22 @@ import ChainSwapRepository, {
 import { createChainSwap } from './Fixtures';
 
 describe('ChainSwapInfo', () => {
+  let database: Database;
+
+  beforeAll(async () => {
+    database = new Database(Logger.disabledLogger, Database.memoryDatabase);
+    await database.init();
+    await Pair.create({
+      quote: 'BTC',
+      base: 'L-BTC',
+      id: 'L-BTC/BTC',
+    });
+  });
+
+  afterAll(async () => {
+    await database.close();
+  });
+
   test('should get type', () => {
     expect(new ChainSwapInfo({} as any, {} as any, {} as any).type).toEqual(
       SwapType.Chain,
@@ -66,12 +84,84 @@ describe('ChainSwapInfo', () => {
       expect(info.paidMinerFees).toEqual(paid);
     },
   );
+
+  describe('failureDetails', () => {
+    const createSwapBase = () => {
+      const id = generateSwapId(SwapVersion.Taproot);
+      return {
+        chainSwap: {
+          id,
+          fee: 1,
+          pair: 'L-BTC/BTC',
+          acceptZeroConf: false,
+          orderSide: OrderSide.BUY,
+          status: SwapUpdateEvent.SwapCreated,
+          preimageHash: getHexString(randomBytes(32)),
+        },
+        sendingData: {
+          swapId: id,
+          symbol: 'L-BTC',
+          lockupAddress: 'bc1',
+          timeoutBlockHeight: 1,
+          expectedAmount: 90,
+        },
+        receivingData: {
+          swapId: id,
+          symbol: 'BTC',
+          lockupAddress: 'bc1',
+          timeoutBlockHeight: 2,
+          expectedAmount: 100,
+        } as ChainSwapDataType,
+      };
+    };
+
+    test.each`
+      name                                       | swapData
+      ${'amount is undefined'}                   | ${{}}
+      ${'expectedAmount is undefined'}           | ${{ amount: 123 }}
+      ${'amount is equal to expectedAmount'}     | ${{ amount: 123, expectedAmount: 123 }}
+      ${'amount is greater than expectedAmount'} | ${{ amount: 1234, expectedAmount: 123 }}
+    `('should return undefined when $name', async ({ swapData }) => {
+      const swapType = createSwapBase();
+      swapType.receivingData = {
+        ...swapType.receivingData,
+        ...swapData,
+      };
+      await ChainSwapRepository.addChainSwap(swapType);
+
+      const swap = await ChainSwapRepository.getChainSwap({
+        id: swapType.chainSwap.id,
+      });
+      expect(swap).not.toBeNull();
+      expect(swap!.failureDetails).toEqual(undefined);
+    });
+
+    test('should return insufficient amount details when amount is less than expected amount', async () => {
+      const swapType = createSwapBase();
+      swapType.receivingData = {
+        ...swapType.receivingData,
+        amount: 20,
+        expectedAmount: 21,
+      };
+      await ChainSwapRepository.addChainSwap(swapType);
+
+      const swap = await ChainSwapRepository.getChainSwap({
+        id: swapType.chainSwap.id,
+      });
+      expect(swap).not.toBeNull();
+      expect(swap!.failureDetails).toEqual({
+        actual: swapType.receivingData.amount,
+        expected: swapType.receivingData.expectedAmount,
+      });
+    });
+  });
 });
 
 describe('ChainSwapRepository', () => {
-  const database = new Database(Logger.disabledLogger, ':memory:');
+  let database: Database;
 
   beforeAll(async () => {
+    database = new Database(Logger.disabledLogger, Database.memoryDatabase);
     await database.init();
     await Pair.create({
       quote: 'BTC',

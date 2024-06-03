@@ -222,21 +222,24 @@ describe('SwapInfos', () => {
       );
 
       test.each`
-        status                                | failureReason
-        ${SwapUpdateEvent.InvoiceSet}         | ${null}
-        ${SwapUpdateEvent.SwapCreated}        | ${null}
-        ${SwapUpdateEvent.InvoiceFailedToPay} | ${'no liquidity'}
+        status                                     | failureReason         | failureDetails
+        ${SwapUpdateEvent.InvoiceSet}              | ${null}               | ${undefined}
+        ${SwapUpdateEvent.SwapCreated}             | ${null}               | ${undefined}
+        ${SwapUpdateEvent.InvoiceFailedToPay}      | ${'no liquidity'}     | ${undefined}
+        ${SwapUpdateEvent.TransactionLockupFailed} | ${'not enough coins'} | ${{ actual: 1, expected: 2 }}
       `(
         'should handle other status update events',
-        async ({ status, failureReason }) => {
+        async ({ status, failureReason, failureDetails }) => {
           const swap = {
             status,
             failureReason,
+            failureDetails,
             id: 'someId',
             type: SwapType.Submarine,
           } as unknown as Swap;
 
           await expect(swapInfos['handleSwapStatus'](swap)).resolves.toEqual({
+            failureDetails,
             status: swap.status,
             failureReason:
               failureReason !== null ? swap.failureReason : undefined,
@@ -390,20 +393,23 @@ describe('SwapInfos', () => {
       });
 
       test.each`
-        status                               | failureReason
-        ${SwapUpdateEvent.SwapCreated}       | ${null}
-        ${SwapUpdateEvent.TransactionFailed} | ${'no liquidity'}
+        status                                     | failureReason        | failureDetails
+        ${SwapUpdateEvent.SwapCreated}             | ${null}              | ${undefined}
+        ${SwapUpdateEvent.TransactionFailed}       | ${'no liquidity'}    | ${undefined}
+        ${SwapUpdateEvent.TransactionLockupFailed} | ${'not enough coin'} | ${{ expected: 2, actual: 1 }}
       `(
         'should handle other status update events',
-        async ({ status, failureReason }) => {
+        async ({ status, failureReason, failureDetails }) => {
           const swap = {
             status,
             failureReason,
+            failureDetails,
             id: 'someId',
             type: SwapType.Chain,
           } as unknown as ChainSwapInfo;
 
           await expect(swapInfos['handleSwapStatus'](swap)).resolves.toEqual({
+            failureDetails,
             status: swap.status,
             failureReason:
               failureReason !== null ? swap.failureReason : undefined,

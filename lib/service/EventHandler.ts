@@ -8,7 +8,7 @@ import {
   swapTypeToPrettyString,
 } from '../consts/Enums';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
-import { AnySwap } from '../consts/Types';
+import { AnySwap, InsufficientAmountDetails } from '../consts/Types';
 import ChannelCreation from '../db/models/ChannelCreation';
 import ReverseSwap from '../db/models/ReverseSwap';
 import SwapNursery from '../swap/SwapNursery';
@@ -23,10 +23,12 @@ type TransactionInfo = {
 
 type SwapUpdate = {
   status: SwapUpdateEvent;
-  failureReason?: string;
 
   zeroConfRejected?: boolean;
   transaction?: TransactionInfo;
+
+  failureReason?: string;
+  failureDetails?: InsufficientAmountDetails;
 
   channel?: {
     fundingTransactionId: string;
@@ -278,6 +280,7 @@ class EventHandler extends TypedEventEmitter<{
         status: {
           status: SwapUpdateEvent.TransactionLockupFailed,
           failureReason: swap.failureReason,
+          failureDetails: swap.failureDetails,
         },
       });
     });
@@ -313,6 +316,7 @@ class EventHandler extends TypedEventEmitter<{
       status: {
         status,
         failureReason,
+        failureDetails: swap.failureDetails,
       },
     });
     this.emit('swap.failure', {

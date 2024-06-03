@@ -1233,6 +1233,7 @@ class Service {
     );
 
     // When we do not accept 0-conf, we make sure there is enough time for a lockup transaction to confirm
+    // TODO: "invoice expiry already" error
     if (!acceptZeroConf) {
       const minutesUntilExpiry =
         (decodedInvoice.timeExpireDate - getUnixTime()) / 60;

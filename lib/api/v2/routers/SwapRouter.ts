@@ -1467,10 +1467,10 @@ class SwapRouter extends RouterBase {
      *           description: Status of the Swap
      *         zeroConfRejected:
      *           type: boolean
-     *           description: Whether 0-conf was accepted for the lockup transaction of the Submarine Swap
+     *           description: Whether 0-conf was accepted for the lockup transaction of the user
      *         transaction:
      *           type: object
-     *           description: Details of the lockup transaction of a Reverse Swap
+     *           description: Details of the transaction relevant to the status update
      *           properties:
      *             id:
      *               type: string

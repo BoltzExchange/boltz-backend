@@ -188,7 +188,6 @@ jest.mock('../../../lib/api/SwapInfos', () => {
 
         return undefined;
       }),
-      set: jest.fn(),
     };
   });
 });

@@ -122,6 +122,8 @@ describe('EventHandler', () => {
   `(
     'should emit on submarine swap transactions (confirmed: $confirmed)',
     ({ confirmed }) => {
+      const transaction = mockTransaction();
+
       expect.assertions(2);
 
       eventHandler.once('swap.update', ({ id, status }) => {
@@ -130,13 +132,14 @@ describe('EventHandler', () => {
           status: confirmed
             ? SwapUpdateEvent.TransactionConfirmed
             : SwapUpdateEvent.TransactionMempool,
+          transaction: EventHandler.formatTransaction(transaction),
         });
       });
 
       nursery.emit('transaction', {
         swap,
         confirmed,
-        transaction: mockTransaction(),
+        transaction,
       });
     },
   );
@@ -341,6 +344,34 @@ describe('EventHandler', () => {
     nursery.emit('expiration', toEmit);
   });
 
+  test('should add failure details when expiring swap', () => {
+    expect.assertions(3);
+
+    const failureReason = 'expired';
+    const toEmit = {
+      ...swap,
+      failureReason,
+      failureDetails: { some: 'data' },
+    };
+
+    eventHandler.once('swap.update', ({ id, status }) => {
+      expect(id).toEqual(swap.id);
+      expect(status).toEqual({
+        failureReason,
+        status: SwapUpdateEvent.SwapExpired,
+        failureDetails: toEmit.failureDetails,
+      });
+    });
+    eventHandler.once('swap.failure', (args) => {
+      expect(args).toEqual({
+        swap: toEmit,
+        reason: failureReason,
+      });
+    });
+
+    nursery.emit('expiration', toEmit);
+  });
+
   test('should emit when miner fee is paid', () => {
     expect.assertions(2);
 
@@ -469,12 +500,17 @@ describe('EventHandler', () => {
     expect.assertions(2);
 
     const failureReason = 'too little';
-    const toEmit = { ...swap, failureReason };
+    const toEmit = {
+      ...swap,
+      failureReason,
+      failureDetails: { actual: 2, expected: 3 },
+    };
 
     eventHandler.once('swap.update', ({ id, status }) => {
       expect(id).toEqual(swap.id);
       expect(status).toEqual({
         failureReason,
+        failureDetails: toEmit.failureDetails,
         status: SwapUpdateEvent.TransactionLockupFailed,
       });
     });

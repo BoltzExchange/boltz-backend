@@ -213,3 +213,8 @@ export type AddressInfo = {
 };
 
 export type AnySwap = Swap | ReverseSwap | ChainSwapInfo;
+
+export type InsufficientAmountDetails = {
+  expected: number;
+  actual: number;
+};

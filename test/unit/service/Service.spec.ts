@@ -10,6 +10,7 @@ import {
   getHexBuffer,
   getHexString,
   getPairId,
+  getUnixTime,
 } from '../../../lib/Utils';
 import ApiErrors from '../../../lib/api/Errors';
 import ChainClient from '../../../lib/chain/ChainClient';
@@ -47,6 +48,7 @@ import Errors from '../../../lib/service/Errors';
 import Service, {
   cancelledViaCliFailureReason,
 } from '../../../lib/service/Service';
+import SwapErrors from '../../../lib/swap/Errors';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
 import SwapManager from '../../../lib/swap/SwapManager';
 import Wallet from '../../../lib/wallet/Wallet';
@@ -1486,9 +1488,13 @@ describe('Service', () => {
       lockupAddress: 'bcrt1qae5nuz2cv7gu2dpps8rwrhsfv6tjkyvpd8hqsu',
     };
 
-    const invoiceAmount = 100000;
-    const invoice =
-      'lnbcrt1m1pw5qjj2pp5fzncpqa5hycqppwvelygawz2jarnxnngry945mm3uv6janpjfvgqdqqcqzpg35dc9zwwu3jhww7q087fc8h6tjs2he6w0yulc3nz262waznvp2s5t9xlwgau2lzjl8zxjlt5jxtgkamrz2e4ct3d70azmkh2hhgddkgpg38yqt';
+    const invoiceAmount = 100_000;
+    const invoice = createInvoice(
+      undefined,
+      undefined,
+      undefined,
+      invoiceAmount,
+    );
 
     let emittedId = '';
 
@@ -1578,6 +1584,21 @@ describe('Service', () => {
     await expect(service.setInvoice(mockGetSwapResult.id, '')).rejects.toEqual(
       Errors.SWAP_HAS_INVOICE_ALREADY(mockGetSwapResult.id),
     );
+  });
+
+  test('should throw when setting expired invoices', async () => {
+    mockGetSwapResult = {
+      id: 'invoiceId',
+      pair: 'BTC/BTC',
+      orderSide: 0,
+      version: SwapVersion.Taproot,
+      lockupAddress: 'bcrt1qae5nuz2cv7gu2dpps8rwrhsfv6tjkyvpd8hqsu',
+    };
+
+    const invoice = createInvoice(undefined, getUnixTime() - 100, 1, 100000);
+    await expect(
+      service.setInvoice(mockGetSwapResult.id, invoice),
+    ).rejects.toEqual(SwapErrors.INVOICE_EXPIRED_ALREADY());
   });
 
   test('should not set swap invoice if it is from one of our nodes', async () => {

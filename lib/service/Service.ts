@@ -75,7 +75,7 @@ import { ChainSwapMinerFees } from '../rates/FeeProvider';
 import LockupTransactionTracker from '../rates/LockupTransactionTracker';
 import RateProvider from '../rates/RateProvider';
 import { PairTypeLegacy } from '../rates/providers/RateProviderLegacy';
-import ErrorsSwap from '../swap/Errors';
+import SwapErrors from '../swap/Errors';
 import NodeSwitch from '../swap/NodeSwitch';
 import { SwapNurseryEvents } from '../swap/PaymentHandler';
 import SwapManager, { ChannelCreationInfo } from '../swap/SwapManager';
@@ -712,7 +712,7 @@ class Service {
 
     if (isSwapRelated) {
       this.logger.debug(
-        `Broadcasting transaction related to Swaps (${swapsSpent.map((r) => r.id).join(', ')}): ${transaction.getId()}`,
+        `Broadcasting ${symbol} transaction related to Swaps (${swapsSpent.map((r) => r.id).join(', ')}): ${transaction.getId()}`,
       );
     }
 
@@ -955,7 +955,7 @@ class Service {
     if (
       !NodeSwitch.hasClient(getCurrency(this.currencies, lightningCurrency))
     ) {
-      throw ErrorsSwap.NO_LIGHTNING_SUPPORT(lightningCurrency);
+      throw SwapErrors.NO_LIGHTNING_SUPPORT(lightningCurrency);
     }
 
     if (args.channel) {
@@ -1135,7 +1135,7 @@ class Service {
     );
 
     if (requiredTimeout == TimeoutDeltaProvider.noRoutes) {
-      throw ErrorsSwap.NO_ROUTE_FOUND();
+      throw SwapErrors.NO_ROUTE_FOUND();
     }
 
     return this.setSwapInvoice(swap, invoice, true, pairHash);
@@ -1232,11 +1232,15 @@ class Service {
       expectedAmount,
     );
 
+    const minutesUntilExpiry =
+      (decodedInvoice.timeExpireDate - getUnixTime()) / 60;
+
+    if (minutesUntilExpiry < 0) {
+      throw SwapErrors.INVOICE_EXPIRED_ALREADY();
+    }
+
     // When we do not accept 0-conf, we make sure there is enough time for a lockup transaction to confirm
     if (!acceptZeroConf) {
-      const minutesUntilExpiry =
-        (decodedInvoice.timeExpireDate - getUnixTime()) / 60;
-
       if (
         (TimeoutDeltaProvider.blockTimes.get(chainCurrency) || 0) * 2 >
         minutesUntilExpiry
@@ -1849,7 +1853,7 @@ class Service {
     const lightningClient = currency.lndClient || currency.clnClient;
 
     if (lightningClient === undefined) {
-      throw ErrorsSwap.NO_LIGHTNING_SUPPORT(symbol);
+      throw SwapErrors.NO_LIGHTNING_SUPPORT(symbol);
     }
 
     return lightningClient.sendPayment(invoice);

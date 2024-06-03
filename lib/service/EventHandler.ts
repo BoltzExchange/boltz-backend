@@ -1,13 +1,14 @@
 import { Transaction } from 'bitcoinjs-lib';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import Logger from '../Logger';
+import { saneStringify } from '../Utils';
 import {
   SwapType,
   SwapUpdateEvent,
   swapTypeToPrettyString,
 } from '../consts/Enums';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
-import { AnySwap } from '../consts/Types';
+import { AnySwap, InsufficientAmountDetails } from '../consts/Types';
 import ChannelCreation from '../db/models/ChannelCreation';
 import ReverseSwap from '../db/models/ReverseSwap';
 import SwapNursery from '../swap/SwapNursery';
@@ -22,10 +23,12 @@ type TransactionInfo = {
 
 type SwapUpdate = {
   status: SwapUpdateEvent;
-  failureReason?: string;
 
   zeroConfRejected?: boolean;
   transaction?: TransactionInfo;
+
+  failureReason?: string;
+  failureDetails?: InsufficientAmountDetails;
 
   channel?: {
     fundingTransactionId: string;
@@ -57,6 +60,10 @@ class EventHandler extends TypedEventEmitter<{
     private nursery: SwapNursery,
   ) {
     super();
+
+    this.on('swap.update', ({ id, status }) => {
+      this.logger.debug(`Swap ${id} update: ${saneStringify(status)}`);
+    });
 
     this.subscribeInvoices();
     this.subscribeSwapEvents();
@@ -110,6 +117,7 @@ class EventHandler extends TypedEventEmitter<{
             status: confirmed
               ? SwapUpdateEvent.TransactionConfirmed
               : SwapUpdateEvent.TransactionMempool,
+            transaction: EventHandler.formatTransaction(transaction),
           },
         });
       } else {
@@ -272,6 +280,7 @@ class EventHandler extends TypedEventEmitter<{
         status: {
           status: SwapUpdateEvent.TransactionLockupFailed,
           failureReason: swap.failureReason,
+          failureDetails: swap.failureDetails,
         },
       });
     });
@@ -307,6 +316,7 @@ class EventHandler extends TypedEventEmitter<{
       status: {
         status,
         failureReason,
+        failureDetails: swap.failureDetails,
       },
     });
     this.emit('swap.failure', {

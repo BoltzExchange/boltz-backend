@@ -44,7 +44,7 @@ class Database {
    */
   constructor(
     private readonly logger: Logger,
-    private readonly sqlitePath: string,
+    private readonly sqlitePath?: string,
     postgresConfig?: PostgresConfig,
   ) {
     if (

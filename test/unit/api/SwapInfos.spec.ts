@@ -9,6 +9,7 @@ import {
   SwapType,
   SwapUpdateEvent,
 } from '../../../lib/consts/Enums';
+import TypedEventEmitter from '../../../lib/consts/TypedEventEmitter';
 import ReverseSwap from '../../../lib/db/models/ReverseSwap';
 import Swap from '../../../lib/db/models/Swap';
 import ChainSwapRepository, {
@@ -23,11 +24,25 @@ import Service from '../../../lib/service/Service';
 import SwapNursery from '../../../lib/swap/SwapNursery';
 
 describe('SwapInfos', () => {
-  const service = {} as any as Service;
+  const service = {
+    eventHandler: new TypedEventEmitter(),
+  } as any as Service;
   let swapInfos: SwapInfos;
 
   beforeEach(() => {
+    service.eventHandler.removeAllListeners();
     swapInfos = new SwapInfos(Logger.disabledLogger, service);
+  });
+
+  describe('constructor', () => {
+    test('should update cache on swap.update', () => {
+      const id = 'asdf';
+      const status = { status: SwapUpdateEvent.TransactionClaimed };
+      service.eventHandler.emit('swap.update', { id, status });
+
+      expect(swapInfos['cachedSwapInfos'].get(id)).toEqual(status);
+      expect(swapInfos.cacheSize).toEqual(1);
+    });
   });
 
   describe('has', () => {
@@ -207,21 +222,24 @@ describe('SwapInfos', () => {
       );
 
       test.each`
-        status                                | failureReason
-        ${SwapUpdateEvent.InvoiceSet}         | ${null}
-        ${SwapUpdateEvent.SwapCreated}        | ${null}
-        ${SwapUpdateEvent.InvoiceFailedToPay} | ${'no liquidity'}
+        status                                     | failureReason         | failureDetails
+        ${SwapUpdateEvent.InvoiceSet}              | ${null}               | ${undefined}
+        ${SwapUpdateEvent.SwapCreated}             | ${null}               | ${undefined}
+        ${SwapUpdateEvent.InvoiceFailedToPay}      | ${'no liquidity'}     | ${undefined}
+        ${SwapUpdateEvent.TransactionLockupFailed} | ${'not enough coins'} | ${{ actual: 1, expected: 2 }}
       `(
         'should handle other status update events',
-        async ({ status, failureReason }) => {
+        async ({ status, failureReason, failureDetails }) => {
           const swap = {
             status,
             failureReason,
+            failureDetails,
             id: 'someId',
             type: SwapType.Submarine,
           } as unknown as Swap;
 
           await expect(swapInfos['handleSwapStatus'](swap)).resolves.toEqual({
+            failureDetails,
             status: swap.status,
             failureReason:
               failureReason !== null ? swap.failureReason : undefined,
@@ -375,20 +393,23 @@ describe('SwapInfos', () => {
       });
 
       test.each`
-        status                               | failureReason
-        ${SwapUpdateEvent.SwapCreated}       | ${null}
-        ${SwapUpdateEvent.TransactionFailed} | ${'no liquidity'}
+        status                                     | failureReason        | failureDetails
+        ${SwapUpdateEvent.SwapCreated}             | ${null}              | ${undefined}
+        ${SwapUpdateEvent.TransactionFailed}       | ${'no liquidity'}    | ${undefined}
+        ${SwapUpdateEvent.TransactionLockupFailed} | ${'not enough coin'} | ${{ expected: 2, actual: 1 }}
       `(
         'should handle other status update events',
-        async ({ status, failureReason }) => {
+        async ({ status, failureReason, failureDetails }) => {
           const swap = {
             status,
             failureReason,
+            failureDetails,
             id: 'someId',
             type: SwapType.Chain,
           } as unknown as ChainSwapInfo;
 
           await expect(swapInfos['handleSwapStatus'](swap)).resolves.toEqual({
+            failureDetails,
             status: swap.status,
             failureReason:
               failureReason !== null ? swap.failureReason : undefined,

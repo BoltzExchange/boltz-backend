@@ -210,6 +210,9 @@ class SwapRouter extends RouterBase {
      *         blindingKey:
      *           type: string
      *           description: Liquid blinding private key encoded as HEX
+     *         referralId:
+     *           type: string
+     *           description: Referral ID used for the swap
      */
 
     /**
@@ -766,6 +769,9 @@ class SwapRouter extends RouterBase {
      *         blindingKey:
      *           type: string
      *           description: Liquid blinding private key encoded as HEX
+     *         referralId:
+     *           type: string
+     *           description: Referral ID used for the swap
      */
 
     /**
@@ -1130,6 +1136,9 @@ class SwapRouter extends RouterBase {
      *           type: string
      *           required: true
      *           description: ID of the created Reverse Swap
+     *         referralId:
+     *           type: string
+     *           description: Referral ID used for the swap
      *         claimDetails:
      *           $ref: '#/components/schemas/ChainSwapData'
      *         lockupDetails:

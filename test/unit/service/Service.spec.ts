@@ -1408,6 +1408,7 @@ describe('Service', () => {
 
     expect(emittedId).toEqual(response.id);
     expect(response).toEqual({
+      referralId,
       id: mockedSwap.id,
       canBeRouted: true,
       address: mockedSwap.address,
@@ -1683,11 +1684,12 @@ describe('Service', () => {
   test('should create swaps with invoices', async () => {
     const createSwapResult = {
       id: 'swapInvoice',
+      referralId: 'asdf',
+      timeoutBlockHeight: 504893,
       address: 'bcrt1qundqmnml8644l23g7cr3fjnksks4nc6mxf4gk9',
       redeemScript: getHexBuffer(
         'a914e3be605a911034ca6fc38ae3a027bf374d37be708763210288ff09ee16a91183fd42afa8329a7b4387e5e61e5c66c6eb43058008c95136c56702fc00b1752103e25b3f3bb7f9978410d52b4c763e3c8fe6d43cf462e91138c5b0f61b92c93d7068ac',
       ),
-      timeoutBlockHeight: 504893,
     };
 
     const setSwapInvoiceResult = {
@@ -1792,6 +1794,7 @@ describe('Service', () => {
 
     let pair = 'BTC/BTC';
     const orderSide = 'buy';
+    const referralId = 'asdf';
     const invoiceAmount = 100000;
     const preimageHash = randomBytes(32);
     const claimPublicKey = getHexBuffer('0xfff');
@@ -1808,6 +1811,7 @@ describe('Service', () => {
 
     const response = await service.createReverseSwap({
       orderSide,
+      referralId,
       preimageHash,
       invoiceAmount,
       claimPublicKey,
@@ -1817,6 +1821,7 @@ describe('Service', () => {
 
     expect(emittedId).toEqual(response.id);
     expect(response).toEqual({
+      referralId,
       onchainAmount,
       id: mockedReverseSwap.id,
       invoice: mockedReverseSwap.invoice,
@@ -1842,6 +1847,7 @@ describe('Service', () => {
 
     expect(mockCreateReverseSwap).toHaveBeenCalledTimes(1);
     expect(mockCreateReverseSwap).toHaveBeenCalledWith({
+      referralId,
       preimageHash,
       onchainAmount,
       claimPublicKey,

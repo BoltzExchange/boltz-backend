@@ -916,6 +916,8 @@ class Service {
     claimAddress?: string;
 
     blindingKey?: string;
+
+    referralId?: string;
   }> => {
     await this.checkSwapWithPreimageExists(args.preimageHash);
 
@@ -991,7 +993,6 @@ class Service {
     }
 
     const referralId = await this.getReferralId(args.referralId);
-
     const {
       id,
       address,
@@ -1020,6 +1021,7 @@ class Service {
       id,
       address,
       swapTree,
+      referralId,
       canBeRouted,
       blindingKey,
       redeemScript,
@@ -1305,6 +1307,8 @@ class Service {
     claimAddress?: string;
 
     blindingKey?: string;
+
+    referralId?: string;
   }> => {
     let swap = await SwapRepository.getSwap({
       invoice,
@@ -1317,17 +1321,7 @@ class Service {
     const preimageHash = getHexBuffer(decodeInvoice(invoice).paymentHash!);
     checkPreimageHashLength(preimageHash);
 
-    const {
-      id,
-      address,
-      swapTree,
-      canBeRouted,
-      claimPublicKey,
-      blindingKey,
-      claimAddress,
-      redeemScript,
-      timeoutBlockHeight,
-    } = await this.createSwap({
+    const createdSwap = await this.createSwap({
       pairId,
       channel,
       version,
@@ -1342,35 +1336,36 @@ class Service {
       const { bip21, acceptZeroConf, expectedAmount } =
         await this.setSwapInvoice(
           (await SwapRepository.getSwap({
-            id,
+            id: createdSwap.id,
           }))!,
           invoice,
-          canBeRouted,
+          createdSwap.canBeRouted,
           pairHash,
         );
 
       return {
-        id,
         bip21,
-        address,
-        swapTree,
-        blindingKey,
-        claimAddress,
-        redeemScript,
         acceptZeroConf,
         expectedAmount,
-        claimPublicKey,
-        timeoutBlockHeight,
+        id: createdSwap.id,
+        address: createdSwap.address,
+        swapTree: createdSwap.swapTree,
+        referralId: createdSwap.referralId,
+        blindingKey: createdSwap.blindingKey,
+        claimAddress: createdSwap.claimAddress,
+        redeemScript: createdSwap.redeemScript,
+        claimPublicKey: createdSwap.claimPublicKey,
+        timeoutBlockHeight: createdSwap.timeoutBlockHeight,
       };
     } catch (error) {
       const channelCreation =
         await ChannelCreationRepository.getChannelCreation({
-          swapId: id,
+          swapId: createdSwap.id,
         });
       await channelCreation?.destroy();
 
       swap = await SwapRepository.getSwap({
-        id,
+        id: createdSwap.id,
       });
       await swap?.destroy();
 
@@ -1432,6 +1427,8 @@ class Service {
     timeoutBlockHeight: number;
 
     prepayMinerFeeAmount?: number;
+
+    referralId?: string;
   }> => {
     if (!this.allowReverseSwaps) {
       throw Errors.REVERSE_SWAPS_DISABLED();
@@ -1613,6 +1610,10 @@ class Service {
       throw Errors.ONCHAIN_AMOUNT_TOO_LOW();
     }
 
+    const referralId = await this.getReferralId(
+      args.referralId,
+      args.routingNode,
+    );
     const {
       id,
       invoice,
@@ -1625,14 +1626,15 @@ class Service {
       minerFeeInvoice,
       timeoutBlockHeight,
     } = await this.swapManager.createReverseSwap({
+      referralId,
       percentageFee,
       onchainAmount,
       holdInvoiceAmount,
       onchainTimeoutBlockDelta,
       lightningTimeoutBlockDelta,
       prepayMinerFeeInvoiceAmount,
-      prepayMinerFeeOnchainAmount,
 
+      prepayMinerFeeOnchainAmount,
       orderSide: side,
       baseCurrency: base,
       quoteCurrency: quote,
@@ -1644,7 +1646,6 @@ class Service {
       claimPublicKey: args.claimPublicKey,
       claimCovenant: args.claimCovenant || false,
       userAddressSignature: args.userAddressSignature,
-      referralId: await this.getReferralId(args.referralId, args.routingNode),
     });
 
     this.eventHandler.emitSwapCreation(id);
@@ -1653,6 +1654,7 @@ class Service {
       id,
       invoice,
       swapTree,
+      referralId,
       blindingKey,
       redeemScript,
       refundAddress,
@@ -1695,6 +1697,10 @@ class Service {
 
     const side = this.getOrderSide(args.orderSide);
     const { base, quote, rate: pairRate } = this.getPair(args.pairId);
+
+    if (base === quote) {
+      throw Errors.PAIR_NOT_FOUND(args.pairId);
+    }
 
     if (args.pairHash !== undefined) {
       this.rateProvider.providers[SwapVersion.Taproot].validatePairHash(
@@ -1806,7 +1812,9 @@ class Service {
       throw Errors.ONCHAIN_AMOUNT_TOO_LOW();
     }
 
+    const referralId = await this.getReferralId(args.referralId);
     const res = await this.swapManager.createChainSwap({
+      referralId,
       percentageFee,
       sendingTimeoutBlockDelta,
       receivingTimeoutBlockDelta,
@@ -1819,7 +1827,6 @@ class Service {
       claimPublicKey: args.claimPublicKey,
       refundPublicKey: args.refundPublicKey,
       serverLockAmount: args.serverLockAmount,
-      referralId: await this.getReferralId(args.referralId),
       acceptZeroConf: this.rateProvider.acceptZeroConf(
         receivingCurrency.symbol,
         args.userLockAmount,
@@ -1828,6 +1835,7 @@ class Service {
 
     this.eventHandler.emitSwapCreation(res.id);
     return {
+      referralId,
       id: res.id,
       claimDetails: res.claimDetails,
       lockupDetails: {

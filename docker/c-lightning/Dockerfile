@@ -10,6 +10,7 @@ ARG VERSION
 
 RUN apt-get update && apt-get -y upgrade
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y \
+  jq \
   git \
   cargo \
   gettext \

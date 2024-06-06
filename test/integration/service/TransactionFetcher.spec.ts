@@ -270,27 +270,26 @@ describe('TransactionFetcher', () => {
       expect(swaps.chainSwapsSpent).toEqual([{ id: 'chain' }]);
       expect(swaps.reverseSwapsClaimed).toEqual([{ id: 'reverse' }]);
 
-      const inputsIds = transaction.ins.map((input) =>
-        getHexString(reverseBuffer(input.hash)),
-      );
-
       expect(SwapRepository.getSwaps).toHaveBeenCalledTimes(1);
       expect(SwapRepository.getSwaps).toHaveBeenCalledWith({
-        lockupTransactionId: {
-          [Op.in]: inputsIds,
-        },
+        [Op.or]: transaction.ins.map((input) => ({
+          lockupTransactionVout: input.index,
+          lockupTransactionId: getHexString(reverseBuffer(input.hash)),
+        })),
       });
       expect(ReverseSwapRepository.getReverseSwaps).toHaveBeenCalledTimes(1);
       expect(ReverseSwapRepository.getReverseSwaps).toHaveBeenCalledWith({
-        transactionId: {
-          [Op.in]: inputsIds,
-        },
+        [Op.or]: transaction.ins.map((input) => ({
+          transactionVout: input.index,
+          transactionId: getHexString(reverseBuffer(input.hash)),
+        })),
       });
       expect(ChainSwapRepository.getChainSwapsByData).toHaveBeenCalledTimes(1);
       expect(ChainSwapRepository.getChainSwapsByData).toHaveBeenCalledWith({
-        transactionId: {
-          [Op.in]: inputsIds,
-        },
+        [Op.or]: transaction.ins.map((input) => ({
+          transactionVout: input.index,
+          transactionId: getHexString(reverseBuffer(input.hash)),
+        })),
       });
     });
 

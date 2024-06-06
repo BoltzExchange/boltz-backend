@@ -234,8 +234,8 @@ export class RouteHop extends jspb.Message {
     getId_asU8(): Uint8Array;
     getId_asB64(): string;
     setId(value: Uint8Array | string): RouteHop;
-    getShortChannelId(): string;
-    setShortChannelId(value: string): RouteHop;
+    getScid(): string;
+    setScid(value: string): RouteHop;
 
     hasFeebase(): boolean;
     clearFeebase(): void;
@@ -259,7 +259,7 @@ export class RouteHop extends jspb.Message {
 export namespace RouteHop {
     export type AsObject = {
         id: Uint8Array | string,
-        shortChannelId: string,
+        scid: string,
         feebase?: Amount.AsObject,
         feeprop: number,
         expirydelta: number,
@@ -307,6 +307,87 @@ export class RoutehintList extends jspb.Message {
 export namespace RoutehintList {
     export type AsObject = {
         hintsList: Array<Routehint.AsObject>,
+    }
+}
+
+export class DecodeRouteHop extends jspb.Message { 
+    getPubkey(): Uint8Array | string;
+    getPubkey_asU8(): Uint8Array;
+    getPubkey_asB64(): string;
+    setPubkey(value: Uint8Array | string): DecodeRouteHop;
+    getShortChannelId(): string;
+    setShortChannelId(value: string): DecodeRouteHop;
+
+    hasFeeBaseMsat(): boolean;
+    clearFeeBaseMsat(): void;
+    getFeeBaseMsat(): Amount | undefined;
+    setFeeBaseMsat(value?: Amount): DecodeRouteHop;
+    getFeeProportionalMillionths(): number;
+    setFeeProportionalMillionths(value: number): DecodeRouteHop;
+    getCltvExpiryDelta(): number;
+    setCltvExpiryDelta(value: number): DecodeRouteHop;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): DecodeRouteHop.AsObject;
+    static toObject(includeInstance: boolean, msg: DecodeRouteHop): DecodeRouteHop.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: DecodeRouteHop, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): DecodeRouteHop;
+    static deserializeBinaryFromReader(message: DecodeRouteHop, reader: jspb.BinaryReader): DecodeRouteHop;
+}
+
+export namespace DecodeRouteHop {
+    export type AsObject = {
+        pubkey: Uint8Array | string,
+        shortChannelId: string,
+        feeBaseMsat?: Amount.AsObject,
+        feeProportionalMillionths: number,
+        cltvExpiryDelta: number,
+    }
+}
+
+export class DecodeRoutehint extends jspb.Message { 
+    clearHopsList(): void;
+    getHopsList(): Array<DecodeRouteHop>;
+    setHopsList(value: Array<DecodeRouteHop>): DecodeRoutehint;
+    addHops(value?: DecodeRouteHop, index?: number): DecodeRouteHop;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): DecodeRoutehint.AsObject;
+    static toObject(includeInstance: boolean, msg: DecodeRoutehint): DecodeRoutehint.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: DecodeRoutehint, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): DecodeRoutehint;
+    static deserializeBinaryFromReader(message: DecodeRoutehint, reader: jspb.BinaryReader): DecodeRoutehint;
+}
+
+export namespace DecodeRoutehint {
+    export type AsObject = {
+        hopsList: Array<DecodeRouteHop.AsObject>,
+    }
+}
+
+export class DecodeRoutehintList extends jspb.Message { 
+    clearHintsList(): void;
+    getHintsList(): Array<DecodeRoutehint>;
+    setHintsList(value: Array<DecodeRoutehint>): DecodeRoutehintList;
+    addHints(value?: DecodeRoutehint, index?: number): DecodeRoutehint;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): DecodeRoutehintList.AsObject;
+    static toObject(includeInstance: boolean, msg: DecodeRoutehintList): DecodeRoutehintList.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: DecodeRoutehintList, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): DecodeRoutehintList;
+    static deserializeBinaryFromReader(message: DecodeRoutehintList, reader: jspb.BinaryReader): DecodeRoutehintList;
+}
+
+export namespace DecodeRoutehintList {
+    export type AsObject = {
+        hintsList: Array<DecodeRoutehint.AsObject>,
     }
 }
 
@@ -398,4 +479,29 @@ export enum HtlcState {
     RCVDREMOVEREVOCATION = 17,
     RCVDREMOVEACKCOMMIT = 18,
     SENTREMOVEACKREVOCATION = 19,
+}
+
+export enum ChannelTypeName {
+    STATIC_REMOTEKEY_EVEN = 0,
+    ANCHOR_OUTPUTS_EVEN = 1,
+    ANCHORS_ZERO_FEE_HTLC_TX_EVEN = 2,
+    SCID_ALIAS_EVEN = 3,
+    ZEROCONF_EVEN = 4,
+}
+
+export enum AutocleanSubsystem {
+    SUCCEEDEDFORWARDS = 0,
+    FAILEDFORWARDS = 1,
+    SUCCEEDEDPAYS = 2,
+    FAILEDPAYS = 3,
+    PAIDINVOICES = 4,
+    EXPIREDINVOICES = 5,
+}
+
+export enum PluginSubcommand {
+    START = 0,
+    STOP = 1,
+    RESCAN = 2,
+    STARTDIR = 3,
+    LIST = 4,
 }

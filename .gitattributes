@@ -1,4 +1,4 @@
 bin/* linguist-language=Javascript
-proto/* linguist-vendored=true
-lib/proto/* linguist-generated=true
-package-lock.json linguist-generated=true
+proto/* linguist-vendored
+lib/proto/** linguist-generated
+package-lock.json linguist-generated

@@ -145,10 +145,12 @@ class TransactionFetcher {
     chainSwapsSpent: ChainSwapInfo[];
     reverseSwapsClaimed: ReverseSwap[];
   }> => {
-    const inputIds = transaction.ins.map((input) =>
-      getHexString(reverseBuffer(input.hash)),
-    );
-    if (inputIds.length === 0) {
+    const inputs = transaction.ins.map((input) => ({
+      transactionVout: input.index,
+      transactionId: getHexString(reverseBuffer(input.hash)),
+    }));
+
+    if (inputs.length === 0) {
       return {
         swapsRefunded: [],
         chainSwapsSpent: [],
@@ -159,19 +161,16 @@ class TransactionFetcher {
     const [swapsRefunded, reverseSwapsClaimed, chainSwapsSpent] =
       await Promise.all([
         SwapRepository.getSwaps({
-          lockupTransactionId: {
-            [Op.in]: inputIds,
-          },
+          [Op.or]: inputs.map((input) => ({
+            lockupTransactionId: input.transactionId,
+            lockupTransactionVout: input.transactionVout,
+          })),
         }),
         ReverseSwapRepository.getReverseSwaps({
-          transactionId: {
-            [Op.in]: inputIds,
-          },
+          [Op.or]: inputs,
         }),
         ChainSwapRepository.getChainSwapsByData({
-          transactionId: {
-            [Op.in]: inputIds,
-          },
+          [Op.or]: inputs,
         }),
       ]);
 
@@ -195,6 +194,8 @@ class TransactionFetcher {
             // Filter Liquid fee outputs
             .filter((out) => out.script.length > 0)
             .map((out) => wallet.encodeAddress(out.script))
+            // The wallet returns empty strings for addresses it cannot encode
+            .filter((addr) => addr !== '')
         : [];
 
     if (outputAddresses.length === 0) {

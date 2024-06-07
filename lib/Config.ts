@@ -13,7 +13,6 @@ import { LndConfig } from './lightning/LndClient';
 import { ClnConfig } from './lightning/cln/Types';
 import { BlocksConfig } from './service/Blocks';
 import { MarkingsConfig } from './service/CountryCodes';
-import { SwapConfig } from './service/cooperative/DeferredClaimer';
 import { NodeSwitchConfig } from './swap/NodeSwitch';
 
 type PostgresConfig = {
@@ -146,6 +145,20 @@ type NotificationConfig = {
   interval: number;
 
   otpsecretpath: string;
+};
+
+type MinSwapSizeMultipliersConfig = {
+  submarine?: number;
+  reverse?: number;
+  chain?: number;
+};
+
+type SwapConfig = {
+  deferredClaimSymbols: string[];
+  batchClaimInterval: string;
+  expiryTolerance: number;
+
+  minSwapSizeMultipliers?: MinSwapSizeMultipliersConfig;
 };
 
 type ConfigType = {
@@ -514,6 +527,7 @@ export {
   RskConfig,
   ConfigType,
   GrpcConfig,
+  SwapConfig,
   ChainConfig,
   TokenConfig,
   BackupConfig,
@@ -525,4 +539,5 @@ export {
   BaseCurrencyConfig,
   NotificationConfig,
   EthProviderServiceConfig,
+  MinSwapSizeMultipliersConfig,
 };

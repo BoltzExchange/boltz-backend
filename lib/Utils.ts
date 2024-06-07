@@ -643,3 +643,9 @@ export const checkEvmAddress = (address: string): string => {
 
 export const isTxConfirmed = (tx: { confirmations?: number }) =>
   tx.confirmations !== undefined && tx.confirmations > 0;
+
+export const objectMap = <K extends string | number | symbol, V, T>(
+  obj: Record<K, V>,
+  fn: (k: string, v: V) => [string, T],
+): Record<string, T> =>
+  Object.fromEntries(Object.entries(obj).map(([k, v]) => fn(k, v as V)));

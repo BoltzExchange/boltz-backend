@@ -10,16 +10,13 @@ import NodeSwitch from '../../swap/NodeSwitch';
 import { Currency } from '../../wallet/WalletManager';
 import FeeProvider from '../FeeProvider';
 
-abstract class RateProviderBase<T> {
-  private static minLimitFactors = {
-    [SwapType.Submarine]: 2,
-    [SwapType.ReverseSubmarine]: 2,
-    [SwapType.Chain]: 6,
-  };
+type MinSwapSizeMultipliers = Record<SwapType, number>;
 
+abstract class RateProviderBase<T> {
   protected constructor(
     protected readonly currencies: Map<string, Currency>,
     protected readonly feeProvider: FeeProvider,
+    private readonly minSwapSizeMultipliers: MinSwapSizeMultipliers,
   ) {}
 
   public abstract setHardcodedPair(
@@ -85,7 +82,7 @@ abstract class RateProviderBase<T> {
             currency,
             SwapVersion.Legacy,
             BaseFeeType.NormalClaim,
-          ) * RateProviderBase.minLimitFactors[type || SwapType.Submarine];
+          ) * this.minSwapSizeMultipliers[type || SwapType.Submarine];
 
         if (currency === base) {
           limit *= rate;
@@ -109,3 +106,4 @@ abstract class RateProviderBase<T> {
 }
 
 export default RateProviderBase;
+export { MinSwapSizeMultipliers };

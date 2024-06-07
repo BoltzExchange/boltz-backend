@@ -114,6 +114,26 @@ interval = 1
 # This is the path to the secret of that TOTP token
 otpsecretpath = "/home/boltz/.boltz/otpSecret.dat"
 
+[swap]
+# Chains on which claim transactions should be deferred
+# Deferring means not broadcasting claim transactions immediately,
+# but waiting for cooperative key path spend of the client
+# or batching a script path spend
+deferredClaimSymbols = ["BTC", "L-BTC"]
+
+# Interval at which batched script path spends of deferred claim transactions should be done
+batchClaimInterval = '*/15 * * * *'
+
+# Tolerance in minutes before swap expiry for a claim transaction to be eligible for batching
+expiryTolerance = 120
+
+    # Cost of claim transaction * multiplier = minimial swap size
+    [swap.minSwapSizeMultipliers]
+    reverse = 7
+    reverse = 6
+    chain = 6
+
+
 # The array "pairs" configures the trading pairs that Boltz should support
 # A pair can have the following options:
 # - "base" (required): base currency

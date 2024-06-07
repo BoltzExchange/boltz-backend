@@ -1,5 +1,6 @@
 import AsyncLock from 'async-lock';
 import { Job, scheduleJob } from 'node-schedule';
+import { SwapConfig } from '../../Config';
 import {
   ClaimDetails,
   LiquidClaimDetails,
@@ -24,12 +25,6 @@ import WalletManager, { Currency } from '../../wallet/WalletManager';
 import Errors from '../Errors';
 import TimeoutDeltaProvider from '../TimeoutDeltaProvider';
 import CoopSignerBase, { SwapToClaim } from './CoopSignerBase';
-
-type SwapConfig = {
-  deferredClaimSymbols: string[];
-  batchClaimInterval: string;
-  expiryTolerance: number;
-};
 
 type SwapToClaimPreimage = SwapToClaim<Swap> & { preimage: Buffer };
 
@@ -408,4 +403,4 @@ class DeferredClaimer extends CoopSignerBase<
 }
 
 export default DeferredClaimer;
-export { SwapConfig, SwapToClaimPreimage };
+export { SwapToClaimPreimage };

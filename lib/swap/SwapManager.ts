@@ -15,6 +15,7 @@ import {
 import { randomBytes } from 'crypto';
 import { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
 import { Op } from 'sequelize';
+import { SwapConfig } from '../Config';
 import { createMusig, tweakMusig } from '../Core';
 import Logger from '../Logger';
 import {
@@ -61,9 +62,7 @@ import InvoiceExpiryHelper from '../service/InvoiceExpiryHelper';
 import PaymentRequestUtils from '../service/PaymentRequestUtils';
 import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
 import ChainSwapSigner from '../service/cooperative/ChainSwapSigner';
-import DeferredClaimer, {
-  SwapConfig,
-} from '../service/cooperative/DeferredClaimer';
+import DeferredClaimer from '../service/cooperative/DeferredClaimer';
 import WalletLiquid from '../wallet/WalletLiquid';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import Errors from './Errors';

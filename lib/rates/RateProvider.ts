@@ -1,5 +1,11 @@
+import { MinSwapSizeMultipliersConfig } from '../Config';
 import Logger from '../Logger';
-import { getPairId, minutesToMilliseconds } from '../Utils';
+import {
+  getPairId,
+  minutesToMilliseconds,
+  objectMap,
+  stringify,
+} from '../Utils';
 import {
   CurrencyType,
   SwapType,
@@ -14,11 +20,19 @@ import Errors from './Errors';
 import FeeProvider from './FeeProvider';
 import RateCalculator from './RateCalculator';
 import DataAggregator from './data/DataAggregator';
-import RateProviderBase from './providers/RateProviderBase';
+import RateProviderBase, {
+  MinSwapSizeMultipliers,
+} from './providers/RateProviderBase';
 import RateProviderLegacy from './providers/RateProviderLegacy';
 import RateProviderTaproot from './providers/RateProviderTaproot';
 
 class RateProvider {
+  private static minLimitMultipliersDefaults: MinSwapSizeMultipliers = {
+    [SwapType.Submarine]: 6,
+    [SwapType.ReverseSubmarine]: 6,
+    [SwapType.Chain]: 6,
+  };
+
   public readonly feeProvider: FeeProvider;
 
   public readonly providers: {
@@ -44,6 +58,7 @@ class RateProvider {
   constructor(
     private readonly logger: Logger,
     private readonly rateUpdateInterval: number,
+    minSwapSizeMultipliersConfig: MinSwapSizeMultipliersConfig | undefined,
     private readonly currencies: Map<string, Currency>,
     private readonly walletManager: WalletManager,
     getFeeEstimation: (symbol: string) => Promise<Map<string, number>>,
@@ -56,16 +71,30 @@ class RateProvider {
     );
     this.parseCurrencies(Array.from(currencies.values()));
 
+    const minSwapSizeMultipliers = RateProvider.parseMinSwapSizeMultipliers(
+      minSwapSizeMultipliersConfig,
+    );
+    this.logger.debug(
+      `Using minimal swap size limit multipliers: ${stringify(
+        objectMap(minSwapSizeMultipliers, (type, val) => [
+          swapTypeToPrettyString(Number(type)).toLowerCase(),
+          val,
+        ]),
+      )}`,
+    );
+
     this.providers = {
       [SwapVersion.Taproot]: new RateProviderTaproot(
         this.currencies,
         this.feeProvider,
+        minSwapSizeMultipliers,
         this.pairConfigs,
         this.zeroConfAmounts,
       ),
       [SwapVersion.Legacy]: new RateProviderLegacy(
         this.currencies,
         this.feeProvider,
+        minSwapSizeMultipliers,
         this.pairConfigs,
         this.zeroConfAmounts,
       ),
@@ -167,6 +196,26 @@ class RateProvider {
   public setZeroConfAmount = async (symbol: string, amount: number) => {
     this.zeroConfAmounts.set(symbol, amount);
     await this.updateRates();
+  };
+
+  private static parseMinSwapSizeMultipliers = (
+    config?: MinSwapSizeMultipliersConfig,
+  ): MinSwapSizeMultipliers => {
+    if (config === undefined) {
+      return RateProvider.minLimitMultipliersDefaults;
+    }
+
+    return {
+      [SwapType.Submarine]:
+        config.submarine ||
+        RateProvider.minLimitMultipliersDefaults[SwapType.Submarine],
+      [SwapType.ReverseSubmarine]:
+        config.reverse ||
+        RateProvider.minLimitMultipliersDefaults[SwapType.ReverseSubmarine],
+      [SwapType.Chain]:
+        config.chain ||
+        RateProvider.minLimitMultipliersDefaults[SwapType.Chain],
+    };
   };
 
   private updateRates = async () => {

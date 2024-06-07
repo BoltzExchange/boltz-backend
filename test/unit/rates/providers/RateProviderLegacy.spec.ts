@@ -6,6 +6,7 @@ import {
   SwapVersion,
 } from '../../../../lib/consts/Enums';
 import FeeProvider from '../../../../lib/rates/FeeProvider';
+import RateProvider from '../../../../lib/rates/RateProvider';
 import RateProviderLegacy from '../../../../lib/rates/providers/RateProviderLegacy';
 import Errors from '../../../../lib/service/Errors';
 
@@ -90,6 +91,7 @@ describe('RateProviderLegacy', () => {
       ],
     ]),
     mockedFeeProvider,
+    { ...RateProvider['minLimitMultipliersDefaults'], [SwapType.Submarine]: 2 },
     new Map<string, any>(pairConfigs.map((pair) => [getPairId(pair), pair])),
     new Map<string, number>([
       ['BTC', 0],

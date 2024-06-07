@@ -22,7 +22,7 @@ import FeeProvider, {
   ChainSwapMinerFees,
   ReverseMinerFees,
 } from '../FeeProvider';
-import RateProviderBase from './RateProviderBase';
+import RateProviderBase, { MinSwapSizeMultipliers } from './RateProviderBase';
 
 type PairLimits = {
   minimal: number;
@@ -86,10 +86,11 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
   constructor(
     currencies: Map<string, Currency>,
     feeProvider: FeeProvider,
+    minSwapSizeMultipliers: MinSwapSizeMultipliers,
     private readonly pairConfigs: Map<string, PairConfig>,
     private readonly zeroConfAmounts: Map<string, number>,
   ) {
-    super(currencies, feeProvider);
+    super(currencies, feeProvider, minSwapSizeMultipliers);
   }
 
   public static serializePairs = <T>(

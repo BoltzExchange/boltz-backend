@@ -69,6 +69,11 @@ describe('RateProviderTaproot', () => {
       ['CASHU', {}],
     ]),
     mockedFeeProvider,
+    {
+      [SwapType.Chain]: 6,
+      [SwapType.Submarine]: 2,
+      [SwapType.ReverseSubmarine]: 2,
+    },
     new Map<string, any>(pairConfigs.map((pair) => [getPairId(pair), pair])),
     new Map<string, number>([
       ['BTC', 0],

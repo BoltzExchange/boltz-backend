@@ -8,6 +8,7 @@ import {
   getPubkeyHashFunction,
   getScriptHashFunction,
   mapToObject,
+  objectMap,
   splitChannelPoint,
 } from '../../lib/Utils';
 import commitHash from '../../lib/Version';
@@ -463,5 +464,15 @@ describe('Utils', () => {
     expect(() => utils.checkEvmAddress('')).toThrow(
       Errors.INVALID_ETHEREUM_ADDRESS().message,
     );
+  });
+
+  describe('objectMap', () => {
+    test('should map objects', () => {
+      const data = { test: 2, data: 3 };
+      expect(objectMap(data, (key, value) => [key, value * 2])).toEqual({
+        test: 4,
+        data: 6,
+      });
+    });
   });
 });

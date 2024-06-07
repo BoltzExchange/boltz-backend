@@ -637,6 +637,7 @@ describe('Service', () => {
       rates: {
         interval: Number.MAX_SAFE_INTEGER,
       },
+      swap: {},
       pairs: [],
       currencies: [],
     } as any as ConfigType,

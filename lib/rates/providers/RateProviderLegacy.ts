@@ -9,7 +9,7 @@ import { PairConfig } from '../../consts/Types';
 import Errors from '../../service/Errors';
 import { Currency } from '../../wallet/WalletManager';
 import FeeProvider, { MinerFeesForVersion } from '../FeeProvider';
-import RateProviderBase from './RateProviderBase';
+import RateProviderBase, { MinSwapSizeMultipliers } from './RateProviderBase';
 
 type PairTypeLegacy = {
   hash: string;
@@ -47,10 +47,11 @@ class RateProviderLegacy extends RateProviderBase<PairTypeLegacy> {
   constructor(
     currencies: Map<string, Currency>,
     feeProvider: FeeProvider,
+    minSwapSizeMultipliers: MinSwapSizeMultipliers,
     private readonly pairConfigs: Map<string, PairConfig>,
     private readonly zeroConfAmounts: Map<string, number>,
   ) {
-    super(currencies, feeProvider);
+    super(currencies, feeProvider, minSwapSizeMultipliers);
   }
 
   public setHardcodedPair = (pair: PairConfig) => {

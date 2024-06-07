@@ -161,6 +161,7 @@ class Service {
     this.rateProvider = new RateProvider(
       this.logger,
       config.rates.interval,
+      config.swap.minSwapSizeMultipliers,
       currencies,
       this.walletManager,
       this.getFeeEstimation,

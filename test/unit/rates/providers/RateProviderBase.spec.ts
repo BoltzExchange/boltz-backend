@@ -1,6 +1,8 @@
 import { OrderSide, SwapType } from '../../../../lib/consts/Enums';
 import FeeProvider from '../../../../lib/rates/FeeProvider';
-import RateProviderBase from '../../../../lib/rates/providers/RateProviderBase';
+import RateProviderBase, {
+  MinSwapSizeMultipliers,
+} from '../../../../lib/rates/providers/RateProviderBase';
 
 jest.mock('../../../../lib/rates/FeeProvider', () => {
   return jest.fn().mockImplementation(() => {
@@ -13,8 +15,11 @@ jest.mock('../../../../lib/rates/FeeProvider', () => {
 const mockedFeeProvider = (<jest.Mock<FeeProvider>>(<any>FeeProvider))();
 
 class TestRateProvider extends RateProviderBase<any> {
-  constructor(currencies: Map<string, any>) {
-    super(currencies, mockedFeeProvider);
+  constructor(
+    currencies: Map<string, any>,
+    minSwapSizeMultipliers: MinSwapSizeMultipliers,
+  ) {
+    super(currencies, mockedFeeProvider, minSwapSizeMultipliers);
   }
 
   public setHardcodedPair = () => {
@@ -55,6 +60,11 @@ describe('RateProviderBase', () => {
         },
       ],
     ]),
+    {
+      [SwapType.Chain]: 6,
+      [SwapType.Submarine]: 2,
+      [SwapType.ReverseSubmarine]: 2,
+    },
   );
 
   beforeEach(() => {

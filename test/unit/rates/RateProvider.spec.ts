@@ -1,3 +1,4 @@
+import { MinSwapSizeMultipliersConfig } from '../../../lib/Config';
 import Logger from '../../../lib/Logger';
 import { SwapType, SwapVersion } from '../../../lib/consts/Enums';
 import { PairConfig } from '../../../lib/consts/Types';
@@ -50,6 +51,7 @@ describe('RateProvider', () => {
   const rateProvider = new RateProvider(
     Logger.disabledLogger,
     60,
+    undefined,
     new Map<string, any>([
       [
         'BTC',
@@ -78,6 +80,27 @@ describe('RateProvider', () => {
 
   afterAll(() => {
     rateProvider.disconnect();
+  });
+
+  describe('parseMinSwapSizeMultipliers', () => {
+    test('should set defaults when min size multipliers are undefined', () => {
+      expect(RateProvider['parseMinSwapSizeMultipliers'](undefined)).toEqual(
+        RateProvider['minLimitMultipliersDefaults'],
+      );
+    });
+
+    test('should fall back to defaults when a value is not set', () => {
+      const values: Partial<MinSwapSizeMultipliersConfig> = {
+        reverse: 3,
+        submarine: 2,
+      };
+      expect(RateProvider['parseMinSwapSizeMultipliers'](values)).toEqual({
+        [SwapType.Submarine]: values.submarine,
+        [SwapType.ReverseSubmarine]: values.reverse,
+        [SwapType.Chain]:
+          RateProvider['minLimitMultipliersDefaults'][SwapType.Chain],
+      });
+    });
   });
 
   test('should parse 0-conf limits', () => {

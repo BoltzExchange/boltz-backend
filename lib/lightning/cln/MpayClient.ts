@@ -103,6 +103,12 @@ class Mpay extends BaseClient {
     };
   };
 
+  public resetPathMemory = () =>
+    this.unaryNodeCall<
+      mpayrpc.ResetPathMemoryRequest,
+      mpayrpc.ResetPathMemoryResponse
+    >('resetPathMemory', new mpayrpc.ResetPathMemoryRequest());
+
   private unaryNodeCall = <T, U>(
     methodName: keyof MpayClient,
     params: T,

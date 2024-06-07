@@ -228,5 +228,15 @@ class ReverseSwap extends Model implements ReverseSwapType {
   }
 }
 
+const nodeTypeToPrettyString = (type: NodeType) => {
+  switch (type) {
+    case NodeType.LND:
+      return 'LND';
+
+    case NodeType.CLN:
+      return 'CLN';
+  }
+};
+
 export default ReverseSwap;
-export { ReverseSwapType, NodeType };
+export { ReverseSwapType, NodeType, nodeTypeToPrettyString };

@@ -1,4 +1,5 @@
-import bolt11 from '@boltz/bolt11';
+import { networks } from 'bitcoinjs-lib';
+import bolt11 from 'bolt11';
 import { randomBytes } from 'crypto';
 import { ECPair } from '../../../lib/ECPairHelper';
 import { getHexString, getUnixTime } from '../../../lib/Utils';
@@ -10,8 +11,13 @@ export const createInvoice = (
   timestamp?: number,
   expiry?: number,
   satoshis?: number,
+  network = networks.regtest,
 ): string => {
   const invoiceEncode = bolt11.encode({
+    network: {
+      ...network,
+      validWitnessVersions: [0, 1],
+    },
     satoshis: satoshis || 100,
     timestamp: timestamp || getUnixTime(),
     payeeNodeKey: getHexString(invoiceSigningKeys.publicKey),

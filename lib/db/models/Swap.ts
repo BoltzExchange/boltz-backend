@@ -1,4 +1,5 @@
 import { DataTypes, Model, Sequelize } from 'sequelize';
+import { getLightningCurrency, splitPairId } from '../../Utils';
 import { SwapType as SwapKindType, SwapVersion } from '../../consts/Enums';
 import { InsufficientAmountDetails } from '../../consts/Types';
 import Pair from './Pair';
@@ -176,6 +177,11 @@ class Swap extends Model implements SwapType {
 
   get theirPublicKey() {
     return this.refundPublicKey;
+  }
+
+  get lightningCurrency() {
+    const { base, quote } = splitPairId(this.pair);
+    return getLightningCurrency(base, quote, this.orderSide, false);
   }
 
   get failureDetails(): InsufficientAmountDetails | undefined {

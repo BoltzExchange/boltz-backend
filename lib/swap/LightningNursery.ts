@@ -54,7 +54,10 @@ class LightningNursery extends TypedEventEmitter<{
   };
 
   public static errIsInvoiceExpired = (error: string): boolean => {
-    return error.toLowerCase().includes('invoice expired');
+    return (
+      error === 'InvoiceExpiredError()' ||
+      error.toLowerCase().includes('invoice expired')
+    );
   };
 
   public static cancelReverseInvoices = async (

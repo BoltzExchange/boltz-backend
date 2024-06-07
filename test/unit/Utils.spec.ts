@@ -361,6 +361,7 @@ describe('Utils', () => {
     expect(utils.formatError(test)).toEqual(test);
     expect(utils.formatError(object)).toEqual(JSON.stringify(object));
     expect(utils.formatError(objectMessage)).toEqual(test);
+    expect(utils.formatError(4)).toEqual('4');
   });
 
   test('should get version', () => {

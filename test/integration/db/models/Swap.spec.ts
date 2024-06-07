@@ -16,15 +16,46 @@ describe('Swap', () => {
   beforeAll(async () => {
     await db.init();
 
-    await PairRepository.addPair({
-      id: 'BTC/BTC',
-      quote: 'BTC',
-      base: 'BTC',
-    });
+    await Promise.all([
+      PairRepository.addPair({
+        id: 'BTC/BTC',
+        base: 'BTC',
+        quote: 'BTC',
+      }),
+      PairRepository.addPair({
+        id: 'L-BTC/BTC',
+        base: 'L-BTC',
+        quote: 'BTC',
+      }),
+    ]);
   });
 
   afterAll(async () => {
     await db.close();
+  });
+
+  describe('lightningCurrency', () => {
+    test.each`
+      orderSide | expected
+      ${0}      | ${'L-BTC'}
+      ${1}      | ${'BTC'}
+    `(
+      'should get lightningCurrency for orderSide $orderSide',
+      async ({ orderSide, expected }) => {
+        const swap = await Swap.create({
+          orderSide,
+          pair: 'L-BTC/BTC',
+          lockupAddress: 'bc1',
+          timeoutBlockHeight: 1,
+          version: SwapVersion.Taproot,
+          status: SwapUpdateEvent.SwapCreated,
+          id: generateSwapId(SwapVersion.Taproot),
+          preimageHash: getHexString(randomBytes(32)),
+        });
+
+        expect(swap.lightningCurrency).toEqual(expected);
+      },
+    );
   });
 
   describe('failureDetails', () => {

@@ -2,6 +2,7 @@ import Logger from '../../../lib/Logger';
 import { getHexBuffer } from '../../../lib/Utils';
 import { SwapUpdateEvent } from '../../../lib/consts/Enums';
 import Swap from '../../../lib/db/models/Swap';
+import { LightningClient } from '../../../lib/lightning/LightningClient';
 import LndClient from '../../../lib/lightning/LndClient';
 import { Payment } from '../../../lib/proto/lnd/rpc_pb';
 import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
@@ -89,6 +90,24 @@ describe('PaymentHandler', () => {
     new Map<string, Currency>([['BTC', btcCurrency]]),
     MockedChannelNursery(),
     MockedTimeoutDeltaProvider(),
+    {
+      sendPayment: jest
+        .fn()
+        .mockImplementation(
+          (
+            _: LightningClient,
+            invoice: string,
+            cltvLimit?: number,
+            outgoingChannelId?: string,
+          ) => {
+            return btcCurrency.lndClient!.sendPayment(
+              invoice,
+              cltvLimit,
+              outgoingChannelId,
+            );
+          },
+        ),
+    } as any,
     mockedEmit,
   );
 

@@ -170,10 +170,8 @@ class EthereumNursery extends TypedEventEmitter<{
           }),
         ]);
 
-        for (const swap of swaps.filter(
-          (s): s is ReverseSwap | ChainSwapInfo => s !== null,
-        )) {
-          await this.checkEtherSwapLockup(swap, transaction, etherSwapValues);
+        for (const swap of swaps.filter((s) => s !== null)) {
+          await this.checkEtherSwapLockup(swap!, transaction, etherSwapValues);
         }
       },
     );
@@ -229,10 +227,8 @@ class EthereumNursery extends TypedEventEmitter<{
           }),
         ]);
 
-        for (const swap of swaps.filter(
-          (s): s is ReverseSwap | ChainSwapInfo => s !== null,
-        )) {
-          await this.checkErc20SwapLock(swap, transaction, erc20SwapValues);
+        for (const swap of swaps.filter((s) => s !== null)) {
+          await this.checkErc20SwapLock(swap!, transaction, erc20SwapValues);
         }
       },
     );

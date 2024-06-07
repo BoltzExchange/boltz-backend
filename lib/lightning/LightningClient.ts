@@ -1,6 +1,7 @@
 import BaseClient from '../BaseClient';
 import { decodeInvoiceAmount } from '../Utils';
 import { ClientStatus } from '../consts/Enums';
+import { NodeType } from '../db/models/ReverseSwap';
 import * as lndrpc from '../proto/lnd/rpc_pb';
 import { BalancerFetcher } from '../wallet/providers/WalletProviderInterface';
 
@@ -96,6 +97,7 @@ type EventTypes = {
 
 interface LightningClient extends BalancerFetcher, BaseClient<EventTypes> {
   symbol: string;
+  type: NodeType;
 
   isConnected(): boolean;
   setClientStatus(status: ClientStatus): void;

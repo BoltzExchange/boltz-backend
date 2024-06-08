@@ -41,6 +41,9 @@ class MPay:
         self._network_info.init()
         self._invoice_checker.init()
 
+    def reset_excludes(self) -> None:
+        self._excludes.reset()
+
     def pay(
         self,
         bolt11: str,

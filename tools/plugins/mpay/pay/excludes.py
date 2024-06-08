@@ -13,11 +13,18 @@ class Excludes:
         """Check if the exclude list includes a channel."""
         return channel in self._excludes
 
+    def __len__(self) -> int:
+        """Return the number of entries in the cache."""
+        return len(self._excludes)
+
     def add(self, channel: str) -> None:
         self._excludes[channel] = True
 
     def to_set(self) -> set[str]:
         return set(self._excludes.keys())
+
+    def reset(self) -> None:
+        self._excludes.clear()
 
 
 class ExcludesPayment:

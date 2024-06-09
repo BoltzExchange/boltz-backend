@@ -103,11 +103,19 @@ class Mpay extends BaseClient {
     };
   };
 
-  public resetPathMemory = () =>
-    this.unaryNodeCall<
+  public resetPathMemory = (
+    excludeTemporaryMemory: boolean = false,
+    excludePermanentMemory: boolean = false,
+  ) => {
+    const request = new mpayrpc.ResetPathMemoryRequest();
+    request.setExcludeTemporaryMemory(excludeTemporaryMemory);
+    request.setExcludePermanentMemory(excludePermanentMemory);
+
+    return this.unaryNodeCall<
       mpayrpc.ResetPathMemoryRequest,
       mpayrpc.ResetPathMemoryResponse
-    >('resetPathMemory', new mpayrpc.ResetPathMemoryRequest());
+    >('resetPathMemory', request);
+  };
 
   private unaryNodeCall = <T, U>(
     methodName: keyof MpayClient,

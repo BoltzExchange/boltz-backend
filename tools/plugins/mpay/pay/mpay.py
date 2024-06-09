@@ -42,6 +42,7 @@ class MPay:
         self._invoice_checker.init()
 
     def reset_excludes(self) -> None:
+        self._pl.log("Resetting temporary exclude list")
         self._excludes.reset()
 
     def pay(

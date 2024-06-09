@@ -96,7 +96,11 @@ message PayResponse {
   uint64 created_at = 10;
 }
 
-message ResetPathMemoryRequest {}
+message ResetPathMemoryRequest {
+  optional bool exclude_permanent_memory = 1;
+  optional bool exclude_temporary_memory = 2;
+}
+
 message ResetPathMemoryResponse {
   uint64 payments = 1;
   uint64 attempts = 2;

@@ -419,6 +419,16 @@ export namespace PayResponse {
 
 export class ResetPathMemoryRequest extends jspb.Message { 
 
+    hasExcludePermanentMemory(): boolean;
+    clearExcludePermanentMemory(): void;
+    getExcludePermanentMemory(): boolean | undefined;
+    setExcludePermanentMemory(value: boolean): ResetPathMemoryRequest;
+
+    hasExcludeTemporaryMemory(): boolean;
+    clearExcludeTemporaryMemory(): void;
+    getExcludeTemporaryMemory(): boolean | undefined;
+    setExcludeTemporaryMemory(value: boolean): ResetPathMemoryRequest;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ResetPathMemoryRequest.AsObject;
     static toObject(includeInstance: boolean, msg: ResetPathMemoryRequest): ResetPathMemoryRequest.AsObject;
@@ -431,6 +441,8 @@ export class ResetPathMemoryRequest extends jspb.Message {
 
 export namespace ResetPathMemoryRequest {
     export type AsObject = {
+        excludePermanentMemory?: boolean,
+        excludeTemporaryMemory?: boolean,
     }
 }
 

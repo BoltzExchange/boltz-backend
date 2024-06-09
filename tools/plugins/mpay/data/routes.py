@@ -88,6 +88,8 @@ class Routes:
 
     @_check_fetching
     def reset(self) -> RemovedEntries:
+        self._pl.log("Resetting path memory")
+
         self._routes.clear()
         self._routes_for_node.clear()
 

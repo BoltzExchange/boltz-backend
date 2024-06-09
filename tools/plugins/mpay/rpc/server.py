@@ -106,16 +106,24 @@ class MpayService(MpayServicer):
 
     def ResetPathMemory(  # noqa: N802
         self,
-        request: ResetPathMemoryRequest,  # noqa: ARG002
+        request: ResetPathMemoryRequest,
         context: grpc.ServicerContext,  # noqa: ARG002
     ) -> ResetPathMemoryResponse:
-        res = self._routes.reset()
-        self._mpay.reset_excludes()
+        if not request.exclude_temporary_memory:
+            self._mpay.reset_excludes()
+
+        if not request.exclude_permanent_memory:
+            res = self._routes.reset()
+            return ResetPathMemoryResponse(
+                payments=res.payments,
+                attempts=res.attempts,
+                hops=res.hops,
+            )
 
         return ResetPathMemoryResponse(
-            payments=res.payments,
-            attempts=res.attempts,
-            hops=res.hops,
+            payments=0,
+            attempts=0,
+            hops=0,
         )
 
 

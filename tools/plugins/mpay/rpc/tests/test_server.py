@@ -139,6 +139,18 @@ class TestGrpc:
         with pytest.raises(_InactiveRpcError):
             cl.ListPayments(ListPaymentsRequest(bolt11="invalid bolt11"))
 
+    def test_reset_path_memory_exclude_permanent_memory(self, cl: MpayStub) -> None:
+        res: ResetPathMemoryResponse = cl.ResetPathMemory(
+            ResetPathMemoryRequest(exclude_permanent_memory=True)
+        )
+
+        assert res.payments == 0
+        assert res.attempts == 0
+        assert res.hops == 0
+
+        pays: ListPaymentsResponse = cl.ListPayments(ListPaymentsRequest())
+        assert len(pays.payments) > 0
+
     def test_reset_path_memory(self, cl: MpayStub) -> None:
         res: ResetPathMemoryResponse = cl.ResetPathMemory(ResetPathMemoryRequest())
 

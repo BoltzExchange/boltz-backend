@@ -9,20 +9,22 @@ python = ">=3.10,<3.13"
 python-bitcoinrpc = "^1.0"
 pyotp = "^2.8.0"
 sseclient = "^0.0.27"
-ruff = "^0.3.5"
-pyln-client = "^24.2.1"
+ruff = "^0.4.8"
+pyln-client = "^24.5"
 webdavclient3 = "^3.14.6"
-pytest = "^8.1.1"
-bolt11 = "^2.0.1"
-grpcio = "^1.62.1"
-grpcio-tools = "^1.62.1"
+bolt11 = "^2.0.6"
+grpcio = "^1.64.1"
+grpcio-tools = "^1.64.1"
 grpc-interceptor = "^0.15.4"
 cryptography = "^41.0.7"
-psycopg = {extras = ["binary"], version = "^3.1.18"}
-sqlalchemy = "^2.0.29"
+psycopg = { version = "^3.1.18", extras = ["binary"] }
+sqlalchemy = "^2.0.30"
 cachetools = "^5.3.2"
 pandas = "^2.2.2"
 strenum = "^0.4.15"
+
+[tool.poetry.group.test.dependencies]
+pytest = "^8.2.2"
 
 [build-system]
 requires = ["poetry-core"]

@@ -16,7 +16,7 @@ import { randomBytes } from 'crypto';
 import { hashForWitnessV1, setup, tweakMusig, zkp } from '../../../../lib/Core';
 import { ECPair } from '../../../../lib/ECPairHelper';
 import Logger from '../../../../lib/Logger';
-import { getHexString } from '../../../../lib/Utils';
+import { decodeInvoice, getHexString } from '../../../../lib/Utils';
 import {
   CurrencyType,
   OrderSide,
@@ -28,6 +28,7 @@ import Swap from '../../../../lib/db/models/Swap';
 import ReverseSwapRepository from '../../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../../lib/db/repositories/SwapRepository';
 import WrappedSwapRepository from '../../../../lib/db/repositories/WrappedSwapRepository';
+import * as noderpc from '../../../../lib/proto/cln/node_pb';
 import Errors from '../../../../lib/service/Errors';
 import MusigSigner from '../../../../lib/service/cooperative/MusigSigner';
 import SwapNursery from '../../../../lib/swap/SwapNursery';
@@ -81,15 +82,17 @@ describe('MusigSigner', () => {
     await Promise.all([
       setup(),
       bitcoinClient.connect(),
-      clnClient.connect(false),
-      bitcoinLndClient.connect(false),
-      bitcoinLndClient2.connect(false),
+      clnClient.connect(true),
+      bitcoinLndClient.connect(true),
+      bitcoinLndClient2.connect(true),
     ]);
 
     await bitcoinClient.generate(1);
   });
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    await clnClient['mpay']?.resetPathMemory();
+
     jest.clearAllMocks();
   });
 
@@ -269,7 +272,11 @@ describe('MusigSigner', () => {
       } as Swap;
 
       await waitForFunctionToBeTrue(
-        () => MusigSigner['hasNonFailedLightningPayment'](btcCurrency, swap),
+        () =>
+          MusigSigner['hasPendingOrSuccessfulLightningPayment'](
+            btcCurrency,
+            swap,
+          ),
         100,
       );
 
@@ -487,5 +494,215 @@ describe('MusigSigner', () => {
         0,
       ),
     ).rejects.toEqual(Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM());
+  });
+
+  describe('isEligibleForRefund', () => {
+    test.each`
+      status
+      ${SwapUpdateEvent.SwapExpired}
+      ${SwapUpdateEvent.InvoiceFailedToPay}
+      ${SwapUpdateEvent.TransactionRefunded}
+      ${SwapUpdateEvent.TransactionLockupFailed}
+    `('should be eligible for status $status', async ({ status }) => {
+      await expect(
+        MusigSigner.isEligibleForRefund({ status } as Swap),
+      ).resolves.toEqual(true);
+    });
+
+    test.each`
+      status
+      ${SwapUpdateEvent.SwapCreated}
+      ${SwapUpdateEvent.InvoicePaid}
+      ${SwapUpdateEvent.InvoicePending}
+      ${SwapUpdateEvent.InvoiceSettled}
+      ${SwapUpdateEvent.TransactionClaimed}
+    `('should not be eligible for status $status', async ({ status }) => {
+      await expect(
+        MusigSigner.isEligibleForRefund({ status } as any),
+      ).resolves.toEqual(false);
+    });
+
+    describe('LND', () => {
+      test('should not be eligible for successful payment', async () => {
+        const { paymentRequest } = await bitcoinLndClient2.addInvoice(1);
+        await bitcoinLndClient.sendPayment(paymentRequest);
+
+        await expect(
+          MusigSigner.isEligibleForRefund(
+            {
+              invoice: paymentRequest,
+              status: SwapUpdateEvent.InvoiceFailedToPay,
+              preimageHash: decodeInvoice(paymentRequest).paymentHash,
+            } as Swap,
+            btcCurrency,
+          ),
+        ).resolves.toEqual(false);
+      });
+
+      test('should not be eligible for pending payment', async () => {
+        const preimageHash = randomBytes(32);
+        const invoice = await bitcoinLndClient2.addHoldInvoice(1, preimageHash);
+        bitcoinLndClient2.subscribeSingleInvoice(preimageHash);
+        const payPromise = bitcoinLndClient.sendPayment(invoice);
+
+        await new Promise<void>((resolve) => {
+          bitcoinLndClient2.on('htlc.accepted', () => {
+            resolve();
+          });
+        });
+
+        await expect(
+          MusigSigner.isEligibleForRefund(
+            {
+              invoice,
+              preimageHash: getHexString(preimageHash),
+              status: SwapUpdateEvent.InvoiceFailedToPay,
+            } as Swap,
+            btcCurrency,
+          ),
+        ).resolves.toEqual(false);
+
+        await bitcoinLndClient2.cancelHoldInvoice(preimageHash);
+        await expect(payPromise).rejects.toEqual(expect.anything());
+      });
+
+      test('should be eligible for failed payment', async () => {
+        const preimageHash = randomBytes(32);
+        const invoice = await bitcoinLndClient2.addHoldInvoice(1, preimageHash);
+        await bitcoinLndClient2.cancelHoldInvoice(preimageHash);
+        await expect(bitcoinLndClient.sendPayment(invoice)).rejects.toEqual(
+          expect.anything(),
+        );
+
+        await expect(
+          MusigSigner.isEligibleForRefund(
+            {
+              invoice,
+              preimageHash: getHexString(preimageHash),
+              status: SwapUpdateEvent.InvoiceFailedToPay,
+            } as Swap,
+            btcCurrency,
+          ),
+        ).resolves.toEqual(true);
+      });
+
+      test('should be eligible for payment that was never attempted', async () => {
+        const { paymentRequest } = await bitcoinLndClient2.addInvoice(1);
+
+        await expect(
+          MusigSigner.isEligibleForRefund(
+            {
+              invoice: paymentRequest,
+              status: SwapUpdateEvent.InvoiceFailedToPay,
+              preimageHash: decodeInvoice(paymentRequest).paymentHash,
+            } as Swap,
+            btcCurrency,
+          ),
+        ).resolves.toEqual(true);
+      });
+    });
+
+    describe('CLN', () => {
+      test('should not be eligible for successful payment', async () => {
+        const { paymentRequest } = await bitcoinLndClient2.addInvoice(1);
+        await clnClient.sendPayment(paymentRequest);
+
+        await expect(
+          MusigSigner.isEligibleForRefund(
+            {
+              invoice: paymentRequest,
+              status: SwapUpdateEvent.InvoiceFailedToPay,
+              preimageHash: decodeInvoice(paymentRequest).paymentHash,
+            } as Swap,
+            btcCurrency,
+          ),
+        ).resolves.toEqual(false);
+      });
+
+      test('should not be eligible for pending payment', async () => {
+        const preimageHash = randomBytes(32);
+        const invoice = await bitcoinLndClient2.addHoldInvoice(1, preimageHash);
+        bitcoinLndClient2.subscribeSingleInvoice(preimageHash);
+        const payPromise = clnClient.sendPayment(invoice);
+
+        await new Promise<void>((resolve) => {
+          bitcoinLndClient2.on('htlc.accepted', () => {
+            resolve();
+          });
+        });
+
+        await expect(
+          MusigSigner.isEligibleForRefund(
+            {
+              invoice,
+              preimageHash: getHexString(preimageHash),
+              status: SwapUpdateEvent.InvoiceFailedToPay,
+            } as Swap,
+            btcCurrency,
+          ),
+        ).resolves.toEqual(false);
+
+        await bitcoinLndClient2.cancelHoldInvoice(preimageHash);
+        await expect(payPromise).rejects.toEqual(expect.anything());
+      });
+
+      test('should be eligible for failed payment', async () => {
+        const preimageHash = randomBytes(32);
+        const invoice = await bitcoinLndClient2.addHoldInvoice(1, preimageHash);
+        await bitcoinLndClient2.cancelHoldInvoice(preimageHash);
+        await expect(clnClient.sendPayment(invoice)).rejects.toEqual(
+          expect.anything(),
+        );
+
+        await expect(
+          MusigSigner.isEligibleForRefund(
+            {
+              invoice,
+              preimageHash: getHexString(preimageHash),
+              status: SwapUpdateEvent.InvoiceFailedToPay,
+            } as Swap,
+            btcCurrency,
+          ),
+        ).resolves.toEqual(true);
+      });
+
+      test('should be eligible for failed payment for which error reason is available', async () => {
+        const preimageHash = randomBytes(32);
+        const invoice = await bitcoinLndClient2.addHoldInvoice(1, preimageHash);
+        await bitcoinLndClient2.cancelHoldInvoice(preimageHash);
+
+        const payRequest = new noderpc.PayRequest();
+        payRequest.setBolt11(invoice);
+        await expect(
+          clnClient['unaryNodeCall']('pay', payRequest),
+        ).rejects.toEqual(expect.anything());
+
+        await expect(
+          MusigSigner.isEligibleForRefund(
+            {
+              invoice,
+              preimageHash: getHexString(preimageHash),
+              status: SwapUpdateEvent.InvoiceFailedToPay,
+            } as Swap,
+            btcCurrency,
+          ),
+        ).resolves.toEqual(true);
+      });
+
+      test('should be eligible for payment that was never attempted', async () => {
+        const { paymentRequest } = await bitcoinLndClient2.addInvoice(1);
+
+        await expect(
+          MusigSigner.isEligibleForRefund(
+            {
+              invoice: paymentRequest,
+              status: SwapUpdateEvent.InvoiceFailedToPay,
+              preimageHash: decodeInvoice(paymentRequest).paymentHash,
+            } as Swap,
+            btcCurrency,
+          ),
+        ).resolves.toEqual(true);
+      });
+    });
   });
 });

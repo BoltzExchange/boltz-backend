@@ -367,6 +367,9 @@ class Service {
     symbol: string,
     startHeight: number,
   ): Promise<number> => {
+    this.logger.info(
+      `Rescanning ${symbol} starting from height ${startHeight}`,
+    );
     const currency = getCurrency(this.currencies, symbol);
 
     let endHeight: number;
@@ -387,6 +390,10 @@ class Service {
     } else {
       throw Errors.NO_CHAIN_FOR_SYMBOL();
     }
+
+    this.logger.info(
+      `Finished rescanning ${symbol} from height ${startHeight} to ${endHeight}`,
+    );
 
     return endHeight;
   };

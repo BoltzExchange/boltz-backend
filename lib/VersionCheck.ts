@@ -91,7 +91,7 @@ class VersionCheck {
     },
     [MpayClient.serviceName]: {
       minimal: '0.1.0',
-      maximal: '0.1.1',
+      maximal: '0.1.2',
     },
     [LndClient.serviceName]: {
       minimal: '0.16.0',

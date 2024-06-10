@@ -1,5 +1,9 @@
 import { randomBytes } from 'crypto';
-import { generateId, getHexString } from '../../../../lib/Utils';
+import {
+  generateId,
+  generateSwapId,
+  getHexString,
+} from '../../../../lib/Utils';
 import {
   OrderSide,
   SwapUpdateEvent,
@@ -9,6 +13,17 @@ import ChainSwapData from '../../../../lib/db/models/ChainSwapData';
 import { NodeType } from '../../../../lib/db/models/ReverseSwap';
 import ChainSwapRepository from '../../../../lib/db/repositories/ChainSwapRepository';
 import ReverseSwapRepository from '../../../../lib/db/repositories/ReverseSwapRepository';
+
+export const createSubmarineSwapData = () => ({
+  pair: 'BTC/BTC',
+  lockupAddress: 'bc1',
+  timeoutBlockHeight: 1,
+  orderSide: OrderSide.BUY,
+  version: SwapVersion.Taproot,
+  status: SwapUpdateEvent.SwapCreated,
+  id: generateSwapId(SwapVersion.Taproot),
+  preimageHash: getHexString(randomBytes(32)),
+});
 
 export const createReverseSwap = async (
   status = SwapUpdateEvent.ChannelCreated,

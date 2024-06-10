@@ -6,6 +6,10 @@ from plugins.mpay.pay.excludes import Excludes, ExcludesPayment
 class TestExcludes:
     excludes = Excludes()
 
+    @pytest.fixture(autouse=True)
+    def _before_each(self) -> None:
+        self.excludes = Excludes()
+
     @pytest.mark.parametrize("channel", ["1/1", "0/0", "123x123x123/0"])
     def test_add(self, channel: str) -> None:
         self.excludes.add(channel)
@@ -17,6 +21,13 @@ class TestExcludes:
             self.excludes.add(exclude)
 
         assert self.excludes.to_set() == set(excludes)
+
+    def test_reset(self) -> None:
+        self.excludes.add("1/1")
+        assert len(self.excludes) == 1
+
+        self.excludes.reset()
+        assert len(self.excludes) == 0
 
 
 class TestExcludesPayment:

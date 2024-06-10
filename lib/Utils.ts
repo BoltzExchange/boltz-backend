@@ -544,7 +544,7 @@ export const getPrepayMinerFeeInvoiceMemo = (
 export const formatError = (error: unknown): string => {
   if (typeof error === 'string') {
     return error;
-  } else if ('message' in (error as any)) {
+  } else if (typeof error === 'object' && 'message' in (error as any)) {
     return (error as any)['message'];
   } else {
     return JSON.stringify(error);

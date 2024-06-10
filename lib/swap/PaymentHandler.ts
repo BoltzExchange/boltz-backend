@@ -18,6 +18,7 @@ import { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import { LightningClient, PaymentResponse } from '../lightning/LightningClient';
 import LndClient from '../lightning/LndClient';
+import PendingPaymentTracker from '../lightning/PendingPaymentTracker';
 import ClnClient from '../lightning/cln/ClnClient';
 import { Payment, PaymentFailureReason } from '../proto/lnd/rpc_pb';
 import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
@@ -69,7 +70,6 @@ type SwapNurseryEvents = {
 };
 
 class PaymentHandler {
-  private static readonly raceTimeout = 15;
   private static readonly resetMissionControlInterval = 10 * 60 * 1000;
   private static readonly errCltvTooSmall = 'CLTV limit too small';
 
@@ -81,6 +81,7 @@ class PaymentHandler {
     private readonly currencies: Map<string, Currency>,
     public readonly channelNursery: ChannelNursery,
     private readonly timeoutDeltaProvider: TimeoutDeltaProvider,
+    private readonly pendingPaymentTracker: PendingPaymentTracker,
     private emit: <K extends keyof SwapNurseryEvents>(
       eventName: K,
       arg: SwapNurseryEvents[K],
@@ -122,11 +123,24 @@ class PaymentHandler {
     );
 
     try {
-      return await this.racePayInvoice(
-        swap,
-        outgoingChannelId,
-        lightningClient,
+      const cltvLimit = await this.timeoutDeltaProvider.getCltvLimit(swap);
+      if (cltvLimit < 2) {
+        throw PaymentHandler.errCltvTooSmall;
+      }
+
+      this.logger.debug(
+        `Paying invoice of swap ${swap.id} with CLTV limit: ${cltvLimit}`,
       );
+      const payResponse = await this.pendingPaymentTracker.sendPayment(
+        lightningClient,
+        swap.invoice!,
+        cltvLimit,
+        outgoingChannelId,
+      );
+
+      if (payResponse !== undefined) {
+        return await this.settleInvoice(swap, payResponse);
+      }
     } catch (error) {
       return this.handlePaymentFailure(
         swap,
@@ -136,58 +150,6 @@ class PaymentHandler {
         error,
         outgoingChannelId,
       );
-    }
-  };
-
-  private racePayInvoice = async (
-    swap: Swap,
-    outgoingChannelId: string | undefined,
-    lightningClient: LightningClient,
-  ): Promise<Buffer | undefined> => {
-    const cltvLimit = await this.timeoutDeltaProvider.getCltvLimit(swap);
-
-    if (cltvLimit < 2) {
-      throw PaymentHandler.errCltvTooSmall;
-    }
-
-    this.logger.debug(
-      `Paying invoice of swap ${swap.id} with CLTV limit: ${cltvLimit}`,
-    );
-
-    let timeout: NodeJS.Timeout | undefined = undefined;
-    const racePromise = new Promise<undefined>((resolve) => {
-      timeout = setTimeout(() => {
-        resolve(undefined);
-      }, PaymentHandler.raceTimeout * 1000);
-    });
-
-    try {
-      const payResponse = await Promise.race([
-        lightningClient.sendPayment(
-          swap.invoice!,
-          cltvLimit,
-          outgoingChannelId,
-        ),
-        racePromise,
-      ]);
-
-      if (timeout !== undefined) {
-        clearTimeout(timeout);
-      }
-
-      if (payResponse !== undefined) {
-        return await this.settleInvoice(swap, payResponse);
-      }
-
-      this.logger.verbose(
-        `Invoice payment of Swap ${swap.id} is still pending after ${PaymentHandler.raceTimeout} seconds`,
-      );
-    } catch (e) {
-      if (timeout !== undefined) {
-        clearTimeout(timeout);
-      }
-
-      throw e;
     }
 
     return undefined;

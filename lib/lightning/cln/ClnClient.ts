@@ -13,6 +13,7 @@ import {
   getHexString,
 } from '../../Utils';
 import { ClientStatus } from '../../consts/Enums';
+import { NodeType } from '../../db/models/ReverseSwap';
 import { NodeClient } from '../../proto/cln/node_grpc_pb';
 import * as noderpc from '../../proto/cln/node_pb';
 import { ListfundsOutputs, ListpaysPays } from '../../proto/cln/node_pb';
@@ -57,6 +58,8 @@ class ClnClient
   public static readonly serviceName = 'CLN';
   public static readonly serviceNameHold = 'hold';
   public static readonly moddedVersionSuffix = '-modded';
+
+  public static readonly paymentPendingError = 'payment already pending';
 
   public readonly mpay?: Mpay;
 
@@ -104,6 +107,10 @@ class ClnClient
         `Mpay not configured for ${ClnClient.serviceName} ${this.symbol}; using pay`,
       );
     }
+  }
+
+  public get type() {
+    return NodeType.CLN;
   }
 
   public static isRpcError = (error: any): boolean => {
@@ -752,7 +759,7 @@ class ClnClient
         );
 
       if (hasPendingHtlc) {
-        throw 'payment already pending';
+        throw ClnClient.paymentPendingError;
       }
     }
 

@@ -110,6 +110,7 @@ class MpayService(MpayServicer):
         context: grpc.ServicerContext,  # noqa: ARG002
     ) -> ResetPathMemoryResponse:
         res = self._routes.reset()
+        self._mpay.reset_excludes()
 
         return ResetPathMemoryResponse(
             payments=res.payments,

@@ -174,6 +174,7 @@ def mpay_list(request: Request, bolt11: str = "", payment_hash: str = "") -> dic
 )
 @thread_method(executor=executor)
 def mpay_reset(request: Request) -> dict[str, Any]:
+    mpay.reset_excludes()
     return {"deleted": routes.reset().to_dict()}
 
 

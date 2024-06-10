@@ -15,6 +15,7 @@ import {
   splitChannelPoint,
 } from '../Utils';
 import { ClientStatus } from '../consts/Enums';
+import { NodeType } from '../db/models/ReverseSwap';
 import { InvoicesClient } from '../proto/lnd/invoices_grpc_pb';
 import * as invoicesrpc from '../proto/lnd/invoices_pb';
 import { RouterClient } from '../proto/lnd/router_grpc_pb';
@@ -112,6 +113,10 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
     } else {
       this.throwFilesNotFound();
     }
+  }
+
+  public get type() {
+    return NodeType.LND;
   }
 
   private throwFilesNotFound = () => {
@@ -379,10 +384,11 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
 
   public trackPayment = (
     preimageHash: Buffer,
+    streamUntilFinalStatus: boolean = false,
   ): Promise<lndrpc.Payment.AsObject> => {
     return new Promise<lndrpc.Payment.AsObject>((resolve, reject) => {
       const request = new routerrpc.TrackPaymentRequest();
-      request.setNoInflightUpdates(false);
+      request.setNoInflightUpdates(streamUntilFinalStatus);
       request.setPaymentHash(preimageHash);
 
       const stream = this.router!.trackPaymentV2(request, this.meta);
@@ -450,6 +456,7 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
         switch (response.getStatus()) {
           case lndrpc.Payment.PaymentStatus.SUCCEEDED:
             stream.removeAllListeners();
+            stream.destroy();
             resolve({
               feeMsat: response.getFeeMsat(),
               preimage: getHexBuffer(response.getPaymentPreimage()),
@@ -458,6 +465,7 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
 
           case lndrpc.Payment.PaymentStatus.FAILED:
             stream.removeAllListeners();
+            stream.destroy();
             reject(response.getFailureReason());
             break;
         }
@@ -465,10 +473,12 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
 
       stream.on('end', () => {
         stream.removeAllListeners();
+        stream.destroy();
       });
 
       stream.on('error', (error) => {
         stream.removeAllListeners();
+        stream.destroy();
         reject(error);
       });
     });

@@ -55,6 +55,7 @@ import {
   InvoiceState,
   LightningClient,
 } from '../lightning/LightningClient';
+import PendingPaymentTracker from '../lightning/PendingPaymentTracker';
 import FeeProvider from '../rates/FeeProvider';
 import LockupTransactionTracker from '../rates/LockupTransactionTracker';
 import RateProvider from '../rates/RateProvider';
@@ -98,6 +99,8 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
   private readonly lightningNursery: LightningNursery;
 
   private readonly ethereumNurseries: EthereumNursery[];
+
+  private readonly pendingPaymentTracker: PendingPaymentTracker;
 
   // Maps
   private currencies = new Map<string, Currency>();
@@ -148,12 +151,14 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
         new EthereumNursery(this.logger, this.walletManager, manager, blocks),
     );
 
+    this.pendingPaymentTracker = new PendingPaymentTracker(this.logger);
     this.paymentHandler = new PaymentHandler(
       this.logger,
       this.nodeSwitch,
       this.currencies,
       this.channelNursery,
       timeoutDeltaProvider,
+      this.pendingPaymentTracker,
       (
         eventName: keyof SwapNurseryEvents,
         arg: SwapNurseryEvents[keyof SwapNurseryEvents],
@@ -181,6 +186,8 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     currencies.forEach((currency) => {
       this.currencies.set(currency.symbol, currency);
     });
+
+    await this.pendingPaymentTracker.init(currencies);
 
     await Promise.all(
       this.ethereumNurseries.map((nursery) =>

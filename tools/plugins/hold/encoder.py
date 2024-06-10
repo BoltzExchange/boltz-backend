@@ -2,7 +2,8 @@ import random
 from enum import Enum
 
 from bolt11 import Bolt11, Feature, Features, FeatureState, encode
-from bolt11.types import MilliSatoshi, RouteHint, Tag, TagChar, Tags
+from bolt11.models.tags import Tag
+from bolt11.types import MilliSatoshi, RouteHint, TagChar, Tags
 from pyln.client import Plugin
 from secp256k1 import PrivateKey
 

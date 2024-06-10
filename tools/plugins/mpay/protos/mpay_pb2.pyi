@@ -148,8 +148,12 @@ class PayResponse(_message.Message):
     def __init__(self, payment_hash: _Optional[str] = ..., payment_preimage: _Optional[str] = ..., fee_msat: _Optional[int] = ..., time: _Optional[int] = ..., destination: _Optional[str] = ..., amount_msat: _Optional[int] = ..., amount_sent_msat: _Optional[int] = ..., parts: _Optional[int] = ..., status: _Optional[str] = ..., created_at: _Optional[int] = ...) -> None: ...
 
 class ResetPathMemoryRequest(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
+    __slots__ = ("exclude_permanent_memory", "exclude_temporary_memory")
+    EXCLUDE_PERMANENT_MEMORY_FIELD_NUMBER: _ClassVar[int]
+    EXCLUDE_TEMPORARY_MEMORY_FIELD_NUMBER: _ClassVar[int]
+    exclude_permanent_memory: bool
+    exclude_temporary_memory: bool
+    def __init__(self, exclude_permanent_memory: bool = ..., exclude_temporary_memory: bool = ...) -> None: ...
 
 class ResetPathMemoryResponse(_message.Message):
     __slots__ = ("payments", "attempts", "hops")

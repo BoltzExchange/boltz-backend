@@ -173,9 +173,16 @@ def mpay_list(request: Request, bolt11: str = "", payment_hash: str = "") -> dic
     category=PLUGIN_NAME,
 )
 @thread_method(executor=executor)
-def mpay_reset(request: Request) -> dict[str, Any]:
-    mpay.reset_excludes()
-    return {"deleted": routes.reset().to_dict()}
+def mpay_reset(
+    request: Request, exclude_permanent_memory: bool = False, exclude_temporary_memory: bool = False
+) -> dict[str, Any]:
+    if not exclude_temporary_memory:
+        mpay.reset_excludes()
+
+    if not exclude_permanent_memory:
+        return {"deleted": routes.reset().to_dict()}
+
+    return {"deleted": {"payments": 0, "attempts": 0, "hops": 0}}
 
 
 @pl.hook("rpc_command")

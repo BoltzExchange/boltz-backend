@@ -19,6 +19,7 @@ import { ChainSwapInfo } from '../../db/repositories/ChainSwapRepository';
 import ReverseSwapRepository from '../../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../db/repositories/SwapRepository';
 import WrappedSwapRepository from '../../db/repositories/WrappedSwapRepository';
+import ClnClient from '../../lightning/cln/ClnClient';
 import { Payment } from '../../proto/lnd/rpc_pb';
 import SwapNursery from '../../swap/SwapNursery';
 import WalletManager, { Currency } from '../../wallet/WalletManager';
@@ -182,12 +183,12 @@ class MusigSigner {
   ) =>
     FailedSwapUpdateEvents.includes(swap.status as SwapUpdateEvent) &&
     (lightningCurrency === undefined ||
-      !(await MusigSigner.hasNonFailedLightningPayment(
+      !(await MusigSigner.hasPendingOrSuccessfulLightningPayment(
         lightningCurrency,
         swap,
       )));
 
-  private static hasNonFailedLightningPayment = async (
+  private static hasPendingOrSuccessfulLightningPayment = async (
     currency: Currency,
     swap: Swap | ChainSwapInfo,
   ): Promise<boolean> => {
@@ -200,10 +201,7 @@ class MusigSigner {
         const pendingPayment = await currency.lndClient!.trackPayment(
           getHexBuffer(swap.preimageHash),
         );
-
-        if (pendingPayment.status !== Payment.PaymentStatus.FAILED) {
-          return true;
-        }
+        return pendingPayment.status !== Payment.PaymentStatus.FAILED;
       }
     } catch (e) {
       /* empty */
@@ -213,12 +211,12 @@ class MusigSigner {
       const invoice = (swap as Swap).invoice;
       if (currency.clnClient && invoice !== undefined) {
         const payment = await currency.clnClient!.checkPayStatus(invoice);
-        if (payment !== undefined) {
-          return true;
-        }
+        return payment !== undefined;
       }
     } catch (e) {
-      return true;
+      // We do have a pending payment when the pending error is thrown
+      // Else, it's some other error and we can allow cooperative refunds
+      return e === ClnClient.paymentPendingError;
     }
 
     return false;

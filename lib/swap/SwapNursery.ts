@@ -902,7 +902,12 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           : (swap as ChainSwapInfo).sendingData.lockupAddress;
 
       const { transaction, transactionId, vout, fee } =
-        await wallet.sendToAddress(lockupAddress, onchainAmount, feePerVbyte);
+        await wallet.sendToAddress(
+          lockupAddress,
+          onchainAmount,
+          feePerVbyte,
+          `Lockup for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}`,
+        );
       this.logger.verbose(
         `Locked up ${onchainAmount} ${
           wallet.symbol
@@ -1119,7 +1124,9 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           preimage,
         ),
       ] as ClaimDetails[] | LiquidClaimDetails[],
-      await wallet.getAddress(),
+      await wallet.getAddress(
+        `Claim of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}`,
+      ),
       await chainClient.estimateFee(),
     );
 
@@ -1463,7 +1470,9 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     const refundTransaction = constructRefundTransaction(
       wallet,
       [refundDetails] as RefundDetails[] | LiquidRefundDetails[],
-      await wallet.getAddress(),
+      await wallet.getAddress(
+        `Refund of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}`,
+      ),
       sendingData.timeoutBlockHeight,
       await chainCurrency.chainClient!.estimateFee(),
     );

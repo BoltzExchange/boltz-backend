@@ -1,15 +1,6 @@
-import { NotificationConfig } from '../../../lib/Config';
-import {
-  coinsToSatoshis,
-  satoshisToSatcomma,
-} from '../../../lib/DenominationConverter';
+import { satoshisToSatcomma } from '../../../lib/DenominationConverter';
 import Logger from '../../../lib/Logger';
-import {
-  getHexBuffer,
-  getHexString,
-  mapToObject,
-  stringify,
-} from '../../../lib/Utils';
+import { getHexBuffer, mapToObject, stringify } from '../../../lib/Utils';
 import BackupScheduler from '../../../lib/backup/BackupScheduler';
 import { SwapType, swapTypeToString } from '../../../lib/consts/Enums';
 import ReferralStats from '../../../lib/data/ReferralStats';
@@ -184,25 +175,12 @@ const mockedBackupScheduler = <jest.Mock<BackupScheduler>>(
   (<any>BackupScheduler)
 );
 
-const mockVerify = jest.fn().mockImplementation((token: string) => {
-  return token === 'valid';
-});
-
-jest.mock('../../../lib/notifications/OtpManager', () => {
-  return jest.fn().mockImplementation(() => {
-    return {
-      verify: mockVerify,
-    };
-  });
-});
-
 describe('CommandHandler', () => {
   const service = mockedService();
   service.allowReverseSwaps = true;
 
   new CommandHandler(
     Logger.disabledLogger,
-    {} as any as NotificationConfig,
     mockedDiscordClient(),
     service,
     mockedBackupScheduler(),
@@ -266,7 +244,6 @@ describe('CommandHandler', () => {
         '**pendingsweeps**: gets all pending sweeps\n' +
         '**getreferrals**: gets stats for all referral IDs\n' +
         '**backup**: uploads a backup of the databases\n' +
-        '**withdraw**: withdraws coins from Boltz\n' +
         '**getaddress**: gets an address for a currency\n' +
         '**togglereverse**: enables or disables reverse swaps',
     );
@@ -507,145 +484,37 @@ describe('CommandHandler', () => {
     );
   });
 
-  test('should withdraw coins', async () => {
-    const currency = 'btc';
+  describe('getaddress', () => {
+    test('should get addresses', async () => {
+      sendMessage('getaddress BTC test');
+      await wait(5);
 
-    // Pay lightning invoices and respond with the preimage
-    const invoice = 'invoice';
+      expect(mockGetAddress).toHaveBeenCalledTimes(1);
+      expect(mockGetAddress).toHaveBeenCalledWith('BTC', 'test');
 
-    sendMessage(`withdraw valid ${currency} ${invoice}`);
-    await wait(5);
-
-    expect(mockVerify).toHaveBeenCalledTimes(1);
-
-    expect(mockPayInvoice).toHaveBeenCalledTimes(1);
-    expect(mockPayInvoice).toHaveBeenCalledWith(
-      currency.toUpperCase(),
-      invoice,
-    );
-
-    expect(mockSendMessage).toHaveBeenCalledTimes(1);
-    expect(mockSendMessage).toHaveBeenCalledWith(
-      `Paid lightning invoice\nPreimage: ${getHexString(invoicePreimage)}`,
-    );
-
-    // Send onchain coins and respond with transaction id and vout
-    const address = 'address';
-    const amount = 1;
-
-    sendMessage(`withdraw valid ${currency} ${address} ${amount}`);
-    await wait(5);
-
-    expect(mockVerify).toHaveBeenCalledTimes(2);
-
-    expect(mockSendCoins).toHaveBeenCalledTimes(1);
-    expect(mockSendCoins).toHaveBeenCalledWith({
-      address,
-      sendAll: false,
-      symbol: currency.toUpperCase(),
-      amount: coinsToSatoshis(amount),
+      expect(mockSendMessage).toHaveBeenCalledTimes(1);
+      expect(mockSendMessage).toHaveBeenCalledWith(`\`${newAddress}\``);
     });
 
-    expect(mockSendMessage).toHaveBeenCalledTimes(2);
-    expect(mockSendMessage).toHaveBeenCalledWith(
-      `Sent transaction: ${transactionId}:${transactionVout}`,
-    );
+    test('should send an error when no currency is specified', async () => {
+      sendMessage('getaddress');
+      await wait(5);
 
-    // Send all onchain coins
-    sendMessage(`withdraw valid ${currency} ${address} all`);
-    await wait(5);
-
-    expect(mockVerify).toHaveBeenCalledTimes(3);
-
-    expect(mockSendCoins).toHaveBeenCalledTimes(2);
-    expect(mockSendCoins).toHaveBeenCalledWith({
-      address,
-      amount: 0,
-      sendAll: true,
-      symbol: currency.toUpperCase(),
+      expect(mockSendMessage).toHaveBeenCalledTimes(1);
+      expect(mockSendMessage).toHaveBeenCalledWith(
+        'Could not get address: no currency was specified',
+      );
     });
 
-    expect(mockSendMessage).toHaveBeenCalledTimes(3);
-    expect(mockSendMessage).toHaveBeenCalledWith(
-      `Sent transaction: ${transactionId}:${transactionVout}`,
-    );
+    test('should send an error when no label is specified', async () => {
+      sendMessage('getaddress BTC');
+      await wait(5);
 
-    // Send an error if paying a lighting invoice fails
-    const throwInvoice = 'throw';
-
-    sendMessage(`withdraw valid ${currency} ${throwInvoice}`);
-    await wait(5);
-
-    expect(mockVerify).toHaveBeenCalledTimes(4);
-
-    expect(mockPayInvoice).toHaveBeenCalledTimes(2);
-    expect(mockPayInvoice).toHaveBeenCalledWith(
-      currency.toUpperCase(),
-      throwInvoice,
-    );
-
-    expect(mockSendMessage).toHaveBeenCalledTimes(4);
-    expect(mockSendMessage).toHaveBeenCalledWith(
-      'Could not pay lightning invoice: lnd error',
-    );
-
-    // Send an error if sending onchain coins fails
-    const throwAddress = 'throw';
-
-    sendMessage(`withdraw valid ${currency} ${throwAddress} ${amount}`);
-    await wait(5);
-
-    expect(mockVerify).toHaveBeenCalledTimes(5);
-
-    expect(mockSendCoins).toHaveBeenCalledTimes(3);
-    expect(mockSendCoins).toHaveBeenCalledWith({
-      sendAll: false,
-      address: throwAddress,
-      symbol: currency.toUpperCase(),
-      amount: coinsToSatoshis(amount),
+      expect(mockSendMessage).toHaveBeenCalledTimes(1);
+      expect(mockSendMessage).toHaveBeenCalledWith(
+        'Could not get address: no label was specified',
+      );
     });
-
-    expect(mockSendMessage).toHaveBeenCalledTimes(5);
-    expect(mockSendMessage).toHaveBeenCalledWith(
-      'Could not send coins: onchain error',
-    );
-
-    // Send an error if an invalid number of arguments is provided
-    sendMessage('withdraw');
-    await wait(5);
-
-    expect(mockSendMessage).toHaveBeenCalledTimes(6);
-    expect(mockSendMessage).toHaveBeenCalledWith('Invalid number of arguments');
-
-    // Send an error if the OTP token is invalid
-    sendMessage('withdraw invalid token provided');
-    await wait(5);
-
-    expect(mockVerify).toHaveBeenCalledTimes(6);
-    expect(mockVerify).toHaveBeenNthCalledWith(6, 'invalid');
-
-    expect(mockSendMessage).toHaveBeenCalledTimes(7);
-    expect(mockSendMessage).toHaveBeenCalledWith('Invalid OTP token');
-  });
-
-  test('should get addresses', async () => {
-    sendMessage('getaddress BTC');
-    await wait(5);
-
-    expect(mockGetAddress).toHaveBeenCalledTimes(1);
-    expect(mockGetAddress).toHaveBeenCalledWith('BTC');
-
-    expect(mockSendMessage).toHaveBeenCalledTimes(1);
-    expect(mockSendMessage).toHaveBeenCalledWith(`\`${newAddress}\``);
-
-    // Send an error if no currency is specified
-    sendMessage('getaddress');
-    await wait(5);
-
-    expect(mockSendMessage).toHaveBeenCalledTimes(2);
-    expect(mockSendMessage).toHaveBeenCalledWith(
-      'Could not get address: no currency was specified',
-    );
   });
 
   test('should toggle reverse swaps', async () => {

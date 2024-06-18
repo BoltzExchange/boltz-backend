@@ -23,7 +23,7 @@ interface BalancerFetcher {
 interface WalletProviderInterface extends BalancerFetcher {
   readonly symbol: string;
 
-  getAddress: () => Promise<string>;
+  getAddress: (label: string) => Promise<string>;
 
   /**
    * Sends coins from the wallet
@@ -35,7 +35,8 @@ interface WalletProviderInterface extends BalancerFetcher {
   sendToAddress: (
     address: string,
     amount: number,
-    relativeFee?: number,
+    relativeFee: number | undefined,
+    label: string,
   ) => Promise<SentTransaction>;
 
   /**
@@ -46,7 +47,8 @@ interface WalletProviderInterface extends BalancerFetcher {
    */
   sweepWallet: (
     address: string,
-    relativeFee?: number,
+    relativeFee: number | undefined,
+    label: string,
   ) => Promise<SentTransaction>;
 }
 

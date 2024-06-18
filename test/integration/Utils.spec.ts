@@ -32,9 +32,11 @@ describe('Utils', () => {
   test('should calculate UTXO transaction fee', async () => {
     const satPerVbyte = 2;
     const txId = await bitcoinClient.sendToAddress(
-      await bitcoinClient.getNewAddress(),
+      await bitcoinClient.getNewAddress(''),
       100000,
       satPerVbyte,
+      false,
+      '',
     );
 
     const tx = Transaction.fromHex(await bitcoinClient.getRawTransaction(txId));
@@ -52,9 +54,11 @@ describe('Utils', () => {
   test('should calculate Liquid transaction fee', async () => {
     const satPerVbyte = 2;
     const txId = await elementsClient.sendToAddress(
-      await elementsClient.getNewAddress(),
+      await elementsClient.getNewAddress(''),
       100000,
       satPerVbyte,
+      false,
+      '',
     );
 
     const tx = TransactionLiquid.fromHex(
@@ -92,8 +96,11 @@ describe('Utils', () => {
     test('should detect when transaction is not confirmed', async () => {
       const tx = await bitcoinClient.getRawTransactionVerbose(
         await bitcoinClient.sendToAddress(
-          await bitcoinClient.getNewAddress(),
+          await bitcoinClient.getNewAddress(''),
           100_000,
+          undefined,
+          false,
+          '',
         ),
       );
 
@@ -102,8 +109,11 @@ describe('Utils', () => {
 
     test('should detect when transaction is confirmed', async () => {
       const txId = await bitcoinClient.sendToAddress(
-        await bitcoinClient.getNewAddress(),
+        await bitcoinClient.getNewAddress(''),
         100_000,
+        undefined,
+        false,
+        '',
       );
       await bitcoinClient.generate(1);
       const tx = await bitcoinClient.getRawTransactionVerbose(txId);

@@ -29,9 +29,13 @@ class LndWalletProvider implements WalletProviderInterface {
     return this.lndClient.getWalletBalance();
   };
 
-  public getAddress = async (): Promise<string> => {
+  public getAddress = async (label: string): Promise<string> => {
+    if (label !== '') {
+      this.logger.warn(`${this.symbol} LND wallet does not support labels`);
+    }
+
     const response = await this.lndClient.newAddress(
-      AddressType.WITNESS_PUBKEY_HASH,
+      AddressType.TAPROOT_PUBKEY,
     );
     return response.address;
   };
@@ -39,7 +43,8 @@ class LndWalletProvider implements WalletProviderInterface {
   public sendToAddress = async (
     address: string,
     amount: number,
-    satPerVbyte?: number,
+    satPerVbyte: number | undefined,
+    label: string,
   ): Promise<SentTransaction> => {
     // To avoid weird race conditions (insanely unlikely but still), the start height of the LND transaction list call
     // is queried *before* sending the onchain transaction
@@ -48,6 +53,7 @@ class LndWalletProvider implements WalletProviderInterface {
       address,
       amount,
       await this.getFeePerVbyte(satPerVbyte),
+      label,
     );
 
     return this.handleLndTransaction(response.txid, address, blockHeight);
@@ -55,13 +61,15 @@ class LndWalletProvider implements WalletProviderInterface {
 
   public sweepWallet = async (
     address: string,
-    satPerVbyte?: number,
+    satPerVbyte: number | undefined,
+    label: string,
   ): Promise<SentTransaction> => {
     // See "sendToAddress"
     const { blockHeight } = await this.lndClient.getInfo();
     const response = await this.lndClient.sweepWallet(
       address,
       await this.getFeePerVbyte(satPerVbyte),
+      label,
     );
 
     return this.handleLndTransaction(response.txid, address, blockHeight);

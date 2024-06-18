@@ -15,7 +15,12 @@ import {
   getLightningCurrency,
   splitPairId,
 } from '../../Utils';
-import { SwapType, SwapUpdateEvent, SwapVersion } from '../../consts/Enums';
+import {
+  SwapType,
+  SwapUpdateEvent,
+  SwapVersion,
+  swapTypeToPrettyString,
+} from '../../consts/Enums';
 import ChannelCreation from '../../db/models/ChannelCreation';
 import Swap from '../../db/models/Swap';
 import ChannelCreationRepository from '../../db/repositories/ChannelCreationRepository';
@@ -275,7 +280,9 @@ class DeferredClaimer extends CoopSignerBase<
     const claimTransaction = constructClaimTransaction(
       wallet,
       claimDetails,
-      await wallet.getAddress(),
+      await wallet.getAddress(
+        `Batch claim of ${swapTypeToPrettyString(SwapType.Submarine)} Swaps ${swaps.map((s) => s.swap.id).join(', ')}`,
+      ),
       await chainClient.estimateFee(),
     );
 

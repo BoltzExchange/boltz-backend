@@ -42,9 +42,8 @@ class ElementsWalletProvider implements WalletProviderInterface {
     };
   };
 
-  public getAddress = (): Promise<string> => {
-    return this.chainClient.getNewAddress();
-  };
+  public getAddress = (label: string): Promise<string> =>
+    this.chainClient.getNewAddress(label);
 
   public dumpBlindingKey = async (address: string): Promise<Buffer> => {
     return getHexBuffer(await this.chainClient.dumpBlindingKey(address));
@@ -53,19 +52,23 @@ class ElementsWalletProvider implements WalletProviderInterface {
   public sendToAddress = async (
     address: string,
     amount: number,
-    satPerVbyte?: number,
+    satPerVbyte: number | undefined,
+    label: string,
   ): Promise<SentTransaction> => {
     const transactionId = await this.chainClient.sendToAddress(
       address,
       amount,
       await this.getFeePerVbyte(satPerVbyte),
+      false,
+      label,
     );
     return this.handleLiquidTransaction(transactionId, address);
   };
 
   public sweepWallet = async (
     address: string,
-    satPerVbyte?: number | undefined,
+    satPerVbyte: number | undefined,
+    label: string,
   ): Promise<SentTransaction> => {
     const balance = await this.getBalance();
     const transactionId = await this.chainClient.sendToAddress(
@@ -73,6 +76,7 @@ class ElementsWalletProvider implements WalletProviderInterface {
       balance.confirmedBalance + balance.unconfirmedBalance,
       await this.getFeePerVbyte(satPerVbyte),
       true,
+      label,
     );
 
     return this.handleLiquidTransaction(transactionId, address);

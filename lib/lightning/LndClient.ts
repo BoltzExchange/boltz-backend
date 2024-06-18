@@ -672,17 +672,20 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
    * Sends coins to a particular address
    *
    * @param address address to which coins should be sent
-   * @param amount number of satoshis or litoshis to send
-   * @param satPerByte satoshis or litoshis per byte that should be sent as fee
+   * @param amount number of satoshis to send
+   * @param satPerByte sat/vbyte fee
+   * @param label extra comment saved alongside the transaction in the wallet
    */
   public sendCoins = (
     address: string,
     amount: number,
-    satPerByte?: number,
+    satPerByte: number | undefined,
+    label: string,
   ): Promise<lndrpc.SendCoinsResponse.AsObject> => {
     const request = new lndrpc.SendCoinsRequest();
     request.setAddr(address);
     request.setAmount(amount);
+    request.setLabel(label);
 
     if (satPerByte) {
       request.setSatPerByte(satPerByte);
@@ -698,15 +701,18 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
    * Sends all coins of the wallet to a particular address
    *
    * @param address address to which coins should be sent
-   * @param satPerByte satoshis or litoshis per byte that should be sent as fee
+   * @param satPerByte sat/vbyte fee
+   * @param label extra comment saved alongside the transaction in the wallet
    */
   public sweepWallet = (
     address: string,
-    satPerByte?: number,
+    satPerByte: number | undefined,
+    label: string,
   ): Promise<lndrpc.SendCoinsResponse.AsObject> => {
     const request = new lndrpc.SendCoinsRequest();
     request.setAddr(address);
     request.setSendAll(true);
+    request.setLabel(label);
 
     if (satPerByte) {
       request.setSatPerByte(satPerByte);

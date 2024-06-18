@@ -90,8 +90,22 @@ describe('ElementsWalletProvider', () => {
     await elementsClient.generate(1);
   });
 
-  it('should generate addresses', async () => {
-    expect((await provider.getAddress()).startsWith('el1qq')).toEqual(true);
+  afterAll(() => {
+    elementsClient.disconnect();
+  });
+
+  describe('getAddress', () => {
+    it('should generate addresses', async () => {
+      expect((await provider.getAddress('')).startsWith('el1qq')).toEqual(true);
+    });
+
+    it('should set label', async () => {
+      const label = 'something swap related';
+      const addr = await provider.getAddress(label);
+
+      const addressInfo = await elementsClient.getAddressInfo(addr);
+      expect(addressInfo.labels).toEqual([label]);
+    });
   });
 
   it('should get balance', async () => {
@@ -102,7 +116,19 @@ describe('ElementsWalletProvider', () => {
 
   it('should send transactions to confidential addresses', async () => {
     const amount = 212121;
-    const sentTransaction = await provider.sendToAddress(testAddress, amount);
+    const label = 'from Elements wallet';
+
+    const sentTransaction = await provider.sendToAddress(
+      testAddress,
+      amount,
+      undefined,
+      label,
+    );
+
+    const transactionInfo = await elementsClient.getWalletTransaction(
+      sentTransaction.transactionId,
+    );
+    expect(transactionInfo.comment).toEqual(label);
 
     await verifySentTransaction(
       sentTransaction,
@@ -118,6 +144,8 @@ describe('ElementsWalletProvider', () => {
     const sentTransaction = await provider.sendToAddress(
       address.fromConfidential(testAddress).unconfidentialAddress,
       amount,
+      undefined,
+      '',
     );
 
     await verifySentTransaction(sentTransaction, testAddress, amount, false);
@@ -127,7 +155,12 @@ describe('ElementsWalletProvider', () => {
     const amount = 3457236;
     const feePerVByte = 21;
 
-    const tx = await provider.sendToAddress(testAddress, amount, feePerVByte);
+    const tx = await provider.sendToAddress(
+      testAddress,
+      amount,
+      feePerVByte,
+      '',
+    );
 
     await verifySentTransaction(
       tx,
@@ -141,8 +174,13 @@ describe('ElementsWalletProvider', () => {
 
   it('should send transactions that do not signal RBF', async () => {
     const amount = 31222;
-    const addr = await provider.getAddress();
-    const { transaction } = await provider.sendToAddress(addr, amount);
+    const addr = await provider.getAddress('');
+    const { transaction } = await provider.sendToAddress(
+      addr,
+      amount,
+      undefined,
+      '',
+    );
     expect(transaction).toBeDefined();
     expect(
       transaction!.ins.every((vin) => vin.sequence === 0xffffffff - 1),
@@ -151,10 +189,20 @@ describe('ElementsWalletProvider', () => {
 
   it('should sweep the wallet', async () => {
     const balance = await provider.getBalance();
-    const sweepAddress = await provider.getAddress();
+    const label = 'sweep Elements wallet';
+    const sweepAddress = await provider.getAddress('');
     const blindingKey = await provider.dumpBlindingKey(sweepAddress);
 
-    const sentTransaction = await provider.sweepWallet(sweepAddress);
+    const sentTransaction = await provider.sweepWallet(
+      sweepAddress,
+      undefined,
+      label,
+    );
+
+    const transactionInfo = await elementsClient.getWalletTransaction(
+      sentTransaction.transactionId,
+    );
+    expect(transactionInfo.comment).toEqual(label);
 
     await verifySentTransaction(
       sentTransaction,

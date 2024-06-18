@@ -593,14 +593,17 @@ class Service {
   /**
    * Gets an address of a specified wallet
    */
-  public getAddress = async (symbol: string): Promise<string> => {
+  public getAddress = async (
+    symbol: string,
+    label: string,
+  ): Promise<string> => {
     const wallet = this.walletManager.wallets.get(symbol);
 
-    if (wallet !== undefined) {
-      return wallet.getAddress();
+    if (wallet === undefined) {
+      throw Errors.CURRENCY_NOT_FOUND(symbol);
     }
 
-    throw Errors.CURRENCY_NOT_FOUND(symbol);
+    return wallet.getAddress(label);
   };
 
   public getBlockHeights = async (
@@ -1878,32 +1881,25 @@ class Service {
   /**
    * Sends coins to a specified address
    */
-  public sendCoins = async (args: {
+  public sendCoins = (args: {
     symbol: string;
     address: string;
     amount: number;
+    label: string;
     sendAll?: boolean;
     fee?: number;
   }): Promise<{
-    vout: number;
+    vout?: number;
     transactionId: string;
   }> => {
-    const { fee, amount, symbol, sendAll, address } = args;
-
-    const wallet = this.walletManager.wallets.get(symbol);
-
-    if (wallet !== undefined) {
-      const { transactionId, vout } = sendAll
-        ? await wallet.sweepWallet(address, fee)
-        : await wallet.sendToAddress(address, amount, fee);
-
-      return {
-        transactionId,
-        vout: vout!,
-      };
+    const wallet = this.walletManager.wallets.get(args.symbol);
+    if (wallet === undefined) {
+      throw Errors.CURRENCY_NOT_FOUND(args.symbol);
     }
 
-    throw Errors.CURRENCY_NOT_FOUND(symbol);
+    return args.sendAll
+      ? wallet.sweepWallet(args.address, args.fee, args.label)
+      : wallet.sendToAddress(args.address, args.amount, args.fee, args.label);
   };
 
   private getGasPrice = async (provider: Provider) => {

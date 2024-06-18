@@ -50,8 +50,11 @@ describe('TransactionFetcher', () => {
   describe('getSubmarineTransaction', () => {
     test('should get lockup transaction for reverse swaps', async () => {
       const transactionId = await bitcoinClient.sendToAddress(
-        await bitcoinClient.getNewAddress(),
+        await bitcoinClient.getNewAddress(''),
         100_000,
+        undefined,
+        false,
+        '',
       );
       const timeoutBlockHeight =
         (await bitcoinClient.getBlockchainInfo()).blocks + 1;
@@ -93,8 +96,11 @@ describe('TransactionFetcher', () => {
   describe('getReverseSwapTransaction', () => {
     test('should get lockup transaction for reverse swaps', async () => {
       const transactionId = await bitcoinClient.sendToAddress(
-        await bitcoinClient.getNewAddress(),
+        await bitcoinClient.getNewAddress(''),
         100_000,
+        undefined,
+        false,
+        '',
       );
 
       ReverseSwapRepository.getReverseSwap = jest.fn().mockResolvedValue({
@@ -137,8 +143,11 @@ describe('TransactionFetcher', () => {
           symbol: 'BTC',
           timeoutBlockHeight: 123,
           transactionId: await bitcoinClient.sendToAddress(
-            await bitcoinClient.getNewAddress(),
+            await bitcoinClient.getNewAddress(''),
             100_000,
+            undefined,
+            false,
+            '',
           ),
         },
       } as unknown as ChainSwapInfo;
@@ -166,8 +175,11 @@ describe('TransactionFetcher', () => {
           symbol: 'BTC',
           timeoutBlockHeight: blockHeight + 1,
           transactionId: await bitcoinClient.sendToAddress(
-            await bitcoinClient.getNewAddress(),
+            await bitcoinClient.getNewAddress(''),
             100_000,
+            undefined,
+            false,
+            '',
           ),
         },
       } as unknown as ChainSwapInfo;
@@ -201,8 +213,11 @@ describe('TransactionFetcher', () => {
           symbol: 'BTC',
           timeoutBlockHeight: 123,
           transactionId: await bitcoinClient.sendToAddress(
-            await bitcoinClient.getNewAddress(),
+            await bitcoinClient.getNewAddress(''),
             100_000,
+            undefined,
+            false,
+            '',
           ),
         },
       } as unknown as ChainSwapInfo;
@@ -249,8 +264,11 @@ describe('TransactionFetcher', () => {
       transaction = Transaction.fromHex(
         await bitcoinClient.getRawTransaction(
           await bitcoinClient.sendToAddress(
-            await bitcoinClient.getNewAddress(),
+            await bitcoinClient.getNewAddress(''),
             100_000,
+            undefined,
+            false,
+            '',
           ),
         ),
       );
@@ -319,8 +337,11 @@ describe('TransactionFetcher', () => {
       transaction = Transaction.fromHex(
         await bitcoinClient.getRawTransaction(
           await bitcoinClient.sendToAddress(
-            await bitcoinClient.getNewAddress(),
+            await bitcoinClient.getNewAddress(''),
             100_000,
+            undefined,
+            false,
+            '',
           ),
         ),
       );
@@ -376,8 +397,11 @@ describe('TransactionFetcher', () => {
       const tx = Transaction.fromHex(
         await bitcoinClient.getRawTransaction(
           await bitcoinClient.sendToAddress(
-            await bitcoinClient.getNewAddress(),
+            await bitcoinClient.getNewAddress(''),
             100_000,
+            undefined,
+            false,
+            '',
           ),
         ),
       );

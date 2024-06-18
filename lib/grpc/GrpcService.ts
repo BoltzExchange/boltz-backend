@@ -103,9 +103,8 @@ class GrpcService {
     boltzrpc.GetAddressResponse
   > = async (call, callback) => {
     await this.handleCallback(call, callback, async () => {
-      const { symbol } = call.request.toObject();
-
-      const address = await this.service.getAddress(symbol);
+      const { symbol, label } = call.request.toObject();
+      const address = await this.service.getAddress(symbol, label);
 
       const response = new boltzrpc.GetAddressResponse();
       response.setAddress(address);
@@ -124,8 +123,10 @@ class GrpcService {
       );
 
       const response = new boltzrpc.SendCoinsResponse();
-      response.setVout(vout);
       response.setTransactionId(transactionId);
+      if (vout !== undefined) {
+        response.setVout(vout);
+      }
 
       return response;
     });

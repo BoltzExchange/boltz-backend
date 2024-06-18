@@ -29,5 +29,5 @@ export type AddressInfo = {
   hdkeypath: string;
   hdseedid: string;
   hdmasterfingerprint: string;
-  labels?: string[];
+  labels: string[];
 };

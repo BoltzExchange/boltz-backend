@@ -30,6 +30,10 @@ describe('ChainClient', () => {
     ChainTipRepository.findOrCreateTip = mockFindOrCreateTip;
   });
 
+  afterAll(async () => {
+    bitcoinClient.disconnect();
+  });
+
   test('should init', async () => {
     await bitcoinClient.connect();
     await bitcoinClient.generate(1);
@@ -60,7 +64,7 @@ describe('ChainClient', () => {
     });
 
     for (const address of testData.addresses) {
-      await bitcoinClient.sendToAddress(address, 1000);
+      await bitcoinClient.sendToAddress(address, 1000, undefined, false, '');
     }
 
     await waitForFunctionToBeTrue(() => {
@@ -125,7 +129,7 @@ describe('ChainClient', () => {
     });
 
     const { address } = generateAddress(OutputType.Bech32);
-    await bitcoinClient.sendToAddress(address, 1000);
+    await bitcoinClient.sendToAddress(address, 1000, undefined, false, '');
 
     await waitForFunctionToBeTrue(() => {
       return event;
@@ -219,7 +223,28 @@ describe('ChainClient', () => {
     );
   });
 
-  afterAll(async () => {
-    bitcoinClient.disconnect();
+  describe('getNewAddress', () => {
+    test('should add label', async () => {
+      const label = 'data';
+      const address = await bitcoinClient.getNewAddress(label);
+      const { labels } = await bitcoinClient.getAddressInfo(address);
+      expect(labels).toEqual([label]);
+    });
+  });
+
+  describe('sendToAddress', () => {
+    test('should add label', async () => {
+      const label = 'data';
+      const transactionId = await bitcoinClient.sendToAddress(
+        await bitcoinClient.getNewAddress(''),
+        100_000,
+        undefined,
+        false,
+        label,
+      );
+      const { comment } =
+        await bitcoinClient.getWalletTransaction(transactionId);
+      expect(comment).toEqual(label);
+    });
   });
 });

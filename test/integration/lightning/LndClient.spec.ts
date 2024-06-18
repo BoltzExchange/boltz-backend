@@ -23,7 +23,9 @@ describe('LndClient', () => {
     await bitcoinLndClient.connect(false);
   });
 
-  afterAll(() => {
+  afterAll(async () => {
+    await bitcoinClient.generate(1);
+
     bitcoinLndClient.removeAllListeners();
     bitcoinLndClient.disconnect();
     bitcoinLndClient.disconnect();
@@ -132,5 +134,44 @@ describe('LndClient', () => {
 
     lndClient.disconnect();
     server.forceShutdown();
+  });
+
+  describe('sendCoins', () => {
+    test('should add label', async () => {
+      const label = 'test sendCoins';
+      const { address } = await bitcoinLndClient.newAddress();
+      const { txid } = await bitcoinLndClient.sendCoins(
+        address,
+        100_000,
+        undefined,
+        label,
+      );
+
+      const { transactionsList } =
+        await bitcoinLndClient.getOnchainTransactions(0);
+      const transaction = transactionsList.find((tx) => tx.txHash === txid);
+
+      expect(transaction).not.toBeUndefined();
+      expect(transaction!.label).toEqual(label);
+    });
+  });
+
+  describe('sweepWallet', () => {
+    test('should add label', async () => {
+      const label = 'test sweepWallet';
+      const { address } = await bitcoinLndClient.newAddress();
+      const { txid } = await bitcoinLndClient.sweepWallet(
+        address,
+        undefined,
+        label,
+      );
+
+      const { transactionsList } =
+        await bitcoinLndClient.getOnchainTransactions(0);
+      const transaction = transactionsList.find((tx) => tx.txHash === txid);
+
+      expect(transaction).not.toBeUndefined();
+      expect(transaction!.label).toEqual(label);
+    });
   });
 });

@@ -490,6 +490,8 @@ export namespace UnblindOutputsResponse {
 export class GetAddressRequest extends jspb.Message { 
     getSymbol(): string;
     setSymbol(value: string): GetAddressRequest;
+    getLabel(): string;
+    setLabel(value: string): GetAddressRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): GetAddressRequest.AsObject;
@@ -504,6 +506,7 @@ export class GetAddressRequest extends jspb.Message {
 export namespace GetAddressRequest {
     export type AsObject = {
         symbol: string,
+        label: string,
     }
 }
 
@@ -538,6 +541,8 @@ export class SendCoinsRequest extends jspb.Message {
     setFee(value: number): SendCoinsRequest;
     getSendAll(): boolean;
     setSendAll(value: boolean): SendCoinsRequest;
+    getLabel(): string;
+    setLabel(value: string): SendCoinsRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): SendCoinsRequest.AsObject;
@@ -556,13 +561,17 @@ export namespace SendCoinsRequest {
         amount: number,
         fee: number,
         sendAll: boolean,
+        label: string,
     }
 }
 
 export class SendCoinsResponse extends jspb.Message { 
     getTransactionId(): string;
     setTransactionId(value: string): SendCoinsResponse;
-    getVout(): number;
+
+    hasVout(): boolean;
+    clearVout(): void;
+    getVout(): number | undefined;
     setVout(value: number): SendCoinsResponse;
 
     serializeBinary(): Uint8Array;
@@ -578,7 +587,7 @@ export class SendCoinsResponse extends jspb.Message {
 export namespace SendCoinsResponse {
     export type AsObject = {
         transactionId: string,
-        vout: number,
+        vout?: number,
     }
 }
 

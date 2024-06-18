@@ -40,8 +40,10 @@ import {
   CurrencyType,
   FinalChainSwapEvents,
   OrderSide,
+  SwapType,
   SwapUpdateEvent,
   SwapVersion,
+  swapTypeToPrettyString,
   swapVersionToString,
 } from '../consts/Enums';
 import { PairConfig } from '../consts/Types';
@@ -414,7 +416,9 @@ class SwapManager {
       const blockNumber = await receivingCurrency.provider!.getBlockNumber();
       result.timeoutBlockHeight = blockNumber + args.timeoutBlockDelta;
 
-      result.claimAddress = await receivingCurrency.wallet.getAddress();
+      result.claimAddress = await receivingCurrency.wallet.getAddress(
+        `Claim address of ${swapTypeToPrettyString(SwapType.Submarine)} Swap ${id}`,
+      );
 
       await SwapRepository.addSwap({
         id,
@@ -874,7 +878,9 @@ class SwapManager {
       );
       result.refundAddress = await this.walletManager.wallets
         .get(sendingCurrency.symbol)!
-        .getAddress();
+        .getAddress(
+          `Refund address of ${swapTypeToPrettyString(SwapType.ReverseSubmarine)} Swap ${id}`,
+        );
 
       await ReverseSwapRepository.addReverseSwap({
         id,
@@ -1030,9 +1036,13 @@ class SwapManager {
         res.claimAddress = isSending ? args.claimAddress : undefined;
 
         if (isSending) {
-          refundAddress = await currency.wallet.getAddress();
+          refundAddress = await currency.wallet.getAddress(
+            `Refund address of ${swapTypeToPrettyString(SwapType.Chain)} Swap ${id}`,
+          );
         } else {
-          claimAddress = await currency.wallet.getAddress();
+          claimAddress = await currency.wallet.getAddress(
+            `Claim address of ${swapTypeToPrettyString(SwapType.Chain)} Swap ${id}`,
+          );
         }
       }
 

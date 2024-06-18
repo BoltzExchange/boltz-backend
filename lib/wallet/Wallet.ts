@@ -113,8 +113,8 @@ class Wallet implements BalancerFetcher {
     return toOutputScript(this.type, toDecode, this.network);
   };
 
-  public getAddress = (): Promise<string> => {
-    return this.walletProvider.getAddress();
+  public getAddress = (label: string): Promise<string> => {
+    return this.walletProvider.getAddress(label);
   };
 
   public getBalance = (): Promise<WalletBalance> => {
@@ -124,20 +124,31 @@ class Wallet implements BalancerFetcher {
   public sendToAddress = (
     address: string,
     amount: number,
-    satPerVbyte?: number,
+    satPerVbyte: number | undefined,
+    label: string,
   ): Promise<SentTransaction> => {
-    this.logger.info(`Sending ${amount} ${this.symbol} to ${address}`);
+    this.logger.info(
+      `Sending ${amount} ${this.symbol} to ${address} for: ${label}`,
+    );
 
-    return this.walletProvider.sendToAddress(address, amount, satPerVbyte);
+    return this.walletProvider.sendToAddress(
+      address,
+      amount,
+      satPerVbyte,
+      label,
+    );
   };
 
   public sweepWallet = (
     address: string,
-    satPerVbyte?: number,
+    satPerVbyte: number | undefined,
+    label: string,
   ): Promise<SentTransaction> => {
-    this.logger.warn(`Sweeping ${this.symbol} wallet to ${address}`);
+    this.logger.warn(
+      `Sweeping ${this.symbol} wallet to ${address} for: ${label}`,
+    );
 
-    return this.walletProvider.sweepWallet(address, satPerVbyte);
+    return this.walletProvider.sweepWallet(address, satPerVbyte, label);
   };
 }
 

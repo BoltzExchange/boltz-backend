@@ -27,23 +27,23 @@ class Image:
 
 UBUNTU_VERSION = BuildArgument(
     name="UBUNTU_VERSION",
-    value="24.04",
+    value="22.04",
 )
 
 NODE_VERSION = BuildArgument(
     name="NODE_VERSION",
-    value="lts-bullseye-slim",
+    value="lts-bookworm-slim",
 )
 
 GOLANG_VERSION = BuildArgument(
     name="GOLANG_VERSION",
-    value="1.22.3-bullseye",
+    value="1.22.4-bullseye",
 )
 
-BITCOIN_VERSION = "27.0"
+BITCOIN_VERSION = "27.1"
 LITECOIN_VERSION = "0.21.3"
 ELEMENTS_VERSION = "23.2.1"
-GETH_VERSION = "1.14.3"
+GETH_VERSION = "1.14.5"
 
 C_LIGHTNING_VERSION = "24.05"
 ECLAIR_VERSION = "0.10.0"
@@ -102,7 +102,7 @@ IMAGES: dict[str, Image] = {
         ],
     ),
     "regtest": Image(
-        tag="4.5.1",
+        tag="4.5.2",
         arguments=[
             UBUNTU_VERSION,
             BITCOIN_BUILD_ARG,

@@ -41,6 +41,6 @@ COPY --from=builder /boltz-backend/node_modules /boltz-backend/node_modules
 
 EXPOSE 9000 9001
 
-ENV NODE_ENV production
+ENV NODE_ENV=production
 
 ENTRYPOINT ["/boltz-backend/bin/boltzd"]

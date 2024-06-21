@@ -61,9 +61,10 @@ class ZmqClient<T extends SomeTransaction> extends TypedEventEmitter<{
   private static readonly connectTimeout = 1000;
 
   constructor(
-    private symbol: string,
-    private logger: Logger,
-    private chainClient: ChainClient,
+    private readonly symbol: string,
+    private readonly logger: Logger,
+    private readonly chainClient: ChainClient,
+    private readonly rpcHost: string,
   ) {
     super();
   }
@@ -129,7 +130,7 @@ class ZmqClient<T extends SomeTransaction> extends TypedEventEmitter<{
   };
 
   public close = (): void => {
-    this.sockets.forEach((socket) => {
+    for (const socket of this.sockets) {
       // Catch errors that are thrown if the socket is closed already
       try {
         socket.close();
@@ -138,7 +139,7 @@ class ZmqClient<T extends SomeTransaction> extends TypedEventEmitter<{
           `${this.symbol} socket already closed: ${formatError(error)}`,
         );
       }
-    });
+    }
   };
 
   public rescanChain = async (startHeight: number): Promise<void> => {
@@ -331,8 +332,8 @@ class ZmqClient<T extends SomeTransaction> extends TypedEventEmitter<{
           } catch (error) {
             if ((error as any).message === 'Block not found on disk') {
               // If there are many blocks added to the chain at once, Bitcoin Core might
-              // take a few milliseconds to write all of them to the disk. Therefore
-              // it just retries getting the block after a little delay
+              // take a few milliseconds to write all of them to the disk.
+              // Therefore, it just retries getting the block after a little delay
               setTimeout(async () => {
                 await handleBlock(blockHashString);
               }, 250);
@@ -385,29 +386,43 @@ class ZmqClient<T extends SomeTransaction> extends TypedEventEmitter<{
   };
 
   private createSocket = (address: string, filter: string) => {
+    const sanitizedAddress = this.replaceZmqAddressWildcard(address);
+    this.logger.silly(
+      `Sanitized ${this.symbol} ZMQ filter ${filter} address (${address}) to: ${sanitizedAddress}`,
+    );
+
     return new Promise<Socket>((resolve, reject) => {
       const socket = zmq.socket('sub').monitor();
       this.sockets.push(socket);
 
       const timeoutHandle = setTimeout(
         () =>
-          reject(Errors.ZMQ_CONNECTION_TIMEOUT(this.symbol, filter, address)),
+          reject(
+            Errors.ZMQ_CONNECTION_TIMEOUT(
+              this.symbol,
+              filter,
+              sanitizedAddress,
+            ),
+          ),
         ZmqClient.connectTimeout,
       );
 
       socket.on('connect', () => {
         this.logger.debug(
-          `Connected to ${this.symbol} ZMQ filter ${filter} on: ${address}`,
+          `Connected to ${this.symbol} ZMQ filter ${filter} on: ${sanitizedAddress}`,
         );
 
         clearTimeout(timeoutHandle);
         resolve(socket);
       });
 
-      socket.connect(address);
+      socket.connect(sanitizedAddress);
       socket.subscribe(filter);
     });
   };
+
+  private replaceZmqAddressWildcard = (address: string) =>
+    address.replace('0.0.0.0', this.rpcHost);
 }
 
 export default ZmqClient;

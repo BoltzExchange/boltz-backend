@@ -191,7 +191,9 @@ class NotificationProvider {
 
   private listenToDiscord = () => {
     this.client.on('error', (error) => {
-      this.logger.warn(`Discord client threw: ${formatError(error)}`);
+      this.logger.warn(
+        `${this.client.serviceName} client threw: ${formatError(error)}`,
+      );
     });
   };
 

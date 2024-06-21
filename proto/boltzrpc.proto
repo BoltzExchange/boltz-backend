@@ -144,6 +144,7 @@ message UnblindOutputsResponse {
 
 message GetAddressRequest {
   string symbol = 1;
+  string label = 2;
 }
 
 message GetAddressResponse {
@@ -158,10 +159,12 @@ message SendCoinsRequest {
   // sat/vbyte for UTXO based chains or gas price in GWEI for account based ones
   uint32 fee = 4;
   bool send_all = 5;
+  string label = 6;
 }
+
 message SendCoinsResponse {
   string transaction_id = 1;
-  uint32 vout = 2;
+  optional uint32 vout = 2;
 }
 
 message UpdateTimeoutBlockDeltaRequest {

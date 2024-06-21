@@ -27,10 +27,9 @@ class CoreWalletProvider implements WalletProviderInterface {
   };
 
   public getAddress = (
+    label: string,
     type: AddressType = AddressType.Taproot,
-  ): Promise<string> => {
-    return this.chainClient.getNewAddress(type);
-  };
+  ): Promise<string> => this.chainClient.getNewAddress(label, type);
 
   public getBalance = async (): Promise<WalletBalance> => {
     const utxos = await this.chainClient.listUnspent(0);
@@ -57,19 +56,23 @@ class CoreWalletProvider implements WalletProviderInterface {
   public sendToAddress = async (
     address: string,
     amount: number,
-    satPerVbyte?: number,
+    satPerVbyte: number | undefined,
+    label: string,
   ): Promise<SentTransaction> => {
     const transactionId = await this.chainClient.sendToAddress(
       address,
       amount,
       await this.getFeePerVbyte(satPerVbyte),
+      false,
+      label,
     );
     return await this.handleCoreTransaction(transactionId, address);
   };
 
   public sweepWallet = async (
     address: string,
-    satPerVbyte?: number | undefined,
+    satPerVbyte: number | undefined,
+    label: string,
   ): Promise<SentTransaction> => {
     const { confirmedBalance } = await this.getBalance();
     const transactionId = await this.chainClient.sendToAddress(
@@ -77,6 +80,7 @@ class CoreWalletProvider implements WalletProviderInterface {
       confirmedBalance,
       await this.getFeePerVbyte(satPerVbyte),
       true,
+      label,
     );
 
     return await this.handleCoreTransaction(transactionId, address);

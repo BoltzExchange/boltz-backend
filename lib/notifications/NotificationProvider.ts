@@ -68,13 +68,7 @@ class NotificationProvider {
     this.listenToDiscord();
     this.listenToService();
 
-    new CommandHandler(
-      this.logger,
-      this.config,
-      this.client,
-      this.service,
-      this.backup,
-    );
+    new CommandHandler(this.logger, this.client, this.service, this.backup);
 
     this.balanceChecker = new BalanceChecker(
       this.logger,

@@ -299,6 +299,7 @@ describe('GrpcService', () => {
   test('should handle GetAddress', () => {
     const callData = {
       symbol: 'symbol',
+      label: 'data',
     };
 
     grpcService.getAddress(
@@ -310,7 +311,10 @@ describe('GrpcService', () => {
     );
 
     expect(mockGetAddress).toHaveBeenCalledTimes(1);
-    expect(mockGetAddress).toHaveBeenCalledWith(callData.symbol);
+    expect(mockGetAddress).toHaveBeenCalledWith(
+      callData.symbol,
+      callData.label,
+    );
   });
 
   test('should handle SendCoins', () => {

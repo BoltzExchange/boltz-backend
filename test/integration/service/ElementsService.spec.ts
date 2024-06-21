@@ -55,13 +55,19 @@ describe('ElementsService', () => {
   });
 
   test('should unblind outputs that were blinded by known keys', async () => {
-    const script = wallet.decodeAddress(await wallet.getAddress());
+    const script = wallet.decodeAddress(await wallet.getAddress(''));
     const address = wallet.encodeAddress(script);
     const amount = 100_000;
 
     const tx = Transaction.fromHex(
       await elementsClient.getRawTransaction(
-        await elementsClient.sendToAddress(address, amount),
+        await elementsClient.sendToAddress(
+          address,
+          amount,
+          undefined,
+          false,
+          '',
+        ),
       ),
     );
 
@@ -88,12 +94,20 @@ describe('ElementsService', () => {
     );
     secondWallet['network'] = networks.regtest;
 
-    const script = secondWallet.decodeAddress(await secondWallet.getAddress());
+    const script = secondWallet.decodeAddress(
+      await secondWallet.getAddress(''),
+    );
     const address = secondWallet.encodeAddress(script);
 
     const tx = Transaction.fromHex(
       await elementsClient.getRawTransaction(
-        await elementsClient.sendToAddress(address, 50_000),
+        await elementsClient.sendToAddress(
+          address,
+          50_000,
+          undefined,
+          false,
+          '',
+        ),
       ),
     );
 
@@ -124,8 +138,11 @@ describe('ElementsService', () => {
 
   test('should unblind outputs by transactions id', async () => {
     const txId = await elementsClient.sendToAddress(
-      await wallet.getAddress(),
+      await wallet.getAddress(''),
       50_000,
+      undefined,
+      false,
+      '',
     );
     const tx = Transaction.fromHex(
       await elementsClient.getRawTransaction(txId),

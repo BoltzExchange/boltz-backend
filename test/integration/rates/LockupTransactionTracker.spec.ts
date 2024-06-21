@@ -167,8 +167,11 @@ describe('LockupTransactionTracker', () => {
         PendingLockupTransactionRepository.destroy = jest.fn();
 
         const transactionId = await client.sendToAddress(
-          await client.getNewAddress(),
+          await client.getNewAddress(''),
           100_000,
+          undefined,
+          false,
+          '',
         );
 
         SwapRepository.getSwaps = jest.fn().mockResolvedValue([
@@ -220,8 +223,11 @@ describe('LockupTransactionTracker', () => {
         PendingLockupTransactionRepository.destroy = jest.fn();
 
         const transactionId = await client.sendToAddress(
-          await client.getNewAddress(),
+          await client.getNewAddress(''),
           100_000,
+          undefined,
+          false,
+          '',
         );
 
         SwapRepository.getSwaps = jest.fn().mockResolvedValue([]);
@@ -271,8 +277,11 @@ describe('LockupTransactionTracker', () => {
         PendingLockupTransactionRepository.destroy = jest.fn();
 
         const transactionId = await client.sendToAddress(
-          await client.getNewAddress(),
+          await client.getNewAddress(''),
           100_000,
+          undefined,
+          false,
+          '',
         );
 
         SwapRepository.getSwaps = jest.fn().mockResolvedValue([

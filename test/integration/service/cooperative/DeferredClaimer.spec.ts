@@ -1,6 +1,6 @@
 import { BIP32Factory } from 'bip32';
 import { generateMnemonic, mnemonicToSeedSync } from 'bip39';
-import { Transaction, crypto } from 'bitcoinjs-lib';
+import { Transaction, address, crypto } from 'bitcoinjs-lib';
 import {
   Musig,
   Networks,
@@ -147,6 +147,9 @@ describe('DeferredClaimer', () => {
         await bitcoinClient.sendToAddress(
           btcWallet.encodeAddress(p2trOutput(tweakedKey)),
           100_000,
+          undefined,
+          false,
+          '',
         ),
       ),
     );
@@ -332,6 +335,15 @@ describe('DeferredClaimer', () => {
     );
 
     expect(claimTx.ins.length).toEqual(swaps.length);
+    expect(claimTx.outs.length).toEqual(1);
+
+    const addressInfo = await bitcoinClient.getAddressInfo(
+      address.fromOutputScript(claimTx.outs[0].script, Networks.bitcoinRegtest),
+    );
+    expect(addressInfo.ismine).toEqual(true);
+    expect(addressInfo.labels).toEqual([
+      `Batch claim of Submarine Swaps ${swaps.map((s) => s.swap.id).join(', ')}`,
+    ]);
   });
 
   test('should sweep currency with no pending swaps', async () => {

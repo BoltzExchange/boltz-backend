@@ -189,9 +189,11 @@ describe('Wallet', () => {
   });
 
   test('should get a new address', async () => {
-    expect(await wallet.getAddress()).toEqual(address);
+    const label = 'label for some good reason';
+    expect(await wallet.getAddress(label)).toEqual(address);
 
     expect(mockGetAddress).toHaveBeenCalledTimes(1);
+    expect(mockGetAddress).toHaveBeenCalledWith(label);
   });
 
   test('should get correct balance', async () => {
@@ -204,23 +206,32 @@ describe('Wallet', () => {
     const address = '2N94uHZqzv6q5UeFjgKcG6iqeyz1UJNq9Ye';
     const amount = 372498;
     const satPerVbyte = 18;
+    const label = 'send some funds';
 
-    expect(await wallet.sendToAddress(address, amount, satPerVbyte)).toEqual(
-      sentTransaction,
-    );
+    await expect(
+      wallet.sendToAddress(address, amount, satPerVbyte, label),
+    ).resolves.toEqual(sentTransaction);
 
     expect(mockSendToAddress).toHaveBeenCalledTimes(1);
+    expect(mockSendToAddress).toHaveBeenCalledWith(
+      address,
+      amount,
+      satPerVbyte,
+      label,
+    );
   });
 
   test('should sweep wallet', async () => {
     const address = 'bcrt1qk4pces7y5csg3qv8gr4ftghgp8gzgg3lv3nwju';
     const satPerVbyte = 2;
+    const label = 'sweep it all';
 
-    expect(await wallet.sweepWallet(address, satPerVbyte)).toEqual(
+    expect(await wallet.sweepWallet(address, satPerVbyte, label)).toEqual(
       sentTransaction,
     );
 
     expect(mockSweepWallet).toHaveBeenCalledTimes(1);
+    expect(mockSweepWallet).toHaveBeenCalledWith(address, satPerVbyte, label);
   });
 
   test('should blind Liquid addresses', () => {

@@ -14,6 +14,7 @@ import {
   RawTransaction,
   UnspentUtxo,
   WalletInfo,
+  WalletTransaction,
 } from '../consts/Types';
 import ChainTipRepository from '../db/repositories/ChainTipRepository';
 import MempoolSpace from './MempoolSpace';
@@ -71,12 +72,13 @@ interface IChainClient<T extends SomeTransaction = SomeTransaction>
   estimateFee(confTarget?: number): Promise<number>;
 
   listUnspent(minimalConfirmations?: number): Promise<UnspentUtxo[]>;
-  getNewAddress(type: AddressType): Promise<string>;
+  getNewAddress(label: string, type: AddressType): Promise<string>;
   sendToAddress(
     address: string,
     amount: number,
-    satPerVbyte?: number,
-    subtractFeeFromAmount?: boolean,
+    satPerVbyte: number | undefined,
+    subtractFeeFromAmount: boolean | undefined,
+    label: string,
   ): Promise<string>;
 }
 
@@ -268,6 +270,10 @@ class ChainClient<T extends SomeTransaction = Transaction>
     }
   };
 
+  public getWalletTransaction = (id: string): Promise<WalletTransaction> => {
+    return this.client.request<WalletTransaction>('gettransaction', [id]);
+  };
+
   public getRawMempool = async () => {
     return this.client.request<string[]>('getrawmempool');
   };
@@ -283,13 +289,14 @@ class ChainClient<T extends SomeTransaction = Transaction>
   public sendToAddress = (
     address: string,
     amount: number,
-    satPerVbyte?: number,
+    satPerVbyte: number | undefined,
     subtractFeeFromAmount = false,
+    label: string,
   ): Promise<string> => {
     return this.client.request<string>('sendtoaddress', [
       address,
       amount / ChainClient.decimals,
-      undefined,
+      label,
       undefined,
       subtractFeeFromAmount,
       false,
@@ -309,14 +316,15 @@ class ChainClient<T extends SomeTransaction = Transaction>
   public generate = async (blocks: number): Promise<string[]> => {
     return this.client.request<string[]>('generatetoaddress', [
       blocks,
-      await this.getNewAddress(),
+      await this.getNewAddress('generatetoaddress'),
     ]);
   };
 
   public getNewAddress = (
+    label: string,
     type: AddressType = AddressType.Bech32,
   ): Promise<string> => {
-    return this.client.request<string>('getnewaddress', [undefined, type]);
+    return this.client.request<string>('getnewaddress', [label, type]);
   };
 
   public getAddressInfo = (address: string): Promise<AddressInfo> => {

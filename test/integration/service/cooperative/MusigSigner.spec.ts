@@ -129,6 +129,9 @@ describe('MusigSigner', () => {
         await bitcoinClient.sendToAddress(
           address.fromOutputScript(swapOutputScript, Networks.bitcoinRegtest),
           100_000,
+          undefined,
+          false,
+          '',
         ),
       ),
     );
@@ -147,7 +150,7 @@ describe('MusigSigner', () => {
         },
       ],
       address.toOutputScript(
-        await bitcoinClient.getNewAddress(),
+        await bitcoinClient.getNewAddress(''),
         Networks.bitcoinRegtest,
       ),
       0,
@@ -322,6 +325,9 @@ describe('MusigSigner', () => {
         await bitcoinClient.sendToAddress(
           address.fromOutputScript(swapOutputScript, Networks.bitcoinRegtest),
           100_000,
+          undefined,
+          false,
+          '',
         ),
       ),
     );
@@ -341,7 +347,7 @@ describe('MusigSigner', () => {
         },
       ],
       address.toOutputScript(
-        await bitcoinClient.getNewAddress(),
+        await bitcoinClient.getNewAddress(''),
         Networks.bitcoinRegtest,
       ),
       300,

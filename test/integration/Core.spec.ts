@@ -98,8 +98,11 @@ describe('Core', () => {
 
     // To have a blinded output in the Elements wallet
     await elementsClient.sendToAddress(
-      await elementsClient.getNewAddress(),
+      await elementsClient.getNewAddress(''),
       10 ** 8,
+      undefined,
+      false,
+      '',
     );
 
     await Promise.all([bitcoinClient.generate(1), elementsClient.generate(1)]);
@@ -115,8 +118,10 @@ describe('Core', () => {
   test('should get output value of Bitcoin transactions', async () => {
     const outputAmount = 420234;
     const { transaction, vout } = await wallet.sendToAddress(
-      await wallet.getAddress(),
+      await wallet.getAddress(''),
       outputAmount,
+      undefined,
+      '',
     );
 
     expect(getOutputValue(wallet, transaction!.outs[vout!])).toEqual(
@@ -131,12 +136,14 @@ describe('Core', () => {
         CurrencyType.Liquid,
         toOutputScript(
           CurrencyType.Liquid,
-          await walletLiquid.getAddress(),
+          await walletLiquid.getAddress(''),
           networks.regtest,
         ),
         networks.regtest,
       ),
       outputAmount,
+      undefined,
+      '',
     );
 
     expect(
@@ -160,7 +167,7 @@ describe('Core', () => {
   test('should get output value of blinded Liquid transactions', async () => {
     const script = toOutputScript(
       CurrencyType.Liquid,
-      await walletLiquid.getAddress(),
+      await walletLiquid.getAddress(''),
       walletLiquid.network,
     );
 
@@ -168,6 +175,8 @@ describe('Core', () => {
     const { transaction, vout } = await walletLiquid.sendToAddress(
       walletLiquid.encodeAddress(script),
       outputAmount,
+      undefined,
+      '',
     );
 
     expect(
@@ -206,6 +215,9 @@ describe('Core', () => {
         await bitcoinClient.sendToAddress(
           wallet.encodeAddress(outputScript),
           100_00,
+          undefined,
+          false,
+          '',
         ),
       ),
     );
@@ -257,6 +269,9 @@ describe('Core', () => {
         await bitcoinClient.sendToAddress(
           wallet.encodeAddress(outputScript),
           100_00,
+          undefined,
+          false,
+          '',
         ),
       ),
     );
@@ -406,6 +421,9 @@ describe('Core', () => {
         await bitcoinClient.sendToAddress(
           address.fromOutputScript(outputScript, Networks.bitcoinRegtest),
           amountSent,
+          undefined,
+          false,
+          '',
         ),
       ),
     );
@@ -417,7 +435,7 @@ describe('Core', () => {
     spendTx.addInput(tx.getHash(), outputToSpendIndex);
     spendTx.addOutput(
       address.toOutputScript(
-        await bitcoinClient.getNewAddress(),
+        await bitcoinClient.getNewAddress(''),
         Networks.bitcoinRegtest,
       ),
       amountSent - 1_000,
@@ -450,6 +468,9 @@ describe('Core', () => {
         await elementsClient.sendToAddress(
           address.fromOutputScript(outputScript, networks.regtest),
           amountSent,
+          undefined,
+          false,
+          '',
         ),
       ),
     ) as LiquidTransaction;
@@ -472,7 +493,7 @@ describe('Core', () => {
         amount: amountSent - feeAmount,
         asset: LiquidNetworks.liquidRegtest.assetHash,
         script: liquidAddress.toOutputScript(
-          await elementsClient.getNewAddress(),
+          await elementsClient.getNewAddress(''),
         ),
       },
       {

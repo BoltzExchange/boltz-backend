@@ -1053,20 +1053,32 @@ describe('Service', () => {
     );
   });
 
-  test('should get new addresses', async () => {
-    expect(await service.getAddress('BTC')).toEqual(newAddress);
+  describe('getAddress', () => {
+    test('should get new addresses', async () => {
+      const label = 'test label';
+      await expect(service.getAddress('BTC', label)).resolves.toEqual(
+        newAddress,
+      );
+      expect(mockGetAddress).toHaveBeenCalledTimes(1);
+      expect(mockGetAddress).toHaveBeenCalledWith(label);
+    });
 
-    expect(mockGetAddress).toHaveBeenCalledTimes(1);
+    test.each`
+      symbol
+      ${'ETH'}
+      ${'TRC'}
+    `('should get Ethereum address for $symbol', async ({ symbol }) => {
+      await expect(service.getAddress(symbol, '')).resolves.toEqual(
+        ethereumAddress,
+      );
+    });
 
-    expect(await service.getAddress('ETH')).toEqual(ethereumAddress);
-    expect(await service.getAddress('TRC')).toEqual(ethereumAddress);
-
-    // Throw if currency cannot be found
-    const notFound = 'notFound';
-
-    await expect(service.getAddress(notFound)).rejects.toEqual(
-      Errors.CURRENCY_NOT_FOUND(notFound),
-    );
+    test('should throw when currency cannot be found', async () => {
+      const notFound = 'notFound';
+      await expect(service.getAddress(notFound, '')).rejects.toEqual(
+        Errors.CURRENCY_NOT_FOUND(notFound),
+      );
+    });
   });
 
   test('should get block heights', async () => {
@@ -2272,146 +2284,123 @@ describe('Service', () => {
     expect(response).toEqual(await mockSendPayment());
   });
 
-  test('should send BTC', async () => {
-    const fee = 3;
-    const amount = 1;
-    const symbol = 'BTC';
-    const address = 'bcrt1qmv7axanlc090h2j79ufg530eaw88w8rfglnjl3';
+  describe('sendCoins', () => {
+    test('should send BTC', async () => {
+      const fee = 3;
+      const amount = 1;
+      const symbol = 'BTC';
+      const label = 'send some sats';
+      const address = 'bcrt1qmv7axanlc090h2j79ufg530eaw88w8rfglnjl3';
 
-    let sendAll = false;
+      await expect(
+        service.sendCoins({
+          fee,
+          label,
+          amount,
+          symbol,
+          address,
+        }),
+      ).resolves.toEqual({
+        vout: mockTransaction.vout,
+        transaction: expect.anything(),
+        transactionId: mockTransaction.transaction.getId(),
+      });
 
-    const response = await service.sendCoins({
-      fee,
-      amount,
-      symbol,
-      address,
-      sendAll,
+      expect(mockSendToAddress).toHaveBeenCalledTimes(1);
+      expect(mockSendToAddress).toHaveBeenCalledWith(
+        address,
+        amount,
+        fee,
+        label,
+      );
     });
 
-    expect(response).toEqual({
-      vout: mockTransaction.vout,
-      transactionId: mockTransaction.transaction.getId(),
+    test('should sweep BTC', async () => {
+      const fee = 3;
+      const amount = 1;
+      const symbol = 'BTC';
+      const label = 'sweep  some sats';
+      const address = 'bcrt1qmv7axanlc090h2j79ufg530eaw88w8rfglnjl3';
+
+      await expect(
+        service.sendCoins({
+          fee,
+          label,
+          amount,
+          symbol,
+          address,
+          sendAll: true,
+        }),
+      ).resolves.toEqual({
+        vout: mockTransaction.vout,
+        transaction: expect.anything(),
+        transactionId: mockTransaction.transaction.getId(),
+      });
+
+      expect(mockSweepWallet).toHaveBeenCalledTimes(1);
+      expect(mockSweepWallet).toHaveBeenCalledWith(address, fee, label);
     });
 
-    expect(mockSendToAddress).toHaveBeenCalledTimes(1);
-    expect(mockSendToAddress).toHaveBeenCalledWith(address, amount, fee);
+    test('should send Ether', async () => {
+      const fee = 3;
+      const amount = 2;
+      const symbol = 'ETH';
+      const label = 'send some WEI';
+      const address = '0x0000000000000000000000000000000000000000';
 
-    // Should sweep the wallet
-    sendAll = true;
+      const response = await service.sendCoins({
+        fee,
+        label,
+        amount,
+        symbol,
+        address,
+      });
 
-    const sweepResponse = await service.sendCoins({
-      fee,
-      amount,
-      symbol,
-      address,
-      sendAll,
+      expect(response).toEqual({
+        transactionId: etherTransaction.transactionId,
+      });
+
+      expect(mockSendEther).toHaveBeenCalledTimes(1);
+      expect(mockSendEther).toHaveBeenCalledWith(address, amount, fee, label);
     });
 
-    expect(sweepResponse).toEqual({
-      vout: mockTransaction.vout,
-      transactionId: mockTransaction.transaction.getId(),
+    test('should send ERC20 tokens', async () => {
+      const fee = 3;
+      const amount = 2;
+      const symbol = 'TRC';
+      const label = 'send some tokens';
+      const address = '0x0000000000000000000000000000000000000000';
+
+      const response = await service.sendCoins({
+        fee,
+        label,
+        amount,
+        symbol,
+        address,
+      });
+
+      expect(response).toEqual({
+        transactionId: tokenTransaction.transactionId,
+      });
+
+      expect(mockSendToken).toHaveBeenCalledTimes(1);
+      expect(mockSendToken).toHaveBeenCalledWith(address, amount, fee, label);
     });
 
-    expect(mockSweepWallet).toHaveBeenCalledTimes(1);
-    expect(mockSweepWallet).toHaveBeenCalledWith(address, fee);
-  });
+    test('should throw of currency to send cannot be found', async () => {
+      const notFound = 'notFound';
 
-  test('should send Ether', async () => {
-    const fee = 3;
-    const amount = 2;
-    const symbol = 'ETH';
-    const address = '0x0000000000000000000000000000000000000000';
-
-    let sendAll = false;
-
-    const response = await service.sendCoins({
-      fee,
-      amount,
-      symbol,
-      address,
-      sendAll,
+      expect(() =>
+        service.sendCoins({
+          fee: 0,
+          amount: 0,
+          label: 'no',
+          address: '',
+          sendAll: false,
+          symbol: notFound,
+        }),
+      ).toThrow(Errors.CURRENCY_NOT_FOUND(notFound).message);
     });
-
-    expect(response).toEqual({
-      transactionId: etherTransaction.transactionId,
-    });
-
-    expect(mockSendEther).toHaveBeenCalledTimes(1);
-    expect(mockSendEther).toHaveBeenCalledWith(address, amount, fee);
-
-    // Should sweep wallet
-    sendAll = true;
-
-    const sweepResponse = await service.sendCoins({
-      fee,
-      amount,
-      symbol,
-      address,
-      sendAll,
-    });
-
-    expect(sweepResponse).toEqual({
-      transactionId: etherTransaction.transactionId,
-    });
-
-    expect(mockSweepEther).toHaveBeenCalledTimes(1);
-    expect(mockSweepEther).toHaveBeenCalledWith(address, fee);
-  });
-
-  test('should send ERC20 tokens', async () => {
-    const fee = 3;
-    const amount = 2;
-    const symbol = 'TRC';
-    const address = '0x0000000000000000000000000000000000000000';
-
-    let sendAll = false;
-
-    const response = await service.sendCoins({
-      fee,
-      amount,
-      symbol,
-      address,
-      sendAll,
-    });
-
-    expect(response).toEqual({
-      transactionId: tokenTransaction.transactionId,
-    });
-
-    expect(mockSendToken).toHaveBeenCalledTimes(1);
-    expect(mockSendToken).toHaveBeenCalledWith(address, amount, fee);
-
-    // Should sweep wallet
-    sendAll = true;
-
-    const sweepResponse = await service.sendCoins({
-      fee,
-      amount,
-      symbol,
-      address,
-      sendAll,
-    });
-
-    expect(sweepResponse).toEqual({
-      transactionId: tokenTransaction.transactionId,
-    });
-
-    expect(mockSweepToken).toHaveBeenCalledTimes(1);
-    expect(mockSweepToken).toHaveBeenCalledWith(address, fee);
-  });
-
-  test('should throw of currency to send cannot be found', async () => {
-    const notFound = 'notFound';
-
-    await expect(
-      service.sendCoins({
-        fee: 0,
-        amount: 0,
-        address: '',
-        sendAll: false,
-        symbol: notFound,
-      }),
-    ).rejects.toEqual(Errors.CURRENCY_NOT_FOUND(notFound));
   });
 
   test('should get gas price', async () => {

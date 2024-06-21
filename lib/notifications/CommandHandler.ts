@@ -1,8 +1,7 @@
 import { Op } from 'sequelize';
-import { NotificationConfig } from '../Config';
-import { coinsToSatoshis, satoshisToSatcomma } from '../DenominationConverter';
+import { satoshisToSatcomma } from '../DenominationConverter';
 import Logger from '../Logger';
-import { formatError, getHexString, mapToObject, stringify } from '../Utils';
+import { formatError, mapToObject, stringify } from '../Utils';
 import BackupScheduler from '../backup/BackupScheduler';
 import {
   FinalChainSwapEvents,
@@ -28,7 +27,6 @@ import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import Service from '../service/Service';
 import { codeBlock } from './Markup';
-import OtpManager from './OtpManager';
 import NotificationClient from './clients/NotificationClient';
 
 enum Command {
@@ -63,13 +61,10 @@ type CommandInfo = {
 };
 
 class CommandHandler {
-  private optManager: OtpManager;
-
-  private commands: Map<string, CommandInfo>;
+  private readonly commands: Map<string, CommandInfo>;
 
   constructor(
     private logger: Logger,
-    config: NotificationConfig,
     private notificationClient: NotificationClient,
     private service: Service,
     private backupScheduler: BackupScheduler,
@@ -168,33 +163,11 @@ class CommandHandler {
         },
       ],
       [
-        Command.Withdraw,
-        {
-          usage: [
-            {
-              command: 'withdraw <OTP token> <currency> <invoice>',
-              description: 'withdraws lightning funds',
-            },
-            {
-              command:
-                'withdraw <OTP token> <currency> <address> <amount in whole coins>',
-              description: 'withdraws a specific amount of onchain coins',
-            },
-            {
-              command: 'withdraw <OTP token> <currency> <address> all',
-              description: 'withdraws all onchain coins',
-            },
-          ],
-          executor: this.withdraw,
-          description: 'withdraws coins from Boltz',
-        },
-      ],
-      [
         Command.GetAddress,
         {
           usage: [
             {
-              command: 'getaddress <currency>',
+              command: 'getaddress <currency> <label>',
               description: 'gets an address for the currency `<currency>`',
             },
           ],
@@ -210,8 +183,6 @@ class CommandHandler {
         },
       ],
     ]);
-
-    this.optManager = new OtpManager(this.logger, config);
 
     this.notificationClient.on('message', async (message: string) => {
       const args = message.split(' ');
@@ -544,68 +515,18 @@ class CommandHandler {
         return;
       }
 
-      const currency = args[0].toUpperCase();
+      if (args.length === 1) {
+        await sendError('no label was specified');
+        return;
+      }
 
-      const response = await this.service.getAddress(currency);
+      const response = await this.service.getAddress(
+        args[0].toUpperCase(),
+        args[1],
+      );
       await this.notificationClient.sendMessage(`\`${response}\``);
     } catch (error) {
       await sendError(error);
-    }
-  };
-
-  private withdraw = async (args: string[]) => {
-    if (args.length !== 3 && args.length !== 4) {
-      await this.notificationClient.sendMessage('Invalid number of arguments');
-      return;
-    }
-
-    const validToken = this.optManager.verify(args[0]);
-
-    if (!validToken) {
-      await this.notificationClient.sendMessage('Invalid OTP token');
-      return;
-    }
-
-    const symbol = args[1].toUpperCase();
-
-    // Three arguments mean that just the OTP token, the symbol and a lightning invoice was provided
-    if (args.length === 3) {
-      try {
-        const response = await this.service.payInvoice(symbol, args[2]);
-
-        await this.notificationClient.sendMessage(
-          `Paid lightning invoice\nPreimage: ${getHexString(
-            response.preimage,
-          )}`,
-        );
-      } catch (error) {
-        await this.notificationClient.sendMessage(
-          `Could not pay lightning invoice: ${formatError(error)}`,
-        );
-      }
-
-      // Four arguments mean that the OTP token, the symbol, an address and the amount were provided
-    } else if (args.length === 4) {
-      try {
-        const sendAll = args[3] === 'all';
-        const amount = sendAll ? 0 : coinsToSatoshis(Number(args[3]));
-
-        const response = await this.service.sendCoins({
-          amount,
-          symbol,
-          sendAll,
-
-          address: args[2],
-        });
-
-        await this.notificationClient.sendMessage(
-          `Sent transaction: ${response.transactionId}:${response.vout}`,
-        );
-      } catch (error) {
-        await this.notificationClient.sendMessage(
-          `Could not send coins: ${formatError(error)}`,
-        );
-      }
     }
   };
 

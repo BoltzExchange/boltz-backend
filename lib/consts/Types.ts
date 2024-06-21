@@ -210,6 +210,7 @@ export type AddressInfo = {
   address: string;
   scriptPubKey: string;
   ismine: boolean;
+  labels: string[];
 };
 
 export type AnySwap = Swap | ReverseSwap | ChainSwapInfo;
@@ -217,4 +218,11 @@ export type AnySwap = Swap | ReverseSwap | ChainSwapInfo;
 export type InsufficientAmountDetails = {
   expected: number;
   actual: number;
+};
+
+export type WalletTransaction = {
+  amount: number;
+  fee: number;
+  comment: string;
+  hex: string;
 };

@@ -121,8 +121,10 @@ class ElementsWrapper
 
   public getBalances = () => this.walletClient().getBalances();
 
-  public getNewAddress = (type?: AddressType | LiquidAddressType) =>
-    this.walletClient().getNewAddress(type);
+  public getNewAddress = (
+    label: string,
+    type?: AddressType | LiquidAddressType,
+  ) => this.walletClient().getNewAddress(label, type);
 
   public dumpBlindingKey = (address: string) =>
     this.walletClient().dumpBlindingKey(address);
@@ -130,14 +132,16 @@ class ElementsWrapper
   public sendToAddress = (
     address: string,
     amount: number,
-    satPerVbyte?: number,
-    subtractFeeFromAmount?: boolean,
+    satPerVbyte: number | undefined,
+    subtractFeeFromAmount: boolean | undefined,
+    label: string,
   ) =>
     this.walletClient().sendToAddress(
       address,
       amount,
       satPerVbyte,
       subtractFeeFromAmount,
+      label,
     );
 
   private walletClient = () => this.lowballClient() || this.publicClient();

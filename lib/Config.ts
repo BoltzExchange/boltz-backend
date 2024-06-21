@@ -143,8 +143,6 @@ type NotificationConfig = {
 
   prefix: string;
   interval: number;
-
-  otpsecretpath: string;
 };
 
 type MinSwapSizeMultipliersConfig = {
@@ -216,8 +214,6 @@ class Config {
 
   public static defaultPrivatekeyPath = 'backupPrivatekey.pem';
 
-  public static defaultOtpSecretPath = 'otpSecret.dat';
-
   private readonly config: ConfigType;
   private readonly dataDir = Config.defaultDataDir;
 
@@ -227,7 +223,7 @@ class Config {
   constructor() {
     this.dataDir = getServiceDataDir('boltz');
 
-    const { dbpath, backup, logpath, configpath, mnemonicpath, notification } =
+    const { dbpath, backup, logpath, configpath, mnemonicpath } =
       this.getDataDirPaths(this.dataDir);
 
     this.config = {
@@ -296,8 +292,6 @@ class Config {
 
         prefix: '',
         interval: 1,
-
-        otpsecretpath: notification.otpsecretpath,
       },
 
       pairs: [
@@ -504,10 +498,6 @@ class Config {
 
       backup: {
         privatekeypath: path.join(dataDir, Config.defaultPrivatekeyPath),
-      },
-
-      notification: {
-        otpsecretpath: path.join(dataDir, Config.defaultOtpSecretPath),
       },
     };
   };

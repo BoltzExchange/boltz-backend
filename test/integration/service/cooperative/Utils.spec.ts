@@ -69,8 +69,11 @@ describe('Utils', () => {
 
     const tx = await bitcoinClient.getRawTransaction(
       await bitcoinClient.sendToAddress(
-        await bitcoinClient.getNewAddress(),
+        await bitcoinClient.getNewAddress(''),
         100_000,
+        undefined,
+        false,
+        '',
       ),
     );
 
@@ -108,8 +111,11 @@ describe('Utils', () => {
     async ({ vin }) => {
       const tx = await bitcoinClient.getRawTransaction(
         await bitcoinClient.sendToAddress(
-          await bitcoinClient.getNewAddress(),
+          await bitcoinClient.getNewAddress(''),
           100_000,
+          undefined,
+          false,
+          '',
         ),
       );
 

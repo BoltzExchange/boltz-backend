@@ -60,7 +60,10 @@ abstract class CoopSignerBase<
   ): Promise<CooperativeClientDetails> => {
     const wallet = this.walletManager.wallets.get(chainCurrency.symbol)!;
     const address =
-      toClaim.cooperative?.sweepAddress || (await wallet.getAddress());
+      toClaim.cooperative?.sweepAddress ||
+      (await wallet.getAddress(
+        `Cooperative claim for ${swapTypeToPrettyString(toClaim.swap.type)} Swap ${toClaim.swap.id}`,
+      ));
 
     const isSubmarine = toClaim.swap.type === SwapType.Submarine;
 

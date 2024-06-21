@@ -85,31 +85,41 @@ describe('CoreWalletProvider', () => {
     await bitcoinClient.generate(1);
   });
 
-  it('should generate Taproot addresses by default', async () => {
-    const addr = await provider.getAddress();
-    expect(addr.startsWith('bcrt1')).toEqual(true);
-    // Taproot => Witness program starts with 1
-    expect(address.toOutputScript(addr, Networks.bitcoinRegtest)[0]).toEqual(
-      ops.OP_1,
-    );
-  });
+  describe('getAddress', () => {
+    it('should set label', async () => {
+      const label = 'something swap related';
+      const addr = await provider.getAddress(label);
 
-  it('should generate different kinds of addresses', async () => {
-    const addr = await provider.getAddress(AddressType.Bech32);
-    expect(addr.startsWith('bcrt1')).toEqual(true);
-    // SegWit => Witness program starts with 0
-    expect(address.toOutputScript(addr, Networks.bitcoinRegtest)[0]).toEqual(
-      ops.OP_0,
-    );
+      const addressInfo = await bitcoinClient.getAddressInfo(addr);
+      expect(addressInfo.labels).toEqual([label]);
+    });
 
-    expect(
-      (await provider.getAddress(AddressType.P2shegwit)).startsWith('2'),
-    ).toBeTruthy();
+    it('should generate Taproot addresses by default', async () => {
+      const addr = await provider.getAddress('');
+      expect(addr.startsWith('bcrt1')).toEqual(true);
+      // Taproot => Witness program starts with 1
+      expect(address.toOutputScript(addr, Networks.bitcoinRegtest)[0]).toEqual(
+        ops.OP_1,
+      );
+    });
 
-    const legacyAddress = await provider.getAddress(AddressType.Legacy);
-    expect(
-      legacyAddress.startsWith('m') || legacyAddress.startsWith('n'),
-    ).toBeTruthy();
+    it('should generate different kinds of addresses', async () => {
+      const addr = await provider.getAddress('', AddressType.Bech32);
+      expect(addr.startsWith('bcrt1')).toEqual(true);
+      // SegWit => Witness program starts with 0
+      expect(address.toOutputScript(addr, Networks.bitcoinRegtest)[0]).toEqual(
+        ops.OP_0,
+      );
+
+      expect(
+        (await provider.getAddress('', AddressType.P2shegwit)).startsWith('2'),
+      ).toBeTruthy();
+
+      const legacyAddress = await provider.getAddress('', AddressType.Legacy);
+      expect(
+        legacyAddress.startsWith('m') || legacyAddress.startsWith('n'),
+      ).toBeTruthy();
+    });
   });
 
   it('should get balance', async () => {
@@ -119,7 +129,12 @@ describe('CoreWalletProvider', () => {
   });
 
   it('should get unconfirmed balance correctly', async () => {
-    await provider.sendToAddress(await provider.getAddress(), 10000);
+    await provider.sendToAddress(
+      await provider.getAddress(''),
+      10000,
+      undefined,
+      '',
+    );
 
     const balance = await provider.getBalance();
     expect(balance.unconfirmedBalance).toBeGreaterThan(0);
@@ -127,7 +142,19 @@ describe('CoreWalletProvider', () => {
 
   it('should send transactions', async () => {
     const amount = 212121;
-    const sentTransaction = await provider.sendToAddress(testAddress, amount);
+    const label = 'send from Core wallet';
+
+    const sentTransaction = await provider.sendToAddress(
+      testAddress,
+      amount,
+      undefined,
+      label,
+    );
+
+    const transactionInfo = await bitcoinClient.getWalletTransaction(
+      sentTransaction.transactionId,
+    );
+    expect(transactionInfo.comment).toEqual(label);
 
     await verifySentTransaction(sentTransaction, testAddress, amount, false);
   });
@@ -136,15 +163,25 @@ describe('CoreWalletProvider', () => {
     const amount = 45789;
     const feePerVByte = 21;
 
-    const tx = await provider.sendToAddress(testAddress, amount, feePerVByte);
+    const tx = await provider.sendToAddress(
+      testAddress,
+      amount,
+      feePerVByte,
+      '',
+    );
 
     await verifySentTransaction(tx, testAddress, amount, false, feePerVByte);
   });
 
   it('should send transactions that do not signal RBF', async () => {
     const amount = 321312;
-    const addr = await provider.getAddress();
-    const { transaction } = await provider.sendToAddress(addr, amount);
+    const addr = await provider.getAddress('');
+    const { transaction } = await provider.sendToAddress(
+      addr,
+      amount,
+      undefined,
+      '',
+    );
     expect(transaction).toBeDefined();
     expect(
       transaction!.ins.every((vin) => vin.sequence === 0xffffffff - 1),
@@ -153,7 +190,18 @@ describe('CoreWalletProvider', () => {
 
   it('should sweep the wallet', async () => {
     const balance = await provider.getBalance();
-    const sentTransaction = await provider.sweepWallet(testAddress);
+    const label = 'sweep Core wallet';
+
+    const sentTransaction = await provider.sweepWallet(
+      testAddress,
+      undefined,
+      label,
+    );
+
+    const transactionInfo = await bitcoinClient.getWalletTransaction(
+      sentTransaction.transactionId,
+    );
+    expect(transactionInfo.comment).toEqual(label);
 
     await verifySentTransaction(
       sentTransaction,

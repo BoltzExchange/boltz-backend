@@ -21,6 +21,19 @@ describe('LndWalletProvider', () => {
     bitcoinClient,
   );
 
+  beforeAll(async () => {
+    await bitcoinLndClient.connect(false);
+  });
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+  });
+
+  afterAll(async () => {
+    await bitcoinClient.generate(1);
+    bitcoinLndClient.disconnect();
+  });
+
   const verifySentTransaction = async (
     sentTransaction: SentTransaction,
     destination: string,
@@ -73,43 +86,31 @@ describe('LndWalletProvider', () => {
       },
     );
 
-    for (let i = 0; i < utxosList.length; i += 1) {
-      const utxo = utxosList[i];
-
-      if (
-        utxo.outpoint!.txidStr === sentTransaction.transactionId &&
-        utxo.outpoint!.outputIndex === sentTransaction.vout
-      ) {
-        expect(utxo.address).toEqual(destination);
-        expect(utxo.amountSat).toEqual(expectedAmount);
-
-        break;
-      }
-
-      // Could not find the lnd uxto and therefore not verify returned values
-      if (i + 1 === utxosList.length) {
-        throw 'could not find LND UTXO';
-      }
-    }
+    const utxo = utxosList.find(
+      (u) =>
+        u.outpoint!.txidStr === sentTransaction.transactionId &&
+        u.outpoint!.outputIndex === sentTransaction.vout,
+    );
+    expect(utxo).not.toBeUndefined();
+    expect(utxo!.address).toEqual(destination);
+    expect(utxo!.amountSat).toEqual(expectedAmount);
   };
 
-  beforeAll(async () => {
-    await bitcoinLndClient.connect(false);
-  });
-
-  beforeEach(async () => {
-    jest.clearAllMocks();
-  });
-
   test('should generate addresses', async () => {
-    expect((await provider.getAddress()).startsWith('bcrt1')).toBeTruthy();
+    expect((await provider.getAddress('')).startsWith('bcrt1')).toBeTruthy();
   });
 
   test('should get balance', async () => {
     const unconfirmedAmount = 3498572;
 
     await bitcoinClient.generate(1);
-    await bitcoinClient.sendToAddress(await provider.getAddress(), 3498572);
+    await bitcoinClient.sendToAddress(
+      await provider.getAddress(''),
+      3498572,
+      undefined,
+      false,
+      '',
+    );
 
     await wait(100);
 
@@ -123,12 +124,26 @@ describe('LndWalletProvider', () => {
     const { blockHeight } = await bitcoinLndClient.getInfo();
 
     const amount = 2498572;
-    const destination = await provider.getAddress();
+    const label = 'send LND coins';
+    const destination = await provider.getAddress('');
 
-    const sentTransaction = await provider.sendToAddress(destination, amount);
+    const sentTransaction = await provider.sendToAddress(
+      destination,
+      amount,
+      undefined,
+      label,
+    );
 
     expect(spyGetOnchainTransactions).toHaveBeenCalledTimes(1);
     expect(spyGetOnchainTransactions).toHaveBeenCalledWith(blockHeight);
+
+    const transactions = await bitcoinLndClient.getOnchainTransactions(0);
+    const transaction = transactions.transactionsList.find(
+      (t) => t.txHash === sentTransaction.transactionId,
+    );
+
+    expect(transaction).not.toBeUndefined();
+    expect(transaction!.label).toEqual(label);
 
     await verifySentTransaction(sentTransaction, destination, amount, false);
   });
@@ -140,11 +155,25 @@ describe('LndWalletProvider', () => {
     const { blockHeight } = await bitcoinLndClient.getInfo();
     const balance = await provider.getBalance();
 
-    const destination = await provider.getAddress();
-    const sentTransaction = await provider.sweepWallet(destination);
+    const destination = await provider.getAddress('');
+    const label = 'LND sweep';
+
+    const sentTransaction = await provider.sweepWallet(
+      destination,
+      undefined,
+      label,
+    );
 
     expect(spyGetOnchainTransactions).toHaveBeenCalledTimes(1);
     expect(spyGetOnchainTransactions).toHaveBeenCalledWith(blockHeight);
+
+    const transactions = await bitcoinLndClient.getOnchainTransactions(0);
+    const transaction = transactions.transactionsList.find(
+      (t) => t.txHash === sentTransaction.transactionId,
+    );
+
+    expect(transaction).not.toBeUndefined();
+    expect(transaction!.label).toEqual(label);
 
     await verifySentTransaction(
       sentTransaction,
@@ -154,10 +183,5 @@ describe('LndWalletProvider', () => {
     );
 
     expect((await provider.getBalance()).confirmedBalance).toEqual(0);
-  });
-
-  afterAll(async () => {
-    await bitcoinClient.generate(1);
-    bitcoinLndClient.disconnect();
   });
 });

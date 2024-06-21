@@ -17,7 +17,10 @@ interface IElementsClient extends IChainClient<Transaction> {
   getAddressInfo(address: string): Promise<AddressInfo>;
 
   getBalances(): Promise<LiquidBalances>;
-  getNewAddress(type?: AddressType | LiquidAddressType): Promise<string>;
+  getNewAddress(
+    label: string,
+    type?: AddressType | LiquidAddressType,
+  ): Promise<string>;
   dumpBlindingKey(address: string): Promise<string>;
 }
 
@@ -54,21 +57,23 @@ class ElementsClient
   };
 
   public getNewAddress = (
+    label: string,
     type: AddressType | LiquidAddressType = LiquidAddressType.Blech32,
   ): Promise<string> => {
-    return this.client.request<string>('getnewaddress', [undefined, type]);
+    return this.client.request<string>('getnewaddress', [label, type]);
   };
 
   public override sendToAddress = (
     address: string,
     amount: number,
-    satPerVbyte?: number,
+    satPerVbyte: number | undefined,
     subtractFeeFromAmount = false,
+    label: string,
   ): Promise<string> => {
     return this.client.request<string>('sendtoaddress', [
       address,
       amount / ChainClient.decimals,
-      undefined,
+      label,
       undefined,
       subtractFeeFromAmount,
       false,

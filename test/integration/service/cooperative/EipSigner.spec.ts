@@ -1,8 +1,8 @@
+import { ERC20 } from 'boltz-core/typechain/ERC20';
+import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
+import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { randomBytes } from 'crypto';
 import { Signature } from 'ethers';
-import { ERC20 } from '../../../../../boltz-core/typechain/ERC20';
-import { ERC20Swap } from '../../../../../boltz-core/typechain/ERC20Swap';
-import { EtherSwap } from '../../../../../boltz-core/typechain/EtherSwap';
 import Logger from '../../../../lib/Logger';
 import { getHexString } from '../../../../lib/Utils';
 import { etherDecimals } from '../../../../lib/consts/Consts';

@@ -23,6 +23,7 @@ import {
 } from '../../../../lib/Core';
 import { ECPair } from '../../../../lib/ECPairHelper';
 import Logger from '../../../../lib/Logger';
+import { generateSwapId } from '../../../../lib/Utils';
 import {
   CurrencyType,
   SwapType,
@@ -89,6 +90,9 @@ describe('CoopSignerBase', () => {
     const txId = await bitcoinClient.sendToAddress(
       wallet.encodeAddress(p2trOutput(tweakedKey)),
       100_000,
+      undefined,
+      false,
+      '',
     );
 
     return {
@@ -102,6 +106,7 @@ describe('CoopSignerBase', () => {
           lockupTransactionId: txId,
           version: SwapVersion.Taproot,
           theirPublicKey: refundKeys.publicKey,
+          id: generateSwapId(SwapVersion.Taproot),
           redeemScript: JSON.stringify(
             SwapTreeSerializer.serializeSwapTree(tree),
           ),
@@ -154,10 +159,14 @@ describe('CoopSignerBase', () => {
         ),
       );
 
-      expect(
-        (await bitcoinClient.getAddressInfo(toClaim.cooperative!.sweepAddress))
-          .ismine,
-      ).toEqual(true);
+      const addressInfo = await bitcoinClient.getAddressInfo(
+        toClaim.cooperative!.sweepAddress,
+      );
+      expect(addressInfo.ismine).toEqual(true);
+      expect(addressInfo.labels).toEqual([
+        `Cooperative claim for Submarine Swap ${toClaim.swap.id}`,
+      ]);
+
       expect(toClaim.cooperative!.transaction.outs).toHaveLength(1);
       expect(
         wallet.encodeAddress(toClaim.cooperative!.transaction.outs[0].script),

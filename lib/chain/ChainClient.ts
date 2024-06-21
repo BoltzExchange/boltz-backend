@@ -105,7 +105,7 @@ class ChainClient<T extends SomeTransaction = Transaction>
     super(logger, symbol);
 
     this.client = new RpcClient(this.config);
-    this.zmqClient = new ZmqClient(symbol, logger, this);
+    this.zmqClient = new ZmqClient(symbol, logger, this, config.host);
 
     if (this.config.mempoolSpace && this.config.mempoolSpace !== '') {
       this.mempoolSpace = new MempoolSpace(

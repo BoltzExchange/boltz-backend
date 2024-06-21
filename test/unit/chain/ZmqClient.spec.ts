@@ -79,6 +79,7 @@ describe('ZmqClient', () => {
     'BTC',
     Logger.disabledLogger,
     chainClient as unknown as ChainClient,
+    '127.0.0.1',
   );
 
   beforeAll(async () => {
@@ -88,18 +89,26 @@ describe('ZmqClient', () => {
     hashBlock = new ZmqPublisher(await getPort(), filters.hashBlock);
   });
 
+  afterAll(async () => {
+    zmqClient.close();
+
+    rawTx.close();
+    hashBlock.close();
+  });
+
   test('should not init without needed subscriptions', async () => {
     const rejectZmqClient = new ZmqClient(
       'BTC',
       Logger.disabledLogger,
       chainClient as unknown as ChainClient,
+      '127.0.0.1',
     );
     const notifications: ZmqNotification[] = [];
 
     await expect(
       rejectZmqClient.init(CurrencyType.BitcoinLike, notifications),
     ).rejects.toEqual(Errors.NO_RAWTX());
-    await rejectZmqClient.close();
+    rejectZmqClient.close();
 
     notifications.push({
       type: filters.rawTx,
@@ -109,7 +118,7 @@ describe('ZmqClient', () => {
     await expect(
       rejectZmqClient.init(CurrencyType.BitcoinLike, notifications),
     ).rejects.toEqual(Errors.NO_BLOCK_NOTIFICATIONS());
-    await rejectZmqClient.close();
+    rejectZmqClient.close();
   });
 
   test('should init', async () => {
@@ -358,10 +367,48 @@ describe('ZmqClient', () => {
     expect(zmqClient['sockets'].length).toEqual(5);
   });
 
-  afterAll(async () => {
-    await zmqClient.close();
+  test('should sanitize ZMQ addresses', async () => {
+    const zmqClient = new ZmqClient(
+      'BTC',
+      Logger.disabledLogger,
+      chainClient as unknown as ChainClient,
+      '127.0.0.1',
+    );
 
-    rawTx.close();
-    hashBlock.close();
+    const address = `tcp://0.0.0.0:${await getPort()}`;
+    const filterName = 'name';
+
+    await expect(
+      zmqClient['createSocket'](address, filterName),
+    ).rejects.toEqual(
+      Errors.ZMQ_CONNECTION_TIMEOUT(
+        'BTC',
+        filterName,
+        address.replace('0.0.0.0', '127.0.0.1'),
+      ),
+    );
+
+    zmqClient.close();
   });
+
+  test.each`
+    address                   | sanitized
+    ${'tcp://127.0.0.1:1234'} | ${'tcp://127.0.0.1:1234'}
+    ${'tcp://bitcoind:3000'}  | ${'tcp://bitcoind:3000'}
+    ${'tcp://0.0.0.0:4321'}   | ${'tcp://127.0.0.1:4321'}
+  `(
+    'should sanitize address $address to $sanitized',
+    ({ address, sanitized }) => {
+      const zmqClient = new ZmqClient(
+        'BTC',
+        Logger.disabledLogger,
+        chainClient as unknown as ChainClient,
+        '127.0.0.1',
+      );
+
+      expect(zmqClient['replaceZmqAddressWildcard'](address)).toEqual(
+        sanitized,
+      );
+    },
+  );
 });

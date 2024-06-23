@@ -48,6 +48,7 @@ class Logger {
     if (lokiEnabled) {
       this.loki = new LokiTransport({
         host: lokiHost!,
+        format: winston.format.printf((info) => info.message),
         labels: {
           job: name,
           network: lokiNetwork,

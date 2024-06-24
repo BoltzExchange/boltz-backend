@@ -506,6 +506,7 @@ describe('MusigSigner', () => {
     test.each`
       status
       ${SwapUpdateEvent.SwapExpired}
+      ${SwapUpdateEvent.TransactionFailed}
       ${SwapUpdateEvent.InvoiceFailedToPay}
       ${SwapUpdateEvent.TransactionRefunded}
       ${SwapUpdateEvent.TransactionLockupFailed}

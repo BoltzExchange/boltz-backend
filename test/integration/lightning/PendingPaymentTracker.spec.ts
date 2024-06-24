@@ -13,7 +13,7 @@ import PairRepository from '../../../lib/db/repositories/PairRepository';
 import PendingPaymentTracker from '../../../lib/lightning/PendingPaymentTracker';
 import { Currency } from '../../../lib/wallet/WalletManager';
 import { createInvoice } from '../../unit/swap/InvoiceUtils';
-import { bitcoinLndClient, clnClient } from '../Nodes';
+import { bitcoinLndClient, clnClient, waitForClnChainSync } from '../Nodes';
 import { createSubmarineSwapData } from '../db/repositories/Fixtures';
 
 jest.mock(
@@ -154,6 +154,7 @@ describe('PendingPaymentTracker', () => {
         invoice: invoiceRes.paymentRequest,
       });
 
+      await waitForClnChainSync();
       const res = await tracker.sendPayment(
         clnClient,
         invoiceRes.paymentRequest,

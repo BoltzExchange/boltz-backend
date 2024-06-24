@@ -87,3 +87,16 @@ export const clnClient = new ClnClient(Logger.disabledLogger, 'BTC', {
     certChainPath: `${clnMpayPath}/client.pem`,
   },
 });
+
+export const waitForClnChainSync = () =>
+  new Promise<void>((resolve) => {
+    const timeout = setInterval(async () => {
+      if (
+        (await bitcoinClient.getBlockchainInfo()).blocks ===
+        (await clnClient.getInfo()).blockHeight
+      ) {
+        clearTimeout(timeout);
+        resolve();
+      }
+    }, 100);
+  });

@@ -5,7 +5,12 @@ import { ClientStatus } from '../../../../lib/consts/Enums';
 import Errors from '../../../../lib/lightning/Errors';
 import { InvoiceFeature } from '../../../../lib/lightning/LightningClient';
 import InvoiceExpiryHelper from '../../../../lib/service/InvoiceExpiryHelper';
-import { bitcoinClient, bitcoinLndClient, clnClient } from '../../Nodes';
+import {
+  bitcoinClient,
+  bitcoinLndClient,
+  clnClient,
+  waitForClnChainSync,
+} from '../../Nodes';
 
 describe('ClnClient', () => {
   beforeAll(async () => {
@@ -108,18 +113,7 @@ describe('ClnClient', () => {
       bitcoinLndClient.on('htlc.accepted', resolve);
     });
 
-    // Wait for CLN to catch up with the chain
-    await new Promise<void>((resolve) => {
-      const timeout = setInterval(async () => {
-        if (
-          (await bitcoinClient.getBlockchainInfo()).blocks ===
-          (await clnClient.getInfo()).blockHeight
-        ) {
-          clearTimeout(timeout);
-          resolve();
-        }
-      });
-    });
+    await waitForClnChainSync();
 
     const payPromise = clnClient.sendPayment(invoice);
     await acceptedPromise;

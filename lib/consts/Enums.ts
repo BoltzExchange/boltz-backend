@@ -62,6 +62,7 @@ export const SuccessSwapUpdateEvents = [
 
 export const FailedSwapUpdateEvents = [
   SwapUpdateEvent.SwapExpired,
+  SwapUpdateEvent.TransactionFailed,
   SwapUpdateEvent.TransactionLockupFailed,
   SwapUpdateEvent.InvoiceFailedToPay,
   SwapUpdateEvent.TransactionRefunded,

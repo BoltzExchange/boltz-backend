@@ -30,7 +30,9 @@ import SwapRepository from '../../../../lib/db/repositories/SwapRepository';
 import WrappedSwapRepository from '../../../../lib/db/repositories/WrappedSwapRepository';
 import * as noderpc from '../../../../lib/proto/cln/node_pb';
 import Errors from '../../../../lib/service/Errors';
-import MusigSigner from '../../../../lib/service/cooperative/MusigSigner';
+import MusigSigner, {
+  RefundRejectionReason,
+} from '../../../../lib/service/cooperative/MusigSigner';
 import SwapNursery from '../../../../lib/swap/SwapNursery';
 import Wallet from '../../../../lib/wallet/Wallet';
 import WalletManager, { Currency } from '../../../../lib/wallet/WalletManager';
@@ -233,7 +235,11 @@ describe('MusigSigner', () => {
 
       await expect(
         signer.signRefund(id, Buffer.alloc(0), Buffer.alloc(0), 0),
-      ).rejects.toEqual(Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND());
+      ).rejects.toEqual(
+        Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
+          RefundRejectionReason.StatusNotEligible,
+        ),
+      );
     },
   );
 
@@ -248,7 +254,11 @@ describe('MusigSigner', () => {
 
     await expect(
       signer.signRefund(id, randomBytes(32), Buffer.alloc(0), 0),
-    ).rejects.toEqual(Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND());
+    ).rejects.toEqual(
+      Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
+        RefundRejectionReason.VersionNotTaproot,
+      ),
+    );
   });
 
   test.each`
@@ -292,7 +302,11 @@ describe('MusigSigner', () => {
           Buffer.alloc(0),
           0,
         ),
-      ).rejects.toEqual(Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND());
+      ).rejects.toEqual(
+        Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
+          RefundRejectionReason.LightningPaymentPending,
+        ),
+      );
 
       await bitcoinLndClient2.cancelHoldInvoice(preimageHash);
       await expect(payPromise).rejects.toEqual(expect.anything());
@@ -502,7 +516,15 @@ describe('MusigSigner', () => {
     ).rejects.toEqual(Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM());
   });
 
-  describe('isEligibleForRefund', () => {
+  describe('refundNonEligibilityReason', () => {
+    test('should not be eligible for swap version legacy', async () => {
+      await expect(
+        MusigSigner.refundNonEligibilityReason({
+          type: SwapVersion.Legacy,
+        } as any),
+      ).resolves.toEqual(RefundRejectionReason.VersionNotTaproot);
+    });
+
     test.each`
       status
       ${SwapUpdateEvent.SwapExpired}
@@ -512,8 +534,11 @@ describe('MusigSigner', () => {
       ${SwapUpdateEvent.TransactionLockupFailed}
     `('should be eligible for status $status', async ({ status }) => {
       await expect(
-        MusigSigner.isEligibleForRefund({ status } as Swap),
-      ).resolves.toEqual(true);
+        MusigSigner.refundNonEligibilityReason({
+          status,
+          version: SwapVersion.Taproot,
+        } as Swap),
+      ).resolves.toEqual(undefined);
     });
 
     test.each`
@@ -525,8 +550,11 @@ describe('MusigSigner', () => {
       ${SwapUpdateEvent.TransactionClaimed}
     `('should not be eligible for status $status', async ({ status }) => {
       await expect(
-        MusigSigner.isEligibleForRefund({ status } as any),
-      ).resolves.toEqual(false);
+        MusigSigner.refundNonEligibilityReason({
+          status,
+          version: SwapVersion.Taproot,
+        } as any),
+      ).resolves.toEqual(RefundRejectionReason.StatusNotEligible);
     });
 
     describe('LND', () => {
@@ -535,15 +563,16 @@ describe('MusigSigner', () => {
         await bitcoinLndClient.sendPayment(paymentRequest);
 
         await expect(
-          MusigSigner.isEligibleForRefund(
+          MusigSigner.refundNonEligibilityReason(
             {
               invoice: paymentRequest,
+              version: SwapVersion.Taproot,
               status: SwapUpdateEvent.InvoiceFailedToPay,
               preimageHash: decodeInvoice(paymentRequest).paymentHash,
             } as Swap,
             btcCurrency,
           ),
-        ).resolves.toEqual(false);
+        ).resolves.toEqual(RefundRejectionReason.LightningPaymentPending);
       });
 
       test('should not be eligible for pending payment', async () => {
@@ -559,15 +588,16 @@ describe('MusigSigner', () => {
         });
 
         await expect(
-          MusigSigner.isEligibleForRefund(
+          MusigSigner.refundNonEligibilityReason(
             {
               invoice,
+              version: SwapVersion.Taproot,
               preimageHash: getHexString(preimageHash),
               status: SwapUpdateEvent.InvoiceFailedToPay,
             } as Swap,
             btcCurrency,
           ),
-        ).resolves.toEqual(false);
+        ).resolves.toEqual(RefundRejectionReason.LightningPaymentPending);
 
         await bitcoinLndClient2.cancelHoldInvoice(preimageHash);
         await expect(payPromise).rejects.toEqual(expect.anything());
@@ -582,30 +612,32 @@ describe('MusigSigner', () => {
         );
 
         await expect(
-          MusigSigner.isEligibleForRefund(
+          MusigSigner.refundNonEligibilityReason(
             {
               invoice,
+              version: SwapVersion.Taproot,
               preimageHash: getHexString(preimageHash),
               status: SwapUpdateEvent.InvoiceFailedToPay,
             } as Swap,
             btcCurrency,
           ),
-        ).resolves.toEqual(true);
+        ).resolves.toEqual(undefined);
       });
 
       test('should be eligible for payment that was never attempted', async () => {
         const { paymentRequest } = await bitcoinLndClient2.addInvoice(1);
 
         await expect(
-          MusigSigner.isEligibleForRefund(
+          MusigSigner.refundNonEligibilityReason(
             {
               invoice: paymentRequest,
+              version: SwapVersion.Taproot,
               status: SwapUpdateEvent.InvoiceFailedToPay,
               preimageHash: decodeInvoice(paymentRequest).paymentHash,
             } as Swap,
             btcCurrency,
           ),
-        ).resolves.toEqual(true);
+        ).resolves.toEqual(undefined);
       });
     });
 
@@ -615,15 +647,16 @@ describe('MusigSigner', () => {
         await clnClient.sendPayment(paymentRequest);
 
         await expect(
-          MusigSigner.isEligibleForRefund(
+          MusigSigner.refundNonEligibilityReason(
             {
               invoice: paymentRequest,
+              version: SwapVersion.Taproot,
               status: SwapUpdateEvent.InvoiceFailedToPay,
               preimageHash: decodeInvoice(paymentRequest).paymentHash,
             } as Swap,
             btcCurrency,
           ),
-        ).resolves.toEqual(false);
+        ).resolves.toEqual(RefundRejectionReason.LightningPaymentPending);
       });
 
       test('should not be eligible for pending payment', async () => {
@@ -639,15 +672,16 @@ describe('MusigSigner', () => {
         });
 
         await expect(
-          MusigSigner.isEligibleForRefund(
+          MusigSigner.refundNonEligibilityReason(
             {
               invoice,
+              version: SwapVersion.Taproot,
               preimageHash: getHexString(preimageHash),
               status: SwapUpdateEvent.InvoiceFailedToPay,
             } as Swap,
             btcCurrency,
           ),
-        ).resolves.toEqual(false);
+        ).resolves.toEqual(RefundRejectionReason.LightningPaymentPending);
 
         await bitcoinLndClient2.cancelHoldInvoice(preimageHash);
         await expect(payPromise).rejects.toEqual(expect.anything());
@@ -662,15 +696,16 @@ describe('MusigSigner', () => {
         );
 
         await expect(
-          MusigSigner.isEligibleForRefund(
+          MusigSigner.refundNonEligibilityReason(
             {
               invoice,
+              version: SwapVersion.Taproot,
               preimageHash: getHexString(preimageHash),
               status: SwapUpdateEvent.InvoiceFailedToPay,
             } as Swap,
             btcCurrency,
           ),
-        ).resolves.toEqual(true);
+        ).resolves.toEqual(undefined);
       });
 
       test('should be eligible for failed payment for which error reason is available', async () => {
@@ -685,30 +720,32 @@ describe('MusigSigner', () => {
         ).rejects.toEqual(expect.anything());
 
         await expect(
-          MusigSigner.isEligibleForRefund(
+          MusigSigner.refundNonEligibilityReason(
             {
               invoice,
+              version: SwapVersion.Taproot,
               preimageHash: getHexString(preimageHash),
               status: SwapUpdateEvent.InvoiceFailedToPay,
             } as Swap,
             btcCurrency,
           ),
-        ).resolves.toEqual(true);
+        ).resolves.toEqual(undefined);
       });
 
       test('should be eligible for payment that was never attempted', async () => {
         const { paymentRequest } = await bitcoinLndClient2.addInvoice(1);
 
         await expect(
-          MusigSigner.isEligibleForRefund(
+          MusigSigner.refundNonEligibilityReason(
             {
               invoice: paymentRequest,
+              version: SwapVersion.Taproot,
               status: SwapUpdateEvent.InvoiceFailedToPay,
               preimageHash: decodeInvoice(paymentRequest).paymentHash,
             } as Swap,
             btcCurrency,
           ),
-        ).resolves.toEqual(true);
+        ).resolves.toEqual(undefined);
       });
     });
   });

@@ -6,7 +6,7 @@ import {
   splitPairId,
 } from '../../Utils';
 import { etherDecimals } from '../../consts/Consts';
-import { SwapType } from '../../consts/Enums';
+import { SwapType, swapTypeToPrettyString } from '../../consts/Enums';
 import Swap from '../../db/models/Swap';
 import ChainSwapRepository, {
   ChainSwapInfo,
@@ -35,11 +35,17 @@ class EipSigner {
       throw 'chain currency is not EVM based';
     }
 
-    if (!(await MusigSigner.isEligibleForRefund(swap, lightningCurrency))) {
-      this.logger.verbose(
-        `Not creating EIP-712 signature for refund of Swap ${swap.id}: it is not eligible`,
+    {
+      const rejectionReason = await MusigSigner.refundNonEligibilityReason(
+        swap,
+        lightningCurrency,
       );
-      throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND();
+      if (rejectionReason !== undefined) {
+        this.logger.verbose(
+          `Not creating EIP-712 signature for refund of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${rejectionReason}`,
+        );
+        throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(rejectionReason);
+      }
     }
 
     this.logger.debug(

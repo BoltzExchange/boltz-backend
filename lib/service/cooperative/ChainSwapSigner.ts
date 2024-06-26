@@ -91,11 +91,15 @@ class ChainSwapSigner extends CoopSignerBase<
       throw Errors.CURRENCY_NOT_UTXO_BASED();
     }
 
-    if (!(await MusigSigner.isEligibleForRefund(swap))) {
-      this.logger.verbose(
-        `Not creating partial signature for refund of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: it is not eligible`,
-      );
-      throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND();
+    {
+      const rejectionReason =
+        await MusigSigner.refundNonEligibilityReason(swap);
+      if (rejectionReason !== undefined) {
+        this.logger.verbose(
+          `Not creating partial signature for refund of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${rejectionReason}`,
+        );
+        throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(rejectionReason);
+      }
     }
 
     this.logger.debug(

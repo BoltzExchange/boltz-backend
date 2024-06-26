@@ -13,6 +13,7 @@ import {
   SwapType,
   SwapUpdateEvent,
   SwapVersion,
+  swapTypeToPrettyString,
 } from '../../consts/Enums';
 import Swap from '../../db/models/Swap';
 import { ChainSwapInfo } from '../../db/repositories/ChainSwapRepository';
@@ -30,6 +31,12 @@ type PartialSignature = {
   pubNonce: Buffer;
   signature: Buffer;
 };
+
+enum RefundRejectionReason {
+  VersionNotTaproot = 'swap version is not Taproot',
+  StatusNotEligible = 'status not eligible',
+  LightningPaymentPending = 'lightning payment still in progress, try again in a couple minutes',
+}
 
 // TODO: Should we verify what we are signing? And if so, how strict should we be?
 
@@ -65,19 +72,19 @@ class MusigSigner {
       throw Errors.CURRENCY_NOT_UTXO_BASED();
     }
 
-    if (
-      swap.version !== SwapVersion.Taproot ||
-      !(await MusigSigner.isEligibleForRefund(
+    {
+      const rejectionReason = await MusigSigner.refundNonEligibilityReason(
         swap,
         this.currencies.get(
           getLightningCurrency(base, quote, swap.orderSide, false),
         )!,
-      ))
-    ) {
-      this.logger.verbose(
-        `Not creating partial signature for refund of Swap ${swap.id}: it is not eligible`,
       );
-      throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND();
+      if (rejectionReason !== undefined) {
+        this.logger.verbose(
+          `Not creating partial signature for refund of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${rejectionReason}`,
+        );
+        throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(rejectionReason);
+      }
     }
 
     this.logger.debug(
@@ -177,16 +184,30 @@ class MusigSigner {
     );
   };
 
-  public static isEligibleForRefund = async (
+  public static refundNonEligibilityReason = async (
     swap: Swap | ChainSwapInfo,
     lightningCurrency?: Currency,
-  ) =>
-    FailedSwapUpdateEvents.includes(swap.status as SwapUpdateEvent) &&
-    (lightningCurrency === undefined ||
-      !(await MusigSigner.hasPendingOrSuccessfulLightningPayment(
+  ): Promise<string | undefined> => {
+    if (swap.version !== SwapVersion.Taproot) {
+      return RefundRejectionReason.VersionNotTaproot;
+    }
+
+    if (!FailedSwapUpdateEvents.includes(swap.status as SwapUpdateEvent)) {
+      return RefundRejectionReason.StatusNotEligible;
+    }
+
+    if (
+      lightningCurrency !== undefined &&
+      (await MusigSigner.hasPendingOrSuccessfulLightningPayment(
         lightningCurrency,
         swap,
-      )));
+      ))
+    ) {
+      return RefundRejectionReason.LightningPaymentPending;
+    }
+
+    return undefined;
+  };
 
   private static hasPendingOrSuccessfulLightningPayment = async (
     currency: Currency,
@@ -224,4 +245,4 @@ class MusigSigner {
 }
 
 export default MusigSigner;
-export { PartialSignature };
+export { PartialSignature, RefundRejectionReason };

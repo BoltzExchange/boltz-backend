@@ -6,11 +6,16 @@ import { Signature } from 'ethers';
 import Logger from '../../../../lib/Logger';
 import { getHexString } from '../../../../lib/Utils';
 import { etherDecimals } from '../../../../lib/consts/Consts';
-import { SwapType, SwapUpdateEvent } from '../../../../lib/consts/Enums';
+import {
+  SwapType,
+  SwapUpdateEvent,
+  SwapVersion,
+} from '../../../../lib/consts/Enums';
 import ChainSwapRepository from '../../../../lib/db/repositories/ChainSwapRepository';
 import SwapRepository from '../../../../lib/db/repositories/SwapRepository';
 import Errors from '../../../../lib/service/Errors';
 import EipSigner from '../../../../lib/service/cooperative/EipSigner';
+import { RefundRejectionReason } from '../../../../lib/service/cooperative/MusigSigner';
 import WalletManager from '../../../../lib/wallet/WalletManager';
 import {
   EthereumSetup,
@@ -109,10 +114,13 @@ describe('EipSigner', () => {
     SwapRepository.getSwap = jest.fn().mockResolvedValue({
       orderSide: 1,
       pair: 'TOKEN/BTC',
+      version: SwapVersion.Taproot,
       status: SwapUpdateEvent.SwapCreated,
     });
     await expect(signer.signSwapRefund('not eligible')).rejects.toEqual(
-      Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(),
+      Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
+        RefundRejectionReason.StatusNotEligible,
+      ),
     );
   });
 
@@ -147,6 +155,7 @@ describe('EipSigner', () => {
       orderSide: 1,
       pair: 'RBTC/BTC',
       type: SwapType.Submarine,
+      version: SwapVersion.Taproot,
       timeoutBlockHeight: timelock,
       preimageHash: getHexString(preimageHash),
       status: SwapUpdateEvent.InvoiceFailedToPay,
@@ -187,6 +196,7 @@ describe('EipSigner', () => {
 
     ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue({
       type: SwapType.Chain,
+      version: SwapVersion.Taproot,
       preimageHash: getHexString(preimageHash),
       status: SwapUpdateEvent.InvoiceFailedToPay,
       receivingData: {
@@ -232,6 +242,7 @@ describe('EipSigner', () => {
       orderSide: 1,
       pair: 'TOKEN/BTC',
       type: SwapType.Submarine,
+      version: SwapVersion.Taproot,
       timeoutBlockHeight: timelock,
       onchainAmount: Number(amount),
       preimageHash: getHexString(preimageHash),
@@ -273,6 +284,7 @@ describe('EipSigner', () => {
 
     ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue({
       type: SwapType.Chain,
+      version: SwapVersion.Taproot,
       preimageHash: getHexString(preimageHash),
       status: SwapUpdateEvent.InvoiceFailedToPay,
       receivingData: {

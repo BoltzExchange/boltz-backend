@@ -34,6 +34,7 @@ import {
   CurrencyType,
   SwapType,
   SwapUpdateEvent,
+  SwapVersion,
 } from '../../../../lib/consts/Enums';
 import ChainSwapRepository, {
   ChainSwapInfo,
@@ -41,6 +42,7 @@ import ChainSwapRepository, {
 import WrappedSwapRepository from '../../../../lib/db/repositories/WrappedSwapRepository';
 import Errors from '../../../../lib/service/Errors';
 import ChainSwapSigner from '../../../../lib/service/cooperative/ChainSwapSigner';
+import { RefundRejectionReason } from '../../../../lib/service/cooperative/MusigSigner';
 import SwapOutputType from '../../../../lib/swap/SwapOutputType';
 import Wallet from '../../../../lib/wallet/Wallet';
 import WalletLiquid from '../../../../lib/wallet/WalletLiquid';
@@ -205,6 +207,7 @@ describe('ChainSwapSigner', () => {
         id: 'asdf',
         type: SwapType.Chain,
         status: 'swap.expired',
+        version: SwapVersion.Taproot,
         preimageHash: getHexString(crypto.sha256(preimage)),
         receivingData: {
           symbol: 'BTC',
@@ -348,6 +351,7 @@ describe('ChainSwapSigner', () => {
         ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue({
           status,
           id: 'asdf',
+          version: SwapVersion.Taproot,
           receivingData: {
             symbol: 'BTC',
           },
@@ -355,7 +359,11 @@ describe('ChainSwapSigner', () => {
 
         await expect(
           signer.signRefund('asdf', Buffer.alloc(0), Buffer.alloc(0), 0),
-        ).rejects.toEqual(Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND());
+        ).rejects.toEqual(
+          Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
+            RefundRejectionReason.StatusNotEligible,
+          ),
+        );
       },
     );
   });

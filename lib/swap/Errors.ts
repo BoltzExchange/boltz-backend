@@ -106,4 +106,8 @@ export default {
     message: 'invalid address signature',
     code: concatErrorCode(ErrorCodePrefix.Swap, 21),
   }),
+  INVALID_INVOICE_MEMO: (): Error => ({
+    message: 'invalid invoice memo',
+    code: concatErrorCode(ErrorCodePrefix.Swap, 22),
+  }),
 };

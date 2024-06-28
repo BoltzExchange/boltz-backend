@@ -2,27 +2,20 @@ import { Client4, WebSocketClient, WebSocketMessage } from '@mattermost/client';
 import ws from 'ws';
 import { NotificationConfig } from '../../Config';
 import Logger from '../../Logger';
-import { codeBlock } from '../Markup';
 import NotificationClient from './NotificationClient';
 
-class MattermostClient extends NotificationClient {
+class MattermostClient extends NotificationClient<Client4, string> {
   public static readonly serviceName = 'Mattermost';
 
-  private readonly client: Client4;
   private readonly wsClient: WebSocketClient;
 
   private userId?: string = undefined;
 
-  private channelId?: string = undefined;
-  private channelAlertsId?: string = undefined;
-
   constructor(logger: Logger, config: NotificationConfig) {
-    super(MattermostClient.serviceName, logger, config);
-
     // Polyfill a WebSocket library
     Object.assign(global, { WebSocket: ws });
 
-    this.client = new Client4();
+    super(MattermostClient.serviceName, logger, config, new Client4(), 4000);
 
     if (config.mattermostUrl === undefined) {
       throw 'missing Mattermost URL';
@@ -44,19 +37,19 @@ class MattermostClient extends NotificationClient {
     ]);
     this.userId = user.id;
 
-    this.channelId = channels.find(
+    this.channel = channels.find(
       (chan) => chan.name === this.config.channel,
     )?.id;
-    if (this.channelId === undefined) {
+    if (this.channel === undefined) {
       throw `Could not find Mattermost channel: ${this.config.channel}`;
     }
 
     if (this.config.channelAlerts) {
-      this.channelAlertsId = channels.find(
+      this.channelAlerts = channels.find(
         (chan) => chan.name === this.config.channelAlerts,
       )?.id;
 
-      if (this.channelAlertsId === undefined) {
+      if (this.channelAlerts === undefined) {
         this.logger.warn(
           `Could not find Mattermost notification channel: ${this.config.channelAlerts}`,
         );
@@ -74,35 +67,15 @@ class MattermostClient extends NotificationClient {
     this.wsClient.close();
   };
 
-  public sendMessage = async (message: string, isAlert?: boolean) => {
-    const channel = this.selectChannel(
-      this.channelId,
-      this.channelAlertsId,
-      isAlert,
-    );
-
-    if (channel === undefined) {
-      return;
-    }
-
-    if (message.includes(codeBlock)) {
-      message = message.replace(/```/, '```json\n');
-      if (!message.startsWith('\n')) {
-        message = `\n${message}`;
-      }
-
-      message =
-        message.substring(0, message.length - codeBlock.length) + '\n```';
-    }
-
+  protected sendRawMessage = async (channel: string, message: string) => {
     await this.client.createPost({
       channel_id: channel,
-      message: `${this.prefix}${message}`,
+      message: message,
     } as any);
   };
 
   private listenForMessages = (msg: WebSocketMessage) => {
-    if (msg.event !== 'posted' || msg.broadcast.channel_id !== this.channelId) {
+    if (msg.event !== 'posted' || msg.broadcast.channel_id !== this.channel) {
       return;
     }
 

@@ -18,6 +18,10 @@ type HolisticInvoice = InvoiceWithRoutingHints & {
 
 class NodeFallback {
   private static readonly addInvoiceTimeout = 10_000;
+  private static readonly invoiceMemoRegex = new RegExp(
+    // Visible ASCII characters with a maximal length of 40
+    '^[\x20-\x7E]{0,40}$',
+  );
 
   constructor(
     private logger: Logger,
@@ -37,6 +41,7 @@ class NodeFallback {
     memo?: string,
     routingHints?: HopHint[][],
   ): Promise<HolisticInvoice> => {
+    this.checkInvoiceMemo(memo);
     let nodeForSwap = this.nodeSwitch.getNodeForReverseSwap(
       id,
       currency,
@@ -128,6 +133,16 @@ class NodeFallback {
       (reject) => reject(Errors.LIGHTNING_CLIENT_CALL_TIMEOUT()),
       NodeFallback.addInvoiceTimeout,
     );
+  };
+
+  private checkInvoiceMemo = (memo?: string) => {
+    if (memo === undefined) {
+      return;
+    }
+
+    if (!NodeFallback.invoiceMemoRegex.test(memo)) {
+      throw Errors.INVALID_INVOICE_MEMO();
+    }
   };
 }
 

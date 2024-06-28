@@ -307,4 +307,57 @@ describe('NodeFallback', () => {
       ),
     ).rejects.toEqual(Errors.NO_AVAILABLE_LIGHTNING_CLIENT());
   });
+
+  describe('checkInvoiceMemo', () => {
+    test.each`
+      input
+      ${'A'}
+      ${'test'}
+      ${' a'}
+      ${'some longer string that is still ok;!..!'}
+      ${'asdf - !  +*##asdf'}
+    `('should allow visible ASCII characters: $input', ({ input }) => {
+      fallback['checkInvoiceMemo'](input);
+    });
+
+    test('should allow empty strings', () => {
+      fallback['checkInvoiceMemo']('');
+    });
+
+    test('should allow undefined', () => {
+      fallback['checkInvoiceMemo'](undefined);
+    });
+
+    test.each`
+      input
+      ${'\n'}
+      ${'\r'}
+      ${'\r\n'}
+      ${'normal\nstring'}
+    `('should throw on newline', ({ input }) => {
+      expect(() => fallback['checkInvoiceMemo'](input)).toThrow(
+        Errors.INVALID_INVOICE_MEMO().message,
+      );
+    });
+
+    test.each`
+      input
+      ${'Ä'}
+      ${'ö'}
+      ${'Ü'}
+      ${'€'}
+    `('should throw on non-ASCII characters: $input', ({ input }) => {
+      expect(() => fallback['checkInvoiceMemo'](input)).toThrow(
+        Errors.INVALID_INVOICE_MEMO().message,
+      );
+    });
+
+    test('should limit length to 50', () => {
+      const msg = 'this is a very long string. buncha charss';
+      expect(msg).toHaveLength(41);
+      expect(() => fallback['checkInvoiceMemo'](msg)).toThrow(
+        Errors.INVALID_INVOICE_MEMO().message,
+      );
+    });
+  });
 });

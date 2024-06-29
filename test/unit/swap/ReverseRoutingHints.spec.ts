@@ -62,7 +62,7 @@ describe('ReverseRoutingHints', () => {
         version: SwapVersion.Taproot,
       }),
     ).toEqual({
-      receivedAmount: 99877,
+      receivedAmount: 99876,
       invoiceMemo: getSwapMemo(
         sendingCurrency.symbol,
         SwapType.ReverseSubmarine,
@@ -88,7 +88,7 @@ describe('ReverseRoutingHints', () => {
         userAddressSignature: signature,
       }),
     ).toEqual({
-      receivedAmount: 99877,
+      receivedAmount: 99876,
       invoiceMemo: getSwapMemo(
         sendingCurrency.symbol,
         SwapType.ReverseSubmarine,
@@ -96,7 +96,7 @@ describe('ReverseRoutingHints', () => {
       bip21: paymentRequestUtils.encodeBip21(
         sendingCurrency.symbol,
         address,
-        amount - reverseMinerFees,
+        amount - reverseMinerFees - 1,
       ),
       routingHint: [
         [

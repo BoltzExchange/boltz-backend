@@ -53,6 +53,7 @@ RUN apt-get update && \
   python3 \
   sqlite3 \
   libsodium23 \
+  python3-pip \
   libevent-dev \
   python-is-python3 && \
   rm -rf /var/lib/apt/lists/*
@@ -63,5 +64,8 @@ COPY --from=builder /usr/local/bin/lightning-cli /bin/
 COPY --from=builder /usr/local/libexec /usr/libexec
 
 COPY --from=bitcoin-core /bin/bitcoin-cli /bin/
+
+COPY --from=builder /lightning/plugins/clnrest/requirements.txt /requirements.txt
+RUN pip3 install -r /requirements.txt && rm /requirements.txt
 
 ENTRYPOINT ["lightningd"]

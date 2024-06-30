@@ -13,12 +13,14 @@ type LightningPaymentType = {
   preimageHash: string;
   node: NodeType;
   status: LightningPaymentStatus;
+  error?: string;
 };
 
 class LightningPayment extends Model implements LightningPaymentType {
   public preimageHash!: string;
   public node!: NodeType;
   public status!: LightningPaymentStatus;
+  public error?: string;
 
   public createdAt!: Date;
   public updatedAt!: Date;
@@ -51,6 +53,10 @@ class LightningPayment extends Model implements LightningPaymentType {
               ),
             ],
           },
+        },
+        error: {
+          type: new DataTypes.STRING(),
+          allowNull: true,
         },
       },
       {

@@ -83,6 +83,7 @@ describe('ClnPendingPaymentTracker', () => {
         preimageHash,
         NodeType.CLN,
         LightningPaymentStatus.PermanentFailure,
+        expect.anything(),
       );
     });
 
@@ -100,6 +101,7 @@ describe('ClnPendingPaymentTracker', () => {
         preimageHash,
         NodeType.CLN,
         LightningPaymentStatus.TemporaryFailure,
+        undefined,
       );
     });
   });
@@ -128,7 +130,7 @@ describe('ClnPendingPaymentTracker', () => {
     });
   });
 
-  describe('parseErrorMessage', () => {
+  describe('isPermanentError', () => {
     test.each`
       error                                                                                                                                                              | expected
       ${'InvoiceExpiredError()'}                                                                                                                                         | ${true}

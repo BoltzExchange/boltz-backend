@@ -13,12 +13,12 @@ import LndClient from './LndClient';
 import ClnClient from './cln/ClnClient';
 import ClnPendingPaymentTracker from './paymentTrackers/ClnPendingPaymentTracker';
 import LndPendingPaymentTracker from './paymentTrackers/LndPendingPaymentTracker';
-import NodePendingPendingTracker from './paymentTrackers/NodePendingPaymentTrackers';
+import NodePendingPendingTracker from './paymentTrackers/NodePendingPaymentTracker';
 
 type LightningNodes = Record<NodeType, LightningClient | undefined>;
 
 class PendingPaymentTracker {
-  private static readonly raceTimeout = 15;
+  private static readonly raceTimeout = 10;
   private static readonly timeoutError = 'payment timed out';
 
   public readonly lightningTrackers: Record<
@@ -112,7 +112,6 @@ class PendingPaymentTracker {
           return await this.getPermanentFailureDetails(
             relevant,
             lightningClient.symbol,
-            preimageHash,
           );
       }
     }
@@ -172,12 +171,17 @@ class PendingPaymentTracker {
         return undefined;
       }
 
+      const isPermanentError =
+        this.lightningTrackers[lightningClient.type].isPermanentError(e);
       await LightningPaymentRepository.setStatus(
         preimageHash,
         lightningClient.type,
-        this.lightningTrackers[lightningClient.type].isPermanentError(e)
+        isPermanentError
           ? LightningPaymentStatus.PermanentFailure
           : LightningPaymentStatus.TemporaryFailure,
+        isPermanentError
+          ? this.lightningTrackers[lightningClient.type].parseErrorMessage(e)
+          : undefined,
       );
 
       throw e;
@@ -221,32 +225,11 @@ class PendingPaymentTracker {
   private getPermanentFailureDetails = async (
     payment: LightningPayment,
     symbol: string,
-    preimageHash: string,
   ) => {
     this.logger.verbose(
-      `Invoice payment of ${preimageHash} has failed with a permanent error on node ${symbol} ${nodeTypeToPrettyString(payment.node)}`,
+      `Invoice payment of ${payment.preimageHash} has failed with a permanent error on node ${symbol} ${nodeTypeToPrettyString(payment.node)}`,
     );
-
-    const nodeThatFailed = this.lightningNodes.get(symbol)[payment.node];
-    if (nodeThatFailed === undefined) {
-      this.logger.warn(
-        `Could not get permanent payment error of ${preimageHash}: ${symbol} ${nodeTypeToPrettyString(payment.node)} is not available`,
-      );
-      return undefined;
-    }
-
-    switch (nodeThatFailed.type) {
-      case NodeType.LND:
-        throw (
-          await (nodeThatFailed as LndClient).trackPayment(
-            getHexBuffer(preimageHash),
-          )
-        ).failureReason;
-
-      case NodeType.CLN:
-        // TODO: fetch actual error when mpay starts saving details of errors
-        throw 'WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS';
-    }
+    throw payment.error;
   };
 }
 

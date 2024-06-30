@@ -227,6 +227,10 @@ class PaymentHandler {
     // If the recipient rejects the payment or the invoice expired, the Swap will be abandoned
     if (
       error === PaymentFailureReason.FAILURE_REASON_INCORRECT_PAYMENT_DETAILS ||
+      error ===
+        LndClient.formatPaymentFailureReason(
+          PaymentFailureReason.FAILURE_REASON_INCORRECT_PAYMENT_DETAILS,
+        ) ||
       LightningNursery.errIsInvoiceExpired(errorMessage)
     ) {
       await this.abandonSwap(swap, errorMessage);

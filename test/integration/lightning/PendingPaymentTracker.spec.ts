@@ -23,8 +23,10 @@ jest.mock(
       trackPayment: jest.fn(),
       watchPayment: jest.fn(),
       isPermanentError: jest.fn().mockReturnValue(true),
+      parseErrorMessage: jest.fn().mockReturnValue('permanent CLN error'),
     })),
 );
+
 jest.mock(
   '../../../lib/lightning/paymentTrackers/LndPendingPaymentTracker',
   () =>
@@ -32,6 +34,7 @@ jest.mock(
       trackPayment: jest.fn(),
       watchPayment: jest.fn(),
       isPermanentError: jest.fn().mockReturnValue(true),
+      parseErrorMessage: jest.fn().mockReturnValue('permanent CLN error'),
     })),
 );
 
@@ -200,6 +203,8 @@ describe('PendingPaymentTracker', () => {
       expect(payments[0].status).toEqual(
         LightningPaymentStatus.PermanentFailure,
       );
+      expect(payments[0].error).not.toBeNull();
+      expect(payments[0].error).not.toBeUndefined();
     });
 
     test('should keep track of pending payments in background', async () => {
@@ -327,89 +332,26 @@ describe('PendingPaymentTracker', () => {
         });
       });
 
-      describe('permanent failure', () => {
-        test('should get permanent failure details from LND', async () => {
-          const preimageHash = crypto.sha256(randomBytes(32));
-          const invoice = await clnClient.addHoldInvoice(1, preimageHash);
-          await clnClient.cancelHoldInvoice(preimageHash);
+      test('should throw error for permanently failed payments', async () => {
+        const preimageHash = crypto.sha256(randomBytes(32));
+        const invoice = await clnClient.addHoldInvoice(1, preimageHash);
 
-          const swap = await Swap.create({
-            ...createSubmarineSwapData(),
-            invoice,
-            preimageHash: getHexString(preimageHash),
-          });
-          await LightningPayment.create({
-            node: NodeType.LND,
-            preimageHash: swap.preimageHash,
-            status: LightningPaymentStatus.PermanentFailure,
-          });
-
-          let error: any;
-
-          try {
-            await bitcoinLndClient.sendPayment(invoice);
-          } catch (e) {
-            error = e;
-          }
-
-          await expect(
-            tracker.sendPayment(bitcoinLndClient, invoice),
-          ).rejects.toEqual(error);
+        const swap = await Swap.create({
+          ...createSubmarineSwapData(),
+          invoice,
+          preimageHash: getHexString(preimageHash),
+        });
+        const error = 'some error';
+        await LightningPayment.create({
+          error,
+          node: NodeType.LND,
+          preimageHash: swap.preimageHash,
+          status: LightningPaymentStatus.PermanentFailure,
         });
 
-        test('should get permanent failure details from CLN', async () => {
-          const preimageHash = crypto.sha256(randomBytes(32));
-          const invoice = await bitcoinLndClient.addHoldInvoice(
-            1,
-            preimageHash,
-          );
-          await bitcoinLndClient.cancelHoldInvoice(preimageHash);
-
-          const swap = await Swap.create({
-            ...createSubmarineSwapData(),
-            invoice,
-            preimageHash: getHexString(preimageHash),
-          });
-          await LightningPayment.create({
-            node: NodeType.CLN,
-            preimageHash: swap.preimageHash,
-            status: LightningPaymentStatus.PermanentFailure,
-          });
-
-          await expect(clnClient.sendPayment(invoice)).rejects.toEqual(
-            expect.anything(),
-          );
-
-          await expect(tracker.sendPayment(clnClient, invoice)).rejects.toEqual(
-            'WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS',
-          );
-        });
-
-        test('should return undefined when node for fetching permanent failure details is not available', async () => {
-          const invoiceRes = await bitcoinLndClient.addInvoice(1);
-          const swap = await Swap.create({
-            ...createSubmarineSwapData(),
-            invoice: invoiceRes.paymentRequest,
-            preimageHash: decodeInvoice(invoiceRes.paymentRequest).paymentHash,
-          });
-          await LightningPayment.create({
-            node: NodeType.LND,
-            preimageHash: swap.preimageHash,
-            status: LightningPaymentStatus.PermanentFailure,
-          });
-
-          await tracker.init([
-            {
-              ...currencies[0],
-              lndClient: undefined,
-            },
-          ]);
-
-          await clnClient.sendPayment(invoiceRes.paymentRequest);
-          await expect(
-            tracker.sendPayment(clnClient, invoiceRes.paymentRequest),
-          ).resolves.toEqual(undefined);
-        });
+        await expect(
+          tracker.sendPayment(bitcoinLndClient, invoice),
+        ).rejects.toEqual(error);
       });
     });
   });

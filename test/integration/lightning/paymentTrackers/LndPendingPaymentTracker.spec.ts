@@ -9,6 +9,7 @@ import {
 import { LightningPaymentStatus } from '../../../../lib/db/models/LightningPayment';
 import { NodeType } from '../../../../lib/db/models/ReverseSwap';
 import LightningPaymentRepository from '../../../../lib/db/repositories/LightningPaymentRepository';
+import LndClient from '../../../../lib/lightning/LndClient';
 import LndPendingPaymentTracker from '../../../../lib/lightning/paymentTrackers/LndPendingPaymentTracker';
 import { PaymentFailureReason } from '../../../../lib/proto/lnd/rpc_pb';
 import { wait } from '../../../Utils';
@@ -81,6 +82,9 @@ describe('LndPendingPaymentTracker', () => {
         preimageHash,
         NodeType.LND,
         LightningPaymentStatus.PermanentFailure,
+        LndClient.formatPaymentFailureReason(
+          PaymentFailureReason.FAILURE_REASON_INCORRECT_PAYMENT_DETAILS,
+        ),
       );
     });
 
@@ -100,6 +104,7 @@ describe('LndPendingPaymentTracker', () => {
         preimageHash,
         NodeType.LND,
         LightningPaymentStatus.TemporaryFailure,
+        undefined,
       );
     });
   });
@@ -160,6 +165,9 @@ describe('LndPendingPaymentTracker', () => {
         getHexString(preimageHash),
         NodeType.LND,
         LightningPaymentStatus.PermanentFailure,
+        LndClient.formatPaymentFailureReason(
+          PaymentFailureReason.FAILURE_REASON_INCORRECT_PAYMENT_DETAILS,
+        ),
       );
     });
   });

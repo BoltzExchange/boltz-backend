@@ -63,6 +63,8 @@ jest.mock('../../../lib/lightning/LndClient', () => {
   });
 });
 
+LndClient.formatPaymentFailureReason = jest.fn();
+
 const MockedLndClient = <jest.Mock<LndClient>>(<any>LndClient);
 
 describe('PaymentHandler', () => {

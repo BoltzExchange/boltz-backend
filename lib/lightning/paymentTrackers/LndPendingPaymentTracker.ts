@@ -5,7 +5,7 @@ import { Payment, PaymentFailureReason } from '../../proto/lnd/rpc_pb';
 import LightningNursery from '../../swap/LightningNursery';
 import { LightningClient } from '../LightningClient';
 import LndClient from '../LndClient';
-import NodePendingPendingTracker from './NodePendingPaymentTrackers';
+import NodePendingPendingTracker from './NodePendingPaymentTracker';
 
 class LndPendingPaymentTracker extends NodePendingPendingTracker {
   constructor(logger: Logger) {
@@ -44,7 +44,7 @@ class LndPendingPaymentTracker extends NodePendingPendingTracker {
     error === PaymentFailureReason.FAILURE_REASON_INCORRECT_PAYMENT_DETAILS ||
     LightningNursery.errIsInvoiceExpired(this.parseErrorMessage(error));
 
-  private parseErrorMessage = (error: unknown) =>
+  public parseErrorMessage = (error: unknown) =>
     typeof error === 'number'
       ? LndClient.formatPaymentFailureReason(error as any)
       : formatError(error);

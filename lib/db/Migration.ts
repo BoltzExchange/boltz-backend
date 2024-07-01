@@ -14,6 +14,7 @@ import { SwapVersion } from '../consts/Enums';
 import { Currency } from '../wallet/WalletManager';
 import ChannelCreation from './models/ChannelCreation';
 import DatabaseVersion from './models/DatabaseVersion';
+import LightningPayment from './models/LightningPayment';
 import Referral from './models/Referral';
 import ReverseSwap, { NodeType } from './models/ReverseSwap';
 import Swap from './models/Swap';
@@ -21,7 +22,7 @@ import DatabaseVersionRepository from './repositories/DatabaseVersionRepository'
 
 // TODO: integration tests for actual migrations
 class Migration {
-  private static latestSchemaVersion = 8;
+  private static latestSchemaVersion = 9;
 
   constructor(
     private logger: Logger,
@@ -422,6 +423,24 @@ class Migration {
             type: new DataTypes.STRING(),
             allowNull: true,
           });
+
+        await this.finishMigration(versionRow.version, currencies);
+        break;
+      }
+
+      case 8: {
+        const tables = await this.sequelize.getQueryInterface().showAllTables();
+
+        // It is possible that the table does not exist yet in schema version 8,
+        // so we have to check if it exists before trying to add a column
+        if (tables.includes(LightningPayment.tableName)) {
+          await this.sequelize
+            .getQueryInterface()
+            .addColumn(LightningPayment.tableName, 'error', {
+              type: new DataTypes.STRING(),
+              allowNull: true,
+            });
+        }
 
         await this.finishMigration(versionRow.version, currencies);
         break;

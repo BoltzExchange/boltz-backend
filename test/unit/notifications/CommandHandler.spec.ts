@@ -352,8 +352,8 @@ describe('CommandHandler', () => {
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(
       `\`\`\`${stringify({
-        [new Date().getFullYear()]: {
-          [new Date().getMonth() + 1]: {
+        [new Date().getUTCFullYear()]: {
+          [new Date().getUTCMonth() + 1]: {
             volume: {
               total: (0.03).toFixed(8),
               'LTC/BTC': (0.03).toFixed(8),

@@ -4,7 +4,7 @@ import { NodeType } from '../../db/models/ReverseSwap';
 import LightningNursery from '../../swap/LightningNursery';
 import { LightningClient } from '../LightningClient';
 import ClnClient from '../cln/ClnClient';
-import NodePendingPendingTracker from './NodePendingPaymentTrackers';
+import NodePendingPendingTracker from './NodePendingPaymentTracker';
 
 class ClnPendingPaymentTracker extends NodePendingPendingTracker {
   private static readonly checkInterval = 15;
@@ -52,6 +52,11 @@ class ClnPendingPaymentTracker extends NodePendingPendingTracker {
     );
   };
 
+  public parseErrorMessage = (error: unknown) =>
+    ClnClient.isRpcError(error)
+      ? ClnClient.formatPaymentFailureReason(error as any)
+      : formatError(error);
+
   private checkPendingPayments = async () => {
     for (const [
       preimageHash,
@@ -76,11 +81,6 @@ class ClnPendingPaymentTracker extends NodePendingPendingTracker {
       this.paymentsToWatch.delete(preimageHash);
     }
   };
-
-  private parseErrorMessage = (error: unknown) =>
-    ClnClient.isRpcError(error)
-      ? ClnClient.formatPaymentFailureReason(error as any)
-      : formatError(error);
 }
 
 export default ClnPendingPaymentTracker;

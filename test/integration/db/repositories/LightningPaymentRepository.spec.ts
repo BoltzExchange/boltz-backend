@@ -5,7 +5,9 @@ import LightningPayment, {
 } from '../../../../lib/db/models/LightningPayment';
 import { NodeType } from '../../../../lib/db/models/ReverseSwap';
 import Swap from '../../../../lib/db/models/Swap';
-import LightningPaymentRepository from '../../../../lib/db/repositories/LightningPaymentRepository';
+import LightningPaymentRepository, {
+  Errors,
+} from '../../../../lib/db/repositories/LightningPaymentRepository';
 import PairRepository from '../../../../lib/db/repositories/PairRepository';
 import { createSubmarineSwapData } from './Fixtures';
 
@@ -63,7 +65,7 @@ describe('LightningPaymentRepository', () => {
           node: NodeType.LND,
           preimageHash: swap.preimageHash,
         }),
-      ).rejects.toEqual('payment exists already');
+      ).rejects.toEqual(Errors.PaymentExistsAlready);
     });
 
     test(`should update when payment with status ${LightningPaymentStatus.TemporaryFailure} exists already`, async () => {
@@ -88,7 +90,7 @@ describe('LightningPaymentRepository', () => {
   });
 
   describe('setStatus', () => {
-    test('should set status', async () => {
+    test('should set success status', async () => {
       const swap = await Swap.create(createSubmarineSwapData());
       const payment = await LightningPaymentRepository.create({
         node: NodeType.LND,
@@ -105,6 +107,109 @@ describe('LightningPaymentRepository', () => {
 
       await payment.reload();
       expect(payment.status).toEqual(LightningPaymentStatus.Success);
+    });
+
+    test('should set pending status', async () => {
+      const swap = await Swap.create(createSubmarineSwapData());
+      const payment = await LightningPaymentRepository.create({
+        node: NodeType.LND,
+        preimageHash: swap.preimageHash,
+      });
+      await payment.update({ status: LightningPaymentStatus.TemporaryFailure });
+
+      await expect(
+        LightningPaymentRepository.setStatus(
+          swap.preimageHash,
+          NodeType.LND,
+          LightningPaymentStatus.Pending,
+        ),
+      ).resolves.toEqual([1]);
+
+      await payment.reload();
+      expect(payment.status).toEqual(LightningPaymentStatus.Pending);
+    });
+
+    test('should set temporary failure status', async () => {
+      const swap = await Swap.create(createSubmarineSwapData());
+      const payment = await LightningPaymentRepository.create({
+        node: NodeType.LND,
+        preimageHash: swap.preimageHash,
+      });
+
+      await expect(
+        LightningPaymentRepository.setStatus(
+          swap.preimageHash,
+          NodeType.LND,
+          LightningPaymentStatus.TemporaryFailure,
+        ),
+      ).resolves.toEqual([1]);
+
+      await payment.reload();
+      expect(payment.status).toEqual(LightningPaymentStatus.TemporaryFailure);
+    });
+
+    test('should set permanent failure status', async () => {
+      const swap = await Swap.create(createSubmarineSwapData());
+      const payment = await LightningPaymentRepository.create({
+        node: NodeType.LND,
+        preimageHash: swap.preimageHash,
+      });
+
+      const error = 'some error';
+      await expect(
+        LightningPaymentRepository.setStatus(
+          swap.preimageHash,
+          NodeType.LND,
+          LightningPaymentStatus.PermanentFailure,
+          error,
+        ),
+      ).resolves.toEqual([1]);
+
+      await payment.reload();
+      expect(payment.status).toEqual(LightningPaymentStatus.PermanentFailure);
+      expect(payment.error).toEqual(error);
+    });
+
+    test.each`
+      status
+      ${LightningPaymentStatus.Pending}
+      ${LightningPaymentStatus.Success}
+      ${LightningPaymentStatus.TemporaryFailure}
+    `(
+      'should not allow error message for status $status',
+      async ({ status }) => {
+        const swap = await Swap.create(createSubmarineSwapData());
+        await LightningPaymentRepository.create({
+          node: NodeType.LND,
+          preimageHash: swap.preimageHash,
+        });
+
+        const error = 'some error';
+        expect(() =>
+          LightningPaymentRepository.setStatus(
+            swap.preimageHash,
+            NodeType.LND,
+            status,
+            error,
+          ),
+        ).toThrow(Errors.ErrorSetNonPermanentFailure);
+      },
+    );
+
+    test('should not allow setting permanent error without error message', async () => {
+      const swap = await Swap.create(createSubmarineSwapData());
+      await LightningPaymentRepository.create({
+        node: NodeType.LND,
+        preimageHash: swap.preimageHash,
+      });
+
+      expect(() =>
+        LightningPaymentRepository.setStatus(
+          swap.preimageHash,
+          NodeType.LND,
+          LightningPaymentStatus.PermanentFailure,
+        ),
+      ).toThrow(Errors.ErrorMissingPermanentFailure);
     });
   });
 

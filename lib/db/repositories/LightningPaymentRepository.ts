@@ -5,8 +5,16 @@ import LightningPayment, {
 import { NodeType } from '../models/ReverseSwap';
 import Swap from '../models/Swap';
 
+enum Errors {
+  PaymentExistsAlready = 'payment exists already',
+  ErrorMissingPermanentFailure = 'payment error has to be set for permanent failures',
+  ErrorSetNonPermanentFailure = 'payment error can only be set for permanent failures',
+}
+
 class LightningPaymentRepository {
-  public static create = async (data: Omit<LightningPaymentType, 'status'>) => {
+  public static create = async (
+    data: Omit<Omit<LightningPaymentType, 'status'>, 'error'>,
+  ) => {
     const existing = await LightningPayment.findOne({
       where: {
         node: data.node,
@@ -21,7 +29,7 @@ class LightningPaymentRepository {
     }
 
     if (existing.status !== LightningPaymentStatus.TemporaryFailure) {
-      throw 'payment exists already';
+      throw Errors.PaymentExistsAlready;
     }
 
     return existing.update({
@@ -33,9 +41,22 @@ class LightningPaymentRepository {
     preimageHash: string,
     node: NodeType,
     status: LightningPaymentStatus,
-  ) =>
-    LightningPayment.update(
-      { status },
+    error?: string,
+  ) => {
+    if (
+      error == undefined &&
+      status === LightningPaymentStatus.PermanentFailure
+    ) {
+      throw Errors.ErrorMissingPermanentFailure;
+    } else if (
+      error !== undefined &&
+      status !== LightningPaymentStatus.PermanentFailure
+    ) {
+      throw Errors.ErrorSetNonPermanentFailure;
+    }
+
+    return LightningPayment.update(
+      { status, error },
       {
         where: {
           preimageHash,
@@ -43,6 +64,7 @@ class LightningPaymentRepository {
         },
       },
     );
+  };
 
   public static findByPreimageHash = (preimageHash: string) =>
     LightningPayment.findAll({ where: { preimageHash } });
@@ -55,3 +77,4 @@ class LightningPaymentRepository {
 }
 
 export default LightningPaymentRepository;
+export { Errors };

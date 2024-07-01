@@ -10,7 +10,7 @@ import ChainTip from './models/ChainTip';
 import ChannelCreation from './models/ChannelCreation';
 import DatabaseVersion from './models/DatabaseVersion';
 import KeyProvider from './models/KeyProvider';
-import PendingPayment from './models/LightningPayment';
+import LightningPayment from './models/LightningPayment';
 import MarkedSwap from './models/MarkedSwap';
 import Pair from './models/Pair';
 import PendingEthereumTransaction from './models/PendingEthereumTransaction';
@@ -119,7 +119,7 @@ class Database {
     await Promise.all([
       MarkedSwap.sync(),
       ChainSwapData.sync(),
-      PendingPayment.sync(),
+      LightningPayment.sync(),
       ChannelCreation.sync(),
       ReverseRoutingHint.sync(),
       PendingLockupTransaction.sync(),
@@ -138,7 +138,7 @@ class Database {
     Pair.load(Database.sequelize);
     Referral.load(Database.sequelize);
     Swap.load(Database.sequelize);
-    PendingPayment.load(Database.sequelize);
+    LightningPayment.load(Database.sequelize);
     ChainSwap.load(Database.sequelize);
     ChainSwapData.load(Database.sequelize);
     ChainTip.load(Database.sequelize);

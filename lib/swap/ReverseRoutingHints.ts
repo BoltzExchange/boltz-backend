@@ -43,13 +43,11 @@ class ReverseRoutingHints {
       sendingCurrency.symbol,
       SwapType.ReverseSubmarine,
     );
-    // Leave 1 sat in case the swap is covenant claimed which needs a blinded OP_RETURN with 1 sat
     const receivedAmount =
       args.onchainAmount -
       this.rateProvider.feeProvider.minerFees.get(sendingCurrency.symbol)![
         args.version
-      ].reverse.claim -
-      1;
+      ].reverse.claim;
 
     if (
       args.userAddress === undefined ||

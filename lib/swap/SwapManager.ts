@@ -777,7 +777,8 @@ class SwapManager {
               result.timeoutBlockHeight,
               [
                 {
-                  expectedAmount: hints.receivedAmount,
+                  // Leave 1 sat in case the swap is covenant claimed which needs a blinded OP_RETURN with 1 sat
+                  expectedAmount: hints.receivedAmount - 1,
                   type: Feature.ClaimCovenant,
                   assetHash: (
                     this.walletManager.wallets.get(sendingCurrency.symbol)!

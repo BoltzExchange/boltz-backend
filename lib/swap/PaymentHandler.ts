@@ -132,6 +132,7 @@ class PaymentHandler {
         `Paying invoice of swap ${swap.id} with CLTV limit: ${cltvLimit}`,
       );
       const payResponse = await this.pendingPaymentTracker.sendPayment(
+        swap.id,
         lightningClient,
         swap.invoice!,
         cltvLimit,

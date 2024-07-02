@@ -56,13 +56,13 @@ class PendingPaymentTracker {
       ];
       if (client === undefined) {
         this.logger.warn(
-          `Could not track payment ${payment.preimageHash}: ${payment.Swap.lightningCurrency} ${nodeTypeToPrettyString(payment.node)} is not available`,
+          `Could not track payment ${payment.Swap.id} (${payment.preimageHash}): ${payment.Swap.lightningCurrency} ${nodeTypeToPrettyString(payment.node)} is not available`,
         );
         continue;
       }
 
       this.logger.debug(
-        `Watching pending ${client.symbol} ${nodeTypeToPrettyString(client.type)} payment: ${payment.preimageHash}`,
+        `Watching pending ${client.symbol} ${nodeTypeToPrettyString(client.type)} payment of ${payment.Swap.id}: ${payment.preimageHash}`,
       );
       this.lightningTrackers[payment.node].watchPayment(
         client,
@@ -73,6 +73,7 @@ class PendingPaymentTracker {
   };
 
   public sendPayment = async (
+    swapId: string,
     lightningClient: LightningClient,
     invoice: string,
     cltvLimit?: number,
@@ -96,12 +97,13 @@ class PendingPaymentTracker {
       switch (status) {
         case LightningPaymentStatus.Pending:
           this.logger.verbose(
-            `Invoice payment of ${preimageHash} still pending with node ${nodeTypeToPrettyString(relevant.node)}`,
+            `Invoice payment of ${swapId} (${preimageHash}) still pending with node ${nodeTypeToPrettyString(relevant.node)}`,
           );
           return undefined;
 
         case LightningPaymentStatus.Success:
           return this.getSuccessfulPaymentDetails(
+            swapId,
             relevant,
             lightningClient.symbol,
             preimageHash,
@@ -110,6 +112,7 @@ class PendingPaymentTracker {
 
         case LightningPaymentStatus.PermanentFailure:
           return await this.getPermanentFailureDetails(
+            swapId,
             relevant,
             lightningClient.symbol,
           );
@@ -117,6 +120,7 @@ class PendingPaymentTracker {
     }
 
     return this.sendPaymentWithNode(
+      swapId,
       lightningClient,
       preimageHash,
       invoice,
@@ -126,6 +130,7 @@ class PendingPaymentTracker {
   };
 
   private sendPaymentWithNode = async (
+    swapId: string,
     lightningClient: LightningClient,
     preimageHash: string,
     invoice: string,
@@ -166,7 +171,7 @@ class PendingPaymentTracker {
           paymentPromise,
         );
         this.logger.verbose(
-          `Invoice payment ${preimageHash} is still pending with node ${nodeTypeToPrettyString(lightningClient.type)} after ${PendingPaymentTracker.raceTimeout} seconds`,
+          `Invoice payment of ${swapId} (${preimageHash}) is still pending with node ${nodeTypeToPrettyString(lightningClient.type)} after ${PendingPaymentTracker.raceTimeout} seconds`,
         );
         return undefined;
       }
@@ -189,19 +194,20 @@ class PendingPaymentTracker {
   };
 
   private getSuccessfulPaymentDetails = async (
+    swapId: string,
     payment: LightningPayment,
     symbol: string,
     preimageHash: string,
     invoice: string,
   ): Promise<PaymentResponse | undefined> => {
     this.logger.verbose(
-      `Invoice payment of ${preimageHash} has already succeeded on node ${symbol} ${nodeTypeToPrettyString(payment.node)}`,
+      `Invoice payment of ${swapId} (${preimageHash}) has already succeeded on node ${symbol} ${nodeTypeToPrettyString(payment.node)}`,
     );
 
     const nodeThatPaid = this.lightningNodes.get(symbol)[payment.node];
     if (nodeThatPaid === undefined) {
       this.logger.warn(
-        `Could not resolve payment ${preimageHash}: ${symbol} ${nodeTypeToPrettyString(payment.node)} is not available`,
+        `Could not resolve payment of ${swapId} (${preimageHash}): ${symbol} ${nodeTypeToPrettyString(payment.node)} is not available`,
       );
       return undefined;
     }
@@ -223,11 +229,12 @@ class PendingPaymentTracker {
   };
 
   private getPermanentFailureDetails = async (
+    swapId: string,
     payment: LightningPayment,
     symbol: string,
   ) => {
     this.logger.verbose(
-      `Invoice payment of ${payment.preimageHash} has failed with a permanent error on node ${symbol} ${nodeTypeToPrettyString(payment.node)}`,
+      `Invoice payment of ${swapId} (${payment.preimageHash}) has failed with a permanent error on node ${symbol} ${nodeTypeToPrettyString(payment.node)}`,
     );
     throw payment.error;
   };

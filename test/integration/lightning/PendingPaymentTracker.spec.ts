@@ -159,6 +159,7 @@ describe('PendingPaymentTracker', () => {
 
       await waitForClnChainSync();
       const res = await tracker.sendPayment(
+        '',
         clnClient,
         invoiceRes.paymentRequest,
       );
@@ -193,7 +194,7 @@ describe('PendingPaymentTracker', () => {
       });
 
       await expect(
-        tracker.sendPayment(clnClient, invoiceRes.paymentRequest),
+        tracker.sendPayment('', clnClient, invoiceRes.paymentRequest),
       ).rejects.toEqual(expect.anything());
 
       const payments =
@@ -220,9 +221,9 @@ describe('PendingPaymentTracker', () => {
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-expect-error
       PendingPaymentTracker['raceTimeout'] = 2;
-      await expect(tracker.sendPayment(clnClient, invoice)).resolves.toEqual(
-        undefined,
-      );
+      await expect(
+        tracker.sendPayment('', clnClient, invoice),
+      ).resolves.toEqual(undefined);
       await bitcoinLndClient.cancelHoldInvoice(preimageHash);
 
       expect(
@@ -253,7 +254,7 @@ describe('PendingPaymentTracker', () => {
         });
 
         await expect(
-          tracker.sendPayment(bitcoinLndClient, swap.invoice!),
+          tracker.sendPayment('', bitcoinLndClient, swap.invoice!),
         ).resolves.toEqual(undefined);
       });
 
@@ -280,7 +281,7 @@ describe('PendingPaymentTracker', () => {
 
           const paymentRes = await bitcoinLndClient.sendPayment(invoice);
           await expect(
-            tracker.sendPayment(bitcoinLndClient, invoice),
+            tracker.sendPayment('', bitcoinLndClient, invoice),
           ).resolves.toEqual(paymentRes);
         });
 
@@ -301,7 +302,7 @@ describe('PendingPaymentTracker', () => {
             invoiceRes.paymentRequest,
           );
           await expect(
-            tracker.sendPayment(clnClient, invoiceRes.paymentRequest),
+            tracker.sendPayment('', clnClient, invoiceRes.paymentRequest),
           ).resolves.toEqual(paymentRes);
         });
 
@@ -327,7 +328,7 @@ describe('PendingPaymentTracker', () => {
 
           await clnClient.sendPayment(invoiceRes.paymentRequest);
           await expect(
-            tracker.sendPayment(clnClient, invoiceRes.paymentRequest),
+            tracker.sendPayment('', clnClient, invoiceRes.paymentRequest),
           ).resolves.toEqual(undefined);
         });
       });
@@ -350,7 +351,7 @@ describe('PendingPaymentTracker', () => {
         });
 
         await expect(
-          tracker.sendPayment(bitcoinLndClient, invoice),
+          tracker.sendPayment('', bitcoinLndClient, invoice),
         ).rejects.toEqual(error);
       });
     });

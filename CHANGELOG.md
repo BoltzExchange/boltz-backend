@@ -3,6 +3,70 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [3.7.1](https://github.com/BoltzExchange/boltz-backend/compare/v3.7.0..v3.7.1) - 2024-07-02
+
+### Bug Fixes
+
+- put locks on cooperative swap settlement - ([2a36576](https://github.com/BoltzExchange/boltz-backend/commit/2a365767290c0ac08727b5ed6b17c41ad7fb0e2e))
+- unconfirmed user lockup transaction error handling - ([adfbb9c](https://github.com/BoltzExchange/boltz-backend/commit/adfbb9cd852b949c780c74677374449c2a8eecfe))
+- check prevout index for swap related broadcasts (#560) - ([7cdd390](https://github.com/BoltzExchange/boltz-backend/commit/7cdd390b9ac4981252f136f74257940eba2c86e0))
+- also clear temporary exclude list when resetting mpay - ([db7116a](https://github.com/BoltzExchange/boltz-backend/commit/db7116a08ef8142d4830546f21291277a6b87c99))
+- allow for cooperative refunds when CLN pay failed to pay an invoice (#567) - ([293be5e](https://github.com/BoltzExchange/boltz-backend/commit/293be5ed6a85f9cbaee175a1c32aaa7095b1ea59))
+- cleanup Loki log format - ([2a4725a](https://github.com/BoltzExchange/boltz-backend/commit/2a4725a32c27ac3f5a3e63b4d73bf879bb805cc5))
+- missing status for cooperative chain swap refunds (#578) - ([1ed17a8](https://github.com/BoltzExchange/boltz-backend/commit/1ed17a889af3126b1d74b40b71b7781084a1c357))
+- Mattermost max message length (#584) - ([8c4a4e2](https://github.com/BoltzExchange/boltz-backend/commit/8c4a4e21616097f46c12043eaf96ba80f85d6db6))
+- lowball claim covenants (#585) - ([ec4d5b2](https://github.com/BoltzExchange/boltz-backend/commit/ec4d5b267ea201400e5c3dadc0dd5fc1b447fd4b))
+- off by one in BIP-21 routing hint - ([abde534](https://github.com/BoltzExchange/boltz-backend/commit/abde5340fdf86e84b331d851543cba7ae44d962b))
+
+### Features
+
+- include user lockup transactions in swap updates - ([939b889](https://github.com/BoltzExchange/boltz-backend/commit/939b8896957c5700f032e34ebd3b1c4360b4b5fd))
+- add details to failure reason of swap status - ([48e120a](https://github.com/BoltzExchange/boltz-backend/commit/48e120afa3b258b4357341ddcf306790b4117db9))
+- throw error when setting expired invoice - ([90d87cf](https://github.com/BoltzExchange/boltz-backend/commit/90d87cf03afec971c69971828bfb97b9bad1d10e))
+- return referral id in swap created response (#557) - ([74e56ad](https://github.com/BoltzExchange/boltz-backend/commit/74e56addfc19b6a97f86c1a04695b01de07cfd07))
+- configurable minimal swap size multipliers (#562) - ([d86316d](https://github.com/BoltzExchange/boltz-backend/commit/d86316de2f5985e49ae57eb779b34da465ac88ba))
+- granular temporary and permanent mpay memory reset - ([c65f5bb](https://github.com/BoltzExchange/boltz-backend/commit/c65f5bb2c67c30964f9d4c1b20737b0427334523))
+- set labels for addresses and transactions - ([a312595](https://github.com/BoltzExchange/boltz-backend/commit/a31259534723f5549c14bc8b4f31f77f160e4c6d))
+- sanitize ZMQ address wildcards (#576) - ([447e072](https://github.com/BoltzExchange/boltz-backend/commit/447e07214e18598d93160c75ab64f2ebba4788b3))
+- detailed cooperative refund rejection error (#581) - ([e08c854](https://github.com/BoltzExchange/boltz-backend/commit/e08c854cd73b69547dbff36c0fa084cbb41c333e))
+- save permanent payment errors in database (#587) - ([2b9a4e8](https://github.com/BoltzExchange/boltz-backend/commit/2b9a4e8d3bebe369c21cb6843bc345b8e1742f0a))
+
+### Miscellaneous Chores
+
+- add CHANGELOG for v3.7.0 - ([1c7636c](https://github.com/BoltzExchange/boltz-backend/commit/1c7636c21d719265d7ce81594f1148815bc263fe))
+- minor dependency update - ([5dcbe5e](https://github.com/BoltzExchange/boltz-backend/commit/5dcbe5eb722a6d3d8353ec7ec80092c0bf92f552))
+- bump LND to v0.18.0-beta - ([bf13d1f](https://github.com/BoltzExchange/boltz-backend/commit/bf13d1f1c836095d909c45dc0214b71e1eab74b2))
+- minor dependency updates - ([d362dad](https://github.com/BoltzExchange/boltz-backend/commit/d362dad7c3b189026a1906e7c1dedbc6aa7bda10))
+- set NODE_ENV to production in Docker build - ([a433cea](https://github.com/BoltzExchange/boltz-backend/commit/a433cea986869d74c413e9e8e34bf20ef0a715fd))
+- bump CLN to v24.05 (#559) - ([358c9bf](https://github.com/BoltzExchange/boltz-backend/commit/358c9bf3fd545fc564fd42cdbcdec1e9698d7d67))
+- update CLN protos to v24.05 (#561) - ([7239988](https://github.com/BoltzExchange/boltz-backend/commit/7239988b430f98c508afd336e60b2ea751e3a1fe))
+- update Python dependencies - ([10b055f](https://github.com/BoltzExchange/boltz-backend/commit/10b055f5891edfae1502760789825c5589fc9b0b))
+- add logging for rescan command - ([525c885](https://github.com/BoltzExchange/boltz-backend/commit/525c88513360e10ba28267228655e951773add26))
+- bump @grpc/grpc-js from 1.10.8 to 1.10.9 (#568) - ([47505ba](https://github.com/BoltzExchange/boltz-backend/commit/47505ba8ddfef226736c8f284ce98379ca4b3eb6))
+- bump braces from 3.0.2 to 3.0.3 (#569) - ([8108cc6](https://github.com/BoltzExchange/boltz-backend/commit/8108cc6889d26fd1c1fc192e1329a1a28594f515))
+- bump urllib3 from 2.2.1 to 2.2.2 in /tools (#571) - ([ca491df](https://github.com/BoltzExchange/boltz-backend/commit/ca491df9f80825f425a1c66bbc36a90934a56265))
+- bump ws and ethers (#572) - ([41564aa](https://github.com/BoltzExchange/boltz-backend/commit/41564aacfcbebd382db8033522b55d9f981cb199))
+- bump Bitcoin Core to v27.1 (#575) - ([3436b5a](https://github.com/BoltzExchange/boltz-backend/commit/3436b5ac79d5096351270edc6908772009807e6a))
+- update NPM dependencies - ([e9681fd](https://github.com/BoltzExchange/boltz-backend/commit/e9681fd62ede92c74d36016b117cab3906f8bd0e))
+- change license to AGPL-3 (#574) - ([1f61a44](https://github.com/BoltzExchange/boltz-backend/commit/1f61a44286ba614bd3d234b87026fbdddc037c78))
+- bump LND version to v0.18.1-beta (#582) - ([bae070f](https://github.com/BoltzExchange/boltz-backend/commit/bae070fb701ca8cb3db50a1e180c2b7df0f85425))
+- include dependencies for clnrest in image - ([cac6d0b](https://github.com/BoltzExchange/boltz-backend/commit/cac6d0b65016ebf8c6931eea882c7e39ec39b2df))
+- bump CI action versions - ([e7b18d0](https://github.com/BoltzExchange/boltz-backend/commit/e7b18d06ea7c22c0a5442c4703cb933b032bbd11))
+- bump version to v3.7.1 - ([0f7ded9](https://github.com/BoltzExchange/boltz-backend/commit/0f7ded9924a3404763401547974bd165d24c910c))
+- include swap id in invoice payment tracking logs (#589) - ([e52efbf](https://github.com/BoltzExchange/boltz-backend/commit/e52efbfc574f93910f7103c3b407a1c27cd51ce6))
+
+### Refactoring
+
+- improve transaction detection logging - ([77d7f00](https://github.com/BoltzExchange/boltz-backend/commit/77d7f009716e2c81ac11622b642e85f2a0c7e520))
+- swap status cache - ([751077c](https://github.com/BoltzExchange/boltz-backend/commit/751077c7d7bd7d8ec2ed5c5dbf0540e9fb1b0f73))
+- make toHaveBeenCalledTimes in tests more readable - ([e17185e](https://github.com/BoltzExchange/boltz-backend/commit/e17185ee384fc366496597dff747b2abef143c69))
+- tracking of pending invoice payments - ([e7edd6a](https://github.com/BoltzExchange/boltz-backend/commit/e7edd6af12de7087eb12c4614b12f0a87713e935))
+
+### Tests
+
+- make tests more robust by waiting for CLN sync - ([748e5f8](https://github.com/BoltzExchange/boltz-backend/commit/748e5f871994fa6f9bf98a8588a8950ddf74c7d5))
+
+---
 ## [3.7.0](https://github.com/BoltzExchange/boltz-backend/compare/v3.6.0..v3.7.0) - 2024-05-29
 
 ### Bug Fixes

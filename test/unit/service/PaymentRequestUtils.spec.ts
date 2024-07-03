@@ -97,7 +97,7 @@ describe('PaymentRequestUtils', () => {
     });
   });
 
-  test('should encode testnet L-BTCC BIP21', () => {
+  test('should encode testnet L-BTC BIP21', () => {
     const symbol = 'L-BTC';
     const address =
       'ert1qmlpr7ujjcjmm95gg7hrmhcetty59yck9rxrg3qm3dsl0juhrhpvqy7m2jq';

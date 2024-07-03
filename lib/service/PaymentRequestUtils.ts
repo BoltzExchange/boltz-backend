@@ -44,7 +44,7 @@ class PaymentRequestUtils {
       amount: `${satoshisToCoins(satoshis)}`,
     };
 
-    if (label) {
+    if (label !== undefined) {
       params['label'] = label;
     }
 

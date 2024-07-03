@@ -1417,6 +1417,9 @@ class Service {
     userAddressSignature?: Buffer;
 
     claimCovenant?: boolean;
+
+    // Description for the invoice and magic routing hint
+    description?: string;
   }): Promise<{
     id: string;
     invoice: string;
@@ -1650,6 +1653,7 @@ class Service {
       baseCurrency: base,
       quoteCurrency: quote,
       version: args.version,
+      memo: args.description,
       routingNode: args.routingNode,
       userAddress: args.userAddress,
       claimAddress: args.claimAddress,

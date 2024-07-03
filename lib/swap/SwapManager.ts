@@ -650,6 +650,8 @@ class SwapManager {
     userAddressSignature?: Buffer;
 
     claimCovenant: boolean;
+
+    memo?: string;
   }): Promise<CreatedReverseSwap> => {
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(
       args.baseCurrency,

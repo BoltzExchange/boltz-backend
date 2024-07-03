@@ -32,6 +32,7 @@ class ReverseRoutingHints {
   public getHints = (
     sendingCurrency: Currency,
     args: {
+      memo?: string;
       userAddress?: string;
       version: SwapVersion;
       onchainAmount: number;
@@ -39,10 +40,9 @@ class ReverseRoutingHints {
       userAddressSignature?: Buffer;
     },
   ): SwapHints => {
-    const invoiceMemo = getSwapMemo(
-      sendingCurrency.symbol,
-      SwapType.ReverseSubmarine,
-    );
+    const invoiceMemo =
+      args.memo ||
+      getSwapMemo(sendingCurrency.symbol, SwapType.ReverseSubmarine);
     const receivedAmount =
       args.onchainAmount -
       this.rateProvider.feeProvider.minerFees.get(sendingCurrency.symbol)![
@@ -68,6 +68,7 @@ class ReverseRoutingHints {
       sendingCurrency.symbol,
       args.userAddress,
       receivedAmount,
+      args.memo,
     );
 
     const routingHint = this.encodeRoutingHint(

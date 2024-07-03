@@ -1809,6 +1809,7 @@ describe('Service', () => {
     const orderSide = 'buy';
     const referralId = 'asdf';
     const invoiceAmount = 100000;
+    const description = 'custom message';
     const preimageHash = randomBytes(32);
     const claimPublicKey = getHexBuffer('0xfff');
 
@@ -1825,6 +1826,7 @@ describe('Service', () => {
     const response = await service.createReverseSwap({
       orderSide,
       referralId,
+      description,
       preimageHash,
       invoiceAmount,
       claimPublicKey,
@@ -1864,6 +1866,7 @@ describe('Service', () => {
       preimageHash,
       onchainAmount,
       claimPublicKey,
+      memo: description,
       baseCurrency: 'BTC',
       quoteCurrency: 'BTC',
       claimCovenant: false,

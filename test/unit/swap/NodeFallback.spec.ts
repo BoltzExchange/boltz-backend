@@ -352,7 +352,7 @@ describe('NodeFallback', () => {
       );
     });
 
-    test('should limit length to 50', () => {
+    test('should limit length', () => {
       const msg = 'this is a very long string. buncha charss';
       expect(msg).toHaveLength(41);
       expect(() => fallback['checkInvoiceMemo'](msg)).toThrow(

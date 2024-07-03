@@ -735,6 +735,9 @@ class SwapRouter extends RouterBase {
      *           type: boolean
      *           default: false
      *           description: If the claim covenant should be added to the Taproot tree. Only possible when "address" is set
+     *         description:
+     *           type: string
+     *           description: Description of the created invoice and magic routing hint. Only ASCII and a maximum length of 40 characters is allowed.
      */
     /**
      * @openapi
@@ -1685,6 +1688,7 @@ class SwapRouter extends RouterBase {
       from,
       address,
       pairHash,
+      description,
       routingNode,
       preimageHash,
       claimAddress,
@@ -1699,6 +1703,7 @@ class SwapRouter extends RouterBase {
       { name: 'preimageHash', type: 'string', hex: true },
       { name: 'address', type: 'string', optional: true },
       { name: 'pairHash', type: 'string', optional: true },
+      { name: 'description', type: 'string', optional: true },
       { name: 'routingNode', type: 'string', optional: true },
       { name: 'claimAddress', type: 'string', optional: true },
       { name: 'invoiceAmount', type: 'number', optional: true },
@@ -1718,6 +1723,7 @@ class SwapRouter extends RouterBase {
       orderSide,
       referralId,
       routingNode,
+      description,
       preimageHash,
       claimAddress,
       invoiceAmount,

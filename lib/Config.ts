@@ -120,6 +120,8 @@ type ApiConfig = {
 type GrpcConfig = {
   host: string;
   port: number;
+  disableSsl?: boolean;
+  certificates: string;
 };
 
 type RatesConfig = {
@@ -264,6 +266,7 @@ class Config {
       grpc: {
         host: '127.0.0.1',
         port: 9000,
+        certificates: path.join(this.dataDir, 'certificates'),
       },
 
       rates: {

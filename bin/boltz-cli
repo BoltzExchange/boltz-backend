@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+const path = require('path');
+
 require('yargs')
   .options({
     rpc: {
@@ -18,6 +20,17 @@ require('yargs')
       describe: 'gRPC service port',
       alias: 'p',
       default: 9000,
+      type: 'number',
+    },
+    'rpc.disable-ssl': {
+      describe: 'Disable SSL authentication for the gRPC',
+      alias: 'd',
+      default: false,
+      type: 'boolean',
+    },
+    'rpc.certificates': {
+      describe: 'gRPC SSL certificates folder',
+      default: path.join(process.env.HOME, '.boltz', 'certificates'),
       type: 'number',
     },
     'api.endpoint': {

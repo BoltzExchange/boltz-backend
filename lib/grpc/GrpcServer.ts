@@ -1,17 +1,19 @@
-import { Server, ServerCredentials } from '@grpc/grpc-js';
-import assert from 'assert';
+import { KeyCertPair, Server, ServerCredentials } from '@grpc/grpc-js';
 import { GrpcConfig } from '../Config';
 import Logger from '../Logger';
 import { BoltzService } from '../proto/boltzrpc_grpc_pb';
+import { CertificatePrefix, getCertificate } from './Certificates';
 import Errors from './Errors';
 import GrpcService from './GrpcService';
 
 class GrpcServer {
-  private server: Server;
+  public static readonly certificateSubject = 'boltz';
+
+  private readonly server: Server;
 
   constructor(
     private logger: Logger,
-    private grpcConfig: GrpcConfig,
+    private config: GrpcConfig,
     grpcService: GrpcService,
   ) {
     this.server = new Server();
@@ -35,18 +37,28 @@ class GrpcServer {
     });
   }
 
-  public listen = (): Promise<void> => {
-    const { port, host } = this.grpcConfig;
+  public listen = async () => {
+    const { port, host } = this.config;
 
-    assert(
-      Number.isInteger(port) && port > 1023 && port < 65536,
-      'port must be an integer between 1024 and 65536',
-    );
+    if (!Number.isInteger(port) || port > 65535) {
+      throw 'invalid port for gRPC server';
+    }
 
-    return new Promise<void>((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
+      let credentials: ServerCredentials;
+
+      if (this.config.disableSsl) {
+        this.logger.warn('Creating insecure gRPC server');
+        credentials = ServerCredentials.createInsecure();
+      } else {
+        this.logger.debug('Creating gRPC server with SSL authentication');
+        const { rootCert, serverCert } = this.loadCertificates();
+        credentials = ServerCredentials.createSsl(rootCert, [serverCert], true);
+      }
+
       this.server.bindAsync(
         `${host}:${port}`,
-        ServerCredentials.createInsecure(),
+        credentials,
         (error, bindPort) => {
           if (error) {
             reject(Errors.COULD_NOT_BIND(host, port, error.message));
@@ -59,13 +71,50 @@ class GrpcServer {
     });
   };
 
-  public close = (): Promise<void> => {
-    return new Promise((resolve) => {
-      this.server.tryShutdown(() => {
-        this.logger.info('gRPC server completed shutdown');
-        resolve();
+  public close = () => {
+    return new Promise<void>((resolve, reject) => {
+      this.server.tryShutdown((error) => {
+        if (error) {
+          reject(error);
+        } else {
+          this.logger.info('Shut down gRPC server');
+          resolve();
+        }
       });
     });
+  };
+
+  private loadCertificates = (): {
+    rootCert: Buffer;
+    serverCert: KeyCertPair;
+  } => {
+    const caCert = getCertificate(
+      this.logger,
+      GrpcServer.certificateSubject,
+      this.config.certificates,
+      CertificatePrefix.CA,
+    );
+    const serverCert = getCertificate(
+      this.logger,
+      GrpcServer.certificateSubject,
+      this.config.certificates,
+      CertificatePrefix.Server,
+      caCert,
+    );
+
+    // Not being used but called to create them
+    getCertificate(
+      this.logger,
+      GrpcServer.certificateSubject,
+      this.config.certificates,
+      CertificatePrefix.Client,
+      caCert,
+    );
+
+    return {
+      serverCert,
+      rootCert: caCert.cert_chain,
+    };
   };
 }
 

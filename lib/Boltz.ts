@@ -70,6 +70,7 @@ class Boltz {
     );
 
     registerExitHandler(async () => {
+      await this.grpcServer.close();
       await this.db.close();
       await this.logger.close();
     });

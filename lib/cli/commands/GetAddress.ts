@@ -1,6 +1,6 @@
 import { Arguments } from 'yargs';
 import { GetAddressRequest } from '../../proto/boltzrpc_pb';
-import BuilderComponents, { BuilderTypes } from '../BuilderComponents';
+import BuilderComponents, { ApiType, BuilderTypes } from '../BuilderComponents';
 import { callback, loadBoltzClient } from '../Command';
 
 export const command = 'getaddress <symbol> <label>';
@@ -16,7 +16,7 @@ export const builder = {
 };
 
 export const handler = (
-  argv: Arguments<BuilderTypes<typeof builder>>,
+  argv: Arguments<BuilderTypes<typeof builder> & ApiType>,
 ): void => {
   const request = new GetAddressRequest();
 

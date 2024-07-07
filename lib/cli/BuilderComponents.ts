@@ -2,7 +2,16 @@ export type BuilderTypes<T extends Record<string, { type: string }>> = {
   [K in keyof T]: any;
 };
 
-export type ApiType = {
+export type RpcType = {
+  rpc: {
+    host: string;
+    port: number;
+    certificates: string;
+    'disable-ssl': boolean;
+  };
+};
+
+export type ApiType = RpcType & {
   api: {
     endpoint: string;
   };

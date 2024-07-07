@@ -21,7 +21,7 @@ type ClnConfig = BaseConfig & {
 const createSsl = (
   serviceName: string,
   symbol: string,
-  config: BaseConfig,
+  config: Omit<Omit<BaseConfig, 'host'>, 'port'>,
 ): ChannelCredentials => {
   const certFiles = [
     config.rootCertPath,

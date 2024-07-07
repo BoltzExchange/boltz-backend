@@ -13,6 +13,7 @@ import { randomBytes } from 'crypto';
 import { ECPairInterface } from 'ecpair';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
+import path from 'path';
 import { Arguments } from 'yargs';
 import {
   parseTransaction,
@@ -24,17 +25,42 @@ import {
 import { ECPair } from '../ECPairHelper';
 import { getHexBuffer, stringify } from '../Utils';
 import { CurrencyType } from '../consts/Enums';
+import { CertificatePrefix } from '../grpc/Certificates';
+import GrpcServer from '../grpc/GrpcServer';
+import { grpcOptions } from '../lightning/GrpcUtils';
+import { createSsl } from '../lightning/cln/Types';
 import { BoltzClient } from '../proto/boltzrpc_grpc_pb';
+import { RpcType } from './BuilderComponents';
 
 export interface GrpcResponse {
   toObject: () => any;
 }
 
-export const loadBoltzClient = (argv: Arguments<any>): BoltzClient => {
-  return new BoltzClient(
-    `${argv.rpc.host}:${argv.rpc.port}`,
-    credentials.createInsecure(),
-  );
+export const loadBoltzClient = (argv: RpcType): BoltzClient => {
+  const address = `${argv.rpc.host}:${argv.rpc.port}`;
+
+  if (argv.rpc['disable-ssl']) {
+    return new BoltzClient(address, credentials.createInsecure());
+  } else {
+    const creds = createSsl('Boltz', 'gRPC', {
+      rootCertPath: path.join(
+        argv.rpc.certificates,
+        `${CertificatePrefix.CA}.pem`,
+      ),
+      certChainPath: path.join(
+        argv.rpc.certificates,
+        `${CertificatePrefix.Client}.pem`,
+      ),
+      privateKeyPath: path.join(
+        argv.rpc.certificates,
+        `${CertificatePrefix.Client}-key.pem`,
+      ),
+    });
+    return new BoltzClient(address, creds, {
+      ...grpcOptions,
+      'grpc.ssl_target_name_override': GrpcServer.certificateSubject,
+    });
+  }
 };
 
 export const callback = <T extends GrpcResponse>(

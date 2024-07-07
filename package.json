@@ -32,7 +32,7 @@
     "docker:stop": "docker kill regtest && docker rm regtest && docker kill anvil && docker rm anvil",
     "test": "npm run test:unit && npm run docker:start && npm run test:int && npm run docker:stop",
     "test:nodocker": "npm run test:unit && npm run test:int",
-    "test:unit": "jest test/unit",
+    "test:unit": "GRPC_NODE_VERBOSITY=NONE jest test/unit",
     "test:unit:coverage": "jest test/unit --coverage",
     "test:int": "jest test/integration --runInBand --testTimeout 10000",
     "changelog": "git-cliff -o CHANGELOG.md",

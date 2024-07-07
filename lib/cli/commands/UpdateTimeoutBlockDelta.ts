@@ -1,6 +1,6 @@
 import { Arguments } from 'yargs';
 import { UpdateTimeoutBlockDeltaRequest } from '../../proto/boltzrpc_pb';
-import { BuilderTypes } from '../BuilderComponents';
+import { ApiType, BuilderTypes } from '../BuilderComponents';
 import { callback, loadBoltzClient } from '../Command';
 
 const command =
@@ -35,7 +35,9 @@ const builder = {
   },
 };
 
-const handler = (argv: Arguments<BuilderTypes<typeof builder>>): void => {
+const handler = (
+  argv: Arguments<BuilderTypes<typeof builder> & ApiType>,
+): void => {
   const request = new UpdateTimeoutBlockDeltaRequest();
 
   request.setPair(argv.pair);

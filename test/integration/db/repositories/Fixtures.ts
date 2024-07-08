@@ -14,7 +14,8 @@ import { NodeType } from '../../../../lib/db/models/ReverseSwap';
 import ChainSwapRepository from '../../../../lib/db/repositories/ChainSwapRepository';
 import ReverseSwapRepository from '../../../../lib/db/repositories/ReverseSwapRepository';
 
-export const createSubmarineSwapData = () => ({
+export const createSubmarineSwapData = (acceptZeroConf = false) => ({
+  acceptZeroConf,
   pair: 'BTC/BTC',
   lockupAddress: 'bc1',
   timeoutBlockHeight: 1,
@@ -48,14 +49,15 @@ export const createReverseSwap = async (
 export const createChainSwap = async (
   status = SwapUpdateEvent.SwapCreated,
   sendingTimeoutBlockHeight = 813411,
+  acceptZeroConf = false,
 ) => {
   const chainSwap = {
     status,
+    acceptZeroConf,
+    fee: 123,
     id: generateId(),
     pair: 'L-BTC/BTC',
     orderSide: OrderSide.BUY,
-    fee: 123,
-    acceptZeroConf: false,
     preimageHash: getHexString(randomBytes(32)),
   };
 

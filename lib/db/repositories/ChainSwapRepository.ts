@@ -197,6 +197,23 @@ class ChainSwapRepository {
       ]);
     });
 
+  public static disableZeroConf = async (swaps: ChainSwapInfo[]) => {
+    if (swaps.length === 0) {
+      return;
+    }
+
+    await ChainSwap.update(
+      {
+        acceptZeroConf: false,
+      },
+      {
+        where: {
+          id: swaps.map((s) => s.id),
+        },
+      },
+    );
+  };
+
   public static setUserLockupTransaction = (
     swap: ChainSwapInfo,
     lockupTransactionId: string,

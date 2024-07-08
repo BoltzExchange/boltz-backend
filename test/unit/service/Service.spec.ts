@@ -1227,9 +1227,9 @@ describe('Service', () => {
       service.transactionFetcher.getSwapsSpentInInputs = jest
         .fn()
         .mockResolvedValue({
-          swapsRefunded: [],
           chainSwapsSpent: [],
-          reverseSwapsClaimed: [{ id: 'i am being refunded' }],
+          reverseSwapsClaimed: [],
+          swapsRefunded: [{ id: 'i am being refunded' }],
         });
 
       await expect(
@@ -1240,11 +1240,30 @@ describe('Service', () => {
       expect(mockSendRawTransaction).toHaveBeenCalledWith(transactionHex, true);
     });
 
-    test('should detect but now allow swap related transaction when Reverse Swaps are being claimed but also Submarine Swaps locked up', async () => {
+    test('should detect swap related transactions when Chain Swaps are being spent', async () => {
+      service.transactionFetcher.getSwapsSpentInInputs = jest
+        .fn()
+        .mockResolvedValue({
+          swapsRefunded: [],
+          reverseSwapsClaimed: [],
+          chainSwapsSpent: [{ id: 'i am being spent' }],
+        });
+
+      await expect(
+        service.broadcastTransaction('BTC', transactionHex),
+      ).resolves.toEqual(sendRawTransaction);
+
+      expect(mockSendRawTransaction).toHaveBeenCalledTimes(1);
+      expect(mockSendRawTransaction).toHaveBeenCalledWith(transactionHex, true);
+    });
+
+    test('should detect swap related transactions when Submarine Swaps are being funded', async () => {
+      const swapLockups = [{ id: 'lockup' }];
+
       service.transactionFetcher.getSwapsFundedInOutputs = jest
         .fn()
         .mockResolvedValue({
-          swapLockups: [{ id: 'lockup' }],
+          swapLockups,
           chainSwapLockups: [],
         });
       service.transactionFetcher.getSwapsSpentInInputs = jest
@@ -1252,11 +1271,7 @@ describe('Service', () => {
         .mockResolvedValue({
           swapsRefunded: [],
           chainSwapsSpent: [],
-          reverseSwapsClaimed: [
-            {
-              id: 'cheap swap',
-            },
-          ],
+          reverseSwapsClaimed: [],
         });
 
       await expect(
@@ -1264,18 +1279,29 @@ describe('Service', () => {
       ).resolves.toEqual(sendRawTransaction);
 
       expect(mockSendRawTransaction).toHaveBeenCalledTimes(1);
-      expect(mockSendRawTransaction).toHaveBeenCalledWith(
-        transactionHex,
-        false,
-      );
+      expect(mockSendRawTransaction).toHaveBeenCalledWith(transactionHex, true);
+
+      expect(SwapRepository.disableZeroConf).toHaveBeenCalledTimes(1);
+      expect(SwapRepository.disableZeroConf).toHaveBeenCalledWith(swapLockups);
     });
 
-    test('should detect but now allow swap related transaction when Reverse Swaps are being claimed but also Chain Swaps locked up', async () => {
+    test('should detect swap related transactions when Chain Swaps are being funded', async () => {
+      ChainSwapRepository.disableZeroConf = jest.fn();
+
+      const chainSwapLockups = [{ id: 'lockup' }];
+
       service.transactionFetcher.getSwapsFundedInOutputs = jest
         .fn()
         .mockResolvedValue({
+          chainSwapLockups,
           swapLockups: [],
-          chainSwapLockups: [{ id: 'lockup' }],
+        });
+      service.transactionFetcher.getSwapsSpentInInputs = jest
+        .fn()
+        .mockResolvedValue({
+          swapsRefunded: [],
+          chainSwapsSpent: [],
+          reverseSwapsClaimed: [],
         });
 
       await expect(
@@ -1283,13 +1309,17 @@ describe('Service', () => {
       ).resolves.toEqual(sendRawTransaction);
 
       expect(mockSendRawTransaction).toHaveBeenCalledTimes(1);
-      expect(mockSendRawTransaction).toHaveBeenCalledWith(
-        transactionHex,
-        false,
+      expect(mockSendRawTransaction).toHaveBeenCalledWith(transactionHex, true);
+
+      expect(ChainSwapRepository.disableZeroConf).toHaveBeenCalledTimes(1);
+      expect(ChainSwapRepository.disableZeroConf).toHaveBeenCalledWith(
+        chainSwapLockups,
       );
     });
 
     test('should throw swap timeout error', async () => {
+      ChainSwapRepository.disableZeroConf = jest.fn();
+
       sendRawTransaction = {
         code: -26,
         message:
@@ -1318,7 +1348,9 @@ describe('Service', () => {
       });
     });
 
-    test('should bubble up node error when not a Submarine Swap refund', async () => {
+    test('should bubble up node error when the transaction is not a Submarine refund', async () => {
+      ChainSwapRepository.disableZeroConf = jest.fn();
+
       service.transactionFetcher.getSwapsSpentInInputs = jest
         .fn()
         .mockResolvedValue({

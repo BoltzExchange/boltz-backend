@@ -44,6 +44,17 @@ class SwapRepository {
     return Swap.create(swap);
   };
 
+  public static disableZeroConf = async (swaps: Swap[]) => {
+    if (swaps.length === 0) {
+      return;
+    }
+
+    await Swap.update(
+      { acceptZeroConf: false },
+      { where: { id: swaps.map((s) => s.id) } },
+    );
+  };
+
   public static setSwapStatus = (
     swap: Swap,
     status: string,

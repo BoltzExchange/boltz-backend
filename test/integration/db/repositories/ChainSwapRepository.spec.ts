@@ -294,6 +294,57 @@ describe('ChainSwapRepository', () => {
     expect(expirableSwaps[0].chainSwap).toMatchObject(expirable.chainSwap);
   });
 
+  describe('disableZeroConf', () => {
+    test('should disable 0-conf', async () => {
+      const swaps: Awaited<ReturnType<typeof createChainSwap>>[] = [];
+
+      for (let i = 0; i < 3; i++) {
+        swaps.push(await createChainSwap(undefined, undefined, true));
+      }
+
+      expect(swaps.every((s) => s.chainSwap.acceptZeroConf)).toEqual(true);
+
+      const toDisable = await ChainSwapRepository.getChainSwaps({
+        id: [swaps[0].chainSwap.id, swaps[1].chainSwap.id],
+      });
+      await ChainSwapRepository.disableZeroConf(toDisable);
+
+      expect(
+        (await ChainSwapRepository.getChainSwap({
+          id: swaps[0].chainSwap.id,
+        }))!.chainSwap.acceptZeroConf,
+      ).toEqual(false);
+      expect(
+        (await ChainSwapRepository.getChainSwap({
+          id: swaps[1].chainSwap.id,
+        }))!.chainSwap.acceptZeroConf,
+      ).toEqual(false);
+      expect(
+        (await ChainSwapRepository.getChainSwap({
+          id: swaps[2].chainSwap.id,
+        }))!.chainSwap.acceptZeroConf,
+      ).toEqual(true);
+    });
+
+    test('should ignore when no swaps are given as parameter', async () => {
+      const swaps: Awaited<ReturnType<typeof createChainSwap>>[] = [];
+
+      for (let i = 0; i < 3; i++) {
+        swaps.push(await createChainSwap(undefined, undefined, true));
+      }
+
+      await ChainSwapRepository.disableZeroConf([]);
+
+      for (const swap of swaps) {
+        expect(
+          (await ChainSwapRepository.getChainSwap({
+            id: swap.chainSwap.id,
+          }))!.chainSwap.acceptZeroConf,
+        ).toEqual(true);
+      }
+    });
+  });
+
   test.each`
     status                                  | confirmed
     ${SwapUpdateEvent.TransactionMempool}   | ${false}

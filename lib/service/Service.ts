@@ -716,14 +716,27 @@ class Service {
       funded.chainSwapLockups,
     );
 
-    // Only allow lowball when Reverse Swaps are being claimed or Submarine Swaps being refunded
-    // and no Submarine Swap lockup happens
-    // That prevents transactions that we could accept 0-conf for from being broadcast through our API
-    const isSwapRelated = swapsFunded.length === 0 && swapsSpent.length > 0;
+    // Only allow lowball for swap related transactions
+    const isSwapRelated = swapsFunded.length > 0 || swapsSpent.length > 0;
+    const relevantSwapIds = swapsSpent.concat(swapsFunded).map((r) => r.id);
 
     if (isSwapRelated) {
+      // Disable 0-conf for all swaps that are being funded
+      if (swapsFunded.length > 0) {
+        this.logger.debug(
+          `Disabling 0-conf for Swaps: ${swapsFunded.map((s) => s.id).join(', ')}`,
+        );
+
+        await Promise.all([
+          SwapRepository.disableZeroConf(funded.swapLockups),
+          ChainSwapRepository.disableZeroConf(funded.chainSwapLockups),
+        ]);
+      }
+
       this.logger.debug(
-        `Broadcasting ${symbol} transaction related to Swaps (${swapsSpent.map((r) => r.id).join(', ')}): ${transaction.getId()}`,
+        `Broadcasting ${symbol} transaction related to Swaps (${relevantSwapIds.join(
+          ', ',
+        )}): ${transaction.getId()}`,
       );
     }
 
@@ -733,6 +746,12 @@ class Service {
         isSwapRelated,
       );
     } catch (error) {
+      if (isSwapRelated) {
+        this.logger.warn(
+          `Broadcast of ${symbol} transaction related to Swaps (${relevantSwapIds.join(', ')}) failed ${formatError(error)}: ${transactionHex}`,
+        );
+      }
+
       // This special error is thrown when a Submarine Swap that has not timed out yet is refunded
       // To improve the UX we will throw not only the error but also some additional information
       // regarding when the Submarine Swap can be refunded

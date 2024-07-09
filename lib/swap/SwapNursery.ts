@@ -4,6 +4,7 @@ import { OutputType, SwapTreeSerializer } from 'boltz-core';
 import { ContractTransactionResponse } from 'ethers';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import { Op } from 'sequelize';
+import { OverPaymentConfig } from '../Config';
 import {
   ClaimDetails,
   LiquidClaimDetails,
@@ -128,6 +129,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     private readonly claimer: DeferredClaimer,
     private readonly chainSwapSigner: ChainSwapSigner,
     lockupTransactionTracker: LockupTransactionTracker,
+    overPaymentConfig?: OverPaymentConfig,
   ) {
     super();
 
@@ -138,6 +140,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       this.walletManager,
       blocks,
       lockupTransactionTracker,
+      overPaymentConfig,
     );
     this.lightningNursery = new LightningNursery(this.logger);
     this.invoiceNursery = new InvoiceNursery(this.logger);

@@ -116,11 +116,9 @@ describe('ChainSwapInfo', () => {
     };
 
     test.each`
-      name                                       | swapData
-      ${'amount is undefined'}                   | ${{}}
-      ${'expectedAmount is undefined'}           | ${{ amount: 123 }}
-      ${'amount is equal to expectedAmount'}     | ${{ amount: 123, expectedAmount: 123 }}
-      ${'amount is greater than expectedAmount'} | ${{ amount: 1234, expectedAmount: 123 }}
+      name                                   | swapData
+      ${'amount is undefined'}               | ${{}}
+      ${'amount is equal to expectedAmount'} | ${{ amount: 123, expectedAmount: 123 }}
     `('should return undefined when $name', async ({ swapData }) => {
       const swapType = createSwapBase();
       swapType.receivingData = {
@@ -136,24 +134,31 @@ describe('ChainSwapInfo', () => {
       expect(swap!.failureDetails).toEqual(undefined);
     });
 
-    test('should return insufficient amount details when amount is less than expected amount', async () => {
-      const swapType = createSwapBase();
-      swapType.receivingData = {
-        ...swapType.receivingData,
-        amount: 20,
-        expectedAmount: 21,
-      };
-      await ChainSwapRepository.addChainSwap(swapType);
+    test.each`
+      name      | amount
+      ${'less'} | ${20}
+      ${'more'} | ${22}
+    `(
+      'should return insufficient amount details when amount is $name than expected amount',
+      async ({ amount }) => {
+        const swapType = createSwapBase();
+        swapType.receivingData = {
+          ...swapType.receivingData,
+          amount,
+          expectedAmount: 21,
+        };
+        await ChainSwapRepository.addChainSwap(swapType);
 
-      const swap = await ChainSwapRepository.getChainSwap({
-        id: swapType.chainSwap.id,
-      });
-      expect(swap).not.toBeNull();
-      expect(swap!.failureDetails).toEqual({
-        actual: swapType.receivingData.amount,
-        expected: swapType.receivingData.expectedAmount,
-      });
-    });
+        const swap = await ChainSwapRepository.getChainSwap({
+          id: swapType.chainSwap.id,
+        });
+        expect(swap).not.toBeNull();
+        expect(swap!.failureDetails).toEqual({
+          actual: swapType.receivingData.amount,
+          expected: swapType.receivingData.expectedAmount,
+        });
+      },
+    );
   });
 });
 

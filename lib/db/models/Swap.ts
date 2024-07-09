@@ -1,7 +1,7 @@
 import { DataTypes, Model, Sequelize } from 'sequelize';
 import { getLightningCurrency, splitPairId } from '../../Utils';
 import { SwapType as SwapKindType, SwapVersion } from '../../consts/Enums';
-import { InsufficientAmountDetails } from '../../consts/Types';
+import { IncorrectAmountDetails } from '../../consts/Types';
 import Pair from './Pair';
 
 type SwapType = {
@@ -184,13 +184,13 @@ class Swap extends Model implements SwapType {
     return getLightningCurrency(base, quote, this.orderSide, false);
   }
 
-  get failureDetails(): InsufficientAmountDetails | undefined {
+  get failureDetails(): IncorrectAmountDetails | undefined {
     if (
       [this.onchainAmount, this.expectedAmount].every(
         (val) => val !== undefined && val !== null,
       )
     ) {
-      if (this.onchainAmount! < this.expectedAmount!) {
+      if (this.onchainAmount! !== this.expectedAmount!) {
         return {
           actual: this.onchainAmount!,
           expected: this.expectedAmount!,

@@ -1,6 +1,6 @@
 import { DataTypes, Model, Sequelize } from 'sequelize';
 import { SwapType, SwapVersion } from '../../consts/Enums';
-import { InsufficientAmountDetails } from '../../consts/Types';
+import { IncorrectAmountDetails } from '../../consts/Types';
 import Pair from './Pair';
 
 enum NodeType {
@@ -223,7 +223,7 @@ class ReverseSwap extends Model implements ReverseSwapType {
     return this.onchainAmount;
   }
 
-  get failureDetails(): InsufficientAmountDetails | undefined {
+  get failureDetails(): IncorrectAmountDetails | undefined {
     return undefined;
   }
 }

@@ -71,11 +71,10 @@ describe('Swap', () => {
     });
 
     test.each`
-      name                                              | swapData
-      ${'onchainAmount is undefined'}                   | ${{}}
-      ${'expectedAmount is undefined'}                  | ${{ onchainAmount: 123 }}
-      ${'onchainAmount is equal to expectedAmount'}     | ${{ onchainAmount: 123, expectedAmount: 123 }}
-      ${'onchainAmount is greater than expectedAmount'} | ${{ onchainAmount: 1234, expectedAmount: 123 }}
+      name                                          | swapData
+      ${'onchainAmount is undefined'}               | ${{}}
+      ${'expectedAmount is undefined'}              | ${{ onchainAmount: 123 }}
+      ${'onchainAmount is equal to expectedAmount'} | ${{ onchainAmount: 123, expectedAmount: 123 }}
     `('should return undefined when $name', async ({ swapData }) => {
       const swap = await Swap.create({
         ...createSwapBase(),
@@ -84,16 +83,23 @@ describe('Swap', () => {
       expect(swap.failureDetails).toEqual(undefined);
     });
 
-    test('should return insufficient amount details when onchain amount is less than expected amount', async () => {
-      const swap = await Swap.create({
-        ...createSwapBase(),
-        onchainAmount: 20,
-        expectedAmount: 21,
-      });
-      expect(swap.failureDetails).toEqual({
-        actual: swap.onchainAmount,
-        expected: swap.expectedAmount,
-      });
-    });
+    test.each`
+      name      | amount
+      ${'less'} | ${20}
+      ${'more'} | ${22}
+    `(
+      'should return incorrect amount details when onchain amount is $name than expected amount',
+      async ({ amount }) => {
+        const swap = await Swap.create({
+          ...createSwapBase(),
+          onchainAmount: amount,
+          expectedAmount: 21,
+        });
+        expect(swap.failureDetails).toEqual({
+          actual: swap.onchainAmount,
+          expected: swap.expectedAmount,
+        });
+      },
+    );
   });
 });

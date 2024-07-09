@@ -110,4 +110,8 @@ export default {
     message: 'invalid invoice memo',
     code: concatErrorCode(ErrorCodePrefix.Swap, 22),
   }),
+  OVERPAID_AMOUNT: (actualAmount: number, expectedAmount: number): Error => ({
+    message: `locked ${actualAmount} is more than expected ${expectedAmount}`,
+    code: concatErrorCode(ErrorCodePrefix.Swap, 23),
+  }),
 };

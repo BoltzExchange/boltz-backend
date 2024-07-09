@@ -10,7 +10,7 @@ import {
   SwapUpdateEvent,
   SwapVersion,
 } from '../../consts/Enums';
-import { InsufficientAmountDetails } from '../../consts/Types';
+import { IncorrectAmountDetails } from '../../consts/Types';
 import Database from '../Database';
 import ChainSwap, { ChainSwapType } from '../models/ChainSwap';
 import ChainSwapData, { ChainSwapDataType } from '../models/ChainSwapData';
@@ -68,13 +68,13 @@ class ChainSwapInfo {
     );
   }
 
-  get failureDetails(): InsufficientAmountDetails | undefined {
+  get failureDetails(): IncorrectAmountDetails | undefined {
     if (
       [this.receivingData.expectedAmount, this.receivingData.amount].every(
         (val) => val !== undefined && val !== null,
       )
     ) {
-      if (this.receivingData.amount! < this.receivingData.expectedAmount!) {
+      if (this.receivingData.amount! !== this.receivingData.expectedAmount!) {
         return {
           actual: this.receivingData.amount!,
           expected: this.receivingData.expectedAmount!,

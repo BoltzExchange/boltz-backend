@@ -8,7 +8,7 @@ import {
   swapTypeToPrettyString,
 } from '../consts/Enums';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
-import { AnySwap, InsufficientAmountDetails } from '../consts/Types';
+import { AnySwap, IncorrectAmountDetails } from '../consts/Types';
 import ChannelCreation from '../db/models/ChannelCreation';
 import ReverseSwap from '../db/models/ReverseSwap';
 import SwapNursery from '../swap/SwapNursery';
@@ -28,7 +28,7 @@ type SwapUpdate = {
   transaction?: TransactionInfo;
 
   failureReason?: string;
-  failureDetails?: InsufficientAmountDetails;
+  failureDetails?: IncorrectAmountDetails;
 
   channel?: {
     fundingTransactionId: string;

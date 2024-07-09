@@ -230,7 +230,10 @@ class NotificationProvider {
         );
       } else {
         const submarineSwap = swap as Swap | ReverseSwap;
-        if (submarineSwap.invoice === undefined) {
+        if (
+          submarineSwap.invoice === null ||
+          submarineSwap.invoice === undefined
+        ) {
           return message;
         }
 
@@ -372,11 +375,11 @@ class NotificationProvider {
       let msg = '';
 
       const appendFees = (prefix: string, data: ChainSwapData) => {
-        if (data.fee === undefined) {
+        if (data.fee === undefined || data.fee === null) {
           return;
         }
 
-        msg += `\n  - ${prefix}: ${satoshisToSatcomma(data.fee!)} ${data.symbol}`;
+        msg += `\n  - ${prefix}: ${satoshisToSatcomma(data.fee)} ${data.symbol}`;
       };
       appendFees('Sending', chainSwap.sendingData);
       appendFees('Receiving', chainSwap.receivingData);

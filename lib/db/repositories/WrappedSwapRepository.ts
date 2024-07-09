@@ -105,7 +105,7 @@ class WrappedSwapRepository {
           },
           { transaction },
         );
-        chainSwap.sendingData = await chainSwap.receivingData.update(
+        chainSwap.sendingData = await chainSwap.sendingData.update(
           {
             fee: chainSwap.sendingData.fee! + minerFee,
           },

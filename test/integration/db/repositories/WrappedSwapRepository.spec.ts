@@ -12,7 +12,7 @@ import WrappedSwapRepository from '../../../../lib/db/repositories/WrappedSwapRe
 import { createChainSwap, createReverseSwap } from './Fixtures';
 
 describe('WrappedSwapRepository', () => {
-  const database = new Database(Logger.disabledLogger, ':memory:');
+  const database = new Database(Logger.disabledLogger, Database.memoryDatabase);
 
   beforeAll(async () => {
     await database.init();
@@ -174,6 +174,7 @@ describe('WrappedSwapRepository', () => {
 
       expect(updated.status).toEqual(SwapUpdateEvent.TransactionRefunded);
       expect(updated.failureReason).toEqual(reason);
+      expect(updated.receivingData.fee).toEqual(null);
       expect(updated.sendingData.fee).toEqual(321 + minerFee);
     });
   });

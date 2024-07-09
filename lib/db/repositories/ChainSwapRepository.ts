@@ -63,8 +63,8 @@ class ChainSwapInfo {
   }
 
   get paidMinerFees(): boolean {
-    return (
-      this.sendingData.fee !== undefined || this.receivingData.fee !== undefined
+    return [this.sendingData.fee, this.receivingData.fee].some(
+      (val) => val !== undefined && val !== null,
     );
   }
 

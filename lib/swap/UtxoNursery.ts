@@ -3,6 +3,7 @@ import { Transaction } from 'bitcoinjs-lib';
 import { SwapTreeSerializer, detectPreimage, detectSwap } from 'boltz-core';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import { Op } from 'sequelize';
+import { OverPaymentConfig } from '../Config';
 import {
   calculateTransactionFee,
   createMusig,
@@ -12,6 +13,7 @@ import {
 } from '../Core';
 import Logger from '../Logger';
 import {
+  chunkArray,
   getChainCurrency,
   getHexBuffer,
   getHexString,
@@ -95,19 +97,39 @@ class UtxoNursery extends TypedEventEmitter<{
 }> {
   private static readonly maxParallelRequests = 6;
 
-  // Locks
-  private lock = new AsyncLock();
+  private static readonly defaultConfig = {
+    exemptAmount: 10_000,
+    maxPercentage: 2,
+  };
 
   private static lockupLock = 'lockupLock';
   private static swapLockupConfirmationLock = 'swapLockupConfirmation';
+
+  private lock = new AsyncLock();
+
+  private readonly overPaymentExemptAmount: number;
+  private readonly overPaymentMaxPercentage: number;
 
   constructor(
     private readonly logger: Logger,
     private readonly walletManager: WalletManager,
     private readonly blocks: Blocks,
     private readonly lockupTransactionTracker: LockupTransactionTracker,
+    config?: OverPaymentConfig,
   ) {
     super();
+
+    this.overPaymentExemptAmount =
+      config?.exemptAmount || UtxoNursery.defaultConfig.exemptAmount;
+    this.logger.debug(
+      `Onchain payment overpayment exempt amount: ${this.overPaymentExemptAmount}`,
+    );
+
+    this.overPaymentMaxPercentage =
+      (config?.maxPercentage || UtxoNursery.defaultConfig.maxPercentage) / 100;
+    this.logger.debug(
+      `Maximal accepted onchain overpayment: ${this.overPaymentMaxPercentage * 100}%`,
+    );
   }
 
   public bindCurrency = (currencies: Currency[]): void => {
@@ -611,6 +633,21 @@ class UtxoNursery extends TypedEventEmitter<{
       return;
     }
 
+    if (
+      this.isUnacceptableOverpay(swap.receivingData.expectedAmount, outputValue)
+    ) {
+      chainClient.removeOutputFilter(swapOutput.script);
+      this.emit('chainSwap.lockup.failed', {
+        swap,
+        reason: Errors.OVERPAID_AMOUNT(
+          outputValue,
+          swap.receivingData.expectedAmount,
+        ).message,
+      });
+
+      return;
+    }
+
     const prevAddresses = await this.getPreviousAddresses(
       transaction,
       chainClient,
@@ -699,6 +736,19 @@ class UtxoNursery extends TypedEventEmitter<{
         this.emit('swap.lockup.failed', {
           swap: updatedSwap,
           reason: Errors.INSUFFICIENT_AMOUNT(
+            outputValue,
+            updatedSwap.expectedAmount,
+          ).message,
+        });
+
+        return;
+      }
+
+      if (this.isUnacceptableOverpay(updatedSwap.expectedAmount, outputValue)) {
+        chainClient.removeOutputFilter(swapOutput.script);
+        this.emit('swap.lockup.failed', {
+          swap: updatedSwap,
+          reason: Errors.OVERPAID_AMOUNT(
             outputValue,
             updatedSwap.expectedAmount,
           ).message,
@@ -824,7 +874,7 @@ class UtxoNursery extends TypedEventEmitter<{
     chainClient: IChainClient,
     wallet: Wallet,
   ) => {
-    const inputTxsIds = this.chunkArray(
+    const inputTxsIds = chunkArray(
       Array.from(
         new Set<string>(
           transaction.ins.map((input) =>
@@ -866,16 +916,6 @@ class UtxoNursery extends TypedEventEmitter<{
     return txs;
   };
 
-  private chunkArray = <T>(array: T[], size: number) => {
-    const chunks: T[][] = Array.from({ length: size }, () => []);
-
-    for (let i = 0; i < array.length; i++) {
-      chunks[i % size].push(array[i]);
-    }
-
-    return chunks.filter((chunk) => chunk.length !== 0);
-  };
-
   private logFoundTransaction = (
     symbol: string,
     swap: Swap | ChainSwapInfo,
@@ -898,6 +938,13 @@ class UtxoNursery extends TypedEventEmitter<{
       `Accepted 0-conf lockup transaction for ${swapTypeToPrettyString(swap.type)} Swap ${
         swap.id
       }: ${transaction.getId()}:${swapOutput.vout}`,
+    );
+
+  private isUnacceptableOverpay = (expected: number, actual: number): boolean =>
+    actual - expected >
+    Math.max(
+      this.overPaymentExemptAmount,
+      actual * this.overPaymentMaxPercentage,
     );
 }
 

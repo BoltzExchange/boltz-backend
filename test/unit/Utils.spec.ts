@@ -467,13 +467,25 @@ describe('Utils', () => {
     );
   });
 
-  describe('objectMap', () => {
-    test('should map objects', () => {
-      const data = { test: 2, data: 3 };
-      expect(objectMap(data, (key, value) => [key, value * 2])).toEqual({
-        test: 4,
-        data: 6,
-      });
+  test('should map objects', () => {
+    const data = { test: 2, data: 3 };
+    expect(objectMap(data, (key, value) => [key, value * 2])).toEqual({
+      test: 4,
+      data: 6,
     });
+  });
+
+  test.each`
+    data                              | size  | chunks
+    ${[0, 1]}                         | ${1}  | ${[[0, 1]]}
+    ${[0, 1]}                         | ${2}  | ${[[0], [1]]}
+    ${[0, 1]}                         | ${3}  | ${[[0], [1]]}
+    ${[0, 1]}                         | ${15} | ${[[0], [1]]}
+    ${[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]} | ${2}  | ${[[0, 2, 4, 6, 8], [1, 3, 5, 7, 9]]}
+    ${[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]} | ${3}  | ${[[0, 3, 6, 9], [1, 4, 7], [2, 5, 8]]}
+  `('should chunk arrays', ({ data, size, chunks }) => {
+    const res = utils.chunkArray(data, size);
+    expect(res.length).toEqual(chunks.length);
+    expect(res).toEqual(chunks);
   });
 });

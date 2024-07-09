@@ -201,6 +201,7 @@ class SwapManager {
       this.deferredClaimer,
       this.chainSwapSigner,
       lockupTransactionTracker,
+      swapConfig.overpayment,
     );
 
     this.reverseRoutingHints = new ReverseRoutingHints(

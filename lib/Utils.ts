@@ -649,3 +649,13 @@ export const objectMap = <K extends string | number | symbol, V, T>(
   fn: (k: string, v: V) => [string, T],
 ): Record<string, T> =>
   Object.fromEntries(Object.entries(obj).map(([k, v]) => fn(k, v as V)));
+
+export const chunkArray = <T>(array: T[], size: number): T[][] => {
+  const chunks: T[][] = Array.from({ length: size }, () => []);
+
+  for (let i = 0; i < array.length; i++) {
+    chunks[i % size].push(array[i]);
+  }
+
+  return chunks.filter((chunk) => chunk.length !== 0);
+};

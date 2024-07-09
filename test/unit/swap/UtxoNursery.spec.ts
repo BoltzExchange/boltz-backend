@@ -3,6 +3,7 @@ import { Networks, Scripts, SwapTreeSerializer, swapTree } from 'boltz-core';
 import { randomBytes } from 'crypto';
 import { ECPairInterface } from 'ecpair';
 import { Op } from 'sequelize';
+import { OverPaymentConfig } from '../../../lib/Config';
 import { createMusig, setup, tweakMusig } from '../../../lib/Core';
 import { ECPair } from '../../../lib/ECPairHelper';
 import Logger from '../../../lib/Logger';
@@ -220,6 +221,81 @@ describe('UtxoNursery', () => {
     WrappedSwapRepository.setStatus = mockSetStatus;
 
     nursery.removeAllListeners();
+  });
+
+  describe('constructor', () => {
+    test('should use config when given as parameter', () => {
+      const config: OverPaymentConfig = {
+        exemptAmount: 123,
+        maxPercentage: 432,
+      };
+      const nursery = new UtxoNursery(
+        Logger.disabledLogger,
+        {} as any,
+        blocks,
+        lockupTracker,
+        config,
+      );
+
+      expect(nursery['overPaymentExemptAmount']).toEqual(config.exemptAmount);
+      expect(nursery['overPaymentMaxPercentage']).toEqual(
+        config.maxPercentage! / 100,
+      );
+    });
+
+    test('should coalesce exempt amount', () => {
+      const config: OverPaymentConfig = {
+        maxPercentage: 432,
+      };
+      const nursery = new UtxoNursery(
+        Logger.disabledLogger,
+        {} as any,
+        blocks,
+        lockupTracker,
+        config,
+      );
+
+      expect(nursery['overPaymentExemptAmount']).toEqual(
+        UtxoNursery['defaultConfig'].exemptAmount,
+      );
+      expect(nursery['overPaymentMaxPercentage']).toEqual(
+        config.maxPercentage! / 100,
+      );
+    });
+
+    test('should coalesce max fee percentage', () => {
+      const config: OverPaymentConfig = {
+        exemptAmount: 123,
+      };
+      const nursery = new UtxoNursery(
+        Logger.disabledLogger,
+        {} as any,
+        blocks,
+        lockupTracker,
+        config,
+      );
+
+      expect(nursery['overPaymentExemptAmount']).toEqual(config.exemptAmount);
+      expect(nursery['overPaymentMaxPercentage']).toEqual(
+        UtxoNursery['defaultConfig'].maxPercentage / 100,
+      );
+    });
+
+    test('should handle undefined config', () => {
+      const nursery = new UtxoNursery(
+        Logger.disabledLogger,
+        {} as any,
+        blocks,
+        lockupTracker,
+      );
+
+      expect(nursery['overPaymentExemptAmount']).toEqual(
+        UtxoNursery['defaultConfig'].exemptAmount,
+      );
+      expect(nursery['overPaymentMaxPercentage']).toEqual(
+        UtxoNursery['defaultConfig'].maxPercentage / 100,
+      );
+    });
   });
 
   test('should init', () => {
@@ -950,17 +1026,65 @@ describe('UtxoNursery', () => {
     );
   });
 
-  test.each`
-    data                              | size  | chunks
-    ${[0, 1]}                         | ${1}  | ${[[0, 1]]}
-    ${[0, 1]}                         | ${2}  | ${[[0], [1]]}
-    ${[0, 1]}                         | ${3}  | ${[[0], [1]]}
-    ${[0, 1]}                         | ${15} | ${[[0], [1]]}
-    ${[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]} | ${2}  | ${[[0, 2, 4, 6, 8], [1, 3, 5, 7, 9]]}
-    ${[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]} | ${3}  | ${[[0, 3, 6, 9], [1, 4, 7], [2, 5, 8]]}
-  `('should chunk arrays', ({ data, size, chunks }) => {
-    const res = nursery['chunkArray'](data, size);
-    expect(res.length).toEqual(chunks.length);
-    expect(res).toEqual(chunks);
+  describe('isUnacceptableOverpay', () => {
+    test.each`
+      expected | actual | config
+      ${100}   | ${101} | ${{ exemptAmount: 10, maxPercentage: 1 }}
+      ${100}   | ${105} | ${{ exemptAmount: 10, maxPercentage: 1 }}
+      ${100}   | ${110} | ${{ exemptAmount: 10, maxPercentage: 0 }}
+    `(
+      'should allow deltas less than exempt amount',
+      ({ expected, actual, config }) => {
+        expect(
+          new UtxoNursery(
+            Logger.disabledLogger,
+            {} as any,
+            blocks,
+            lockupTracker,
+            config,
+          )['isUnacceptableOverpay'](expected, actual),
+        ).toEqual(false);
+      },
+    );
+
+    test.each`
+      expected | actual | config
+      ${100}   | ${101} | ${{ exemptAmount: 0, maxPercentage: 10 }}
+      ${100}   | ${105} | ${{ exemptAmount: 1, maxPercentage: 10 }}
+      ${100}   | ${110} | ${{ exemptAmount: 1, maxPercentage: 10 }}
+    `(
+      'should allow deltas less than max percentage',
+      ({ expected, actual, config }) => {
+        expect(
+          new UtxoNursery(
+            Logger.disabledLogger,
+            {} as any,
+            blocks,
+            lockupTracker,
+            config,
+          )['isUnacceptableOverpay'](expected, actual),
+        ).toEqual(false);
+      },
+    );
+
+    test.each`
+      expected | actual     | config
+      ${100}   | ${103}     | ${{ exemptAmount: 1, maxPercentage: 2 }}
+      ${100}   | ${110}     | ${{ exemptAmount: 1, maxPercentage: 2 }}
+      ${100}   | ${420_000} | ${{ exemptAmount: 1, maxPercentage: 2 }}
+    `(
+      'should forbid deltas greater than exempt amount or max percentage',
+      ({ expected, actual, config }) => {
+        expect(
+          new UtxoNursery(
+            Logger.disabledLogger,
+            {} as any,
+            blocks,
+            lockupTracker,
+            config,
+          )['isUnacceptableOverpay'](expected, actual),
+        ).toEqual(true);
+      },
+    );
   });
 });

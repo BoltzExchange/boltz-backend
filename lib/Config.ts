@@ -147,6 +147,11 @@ type NotificationConfig = {
   interval: number;
 };
 
+type OverPaymentConfig = {
+  exemptAmount?: number;
+  maxPercentage?: number;
+};
+
 type MinSwapSizeMultipliersConfig = {
   submarine?: number;
   reverse?: number;
@@ -159,6 +164,8 @@ type SwapConfig = {
   expiryTolerance: number;
 
   minSwapSizeMultipliers?: MinSwapSizeMultipliersConfig;
+
+  overpayment?: OverPaymentConfig;
 };
 
 type ConfigType = {
@@ -528,6 +535,7 @@ export {
   PostgresConfig,
   CurrencyConfig,
   PreferredWallet,
+  OverPaymentConfig,
   LiquidChainConfig,
   BaseCurrencyConfig,
   NotificationConfig,

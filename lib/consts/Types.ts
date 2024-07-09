@@ -215,7 +215,7 @@ export type AddressInfo = {
 
 export type AnySwap = Swap | ReverseSwap | ChainSwapInfo;
 
-export type InsufficientAmountDetails = {
+export type IncorrectAmountDetails = {
   expected: number;
   actual: number;
 };

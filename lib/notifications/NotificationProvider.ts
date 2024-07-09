@@ -230,7 +230,10 @@ class NotificationProvider {
         );
       } else {
         const submarineSwap = swap as Swap | ReverseSwap;
-        if (submarineSwap.invoice === undefined) {
+        if (
+          submarineSwap.invoice === null ||
+          submarineSwap.invoice === undefined
+        ) {
           return message;
         }
 

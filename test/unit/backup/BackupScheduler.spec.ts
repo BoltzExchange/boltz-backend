@@ -9,12 +9,14 @@ type callback = (args: { currency: string; channelBackup: string }) => void;
 
 const mockInfo = jest.fn().mockImplementation();
 const mockWarn = jest.fn().mockImplementation();
+const mockError = jest.fn().mockImplementation();
 const mockSilly = jest.fn().mockImplementation();
 
 jest.mock('../../../lib/Logger', () => {
   return jest.fn().mockImplementation(() => ({
     info: mockInfo,
     warn: mockWarn,
+    error: mockError,
     silly: mockSilly,
   }));
 });
@@ -166,8 +168,8 @@ describe('BackupScheduler', () => {
       eventHandler,
     );
 
-    expect(mockWarn).toHaveBeenCalledTimes(1);
-    expect(mockWarn).toHaveBeenCalledWith(
+    expect(mockError).toHaveBeenCalledTimes(1);
+    expect(mockError).toHaveBeenCalledWith(
       `Could not start backup scheduler: Error: ENOENT: no such file or directory, open '${path}'`,
     );
   });

@@ -592,7 +592,7 @@ const reverseSwap = async () => {
         break;
       }
 
-      // "transaction.mempool" means that Boltz send an onchain transaction
+      // "transaction.mempool" means that Boltz sent an onchain transaction
       case 'transaction.mempool': {
         console.log('Creating claim transaction');
 
@@ -749,7 +749,6 @@ const reverseSwap = async () => {
       from: 'BTC',
       claimPublicKey: keys.publicKey.toString('hex'),
       preimageHash: crypto.sha256(preimage).toString('hex'),
-      address: destinationAddress
     })
   ).data;
 
@@ -786,7 +785,7 @@ const reverseSwap = async () => {
         break;
       }
 
-      // "transaction.mempool" means that Boltz send an onchain transaction
+      // "transaction.mempool" means that Boltz sent an onchain transaction
       case 'transaction.mempool': {
         console.log('Creating claim transaction');
 
@@ -814,7 +813,7 @@ const reverseSwap = async () => {
         }
 
         // Create a claim transaction to be signed cooperatively via a key path spend
-        const claimTx = targetFee(2, (fee) =>
+        const claimTx = targetFee(0.1, (fee) =>
           constructClaimTransaction(
             [
               {
@@ -1054,6 +1053,298 @@ func main() {
 		os.Exit(1)
 	}
 }
+```
+{% endtab %}
+{% endtabs %}
+
+
+## Chain Swap (Chain -> Chain)
+
+{% tabs %}
+{% tab title="Typescript Bitcoin -> Liquid" %}
+```typescript
+import zkpInit, { Secp256k1ZKP } from '@vulpemventures/secp256k1-zkp';
+import axios from 'axios';
+import {
+  Musig,
+  OutputType,
+  SwapTreeSerializer,
+  TaprootUtils,
+  detectSwap,
+  targetFee,
+} from 'boltz-core';
+import {
+  TaprootUtils as LiquidTaprootUtils,
+  constructClaimTransaction,
+  init,
+} from 'boltz-core/dist/lib/liquid';
+import { randomBytes } from 'crypto';
+import { ECPairFactory, ECPairInterface } from 'ecpair';
+import { Transaction, address, crypto, networks } from 'liquidjs-lib';
+import * as ecc from 'tiny-secp256k1';
+import ws from 'ws';
+
+// Endpoint of the Boltz instance to be used
+const endpoint = 'http://127.0.0.1:9001';
+
+// Amount you want to swap
+const userLockAmount = 100_000;
+
+// Address to which the swap should be claimed
+const destinationAddress =
+  'el1qqvvwuq5xkvq8u2294mshum5hve9rgk7q27y836mhrwp9nst73dd208nm9xqjuq633wjrr6e04nymwrre9x65knjzv5qqtz6e8';
+
+const network = networks.regtest;
+
+const createClaimTransaction = (
+  zkp: Secp256k1ZKP,
+  claimKeys: ECPairInterface,
+  preimage: Buffer,
+  createdResponse: any,
+  lockupTransactionHex: string,
+) => {
+  const boltzPublicKey = Buffer.from(
+    createdResponse.claimDetails.serverPublicKey,
+    'hex',
+  );
+
+  // Create a musig signing session and tweak it with the Taptree of the swap scripts
+  const musig = new Musig(zkp, claimKeys, randomBytes(32), [
+    boltzPublicKey,
+    claimKeys.publicKey,
+  ]);
+  const tweakedKey = LiquidTaprootUtils.tweakMusig(
+    musig,
+    SwapTreeSerializer.deserializeSwapTree(
+      createdResponse.claimDetails.swapTree,
+    ).tree,
+  );
+
+  // Parse the lockup transaction and find the output relevant for the swap
+  const lockupTx = Transaction.fromHex(lockupTransactionHex);
+  const swapOutput = detectSwap(tweakedKey, lockupTx);
+  if (swapOutput === undefined) {
+    throw 'No swap output found in lockup transaction';
+  }
+
+  // Create a claim transaction to be signed cooperatively via a key path spend
+  const transaction = targetFee(2, (fee) =>
+    constructClaimTransaction(
+      [
+        {
+          ...swapOutput,
+          preimage,
+          keys: claimKeys,
+          cooperative: true,
+          type: OutputType.Taproot,
+          txHash: lockupTx.getHash(),
+          blindingPrivateKey: Buffer.from(
+            createdResponse.claimDetails.blindingKey,
+            'hex',
+          ),
+        },
+      ],
+      address.toOutputScript(destinationAddress, network),
+      fee,
+      false,
+      network,
+      address.fromConfidential(destinationAddress).blindingKey,
+    ),
+  );
+
+  return { musig, transaction, swapOutput, boltzPublicKey };
+};
+
+const getBoltzPartialSignature = async (
+  zkp: Secp256k1ZKP,
+  refundKeys: ECPairInterface,
+  preimage: Buffer,
+  createdResponse: any,
+  claimPubNonce: Buffer,
+  claimTransaction: Transaction,
+) => {
+  const serverClaimDetails = (
+    await axios.get(`${endpoint}/v2/swap/chain/${createdResponse.id}/claim`)
+  ).data;
+
+  // Sign the claim transaction of the server
+  const boltzPublicKey = Buffer.from(
+    createdResponse.lockupDetails.serverPublicKey,
+    'hex',
+  );
+
+  const musig = new Musig(zkp, refundKeys, randomBytes(32), [
+    boltzPublicKey,
+    refundKeys.publicKey,
+  ]);
+  TaprootUtils.tweakMusig(
+    musig,
+    SwapTreeSerializer.deserializeSwapTree(
+      createdResponse.lockupDetails.swapTree,
+    ).tree,
+  );
+
+  musig.aggregateNonces([
+    [boltzPublicKey, Buffer.from(serverClaimDetails.pubNonce, 'hex')],
+  ]);
+  musig.initializeSession(
+    Buffer.from(serverClaimDetails.transactionHash, 'hex'),
+  );
+  const partialSig = musig.signPartial();
+
+  // When the server is happy with our signature, we get its partial signature
+  // for our transaction in return
+  const ourClaimDetails = (
+    await axios.post(`${endpoint}/v2/swap/chain/${createdResponse.id}/claim`, {
+      preimage: preimage.toString('hex'),
+      signature: {
+        partialSignature: Buffer.from(partialSig).toString('hex'),
+        pubNonce: Buffer.from(musig.getPublicNonce()).toString('hex'),
+      },
+      toSign: {
+        index: 0,
+        transaction: claimTransaction.toHex(),
+        pubNonce: claimPubNonce.toString('hex'),
+      },
+    })
+  ).data;
+
+  return {
+    pubNonce: Buffer.from(ourClaimDetails.pubNonce, 'hex'),
+    partialSignature: Buffer.from(ourClaimDetails.partialSignature, 'hex'),
+  };
+};
+
+const chainSwap = async () => {
+  const zkp = await zkpInit();
+  init(zkp);
+
+  // Create a random preimage for the swap; has to have a length of 32 bytes
+  const preimage = randomBytes(32);
+  const claimKeys = ECPairFactory(ecc).makeRandom();
+  const refundKeys = ECPairFactory(ecc).makeRandom();
+
+  // Create a Submarine Swap
+  const createdResponse = (
+    await axios.post(`${endpoint}/v2/swap/chain`, {
+      userLockAmount,
+      to: 'L-BTC',
+      from: 'BTC',
+      preimageHash: crypto.sha256(preimage).toString('hex'),
+      claimPublicKey: claimKeys.publicKey.toString('hex'),
+      refundPublicKey: refundKeys.publicKey.toString('hex'),
+    })
+  ).data;
+
+  console.log('Created swap');
+  console.log(createdResponse);
+  console.log();
+
+  // Create a WebSocket and subscribe to updates for the created swap
+  const webSocket = new ws(`${endpoint.replace('http://', 'ws://')}/v2/ws`);
+  webSocket.on('open', () => {
+    webSocket.send(
+      JSON.stringify({
+        op: 'subscribe',
+        channel: 'swap.update',
+        args: [createdResponse.id],
+      }),
+    );
+  });
+
+  webSocket.on('message', async (rawMsg) => {
+    const msg = JSON.parse(rawMsg.toString('utf-8'));
+    if (msg.event !== 'update') {
+      return;
+    }
+
+    console.log('Got WebSocket update');
+    console.log(msg);
+    console.log();
+
+    switch (msg.args[0].status) {
+      // "swap.created" means Boltz is waiting for coins to be locked
+      case 'swap.created': {
+        console.log('Waiting for coins to be locked');
+        break;
+      }
+
+      // "transaction.server.mempool" means that Boltz sent an onchain transaction
+      case 'transaction.server.mempool': {
+        console.log('Creating claim transaction');
+
+        const claimDetails = createClaimTransaction(
+          zkp,
+          claimKeys,
+          preimage,
+          createdResponse,
+          msg.args[0].transaction.hex,
+        );
+
+        // Get the partial signature from Boltz
+        const boltzPartialSig = await getBoltzPartialSignature(
+          zkp,
+          refundKeys,
+          preimage,
+          createdResponse,
+          Buffer.from(claimDetails.musig.getPublicNonce()),
+          claimDetails.transaction,
+        );
+
+        // Aggregate the nonces
+        claimDetails.musig.aggregateNonces([
+          [claimDetails.boltzPublicKey, boltzPartialSig.pubNonce],
+        ]);
+
+        // Initialize the session to sign the claim transaction
+        claimDetails.musig.initializeSession(
+          claimDetails.transaction.hashForWitnessV1(
+            0,
+            [claimDetails.swapOutput.script],
+            [
+              {
+                value: claimDetails.swapOutput.value,
+                asset: claimDetails.swapOutput.asset,
+              },
+            ],
+            Transaction.SIGHASH_DEFAULT,
+            network.genesisBlockHash,
+          ),
+        );
+
+        // Add the partial signature from Boltz
+        claimDetails.musig.addPartial(
+          claimDetails.boltzPublicKey,
+          boltzPartialSig.partialSignature,
+        );
+
+        // Create our partial signature
+        claimDetails.musig.signPartial();
+
+        // Witness of the input to the aggregated signature
+        claimDetails.transaction.ins[0].witness = [
+          claimDetails.musig.aggregatePartials(),
+        ];
+
+        // Broadcast the finalized transaction
+        await axios.post(`${endpoint}/v2/chain/L-BTC/transaction`, {
+          hex: claimDetails.transaction.toHex(),
+        });
+
+        break;
+      }
+
+      case 'transaction.claimed':
+        console.log('Swap successful');
+        webSocket.close();
+        break;
+    }
+  });
+};
+
+(async () => {
+  await chainSwap();
+})();
 ```
 {% endtab %}
 {% endtabs %}

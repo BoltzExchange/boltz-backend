@@ -4,7 +4,6 @@ import path from 'path';
 import { Arguments } from 'yargs';
 import { PrometheusConfig } from './Prometheus';
 import { deepMerge, getServiceDataDir, resolveHome } from './Utils';
-import { GoogleCloudConfig } from './backup/providers/GoogleCloud';
 import { S3Config } from './backup/providers/S3';
 import { WebdavConfig } from './backup/providers/Webdav';
 import { Network } from './consts/Enums';
@@ -135,7 +134,6 @@ type BackupConfig = {
 
   webdav?: WebdavConfig;
   simpleStorage?: S3Config;
-  gcloud?: GoogleCloudConfig;
 };
 
 type NotificationConfig = {
@@ -234,8 +232,9 @@ class Config {
   constructor() {
     this.dataDir = getServiceDataDir('boltz');
 
-    const { dbpath, backup, logpath, configpath, mnemonicpath } =
-      this.getDataDirPaths(this.dataDir);
+    const { dbpath, logpath, configpath, mnemonicpath } = this.getDataDirPaths(
+      this.dataDir,
+    );
 
     this.config = {
       configpath,
@@ -284,18 +283,6 @@ class Config {
 
       backup: {
         interval: '0 0 * * *',
-
-        gcloud: {
-          email: '',
-          privatekeypath: backup.privatekeypath,
-
-          bucketname: '',
-        },
-        webdav: {
-          url: '',
-          username: '',
-          password: '',
-        },
       },
 
       notification: {
@@ -507,10 +494,6 @@ class Config {
       mnemonicpath: path.join(dataDir, Config.defaultMnemonicPath),
       dbpath: path.join(dataDir, Config.defaultDbPath),
       logpath: path.join(dataDir, Config.defaultLogPath),
-
-      backup: {
-        privatekeypath: path.join(dataDir, Config.defaultPrivatekeyPath),
-      },
     };
   };
 

@@ -7,7 +7,6 @@ import { formatError } from '../Utils';
 import Database, { DatabaseType } from '../db/Database';
 import EventHandler from '../service/EventHandler';
 import Errors from './Errors';
-import GoogleCloud from './providers/GoogleCloud';
 import S3 from './providers/S3';
 import Webdav from './providers/Webdav';
 
@@ -27,11 +26,6 @@ class BackupScheduler {
     private readonly eventHandler: EventHandler,
   ) {
     try {
-      if (config.gcloud && GoogleCloud.configValid(config.gcloud)) {
-        this.providers.push(new GoogleCloud(config.gcloud));
-        this.logProviderEnabled('Google Cloud Storage');
-      }
-
       if (config.webdav && Webdav.configValid(config.webdav)) {
         this.providers.push(new Webdav(config.webdav));
         this.logProviderEnabled('WebDav');

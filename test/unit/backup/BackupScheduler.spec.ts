@@ -148,29 +148,4 @@ describe('BackupScheduler', () => {
     await backupScheduler.uploadDatabase(new Date());
     expect(mockUploadString).toHaveBeenCalledTimes(1);
   });
-
-  test('should not throw if the Google API private key does not exist', () => {
-    const path = 'path';
-
-    new BackupScheduler(
-      mockedLogger(),
-      dbPath,
-      undefined,
-      {
-        interval: '0 0 * * *',
-
-        gcloud: {
-          email: '@',
-          bucketname: 'bucket',
-          privatekeypath: path,
-        },
-      },
-      eventHandler,
-    );
-
-    expect(mockError).toHaveBeenCalledTimes(1);
-    expect(mockError).toHaveBeenCalledWith(
-      `Could not start backup scheduler: Error: ENOENT: no such file or directory, open '${path}'`,
-    );
-  });
 });

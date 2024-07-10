@@ -7,7 +7,7 @@ import { formatError } from '../Utils';
 import Database, { DatabaseType } from '../db/Database';
 import EventHandler from '../service/EventHandler';
 import Errors from './Errors';
-import GoogleCloud from './providers/GoogleCloud';
+import S3 from './providers/S3';
 import Webdav from './providers/Webdav';
 
 interface BackupProvider {
@@ -26,14 +26,14 @@ class BackupScheduler {
     private readonly eventHandler: EventHandler,
   ) {
     try {
-      if (config.gcloud && GoogleCloud.configValid(config.gcloud)) {
-        this.providers.push(new GoogleCloud(config.gcloud));
-        this.logProviderEnabled('Google Cloud Storage');
-      }
-
       if (config.webdav && Webdav.configValid(config.webdav)) {
         this.providers.push(new Webdav(config.webdav));
         this.logProviderEnabled('WebDav');
+      }
+
+      if (config.simpleStorage && S3.configValid(config.simpleStorage)) {
+        this.providers.push(new S3(config.simpleStorage));
+        this.logProviderEnabled('S3');
       }
 
       if (this.providers.length === 0) {
@@ -51,7 +51,7 @@ class BackupScheduler {
         await this.uploadDatabase(date);
       });
     } catch (error) {
-      this.logger.warn(`Could not start backup scheduler: ${error}`);
+      this.logger.error(`Could not start backup scheduler: ${error}`);
     }
   }
 

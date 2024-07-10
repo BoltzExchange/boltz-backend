@@ -69,7 +69,6 @@
   },
   "dependencies": {
     "@boltz/bolt11": "^1.2.7",
-    "@google-cloud/storage": "^7.11.2",
     "@grpc/grpc-js": "^1.10.9",
     "@iarna/toml": "^2.2.5",
     "@mattermost/client": "^9.8.0",
@@ -93,6 +92,7 @@
     "google-protobuf": "^3.21.2",
     "ip-address": "^9.0.5",
     "liquidjs-lib": "^6.0.2-liquid.35",
+    "minio": "^8.0.1",
     "node-forge": "^1.3.1",
     "node-schedule": "^2.1.1",
     "otplib": "^12.0.1",

@@ -70,6 +70,40 @@ In case Boltz is not cooperating, a script path spend can be done via a witness 
 <control block>
 ```
 
+### Chain Swaps
+
+### Claim
+
+To create a cooperative claim transaction for a Chain Swap, the client has to call `GET /swap/chain/{id}/claim` to fetch
+the details of the claim transaction the server would like to do.
+After creating a partial signature for the transaction of the server and creating its own unsigned claim transaction,
+it calls `POST /swap/chain/{id}/claim`.
+
+When the server is not cooperating, the script path spend is the same as the one for the Reverse Swap.
+The witness of the input will look like this:
+
+```
+<signature>
+<preimage>
+<claim script>
+<control block>
+```
+
+### Refund
+
+Refunds of Chain Swaps can be done cooperatively by calling `POST /swap/chain/{id}/refund` with the refund transaction
+the client would like to do.
+
+In case the server refuses to create a partial signature for the refund of the client, a script path spend can be done
+in the same way as for Submarine Swaps. After the time lock has expired the locked coins can be spent with a witness
+structured like this:
+
+```
+<signature>
+<refund script>
+<control block>
+```
+
 ## EVM
 
 On EVM chains, a contract is used for enforcing swaps onchain. The source code of Boltz's contracts can be found [here](https://github.com/BoltzExchange/boltz-core/tree/v2.1.0/contracts). To fetch the current addresses of Boltz's swap contracts, use `GET /chain/contracts`.

@@ -24,6 +24,8 @@ RUN sed -i "/grpc-tools/d" package.json
 RUN npm install -g npm
 RUN npm install --force
 RUN npm run compile
+# We do not need dev dependencies in the final image
+RUN rm -rf node_modules && npm install --force --omit dev
 
 FROM node:${NODE_VERSION} AS final
 

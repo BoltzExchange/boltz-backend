@@ -186,20 +186,22 @@ export const musigFromExtractedKey = (
       theirPublicKey,
     ]);
 
-    const musig = new Musig(zkp, ourKeys, randomBytes(32), [
-      compressedKey,
-      ourKeys.publicKey,
-    ]);
-    const tweakedKey = tweakMusig(type, musig, tree);
+    for (const keys of [
+      [compressedKey, ourKeys.publicKey],
+      [ourKeys.publicKey, compressedKey],
+    ]) {
+      const musig = new Musig(zkp, ourKeys, randomBytes(32), keys);
+      const tweakedKey = tweakMusig(type, musig, tree);
 
-    const swapOutput = detectSwap(tweakedKey, lockupTx);
-    if (swapOutput !== undefined) {
-      return {
-        musig,
-        tweakedKey,
-        swapOutput,
-        theirPublicKey: compressedKey,
-      };
+      const swapOutput = detectSwap(tweakedKey, lockupTx);
+      if (swapOutput !== undefined) {
+        return {
+          musig,
+          tweakedKey,
+          swapOutput,
+          theirPublicKey: compressedKey,
+        };
+      }
     }
   }
 

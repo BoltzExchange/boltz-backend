@@ -79,7 +79,7 @@ the details of the claim transaction the server would like to do.
 After creating a partial signature for the transaction of the server and creating its own unsigned claim transaction,
 it calls `POST /swap/chain/{id}/claim`.
 
-When the server is not cooperating, the script path spend is the same as the one for the Reverse Swap.
+When the server is not cooperating, the script path spend is the same as for Reverse Swaps.
 The witness of the input will look like this:
 
 ```

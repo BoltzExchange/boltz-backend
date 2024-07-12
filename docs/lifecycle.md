@@ -6,13 +6,9 @@ description: >-
 
 # 🔁 Swap Types & States
 
-{% hint style="info" %}
-It is important to design Boltz API clients, especially on mobile, in a way that they can come online and are able to broadcast claim transactions of swaps transactions before they expire.
-{% endhint %}
-
 ## Swap Types
 
-Boltz currently offers two three of [Atomic Swaps](https://en.bitcoin.it/wiki/Atomic\_swap):
+Boltz currently offers three types of [Atomic Swaps](https://en.bitcoin.it/wiki/Atomic\_swap):
 
 * [Normal Submarine Swaps](lifecycle.md#normal-submarine-swaps) (Chain -> Lightning)
 * [Reverse Submarine Swaps](lifecycle.md#reverse-submarine-swaps) (Lightning -> Chain)
@@ -59,20 +55,20 @@ If the user successfully set up the Lightning payment and Boltz successfully loc
 
 ### Chain Swaps
 
-Chain Swaps move bitcoin between two different chains.
-Right now we only support two chains, the bitcoin mainchain and Liquid.
+Chain Swaps move bitcoin between **two different chains**.
+Currently, Boltz supports two chains, the Bitcoin mainchain and Liquid.
 Chain Swaps are similar to Reverse Submarine Swaps, but without lightning and both sides being onchain.
-The client sends a SHA256 hash of a 32 bytes long preimage and two public keys to the server.
+First, the API client sends a SHA256 hash of a 32 bytes long preimage and two public keys to the server.
 One key is used to sign a transaction on the chain the user wants to receive on, the other key is needed
-to sign a refund transaction on the chain the client locks coins on in case the swap fails.
+to sign a refund transaction on the chain the client locks coins on, in case the swap fails.
 Based on the details provided to the server, it creates one address for the client to lock coins and one for the server
 to lock coins.
 When the server locks coins, the client can claim those to its wallet by revealing the preimage onchain and signing
 with one of their keys.
 By revealing the preimage, the server can claim the coins the user locked.
-All Chain Swaps are Taproot based, so instead claiming by revealing scripts and secrets onchain, a key path spend can be
-done by the server and client cooperating to create a single signature together.
-More details about that can be found in the [Claiming Swaps & Refunds](claiming-swaps.md) section.
+All Chain Swaps are Taproot based, so instead of claiming by revealing scripts and secrets onchain,
+a key path spend can be done by the server and client cooperating to create a single signature together.
+More details about this can be found in the [Claiming Swaps & Refunds](claiming-swaps.md) section.
 
 A Chain Swap has the following states:
 
@@ -84,7 +80,7 @@ A Chain Swap has the following states:
 5. `trnasaction.server.confirmed`: the lockup transaction of the server has been included in a block
 6. `transaction.claimed`: the server claimed the coins that the client locked
 
-In case the swap was created but the client did not lock any coins, the status will be `swap.expired`.
+In case the swap was created, but the client did not lock any coins, the status will be `swap.expired`.
 
 When the client fails to lock coins in a way that is satisfactory to the server, 
 it will set the status to `transaction.lockupFailed`.

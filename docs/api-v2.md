@@ -67,7 +67,7 @@ Below are some examples covering the flow of a given swap type from beginning to
 ## Submarine Swap (Chain -> Lightning)
 
 {% tabs %}
-{% tab title="Typescript Bitcoin" %}
+{% tab title="TypeScript Bitcoin" %}
 ```typescript
 import zkpInit from '@vulpemventures/secp256k1-zkp';
 import axios from 'axios';
@@ -210,7 +210,7 @@ const submarineSwap = async () => {
 ```
 {% endtab %}
 
-{% tab title="Typescript Liquid" %}
+{% tab title="TypeScript Liquid" %}
 ```typescript
 import zkpInit from '@vulpemventures/secp256k1-zkp';
 import axios from 'axios';
@@ -275,7 +275,7 @@ const submarineSwap = async () => {
         break;
       }
 
-      // Create a partial signature to allow Boltz to do a key path spend to claim the mainchain coins
+      // Create a partial signature to allow Boltz to do a key path spend to claim the Liquid bitcoin
       case 'transaction.claim.pending': {
         console.log('Creating cooperative claim transaction');
 
@@ -505,7 +505,7 @@ func main() {
 ## Reverse Swap (Lightning -> Chain)
 
 {% tabs %}
-{% tab title="Typescript Bitcoin" %}
+{% tab title="TypeScript Bitcoin" %}
 ```typescript
 import zkpInit from '@vulpemventures/secp256k1-zkp';
 import axios from 'axios';
@@ -699,7 +699,7 @@ const reverseSwap = async () => {
 ```
 {% endtab %}
 
-{% tab title="Typescript Liquid" %}
+{% tab title="TypeScript Liquid" %}
 ```typescript
 import zkpInit from '@vulpemventures/secp256k1-zkp';
 import axios from 'axios';
@@ -1061,7 +1061,7 @@ func main() {
 ## Chain Swap (Chain -> Chain)
 
 {% tabs %}
-{% tab title="Typescript Bitcoin -> Liquid" %}
+{% tab title="TypeScript Bitcoin -> Liquid" %}
 ```typescript
 import zkpInit, { Secp256k1ZKP } from '@vulpemventures/secp256k1-zkp';
 import axios from 'axios';
@@ -1092,7 +1092,7 @@ const userLockAmount = 100_000;
 
 // Address to which the swap should be claimed
 const destinationAddress =
-  'el1qqvvwuq5xkvq8u2294mshum5hve9rgk7q27y836mhrwp9nst73dd208nm9xqjuq633wjrr6e04nymwrre9x65knjzv5qqtz6e8';
+  '<Liquid address>';
 
 const network = networks.regtest;
 

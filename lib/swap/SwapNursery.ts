@@ -676,7 +676,9 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
         ),
       );
     } catch (e) {
-      this.logger.error(`Could not settle invoice: ${formatError(e)}`);
+      this.logger.error(
+        `Could not settle invoice of ${reverseSwap.id}: ${formatError(e)}`,
+      );
     }
   };
 

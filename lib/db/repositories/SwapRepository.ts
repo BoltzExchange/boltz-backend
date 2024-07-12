@@ -1,10 +1,16 @@
-import { Op, WhereOptions } from 'sequelize';
+import { Op, Order, WhereOptions } from 'sequelize';
 import { SwapUpdateEvent } from '../../consts/Enums';
 import Swap, { SwapType } from '../models/Swap';
 
 class SwapRepository {
-  public static getSwaps = (options?: WhereOptions): Promise<Swap[]> => {
+  public static getSwaps = (
+    options?: WhereOptions,
+    order?: Order,
+    limit?: number,
+  ): Promise<Swap[]> => {
     return Swap.findAll({
+      limit,
+      order,
       where: options,
     });
   };

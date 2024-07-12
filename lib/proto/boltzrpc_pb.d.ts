@@ -761,6 +761,67 @@ export namespace SweepSwapsResponse {
 
 }
 
+export class ListSwapsRequest extends jspb.Message { 
+
+    hasStatus(): boolean;
+    clearStatus(): void;
+    getStatus(): string | undefined;
+    setStatus(value: string): ListSwapsRequest;
+
+    hasLimit(): boolean;
+    clearLimit(): void;
+    getLimit(): number | undefined;
+    setLimit(value: number): ListSwapsRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ListSwapsRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: ListSwapsRequest): ListSwapsRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ListSwapsRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ListSwapsRequest;
+    static deserializeBinaryFromReader(message: ListSwapsRequest, reader: jspb.BinaryReader): ListSwapsRequest;
+}
+
+export namespace ListSwapsRequest {
+    export type AsObject = {
+        status?: string,
+        limit?: number,
+    }
+}
+
+export class ListSwapsResponse extends jspb.Message { 
+    clearSubmarineSwapsList(): void;
+    getSubmarineSwapsList(): Array<string>;
+    setSubmarineSwapsList(value: Array<string>): ListSwapsResponse;
+    addSubmarineSwaps(value: string, index?: number): string;
+    clearReverseSwapsList(): void;
+    getReverseSwapsList(): Array<string>;
+    setReverseSwapsList(value: Array<string>): ListSwapsResponse;
+    addReverseSwaps(value: string, index?: number): string;
+    clearChainSwapsList(): void;
+    getChainSwapsList(): Array<string>;
+    setChainSwapsList(value: Array<string>): ListSwapsResponse;
+    addChainSwaps(value: string, index?: number): string;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ListSwapsResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: ListSwapsResponse): ListSwapsResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ListSwapsResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ListSwapsResponse;
+    static deserializeBinaryFromReader(message: ListSwapsResponse, reader: jspb.BinaryReader): ListSwapsResponse;
+}
+
+export namespace ListSwapsResponse {
+    export type AsObject = {
+        submarineSwapsList: Array<string>,
+        reverseSwapsList: Array<string>,
+        chainSwapsList: Array<string>,
+    }
+}
+
 export class RescanRequest extends jspb.Message { 
     getSymbol(): string;
     setSymbol(value: string): RescanRequest;

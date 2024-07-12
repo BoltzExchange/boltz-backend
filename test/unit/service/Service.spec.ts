@@ -783,27 +783,128 @@ describe('Service', () => {
     ]);
   });
 
-  test('should rescan currencies with chain client', async () => {
-    const startHeight = 21;
+  describe('listSwaps', () => {
+    SwapRepository.getSwaps = jest
+      .fn()
+      .mockResolvedValue([{ id: 'submarine' }]);
 
-    await expect(service.rescan('BTC', startHeight)).resolves.toEqual(123);
-    expect(mockRescanChain).toHaveBeenCalledTimes(1);
-    expect(mockRescanChain).toHaveBeenCalledWith(startHeight);
+    ReverseSwapRepository.getReverseSwaps = jest
+      .fn()
+      .mockResolvedValue([{ id: 'reverse' }]);
+
+    ChainSwapRepository.getChainSwaps = jest
+      .fn()
+      .mockResolvedValue([{ id: 'chain' }]);
+
+    afterEach(() => {
+      jest.clearAllMocks();
+    });
+
+    test('should list swaps', async () => {
+      await expect(service.listSwaps()).resolves.toEqual({
+        chain: ['chain'],
+        reverse: ['reverse'],
+        submarine: ['submarine'],
+      });
+
+      expect(SwapRepository.getSwaps).toHaveBeenCalledTimes(1);
+      expect(SwapRepository.getSwaps).toHaveBeenCalledWith(
+        {},
+        [['createdAt', 'DESC']],
+        undefined,
+      );
+      expect(ReverseSwapRepository.getReverseSwaps).toHaveBeenCalledTimes(1);
+      expect(ReverseSwapRepository.getReverseSwaps).toHaveBeenCalledWith(
+        {},
+        [['createdAt', 'DESC']],
+        undefined,
+      );
+      expect(ChainSwapRepository.getChainSwaps).toHaveBeenCalledTimes(1);
+      expect(ChainSwapRepository.getChainSwaps).toHaveBeenCalledWith(
+        {},
+        [['createdAt', 'DESC']],
+        undefined,
+      );
+    });
+
+    test('should list swaps with status filter', async () => {
+      const status = 'swap.created';
+      await service.listSwaps(status);
+
+      expect(SwapRepository.getSwaps).toHaveBeenCalledTimes(1);
+      expect(SwapRepository.getSwaps).toHaveBeenCalledWith(
+        {
+          status,
+        },
+        [['createdAt', 'DESC']],
+        undefined,
+      );
+      expect(ReverseSwapRepository.getReverseSwaps).toHaveBeenCalledTimes(1);
+      expect(ReverseSwapRepository.getReverseSwaps).toHaveBeenCalledWith(
+        {
+          status,
+        },
+        [['createdAt', 'DESC']],
+        undefined,
+      );
+      expect(ChainSwapRepository.getChainSwaps).toHaveBeenCalledTimes(1);
+      expect(ChainSwapRepository.getChainSwaps).toHaveBeenCalledWith(
+        {
+          status,
+        },
+        [['createdAt', 'DESC']],
+        undefined,
+      );
+    });
+
+    test('should list swaps with limit', async () => {
+      const limit = 123;
+      await service.listSwaps(undefined, limit);
+
+      expect(SwapRepository.getSwaps).toHaveBeenCalledTimes(1);
+      expect(SwapRepository.getSwaps).toHaveBeenCalledWith(
+        {},
+        [['createdAt', 'DESC']],
+        limit,
+      );
+      expect(ReverseSwapRepository.getReverseSwaps).toHaveBeenCalledTimes(1);
+      expect(ReverseSwapRepository.getReverseSwaps).toHaveBeenCalledWith(
+        {},
+        [['createdAt', 'DESC']],
+        limit,
+      );
+      expect(ChainSwapRepository.getChainSwaps).toHaveBeenCalledTimes(1);
+      expect(ChainSwapRepository.getChainSwaps).toHaveBeenCalledWith(
+        {},
+        [['createdAt', 'DESC']],
+        limit,
+      );
+    });
   });
 
-  test('should rescan currencies with provider', async () => {
-    const startHeight = 21;
+  describe('rescan', () => {
+    test('should rescan currencies with chain client', async () => {
+      const startHeight = 21;
 
-    await expect(service.rescan('ETH', startHeight)).resolves.toEqual(100);
-    expect(mockRescan).toHaveBeenCalledTimes(1);
-    expect(mockRescan).toHaveBeenCalledWith(startHeight);
-  });
+      await expect(service.rescan('BTC', startHeight)).resolves.toEqual(123);
+      expect(mockRescanChain).toHaveBeenCalledTimes(1);
+      expect(mockRescanChain).toHaveBeenCalledWith(startHeight);
+    });
 
-  test('should throw when rescanning currency that does not exist', async () => {
-    const symbol = 'no';
-    await expect(service.rescan(symbol, 123)).rejects.toEqual(
-      Errors.CURRENCY_NOT_FOUND(symbol),
-    );
+    test('should rescan currencies with provider', async () => {
+      const startHeight = 21;
+
+      await expect(service.rescan('ETH', startHeight)).resolves.toEqual(100);
+      expect(mockRescan).toHaveBeenCalledTimes(1);
+      expect(mockRescan).toHaveBeenCalledWith(startHeight);
+    });
+
+    test('should throw when rescanning currency that does not exist', async () => {
+      const symbol = 'no';
+      await expect(service.rescan(symbol, 123)).rejects.toEqual(
+        Errors.CURRENCY_NOT_FOUND(symbol),
+      );
+    });
   });
 
   test('should get balance', async () => {

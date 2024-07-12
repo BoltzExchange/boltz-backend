@@ -450,6 +450,68 @@ describe('GrpcService', () => {
     expect(service.swapManager.deferredClaimer.sweep).toHaveBeenCalledTimes(1);
   });
 
+  describe('listSwaps', () => {
+    const listedSwaps = {
+      submarine: ['sub', 'id'],
+      reverse: ['reverse'],
+      chain: ['some', 'ids'],
+    };
+    service.listSwaps = jest.fn().mockResolvedValue(listedSwaps);
+
+    afterEach(() => {
+      jest.clearAllMocks();
+    });
+
+    test('should list swaps', async () => {
+      const status = 'swap.created';
+      const limit = 123;
+
+      const res = await new Promise<{
+        error: unknown;
+        response: boltzrpc.ListSwapsResponse;
+      }>((resolve) => {
+        grpcService.listSwaps(
+          createCall({ status, limit }),
+          createCallback((error, response: boltzrpc.ListSwapsResponse) =>
+            resolve({ error, response }),
+          ),
+        );
+      });
+      expect(res.error).toBeNull();
+      expect(res.response.toObject()).toEqual({
+        chainSwapsList: listedSwaps.chain,
+        reverseSwapsList: listedSwaps.reverse,
+        submarineSwapsList: listedSwaps.submarine,
+      });
+
+      expect(service.listSwaps).toHaveBeenCalledTimes(1);
+      expect(service.listSwaps).toHaveBeenCalledWith(status, limit);
+    });
+
+    test.each`
+      status
+      ${''}
+      ${undefined}
+    `('should coalesce empty status to undefined', async ({ status }) => {
+      const limit = 1;
+
+      await new Promise<{
+        error: unknown;
+        response: boltzrpc.ListSwapsResponse;
+      }>((resolve) => {
+        grpcService.listSwaps(
+          createCall({ status, limit }),
+          createCallback((error, response: boltzrpc.ListSwapsResponse) =>
+            resolve({ error, response }),
+          ),
+        );
+      });
+
+      expect(service.listSwaps).toHaveBeenCalledTimes(1);
+      expect(service.listSwaps).toHaveBeenCalledWith(undefined, limit);
+    });
+  });
+
   test('should rescan', async () => {
     const symbol = 'BTC';
     const startHeight = 420;

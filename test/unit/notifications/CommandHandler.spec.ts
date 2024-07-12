@@ -238,6 +238,7 @@ describe('CommandHandler', () => {
         '**getfees**: gets accumulated fees\n' +
         '**swapinfo**: gets all available information about a swap\n' +
         '**getstats**: gets statistics grouped by year and month for the current and last 6 months\n' +
+        '**listswaps**: lists swaps\n' +
         '**getbalance**: gets the balance of the wallets and channels\n' +
         '**lockedfunds**: gets funds locked up by Boltz\n' +
         '**pendingswaps**: gets a list of pending swaps\n' +
@@ -391,6 +392,64 @@ describe('CommandHandler', () => {
     expect(mockSendMessage).toHaveBeenCalledTimes(3);
     expect(mockSendMessage).toHaveBeenCalledWith('Invalid parameter: invalid');
     expect(spy).toHaveBeenCalledTimes(2);
+  });
+
+  describe('listSwaps', () => {
+    const listedSwaps = {
+      some: 'data',
+    };
+    service.listSwaps = jest.fn().mockResolvedValue(listedSwaps);
+
+    afterEach(() => {
+      jest.clearAllMocks();
+    });
+
+    test('should list swaps', async () => {
+      sendMessage('listswaps');
+      await wait(10);
+
+      expect(service.listSwaps).toHaveBeenCalledTimes(1);
+      expect(service.listSwaps).toHaveBeenCalledWith(undefined, 100);
+
+      expect(mockSendMessage).toHaveBeenCalledTimes(1);
+      expect(mockSendMessage).toHaveBeenCalledWith(
+        `${codeBlock}${stringify(listedSwaps)}${codeBlock}`,
+      );
+    });
+
+    test('should list swaps with status', async () => {
+      const status = 'some.status';
+
+      sendMessage(`listswaps ${status}`);
+      await wait(10);
+
+      expect(service.listSwaps).toHaveBeenCalledTimes(1);
+      expect(service.listSwaps).toHaveBeenCalledWith(status, 100);
+    });
+
+    test('should list swaps with limit', async () => {
+      const status = 'some.status';
+      const limit = 123;
+
+      sendMessage(`listswaps ${status} ${limit}`);
+      await wait(10);
+
+      expect(service.listSwaps).toHaveBeenCalledTimes(1);
+      expect(service.listSwaps).toHaveBeenCalledWith(status, limit);
+    });
+
+    test('should send error when limit is invalid', async () => {
+      const status = 'some.status';
+      const limit = 'not a number';
+
+      sendMessage(`listswaps ${status} ${limit}`);
+      await wait(10);
+
+      expect(mockSendMessage).toHaveBeenCalledTimes(1);
+      expect(mockSendMessage).toHaveBeenCalledWith(
+        'Command failed: invalid limit',
+      );
+    });
   });
 
   test('should get balances', async () => {

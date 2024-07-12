@@ -1,12 +1,16 @@
-import { Op, WhereOptions } from 'sequelize';
+import { Op, Order, WhereOptions } from 'sequelize';
 import { SwapUpdateEvent } from '../../consts/Enums';
 import ReverseSwap, { ReverseSwapType } from '../models/ReverseSwap';
 
 class ReverseSwapRepository {
   public static getReverseSwaps = (
     options?: WhereOptions,
+    order?: Order,
+    limit?: number,
   ): Promise<ReverseSwap[]> => {
     return ReverseSwap.findAll({
+      limit,
+      order,
       where: options,
     });
   };

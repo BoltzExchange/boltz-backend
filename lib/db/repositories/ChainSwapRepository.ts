@@ -1,4 +1,4 @@
-import { Op, WhereOptions } from 'sequelize';
+import { Op, Order, WhereOptions } from 'sequelize';
 import {
   getHexString,
   getSendingReceivingCurrency,
@@ -102,13 +102,19 @@ class ChainSwapRepository {
 
   public static getChainSwaps = async (
     options?: WhereOptions,
+    order?: Order,
+    limit?: number,
   ): Promise<ChainSwapInfo[]> => {
-    const chainSwaps = await ChainSwap.findAll({ where: options });
+    const chainSwaps = await ChainSwap.findAll({
+      limit,
+      order,
+      where: options,
+    });
     return Promise.all(chainSwaps.map(this.fetchChainSwapData));
   };
 
   /**
-   * Get a chain swap to with **both** options applies
+   * Get a chain swap to with **both** options apply
    */
   public static getChainSwapByData = async (
     dataOptions: WhereOptions,

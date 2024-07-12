@@ -1,6 +1,6 @@
 import { OutputType, SwapTreeSerializer } from 'boltz-core';
 import { Provider } from 'ethers';
-import { Op } from 'sequelize';
+import { Op, Order } from 'sequelize';
 import { ConfigType } from '../Config';
 import { parseTransaction } from '../Core';
 import Logger from '../Logger';
@@ -361,6 +361,35 @@ class Service {
     }
 
     return response;
+  };
+
+  public listSwaps = async (
+    status?: string,
+    limit?: number,
+  ): Promise<{
+    submarine: string[];
+    reverse: string[];
+    chain: string[];
+  }> => {
+    const statusOptions =
+      status !== undefined
+        ? {
+            status,
+          }
+        : {};
+    const order: Order = [['createdAt', 'DESC']];
+
+    const [submarine, reverse, chain] = await Promise.all([
+      SwapRepository.getSwaps(statusOptions, order, limit),
+      ReverseSwapRepository.getReverseSwaps(statusOptions, order, limit),
+      ChainSwapRepository.getChainSwaps(statusOptions, order, limit),
+    ]);
+
+    return {
+      submarine: submarine.map((s) => s.id),
+      reverse: reverse.map((s) => s.id),
+      chain: chain.map((s) => s.id),
+    };
   };
 
   public rescan = async (

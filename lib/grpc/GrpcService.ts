@@ -289,6 +289,27 @@ class GrpcService {
     });
   };
 
+  public listSwaps: handleUnaryCall<
+    boltzrpc.ListSwapsRequest,
+    boltzrpc.ListSwapsResponse
+  > = async (call, callback) => {
+    await this.handleCallback(call, callback, async () => {
+      const { status, limit } = call.request.toObject();
+
+      const swaps = await this.service.listSwaps(
+        status !== undefined && status !== '' ? status : undefined,
+        limit,
+      );
+
+      const response = new boltzrpc.ListSwapsResponse();
+      response.setChainSwapsList(swaps.chain);
+      response.setReverseSwapsList(swaps.reverse);
+      response.setSubmarineSwapsList(swaps.submarine);
+
+      return response;
+    });
+  };
+
   public rescan: handleUnaryCall<
     boltzrpc.RescanRequest,
     boltzrpc.RescanResponse

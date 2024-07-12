@@ -36,6 +36,7 @@ enum Command {
   GetFees = 'getfees',
   SwapInfo = 'swapinfo',
   GetStats = 'getstats',
+  ListSwaps = 'listswaps',
   GetBalance = 'getbalance',
   LockedFunds = 'lockedfunds',
   PendingSwaps = 'pendingswaps',
@@ -120,6 +121,13 @@ class CommandHandler {
         },
       ],
       [
+        Command.ListSwaps,
+        {
+          executor: this.listSwaps,
+          description: 'lists swaps',
+        },
+      ],
+      [
         Command.GetBalance,
         {
           executor: this.getBalance,
@@ -197,7 +205,16 @@ class CommandHandler {
           this.logger.debug(
             `Executing ${this.notificationClient.serviceName} command: ${command} ${args.join(', ')}`,
           );
-          await commandInfo.executor(args);
+          try {
+            await commandInfo.executor(args);
+          } catch (e) {
+            this.logger.warn(
+              `${this.notificationClient.serviceName} command failed: ${formatError(e)}`,
+            );
+            await this.notificationClient.sendMessage(
+              `Command failed: ${formatError(e)}`,
+            );
+          }
         }
       }
     });
@@ -361,6 +378,28 @@ class CommandHandler {
       `${codeBlock}${stringify(
         await Stats.generate(minYear, minMonth),
       )}${codeBlock}`,
+    );
+  };
+
+  private listSwaps = async (args: string[]) => {
+    let status: string | undefined;
+    let limit: number = 100;
+
+    if (args.length > 0) {
+      status = args[0];
+    }
+
+    if (args.length > 1) {
+      limit = Number(args[1]);
+      if (isNaN(limit)) {
+        throw 'invalid limit';
+      }
+
+      limit = Math.round(limit);
+    }
+
+    await this.notificationClient.sendMessage(
+      `${codeBlock}${stringify(await this.service.listSwaps(status, limit))}${codeBlock}`,
     );
   };
 

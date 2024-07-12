@@ -5,6 +5,7 @@ import { BoltzService } from '../proto/boltzrpc_grpc_pb';
 import { CertificatePrefix, getCertificate } from './Certificates';
 import Errors from './Errors';
 import GrpcService from './GrpcService';
+import { loggingInterceptor } from './Interceptors';
 
 class GrpcServer {
   public static readonly certificateSubject = 'boltz';
@@ -16,7 +17,9 @@ class GrpcServer {
     private config: GrpcConfig,
     grpcService: GrpcService,
   ) {
-    this.server = new Server();
+    this.server = new Server({
+      interceptors: [loggingInterceptor(this.logger)],
+    });
 
     this.server.addService(BoltzService, {
       getInfo: grpcService.getInfo,
@@ -29,6 +32,7 @@ class GrpcServer {
       updateTimeoutBlockDelta: grpcService.updateTimeoutBlockDelta,
       addReferral: grpcService.addReferral,
       sweepSwaps: grpcService.sweepSwaps,
+      listSwaps: grpcService.listSwaps,
       rescan: grpcService.rescan,
       setSwapStatus: grpcService.setSwapStatus,
       devHeapDump: grpcService.devHeapDump,

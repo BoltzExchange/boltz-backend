@@ -206,17 +206,48 @@ describe('ChainSwapRepository', () => {
     expect(fetched).toBeNull();
   });
 
-  test('should get chain swaps by swap data', async () => {
-    const count = 10;
-    for (let i = 0; i < count; i++) {
-      await createChainSwap();
-    }
+  describe('getChainSwaps', () => {
+    test('should get chain swaps by swap data', async () => {
+      const count = 10;
+      for (let i = 0; i < count; i++) {
+        await createChainSwap();
+      }
 
-    const chainSwaps = await ChainSwapRepository.getChainSwaps({
-      pair: 'L-BTC/BTC',
-      orderSide: OrderSide.BUY,
+      const chainSwaps = await ChainSwapRepository.getChainSwaps({
+        pair: 'L-BTC/BTC',
+        orderSide: OrderSide.BUY,
+      });
+      expect(chainSwaps).toHaveLength(count);
     });
-    expect(chainSwaps).toHaveLength(count);
+
+    test('should get chain swaps by swap data in order', async () => {
+      const count = 10;
+      for (let i = 0; i < count; i++) {
+        await createChainSwap();
+      }
+
+      const swaps = await ChainSwapRepository.getChainSwaps(undefined, [
+        ['id', 'ASC'],
+      ]);
+      expect(swaps.map((s) => s.id)).toStrictEqual(
+        [...swaps].map((s) => s.id).sort(),
+      );
+    });
+
+    test('should get chain swaps by swap data with limit', async () => {
+      const count = 10;
+      for (let i = 0; i < count; i++) {
+        await createChainSwap();
+      }
+
+      const limit = 2;
+      const swaps = await ChainSwapRepository.getChainSwaps(
+        undefined,
+        undefined,
+        limit,
+      );
+      expect(swaps).toHaveLength(limit);
+    });
   });
 
   test('should get chain swap by data', async () => {

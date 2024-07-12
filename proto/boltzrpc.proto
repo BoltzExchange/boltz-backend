@@ -38,6 +38,8 @@ service Boltz {
 
   rpc SweepSwaps (SweepSwapsRequest) returns (SweepSwapsResponse);
 
+  rpc ListSwaps (ListSwapsRequest) returns (ListSwapsResponse);
+
   rpc Rescan (RescanRequest) returns (RescanResponse);
 
   rpc DevHeapDump (DevHeapDumpRequest) returns (DevHeapDumpResponse);
@@ -199,6 +201,17 @@ message SweepSwapsResponse {
   }
 
   map<string, ClaimedSwaps> claimed_symbols = 1;
+}
+
+message ListSwapsRequest {
+  optional string status = 1;
+  optional uint64 limit = 2;
+}
+
+message ListSwapsResponse {
+  repeated string submarine_swaps = 1;
+  repeated string reverse_swaps = 2;
+  repeated string chain_swaps = 3;
 }
 
 message RescanRequest {

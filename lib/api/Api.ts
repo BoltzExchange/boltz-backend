@@ -4,6 +4,7 @@ import { ApiConfig } from '../Config';
 import Logger from '../Logger';
 import CountryCodes from '../service/CountryCodes';
 import Service from '../service/Service';
+import Sidecar from '../sidecar/Sidecar';
 import Controller from './Controller';
 import SwapInfos from './SwapInfos';
 import { errorResponse } from './Utils';
@@ -21,6 +22,7 @@ class Api {
     private readonly logger: Logger,
     private readonly config: ApiConfig,
     service: Service,
+    sidecar: Sidecar,
     countryCodes: CountryCodes,
   ) {
     this.app = express();
@@ -61,7 +63,7 @@ class Api {
       },
     );
 
-    this.swapInfos = new SwapInfos(this.logger, service);
+    this.swapInfos = new SwapInfos(this.logger, service, sidecar);
     this.controller = new Controller(
       logger,
       service,

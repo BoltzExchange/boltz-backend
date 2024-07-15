@@ -9,6 +9,7 @@ jobs:
         platform: [ubuntu-latest]
         node-version: [20]
         python-version: ['3.10']
+        rust-version: [stable]
 
     runs-on: ${{ matrix.platform }}
 
@@ -32,6 +33,12 @@ jobs:
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Use Rust toolchain
+        run: rustup update ${{ matrix.rust-version }} && rustup default ${{ matrix.rust-version }}
+
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo apt-get -y install protobuf-compiler
 
       - name: Install Node.js dependencies
         run: npm ci --force
@@ -80,3 +87,43 @@ jobs:
 
       - name: Python plugin tests
         run: npm run python:test
+
+  build-rust:
+    strategy:
+      matrix:
+        platform: [ubuntu-latest]
+        rust-version: [stable, nightly]
+
+    runs-on: ${{ matrix.platform }}
+
+    defaults:
+      run:
+        working-directory: boltzr
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo apt-get -y install protobuf-compiler
+
+      - name: Use Rust toolchain
+        run: rustup update ${{ matrix.rust-version }} && rustup default ${{ matrix.rust-version }}
+
+      - name: Install rustfmt
+        run: rustup component add rustfmt
+
+      - name: Install clippy
+        run: rustup component add clippy
+
+      - name: Compile
+        run: cargo build
+
+      - name: Format
+        run: cargo fmt --check
+
+      - name: Lint
+        run: cargo clippy
+
+      - name: Tests
+        run: cargo test

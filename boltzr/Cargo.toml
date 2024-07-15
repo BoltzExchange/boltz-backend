@@ -1,0 +1,65 @@
+[package]
+name = "boltzr"
+version = "3.7.2"
+edition = "2021"
+license = "AGPL-3"
+authors = ["michael1011"]
+build = "build.rs"
+
+[features]
+default = ["metrics", "loki"]
+metrics = [
+    "dep:axum",
+    "dep:metrics",
+    "dep:axum-prometheus",
+    "dep:metrics-process",
+    "dep:metrics-exporter-prometheus",
+]
+loki = ["dep:tracing-loki"]
+
+[profile.release]
+strip = true
+opt-level = 2
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[dependencies]
+axum = { version = "0.7.5", optional = true }
+bitcoin = "0.32.2"
+clap = { version = "4.5.9", features = ["derive"] }
+crossbeam-channel = "0.5.13"
+ctrlc = { version = "3.4.4", features = ["termination"] }
+dirs = "5.0.1"
+num_cpus = "1.16.0"
+prost = "0.13.1"
+rcgen = { version = "0.13.1", features = ["x509-parser"] }
+reqwest = { version = "0.12.5", features = ["json"] }
+serde = { version = "1.0.204", features = ["derive"] }
+serde_json = "1.0.120"
+tokio = { version = "1.38.0", features = ["rt-multi-thread", "macros"] }
+toml = "0.8.14"
+tonic = { version = "0.12.0", features = ["prost", "tls"] }
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+tokio-util = "0.7.11"
+tracing-loki = { version = "0.2.5", optional = true }
+futures = "0.3.30"
+metrics-process = { version = "2.1.0", optional = true }
+metrics-exporter-prometheus = { version = "0.15.3", optional = true, default-features = false }
+axum-prometheus = { version = "0.6.1", default-features = false, optional = true, features = ["prometheus"] }
+metrics = { version = "0.23.0", optional = true }
+diesel_migrations = "2.2.0"
+r2d2 = "0.8.10"
+dyn-clone = "1.0.17"
+diesel = { version = "2.2.1", default-features = false, features = ["postgres", "r2d2", "chrono"] }
+strum_macros = "0.26.4"
+strum = "0.26.3"
+dashmap = "6.0.1"
+
+[build-dependencies]
+built = { version = "0.7.4", features = ["git2"] }
+tonic-build = "0.12.0"
+
+[dev-dependencies]
+mockall = "0.12.1"

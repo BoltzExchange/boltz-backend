@@ -13,6 +13,7 @@ import { LndConfig } from './lightning/LndClient';
 import { ClnConfig } from './lightning/cln/Types';
 import { BlocksConfig } from './service/Blocks';
 import { MarkingsConfig } from './service/CountryCodes';
+import { SidecarConfig } from './sidecar/Sidecar';
 import { NodeSwitchConfig } from './swap/NodeSwitch';
 
 type PostgresConfig = {
@@ -212,6 +213,8 @@ type ConfigType = {
 
   rsk?: RskConfig;
   ethereum: EthereumConfig;
+
+  sidecar: SidecarConfig;
 };
 
 class Config {
@@ -410,6 +413,8 @@ class Config {
 
         tokens: [],
       },
+
+      sidecar: {} as any,
     };
   }
 
@@ -451,6 +456,8 @@ class Config {
     }
 
     deepMerge(this.config, args);
+
+    this.config.configpath = boltzConfigFile;
     return this.config;
   };
 

@@ -5,7 +5,7 @@ description: >-
   swaps.
 ---
 
-# 🙋♂ Claim & Refund Transactions
+# 🙋‍♂️ Claim & Refund Transactions
 
 Boltz API clients need to craft and broadcast
 
@@ -152,7 +152,7 @@ Examples for all output types can be found in the [`boltz-core`](https://github.
 Similar to claim transactions, Boltz API clients need to be able to craft and broadcast **refund transactions** for failed **Normal Submarine Swaps**. This section provides an overview of what refunds are, how they work and touches on the low-level scripting for your Boltz API client to successfully submit a refund.
 
 {% hint style="info" %}
-The concept of refunds currently only exists for failed Normal Submarine Swaps. In case of a failed Reverse Submarine Swaps, Lightning funds automatically bounce back to the user once the payment expired, no active refunding is needed.
+The concept of refunds exists for failed Normal Submarine Swaps and Chain Swaps. For failed Reverse Submarine Swaps, Lightning funds automatically bounce back to the user once the payment expired, no active refunding is needed.
 {% endhint %}
 
 Refunding an output works just like claiming. Since the refund process doesn't need the preimage (or knows it but can't use it since that would require the claim keys) any value apart from the actual preimage can be used but there has to be a value to prevent the signature from being hashed and compared to the preimage hash. To save on transaction fees, we recommend using a 0 value.

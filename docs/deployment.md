@@ -5,7 +5,7 @@ description: >-
   great responsibility.
 ---
 
-# 🚢 Deployment of Boltz Backend
+# 🚢 Backend Deployment
 
 Prerequisites:
 
@@ -17,8 +17,7 @@ Boltz Backend requires a synced Bitcoin Core Instance to connect to the Bitcoin 
 * Have the transaction index enabled: `txindex=1`
 * Enable ZeroMQ streams for raw blocks and raw transactions: (`zmqpubrawblock=tcp://<host>:<port>` and `zmqpubrawtx=tcp://<host>:<port>`)
 
-Boltz requires a [LND](https://github.com/LightningNetwork/lnd) or [CLN](https://github.com/ElementsProject/lightning/) node running on Bitcoin to be present.
-For LND, no special configuration is needed, all [official release binaries](https://github.com/lightningnetwork/lnd/releases) are compatible.
+Boltz requires a [LND](https://github.com/LightningNetwork/lnd) or [CLN](https://github.com/ElementsProject/lightning/) node running on Bitcoin to be present. For LND, no special configuration is needed, all [official release binaries](https://github.com/lightningnetwork/lnd/releases) are compatible.
 
 ## Config Sample
 

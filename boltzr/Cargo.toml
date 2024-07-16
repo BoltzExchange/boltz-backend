@@ -26,7 +26,7 @@ panic = "abort"
 
 [dependencies]
 axum = { version = "0.7.5", optional = true }
-bitcoin = "0.32.2"
+bitcoin_hashes = "0.14.0"
 clap = { version = "4.5.9", features = ["derive"] }
 crossbeam-channel = "0.5.13"
 ctrlc = { version = "3.4.4", features = ["termination"] }

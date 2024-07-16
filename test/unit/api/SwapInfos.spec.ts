@@ -21,17 +21,24 @@ import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import Errors from '../../../lib/service/Errors';
 import EventHandler from '../../../lib/service/EventHandler';
 import Service from '../../../lib/service/Service';
+import Sidecar from '../../../lib/sidecar/Sidecar';
 import SwapNursery from '../../../lib/swap/SwapNursery';
 
 describe('SwapInfos', () => {
   const service = {
     eventHandler: new TypedEventEmitter(),
   } as any as Service;
+  const sideCar = {
+    sendWebHook: jest.fn().mockImplementation(async () => {}),
+  } as any as Sidecar;
+
   let swapInfos: SwapInfos;
 
   beforeEach(() => {
+    jest.clearAllMocks();
+
     service.eventHandler.removeAllListeners();
-    swapInfos = new SwapInfos(Logger.disabledLogger, service);
+    swapInfos = new SwapInfos(Logger.disabledLogger, service, sideCar);
   });
 
   describe('constructor', () => {
@@ -42,6 +49,15 @@ describe('SwapInfos', () => {
 
       expect(swapInfos['cachedSwapInfos'].get(id)).toEqual(status);
       expect(swapInfos.cacheSize).toEqual(1);
+    });
+
+    test('should call sidecar on swap.update', () => {
+      const id = 'carTest';
+      const status = { status: SwapUpdateEvent.SwapCreated };
+
+      service.eventHandler.emit('swap.update', { id, status });
+      expect(sideCar.sendWebHook).toHaveBeenCalledTimes(1);
+      expect(sideCar.sendWebHook).toHaveBeenCalledWith(id, status.status);
     });
   });
 

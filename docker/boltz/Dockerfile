@@ -9,14 +9,22 @@ RUN apt-get -y install \
     g++ \
     curl \
     make \
+    wget \
     rsync \
+    gnupg2 \
     python3 \
     libc-dev \
     libssl-dev \
     pkg-config \
+    lsb-release \
     libzmq3-dev \
     python3-dev \
     protobuf-compiler
+
+RUN sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list' && \
+    wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - && \
+    apt-get update && \
+    apt-get -y install libpq-dev
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"

@@ -24,6 +24,8 @@ pub struct BoltzService {
     pub web_hook_retry_handle: Arc<Mutex<Cell<Option<tokio::task::JoinHandle<()>>>>>,
 }
 
+// TODO: test
+
 #[tonic::async_trait]
 impl BoltzR for BoltzService {
     async fn get_info(
@@ -102,7 +104,7 @@ impl BoltzR for BoltzService {
 
         match self
             .web_hook_caller
-            .call_webhook(&params.id, &params.status, &hook.url, false)
+            .call_webhook(&params.id, &params.status, &hook.url, hook.hash_swap_id)
             .await
         {
             Ok(ok) => Ok(Response::new(SendWebHookResponse { ok })),

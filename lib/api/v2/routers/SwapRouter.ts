@@ -7,7 +7,7 @@ import SwapRepository from '../../../db/repositories/SwapRepository';
 import RateProviderTaproot from '../../../rates/providers/RateProviderTaproot';
 import CountryCodes from '../../../service/CountryCodes';
 import Errors from '../../../service/Errors';
-import Service from '../../../service/Service';
+import Service, { WebHookData } from '../../../service/Service';
 import ChainSwapSigner from '../../../service/cooperative/ChainSwapSigner';
 import MusigSigner, {
   PartialSignature,
@@ -1532,19 +1532,19 @@ class SwapRouter extends RouterBase {
     );
 
   private createSubmarine = async (req: Request, res: Response) => {
-    const { to, from, invoice, pairHash, refundPublicKey } = validateRequest(
-      req.body,
-      [
+    const { to, from, invoice, webhook, pairHash, refundPublicKey } =
+      validateRequest(req.body, [
         { name: 'to', type: 'string' },
         { name: 'from', type: 'string' },
+        { name: 'webhook', type: 'object', optional: true },
         { name: 'invoice', type: 'string', optional: true },
         { name: 'pairHash', type: 'string', optional: true },
         { name: 'refundPublicKey', type: 'string', hex: true, optional: true },
-      ],
-    );
+      ]);
     const referralId = parseReferralId(req);
 
     const { pairId, orderSide } = this.service.convertToPairAndSide(from, to);
+    const webHookData = this.parseWebHook(webhook);
 
     let response: { id: string };
 
@@ -1558,6 +1558,7 @@ class SwapRouter extends RouterBase {
         referralId,
         undefined,
         SwapVersion.Taproot,
+        webHookData,
       );
     } else {
       const { preimageHash } = validateRequest(req.body, [
@@ -1571,6 +1572,7 @@ class SwapRouter extends RouterBase {
         referralId,
         preimageHash,
         refundPublicKey,
+        webHook: webHookData,
         version: SwapVersion.Taproot,
       });
     }
@@ -1685,6 +1687,7 @@ class SwapRouter extends RouterBase {
     const {
       to,
       from,
+      webhook,
       address,
       pairHash,
       description,
@@ -1701,6 +1704,7 @@ class SwapRouter extends RouterBase {
       { name: 'from', type: 'string' },
       { name: 'preimageHash', type: 'string', hex: true },
       { name: 'address', type: 'string', optional: true },
+      { name: 'webhook', type: 'object', optional: true },
       { name: 'pairHash', type: 'string', optional: true },
       { name: 'description', type: 'string', optional: true },
       { name: 'routingNode', type: 'string', optional: true },
@@ -1716,6 +1720,8 @@ class SwapRouter extends RouterBase {
     checkPreimageHashLength(preimageHash);
 
     const { pairId, orderSide } = this.service.convertToPairAndSide(from, to);
+    const webHookData = this.parseWebHook(webhook);
+
     const response = await this.service.createReverseSwap({
       pairId,
       pairHash,
@@ -1731,6 +1737,7 @@ class SwapRouter extends RouterBase {
       claimPublicKey,
 
       userAddress: address,
+      webHook: webHookData,
       prepayMinerFee: false,
       version: SwapVersion.Taproot,
       userAddressSignature: addressSignature,
@@ -1820,17 +1827,19 @@ class SwapRouter extends RouterBase {
     const {
       to,
       from,
+      webhook,
       pairHash,
       referralId,
       preimageHash,
       claimAddress,
-      userLockAmount,
-      serverLockAmount,
       claimPublicKey,
+      userLockAmount,
       refundPublicKey,
+      serverLockAmount,
     } = validateRequest(req.body, [
       { name: 'to', type: 'string' },
       { name: 'from', type: 'string' },
+      { name: 'webhook', type: 'object', optional: true },
       { name: 'preimageHash', type: 'string', hex: true },
       { name: 'pairHash', type: 'string', optional: true },
       { name: 'referralId', type: 'string', optional: true },
@@ -1842,6 +1851,7 @@ class SwapRouter extends RouterBase {
     ]);
 
     checkPreimageHashLength(preimageHash);
+    const webHookData = this.parseWebHook(webhook);
 
     const { pairId, orderSide } = this.service.convertToPairAndSide(from, to);
     const response = await this.service.createChainSwap({
@@ -1855,6 +1865,7 @@ class SwapRouter extends RouterBase {
       userLockAmount,
       refundPublicKey,
       serverLockAmount,
+      webHook: webHookData,
     });
 
     await markSwap(this.countryCodes, req.ip, response.id);
@@ -2004,6 +2015,16 @@ class SwapRouter extends RouterBase {
       errorResponse(this.logger, req, res, Errors.SWAP_NOT_FOUND(id), 404);
     }
   };
+
+  private parseWebHook = (
+    data?: Record<string, any>,
+  ): WebHookData | undefined =>
+    data === undefined
+      ? undefined
+      : validateRequest(data, [
+          { name: 'url', type: 'string' },
+          { name: 'hashSwapId', type: 'boolean', optional: true },
+        ]);
 }
 
 export default SwapRouter;

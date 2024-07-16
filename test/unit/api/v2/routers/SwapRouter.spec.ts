@@ -378,6 +378,7 @@ describe('SwapRouter', () => {
       undefined,
       undefined,
       SwapVersion.Taproot,
+      undefined,
     );
 
     expect(MarkedSwapRepository.addMarkedSwap).toHaveBeenCalledTimes(1);
@@ -441,6 +442,7 @@ describe('SwapRouter', () => {
       undefined,
       undefined,
       SwapVersion.Taproot,
+      undefined,
     );
   });
 
@@ -466,6 +468,7 @@ describe('SwapRouter', () => {
       reqBody.referralId,
       undefined,
       SwapVersion.Taproot,
+      undefined,
     );
   });
 
@@ -496,6 +499,7 @@ describe('SwapRouter', () => {
       referralId,
       undefined,
       SwapVersion.Taproot,
+      undefined,
     );
   });
 

@@ -1,4 +1,4 @@
-import { ChannelCredentials, Metadata } from '@grpc/grpc-js';
+import { Metadata } from '@grpc/grpc-js';
 import { Status } from '@grpc/grpc-js/build/src/constants';
 import child_process from 'node:child_process';
 import path from 'path';
@@ -13,6 +13,8 @@ import { BoltzRClient } from '../proto/sidecar/boltzr_grpc_pb';
 import * as sidecarrpc from '../proto/sidecar/boltzr_pb';
 
 type SidecarConfig = {
+  path?: string;
+
   config?: string;
   logFile?: string;
 
@@ -28,7 +30,6 @@ class Sidecar extends BaseClient {
   public static readonly serviceName = 'sidecar';
 
   private client?: BoltzRClient;
-  private readonly clientCreds: ChannelCredentials;
   private readonly clientMeta = new Metadata();
 
   constructor(
@@ -36,14 +37,6 @@ class Sidecar extends BaseClient {
     private config: SidecarConfig,
   ) {
     super(logger, Sidecar.symbol);
-    this.clientCreds = createSsl(Sidecar.serviceName, Sidecar.symbol, {
-      rootCertPath: path.join(this.config.grpc.certificates, 'ca.pem'),
-      certChainPath: path.join(this.config.grpc.certificates, 'client.pem'),
-      privateKeyPath: path.join(
-        this.config.grpc.certificates,
-        'client-key.pem',
-      ),
-    });
   }
 
   public static start = (logger: Logger, config: ConfigType) => {
@@ -52,7 +45,11 @@ class Sidecar extends BaseClient {
     logger.info(`Starting ${sidecarBuildType} sidecar`);
 
     const sidecar = child_process.spawn(
-      `./boltzr/target/${sidecarBuildType}/boltzr`,
+      config.sidecar.path ||
+        path.join(
+          path.resolve(__dirname, '..', '..', '..'),
+          `boltzr/target/${sidecarBuildType}/boltzr`,
+        ),
       [
         '--config',
         config.sidecar?.config || config.configpath,
@@ -76,7 +73,14 @@ class Sidecar extends BaseClient {
 
     this.client = new BoltzRClient(
       `${this.config.grpc.host}:${this.config.grpc.port}`,
-      this.clientCreds,
+      createSsl(Sidecar.serviceName, Sidecar.symbol, {
+        rootCertPath: path.join(this.config.grpc.certificates, 'ca.pem'),
+        certChainPath: path.join(this.config.grpc.certificates, 'client.pem'),
+        privateKeyPath: path.join(
+          this.config.grpc.certificates,
+          'client-key.pem',
+        ),
+      }),
       {
         ...grpcOptions,
         'grpc.ssl_target_name_override': 'sidecar',
@@ -132,6 +136,22 @@ class Sidecar extends BaseClient {
     if (sidecarInfo.version !== getVersion()) {
       throw `sidecar version incompatible: ${sidecarInfo.version} vs ${getVersion()}`;
     }
+  };
+
+  public createWebHook = async (
+    swapId: string,
+    url: string,
+    hashSwapId?: boolean,
+  ) => {
+    const req = new sidecarrpc.CreateWebHookRequest();
+    req.setId(swapId);
+    req.setUrl(url);
+    req.setHashSwapId(hashSwapId || false);
+
+    await this.unaryNodeCall<
+      sidecarrpc.CreateWebHookRequest,
+      sidecarrpc.CreateWebHookResponse
+    >('createWebHook', req);
   };
 
   public sendWebHook = async (swapId: string, status: SwapUpdateEvent) => {

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::{cmp, fmt};
 
-use bitcoin::hashes::{sha256, Hash};
+use bitcoin_hashes::{sha256, Hash};
 use dashmap::DashMap;
 use futures::future;
 use reqwest::Url;
@@ -29,7 +29,7 @@ impl fmt::Display for UrlError {
             UrlError::MoreThanMaxLen => {
                 f.write_str("URL length is more than the maximum length permitted")
             }
-            UrlError::HttpsRequired => f.write_str("Only HTTPS URLs are permitted"),
+            UrlError::HttpsRequired => f.write_str("only HTTPS URLs are permitted"),
         }
     }
 }

@@ -203,6 +203,22 @@ class ChainSwapRepository {
       ]);
     });
 
+  public static destroy = (id: string) =>
+    Database.sequelize.transaction(async (transaction) => {
+      await ChainSwapData.destroy({
+        transaction,
+        where: {
+          swapId: id,
+        },
+      });
+      await ChainSwap.destroy({
+        transaction,
+        where: {
+          id,
+        },
+      });
+    });
+
   public static disableZeroConf = async (swaps: ChainSwapInfo[]) => {
     if (swaps.length === 0) {
       return;

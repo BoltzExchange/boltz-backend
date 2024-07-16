@@ -147,6 +147,7 @@ class Boltz {
 
     this.blocks = new Blocks(this.logger, this.config.blocks);
 
+    this.sidecar = new Sidecar(this.logger, this.config.sidecar);
     try {
       this.service = new Service(
         this.logger,
@@ -155,6 +156,7 @@ class Boltz {
         new NodeSwitch(this.logger, this.config.nodeSwitch),
         this.currencies,
         this.blocks,
+        this.sidecar,
       );
 
       this.backup = new BackupScheduler(
@@ -182,7 +184,6 @@ class Boltz {
       );
 
       this.countryCodes = new CountryCodes(this.logger, this.config.marking);
-      this.sidecar = new Sidecar(this.logger, this.config.sidecar);
       this.api = new Api(
         this.logger,
         this.config.api,

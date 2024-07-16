@@ -14,7 +14,7 @@ CREATE TABLE web_hooks (
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
-CREATE INDEX web_hooks_state ON web_hooks (state);
+CREATE INDEX web_hooks_state_idx ON web_hooks (state);
 
 CREATE TRIGGER update_web_hooks_modified_time
     BEFORE UPDATE ON web_hooks

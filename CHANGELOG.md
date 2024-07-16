@@ -3,6 +3,43 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [3.7.2](https://github.com/BoltzExchange/boltz-backend/compare/v3.7.1..v3.7.2) - 2024-07-15
+
+### Bug Fixes
+
+- failed notitication for swap without invoice - ([e1d3d6c](https://github.com/BoltzExchange/boltz-backend/commit/e1d3d6c05c6b013b9fc38575c3b59ef4c5857737))
+- failed Chain Swap notifications - ([e781bc2](https://github.com/BoltzExchange/boltz-backend/commit/e781bc2d106e5243589fa638cda2b7fedd3c437d))
+- brute force key order combinations in CLI (#603) - ([a131e66](https://github.com/BoltzExchange/boltz-backend/commit/a131e66b8b437091859e035087b359ea1a10a835))
+
+### Documentation
+
+- add TypeScript examples for Liquid swaps - ([02532ab](https://github.com/BoltzExchange/boltz-backend/commit/02532ab259b556aba15566e073a3716b4fdb9ed9))
+- add Bitcoin -> Liquid Chain swap example - ([291cdcb](https://github.com/BoltzExchange/boltz-backend/commit/291cdcb33fb62339fba9274eaf4ec447747fad09))
+- add chain swap lifecycle and transaction details - ([1cc27fc](https://github.com/BoltzExchange/boltz-backend/commit/1cc27fc5b36f40651d25eea26948ee86d1c41faa))
+- add common problems page (#606) - ([b06443f](https://github.com/BoltzExchange/boltz-backend/commit/b06443f5a0f4c84c1c022a1291a969cacd2007c2))
+
+### Features
+
+- sanity check invoice memos - ([5f95d82](https://github.com/BoltzExchange/boltz-backend/commit/5f95d82fe46036c4e34e7c61f712465df7084161))
+- custom reverse swap invoice description - ([d218794](https://github.com/BoltzExchange/boltz-backend/commit/d218794c6b93fefcb69da559acf2f5cacbbe1c16))
+- gRPC server SSL encryption and authentication (#591) - ([75a2037](https://github.com/BoltzExchange/boltz-backend/commit/75a20373ce48d01ba2ed0611ab803e73bb66e7ae))
+- allow lowball lockup transactions in API (#598) - ([f8ce827](https://github.com/BoltzExchange/boltz-backend/commit/f8ce827a3a8c1a0b8c01d0dec27b944432a6b617))
+- onchain overpayment protection (#599) - ([61a3d91](https://github.com/BoltzExchange/boltz-backend/commit/61a3d91d6b0aaa79bf6e69d640fed89db5819191))
+- S3 compatible backup provider - ([e24f2bf](https://github.com/BoltzExchange/boltz-backend/commit/e24f2bf515d70666a543b1a418e5faf61a1c5005))
+- ListSwaps gRPC method (#607) - ([c6e2e4b](https://github.com/BoltzExchange/boltz-backend/commit/c6e2e4b0fa7642742a57aca2d5a2e8f3165802a5))
+
+### Miscellaneous Chores
+
+- add CHANGELOG for v3.7.1 - ([a8b37c0](https://github.com/BoltzExchange/boltz-backend/commit/a8b37c0b3e3d38e35f56c7d1b0a7a5db385bb1da))
+- bump certifi from 2024.6.2 to 2024.7.4 in /tools (#597) - ([2261aa4](https://github.com/BoltzExchange/boltz-backend/commit/2261aa4259f199d7cfd86d435a5a18a143c1ff3b))
+- remove Google Cloud bucket backup provider - ([bc5af96](https://github.com/BoltzExchange/boltz-backend/commit/bc5af9623a2ae57cab5a54349b2bf51d69bf4b1c))
+- optimize backend Dockerfile (#604) - ([ee4c77b](https://github.com/BoltzExchange/boltz-backend/commit/ee4c77be1fcb9bb2b45703c542ad67f7efbf218d))
+- include swap id in invoice settlement error log (#608) - ([3b652be](https://github.com/BoltzExchange/boltz-backend/commit/3b652beba7b62284cddcd31d703ad47bfe6ed84e))
+- minor dependency updates - ([bbb992c](https://github.com/BoltzExchange/boltz-backend/commit/bbb992cf0907551a62541d3a662fbc7536eed78c))
+- bump Docker image versions - ([08ed479](https://github.com/BoltzExchange/boltz-backend/commit/08ed4790deeb56686d9e84782aa485506e77a9cc))
+- apply docs review feedback - ([f4260f5](https://github.com/BoltzExchange/boltz-backend/commit/f4260f533abb0d96dea5fbf8f0dd3e219f7de60e))
+
+---
 ## [3.7.1](https://github.com/BoltzExchange/boltz-backend/compare/v3.7.0..v3.7.1) - 2024-07-02
 
 ### Bug Fixes

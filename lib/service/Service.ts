@@ -1,5 +1,6 @@
 import { OutputType, SwapTreeSerializer } from 'boltz-core';
 import { Provider } from 'ethers';
+import { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import { Op, Order } from 'sequelize';
 import { ConfigType } from '../Config';
 import { parseTransaction } from '../Core';
@@ -747,11 +748,16 @@ class Service {
 
     // Only allow lowball for swap related transactions
     const isSwapRelated = swapsFunded.length > 0 || swapsSpent.length > 0;
+    const needsLowball =
+      currency.type === CurrencyType.Liquid &&
+      ElementsClient.needsLowball(transaction as LiquidTransaction);
+
     const relevantSwapIds = swapsSpent.concat(swapsFunded).map((r) => r.id);
 
     if (isSwapRelated) {
-      // Disable 0-conf for all swaps that are being funded
-      if (swapsFunded.length > 0) {
+      // Disable 0-conf for all swaps that are being funded when the transaction
+      // is being broadcast through the lowball node
+      if (needsLowball && swapsFunded.length > 0) {
         this.logger.debug(
           `Disabling 0-conf for Swaps: ${swapsFunded.map((s) => s.id).join(', ')}`,
         );
@@ -760,6 +766,10 @@ class Service {
           SwapRepository.disableZeroConf(funded.swapLockups),
           ChainSwapRepository.disableZeroConf(funded.chainSwapLockups),
         ]);
+      } else {
+        this.logger.debug(
+          `Not disabling 0-conf for Swaps (${relevantSwapIds.join(', ')}) because the lockup transaction is not lowball`,
+        );
       }
 
       this.logger.debug(
@@ -772,7 +782,7 @@ class Service {
     try {
       return await currency.chainClient.sendRawTransaction(
         transactionHex,
-        isSwapRelated,
+        isSwapRelated && needsLowball,
       );
     } catch (error) {
       if (isSwapRelated) {

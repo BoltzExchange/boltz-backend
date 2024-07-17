@@ -1,4 +1,4 @@
-import { Transaction } from 'liquidjs-lib';
+import { Transaction, confidential } from 'liquidjs-lib';
 import { ChainConfig } from '../Config';
 import Logger from '../Logger';
 import { CurrencyType } from '../consts/Enums';
@@ -30,6 +30,8 @@ class ElementsClient
 {
   public static readonly symbol = liquidSymbol;
 
+  private static readonly minNoLowBallFee = 0.1;
+
   constructor(
     logger: Logger,
     config: ChainConfig,
@@ -39,6 +41,19 @@ class ElementsClient
     this.currencyType = CurrencyType.Liquid;
     this.feeFloor = isLowball ? 0.01 : 0.11;
   }
+
+  public static needsLowball = (tx: Transaction): boolean => {
+    const feeOutput = tx.outs.find((out) => out.script.length === 0);
+    if (feeOutput === undefined) {
+      return false;
+    }
+
+    return (
+      confidential.confidentialValueToSatoshi(feeOutput.value) /
+        tx.virtualSize() <
+      ElementsClient.minNoLowBallFee
+    );
+  };
 
   public serviceName = (): string => {
     return 'Elements';

@@ -1,9 +1,10 @@
+use std::error::Error;
+
 use diesel::r2d2::ConnectionManager;
 use diesel::PgConnection;
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 use r2d2::Pool;
 use serde::{Deserialize, Serialize};
-use std::error::Error;
 use tracing::{debug, info, trace};
 
 pub mod helpers;
@@ -20,8 +21,6 @@ pub struct Config {
     pub username: String,
     pub password: String,
 }
-
-// TODO: test
 
 pub fn connect(
     config: Config,

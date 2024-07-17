@@ -59,11 +59,10 @@ impl Server {
         let web_hook_retry_handle: Arc<Mutex<Cell<Option<tokio::task::JoinHandle<()>>>>> =
             Arc::new(Default::default());
 
-        let service = BoltzService {
-            web_hook_helper: Arc::new(self.web_hook_helper.clone()),
-            web_hook_caller: Arc::new(self.web_hook_caller.clone()),
-            web_hook_retry_handle: web_hook_retry_handle.clone(),
-        };
+        let service = BoltzService::new(
+            Arc::new(self.web_hook_helper.clone()),
+            Arc::new(self.web_hook_caller.clone()),
+        );
 
         #[cfg(feature = "metrics")]
         let svc = BoltzRServer::with_interceptor(

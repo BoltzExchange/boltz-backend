@@ -92,6 +92,7 @@ jobs:
     strategy:
       matrix:
         platform: [ubuntu-latest]
+        node-version: [20]
         rust-version: [stable, nightly]
 
     runs-on: ${{ matrix.platform }}
@@ -107,6 +108,12 @@ jobs:
       - name: Install build dependencies
         run: sudo apt-get update && sudo apt-get -y install protobuf-compiler
 
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
       - name: Use Rust toolchain
         run: rustup update ${{ matrix.rust-version }} && rustup default ${{ matrix.rust-version }}
 
@@ -116,13 +123,16 @@ jobs:
       - name: Install clippy
         run: rustup component add clippy
 
+      - name: Start PostgreSQL
+        run: npm run db:start
+
       - name: Compile
         run: cargo build
 
       - name: Format
         run: cargo fmt --check
 
-      - name: Lint
+      - name: Clippy
         run: cargo clippy
 
       - name: Tests

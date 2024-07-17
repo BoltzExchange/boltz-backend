@@ -32,8 +32,6 @@ impl WebHookHelperDatabase {
     }
 }
 
-// TODO: test
-
 impl WebHookHelper for WebHookHelperDatabase {
     fn insert_web_hook(&self, hook: &WebHook) -> QueryResponse<usize> {
         trace!("Inserting WebHook: {:#?}", hook);
@@ -102,5 +100,85 @@ impl WebHookHelper for WebHookHelperDatabase {
             .iter()
             .find(|elem| !elem.is_empty())
             .map(|res| res[0].clone()))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::db::helpers::web_hook::{WebHookHelper, WebHookHelperDatabase};
+    use crate::db::models::{WebHook, WebHookState};
+    use crate::db::{connect, Config};
+    use diesel::r2d2::ConnectionManager;
+    use diesel::PgConnection;
+    use r2d2::Pool;
+    use rand::distributions::{Alphanumeric, DistString};
+    use std::sync::{Mutex, OnceLock};
+
+    #[test]
+    fn test_insert_web_hook() {
+        let helper = WebHookHelperDatabase::new(get_pool());
+
+        let hook = WebHook {
+            id: Alphanumeric.sample_string(&mut rand::thread_rng(), 8),
+            state: WebHookState::Ok.into(),
+            url: "https://some.thing".to_string(),
+            hash_swap_id: true,
+        };
+        assert_eq!(helper.insert_web_hook(&hook).unwrap(), 1);
+        assert_eq!(helper.get_by_id(&hook.id).unwrap().unwrap(), hook);
+    }
+
+    #[test]
+    fn test_insert_web_hook_duplicate() {
+        let helper = WebHookHelperDatabase::new(get_pool());
+
+        let hook = WebHook {
+            id: Alphanumeric.sample_string(&mut rand::thread_rng(), 8),
+            state: WebHookState::Ok.into(),
+            url: "https://some.thing".to_string(),
+            hash_swap_id: true,
+        };
+        assert_eq!(helper.insert_web_hook(&hook).unwrap(), 1);
+        assert!(helper.insert_web_hook(&hook).err().is_some());
+    }
+
+    #[test]
+    fn test_set_state() {
+        let helper = WebHookHelperDatabase::new(get_pool());
+
+        let mut hook = WebHook {
+            id: Alphanumeric.sample_string(&mut rand::thread_rng(), 8),
+            state: WebHookState::Ok.into(),
+            url: "https://some.thing".to_string(),
+            hash_swap_id: true,
+        };
+        assert_eq!(helper.insert_web_hook(&hook).unwrap(), 1);
+        assert_eq!(helper.set_state(&hook.id, WebHookState::Failed).unwrap(), 1);
+
+        hook.state = WebHookState::Failed.into();
+        let failed_states = helper.get_by_state(WebHookState::Failed).unwrap();
+        assert_eq!(
+            failed_states.iter().find(|elem| elem.id == hook.id),
+            Some(hook).as_ref()
+        );
+    }
+
+    fn get_pool() -> Pool<ConnectionManager<PgConnection>> {
+        static POOL: OnceLock<Mutex<Pool<ConnectionManager<PgConnection>>>> = OnceLock::new();
+        POOL.get_or_init(|| {
+            Mutex::new(
+                connect(Config {
+                    host: "127.0.0.2".to_string(),
+                    port: 5432,
+                    database: "boltz_test".to_string(),
+                    username: "boltz".to_string(),
+                    password: "boltz".to_string(),
+                })
+                .unwrap(),
+            )
+        })
+        .lock()
+        .unwrap()
+        .clone()
     }
 }

@@ -244,6 +244,11 @@ impl Caller {
             };
 
             let failed_count = prev_count + 1;
+            debug!(
+                "WebHook retry call {}/{} for {} failed",
+                failed_count, self.max_retries, hook.id
+            );
+
             if failed_count >= self.max_retries {
                 info!(
                     "Abandoning WebHook call for swap {} with status {}",

@@ -19,11 +19,24 @@ impl From<WebHookState> for String {
     }
 }
 
-#[derive(Queryable, Selectable, Insertable, AsChangeset, Clone, Debug)]
+#[derive(Queryable, Selectable, Insertable, AsChangeset, PartialEq, Clone, Debug)]
 #[diesel(table_name = crate::db::schema::web_hooks)]
 pub struct WebHook {
     pub id: String,
     pub state: String,
     pub url: String,
     pub hash_swap_id: bool,
+}
+
+#[cfg(test)]
+mod test {
+    use crate::db::models::WebHookState;
+
+    #[test]
+    fn test_web_hook_state_serialize() {
+        assert_eq!(WebHookState::None.as_ref(), "none");
+        assert_eq!(WebHookState::Ok.as_ref(), "ok");
+        assert_eq!(WebHookState::Failed.as_ref(), "failed");
+        assert_eq!(WebHookState::Abandoned.as_ref(), "abandoned");
+    }
 }

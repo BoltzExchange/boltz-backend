@@ -87,15 +87,12 @@ class Boltz {
       this.config.postgres,
     );
 
-    const sidecar = Sidecar.start(this.logger, this.config);
+    Sidecar.start(this.logger, this.config);
     registerExitHandler(async () => {
       await this.grpcServer.close();
       await this.db.close();
 
-      sidecar.kill('SIGINT');
-      await new Promise<void>((resolve) => {
-        sidecar.on('exit', resolve);
-      });
+      await Sidecar.stop();
 
       await this.logger.close();
       await Tracing.stop();
@@ -111,7 +108,9 @@ class Boltz {
     });
 
     process.on('exit', (code) => {
-      sidecar.kill('SIGINT');
+      Sidecar.stop().then(() => {
+        this.logger.debug('Sidecar stopped');
+      });
       (code === 0 ? this.logger.debug : this.logger.error)(
         `Application shutting down with code: ${code}`,
       );

@@ -29,6 +29,8 @@ class Sidecar extends BaseClient {
   public static readonly symbol = 'Boltz';
   public static readonly serviceName = 'sidecar';
 
+  private static childProcess?: child_process.ChildProcessWithoutNullStreams;
+
   private client?: BoltzRClient;
   private readonly clientMeta = new Metadata();
 
@@ -44,7 +46,7 @@ class Sidecar extends BaseClient {
       process.env.NODE_ENV === 'production' ? 'release' : 'debug';
     logger.info(`Starting ${sidecarBuildType} sidecar`);
 
-    const sidecar = child_process.spawn(
+    this.childProcess = child_process.spawn(
       config.sidecar.path ||
         path.join(
           path.resolve(__dirname, '..', '..', '..'),
@@ -57,9 +59,17 @@ class Sidecar extends BaseClient {
         config.loglevel === 'silly' ? 'trace' : config.loglevel,
       ],
     );
-    sidecar.stdout.pipe(process.stdout);
+    Sidecar.childProcess!.stdout.pipe(process.stdout);
+    Sidecar.childProcess!.stderr.pipe(process.stderr);
+  };
 
-    return sidecar;
+  public static stop = async () => {
+    if (Sidecar.childProcess) {
+      Sidecar.childProcess.kill('SIGINT');
+      await new Promise<void>((resolve) => {
+        Sidecar.childProcess!.once('exit', resolve);
+      });
+    }
   };
 
   public serviceName(): string {

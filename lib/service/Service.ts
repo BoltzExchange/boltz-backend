@@ -757,19 +757,21 @@ class Service {
     if (isSwapRelated) {
       // Disable 0-conf for all swaps that are being funded when the transaction
       // is being broadcast through the lowball node
-      if (needsLowball && swapsFunded.length > 0) {
-        this.logger.debug(
-          `Disabling 0-conf for Swaps: ${swapsFunded.map((s) => s.id).join(', ')}`,
-        );
+      if (swapsFunded.length > 0) {
+        if (needsLowball) {
+          this.logger.debug(
+            `Disabling 0-conf for Swaps: ${swapsFunded.map((s) => s.id).join(', ')}`,
+          );
 
-        await Promise.all([
-          SwapRepository.disableZeroConf(funded.swapLockups),
-          ChainSwapRepository.disableZeroConf(funded.chainSwapLockups),
-        ]);
-      } else {
-        this.logger.debug(
-          `Not disabling 0-conf for Swaps (${relevantSwapIds.join(', ')}) because the lockup transaction is not lowball`,
-        );
+          await Promise.all([
+            SwapRepository.disableZeroConf(funded.swapLockups),
+            ChainSwapRepository.disableZeroConf(funded.chainSwapLockups),
+          ]);
+        } else {
+          this.logger.debug(
+            `Not disabling 0-conf for Swaps (${relevantSwapIds.join(', ')}) because the lockup transaction is not lowball`,
+          );
+        }
       }
 
       this.logger.debug(

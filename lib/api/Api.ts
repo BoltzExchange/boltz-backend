@@ -12,11 +12,10 @@ import WebSocketHandler from './v2/WebSocketHandler';
 
 class Api {
   public readonly swapInfos: SwapInfos;
+  public readonly controller: Controller;
+  public readonly websocket: WebSocketHandler;
 
   private app: Application;
-
-  private readonly websocket: WebSocketHandler;
-  private readonly controller: Controller;
 
   constructor(
     private readonly logger: Logger,

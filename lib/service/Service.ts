@@ -2146,7 +2146,7 @@ class Service {
       await this.sidecar.createWebHook(swapId, data.url, data.hashSwapId);
     } catch (e) {
       await swapDeleteFn();
-      throw `setting WebHook failed: ${formatError(e)}`;
+      throw `setting Webhook failed: ${formatError(e)}`;
     }
   };
 

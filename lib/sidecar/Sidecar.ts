@@ -31,6 +31,9 @@ class Sidecar extends BaseClient {
 
   private static childProcess?: child_process.ChildProcessWithoutNullStreams;
 
+  private static maxConnectRetries = 5;
+  private static connectRetryTimeout = 100;
+
   private client?: BoltzRClient;
   private readonly clientMeta = new Metadata();
 
@@ -81,42 +84,27 @@ class Sidecar extends BaseClient {
       return true;
     }
 
-    this.client = new BoltzRClient(
-      `${this.config.grpc.host}:${this.config.grpc.port}`,
-      createSsl(Sidecar.serviceName, Sidecar.symbol, {
-        rootCertPath: path.join(this.config.grpc.certificates, 'ca.pem'),
-        certChainPath: path.join(this.config.grpc.certificates, 'client.pem'),
-        privateKeyPath: path.join(
-          this.config.grpc.certificates,
-          'client-key.pem',
-        ),
-      }),
-      {
-        ...grpcOptions,
-        'grpc.ssl_target_name_override': 'sidecar',
-      },
-    );
+    for (let i = 0; i < Sidecar.maxConnectRetries; i++) {
+      try {
+        return await this.tryConnect();
+      } catch (e) {
+        if (i === Sidecar.maxConnectRetries - 1) {
+          throw e;
+        }
 
-    try {
-      await this.getInfo();
-      this.setClientStatus(ClientStatus.Connected);
-    } catch (error) {
-      this.setClientStatus(ClientStatus.Disconnected);
-
-      this.logger.error(
-        `Could not connect to ${this.serviceName()}: ${formatError(error)}`,
-      );
-      this.logger.info(`Retrying in ${this.RECONNECT_INTERVAL} ms`);
-
-      this.reconnectionTimer = setTimeout(
-        this.connect,
-        this.RECONNECT_INTERVAL,
-      );
-
-      return false;
+        this.logger.debug(
+          `Connection to ${this.serviceName()} failed: ${formatError(e)}`,
+        );
+        this.logger.debug(
+          `Retrying connecting to ${this.serviceName()} in: ${Sidecar.connectRetryTimeout / 1_000}s`,
+        );
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, Sidecar.connectRetryTimeout);
+        });
+      }
     }
 
-    return true;
+    return false;
   };
 
   public disconnect = (): void => {
@@ -183,6 +171,45 @@ class Sidecar extends BaseClient {
 
       throw e;
     }
+  };
+
+  private tryConnect = async () => {
+    this.client = new BoltzRClient(
+      `${this.config.grpc.host}:${this.config.grpc.port}`,
+      createSsl(Sidecar.serviceName, Sidecar.symbol, {
+        rootCertPath: path.join(this.config.grpc.certificates, 'ca.pem'),
+        certChainPath: path.join(this.config.grpc.certificates, 'client.pem'),
+        privateKeyPath: path.join(
+          this.config.grpc.certificates,
+          'client-key.pem',
+        ),
+      }),
+      {
+        ...grpcOptions,
+        'grpc.ssl_target_name_override': 'sidecar',
+      },
+    );
+
+    try {
+      await this.getInfo();
+      this.setClientStatus(ClientStatus.Connected);
+    } catch (error) {
+      this.setClientStatus(ClientStatus.Disconnected);
+
+      this.logger.error(
+        `Could not connect to ${this.serviceName()}: ${formatError(error)}`,
+      );
+      this.logger.info(`Retrying in ${this.RECONNECT_INTERVAL} ms`);
+
+      this.reconnectionTimer = setTimeout(
+        this.connect,
+        this.RECONNECT_INTERVAL,
+      );
+
+      return false;
+    }
+
+    return true;
   };
 
   private unaryNodeCall = <T, U>(

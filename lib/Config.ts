@@ -180,8 +180,10 @@ type ConfigType = {
   logpath: string;
   loglevel: string;
 
-  lokiHost?: string;
-  lokiNetwork?: string;
+  network?: string;
+
+  lokiEndpoint?: string;
+  otlpEndoint?: string;
 
   prometheus?: PrometheusConfig;
 

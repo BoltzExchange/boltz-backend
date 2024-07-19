@@ -1,13 +1,19 @@
+import { SpanKind, SpanStatusCode, context, trace } from '@opentelemetry/api';
 import { existsSync, readFileSync } from 'fs';
 import http from 'http';
 import { ChainConfig } from '../Config';
+import Tracing from '../Tracing';
+import { formatError } from '../Utils';
 import Errors from './Errors';
 
 class RpcClient {
   private readonly auth: string;
   private readonly options = {};
 
-  constructor(config: ChainConfig) {
+  constructor(
+    private readonly symbol: string,
+    config: ChainConfig,
+  ) {
     this.options = {
       host: config.host,
       port: config.port,
@@ -32,7 +38,30 @@ class RpcClient {
     }
   }
 
-  public request = <T>(method: string, params?: any[]): Promise<T> => {
+  public request = async <T>(method: string, params?: any[]): Promise<T> => {
+    const span = Tracing.tracer.startSpan(`${this.symbol} RPC ${method}`, {
+      kind: SpanKind.CLIENT,
+      attributes: {
+        'rpc.method': method,
+        params: params?.map((p) => (p ? p.toString() : 'undefined')),
+      },
+    });
+    const ctx = trace.setSpan(context.active(), span);
+
+    try {
+      return await context.with(ctx, this.sendRequest<T>, this, method, params);
+    } catch (error) {
+      span.setStatus({
+        code: SpanStatusCode.ERROR,
+        message: formatError(error),
+      });
+      throw error;
+    } finally {
+      span.end();
+    }
+  };
+
+  private sendRequest = <T>(method: string, params?: any[]): Promise<T> => {
     return new Promise<T>((resolve, reject) => {
       const serializedRequest = JSON.stringify({
         method,

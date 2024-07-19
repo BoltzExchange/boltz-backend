@@ -22,12 +22,12 @@ pub struct Config {
 #[derive(Deserialize, Serialize, Clone)]
 pub struct GlobalConfig {
     #[cfg(feature = "loki")]
-    #[serde(rename = "lokiHost")]
-    pub loki_host: Option<String>,
+    #[serde(rename = "network")]
+    pub network: Option<String>,
 
     #[cfg(feature = "loki")]
-    #[serde(rename = "lokiNetwork")]
-    pub loki_network: Option<String>,
+    #[serde(rename = "lokiEndpoint")]
+    pub loki_endpoint: Option<String>,
 
     pub postgres: crate::db::Config,
 
@@ -133,8 +133,9 @@ irrelevant = "values"
         fs::write(
             config_file_path.clone(),
             r#"
-lokiHost = "http://127.0.0.1:3100"
-lokiNetwork = "someNetwork"
+network = "someNetwork"
+
+lokiEndpoint = "http://127.0.0.1:3100"
 
 [postgres]
 host = "127.0.0.1"
@@ -162,8 +163,8 @@ lokiNetwork = "someNetwork"
         .unwrap();
 
         let config = parse_config(config_file_path.to_str().unwrap()).unwrap();
-        assert_eq!(config.loki_host.unwrap(), "http://127.0.0.1:3100");
-        assert_eq!(config.loki_network.unwrap(), "someNetwork");
+        assert_eq!(config.network.unwrap(), "someNetwork");
+        assert_eq!(config.loki_endpoint.unwrap(), "http://127.0.0.1:3100");
 
         assert_eq!(
             config.postgres,

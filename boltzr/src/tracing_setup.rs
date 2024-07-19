@@ -81,22 +81,21 @@ pub fn setup_global_tracing(log_level: String, config: &GlobalConfig) {
 fn setup_loki(
     config: &GlobalConfig,
 ) -> Result<Option<tracing_loki::Layer>, Box<dyn std::error::Error>> {
-    if config.loki_host.is_none() || config.loki_host.clone().unwrap() == "" {
+    if config.loki_endpoint.is_none() || config.loki_endpoint.clone().unwrap() == "" {
         warn!("Not enabling loki because it was not configured");
         return Ok(None);
     }
 
     tracing::info!("Enabling loki");
+
+    let network = config.network.clone().unwrap_or("regtest".to_string());
     let (loki_layer, loki_task) = tracing_loki::builder()
-        .label("job", "boltz-backend")?
+        .label("job", format!("boltz-backend-{}", network))?
         .label("application", "sidecar")?
-        .label(
-            "network",
-            config.loki_network.clone().unwrap_or("regtest".to_string()),
-        )?
+        .label("network", network)?
         .extra_field("pid", format!("{}", std::process::id()))?
         .build_url(
-            tracing_loki::url::Url::parse(config.loki_host.clone().unwrap().as_str()).unwrap(),
+            tracing_loki::url::Url::parse(config.loki_endpoint.clone().unwrap().as_str()).unwrap(),
         )
         .unwrap();
 

@@ -76,6 +76,11 @@ import { ChainSwapMinerFees } from '../rates/FeeProvider';
 import LockupTransactionTracker from '../rates/LockupTransactionTracker';
 import RateProvider from '../rates/RateProvider';
 import { PairTypeLegacy } from '../rates/providers/RateProviderLegacy';
+import {
+  ChainPairTypeTaproot,
+  ReversePairTypeTaproot,
+  SubmarinePairTypeTaproot,
+} from '../rates/providers/RateProviderTaproot';
 import SwapErrors from '../swap/Errors';
 import NodeSwitch from '../swap/NodeSwitch';
 import { SwapNurseryEvents } from '../swap/PaymentHandler';
@@ -111,6 +116,12 @@ type Contracts = {
   ethereum?: NetworkContracts;
   rsk?: NetworkContracts;
 };
+
+type SomePair =
+  | PairTypeLegacy
+  | SubmarinePairTypeTaproot
+  | ReversePairTypeTaproot
+  | ChainPairTypeTaproot;
 
 class Service {
   public allowReverseSwaps = true;
@@ -992,7 +1003,7 @@ class Service {
   }> => {
     await this.checkSwapWithPreimageExists(args.preimageHash);
 
-    const { base, quote } = this.getPair(args.pairId);
+    const { base, quote } = splitPairId(args.pairId);
     const orderSide = this.getOrderSide(args.orderSide);
 
     switch (
@@ -1155,7 +1166,14 @@ class Service {
       percentageFee,
     );
 
-    this.verifyAmount(swap.pair, rate, invoiceAmount, swap.orderSide, false);
+    this.verifyAmount(
+      swap.pair,
+      rate,
+      invoiceAmount,
+      swap.orderSide,
+      swap.version,
+      SwapType.Submarine,
+    );
 
     return {
       onchainAmount: swap.onchainAmount,
@@ -1227,7 +1245,16 @@ class Service {
     expectedAmount: number;
     acceptZeroConf: boolean;
   }> => {
-    const { base, quote, rate: pairRate } = this.getPair(swap.pair);
+    const {
+      base,
+      quote,
+      rate: pairRate,
+    } = this.getPair(
+      swap.pair,
+      swap.orderSide,
+      swap.version,
+      SwapType.Submarine,
+    );
 
     if (pairHash !== undefined) {
       this.rateProvider.providers[swap.version].validatePairHash(
@@ -1267,7 +1294,8 @@ class Service {
       rate,
       swap.invoiceAmount,
       swap.orderSide,
-      false,
+      swap.version,
+      SwapType.Submarine,
     );
 
     const { baseFee, percentageFee } = this.rateProvider.feeProvider.getFees(
@@ -1511,7 +1539,16 @@ class Service {
     await this.checkSwapWithPreimageExists(args.preimageHash);
 
     const side = this.getOrderSide(args.orderSide);
-    const { base, quote, rate: pairRate } = this.getPair(args.pairId);
+    const {
+      base,
+      quote,
+      rate: pairRate,
+    } = this.getPair(
+      args.pairId,
+      side,
+      args.version,
+      SwapType.ReverseSubmarine,
+    );
 
     if (args.pairHash !== undefined) {
       this.rateProvider.providers[args.version].validatePairHash(
@@ -1622,7 +1659,14 @@ class Service {
       throw Errors.NO_AMOUNT_SPECIFIED();
     }
 
-    this.verifyAmount(args.pairId, rate, holdInvoiceAmount, side, true);
+    this.verifyAmount(
+      args.pairId,
+      rate,
+      holdInvoiceAmount,
+      side,
+      args.version,
+      SwapType.ReverseSubmarine,
+    );
 
     let prepayMinerFeeInvoiceAmount: number | undefined = undefined;
     let prepayMinerFeeOnchainAmount: number | undefined = undefined;
@@ -1771,7 +1815,11 @@ class Service {
     await this.checkSwapWithPreimageExists(args.preimageHash);
 
     const side = this.getOrderSide(args.orderSide);
-    const { base, quote, rate: pairRate } = this.getPair(args.pairId);
+    const {
+      base,
+      quote,
+      rate: pairRate,
+    } = this.getPair(args.pairId, side, SwapVersion.Taproot, SwapType.Chain);
 
     if (base === quote) {
       throw Errors.PAIR_NOT_FOUND(args.pairId);
@@ -1882,7 +1930,14 @@ class Service {
       throw Errors.NO_AMOUNT_SPECIFIED();
     }
 
-    this.verifyAmount(args.pairId, rate, args.userLockAmount, side, true);
+    this.verifyAmount(
+      args.pairId,
+      rate,
+      args.userLockAmount,
+      side,
+      SwapVersion.Taproot,
+      SwapType.Chain,
+    );
     if (args.serverLockAmount < 1) {
       throw Errors.ONCHAIN_AMOUNT_TOO_LOW();
     }
@@ -2000,16 +2055,17 @@ class Service {
     rate: number,
     amount: number,
     orderSide: OrderSide,
-    isReverse: boolean,
+    version: SwapVersion,
+    type: SwapType,
   ) => {
     if (
-      (!isReverse && orderSide === OrderSide.BUY) ||
-      (isReverse && orderSide === OrderSide.SELL)
+      (type === SwapType.Submarine && orderSide === OrderSide.BUY) ||
+      (type !== SwapType.Submarine && orderSide === OrderSide.SELL)
     ) {
       amount = Math.floor(amount * rate);
     }
 
-    const { limits } = this.getPair(pairId);
+    const { limits } = this.getPair(pairId, orderSide, version, type);
 
     if (limits) {
       if (Math.floor(amount) > limits.maximal)
@@ -2058,11 +2114,49 @@ class Service {
     return Math.floor(((onchainAmount - baseFee) * rate) / (1 + percentageFee));
   };
 
-  private getPair = (pairId: string) => {
+  private getPair = (
+    pairId: string,
+    orderSide: OrderSide,
+    version: SwapVersion,
+    type: SwapType,
+  ): { base: string; quote: string } & SomePair => {
     const { base, quote } = splitPairId(pairId);
 
-    const pair =
-      this.rateProvider.providers[SwapVersion.Legacy].pairs.get(pairId);
+    let pair: SomePair | undefined;
+
+    switch (version) {
+      case SwapVersion.Taproot: {
+        const provider = this.rateProvider.providers[SwapVersion.Taproot];
+        const { sending, receiving } = getSendingReceivingCurrency(
+          base,
+          quote,
+          orderSide,
+        );
+
+        let pairMap: Map<string, Map<string, SomePair>> | undefined;
+        switch (type) {
+          case SwapType.Submarine:
+            pairMap = provider.submarinePairs;
+            break;
+
+          case SwapType.ReverseSubmarine:
+            pairMap = provider.reversePairs;
+            break;
+
+          case SwapType.Chain:
+            pairMap = provider.chainPairs;
+            break;
+        }
+
+        pair = pairMap?.get(receiving)?.get(sending);
+        break;
+      }
+
+      default:
+        pair =
+          this.rateProvider.providers[SwapVersion.Legacy].pairs.get(pairId);
+        break;
+    }
 
     if (!pair) {
       throw Errors.PAIR_NOT_FOUND(pairId);

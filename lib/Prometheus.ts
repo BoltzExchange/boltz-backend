@@ -159,15 +159,40 @@ class Prometheus {
       }),
     );
 
-    const swapStatusCacheCount = new Gauge({
-      name: `${Prometheus.metric_prefix}swap_status_cache_count`,
-      help: 'swap status messages cached',
-    });
-    setInterval(
-      () => swapStatusCacheCount.set(this.api.swapInfos.cacheSize),
-      Prometheus.gaugeUpdateInterval,
+    this.registerGauge(
+      this.swapRegistry!,
+      'swap_status_cache_count',
+      'number of swap status messages cached',
+      () => this.api.swapInfos.cacheSize,
     );
-    this.swapRegistry!.registerMetric(swapStatusCacheCount);
+
+    this.registerGauge(
+      this.swapRegistry!,
+      'pending_stream_count',
+      'pending SSE swap status stream count',
+      () => this.api.controller.pendingStreamCount,
+    );
+
+    this.registerGauge(
+      this.swapRegistry!,
+      'open_websocket_count',
+      'open WebSockets count',
+      () => this.api.websocket.openWebSocketCount,
+    );
+  };
+
+  private registerGauge = (
+    registry: Registry,
+    name: string,
+    help: string,
+    cb: () => number,
+  ) => {
+    const gauge = new Gauge({
+      help,
+      name: `${Prometheus.metric_prefix}${name}`,
+    });
+    setInterval(() => gauge.set(cb()), Prometheus.gaugeUpdateInterval);
+    registry.registerMetric(gauge);
   };
 }
 

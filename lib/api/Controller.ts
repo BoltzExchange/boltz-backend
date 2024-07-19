@@ -41,6 +41,10 @@ class Controller {
     });
   }
 
+  public get pendingStreamCount() {
+    return this.pendingSwapStreams.size;
+  }
+
   // Static files
   public serveFile = (fileName: string) => {
     return (_: Request, res: Response): void => {

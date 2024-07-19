@@ -1,3 +1,4 @@
+import Tracing from './Tracing';
 import { Networks } from 'boltz-core';
 import { Networks as LiquidNetworks } from 'boltz-core/dist/lib/liquid';
 import { Arguments } from 'yargs';
@@ -61,9 +62,17 @@ class Boltz {
     this.logger = new Logger(
       this.config.loglevel,
       this.config.logpath,
-      this.config.lokiHost,
-      this.config.lokiNetwork,
+      this.config.lokiEndpoint,
+      this.config.network,
     );
+    if (this.config.otlpEndoint && this.config.network) {
+      this.logger.debug('Enabling OpenTelemetry');
+      Tracing.init(this.config.otlpEndoint, this.config.network);
+    } else {
+      this.logger.debug(
+        'Not enabling OpenTelemetry because it was not configured',
+      );
+    }
 
     this.logger.info(
       `Starting Boltz ${getVersion()} (Node.js ${process.version}; NODE_ENV=${process.env.NODE_ENV})`,
@@ -73,6 +82,7 @@ class Boltz {
       await this.grpcServer.close();
       await this.db.close();
       await this.logger.close();
+      await Tracing.stop();
     });
 
     process.on('unhandledRejection', (reason, promise) => {

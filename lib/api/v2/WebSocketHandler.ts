@@ -58,6 +58,10 @@ class WebSocketHandler {
     this.listenSwapUpdates();
   }
 
+  public get openWebSocketCount() {
+    return this.socketToSwaps.size;
+  }
+
   public register = (server: http.Server) => {
     server.on('upgrade', (request, socket, head) => {
       this.ws.handleUpgrade(request, socket, head, (ws) => {

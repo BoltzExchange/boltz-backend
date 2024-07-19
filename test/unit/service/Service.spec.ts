@@ -412,7 +412,7 @@ const pairs = new Map<string, any>([
     },
   ],
   [
-    'test',
+    'test/pair',
     {
       limits: {
         minimal: 5,
@@ -420,6 +420,63 @@ const pairs = new Map<string, any>([
       },
       hash: 'hashOfTestPair',
     },
+  ],
+]);
+
+const pairsTaprootSubmarine = new Map<string, Map<string, any>>([
+  [
+    'BTC',
+    new Map<string, any>([
+      [
+        'BTC',
+        {
+          rate: 1,
+          limits: {
+            minimal: 1,
+            maximal: 1_000_000,
+          },
+          hash: 'hashOfBtcBtcPair',
+        },
+      ],
+    ]),
+  ],
+]);
+
+const pairsTaprootReverse = new Map<string, Map<string, any>>([
+  [
+    'BTC',
+    new Map<string, any>([
+      [
+        'BTC',
+        {
+          rate: 1,
+          limits: {
+            minimal: 2,
+            maximal: 2_000_000,
+          },
+          hash: 'hashOfBtcBtcPair',
+        },
+      ],
+    ]),
+  ],
+]);
+
+const pairsTaprootChain = new Map<string, Map<string, any>>([
+  [
+    'BTC',
+    new Map<string, any>([
+      [
+        'BTC',
+        {
+          rate: 1,
+          limits: {
+            minimal: 50_000,
+            maximal: 5_000_000,
+          },
+          hash: 'hashOfBtcBtcPair',
+        },
+      ],
+    ]),
   ],
 ]);
 
@@ -442,6 +499,9 @@ jest.mock('../../../lib/rates/RateProvider', () => {
         }),
       },
       [SwapVersion.Taproot]: {
+        chainPairs: pairsTaprootChain,
+        reversePairs: pairsTaprootReverse,
+        submarinePairs: pairsTaprootSubmarine,
         validatePairHash: jest.fn().mockImplementation((hash) => {
           if (['', 'wrongHash'].includes(hash)) {
             throw Errors.INVALID_PAIR_HASH();
@@ -2641,38 +2701,242 @@ describe('Service', () => {
     expect(mockGetReferralByRoutingNode).toHaveBeenCalledWith(routingNode);
   });
 
-  test('should verify amounts', () => {
-    const rate = 2;
+  describe('verifyAmount', () => {
+    const pair = 'test/pair';
     const verifyAmount = service['verifyAmount'];
 
-    // Normal swaps
-    verifyAmount('test', rate, 5, OrderSide.BUY, false);
-    verifyAmount('test', rate, 10, OrderSide.SELL, false);
+    describe('legacy', () => {
+      const rate = 2;
 
-    expect(() => verifyAmount('test', rate, 1.5, OrderSide.BUY, false)).toThrow(
-      Errors.BENEATH_MINIMAL_AMOUNT(3, 5).message,
-    );
-    expect(() => verifyAmount('test', rate, 12, OrderSide.SELL, false)).toThrow(
-      Errors.EXCEED_MAXIMAL_AMOUNT(12, 10).message,
-    );
+      test.each`
+        amount | side
+        ${2.5} | ${OrderSide.BUY}
+        ${5}   | ${OrderSide.BUY}
+        ${5}   | ${OrderSide.SELL}
+        ${10}  | ${OrderSide.SELL}
+      `(
+        'should not throw when submarine amount is in bounds',
+        ({ amount, side }) => {
+          verifyAmount(
+            pair,
+            rate,
+            amount,
+            side,
+            SwapVersion.Legacy,
+            SwapType.Submarine,
+          );
+        },
+      );
 
-    // Reverse swaps
-    verifyAmount('test', rate, 10, OrderSide.BUY, true);
-    verifyAmount('test', rate, 5, OrderSide.SELL, true);
+      test.each`
+        amount    | side              | error
+        ${1.5}    | ${OrderSide.BUY}  | ${Errors.BENEATH_MINIMAL_AMOUNT(3, 5)}
+        ${2}      | ${OrderSide.BUY}  | ${Errors.BENEATH_MINIMAL_AMOUNT(4, 5)}
+        ${4}      | ${OrderSide.SELL} | ${Errors.BENEATH_MINIMAL_AMOUNT(4, 5)}
+        ${11}     | ${OrderSide.SELL} | ${Errors.EXCEED_MAXIMAL_AMOUNT(11, 10)}
+        ${5.5}    | ${OrderSide.BUY}  | ${Errors.EXCEED_MAXIMAL_AMOUNT(11, 10)}
+        ${21_000} | ${OrderSide.SELL} | ${Errors.EXCEED_MAXIMAL_AMOUNT(21_000, 10)}
+      `(
+        'should throw when submarine amount is out of bounds',
+        ({ amount, side, error }) => {
+          expect(() =>
+            verifyAmount(
+              pair,
+              rate,
+              amount,
+              side,
+              SwapVersion.Legacy,
+              SwapType.Submarine,
+            ),
+          ).toThrow(error.message);
+        },
+      );
 
-    expect(() => verifyAmount('test', rate, 1.5, OrderSide.BUY, true)).toThrow(
-      Errors.BENEATH_MINIMAL_AMOUNT(1.5, 5).message,
-    );
-    expect(() => verifyAmount('test', rate, 12, OrderSide.SELL, true)).toThrow(
-      Errors.EXCEED_MAXIMAL_AMOUNT(24, 10).message,
-    );
+      test.each`
+        amount | side
+        ${2.5} | ${OrderSide.SELL}
+        ${5}   | ${OrderSide.SELL}
+        ${5}   | ${OrderSide.BUY}
+        ${10}  | ${OrderSide.BUY}
+      `(
+        'should not throw when reverse amount is in bounds',
+        ({ amount, side }) => {
+          verifyAmount(
+            pair,
+            rate,
+            amount,
+            side,
+            SwapVersion.Legacy,
+            SwapType.ReverseSubmarine,
+          );
+        },
+      );
 
-    // Throw if limits of pair cannot be found
-    const notFound = 'notFound';
+      test.each`
+        amount    | side              | error
+        ${1.5}    | ${OrderSide.SELL} | ${Errors.BENEATH_MINIMAL_AMOUNT(3, 5)}
+        ${2}      | ${OrderSide.SELL} | ${Errors.BENEATH_MINIMAL_AMOUNT(4, 5)}
+        ${4}      | ${OrderSide.BUY}  | ${Errors.BENEATH_MINIMAL_AMOUNT(4, 5)}
+        ${11}     | ${OrderSide.BUY}  | ${Errors.EXCEED_MAXIMAL_AMOUNT(11, 10)}
+        ${5.5}    | ${OrderSide.SELL} | ${Errors.EXCEED_MAXIMAL_AMOUNT(11, 10)}
+        ${21_000} | ${OrderSide.BUY}  | ${Errors.EXCEED_MAXIMAL_AMOUNT(21_000, 10)}
+      `(
+        'should throw when reverse amount is out of bounds',
+        ({ amount, side, error }) => {
+          expect(() =>
+            verifyAmount(
+              pair,
+              rate,
+              amount,
+              side,
+              SwapVersion.Legacy,
+              SwapType.ReverseSubmarine,
+            ),
+          ).toThrow(error.message);
+        },
+      );
+    });
 
-    expect(() => verifyAmount(notFound, 0, 0, OrderSide.BUY, false)).toThrow(
-      Errors.PAIR_NOT_FOUND(notFound).message,
-    );
+    describe('submarine', () => {
+      test.each`
+        amount
+        ${1}
+        ${21_00}
+        ${500_000}
+        ${1_000_000}
+      `('should not throw when amount is in bounds', ({ amount }) => {
+        verifyAmount(
+          'BTC/BTC',
+          1,
+          amount,
+          OrderSide.BUY,
+          SwapVersion.Taproot,
+          SwapType.Submarine,
+        );
+      });
+
+      test.each`
+        amount                     | error
+        ${-1}                      | ${Errors.BENEATH_MINIMAL_AMOUNT(-1, 1)}
+        ${0}                       | ${Errors.BENEATH_MINIMAL_AMOUNT(0, 1)}
+        ${1_000_001}               | ${Errors.EXCEED_MAXIMAL_AMOUNT(1_000_001, 1_000_000)}
+        ${Number.MAX_SAFE_INTEGER} | ${Errors.EXCEED_MAXIMAL_AMOUNT(Number.MAX_SAFE_INTEGER, 1_000_000)}
+      `(
+        'should throw when amount is out of bounds',
+        ({ amount, side, error }) => {
+          expect(() =>
+            verifyAmount(
+              'BTC/BTC',
+              1,
+              amount,
+              side,
+              SwapVersion.Taproot,
+              SwapType.Submarine,
+            ),
+          ).toThrow(error.message);
+        },
+      );
+    });
+
+    describe('reverse', () => {
+      test.each`
+        amount
+        ${2}
+        ${21_00}
+        ${500_000}
+        ${2_000_000}
+      `('should not throw when amount is in bounds', ({ amount }) => {
+        verifyAmount(
+          'BTC/BTC',
+          1,
+          amount,
+          OrderSide.BUY,
+          SwapVersion.Taproot,
+          SwapType.ReverseSubmarine,
+        );
+      });
+
+      test.each`
+        amount                     | error
+        ${-1}                      | ${Errors.BENEATH_MINIMAL_AMOUNT(-1, 2)}
+        ${0}                       | ${Errors.BENEATH_MINIMAL_AMOUNT(0, 2)}
+        ${1}                       | ${Errors.BENEATH_MINIMAL_AMOUNT(1, 2)}
+        ${2_000_001}               | ${Errors.EXCEED_MAXIMAL_AMOUNT(2_000_001, 2_000_000)}
+        ${Number.MAX_SAFE_INTEGER} | ${Errors.EXCEED_MAXIMAL_AMOUNT(Number.MAX_SAFE_INTEGER, 2_000_000)}
+      `(
+        'should throw when amount is out of bounds',
+        ({ amount, side, error }) => {
+          expect(() =>
+            verifyAmount(
+              'BTC/BTC',
+              1,
+              amount,
+              side,
+              SwapVersion.Taproot,
+              SwapType.ReverseSubmarine,
+            ),
+          ).toThrow(error.message);
+        },
+      );
+    });
+
+    describe('chain', () => {
+      test.each`
+        amount
+        ${50_000}
+        ${210_000}
+        ${500_000}
+        ${5_000_000}
+      `('should not throw when amount is in bounds', ({ amount }) => {
+        verifyAmount(
+          'BTC/BTC',
+          1,
+          amount,
+          OrderSide.BUY,
+          SwapVersion.Taproot,
+          SwapType.Chain,
+        );
+      });
+
+      test.each`
+        amount                     | error
+        ${-1}                      | ${Errors.BENEATH_MINIMAL_AMOUNT(-1, 50_000)}
+        ${0}                       | ${Errors.BENEATH_MINIMAL_AMOUNT(0, 50_000)}
+        ${1}                       | ${Errors.BENEATH_MINIMAL_AMOUNT(1, 50_000)}
+        ${49_999}                  | ${Errors.BENEATH_MINIMAL_AMOUNT(49_999, 50_000)}
+        ${5_000_001}               | ${Errors.EXCEED_MAXIMAL_AMOUNT(5_000_001, 5_000_000)}
+        ${Number.MAX_SAFE_INTEGER} | ${Errors.EXCEED_MAXIMAL_AMOUNT(Number.MAX_SAFE_INTEGER, 5_000_000)}
+      `(
+        'should throw when amount is out of bounds',
+        ({ amount, side, error }) => {
+          expect(() =>
+            verifyAmount(
+              'BTC/BTC',
+              1,
+              amount,
+              side,
+              SwapVersion.Taproot,
+              SwapType.Chain,
+            ),
+          ).toThrow(error.message);
+        },
+      );
+    });
+
+    test('should throw when pair cannot be found', () => {
+      const notFound = 'notFound';
+
+      expect(() =>
+        verifyAmount(
+          notFound,
+          0,
+          0,
+          OrderSide.BUY,
+          SwapVersion.Legacy,
+          SwapType.Submarine,
+        ),
+      ).toThrow(Errors.PAIR_NOT_FOUND(notFound).message);
+    });
   });
 
   test('should calculate invoice amounts', () => {
@@ -2693,21 +2957,53 @@ describe('Service', () => {
     ).toEqual(4761);
   });
 
-  test('should get pair', () => {
+  describe('getPair', () => {
     const getPair = service['getPair'];
 
-    expect(getPair('BTC/BTC')).toEqual({
-      base: 'BTC',
-      quote: 'BTC',
-      ...pairs.get('BTC/BTC'),
+    test.each`
+      side              | type
+      ${OrderSide.BUY}  | ${SwapType.Submarine}
+      ${OrderSide.BUY}  | ${SwapType.ReverseSubmarine}
+      ${OrderSide.BUY}  | ${SwapType.Chain}
+      ${OrderSide.SELL} | ${SwapType.Submarine}
+      ${OrderSide.SELL} | ${SwapType.ReverseSubmarine}
+      ${OrderSide.SELL} | ${SwapType.Chain}
+    `('should get legacy pair', ({ side, type }) => {
+      expect(getPair('BTC/BTC', side, SwapVersion.Legacy, type)).toEqual({
+        base: 'BTC',
+        quote: 'BTC',
+        ...pairs.get('BTC/BTC'),
+      });
     });
 
-    // Throw if pair cannot be found
-    const notFound = 'notFound';
+    test.each`
+      side              | type                         | expected
+      ${OrderSide.BUY}  | ${SwapType.Submarine}        | ${pairsTaprootSubmarine.get('BTC')!.get('BTC')}
+      ${OrderSide.BUY}  | ${SwapType.ReverseSubmarine} | ${pairsTaprootReverse.get('BTC')!.get('BTC')}
+      ${OrderSide.BUY}  | ${SwapType.Chain}            | ${pairsTaprootChain.get('BTC')!.get('BTC')}
+      ${OrderSide.SELL} | ${SwapType.Submarine}        | ${pairsTaprootSubmarine.get('BTC')!.get('BTC')}
+      ${OrderSide.SELL} | ${SwapType.ReverseSubmarine} | ${pairsTaprootReverse.get('BTC')!.get('BTC')}
+      ${OrderSide.SELL} | ${SwapType.Chain}            | ${pairsTaprootChain.get('BTC')!.get('BTC')}
+    `('should get taproot pair', ({ side, type, expected }) => {
+      expect(getPair('BTC/BTC', side, SwapVersion.Taproot, type)).toEqual({
+        base: 'BTC',
+        quote: 'BTC',
+        ...expected,
+      });
+    });
 
-    expect(() => getPair(notFound)).toThrow(
-      Errors.PAIR_NOT_FOUND(notFound).message,
-    );
+    test('should throw when pair cannot be found', () => {
+      const notFound = 'notFound';
+
+      expect(() =>
+        getPair(
+          notFound,
+          OrderSide.BUY,
+          SwapVersion.Legacy,
+          SwapType.Submarine,
+        ),
+      ).toThrow(Errors.PAIR_NOT_FOUND(notFound).message);
+    });
   });
 
   test('should get order side', () => {

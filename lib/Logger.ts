@@ -19,7 +19,7 @@ class Logger {
     level: string,
     filename?: string,
     lokiHost?: string,
-    lokiNetwork?: string,
+    network?: string,
     private disabled = false,
   ) {
     if (disabled) {
@@ -41,9 +41,7 @@ class Logger {
       );
     }
 
-    const lokiEnabled = [lokiHost, lokiNetwork].every(
-      (val) => val !== undefined,
-    );
+    const lokiEnabled = [lokiHost, network].every((val) => val !== undefined);
 
     if (lokiEnabled) {
       this.loki = new LokiTransport({
@@ -57,8 +55,8 @@ class Logger {
           }),
         ),
         labels: {
-          job: name,
-          network: lokiNetwork,
+          network,
+          job: `${name}-${network}`,
         },
       });
       transports.push(this.loki!);

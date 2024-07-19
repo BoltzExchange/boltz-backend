@@ -1320,7 +1320,6 @@ class SwapRouter extends RouterBase {
      *       properties:
      *         preimage:
      *           type: string
-     *           required: true
      *           description: Preimage of the Chain Swap, encoded as HEX
      *         signature:
      *           $ref: '#/components/schemas/PartialSignature'

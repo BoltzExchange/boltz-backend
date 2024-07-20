@@ -9,7 +9,7 @@ use futures::future;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, error, info, trace, warn};
+use tracing::{debug, error, info, instrument, trace, warn};
 
 use crate::db::helpers::web_hook::WebHookHelper;
 use crate::db::models::{WebHook, WebHookState};
@@ -116,6 +116,7 @@ impl Caller {
         }
     }
 
+    #[instrument(skip(self, status, url, hash_swap_id))]
     pub async fn call_webhook(
         &self,
         id: &String,
@@ -183,6 +184,7 @@ impl Caller {
         }
     }
 
+    #[instrument(skip(self))]
     async fn retry_calls(&self) -> Result<(), Box<dyn Error>> {
         let to_retry = self.web_hook_helper.get_by_state(WebHookState::Failed)?;
 
@@ -219,6 +221,7 @@ impl Caller {
         Ok(())
     }
 
+    #[instrument(skip(self))]
     async fn retry_call(&self, hook: &WebHook) -> Result<(), Box<dyn Error>> {
         let status = self.web_hook_helper.get_swap_status(&hook.id)?;
 

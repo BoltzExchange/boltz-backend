@@ -21,13 +21,17 @@ pub struct Config {
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct GlobalConfig {
-    #[cfg(feature = "loki")]
+    #[cfg(any(feature = "loki", feature = "otel"))]
     #[serde(rename = "network")]
     pub network: Option<String>,
 
     #[cfg(feature = "loki")]
     #[serde(rename = "lokiEndpoint")]
     pub loki_endpoint: Option<String>,
+
+    #[cfg(feature = "otel")]
+    #[serde(rename = "otlpEndoint")]
+    pub otlp_endoint: Option<String>,
 
     pub postgres: crate::db::Config,
 
@@ -137,6 +141,8 @@ network = "someNetwork"
 
 lokiEndpoint = "http://127.0.0.1:3100"
 
+otlpEndoint = "http://127.0.0.1:4317/v1/traces"
+
 [postgres]
 host = "127.0.0.1"
 port = 5432
@@ -165,6 +171,10 @@ lokiNetwork = "someNetwork"
         let config = parse_config(config_file_path.to_str().unwrap()).unwrap();
         assert_eq!(config.network.unwrap(), "someNetwork");
         assert_eq!(config.loki_endpoint.unwrap(), "http://127.0.0.1:3100");
+        assert_eq!(
+            config.otlp_endoint.unwrap(),
+            "http://127.0.0.1:4317/v1/traces"
+        );
 
         assert_eq!(
             config.postgres,

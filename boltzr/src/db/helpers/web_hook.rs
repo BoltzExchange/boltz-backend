@@ -1,13 +1,12 @@
 use std::error::Error;
 
 use diesel::prelude::*;
-use diesel::r2d2::ConnectionManager;
 use diesel::{insert_into, update};
-use r2d2::Pool;
-use tracing::trace;
+use tracing::{instrument, trace};
 
 use crate::db::models::{WebHook, WebHookState};
 use crate::db::schema::{chainSwaps, reverseSwaps, swaps, web_hooks};
+use crate::db::Pool;
 
 pub type QueryResponse<T> = Result<T, Box<dyn Error>>;
 
@@ -23,16 +22,17 @@ dyn_clone::clone_trait_object!(WebHookHelper);
 
 #[derive(Clone, Debug)]
 pub struct WebHookHelperDatabase {
-    pool: Pool<ConnectionManager<PgConnection>>,
+    pool: Pool,
 }
 
 impl WebHookHelperDatabase {
-    pub fn new(pool: Pool<ConnectionManager<PgConnection>>) -> Self {
+    pub fn new(pool: Pool) -> Self {
         WebHookHelperDatabase { pool }
     }
 }
 
 impl WebHookHelper for WebHookHelperDatabase {
+    #[instrument(skip_all, fields(swap_id = hook.id))]
     fn insert_web_hook(&self, hook: &WebHook) -> QueryResponse<usize> {
         trace!("Inserting WebHook: {:#?}", hook);
         Ok(insert_into(web_hooks::dsl::web_hooks)
@@ -40,6 +40,7 @@ impl WebHookHelper for WebHookHelperDatabase {
             .execute(&mut self.pool.get()?)?)
     }
 
+    #[instrument(skip_all, fields(swap_id = id))]
     fn set_state(&self, id: &str, state: WebHookState) -> QueryResponse<usize> {
         trace!(
             "Setting WebHook state of swap {} to: {}",
@@ -52,6 +53,7 @@ impl WebHookHelper for WebHookHelperDatabase {
             .execute(&mut self.pool.get()?)?)
     }
 
+    #[instrument(skip_all, fields(swap_id = id))]
     fn get_by_id(&self, id: &str) -> QueryResponse<Option<WebHook>> {
         trace!("Fetching WebHooks by id: {}", id);
         let res = web_hooks::dsl::web_hooks
@@ -67,6 +69,7 @@ impl WebHookHelper for WebHookHelperDatabase {
         Ok(Some(res[0].clone()))
     }
 
+    #[instrument(skip_all, fields(state = state.as_ref()))]
     fn get_by_state(&self, state: WebHookState) -> QueryResponse<Vec<WebHook>> {
         trace!("Fetching WebHooks for state: {}", state.as_ref());
         Ok(web_hooks::dsl::web_hooks
@@ -75,6 +78,7 @@ impl WebHookHelper for WebHookHelperDatabase {
             .load(&mut self.pool.get()?)?)
     }
 
+    #[instrument(skip_all, fields(swap_id = id))]
     fn get_swap_status(&self, id: &str) -> QueryResponse<Option<String>> {
         trace!("Fetching swap status by id: {}", id);
         let mut con = self.pool.get()?;
@@ -107,10 +111,7 @@ impl WebHookHelper for WebHookHelperDatabase {
 mod test {
     use crate::db::helpers::web_hook::{WebHookHelper, WebHookHelperDatabase};
     use crate::db::models::{WebHook, WebHookState};
-    use crate::db::{connect, Config};
-    use diesel::r2d2::ConnectionManager;
-    use diesel::PgConnection;
-    use r2d2::Pool;
+    use crate::db::{connect, Config, Pool};
     use rand::distributions::{Alphanumeric, DistString};
     use std::sync::{Mutex, OnceLock};
 
@@ -163,8 +164,8 @@ mod test {
         );
     }
 
-    fn get_pool() -> Pool<ConnectionManager<PgConnection>> {
-        static POOL: OnceLock<Mutex<Pool<ConnectionManager<PgConnection>>>> = OnceLock::new();
+    fn get_pool() -> Pool {
+        static POOL: OnceLock<Mutex<Pool>> = OnceLock::new();
         POOL.get_or_init(|| {
             Mutex::new(
                 connect(Config {

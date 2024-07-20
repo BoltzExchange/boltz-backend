@@ -1,10 +1,3 @@
-use std::cell::Cell;
-use std::sync::Arc;
-
-use tokio::sync::Mutex;
-use tonic::{Code, Request, Response, Status};
-use tracing::{debug, trace};
-
 use crate::db::helpers::web_hook::WebHookHelper;
 use crate::db::models::{WebHook, WebHookState};
 use crate::grpc::service::boltzr::boltz_r_server::BoltzR;
@@ -14,6 +7,11 @@ use crate::grpc::service::boltzr::{
     StartWebHookRetriesResponse,
 };
 use crate::webhook::caller::Caller;
+use std::cell::Cell;
+use std::sync::Arc;
+use tokio::sync::Mutex;
+use tonic::{Code, Request, Response, Status};
+use tracing::{debug, instrument, trace};
 
 pub mod boltzr {
     tonic::include_proto!("boltzr");
@@ -39,21 +37,47 @@ impl BoltzService {
     }
 }
 
+#[cfg(feature = "otel")]
+struct MetadataMap<'a>(&'a tonic::metadata::MetadataMap);
+
+#[cfg(feature = "otel")]
+impl<'a> opentelemetry::propagation::Extractor for MetadataMap<'a> {
+    fn get(&self, key: &str) -> Option<&str> {
+        self.0.get(key).and_then(|metadata| metadata.to_str().ok())
+    }
+
+    fn keys(&self) -> Vec<&str> {
+        self.0
+            .keys()
+            .map(|key| match key {
+                tonic::metadata::KeyRef::Ascii(v) => v.as_str(),
+                tonic::metadata::KeyRef::Binary(v) => v.as_str(),
+            })
+            .collect::<Vec<_>>()
+    }
+}
+
 #[tonic::async_trait]
 impl BoltzR for BoltzService {
+    #[instrument(name = "grpc::get_info", skip(self, request))]
     async fn get_info(
         &self,
-        _request: Request<GetInfoRequest>,
+        request: Request<GetInfoRequest>,
     ) -> Result<Response<GetInfoResponse>, Status> {
+        extract_parent_context(&request);
+
         Ok(Response::new(GetInfoResponse {
             version: crate::utils::get_version(),
         }))
     }
 
+    #[instrument(name = "grpc::start_web_hook_retries", skip(self, request))]
     async fn start_web_hook_retries(
         &self,
-        _request: Request<StartWebHookRetriesRequest>,
+        request: Request<StartWebHookRetriesRequest>,
     ) -> Result<Response<StartWebHookRetriesResponse>, Status> {
+        extract_parent_context(&request);
+
         let handle_lock = self.web_hook_retry_handle.clone();
         let mut handle = handle_lock.lock().await;
         if handle.get_mut().is_some() {
@@ -71,10 +95,13 @@ impl BoltzR for BoltzService {
         Ok(Response::new(StartWebHookRetriesResponse::default()))
     }
 
+    #[instrument(name = "grpc::create_web_hook", skip(self, request))]
     async fn create_web_hook(
         &self,
         request: Request<CreateWebHookRequest>,
     ) -> Result<Response<CreateWebHookResponse>, Status> {
+        extract_parent_context(&request);
+
         let params = request.into_inner();
         debug!("Adding new WebHook for swap {}", params.id);
         trace!("Adding WebHook: {:#?}", params);
@@ -95,10 +122,13 @@ impl BoltzR for BoltzService {
         }
     }
 
+    #[instrument(name = "grpc::send_web_hook", skip(self, request))]
     async fn send_web_hook(
         &self,
         request: Request<SendWebHookRequest>,
     ) -> Result<Response<SendWebHookResponse>, Status> {
+        extract_parent_context(&request);
+
         let params = request.into_inner();
 
         let hook = match self.web_hook_helper.get_by_id(&params.id) {
@@ -123,6 +153,18 @@ impl BoltzR for BoltzService {
             Ok(ok) => Ok(Response::new(SendWebHookResponse { ok })),
             Err(err) => Err(Status::new(Code::Internal, err.to_string())),
         }
+    }
+}
+
+fn extract_parent_context<T>(request: &Request<T>) {
+    #[cfg(feature = "otel")]
+    {
+        use tracing_opentelemetry::OpenTelemetrySpanExt;
+
+        let parent_cx = opentelemetry::global::get_text_map_propagator(|prop| {
+            prop.extract(&MetadataMap(request.metadata()))
+        });
+        tracing::Span::current().set_parent(parent_cx);
     }
 }
 

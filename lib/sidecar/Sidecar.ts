@@ -32,7 +32,7 @@ class Sidecar extends BaseClient {
   private static childProcess?: child_process.ChildProcessWithoutNullStreams;
 
   private static maxConnectRetries = 5;
-  private static connectRetryTimeout = 100;
+  private static connectRetryTimeout = 500;
 
   private client?: BoltzRClient;
   private readonly clientMeta = new Metadata();
@@ -92,10 +92,10 @@ class Sidecar extends BaseClient {
           throw e;
         }
 
-        this.logger.debug(
+        this.logger.warn(
           `Connection to ${this.serviceName()} failed: ${formatError(e)}`,
         );
-        this.logger.debug(
+        this.logger.warn(
           `Retrying connecting to ${this.serviceName()} in: ${Sidecar.connectRetryTimeout / 1_000}s`,
         );
         await new Promise<void>((resolve) => {
@@ -195,18 +195,7 @@ class Sidecar extends BaseClient {
       this.setClientStatus(ClientStatus.Connected);
     } catch (error) {
       this.setClientStatus(ClientStatus.Disconnected);
-
-      this.logger.error(
-        `Could not connect to ${this.serviceName()}: ${formatError(error)}`,
-      );
-      this.logger.info(`Retrying in ${this.RECONNECT_INTERVAL} ms`);
-
-      this.reconnectionTimer = setTimeout(
-        this.connect,
-        this.RECONNECT_INTERVAL,
-      );
-
-      return false;
+      throw error;
     }
 
     return true;

@@ -378,12 +378,42 @@ describe('SwapRouter', () => {
       undefined,
       undefined,
       SwapVersion.Taproot,
+      undefined,
     );
 
     expect(MarkedSwapRepository.addMarkedSwap).toHaveBeenCalledTimes(1);
 
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith({ id: 'randomId' });
+  });
+
+  test('should create submarine swaps with webhook', async () => {
+    const reqBody = {
+      to: 'BTC',
+      from: 'L-BTC',
+      invoice: 'LNBC1',
+      refundPublicKey: '0021',
+      webhook: {
+        url: 'test',
+        hashSwapId: false,
+      },
+    };
+    const res = mockResponse();
+
+    await swapRouter['createSubmarine'](mockRequest(reqBody), res);
+
+    expect(service.createSwapWithInvoice).toHaveBeenCalledTimes(1);
+    expect(service.createSwapWithInvoice).toHaveBeenCalledWith(
+      'L-BTC/BTC',
+      OrderSide.BUY,
+      getHexBuffer(reqBody.refundPublicKey),
+      reqBody.invoice.toLowerCase(),
+      undefined,
+      undefined,
+      undefined,
+      SwapVersion.Taproot,
+      reqBody.webhook,
+    );
   });
 
   test('should create submarine swaps with preimage hash', async () => {
@@ -419,6 +449,33 @@ describe('SwapRouter', () => {
     expect(res.json).toHaveBeenCalledWith({ id: 'randomIdPreimageHash' });
   });
 
+  test('should create submarine swaps with preimage hash and webhook', async () => {
+    const reqBody = {
+      to: 'BTC',
+      from: 'L-BTC',
+      refundPublicKey: '0021',
+      preimageHash:
+        'd1e9cce3bec183a27f4a5a8f86b5029016aa4f5f87f86695c1d1c79b5f0c4e05',
+      webhook: {
+        url: 'test',
+        hashSwapId: false,
+      },
+    };
+    const res = mockResponse();
+
+    await swapRouter['createSubmarine'](mockRequest(reqBody), res);
+
+    expect(service.createSwap).toHaveBeenCalledTimes(1);
+    expect(service.createSwap).toHaveBeenCalledWith({
+      pairId: 'L-BTC/BTC',
+      orderSide: OrderSide.BUY,
+      webHook: reqBody.webhook,
+      version: SwapVersion.Taproot,
+      preimageHash: getHexBuffer(reqBody.preimageHash),
+      refundPublicKey: getHexBuffer(reqBody.refundPublicKey),
+    });
+  });
+
   test('should create submarine swaps with pairHash', async () => {
     const reqBody = {
       to: 'BTC',
@@ -441,6 +498,7 @@ describe('SwapRouter', () => {
       undefined,
       undefined,
       SwapVersion.Taproot,
+      undefined,
     );
   });
 
@@ -466,6 +524,7 @@ describe('SwapRouter', () => {
       reqBody.referralId,
       undefined,
       SwapVersion.Taproot,
+      undefined,
     );
   });
 
@@ -496,6 +555,7 @@ describe('SwapRouter', () => {
       referralId,
       undefined,
       SwapVersion.Taproot,
+      undefined,
     );
   });
 
@@ -875,6 +935,33 @@ describe('SwapRouter', () => {
 
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith({ id: 'reverseId' });
+  });
+
+  test('should create reverse swaps with webhook', async () => {
+    const reqBody = {
+      to: 'L-BTC',
+      from: 'BTC',
+      claimPublicKey: '21',
+      preimageHash: getHexString(randomBytes(32)),
+      webhook: {
+        url: 'test',
+        hashSwapId: false,
+      },
+    };
+    const res = mockResponse();
+
+    await swapRouter['createReverse'](mockRequest(reqBody), res);
+
+    expect(service.createReverseSwap).toHaveBeenCalledTimes(1);
+    expect(service.createReverseSwap).toHaveBeenCalledWith({
+      pairId: 'L-BTC/BTC',
+      prepayMinerFee: false,
+      orderSide: OrderSide.BUY,
+      webHook: reqBody.webhook,
+      version: SwapVersion.Taproot,
+      preimageHash: getHexBuffer(reqBody.preimageHash),
+      claimPublicKey: getHexBuffer(reqBody.claimPublicKey),
+    });
   });
 
   test('should create reverse swaps with pairHash', async () => {
@@ -1328,6 +1415,43 @@ describe('SwapRouter', () => {
     expect(res.json).toHaveBeenCalledWith({ id: 'chainId' });
   });
 
+  test('should create chain swaps with webhook', async () => {
+    const reqBody = {
+      to: 'L-BTC',
+      from: 'BTC',
+      pairHash: 'pHash',
+      userLockAmount: 123,
+      claimPublicKey: '21',
+      referralId: 'partner',
+      claimAddress: '0x123',
+      serverLockAmount: 321,
+      refundPublicKey: '12',
+      preimageHash: getHexString(randomBytes(32)),
+      webhook: {
+        url: 'test',
+        hashSwapId: false,
+      },
+    };
+    const res = mockResponse();
+
+    await swapRouter['createChain'](mockRequest(reqBody), res);
+
+    expect(service.createChainSwap).toHaveBeenCalledTimes(1);
+    expect(service.createChainSwap).toHaveBeenCalledWith({
+      pairId: 'L-BTC/BTC',
+      orderSide: OrderSide.BUY,
+      webHook: reqBody.webhook,
+      pairHash: reqBody.pairHash,
+      referralId: reqBody.referralId,
+      claimAddress: reqBody.claimAddress,
+      userLockAmount: reqBody.userLockAmount,
+      serverLockAmount: reqBody.serverLockAmount,
+      preimageHash: getHexBuffer(reqBody.preimageHash),
+      claimPublicKey: getHexBuffer(reqBody.claimPublicKey),
+      refundPublicKey: getHexBuffer(reqBody.refundPublicKey),
+    });
+  });
+
   test('should 404 when getting transactions of chain swap that does not exist', async () => {
     ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
 
@@ -1497,6 +1621,29 @@ describe('SwapRouter', () => {
       {
         pubNonce: getHexBuffer(reqBody.signature.pubNonce),
         signature: getHexBuffer(reqBody.signature.partialSignature),
+      },
+    );
+  });
+
+  describe('parseWebHook', () => {
+    test('should parse webhook', () => {
+      const data = {
+        url: 'asdf',
+        hashSwapId: false,
+      };
+
+      expect(swapRouter['parseWebHook'](data)).toEqual(data);
+    });
+
+    test.each`
+      error                              | data
+      ${'undefined parameter: url'}      | ${{}}
+      ${'invalid parameter: url'}        | ${{ url: 1 }}
+      ${'invalid parameter: hashSwapId'} | ${{ url: 'http', hashSwapId: 'correct' }}
+    `(
+      'should not parse webhook with invalid parameters ($error)',
+      ({ error, data }) => {
+        expect(() => swapRouter['parseWebHook'](data)).toThrow(error);
       },
     );
   });

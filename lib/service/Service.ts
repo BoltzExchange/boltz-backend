@@ -81,6 +81,7 @@ import {
   ReversePairTypeTaproot,
   SubmarinePairTypeTaproot,
 } from '../rates/providers/RateProviderTaproot';
+import Sidecar from '../sidecar/Sidecar';
 import SwapErrors from '../swap/Errors';
 import NodeSwitch from '../swap/NodeSwitch';
 import { SwapNurseryEvents } from '../swap/PaymentHandler';
@@ -115,6 +116,11 @@ type NetworkContracts = {
 type Contracts = {
   ethereum?: NetworkContracts;
   rsk?: NetworkContracts;
+};
+
+type WebHookData = {
+  url: string;
+  hashSwapId?: boolean;
 };
 
 type SomePair =
@@ -153,6 +159,7 @@ class Service {
     private nodeSwitch: NodeSwitch,
     public currencies: Map<string, Currency>,
     blocks: Blocks,
+    private readonly sidecar: Sidecar,
   ) {
     this.prepayMinerFee = config.prepayminerfee;
     this.logger.debug(
@@ -971,6 +978,7 @@ class Service {
     orderSide: string;
     preimageHash: Buffer;
     version: SwapVersion;
+    webHook?: WebHookData;
     channel?: ChannelCreationInfo;
 
     // Referral ID for the swap
@@ -1098,6 +1106,17 @@ class Service {
     });
 
     this.eventHandler.emitSwapCreation(id);
+
+    if (args.webHook) {
+      await this.addWebHook(id, args.webHook, async () => {
+        await (
+          await ChannelCreationRepository.getChannelCreation({
+            swapId: id,
+          })
+        )?.destroy();
+        await (await SwapRepository.getSwap({ id }))?.destroy();
+      });
+    }
 
     return {
       id,
@@ -1387,6 +1406,7 @@ class Service {
     referralId?: string,
     channel?: ChannelCreationInfo,
     version: SwapVersion = SwapVersion.Legacy,
+    webHook?: WebHookData,
   ): Promise<{
     id: string;
     bip21: string;
@@ -1425,6 +1445,7 @@ class Service {
       channel,
       version,
       invoice,
+      webHook,
       orderSide,
       referralId,
       preimageHash,
@@ -1508,6 +1529,8 @@ class Service {
 
     // Description for the invoice and magic routing hint
     description?: string;
+
+    webHook?: WebHookData;
   }): Promise<{
     id: string;
     invoice: string;
@@ -1769,6 +1792,13 @@ class Service {
 
     this.eventHandler.emitSwapCreation(id);
 
+    if (args.webHook) {
+      await this.addWebHook(id, args.webHook, async () => {
+        await (await ReverseRoutingHintRepository.getHint(id))?.destroy();
+        await (await ReverseSwapRepository.getReverseSwap({ id }))?.destroy();
+      });
+    }
+
     const response: any = {
       id,
       invoice,
@@ -1811,6 +1841,8 @@ class Service {
 
     userLockAmount?: number;
     serverLockAmount?: number;
+
+    webHook?: WebHookData;
   }) => {
     await this.checkSwapWithPreimageExists(args.preimageHash);
 
@@ -1964,6 +1996,13 @@ class Service {
     });
 
     this.eventHandler.emitSwapCreation(res.id);
+
+    if (args.webHook) {
+      await this.addWebHook(res.id, args.webHook, async () => {
+        await ChainSwapRepository.destroy(res.id);
+      });
+    }
+
     return {
       referralId,
       id: res.id,
@@ -2097,6 +2136,20 @@ class Service {
     }
   };
 
+  private addWebHook = async (
+    swapId: string,
+    data: WebHookData,
+    // To delete the swap in case the WebHook cannot be set
+    swapDeleteFn: () => Promise<void>,
+  ) => {
+    try {
+      await this.sidecar.createWebHook(swapId, data.url, data.hashSwapId);
+    } catch (e) {
+      await swapDeleteFn();
+      throw `setting Webhook failed: ${formatError(e)}`;
+    }
+  };
+
   /**
    * Calculates the amount of an invoice for a Submarine Swap
    */
@@ -2191,4 +2244,4 @@ class Service {
 export const cancelledViaCliFailureReason = 'payment has been cancelled';
 
 export default Service;
-export { Contracts, NetworkContracts };
+export { WebHookData, Contracts, NetworkContracts };

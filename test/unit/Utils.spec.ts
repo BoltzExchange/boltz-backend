@@ -353,15 +353,15 @@ describe('Utils', () => {
     ).toEqual(baseCurrency);
   });
 
-  test('should format errors', () => {
-    const test = 'error';
-    const object = { test };
-    const objectMessage = { message: test };
-
-    expect(utils.formatError(test)).toEqual(test);
-    expect(utils.formatError(object)).toEqual(JSON.stringify(object));
-    expect(utils.formatError(objectMessage)).toEqual(test);
-    expect(utils.formatError(4)).toEqual('4');
+  test.each`
+    error                                                   | expected
+    ${'error string'}                                       | ${'error string'}
+    ${{ test: 'data' }}                                     | ${JSON.stringify({ test: 'data' })}
+    ${{ message: 'error data' }}                            | ${'error data'}
+    ${{ details: 'details data', message: 'message data' }} | ${'details data'}
+    ${4}                                                    | ${'4'}
+  `('should format errors', ({ error, expected }) => {
+    expect(utils.formatError(error)).toEqual(expected);
   });
 
   test('should get version', () => {

@@ -31,6 +31,7 @@ import NotificationProvider from './notifications/NotificationProvider';
 import Blocks from './service/Blocks';
 import CountryCodes from './service/CountryCodes';
 import Service from './service/Service';
+import Sidecar from './sidecar/Sidecar';
 import NodeSwitch from './swap/NodeSwitch';
 import WalletManager, { Currency } from './wallet/WalletManager';
 import EthereumManager from './wallet/ethereum/EthereumManager';
@@ -57,6 +58,8 @@ class Boltz {
 
   private readonly ethereumManagers: EthereumManager[];
 
+  private readonly sidecar: Sidecar;
+
   constructor(config: Arguments<any>) {
     this.config = new Config().load(config);
     this.logger = new Logger(
@@ -78,9 +81,19 @@ class Boltz {
       `Starting Boltz ${getVersion()} (Node.js ${process.version}; NODE_ENV=${process.env.NODE_ENV})`,
     );
 
+    this.db = new Database(
+      this.logger,
+      this.config.dbpath,
+      this.config.postgres,
+    );
+
+    Sidecar.start(this.logger, this.config);
     registerExitHandler(async () => {
       await this.grpcServer.close();
       await this.db.close();
+
+      await Sidecar.stop();
+
       await this.logger.close();
       await Tracing.stop();
     });
@@ -95,16 +108,13 @@ class Boltz {
     });
 
     process.on('exit', (code) => {
+      Sidecar.stop().then(() => {
+        this.logger.debug('Sidecar stopped');
+      });
       (code === 0 ? this.logger.debug : this.logger.error)(
         `Application shutting down with code: ${code}`,
       );
     });
-
-    this.db = new Database(
-      this.logger,
-      this.config.dbpath,
-      this.config.postgres,
-    );
 
     this.ethereumManagers = [
       { name: Ethereum.name, isRsk: false, config: this.config.ethereum },
@@ -136,6 +146,7 @@ class Boltz {
 
     this.blocks = new Blocks(this.logger, this.config.blocks);
 
+    this.sidecar = new Sidecar(this.logger, this.config.sidecar);
     try {
       this.service = new Service(
         this.logger,
@@ -144,6 +155,7 @@ class Boltz {
         new NodeSwitch(this.logger, this.config.nodeSwitch),
         this.currencies,
         this.blocks,
+        this.sidecar,
       );
 
       this.backup = new BackupScheduler(
@@ -175,6 +187,7 @@ class Boltz {
         this.logger,
         this.config.api,
         this.service,
+        this.sidecar,
         this.countryCodes,
       );
 
@@ -197,6 +210,12 @@ class Boltz {
     try {
       await this.db.migrate(this.currencies);
       await this.db.init();
+
+      await this.sidecar.connect();
+      await this.sidecar.validateVersion();
+      await this.sidecar.start();
+      this.logger.info('Connected to sidecar');
+
       await this.backup.init();
 
       await this.prometheus.start();

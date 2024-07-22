@@ -1963,6 +1963,21 @@
           }
         }
       },
+      "WebhookData": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "required": true,
+            "description": "URL that should be called. Only HTTPS is allowed"
+          },
+          "hashSwapId": {
+            "type": "boolean",
+            "default": false,
+            "description": "If the swap id in the Webhook calls should be hashed with SHA256; useful when Webhooks are processed by a third party"
+          }
+        }
+      },
       "SubmarineRequest": {
         "type": "object",
         "properties": {
@@ -1996,6 +2011,9 @@
           "referralId": {
             "type": "string",
             "description": "Referral ID to be used for the Submarine swap"
+          },
+          "webhook": {
+            "$ref": "#/components/schemas/WebhookData"
           }
         }
       },
@@ -2095,7 +2113,7 @@
           "pubNonce": {
             "type": "string",
             "required": true,
-            "description": "Public nonce  encoded as HEX"
+            "description": "Public nonce encoded as HEX"
           },
           "partialSignature": {
             "type": "string",
@@ -2241,7 +2259,10 @@
           },
           "description": {
             "type": "string",
-            "description": "Description of the created invoice and magic routing hint. Only ASCII and a maximum length of 40 characters is allowed."
+            "description": "Description of the created invoice and magic routing hint. Only ASCII and a maximum length of 40 characters is allowed"
+          },
+          "webhook": {
+            "$ref": "#/components/schemas/WebhookData"
           }
         }
       },
@@ -2447,6 +2468,9 @@
           "referralId": {
             "type": "string",
             "description": "Referral ID to be used for the Chain Swap"
+          },
+          "webhook": {
+            "$ref": "#/components/schemas/WebhookData"
           }
         }
       },

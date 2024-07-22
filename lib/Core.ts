@@ -1,3 +1,5 @@
+import Tracing from './Tracing';
+import { SpanKind, context, trace } from '@opentelemetry/api';
 import zkpInit, { Secp256k1ZKP } from '@vulpemventures/secp256k1-zkp';
 import { BIP32Interface } from 'bip32';
 import {
@@ -48,7 +50,12 @@ import {
   reverseBuffer,
 } from './Utils';
 import { IChainClient } from './chain/ChainClient';
-import { CurrencyType, SwapType, SwapVersion } from './consts/Enums';
+import {
+  CurrencyType,
+  SwapType,
+  SwapVersion,
+  currencyTypeToString,
+} from './consts/Enums';
 import { liquidSymbol } from './consts/LiquidTypes';
 import ChainSwapData from './db/models/ChainSwapData';
 import Swap from './db/models/Swap';
@@ -224,33 +231,48 @@ export const constructClaimTransaction = (
   destinationAddress: string,
   feePerVbyte: number,
 ) => {
-  if (isBitcoin(wallet.type)) {
-    return targetFee(feePerVbyte, (fee) =>
-      constructClaimTransactionBitcoin(
-        claimDetails as ClaimDetails[],
-        wallet.decodeAddress(destinationAddress),
-        fee,
-        true,
-      ),
-    );
+  const span = Tracing.tracer.startSpan('constructClaimTransaction', {
+    kind: SpanKind.INTERNAL,
+    attributes: {
+      type: currencyTypeToString(wallet.type),
+      'claimDetails.length': claimDetails.length,
+    },
+  });
+  const ctx = trace.setSpan(context.active(), span);
+
+  try {
+    return context.with(ctx, () => {
+      if (isBitcoin(wallet.type)) {
+        return targetFee(feePerVbyte, (fee) =>
+          constructClaimTransactionBitcoin(
+            claimDetails as ClaimDetails[],
+            wallet.decodeAddress(destinationAddress),
+            fee,
+            true,
+          ),
+        );
+      }
+
+      const liquidDetails = populateBlindingKeys(
+        wallet as WalletLiquid,
+        claimDetails as LiquidClaimDetails[],
+      );
+      const decodedAddress = liquidAddress.fromConfidential(destinationAddress);
+
+      return targetFee(feePerVbyte, (fee) =>
+        constructClaimTransactionLiquid(
+          liquidDetails,
+          decodedAddress.scriptPubKey!,
+          fee,
+          true,
+          wallet.network as LiquidNetwork,
+          decodedAddress.blindingKey,
+        ),
+      );
+    });
+  } finally {
+    span.end();
   }
-
-  const liquidDetails = populateBlindingKeys(
-    wallet as WalletLiquid,
-    claimDetails as LiquidClaimDetails[],
-  );
-  const decodedAddress = liquidAddress.fromConfidential(destinationAddress);
-
-  return targetFee(feePerVbyte, (fee) =>
-    constructClaimTransactionLiquid(
-      liquidDetails,
-      decodedAddress.scriptPubKey!,
-      fee,
-      true,
-      wallet.network as LiquidNetwork,
-      decodedAddress.blindingKey,
-    ),
-  );
 };
 
 export const constructRefundTransaction = (

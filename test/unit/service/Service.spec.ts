@@ -50,8 +50,10 @@ import FeeProvider from '../../../lib/rates/FeeProvider';
 import RateCalculator from '../../../lib/rates/RateCalculator';
 import Errors from '../../../lib/service/Errors';
 import Service, {
+  WebHookData,
   cancelledViaCliFailureReason,
 } from '../../../lib/service/Service';
+import Sidecar from '../../../lib/sidecar/Sidecar';
 import SwapErrors from '../../../lib/swap/Errors';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
 import SwapManager from '../../../lib/swap/SwapManager';
@@ -719,6 +721,10 @@ describe('Service', () => {
     ],
   ]);
 
+  const sidecar = {
+    createWebHook: jest.fn().mockImplementation(async () => {}),
+  } as any as Sidecar;
+
   const service = new Service(
     Logger.disabledLogger,
     {
@@ -733,6 +739,7 @@ describe('Service', () => {
     new NodeSwitch(Logger.disabledLogger),
     currencies,
     {} as any,
+    sidecar,
   );
 
   // Inject a mocked SwapManager
@@ -1672,7 +1679,13 @@ describe('Service', () => {
       emittedId = id;
     });
 
+    const webHook: WebHookData = {
+      url: 'http',
+      hashSwapId: true,
+    };
+
     const response = await service.createSwap({
+      webHook,
       orderSide,
       referralId,
       preimageHash,
@@ -1708,6 +1721,13 @@ describe('Service', () => {
       version: SwapVersion.Legacy,
     });
 
+    expect(sidecar.createWebHook).toHaveBeenCalledTimes(1);
+    expect(sidecar.createWebHook).toHaveBeenCalledWith(
+      response.id,
+      webHook.url,
+      webHook.hashSwapId,
+    );
+
     // Throw if swap with preimage exists already
     mockGetSwapResult = {};
     await expect(
@@ -1718,6 +1738,48 @@ describe('Service', () => {
         preimageHash: Buffer.alloc(0),
       }),
     ).rejects.toEqual(Errors.SWAP_WITH_PREIMAGE_EXISTS());
+  });
+
+  test('should delete swap when adding webhook fails', async () => {
+    mockGetSwapResult = null;
+
+    const pair = 'BTC/BTC';
+    const orderSide = 'buy';
+    const referralId = 'referral';
+    const refundPublicKey = getHexBuffer('0xfff');
+    const preimageHash = getHexBuffer(
+      'fc3703b99248a0a2d948c6021fdd70debb90ab37233e62531c7f900fe3852c89',
+    );
+
+    const webHook: WebHookData = {
+      url: 'http',
+      hashSwapId: true,
+    };
+
+    sidecar.createWebHook = jest.fn().mockImplementation(async () => {
+      throw 'fail';
+    });
+    await expect(
+      service.createSwap({
+        webHook,
+        orderSide,
+        referralId,
+        preimageHash,
+        refundPublicKey,
+        pairId: pair,
+        version: SwapVersion.Legacy,
+      }),
+    ).rejects.toEqual('setting Webhook failed: fail');
+
+    expect(sidecar.createWebHook).toHaveBeenCalledTimes(1);
+    expect(ChannelCreationRepository.getChannelCreation).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(ChannelCreationRepository.getChannelCreation).toHaveBeenCalledWith({
+      swapId: mockedSwap.id,
+    });
+    expect(SwapRepository.getSwap).toHaveBeenCalledTimes(2);
+    expect(SwapRepository.getSwap).toHaveBeenCalledWith({ id: mockedSwap.id });
   });
 
   test('should get swap rates', async () => {
@@ -2085,7 +2147,14 @@ describe('Service', () => {
       emittedId = id;
     });
 
+    const webHook: WebHookData = {
+      url: 'http',
+      hashSwapId: true,
+    };
+    sidecar.createWebHook = jest.fn();
+
     const response = await service.createReverseSwap({
+      webHook,
       orderSide,
       referralId,
       description,
@@ -2139,6 +2208,13 @@ describe('Service', () => {
       holdInvoiceAmount: invoiceAmount,
       percentageFee: invoiceAmount * mockGetPercentageFeeResult,
     });
+
+    expect(sidecar.createWebHook).toHaveBeenCalledTimes(1);
+    expect(sidecar.createWebHook).toHaveBeenCalledWith(
+      mockedReverseSwap.id,
+      webHook.url,
+      webHook.hashSwapId,
+    );
 
     // Should add a 10% buffer to the lightning timeout block delta for cross chain swaps
     pair = 'LTC/BTC';
@@ -2275,6 +2351,49 @@ describe('Service', () => {
         version: SwapVersion.Legacy,
       }),
     ).rejects.toEqual(Errors.NOT_WHOLE_NUMBER(invalidNumber));
+  });
+
+  test('should delete reverse swap when adding webhook fails', async () => {
+    const pair = 'BTC/BTC';
+    const orderSide = 'buy';
+    const referralId = 'asdf';
+    const invoiceAmount = 100000;
+    const description = 'custom message';
+    const preimageHash = randomBytes(32);
+    const claimPublicKey = getHexBuffer('0xfff');
+
+    const webHook: WebHookData = {
+      url: 'http',
+      hashSwapId: true,
+    };
+    sidecar.createWebHook = jest.fn();
+
+    sidecar.createWebHook = jest.fn().mockImplementation(async () => {
+      throw 'fail';
+    });
+    await expect(
+      service.createReverseSwap({
+        webHook,
+        orderSide,
+        referralId,
+        description,
+        preimageHash,
+        invoiceAmount,
+        claimPublicKey,
+        pairId: pair,
+        version: SwapVersion.Legacy,
+      }),
+    ).rejects.toEqual('setting Webhook failed: fail');
+
+    expect(sidecar.createWebHook).toHaveBeenCalledTimes(1);
+    expect(ReverseRoutingHintRepository.getHint).toHaveBeenCalledTimes(1);
+    expect(ReverseRoutingHintRepository.getHint).toHaveBeenCalledWith(
+      mockedReverseSwap.id,
+    );
+    expect(ReverseSwapRepository.getReverseSwap).toHaveBeenCalledTimes(2);
+    expect(ReverseSwapRepository.getReverseSwap).toHaveBeenCalledWith({
+      id: mockedReverseSwap.id,
+    });
   });
 
   test('should not create Reverse Swaps with reused preiamge hash', async () => {
@@ -2936,6 +3055,55 @@ describe('Service', () => {
           SwapType.Submarine,
         ),
       ).toThrow(Errors.PAIR_NOT_FOUND(notFound).message);
+    });
+  });
+
+  describe('addWebHook', () => {
+    test('should add webhook', async () => {
+      sidecar.createWebHook = jest.fn();
+
+      const id = 'asdf';
+      const data: WebHookData = {
+        url: 'http',
+        hashSwapId: true,
+      };
+      const callback = jest.fn();
+
+      await service['addWebHook'](id, data, callback);
+
+      expect(sidecar.createWebHook).toHaveBeenCalledTimes(1);
+      expect(sidecar.createWebHook).toHaveBeenCalledWith(
+        id,
+        data.url,
+        data.hashSwapId,
+      );
+
+      expect(callback).not.toHaveBeenCalled();
+    });
+
+    test('should call swap deletion function when adding webhook fails', async () => {
+      const id = 'asdf';
+      const data: WebHookData = {
+        url: 'http',
+        hashSwapId: true,
+      };
+      const callback = jest.fn();
+
+      sidecar.createWebHook = jest.fn().mockImplementation(async () => {
+        throw 'fail';
+      });
+      await expect(service['addWebHook'](id, data, callback)).rejects.toEqual(
+        'setting Webhook failed: fail',
+      );
+
+      expect(sidecar.createWebHook).toHaveBeenCalledTimes(1);
+      expect(sidecar.createWebHook).toHaveBeenCalledWith(
+        id,
+        data.url,
+        data.hashSwapId,
+      );
+
+      expect(callback).toHaveBeenCalledTimes(1);
     });
   });
 

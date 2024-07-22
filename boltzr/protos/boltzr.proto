@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package boltzr;
+
+service BoltzR {
+  rpc GetInfo (GetInfoRequest) returns (GetInfoResponse);
+
+  rpc StartWebHookRetries (StartWebHookRetriesRequest) returns (StartWebHookRetriesResponse);
+  rpc CreateWebHook (CreateWebHookRequest) returns (CreateWebHookResponse);
+  rpc SendWebHook (SendWebHookRequest) returns (SendWebHookResponse);
+}
+
+message StartWebHookRetriesRequest {}
+message StartWebHookRetriesResponse {}
+
+message GetInfoRequest {}
+message GetInfoResponse {
+  string version = 1;
+}
+
+message CreateWebHookRequest {
+  string id = 1;
+  string url = 2;
+  bool hash_swap_id = 3;
+}
+message CreateWebHookResponse {}
+
+message SendWebHookRequest {
+  string id = 1;
+  string status = 3;
+}
+
+message SendWebHookResponse {
+  bool ok = 1;
+}

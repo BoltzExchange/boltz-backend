@@ -70,6 +70,10 @@ site/
 .venv
 .ruff_cache
 
+# Rust compiler artifacts
+boltzr/target/
+boltzr/tarpaulin-report.html
+
 # Visual Studio Code configuration
 .vscode/
 

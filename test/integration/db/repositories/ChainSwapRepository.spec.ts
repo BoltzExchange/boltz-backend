@@ -330,6 +330,19 @@ describe('ChainSwapRepository', () => {
     expect(expirableSwaps[0].chainSwap).toMatchObject(expirable.chainSwap);
   });
 
+  test('destroy', async () => {
+    const swap = await createChainSwap();
+    const swapToDelete = await createChainSwap();
+
+    await ChainSwapRepository.destroy(swapToDelete.chainSwap.id);
+    await expect(
+      ChainSwapRepository.getChainSwap({ id: swapToDelete.chainSwap.id }),
+    ).resolves.toBeNull();
+    await expect(
+      ChainSwapRepository.getChainSwap({ id: swap.chainSwap.id }),
+    ).resolves.not.toBeNull();
+  });
+
   describe('disableZeroConf', () => {
     test('should disable 0-conf', async () => {
       const swaps: Awaited<ReturnType<typeof createChainSwap>>[] = [];

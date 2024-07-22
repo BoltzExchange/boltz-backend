@@ -19,6 +19,7 @@ import ServiceErrors from '../service/Errors';
 import EventHandler, { SwapUpdate } from '../service/EventHandler';
 import Service from '../service/Service';
 import { getCurrency } from '../service/Utils';
+import Sidecar from '../sidecar/Sidecar';
 import SwapNursery from '../swap/SwapNursery';
 
 class SwapInfos {
@@ -27,9 +28,11 @@ class SwapInfos {
   constructor(
     private readonly logger: Logger,
     private readonly service: Service,
+    sidecar: Sidecar,
   ) {
-    this.service.eventHandler.on('swap.update', ({ id, status }) => {
+    this.service.eventHandler.on('swap.update', async ({ id, status }) => {
       this.set(id, status);
+      await sidecar.sendWebHook(id, status.status);
     });
   }
 

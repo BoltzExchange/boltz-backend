@@ -175,6 +175,22 @@ export enum CurrencyType {
   Liquid,
 }
 
+export const currencyTypeToString = (version: CurrencyType): string => {
+  switch (version) {
+    case CurrencyType.BitcoinLike:
+      return 'BitcoinLike';
+
+    case CurrencyType.Ether:
+      return 'Ether';
+
+    case CurrencyType.ERC20:
+      return 'ERC20';
+
+    case CurrencyType.Liquid:
+      return 'Liquid';
+  }
+};
+
 export enum SwapVersion {
   Legacy = 0,
   Taproot = 1,

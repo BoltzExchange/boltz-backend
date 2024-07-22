@@ -145,6 +145,23 @@ class SwapRouter extends RouterBase {
      * @openapi
      * components:
      *   schemas:
+     *     WebhookData:
+     *       type: object
+     *       properties:
+     *         url:
+     *           type: string
+     *           required: true
+     *           description: URL that should be called. Only HTTPS is allowed
+     *         hashSwapId:
+     *           type: boolean
+     *           default: false
+     *           description: If the swap id in the Webhook calls should be hashed with SHA256; useful when Webhooks are processed by a third party
+     */
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
      *     SubmarineRequest:
      *       type: object
      *       properties:
@@ -172,6 +189,8 @@ class SwapRouter extends RouterBase {
      *         referralId:
      *           type: string
      *           description: Referral ID to be used for the Submarine swap
+     *         webhook:
+     *           $ref: '#/components/schemas/WebhookData'
      */
 
     /**
@@ -457,7 +476,7 @@ class SwapRouter extends RouterBase {
      *         pubNonce:
      *           type: string
      *           required: true
-     *           description: Public nonce  encoded as HEX
+     *           description: Public nonce encoded as HEX
      *         partialSignature:
      *           type: string
      *           required: true
@@ -502,7 +521,7 @@ class SwapRouter extends RouterBase {
       this.handleError(this.signUtxoRefund(this.service.musigSigner)),
     );
 
-    // Deprecated endpoint from first Taproot deployment
+    // Deprecated endpoint from first the Taproot deployment
     router.post(
       '/submarine/refund',
       this.handleError(this.signUtxoRefund(this.service.musigSigner)),
@@ -737,7 +756,9 @@ class SwapRouter extends RouterBase {
      *           description: If the claim covenant should be added to the Taproot tree. Only possible when "address" is set
      *         description:
      *           type: string
-     *           description: Description of the created invoice and magic routing hint. Only ASCII and a maximum length of 40 characters is allowed.
+     *           description: Description of the created invoice and magic routing hint. Only ASCII and a maximum length of 40 characters is allowed
+     *         webhook:
+     *           $ref: '#/components/schemas/WebhookData'
      */
     /**
      * @openapi
@@ -917,7 +938,7 @@ class SwapRouter extends RouterBase {
      */
     router.post('/reverse/:id/claim', this.handleError(this.claimReverse));
 
-    // Deprecated endpoint from first Taproot deployment
+    // Deprecated endpoint from the first Taproot deployment
     router.post('/reverse/claim', this.handleError(this.claimReverse));
 
     /**
@@ -1091,6 +1112,8 @@ class SwapRouter extends RouterBase {
      *         referralId:
      *           type: string
      *           description: Referral ID to be used for the Chain Swap
+     *         webhook:
+     *           $ref: '#/components/schemas/WebhookData'
      */
 
     /**

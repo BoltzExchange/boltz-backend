@@ -61,6 +61,7 @@ type CommandInfo = {
   executor: (args: string[]) => Promise<void>;
 };
 
+// TODO: trace
 class CommandHandler {
   private readonly commands: Map<string, CommandInfo>;
 

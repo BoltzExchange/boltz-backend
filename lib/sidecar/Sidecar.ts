@@ -29,6 +29,8 @@ class Sidecar extends BaseClient {
   public static readonly symbol = 'Boltz';
   public static readonly serviceName = 'sidecar';
 
+  private static readonly isProduction = process.env.NODE_ENV === 'production';
+
   private static childProcess?: child_process.ChildProcessWithoutNullStreams;
 
   private static maxConnectRetries = 5;
@@ -45,8 +47,7 @@ class Sidecar extends BaseClient {
   }
 
   public static start = (logger: Logger, config: ConfigType) => {
-    const sidecarBuildType =
-      process.env.NODE_ENV === 'production' ? 'release' : 'debug';
+    const sidecarBuildType = Sidecar.isProduction ? 'release' : 'debug';
     logger.info(`Starting ${sidecarBuildType} sidecar`);
 
     this.childProcess = child_process.spawn(
@@ -130,9 +131,15 @@ class Sidecar extends BaseClient {
     >('getInfo', new sidecarrpc.GetInfoRequest(), true);
 
   public validateVersion = async () => {
-    const sidecarInfo = await this.getInfo();
-    if (sidecarInfo.version !== getVersion()) {
-      throw `sidecar version incompatible: ${sidecarInfo.version} vs ${getVersion()}`;
+    const info = await this.getInfo();
+    const ourVersion = getVersion();
+
+    const versionCompatible = Sidecar.isProduction
+      ? info.version === ourVersion
+      : info.version.split('-')[0] === ourVersion.split('-')[0];
+
+    if (!versionCompatible) {
+      throw `sidecar version incompatible: ${info.version} vs ${getVersion()}`;
     }
   };
 

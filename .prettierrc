@@ -10,5 +10,6 @@
   "singleQuote": true,
   "endOfLine": "lf",
   "arrowParens": "always",
-  "bracketSpacing": true
+  "bracketSpacing": true,
+  "proseWrap": "always"
 }

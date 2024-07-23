@@ -1,6 +1,8 @@
+import { SpanKind, SpanStatusCode, context, trace } from '@opentelemetry/api';
 import { Op } from 'sequelize';
 import { satoshisToSatcomma } from '../DenominationConverter';
 import Logger from '../Logger';
+import Tracing from '../Tracing';
 import { formatError, mapToObject, stringify } from '../Utils';
 import BackupScheduler from '../backup/BackupScheduler';
 import {
@@ -61,7 +63,6 @@ type CommandInfo = {
   executor: (args: string[]) => Promise<void>;
 };
 
-// TODO: trace
 class CommandHandler {
   private readonly commands: Map<string, CommandInfo>;
 
@@ -126,6 +127,13 @@ class CommandHandler {
         {
           executor: this.listSwaps,
           description: 'lists swaps',
+          usage: [
+            {
+              command: `${Command.ListSwaps} [status] [limit = 100]`,
+              description:
+                'lists swaps from the database; optionally filtered by status',
+            },
+          ],
         },
       ],
       [
@@ -206,15 +214,30 @@ class CommandHandler {
           this.logger.debug(
             `Executing ${this.notificationClient.serviceName} command: ${command} ${args.join(', ')}`,
           );
+
+          const span = Tracing.tracer.startSpan(`Command ${command}`, {
+            kind: SpanKind.INTERNAL,
+            attributes: {
+              params: args,
+            },
+          });
+          const ctx = trace.setSpan(context.active(), span);
+
           try {
-            await commandInfo.executor(args);
+            await context.with(ctx, commandInfo.executor, this, args);
           } catch (e) {
+            span.setStatus({
+              code: SpanStatusCode.ERROR,
+              message: formatError(e),
+            });
             this.logger.warn(
               `${this.notificationClient.serviceName} command failed: ${formatError(e)}`,
             );
             await this.notificationClient.sendMessage(
               `Command failed: ${formatError(e)}`,
             );
+          } finally {
+            span.end();
           }
         }
       }

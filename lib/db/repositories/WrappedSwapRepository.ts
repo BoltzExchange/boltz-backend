@@ -13,13 +13,13 @@ class WrappedSwapRepository {
     if (swap.type === SwapType.ReverseSubmarine) {
       return (await (swap as ReverseSwap).update({
         status,
-        failureReason,
+        failureReason: swap.failureReason || failureReason,
       })) as T;
     } else {
       const chainSwap = swap as ChainSwapInfo;
       chainSwap.chainSwap = await chainSwap.chainSwap.update({
         status,
-        failureReason,
+        failureReason: swap.failureReason || failureReason,
       });
       return chainSwap as T;
     }

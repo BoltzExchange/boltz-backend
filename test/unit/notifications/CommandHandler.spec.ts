@@ -12,7 +12,7 @@ import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepos
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import CommandHandler from '../../../lib/notifications/CommandHandler';
 import { codeBlock } from '../../../lib/notifications/Markup';
-import DiscordClient from '../../../lib/notifications/clients/DiscordClient';
+import MattermostClient from '../../../lib/notifications/clients/MattermostClient';
 import { Balances, GetBalanceResponse } from '../../../lib/proto/boltzrpc_pb';
 import Service from '../../../lib/service/Service';
 import { wait } from '../../Utils';
@@ -33,7 +33,7 @@ let sendMessage: callback;
 
 const mockSendMessage = jest.fn().mockImplementation(() => Promise.resolve());
 
-jest.mock('../../../lib/notifications/clients/DiscordClient', () => {
+jest.mock('../../../lib/notifications/clients/MattermostClient', () => {
   return jest.fn().mockImplementation(() => {
     return {
       on: (event: string, callback: callback) => {
@@ -54,7 +54,9 @@ const mockGenerateReferralStats = jest
 
 jest.mock('../../../lib/data/ReferralStats');
 
-const mockedDiscordClient = <jest.Mock<DiscordClient>>(<any>DiscordClient);
+const mockedMattermostClient = <jest.Mock<MattermostClient>>(
+  (<any>MattermostClient)
+);
 
 const createWalletBalance = () => {
   const walletBalance = new Balances.WalletBalance();
@@ -181,7 +183,7 @@ describe('CommandHandler', () => {
 
   new CommandHandler(
     Logger.disabledLogger,
-    mockedDiscordClient(),
+    mockedMattermostClient(),
     service,
     mockedBackupScheduler(),
   );

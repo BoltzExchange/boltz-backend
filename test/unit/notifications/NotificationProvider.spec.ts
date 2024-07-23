@@ -10,7 +10,7 @@ import ReverseSwap from '../../../lib/db/models/ReverseSwap';
 import Swap from '../../../lib/db/models/Swap';
 import { Emojis } from '../../../lib/notifications/Markup';
 import NotificationProvider from '../../../lib/notifications/NotificationProvider';
-import DiscordClient from '../../../lib/notifications/clients/DiscordClient';
+import MattermostClient from '../../../lib/notifications/clients/MattermostClient';
 import Service from '../../../lib/service/Service';
 import WalletManager from '../../../lib/wallet/WalletManager';
 import { Rsk } from '../../../lib/wallet/ethereum/EvmNetworks';
@@ -92,7 +92,7 @@ const mockedBackupScheduler = <jest.Mock<BackupScheduler>>(
 
 const mockSendMessage = jest.fn().mockImplementation(async () => {});
 
-jest.mock('../../../lib/notifications/clients/DiscordClient', () => {
+jest.mock('../../../lib/notifications/clients/MattermostClient', () => {
   return jest.fn().mockImplementation(() => {
     return {
       on: () => {},
@@ -102,7 +102,9 @@ jest.mock('../../../lib/notifications/clients/DiscordClient', () => {
   });
 });
 
-const mockedDiscordClient = <jest.Mock<DiscordClient>>(<any>DiscordClient);
+const mockedMattermostClient = <jest.Mock<MattermostClient>>(
+  (<any>MattermostClient)
+);
 
 jest.mock('../../../lib/wallet/WalletManager', () => {
   return jest.fn().mockImplementation(() => {
@@ -137,6 +139,7 @@ describe('NotificationProvider', () => {
   } as any as ReverseSwap;
 
   const config = {
+    mattermostUrl: '',
     token: '',
     interval: 60,
     prefix: 'test',
@@ -155,7 +158,7 @@ describe('NotificationProvider', () => {
     [],
   );
 
-  notificationProvider['discord'] = mockedDiscordClient();
+  notificationProvider['client'] = mockedMattermostClient();
 
   beforeEach(() => {
     jest.clearAllMocks();

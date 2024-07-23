@@ -138,7 +138,7 @@ type BackupConfig = {
 };
 
 type NotificationConfig = {
-  mattermostUrl?: string;
+  mattermostUrl: string;
 
   token: string;
   channel: string;
@@ -291,6 +291,8 @@ class Config {
       },
 
       notification: {
+        mattermostUrl: '',
+
         token: '',
         channel: '',
 

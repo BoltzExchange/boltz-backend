@@ -31,7 +31,6 @@ import BalanceChecker from './BalanceChecker';
 import CommandHandler from './CommandHandler';
 import DiskUsageChecker from './DiskUsageChecker';
 import { Emojis } from './Markup';
-import DiscordClient from './clients/DiscordClient';
 import MattermostClient from './clients/MattermostClient';
 import NotificationClient from './clients/NotificationClient';
 
@@ -47,7 +46,7 @@ class NotificationProvider {
 
   private disconnected = new Set<string>();
 
-  // This is a Discord hack to add trailing whitespace which is trimmed by default
+  // This is a hack to add trailing whitespace which is trimmed by default
   private static trailingWhitespace = '\n** **';
 
   constructor(
@@ -59,13 +58,10 @@ class NotificationProvider {
     currencies: (BaseCurrencyConfig | undefined)[],
     tokenConfigs: TokenConfig[],
   ) {
-    if (this.config.mattermostUrl === undefined) {
-      this.client = new DiscordClient(this.logger, config);
-    } else {
-      this.client = new MattermostClient(this.logger, config);
-    }
+    this.client = new MattermostClient(this.logger, config);
 
-    this.listenToDiscord();
+    this.client = new MattermostClient(this.logger, config);
+    this.listenToClient();
     this.listenToService();
 
     new CommandHandler(this.logger, this.client, this.service, this.backup);
@@ -189,7 +185,7 @@ class NotificationProvider {
     await this.sendLostConnection(service);
   };
 
-  private listenToDiscord = () => {
+  private listenToClient = () => {
     this.client.on('error', (error) => {
       this.logger.warn(
         `${this.client.serviceName} client threw: ${formatError(error)}`,

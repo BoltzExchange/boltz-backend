@@ -106,24 +106,20 @@ bucketname = ""
 # Cron interval at which a new backup should be uploaded. The default value is daily
 interval = "0 0 * * *"
 
-# Boltz backend supports sending messages to Discord after successful and
+# Boltz backend supports sending messages to Mattermost after successful and
 # failed Swaps and if the wallet or channel balance is below a configurable threshold
 [notification]
+mattermostUrl = ""
 token = ""
 channel = ""
 # A string to prefix all messages with
 prefix = "mainnet"
-# When Mattermost should be used instead of Discord for notifications
-# mattermostUrl = ""
 # Optionally, important alerts can be sent to a different channel
 # channelAlerts = ""
 
 prefix = ""
 # Interval in minutes at which the wallet and channel balances should be checked
 interval = 1
-# Some Discord commands (like withdraw) require a TOTP token
-# This is the path to the secret of that TOTP token
-otpsecretpath = "/home/boltz/.boltz/otpSecret.dat"
 
 [swap]
 # Chains on which claim transactions should be deferred
@@ -229,8 +225,8 @@ minSwapAmount = 10_000
 
 # The array "currencies" configures the chain and LND clients for the "pairs"
 # Not configuring the LND client is possible but will cause that chain not to support Lightning
-# The values are pretty self explainatory apart from: "minWalletBalance" and "minChannelBalance" which trigger
-# a Discord notification
+# The values are pretty self-explainatory apart from: "minWalletBalance" and "minChannelBalance" which trigger
+# a Mattermost notification
 [[currencies]]
 symbol = "BTC"
 network = "bitcoinTestnet"

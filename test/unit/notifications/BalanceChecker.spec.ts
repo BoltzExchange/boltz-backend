@@ -6,7 +6,7 @@ import BalanceChecker, {
   BalanceType,
 } from '../../../lib/notifications/BalanceChecker';
 import { Emojis } from '../../../lib/notifications/Markup';
-import DiscordClient from '../../../lib/notifications/clients/DiscordClient';
+import MattermostClient from '../../../lib/notifications/clients/MattermostClient';
 import { Balances, GetBalanceResponse } from '../../../lib/proto/boltzrpc_pb';
 import Service from '../../../lib/service/Service';
 
@@ -25,13 +25,15 @@ const MockedService = <jest.Mock<Service>>(<any>Service);
 
 const mockSendMessage = jest.fn().mockResolvedValue(undefined);
 
-jest.mock('../../../lib/notifications/clients/DiscordClient', () => {
+jest.mock('../../../lib/notifications/clients/MattermostClient', () => {
   return jest.fn().mockImplementation(() => ({
     sendMessage: mockSendMessage,
   }));
 });
 
-const MockedDiscordClient = <jest.Mock<DiscordClient>>(<any>DiscordClient);
+const MockedMattermostClient = <jest.Mock<MattermostClient>>(
+  (<any>MattermostClient)
+);
 
 describe('BalanceChecker', () => {
   const btcCurrency = {
@@ -53,7 +55,7 @@ describe('BalanceChecker', () => {
   let checker = new BalanceChecker(
     Logger.disabledLogger,
     new MockedService(),
-    new MockedDiscordClient(),
+    new MockedMattermostClient(),
     [btcCurrency],
     [usdtCurrency],
   );
@@ -65,7 +67,7 @@ describe('BalanceChecker', () => {
     checker = new BalanceChecker(
       Logger.disabledLogger,
       new MockedService(),
-      new MockedDiscordClient(),
+      new MockedMattermostClient(),
       [btcCurrency],
       [usdtCurrency],
     );
@@ -79,7 +81,7 @@ describe('BalanceChecker', () => {
     const check = new BalanceChecker(
       Logger.disabledLogger,
       new MockedService(),
-      new MockedDiscordClient(),
+      new MockedMattermostClient(),
       [btcCurrency, liquidConfig],
       [],
     );
@@ -96,7 +98,7 @@ describe('BalanceChecker', () => {
     const check = new BalanceChecker(
       Logger.disabledLogger,
       new MockedService(),
-      new MockedDiscordClient(),
+      new MockedMattermostClient(),
       [
         undefined,
         btcCurrency,

@@ -5,7 +5,6 @@ import { Arguments } from 'yargs';
 import { PrometheusConfig } from './Prometheus';
 import { deepMerge, getServiceDataDir, resolveHome } from './Utils';
 import { S3Config } from './backup/providers/S3';
-import { WebdavConfig } from './backup/providers/Webdav';
 import { Network } from './consts/Enums';
 import Errors from './consts/Errors';
 import { PairConfig } from './consts/Types';
@@ -133,12 +132,11 @@ type BackupConfig = {
   // The interval has to be a cron schedule expression
   interval: string;
 
-  webdav?: WebdavConfig;
   simpleStorage?: S3Config;
 };
 
 type NotificationConfig = {
-  mattermostUrl?: string;
+  mattermostUrl: string;
 
   token: string;
   channel: string;
@@ -291,6 +289,8 @@ class Config {
       },
 
       notification: {
+        mattermostUrl: '',
+
         token: '',
         channel: '',
 

@@ -46,14 +46,13 @@ mnemonicpath = "/home/boltz/.boltz/seed.dat"
 # Possible values are: error, warning, info, verbose, debug, silly
 loglevel = "debug"
 
-# The backend can also connect to a PostgreSQL database
-# When configured, it takes precedence over SQLite
-# [postgres]
-# host = "127.0.0.1"
-# port = 5432
-# database = "boltz"
-# username = "boltz"
-# password = "boltz"
+# The backend needs a PostgreSQL database
+[postgres]
+host = "127.0.0.1"
+port = 5432
+database = "boltz"
+username = "boltz"
+password = "boltz"
 
 # Logs can be sent to a Loki log aggregator
 # lokiHost = "http://127.0.0.1:3100"
@@ -97,33 +96,34 @@ keypath = "/home/boltz/.boltz/tls.key"
 [rates]
 interval = 1
 
-# Boltz Backend allows for backing up LND channel backups and
-# the database to a Google Cloud Storage Bucket
+# Boltz Backend allows for backing up LND SCBs and
+# the database to a S3 API compatible storage
 [backup]
-email = ""
-privatekeypath = ""
-bucketname = ""
 # Cron interval at which a new backup should be uploaded. The default value is daily
 interval = "0 0 * * *"
 
-# Boltz backend supports sending messages to Discord after successful and
+  [backup.simpleStorage]
+  bucket = ""
+  endpoint = ""
+  port = 443
+  useSSL = true
+  accessKey = ""
+  secretKey = ""
+
+# Boltz backend supports sending messages to Mattermost after successful and
 # failed Swaps and if the wallet or channel balance is below a configurable threshold
 [notification]
+mattermostUrl = ""
 token = ""
 channel = ""
 # A string to prefix all messages with
 prefix = "mainnet"
-# When Mattermost should be used instead of Discord for notifications
-# mattermostUrl = ""
 # Optionally, important alerts can be sent to a different channel
 # channelAlerts = ""
 
 prefix = ""
 # Interval in minutes at which the wallet and channel balances should be checked
 interval = 1
-# Some Discord commands (like withdraw) require a TOTP token
-# This is the path to the secret of that TOTP token
-otpsecretpath = "/home/boltz/.boltz/otpSecret.dat"
 
 [swap]
 # Chains on which claim transactions should be deferred
@@ -229,8 +229,8 @@ minSwapAmount = 10_000
 
 # The array "currencies" configures the chain and LND clients for the "pairs"
 # Not configuring the LND client is possible but will cause that chain not to support Lightning
-# The values are pretty self explainatory apart from: "minWalletBalance" and "minChannelBalance" which trigger
-# a Discord notification
+# The values are pretty self-explainatory apart from: "minWalletBalance" and "minChannelBalance" which trigger
+# a Mattermost notification
 [[currencies]]
 symbol = "BTC"
 network = "bitcoinTestnet"
@@ -316,7 +316,7 @@ minWalletBalance = 100_000_000
 
 ## Database migrations
 
-To migrate from a SQLite database to PostgreSQL use the following script with
+To migrate from an SQLite database to PostgreSQL, use the following script with
 [pgloader](https://pgloader.io/):
 
 ```

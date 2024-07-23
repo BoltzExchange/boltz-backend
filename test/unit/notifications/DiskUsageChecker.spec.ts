@@ -2,17 +2,19 @@ import Logger from '../../../lib/Logger';
 import DiskUsageChecker, {
   DiskUsage,
 } from '../../../lib/notifications/DiskUsageChecker';
-import DiscordClient from '../../../lib/notifications/clients/DiscordClient';
+import MattermostClient from '../../../lib/notifications/clients/MattermostClient';
 
 const mockSendMessage = jest.fn().mockImplementation(() => Promise.resolve());
 
-jest.mock('../../../lib/notifications/clients/DiscordClient', () => {
+jest.mock('../../../lib/notifications/clients/MattermostClient', () => {
   return jest.fn().mockImplementation(() => ({
     sendMessage: mockSendMessage,
   }));
 });
 
-const mockedDiscordClient = <jest.Mock<DiscordClient>>(<any>DiscordClient);
+const mockedMattermostClient = <jest.Mock<MattermostClient>>(
+  (<any>MattermostClient)
+);
 
 const gigabyte = DiskUsageChecker['gigabyte'];
 
@@ -34,8 +36,8 @@ let diskUsage: DiskUsage = {
 const mockGetUsage = jest.fn().mockImplementation(async () => diskUsage);
 
 describe('DiskUsageChecker', () => {
-  const discordClient = mockedDiscordClient();
-  const checker = new DiskUsageChecker(Logger.disabledLogger, discordClient);
+  const mattermostClient = mockedMattermostClient();
+  const checker = new DiskUsageChecker(Logger.disabledLogger, mattermostClient);
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -60,7 +62,7 @@ describe('DiskUsageChecker', () => {
   test('should get disk usage from df command', async () => {
     const diskUsage = await new DiskUsageChecker(
       Logger.disabledLogger,
-      discordClient,
+      mattermostClient,
     )['getUsage']();
 
     expect(diskUsage.total).toBeDefined();

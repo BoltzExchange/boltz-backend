@@ -85,6 +85,7 @@ class Boltz {
       this.logger,
       this.config.dbpath,
       this.config.postgres,
+      false,
     );
 
     Sidecar.start(this.logger, this.config);
@@ -160,7 +161,6 @@ class Boltz {
 
       this.backup = new BackupScheduler(
         this.logger,
-        this.config.dbpath,
         this.config.postgres,
         this.config.backup,
         this.service.eventHandler,
@@ -215,8 +215,6 @@ class Boltz {
       await this.sidecar.validateVersion();
       await this.sidecar.start();
       this.logger.info('Connected to sidecar');
-
-      await this.backup.init();
 
       await this.prometheus.start();
 

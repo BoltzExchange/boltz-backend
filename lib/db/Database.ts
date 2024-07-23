@@ -25,15 +25,9 @@ types.setTypeParser(types.builtins.INT8, parseInt);
 types.setTypeParser(types.builtins.NUMERIC, parseFloat);
 types.setTypeParser(types.builtins.FLOAT8, parseFloat);
 
-enum DatabaseType {
-  'SQLite',
-  'PostgreSQL',
-}
-
 class Database {
   public static readonly memoryDatabase = ':memory:';
 
-  public static type: DatabaseType = DatabaseType.PostgreSQL;
   public static sequelize: Sequelize.Sequelize;
 
   private migration: Migration;
@@ -42,11 +36,13 @@ class Database {
    * @param logger logger that should be used
    * @param sqlitePath the file path to the SQLite database; if ':memory:' the database will be stored in the memory
    * @param postgresConfig configuration of connection to a PostgreSQL database; takes precedence over SQLite if set
+   * @param isTest in tests we still use SQLite, but we do not allow it when running the backend
    */
   constructor(
     private readonly logger: Logger,
-    private readonly sqlitePath?: string,
+    sqlitePath?: string,
     postgresConfig?: PostgresConfig,
+    isTest: boolean = true,
   ) {
     if (
       postgresConfig !== undefined &&
@@ -54,7 +50,6 @@ class Database {
         (value) => value !== undefined,
       )
     ) {
-      Database.type = DatabaseType.PostgreSQL;
       Database.sequelize = new Sequelize.Sequelize({
         host: postgresConfig.host,
         port: postgresConfig.port,
@@ -65,7 +60,10 @@ class Database {
         logging: this.logger.silly,
       });
     } else {
-      Database.type = DatabaseType.SQLite;
+      if (!isTest) {
+        throw 'SQLite database not supported anymore';
+      }
+
       Database.sequelize = new Sequelize.Sequelize({
         dialect: 'sqlite',
         storage: sqlitePath,
@@ -85,22 +83,7 @@ class Database {
   public init = async (): Promise<void> => {
     try {
       await Database.sequelize.authenticate();
-
-      switch (Database.type) {
-        case DatabaseType.PostgreSQL:
-          this.logger.info('Connected to PostgreSQL database');
-          break;
-
-        case DatabaseType.SQLite:
-          this.logger.info(
-            `Connected to database: ${
-              this.sqlitePath === Database.memoryDatabase
-                ? 'in memory'
-                : this.sqlitePath
-            }`,
-          );
-          break;
-      }
+      this.logger.info('Connected to PostgreSQL database');
     } catch (error) {
       this.logger.error(`Could not connect to database: ${error}`);
       throw error;
@@ -154,4 +137,3 @@ class Database {
 }
 
 export default Database;
-export { DatabaseType };

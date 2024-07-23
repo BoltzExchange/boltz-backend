@@ -4,11 +4,9 @@ import { scheduleJob } from 'node-schedule';
 import { BackupConfig, PostgresConfig } from '../Config';
 import Logger from '../Logger';
 import { formatError } from '../Utils';
-import Database, { DatabaseType } from '../db/Database';
 import EventHandler from '../service/EventHandler';
 import Errors from './Errors';
 import S3 from './providers/S3';
-import Webdav from './providers/Webdav';
 
 interface BackupProvider {
   uploadString(path: string, data: string): Promise<void>;
@@ -20,17 +18,11 @@ class BackupScheduler {
 
   constructor(
     private readonly logger: Logger,
-    private readonly dbpath: string,
     private readonly postgresConfig: PostgresConfig | undefined,
     private readonly config: BackupConfig,
     private readonly eventHandler: EventHandler,
   ) {
     try {
-      if (config.webdav && Webdav.configValid(config.webdav)) {
-        this.providers.push(new Webdav(config.webdav));
-        this.logProviderEnabled('WebDav');
-      }
-
       if (config.simpleStorage && S3.configValid(config.simpleStorage)) {
         this.providers.push(new S3(config.simpleStorage));
         this.logProviderEnabled('S3');
@@ -54,14 +46,6 @@ class BackupScheduler {
       this.logger.error(`Could not start backup scheduler: ${error}`);
     }
   }
-
-  public init = async () => {
-    for (const provider of this.providers) {
-      if (provider instanceof Webdav) {
-        await provider.init();
-      }
-    }
-  };
 
   private static getDate = (date: Date) => {
     let str = '';
@@ -94,36 +78,29 @@ class BackupScheduler {
     }
 
     const dateString = BackupScheduler.getDate(date);
-    this.logger.silly(`Backing up ${Database.type} database at: ${dateString}`);
+    this.logger.silly(`Backing up database at: ${dateString}`);
 
-    const backupPath = `backend/database-${dateString}.${Database.type === DatabaseType.SQLite ? 'db' : 'sql.gz'}`;
+    const backupPath = `backend/database-${dateString}.sql.gz`;
+    const tempFilePath = `sql-backup-${Date.now().toString()}.temp`;
 
-    if (Database.type === DatabaseType.SQLite) {
-      await this.uploadFile(backupPath, this.dbpath);
-    } else {
-      const tempFilePath = `sql-backup-${Date.now().toString()}.temp`;
+    return new Promise<void>((resolve, reject) => {
+      const backupChild = exec(
+        `PGPASSWORD="${this.postgresConfig!.password}" pg_dump -U ${this.postgresConfig!.username} -h ${this.postgresConfig!.host} -p ${this.postgresConfig!.port} -d ${this.postgresConfig!.database} | gzip > ${tempFilePath}`,
+      );
+      backupChild.on('exit', (code) => {
+        if (code !== 0) {
+          reject(`creating PostgreSQL backup failed with code: ${code}`);
+          return;
+        }
 
-      return new Promise<void>((resolve, reject) => {
-        const backupChild = exec(
-          `PGPASSWORD="${this.postgresConfig!.password}" pg_dump -U ${this.postgresConfig!.username} -h ${this.postgresConfig!.host} -p ${this.postgresConfig!.port} -d ${this.postgresConfig!.database} | gzip > ${tempFilePath}`,
-        );
-        backupChild.on('exit', (code) => {
-          if (code !== 0) {
-            reject(
-              `creating ${DatabaseType.PostgreSQL} backup failed with code: ${code}`,
-            );
-            return;
-          }
-
-          this.uploadFile(backupPath, tempFilePath)
-            .then(() => {
-              unlinkSync(tempFilePath);
-              resolve();
-            })
-            .catch(reject);
-        });
+        this.uploadFile(backupPath, tempFilePath)
+          .then(() => {
+            unlinkSync(tempFilePath);
+            resolve();
+          })
+          .catch(reject);
       });
-    }
+    });
   };
 
   private uploadFile = async (path: string, file: string) => {

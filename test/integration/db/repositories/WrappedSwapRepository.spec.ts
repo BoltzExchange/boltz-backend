@@ -48,6 +48,42 @@ describe('WrappedSwapRepository', () => {
       expect(updated.status).toEqual(newStatus);
     });
 
+    test('should set failure reason for reverse swaps', async () => {
+      const swap = await createReverseSwap();
+      expect(swap.failureReason).toBeUndefined();
+
+      const newStatus = SwapUpdateEvent.TransactionConfirmed;
+      const failureReason = 'denied';
+      await WrappedSwapRepository.setStatus(swap, newStatus, failureReason);
+      await swap.reload();
+
+      expect(swap.status).toEqual(newStatus);
+      expect(swap.failureReason).toEqual(failureReason);
+    });
+
+    test('should not overwrite failure reason for reverse swaps', async () => {
+      const swap = await createReverseSwap();
+      expect(swap.failureReason).toBeUndefined();
+
+      const failureReason = 'denied';
+      await WrappedSwapRepository.setStatus(
+        swap,
+        SwapUpdateEvent.TransactionConfirmed,
+        failureReason,
+      );
+
+      const newFailureReason = 'new message';
+      await WrappedSwapRepository.setStatus(
+        swap,
+        SwapUpdateEvent.SwapExpired,
+        newFailureReason,
+      );
+      await swap.reload();
+
+      expect(swap.status).toEqual(SwapUpdateEvent.SwapExpired);
+      expect(swap.failureReason).toEqual(failureReason);
+    });
+
     test('should set swap status for chain swaps', async () => {
       const swap = await createChainSwap();
       const newStatus = SwapUpdateEvent.SwapExpired;
@@ -60,6 +96,50 @@ describe('WrappedSwapRepository', () => {
       );
 
       expect(updated.status).toEqual(newStatus);
+    });
+
+    test('should set failure reason for chain swaps', async () => {
+      const swap = (await ChainSwapRepository.getChainSwap({
+        id: (await createChainSwap()).chainSwap.id,
+      }))!;
+      expect(swap).not.toBeNull();
+      expect(swap.failureReason).toBeNull();
+
+      const newStatus = SwapUpdateEvent.TransactionConfirmed;
+      const failureReason = 'denied';
+      const updated = await WrappedSwapRepository.setStatus(
+        swap,
+        newStatus,
+        failureReason,
+      );
+
+      expect(updated.status).toEqual(newStatus);
+      expect(updated.failureReason).toEqual(failureReason);
+    });
+
+    test('should not overwrite failure reason for chain swaps', async () => {
+      const swap = (await ChainSwapRepository.getChainSwap({
+        id: (await createChainSwap()).chainSwap.id,
+      }))!;
+      expect(swap).not.toBeNull();
+      expect(swap.failureReason).toBeNull();
+
+      const failureReason = 'denied';
+      await WrappedSwapRepository.setStatus(
+        swap,
+        SwapUpdateEvent.TransactionConfirmed,
+        failureReason,
+      );
+
+      const newFailureReason = 'new message';
+      const updated = await WrappedSwapRepository.setStatus(
+        swap,
+        SwapUpdateEvent.SwapExpired,
+        newFailureReason,
+      );
+
+      expect(updated.status).toEqual(SwapUpdateEvent.SwapExpired);
+      expect(updated.failureReason).toEqual(failureReason);
     });
   });
 

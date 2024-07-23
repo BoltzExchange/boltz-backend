@@ -65,18 +65,11 @@ class SwapRepository {
     swap: Swap,
     status: string,
     failureReason?: string,
-  ): Promise<Swap> => {
-    if (swap.failureReason) {
-      return swap.update({
-        status,
-      });
-    }
-
-    return swap.update({
+  ): Promise<Swap> =>
+    swap.update({
       status,
-      failureReason,
+      failureReason: swap.failureReason || failureReason,
     });
-  };
 
   public static setInvoice = (
     swap: Swap,

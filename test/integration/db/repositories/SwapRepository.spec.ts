@@ -1,4 +1,5 @@
 import Logger from '../../../../lib/Logger';
+import { SwapUpdateEvent } from '../../../../lib/consts/Enums';
 import Database from '../../../../lib/db/Database';
 import Pair from '../../../../lib/db/models/Pair';
 import Swap from '../../../../lib/db/models/Swap';
@@ -73,6 +74,55 @@ describe('SwapRepository', () => {
           }))!.acceptZeroConf,
         ).toEqual(true);
       }
+    });
+  });
+
+  describe('setSwapStatus', () => {
+    test('should update status', async () => {
+      const swap = await Swap.create(createSubmarineSwapData());
+
+      const newStatus = SwapUpdateEvent.TransactionConfirmed;
+      await SwapRepository.setSwapStatus(swap, newStatus);
+      await swap.reload();
+
+      expect(swap.status).toEqual(newStatus);
+      expect(swap.failureReason).toBeNull();
+    });
+
+    test('should set failure reason', async () => {
+      const swap = await Swap.create(createSubmarineSwapData());
+      expect(swap.failureReason).toBeUndefined();
+
+      const newStatus = SwapUpdateEvent.TransactionConfirmed;
+      const failureReason = 'denied';
+      await SwapRepository.setSwapStatus(swap, newStatus, failureReason);
+      await swap.reload();
+
+      expect(swap.status).toEqual(newStatus);
+      expect(swap.failureReason).toEqual(failureReason);
+    });
+
+    test('should not overwrite failure reason', async () => {
+      const swap = await Swap.create(createSubmarineSwapData());
+      expect(swap.failureReason).toBeUndefined();
+
+      const failureReason = 'denied';
+      await SwapRepository.setSwapStatus(
+        swap,
+        SwapUpdateEvent.TransactionConfirmed,
+        failureReason,
+      );
+
+      const newFailureReason = 'new message';
+      await SwapRepository.setSwapStatus(
+        swap,
+        SwapUpdateEvent.SwapExpired,
+        newFailureReason,
+      );
+      await swap.reload();
+
+      expect(swap.status).toEqual(SwapUpdateEvent.SwapExpired);
+      expect(swap.failureReason).toEqual(failureReason);
     });
   });
 });

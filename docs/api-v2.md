@@ -8,42 +8,42 @@ description: >-
 
 ## REST Endpoints
 
-The Swagger specifications of the latest Boltz REST API can be found :point\_right: [here](https://api.boltz.exchange/swagger) :point\_left: !
+The Swagger specifications of the latest Boltz REST API can be found
+:point_right: [here](https://api.boltz.exchange/swagger) :point_left: !
 
 ## WebSocket
 
-Instead of polling for swap status updates, clients can subscribe to updates with a WebSocket. The endpoints are available at:
+Instead of polling for swap status updates, clients can subscribe to updates
+with a WebSocket. The endpoints are available at:
 
-* Testnet: `wss://api.testnet.boltz.exchange/v2/ws`
-* Mainnet: `wss://api.boltz.exchange/v2/ws`
+- Testnet: `wss://api.testnet.boltz.exchange/v2/ws`
+- Mainnet: `wss://api.boltz.exchange/v2/ws`
 
-To subscribe to swap status updates, send a message like below. `args` is a list of swap ids to subscribe to.
+To subscribe to swap status updates, send a message like below. `args` is a list
+of swap ids to subscribe to.
 
 ```json
 {
   "op": "subscribe",
   "channel": "swap.update",
-  "args": [
-    "swap id 1",
-    "swap id 2"
-  ]
+  "args": ["swap id 1", "swap id 2"]
 }
 ```
 
-Boltz API will respond with a message like below, to confirm that the subscription was created successfully.
+Boltz API will respond with a message like below, to confirm that the
+subscription was created successfully.
 
 ```json
 {
   "event": "subscribe",
   "channel": "swap.update",
-  "args": [
-    "swap id 1",
-    "swap id 2"
-  ]
+  "args": ["swap id 1", "swap id 2"]
 }
 ```
 
-After the initial subscription confirmation message and whenever a swap status is updated, Boltz API will send a message containing details about the status update.
+After the initial subscription confirmation message and whenever a swap status
+is updated, Boltz API will send a message containing details about the status
+update.
 
 ```json
 {
@@ -58,16 +58,18 @@ After the initial subscription confirmation message and whenever a swap status i
 }
 ```
 
-`args` is a list of objects. These objects correspond to responses of `GET /swap/{id}`, but additionally contain the id of the swap.
+`args` is a list of objects. These objects correspond to responses of
+`GET /swap/{id}`, but additionally contain the id of the swap.
 
 ## Examples
 
-Below are some examples covering the flow of a given swap type from beginning to end, using API v2 and its WebSocket.
+Below are some examples covering the flow of a given swap type from beginning to
+end, using API v2 and its WebSocket.
 
 ## Submarine Swap (Chain -> Lightning)
 
-{% tabs %}
-{% tab title="TypeScript Bitcoin" %}
+{% tabs %} {% tab title="TypeScript Bitcoin" %}
+
 ```typescript
 import zkpInit from '@vulpemventures/secp256k1-zkp';
 import axios from 'axios';
@@ -208,9 +210,11 @@ const submarineSwap = async () => {
   await submarineSwap();
 })();
 ```
+
 {% endtab %}
 
 {% tab title="TypeScript Liquid" %}
+
 ```typescript
 import zkpInit from '@vulpemventures/secp256k1-zkp';
 import axios from 'axios';
@@ -352,9 +356,11 @@ const submarineSwap = async () => {
   await submarineSwap();
 })();
 ```
+
 {% endtab %}
 
 {% tab title="Go Bitcoin" %}
+
 ```go
 package main
 
@@ -418,7 +424,7 @@ func submarineSwap() error {
 		return fmt.Errorf("could not decode swap invoice: %s", err)
 	}
 
-	// Check the scripts of the Taptree to make sure Boltz is not cheating 
+	// Check the scripts of the Taptree to make sure Boltz is not cheating
 	if err := tree.Check(false, swap.TimeoutBlockHeight, decodedInvoice.PaymentHash[:]); err != nil {
 		return err
 	}
@@ -499,13 +505,13 @@ func main() {
 	}
 }
 ```
-{% endtab %}
-{% endtabs %}
+
+{% endtab %} {% endtabs %}
 
 ## Reverse Swap (Lightning -> Chain)
 
-{% tabs %}
-{% tab title="TypeScript Bitcoin" %}
+{% tabs %} {% tab title="TypeScript Bitcoin" %}
+
 ```typescript
 import zkpInit from '@vulpemventures/secp256k1-zkp';
 import axios from 'axios';
@@ -697,9 +703,11 @@ const reverseSwap = async () => {
   await reverseSwap();
 })();
 ```
+
 {% endtab %}
 
 {% tab title="TypeScript Liquid" %}
+
 ```typescript
 import zkpInit from '@vulpemventures/secp256k1-zkp';
 import axios from 'axios';
@@ -728,8 +736,7 @@ const endpoint = 'http://127.0.0.1:9001';
 const invoiceAmount = 100_000;
 
 // Address to which the swap should be claimed
-const destinationAddress =
-  '<Liquid address>';
+const destinationAddress = '<Liquid address>';
 
 const network = networks.regtest;
 
@@ -898,9 +905,11 @@ const reverseSwap = async () => {
   await reverseSwap();
 })();
 ```
+
 {% endtab %}
 
 {% tab title="Go Bitcoin" %}
+
 ```go
 package main
 
@@ -1054,13 +1063,13 @@ func main() {
 	}
 }
 ```
-{% endtab %}
-{% endtabs %}
+
+{% endtab %} {% endtabs %}
 
 ## Chain Swap (Chain -> Chain)
 
-{% tabs %}
-{% tab title="TypeScript Bitcoin -> Liquid" %}
+{% tabs %} {% tab title="TypeScript Bitcoin -> Liquid" %}
+
 ```typescript
 import zkpInit, { Secp256k1ZKP } from '@vulpemventures/secp256k1-zkp';
 import axios from 'axios';
@@ -1090,8 +1099,7 @@ const endpoint = 'http://127.0.0.1:9001';
 const userLockAmount = 100_000;
 
 // Address to which the swap should be claimed
-const destinationAddress =
-  '<Liquid address>';
+const destinationAddress = '<Liquid address>';
 
 const network = networks.regtest;
 
@@ -1345,5 +1353,5 @@ const chainSwap = async () => {
   await chainSwap();
 })();
 ```
-{% endtab %}
-{% endtabs %}
+
+{% endtab %} {% endtabs %}

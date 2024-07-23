@@ -9,15 +9,27 @@ description: >-
 
 Prerequisites:
 
-* The latest [Node.js LTS and npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) installed. We recommend using [nvm](https://github.com/nvm-sh/nvm#install--update-script) to manage npm installs: `nvm install --lts`
-* [rsync](https://github.com/WayneD/rsync) (needed to compile the `TypeScript` code)
+- The latest
+  [Node.js LTS and npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm)
+  installed. We recommend using
+  [nvm](https://github.com/nvm-sh/nvm#install--update-script) to manage npm
+  installs: `nvm install --lts`
+- [rsync](https://github.com/WayneD/rsync) (needed to compile the `TypeScript`
+  code)
 
-Boltz Backend requires a synced Bitcoin Core Instance to connect to the Bitcoin mainchain. Similarly, Elements Core to connect to the Liquid sidechain etc. Bitcoin/Elements Core must:
+Boltz Backend requires a synced Bitcoin Core Instance to connect to the Bitcoin
+mainchain. Similarly, Elements Core to connect to the Liquid sidechain etc.
+Bitcoin/Elements Core must:
 
-* Have the transaction index enabled: `txindex=1`
-* Enable ZeroMQ streams for raw blocks and raw transactions: (`zmqpubrawblock=tcp://<host>:<port>` and `zmqpubrawtx=tcp://<host>:<port>`)
+- Have the transaction index enabled: `txindex=1`
+- Enable ZeroMQ streams for raw blocks and raw transactions:
+  (`zmqpubrawblock=tcp://<host>:<port>` and `zmqpubrawtx=tcp://<host>:<port>`)
 
-Boltz requires a [LND](https://github.com/LightningNetwork/lnd) or [CLN](https://github.com/ElementsProject/lightning/) node running on Bitcoin to be present. For LND, no special configuration is needed, all [official release binaries](https://github.com/lightningnetwork/lnd/releases) are compatible.
+Boltz requires a [LND](https://github.com/LightningNetwork/lnd) or
+[CLN](https://github.com/ElementsProject/lightning/) node running on Bitcoin to
+be present. For LND, no special configuration is needed, all
+[official release binaries](https://github.com/lightningnetwork/lnd/releases)
+are compatible.
 
 ## Config Sample
 
@@ -107,7 +119,7 @@ prefix = "mainnet"
 # channelAlerts = ""
 
 prefix = ""
-# Interval in minutes at which the wallet and channel balances should be checked 
+# Interval in minutes at which the wallet and channel balances should be checked
 interval = 1
 # Some Discord commands (like withdraw) require a TOTP token
 # This is the path to the secret of that TOTP token
@@ -138,10 +150,10 @@ expiryTolerance = 120
 # - "base" (required): base currency
 # - "quote" (required): quote currency
 # - "timeoutDelta": after how many minutes a Swap of that pair should timeout
-# - "rate": the rate for a pair can be hardcoded (only sensible for same currency pairs);  
+# - "rate": the rate for a pair can be hardcoded (only sensible for same currency pairs);
 #           if the rate is not hardcoded the mean value from these exchanges will be used:
 #             - Binance
-#             - Bitfinex 
+#             - Bitfinex
 #             - Coinbase Pro
 #             - Kraken
 #             - Poloniex
@@ -304,10 +316,11 @@ minWalletBalance = 100_000_000
 
 ## Database migrations
 
-To migrate from a SQLite database to PostgreSQL use the following script with [pgloader](https://pgloader.io/):
+To migrate from a SQLite database to PostgreSQL use the following script with
+[pgloader](https://pgloader.io/):
 
 ```
-load database 
+load database
     from sqlite://<path>
     into pgsql://<user>:<password>>@<host>/<database>
 

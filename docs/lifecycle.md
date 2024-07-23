@@ -60,20 +60,26 @@ When a Normal Submarine Swap is created, it passes through the following states:
    spend. If the API client does not cooperate in a key path spend, Boltz will
    eventually claim via the script path.
 7. `transaction.claimed`: indicates that after the invoice was successfully
-   paid, the chain Bitcoin were successfully claimed _by Boltz_. This is the
+   paid, the chain bitcoin were successfully claimed _by Boltz_. This is the
    final status of a successful Normal Submarine Swap.
 
-If the user doesn't send chain bitcoin and the swap expires (approximately 24h),
-Boltz will set the state of the swap to `swap.expired` , which means that it was
-cancelled and chain bitcoin shouldn't be sent anymore. In case of the states
-`invoice.failedToPay` or `swap.expired` but bitcoin were sent or
-`transaction.lockupFailed` , which usually is set if the user sent too little,
-the user needs to submit a refund transaction to reclaim their locked chain
-bitcoin. For more information about how Boltz API clients can construct & submit
-refund transactions for users, check the
-[Claiming Swaps & Refunds](claiming-swaps.md) section. The states
-`invoice.failedToPay` and `swap.expired` are final since Boltz is _not_
-monitoring refund transactions on the chain.
+If the user doesn't send chain bitcoin and the swap expires, Boltz will set the
+state of the swap to `swap.expired`, which means that it was cancelled and chain
+bitcoin shouldn't be sent anymore. When the client fails to lock coins in a way
+that is satisfactory to the server, like sending too little or too much, it will
+set the status to `transaction.lockupFailed`.
+
+For the swap states `invoice.failedToPay`, `swap.expired` where bitcoin were
+sent, and `transaction.lockupFailed`, the user needs to submit a refund
+transaction to reclaim the locked chain bitcoin. For more information about how
+Boltz API clients can construct & submit refund transactions for users, check
+the [Claim & Refund](claiming-swaps.md) section.
+
+The state `transaction.lockupFailed` is _not_ final and changes to
+`swap.expired` after the swap expired; the failure reason will be kept and
+informs e.g. if the user sending too little or too much was the reason for the
+swap to fail. The states `invoice.failedToPay` and `swap.expired` are final.
+Boltz is _not_ monitoring user's refund transactions.
 
 ### Reverse Submarine Swaps
 
@@ -88,9 +94,9 @@ up chain bitcoin using the same hash so that these can be claimed with the
 previously generated preimage by the client. Once the claim transaction for the
 chain bitcoin is broadcast by the user's Boltz API client, Boltz detects the
 preimage in this transaction and in turn claims its bitcoin by settling the
-Lightning invoice. The [Claiming Swaps & Refunds](claiming-swaps.md) section
-contains details about how Boltz API clients can construct claim transactions
-for their users.
+Lightning invoice. The [Claim & Refund](claiming-swaps.md) section contains
+details about how Boltz API clients can construct claim transactions for their
+users.
 
 The following states are traversed in the course of a Reverse Submarine Swap:
 
@@ -103,46 +109,44 @@ The following states are traversed in the course of a Reverse Submarine Swap:
 4. `transaction.confirmed`: the lockup transaction was included in a block. This
    state is skipped, if the client optionally accepts the transaction without
    confirmation. Boltz broadcasts chain transactions non-RBF only.
-5. `invoice.settled`: the transaction claiming chain Bitcoin was broadcast by
+5. `invoice.settled`: the transaction claiming chain bitcoin was broadcast by
    the user's client and Boltz used the preimage of this transaction to settle
    the Lightning invoice. This is the final status of a successful Reverse
    Submarine Swap.
 
 The status `invoice.expired` is set when the invoice of Boltz expired and
 pending HTLCs are cancelled. Boltz invoices currently expire after 50% of the
-swap timeout window. If the swap expires without the lightning invoice being
-paid, the final status of the swap will be `swap.expired`.
+swap expiry. If the swap expires without the lightning invoice being paid, the
+final status of the swap will be `swap.expired`.
 
-In the unlikely event that Boltz is unable to send the agreed amount of chain
+In the unlikely event that Boltz is unable to lock the agreed amount of chain
 bitcoin after the user set up the payment to the provided Lightning invoice, the
-status of the swap will be `transaction.failed` and the pending Lightning HTLC
-will be cancelled. The Lightning bitcoin automatically bounce back to the user,
-no further action or refund is required and the user didn't pay any fees.
+final status of the swap will be `transaction.failed` and the pending Lightning
+HTLC will be cancelled. The Lightning bitcoin automatically bounce back to the
+user, no further action or refund is required and the user didn't pay any fees.
 
 If the user successfully set up the Lightning payment and Boltz successfully
-locked up bitcoin on the chain, but the Boltz API Client did not claim the
-locked chain bitcoin until swap expiry, Boltz will automatically refund its own
-locked chain Bitcoin. The final status of such a swap will be
-`transaction.refunded`.
+locked up bitcoin on the chain, but the user did not claim the locked chain
+bitcoin until swap expiry, Boltz will automatically refund its own locked chain
+bitcoin. The final status of such a swap will be `transaction.refunded`.
 
 ### Chain Swaps
 
-Chain Swaps move bitcoin between **two different chains**. Currently, Boltz
-supports two chains, the Bitcoin mainchain and Liquid. Chain Swaps are similar
-to Reverse Submarine Swaps, but without lightning and both sides being onchain.
-First, the API client sends a SHA256 hash of a 32 bytes long preimage and two
-public keys to the server. One key is used to sign a transaction on the chain
-the user wants to receive on, the other key is needed to sign a refund
-transaction on the chain the client locks coins on, in case the swap fails.
-Based on the details provided to the server, it creates one address for the
-client to lock coins and one for the server to lock coins. When the server locks
-coins, the client can claim those to its wallet by revealing the preimage
-onchain and signing with one of their keys. By revealing the preimage, the
-server can claim the coins the user locked. All Chain Swaps are Taproot based,
-so instead of claiming by revealing scripts and secrets onchain, a key path
-spend can be done by the server and client cooperating to create a single
-signature together. More details about this can be found in the
-[Claiming Swaps & Refunds](claiming-swaps.md) section.
+Chain Swaps move bitcoin between **two different chains**, e.g. between the
+Bitcoin mainchain and Liquid. Chain Swaps are similar to Reverse Submarine
+Swaps, but without lightning and both sides being onchain. First, the API client
+sends a SHA256 hash of a 32 bytes long preimage and two public keys to the
+server. One key is used to sign a transaction on the chain the user wants to
+receive on, the other key is needed to sign a refund transaction on the chain
+the client locks coins on, in case the swap fails. Based on the details provided
+to the server, it creates one address for the client to lock coins and one for
+the server to lock coins. When the server locks coins, the client can claim
+those to its wallet by revealing the preimage onchain and signing with one of
+their keys. By revealing the preimage, the server can claim the coins the user
+locked. All Chain Swaps are Taproot based, so instead of claiming by revealing
+scripts and secrets onchain, a key path spend can be done by the server and
+client cooperating to create a single signature together. More details about
+this can be found in the [Claim & Refund](claiming-swaps.md) section.
 
 A Chain Swap has the following states:
 
@@ -158,14 +162,27 @@ A Chain Swap has the following states:
    included in a block
 6. `transaction.claimed`: the server claimed the coins that the client locked
 
-In case the swap was created, but the client did not lock any coins, the status
-will be `swap.expired`.
+If the user doesn't send chain bitcoin and the swap expires, Boltz will set the
+state of the swap to `swap.expired`, which means that it was cancelled and chain
+bitcoin shouldn't be sent anymore. When the client fails to lock coins in a way
+that is satisfactory to the server, like sending too little or too much, it will
+set the status to `transaction.lockupFailed`.
 
-When the client fails to lock coins in a way that is satisfactory to the server,
-it will set the status to `transaction.lockupFailed`.
+For the swap states `swap.expired` where bitcoin were sent and
+`transaction.lockupFailed`, the user needs to submit a refund transaction to
+reclaim the locked chain bitcoin. For more information about how Boltz API
+clients can construct & submit refund transactions for users, check the
+[Claim & Refund](claiming-swaps.md) section. In the unlikely event that Boltz is
+unable to lock the agreed amount of chain bitcoin, the final status will be
+`transaction.failed`.
 
-When the server fails to lock coins, the status is `transaction.failed`.
+If the user and Boltz both successfully locked up bitcoin on the chain, but the
+user did not claim the locked chain bitcoin until swap expiry, Boltz will
+automatically refund its own locked chain bitcoin. The final status of such a
+swap will be `transaction.refunded`.
 
-When the client and the server both lock coins, but the client does not claim
-them, the server will refund its coins back its wallet and set the status to
-`transaction.refunded`.
+The state `transaction.lockupFailed` is _not_ final and changes to
+`swap.expired` after the swap expired; the failure reason will be kept and
+informs e.g. if the user sending too little or too much was the reason for the
+swap to fail. The states `swap.expired` and `transaction.refunded`are final.
+Boltz is _not_ monitoring user's refund transactions.

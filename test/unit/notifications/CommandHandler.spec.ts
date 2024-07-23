@@ -7,6 +7,7 @@ import ReferralStats from '../../../lib/data/ReferralStats';
 import Stats from '../../../lib/data/Stats';
 import Database from '../../../lib/db/Database';
 import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
+import FeeRepository from '../../../lib/db/repositories/FeeRepository';
 import PairRepository from '../../../lib/db/repositories/PairRepository';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
@@ -176,6 +177,21 @@ jest.mock('../../../lib/backup/BackupScheduler', () => {
 const mockedBackupScheduler = <jest.Mock<BackupScheduler>>(
   (<any>BackupScheduler)
 );
+
+FeeRepository.getFees = jest.fn().mockResolvedValue([
+  {
+    asset: 'BTC',
+    sum: 300,
+  },
+]);
+
+Stats.generate = jest.fn().mockResolvedValue({
+  [new Date().getUTCFullYear()]: {
+    [new Date().getUTCMonth() + 1]: {
+      some: 'data',
+    },
+  },
+});
 
 describe('CommandHandler', () => {
   const service = mockedService();
@@ -352,29 +368,7 @@ describe('CommandHandler', () => {
     sendMessage('getstats');
     await wait(50);
 
-    expect(mockSendMessage).toHaveBeenCalledTimes(1);
-    expect(mockSendMessage).toHaveBeenCalledWith(
-      `\`\`\`${stringify({
-        [new Date().getUTCFullYear()]: {
-          [new Date().getUTCMonth() + 1]: {
-            volume: {
-              total: (0.03).toFixed(8),
-              'LTC/BTC': (0.03).toFixed(8),
-            },
-            trades: {
-              total: 3,
-              'LTC/BTC': 3,
-            },
-            failureRates: {
-              reverse: 0,
-              submarine: 0,
-            },
-          },
-        },
-      })}\`\`\``,
-    );
     expect(spy).toHaveBeenCalledTimes(1);
-
     const date = new Date();
     date.setMonth(date.getMonth() - 5);
     expect(spy).toHaveBeenLastCalledWith(
@@ -382,10 +376,15 @@ describe('CommandHandler', () => {
       date.getUTCMonth(),
     );
 
+    expect(mockSendMessage).toHaveBeenCalledTimes(1);
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      `\`\`\`${stringify(await Stats.generate(0, 0))}\`\`\``,
+    );
+
     sendMessage('getstats all');
     await wait(50);
 
-    expect(spy).toHaveBeenCalledTimes(2);
+    expect(spy).toHaveBeenCalledTimes(3);
     expect(spy).toHaveBeenLastCalledWith(0, 0);
 
     sendMessage('getstats invalid');
@@ -393,7 +392,7 @@ describe('CommandHandler', () => {
 
     expect(mockSendMessage).toHaveBeenCalledTimes(3);
     expect(mockSendMessage).toHaveBeenCalledWith('Invalid parameter: invalid');
-    expect(spy).toHaveBeenCalledTimes(2);
+    expect(spy).toHaveBeenCalledTimes(3);
   });
 
   describe('listSwaps', () => {

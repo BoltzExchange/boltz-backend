@@ -85,6 +85,7 @@ class Boltz {
       this.logger,
       this.config.dbpath,
       this.config.postgres,
+      false,
     );
 
     Sidecar.start(this.logger, this.config);
@@ -160,7 +161,6 @@ class Boltz {
 
       this.backup = new BackupScheduler(
         this.logger,
-        this.config.dbpath,
         this.config.postgres,
         this.config.backup,
         this.service.eventHandler,

@@ -2,7 +2,6 @@ import { BackupConfig } from '../../../lib/Config';
 import Logger from '../../../lib/Logger';
 import BackupScheduler from '../../../lib/backup/BackupScheduler';
 import S3 from '../../../lib/backup/providers/S3';
-import Database, { DatabaseType } from '../../../lib/db/Database';
 import EventHandler from '../../../lib/service/EventHandler';
 
 type callback = (args: { currency: string; channelBackup: string }) => void;
@@ -44,16 +43,10 @@ const mockUploadString = jest
   .fn()
   .mockImplementation(() => mockUploadStringImplementation());
 
-let mockUploadFileImplementation = () => Promise.resolve();
-const mockUploadFile = jest
-  .fn()
-  .mockImplementation(() => mockUploadFileImplementation());
-
 jest.mock('../../../lib/backup/providers/S3', () => {
   return jest.fn().mockImplementation(() => {
     return {
       uploadString: mockUploadString,
-      uploadFile: mockUploadFile,
     };
   });
 });
@@ -61,8 +54,6 @@ jest.mock('../../../lib/backup/providers/S3', () => {
 const mockedS3 = <jest.Mock<S3>>(<any>S3);
 
 describe('BackupScheduler', () => {
-  const dbPath = 'backend.db';
-
   const channelBackupCurrency = 'BTC';
 
   const eventHandler = mockedEventHandler();
@@ -73,14 +64,12 @@ describe('BackupScheduler', () => {
 
   const backupScheduler = new BackupScheduler(
     mockedLogger(),
-    dbPath,
     undefined,
     backupConfig,
     eventHandler,
   );
 
   beforeAll(() => {
-    Database.type = DatabaseType.SQLite;
     backupScheduler['providers'].push(mockedS3());
   });
 
@@ -101,19 +90,6 @@ describe('BackupScheduler', () => {
         `-${addLeadingZeros(date.getHours())}${addLeadingZeros(
           date.getMinutes(),
         )}`,
-    );
-  });
-
-  test('should upload the database', async () => {
-    const date = new Date();
-    const dateString = BackupScheduler['getDate'](date);
-
-    await backupScheduler.uploadDatabase(date);
-
-    expect(mockUploadFile).toHaveBeenCalledTimes(1);
-    expect(mockUploadFile).toHaveBeenCalledWith(
-      `backend/database-${dateString}.db`,
-      dbPath,
     );
   });
 
@@ -141,11 +117,6 @@ describe('BackupScheduler', () => {
       currency: channelBackupCurrency,
       channelBackup: 'some-data',
     });
-    expect(mockUploadString).toHaveBeenCalledTimes(1);
-
-    mockUploadFileImplementation = () => Promise.reject('not working');
-
-    await backupScheduler.uploadDatabase(new Date());
     expect(mockUploadString).toHaveBeenCalledTimes(1);
   });
 });

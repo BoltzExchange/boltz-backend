@@ -46,14 +46,13 @@ mnemonicpath = "/home/boltz/.boltz/seed.dat"
 # Possible values are: error, warning, info, verbose, debug, silly
 loglevel = "debug"
 
-# The backend can also connect to a PostgreSQL database
-# When configured, it takes precedence over SQLite
-# [postgres]
-# host = "127.0.0.1"
-# port = 5432
-# database = "boltz"
-# username = "boltz"
-# password = "boltz"
+# The backend needs a PostgreSQL database
+[postgres]
+host = "127.0.0.1"
+port = 5432
+database = "boltz"
+username = "boltz"
+password = "boltz"
 
 # Logs can be sent to a Loki log aggregator
 # lokiHost = "http://127.0.0.1:3100"
@@ -317,7 +316,7 @@ minWalletBalance = 100_000_000
 
 ## Database migrations
 
-To migrate from a SQLite database to PostgreSQL use the following script with
+To migrate from an SQLite database to PostgreSQL, use the following script with
 [pgloader](https://pgloader.io/):
 
 ```

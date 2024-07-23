@@ -24,6 +24,13 @@ To use the nodes in the container with the Boltz Backend, use a configuration
 file in `~/.boltz/boltz.conf` similar to this one:
 
 ```toml
+[postgres]
+host = "127.0.0.1"
+port = 5432
+database = "boltz"
+username = "boltz"
+password = "boltz"
+
 [nodeSwitch]
 clnAmountThreshold = 1_000_000
 

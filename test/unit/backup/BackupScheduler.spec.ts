@@ -1,7 +1,7 @@
 import { BackupConfig } from '../../../lib/Config';
 import Logger from '../../../lib/Logger';
 import BackupScheduler from '../../../lib/backup/BackupScheduler';
-import Webdav from '../../../lib/backup/providers/Webdav';
+import S3 from '../../../lib/backup/providers/S3';
 import Database, { DatabaseType } from '../../../lib/db/Database';
 import EventHandler from '../../../lib/service/EventHandler';
 
@@ -49,7 +49,7 @@ const mockUploadFile = jest
   .fn()
   .mockImplementation(() => mockUploadFileImplementation());
 
-jest.mock('../../../lib/backup/providers/Webdav', () => {
+jest.mock('../../../lib/backup/providers/S3', () => {
   return jest.fn().mockImplementation(() => {
     return {
       uploadString: mockUploadString,
@@ -58,7 +58,7 @@ jest.mock('../../../lib/backup/providers/Webdav', () => {
   });
 });
 
-const mockedWebdav = <jest.Mock<Webdav>>(<any>Webdav);
+const mockedS3 = <jest.Mock<S3>>(<any>S3);
 
 describe('BackupScheduler', () => {
   const dbPath = 'backend.db';
@@ -81,7 +81,7 @@ describe('BackupScheduler', () => {
 
   beforeAll(() => {
     Database.type = DatabaseType.SQLite;
-    backupScheduler['providers'].push(mockedWebdav());
+    backupScheduler['providers'].push(mockedS3());
   });
 
   beforeEach(() => {

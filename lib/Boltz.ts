@@ -216,8 +216,6 @@ class Boltz {
       await this.sidecar.start();
       this.logger.info('Connected to sidecar');
 
-      await this.backup.init();
-
       await this.prometheus.start();
 
       // Query the chain tips now to avoid them being updated after the chain clients are initialized

@@ -97,14 +97,19 @@ keypath = "/home/boltz/.boltz/tls.key"
 [rates]
 interval = 1
 
-# Boltz Backend allows for backing up LND channel backups and
-# the database to a Google Cloud Storage Bucket
+# Boltz Backend allows for backing up LND SCBs and
+# the database to a S3 API compatible storage
 [backup]
-email = ""
-privatekeypath = ""
-bucketname = ""
 # Cron interval at which a new backup should be uploaded. The default value is daily
 interval = "0 0 * * *"
+
+  [backup.simpleStorage]
+  bucket = ""
+  endpoint = ""
+  port = 443
+  useSSL = true
+  accessKey = ""
+  secretKey = ""
 
 # Boltz backend supports sending messages to Mattermost after successful and
 # failed Swaps and if the wallet or channel balance is below a configurable threshold

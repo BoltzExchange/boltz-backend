@@ -8,7 +8,6 @@ import Database, { DatabaseType } from '../db/Database';
 import EventHandler from '../service/EventHandler';
 import Errors from './Errors';
 import S3 from './providers/S3';
-import Webdav from './providers/Webdav';
 
 interface BackupProvider {
   uploadString(path: string, data: string): Promise<void>;
@@ -26,11 +25,6 @@ class BackupScheduler {
     private readonly eventHandler: EventHandler,
   ) {
     try {
-      if (config.webdav && Webdav.configValid(config.webdav)) {
-        this.providers.push(new Webdav(config.webdav));
-        this.logProviderEnabled('WebDav');
-      }
-
       if (config.simpleStorage && S3.configValid(config.simpleStorage)) {
         this.providers.push(new S3(config.simpleStorage));
         this.logProviderEnabled('S3');
@@ -54,14 +48,6 @@ class BackupScheduler {
       this.logger.error(`Could not start backup scheduler: ${error}`);
     }
   }
-
-  public init = async () => {
-    for (const provider of this.providers) {
-      if (provider instanceof Webdav) {
-        await provider.init();
-      }
-    }
-  };
 
   private static getDate = (date: Date) => {
     let str = '';

@@ -57,6 +57,7 @@ import ChannelCreationRepository from '../db/repositories/ChannelCreationReposit
 import ReverseRoutingHintRepository from '../db/repositories/ReverseRoutingHintRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
+import NotificationClient from '../notifications/clients/NotificationClient';
 import LockupTransactionTracker from '../rates/LockupTransactionTracker';
 import RateProvider from '../rates/RateProvider';
 import Blocks from '../service/Blocks';
@@ -163,6 +164,7 @@ class SwapManager {
 
   constructor(
     private readonly logger: Logger,
+    notifications: NotificationClient | undefined,
     private readonly walletManager: WalletManager,
     private readonly nodeSwitch: NodeSwitch,
     private readonly rateProvider: RateProvider,
@@ -191,6 +193,7 @@ class SwapManager {
 
     this.nursery = new SwapNursery(
       this.logger,
+      notifications,
       this.nodeSwitch,
       rateProvider,
       timeoutDeltaProvider,

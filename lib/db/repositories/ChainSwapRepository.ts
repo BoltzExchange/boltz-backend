@@ -54,6 +54,10 @@ class ChainSwapInfo {
     return this.chainSwap.orderSide;
   }
 
+  get preimage() {
+    return this.chainSwap.preimage;
+  }
+
   get preimageHash() {
     return this.chainSwap.preimageHash;
   }

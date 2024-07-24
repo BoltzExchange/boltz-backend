@@ -421,6 +421,7 @@ describe('SwapManager', () => {
     // Reset the injected mocked methods
     manager = new SwapManager(
       Logger.disabledLogger,
+      undefined,
       new MockedWalletManager(),
       new NodeSwitch(Logger.disabledLogger),
       new MockedRateProvider(),

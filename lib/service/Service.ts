@@ -63,6 +63,7 @@ import {
 } from '../lightning/LightningClient';
 import LndClient from '../lightning/LndClient';
 import ClnClient from '../lightning/cln/ClnClient';
+import NotificationClient from '../notifications/clients/NotificationClient';
 import {
   Balances,
   ChainInfo,
@@ -154,6 +155,7 @@ class Service {
 
   constructor(
     private logger: Logger,
+    notifications: NotificationClient | undefined,
     config: ConfigType,
     public walletManager: WalletManager,
     private nodeSwitch: NodeSwitch,
@@ -200,6 +202,7 @@ class Service {
 
     this.swapManager = new SwapManager(
       this.logger,
+      notifications,
       this.walletManager,
       this.nodeSwitch,
       this.rateProvider,

@@ -37,20 +37,19 @@ import NotificationClient from './clients/NotificationClient';
 // TODO: test balance and service alerts
 // TODO: use events instead of intervals to check connections and balances
 class NotificationProvider {
+  // This is a hack to add trailing whitespace which is trimmed by default
+  private static trailingWhitespace = '\n** **';
+
   private timer!: any;
 
   private balanceChecker: BalanceChecker;
   private diskUsageChecker: DiskUsageChecker;
 
-  private client: NotificationClient;
-
   private disconnected = new Set<string>();
-
-  // This is a hack to add trailing whitespace which is trimmed by default
-  private static trailingWhitespace = '\n** **';
 
   constructor(
     private logger: Logger,
+    private readonly client: NotificationClient,
     private service: Service,
     private walletManager: WalletManager,
     private backup: BackupScheduler,
@@ -58,9 +57,6 @@ class NotificationProvider {
     currencies: (BaseCurrencyConfig | undefined)[],
     tokenConfigs: TokenConfig[],
   ) {
-    this.client = new MattermostClient(this.logger, config);
-
-    this.client = new MattermostClient(this.logger, config);
     this.listenToClient();
     this.listenToService();
 
@@ -75,6 +71,19 @@ class NotificationProvider {
     );
     this.diskUsageChecker = new DiskUsageChecker(this.logger, this.client);
   }
+
+  public static createClient = (
+    logger: Logger,
+    config: NotificationConfig,
+  ): NotificationClient | undefined => {
+    try {
+      return new MattermostClient(logger, config);
+    } catch (e) {
+      logger.error(`Could not create notification client: ${formatError(e)}`);
+    }
+
+    return undefined;
+  };
 
   public init = async (): Promise<void> => {
     try {

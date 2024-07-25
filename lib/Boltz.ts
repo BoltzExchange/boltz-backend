@@ -48,7 +48,7 @@ class Boltz {
   private readonly currencies: Map<string, Currency>;
 
   private readonly db: Database;
-  private readonly notifications!: NotificationProvider;
+  private readonly notifications?: NotificationProvider;
 
   private readonly api!: Api;
   private readonly blocks: Blocks;
@@ -148,9 +148,16 @@ class Boltz {
     this.blocks = new Blocks(this.logger, this.config.blocks);
 
     this.sidecar = new Sidecar(this.logger, this.config.sidecar);
+
+    const notificationClient = NotificationProvider.createClient(
+      this.logger,
+      this.config.notification,
+    );
+
     try {
       this.service = new Service(
         this.logger,
+        notificationClient,
         this.config,
         this.walletManager,
         new NodeSwitch(this.logger, this.config.nodeSwitch),
@@ -166,15 +173,22 @@ class Boltz {
         this.service.eventHandler,
       );
 
-      this.notifications = new NotificationProvider(
-        this.logger,
-        this.service,
-        this.walletManager,
-        this.backup,
-        this.config.notification,
-        [this.config.liquid].concat(this.config.currencies),
-        this.config.ethereum.tokens,
-      );
+      if (notificationClient !== undefined) {
+        this.notifications = new NotificationProvider(
+          this.logger,
+          notificationClient,
+          this.service,
+          this.walletManager,
+          this.backup,
+          this.config.notification,
+          [this.config.liquid].concat(this.config.currencies),
+          this.config.ethereum.tokens,
+        );
+      } else {
+        this.logger.warn(
+          'Not enabling notifications because no client is available',
+        );
+      }
 
       this.grpcServer = new GrpcServer(
         this.logger,
@@ -250,7 +264,7 @@ class Boltz {
         this.config.pairs,
       );
 
-      await this.notifications.init();
+      await this.notifications?.init();
 
       await this.grpcServer.listen();
 

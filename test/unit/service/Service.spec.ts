@@ -727,6 +727,7 @@ describe('Service', () => {
 
   const service = new Service(
     Logger.disabledLogger,
+    undefined,
     {
       rates: {
         interval: Number.MAX_SAFE_INTEGER,

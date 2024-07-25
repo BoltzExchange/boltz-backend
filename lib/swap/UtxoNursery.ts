@@ -267,7 +267,9 @@ class UtxoNursery extends TypedEventEmitter<{
     chainClient.removeInputFilter(input.hash);
     this.emit('reverseSwap.claimed', {
       reverseSwap,
-      preimage: detectPreimage(inputIndex, transaction),
+      preimage: reverseSwap.preimage
+        ? getHexBuffer(reverseSwap.preimage)
+        : detectPreimage(inputIndex, transaction),
     });
   };
 
@@ -304,7 +306,9 @@ class UtxoNursery extends TypedEventEmitter<{
     chainClient.removeInputFilter(input.hash);
     this.emit('chainSwap.claimed', {
       swap,
-      preimage: detectPreimage(inputIndex, transaction),
+      preimage: swap.preimage
+        ? getHexBuffer(swap.preimage)
+        : detectPreimage(inputIndex, transaction),
     });
   };
 

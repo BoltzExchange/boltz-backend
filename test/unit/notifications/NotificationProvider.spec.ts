@@ -150,6 +150,7 @@ describe('NotificationProvider', () => {
   const walletManager = MockedWalletManager();
   const notificationProvider = new NotificationProvider(
     Logger.disabledLogger,
+    mockedMattermostClient(),
     mockedService(),
     walletManager,
     mockedBackupScheduler(),
@@ -157,8 +158,6 @@ describe('NotificationProvider', () => {
     [],
     [],
   );
-
-  notificationProvider['client'] = mockedMattermostClient();
 
   beforeEach(() => {
     jest.clearAllMocks();

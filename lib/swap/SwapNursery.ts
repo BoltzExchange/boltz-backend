@@ -42,7 +42,7 @@ import {
 import TypedEventEmitter from '../consts/TypedEventEmitter';
 import { ERC20SwapValues, EtherSwapValues } from '../consts/Types';
 import ChannelCreation from '../db/models/ChannelCreation';
-import ReverseSwap from '../db/models/ReverseSwap';
+import ReverseSwap, { nodeTypeToPrettyString } from '../db/models/ReverseSwap';
 import Swap from '../db/models/Swap';
 import ChainSwapRepository, {
   ChainSwapInfo,
@@ -57,6 +57,7 @@ import {
   LightningClient,
 } from '../lightning/LightningClient';
 import PendingPaymentTracker from '../lightning/PendingPaymentTracker';
+import NotificationClient from '../notifications/clients/NotificationClient';
 import FeeProvider from '../rates/FeeProvider';
 import LockupTransactionTracker from '../rates/LockupTransactionTracker';
 import RateProvider from '../rates/RateProvider';
@@ -119,6 +120,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
 
   constructor(
     private logger: Logger,
+    private readonly notifications: NotificationClient | undefined,
     private nodeSwitch: NodeSwitch,
     private rateProvider: RateProvider,
     timeoutDeltaProvider: TimeoutDeltaProvider,
@@ -676,9 +678,9 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
         ),
       );
     } catch (e) {
-      this.logger.error(
-        `Could not settle invoice of ${reverseSwap.id}: ${formatError(e)}`,
-      );
+      const message = `Could not settle ${nodeTypeToPrettyString(reverseSwap.node)} invoice of ${reverseSwap.id}: ${formatError(e)}`;
+      this.logger.error(message);
+      await this.notifications?.sendMessage(message, true);
     }
   };
 

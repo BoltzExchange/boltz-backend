@@ -97,6 +97,7 @@ describe('UtxoNursery', () => {
   const timeoutDeltaProvider = {} as TimeoutDeltaProvider;
   const swapManager = new SwapManager(
     Logger.disabledLogger,
+    undefined,
     walletManager,
     nodeSwitch,
     {} as any,

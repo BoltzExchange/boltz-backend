@@ -15,6 +15,10 @@ use crate::db::helpers::web_hook::WebHookHelper;
 use crate::db::models::{WebHook, WebHookState};
 use crate::webhook::types::{WebHookCallData, WebHookCallParams, WebHookEvent};
 
+const DEFAULT_REQUEST_TIMEOUT: u64 = 15;
+const DEFAULT_MAX_RETRIES: u64 = 5;
+const DEFAULT_RETRY_INTERVAL: u64 = 60;
+
 const MAX_URL_LENGTH: usize = 250;
 
 #[derive(Debug, Clone)]
@@ -67,10 +71,10 @@ impl Caller {
         config: Config,
         web_hook_helper: Box<dyn WebHookHelper + Sync + Send>,
     ) -> Self {
-        let max_retries = config.max_retries.unwrap_or(5);
+        let max_retries = config.max_retries.unwrap_or(DEFAULT_MAX_RETRIES);
         debug!("Max WebHook call retries {}", max_retries);
 
-        let timeout = config.request_timeout.unwrap_or(15);
+        let timeout = config.request_timeout.unwrap_or(DEFAULT_REQUEST_TIMEOUT);
         trace!("WebHook call timeout: {}s", timeout);
 
         Caller {
@@ -79,7 +83,9 @@ impl Caller {
             retry_count: Arc::new(DashMap::new()),
             web_hook_helper: Arc::new(web_hook_helper),
             request_timeout: Duration::from_secs(timeout),
-            retry_interval: Duration::from_secs(config.retry_interval.unwrap_or(60)),
+            retry_interval: Duration::from_secs(
+                config.retry_interval.unwrap_or(DEFAULT_RETRY_INTERVAL),
+            ),
         }
     }
 

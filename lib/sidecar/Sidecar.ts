@@ -21,7 +21,7 @@ type SidecarConfig = {
   grpc: {
     host: string;
     port: number;
-    certificates: string;
+    certificates?: string;
   };
 };
 
@@ -41,7 +41,8 @@ class Sidecar extends BaseClient {
 
   constructor(
     logger: Logger,
-    private config: SidecarConfig,
+    private readonly config: SidecarConfig,
+    private readonly dataDir: string,
   ) {
     super(logger, Sidecar.symbol);
   }
@@ -181,15 +182,15 @@ class Sidecar extends BaseClient {
   };
 
   private tryConnect = async () => {
+    const certPath =
+      this.config.grpc.certificates ||
+      path.join(this.dataDir, 'sidecar', 'certificates');
     this.client = new BoltzRClient(
       `${this.config.grpc.host}:${this.config.grpc.port}`,
       createSsl(Sidecar.serviceName, Sidecar.symbol, {
-        rootCertPath: path.join(this.config.grpc.certificates, 'ca.pem'),
-        certChainPath: path.join(this.config.grpc.certificates, 'client.pem'),
-        privateKeyPath: path.join(
-          this.config.grpc.certificates,
-          'client-key.pem',
-        ),
+        rootCertPath: path.join(certPath, 'ca.pem'),
+        certChainPath: path.join(certPath, 'client.pem'),
+        privateKeyPath: path.join(certPath, 'client-key.pem'),
       }),
       {
         ...grpcOptions,

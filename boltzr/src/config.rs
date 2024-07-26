@@ -13,7 +13,7 @@ pub struct Config {
     pub log_file: Option<String>,
 
     pub grpc: crate::grpc::server::Config,
-    pub webhook: crate::webhook::caller::Config,
+    pub webhook: Option<crate::webhook::caller::Config>,
 
     #[cfg(feature = "metrics")]
     pub metrics: Option<crate::metrics::server::Config>,
@@ -213,11 +213,11 @@ lokiNetwork = "someNetwork"
                             .to_string()
                     ),
                 },
-                webhook: crate::webhook::caller::Config {
+                webhook: Some(crate::webhook::caller::Config {
                     retry_interval: Some(60),
                     request_timeout: None,
                     max_retries: None,
-                },
+                }),
                 metrics: Some(crate::metrics::server::Config {
                     host: "127.0.0.1".to_string(),
                     port: 9093,

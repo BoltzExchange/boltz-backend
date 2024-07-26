@@ -88,7 +88,11 @@ async fn main() {
 
     let web_hook_caller = webhook::caller::Caller::new(
         cancellation_token.clone(),
-        config.sidecar.webhook,
+        config.sidecar.webhook.unwrap_or(webhook::caller::Config {
+            request_timeout: None,
+            max_retries: None,
+            retry_interval: None,
+        }),
         Box::new(db::helpers::web_hook::WebHookHelperDatabase::new(
             db_pool.clone(),
         )),

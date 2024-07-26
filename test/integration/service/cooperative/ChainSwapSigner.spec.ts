@@ -471,6 +471,14 @@ describe('ChainSwapSigner', () => {
         } as unknown as ChainSwapInfo),
       ).rejects.toEqual(Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM());
     });
+
+    test('should throw when server claim has already succeeded', async () => {
+      await expect(
+        signer.getCooperativeDetails({
+          status: SwapUpdateEvent.TransactionClaimed,
+        } as unknown as ChainSwapInfo),
+      ).rejects.toEqual(Errors.SERVER_CLAIM_SUCCEEDED_ALREADY());
+    });
   });
 
   describe('signClaim', () => {

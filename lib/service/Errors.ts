@@ -177,4 +177,8 @@ export default {
     message: 'chain currency is not UTXO based',
     code: concatErrorCode(ErrorCodePrefix.Service, 45),
   }),
+  SERVER_CLAIM_SUCCEEDED_ALREADY: (): Error => ({
+    message: 'server claim succeeded already',
+    code: concatErrorCode(ErrorCodePrefix.Service, 46),
+  }),
 };

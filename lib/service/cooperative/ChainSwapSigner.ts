@@ -145,6 +145,10 @@ class ChainSwapSigner extends CoopSignerBase<
   public getCooperativeDetails = async (
     swap: ChainSwapInfo,
   ): Promise<CooperativeClientDetails> => {
+    if (swap.status === SwapUpdateEvent.TransactionClaimed) {
+      throw Errors.SERVER_CLAIM_SUCCEEDED_ALREADY();
+    }
+
     const claimDetails = await this.getToClaimDetails(swap.id);
     if (claimDetails === undefined) {
       throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM();

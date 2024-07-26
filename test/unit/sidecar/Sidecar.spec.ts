@@ -4,7 +4,7 @@ import { getVersion } from '../../../lib/Utils';
 import Sidecar from '../../../lib/sidecar/Sidecar';
 
 describe('Sidecar', () => {
-  const sidecar = new Sidecar(Logger.disabledLogger, {} as any);
+  const sidecar = new Sidecar(Logger.disabledLogger, {} as any, '');
 
   describe('validateVersion', () => {
     test('should check for exact match in production', async () => {

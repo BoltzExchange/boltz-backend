@@ -147,7 +147,11 @@ class Boltz {
 
     this.blocks = new Blocks(this.logger, this.config.blocks);
 
-    this.sidecar = new Sidecar(this.logger, this.config.sidecar);
+    this.sidecar = new Sidecar(
+      this.logger,
+      this.config.sidecar,
+      this.config.datadir,
+    );
 
     const notificationClient = NotificationProvider.createClient(
       this.logger,

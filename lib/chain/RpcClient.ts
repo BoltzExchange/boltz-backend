@@ -2,6 +2,7 @@ import { SpanKind, SpanStatusCode, context, trace } from '@opentelemetry/api';
 import { existsSync, readFileSync } from 'fs';
 import http from 'http';
 import { ChainConfig } from '../Config';
+import Logger from '../Logger';
 import Tracing from '../Tracing';
 import { formatError } from '../Utils';
 import Errors from './Errors';
@@ -9,8 +10,10 @@ import Errors from './Errors';
 class RpcClient {
   private readonly auth: string;
   private readonly options = {};
+  private readonly walletOptions = {};
 
   constructor(
+    logger: Logger,
     private readonly symbol: string,
     config: ChainConfig,
   ) {
@@ -20,6 +23,14 @@ class RpcClient {
       path: '/',
       method: 'POST',
     };
+    this.walletOptions = {
+      ...this.options,
+      path: config.wallet ? `/wallet/${config.wallet}` : '/',
+    };
+
+    if (config.wallet) {
+      logger.info(`Using wallet "${config.wallet}" for ${this.symbol} RPC`);
+    }
 
     // If a cookie is configured, it will be preferred
     if (config.cookie && config.cookie !== '') {
@@ -38,7 +49,11 @@ class RpcClient {
     }
   }
 
-  public request = async <T>(method: string, params?: any[]): Promise<T> => {
+  public request = async <T>(
+    method: string,
+    params?: any[],
+    walletRelated: boolean = false,
+  ): Promise<T> => {
     const span = Tracing.tracer.startSpan(`${this.symbol} RPC ${method}`, {
       kind: SpanKind.CLIENT,
       attributes: {
@@ -49,7 +64,14 @@ class RpcClient {
     const ctx = trace.setSpan(context.active(), span);
 
     try {
-      return await context.with(ctx, this.sendRequest<T>, this, method, params);
+      return await context.with(
+        ctx,
+        this.sendRequest<T>,
+        this,
+        method,
+        walletRelated,
+        params,
+      );
     } catch (error) {
       span.setStatus({
         code: SpanStatusCode.ERROR,
@@ -61,40 +83,47 @@ class RpcClient {
     }
   };
 
-  private sendRequest = <T>(method: string, params?: any[]): Promise<T> => {
+  private sendRequest = <T>(
+    method: string,
+    walletRelated: boolean,
+    params?: any[],
+  ): Promise<T> => {
     return new Promise<T>((resolve, reject) => {
       const serializedRequest = JSON.stringify({
         method,
         params,
       });
 
-      const request = http.request(this.options, (response) => {
-        let buffer = '';
+      const request = http.request(
+        walletRelated ? this.walletOptions : this.options,
+        (response) => {
+          let buffer = '';
 
-        response.on('data', (chunk) => {
-          buffer += chunk.toString();
-        });
+          response.on('data', (chunk) => {
+            buffer += chunk.toString();
+          });
 
-        response.on('end', () => {
-          if (response.statusCode === 401) {
-            reject('401 unauthorized');
-            return;
-          }
+          response.on('end', () => {
+            if (response.statusCode === 401) {
+              reject('401 unauthorized');
+              return;
+            }
 
-          if (response.statusCode === 403) {
-            reject('403 forbidden');
-            return;
-          }
+            if (response.statusCode === 403) {
+              reject('403 forbidden');
+              return;
+            }
 
-          const parsedResponse = JSON.parse(buffer);
+            const parsedResponse = JSON.parse(buffer);
 
-          if (parsedResponse.error) {
-            reject(parsedResponse.error);
-          }
+            if (parsedResponse.error) {
+              reject(parsedResponse.error);
+            }
 
-          resolve(parsedResponse.result);
-        });
-      });
+            resolve(parsedResponse.result);
+          });
+        },
+      );
 
       request.on('error', (error) => {
         reject(error);

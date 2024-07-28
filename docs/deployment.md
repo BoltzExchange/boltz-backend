@@ -257,6 +257,9 @@ maxZeroConfAmount = 10_000_000
     user = "bitcoin"
     password = "bitcoin"
 
+    # When there is more than one wallet loaded, the name of the wallet that should be used needs to be specified
+    # wallet = "boltz"
+
     # Optional API endpoint of a MempoolSpace instance running on the chain of the configured client
     mempoolSpace = "https://mempool.space/api"
 
@@ -312,6 +315,9 @@ minWalletBalance = 100_000_000
     host = "127.0.0.1"
     port = 18884
     cookie = "/home/boltz/.elements/liquidv1/.cookie"
+
+    # When there is more than one wallet loaded, the name of the wallet that should be used needs to be specified
+    # wallet = "boltz"
 ```
 
 ## Database migrations

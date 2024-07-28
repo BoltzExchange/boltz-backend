@@ -60,7 +60,11 @@ class ElementsClient
   };
 
   public getBalances = async () => {
-    const res = await this.client.request<LiquidBalances>('getbalances');
+    const res = await this.client.request<LiquidBalances>(
+      'getbalances',
+      undefined,
+      true,
+    );
 
     for (const balanceType of Object.values(res.mine)) {
       for (const [key, value] of Object.entries(balanceType)) {
@@ -75,7 +79,7 @@ class ElementsClient
     label: string,
     type: AddressType | LiquidAddressType = LiquidAddressType.Blech32,
   ): Promise<string> => {
-    return this.client.request<string>('getnewaddress', [label, type]);
+    return this.client.request<string>('getnewaddress', [label, type], true);
   };
 
   public override sendToAddress = (
@@ -85,20 +89,24 @@ class ElementsClient
     subtractFeeFromAmount = false,
     label: string,
   ): Promise<string> => {
-    return this.client.request<string>('sendtoaddress', [
-      address,
-      amount / ChainClient.decimals,
-      label,
-      undefined,
-      subtractFeeFromAmount,
-      false,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      false,
-      satPerVbyte,
-    ]);
+    return this.client.request<string>(
+      'sendtoaddress',
+      [
+        address,
+        amount / ChainClient.decimals,
+        label,
+        undefined,
+        subtractFeeFromAmount,
+        false,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        false,
+        satPerVbyte,
+      ],
+      true,
+    );
   };
 
   public override estimateFee = async (): Promise<number> => {
@@ -106,11 +114,11 @@ class ElementsClient
   };
 
   public getAddressInfo = (address: string): Promise<AddressInfo> => {
-    return this.client.request<AddressInfo>('getaddressinfo', [address]);
+    return this.client.request<AddressInfo>('getaddressinfo', [address], true);
   };
 
   public dumpBlindingKey = (address: string): Promise<string> => {
-    return this.client.request<string>('dumpblindingkey', [address]);
+    return this.client.request<string>('dumpblindingkey', [address], true);
   };
 }
 

@@ -104,7 +104,7 @@ class ChainClient<T extends SomeTransaction = Transaction>
   ) {
     super(logger, symbol);
 
-    this.client = new RpcClient(symbol, this.config);
+    this.client = new RpcClient(logger, symbol, this.config);
     this.zmqClient = new ZmqClient(symbol, logger, this, config.host);
 
     if (this.config.mempoolSpace && this.config.mempoolSpace !== '') {
@@ -271,7 +271,7 @@ class ChainClient<T extends SomeTransaction = Transaction>
   };
 
   public getWalletTransaction = (id: string): Promise<WalletTransaction> => {
-    return this.client.request<WalletTransaction>('gettransaction', [id]);
+    return this.client.request<WalletTransaction>('gettransaction', [id], true);
   };
 
   public getRawMempool = async () => {
@@ -283,7 +283,7 @@ class ChainClient<T extends SomeTransaction = Transaction>
   };
 
   public getWalletInfo = async (): Promise<WalletInfo> => {
-    return this.client.request<WalletInfo>('getwalletinfo');
+    return this.client.request<WalletInfo>('getwalletinfo', undefined, true);
   };
 
   public sendToAddress = (
@@ -293,42 +293,49 @@ class ChainClient<T extends SomeTransaction = Transaction>
     subtractFeeFromAmount = false,
     label: string,
   ): Promise<string> => {
-    return this.client.request<string>('sendtoaddress', [
-      address,
-      amount / ChainClient.decimals,
-      label,
-      undefined,
-      subtractFeeFromAmount,
-      false,
-      undefined,
-      undefined,
-      undefined,
-      satPerVbyte,
-    ]);
+    return this.client.request<string>(
+      'sendtoaddress',
+      [
+        address,
+        amount / ChainClient.decimals,
+        label,
+        undefined,
+        subtractFeeFromAmount,
+        false,
+        undefined,
+        undefined,
+        undefined,
+        satPerVbyte,
+      ],
+      true,
+    );
   };
 
   public listUnspent = (minimalConfirmations = 0): Promise<UnspentUtxo[]> => {
-    return this.client.request<UnspentUtxo[]>('listunspent', [
-      minimalConfirmations,
-    ]);
+    return this.client.request<UnspentUtxo[]>(
+      'listunspent',
+      [minimalConfirmations],
+      true,
+    );
   };
 
   public generate = async (blocks: number): Promise<string[]> => {
-    return this.client.request<string[]>('generatetoaddress', [
-      blocks,
-      await this.getNewAddress('generatetoaddress'),
-    ]);
+    return this.client.request<string[]>(
+      'generatetoaddress',
+      [blocks, await this.getNewAddress('generatetoaddress')],
+      true,
+    );
   };
 
   public getNewAddress = (
     label: string,
     type: AddressType = AddressType.Bech32,
   ): Promise<string> => {
-    return this.client.request<string>('getnewaddress', [label, type]);
+    return this.client.request<string>('getnewaddress', [label, type], true);
   };
 
   public getAddressInfo = (address: string): Promise<AddressInfo> => {
-    return this.client.request<AddressInfo>('getaddressinfo', [address]);
+    return this.client.request<AddressInfo>('getaddressinfo', [address], true);
   };
 
   protected estimateFeeWithFloor = async (confTarget: number) => {

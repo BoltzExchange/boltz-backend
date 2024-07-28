@@ -33,6 +33,8 @@ type ChainConfig = {
   user?: string;
   password?: string;
 
+  wallet?: string;
+
   zmqpubrawtx?: string;
   zmqpubrawblock?: string;
   zmqpubhashblock?: string;

@@ -190,22 +190,6 @@ export type UnspentUtxo = {
   safe: boolean;
 };
 
-export type WalletInfo = {
-  walletname: string;
-  walletversion: number;
-  balance: number;
-  unconfirmed_balance: number;
-  immature_balance: number;
-  txcount: number;
-  keypoololdest: number;
-  keypoolsize: number;
-  keypoolsize_hd_internal: number;
-  unlocked_until: number;
-  paytxfee: number;
-  hdseedid?: string;
-  private_keys_enabled: boolean;
-};
-
 export type AddressInfo = {
   address: string;
   scriptPubKey: string;

@@ -13,7 +13,6 @@ import {
   NetworkInfo,
   RawTransaction,
   UnspentUtxo,
-  WalletInfo,
   WalletTransaction,
 } from '../consts/Types';
 import ChainTipRepository from '../db/repositories/ChainTipRepository';
@@ -280,10 +279,6 @@ class ChainClient<T extends SomeTransaction = Transaction>
 
   public estimateFee = async (confTarget = 2): Promise<number> => {
     return this.estimateFeeWithFloor(confTarget);
-  };
-
-  public getWalletInfo = async (): Promise<WalletInfo> => {
-    return this.client.request<WalletInfo>('getwalletinfo', undefined, true);
   };
 
   public sendToAddress = (

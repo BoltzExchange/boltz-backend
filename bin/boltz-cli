@@ -31,7 +31,7 @@ require('yargs')
     'rpc.certificates': {
       describe: 'gRPC SSL certificates folder',
       default: path.join(process.env.HOME, '.boltz', 'certificates'),
-      type: 'number',
+      type: 'string',
     },
     'api.endpoint': {
       describe: 'Boltz API endpoint',

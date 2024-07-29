@@ -9,18 +9,13 @@ from typing import Any
 from minio import Minio
 from pyln.client import Plugin
 from strenum import StrEnum
-from webdav3.client import Client, unquote
 
 PLUGIN_NAME = "backup"
 
-BACKUP_UPLOAD_DESC = "Upload a backup of the current SCB to the configured WebDAV"
+BACKUP_UPLOAD_DESC = "Upload a backup of the current SCB to the configured S3 API"
 
 
 class OptionKeys(StrEnum):
-    WebDavHost = f"{PLUGIN_NAME}-webdav-host"
-    WebDavUser = f"{PLUGIN_NAME}-webdav-user"
-    WebDavPassword = f"{PLUGIN_NAME}-webdav-password"
-
     S3Endpoint = f"{PLUGIN_NAME}-s3-endpoint"
     S3Bucket = f"{PLUGIN_NAME}-s3-bucket"
     S3Path = f"{PLUGIN_NAME}-s3-path"
@@ -34,29 +29,6 @@ class Provider(ABC):
     @abstractmethod
     def upload_scb(self, file_name: str, data: object) -> None:
         pass
-
-
-class WebDav(Provider):
-    client: Client | None = None
-
-    def init(self, host: str, user: str, password: str) -> None:
-        client = Client(
-            {
-                "webdav_hostname": host,
-                "webdav_login": user,
-                "webdav_password": password,
-            }
-        )
-        # Sanity check the configuration
-        client.info(unquote(client.root))
-        self.client = client
-
-    def upload_scb(self, file_name: str, data: object) -> None:
-        self.client.execute_request(
-            "upload",
-            f"{unquote(self.client.root)}{file_name}",
-            json.dumps(data),
-        )
 
 
 class S3(Provider):
@@ -100,16 +72,6 @@ class Backup:
     def init(self, plugin: Plugin, options: dict[str, Any]) -> None:
         self.plugin = plugin
         self.providers = []
-
-        webdav = WebDav()
-        if options[OptionKeys.WebDavHost] != "":
-            self.plugin.log("Enabling WebDav backups")
-            webdav.init(
-                options[OptionKeys.WebDavHost],
-                options[OptionKeys.WebDavUser],
-                options[OptionKeys.WebDavPassword],
-            )
-            self.providers.append(webdav)
 
         s3 = S3()
         if options[OptionKeys.S3Endpoint] != "":
@@ -170,7 +132,7 @@ def init(
     long_desc=BACKUP_UPLOAD_DESC,
 )
 def backup_upload(plugin: Plugin) -> dict[str, Any]:
-    """Upload a backup of the current SCB to the configured WebDAV."""
+    """Upload a backup of the current SCB to the configured S3 API."""
     try:
         backup.upload_backup()
     except Exception as e:
@@ -195,10 +157,6 @@ def on_channel(
     except Exception as e:
         plugin.log(f"Could not upload SCB: {e!s}")
 
-
-pl.add_option(OptionKeys.WebDavHost, "", "Host of the backup WebDav server")
-pl.add_option(OptionKeys.WebDavUser, "", "Username for the backup WebDav server")
-pl.add_option(OptionKeys.WebDavPassword, "", "Password for the backup WebDav server")
 
 pl.add_option(OptionKeys.S3Endpoint, "", "Endpoint of the S3 compatible API")
 pl.add_option(OptionKeys.S3Bucket, "", "S3 bucket to use")

@@ -19,8 +19,8 @@ type HolisticInvoice = InvoiceWithRoutingHints & {
 class NodeFallback {
   private static readonly addInvoiceTimeout = 10_000;
   private static readonly invoiceMemoRegex = new RegExp(
-    // Visible ASCII characters with a maximal length of 40
-    '^[\x20-\x7E]{0,40}$',
+    // Visible ASCII characters with a maximal length of 60
+    '^[\x20-\x7E]{0,60}$',
   );
 
   constructor(

@@ -4,6 +4,7 @@ diesel::table! {
         state -> Text,
         url -> Text,
         hash_swap_id -> Bool,
+        status -> Nullable<Array<Text>>,
     }
 }
 

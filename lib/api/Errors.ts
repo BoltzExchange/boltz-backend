@@ -7,4 +7,6 @@ export default {
     `undefined parameter: ${argName}`,
   UNSUPPORTED_PARAMETER: (symbol: string, argName: string): string =>
     `${symbol} does not support ${argName}`,
+  INVALID_SWAP_STATUS: (status: string): string =>
+    `invalid swap status: ${status}`,
 };

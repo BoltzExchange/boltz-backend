@@ -148,11 +148,13 @@ class Sidecar extends BaseClient {
     swapId: string,
     url: string,
     hashSwapId?: boolean,
+    statusInclude?: string[],
   ) => {
     const req = new sidecarrpc.CreateWebHookRequest();
     req.setId(swapId);
     req.setUrl(url);
     req.setHashSwapId(hashSwapId || false);
+    req.setStatusList(statusInclude || []);
 
     await this.unaryNodeCall<
       sidecarrpc.CreateWebHookRequest,

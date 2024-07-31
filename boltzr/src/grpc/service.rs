@@ -107,7 +107,7 @@ impl BoltzR for BoltzService {
         trace!("Adding WebHook: {:#?}", params);
 
         if let Some(err) = Caller::validate_url(&params.url) {
-            debug!("Invalid WebHook url for swap {}: {}", params.id, params.url);
+            debug!("Invalid WebHook URL for swap {}: {}", params.id, params.url);
             return Err(Status::new(Code::InvalidArgument, err.to_string()));
         }
 
@@ -116,6 +116,11 @@ impl BoltzR for BoltzService {
             state: WebHookState::None.into(),
             url: params.url,
             hash_swap_id: params.hash_swap_id,
+            status: if !params.status.is_empty() {
+                Some(params.status.to_vec())
+            } else {
+                None
+            },
         }) {
             Ok(_) => Ok(Response::new(CreateWebHookResponse {})),
             Err(err) => Err(Status::new(Code::InvalidArgument, err.to_string())),
@@ -147,7 +152,7 @@ impl BoltzR for BoltzService {
 
         match self
             .web_hook_caller
-            .call_webhook(&params.id, &params.status, &hook.url, hook.hash_swap_id)
+            .call_webhook(&hook, &params.status)
             .await
         {
             Ok(ok) => Ok(Response::new(SendWebHookResponse { ok })),
@@ -261,6 +266,7 @@ mod test {
                 id: "id".to_string(),
                 url: "https://some.url".to_string(),
                 hash_swap_id: false,
+                status: vec![],
             }))
             .await
             .unwrap()
@@ -277,6 +283,7 @@ mod test {
                 id: "adsf".to_string(),
                 url: "notAUrl".to_string(),
                 hash_swap_id: false,
+                status: vec![],
             }))
             .await
             .err()
@@ -349,6 +356,7 @@ mod test {
                     state: WebHookState::None.into(),
                     url: "http://127.0.0.1:11001".to_string(),
                     hash_swap_id: false,
+                    status: None,
                 }))
             }
         });

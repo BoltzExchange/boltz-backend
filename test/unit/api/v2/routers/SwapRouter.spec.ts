@@ -2,6 +2,7 @@ import { randomBytes } from 'crypto';
 import { Router } from 'express';
 import Logger from '../../../../../lib/Logger';
 import { getHexBuffer, getHexString } from '../../../../../lib/Utils';
+import ApiErrors from '../../../../../lib/api/Errors';
 import SwapInfos from '../../../../../lib/api/SwapInfos';
 import SwapRouter from '../../../../../lib/api/v2/routers/SwapRouter';
 import { OrderSide, SwapVersion } from '../../../../../lib/consts/Enums';
@@ -1639,6 +1640,7 @@ describe('SwapRouter', () => {
       error                              | data
       ${'undefined parameter: url'}      | ${{}}
       ${'invalid parameter: url'}        | ${{ url: 1 }}
+      ${'invalid parameter: status'}     | ${{ url: 'http', status: 'correct' }}
       ${'invalid parameter: hashSwapId'} | ${{ url: 'http', hashSwapId: 'correct' }}
     `(
       'should not parse webhook with invalid parameters ($error)',
@@ -1646,5 +1648,41 @@ describe('SwapRouter', () => {
         expect(() => swapRouter['parseWebHook'](data)).toThrow(error);
       },
     );
+
+    describe('status', () => {
+      test.each`
+        data
+        ${{}}
+        ${'status'}
+        ${Array.from({ length: 22 }, () => 'something')}
+      `('should validate array', ({ data }) => {
+        expect(() =>
+          swapRouter['parseWebHook']({
+            url: 'https://some.domain',
+            status: data,
+          }),
+        ).toThrow(ApiErrors.INVALID_PARAMETER('status'));
+      });
+
+      test('should throw when entries that are not a known swap status are provided', () => {
+        const status = ['invoice.set', 'not.valid'];
+        expect(() =>
+          swapRouter['parseWebHook']({
+            status,
+            url: 'https://some.domain',
+          }),
+        ).toThrow(ApiErrors.INVALID_SWAP_STATUS(status[1]));
+      });
+
+      test('should validate status', () => {
+        const data = {
+          url: 'asdf',
+          hashSwapId: false,
+          status: ['transaction.confirmed'],
+        };
+
+        expect(swapRouter['parseWebHook'](data)).toEqual(data);
+      });
+    });
   });
 });

@@ -6,9 +6,11 @@ import CountryCodes from '../service/CountryCodes';
 import ServiceErrors from '../service/Errors';
 import Errors from './Errors';
 
+export type ApiType = 'string' | 'number' | 'boolean' | 'object';
+
 export type ApiArgument = {
   name: string;
-  type: 'string' | 'number' | 'boolean' | 'object';
+  type: ApiType;
   hex?: boolean;
   optional?: boolean;
 };
@@ -55,6 +57,25 @@ export const validateRequest = (
   });
 
   return response;
+};
+
+export const validateArray = (
+  name: string,
+  data: object,
+  entryType: ApiType,
+  maxLength?: number,
+) => {
+  if (!Array.isArray(data)) {
+    throw Errors.INVALID_PARAMETER(name);
+  }
+
+  if ((data as any[]).some((val) => typeof val !== entryType)) {
+    throw Errors.INVALID_PARAMETER(name);
+  }
+
+  if (maxLength !== undefined && maxLength < (data as any[]).length) {
+    throw Errors.INVALID_PARAMETER(name);
+  }
 };
 
 export const errorResponse = (

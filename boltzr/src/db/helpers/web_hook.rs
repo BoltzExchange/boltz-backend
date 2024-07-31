@@ -124,6 +124,7 @@ mod test {
             state: WebHookState::Ok.into(),
             url: "https://some.thing".to_string(),
             hash_swap_id: true,
+            status: None,
         };
         assert_eq!(helper.insert_web_hook(&hook).unwrap(), 1);
         assert_eq!(helper.get_by_id(&hook.id).unwrap().unwrap(), hook);
@@ -138,6 +139,7 @@ mod test {
             state: WebHookState::Ok.into(),
             url: "https://some.thing".to_string(),
             hash_swap_id: true,
+            status: None,
         };
         assert_eq!(helper.insert_web_hook(&hook).unwrap(), 1);
         assert!(helper.insert_web_hook(&hook).err().is_some());
@@ -152,6 +154,7 @@ mod test {
             state: WebHookState::Ok.into(),
             url: "https://some.thing".to_string(),
             hash_swap_id: true,
+            status: None,
         };
         assert_eq!(helper.insert_web_hook(&hook).unwrap(), 1);
         assert_eq!(helper.set_state(&hook.id, WebHookState::Failed).unwrap(), 1);

@@ -1,7 +1,7 @@
 import { Request, Response, Router } from 'express';
 import Logger from '../../../Logger';
 import { getHexString, stringify } from '../../../Utils';
-import { SwapVersion } from '../../../consts/Enums';
+import { SwapUpdateEvent, SwapVersion } from '../../../consts/Enums';
 import ChainSwapRepository from '../../../db/repositories/ChainSwapRepository';
 import SwapRepository from '../../../db/repositories/SwapRepository';
 import RateProviderTaproot from '../../../rates/providers/RateProviderTaproot';
@@ -12,6 +12,7 @@ import ChainSwapSigner from '../../../service/cooperative/ChainSwapSigner';
 import MusigSigner, {
   PartialSignature,
 } from '../../../service/cooperative/MusigSigner';
+import ApiErrors from '../../Errors';
 import SwapInfos from '../../SwapInfos';
 import {
   checkPreimageHashLength,
@@ -20,6 +21,7 @@ import {
   markSwap,
   parseReferralId,
   successResponse,
+  validateArray,
   validateRequest,
 } from '../../Utils';
 import RouterBase from './RouterBase';
@@ -156,6 +158,12 @@ class SwapRouter extends RouterBase {
      *           type: boolean
      *           default: false
      *           description: If the swap id in the Webhook calls should be hashed with SHA256; useful when Webhooks are processed by a third party
+     *         status:
+     *           type: array
+     *           items:
+     *             type: string
+     *           default: []
+     *           description: Swap status events for which the Webhook should be called. If undefined or empty, the Webhook will be called for all status events
      */
 
     /**
@@ -2041,13 +2049,30 @@ class SwapRouter extends RouterBase {
 
   private parseWebHook = (
     data?: Record<string, any>,
-  ): WebHookData | undefined =>
-    data === undefined
-      ? undefined
-      : validateRequest(data, [
-          { name: 'url', type: 'string' },
-          { name: 'hashSwapId', type: 'boolean', optional: true },
-        ]);
+  ): WebHookData | undefined => {
+    if (data === undefined) {
+      return undefined;
+    }
+
+    const res = validateRequest(data, [
+      { name: 'url', type: 'string' },
+      { name: 'status', type: 'object', optional: true },
+      { name: 'hashSwapId', type: 'boolean', optional: true },
+    ]);
+
+    if (res.status) {
+      validateArray('status', res.status, 'string', 21);
+
+      const possibleStatus = new Set<string>(Object.values(SwapUpdateEvent));
+      for (const status of res.status as any[]) {
+        if (!possibleStatus.has(status)) {
+          throw ApiErrors.INVALID_SWAP_STATUS(status);
+        }
+      }
+    }
+
+    return res;
+  };
 }
 
 export default SwapRouter;

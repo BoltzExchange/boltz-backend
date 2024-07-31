@@ -1,11 +1,13 @@
 import { randomBytes } from 'crypto';
 import Logger from '../../../lib/Logger';
 import { getHexBuffer } from '../../../lib/Utils';
+import Errors from '../../../lib/api/Errors';
 import {
   ApiArgument,
   checkPreimageHashLength,
   errorResponse,
   markSwap,
+  validateArray,
   validateRequest,
 } from '../../../lib/api/Utils';
 import MarkedSwapRepository from '../../../lib/db/repositories/MarkedSwapRepository';
@@ -102,6 +104,40 @@ describe('Utils', () => {
         optionalChecks,
       ),
     ).toEqual({ test: 'test' });
+  });
+
+  describe('validateArray', () => {
+    test.each`
+      data
+      ${1}
+      ${1n}
+      ${{}}
+      ${''}
+      ${false}
+    `('should throw when data is not an array', ({ data }) => {
+      const name = 'name';
+      expect(() => validateArray(name, data, 'string')).toThrow(
+        Errors.INVALID_PARAMETER(name),
+      );
+    });
+
+    test('should throw when one of the entries is not of the specified type', () => {
+      const name = 'name';
+      expect(() => validateArray(name, ['string', 1, false], 'string')).toThrow(
+        Errors.INVALID_PARAMETER(name),
+      );
+    });
+
+    test('should throw when length is greater than max length', () => {
+      const name = 'name';
+      expect(() => validateArray(name, [1, 2, 3], 'number', 2)).toThrow(
+        Errors.INVALID_PARAMETER(name),
+      );
+    });
+
+    test('should not throw when constrains are fulfilled', () => {
+      validateArray('', [1, 2, 3], 'number');
+    });
   });
 
   test('should handle error responses', () => {

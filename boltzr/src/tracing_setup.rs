@@ -122,7 +122,7 @@ fn setup_loki(
 fn init_tracer(
     config: &GlobalConfig,
 ) -> Result<Option<opentelemetry_sdk::trace::Tracer>, opentelemetry::trace::TraceError> {
-    if config.otlp_endoint.is_none() || config.otlp_endoint.clone().unwrap() == "" {
+    if config.otlp_endpoint.is_none() || config.otlp_endpoint.clone().unwrap() == "" {
         warn!("Not enabling OpenTelemetry because it was not configured");
         return Ok(None);
     }

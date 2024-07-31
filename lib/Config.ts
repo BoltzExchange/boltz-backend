@@ -184,7 +184,7 @@ type ConfigType = {
   network?: string;
 
   lokiEndpoint?: string;
-  otlpEndoint?: string;
+  otlpEndpoint?: string;
 
   prometheus?: PrometheusConfig;
 

@@ -123,8 +123,20 @@ jobs:
       - name: Install clippy
         run: rustup component add clippy
 
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Install Node.js dependencies
+        run: npm ci --force
+
       - name: Start PostgreSQL
         run: npm run db:start
+
+      - name: Start containers
+        run: npm run docker:solidity
+
+      - name: Deploy Ethereum contracts
+        run: npm run docker:solidity:deploy
 
       - name: Compile
         run: cargo build

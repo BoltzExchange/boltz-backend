@@ -1,12 +1,14 @@
 use crate::db::helpers::web_hook::WebHookHelper;
 use crate::db::models::{WebHook, WebHookState};
+use crate::evm::refund_signer::RefundSigner;
 use crate::grpc::service::boltzr::boltz_r_server::BoltzR;
 use crate::grpc::service::boltzr::{
     CreateWebHookRequest, CreateWebHookResponse, GetInfoRequest, GetInfoResponse,
-    SendWebHookRequest, SendWebHookResponse, StartWebHookRetriesRequest,
-    StartWebHookRetriesResponse,
+    SendWebHookRequest, SendWebHookResponse, SignEvmRefundRequest, SignEvmRefundResponse,
+    StartWebHookRetriesRequest, StartWebHookRetriesResponse,
 };
 use crate::webhook::caller::Caller;
+use alloy::primitives::{Address, FixedBytes};
 use std::cell::Cell;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -22,14 +24,18 @@ pub struct BoltzService {
 
     web_hook_helper: Arc<Box<dyn WebHookHelper + Sync + Send>>,
     web_hook_caller: Arc<Caller>,
+
+    refund_signer: Option<Arc<dyn RefundSigner + Sync + Send>>,
 }
 
 impl BoltzService {
     pub(crate) fn new(
         web_hook_helper: Arc<Box<dyn WebHookHelper + Sync + Send>>,
         web_hook_caller: Arc<Caller>,
+        refund_signer: Option<Arc<dyn RefundSigner + Sync + Send>>,
     ) -> Self {
         BoltzService {
+            refund_signer,
             web_hook_helper,
             web_hook_caller,
             web_hook_retry_handle: Arc::new(Default::default()),
@@ -59,7 +65,7 @@ impl<'a> opentelemetry::propagation::Extractor for MetadataMap<'a> {
 
 #[tonic::async_trait]
 impl BoltzR for BoltzService {
-    #[instrument(name = "grpc::get_info", skip(self, request))]
+    #[instrument(name = "grpc::get_info", skip_all)]
     async fn get_info(
         &self,
         request: Request<GetInfoRequest>,
@@ -71,7 +77,7 @@ impl BoltzR for BoltzService {
         }))
     }
 
-    #[instrument(name = "grpc::start_web_hook_retries", skip(self, request))]
+    #[instrument(name = "grpc::start_web_hook_retries", skip_all)]
     async fn start_web_hook_retries(
         &self,
         request: Request<StartWebHookRetriesRequest>,
@@ -95,7 +101,7 @@ impl BoltzR for BoltzService {
         Ok(Response::new(StartWebHookRetriesResponse::default()))
     }
 
-    #[instrument(name = "grpc::create_web_hook", skip(self, request))]
+    #[instrument(name = "grpc::create_web_hook", skip_all)]
     async fn create_web_hook(
         &self,
         request: Request<CreateWebHookRequest>,
@@ -127,7 +133,7 @@ impl BoltzR for BoltzService {
         }
     }
 
-    #[instrument(name = "grpc::send_web_hook", skip(self, request))]
+    #[instrument(name = "grpc::send_web_hook", skip_all)]
     async fn send_web_hook(
         &self,
         request: Request<SendWebHookRequest>,
@@ -159,6 +165,70 @@ impl BoltzR for BoltzService {
             Err(err) => Err(Status::new(Code::Internal, err.to_string())),
         }
     }
+
+    #[instrument(name = "grpc::sign_evm_refund", skip_all)]
+    async fn sign_evm_refund(
+        &self,
+        request: Request<SignEvmRefundRequest>,
+    ) -> Result<Response<SignEvmRefundResponse>, Status> {
+        extract_parent_context(&request);
+
+        let refund_signer = if let Some(signer) = &self.refund_signer {
+            signer
+        } else {
+            return Err(Status::new(Code::Internal, "RSK signer not enabled"));
+        };
+
+        let params = request.into_inner();
+
+        let preimage_hash = match FixedBytes::<32>::try_from(params.preimage_hash.as_slice()) {
+            Ok(res) => res,
+            Err(err) => {
+                return Err(Status::new(
+                    Code::InvalidArgument,
+                    format!("could not parse preimage hash: {}", err),
+                ));
+            }
+        };
+        let amount = match crate::evm::utils::parse_wei(&params.amount) {
+            Ok(res) => res,
+            Err(err) => {
+                return Err(Status::new(
+                    Code::InvalidArgument,
+                    format!("could not parse amount: {}", err),
+                ));
+            }
+        };
+        let token_address = match params.token_address {
+            Some(address) => match address.parse::<Address>() {
+                Ok(res) => Some(res),
+                Err(err) => {
+                    return Err(Status::new(
+                        Code::InvalidArgument,
+                        format!("could not parse token address: {}", err),
+                    ));
+                }
+            },
+            None => None,
+        };
+
+        let signature = match refund_signer
+            .sign(preimage_hash, amount, token_address, params.timeout)
+            .await
+        {
+            Ok(res) => res,
+            Err(err) => {
+                return Err(Status::new(
+                    Code::Internal,
+                    format!("signing failed: {}", err),
+                ));
+            }
+        };
+
+        Ok(Response::new(SignEvmRefundResponse {
+            signature: Vec::from(signature.as_bytes()),
+        }))
+    }
 }
 
 fn extract_parent_context<T>(request: &Request<T>) {
@@ -175,22 +245,26 @@ fn extract_parent_context<T>(request: &Request<T>) {
 
 #[cfg(test)]
 mod test {
-    use std::sync::Arc;
-
-    use mockall::mock;
-    use tokio_util::sync::CancellationToken;
-    use tonic::{Code, Request};
-
     use crate::db::helpers::web_hook::{QueryResponse, WebHookHelper};
     use crate::db::models::{WebHook, WebHookState};
+    use crate::evm::refund_signer::RefundSigner;
     use crate::grpc::service::boltzr::boltz_r_server::BoltzR;
     use crate::grpc::service::boltzr::{
         CreateWebHookRequest, CreateWebHookResponse, GetInfoRequest, GetInfoResponse,
-        SendWebHookRequest, SendWebHookResponse, StartWebHookRetriesRequest,
+        SendWebHookRequest, SendWebHookResponse, SignEvmRefundRequest, StartWebHookRetriesRequest,
         StartWebHookRetriesResponse,
     };
     use crate::grpc::service::BoltzService;
     use crate::webhook::caller::{Caller, Config};
+    use alloy::primitives::{Address, FixedBytes, Signature, U256};
+    use alloy::signers::k256;
+    use mockall::mock;
+    use rand::Rng;
+    use std::error::Error;
+    use std::str::FromStr;
+    use std::sync::Arc;
+    use tokio_util::sync::CancellationToken;
+    use tonic::{Code, Request};
 
     mock! {
         WebHookHelper {}
@@ -205,6 +279,21 @@ mod test {
             fn get_by_id(&self, id: &str) -> QueryResponse<Option<WebHook>>;
             fn get_by_state(&self, state: WebHookState) -> QueryResponse<Vec<WebHook>>;
             fn get_swap_status(&self, id: &str) -> QueryResponse<Option<String>>;
+        }
+    }
+
+    mock! {
+        RefundSigner {}
+
+        #[tonic::async_trait]
+        impl RefundSigner for RefundSigner {
+            async fn sign(
+                &self,
+                preimage_hash: FixedBytes<32>,
+                amount: U256,
+                token_address: Option<Address>,
+                timeout: u64,
+            ) -> Result<Signature, Box<dyn Error>>;
         }
     }
 
@@ -326,8 +415,161 @@ mod test {
         );
     }
 
+    #[tokio::test]
+    async fn test_sign_evm_refund() {
+        let (_, mut svc) = make_service();
+
+        let mut preimage_hash = FixedBytes::<32>::default();
+        rand::thread_rng().fill(&mut preimage_hash[..]);
+
+        let req = SignEvmRefundRequest {
+            preimage_hash: preimage_hash.to_vec(),
+            amount: "321".to_string(),
+            token_address: Some("0xB65828B4729754fD7d3ce72344DAF00fC3F5E06B".to_string()),
+            timeout: 123,
+        };
+
+        let mut signer = MockRefundSigner::new();
+        let sig_str = "0xd247cfedc0c62ea93f4f3093a3b2941c329773f140ab0cdc04a641376982d34e0aa7152cb2dd9036fad543646a3fdc8b22c8d83e62e13684d61f630afdd08b0f1c";
+        signer
+            .expect_sign()
+            .returning(|_, _, _, _| Ok(alloy::signers::Signature::from_str(sig_str).unwrap()));
+        svc.refund_signer = Some(Arc::new(signer));
+
+        let res = svc
+            .sign_evm_refund(Request::new(req))
+            .await
+            .unwrap()
+            .into_inner();
+        assert_eq!(
+            res.signature,
+            Vec::from(
+                alloy::signers::Signature::from_str(sig_str)
+                    .unwrap()
+                    .as_bytes()
+            )
+        );
+    }
+
+    #[tokio::test]
+    async fn test_sign_evm_refund_signing_failed() {
+        let (_, mut svc) = make_service();
+
+        let mut preimage_hash = FixedBytes::<32>::default();
+        rand::thread_rng().fill(&mut preimage_hash[..]);
+
+        let req = SignEvmRefundRequest {
+            preimage_hash: preimage_hash.to_vec(),
+            amount: "321".to_string(),
+            token_address: Some("0xB65828B4729754fD7d3ce72344DAF00fC3F5E06B".to_string()),
+            timeout: 123,
+        };
+
+        let mut signer = MockRefundSigner::new();
+        signer
+            .expect_sign()
+            .returning(|_, _, _, _| Err(Box::new(k256::ecdsa::Error::new())));
+        svc.refund_signer = Some(Arc::new(signer));
+
+        let err = svc.sign_evm_refund(Request::new(req)).await.err().unwrap();
+        assert_eq!(err.code(), Code::Internal);
+        assert_eq!(err.message(), "signing failed: signature error");
+    }
+
+    #[tokio::test]
+    async fn test_sign_evm_refund_no_signer() {
+        let (_, mut svc) = make_service();
+        svc.refund_signer = None;
+
+        let err = svc
+            .sign_evm_refund(Request::new(SignEvmRefundRequest {
+                preimage_hash: vec![],
+                amount: "".to_string(),
+                token_address: None,
+                timeout: 0,
+            }))
+            .await
+            .err()
+            .unwrap();
+        assert_eq!(err.code(), Code::Internal);
+        assert_eq!(err.message(), "RSK signer not enabled");
+    }
+
+    #[tokio::test]
+    async fn test_sign_evm_refund_invalid_preimage() {
+        let (_, svc) = make_service();
+
+        let mut preimage_hash = FixedBytes::<33>::default();
+        rand::thread_rng().fill(&mut preimage_hash[..]);
+
+        let err = svc
+            .sign_evm_refund(Request::new(SignEvmRefundRequest {
+                preimage_hash: preimage_hash.to_vec(),
+                amount: "".to_string(),
+                token_address: None,
+                timeout: 0,
+            }))
+            .await
+            .err()
+            .unwrap();
+        assert_eq!(err.code(), Code::InvalidArgument);
+        assert_eq!(
+            err.message(),
+            "could not parse preimage hash: could not convert slice to array"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_sign_evm_refund_invalid_amount() {
+        let (_, svc) = make_service();
+
+        let mut preimage_hash = FixedBytes::<32>::default();
+        rand::thread_rng().fill(&mut preimage_hash[..]);
+
+        let err = svc
+            .sign_evm_refund(Request::new(SignEvmRefundRequest {
+                preimage_hash: preimage_hash.to_vec(),
+                amount: "-1".to_string(),
+                token_address: None,
+                timeout: 0,
+            }))
+            .await
+            .err()
+            .unwrap();
+        assert_eq!(err.code(), Code::InvalidArgument);
+        assert_eq!(
+            err.message(),
+            "could not parse amount: could not parse negative Ether amount"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_sign_evm_refund_invalid_token_address() {
+        let (_, svc) = make_service();
+
+        let mut preimage_hash = FixedBytes::<32>::default();
+        rand::thread_rng().fill(&mut preimage_hash[..]);
+
+        let err = svc
+            .sign_evm_refund(Request::new(SignEvmRefundRequest {
+                preimage_hash: preimage_hash.to_vec(),
+                amount: "21".to_string(),
+                token_address: Some("clearly not an address".to_string()),
+                timeout: 0,
+            }))
+            .await
+            .err()
+            .unwrap();
+        assert_eq!(err.code(), Code::InvalidArgument);
+        assert_eq!(
+            err.message(),
+            "could not parse token address: invalid string length"
+        );
+    }
+
     fn make_service() -> (CancellationToken, BoltzService) {
         let token = CancellationToken::new();
+        let refund_signer = Arc::new(MockRefundSigner::new());
         (
             token.clone(),
             BoltzService::new(
@@ -341,6 +583,7 @@ mod test {
                     },
                     Box::new(make_mock_hook_helper()),
                 )),
+                Some(refund_signer.clone()),
             ),
         )
     }

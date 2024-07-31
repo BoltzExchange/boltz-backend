@@ -30,10 +30,14 @@ pub struct GlobalConfig {
     pub loki_endpoint: Option<String>,
 
     #[cfg(feature = "otel")]
-    #[serde(rename = "otlpEndoint")]
-    pub otlp_endoint: Option<String>,
+    #[serde(rename = "otlpEndpoint")]
+    pub otlp_endpoint: Option<String>,
+
+    #[serde(rename = "mnemonicpath")]
+    pub mnemonic_path: Option<String>,
 
     pub postgres: crate::db::Config,
+    pub rsk: Option<crate::evm::Config>,
 
     pub sidecar: Config,
 }
@@ -42,6 +46,18 @@ pub fn parse_config(path: &str) -> Result<GlobalConfig, Box<dyn Error>> {
     debug!("Reading config: {}", path);
     let mut config = toml::from_str::<GlobalConfig>(fs::read_to_string(path)?.as_ref())?;
     trace!("Read config: {:#}", serde_json::to_string_pretty(&config)?);
+
+    if config.mnemonic_path.is_none() {
+        config.mnemonic_path = Some(
+            Path::new(path)
+                .parent()
+                .unwrap()
+                .join("seed.dat")
+                .to_str()
+                .unwrap()
+                .to_string(),
+        );
+    }
 
     let data_dir = config.clone().sidecar.data_dir.unwrap_or(
         Path::new(path)
@@ -141,7 +157,7 @@ network = "someNetwork"
 
 lokiEndpoint = "http://127.0.0.1:3100"
 
-otlpEndoint = "http://127.0.0.1:4317/v1/traces"
+otlpEndpoint = "http://127.0.0.1:4317/v1/traces"
 
 [postgres]
 host = "127.0.0.1"
@@ -152,6 +168,12 @@ password = "boltzPassword"
 
 lokiHost = "http://127.0.0.1:3100"
 lokiNetwork = "someNetwork"
+
+[rsk]
+providerEndpoint = "http://127.0.0.1:8545"
+
+etherSwapAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3"
+erc20SwapAddress = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
 
 [sidecar]
   [sidecar.grpc]
@@ -172,7 +194,7 @@ lokiNetwork = "someNetwork"
         assert_eq!(config.network.unwrap(), "someNetwork");
         assert_eq!(config.loki_endpoint.unwrap(), "http://127.0.0.1:3100");
         assert_eq!(
-            config.otlp_endoint.unwrap(),
+            config.otlp_endpoint.unwrap(),
             "http://127.0.0.1:4317/v1/traces"
         );
 
@@ -185,6 +207,15 @@ lokiNetwork = "someNetwork"
                 username: "boltzUsername".to_string(),
                 password: "boltzPassword".to_string(),
             },
+        );
+
+        assert_eq!(
+            config.rsk.unwrap(),
+            crate::evm::Config {
+                provider_endpoint: "http://127.0.0.1:8545".to_string(),
+                ether_swap_address: "0x5FbDB2315678afecb367f032d93F642f64180aa3".to_string(),
+                erc20_swap_address: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512".to_string(),
+            }
         );
 
         assert_eq!(

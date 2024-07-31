@@ -68,9 +68,9 @@ class Boltz {
       this.config.lokiEndpoint,
       this.config.network,
     );
-    if (this.config.otlpEndoint && this.config.network) {
+    if (this.config.otlpEndpoint && this.config.network) {
       this.logger.debug('Enabling OpenTelemetry');
-      Tracing.init(this.config.otlpEndoint, this.config.network);
+      Tracing.init(this.config.otlpEndpoint, this.config.network);
     } else {
       this.logger.debug(
         'Not enabling OpenTelemetry because it was not configured',

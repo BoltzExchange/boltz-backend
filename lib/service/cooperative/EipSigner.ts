@@ -2,6 +2,7 @@ import Logger from '../../Logger';
 import {
   getChainCurrency,
   getHexBuffer,
+  getHexString,
   getLightningCurrency,
   splitPairId,
 } from '../../Utils';
@@ -12,8 +13,8 @@ import ChainSwapRepository, {
   ChainSwapInfo,
 } from '../../db/repositories/ChainSwapRepository';
 import SwapRepository from '../../db/repositories/SwapRepository';
+import Sidecar from '../../sidecar/Sidecar';
 import WalletManager, { Currency } from '../../wallet/WalletManager';
-import EthereumManager from '../../wallet/ethereum/EthereumManager';
 import ERC20WalletProvider from '../../wallet/providers/ERC20WalletProvider';
 import Errors from '../Errors';
 import MusigSigner from './MusigSigner';
@@ -23,6 +24,7 @@ class EipSigner {
     private readonly logger: Logger,
     private readonly currencies: Map<string, Currency>,
     private readonly walletManager: WalletManager,
+    private readonly sidecar: Sidecar,
   ) {}
 
   public signSwapRefund = async (swapId: string) => {
@@ -52,12 +54,28 @@ class EipSigner {
       `Creating EIP-712 signature for refund of Swap ${swap.id}`,
     );
 
-    const { domain, types, value } = await this.getSigningData(
-      manager,
-      swap,
-      chainSymbol,
+    const isEtherSwap = manager.networkDetails.symbol === chainSymbol;
+
+    const onchainAmount =
+      swap.type === SwapType.Submarine
+        ? (swap as Swap).onchainAmount
+        : (swap as ChainSwapInfo).receivingData.amount;
+
+    const sidecarRes = await this.sidecar.signEvmRefund(
+      getHexBuffer(swap.preimageHash),
+      isEtherSwap
+        ? BigInt(onchainAmount!) * etherDecimals
+        : (
+            this.walletManager.wallets.get(chainSymbol)!
+              .walletProvider as ERC20WalletProvider
+          ).formatTokenAmount(onchainAmount!),
+      isEtherSwap ? undefined : manager.tokenAddresses.get(chainSymbol),
+      swap.type === SwapType.Submarine
+        ? (swap as Swap).timeoutBlockHeight
+        : (swap as ChainSwapInfo).receivingData.timeoutBlockHeight,
     );
-    return manager.signer.signTypedData(domain, types, value);
+
+    return `0x${getHexString(sidecarRes)}`;
   };
 
   private getSwap = async (
@@ -90,91 +108,6 @@ class EipSigner {
     }
 
     throw Errors.SWAP_NOT_FOUND(id);
-  };
-
-  private getSigningData = async (
-    manager: EthereumManager,
-    swap: Swap | ChainSwapInfo,
-    chainSymbol: string,
-  ) => {
-    const isEtherSwap = manager.networkDetails.symbol === chainSymbol;
-    const contract = isEtherSwap ? manager.etherSwap : manager.erc20Swap;
-    const onchainAmount =
-      swap.type === SwapType.Submarine
-        ? (swap as Swap).onchainAmount
-        : (swap as ChainSwapInfo).receivingData.amount;
-
-    const value: Record<string, any> = {
-      claimAddress: manager.address,
-      preimageHash: getHexBuffer(swap.preimageHash),
-      timeout:
-        swap.type === SwapType.Submarine
-          ? (swap as Swap).timeoutBlockHeight
-          : (swap as ChainSwapInfo).receivingData.timeoutBlockHeight,
-      amount: isEtherSwap
-        ? BigInt(onchainAmount!) * etherDecimals
-        : (
-            this.walletManager.wallets.get(chainSymbol)!
-              .walletProvider as ERC20WalletProvider
-          ).formatTokenAmount(onchainAmount!),
-    };
-
-    if (!isEtherSwap) {
-      value.tokenAddress = manager.tokenAddresses.get(chainSymbol);
-    }
-
-    return {
-      value,
-      domain: {
-        name: isEtherSwap ? 'EtherSwap' : 'ERC20Swap',
-        version: (await contract.version()).toString(),
-        chainId: manager.network.chainId,
-        verifyingContract: await contract.getAddress(),
-      },
-      types: {
-        Refund: isEtherSwap
-          ? [
-              {
-                type: 'bytes32',
-                name: 'preimageHash',
-              },
-              {
-                type: 'uint256',
-                name: 'amount',
-              },
-              {
-                type: 'address',
-                name: 'claimAddress',
-              },
-              {
-                type: 'uint256',
-                name: 'timeout',
-              },
-            ]
-          : [
-              {
-                type: 'bytes32',
-                name: 'preimageHash',
-              },
-              {
-                type: 'uint256',
-                name: 'amount',
-              },
-              {
-                type: 'address',
-                name: 'tokenAddress',
-              },
-              {
-                type: 'address',
-                name: 'claimAddress',
-              },
-              {
-                type: 'uint256',
-                name: 'timeout',
-              },
-            ],
-      },
-    };
   };
 }
 

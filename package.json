@@ -25,7 +25,7 @@
     "db:stop": "docker stop boltz-db",
     "docker:build": "docker build . -t boltz/backend:latest -f ./docker/boltz/Dockerfile",
     "docker:regtest": "./docker/regtest/startRegtest.sh",
-    "docker:solidity": "docker run -d --name anvil -p 8545:8545 ghcr.io/foundry-rs/foundry \"anvil --host 0.0.0.0\"",
+    "docker:solidity": "docker run -d --name anvil -p 8545:8545 ghcr.io/foundry-rs/foundry \"anvil --host 0.0.0.0 --chain-id 33\"",
     "docker:solidity:deploy": "cd node_modules/boltz-core && cp -R ../@openzeppelin node_modules/ && npm run deploy:solidity",
     "docker:solidity:fund": "./bin/boltz-ethereum send 100000000000 && ./bin/boltz-ethereum send 1000000000 --token",
     "docker:start": "npm run docker:regtest && npm run docker:solidity && npm run docker:solidity:deploy && npm run docker:solidity:fund",

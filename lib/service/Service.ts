@@ -122,6 +122,7 @@ type Contracts = {
 type WebHookData = {
   url: string;
   hashSwapId?: boolean;
+  status?: string[];
 };
 
 type SomePair =
@@ -2146,7 +2147,12 @@ class Service {
     swapDeleteFn: () => Promise<void>,
   ) => {
     try {
-      await this.sidecar.createWebHook(swapId, data.url, data.hashSwapId);
+      await this.sidecar.createWebHook(
+        swapId,
+        data.url,
+        data.hashSwapId,
+        data.status,
+      );
     } catch (e) {
       await swapDeleteFn();
       throw `setting Webhook failed: ${formatError(e)}`;

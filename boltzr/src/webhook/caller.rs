@@ -122,17 +122,22 @@ impl Caller {
         }
     }
 
-    #[instrument(skip(self, status, url, hash_swap_id))]
+    #[instrument(skip(self, hook, status))]
     pub async fn call_webhook(
         &self,
-        id: &String,
+        hook: &WebHook,
         status: &String,
-        url: &String,
-        hash_swap_id: bool,
     ) -> Result<bool, Box<dyn Error>> {
+        if let Some(status_include) = &hook.status {
+            if !status_include.contains(status) {
+                debug!("Not calling WebHook for swap {} because status update {} is not in include list", hook.id, status);
+                return Ok(true);
+            }
+        }
+
         debug!(
             "Calling WebHook for swap {} for status update {}: {}",
-            id, status, url,
+            hook.id, status, hook.url,
         );
 
         let client = reqwest::Client::builder()
@@ -141,12 +146,12 @@ impl Caller {
             .build()
             .unwrap();
         let req_err = match client
-            .post(url)
+            .post(&hook.url)
             .json(&WebHookCallParams {
                 event: WebHookEvent::SwapUpdate,
                 data: WebHookCallData {
                     status: status.clone(),
-                    id: Self::format_swap_id(id.clone(), hash_swap_id),
+                    id: Self::format_swap_id(hook.id.clone(), hook.hash_swap_id),
                 },
             })
             .send()
@@ -163,7 +168,7 @@ impl Caller {
             None => {
                 info!(
                     "Called WebHook for swap {} for status update: {}",
-                    id.clone(),
+                    hook.id.clone(),
                     status,
                 );
 
@@ -171,19 +176,20 @@ impl Caller {
                 metrics::counter!(crate::metrics::WEBSOCKET_CALL_COUNT, "status" => "success")
                     .increment(1);
 
-                self.retry_count.remove(id);
-                self.web_hook_helper.set_state(id, WebHookState::Ok)?;
+                self.retry_count.remove(&hook.id);
+                self.web_hook_helper.set_state(&hook.id, WebHookState::Ok)?;
 
                 Ok(true)
             }
             Some(err) => {
-                warn!("Request for swap {} failed: {}", id, err);
+                warn!("Request for swap {} failed: {}", hook.id, err);
 
                 #[cfg(feature = "metrics")]
                 metrics::counter!(crate::metrics::WEBSOCKET_CALL_COUNT, "status" => "failed")
                     .increment(1);
 
-                self.web_hook_helper.set_state(id, WebHookState::Failed)?;
+                self.web_hook_helper
+                    .set_state(&hook.id, WebHookState::Failed)?;
 
                 Ok(false)
             }
@@ -238,9 +244,7 @@ impl Caller {
                 status,
                 hook.url
             );
-            let ok = self
-                .call_webhook(&hook.id, &status.to_string(), &hook.url, hook.hash_swap_id)
-                .await?;
+            let ok = self.call_webhook(hook, &status.to_string()).await?;
 
             if ok {
                 self.retry_count.remove(&hook.id);
@@ -373,10 +377,14 @@ mod caller_test {
         caller.retry_count.insert(id.to_string(), 21);
         let ok = caller
             .call_webhook(
-                &id.to_string(),
+                &WebHook {
+                    id: id.to_string(),
+                    state: String::from(WebHookState::Ok.as_ref()),
+                    url: format!("http://127.0.0.1:{}", port),
+                    hash_swap_id: false,
+                    status: None,
+                },
                 &status.to_string(),
-                &format!("http://127.0.0.1:{}", port),
-                false,
             )
             .await
             .unwrap();
@@ -422,7 +430,16 @@ mod caller_test {
         let status = "some.update";
         let url = format!("http://127.0.0.1:{}", 10002);
         let ok = caller
-            .call_webhook(&id.to_string(), &status.to_string(), &url.clone(), false)
+            .call_webhook(
+                &WebHook {
+                    id: id.to_string(),
+                    state: String::from(WebHookState::Ok.as_ref()),
+                    url,
+                    hash_swap_id: false,
+                    status: None,
+                },
+                &status.to_string(),
+            )
             .await
             .unwrap();
         assert!(!ok);
@@ -454,7 +471,16 @@ mod caller_test {
         let status = "some.update";
         let url = format!("http://127.0.0.1:{}/fail", port);
         let ok = caller
-            .call_webhook(&id.to_string(), &status.to_string(), &url.clone(), false)
+            .call_webhook(
+                &WebHook {
+                    id: id.to_string(),
+                    state: String::from(WebHookState::Ok.as_ref()),
+                    url,
+                    hash_swap_id: false,
+                    status: None,
+                },
+                &status.to_string(),
+            )
             .await
             .unwrap();
         assert!(!ok);
@@ -470,6 +496,66 @@ mod caller_test {
                 },
             }
         );
+
+        cancel_token.cancel();
+    }
+
+    #[tokio::test]
+    async fn test_call_webhook_ignored_status() {
+        let mut web_hook_helper = make_mock_hook_helper();
+
+        let id = "gm";
+        web_hook_helper
+            .expect_set_state()
+            .with(predicate::eq(id), predicate::eq(WebHookState::Ok))
+            .returning(|_, _| Ok(1));
+
+        let caller = Caller::new(
+            CancellationToken::new(),
+            Config {
+                max_retries: None,
+                retry_interval: Some(60),
+                request_timeout: Some(10),
+            },
+            Box::new(web_hook_helper),
+        );
+
+        let port = 10004;
+        let (cancel_token, received_calls) = start_server(port).await;
+
+        let status = "some.update";
+        let url = format!("http://127.0.0.1:{}", port);
+        let ok = caller
+            .call_webhook(
+                &WebHook {
+                    id: id.to_string(),
+                    state: String::from(WebHookState::Ok.as_ref()),
+                    url: url.clone(),
+                    hash_swap_id: false,
+                    status: Some(vec!["other.update".to_string()]),
+                },
+                &status.to_string(),
+            )
+            .await
+            .unwrap();
+        assert!(ok);
+        assert_eq!(received_calls.lock().unwrap().len(), 0);
+
+        let ok = caller
+            .call_webhook(
+                &WebHook {
+                    id: id.to_string(),
+                    state: String::from(WebHookState::Ok.as_ref()),
+                    url,
+                    hash_swap_id: false,
+                    status: Some(vec![status.to_string()]),
+                },
+                &status.to_string(),
+            )
+            .await
+            .unwrap();
+        assert!(ok);
+        assert_eq!(received_calls.lock().unwrap().len(), 1);
 
         cancel_token.cancel();
     }
@@ -493,6 +579,7 @@ mod caller_test {
                     id: id.to_string(),
                     state: WebHookState::Failed.as_ref().to_string(),
                     hash_swap_id: false,
+                    status: None,
                 }])
             });
 
@@ -565,12 +652,14 @@ mod caller_test {
                         id: id.to_string(),
                         state: WebHookState::Failed.as_ref().to_string(),
                         hash_swap_id: false,
+                        status: None,
                     },
                     WebHook {
                         url: url.clone(),
                         id: id_two.to_string(),
                         state: WebHookState::Failed.as_ref().to_string(),
                         hash_swap_id: true,
+                        status: None,
                     },
                 ])
             });
@@ -657,6 +746,7 @@ mod caller_test {
                     id: id.to_string(),
                     state: WebHookState::Failed.as_ref().to_string(),
                     hash_swap_id: false,
+                    status: None,
                 }])
             });
 

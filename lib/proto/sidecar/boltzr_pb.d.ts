@@ -84,6 +84,10 @@ export class CreateWebHookRequest extends jspb.Message {
     setUrl(value: string): CreateWebHookRequest;
     getHashSwapId(): boolean;
     setHashSwapId(value: boolean): CreateWebHookRequest;
+    clearStatusList(): void;
+    getStatusList(): Array<string>;
+    setStatusList(value: Array<string>): CreateWebHookRequest;
+    addStatus(value: string, index?: number): string;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): CreateWebHookRequest.AsObject;
@@ -100,6 +104,7 @@ export namespace CreateWebHookRequest {
         id: string,
         url: string,
         hashSwapId: boolean,
+        statusList: Array<string>,
     }
 }
 

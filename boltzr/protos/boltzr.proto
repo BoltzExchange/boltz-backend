@@ -22,6 +22,7 @@ message CreateWebHookRequest {
   string id = 1;
   string url = 2;
   bool hash_swap_id = 3;
+  repeated string status = 4;
 }
 message CreateWebHookResponse {}
 

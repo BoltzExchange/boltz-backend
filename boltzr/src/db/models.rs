@@ -26,6 +26,7 @@ pub struct WebHook {
     pub state: String,
     pub url: String,
     pub hash_swap_id: bool,
+    pub status: Option<Vec<String>>,
 }
 
 #[cfg(test)]

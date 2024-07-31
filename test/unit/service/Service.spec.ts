@@ -1727,6 +1727,7 @@ describe('Service', () => {
       response.id,
       webHook.url,
       webHook.hashSwapId,
+      undefined,
     );
 
     // Throw if swap with preimage exists already
@@ -2215,6 +2216,7 @@ describe('Service', () => {
       mockedReverseSwap.id,
       webHook.url,
       webHook.hashSwapId,
+      undefined,
     );
 
     // Should add a 10% buffer to the lightning timeout block delta for cross chain swaps
@@ -3067,6 +3069,7 @@ describe('Service', () => {
       const data: WebHookData = {
         url: 'http',
         hashSwapId: true,
+        status: [SwapUpdateEvent.SwapCreated],
       };
       const callback = jest.fn();
 
@@ -3077,6 +3080,7 @@ describe('Service', () => {
         id,
         data.url,
         data.hashSwapId,
+        data.status,
       );
 
       expect(callback).not.toHaveBeenCalled();
@@ -3102,6 +3106,7 @@ describe('Service', () => {
         id,
         data.url,
         data.hashSwapId,
+        undefined,
       );
 
       expect(callback).toHaveBeenCalledTimes(1);

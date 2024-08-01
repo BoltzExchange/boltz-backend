@@ -1,4 +1,5 @@
 use crate::db::helpers::web_hook::WebHookHelper;
+use crate::evm::refund_signer::RefundSigner;
 use crate::grpc::service::boltzr::boltz_r_server::BoltzRServer;
 use crate::grpc::service::BoltzService;
 use crate::grpc::tls::load_certificates;
@@ -31,6 +32,8 @@ pub struct Server {
     web_hook_helper: Box<dyn WebHookHelper + Sync + Send>,
     web_hook_caller: Caller,
 
+    refund_signer: Option<Arc<dyn RefundSigner + Sync + Send>>,
+
     cancellation_token: CancellationToken,
 }
 
@@ -40,9 +43,11 @@ impl Server {
         config: Config,
         web_hook_helper: Box<dyn WebHookHelper + Sync + Send>,
         web_hook_caller: Caller,
+        refund_signer: Option<Arc<dyn RefundSigner + Sync + Send>>,
     ) -> Self {
         Server {
             config,
+            refund_signer,
             web_hook_helper,
             web_hook_caller,
             cancellation_token,
@@ -62,6 +67,7 @@ impl Server {
         let service = BoltzService::new(
             Arc::new(self.web_hook_helper.clone()),
             Arc::new(self.web_hook_caller.clone()),
+            self.refund_signer.clone(),
         );
 
         #[cfg(feature = "metrics")]
@@ -110,13 +116,17 @@ mod server_test {
     use crate::db::helpers::web_hook::QueryResponse;
     use crate::db::helpers::web_hook::WebHookHelper;
     use crate::db::models::{WebHook, WebHookState};
+    use crate::evm::refund_signer::RefundSigner;
     use crate::grpc::server::{Config, Server};
     use crate::grpc::service::boltzr::boltz_r_client::BoltzRClient;
     use crate::grpc::service::boltzr::GetInfoRequest;
     use crate::webhook::caller;
+    use alloy::primitives::{Address, FixedBytes, Signature, U256};
     use mockall::{mock, predicate::*};
+    use std::error::Error;
     use std::fs;
     use std::path::{Path, PathBuf};
+    use std::sync::Arc;
     use std::time::Duration;
     use tokio::task::JoinHandle;
     use tokio_util::sync::CancellationToken;
@@ -135,6 +145,21 @@ mod server_test {
             fn get_by_id(&self, id: &str) -> QueryResponse<Option<WebHook>>;
             fn get_by_state(&self, state: WebHookState) -> QueryResponse<Vec<WebHook>>;
             fn get_swap_status(&self, id: &str) -> QueryResponse<Option<String>>;
+        }
+    }
+
+    mock! {
+        RefundSigner {}
+
+        #[tonic::async_trait]
+        impl RefundSigner for RefundSigner {
+            async fn sign(
+                &self,
+                preimage_hash: FixedBytes<32>,
+                amount: U256,
+                token_address: Option<Address>,
+                timeout: u64,
+            ) -> Result<Signature, Box<dyn Error>>;
         }
     }
 
@@ -160,6 +185,7 @@ mod server_test {
                 },
                 Box::new(make_mock_hook_helper()),
             ),
+            Some(Arc::new(MockRefundSigner::default())),
         );
 
         let mut server_cp = server.clone();
@@ -273,6 +299,7 @@ mod server_test {
                 },
                 Box::new(make_mock_hook_helper()),
             ),
+            Some(Arc::new(MockRefundSigner::default())),
         );
 
         let mut server_cp = server.clone();

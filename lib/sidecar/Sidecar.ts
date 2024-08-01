@@ -183,6 +183,28 @@ class Sidecar extends BaseClient {
     }
   };
 
+  public signEvmRefund = async (
+    preimageHash: Buffer,
+    amount: bigint,
+    tokenAddress: string | undefined,
+    timeout: number,
+  ) => {
+    const req = new sidecarrpc.SignEvmRefundRequest();
+    req.setPreimageHash(preimageHash);
+    req.setAmount(amount.toString());
+    req.setTimeout(timeout);
+
+    if (tokenAddress) {
+      req.setTokenAddress(tokenAddress);
+    }
+
+    const res = await this.unaryNodeCall<
+      sidecarrpc.SignEvmRefundRequest,
+      sidecarrpc.SignEvmRefundResponse.AsObject
+    >('signEvmRefund', req, true);
+    return Buffer.from(res.signature as string, 'base64');
+  };
+
   private tryConnect = async () => {
     const certPath =
       this.config.grpc.certificates ||

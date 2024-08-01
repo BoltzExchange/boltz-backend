@@ -236,6 +236,7 @@ class Service {
       this.logger,
       this.currencies,
       this.walletManager,
+      this.sidecar,
     );
     this.musigSigner = new MusigSigner(
       this.logger,

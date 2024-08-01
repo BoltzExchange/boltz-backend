@@ -1,11 +1,13 @@
 use clap::Parser;
 use serde::Serialize;
-use tracing::{debug, error, info, trace};
+use std::sync::Arc;
+use tracing::{debug, error, info, trace, warn};
 
 use crate::config::parse_config;
 
 mod config;
 mod db;
+mod evm;
 mod grpc;
 mod tracing_setup;
 mod utils;
@@ -70,6 +72,22 @@ async fn main() {
         error!("Could not connect to database: {}", err);
         std::process::exit(1);
     });
+    let refund_signer = if let Some(rsk_config) = config.rsk {
+        Some(
+            evm::refund_signer::LocalRefundSigner::new_mnemonic_file(
+                config.mnemonic_path.unwrap(),
+                &rsk_config,
+            )
+            .await
+            .unwrap_or_else(|e| {
+                error!("Could not initialize EVM refund signer: {}", e);
+                std::process::exit(1);
+            }),
+        )
+    } else {
+        warn!("Not creating refund signer because RSK was not configured");
+        None
+    };
 
     let cancellation_token = tokio_util::sync::CancellationToken::new();
 
@@ -102,6 +120,11 @@ async fn main() {
         config.sidecar.grpc,
         Box::new(db::helpers::web_hook::WebHookHelperDatabase::new(db_pool)),
         web_hook_caller,
+        if let Some(refund_signer) = refund_signer {
+            Some(Arc::new(refund_signer))
+        } else {
+            None
+        },
     );
 
     let grpc_handle = tokio::spawn(async move {

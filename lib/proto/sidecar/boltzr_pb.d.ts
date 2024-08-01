@@ -167,3 +167,59 @@ export namespace SendWebHookResponse {
         ok: boolean,
     }
 }
+
+export class SignEvmRefundRequest extends jspb.Message { 
+    getPreimageHash(): Uint8Array | string;
+    getPreimageHash_asU8(): Uint8Array;
+    getPreimageHash_asB64(): string;
+    setPreimageHash(value: Uint8Array | string): SignEvmRefundRequest;
+    getAmount(): string;
+    setAmount(value: string): SignEvmRefundRequest;
+
+    hasTokenAddress(): boolean;
+    clearTokenAddress(): void;
+    getTokenAddress(): string | undefined;
+    setTokenAddress(value: string): SignEvmRefundRequest;
+    getTimeout(): number;
+    setTimeout(value: number): SignEvmRefundRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SignEvmRefundRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: SignEvmRefundRequest): SignEvmRefundRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SignEvmRefundRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SignEvmRefundRequest;
+    static deserializeBinaryFromReader(message: SignEvmRefundRequest, reader: jspb.BinaryReader): SignEvmRefundRequest;
+}
+
+export namespace SignEvmRefundRequest {
+    export type AsObject = {
+        preimageHash: Uint8Array | string,
+        amount: string,
+        tokenAddress?: string,
+        timeout: number,
+    }
+}
+
+export class SignEvmRefundResponse extends jspb.Message { 
+    getSignature(): Uint8Array | string;
+    getSignature_asU8(): Uint8Array;
+    getSignature_asB64(): string;
+    setSignature(value: Uint8Array | string): SignEvmRefundResponse;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SignEvmRefundResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: SignEvmRefundResponse): SignEvmRefundResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SignEvmRefundResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SignEvmRefundResponse;
+    static deserializeBinaryFromReader(message: SignEvmRefundResponse, reader: jspb.BinaryReader): SignEvmRefundResponse;
+}
+
+export namespace SignEvmRefundResponse {
+    export type AsObject = {
+        signature: Uint8Array | string,
+    }
+}

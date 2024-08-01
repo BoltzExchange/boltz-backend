@@ -25,10 +25,8 @@ import { Ethereum, NetworkDetails, Rsk } from './EvmNetworks';
 import InjectedProvider from './InjectedProvider';
 
 type Network = {
+  name: string;
   chainId: bigint;
-
-  // Undefined for networks that are not recognised by Ethers
-  name?: string;
 };
 
 class EthereumManager {
@@ -52,12 +50,10 @@ class EthereumManager {
 
   public readonly tokenAddresses = new Map<string, string>();
 
-  private readonly config: RskConfig | EthereumConfig;
-
   constructor(
     private readonly logger: Logger,
     isRsk: boolean,
-    config?: RskConfig | EthereumConfig,
+    private readonly config: RskConfig | EthereumConfig,
   ) {
     if (
       config === null ||
@@ -70,13 +66,20 @@ class EthereumManager {
     }
 
     this.networkDetails = isRsk ? Rsk : Ethereum;
-
-    this.config = config;
     this.provider = new InjectedProvider(
       this.logger,
       this.networkDetails,
       this.config,
     );
+
+    if (
+      this.config.networkName === undefined ||
+      this.config.networkName === ''
+    ) {
+      this.logger.warn(
+        `${this.networkDetails.name} network name not configured`,
+      );
+    }
 
     this.logger.debug(
       `Using ${this.networkDetails.name} EtherSwap contract: ${this.config.etherSwapAddress}`,
@@ -109,7 +112,7 @@ class EthereumManager {
     const network = await this.provider.getNetwork();
     this.network = {
       chainId: network.chainId,
-      name: network.name !== 'unknown' ? network.name : undefined,
+      name: this.config.networkName || network.name,
     };
 
     this.signer = EthersWallet.fromPhrase(mnemonic).connect(this.provider);

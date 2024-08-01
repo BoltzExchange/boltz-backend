@@ -89,7 +89,6 @@ import { SwapNurseryEvents } from '../swap/PaymentHandler';
 import SwapManager, { ChannelCreationInfo } from '../swap/SwapManager';
 import SwapOutputType from '../swap/SwapOutputType';
 import WalletManager, { Currency } from '../wallet/WalletManager';
-import EthereumManager from '../wallet/ethereum/EthereumManager';
 import Blocks from './Blocks';
 import ElementsService from './ElementsService';
 import Errors from './Errors';
@@ -576,16 +575,11 @@ class Service {
     }
 
     const result: Contracts = {};
-
-    const transformManager = async (manager: EthereumManager) => {
-      result[manager.networkDetails.name.toLowerCase()] =
-        await manager.getContractDetails();
-    };
-
     await Promise.all(
-      this.walletManager.ethereumManagers.map((manager) =>
-        transformManager(manager),
-      ),
+      this.walletManager.ethereumManagers.map(async (manager) => {
+        result[manager.networkDetails.name.toLowerCase()] =
+          await manager.getContractDetails();
+      }),
     );
 
     return result;

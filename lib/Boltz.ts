@@ -123,7 +123,7 @@ class Boltz {
     ]
       .map(({ name, isRsk, config }) => {
         try {
-          return new EthereumManager(this.logger, isRsk, config);
+          return new EthereumManager(this.logger, isRsk, config!);
         } catch (error) {
           this.logger.warn(
             `Disabled ${name} integration because: ${formatError(error)}`,

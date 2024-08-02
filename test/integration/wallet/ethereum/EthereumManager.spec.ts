@@ -35,6 +35,7 @@ describe('EthereumManager', () => {
 
     manager = new EthereumManager(Logger.disabledLogger, false, {
       providerEndpoint,
+      networkName: 'Anvil',
       etherSwapAddress: await contracts.etherSwap.getAddress(),
       erc20SwapAddress: await contracts.erc20Swap.getAddress(),
       tokens: [
@@ -112,6 +113,13 @@ describe('EthereumManager', () => {
       );
     },
   );
+
+  test('should use network name in config', async () => {
+    expect((await manager.getContractDetails()).network).toEqual({
+      name: manager['config'].networkName,
+      chainId: Number((await setup.provider.getNetwork()).chainId),
+    });
+  });
 
   test('should set token allowance on init', async () => {
     expect(

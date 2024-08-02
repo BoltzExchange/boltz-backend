@@ -89,6 +89,7 @@ class ChainRouter extends RouterBase {
      *               description: ID of the chain
      *             name:
      *               type: string
+     *               required: true
      *               description: Name of the chain if applicable
      *         swapContracts:
      *           type: object

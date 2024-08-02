@@ -100,6 +100,7 @@ type EthProviderServiceConfig = {
 };
 
 type RskConfig = {
+  networkName?: string;
   providerEndpoint: string;
 
   etherSwapAddress: string;

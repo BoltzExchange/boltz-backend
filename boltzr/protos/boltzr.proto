@@ -5,6 +5,9 @@ package boltzr;
 service BoltzR {
   rpc GetInfo (GetInfoRequest) returns (GetInfoResponse);
 
+  rpc SendMessage (SendMessageRequest) returns (SendMessageResponse);
+  rpc GetMessages (GetMessagesRequest) returns (stream GetMessagesResponse);
+
   rpc StartWebHookRetries (StartWebHookRetriesRequest) returns (StartWebHookRetriesResponse);
   rpc CreateWebHook (CreateWebHookRequest) returns (CreateWebHookResponse);
   rpc SendWebHook (SendWebHookRequest) returns (SendWebHookResponse);
@@ -12,13 +15,24 @@ service BoltzR {
   rpc SignEvmRefund (SignEvmRefundRequest) returns (SignEvmRefundResponse);
 }
 
-message StartWebHookRetriesRequest {}
-message StartWebHookRetriesResponse {}
-
 message GetInfoRequest {}
 message GetInfoResponse {
   string version = 1;
 }
+
+message SendMessageRequest {
+  string message = 1;
+  optional bool is_alert = 2;
+}
+message SendMessageResponse {}
+
+message GetMessagesRequest {}
+message GetMessagesResponse {
+  string message = 1;
+}
+
+message StartWebHookRetriesRequest {}
+message StartWebHookRetriesResponse {}
 
 message CreateWebHookRequest {
   string id = 1;

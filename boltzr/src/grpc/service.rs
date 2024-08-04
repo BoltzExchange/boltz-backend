@@ -1,43 +1,53 @@
+use std::cell::Cell;
+use std::pin::Pin;
+use std::sync::Arc;
+
+use alloy::primitives::{Address, FixedBytes};
+use tokio::sync::{mpsc, Mutex};
+use tonic::codegen::tokio_stream::wrappers::ReceiverStream;
+use tonic::codegen::tokio_stream::Stream;
+use tonic::{Code, Request, Response, Status};
+use tracing::{debug, instrument, trace};
+
 use crate::db::helpers::web_hook::WebHookHelper;
 use crate::db::models::{WebHook, WebHookState};
 use crate::evm::refund_signer::RefundSigner;
 use crate::grpc::service::boltzr::boltz_r_server::BoltzR;
 use crate::grpc::service::boltzr::{
     CreateWebHookRequest, CreateWebHookResponse, GetInfoRequest, GetInfoResponse,
+    GetMessagesRequest, GetMessagesResponse, SendMessageRequest, SendMessageResponse,
     SendWebHookRequest, SendWebHookResponse, SignEvmRefundRequest, SignEvmRefundResponse,
     StartWebHookRetriesRequest, StartWebHookRetriesResponse,
 };
+use crate::notifications::NotificationClient;
 use crate::webhook::caller::Caller;
-use alloy::primitives::{Address, FixedBytes};
-use std::cell::Cell;
-use std::sync::Arc;
-use tokio::sync::Mutex;
-use tonic::{Code, Request, Response, Status};
-use tracing::{debug, instrument, trace};
 
 pub mod boltzr {
     tonic::include_proto!("boltzr");
 }
 
-pub struct BoltzService {
+pub struct BoltzService<T> {
     pub web_hook_retry_handle: Arc<Mutex<Cell<Option<tokio::task::JoinHandle<()>>>>>,
 
     web_hook_helper: Arc<Box<dyn WebHookHelper + Sync + Send>>,
     web_hook_caller: Arc<Caller>,
 
     refund_signer: Option<Arc<dyn RefundSigner + Sync + Send>>,
+    notification_client: Option<Arc<T>>,
 }
 
-impl BoltzService {
+impl<T> BoltzService<T> {
     pub(crate) fn new(
         web_hook_helper: Arc<Box<dyn WebHookHelper + Sync + Send>>,
         web_hook_caller: Arc<Caller>,
         refund_signer: Option<Arc<dyn RefundSigner + Sync + Send>>,
+        notification_client: Option<Arc<T>>,
     ) -> Self {
         BoltzService {
             refund_signer,
-            web_hook_helper,
             web_hook_caller,
+            web_hook_helper,
+            notification_client,
             web_hook_retry_handle: Arc::new(Default::default()),
         }
     }
@@ -64,7 +74,10 @@ impl<'a> opentelemetry::propagation::Extractor for MetadataMap<'a> {
 }
 
 #[tonic::async_trait]
-impl BoltzR for BoltzService {
+impl<T> BoltzR for BoltzService<T>
+where
+    T: NotificationClient + Send + Sync + 'static,
+{
     #[instrument(name = "grpc::get_info", skip_all)]
     async fn get_info(
         &self,
@@ -75,6 +88,72 @@ impl BoltzR for BoltzService {
         Ok(Response::new(GetInfoResponse {
             version: crate::utils::get_version(),
         }))
+    }
+
+    #[instrument(name = "grpc::send_message", skip_all)]
+    async fn send_message(
+        &self,
+        request: Request<SendMessageRequest>,
+    ) -> Result<Response<SendMessageResponse>, Status> {
+        extract_parent_context(&request);
+
+        let client = match &self.notification_client {
+            Some(client) => client,
+            None => {
+                return Err(Status::new(
+                    Code::Internal,
+                    "Notification client not enabled",
+                ));
+            }
+        };
+
+        let params = request.into_inner();
+        match client
+            .send_message(&params.message, params.is_alert.unwrap_or(false))
+            .await
+        {
+            Ok(_) => Ok(Response::new(SendMessageResponse::default())),
+            Err(err) => Err(Status::new(
+                Code::Internal,
+                format!("sending message failed: {}", err),
+            )),
+        }
+    }
+
+    type GetMessagesStream =
+        Pin<Box<dyn Stream<Item = Result<GetMessagesResponse, Status>> + Send>>;
+
+    async fn get_messages(
+        &self,
+        request: Request<GetMessagesRequest>,
+    ) -> Result<Response<Self::GetMessagesStream>, Status> {
+        extract_parent_context(&request);
+
+        let client = match &self.notification_client {
+            Some(client) => client,
+            None => {
+                return Err(Status::new(
+                    Code::Internal,
+                    "Notification client not enabled",
+                ));
+            }
+        };
+        let mut notification_rx = client.listen_to_messages();
+
+        let (tx, rx) = mpsc::channel(128);
+        tokio::spawn(async move {
+            while let Ok(message) = notification_rx.recv().await {
+                match tx.send(Ok(GetMessagesResponse { message })).await {
+                    Ok(_) => {}
+                    Err(err) => {
+                        debug!("GetMessage stream closed: {}", err);
+                        break;
+                    }
+                };
+            }
+        });
+
+        Ok(Response::new(Box::pin(ReceiverStream::new(rx))))
     }
 
     #[instrument(name = "grpc::start_web_hook_retries", skip_all)]
@@ -173,10 +252,11 @@ impl BoltzR for BoltzService {
     ) -> Result<Response<SignEvmRefundResponse>, Status> {
         extract_parent_context(&request);
 
-        let refund_signer = if let Some(signer) = &self.refund_signer {
-            signer
-        } else {
-            return Err(Status::new(Code::Internal, "RSK signer not enabled"));
+        let refund_signer = match &self.refund_signer {
+            Some(signer) => signer,
+            None => {
+                return Err(Status::new(Code::Internal, "RSK signer not enabled"));
+            }
         };
 
         let params = request.into_inner();
@@ -245,6 +325,17 @@ fn extract_parent_context<T>(request: &Request<T>) {
 
 #[cfg(test)]
 mod test {
+    use std::error::Error;
+    use std::str::FromStr;
+    use std::sync::Arc;
+
+    use alloy::primitives::{Address, FixedBytes, Signature, U256};
+    use alloy::signers::k256;
+    use mockall::mock;
+    use rand::Rng;
+    use tokio_util::sync::CancellationToken;
+    use tonic::{Code, Request};
+
     use crate::db::helpers::web_hook::{QueryResponse, WebHookHelper};
     use crate::db::models::{WebHook, WebHookState};
     use crate::evm::refund_signer::RefundSigner;
@@ -256,15 +347,6 @@ mod test {
     };
     use crate::grpc::service::BoltzService;
     use crate::webhook::caller::{Caller, Config};
-    use alloy::primitives::{Address, FixedBytes, Signature, U256};
-    use alloy::signers::k256;
-    use mockall::mock;
-    use rand::Rng;
-    use std::error::Error;
-    use std::str::FromStr;
-    use std::sync::Arc;
-    use tokio_util::sync::CancellationToken;
-    use tonic::{Code, Request};
 
     mock! {
         WebHookHelper {}
@@ -567,7 +649,10 @@ mod test {
         );
     }
 
-    fn make_service() -> (CancellationToken, BoltzService) {
+    fn make_service() -> (
+        CancellationToken,
+        BoltzService<crate::notifications::mattermost::Client>,
+    ) {
         let token = CancellationToken::new();
         let refund_signer = Arc::new(MockRefundSigner::new());
         (
@@ -584,6 +669,7 @@ mod test {
                     Box::new(make_mock_hook_helper()),
                 )),
                 Some(refund_signer.clone()),
+                None,
             ),
         )
     }

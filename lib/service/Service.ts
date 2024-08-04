@@ -63,7 +63,7 @@ import {
 } from '../lightning/LightningClient';
 import LndClient from '../lightning/LndClient';
 import ClnClient from '../lightning/cln/ClnClient';
-import NotificationClient from '../notifications/clients/NotificationClient';
+import NotificationClient from '../notifications/NotificationClient';
 import {
   Balances,
   ChainInfo,

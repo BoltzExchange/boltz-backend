@@ -9,8 +9,8 @@ import ChannelCreation from '../../../lib/db/models/ChannelCreation';
 import ReverseSwap from '../../../lib/db/models/ReverseSwap';
 import Swap from '../../../lib/db/models/Swap';
 import { Emojis } from '../../../lib/notifications/Markup';
+import NotificationClient from '../../../lib/notifications/NotificationClient';
 import NotificationProvider from '../../../lib/notifications/NotificationProvider';
-import MattermostClient from '../../../lib/notifications/clients/MattermostClient';
 import Service from '../../../lib/service/Service';
 import WalletManager from '../../../lib/wallet/WalletManager';
 import { Rsk } from '../../../lib/wallet/ethereum/EvmNetworks';
@@ -92,7 +92,7 @@ const mockedBackupScheduler = <jest.Mock<BackupScheduler>>(
 
 const mockSendMessage = jest.fn().mockImplementation(async () => {});
 
-jest.mock('../../../lib/notifications/clients/MattermostClient', () => {
+jest.mock('../../../lib/notifications/NotificationClient', () => {
   return jest.fn().mockImplementation(() => {
     return {
       on: () => {},
@@ -102,8 +102,8 @@ jest.mock('../../../lib/notifications/clients/MattermostClient', () => {
   });
 });
 
-const mockedMattermostClient = <jest.Mock<MattermostClient>>(
-  (<any>MattermostClient)
+const mockedNotificationClient = <jest.Mock<NotificationClient>>(
+  (<any>NotificationClient)
 );
 
 jest.mock('../../../lib/wallet/WalletManager', () => {
@@ -150,11 +150,11 @@ describe('NotificationProvider', () => {
   const walletManager = MockedWalletManager();
   const notificationProvider = new NotificationProvider(
     Logger.disabledLogger,
-    mockedMattermostClient(),
     mockedService(),
     walletManager,
     mockedBackupScheduler(),
     config,
+    mockedNotificationClient(),
     [],
     [],
   );

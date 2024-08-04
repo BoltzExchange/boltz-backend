@@ -5,7 +5,7 @@ import { liquidSymbol } from '../consts/LiquidTypes';
 import { Balances } from '../proto/boltzrpc_pb';
 import Service from '../service/Service';
 import { Emojis } from './Markup';
-import NotificationClient from './clients/NotificationClient';
+import NotificationClient from './NotificationClient';
 
 enum BalanceType {
   Wallet,

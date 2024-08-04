@@ -1,7 +1,7 @@
 import { execFile } from 'child_process';
 import Logger from '../Logger';
 import { Emojis } from './Markup';
-import NotificationClient from './clients/NotificationClient';
+import NotificationClient from './NotificationClient';
 
 type DiskUsage = {
   total: number;

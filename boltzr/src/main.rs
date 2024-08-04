@@ -1,6 +1,7 @@
+use std::sync::Arc;
+
 use clap::Parser;
 use serde::Serialize;
-use std::sync::Arc;
 use tracing::{debug, error, info, trace, warn};
 
 use crate::config::parse_config;
@@ -9,6 +10,7 @@ mod config;
 mod db;
 mod evm;
 mod grpc;
+mod notifications;
 mod tracing_setup;
 mod utils;
 mod webhook;
@@ -72,6 +74,7 @@ async fn main() {
         error!("Could not connect to database: {}", err);
         std::process::exit(1);
     });
+
     let refund_signer = if let Some(rsk_config) = config.rsk {
         Some(
             evm::refund_signer::LocalRefundSigner::new_mnemonic_file(
@@ -104,6 +107,19 @@ async fn main() {
         };
     });
 
+    let notification_client = if let Some(config) = config.notification {
+        match notifications::mattermost::Client::new(cancellation_token.clone(), config).await {
+            Ok(c) => Some(c),
+            Err(err) => {
+                error!("Could not create notification client: {}", err);
+                None
+            }
+        }
+    } else {
+        warn!("Notification client not configured");
+        None
+    };
+
     let web_hook_caller = webhook::caller::Caller::new(
         cancellation_token.clone(),
         config.sidecar.webhook.unwrap_or(webhook::caller::Config {
@@ -120,11 +136,11 @@ async fn main() {
         config.sidecar.grpc,
         Box::new(db::helpers::web_hook::WebHookHelperDatabase::new(db_pool)),
         web_hook_caller,
-        if let Some(refund_signer) = refund_signer {
-            Some(Arc::new(refund_signer))
-        } else {
-            None
+        match refund_signer {
+            Some(signer) => Some(Arc::new(signer)),
+            None => None,
         },
+        notification_client.clone().map(Arc::new),
     );
 
     let grpc_handle = tokio::spawn(async move {
@@ -136,6 +152,12 @@ async fn main() {
         };
     });
 
+    let notification_listener_handle = tokio::spawn(async move {
+        if let Some(client) = notification_client {
+            client.listen().await;
+        }
+    });
+
     ctrlc::set_handler(move || {
         info!("Got shutdown signal");
         cancellation_token.cancel();
@@ -143,6 +165,7 @@ async fn main() {
     .unwrap_or_else(|e| error!("Could not register exist handler: {}", e));
 
     grpc_handle.await.unwrap();
+    notification_listener_handle.await.unwrap();
 
     #[cfg(feature = "metrics")]
     metrics_handle.await.unwrap();

@@ -57,7 +57,7 @@ import {
   LightningClient,
 } from '../lightning/LightningClient';
 import PendingPaymentTracker from '../lightning/PendingPaymentTracker';
-import NotificationClient from '../notifications/clients/NotificationClient';
+import NotificationClient from '../notifications/NotificationClient';
 import FeeProvider from '../rates/FeeProvider';
 import LockupTransactionTracker from '../rates/LockupTransactionTracker';
 import RateProvider from '../rates/RateProvider';

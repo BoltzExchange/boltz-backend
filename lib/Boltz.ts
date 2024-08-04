@@ -27,6 +27,7 @@ import { LightningClient } from './lightning/LightningClient';
 import LndClient from './lightning/LndClient';
 import ClnClient from './lightning/cln/ClnClient';
 import MpayClient from './lightning/cln/MpayClient';
+import NotificationClient from './notifications/NotificationClient';
 import NotificationProvider from './notifications/NotificationProvider';
 import Blocks from './service/Blocks';
 import CountryCodes from './service/CountryCodes';
@@ -153,9 +154,9 @@ class Boltz {
       this.config.datadir,
     );
 
-    const notificationClient = NotificationProvider.createClient(
+    const notificationClient = new NotificationClient(
       this.logger,
-      this.config.notification,
+      this.sidecar,
     );
 
     try {
@@ -180,11 +181,11 @@ class Boltz {
       if (notificationClient !== undefined) {
         this.notifications = new NotificationProvider(
           this.logger,
-          notificationClient,
           this.service,
           this.walletManager,
           this.backup,
           this.config.notification,
+          notificationClient,
           [this.config.liquid].concat(this.config.currencies),
           this.config.ethereum.tokens,
         );

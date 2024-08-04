@@ -9,6 +9,8 @@ import * as boltzr_pb from "./boltzr_pb";
 
 interface IBoltzRService extends grpc.ServiceDefinition<grpc.UntypedServiceImplementation> {
     getInfo: IBoltzRService_IGetInfo;
+    sendMessage: IBoltzRService_ISendMessage;
+    getMessages: IBoltzRService_IGetMessages;
     startWebHookRetries: IBoltzRService_IStartWebHookRetries;
     createWebHook: IBoltzRService_ICreateWebHook;
     sendWebHook: IBoltzRService_ISendWebHook;
@@ -23,6 +25,24 @@ interface IBoltzRService_IGetInfo extends grpc.MethodDefinition<boltzr_pb.GetInf
     requestDeserialize: grpc.deserialize<boltzr_pb.GetInfoRequest>;
     responseSerialize: grpc.serialize<boltzr_pb.GetInfoResponse>;
     responseDeserialize: grpc.deserialize<boltzr_pb.GetInfoResponse>;
+}
+interface IBoltzRService_ISendMessage extends grpc.MethodDefinition<boltzr_pb.SendMessageRequest, boltzr_pb.SendMessageResponse> {
+    path: "/boltzr.BoltzR/SendMessage";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<boltzr_pb.SendMessageRequest>;
+    requestDeserialize: grpc.deserialize<boltzr_pb.SendMessageRequest>;
+    responseSerialize: grpc.serialize<boltzr_pb.SendMessageResponse>;
+    responseDeserialize: grpc.deserialize<boltzr_pb.SendMessageResponse>;
+}
+interface IBoltzRService_IGetMessages extends grpc.MethodDefinition<boltzr_pb.GetMessagesRequest, boltzr_pb.GetMessagesResponse> {
+    path: "/boltzr.BoltzR/GetMessages";
+    requestStream: false;
+    responseStream: true;
+    requestSerialize: grpc.serialize<boltzr_pb.GetMessagesRequest>;
+    requestDeserialize: grpc.deserialize<boltzr_pb.GetMessagesRequest>;
+    responseSerialize: grpc.serialize<boltzr_pb.GetMessagesResponse>;
+    responseDeserialize: grpc.deserialize<boltzr_pb.GetMessagesResponse>;
 }
 interface IBoltzRService_IStartWebHookRetries extends grpc.MethodDefinition<boltzr_pb.StartWebHookRetriesRequest, boltzr_pb.StartWebHookRetriesResponse> {
     path: "/boltzr.BoltzR/StartWebHookRetries";
@@ -65,6 +85,8 @@ export const BoltzRService: IBoltzRService;
 
 export interface IBoltzRServer extends grpc.UntypedServiceImplementation {
     getInfo: grpc.handleUnaryCall<boltzr_pb.GetInfoRequest, boltzr_pb.GetInfoResponse>;
+    sendMessage: grpc.handleUnaryCall<boltzr_pb.SendMessageRequest, boltzr_pb.SendMessageResponse>;
+    getMessages: grpc.handleServerStreamingCall<boltzr_pb.GetMessagesRequest, boltzr_pb.GetMessagesResponse>;
     startWebHookRetries: grpc.handleUnaryCall<boltzr_pb.StartWebHookRetriesRequest, boltzr_pb.StartWebHookRetriesResponse>;
     createWebHook: grpc.handleUnaryCall<boltzr_pb.CreateWebHookRequest, boltzr_pb.CreateWebHookResponse>;
     sendWebHook: grpc.handleUnaryCall<boltzr_pb.SendWebHookRequest, boltzr_pb.SendWebHookResponse>;
@@ -75,6 +97,11 @@ export interface IBoltzRClient {
     getInfo(request: boltzr_pb.GetInfoRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.GetInfoResponse) => void): grpc.ClientUnaryCall;
     getInfo(request: boltzr_pb.GetInfoRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.GetInfoResponse) => void): grpc.ClientUnaryCall;
     getInfo(request: boltzr_pb.GetInfoRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.GetInfoResponse) => void): grpc.ClientUnaryCall;
+    sendMessage(request: boltzr_pb.SendMessageRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.SendMessageResponse) => void): grpc.ClientUnaryCall;
+    sendMessage(request: boltzr_pb.SendMessageRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.SendMessageResponse) => void): grpc.ClientUnaryCall;
+    sendMessage(request: boltzr_pb.SendMessageRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.SendMessageResponse) => void): grpc.ClientUnaryCall;
+    getMessages(request: boltzr_pb.GetMessagesRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzr_pb.GetMessagesResponse>;
+    getMessages(request: boltzr_pb.GetMessagesRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzr_pb.GetMessagesResponse>;
     startWebHookRetries(request: boltzr_pb.StartWebHookRetriesRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.StartWebHookRetriesResponse) => void): grpc.ClientUnaryCall;
     startWebHookRetries(request: boltzr_pb.StartWebHookRetriesRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.StartWebHookRetriesResponse) => void): grpc.ClientUnaryCall;
     startWebHookRetries(request: boltzr_pb.StartWebHookRetriesRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.StartWebHookRetriesResponse) => void): grpc.ClientUnaryCall;
@@ -94,6 +121,11 @@ export class BoltzRClient extends grpc.Client implements IBoltzRClient {
     public getInfo(request: boltzr_pb.GetInfoRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.GetInfoResponse) => void): grpc.ClientUnaryCall;
     public getInfo(request: boltzr_pb.GetInfoRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.GetInfoResponse) => void): grpc.ClientUnaryCall;
     public getInfo(request: boltzr_pb.GetInfoRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.GetInfoResponse) => void): grpc.ClientUnaryCall;
+    public sendMessage(request: boltzr_pb.SendMessageRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.SendMessageResponse) => void): grpc.ClientUnaryCall;
+    public sendMessage(request: boltzr_pb.SendMessageRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.SendMessageResponse) => void): grpc.ClientUnaryCall;
+    public sendMessage(request: boltzr_pb.SendMessageRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.SendMessageResponse) => void): grpc.ClientUnaryCall;
+    public getMessages(request: boltzr_pb.GetMessagesRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzr_pb.GetMessagesResponse>;
+    public getMessages(request: boltzr_pb.GetMessagesRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzr_pb.GetMessagesResponse>;
     public startWebHookRetries(request: boltzr_pb.StartWebHookRetriesRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.StartWebHookRetriesResponse) => void): grpc.ClientUnaryCall;
     public startWebHookRetries(request: boltzr_pb.StartWebHookRetriesRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.StartWebHookRetriesResponse) => void): grpc.ClientUnaryCall;
     public startWebHookRetries(request: boltzr_pb.StartWebHookRetriesRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.StartWebHookRetriesResponse) => void): grpc.ClientUnaryCall;

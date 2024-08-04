@@ -3,6 +3,7 @@ use crate::evm::refund_signer::RefundSigner;
 use crate::grpc::service::boltzr::boltz_r_server::BoltzRServer;
 use crate::grpc::service::BoltzService;
 use crate::grpc::tls::load_certificates;
+use crate::notifications::NotificationClient;
 use crate::webhook::caller::Caller;
 use serde::{Deserialize, Serialize};
 use std::cell::Cell;
@@ -26,24 +27,29 @@ pub struct Config {
 }
 
 #[derive(Clone)]
-pub struct Server {
+pub struct Server<T> {
     config: Config,
 
     web_hook_helper: Box<dyn WebHookHelper + Sync + Send>,
     web_hook_caller: Caller,
 
     refund_signer: Option<Arc<dyn RefundSigner + Sync + Send>>,
+    notification_client: Option<Arc<T>>,
 
     cancellation_token: CancellationToken,
 }
 
-impl Server {
+impl<T> Server<T>
+where
+    T: NotificationClient + Send + Sync + 'static,
+{
     pub fn new(
         cancellation_token: CancellationToken,
         config: Config,
         web_hook_helper: Box<dyn WebHookHelper + Sync + Send>,
         web_hook_caller: Caller,
         refund_signer: Option<Arc<dyn RefundSigner + Sync + Send>>,
+        notification_client: Option<Arc<T>>,
     ) -> Self {
         Server {
             config,
@@ -51,6 +57,7 @@ impl Server {
             web_hook_helper,
             web_hook_caller,
             cancellation_token,
+            notification_client,
         }
     }
 
@@ -68,6 +75,7 @@ impl Server {
             Arc::new(self.web_hook_helper.clone()),
             Arc::new(self.web_hook_caller.clone()),
             self.refund_signer.clone(),
+            self.notification_client.clone(),
         );
 
         #[cfg(feature = "metrics")]
@@ -167,7 +175,7 @@ mod server_test {
     async fn test_connect() {
         let token = CancellationToken::new();
 
-        let server = Server::new(
+        let server = Server::<crate::notifications::mattermost::Client>::new(
             token.clone(),
             Config {
                 host: "127.0.0.1".to_string(),
@@ -186,6 +194,7 @@ mod server_test {
                 Box::new(make_mock_hook_helper()),
             ),
             Some(Arc::new(MockRefundSigner::default())),
+            None,
         );
 
         let mut server_cp = server.clone();
@@ -277,7 +286,14 @@ mod server_test {
         fs::remove_dir_all(certs_dir).unwrap()
     }
 
-    async fn start_server_tls(port: u16) -> (PathBuf, Server, CancellationToken, JoinHandle<()>) {
+    async fn start_server_tls(
+        port: u16,
+    ) -> (
+        PathBuf,
+        Server<crate::notifications::mattermost::Client>,
+        CancellationToken,
+        JoinHandle<()>,
+    ) {
         let certs_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("test-certs-{}", port));
 
         let token = CancellationToken::new();
@@ -300,6 +316,7 @@ mod server_test {
                 Box::new(make_mock_hook_helper()),
             ),
             Some(Arc::new(MockRefundSigner::default())),
+            None,
         );
 
         let mut server_cp = server.clone();

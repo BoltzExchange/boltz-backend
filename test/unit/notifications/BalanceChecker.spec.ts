@@ -6,7 +6,7 @@ import BalanceChecker, {
   BalanceType,
 } from '../../../lib/notifications/BalanceChecker';
 import { Emojis } from '../../../lib/notifications/Markup';
-import MattermostClient from '../../../lib/notifications/clients/MattermostClient';
+import NotificationClient from '../../../lib/notifications/NotificationClient';
 import { Balances, GetBalanceResponse } from '../../../lib/proto/boltzrpc_pb';
 import Service from '../../../lib/service/Service';
 
@@ -25,14 +25,14 @@ const MockedService = <jest.Mock<Service>>(<any>Service);
 
 const mockSendMessage = jest.fn().mockResolvedValue(undefined);
 
-jest.mock('../../../lib/notifications/clients/MattermostClient', () => {
+jest.mock('../../../lib/notifications/NotificationClient', () => {
   return jest.fn().mockImplementation(() => ({
     sendMessage: mockSendMessage,
   }));
 });
 
-const MockedMattermostClient = <jest.Mock<MattermostClient>>(
-  (<any>MattermostClient)
+const MockedNotificationClient = <jest.Mock<NotificationClient>>(
+  (<any>NotificationClient)
 );
 
 describe('BalanceChecker', () => {
@@ -55,7 +55,7 @@ describe('BalanceChecker', () => {
   let checker = new BalanceChecker(
     Logger.disabledLogger,
     new MockedService(),
-    new MockedMattermostClient(),
+    new MockedNotificationClient(),
     [btcCurrency],
     [usdtCurrency],
   );
@@ -67,7 +67,7 @@ describe('BalanceChecker', () => {
     checker = new BalanceChecker(
       Logger.disabledLogger,
       new MockedService(),
-      new MockedMattermostClient(),
+      new MockedNotificationClient(),
       [btcCurrency],
       [usdtCurrency],
     );
@@ -81,7 +81,7 @@ describe('BalanceChecker', () => {
     const check = new BalanceChecker(
       Logger.disabledLogger,
       new MockedService(),
-      new MockedMattermostClient(),
+      new MockedNotificationClient(),
       [btcCurrency, liquidConfig],
       [],
     );
@@ -98,7 +98,7 @@ describe('BalanceChecker', () => {
     const check = new BalanceChecker(
       Logger.disabledLogger,
       new MockedService(),
-      new MockedMattermostClient(),
+      new MockedNotificationClient(),
       [
         undefined,
         btcCurrency,

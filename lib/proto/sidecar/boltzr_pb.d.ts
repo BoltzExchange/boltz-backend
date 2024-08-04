@@ -6,40 +6,6 @@
 
 import * as jspb from "google-protobuf";
 
-export class StartWebHookRetriesRequest extends jspb.Message { 
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): StartWebHookRetriesRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: StartWebHookRetriesRequest): StartWebHookRetriesRequest.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: StartWebHookRetriesRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): StartWebHookRetriesRequest;
-    static deserializeBinaryFromReader(message: StartWebHookRetriesRequest, reader: jspb.BinaryReader): StartWebHookRetriesRequest;
-}
-
-export namespace StartWebHookRetriesRequest {
-    export type AsObject = {
-    }
-}
-
-export class StartWebHookRetriesResponse extends jspb.Message { 
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): StartWebHookRetriesResponse.AsObject;
-    static toObject(includeInstance: boolean, msg: StartWebHookRetriesResponse): StartWebHookRetriesResponse.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: StartWebHookRetriesResponse, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): StartWebHookRetriesResponse;
-    static deserializeBinaryFromReader(message: StartWebHookRetriesResponse, reader: jspb.BinaryReader): StartWebHookRetriesResponse;
-}
-
-export namespace StartWebHookRetriesResponse {
-    export type AsObject = {
-    }
-}
-
 export class GetInfoRequest extends jspb.Message { 
 
     serializeBinary(): Uint8Array;
@@ -74,6 +40,120 @@ export class GetInfoResponse extends jspb.Message {
 export namespace GetInfoResponse {
     export type AsObject = {
         version: string,
+    }
+}
+
+export class SendMessageRequest extends jspb.Message { 
+    getMessage(): string;
+    setMessage(value: string): SendMessageRequest;
+
+    hasIsAlert(): boolean;
+    clearIsAlert(): void;
+    getIsAlert(): boolean | undefined;
+    setIsAlert(value: boolean): SendMessageRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SendMessageRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: SendMessageRequest): SendMessageRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SendMessageRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SendMessageRequest;
+    static deserializeBinaryFromReader(message: SendMessageRequest, reader: jspb.BinaryReader): SendMessageRequest;
+}
+
+export namespace SendMessageRequest {
+    export type AsObject = {
+        message: string,
+        isAlert?: boolean,
+    }
+}
+
+export class SendMessageResponse extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SendMessageResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: SendMessageResponse): SendMessageResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SendMessageResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SendMessageResponse;
+    static deserializeBinaryFromReader(message: SendMessageResponse, reader: jspb.BinaryReader): SendMessageResponse;
+}
+
+export namespace SendMessageResponse {
+    export type AsObject = {
+    }
+}
+
+export class GetMessagesRequest extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetMessagesRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: GetMessagesRequest): GetMessagesRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetMessagesRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetMessagesRequest;
+    static deserializeBinaryFromReader(message: GetMessagesRequest, reader: jspb.BinaryReader): GetMessagesRequest;
+}
+
+export namespace GetMessagesRequest {
+    export type AsObject = {
+    }
+}
+
+export class GetMessagesResponse extends jspb.Message { 
+    getMessage(): string;
+    setMessage(value: string): GetMessagesResponse;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetMessagesResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: GetMessagesResponse): GetMessagesResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetMessagesResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetMessagesResponse;
+    static deserializeBinaryFromReader(message: GetMessagesResponse, reader: jspb.BinaryReader): GetMessagesResponse;
+}
+
+export namespace GetMessagesResponse {
+    export type AsObject = {
+        message: string,
+    }
+}
+
+export class StartWebHookRetriesRequest extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): StartWebHookRetriesRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: StartWebHookRetriesRequest): StartWebHookRetriesRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: StartWebHookRetriesRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): StartWebHookRetriesRequest;
+    static deserializeBinaryFromReader(message: StartWebHookRetriesRequest, reader: jspb.BinaryReader): StartWebHookRetriesRequest;
+}
+
+export namespace StartWebHookRetriesRequest {
+    export type AsObject = {
+    }
+}
+
+export class StartWebHookRetriesResponse extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): StartWebHookRetriesResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: StartWebHookRetriesResponse): StartWebHookRetriesResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: StartWebHookRetriesResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): StartWebHookRetriesResponse;
+    static deserializeBinaryFromReader(message: StartWebHookRetriesResponse, reader: jspb.BinaryReader): StartWebHookRetriesResponse;
+}
+
+export namespace StartWebHookRetriesResponse {
+    export type AsObject = {
     }
 }
 

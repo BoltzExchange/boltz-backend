@@ -54,3 +54,8 @@ export const filterAsync = async <T>(
   const results = await Promise.all(arr.map(predicate));
   return arr.filter((_, index) => results[index]);
 };
+
+export const sleep = (time: number) =>
+  new Promise<void>((resolve) => {
+    setTimeout(resolve, time);
+  });

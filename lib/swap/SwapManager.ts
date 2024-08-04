@@ -57,7 +57,7 @@ import ChannelCreationRepository from '../db/repositories/ChannelCreationReposit
 import ReverseRoutingHintRepository from '../db/repositories/ReverseRoutingHintRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
-import NotificationClient from '../notifications/clients/NotificationClient';
+import NotificationClient from '../notifications/NotificationClient';
 import LockupTransactionTracker from '../rates/LockupTransactionTracker';
 import RateProvider from '../rates/RateProvider';
 import Blocks from '../service/Blocks';
@@ -772,6 +772,7 @@ class SwapManager {
 
             try {
               sendingCurrency.wallet.decodeAddress(args.userAddress);
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
             } catch (e) {
               throw Errors.INVALID_ADDRESS();
             }

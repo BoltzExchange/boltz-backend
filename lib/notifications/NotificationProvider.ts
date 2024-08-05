@@ -29,7 +29,6 @@ import Service from '../service/Service';
 import WalletManager from '../wallet/WalletManager';
 import BalanceChecker from './BalanceChecker';
 import CommandHandler from './CommandHandler';
-import DiskUsageChecker from './DiskUsageChecker';
 import { Emojis } from './Markup';
 import NotificationClient from './NotificationClient';
 
@@ -39,11 +38,9 @@ class NotificationProvider {
   // This is a hack to add trailing whitespace which is trimmed by default
   private static trailingWhitespace = '\n** **';
 
+  private readonly balanceChecker: BalanceChecker;
+
   private timer!: any;
-
-  private balanceChecker: BalanceChecker;
-  private diskUsageChecker: DiskUsageChecker;
-
   private disconnected = new Set<string>();
 
   constructor(
@@ -68,7 +65,6 @@ class NotificationProvider {
       currencies,
       tokenConfigs,
     );
-    this.diskUsageChecker = new DiskUsageChecker(this.logger, this.client);
   }
 
   public init = async (): Promise<void> => {
@@ -126,7 +122,6 @@ class NotificationProvider {
         await Promise.all([
           this.checkConnections(),
           this.balanceChecker.check(),
-          this.diskUsageChecker.checkUsage(),
         ]);
       };
 

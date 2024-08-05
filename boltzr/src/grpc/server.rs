@@ -27,29 +27,30 @@ pub struct Config {
 }
 
 #[derive(Clone)]
-pub struct Server<T> {
+pub struct Server<W, N> {
     config: Config,
 
-    web_hook_helper: Box<dyn WebHookHelper + Sync + Send>,
+    web_hook_helper: Box<W>,
     web_hook_caller: Caller,
 
     refund_signer: Option<Arc<dyn RefundSigner + Sync + Send>>,
-    notification_client: Option<Arc<T>>,
+    notification_client: Option<Arc<N>>,
 
     cancellation_token: CancellationToken,
 }
 
-impl<T> Server<T>
+impl<W, N> Server<W, N>
 where
-    T: NotificationClient + Send + Sync + 'static,
+    W: WebHookHelper + Send + Sync + Clone + 'static,
+    N: NotificationClient + Send + Sync + 'static,
 {
     pub fn new(
         cancellation_token: CancellationToken,
         config: Config,
-        web_hook_helper: Box<dyn WebHookHelper + Sync + Send>,
+        web_hook_helper: Box<W>,
         web_hook_caller: Caller,
         refund_signer: Option<Arc<dyn RefundSigner + Sync + Send>>,
-        notification_client: Option<Arc<T>>,
+        notification_client: Option<Arc<N>>,
     ) -> Self {
         Server {
             config,
@@ -175,7 +176,7 @@ mod server_test {
     async fn test_connect() {
         let token = CancellationToken::new();
 
-        let server = Server::<crate::notifications::mattermost::Client>::new(
+        let server = Server::<_, crate::notifications::mattermost::Client>::new(
             token.clone(),
             Config {
                 host: "127.0.0.1".to_string(),
@@ -290,7 +291,7 @@ mod server_test {
         port: u16,
     ) -> (
         PathBuf,
-        Server<crate::notifications::mattermost::Client>,
+        Server<MockWebHookHelper, crate::notifications::mattermost::Client>,
         CancellationToken,
         JoinHandle<()>,
     ) {

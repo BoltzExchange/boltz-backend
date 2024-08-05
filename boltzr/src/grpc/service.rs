@@ -123,6 +123,7 @@ where
     type GetMessagesStream =
         Pin<Box<dyn Stream<Item = Result<GetMessagesResponse, Status>> + Send>>;
 
+    #[instrument(name = "grpc::get_messages", skip_all)]
     async fn get_messages(
         &self,
         request: Request<GetMessagesRequest>,

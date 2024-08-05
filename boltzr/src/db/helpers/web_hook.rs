@@ -10,15 +10,13 @@ use crate::db::Pool;
 
 pub type QueryResponse<T> = Result<T, Box<dyn Error>>;
 
-pub trait WebHookHelper: dyn_clone::DynClone {
+pub trait WebHookHelper {
     fn insert_web_hook(&self, hook: &WebHook) -> QueryResponse<usize>;
     fn set_state(&self, id: &str, state: WebHookState) -> QueryResponse<usize>;
     fn get_by_id(&self, id: &str) -> QueryResponse<Option<WebHook>>;
     fn get_by_state(&self, state: WebHookState) -> QueryResponse<Vec<WebHook>>;
     fn get_swap_status(&self, id: &str) -> QueryResponse<Option<String>>;
 }
-
-dyn_clone::clone_trait_object!(WebHookHelper);
 
 #[derive(Clone, Debug)]
 pub struct WebHookHelperDatabase {

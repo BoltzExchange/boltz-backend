@@ -64,19 +64,28 @@ mod test {
 
     #[test]
     fn test_split_string() {
-        assert_eq!(split_string(5, "Hello, world!"), vec!["Hello", ", wor", "ld!"]);
+        assert_eq!(
+            split_string(5, "Hello, world!"),
+            vec!["Hello", ", wor", "ld!"]
+        );
     }
 
     #[test]
     fn test_split_message() {
-        assert_eq!(split_message(5, "Hello, world!"), vec!["Hello", ", wor", "ld!"]);
+        assert_eq!(
+            split_message(5, "Hello, world!"),
+            vec!["Hello", ", wor", "ld!"]
+        );
     }
 
     #[test]
     fn test_split_message_code() {
         assert_eq!(
             split_message(40, "```{\"some\": \"really cool data\"}```"),
-            vec!["```json\n{\"some\": \"really cool da\n```", "```json\nta\"}\n```"],
+            vec![
+                "```json\n{\"some\": \"really cool da\n```",
+                "```json\nta\"}\n```"
+            ],
         );
     }
 }

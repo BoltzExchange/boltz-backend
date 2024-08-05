@@ -116,6 +116,7 @@ class CountryCodes {
     for (const isV6 of [false, true]) {
       try {
         return CountryCodes.getAddress(address, isV6);
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (e) {
         /* empty */
       }

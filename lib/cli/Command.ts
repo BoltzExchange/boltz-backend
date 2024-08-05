@@ -131,6 +131,7 @@ export const prepareTx = async (
       swapTree: tree,
       internalKey: musig.getAggregatedPublicKey(),
     };
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (e) {
     res.redeemScript = getHexBuffer(argv.redeemScript);
     res.swapOutput = detectSwap(res.redeemScript, transaction);

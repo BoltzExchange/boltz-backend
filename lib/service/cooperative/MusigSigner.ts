@@ -224,6 +224,7 @@ class MusigSigner {
         );
         return pendingPayment.status !== Payment.PaymentStatus.FAILED;
       }
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (e) {
       /* empty */
     }

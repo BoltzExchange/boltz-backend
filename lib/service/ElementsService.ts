@@ -39,6 +39,7 @@ class ElementsService {
           for (const blindingKey of keys) {
             try {
               return unblindOutput(wallet, out, blindingKey);
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
             } catch (e) {
               /* empty */
             }

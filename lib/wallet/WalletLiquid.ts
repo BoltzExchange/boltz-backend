@@ -38,6 +38,7 @@ class WalletLiquid extends Wallet {
       });
 
       return shouldBlind ? res.confidentialAddress! : res.address!;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
       // Ignore invalid addresses
       return '';

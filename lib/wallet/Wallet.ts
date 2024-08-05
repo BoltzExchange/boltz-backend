@@ -96,6 +96,7 @@ class Wallet implements BalancerFetcher {
 
     try {
       return fromOutputScript(this.type, outputScript, this.network);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
       // Ignore invalid addresses
       return '';

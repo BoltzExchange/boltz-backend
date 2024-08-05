@@ -638,6 +638,7 @@ export const checkEvmAddress = (address: string): string => {
   try {
     // Get a checksum address and verify that the address is valid
     return getAddress(address);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (error) {
     throw Errors.INVALID_ETHEREUM_ADDRESS();
   }

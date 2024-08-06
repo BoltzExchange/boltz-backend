@@ -98,10 +98,7 @@ class EthereumManager {
       ContractABIs.ERC20Swap as any,
     ) as any as ERC20Swap;
 
-    this.contractHandler = new ContractHandler(
-      this.logger,
-      this.networkDetails,
-    );
+    this.contractHandler = new ContractHandler(this.networkDetails);
     this.contractEventHandler = new ContractEventHandler(this.logger);
   }
 

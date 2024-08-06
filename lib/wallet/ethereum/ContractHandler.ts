@@ -1,9 +1,10 @@
 import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { ContractTransactionResponse, Provider } from 'ethers';
-import Logger from '../../Logger';
-import { getHexString } from '../../Utils';
 import { ethereumPrepayMinerFeeGasLimit } from '../../consts/Consts';
+import { swapTypeToPrettyString } from '../../consts/Enums';
+import { AnySwap } from '../../consts/Types';
+import TransactionLabelRepository from '../../db/repositories/TransactionLabelRepository';
 import ERC20WalletProvider from '../providers/ERC20WalletProvider';
 import { getGasPrices } from './EthereumUtils';
 import { NetworkDetails } from './EvmNetworks';
@@ -14,10 +15,7 @@ class ContractHandler {
   private etherSwap!: EtherSwap;
   private erc20Swap!: ERC20Swap;
 
-  constructor(
-    private readonly logger: Logger,
-    private readonly networkDetails: NetworkDetails,
-  ) {}
+  constructor(private readonly networkDetails: NetworkDetails) {}
 
   public init = (
     provider: Provider,
@@ -30,23 +28,23 @@ class ContractHandler {
   };
 
   public lockupEther = async (
+    swap: AnySwap,
     preimageHash: Buffer,
     amount: bigint,
     claimAddress: string,
     timeLock: number,
-  ): Promise<ContractTransactionResponse> => {
-    this.logger.debug(
-      `Locking ${amount} ${
-        this.networkDetails.symbol
-      } with preimage hash: ${getHexString(preimageHash)}`,
+  ): Promise<ContractTransactionResponse> =>
+    this.annotateLabel(
+      TransactionLabelRepository.lockupLabel(swap),
+      this.networkDetails.symbol,
+      this.etherSwap.lock(preimageHash, claimAddress, timeLock, {
+        value: amount,
+        ...(await getGasPrices(this.provider)),
+      }),
     );
-    return this.etherSwap.lock(preimageHash, claimAddress, timeLock, {
-      value: amount,
-      ...(await getGasPrices(this.provider)),
-    });
-  };
 
   public lockupEtherPrepayMinerfee = async (
+    swap: AnySwap,
     preimageHash: Buffer,
     amount: bigint,
     amountPrepay: bigint,
@@ -65,89 +63,86 @@ class ContractHandler {
         },
       );
 
-    this.logger.debug(
-      `Locking ${amount} and sending prepay ${amountPrepay} ${
-        this.networkDetails.symbol
-      } with preimage hash: ${getHexString(preimageHash)}`,
-    );
-    return this.etherSwap.lockPrepayMinerfee(
-      preimageHash,
-      claimAddress,
-      timeLock,
-      amountPrepay,
-      {
-        value: transactionValue,
-        // TODO: integration test that tries to exploit the attack vector of using an insane amount of gas in the fallback function of the contract at the claim address
-        gasLimit:
-          gasLimitEstimationWithoutPrepay + ethereumPrepayMinerFeeGasLimit,
-        ...(await getGasPrices(this.provider)),
-      },
+    return this.annotateLabel(
+      TransactionLabelRepository.lockupLabel(swap, true),
+      this.networkDetails.symbol,
+      this.etherSwap.lockPrepayMinerfee(
+        preimageHash,
+        claimAddress,
+        timeLock,
+        amountPrepay,
+        {
+          value: transactionValue,
+          // TODO: integration test that tries to exploit the attack vector of using an insane amount of gas in the fallback function of the contract at the claim address
+          gasLimit:
+            gasLimitEstimationWithoutPrepay + ethereumPrepayMinerFeeGasLimit,
+          ...(await getGasPrices(this.provider)),
+        },
+      ),
     );
   };
 
   public claimEther = async (
+    swap: AnySwap,
     preimage: Buffer,
     amount: bigint,
     refundAddress: string,
     timelock: number,
-  ): Promise<ContractTransactionResponse> => {
-    this.logger.debug(
-      `Claiming ${this.networkDetails.symbol} with preimage: ${getHexString(
+  ): Promise<ContractTransactionResponse> =>
+    this.annotateLabel(
+      TransactionLabelRepository.claimLabel(swap),
+      this.networkDetails.symbol,
+      this.etherSwap['claim(bytes32,uint256,address,uint256)'](
         preimage,
-      )}`,
+        amount,
+        refundAddress,
+        timelock,
+        {
+          ...(await getGasPrices(this.provider)),
+        },
+      ),
     );
-    return this.etherSwap['claim(bytes32,uint256,address,uint256)'](
-      preimage,
-      amount,
-      refundAddress,
-      timelock,
-      {
-        ...(await getGasPrices(this.provider)),
-      },
-    );
-  };
 
   public refundEther = async (
+    swap: AnySwap,
     preimageHash: Buffer,
     amount: bigint,
     claimAddress: string,
     timelock: number,
-  ): Promise<ContractTransactionResponse> => {
-    this.logger.debug(
-      `Refunding ${
-        this.networkDetails.symbol
-      } with preimage hash: ${getHexString(preimageHash)}`,
+  ): Promise<ContractTransactionResponse> =>
+    this.annotateLabel(
+      `Refund of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}`,
+      this.networkDetails.symbol,
+      this.etherSwap.refund(preimageHash, amount, claimAddress, timelock, {
+        ...(await getGasPrices(this.provider)),
+      }),
     );
-    return this.etherSwap.refund(preimageHash, amount, claimAddress, timelock, {
-      ...(await getGasPrices(this.provider)),
-    });
-  };
 
   public lockupToken = async (
+    swap: AnySwap,
     token: ERC20WalletProvider,
     preimageHash: Buffer,
     amount: bigint,
     claimAddress: string,
     timeLock: number,
-  ): Promise<ContractTransactionResponse> => {
-    this.logger.debug(
-      `Locking ${amount} ${token.symbol} with preimage hash: ${getHexString(
+  ): Promise<ContractTransactionResponse> =>
+    this.annotateLabel(
+      TransactionLabelRepository.lockupLabel(swap),
+      token.symbol,
+      this.erc20Swap.lock(
         preimageHash,
-      )}`,
+        amount,
+        token.getTokenAddress(),
+        claimAddress,
+        timeLock,
+        {
+          ...(await getGasPrices(this.provider)),
+        },
+      ),
     );
-    return this.erc20Swap.lock(
-      preimageHash,
-      amount,
-      token.getTokenAddress(),
-      claimAddress,
-      timeLock,
-      {
-        ...(await getGasPrices(this.provider)),
-      },
-    );
-  };
 
   public lockupTokenPrepayMinerfee = async (
+    swap: AnySwap,
     token: ERC20WalletProvider,
     preimageHash: Buffer,
     amount: bigint,
@@ -164,72 +159,79 @@ class ContractHandler {
         timeLock,
       );
 
-    this.logger.debug(
-      `Locking ${amount} ${
-        token.symbol
-      } and sending prepay ${amountPrepay} Ether with preimage hash: ${getHexString(
+    return this.annotateLabel(
+      TransactionLabelRepository.lockupLabel(swap, true),
+      token.symbol,
+      this.erc20Swap.lockPrepayMinerfee(
         preimageHash,
-      )}`,
-    );
-    return this.erc20Swap.lockPrepayMinerfee(
-      preimageHash,
-      amount,
-      token.getTokenAddress(),
-      claimAddress,
-      timeLock,
-      {
-        value: amountPrepay,
-        gasLimit:
-          gasLimitEstimationWithoutPrepay + ethereumPrepayMinerFeeGasLimit,
-        ...(await getGasPrices(this.provider)),
-      },
+        amount,
+        token.getTokenAddress(),
+        claimAddress,
+        timeLock,
+        {
+          value: amountPrepay,
+          gasLimit:
+            gasLimitEstimationWithoutPrepay + ethereumPrepayMinerFeeGasLimit,
+          ...(await getGasPrices(this.provider)),
+        },
+      ),
     );
   };
 
   public claimToken = async (
+    swap: AnySwap,
     token: ERC20WalletProvider,
     preimage: Buffer,
     amount: bigint,
     refundAddress: string,
     timeLock: number,
-  ): Promise<ContractTransactionResponse> => {
-    this.logger.debug(
-      `Claiming ${token.symbol} with preimage: ${getHexString(preimage)}`,
+  ): Promise<ContractTransactionResponse> =>
+    this.annotateLabel(
+      TransactionLabelRepository.claimLabel(swap),
+      token.symbol,
+      this.erc20Swap['claim(bytes32,uint256,address,address,uint256)'](
+        preimage,
+        amount,
+        token.getTokenAddress(),
+        refundAddress,
+        timeLock,
+        {
+          ...(await getGasPrices(this.provider)),
+        },
+      ),
     );
-    return this.erc20Swap['claim(bytes32,uint256,address,address,uint256)'](
-      preimage,
-      amount,
-      token.getTokenAddress(),
-      refundAddress,
-      timeLock,
-      {
-        ...(await getGasPrices(this.provider)),
-      },
-    );
-  };
 
   public refundToken = async (
+    swap: AnySwap,
     token: ERC20WalletProvider,
     preimageHash: Buffer,
     amount: bigint,
     claimAddress: string,
     timeLock: number,
-  ): Promise<ContractTransactionResponse> => {
-    this.logger.debug(
-      `Refunding ${token.symbol} with preimage hash: ${getHexString(
+  ): Promise<ContractTransactionResponse> =>
+    this.annotateLabel(
+      TransactionLabelRepository.refundLabel(swap),
+      token.symbol,
+      this.erc20Swap.refund(
         preimageHash,
-      )}`,
+        amount,
+        token.getTokenAddress(),
+        claimAddress,
+        timeLock,
+        {
+          ...(await getGasPrices(this.provider)),
+        },
+      ),
     );
-    return this.erc20Swap.refund(
-      preimageHash,
-      amount,
-      token.getTokenAddress(),
-      claimAddress,
-      timeLock,
-      {
-        ...(await getGasPrices(this.provider)),
-      },
-    );
+
+  private annotateLabel = async (
+    label: string,
+    symbol: string,
+    tx: Promise<ContractTransactionResponse>,
+  ): Promise<ContractTransactionResponse> => {
+    const res = await tx;
+    await TransactionLabelRepository.addLabel(res.hash, symbol, label);
+    return res;
   };
 }
 

@@ -43,7 +43,6 @@ import {
   SwapType,
   SwapUpdateEvent,
   SwapVersion,
-  swapTypeToPrettyString,
   swapVersionToString,
 } from '../consts/Enums';
 import { PairConfig } from '../consts/Types';
@@ -57,6 +56,7 @@ import ChannelCreationRepository from '../db/repositories/ChannelCreationReposit
 import ReverseRoutingHintRepository from '../db/repositories/ReverseRoutingHintRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
+import TransactionLabelRepository from '../db/repositories/TransactionLabelRepository';
 import NotificationClient from '../notifications/NotificationClient';
 import LockupTransactionTracker from '../rates/LockupTransactionTracker';
 import RateProvider from '../rates/RateProvider';
@@ -421,7 +421,7 @@ class SwapManager {
       result.timeoutBlockHeight = blockNumber + args.timeoutBlockDelta;
 
       result.claimAddress = await receivingCurrency.wallet.getAddress(
-        `Claim address of ${swapTypeToPrettyString(SwapType.Submarine)} Swap ${id}`,
+        TransactionLabelRepository.claimAddressLabel(SwapType.Submarine, id),
       );
 
       await SwapRepository.addSwap({
@@ -887,7 +887,10 @@ class SwapManager {
       result.refundAddress = await this.walletManager.wallets
         .get(sendingCurrency.symbol)!
         .getAddress(
-          `Refund address of ${swapTypeToPrettyString(SwapType.ReverseSubmarine)} Swap ${id}`,
+          TransactionLabelRepository.refundAddressLabel(
+            SwapType.ReverseSubmarine,
+            id,
+          ),
         );
 
       await ReverseSwapRepository.addReverseSwap({
@@ -1045,11 +1048,11 @@ class SwapManager {
 
         if (isSending) {
           refundAddress = await currency.wallet.getAddress(
-            `Refund address of ${swapTypeToPrettyString(SwapType.Chain)} Swap ${id}`,
+            TransactionLabelRepository.refundAddressLabel(SwapType.Chain, id),
           );
         } else {
           claimAddress = await currency.wallet.getAddress(
-            `Claim address of ${swapTypeToPrettyString(SwapType.Chain)} Swap ${id}`,
+            TransactionLabelRepository.claimAddressLabel(SwapType.Chain, id),
           );
         }
       }

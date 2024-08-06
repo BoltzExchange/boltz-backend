@@ -19,6 +19,7 @@ import Referral from './models/Referral';
 import ReverseRoutingHint from './models/ReverseRoutingHint';
 import ReverseSwap from './models/ReverseSwap';
 import Swap from './models/Swap';
+import TransactionLabel from './models/TransactionLabel';
 
 // To make sure that PostgreSQL types are parsed correctly
 types.setTypeParser(types.builtins.INT8, parseInt);
@@ -95,6 +96,7 @@ class Database {
       Referral.sync(),
       KeyProvider.sync(),
       DatabaseVersion.sync(),
+      TransactionLabel.sync(),
       PendingEthereumTransaction.sync(),
     ]);
 
@@ -121,6 +123,7 @@ class Database {
     Pair.load(Database.sequelize);
     Referral.load(Database.sequelize);
     Swap.load(Database.sequelize);
+    TransactionLabel.load(Database.sequelize);
     LightningPayment.load(Database.sequelize);
     ChainSwap.load(Database.sequelize);
     ChainSwapData.load(Database.sequelize);

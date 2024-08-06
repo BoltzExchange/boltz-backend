@@ -50,6 +50,7 @@ import ChainSwapRepository, {
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
+import TransactionLabelRepository from '../db/repositories/TransactionLabelRepository';
 import WrappedSwapRepository from '../db/repositories/WrappedSwapRepository';
 import {
   HtlcState,
@@ -913,7 +914,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           lockupAddress,
           onchainAmount,
           feePerVbyte,
-          `Lockup for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}`,
+          TransactionLabelRepository.lockupLabel(swap),
         );
       this.logger.verbose(
         `Locked up ${onchainAmount} ${
@@ -967,6 +968,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       ) {
         contractTransaction =
           await nursery.ethereumManager.contractHandler.lockupEtherPrepayMinerfee(
+            swap,
             getHexBuffer(swap.preimageHash),
             BigInt(lockupDetails.expectedAmount) * etherDecimals,
             BigInt((swap as ReverseSwap).minerFeeOnchainAmount!) *
@@ -977,6 +979,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       } else {
         contractTransaction =
           await nursery.ethereumManager.contractHandler.lockupEther(
+            swap,
             getHexBuffer(swap.preimageHash),
             BigInt(lockupDetails.expectedAmount) * etherDecimals,
             lockupDetails.claimAddress!,
@@ -1033,6 +1036,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       ) {
         contractTransaction =
           await nursery.ethereumManager.contractHandler.lockupTokenPrepayMinerfee(
+            swap,
             walletProvider,
             getHexBuffer(swap.preimageHash),
             walletProvider.formatTokenAmount(lockupDetails.expectedAmount),
@@ -1044,6 +1048,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       } else {
         contractTransaction =
           await nursery.ethereumManager.contractHandler.lockupToken(
+            swap,
             walletProvider,
             getHexBuffer(swap.preimageHash),
             walletProvider.formatTokenAmount(lockupDetails.expectedAmount),
@@ -1131,9 +1136,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           preimage,
         ),
       ] as ClaimDetails[] | LiquidClaimDetails[],
-      await wallet.getAddress(
-        `Claim of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}`,
-      ),
+      await wallet.getAddress(TransactionLabelRepository.claimLabel(swap)),
       await chainClient.estimateFee(),
     );
 
@@ -1169,6 +1172,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     channelCreation?: ChannelCreation | null,
   ) => {
     const contractTransaction = await manager.contractHandler.claimEther(
+      swap,
       preimage,
       etherSwapValues.amount,
       etherSwapValues.refundAddress,
@@ -1205,6 +1209,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     const wallet = this.walletManager.wallets.get(chainCurrency)!;
 
     const contractTransaction = await contractHandler.claimToken(
+      swap,
       wallet.walletProvider as ERC20WalletProvider,
       preimage,
       erc20SwapValues.amount,
@@ -1477,9 +1482,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     const refundTransaction = constructRefundTransaction(
       wallet,
       [refundDetails] as RefundDetails[] | LiquidRefundDetails[],
-      await wallet.getAddress(
-        `Refund of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}`,
-      ),
+      await wallet.getAddress(TransactionLabelRepository.refundLabel(swap)),
       sendingData.timeoutBlockHeight,
       await chainCurrency.chainClient!.estimateFee(),
     );
@@ -1524,6 +1527,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     );
     const contractTransaction =
       await nursery.ethereumManager.contractHandler.refundEther(
+        swap,
         getHexBuffer(swap.preimageHash),
         etherSwapValues.amount,
         etherSwapValues.claimAddress,
@@ -1564,6 +1568,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     );
     const contractTransaction =
       await nursery.ethereumManager.contractHandler.refundToken(
+        swap,
         walletProvider,
         getHexBuffer(swap.preimageHash),
         erc20SwapValues.amount,

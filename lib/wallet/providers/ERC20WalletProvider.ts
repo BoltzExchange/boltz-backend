@@ -1,6 +1,7 @@
 import { Signer } from 'ethers';
 import Logger from '../../Logger';
 import { Token } from '../../consts/Types';
+import TransactionLabelRepository from '../../db/repositories/TransactionLabelRepository';
 import { getGasPrices } from '../ethereum/EthereumUtils';
 import WalletProviderInterface, {
   SentTransaction,
@@ -47,6 +48,8 @@ class ERC20WalletProvider implements WalletProviderInterface {
   public sendToAddress = async (
     address: string,
     amount: number,
+    _: number | undefined,
+    label: string,
   ): Promise<SentTransaction> => {
     const actualAmount = this.formatTokenAmount(amount);
     const transaction = await this.token.contract.transfer(
@@ -57,18 +60,34 @@ class ERC20WalletProvider implements WalletProviderInterface {
       },
     );
 
+    await TransactionLabelRepository.addLabel(
+      transaction.hash,
+      this.symbol,
+      label,
+    );
+
     return {
       transactionId: transaction.hash,
     };
   };
 
-  public sweepWallet = async (address: string): Promise<SentTransaction> => {
+  public sweepWallet = async (
+    address: string,
+    _: number | undefined,
+    label: string,
+  ): Promise<SentTransaction> => {
     const balance = await this.token.contract.balanceOf(
       await this.getAddress(),
     );
     const transaction = await this.token.contract.transfer(address, balance, {
       ...(await getGasPrices(this.signer.provider!)),
     });
+
+    await TransactionLabelRepository.addLabel(
+      transaction.hash,
+      this.symbol,
+      label,
+    );
 
     return {
       transactionId: transaction.hash,
@@ -89,6 +108,12 @@ class ERC20WalletProvider implements WalletProviderInterface {
     const transaction = await this.token.contract.approve(spender, amount, {
       ...(await getGasPrices(this.signer.provider!)),
     });
+
+    await TransactionLabelRepository.addLabel(
+      transaction.hash,
+      this.symbol,
+      TransactionLabelRepository.erc20Approval(),
+    );
 
     return {
       transactionId: transaction.hash,

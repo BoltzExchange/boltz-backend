@@ -1,20 +1,36 @@
 import Logger from '../../../../lib/Logger';
 import { etherDecimals } from '../../../../lib/consts/Consts';
+import Database from '../../../../lib/db/Database';
+import TransactionLabel from '../../../../lib/db/models/TransactionLabel';
 import { Ethereum } from '../../../../lib/wallet/ethereum/EvmNetworks';
 import EtherWalletProvider from '../../../../lib/wallet/providers/EtherWalletProvider';
 import { EthereumSetup, fundSignerWallet, getSigner } from '../EthereumTools';
 
 describe('EtherWalletProvider', () => {
+  let database: Database;
   let setup: EthereumSetup;
   let wallet: EtherWalletProvider;
 
   beforeAll(async () => {
+    database = new Database(Logger.disabledLogger, Database.memoryDatabase);
+    await database.init();
+
     setup = await getSigner();
     wallet = new EtherWalletProvider(
       Logger.disabledLogger,
       setup.signer,
       Ethereum,
     );
+  });
+
+  afterAll(async () => {
+    setup.provider.destroy();
+
+    await TransactionLabel.destroy({
+      truncate: true,
+    });
+
+    await database.close();
   });
 
   test('should get address', async () => {
@@ -36,15 +52,29 @@ describe('EtherWalletProvider', () => {
   });
 
   test('should send to address', async () => {
-    const amount = 1000000;
+    const amount = 1_000_000;
+    const label = 'integration test tx';
+
     const { transactionId } = await wallet.sendToAddress(
       await setup.signer.getAddress(),
       amount,
+      undefined,
+      label,
     );
     await setup.provider!.waitForTransaction(transactionId);
 
     const transaction = await setup.provider.getTransaction(transactionId);
     expect(transaction!.value).toEqual(BigInt(amount) * etherDecimals);
+
+    const labelRes = await TransactionLabel.findOne({
+      where: {
+        id: transaction!.hash,
+      },
+    });
+    expect(labelRes!).not.toBeNull();
+    expect(labelRes!.id).toEqual(transaction!.hash);
+    expect(labelRes!.symbol).toEqual(wallet.symbol);
+    expect(labelRes!.label).toEqual(label);
   });
 
   test('should sweep wallet', async () => {
@@ -52,8 +82,12 @@ describe('EtherWalletProvider', () => {
       await setup.signer.getAddress(),
     );
 
+    const label = 'integration test tx';
+
     const { transactionId } = await wallet.sweepWallet(
       await setup.etherBase.getAddress(),
+      undefined,
+      label,
     );
 
     const transaction = await setup.provider.getTransaction(transactionId);
@@ -67,9 +101,15 @@ describe('EtherWalletProvider', () => {
     expect(
       await setup.provider.getBalance(await setup.signer.getAddress()),
     ).toEqual(transaction!.maxFeePerGas! * receipt!.gasUsed - receipt!.fee);
-  });
 
-  afterAll(() => {
-    setup.provider.destroy();
+    const labelRes = await TransactionLabel.findOne({
+      where: {
+        id: transaction!.hash,
+      },
+    });
+    expect(labelRes).not.toBeNull();
+    expect(labelRes!.id).toEqual(transaction!.hash);
+    expect(labelRes!.symbol).toEqual(wallet.symbol);
+    expect(labelRes!.label).toEqual(label);
   });
 });

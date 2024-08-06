@@ -20,6 +20,7 @@ import TypedEventEmitter from '../../consts/TypedEventEmitter';
 import ChainSwapData from '../../db/models/ChainSwapData';
 import Swap from '../../db/models/Swap';
 import { ChainSwapInfo } from '../../db/repositories/ChainSwapRepository';
+import TransactionLabelRepository from '../../db/repositories/TransactionLabelRepository';
 import SwapOutputType from '../../swap/SwapOutputType';
 import Wallet from '../../wallet/Wallet';
 import WalletManager, { Currency } from '../../wallet/WalletManager';
@@ -62,7 +63,7 @@ abstract class CoopSignerBase<
     const address =
       toClaim.cooperative?.sweepAddress ||
       (await wallet.getAddress(
-        `Cooperative claim for ${swapTypeToPrettyString(toClaim.swap.type)} Swap ${toClaim.swap.id}`,
+        TransactionLabelRepository.claimCooperativeLabel(toClaim.swap),
       ));
 
     const isSubmarine = toClaim.swap.type === SwapType.Submarine;

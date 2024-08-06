@@ -29,10 +29,8 @@ import Service from '../service/Service';
 import WalletManager from '../wallet/WalletManager';
 import BalanceChecker from './BalanceChecker';
 import CommandHandler from './CommandHandler';
-import DiskUsageChecker from './DiskUsageChecker';
 import { Emojis } from './Markup';
-import MattermostClient from './clients/MattermostClient';
-import NotificationClient from './clients/NotificationClient';
+import NotificationClient from './NotificationClient';
 
 // TODO: test balance and service alerts
 // TODO: use events instead of intervals to check connections and balances
@@ -40,20 +38,18 @@ class NotificationProvider {
   // This is a hack to add trailing whitespace which is trimmed by default
   private static trailingWhitespace = '\n** **';
 
+  private readonly balanceChecker: BalanceChecker;
+
   private timer!: any;
-
-  private balanceChecker: BalanceChecker;
-  private diskUsageChecker: DiskUsageChecker;
-
   private disconnected = new Set<string>();
 
   constructor(
-    private logger: Logger,
+    private readonly logger: Logger,
+    private readonly service: Service,
+    private readonly walletManager: WalletManager,
+    private readonly backup: BackupScheduler,
+    private readonly config: NotificationConfig,
     private readonly client: NotificationClient,
-    private service: Service,
-    private walletManager: WalletManager,
-    private backup: BackupScheduler,
-    private config: NotificationConfig,
     currencies: (BaseCurrencyConfig | undefined)[],
     tokenConfigs: TokenConfig[],
   ) {
@@ -69,28 +65,12 @@ class NotificationProvider {
       currencies,
       tokenConfigs,
     );
-    this.diskUsageChecker = new DiskUsageChecker(this.logger, this.client);
   }
-
-  public static createClient = (
-    logger: Logger,
-    config: NotificationConfig,
-  ): NotificationClient | undefined => {
-    try {
-      return new MattermostClient(logger, config);
-    } catch (e) {
-      logger.error(`Could not create notification client: ${formatError(e)}`);
-    }
-
-    return undefined;
-  };
 
   public init = async (): Promise<void> => {
     try {
       await this.client.init();
-
       await this.client.sendMessage('Started Boltz instance');
-      this.logger.verbose(`Connected to ${this.client.serviceName}`);
 
       for (const [symbol, currency] of this.service.currencies) {
         [currency.lndClient, currency.clnClient]
@@ -142,7 +122,6 @@ class NotificationProvider {
         await Promise.all([
           this.checkConnections(),
           this.balanceChecker.check(),
-          this.diskUsageChecker.checkUsage(),
         ]);
       };
 
@@ -196,9 +175,7 @@ class NotificationProvider {
 
   private listenToClient = () => {
     this.client.on('error', (error) => {
-      this.logger.warn(
-        `${this.client.serviceName} client threw: ${formatError(error)}`,
-      );
+      this.logger.warn(`Notification client threw: ${formatError(error)}`);
     });
   };
 

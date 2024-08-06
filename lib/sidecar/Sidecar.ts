@@ -5,6 +5,7 @@ import path from 'path';
 import BaseClient from '../BaseClient';
 import { ConfigType } from '../Config';
 import Logger from '../Logger';
+import { sleep } from '../PromiseUtils';
 import { formatError, getVersion } from '../Utils';
 import { ClientStatus, SwapUpdateEvent } from '../consts/Enums';
 import { grpcOptions, unaryCall } from '../lightning/GrpcUtils';
@@ -86,6 +87,8 @@ class Sidecar extends BaseClient {
       return true;
     }
 
+    await sleep(Sidecar.connectRetryTimeout * 2);
+
     for (let i = 0; i < Sidecar.maxConnectRetries; i++) {
       try {
         return await this.tryConnect();
@@ -100,9 +103,7 @@ class Sidecar extends BaseClient {
         this.logger.warn(
           `Retrying connecting to ${this.serviceName()} in: ${Sidecar.connectRetryTimeout / 1_000}s`,
         );
-        await new Promise<void>((resolve) => {
-          setTimeout(resolve, Sidecar.connectRetryTimeout);
-        });
+        await sleep(Sidecar.connectRetryTimeout);
       }
     }
 
@@ -143,6 +144,22 @@ class Sidecar extends BaseClient {
       throw `sidecar version incompatible: ${info.version} vs ${getVersion()}`;
     }
   };
+
+  public sendMessage = async (message: string, isAlert?: boolean) => {
+    const req = new sidecarrpc.SendMessageRequest();
+    req.setMessage(message);
+    if (isAlert) {
+      req.setIsAlert(isAlert);
+    }
+
+    await this.unaryNodeCall<
+      sidecarrpc.SendMessageRequest,
+      sidecarrpc.SendMessageResponse
+    >('sendMessage', req);
+  };
+
+  public getMessages = () =>
+    this.client!.getMessages(new sidecarrpc.GetMessagesRequest());
 
   public createWebHook = async (
     swapId: string,

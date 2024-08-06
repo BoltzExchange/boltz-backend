@@ -37,12 +37,12 @@ WORKDIR /boltz-backend
 RUN sed -i "/grpc-tools/d" package.json
 
 RUN npm install -g npm
-RUN npm install --force
+RUN npm install
 RUN npm run compile:typescript
 RUN npm run compile:rust:release
 
 # We do not need dev dependencies in the final image
-RUN rm -rf node_modules && npm install --force --omit dev
+RUN rm -rf node_modules && npm install --omit dev
 
 FROM node:${NODE_VERSION} AS final
 

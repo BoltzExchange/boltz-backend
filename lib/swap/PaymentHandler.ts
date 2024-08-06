@@ -218,6 +218,7 @@ class PaymentHandler {
           this.logger.info(`Invoice of Swap ${swap.id} is still pending`);
           return undefined;
         }
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (e) {
         /* empty */
       }

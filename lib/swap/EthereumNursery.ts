@@ -115,6 +115,7 @@ class EthereumNursery extends TypedEventEmitter<{
           `Found ${this.ethereumManager.networkDetails.name} lockup transaction of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${transactionId}`,
         );
         this.listenContractTransaction(swap, transaction!);
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (error) {
         // TODO: retry finding that transaction
         // If the provider can't find the transaction, it is not on the Ethereum chain

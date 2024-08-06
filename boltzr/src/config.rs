@@ -39,6 +39,8 @@ pub struct GlobalConfig {
     pub postgres: crate::db::Config,
     pub rsk: Option<crate::evm::Config>,
 
+    pub notification: Option<crate::notifications::Config>,
+
     pub sidecar: Config,
 }
 

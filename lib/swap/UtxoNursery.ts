@@ -367,6 +367,7 @@ class UtxoNursery extends TypedEventEmitter<{
               true,
             );
           }
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (e) {
           this.logger.silly(
             `Could not find lockup transaction of Swap ${swap.id}: ${swap.lockupTransactionId}`,
@@ -401,6 +402,7 @@ class UtxoNursery extends TypedEventEmitter<{
               true,
             );
           }
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (e) {
           this.logger.silly(
             `Could not find lockup transaction of Chain Swap ${swap.chainSwap.id}: ${swap.receivingData.transactionId}`,

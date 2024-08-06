@@ -60,6 +60,7 @@ class ReverseRoutingHints {
       this.walletManager.wallets
         .get(sendingCurrency.symbol)!
         .decodeAddress(args.userAddress);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (e) {
       throw Errors.INVALID_ADDRESS();
     }

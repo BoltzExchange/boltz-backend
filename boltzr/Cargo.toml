@@ -59,7 +59,6 @@ axum-prometheus = { version = "0.6.1", default-features = false, optional = true
 metrics = { version = "0.23.0", optional = true }
 diesel_migrations = "2.2.0"
 r2d2 = "0.8.10"
-dyn-clone = "1.0.17"
 diesel = { version = "2.2.1", default-features = false, features = ["postgres", "r2d2", "chrono"] }
 strum_macros = "0.26.4"
 strum = "0.26.3"
@@ -72,6 +71,8 @@ tracing-opentelemetry = { version = "0.24.0", optional = true }
 diesel-tracing = { version = "0.3.0", optional = true, features = ["postgres", "r2d2", "statement-fields"] }
 alloy = { version = "0.2.0", features = ["reqwest", "sol-types", "serde", "eip712", "signer-local", "signer-mnemonic", "providers", "transports", "contract", "json"] }
 alloy-transport-http = "0.2.0"
+async-tungstenite = { version = "0.27.0", features = ["tokio-native-tls", "tokio-runtime"] }
+async-trait = "0.1.81"
 
 [build-dependencies]
 built = { version = "0.7.4", features = ["git2"] }

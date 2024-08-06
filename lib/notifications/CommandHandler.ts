@@ -29,7 +29,7 @@ import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import Service from '../service/Service';
 import { codeBlock } from './Markup';
-import NotificationClient from './clients/NotificationClient';
+import NotificationClient from './NotificationClient';
 
 enum Command {
   Help = 'help',
@@ -204,16 +204,14 @@ class CommandHandler {
     this.notificationClient.on('message', async (message: string) => {
       const args = message.split(' ');
 
-      // Get the command and remove the first argument from the array which is the command itself
+      // Get the command and remove the first argument from the array, which is the command itself
       const command = args.shift();
 
       if (command) {
         const commandInfo = this.commands.get(command.toLowerCase());
 
         if (commandInfo) {
-          this.logger.debug(
-            `Executing ${this.notificationClient.serviceName} command: ${command} ${args.join(', ')}`,
-          );
+          this.logger.debug(`Executing command: ${command} ${args.join(', ')}`);
 
           const span = Tracing.tracer.startSpan(`Command ${command}`, {
             kind: SpanKind.INTERNAL,
@@ -230,9 +228,7 @@ class CommandHandler {
               code: SpanStatusCode.ERROR,
               message: formatError(e),
             });
-            this.logger.warn(
-              `${this.notificationClient.serviceName} command failed: ${formatError(e)}`,
-            );
+            this.logger.warn(`Command failed: ${formatError(e)}`);
             await this.notificationClient.sendMessage(
               `Command failed: ${formatError(e)}`,
             );

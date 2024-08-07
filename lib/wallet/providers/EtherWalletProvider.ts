@@ -1,5 +1,6 @@
 import { Signer } from 'ethers';
 import Logger from '../../Logger';
+import TransactionLabelRepository from '../../db/repositories/TransactionLabelRepository';
 import { getGasPrices } from '../ethereum/EthereumUtils';
 import { NetworkDetails } from '../ethereum/EvmNetworks';
 import WalletProviderInterface, {
@@ -8,12 +9,11 @@ import WalletProviderInterface, {
 } from './WalletProviderInterface';
 
 class EtherWalletProvider implements WalletProviderInterface {
-  public readonly symbol: string;
-
   // The gas needed for sending Ether is 21000
-  private readonly ethTransferGas = BigInt(21000);
+  private static readonly ethTransferGas = BigInt(21000);
 
-  private readonly decimals: bigint;
+  public readonly symbol: string;
+  public readonly decimals: bigint;
 
   constructor(
     private logger: Logger,
@@ -48,6 +48,8 @@ class EtherWalletProvider implements WalletProviderInterface {
   public sendToAddress = async (
     address: string,
     amount: number,
+    _: number | undefined,
+    label: string,
   ): Promise<SentTransaction> => {
     const transaction = await this.signer.sendTransaction({
       to: address,
@@ -55,12 +57,22 @@ class EtherWalletProvider implements WalletProviderInterface {
       ...(await getGasPrices(this.signer.provider!)),
     });
 
+    await TransactionLabelRepository.addLabel(
+      transaction.hash,
+      this.symbol,
+      label,
+    );
+
     return {
       transactionId: transaction.hash,
     };
   };
 
-  public sweepWallet = async (address: string): Promise<SentTransaction> => {
+  public sweepWallet = async (
+    address: string,
+    _: number | undefined,
+    label: string,
+  ): Promise<SentTransaction> => {
     const balance = await this.signer.provider!.getBalance(
       await this.getAddress(),
     );
@@ -68,7 +80,7 @@ class EtherWalletProvider implements WalletProviderInterface {
     const { type, maxPriorityFeePerGas, maxFeePerGas } = await getGasPrices(
       this.signer.provider!,
     );
-    const gasCost = this.ethTransferGas * BigInt(maxFeePerGas!);
+    const gasCost = EtherWalletProvider.ethTransferGas * BigInt(maxFeePerGas!);
 
     const value = balance - gasCost;
 
@@ -78,8 +90,14 @@ class EtherWalletProvider implements WalletProviderInterface {
       maxPriorityFeePerGas,
       value,
       to: address,
-      gasLimit: this.ethTransferGas,
+      gasLimit: EtherWalletProvider.ethTransferGas,
     });
+
+    await TransactionLabelRepository.addLabel(
+      transaction.hash,
+      this.symbol,
+      label,
+    );
 
     return {
       transactionId: transaction.hash,

@@ -1,6 +1,7 @@
 import { generateMnemonic } from 'bip39';
 import { MaxUint256 } from 'ethers';
 import Logger from '../../../../lib/Logger';
+import Database from '../../../../lib/db/Database';
 import Errors from '../../../../lib/wallet/Errors';
 import Wallet from '../../../../lib/wallet/Wallet';
 import EthereumManager from '../../../../lib/wallet/ethereum/EthereumManager';
@@ -24,11 +25,16 @@ jest.mock(
 jest.mock('../../../../lib/db/repositories/ChainTipRepository');
 
 describe('EthereumManager', () => {
+  let database: Database;
+
   let setup: EthereumSetup;
   let manager: EthereumManager;
   let wallets: Map<string, Wallet>;
 
   beforeAll(async () => {
+    database = new Database(Logger.disabledLogger, Database.memoryDatabase);
+    await database.init();
+
     setup = await getSigner();
     await fundSignerWallet(setup.signer, setup.etherBase);
     const contracts = await getContracts(setup.signer);
@@ -56,6 +62,7 @@ describe('EthereumManager', () => {
 
   afterAll(async () => {
     await manager.destroy();
+    await database.close();
     setup.provider.destroy();
   });
 

@@ -3,6 +3,7 @@ import { randomBytes } from 'crypto';
 import Logger from '../../../lib/Logger';
 import { getHexBuffer, getHexString } from '../../../lib/Utils';
 import { CurrencyType } from '../../../lib/consts/Enums';
+import TransactionLabelRepository from '../../../lib/db/repositories/TransactionLabelRepository';
 import GrpcService from '../../../lib/grpc/GrpcService';
 import * as boltzrpc from '../../../lib/proto/boltzrpc_pb';
 import Service from '../../../lib/service/Service';
@@ -161,7 +162,6 @@ const createCallback = (
   callback: (error: ServiceError | any | null, response: any) => void,
 ) => {
   return (error: ServiceError | any | null, response: any) => {
-    expect(error).toBeNull();
     callback(error, response);
   };
 };
@@ -532,6 +532,51 @@ describe('GrpcService', () => {
 
     expect(service.rescan).toHaveBeenCalledTimes(1);
     expect(service.rescan).toHaveBeenCalledWith(symbol, startHeight);
+  });
+
+  describe('getLabel', () => {
+    test('should get label for transaction id', async () => {
+      const label = {
+        symbol: 'RBTC',
+        label: 'some text',
+      };
+      TransactionLabelRepository.getLabel = jest.fn().mockResolvedValue(label);
+
+      const txId = 'txId';
+
+      await new Promise<void>((resolve) => {
+        grpcService.getLabel(
+          createCall({ txId }),
+          createCallback((error, response: boltzrpc.GetLabelResponse) => {
+            expect(error).toEqual(null);
+            expect(response.toObject()).toEqual(label);
+            resolve();
+          }),
+        );
+      });
+
+      expect(TransactionLabelRepository.getLabel).toHaveBeenCalledTimes(1);
+      expect(TransactionLabelRepository.getLabel).toHaveBeenCalledWith(txId);
+    });
+
+    test('should throw error when no label could be found', async () => {
+      TransactionLabelRepository.getLabel = jest.fn().mockResolvedValue(null);
+
+      const txId = 'notFound';
+
+      await new Promise<void>((resolve) => {
+        grpcService.getLabel(
+          createCall({ txId }),
+          createCallback((error) => {
+            expect(error).toEqual({ message: 'no label found' });
+            resolve();
+          }),
+        );
+      });
+
+      expect(TransactionLabelRepository.getLabel).toHaveBeenCalledTimes(1);
+      expect(TransactionLabelRepository.getLabel).toHaveBeenCalledWith(txId);
+    });
   });
 
   test('should handle resolved callbacks', async () => {

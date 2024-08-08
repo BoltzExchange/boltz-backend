@@ -5,6 +5,7 @@ import { dumpHeap } from '../HeapDump';
 import Logger from '../Logger';
 import { getHexString, getUnixTime } from '../Utils';
 import { CurrencyType } from '../consts/Enums';
+import TransactionLabelRepository from '../db/repositories/TransactionLabelRepository';
 import * as boltzrpc from '../proto/boltzrpc_pb';
 import Service from '../service/Service';
 
@@ -323,6 +324,24 @@ class GrpcService {
       response.setStartHeight(startHeight);
       response.setEndHeight(endHeight);
 
+      return response;
+    });
+  };
+
+  public getLabel: handleUnaryCall<
+    boltzrpc.GetLabelRequest,
+    boltzrpc.GetLabelResponse
+  > = async (call, callback) => {
+    await this.handleCallback(call, callback, async () => {
+      const { txId } = call.request.toObject();
+      const label = await TransactionLabelRepository.getLabel(txId);
+      if (label == null) {
+        throw 'no label found';
+      }
+
+      const response = new boltzrpc.GetLabelResponse();
+      response.setSymbol(label.symbol);
+      response.setLabel(label.label);
       return response;
     });
   };

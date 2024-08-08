@@ -28,11 +28,7 @@ describe('TransactionLabelRepository', () => {
 
     await TransactionLabelRepository.addLabel(txId, symbol, label);
 
-    const entry = await TransactionLabel.findOne({
-      where: {
-        id: txId,
-      },
-    });
+    const entry = await TransactionLabelRepository.getLabel(txId);
 
     expect(entry).not.toBeNull();
     expect(entry!.id).toEqual(txId);

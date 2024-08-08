@@ -23,7 +23,6 @@ export const handler = (
   argv: Arguments<BuilderTypes<typeof builder> & ApiType>,
 ): void => {
   const request = new ListSwapsRequest();
-
   request.setLimit(argv.limit);
 
   if (argv.status) {

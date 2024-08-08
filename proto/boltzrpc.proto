@@ -42,6 +42,8 @@ service Boltz {
 
   rpc Rescan (RescanRequest) returns (RescanResponse);
 
+  rpc GetLabel (GetLabelRequest) returns (GetLabelResponse);
+
   rpc DevHeapDump (DevHeapDumpRequest) returns (DevHeapDumpResponse);
 }
 
@@ -229,6 +231,15 @@ message SetSwapStatusRequest {
 }
 
 message SetSwapStatusResponse {}
+
+message GetLabelRequest {
+  string tx_id = 1;
+}
+
+message GetLabelResponse {
+  string symbol = 1;
+  string label = 2;
+}
 
 message DevHeapDumpRequest {
   optional string path = 1;

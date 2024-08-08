@@ -908,6 +908,49 @@ export namespace SetSwapStatusResponse {
     }
 }
 
+export class GetLabelRequest extends jspb.Message { 
+    getTxId(): string;
+    setTxId(value: string): GetLabelRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetLabelRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: GetLabelRequest): GetLabelRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetLabelRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetLabelRequest;
+    static deserializeBinaryFromReader(message: GetLabelRequest, reader: jspb.BinaryReader): GetLabelRequest;
+}
+
+export namespace GetLabelRequest {
+    export type AsObject = {
+        txId: string,
+    }
+}
+
+export class GetLabelResponse extends jspb.Message { 
+    getSymbol(): string;
+    setSymbol(value: string): GetLabelResponse;
+    getLabel(): string;
+    setLabel(value: string): GetLabelResponse;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetLabelResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: GetLabelResponse): GetLabelResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetLabelResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetLabelResponse;
+    static deserializeBinaryFromReader(message: GetLabelResponse, reader: jspb.BinaryReader): GetLabelResponse;
+}
+
+export namespace GetLabelResponse {
+    export type AsObject = {
+        symbol: string,
+        label: string,
+    }
+}
+
 export class DevHeapDumpRequest extends jspb.Message { 
 
     hasPath(): boolean;

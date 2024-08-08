@@ -98,11 +98,9 @@ describe('ERC20WalletProvider', () => {
       BigInt(amount) * BigInt(10) ** BigInt(10),
     );
 
-    const labelRes = await TransactionLabel.findOne({
-      where: {
-        id: transaction!.hash,
-      },
-    });
+    const labelRes = await TransactionLabelRepository.getLabel(
+      transaction!.hash,
+    );
     expect(labelRes!).not.toBeNull();
     expect(labelRes!.id).toEqual(transaction!.hash);
     expect(labelRes!.symbol).toEqual(wallet.symbol);
@@ -130,11 +128,9 @@ describe('ERC20WalletProvider', () => {
       await token.contract.balanceOf(await setup.signer.getAddress()),
     ).toEqual(BigInt(0));
 
-    const labelRes = await TransactionLabel.findOne({
-      where: {
-        id: transaction!.hash,
-      },
-    });
+    const labelRes = await TransactionLabelRepository.getLabel(
+      transaction!.hash,
+    );
     expect(labelRes!).not.toBeNull();
     expect(labelRes!.id).toEqual(transaction!.hash);
     expect(labelRes!.symbol).toEqual(wallet.symbol);
@@ -159,11 +155,9 @@ describe('ERC20WalletProvider', () => {
       newAllowance,
     );
 
-    const labelRes = await TransactionLabel.findOne({
-      where: {
-        id: tx.transactionId,
-      },
-    });
+    const labelRes = await TransactionLabelRepository.getLabel(
+      tx.transactionId,
+    );
     expect(labelRes!).not.toBeNull();
     expect(labelRes!.id).toEqual(tx.transactionId);
     expect(labelRes!.symbol).toEqual(wallet.symbol);

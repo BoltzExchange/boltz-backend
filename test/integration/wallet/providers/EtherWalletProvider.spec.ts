@@ -2,6 +2,7 @@ import Logger from '../../../../lib/Logger';
 import { etherDecimals } from '../../../../lib/consts/Consts';
 import Database from '../../../../lib/db/Database';
 import TransactionLabel from '../../../../lib/db/models/TransactionLabel';
+import TransactionLabelRepository from '../../../../lib/db/repositories/TransactionLabelRepository';
 import { Ethereum } from '../../../../lib/wallet/ethereum/EvmNetworks';
 import EtherWalletProvider from '../../../../lib/wallet/providers/EtherWalletProvider';
 import { EthereumSetup, fundSignerWallet, getSigner } from '../EthereumTools';
@@ -66,11 +67,9 @@ describe('EtherWalletProvider', () => {
     const transaction = await setup.provider.getTransaction(transactionId);
     expect(transaction!.value).toEqual(BigInt(amount) * etherDecimals);
 
-    const labelRes = await TransactionLabel.findOne({
-      where: {
-        id: transaction!.hash,
-      },
-    });
+    const labelRes = await TransactionLabelRepository.getLabel(
+      transaction!.hash,
+    );
     expect(labelRes!).not.toBeNull();
     expect(labelRes!.id).toEqual(transaction!.hash);
     expect(labelRes!.symbol).toEqual(wallet.symbol);
@@ -102,11 +101,9 @@ describe('EtherWalletProvider', () => {
       await setup.provider.getBalance(await setup.signer.getAddress()),
     ).toEqual(transaction!.maxFeePerGas! * receipt!.gasUsed - receipt!.fee);
 
-    const labelRes = await TransactionLabel.findOne({
-      where: {
-        id: transaction!.hash,
-      },
-    });
+    const labelRes = await TransactionLabelRepository.getLabel(
+      transaction!.hash,
+    );
     expect(labelRes).not.toBeNull();
     expect(labelRes!.id).toEqual(transaction!.hash);
     expect(labelRes!.symbol).toEqual(wallet.symbol);

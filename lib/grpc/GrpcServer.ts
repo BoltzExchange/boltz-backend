@@ -38,6 +38,7 @@ class GrpcServer {
       devHeapDump: grpcService.devHeapDump,
       getLockedFunds: grpcService.getLockedFunds,
       getPendingSweeps: grpcService.getPendingSweeps,
+      getLabel: grpcService.getLabel,
     });
   }
 

@@ -158,11 +158,7 @@ describe('ContractHandler', () => {
       ),
     ).toEqual(true);
 
-    const label = await TransactionLabel.findOne({
-      where: {
-        id: tx!.hash,
-      },
-    });
+    const label = await TransactionLabelRepository.getLabel(tx!.hash);
     expect(label!).not.toBeNull();
     expect(label!.id).toEqual(tx!.hash);
     expect(label!.symbol).toEqual(Ethereum.symbol);
@@ -206,11 +202,7 @@ describe('ContractHandler', () => {
       ),
     ).toEqual(true);
 
-    const label = await TransactionLabel.findOne({
-      where: {
-        id: transaction!.hash,
-      },
-    });
+    const label = await TransactionLabelRepository.getLabel(transaction!.hash);
     expect(label!).not.toBeNull();
     expect(label!.id).toEqual(transaction!.hash);
     expect(label!.symbol).toEqual(Ethereum.symbol);
@@ -236,11 +228,7 @@ describe('ContractHandler', () => {
       ),
     ).toEqual(false);
 
-    const label = await TransactionLabel.findOne({
-      where: {
-        id: transaction!.hash,
-      },
-    });
+    const label = await TransactionLabelRepository.getLabel(transaction!.hash);
     expect(label!).not.toBeNull();
     expect(label!.id).toEqual(transaction!.hash);
     expect(label!.symbol).toEqual(Ethereum.symbol);
@@ -274,11 +262,7 @@ describe('ContractHandler', () => {
       ),
     ).toEqual(false);
 
-    const label = await TransactionLabel.findOne({
-      where: {
-        id: transaction!.hash,
-      },
-    });
+    const label = await TransactionLabelRepository.getLabel(transaction!.hash);
     expect(label!).not.toBeNull();
     expect(label!.id).toEqual(transaction!.hash);
     expect(label!.symbol).toEqual(Ethereum.symbol);
@@ -295,11 +279,7 @@ describe('ContractHandler', () => {
       ),
     ).toEqual(true);
 
-    const label = await TransactionLabel.findOne({
-      where: {
-        id: tx!.hash,
-      },
-    });
+    const label = await TransactionLabelRepository.getLabel(tx!.hash);
     expect(label!).not.toBeNull();
     expect(label!.id).toEqual(tx!.hash);
     expect(label!.symbol).toEqual(erc20WalletProvider.symbol);
@@ -354,11 +334,7 @@ describe('ContractHandler', () => {
       ),
     ).toEqual(true);
 
-    const label = await TransactionLabel.findOne({
-      where: {
-        id: transaction!.hash,
-      },
-    });
+    const label = await TransactionLabelRepository.getLabel(transaction!.hash);
     expect(label!).not.toBeNull();
     expect(label!.id).toEqual(transaction!.hash);
     expect(label!.symbol).toEqual(erc20WalletProvider.symbol);
@@ -385,11 +361,7 @@ describe('ContractHandler', () => {
       ),
     ).toEqual(false);
 
-    const label = await TransactionLabel.findOne({
-      where: {
-        id: transaction!.hash,
-      },
-    });
+    const label = await TransactionLabelRepository.getLabel(transaction!.hash);
     expect(label!).not.toBeNull();
     expect(label!.id).toEqual(transaction!.hash);
     expect(label!.symbol).toEqual(erc20WalletProvider.symbol);
@@ -424,11 +396,7 @@ describe('ContractHandler', () => {
       ),
     ).toEqual(false);
 
-    const label = await TransactionLabel.findOne({
-      where: {
-        id: transaction!.hash,
-      },
-    });
+    const label = await TransactionLabelRepository.getLabel(transaction!.hash);
     expect(label!).not.toBeNull();
     expect(label!.id).toEqual(transaction!.hash);
     expect(label!.symbol).toEqual(erc20WalletProvider.symbol);

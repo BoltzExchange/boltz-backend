@@ -3,17 +3,19 @@ import { AnySwap } from '../../consts/Types';
 import TransactionLabel from '../models/TransactionLabel';
 
 class TransactionLabelRepository {
-  public static addLabel = async (
-    id: string,
-    symbol: string,
-    label: string,
-  ) => {
-    await TransactionLabel.create({
+  public static addLabel = async (id: string, symbol: string, label: string) =>
+    TransactionLabel.create({
       id,
       label,
       symbol,
     });
-  };
+
+  public static getLabel = (id: string) =>
+    TransactionLabel.findOne({
+      where: {
+        id,
+      },
+    });
 
   public static lockupLabel = (
     swap: AnySwap,

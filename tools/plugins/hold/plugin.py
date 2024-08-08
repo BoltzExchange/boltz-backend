@@ -63,6 +63,7 @@ def hold_invoice(
     payment_hash: str,
     amount_msat: int,
     description: str = "",
+    description_hash: str = "",
     expiry: int = Defaults.Expiry,
     min_final_cltv_expiry: int = Defaults.MinFinalCltvExpiry,
     routing_hints: list[Any] | None = None,
@@ -74,6 +75,7 @@ def hold_invoice(
                 payment_hash,
                 amount_msat,
                 description,
+                description_hash,
                 expiry,
                 min_final_cltv_expiry,
                 Transformers.routing_hints_from_json(routing_hints)

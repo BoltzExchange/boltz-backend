@@ -1528,6 +1528,7 @@ class Service {
 
     // Description for the invoice and magic routing hint
     description?: string;
+    descriptionHash?: Buffer;
 
     webHook?: WebHookData;
   }): Promise<{
@@ -1785,6 +1786,7 @@ class Service {
       claimAddress: args.claimAddress,
       preimageHash: args.preimageHash,
       claimPublicKey: args.claimPublicKey,
+      descriptionHash: args.descriptionHash,
       claimCovenant: args.claimCovenant || false,
       userAddressSignature: args.userAddressSignature,
     });

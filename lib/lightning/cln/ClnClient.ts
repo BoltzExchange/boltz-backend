@@ -370,6 +370,7 @@ class ClnClient
     cltvExpiry?: number,
     expiry?: number,
     memo?: string,
+    descriptionHash?: Buffer,
     routingHints?: HopHint[][],
   ): Promise<string> => {
     const req = new holdrpc.InvoiceRequest();
@@ -386,6 +387,10 @@ class ClnClient
 
     if (memo) {
       req.setDescription(memo);
+    }
+
+    if (descriptionHash) {
+      req.setDescriptionHash(getHexString(descriptionHash));
     }
 
     if (routingHints) {

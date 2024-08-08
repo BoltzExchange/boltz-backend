@@ -765,6 +765,9 @@ class SwapRouter extends RouterBase {
      *         description:
      *           type: string
      *           description: Description of the created invoice and magic routing hint. Only ASCII and a maximum length of 40 characters is allowed
+     *         descriptionHash:
+     *           type: string
+     *           description: Description hash for the invoice. Takes precedence over "description" if both are specified
      *         webhook:
      *           $ref: '#/components/schemas/WebhookData'
      */
@@ -1729,6 +1732,7 @@ class SwapRouter extends RouterBase {
       onchainAmount,
       claimCovenant,
       claimPublicKey,
+      descriptionHash,
       addressSignature,
     } = validateRequest(req.body, [
       { name: 'to', type: 'string' },
@@ -1743,6 +1747,7 @@ class SwapRouter extends RouterBase {
       { name: 'invoiceAmount', type: 'number', optional: true },
       { name: 'onchainAmount', type: 'number', optional: true },
       { name: 'claimCovenant', type: 'boolean', optional: true },
+      { name: 'descriptionHash', type: 'string', hex: true, optional: true },
       { name: 'claimPublicKey', type: 'string', hex: true, optional: true },
       { name: 'addressSignature', type: 'string', hex: true, optional: true },
     ]);
@@ -1766,7 +1771,7 @@ class SwapRouter extends RouterBase {
       onchainAmount,
       claimCovenant,
       claimPublicKey,
-
+      descriptionHash,
       userAddress: address,
       webHook: webHookData,
       prepayMinerFee: false,

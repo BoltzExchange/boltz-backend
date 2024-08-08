@@ -123,6 +123,7 @@ interface LightningClient extends BalancerFetcher, BaseClient<EventTypes> {
     cltvExpiry?: number,
     expiry?: number,
     memo?: string,
+    descriptionHash?: Buffer,
     routingHints?: HopHint[][],
   ): Promise<string>;
   lookupHoldInvoice(preimageHash: Buffer): Promise<Invoice>;

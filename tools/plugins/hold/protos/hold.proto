@@ -31,6 +31,8 @@ message InvoiceRequest {
   string payment_hash = 1;
   uint64 amount_msat = 2;
   optional string description = 3;
+  // Takes precedence over description in case both are set
+  optional string description_hash = 7;
   optional uint64 expiry = 4;
   optional uint64 min_final_cltv_expiry = 5;
   repeated RoutingHint routing_hints = 6;

@@ -39,6 +39,7 @@ class NodeFallback {
     cltvExpiry?: number,
     expiry?: number,
     memo?: string,
+    descriptionHash?: Buffer,
     routingHints?: HopHint[][],
   ): Promise<HolisticInvoice> => {
     this.checkInvoiceMemo(memo);
@@ -63,6 +64,7 @@ class NodeFallback {
             cltvExpiry,
             expiry,
             memo,
+            descriptionHash,
             routingHints,
           )),
         };
@@ -103,6 +105,7 @@ class NodeFallback {
     cltvExpiry?: number,
     expiry?: number,
     memo?: string,
+    descriptionHash?: Buffer,
     externalHints?: HopHint[][],
   ): Promise<InvoiceWithRoutingHints> => {
     const nodeHints =
@@ -127,6 +130,7 @@ class NodeFallback {
           cltvExpiry,
           expiry,
           memo,
+          descriptionHash,
           routingHints,
         ),
       }),

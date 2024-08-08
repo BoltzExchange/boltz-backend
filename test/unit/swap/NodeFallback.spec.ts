@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import crypto, { randomBytes } from 'crypto';
 import Logger from '../../../lib/Logger';
 import { NodeType } from '../../../lib/db/models/ReverseSwap';
 import Errors from '../../../lib/swap/Errors';
@@ -103,6 +103,52 @@ describe('NodeFallback', () => {
       cltvExpiry,
       expiry,
       memo,
+      undefined,
+      [],
+    );
+  });
+
+  test('should get with description hash', async () => {
+    const invoice = 'lnbc1';
+    const nodeType = NodeType.LND;
+
+    nodeForReverseSwap = {
+      nodeType,
+      lightningClient: {
+        raceCall,
+        addHoldInvoice: jest.fn().mockResolvedValue(invoice),
+      },
+    };
+
+    const amount = 100;
+    const preimageHash = randomBytes(32);
+    const descriptionHash = randomBytes(32);
+
+    await fallback.getReverseSwapInvoice(
+      'id',
+      undefined,
+      undefined,
+      currency,
+      amount,
+      preimageHash,
+      undefined,
+      undefined,
+      undefined,
+      descriptionHash,
+    );
+
+    expect(
+      nodeForReverseSwap.lightningClient.addHoldInvoice,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      nodeForReverseSwap.lightningClient.addHoldInvoice,
+    ).toHaveBeenCalledWith(
+      amount,
+      preimageHash,
+      undefined,
+      undefined,
+      undefined,
+      descriptionHash,
       [],
     );
   });
@@ -168,6 +214,7 @@ describe('NodeFallback', () => {
       cltvExpiry,
       expiry,
       memo,
+      undefined,
       res.routingHints,
     );
   });
@@ -198,6 +245,7 @@ describe('NodeFallback', () => {
       cltvExpiry,
       expiry,
       memo,
+      undefined,
       hints,
     );
 
@@ -212,6 +260,7 @@ describe('NodeFallback', () => {
       cltvExpiry,
       expiry,
       memo,
+      undefined,
       mockGetRoutingHintsResult.concat(hints),
     );
   });

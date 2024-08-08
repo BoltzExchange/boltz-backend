@@ -46,9 +46,10 @@ class Hold:
         self,
         payment_hash: str,
         amount_msat: int,
-        description: str,
-        expiry: int,
-        min_final_cltv_expiry: int,
+        description: str | None,
+        description_hash: str | None,
+        expiry: int | None,
+        min_final_cltv_expiry: int | None,
         route_hints: list[RouteHint] | None = None,
     ) -> str:
         if len(payment_hash) != 64:
@@ -61,6 +62,7 @@ class Hold:
             payment_hash,
             amount_msat,
             description,
+            description_hash,
             expiry,
             min_final_cltv_expiry,
             route_hints=route_hints,

@@ -1,6 +1,10 @@
 import { crypto } from 'bitcoinjs-lib';
 import { randomBytes } from 'crypto';
-import { decodeInvoice, getUnixTime } from '../../../../lib/Utils';
+import {
+  decodeInvoice,
+  getHexString,
+  getUnixTime,
+} from '../../../../lib/Utils';
 import { ClientStatus } from '../../../../lib/consts/Enums';
 import Errors from '../../../../lib/lightning/Errors';
 import { InvoiceFeature } from '../../../../lib/lightning/LightningClient';
@@ -37,30 +41,61 @@ describe('ClnClient', () => {
     expect(uris[0]).toEqual(`${pubkey}@127.0.0.1:9737`);
   });
 
-  test('should generate hold invoices', async () => {
-    const invoice = await clnClient.addHoldInvoice(10_000, randomBytes(32));
-    expect(invoice.startsWith('lnbcrt')).toBeTruthy();
-  });
+  describe('addHoldInvoice', () => {
+    test('should generate hold invoices', async () => {
+      const invoice = await clnClient.addHoldInvoice(10_000, randomBytes(32));
+      expect(invoice.startsWith('lnbcrt')).toBeTruthy();
+    });
 
-  test.each`
-    expiry
-    ${60}
-    ${1200}
-    ${3600}
-    ${43200}
-  `('should create invoices with expiry $expiry', async ({ expiry }) => {
-    const invoice = await clnClient.addHoldInvoice(
-      10_000,
-      randomBytes(32),
-      undefined,
-      expiry,
-    );
-    const { timestamp, timeExpireDate } = decodeInvoice(invoice);
-    expect(
-      getUnixTime() +
-        expiry -
-        InvoiceExpiryHelper.getInvoiceExpiry(timestamp, timeExpireDate),
-    ).toBeLessThanOrEqual(5);
+    test.each`
+      expiry
+      ${60}
+      ${1200}
+      ${3600}
+      ${43200}
+    `('should create invoices with expiry $expiry', async ({ expiry }) => {
+      const invoice = await clnClient.addHoldInvoice(
+        10_000,
+        randomBytes(32),
+        undefined,
+        expiry,
+      );
+      const { timestamp, timeExpireDate } = decodeInvoice(invoice);
+      expect(
+        getUnixTime() +
+          expiry -
+          InvoiceExpiryHelper.getInvoiceExpiry(timestamp, timeExpireDate),
+      ).toBeLessThanOrEqual(5);
+    });
+
+    test('should create invoices with description hash', async () => {
+      const descriptionHash = randomBytes(32);
+      const invoice = await clnClient.addHoldInvoice(
+        1,
+        randomBytes(32),
+        undefined,
+        undefined,
+        undefined,
+        descriptionHash,
+      );
+      const dec = decodeInvoice(invoice);
+      expect(dec.descriptionHash).toEqual(getHexString(descriptionHash));
+    });
+
+    test('should prefer description hash over memo', async () => {
+      const descriptionHash = randomBytes(32);
+      const invoice = await clnClient.addHoldInvoice(
+        1,
+        randomBytes(32),
+        undefined,
+        undefined,
+        'test',
+        descriptionHash,
+      );
+      const dec = decodeInvoice(invoice);
+      expect(dec.description).toBeUndefined();
+      expect(dec.descriptionHash).toEqual(getHexString(descriptionHash));
+    });
   });
 
   test('should fail settle for invalid states', async () => {

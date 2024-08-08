@@ -66,7 +66,8 @@ class Encoder:
         self,
         payment_hash: str,
         amount_msat: int,
-        description: str = "",
+        description: str | None = None,
+        description_hash: str | None = None,
         expiry: int = Defaults.Expiry,
         min_final_cltv_expiry: int = Defaults.MinFinalCltvExpiry,
         payment_secret: str | None = None,
@@ -75,7 +76,6 @@ class Encoder:
         tags = Tags(
             [
                 Tag(TagChar.payment_hash, payment_hash),
-                Tag(TagChar.description, description),
                 Tag(TagChar.expire_time, expiry),
                 Tag(TagChar.min_final_cltv_expiry, min_final_cltv_expiry),
                 Tag(TagChar.payment_secret, get_payment_secret(payment_secret)),
@@ -85,6 +85,17 @@ class Encoder:
 
         if route_hints is not None:
             tags.tags.extend([Tag(TagChar.route_hint, route) for route in route_hints])
+
+        if description_hash is not None and description_hash != "":
+            if len(description_hash) != 64:
+                msg = "description_hash must be 64 bytes"
+                raise ValueError(msg)
+
+            tags.tags.extend([Tag(TagChar.description_hash, description_hash)])
+        else:
+            tags.tags.extend(
+                [Tag(TagChar.description, description if description is not None else "")]
+            )
 
         return encode(
             Bolt11(

@@ -11,6 +11,8 @@ import Errors from './Errors';
 
 type SwapHints = {
   invoiceMemo: string;
+  invoiceDescriptionHash?: Buffer;
+
   receivedAmount: number;
   bip21?: string;
   routingHint?: HopHint[][];
@@ -37,9 +39,13 @@ class ReverseRoutingHints {
       version: SwapVersion;
       onchainAmount: number;
       claimPublicKey?: Buffer;
+      descriptionHash?: Buffer;
       userAddressSignature?: Buffer;
     },
   ): SwapHints => {
+    const invoiceDescriptionHash = this.checkDescriptionHash(
+      args.descriptionHash,
+    );
     const invoiceMemo =
       args.memo ||
       getSwapMemo(sendingCurrency.symbol, SwapType.ReverseSubmarine);
@@ -53,7 +59,7 @@ class ReverseRoutingHints {
       args.userAddress === undefined ||
       args.userAddressSignature === undefined
     ) {
-      return { invoiceMemo, receivedAmount };
+      return { invoiceMemo, receivedAmount, invoiceDescriptionHash };
     }
 
     try {
@@ -83,6 +89,7 @@ class ReverseRoutingHints {
       routingHint,
       invoiceMemo,
       receivedAmount,
+      invoiceDescriptionHash,
     };
   };
 
@@ -114,6 +121,20 @@ class ReverseRoutingHints {
         },
       ],
     ];
+  };
+
+  private checkDescriptionHash = (
+    descriptionHash?: Buffer,
+  ): Buffer | undefined => {
+    if (descriptionHash === undefined) {
+      return undefined;
+    }
+
+    if (descriptionHash.length !== 32) {
+      throw Errors.INVALID_DESCRIPTION_HASH();
+    }
+
+    return descriptionHash;
   };
 }
 

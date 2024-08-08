@@ -1059,6 +1059,7 @@ describe('SwapManager', () => {
       lightningTimeoutBlockDelta,
       mockGetExpiryResult,
       'mock',
+      undefined,
       [],
     );
 
@@ -1136,6 +1137,7 @@ describe('SwapManager', () => {
       lightningTimeoutBlockDelta,
       mockGetExpiryResult,
       'mock',
+      undefined,
       [],
     );
     expect(mockAddHoldInvoice).toHaveBeenNthCalledWith(
@@ -1145,6 +1147,7 @@ describe('SwapManager', () => {
       undefined,
       mockGetExpiryResult,
       'Miner fee for sending to BTC address',
+      undefined,
       [],
     );
 
@@ -1228,6 +1231,7 @@ describe('SwapManager', () => {
       lightningTimeoutBlockDelta,
       mockGetExpiryResult,
       'mock',
+      undefined,
       mockGetRoutingHintsResult,
     );
     expect(mockAddHoldInvoice).toHaveBeenNthCalledWith(
@@ -1237,6 +1241,7 @@ describe('SwapManager', () => {
       undefined,
       mockGetExpiryResult,
       'Miner fee for sending to BTC address',
+      undefined,
       mockGetRoutingHintsResult,
     );
 

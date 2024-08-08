@@ -54,6 +54,11 @@ export class InvoiceRequest extends jspb.Message {
     getDescription(): string | undefined;
     setDescription(value: string): InvoiceRequest;
 
+    hasDescriptionHash(): boolean;
+    clearDescriptionHash(): void;
+    getDescriptionHash(): string | undefined;
+    setDescriptionHash(value: string): InvoiceRequest;
+
     hasExpiry(): boolean;
     clearExpiry(): void;
     getExpiry(): number | undefined;
@@ -83,6 +88,7 @@ export namespace InvoiceRequest {
         paymentHash: string,
         amountMsat: number,
         description?: string,
+        descriptionHash?: string,
         expiry?: number,
         minFinalCltvExpiry?: number,
         routingHintsList: Array<RoutingHint.AsObject>,

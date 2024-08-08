@@ -132,6 +132,20 @@ class TestGrpc:
         assert dec["valid"]
         assert dec["description"] == description
 
+    def test_invoice_description_hash(self, cl: HoldStub) -> None:
+        description_hash = "e9a88bde48ab1318da7e914405c144a8a4f898d4e24da23e10bcdbfd7978e9e7"
+        invoice = cl.Invoice(
+            InvoiceRequest(
+                payment_hash=random.randbytes(32).hex(),
+                amount_msat=10_000,
+                description_hash=description_hash,
+            )
+        ).bolt11
+
+        dec = cln_con("decode", invoice)
+        assert dec["valid"]
+        assert dec["description_hash"] == description_hash
+
     @pytest.mark.parametrize("expiry", [1, 2, 3, 3600, 24000, 86400])
     def test_invoice_expiry(self, cl: HoldStub, expiry: int) -> None:
         invoice = cl.Invoice(

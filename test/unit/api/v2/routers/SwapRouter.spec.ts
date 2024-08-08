@@ -879,6 +879,8 @@ describe('SwapRouter', () => {
     ${'invalid parameter: description'}               | ${{ to: 'L-BTC', from: 'BTC', preimageHash: '00', claimPublicKey: '0011', description: 123 }}
     ${'invalid parameter: claimCovenant'}             | ${{ to: 'L-BTC', from: 'BTC', preimageHash: '00', claimPublicKey: '0011', claimCovenant: 123 }}
     ${'invalid parameter: claimCovenant'}             | ${{ to: 'L-BTC', from: 'BTC', preimageHash: '00', claimPublicKey: '0011', claimCovenant: 'notBool' }}
+    ${'invalid parameter: descriptionHash'}           | ${{ to: 'L-BTC', from: 'BTC', preimageHash: '00', claimPublicKey: '0011', descriptionHash: 123 }}
+    ${'could not parse hex string: descriptionHash'}  | ${{ to: 'L-BTC', from: 'BTC', preimageHash: '00', claimPublicKey: '0011', descriptionHash: 'notHex' }}
   `(
     'should not create reverse swaps with invalid parameters ($error)',
     async ({ body, error }) => {

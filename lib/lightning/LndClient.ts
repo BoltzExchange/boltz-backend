@@ -332,6 +332,7 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
     cltvExpiry?: number,
     expiry?: number,
     memo?: string,
+    descriptionHash?: Buffer,
     routingHints?: HopHint[][],
   ): Promise<string> => {
     const request = new invoicesrpc.AddHoldInvoiceRequest();
@@ -348,6 +349,10 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
 
     if (memo) {
       request.setMemo(memo);
+    }
+
+    if (descriptionHash) {
+      request.setDescriptionHash(descriptionHash);
     }
 
     if (routingHints) {

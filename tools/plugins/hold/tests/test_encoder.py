@@ -76,6 +76,28 @@ class TestEncoder:
         assert dec["valid"]
         assert dec["description"] == ""
 
+    def test_encode_description_hash(self) -> None:
+        description_hash = "c84cfc6d31834f01b1c36af114883dd9eb700a4dfef4adbcff7b9af401d54ce7"
+        invoice = self.en.encode(
+            random.randbytes(32).hex(),
+            10_000,
+            description_hash=description_hash,
+        )
+
+        dec = cln_con("decode", invoice)
+        assert dec["valid"]
+        assert dec["description_hash"] == description_hash
+
+    def test_encode_description_hash_invalid(self) -> None:
+        description_hash = "c84cfc6d31834f01b1c36af114883dd9eb700a4dfef4adbcff7b9af401d54ce"
+
+        with pytest.raises(ValueError, match="description_hash must be 64 bytes"):
+            self.en.encode(
+                random.randbytes(32).hex(),
+                10_000,
+                description_hash=description_hash,
+            )
+
     @pytest.mark.parametrize("expiry", [1, 60, 1200, 3600, 3601, 7200, 86400])
     def test_encode_expiry(self, expiry: int) -> None:
         invoice = self.en.encode(random.randbytes(32).hex(), 10_000, expiry=expiry)

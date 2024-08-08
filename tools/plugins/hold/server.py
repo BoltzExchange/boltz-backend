@@ -64,6 +64,7 @@ class HoldService(HoldServicer):
                 request.payment_hash,
                 request.amount_msat,
                 request.description,
+                request.description_hash,
                 optional_default(request.expiry, 0, Defaults.Expiry),
                 optional_default(
                     request.min_final_cltv_expiry,

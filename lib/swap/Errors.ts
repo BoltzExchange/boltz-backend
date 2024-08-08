@@ -114,4 +114,8 @@ export default {
     message: `locked ${actualAmount} is more than expected ${expectedAmount}`,
     code: concatErrorCode(ErrorCodePrefix.Swap, 23),
   }),
+  INVALID_DESCRIPTION_HASH: (): Error => ({
+    message: 'invalid description hash',
+    code: concatErrorCode(ErrorCodePrefix.Swap, 24),
+  }),
 };

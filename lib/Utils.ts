@@ -166,14 +166,18 @@ export const decodeInvoice = (
   satoshis: number;
   timeExpireDate: number;
   paymentHash: string | undefined;
-  routingInfo: bolt11.RoutingInfo | undefined;
+  description: string | undefined;
+  descriptionHash: string | undefined;
   minFinalCltvExpiry: number | undefined;
+  routingInfo: bolt11.RoutingInfo | undefined;
 } => {
   const decoded = bolt11.decode(invoice);
 
   let paymentHash: string | undefined;
   let routingInfo: bolt11.RoutingInfo | undefined;
   let minFinalCltvExpiry: number | undefined;
+  let description: string | undefined;
+  let descriptionHash: string | undefined;
 
   for (const tag of decoded.tags) {
     switch (tag.tagName) {
@@ -187,6 +191,14 @@ export const decodeInvoice = (
       case 'min_final_cltv_expiry':
         minFinalCltvExpiry = tag.data as number;
         break;
+
+      case 'description':
+        description = tag.data as string;
+        break;
+
+      case 'purpose_commit_hash':
+        descriptionHash = tag.data as string;
+        break;
     }
   }
 
@@ -194,6 +206,8 @@ export const decodeInvoice = (
     ...decoded,
     routingInfo,
     paymentHash,
+    description,
+    descriptionHash,
     minFinalCltvExpiry,
     satoshis: coalesceInvoiceAmount(decoded),
     timeExpireDate: decoded.timeExpireDate || (decoded.timestamp || 0) + 3600,

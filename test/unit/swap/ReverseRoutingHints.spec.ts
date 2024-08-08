@@ -1,6 +1,7 @@
 import { crypto } from 'bitcoinjs-lib';
+import { randomBytes } from 'crypto';
 import { ECPair } from '../../../lib/ECPairHelper';
-import { getHexString, getSwapMemo } from '../../../lib/Utils';
+import { getHexBuffer, getHexString, getSwapMemo } from '../../../lib/Utils';
 import { SwapType, SwapVersion } from '../../../lib/consts/Enums';
 import PaymentRequestUtils from '../../../lib/service/PaymentRequestUtils';
 import Errors from '../../../lib/swap/Errors';
@@ -55,62 +56,88 @@ describe('ReverseRoutingHints', () => {
     jest.clearAllMocks();
   });
 
-  test('should get only invoice memo when no user address was specified', () => {
-    expect(
-      hints.getHints(sendingCurrency, {
-        onchainAmount: 100_000,
-        version: SwapVersion.Taproot,
-      }),
-    ).toEqual({
-      receivedAmount: 99877,
-      invoiceMemo: getSwapMemo(
-        sendingCurrency.symbol,
-        SwapType.ReverseSubmarine,
-      ),
-    });
-  });
+  test.each`
+    descriptionHash
+    ${undefined}
+    ${getHexString(randomBytes(32))}
+  `(
+    'should get only invoice memo when no user address was specified with description hash: $descriptionHash',
+    ({ descriptionHash }) => {
+      expect(
+        hints.getHints(sendingCurrency, {
+          onchainAmount: 100_000,
+          version: SwapVersion.Taproot,
+          descriptionHash: descriptionHash
+            ? getHexBuffer(descriptionHash)
+            : undefined,
+        }),
+      ).toEqual({
+        receivedAmount: 99877,
+        invoiceDescriptionHash: descriptionHash
+          ? getHexBuffer(descriptionHash)
+          : undefined,
+        invoiceMemo: getSwapMemo(
+          sendingCurrency.symbol,
+          SwapType.ReverseSubmarine,
+        ),
+      });
+    },
+  );
 
-  test('should also get BIP-21 and routing hint when address and signature are defined', () => {
-    const amount = 100_000;
-    const address =
-      'bcrt1pq6cwjynamw58jvwyg7lt2m62mqhq07kjuulz0an8wgjf9wufx3nsje7hve';
-    const keys = ECPair.makeRandom();
-    const signature = keys.signSchnorr(
-      crypto.sha256(Buffer.from(address, 'utf-8')),
-    );
+  test.each`
+    descriptionHash
+    ${undefined}
+    ${getHexString(randomBytes(32))}
+  `(
+    'should also get BIP-21 and routing hint when address and signature are defined with description hash: $descriptionHash',
+    ({ descriptionHash }) => {
+      const amount = 100_000;
+      const address =
+        'bcrt1pq6cwjynamw58jvwyg7lt2m62mqhq07kjuulz0an8wgjf9wufx3nsje7hve';
+      const keys = ECPair.makeRandom();
+      const signature = keys.signSchnorr(
+        crypto.sha256(Buffer.from(address, 'utf-8')),
+      );
 
-    expect(
-      hints.getHints(sendingCurrency, {
-        userAddress: address,
-        onchainAmount: amount,
-        version: SwapVersion.Taproot,
-        claimPublicKey: keys.publicKey,
-        userAddressSignature: signature,
-      }),
-    ).toEqual({
-      receivedAmount: 99877,
-      invoiceMemo: getSwapMemo(
-        sendingCurrency.symbol,
-        SwapType.ReverseSubmarine,
-      ),
-      bip21: paymentRequestUtils.encodeBip21(
-        sendingCurrency.symbol,
-        address,
-        amount - reverseMinerFees,
-      ),
-      routingHint: [
-        [
-          {
-            nodeId: getHexString(keys.publicKey),
-            chanId: ReverseRoutingHints['routingHintChanId'],
-            feeBaseMsat: 0,
-            cltvExpiryDelta: 81,
-            feeProportionalMillionths: 21,
-          },
+      expect(
+        hints.getHints(sendingCurrency, {
+          userAddress: address,
+          onchainAmount: amount,
+          version: SwapVersion.Taproot,
+          claimPublicKey: keys.publicKey,
+          userAddressSignature: signature,
+          descriptionHash: descriptionHash
+            ? getHexBuffer(descriptionHash)
+            : undefined,
+        }),
+      ).toEqual({
+        receivedAmount: 99877,
+        invoiceDescriptionHash: descriptionHash
+          ? getHexBuffer(descriptionHash)
+          : undefined,
+        invoiceMemo: getSwapMemo(
+          sendingCurrency.symbol,
+          SwapType.ReverseSubmarine,
+        ),
+        bip21: paymentRequestUtils.encodeBip21(
+          sendingCurrency.symbol,
+          address,
+          amount - reverseMinerFees,
+        ),
+        routingHint: [
+          [
+            {
+              nodeId: getHexString(keys.publicKey),
+              chanId: ReverseRoutingHints['routingHintChanId'],
+              feeBaseMsat: 0,
+              cltvExpiryDelta: 81,
+              feeProportionalMillionths: 21,
+            },
+          ],
         ],
-      ],
-    });
-  });
+      });
+    },
+  );
 
   describe('custom memo', () => {
     test('should pass through memo', () => {
@@ -206,4 +233,18 @@ describe('ReverseRoutingHints', () => {
       }),
     ).toThrow(Errors.INVALID_ADDRESS_SIGNATURE().message);
   });
+
+  test.each`
+    length
+    ${31}
+    ${33}
+    ${64}
+  `(
+    'should throw when checking description hash with length $length',
+    ({ length }) => {
+      expect(() => hints['checkDescriptionHash'](randomBytes(length))).toThrow(
+        Errors.INVALID_DESCRIPTION_HASH().message,
+      );
+    },
+  );
 });

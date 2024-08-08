@@ -2,7 +2,7 @@ import * as grpc from '@grpc/grpc-js';
 import { randomBytes } from 'crypto';
 import { readFileSync } from 'fs';
 import Logger from '../../../lib/Logger';
-import { decodeInvoice, getUnixTime } from '../../../lib/Utils';
+import { decodeInvoice, getHexString, getUnixTime } from '../../../lib/Utils';
 import LndClient from '../../../lib/lightning/LndClient';
 import {
   LightningClient,
@@ -31,25 +31,56 @@ describe('LndClient', () => {
     bitcoinLndClient.disconnect();
   });
 
-  test.each`
-    expiry
-    ${60}
-    ${1200}
-    ${3600}
-    ${43200}
-  `('should create invoices with expiry $expiry', async ({ expiry }) => {
-    const invoice = await bitcoinLndClient.addHoldInvoice(
-      10_000,
-      randomBytes(32),
-      undefined,
-      expiry,
-    );
-    const { timestamp, timeExpireDate } = decodeInvoice(invoice);
-    expect(
-      getUnixTime() +
-        expiry -
-        InvoiceExpiryHelper.getInvoiceExpiry(timestamp, timeExpireDate),
-    ).toBeLessThanOrEqual(5);
+  describe('addHoldInvoice', () => {
+    test.each`
+      expiry
+      ${60}
+      ${1200}
+      ${3600}
+      ${43200}
+    `('should create invoices with expiry $expiry', async ({ expiry }) => {
+      const invoice = await bitcoinLndClient.addHoldInvoice(
+        10_000,
+        randomBytes(32),
+        undefined,
+        expiry,
+      );
+      const { timestamp, timeExpireDate } = decodeInvoice(invoice);
+      expect(
+        getUnixTime() +
+          expiry -
+          InvoiceExpiryHelper.getInvoiceExpiry(timestamp, timeExpireDate),
+      ).toBeLessThanOrEqual(5);
+    });
+
+    test('should create invoices with description hash', async () => {
+      const descriptionHash = randomBytes(32);
+      const invoice = await bitcoinLndClient.addHoldInvoice(
+        1,
+        randomBytes(32),
+        undefined,
+        undefined,
+        undefined,
+        descriptionHash,
+      );
+      const dec = decodeInvoice(invoice);
+      expect(dec.descriptionHash).toEqual(getHexString(descriptionHash));
+    });
+
+    test('should prefer description hash over memo', async () => {
+      const descriptionHash = randomBytes(32);
+      const invoice = await bitcoinLndClient.addHoldInvoice(
+        1,
+        randomBytes(32),
+        undefined,
+        undefined,
+        'test',
+        descriptionHash,
+      );
+      const dec = decodeInvoice(invoice);
+      expect(dec.description).toBeUndefined();
+      expect(dec.descriptionHash).toEqual(getHexString(descriptionHash));
+    });
   });
 
   test('should handle messages longer than the default gRPC limit', async () => {

@@ -37,20 +37,22 @@ class GetInfoResponse(_message.Message):
     def __init__(self, version: _Optional[str] = ...) -> None: ...
 
 class InvoiceRequest(_message.Message):
-    __slots__ = ("payment_hash", "amount_msat", "description", "expiry", "min_final_cltv_expiry", "routing_hints")
+    __slots__ = ("payment_hash", "amount_msat", "description", "description_hash", "expiry", "min_final_cltv_expiry", "routing_hints")
     PAYMENT_HASH_FIELD_NUMBER: _ClassVar[int]
     AMOUNT_MSAT_FIELD_NUMBER: _ClassVar[int]
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_HASH_FIELD_NUMBER: _ClassVar[int]
     EXPIRY_FIELD_NUMBER: _ClassVar[int]
     MIN_FINAL_CLTV_EXPIRY_FIELD_NUMBER: _ClassVar[int]
     ROUTING_HINTS_FIELD_NUMBER: _ClassVar[int]
     payment_hash: str
     amount_msat: int
     description: str
+    description_hash: str
     expiry: int
     min_final_cltv_expiry: int
     routing_hints: _containers.RepeatedCompositeFieldContainer[RoutingHint]
-    def __init__(self, payment_hash: _Optional[str] = ..., amount_msat: _Optional[int] = ..., description: _Optional[str] = ..., expiry: _Optional[int] = ..., min_final_cltv_expiry: _Optional[int] = ..., routing_hints: _Optional[_Iterable[_Union[RoutingHint, _Mapping]]] = ...) -> None: ...
+    def __init__(self, payment_hash: _Optional[str] = ..., amount_msat: _Optional[int] = ..., description: _Optional[str] = ..., description_hash: _Optional[str] = ..., expiry: _Optional[int] = ..., min_final_cltv_expiry: _Optional[int] = ..., routing_hints: _Optional[_Iterable[_Union[RoutingHint, _Mapping]]] = ...) -> None: ...
 
 class InvoiceResponse(_message.Message):
     __slots__ = ("bolt11",)

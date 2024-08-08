@@ -1,18 +1,17 @@
 ---
 description: >-
-  This document gives an overview of how Boltz API clients craft claim & refund
-  transactions and touches on emergency procedures for rescuing funds of failed
-  swaps.
+  This document gives an overview of how Boltz API clients craft claim and
+  refund transactions and touches on emergency procedures for rescuing funds of
+  failed swaps.
 ---
 
 # 🙋‍♂️ Claim & Refund Transactions
 
 Boltz API clients need to craft and broadcast
 
-- **claim transactions** to claim chain bitcoin and successfully complete
-  **Reverse Submarine Swaps**
-- **refund transactions** to claim refunds for chain bitcoin locked in failed
-  **Submarine Swaps**
+- **claim transactions** for **Reverse Submarine Swaps** and **Chain Swaps**.
+- **refund transactions** to claim refunds for failed **Normal Submarine Swaps**
+  and **Chain Swaps**.
 
 ## Taproot
 
@@ -97,7 +96,7 @@ structured like this:
 
 ### Chain Swaps
 
-### Claim
+#### Claim
 
 To create a cooperative claim transaction for a Chain Swap, the client has to
 call `GET /swap/chain/{id}/claim` to fetch the details of the claim transaction
@@ -115,7 +114,7 @@ Reverse Swaps. The witness of the input will look like this:
 <control block>
 ```
 
-### Refund
+#### Refund
 
 Refunds of Chain Swaps can be done cooperatively by calling
 `POST /swap/chain/{id}/refund` with the refund transaction the client would like
@@ -165,7 +164,7 @@ To claim coins locked in the contract, use the function `claim`. All parameters
 apart from the `preimage` are returned in the response when creating the swap.
 The API client is responsible for securely storing the preimage after the swap.
 
-## Legacy
+## Legacy Swaps
 
 Boltz supports two non-Taproot output types:
 
@@ -235,9 +234,9 @@ An example can be found in the
 reference library. The function uses the claim function but requires the timeout
 block height as argument and sets an empty preimage.
 
-### Emergency Procedures
+## Emergency Procedures
 
-#### UTXO Chains
+### UTXO Chains
 
 For UTXO chains we recommend providing a so-called **refund file** as a last
 layer of defense against loss of funds to end users. This refund file contains

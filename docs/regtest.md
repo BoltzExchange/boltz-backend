@@ -1,7 +1,7 @@
 ---
 description: >-
-  This document describes how to set up a Docker regtest environment for
-  development purposes.
+  This document describes how to set up a Docker regtest environment for Boltz
+  Backend development.
 ---
 
 # 🐳 Regtest Environment

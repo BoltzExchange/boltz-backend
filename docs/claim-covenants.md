@@ -5,7 +5,7 @@ description: >-
   Swaps for its users while they are offline.
 ---
 
-# 📜 Claim covenants
+# 📜 Claim Covenants
 
 Covenants are available on [Liquid](https://liquid.net/) in the form of
 [direction introspection](https://github.com/ElementsProject/elements/blob/master/doc/tapscript_opcodes.md#new-opcodes-for-additional-functionality).

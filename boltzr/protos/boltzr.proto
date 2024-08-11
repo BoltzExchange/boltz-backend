@@ -8,6 +8,8 @@ service BoltzR {
   rpc SendMessage (SendMessageRequest) returns (SendMessageResponse);
   rpc GetMessages (GetMessagesRequest) returns (stream GetMessagesResponse);
 
+  rpc SwapUpdate (stream SwapUpdateRequest) returns (stream SwapUpdateResponse);
+
   rpc StartWebHookRetries (StartWebHookRetriesRequest) returns (StartWebHookRetriesResponse);
   rpc CreateWebHook (CreateWebHookRequest) returns (CreateWebHookResponse);
   rpc SendWebHook (SendWebHookRequest) returns (SendWebHookResponse);
@@ -29,6 +31,43 @@ message SendMessageResponse {}
 message GetMessagesRequest {}
 message GetMessagesResponse {
   string message = 1;
+}
+
+message SwapUpdate {
+  message TransactionInfo {
+    string id = 1;
+    optional string hex = 2;
+    optional uint64 eta = 3;
+  }
+
+  message FailureDetails {
+    uint64 expected = 1;
+    uint64 actual = 2;
+  }
+
+  message ChannelInfo {
+    string funding_transaction_id = 1;
+    uint64 funding_transaction_vout = 2;
+  }
+
+  string id = 1;
+  string status = 2;
+
+  optional bool zero_conf_rejected = 3;
+  optional TransactionInfo transaction_info = 4;
+
+  optional string failure_reason = 5;
+  optional FailureDetails failure_details = 6;
+
+  optional ChannelInfo channel_info = 7;
+}
+
+message SwapUpdateRequest {
+  repeated SwapUpdate status = 1;
+}
+
+message SwapUpdateResponse {
+  repeated string ids = 1;
 }
 
 message StartWebHookRetriesRequest {}

@@ -1,3 +1,4 @@
 pub mod server;
-mod service;
+pub mod service;
+mod status_fetcher;
 mod tls;

@@ -4,17 +4,14 @@ import { ApiConfig } from '../Config';
 import Logger from '../Logger';
 import CountryCodes from '../service/CountryCodes';
 import Service from '../service/Service';
-import Sidecar from '../sidecar/Sidecar';
 import Controller from './Controller';
 import SwapInfos from './SwapInfos';
 import { errorResponse } from './Utils';
 import ApiV2 from './v2/ApiV2';
-import WebSocketHandler from './v2/WebSocketHandler';
 
 class Api {
   public readonly swapInfos: SwapInfos;
   public readonly controller: Controller;
-  public readonly websocket: WebSocketHandler;
 
   private app: Application;
 
@@ -22,7 +19,6 @@ class Api {
     private readonly logger: Logger,
     private readonly config: ApiConfig,
     service: Service,
-    sidecar: Sidecar,
     countryCodes: CountryCodes,
   ) {
     this.app = express();
@@ -63,14 +59,13 @@ class Api {
       },
     );
 
-    this.swapInfos = new SwapInfos(this.logger, service, sidecar);
+    this.swapInfos = new SwapInfos(this.logger, service);
     this.controller = new Controller(
       logger,
       service,
       countryCodes,
       this.swapInfos,
     );
-    this.websocket = new WebSocketHandler(service, this.swapInfos);
 
     new ApiV2(
       this.logger,
@@ -83,11 +78,10 @@ class Api {
 
   public init = async (): Promise<void> => {
     await new Promise<void>((resolve) => {
-      const server = this.app.listen(this.config.port, this.config.host, () => {
+      this.app.listen(this.config.port, this.config.host, () => {
         this.logger.info(
           `API server listening on: ${this.config.host}:${this.config.port}`,
         );
-        this.websocket.register(server);
         resolve();
       });
     });

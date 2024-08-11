@@ -14,6 +14,7 @@ mod notifications;
 mod tracing_setup;
 mod utils;
 mod webhook;
+mod ws;
 
 #[cfg(feature = "metrics")]
 mod metrics;
@@ -131,9 +132,14 @@ async fn main() {
             db_pool.clone(),
         )),
     );
+
+    let (swap_status_update_tx, _swap_status_update_rx) =
+        tokio::sync::broadcast::channel::<Vec<ws::types::SwapStatus>>(128);
+
     let mut grpc_server = grpc::server::Server::new(
         cancellation_token.clone(),
         config.sidecar.grpc,
+        swap_status_update_tx.clone(),
         Box::new(db::helpers::web_hook::WebHookHelperDatabase::new(db_pool)),
         web_hook_caller,
         match refund_signer {
@@ -141,6 +147,13 @@ async fn main() {
             None => None,
         },
         notification_client.clone().map(Arc::new),
+    );
+
+    let status_ws = ws::status::Status::new(
+        cancellation_token.clone(),
+        config.sidecar.ws,
+        grpc_server.status_fetcher(),
+        swap_status_update_tx,
     );
 
     let grpc_handle = tokio::spawn(async move {
@@ -158,12 +171,22 @@ async fn main() {
         }
     });
 
+    let status_ws_handler = tokio::spawn(async move {
+        if let Err(err) = status_ws.start().await {
+            error!("Could not start status WebSocket: {}", err);
+        }
+    });
+
     ctrlc::set_handler(move || {
         info!("Got shutdown signal");
         cancellation_token.cancel();
     })
-    .unwrap_or_else(|e| error!("Could not register exist handler: {}", e));
+    .unwrap_or_else(|e| {
+        error!("Could not register exit handler: {}", e);
+        std::process::exit(1);
+    });
 
+    status_ws_handler.await.unwrap();
     grpc_handle.await.unwrap();
     notification_listener_handle.await.unwrap();
 

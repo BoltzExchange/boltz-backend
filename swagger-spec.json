@@ -1020,7 +1020,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "ID of the Swap"
+            "description": "ID or preimage hash of the Swap"
           }
         ],
         "responses": {

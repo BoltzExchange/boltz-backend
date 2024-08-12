@@ -432,7 +432,7 @@ class SwapRouter extends RouterBase {
      *         required: true
      *         schema:
      *           type: string
-     *         description: ID of the Swap
+     *         description: ID or preimage hash of the Swap
      *     responses:
      *       '200':
      *         description: EIP-712 signature

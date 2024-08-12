@@ -1,3 +1,4 @@
+import { Op } from 'sequelize';
 import Logger from '../../Logger';
 import {
   getChainCurrency,
@@ -27,8 +28,9 @@ class EipSigner {
     private readonly sidecar: Sidecar,
   ) {}
 
-  public signSwapRefund = async (swapId: string) => {
-    const { swap, chainSymbol, lightningCurrency } = await this.getSwap(swapId);
+  public signSwapRefund = async (swapIdOrPreimageHash: string) => {
+    const { swap, chainSymbol, lightningCurrency } =
+      await this.getSwap(swapIdOrPreimageHash);
     const manager = this.walletManager.ethereumManagers.find((man) =>
       man.hasSymbol(chainSymbol),
     );
@@ -79,15 +81,25 @@ class EipSigner {
   };
 
   private getSwap = async (
-    id: string,
+    swapIdOrPreimageHash: string,
   ): Promise<{
     swap: Swap | ChainSwapInfo;
     chainSymbol: string;
     lightningCurrency?: Currency;
   }> => {
     const [swap, chainSwap] = await Promise.all([
-      SwapRepository.getSwap({ id }),
-      ChainSwapRepository.getChainSwap({ id }),
+      SwapRepository.getSwap({
+        [Op.or]: {
+          id: swapIdOrPreimageHash,
+          preimageHash: swapIdOrPreimageHash,
+        },
+      }),
+      ChainSwapRepository.getChainSwap({
+        [Op.or]: {
+          id: swapIdOrPreimageHash,
+          preimageHash: swapIdOrPreimageHash,
+        },
+      }),
     ]);
 
     if (swap !== null) {
@@ -107,7 +119,7 @@ class EipSigner {
       };
     }
 
-    throw Errors.SWAP_NOT_FOUND(id);
+    throw Errors.SWAP_NOT_FOUND(swapIdOrPreimageHash);
   };
 }
 

@@ -21,7 +21,7 @@ class ReverseRoutingHint extends Model {
           primaryKey: true,
           allowNull: false,
         },
-        bip21: { type: new DataTypes.STRING(255), allowNull: false },
+        bip21: { type: new DataTypes.TEXT(), allowNull: false },
         signature: { type: new DataTypes.STRING(255), allowNull: false },
       },
       {

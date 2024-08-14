@@ -29,11 +29,11 @@ impl StatusFetcher {
 
 #[async_trait]
 impl SwapInfos for StatusFetcher {
-    async fn fetch_status_info(&self, ids: Vec<String>) {
+    async fn fetch_status_info(&self, ids: &[String]) {
         match self.sender.lock().await.get_mut() {
             Some(sender) => {
                 if let Err(err) = sender
-                    .send(Ok(SwapUpdateResponse { ids: ids.clone() }))
+                    .send(Ok(SwapUpdateResponse { ids: ids.to_vec() }))
                     .await
                 {
                     warn!("Could not fetch status of swaps {:?}: {}", ids, err);

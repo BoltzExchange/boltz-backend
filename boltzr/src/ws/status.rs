@@ -5,7 +5,7 @@ use futures::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::error::Error;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, SystemTimeError, UNIX_EPOCH};
 use tokio::net::{TcpListener, TcpStream};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, trace, warn};
@@ -17,7 +17,7 @@ const PING_INTERVAL_MS: u64 = 15_000;
 
 #[async_trait]
 pub trait SwapInfos {
-    async fn fetch_status_info(&self, ids: Vec<String>);
+    async fn fetch_status_info(&self, ids: &[String]);
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
@@ -31,10 +31,13 @@ enum SubscriptionChannel {
     SwapUpdate,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, PartialEq)]
 struct SubscribeMessage {
     channel: SubscriptionChannel,
     args: Vec<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    timestamp: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -54,6 +57,8 @@ struct UpdateMessage {
 #[derive(Deserialize, Serialize, Debug, PartialEq)]
 #[serde(tag = "event")]
 enum WsResponse {
+    #[serde(rename = "subscribe")]
+    Subscribe(SubscribeMessage),
     #[serde(rename = "update")]
     Update(UpdateMessage),
 }
@@ -198,7 +203,7 @@ where
                                 continue;
                             }
 
-                            let timestamp = match SystemTime::now().duration_since(UNIX_EPOCH) {
+                            let timestamp = match Self::get_timestamp() {
                                 Ok(res) => res,
                                 Err(err) => {
                                     error!("Could not get UNIX time: {}", err);
@@ -207,9 +212,9 @@ where
                             };
 
                             let msg = match serde_json::to_string(&WsResponse::Update(UpdateMessage {
+                                timestamp,
                                 channel: SubscriptionChannel::SwapUpdate,
                                 args: relevant_updates,
-                                timestamp: timestamp.as_millis().to_string(),
                             })) {
                                 Ok(res) => res,
                                 Err(err) => {
@@ -266,19 +271,42 @@ where
         match msg {
             WsRequest::Subscribe(sub) => match sub.channel {
                 SubscriptionChannel::SwapUpdate => {
-                    self.subscribe_swap_updates(subscribed_ids, sub.args).await;
-                    Ok(None)
+                    self.subscribe_swap_updates(subscribed_ids, &sub.args).await;
+
+                    let timestamp = match Self::get_timestamp() {
+                        Ok(res) => res,
+                        Err(err) => {
+                            error!("Could not get UNIX time: {}", err);
+                            return Ok(None);
+                        }
+                    };
+                    Ok(Some(WsResponse::Subscribe(SubscribeMessage {
+                        timestamp: Some(timestamp),
+                        channel: SubscriptionChannel::SwapUpdate,
+                        args: sub.args,
+                    })))
                 }
             },
         }
     }
 
-    async fn subscribe_swap_updates(&self, subscribed_ids: &mut HashSet<String>, ids: Vec<String>) {
-        for id in &ids {
+    async fn subscribe_swap_updates(
+        &self,
+        subscribed_ids: &mut HashSet<String>,
+        ids: &Vec<String>,
+    ) {
+        for id in ids {
             subscribed_ids.insert(id.clone());
         }
 
         self.swap_infos.fetch_status_info(ids).await;
+    }
+
+    fn get_timestamp() -> Result<String, SystemTimeError> {
+        Ok(SystemTime::now()
+            .duration_since(UNIX_EPOCH)?
+            .as_millis()
+            .to_string())
     }
 }
 
@@ -302,7 +330,7 @@ mod status_test {
 
     #[async_trait]
     impl SwapInfos for Fetcher {
-        async fn fetch_status_info(&self, ids: Vec<String>) {
+        async fn fetch_status_info(&self, ids: &[String]) {
             let mut res = vec![SwapStatus::default(
                 "not relevant".into(),
                 "swap.created".into(),
@@ -427,6 +455,8 @@ mod status_test {
             .unwrap();
         });
 
+        let mut is_first = true;
+
         loop {
             let msg = rx.next().await.unwrap().unwrap();
             if !msg.is_text() {
@@ -434,26 +464,49 @@ mod status_test {
             }
 
             let res = serde_json::from_str::<WsResponse>(msg.to_text().unwrap()).unwrap();
-            match res {
-                WsResponse::Update(res) => {
-                    assert_eq!(res.channel, SubscriptionChannel::SwapUpdate);
-                    assert_eq!(
-                        res.args,
-                        vec![
-                            SwapStatus::default("some".into(), "swap.created".into()),
-                            SwapStatus::default("ids".into(), "swap.created".into()),
-                        ]
-                    );
-                    assert!(
-                        res.timestamp.parse::<u128>().unwrap()
-                            <= SystemTime::now()
-                                .duration_since(UNIX_EPOCH)
-                                .unwrap()
-                                .as_millis()
-                    );
-                }
-            };
-            break;
+            if is_first {
+                is_first = false;
+                match res {
+                    WsResponse::Subscribe(res) => {
+                        assert_eq!(res.channel, SubscriptionChannel::SwapUpdate);
+                        assert_eq!(res.args, vec!["some".to_string(), "ids".to_string(),]);
+                        assert!(
+                            res.timestamp.unwrap().parse::<u128>().unwrap()
+                                <= SystemTime::now()
+                                    .duration_since(UNIX_EPOCH)
+                                    .unwrap()
+                                    .as_millis()
+                        );
+                    }
+                    _ => {
+                        assert!(false);
+                    }
+                };
+            } else {
+                match res {
+                    WsResponse::Update(res) => {
+                        assert_eq!(res.channel, SubscriptionChannel::SwapUpdate);
+                        assert_eq!(
+                            res.args,
+                            vec![
+                                SwapStatus::default("some".into(), "swap.created".into()),
+                                SwapStatus::default("ids".into(), "swap.created".into()),
+                            ]
+                        );
+                        assert!(
+                            res.timestamp.parse::<u128>().unwrap()
+                                <= SystemTime::now()
+                                    .duration_since(UNIX_EPOCH)
+                                    .unwrap()
+                                    .as_millis()
+                        );
+                    }
+                    _ => {
+                        assert!(false);
+                    }
+                };
+                break;
+            }
         }
 
         cancel.cancel();
@@ -492,7 +545,7 @@ mod status_test {
                 .unwrap()
         });
 
-        let mut is_first = true;
+        let mut count = 0;
 
         loop {
             let msg = rx.next().await.unwrap().unwrap();
@@ -500,8 +553,8 @@ mod status_test {
                 continue;
             }
 
-            if is_first {
-                is_first = false;
+            if count < 2 {
+                count += 1;
                 continue;
             }
 
@@ -520,6 +573,9 @@ mod status_test {
                                 .unwrap()
                                 .as_millis()
                     );
+                }
+                _ => {
+                    assert!(false);
                 }
             };
             break;

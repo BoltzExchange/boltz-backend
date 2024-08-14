@@ -3,11 +3,12 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use alloy::primitives::{Address, FixedBytes};
+use futures::StreamExt;
 use tokio::sync::{mpsc, Mutex};
 use tonic::codegen::tokio_stream::wrappers::ReceiverStream;
 use tonic::codegen::tokio_stream::Stream;
-use tonic::{Code, Request, Response, Status};
-use tracing::{debug, instrument, trace};
+use tonic::{Code, Request, Response, Status, Streaming};
+use tracing::{debug, error, instrument, trace};
 
 use crate::db::helpers::web_hook::WebHookHelper;
 use crate::db::models::{WebHook, WebHookState};
@@ -17,10 +18,12 @@ use crate::grpc::service::boltzr::{
     CreateWebHookRequest, CreateWebHookResponse, GetInfoRequest, GetInfoResponse,
     GetMessagesRequest, GetMessagesResponse, SendMessageRequest, SendMessageResponse,
     SendWebHookRequest, SendWebHookResponse, SignEvmRefundRequest, SignEvmRefundResponse,
-    StartWebHookRetriesRequest, StartWebHookRetriesResponse,
+    StartWebHookRetriesRequest, StartWebHookRetriesResponse, SwapUpdateRequest, SwapUpdateResponse,
 };
+use crate::grpc::status_fetcher::StatusFetcher;
 use crate::notifications::NotificationClient;
 use crate::webhook::caller::Caller;
+use crate::ws::types::SwapStatus;
 
 pub mod boltzr {
     tonic::include_proto!("boltzr");
@@ -34,10 +37,15 @@ pub struct BoltzService<T> {
 
     refund_signer: Option<Arc<dyn RefundSigner + Sync + Send>>,
     notification_client: Option<Arc<T>>,
+
+    status_fetcher: StatusFetcher,
+    swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
 }
 
 impl<T> BoltzService<T> {
     pub(crate) fn new(
+        status_fetcher: StatusFetcher,
+        swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
         web_hook_helper: Arc<Box<dyn WebHookHelper + Sync + Send>>,
         web_hook_caller: Arc<Caller>,
         refund_signer: Option<Arc<dyn RefundSigner + Sync + Send>>,
@@ -45,9 +53,11 @@ impl<T> BoltzService<T> {
     ) -> Self {
         BoltzService {
             refund_signer,
+            status_fetcher,
             web_hook_caller,
             web_hook_helper,
             notification_client,
+            swap_status_update_tx,
             web_hook_retry_handle: Arc::new(Default::default()),
         }
     }
@@ -151,6 +161,44 @@ where
                         break;
                     }
                 };
+            }
+        });
+
+        Ok(Response::new(Box::pin(ReceiverStream::new(rx))))
+    }
+
+    type SwapUpdateStream = Pin<Box<dyn Stream<Item = Result<SwapUpdateResponse, Status>> + Send>>;
+
+    #[instrument(name = "grpc::swap_update", skip_all)]
+    async fn swap_update(
+        &self,
+        request: Request<Streaming<SwapUpdateRequest>>,
+    ) -> Result<Response<Self::SwapUpdateStream>, Status> {
+        extract_parent_context(&request);
+
+        let mut in_stream = request.into_inner();
+        let (tx, rx) = mpsc::channel(128);
+
+        self.status_fetcher.set_sender(tx.clone()).await;
+        let swap_status_update_tx = self.swap_status_update_tx.clone();
+
+        tokio::spawn(async move {
+            while let Some(res) = in_stream.next().await {
+                match res {
+                    Ok(res) => {
+                        if let Err(err) = swap_status_update_tx
+                            .send(res.status.iter().map(|entry| entry.into()).collect())
+                        {
+                            error!("Could not propagate swap status update: {}", err);
+                            break;
+                        }
+                    }
+                    Err(err) => {
+                        if tx.send(Err(err)).await.is_err() {
+                            break;
+                        }
+                    }
+                }
             }
         });
 
@@ -347,7 +395,9 @@ mod test {
         StartWebHookRetriesResponse,
     };
     use crate::grpc::service::BoltzService;
+    use crate::grpc::status_fetcher::StatusFetcher;
     use crate::webhook::caller::{Caller, Config};
+    use crate::ws;
 
     mock! {
         WebHookHelper {}
@@ -656,9 +706,13 @@ mod test {
     ) {
         let token = CancellationToken::new();
         let refund_signer = Arc::new(MockRefundSigner::new());
+        let (status_tx, _) = tokio::sync::broadcast::channel::<Vec<ws::types::SwapStatus>>(1);
+
         (
             token.clone(),
             BoltzService::new(
+                StatusFetcher::new(),
+                status_tx,
                 Arc::new(Box::new(make_mock_hook_helper())),
                 Arc::new(Caller::new(
                     token,

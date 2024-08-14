@@ -172,13 +172,6 @@ class Prometheus {
       'pending SSE swap status stream count',
       () => this.api.controller.pendingStreamCount,
     );
-
-    this.registerGauge(
-      this.swapRegistry!,
-      'open_websocket_count',
-      'open WebSockets count',
-      () => this.api.websocket.openWebSocketCount,
-    );
   };
 
   private registerGauge = (

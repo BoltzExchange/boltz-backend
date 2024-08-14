@@ -173,7 +173,7 @@ impl Caller {
                 );
 
                 #[cfg(feature = "metrics")]
-                metrics::counter!(crate::metrics::WEBSOCKET_CALL_COUNT, "status" => "success")
+                metrics::counter!(crate::metrics::WEBHOOK_CALL_COUNT, "status" => "success")
                     .increment(1);
 
                 self.retry_count.remove(&hook.id);
@@ -185,7 +185,7 @@ impl Caller {
                 warn!("Request for swap {} failed: {}", hook.id, err);
 
                 #[cfg(feature = "metrics")]
-                metrics::counter!(crate::metrics::WEBSOCKET_CALL_COUNT, "status" => "failed")
+                metrics::counter!(crate::metrics::WEBHOOK_CALL_COUNT, "status" => "failed")
                     .increment(1);
 
                 self.web_hook_helper
@@ -270,7 +270,7 @@ impl Caller {
 
                 #[cfg(feature = "metrics")]
                 metrics::counter!(
-                    crate::metrics::WEBSOCKET_CALL_COUNT,
+                    crate::metrics::WEBHOOK_CALL_COUNT,
                     "status" => "abandoned",
                 )
                 .increment(1);

@@ -206,7 +206,6 @@ class Boltz {
         this.logger,
         this.config.api,
         this.service,
-        this.sidecar,
         this.countryCodes,
       );
 
@@ -230,7 +229,7 @@ class Boltz {
       await this.db.migrate(this.currencies);
       await this.db.init();
 
-      await this.sidecar.connect();
+      await this.sidecar.connect(this.service.eventHandler, this.api.swapInfos);
       await this.sidecar.validateVersion();
       await this.sidecar.start();
       this.logger.info('Connected to sidecar');

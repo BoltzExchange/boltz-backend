@@ -123,6 +123,183 @@ export namespace GetMessagesResponse {
     }
 }
 
+export class SwapUpdate extends jspb.Message { 
+    getId(): string;
+    setId(value: string): SwapUpdate;
+    getStatus(): string;
+    setStatus(value: string): SwapUpdate;
+
+    hasZeroConfRejected(): boolean;
+    clearZeroConfRejected(): void;
+    getZeroConfRejected(): boolean | undefined;
+    setZeroConfRejected(value: boolean): SwapUpdate;
+
+    hasTransactionInfo(): boolean;
+    clearTransactionInfo(): void;
+    getTransactionInfo(): SwapUpdate.TransactionInfo | undefined;
+    setTransactionInfo(value?: SwapUpdate.TransactionInfo): SwapUpdate;
+
+    hasFailureReason(): boolean;
+    clearFailureReason(): void;
+    getFailureReason(): string | undefined;
+    setFailureReason(value: string): SwapUpdate;
+
+    hasFailureDetails(): boolean;
+    clearFailureDetails(): void;
+    getFailureDetails(): SwapUpdate.FailureDetails | undefined;
+    setFailureDetails(value?: SwapUpdate.FailureDetails): SwapUpdate;
+
+    hasChannelInfo(): boolean;
+    clearChannelInfo(): void;
+    getChannelInfo(): SwapUpdate.ChannelInfo | undefined;
+    setChannelInfo(value?: SwapUpdate.ChannelInfo): SwapUpdate;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SwapUpdate.AsObject;
+    static toObject(includeInstance: boolean, msg: SwapUpdate): SwapUpdate.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SwapUpdate, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SwapUpdate;
+    static deserializeBinaryFromReader(message: SwapUpdate, reader: jspb.BinaryReader): SwapUpdate;
+}
+
+export namespace SwapUpdate {
+    export type AsObject = {
+        id: string,
+        status: string,
+        zeroConfRejected?: boolean,
+        transactionInfo?: SwapUpdate.TransactionInfo.AsObject,
+        failureReason?: string,
+        failureDetails?: SwapUpdate.FailureDetails.AsObject,
+        channelInfo?: SwapUpdate.ChannelInfo.AsObject,
+    }
+
+
+    export class TransactionInfo extends jspb.Message { 
+        getId(): string;
+        setId(value: string): TransactionInfo;
+
+        hasHex(): boolean;
+        clearHex(): void;
+        getHex(): string | undefined;
+        setHex(value: string): TransactionInfo;
+
+        hasEta(): boolean;
+        clearEta(): void;
+        getEta(): number | undefined;
+        setEta(value: number): TransactionInfo;
+
+        serializeBinary(): Uint8Array;
+        toObject(includeInstance?: boolean): TransactionInfo.AsObject;
+        static toObject(includeInstance: boolean, msg: TransactionInfo): TransactionInfo.AsObject;
+        static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+        static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+        static serializeBinaryToWriter(message: TransactionInfo, writer: jspb.BinaryWriter): void;
+        static deserializeBinary(bytes: Uint8Array): TransactionInfo;
+        static deserializeBinaryFromReader(message: TransactionInfo, reader: jspb.BinaryReader): TransactionInfo;
+    }
+
+    export namespace TransactionInfo {
+        export type AsObject = {
+            id: string,
+            hex?: string,
+            eta?: number,
+        }
+    }
+
+    export class FailureDetails extends jspb.Message { 
+        getExpected(): number;
+        setExpected(value: number): FailureDetails;
+        getActual(): number;
+        setActual(value: number): FailureDetails;
+
+        serializeBinary(): Uint8Array;
+        toObject(includeInstance?: boolean): FailureDetails.AsObject;
+        static toObject(includeInstance: boolean, msg: FailureDetails): FailureDetails.AsObject;
+        static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+        static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+        static serializeBinaryToWriter(message: FailureDetails, writer: jspb.BinaryWriter): void;
+        static deserializeBinary(bytes: Uint8Array): FailureDetails;
+        static deserializeBinaryFromReader(message: FailureDetails, reader: jspb.BinaryReader): FailureDetails;
+    }
+
+    export namespace FailureDetails {
+        export type AsObject = {
+            expected: number,
+            actual: number,
+        }
+    }
+
+    export class ChannelInfo extends jspb.Message { 
+        getFundingTransactionId(): string;
+        setFundingTransactionId(value: string): ChannelInfo;
+        getFundingTransactionVout(): number;
+        setFundingTransactionVout(value: number): ChannelInfo;
+
+        serializeBinary(): Uint8Array;
+        toObject(includeInstance?: boolean): ChannelInfo.AsObject;
+        static toObject(includeInstance: boolean, msg: ChannelInfo): ChannelInfo.AsObject;
+        static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+        static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+        static serializeBinaryToWriter(message: ChannelInfo, writer: jspb.BinaryWriter): void;
+        static deserializeBinary(bytes: Uint8Array): ChannelInfo;
+        static deserializeBinaryFromReader(message: ChannelInfo, reader: jspb.BinaryReader): ChannelInfo;
+    }
+
+    export namespace ChannelInfo {
+        export type AsObject = {
+            fundingTransactionId: string,
+            fundingTransactionVout: number,
+        }
+    }
+
+}
+
+export class SwapUpdateRequest extends jspb.Message { 
+    clearStatusList(): void;
+    getStatusList(): Array<SwapUpdate>;
+    setStatusList(value: Array<SwapUpdate>): SwapUpdateRequest;
+    addStatus(value?: SwapUpdate, index?: number): SwapUpdate;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SwapUpdateRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: SwapUpdateRequest): SwapUpdateRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SwapUpdateRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SwapUpdateRequest;
+    static deserializeBinaryFromReader(message: SwapUpdateRequest, reader: jspb.BinaryReader): SwapUpdateRequest;
+}
+
+export namespace SwapUpdateRequest {
+    export type AsObject = {
+        statusList: Array<SwapUpdate.AsObject>,
+    }
+}
+
+export class SwapUpdateResponse extends jspb.Message { 
+    clearIdsList(): void;
+    getIdsList(): Array<string>;
+    setIdsList(value: Array<string>): SwapUpdateResponse;
+    addIds(value: string, index?: number): string;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SwapUpdateResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: SwapUpdateResponse): SwapUpdateResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SwapUpdateResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SwapUpdateResponse;
+    static deserializeBinaryFromReader(message: SwapUpdateResponse, reader: jspb.BinaryReader): SwapUpdateResponse;
+}
+
+export namespace SwapUpdateResponse {
+    export type AsObject = {
+        idsList: Array<string>,
+    }
+}
+
 export class StartWebHookRetriesRequest extends jspb.Message { 
 
     serializeBinary(): Uint8Array;

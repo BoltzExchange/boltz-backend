@@ -2,7 +2,7 @@ use std::error::Error;
 
 use axum::routing::get;
 use axum::Router;
-use metrics::{describe_counter, Unit};
+use metrics::{describe_counter, describe_gauge, Unit};
 use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info};
@@ -105,9 +105,15 @@ impl Server {
         );
 
         describe_counter!(
-            crate::metrics::WEBSOCKET_CALL_COUNT,
+            crate::metrics::WEBHOOK_CALL_COUNT,
             Unit::Count,
-            "number of WebSocket calls made"
+            "number of Webhook calls made"
+        );
+
+        describe_gauge!(
+            crate::metrics::WEBSOCKET_OPEN_COUNT,
+            Unit::Count,
+            "number of open WebSockets"
         );
 
         handle

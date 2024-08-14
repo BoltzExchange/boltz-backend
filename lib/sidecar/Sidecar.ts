@@ -7,11 +7,15 @@ import { ConfigType } from '../Config';
 import Logger from '../Logger';
 import { sleep } from '../PromiseUtils';
 import { formatError, getVersion } from '../Utils';
+import SwapInfos from '../api/SwapInfos';
 import { ClientStatus, SwapUpdateEvent } from '../consts/Enums';
 import { grpcOptions, unaryCall } from '../lightning/GrpcUtils';
 import { createSsl } from '../lightning/cln/Types';
 import { BoltzRClient } from '../proto/sidecar/boltzr_grpc_pb';
 import * as sidecarrpc from '../proto/sidecar/boltzr_pb';
+import EventHandler, { SwapUpdate } from '../service/EventHandler';
+
+type Update = { id: string; status: SwapUpdate };
 
 type SidecarConfig = {
   path?: string;
@@ -39,6 +43,9 @@ class Sidecar extends BaseClient {
 
   private client?: BoltzRClient;
   private readonly clientMeta = new Metadata();
+
+  private swapInfos!: SwapInfos;
+  private eventHandler!: EventHandler;
 
   constructor(
     logger: Logger,
@@ -82,7 +89,13 @@ class Sidecar extends BaseClient {
     return Sidecar.serviceName;
   }
 
-  public connect = async (): Promise<boolean> => {
+  public connect = async (
+    eventHandler: EventHandler,
+    swapInfos: SwapInfos,
+  ): Promise<boolean> => {
+    this.swapInfos = swapInfos;
+    this.eventHandler = eventHandler;
+
     if (this.isConnected()) {
       return true;
     }
@@ -179,27 +192,6 @@ class Sidecar extends BaseClient {
     >('createWebHook', req);
   };
 
-  public sendWebHook = async (swapId: string, status: SwapUpdateEvent) => {
-    const req = new sidecarrpc.SendWebHookRequest();
-    req.setId(swapId);
-    req.setStatus(status);
-
-    try {
-      const res = await this.unaryNodeCall<
-        sidecarrpc.SendWebHookRequest,
-        sidecarrpc.SendWebHookResponse
-      >('sendWebHook', req, false);
-      return res.getOk();
-    } catch (e) {
-      // Ignore not found errors
-      if ((e as any).code === Status.NOT_FOUND) {
-        return true;
-      }
-
-      throw e;
-    }
-  };
-
   public signEvmRefund = async (
     preimageHash: Buffer,
     amount: bigint,
@@ -222,6 +214,115 @@ class Sidecar extends BaseClient {
     return Buffer.from(res.signature as string, 'base64');
   };
 
+  private subscribeSwapUpdates = () => {
+    const serializeSwapUpdate = (updates: Update[]) => {
+      const req = new sidecarrpc.SwapUpdateRequest();
+      req.setStatusList(
+        updates.map((entry) => {
+          const update = new sidecarrpc.SwapUpdate();
+          update.setId(entry.id);
+          update.setStatus(entry.status.status);
+
+          if (entry.status.zeroConfRejected !== undefined) {
+            update.setZeroConfRejected(entry.status.zeroConfRejected);
+          }
+
+          if (entry.status.transaction) {
+            const transaction = new sidecarrpc.SwapUpdate.TransactionInfo();
+            transaction.setId(entry.status.transaction.id);
+
+            if (entry.status.transaction.hex !== undefined) {
+              transaction.setHex(entry.status.transaction.hex);
+            }
+
+            if (entry.status.transaction.eta !== undefined) {
+              transaction.setEta(entry.status.transaction.eta);
+            }
+
+            update.setTransactionInfo(transaction);
+          }
+
+          if (entry.status.failureReason !== undefined) {
+            update.setFailureReason(entry.status.failureReason);
+          }
+
+          if (entry.status.failureDetails !== undefined) {
+            const details = new sidecarrpc.SwapUpdate.FailureDetails();
+            details.setActual(entry.status.failureDetails.actual);
+            details.setExpected(entry.status.failureDetails.expected);
+
+            update.setFailureDetails(details);
+          }
+
+          if (entry.status.channel !== undefined) {
+            const channel = new sidecarrpc.SwapUpdate.ChannelInfo();
+            channel.setFundingTransactionId(
+              entry.status.channel.fundingTransactionId,
+            );
+            channel.setFundingTransactionVout(
+              entry.status.channel.fundingTransactionVout,
+            );
+
+            update.setChannelInfo(channel);
+          }
+
+          return update;
+        }),
+      );
+
+      return req;
+    };
+
+    const call = this.client!.swapUpdate(this.clientMeta);
+
+    call.on('data', async (data: sidecarrpc.SwapUpdateResponse) => {
+      const status = (
+        await Promise.all(
+          data
+            .getIdsList()
+            .map(async (id) => ({ id, status: await this.swapInfos.get(id) })),
+        )
+      ).filter((update): update is Update => update.status !== undefined);
+      if (status.length === 0) {
+        return;
+      }
+
+      call.write(serializeSwapUpdate(status));
+    });
+
+    call.on('end', () => {
+      this.eventHandler.removeAllListeners();
+      call.cancel();
+    });
+
+    this.eventHandler.on('swap.update', async ({ id, status }) => {
+      call.write(serializeSwapUpdate([{ id, status }]));
+
+      await this.sendWebHook(id, status.status);
+    });
+  };
+
+  private sendWebHook = async (swapId: string, status: SwapUpdateEvent) => {
+    const req = new sidecarrpc.SendWebHookRequest();
+    req.setId(swapId);
+    req.setStatus(status);
+
+    try {
+      const res = await this.unaryNodeCall<
+        sidecarrpc.SendWebHookRequest,
+        sidecarrpc.SendWebHookResponse
+      >('sendWebHook', req, false);
+      return res.getOk();
+    } catch (e) {
+      // Ignore not found errors
+      if ((e as any).code === Status.NOT_FOUND) {
+        return true;
+      }
+
+      throw e;
+    }
+  };
+
   private tryConnect = async () => {
     const certPath =
       this.config.grpc.certificates ||
@@ -241,6 +342,9 @@ class Sidecar extends BaseClient {
 
     try {
       await this.getInfo();
+
+      this.subscribeSwapUpdates();
+
       this.setClientStatus(ClientStatus.Connected);
     } catch (error) {
       this.setClientStatus(ClientStatus.Disconnected);

@@ -11,6 +11,7 @@ interface IBoltzRService extends grpc.ServiceDefinition<grpc.UntypedServiceImple
     getInfo: IBoltzRService_IGetInfo;
     sendMessage: IBoltzRService_ISendMessage;
     getMessages: IBoltzRService_IGetMessages;
+    swapUpdate: IBoltzRService_ISwapUpdate;
     startWebHookRetries: IBoltzRService_IStartWebHookRetries;
     createWebHook: IBoltzRService_ICreateWebHook;
     sendWebHook: IBoltzRService_ISendWebHook;
@@ -43,6 +44,15 @@ interface IBoltzRService_IGetMessages extends grpc.MethodDefinition<boltzr_pb.Ge
     requestDeserialize: grpc.deserialize<boltzr_pb.GetMessagesRequest>;
     responseSerialize: grpc.serialize<boltzr_pb.GetMessagesResponse>;
     responseDeserialize: grpc.deserialize<boltzr_pb.GetMessagesResponse>;
+}
+interface IBoltzRService_ISwapUpdate extends grpc.MethodDefinition<boltzr_pb.SwapUpdateRequest, boltzr_pb.SwapUpdateResponse> {
+    path: "/boltzr.BoltzR/SwapUpdate";
+    requestStream: true;
+    responseStream: true;
+    requestSerialize: grpc.serialize<boltzr_pb.SwapUpdateRequest>;
+    requestDeserialize: grpc.deserialize<boltzr_pb.SwapUpdateRequest>;
+    responseSerialize: grpc.serialize<boltzr_pb.SwapUpdateResponse>;
+    responseDeserialize: grpc.deserialize<boltzr_pb.SwapUpdateResponse>;
 }
 interface IBoltzRService_IStartWebHookRetries extends grpc.MethodDefinition<boltzr_pb.StartWebHookRetriesRequest, boltzr_pb.StartWebHookRetriesResponse> {
     path: "/boltzr.BoltzR/StartWebHookRetries";
@@ -87,6 +97,7 @@ export interface IBoltzRServer extends grpc.UntypedServiceImplementation {
     getInfo: grpc.handleUnaryCall<boltzr_pb.GetInfoRequest, boltzr_pb.GetInfoResponse>;
     sendMessage: grpc.handleUnaryCall<boltzr_pb.SendMessageRequest, boltzr_pb.SendMessageResponse>;
     getMessages: grpc.handleServerStreamingCall<boltzr_pb.GetMessagesRequest, boltzr_pb.GetMessagesResponse>;
+    swapUpdate: grpc.handleBidiStreamingCall<boltzr_pb.SwapUpdateRequest, boltzr_pb.SwapUpdateResponse>;
     startWebHookRetries: grpc.handleUnaryCall<boltzr_pb.StartWebHookRetriesRequest, boltzr_pb.StartWebHookRetriesResponse>;
     createWebHook: grpc.handleUnaryCall<boltzr_pb.CreateWebHookRequest, boltzr_pb.CreateWebHookResponse>;
     sendWebHook: grpc.handleUnaryCall<boltzr_pb.SendWebHookRequest, boltzr_pb.SendWebHookResponse>;
@@ -102,6 +113,9 @@ export interface IBoltzRClient {
     sendMessage(request: boltzr_pb.SendMessageRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.SendMessageResponse) => void): grpc.ClientUnaryCall;
     getMessages(request: boltzr_pb.GetMessagesRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzr_pb.GetMessagesResponse>;
     getMessages(request: boltzr_pb.GetMessagesRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzr_pb.GetMessagesResponse>;
+    swapUpdate(): grpc.ClientDuplexStream<boltzr_pb.SwapUpdateRequest, boltzr_pb.SwapUpdateResponse>;
+    swapUpdate(options: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<boltzr_pb.SwapUpdateRequest, boltzr_pb.SwapUpdateResponse>;
+    swapUpdate(metadata: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<boltzr_pb.SwapUpdateRequest, boltzr_pb.SwapUpdateResponse>;
     startWebHookRetries(request: boltzr_pb.StartWebHookRetriesRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.StartWebHookRetriesResponse) => void): grpc.ClientUnaryCall;
     startWebHookRetries(request: boltzr_pb.StartWebHookRetriesRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.StartWebHookRetriesResponse) => void): grpc.ClientUnaryCall;
     startWebHookRetries(request: boltzr_pb.StartWebHookRetriesRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.StartWebHookRetriesResponse) => void): grpc.ClientUnaryCall;
@@ -126,6 +140,8 @@ export class BoltzRClient extends grpc.Client implements IBoltzRClient {
     public sendMessage(request: boltzr_pb.SendMessageRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.SendMessageResponse) => void): grpc.ClientUnaryCall;
     public getMessages(request: boltzr_pb.GetMessagesRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzr_pb.GetMessagesResponse>;
     public getMessages(request: boltzr_pb.GetMessagesRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzr_pb.GetMessagesResponse>;
+    public swapUpdate(options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<boltzr_pb.SwapUpdateRequest, boltzr_pb.SwapUpdateResponse>;
+    public swapUpdate(metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<boltzr_pb.SwapUpdateRequest, boltzr_pb.SwapUpdateResponse>;
     public startWebHookRetries(request: boltzr_pb.StartWebHookRetriesRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.StartWebHookRetriesResponse) => void): grpc.ClientUnaryCall;
     public startWebHookRetries(request: boltzr_pb.StartWebHookRetriesRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.StartWebHookRetriesResponse) => void): grpc.ClientUnaryCall;
     public startWebHookRetries(request: boltzr_pb.StartWebHookRetriesRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.StartWebHookRetriesResponse) => void): grpc.ClientUnaryCall;

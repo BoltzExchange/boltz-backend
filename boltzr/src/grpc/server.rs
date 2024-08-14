@@ -2,9 +2,11 @@ use crate::db::helpers::web_hook::WebHookHelper;
 use crate::evm::refund_signer::RefundSigner;
 use crate::grpc::service::boltzr::boltz_r_server::BoltzRServer;
 use crate::grpc::service::BoltzService;
+use crate::grpc::status_fetcher::StatusFetcher;
 use crate::grpc::tls::load_certificates;
 use crate::notifications::NotificationClient;
 use crate::webhook::caller::Caller;
+use crate::ws::types::SwapStatus;
 use serde::{Deserialize, Serialize};
 use std::cell::Cell;
 use std::error::Error;
@@ -36,6 +38,9 @@ pub struct Server<W, N> {
     refund_signer: Option<Arc<dyn RefundSigner + Sync + Send>>,
     notification_client: Option<Arc<N>>,
 
+    status_fetcher: StatusFetcher,
+    swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
+
     cancellation_token: CancellationToken,
 }
 
@@ -47,6 +52,7 @@ where
     pub fn new(
         cancellation_token: CancellationToken,
         config: Config,
+        swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
         web_hook_helper: Box<W>,
         web_hook_caller: Caller,
         refund_signer: Option<Arc<dyn RefundSigner + Sync + Send>>,
@@ -59,7 +65,13 @@ where
             web_hook_caller,
             cancellation_token,
             notification_client,
+            swap_status_update_tx,
+            status_fetcher: StatusFetcher::new(),
         }
+    }
+
+    pub fn status_fetcher(&self) -> StatusFetcher {
+        self.status_fetcher.clone()
     }
 
     pub async fn start(&mut self) -> Result<(), Box<dyn Error>> {
@@ -73,6 +85,8 @@ where
             Arc::new(Default::default());
 
         let service = BoltzService::new(
+            self.status_fetcher.clone(),
+            self.swap_status_update_tx.clone(),
             Arc::new(self.web_hook_helper.clone()),
             Arc::new(self.web_hook_caller.clone()),
             self.refund_signer.clone(),
@@ -130,6 +144,7 @@ mod server_test {
     use crate::grpc::service::boltzr::boltz_r_client::BoltzRClient;
     use crate::grpc::service::boltzr::GetInfoRequest;
     use crate::webhook::caller;
+    use crate::ws;
     use alloy::primitives::{Address, FixedBytes, Signature, U256};
     use mockall::{mock, predicate::*};
     use std::error::Error;
@@ -175,6 +190,7 @@ mod server_test {
     #[tokio::test]
     async fn test_connect() {
         let token = CancellationToken::new();
+        let (status_tx, _) = tokio::sync::broadcast::channel::<Vec<ws::types::SwapStatus>>(1);
 
         let server = Server::<_, crate::notifications::mattermost::Client>::new(
             token.clone(),
@@ -184,6 +200,7 @@ mod server_test {
                 certificates: None,
                 disable_ssl: Some(true),
             },
+            status_tx,
             Box::new(make_mock_hook_helper()),
             caller::Caller::new(
                 token.clone(),
@@ -298,6 +315,8 @@ mod server_test {
         let certs_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("test-certs-{}", port));
 
         let token = CancellationToken::new();
+        let (status_tx, _) = tokio::sync::broadcast::channel::<Vec<ws::types::SwapStatus>>(1);
+
         let server = Server::new(
             token.clone(),
             Config {
@@ -306,6 +325,7 @@ mod server_test {
                 certificates: Some(certs_dir.clone().to_str().unwrap().to_string()),
                 disable_ssl: Some(false),
             },
+            status_tx,
             Box::new(make_mock_hook_helper()),
             caller::Caller::new(
                 token.clone(),

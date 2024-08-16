@@ -1,5 +1,6 @@
 use crate::config::GlobalConfig;
 use crate::utils::built_info;
+use opentelemetry::trace::TracerProvider;
 use std::fs;
 use std::fs::OpenOptions;
 use std::path::Path;
@@ -162,7 +163,7 @@ fn init_tracer(
         )
         .install_batch(runtime::Tokio)?;
 
-    Ok(Some(tracer))
+    Ok(Some(tracer.tracer(built_info::PKG_NAME)))
 }
 
 #[cfg(any(feature = "loki", feature = "otel"))]

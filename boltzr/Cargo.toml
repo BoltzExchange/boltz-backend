@@ -35,19 +35,19 @@ panic = "abort"
 [dependencies]
 axum = { version = "0.7.5", optional = true }
 bitcoin_hashes = "0.14.0"
-clap = { version = "4.5.9", features = ["derive"] }
+clap = { version = "4.5.16", features = ["derive"] }
 crossbeam-channel = "0.5.13"
-ctrlc = { version = "3.4.4", features = ["termination"] }
+ctrlc = { version = "3.4.5", features = ["termination"] }
 dirs = "5.0.1"
 num_cpus = "1.16.0"
 prost = "0.13.1"
 rcgen = { version = "0.13.1", features = ["x509-parser"] }
 reqwest = { version = "0.12.5", features = ["json"] }
-serde = { version = "1.0.204", features = ["derive"] }
-serde_json = "1.0.120"
-tokio = { version = "1.38.0", features = ["rt-multi-thread", "macros"] }
-toml = "0.8.14"
-tonic = { version = "0.12.0", features = ["prost", "tls"] }
+serde = { version = "1.0.208", features = ["derive"] }
+serde_json = "1.0.125"
+tokio = { version = "1.39.2", features = ["rt-multi-thread", "macros"] }
+toml = "0.8.19"
+tonic = { version = "0.12.1", features = ["prost", "tls"] }
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 tokio-util = "0.7.11"
@@ -59,26 +59,26 @@ axum-prometheus = { version = "0.6.1", default-features = false, optional = true
 metrics = { version = "0.23.0", optional = true }
 diesel_migrations = "2.2.0"
 r2d2 = "0.8.10"
-diesel = { version = "2.2.1", default-features = false, features = ["postgres", "r2d2", "chrono"] }
+diesel = { version = "2.2.2", default-features = false, features = ["postgres", "r2d2", "chrono"] }
 strum_macros = "0.26.4"
 strum = "0.26.3"
 dashmap = "6.0.1"
-opentelemetry = { version = "0.23.0", optional = true }
+opentelemetry = { version = "0.24.0", optional = true }
 opentelemetry-semantic-conventions = { version = "0.16.0", optional = true }
-opentelemetry_sdk = { version = "0.23.0", optional = true, features = ["rt-tokio"] }
-opentelemetry-otlp = { version = "0.16.0", optional = true }
-tracing-opentelemetry = { version = "0.24.0", optional = true }
+opentelemetry_sdk = { version = "0.24.1", optional = true, features = ["rt-tokio"] }
+opentelemetry-otlp = { version = "0.17.0", optional = true }
+tracing-opentelemetry = { version = "0.25.0", optional = true }
 diesel-tracing = { version = "0.3.0", optional = true, features = ["postgres", "r2d2", "statement-fields"] }
-alloy = { version = "0.2.0", features = ["reqwest", "sol-types", "serde", "eip712", "signer-local", "signer-mnemonic", "providers", "transports", "contract", "json"] }
-alloy-transport-http = "0.2.0"
+alloy = { version = "0.2.1", features = ["reqwest", "sol-types", "serde", "eip712", "signer-local", "signer-mnemonic", "providers", "transports", "contract", "json"] }
+alloy-transport-http = "0.2.1"
 async-tungstenite = { version = "0.27.0", features = ["tokio-native-tls", "tokio-runtime"] }
 async-trait = "0.1.81"
 
 [build-dependencies]
 built = { version = "0.7.4", features = ["git2"] }
-tonic-build = "0.12.0"
+tonic-build = "0.12.1"
 
 [dev-dependencies]
-mockall = "0.12.1"
+mockall = "0.13.0"
 rand = "0.8.5"
 serial_test = "3.1.1"

@@ -1,9 +1,8 @@
-use std::error::Error;
-
 use axum::routing::get;
 use axum::Router;
 use metrics::{describe_counter, describe_gauge, Unit};
 use serde::{Deserialize, Serialize};
+use std::error::Error;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info};
 

@@ -3,6 +3,87 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [3.7.3](https://github.com/BoltzExchange/boltz-backend/compare/v3.7.2..v3.7.3) - 2024-08-16
+
+### Bug Fixes
+
+- **(cli)** certificates type - ([b86f475](https://github.com/BoltzExchange/boltz-backend/commit/b86f475869b2a25057cf9c99375f37b5fe29ed30))
+- non lowball 0-conf broadcasts through API (#610) - ([e38eb51](https://github.com/BoltzExchange/boltz-backend/commit/e38eb51c92486db4b8962fab63dc375b52cee6ea))
+- enforce correct limit for chain swaps (#613) - ([0d6f871](https://github.com/BoltzExchange/boltz-backend/commit/0d6f871e2a44e48e4d2afae3f0ab149084a80b1f))
+- make preimage optional in chain swap claim endpoint (#614) - ([ffde577](https://github.com/BoltzExchange/boltz-backend/commit/ffde577057c752a12074e0fc2ee6c2f33752560e))
+- match logger job name with tracing service - ([9e4f6f4](https://github.com/BoltzExchange/boltz-backend/commit/9e4f6f465f3e50a0159fcc6b6b354f8868419a1f))
+- try connect loop of sidecar - ([b42f684](https://github.com/BoltzExchange/boltz-backend/commit/b42f6847f29803770dfc06120e4f72515d647118))
+- persist swap failure reason (#621) - ([a5b52eb](https://github.com/BoltzExchange/boltz-backend/commit/a5b52eb6c18627fb0cafdefe9576e7d1d3a545f2))
+- coalesce sidecar certificate path - ([2eb0746](https://github.com/BoltzExchange/boltz-backend/commit/2eb0746dc6a8012f7515c2cf01195f1f0e74adca))
+- nicer error when chain swap already claimed - ([d04f520](https://github.com/BoltzExchange/boltz-backend/commit/d04f52087c2b04dc9fa3284ccebb73e4cd77f8e8))
+- lint errors for unused caught exceptions - ([cea5974](https://github.com/BoltzExchange/boltz-backend/commit/cea59747df654859c6d86f72a5041aba1c5eab7a))
+- use TEXT column type for BIP-21 in magic routing hints (#644) - ([4aa1955](https://github.com/BoltzExchange/boltz-backend/commit/4aa1955526d36b2d724b584dee4ec58b5eecdc85))
+- missing subscription ack message in WebSocket (#645) - ([3f26a68](https://github.com/BoltzExchange/boltz-backend/commit/3f26a6807ec933acbf9d3ab912ddd75f6bb7e365))
+
+### Documentation
+
+- add webhook documentation - ([f37091f](https://github.com/BoltzExchange/boltz-backend/commit/f37091f150d7fba8c240a4bbcf1b2d1e23da790a))
+- add swap status change info (#618) - ([fc3cfc3](https://github.com/BoltzExchange/boltz-backend/commit/fc3cfc3a9739a64b0871d55fe856196d9edad3ce))
+- update description of how preimages are revealed with taproot swaps (#639) - ([9c37770](https://github.com/BoltzExchange/boltz-backend/commit/9c37770fcdd2f096762aa291626326a03899f6cf))
+
+### Features
+
+- open WebSocket and streams metrics - ([546b202](https://github.com/BoltzExchange/boltz-backend/commit/546b202ff051b8d831476bcb737ddad44576ef93))
+- add OpenTelemetry - ([084f701](https://github.com/BoltzExchange/boltz-backend/commit/084f701fc7bb55254c91fdf7b92b754c2d7ce76a))
+- WebHook caller - ([319205a](https://github.com/BoltzExchange/boltz-backend/commit/319205a6d7328dd35a6c76da4ad3fd97a40c0e98))
+- implement WebHooks in API - ([9cef596](https://github.com/BoltzExchange/boltz-backend/commit/9cef596c876e8825c101f3b62154f2a0f50a3dcd))
+- tracing in sidecar - ([3b0ab89](https://github.com/BoltzExchange/boltz-backend/commit/3b0ab896d56f2bd90f20de899a064856c37a2471))
+- CLN backups to S3 compatible API - ([7b578ae](https://github.com/BoltzExchange/boltz-backend/commit/7b578ae6caed334fa41dea23fab0cc537e7b28c5))
+- send notification when invoice fails to settle - ([0d5698e](https://github.com/BoltzExchange/boltz-backend/commit/0d5698e7466e9d30560060f76627bd23142fc4fa))
+- custom Core RPC wallet names - ([ae1a009](https://github.com/BoltzExchange/boltz-backend/commit/ae1a009c89336a3ee1f1d04afd5196f6a261cf47))
+- Webhook status include list (#632) - ([c9358b0](https://github.com/BoltzExchange/boltz-backend/commit/c9358b0c3436b98f507b0ce0cef3adadf923ba41))
+- configurable RSK network name (#633) - ([12d8876](https://github.com/BoltzExchange/boltz-backend/commit/12d88768b48b7eec70ffa9f92eb318600cbcf16d))
+- EVM transaction labels (#637) - ([ce5b487](https://github.com/BoltzExchange/boltz-backend/commit/ce5b4873e21073b9e5e8d89d4437c1e4229ae436))
+- command to query transaction labels (#641) - ([0fc173e](https://github.com/BoltzExchange/boltz-backend/commit/0fc173e6cefce2160f39f4ef472b84273c698bea))
+- description hashes for reverse swap invoices - ([10c926f](https://github.com/BoltzExchange/boltz-backend/commit/10c926f44f0c237cb932e19133690dd86b38d02b))
+- sign cooperative EVM refund by preimage hash (#643) - ([96410c3](https://github.com/BoltzExchange/boltz-backend/commit/96410c3ff0d241150ff868eb39430b64b94d9622))
+- include timestamp in WebSocket swap updates - ([9a44944](https://github.com/BoltzExchange/boltz-backend/commit/9a44944bb1fbf951f38d051f2fab256721e4b24c))
+
+### Miscellaneous Chores
+
+- add CHANGELOG for v3.7.2 - ([f7ef24e](https://github.com/BoltzExchange/boltz-backend/commit/f7ef24e0b36ca54a44be1f04323594ebe08546ee))
+- move swap related non lowball tx logging - ([a34d0d7](https://github.com/BoltzExchange/boltz-backend/commit/a34d0d7cf25cf5ad1e4827f5936c7d113059a070))
+- update sidecar to changed config keys - ([d683b8f](https://github.com/BoltzExchange/boltz-backend/commit/d683b8f77748654f90838b02686028b12b47c56d))
+- allow slight version mismatch in dev - ([a12561f](https://github.com/BoltzExchange/boltz-backend/commit/a12561f5e5bffc672121d12fafd230f195fa80f5))
+- bump openssl from 0.10.64 to 0.10.66 in /boltzr (#615) - ([99deedb](https://github.com/BoltzExchange/boltz-backend/commit/99deedbc9e0a4df45f0ba46a7a9767f105afd74f))
+- use prettier for Markdown files (#619) - ([20027c1](https://github.com/BoltzExchange/boltz-backend/commit/20027c1758d0eba5e8b37b7b49db480c49c3d651))
+- trace commands from mattermost - ([0deaf40](https://github.com/BoltzExchange/boltz-backend/commit/0deaf401645dc25c47bb077d081966785ef1bbbf))
+- remove WebDav backup provider - ([ca61096](https://github.com/BoltzExchange/boltz-backend/commit/ca610965d52eaddf224e45fdd8987e5736b1ca66))
+- update dependencies - ([9c52375](https://github.com/BoltzExchange/boltz-backend/commit/9c523757a08e4930ce8288427e6509ec4f06315c))
+- make webhook config of sidecar optional - ([b72aca4](https://github.com/BoltzExchange/boltz-backend/commit/b72aca441960017d5c2f11d0000a7ec19b3252ba))
+- disable ARM64 builds in CI again - ([c42a756](https://github.com/BoltzExchange/boltz-backend/commit/c42a756c1adf80c2033ade75237b7dfa43921708))
+- bump fast-xml-parser from 4.3.2 to 4.4.1 (#629) - ([9707526](https://github.com/BoltzExchange/boltz-backend/commit/9707526d77b7fdaf8ce2b942468e7b17d761fcf0))
+- bump max custom invoice description length (#630) - ([b488a3a](https://github.com/BoltzExchange/boltz-backend/commit/b488a3ab44a75411f5a04ba8b06e4521f3b1ec6a))
+- change regtest chain id to 33 - ([2954dbf](https://github.com/BoltzExchange/boltz-backend/commit/2954dbfbdda2f5e418c06bc594a95c59d22213ab))
+- remove disk usage checker - ([8edc1b9](https://github.com/BoltzExchange/boltz-backend/commit/8edc1b9a2da186612416135d29b2e272b19c7d0a))
+- get rid of dyn-clone - ([fb9eef8](https://github.com/BoltzExchange/boltz-backend/commit/fb9eef8d0ea0ea7290eaf4beb25f7f12f59c97b9))
+- bump axios to v1.7.4 - ([c1819d0](https://github.com/BoltzExchange/boltz-backend/commit/c1819d0ff94c782eb8386769dc12302b6fc200bd))
+- bump LND to v0.18.3 - ([3b079df](https://github.com/BoltzExchange/boltz-backend/commit/3b079df84fdb31fa41fd8481a9b2a9386c449862))
+- bump version to v3.7.3 - ([aad3f28](https://github.com/BoltzExchange/boltz-backend/commit/aad3f288d5fe1ebb797c481de7e94aed52edae15))
+
+### Refactoring
+
+- move sidecar child process logic - ([a376a78](https://github.com/BoltzExchange/boltz-backend/commit/a376a78a56d21021f1e55338f72567f46a79646a))
+- improve API tracing - ([beb6bc5](https://github.com/BoltzExchange/boltz-backend/commit/beb6bc5757f4c3a67f5275b3d0519038e08b303c))
+- remove Discord - ([4b20209](https://github.com/BoltzExchange/boltz-backend/commit/4b20209f498327cb8f535e004c9479397e853bd9))
+- remove SQLite database backend - ([e7f988e](https://github.com/BoltzExchange/boltz-backend/commit/e7f988ed4b10f61c85bf43e885e1c900a1cf672a))
+- remove unused getWalletInfo method - ([6663858](https://github.com/BoltzExchange/boltz-backend/commit/666385811c9c8d64b1490480a1bc0220d8400b0a))
+- remove WebDAV CLN backups - ([22d08c6](https://github.com/BoltzExchange/boltz-backend/commit/22d08c633499b09164cfc332afcb61b2a03287ab))
+- move EIP-712 signing to sidecar (#631) - ([d86ea12](https://github.com/BoltzExchange/boltz-backend/commit/d86ea127c1bf0b4cf18bec710ac5da4553de3d0a))
+- move Mattermost to sidecar - ([aa1cac3](https://github.com/BoltzExchange/boltz-backend/commit/aa1cac3181f71041f2ca1827b5b4ab0c116fd72b))
+- move WebSockets to sidecar - ([69566b5](https://github.com/BoltzExchange/boltz-backend/commit/69566b59f1a75291f4cadaf59b3430e59b8101df))
+
+### Tests
+
+- sidecar database interactions and gRPC service - ([815d60d](https://github.com/BoltzExchange/boltz-backend/commit/815d60d64b00564674999129e80ff64473ea2fcc))
+- Webhook integration in backend - ([0de07fe](https://github.com/BoltzExchange/boltz-backend/commit/0de07fe2ed4d8d4fc8390a72108d257c34b4a4e9))
+
+---
 ## [3.7.2](https://github.com/BoltzExchange/boltz-backend/compare/v3.7.1..v3.7.2) - 2024-07-15
 
 ### Bug Fixes

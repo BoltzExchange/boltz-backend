@@ -6,6 +6,7 @@ import Config, { ConfigType, TokenConfig } from './Config';
 import { setup } from './Core';
 import { registerExitHandler } from './ExitHandler';
 import Logger from './Logger';
+import Profiling from './Profiling';
 import Prometheus from './Prometheus';
 import { formatError, getVersion } from './Utils';
 import VersionCheck from './VersionCheck';
@@ -73,9 +74,16 @@ class Boltz {
       this.logger.debug('Enabling OpenTelemetry');
       Tracing.init(this.config.otlpEndpoint, this.config.network);
     } else {
-      this.logger.debug(
+      this.logger.warn(
         'Not enabling OpenTelemetry because it was not configured',
       );
+    }
+
+    if (this.config.profilingEndpoint && this.config.network) {
+      this.logger.debug('Enabling profiling');
+      Profiling.init(this.config.profilingEndpoint, this.config.network);
+    } else {
+      this.logger.warn('Not enabling profiling because it was not configured');
     }
 
     this.logger.info(
@@ -96,8 +104,10 @@ class Boltz {
 
       await Sidecar.stop();
 
-      await this.logger.close();
+      await Profiling.stop();
       await Tracing.stop();
+
+      await this.logger.close();
     });
 
     process.on('unhandledRejection', (reason, promise) => {

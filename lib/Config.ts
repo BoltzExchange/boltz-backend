@@ -186,6 +186,7 @@ type ConfigType = {
 
   lokiEndpoint?: string;
   otlpEndpoint?: string;
+  profilingEndpoint?: string;
 
   prometheus?: PrometheusConfig;
 

@@ -1,12 +1,14 @@
 use crate::config::GlobalConfig;
 use crate::utils::built_info;
-use opentelemetry::trace::TracerProvider;
 use std::fs;
 use std::fs::OpenOptions;
 use std::path::Path;
 use tracing::{debug, error, info, warn, Subscriber};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::{fmt, EnvFilter, Layer, Registry};
+
+#[cfg(feature = "otel")]
+use opentelemetry::trace::TracerProvider;
 
 macro_rules! stdout_tracing {
     ($level: expr) => {
@@ -102,10 +104,10 @@ fn setup_loki(
 
     info!("Enabling Loki");
 
-    let network = get_network(config);
+    let network = crate::utils::get_network(&config.network);
     let (loki_layer, loki_task) = tracing_loki::builder()
-        .label("job", get_name(&network))?
-        .label("service_name", get_name(&network))?
+        .label("job", crate::utils::get_name(&network))?
+        .label("service_name", crate::utils::get_name(&network))?
         .label("application", "sidecar")?
         .label("network", network)?
         .extra_field("pid", format!("{}", std::process::id()))?
@@ -143,7 +145,7 @@ fn init_tracer(
             opentelemetry_sdk::Resource::new(vec![
                 opentelemetry::KeyValue::new(
                     opentelemetry_semantic_conventions::resource::SERVICE_NAME,
-                    get_name(&get_network(config)),
+                    crate::utils::get_name(&crate::utils::get_network(&config.network)),
                 ),
                 opentelemetry::KeyValue::new(
                     opentelemetry_semantic_conventions::resource::SERVICE_VERSION,
@@ -164,16 +166,6 @@ fn init_tracer(
         .install_batch(runtime::Tokio)?;
 
     Ok(Some(tracer.tracer(built_info::PKG_NAME)))
-}
-
-#[cfg(any(feature = "loki", feature = "otel"))]
-fn get_name(network: &str) -> String {
-    format!("boltz-backend-{}-{}", network, built_info::PKG_NAME)
-}
-
-#[cfg(any(feature = "loki", feature = "otel"))]
-fn get_network(config: &GlobalConfig) -> String {
-    config.network.clone().unwrap_or("regtest".to_string())
 }
 
 fn get_filter(log_level: String, is_otel: bool) -> EnvFilter {

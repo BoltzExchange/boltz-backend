@@ -20,9 +20,19 @@ pub fn get_version() -> String {
     )
 }
 
+#[cfg(any(feature = "loki", feature = "otel"))]
+pub fn get_name(network: &str) -> String {
+    format!("boltz-backend-{}-{}", network, built_info::PKG_NAME)
+}
+
+#[cfg(any(feature = "loki", feature = "otel"))]
+pub fn get_network(network: &Option<String>) -> String {
+    network.clone().unwrap_or("regtest".to_string())
+}
+
 #[cfg(test)]
 mod utils_test {
-    use crate::utils::get_version;
+    use crate::utils::*;
 
     #[test]
     fn test_get_version() {
@@ -30,5 +40,23 @@ mod utils_test {
         let split: Vec<&str> = version.split('-').collect();
         // For compatibility with the backend
         assert_eq!(split[1].to_string().len(), 8);
+    }
+
+    #[test]
+    fn test_get_name() {
+        assert_eq!(get_name("regtest"), "boltz-backend-regtest-boltzr");
+    }
+
+    #[test]
+    fn test_get_network() {
+        assert_eq!(
+            get_network(&Some("mainnet".to_string())),
+            "mainnet".to_string()
+        );
+        assert_eq!(
+            get_network(&Some("testnet".to_string())),
+            "testnet".to_string()
+        );
+        assert_eq!(get_network(&None), "regtest".to_string());
     }
 }

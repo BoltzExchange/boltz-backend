@@ -43,6 +43,8 @@ message ListPaymentsRequest {
     string bolt11 = 1;
     string payment_hash = 2;
   }
+  optional uint64 start_id = 3;
+  optional uint32 limit = 4;
 }
 
 message ListPaymentsResponse {

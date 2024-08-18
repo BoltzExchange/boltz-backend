@@ -1,4 +1,6 @@
-from typing import Iterator, Optional
+from __future__ import annotations
+
+from typing import Iterator
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
@@ -12,15 +14,15 @@ class Payments:
         return Payments._fetch(s, payment_hash)
 
     @staticmethod
-    def fetch_all(s: Session, start_id: int = None, limit=None) -> Iterator[Payment]:
+    def fetch_all(s: Session, start_id: int, limit: int) -> Iterator[Payment]:
         return Payments._fetch(s, None, start_id, limit)
 
     @staticmethod
     def _fetch(
-            s: Session,
-            payment_hash: Optional[str] = None,
-            start_id: Optional[int] = None,
-            limit: Optional[int] = None,
+        s: Session,
+        payment_hash: str | None,
+        start_id: int | None,
+        limit: int | None,
     ) -> Iterator[Payment]:
         query = (
             select(Payment)

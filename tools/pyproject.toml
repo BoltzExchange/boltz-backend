@@ -13,7 +13,7 @@ ruff = "^0.4.8"
 pyln-client = "^24.5"
 bolt11 = "^2.0.6"
 grpcio = "^1.64.1"
-grpcio-tools = "^1.64.1"
+grpcio-tools = "1.65.5"
 grpc-interceptor = "^0.15.4"
 cryptography = "^41.0.7"
 psycopg = { version = "^3.1.18", extras = ["binary"] }

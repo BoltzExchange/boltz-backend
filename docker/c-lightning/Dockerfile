@@ -19,6 +19,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get install -y \
   rustfmt \
   autoconf \
   automake \
+  libpq-dev \
   net-tools \
   libgmp-dev \
   zlib1g-dev \
@@ -52,6 +53,7 @@ RUN apt-get update && \
   apt-get -y install \
   python3 \
   sqlite3 \
+  libpq-dev \
   libsodium23 \
   python3-pip \
   libevent-dev \

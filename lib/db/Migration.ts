@@ -15,6 +15,7 @@ import { Currency } from '../wallet/WalletManager';
 import ChannelCreation from './models/ChannelCreation';
 import DatabaseVersion from './models/DatabaseVersion';
 import LightningPayment from './models/LightningPayment';
+import PendingLockupTransaction from './models/PendingLockupTransaction';
 import Referral from './models/Referral';
 import ReverseSwap, { NodeType } from './models/ReverseSwap';
 import Swap from './models/Swap';
@@ -22,7 +23,7 @@ import DatabaseVersionRepository from './repositories/DatabaseVersionRepository'
 
 // TODO: integration tests for actual migrations
 class Migration {
-  private static latestSchemaVersion = 9;
+  private static latestSchemaVersion = 10;
 
   constructor(
     private logger: Logger,
@@ -441,6 +442,17 @@ class Migration {
               allowNull: true,
             });
         }
+
+        await this.finishMigration(versionRow.version, currencies);
+        break;
+      }
+
+      case 9: {
+        await this.sequelize
+          .getQueryInterface()
+          .addColumn(PendingLockupTransaction.tableName, 'transaction', {
+            type: new DataTypes.STRING(),
+          });
 
         await this.finishMigration(versionRow.version, currencies);
         break;

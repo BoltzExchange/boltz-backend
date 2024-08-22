@@ -90,18 +90,22 @@ describe('LockupTransactionTracker', () => {
         PendingLockupTransactionRepository.create = jest.fn();
 
         const id = generateId();
-        await tracker.addPendingTransactionToTrack({
-          id,
-          pair,
-          orderSide,
-          type: SwapType.Submarine,
-        } as any);
+        await tracker.addPendingTransactionToTrack(
+          {
+            id,
+            pair,
+            orderSide,
+            type: SwapType.Submarine,
+          } as any,
+          'hex',
+        );
         expect(PendingLockupTransactionRepository.create).toHaveBeenCalledTimes(
           1,
         );
         expect(PendingLockupTransactionRepository.create).toHaveBeenCalledWith(
           id,
           chainCurrency,
+          'hex',
         );
       },
     );
@@ -118,28 +122,35 @@ describe('LockupTransactionTracker', () => {
         PendingLockupTransactionRepository.create = jest.fn();
 
         const id = generateId();
-        await tracker.addPendingTransactionToTrack({
-          id,
-          pair,
-          orderSide,
-          type: SwapType.Chain,
-        } as any);
+        await tracker.addPendingTransactionToTrack(
+          {
+            id,
+            pair,
+            orderSide,
+            type: SwapType.Chain,
+          } as any,
+          'hex',
+        );
         expect(PendingLockupTransactionRepository.create).toHaveBeenCalledTimes(
           1,
         );
         expect(PendingLockupTransactionRepository.create).toHaveBeenCalledWith(
           id,
           chainCurrency,
+          'hex',
         );
       },
     );
 
     test('should throw when transaction of chain currency that is not being tracked is added', async () => {
       await expect(
-        tracker.addPendingTransactionToTrack({
-          pair: 'NOT/TRACKED',
-          orderSide: OrderSide.BUY,
-        } as unknown as Swap),
+        tracker.addPendingTransactionToTrack(
+          {
+            pair: 'NOT/TRACKED',
+            orderSide: OrderSide.BUY,
+          } as unknown as Swap,
+          'hex',
+        ),
       ).rejects.toEqual(Errors.SYMBOL_LOCKUPS_NOT_BEING_TRACKED('TRACKED'));
 
       expect(PendingLockupTransactionRepository.create).toHaveBeenCalledTimes(

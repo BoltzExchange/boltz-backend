@@ -683,7 +683,10 @@ class UtxoNursery extends TypedEventEmitter<{
       }
 
       this.logZeroConfAccepted(swap, transaction, swapOutput);
-      await this.lockupTransactionTracker.addPendingTransactionToTrack(swap);
+      await this.lockupTransactionTracker.addPendingTransactionToTrack(
+        swap,
+        transaction.toHex(),
+      );
     }
 
     chainClient.removeOutputFilter(swapOutput.script);
@@ -794,7 +797,10 @@ class UtxoNursery extends TypedEventEmitter<{
       }
 
       this.logZeroConfAccepted(swap, transaction, swapOutput);
-      await this.lockupTransactionTracker.addPendingTransactionToTrack(swap);
+      await this.lockupTransactionTracker.addPendingTransactionToTrack(
+        swap,
+        transaction.toHex(),
+      );
     }
 
     chainClient.removeOutputFilter(swapOutput.script);

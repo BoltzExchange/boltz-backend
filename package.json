@@ -8,6 +8,7 @@
     "proto": "node protos.js",
     "precompile": "node parseGitCommit.js",
     "compile": "npm run compile:rust && npm run compile:typescript",
+    "compile:release": "npm run compile:rust:release && npm run compile:typescript",
     "compile:typescript": "npm run swagger && tsc && cross-os postcompile",
     "compile:rust": "cd boltzr && cargo build",
     "compile:rust:release": "cd boltzr && cargo build --release",

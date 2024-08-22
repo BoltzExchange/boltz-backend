@@ -38,8 +38,7 @@ RUN sed -i "/grpc-tools/d" package.json
 
 RUN npm install -g npm
 RUN npm install
-RUN npm run compile:typescript
-RUN npm run compile:rust:release
+RUN npm run compile:release
 
 # We do not need dev dependencies in the final image
 RUN rm -rf node_modules && npm install --omit dev

@@ -47,7 +47,10 @@ class LockupTransactionTracker extends TypedEventEmitter<{
   public zeroConfAccepted = (symbol: string): boolean =>
     this.zeroConfAcceptedMap.get(symbol) || false;
 
-  public addPendingTransactionToTrack = async (swap: Swap | ChainSwapInfo) => {
+  public addPendingTransactionToTrack = async (
+    swap: Swap | ChainSwapInfo,
+    transactionHex: string,
+  ) => {
     const { base, quote } = splitPairId(swap.pair);
     const chainCurrency =
       swap.type === SwapType.Submarine
@@ -58,7 +61,11 @@ class LockupTransactionTracker extends TypedEventEmitter<{
       throw Errors.SYMBOL_LOCKUPS_NOT_BEING_TRACKED(chainCurrency);
     }
 
-    await PendingLockupTransactionRepository.create(swap.id, chainCurrency);
+    await PendingLockupTransactionRepository.create(
+      swap.id,
+      chainCurrency,
+      transactionHex,
+    );
   };
 
   private listenToBlocks = (chainClient: IChainClient) => {

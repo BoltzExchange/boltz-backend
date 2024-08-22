@@ -24,6 +24,10 @@ class PendingLockupTransaction
           type: new DataTypes.STRING(255),
           allowNull: false,
         },
+        transaction: {
+          type: new DataTypes.TEXT(),
+          allowNull: false,
+        },
       },
       {
         sequelize,

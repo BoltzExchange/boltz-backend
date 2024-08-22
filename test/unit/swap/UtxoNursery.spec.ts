@@ -503,6 +503,7 @@ describe('UtxoNursery', () => {
     expect(lockupTracker.addPendingTransactionToTrack).toHaveBeenCalledTimes(1);
     expect(lockupTracker.addPendingTransactionToTrack).toHaveBeenCalledWith(
       mockGetSwapResult,
+      transaction.toHex(),
     );
 
     expect(eventEmitted).toEqual(true);

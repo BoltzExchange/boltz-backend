@@ -118,7 +118,7 @@ where
     }
 
     async fn accept_connection(self, stream: TcpStream) {
-        debug!(
+        trace!(
             "New connection: {}",
             match stream.peer_addr() {
                 Ok(peer) => {
@@ -154,7 +154,7 @@ where
                         let msg = match msg {
                             Ok(msg) => msg,
                             Err(err) => {
-                                warn!("Could not receive message: {}", err);
+                                trace!("Could not receive message: {}", err);
                                 break;
                             }
                         };
@@ -170,11 +170,11 @@ where
                                     match res {
                                         Ok(res) => {
                                             if let Err(err) = ws_sender.send(Message::Text(res)).await {
-                                                warn!("Could not send message: {}", err);
+                                                trace!("Could not send message: {}", err);
                                             }
                                         },
                                         Err(err) => {
-                                            warn!("Could not serialize message: {}", err);
+                                            trace!("Could not serialize message: {}", err);
                                             break;
                                         }
                                     }
@@ -182,7 +182,7 @@ where
                             },
                             Message::Ping(payload) => {
                                 if let Err(err) = ws_sender.send(Message::Pong(payload)).await {
-                                    warn!("Could not respond to ping: {}", err);
+                                    trace!("Could not respond to ping: {}", err);
                                     break;
                                 }
                             },
@@ -223,7 +223,7 @@ where
                                 },
                             };
                             if let Err(err) = ws_sender.send(Message::Text(msg)).await {
-                                warn!("Could not send swap update: {}", err);
+                                trace!("Could not send swap update: {}", err);
                                 break;
                             }
                         },
@@ -236,7 +236,7 @@ where
                 _ = interval.tick() => {
                     trace!("Pinging socket");
                     if let Err(err) = ws_sender.send(Message::Ping(Vec::new())).await {
-                        warn!("Could not send ping: {}", err);
+                        trace!("Could not send ping: {}", err);
                         break;
                     }
                 },
@@ -266,7 +266,7 @@ where
                 });
             }
         };
-        debug!("Got message: {:?}", msg);
+        trace!("Got message: {:?}", msg);
 
         match msg {
             WsRequest::Subscribe(sub) => match sub.channel {

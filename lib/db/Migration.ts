@@ -451,7 +451,7 @@ class Migration {
         await this.sequelize
           .getQueryInterface()
           .addColumn(PendingLockupTransaction.tableName, 'transaction', {
-            type: new DataTypes.STRING(),
+            type: new DataTypes.TEXT(),
           });
 
         await this.finishMigration(versionRow.version, currencies);

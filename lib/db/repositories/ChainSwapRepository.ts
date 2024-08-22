@@ -38,6 +38,10 @@ class ChainSwapInfo {
     return this.chainSwap.status as SwapUpdateEvent;
   }
 
+  get acceptZeroConf() {
+    return this.chainSwap.acceptZeroConf;
+  }
+
   get failureReason() {
     return this.chainSwap.failureReason;
   }

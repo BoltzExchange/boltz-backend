@@ -99,6 +99,14 @@ class ElementsWrapper
     return this.publicClient().sendRawTransaction(transactionHex);
   };
 
+  public sendRawTransactionAll = async (transactionHex: string) => {
+    return (
+      await Promise.all(
+        this.clients.map((c) => c.sendRawTransaction(transactionHex)),
+      )
+    )[0];
+  };
+
   public getRawTransaction = (transactionId: string) =>
     allSettledFirst(
       this.clients.map((c) => c.getRawTransaction(transactionId)),

@@ -14,6 +14,7 @@ import {
 import Logger from '../Logger';
 import {
   chunkArray,
+  formatError,
   getChainCurrency,
   getHexBuffer,
   getHexString,
@@ -24,6 +25,8 @@ import {
   transactionSignalsRbfExplicitly,
 } from '../Utils';
 import { IChainClient } from '../chain/ChainClient';
+import ElementsClient from '../chain/ElementsClient';
+import ElementsWrapper from '../chain/ElementsWrapper';
 import {
   CurrencyType,
   SwapType,
@@ -32,7 +35,6 @@ import {
   swapTypeToPrettyString,
 } from '../consts/Enums';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
-import ChainSwap from '../db/models/ChainSwap';
 import ReverseSwap from '../db/models/ReverseSwap';
 import Swap from '../db/models/Swap';
 import ChainSwapRepository, {
@@ -669,7 +671,7 @@ class UtxoNursery extends TypedEventEmitter<{
 
     if (!confirmed) {
       const zeroConfRejectedReason = await this.acceptsZeroConf(
-        swap.chainSwap,
+        swap,
         chainClient,
         transaction,
       );
@@ -841,7 +843,7 @@ class UtxoNursery extends TypedEventEmitter<{
   };
 
   private acceptsZeroConf = async (
-    swap: Swap | ChainSwap,
+    swap: Swap | ChainSwapInfo,
     chainClient: IChainClient,
     transaction: Transaction | LiquidTransaction,
   ) => {
@@ -852,12 +854,7 @@ class UtxoNursery extends TypedEventEmitter<{
       return Errors.SWAP_DOES_NOT_ACCEPT_ZERO_CONF().message;
     }
 
-    const signalsRBF = await this.transactionSignalsRbf(
-      chainClient,
-      transaction,
-    );
-
-    if (signalsRBF) {
+    if (await this.transactionSignalsRbf(chainClient, transaction)) {
       return Errors.LOCKUP_TRANSACTION_SIGNALS_RBF().message;
     }
 
@@ -876,6 +873,25 @@ class UtxoNursery extends TypedEventEmitter<{
     // every fee paid by the transaction will be accepted
     if (transactionFeePerVbyte / feeEstimation < 0.8 && feeEstimation !== 2) {
       return Errors.LOCKUP_TRANSACTION_FEE_TOO_LOW().message;
+    }
+
+    // Make sure all clients accept the transaction
+    if (
+      chainClient.symbol === ElementsClient.symbol &&
+      !ElementsClient.needsLowball(transaction as LiquidTransaction)
+    ) {
+      if (chainClient instanceof ElementsWrapper) {
+        const wrapper = chainClient as ElementsWrapper;
+
+        try {
+          await wrapper.sendRawTransactionAll(transaction.toHex());
+        } catch (e) {
+          this.logger.warn(
+            `Rejecting 0-conf for ${chainClient.symbol} lockup transaction ${transaction.getId()} of ${swapTypeToPrettyString(swap.type)} ${swap.id} because not all nodes accept it: ${formatError(e)}`,
+          );
+          return Errors.SWAP_DOES_NOT_ACCEPT_ZERO_CONF().message;
+        }
+      }
     }
 
     return undefined;

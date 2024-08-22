@@ -25,6 +25,7 @@ RUN apt-get update && \
   python3 \
   libtool \
   autoconf \
+  libpq-dev \
   libdb-dev \
   pkg-config \
   python3-pip \

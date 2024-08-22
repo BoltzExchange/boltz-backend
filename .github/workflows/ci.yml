@@ -16,6 +16,8 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v4
+        with:
+          submodules: 'true'
 
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
@@ -68,7 +70,7 @@ jobs:
         run: npm run python:lint
 
       - name: Start hold invoice plugin
-        run: docker exec regtest lightning-cli plugin start /root/hold.sh
+        run: npm run docker:cln:hold
 
       - name: Start mpay plugin
         run: docker exec regtest lightning-cli plugin start /root/mpay.sh
@@ -80,7 +82,7 @@ jobs:
         run: node run-int.js
 
       - name: Stop hold invoice plugin
-        run: docker exec regtest lightning-cli plugin stop /root/hold.sh
+        run: docker exec regtest lightning-cli plugin stop /root/.lightning/plugins/hold
 
       - name: Stop mpay plugin
         run: docker exec regtest lightning-cli plugin stop /root/mpay.sh

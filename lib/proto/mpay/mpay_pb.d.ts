@@ -166,6 +166,11 @@ export class ListPaymentsRequest extends jspb.Message {
     getPaymentHash(): string;
     setPaymentHash(value: string): ListPaymentsRequest;
 
+    hasPagination(): boolean;
+    clearPagination(): void;
+    getPagination(): PaginationParams | undefined;
+    setPagination(value?: PaginationParams): ListPaymentsRequest;
+
     getIdentifierCase(): ListPaymentsRequest.IdentifierCase;
 
     serializeBinary(): Uint8Array;
@@ -182,14 +187,39 @@ export namespace ListPaymentsRequest {
     export type AsObject = {
         bolt11: string,
         paymentHash: string,
+        pagination?: PaginationParams.AsObject,
     }
 
     export enum IdentifierCase {
         IDENTIFIER_NOT_SET = 0,
         BOLT11 = 1,
         PAYMENT_HASH = 2,
+        PAGINATION = 3,
     }
 
+}
+
+export class PaginationParams extends jspb.Message { 
+    getOffset(): number;
+    setOffset(value: number): PaginationParams;
+    getLimit(): number;
+    setLimit(value: number): PaginationParams;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): PaginationParams.AsObject;
+    static toObject(includeInstance: boolean, msg: PaginationParams): PaginationParams.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: PaginationParams, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): PaginationParams;
+    static deserializeBinaryFromReader(message: PaginationParams, reader: jspb.BinaryReader): PaginationParams;
+}
+
+export namespace PaginationParams {
+    export type AsObject = {
+        offset: number,
+        limit: number,
+    }
 }
 
 export class ListPaymentsResponse extends jspb.Message { 

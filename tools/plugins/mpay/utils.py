@@ -1,4 +1,10 @@
+from datetime import datetime, timezone
+
 from pyln.client import Millisatoshi
+
+
+def time_now() -> datetime:
+    return datetime.now(tz=timezone.utc)
 
 
 def format_error(e: BaseException) -> str:

@@ -10,7 +10,7 @@ from cryptography.hazmat.primitives.asymmetric.ec import (
 )
 from cryptography.x509.oid import NameOID
 
-from plugins.hold.utils import time_now
+from plugins.mpay.utils import time_now
 
 
 @dataclass

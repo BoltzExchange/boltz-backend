@@ -3,7 +3,7 @@ import time
 from bolt11 import Bolt11, decode
 from pyln.client import Plugin
 
-from plugins.hold.encoder import get_network_prefix
+from plugins.mpay.consts import Network
 
 
 class InvoiceNoSelfPaymentError(Exception):
@@ -20,6 +20,23 @@ class InvoiceExpiredError(Exception):
 
 class InvoiceNoAmountError(Exception):
     pass
+
+
+NETWORK_PREFIXES = {
+    Network.Mainnet: "bc",
+    Network.Testnet: "tb",
+    Network.Signet: "tbs",
+    Network.Regtest: "bcrt",
+}
+
+
+def get_network_prefix(network: str) -> str:
+    # noinspection PyTypeChecker
+    return (
+        NETWORK_PREFIXES[network]
+        if network in NETWORK_PREFIXES
+        else NETWORK_PREFIXES[Network.Mainnet]
+    )
 
 
 class InvoiceChecker:

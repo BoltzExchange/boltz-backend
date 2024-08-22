@@ -8,6 +8,7 @@ docker run \
   --volume "${PWD}"/docker/regtest/data/cln/hold:/root/.lightning/regtest/hold \
   --volume "${PWD}"/docker/regtest/data/cln/mpay:/root/.lightning/regtest/mpay \
   --volume "${PWD}"/tools:/tools \
+  --volume "${PWD}"/docker/regtest/data/cln/plugins:/root/.lightning/plugins \
   -p 29000:29000 \
   -p 29001:29001 \
   -p 29002:29002 \
@@ -32,3 +33,4 @@ docker run \
 
 docker exec regtest bash -c "cp /root/.lightning/regtest/*.pem /root/.lightning/regtest/certs"
 docker exec regtest chmod -R 777 /root/.lightning/regtest/certs
+docker exec regtest chmod -R 777 /root/.lightning/plugins

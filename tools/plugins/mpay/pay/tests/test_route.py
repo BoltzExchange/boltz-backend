@@ -7,9 +7,9 @@ from typing import Any
 import pytest
 from pyln.client import Millisatoshi
 
-from plugins.hold.tests.utils import RpcPlugin
 from plugins.mpay.data.network_info import ChannelInfo, NetworkInfo
 from plugins.mpay.pay.route import Fees, Route, RoutingHint
+from plugins.mpay.tests.utils import RpcPlugin
 
 
 class TestRoute:

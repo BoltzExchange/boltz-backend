@@ -3,11 +3,11 @@ from typing import Any
 import pytest
 from pyln.client import Millisatoshi
 
-from plugins.hold.tests.utils import LndNode, RpcPlugin, cln_con, lnd
 from plugins.mpay.data.network_info import NetworkInfo
 from plugins.mpay.pay.channels import ChannelsHelper, NoRouteError, PeerChannels
 from plugins.mpay.pay.excludes import Excludes, ExcludesPayment
 from plugins.mpay.pay.route import Fees, Route
+from plugins.mpay.tests.utils import LndNode, RpcPlugin, cln_con, lnd
 
 
 class TestPeerChannels:

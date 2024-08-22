@@ -86,8 +86,8 @@ class VersionCheck {
       maximal: '24.05',
     },
     [ClnClient.serviceNameHold]: {
-      minimal: '0.0.3',
-      maximal: '0.0.5',
+      minimal: '0.1.0',
+      maximal: '0.1.0',
     },
     [MpayClient.serviceName]: {
       minimal: '0.1.0',

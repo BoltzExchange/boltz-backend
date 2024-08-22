@@ -3,7 +3,6 @@ from bolt11 import decode as bolt11_decode
 from pyln.client import Plugin
 from sqlalchemy.orm import Session
 
-from plugins.hold.grpc_server import GrpcServer
 from plugins.mpay.consts import PLUGIN_NAME, VERSION
 from plugins.mpay.data.payments import Payments
 from plugins.mpay.data.routes import Routes
@@ -23,6 +22,7 @@ from plugins.mpay.protos.mpay_pb2 import (
     ResetPathMemoryResponse,
 )
 from plugins.mpay.protos.mpay_pb2_grpc import MpayServicer, add_MpayServicer_to_server
+from plugins.mpay.rpc.grpc_server import GrpcServer
 from plugins.mpay.rpc.transformers import payment_to_grpc, routes_to_grpc
 
 

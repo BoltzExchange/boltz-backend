@@ -21,12 +21,7 @@ import * as primitivesrpc from '../../proto/cln/primitives_pb';
 import { HoldClient } from '../../proto/hold/hold_grpc_pb';
 import * as holdrpc from '../../proto/hold/hold_pb';
 import { WalletBalance } from '../../wallet/providers/WalletProviderInterface';
-import {
-  msatToSat,
-  satToMsat,
-  scidClnToLnd,
-  scidLndToCln,
-} from '../ChannelUtils';
+import { msatToSat, satToMsat, scidClnToLnd } from '../ChannelUtils';
 import Errors from '../Errors';
 import { grpcOptions, unaryCall } from '../GrpcUtils';
 import {
@@ -47,6 +42,7 @@ import {
   calculatePaymentFee,
 } from '../LightningClient';
 import Mpay from './MpayClient';
+import { getRoute } from './Router';
 import { ClnConfig, createSsl } from './Types';
 
 import ListpaysPaysStatus = ListpaysPays.ListpaysPaysStatus;
@@ -354,14 +350,26 @@ class ClnClient
   };
 
   public routingHints = async (node: string): Promise<HopHint[][]> => {
-    const req = new holdrpc.RoutingHintsRequest();
-    req.setNode(node);
+    const req = new noderpc.ListpeerchannelsRequest();
+    req.setId(node);
 
-    const res = await this.unaryHoldCall<
-      holdrpc.RoutingHintsRequest,
-      holdrpc.RoutingHintsResponse.AsObject
-    >('routingHints', req);
-    return ClnClient.routingHintsFromGrpc(res.hintsList);
+    const channels = await this.unaryNodeCall<
+      noderpc.ListpeerchannelsRequest,
+      noderpc.ListpeerchannelsResponse.AsObject
+    >('listPeerChannels', req, true);
+
+    return channels.channelsList
+      .filter((chan) => chan.pb_private)
+      .map((channel) => [
+        {
+          nodeId: node,
+          chanId: scidClnToLnd(getHexString(Buffer.from(channel.channelId))),
+          feeBaseMsat: channel.updates!.remote!.feeBaseMsat!.msat,
+          feeProportionalMillionths:
+            channel.updates!.remote!.feeProportionalMillionths,
+          cltvExpiryDelta: channel.updates!.remote!.cltvExpiryDelta,
+        },
+      ]);
   };
 
   public addHoldInvoice = async (
@@ -375,7 +383,7 @@ class ClnClient
   ): Promise<string> => {
     const req = new holdrpc.InvoiceRequest();
     req.setAmountMsat(satToMsat(value));
-    req.setPaymentHash(getHexString(preimageHash));
+    req.setPaymentHash(preimageHash);
 
     if (cltvExpiry) {
       req.setMinFinalCltvExpiry(cltvExpiry);
@@ -386,11 +394,11 @@ class ClnClient
     }
 
     if (memo) {
-      req.setDescription(memo);
+      req.setMemo(memo);
     }
 
     if (descriptionHash) {
-      req.setDescriptionHash(getHexString(descriptionHash));
+      req.setHash(descriptionHash);
     }
 
     if (routingHints) {
@@ -407,7 +415,7 @@ class ClnClient
 
   public lookupHoldInvoice = async (preimageHash: Buffer): Promise<Invoice> => {
     const req = new holdrpc.ListRequest();
-    req.setPaymentHash(getHexString(preimageHash));
+    req.setPaymentHash(preimageHash);
 
     const res = await this.unaryHoldCall<
       holdrpc.ListRequest,
@@ -427,7 +435,7 @@ class ClnClient
 
   public cancelHoldInvoice = async (preimageHash: Buffer): Promise<void> => {
     const req = new holdrpc.CancelRequest();
-    req.setPaymentHash(getHexString(preimageHash));
+    req.setPaymentHash(preimageHash);
 
     await this.unaryHoldCall<
       holdrpc.CancelRequest,
@@ -437,7 +445,7 @@ class ClnClient
 
   public settleHoldInvoice = async (preimage: Buffer): Promise<void> => {
     const req = new holdrpc.SettleRequest();
-    req.setPaymentPreimage(getHexString(preimage));
+    req.setPaymentPreimage(preimage);
 
     await this.unaryHoldCall<
       holdrpc.SettleRequest,
@@ -510,7 +518,7 @@ class ClnClient
     routingHints?: HopHint[][],
   ): Promise<Route[]> => {
     const prms: Promise<Route>[] = [
-      this.queryRoute(destination, amt, cltvLimit, finalCltvDelta),
+      getRoute(this.unaryNodeCall, destination, amt, cltvLimit, finalCltvDelta),
     ];
 
     if (routingHints) {
@@ -520,7 +528,8 @@ class ClnClient
           0,
         );
         prms.push(
-          this.queryRoute(
+          getRoute(
+            this.unaryNodeCall,
             hint[0].nodeId,
             amt,
             cltvLimit,
@@ -614,7 +623,7 @@ class ClnClient
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   public subscribeSingleInvoice = (_: Buffer): void => {
     // Just here for interface compatibility;
-    // with CLN we can subscribe to all hold invoice with one gRPC subscription
+    // with CLN we can subscribe to all hold invoices with one gRPC subscription
     return;
   };
 
@@ -625,8 +634,8 @@ class ClnClient
       const routeHint = new holdrpc.RoutingHint();
       for (const hint of hints) {
         const hopHint = new holdrpc.Hop();
-        hopHint.setPublicKey(hint.nodeId);
-        hopHint.setShortChannelId(scidLndToCln(hint.chanId));
+        hopHint.setPublicKey(getHexBuffer(hint.nodeId));
+        hopHint.setShortChannelId(Number(hint.chanId));
         hopHint.setBaseFee(hint.feeBaseMsat);
         hopHint.setPpmFee(hint.feeProportionalMillionths);
         hopHint.setCltvExpiryDelta(hint.cltvExpiryDelta);
@@ -638,49 +647,39 @@ class ClnClient
     });
   };
 
-  private static routingHintsFromGrpc = (
-    routingHints: holdrpc.RoutingHint.AsObject[],
-  ): HopHint[][] => {
-    return routingHints.map((hint) =>
-      hint.hopsList.map((hop) => ({
-        nodeId: hop.publicKey,
-        chanId: hop.shortChannelId,
-        feeBaseMsat: hop.baseFee,
-        feeProportionalMillionths: hop.ppmFee,
-        cltvExpiryDelta: hop.cltvExpiryDelta,
-      })),
-    );
-  };
-
   private static invoiceStateFromGrpc = (
     state: holdrpc.InvoiceState,
   ): InvoiceState => {
     switch (state) {
-      case holdrpc.InvoiceState.INVOICE_UNPAID:
+      case holdrpc.InvoiceState.UNPAID:
         return InvoiceState.Open;
-      case holdrpc.InvoiceState.INVOICE_ACCEPTED:
+      case holdrpc.InvoiceState.ACCEPTED:
         return InvoiceState.Accepted;
-      case holdrpc.InvoiceState.INVOICE_CANCELLED:
+      case holdrpc.InvoiceState.CANCELLED:
         return InvoiceState.Cancelled;
-      case holdrpc.InvoiceState.INVOICE_PAID:
+      case holdrpc.InvoiceState.PAID:
         return InvoiceState.Settled;
     }
   };
 
   private static htlcFromGrpc = (htlc: holdrpc.Htlc.AsObject): Htlc => {
     return {
-      state: ClnClient.htlcStateFromGrpc(htlc.state),
       valueMsat: htlc.msat,
+      state: ClnClient.htlcStateFromGrpc(htlc.state),
     };
   };
 
-  private static htlcStateFromGrpc = (state: holdrpc.HtlcState): HtlcState => {
+  private static htlcStateFromGrpc = (
+    state: holdrpc.InvoiceState,
+  ): HtlcState => {
     switch (state) {
-      case holdrpc.HtlcState.HTLC_ACCEPTED:
+      case holdrpc.InvoiceState.UNPAID:
+        throw 'invalid HTLC state';
+      case holdrpc.InvoiceState.ACCEPTED:
         return HtlcState.Accepted;
-      case holdrpc.HtlcState.HTLC_CANCELLED:
+      case holdrpc.InvoiceState.CANCELLED:
         return HtlcState.Cancelled;
-      case holdrpc.HtlcState.HTLC_SETTLED:
+      case holdrpc.InvoiceState.PAID:
         return HtlcState.Settled;
     }
   };
@@ -721,24 +720,7 @@ class ClnClient
       };
     }
 
-    // ... has failed
-    // TODO: mpay incorrect payment details detection
-    for (const payStatus of (await this.payStatus(invoice)).statusList) {
-      for (const attempt of payStatus.attemptsList) {
-        if (
-          attempt.state ===
-            holdrpc.PayStatusResponse.PayStatus.Attempt.AttemptState
-              .ATTEMPT_PENDING ||
-          attempt.failure === undefined
-        ) {
-          continue;
-        }
-
-        if (ClnClient.errIsIncorrectPaymentDetails(attempt.failure.message)) {
-          throw attempt.failure.message;
-        }
-      }
-    }
+    // TODO: find a way to check "paystatus"
 
     // ... or is still pending
     const hasPendingPayments = pays.some(
@@ -771,46 +753,6 @@ class ClnClient
     return undefined;
   };
 
-  private payStatus = (invoice: string) => {
-    const req = new holdrpc.PayStatusRequest();
-    req.setBolt11(invoice);
-
-    return this.unaryHoldCall<
-      holdrpc.PayStatusRequest,
-      holdrpc.PayStatusResponse.AsObject
-    >('payStatus', req);
-  };
-
-  private queryRoute = async (
-    destination: string,
-    amt: number,
-    cltvLimit?: number,
-    finalCltvDelta?: number,
-  ): Promise<Route> => {
-    const req = new holdrpc.GetRouteRequest();
-    req.setDestination(destination);
-    req.setRiskFactor(0);
-    req.setAmountMsat(amt);
-
-    if (cltvLimit) {
-      req.setMaxCltv(cltvLimit);
-    }
-
-    if (finalCltvDelta) {
-      req.setFinalCltvDelta(finalCltvDelta);
-    }
-
-    const res = await this.unaryHoldCall<
-      holdrpc.GetRouteRequest,
-      holdrpc.GetRouteResponse.AsObject
-    >('getRoute', req);
-
-    return {
-      ctlv: res.hopsList[0].delay,
-      feesMsat: res.feesMsat,
-    };
-  };
-
   private subscribeTrackHoldInvoices = () => {
     if (this.trackAllSubscription) {
       this.trackAllSubscription.cancel();
@@ -822,7 +764,7 @@ class ClnClient
 
     this.trackAllSubscription.on('data', (update: holdrpc.TrackAllResponse) => {
       switch (update.getState()) {
-        case holdrpc.InvoiceState.INVOICE_ACCEPTED:
+        case holdrpc.InvoiceState.ACCEPTED:
           this.logger.debug(
             `${ClnClient.serviceName} ${
               this.symbol
@@ -832,7 +774,7 @@ class ClnClient
           this.emit('htlc.accepted', update.getBolt11());
           break;
 
-        case holdrpc.InvoiceState.INVOICE_PAID:
+        case holdrpc.InvoiceState.PAID:
           this.logger.debug(
             `${ClnClient.serviceName} ${
               this.symbol

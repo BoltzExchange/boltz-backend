@@ -19,7 +19,7 @@ class ClnPendingPaymentTracker extends NodePendingPendingTracker {
   constructor(logger: Logger) {
     super(logger, NodeType.CLN);
     // CLN does not have streaming for existing pending payments
-    // We have to poll on interval
+    // We have to poll on an interval
     this.logger.debug(
       `Checking for updates on pending CLN payments every ${ClnPendingPaymentTracker.checkInterval} seconds`,
     );

@@ -8,15 +8,6 @@ import pytest
 # noinspection PyProtectedMember
 from grpc._channel import _InactiveRpcError
 
-from plugins.hold.tests.utils import (
-    PLUGIN_PATH_MPAY,
-    LndNode,
-    cln_con,
-    connect_peers,
-    lnd,
-    start_plugin,
-    stop_plugin,
-)
 from plugins.mpay.config import OptionDefaults
 from plugins.mpay.consts import VERSION
 from plugins.mpay.pay.sendpay import STATUS_COMPLETE
@@ -34,6 +25,15 @@ from plugins.mpay.protos.mpay_pb2 import (
     ResetPathMemoryResponse,
 )
 from plugins.mpay.protos.mpay_pb2_grpc import MpayStub
+from plugins.mpay.tests.utils import (
+    PLUGIN_PATH_MPAY,
+    LndNode,
+    cln_con,
+    connect_peers,
+    lnd,
+    start_plugin,
+    stop_plugin,
+)
 
 
 class TestGrpc:

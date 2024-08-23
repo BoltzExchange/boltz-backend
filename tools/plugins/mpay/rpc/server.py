@@ -101,7 +101,14 @@ class MpayService(MpayServicer):
             payment_hash = bolt11_decode(request.bolt11).payment_hash
 
         with Session(self._db.engine) as s:
-            res = Payments.fetch(s, payment_hash) if payment_hash != "" else Payments.fetch_all(s)
+            if payment_hash != "":
+                res = Payments.fetch(s, payment_hash)
+            elif request.HasField("pagination"):
+                res = Payments.fetch_paginated(
+                    s, request.pagination.offset, request.pagination.limit
+                )
+            else:
+                res = Payments.fetch_all(s)
             return ListPaymentsResponse(payments=[payment_to_grpc(payment) for payment in res])
 
     def ResetPathMemory(  # noqa: N802

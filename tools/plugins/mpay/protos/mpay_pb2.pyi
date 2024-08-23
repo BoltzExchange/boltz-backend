@@ -53,12 +53,22 @@ class GetRoutesResponse(_message.Message):
     def __init__(self, routes: _Optional[_Mapping[str, GetRoutesResponse.Routes]] = ...) -> None: ...
 
 class ListPaymentsRequest(_message.Message):
-    __slots__ = ("bolt11", "payment_hash")
+    __slots__ = ("bolt11", "payment_hash", "pagination")
     BOLT11_FIELD_NUMBER: _ClassVar[int]
     PAYMENT_HASH_FIELD_NUMBER: _ClassVar[int]
+    PAGINATION_FIELD_NUMBER: _ClassVar[int]
     bolt11: str
     payment_hash: str
-    def __init__(self, bolt11: _Optional[str] = ..., payment_hash: _Optional[str] = ...) -> None: ...
+    pagination: PaginationParams
+    def __init__(self, bolt11: _Optional[str] = ..., payment_hash: _Optional[str] = ..., pagination: _Optional[_Union[PaginationParams, _Mapping]] = ...) -> None: ...
+
+class PaginationParams(_message.Message):
+    __slots__ = ("offset", "limit")
+    OFFSET_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    offset: int
+    limit: int
+    def __init__(self, offset: _Optional[int] = ..., limit: _Optional[int] = ...) -> None: ...
 
 class ListPaymentsResponse(_message.Message):
     __slots__ = ("payments",)

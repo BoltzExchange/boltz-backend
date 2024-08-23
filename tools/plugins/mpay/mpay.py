@@ -147,9 +147,6 @@ def mpay_routes(
     return {"routes": res}
 
 
-MAX_FETCH_LIMIT = 10000
-
-
 @pl.async_method(
     method_name="mpay-list",
     category=PLUGIN_NAME,
@@ -159,8 +156,6 @@ def mpay_list(
     request: Request,
     bolt11: str = "",
     payment_hash: str = "",
-    start_id: int = 0,
-    limit: int = MAX_FETCH_LIMIT,
 ) -> dict[str, Any]:
     if bolt11 not in _EMPTY_VALUES:
         try:
@@ -172,7 +167,7 @@ def mpay_list(
         if payment_hash not in _EMPTY_VALUES:
             res = Payments.fetch(s, payment_hash)
         else:
-            res = Payments.fetch_all(s, start_id, min(limit, MAX_FETCH_LIMIT))
+            res = Payments.fetch_all(s)
 
         return {"payments": [payment.to_dict() for payment in res]}
 

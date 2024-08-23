@@ -26,6 +26,7 @@ from plugins.mpay.protos.mpay_pb2 import (
     GetRoutesRequest,
     GetRoutesResponse,
     ListPaymentsRequest,
+    PaginationParams,
     ListPaymentsResponse,
     PayRequest,
     PayResponse,
@@ -107,7 +108,7 @@ class TestGrpc:
         assert len(res.routes) == 0
 
     def test_list_payments(self, cl: MpayStub) -> None:
-        res: ListPaymentsResponse = cl.ListPayments(ListPaymentsResponse())
+        res: ListPaymentsResponse = cl.ListPayments(ListPaymentsRequest())
         assert len(res.payments) == 2
 
         for i, payment in enumerate(res.payments):
@@ -120,6 +121,22 @@ class TestGrpc:
             assert payment.amount == 1000
             assert payment.ok
             assert len(payment.attempts) > 0
+
+        res: ListPaymentsResponse = cl.ListPayments(
+            ListPaymentsRequest(
+                pagination=PaginationParams(offset=0, limit=1),
+            )
+        )
+        assert len(res.payments) == 1
+        assert res.payments[0].id == 1
+
+        res: ListPaymentsResponse = cl.ListPayments(
+            ListPaymentsRequest(
+                pagination=PaginationParams(offset=1, limit=1),
+            )
+        )
+        assert len(res.payments) == 1
+        assert res.payments[0].id == 2
 
     def test_list_payments_payment_hash(self, cl: MpayStub) -> None:
         payment_hash = cln_con("listpays")["pays"][-1]["payment_hash"]

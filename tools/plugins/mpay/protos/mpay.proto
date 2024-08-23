@@ -42,9 +42,13 @@ message ListPaymentsRequest {
   oneof identifier {
     string bolt11 = 1;
     string payment_hash = 2;
+    PaginationParams pagination = 3;
   }
-  optional uint64 start_id = 3;
-  optional uint32 limit = 4;
+}
+
+message PaginationParams {
+  uint64 offset = 1;
+  uint32 limit = 2;
 }
 
 message ListPaymentsResponse {

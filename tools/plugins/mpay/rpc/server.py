@@ -100,11 +100,13 @@ class MpayService(MpayServicer):
         if request.bolt11 != "":
             payment_hash = bolt11_decode(request.bolt11).payment_hash
 
-        with (Session(self._db.engine) as s):
+        with Session(self._db.engine) as s:
             if payment_hash != "":
                 res = Payments.fetch(s, payment_hash)
             elif request.HasField("pagination"):
-                res = Payments.fetch_paginated(s, request.pagination.offset, request.pagination.limit)
+                res = Payments.fetch_paginated(
+                    s, request.pagination.offset, request.pagination.limit
+                )
             else:
                 res = Payments.fetch_all(s)
             return ListPaymentsResponse(payments=[payment_to_grpc(payment) for payment in res])

@@ -152,11 +152,7 @@ def mpay_routes(
     category=PLUGIN_NAME,
 )
 @thread_method(executor=executor)
-def mpay_list(
-    request: Request,
-    bolt11: str = "",
-    payment_hash: str = "",
-) -> dict[str, Any]:
+def mpay_list(request: Request, bolt11: str = "", payment_hash: str = "") -> dict[str, Any]:
     if bolt11 not in _EMPTY_VALUES:
         try:
             payment_hash = bolt11_decode(bolt11).payment_hash

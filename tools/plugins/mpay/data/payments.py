@@ -11,7 +11,7 @@ from plugins.mpay.db.models import Attempt, Payment
 class Payments:
     @staticmethod
     def fetch(s: Session, payment_hash: str) -> Iterator[Payment]:
-        return Payments._fetch(s, payment_hash)
+        return Payments._fetch(s, payment_hash, None, None)
 
     @staticmethod
     def fetch_all(s: Session, start_id: int, limit: int) -> Iterator[Payment]:

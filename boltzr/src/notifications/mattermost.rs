@@ -142,7 +142,7 @@ impl Client {
         .clone();
 
         if let Some(alerts) = config.channel_alert {
-            match Self::find_channel(&config.channel, &channels_res) {
+            match Self::find_channel(&alerts, &channels_res) {
                 Some(channel) => {
                     c.channel_id_alerts = Some(channel.id.clone());
                 }

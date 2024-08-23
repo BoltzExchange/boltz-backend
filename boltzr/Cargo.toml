@@ -59,7 +59,7 @@ axum-prometheus = { version = "0.6.1", default-features = false, optional = true
 metrics = { version = "0.23.0", optional = true }
 diesel_migrations = "2.2.0"
 r2d2 = "0.8.10"
-diesel = { version = "2.2.2", default-features = false, features = ["postgres", "r2d2", "chrono"] }
+diesel = { version = "2.2.3", default-features = false, features = ["postgres", "r2d2", "chrono"] }
 strum_macros = "0.26.4"
 strum = "0.26.3"
 dashmap = "6.0.1"

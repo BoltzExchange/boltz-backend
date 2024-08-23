@@ -1,4 +1,6 @@
 fn main() {
+    println!("cargo:rerun-if-changed=NULL");
+
     tonic_build::configure()
         .protoc_arg("--experimental_allow_proto3_optional")
         .compile(&["protos/boltzr.proto"], &["protos"])

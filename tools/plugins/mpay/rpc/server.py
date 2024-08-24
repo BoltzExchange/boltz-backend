@@ -3,7 +3,6 @@ from bolt11 import decode as bolt11_decode
 from pyln.client import Plugin
 from sqlalchemy.orm import Session
 
-from plugins.hold.grpc_server import GrpcServer
 from plugins.mpay.consts import PLUGIN_NAME, VERSION
 from plugins.mpay.data.payments import Payments
 from plugins.mpay.data.routes import Routes
@@ -19,11 +18,18 @@ from plugins.mpay.protos.mpay_pb2 import (
     ListPaymentsResponse,
     PayRequest,
     PayResponse,
+    PayStatusRequest,
+    PayStatusResponse,
     ResetPathMemoryRequest,
     ResetPathMemoryResponse,
 )
 from plugins.mpay.protos.mpay_pb2_grpc import MpayServicer, add_MpayServicer_to_server
-from plugins.mpay.rpc.transformers import payment_to_grpc, routes_to_grpc
+from plugins.mpay.rpc.grpc_server import GrpcServer
+from plugins.mpay.rpc.transformers import (
+    pay_status_response_to_grpc,
+    payment_to_grpc,
+    routes_to_grpc,
+)
 
 
 class MpayService(MpayServicer):
@@ -131,6 +137,15 @@ class MpayService(MpayServicer):
             payments=0,
             attempts=0,
             hops=0,
+        )
+
+    def PayStatus(  # noqa: N802
+        self,
+        request: PayStatusRequest,
+        context: grpc.ServicerContext,  # noqa: ARG002
+    ) -> PayStatusResponse:
+        return pay_status_response_to_grpc(
+            self._mpay.pl.rpc.paystatus(request.bolt11 if request.bolt11 != "" else None)
         )
 
 

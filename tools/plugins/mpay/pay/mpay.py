@@ -17,7 +17,8 @@ from plugins.mpay.utils import fee_with_percent, format_error
 class MPay:
     default_max_fee_perc: float = 0.05
 
-    _pl: Plugin
+    pl: Plugin
+
     _db: Database
 
     _router: Router
@@ -28,7 +29,7 @@ class MPay:
     _invoice_checker: InvoiceChecker
 
     def __init__(self, pl: Plugin, db: Database, routes: Routes) -> None:
-        self._pl = pl
+        self.pl = pl
         self._db = db
         self._excludes = Excludes()
         self._pay = PaymentHelper(pl)
@@ -42,7 +43,7 @@ class MPay:
         self._invoice_checker.init()
 
     def reset_excludes(self) -> None:
-        self._pl.log("Resetting temporary exclude list")
+        self.pl.log("Resetting temporary exclude list")
         self._excludes.reset()
 
     def pay(
@@ -54,7 +55,7 @@ class MPay:
         max_delay: int | None = None,
     ) -> PaymentResult:
         self._invoice_checker.check(bolt11)
-        dec = self._pl.rpc.decodepay(bolt11)
+        dec = self.pl.rpc.decodepay(bolt11)
 
         amount = dec["amount_msat"]
         payment_hash = dec["payment_hash"]
@@ -71,14 +72,14 @@ class MPay:
             session.commit()
 
             max_fee = self._calculate_fee(amount, max_fee, exempt_fee)
-            self._pl.log(
+            self.pl.log(
                 f"Paying {payment_hash} for {amount} with max fee "
                 f"{fee_with_percent(dec['amount_msat'], max_fee)}"
             )
 
             try:
                 return Payer(
-                    self._pl,
+                    self.pl,
                     self._router,
                     self._pay,
                     self._channels,
@@ -97,7 +98,7 @@ class MPay:
                     payment.ok = False
                     session.commit()
 
-                self._pl.log(f"Payment {payment_hash} failed: {format_error(e)}", level="warn")
+                self.pl.log(f"Payment {payment_hash} failed: {format_error(e)}", level="warn")
 
                 raise
 
@@ -108,7 +109,7 @@ class MPay:
     def _check_for_paid(self, payment_hash: str) -> PaymentResult | None:
         res = [
             entry
-            for entry in self._pl.rpc.listpays(payment_hash=payment_hash, status="complete")["pays"]
+            for entry in self.pl.rpc.listpays(payment_hash=payment_hash, status="complete")["pays"]
             if "preimage" in entry
         ]
 
@@ -138,11 +139,11 @@ class MPay:
             return Millisatoshi(max_fee)
 
         calculated = Millisatoshi(round((int(amount) * self.default_max_fee_perc) / 100))
-        self._pl.log(f"Calculated default max fee of {calculated}")
+        self.pl.log(f"Calculated default max fee of {calculated}")
 
         exemption = Millisatoshi(exempt_fee)
         if calculated < exemption:
-            self._pl.log(f"Using exempt fee of {exemption}")
+            self.pl.log(f"Using exempt fee of {exemption}")
             return exemption
 
         return calculated

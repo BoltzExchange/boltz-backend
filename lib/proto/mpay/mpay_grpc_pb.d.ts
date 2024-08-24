@@ -13,6 +13,7 @@ interface IMpayService extends grpc.ServiceDefinition<grpc.UntypedServiceImpleme
     listPayments: IMpayService_IListPayments;
     pay: IMpayService_IPay;
     resetPathMemory: IMpayService_IResetPathMemory;
+    payStatus: IMpayService_IPayStatus;
 }
 
 interface IMpayService_IGetInfo extends grpc.MethodDefinition<mpay_pb.GetInfoRequest, mpay_pb.GetInfoResponse> {
@@ -60,6 +61,15 @@ interface IMpayService_IResetPathMemory extends grpc.MethodDefinition<mpay_pb.Re
     responseSerialize: grpc.serialize<mpay_pb.ResetPathMemoryResponse>;
     responseDeserialize: grpc.deserialize<mpay_pb.ResetPathMemoryResponse>;
 }
+interface IMpayService_IPayStatus extends grpc.MethodDefinition<mpay_pb.PayStatusRequest, mpay_pb.PayStatusResponse> {
+    path: "/mpay.Mpay/PayStatus";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<mpay_pb.PayStatusRequest>;
+    requestDeserialize: grpc.deserialize<mpay_pb.PayStatusRequest>;
+    responseSerialize: grpc.serialize<mpay_pb.PayStatusResponse>;
+    responseDeserialize: grpc.deserialize<mpay_pb.PayStatusResponse>;
+}
 
 export const MpayService: IMpayService;
 
@@ -69,6 +79,7 @@ export interface IMpayServer extends grpc.UntypedServiceImplementation {
     listPayments: grpc.handleUnaryCall<mpay_pb.ListPaymentsRequest, mpay_pb.ListPaymentsResponse>;
     pay: grpc.handleUnaryCall<mpay_pb.PayRequest, mpay_pb.PayResponse>;
     resetPathMemory: grpc.handleUnaryCall<mpay_pb.ResetPathMemoryRequest, mpay_pb.ResetPathMemoryResponse>;
+    payStatus: grpc.handleUnaryCall<mpay_pb.PayStatusRequest, mpay_pb.PayStatusResponse>;
 }
 
 export interface IMpayClient {
@@ -87,6 +98,9 @@ export interface IMpayClient {
     resetPathMemory(request: mpay_pb.ResetPathMemoryRequest, callback: (error: grpc.ServiceError | null, response: mpay_pb.ResetPathMemoryResponse) => void): grpc.ClientUnaryCall;
     resetPathMemory(request: mpay_pb.ResetPathMemoryRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: mpay_pb.ResetPathMemoryResponse) => void): grpc.ClientUnaryCall;
     resetPathMemory(request: mpay_pb.ResetPathMemoryRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: mpay_pb.ResetPathMemoryResponse) => void): grpc.ClientUnaryCall;
+    payStatus(request: mpay_pb.PayStatusRequest, callback: (error: grpc.ServiceError | null, response: mpay_pb.PayStatusResponse) => void): grpc.ClientUnaryCall;
+    payStatus(request: mpay_pb.PayStatusRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: mpay_pb.PayStatusResponse) => void): grpc.ClientUnaryCall;
+    payStatus(request: mpay_pb.PayStatusRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: mpay_pb.PayStatusResponse) => void): grpc.ClientUnaryCall;
 }
 
 export class MpayClient extends grpc.Client implements IMpayClient {
@@ -106,4 +120,7 @@ export class MpayClient extends grpc.Client implements IMpayClient {
     public resetPathMemory(request: mpay_pb.ResetPathMemoryRequest, callback: (error: grpc.ServiceError | null, response: mpay_pb.ResetPathMemoryResponse) => void): grpc.ClientUnaryCall;
     public resetPathMemory(request: mpay_pb.ResetPathMemoryRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: mpay_pb.ResetPathMemoryResponse) => void): grpc.ClientUnaryCall;
     public resetPathMemory(request: mpay_pb.ResetPathMemoryRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: mpay_pb.ResetPathMemoryResponse) => void): grpc.ClientUnaryCall;
+    public payStatus(request: mpay_pb.PayStatusRequest, callback: (error: grpc.ServiceError | null, response: mpay_pb.PayStatusResponse) => void): grpc.ClientUnaryCall;
+    public payStatus(request: mpay_pb.PayStatusRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: mpay_pb.PayStatusResponse) => void): grpc.ClientUnaryCall;
+    public payStatus(request: mpay_pb.PayStatusRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: mpay_pb.PayStatusResponse) => void): grpc.ClientUnaryCall;
 }

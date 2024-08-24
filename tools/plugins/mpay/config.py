@@ -3,8 +3,7 @@ from typing import Any
 from pyln.client import Plugin, __version__
 from strenum import StrEnum
 
-from plugins.hold.consts import GRPC_HOST_REGTEST, Network
-from plugins.mpay.consts import PLUGIN_NAME
+from plugins.mpay.consts import GRPC_HOST_REGTEST, PLUGIN_NAME, Network
 
 
 class OptionKeys(StrEnum):
@@ -47,7 +46,7 @@ def register_options(pl: Plugin) -> None:
 
     # pyln.client added full dynamic option support in 24.05
     ver = __version__.split(".")
-    if ver[0] > "24" or (ver[0] == "24" and int(ver[1]) >= 5):
+    if int(ver[0]) > 24 or (ver[0] == "24" and int(ver[1]) >= 5):
         pl.add_option(
             OptionKeys.OverridePay,
             OptionDefaults.DefaultOverridePay,

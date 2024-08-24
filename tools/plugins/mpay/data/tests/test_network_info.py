@@ -1,7 +1,7 @@
 import pytest
 
-from plugins.hold.tests.utils import LndNode, RpcPlugin, cln_con, lnd
 from plugins.mpay.data.network_info import ChannelInfo, NetworkInfo
+from plugins.mpay.tests.utils import LndNode, RpcPlugin, cln_con, lnd
 
 
 class TestNetworkInfo:

@@ -90,3 +90,4 @@ docker/regtest/data/core/cookies/
 docker/regtest/data/cln/hold
 docker/regtest/data/cln/certs
 docker/regtest/data/cln/mpay
+docker/regtest/data/cln/plugins

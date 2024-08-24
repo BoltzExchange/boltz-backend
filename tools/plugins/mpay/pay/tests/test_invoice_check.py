@@ -4,11 +4,11 @@ import time
 import pytest
 from bolt11 import Bolt11, MilliSatoshi, decode, encode
 from bolt11.models.tags import Tag, TagChar, Tags
-from secp256k1 import PrivateKey
+from coincurve import PrivateKey
 
-from plugins.hold.consts import Network
-from plugins.hold.encoder import NETWORK_PREFIXES
+from plugins.mpay.consts import Network
 from plugins.mpay.pay.invoice_check import (
+    NETWORK_PREFIXES,
     InvoiceChecker,
     InvoiceExpiredError,
     InvoiceNetworkInvalidError,
@@ -101,7 +101,7 @@ class TestInvoiceCheck:
                         ),
                         MilliSatoshi(10_000),
                     ),
-                    PrivateKey().serialize(),
+                    PrivateKey().secret.hex(),
                 ),
             ),
             (

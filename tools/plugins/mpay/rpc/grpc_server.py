@@ -7,7 +7,7 @@ import grpc
 from grpc_interceptor import ServerInterceptor
 from pyln.client import Plugin
 
-from plugins.hold.certs import load_certs
+from plugins.mpay.rpc.certs import load_certs
 
 
 def handle_grpc_error(

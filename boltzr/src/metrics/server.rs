@@ -139,6 +139,12 @@ impl Server {
             "number of open WebSockets"
         );
 
+        describe_gauge!(
+            crate::metrics::SSE_OPEN_COUNT,
+            Unit::Count,
+            "number of open SSE streams",
+        );
+
         handle
     }
 }

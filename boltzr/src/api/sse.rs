@@ -9,6 +9,15 @@ use std::convert::Infallible;
 use std::sync::Arc;
 use tracing::{error, trace};
 
+struct SseGuard;
+
+impl Drop for SseGuard {
+    fn drop(&mut self) {
+        #[cfg(feature = "metrics")]
+        metrics::gauge!(crate::metrics::SSE_OPEN_COUNT).decrement(1);
+    }
+}
+
 #[derive(Deserialize, Debug)]
 pub struct IdParams {
     pub id: String,
@@ -23,6 +32,9 @@ where
 {
     trace!("New SSE status stream for swap: {}", params.id);
 
+    #[cfg(feature = "metrics")]
+    metrics::gauge!(crate::metrics::SSE_OPEN_COUNT).increment(1);
+
     let mut rx = state.swap_status_update_tx.subscribe();
     state
         .swap_infos
@@ -30,6 +42,8 @@ where
         .await;
 
     Sse::new(try_stream! {
+        let _guard = SseGuard;
+
         loop {
             match rx.recv().await {
                 Ok(events) => {

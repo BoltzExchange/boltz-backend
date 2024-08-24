@@ -1351,6 +1351,7 @@ version = "3.7.3"
 dependencies = [
  "alloy",
  "alloy-transport-http",
+ "async-stream",
  "async-trait",
  "async-tungstenite",
  "axum 0.7.5",
@@ -1365,7 +1366,9 @@ dependencies = [
  "diesel-tracing",
  "diesel_migrations",
  "dirs",
+ "eventsource-client",
  "futures",
+ "futures-util",
  "metrics 0.23.0",
  "metrics-exporter-prometheus 0.15.3",
  "metrics-process",
@@ -2095,6 +2098,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "eventsource-client"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "43ddc25e1ad2cc0106d5e2d967397b4fb2068a66677ee9b0eea4600e5cfe8fb4"
+dependencies = [
+ "futures",
+ "hyper 0.14.30",
+ "hyper-rustls 0.24.2",
+ "hyper-timeout 0.4.1",
+ "log",
+ "pin-project 1.1.5",
+ "rand",
+ "tokio",
+]
+
+[[package]]
 name = "fastrand"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2622,7 +2641,9 @@ dependencies = [
  "futures-util",
  "http 0.2.12",
  "hyper 0.14.30",
+ "log",
  "rustls 0.21.12",
+ "rustls-native-certs 0.6.3",
  "tokio",
  "tokio-rustls 0.24.1",
 ]

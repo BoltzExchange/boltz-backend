@@ -7,7 +7,6 @@ import ReferralStats from '../data/ReferralStats';
 import LndClient from '../lightning/LndClient';
 import ClnClient from '../lightning/cln/ClnClient';
 import CountryCodes from '../service/CountryCodes';
-import { SwapUpdate } from '../service/EventHandler';
 import NodeInfo from '../service/NodeInfo';
 import Service from '../service/Service';
 import Bouncer from './Bouncer';
@@ -23,27 +22,12 @@ import {
 } from './Utils';
 
 class Controller {
-  // A map between the ids and HTTP streams of all pending swaps
-  private pendingSwapStreams = new Map<string, Response>();
-
   constructor(
     private readonly logger: Logger,
     private readonly service: Service,
     private readonly countryCodes: CountryCodes,
     private readonly swapInfos: SwapInfos,
-  ) {
-    this.service.eventHandler.on('swap.update', ({ id, status }) => {
-      const response = this.pendingSwapStreams.get(id);
-
-      if (response) {
-        this.writeToSse(response, status);
-      }
-    });
-  }
-
-  public get pendingStreamCount() {
-    return this.pendingSwapStreams.size;
-  }
+  ) {}
 
   // Static files
   public serveFile = (fileName: string) => {
@@ -430,44 +414,6 @@ class Controller {
     } catch (error) {
       errorResponse(this.logger, req, res, error, 401);
     }
-  };
-
-  // EventSource streams
-  public streamSwapStatus = async (
-    req: Request,
-    res: Response,
-  ): Promise<void> => {
-    try {
-      const { id } = validateRequest(req.query, [
-        { name: 'id', type: 'string' },
-      ]);
-
-      res.writeHead(200, {
-        Connection: 'keep-alive',
-        'X-Accel-Buffering': 'no',
-        'Cache-Control': 'no-cache',
-        'Content-Type': 'text/event-stream',
-      });
-
-      res.setTimeout(0);
-
-      const lastUpdate = await this.swapInfos.get(id);
-      if (lastUpdate) {
-        this.writeToSse(res, lastUpdate);
-      }
-
-      this.pendingSwapStreams.set(id, res);
-
-      res.on('close', () => {
-        this.pendingSwapStreams.delete(id);
-      });
-    } catch (error) {
-      errorResponse(this.logger, req, res, error);
-    }
-  };
-
-  private writeToSse = (res: Response, message: SwapUpdate) => {
-    res.write(`data: ${JSON.stringify(message)}\n\n`);
   };
 }
 

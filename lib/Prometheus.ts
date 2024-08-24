@@ -165,13 +165,6 @@ class Prometheus {
       'number of swap status messages cached',
       () => this.api.swapInfos.cacheSize,
     );
-
-    this.registerGauge(
-      this.swapRegistry!,
-      'pending_stream_count',
-      'pending SSE swap status stream count',
-      () => this.api.controller.pendingStreamCount,
-    );
   };
 
   private registerGauge = (

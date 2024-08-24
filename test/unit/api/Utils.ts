@@ -1,8 +1,5 @@
 import { Request, Response } from 'express';
 
-export type closeResponseCallback = () => void;
-export let emitClose: closeResponseCallback;
-
 export const mockRequest = (
   body: any = null,
   query?: Record<string, any>,
@@ -30,14 +27,6 @@ export const mockResponse = () => {
 
     return res;
   });
-
-  res.on = jest
-    .fn()
-    .mockImplementation((event: string, callback: closeResponseCallback) => {
-      expect(event).toEqual('close');
-
-      emitClose = callback;
-    });
 
   return res;
 };

@@ -501,3 +501,227 @@ export namespace ResetPathMemoryResponse {
         hops: number,
     }
 }
+
+export class PayStatusRequest extends jspb.Message { 
+
+    hasBolt11(): boolean;
+    clearBolt11(): void;
+    getBolt11(): string | undefined;
+    setBolt11(value: string): PayStatusRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): PayStatusRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: PayStatusRequest): PayStatusRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: PayStatusRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): PayStatusRequest;
+    static deserializeBinaryFromReader(message: PayStatusRequest, reader: jspb.BinaryReader): PayStatusRequest;
+}
+
+export namespace PayStatusRequest {
+    export type AsObject = {
+        bolt11?: string,
+    }
+}
+
+export class PayStatusResponse extends jspb.Message { 
+    clearStatusList(): void;
+    getStatusList(): Array<PayStatusResponse.PayStatus>;
+    setStatusList(value: Array<PayStatusResponse.PayStatus>): PayStatusResponse;
+    addStatus(value?: PayStatusResponse.PayStatus, index?: number): PayStatusResponse.PayStatus;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): PayStatusResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: PayStatusResponse): PayStatusResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: PayStatusResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): PayStatusResponse;
+    static deserializeBinaryFromReader(message: PayStatusResponse, reader: jspb.BinaryReader): PayStatusResponse;
+}
+
+export namespace PayStatusResponse {
+    export type AsObject = {
+        statusList: Array<PayStatusResponse.PayStatus.AsObject>,
+    }
+
+
+    export class PayStatus extends jspb.Message { 
+        getBolt11(): string;
+        setBolt11(value: string): PayStatus;
+        getAmountMsat(): number;
+        setAmountMsat(value: number): PayStatus;
+        getDestination(): string;
+        setDestination(value: string): PayStatus;
+        clearAttemptsList(): void;
+        getAttemptsList(): Array<PayStatusResponse.PayStatus.Attempt>;
+        setAttemptsList(value: Array<PayStatusResponse.PayStatus.Attempt>): PayStatus;
+        addAttempts(value?: PayStatusResponse.PayStatus.Attempt, index?: number): PayStatusResponse.PayStatus.Attempt;
+
+        serializeBinary(): Uint8Array;
+        toObject(includeInstance?: boolean): PayStatus.AsObject;
+        static toObject(includeInstance: boolean, msg: PayStatus): PayStatus.AsObject;
+        static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+        static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+        static serializeBinaryToWriter(message: PayStatus, writer: jspb.BinaryWriter): void;
+        static deserializeBinary(bytes: Uint8Array): PayStatus;
+        static deserializeBinaryFromReader(message: PayStatus, reader: jspb.BinaryReader): PayStatus;
+    }
+
+    export namespace PayStatus {
+        export type AsObject = {
+            bolt11: string,
+            amountMsat: number,
+            destination: string,
+            attemptsList: Array<PayStatusResponse.PayStatus.Attempt.AsObject>,
+        }
+
+
+        export class Attempt extends jspb.Message { 
+            getStrategy(): string;
+            setStrategy(value: string): Attempt;
+            getStartTime(): number;
+            setStartTime(value: number): Attempt;
+            getAgeInSeconds(): number;
+            setAgeInSeconds(value: number): Attempt;
+
+            hasEndTime(): boolean;
+            clearEndTime(): void;
+            getEndTime(): number | undefined;
+            setEndTime(value: number): Attempt;
+            getState(): PayStatusResponse.PayStatus.Attempt.AttemptState;
+            setState(value: PayStatusResponse.PayStatus.Attempt.AttemptState): Attempt;
+
+            hasSuccess(): boolean;
+            clearSuccess(): void;
+            getSuccess(): PayStatusResponse.PayStatus.Attempt.Success | undefined;
+            setSuccess(value?: PayStatusResponse.PayStatus.Attempt.Success): Attempt;
+
+            hasFailure(): boolean;
+            clearFailure(): void;
+            getFailure(): PayStatusResponse.PayStatus.Attempt.Failure | undefined;
+            setFailure(value?: PayStatusResponse.PayStatus.Attempt.Failure): Attempt;
+
+            serializeBinary(): Uint8Array;
+            toObject(includeInstance?: boolean): Attempt.AsObject;
+            static toObject(includeInstance: boolean, msg: Attempt): Attempt.AsObject;
+            static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+            static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+            static serializeBinaryToWriter(message: Attempt, writer: jspb.BinaryWriter): void;
+            static deserializeBinary(bytes: Uint8Array): Attempt;
+            static deserializeBinaryFromReader(message: Attempt, reader: jspb.BinaryReader): Attempt;
+        }
+
+        export namespace Attempt {
+            export type AsObject = {
+                strategy: string,
+                startTime: number,
+                ageInSeconds: number,
+                endTime?: number,
+                state: PayStatusResponse.PayStatus.Attempt.AttemptState,
+                success?: PayStatusResponse.PayStatus.Attempt.Success.AsObject,
+                failure?: PayStatusResponse.PayStatus.Attempt.Failure.AsObject,
+            }
+
+
+            export class Success extends jspb.Message { 
+                getId(): number;
+                setId(value: number): Success;
+                getPaymentPreimage(): string;
+                setPaymentPreimage(value: string): Success;
+
+                serializeBinary(): Uint8Array;
+                toObject(includeInstance?: boolean): Success.AsObject;
+                static toObject(includeInstance: boolean, msg: Success): Success.AsObject;
+                static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+                static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+                static serializeBinaryToWriter(message: Success, writer: jspb.BinaryWriter): void;
+                static deserializeBinary(bytes: Uint8Array): Success;
+                static deserializeBinaryFromReader(message: Success, reader: jspb.BinaryReader): Success;
+            }
+
+            export namespace Success {
+                export type AsObject = {
+                    id: number,
+                    paymentPreimage: string,
+                }
+            }
+
+            export class Failure extends jspb.Message { 
+                getMessage(): string;
+                setMessage(value: string): Failure;
+                getCode(): number;
+                setCode(value: number): Failure;
+
+                hasData(): boolean;
+                clearData(): void;
+                getData(): PayStatusResponse.PayStatus.Attempt.Failure.Data | undefined;
+                setData(value?: PayStatusResponse.PayStatus.Attempt.Failure.Data): Failure;
+
+                serializeBinary(): Uint8Array;
+                toObject(includeInstance?: boolean): Failure.AsObject;
+                static toObject(includeInstance: boolean, msg: Failure): Failure.AsObject;
+                static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+                static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+                static serializeBinaryToWriter(message: Failure, writer: jspb.BinaryWriter): void;
+                static deserializeBinary(bytes: Uint8Array): Failure;
+                static deserializeBinaryFromReader(message: Failure, reader: jspb.BinaryReader): Failure;
+            }
+
+            export namespace Failure {
+                export type AsObject = {
+                    message: string,
+                    code: number,
+                    data?: PayStatusResponse.PayStatus.Attempt.Failure.Data.AsObject,
+                }
+
+
+                export class Data extends jspb.Message { 
+                    getId(): number;
+                    setId(value: number): Data;
+                    getRawMessage(): string;
+                    setRawMessage(value: string): Data;
+                    getFailCode(): number;
+                    setFailCode(value: number): Data;
+                    getFailCodename(): string;
+                    setFailCodename(value: string): Data;
+                    getErringIndex(): number;
+                    setErringIndex(value: number): Data;
+                    getErringNode(): string;
+                    setErringNode(value: string): Data;
+
+                    serializeBinary(): Uint8Array;
+                    toObject(includeInstance?: boolean): Data.AsObject;
+                    static toObject(includeInstance: boolean, msg: Data): Data.AsObject;
+                    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+                    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+                    static serializeBinaryToWriter(message: Data, writer: jspb.BinaryWriter): void;
+                    static deserializeBinary(bytes: Uint8Array): Data;
+                    static deserializeBinaryFromReader(message: Data, reader: jspb.BinaryReader): Data;
+                }
+
+                export namespace Data {
+                    export type AsObject = {
+                        id: number,
+                        rawMessage: string,
+                        failCode: number,
+                        failCodename: string,
+                        erringIndex: number,
+                        erringNode: string,
+                    }
+                }
+
+            }
+
+
+            export enum AttemptState {
+    ATTEMPT_PENDING = 0,
+    ATTEMPT_COMPLETED = 1,
+            }
+
+        }
+
+    }
+
+}

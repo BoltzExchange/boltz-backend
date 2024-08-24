@@ -20,6 +20,7 @@ import { ListfundsOutputs, ListpaysPays } from '../../proto/cln/node_pb';
 import * as primitivesrpc from '../../proto/cln/primitives_pb';
 import { HoldClient } from '../../proto/hold/hold_grpc_pb';
 import * as holdrpc from '../../proto/hold/hold_pb';
+import * as mpayrpc from '../../proto/mpay/mpay_pb';
 import { WalletBalance } from '../../wallet/providers/WalletProviderInterface';
 import { msatToSat, satToMsat, scidClnToLnd } from '../ChannelUtils';
 import Errors from '../Errors';
@@ -720,7 +721,25 @@ class ClnClient
       };
     }
 
-    // TODO: find a way to check "paystatus"
+    // ... has failed...
+    if (this.mpay !== undefined) {
+      for (const payStatus of (await this.mpay.payStatus(invoice)).statusList) {
+        for (const attempt of payStatus.attemptsList) {
+          if (
+            attempt.state ===
+              mpayrpc.PayStatusResponse.PayStatus.Attempt.AttemptState
+                .ATTEMPT_PENDING ||
+            attempt.failure === undefined
+          ) {
+            continue;
+          }
+
+          if (ClnClient.errIsIncorrectPaymentDetails(attempt.failure.message)) {
+            throw attempt.failure.message;
+          }
+        }
+      }
+    }
 
     // ... or is still pending
     const hasPendingPayments = pays.some(

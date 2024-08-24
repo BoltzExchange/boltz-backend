@@ -77,6 +77,16 @@ class Mpay extends BaseClient {
   public getInfo = (): Promise<mpayrpc.GetInfoResponse.AsObject> =>
     this.unaryNodeCall('getInfo', new mpayrpc.GetInfoRequest());
 
+  public payStatus = (invoice: string) => {
+    const req = new mpayrpc.PayStatusRequest();
+    req.setBolt11(invoice);
+
+    return this.unaryNodeCall<
+      mpayrpc.PayStatusRequest,
+      mpayrpc.PayStatusResponse.AsObject
+    >('payStatus', req);
+  };
+
   public sendPayment = async (
     invoice: string,
     maxFeeMsat: number,

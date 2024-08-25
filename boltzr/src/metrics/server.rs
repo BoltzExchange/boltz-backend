@@ -1,10 +1,14 @@
 use axum::routing::get;
 use axum::Router;
+use axum_prometheus::metrics_exporter_prometheus::PrometheusHandle;
+use axum_prometheus::GenericMetricLayer;
 use metrics::{describe_counter, describe_gauge, Unit};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info};
+
+pub type MetricsLayer = GenericMetricLayer<'static, PrometheusHandle, axum_prometheus::Handle>;
 
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
 pub struct Config {
@@ -18,19 +22,42 @@ pub struct Config {
     pub disable_server_metrics: Option<bool>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Server {
     config: Option<Config>,
 
     cancellation_token: CancellationToken,
+
+    api_metrics_layer: Option<MetricsLayer>,
+    api_metrics_handle: Option<PrometheusHandle>,
 }
 
 impl Server {
     pub fn new(cancellation_token: CancellationToken, config: Option<Config>) -> Self {
+        if let Some(cfg) = config.clone() {
+            if !cfg.disable_server_metrics.unwrap_or(false) {
+                let (prometheus_layer, metric_handle) =
+                    axum_prometheus::PrometheusMetricLayer::pair();
+
+                return Server {
+                    config,
+                    cancellation_token,
+                    api_metrics_handle: Some(metric_handle),
+                    api_metrics_layer: Some(prometheus_layer),
+                };
+            }
+        }
+
         Server {
             config,
             cancellation_token,
+            api_metrics_layer: None,
+            api_metrics_handle: None,
         }
+    }
+
+    pub fn api_metrics_layer(&self) -> Option<MetricsLayer> {
+        self.api_metrics_layer.clone()
     }
 
     pub async fn start(&mut self) -> Result<(), Box<dyn Error>> {
@@ -59,14 +86,11 @@ impl Server {
             );
         }
 
-        if !config.disable_server_metrics.unwrap_or(false) {
-            let (prometheus_layer, metric_handle) = axum_prometheus::PrometheusMetricLayer::pair();
-            router = router
-                .route(
-                    "/metrics_server",
-                    get(move || std::future::ready(metric_handle.render())),
-                )
-                .layer(prometheus_layer);
+        if let Some(api_metrics_handle) = self.api_metrics_handle.clone() {
+            router = router.route(
+                "/api",
+                get(move || std::future::ready(api_metrics_handle.render())),
+            );
         }
 
         let address = format!("{}:{}", config.host, config.port);
@@ -115,6 +139,12 @@ impl Server {
             "number of open WebSockets"
         );
 
+        describe_gauge!(
+            crate::metrics::SSE_OPEN_COUNT,
+            Unit::Count,
+            "number of open SSE streams",
+        );
+
         handle
     }
 }
@@ -153,15 +183,12 @@ mod server_test {
     }
 
     #[tokio::test]
-    async fn test_serve_axum_metrics() {
+    async fn test_serve_api_metrics() {
         let (config, token) = start_server(9105, None, Some(true)).await;
 
-        let res = reqwest::get(format!(
-            "http://{}:{}/metrics_server",
-            config.host, config.port
-        ))
-        .await
-        .unwrap();
+        let res = reqwest::get(format!("http://{}:{}/api", config.host, config.port))
+            .await
+            .unwrap();
         assert_eq!(res.status(), StatusCode::OK);
 
         token.cancel();

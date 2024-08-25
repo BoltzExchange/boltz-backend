@@ -6,6 +6,7 @@ use tracing::{debug, error, info, trace, warn};
 
 use crate::config::parse_config;
 
+mod api;
 mod config;
 mod db;
 mod evm;
@@ -99,13 +100,12 @@ async fn main() {
     let mut metrics_server =
         metrics::server::Server::new(cancellation_token.clone(), config.sidecar.metrics);
     #[cfg(feature = "metrics")]
+    let api_metrics_layer = metrics_server.api_metrics_layer();
+    #[cfg(feature = "metrics")]
     let metrics_handle = tokio::spawn(async move {
-        match metrics_server.start().await {
-            Ok(_) => {}
-            Err(err) => {
-                error!("Could not start metrics server: {}", err);
-            }
-        };
+        if let Err(err) = metrics_server.start().await {
+            error!("Could not start metrics server: {}", err);
+        }
     });
 
     let notification_client = if let Some(config) = config.notification {
@@ -149,6 +149,24 @@ async fn main() {
         notification_client.clone().map(Arc::new),
     );
 
+    let api_server = api::Server::new(
+        config.sidecar.api,
+        cancellation_token.clone(),
+        grpc_server.status_fetcher(),
+        swap_status_update_tx.clone(),
+    );
+    let api_handle = tokio::spawn(async move {
+        #[cfg(feature = "metrics")]
+        let res = api_server.start(api_metrics_layer);
+
+        #[cfg(not(feature = "metrics"))]
+        let res = api_server.start();
+
+        if let Err(err) = res.await {
+            error!("Could not start API server: {}", err);
+        }
+    });
+
     let status_ws = ws::status::Status::new(
         cancellation_token.clone(),
         config.sidecar.ws,
@@ -157,11 +175,8 @@ async fn main() {
     );
 
     let grpc_handle = tokio::spawn(async move {
-        match grpc_server.start().await {
-            Ok(_) => {}
-            Err(err) => {
-                error!("Could not start gRPC server: {}", err);
-            }
+        if let Err(err) = grpc_server.start().await {
+            error!("Could not start gRPC server: {}", err);
         };
     });
 
@@ -186,8 +201,9 @@ async fn main() {
         std::process::exit(1);
     });
 
-    status_ws_handler.await.unwrap();
+    api_handle.await.unwrap();
     grpc_handle.await.unwrap();
+    status_ws_handler.await.unwrap();
     notification_listener_handle.await.unwrap();
 
     #[cfg(feature = "metrics")]

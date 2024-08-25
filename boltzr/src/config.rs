@@ -15,6 +15,7 @@ pub struct Config {
     pub grpc: crate::grpc::server::Config,
     pub webhook: Option<crate::webhook::caller::Config>,
 
+    pub api: crate::api::Config,
     pub ws: crate::ws::Config,
 
     #[cfg(feature = "metrics")]
@@ -191,6 +192,10 @@ erc20SwapAddress = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
   host = "127.0.0.1"
   port = 9093
 
+  [sidecar.api]
+  host = "127.0.0.1"
+  port = 9005
+
   [sidecar.ws]
   host = "0.0.0.0"
   port = 9004
@@ -257,6 +262,10 @@ erc20SwapAddress = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
                     request_timeout: None,
                     max_retries: None,
                 }),
+                api: crate::api::Config {
+                    host: "127.0.0.1".to_string(),
+                    port: 9005,
+                },
                 ws: crate::ws::Config {
                     host: "0.0.0.0".to_string(),
                     port: 9004,

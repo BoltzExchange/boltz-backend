@@ -20,6 +20,17 @@ pub trait SwapInfos {
     async fn fetch_status_info(&self, ids: &[String]);
 }
 
+struct WsConnectionGuard;
+
+impl Drop for WsConnectionGuard {
+    fn drop(&mut self) {
+        trace!("Closing socket");
+
+        #[cfg(feature = "metrics")]
+        metrics::gauge!(crate::metrics::WEBSOCKET_OPEN_COUNT).decrement(1);
+    }
+}
+
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 struct ErrorResponse {
     error: String,
@@ -140,6 +151,8 @@ where
         #[cfg(feature = "metrics")]
         metrics::gauge!(crate::metrics::WEBSOCKET_OPEN_COUNT).increment(1);
 
+        let _guard = WsConnectionGuard;
+
         let mut interval = tokio::time::interval(Duration::from_millis(PING_INTERVAL_MS));
         let (mut ws_sender, mut ws_receiver) = ws_stream.split();
 
@@ -245,11 +258,6 @@ where
                 },
             }
         }
-
-        #[cfg(feature = "metrics")]
-        metrics::gauge!(crate::metrics::WEBSOCKET_OPEN_COUNT).decrement(1);
-
-        trace!("Closing socket");
     }
 
     async fn handle_message(

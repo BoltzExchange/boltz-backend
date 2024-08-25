@@ -9,19 +9,12 @@ import Swap from '../../../lib/db/models/Swap';
 import MarkedSwapRepository from '../../../lib/db/repositories/MarkedSwapRepository';
 import CountryCodes from '../../../lib/service/CountryCodes';
 import Service from '../../../lib/service/Service';
-import { emitClose, mockRequest, mockResponse } from './Utils';
-
-type swapUpdateCallback = (args: {
-  id: string;
-  status: SwapUpdateEvent;
-}) => void;
+import { mockRequest, mockResponse } from './Utils';
 
 const swap: Swap = {
   id: 'status',
   status: SwapUpdateEvent.InvoicePaid,
 } as any as Swap;
-
-let swapUpdate: swapUpdateCallback;
 
 const mockGetPairs = jest.fn().mockReturnValue({
   warnings: [],
@@ -142,14 +135,6 @@ const mockCreateReverseSwap = jest.fn().mockResolvedValue({
 jest.mock('../../../lib/service/Service', () => {
   return jest.fn().mockImplementation(() => {
     return {
-      eventHandler: {
-        on: (event: string, callback: swapUpdateCallback) => {
-          expect(event).toEqual('swap.update');
-
-          swapUpdate = callback;
-        },
-      },
-
       transactionFetcher: {
         getSubmarineTransaction: mockGetSubmarineTransaction,
       },
@@ -966,51 +951,5 @@ describe('Controller', () => {
       mockGenerateReferralStatsResult,
     );
     expect(res.end).toHaveBeenCalledTimes(1);
-  });
-
-  test('should stream swap status updates', async () => {
-    // No id provided in request
-    const res = mockResponse();
-
-    await controller.streamSwapStatus(mockRequest({}, {}), res);
-
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({
-      error: 'undefined parameter: id',
-    });
-
-    // Successful request
-    const id = 'id';
-
-    await controller.streamSwapStatus(
-      mockRequest(
-        {},
-        {
-          id,
-        },
-      ),
-      res,
-    );
-
-    expect(controller['pendingSwapStreams'].get(id)).not.toBeUndefined();
-
-    expect(res.setTimeout).toHaveBeenCalledWith(0);
-    expect(res.writeHead).toHaveBeenCalledWith(200, {
-      Connection: 'keep-alive',
-      'X-Accel-Buffering': 'no',
-      'Cache-Control': 'no-cache',
-      'Content-Type': 'text/event-stream',
-    });
-
-    const status = SwapUpdateEvent.InvoiceSettled;
-
-    swapUpdate({
-      id,
-      status,
-    });
-    expect(res.write).toHaveBeenCalledWith(`data: "${status}"\n\n`);
-
-    emitClose();
-    expect(controller['pendingSwapStreams'].get(id)).toBeUndefined();
   });
 });

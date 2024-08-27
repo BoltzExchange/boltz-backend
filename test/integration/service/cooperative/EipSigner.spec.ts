@@ -169,7 +169,9 @@ describe('EipSigner', () => {
     const amount = BigInt(10) ** BigInt(17);
     const timelock = (await setup.provider.getBlockNumber()) + 21;
 
+    const id = 'asdf';
     ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue({
+      id,
       type: SwapType.Chain,
       version: SwapVersion.Taproot,
       preimageHash: getHexString(preimageHash),
@@ -180,6 +182,7 @@ describe('EipSigner', () => {
         amount: Number(amount / etherDecimals),
       },
     });
+    ChainSwapRepository.setRefundSignatureCreated = jest.fn();
 
     await signer.signSwapRefund('rswap');
 
@@ -189,6 +192,13 @@ describe('EipSigner', () => {
       amount,
       undefined,
       timelock,
+    );
+
+    expect(ChainSwapRepository.setRefundSignatureCreated).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(ChainSwapRepository.setRefundSignatureCreated).toHaveBeenCalledWith(
+      id,
     );
   });
 
@@ -224,7 +234,9 @@ describe('EipSigner', () => {
     const amount = BigInt(10);
     const timelock = (await setup.provider.getBlockNumber()) + 21;
 
+    const id = 'erc20';
     ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue({
+      id,
       type: SwapType.Chain,
       version: SwapVersion.Taproot,
       preimageHash: getHexString(preimageHash),
@@ -235,6 +247,7 @@ describe('EipSigner', () => {
         timeoutBlockHeight: timelock,
       },
     });
+    ChainSwapRepository.setRefundSignatureCreated = jest.fn();
 
     await signer.signSwapRefund('tswap');
 
@@ -244,6 +257,13 @@ describe('EipSigner', () => {
       amount,
       await token.getAddress(),
       timelock,
+    );
+
+    expect(ChainSwapRepository.setRefundSignatureCreated).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(ChainSwapRepository.setRefundSignatureCreated).toHaveBeenCalledWith(
+      id,
     );
   });
 });

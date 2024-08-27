@@ -286,6 +286,7 @@ describe('ChainSwapSigner', () => {
         200,
       );
 
+      ChainSwapRepository.setRefundSignatureCreated = jest.fn();
       ChainSwapRepository.getChainSwap = jest
         .fn()
         .mockResolvedValue(chainSwapInfo);
@@ -317,6 +318,13 @@ describe('ChainSwapSigner', () => {
       refundTx.ins[0].witness = [lockupDetails.musig.aggregatePartials()];
 
       await bitcoinClient.sendRawTransaction(refundTx.toHex());
+
+      expect(
+        ChainSwapRepository.setRefundSignatureCreated,
+      ).toHaveBeenCalledTimes(1);
+      expect(
+        ChainSwapRepository.setRefundSignatureCreated,
+      ).toHaveBeenCalledWith(chainSwapInfo.id);
     });
 
     test('should throw when signing refund for swap that could not be found', async () => {

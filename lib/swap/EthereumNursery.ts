@@ -1,4 +1,4 @@
-import { Transaction, TransactionResponse } from 'ethers';
+import { Transaction, TransactionReceipt, TransactionResponse } from 'ethers';
 import { Op } from 'sequelize';
 import Logger from '../Logger';
 import {
@@ -30,6 +30,7 @@ import WalletManager from '../wallet/WalletManager';
 import EthereumManager from '../wallet/ethereum/EthereumManager';
 import ERC20WalletProvider from '../wallet/providers/ERC20WalletProvider';
 import Errors from './Errors';
+import OverpaymentProtector from './OverpaymentProtector';
 
 class EthereumNursery extends TypedEventEmitter<{
   // EtherSwap
@@ -67,6 +68,7 @@ class EthereumNursery extends TypedEventEmitter<{
     private readonly walletManager: WalletManager,
     public readonly ethereumManager: EthereumManager,
     private readonly blocks: Blocks,
+    private readonly overpaymentProtector: OverpaymentProtector,
   ) {
     super();
 
@@ -151,6 +153,229 @@ class EthereumNursery extends TypedEventEmitter<{
       });
   };
 
+  public checkEtherSwapLockup = async (
+    swap: Swap | ChainSwapInfo,
+    transaction: Transaction | TransactionResponse | TransactionReceipt,
+    etherSwapValues: EtherSwapValues,
+  ) => {
+    if (
+      this.getSwapReceivingCurrency(swap) !==
+      this.ethereumManager.networkDetails.symbol
+    ) {
+      return;
+    }
+
+    this.logger.debug(
+      `Found lockup in ${this.ethereumManager.networkDetails.name} EtherSwap contract for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${transaction.hash}`,
+    );
+
+    const lockupAmount = Number(etherSwapValues.amount / etherDecimals);
+    swap =
+      swap.type === SwapType.Submarine
+        ? await SwapRepository.setLockupTransaction(
+            swap as Swap,
+            transaction.hash!,
+            lockupAmount,
+            true,
+          )
+        : await ChainSwapRepository.setUserLockupTransaction(
+            swap as ChainSwapInfo,
+            transaction.hash!,
+            lockupAmount,
+            true,
+          );
+
+    if (etherSwapValues.claimAddress !== this.ethereumManager.address) {
+      this.emit('lockup.failed', {
+        swap,
+        reason: Errors.INVALID_CLAIM_ADDRESS(
+          etherSwapValues.claimAddress,
+          this.ethereumManager.address,
+        ).message,
+      });
+      return;
+    }
+
+    const timeoutBlockHeight =
+      swap.type === SwapType.Submarine
+        ? (swap as Swap).timeoutBlockHeight
+        : (swap as ChainSwapInfo).receivingData.timeoutBlockHeight;
+    if (etherSwapValues.timelock !== timeoutBlockHeight) {
+      this.emit('lockup.failed', {
+        swap,
+        reason: Errors.INVALID_TIMELOCK(
+          etherSwapValues.timelock,
+          timeoutBlockHeight,
+        ).message,
+      });
+      return;
+    }
+
+    const expectedAmount = this.getSwapExpectedReceivingAmount(swap);
+    if (expectedAmount) {
+      const actualAmountSat = Number(etherSwapValues.amount / etherDecimals);
+
+      if (
+        BigInt(expectedAmount) * this.ethereumManager.networkDetails.decimals >
+        etherSwapValues.amount
+      ) {
+        this.emit('lockup.failed', {
+          swap,
+          reason: Errors.INSUFFICIENT_AMOUNT(actualAmountSat, expectedAmount)
+            .message,
+        });
+        return;
+      }
+
+      if (
+        this.overpaymentProtector.isUnacceptableOverpay(
+          expectedAmount,
+          actualAmountSat,
+        )
+      ) {
+        this.emit('lockup.failed', {
+          swap,
+          reason: Errors.OVERPAID_AMOUNT(actualAmountSat, expectedAmount)
+            .message,
+        });
+        return;
+      }
+    }
+
+    if (this.blocks.isBlocked(transaction.from!)) {
+      this.emit('lockup.failed', {
+        swap,
+        reason: Errors.BLOCKED_ADDRESS().message,
+      });
+      return;
+    }
+
+    this.emit('eth.lockup', {
+      swap,
+      etherSwapValues,
+      transactionHash: transaction.hash!,
+    });
+  };
+
+  public checkErc20SwapLockup = async (
+    swap: Swap | ChainSwapInfo,
+    transaction: Transaction | TransactionResponse | TransactionReceipt,
+    erc20SwapValues: ERC20SwapValues,
+  ) => {
+    const wallet = this.walletManager.wallets.get(
+      this.getSwapReceivingCurrency(swap),
+    );
+    if (wallet === undefined || wallet.type !== CurrencyType.ERC20) {
+      return;
+    }
+
+    const erc20Wallet = wallet.walletProvider as ERC20WalletProvider;
+
+    this.logger.debug(
+      `Found lockup in ${this.ethereumManager.networkDetails.name} ERC20Swap contract for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${transaction.hash}`,
+    );
+
+    const lockupAmount = erc20Wallet.normalizeTokenAmount(
+      erc20SwapValues.amount,
+    );
+    swap =
+      swap.type === SwapType.Submarine
+        ? await SwapRepository.setLockupTransaction(
+            swap as Swap,
+            transaction.hash!,
+            lockupAmount,
+            true,
+          )
+        : await ChainSwapRepository.setUserLockupTransaction(
+            swap as ChainSwapInfo,
+            transaction.hash!,
+            lockupAmount,
+            true,
+          );
+
+    if (erc20SwapValues.claimAddress !== this.ethereumManager.address) {
+      this.emit('lockup.failed', {
+        swap,
+        reason: Errors.INVALID_CLAIM_ADDRESS(
+          erc20SwapValues.claimAddress,
+          this.ethereumManager.address,
+        ).message,
+      });
+      return;
+    }
+
+    if (erc20SwapValues.tokenAddress !== erc20Wallet.getTokenAddress()) {
+      this.emit('lockup.failed', {
+        swap,
+        reason: Errors.INVALID_TOKEN_LOCKED(
+          erc20SwapValues.tokenAddress,
+          this.ethereumManager.address,
+        ).message,
+      });
+      return;
+    }
+
+    const timeoutBlockHeight =
+      swap.type === SwapType.Submarine
+        ? (swap as Swap).timeoutBlockHeight
+        : (swap as ChainSwapInfo).receivingData.timeoutBlockHeight;
+    if (erc20SwapValues.timelock !== timeoutBlockHeight) {
+      this.emit('lockup.failed', {
+        swap,
+        reason: Errors.INVALID_TIMELOCK(
+          erc20SwapValues.timelock,
+          timeoutBlockHeight,
+        ).message,
+      });
+      return;
+    }
+
+    const expectedAmount = this.getSwapExpectedReceivingAmount(swap);
+    if (expectedAmount) {
+      const actualAmount = erc20Wallet.normalizeTokenAmount(
+        erc20SwapValues.amount,
+      );
+
+      if (
+        erc20Wallet.formatTokenAmount(expectedAmount) > erc20SwapValues.amount
+      ) {
+        this.emit('lockup.failed', {
+          swap,
+          reason: Errors.INSUFFICIENT_AMOUNT(actualAmount, expectedAmount)
+            .message,
+        });
+        return;
+      }
+
+      if (
+        this.overpaymentProtector.isUnacceptableOverpay(
+          expectedAmount,
+          actualAmount,
+        )
+      ) {
+        this.emit('lockup.failed', {
+          swap,
+          reason: Errors.OVERPAID_AMOUNT(actualAmount, expectedAmount).message,
+        });
+        return;
+      }
+    }
+
+    if (this.blocks.isBlocked(transaction.from!)) {
+      this.emit('lockup.failed', {
+        swap,
+        reason: Errors.BLOCKED_ADDRESS().message,
+      });
+      return;
+    }
+
+    this.emit('erc20.lockup', {
+      swap,
+      erc20SwapValues,
+      transactionHash: transaction.hash!,
+    });
+  };
+
   private listenEtherSwap = () => {
     this.ethereumManager.contractEventHandler.on(
       'eth.lockup',
@@ -229,7 +454,7 @@ class EthereumNursery extends TypedEventEmitter<{
         ]);
 
         for (const swap of swaps.filter((s) => s !== null)) {
-          await this.checkErc20SwapLock(swap!, transaction, erc20SwapValues);
+          await this.checkErc20SwapLockup(swap!, transaction, erc20SwapValues);
         }
       },
     );
@@ -349,200 +574,6 @@ class EthereumNursery extends TypedEventEmitter<{
         });
       }
     }
-  };
-
-  private checkEtherSwapLockup = async (
-    swap: Swap | ChainSwapInfo,
-    transaction: Transaction | TransactionResponse,
-    etherSwapValues: EtherSwapValues,
-  ) => {
-    if (
-      this.getSwapReceivingCurrency(swap) !==
-      this.ethereumManager.networkDetails.symbol
-    ) {
-      return;
-    }
-
-    this.logger.debug(
-      `Found lockup in ${this.ethereumManager.networkDetails.name} EtherSwap contract for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${transaction.hash}`,
-    );
-
-    const lockupAmount = Number(etherSwapValues.amount / etherDecimals);
-    swap =
-      swap.type === SwapType.Submarine
-        ? await SwapRepository.setLockupTransaction(
-            swap as Swap,
-            transaction.hash!,
-            lockupAmount,
-            true,
-          )
-        : await ChainSwapRepository.setUserLockupTransaction(
-            swap as ChainSwapInfo,
-            transaction.hash!,
-            lockupAmount,
-            true,
-          );
-
-    if (etherSwapValues.claimAddress !== this.ethereumManager.address) {
-      this.emit('lockup.failed', {
-        swap,
-        reason: Errors.INVALID_CLAIM_ADDRESS(
-          etherSwapValues.claimAddress,
-          this.ethereumManager.address,
-        ).message,
-      });
-      return;
-    }
-
-    const timeoutBlockHeight =
-      swap.type === SwapType.Submarine
-        ? (swap as Swap).timeoutBlockHeight
-        : (swap as ChainSwapInfo).receivingData.timeoutBlockHeight;
-    if (etherSwapValues.timelock !== timeoutBlockHeight) {
-      this.emit('lockup.failed', {
-        swap,
-        reason: Errors.INVALID_TIMELOCK(
-          etherSwapValues.timelock,
-          timeoutBlockHeight,
-        ).message,
-      });
-      return;
-    }
-
-    const expectedAmount = this.getSwapExpectedReceivingAmount(swap);
-    if (expectedAmount) {
-      if (
-        BigInt(expectedAmount) * this.ethereumManager.networkDetails.decimals >
-        etherSwapValues.amount
-      ) {
-        this.emit('lockup.failed', {
-          swap,
-          reason: Errors.INSUFFICIENT_AMOUNT(
-            Number(etherSwapValues.amount / etherDecimals),
-            expectedAmount,
-          ).message,
-        });
-        return;
-      }
-    }
-
-    if (this.blocks.isBlocked(transaction.from!)) {
-      this.emit('lockup.failed', {
-        swap,
-        reason: Errors.BLOCKED_ADDRESS().message,
-      });
-      return;
-    }
-
-    this.emit('eth.lockup', {
-      swap,
-      etherSwapValues,
-      transactionHash: transaction.hash!,
-    });
-  };
-
-  private checkErc20SwapLock = async (
-    swap: Swap | ChainSwapInfo,
-    transaction: Transaction | TransactionResponse,
-    erc20SwapValues: ERC20SwapValues,
-  ) => {
-    const wallet = this.walletManager.wallets.get(
-      this.getSwapReceivingCurrency(swap),
-    );
-    if (wallet === undefined || wallet.type !== CurrencyType.ERC20) {
-      return;
-    }
-
-    const erc20Wallet = wallet.walletProvider as ERC20WalletProvider;
-
-    this.logger.debug(
-      `Found lockup in ${this.ethereumManager.networkDetails.name} ERC20Swap contract for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${transaction.hash}`,
-    );
-
-    const lockupAmount = erc20Wallet.normalizeTokenAmount(
-      erc20SwapValues.amount,
-    );
-    swap =
-      swap.type === SwapType.Submarine
-        ? await SwapRepository.setLockupTransaction(
-            swap as Swap,
-            transaction.hash!,
-            lockupAmount,
-            true,
-          )
-        : await ChainSwapRepository.setUserLockupTransaction(
-            swap as ChainSwapInfo,
-            transaction.hash!,
-            lockupAmount,
-            true,
-          );
-
-    if (erc20SwapValues.claimAddress !== this.ethereumManager.address) {
-      this.emit('lockup.failed', {
-        swap,
-        reason: Errors.INVALID_CLAIM_ADDRESS(
-          erc20SwapValues.claimAddress,
-          this.ethereumManager.address,
-        ).message,
-      });
-      return;
-    }
-
-    if (erc20SwapValues.tokenAddress !== erc20Wallet.getTokenAddress()) {
-      this.emit('lockup.failed', {
-        swap,
-        reason: Errors.INVALID_TOKEN_LOCKED(
-          erc20SwapValues.tokenAddress,
-          this.ethereumManager.address,
-        ).message,
-      });
-      return;
-    }
-
-    const timeoutBlockHeight =
-      swap.type === SwapType.Submarine
-        ? (swap as Swap).timeoutBlockHeight
-        : (swap as ChainSwapInfo).receivingData.timeoutBlockHeight;
-    if (erc20SwapValues.timelock !== timeoutBlockHeight) {
-      this.emit('lockup.failed', {
-        swap,
-        reason: Errors.INVALID_TIMELOCK(
-          erc20SwapValues.timelock,
-          timeoutBlockHeight,
-        ).message,
-      });
-      return;
-    }
-
-    const expectedAmount = this.getSwapExpectedReceivingAmount(swap);
-    if (expectedAmount) {
-      if (
-        erc20Wallet.formatTokenAmount(expectedAmount) > erc20SwapValues.amount
-      ) {
-        this.emit('lockup.failed', {
-          swap,
-          reason: Errors.INSUFFICIENT_AMOUNT(
-            erc20Wallet.normalizeTokenAmount(erc20SwapValues.amount),
-            expectedAmount,
-          ).message,
-        });
-        return;
-      }
-    }
-
-    if (this.blocks.isBlocked(transaction.from!)) {
-      this.emit('lockup.failed', {
-        swap,
-        reason: Errors.BLOCKED_ADDRESS().message,
-      });
-      return;
-    }
-
-    this.emit('erc20.lockup', {
-      swap,
-      erc20SwapValues,
-      transactionHash: transaction.hash!,
-    });
   };
 
   private getSwapReceivingCurrency = (swap: Swap | ChainSwapInfo) => {

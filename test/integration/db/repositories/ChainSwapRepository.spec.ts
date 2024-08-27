@@ -97,6 +97,7 @@ describe('ChainSwapInfo', () => {
           orderSide: OrderSide.BUY,
           status: SwapUpdateEvent.SwapCreated,
           preimageHash: getHexString(randomBytes(32)),
+          createdRefundSignature: false,
         },
         sendingData: {
           swapId: id,
@@ -394,6 +395,17 @@ describe('ChainSwapRepository', () => {
     });
   });
 
+  test('should set refund signature created', async () => {
+    const swap = await createChainSwap();
+    await ChainSwapRepository.setRefundSignatureCreated(swap.chainSwap.id);
+
+    const queried = await ChainSwapRepository.getChainSwap({
+      id: swap.chainSwap.id,
+    });
+    expect(queried).not.toBeNull();
+    expect(queried!.createdRefundSignature).toEqual(true);
+  });
+
   test.each`
     status                                  | confirmed
     ${SwapUpdateEvent.TransactionMempool}   | ${false}
@@ -423,6 +435,30 @@ describe('ChainSwapRepository', () => {
       expect(updated!.receivingData.transactionVout).toEqual(vout);
     },
   );
+
+  test('should set expected amounts', async () => {
+    const swap = await createChainSwap();
+
+    const fee = 321_123;
+    const userLockAmount = 456_123;
+    const serverLockAmount = 787_321;
+
+    const queried = await ChainSwapRepository.getChainSwap({
+      id: swap.chainSwap.id,
+    });
+    expect(queried).not.toBeNull();
+
+    await ChainSwapRepository.setExpectedAmounts(
+      queried!,
+      fee,
+      userLockAmount,
+      serverLockAmount,
+    );
+
+    expect(queried!.fee).toEqual(fee);
+    expect(queried!.receivingData.expectedAmount).toEqual(userLockAmount);
+    expect(queried!.sendingData.expectedAmount).toEqual(serverLockAmount);
+  });
 
   test('should set claim miner fee', async () => {
     const swap = await createChainSwap();

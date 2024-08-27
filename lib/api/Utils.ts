@@ -108,9 +108,13 @@ export const errorResponse = (
   }
 };
 
-export const successResponse = (res: Response, data: unknown) => {
+export const successResponse = (
+  res: Response,
+  data: unknown,
+  statusCode = 200,
+) => {
   setContentTypeJson(res);
-  res.status(200);
+  res.status(statusCode);
 
   if (typeof data === 'object') {
     res.json(data);

@@ -12,6 +12,7 @@ import {
 } from '../Utils';
 import { SwapVersion } from '../consts/Enums';
 import { Currency } from '../wallet/WalletManager';
+import ChainSwap from './models/ChainSwap';
 import ChannelCreation from './models/ChannelCreation';
 import DatabaseVersion from './models/DatabaseVersion';
 import LightningPayment from './models/LightningPayment';
@@ -23,7 +24,7 @@ import DatabaseVersionRepository from './repositories/DatabaseVersionRepository'
 
 // TODO: integration tests for actual migrations
 class Migration {
-  private static latestSchemaVersion = 10;
+  private static latestSchemaVersion = 11;
 
   constructor(
     private logger: Logger,
@@ -453,6 +454,36 @@ class Migration {
           .addColumn(PendingLockupTransaction.tableName, 'transaction', {
             type: new DataTypes.TEXT(),
           });
+
+        await this.finishMigration(versionRow.version, currencies);
+        break;
+      }
+
+      case 10: {
+        await this.sequelize.transaction(async (tx) => {
+          await this.sequelize.getQueryInterface().addColumn(
+            ChainSwap.tableName,
+            'createdRefundSignature',
+            {
+              type: new DataTypes.BOOLEAN(),
+              allowNull: false,
+              defaultValue: false,
+            },
+            { transaction: tx },
+          );
+
+          // To make sure we do not allow renegotiation of amounts and potentially
+          // accept a transaction, we created a refund signature before
+          await ChainSwap.update(
+            {
+              createdRefundSignature: true,
+            },
+            {
+              where: {},
+              transaction: tx,
+            },
+          );
+        });
 
         await this.finishMigration(versionRow.version, currencies);
         break;

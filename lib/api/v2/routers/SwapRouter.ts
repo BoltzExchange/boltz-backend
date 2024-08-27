@@ -1494,6 +1494,93 @@ class SwapRouter extends RouterBase {
 
     /**
      * @openapi
+     * components:
+     *   schemas:
+     *     Quote:
+     *       type: object
+     *       properties:
+     *         amount:
+     *           type: number
+     *           description: New quote for a Swap. Amount that the server will lock for Chain Swaps
+     */
+
+    /**
+     * @openapi
+     * /swap/chain/{id}/quote:
+     *   get:
+     *     tags: [Chain Swap]
+     *     description: Gets a new quote for an overpaid or underpaid Chain Swap
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *         description: ID of the Swap
+     *     responses:
+     *       '200':
+     *         description: The new quote
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/Quote'
+     *       '400':
+     *         description: When the Chain Swap is not eligible for a new quote
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
+    router.get('/chain/:id/quote', this.handleError(this.chainSwapQuote));
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
+     *     QuoteResponse:
+     *       type: object
+     */
+
+    /**
+     * @openapi
+     * /swap/chain/{id}/quote:
+     *   post:
+     *     tags: [Chain Swap]
+     *     description: Accepts a new quote for a Chain Swap
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *         description: ID of the Swap
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             $ref: '#/components/schemas/Quote'
+     *     responses:
+     *       '202':
+     *         description: The new quote was accepted
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/QuoteResponse'
+     *       '400':
+     *         description: When the Chain Swap is not eligible for a new quote
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
+    router.post(
+      '/chain/:id/quote',
+      this.handleError(this.chainSwapAcceptQuote),
+    );
+
+    /**
+     * @openapi
      * tags:
      *   name: Swap
      *   description: Generic Swap related endpoints
@@ -2034,8 +2121,30 @@ class SwapRouter extends RouterBase {
     ]);
 
     successResponse(res, {
-      signature: await this.service.eipSigner.signSwapRefund(id),
+      signature: await this.service.swapManager.eipSigner.signSwapRefund(id),
     });
+  };
+
+  private chainSwapQuote = async (req: Request, res: Response) => {
+    const { id } = validateRequest(req.params, [
+      { name: 'id', type: 'string' },
+    ]);
+
+    successResponse(res, {
+      amount: await this.service.swapManager.renegotiator.getQuote(id),
+    });
+  };
+
+  private chainSwapAcceptQuote = async (req: Request, res: Response) => {
+    const { id } = validateRequest(req.params, [
+      { name: 'id', type: 'string' },
+    ]);
+    const { amount } = validateRequest(req.body, [
+      { name: 'amount', type: 'number' },
+    ]);
+
+    await this.service.swapManager.renegotiator.acceptQuote(id, amount);
+    successResponse(res, {}, 202);
   };
 
   private getSwapStatus = async (req: Request, res: Response) => {

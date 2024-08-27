@@ -181,4 +181,20 @@ export default {
     message: 'server claim succeeded already',
     code: concatErrorCode(ErrorCodePrefix.Service, 46),
   }),
+  REFUND_SIGNED_ALREADY: (): Error => ({
+    message: 'a refund for this swap was signed already',
+    code: concatErrorCode(ErrorCodePrefix.Service, 47),
+  }),
+  LOCKUP_NOT_REJECTED: (): Error => ({
+    message: 'lockup transaction was not rejected because of the amount',
+    code: concatErrorCode(ErrorCodePrefix.Service, 48),
+  }),
+  TIME_UNTIL_EXPIRY_TOO_SHORT: (): Error => ({
+    message: 'time until expiry too short',
+    code: concatErrorCode(ErrorCodePrefix.Service, 49),
+  }),
+  INVALID_QUOTE: (): Error => ({
+    message: 'invalid quote',
+    code: concatErrorCode(ErrorCodePrefix.Service, 50),
+  }),
 };

@@ -12,8 +12,8 @@ import { NetworkDetails } from './EvmNetworks';
 class ContractHandler {
   private provider!: Provider;
 
-  private etherSwap!: EtherSwap;
-  private erc20Swap!: ERC20Swap;
+  public etherSwap!: EtherSwap;
+  public erc20Swap!: ERC20Swap;
 
   constructor(private readonly networkDetails: NetworkDetails) {}
 

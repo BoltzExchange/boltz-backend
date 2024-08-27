@@ -2,6 +2,7 @@ import { crypto } from 'bitcoinjs-lib';
 import { Op } from 'sequelize';
 import Logger from '../../../lib/Logger';
 import { getHexBuffer, getHexString } from '../../../lib/Utils';
+import { etherDecimals } from '../../../lib/consts/Consts';
 import {
   CurrencyType,
   OrderSide,
@@ -17,6 +18,7 @@ import WrappedSwapRepository from '../../../lib/db/repositories/WrappedSwapRepos
 import Blocks from '../../../lib/service/Blocks';
 import Errors from '../../../lib/swap/Errors';
 import EthereumNursery from '../../../lib/swap/EthereumNursery';
+import OverpaymentProtector from '../../../lib/swap/OverpaymentProtector';
 import Wallet from '../../../lib/wallet/Wallet';
 import EthereumManager from '../../../lib/wallet/ethereum/EthereumManager';
 import { Ethereum } from '../../../lib/wallet/ethereum/EvmNetworks';
@@ -217,6 +219,7 @@ describe('EthereumNursery', () => {
     } as any,
     new MockedEthereumManager(),
     blocks,
+    new OverpaymentProtector(Logger.disabledLogger),
   );
 
   beforeEach(() => {
@@ -521,6 +524,43 @@ describe('EthereumNursery', () => {
     await lockupPromise;
   });
 
+  test('should reject overpaid EtherSwap lockup transactions', async () => {
+    mockGetSwapResult = {
+      pair: 'ETH/BTC',
+      expectedAmount: 10,
+      type: SwapType.Submarine,
+      orderSide: OrderSide.SELL,
+      timeoutBlockHeight: 11102219,
+    };
+
+    const sentAmount =
+      BigInt(mockGetSwapResult.expectedAmount) * 100_000n * etherDecimals;
+
+    const lockupFailedPromise = new Promise<void>((resolve) => {
+      nursery.once('lockup.failed', ({ reason }) => {
+        expect(reason).toEqual(
+          Errors.OVERPAID_AMOUNT(
+            Number(sentAmount / etherDecimals),
+            mockGetSwapResult.expectedAmount,
+          ).message,
+        );
+        resolve();
+      });
+    });
+
+    emitEthLockup({
+      transaction: { ...exampleTransaction },
+      etherSwapValues: {
+        amount: sentAmount,
+        claimAddress: mockAddress,
+        timelock: mockGetSwapResult.timeoutBlockHeight,
+        preimageHash: getHexString(examplePreimageHash),
+      } as any,
+    });
+
+    await lockupFailedPromise;
+  });
+
   test('should listen to EtherSwap claim events', async () => {
     let emittedEvents = 0;
 
@@ -606,7 +646,7 @@ describe('EthereumNursery', () => {
       },
     });
 
-    expect(mockNormalizeTokenAmount).toHaveBeenCalledTimes(1);
+    expect(mockNormalizeTokenAmount).toHaveBeenCalledTimes(2);
     expect(mockNormalizeTokenAmount).toHaveBeenCalledWith(
       suppliedERC20SwapValues.amount,
     );
@@ -807,6 +847,44 @@ describe('EthereumNursery', () => {
     });
 
     await lockupPromise;
+  });
+
+  test('should reject overpaid ERC20 lockup transactions', async () => {
+    mockGetSwapResult = {
+      pair: 'BTC/USDT',
+      expectedAmount: 10,
+      orderSide: OrderSide.BUY,
+      type: SwapType.Submarine,
+      timeoutBlockHeight: 11102222,
+    };
+
+    const sentAmount =
+      BigInt(mockGetSwapResult.expectedAmount) * 100_000n * etherDecimals;
+
+    const lockupFailedPromise = new Promise<void>((resolve) => {
+      nursery.once('lockup.failed', ({ reason }) => {
+        expect(reason).toEqual(
+          Errors.OVERPAID_AMOUNT(
+            Number(sentAmount / 100n),
+            mockGetSwapResult.expectedAmount,
+          ).message,
+        );
+        resolve();
+      });
+    });
+
+    emitErc20Lockup({
+      transaction: { ...exampleTransaction },
+      erc20SwapValues: {
+        amount: sentAmount,
+        claimAddress: mockAddress,
+        tokenAddress: mockTokenAddress,
+        timelock: mockGetSwapResult.timeoutBlockHeight,
+        preimageHash: getHexString(examplePreimageHash),
+      } as any,
+    });
+
+    await lockupFailedPromise;
   });
 
   test('should listen to ERC20Swap claim events', async () => {

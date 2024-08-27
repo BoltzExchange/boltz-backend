@@ -35,6 +35,7 @@ class ChainSwapSigner extends CoopSignerBase<
   { claim: ChainSwapInfo }
 > {
   private static readonly swapsToClaimLock = 'swapsToClaim';
+  private static readonly refundSignatureLock = 'refundSignature';
   private static readonly cooperativeBroadcastLock = 'cooperativeBroadcast';
 
   private attemptSettleSwap!: (
@@ -56,6 +57,9 @@ class ChainSwapSigner extends CoopSignerBase<
     super(logger, walletManager, swapOutputType);
   }
 
+  public refundSignatureLock = <T>(cb: () => Promise<T>): Promise<T> =>
+    this.lock.acquire(ChainSwapSigner.refundSignatureLock, cb);
+
   public init = async () => {
     const claimableChainSwaps = await ChainSwapRepository.getChainSwaps({
       status: {
@@ -75,48 +79,53 @@ class ChainSwapSigner extends CoopSignerBase<
     this.attemptSettleSwap = func;
   };
 
-  public signRefund = async (
+  public signRefund = (
     swapId: string,
     theirNonce: Buffer,
     transaction: Buffer,
     index: number,
-  ): Promise<PartialSignature> => {
-    const swap = await ChainSwapRepository.getChainSwap({ id: swapId });
-    if (!swap) {
-      throw Errors.SWAP_NOT_FOUND(swapId);
-    }
-
-    const currency = this.currencies.get(swap.receivingData.symbol);
-    if (currency === undefined || currency.chainClient === undefined) {
-      throw Errors.CURRENCY_NOT_UTXO_BASED();
-    }
-
-    {
-      const rejectionReason =
-        await MusigSigner.refundNonEligibilityReason(swap);
-      if (rejectionReason !== undefined) {
-        this.logger.verbose(
-          `Not creating partial signature for refund of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${rejectionReason}`,
-        );
-        throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(rejectionReason);
+  ): Promise<PartialSignature> =>
+    this.refundSignatureLock(async () => {
+      const swap = await ChainSwapRepository.getChainSwap({ id: swapId });
+      if (!swap) {
+        throw Errors.SWAP_NOT_FOUND(swapId);
       }
-    }
 
-    this.logger.debug(
-      `Creating partial signature for refund of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}`,
-    );
+      const currency = this.currencies.get(swap.receivingData.symbol);
+      if (currency === undefined || currency.chainClient === undefined) {
+        throw Errors.CURRENCY_NOT_UTXO_BASED();
+      }
 
-    return createPartialSignature(
-      currency,
-      this.walletManager.wallets.get(swap.receivingData.symbol)!,
-      SwapTreeSerializer.deserializeSwapTree(swap.receivingData.swapTree!),
-      swap.receivingData.keyIndex!,
-      getHexBuffer(swap.receivingData.theirPublicKey!),
-      theirNonce,
-      transaction,
-      index,
-    );
-  };
+      {
+        const rejectionReason =
+          await MusigSigner.refundNonEligibilityReason(swap);
+        if (rejectionReason !== undefined) {
+          this.logger.verbose(
+            `Not creating partial signature for refund of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${rejectionReason}`,
+          );
+          throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(rejectionReason);
+        }
+      }
+
+      this.logger.debug(
+        `Creating partial signature for refund of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}`,
+      );
+
+      const sig = await createPartialSignature(
+        currency,
+        this.walletManager.wallets.get(swap.receivingData.symbol)!,
+        SwapTreeSerializer.deserializeSwapTree(swap.receivingData.swapTree!),
+        swap.receivingData.keyIndex!,
+        getHexBuffer(swap.receivingData.theirPublicKey!),
+        theirNonce,
+        transaction,
+        index,
+      );
+
+      await ChainSwapRepository.setRefundSignatureCreated(swap.id);
+
+      return sig;
+    });
 
   public registerForClaim = async (swap: ChainSwapInfo) => {
     await this.lock.acquire(ChainSwapSigner.swapsToClaimLock, async () => {

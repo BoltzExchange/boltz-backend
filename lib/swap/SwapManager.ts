@@ -63,9 +63,12 @@ import RateProvider from '../rates/RateProvider';
 import Blocks from '../service/Blocks';
 import InvoiceExpiryHelper from '../service/InvoiceExpiryHelper';
 import PaymentRequestUtils from '../service/PaymentRequestUtils';
+import Renegotiator from '../service/Renegotiator';
 import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
 import ChainSwapSigner from '../service/cooperative/ChainSwapSigner';
 import DeferredClaimer from '../service/cooperative/DeferredClaimer';
+import EipSigner from '../service/cooperative/EipSigner';
+import Sidecar from '../sidecar/Sidecar';
 import WalletLiquid from '../wallet/WalletLiquid';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import Errors from './Errors';
@@ -155,8 +158,10 @@ class SwapManager {
 
   public nursery: SwapNursery;
   public routingHints!: RoutingHints;
+  public readonly renegotiator: Renegotiator;
   public readonly deferredClaimer: DeferredClaimer;
   public readonly chainSwapSigner: ChainSwapSigner;
+  public readonly eipSigner: EipSigner;
 
   private nodeFallback!: NodeFallback;
   private invoiceExpiryHelper!: InvoiceExpiryHelper;
@@ -175,6 +180,7 @@ class SwapManager {
     private readonly blocks: Blocks,
     swapConfig: SwapConfig,
     lockupTransactionTracker: LockupTransactionTracker,
+    sidecar: Sidecar,
   ) {
     this.deferredClaimer = new DeferredClaimer(
       this.logger,
@@ -189,6 +195,12 @@ class SwapManager {
       this.currencies,
       this.walletManager,
       this.swapOutputType,
+    );
+    this.eipSigner = new EipSigner(
+      this.logger,
+      this.currencies,
+      this.walletManager,
+      sidecar,
     );
 
     this.nursery = new SwapNursery(
@@ -205,6 +217,16 @@ class SwapManager {
       this.chainSwapSigner,
       lockupTransactionTracker,
       swapConfig.overpayment,
+    );
+
+    this.renegotiator = new Renegotiator(
+      this.logger,
+      this.currencies,
+      this.walletManager,
+      this.nursery,
+      this.chainSwapSigner,
+      this.eipSigner,
+      rateProvider,
     );
 
     this.reverseRoutingHints = new ReverseRoutingHints(
@@ -1093,6 +1115,7 @@ class SwapManager {
         fee: args.percentageFee,
         orderSide: args.orderSide,
         referral: args.referralId,
+        createdRefundSignature: false,
         acceptZeroConf: args.acceptZeroConf,
         status: SwapUpdateEvent.SwapCreated,
         pair: getPairId({

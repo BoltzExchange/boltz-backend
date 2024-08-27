@@ -73,7 +73,6 @@ import {
   GetInfoResponse,
   LightningInfo,
 } from '../proto/boltzrpc_pb';
-import { ChainSwapMinerFees } from '../rates/FeeProvider';
 import LockupTransactionTracker from '../rates/LockupTransactionTracker';
 import RateProvider from '../rates/RateProvider';
 import { PairTypeLegacy } from '../rates/providers/RateProviderLegacy';
@@ -101,7 +100,6 @@ import TimeoutDeltaProvider, {
 import TransactionFetcher from './TransactionFetcher';
 import { calculateTimeoutDate, getCurrency } from './Utils';
 import { SwapToClaimPreimage } from './cooperative/DeferredClaimer';
-import EipSigner from './cooperative/EipSigner';
 import MusigSigner from './cooperative/MusigSigner';
 
 type NetworkContracts = {
@@ -140,7 +138,6 @@ class Service {
 
   public readonly transactionFetcher: TransactionFetcher;
 
-  public readonly eipSigner: EipSigner;
   public readonly musigSigner: MusigSigner;
   public readonly rateProvider: RateProvider;
   public readonly lockupTransactionTracker: LockupTransactionTracker;
@@ -217,6 +214,7 @@ class Service {
       blocks,
       config.swap,
       this.lockupTransactionTracker,
+      this.sidecar,
     );
 
     this.eventHandler = new EventHandler(
@@ -231,12 +229,6 @@ class Service {
       this.walletManager,
     );
     this.transactionFetcher = new TransactionFetcher(this.currencies);
-    this.eipSigner = new EipSigner(
-      this.logger,
-      this.currencies,
-      this.walletManager,
-      this.sidecar,
-    );
     this.musigSigner = new MusigSigner(
       this.logger,
       this.currencies,
@@ -1921,20 +1913,11 @@ class Service {
     );
 
     const rate = getRate(pairRate, side, true);
-    const feePercent = this.rateProvider.feeProvider.getPercentageFee(
+
+    const { feePercent, baseFee } = this.swapManager.renegotiator.getFees(
       args.pairId,
       side,
-      SwapType.Chain,
-      PercentageFeeType.Calculation,
     );
-    const baseFee =
-      this.rateProvider.feeProvider.getSwapBaseFees<ChainSwapMinerFees>(
-        args.pairId,
-        side,
-        SwapType.Chain,
-        SwapVersion.Taproot,
-      ).server;
-
     let percentageFee: number;
 
     if (
@@ -1945,12 +1928,15 @@ class Service {
     } else if (args.userLockAmount !== undefined) {
       this.checkWholeNumber(args.userLockAmount);
 
-      args.serverLockAmount = args.userLockAmount * rate;
+      const calcRes = this.swapManager.renegotiator.calculateServerLockAmount(
+        rate,
+        args.userLockAmount,
+        feePercent,
+        baseFee,
+      );
 
-      percentageFee = Math.ceil(feePercent * args.serverLockAmount);
-
-      args.serverLockAmount -= percentageFee + baseFee;
-      args.serverLockAmount = Math.floor(args.serverLockAmount);
+      percentageFee = calcRes.percentageFee;
+      args.serverLockAmount = calcRes.serverLockAmount;
     } else if (args.serverLockAmount !== undefined) {
       this.checkWholeNumber(args.serverLockAmount);
 

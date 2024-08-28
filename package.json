@@ -33,7 +33,7 @@
     "docker:cln:hold": "cd hold && cargo build && cp target/debug/hold ../docker/regtest/data/cln/plugins && docker exec regtest lightning-cli plugin start /root/.lightning/plugins/hold && docker exec regtest chmod -R 777 /root/.lightning/regtest/hold",
     "docker:cln:mpay": "docker exec regtest lightning-cli plugin start /root/mpay.sh",
     "docker:cln:plugins": "npm run docker:cln:hold && npm run docker:cln:mpay",
-    "docker:stop": "docker kill regtest && docker rm regtest && docker kill anvil && docker rm anvil",
+    "docker:stop": "docker kill regtest || true && docker rm regtest || true && docker kill anvil || true && docker rm anvil || true",
     "test": "npm run test:unit && npm run docker:start && npm run test:int && npm run docker:stop",
     "test:nodocker": "npm run test:unit && npm run test:int",
     "test:unit": "GRPC_NODE_VERBOSITY=NONE jest test/unit",

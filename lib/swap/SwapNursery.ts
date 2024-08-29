@@ -81,6 +81,7 @@ import EthereumNursery from './EthereumNursery';
 import InvoiceNursery from './InvoiceNursery';
 import LightningNursery from './LightningNursery';
 import NodeSwitch from './NodeSwitch';
+import OverpaymentProtector from './OverpaymentProtector';
 import PaymentHandler, { SwapNurseryEvents } from './PaymentHandler';
 import SwapOutputType from './SwapOutputType';
 import UtxoNursery from './UtxoNursery';
@@ -95,14 +96,13 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
   public static reverseSwapMempoolEta = 2;
 
   // Nurseries
-  private readonly utxoNursery: UtxoNursery;
+  public readonly utxoNursery: UtxoNursery;
   public readonly channelNursery: ChannelNursery;
+  public readonly ethereumNurseries: EthereumNursery[];
+
   private readonly invoiceNursery: InvoiceNursery;
   private readonly paymentHandler: PaymentHandler;
   private readonly lightningNursery: LightningNursery;
-
-  private readonly ethereumNurseries: EthereumNursery[];
-
   private readonly pendingPaymentTracker: PendingPaymentTracker;
 
   // Maps
@@ -138,12 +138,16 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
 
     this.logger.info(`Setting Swap retry interval to ${retryInterval} seconds`);
 
+    const overpaymentProtector = new OverpaymentProtector(
+      this.logger,
+      overPaymentConfig,
+    );
     this.utxoNursery = new UtxoNursery(
       this.logger,
       this.walletManager,
       blocks,
       lockupTransactionTracker,
-      overPaymentConfig,
+      overpaymentProtector,
     );
     this.lightningNursery = new LightningNursery(this.logger);
     this.invoiceNursery = new InvoiceNursery(this.logger);
@@ -154,7 +158,13 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
 
     this.ethereumNurseries = this.walletManager.ethereumManagers.map(
       (manager) =>
-        new EthereumNursery(this.logger, this.walletManager, manager, blocks),
+        new EthereumNursery(
+          this.logger,
+          this.walletManager,
+          manager,
+          blocks,
+          overpaymentProtector,
+        ),
     );
 
     this.pendingPaymentTracker = new PendingPaymentTracker(this.logger);

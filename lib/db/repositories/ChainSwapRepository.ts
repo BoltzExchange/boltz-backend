@@ -42,6 +42,10 @@ class ChainSwapInfo {
     return this.chainSwap.acceptZeroConf;
   }
 
+  get createdRefundSignature() {
+    return this.chainSwap.createdRefundSignature;
+  }
+
   get failureReason() {
     return this.chainSwap.failureReason;
   }
@@ -244,6 +248,18 @@ class ChainSwapRepository {
     );
   };
 
+  public static setRefundSignatureCreated = (id: string) =>
+    ChainSwap.update(
+      {
+        createdRefundSignature: true,
+      },
+      {
+        where: {
+          id,
+        },
+      },
+    );
+
   public static setUserLockupTransaction = (
     swap: ChainSwapInfo,
     lockupTransactionId: string,
@@ -265,6 +281,35 @@ class ChainSwapRepository {
           amount: onchainAmount,
           transactionId: lockupTransactionId,
           transactionVout: lockupTransactionVout,
+        },
+        { transaction },
+      );
+
+      return swap;
+    });
+
+  public static setExpectedAmounts = (
+    swap: ChainSwapInfo,
+    fee: number,
+    userLockAmount: number,
+    serverLockAmount: number,
+  ): Promise<ChainSwapInfo> =>
+    Database.sequelize.transaction(async (transaction) => {
+      swap.chainSwap = await swap.chainSwap.update(
+        {
+          fee,
+        },
+        { transaction },
+      );
+      swap.receivingData = await swap.receivingData.update(
+        {
+          expectedAmount: userLockAmount,
+        },
+        { transaction },
+      );
+      swap.sendingData = await swap.sendingData.update(
+        {
+          expectedAmount: serverLockAmount,
         },
         { transaction },
       );

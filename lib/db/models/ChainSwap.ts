@@ -17,6 +17,8 @@ type ChainSwapType = {
 
   preimageHash: string;
   preimage?: string;
+
+  createdRefundSignature: boolean;
 };
 
 class ChainSwap extends Model implements ChainSwapType {
@@ -35,6 +37,8 @@ class ChainSwap extends Model implements ChainSwapType {
 
   public preimageHash!: string;
   public preimage?: string;
+
+  public createdRefundSignature!: boolean;
 
   public createdAt!: Date;
   public updatedAt!: Date;
@@ -60,6 +64,11 @@ class ChainSwap extends Model implements ChainSwapType {
           unique: true,
         },
         preimage: { type: new DataTypes.STRING(64), allowNull: true },
+        createdRefundSignature: {
+          type: DataTypes.BOOLEAN(),
+          allowNull: false,
+          defaultValue: false,
+        },
       },
       {
         sequelize,

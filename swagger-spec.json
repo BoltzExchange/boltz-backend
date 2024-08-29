@@ -1750,6 +1750,96 @@
         }
       }
     },
+    "/swap/chain/{id}/quote": {
+      "get": {
+        "tags": [
+          "Chain Swap"
+        ],
+        "description": "Gets a new quote for an overpaid or underpaid Chain Swap",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID of the Swap"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The new quote",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Quote"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "When the Chain Swap is not eligible for a new quote",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Chain Swap"
+        ],
+        "description": "Accepts a new quote for a Chain Swap",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID of the Swap"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Quote"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "The new quote was accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuoteResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "When the Chain Swap is not eligible for a new quote",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/swap/{id}": {
       "get": {
         "tags": [
@@ -2642,6 +2732,18 @@
             }
           }
         }
+      },
+      "Quote": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "number",
+            "description": "New quote for a Swap. Amount that the server will lock for Chain Swaps"
+          }
+        }
+      },
+      "QuoteResponse": {
+        "type": "object"
       },
       "SwapStatus": {
         "type": "object",

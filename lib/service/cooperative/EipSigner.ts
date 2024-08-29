@@ -1,3 +1,4 @@
+import AsyncLock from 'async-lock';
 import { Op } from 'sequelize';
 import Logger from '../../Logger';
 import {
@@ -21,6 +22,10 @@ import Errors from '../Errors';
 import MusigSigner from './MusigSigner';
 
 class EipSigner {
+  private static readonly refundSignatureLock = 'refundSignature';
+
+  private readonly lock = new AsyncLock();
+
   constructor(
     private readonly logger: Logger,
     private readonly currencies: Map<string, Currency>,
@@ -28,57 +33,65 @@ class EipSigner {
     private readonly sidecar: Sidecar,
   ) {}
 
-  public signSwapRefund = async (swapIdOrPreimageHash: string) => {
-    const { swap, chainSymbol, lightningCurrency } =
-      await this.getSwap(swapIdOrPreimageHash);
-    const manager = this.walletManager.ethereumManagers.find((man) =>
-      man.hasSymbol(chainSymbol),
-    );
+  public refundSignatureLock = <T>(cb: () => Promise<T>): Promise<T> =>
+    this.lock.acquire(EipSigner.refundSignatureLock, cb);
 
-    if (manager === undefined) {
-      throw 'chain currency is not EVM based';
-    }
-
-    {
-      const rejectionReason = await MusigSigner.refundNonEligibilityReason(
-        swap,
-        lightningCurrency,
+  public signSwapRefund = async (swapIdOrPreimageHash: string) =>
+    this.refundSignatureLock(async () => {
+      const { swap, chainSymbol, lightningCurrency } =
+        await this.getSwap(swapIdOrPreimageHash);
+      const manager = this.walletManager.ethereumManagers.find((man) =>
+        man.hasSymbol(chainSymbol),
       );
-      if (rejectionReason !== undefined) {
-        this.logger.verbose(
-          `Not creating EIP-712 signature for refund of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${rejectionReason}`,
-        );
-        throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(rejectionReason);
+
+      if (manager === undefined) {
+        throw 'chain currency is not EVM based';
       }
-    }
 
-    this.logger.debug(
-      `Creating EIP-712 signature for refund of Swap ${swap.id}`,
-    );
+      {
+        const rejectionReason = await MusigSigner.refundNonEligibilityReason(
+          swap,
+          lightningCurrency,
+        );
+        if (rejectionReason !== undefined) {
+          this.logger.verbose(
+            `Not creating EIP-712 signature for refund of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${rejectionReason}`,
+          );
+          throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(rejectionReason);
+        }
+      }
 
-    const isEtherSwap = manager.networkDetails.symbol === chainSymbol;
+      this.logger.debug(
+        `Creating EIP-712 signature for refund of Swap ${swap.id}`,
+      );
 
-    const onchainAmount =
-      swap.type === SwapType.Submarine
-        ? (swap as Swap).onchainAmount
-        : (swap as ChainSwapInfo).receivingData.amount;
+      const isEtherSwap = manager.networkDetails.symbol === chainSymbol;
 
-    const sidecarRes = await this.sidecar.signEvmRefund(
-      getHexBuffer(swap.preimageHash),
-      isEtherSwap
-        ? BigInt(onchainAmount!) * etherDecimals
-        : (
-            this.walletManager.wallets.get(chainSymbol)!
-              .walletProvider as ERC20WalletProvider
-          ).formatTokenAmount(onchainAmount!),
-      isEtherSwap ? undefined : manager.tokenAddresses.get(chainSymbol),
-      swap.type === SwapType.Submarine
-        ? (swap as Swap).timeoutBlockHeight
-        : (swap as ChainSwapInfo).receivingData.timeoutBlockHeight,
-    );
+      const onchainAmount =
+        swap.type === SwapType.Submarine
+          ? (swap as Swap).onchainAmount
+          : (swap as ChainSwapInfo).receivingData.amount;
 
-    return `0x${getHexString(sidecarRes)}`;
-  };
+      const sidecarRes = await this.sidecar.signEvmRefund(
+        getHexBuffer(swap.preimageHash),
+        isEtherSwap
+          ? BigInt(onchainAmount!) * etherDecimals
+          : (
+              this.walletManager.wallets.get(chainSymbol)!
+                .walletProvider as ERC20WalletProvider
+            ).formatTokenAmount(onchainAmount!),
+        isEtherSwap ? undefined : manager.tokenAddresses.get(chainSymbol),
+        swap.type === SwapType.Submarine
+          ? (swap as Swap).timeoutBlockHeight
+          : (swap as ChainSwapInfo).receivingData.timeoutBlockHeight,
+      );
+
+      if (swap.type === SwapType.Chain) {
+        await ChainSwapRepository.setRefundSignatureCreated(swap.id);
+      }
+
+      return `0x${getHexString(sidecarRes)}`;
+    });
 
   private getSwap = async (
     swapIdOrPreimageHash: string,

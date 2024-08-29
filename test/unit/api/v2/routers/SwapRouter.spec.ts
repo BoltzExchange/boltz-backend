@@ -77,10 +77,6 @@ describe('SwapRouter', () => {
       }),
     },
 
-    eipSigner: {
-      signSwapRefund: jest.fn().mockResolvedValue('12344321'),
-    },
-
     swapManager: {
       deferredClaimer: {
         getCooperativeDetails: jest.fn().mockResolvedValue({
@@ -103,6 +99,12 @@ describe('SwapRouter', () => {
           signature: getHexBuffer('42'),
         }),
       },
+
+      eipSigner: {
+        signSwapRefund: jest.fn().mockResolvedValue('12344321'),
+      },
+
+      renegotiator: {},
     },
 
     transactionFetcher: {
@@ -169,7 +171,7 @@ describe('SwapRouter', () => {
 
     expect(Router).toHaveBeenCalledTimes(1);
 
-    expect(mockedRouter.get).toHaveBeenCalledTimes(13);
+    expect(mockedRouter.get).toHaveBeenCalledTimes(14);
     expect(mockedRouter.get).toHaveBeenCalledWith('/:id', expect.anything());
     expect(mockedRouter.get).toHaveBeenCalledWith(
       '/submarine',
@@ -217,8 +219,12 @@ describe('SwapRouter', () => {
       '/chain/:id/refund',
       expect.anything(),
     );
+    expect(mockedRouter.get).toHaveBeenCalledWith(
+      '/chain/:id/quote',
+      expect.anything(),
+    );
 
-    expect(mockedRouter.post).toHaveBeenCalledTimes(11);
+    expect(mockedRouter.post).toHaveBeenCalledTimes(12);
     expect(mockedRouter.post).toHaveBeenCalledWith(
       '/submarine',
       expect.anything(),
@@ -258,6 +264,10 @@ describe('SwapRouter', () => {
     );
     expect(mockedRouter.post).toHaveBeenCalledWith(
       '/chain/:id/refund',
+      expect.anything(),
+    );
+    expect(mockedRouter.post).toHaveBeenCalledWith(
+      '/chain/:id/quote',
       expect.anything(),
     );
   });
@@ -695,8 +705,12 @@ describe('SwapRouter', () => {
       signature: '12344321',
     });
 
-    expect(service.eipSigner.signSwapRefund).toHaveBeenCalledTimes(1);
-    expect(service.eipSigner.signSwapRefund).toHaveBeenCalledWith(reqParams.id);
+    expect(service.swapManager.eipSigner.signSwapRefund).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(service.swapManager.eipSigner.signSwapRefund).toHaveBeenCalledWith(
+      reqParams.id,
+    );
   });
 
   test.each`
@@ -1626,6 +1640,98 @@ describe('SwapRouter', () => {
         signature: getHexBuffer(reqBody.signature.partialSignature),
       },
     );
+  });
+
+  describe('Chain Swap renegotiation', () => {
+    describe('get quotes', () => {
+      test('should return error when no id was set', async () => {
+        const res = mockResponse();
+        await expect(
+          swapRouter['chainSwapQuote'](mockRequest(null, undefined, {}), res),
+        ).rejects.toEqual('undefined parameter: id');
+      });
+
+      test('should get new quote', async () => {
+        const id = 'yo';
+        const amount = 321;
+
+        service.swapManager.renegotiator.getQuote = jest
+          .fn()
+          .mockResolvedValue(amount);
+
+        const res = mockResponse();
+        await swapRouter['chainSwapQuote'](
+          mockRequest(null, undefined, {
+            id,
+          }),
+          res,
+        );
+
+        expect(service.swapManager.renegotiator.getQuote).toHaveBeenCalledTimes(
+          1,
+        );
+        expect(service.swapManager.renegotiator.getQuote).toHaveBeenCalledWith(
+          id,
+        );
+
+        expect(res.status).toHaveBeenCalledTimes(1);
+        expect(res.status).toHaveBeenCalledWith(200);
+
+        expect(res.json).toHaveBeenCalledTimes(1);
+        expect(res.json).toHaveBeenCalledWith({ amount });
+      });
+    });
+
+    describe('accept quotes', () => {
+      test.each`
+        params          | body                 | error
+        ${{}}           | ${{}}                | ${'undefined parameter: id'}
+        ${{ id: 1 }}    | ${{}}                | ${'invalid parameter: id'}
+        ${{ id: 'id' }} | ${{}}                | ${'undefined parameter: amount'}
+        ${{ id: 'id' }} | ${{ amount: '321' }} | ${'invalid parameter: amount'}
+      `(
+        'should return error for invalid params',
+        async ({ params, body, error }) => {
+          const res = mockResponse();
+          await expect(
+            swapRouter['chainSwapAcceptQuote'](
+              mockRequest(body, undefined, params),
+              res,
+            ),
+          ).rejects.toEqual(error);
+        },
+      );
+
+      test('should accept new quotes', async () => {
+        const id = 'yo';
+        const amount = 321;
+
+        service.swapManager.renegotiator.acceptQuote = jest
+          .fn()
+          .mockImplementation(async () => {});
+
+        const res = mockResponse();
+        await swapRouter['chainSwapAcceptQuote'](
+          mockRequest({ amount }, undefined, {
+            id,
+          }),
+          res,
+        );
+
+        expect(
+          service.swapManager.renegotiator.acceptQuote,
+        ).toHaveBeenCalledTimes(1);
+        expect(
+          service.swapManager.renegotiator.acceptQuote,
+        ).toHaveBeenCalledWith(id, amount);
+
+        expect(res.status).toHaveBeenCalledTimes(1);
+        expect(res.status).toHaveBeenCalledWith(202);
+
+        expect(res.json).toHaveBeenCalledTimes(1);
+        expect(res.json).toHaveBeenCalledWith({});
+      });
+    });
   });
 
   describe('parseWebHook', () => {

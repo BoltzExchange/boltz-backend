@@ -33,6 +33,7 @@ import PaymentRequestUtils from '../../../lib/service/PaymentRequestUtils';
 import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
 import Errors from '../../../lib/swap/Errors';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
+import OverpaymentProtector from '../../../lib/swap/OverpaymentProtector';
 import SwapManager from '../../../lib/swap/SwapManager';
 import SwapOutputType from '../../../lib/swap/SwapOutputType';
 import UtxoNursery from '../../../lib/swap/UtxoNursery';
@@ -89,6 +90,7 @@ describe('UtxoNursery', () => {
     walletManager,
     blocks,
     lockupTracker,
+    new OverpaymentProtector(Logger.disabledLogger),
   );
 
   const nodeSwitch = new NodeSwitch(Logger.disabledLogger, {
@@ -112,6 +114,7 @@ describe('UtxoNursery', () => {
       deferredClaimSymbols: [],
     },
     lockupTracker,
+    {} as any,
   );
 
   beforeAll(async () => {

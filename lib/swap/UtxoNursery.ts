@@ -3,7 +3,6 @@ import { Transaction } from 'bitcoinjs-lib';
 import { SwapTreeSerializer, detectPreimage, detectSwap } from 'boltz-core';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import { Op } from 'sequelize';
-import { OverPaymentConfig } from '../Config';
 import {
   calculateTransactionFee,
   createMusig,
@@ -49,6 +48,7 @@ import Wallet from '../wallet/Wallet';
 import WalletLiquid from '../wallet/WalletLiquid';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import Errors from './Errors';
+import OverpaymentProtector from './OverpaymentProtector';
 
 class UtxoNursery extends TypedEventEmitter<{
   // Swap
@@ -99,39 +99,19 @@ class UtxoNursery extends TypedEventEmitter<{
 }> {
   private static readonly maxParallelRequests = 6;
 
-  private static readonly defaultConfig = {
-    exemptAmount: 10_000,
-    maxPercentage: 2,
-  };
-
   private static lockupLock = 'lockupLock';
   private static swapLockupConfirmationLock = 'swapLockupConfirmation';
 
   private lock = new AsyncLock();
-
-  private readonly overPaymentExemptAmount: number;
-  private readonly overPaymentMaxPercentage: number;
 
   constructor(
     private readonly logger: Logger,
     private readonly walletManager: WalletManager,
     private readonly blocks: Blocks,
     private readonly lockupTransactionTracker: LockupTransactionTracker,
-    config?: OverPaymentConfig,
+    private readonly overpaymentProtector: OverpaymentProtector,
   ) {
     super();
-
-    this.overPaymentExemptAmount =
-      config?.exemptAmount || UtxoNursery.defaultConfig.exemptAmount;
-    this.logger.debug(
-      `Onchain payment overpayment exempt amount: ${this.overPaymentExemptAmount}`,
-    );
-
-    this.overPaymentMaxPercentage =
-      (config?.maxPercentage || UtxoNursery.defaultConfig.maxPercentage) / 100;
-    this.logger.debug(
-      `Maximal accepted onchain overpayment: ${this.overPaymentMaxPercentage * 100}%`,
-    );
   }
 
   public bindCurrency = (currencies: Currency[]): void => {
@@ -143,6 +123,110 @@ class UtxoNursery extends TypedEventEmitter<{
         this.listenTransactions(currency.chainClient, wallet);
       }
     });
+  };
+
+  public checkChainSwapTransaction = async (
+    swap: ChainSwapInfo,
+    chainClient: IChainClient,
+    wallet: Wallet,
+    transaction: Transaction | LiquidTransaction,
+    confirmed: boolean,
+  ) => {
+    const tweakedKey = tweakMusig(
+      wallet.type,
+      createMusig(
+        wallet.getKeysByIndex(swap.receivingData.keyIndex!),
+        getHexBuffer(swap.receivingData.theirPublicKey!),
+      ),
+      SwapTreeSerializer.deserializeSwapTree(swap.receivingData.swapTree!),
+    );
+    const swapOutput = detectSwap(tweakedKey, transaction)!;
+
+    this.logFoundTransaction(
+      wallet.symbol,
+      swap,
+      confirmed,
+      transaction,
+      swapOutput,
+    );
+
+    const outputValue = getOutputValue(wallet, swapOutput);
+    swap = await ChainSwapRepository.setUserLockupTransaction(
+      swap,
+      transaction.getId(),
+      outputValue,
+      confirmed,
+      swapOutput.vout,
+    );
+
+    if (swap.receivingData.expectedAmount > outputValue) {
+      chainClient.removeOutputFilter(swapOutput.script);
+      this.emit('chainSwap.lockup.failed', {
+        swap,
+        reason: Errors.INSUFFICIENT_AMOUNT(
+          outputValue,
+          swap.receivingData.expectedAmount,
+        ).message,
+      });
+
+      return;
+    }
+
+    if (
+      this.overpaymentProtector.isUnacceptableOverpay(
+        swap.receivingData.expectedAmount,
+        outputValue,
+      )
+    ) {
+      chainClient.removeOutputFilter(swapOutput.script);
+      this.emit('chainSwap.lockup.failed', {
+        swap,
+        reason: Errors.OVERPAID_AMOUNT(
+          outputValue,
+          swap.receivingData.expectedAmount,
+        ).message,
+      });
+
+      return;
+    }
+
+    const prevAddresses = await this.getPreviousAddresses(
+      transaction,
+      chainClient,
+      wallet,
+    );
+    if (prevAddresses.some(this.blocks.isBlocked)) {
+      this.emit('chainSwap.lockup.failed', {
+        swap,
+        reason: Errors.BLOCKED_ADDRESS().message,
+      });
+      return;
+    }
+
+    if (!confirmed) {
+      const zeroConfRejectedReason = await this.acceptsZeroConf(
+        swap,
+        chainClient,
+        transaction,
+      );
+      if (zeroConfRejectedReason !== undefined) {
+        this.emit('chainSwap.lockup.zeroconf.rejected', {
+          swap,
+          transaction,
+          reason: zeroConfRejectedReason,
+        });
+        return;
+      }
+
+      this.logZeroConfAccepted(swap, transaction, swapOutput);
+      await this.lockupTransactionTracker.addPendingTransactionToTrack(
+        swap,
+        transaction.toHex(),
+      );
+    }
+
+    chainClient.removeOutputFilter(swapOutput.script);
+    this.emit('chainSwap.lockup', { swap, transaction, confirmed });
   };
 
   private listenTransactions = (chainClient: IChainClient, wallet: Wallet) => {
@@ -594,107 +678,6 @@ class UtxoNursery extends TypedEventEmitter<{
     });
   };
 
-  private checkChainSwapTransaction = async (
-    swap: ChainSwapInfo,
-    chainClient: IChainClient,
-    wallet: Wallet,
-    transaction: Transaction | LiquidTransaction,
-    confirmed: boolean,
-  ) => {
-    const tweakedKey = tweakMusig(
-      wallet.type,
-      createMusig(
-        wallet.getKeysByIndex(swap.receivingData.keyIndex!),
-        getHexBuffer(swap.receivingData.theirPublicKey!),
-      ),
-      SwapTreeSerializer.deserializeSwapTree(swap.receivingData.swapTree!),
-    );
-    const swapOutput = detectSwap(tweakedKey, transaction)!;
-
-    this.logFoundTransaction(
-      wallet.symbol,
-      swap,
-      confirmed,
-      transaction,
-      swapOutput,
-    );
-
-    const outputValue = getOutputValue(wallet, swapOutput);
-    swap = await ChainSwapRepository.setUserLockupTransaction(
-      swap,
-      transaction.getId(),
-      outputValue,
-      confirmed,
-      swapOutput.vout,
-    );
-
-    if (swap.receivingData.expectedAmount > outputValue) {
-      chainClient.removeOutputFilter(swapOutput.script);
-      this.emit('chainSwap.lockup.failed', {
-        swap,
-        reason: Errors.INSUFFICIENT_AMOUNT(
-          outputValue,
-          swap.receivingData.expectedAmount,
-        ).message,
-      });
-
-      return;
-    }
-
-    if (
-      this.isUnacceptableOverpay(swap.receivingData.expectedAmount, outputValue)
-    ) {
-      chainClient.removeOutputFilter(swapOutput.script);
-      this.emit('chainSwap.lockup.failed', {
-        swap,
-        reason: Errors.OVERPAID_AMOUNT(
-          outputValue,
-          swap.receivingData.expectedAmount,
-        ).message,
-      });
-
-      return;
-    }
-
-    const prevAddresses = await this.getPreviousAddresses(
-      transaction,
-      chainClient,
-      wallet,
-    );
-    if (prevAddresses.some(this.blocks.isBlocked)) {
-      this.emit('chainSwap.lockup.failed', {
-        swap,
-        reason: Errors.BLOCKED_ADDRESS().message,
-      });
-      return;
-    }
-
-    if (!confirmed) {
-      const zeroConfRejectedReason = await this.acceptsZeroConf(
-        swap,
-        chainClient,
-        transaction,
-      );
-      if (zeroConfRejectedReason !== undefined) {
-        this.emit('chainSwap.lockup.zeroconf.rejected', {
-          swap,
-          transaction,
-          reason: zeroConfRejectedReason,
-        });
-        return;
-      }
-
-      this.logZeroConfAccepted(swap, transaction, swapOutput);
-      await this.lockupTransactionTracker.addPendingTransactionToTrack(
-        swap,
-        transaction.toHex(),
-      );
-    }
-
-    chainClient.removeOutputFilter(swapOutput.script);
-    this.emit('chainSwap.lockup', { swap, transaction, confirmed });
-  };
-
   private checkSwapTransaction = async (
     swap: Swap,
     chainClient: IChainClient,
@@ -755,7 +738,12 @@ class UtxoNursery extends TypedEventEmitter<{
         return;
       }
 
-      if (this.isUnacceptableOverpay(updatedSwap.expectedAmount, outputValue)) {
+      if (
+        this.overpaymentProtector.isUnacceptableOverpay(
+          updatedSwap.expectedAmount,
+          outputValue,
+        )
+      ) {
         chainClient.removeOutputFilter(swapOutput.script);
         this.emit('swap.lockup.failed', {
           swap: updatedSwap,
@@ -966,13 +954,6 @@ class UtxoNursery extends TypedEventEmitter<{
       `Accepted 0-conf lockup transaction for ${swapTypeToPrettyString(swap.type)} Swap ${
         swap.id
       }: ${transaction.getId()}:${swapOutput.vout}`,
-    );
-
-  private isUnacceptableOverpay = (expected: number, actual: number): boolean =>
-    actual - expected >
-    Math.max(
-      this.overPaymentExemptAmount,
-      actual * this.overPaymentMaxPercentage,
     );
 }
 

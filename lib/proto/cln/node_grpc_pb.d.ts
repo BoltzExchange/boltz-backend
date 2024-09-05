@@ -16,7 +16,6 @@ interface INodeService extends grpc.ServiceDefinition<grpc.UntypedServiceImpleme
     listChannels: INodeService_IListChannels;
     addGossip: INodeService_IAddGossip;
     addPsbtOutput: INodeService_IAddPsbtOutput;
-    autoCleanInvoice: INodeService_IAutoCleanInvoice;
     autoCleanOnce: INodeService_IAutoCleanOnce;
     autoCleanStatus: INodeService_IAutoCleanStatus;
     checkMessage: INodeService_ICheckMessage;
@@ -93,7 +92,6 @@ interface INodeService extends grpc.ServiceDefinition<grpc.UntypedServiceImpleme
     reserveInputs: INodeService_IReserveInputs;
     sendCustomMsg: INodeService_ISendCustomMsg;
     sendInvoice: INodeService_ISendInvoice;
-    sendOnionMessage: INodeService_ISendOnionMessage;
     setChannel: INodeService_ISetChannel;
     setConfig: INodeService_ISetConfig;
     setPsbtVersion: INodeService_ISetPsbtVersion;
@@ -191,15 +189,6 @@ interface INodeService_IAddPsbtOutput extends grpc.MethodDefinition<cln_node_pb.
     requestDeserialize: grpc.deserialize<cln_node_pb.AddpsbtoutputRequest>;
     responseSerialize: grpc.serialize<cln_node_pb.AddpsbtoutputResponse>;
     responseDeserialize: grpc.deserialize<cln_node_pb.AddpsbtoutputResponse>;
-}
-interface INodeService_IAutoCleanInvoice extends grpc.MethodDefinition<cln_node_pb.AutocleaninvoiceRequest, cln_node_pb.AutocleaninvoiceResponse> {
-    path: "/cln.Node/AutoCleanInvoice";
-    requestStream: false;
-    responseStream: false;
-    requestSerialize: grpc.serialize<cln_node_pb.AutocleaninvoiceRequest>;
-    requestDeserialize: grpc.deserialize<cln_node_pb.AutocleaninvoiceRequest>;
-    responseSerialize: grpc.serialize<cln_node_pb.AutocleaninvoiceResponse>;
-    responseDeserialize: grpc.deserialize<cln_node_pb.AutocleaninvoiceResponse>;
 }
 interface INodeService_IAutoCleanOnce extends grpc.MethodDefinition<cln_node_pb.AutocleanonceRequest, cln_node_pb.AutocleanonceResponse> {
     path: "/cln.Node/AutoCleanOnce";
@@ -885,15 +874,6 @@ interface INodeService_ISendInvoice extends grpc.MethodDefinition<cln_node_pb.Se
     responseSerialize: grpc.serialize<cln_node_pb.SendinvoiceResponse>;
     responseDeserialize: grpc.deserialize<cln_node_pb.SendinvoiceResponse>;
 }
-interface INodeService_ISendOnionMessage extends grpc.MethodDefinition<cln_node_pb.SendonionmessageRequest, cln_node_pb.SendonionmessageResponse> {
-    path: "/cln.Node/SendOnionMessage";
-    requestStream: false;
-    responseStream: false;
-    requestSerialize: grpc.serialize<cln_node_pb.SendonionmessageRequest>;
-    requestDeserialize: grpc.deserialize<cln_node_pb.SendonionmessageRequest>;
-    responseSerialize: grpc.serialize<cln_node_pb.SendonionmessageResponse>;
-    responseDeserialize: grpc.deserialize<cln_node_pb.SendonionmessageResponse>;
-}
 interface INodeService_ISetChannel extends grpc.MethodDefinition<cln_node_pb.SetchannelRequest, cln_node_pb.SetchannelResponse> {
     path: "/cln.Node/SetChannel";
     requestStream: false;
@@ -1202,7 +1182,6 @@ export interface INodeServer extends grpc.UntypedServiceImplementation {
     listChannels: grpc.handleUnaryCall<cln_node_pb.ListchannelsRequest, cln_node_pb.ListchannelsResponse>;
     addGossip: grpc.handleUnaryCall<cln_node_pb.AddgossipRequest, cln_node_pb.AddgossipResponse>;
     addPsbtOutput: grpc.handleUnaryCall<cln_node_pb.AddpsbtoutputRequest, cln_node_pb.AddpsbtoutputResponse>;
-    autoCleanInvoice: grpc.handleUnaryCall<cln_node_pb.AutocleaninvoiceRequest, cln_node_pb.AutocleaninvoiceResponse>;
     autoCleanOnce: grpc.handleUnaryCall<cln_node_pb.AutocleanonceRequest, cln_node_pb.AutocleanonceResponse>;
     autoCleanStatus: grpc.handleUnaryCall<cln_node_pb.AutocleanstatusRequest, cln_node_pb.AutocleanstatusResponse>;
     checkMessage: grpc.handleUnaryCall<cln_node_pb.CheckmessageRequest, cln_node_pb.CheckmessageResponse>;
@@ -1279,7 +1258,6 @@ export interface INodeServer extends grpc.UntypedServiceImplementation {
     reserveInputs: grpc.handleUnaryCall<cln_node_pb.ReserveinputsRequest, cln_node_pb.ReserveinputsResponse>;
     sendCustomMsg: grpc.handleUnaryCall<cln_node_pb.SendcustommsgRequest, cln_node_pb.SendcustommsgResponse>;
     sendInvoice: grpc.handleUnaryCall<cln_node_pb.SendinvoiceRequest, cln_node_pb.SendinvoiceResponse>;
-    sendOnionMessage: grpc.handleUnaryCall<cln_node_pb.SendonionmessageRequest, cln_node_pb.SendonionmessageResponse>;
     setChannel: grpc.handleUnaryCall<cln_node_pb.SetchannelRequest, cln_node_pb.SetchannelResponse>;
     setConfig: grpc.handleUnaryCall<cln_node_pb.SetconfigRequest, cln_node_pb.SetconfigResponse>;
     setPsbtVersion: grpc.handleUnaryCall<cln_node_pb.SetpsbtversionRequest, cln_node_pb.SetpsbtversionResponse>;
@@ -1337,9 +1315,6 @@ export interface INodeClient {
     addPsbtOutput(request: cln_node_pb.AddpsbtoutputRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AddpsbtoutputResponse) => void): grpc.ClientUnaryCall;
     addPsbtOutput(request: cln_node_pb.AddpsbtoutputRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AddpsbtoutputResponse) => void): grpc.ClientUnaryCall;
     addPsbtOutput(request: cln_node_pb.AddpsbtoutputRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AddpsbtoutputResponse) => void): grpc.ClientUnaryCall;
-    autoCleanInvoice(request: cln_node_pb.AutocleaninvoiceRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AutocleaninvoiceResponse) => void): grpc.ClientUnaryCall;
-    autoCleanInvoice(request: cln_node_pb.AutocleaninvoiceRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AutocleaninvoiceResponse) => void): grpc.ClientUnaryCall;
-    autoCleanInvoice(request: cln_node_pb.AutocleaninvoiceRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AutocleaninvoiceResponse) => void): grpc.ClientUnaryCall;
     autoCleanOnce(request: cln_node_pb.AutocleanonceRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AutocleanonceResponse) => void): grpc.ClientUnaryCall;
     autoCleanOnce(request: cln_node_pb.AutocleanonceRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AutocleanonceResponse) => void): grpc.ClientUnaryCall;
     autoCleanOnce(request: cln_node_pb.AutocleanonceRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AutocleanonceResponse) => void): grpc.ClientUnaryCall;
@@ -1568,9 +1543,6 @@ export interface INodeClient {
     sendInvoice(request: cln_node_pb.SendinvoiceRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.SendinvoiceResponse) => void): grpc.ClientUnaryCall;
     sendInvoice(request: cln_node_pb.SendinvoiceRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.SendinvoiceResponse) => void): grpc.ClientUnaryCall;
     sendInvoice(request: cln_node_pb.SendinvoiceRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.SendinvoiceResponse) => void): grpc.ClientUnaryCall;
-    sendOnionMessage(request: cln_node_pb.SendonionmessageRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.SendonionmessageResponse) => void): grpc.ClientUnaryCall;
-    sendOnionMessage(request: cln_node_pb.SendonionmessageRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.SendonionmessageResponse) => void): grpc.ClientUnaryCall;
-    sendOnionMessage(request: cln_node_pb.SendonionmessageRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.SendonionmessageResponse) => void): grpc.ClientUnaryCall;
     setChannel(request: cln_node_pb.SetchannelRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.SetchannelResponse) => void): grpc.ClientUnaryCall;
     setChannel(request: cln_node_pb.SetchannelRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.SetchannelResponse) => void): grpc.ClientUnaryCall;
     setChannel(request: cln_node_pb.SetchannelRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.SetchannelResponse) => void): grpc.ClientUnaryCall;
@@ -1690,9 +1662,6 @@ export class NodeClient extends grpc.Client implements INodeClient {
     public addPsbtOutput(request: cln_node_pb.AddpsbtoutputRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AddpsbtoutputResponse) => void): grpc.ClientUnaryCall;
     public addPsbtOutput(request: cln_node_pb.AddpsbtoutputRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AddpsbtoutputResponse) => void): grpc.ClientUnaryCall;
     public addPsbtOutput(request: cln_node_pb.AddpsbtoutputRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AddpsbtoutputResponse) => void): grpc.ClientUnaryCall;
-    public autoCleanInvoice(request: cln_node_pb.AutocleaninvoiceRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AutocleaninvoiceResponse) => void): grpc.ClientUnaryCall;
-    public autoCleanInvoice(request: cln_node_pb.AutocleaninvoiceRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AutocleaninvoiceResponse) => void): grpc.ClientUnaryCall;
-    public autoCleanInvoice(request: cln_node_pb.AutocleaninvoiceRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AutocleaninvoiceResponse) => void): grpc.ClientUnaryCall;
     public autoCleanOnce(request: cln_node_pb.AutocleanonceRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AutocleanonceResponse) => void): grpc.ClientUnaryCall;
     public autoCleanOnce(request: cln_node_pb.AutocleanonceRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AutocleanonceResponse) => void): grpc.ClientUnaryCall;
     public autoCleanOnce(request: cln_node_pb.AutocleanonceRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AutocleanonceResponse) => void): grpc.ClientUnaryCall;
@@ -1921,9 +1890,6 @@ export class NodeClient extends grpc.Client implements INodeClient {
     public sendInvoice(request: cln_node_pb.SendinvoiceRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.SendinvoiceResponse) => void): grpc.ClientUnaryCall;
     public sendInvoice(request: cln_node_pb.SendinvoiceRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.SendinvoiceResponse) => void): grpc.ClientUnaryCall;
     public sendInvoice(request: cln_node_pb.SendinvoiceRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.SendinvoiceResponse) => void): grpc.ClientUnaryCall;
-    public sendOnionMessage(request: cln_node_pb.SendonionmessageRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.SendonionmessageResponse) => void): grpc.ClientUnaryCall;
-    public sendOnionMessage(request: cln_node_pb.SendonionmessageRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.SendonionmessageResponse) => void): grpc.ClientUnaryCall;
-    public sendOnionMessage(request: cln_node_pb.SendonionmessageRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.SendonionmessageResponse) => void): grpc.ClientUnaryCall;
     public setChannel(request: cln_node_pb.SetchannelRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.SetchannelResponse) => void): grpc.ClientUnaryCall;
     public setChannel(request: cln_node_pb.SetchannelRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.SetchannelResponse) => void): grpc.ClientUnaryCall;
     public setChannel(request: cln_node_pb.SetchannelRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.SetchannelResponse) => void): grpc.ClientUnaryCall;

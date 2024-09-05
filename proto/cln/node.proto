@@ -15,7 +15,6 @@ service Node {
 	rpc ListChannels(ListchannelsRequest) returns (ListchannelsResponse) {}
 	rpc AddGossip(AddgossipRequest) returns (AddgossipResponse) {}
 	rpc AddPsbtOutput(AddpsbtoutputRequest) returns (AddpsbtoutputResponse) {}
-	rpc AutoCleanInvoice(AutocleaninvoiceRequest) returns (AutocleaninvoiceResponse) {}
 	rpc AutoCleanOnce(AutocleanonceRequest) returns (AutocleanonceResponse) {}
 	rpc AutoCleanStatus(AutocleanstatusRequest) returns (AutocleanstatusResponse) {}
 	rpc CheckMessage(CheckmessageRequest) returns (CheckmessageResponse) {}
@@ -92,7 +91,6 @@ service Node {
 	rpc ReserveInputs(ReserveinputsRequest) returns (ReserveinputsResponse) {}
 	rpc SendCustomMsg(SendcustommsgRequest) returns (SendcustommsgResponse) {}
 	rpc SendInvoice(SendinvoiceRequest) returns (SendinvoiceResponse) {}
-	rpc SendOnionMessage(SendonionmessageRequest) returns (SendonionmessageResponse) {}
 	rpc SetChannel(SetchannelRequest) returns (SetchannelResponse) {}
 	rpc SetConfig(SetconfigRequest) returns (SetconfigResponse) {}
 	rpc SetPsbtVersion(SetpsbtversionRequest) returns (SetpsbtversionResponse) {}
@@ -372,17 +370,6 @@ message AddpsbtoutputResponse {
 	string psbt = 1;
 	uint32 estimated_added_weight = 2;
 	uint32 outnum = 3;
-}
-
-message AutocleaninvoiceRequest {
-	optional uint64 expired_by = 1;
-	optional uint64 cycle_seconds = 2;
-}
-
-message AutocleaninvoiceResponse {
-	bool enabled = 1;
-	optional uint64 expired_by = 2;
-	optional uint64 cycle_seconds = 3;
 }
 
 message AutocleanonceRequest {
@@ -1673,6 +1660,10 @@ message DecodeResponse {
 	optional string description = 80;
 	optional bytes features = 81;
 	optional DecodeRoutehintList routes = 82;
+	optional bytes offer_issuer_id = 83;
+	optional string warning_missing_offer_issuer_id = 84;
+	repeated DecodeInvreq_paths invreq_paths = 85;
+	optional string warning_empty_blinded_path = 86;
 }
 
 message DecodeOffer_paths {
@@ -1686,6 +1677,19 @@ message DecodeOffer_recurrencePaywindow {
 	uint32 seconds_before = 1;
 	uint32 seconds_after = 2;
 	optional bool proportional_amount = 3;
+}
+
+message DecodeInvreq_paths {
+	optional uint32 first_scid_dir = 1;
+	bytes blinding = 2;
+	optional bytes first_node_id = 3;
+	optional string first_scid = 4;
+	repeated DecodeInvreq_pathsPath path = 5;
+}
+
+message DecodeInvreq_pathsPath {
+	bytes blinded_node_id = 1;
+	bytes encrypted_recipient_data = 2;
 }
 
 message DecodeInvoice_pathsPath {
@@ -2303,7 +2307,7 @@ message MultiwithdrawResponse {
 
 message OfferRequest {
 	string amount = 1;
-	string description = 2;
+	optional string description = 2;
 	optional string issuer = 3;
 	optional string label = 4;
 	optional uint64 quantity_max = 5;
@@ -2313,6 +2317,7 @@ message OfferRequest {
 	optional string recurrence_paywindow = 9;
 	optional uint32 recurrence_limit = 10;
 	optional bool single_use = 11;
+	optional bool recurrence_start_any_period = 12;
 }
 
 message OfferResponse {
@@ -2480,6 +2485,7 @@ message RenepayRequest {
 	optional string description = 6;
 	optional string label = 7;
 	optional bool dev_use_shadow = 8;
+	repeated string exclude = 9;
 }
 
 message RenepayResponse {
@@ -2554,20 +2560,6 @@ message SendinvoiceResponse {
 	optional Amount amount_received_msat = 11;
 	optional uint64 paid_at = 12;
 	optional bytes payment_preimage = 13;
-}
-
-message SendonionmessageRequest {
-	bytes first_id = 1;
-	bytes blinding = 2;
-	repeated SendonionmessageHops hops = 3;
-}
-
-message SendonionmessageResponse {
-}
-
-message SendonionmessageHops {
-	bytes node = 1;
-	uint32 tlv = 2;
 }
 
 message SetchannelRequest {
@@ -2666,6 +2658,7 @@ message Splice_signedRequest {
 message Splice_signedResponse {
 	bytes tx = 1;
 	bytes txid = 2;
+	optional uint32 outnum = 3;
 }
 
 message Splice_updateRequest {
@@ -3255,6 +3248,7 @@ message ListconfigsConfigsSubdaemon {
 message ListconfigsConfigsFetchinvoicenoconnect {
 	bool set = 1;
 	string source = 2;
+	optional string plugin = 3;
 }
 
 message ListconfigsConfigsAccepthtlctlvtypes {
@@ -3331,9 +3325,6 @@ message HelpResponse {
 
 message HelpHelp {
 	string command = 1;
-	string category = 2;
-	string description = 3;
-	string verbose = 4;
 }
 
 message PreapprovekeysendRequest {
@@ -3444,6 +3435,7 @@ message BkprinspectTxsOutputs {
 
 message BkprlistaccounteventsRequest {
 	optional string account = 1;
+	optional string payment_id = 2;
 }
 
 message BkprlistaccounteventsResponse {
@@ -3606,7 +3598,7 @@ message StreamChannelOpenedRequest {
 }
 
 message ChannelOpenedNotification {
-	optional bytes id = 1;
+	bytes id = 1;
 	Amount funding_msat = 2;
 	bytes funding_txid = 3;
 	bool channel_ready = 4;

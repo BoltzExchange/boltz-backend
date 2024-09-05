@@ -45,7 +45,7 @@ LITECOIN_VERSION = "0.21.3"
 ELEMENTS_VERSION = "23.2.1"
 GETH_VERSION = "1.14.8"
 
-C_LIGHTNING_VERSION = "24.05"
+C_LIGHTNING_VERSION = "24.08"
 ECLAIR_VERSION = "0.10.0"
 LND_VERSION = "0.18.2-beta"
 
@@ -102,7 +102,7 @@ IMAGES: dict[str, Image] = {
         ],
     ),
     "regtest": Image(
-        tag="4.5.3",
+        tag="4.5.4",
         arguments=[
             UBUNTU_VERSION,
             BITCOIN_BUILD_ARG,

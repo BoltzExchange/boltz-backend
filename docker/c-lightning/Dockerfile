@@ -67,7 +67,9 @@ COPY --from=builder /usr/local/libexec /usr/libexec
 
 COPY --from=bitcoin-core /bin/bitcoin-cli /bin/
 
-COPY --from=builder /lightning/plugins/clnrest/requirements.txt /requirements.txt
-RUN pip3 install -r /requirements.txt && rm /requirements.txt
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y python3-json5 python3-flask python3-gunicorn && \
+    apt-get clean all && rm -rf /var/lib/apt/lists/*
+RUN pip3 install --user flask-cors flask-restx pyln-client flask-socketio gevent gevent-websocket
 
 ENTRYPOINT ["lightningd"]

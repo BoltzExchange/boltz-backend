@@ -1920,6 +1920,9 @@ class Service {
     );
     let percentageFee: number;
 
+    const isZeroAmount =
+      args.userLockAmount === undefined && args.serverLockAmount === undefined;
+
     if (
       args.userLockAmount !== undefined &&
       args.serverLockAmount !== undefined
@@ -1945,20 +1948,26 @@ class Service {
       args.userLockAmount = Math.ceil(args.userLockAmount);
 
       percentageFee = Math.ceil(args.userLockAmount * rate * feePercent);
+    } else if (isZeroAmount) {
+      percentageFee = 0;
+      args.userLockAmount = 0;
+      args.serverLockAmount = 0;
     } else {
       throw Errors.NO_AMOUNT_SPECIFIED();
     }
 
-    this.verifyAmount(
-      args.pairId,
-      rate,
-      args.userLockAmount,
-      side,
-      SwapVersion.Taproot,
-      SwapType.Chain,
-    );
-    if (args.serverLockAmount < 1) {
-      throw Errors.ONCHAIN_AMOUNT_TOO_LOW();
+    if (!isZeroAmount) {
+      this.verifyAmount(
+        args.pairId,
+        rate,
+        args.userLockAmount,
+        side,
+        SwapVersion.Taproot,
+        SwapType.Chain,
+      );
+      if (args.serverLockAmount < 1) {
+        throw Errors.ONCHAIN_AMOUNT_TOO_LOW();
+      }
     }
 
     const referralId = await this.getReferralId(args.referralId);

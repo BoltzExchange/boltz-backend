@@ -1186,7 +1186,7 @@ class SwapRouter extends RouterBase {
      * @openapi
      * /swap/chain:
      *   post:
-     *     description: Create a new Chain Swap from chain to chain
+     *     description: Create a new Chain Swap from chain to chain. Omit "userLockAmount" and "serverLockAmount" to create a Chain Swap with an arbitrary amount
      *     tags: [Chain Swap]
      *     requestBody:
      *       required: true
@@ -1236,7 +1236,6 @@ class SwapRouter extends RouterBase {
      *               description: Timeout block height of the onchain HTLC
      *             eta:
      *               type: number
-     *               required: true
      *               description: Expected UNIX timestamp of the expiry of the onchain HTLC if not expired already
      *
      *     ChainSwapTransactions:

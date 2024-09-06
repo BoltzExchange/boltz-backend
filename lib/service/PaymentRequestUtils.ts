@@ -30,7 +30,7 @@ class PaymentRequestUtils {
   public encodeBip21 = (
     symbol: string,
     address: string,
-    satoshis: number,
+    satoshis?: number,
     label?: string,
   ): string | undefined => {
     const prefix = this.getBip21Prefix(symbol);
@@ -40,16 +40,18 @@ class PaymentRequestUtils {
       return;
     }
 
-    const params: Record<string, string> = {
-      amount: `${satoshisToCoins(satoshis)}`,
-    };
+    const params: Record<string, string> = {};
+
+    if (satoshis !== undefined && satoshis !== 0) {
+      params.amount = `${satoshisToCoins(satoshis)}`;
+    }
 
     if (label !== undefined) {
-      params['label'] = label;
+      params.label = label;
     }
 
     if (isLbtc) {
-      params['assetid'] = this.lbtcAssetHash!;
+      params.assetid = this.lbtcAssetHash!;
     }
 
     return `${prefix}:${address}?${encode(params)}`;

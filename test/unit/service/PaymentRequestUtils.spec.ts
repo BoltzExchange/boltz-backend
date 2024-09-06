@@ -53,6 +53,23 @@ describe('PaymentRequestUtils', () => {
     );
   });
 
+  test.each`
+    satoshis
+    ${undefined}
+    ${0}
+  `(
+    'should skip encoding amount when satoshis is $satoshis',
+    ({ satoshis }) => {
+      const symbol = 'BTC';
+      const address = 'bcrt1qxmhp6s7j2n6ffkymnkrtxnxyf40l37h2g3pwlk';
+      const label = 'no_amount';
+
+      expect(pru.encodeBip21(symbol, address, satoshis, label)).toEqual(
+        `bitcoin:${address}?label=${label}`,
+      );
+    },
+  );
+
   test('should encode LTC BIP21', () => {
     const symbol = 'LTC';
     const address =

@@ -136,7 +136,7 @@ export const unblindOutput = (
     asset = output.asset;
 
     // Remove the un-confidential prefix
-    asset = asset.slice(1, asset.length);
+    asset = asset.subarray(1, asset.length);
   }
 
   asset = reverseBuffer(asset);

@@ -1,7 +1,7 @@
 import AsyncLock from 'async-lock';
 import { Transaction, crypto } from 'bitcoinjs-lib';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib';
-import zmq, { Socket } from 'zeromq';
+import { Socket, socket as openSocket } from 'zeromq/v5-compat';
 import { parseTransaction } from '../Core';
 import Logger from '../Logger';
 import {
@@ -241,13 +241,13 @@ class ZmqClient<T extends SomeTransaction> extends TypedEventEmitter<{
 
     socket.on('message', async (_, rawBlock: Buffer) => {
       const previousBlockHash = getHexString(
-        reverseBuffer(rawBlock.slice(4, 36)),
+        reverseBuffer(rawBlock.subarray(4, 36)),
       );
 
       // To get the hash of a block one has to get the header (first 80 bytes),
       // hash it twice with SHA256 and reverse the resulting Buffer
       const hash = getHexString(
-        reverseBuffer(crypto.sha256(crypto.sha256(rawBlock.slice(0, 80)))),
+        reverseBuffer(crypto.sha256(crypto.sha256(rawBlock.subarray(0, 80)))),
       );
 
       this.blockHandleLock.acquire(
@@ -392,7 +392,7 @@ class ZmqClient<T extends SomeTransaction> extends TypedEventEmitter<{
     );
 
     return new Promise<Socket>((resolve, reject) => {
-      const socket = zmq.socket('sub').monitor();
+      const socket = openSocket('sub').monitor(0, 0);
       this.sockets.push(socket);
 
       const timeoutHandle = setTimeout(

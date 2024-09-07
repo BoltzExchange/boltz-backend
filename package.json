@@ -114,7 +114,7 @@
     "winston": "^3.14.2",
     "winston-loki": "^6.1.2",
     "yargs": "^17.7.2",
-    "zeromq": "^5.3.1"
+    "zeromq": "^6.0.4"
   },
   "devDependencies": {
     "@boltz/bitcoin-ops": "^2.0.0",
@@ -128,7 +128,6 @@
     "@types/node-schedule": "^2.1.7",
     "@types/pg": "^8.11.8",
     "@types/yargs": "^17.0.33",
-    "@types/zeromq": "^5.2.5",
     "@typescript-eslint/eslint-plugin": "^8.0.1",
     "@typescript-eslint/parser": "^8.0.1",
     "cross-os": "^1.5.0",

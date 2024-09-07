@@ -1,7 +1,7 @@
 import { Transaction, crypto } from 'bitcoinjs-lib';
 import { OutputType } from 'boltz-core';
 import { randomBytes } from 'crypto';
-import { Socket, socket } from 'zeromq';
+import { Socket, socket as openSocket } from 'zeromq/v5-compat';
 import Logger from '../../../lib/Logger';
 import { getHexString, reverseBuffer } from '../../../lib/Utils';
 import ChainClient from '../../../lib/chain/ChainClient';
@@ -29,9 +29,13 @@ class ZmqPublisher {
     this.address = `tcp://127.0.0.1:${port}`;
     this.filter = filter.replace('pub', '');
 
-    this.socket = socket('pub');
-    this.socket.bindSync(this.address);
+    this.socket = openSocket('pub');
   }
+
+  public bind = () =>
+    new Promise((resolve) => {
+      this.socket.bind(this.address, resolve);
+    });
 
   public close = () => {
     this.socket.close();
@@ -87,6 +91,10 @@ describe('ZmqClient', () => {
 
     rawBlock = new ZmqPublisher(await getPort(), filters.rawBlock);
     hashBlock = new ZmqPublisher(await getPort(), filters.hashBlock);
+
+    await Promise.all(
+      [rawTx, rawBlock, hashBlock].map((socket) => socket.bind()),
+    );
   });
 
   afterAll(async () => {

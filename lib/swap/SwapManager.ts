@@ -60,6 +60,7 @@ import TransactionLabelRepository from '../db/repositories/TransactionLabelRepos
 import NotificationClient from '../notifications/NotificationClient';
 import LockupTransactionTracker from '../rates/LockupTransactionTracker';
 import RateProvider from '../rates/RateProvider';
+import BalanceCheck from '../service/BalanceCheck';
 import Blocks from '../service/Blocks';
 import InvoiceExpiryHelper from '../service/InvoiceExpiryHelper';
 import PaymentRequestUtils from '../service/PaymentRequestUtils';
@@ -181,6 +182,7 @@ class SwapManager {
     swapConfig: SwapConfig,
     lockupTransactionTracker: LockupTransactionTracker,
     sidecar: Sidecar,
+    balanceCheck: BalanceCheck,
   ) {
     this.deferredClaimer = new DeferredClaimer(
       this.logger,
@@ -227,6 +229,7 @@ class SwapManager {
       this.chainSwapSigner,
       this.eipSigner,
       rateProvider,
+      balanceCheck,
     );
 
     this.reverseRoutingHints = new ReverseRoutingHints(

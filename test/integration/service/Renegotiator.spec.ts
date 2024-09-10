@@ -12,6 +12,7 @@ import {
 } from '../../../lib/consts/Enums';
 import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
 import RateProvider from '../../../lib/rates/RateProvider';
+import BalanceCheck from '../../../lib/service/BalanceCheck';
 import Errors from '../../../lib/service/Errors';
 import Renegotiator from '../../../lib/service/Renegotiator';
 import ChainSwapSigner from '../../../lib/service/cooperative/ChainSwapSigner';
@@ -126,6 +127,10 @@ describe('Renegotiator', () => {
     },
   } as any as RateProvider;
 
+  const balanceCheck = {
+    checkBalance: jest.fn().mockImplementation(async () => {}),
+  } as unknown as BalanceCheck;
+
   let negotiator: Renegotiator;
 
   beforeAll(async () => {
@@ -163,6 +168,7 @@ describe('Renegotiator', () => {
       chainSwapSigner,
       eipSigner,
       rateProvider,
+      balanceCheck,
     );
 
     jest.clearAllMocks();
@@ -211,6 +217,35 @@ describe('Renegotiator', () => {
       await expect(negotiator.acceptQuote(swapId, 121)).rejects.toEqual(
         Errors.INVALID_QUOTE(),
       );
+    });
+
+    test('should throw when balance check fails', async () => {
+      const swapId = 'someId';
+
+      ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue({
+        receivingData: {
+          symbol: 'BTC',
+          amount: 100_000,
+        },
+        sendingData: {
+          symbol: 'BTC',
+        },
+      });
+      negotiator['validateEligibility'] = jest
+        .fn()
+        .mockImplementation(async () => {});
+
+      balanceCheck.checkBalance = jest.fn().mockImplementation(async () => {
+        throw Errors.INSUFFICIENT_LIQUIDITY();
+      });
+
+      await expect(negotiator.acceptQuote(swapId, 94_877)).rejects.toEqual(
+        Errors.INSUFFICIENT_LIQUIDITY(),
+      );
+      expect(balanceCheck.checkBalance).toHaveBeenCalledTimes(1);
+      expect(balanceCheck.checkBalance).toHaveBeenCalledWith('BTC', 94_877);
+
+      balanceCheck.checkBalance = jest.fn().mockImplementation(async () => {});
     });
 
     describe('UTXO based chain', () => {

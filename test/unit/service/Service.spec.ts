@@ -639,6 +639,12 @@ const mockedLndClient = <jest.Mock<LndClient>>(<any>LndClient);
 
 jest.mock('../../../lib/db/repositories/ReverseRoutingHintRepository');
 
+jest.mock('../../../lib/service/BalanceCheck', () => {
+  return jest.fn().mockImplementation(() => ({
+    checkBalance: jest.fn().mockImplementation(async () => {}),
+  }));
+});
+
 describe('Service', () => {
   const configPairs = [
     {

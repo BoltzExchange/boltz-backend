@@ -22,6 +22,7 @@ import {
   formatERC20SwapValues,
   formatEtherSwapValues,
 } from '../wallet/ethereum/ContractUtils';
+import BalanceCheck from './BalanceCheck';
 import Errors from './Errors';
 import TimeoutDeltaProvider from './TimeoutDeltaProvider';
 import ChainSwapSigner from './cooperative/ChainSwapSigner';
@@ -38,6 +39,7 @@ class Renegotiator {
     private readonly chainSwapSigner: ChainSwapSigner,
     private readonly eipSigner: EipSigner,
     private readonly rateProvider: RateProvider,
+    private readonly balanceCheck: BalanceCheck,
   ) {}
 
   public getQuote = async (swapId: string): Promise<number> => {
@@ -60,6 +62,11 @@ class Renegotiator {
         if (newQuote !== serverLockAmount) {
           throw Errors.INVALID_QUOTE();
         }
+
+        await this.balanceCheck.checkBalance(
+          swap.sendingData.symbol,
+          serverLockAmount,
+        );
 
         this.logger.info(
           `Accepted new quote for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${newQuote}`,

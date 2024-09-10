@@ -88,6 +88,7 @@ import { SwapNurseryEvents } from '../swap/PaymentHandler';
 import SwapManager, { ChannelCreationInfo } from '../swap/SwapManager';
 import SwapOutputType from '../swap/SwapOutputType';
 import WalletManager, { Currency } from '../wallet/WalletManager';
+import BalanceCheck from './BalanceCheck';
 import Blocks from './Blocks';
 import ElementsService from './ElementsService';
 import Errors from './Errors';
@@ -144,6 +145,7 @@ class Service {
 
   private prepayMinerFee: boolean;
 
+  private balanceCheck: BalanceCheck;
   private readonly paymentRequestUtils: PaymentRequestUtils;
   private readonly timeoutDeltaProvider: TimeoutDeltaProvider;
 
@@ -197,6 +199,7 @@ class Service {
       this.rateProvider,
     );
 
+    this.balanceCheck = new BalanceCheck(this.walletManager);
     this.swapManager = new SwapManager(
       this.logger,
       notifications,
@@ -215,6 +218,7 @@ class Service {
       config.swap,
       this.lockupTransactionTracker,
       this.sidecar,
+      this.balanceCheck,
     );
 
     this.eventHandler = new EventHandler(
@@ -1682,6 +1686,7 @@ class Service {
       args.version,
       SwapType.ReverseSubmarine,
     );
+    await this.balanceCheck.checkBalance(sendingCurrency.symbol, onchainAmount);
 
     let prepayMinerFeeInvoiceAmount: number | undefined = undefined;
     let prepayMinerFeeOnchainAmount: number | undefined = undefined;
@@ -1968,6 +1973,11 @@ class Service {
       if (args.serverLockAmount < 1) {
         throw Errors.ONCHAIN_AMOUNT_TOO_LOW();
       }
+
+      await this.balanceCheck.checkBalance(
+        sendingCurrency.symbol,
+        args.serverLockAmount,
+      );
     }
 
     const referralId = await this.getReferralId(args.referralId);

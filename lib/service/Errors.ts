@@ -197,4 +197,8 @@ export default {
     message: 'invalid quote',
     code: concatErrorCode(ErrorCodePrefix.Service, 50),
   }),
+  INSUFFICIENT_LIQUIDITY: (): Error => ({
+    message: 'insufficient liquidity',
+    code: concatErrorCode(ErrorCodePrefix.Service, 51),
+  }),
 };

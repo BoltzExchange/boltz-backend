@@ -1,28 +1,34 @@
 import { crypto } from 'bitcoinjs-lib';
 import { randomBytes } from 'crypto';
-import {
-  decodeInvoice,
-  getHexString,
-  getUnixTime,
-} from '../../../../lib/Utils';
+import { getHexString, getUnixTime } from '../../../../lib/Utils';
 import { ClientStatus } from '../../../../lib/consts/Enums';
 import Errors from '../../../../lib/lightning/Errors';
 import { InvoiceFeature } from '../../../../lib/lightning/LightningClient';
-import InvoiceExpiryHelper from '../../../../lib/service/InvoiceExpiryHelper';
+import Sidecar from '../../../../lib/sidecar/Sidecar';
 import {
   bitcoinClient,
   bitcoinLndClient,
   clnClient,
   waitForClnChainSync,
 } from '../../Nodes';
+import { sidecar, startSidecar } from '../../sidecar/Utils';
 
 describe('ClnClient', () => {
   beforeAll(async () => {
+    startSidecar();
+
     await bitcoinClient.generate(1);
     await bitcoinLndClient.connect(false);
+    await sidecar.connect(
+      { on: jest.fn(), removeAllListeners: jest.fn() } as any,
+      {} as any,
+      false,
+    );
   });
 
-  afterAll(() => {
+  afterAll(async () => {
+    await Sidecar.stop();
+
     clnClient.removeAllListeners();
     clnClient.disconnect();
     bitcoinLndClient.disconnect();
@@ -60,12 +66,11 @@ describe('ClnClient', () => {
         undefined,
         expiry,
       );
-      const { timestamp, timeExpireDate } = decodeInvoice(invoice);
-      expect(
-        getUnixTime() +
-          expiry -
-          InvoiceExpiryHelper.getInvoiceExpiry(timestamp, timeExpireDate),
-      ).toBeLessThanOrEqual(5);
+      const dec = await sidecar.decodeInvoiceOrOffer(invoice);
+      expect(dec.isExpired).toEqual(false);
+      expect(getUnixTime() + expiry - dec.expiryTimestamp).toBeLessThanOrEqual(
+        5,
+      );
     });
 
     test('should create invoices with description hash', async () => {
@@ -78,8 +83,10 @@ describe('ClnClient', () => {
         undefined,
         descriptionHash,
       );
-      const dec = decodeInvoice(invoice);
-      expect(dec.descriptionHash).toEqual(getHexString(descriptionHash));
+      const dec = await sidecar.decodeInvoiceOrOffer(invoice);
+      expect(getHexString(dec.descriptionHash!)).toEqual(
+        getHexString(descriptionHash),
+      );
     });
 
     test('should prefer description hash over memo', async () => {
@@ -92,9 +99,11 @@ describe('ClnClient', () => {
         'test',
         descriptionHash,
       );
-      const dec = decodeInvoice(invoice);
+      const dec = await sidecar.decodeInvoiceOrOffer(invoice);
       expect(dec.description).toBeUndefined();
-      expect(dec.descriptionHash).toEqual(getHexString(descriptionHash));
+      expect(getHexString(dec.descriptionHash!)).toEqual(
+        getHexString(descriptionHash),
+      );
     });
   });
 

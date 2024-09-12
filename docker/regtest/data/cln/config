@@ -16,3 +16,5 @@ developer
 dev-fast-gossip
 dev-fast-reconnect
 dev-bitcoind-poll=5
+
+experimental-offers

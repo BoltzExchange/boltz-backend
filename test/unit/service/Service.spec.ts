@@ -1,4 +1,5 @@
 import { address } from 'bitcoinjs-lib';
+import bolt11 from 'bolt11';
 import { Networks } from 'boltz-core';
 import { randomBytes } from 'crypto';
 import { Provider } from 'ethers';
@@ -10,7 +11,6 @@ import { ConfigType } from '../../../lib/Config';
 import { ECPair } from '../../../lib/ECPairHelper';
 import Logger from '../../../lib/Logger';
 import {
-  decodeInvoice,
   getHexBuffer,
   getHexString,
   getPairId,
@@ -43,6 +43,7 @@ import ReferralRepository from '../../../lib/db/repositories/ReferralRepository'
 import ReverseRoutingHintRepository from '../../../lib/db/repositories/ReverseRoutingHintRepository';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
+import { satToMsat } from '../../../lib/lightning/ChannelUtils';
 import { InvoiceFeature } from '../../../lib/lightning/LightningClient';
 import LndClient from '../../../lib/lightning/LndClient';
 import { CurrencyInfo } from '../../../lib/proto/boltzrpc_pb';
@@ -53,6 +54,7 @@ import Service, {
   WebHookData,
   cancelledViaCliFailureReason,
 } from '../../../lib/service/Service';
+import { InvoiceType } from '../../../lib/sidecar/DecodedInvoice';
 import Sidecar from '../../../lib/sidecar/Sidecar';
 import SwapErrors from '../../../lib/swap/Errors';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
@@ -729,6 +731,23 @@ describe('Service', () => {
 
   const sidecar = {
     createWebHook: jest.fn().mockImplementation(async () => {}),
+    decodeInvoiceOrOffer: jest
+      .fn()
+      .mockImplementation(async (invoice: string) => {
+        const dec = bolt11.decode(invoice);
+        const preimageHash = dec.tags.find(
+          (tag) => tag.tagName === 'payment_hash',
+        )!.data as string;
+
+        return {
+          type: InvoiceType.Bolt11,
+          features: new Set<InvoiceFeature>(),
+          paymentHash: getHexBuffer(preimageHash),
+          amountMsat: satToMsat(dec.satoshis || 0),
+          payee: getHexBuffer(dec.payeeNodeKey as string),
+          expiryTimestamp: dec.timeExpireDate || dec.timestamp! + 3_600,
+        };
+      }),
   } as any as Sidecar;
 
   const service = new Service(
@@ -1983,7 +2002,7 @@ describe('Service', () => {
     await expect(
       service.setInvoice(mockGetSwapResult.id, invoice),
     ).rejects.toEqual(Errors.AMP_INVOICES_NOT_SUPPORTED());
-    expect(mockDecodeInvoice).toHaveBeenCalledTimes(2);
+    expect(mockDecodeInvoice).toHaveBeenCalledTimes(1);
     expect(mockDecodeInvoice).toHaveBeenCalledWith(invoice);
 
     decodedInvoice.features = new Set<InvoiceFeature>();
@@ -2086,7 +2105,9 @@ describe('Service', () => {
       refundPublicKey,
       pairId: pair,
       version: SwapVersion.Legacy,
-      preimageHash: getHexBuffer(decodeInvoice(invoice).paymentHash!),
+      preimageHash: getHexBuffer(
+        '975b3f8ca4a02149fcb1e3f4c2b95d100671a6937978a759f8d4acb224ce485c',
+      ),
     });
 
     expect(service['setSwapInvoice']).toHaveBeenCalledTimes(1);

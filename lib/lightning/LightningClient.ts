@@ -1,9 +1,9 @@
 import BaseClient from '../BaseClient';
-import { decodeInvoiceAmount } from '../Utils';
 import { ClientStatus } from '../consts/Enums';
 import { NodeType } from '../db/models/ReverseSwap';
 import * as lndrpc from '../proto/lnd/rpc_pb';
 import { BalancerFetcher } from '../wallet/providers/WalletProviderInterface';
+import { msatToSat } from './ChannelUtils';
 
 enum InvoiceState {
   Open,
@@ -68,6 +68,7 @@ enum InvoiceFeature {
 type DecodedInvoice = {
   value: number;
   cltvExpiry: number;
+  paymentHash: Buffer;
   destination: string;
   routingHints: HopHint[][];
   features: Set<InvoiceFeature>;
@@ -154,13 +155,10 @@ interface RoutingHintsProvider {
 }
 
 const calculatePaymentFee = (
-  invoice: string,
+  amountMsat: number,
   maxRatio: number,
   minFee: number,
-): number => {
-  const invoiceAmt = decodeInvoiceAmount(invoice);
-  return Math.ceil(Math.max(invoiceAmt * maxRatio, minFee));
-};
+): number => Math.ceil(Math.max(msatToSat(amountMsat) * maxRatio, minFee));
 
 export {
   Htlc,

@@ -30,28 +30,6 @@ class InvoiceExpiryHelper {
     }
   }
 
-  /**
-   * Calculates the expiry of an invoice
-   * Reference: https://github.com/lightningnetwork/lightning-rfc/blob/master/11-payment-encoding.md#tagged-fields
-   *
-   * @param timestamp creation timestamp of the invoice
-   * @param timeExpireDate expiry timestamp of the invoice
-   */
-  public static getInvoiceExpiry = (
-    timestamp?: number,
-    timeExpireDate?: number,
-  ): number => {
-    let invoiceExpiry = timestamp || 0;
-
-    if (timeExpireDate) {
-      invoiceExpiry = timeExpireDate;
-    } else {
-      invoiceExpiry += InvoiceExpiryHelper.defaultInvoiceExpiry;
-    }
-
-    return invoiceExpiry;
-  };
-
   public getExpiry = (pair: string, customExpiry?: number): number => {
     if (customExpiry !== undefined) {
       if (!this.isValidExpiry(pair, customExpiry)) {

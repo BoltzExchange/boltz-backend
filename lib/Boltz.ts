@@ -192,6 +192,7 @@ class Boltz {
       if (notificationClient !== undefined) {
         this.notifications = new NotificationProvider(
           this.logger,
+          this.sidecar,
           this.service,
           this.walletManager,
           this.backup,

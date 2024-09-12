@@ -1,11 +1,8 @@
 import { crypto } from 'bitcoinjs-lib';
+import bolt11 from 'bolt11';
 import { randomBytes } from 'crypto';
 import Logger from '../../../../lib/Logger';
-import {
-  decodeInvoice,
-  getHexBuffer,
-  getHexString,
-} from '../../../../lib/Utils';
+import { getHexBuffer, getHexString } from '../../../../lib/Utils';
 import { LightningPaymentStatus } from '../../../../lib/db/models/LightningPayment';
 import { NodeType } from '../../../../lib/db/models/ReverseSwap';
 import LightningPaymentRepository from '../../../../lib/db/repositories/LightningPaymentRepository';
@@ -50,7 +47,9 @@ describe('LndPendingPaymentTracker', () => {
   describe('trackPayment', () => {
     test('should handle successful payments', async () => {
       const { paymentRequest } = await bitcoinLndClient2.addInvoice(1);
-      const preimageHash = decodeInvoice(paymentRequest).paymentHash!;
+      const preimageHash = bolt11
+        .decode(paymentRequest)
+        .tags.find((tag) => tag.tagName === 'payment_hash')!.data as string;
 
       const promise = bitcoinLndClient.sendPayment(paymentRequest);
 
@@ -67,7 +66,10 @@ describe('LndPendingPaymentTracker', () => {
 
     test('should handle permanently failed payments', async () => {
       const { paymentRequest } = await bitcoinLndClient2.addInvoice(1);
-      const preimageHash = decodeInvoice(paymentRequest).paymentHash!;
+      const preimageHash = bolt11
+        .decode(paymentRequest)
+        .tags.find((tag) => tag.tagName === 'payment_hash')!.data as string;
+
       await bitcoinLndClient2.cancelHoldInvoice(getHexBuffer(preimageHash));
 
       const promise = bitcoinLndClient.sendPayment(paymentRequest);
@@ -91,7 +93,9 @@ describe('LndPendingPaymentTracker', () => {
     test('should handle temporarily failed payments', async () => {
       // Create an invoice ourselves with a random node as destination so that a "no route" error is thrown
       const invoice = createInvoice();
-      const preimageHash = decodeInvoice(invoice).paymentHash!;
+      const preimageHash = bolt11
+        .decode(invoice)
+        .tags.find((tag) => tag.tagName === 'payment_hash')!.data as string;
 
       const promise = bitcoinLndClient.sendPayment(invoice);
       tracker.trackPayment(preimageHash, promise);

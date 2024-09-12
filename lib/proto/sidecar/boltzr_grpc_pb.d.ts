@@ -16,6 +16,8 @@ interface IBoltzRService extends grpc.ServiceDefinition<grpc.UntypedServiceImple
     createWebHook: IBoltzRService_ICreateWebHook;
     sendWebHook: IBoltzRService_ISendWebHook;
     signEvmRefund: IBoltzRService_ISignEvmRefund;
+    decodeInvoiceOrOffer: IBoltzRService_IDecodeInvoiceOrOffer;
+    fetchInvoice: IBoltzRService_IFetchInvoice;
 }
 
 interface IBoltzRService_IGetInfo extends grpc.MethodDefinition<boltzr_pb.GetInfoRequest, boltzr_pb.GetInfoResponse> {
@@ -90,6 +92,24 @@ interface IBoltzRService_ISignEvmRefund extends grpc.MethodDefinition<boltzr_pb.
     responseSerialize: grpc.serialize<boltzr_pb.SignEvmRefundResponse>;
     responseDeserialize: grpc.deserialize<boltzr_pb.SignEvmRefundResponse>;
 }
+interface IBoltzRService_IDecodeInvoiceOrOffer extends grpc.MethodDefinition<boltzr_pb.DecodeInvoiceOrOfferRequest, boltzr_pb.DecodeInvoiceOrOfferResponse> {
+    path: "/boltzr.BoltzR/DecodeInvoiceOrOffer";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<boltzr_pb.DecodeInvoiceOrOfferRequest>;
+    requestDeserialize: grpc.deserialize<boltzr_pb.DecodeInvoiceOrOfferRequest>;
+    responseSerialize: grpc.serialize<boltzr_pb.DecodeInvoiceOrOfferResponse>;
+    responseDeserialize: grpc.deserialize<boltzr_pb.DecodeInvoiceOrOfferResponse>;
+}
+interface IBoltzRService_IFetchInvoice extends grpc.MethodDefinition<boltzr_pb.FetchInvoiceRequest, boltzr_pb.FetchInvoiceResponse> {
+    path: "/boltzr.BoltzR/FetchInvoice";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<boltzr_pb.FetchInvoiceRequest>;
+    requestDeserialize: grpc.deserialize<boltzr_pb.FetchInvoiceRequest>;
+    responseSerialize: grpc.serialize<boltzr_pb.FetchInvoiceResponse>;
+    responseDeserialize: grpc.deserialize<boltzr_pb.FetchInvoiceResponse>;
+}
 
 export const BoltzRService: IBoltzRService;
 
@@ -102,6 +122,8 @@ export interface IBoltzRServer extends grpc.UntypedServiceImplementation {
     createWebHook: grpc.handleUnaryCall<boltzr_pb.CreateWebHookRequest, boltzr_pb.CreateWebHookResponse>;
     sendWebHook: grpc.handleUnaryCall<boltzr_pb.SendWebHookRequest, boltzr_pb.SendWebHookResponse>;
     signEvmRefund: grpc.handleUnaryCall<boltzr_pb.SignEvmRefundRequest, boltzr_pb.SignEvmRefundResponse>;
+    decodeInvoiceOrOffer: grpc.handleUnaryCall<boltzr_pb.DecodeInvoiceOrOfferRequest, boltzr_pb.DecodeInvoiceOrOfferResponse>;
+    fetchInvoice: grpc.handleUnaryCall<boltzr_pb.FetchInvoiceRequest, boltzr_pb.FetchInvoiceResponse>;
 }
 
 export interface IBoltzRClient {
@@ -128,6 +150,12 @@ export interface IBoltzRClient {
     signEvmRefund(request: boltzr_pb.SignEvmRefundRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.SignEvmRefundResponse) => void): grpc.ClientUnaryCall;
     signEvmRefund(request: boltzr_pb.SignEvmRefundRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.SignEvmRefundResponse) => void): grpc.ClientUnaryCall;
     signEvmRefund(request: boltzr_pb.SignEvmRefundRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.SignEvmRefundResponse) => void): grpc.ClientUnaryCall;
+    decodeInvoiceOrOffer(request: boltzr_pb.DecodeInvoiceOrOfferRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.DecodeInvoiceOrOfferResponse) => void): grpc.ClientUnaryCall;
+    decodeInvoiceOrOffer(request: boltzr_pb.DecodeInvoiceOrOfferRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.DecodeInvoiceOrOfferResponse) => void): grpc.ClientUnaryCall;
+    decodeInvoiceOrOffer(request: boltzr_pb.DecodeInvoiceOrOfferRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.DecodeInvoiceOrOfferResponse) => void): grpc.ClientUnaryCall;
+    fetchInvoice(request: boltzr_pb.FetchInvoiceRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.FetchInvoiceResponse) => void): grpc.ClientUnaryCall;
+    fetchInvoice(request: boltzr_pb.FetchInvoiceRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.FetchInvoiceResponse) => void): grpc.ClientUnaryCall;
+    fetchInvoice(request: boltzr_pb.FetchInvoiceRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.FetchInvoiceResponse) => void): grpc.ClientUnaryCall;
 }
 
 export class BoltzRClient extends grpc.Client implements IBoltzRClient {
@@ -154,4 +182,10 @@ export class BoltzRClient extends grpc.Client implements IBoltzRClient {
     public signEvmRefund(request: boltzr_pb.SignEvmRefundRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.SignEvmRefundResponse) => void): grpc.ClientUnaryCall;
     public signEvmRefund(request: boltzr_pb.SignEvmRefundRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.SignEvmRefundResponse) => void): grpc.ClientUnaryCall;
     public signEvmRefund(request: boltzr_pb.SignEvmRefundRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.SignEvmRefundResponse) => void): grpc.ClientUnaryCall;
+    public decodeInvoiceOrOffer(request: boltzr_pb.DecodeInvoiceOrOfferRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.DecodeInvoiceOrOfferResponse) => void): grpc.ClientUnaryCall;
+    public decodeInvoiceOrOffer(request: boltzr_pb.DecodeInvoiceOrOfferRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.DecodeInvoiceOrOfferResponse) => void): grpc.ClientUnaryCall;
+    public decodeInvoiceOrOffer(request: boltzr_pb.DecodeInvoiceOrOfferRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.DecodeInvoiceOrOfferResponse) => void): grpc.ClientUnaryCall;
+    public fetchInvoice(request: boltzr_pb.FetchInvoiceRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.FetchInvoiceResponse) => void): grpc.ClientUnaryCall;
+    public fetchInvoice(request: boltzr_pb.FetchInvoiceRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.FetchInvoiceResponse) => void): grpc.ClientUnaryCall;
+    public fetchInvoice(request: boltzr_pb.FetchInvoiceRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.FetchInvoiceResponse) => void): grpc.ClientUnaryCall;
 }

@@ -1,25 +1,8 @@
-import Logger from '../../../lib/Logger';
-import Database from '../../../lib/db/Database';
+import { satToMsat } from '../../../lib/lightning/ChannelUtils';
 import { calculatePaymentFee } from '../../../lib/lightning/LightningClient';
 import LndClient from '../../../lib/lightning/LndClient';
-import { bitcoinClient, bitcoinLndClient } from '../Nodes';
 
 describe('LightningClient', () => {
-  const db = new Database(Logger.disabledLogger, Database.memoryDatabase);
-
-  beforeAll(async () => {
-    await db.init();
-    await bitcoinClient.connect();
-    await Promise.all([bitcoinLndClient.connect(), bitcoinClient.generate(1)]);
-  });
-
-  afterAll(async () => {
-    bitcoinClient.disconnect();
-    bitcoinLndClient.disconnect();
-
-    await db.close();
-  });
-
   test.each`
     fee                           | amount
     ${10000}                      | ${1000000}
@@ -31,7 +14,7 @@ describe('LightningClient', () => {
     async ({ fee, amount }) => {
       expect(
         calculatePaymentFee(
-          (await bitcoinLndClient.addInvoice(amount)).paymentRequest,
+          satToMsat(amount),
           0.01,
           LndClient['paymentMinFee'],
         ),

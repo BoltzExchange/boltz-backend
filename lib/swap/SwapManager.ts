@@ -19,7 +19,6 @@ import { SwapConfig } from '../Config';
 import { createMusig, tweakMusig } from '../Core';
 import Logger from '../Logger';
 import {
-  decodeInvoice,
   formatError,
   generateSwapId,
   getChainCurrency,
@@ -69,6 +68,7 @@ import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
 import ChainSwapSigner from '../service/cooperative/ChainSwapSigner';
 import DeferredClaimer from '../service/cooperative/DeferredClaimer';
 import EipSigner from '../service/cooperative/EipSigner';
+import { InvoiceType } from '../sidecar/DecodedInvoice';
 import Sidecar from '../sidecar/Sidecar';
 import WalletLiquid from '../wallet/WalletLiquid';
 import WalletManager, { Currency } from '../wallet/WalletManager';
@@ -181,7 +181,7 @@ class SwapManager {
     private readonly blocks: Blocks,
     swapConfig: SwapConfig,
     lockupTransactionTracker: LockupTransactionTracker,
-    sidecar: Sidecar,
+    private readonly sidecar: Sidecar,
     balanceCheck: BalanceCheck,
   ) {
     this.deferredClaimer = new DeferredClaimer(
@@ -207,6 +207,7 @@ class SwapManager {
 
     this.nursery = new SwapNursery(
       this.logger,
+      sidecar,
       notifications,
       this.nodeSwitch,
       rateProvider,
@@ -278,8 +279,8 @@ class SwapManager {
         }),
       ]);
 
-    this.recreateFilters(pendingSwaps, false);
-    this.recreateFilters(pendingReverseSwaps, true);
+    await this.recreateFilters(pendingSwaps, false);
+    await this.recreateFilters(pendingReverseSwaps, true);
     this.recreateChainSwapFilters(pendingChainSwaps);
 
     await this.chainSwapSigner.init();
@@ -510,18 +511,16 @@ class SwapManager {
       swap.orderSide,
     );
 
-    const decodedInvoice = decodeInvoice(invoice);
+    const decodedInvoice = await this.sidecar.decodeInvoiceOrOffer(invoice);
+    if (decodedInvoice.type === InvoiceType.Offer) {
+      throw Errors.NO_OFFERS_ALLOWED();
+    }
 
-    if (decodedInvoice.paymentHash !== swap.preimageHash) {
+    if (getHexString(decodedInvoice.paymentHash!) !== swap.preimageHash) {
       throw Errors.INVOICE_INVALID_PREIMAGE_HASH(swap.preimageHash);
     }
 
-    const invoiceExpiry = InvoiceExpiryHelper.getInvoiceExpiry(
-      decodedInvoice.timestamp,
-      decodedInvoice.timeExpireDate,
-    );
-
-    if (getUnixTime() >= invoiceExpiry) {
+    if (decodedInvoice.isExpired) {
       throw Errors.INVOICE_EXPIRED_ALREADY();
     }
 
@@ -563,9 +562,9 @@ class SwapManager {
       const timeoutTimestamp =
         getUnixTime() + blocksUntilExpiry * blockTime * 60;
 
-      if (timeoutTimestamp > invoiceExpiry) {
+      if (timeoutTimestamp > decodedInvoice.expiryTimestamp) {
         const invoiceError = Errors.INVOICE_EXPIRES_TOO_EARLY(
-          invoiceExpiry,
+          decodedInvoice.expiryTimestamp,
           timeoutTimestamp,
         );
 
@@ -591,21 +590,23 @@ class SwapManager {
 
       await ChannelCreationRepository.setNodePublicKey(
         channelCreation,
-        decodedInvoice.payeeNodeKey!,
+        getHexString(decodedInvoice.payee!),
       );
     } else if (
-      !decodedInvoice.routingInfo ||
-      (decodedInvoice.routingInfo && decodedInvoice.routingInfo.length === 0)
+      !decodedInvoice.routingHints ||
+      (decodedInvoice.routingHints && decodedInvoice.routingHints.length === 0)
     ) {
       if (!canBeRouted) {
         throw Errors.NO_ROUTE_FOUND();
       }
     }
 
-    this.logger.debug(`Setting invoice of Swap ${swap.id}: ${invoice}`);
+    this.logger.debug(
+      `Setting ${decodedInvoice.typePretty} invoice of Swap ${swap.id}: ${invoice}`,
+    );
 
     await this.nursery.lock.acquire(SwapNursery.swapLock, async () => {
-      // Fetch the status again to make sure it is latest from the database
+      // Fetch the status again to make sure it is the latest from the database
       const previousStatus = (await swap.reload()).status;
 
       await SwapRepository.setInvoice(
@@ -620,7 +621,7 @@ class SwapManager {
       // Fetch the swap
       const updatedSwap = (await SwapRepository.getSwap({ id: swap.id }))!;
 
-      // Not the most elegant way to emit this event but the only option
+      // Not the most elegant way to emit this event, but the only option
       // to emit it before trying to claim the swap
       emitSwapInvoiceSet(updatedSwap.id);
 
@@ -1154,11 +1155,11 @@ class SwapManager {
   };
 
   // TODO: check current status of invoices or do the streams handle that already?
-  private recreateFilters = (
+  private recreateFilters = async (
     swaps: Swap[] | ReverseSwap[],
     isReverse: boolean,
   ) => {
-    swaps.forEach((swap: Swap | ReverseSwap) => {
+    for (const swap of swaps) {
       const { base, quote } = splitPairId(swap.pair);
       const chainCurrency = getChainCurrency(
         base,
@@ -1187,16 +1188,16 @@ class SwapManager {
           reverseSwap.minerFeeInvoice &&
           swap.status !== SwapUpdateEvent.MinerFeePaid
         ) {
-          lndClient?.subscribeSingleInvoice(
-            getHexBuffer(
-              decodeInvoice(reverseSwap.minerFeeInvoice).paymentHash!,
-            ),
+          const decoded = await this.sidecar.decodeInvoiceOrOffer(
+            reverseSwap.minerFeeInvoice,
           );
+          lndClient?.subscribeSingleInvoice(decoded.paymentHash!);
         }
 
-        lndClient?.subscribeSingleInvoice(
-          getHexBuffer(decodeInvoice(reverseSwap.invoice).paymentHash!),
+        const decoded = await this.sidecar.decodeInvoiceOrOffer(
+          reverseSwap.invoice,
         );
+        lndClient?.subscribeSingleInvoice(decoded.paymentHash!);
       } else if (
         (swap.status === SwapUpdateEvent.TransactionMempool ||
           swap.status === SwapUpdateEvent.TransactionConfirmed) &&
@@ -1228,7 +1229,7 @@ class SwapManager {
           chainClient.addOutputFilter(outputScript);
         }
       }
-    });
+    }
   };
 
   private recreateChainSwapFilters = (swaps: ChainSwapInfo[]) => {

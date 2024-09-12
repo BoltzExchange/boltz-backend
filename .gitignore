@@ -91,3 +91,6 @@ docker/regtest/data/cln/hold
 docker/regtest/data/cln/certs
 docker/regtest/data/cln/mpay
 docker/regtest/data/cln/plugins
+
+# Test artifacts
+test/integration/sidecar/sidecar

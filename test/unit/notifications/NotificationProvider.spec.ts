@@ -1,17 +1,19 @@
+import bolt11 from 'bolt11';
 import { existsSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { satoshisToSatcomma } from '../../../lib/DenominationConverter';
 import Logger from '../../../lib/Logger';
-import { decodeInvoice } from '../../../lib/Utils';
 import BackupScheduler from '../../../lib/backup/BackupScheduler';
 import { CurrencyType, SwapType } from '../../../lib/consts/Enums';
 import ChannelCreation from '../../../lib/db/models/ChannelCreation';
 import ReverseSwap from '../../../lib/db/models/ReverseSwap';
 import Swap from '../../../lib/db/models/Swap';
+import { satToMsat } from '../../../lib/lightning/ChannelUtils';
 import { Emojis } from '../../../lib/notifications/Markup';
 import NotificationClient from '../../../lib/notifications/NotificationClient';
 import NotificationProvider from '../../../lib/notifications/NotificationProvider';
 import Service from '../../../lib/service/Service';
+import Sidecar from '../../../lib/sidecar/Sidecar';
 import WalletManager from '../../../lib/wallet/WalletManager';
 import { Rsk } from '../../../lib/wallet/ethereum/EvmNetworks';
 import { wait } from '../../Utils';
@@ -138,6 +140,15 @@ describe('NotificationProvider', () => {
     ...reverseSwapExample,
   } as any as ReverseSwap;
 
+  const sidecar = {
+    decodeInvoiceOrOffer: jest
+      .fn()
+      .mockImplementation(async (invoice: string) => {
+        const dec = bolt11.decode(invoice);
+        return { amountMsat: satToMsat(dec.satoshis!) };
+      }),
+  } as unknown as Sidecar;
+
   const config = {
     mattermostUrl: '',
     token: '',
@@ -150,6 +161,7 @@ describe('NotificationProvider', () => {
   const walletManager = MockedWalletManager();
   const notificationProvider = new NotificationProvider(
     Logger.disabledLogger,
+    sidecar,
     mockedService(),
     walletManager,
     mockedBackupScheduler(),
@@ -199,7 +211,7 @@ describe('NotificationProvider', () => {
         'Order side: buy\n' +
         `Onchain amount: ${satoshisToSatcomma(swap.onchainAmount!)} BTC\n` +
         `Lightning amount: ${satoshisToSatcomma(
-          decodeInvoice(swap.invoice!).satoshis,
+          bolt11.decode(swap.invoice!).satoshis!,
         )} LTC\n` +
         `Fees earned: ${satoshisToSatcomma(swap.fee!)} LTC\n` +
         `Miner fees: ${satoshisToSatcomma(swap.minerFee!)} BTC\n` +
@@ -222,7 +234,7 @@ describe('NotificationProvider', () => {
         'Order side: buy\n' +
         `Onchain amount: ${satoshisToSatcomma(swap.onchainAmount!)} BTC\n` +
         `Lightning amount: ${satoshisToSatcomma(
-          decodeInvoice(swap.invoice!).satoshis,
+          bolt11.decode(swap.invoice!).satoshis!,
         )} LTC\n` +
         `Invoice: ${swap.invoice}` +
         NotificationProvider['trailingWhitespace'],
@@ -243,7 +255,7 @@ describe('NotificationProvider', () => {
           reverseSwap.onchainAmount!,
         )} BTC\n` +
         `Lightning amount: ${satoshisToSatcomma(
-          decodeInvoice(reverseSwap.invoice).satoshis,
+          bolt11.decode(reverseSwap.invoice).satoshis!,
         )} LTC\n` +
         `Fees earned: ${satoshisToSatcomma(reverseSwap.fee)} BTC\n` +
         `Miner fees: ${satoshisToSatcomma(reverseSwap.minerFee!)} BTC` +
@@ -271,7 +283,7 @@ describe('NotificationProvider', () => {
           reverseSwap.onchainAmount!,
         )} BTC\n` +
         `Lightning amount: ${satoshisToSatcomma(
-          decodeInvoice(reverseSwap.invoice).satoshis,
+          bolt11.decode(reverseSwap.invoice).satoshis!,
         )} LTC\n` +
         `Miner fees: ${satoshisToSatcomma(reverseSwap.minerFee)} BTC` +
         NotificationProvider['trailingWhitespace'],
@@ -297,7 +309,7 @@ describe('NotificationProvider', () => {
           reverseSwap.onchainAmount!,
         )} BTC\n` +
         `Lightning amount: ${satoshisToSatcomma(
-          decodeInvoice(reverseSwap.invoice).satoshis,
+          bolt11.decode(reverseSwap.invoice).satoshis!,
         )} LTC` +
         NotificationProvider['trailingWhitespace'],
     );
@@ -315,7 +327,7 @@ describe('NotificationProvider', () => {
         'Order side: buy\n' +
         `Onchain amount: ${satoshisToSatcomma(swap.onchainAmount!)} BTC\n` +
         `Lightning amount: ${satoshisToSatcomma(
-          decodeInvoice(swap.invoice!).satoshis,
+          bolt11.decode(swap.invoice!).satoshis!,
         )} LTC\n` +
         `Fees earned: ${satoshisToSatcomma(swap.fee!)} LTC\n` +
         `Miner fees: ${satoshisToSatcomma(swap.minerFee!)} BTC\n` +
@@ -348,7 +360,7 @@ describe('NotificationProvider', () => {
         'Order side: buy\n' +
         `Onchain amount: ${satoshisToSatcomma(swap.onchainAmount!)} BTC\n` +
         `Lightning amount: ${satoshisToSatcomma(
-          decodeInvoice(swap.invoice!).satoshis,
+          bolt11.decode(swap.invoice!).satoshis!,
         )} LTC\n` +
         `Fees earned: ${satoshisToSatcomma(swap.fee!)} LTC\n` +
         `Miner fees: ${satoshisToSatcomma(swap.minerFee!)} BTC\n` +
@@ -370,7 +382,7 @@ describe('NotificationProvider', () => {
     );
   });
 
-  test('should format failed swaps with no invoice', () => {
+  test('should format failed swaps with no invoice', async () => {
     const failureReason = 'because';
     emitSwapFailure({
       swap: {
@@ -379,6 +391,7 @@ describe('NotificationProvider', () => {
       } as Swap,
       reason: failureReason,
     });
+    await wait(5);
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(

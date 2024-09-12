@@ -3,20 +3,18 @@ import {
   ClientReadableStream,
   Metadata,
 } from '@grpc/grpc-js';
-import bolt11 from 'bolt11';
 import BaseClient from '../../BaseClient';
 import Logger from '../../Logger';
-import {
-  decodeInvoice,
-  formatError,
-  getHexBuffer,
-  getHexString,
-} from '../../Utils';
+import { formatError, getHexBuffer, getHexString } from '../../Utils';
 import { ClientStatus } from '../../consts/Enums';
 import { NodeType } from '../../db/models/ReverseSwap';
 import { NodeClient } from '../../proto/cln/node_grpc_pb';
 import * as noderpc from '../../proto/cln/node_pb';
-import { ListfundsOutputs, ListpaysPays } from '../../proto/cln/node_pb';
+import {
+  DecodeResponse,
+  ListfundsOutputs,
+  ListpaysPays,
+} from '../../proto/cln/node_pb';
 import * as primitivesrpc from '../../proto/cln/primitives_pb';
 import { HoldClient } from '../../proto/hold/hold_grpc_pb';
 import * as holdrpc from '../../proto/hold/hold_pb';
@@ -47,6 +45,7 @@ import { getRoute } from './Router';
 import { ClnConfig, createSsl } from './Types';
 
 import ListpaysPaysStatus = ListpaysPays.ListpaysPaysStatus;
+import DecodeType = DecodeResponse.DecodeType;
 
 class ClnClient
   extends BaseClient<EventTypes>
@@ -454,60 +453,41 @@ class ClnClient
     >('settle', req);
   };
 
-  public decodeInvoice = async (invoice: string): Promise<DecodedInvoice> => {
+  public decodeInvoice = async (
+    invoice: string,
+  ): Promise<DecodedInvoice & { type: noderpc.DecodeResponse.DecodeType }> => {
     // Just to make sure CLN can parse the invoice
     const req = new noderpc.DecodeRequest();
     req.setString(invoice);
 
-    const clnRes = await this.unaryNodeCall<
+    const dec = await this.unaryNodeCall<
       noderpc.DecodeRequest,
       noderpc.DecodeResponse.AsObject
     >('decode', req);
 
     const features = new Set<InvoiceFeature>();
+    // We can assume that everyone supports MPP now
+    features.add(InvoiceFeature.MPP);
 
-    const dec = bolt11.decode(invoice);
-    const featureBits = dec.tags.find((e) => e.tagName === 'feature_bits');
-    if (featureBits && featureBits.data) {
-      const mpp = (featureBits.data as any)['basic_mpp'];
-      if (mpp.supported || mpp.required) {
-        features.add(InvoiceFeature.MPP);
-      }
-    }
-
-    const routingHints: HopHint[][] = [];
-
-    // TODO: routing hints with multiple hops?
-    const routingHintsTag = dec.tags.find((e) => e.tagName === 'routing_info');
-    if (routingHintsTag && routingHintsTag.data) {
-      (routingHintsTag.data as any).forEach(
-        (route: {
-          pubkey: string;
-          fee_base_msat: number;
-          short_channel_id: string;
-          cltv_expiry_delta: number;
-          fee_proportional_millionths: number;
-        }) => {
-          const chanId = BigInt(`0x${route.short_channel_id}`).toString();
-          routingHints.push([
-            {
-              chanId,
-              nodeId: route.pubkey,
-              feeBaseMsat: route.fee_base_msat,
-              cltvExpiryDelta: route.cltv_expiry_delta,
-              feeProportionalMillionths: route.fee_proportional_millionths,
-            },
-          ]);
-        },
-      );
-    }
+    const routingHints: HopHint[][] = (dec.routes?.hintsList || []).map(
+      (route) =>
+        route.hopsList.map((hint) => ({
+          cltvExpiryDelta: hint.cltvExpiryDelta,
+          feeBaseMsat: hint.feeBaseMsat?.msat || 0,
+          chanId: scidClnToLnd(hint.shortChannelId),
+          feeProportionalMillionths: hint.feeProportionalMillionths,
+          nodeId: getHexString(Buffer.from(hint.pubkey as string, 'base64')),
+        })),
+    );
 
     return {
       features,
       routingHints,
-      value: dec.satoshis || 0,
-      destination: dec.payeeNodeKey!,
-      cltvExpiry: clnRes.minFinalCltvExpiry || 0,
+      type: dec.itemType,
+      cltvExpiry: dec.minFinalCltvExpiry || 0,
+      value: msatToSat(dec.amountMsat?.msat || 0),
+      destination: getHexString(Buffer.from(dec.payee)),
+      paymentHash: Buffer.from(dec.paymentHash as string, 'base64'),
     };
   };
 
@@ -566,15 +546,18 @@ class ClnClient
       return payStatus;
     }
 
+    const decoded = await this.decodeInvoice(invoice);
     const maxFee = satToMsat(
       calculatePaymentFee(
-        invoice,
+        decoded.value,
         this.maxPaymentFeeRatio,
         ClnClient.paymentMinFee,
       ),
     );
 
-    const useMpay = this.useMpay();
+    // TODO: mpay support for bolt12
+    const useMpay =
+      this.useMpay() && decoded.type !== DecodeType.BOLT12_INVOICE;
     this.logger.verbose(
       `Using ${useMpay ? 'mpay' : 'pay'} for ${ClnClient.serviceName} ${this.symbol} invoice payment`,
     );
@@ -752,7 +735,7 @@ class ClnClient
         noderpc.ListpeerchannelsResponse
       >('listPeerChannels', new noderpc.ListpeerchannelsRequest(), false);
 
-      const paymentHash = getHexBuffer(decodeInvoice(invoice).paymentHash!);
+      const paymentHash = (await this.decodeInvoice(invoice)).paymentHash;
 
       const hasPendingHtlc = channels
         .getChannelsList()

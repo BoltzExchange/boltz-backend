@@ -1,4 +1,3 @@
-import bolt11, { RoutingInfo } from '@boltz/bolt11';
 import { Transaction, crypto } from 'bitcoinjs-lib';
 import { OutputType, Scripts } from 'boltz-core';
 import { randomBytes } from 'crypto';
@@ -145,73 +144,6 @@ export const splitPairId = (
  */
 export const minutesToMilliseconds = (minutes: number): number => {
   return minutes * 60 * 1000;
-};
-
-const coalesceInvoiceAmount = (
-  decoded: bolt11.PaymentRequestObject,
-): number => {
-  const decodedMsat = decoded.millisatoshis
-    ? Math.ceil(Number(decoded.millisatoshis) / 1000)
-    : undefined;
-
-  return decoded.satoshis || decodedMsat || 0;
-};
-
-export const decodeInvoiceAmount = (invoice: string): number =>
-  coalesceInvoiceAmount(bolt11.decode(invoice));
-
-export const decodeInvoice = (
-  invoice: string,
-): bolt11.PaymentRequestObject & {
-  satoshis: number;
-  timeExpireDate: number;
-  paymentHash: string | undefined;
-  description: string | undefined;
-  descriptionHash: string | undefined;
-  minFinalCltvExpiry: number | undefined;
-  routingInfo: bolt11.RoutingInfo | undefined;
-} => {
-  const decoded = bolt11.decode(invoice);
-
-  let paymentHash: string | undefined;
-  let routingInfo: bolt11.RoutingInfo | undefined;
-  let minFinalCltvExpiry: number | undefined;
-  let description: string | undefined;
-  let descriptionHash: string | undefined;
-
-  for (const tag of decoded.tags) {
-    switch (tag.tagName) {
-      case 'payment_hash':
-        paymentHash = tag.data as string;
-        break;
-      case 'routing_info':
-        routingInfo = tag.data as RoutingInfo;
-        break;
-
-      case 'min_final_cltv_expiry':
-        minFinalCltvExpiry = tag.data as number;
-        break;
-
-      case 'description':
-        description = tag.data as string;
-        break;
-
-      case 'purpose_commit_hash':
-        descriptionHash = tag.data as string;
-        break;
-    }
-  }
-
-  return {
-    ...decoded,
-    routingInfo,
-    paymentHash,
-    description,
-    descriptionHash,
-    minFinalCltvExpiry,
-    satoshis: coalesceInvoiceAmount(decoded),
-    timeExpireDate: decoded.timeExpireDate || (decoded.timestamp || 0) + 3600,
-  };
 };
 
 /**

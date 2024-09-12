@@ -1,11 +1,8 @@
 import { Transaction } from 'bitcoinjs-lib';
-import { randomBytes } from 'crypto';
 import { Transaction as TransactionLiquid } from 'liquidjs-lib';
 import {
   calculateLiquidTransactionFee,
   calculateUtxoTransactionFee,
-  decodeInvoice,
-  getHexBuffer,
   isTxConfirmed,
 } from '../../lib/Utils';
 import { bitcoinClient, bitcoinLndClient, elementsClient } from './Nodes';
@@ -73,23 +70,6 @@ describe('Utils', () => {
     expect(calculateLiquidTransactionFee(tx)).toBeLessThanOrEqual(
       expectedFee + 5,
     );
-  });
-
-  test('should decode invoices', async () => {
-    const value = 123;
-    const cltvExpiry = 140;
-    const preimageHash = randomBytes(32);
-
-    const invoice = await bitcoinLndClient.addHoldInvoice(
-      value,
-      preimageHash,
-      cltvExpiry,
-    );
-    const decoded = decodeInvoice(invoice);
-
-    expect(decoded.satoshis).toEqual(value);
-    expect(decoded.minFinalCltvExpiry).toEqual(cltvExpiry);
-    expect(getHexBuffer(decoded.paymentHash!)).toEqual(preimageHash);
   });
 
   describe('isTxConfirmed', () => {

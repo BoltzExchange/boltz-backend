@@ -2,7 +2,6 @@ import { BaseCurrencyConfig, NotificationConfig, TokenConfig } from '../Config';
 import { satoshisToSatcomma } from '../DenominationConverter';
 import Logger from '../Logger';
 import {
-  decodeInvoice,
   formatError,
   getChainCurrency,
   getLightningCurrency,
@@ -22,10 +21,12 @@ import ChainSwapData from '../db/models/ChainSwapData';
 import ReverseSwap from '../db/models/ReverseSwap';
 import Swap from '../db/models/Swap';
 import { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
+import { msatToSat } from '../lightning/ChannelUtils';
 import LndClient from '../lightning/LndClient';
 import ClnClient from '../lightning/cln/ClnClient';
 import { ChainInfo, LightningInfo } from '../proto/boltzrpc_pb';
 import Service from '../service/Service';
+import Sidecar from '../sidecar/Sidecar';
 import WalletManager from '../wallet/WalletManager';
 import BalanceChecker from './BalanceChecker';
 import CommandHandler from './CommandHandler';
@@ -45,6 +46,7 @@ class NotificationProvider {
 
   constructor(
     private readonly logger: Logger,
+    private readonly sidecar: Sidecar,
     private readonly service: Service,
     private readonly walletManager: WalletManager,
     private readonly backup: BackupScheduler,
@@ -191,7 +193,7 @@ class NotificationProvider {
       return `${prefixLightning(type === SwapType.ReverseSubmarine, receiving)} -> ${prefixLightning(type === SwapType.Submarine, sending)}`;
     };
 
-    const getBasicSwapInfo = (
+    const getBasicSwapInfo = async (
       type: SwapType,
       swap: ChainSwapInfo | Swap | ReverseSwap,
       base: string,
@@ -219,7 +221,10 @@ class NotificationProvider {
           return message;
         }
 
-        const lightningAmount = decodeInvoice(submarineSwap.invoice).satoshis;
+        const lightningAmount = msatToSat(
+          (await this.sidecar.decodeInvoiceOrOffer(submarineSwap.invoice))
+            .amountMsat,
+        );
 
         return (
           message +
@@ -256,7 +261,7 @@ class NotificationProvider {
           `**Swap ${getSwapTitle(swap.type, sending, receiving)}${
             hasChannelCreation ? ` ${Emojis.ConstructionSite}` : ''
           }**\n` +
-          `${getBasicSwapInfo(swap.type, swap, base, quote)}\n` +
+          `${await getBasicSwapInfo(swap.type, swap, base, quote)}\n` +
           `Fees earned: ${satoshisToSatcomma(swap.fee!)} ${sending}\n` +
           `Miner fees: ${this.getMinerFees(swap.type, swap)}`;
 
@@ -298,7 +303,7 @@ class NotificationProvider {
           sending,
           receiving,
         )} failed: ${reason}**\n` +
-        `${getBasicSwapInfo(swap.type, swap, base, quote)}`;
+        `${await getBasicSwapInfo(swap.type, swap, base, quote)}`;
 
       if (swap.type === SwapType.Submarine) {
         const submarineSwap = swap as Swap;

@@ -1,18 +1,22 @@
 import { parse } from '@iarna/toml';
 import { existsSync, readFileSync, unlinkSync } from 'fs';
 import { ConfigType } from '../../../lib/Config';
+import { ECPair } from '../../../lib/ECPairHelper';
 import Logger from '../../../lib/Logger';
+import { getHexString } from '../../../lib/Utils';
 import { OrderSide, SwapType, SwapVersion } from '../../../lib/consts/Enums';
 import { PairConfig } from '../../../lib/consts/Types';
-import {
-  DecodedInvoice,
-  InvoiceFeature,
-} from '../../../lib/lightning/LightningClient';
+import { msatToSat } from '../../../lib/lightning/ChannelUtils';
+import { InvoiceFeature } from '../../../lib/lightning/LightningClient';
 import LndClient from '../../../lib/lightning/LndClient';
 import Errors from '../../../lib/service/Errors';
 import TimeoutDeltaProvider, {
   PairTimeoutBlocksDelta,
 } from '../../../lib/service/TimeoutDeltaProvider';
+import DecodedInvoice, {
+  InvoiceType,
+} from '../../../lib/sidecar/DecodedInvoice';
+import Sidecar from '../../../lib/sidecar/Sidecar';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
 import { Currency } from '../../../lib/wallet/WalletManager';
 import EthereumManager from '../../../lib/wallet/ethereum/EthereumManager';
@@ -57,6 +61,8 @@ describe('TimeoutDeltaProvider', () => {
     }
   };
 
+  const sidecar = {} as unknown as Sidecar;
+
   const deltaProvider = new TimeoutDeltaProvider(
     Logger.disabledLogger,
     {
@@ -69,6 +75,7 @@ describe('TimeoutDeltaProvider', () => {
       ],
       currencies: [],
     } as unknown as ConfigType,
+    sidecar,
     new Map<string, Currency>(),
     new NodeSwitch(Logger.disabledLogger),
   );
@@ -291,23 +298,24 @@ describe('TimeoutDeltaProvider', () => {
       queryRoutes: mockQueryRoutes,
     } as unknown as LndClient;
 
-    const dec: DecodedInvoice = {
-      value: 10_000,
-      destination: 'dest',
-      cltvExpiry: 80,
+    const dec = {
+      minFinalCltv: 80,
       routingHints: [],
+      amountMsat: 10_000_000,
+      type: InvoiceType.Bolt11,
       features: new Set<InvoiceFeature>(),
-    };
+      payee: ECPair.makeRandom().publicKey,
+    } as unknown as DecodedInvoice;
 
     const cltvLimit = 123;
 
     await deltaProvider.checkRoutability(lnd, dec, cltvLimit);
     expect(mockQueryRoutes).toHaveBeenNthCalledWith(
       1,
-      dec.destination,
-      dec.value,
+      getHexString(dec.payee!),
+      msatToSat(dec.amountMsat),
       cltvLimit,
-      dec.cltvExpiry,
+      dec.minFinalCltv,
       dec.routingHints,
     );
 
@@ -316,15 +324,15 @@ describe('TimeoutDeltaProvider', () => {
       {
         ...dec,
         features: new Set<InvoiceFeature>([InvoiceFeature.MPP]),
-      },
+      } as unknown as DecodedInvoice,
       cltvLimit,
     );
     expect(mockQueryRoutes).toHaveBeenNthCalledWith(
       2,
-      dec.destination,
-      Math.ceil(dec.value / LndClient.paymentMaxParts),
+      getHexString(dec.payee!),
+      Math.ceil(msatToSat(dec.amountMsat) / LndClient.paymentMaxParts),
       cltvLimit,
-      dec.cltvExpiry,
+      dec.minFinalCltv,
       dec.routingHints,
     );
   });
@@ -336,22 +344,22 @@ describe('TimeoutDeltaProvider', () => {
     } as unknown as LndClient;
 
     const dec: DecodedInvoice = {
-      value: 0,
-      destination: 'dest',
-      cltvExpiry: 80,
+      amountMsat: 0,
+      minFinalCltv: 80,
       routingHints: [],
+      payee: ECPair.makeRandom().publicKey,
       features: new Set<InvoiceFeature>(),
-    };
+    } as unknown as DecodedInvoice;
 
     const cltvLimit = 210;
 
     await deltaProvider.checkRoutability(lnd, dec, cltvLimit);
     expect(mockQueryRoutes).toHaveBeenNthCalledWith(
       1,
-      dec.destination,
+      getHexString(dec.payee!),
       1,
       cltvLimit,
-      dec.cltvExpiry,
+      dec.minFinalCltv,
       dec.routingHints,
     );
   });

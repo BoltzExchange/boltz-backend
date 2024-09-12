@@ -1,8 +1,8 @@
-use std::error::Error;
-
 use diesel::r2d2::ConnectionManager;
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 use serde::{Deserialize, Serialize};
+use std::error::Error;
+use std::time::Duration;
 use tracing::{debug, debug_span, info, instrument, trace};
 
 pub mod helpers;
@@ -35,7 +35,9 @@ pub fn connect(config: Config) -> Result<Pool, Box<dyn Error + Send + Sync>> {
         "postgresql://{}:{}@{}:{}/{}",
         config.username, config.password, config.host, config.port, config.database
     ));
-    let pool = Pool::builder().build(manager)?;
+    let pool = Pool::builder()
+        .connection_timeout(Duration::from_secs(5))
+        .build(manager)?;
 
     info!("Connected to database");
 

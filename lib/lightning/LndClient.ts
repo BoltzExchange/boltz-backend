@@ -8,7 +8,6 @@ import fs from 'fs';
 import BaseClient from '../BaseClient';
 import Logger from '../Logger';
 import {
-  decodeInvoiceAmount,
   formatError,
   getHexBuffer,
   getHexString,
@@ -23,6 +22,7 @@ import * as routerrpc from '../proto/lnd/router_pb';
 import { LightningClient as LndLightningClient } from '../proto/lnd/rpc_grpc_pb';
 import * as lndrpc from '../proto/lnd/rpc_pb';
 import { WalletBalance } from '../wallet/providers/WalletProviderInterface';
+import { satToMsat } from './ChannelUtils';
 import Errors from './Errors';
 import { grpcOptions, unaryCall } from './GrpcUtils';
 import {
@@ -426,11 +426,13 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
    * @param cltvDelta CLTV delta limit for the payment
    * @param outgoingChannelId channel through which the invoice should be paid
    */
-  public sendPayment = (
+  public sendPayment = async (
     invoice: string,
     cltvDelta?: number,
     outgoingChannelId?: string,
   ): Promise<PaymentResponse> => {
+    const decoded = await this.decodeInvoice(invoice);
+
     return new Promise<PaymentResponse>((resolve, reject) => {
       const request = new routerrpc.SendPaymentRequest();
 
@@ -439,7 +441,7 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
       request.setTimePref(LndClient.paymentTimePreference);
       request.setFeeLimitSat(
         calculatePaymentFee(
-          invoice,
+          satToMsat(decoded.value),
           this.maxPaymentFeeRatio,
           LndClient.paymentMinFee,
         ),
@@ -596,9 +598,10 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
 
     return {
       features,
+      value: res.numSatoshis,
       cltvExpiry: res.cltvExpiry,
       destination: res.destination,
-      value: decodeInvoiceAmount(invoice),
+      paymentHash: getHexBuffer(res.paymentHash),
       routingHints: LndClient.routingHintsFromGrpc(res.routeHintsList),
     };
   };

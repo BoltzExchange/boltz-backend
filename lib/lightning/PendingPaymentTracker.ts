@@ -1,12 +1,13 @@
 import Logger from '../Logger';
 import { racePromise } from '../PromiseUtils';
-import { decodeInvoice, getHexBuffer } from '../Utils';
+import { getHexBuffer, getHexString } from '../Utils';
 import DefaultMap from '../consts/DefaultMap';
 import LightningPayment, {
   LightningPaymentStatus,
 } from '../db/models/LightningPayment';
 import { NodeType, nodeTypeToPrettyString } from '../db/models/ReverseSwap';
 import LightningPaymentRepository from '../db/repositories/LightningPaymentRepository';
+import Sidecar from '../sidecar/Sidecar';
 import { Currency } from '../wallet/WalletManager';
 import { LightningClient, PaymentResponse } from './LightningClient';
 import LndClient from './LndClient';
@@ -33,7 +34,10 @@ class PendingPaymentTracker {
     }),
   );
 
-  constructor(private readonly logger: Logger) {
+  constructor(
+    private readonly logger: Logger,
+    private readonly sidecar: Sidecar,
+  ) {
     this.lightningTrackers = {
       [NodeType.LND]: new LndPendingPaymentTracker(this.logger),
       [NodeType.CLN]: new ClnPendingPaymentTracker(this.logger),
@@ -79,10 +83,12 @@ class PendingPaymentTracker {
     cltvLimit?: number,
     outgoingChannelId?: string,
   ): Promise<PaymentResponse | undefined> => {
-    const preimageHash = decodeInvoice(invoice).paymentHash!;
+    const paymentHash = getHexString(
+      (await this.sidecar.decodeInvoiceOrOffer(invoice)).paymentHash!,
+    );
 
     const payments =
-      await LightningPaymentRepository.findByPreimageHash(preimageHash);
+      await LightningPaymentRepository.findByPreimageHash(paymentHash);
 
     for (const status of [
       LightningPaymentStatus.Pending,
@@ -97,7 +103,7 @@ class PendingPaymentTracker {
       switch (status) {
         case LightningPaymentStatus.Pending:
           this.logger.verbose(
-            `Invoice payment of ${swapId} (${preimageHash}) still pending with node ${nodeTypeToPrettyString(relevant.node)}`,
+            `Invoice payment of ${swapId} (${paymentHash}) still pending with node ${nodeTypeToPrettyString(relevant.node)}`,
           );
           return undefined;
 
@@ -106,7 +112,7 @@ class PendingPaymentTracker {
             swapId,
             relevant,
             lightningClient.symbol,
-            preimageHash,
+            paymentHash,
             invoice,
           );
 
@@ -122,7 +128,7 @@ class PendingPaymentTracker {
     return this.sendPaymentWithNode(
       swapId,
       lightningClient,
-      preimageHash,
+      paymentHash,
       invoice,
       cltvLimit,
       outgoingChannelId,

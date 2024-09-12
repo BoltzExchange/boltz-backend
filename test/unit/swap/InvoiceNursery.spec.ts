@@ -1,8 +1,10 @@
+import bolt11 from 'bolt11';
 import { Op } from 'sequelize';
 import Logger from '../../../lib/Logger';
 import { getUnixTime } from '../../../lib/Utils';
 import { SwapUpdateEvent } from '../../../lib/consts/Enums';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
+import Sidecar from '../../../lib/sidecar/Sidecar';
 import InvoiceNursery from '../../../lib/swap/InvoiceNursery';
 import { createInvoice } from './InvoiceUtils';
 
@@ -14,7 +16,18 @@ const mockGetReverseSwaps = jest.fn().mockImplementation(async () => {
 jest.mock('../../../lib/db/repositories/ReverseSwapRepository');
 
 describe('InvoiceNursery', () => {
-  const nursery = new InvoiceNursery(Logger.disabledLogger);
+  const sidecar = {
+    decodeInvoiceOrOffer: jest
+      .fn()
+      .mockImplementation(async (invoice: string) => {
+        const decoded = bolt11.decode(invoice);
+        return {
+          isExpired: decoded.timeExpireDate! < getUnixTime(),
+        };
+      }),
+  } as unknown as Sidecar;
+
+  const nursery = new InvoiceNursery(Logger.disabledLogger, sidecar);
 
   beforeEach(() => {
     jest.clearAllMocks();

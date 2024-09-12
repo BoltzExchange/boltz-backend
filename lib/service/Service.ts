@@ -8,11 +8,8 @@ import Logger from '../Logger';
 import {
   checkEvmAddress,
   createApiCredential,
-  decodeInvoice,
-  decodeInvoiceAmount,
   formatError,
   getChainCurrency,
-  getHexBuffer,
   getHexString,
   getLightningCurrency,
   getPairId,
@@ -56,6 +53,7 @@ import ReferralRepository from '../db/repositories/ReferralRepository';
 import ReverseRoutingHintRepository from '../db/repositories/ReverseRoutingHintRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
+import { msatToSat } from '../lightning/ChannelUtils';
 import {
   HopHint,
   InvoiceFeature,
@@ -81,6 +79,7 @@ import {
   ReversePairTypeTaproot,
   SubmarinePairTypeTaproot,
 } from '../rates/providers/RateProviderTaproot';
+import { InvoiceType } from '../sidecar/DecodedInvoice';
 import Sidecar from '../sidecar/Sidecar';
 import SwapErrors from '../swap/Errors';
 import NodeSwitch from '../swap/NodeSwitch';
@@ -160,7 +159,7 @@ class Service {
     private nodeSwitch: NodeSwitch,
     public currencies: Map<string, Currency>,
     blocks: Blocks,
-    private readonly sidecar: Sidecar,
+    public readonly sidecar: Sidecar,
   ) {
     this.prepayMinerFee = config.prepayminerfee;
     this.logger.debug(
@@ -175,6 +174,7 @@ class Service {
     this.timeoutDeltaProvider = new TimeoutDeltaProvider(
       this.logger,
       config,
+      this.sidecar,
       currencies,
       this.nodeSwitch,
     );
@@ -1222,22 +1222,27 @@ class Service {
       false,
     );
 
-    swap.invoiceAmount = decodeInvoiceAmount(invoice);
+    const [cltvLimit, decodedInvoice] = await Promise.all([
+      this.timeoutDeltaProvider.getCltvLimit(swap),
+      this.sidecar.decodeInvoiceOrOffer(invoice),
+    ]);
+    swap.invoiceAmount = msatToSat(decodedInvoice.amountMsat);
+
     const lightningClient = this.nodeSwitch.getSwapNode(
       this.currencies.get(lightningCurrency)!,
+      decodedInvoice.type,
       swap,
     );
 
-    const [cltvLimit, decodedInvoice] = await Promise.all([
-      this.timeoutDeltaProvider.getCltvLimit(swap),
-      lightningClient.decodeInvoice(invoice),
-    ]);
-
-    const requiredTimeout = await this.timeoutDeltaProvider.checkRoutability(
-      lightningClient,
-      decodedInvoice,
-      cltvLimit,
-    );
+    // TODO: fix this for bolt12
+    const requiredTimeout =
+      decodedInvoice.type === InvoiceType.Bolt12Invoice
+        ? 144
+        : await this.timeoutDeltaProvider.checkRoutability(
+            lightningClient,
+            decodedInvoice,
+            cltvLimit,
+          );
 
     if (requiredTimeout == TimeoutDeltaProvider.noRoutes) {
       throw SwapErrors.NO_ROUTE_FOUND();
@@ -1287,17 +1292,27 @@ class Service {
       false,
     );
 
-    const decodedInvoice = decodeInvoice(invoice);
-    swap.invoiceAmount = decodedInvoice.satoshis;
+    const decodedInvoice = await this.sidecar.decodeInvoiceOrOffer(invoice);
+
+    if (decodedInvoice.type === InvoiceType.Offer) {
+      throw SwapErrors.NO_OFFERS_ALLOWED();
+    }
+
+    swap.invoiceAmount = msatToSat(decodedInvoice.amountMsat);
 
     const { destination, features } = await this.nodeSwitch
-      .getSwapNode(getCurrency(this.currencies, lightningCurrency)!, swap)
+      .getSwapNode(
+        getCurrency(this.currencies, lightningCurrency)!,
+        decodedInvoice.type,
+        swap,
+      )
       .decodeInvoice(invoice);
 
     if (this.nodeInfo.isOurNode(destination)) {
       throw Errors.DESTINATION_BOLTZ_NODE();
     }
 
+    // TODO: check this still works
     if (features.has(InvoiceFeature.AMP)) {
       throw Errors.AMP_INVOICES_NOT_SUPPORTED();
     }
@@ -1348,7 +1363,7 @@ class Service {
     );
 
     const minutesUntilExpiry =
-      (decodedInvoice.timeExpireDate - getUnixTime()) / 60;
+      (decodedInvoice.expiryTimestamp - getUnixTime()) / 60;
 
     if (minutesUntilExpiry < 0) {
       throw SwapErrors.INVOICE_EXPIRED_ALREADY();
@@ -1432,8 +1447,12 @@ class Service {
       throw Errors.SWAP_WITH_INVOICE_EXISTS();
     }
 
-    const preimageHash = getHexBuffer(decodeInvoice(invoice).paymentHash!);
-    checkPreimageHashLength(preimageHash);
+    const decodedInvoice = await this.sidecar.decodeInvoiceOrOffer(invoice);
+    if (decodedInvoice.type === InvoiceType.Offer) {
+      throw SwapErrors.NO_OFFERS_ALLOWED();
+    }
+
+    checkPreimageHashLength(decodedInvoice.paymentHash!);
 
     const createdSwap = await this.createSwap({
       pairId,
@@ -1443,8 +1462,8 @@ class Service {
       webHook,
       orderSide,
       referralId,
-      preimageHash,
       refundPublicKey,
+      preimageHash: decodedInvoice.paymentHash!,
     });
 
     try {

@@ -1,29 +1,37 @@
-use std::cell::Cell;
-use std::pin::Pin;
-use std::sync::Arc;
-
-use alloy::primitives::{Address, FixedBytes};
-use futures::StreamExt;
-use tokio::sync::{mpsc, Mutex};
-use tonic::codegen::tokio_stream::wrappers::ReceiverStream;
-use tonic::codegen::tokio_stream::Stream;
-use tonic::{Code, Request, Response, Status, Streaming};
-use tracing::{debug, error, instrument, trace};
-
+use crate::currencies::Currencies;
 use crate::db::helpers::web_hook::WebHookHelper;
 use crate::db::models::{WebHook, WebHookState};
 use crate::evm::refund_signer::RefundSigner;
 use crate::grpc::service::boltzr::boltz_r_server::BoltzR;
 use crate::grpc::service::boltzr::{
-    CreateWebHookRequest, CreateWebHookResponse, GetInfoRequest, GetInfoResponse,
-    GetMessagesRequest, GetMessagesResponse, SendMessageRequest, SendMessageResponse,
-    SendWebHookRequest, SendWebHookResponse, SignEvmRefundRequest, SignEvmRefundResponse,
-    StartWebHookRetriesRequest, StartWebHookRetriesResponse, SwapUpdateRequest, SwapUpdateResponse,
+    bolt11_invoice, bolt12_invoice, decode_invoice_or_offer_response, Bolt11Invoice, Bolt12Invoice,
+    Bolt12Offer, CreateWebHookRequest, CreateWebHookResponse, DecodeInvoiceOrOfferRequest,
+    DecodeInvoiceOrOfferResponse, Feature, FetchInvoiceRequest, FetchInvoiceResponse,
+    GetInfoRequest, GetInfoResponse, GetMessagesRequest, GetMessagesResponse, SendMessageRequest,
+    SendMessageResponse, SendWebHookRequest, SendWebHookResponse, SignEvmRefundRequest,
+    SignEvmRefundResponse, StartWebHookRetriesRequest, StartWebHookRetriesResponse,
+    SwapUpdateRequest, SwapUpdateResponse,
 };
 use crate::grpc::status_fetcher::StatusFetcher;
+use crate::lightning::invoice::Invoice;
 use crate::notifications::NotificationClient;
 use crate::webhook::caller::Caller;
 use crate::ws::types::SwapStatus;
+use alloy::primitives::{Address, FixedBytes};
+use futures::StreamExt;
+use lightning::blinded_path::IntroductionNode;
+use lightning::offers::offer::Amount;
+use lightning::util::ser::Writeable;
+use lightning_invoice::Bolt11InvoiceDescription;
+use std::cell::Cell;
+use std::pin::Pin;
+use std::sync::Arc;
+use std::time::UNIX_EPOCH;
+use tokio::sync::{mpsc, Mutex};
+use tonic::codegen::tokio_stream::wrappers::ReceiverStream;
+use tonic::codegen::tokio_stream::Stream;
+use tonic::{Code, Request, Response, Status, Streaming};
+use tracing::{debug, error, instrument, trace};
 
 pub mod boltzr {
     tonic::include_proto!("boltzr");
@@ -31,6 +39,8 @@ pub mod boltzr {
 
 pub struct BoltzService<T> {
     pub web_hook_retry_handle: Arc<Mutex<Cell<Option<tokio::task::JoinHandle<()>>>>>,
+
+    currencies: Currencies,
 
     web_hook_helper: Arc<Box<dyn WebHookHelper + Sync + Send>>,
     web_hook_caller: Arc<Caller>,
@@ -44,6 +54,7 @@ pub struct BoltzService<T> {
 
 impl<T> BoltzService<T> {
     pub(crate) fn new(
+        currencies: Currencies,
         status_fetcher: StatusFetcher,
         swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
         web_hook_helper: Arc<Box<dyn WebHookHelper + Sync + Send>>,
@@ -52,6 +63,7 @@ impl<T> BoltzService<T> {
         notification_client: Option<Arc<T>>,
     ) -> Self {
         BoltzService {
+            currencies,
             refund_signer,
             status_fetcher,
             web_hook_caller,
@@ -358,6 +370,154 @@ where
             signature: Vec::from(signature.as_bytes()),
         }))
     }
+
+    #[instrument(name = "grpc::fetch_invoice", skip_all)]
+    async fn fetch_invoice(
+        &self,
+        request: Request<FetchInvoiceRequest>,
+    ) -> Result<Response<FetchInvoiceResponse>, Status> {
+        extract_parent_context(&request);
+
+        let params = request.into_inner();
+
+        match self.currencies.get(&params.currency) {
+            Some(currency) => match currency.cln.clone() {
+                Some(mut cln) => match cln.fetch_invoice(params.offer, params.amount_msat).await {
+                    Ok(invoice) => Ok(Response::new(FetchInvoiceResponse { invoice })),
+                    Err(err) => Err(Status::new(Code::Internal, err.to_string())),
+                },
+                None => Err(Status::new(Code::NotFound, "no BOLT12 support")),
+            },
+            None => Err(Status::new(Code::NotFound, "currency not found")),
+        }
+    }
+
+    #[instrument(name = "grpc::decode_invoice_or_offer", skip_all)]
+    async fn decode_invoice_or_offer(
+        &self,
+        request: Request<DecodeInvoiceOrOfferRequest>,
+    ) -> Result<Response<DecodeInvoiceOrOfferResponse>, Status> {
+        extract_parent_context(&request);
+
+        match crate::lightning::invoice::decode(&request.into_inner().invoice_or_offer) {
+            Ok(dec) => Ok(Response::new(match dec {
+                Invoice::Bolt11(invoice) => DecodeInvoiceOrOfferResponse {
+                    is_expired: invoice.is_expired(),
+                    decoded: Some(decode_invoice_or_offer_response::Decoded::Bolt11(
+                        Bolt11Invoice {
+                            payee_pubkey: invoice.get_payee_pub_key().encode(),
+                            msat: invoice.amount_milli_satoshis(),
+                            payment_hash: invoice.payment_hash()[..].to_vec(),
+                            expiry: invoice.expiry_time().as_secs(),
+                            min_final_cltv_expiry: invoice.min_final_cltv_expiry_delta(),
+                            created_at: match invoice.timestamp().duration_since(UNIX_EPOCH) {
+                                Ok(delta) => delta.as_secs(),
+                                Err(err) => {
+                                    return Err(Status::new(Code::Internal, err.to_string()))
+                                }
+                            },
+                            description: Some(match invoice.description() {
+                                Bolt11InvoiceDescription::Direct(memo) => {
+                                    bolt11_invoice::Description::Memo(memo.to_string())
+                                }
+                                Bolt11InvoiceDescription::Hash(hash) => {
+                                    bolt11_invoice::Description::DescriptionHash(
+                                        hash.0[..].to_vec(),
+                                    )
+                                }
+                            }),
+                            hints: invoice
+                                .route_hints()
+                                .iter()
+                                .map(|hint| bolt11_invoice::RoutingHints {
+                                    hops: hint
+                                        .0
+                                        .iter()
+                                        .map(|hop| bolt11_invoice::routing_hints::RoutingHint {
+                                            node: hop.src_node_id.encode(),
+                                            channel_id: hop.short_channel_id,
+                                            base_fee_msat: hop.fees.base_msat,
+                                            ppm_fee: hop.fees.proportional_millionths,
+                                            cltv_expiry_delta: hop.cltv_expiry_delta as u64,
+                                            htlc_minimum_msat: hop.htlc_minimum_msat,
+                                            htlc_maximum_msat: hop.htlc_maximum_msat,
+                                        })
+                                        .collect(),
+                                })
+                                .collect(),
+                            features: match invoice.features() {
+                                Some(features) => {
+                                    if features.supports_basic_mpp() {
+                                        vec![Feature::BasicMpp.into()]
+                                    } else {
+                                        Vec::new()
+                                    }
+                                }
+                                None => Vec::new(),
+                            },
+                        },
+                    )),
+                },
+                Invoice::Offer(offer) => DecodeInvoiceOrOfferResponse {
+                    is_expired: offer.is_expired(),
+                    decoded: Some(decode_invoice_or_offer_response::Decoded::Offer(
+                        Bolt12Offer {
+                            id: offer.id().0[..].to_vec(),
+                            signing_pubkey: offer.signing_pubkey().map(|pubkey| pubkey.encode()),
+                            description: offer
+                                .description()
+                                .map(|description| description.to_string()),
+                            min_amount_msat: match offer.amount() {
+                                Some(amount) => match amount {
+                                    Amount::Bitcoin { amount_msats } => Some(amount_msats),
+                                    Amount::Currency { .. } => {
+                                        return Err(Status::new(
+                                            Code::InvalidArgument,
+                                            "non Bitcoin currencies are not supported",
+                                        ))
+                                    }
+                                },
+                                None => None,
+                            },
+                        },
+                    )),
+                },
+                Invoice::Bolt12(invoice) => DecodeInvoiceOrOfferResponse {
+                    is_expired: invoice.is_expired(),
+                    decoded: Some(decode_invoice_or_offer_response::Decoded::Bolt12Invoice(
+                        Bolt12Invoice {
+                            signing_pubkey: invoice.signing_pubkey().encode(),
+                            msat: Some(invoice.amount_msats()),
+                            payment_hash: invoice.payment_hash().encode(),
+                            description: invoice
+                                .description()
+                                .map(|description| description.to_string()),
+                            created_at: invoice.created_at().as_secs(),
+                            expiry: invoice.relative_expiry().as_secs(),
+                            paths: invoice
+                                .payment_paths()
+                                .iter()
+                                .map(|path| bolt12_invoice::Path {
+                                    first_node_pubkey: match path.introduction_node() {
+                                        IntroductionNode::NodeId(pubkey) => Some(pubkey.encode()),
+                                        IntroductionNode::DirectedShortChannelId(_, _) => None,
+                                    },
+                                    base_fee_msat: path.payinfo.fee_base_msat,
+                                    ppm_fee: path.payinfo.fee_proportional_millionths,
+                                    cltv_expiry_delta: path.payinfo.cltv_expiry_delta as u64,
+                                })
+                                .collect(),
+                            features: match invoice.invoice_features().supports_basic_mpp() {
+                                true => vec![Feature::BasicMpp.into()],
+                                false => Vec::new(),
+                            },
+                        },
+                    )),
+                },
+            })),
+            Err(err) => Err(Status::new(Code::InvalidArgument, err.to_string())),
+        }
+    }
 }
 
 fn extract_parent_context<T>(request: &Request<T>) {
@@ -374,6 +534,7 @@ fn extract_parent_context<T>(request: &Request<T>) {
 
 #[cfg(test)]
 mod test {
+    use std::collections::HashMap;
     use std::error::Error;
     use std::str::FromStr;
     use std::sync::Arc;
@@ -711,6 +872,7 @@ mod test {
         (
             token.clone(),
             BoltzService::new(
+                HashMap::new(),
                 StatusFetcher::new(),
                 status_tx,
                 Arc::new(Box::new(make_mock_hook_helper())),

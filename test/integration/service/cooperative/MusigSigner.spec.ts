@@ -1,5 +1,6 @@
 import AsyncLock from 'async-lock';
 import { Transaction, address, crypto } from 'bitcoinjs-lib';
+import bolt11 from 'bolt11';
 import {
   Musig,
   Networks,
@@ -16,7 +17,7 @@ import { randomBytes } from 'crypto';
 import { hashForWitnessV1, setup, tweakMusig, zkp } from '../../../../lib/Core';
 import { ECPair } from '../../../../lib/ECPairHelper';
 import Logger from '../../../../lib/Logger';
-import { decodeInvoice, getHexString } from '../../../../lib/Utils';
+import { getHexString } from '../../../../lib/Utils';
 import {
   CurrencyType,
   OrderSide,
@@ -560,15 +561,19 @@ describe('MusigSigner', () => {
     describe('LND', () => {
       test('should not be eligible for successful payment', async () => {
         const { paymentRequest } = await bitcoinLndClient2.addInvoice(1);
+        const preimageHash = bolt11
+          .decode(paymentRequest)
+          .tags.find((tag) => tag.tagName === 'payment_hash')!.data as string;
+
         await bitcoinLndClient.sendPayment(paymentRequest);
 
         await expect(
           MusigSigner.refundNonEligibilityReason(
             {
+              preimageHash,
               invoice: paymentRequest,
               version: SwapVersion.Taproot,
               status: SwapUpdateEvent.InvoiceFailedToPay,
-              preimageHash: decodeInvoice(paymentRequest).paymentHash,
             } as Swap,
             btcCurrency,
           ),
@@ -626,14 +631,17 @@ describe('MusigSigner', () => {
 
       test('should be eligible for payment that was never attempted', async () => {
         const { paymentRequest } = await bitcoinLndClient2.addInvoice(1);
+        const preimageHash = bolt11
+          .decode(paymentRequest)
+          .tags.find((tag) => tag.tagName === 'payment_hash')!.data as string;
 
         await expect(
           MusigSigner.refundNonEligibilityReason(
             {
+              preimageHash,
               invoice: paymentRequest,
               version: SwapVersion.Taproot,
               status: SwapUpdateEvent.InvoiceFailedToPay,
-              preimageHash: decodeInvoice(paymentRequest).paymentHash,
             } as Swap,
             btcCurrency,
           ),
@@ -644,15 +652,19 @@ describe('MusigSigner', () => {
     describe('CLN', () => {
       test('should not be eligible for successful payment', async () => {
         const { paymentRequest } = await bitcoinLndClient2.addInvoice(1);
+        const preimageHash = bolt11
+          .decode(paymentRequest)
+          .tags.find((tag) => tag.tagName === 'payment_hash')!.data as string;
+
         await clnClient.sendPayment(paymentRequest);
 
         await expect(
           MusigSigner.refundNonEligibilityReason(
             {
+              preimageHash,
               invoice: paymentRequest,
               version: SwapVersion.Taproot,
               status: SwapUpdateEvent.InvoiceFailedToPay,
-              preimageHash: decodeInvoice(paymentRequest).paymentHash,
             } as Swap,
             btcCurrency,
           ),
@@ -734,14 +746,17 @@ describe('MusigSigner', () => {
 
       test('should be eligible for payment that was never attempted', async () => {
         const { paymentRequest } = await bitcoinLndClient2.addInvoice(1);
+        const preimageHash = bolt11
+          .decode(paymentRequest)
+          .tags.find((tag) => tag.tagName === 'payment_hash')!.data as string;
 
         await expect(
           MusigSigner.refundNonEligibilityReason(
             {
+              preimageHash,
               invoice: paymentRequest,
               version: SwapVersion.Taproot,
               status: SwapUpdateEvent.InvoiceFailedToPay,
-              preimageHash: decodeInvoice(paymentRequest).paymentHash,
             } as Swap,
             btcCurrency,
           ),

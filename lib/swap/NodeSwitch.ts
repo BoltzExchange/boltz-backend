@@ -1,6 +1,7 @@
 import Logger from '../Logger';
 import ReverseSwap, { NodeType } from '../db/models/ReverseSwap';
 import { LightningClient } from '../lightning/LightningClient';
+import { InvoiceType } from '../sidecar/DecodedInvoice';
 import { Currency } from '../wallet/WalletManager';
 import Errors from './Errors';
 
@@ -65,13 +66,16 @@ class NodeSwitch {
 
   public getSwapNode = (
     currency: Currency,
+    invoiceType: InvoiceType,
     swap: { id?: string; invoiceAmount?: number; referral?: string },
   ): LightningClient => {
     const client = NodeSwitch.fallback(
       currency,
-      this.swapNode !== undefined
-        ? NodeSwitch.switchOnNodeType(currency, this.swapNode)
-        : this.switch(currency, swap.invoiceAmount, swap.referral),
+      invoiceType === InvoiceType.Bolt11
+        ? this.swapNode !== undefined
+          ? NodeSwitch.switchOnNodeType(currency, this.swapNode)
+          : this.switch(currency, swap.invoiceAmount, swap.referral)
+        : currency.clnClient,
     );
 
     if (swap.id !== undefined) {

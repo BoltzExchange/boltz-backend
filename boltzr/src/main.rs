@@ -1,16 +1,18 @@
-use std::sync::Arc;
-
 use clap::Parser;
 use serde::Serialize;
+use std::sync::Arc;
 use tracing::{debug, error, info, trace, warn};
 
 use crate::config::parse_config;
+use crate::currencies::connect_nodes;
 
 mod api;
 mod config;
+mod currencies;
 mod db;
 mod evm;
 mod grpc;
+mod lightning;
 mod notifications;
 mod tracing_setup;
 mod utils;
@@ -133,12 +135,21 @@ async fn main() {
         )),
     );
 
+    let currencies = match connect_nodes(config.currencies).await {
+        Ok(currencies) => currencies,
+        Err(err) => {
+            error!("Could not connect to nodes: {}", err);
+            std::process::exit(1);
+        }
+    };
+
     let (swap_status_update_tx, _swap_status_update_rx) =
         tokio::sync::broadcast::channel::<Vec<ws::types::SwapStatus>>(128);
 
     let mut grpc_server = grpc::server::Server::new(
         cancellation_token.clone(),
         config.sidecar.grpc,
+        currencies,
         swap_status_update_tx.clone(),
         Box::new(db::helpers::web_hook::WebHookHelperDatabase::new(db_pool)),
         web_hook_caller,

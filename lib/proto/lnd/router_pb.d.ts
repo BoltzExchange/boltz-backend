@@ -69,6 +69,8 @@ export class SendPaymentRequest extends jspb.Message {
     setAmp(value: boolean): SendPaymentRequest;
     getTimePref(): number;
     setTimePref(value: number): SendPaymentRequest;
+    getCancelable(): boolean;
+    setCancelable(value: boolean): SendPaymentRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): SendPaymentRequest.AsObject;
@@ -106,6 +108,7 @@ export namespace SendPaymentRequest {
         maxShardSizeMsat: number,
         amp: boolean,
         timePref: number,
+        cancelable: boolean,
     }
 }
 

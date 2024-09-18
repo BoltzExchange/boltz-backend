@@ -75,6 +75,7 @@ describe('UtxoNursery', () => {
   const walletManager = new WalletManager(
     Logger.disabledLogger,
     mnemonicPath,
+    mnemonicPath,
     currencies,
     [],
   );
@@ -114,6 +115,7 @@ describe('UtxoNursery', () => {
       deferredClaimSymbols: [],
     },
     lockupTracker,
+    {} as any,
     {} as any,
   );
 

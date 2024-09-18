@@ -40,7 +40,7 @@ type ChainConfig = {
   zmqpubhashblock?: string;
 
   // API endpoint of a MempoolSpace instance running on the chain of the configured client
-  // Comma seperated for multiple endpoints
+  // Comma separated for multiple endpoints
   mempoolSpace?: string;
 };
 
@@ -175,6 +175,7 @@ type ConfigType = {
 
   configpath: string;
   mnemonicpath: string;
+  mnemonicpathEvm: string;
 
   dbpath: string;
   postgres?: PostgresConfig;
@@ -225,6 +226,7 @@ class Config {
 
   public static defaultConfigPath = 'boltz.conf';
   public static defaultMnemonicPath = 'seed.dat';
+  public static defaultMnemonicPathEvm = 'seed.dat';
   public static defaultLogPath = 'boltz.log';
   public static defaultDbPath = 'boltz.db';
 
@@ -239,13 +241,13 @@ class Config {
   constructor() {
     this.dataDir = getServiceDataDir('boltz');
 
-    const { dbpath, logpath, configpath, mnemonicpath } = this.getDataDirPaths(
-      this.dataDir,
-    );
+    const { dbpath, logpath, configpath, mnemonicpath, mnemonicpathEvm } =
+      this.getDataDirPaths(this.dataDir);
 
     this.config = {
       configpath,
       mnemonicpath,
+      mnemonicpathEvm,
       dbpath,
       logpath,
 
@@ -505,6 +507,7 @@ class Config {
     return {
       configpath: path.join(dataDir, Config.defaultConfigPath),
       mnemonicpath: path.join(dataDir, Config.defaultMnemonicPath),
+      mnemonicpathEvm: path.join(dataDir, Config.defaultMnemonicPathEvm),
       dbpath: path.join(dataDir, Config.defaultDbPath),
       logpath: path.join(dataDir, Config.defaultLogPath),
     };

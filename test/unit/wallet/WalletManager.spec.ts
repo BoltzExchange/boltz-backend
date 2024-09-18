@@ -60,6 +60,7 @@ const mockedLndClient = <jest.Mock<LndClient>>(<any>LndClient);
 // TODO: test ethereum wallet initialization
 describe('WalletManager', () => {
   const mnemonicPath = 'seed.dat';
+  const mnemonicPathEvm = 'seedEvm.dat';
 
   const database = new Database(Logger.disabledLogger, ':memory:');
 
@@ -100,6 +101,7 @@ describe('WalletManager', () => {
     };
 
     deleteFile(mnemonicPath);
+    deleteFile(mnemonicPathEvm);
   };
 
   beforeAll(async () => {
@@ -109,8 +111,15 @@ describe('WalletManager', () => {
   });
 
   test('should initialize with a new menmonic and write it to the disk', () => {
-    new WalletManager(Logger.disabledLogger, mnemonicPath, currencies, []);
+    new WalletManager(
+      Logger.disabledLogger,
+      mnemonicPath,
+      mnemonicPathEvm,
+      currencies,
+      [],
+    );
     expect(fs.existsSync(mnemonicPath)).toBeTruthy();
+    expect(fs.existsSync(mnemonicPathEvm)).toBeTruthy();
   });
 
   test('should initialize a Bitcoin Core wallet when LND is not configured', async () => {
@@ -124,6 +133,7 @@ describe('WalletManager', () => {
     const noLndWalletManager = new WalletManager(
       Logger.disabledLogger,
       mnemonicPath,
+      mnemonicPathEvm,
       currenciesNoLnd,
       [],
     );
@@ -149,6 +159,7 @@ describe('WalletManager', () => {
     const noLndWalletManager = new WalletManager(
       Logger.disabledLogger,
       mnemonicPath,
+      mnemonicPathEvm,
       currenciesNoLnd,
       [],
     );
@@ -161,6 +172,7 @@ describe('WalletManager', () => {
     walletManager = new WalletManager(
       Logger.disabledLogger,
       mnemonicPath,
+      mnemonicPathEvm,
       currencies,
       [],
     );
@@ -208,7 +220,14 @@ describe('WalletManager', () => {
     fs.writeFileSync(mnemonicPath, invalidMnemonic);
 
     expect(
-      () => new WalletManager(Logger.disabledLogger, mnemonicPath, [], []),
+      () =>
+        new WalletManager(
+          Logger.disabledLogger,
+          mnemonicPath,
+          mnemonicPathEvm,
+          [],
+          [],
+        ),
     ).toThrow(WalletErrors.INVALID_MNEMONIC(invalidMnemonic).message);
   });
 

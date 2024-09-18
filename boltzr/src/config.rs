@@ -36,8 +36,8 @@ pub struct GlobalConfig {
     #[serde(rename = "otlpEndpoint")]
     pub otlp_endpoint: Option<String>,
 
-    #[serde(rename = "mnemonicpath")]
-    pub mnemonic_path: Option<String>,
+    #[serde(rename = "mnemonicpathEvm")]
+    pub mnemonic_path_evm: Option<String>,
 
     pub postgres: crate::db::Config,
     pub rsk: Option<crate::evm::Config>,
@@ -52,8 +52,8 @@ pub fn parse_config(path: &str) -> Result<GlobalConfig, Box<dyn Error>> {
     let mut config = toml::from_str::<GlobalConfig>(fs::read_to_string(path)?.as_ref())?;
     trace!("Read config: {:#}", serde_json::to_string_pretty(&config)?);
 
-    if config.mnemonic_path.is_none() {
-        config.mnemonic_path = Some(
+    if config.mnemonic_path_evm.is_none() {
+        config.mnemonic_path_evm = Some(
             Path::new(path)
                 .parent()
                 .unwrap()

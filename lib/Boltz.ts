@@ -152,6 +152,7 @@ class Boltz {
     this.walletManager = new WalletManager(
       this.logger,
       this.config.mnemonicpath,
+      this.config.mnemonicpathEvm,
       walletCurrencies,
       this.ethereumManagers,
     );

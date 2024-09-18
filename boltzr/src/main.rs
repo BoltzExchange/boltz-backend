@@ -80,7 +80,7 @@ async fn main() {
     let refund_signer = if let Some(rsk_config) = config.rsk {
         Some(
             evm::refund_signer::LocalRefundSigner::new_mnemonic_file(
-                config.mnemonic_path.unwrap(),
+                config.mnemonic_path_evm.unwrap(),
                 &rsk_config,
             )
             .await

@@ -19,14 +19,16 @@ const getBoltzFilePath = (file: string): string =>
   path.join(process.env.HOME!, '.boltz', file);
 
 const getBoltzWallet = (): HDNodeWallet => {
-  const filePath = getBoltzFilePath('seed.dat');
+  for (const file in ['seedEvm.dat', 'seed.dat']) {
+    const filePath = getBoltzFilePath(file);
 
-  if (existsSync(filePath)) {
-    return Wallet.fromPhrase(
-      readFileSync(filePath, {
-        encoding: 'utf-8',
-      }).trim(),
-    );
+    if (existsSync(filePath)) {
+      return Wallet.fromPhrase(
+        readFileSync(filePath, {
+          encoding: 'utf-8',
+        }).trim(),
+      );
+    }
   }
 
   throw 'no Boltz wallet found';

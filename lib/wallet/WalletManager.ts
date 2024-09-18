@@ -59,6 +59,8 @@ class WalletManager {
   public wallets = new Map<string, Wallet>();
 
   private readonly mnemonic: string;
+  private readonly mnemonicEvm: string;
+
   private readonly slip77: Slip77Interface;
   private readonly masterNode: BIP32Interface;
 
@@ -67,16 +69,13 @@ class WalletManager {
   constructor(
     private logger: Logger,
     mnemonicPath: string,
+    mnemonicPathEvm: string,
     private currencies: Currency[],
     public ethereumManagers: EthereumManager[],
   ) {
-    if (!fs.existsSync(mnemonicPath)) {
-      this.logger.info('Generated new mnemonic');
-
-      fs.writeFileSync(mnemonicPath, generateMnemonic());
-    }
-
     this.mnemonic = this.loadMnemonic(mnemonicPath);
+    this.mnemonicEvm = this.loadMnemonic(mnemonicPathEvm);
+
     this.masterNode = bip32.fromSeed(mnemonicToSeedSync(this.mnemonic));
     this.slip77 = slip77.fromSeed(this.mnemonic);
   }
@@ -168,7 +167,7 @@ class WalletManager {
     }
 
     for (const manager of this.ethereumManagers) {
-      const ethereumWallets = await manager.init(this.mnemonic);
+      const ethereumWallets = await manager.init(this.mnemonicEvm);
 
       for (const [symbol, ethereumWallet] of ethereumWallets) {
         this.wallets.set(symbol, ethereumWallet);
@@ -178,7 +177,9 @@ class WalletManager {
 
   private loadMnemonic = (filename: string) => {
     if (!fs.existsSync(filename)) {
-      throw Errors.NOT_INITIALIZED();
+      this.logger.info(`Generated new mnemonic: ${filename}`);
+
+      fs.writeFileSync(filename, generateMnemonic());
     }
 
     const mnemonic = fs.readFileSync(filename, 'utf-8').trim();

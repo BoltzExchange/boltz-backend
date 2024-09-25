@@ -768,6 +768,9 @@ class SwapRouter extends RouterBase {
      *         descriptionHash:
      *           type: string
      *           description: Description hash for the invoice. Takes precedence over "description" if both are specified
+     *         invoiceExpiry:
+     *           type: number
+     *           description: Expiry of the invoice in seconds
      *         webhook:
      *           $ref: '#/components/schemas/WebhookData'
      */
@@ -1814,6 +1817,7 @@ class SwapRouter extends RouterBase {
       routingNode,
       preimageHash,
       claimAddress,
+      invoiceExpiry,
       invoiceAmount,
       onchainAmount,
       claimCovenant,
@@ -1831,6 +1835,7 @@ class SwapRouter extends RouterBase {
       { name: 'routingNode', type: 'string', optional: true },
       { name: 'claimAddress', type: 'string', optional: true },
       { name: 'invoiceAmount', type: 'number', optional: true },
+      { name: 'invoiceExpiry', type: 'number', optional: true },
       { name: 'onchainAmount', type: 'number', optional: true },
       { name: 'claimCovenant', type: 'boolean', optional: true },
       { name: 'descriptionHash', type: 'string', hex: true, optional: true },
@@ -1856,6 +1861,7 @@ class SwapRouter extends RouterBase {
       invoiceAmount,
       onchainAmount,
       claimCovenant,
+      invoiceExpiry,
       claimPublicKey,
       descriptionHash,
       userAddress: address,

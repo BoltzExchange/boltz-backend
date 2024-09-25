@@ -118,4 +118,8 @@ export default {
     message: 'invalid description hash',
     code: concatErrorCode(ErrorCodePrefix.Swap, 24),
   }),
+  INVALID_INVOICE_EXPIRY: (): Error => ({
+    message: 'invalid invoice expiry',
+    code: concatErrorCode(ErrorCodePrefix.Swap, 25),
+  }),
 };

@@ -890,6 +890,7 @@ describe('SwapRouter', () => {
     ${'could not parse hex string: preimageHash'}     | ${{ to: 'L-BTC', from: 'BTC', preimageHash: 'notHex' }}
     ${'could not parse hex string: claimPublicKey'}   | ${{ to: 'L-BTC', from: 'BTC', preimageHash: '00', claimPublicKey: 'notHex' }}
     ${'could not parse hex string: addressSignature'} | ${{ to: 'L-BTC', from: 'BTC', preimageHash: '00', claimPublicKey: '0011', addressSignature: 'notHex' }}
+    ${'invalid parameter: invoiceExpiry'}             | ${{ to: 'L-BTC', from: 'BTC', preimageHash: '00', claimPublicKey: '0011', invoiceExpiry: '123' }}
     ${'invalid parameter: description'}               | ${{ to: 'L-BTC', from: 'BTC', preimageHash: '00', claimPublicKey: '0011', description: 123 }}
     ${'invalid parameter: claimCovenant'}             | ${{ to: 'L-BTC', from: 'BTC', preimageHash: '00', claimPublicKey: '0011', claimCovenant: 123 }}
     ${'invalid parameter: claimCovenant'}             | ${{ to: 'L-BTC', from: 'BTC', preimageHash: '00', claimPublicKey: '0011', claimCovenant: 'notBool' }}
@@ -905,7 +906,7 @@ describe('SwapRouter', () => {
   );
 
   test.each([1, 2, 3, 21, 31, 33, 64])(
-    'should not create reverse swaps preimage hash length != 32',
+    'should not create reverse swaps with preimage hash length != 32',
     async (length) => {
       await expect(
         swapRouter['createReverse'](

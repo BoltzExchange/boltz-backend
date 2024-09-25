@@ -1,9 +1,11 @@
 import { getPairId } from '../Utils';
 import { PairConfig } from '../consts/Types';
+import Errors from '../swap/Errors';
 import TimeoutDeltaProvider from './TimeoutDeltaProvider';
 
 class InvoiceExpiryHelper {
-  private static readonly defaultInvoiceExpiry = 3600;
+  private static readonly minInvoiceExpiry = 60;
+  private static readonly defaultInvoiceExpiry = 3_600;
 
   private readonly invoiceExpiry = new Map<string, number>();
 
@@ -28,12 +30,6 @@ class InvoiceExpiryHelper {
     }
   }
 
-  public getExpiry = (pair: string): number => {
-    return (
-      this.invoiceExpiry.get(pair) || InvoiceExpiryHelper.defaultInvoiceExpiry
-    );
-  };
-
   /**
    * Calculates the expiry of an invoice
    * Reference: https://github.com/lightningnetwork/lightning-rfc/blob/master/11-payment-encoding.md#tagged-fields
@@ -55,6 +51,26 @@ class InvoiceExpiryHelper {
 
     return invoiceExpiry;
   };
+
+  public getExpiry = (pair: string, customExpiry?: number): number => {
+    if (customExpiry !== undefined) {
+      if (!this.isValidExpiry(pair, customExpiry)) {
+        throw Errors.INVALID_INVOICE_EXPIRY();
+      }
+
+      return customExpiry;
+    }
+
+    return (
+      this.invoiceExpiry.get(pair) || InvoiceExpiryHelper.defaultInvoiceExpiry
+    );
+  };
+
+  private isValidExpiry = (pair: string, expiry: number) =>
+    expiry >= InvoiceExpiryHelper.minInvoiceExpiry &&
+    expiry <=
+      (this.invoiceExpiry.get(pair) ||
+        InvoiceExpiryHelper.defaultInvoiceExpiry);
 }
 
 export default InvoiceExpiryHelper;

@@ -682,6 +682,8 @@ class SwapManager {
 
     memo?: string;
     descriptionHash?: Buffer;
+
+    invoiceExpiry?: number;
   }): Promise<CreatedReverseSwap> => {
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(
       args.baseCurrency,
@@ -730,7 +732,7 @@ class SwapManager {
         args.holdInvoiceAmount,
         args.preimageHash,
         args.lightningTimeoutBlockDelta,
-        this.invoiceExpiryHelper.getExpiry(pair),
+        this.invoiceExpiryHelper.getExpiry(pair, args.invoiceExpiry),
         hints.invoiceMemo,
         hints.invoiceDescriptionHash,
         hints.routingHint,

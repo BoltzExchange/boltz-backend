@@ -1527,6 +1527,8 @@ class Service {
     descriptionHash?: Buffer;
 
     webHook?: WebHookData;
+
+    invoiceExpiry?: number;
   }): Promise<{
     id: string;
     invoice: string;
@@ -1782,6 +1784,7 @@ class Service {
       userAddress: args.userAddress,
       claimAddress: args.claimAddress,
       preimageHash: args.preimageHash,
+      invoiceExpiry: args.invoiceExpiry,
       claimPublicKey: args.claimPublicKey,
       descriptionHash: args.descriptionHash,
       claimCovenant: args.claimCovenant || false,

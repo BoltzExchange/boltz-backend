@@ -434,6 +434,8 @@ describe('SwapManager', () => {
         deferredClaimSymbols: [],
       } as any,
       {} as any,
+      {} as any,
+      {} as any,
     );
 
     manager['currencies'].set(btcCurrency.symbol, btcCurrency);
@@ -1019,6 +1021,7 @@ describe('SwapManager', () => {
     const onchainTimeoutBlockDelta = 140;
     const lightningTimeoutBlockDelta = 143;
     const percentageFee = 1;
+    const invoiceExpiry = 6_111;
 
     const reverseSwap = await manager.createReverseSwap({
       orderSide,
@@ -1027,6 +1030,7 @@ describe('SwapManager', () => {
       quoteCurrency,
       onchainAmount,
       percentageFee,
+      invoiceExpiry,
       holdInvoiceAmount,
       onchainTimeoutBlockDelta,
       lightningTimeoutBlockDelta,
@@ -1050,6 +1054,7 @@ describe('SwapManager', () => {
     expect(mockGetExpiry).toHaveBeenCalledTimes(1);
     expect(mockGetExpiry).toHaveBeenCalledWith(
       getPairId({ base: baseCurrency, quote: quoteCurrency }),
+      invoiceExpiry,
     );
 
     expect(mockAddHoldInvoice).toHaveBeenCalledTimes(1);

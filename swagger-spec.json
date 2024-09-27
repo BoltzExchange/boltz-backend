@@ -2364,6 +2364,10 @@
             "type": "string",
             "description": "Description hash for the invoice. Takes precedence over \"description\" if both are specified"
           },
+          "invoiceExpiry": {
+            "type": "number",
+            "description": "Expiry of the invoice in seconds"
+          },
           "webhook": {
             "$ref": "#/components/schemas/WebhookData"
           }

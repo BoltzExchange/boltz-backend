@@ -4,6 +4,7 @@ import Swap from '../../../lib/db/models/Swap';
 import { LightningClient } from '../../../lib/lightning/LightningClient';
 import LndClient from '../../../lib/lightning/LndClient';
 import ClnClient from '../../../lib/lightning/cln/ClnClient';
+import { InvoiceType } from '../../../lib/sidecar/DecodedInvoice';
 import Errors from '../../../lib/swap/Errors';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
 import { Currency } from '../../../lib/wallet/WalletManager';
@@ -87,13 +88,25 @@ describe('NodeSwitch', () => {
       expect(
         new NodeSwitch(Logger.disabledLogger, {
           referralsIds: { breez: 'LND' },
-        }).getSwapNode(currency, {
+        }).getSwapNode(currency, InvoiceType.Bolt11, {
           referral,
           invoiceAmount: amount,
         } as Swap),
       ).toEqual(client);
     },
   );
+
+  test.each`
+    type                         | client
+    ${InvoiceType.Bolt11}        | ${lndClient}
+    ${InvoiceType.Bolt12Invoice} | ${clnClient}
+  `('should get node for Swap with invoice type $type', ({ type, client }) => {
+    expect(
+      new NodeSwitch(Logger.disabledLogger, {}).getSwapNode(currency, type, {
+        invoiceAmount: 1_000_001,
+      }),
+    ).toEqual(client);
+  });
 
   test.each`
     swapNode | currency         | expected
@@ -106,7 +119,7 @@ describe('NodeSwitch', () => {
       expect(
         new NodeSwitch(Logger.disabledLogger, {
           swapNode,
-        }).getSwapNode(currency, {} as Swap),
+        }).getSwapNode(currency, InvoiceType.Bolt11, {} as Swap),
       ).toEqual(expected);
     },
   );

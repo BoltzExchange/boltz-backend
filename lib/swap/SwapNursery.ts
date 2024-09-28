@@ -20,7 +20,6 @@ import {
 import Logger from '../Logger';
 import {
   calculateEthereumTransactionFee,
-  decodeInvoice,
   formatError,
   getChainCurrency,
   getHexBuffer,
@@ -52,6 +51,7 @@ import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import TransactionLabelRepository from '../db/repositories/TransactionLabelRepository';
 import WrappedSwapRepository from '../db/repositories/WrappedSwapRepository';
+import { msatToSat } from '../lightning/ChannelUtils';
 import {
   HtlcState,
   InvoiceState,
@@ -66,6 +66,7 @@ import Blocks from '../service/Blocks';
 import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
 import ChainSwapSigner from '../service/cooperative/ChainSwapSigner';
 import DeferredClaimer from '../service/cooperative/DeferredClaimer';
+import Sidecar from '../sidecar/Sidecar';
 import Wallet from '../wallet/Wallet';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import ContractHandler from '../wallet/ethereum/ContractHandler';
@@ -121,6 +122,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
 
   constructor(
     private logger: Logger,
+    private readonly sidecar: Sidecar,
     private readonly notifications: NotificationClient | undefined,
     private nodeSwitch: NodeSwitch,
     private rateProvider: RateProvider,
@@ -149,8 +151,8 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       lockupTransactionTracker,
       overpaymentProtector,
     );
-    this.lightningNursery = new LightningNursery(this.logger);
-    this.invoiceNursery = new InvoiceNursery(this.logger);
+    this.lightningNursery = new LightningNursery(this.logger, this.sidecar);
+    this.invoiceNursery = new InvoiceNursery(this.logger, this.sidecar);
     this.channelNursery = new ChannelNursery(
       this.logger,
       this.attemptSettleSwap,
@@ -167,9 +169,13 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
         ),
     );
 
-    this.pendingPaymentTracker = new PendingPaymentTracker(this.logger);
+    this.pendingPaymentTracker = new PendingPaymentTracker(
+      this.logger,
+      this.sidecar,
+    );
     this.paymentHandler = new PaymentHandler(
       this.logger,
+      this.sidecar,
       this.nodeSwitch,
       this.currencies,
       this.channelNursery,
@@ -894,9 +900,14 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
         swap.type === SwapType.ReverseSubmarine &&
         (swap as ReverseSwap).minerFeeInvoice
       ) {
+        const decoded = await this.sidecar.decodeInvoiceOrOffer(
+          (swap as ReverseSwap).minerFeeInvoice!,
+        );
+        const minerFeeAmountSat = msatToSat(decoded.amountMsat);
+
         // TODO: how does this behave cross chain
         feePerVbyte = Math.round(
-          decodeInvoice((swap as ReverseSwap).minerFeeInvoice!).satoshis /
+          minerFeeAmountSat /
             FeeProvider.transactionSizes[CurrencyType.BitcoinLike][
               SwapVersion.Legacy
             ].reverseLockup,

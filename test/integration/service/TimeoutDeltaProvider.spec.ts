@@ -5,6 +5,7 @@ import { splitPairId } from '../../../lib/Utils';
 import { OrderSide, SwapType, SwapVersion } from '../../../lib/consts/Enums';
 import Errors from '../../../lib/service/Errors';
 import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
+import Sidecar from '../../../lib/sidecar/Sidecar';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
 import { Currency } from '../../../lib/wallet/WalletManager';
 import {
@@ -13,6 +14,7 @@ import {
   bitcoinLndClient2,
   elementsClient,
 } from '../Nodes';
+import { sidecar, startSidecar } from '../sidecar/Utils';
 
 const mockGetOffsetValue = 60;
 const mockGetOffset = jest.fn().mockReturnValue(mockGetOffsetValue);
@@ -36,6 +38,7 @@ describe('TimeoutDeltaProvider', () => {
       configpath: '',
       pairs: [],
     } as any as ConfigType,
+    sidecar,
     new Map<string, Currency>([
       [
         'BTC',
@@ -65,7 +68,14 @@ describe('TimeoutDeltaProvider', () => {
   };
 
   beforeAll(async () => {
+    startSidecar();
+
     await Promise.all([
+      sidecar.connect(
+        { on: jest.fn(), removeAllListeners: jest.fn() } as any,
+        {} as any,
+        false,
+      ),
       bitcoinClient.connect(),
       elementsClient.connect(),
       bitcoinLndClient.connect(false),
@@ -75,7 +85,10 @@ describe('TimeoutDeltaProvider', () => {
     await bitcoinClient.generate(1);
   });
 
-  afterAll(() => {
+  afterAll(async () => {
+    await Sidecar.stop();
+    sidecar.disconnect();
+
     [bitcoinClient, elementsClient, bitcoinLndClient, bitcoinLndClient2].map(
       (client) => client.disconnect(),
     );

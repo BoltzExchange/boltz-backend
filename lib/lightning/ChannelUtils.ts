@@ -1,4 +1,4 @@
-const msatFactor = 1000;
+const msatFactor = 1_000;
 
 export const scidLndToCln = (s: string): string => {
   const big = BigInt(s);

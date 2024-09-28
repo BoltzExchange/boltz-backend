@@ -9,11 +9,13 @@ import { sleep } from '../PromiseUtils';
 import { formatError, getVersion } from '../Utils';
 import SwapInfos from '../api/SwapInfos';
 import { ClientStatus, SwapUpdateEvent } from '../consts/Enums';
+import { satToMsat } from '../lightning/ChannelUtils';
 import { grpcOptions, unaryCall } from '../lightning/GrpcUtils';
 import { createSsl } from '../lightning/cln/Types';
 import { BoltzRClient } from '../proto/sidecar/boltzr_grpc_pb';
 import * as sidecarrpc from '../proto/sidecar/boltzr_pb';
 import EventHandler, { SwapUpdate } from '../service/EventHandler';
+import DecodedInvoice from './DecodedInvoice';
 
 type Update = { id: string; status: SwapUpdate };
 
@@ -92,6 +94,7 @@ class Sidecar extends BaseClient {
   public connect = async (
     eventHandler: EventHandler,
     swapInfos: SwapInfos,
+    withSubscriptions: boolean = true,
   ): Promise<boolean> => {
     this.swapInfos = swapInfos;
     this.eventHandler = eventHandler;
@@ -104,7 +107,7 @@ class Sidecar extends BaseClient {
 
     for (let i = 0; i < Sidecar.maxConnectRetries; i++) {
       try {
-        return await this.tryConnect();
+        return await this.tryConnect(withSubscriptions);
       } catch (e) {
         if (i === Sidecar.maxConnectRetries - 1) {
           throw e;
@@ -212,6 +215,35 @@ class Sidecar extends BaseClient {
       sidecarrpc.SignEvmRefundResponse.AsObject
     >('signEvmRefund', req, true);
     return Buffer.from(res.signature as string, 'base64');
+  };
+
+  public decodeInvoiceOrOffer = async (invoiceOrOffer: string) => {
+    const req = new sidecarrpc.DecodeInvoiceOrOfferRequest();
+    req.setInvoiceOrOffer(invoiceOrOffer);
+
+    return new DecodedInvoice(
+      await this.unaryNodeCall<
+        sidecarrpc.DecodeInvoiceOrOfferRequest,
+        sidecarrpc.DecodeInvoiceOrOfferResponse.AsObject
+      >('decodeInvoiceOrOffer', req, true),
+    );
+  };
+
+  public fetchOffer = async (
+    currency: string,
+    offer: string,
+    amountSat: number,
+  ) => {
+    const req = new sidecarrpc.FetchInvoiceRequest();
+    req.setCurrency(currency);
+    req.setOffer(offer);
+    req.setAmountMsat(satToMsat(amountSat));
+
+    const res = await this.unaryNodeCall<
+      sidecarrpc.FetchInvoiceRequest,
+      sidecarrpc.FetchInvoiceResponse.AsObject
+    >('fetchInvoice', req);
+    return res.invoice;
   };
 
   private subscribeSwapUpdates = () => {
@@ -323,7 +355,7 @@ class Sidecar extends BaseClient {
     }
   };
 
-  private tryConnect = async () => {
+  private tryConnect = async (withSubscriptions: boolean = true) => {
     const certPath =
       this.config.grpc.certificates ||
       path.join(this.dataDir, 'sidecar', 'certificates');
@@ -343,7 +375,9 @@ class Sidecar extends BaseClient {
     try {
       await this.getInfo();
 
-      this.subscribeSwapUpdates();
+      if (withSubscriptions) {
+        this.subscribeSwapUpdates();
+      }
 
       this.setClientStatus(ClientStatus.Connected);
     } catch (error) {

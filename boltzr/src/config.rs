@@ -5,6 +5,12 @@ use std::path::Path;
 use tracing::{debug, info, trace};
 
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
+pub struct CurrencyConfig {
+    pub symbol: String,
+    pub cln: Option<crate::lightning::cln::Config>,
+}
+
+#[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
 pub struct Config {
     #[serde(rename = "dataDir")]
     pub data_dir: Option<String>,
@@ -40,6 +46,7 @@ pub struct GlobalConfig {
     pub mnemonic_path_evm: Option<String>,
 
     pub postgres: crate::db::Config,
+    pub currencies: Option<Vec<CurrencyConfig>>,
     pub rsk: Option<crate::evm::Config>,
 
     pub notification: Option<crate::notifications::Config>,

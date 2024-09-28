@@ -1,7 +1,7 @@
 import { crypto } from 'bitcoinjs-lib';
 import { randomBytes } from 'crypto';
 import Logger from '../../../lib/Logger';
-import { decodeInvoice, getHexBuffer, getHexString } from '../../../lib/Utils';
+import { getHexString } from '../../../lib/Utils';
 import Database from '../../../lib/db/Database';
 import LightningPayment, {
   LightningPaymentStatus,
@@ -11,10 +11,11 @@ import Swap from '../../../lib/db/models/Swap';
 import LightningPaymentRepository from '../../../lib/db/repositories/LightningPaymentRepository';
 import PairRepository from '../../../lib/db/repositories/PairRepository';
 import PendingPaymentTracker from '../../../lib/lightning/PendingPaymentTracker';
+import Sidecar from '../../../lib/sidecar/Sidecar';
 import { Currency } from '../../../lib/wallet/WalletManager';
-import { createInvoice } from '../../unit/swap/InvoiceUtils';
 import { bitcoinLndClient, clnClient, waitForClnChainSync } from '../Nodes';
 import { createSubmarineSwapData } from '../db/repositories/Fixtures';
+import { sidecar, startSidecar } from '../sidecar/Utils';
 
 jest.mock(
   '../../../lib/lightning/paymentTrackers/ClnPendingPaymentTracker',
@@ -40,7 +41,7 @@ jest.mock(
 
 describe('PendingPaymentTracker', () => {
   let db: Database;
-  const tracker = new PendingPaymentTracker(Logger.disabledLogger);
+  const tracker = new PendingPaymentTracker(Logger.disabledLogger, sidecar);
 
   const currencies = [
     {
@@ -53,10 +54,16 @@ describe('PendingPaymentTracker', () => {
   beforeAll(async () => {
     db = new Database(Logger.disabledLogger, Database.memoryDatabase);
 
+    startSidecar();
     await Promise.all([
       db.init(),
       clnClient.connect(true),
       bitcoinLndClient.connect(false),
+      sidecar.connect(
+        { on: jest.fn(), removeAllListeners: jest.fn() } as any,
+        {} as any,
+        false,
+      ),
     ]);
 
     await PairRepository.addPair({
@@ -79,6 +86,8 @@ describe('PendingPaymentTracker', () => {
   afterAll(async () => {
     await db.close();
     await clnClient['mpay']?.resetPathMemory();
+
+    await Sidecar.stop();
 
     clnClient.disconnect();
     bitcoinLndClient.disconnect();
@@ -148,13 +157,13 @@ describe('PendingPaymentTracker', () => {
   describe('sendPayment', () => {
     test('should send payments', async () => {
       const invoiceRes = await bitcoinLndClient.addInvoice(1);
-      const preimageHash = decodeInvoice(
-        invoiceRes.paymentRequest,
+      const preimageHash = (
+        await sidecar.decodeInvoiceOrOffer(invoiceRes.paymentRequest)
       ).paymentHash!;
       await Swap.create({
         ...createSubmarineSwapData(),
-        preimageHash,
         invoice: invoiceRes.paymentRequest,
+        preimageHash: getHexString(preimageHash),
       });
 
       await waitForClnChainSync();
@@ -167,14 +176,15 @@ describe('PendingPaymentTracker', () => {
       expect(typeof res!.feeMsat).toEqual('number');
       expect(res!.preimage).toEqual(
         Buffer.from(
-          (await bitcoinLndClient.lookupInvoice(getHexBuffer(preimageHash)))
+          (await bitcoinLndClient.lookupInvoice(preimageHash))
             .rPreimage as string,
           'base64',
         ),
       );
 
-      const payments =
-        await LightningPaymentRepository.findByPreimageHash(preimageHash);
+      const payments = await LightningPaymentRepository.findByPreimageHash(
+        getHexString(preimageHash),
+      );
       expect(payments).toHaveLength(1);
       expect(payments[0].node).toEqual(NodeType.CLN);
       expect(payments[0].status).toEqual(LightningPaymentStatus.Success);
@@ -182,23 +192,24 @@ describe('PendingPaymentTracker', () => {
 
     test('should bubble up error when payment cannot be sent', async () => {
       const invoiceRes = await bitcoinLndClient.addInvoice(1);
-      const preimageHash = decodeInvoice(
-        invoiceRes.paymentRequest,
+      const preimageHash = (
+        await sidecar.decodeInvoiceOrOffer(invoiceRes.paymentRequest)
       ).paymentHash!;
 
-      await bitcoinLndClient.cancelHoldInvoice(getHexBuffer(preimageHash));
+      await bitcoinLndClient.cancelHoldInvoice(preimageHash);
       await Swap.create({
         ...createSubmarineSwapData(),
-        preimageHash,
         invoice: invoiceRes.paymentRequest,
+        preimageHash: getHexString(preimageHash),
       });
 
       await expect(
         tracker.sendPayment('', clnClient, invoiceRes.paymentRequest),
       ).rejects.toEqual(expect.anything());
 
-      const payments =
-        await LightningPaymentRepository.findByPreimageHash(preimageHash);
+      const payments = await LightningPaymentRepository.findByPreimageHash(
+        getHexString(preimageHash),
+      );
       expect(payments).toHaveLength(1);
       expect(payments[0].node).toEqual(NodeType.CLN);
       expect(payments[0].status).toEqual(
@@ -244,9 +255,13 @@ describe('PendingPaymentTracker', () => {
     describe('existing relevant status', () => {
       test('should not call the nodes when there is a pending payment', async () => {
         const swapData = createSubmarineSwapData();
+        const preimageHash = randomBytes(32);
+        const invoice = await clnClient.addHoldInvoice(1, preimageHash);
+
         const swap = await Swap.create({
           ...swapData,
-          invoice: createInvoice(swapData.preimageHash),
+          invoice,
+          preimageHash: getHexString(preimageHash),
         });
         await LightningPaymentRepository.create({
           node: NodeType.LND,
@@ -290,7 +305,10 @@ describe('PendingPaymentTracker', () => {
           const swap = await Swap.create({
             ...createSubmarineSwapData(),
             invoice: invoiceRes.paymentRequest,
-            preimageHash: decodeInvoice(invoiceRes.paymentRequest).paymentHash,
+            preimageHash: getHexString(
+              (await sidecar.decodeInvoiceOrOffer(invoiceRes.paymentRequest))
+                .paymentHash!,
+            ),
           });
           await LightningPayment.create({
             node: NodeType.CLN,
@@ -311,7 +329,10 @@ describe('PendingPaymentTracker', () => {
           const swap = await Swap.create({
             ...createSubmarineSwapData(),
             invoice: invoiceRes.paymentRequest,
-            preimageHash: decodeInvoice(invoiceRes.paymentRequest).paymentHash,
+            preimageHash: getHexString(
+              (await sidecar.decodeInvoiceOrOffer(invoiceRes.paymentRequest))
+                .paymentHash!,
+            ),
           });
           await LightningPayment.create({
             node: NodeType.CLN,

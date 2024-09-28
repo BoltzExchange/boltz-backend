@@ -22,6 +22,7 @@ import PendingPaymentTracker from '../lightning/PendingPaymentTracker';
 import ClnClient from '../lightning/cln/ClnClient';
 import { Payment, PaymentFailureReason } from '../proto/lnd/rpc_pb';
 import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
+import Sidecar from '../sidecar/Sidecar';
 import { Currency } from '../wallet/WalletManager';
 import ChannelNursery from './ChannelNursery';
 import Errors from './Errors';
@@ -77,6 +78,7 @@ class PaymentHandler {
 
   constructor(
     private readonly logger: Logger,
+    private readonly sidecar: Sidecar,
     private readonly nodeSwitch: NodeSwitch,
     private readonly currencies: Map<string, Currency>,
     public readonly channelNursery: ChannelNursery,
@@ -119,6 +121,7 @@ class PaymentHandler {
     const lightningCurrency = this.currencies.get(lightningSymbol)!;
     const lightningClient = this.nodeSwitch.getSwapNode(
       lightningCurrency,
+      (await this.sidecar.decodeInvoiceOrOffer(swap.invoice!)).type,
       swap,
     );
 

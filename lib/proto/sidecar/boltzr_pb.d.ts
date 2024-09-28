@@ -480,3 +480,401 @@ export namespace SignEvmRefundResponse {
         signature: Uint8Array | string,
     }
 }
+
+export class DecodeInvoiceOrOfferRequest extends jspb.Message { 
+    getInvoiceOrOffer(): string;
+    setInvoiceOrOffer(value: string): DecodeInvoiceOrOfferRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): DecodeInvoiceOrOfferRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: DecodeInvoiceOrOfferRequest): DecodeInvoiceOrOfferRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: DecodeInvoiceOrOfferRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): DecodeInvoiceOrOfferRequest;
+    static deserializeBinaryFromReader(message: DecodeInvoiceOrOfferRequest, reader: jspb.BinaryReader): DecodeInvoiceOrOfferRequest;
+}
+
+export namespace DecodeInvoiceOrOfferRequest {
+    export type AsObject = {
+        invoiceOrOffer: string,
+    }
+}
+
+export class Bolt11Invoice extends jspb.Message { 
+    getPayeePubkey(): Uint8Array | string;
+    getPayeePubkey_asU8(): Uint8Array;
+    getPayeePubkey_asB64(): string;
+    setPayeePubkey(value: Uint8Array | string): Bolt11Invoice;
+
+    hasMsat(): boolean;
+    clearMsat(): void;
+    getMsat(): number | undefined;
+    setMsat(value: number): Bolt11Invoice;
+    getPaymentHash(): Uint8Array | string;
+    getPaymentHash_asU8(): Uint8Array;
+    getPaymentHash_asB64(): string;
+    setPaymentHash(value: Uint8Array | string): Bolt11Invoice;
+
+    hasMemo(): boolean;
+    clearMemo(): void;
+    getMemo(): string;
+    setMemo(value: string): Bolt11Invoice;
+
+    hasDescriptionHash(): boolean;
+    clearDescriptionHash(): void;
+    getDescriptionHash(): Uint8Array | string;
+    getDescriptionHash_asU8(): Uint8Array;
+    getDescriptionHash_asB64(): string;
+    setDescriptionHash(value: Uint8Array | string): Bolt11Invoice;
+    getCreatedAt(): number;
+    setCreatedAt(value: number): Bolt11Invoice;
+    getExpiry(): number;
+    setExpiry(value: number): Bolt11Invoice;
+    getMinFinalCltvExpiry(): number;
+    setMinFinalCltvExpiry(value: number): Bolt11Invoice;
+    clearHintsList(): void;
+    getHintsList(): Array<Bolt11Invoice.RoutingHints>;
+    setHintsList(value: Array<Bolt11Invoice.RoutingHints>): Bolt11Invoice;
+    addHints(value?: Bolt11Invoice.RoutingHints, index?: number): Bolt11Invoice.RoutingHints;
+    clearFeaturesList(): void;
+    getFeaturesList(): Array<Feature>;
+    setFeaturesList(value: Array<Feature>): Bolt11Invoice;
+    addFeatures(value: Feature, index?: number): Feature;
+
+    getDescriptionCase(): Bolt11Invoice.DescriptionCase;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): Bolt11Invoice.AsObject;
+    static toObject(includeInstance: boolean, msg: Bolt11Invoice): Bolt11Invoice.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: Bolt11Invoice, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): Bolt11Invoice;
+    static deserializeBinaryFromReader(message: Bolt11Invoice, reader: jspb.BinaryReader): Bolt11Invoice;
+}
+
+export namespace Bolt11Invoice {
+    export type AsObject = {
+        payeePubkey: Uint8Array | string,
+        msat?: number,
+        paymentHash: Uint8Array | string,
+        memo: string,
+        descriptionHash: Uint8Array | string,
+        createdAt: number,
+        expiry: number,
+        minFinalCltvExpiry: number,
+        hintsList: Array<Bolt11Invoice.RoutingHints.AsObject>,
+        featuresList: Array<Feature>,
+    }
+
+
+    export class RoutingHints extends jspb.Message { 
+        clearHopsList(): void;
+        getHopsList(): Array<Bolt11Invoice.RoutingHints.RoutingHint>;
+        setHopsList(value: Array<Bolt11Invoice.RoutingHints.RoutingHint>): RoutingHints;
+        addHops(value?: Bolt11Invoice.RoutingHints.RoutingHint, index?: number): Bolt11Invoice.RoutingHints.RoutingHint;
+
+        serializeBinary(): Uint8Array;
+        toObject(includeInstance?: boolean): RoutingHints.AsObject;
+        static toObject(includeInstance: boolean, msg: RoutingHints): RoutingHints.AsObject;
+        static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+        static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+        static serializeBinaryToWriter(message: RoutingHints, writer: jspb.BinaryWriter): void;
+        static deserializeBinary(bytes: Uint8Array): RoutingHints;
+        static deserializeBinaryFromReader(message: RoutingHints, reader: jspb.BinaryReader): RoutingHints;
+    }
+
+    export namespace RoutingHints {
+        export type AsObject = {
+            hopsList: Array<Bolt11Invoice.RoutingHints.RoutingHint.AsObject>,
+        }
+
+
+        export class RoutingHint extends jspb.Message { 
+            getNode(): Uint8Array | string;
+            getNode_asU8(): Uint8Array;
+            getNode_asB64(): string;
+            setNode(value: Uint8Array | string): RoutingHint;
+            getChannelId(): number;
+            setChannelId(value: number): RoutingHint;
+            getBaseFeeMsat(): number;
+            setBaseFeeMsat(value: number): RoutingHint;
+            getPpmFee(): number;
+            setPpmFee(value: number): RoutingHint;
+            getCltvExpiryDelta(): number;
+            setCltvExpiryDelta(value: number): RoutingHint;
+
+            hasHtlcMinimumMsat(): boolean;
+            clearHtlcMinimumMsat(): void;
+            getHtlcMinimumMsat(): number | undefined;
+            setHtlcMinimumMsat(value: number): RoutingHint;
+
+            hasHtlcMaximumMsat(): boolean;
+            clearHtlcMaximumMsat(): void;
+            getHtlcMaximumMsat(): number | undefined;
+            setHtlcMaximumMsat(value: number): RoutingHint;
+
+            serializeBinary(): Uint8Array;
+            toObject(includeInstance?: boolean): RoutingHint.AsObject;
+            static toObject(includeInstance: boolean, msg: RoutingHint): RoutingHint.AsObject;
+            static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+            static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+            static serializeBinaryToWriter(message: RoutingHint, writer: jspb.BinaryWriter): void;
+            static deserializeBinary(bytes: Uint8Array): RoutingHint;
+            static deserializeBinaryFromReader(message: RoutingHint, reader: jspb.BinaryReader): RoutingHint;
+        }
+
+        export namespace RoutingHint {
+            export type AsObject = {
+                node: Uint8Array | string,
+                channelId: number,
+                baseFeeMsat: number,
+                ppmFee: number,
+                cltvExpiryDelta: number,
+                htlcMinimumMsat?: number,
+                htlcMaximumMsat?: number,
+            }
+        }
+
+    }
+
+
+    export enum DescriptionCase {
+        DESCRIPTION_NOT_SET = 0,
+        MEMO = 4,
+        DESCRIPTION_HASH = 5,
+    }
+
+}
+
+export class Bolt12Offer extends jspb.Message { 
+    getId(): Uint8Array | string;
+    getId_asU8(): Uint8Array;
+    getId_asB64(): string;
+    setId(value: Uint8Array | string): Bolt12Offer;
+
+    hasSigningPubkey(): boolean;
+    clearSigningPubkey(): void;
+    getSigningPubkey(): Uint8Array | string;
+    getSigningPubkey_asU8(): Uint8Array;
+    getSigningPubkey_asB64(): string;
+    setSigningPubkey(value: Uint8Array | string): Bolt12Offer;
+
+    hasDescription(): boolean;
+    clearDescription(): void;
+    getDescription(): string | undefined;
+    setDescription(value: string): Bolt12Offer;
+
+    hasMinAmountMsat(): boolean;
+    clearMinAmountMsat(): void;
+    getMinAmountMsat(): number | undefined;
+    setMinAmountMsat(value: number): Bolt12Offer;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): Bolt12Offer.AsObject;
+    static toObject(includeInstance: boolean, msg: Bolt12Offer): Bolt12Offer.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: Bolt12Offer, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): Bolt12Offer;
+    static deserializeBinaryFromReader(message: Bolt12Offer, reader: jspb.BinaryReader): Bolt12Offer;
+}
+
+export namespace Bolt12Offer {
+    export type AsObject = {
+        id: Uint8Array | string,
+        signingPubkey: Uint8Array | string,
+        description?: string,
+        minAmountMsat?: number,
+    }
+}
+
+export class Bolt12Invoice extends jspb.Message { 
+    getSigningPubkey(): Uint8Array | string;
+    getSigningPubkey_asU8(): Uint8Array;
+    getSigningPubkey_asB64(): string;
+    setSigningPubkey(value: Uint8Array | string): Bolt12Invoice;
+
+    hasMsat(): boolean;
+    clearMsat(): void;
+    getMsat(): number | undefined;
+    setMsat(value: number): Bolt12Invoice;
+    getPaymentHash(): Uint8Array | string;
+    getPaymentHash_asU8(): Uint8Array;
+    getPaymentHash_asB64(): string;
+    setPaymentHash(value: Uint8Array | string): Bolt12Invoice;
+
+    hasDescription(): boolean;
+    clearDescription(): void;
+    getDescription(): string | undefined;
+    setDescription(value: string): Bolt12Invoice;
+    getCreatedAt(): number;
+    setCreatedAt(value: number): Bolt12Invoice;
+    getExpiry(): number;
+    setExpiry(value: number): Bolt12Invoice;
+    clearPathsList(): void;
+    getPathsList(): Array<Bolt12Invoice.Path>;
+    setPathsList(value: Array<Bolt12Invoice.Path>): Bolt12Invoice;
+    addPaths(value?: Bolt12Invoice.Path, index?: number): Bolt12Invoice.Path;
+    clearFeaturesList(): void;
+    getFeaturesList(): Array<Feature>;
+    setFeaturesList(value: Array<Feature>): Bolt12Invoice;
+    addFeatures(value: Feature, index?: number): Feature;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): Bolt12Invoice.AsObject;
+    static toObject(includeInstance: boolean, msg: Bolt12Invoice): Bolt12Invoice.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: Bolt12Invoice, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): Bolt12Invoice;
+    static deserializeBinaryFromReader(message: Bolt12Invoice, reader: jspb.BinaryReader): Bolt12Invoice;
+}
+
+export namespace Bolt12Invoice {
+    export type AsObject = {
+        signingPubkey: Uint8Array | string,
+        msat?: number,
+        paymentHash: Uint8Array | string,
+        description?: string,
+        createdAt: number,
+        expiry: number,
+        pathsList: Array<Bolt12Invoice.Path.AsObject>,
+        featuresList: Array<Feature>,
+    }
+
+
+    export class Path extends jspb.Message { 
+
+        hasFirstNodePubkey(): boolean;
+        clearFirstNodePubkey(): void;
+        getFirstNodePubkey(): Uint8Array | string;
+        getFirstNodePubkey_asU8(): Uint8Array;
+        getFirstNodePubkey_asB64(): string;
+        setFirstNodePubkey(value: Uint8Array | string): Path;
+        getBaseFeeMsat(): number;
+        setBaseFeeMsat(value: number): Path;
+        getPpmFee(): number;
+        setPpmFee(value: number): Path;
+        getCltvExpiryDelta(): number;
+        setCltvExpiryDelta(value: number): Path;
+
+        serializeBinary(): Uint8Array;
+        toObject(includeInstance?: boolean): Path.AsObject;
+        static toObject(includeInstance: boolean, msg: Path): Path.AsObject;
+        static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+        static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+        static serializeBinaryToWriter(message: Path, writer: jspb.BinaryWriter): void;
+        static deserializeBinary(bytes: Uint8Array): Path;
+        static deserializeBinaryFromReader(message: Path, reader: jspb.BinaryReader): Path;
+    }
+
+    export namespace Path {
+        export type AsObject = {
+            firstNodePubkey: Uint8Array | string,
+            baseFeeMsat: number,
+            ppmFee: number,
+            cltvExpiryDelta: number,
+        }
+    }
+
+}
+
+export class DecodeInvoiceOrOfferResponse extends jspb.Message { 
+    getIsExpired(): boolean;
+    setIsExpired(value: boolean): DecodeInvoiceOrOfferResponse;
+
+    hasBolt11(): boolean;
+    clearBolt11(): void;
+    getBolt11(): Bolt11Invoice | undefined;
+    setBolt11(value?: Bolt11Invoice): DecodeInvoiceOrOfferResponse;
+
+    hasOffer(): boolean;
+    clearOffer(): void;
+    getOffer(): Bolt12Offer | undefined;
+    setOffer(value?: Bolt12Offer): DecodeInvoiceOrOfferResponse;
+
+    hasBolt12Invoice(): boolean;
+    clearBolt12Invoice(): void;
+    getBolt12Invoice(): Bolt12Invoice | undefined;
+    setBolt12Invoice(value?: Bolt12Invoice): DecodeInvoiceOrOfferResponse;
+
+    getDecodedCase(): DecodeInvoiceOrOfferResponse.DecodedCase;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): DecodeInvoiceOrOfferResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: DecodeInvoiceOrOfferResponse): DecodeInvoiceOrOfferResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: DecodeInvoiceOrOfferResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): DecodeInvoiceOrOfferResponse;
+    static deserializeBinaryFromReader(message: DecodeInvoiceOrOfferResponse, reader: jspb.BinaryReader): DecodeInvoiceOrOfferResponse;
+}
+
+export namespace DecodeInvoiceOrOfferResponse {
+    export type AsObject = {
+        isExpired: boolean,
+        bolt11?: Bolt11Invoice.AsObject,
+        offer?: Bolt12Offer.AsObject,
+        bolt12Invoice?: Bolt12Invoice.AsObject,
+    }
+
+    export enum DecodedCase {
+        DECODED_NOT_SET = 0,
+        BOLT11 = 2,
+        OFFER = 3,
+        BOLT12_INVOICE = 4,
+    }
+
+}
+
+export class FetchInvoiceRequest extends jspb.Message { 
+    getCurrency(): string;
+    setCurrency(value: string): FetchInvoiceRequest;
+    getOffer(): string;
+    setOffer(value: string): FetchInvoiceRequest;
+    getAmountMsat(): number;
+    setAmountMsat(value: number): FetchInvoiceRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): FetchInvoiceRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: FetchInvoiceRequest): FetchInvoiceRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: FetchInvoiceRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): FetchInvoiceRequest;
+    static deserializeBinaryFromReader(message: FetchInvoiceRequest, reader: jspb.BinaryReader): FetchInvoiceRequest;
+}
+
+export namespace FetchInvoiceRequest {
+    export type AsObject = {
+        currency: string,
+        offer: string,
+        amountMsat: number,
+    }
+}
+
+export class FetchInvoiceResponse extends jspb.Message { 
+    getInvoice(): string;
+    setInvoice(value: string): FetchInvoiceResponse;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): FetchInvoiceResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: FetchInvoiceResponse): FetchInvoiceResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: FetchInvoiceResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): FetchInvoiceResponse;
+    static deserializeBinaryFromReader(message: FetchInvoiceResponse, reader: jspb.BinaryReader): FetchInvoiceResponse;
+}
+
+export namespace FetchInvoiceResponse {
+    export type AsObject = {
+        invoice: string,
+    }
+}
+
+export enum Feature {
+    BASIC_MPP = 0,
+}

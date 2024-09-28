@@ -1,0 +1,30 @@
+[postgres]
+host = "127.0.0.1"
+port = 5432
+database = "boltz"
+username = "boltz"
+password = "boltz"
+
+[sidecar]
+    [sidecar.grpc]
+    host = "127.0.0.1"
+    port = 10_001
+
+    [sidecar.api]
+    host = "127.0.0.1"
+    port = 10_002
+
+    [sidecar.ws]
+    host = "127.0.0.1"
+    port = 10_003
+
+[[currencies]]
+symbol = "BTC"
+
+[currencies.cln]
+host = "127.0.0.1"
+port = 9291
+
+rootCertPath = "./docker/regtest/data/cln/certs/ca.pem"
+privateKeyPath = "./docker/regtest/data/cln/certs/client-key.pem"
+certChainPath = "./docker/regtest/data/cln/certs/client.pem"

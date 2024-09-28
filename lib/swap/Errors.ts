@@ -122,4 +122,8 @@ export default {
     message: 'invalid invoice expiry',
     code: concatErrorCode(ErrorCodePrefix.Swap, 25),
   }),
+  NO_OFFERS_ALLOWED: (): Error => ({
+    message: 'no offers allowed',
+    code: concatErrorCode(ErrorCodePrefix.Swap, 26),
+  }),
 };

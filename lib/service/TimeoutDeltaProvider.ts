@@ -5,6 +5,7 @@ import Logger from '../Logger';
 import {
   formatError,
   getChainCurrency,
+  getHexString,
   getLightningCurrency,
   getPairId,
   splitPairId,
@@ -19,12 +20,11 @@ import {
 } from '../consts/Enums';
 import { PairConfig } from '../consts/Types';
 import Swap from '../db/models/Swap';
-import {
-  DecodedInvoice,
-  InvoiceFeature,
-  LightningClient,
-} from '../lightning/LightningClient';
+import { msatToSat } from '../lightning/ChannelUtils';
+import { InvoiceFeature, LightningClient } from '../lightning/LightningClient';
 import LndClient from '../lightning/LndClient';
+import DecodedInvoice, { InvoiceType } from '../sidecar/DecodedInvoice';
+import Sidecar from '../sidecar/Sidecar';
 import NodeSwitch from '../swap/NodeSwitch';
 import { Currency } from '../wallet/WalletManager';
 import EthereumManager from '../wallet/ethereum/EthereumManager';
@@ -66,6 +66,7 @@ class TimeoutDeltaProvider {
   constructor(
     private readonly logger: Logger,
     private readonly config: ConfigType,
+    private readonly sidecar: Sidecar,
     private readonly currencies: Map<string, Currency>,
     private readonly nodeSwitch: NodeSwitch,
   ) {
@@ -233,24 +234,29 @@ class TimeoutDeltaProvider {
     cltvLimit: number,
   ) => {
     try {
+      // TODO: fix this for bolt12
+      if (decodedInvoice.type === InvoiceType.Bolt12Invoice) {
+        return 144;
+      }
+
       // Check whether the receiving side supports MPP and if so,
       // query a route for the number of sats of the invoice divided
       // by the max payment parts we tell to LND to use
       const supportsMpp = decodedInvoice.features.has(InvoiceFeature.MPP);
 
-      // TODO: CLN adjustments
+      const amountSat = msatToSat(decodedInvoice.amountMsat);
       const amountToQuery = Math.max(
         supportsMpp
-          ? Math.ceil(decodedInvoice.value / LndClient.paymentMaxParts)
-          : decodedInvoice.value,
+          ? Math.ceil(amountSat / LndClient.paymentMaxParts)
+          : amountSat,
         1,
       );
 
       const routes = await lightningClient.queryRoutes(
-        decodedInvoice.destination,
+        getHexString(decodedInvoice.payee!),
         amountToQuery,
         cltvLimit,
-        decodedInvoice.cltvExpiry,
+        decodedInvoice.minFinalCltv,
         decodedInvoice.routingHints,
       );
 
@@ -276,12 +282,17 @@ class TimeoutDeltaProvider {
   ): Promise<[number, boolean]> => {
     const currency = this.currencies.get(lightningCurrency)!;
 
-    const decodedInvoice =
-      await NodeSwitch.fallback(currency)!.decodeInvoice(invoice);
-    const lightningClient = this.nodeSwitch.getSwapNode(currency, {
-      referral: referralId,
-      invoiceAmount: decodedInvoice.value,
-    });
+    const decodedInvoice = await this.sidecar.decodeInvoiceOrOffer(invoice);
+    const amountSat = msatToSat(decodedInvoice.amountMsat);
+
+    const lightningClient = this.nodeSwitch.getSwapNode(
+      currency,
+      decodedInvoice.type,
+      {
+        referral: referralId,
+        invoiceAmount: amountSat,
+      },
+    );
 
     const lightningCltv =
       version === SwapVersion.Taproot
@@ -324,9 +335,9 @@ class TimeoutDeltaProvider {
 
     const routingOffset = this.routingOffsets.getOffset(
       pair,
-      decodedInvoice.value,
+      amountSat,
       lightningCurrency,
-      [decodedInvoice.destination].concat(
+      [getHexString(decodedInvoice.payee!)].concat(
         decodedInvoice.routingHints.map((hints) => hints[0].nodeId),
       ),
     );

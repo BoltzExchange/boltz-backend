@@ -1,11 +1,10 @@
 import { Op } from 'sequelize';
 import Logger from '../Logger';
-import { decodeInvoice, getUnixTime } from '../Utils';
 import { SwapUpdateEvent } from '../consts/Enums';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
 import ReverseSwap from '../db/models/ReverseSwap';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
-import InvoiceExpiryHelper from '../service/InvoiceExpiryHelper';
+import Sidecar from '../sidecar/Sidecar';
 
 /**
  * InvoiceNursery takes care of cancelling pending HTLCs of Reverse Swaps with prepay miner fee
@@ -19,7 +18,10 @@ class InvoiceNursery extends TypedEventEmitter<{
 
   private interval: any;
 
-  constructor(private logger: Logger) {
+  constructor(
+    private readonly logger: Logger,
+    private readonly sidecar: Sidecar,
+  ) {
     super();
   }
 
@@ -57,16 +59,12 @@ class InvoiceNursery extends TypedEventEmitter<{
       `Checking ${pendingSwaps.length} Reverse Swaps for expired invoices`,
     );
 
-    const currentTime = getUnixTime();
-
     for (const reverseSwap of pendingSwaps) {
-      const { timestamp, timeExpireDate } = decodeInvoice(reverseSwap.invoice);
-      const invoiceExpiry = InvoiceExpiryHelper.getInvoiceExpiry(
-        timestamp,
-        timeExpireDate,
+      const decoded = await this.sidecar.decodeInvoiceOrOffer(
+        reverseSwap.invoice,
       );
 
-      if (currentTime > invoiceExpiry) {
+      if (decoded.isExpired) {
         this.emit('invoice.expired', reverseSwap);
       }
     }

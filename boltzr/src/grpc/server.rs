@@ -1,3 +1,4 @@
+use crate::currencies::Currencies;
 use crate::db::helpers::web_hook::WebHookHelper;
 use crate::evm::refund_signer::RefundSigner;
 use crate::grpc::service::boltzr::boltz_r_server::BoltzRServer;
@@ -32,6 +33,8 @@ pub struct Config {
 pub struct Server<W, N> {
     config: Config,
 
+    currencies: Currencies,
+
     web_hook_helper: Box<W>,
     web_hook_caller: Caller,
 
@@ -49,9 +52,11 @@ where
     W: WebHookHelper + Send + Sync + Clone + 'static,
     N: NotificationClient + Send + Sync + 'static,
 {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         cancellation_token: CancellationToken,
         config: Config,
+        currencies: Currencies,
         swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
         web_hook_helper: Box<W>,
         web_hook_caller: Caller,
@@ -60,6 +65,7 @@ where
     ) -> Self {
         Server {
             config,
+            currencies,
             refund_signer,
             web_hook_helper,
             web_hook_caller,
@@ -85,6 +91,7 @@ where
             Arc::new(Default::default());
 
         let service = BoltzService::new(
+            self.currencies.clone(),
             self.status_fetcher.clone(),
             self.swap_status_update_tx.clone(),
             Arc::new(self.web_hook_helper.clone()),
@@ -147,6 +154,7 @@ mod server_test {
     use crate::ws;
     use alloy::primitives::{Address, FixedBytes, Signature, U256};
     use mockall::{mock, predicate::*};
+    use std::collections::HashMap;
     use std::error::Error;
     use std::fs;
     use std::path::{Path, PathBuf};
@@ -200,6 +208,7 @@ mod server_test {
                 certificates: None,
                 disable_ssl: Some(true),
             },
+            HashMap::new(),
             status_tx,
             Box::new(make_mock_hook_helper()),
             caller::Caller::new(
@@ -325,6 +334,7 @@ mod server_test {
                 certificates: Some(certs_dir.clone().to_str().unwrap().to_string()),
                 disable_ssl: Some(false),
             },
+            HashMap::new(),
             status_tx,
             Box::new(make_mock_hook_helper()),
             caller::Caller::new(

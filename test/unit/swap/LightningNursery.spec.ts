@@ -1,13 +1,15 @@
+import bolt11 from 'bolt11';
 import { Networks } from 'boltz-core';
 import { randomBytes } from 'crypto';
 import { Op } from 'sequelize';
 import Logger from '../../../lib/Logger';
-import { decodeInvoice, getHexBuffer, getHexString } from '../../../lib/Utils';
+import { getHexBuffer, getHexString } from '../../../lib/Utils';
 import { CurrencyType, SwapUpdateEvent } from '../../../lib/consts/Enums';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import WrappedSwapRepository from '../../../lib/db/repositories/WrappedSwapRepository';
 import LndClient from '../../../lib/lightning/LndClient';
 import { Invoice } from '../../../lib/proto/lnd/rpc_pb';
+import Sidecar from '../../../lib/sidecar/Sidecar';
 import LightningNursery from '../../../lib/swap/LightningNursery';
 import { Currency } from '../../../lib/wallet/WalletManager';
 import { raceCall } from '../../Utils';
@@ -68,7 +70,24 @@ describe('LightningNursery', () => {
   const minerFeeInvoice =
     'lnbcrt21u1psprx5xpp5xa0d3f37sz5cmp34cm0hd2tujuxctw6ydge27cd0cp8k0cu5ynnsdqqcqzpgsp55tje9q5t5xnkk03tgvv50tle49gf5nxeec03lvsaal3v2hcner7q9qy9qsqdgmep4nwprmtslrztla04jyvhc7rw8gtf5kydakz95tserqcchjx6f3u3yrupuadle2rqq8w27885h33v4gysl0ch5cxa5faz3akk0sqykdymf';
 
-  const nursery = new LightningNursery(Logger.disabledLogger);
+  const decodeInvoice = (invoice: string) => {
+    const dec = bolt11.decode(invoice);
+    return {
+      paymentHash: getHexBuffer(
+        dec.tags.find((tag) => tag.tagName === 'payment_hash')!.data as string,
+      ),
+    };
+  };
+
+  const sidecar = {
+    decodeInvoiceOrOffer: jest
+      .fn()
+      .mockImplementation(async (invoice: string) => {
+        return decodeInvoice(invoice);
+      }),
+  } as unknown as Sidecar;
+
+  const nursery = new LightningNursery(Logger.disabledLogger, sidecar);
 
   const btcLndClient = MockedLndClient();
   const currencies: Currency[] = [
@@ -234,7 +253,7 @@ describe('LightningNursery', () => {
 
     expect(mockLookupHoldInvoice).toHaveBeenCalledTimes(1);
     expect(mockLookupHoldInvoice).toHaveBeenCalledWith(
-      getHexBuffer(decodeInvoice(invoice).paymentHash!),
+      decodeInvoice(invoice).paymentHash,
     );
 
     expect(mockSettleHoldInvoice).not.toHaveBeenCalled();
@@ -308,7 +327,7 @@ describe('LightningNursery', () => {
 
     expect(mockLookupHoldInvoice).toHaveBeenCalledTimes(1);
     expect(mockLookupHoldInvoice).toHaveBeenCalledWith(
-      getHexBuffer(decodeInvoice(invoice).paymentHash!),
+      decodeInvoice(invoice).paymentHash,
     );
 
     expect(mockSettleHoldInvoice).toHaveBeenCalledTimes(1);

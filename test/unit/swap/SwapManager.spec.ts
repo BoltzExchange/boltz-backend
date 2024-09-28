@@ -1,6 +1,6 @@
-import bolt11 from '@boltz/bolt11';
 import AsyncLock from 'async-lock';
 import { address } from 'bitcoinjs-lib';
+import bolt11 from 'bolt11';
 import { Networks, OutputType } from 'boltz-core';
 import { Networks as LiquidNetworks } from 'boltz-core/dist/lib/liquid';
 import { randomBytes } from 'crypto';
@@ -10,7 +10,6 @@ import { setup } from '../../../lib/Core';
 import { ECPair } from '../../../lib/ECPairHelper';
 import Logger from '../../../lib/Logger';
 import {
-  decodeInvoice,
   getHexBuffer,
   getHexString,
   getPairId,
@@ -36,6 +35,8 @@ import RateProvider from '../../../lib/rates/RateProvider';
 import Blocks from '../../../lib/service/Blocks';
 import PaymentRequestUtils from '../../../lib/service/PaymentRequestUtils';
 import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
+import { InvoiceType } from '../../../lib/sidecar/DecodedInvoice';
+import Sidecar from '../../../lib/sidecar/Sidecar';
 import Errors from '../../../lib/swap/Errors';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
 import SwapManager, {
@@ -359,6 +360,26 @@ const blocks = {
 describe('SwapManager', () => {
   let manager: SwapManager;
 
+  const sidecar = {
+    decodeInvoiceOrOffer: jest
+      .fn()
+      .mockImplementation(async (invoice: string) => {
+        const dec = bolt11.decode(invoice);
+        const expiry = dec.timeExpireDate || dec.timestamp! + 3_600;
+
+        return {
+          expiryTimestamp: expiry,
+          type: InvoiceType.Bolt11,
+          payee: getHexBuffer(dec.payeeNodeKey!),
+          isExpired: expiry < getUnixTime(),
+          paymentHash: getHexBuffer(
+            dec.tags.find((tag) => tag.tagName === 'payment_hash')!
+              .data as string,
+          ),
+        };
+      }),
+  } as unknown as Sidecar;
+
   const btcCurrency = {
     symbol: 'BTC',
     type: CurrencyType.BitcoinLike,
@@ -434,7 +455,7 @@ describe('SwapManager', () => {
         deferredClaimSymbols: [],
       } as any,
       {} as any,
-      {} as any,
+      sidecar,
       {} as any,
     );
 
@@ -951,7 +972,7 @@ describe('SwapManager', () => {
       await manager.setSwapInvoice(
         swap,
         invoiceExpired,
-        decodeInvoice(invoiceExpired).satoshis!,
+        bolt11.decode(invoiceExpired).satoshis!,
         expectedAmount,
         percentageFee,
         acceptZeroConf,
@@ -1384,7 +1405,7 @@ describe('SwapManager', () => {
     );
   });
 
-  test('should recreate filters', () => {
+  test('should recreate filters', async () => {
     const recreateFilters = manager['recreateFilters'];
 
     const reverseSwaps = [
@@ -1401,29 +1422,39 @@ describe('SwapManager', () => {
     ] as any as ReverseSwap[];
 
     // Invoice subscriptions
-    recreateFilters(reverseSwaps, true);
+    await recreateFilters(reverseSwaps, true);
 
     expect(mockSubscribeSingleInvoice).toHaveBeenCalledTimes(2);
 
     expect(mockSubscribeSingleInvoice).toHaveBeenNthCalledWith(
       1,
       getHexBuffer(
-        decodeInvoice(reverseSwaps[0].minerFeeInvoice!).paymentHash!,
+        bolt11
+          .decode(reverseSwaps[0].minerFeeInvoice!)
+          .tags.find((tag) => tag.tagName === 'payment_hash')!.data as string,
       ),
     );
     expect(mockSubscribeSingleInvoice).toHaveBeenNthCalledWith(
       2,
-      getHexBuffer(decodeInvoice(reverseSwaps[0].invoice).paymentHash!),
+      getHexBuffer(
+        bolt11
+          .decode(reverseSwaps[0].invoice)
+          .tags.find((tag) => tag.tagName === 'payment_hash')!.data as string,
+      ),
     );
 
     reverseSwaps[0].status = SwapUpdateEvent.MinerFeePaid;
-    recreateFilters(reverseSwaps, true);
+    await recreateFilters(reverseSwaps, true);
 
     expect(mockSubscribeSingleInvoice).toHaveBeenCalledTimes(3);
 
     expect(mockSubscribeSingleInvoice).toHaveBeenNthCalledWith(
       3,
-      getHexBuffer(decodeInvoice(reverseSwaps[0].invoice).paymentHash!),
+      getHexBuffer(
+        bolt11
+          .decode(reverseSwaps[0].invoice)
+          .tags.find((tag) => tag.tagName === 'payment_hash')!.data as string,
+      ),
     );
 
     // Reverse swap input and output filters
@@ -1432,7 +1463,7 @@ describe('SwapManager', () => {
     reverseSwaps[0].transactionId =
       '4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b';
 
-    recreateFilters(reverseSwaps, true);
+    await recreateFilters(reverseSwaps, true);
 
     expect(mockAddInputFilter).toHaveBeenCalledTimes(1);
     expect(mockAddInputFilter).toHaveBeenCalledWith(
@@ -1454,7 +1485,7 @@ describe('SwapManager', () => {
 
     reverseSwaps[0].status = SwapUpdateEvent.TransactionConfirmed;
 
-    recreateFilters(reverseSwaps, true);
+    await recreateFilters(reverseSwaps, true);
 
     expect(mockAddInputFilter).toHaveBeenCalledTimes(2);
     expect(mockAddInputFilter).toHaveBeenCalledWith(

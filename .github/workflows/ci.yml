@@ -45,6 +45,9 @@ jobs:
       - name: Install Node.js dependencies
         run: npm ci
 
+      - name: Start PostgreSQL
+        run: npm run db:start
+
       - name: Install Python dependencies
         run: npm run python:install
 

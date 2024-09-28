@@ -86,23 +86,6 @@ describe('InvoiceExpiryHelper', () => {
   );
 
   test.each`
-    timestamp    | timeExpiryDate | expected
-    ${120}       | ${360}         | ${360}
-    ${400}       | ${360}         | ${360}
-    ${400}       | ${1200}        | ${1200}
-    ${120}       | ${undefined}   | ${3720}
-    ${400}       | ${undefined}   | ${4000}
-    ${undefined} | ${undefined}   | ${3600}
-  `(
-    'should calculate expiry of invoice (timestamp $timestamp, timeExpiryDate $timeExpiryDate)',
-    ({ timestamp, timeExpiryDate, expected }) => {
-      expect(
-        InvoiceExpiryHelper.getInvoiceExpiry(timestamp, timeExpiryDate),
-      ).toEqual(expected);
-    },
-  );
-
-  test.each`
     expiry | valid
     ${-1}  | ${false}
     ${0}   | ${false}

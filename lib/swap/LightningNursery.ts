@@ -2,7 +2,7 @@ import AsyncLock from 'async-lock';
 import { crypto } from 'bitcoinjs-lib';
 import { Op } from 'sequelize';
 import Logger from '../Logger';
-import { decodeInvoice, formatError, getHexBuffer } from '../Utils';
+import { formatError, getHexBuffer } from '../Utils';
 import { SwapUpdateEvent } from '../consts/Enums';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
 import ReverseSwap from '../db/models/ReverseSwap';
@@ -11,6 +11,7 @@ import WrappedSwapRepository from '../db/repositories/WrappedSwapRepository';
 import { InvoiceState, LightningClient } from '../lightning/LightningClient';
 import LndClient from '../lightning/LndClient';
 import ClnClient from '../lightning/cln/ClnClient';
+import Sidecar from '../sidecar/Sidecar';
 import { Currency } from '../wallet/WalletManager';
 
 class LightningNursery extends TypedEventEmitter<{
@@ -23,7 +24,10 @@ class LightningNursery extends TypedEventEmitter<{
 
   private static invoiceLock = 'invoice';
 
-  constructor(private logger: Logger) {
+  constructor(
+    private readonly logger: Logger,
+    private readonly sidecar: Sidecar,
+  ) {
     super();
   }
 
@@ -167,7 +171,8 @@ class LightningNursery extends TypedEventEmitter<{
 
       // Settle the prepay invoice and emit the "invoice.paid" event in case the hold invoice was paid first
       const holdInvoice = await lightningClient.lookupHoldInvoice(
-        getHexBuffer(decodeInvoice(reverseSwap.invoice).paymentHash!),
+        (await this.sidecar.decodeInvoiceOrOffer(reverseSwap.invoice))
+          .paymentHash!,
       );
 
       if (holdInvoice.state === InvoiceState.Accepted) {

@@ -2,7 +2,8 @@ import * as grpc from '@grpc/grpc-js';
 import { randomBytes } from 'crypto';
 import { readFileSync } from 'fs';
 import Logger from '../../../lib/Logger';
-import { decodeInvoice, getHexString, getUnixTime } from '../../../lib/Utils';
+import { getHexString, getUnixTime } from '../../../lib/Utils';
+import { InvoiceFeature } from '../../../lib/lightning/LightningClient';
 import LndClient from '../../../lib/lightning/LndClient';
 import {
   LightningClient,
@@ -13,17 +14,28 @@ import {
   Transaction,
   TransactionDetails,
 } from '../../../lib/proto/lnd/rpc_pb';
-import InvoiceExpiryHelper from '../../../lib/service/InvoiceExpiryHelper';
+import Sidecar from '../../../lib/sidecar/Sidecar';
 import { getPort } from '../../Utils';
 import { bitcoinClient, bitcoinLndClient, lndDataPath } from '../Nodes';
+import { sidecar, startSidecar } from '../sidecar/Utils';
 
 describe('LndClient', () => {
   beforeAll(async () => {
+    startSidecar();
+
     await bitcoinClient.generate(1);
     await bitcoinLndClient.connect(false);
+
+    await sidecar.connect(
+      { on: jest.fn(), removeAllListeners: jest.fn() } as any,
+      {} as any,
+      false,
+    );
   });
 
   afterAll(async () => {
+    await Sidecar.stop();
+
     await bitcoinClient.generate(1);
 
     bitcoinLndClient.removeAllListeners();
@@ -45,11 +57,11 @@ describe('LndClient', () => {
         undefined,
         expiry,
       );
-      const { timestamp, timeExpireDate } = decodeInvoice(invoice);
+
+      const decoded = await sidecar.decodeInvoiceOrOffer(invoice);
+      expect(decoded.isExpired).toEqual(false);
       expect(
-        getUnixTime() +
-          expiry -
-          InvoiceExpiryHelper.getInvoiceExpiry(timestamp, timeExpireDate),
+        getUnixTime() + expiry - decoded.expiryTimestamp,
       ).toBeLessThanOrEqual(5);
     });
 
@@ -63,8 +75,10 @@ describe('LndClient', () => {
         undefined,
         descriptionHash,
       );
-      const dec = decodeInvoice(invoice);
-      expect(dec.descriptionHash).toEqual(getHexString(descriptionHash));
+      const dec = await sidecar.decodeInvoiceOrOffer(invoice);
+      expect(getHexString(dec.descriptionHash!)).toEqual(
+        getHexString(descriptionHash),
+      );
     });
 
     test('should prefer description hash over memo', async () => {
@@ -77,10 +91,27 @@ describe('LndClient', () => {
         'test',
         descriptionHash,
       );
-      const dec = decodeInvoice(invoice);
+      const dec = await sidecar.decodeInvoiceOrOffer(invoice);
       expect(dec.description).toBeUndefined();
-      expect(dec.descriptionHash).toEqual(getHexString(descriptionHash));
+      expect(getHexString(dec.descriptionHash!)).toEqual(
+        getHexString(descriptionHash),
+      );
     });
+  });
+
+  test('should decode invoices', async () => {
+    const dec = await bitcoinLndClient.decodeInvoice(
+      'lnbcrt210n1pnwd6jxsp5897fwndkvflqgexy7flgdpx338zewcspwq6nrg9n4ftqefwwj4kspp57s5k4n8sxdnc3c8sql2nsasp8tr25ghzcjuxjkztf8pm6fza4xhqdq8w3jhxaqxqyjw5qcqp2rzjqf9mghde3gm8qjyk0r5n899qt6j0kqt5wvp0rds85ps7cqzlvtw7zqqqdcqqqqgqqqqqqqlgqqqqqqgq2q9qxpqysgq0nr5fua6f5ltl5a9hnae5l7r02yrah24fy4suwzefrjrqwnnhyz3un79nwnma6f0ckk7qkrmyq030lf7vaj8spl46d4j33zr5gswgfcprcl5ag',
+    );
+    expect(dec.value).toEqual(21);
+    expect(dec.cltvExpiry).toEqual(10);
+    expect(dec.features).toEqual(new Set([InvoiceFeature.MPP]));
+    expect(getHexString(dec.paymentHash)).toEqual(
+      'f4296accf0336788e0f007d53876013ac6aa22e2c4b869584b49c3bd245da9ae',
+    );
+    expect(dec.destination).toEqual(
+      '0335ac19eb7042b7a594999939fe26dddc501bff81fbcb49a0e3b6f5b5713084f2',
+    );
   });
 
   test('should handle messages longer than the default gRPC limit', async () => {

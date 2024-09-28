@@ -1,4 +1,5 @@
 import { Transaction, address, crypto, networks } from 'bitcoinjs-lib';
+import bolt11 from 'bolt11';
 import { OutputType } from 'boltz-core';
 import { randomBytes } from 'crypto';
 import fs from 'fs';
@@ -11,7 +12,6 @@ import { parseTransaction, setup } from '../../../lib/Core';
 import { ECPair } from '../../../lib/ECPairHelper';
 import Logger from '../../../lib/Logger';
 import {
-  decodeInvoice,
   getHexBuffer,
   getHexString,
   getPairId,
@@ -31,6 +31,7 @@ import LockupTransactionTracker from '../../../lib/rates/LockupTransactionTracke
 import Blocks from '../../../lib/service/Blocks';
 import PaymentRequestUtils from '../../../lib/service/PaymentRequestUtils';
 import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
+import Sidecar from '../../../lib/sidecar/Sidecar';
 import Errors from '../../../lib/swap/Errors';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
 import OverpaymentProtector from '../../../lib/swap/OverpaymentProtector';
@@ -45,6 +46,7 @@ import {
   bitcoinLndClient2,
   elementsClient,
 } from '../Nodes';
+import { sidecar, startSidecar } from '../sidecar/Utils';
 
 describe('UtxoNursery', () => {
   const db = new Database(Logger.disabledLogger, Database.memoryDatabase);
@@ -115,11 +117,14 @@ describe('UtxoNursery', () => {
       deferredClaimSymbols: [],
     },
     lockupTracker,
+    sidecar,
     {} as any,
     {} as any,
   );
 
   beforeAll(async () => {
+    startSidecar();
+
     await setup();
 
     await db.init();
@@ -137,6 +142,11 @@ describe('UtxoNursery', () => {
     await Promise.all([bitcoinClient.generate(1), elementsClient.generate(1)]);
 
     await Promise.all([
+      sidecar.connect(
+        { on: jest.fn(), removeAllListeners: jest.fn() } as any,
+        {} as any,
+        false,
+      ),
       bitcoinLndClient.connect(false),
       bitcoinLndClient2.connect(false),
     ]);
@@ -160,6 +170,9 @@ describe('UtxoNursery', () => {
         NodeType.CLN
       ] as ClnPendingPaymentTracker
     ).stop();
+
+    sidecar.disconnect();
+    await Sidecar.stop();
 
     bitcoinLndClient.disconnect();
     bitcoinLndClient2.disconnect();
@@ -365,7 +378,12 @@ describe('UtxoNursery', () => {
       acceptZeroConf = false,
       version = SwapVersion.Taproot,
     ) => {
-      const invoice = await bitcoinLndClient2.addInvoice(100_000);
+      const invoiceAmount = 100_000;
+      const invoice = await bitcoinLndClient2.addInvoice(invoiceAmount);
+      const preimageHash = bolt11
+        .decode(invoice.paymentRequest)
+        .tags.find((tag) => tag.tagName === 'payment_hash')!.data as string;
+
       const refundKeys = ECPair.makeRandom();
 
       const created = await swapManager.createSwap({
@@ -375,17 +393,14 @@ describe('UtxoNursery', () => {
         baseCurrency: elementsClient.symbol,
         quoteCurrency: bitcoinClient.symbol,
         refundPublicKey: refundKeys.publicKey,
-        preimageHash: getHexBuffer(
-          decodeInvoice(invoice.paymentRequest).paymentHash!,
-        ),
+        preimageHash: getHexBuffer(preimageHash),
       });
 
-      const expectedAmount =
-        decodeInvoice(invoice.paymentRequest).satoshis + 1000;
+      const expectedAmount = invoiceAmount + 1_000;
       await swapManager.setSwapInvoice(
         (await SwapRepository.getSwap({ id: created.id }))!,
         invoice.paymentRequest,
-        decodeInvoice(invoice.paymentRequest).satoshis,
+        invoiceAmount,
         expectedAmount,
         1000,
         acceptZeroConf,

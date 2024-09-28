@@ -6,6 +6,8 @@ import { LightningClient } from '../../../lib/lightning/LightningClient';
 import LndClient from '../../../lib/lightning/LndClient';
 import { Payment } from '../../../lib/proto/lnd/rpc_pb';
 import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
+import { InvoiceType } from '../../../lib/sidecar/DecodedInvoice';
+import Sidecar from '../../../lib/sidecar/Sidecar';
 import ChannelNursery from '../../../lib/swap/ChannelNursery';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
 import PaymentHandler from '../../../lib/swap/PaymentHandler';
@@ -67,6 +69,10 @@ LndClient.formatPaymentFailureReason = jest.fn();
 
 const MockedLndClient = <jest.Mock<LndClient>>(<any>LndClient);
 
+const sidecar = {
+  decodeInvoiceOrOffer: jest.fn().mockResolvedValue(InvoiceType.Bolt11),
+} as unknown as Sidecar;
+
 describe('PaymentHandler', () => {
   const nodeSwitch = MockedNodeSwitch();
 
@@ -88,6 +94,7 @@ describe('PaymentHandler', () => {
 
   const handler = new PaymentHandler(
     Logger.disabledLogger,
+    sidecar,
     nodeSwitch,
     new Map<string, Currency>([['BTC', btcCurrency]]),
     MockedChannelNursery(),

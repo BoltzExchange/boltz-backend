@@ -366,6 +366,7 @@ describe('NodeFallback', () => {
       ${'some longer string that is still ok;!..!'}
       ${'asdf - !  +*##asdf'}
       ${'[["text/plain","Paid to third (Order ID: )"]]'}
+      ${'Paid to Cake Pay (Order ID: 6f693cac-20c3-4e3b-a47a-702276fddd8c)'}
     `('should allow visible ASCII characters: $input', ({ input }) => {
       fallback['checkInvoiceMemo'](input);
     });
@@ -403,9 +404,8 @@ describe('NodeFallback', () => {
     });
 
     test('should limit length', () => {
-      const msg =
-        'this is a very long string. buncha charss and even more chars';
-      expect(msg).toHaveLength(61);
+      const msg = '1'.repeat(101);
+      expect(msg).toHaveLength(101);
       expect(() => fallback['checkInvoiceMemo'](msg)).toThrow(
         Errors.INVALID_INVOICE_MEMO().message,
       );

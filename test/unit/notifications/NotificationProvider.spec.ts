@@ -379,6 +379,7 @@ describe('NotificationProvider', () => {
     expect(mockSendMessage).toHaveBeenCalledWith(
       `${Emojis.RotatingLight} **Disabled 0-conf for ${symbol}** ${Emojis.RotatingLight}`,
       true,
+      true,
     );
   });
 

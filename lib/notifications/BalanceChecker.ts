@@ -234,7 +234,7 @@ class BalanceChecker {
     }
 
     this.logger.warn(`Balance warning: ${message}`);
-    await this.notificationClient.sendMessage(message, true);
+    await this.notificationClient.sendMessage(message, true, !isInBounds);
   };
 }
 

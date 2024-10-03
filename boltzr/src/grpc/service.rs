@@ -131,7 +131,11 @@ where
 
         let params = request.into_inner();
         match client
-            .send_message(&params.message, params.is_alert.unwrap_or(false))
+            .send_message(
+                &params.message,
+                params.is_important.unwrap_or(false),
+                params.send_alert.unwrap_or(false),
+            )
             .await
         {
             Ok(_) => Ok(Response::new(SendMessageResponse::default())),

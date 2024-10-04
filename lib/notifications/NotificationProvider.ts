@@ -117,6 +117,7 @@ class NotificationProvider {
           await this.client.sendMessage(
             `${Emojis.RotatingLight} **Disabled 0-conf for ${symbol}** ${Emojis.RotatingLight}`,
             true,
+            true,
           ),
       );
 
@@ -344,6 +345,7 @@ class NotificationProvider {
       `**Lost connection to ${service}${
         subscription ? ` ${subscription} subscription` : ''
       }**`,
+      true,
       true,
     );
   };

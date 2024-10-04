@@ -27,7 +27,8 @@ message GetInfoResponse {
 
 message SendMessageRequest {
   string message = 1;
-  optional bool is_alert = 2;
+  optional bool is_important = 2;
+  optional bool send_alert = 3;
 }
 message SendMessageResponse {}
 

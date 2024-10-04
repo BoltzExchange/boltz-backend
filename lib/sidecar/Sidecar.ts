@@ -161,11 +161,19 @@ class Sidecar extends BaseClient {
     }
   };
 
-  public sendMessage = async (message: string, isAlert?: boolean) => {
+  public sendMessage = async (
+    message: string,
+    isImportant?: boolean,
+    sendAlert?: boolean,
+  ) => {
     const req = new sidecarrpc.SendMessageRequest();
     req.setMessage(message);
-    if (isAlert) {
-      req.setIsAlert(isAlert);
+    if (isImportant) {
+      req.setIsImportant(isImportant);
+    }
+
+    if (sendAlert) {
+      req.setSendAlert(sendAlert);
     }
 
     await this.unaryNodeCall<

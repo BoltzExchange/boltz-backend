@@ -48,13 +48,14 @@ class NotificationClient extends TypedEventEmitter<{
 
   public sendMessage = async (
     message: string,
-    isAlert?: boolean,
+    isImportant?: boolean,
+    sendAlert?: boolean,
   ): Promise<void> => {
     if (this.disabled) {
       return;
     }
 
-    return this.sidecar.sendMessage(message, isAlert);
+    return this.sidecar.sendMessage(message, isImportant, sendAlert);
   };
 }
 

@@ -359,6 +359,7 @@ describe('BalanceChecker', () => {
       1,
       `:white_check_mark: BTC ${service} wallet balance of 9.99,999,999 is in bounds again :white_check_mark:`,
       true,
+      false,
     );
 
     await sendAlert(
@@ -375,6 +376,7 @@ describe('BalanceChecker', () => {
         '  Balance: 0.99,999,999\n' +
         '    Min: 0.10,000,000',
       true,
+      true,
     );
 
     await sendAlert(
@@ -389,6 +391,7 @@ describe('BalanceChecker', () => {
       3,
       `:white_check_mark: USDT ${service} wallet balance of 1500.00,000,000 is in bounds again :white_check_mark:`,
       true,
+      false,
     );
 
     await sendAlert(
@@ -407,6 +410,7 @@ describe('BalanceChecker', () => {
         '    Max: 2000.00,000,000\n' +
         '    Min: 1000.00,000,000',
       true,
+      true,
     );
 
     // Channel alerts
@@ -423,6 +427,7 @@ describe('BalanceChecker', () => {
       5,
       `:white_check_mark: BTC ${service} local channel balance of 0.25,000,001 is more than expected 0.25,000,000 again :white_check_mark:`,
       true,
+      false,
     );
 
     await sendAlert(
@@ -437,6 +442,7 @@ describe('BalanceChecker', () => {
       6,
       `:white_check_mark: BTC ${service} remote channel balance of 0.25,000,001 is more than expected 0.24,000,000 again :white_check_mark:`,
       true,
+      false,
     );
 
     await sendAlert(
@@ -445,12 +451,12 @@ describe('BalanceChecker', () => {
       service,
       false,
       true,
-
       20000000,
     );
     expect(mockSendMessage).toHaveBeenNthCalledWith(
       7,
       `:rotating_light: **BTC ${service} local channel balance of 0.20,000,000 is less than expected 0.25,000,000** :rotating_light:`,
+      true,
       true,
     );
 
@@ -465,6 +471,7 @@ describe('BalanceChecker', () => {
     expect(mockSendMessage).toHaveBeenNthCalledWith(
       8,
       `:rotating_light: **BTC ${service} remote channel balance of 0.20,000,000 is less than expected 0.24,000,000** :rotating_light:`,
+      true,
       true,
     );
   });
@@ -553,6 +560,7 @@ describe('BalanceChecker', () => {
       } CLN wallet balance is out of bounds** ${Emojis.RotatingLight}
   Balance: ${satoshisToSatcomma(maxUnusedWalletBalance + 1)}
     Max: ${satoshisToSatcomma(maxUnusedWalletBalance)}`,
+      true,
       true,
     );
   });

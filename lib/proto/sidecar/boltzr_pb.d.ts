@@ -47,10 +47,15 @@ export class SendMessageRequest extends jspb.Message {
     getMessage(): string;
     setMessage(value: string): SendMessageRequest;
 
-    hasIsAlert(): boolean;
-    clearIsAlert(): void;
-    getIsAlert(): boolean | undefined;
-    setIsAlert(value: boolean): SendMessageRequest;
+    hasIsImportant(): boolean;
+    clearIsImportant(): void;
+    getIsImportant(): boolean | undefined;
+    setIsImportant(value: boolean): SendMessageRequest;
+
+    hasSendAlert(): boolean;
+    clearSendAlert(): void;
+    getSendAlert(): boolean | undefined;
+    setSendAlert(value: boolean): SendMessageRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): SendMessageRequest.AsObject;
@@ -65,7 +70,8 @@ export class SendMessageRequest extends jspb.Message {
 export namespace SendMessageRequest {
     export type AsObject = {
         message: string,
-        isAlert?: boolean,
+        isImportant?: boolean,
+        sendAlert?: boolean,
     }
 }
 

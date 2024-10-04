@@ -1,3 +1,5 @@
+use crate::notifications::utils::{contains_code_block, format_prefix, split_message, CODE_BLOCK};
+use crate::notifications::{Config, NotificationClient};
 use async_trait::async_trait;
 use async_tungstenite::tungstenite::Message;
 use futures::{SinkExt, StreamExt};
@@ -9,9 +11,6 @@ use std::fmt::{Display, Formatter};
 use std::time::Duration;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, instrument, trace, warn};
-
-use crate::notifications::utils::{contains_code_block, format_prefix, split_message, CODE_BLOCK};
-use crate::notifications::{Config, NotificationClient};
 
 const HEADER_AUTHORIZATION: &str = "Authorization";
 const HEADER_BEARER: &str = "BEARER";
@@ -99,6 +98,8 @@ pub struct Client {
     channel_id_alerts: Option<String>,
 
     msg_tx: tokio::sync::broadcast::Sender<String>,
+
+    alert_client: Option<crate::notifications::alerts::Client>,
 }
 
 impl Client {
@@ -108,8 +109,18 @@ impl Client {
         config: Config,
     ) -> Result<Self, Box<dyn Error>> {
         let (msg_tx, _) = tokio::sync::broadcast::channel::<String>(128);
+
+        let alert_client = match config.alert_webhook {
+            Some(endpoint) => Some(crate::notifications::alerts::Client::new(endpoint)),
+            None => {
+                warn!("No notification alert endpoint configured");
+                None
+            }
+        };
+
         let mut c = Client {
             msg_tx,
+            alert_client,
             cancellation_token,
             token: config.token,
             prefix: config.prefix,
@@ -328,7 +339,22 @@ impl Client {
 
 #[async_trait]
 impl NotificationClient for Client {
-    async fn send_message(&self, message: &str, is_alert: bool) -> Result<(), Box<dyn Error>> {
+    fn listen_to_messages(&self) -> tokio::sync::broadcast::Receiver<String> {
+        self.msg_tx.subscribe()
+    }
+
+    async fn send_message(
+        &self,
+        message: &str,
+        is_alert: bool,
+        send_alert: bool,
+    ) -> Result<(), Box<dyn Error>> {
+        if send_alert {
+            if let Some(alert_client) = self.alert_client.clone() {
+                alert_client.send_alert("Boltz alert".to_string()).await?;
+            }
+        }
+
         if message.len() + self.prefix.clone().unwrap_or("".to_string()).len() + 10
             < MAX_MESSAGE_LENGTH
         {
@@ -368,9 +394,5 @@ impl NotificationClient for Client {
         }
 
         Ok(())
-    }
-
-    fn listen_to_messages(&self) -> tokio::sync::broadcast::Receiver<String> {
-        self.msg_tx.subscribe()
     }
 }

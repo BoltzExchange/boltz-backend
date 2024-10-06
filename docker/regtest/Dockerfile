@@ -9,8 +9,8 @@ ARG C_LIGHTNING_VERSION
 FROM boltz/bitcoin-core:${BITCOIN_VERSION} AS bitcoin-core
 FROM ghcr.io/vulpemventures/elements:${ELEMENTS_VERSION} AS elements-core
 
-FROM boltz/lnd:${LND_VERSION} as lnd
-FROM boltz/c-lightning:${C_LIGHTNING_VERSION} as cln
+FROM boltz/lnd:${LND_VERSION} AS lnd
+FROM boltz/c-lightning:${C_LIGHTNING_VERSION} AS cln
 
 FROM ubuntu:${UBUNTU_VERSION}
 

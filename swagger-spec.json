@@ -2428,7 +2428,7 @@
           },
           "description": {
             "type": "string",
-            "description": "Description of the created invoice and magic routing hint. Only ASCII and a maximum length of 40 characters is allowed"
+            "description": "Description of the created invoice and magic routing hint. Only ASCII and a maximum length of 100 characters is allowed"
           },
           "descriptionHash": {
             "type": "string",

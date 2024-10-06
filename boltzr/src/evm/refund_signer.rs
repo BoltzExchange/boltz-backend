@@ -3,7 +3,7 @@ use std::fs;
 
 use alloy::primitives::{Address, FixedBytes, U256};
 use alloy::providers::fillers::{
-    ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, WalletFiller,
+    BlobGasFiller, ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, WalletFiller,
 };
 use alloy::providers::network::{AnyNetwork, EthereumWallet};
 use alloy::providers::{Provider, ProviderBuilder, RootProvider};
@@ -21,8 +21,8 @@ type AlloyTransport = alloy_transport_http::Http<reqwest::Client>;
 type AlloyProvider = FillProvider<
     JoinFill<
         JoinFill<
-            JoinFill<JoinFill<alloy::providers::Identity, GasFiller>, NonceFiller>,
-            ChainIdFiller,
+            alloy::providers::Identity,
+            JoinFill<GasFiller, JoinFill<BlobGasFiller, JoinFill<NonceFiller, ChainIdFiller>>>,
         >,
         WalletFiller<EthereumWallet>,
     >,

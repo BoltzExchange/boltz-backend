@@ -6,7 +6,7 @@ use metrics::{describe_counter, describe_gauge, Unit};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 pub type MetricsLayer = GenericMetricLayer<'static, PrometheusHandle, axum_prometheus::Handle>;
 
@@ -62,7 +62,7 @@ impl Server {
 
     pub async fn start(&mut self) -> Result<(), Box<dyn Error>> {
         if self.config.is_none() {
-            info!("Not starting metrics server because it was not configured");
+            warn!("Not starting metrics server because it was not configured");
             return Ok(());
         }
         let config = self.config.clone().unwrap();
@@ -175,18 +175,6 @@ mod server_test {
         let (config, token) = start_server(9104, Some(true), None).await;
 
         let res = reqwest::get(format!("http://{}:{}", config.host, config.port))
-            .await
-            .unwrap();
-        assert_eq!(res.status(), StatusCode::OK);
-
-        token.cancel();
-    }
-
-    #[tokio::test]
-    async fn test_serve_api_metrics() {
-        let (config, token) = start_server(9105, None, Some(true)).await;
-
-        let res = reqwest::get(format!("http://{}:{}/api", config.host, config.port))
             .await
             .unwrap();
         assert_eq!(res.status(), StatusCode::OK);

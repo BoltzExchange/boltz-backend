@@ -1,4 +1,4 @@
-import { Metadata } from '@grpc/grpc-js';
+import { ClientDuplexStream, Metadata } from '@grpc/grpc-js';
 import { Status } from '@grpc/grpc-js/build/src/constants';
 import child_process from 'node:child_process';
 import path from 'path';
@@ -48,6 +48,10 @@ class Sidecar extends BaseClient {
 
   private swapInfos!: SwapInfos;
   private eventHandler!: EventHandler;
+  private subscribeSwapUpatesCall?: ClientDuplexStream<
+    sidecarrpc.SwapUpdateRequest,
+    sidecarrpc.SwapUpdateResponse
+  >;
 
   constructor(
     logger: Logger,
@@ -80,9 +84,9 @@ class Sidecar extends BaseClient {
 
   public static stop = async () => {
     if (Sidecar.childProcess) {
-      Sidecar.childProcess.kill('SIGINT');
       await new Promise<void>((resolve) => {
         Sidecar.childProcess!.once('exit', resolve);
+        Sidecar.childProcess!.kill('SIGINT');
       });
     }
   };
@@ -127,6 +131,8 @@ class Sidecar extends BaseClient {
   };
 
   public disconnect = (): void => {
+    this.subscribeSwapUpatesCall?.cancel();
+
     this.clearReconnectTimer();
 
     this.client?.close();
@@ -313,30 +319,53 @@ class Sidecar extends BaseClient {
       return req;
     };
 
-    const call = this.client!.swapUpdate(this.clientMeta);
+    if (this.subscribeSwapUpatesCall !== undefined) {
+      this.subscribeSwapUpatesCall.cancel();
+    }
 
-    call.on('data', async (data: sidecarrpc.SwapUpdateResponse) => {
-      const status = (
-        await Promise.all(
-          data
-            .getIdsList()
-            .map(async (id) => ({ id, status: await this.swapInfos.get(id) })),
-        )
-      ).filter((update): update is Update => update.status !== undefined);
-      if (status.length === 0) {
-        return;
-      }
+    this.subscribeSwapUpatesCall = this.client!.swapUpdate(this.clientMeta);
 
-      call.write(serializeSwapUpdate(status));
+    this.subscribeSwapUpatesCall.on(
+      'data',
+      async (data: sidecarrpc.SwapUpdateResponse) => {
+        const status = (
+          await Promise.all(
+            data.getIdsList().map(async (id) => ({
+              id,
+              status: await this.swapInfos.get(id),
+            })),
+          )
+        ).filter((update): update is Update => update.status !== undefined);
+        if (status.length === 0) {
+          return;
+        }
+
+        this.subscribeSwapUpatesCall!.write(serializeSwapUpdate(status));
+      },
+    );
+
+    this.subscribeSwapUpatesCall.on('error', (err) => {
+      this.logger.warn(
+        `Swap updates streaming call threw error: ${formatError(err)}`,
+      );
+      this.subscribeSwapUpatesCall = undefined;
     });
 
-    call.on('end', () => {
+    this.subscribeSwapUpatesCall.on('end', () => {
       this.eventHandler.removeAllListeners();
-      call.cancel();
+
+      if (this.subscribeSwapUpatesCall !== undefined) {
+        this.subscribeSwapUpatesCall.cancel();
+        this.subscribeSwapUpatesCall = undefined;
+      }
     });
 
     this.eventHandler.on('swap.update', async ({ id, status }) => {
-      call.write(serializeSwapUpdate([{ id, status }]));
+      if (this.subscribeSwapUpatesCall === undefined) {
+        return;
+      }
+
+      this.subscribeSwapUpatesCall.write(serializeSwapUpdate([{ id, status }]));
 
       await this.sendWebHook(id, status.status);
     });

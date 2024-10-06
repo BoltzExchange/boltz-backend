@@ -8,11 +8,6 @@ import { WinstonInstrumentation } from '@opentelemetry/instrumentation-winston';
 import { CompressionAlgorithm } from '@opentelemetry/otlp-exporter-base';
 import { Resource } from '@opentelemetry/resources';
 import { NodeSDK } from '@opentelemetry/sdk-node';
-import {
-  SEMRESATTRS_PROCESS_PID,
-  SEMRESATTRS_SERVICE_NAME,
-  SEMRESATTRS_SERVICE_VERSION,
-} from '@opentelemetry/semantic-conventions';
 import process from 'process';
 import packageJson from '../package.json';
 
@@ -33,9 +28,9 @@ class Tracing {
     this.sdk = new NodeSDK({
       instrumentations,
       resource: new Resource({
-        [SEMRESATTRS_PROCESS_PID]: process.pid,
-        [SEMRESATTRS_SERVICE_VERSION]: packageJson.version,
-        [SEMRESATTRS_SERVICE_NAME]: `${packageJson.name}-${network}`,
+        ['process.pid']: process.pid,
+        ['service.version']: packageJson.version,
+        ['service.name']: `${packageJson.name}-${network}`,
       }),
       traceExporter: new OTLPTraceExporter({
         url: endpoint,

@@ -102,8 +102,6 @@ class Boltz {
       await this.grpcServer.close();
       await this.db.close();
 
-      await Sidecar.stop();
-
       await Profiling.stop();
       await Tracing.stop();
 
@@ -120,9 +118,6 @@ class Boltz {
     });
 
     process.on('exit', (code) => {
-      Sidecar.stop().then(() => {
-        this.logger.debug('Sidecar stopped');
-      });
       (code === 0 ? this.logger.debug : this.logger.error)(
         `Application shutting down with code: ${code}`,
       );

@@ -113,7 +113,7 @@ impl Client {
         let alert_client = match config.alert_webhook {
             Some(endpoint) => Some(crate::notifications::alerts::Client::new(endpoint)),
             None => {
-                warn!("No notification alert endpoint configured");
+                warn!("No alert endpoint configured");
                 None
             }
         };

@@ -1169,18 +1169,19 @@ dependencies = [
 
 [[package]]
 name = "axum-prometheus"
-version = "0.7.0"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "739e2585f5376f5bdd129324ded72d3261fdd5b7c411a645920328fb5dc875d4"
+checksum = "b683cbc43010e9a3d72c2f31ca464155ff4f95819e88a32924b0f47a43898978"
 dependencies = [
  "axum",
  "bytes",
+ "futures",
  "futures-core",
  "http 1.1.0",
  "http-body 1.0.1",
  "matchit",
- "metrics",
- "metrics-exporter-prometheus",
+ "metrics 0.22.3",
+ "metrics-exporter-prometheus 0.13.1",
  "once_cell",
  "pin-project 1.1.5",
  "tokio",
@@ -1415,8 +1416,8 @@ dependencies = [
  "futures-util",
  "lightning",
  "lightning-invoice",
- "metrics",
- "metrics-exporter-prometheus",
+ "metrics 0.23.0",
+ "metrics-exporter-prometheus 0.15.3",
  "metrics-process",
  "mockall",
  "num_cpus",
@@ -3177,6 +3178,16 @@ dependencies = [
 
 [[package]]
 name = "metrics"
+version = "0.22.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2be3cbd384d4e955b231c895ce10685e3d8260c5ccffae898c96c723b0772835"
+dependencies = [
+ "ahash",
+ "portable-atomic",
+]
+
+[[package]]
+name = "metrics"
 version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "884adb57038347dfbaf2d5065887b6cf4312330dc8e94bc30a1a839bd79d3261"
@@ -3187,22 +3198,33 @@ dependencies = [
 
 [[package]]
 name = "metrics-exporter-prometheus"
+version = "0.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9bf4e7146e30ad172c42c39b3246864bd2d3c6396780711a1baf749cfe423e21"
+dependencies = [
+ "base64 0.21.7",
+ "hyper 0.14.30",
+ "indexmap 2.5.0",
+ "ipnet",
+ "metrics 0.22.3",
+ "metrics-util 0.16.3",
+ "quanta",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
+name = "metrics-exporter-prometheus"
 version = "0.15.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4f0c8427b39666bf970460908b213ec09b3b350f20c0c2eabcbba51704a08e6"
 dependencies = [
  "base64 0.22.1",
- "http-body-util",
- "hyper 1.4.1",
- "hyper-util",
  "indexmap 2.5.0",
- "ipnet",
- "metrics",
- "metrics-util",
+ "metrics 0.23.0",
+ "metrics-util 0.17.0",
  "quanta",
  "thiserror",
- "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -3213,11 +3235,26 @@ checksum = "cb524e5438255eaa8aa74214d5a62713b77b2c3c6e3c0bbeee65cfd9a58948ba"
 dependencies = [
  "libproc",
  "mach2",
- "metrics",
+ "metrics 0.23.0",
  "once_cell",
  "procfs",
  "rlimit",
  "windows",
+]
+
+[[package]]
+name = "metrics-util"
+version = "0.16.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b07a5eb561b8cbc16be2d216faf7757f9baf3bfb94dbb0fae3df8387a5bb47f"
+dependencies = [
+ "crossbeam-epoch",
+ "crossbeam-utils",
+ "hashbrown 0.14.5",
+ "metrics 0.22.3",
+ "num_cpus",
+ "quanta",
+ "sketches-ddsketch",
 ]
 
 [[package]]
@@ -3229,7 +3266,7 @@ dependencies = [
  "crossbeam-epoch",
  "crossbeam-utils",
  "hashbrown 0.14.5",
- "metrics",
+ "metrics 0.23.0",
  "num_cpus",
  "quanta",
  "sketches-ddsketch",

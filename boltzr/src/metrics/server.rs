@@ -182,6 +182,16 @@ mod server_test {
         token.cancel();
     }
 
+    #[tokio::test]
+    async fn test_serve_api_metrics() {
+        let (config, token) = start_server(9105, None, Some(true)).await;
+        let res = reqwest::get(format!("http://{}:{}/api", config.host, config.port))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        token.cancel();
+    }
+
     async fn start_server(
         port: u16,
         disable_server_metrics: Option<bool>,

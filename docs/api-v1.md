@@ -5,7 +5,9 @@ description:
 
 # 🤖 REST API v1 (deprecated)
 
-{% hint style="info" %} API v1 is maintained for existing integrations only and does not include the latest features or swap pairs. For any new integrations, we strongly recommend using API v2. {% endhint %}
+{% hint style="info" %} API v1 is maintained for existing integrations only and
+does not include the latest features or swap pairs. For any new integrations, we
+strongly recommend using API v2. {% endhint %}
 
 ## Basics
 

@@ -1,6 +1,10 @@
 import { DataTypes, Model, Sequelize } from 'sequelize';
 import { getLightningCurrency, splitPairId } from '../../Utils';
-import { SwapType as SwapKindType, SwapVersion } from '../../consts/Enums';
+import {
+  SwapType as SwapKindType,
+  SwapUpdateEvent,
+  SwapVersion,
+} from '../../consts/Enums';
 import { IncorrectAmountDetails } from '../../consts/Types';
 import Pair from './Pair';
 
@@ -186,6 +190,7 @@ class Swap extends Model implements SwapType {
 
   get failureDetails(): IncorrectAmountDetails | undefined {
     if (
+      this.status === SwapUpdateEvent.TransactionLockupFailed &&
       [this.onchainAmount, this.expectedAmount].every(
         (val) => val !== undefined && val !== null,
       )

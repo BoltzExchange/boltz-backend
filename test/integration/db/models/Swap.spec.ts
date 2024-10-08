@@ -92,8 +92,9 @@ describe('Swap', () => {
       async ({ amount }) => {
         const swap = await Swap.create({
           ...createSwapBase(),
-          onchainAmount: amount,
           expectedAmount: 21,
+          onchainAmount: amount,
+          status: SwapUpdateEvent.TransactionLockupFailed,
         });
         expect(swap.failureDetails).toEqual({
           actual: swap.onchainAmount,
@@ -101,5 +102,15 @@ describe('Swap', () => {
         });
       },
     );
+
+    test('should return undefined when status is not TransactionLockupFailed', async () => {
+      const swap = await Swap.create({
+        ...createSwapBase(),
+        onchainAmount: 20,
+        expectedAmount: 21,
+        status: SwapUpdateEvent.TransactionClaimed,
+      });
+      expect(swap.failureDetails).toEqual(undefined);
+    });
   });
 });

@@ -82,6 +82,7 @@ class ChainSwapInfo {
 
   get failureDetails(): IncorrectAmountDetails | undefined {
     if (
+      this.status === SwapUpdateEvent.TransactionLockupFailed &&
       [this.receivingData.expectedAmount, this.receivingData.amount].every(
         (val) => val !== undefined && val !== null,
       )

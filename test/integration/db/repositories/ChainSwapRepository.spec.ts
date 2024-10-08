@@ -148,6 +148,7 @@ describe('ChainSwapInfo', () => {
           amount,
           expectedAmount: 21,
         };
+        swapType.chainSwap.status = SwapUpdateEvent.TransactionLockupFailed;
         await ChainSwapRepository.addChainSwap(swapType);
 
         const swap = await ChainSwapRepository.getChainSwap({
@@ -160,6 +161,23 @@ describe('ChainSwapInfo', () => {
         });
       },
     );
+
+    test('should return undefined when status is not TransactionLockupFailed', async () => {
+      const swapType = createSwapBase();
+      swapType.receivingData = {
+        ...swapType.receivingData,
+        amount: 20,
+        expectedAmount: 21,
+      };
+      swapType.chainSwap.status = SwapUpdateEvent.TransactionClaimed;
+      await ChainSwapRepository.addChainSwap(swapType);
+
+      const swap = await ChainSwapRepository.getChainSwap({
+        id: swapType.chainSwap.id,
+      });
+      expect(swap).not.toBeNull();
+      expect(swap!.failureDetails).toEqual(undefined);
+    });
   });
 });
 

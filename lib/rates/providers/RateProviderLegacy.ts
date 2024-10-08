@@ -82,7 +82,7 @@ class RateProviderLegacy extends RateProviderBase<PairTypeLegacy> {
     };
     hardcodedPair.hash = this.hashPair(hardcodedPair);
 
-    this.pairs.set(id, hardcodedPair);
+    this.setPair(id, hardcodedPair);
   };
 
   public updatePair = (pairId: string, rate: number) => {
@@ -114,12 +114,16 @@ class RateProviderLegacy extends RateProviderBase<PairTypeLegacy> {
     };
     pair.hash = this.hashPair(pair);
 
-    this.pairs.set(pairId, pair);
+    this.setPair(pairId, pair);
   };
 
   public updateHardcodedPair = (pairId: string) => {
     const { base, quote } = splitPairId(pairId);
-    const pairInfo = this.pairs.get(pairId)!;
+    const pairInfo = this.pairs.get(pairId);
+
+    if (pairInfo === undefined) {
+      return;
+    }
 
     pairInfo.fees.minerFees = {
       baseAsset: this.feeProvider.minerFees.get(base)![SwapVersion.Legacy],
@@ -129,7 +133,7 @@ class RateProviderLegacy extends RateProviderBase<PairTypeLegacy> {
 
     pairInfo.hash = this.hashPair(pairInfo);
 
-    this.pairs.set(pairId, pairInfo);
+    this.setPair(pairId, pairInfo);
   };
 
   public validatePairHash = (hash: string, pairId: string) => {
@@ -171,6 +175,12 @@ class RateProviderLegacy extends RateProviderBase<PairTypeLegacy> {
         quoteAsset: this.zeroConfAmounts.get(quote)!,
       },
     };
+  };
+
+  private setPair = (id: string, pair: PairTypeLegacy) => {
+    if (this.pairConfigs.get(id)?.isLegacy) {
+      this.pairs.set(id, pair);
+    }
   };
 }
 

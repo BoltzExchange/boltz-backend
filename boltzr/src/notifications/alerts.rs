@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::time::{SystemTime, UNIX_EPOCH};
+use tracing::warn;
 
 #[derive(Debug)]
 enum AlertError {
@@ -37,6 +38,8 @@ impl Client {
     }
 
     pub async fn send_alert(&self, title: String) -> anyhow::Result<()> {
+        warn!("Sending alert for: {}", title);
+
         let client = reqwest::Client::new();
         let res = client
             .post(self.endpoint.clone())

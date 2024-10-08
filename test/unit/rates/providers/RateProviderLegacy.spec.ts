@@ -74,8 +74,16 @@ describe('RateProviderLegacy', () => {
       base: 'L-BTC',
       quote: 'BTC',
       rate: 1,
+      isLegacy: true,
       minSwapAmount: 1_000,
       maxSwapAmount: 1_000_000,
+    },
+    {
+      base: 'non',
+      quote: 'legacy',
+      rate: 1,
+      minSwapAmount: 2_000,
+      maxSwapAmount: 21_000,
     },
   ];
 
@@ -194,42 +202,50 @@ describe('RateProviderLegacy', () => {
     });
   });
 
-  test('should update hardcoded pairs', () => {
-    provider.pairs.get('L-BTC/BTC')!.rate = 2;
+  describe('updateHardcodedPair', () => {
+    test('should update hardcoded pairs', () => {
+      provider.pairs.get('L-BTC/BTC')!.rate = 2;
 
-    provider.updateHardcodedPair('L-BTC/BTC');
-    expect(provider.pairs.get('L-BTC/BTC')).toEqual({
-      rate: 2,
-      hash: provider['hashPair'](provider.pairs.get('L-BTC/BTC')!),
-      limits: provider['getLimits']('L-BTC/BTC', pairConfigs[0].rate),
-      fees: {
-        percentage: mockedFeeProvider.getPercentageFee(
-          'L-BTC/BTC',
-          OrderSide.BUY,
-          SwapType.ReverseSubmarine,
-        ),
-        percentageSwapIn: mockedFeeProvider.getPercentageFee(
-          'L-BTC/BTC',
-          OrderSide.BUY,
-          SwapType.Submarine,
-        ),
-        minerFees: {
-          baseAsset: {
-            normal: 1333,
-            reverse: {
-              claim: 1378,
-              lockup: 2503,
+      provider.updateHardcodedPair('L-BTC/BTC');
+      expect(provider.pairs.get('L-BTC/BTC')).toEqual({
+        rate: 2,
+        hash: provider['hashPair'](provider.pairs.get('L-BTC/BTC')!),
+        limits: provider['getLimits']('L-BTC/BTC', pairConfigs[0].rate),
+        fees: {
+          percentage: mockedFeeProvider.getPercentageFee(
+            'L-BTC/BTC',
+            OrderSide.BUY,
+            SwapType.ReverseSubmarine,
+          ),
+          percentageSwapIn: mockedFeeProvider.getPercentageFee(
+            'L-BTC/BTC',
+            OrderSide.BUY,
+            SwapType.Submarine,
+          ),
+          minerFees: {
+            baseAsset: {
+              normal: 1333,
+              reverse: {
+                claim: 1378,
+                lockup: 2503,
+              },
             },
-          },
-          quoteAsset: {
-            normal: 170,
-            reverse: {
-              claim: 138,
-              lockup: 153,
+            quoteAsset: {
+              normal: 170,
+              reverse: {
+                claim: 138,
+                lockup: 153,
+              },
             },
           },
         },
-      },
+      });
+    });
+
+    test('should not throw when updating hardcoded pair that is not legacy', () => {
+      expect(provider.pairs.size).toEqual(1);
+      provider.updateHardcodedPair('non/legacy');
+      expect(provider.pairs.size).toEqual(1);
     });
   });
 

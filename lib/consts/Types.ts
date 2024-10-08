@@ -62,6 +62,8 @@ export type PairConfig = {
   maxSwapAmount: number;
 
   chainSwap?: ChainSwapPairConfig;
+
+  isLegacy?: boolean;
 };
 
 /**

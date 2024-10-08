@@ -101,8 +101,11 @@ class CountryCodes {
   };
 
   private static getAddress = (address: string, isIpV6: boolean): bigint => {
-    const addr = isIpV6 ? Address6 : Address4;
-    return BigInt(new addr(address).bigInteger());
+    if (isIpV6) {
+      return new Address6(address).bigInt();
+    } else {
+      return BigInt(new Address4(address).bigInt().toString());
+    }
   };
 
   private static tryGetAddress = (

@@ -167,6 +167,10 @@ rate = 1
 maxSwapAmount = 10_000_000
 minSwapAmount = 10_000
 
+# Whether the pair should be available in the legacy v1 API
+# Defaults to false
+isLegacy = true
+
 # Expiry of the invoices generated for reverse swaps of this pair
 # If not set, half of the expiry time of the reverse swap will be used
 invoiceExpiry = 7200

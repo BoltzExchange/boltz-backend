@@ -1,5 +1,5 @@
 import { Arguments } from 'yargs';
-import { GetPendingSweepsRequest } from '../../proto/boltzrpc_pb';
+import { GetPendingSweepsRequest, PendingSweep } from '../../proto/boltzrpc_pb';
 import { ApiType, BuilderTypes } from '../BuilderComponents';
 import { callback, loadBoltzClient } from '../Command';
 
@@ -14,6 +14,34 @@ export const handler = (
 ): void => {
   loadBoltzClient(argv).getPendingSweeps(
     new GetPendingSweepsRequest(),
-    callback(),
+    callback((res) => {
+      const toSweep: Record<
+        string,
+        {
+          totalAmount: number;
+          toSweep: PendingSweep.AsObject[];
+        }
+      > = {};
+
+      for (const [, [symbol, ids]] of res
+        .toObject()
+        .pendingSweepsMap.entries()) {
+        if (ids.pendingSweepsList.length === 0) {
+          continue;
+        }
+
+        toSweep[symbol] = {
+          totalAmount: Number(
+            ids.pendingSweepsList.reduce(
+              (prev, sweep) => prev + BigInt(sweep.onchainAmount),
+              0n,
+            ),
+          ),
+          toSweep: ids.pendingSweepsList,
+        };
+      }
+
+      return toSweep;
+    }),
   );
 };

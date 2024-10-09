@@ -337,6 +337,7 @@ class Boltz {
     } catch (error) {
       this.logger.error(`Could not initialize Boltz: ${formatError(error)}`);
       console.log(error);
+      Sidecar.stop().then();
       // eslint-disable-next-line no-process-exit
       process.exit(1);
     }

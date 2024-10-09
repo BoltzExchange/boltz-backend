@@ -88,7 +88,7 @@ class DeferredClaimer extends CoopSignerBase<
   };
 
   public pendingSweeps = () => {
-    const transFormMap = (map: Map<string, Map<string, any>>) =>
+    const transformMap = (map: Map<string, Map<string, any>>) =>
       new Map<string, string[]>(
         Array.from(map.entries()).map(([currency, swaps]) => [
           currency,
@@ -97,7 +97,7 @@ class DeferredClaimer extends CoopSignerBase<
       );
 
     return {
-      [SwapType.Submarine]: transFormMap(this.swapsToClaim),
+      [SwapType.Submarine]: transformMap(this.swapsToClaim),
     };
   };
 

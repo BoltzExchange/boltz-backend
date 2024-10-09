@@ -137,6 +137,13 @@ jest.mock('../../../lib/service/Service', () => {
     return {
       swapManager: {
         deferredClaimer: {
+          sweep: jest.fn().mockResolvedValue(
+            new Map<string, string[]>([
+              ['BTC', ['2', '1', 'ids']],
+              ['L-BTC', ['other', 'swaps']],
+            ]),
+          ),
+          sweepSymbol: jest.fn().mockResolvedValue(['symbol', 'sweep']),
           pendingSweeps: jest.fn().mockReturnValue({
             [SwapType.Submarine]: new Map<string, string[]>([
               ['BTC', ['everything1', 'everything2']],
@@ -227,6 +234,7 @@ describe('CommandHandler', () => {
   });
 
   beforeEach(() => {
+    jest.clearAllMocks();
     mockSendMessage.mockClear();
     ReferralStats.getReferralFees = mockGenerateReferralStats;
   });
@@ -264,12 +272,13 @@ describe('CommandHandler', () => {
         '**getreferrals**: gets stats for all referral IDs\n' +
         '**backup**: uploads a backup of the databases\n' +
         '**getaddress**: gets an address for a currency\n' +
+        '**sweepswaps**: sweeps deferred swap claims\n' +
         '**togglereverse**: enables or disables reverse swaps',
     );
   });
 
   test('should send help for single command', async () => {
-    // Should just send the description for commands that have no additonal arguments
+    // Should just send the description for commands that have no additional arguments
     sendMessage('help getfees');
     await wait(5);
 
@@ -573,6 +582,44 @@ describe('CommandHandler', () => {
       expect(mockSendMessage).toHaveBeenCalledTimes(1);
       expect(mockSendMessage).toHaveBeenCalledWith(
         'Could not get address: no label was specified',
+      );
+    });
+  });
+
+  describe('sweepswaps', () => {
+    test('should sweep all symbols', async () => {
+      sendMessage('sweepswaps');
+      await wait(5);
+
+      expect(service.swapManager.deferredClaimer.sweep).toHaveBeenCalledTimes(
+        1,
+      );
+
+      expect(mockSendMessage).toHaveBeenCalledTimes(1);
+      expect(mockSendMessage).toHaveBeenCalledWith(
+        `${codeBlock}${stringify(mapToObject(await service.swapManager.deferredClaimer.sweep()))}${codeBlock}`,
+      );
+    });
+
+    test.each`
+      symbol
+      ${'L-BTC'}
+      ${'L-btc'}
+      ${'l-btc'}
+    `('should sweep specific symbol', async ({ symbol }) => {
+      sendMessage(`sweepswaps ${symbol}`);
+      await wait(5);
+
+      expect(
+        service.swapManager.deferredClaimer.sweepSymbol,
+      ).toHaveBeenCalledTimes(1);
+      expect(
+        service.swapManager.deferredClaimer.sweepSymbol,
+      ).toHaveBeenCalledWith(symbol.toUpperCase());
+
+      expect(mockSendMessage).toHaveBeenCalledTimes(1);
+      expect(mockSendMessage).toHaveBeenCalledWith(
+        `${codeBlock}${stringify({ [symbol.toUpperCase()]: await service.swapManager.deferredClaimer.sweepSymbol(symbol.toUpperCase()) })}${codeBlock}`,
       );
     });
   });

@@ -47,8 +47,8 @@ enum Command {
 
   // Commands that generate a value or trigger a function
   Backup = 'backup',
-  Withdraw = 'withdraw',
   GetAddress = 'getaddress',
+  SweepSwaps = 'sweepswaps',
   ToggleReverseSwaps = 'togglereverse',
 }
 
@@ -190,6 +190,23 @@ class CommandHandler {
           ],
           executor: this.getAddress,
           description: 'gets an address for a currency',
+        },
+      ],
+      [
+        Command.SweepSwaps,
+        {
+          usage: [
+            {
+              command: 'sweepswaps',
+              description: 'sweeps deferred swap claims of all currencies',
+            },
+            {
+              command: 'sweepswaps <currency>',
+              description: 'sweeps deferred swap claims of a specific currency',
+            },
+          ],
+          executor: this.sweepSwaps,
+          description: 'sweeps deferred swap claims',
         },
       ],
       [
@@ -586,6 +603,28 @@ class CommandHandler {
       await this.notificationClient.sendMessage(`\`${response}\``);
     } catch (error) {
       await sendError(error);
+    }
+  };
+
+  private sweepSwaps = async (args: string[]) => {
+    try {
+      if (args.length === 0) {
+        const sweeps = await this.service.swapManager.deferredClaimer.sweep();
+        await this.notificationClient.sendMessage(
+          `${codeBlock}${stringify(mapToObject(sweeps))}${codeBlock}`,
+        );
+      } else {
+        const symbol = args[0].toUpperCase();
+        const sweeps =
+          await this.service.swapManager.deferredClaimer.sweepSymbol(symbol);
+        await this.notificationClient.sendMessage(
+          `${codeBlock}${stringify({ [symbol]: sweeps })}${codeBlock}`,
+        );
+      }
+    } catch (e) {
+      await this.notificationClient.sendMessage(
+        `Could not sweep swaps: ${formatError(e)}`,
+      );
     }
   };
 

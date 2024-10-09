@@ -256,16 +256,26 @@ describe('RateProviderLegacy', () => {
     provider.pairs.set(pair, {
       hash,
     } as any);
-    provider['validatePairHash'](hash, pair);
+    provider.validatePairHash(hash, pair);
   });
 
   test('should throw when validating incorrect pair hash', () => {
-    expect(() => provider['validatePairHash']('smthg', 'L-BTC/BTC')).toThrow(
+    expect(() => provider.validatePairHash('smthg', 'L-BTC/BTC')).toThrow(
       Errors.INVALID_PAIR_HASH().message,
     );
-    expect(() => provider['validatePairHash']('smthg', 'NOT/FOUND')).toThrow(
+    expect(() => provider.validatePairHash('smthg', 'NOT/FOUND')).toThrow(
       Errors.INVALID_PAIR_HASH().message,
     );
+  });
+
+  describe('getRate', () => {
+    test('should return rate', () => {
+      expect(provider.getRate('L-BTC/BTC')).toEqual(2);
+    });
+
+    test('should return undefined when pair is not set', () => {
+      expect(provider.getRate('not/defined')).toEqual(undefined);
+    });
   });
 
   test('should hash pairs', () => {

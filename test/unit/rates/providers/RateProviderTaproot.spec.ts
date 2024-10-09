@@ -242,6 +242,27 @@ describe('RateProviderTaproot', () => {
     ).toThrow(Errors.PAIR_NOT_FOUND(pair).message);
   });
 
+  describe('getRate', () => {
+    test('should return rate', () => {
+      provider.setHardcodedPair(
+        {
+          rate: 1,
+          base: 'L-BTC',
+          quote: 'BTC',
+        } as any,
+        [SwapType.Submarine, SwapType.ReverseSubmarine],
+      );
+
+      expect(provider.getRate('L-BTC/BTC', SwapType.Submarine)).toEqual(1);
+    });
+
+    test('should return undefined when pair is not set', () => {
+      expect(provider.getRate('not/defined', SwapType.Submarine)).toEqual(
+        undefined,
+      );
+    });
+  });
+
   test('should getNested pair map', () => {
     const nested = provider['getToMap'](
       'not/found',

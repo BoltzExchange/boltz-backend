@@ -226,6 +226,15 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
     }
   };
 
+  public getRate = (pairId: string, type: SwapType): number | undefined => {
+    const nested = this.getToMap(pairId, OrderSide.SELL, type);
+    if (nested === undefined) {
+      return undefined;
+    }
+
+    return nested.toMap.get(nested.toAsset)?.rate;
+  };
+
   private getToMap = <T = SwapTypes>(
     pairId: string,
     orderSide: OrderSide,

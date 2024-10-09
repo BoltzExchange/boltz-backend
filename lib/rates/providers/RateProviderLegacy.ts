@@ -144,6 +144,9 @@ class RateProviderLegacy extends RateProviderBase<PairTypeLegacy> {
     }
   };
 
+  public getRate = (pairId: string): number | undefined =>
+    this.pairs.get(pairId)?.rate;
+
   protected hashPair = (pair: PairTypeLegacy): string =>
     hashString(
       JSON.stringify({

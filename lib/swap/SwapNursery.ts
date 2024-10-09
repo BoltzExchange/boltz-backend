@@ -877,8 +877,10 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
   private setSwapRate = async (swap: Swap) => {
     if (!swap.rate) {
       const rate = getRate(
-        this.rateProvider.providers[SwapVersion.Legacy].pairs.get(swap.pair)!
-          .rate,
+        this.rateProvider.providers[swap.version].getRate(
+          swap.pair,
+          swap.type,
+        )!,
         swap.orderSide,
         false,
       );

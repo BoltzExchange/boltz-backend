@@ -42,6 +42,8 @@ abstract class RateProviderBase<T> {
     type: SwapType,
   ): void;
 
+  public abstract getRate(pairId: string, type: SwapType): number | undefined;
+
   protected abstract hashPair(pair: T): string;
 
   protected adjustMinimaForFees = (

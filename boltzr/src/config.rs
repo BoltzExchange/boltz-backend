@@ -7,7 +7,13 @@ use tracing::{debug, info, trace};
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
 pub struct CurrencyConfig {
     pub symbol: String,
+    pub chain: Option<crate::chain::Config>,
     pub cln: Option<crate::lightning::cln::Config>,
+}
+
+#[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
+pub struct LiquidConfig {
+    pub chain: crate::chain::LiquidConfig,
 }
 
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
@@ -47,6 +53,7 @@ pub struct GlobalConfig {
 
     pub postgres: crate::db::Config,
     pub currencies: Option<Vec<CurrencyConfig>>,
+    pub liquid: Option<LiquidConfig>,
     pub rsk: Option<crate::evm::Config>,
 
     pub notification: Option<crate::notifications::Config>,

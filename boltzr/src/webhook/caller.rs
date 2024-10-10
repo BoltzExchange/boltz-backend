@@ -72,7 +72,7 @@ impl Caller {
         web_hook_helper: Box<dyn WebHookHelper + Sync + Send>,
     ) -> Self {
         let max_retries = config.max_retries.unwrap_or(DEFAULT_MAX_RETRIES);
-        debug!("Max WebHook call retries {}", max_retries);
+        debug!("Max WebHook call retries: {}", max_retries);
 
         let timeout = config.request_timeout.unwrap_or(DEFAULT_REQUEST_TIMEOUT);
         trace!("WebHook call timeout: {}s", timeout);
@@ -310,18 +310,15 @@ impl Caller {
             return id;
         }
 
-        let hash = sha256::Hash::hash(id.as_bytes());
+        let hash: sha256::Hash = Hash::hash(id.as_bytes());
         hash.to_string()
     }
 }
 
 #[cfg(test)]
 mod caller_test {
-    use std::sync::{Arc, Mutex};
-    use std::time::Duration;
-
-    use crate::db::helpers::web_hook::QueryResponse;
     use crate::db::helpers::web_hook::WebHookHelper;
+    use crate::db::helpers::QueryResponse;
     use crate::db::models::{WebHook, WebHookState};
     use crate::webhook::caller::{Caller, Config, UrlError, MAX_URL_LENGTH};
     use crate::webhook::types::{WebHookCallData, WebHookCallParams, WebHookEvent};
@@ -331,6 +328,8 @@ mod caller_test {
     use axum::{Extension, Json, Router};
     use mockall::{mock, predicate};
     use serde_json::json;
+    use std::sync::{Arc, Mutex};
+    use std::time::Duration;
     use tokio_util::sync::CancellationToken;
 
     mock! {

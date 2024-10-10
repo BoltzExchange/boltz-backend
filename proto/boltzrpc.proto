@@ -219,6 +219,7 @@ message ListSwapsResponse {
 message RescanRequest {
   string symbol = 1;
   uint64 start_height = 2;
+  optional bool include_mempool = 3;
 }
 message RescanResponse {
   uint64 start_height = 1;

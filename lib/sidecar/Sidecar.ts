@@ -3,6 +3,7 @@ import { Status } from '@grpc/grpc-js/build/src/constants';
 import child_process from 'node:child_process';
 import path from 'path';
 import BaseClient from '../BaseClient';
+import type { BaseClientEvents } from '../BaseClient';
 import { ConfigType } from '../Config';
 import Logger from '../Logger';
 import { sleep } from '../PromiseUtils';
@@ -32,7 +33,15 @@ type SidecarConfig = {
   };
 };
 
-class Sidecar extends BaseClient {
+class Sidecar extends BaseClient<
+  BaseClientEvents & {
+    transactions: {
+      symbol: string;
+      confirmed: boolean;
+      transactions: Buffer[];
+    };
+  }
+> {
   public static readonly symbol = 'Boltz';
   public static readonly serviceName = 'sidecar';
 
@@ -369,6 +378,28 @@ class Sidecar extends BaseClient {
 
       await this.sendWebHook(id, status.status);
     });
+  };
+
+  public rescanMempool = async (symbols?: string[]) => {
+    const req = new sidecarrpc.ScanMempoolRequest();
+    if (symbols !== undefined) {
+      req.setSymbolsList(symbols);
+    }
+
+    const res = await this.unaryNodeCall<
+      sidecarrpc.ScanMempoolRequest,
+      sidecarrpc.ScanMempoolResponse.AsObject
+    >('scanMempool', req);
+
+    for (const [symbol, transactions] of res.transactionsMap) {
+      this.emit('transactions', {
+        symbol,
+        confirmed: false,
+        transactions: (transactions.rawList as string[]).map((tx) =>
+          Buffer.from(tx, 'base64'),
+        ),
+      });
+    }
   };
 
   private sendWebHook = async (swapId: string, status: SwapUpdateEvent) => {

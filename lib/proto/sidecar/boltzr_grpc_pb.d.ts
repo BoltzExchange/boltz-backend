@@ -18,6 +18,7 @@ interface IBoltzRService extends grpc.ServiceDefinition<grpc.UntypedServiceImple
     signEvmRefund: IBoltzRService_ISignEvmRefund;
     decodeInvoiceOrOffer: IBoltzRService_IDecodeInvoiceOrOffer;
     fetchInvoice: IBoltzRService_IFetchInvoice;
+    scanMempool: IBoltzRService_IScanMempool;
 }
 
 interface IBoltzRService_IGetInfo extends grpc.MethodDefinition<boltzr_pb.GetInfoRequest, boltzr_pb.GetInfoResponse> {
@@ -110,6 +111,15 @@ interface IBoltzRService_IFetchInvoice extends grpc.MethodDefinition<boltzr_pb.F
     responseSerialize: grpc.serialize<boltzr_pb.FetchInvoiceResponse>;
     responseDeserialize: grpc.deserialize<boltzr_pb.FetchInvoiceResponse>;
 }
+interface IBoltzRService_IScanMempool extends grpc.MethodDefinition<boltzr_pb.ScanMempoolRequest, boltzr_pb.ScanMempoolResponse> {
+    path: "/boltzr.BoltzR/ScanMempool";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<boltzr_pb.ScanMempoolRequest>;
+    requestDeserialize: grpc.deserialize<boltzr_pb.ScanMempoolRequest>;
+    responseSerialize: grpc.serialize<boltzr_pb.ScanMempoolResponse>;
+    responseDeserialize: grpc.deserialize<boltzr_pb.ScanMempoolResponse>;
+}
 
 export const BoltzRService: IBoltzRService;
 
@@ -124,6 +134,7 @@ export interface IBoltzRServer extends grpc.UntypedServiceImplementation {
     signEvmRefund: grpc.handleUnaryCall<boltzr_pb.SignEvmRefundRequest, boltzr_pb.SignEvmRefundResponse>;
     decodeInvoiceOrOffer: grpc.handleUnaryCall<boltzr_pb.DecodeInvoiceOrOfferRequest, boltzr_pb.DecodeInvoiceOrOfferResponse>;
     fetchInvoice: grpc.handleUnaryCall<boltzr_pb.FetchInvoiceRequest, boltzr_pb.FetchInvoiceResponse>;
+    scanMempool: grpc.handleUnaryCall<boltzr_pb.ScanMempoolRequest, boltzr_pb.ScanMempoolResponse>;
 }
 
 export interface IBoltzRClient {
@@ -156,6 +167,9 @@ export interface IBoltzRClient {
     fetchInvoice(request: boltzr_pb.FetchInvoiceRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.FetchInvoiceResponse) => void): grpc.ClientUnaryCall;
     fetchInvoice(request: boltzr_pb.FetchInvoiceRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.FetchInvoiceResponse) => void): grpc.ClientUnaryCall;
     fetchInvoice(request: boltzr_pb.FetchInvoiceRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.FetchInvoiceResponse) => void): grpc.ClientUnaryCall;
+    scanMempool(request: boltzr_pb.ScanMempoolRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.ScanMempoolResponse) => void): grpc.ClientUnaryCall;
+    scanMempool(request: boltzr_pb.ScanMempoolRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.ScanMempoolResponse) => void): grpc.ClientUnaryCall;
+    scanMempool(request: boltzr_pb.ScanMempoolRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.ScanMempoolResponse) => void): grpc.ClientUnaryCall;
 }
 
 export class BoltzRClient extends grpc.Client implements IBoltzRClient {
@@ -188,4 +202,7 @@ export class BoltzRClient extends grpc.Client implements IBoltzRClient {
     public fetchInvoice(request: boltzr_pb.FetchInvoiceRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.FetchInvoiceResponse) => void): grpc.ClientUnaryCall;
     public fetchInvoice(request: boltzr_pb.FetchInvoiceRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.FetchInvoiceResponse) => void): grpc.ClientUnaryCall;
     public fetchInvoice(request: boltzr_pb.FetchInvoiceRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.FetchInvoiceResponse) => void): grpc.ClientUnaryCall;
+    public scanMempool(request: boltzr_pb.ScanMempoolRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.ScanMempoolResponse) => void): grpc.ClientUnaryCall;
+    public scanMempool(request: boltzr_pb.ScanMempoolRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.ScanMempoolResponse) => void): grpc.ClientUnaryCall;
+    public scanMempool(request: boltzr_pb.ScanMempoolRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.ScanMempoolResponse) => void): grpc.ClientUnaryCall;
 }

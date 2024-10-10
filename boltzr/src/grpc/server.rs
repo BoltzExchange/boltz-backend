@@ -1,4 +1,3 @@
-use crate::currencies::Currencies;
 use crate::db::helpers::web_hook::WebHookHelper;
 use crate::evm::refund_signer::RefundSigner;
 use crate::grpc::service::boltzr::boltz_r_server::BoltzRServer;
@@ -6,6 +5,7 @@ use crate::grpc::service::BoltzService;
 use crate::grpc::status_fetcher::StatusFetcher;
 use crate::grpc::tls::load_certificates;
 use crate::notifications::NotificationClient;
+use crate::swap::manager::SwapManager;
 use crate::webhook::caller::Caller;
 use crate::ws::types::SwapStatus;
 use serde::{Deserialize, Serialize};
@@ -30,10 +30,10 @@ pub struct Config {
 }
 
 #[derive(Clone)]
-pub struct Server<W, N> {
+pub struct Server<M, W, N> {
     config: Config,
 
-    currencies: Currencies,
+    manager: Arc<M>,
 
     web_hook_helper: Box<W>,
     web_hook_caller: Caller,
@@ -47,16 +47,17 @@ pub struct Server<W, N> {
     cancellation_token: CancellationToken,
 }
 
-impl<W, N> Server<W, N>
+impl<M, W, N> Server<M, W, N>
 where
+    M: SwapManager + Send + Sync + Clone + 'static,
     W: WebHookHelper + Send + Sync + Clone + 'static,
-    N: NotificationClient + Send + Sync + 'static,
+    N: NotificationClient + Send + Sync + Clone + 'static,
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         cancellation_token: CancellationToken,
         config: Config,
-        currencies: Currencies,
+        manager: Arc<M>,
         swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
         web_hook_helper: Box<W>,
         web_hook_caller: Caller,
@@ -65,7 +66,7 @@ where
     ) -> Self {
         Server {
             config,
-            currencies,
+            manager,
             refund_signer,
             web_hook_helper,
             web_hook_caller,
@@ -91,7 +92,7 @@ where
             Arc::new(Default::default());
 
         let service = BoltzService::new(
-            self.currencies.clone(),
+            self.manager.clone(),
             self.status_fetcher.clone(),
             self.swap_status_update_tx.clone(),
             Arc::new(self.web_hook_helper.clone()),
@@ -143,16 +144,20 @@ where
 
 #[cfg(test)]
 mod server_test {
-    use crate::db::helpers::web_hook::QueryResponse;
+    use crate::chain::utils::Transaction;
+    use crate::currencies::Currency;
     use crate::db::helpers::web_hook::WebHookHelper;
+    use crate::db::helpers::QueryResponse;
     use crate::db::models::{WebHook, WebHookState};
     use crate::evm::refund_signer::RefundSigner;
     use crate::grpc::server::{Config, Server};
     use crate::grpc::service::boltzr::boltz_r_client::BoltzRClient;
     use crate::grpc::service::boltzr::GetInfoRequest;
+    use crate::swap::manager::SwapManager;
     use crate::webhook::caller;
     use crate::ws;
     use alloy::primitives::{Address, FixedBytes, Signature, U256};
+    use async_trait::async_trait;
     use mockall::{mock, predicate::*};
     use std::collections::HashMap;
     use std::error::Error;
@@ -183,7 +188,7 @@ mod server_test {
     mock! {
         RefundSigner {}
 
-        #[tonic::async_trait]
+        #[async_trait]
         impl RefundSigner for RefundSigner {
             async fn sign(
                 &self,
@@ -195,20 +200,37 @@ mod server_test {
         }
     }
 
+    mock! {
+        Manager {}
+
+        impl Clone for Manager {
+            fn clone(&self) -> Self;
+        }
+
+        #[async_trait]
+        impl SwapManager for Manager {
+            fn get_currency(&self, symbol: &str) -> Option<Currency>;
+            async fn scan_mempool(
+                &self,
+                symbols: Option<Vec<String>>,
+            ) -> anyhow::Result<HashMap<String, Vec<Transaction>>>;
+        }
+    }
+
     #[tokio::test]
     async fn test_connect() {
         let token = CancellationToken::new();
         let (status_tx, _) = tokio::sync::broadcast::channel::<Vec<ws::types::SwapStatus>>(1);
 
-        let server = Server::<_, crate::notifications::mattermost::Client>::new(
+        let server = Server::<_, _, crate::notifications::mattermost::Client>::new(
             token.clone(),
             Config {
                 host: "127.0.0.1".to_string(),
-                port: 9123,
+                port: 9124,
                 certificates: None,
                 disable_ssl: Some(true),
             },
-            HashMap::new(),
+            Arc::new(make_mock_manager()),
             status_tx,
             Box::new(make_mock_hook_helper()),
             caller::Caller::new(
@@ -247,7 +269,7 @@ mod server_test {
 
     #[tokio::test]
     async fn test_connect_tls() {
-        let (certs_dir, server, token, server_thread) = start_server_tls(9124).await;
+        let (certs_dir, server, token, server_thread) = start_server_tls(9125).await;
 
         let tls = ClientTlsConfig::new()
             .domain_name("sidecar")
@@ -283,7 +305,7 @@ mod server_test {
 
     #[tokio::test]
     async fn test_connect_tls_invalid_client_certificate() {
-        let (certs_dir, server, token, server_thread) = start_server_tls(9125).await;
+        let (certs_dir, server, token, server_thread) = start_server_tls(9126).await;
 
         let tls = ClientTlsConfig::new()
             .domain_name("sidecar")
@@ -317,7 +339,7 @@ mod server_test {
         port: u16,
     ) -> (
         PathBuf,
-        Server<MockWebHookHelper, crate::notifications::mattermost::Client>,
+        Server<MockManager, MockWebHookHelper, crate::notifications::mattermost::Client>,
         CancellationToken,
         JoinHandle<()>,
     ) {
@@ -334,7 +356,7 @@ mod server_test {
                 certificates: Some(certs_dir.clone().to_str().unwrap().to_string()),
                 disable_ssl: Some(false),
             },
-            HashMap::new(),
+            Arc::new(make_mock_manager()),
             status_tx,
             Box::new(make_mock_hook_helper()),
             caller::Caller::new(
@@ -358,6 +380,13 @@ mod server_test {
         tokio::time::sleep(Duration::from_millis(100)).await;
 
         (certs_dir, server, token, server_thread)
+    }
+
+    fn make_mock_manager() -> MockManager {
+        let mut manager = MockManager::new();
+        manager.expect_clone().returning(make_mock_manager);
+
+        manager
     }
 
     fn make_mock_hook_helper() -> MockWebHookHelper {

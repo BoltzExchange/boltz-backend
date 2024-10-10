@@ -736,6 +736,7 @@ describe('Service', () => {
   ]);
 
   const sidecar = {
+    rescanMempool: jest.fn(),
     createWebHook: jest.fn().mockImplementation(async () => {}),
     decodeInvoiceOrOffer: jest
       .fn()
@@ -1018,6 +1019,19 @@ describe('Service', () => {
       await expect(service.rescan('BTC', startHeight)).resolves.toEqual(123);
       expect(mockRescanChain).toHaveBeenCalledTimes(1);
       expect(mockRescanChain).toHaveBeenCalledWith(startHeight);
+    });
+
+    test('should rescan currencies with chain client including mempool', async () => {
+      const startHeight = 22;
+
+      await expect(service.rescan('BTC', startHeight, true)).resolves.toEqual(
+        123,
+      );
+
+      expect(mockRescanChain).toHaveBeenCalledTimes(1);
+      expect(mockRescanChain).toHaveBeenCalledWith(startHeight);
+      expect(sidecar.rescanMempool).toHaveBeenCalledTimes(1);
+      expect(sidecar.rescanMempool).toHaveBeenCalledWith(['BTC']);
     });
 
     test('should rescan currencies with provider', async () => {

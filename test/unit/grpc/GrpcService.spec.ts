@@ -512,26 +512,54 @@ describe('GrpcService', () => {
     });
   });
 
-  test('should rescan', async () => {
-    const symbol = 'BTC';
-    const startHeight = 420;
+  describe('rescan', () => {
+    test('should rescan', async () => {
+      const symbol = 'BTC';
+      const startHeight = 420;
 
-    await new Promise<void>((resolve) => {
-      grpcService.rescan(
-        createCall({ symbol, startHeight }),
-        createCallback((error, response: boltzrpc.RescanResponse) => {
-          expect(error).toEqual(null);
-          expect(response.toObject()).toEqual({
-            startHeight,
-            endHeight: 831106,
-          });
-          resolve();
-        }),
+      await new Promise<void>((resolve) => {
+        grpcService.rescan(
+          createCall({ symbol, startHeight }),
+          createCallback((error, response: boltzrpc.RescanResponse) => {
+            expect(error).toEqual(null);
+            expect(response.toObject()).toEqual({
+              startHeight,
+              endHeight: 831106,
+            });
+            resolve();
+          }),
+        );
+      });
+
+      expect(service.rescan).toHaveBeenCalledTimes(1);
+      expect(service.rescan).toHaveBeenCalledWith(
+        symbol,
+        startHeight,
+        undefined,
       );
     });
 
-    expect(service.rescan).toHaveBeenCalledTimes(1);
-    expect(service.rescan).toHaveBeenCalledWith(symbol, startHeight);
+    test('should rescan including mempool', async () => {
+      const symbol = 'BTC';
+      const startHeight = 421;
+
+      await new Promise<void>((resolve) => {
+        grpcService.rescan(
+          createCall({ symbol, startHeight, includeMempool: true }),
+          createCallback((error, response: boltzrpc.RescanResponse) => {
+            expect(error).toEqual(null);
+            expect(response.toObject()).toEqual({
+              startHeight,
+              endHeight: 831106,
+            });
+            resolve();
+          }),
+        );
+      });
+
+      expect(service.rescan).toHaveBeenCalledTimes(2);
+      expect(service.rescan).toHaveBeenCalledWith(symbol, startHeight, true);
+    });
   });
 
   describe('getLabel', () => {

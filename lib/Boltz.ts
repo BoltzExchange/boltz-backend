@@ -118,6 +118,7 @@ class Boltz {
     });
 
     process.on('exit', (code) => {
+      Sidecar.stop().then();
       (code === 0 ? this.logger.debug : this.logger.error)(
         `Application shutting down with code: ${code}`,
       );
@@ -333,7 +334,8 @@ class Boltz {
       }
 
       await Promise.all(rescanPromises);
-      this.logger.verbose('Finished rescanning');
+      await this.sidecar.rescanMempool();
+      this.logger.info('Finished rescanning');
     } catch (error) {
       this.logger.error(`Could not initialize Boltz: ${formatError(error)}`);
       console.log(error);

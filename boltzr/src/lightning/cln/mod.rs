@@ -6,7 +6,7 @@ use alloy::hex;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use tonic::transport::{Certificate, Channel, ClientTlsConfig, Identity};
-use tracing::info;
+use tracing::{info, instrument};
 
 #[allow(clippy::enum_variant_names)]
 mod cln_rpc {
@@ -33,6 +33,7 @@ pub struct Cln {
 }
 
 impl Cln {
+    #[instrument(name = "Cln::new", skip(config))]
     pub async fn new(symbol: &str, config: Config) -> anyhow::Result<Self> {
         let tls = ClientTlsConfig::new()
             .domain_name("cln")

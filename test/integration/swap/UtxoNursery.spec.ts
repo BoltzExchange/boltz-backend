@@ -101,6 +101,7 @@ describe('UtxoNursery', () => {
   );
   const nursery = new UtxoNursery(
     Logger.disabledLogger,
+    { on: jest.fn() } as any,
     walletManager,
     blocks,
     lockupTracker,

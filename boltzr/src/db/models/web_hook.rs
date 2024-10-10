@@ -1,4 +1,4 @@
-use diesel::*;
+use diesel::{AsChangeset, Insertable, Queryable, Selectable};
 use strum_macros::{AsRefStr, EnumString};
 
 #[derive(EnumString, AsRefStr, Debug, PartialEq, Clone, Copy)]
@@ -31,7 +31,7 @@ pub struct WebHook {
 
 #[cfg(test)]
 mod test {
-    use crate::db::models::WebHookState;
+    use crate::db::models::web_hook::WebHookState;
 
     #[test]
     fn test_web_hook_state_serialize() {

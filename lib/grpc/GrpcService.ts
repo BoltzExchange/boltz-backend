@@ -316,9 +316,13 @@ class GrpcService {
     boltzrpc.RescanResponse
   > = async (call, callback) => {
     await this.handleCallback(call, callback, async () => {
-      const { symbol, startHeight } = call.request.toObject();
+      const { symbol, startHeight, includeMempool } = call.request.toObject();
 
-      const endHeight = await this.service.rescan(symbol, startHeight);
+      const endHeight = await this.service.rescan(
+        symbol,
+        startHeight,
+        includeMempool,
+      );
 
       const response = new boltzrpc.RescanResponse();
       response.setStartHeight(startHeight);

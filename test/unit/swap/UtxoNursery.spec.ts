@@ -186,6 +186,7 @@ describe('UtxoNursery', () => {
 
   const nursery = new UtxoNursery(
     Logger.disabledLogger,
+    { on: jest.fn() } as any,
     {
       wallets: new Map<string, any>([['BTC', btcWallet]]),
     } as any,

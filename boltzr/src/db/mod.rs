@@ -7,7 +7,7 @@ use tracing::{debug, debug_span, info, instrument, trace};
 
 pub mod helpers;
 pub mod models;
-mod schema;
+pub mod schema;
 
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("./migrations");
 

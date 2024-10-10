@@ -416,6 +416,7 @@ class Service {
   public rescan = async (
     symbol: string,
     startHeight: number,
+    includeMempool?: boolean,
   ): Promise<number> => {
     this.logger.info(
       `Rescanning ${symbol} starting from height ${startHeight}`,
@@ -427,6 +428,10 @@ class Service {
     if (currency.chainClient) {
       endHeight = (await currency.chainClient.getBlockchainInfo()).blocks;
       await currency.chainClient.rescanChain(startHeight);
+
+      if (includeMempool) {
+        await this.sidecar.rescanMempool([symbol]);
+      }
     } else if (currency.provider) {
       const manager = this.walletManager.ethereumManagers.find((manager) =>
         manager.hasSymbol(symbol),
@@ -442,7 +447,7 @@ class Service {
     }
 
     this.logger.info(
-      `Finished rescanning ${symbol} from height ${startHeight} to ${endHeight}`,
+      `Finished rescanning ${symbol} from height ${startHeight} to ${endHeight}${includeMempool ? ' including mempool' : ''}`,
     );
 
     return endHeight;

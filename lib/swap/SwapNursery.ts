@@ -146,6 +146,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     );
     this.utxoNursery = new UtxoNursery(
       this.logger,
+      this.sidecar,
       this.walletManager,
       blocks,
       lockupTransactionTracker,
